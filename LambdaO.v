@@ -123,16 +123,42 @@ Section LambdaO.
   Coercion VBound : nat >-> var.
   Coercion VFree : string >-> var.
 
+  Inductive metric :=
+  | Mvar (x : var) (field : nat)
+  | M0 
+  | M1
+  | Mplus (n1 n2 : metric)
+  | Mminus (n1 n2 : metric)
+  | Mmult (n1 n2 : metric)
+  | Mdiv (n1 n2 : metric)
+  | Mlog (n : metric)
+  | Mexp (n : metric)
+  .
+
+  Infix "+" := Mplus : metric_scope.
+  Delimit Scope metric_scope with M.
+  Infix "-" := Mminus : M.
+  Infix "*" := Mmult : M.
+  Infix "/" := Mdiv : M.
+  Open Scope M.
+
+  Inductive type :=
+  | Tunit
+  | Tprod (t1 t2 : type)
+  | Tsum (t1 t2 : type)
+  | Tlist (elm : type)
+  | Tarrow (t1 t2 : type) (cost result_size : metric).
+
   Inductive expr :=
     | Evar (x : var)
     | Econstr (c : constr)
     | Eapp (f : expr) (arg : expr)
-    | Eabs (body : expr)
-    | Elet (def : expr) (main : expr)
-    | Eletrec (defs : list expr) (main : expr)
+    | Eabs (t : type) (body : expr)
+    | Elet (t : type) (def : expr) (main : expr)
+    | Eletrec (defs : list (type * expr)) (main : expr)
     | Ematch (target : expr) (branches : list (constr * expr))
-    (* | Etapp (e : expr) (t : type) *)
-    (* | Etabs (body : expr) *)
+    | Etapp (e : expr) (t : type)
+    | Etabs (body : expr)
   .
 
   Coercion Evar : var >-> expr.
@@ -146,7 +172,7 @@ Section LambdaO.
   Definition apply_many f args := fold_left Eapp args f.
 
   Inductive IsValue : expr -> Prop :=
-  | Vabs e : IsValue (Eabs e)
+  | Vabs t e : IsValue (Eabs t e)
   | Vapp f args : 
       IsOpaque f ->
       (forall a, In a args -> IsValue a) ->
@@ -157,8 +183,8 @@ Section LambdaO.
     | CTempty
     | CTapp1 (f : context) (arg : expr)
     | CTapp2 (f : expr) (arg : context) : IsValue f -> context
-    | CTlet (def : context) (main : expr)
-    | CTletrec (defs : list expr) (main : context)
+    | CTlet (t : type) (def : context) (main : expr)
+    | CTletrec (defs : list (type * expr)) (main : context)
     | CTmatch (target : context) (branches : list (constr * expr))
   .
 
@@ -167,7 +193,7 @@ Section LambdaO.
       | CTempty => e
       | CTapp1 f arg => Eapp (plug f e) arg
       | CTapp2 f arg _ => Eapp f (plug arg e)
-      | CTlet def main => Elet (plug def e) main
+      | CTlet t def main => Elet t (plug def e) main
       | CTletrec defs main => Eletrec defs (plug main e)
       | CTmatch target branches => Ematch (plug target e) branches
     end.
@@ -201,62 +227,30 @@ Section LambdaO.
       
   Definition Pair e1 e2 := Eapp (Eapp Cpair e1) e2.
 
-  Fixpoint many_times A (f : A -> A) n init :=
-    match n with
-      | 0 => init
-      | S n => many_times f n (f init)
-    end.
-
-  Definition abs_many := many_times Eabs.
-
   Definition subst_many e values := fold_left subst values e.
 
   Inductive step : expr -> expr -> Prop :=
     | STcontext c e1 e2 : step e1 e2 -> step (plug c e1) (plug c e2)
-    | STbeta body arg : IsValue arg -> step (Eapp (Eabs body) arg) (subst body arg)
-    | STlet v main : IsValue v -> step (Elet v main) (subst main v)
-    | STletrec_instantiate defs c (n : nat) e : 
-        find n defs = Some e -> 
+    | STbeta t body arg : IsValue arg -> step (Eapp (Eabs t body) arg) (subst body arg)
+    | STlet t v main : IsValue v -> step (Elet t v main) (subst main v)
+    | STletrec_instantiate defs c (n : nat) t e : 
+        find n defs = Some (t, e) -> 
         step (Eletrec defs (plug c (Evar n))) (Eletrec defs (plug c e)) 
     | STletrec_finish defs v : IsValue v -> step (Eletrec defs v) v
     | STmatch_pair (c : constr) values branches e : 
         let n := arity c in
-        find c branches = Some (abs_many n e) -> 
+        find c branches = Some e -> 
         length values = n ->
         Forall IsValue values ->
         step (Ematch (apply_many c values) branches) (subst_many e values)
   .
 
-  Inductive metric :=
-  | Mvar (x : var)
-  | M0 
-  | M1
-  | Mplus (n1 n2 : metric)
-  | Mminus (n1 n2 : metric)
-  | Mmult (n1 n2 : metric)
-  | Mdiv (n1 n2 : metric)
-  | Mlog (n : metric)
-  | Mexp (n : metric)
-  .
-
-  Coercion Mvar : var >-> metric.
-
-  Infix "+" := Mplus : metric_scope.
-  Delimit Scope metric_scope with M.
-  Infix "-" := Mminus : M.
-  Infix "*" := Mmult : M.
-  Infix "/" := Mdiv : M.
-  Open Scope M.
-
-  Inductive type :=
-  | Tunit
-  | Tprod (t1 t2 : type)
-  | Tsum (t1 t2 : type)
-  | Tlist (elm : type)
-  | Tarrow (t1 t2 : type) (cost result_size : metric).
-
   (* typing context *)
-  Definition tcontext := StringMap.t type.
+  Inductive tc_entry := 
+    | TEtype (t : type)
+    | TEtype_var.
+
+  Definition tcontext := StringMap.t tc_entry.
 
   Instance Find_StringMap A : Find string A (StringMap.t A) :=
     {
