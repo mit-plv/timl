@@ -123,6 +123,19 @@ Section LambdaO.
   Coercion Vbound : nat >-> var.
   Coercion Vfree : string >-> var.
 
+  (* conventional System F types, which will only be part of a type *)
+  Inductive typesig :=
+  | Tunit
+  | Tprod (t1 t2 : typesig)
+  | Tsum (t1 t2 : typesig)
+  | Tlist (elm : typesig)
+  | Tarrow (t1 t2 : typesig)
+  | Tvar (x : var)
+  | Tabs (t : typesig)
+  .
+
+  Coercion Tvar : var >-> typesig.
+
   Inductive formula :=
   | Fvar (x : var) (field : nat)
   | F0 
@@ -144,17 +157,8 @@ Section LambdaO.
   Infix "/" := Fdiv : F.
   Open Scope F.
 
-  Inductive type :=
-  | Tunit
-  | Tprod (t1 t2 : type)
-  | Tsum (t1 t2 : type)
-  | Tlist (elm : type)
-  | Tarrow (t1 : type) (cost : formula) (result_size : list formula) (t2 : type)
-  | Tvar (x : var)
-  | Tabs (t : type)
-  .
-
-  Coercion Tvar : var >-> type.
+  (* the second part is the information of time-cost and result-size on each 'arrow' in the type signature *)
+  Definition type := (typesig * list (formula * formula))%type.
 
   Inductive expr :=
     | Evar (x : var)
@@ -301,24 +305,11 @@ Section LambdaO.
       find k c := StringMap.find k c
     }.
 
-  Fixpoint dim (t : type) : nat :=
-    match t with
-      | Tunit => 0
-      | Tprod t1 t2 => dim t1 + dim t2
-      | Tsum t1 t2 => dim t1 + dim t2
-      | Tlist t => 1 + dim t
-      | Tarrow _ _ _ _ => 0
-      | Tvar _ => 1
-      | Tabs _ => 0
-    end.
-
   Fixpoint range begin len :=
     match len with
       | 0 => nil
       | S n => begin :: range (S begin) n
     end.
-
-  Definition size_vars (x : string) (t : type) := map (Fvar x) (range 0 (dim t)).
 
   Definition subst_f (s : list formula) (f : formula) : formula.
     admit.
@@ -358,6 +349,10 @@ Section LambdaO.
   Definition add_many A ls m := fold_left (fun m p => @StringMap.add A (fst p) (snd p) m) ls m.
 
   Arguments fst {A B} _.
+
+  Inductive size :=
+  | Size (s1 s2 s3 s4 : formula) (children : list size)
+  .
 
   Inductive typing : tcontext -> expr -> type -> formula -> list formula -> Prop :=
   | TPvar T (x : string) t : find x T = Some (TEtyping t) -> typing T x t F1 (size_vars x t)
