@@ -91,6 +91,12 @@ Instance Functor_assoc_list A : Functor (assoc_list A) :=
 
 Section LambdaO.
 
+  Infix "<<" := compose (at level 40) : prog_scope.
+  Infix ">>" := (flip compose) (at level 40) : prog_scope.
+  Definition apply {A B} (f : A -> B) x := f x.
+  Infix "$" := apply (at level 85, right associativity) : prog_scope.
+  Open Scope prog_scope.
+  
   Inductive var :=
     | Vbound : nat -> var
     | Vfree : string -> var
@@ -102,53 +108,49 @@ Section LambdaO.
   (* kinds are restricted to the form (* => * => ... => *). 0 means * *)
   Definition kind := nat.
 
-  (* conventional System F types, which will only be part of a type *)
-  Inductive typesig :=
-  | Tarrow (t1 t2 : typesig)
-  (* basic types *)
-  | Tunit
-  | Tprod (t1 t2 : typesig)
-  | Tsum (t1 t2 : typesig)
-  (* polymorphism *)           
-  | Tvar (x : var)
-  | Tuniversal (t : typesig)
-  (* higher-order operators *)
-  | Tabs (t : typesig)
-  | Tapp (a b : typesig)
-  (* recursive types *)         
-  | Trecur (t : typesig)
-  .
-
-  Coercion Tvar : var >-> typesig.
-
   (* 
-    There are four statistics (or 'sizes') for each value and its children:
-    s1 : number of constructor invocations to construct this value (only this type's constructors)
-    s2 : depth of constructor invocations to construct this value (only this type's constructors)
-    s3 : number of constructor invocations to construct this value (all types' constructors)
-    s4 : depth of constructor invocations to construct this value (all types' constructors)
-    For example,
-      for lists, s1 correspond to its length; s2 is the same as s1;
+    There are four statistics (or 'sizes') for each value :
+    s1 : number of invocations of 'fold' 
+         (for parametric algebraic data types, this correspond to the number of constructor invocations to construct this value, not counting those from the parameter types);
+    s2 : parallel version of s1, where the fields of a pair are max'ed instead of sum'ed;
+    s3 : number of invocations of basic constrctors (tt, pair, inl, inr, lambda)
+         (for parametric algebraic data types, this correspond to the number of constructor invocations to construct this value, counting those from the parameter types);
+    s4 : parallel version of s3.
+
+    For example, for lists, s1 correspond to its length; s2 is the same as s1;
       for trees, s1 corresponds to its number of nodes; s2 corresponds to its depth.
-    s3 corresponds to the amount of memory a value needs.
+    s3 corresponds to the amount of memory a value occupies, and the cost of a computation that needs to, for example, look into each element of a list.
   *)
 
   Definition stat_idx := nat. (* An index indication the statistics you want. Should be 'I_4 *)
-  Definition path := list nat. (* The query path into a descendent *)
+  Inductive path_command :=
+  | Pfst
+  | Psnd
+  | Pinl
+  | Pinr
+  | Punfold
+  .
+  Definition path := list path_command. (* The query path into a inner-component *)
   Definition var_path := (var * path)%type.
 
-  Inductive formula :=
-  | Fvar (x : var_path) (stat : stat_idx)
-  | F0 
-  | F1
-  | Fplus (n1 n2 : formula)
-  | Fminus (n1 n2 : formula)
-  | Fmult (n1 n2 : formula)
-  | Fdiv (n1 n2 : formula)
-  | Flog (n : formula)
-  | Fexp (n : formula)
-  .
+  Variable formula : Type.
+  Variable F0 F1 : formula.
+  Variable Fvar : var_path -> stat_idx -> formula.
+  Variable Fplus Fmax : formula -> formula -> formula.
+  Infix "+" := Fplus : formula_scope.
+  Delimit Scope formula_scope with F.
+  Open Scope F.
 
+  Class Max t := 
+    {
+      max : t -> t -> t
+    }.
+
+  Instance Max_formula : Max formula :=
+    {
+      max := Fmax
+    }.
+(*
   Definition tuple4 A := (A * A * A * A)%type.
 
   Definition map_tuple4 A B (f : A -> B) (x : tuple4 A) := 
@@ -160,62 +162,82 @@ Section LambdaO.
     }.
 
   Definition stats := tuple4 formula.
-
+*)
   Inductive size :=
   | Svar (x : var_path)
-  | Sconst (_ : stats)
-  | Sinl (_ : stats) (_ : size)
-  | Sinr (_ : stats) (_ : size)
-  | Sinlinr (_ : stats) (a b: size)
-  | Spair (_ : stats) (a b: size)
+  | Stt
+  | Sinl (_ : size)
+  | Sinr (_ : size)
+  | Sinlinr (a b: size)
+  | Spair (a b: size)
+  | Sfold (_ : size)
   .
 
-  Fixpoint map_size (f : var -> var) (g : formula -> formula) (s : size) {struct s} : size :=
+  Inductive type :=
+  | Tarrow (t1 : type) (time_cost : formula) (result_size : size) (t2 : type)
+  (* basic types *)
+  | Tunit
+  | Tprod (t1 t2 : type)
+  | Tsum (t1 t2 : type)
+  (* polymorphism *)           
+  | Tvar (x : var)
+  | Tuniversal (t : type)
+  (* higher-order operators *)
+  | Tabs (t : type)
+  | Tapp (a b : type)
+  (* recursive types *)         
+  | Trecur (t : type)
+  .
+
+  Coercion Tvar : var >-> type.
+(*
+  Fixpoint map_size (f : var_path -> size) (g : formula -> formula) (s : size) {struct s} : size :=
     match s with
-      | Svar (x, path) => Svar ((f x), path)
-      | Sconst stats => Sconst (map g stats)
-      | Sinl stats s => Sinl (map g stats) (map_size f g s)
-      | Sinr stats s => Sinr (map g stats) (map_size f g s)
-      | Sinlinr stats a b => Sinlinr (map g stats) (map_size f g a) (map_size f g b)
-      | Spair stats a b => Sinlinr (map g stats) (map_size f g a) (map_size f g b)
-    end.
-
-  (* the second part is the information of time-cost and result-size on each 'arrow' in the type signature, which we call 'profile' *)
-  Inductive profile :=
-  | Parrow (a : profile) (time_cost : formula) (result_size : size) (b : profile)
-  | Pleaf.
-
-  Definition type := (typesig * profile)%type.
-
+      | Svar x => f x
+      | Sstruct stats sub => Sstruct (map g stats) (map_sub_sizes f g sub)
+    end
+  with map_sub_sizes f g sub :=
+         match sub with
+           | Stt => Stt
+           | Sinl s => Sinl (map_size f g s)
+           | Sinr s => Sinr (map_size f g s)
+           | Sinlinr a b => Sinlinr (map_size f g a) (map_size f g b)
+           | Spair a b => Sinlinr (map_size f g a) (map_size f g b)
+         end.
+*)
   Definition append_path (x : var_path) p : var_path := (fst x, snd x ++ [p]).
 
-  Definition tuple4indices : tuple4 nat := (0, 1, 2, 3).
+(*
+  Definition tuple4indices : tuple4 nat := (0, 1, 2, 3). 
 
-  (* derive a size structure from a variable (with path) x *)
-  Definition destruct_var (x : var_path) (t : typesig) :=
-    let stats := map (Fvar x) tuple4indices in
-    match t with
-      | Tprod _ _ =>
-        Spair stats (Svar (append_path x 0)) (Svar (append_path x 0))
-      | Tsum _ _ =>
-        Sinlinr stats (Svar (append_path x 0)) (Svar (append_path x 0))
-      | _ => 
-        (* all the other types (Tarrow, Tvar, Tuniversal) don't have interesting size information *)
-        Sconst stats
-    end.
-
-  Definition destruct_size s t := 
+  Definition get_stats (s : size) :=
     match s with
-      | Svar x => destruct_var x t
-      | _ => s
+      | Svar x => map (Fvar x) tuple4indices
+      | Sstruct stats _ => stats
     end.
- 
-  Infix "+" := Fplus : formula_scope.
-  Delimit Scope formula_scope with F.
-  Infix "-" := Fminus : F.
-  Infix "*" := Fmult : F.
-  Infix "/" := Fdiv : F.
-  Open Scope F.
+*)
+  (* derive a size structure from a variable (with path) x *)
+
+  Definition is_pair (s : size) :=
+    match s with
+      | Svar x => Some (Svar (append_path x Pfst), Svar (append_path x Psnd))
+      | Spair a b => Some (a, b)
+      | _ => None
+    end.
+
+  Definition is_inlinr (s : size) :=
+    match s with
+      | Svar x => Some (Svar (append_path x Pinl), Svar (append_path x Pinr))
+      | Sinlinr a b => Some (a, b)
+      | _ => None
+    end.
+
+  Definition is_fold (s : size) :=
+    match s with
+      | Svar x => Some (Svar (append_path x Punfold))
+      | Sfold t => Some t
+      | _ => None
+    end.
 
   Inductive constr :=
   | Ctt
@@ -264,7 +286,6 @@ Section LambdaO.
     | Aapp (_ : expr)
     | Atapp (_ : type)
     | Afold (_ : type)
-    | Aunfold (_ : type)
   .
 
   Definition general_apply (f : expr) (a : general_arg) :=
@@ -272,7 +293,6 @@ Section LambdaO.
       | Aapp e => Eapp f e
       | Atapp t => Etapp f t
       | Afold t => Efold f t
-      | Aunfold t => Eunfold f t
     end.
 
   Definition general_apply_many f args := fold_left general_apply args f.
@@ -286,12 +306,6 @@ Section LambdaO.
       (forall a, In (Aapp a) args -> IsValue a) ->
       IsValue (general_apply_many f args)
   .
-  
-  Infix "<<" := compose (at level 40) : prog_scope.
-  Infix ">>" := (flip compose) (at level 40) : prog_scope.
-  Definition apply {A B} (f : A -> B) x := f x.
-  Infix "$" := apply (at level 85, right associativity) : prog_scope.
-  Open Scope prog_scope.
   
   Arguments snd {A B} _.
 
@@ -322,6 +336,7 @@ Section LambdaO.
       | CTunfold f t => Eunfold (plug f e) t
     end.
 
+  (* substitute the outer-most bound variable *)
   Class Subst value body :=
     {
       subst : value -> body -> body
@@ -364,7 +379,12 @@ Section LambdaO.
       find k c := @nth_error A c k
     }.
       
-  Definition subst_many `{Subst V B} values e := fold_left (flip subst) values e.
+  Definition subst_list `{Subst V B} values e := fold_left (flip subst) values e.
+
+  Instance Subst_list `{Subst V B} : Subst (list V) B := 
+    {
+      subst := subst_list
+    }.
 
   Definition e_pair (a b : expr) := Eapp (Eapp (Econstr Cpair) a) b.
   Definition e_inl (a : expr) := Eapp (Econstr Cinl) a.
@@ -381,7 +401,7 @@ Section LambdaO.
     | STmatch_pair a b k : 
         IsValue a ->
         IsValue b ->
-        step (Ematch_pair (e_pair a b) k) (subst_many [a; b] k)
+        step (Ematch_pair (e_pair a b) k) (subst [a; b] k)
     | STmatch_inl v k1 k2 : 
         IsValue v ->
         step (Ematch_sum (e_inl v) k1 k2) (subst v k1)
@@ -396,7 +416,7 @@ Section LambdaO.
 
   (* typing context *)
   Inductive tc_entry := 
-    | TEtyping (t : type)
+    | TEbinding (t : type)
     | TEtypevar.
 
   Definition tcontext := StringMap.t tc_entry.
@@ -419,13 +439,13 @@ Section LambdaO.
       subst := subst_size_formula
     }.
 
-  Definition subst_size_profile (s : size) (p : profile) : profile.
+  Definition subst_size_type (s : size) (_ : type) : type.
     admit.
   Defined.
 
-  Instance Subst_size_profile : Subst size profile :=
+  Instance Subst_size_type : Subst size type :=
     {
-      subst := subst_size_profile
+      subst := subst_size_type
     }.
 
   Definition subst_size_size (v b : size) : size.
@@ -437,21 +457,97 @@ Section LambdaO.
       subst := subst_size_size
     }.
 
-  Definition substx_f (x : string) (s : list formula) (f : formula) : formula.
+  Definition subst_type_type (v b : type) : type.
     admit.
   Defined.
 
-  Definition abs (x : string) (e : expr) : expr.
+  Instance Subst_type_type : Subst type type :=
+    {
+      subst := subst_type_type
+    }.
+
+  (* substitute a free variable *)
+  Class Substx value body :=
+    {
+      substx : string -> value -> body -> body
+    }.
+
+  Definition substx_size_formula (x : string) (v : size) (b : formula) : formula.
     admit.
   Defined.
+
+  Instance Substx_size_formula : Substx size formula :=
+    {
+      substx := substx_size_formula
+    }.
+
+  Definition substx_size_size (x : string) (v : size) (b : size) : size.
+    admit.
+  Defined.
+
+  Instance Substx_size_size : Substx size size :=
+    {
+      substx := substx_size_size
+    }.
+
+  Definition substx_size_type (x : string) (v : size) (b : type) : type.
+    admit.
+  Defined.
+
+  Instance Substx_size_type : Substx size type :=
+    {
+      substx := substx_size_type
+    }.
+
+  Class Abs t := 
+    {
+      abs : string -> t -> t
+    }.
+
+  Definition abs_e (x : string) (e : expr) : expr.
+    admit.
+  Defined.
+
+  Instance Abs_expr : Abs expr :=
+    {
+      abs := abs_e
+    }.
+
+  Definition subst_list_substx `{Substx V B} pairs body := fold_left (fun b p => substx (fst p) (snd p) b) pairs body.
+
+  Instance Subst_list_substx `{Substx V B} : Subst (list (string * V)) B := 
+    {
+      subst := subst_list_substx
+    }.
 
   Definition abs_f (x : string) (f : formula) : formula.
     admit.
   Defined.
 
-  Definition abs_t (x : string) (t : type) : type.
+  Instance Abs_formula : Abs formula :=
+    {
+      abs := abs_f
+    }.
+
+  Definition abs_p (x : string) (_ : type) : type.
     admit.
   Defined.
+
+  Instance Abs_type : Abs type :=
+    {
+      abs := abs_p
+    }.
+
+  Definition abs_s (x : string) (s : size) : size.
+    admit.
+  Defined.
+
+  Instance Abs_size : Abs size :=
+    {
+      abs := abs_s
+    }.
+
+  Definition abs_many `{Abs t} xs t := fold_left (flip abs) (rev xs) t.
 
   Fixpoint repeat A (a : A) n :=
     match n with
@@ -465,38 +561,139 @@ Section LambdaO.
 
   Arguments fst {A B} _.
 
+  Definition size1 := Stt.
+
+  Inductive typesig :=
+  | TSarrow (t1 t2 : typesig)
+  | TSunit
+  | TSprod (t1 t2 : typesig)
+  | TSsum (t1 t2 : typesig)
+  | TSvar (x : var)
+  | TSuniversal (t : typesig)
+  | TSabs (t : typesig)
+  | TSapp (a b : typesig)
+  | TSrecur (t : typesig)
+  .
+
+  Fixpoint sig (t : type) : typesig :=
+    match t with
+      | Tarrow a _ _ b => TSarrow (sig a ) (sig b)
+      | Tunit => TSunit
+      | Tprod a b => TSprod (sig a) (sig b)
+      | Tsum a b => TSsum (sig a) (sig b)
+      | Tvar x => TSvar x
+      | Tuniversal t => TSuniversal (sig t)
+      | Tabs t => TSabs (sig t)
+      | Tapp a b => TSapp (sig a) (sig b)
+      | Trecur t => TSrecur (sig t)
+    end.
+
+  Definition AllNotIn elt xs T := forall x, In x xs -> ~ @StringMap.In elt x T.
+
+  Definition add_binding x t T := StringMap.add x (TEbinding t) T.
+
+  Definition add_bindings (ls : list (string * type)) T := add_many (map (map_snd TEbinding) ls) T.
+
+  Definition max_type (a b : type) : type.
+    admit.
+  Defined.
+
+  Instance Max_type : Max type :=
+    {
+      max := max_type
+    }.
+
+  Definition max_size (a b : size) : size.
+    admit.
+  Defined.
+
+  Instance Max_size : Max size :=
+    {
+      max := max_size
+    }.
+
+  Notation "# n" := (Vbound n) (at level 0).
+  Coercion var_to_size (x : var) : size := Svar (x, []).
+
   Inductive typing : tcontext -> expr -> type -> formula -> size -> Prop :=
-  | TPvar T (x : string) t : find x T = Some (TEtyping t) -> typing T x t F1 (Svar (x : var, []))
-  | TPapp T e1 e2 ta tb pa f g pb n1 n2 s1 s2 : 
-      typing T e1 (Tarrow ta tb, Parrow pa f g pb) n1 s1 ->
-      typing T e2 (ta, pa) n2 s2 ->
-      typing T (Eapp e1 e2) (tb, subst s2 pb) (n1 + n2 + subst s2 f)%F (subst s2 g).
-(*here*)
-  | TPabs T x t1 e t2 n s:
+  | TPvar T (x : string) t : find x T = Some (TEbinding t) -> typing T x t F1 (Svar (x : var, []))
+  | TPapp T e1 e2 ta tb f g n1 n2 s1 s2 : 
+      typing T e1 (Tarrow ta f g tb) n1 s1 ->
+      typing T e2 ta n2 s2 ->
+      typing T (Eapp e1 e2) (subst s2 tb) (n1 + n2 + subst s2 f)%F (subst s2 g)
+  | TPabs T x e t1 t2 n s:
       ~ StringMap.In x T -> 
-      typing (StringMap.add x (TEtyping t1) T) e t2 n s ->
-      typing T (Eabs t1 (abs x e)) (Tarrow t1 (abs_f x n) (map (abs_f x) s) (abs_t x t2)) F1 []
-  | TPtapp T e t2 t n:
-      typing T e (Tuniversal t) n [] ->
-      let t' := subst_t_t t2 t in
-      typing T (Etapp e t2) t' n (ones $ dim t')
+      typing (add_binding x t1 T) e t2 n s ->
+      typing T (Eabs t1 (abs x e)) (Tarrow t1 (abs x n) (abs x s) (abs x t2)) F1 size1
+  | TPtapp T e t2 t n s:
+      typing T e (Tuniversal t) n s ->
+      let t' := subst t2 t in
+      typing T (Etapp e t2) t' n s
   | TPtabs T X e t s:
       ~ StringMap.In X T ->
       typing (StringMap.add X TEtypevar T) e t F1 s ->
-      typing T (Etabs (abs X e)) (Tuniversal (abs_t X t)) F1 []
+      typing T (Etabs (abs X e)) (Tuniversal (abs X t)) F1 s
   | TPlet T t1 e1 e2 t2 n1 n2 s1 s2 x:
       typing T e1 t1 n1 s1 ->
       ~ StringMap.In x T ->
-      typing (StringMap.add x (TEtyping t1) T) e2 t2 n2 s2 ->
-      typing T (Elet t1 e1 (abs x e2)) t2 (n1 + substx_f x s1 n2)%F (map (substx_f x s1) s2)
+      typing (add_binding x t1 T) e2 t2 n2 s2 ->
+      typing T (Elet t1 e1 (abs x e2)) t2 (n1 + substx x s1 n2)%F (substx x s1 s2)
   | TPletrec T (defs : list letrec_entry) main t n s xs :
       length xs = length defs ->
       NoDup xs ->
-      (forall x, In x xs -> ~ StringMap.In x T) ->
-      let T' := add_many (combine xs $ map (fst >> fst >> TEtyping) defs) T in
-      (forall lhs_ti rhs_ti ei, In (lhs_ti, rhs_ti, ei) defs -> typing T' (Eabs rhs_ti ei) lhs_ti F1 []) ->
+      AllNotIn xs T ->
+      let T' := add_bindings (combine xs $ map (fst >> fst) defs) T in
+      (forall lhs_ti rhs_ti ei, In (lhs_ti, rhs_ti, ei) defs -> typing T' (Eabs rhs_ti ei) lhs_ti F1 size1) ->
       typing T' main t n s ->
-      typing T (Eletrec defs main) t n s.
+      typing T (Eletrec defs main) t n s
+  | TPmatch_pair T e x1 x2 e' t t1 t2 n s n' s' s1 s2 :
+      typing T e (Tprod t1 t2) n s ->
+      is_pair s = Some (s1, s2) ->
+      let x12 := [x1; x2] in
+      AllNotIn x12 T ->
+      let t12 := [t1; t2] in
+      let T' := add_bindings (combine x12 t12) T in
+      typing T' e' t n' s' ->
+      let xs12 := combine x12 [s1; s2] in
+      typing T (Ematch_pair e (abs_many x12 e')) (subst xs12 t) (n + subst xs12 n') (subst xs12 s')
+  | TPmatch_inlinr T e x e1 e2 t1 t2 n s s1 s2 ta na sa tb nb sb :
+      typing T e (Tsum t1 t2) n s ->
+      is_inlinr s = Some (s1, s2) ->
+      ~ StringMap.In x T ->
+      typing (add_binding x t1 T) e1 ta na sa ->
+      typing (add_binding x t2 T) e2 tb nb sb ->
+      sig ta = sig tb ->
+      typing T (Ematch_sum e (abs x e1) (abs x e2)) (max (substx x s1 ta) (substx x s2 tb)) (n + max (substx x s1 na) (substx x s2 nb)) (max (substx x s1 sa) (substx x s2 sb))
+  | TPmatch_inl T e x e1 e2 t1 t2 n s s' t' n' sa :
+      typing T e (Tsum t1 t2) n s ->
+      s = Sinl s' ->
+      ~ StringMap.In x T ->
+      typing (add_binding x t1 T) e1 t' n' sa ->
+      typing T (Ematch_sum e (abs x e1) e2) (substx x s' t') (n + substx x s' n') (substx x s' sa)
+  | TPmatch_inr T e x e1 e2 t1 t2 n s s' t' n' sa :
+      typing T e (Tsum t1 t2) n s ->
+      s = Sinr s' ->
+      ~ StringMap.In x T ->
+      typing (add_binding x t2 T) e2 t' n' sa ->
+      typing T (Ematch_sum e e1 (abs x e2)) (substx x s' t') (n + substx x s' n') (substx x s' sa)
+  | TPfold T e t1 n s :
+      let t := Trecur t1 in
+      typing T e (subst t t1) n s ->
+      typing T (Efold e t) t n (Sfold s)
+  | TPunfold T e t1 n s s1 :
+      let t := Trecur t1 in
+      is_fold s = Some s1 ->
+      typing T e t n s ->
+      typing T (Eunfold e t) (subst t t1) n s1
+  (* bounded variables in profiles and those in type signatures are in different binding-space *)
+  | TPpair T : 
+      typing T Cpair (Tuniversal $ Tuniversal $ Tarrow #1 F1 size1 $ Tarrow #0 F1 (Spair #1 #0) $ Tprod #1 #0) F1 size1
+  | TPinl T :
+      typing T Cinl (Tuniversal $ Tuniversal $ Tarrow #1 F1 (Sinl #0) $ Tsum #1 #0) F1 size1
+  | TPinr T :
+      typing T Cinl (Tuniversal $ Tuniversal $ Tarrow #0 F1 (Sinr #0) $ Tsum #1 #0) F1 size1
+  | TPtt T :
+      typing T Ctt Tunit F1 size1.
       
 End LambdaO.
 
@@ -526,12 +723,20 @@ Definition place c :=
     | Ccons => 1
   end.
 
-Coercion var_to_formula (x : var) := Fvar x 0.
+  Inductive formula :=
+  | Fvar (x : var_path) (stat : stat_idx)
+  | F0 
+  | F1
+  | Fplus (n1 n2 : formula)
+  | Fminus (n1 n2 : formula)
+  | Fmult (n1 n2 : formula)
+  | Fdiv (n1 n2 : formula)
+  | Flog (n : formula)
+  | Fexp (n : formula)
+  .
 
-Notation "# n" := (Vbound n) (at level 0).
 Infix "@" := Fvar (at level 10).
 
-Axiom TPpair : forall T, typing T Cpair (Tuniversal $ Tuniversal $ Tarrow #1 F1 [] $ Tarrow #1 F1 [#1@0; #0@0] $ Tprod #3 #2) F0 []
 
 Module Constr_as_MOT <: MiniOrderedType.
 
