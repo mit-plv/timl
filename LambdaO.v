@@ -63,6 +63,32 @@ Fixpoint range begin len :=
 Import ListNotations.
 Open Scope list_scope.
 
+Definition assoc_list A B := list (A * B).
+
+Class Functor F :=
+  {
+    map : forall A B, (A -> B) -> F A -> F B
+  }.
+
+Instance Functor_list : Functor list :=
+  {
+    map := List.map
+  }.
+
+Instance Functor_option : Functor option :=
+  {
+    map := option_map
+  }.
+
+Definition map_snd {A B C} (f : B -> C) (p : A * B) := (fst p, f (snd p)).
+
+Definition map_assoc_list A B C (f : B -> C) (ls : assoc_list A B) := map (map_snd f) ls.
+
+Instance Functor_assoc_list A : Functor (assoc_list A) :=
+  {
+    map := @map_assoc_list A
+  }.
+
 Section LambdaO.
 
   Inductive var :=
@@ -73,17 +99,24 @@ Section LambdaO.
   Coercion Vbound : nat >-> var.
   Coercion Vfree : string >-> var.
 
+  (* kinds are restricted to the form (* => * => ... => *). 0 means * *)
+  Definition kind := nat.
+
   (* conventional System F types, which will only be part of a type *)
   Inductive typesig :=
   | Tarrow (t1 t2 : typesig)
-  | Tvar (x : var)
-  | Tabs (t : typesig)
-  (* algebraic data types *)         
+  (* basic types *)
   | Tunit
   | Tprod (t1 t2 : typesig)
   | Tsum (t1 t2 : typesig)
-  | Tlist (elm : typesig)
-  | Ttree (t_inner t_leaf : typesig)
+  (* polymorphism *)           
+  | Tvar (x : var)
+  | Tuniversal (t : typesig)
+  (* higher-order operators *)
+  | Tabs (t : typesig)
+  | Tapp (a b : typesig)
+  (* recursive types *)         
+  | Trecur (t : typesig)
   .
 
   Coercion Tvar : var >-> typesig.
@@ -100,10 +133,12 @@ Section LambdaO.
     s3 corresponds to the amount of memory a value needs.
   *)
 
-  Definition stat := nat. (* An index indication the statistics you want. Should be 'I_4 *)
+  Definition stat_idx := nat. (* An index indication the statistics you want. Should be 'I_4 *)
+  Definition path := list nat. (* The query path into a descendent *)
+  Definition var_path := (var * path)%type.
 
   Inductive formula :=
-  | Fvar (x : var) (path : list (nat * nat)) (stat : stat)
+  | Fvar (x : var_path) (stat : stat_idx)
   | F0 
   | F1
   | Fplus (n1 n2 : formula)
@@ -114,98 +149,66 @@ Section LambdaO.
   | Fexp (n : formula)
   .
 
-  Definition assoc_list A B := list (A * B).
+  Definition tuple4 A := (A * A * A * A)%type.
 
-  Class Functor F :=
+  Definition map_tuple4 A B (f : A -> B) (x : tuple4 A) := 
+    match x with (x0, x1, x2, x3) => (f x0, f x1, f x2, f x3) end.
+
+  Instance Functor_tuple4 : Functor tuple4 := 
     {
-      map : forall A B, (A -> B) -> F A -> F B
+      map := map_tuple4
     }.
 
-  Instance Functor_list : Functor list :=
-    {
-      map := List.map
-    }.
+  Definition stats := tuple4 formula.
 
-  Instance Functor_option : Functor option :=
-    {
-      map := option_map
-    }.
-
-  Definition map_snd {A B C} (f : B -> C) (p : A * B) := (fst p, f (snd p)).
-
-  Definition map_assoc_list A B C (f : B -> C) (ls : assoc_list A B) := map (map_snd f) ls.
-
-  Instance Functor_assoc_list A : Functor (assoc_list A) :=
-    {
-      map := @map_assoc_list A
-    }.
-  (*here*)
   Inductive size :=
-  |
-  (*length of stats should always be 4*)
-  | Size (stats : list formula) (children : assoc_list nat (list size))
+  | Svar (x : var_path)
+  | Sconst (_ : stats)
+  | Sinl (_ : stats) (_ : size)
+  | Sinr (_ : stats) (_ : size)
+  | Sinlinr (_ : stats) (a b: size)
+  | Spair (_ : stats) (a b: size)
   .
-  CoFixpoint map_size (f : formula -> formula) (s : size) : size :=
-    match s with
-      | Size stats children => 
-        Size 
-          (map f stats) 
-          ((fix map_size_children (f : formula -> formula) (children : assoc_list nat (list size)) :=
-              match children with
-                | nil => nil
-                | (n, child) :: children => 
-                  (n, 
-                   (fix map_size_list (f : formula -> formula) (ls : list size) : list size :=
-                      match ls with
-                        | nil => nil
-                        | x :: xs => map_size f x :: map_size_list f xs
-                      end) f child) :: map_size_children f children
-              end) f children)
-    end.
 
-(map (List.map (map_size f)) children)
+  Fixpoint map_size (f : var -> var) (g : formula -> formula) (s : size) {struct s} : size :=
+    match s with
+      | Svar (x, path) => Svar ((f x), path)
+      | Sconst stats => Sconst (map g stats)
+      | Sinl stats s => Sinl (map g stats) (map_size f g s)
+      | Sinr stats s => Sinr (map g stats) (map_size f g s)
+      | Sinlinr stats a b => Sinlinr (map g stats) (map_size f g a) (map_size f g b)
+      | Spair stats a b => Sinlinr (map g stats) (map_size f g a) (map_size f g b)
+    end.
 
   (* the second part is the information of time-cost and result-size on each 'arrow' in the type signature, which we call 'profile' *)
   Inductive profile :=
-  | Parrow (a : profile) (time_cost result_size : formula) (b : profile)
+  | Parrow (a : profile) (time_cost : formula) (result_size : size) (b : profile)
   | Pleaf.
 
   Definition type := (typesig * profile)%type.
 
-  Definition base_var := (var * list (nat * nat))%type.
+  Definition append_path (x : var_path) p : var_path := (fst x, snd x ++ [p]).
 
-  Definition append_path (x : base_var) p : base_var := (fst x, snd x ++ [p]).
-  Definition append_stat (x : base_var) (i : stat) := Fvar (fst x) (snd x) i.
+  Definition tuple4indices : tuple4 nat := (0, 1, 2, 3).
 
-  Definition var_stats (x : base_var) : list formula := map (fun n => append_stat x n) (range 0 4).
-
-  (* derive the size of a variable x, whose values are just placeholders like x.0, x.1.0.1, etc. *)
-  CoFixpoint var_size (x : base_var) (t : typesig) : size :=
-    let c := Size (var_stats x) in
+  (* derive a size structure from a variable (with path) x *)
+  Definition destruct_var (x : var_path) (t : typesig) :=
+    let stats := map (Fvar x) tuple4indices in
     match t with
-      | Tunit =>
-        c []
-      | Tprod t1 t2 =>
-        c [ (0, [ var_size (append_path x (0,0)) t1;
-                  var_size (append_path x (0,1)) t2])]
-      | Tsum t1 t2 =>
-        c [ (0, [ var_size (append_path x (0,0)) t1]);
-            (1, [ var_size (append_path x (1,0)) t2])]
-      | Tlist te =>
-        c [ (0, []);
-            (1, [ var_size (append_path x (1,0)) te;
-                  var_size (append_path x (1,1)) t])]
-      | Ttree tinner tleaf => 
-        c [ (0, [ var_size (append_path x (0,0)) tleaf]); 
-            (1, [ var_size (append_path x (1,0)) tinner;
-                  var_size (append_path x (1,1)) t;
-                  var_size (append_path x (1,2)) t])]
+      | Tprod _ _ =>
+        Spair stats (Svar (append_path x 0)) (Svar (append_path x 0))
+      | Tsum _ _ =>
+        Sinlinr stats (Svar (append_path x 0)) (Svar (append_path x 0))
       | _ => 
-        (* all the other types (Tarrow, Tvar, Tabs) don't have interesting size information *)
-        c []
+        (* all the other types (Tarrow, Tvar, Tuniversal) don't have interesting size information *)
+        Sconst stats
     end.
 
-  Definition size_of_var (x : var) t := var_size (x, []) t.
+  Definition destruct_size s t := 
+    match s with
+      | Svar x => destruct_var x t
+      | _ => s
+    end.
  
   Infix "+" := Fplus : formula_scope.
   Delimit Scope formula_scope with F.
@@ -214,9 +217,12 @@ Section LambdaO.
   Infix "/" := Fdiv : F.
   Open Scope F.
 
-  Variable constr : Type.
-  Variable arity : constr -> nat.
-  Variable place : constr -> nat.
+  Inductive constr :=
+  | Ctt
+  | Cpair
+  | Cinl
+  | Cinr
+  .
 
   Inductive expr :=
     | Evar (x : var)
@@ -236,10 +242,12 @@ Section LambdaO.
        This must-be-function restriction is necessary for the type system to work 
     *)
     | Eletrec (defs : list (type * type * expr)) (main : expr)
-    (* branches correspond to constructors positionally *)
-    | Ematch (target : expr) (branches : list expr)
+    | Ematch_pair (target : expr) (_ : expr)
+    | Ematch_sum (target : expr) (left right : expr)
     | Etapp (e : expr) (t : type)
     | Etabs (body : expr)
+    | Efold (_ : expr) (_ : type)
+    | Eunfold (_ : expr) (_ : type)
   .
 
   Definition letrec_entry := (type * type * expr)%type.
@@ -252,7 +260,22 @@ Section LambdaO.
     | OPconstr c : IsOpaque (Econstr c)
   .
 
-  Definition apply_many f args := fold_left (fun f x => match x with inl e => Eapp f e | inr t => Etapp f t end) args f.
+  Inductive general_arg :=
+    | Aapp (_ : expr)
+    | Atapp (_ : type)
+    | Afold (_ : type)
+    | Aunfold (_ : type)
+  .
+
+  Definition general_apply (f : expr) (a : general_arg) :=
+    match a with
+      | Aapp e => Eapp f e
+      | Atapp t => Etapp f t
+      | Afold t => Efold f t
+      | Aunfold t => Eunfold f t
+    end.
+
+  Definition general_apply_many f args := fold_left general_apply args f.
 
   Definition app_many f args := fold_left Eapp args f.
 
@@ -260,8 +283,8 @@ Section LambdaO.
   | Vabs t e : IsValue (Eabs t e)
   | Vapp f args : 
       IsOpaque f ->
-      (forall a, In (inl a) args -> IsValue a) ->
-      IsValue (apply_many f args)
+      (forall a, In (Aapp a) args -> IsValue a) ->
+      IsValue (general_apply_many f args)
   .
   
   Infix "<<" := compose (at level 40) : prog_scope.
@@ -278,8 +301,11 @@ Section LambdaO.
     | CTapp2 (f : expr) (arg : context) : IsValue f -> context
     | CTlet (t : type) (def : context) (main : expr)
     | CTletrec (defs : list letrec_entry) (main : context) (* Only evaluate main. All the definitions are already values, since that are all functions *)
-    | CTmatch (target : context) (branches : list expr)
+    | CTmatch_pair (target : context) (_ : expr)
+    | CTmatch_sum (target : context) (a b : expr)
     | CTtapp (f : context) (t : type)
+    | CTfold (_ : context) (t : type)
+    | CTunfold (_ : context) (t : type)
   .
 
   Fixpoint plug (c : context) (e : expr) : expr :=
@@ -289,13 +315,25 @@ Section LambdaO.
       | CTapp2 f arg _ => Eapp f (plug arg e)
       | CTlet t def main => Elet t (plug def e) main
       | CTletrec defs main => Eletrec defs (plug main e)
-      | CTmatch target branches => Ematch (plug target e) branches
+      | CTmatch_pair target k => Ematch_pair (plug target e) k
+      | CTmatch_sum target a b => Ematch_sum (plug target e) a b
       | CTtapp f t => Etapp (plug f e) t
+      | CTfold f t => Efold (plug f e) t
+      | CTunfold f t => Eunfold (plug f e) t
     end.
 
   Class Subst value body :=
     {
       subst : value -> body -> body
+    }.
+
+  Definition subst_var_var (v b : var) : var.
+    admit.
+  Defined.
+
+  Instance Subst_var_var : Subst var var :=
+    {
+      subst := subst_var_var
     }.
 
   Definition subst_e_e (v : expr) (e : expr) : expr.
@@ -328,6 +366,10 @@ Section LambdaO.
       
   Definition subst_many `{Subst V B} values e := fold_left (flip subst) values e.
 
+  Definition e_pair (a b : expr) := Eapp (Eapp (Econstr Cpair) a) b.
+  Definition e_inl (a : expr) := Eapp (Econstr Cinl) a.
+  Definition e_inr (a : expr) := Eapp (Econstr Cinr) a.
+
   Inductive step : expr -> expr -> Prop :=
     | STcontext c e1 e2 : step e1 e2 -> step (plug c e1) (plug c e2)
     | STapp t body arg : IsValue arg -> step (Eapp (Eabs t body) arg) (subst arg body)
@@ -336,13 +378,20 @@ Section LambdaO.
         find n defs = Some (t, e) -> 
         step (Eletrec defs (plug c (Evar n))) (Eletrec defs (plug c e))  (* the definitions are only simplified, but not making any recursive or mutual-recursive call. All these calls are made only in the evaluation of 'main' *)
     | STletrec_finish defs v : IsValue v -> step (Eletrec defs v) v
-    | STmatch_pair (c : constr) values branches e : 
-        let n := arity c in
-        find (place c) branches = Some e -> 
-        length values = n ->
-        Forall IsValue values ->
-        step (Ematch (app_many c values) branches) (subst_many values e)
+    | STmatch_pair a b k : 
+        IsValue a ->
+        IsValue b ->
+        step (Ematch_pair (e_pair a b) k) (subst_many [a; b] k)
+    | STmatch_inl v k1 k2 : 
+        IsValue v ->
+        step (Ematch_sum (e_inl v) k1 k2) (subst v k1)
+    | STmatch_inr v k1 k2 : 
+        IsValue v ->
+        step (Ematch_sum (e_inr v) k1 k2) (subst v k2)
     | STtapp body t : step (Etapp (Etabs body) t) (subst t body)
+    | STunfold_fold v t1 t2 : 
+        IsValue v ->
+        step (Eunfold (Efold v t1) t2) v
   .
 
   (* typing context *)
@@ -361,13 +410,32 @@ Section LambdaO.
     admit.
   Defined.
 
-  Definition subst_f (s : list formula) (f : formula) : formula.
+  Definition subst_size_formula (s : size) (f : formula) : formula.
     admit.
   Defined.
 
-  Definition subst_f_t (s : list formula) (t : type) : type.
+  Instance Subst_size_formula : Subst size formula :=
+    {
+      subst := subst_size_formula
+    }.
+
+  Definition subst_size_profile (s : size) (p : profile) : profile.
     admit.
   Defined.
+
+  Instance Subst_size_profile : Subst size profile :=
+    {
+      subst := subst_size_profile
+    }.
+
+  Definition subst_size_size (v b : size) : size.
+    admit.
+  Defined.
+
+  Instance Subst_size_size : Subst size size :=
+    {
+      subst := subst_size_size
+    }.
 
   Definition substx_f (x : string) (s : list formula) (f : formula) : formula.
     admit.
@@ -398,23 +466,24 @@ Section LambdaO.
   Arguments fst {A B} _.
 
   Inductive typing : tcontext -> expr -> type -> formula -> size -> Prop :=
-  | TPvar T (x : string) t : find x T = Some (TEtyping t) -> typing T x t F1 (size_of_var x (fst t))
+  | TPvar T (x : string) t : find x T = Some (TEtyping t) -> typing T x t F1 (Svar (x : var, []))
   | TPapp T e1 e2 ta tb pa f g pb n1 n2 s1 s2 : 
       typing T e1 (Tarrow ta tb, Parrow pa f g pb) n1 s1 ->
       typing T e2 (ta, pa) n2 s2 ->
-      typing T (Eapp e1 e2) (tb, subst s2 pb) (n1 + n2 + subst s2 f)%F (map (subst s2) g).
+      typing T (Eapp e1 e2) (tb, subst s2 pb) (n1 + n2 + subst s2 f)%F (subst s2 g).
+(*here*)
   | TPabs T x t1 e t2 n s:
       ~ StringMap.In x T -> 
       typing (StringMap.add x (TEtyping t1) T) e t2 n s ->
       typing T (Eabs t1 (abs x e)) (Tarrow t1 (abs_f x n) (map (abs_f x) s) (abs_t x t2)) F1 []
   | TPtapp T e t2 t n:
-      typing T e (Tabs t) n [] ->
+      typing T e (Tuniversal t) n [] ->
       let t' := subst_t_t t2 t in
       typing T (Etapp e t2) t' n (ones $ dim t')
   | TPtabs T X e t s:
       ~ StringMap.In X T ->
       typing (StringMap.add X TEtypevar T) e t F1 s ->
-      typing T (Etabs (abs X e)) (Tabs (abs_t X t)) F1 []
+      typing T (Etabs (abs X e)) (Tuniversal (abs_t X t)) F1 []
   | TPlet T t1 e1 e2 t2 n1 n2 s1 s2 x:
       typing T e1 t1 n1 s1 ->
       ~ StringMap.In x T ->
@@ -431,13 +500,11 @@ Section LambdaO.
       
 End LambdaO.
 
-Inductive constr :=
-| Ctt
-| Cpair
-| Cinl
-| Cinr
-| Cnil
-| Ccons.
+  Variable constr : Type.
+  Variable arity : constr -> nat.
+  Variable place : constr -> nat.
+
+
 
 Definition arity c :=
   match c with
@@ -464,7 +531,7 @@ Coercion var_to_formula (x : var) := Fvar x 0.
 Notation "# n" := (Vbound n) (at level 0).
 Infix "@" := Fvar (at level 10).
 
-Axiom TPpair : forall T, typing T Cpair (Tabs $ Tabs $ Tarrow #1 F1 [] $ Tarrow #1 F1 [#1@0; #0@0] $ Tprod #3 #2) F0 []
+Axiom TPpair : forall T, typing T Cpair (Tuniversal $ Tuniversal $ Tarrow #1 F1 [] $ Tarrow #1 F1 [#1@0; #0@0] $ Tprod #3 #2) F0 []
 
 Module Constr_as_MOT <: MiniOrderedType.
 
