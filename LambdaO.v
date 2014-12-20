@@ -110,16 +110,16 @@ Section LambdaO.
 
   (* 
     There are four statistics (or 'sizes') for each value :
-    s1 : number of invocations of 'fold' 
+    s0 : number of invocations of 'fold' 
          (for parametric algebraic data types, this correspond to the number of constructor invocations to construct this value, not counting those from the parameter types);
-    s2 : parallel version of s1, where the fields of a pair are max'ed instead of sum'ed;
-    s3 : number of invocations of basic constrctors (tt, pair, inl, inr, lambda)
+    s1 : parallel version of s0, where the fields of a pair are max'ed instead of sum'ed;
+    s2 : number of invocations of basic constrctors (tt, pair, inl, inr, lambda)
          (for parametric algebraic data types, this correspond to the number of constructor invocations to construct this value, counting those from the parameter types);
-    s4 : parallel version of s3.
+    s3 : parallel version of s2.
 
-    For example, for lists, s1 correspond to its length; s2 is the same as s1;
-      for trees, s1 corresponds to its number of nodes; s2 corresponds to its depth.
-    s3 corresponds to the amount of memory a value occupies, and the cost of a computation that needs to, for example, look into each element of a list.
+    For example, for lists, s0 correspond to its length; s1 is the same as s0;
+      for trees, s0 corresponds to its number of nodes; s1 corresponds to its depth.
+    s2 corresponds to the amount of memory a value occupies, and the cost of a computation that needs to, for example, look into each element of a list.
   *)
 
   Definition stat_idx := nat. (* An index indication the statistics you want. Should be 'I_4 *)
@@ -134,7 +134,7 @@ Section LambdaO.
   Definition var_path := (var * path)%type.
 
   Variable formula : Type.
-  Variable F0 F1 : formula.
+  Variable F1 : formula.
   Variable Fvar : var_path -> stat_idx -> formula.
   Variable Fplus Fmax : formula -> formula -> formula.
   Infix "+" := Fplus : formula_scope.
@@ -150,7 +150,7 @@ Section LambdaO.
     {
       max := Fmax
     }.
-(*
+
   Definition tuple4 A := (A * A * A * A)%type.
 
   Definition map_tuple4 A B (f : A -> B) (x : tuple4 A) := 
@@ -162,9 +162,10 @@ Section LambdaO.
     }.
 
   Definition stats := tuple4 formula.
-*)
+
   Inductive size :=
   | Svar (x : var_path)
+  | Sstats (_ : stats)
   | Stt
   | Sinl (_ : size)
   | Sinr (_ : size)
@@ -262,9 +263,12 @@ Section LambdaO.
               #0 * #1 (#0 - 1) in     (#2, #1, #0 -> x, y, b)
               #1 10 + #0 10           (#1, #0 -> x, y)  
        This must-be-function restriction is necessary for the type system to work 
-    *)
+     *)
     | Eletrec (defs : list (type * type * expr)) (main : expr)
-    | Ematch_pair (target : expr) (_ : expr)
+    (* The handler can access #1 and #0 representing the components of the pair
+     *)              
+    | Ematch_pair (target : expr) (handler : expr)
+    (* left and right can access #0 representing the corresponding payload *)
     | Ematch_sum (target : expr) (left right : expr)
     | Etapp (e : expr) (t : type)
     | Etabs (body : expr)
@@ -416,8 +420,9 @@ Section LambdaO.
 
   (* typing context *)
   Inductive tc_entry := 
-    | TEbinding (t : type)
-    | TEtypevar.
+    | TEtyping (t : type)
+    | TEtypevar
+    | TEkinding (k : kind).
 
   Definition tcontext := StringMap.t tc_entry.
 
@@ -547,7 +552,7 @@ Section LambdaO.
       abs := abs_s
     }.
 
-  Definition abs_many `{Abs t} xs t := fold_left (flip abs) (rev xs) t.
+  Definition abs_many `{Abs t} xs t := fold_left (flip abs) xs t.
 
   Fixpoint repeat A (a : A) n :=
     match n with
@@ -590,9 +595,11 @@ Section LambdaO.
 
   Definition AllNotIn elt xs T := forall x, In x xs -> ~ @StringMap.In elt x T.
 
-  Definition add_binding x t T := StringMap.add x (TEbinding t) T.
+  Definition add_typing x t T := StringMap.add x (TEtyping t) T.
 
-  Definition add_bindings (ls : list (string * type)) T := add_many (map (map_snd TEbinding) ls) T.
+  Definition add_typings (ls : list (string * type)) T := add_many (map (map_snd TEtyping) ls) T.
+
+  Definition add_kinding x k T := StringMap.add x (TEkinding k) T.
 
   Definition max_type (a b : type) : type.
     admit.
@@ -615,15 +622,76 @@ Section LambdaO.
   Notation "# n" := (Vbound n) (at level 0).
   Coercion var_to_size (x : var) : size := Svar (x, []).
 
+  Inductive kinding : tcontext -> type -> kind -> Prop :=
+  | Kvar T (x : string) k : find x T = Some (TEkinding k) -> kinding T x k
+  | Kapp T t1 t2 k :
+      kinding T t1 (S k) ->
+      kinding T t2 0 ->
+      kinding T (Tapp t1 t2) k
+  | Kabs T x t k :
+      ~ StringMap.In x T ->
+      kinding (add_kinding x 0 T) t k ->
+      kinding T (Tabs (abs x t)) (S k)
+  | Karrow T t1 f g t2 :
+      kinding T t1 0 ->
+      kinding T t2 0 ->
+      kinding T (Tarrow t1 f g t2) 0
+  | Kunit T :
+      kinding T Tunit 0
+  | Kprod T t1 t2 :
+      kinding T t1 0 ->
+      kinding T t2 0 ->
+      kinding T (Tprod t1 t2) 0
+  | Ksum T t1 t2 :
+      kinding T t1 0 ->
+      kinding T t2 0 ->
+      kinding T (Tsum t1 t2) 0
+  | Krecur T x t :
+      ~ StringMap.In x T ->
+      kinding (add_kinding x 0 T) t 0 ->
+      kinding T (Trecur (abs x t)) 0
+  .
+
+  Inductive teq : type -> type -> Prop :=
+  | Qrefl t : teq t t
+  | Qsymm a b : teq a b -> teq b a
+  | Qtrans a b c : teq a b -> teq b c -> teq a c
+  | Qabs a b :
+      teq a b ->
+      teq (Tabs a) (Tabs b)
+  | Qapp a b a' b' :
+      teq a a' ->
+      teq b b' ->
+      teq (Tapp a b) (Tapp a' b')
+  | Qbeta t1 t2 :
+      teq (Tapp (Tabs t1) t2) (subst t2 t1)
+  | Qarrow a f g b a' b' : 
+      teq a a' ->
+      teq b b' ->
+      teq (Tarrow a f g b) (Tarrow a' f g b')
+  | Qprod a b a' b' :
+      teq a a' ->
+      teq b b' ->
+      teq (Tprod a b) (Tprod a' b')
+  | Qsum a b a' b' :
+      teq a a' ->
+      teq b b' ->
+      teq (Tsum a b) (Tsum a' b')
+  | Qrecur a b :
+      teq a b ->
+      teq (Trecur a) (Trecur b)
+  .
+
   Inductive typing : tcontext -> expr -> type -> formula -> size -> Prop :=
-  | TPvar T (x : string) t : find x T = Some (TEbinding t) -> typing T x t F1 (Svar (x : var, []))
+  | TPvar T (x : string) t : find x T = Some (TEtyping t) -> typing T x t F1 (Svar (x : var, []))
   | TPapp T e1 e2 ta tb f g n1 n2 s1 s2 : 
       typing T e1 (Tarrow ta f g tb) n1 s1 ->
       typing T e2 ta n2 s2 ->
       typing T (Eapp e1 e2) (subst s2 tb) (n1 + n2 + subst s2 f)%F (subst s2 g)
   | TPabs T x e t1 t2 n s:
+      kinding T t1 0 ->
       ~ StringMap.In x T -> 
-      typing (add_binding x t1 T) e t2 n s ->
+      typing (add_typing x t1 T) e t2 n s ->
       typing T (Eabs t1 (abs x e)) (Tarrow t1 (abs x n) (abs x s) (abs x t2)) F1 size1
   | TPtapp T e t2 t n s:
       typing T e (Tuniversal t) n s ->
@@ -636,13 +704,13 @@ Section LambdaO.
   | TPlet T t1 e1 e2 t2 n1 n2 s1 s2 x:
       typing T e1 t1 n1 s1 ->
       ~ StringMap.In x T ->
-      typing (add_binding x t1 T) e2 t2 n2 s2 ->
+      typing (add_typing x t1 T) e2 t2 n2 s2 ->
       typing T (Elet t1 e1 (abs x e2)) t2 (n1 + substx x s1 n2)%F (substx x s1 s2)
   | TPletrec T (defs : list letrec_entry) main t n s xs :
       length xs = length defs ->
       NoDup xs ->
       AllNotIn xs T ->
-      let T' := add_bindings (combine xs $ map (fst >> fst) defs) T in
+      let T' := add_typings (combine xs $ map (fst >> fst) defs) T in
       (forall lhs_ti rhs_ti ei, In (lhs_ti, rhs_ti, ei) defs -> typing T' (Eabs rhs_ti ei) lhs_ti F1 size1) ->
       typing T' main t n s ->
       typing T (Eletrec defs main) t n s
@@ -652,7 +720,7 @@ Section LambdaO.
       let x12 := [x1; x2] in
       AllNotIn x12 T ->
       let t12 := [t1; t2] in
-      let T' := add_bindings (combine x12 t12) T in
+      let T' := add_typings (combine x12 t12) T in
       typing T' e' t n' s' ->
       let xs12 := combine x12 [s1; s2] in
       typing T (Ematch_pair e (abs_many x12 e')) (subst xs12 t) (n + subst xs12 n') (subst xs12 s')
@@ -660,21 +728,21 @@ Section LambdaO.
       typing T e (Tsum t1 t2) n s ->
       is_inlinr s = Some (s1, s2) ->
       ~ StringMap.In x T ->
-      typing (add_binding x t1 T) e1 ta na sa ->
-      typing (add_binding x t2 T) e2 tb nb sb ->
+      typing (add_typing x t1 T) e1 ta na sa ->
+      typing (add_typing x t2 T) e2 tb nb sb ->
       sig ta = sig tb ->
       typing T (Ematch_sum e (abs x e1) (abs x e2)) (max (substx x s1 ta) (substx x s2 tb)) (n + max (substx x s1 na) (substx x s2 nb)) (max (substx x s1 sa) (substx x s2 sb))
   | TPmatch_inl T e x e1 e2 t1 t2 n s s' t' n' sa :
       typing T e (Tsum t1 t2) n s ->
       s = Sinl s' ->
       ~ StringMap.In x T ->
-      typing (add_binding x t1 T) e1 t' n' sa ->
+      typing (add_typing x t1 T) e1 t' n' sa ->
       typing T (Ematch_sum e (abs x e1) e2) (substx x s' t') (n + substx x s' n') (substx x s' sa)
   | TPmatch_inr T e x e1 e2 t1 t2 n s s' t' n' sa :
       typing T e (Tsum t1 t2) n s ->
       s = Sinr s' ->
       ~ StringMap.In x T ->
-      typing (add_binding x t2 T) e2 t' n' sa ->
+      typing (add_typing x t2 T) e2 t' n' sa ->
       typing T (Ematch_sum e e1 (abs x e2)) (substx x s' t') (n + substx x s' n') (substx x s' sa)
   | TPfold T e t1 n s :
       let t := Trecur t1 in
@@ -693,92 +761,83 @@ Section LambdaO.
   | TPinr T :
       typing T Cinl (Tuniversal $ Tuniversal $ Tarrow #0 F1 (Sinr #0) $ Tsum #1 #0) F1 size1
   | TPtt T :
-      typing T Ctt Tunit F1 size1.
+      typing T Ctt Tunit F1 size1
+  | TPeq T e t1 t2 n s :
+      typing T e t1 n s ->
+      teq t1 t2 ->
+      typing T e t2 n s
+  .
+
+  (* examples *)
+
+  Definition Tlist := Tabs $ Trecur $ Tsum Tunit $ Tprod #1 #0.
+
+  Variable Tint : type.
+
+  Definition list_int := Tapp Tlist Tint.
+
+  Definition Fvar_empty_path (x : var) i := Fvar (x, []) i.
+  Infix "@" := Fvar_empty_path (at level 10).
+
+  Open Scope string_scope.
+
+  Definition Ematch_list t e b_nil b_cons := Ematch_sum (Eunfold e t) b_nil (Ematch_pair #0 b_cons).
+
+  Infix "$$" := Eapp (at level 85, right associativity).
+
+  Definition Ccons t a b := Efold (Econstr Cpair $$ a $$ b) t.
+
+  Variable int_lt : expr.
+
+  Definition merge_body merge := 
+    abs_many ["xs"; "ys"]
+             $ Ematch_list list_int  "xs"
+             "ys" 
+             $ abs_many ["x"; "xs'"]
+             $ Ematch_list list_int  "ys"
+             "xs"
+             $ abs_many ["y"; "ys'"]
+             $ Ematch_sum (int_lt $$ "x" $$ "y")
+             (Ccons list_int  "x" (merge $$ "xs'" $$ "ys"))
+             (Ccons list_int  "y" (merge $$ "xs" $$ "ys'")).
+
+  Definition merge_type := Tarrow list_int F1 size1 $ Tarrow list_int (#1@0 + #0@0) (Sstats (#1@0 + #0@0, #1@1 + #0@1, #1@2 + #0@2, #1@3 + #0@3)) list_int.
+
+  Definition merge :=
+    Eletrec [(merge_type, list_int, Eabs list_int (merge_body #2))] #0.
+
+  Arguments StringMap.empty {elt}.
+
+  Lemma merge_typing : typing StringMap.empty merge merge_type F1 size1.
+  Proof.
+    eapply TPletrec.
+    {
+      instantiate (1 := ["merge"]).
+      simpl.
+      eauto.
+    }
+    {
+      repeat econstructor; intuition.
+    }
+    {
+      intros k Hin1 Hin2.
+      admit.
+    }
+    {
+      intros.
+    }
+  Qed.
       
 End LambdaO.
 
-  Variable constr : Type.
-  Variable arity : constr -> nat.
-  Variable place : constr -> nat.
-
-
-
-Definition arity c :=
-  match c with
-    | Ctt => 0
-    | Cpair => 2
-    | Cinl => 1
-    | Cinr => 1
-    | Cnil => 0
-    | Ccons => 2
-  end.
-
-Definition place c :=
-  match c with
-    | Ctt => 0
-    | Cpair => 0
-    | Cinl => 0
-    | Cinr => 1
-    | Cnil => 0
-    | Ccons => 1
-  end.
-
-  Inductive formula :=
-  | Fvar (x : var_path) (stat : stat_idx)
-  | F0 
-  | F1
-  | Fplus (n1 n2 : formula)
-  | Fminus (n1 n2 : formula)
-  | Fmult (n1 n2 : formula)
-  | Fdiv (n1 n2 : formula)
-  | Flog (n : formula)
-  | Fexp (n : formula)
-  .
-
-Infix "@" := Fvar (at level 10).
-
-
-Module Constr_as_MOT <: MiniOrderedType.
-
-  Definition t := constr.
-
-  Definition eq := @eq t.
-
-  Definition lt (x y : t) : Prop.
-    admit.
-  Defined.
-
-  Lemma eq_refl : forall x : t, eq x x.
-    admit.
-  Qed.
-
-  Lemma eq_sym : forall x y : t, eq x y -> eq y x.
-    admit.
-  Qed.
-
-  Lemma eq_trans : forall x y z : t, eq x y -> eq y z -> eq x z.
-    admit.
-  Qed.
-
-  Lemma lt_trans : forall x y z : t, lt x y -> lt y z -> lt x z.
-    admit.
-  Qed.
-
-  Lemma lt_not_eq : forall x y : t, lt x y -> ~ eq x y.
-    admit.
-  Qed.
-
-  Definition compare : forall x y : t, Compare lt eq x y.
-    admit.
-  Defined.
-
-End Constr_as_MOT.
-
-Module Constr_as_OT := MOT_to_OT Constr_as_MOT.
-Require Import OrdersAlt.
-Module Constr_as_OT_new := Update_OT Constr_as_OT.
-Require Import Equalities.
-Module Constr_as_UDT := Make_UDT Constr_as_OT.
-
-Module ConstrMap := Map.Make Constr_as_OT.
-
+Inductive formula :=
+| Fvar (x : var_path) (stat : stat_idx)
+| F0 
+| F1
+| Fplus (n1 n2 : formula)
+| Fminus (n1 n2 : formula)
+| Fmult (n1 n2 : formula)
+| Fdiv (n1 n2 : formula)
+| Flog (n : formula)
+| Fexp (n : formula)
+.
