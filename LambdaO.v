@@ -174,12 +174,16 @@ Section LambdaO.
   | Sfold (_ : size)
   .
 
+  Inductive tconstr :=
+  | TCunit
+  | TCprod
+  | TCsum
+  .
+
   Inductive type :=
   | Tarrow (t1 : type) (time_cost : formula) (result_size : size) (t2 : type)
   (* basic types *)
-  | Tunit
-  | Tprod (t1 t2 : type)
-  | Tsum (t1 t2 : type)
+  | Tconstr (_ : tconstr)
   (* polymorphism *)           
   | Tvar (x : var)
   | Tuniversal (t : type)
@@ -190,22 +194,14 @@ Section LambdaO.
   | Trecur (t : type)
   .
 
+  Infix "$$$" := Tapp (at level 85, right associativity).
+
+  Definition Tunit := Tconstr TCunit.
+  Definition Tprod t1 t2 := Tconstr TCprod $$$ t1 $$$ t2.
+  Definition Tsum t1 t2 := Tconstr TCsum $$$ t1 $$$ t2.
+
   Coercion Tvar : var >-> type.
-(*
-  Fixpoint map_size (f : var_path -> size) (g : formula -> formula) (s : size) {struct s} : size :=
-    match s with
-      | Svar x => f x
-      | Sstruct stats sub => Sstruct (map g stats) (map_sub_sizes f g sub)
-    end
-  with map_sub_sizes f g sub :=
-         match sub with
-           | Stt => Stt
-           | Sinl s => Sinl (map_size f g s)
-           | Sinr s => Sinr (map_size f g s)
-           | Sinlinr a b => Sinlinr (map_size f g a) (map_size f g b)
-           | Spair a b => Sinlinr (map_size f g a) (map_size f g b)
-         end.
-*)
+
   Definition append_path (x : var_path) p : var_path := (fst x, snd x ++ [p]).
 
 (*
@@ -217,7 +213,6 @@ Section LambdaO.
       | Sstruct stats _ => stats
     end.
 *)
-  (* derive a size structure from a variable (with path) x *)
 
   Definition is_pair (s : size) :=
     match s with
@@ -570,9 +565,7 @@ Section LambdaO.
 
   Inductive typesig :=
   | TSarrow (t1 t2 : typesig)
-  | TSunit
-  | TSprod (t1 t2 : typesig)
-  | TSsum (t1 t2 : typesig)
+  | TSconstr (_ : tconstr)
   | TSvar (x : var)
   | TSuniversal (t : typesig)
   | TSabs (t : typesig)
@@ -583,9 +576,7 @@ Section LambdaO.
   Fixpoint sig (t : type) : typesig :=
     match t with
       | Tarrow a _ _ b => TSarrow (sig a ) (sig b)
-      | Tunit => TSunit
-      | Tprod a b => TSprod (sig a) (sig b)
-      | Tsum a b => TSsum (sig a) (sig b)
+      | Tconstr c => TSconstr c
       | Tvar x => TSvar x
       | Tuniversal t => TSuniversal (sig t)
       | Tabs t => TSabs (sig t)
@@ -637,15 +628,11 @@ Section LambdaO.
       kinding T t2 0 ->
       kinding T (Tarrow t1 f g t2) 0
   | Kunit T :
-      kinding T Tunit 0
-  | Kprod T t1 t2 :
-      kinding T t1 0 ->
-      kinding T t2 0 ->
-      kinding T (Tprod t1 t2) 0
-  | Ksum T t1 t2 :
-      kinding T t1 0 ->
-      kinding T t2 0 ->
-      kinding T (Tsum t1 t2) 0
+      kinding T (Tconstr TCunit) 0
+  | Kprod T :
+      kinding T (Tconstr TCprod) 2
+  | Ksum T :
+      kinding T (Tconstr TCsum) 2
   | Krecur T x t :
       ~ StringMap.In x T ->
       kinding (add_kinding x 0 T) t 0 ->
@@ -669,14 +656,6 @@ Section LambdaO.
       teq a a' ->
       teq b b' ->
       teq (Tarrow a f g b) (Tarrow a' f g b')
-  | Qprod a b a' b' :
-      teq a a' ->
-      teq b b' ->
-      teq (Tprod a b) (Tprod a' b')
-  | Qsum a b a' b' :
-      teq a a' ->
-      teq b b' ->
-      teq (Tsum a b) (Tsum a' b')
   | Qrecur a b :
       teq a b ->
       teq (Trecur a) (Trecur b)
@@ -774,7 +753,8 @@ Section LambdaO.
 
   Variable Tint : type.
 
-  Definition list_int := Tapp Tlist Tint.
+  Infix "$$" := Eapp (at level 85, right associativity).
+  Definition list_int := Tlist $$$ Tint.
 
   Definition Fvar_empty_path (x : var) i := Fvar (x, []) i.
   Infix "@" := Fvar_empty_path (at level 10).
@@ -783,7 +763,6 @@ Section LambdaO.
 
   Definition Ematch_list t e b_nil b_cons := Ematch_sum (Eunfold e t) b_nil (Ematch_pair #0 b_cons).
 
-  Infix "$$" := Eapp (at level 85, right associativity).
 
   Definition Ccons t a b := Efold (Econstr Cpair $$ a $$ b) t.
 
