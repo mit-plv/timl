@@ -3,56 +3,8 @@ Unset Strict Implicit.
 Unset Printing Implicit Defensive. 
 Generalizable All Variables.
 
+Require Import Cito.StringMap.
 Require Import String List.
-Require Import OrderedType.
-Require FMapAVL.
-Module Map := FMapAVL.
-Require Import OrderedTypeEx.
-Module NatMap := Map.Make Nat_as_OT.
-
-Module String_as_MOT <: MiniOrderedType.
-
-  Definition t := string.
-
-  Definition eq := @eq t.
-
-  Definition lt (x y : t) : Prop.
-    admit.
-  Defined.
-
-  Lemma eq_refl : forall x : t, eq x x.
-    admit.
-  Qed.
-
-  Lemma eq_sym : forall x y : t, eq x y -> eq y x.
-    admit.
-  Qed.
-
-  Lemma eq_trans : forall x y z : t, eq x y -> eq y z -> eq x z.
-    admit.
-  Qed.
-
-  Lemma lt_trans : forall x y z : t, lt x y -> lt y z -> lt x z.
-    admit.
-  Qed.
-
-  Lemma lt_not_eq : forall x y : t, lt x y -> ~ eq x y.
-    admit.
-  Qed.
-
-  Definition compare : forall x y : t, Compare lt eq x y.
-    admit.
-  Defined.
-
-End String_as_MOT.
-
-Module String_as_OT := MOT_to_OT String_as_MOT.
-Require Import OrdersAlt.
-Module String_as_OT_new := Update_OT String_as_OT.
-Require Import Equalities.
-Module String_as_UDT := Make_UDT String_as_OT.
-
-Module StringMap := Map.Make String_as_OT.
 
 Fixpoint range begin len :=
   match len with
@@ -91,6 +43,8 @@ Instance Functor_assoc_list A : Functor (assoc_list A) :=
 
 Section LambdaO.
 
+  Require Import Program.
+
   Infix "<<" := compose (at level 40) : prog_scope.
   Infix ">>" := (flip compose) (at level 40) : prog_scope.
   Definition apply {A B} (f : A -> B) x := f x.
@@ -102,7 +56,7 @@ Section LambdaO.
     | Vfree : string -> var
   .
 
-  Coercion Vbound : nat >-> var.
+  (* Coercion Vbound : nat >-> var. *)
   Coercion Vfree : string >-> var.
 
   (* kinds are restricted to the form (* => * => ... => *). 0 means * *)
@@ -194,7 +148,7 @@ Section LambdaO.
   | Trecur (t : type)
   .
 
-  Infix "$$$" := Tapp (at level 85, right associativity).
+  Infix "$$$" := Tapp (at level 105, left associativity).
 
   Definition Tunit := Tconstr TCunit.
   Definition Tprod t1 t2 := Tconstr TCprod $$$ t1 $$$ t2.
@@ -389,13 +343,15 @@ Section LambdaO.
   Definition e_inl (a : expr) := Eapp (Econstr Cinl) a.
   Definition e_inr (a : expr) := Eapp (Econstr Cinr) a.
 
+  Notation "# n" := (Vbound n) (at level 0).
+
   Inductive step : expr -> expr -> Prop :=
     | STcontext c e1 e2 : step e1 e2 -> step (plug c e1) (plug c e2)
     | STapp t body arg : IsValue arg -> step (Eapp (Eabs t body) arg) (subst arg body)
     | STlet t v main : IsValue v -> step (Elet t v main) (subst v main)
     | STletrec_instantiate defs c (n : nat) t e : 
         find n defs = Some (t, e) -> 
-        step (Eletrec defs (plug c (Evar n))) (Eletrec defs (plug c e))  (* the definitions are only simplified, but not making any recursive or mutual-recursive call. All these calls are made only in the evaluation of 'main' *)
+        step (Eletrec defs (plug c (Evar #n))) (Eletrec defs (plug c e))  (* the definitions are only simplified, but not making any recursive or mutual-recursive call. All these calls are made only in the evaluation of 'main' *)
     | STletrec_finish defs v : IsValue v -> step (Eletrec defs v) v
     | STmatch_pair a b k : 
         IsValue a ->
@@ -610,7 +566,6 @@ Section LambdaO.
       max := max_size
     }.
 
-  Notation "# n" := (Vbound n) (at level 0).
   Coercion var_to_size (x : var) : size := Svar (x, []).
 
   Inductive kinding : tcontext -> type -> kind -> Prop :=
@@ -752,8 +707,9 @@ Section LambdaO.
   Definition Tlist := Tabs $ Trecur $ Tsum Tunit $ Tprod #1 #0.
 
   Variable Tint : type.
+  Hypothesis Kint : forall T, kinding T Tint 0.
 
-  Infix "$$" := Eapp (at level 85, right associativity).
+  Infix "$$" := Eapp (at level 105, left associativity).
   Definition list_int := Tlist $$$ Tint.
 
   Definition Fvar_empty_path (x : var) i := Fvar (x, []) i.
@@ -762,7 +718,6 @@ Section LambdaO.
   Open Scope string_scope.
 
   Definition Ematch_list t e b_nil b_cons := Ematch_sum (Eunfold e t) b_nil (Ematch_pair #0 b_cons).
-
 
   Definition Ccons t a b := Efold (Econstr Cpair $$ a $$ b) t.
 
@@ -789,9 +744,8 @@ Section LambdaO.
 
   Lemma merge_typing : typing StringMap.empty merge merge_type F1 size1.
   Proof.
-    eapply TPletrec.
+    eapply TPletrec with (xs := ["merge"]).
     {
-      instantiate (1 := ["merge"]).
       simpl.
       eauto.
     }
@@ -800,10 +754,108 @@ Section LambdaO.
     }
     {
       intros k Hin1 Hin2.
-      admit.
+      Require Import Cito.StringMapFacts.
+      eapply empty_in_iff in Hin2.
+      eauto.
     }
     {
-      intros.
+      intros until 0.
+      intros H.
+      Require Import Cito.ListFacts4.
+      eapply in_singleton_iff in H.
+      inject H.
+      Lemma TPabs' T x e t1 t2 n s e' t' :
+        kinding T t1 0 ->
+        ~ StringMap.In x T -> 
+        typing (add_typing x t1 T) e t2 n s ->
+        e' = abs x e ->
+        t' = Tarrow t1 (abs x n) (abs x s) (abs x t2) ->
+        typing T (Eabs t1 e') t' F1 size1.
+      Proof.
+        intros; subst; eapply TPabs; eauto.
+      Qed.
+      eapply TPabs' with (x := "xs").
+      {
+        eapply Kapp.
+        {
+          Lemma Kabs' T x t k t' :
+            ~ StringMap.In x T ->
+            kinding (add_kinding x 0 T) t k ->
+            t' = abs x t ->
+            kinding T (Tabs t') (S k).
+          Proof.
+            intros; subst; eapply Kabs; eauto.
+          Qed.
+          eapply Kabs' with (x := "A").
+          {
+            Arguments compose /. 
+            Arguments flip /. 
+            Arguments apply /. 
+            Arguments add_typings /. 
+            Ltac not_in := let H := fresh in simpl; intros H; eapply mem_in_iff in H; compute in H; intuition.
+            not_in.
+          }
+          {
+            instantiate (1 := Trecur $ Tsum Tunit $ Tprod "A" #0).
+            Lemma Krecur' T x t t' :
+              ~ StringMap.In x T ->
+              kinding (add_kinding x 0 T) t 0 ->
+              t' = abs x t ->
+              kinding T (Trecur t') 0.
+            Proof.
+              intros; subst; eapply Krecur; eauto.
+            Qed.
+            eapply Krecur' with (x := "list").
+            { not_in. }              
+            {
+              instantiate (1 := Tsum Tunit $ Tprod "A" "list").
+              Lemma Kprod' T a b :
+                  kinding T a 0 ->
+                  kinding T b 0 ->
+                  kinding T (Tprod a b) 0.
+              Proof.
+                intros.
+                eapply Kapp.
+                {
+                  eapply Kapp.
+                  { eapply Kprod. }
+                  { eauto. }
+                }
+                { eauto. }
+              Qed.
+              Lemma Ksum' T a b :
+                  kinding T a 0 ->
+                  kinding T b 0 ->
+                  kinding T (Tsum a b) 0.
+              Proof.
+                intros.
+                eapply Kapp.
+                {
+                  eapply Kapp.
+                  { eapply Ksum. }
+                  { eauto. }
+                }
+                { eauto. }
+              Qed.
+              eapply Ksum'.
+              { eapply Kunit. }
+              {
+                eapply Kprod'; eapply Kvar; compute; eauto.
+              }
+            }
+            {
+              admit. (* abs *)
+            }
+          }
+          {
+            admit. (* abs *)
+          }
+        }
+        { eapply Kint. }
+      }
+      { not_in. }
+      {
+        
     }
   Qed.
       
