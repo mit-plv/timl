@@ -332,7 +332,7 @@ Section LambdaO.
       find k c := @nth_error A c k
     }.
       
-  Definition subst_list `{Subst V B} values e := fold_left (flip subst) values e.
+  Definition subst_list `{Subst V B} (values : list V) (e : B) := fold_left (flip subst) values e.
 
   Instance Subst_list `{Subst V B} : Subst (list V) B := 
     {
@@ -343,7 +343,7 @@ Section LambdaO.
   Definition e_inl (a : expr) := Eapp (Econstr Cinl) a.
   Definition e_inr (a : expr) := Eapp (Econstr Cinr) a.
 
-  Notation "# n" := (Vbound n) (at level 0).
+  Notation "# n" := (Vbound n) (at level 3).
 
   Inductive step : expr -> expr -> Prop :=
     | STcontext c e1 e2 : step e1 e2 -> step (plug c e1) (plug c e2)
@@ -574,10 +574,10 @@ Section LambdaO.
       kinding T t1 (S k) ->
       kinding T t2 0 ->
       kinding T (Tapp t1 t2) k
-  | Kabs T x t k :
+  | Kabs T (x : string) t k :
       ~ StringMap.In x T ->
-      kinding (add_kinding x 0 T) t k ->
-      kinding T (Tabs (abs x t)) (S k)
+      kinding (add_kinding x 0 T) (subst (Tvar x) t) k ->
+      kinding T (Tabs t) (S k)
   | Karrow T t1 f g t2 :
       kinding T t1 0 ->
       kinding T t2 0 ->
@@ -590,8 +590,8 @@ Section LambdaO.
       kinding T (Tconstr TCsum) 2
   | Krecur T x t :
       ~ StringMap.In x T ->
-      kinding (add_kinding x 0 T) t 0 ->
-      kinding T (Trecur (abs x t)) 0
+      kinding (add_kinding x 0 T) (subst (Tvar x) t) 0 ->
+      kinding T (Trecur t) 0
   .
 
   Inductive teq : type -> type -> Prop :=
@@ -616,6 +616,8 @@ Section LambdaO.
       teq (Trecur a) (Trecur b)
   .
 
+  Definition var_to_Svar x := Svar (x, []).
+
   Inductive typing : tcontext -> expr -> type -> formula -> size -> Prop :=
   | TPvar T (x : string) t : find x T = Some (TEtyping t) -> typing T x t F1 (Svar (x : var, []))
   | TPapp T e1 e2 ta tb f g n1 n2 s1 s2 : 
@@ -625,8 +627,8 @@ Section LambdaO.
   | TPabs T x e t1 t2 n s:
       kinding T t1 0 ->
       ~ StringMap.In x T -> 
-      typing (add_typing x t1 T) e t2 n s ->
-      typing T (Eabs t1 (abs x e)) (Tarrow t1 (abs x n) (abs x s) (abs x t2)) F1 size1
+      typing (add_typing x t1 T) (subst (Evar x) e) (subst (var_to_Svar x) t2) (subst (var_to_Svar x) n) (subst (var_to_Svar x) s) ->
+      typing T (Eabs t1 e) (Tarrow t1 n s t2) F1 size1
   | TPtapp T e t2 t n s:
       typing T e (Tuniversal t) n s ->
       let t' := subst t2 t in
@@ -645,8 +647,11 @@ Section LambdaO.
       NoDup xs ->
       AllNotIn xs T ->
       let T' := add_typings (combine xs $ map (fst >> fst) defs) T in
-      (forall lhs_ti rhs_ti ei, In (lhs_ti, rhs_ti, ei) defs -> typing T' (Eabs rhs_ti ei) lhs_ti F1 size1) ->
-      typing T' main t n s ->
+      let xs' := List.map (Vfree >> Evar) xs in
+      (forall lhs_t rhs_t e, 
+         In (lhs_t, rhs_t, e) defs -> 
+         typing T' (subst xs' (Eabs rhs_t e)) lhs_t F1 size1) ->
+      typing T' (subst xs' main) t n s ->
       typing T (Eletrec defs main) t n s
   | TPmatch_pair T e x1 x2 e' t t1 t2 n s n' s' s1 s2 :
       typing T e (Tprod t1 t2) n s ->
@@ -713,7 +718,7 @@ Section LambdaO.
   Definition list_int := Tlist $$$ Tint.
 
   Definition Fvar_empty_path (x : var) i := Fvar (x, []) i.
-  Infix "@" := Fvar_empty_path (at level 10).
+  Infix "!" := Fvar_empty_path (at level 10).
 
   Open Scope string_scope.
 
@@ -735,7 +740,7 @@ Section LambdaO.
              (Ccons list_int  "x" (merge $$ "xs'" $$ "ys"))
              (Ccons list_int  "y" (merge $$ "xs" $$ "ys'")).
 
-  Definition merge_type := Tarrow list_int F1 size1 $ Tarrow list_int (#1@0 + #0@0) (Sstats (#1@0 + #0@0, #1@1 + #0@1, #1@2 + #0@2, #1@3 + #0@3)) list_int.
+  Definition merge_type := Tarrow list_int F1 size1 $ Tarrow list_int (#1!0 + #0!0) (Sstats (#1!0 + #0!0, #1!1 + #0!1, #1!2 + #0!2, #1!3 + #0!3)) list_int.
 
   Definition merge :=
     Eletrec [(merge_type, list_int, Eabs list_int (merge_body #2))] #0.
@@ -764,29 +769,13 @@ Section LambdaO.
       Require Import Cito.ListFacts4.
       eapply in_singleton_iff in H.
       inject H.
-      Lemma TPabs' T x e t1 t2 n s e' t' :
-        kinding T t1 0 ->
-        ~ StringMap.In x T -> 
-        typing (add_typing x t1 T) e t2 n s ->
-        e' = abs x e ->
-        t' = Tarrow t1 (abs x n) (abs x s) (abs x t2) ->
-        typing T (Eabs t1 e') t' F1 size1.
-      Proof.
-        intros; subst; eapply TPabs; eauto.
-      Qed.
-      eapply TPabs' with (x := "xs").
+      replace (subst (List.map (Vfree >> Evar) ["merge"]) (Eabs list_int (Eabs list_int (merge_body #(2))))) with (Eabs list_int (Eabs list_int (merge_body "merge"))).
+      2 : admit. (* subst *)
+      eapply TPabs with (x := "xs").
       {
         eapply Kapp.
         {
-          Lemma Kabs' T x t k t' :
-            ~ StringMap.In x T ->
-            kinding (add_kinding x 0 T) t k ->
-            t' = abs x t ->
-            kinding T (Tabs t') (S k).
-          Proof.
-            intros; subst; eapply Kabs; eauto.
-          Qed.
-          eapply Kabs' with (x := "A").
+          eapply Kabs with (x := "A").
           {
             Arguments compose /. 
             Arguments flip /. 
@@ -796,19 +785,14 @@ Section LambdaO.
             not_in.
           }
           {
-            instantiate (1 := Trecur $ Tsum Tunit $ Tprod "A" #0).
-            Lemma Krecur' T x t t' :
-              ~ StringMap.In x T ->
-              kinding (add_kinding x 0 T) t 0 ->
-              t' = abs x t ->
-              kinding T (Trecur t') 0.
-            Proof.
-              intros; subst; eapply Krecur; eauto.
-            Qed.
-            eapply Krecur' with (x := "list").
+            replace (subst (Tvar "A") (Trecur $ Tsum Tunit $ Tprod #(1) #(0))) with (Trecur $ Tsum Tunit $ Tprod "A" #0).
+            2 : admit. (* subst *)
+
+            eapply Krecur with (x := "list").
             { not_in. }              
             {
-              instantiate (1 := Tsum Tunit $ Tprod "A" "list").
+              replace (subst (Tvar "list") (Tsum Tunit $ Tprod "A" #(0))) with (Tsum Tunit $ Tprod "A" "list").
+              2 : admit. (* subst *)
               Lemma Kprod' T a b :
                   kinding T a 0 ->
                   kinding T b 0 ->
@@ -843,19 +827,14 @@ Section LambdaO.
                 eapply Kprod'; eapply Kvar; compute; eauto.
               }
             }
-            {
-              admit. (* abs *)
-            }
-          }
-          {
-            admit. (* abs *)
           }
         }
         { eapply Kint. }
       }
       { not_in. }
       {
-        
+        (*here*)
+      }        
     }
   Qed.
       
