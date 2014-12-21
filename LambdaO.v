@@ -47,17 +47,29 @@ Section LambdaO.
 
   Infix "<<" := compose (at level 40) : prog_scope.
   Infix ">>" := (flip compose) (at level 40) : prog_scope.
-  Definition apply {A B} (f : A -> B) x := f x.
+  Class Apply a b c := 
+    {
+      apply : a -> b -> c
+    }.
+
   Infix "$" := apply (at level 85, right associativity) : prog_scope.
+  Infix "$$" := apply (at level 105, left associativity) : prog_scope.
   Open Scope prog_scope.
+
+  Definition apply_arrow {A B} (f : A -> B) x := f x.
+  
+  Instance Apply_arrow A B : Apply (A -> B) A B :=
+    {
+      apply := apply_arrow
+    }.
   
   Inductive var :=
     | Vbound : nat -> var
-    | Vfree : string -> var
+    (* | Vfree : string -> var *)
   .
 
   (* Coercion Vbound : nat >-> var. *)
-  Coercion Vfree : string >-> var.
+  (* Coercion Vfree : string >-> var. *)
 
   (* kinds are restricted to the form (* => * => ... => *). 0 means * *)
   Definition kind := nat.
@@ -148,11 +160,14 @@ Section LambdaO.
   | Trecur (t : type)
   .
 
-  Infix "$$$" := Tapp (at level 105, left associativity).
-
+  Instance Apply_type_type_type : Apply type type type :=
+    {
+      apply := Tapp
+    }.
+  
   Definition Tunit := Tconstr TCunit.
-  Definition Tprod t1 t2 := Tconstr TCprod $$$ t1 $$$ t2.
-  Definition Tsum t1 t2 := Tconstr TCsum $$$ t1 $$$ t2.
+  Definition Tprod t1 t2 := Tconstr TCprod $$ t1 $$ t2.
+  Definition Tsum t1 t2 := Tconstr TCsum $$ t1 $$ t2.
 
   Coercion Tvar : var >-> type.
 
@@ -375,7 +390,8 @@ Section LambdaO.
     | TEtypevar
     | TEkinding (k : kind).
 
-  Definition tcontext := StringMap.t tc_entry.
+  (* Definition tcontext := StringMap.t tc_entry. *)
+  Definition tcontext := list tc_entry.
 
   Instance Find_StringMap A : Find string A (StringMap.t A) :=
     {
@@ -518,7 +534,7 @@ Section LambdaO.
   Arguments fst {A B} _.
 
   Definition size1 := Stt.
-
+(*
   Inductive typesig :=
   | TSarrow (t1 t2 : typesig)
   | TSconstr (_ : tconstr)
@@ -539,15 +555,17 @@ Section LambdaO.
       | Tapp a b => TSapp (sig a) (sig b)
       | Trecur t => TSrecur (sig t)
     end.
-
+*)
   Definition AllNotIn elt xs T := forall x, In x xs -> ~ @StringMap.In elt x T.
 
-  Definition add_typing x t T := StringMap.add x (TEtyping t) T.
+  (* Definition add_typing x t T := StringMap.add x (TEtyping t) T. *)
+  (* Definition add_typings (ls : list (string * type)) T := add_many (map (map_snd TEtyping) ls) T. *)
+  (* Definition add_kinding x k T := StringMap.add x (TEkinding k) T. *)
 
-  Definition add_typings (ls : list (string * type)) T := add_many (map (map_snd TEtyping) ls) T.
-
-  Definition add_kinding x k T := StringMap.add x (TEkinding k) T.
-
+  Definition add_typing t T := TEtyping t :: T.
+  Definition add_typings ls T := map TEtyping (rev ls) ++ T.
+  Definition add_kinding k T := TEkinding k :: T.
+(*
   Definition max_type (a b : type) : type.
     admit.
   Defined.
@@ -556,7 +574,7 @@ Section LambdaO.
     {
       max := max_type
     }.
-
+*)
   Definition max_size (a b : size) : size.
     admit.
   Defined.
@@ -569,14 +587,13 @@ Section LambdaO.
   Coercion var_to_size (x : var) : size := Svar (x, []).
 
   Inductive kinding : tcontext -> type -> kind -> Prop :=
-  | Kvar T (x : string) k : find x T = Some (TEkinding k) -> kinding T x k
+  | Kvar T n k : find n T = Some (TEkinding k) -> kinding T #n k
   | Kapp T t1 t2 k :
       kinding T t1 (S k) ->
       kinding T t2 0 ->
       kinding T (Tapp t1 t2) k
-  | Kabs T (x : string) t k :
-      ~ StringMap.In x T ->
-      kinding (add_kinding x 0 T) (subst (Tvar x) t) k ->
+  | Kabs T t k :
+      kinding (add_kinding 0 T) t k ->
       kinding T (Tabs t) (S k)
   | Karrow T t1 f g t2 :
       kinding T t1 0 ->
@@ -588,9 +605,8 @@ Section LambdaO.
       kinding T (Tconstr TCprod) 2
   | Ksum T :
       kinding T (Tconstr TCsum) 2
-  | Krecur T x t :
-      ~ StringMap.In x T ->
-      kinding (add_kinding x 0 T) (subst (Tvar x) t) 0 ->
+  | Krecur T t :
+      kinding (add_kinding 0 T) t 0 ->
       kinding T (Trecur t) 0
   .
 
@@ -618,222 +634,276 @@ Section LambdaO.
 
   Definition var_to_Svar x := Svar (x, []).
 
+  Class Le t :=
+    {
+      le : t -> t -> Prop
+    }.
+
+  Infix "<=" := le.
+
+  Variable le_formula : formula -> formula -> Prop.
+  Instance Le_formula : Le formula :=
+    {
+      le := le_formula
+    }.
+
+  Variable le_size : size -> size -> Prop.
+  Instance Le_size : Le size :=
+    {
+      le := le_size
+    }.
+
+  Class Equal t :=
+    {
+      equal : t -> t -> Prop
+    }.
+
+  Infix "==" := equal (at level 70).
+
+  Instance Equal_type : Equal type :=
+    {
+      equal := teq
+    }.
+
   Inductive typing : tcontext -> expr -> type -> formula -> size -> Prop :=
-  | TPvar T (x : string) t : find x T = Some (TEtyping t) -> typing T x t F1 (Svar (x : var, []))
+  | TPvar T n t : find n T = Some (TEtyping t) -> typing T #n t F1 (var_to_Svar #n)
   | TPapp T e1 e2 ta tb f g n1 n2 s1 s2 : 
       typing T e1 (Tarrow ta f g tb) n1 s1 ->
       typing T e2 ta n2 s2 ->
       typing T (Eapp e1 e2) (subst s2 tb) (n1 + n2 + subst s2 f)%F (subst s2 g)
-  | TPabs T x e t1 t2 n s:
+  | TPabs T e t1 t2 n s:
       kinding T t1 0 ->
-      ~ StringMap.In x T -> 
-      typing (add_typing x t1 T) (subst (Evar x) e) (subst (var_to_Svar x) t2) (subst (var_to_Svar x) n) (subst (var_to_Svar x) s) ->
+      typing (add_typing t1 T) e t2 n s ->
       typing T (Eabs t1 e) (Tarrow t1 n s t2) F1 size1
   | TPtapp T e t2 t n s:
       typing T e (Tuniversal t) n s ->
       let t' := subst t2 t in
       typing T (Etapp e t2) t' n s
-  | TPtabs T X e t s:
-      ~ StringMap.In X T ->
-      typing (StringMap.add X TEtypevar T) e t F1 s ->
-      typing T (Etabs (abs X e)) (Tuniversal (abs X t)) F1 s
-  | TPlet T t1 e1 e2 t2 n1 n2 s1 s2 x:
+  | TPtabs T e t s:
+      typing (TEtypevar :: T) e t F1 s ->
+      typing T (Etabs e) (Tuniversal t) F1 s
+  | TPlet T t1 e1 e2 t2 n1 n2 s1 s2:
       typing T e1 t1 n1 s1 ->
-      ~ StringMap.In x T ->
-      typing (add_typing x t1 T) e2 t2 n2 s2 ->
-      typing T (Elet t1 e1 (abs x e2)) t2 (n1 + substx x s1 n2)%F (substx x s1 s2)
-  | TPletrec T (defs : list letrec_entry) main t n s xs :
-      length xs = length defs ->
-      NoDup xs ->
-      AllNotIn xs T ->
-      let T' := add_typings (combine xs $ map (fst >> fst) defs) T in
-      let xs' := List.map (Vfree >> Evar) xs in
+      typing (add_typing t1 T) e2 t2 n2 s2 ->
+      typing T (Elet t1 e1 e2) (subst s1 t2) (n1 + subst s1 n2)%F (subst s1 s2)
+  | TPletrec T (defs : list letrec_entry) main t n s :
+      let T' := add_typings (map (fst >> fst) defs) T in
       (forall lhs_t rhs_t e, 
          In (lhs_t, rhs_t, e) defs -> 
-         typing T' (subst xs' (Eabs rhs_t e)) lhs_t F1 size1) ->
-      typing T' (subst xs' main) t n s ->
+         typing T' (Eabs rhs_t e) lhs_t F1 size1) ->
+      typing T' main t n s ->
       typing T (Eletrec defs main) t n s
-  | TPmatch_pair T e x1 x2 e' t t1 t2 n s n' s' s1 s2 :
+  | TPmatch_pair T e e' t t1 t2 n s n' s' s1 s2 :
       typing T e (Tprod t1 t2) n s ->
       is_pair s = Some (s1, s2) ->
-      let x12 := [x1; x2] in
-      AllNotIn x12 T ->
       let t12 := [t1; t2] in
-      let T' := add_typings (combine x12 t12) T in
+      let T' := add_typings t12 T in
       typing T' e' t n' s' ->
-      let xs12 := combine x12 [s1; s2] in
-      typing T (Ematch_pair e (abs_many x12 e')) (subst xs12 t) (n + subst xs12 n') (subst xs12 s')
-  | TPmatch_inlinr T e x e1 e2 t1 t2 n s s1 s2 ta na sa tb nb sb :
+      let s12 := [s1; s2] in
+      typing T (Ematch_pair e e') (subst s12 t) (n + subst s12 n') (subst s12 s')
+  | TPmatch_inlinr T e e1 e2 t1 t2 n s s1 s2 t na sa nb sb :
       typing T e (Tsum t1 t2) n s ->
       is_inlinr s = Some (s1, s2) ->
-      ~ StringMap.In x T ->
-      typing (add_typing x t1 T) e1 ta na sa ->
-      typing (add_typing x t2 T) e2 tb nb sb ->
-      sig ta = sig tb ->
-      typing T (Ematch_sum e (abs x e1) (abs x e2)) (max (substx x s1 ta) (substx x s2 tb)) (n + max (substx x s1 na) (substx x s2 nb)) (max (substx x s1 sa) (substx x s2 sb))
-  | TPmatch_inl T e x e1 e2 t1 t2 n s s' t' n' sa :
+      typing (add_typing t1 T) e1 t na sa ->
+      typing (add_typing t2 T) e2 t nb sb ->
+      typing T (Ematch_sum e e1 e2) t (n + max (subst s1 na) (subst s2 nb)) (max (subst s1 sa) (subst s2 sb))
+  | TPmatch_inl T e e1 e2 t1 t2 n s s' t' n' sa :
       typing T e (Tsum t1 t2) n s ->
       s = Sinl s' ->
-      ~ StringMap.In x T ->
-      typing (add_typing x t1 T) e1 t' n' sa ->
-      typing T (Ematch_sum e (abs x e1) e2) (substx x s' t') (n + substx x s' n') (substx x s' sa)
-  | TPmatch_inr T e x e1 e2 t1 t2 n s s' t' n' sa :
+      typing (add_typing t1 T) e1 t' n' sa ->
+      typing T (Ematch_sum e e1 e2) (subst s' t') (n + subst s' n') (subst s' sa)
+  | TPmatch_inr T e e1 e2 t1 t2 n s s' t' n' sa :
       typing T e (Tsum t1 t2) n s ->
       s = Sinr s' ->
-      ~ StringMap.In x T ->
-      typing (add_typing x t2 T) e2 t' n' sa ->
-      typing T (Ematch_sum e e1 (abs x e2)) (substx x s' t') (n + substx x s' n') (substx x s' sa)
-  | TPfold T e t1 n s :
-      let t := Trecur t1 in
+      typing (add_typing t2 T) e2 t' n' sa ->
+      typing T (Ematch_sum e e1 e2) (subst s' t') (n + subst s' n') (subst s' sa)
+  | TPfold T e t n s t1 :
+      t == Trecur t1 ->
       typing T e (subst t t1) n s ->
       typing T (Efold e t) t n (Sfold s)
-  | TPunfold T e t1 n s s1 :
-      let t := Trecur t1 in
+  | TPunfold T e t n s s1 t1 :
+      t == Trecur t1 ->
       is_fold s = Some s1 ->
       typing T e t n s ->
       typing T (Eunfold e t) (subst t t1) n s1
-  (* bounded variables in profiles and those in type signatures are in different binding-space *)
-  | TPpair T : 
-      typing T Cpair (Tuniversal $ Tuniversal $ Tarrow #1 F1 size1 $ Tarrow #0 F1 (Spair #1 #0) $ Tprod #1 #0) F1 size1
-  | TPinl T :
-      typing T Cinl (Tuniversal $ Tuniversal $ Tarrow #1 F1 (Sinl #0) $ Tsum #1 #0) F1 size1
-  | TPinr T :
-      typing T Cinl (Tuniversal $ Tuniversal $ Tarrow #0 F1 (Sinr #0) $ Tsum #1 #0) F1 size1
-  | TPtt T :
-      typing T Ctt Tunit F1 size1
   | TPeq T e t1 t2 n s :
       typing T e t1 n s ->
-      teq t1 t2 ->
+      t1 == t2 ->
       typing T e t2 n s
+  | TPsub T e t n n' s s' :
+      typing T e t n s ->
+      n <= n' ->
+      s <= s' ->
+      typing T e t n' s'
+  | TPpair T : 
+      typing T Cpair (Tuniversal $ Tuniversal $ Tarrow #1 F1 size1 $ Tarrow #1 F1 (Spair #1 #0) $ Tprod #3 #2) F1 size1
+  | TPinl T :
+      typing T Cinl (Tuniversal $ Tuniversal $ Tarrow #1 F1 (Sinl #0) $ Tsum #2 #1) F1 size1
+  | TPinr T :
+      typing T Cinl (Tuniversal $ Tuniversal $ Tarrow #0 F1 (Sinr #0) $ Tsum #2 #1) F1 size1
+  | TPtt T :
+      typing T Ctt Tunit F1 size1
   .
 
   (* examples *)
 
-  Definition Tlist := Tabs $ Trecur $ Tsum Tunit $ Tprod #1 #0.
-
-  Variable Tint : type.
-  Hypothesis Kint : forall T, kinding T Tint 0.
-
-  Infix "$$" := Eapp (at level 105, left associativity).
-  Definition list_int := Tlist $$$ Tint.
-
   Definition Fvar_empty_path (x : var) i := Fvar (x, []) i.
   Infix "!" := Fvar_empty_path (at level 10).
-
   Open Scope string_scope.
+ 
+  Instance Apply_expr_expr_expr : Apply expr expr expr :=
+    {
+      apply := Eapp
+    }.
+  
+  Instance Apply_expr_type_expr : Apply expr type expr :=
+    {
+      apply := Etapp
+    }.
+  
+  Definition Epair (ta tb : type) := Econstr Cpair $$ ta $$ tb.
+  Definition Einl (ta tb : type) := Econstr Cinl $$ ta $$ tb.
+  Definition Einr (ta tb : type) := Econstr Cinr $$ ta $$ tb.
+  Definition Ett := Econstr Ctt.
 
-  Definition Ematch_list t e b_nil b_cons := Ematch_sum (Eunfold e t) b_nil (Ematch_pair #0 b_cons).
+  Definition Tlist := Tabs $ Trecur $ Tsum Tunit $ Tprod #1 #0.
+  Definition Ematch_list (telm : type) e b_nil b_cons := 
+    let tlist := Tlist $$ telm in
+    Ematch_sum (Eunfold e tlist) b_nil (Ematch_pair #0 b_cons).
+  Definition Econs (telm : type) (a b : expr) := 
+    let tlist := Tlist $$ telm in
+    Efold (Epair telm tlist $$ a $$ b) tlist.
 
-  Definition Ccons t a b := Efold (Econstr Cpair $$ a $$ b) t.
-
+  Definition Tbool := Tsum Tunit Tunit.
+  Definition Etrue := Einl Tunit Tunit $$ Ett.
+  Definition Efalse := Einr Tunit Tunit $$ Ett.
+  Definition Ematch_bool e b_true b_false :=
+    Ematch_sum e b_true b_false.
+  
+  Variable Tint : type.
+  Hypothesis Kint : forall T, kinding T Tint 0.
   Variable int_lt : expr.
+  Hypothesis TPint_lt : forall T, typing T int_lt (Tarrow Tint F1 size1 $ Tarrow Tint F1 size1 Tbool) F1 size1.
 
-  Definition merge_body merge := 
-    abs_many ["xs"; "ys"]
-             $ Ematch_list list_int  "xs"
-             "ys" 
-             $ abs_many ["x"; "xs'"]
-             $ Ematch_list list_int  "ys"
-             "xs"
-             $ abs_many ["y"; "ys'"]
-             $ Ematch_sum (int_lt $$ "x" $$ "y")
-             (Ccons list_int  "x" (merge $$ "xs'" $$ "ys"))
-             (Ccons list_int  "y" (merge $$ "xs" $$ "ys'")).
+  Definition list_int := Tlist $$ Tint.
+
+  Instance Apply_expr_var_expr : Apply expr var expr :=
+    {
+      apply a b := Eapp a b
+    }.
+  
+  Definition merge_body (merge : expr) := 
+    Ematch_list Tint #1(*xs*)
+                #1(*ys*)
+                (Ematch_list list_int #3(*ys*)
+                             #5(*xs*)
+                             (Ematch_bool (int_lt $$ #4(*x*) $$ #1(*y*))
+                                          (Econs Tint #5(*x*) (merge $$ #4(*xs'*) $$ #7(*ys*)))
+                                          (Econs Tint #2(*y*) (merge $$ #8(*xs*) $$ #1(*ys'*))))).
 
   Definition merge_type := Tarrow list_int F1 size1 $ Tarrow list_int (#1!0 + #0!0) (Sstats (#1!0 + #0!0, #1!1 + #0!1, #1!2 + #0!2, #1!3 + #0!3)) list_int.
 
   Definition merge :=
     Eletrec [(merge_type, list_int, Eabs list_int (merge_body #2))] #0.
 
-  Arguments StringMap.empty {elt}.
+  Require Import Cito.ListFacts4.
 
-  Lemma merge_typing : typing StringMap.empty merge merge_type F1 size1.
+  Arguments compose /. 
+            Arguments flip /. 
+            Arguments apply_arrow /. 
+            Arguments add_typing /. 
+            Arguments add_typings /. 
+            Arguments add_kinding /. 
+
+  Lemma Kprod' T a b :
+    kinding T a 0 ->
+    kinding T b 0 ->
+    kinding T (Tprod a b) 0.
   Proof.
-    eapply TPletrec with (xs := ["merge"]).
+    intros.
+    eapply Kapp.
     {
-      simpl.
-      eauto.
+      eapply Kapp.
+      { eapply Kprod. }
+      { eauto. }
     }
+    { eauto. }
+  Qed.
+
+  Lemma Ksum' T a b :
+    kinding T a 0 ->
+    kinding T b 0 ->
+    kinding T (Tsum a b) 0.
+  Proof.
+    intros.
+    eapply Kapp.
     {
-      repeat econstructor; intuition.
+      eapply Kapp.
+      { eapply Ksum. }
+      { eauto. }
     }
+    { eauto. }
+  Qed.
+
+  Lemma Klist T (t : type) : kinding T t 0 -> kinding T (Tlist $$ t) 0.
+  Proof.
+    eapply Kapp.
     {
-      intros k Hin1 Hin2.
-      Require Import Cito.StringMapFacts.
-      eapply empty_in_iff in Hin2.
-      eauto.
+      eapply Kabs.
+      {
+        simpl.
+        eapply Krecur.
+        eapply Ksum'.
+        { eapply Kunit. }
+        {
+          eapply Kprod'; eapply Kvar; compute; eauto.
+        }
+      }
     }
+  Qed.
+
+  Lemma merge_typing : typing [] merge merge_type F1 size1.
+  Proof.
+    eapply TPletrec.
     {
       intros until 0.
       intros H.
-      Require Import Cito.ListFacts4.
       eapply in_singleton_iff in H.
       inject H.
-      replace (subst (List.map (Vfree >> Evar) ["merge"]) (Eabs list_int (Eabs list_int (merge_body #(2))))) with (Eabs list_int (Eabs list_int (merge_body "merge"))).
-      2 : admit. (* subst *)
-      eapply TPabs with (x := "xs").
+      eapply TPabs.
+      { eapply Klist; eapply Kint. }
       {
-        eapply Kapp.
+        simpl.
+        eapply TPabs.
+        { eapply Klist; eapply Kint. }
         {
-          eapply Kabs with (x := "A").
+          unfold merge_body.
+          unfold Ematch_list.
+          eapply TPsub.
           {
-            Arguments compose /. 
-            Arguments flip /. 
-            Arguments apply /. 
-            Arguments add_typings /. 
-            Ltac not_in := let H := fresh in simpl; intros H; eapply mem_in_iff in H; compute in H; intuition.
-            not_in.
-          }
-          {
-            replace (subst (Tvar "A") (Trecur $ Tsum Tunit $ Tprod #(1) #(0))) with (Trecur $ Tsum Tunit $ Tprod "A" #0).
-            2 : admit. (* subst *)
-
-            eapply Krecur with (x := "list").
-            { not_in. }              
+            simpl.
+            eapply TPmatch_inlinr.
             {
-              replace (subst (Tvar "list") (Tsum Tunit $ Tprod "A" #(0))) with (Tsum Tunit $ Tprod "A" "list").
-              2 : admit. (* subst *)
-              Lemma Kprod' T a b :
-                  kinding T a 0 ->
-                  kinding T b 0 ->
-                  kinding T (Tprod a b) 0.
+              Lemma TPunfold' T e t n s s1 t1 t' :
+                t == Trecur t1 ->
+                is_fold s = Some s1 ->
+                typing T e t n s ->
+                t' = subst t t1 ->
+                typing T (Eunfold e t) t' n s1.
               Proof.
-                intros.
-                eapply Kapp.
-                {
-                  eapply Kapp.
-                  { eapply Kprod. }
-                  { eauto. }
-                }
-                { eauto. }
+                intros; subst; eapply TPunfold; eauto.
               Qed.
-              Lemma Ksum' T a b :
-                  kinding T a 0 ->
-                  kinding T b 0 ->
-                  kinding T (Tsum a b) 0.
-              Proof.
-                intros.
-                eapply Kapp.
-                {
-                  eapply Kapp.
-                  { eapply Ksum. }
-                  { eauto. }
-                }
-                { eauto. }
-              Qed.
-              eapply Ksum'.
-              { eapply Kunit. }
+              eapply TPunfold'.
               {
-                eapply Kprod'; eapply Kvar; compute; eauto.
+                (*here*)
               }
             }
           }
+          {
+          }
+          {
+          }
         }
-        { eapply Kint. }
-      }
-      { not_in. }
-      {
-        (*here*)
       }        
     }
   Qed.
