@@ -3,17 +3,16 @@ Unset Strict Implicit.
 Unset Printing Implicit Defensive. 
 Generalizable All Variables.
 
-Require Import Cito.StringMap.
 Require Import String List.
+Open Scope string_scope.
+Import ListNotations.
+Open Scope list_scope.
 
 Fixpoint range begin len :=
   match len with
     | 0 => nil
     | S n => begin :: range (S begin) n
   end.
-
-Import ListNotations.
-Open Scope list_scope.
 
 Definition assoc_list A B := list (A * B).
 
@@ -354,9 +353,23 @@ Section LambdaO.
       subst := subst_list
     }.
 
-  Definition e_pair (a b : expr) := Eapp (Eapp (Econstr Cpair) a) b.
-  Definition e_inl (a : expr) := Eapp (Econstr Cinl) a.
-  Definition e_inr (a : expr) := Eapp (Econstr Cinr) a.
+  Definition Fvar_empty_path (x : var) i := Fvar (x, []) i.
+  Infix "!" := Fvar_empty_path (at level 10).
+ 
+  Instance Apply_expr_expr_expr : Apply expr expr expr :=
+    {
+      apply := Eapp
+    }.
+  
+  Instance Apply_expr_type_expr : Apply expr type expr :=
+    {
+      apply := Etapp
+    }.
+  
+  Definition Epair (ta tb : type) := Econstr Cpair $$ ta $$ tb.
+  Definition Einl (ta tb : type) := Econstr Cinl $$ ta $$ tb.
+  Definition Einr (ta tb : type) := Econstr Cinr $$ ta $$ tb.
+  Definition Ett := Econstr Ctt.
 
   Notation "# n" := (Vbound n) (at level 3).
 
@@ -368,16 +381,16 @@ Section LambdaO.
         find n defs = Some (t, e) -> 
         step (Eletrec defs (plug c (Evar #n))) (Eletrec defs (plug c e))  (* the definitions are only simplified, but not making any recursive or mutual-recursive call. All these calls are made only in the evaluation of 'main' *)
     | STletrec_finish defs v : IsValue v -> step (Eletrec defs v) v
-    | STmatch_pair a b k : 
+    | STmatch_pair ta tb a b k : 
         IsValue a ->
         IsValue b ->
-        step (Ematch_pair (e_pair a b) k) (subst [a; b] k)
-    | STmatch_inl v k1 k2 : 
+        step (Ematch_pair (Epair ta tb $$ a $$ b) k) (subst [a; b] k)
+    | STmatch_inl ta tb v k1 k2 : 
         IsValue v ->
-        step (Ematch_sum (e_inl v) k1 k2) (subst v k1)
-    | STmatch_inr v k1 k2 : 
+        step (Ematch_sum (Einl ta tb $$ v) k1 k2) (subst v k1)
+    | STmatch_inr ta tb v k1 k2 : 
         IsValue v ->
-        step (Ematch_sum (e_inr v) k1 k2) (subst v k2)
+        step (Ematch_sum (Einr ta tb $$ v) k1 k2) (subst v k2)
     | STtapp body t : step (Etapp (Etabs body) t) (subst t body)
     | STunfold_fold v t1 t2 : 
         IsValue v ->
@@ -392,11 +405,6 @@ Section LambdaO.
 
   (* Definition tcontext := StringMap.t tc_entry. *)
   Definition tcontext := list tc_entry.
-
-  Instance Find_StringMap A : Find string A (StringMap.t A) :=
-    {
-      find k c := StringMap.find k c
-    }.
 
   Definition subst_t_t (t2 : type) (t : type) : type.
     admit.
@@ -438,89 +446,6 @@ Section LambdaO.
       subst := subst_type_type
     }.
 
-  (* substitute a free variable *)
-  Class Substx value body :=
-    {
-      substx : string -> value -> body -> body
-    }.
-
-  Definition substx_size_formula (x : string) (v : size) (b : formula) : formula.
-    admit.
-  Defined.
-
-  Instance Substx_size_formula : Substx size formula :=
-    {
-      substx := substx_size_formula
-    }.
-
-  Definition substx_size_size (x : string) (v : size) (b : size) : size.
-    admit.
-  Defined.
-
-  Instance Substx_size_size : Substx size size :=
-    {
-      substx := substx_size_size
-    }.
-
-  Definition substx_size_type (x : string) (v : size) (b : type) : type.
-    admit.
-  Defined.
-
-  Instance Substx_size_type : Substx size type :=
-    {
-      substx := substx_size_type
-    }.
-
-  Class Abs t := 
-    {
-      abs : string -> t -> t
-    }.
-
-  Definition abs_e (x : string) (e : expr) : expr.
-    admit.
-  Defined.
-
-  Instance Abs_expr : Abs expr :=
-    {
-      abs := abs_e
-    }.
-
-  Definition subst_list_substx `{Substx V B} pairs body := fold_left (fun b p => substx (fst p) (snd p) b) pairs body.
-
-  Instance Subst_list_substx `{Substx V B} : Subst (list (string * V)) B := 
-    {
-      subst := subst_list_substx
-    }.
-
-  Definition abs_f (x : string) (f : formula) : formula.
-    admit.
-  Defined.
-
-  Instance Abs_formula : Abs formula :=
-    {
-      abs := abs_f
-    }.
-
-  Definition abs_p (x : string) (_ : type) : type.
-    admit.
-  Defined.
-
-  Instance Abs_type : Abs type :=
-    {
-      abs := abs_p
-    }.
-
-  Definition abs_s (x : string) (s : size) : size.
-    admit.
-  Defined.
-
-  Instance Abs_size : Abs size :=
-    {
-      abs := abs_s
-    }.
-
-  Definition abs_many `{Abs t} xs t := fold_left (flip abs) xs t.
-
   Fixpoint repeat A (a : A) n :=
     match n with
       | 0 => nil
@@ -529,52 +454,14 @@ Section LambdaO.
 
   Definition ones := repeat F1.
 
-  Definition add_many A ls m := fold_left (fun m p => @StringMap.add A (fst p) (snd p) m) ls m.
-
   Arguments fst {A B} _.
 
   Definition size1 := Stt.
-(*
-  Inductive typesig :=
-  | TSarrow (t1 t2 : typesig)
-  | TSconstr (_ : tconstr)
-  | TSvar (x : var)
-  | TSuniversal (t : typesig)
-  | TSabs (t : typesig)
-  | TSapp (a b : typesig)
-  | TSrecur (t : typesig)
-  .
-
-  Fixpoint sig (t : type) : typesig :=
-    match t with
-      | Tarrow a _ _ b => TSarrow (sig a ) (sig b)
-      | Tconstr c => TSconstr c
-      | Tvar x => TSvar x
-      | Tuniversal t => TSuniversal (sig t)
-      | Tabs t => TSabs (sig t)
-      | Tapp a b => TSapp (sig a) (sig b)
-      | Trecur t => TSrecur (sig t)
-    end.
-*)
-  Definition AllNotIn elt xs T := forall x, In x xs -> ~ @StringMap.In elt x T.
-
-  (* Definition add_typing x t T := StringMap.add x (TEtyping t) T. *)
-  (* Definition add_typings (ls : list (string * type)) T := add_many (map (map_snd TEtyping) ls) T. *)
-  (* Definition add_kinding x k T := StringMap.add x (TEkinding k) T. *)
 
   Definition add_typing t T := TEtyping t :: T.
   Definition add_typings ls T := map TEtyping (rev ls) ++ T.
   Definition add_kinding k T := TEkinding k :: T.
-(*
-  Definition max_type (a b : type) : type.
-    admit.
-  Defined.
 
-  Instance Max_type : Max type :=
-    {
-      max := max_type
-    }.
-*)
   Definition max_size (a b : size) : size.
     admit.
   Defined.
@@ -747,25 +634,6 @@ Section LambdaO.
 
   (* examples *)
 
-  Definition Fvar_empty_path (x : var) i := Fvar (x, []) i.
-  Infix "!" := Fvar_empty_path (at level 10).
-  Open Scope string_scope.
- 
-  Instance Apply_expr_expr_expr : Apply expr expr expr :=
-    {
-      apply := Eapp
-    }.
-  
-  Instance Apply_expr_type_expr : Apply expr type expr :=
-    {
-      apply := Etapp
-    }.
-  
-  Definition Epair (ta tb : type) := Econstr Cpair $$ ta $$ tb.
-  Definition Einl (ta tb : type) := Econstr Cinl $$ ta $$ tb.
-  Definition Einr (ta tb : type) := Econstr Cinr $$ ta $$ tb.
-  Definition Ett := Econstr Ctt.
-
   Definition Tlist := Tabs $ Trecur $ Tsum Tunit $ Tprod #1 #0.
   Definition Ematch_list (telm : type) e b_nil b_cons := 
     let tlist := Tlist $$ telm in
@@ -806,7 +674,7 @@ Section LambdaO.
   Definition merge :=
     Eletrec [(merge_type, list_int, Eabs list_int (merge_body #2))] #0.
 
-  Require Import Cito.ListFacts4.
+  Require Import ListFacts4.
 
   Arguments compose /. 
             Arguments flip /. 
