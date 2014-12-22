@@ -98,10 +98,26 @@ Section LambdaO.
   Definition path := list path_command. (* The query path into a inner-component *)
   Definition var_path := (var * path)%type.
 
+(*
   Variable formula : Type.
-  Variable F1 : formula.
   Variable Fvar : var_path -> stat_idx -> formula.
+  Variable F1 : formula.
   Variable Fplus Fmax : formula -> formula -> formula.
+*)
+
+  Inductive formula :=
+  | Fvar (x : var_path) (stat : stat_idx)
+  | F1
+  | Fplus (n1 n2 : formula)
+  | Fmax (n1 n2 : formula)
+  | F0 
+  | Fminus (n1 n2 : formula)
+  | Fmult (n1 n2 : formula)
+  | Fdiv (n1 n2 : formula)
+  | Flog (n : formula)
+  | Fexp (n : formula)
+  .
+
   Infix "+" := Fplus : formula_scope.
   Delimit Scope formula_scope with F.
   Open Scope F.
@@ -139,19 +155,11 @@ Section LambdaO.
   | Sfold (_ : size)
   .
 
-  (* substitute the outer-most bound variable *)
-  Class Subst value body :=
-    {
-      substn : nat -> value -> body -> body
-    }.
-
-  Definition subst `{Subst V B} v b := substn 0 v b.
-
   Inductive tconstr :=
   | TCunit
   | TCprod
   | TCsum
-  | TCint
+  (* | TCint *)
   .
 
   Inductive type :=
@@ -166,6 +174,7 @@ Section LambdaO.
   | Tapp (a b : type)
   (* recursive types *)         
   | Trecur (t : type)
+  | Tlift (_ : type)
   .
 
   Require Import Arith.
@@ -176,21 +185,54 @@ Section LambdaO.
 
   Notation "# n" := (Vbound n) (at level 3).
 
-  Fixpoint substn_t_t n v b :=
+  (* substitute the outer-most bound variable *)
+  Class Subst value body :=
+    {
+      substn : nat -> value -> body -> body
+    }.
+
+  Definition subst `{Subst V B} := substn 0.
+
+  Class Ignore t :=
+    {
+      ignore : nat -> t -> t
+    }.
+
+  Fixpoint visit_t n v b :=
     match b with
-      | Tvar (Vbound n') => 
-        match nat_compare n' n with 
-          | Lt => b
-          | Eq => v
-          | Gt => #(n' - 1)
-        end
-      | Tarrow a time size b => Tarrow (substn_t_t n v a) time size (substn_t_t (S n) v b)
+      | Tvar (Vbound n') => v n' n b
+      | Tlift t => match n with
+                     | 0 => t
+                     | S n' => Tlift $ visit_t n' v t
+                   end
+      | Tarrow a time retsize b => Tarrow (visit_t n v a) time retsize (visit_t (S n) v b)
       | Tconstr _ => b
-      | Tuniversal t => Tuniversal (substn_t_t (S n) v t) 
-      | Tabs t => Tabs (substn_t_t (S n) v t) 
-      | Tapp a b => Tapp (substn_t_t n v a) (substn_t_t n v b)
-      | Trecur t => Trecur (substn_t_t (S n) v t) 
+      | Tuniversal t => Tuniversal (visit_t (S n) v t) 
+      | Tabs t => Tabs (visit_t (S n) v t) 
+      | Tapp a b => Tapp (visit_t n v a) (visit_t n v b)
+      | Trecur t => Trecur (visit_t (S n) v t) 
     end.
+
+  Definition substn_t_t n v b := 
+    visit_t 
+      n 
+      (fun n' n b =>
+         match nat_compare n' n with 
+           | Lt => b
+           | Eq => iter n lift v
+           | Gt => #(n' - 1)
+         end) 
+      b.
+
+  Definition liftn_t n b := 
+    visit_t 
+      n 
+      (fun n' n b =>
+         match nat_compare n' n with 
+           | Lt => b
+           | _ => #(S n')
+         end) 
+      b.
 
   Instance Subst_type_type : Subst type type :=
     {
@@ -280,36 +322,57 @@ Section LambdaO.
   Coercion Evar : var >-> expr.
   Coercion Econstr : constr >-> expr.
 
-  Fixpoint substn_e_e n v b {struct b} :=
+  Fixpoint visit_e n v b :=
     match b with
-      | Evar (Vbound n') => 
-        match nat_compare n' n with 
-          | Lt => b
-          | Eq => v
-          | Gt => #(n' - 1)
-        end
+      | Evar (Vbound n') => v n' n b
       | Econstr _ => b
-      | Eapp a b => Eapp (substn_e_e n v a) (substn_e_e n v b)
-      | Eabs t e => Eabs t (substn_e_e (S n) v e)
-      | Elet t def main => Elet t (substn_e_e n v def) (substn_e_e (S n) v main)
+      | Eapp a b => Eapp (visit_e n v a) (visit_e n v b)
+      | Eabs t e => Eabs t (visit_e (S n) v e)
+      | Elet t def main => Elet t (visit_e n v def) (visit_e (S n) v main)
       | Eletrec defs main =>
         let m := length defs in
         Eletrec ((fix f ls := 
                     match ls with
                       | nil => nil
-                      | (t1, t2, e) :: xs => (t1, t2, substn_e_e (S m + n) v e) :: f xs 
-                    end) defs) (substn_e_e (m + n) v main)
-      | Ematch_pair target handler => Ematch_pair (substn_e_e n v target) (substn_e_e (2 + n) v handler)
-      | Ematch_sum target a b => Ematch_sum (substn_e_e n v target) (substn_e_e (S n) v a) (substn_e_e (S n) v b)
-      | Etapp e t => Etapp (substn_e_e n v e) t
-      | Etabs e => Etabs (substn_e_e (S n) v e)
-      | Efold e t => Efold (substn_e_e n v e) t
-      | Eunfold e t => Eunfold (substn_e_e n v e) t
+                      | (t1, t2, e) :: xs => (t1, t2, visit_e (S m + n) v e) :: f xs 
+                    end) defs) (visit_e (m + n) v main)
+      | Ematch_pair target handler => Ematch_pair (visit_e n v target) (visit_e (2 + n) v handler)
+      | Ematch_sum target a b => Ematch_sum (visit_e n v target) (visit_e (S n) v a) (visit_e (S n) v b)
+      | Etapp e t => Etapp (visit_e n v e) t
+      | Etabs e => Etabs (visit_e (S n) v e)
+      | Efold e t => Efold (visit_e n v e) t
+      | Eunfold e t => Eunfold (visit_e n v e) t
     end.
+
+  Definition substn_e_e n v b := 
+    visit_e 
+      n 
+      (fun n' n b =>
+         match nat_compare n' n with 
+           | Lt => b
+           | Eq => v
+           | Gt => #(n' - 1)
+         end) 
+      b.
+
+  Definition liftn_e n b := 
+    visit_e 
+      n 
+      (fun n' n b =>
+         match nat_compare n' n with 
+           | Lt => b
+           | _ => #(S n')
+         end) 
+      b.
 
   Instance Subst_expr_expr : Subst expr expr :=
     {
       substn := substn_e_e
+    }.
+
+  Instance Lift_expr : Lift expr :=
+    {
+      liftn := liftn_e
     }.
 
   Inductive IsOpaque : expr -> Prop :=
@@ -437,8 +500,17 @@ Section LambdaO.
   (* typing context *)
   Inductive tc_entry := 
     | TEtyping (t : type)
-    | TEtypevar
     | TEkinding (k : kind).
+
+  Arguments rev {A} _.
+
+  Definition cat_options {A} (ls : list (option A)) := fold_right (fun x acc => match x with Some v => v :: acc | _ => acc end) [] ls.
+
+  Definition map_option {A B} (f : A -> option B) := cat_options << map f.
+
+  Definition typings := map_option (fun x => match x with TEtyping v => Some v | _ => None end).
+
+  Definition kindings := map_option (fun x => match x with TEkinding v => Some v | _ => None end).
 
   (* Definition tcontext := StringMap.t tc_entry. *)
   Definition tcontext := list tc_entry.
@@ -498,7 +570,7 @@ Section LambdaO.
   Coercion var_to_size (x : var) : size := Svar (x, []).
 
   Inductive kinding : tcontext -> type -> kind -> Prop :=
-  | Kvar T n k : find n T = Some (TEkinding k) -> kinding T #n k
+  | Kvar T n k : find n (kindings T) = Some k -> kinding T #n k
   | Kapp T t1 t2 k :
       kinding T t1 (S k) ->
       kinding T t2 0 ->
@@ -519,8 +591,8 @@ Section LambdaO.
   | Krecur T t :
       kinding (add_kinding 0 T) t 0 ->
       kinding T (Trecur t) 0
-  | Kint T :
-      kinding T (Tconstr TCint) 0
+  (* | Kint T : *)
+  (*     kinding T (Tconstr TCint) 0 *)
   .
 
   Inductive teq : type -> type -> Prop :=
@@ -581,7 +653,7 @@ Section LambdaO.
   Open Scope formula_scope.
 
   Inductive typing : tcontext -> expr -> type -> formula -> size -> Prop :=
-  | TPvar T n t : find n T = Some (TEtyping t) -> typing T #n t F1 (var_to_Svar #n)
+  | TPvar T n t : find n (typings T) = Some t -> typing T #n t F1 (var_to_Svar #n)
   | TPapp T e1 e2 ta tb f g n1 n2 s1 s2 : 
       typing T e1 (Tarrow ta f g tb) n1 s1 ->
       typing T e2 ta n2 s2 ->
@@ -595,7 +667,7 @@ Section LambdaO.
       let t' := subst t2 t in
       typing T (Etapp e t2) t' n s
   | TPtabs T e t s:
-      typing (TEtypevar :: T) e t F1 s ->
+      typing (add_kinding 0 T) e t F1 s ->
       typing T (Etabs e) (Tuniversal t) F1 s
   | TPlet T t1 e1 e2 t2 n1 n2 s1 s2:
       typing T e1 t1 n1 s1 ->
@@ -650,12 +722,13 @@ Section LambdaO.
       n <= n' ->
       s <= s' ->
       typing T e t n' s'
+  (* typings and kindings are in different bounding space *)
   | TPpair T : 
-      typing T Cpair (Tuniversal $ Tuniversal $ Tarrow #1 F1 size1 $ Tarrow #1 F1 (Spair #1 #0) $ Tprod #3 #2) F1 size1
+      typing T Cpair (Tuniversal $ Tuniversal $ Tarrow #1 F1 size1 $ Tarrow #0 F1 (Spair #1 #0) $ Tprod #1 #0) F1 size1
   | TPinl T :
-      typing T Cinl (Tuniversal $ Tuniversal $ Tarrow #1 F1 (Sinl #0) $ Tsum #2 #1) F1 size1
+      typing T Cinl (Tuniversal $ Tuniversal $ Tarrow #1 F1 (Sinl #0) $ Tsum #1 #0) F1 size1
   | TPinr T :
-      typing T Cinl (Tuniversal $ Tuniversal $ Tarrow #0 F1 (Sinr #0) $ Tsum #2 #1) F1 size1
+      typing T Cinl (Tuniversal $ Tuniversal $ Tarrow #0 F1 (Sinr #0) $ Tsum #1 #0) F1 size1
   | TPtt T :
       typing T Ctt Tunit F1 size1
   .
@@ -665,7 +738,7 @@ Section LambdaO.
   Definition Tlist := Tabs $ Trecur $ Tsum Tunit $ Tprod #1 #0.
   Definition Ematch_list (telm : type) e b_nil b_cons := 
     let tlist := Tlist $$ telm in
-    Ematch_sum (Eunfold e tlist) b_nil (Ematch_pair #0 b_cons).
+    Ematch_sum (Eunfold e tlist) (lift b_nil) (Ematch_pair #0 $ liftn 2 b_cons).
   Definition Econs (telm : type) (a b : expr) := 
     let tlist := Tlist $$ telm in
     Efold (Epair telm tlist $$ a $$ b) tlist.
@@ -673,33 +746,60 @@ Section LambdaO.
   Definition Tbool := Tsum Tunit Tunit.
   Definition Etrue := Einl Tunit Tunit $$ Ett.
   Definition Efalse := Einr Tunit Tunit $$ Ett.
-  Definition Ematch_bool e b_true b_false :=
-    Ematch_sum e b_true b_false.
-  
+  Definition Eif e b_true b_false :=
+    Ematch_sum e (lift b_true) (lift b_false).
+
+(*  
   Definition Tint := Tconstr TCint.
   Variable int_lt : expr.
   Hypothesis TPint_lt : forall T, typing T int_lt (Tarrow Tint F1 size1 $ Tarrow Tint F1 size1 Tbool) F1 size1.
 
   Definition list_int := Tlist $$ Tint.
-
+*)
   Instance Apply_expr_var_expr : Apply expr var expr :=
     {
       apply a b := Eapp a b
     }.
   
-  Definition merge_body (merge : expr) := 
-    Ematch_list Tint #1(*xs*)
-                #1(*ys*)
-                (Ematch_list list_int #3(*ys*)
-                             #5(*xs*)
-                             (Ematch_bool (int_lt $$ #4(*x*) $$ #1(*y*))
-                                          (Econs Tint #5(*x*) (merge $$ #4(*xs'*) $$ #7(*ys*)))
-                                          (Econs Tint #2(*y*) (merge $$ #8(*xs*) $$ #1(*ys'*))))).
+  Instance Apply_type_var_type : Apply type var type :=
+    {
+      apply a b := Tapp a b
+    }.
 
-  Definition merge_type := Tarrow list_int F1 size1 $ Tarrow list_int (#1!0 + #0!0) (Sstats (#1!0 + #0!0, #1!1 + #0!1, #1!2 + #0!2, #1!3 + #0!3)) list_int.
+  (* loop_body is equivalent to this:
+
+    match xs with
+      | nil => ys
+      | x :: xs' => match ys with
+                      | nil => xs
+                      | y :: ys' => if cmp x y then
+                                      x :: loop xs' ys
+                                    else
+                                      y :: loop xs ys' end end
+  *)
+
+  Definition loop_body (telm : type) (cmp loop : expr) := 
+    Ematch_list telm #1(*xs*)
+                #0(*ys*)
+                (Ematch_list telm #2(*ys*)
+                             #3(*xs*)
+                             (Eif (cmp $$ #3(*x*) $$ #1(*y*))
+                                  (Econs telm #3(*x*) (loop $$ #2(*xs'*) $$ #4(*ys*)))
+                                  (Econs telm #1(*y*) (loop $$ #5(*xs*) $$ #0(*ys'*))))).
+
+  Definition loop_type (telm : type) := 
+    let list := Tlist $ telm in
+    Tarrow list F1 size1 $ Tarrow list (#1!0 + #0!0) (Sstats (#1!0 + #0!0, #1!1 + #0!1, #1!2 + #0!2, #1!3 + #0!3)) list.
+
+  Definition bool_size := size1.
+
+  Definition cmp_type (t : type) := Tarrow t F1 size1 $ Tarrow t F1 bool_size Tbool.
 
   Definition merge :=
-    Eletrec [(merge_type, list_int, Eabs list_int (merge_body #2))] #0.
+    Etabs $ Eabs (cmp_type #0) $ let list := Tlist $ #0 in Eletrec [(loop_type #0, list, Eabs list (loop_body #0 #3 #2))] #0.
+
+  Definition merge_type := 
+    Tuniversal $ Tarrow (cmp_type #0) F1 size1 $ loop_type #0.
 
   Require Import ListFacts4.
 
@@ -757,8 +857,85 @@ Section LambdaO.
     }
   Qed.
 
+  Lemma TPunfold' T e t n s s1 t1 t' :
+    t == Trecur t1 ->
+    is_fold s = Some s1 ->
+    typing T e t n s ->
+    t' = subst t t1 ->
+    typing T (Eunfold e t) t' n s1.
+  Proof.
+    intros; subst; eapply TPunfold; eauto.
+  Qed.
+
+  Lemma Qbeta' t1 t2 t' :
+    t' = subst t2 t1 ->
+    teq (Tapp (Tabs t1) t2) t'.
+  Proof.
+    intros; subst; eapply Qbeta; eauto.
+  Qed.
+
+  Arguments substn_t_t /.  
+            Arguments visit_t /.  
+
+  Lemma list_equal (t : type) : (Tlist $$ t) == Trecur (Tsum Tunit $ Tprod (lift t) #0).
+  Proof.
+    eapply Qbeta'.
+    simpl; eauto.
+  Qed.
+
+  Lemma TPmatch_pair' T e e' t t1 t2 n s n' s' s1 s2 t'' n'' s'' :
+    typing T e (Tprod t1 t2) n s ->
+    is_pair s = Some (s1, s2) ->
+    let t12 := [t1; t2] in
+    let T' := add_typings t12 T in
+    typing T' e' t n' s' ->
+    let s12 := [s1; s2] in
+    t'' = subst_list s12 t ->
+    n'' = n + subst_list s12 n' ->
+    s'' = subst_list s12 s' ->
+    typing T (Ematch_pair e e') t'' n'' s''.
+  Proof.
+    intros; subst; eapply TPmatch_pair; eauto.
+  Qed.
+
+  Lemma Kbool T : kinding T Tbool 0.
+  Proof.
+    eapply Ksum'; eapply Kunit.
+  Qed.
+
+  Lemma Kcmp_type T t : kinding T t 0 -> kinding T (cmp_type t) 0.
+  Proof.
+    intros H.
+    eapply Karrow; eauto.
+    eapply Karrow; eauto.
+    eapply Kbool.
+  Qed.
+
+  Class Monad m := 
+    {
+      ret : forall a, a -> m a;
+      bind : forall a, m a -> forall b, (a -> m b) -> m b
+    }.
+
+  Notation "x <- a ;; b" := (bind a (fun x => b)) (at level 90, right associativity).
+  Notation "a ;;; b" := (bind a (fun _ => b)) (at level 90, right associativity).
+
+  Instance Monad_option : Monad option :=
+    {
+      ret := fun A (v : A) => Some v;
+      bind := fun A (a : option A) B (f : A -> option B) =>
+                match a with
+                  | Some a => f a
+                  | None => None
+                end
+    }.
+
   Lemma merge_typing : typing [] merge merge_type F1 size1.
   Proof.
+    eapply TPtabs.
+    eapply TPabs.
+    { eapply Kcmp_type; eapply Kvar; eauto. }  
+    simpl.
     eapply TPletrec.
     {
       intros until 0.
@@ -766,72 +943,73 @@ Section LambdaO.
       eapply in_singleton_iff in H.
       inject H.
       eapply TPabs.
-      { eapply Klist; eapply Kint. }
+      { eapply Klist; eapply Kvar; eauto. }
       {
         simpl.
         eapply TPabs.
-        { eapply Klist; eapply Kint. }
+        { eapply Klist; eapply Kvar; eauto. }
         {
-          unfold merge_body.
+          unfold loop_body.
           eapply TPsub.
           {
             (*here*)
-            Lemma TPmatch_list :
-            unfold Ematch_list.
-            simpl.
-            eapply TPmatch_inlinr.
-            {
-              Lemma TPunfold' T e t n s s1 t1 t' :
-                t == Trecur t1 ->
-                is_fold s = Some s1 ->
-                typing T e t n s ->
-                t' = subst t t1 ->
-                typing T (Eunfold e t) t' n s1.
-              Proof.
-                intros; subst; eapply TPunfold; eauto.
-              Qed.
-              eapply TPunfold'.
-              {
-                Lemma list_equal (t : type) : (Tlist $$ t) == Trecur (Tsum Tunit $ Tprod t #0).
-                Proof.
-                  eapply Qbeta.
-                Qed.
-                eapply list_equal.
-              }
-              {
-                instantiate (2 := var_to_Svar #1).
-                simpl; eauto.
-              }
-              { eapply TPvar; compute; eauto. }
-              {
-                unfold Tsum; simpl; eauto.
-              }
-            }
-            { simpl; eauto. }
-            { eapply TPvar; compute; eauto. }
-            {
+            Definition is_list s :=
+              s <- is_fold s ;;
+                p <- is_inlinr s ;;
+                is_pair (snd p).
+
+            Lemma TPmatch_list T e e1 e2 telm n s s1 s2 t na sa nb sb :
+              let list := Tlist $ telm in
+              typing T e list n s ->
+              is_list s = Some (s1, s2) ->
+              typing T e1 t na sa ->
+              typing (add_typings [telm; list] T) e2 t nb sb ->
+              let s12 := [s1; s2] in
+              typing T (Ematch_list telm e e1 e2) t (n + max na (subst_list s12 nb)) (max sa (subst_list s12 sb)).
+            Proof.
               simpl.
-              Lemma TPmatch_pair' T e e' t t1 t2 n s n' s' s1 s2 t'' n'' s'' :
-                typing T e (Tprod t1 t2) n s ->
-                is_pair s = Some (s1, s2) ->
-                let t12 := [t1; t2] in
-                let T' := add_typings t12 T in
-                typing T' e' t n' s' ->
-                let s12 := [s1; s2] in
-                t'' = subst_list s12 t ->
-                n'' = n + subst_list s12 n' ->
-                s'' = subst_list s12 s' ->
-                typing T (Ematch_pair e e') t'' n'' s''.
+              intros He Hs H1 H2.
+              unfold Ematch_list.
+              Lemma TPmatch_inlinr' T e e1 e2 t1 t2 n s s1 s2 t na sa nb sb n' s' :
+                typing T e (Tsum t1 t2) n s ->
+                is_inlinr s = Some (s1, s2) ->
+                typing (add_typing t1 T) e1 t na sa ->
+                typing (add_typing t2 T) e2 t nb sb ->
+                n' = n + max (subst s1 na) (subst s2 nb) ->
+                s' = max (subst s1 sa) (subst s2 sb) ->
+                typing T (Ematch_sum e e1 e2) t n' s'.
               Proof.
-                intros; subst; eapply TPmatch_pair; eauto.
+                intros; subst; eapply TPmatch_inlinr; eauto.
               Qed.
-              eapply TPmatch_pair'; eauto; simpl; eauto.
-              { eapply TPvar; compute; eauto. }
-              { simpl; eauto. }
+              Lemma is_list_elim s p : is_list s = Some p -> exists s1 s2 s3, is_fold s = Some s1 /\ is_inlinr s1 = Some (s2, s3) /\ is_pair s3 = Some p.
+                admit.
+              Qed.
+              eapply is_list_elim in Hs.
+              destruct Hs as [sf [sl [sr [Hsf [Hslr Hsp]]]]].
+              eapply TPmatch_inlinr'; eauto.
               {
-                (*here*)
+                eapply TPunfold'; eauto.
+                { eapply list_equal. }
+                {
+                  simpl; eauto.
+                  fold (substn_t_t 0).
+                }
+                { eapply TPvar; compute; eauto. }
+                {
+                  unfold Tsum; simpl; eauto.
+                }
               }
-            }
+              { simpl; eauto. }
+              { eapply TPvar; compute; eauto. }
+              {
+                simpl.
+                eapply TPmatch_pair'; eauto; simpl; eauto.
+                { eapply TPvar; compute; eauto. }
+                { simpl; eauto. }
+                {
+                (*here*)
+                }
+              }
           }
           {
           }
@@ -844,14 +1022,3 @@ Section LambdaO.
       
 End LambdaO.
 
-Inductive formula :=
-| Fvar (x : var_path) (stat : stat_idx)
-| F0 
-| F1
-| Fplus (n1 n2 : formula)
-| Fminus (n1 n2 : formula)
-| Fmult (n1 n2 : formula)
-| Fdiv (n1 n2 : formula)
-| Flog (n : formula)
-| Fexp (n : formula)
-.
