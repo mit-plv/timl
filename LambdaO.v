@@ -174,7 +174,6 @@ Section LambdaO.
   | Tapp (a b : type)
   (* recursive types *)         
   | Trecur (t : type)
-  | Tlift (_ : type)
   .
 
   Require Import Arith.
@@ -193,18 +192,9 @@ Section LambdaO.
 
   Definition subst `{Subst V B} := substn 0.
 
-  Class Ignore t :=
-    {
-      ignore : nat -> t -> t
-    }.
-
   Fixpoint visit_t n v b :=
     match b with
       | Tvar (Vbound n') => v n' n b
-      | Tlift t => match n with
-                     | 0 => t
-                     | S n' => Tlift $ visit_t n' v t
-                   end
       | Tarrow a time retsize b => Tarrow (visit_t n v a) time retsize (visit_t (S n) v b)
       | Tconstr _ => b
       | Tuniversal t => Tuniversal (visit_t (S n) v t) 
@@ -213,16 +203,10 @@ Section LambdaO.
       | Trecur t => Trecur (visit_t (S n) v t) 
     end.
 
-  Definition substn_t_t n v b := 
-    visit_t 
-      n 
-      (fun n' n b =>
-         match nat_compare n' n with 
-           | Lt => b
-           | Eq => iter n lift v
-           | Gt => #(n' - 1)
-         end) 
-      b.
+  Class Lift t :=
+    {
+      liftn : nat -> t -> t
+    }.
 
   Definition liftn_t n b := 
     visit_t 
@@ -230,9 +214,32 @@ Section LambdaO.
       (fun n' n b =>
          match nat_compare n' n with 
            | Lt => b
-           | _ => #(S n')
-         end) 
+           | _ => #(S n') : type
+         end)
       b.
+
+  Instance Lift_type : Lift type :=
+    {
+      liftn := liftn_t
+    }.
+
+  Fixpoint iter {A} n f (x : A) :=
+    match n with
+      | 0 => x
+      | S n' => iter n' f (f x)
+    end.
+
+  Definition lift `{Lift t} := liftn 0.
+
+  Definition substn_t_t_f v n' n b :=
+    match nat_compare n' n with 
+      | Lt => b
+      | Eq => iter n lift v
+      | Gt => #(n' - 1) : type
+    end.
+
+  Definition substn_t_t n v b := 
+    visit_t n (substn_t_t_f v) b.
 
   Instance Subst_type_type : Subst type type :=
     {
@@ -344,17 +351,6 @@ Section LambdaO.
       | Eunfold e t => Eunfold (visit_e n v e) t
     end.
 
-  Definition substn_e_e n v b := 
-    visit_e 
-      n 
-      (fun n' n b =>
-         match nat_compare n' n with 
-           | Lt => b
-           | Eq => v
-           | Gt => #(n' - 1)
-         end) 
-      b.
-
   Definition liftn_e n b := 
     visit_e 
       n 
@@ -365,14 +361,25 @@ Section LambdaO.
          end) 
       b.
 
-  Instance Subst_expr_expr : Subst expr expr :=
-    {
-      substn := substn_e_e
-    }.
-
   Instance Lift_expr : Lift expr :=
     {
       liftn := liftn_e
+    }.
+
+  Definition substn_e_e n v b := 
+    visit_e 
+      n 
+      (fun n' n b =>
+         match nat_compare n' n with 
+           | Lt => b
+           | Eq => iter n lift v
+           | Gt => #(n' - 1)
+         end) 
+      b.
+
+  Instance Subst_expr_expr : Subst expr expr :=
+    {
+      substn := substn_e_e
     }.
 
   Inductive IsOpaque : expr -> Prop :=
@@ -653,7 +660,7 @@ Section LambdaO.
   Open Scope formula_scope.
 
   Inductive typing : tcontext -> expr -> type -> formula -> size -> Prop :=
-  | TPvar T n t : find n (typings T) = Some t -> typing T #n t F1 (var_to_Svar #n)
+  | TPvar T n t : find n (typings T) = Some t -> typing T #n (iter n lift t) F1 (var_to_Svar #n)
   | TPapp T e1 e2 ta tb f g n1 n2 s1 s2 : 
       typing T e1 (Tarrow ta f g tb) n1 s1 ->
       typing T e2 ta n2 s2 ->
@@ -874,9 +881,6 @@ Section LambdaO.
     intros; subst; eapply Qbeta; eauto.
   Qed.
 
-  Arguments substn_t_t /.  
-            Arguments visit_t /.  
-
   Lemma list_equal (t : type) : (Tlist $$ t) == Trecur (Tsum Tunit $ Tprod (lift t) #0).
   Proof.
     eapply Qbeta'.
@@ -986,27 +990,52 @@ Section LambdaO.
               Qed.
               eapply is_list_elim in Hs.
               destruct Hs as [sf [sl [sr [Hsf [Hslr Hsp]]]]].
-              eapply TPmatch_inlinr'; eauto.
+              eapply TPmatch_inlinr'; eauto; simpl.
               {
                 eapply TPunfold'; eauto.
                 { eapply list_equal. }
                 {
-                  simpl; eauto.
-                  fold (substn_t_t 0).
-                }
-                { eapply TPvar; compute; eauto. }
-                {
-                  unfold Tsum; simpl; eauto.
+                  Arguments substn_t_t n v b /.
+                  Arguments substn_t_t_f v n' n b /.
+                  simpl.
+                  Lemma fold_substn_t_t n v b : visit_t n (substn_t_t_f v) b = substn_t_t n v b.
+                  Proof.
+                    eauto.
+                  Qed.
+                  rewrite fold_substn_t_t.
+                  Lemma subst_lift v (b : type) : substn_t_t 0 v (liftn_t 0 b) = b.
+                    admit.
+                  Qed.
+                  rewrite subst_lift.
+                  unfold Tsum.
+                  eauto.
                 }
               }
-              { simpl; eauto. }
-              { eapply TPvar; compute; eauto. }
               {
-                simpl.
-                eapply TPmatch_pair'; eauto; simpl; eauto.
-                { eapply TPvar; compute; eauto. }
+                Definition removen A n ls := @firstn A n ls ++ skipn (S n) ls.
+                                             (*here*)
+                Lemma TPliftn T e t n s t' : typing (T) e t n s -> typing T (liftn m e) t n s.
+                  admit.
+                Qed.
+
+                Lemma TPlift T e t n s t' : typing T e t n s -> typing (TEtyping t' :: T) (lift e) t n s.
+                  admit.
+                Qed.
+                eapply TPlift; eauto.
+              }
+              {
+                eapply TPmatch_pair'.
+                Lemma TPvar' T n t t' : 
+                  find n (typings T) = Some t -> 
+                  t' = iter n lift t ->
+                  typing T #n t' F1 (var_to_Svar #n).
+                Proof.
+                  intros; subst; eapply TPvar; eauto.
+                Qed.
+                { eapply TPvar'; compute; eauto. }
                 { simpl; eauto. }
                 {
+                  simpl.
                 (*here*)
                 }
               }
