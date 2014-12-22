@@ -139,10 +139,19 @@ Section LambdaO.
   | Sfold (_ : size)
   .
 
+  (* substitute the outer-most bound variable *)
+  Class Subst value body :=
+    {
+      substn : nat -> value -> body -> body
+    }.
+
+  Definition subst `{Subst V B} v b := substn 0 v b.
+
   Inductive tconstr :=
   | TCunit
   | TCprod
   | TCsum
+  | TCint
   .
 
   Inductive type :=
@@ -159,6 +168,35 @@ Section LambdaO.
   | Trecur (t : type)
   .
 
+  Require Import Arith.
+  Infix "=?" := beq_nat (at level 70) : nat_scope.
+  Open Scope nat_scope.
+
+  Coercion Tvar : var >-> type.
+
+  Notation "# n" := (Vbound n) (at level 3).
+
+  Fixpoint substn_t_t n v b :=
+    match b with
+      | Tvar (Vbound n') => 
+        match nat_compare n' n with 
+          | Lt => b
+          | Eq => v
+          | Gt => #(n' - 1)
+        end
+      | Tarrow a time size b => Tarrow (substn_t_t n v a) time size (substn_t_t (S n) v b)
+      | Tconstr _ => b
+      | Tuniversal t => Tuniversal (substn_t_t (S n) v t) 
+      | Tabs t => Tabs (substn_t_t (S n) v t) 
+      | Tapp a b => Tapp (substn_t_t n v a) (substn_t_t n v b)
+      | Trecur t => Trecur (substn_t_t (S n) v t) 
+    end.
+
+  Instance Subst_type_type : Subst type type :=
+    {
+      substn := substn_t_t
+    }.
+
   Instance Apply_type_type_type : Apply type type type :=
     {
       apply := Tapp
@@ -167,8 +205,6 @@ Section LambdaO.
   Definition Tunit := Tconstr TCunit.
   Definition Tprod t1 t2 := Tconstr TCprod $$ t1 $$ t2.
   Definition Tsum t1 t2 := Tconstr TCsum $$ t1 $$ t2.
-
-  Coercion Tvar : var >-> type.
 
   Definition append_path (x : var_path) p : var_path := (fst x, snd x ++ [p]).
 
@@ -244,6 +280,38 @@ Section LambdaO.
   Coercion Evar : var >-> expr.
   Coercion Econstr : constr >-> expr.
 
+  Fixpoint substn_e_e n v b {struct b} :=
+    match b with
+      | Evar (Vbound n') => 
+        match nat_compare n' n with 
+          | Lt => b
+          | Eq => v
+          | Gt => #(n' - 1)
+        end
+      | Econstr _ => b
+      | Eapp a b => Eapp (substn_e_e n v a) (substn_e_e n v b)
+      | Eabs t e => Eabs t (substn_e_e (S n) v e)
+      | Elet t def main => Elet t (substn_e_e n v def) (substn_e_e (S n) v main)
+      | Eletrec defs main =>
+        let m := length defs in
+        Eletrec ((fix f ls := 
+                    match ls with
+                      | nil => nil
+                      | (t1, t2, e) :: xs => (t1, t2, substn_e_e (S m + n) v e) :: f xs 
+                    end) defs) (substn_e_e (m + n) v main)
+      | Ematch_pair target handler => Ematch_pair (substn_e_e n v target) (substn_e_e (2 + n) v handler)
+      | Ematch_sum target a b => Ematch_sum (substn_e_e n v target) (substn_e_e (S n) v a) (substn_e_e (S n) v b)
+      | Etapp e t => Etapp (substn_e_e n v e) t
+      | Etabs e => Etabs (substn_e_e (S n) v e)
+      | Efold e t => Efold (substn_e_e n v e) t
+      | Eunfold e t => Eunfold (substn_e_e n v e) t
+    end.
+
+  Instance Subst_expr_expr : Subst expr expr :=
+    {
+      substn := substn_e_e
+    }.
+
   Inductive IsOpaque : expr -> Prop :=
     | OPvar x : IsOpaque (Evar x)
     | OPconstr c : IsOpaque (Econstr c)
@@ -303,37 +371,13 @@ Section LambdaO.
       | CTunfold f t => Eunfold (plug f e) t
     end.
 
-  (* substitute the outer-most bound variable *)
-  Class Subst value body :=
-    {
-      subst : value -> body -> body
-    }.
-
-  Definition subst_var_var (v b : var) : var.
-    admit.
-  Defined.
-
-  Instance Subst_var_var : Subst var var :=
-    {
-      subst := subst_var_var
-    }.
-
-  Definition subst_e_e (v : expr) (e : expr) : expr.
-    admit.
-  Defined.
-
-  Instance Subst_expr_expr : Subst expr expr :=
-    {
-      subst := subst_e_e
-    }.
-
-  Definition subst_t_e (t : type) (e : expr) : expr.
+  Definition substn_t_e (n : nat) (t : type) (e : expr) : expr.
     admit.
   Defined.
 
   Instance Subst_type_expr : Subst type expr :=
     {
-      subst := subst_t_e
+      substn := substn_t_e
     }.
     
   Class Find key value container := 
@@ -347,11 +391,6 @@ Section LambdaO.
     }.
       
   Definition subst_list `{Subst V B} (values : list V) (e : B) := fold_left (flip subst) values e.
-
-  Instance Subst_list `{Subst V B} : Subst (list V) B := 
-    {
-      subst := subst_list
-    }.
 
   Definition Fvar_empty_path (x : var) i := Fvar (x, []) i.
   Infix "!" := Fvar_empty_path (at level 10).
@@ -371,8 +410,6 @@ Section LambdaO.
   Definition Einr (ta tb : type) := Econstr Cinr $$ ta $$ tb.
   Definition Ett := Econstr Ctt.
 
-  Notation "# n" := (Vbound n) (at level 3).
-
   Inductive step : expr -> expr -> Prop :=
     | STcontext c e1 e2 : step e1 e2 -> step (plug c e1) (plug c e2)
     | STapp t body arg : IsValue arg -> step (Eapp (Eabs t body) arg) (subst arg body)
@@ -384,7 +421,7 @@ Section LambdaO.
     | STmatch_pair ta tb a b k : 
         IsValue a ->
         IsValue b ->
-        step (Ematch_pair (Epair ta tb $$ a $$ b) k) (subst [a; b] k)
+        step (Ematch_pair (Epair ta tb $$ a $$ b) k) (subst_list [a; b] k)
     | STmatch_inl ta tb v k1 k2 : 
         IsValue v ->
         step (Ematch_sum (Einl ta tb $$ v) k1 k2) (subst v k1)
@@ -406,44 +443,31 @@ Section LambdaO.
   (* Definition tcontext := StringMap.t tc_entry. *)
   Definition tcontext := list tc_entry.
 
-  Definition subst_t_t (t2 : type) (t : type) : type.
-    admit.
-  Defined.
-
-  Definition subst_size_formula (s : size) (f : formula) : formula.
+  Definition substn_size_formula (n : nat) (s : size) (f : formula) : formula.
     admit.
   Defined.
 
   Instance Subst_size_formula : Subst size formula :=
     {
-      subst := subst_size_formula
+      substn := substn_size_formula
     }.
 
-  Definition subst_size_type (s : size) (_ : type) : type.
+  Definition substn_size_type (n : nat) (s : size) (_ : type) : type.
     admit.
   Defined.
 
   Instance Subst_size_type : Subst size type :=
     {
-      subst := subst_size_type
+      substn := substn_size_type
     }.
 
-  Definition subst_size_size (v b : size) : size.
+  Definition substn_size_size (n : nat) (v b : size) : size.
     admit.
   Defined.
 
   Instance Subst_size_size : Subst size size :=
     {
-      subst := subst_size_size
-    }.
-
-  Definition subst_type_type (v b : type) : type.
-    admit.
-  Defined.
-
-  Instance Subst_type_type : Subst type type :=
-    {
-      subst := subst_type_type
+      substn := substn_size_size
     }.
 
   Fixpoint repeat A (a : A) n :=
@@ -495,6 +519,8 @@ Section LambdaO.
   | Krecur T t :
       kinding (add_kinding 0 T) t 0 ->
       kinding T (Trecur t) 0
+  | Kint T :
+      kinding T (Tconstr TCint) 0
   .
 
   Inductive teq : type -> type -> Prop :=
@@ -552,6 +578,8 @@ Section LambdaO.
       equal := teq
     }.
 
+  Open Scope formula_scope.
+
   Inductive typing : tcontext -> expr -> type -> formula -> size -> Prop :=
   | TPvar T n t : find n T = Some (TEtyping t) -> typing T #n t F1 (var_to_Svar #n)
   | TPapp T e1 e2 ta tb f g n1 n2 s1 s2 : 
@@ -587,7 +615,7 @@ Section LambdaO.
       let T' := add_typings t12 T in
       typing T' e' t n' s' ->
       let s12 := [s1; s2] in
-      typing T (Ematch_pair e e') (subst s12 t) (n + subst s12 n') (subst s12 s')
+      typing T (Ematch_pair e e') (subst_list s12 t) (n + subst_list s12 n') (subst_list s12 s')
   | TPmatch_inlinr T e e1 e2 t1 t2 n s s1 s2 t na sa nb sb :
       typing T e (Tsum t1 t2) n s ->
       is_inlinr s = Some (s1, s2) ->
@@ -648,8 +676,7 @@ Section LambdaO.
   Definition Ematch_bool e b_true b_false :=
     Ematch_sum e b_true b_false.
   
-  Variable Tint : type.
-  Hypothesis Kint : forall T, kinding T Tint 0.
+  Definition Tint := Tconstr TCint.
   Variable int_lt : expr.
   Hypothesis TPint_lt : forall T, typing T int_lt (Tarrow Tint F1 size1 $ Tarrow Tint F1 size1 Tbool) F1 size1.
 
@@ -746,9 +773,11 @@ Section LambdaO.
         { eapply Klist; eapply Kint. }
         {
           unfold merge_body.
-          unfold Ematch_list.
           eapply TPsub.
           {
+            (*here*)
+            Lemma TPmatch_list :
+            unfold Ematch_list.
             simpl.
             eapply TPmatch_inlinr.
             {
@@ -762,6 +791,43 @@ Section LambdaO.
                 intros; subst; eapply TPunfold; eauto.
               Qed.
               eapply TPunfold'.
+              {
+                Lemma list_equal (t : type) : (Tlist $$ t) == Trecur (Tsum Tunit $ Tprod t #0).
+                Proof.
+                  eapply Qbeta.
+                Qed.
+                eapply list_equal.
+              }
+              {
+                instantiate (2 := var_to_Svar #1).
+                simpl; eauto.
+              }
+              { eapply TPvar; compute; eauto. }
+              {
+                unfold Tsum; simpl; eauto.
+              }
+            }
+            { simpl; eauto. }
+            { eapply TPvar; compute; eauto. }
+            {
+              simpl.
+              Lemma TPmatch_pair' T e e' t t1 t2 n s n' s' s1 s2 t'' n'' s'' :
+                typing T e (Tprod t1 t2) n s ->
+                is_pair s = Some (s1, s2) ->
+                let t12 := [t1; t2] in
+                let T' := add_typings t12 T in
+                typing T' e' t n' s' ->
+                let s12 := [s1; s2] in
+                t'' = subst_list s12 t ->
+                n'' = n + subst_list s12 n' ->
+                s'' = subst_list s12 s' ->
+                typing T (Ematch_pair e e') t'' n'' s''.
+              Proof.
+                intros; subst; eapply TPmatch_pair; eauto.
+              Qed.
+              eapply TPmatch_pair'; eauto; simpl; eauto.
+              { eapply TPvar; compute; eauto. }
+              { simpl; eauto. }
               {
                 (*here*)
               }
