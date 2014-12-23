@@ -45,6 +45,28 @@ Instance Functor_assoc_list A : Functor (assoc_list A) :=
     map := @map_assoc_list A
   }.
 
+Inductive cmp A :=
+| LT (_ : A)
+| EQ
+| GT (_ : A).
+
+Arguments EQ {A}.
+
+Definition map_cmp A B (f : A -> B) c :=
+  match c with
+    | LT a => LT (f a)
+    | EQ => EQ
+    | GT a => GT (f a)
+  end.
+
+Fixpoint nat_cmp n m :=
+  match n, m with
+    | O, O => EQ
+    | O, S p => LT p
+    | S p, O => GT p
+    | S n', S m' => map_cmp S (nat_cmp n' m')
+  end.
+
 Section LambdaO.
 
   Require Import Program.
@@ -79,20 +101,14 @@ Section LambdaO.
   Definition kind := nat.
 
   (* 
-    There are four statistics (or 'sizes') for each value :
+    There are two statistics (or 'sizes') for each value :
     s0 : number of invocations of 'fold' 
-         (for parametric algebraic data types, this correspond to the number of constructor invocations to construct this value, not counting those from the parameter types);
+         (for algebraic data types, this correspond to the number of constructor invocations to construct this value);
     s1 : parallel version of s0, where the fields of a pair are max'ed instead of sum'ed;
-    s2 : number of invocations of basic constrctors (tt, pair, inl, inr, lambda)
-         (for parametric algebraic data types, this correspond to the number of constructor invocations to construct this value, counting those from the parameter types);
-    s3 : parallel version of s2.
-
-    For example, for lists, s0 correspond to its length; s1 is the same as s0;
-      for trees, s0 corresponds to its number of nodes; s1 corresponds to its depth.
-    s2 corresponds to the amount of memory a value occupies, and the cost of a computation that needs to, for example, look into each element of a list.
+    For example, for lists, s0 correspond to its length; for trees, s0 corresponds to its number of nodes; s1 corresponds to its depth.
   *)
 
-  Definition stat_idx := nat. (* An index indication the statistics you want. Should be 'I_4 *)
+  Definition stat_idx := bool. (* An index indication the statistics you want. *)
   Inductive path_command :=
   | Pfst
   | Psnd
@@ -127,27 +143,7 @@ Section LambdaO.
   Delimit Scope formula_scope with F.
   Open Scope F.
 
-  Class Max t := 
-    {
-      max : t -> t -> t
-    }.
-
-  Instance Max_formula : Max formula :=
-    {
-      max := Fmax
-    }.
-
-  Definition tuple4 A := (A * A * A * A)%type.
-
-  Definition map_tuple4 A B (f : A -> B) (x : tuple4 A) := 
-    match x with (x0, x1, x2, x3) => (f x0, f x1, f x2, f x3) end.
-
-  Instance Functor_tuple4 : Functor tuple4 := 
-    {
-      map := map_tuple4
-    }.
-
-  Definition stats := tuple4 formula.
+  Definition stats := (formula * formula)%type.
 
   Inductive size :=
   | Svar (x : var_path)
@@ -159,6 +155,23 @@ Section LambdaO.
   | Spair (a b: size)
   | Sfold (_ : size)
   .
+
+  Definition subst_size_formula (n : nat) (s : size) (f : formula) : formula.
+    admit.
+  Defined.
+
+  (* substitute the outer-most bound variable *)
+  Class Subst value body :=
+    {
+      substn : nat -> value -> body -> body
+    }.
+
+  Definition subst `{Subst V B} := substn 0.
+
+  Instance Subst_size_formula : Subst size formula :=
+    {
+      substn := subst_size_formula
+    }.
 
   Inductive tconstr :=
   | TCunit
@@ -181,11 +194,11 @@ Section LambdaO.
   | Trecur (t : type)
   .
 
+  Coercion Tvar : var >-> type.
+
   Require Import Arith.
   Infix "=?" := beq_nat (at level 70) : nat_scope.
   Open Scope nat_scope.
-
-  Coercion Tvar : var >-> type.
 
   Notation "# n" := (Vbound n) (at level 3).
 
@@ -203,57 +216,38 @@ Section LambdaO.
   (* nv : the number in Vbound
      nq : the number of surrounding quantification layers 
    *)
-  Definition raise_from_t n b := 
-    visit_t 
-      n
-      (fun nv nq =>
-         match nat_compare nv nq with 
-           | Lt => #nv
-           | _ => #(S nv)
-         end)
-      b.
 
-  Definition raise_t := raise_from_t 0.
-
-  Inductive cmp A :=
-  | LT (_ : A)
-  | EQ
-  | GT (_ : A).
-
-  Arguments EQ {A}.
-
-  Definition map_cmp A B (f : A -> B) c :=
-    match c with
-      | LT a => LT (f a)
-      | EQ => EQ
-      | GT a => GT (f a)
+  Definition lift_t_f nv nq : type :=
+    match nat_compare nv nq with 
+      | Lt => #nv
+      | _ => #(S nv)
     end.
 
-  Fixpoint nat_cmp n m :=
-    match n, m with
-      | O, O => EQ
-      | O, S p => LT p
-      | S p, O => GT p
-      | S n', S m' => map_cmp S (nat_cmp n' m')
-    end.
+  Definition lift_from_t n b := 
+    visit_t n lift_t_f b.
+
+  Class Lift t := 
+    {
+      lift_from : nat -> t -> t
+    }.
+
+  Definition lift `{Lift t} := lift_from 0.
+  Definition liftby `{Lift t} n := iter n lift.
   
+  Instance Lift_type : Lift type :=
+    {
+      lift_from := lift_from_t
+    }.
+                    
   Definition subst_t_t_f n v nv nq : type :=
     match nat_cmp nv (n + nq) with 
       | LT _ => #nv
-      | EQ => iter nq raise_t v
+      | EQ => liftby nq v
       | GT p => #p (* variables above n+nq should be lowered *)
     end.
 
   Definition substn_t_t n v b := 
     visit_t 0 (subst_t_t_f n v) b.
-
-  (* substitute the outer-most bound variable *)
-  Class Subst value body :=
-    {
-      substn : nat -> value -> body -> body
-    }.
-
-  Definition subst `{Subst V B} := substn 0.
 
   Instance Subst_type_type : Subst type type :=
     {
@@ -343,65 +337,51 @@ Section LambdaO.
   Coercion Evar : var >-> expr.
   Coercion Econstr : constr >-> expr.
 
-  (* Typings and kindings are in different binding space, so bound variables appearing in the type annotations of an expression and those appearing outside the type annotations are in different binding space *)
-  Fixpoint visit_e n nt f b :=
-    let fv := fst f in
-    let ft := snd f nt in
+  Fixpoint visit_e n (f : (nat -> nat -> expr) * (nat -> type -> type)) b :=
+    let (fv, ft) := f in
     match b with
-      | Evar (Vbound n') => fv n' n nt
+      | Evar (Vbound n') => fv n' n
       | Econstr _ => b
-      | Eapp a b => Eapp (visit_e n nt f a) (visit_e n nt f b)
-      | Eabs t e => Eabs (ft t) (visit_e (S n) nt f e)
-      | Elet t def main => Elet (ft t) (visit_e n nt f def) (visit_e (S n) nt f main)
+      | Eapp a b => Eapp (visit_e n f a) (visit_e n f b)
+      | Eabs t e => Eabs (ft n t) (visit_e (S n) f e)
+      | Elet t def main => Elet (ft n t) (visit_e n f def) (visit_e (S n) f main)
       | Eletrec defs main =>
         let m := length defs in
         Eletrec ((fix loop ls := 
                     match ls with
                       | nil => nil
-                      | (t1, t2, e) :: xs => (ft t1, ft t2, visit_e (S m + n) nt f e) :: loop xs 
-                    end) defs) (visit_e (m + n) nt f main)
-      | Ematch_pair target handler => Ematch_pair (visit_e n nt f target) (visit_e (2 + n) nt f handler)
-      | Ematch_sum target a b => Ematch_sum (visit_e n nt f target) (visit_e (S n) nt f a) (visit_e (S n) nt f b)
-      | Etapp e t => Etapp (visit_e n nt f e) (ft t)
-      | Etabs e => Etabs (visit_e n (S nt) f e)
-      | Efold e t => Efold (visit_e n nt f e) (ft t)
-      | Eunfold e t => Eunfold (visit_e n nt f e) (ft t)
+                      | (t1, t2, e) :: xs => (ft n t1, ft (m + n) t2, visit_e (1 + m + n) f e) :: loop xs 
+                    end) defs) (visit_e (m + n) f main)
+      | Ematch_pair target handler => Ematch_pair (visit_e n f target) (visit_e (2 + n) f handler)
+      | Ematch_sum target a b => Ematch_sum (visit_e n f target) (visit_e (S n) f a) (visit_e (S n) f b)
+      | Etapp e t => Etapp (visit_e n f e) (ft n t)
+      | Etabs e => Etabs (visit_e (S n) f e)
+      | Efold e t => Efold (visit_e n f e) (ft n t)
+      | Eunfold e t => Eunfold (visit_e n f e) (ft n t)
     end.
 
-  Definition const2 {A B} (_ : A) (b : B) := b.
-
-  Definition raise_from_e n b := 
+  Definition lift_from_e n b := 
     visit_e 
       n
-      0
-      (fun nv nq _ =>
+      (fun nv nq =>
          match nat_compare nv nq with 
            | Lt => #nv : expr
            | _ => #(S nv) : expr
-         end, const2) 
+         end, fun nq t => lift_from_t nq t) 
       b.
 
-  Definition raise_e := raise_from_e 0.
-
-  Definition fv_noop (nv _ _ : nat) : expr := #nv.
-
-  Definition raise_from_e_t n b := 
-    visit_e 
-      0
-      n
-      (fv_noop, fun nqt t => raise_from_t nqt t) 
-      b.
-
-  Definition raise_e_t := raise_from_e_t 0.
+  Instance Lift_expr : Lift expr :=
+    {
+      lift_from := lift_from_e
+    }.
 
   Definition substn_e_e n v b := 
     visit_e 
       0
-      0
-      (fun nv nq nqt =>
+      (fun nv nq =>
          match nat_cmp nv (n + nq) with 
            | LT _ => #nv : expr
-           | EQ => iter nqt raise_e_t $ iter nq raise_e $ v
+           | EQ => liftby nq v
            | GT p => #p
          end, fun _ t => t) 
       b.
@@ -414,9 +394,8 @@ Section LambdaO.
   Definition substn_t_e n (v : type) (b : expr) : expr :=
     visit_e
       0
-      0
-      (fv_noop,
-       fun nqt t => substn (n + nqt) v t)
+      (fun nv _ => #nv : expr,
+       fun nq t => substn (n + nq) v t)
       b.
 
   Instance Subst_type_expr : Subst type expr :=
@@ -548,21 +527,8 @@ Section LambdaO.
 
   Definition map_option {A B} (f : A -> option B) := cat_options << map f.
 
-  Definition typings := map_option (fun x => match x with TEtyping v => Some v | _ => None end).
-
-  Definition kindings := map_option (fun x => match x with TEkinding v => Some v | _ => None end).
-
   (* Definition tcontext := StringMap.t tc_entry. *)
   Definition tcontext := list tc_entry.
-
-  Definition subst_size_formula (n : nat) (s : size) (f : formula) : formula.
-    admit.
-  Defined.
-
-  Instance Subst_size_formula : Subst size formula :=
-    {
-      substn := subst_size_formula
-    }.
 
   Definition subst_size_type (n : nat) (s : size) (_ : type) : type.
     admit.
@@ -598,6 +564,16 @@ Section LambdaO.
   Definition add_typings ls T := map TEtyping (rev ls) ++ T.
   Definition add_kinding k T := TEkinding k :: T.
 
+  Class Max t := 
+    {
+      max : t -> t -> t
+    }.
+
+  Instance Max_formula : Max formula :=
+    {
+      max := Fmax
+    }.
+
   Definition max_size (a b : size) : size.
     admit.
   Defined.
@@ -610,7 +586,7 @@ Section LambdaO.
   Coercion var_to_size (x : var) : size := Svar (x, []).
 
   Inductive kinding : tcontext -> type -> kind -> Prop :=
-  | Kvar T n k : find n (kindings T) = Some k -> kinding T #n k
+  | Kvar T n k : find n T = Some (TEkinding k) -> kinding T #n k
   | Kapp T t1 t2 k :
       kinding T t1 (S k) ->
       kinding T t2 0 ->
@@ -620,17 +596,20 @@ Section LambdaO.
       kinding T (Tabs t) (S k)
   | Karrow T t1 f g t2 :
       kinding T t1 0 ->
-      kinding T t2 0 ->
+      kinding (add_kinding 0 T) t2 0 ->
       kinding T (Tarrow t1 f g t2) 0
+  | Kuniversal T t :
+      kinding (add_kinding 0 T) t 0 ->
+      kinding T (Tuniversal t) 0
+  | Krecur T t :
+      kinding (add_kinding 0 T) t 0 ->
+      kinding T (Trecur t) 0
   | Kunit T :
       kinding T (Tconstr TCunit) 0
   | Kprod T :
       kinding T (Tconstr TCprod) 2
   | Ksum T :
       kinding T (Tconstr TCsum) 2
-  | Krecur T t :
-      kinding (add_kinding 0 T) t 0 ->
-      kinding T (Trecur t) 0
   (* | Kint T : *)
   (*     kinding T (Tconstr TCint) 0 *)
   .
@@ -692,21 +671,10 @@ Section LambdaO.
 
   Open Scope formula_scope.
 
-  Fixpoint find_typing' nt n T :=
-    match T with
-      | nil => None
-      | TEtyping t :: xs =>
-        match n with
-          | 0 => Some (t, nt)
-          | S n' => find_typing' nt n' xs
-        end
-      | TEkinding _ :: xs => find_typing' (S nt) n xs
-    end.
-
-  Definition find_typing := find_typing' 0.
-
   Inductive typing : tcontext -> expr -> type -> formula -> size -> Prop :=
-  | TPvar T n t nt : find_typing n T = Some (t, nt) -> typing T #n (iter nt raise_t t) F1 (var_to_Svar #n)
+  | TPvar T n t : 
+      find n T = Some (TEtyping t) -> 
+      typing T #n (liftby n t) F1 (var_to_Svar #n)
   | TPapp T e1 e2 ta tb f g n1 n2 s1 s2 : 
       typing T e1 (Tarrow ta f g tb) n1 s1 ->
       typing T e2 ta n2 s2 ->
@@ -730,7 +698,7 @@ Section LambdaO.
       let T' := add_typings (map (fst >> fst) defs) T in
       (forall lhs_t rhs_t e, 
          In (lhs_t, rhs_t, e) defs -> 
-         typing T' (Eabs rhs_t e) lhs_t F1 size1) ->
+         typing T' (Eabs rhs_t e) (liftby (length defs) lhs_t) F1 size1) ->
       typing T' main t n s ->
       typing T (Eletrec defs main) t n s
   | TPmatch_pair T e e' t t1 t2 n s n' s' s1 s2 :
@@ -744,8 +712,8 @@ Section LambdaO.
   | TPmatch_inlinr T e e1 e2 t1 t2 n s s1 s2 t na sa nb sb :
       typing T e (Tsum t1 t2) n s ->
       is_inlinr s = Some (s1, s2) ->
-      typing (add_typing t1 T) e1 t na sa ->
-      typing (add_typing t2 T) e2 t nb sb ->
+      typing (add_typing t1 T) e1 (lift t) na sa -> (* t can't use x:t1 *)
+      typing (add_typing t2 T) e2 (lift t) nb sb -> (* t can't use x:t2 *)
       typing T (Ematch_sum e e1 e2) t (n + max (subst s1 na) (subst s2 nb)) (max (subst s1 sa) (subst s2 sb))
   | TPmatch_inl T e e1 e2 t1 t2 n s s' t' n' sa :
       typing T e (Tsum t1 t2) n s ->
@@ -776,11 +744,11 @@ Section LambdaO.
       s <= s' ->
       typing T e t n' s'
   | TPpair T : 
-      typing T Cpair (Tuniversal $ Tuniversal $ Tarrow #1 F1 size1 $ Tarrow #0 F1 (Spair #1 #0) $ Tprod #1 #0) F1 size1
+      typing T Cpair (Tuniversal $ Tuniversal $ Tarrow #1 F1 size1 $ Tarrow #1 F1 (Spair #1 #0) $ Tprod #3 #2) F1 size1
   | TPinl T :
-      typing T Cinl (Tuniversal $ Tuniversal $ Tarrow #1 F1 (Sinl #0) $ Tsum #1 #0) F1 size1
+      typing T Cinl (Tuniversal $ Tuniversal $ Tarrow #1 F1 (Sinl #0) $ Tsum #2 #1) F1 size1
   | TPinr T :
-      typing T Cinl (Tuniversal $ Tuniversal $ Tarrow #0 F1 (Sinr #0) $ Tsum #1 #0) F1 size1
+      typing T Cinl (Tuniversal $ Tuniversal $ Tarrow #0 F1 (Sinr #0) $ Tsum #2 #1) F1 size1
   | TPtt T :
       typing T Ctt Tunit F1 size1
   .
@@ -790,7 +758,7 @@ Section LambdaO.
   Definition Tlist := Tabs $ Trecur $ Tsum Tunit $ Tprod #1 #0.
   Definition Ematch_list (telm : type) e b_nil b_cons := 
     let tlist := Tlist $$ telm in
-    Ematch_sum (Eunfold e tlist) (raise_e b_nil) (Ematch_pair #0 $ raise_from_e 2 b_cons).
+    Ematch_sum (Eunfold e tlist) (lift b_nil) (Ematch_pair #0 $ lift_from 2 b_cons).
   Definition Econs (telm : type) (a b : expr) := 
     let tlist := Tlist $$ telm in
     Efold (Epair telm tlist $$ a $$ b) tlist.
@@ -799,7 +767,7 @@ Section LambdaO.
   Definition Etrue := Einl Tunit Tunit $$ Ett.
   Definition Efalse := Einr Tunit Tunit $$ Ett.
   Definition Eif e b_true b_false :=
-    Ematch_sum e (raise_e b_true) (raise_e b_false).
+    Ematch_sum e (lift b_true) (lift b_false).
 
 (*  
   Definition Tint := Tconstr TCint.
@@ -831,36 +799,39 @@ Section LambdaO.
   *)
 
   Definition loop_body (telm : type) (cmp loop : expr) := 
-    Ematch_list telm #1(*xs*)
+    Ematch_list telm #1(*xs*) (*level 0*)
                 #0(*ys*)
-                (Ematch_list telm #2(*ys*)
+                (Ematch_list (liftby 2 telm) #2(*ys*) (*level 2*)
                              #3(*xs*)
-                             (Eif (cmp $$ #3(*x*) $$ #1(*y*))
-                                  (Econs telm #3(*x*) (loop $$ #2(*xs'*) $$ #4(*ys*)))
-                                  (Econs telm #1(*y*) (loop $$ #5(*xs*) $$ #0(*ys'*))))).
+                             (Eif (cmp $$ #3(*x*) $$ #1(*y*)) (*level 4*)
+                                  (Econs (liftby 4 telm) #3(*x*) (loop $$ #2(*xs'*) $$ #4(*ys*)))
+                                  (Econs (liftby 4 telm) #1(*y*) (loop $$ #5(*xs*) $$ #0(*ys'*))))).
+
+  Notation t := true.
+  Notation f := false.
 
   Definition loop_type (telm : type) := 
     let list := Tlist $ telm in
-    Tarrow list F1 size1 $ Tarrow list (#1!0 + #0!0) (Sstats (#1!0 + #0!0, #1!1 + #0!1, #1!2 + #0!2, #1!3 + #0!3)) list.
+    Tarrow list F1 size1 $ Tarrow (lift list) (#1!t + #0!t) (Sstats (#1!t + #0!t, #1!f + #0!f)) (liftby 2 list).
 
   Definition bool_size := size1.
 
-  Definition cmp_type (t : type) := Tarrow t F1 size1 $ Tarrow t F1 bool_size Tbool.
+  Definition cmp_type (t : type) := Tarrow t F1 size1 $ Tarrow (lift t) F1 bool_size Tbool.
 
   Definition merge :=
-    Etabs $ Eabs (cmp_type #0) $ let list := Tlist $ #0 in Eletrec [(loop_type #0, list, Eabs list (loop_body #0 #3 #2))] #0.
+    Etabs $ let telm : type := #0 in let list := Tlist $ telm in Eabs (cmp_type telm) $ Eletrec [(loop_type (lift telm), (liftby 2 list), Eabs (liftby 3 list) (loop_body (liftby 4 telm) #3 #2))] #0.
 
   Definition merge_type := 
-    Tuniversal $ Tarrow (cmp_type #0) F1 size1 $ loop_type #0.
+    Tuniversal $ Tarrow (cmp_type #0) F1 size1 $ loop_type #1.
 
   Require Import ListFacts4.
 
-  Arguments compose /. 
-            Arguments flip /. 
-            Arguments apply_arrow /. 
-            Arguments add_typing /. 
-            Arguments add_typings /. 
-            Arguments add_kinding /. 
+  Arguments compose / . 
+  Arguments flip / . 
+  Arguments apply_arrow / . 
+  Arguments add_typing / . 
+  Arguments add_typings / . 
+  Arguments add_kinding / . 
 
   Lemma Kprod' T a b :
     kinding T a 0 ->
@@ -926,10 +897,7 @@ Section LambdaO.
     intros; subst; eapply Qbeta; eauto.
   Qed.
 
-  Arguments substn_t_t n v b /.
-            Arguments subst_t_t_f n v nv nq /.
-
-  Lemma list_equal (t : type) : (Tlist $$ t) == Trecur (Tsum Tunit $ Tprod (raise_t t) #0).
+  Lemma list_equal (t : type) : (Tlist $$ t) == Trecur (Tsum Tunit $ Tprod (lift t) #0).
   Proof.
     eapply Qbeta'.
     simpl; eauto.
@@ -960,6 +928,13 @@ Section LambdaO.
     intros H.
     eapply Karrow; eauto.
     eapply Karrow; eauto.
+    {
+      simpl.
+      Lemma Klift k' T t k : kinding T t k -> kinding (TEkinding k' :: T) (lift t) k.
+        admit.
+      Qed.
+      eapply Klift; eauto.
+    }
     eapply Kbool.
   Qed.
 
@@ -994,6 +969,12 @@ Section LambdaO.
       intros H.
       eapply in_singleton_iff in H.
       inject H.
+      Arguments substn_t_t n v b / .
+      Arguments subst_t_t_f n v nv nq / .
+      Arguments liftby / .
+      simpl.
+      Arguments lift_from_t / .
+      simpl.
       eapply TPabs.
       { eapply Klist; eapply Kvar; eauto. }
       {
@@ -1014,7 +995,7 @@ Section LambdaO.
               typing T e list n s ->
               is_list s = Some (s1, s2) ->
               typing T e1 t na sa ->
-              typing (add_typings [telm; list] T) e2 t nb sb ->
+              typing (add_typings [telm; list] T) e2 (liftby 2 t) nb sb ->
               let s12 := [s1; s2] in
               typing T (Ematch_list telm e e1 e2) t (n + max na (subst_list s12 nb)) (max sa (subst_list s12 sb)).
             Proof.
@@ -1024,8 +1005,8 @@ Section LambdaO.
               Lemma TPmatch_inlinr' T e e1 e2 t1 t2 n s s1 s2 t na sa nb sb n' s' :
                 typing T e (Tsum t1 t2) n s ->
                 is_inlinr s = Some (s1, s2) ->
-                typing (add_typing t1 T) e1 t na sa ->
-                typing (add_typing t2 T) e2 t nb sb ->
+                typing (add_typing t1 T) e1 (lift t) na sa ->
+                typing (add_typing t2 T) e2 (lift t) nb sb ->
                 n' = n + max (subst s1 na) (subst s2 nb) ->
                 s' = max (subst s1 sa) (subst s2 sb) ->
                 typing T (Ematch_sum e e1 e2) t n' s'.
@@ -1048,26 +1029,31 @@ Section LambdaO.
                     eauto.
                   Qed.
                   rewrite fold_substn_t_t.
-                  Lemma subst_raise v (b : type) : substn_t_t 0 v (raise_t b) = b.
+                  Lemma fold_lift_from_t n t : visit_t n lift_t_f t = lift_from_t n t.
+                  Proof.
+                    eauto.
+                  Qed.
+                  rewrite fold_lift_from_t.
+                  Lemma subst_lift v (b : type) : substn_t_t 0 v (lift_from_t 0 b) = b.
                     admit.
                   Qed.
-                  rewrite subst_raise.
+                  rewrite subst_lift.
                   unfold Tsum.
                   eauto.
                 }
               }
               {
                 Definition removen A n ls := @firstn A n ls ++ skipn (S n) ls.
-                Lemma TPraise0 T e t n s t' : typing T e t n s -> typing (TEtyping t' :: T) (raise_e e) t n s.
+                Lemma TPlift0 T e t n s t' : typing T e t n s -> typing (TEtyping t' :: T) (lift e) (lift t) n s.
                   admit.
                 Qed.
-                eapply TPraise0; eauto.
+                eapply TPlift0; eauto.
               }
               {
                 eapply TPmatch_pair'.
-                Lemma TPvar' T n t t' nt : 
-                  find_typing n T = Some (t, nt) -> 
-                  t' = iter nt raise_t t ->
+                Lemma TPvar' T n t t' : 
+                  find n T = Some (TEtyping t) -> 
+                  t' = liftby n t ->
                   typing T #n t' F1 (var_to_Svar #n).
                 Proof.
                   intros; subst; eapply TPvar; eauto.
@@ -1078,9 +1064,9 @@ Section LambdaO.
                   simpl.
                 (*here*)
 (*
-                Lemma TPraise2 : 
+                Lemma TPlift2 : 
                   typing (TEtyping t0 :: TEtyping t1 :: T) e
-                  typing (TEtyping t0 :: TEtyping t1 :: TEtyping t2 :: T) (raise_from_e 2 e) t n s.
+                  typing (TEtyping t0 :: TEtyping t1 :: TEtyping t2 :: T) (lift_from_e 2 e) t n s.
 *)
                 }
               }
@@ -1089,7 +1075,7 @@ Section LambdaO.
           }
           {
           }
-        }
+p        }
       }        
     }
   Qed.
