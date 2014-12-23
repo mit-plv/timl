@@ -3,8 +3,7 @@ Unset Strict Implicit.
 Unset Printing Implicit Defensive. 
 Generalizable All Variables.
 
-Require Import String List.
-Open Scope string_scope.
+Require Import List.
 Import ListNotations.
 Open Scope list_scope.
 
@@ -12,6 +11,12 @@ Fixpoint range begin len :=
   match len with
     | 0 => nil
     | S n => begin :: range (S begin) n
+  end.
+
+Fixpoint iter {A} n f (x : A) :=
+  match n with
+    | 0 => x
+    | S n' => iter n' f (f x)
   end.
 
 Definition assoc_list A B := list (A * B).
@@ -184,6 +189,64 @@ Section LambdaO.
 
   Notation "# n" := (Vbound n) (at level 3).
 
+  Fixpoint visit_t n f b :=
+    match b with
+      | Tvar (Vbound n') => f n' n
+      | Tarrow a time retsize b => Tarrow (visit_t n f a) time retsize (visit_t (S n) f b)
+      | Tconstr _ => b
+      | Tuniversal t => Tuniversal (visit_t (S n) f t) 
+      | Tabs t => Tabs (visit_t (S n) f t) 
+      | Tapp a b => Tapp (visit_t n f a) (visit_t n f b)
+      | Trecur t => Trecur (visit_t (S n) f t) 
+    end.
+
+  (* nv : the number in Vbound
+     nq : the number of surrounding quantification layers 
+   *)
+  Definition raise_from_t n b := 
+    visit_t 
+      n
+      (fun nv nq =>
+         match nat_compare nv nq with 
+           | Lt => #nv
+           | _ => #(S nv)
+         end)
+      b.
+
+  Definition raise_t := raise_from_t 0.
+
+  Inductive cmp A :=
+  | LT (_ : A)
+  | EQ
+  | GT (_ : A).
+
+  Arguments EQ {A}.
+
+  Definition map_cmp A B (f : A -> B) c :=
+    match c with
+      | LT a => LT (f a)
+      | EQ => EQ
+      | GT a => GT (f a)
+    end.
+
+  Fixpoint nat_cmp n m :=
+    match n, m with
+      | O, O => EQ
+      | O, S p => LT p
+      | S p, O => GT p
+      | S n', S m' => map_cmp S (nat_cmp n' m')
+    end.
+  
+  Definition subst_t_t_f n v nv nq : type :=
+    match nat_cmp nv (n + nq) with 
+      | LT _ => #nv
+      | EQ => iter nq raise_t v
+      | GT p => #p (* variables above n+nq should be lowered *)
+    end.
+
+  Definition substn_t_t n v b := 
+    visit_t 0 (subst_t_t_f n v) b.
+
   (* substitute the outer-most bound variable *)
   Class Subst value body :=
     {
@@ -191,55 +254,6 @@ Section LambdaO.
     }.
 
   Definition subst `{Subst V B} := substn 0.
-
-  Fixpoint visit_t n v b :=
-    match b with
-      | Tvar (Vbound n') => v n' n b
-      | Tarrow a time retsize b => Tarrow (visit_t n v a) time retsize (visit_t (S n) v b)
-      | Tconstr _ => b
-      | Tuniversal t => Tuniversal (visit_t (S n) v t) 
-      | Tabs t => Tabs (visit_t (S n) v t) 
-      | Tapp a b => Tapp (visit_t n v a) (visit_t n v b)
-      | Trecur t => Trecur (visit_t (S n) v t) 
-    end.
-
-  Class Lift t :=
-    {
-      liftn : nat -> t -> t
-    }.
-
-  Definition liftn_t n b := 
-    visit_t 
-      n 
-      (fun n' n b =>
-         match nat_compare n' n with 
-           | Lt => b
-           | _ => #(S n') : type
-         end)
-      b.
-
-  Instance Lift_type : Lift type :=
-    {
-      liftn := liftn_t
-    }.
-
-  Fixpoint iter {A} n f (x : A) :=
-    match n with
-      | 0 => x
-      | S n' => iter n' f (f x)
-    end.
-
-  Definition lift `{Lift t} := liftn 0.
-
-  Definition substn_t_t_f v n' n b :=
-    match nat_compare n' n with 
-      | Lt => b
-      | Eq => iter n lift v
-      | Gt => #(n' - 1) : type
-    end.
-
-  Definition substn_t_t n v b := 
-    visit_t n (substn_t_t_f v) b.
 
   Instance Subst_type_type : Subst type type :=
     {
@@ -329,52 +343,67 @@ Section LambdaO.
   Coercion Evar : var >-> expr.
   Coercion Econstr : constr >-> expr.
 
-  Fixpoint visit_e n v b :=
+  (* Typings and kindings are in different binding space, so bound variables appearing in the type annotations of an expression and those appearing outside the type annotations are in different binding space *)
+  Fixpoint visit_e n nt f b :=
+    let fv := fst f in
+    let ft := snd f nt in
     match b with
-      | Evar (Vbound n') => v n' n b
+      | Evar (Vbound n') => fv n' n nt
       | Econstr _ => b
-      | Eapp a b => Eapp (visit_e n v a) (visit_e n v b)
-      | Eabs t e => Eabs t (visit_e (S n) v e)
-      | Elet t def main => Elet t (visit_e n v def) (visit_e (S n) v main)
+      | Eapp a b => Eapp (visit_e n nt f a) (visit_e n nt f b)
+      | Eabs t e => Eabs (ft t) (visit_e (S n) nt f e)
+      | Elet t def main => Elet (ft t) (visit_e n nt f def) (visit_e (S n) nt f main)
       | Eletrec defs main =>
         let m := length defs in
-        Eletrec ((fix f ls := 
+        Eletrec ((fix loop ls := 
                     match ls with
                       | nil => nil
-                      | (t1, t2, e) :: xs => (t1, t2, visit_e (S m + n) v e) :: f xs 
-                    end) defs) (visit_e (m + n) v main)
-      | Ematch_pair target handler => Ematch_pair (visit_e n v target) (visit_e (2 + n) v handler)
-      | Ematch_sum target a b => Ematch_sum (visit_e n v target) (visit_e (S n) v a) (visit_e (S n) v b)
-      | Etapp e t => Etapp (visit_e n v e) t
-      | Etabs e => Etabs (visit_e (S n) v e)
-      | Efold e t => Efold (visit_e n v e) t
-      | Eunfold e t => Eunfold (visit_e n v e) t
+                      | (t1, t2, e) :: xs => (ft t1, ft t2, visit_e (S m + n) nt f e) :: loop xs 
+                    end) defs) (visit_e (m + n) nt f main)
+      | Ematch_pair target handler => Ematch_pair (visit_e n nt f target) (visit_e (2 + n) nt f handler)
+      | Ematch_sum target a b => Ematch_sum (visit_e n nt f target) (visit_e (S n) nt f a) (visit_e (S n) nt f b)
+      | Etapp e t => Etapp (visit_e n nt f e) (ft t)
+      | Etabs e => Etabs (visit_e n (S nt) f e)
+      | Efold e t => Efold (visit_e n nt f e) (ft t)
+      | Eunfold e t => Eunfold (visit_e n nt f e) (ft t)
     end.
 
-  Definition liftn_e n b := 
+  Definition const2 {A B} (_ : A) (b : B) := b.
+
+  Definition raise_from_e n b := 
     visit_e 
-      n 
-      (fun n' n b =>
-         match nat_compare n' n with 
-           | Lt => b
-           | _ => #(S n')
-         end) 
+      n
+      0
+      (fun nv nq _ =>
+         match nat_compare nv nq with 
+           | Lt => #nv : expr
+           | _ => #(S nv) : expr
+         end, const2) 
       b.
 
-  Instance Lift_expr : Lift expr :=
-    {
-      liftn := liftn_e
-    }.
+  Definition raise_e := raise_from_e 0.
+
+  Definition fv_noop (nv _ _ : nat) : expr := #nv.
+
+  Definition raise_from_e_t n b := 
+    visit_e 
+      0
+      n
+      (fv_noop, fun nqt t => raise_from_t nqt t) 
+      b.
+
+  Definition raise_e_t := raise_from_e_t 0.
 
   Definition substn_e_e n v b := 
     visit_e 
-      n 
-      (fun n' n b =>
-         match nat_compare n' n with 
-           | Lt => b
-           | Eq => iter n lift v
-           | Gt => #(n' - 1)
-         end) 
+      0
+      0
+      (fun nv nq nqt =>
+         match nat_cmp nv (n + nq) with 
+           | LT _ => #nv : expr
+           | EQ => iter nqt raise_e_t $ iter nq raise_e $ v
+           | GT p => #p
+         end, fun _ t => t) 
       b.
 
   Instance Subst_expr_expr : Subst expr expr :=
@@ -382,6 +411,19 @@ Section LambdaO.
       substn := substn_e_e
     }.
 
+  Definition substn_t_e n (v : type) (b : expr) : expr :=
+    visit_e
+      0
+      0
+      (fv_noop,
+       fun nqt t => substn (n + nqt) v t)
+      b.
+
+  Instance Subst_type_expr : Subst type expr :=
+    {
+      substn := substn_t_e
+    }.
+    
   Inductive IsOpaque : expr -> Prop :=
     | OPvar x : IsOpaque (Evar x)
     | OPconstr c : IsOpaque (Econstr c)
@@ -441,15 +483,6 @@ Section LambdaO.
       | CTunfold f t => Eunfold (plug f e) t
     end.
 
-  Definition substn_t_e (n : nat) (t : type) (e : expr) : expr.
-    admit.
-  Defined.
-
-  Instance Subst_type_expr : Subst type expr :=
-    {
-      substn := substn_t_e
-    }.
-    
   Class Find key value container := 
     {
       find : key -> container -> option value
@@ -522,31 +555,31 @@ Section LambdaO.
   (* Definition tcontext := StringMap.t tc_entry. *)
   Definition tcontext := list tc_entry.
 
-  Definition substn_size_formula (n : nat) (s : size) (f : formula) : formula.
+  Definition subst_size_formula (n : nat) (s : size) (f : formula) : formula.
     admit.
   Defined.
 
   Instance Subst_size_formula : Subst size formula :=
     {
-      substn := substn_size_formula
+      substn := subst_size_formula
     }.
 
-  Definition substn_size_type (n : nat) (s : size) (_ : type) : type.
+  Definition subst_size_type (n : nat) (s : size) (_ : type) : type.
     admit.
   Defined.
 
   Instance Subst_size_type : Subst size type :=
     {
-      substn := substn_size_type
+      substn := subst_size_type
     }.
 
-  Definition substn_size_size (n : nat) (v b : size) : size.
+  Definition subst_size_size (n : nat) (v b : size) : size.
     admit.
   Defined.
 
   Instance Subst_size_size : Subst size size :=
     {
-      substn := substn_size_size
+      substn := subst_size_size
     }.
 
   Fixpoint repeat A (a : A) n :=
@@ -659,8 +692,21 @@ Section LambdaO.
 
   Open Scope formula_scope.
 
+  Fixpoint find_typing' nt n T :=
+    match T with
+      | nil => None
+      | TEtyping t :: xs =>
+        match n with
+          | 0 => Some (t, nt)
+          | S n' => find_typing' nt n' xs
+        end
+      | TEkinding _ :: xs => find_typing' (S nt) n xs
+    end.
+
+  Definition find_typing := find_typing' 0.
+
   Inductive typing : tcontext -> expr -> type -> formula -> size -> Prop :=
-  | TPvar T n t : find n (typings T) = Some t -> typing T #n (iter n lift t) F1 (var_to_Svar #n)
+  | TPvar T n t nt : find_typing n T = Some (t, nt) -> typing T #n (iter nt raise_t t) F1 (var_to_Svar #n)
   | TPapp T e1 e2 ta tb f g n1 n2 s1 s2 : 
       typing T e1 (Tarrow ta f g tb) n1 s1 ->
       typing T e2 ta n2 s2 ->
@@ -729,7 +775,6 @@ Section LambdaO.
       n <= n' ->
       s <= s' ->
       typing T e t n' s'
-  (* typings and kindings are in different bounding space *)
   | TPpair T : 
       typing T Cpair (Tuniversal $ Tuniversal $ Tarrow #1 F1 size1 $ Tarrow #0 F1 (Spair #1 #0) $ Tprod #1 #0) F1 size1
   | TPinl T :
@@ -745,7 +790,7 @@ Section LambdaO.
   Definition Tlist := Tabs $ Trecur $ Tsum Tunit $ Tprod #1 #0.
   Definition Ematch_list (telm : type) e b_nil b_cons := 
     let tlist := Tlist $$ telm in
-    Ematch_sum (Eunfold e tlist) (lift b_nil) (Ematch_pair #0 $ liftn 2 b_cons).
+    Ematch_sum (Eunfold e tlist) (raise_e b_nil) (Ematch_pair #0 $ raise_from_e 2 b_cons).
   Definition Econs (telm : type) (a b : expr) := 
     let tlist := Tlist $$ telm in
     Efold (Epair telm tlist $$ a $$ b) tlist.
@@ -754,7 +799,7 @@ Section LambdaO.
   Definition Etrue := Einl Tunit Tunit $$ Ett.
   Definition Efalse := Einr Tunit Tunit $$ Ett.
   Definition Eif e b_true b_false :=
-    Ematch_sum e (lift b_true) (lift b_false).
+    Ematch_sum e (raise_e b_true) (raise_e b_false).
 
 (*  
   Definition Tint := Tconstr TCint.
@@ -881,7 +926,10 @@ Section LambdaO.
     intros; subst; eapply Qbeta; eauto.
   Qed.
 
-  Lemma list_equal (t : type) : (Tlist $$ t) == Trecur (Tsum Tunit $ Tprod (lift t) #0).
+  Arguments substn_t_t n v b /.
+            Arguments subst_t_t_f n v nv nq /.
+
+  Lemma list_equal (t : type) : (Tlist $$ t) == Trecur (Tsum Tunit $ Tprod (raise_t t) #0).
   Proof.
     eapply Qbeta'.
     simpl; eauto.
@@ -956,7 +1004,6 @@ Section LambdaO.
           unfold loop_body.
           eapply TPsub.
           {
-            (*here*)
             Definition is_list s :=
               s <- is_fold s ;;
                 p <- is_inlinr s ;;
@@ -995,39 +1042,32 @@ Section LambdaO.
                 eapply TPunfold'; eauto.
                 { eapply list_equal. }
                 {
-                  Arguments substn_t_t n v b /.
-                  Arguments substn_t_t_f v n' n b /.
                   simpl.
-                  Lemma fold_substn_t_t n v b : visit_t n (substn_t_t_f v) b = substn_t_t n v b.
+                  Lemma fold_substn_t_t n v b : visit_t 0 (subst_t_t_f n v) b = substn_t_t n v b.
                   Proof.
                     eauto.
                   Qed.
                   rewrite fold_substn_t_t.
-                  Lemma subst_lift v (b : type) : substn_t_t 0 v (liftn_t 0 b) = b.
+                  Lemma subst_raise v (b : type) : substn_t_t 0 v (raise_t b) = b.
                     admit.
                   Qed.
-                  rewrite subst_lift.
+                  rewrite subst_raise.
                   unfold Tsum.
                   eauto.
                 }
               }
               {
                 Definition removen A n ls := @firstn A n ls ++ skipn (S n) ls.
-                                             (*here*)
-                Lemma TPliftn T e t n s t' : typing (T) e t n s -> typing T (liftn m e) t n s.
+                Lemma TPraise0 T e t n s t' : typing T e t n s -> typing (TEtyping t' :: T) (raise_e e) t n s.
                   admit.
                 Qed.
-
-                Lemma TPlift T e t n s t' : typing T e t n s -> typing (TEtyping t' :: T) (lift e) t n s.
-                  admit.
-                Qed.
-                eapply TPlift; eauto.
+                eapply TPraise0; eauto.
               }
               {
                 eapply TPmatch_pair'.
-                Lemma TPvar' T n t t' : 
-                  find n (typings T) = Some t -> 
-                  t' = iter n lift t ->
+                Lemma TPvar' T n t t' nt : 
+                  find_typing n T = Some (t, nt) -> 
+                  t' = iter nt raise_t t ->
                   typing T #n t' F1 (var_to_Svar #n).
                 Proof.
                   intros; subst; eapply TPvar; eauto.
@@ -1037,6 +1077,11 @@ Section LambdaO.
                 {
                   simpl.
                 (*here*)
+(*
+                Lemma TPraise2 : 
+                  typing (TEtyping t0 :: TEtyping t1 :: T) e
+                  typing (TEtyping t0 :: TEtyping t1 :: TEtyping t2 :: T) (raise_from_e 2 e) t n s.
+*)
                 }
               }
           }
