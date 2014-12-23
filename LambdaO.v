@@ -126,19 +126,34 @@ Section LambdaO.
   Variable Fplus Fmax : formula -> formula -> formula.
 *)
 
-  Inductive formula :=
-  | Fvar (x : var_path) (stat : stat_idx)
-  | F1
-  | Fplus (n1 n2 : formula)
-  | Fmax (n1 n2 : formula)
-  | F0 
-  | Fminus (n1 n2 : formula)
-  | Fmult (n1 n2 : formula)
-  | Fdiv (n1 n2 : formula)
-  | Flog (n : formula)
-  | Fexp (n : formula)
+  Inductive fbinop :=
+  | FBplus
+  | FBmax
+  | FBminus
+  | FBmult
+  | FBdiv
   .
 
+  Inductive funop :=
+  | FUlog
+  | FUexp
+  .
+
+  Inductive fconst :=
+  | FC0
+  | FC1
+  .
+
+  Inductive formula :=
+  | Fvar (x : var_path) (stat : stat_idx)
+  | Fconst (_ : fconst)
+  | Fbinop (_ : fbinop) (a b : formula)
+  | Funop (_ : funop) (_ : formula)
+  .
+
+  Definition F1 := Fconst FC1.
+  Definition Fplus := Fbinop FBplus.
+  Definition Fmax := Fbinop FBmax.
   Infix "+" := Fplus : formula_scope.
   Delimit Scope formula_scope with F.
   Open Scope F.
@@ -156,9 +171,25 @@ Section LambdaO.
   | Sfold (_ : size)
   .
 
-  Definition subst_size_formula (n : nat) (s : size) (f : formula) : formula.
-    admit.
-  Defined.
+  Fixpoint visit_f f fm :=
+    match fm with
+      | Fvar x i => f x i
+      | Fconst c => fm
+      | Fbinop o a b => Fbinop o (visit_f f a) (visit_f f b)
+      | Funop o n => Funop o (visit_f f n)
+    end.
+
+  Definition subst_size_formula (n : nat) (s : size) (f : formula) : formula :=
+    visit_f 
+      (fun xp i => 
+         let (Vbound nv, path) := xp in
+         match nat_cmp nv n with 
+           | LT _ => (#nv, path)
+           | EQ => v
+           | GT p => (#p, path)
+         end
+      ) 
+      f.
 
   (* substitute the outer-most bound variable *)
   Class Subst value body :=
