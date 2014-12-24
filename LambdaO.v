@@ -67,6 +67,31 @@ Fixpoint nat_cmp n m :=
     | S n', S m' => map_cmp S (nat_cmp n' m')
   end.
 
+Class Monad m := 
+  {
+    ret : forall a, a -> m a;
+    bind : forall a, m a -> forall b, (a -> m b) -> m b
+  }.
+
+Notation "x <- a ;; b" := (bind a (fun x => b)) (at level 90, right associativity).
+Notation "a ;;; b" := (bind a (fun _ => b)) (at level 90, right associativity).
+
+Instance Monad_option : Monad option :=
+  {
+    ret := fun A (v : A) => Some v;
+    bind := fun A (a : option A) B (f : A -> option B) =>
+              match a with
+                | Some a => f a
+                | None => None
+              end
+  }.
+
+Definition default A (def : A) x :=
+  match x with
+    | Some v => v
+    | None => def
+  end.
+
 Section LambdaO.
 
   Require Import Program.
@@ -93,6 +118,8 @@ Section LambdaO.
     | Vbound : nat -> var
     (* | Vfree : string -> var *)
   .
+
+  Notation "# n" := (Vbound n) (at level 3).
 
   (* Coercion Vbound : nat >-> var. *)
   (* Coercion Vfree : string >-> var. *)
@@ -171,25 +198,123 @@ Section LambdaO.
   | Sfold (_ : size)
   .
 
+  Definition append_path (x : var_path) p : var_path := (fst x, snd x ++ [p]).
+
+  Definition is_pair (s : size) :=
+    match s with
+      | Svar x => Some (Svar (append_path x Pfst), Svar (append_path x Psnd))
+      | Spair a b => Some (a, b)
+      | _ => None
+    end.
+
+  Definition is_inlinr (s : size) :=
+    match s with
+      | Svar x => Some (Svar (append_path x Pinl), Svar (append_path x Pinr))
+      | Sinlinr a b => Some (a, b)
+      | _ => None
+    end.
+
+  Definition is_inl (s : size) :=
+    match s with
+      | Svar x => Some (Svar (append_path x Pinl))
+      | Sinlinr a b => Some a
+      | Sinl s => Some s
+      | _ => None
+    end.
+
+  Definition is_inr (s : size) :=
+    match s with
+      | Svar x => Some (Svar (append_path x Pinr))
+      | Sinlinr a b => Some b
+      | Sinr s => Some s
+      | _ => None
+    end.
+
+  Definition is_fold (s : size) :=
+    match s with
+      | Svar x => Some (Svar (append_path x Punfold))
+      | Sfold t => Some t
+      | _ => None
+    end.
+
+  Definition size1 := Stt.
+
+  Definition query_cmd cmd s :=
+    match cmd with
+      | Pfst => 
+        p <- is_pair s ;;
+        ret (fst p)
+      | Psnd =>
+        p <- is_pair s ;;
+        ret (snd p)
+      | Pinl => is_inl s
+      | Pinr => is_inr s
+      | Punfold => is_fold s
+    end.
+
+  Fixpoint query_path path s :=
+    match path with
+      | cmd :: path => 
+        s <- query_cmd cmd s ;;
+        query_path path s
+      | nil => ret s
+    end.
+
+  Definition stats_get (idx : stat_idx) (ss : stats) := if idx then fst ss else snd ss.
+
+  Class Max t := 
+    {
+      max : t -> t -> t
+    }.
+
+  Instance Max_formula : Max formula :=
+    {
+      max := Fmax
+    }.
+
+  Fixpoint summarize (s : size) : stats :=
+    match s with
+      | Svar x => (Fvar x true, Fvar x false)
+      | Sstats ss => ss
+      | Stt => (F1, F1)
+      | Spair a b => 
+        let (a1, a2) := summarize a in
+        let (b1, b2) := summarize b in
+        (a1 + b1, a2 + b2)
+      | Sinlinr a b => 
+        let (a1, a2) := summarize a in
+        let (b1, b2) := summarize b in
+        (max a1 b1, max a2 b2)
+      | Sinl s => summarize s
+      | Sinr s => summarize s
+      | Sfold s =>
+        let (f1, f2) := summarize s in
+        (F1 + f1, F1 + f2)
+    end.
+
+  Definition query_idx idx s := stats_get idx $ summarize s.
+    
+  Definition query_path_idx path idx s :=
+    s <- query_path path s ;;
+    ret (query_idx idx s).
+    
   Fixpoint visit_f f fm :=
     match fm with
-      | Fvar x i => f x i
+      | Fvar (Vbound nv, path) i => f nv path i
       | Fconst c => fm
       | Fbinop o a b => Fbinop o (visit_f f a) (visit_f f b)
       | Funop o n => Funop o (visit_f f n)
     end.
 
-  Definition subst_size_formula (n : nat) (s : size) (f : formula) : formula :=
+  Definition subst_size_formula (n : nat) (v : size) (b : formula) : formula :=
     visit_f 
-      (fun xp i => 
-         let (Vbound nv, path) := xp in
+      (fun nv path i => 
          match nat_cmp nv n with 
-           | LT _ => (#nv, path)
-           | EQ => v
-           | GT p => (#p, path)
-         end
-      ) 
-      f.
+           | LT _ => Fvar (#nv, path) i
+           | EQ => default F1 $ query_path_idx path i v
+           | GT p => Fvar (#p, path) i
+         end) 
+      b.
 
   (* substitute the outer-most bound variable *)
   Class Subst value body :=
@@ -199,9 +324,81 @@ Section LambdaO.
 
   Definition subst `{Subst V B} := substn 0.
 
+  Definition lift_from_f n f :=
+    visit_f
+      (fun nv path i =>
+         let nv :=
+             match nat_cmp nv n with
+               | LT _ => nv
+               | _ => S nv
+             end in
+         Fvar (#nv, path) i)
+      f.
+
+  Class Lift t := 
+    {
+      lift_from : nat -> t -> t
+    }.
+
+  Definition lift `{Lift t} := lift_from 0.
+  Definition liftby `{Lift t} n := iter n lift.
+  
+  Instance Lift_formula : Lift formula :=
+    {
+      lift_from := lift_from_f
+    }.
+
   Instance Subst_size_formula : Subst size formula :=
     {
       substn := subst_size_formula
+    }.
+
+  Definition map_stats A (f : formula -> A) (ss : stats) := (f (fst ss), f (snd ss)).
+ 
+  Fixpoint visit_s (f : (nat -> path -> size) * (formula -> formula)) s :=
+    let (fv, ff) := f in
+    match s with
+      | Svar (Vbound nv, path) => fv nv path
+      | Sstats ss => Sstats $ map_stats ff ss
+      | Stt => Stt
+      | Spair a b => Spair (visit_s f a) (visit_s f b)
+      | Sinlinr a b => Sinlinr (visit_s f a) (visit_s f b)
+      | Sinl s => Sinl (visit_s f s)
+      | Sinr s => Sinr (visit_s f s)
+      | Sfold s => Sfold (visit_s f s)
+    end.
+
+  Definition subst_size_size (n : nat) (v b : size) : size :=
+    visit_s 
+      (fun nv path =>
+         match nat_cmp nv n with 
+           | LT _ => Svar (#nv, path)
+           | EQ => default Stt $ query_path path v
+           | GT p => Svar (#p, path)
+         end,
+      substn n v) 
+      b.
+
+  Instance Subst_size_size : Subst size size :=
+    {
+      substn := subst_size_size
+    }.
+
+  Definition lift_from_s n s :=
+    visit_s
+      (fun nv path =>
+         let nv :=
+             match nat_cmp nv n with
+               | LT _ => nv
+               | _ => S nv
+             end in
+         Svar (#nv, path),
+      lift_from n)
+      s.
+
+  Instance Lift_size : Lift size :=
+    {
+      lift_from := lift_from_s
     }.
 
   Inductive tconstr :=
@@ -227,16 +424,15 @@ Section LambdaO.
 
   Coercion Tvar : var >-> type.
 
-  Require Import Arith.
-  Infix "=?" := beq_nat (at level 70) : nat_scope.
   Open Scope nat_scope.
 
-  Notation "# n" := (Vbound n) (at level 3).
-
-  Fixpoint visit_t n f b :=
+  Fixpoint visit_t n (f : (nat -> nat -> type) * (nat -> formula -> formula) * (nat -> size -> size)) b :=
+    let fv := fst $ fst f in
+    let ff := snd $ fst f in
+    let fs := snd f in
     match b with
-      | Tvar (Vbound n') => f n' n
-      | Tarrow a time retsize b => Tarrow (visit_t n f a) time retsize (visit_t (S n) f b)
+      | Tvar (Vbound n') => fv n' n
+      | Tarrow a time retsize b => Tarrow (visit_t n f a) (ff (S n) time) (fs (S n) retsize) (visit_t (S n) f b)
       | Tconstr _ => b
       | Tuniversal t => Tuniversal (visit_t (S n) f t) 
       | Tabs t => Tabs (visit_t (S n) f t) 
@@ -248,23 +444,15 @@ Section LambdaO.
      nq : the number of surrounding quantification layers 
    *)
 
-  Definition lift_t_f nv nq : type :=
-    match nat_compare nv nq with 
-      | Lt => #nv
+  Definition lift_t_f nv nq : type := 
+    match nat_cmp nv nq with 
+      | LT _ => #nv
       | _ => #(S nv)
     end.
 
-  Definition lift_from_t n b := 
-    visit_t n lift_t_f b.
+  Definition lift_from_t n t := 
+    visit_t n (lift_t_f, lift_from, lift_from) t.
 
-  Class Lift t := 
-    {
-      lift_from : nat -> t -> t
-    }.
-
-  Definition lift `{Lift t} := lift_from 0.
-  Definition liftby `{Lift t} n := iter n lift.
-  
   Instance Lift_type : Lift type :=
     {
       lift_from := lift_from_t
@@ -277,12 +465,30 @@ Section LambdaO.
       | GT p => #p (* variables above n+nq should be lowered *)
     end.
 
+  Definition const1f {A B C} (f : A -> C) (a : A) (_ : B) := f a.
+  Definition const2 {A B} (_ : A) (b : B) := b.
+
   Definition substn_t_t n v b := 
-    visit_t 0 (subst_t_t_f n v) b.
+    visit_t 0 (subst_t_t_f n v, const2, const2) b.
 
   Instance Subst_type_type : Subst type type :=
     {
       substn := substn_t_t
+    }.
+
+  Definition substn_sub `{Subst V B, Lift V} n v nq b := substn (n + nq) (liftby nq v) b.
+
+  Definition subst_size_type (n : nat) (v : size) (b : type) : type :=
+    visit_t
+      0 
+      (const1f (Vbound >> Tvar), 
+       substn_sub n v,
+       substn_sub n v)
+      b.
+
+  Instance Subst_size_type : Subst size type :=
+    {
+      substn := subst_size_type
     }.
 
   Instance Apply_type_type_type : Apply type type type :=
@@ -294,8 +500,6 @@ Section LambdaO.
   Definition Tprod t1 t2 := Tconstr TCprod $$ t1 $$ t2.
   Definition Tsum t1 t2 := Tconstr TCsum $$ t1 $$ t2.
 
-  Definition append_path (x : var_path) p : var_path := (fst x, snd x ++ [p]).
-
 (*
   Definition tuple4indices : tuple4 nat := (0, 1, 2, 3). 
 
@@ -305,27 +509,6 @@ Section LambdaO.
       | Sstruct stats _ => stats
     end.
 *)
-
-  Definition is_pair (s : size) :=
-    match s with
-      | Svar x => Some (Svar (append_path x Pfst), Svar (append_path x Psnd))
-      | Spair a b => Some (a, b)
-      | _ => None
-    end.
-
-  Definition is_inlinr (s : size) :=
-    match s with
-      | Svar x => Some (Svar (append_path x Pinl), Svar (append_path x Pinr))
-      | Sinlinr a b => Some (a, b)
-      | _ => None
-    end.
-
-  Definition is_fold (s : size) :=
-    match s with
-      | Svar x => Some (Svar (append_path x Punfold))
-      | Sfold t => Some t
-      | _ => None
-    end.
 
   Inductive constr :=
   | Ctt
@@ -391,15 +574,15 @@ Section LambdaO.
       | Eunfold e t => Eunfold (visit_e n f e) (ft n t)
     end.
 
-  Definition lift_from_e n b := 
+  Definition lift_from_e n e := 
     visit_e 
       n
       (fun nv nq =>
-         match nat_compare nv nq with 
-           | Lt => #nv : expr
+         match nat_cmp nv nq with 
+           | LT _ => #nv : expr
            | _ => #(S nv) : expr
-         end, fun nq t => lift_from_t nq t) 
-      b.
+         end, lift_from) 
+      e.
 
   Instance Lift_expr : Lift expr :=
     {
@@ -414,7 +597,7 @@ Section LambdaO.
            | LT _ => #nv : expr
            | EQ => liftby nq v
            | GT p => #p
-         end, fun _ t => t) 
+         end, const2) 
       b.
 
   Instance Subst_expr_expr : Subst expr expr :=
@@ -425,8 +608,8 @@ Section LambdaO.
   Definition substn_t_e n (v : type) (b : expr) : expr :=
     visit_e
       0
-      (fun nv _ => #nv : expr,
-       fun nq t => substn (n + nq) v t)
+      (const1f (Vbound >> Evar),
+       substn_sub n v)
       b.
 
   Instance Subst_type_expr : Subst type expr :=
@@ -561,24 +744,6 @@ Section LambdaO.
   (* Definition tcontext := StringMap.t tc_entry. *)
   Definition tcontext := list tc_entry.
 
-  Definition subst_size_type (n : nat) (s : size) (_ : type) : type.
-    admit.
-  Defined.
-
-  Instance Subst_size_type : Subst size type :=
-    {
-      substn := subst_size_type
-    }.
-
-  Definition subst_size_size (n : nat) (v b : size) : size.
-    admit.
-  Defined.
-
-  Instance Subst_size_size : Subst size size :=
-    {
-      substn := subst_size_size
-    }.
-
   Fixpoint repeat A (a : A) n :=
     match n with
       | 0 => nil
@@ -589,21 +754,9 @@ Section LambdaO.
 
   Arguments fst {A B} _.
 
-  Definition size1 := Stt.
-
   Definition add_typing t T := TEtyping t :: T.
   Definition add_typings ls T := map TEtyping (rev ls) ++ T.
   Definition add_kinding k T := TEkinding k :: T.
-
-  Class Max t := 
-    {
-      max : t -> t -> t
-    }.
-
-  Instance Max_formula : Max formula :=
-    {
-      max := Fmax
-    }.
 
   Definition max_size (a b : size) : size.
     admit.
@@ -969,25 +1122,6 @@ Section LambdaO.
     eapply Kbool.
   Qed.
 
-  Class Monad m := 
-    {
-      ret : forall a, a -> m a;
-      bind : forall a, m a -> forall b, (a -> m b) -> m b
-    }.
-
-  Notation "x <- a ;; b" := (bind a (fun x => b)) (at level 90, right associativity).
-  Notation "a ;;; b" := (bind a (fun _ => b)) (at level 90, right associativity).
-
-  Instance Monad_option : Monad option :=
-    {
-      ret := fun A (v : A) => Some v;
-      bind := fun A (a : option A) B (f : A -> option B) =>
-                match a with
-                  | Some a => f a
-                  | None => None
-                end
-    }.
-
   Lemma merge_typing : typing [] merge merge_type F1 size1.
   Proof.
     eapply TPtabs.
@@ -1055,12 +1189,12 @@ Section LambdaO.
                 { eapply list_equal. }
                 {
                   simpl.
-                  Lemma fold_substn_t_t n v b : visit_t 0 (subst_t_t_f n v) b = substn_t_t n v b.
+                  Lemma fold_substn_t_t n v b : visit_t 0 (subst_t_t_f n v, const2, const2) b = substn_t_t n v b.
                   Proof.
                     eauto.
                   Qed.
                   rewrite fold_substn_t_t.
-                  Lemma fold_lift_from_t n t : visit_t n lift_t_f t = lift_from_t n t.
+                  Lemma fold_lift_from_t n t : visit_t n (lift_t_f, lift_from, lift_from) t = lift_from_t n t.
                   Proof.
                     eauto.
                   Qed.
