@@ -956,12 +956,13 @@ Section LambdaO.
       typing T' e' t n' s' ->
       let s12 := [s1; s2] in
       typing T (Ematch_pair e e') (subst_list s12 t) (n + subst_list s12 n') (subst_list s12 s')
-  | TPmatch_inlinr T e e1 e2 t1 t2 n s s1 s2 t na nb s' :
+  | TPmatch_inlinr T e e1 e2 t1 t2 n s s1 s2 t' n' s' :
       typing T e (Tsum t1 t2) n s ->
       is_inlinr s = Some (s1, s2) ->
-      typing (add_typing t1 T) e1 (lift t) na (lift s') -> (* t and s' can't use x:t1 *)
-      typing (add_typing t2 T) e2 (lift t) nb (lift s') -> (* t and s' can't use x:t2 *)
-      typing T (Ematch_sum e e1 e2) t (n + max (subst s1 na) (subst s2 nb)) s'
+      (* t', n' and s' are backward guidance and specs for branches *)
+      typing (add_typing t1 T) e1 (lift t') (lift n') (lift s') -> 
+      typing (add_typing t2 T) e2 (lift t') (lift n') (lift s') -> 
+      typing T (Ematch_sum e e1 e2) t' (n + n') s'
   | TPmatch_inl T e e1 e2 t1 t2 n s s' t' n' sa :
       typing T e (Tsum t1 t2) n s ->
       s = Sinl s' ->
@@ -1152,33 +1153,24 @@ Section LambdaO.
     intros; eapply TPsub; eauto.
     eapply Fle_refl.
   Qed.
-
-  Lemma TPmatch_inlinr' T e e1 e2 t1 t2 n s s1 s2 t na nb n' s'1 s'2 s' :
+(*
+  Lemma TPmatch_inlinr' T e e1 e2 t1 t2 n s s1 s2 t' n' s' n'' :
     typing T e (Tsum t1 t2) n s ->
     is_inlinr s = Some (s1, s2) ->
-    typing (add_typing t1 T) e1 (lift t) na (lift s'1) ->
-    typing (add_typing t2 T) e2 (lift t) nb (lift s'2) ->
-    n + max (subst s1 na) (subst s2 nb) <= n' ->
-    s'1 <= s' ->
-    s'2 <= s' ->
-    typing T (Ematch_sum e e1 e2) t n' s'.
+    (* t', n' and s' are backward guidance and specs for branches *)
+    typing (add_typing t1 T) e1 (lift t') (lift n') (lift s') -> 
+    typing (add_typing t2 T) e2 (lift t') (lift n') (lift s') -> 
+    n'' = n + n' ->
+    typing T (Ematch_sum e e1 e2) t' n'' s'.
   Proof.
-    intros.
-    eapply TPsub.
-    - eapply TPmatch_inlinr.
-      + eauto.
-      + eauto.
-      + eapply TPsubs; eauto.
-        Lemma Sle_lift (a b : size) : a <= b -> lift a <= lift b.
-          admit.
-        Qed.
-        eapply Sle_lift; eauto.
-      + eapply TPsubs; eauto.
-        eapply Sle_lift; eauto.
-    - eauto.
-    - eapply Sle_refl.
+    intros; subst; eapply TPmatch_inlinr; eauto.
   Qed.
-
+*)
+(*
+  Lemma Sle_lift (a b : size) : a <= b -> lift a <= lift b.
+    admit.
+  Qed.
+*)
   Lemma is_list_elim s p : is_list s = Some p -> exists s1 s2 s3, is_fold s = Some s1 /\ is_inlinr s1 = Some (s2, s3) /\ is_pair s3 = Some p.
     admit.
   Qed.
@@ -1188,23 +1180,20 @@ Section LambdaO.
   Arguments liftby / .
   Arguments lift_from_t / .
 
-  Lemma TPmatch_list T e e1 e2 telm n s s1 s2 t na nb s'1 s'2 s' :
+  Lemma TPmatch_list T e e1 e2 telm n s s1 s2 t' n' s' :
     let list := Tlist $ telm in
     typing T e list n s ->
     is_list s = Some (s1, s2) ->
-    typing T e1 t na s'1 ->
-    typing (add_typings [telm; list] T) e2 (liftby 2 t) nb (liftby 2 s'2) ->
-    s'1 <= s' ->
-    s'2 <= s' ->
-    let s12 := [s1; s2] in
-    typing T (Ematch_list telm e e1 e2) t (n + max na (subst_list s12 nb)) s'.
+    typing T e1 t' n' s' ->
+    typing (add_typings [telm; list] T) e2 (liftby 2 t') (liftby 2 n') (liftby 2 s') ->
+    typing T (Ematch_list telm e e1 e2) t' (n + n') s'.
   Proof.
     simpl.
-    intros He Hs H1 H2 Hle1 Hle2.
+    intros He Hs H1 H2.
     unfold Ematch_list.
     eapply is_list_elim in Hs.
     destruct Hs as [sf [sl [sr [Hsf [Hslr Hsp]]]]].
-    eapply TPmatch_inlinr'.
+    eapply TPmatch_inlinr.
     {
       eapply TPunfold'; eauto.
       { eapply list_equal. }
@@ -1237,6 +1226,7 @@ Section LambdaO.
       eapply TPlift; eauto.
     }
     {
+      (*here*)
       eapply TPmatch_pair'.
       Lemma TPvar' T n t t' s' : 
         find n T = Some (TEtyping t) -> 
@@ -1276,7 +1266,7 @@ Section LambdaO.
       {
         simpl.
         repeat rewrite fold_lift_from_t in *.
-        fold (iter 2 (lift_from_t 0) t).
+        fold (iter 2 (lift_from_t 0) t').
         Lemma lift_from_liftby n t : lift_from_t n (iter n (lift_from_t 0) t) = iter (S n) (lift_from_t 0) t.
           admit.
         Qed.
@@ -1289,10 +1279,24 @@ Section LambdaO.
         repeat rewrite subst_lift_s_t.
         eauto.
       }
-      { eauto. }
       {
         simpl.
-        fold (iter 2 (lift_from_s 0) s'2).
+        rewrite Fplus0r.
+        fold (iter 2 (lift_from_f 0) n').
+        Lemma lift_from_liftby_f n f : lift_from_f n (iter n (lift_from_f 0) f) = iter (S n) (lift_from_f 0) f.
+          admit.
+        Qed.
+        rewrite (@lift_from_liftby_f 2).
+        simpl.
+        Lemma subst_lift_s_f v b : subst_size_formula 0 v (lift_from_f 0 b) = b.
+          admit.
+        Qed.
+        repeat rewrite subst_lift_s_f.
+        eauto.
+      }
+      {
+        simpl.
+        fold (iter 2 (lift_from_s 0) s').
         Lemma lift_from_liftby_s n s : lift_from_s n (iter n (lift_from_s 0) s) = iter (S n) (lift_from_s 0) s.
           admit.
         Qed.
@@ -1305,42 +1309,35 @@ Section LambdaO.
         eauto.
       }
     }
-    {
-      simpl.
-      Lemma subst_lift_s_f v b : subst_size_formula 0 v (lift_from_f 0 b) = b.
-        admit.
-      Qed.
-      repeat rewrite subst_lift_s_f.
-      Lemma Fplus0r n : F0 + n = n.
-        admit.
-      Qed.
-      rewrite Fplus0r.
-      Lemma Fle_plus (a a' b b' : formula) : a <= a' -> b <= b' -> a + b <= a' + b'.
-        admit.
-      Qed.
-      eapply Fle_plus; try eapply Fle_refl.
-      Lemma Fle_maxr (a b b' : formula) : b <= b' -> max a b <= max a b'.
-        admit.
-      Qed.
-      eapply Fle_maxr.
-      Lemma subst_pair sp s1 s2 n :
-        is_pair sp = Some (s1, s2) ->
-        subst_size_formula 
-          0 sp
-          (subst_size_formula 
-             0 (Svar (append_path (#0, []) Psnd))
-             (subst_size_formula 
-                0 (Svar (append_path (#0, []) Pfst))
-                (lift_from_f 2 n))) <=
-        subst_size_formula 0 s2 (subst_size_formula 0 s1 n).
-      Proof.
-        admit.
-      Qed.
-      eapply subst_pair; eauto.
-    }
-    { eauto. }
-    { eauto. }
   Qed.
+
+(*
+      {
+        simpl.
+        Lemma Fle_plus (a a' b b' : formula) : a <= a' -> b <= b' -> a + b <= a' + b'.
+          admit.
+        Qed.
+        eapply Fle_plus; try eapply Fle_refl.
+        Lemma Fle_maxr (a b b' : formula) : b <= b' -> max a b <= max a b'.
+          admit.
+        Qed.
+        eapply Fle_maxr.
+        Lemma subst_pair sp s1 s2 n :
+          is_pair sp = Some (s1, s2) ->
+          subst_size_formula 
+            0 sp
+            (subst_size_formula 
+               0 (Svar (append_path (#0, []) Psnd))
+               (subst_size_formula 
+                  0 (Svar (append_path (#0, []) Pfst))
+                  (lift_from_f 2 n))) <=
+          subst_size_formula 0 s2 (subst_size_formula 0 s1 n).
+        Proof.
+          admit.
+        Qed.
+        eapply subst_pair; eauto.
+      }
+*)
 
   Definition Econs := 
     Etabs $ Eabs #0 $ Eabs (Tlist $ #1) $ 
@@ -1398,6 +1395,19 @@ Section LambdaO.
     eapply Kbool.
   Qed.
 
+  Lemma TPsubn T e t n s n' :
+    typing T e t n s ->
+    n <= n' ->
+    typing T e t n' s.
+  Proof.
+    intros; eapply TPsub; eauto.
+    eapply Sle_refl.
+  Qed.
+
+  Lemma Fle0r n : F0 <= n.
+    admit.
+  Qed.
+
   Lemma merge_typing : typing [] merge merge_type F1 size1.
   Proof.
     eapply TPtabs.
@@ -1420,55 +1430,116 @@ Section LambdaO.
         { eapply Klist; eapply Kvar; eauto. }
         {
           unfold loop_body.
-          eapply TPsub.
+          Arguments lift_t_f nv nq / .
+          Arguments lift_from_s / .
+          Arguments lift_from_f / .
+          Arguments map_stats / .
+          simpl.
+          eapply TPsubn.
+          2 : eapply 
           {
-            Arguments lift_t_f nv nq / .
+          eapply TPmatch_list.
+          { 
+            eapply TPsubn.
+            { eapply TPvar'; compute; eauto. }
+            {
+              eapply Fle0r.
+            }
+          }
+          {
+            Arguments is_list / .
+            simpl; eauto.
+          }
+          { 
+            eapply TPsub.
+            { eapply TPvar'; compute; eauto. }
+            { eapply Fle0r. }
+            {
+              simpl.
+              Lemma Sle_var_addr x n1 n2 : Svar x <= Sstats (n1 + Fvar x false, n2 + Fvar x true).
+                admit.
+              Qed.
+              eapply Sle_var_addr.
+            }
+          }
+          {
             simpl.
             eapply TPmatch_list.
             { eapply TPvar'; compute; eauto. }
-            {
-              Arguments is_list / .
-              simpl; eauto.
+            { simpl; eauto. }
+            { 
+              eapply TPsubs.
+              { eapply TPvar'; compute; eauto. }
+              simpl.
+              Lemma Sle_var_addl x n1 n2 : Svar x <= Sstats (Fvar x false + n1, Fvar x true + n2).
+                admit.
+              Qed.
+              eapply Sle_var_addl.
             }
-            { eapply TPvar'; compute; eauto. }
             {
-              eapply TPmatch_list.
-              { eapply TPvar'; compute; eauto. }
-              { simpl; eauto. }
-              { eapply TPvar'; compute; eauto. }
+              Lemma TPif T e e1 e2 n s t' n' s' :
+                typing T e Tbool n s ->
+                typing T e1 t' n' s' ->
+                typing T e2 t' n' s' ->
+                typing T (Eif e e1 e2) t' (n + n') s'.
+              Proof.
+                admit.
+              Qed.
+              eapply TPif.
               {
-                Lemma TPif T e e1 e2 n s t na nb s'1 s'2 s' :
-                  typing T e Tbool n s ->
-                  typing T e1 t na s'1 ->
-                  typing T e2 t nb s'2 ->
-                  s'1 <= s' ->
-                  s'2 <= s' ->
-                  typing T (Eif e e1 e2) t (n + max na nb) s'.
+                Lemma TPapp' T e1 e2 ta tb f g n1 n2 s1 s2 t' n' s' : 
+                  typing T e1 (Tarrow ta f g tb) n1 s1 ->
+                  typing T e2 ta n2 s2 ->
+                  t' = subst s2 tb ->
+                  n' = n1 + n2 + subst s2 f ->
+                  s' = subst s2 g ->
+                  typing T (Eapp e1 e2) t' n' s'.
+                Proof.
+                  intros; subst; eapply TPapp; eauto.
+                Qed.
+                eapply TPapp'.
+                {
+                  eapply TPapp'. 
+                  { eapply TPvar'; compute; eauto. }
+                  { eapply TPvar'; compute; eauto. }
+                  {
+                    Arguments subst_size_type / .
+                    Arguments lower_t_f n nv nq / .
+                    simpl; eauto.
+                  }
+                  { eauto. }
+                  { eauto. }
+                }
+                { eapply TPvar'; compute; eauto. }
+                { simpl; eauto. }
+                { eauto. }
+                { eauto. }
+              }
+              {
+                simpl.
+                Lemma TPcons_app T telm e ls n1 s1 n2 s2 t' n' s' : 
+                  let tlist := Tlist $ telm in
+                  typing T e telm n1 s1 ->
+                  typing T ls tlist n2 s2 -> 
+                  t' = tlist ->
+                  n' = n1 + n2 + F1 ->
+                  s' = Sfold (Spair s1 s2) ->
+                  typing T (Econs $$ telm $$ e $$ ls) t' n' s'.
                 Proof.
                   admit.
                 Qed.
-                eapply TPif.
+                eapply TPsubs.
+                eapply TPcons_app.
+                { eapply TPvar'; compute; eauto. }
                 {
-                  Lemma TPapp' T e1 e2 ta tb f g n1 n2 s1 s2 t' n' s' : 
-                    typing T e1 (Tarrow ta f g tb) n1 s1 ->
-                    typing T e2 ta n2 s2 ->
-                    t' = subst s2 tb ->
-                    n' = n1 + n2 + subst s2 f ->
-                    s' = subst s2 g ->
-                    typing T (Eapp e1 e2) t' n' s'.
-                  Proof.
-                    intros; subst; eapply TPapp; eauto.
-                  Qed.
+                  Arguments lift_from_e / .
+                  simpl.
                   eapply TPapp'.
                   {
                     eapply TPapp'. 
                     { eapply TPvar'; compute; eauto. }
                     { eapply TPvar'; compute; eauto. }
-                    {
-                      Arguments subst_size_type / .
-                      Arguments lower_t_f n nv nq / .
-                      simpl; eauto.
-                    }
+                    { simpl; eauto. }
                     { eauto. }
                     { eauto. }
                   }
@@ -1477,99 +1548,65 @@ Section LambdaO.
                   { eauto. }
                   { eauto. }
                 }
+                { simpl; eauto. }
+                { eauto. }
+                { eauto. }
+              }
+              {
+                simpl.
+                eapply TPcons_app.
+                { eapply TPvar'; compute; eauto. }
                 {
                   simpl.
-                  Lemma TPcons_app T telm e ls n1 s1 n2 s2 t' n' s' : 
-                    let tlist := Tlist $ telm in
-                    typing T e telm n1 s1 ->
-                    typing T ls tlist n2 s2 -> 
-                    t' = tlist ->
-                    n' = n1 + n2 + F1 ->
-                    s' = Sfold (Spair s1 s2) ->
-                    typing T (Econs $$ telm $$ e $$ ls) t' n' s'.
-                  Proof.
-                    admit.
-                  Qed.
-                  eapply TPcons_app.
-                  { eapply TPvar'; compute; eauto. }
+                  eapply TPapp'.
                   {
-                    Arguments lift_from_e / .
-                    simpl.
-                    eapply TPapp'.
-                    {
-                      eapply TPapp'. 
-                      { eapply TPvar'; compute; eauto. }
-                      { eapply TPvar'; compute; eauto. }
-                      { simpl; eauto. }
-                      { eauto. }
-                      { eauto. }
-                    }
+                    eapply TPapp'. 
+                    { eapply TPvar'; compute; eauto. }
                     { eapply TPvar'; compute; eauto. }
                     { simpl; eauto. }
                     { eauto. }
                     { eauto. }
                   }
-                  { simpl; eauto. }
-                  { eauto. }
-                  { eauto. }
-                }
-                {
-                  simpl.
-                  eapply TPcons_app.
                   { eapply TPvar'; compute; eauto. }
-                  {
-                    simpl.
-                    eapply TPapp'.
-                    {
-                      eapply TPapp'. 
-                      { eapply TPvar'; compute; eauto. }
-                      { eapply TPvar'; compute; eauto. }
-                      { simpl; eauto. }
-                      { eauto. }
-                      { eauto. }
-                    }
-                    { eapply TPvar'; compute; eauto. }
-                    { simpl; eauto. }
-                    { eauto. }
-                    { eauto. }
-                  }
                   { simpl; eauto. }
                   { eauto. }
                   { eauto. }
                 }
-                {
-                  Definition lower0 `{Lower t} := lower 0.
-                  Definition lowerby `{Lower t} n := iter n lower0.
+                { simpl; eauto. }
+                { eauto. }
+                { eauto. }
+              }
+              {
+                Definition lower0 `{Lower t} := lower 0.
 
-                  Lemma lowerby_liftby n (a b : size) : lowerby n a <= b -> a <= liftby n b.
-                    admit.
-                  Qed.
-                  Arguments subst_size_size / .
-                  Arguments subst_size_formula / .
-                  Arguments map_stats / .
-                  Arguments subst_s_f_f n v nv path i / .
-                  Arguments query_idx idx s / .
-                  Arguments lowerby / .
-                  Arguments lower_s / .
-                  Arguments lower_f / .
-                  simpl.
-                  eapply (@lowerby_liftby 2).
-                  simpl.
+                                                Definition lowerby `{Lower t} n := iter n lower0.
 
-                }
-                {
-                  simpl.
-                  Arguments lift_from_s / .
-                  simpl.
-                  Arguments lift_from_f / .
-                  simpl.
-                  (*here*)
-                }
+                                                Lemma lowerby_liftby n (a b : size) : lowerby n a <= b -> a <= liftby n b.
+                                                  admit.
+                                                Qed.
+                                                Arguments subst_size_size / .
+                                                Arguments subst_size_formula / .
+                                                Arguments subst_s_f_f n v nv path i / .
+                                                Arguments query_idx idx s / .
+                                                Arguments lowerby / .
+                                                Arguments lower_s / .
+                                                Arguments lower_f / .
+                                                simpl.
+                                                eapply (@lowerby_liftby 2).
+                                                simpl.
+
+              }
+              {
+                simpl.
+                simpl.
+                simpl.
+              (*here*)
               }
             }
           }
         }
       }
+    }
     }
   Qed.
 
