@@ -106,7 +106,7 @@ Section LambdaO.
     }.
 
   Infix "$" := apply (at level 85, right associativity) : prog_scope.
-  Infix "$$" := apply (at level 105, left associativity) : prog_scope.
+  Infix "$$" := apply (at level 15, left associativity) : prog_scope.
   Open Scope prog_scope.
 
   Definition apply_arrow {A B} (f : A -> B) x := f x.
@@ -309,15 +309,15 @@ Section LambdaO.
       | Funop o n => Funop o (visit_f f n)
     end.
 
+  Definition subst_s_f_f n v nv path i :=
+    match nat_cmp nv n with 
+      | LT _ => Fvar (#nv, path) i
+      | EQ => default F1 $ query_path_idx path i v
+      | GT p => Fvar (#p, path) i
+    end.
+
   Definition subst_size_formula (n : nat) (v : size) (b : formula) : formula :=
-    visit_f 
-      (fun nv path i => 
-         match nat_cmp nv n with 
-           | LT _ => Fvar (#nv, path) i
-           | EQ => default F1 $ query_path_idx path i v
-           | GT p => Fvar (#p, path) i
-         end) 
-      b.
+    visit_f (subst_s_f_f n v) b.
 
   (* substitute the outer-most bound variable *)
   Class Subst value body :=
@@ -326,6 +326,11 @@ Section LambdaO.
     }.
 
   Definition subst `{Subst V B} := substn 0.
+
+  Instance Subst_size_formula : Subst size formula :=
+    {
+      substn := subst_size_formula
+    }.
 
   Definition lift_from_f n f :=
     visit_f
@@ -351,9 +356,24 @@ Section LambdaO.
       lift_from := lift_from_f
     }.
 
-  Instance Subst_size_formula : Subst size formula :=
+  (* 'lower' is a 'dry run' of 'subst', not doing substitution, only lowering bound variables above *)
+  Definition lower_f n f :=
+    visit_f
+      (fun nv path i => 
+         match nat_cmp nv n with 
+           | GT p => Fvar (#p, path) i
+           | _ => Fvar (#nv, path) i
+         end) 
+      f.
+
+  Class Lower t := 
     {
-      substn := subst_size_formula
+      lower : nat -> t -> t
+    }.
+
+  Instance Lower_formula : Lower formula :=
+    {
+      lower := lower_f
     }.
 
   Definition map_stats A (f : formula -> A) (ss : stats) := (f (fst ss), f (snd ss)).
@@ -402,6 +422,21 @@ Section LambdaO.
   Instance Lift_size : Lift size :=
     {
       lift_from := lift_from_s
+    }.
+
+  Definition lower_s n s :=
+    visit_s
+      (fun nv path =>
+         match nat_cmp nv n with 
+           | GT p => Svar (#p, path)
+           | _ => Svar (#nv, path)
+         end,
+         lower n) 
+      s.
+
+  Instance Lower_size : Lower size :=
+    {
+      lower := lower_s
     }.
 
   Inductive tconstr :=
@@ -468,10 +503,10 @@ Section LambdaO.
       | GT p => #p (* variables above n+nq should be lowered *)
     end.
 
-  Definition const2 {A B} (_ : A) (b : B) := b.
+  Definition lower_sub `{Lower B} n nq b := lower (n + nq) b.
 
   Definition substn_t_t n v b := 
-    visit_t 0 (subst_t_t_f n v, const2, const2) b.
+    visit_t 0 (subst_t_t_f n v, lower_sub n, lower_sub n) b.
 
   Instance Subst_type_type : Subst type type :=
     {
@@ -497,6 +532,19 @@ Section LambdaO.
   Instance Subst_size_type : Subst size type :=
     {
       substn := subst_size_type
+    }.
+
+  Definition lower_t n t :=
+    visit_t
+      0
+      (lower_t_f n,
+       lower_sub n,
+       lower_sub n)
+      t.
+
+  Instance Lower_type : Lower type :=
+    {
+      lower := lower_t
     }.
 
   Instance Apply_type_type_type : Apply type type type :=
@@ -597,28 +645,31 @@ Section LambdaO.
       lift_from := lift_from_e
     }.
 
+  Definition substn_e_e_f n v nv nq : expr :=
+    match nat_cmp nv (n + nq) with 
+      | LT _ => #nv
+      | EQ => liftby nq v
+      | GT p => #p
+    end.
+
   Definition substn_e_e n v b := 
-    visit_e 
-      0
-      (fun nv nq =>
-         match nat_cmp nv (n + nq) with 
-           | LT _ => #nv : expr
-           | EQ => liftby nq v
-           | GT p => #p
-         end, const2) 
-      b.
+    visit_e 0 (substn_e_e_f n v, lower_sub n) b.
 
   Instance Subst_expr_expr : Subst expr expr :=
     {
       substn := substn_e_e
     }.
 
-  Definition const1f {A B C} (f : A -> C) (a : A) (_ : B) := f a.
+  Definition lower_e_f n nv nq : expr := 
+    match nat_cmp nv (n + nq) with 
+      | GT p => #p
+      | _ => #nv
+    end.
 
   Definition substn_t_e n (v : type) (b : expr) : expr :=
     visit_e
       0
-      (const1f (Vbound >> Evar),
+      (lower_e_f n,
        substn_sub n v)
       b.
 
@@ -626,7 +677,15 @@ Section LambdaO.
     {
       substn := substn_t_e
     }.
-    
+
+  Definition lower_e n e :=
+    visit_e 0 (lower_e_f n, lower_sub n) e.
+
+  Instance Lower_expr : Lower expr :=
+    {
+      lower := lower_e
+    }.
+
   Inductive IsOpaque : expr -> Prop :=
     | OPvar x : IsOpaque (Evar x)
     | OPconstr c : IsOpaque (Econstr c)
@@ -708,9 +767,9 @@ Section LambdaO.
       apply := Etapp
     }.
   
-  Definition Epair (ta tb : type) := Econstr Cpair $$ ta $$ tb.
-  Definition Einl (ta tb : type) := Econstr Cinl $$ ta $$ tb.
-  Definition Einr (ta tb : type) := Econstr Cinr $$ ta $$ tb.
+  Definition Epair := Econstr Cpair.
+  Definition Einl := Econstr Cinl.
+  Definition Einr := Econstr Cinr.
   Definition Ett := Econstr Ctt.
 
   Inductive step : expr -> expr -> Prop :=
@@ -724,13 +783,13 @@ Section LambdaO.
     | STmatch_pair ta tb a b k : 
         IsValue a ->
         IsValue b ->
-        step (Ematch_pair (Epair ta tb $$ a $$ b) k) (subst_list [a; b] k)
+        step (Ematch_pair (Epair $$ ta $$ tb $$ a $$ b) k) (subst_list [a; b] k)
     | STmatch_inl ta tb v k1 k2 : 
         IsValue v ->
-        step (Ematch_sum (Einl ta tb $$ v) k1 k2) (subst v k1)
+        step (Ematch_sum (Einl $$ ta $$ tb $$ v) k1 k2) (subst v k1)
     | STmatch_inr ta tb v k1 k2 : 
         IsValue v ->
-        step (Ematch_sum (Einr ta tb $$ v) k1 k2) (subst v k2)
+        step (Ematch_sum (Einr $$ ta $$ tb $$ v) k1 k2) (subst v k2)
     | STtapp body t : step (Etapp (Etabs body) t) (subst t body)
     | STunfold_fold v t1 t2 : 
         IsValue v ->
@@ -762,7 +821,7 @@ Section LambdaO.
   Arguments fst {A B} _.
 
   Definition add_typing t T := TEtyping t :: T.
-  Definition add_typings ls T := map TEtyping (rev ls) ++ T.
+  Definition add_typings ls T := fst $ fold_left (fun (p : tcontext * nat) t => let (T, n) := p in (add_typing (liftby n t) T, S n)) ls (T, 0).
   Definition add_kinding k T := TEkinding k :: T.
 
   Coercion var_to_size (x : var) : size := Svar (x, []).
@@ -947,13 +1006,10 @@ Section LambdaO.
   Definition Ematch_list (telm : type) e b_nil b_cons := 
     let tlist := Tlist $$ telm in
     Ematch_sum (Eunfold e tlist) (lift b_nil) (Ematch_pair #0 $ lift_from 2 b_cons).
-  Definition Econs (telm : type) (a b : expr) := 
-    let tlist := Tlist $$ telm in
-    Efold (Epair telm tlist $$ a $$ b) tlist.
 
   Definition Tbool := Tsum Tunit Tunit.
-  Definition Etrue := Einl Tunit Tunit $$ Ett.
-  Definition Efalse := Einr Tunit Tunit $$ Ett.
+  Definition Etrue := Einl $$ Tunit $$ Tunit $$ Ett.
+  Definition Efalse := Einr $$ Tunit $$ Tunit $$ Ett.
   Definition Eif e b_true b_false :=
     Ematch_sum e (lift b_true) (lift b_false).
 
@@ -1154,7 +1210,7 @@ Section LambdaO.
       { eapply list_equal. }
       {
         simpl.
-        Lemma fold_substn_t_t n v b : visit_t 0 (subst_t_t_f n v, const2, const2) b = substn_t_t n v b.
+        Lemma fold_substn_t_t n v b : visit_t 0 (subst_t_t_f n v, lower_sub n, lower_sub n) b = substn_t_t n v b.
         Proof.
           eauto.
         Qed.
@@ -1286,6 +1342,12 @@ Section LambdaO.
     { eauto. }
   Qed.
 
+  Definition Econs := 
+    Etabs $ Eabs #0 $ Eabs (Tlist $ #1) $ 
+          let telm := #2 : type in
+          let tlist := Tlist $ telm in
+          Efold (Epair $$ telm $$ tlist $$ #1 $$ #0) tlist.
+
   (* loop_body is equivalent to this:
 
     match xs with
@@ -1304,8 +1366,8 @@ Section LambdaO.
                 (Ematch_list (liftby 2 telm) #2(*ys*) (*level 2*)
                              #3(*xs*)
                              (Eif (liftby 4 cmp $$ #3(*x*) $$ #1(*y*)) (*level 4*)
-                                  (Econs (liftby 4 telm) #3(*x*) (liftby 4 loop $$ #2(*xs'*) $$ #4(*ys*)))
-                                  (Econs (liftby 4 telm) #1(*y*) (liftby 4 loop $$ #5(*xs*) $$ #0(*ys'*))))).
+                                  (Econs $$ liftby 4 telm $$ #3(*x*) $$ (liftby 4 loop $$ #2(*xs'*) $$ #4(*ys*)))
+                                  (Econs $$ liftby 4 telm $$ #1(*y*) $$ (liftby 4 loop $$ #5(*xs*) $$ #0(*ys'*))))).
 
   Definition loop_type (telm : type) := 
     let list := Tlist $ telm in
@@ -1375,9 +1437,8 @@ Section LambdaO.
               { simpl; eauto. }
               { eapply TPvar'; compute; eauto. }
               {
-                Lemma TPif T e e1 e2 n s s1 s2 t na nb s'1 s'2 s' :
+                Lemma TPif T e e1 e2 n s t na nb s'1 s'2 s' :
                   typing T e Tbool n s ->
-                  is_list s = Some (s1, s2) ->
                   typing T e1 t na s'1 ->
                   typing T e2 t nb s'2 ->
                   s'1 <= s' ->
@@ -1417,8 +1478,91 @@ Section LambdaO.
                   { eauto. }
                 }
                 {
-                  simpl; eauto.
-                  (* need to fix 'lower' in 'subst' *)
+                  simpl.
+                  Lemma TPcons_app T telm e ls n1 s1 n2 s2 t' n' s' : 
+                    let tlist := Tlist $ telm in
+                    typing T e telm n1 s1 ->
+                    typing T ls tlist n2 s2 -> 
+                    t' = tlist ->
+                    n' = n1 + n2 + F1 ->
+                    s' = Sfold (Spair s1 s2) ->
+                    typing T (Econs $$ telm $$ e $$ ls) t' n' s'.
+                  Proof.
+                    admit.
+                  Qed.
+                  eapply TPcons_app.
+                  { eapply TPvar'; compute; eauto. }
+                  {
+                    Arguments lift_from_e / .
+                    simpl.
+                    eapply TPapp'.
+                    {
+                      eapply TPapp'. 
+                      { eapply TPvar'; compute; eauto. }
+                      { eapply TPvar'; compute; eauto. }
+                      { simpl; eauto. }
+                      { eauto. }
+                      { eauto. }
+                    }
+                    { eapply TPvar'; compute; eauto. }
+                    { simpl; eauto. }
+                    { eauto. }
+                    { eauto. }
+                  }
+                  { simpl; eauto. }
+                  { eauto. }
+                  { eauto. }
+                }
+                {
+                  simpl.
+                  eapply TPcons_app.
+                  { eapply TPvar'; compute; eauto. }
+                  {
+                    simpl.
+                    eapply TPapp'.
+                    {
+                      eapply TPapp'. 
+                      { eapply TPvar'; compute; eauto. }
+                      { eapply TPvar'; compute; eauto. }
+                      { simpl; eauto. }
+                      { eauto. }
+                      { eauto. }
+                    }
+                    { eapply TPvar'; compute; eauto. }
+                    { simpl; eauto. }
+                    { eauto. }
+                    { eauto. }
+                  }
+                  { simpl; eauto. }
+                  { eauto. }
+                  { eauto. }
+                }
+                {
+                  Definition lower0 `{Lower t} := lower 0.
+                  Definition lowerby `{Lower t} n := iter n lower0.
+
+                  Lemma lowerby_liftby n (a b : size) : lowerby n a <= b -> a <= liftby n b.
+                    admit.
+                  Qed.
+                  Arguments subst_size_size / .
+                  Arguments subst_size_formula / .
+                  Arguments map_stats / .
+                  Arguments subst_s_f_f n v nv path i / .
+                  Arguments query_idx idx s / .
+                  Arguments lowerby / .
+                  Arguments lower_s / .
+                  Arguments lower_f / .
+                  simpl.
+                  eapply (@lowerby_liftby 2).
+                  simpl.
+
+                }
+                {
+                  simpl.
+                  Arguments lift_from_s / .
+                  simpl.
+                  Arguments lift_from_f / .
+                  simpl.
                   (*here*)
                 }
               }
@@ -1429,9 +1573,6 @@ Section LambdaO.
     }
   Qed.
 
-                      Arguments lift_from_s / .
-                      Arguments subst_size_formula / .
-                      Arguments subst_size_size / .
       
 End LambdaO.
 
