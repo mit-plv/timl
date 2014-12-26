@@ -312,7 +312,7 @@ Section LambdaO.
   Definition subst_s_f_f n v nv path i :=
     match nat_cmp nv n with 
       | LT _ => Fvar (#nv, path) i
-      | EQ => default F1 $ query_path_idx path i v
+      | EQ => default (Fvar (#99, path) i) $ query_path_idx path i v
       | GT p => Fvar (#p, path) i
     end.
 
@@ -818,8 +818,6 @@ Section LambdaO.
       | S n => a :: repeat a n
     end.
 
-  Definition ones := repeat F1.
-
   Arguments fst {A B} _.
 
   Instance Lift_option `{Lift A} : Lift (option A) :=
@@ -940,28 +938,28 @@ Section LambdaO.
       typing T e1 (Tarrow ta f g tb) n1 nouse ->
       typing T e2 ta n2 s2 ->
       typing T (Eapp e1 e2) (subst s2 tb) (n1 + n2 + subst s2 f)%F (subst s2 g)
-  | TPabs T e t1 t2 n s:
+  | TPabs T e t1 t2 n s :
       kinding T t1 0 ->
       typing (add_typing (t1, None) T) e t2 n s ->
-      typing T (Eabs t1 e) (Tarrow t1 n s t2) F1 size1
-  | TPtapp T e t2 t n s:
+      typing T (Eabs t1 e) (Tarrow t1 n s t2) F0 size1
+  | TPtapp T e t2 t n s :
       typing T e (Tuniversal t) n s ->
       let t' := subst t2 t in
       typing T (Etapp e t2) t' n s
-  | TPtabs T e t s:
-      typing (add_kinding 0 T) e t F1 s ->
-      typing T (Etabs e) (Tuniversal t) F1 s
+  | TPtabs T e t nouse1 nouse2 :
+      typing (add_kinding 0 T) e t nouse1 nouse2 ->
+      typing T (Etabs e) (Tuniversal t) F0 size1
   | TPlet T t1 e1 e2 t2 n1 n2 s1 s2:
       typing T e1 t1 n1 s1 ->
       typing (add_typing (t1, Some s1) T) e2 t2 n2 s2 ->
       typing T (Elet t1 e1 e2) (subst s1 t2) (n1 + subst s1 n2)%F (subst s1 s2)
   | TPletrec T (defs : list letrec_entry) main t n s :
       let len := length defs in
-      let T' := add_typings (map (fst >> fst >> add_snd None) defs) T in
+      let T' := add_typings (map (fst >> fst >> add_snd (Some size1)) defs) T in
       (forall lhs_t rhs_t e, 
          In (lhs_t, rhs_t, e) defs -> 
-         typing T' (Eabs rhs_t e) (liftby len lhs_t) F1 size1) ->
-      typing T' main t n (liftby len s) ->
+         typing T' (Eabs rhs_t e) (liftby len lhs_t) F0 size1) ->
+      typing T' main (liftby len t) (liftby len n) (liftby len s) ->
       typing T (Eletrec defs main) t n s
   | TPmatch_pair T e e' t t1 t2 n s n' s' s1 s2 :
       typing T e (Tprod t1 t2) n s ->
@@ -1008,13 +1006,13 @@ Section LambdaO.
       s <= s' ->
       typing T e t n' s'
   | TPpair T : 
-      typing T Cpair (Tuniversal $ Tuniversal $ Tarrow #1 F1 size1 $ Tarrow #1 F1 (Spair #1 #0) $ Tprod #3 #2) F1 size1
+      typing T Cpair (Tuniversal $ Tuniversal $ Tarrow #1 F0 size1 $ Tarrow #1 F1 (Spair #1 #0) $ Tprod #3 #2) F0 size1
   | TPinl T :
-      typing T Cinl (Tuniversal $ Tuniversal $ Tarrow #1 F1 (Sinl #0) $ Tsum #2 #1) F1 size1
+      typing T Cinl (Tuniversal $ Tuniversal $ Tarrow #1 F1 (Sinl #0) $ Tsum #2 #1) F0 size1
   | TPinr T :
-      typing T Cinl (Tuniversal $ Tuniversal $ Tarrow #0 F1 (Sinr #0) $ Tsum #2 #1) F1 size1
+      typing T Cinl (Tuniversal $ Tuniversal $ Tarrow #0 F1 (Sinr #0) $ Tsum #2 #1) F0 size1
   | TPtt T :
-      typing T Ctt Tunit F1 size1
+      typing T Ctt Tunit F0 size1
   .
 
   (* examples *)
@@ -1413,17 +1411,17 @@ Section LambdaO.
  
   Definition loop_type (telm : type) := 
     let list := Tlist $ telm in
-    Tarrow list F1 size1 $ Tarrow (lift list) (#1!0 + #0!0) (Sstats (#1!0 + #0!0, #1!1 + #0!1)) (liftby 2 list).
+    Tarrow list F0 size1 $ Tarrow (lift list) (#1!0 + #0!0) (Sstats (#1!0 + #0!0, #1!1 + #0!1)) (liftby 2 list).
 
   Definition bool_size := size1.
 
-  Definition cmp_type (A : type) := Tarrow A F1 size1 $ Tarrow (lift A) (#1!0 + #0!0) bool_size Tbool.
+  Definition cmp_type (A : type) := Tarrow A F0 size1 $ Tarrow (lift A) (#1!0 + #0!0) bool_size Tbool.
 
   Definition merge :=
     Etabs $ let telm : type := #0 in let list := Tlist $ telm in Eabs (cmp_type telm) $ Eletrec [(loop_type (lift telm), (liftby 2 list), Eabs (liftby 3 list) (loop_body (liftby 4 telm) #3 #2))] #0.
 
   Definition merge_type := 
-    Tuniversal $ Tarrow (cmp_type #0) F1 size1 $ loop_type #1.
+    Tuniversal $ Tarrow (cmp_type #0) F0 size1 $ loop_type #1.
 
   Lemma Kcmp_type T t : kinding T t 0 -> kinding T (cmp_type t) 0.
   Proof.
@@ -1444,7 +1442,13 @@ Section LambdaO.
     admit.
   Qed.
 
-  Lemma merge_typing : typing [] merge merge_type F1 size1.
+  Arguments lift_from_s n s / .
+  Arguments lift_from_f n f / .
+  Arguments map_stats / .
+  Arguments lift_t_f nv nq / .
+  Arguments lift_f_f n nv path i / .
+
+  Lemma merge_typing : typing [] merge merge_type F0 size1.
   Proof.
     eapply TPtabs.
     eapply TPabs.
@@ -1466,11 +1470,6 @@ Section LambdaO.
         { eapply Klist; eapply Kvar; eauto. }
         {
           unfold loop_body.
-          Arguments lift_from_s n s / .
-          Arguments lift_from_f n f / .
-          Arguments map_stats / .
-          Arguments lift_t_f nv nq / .
-          Arguments lift_f_f n nv path i / .
           simpl.
           eapply TPsubn.
           {
@@ -1633,33 +1632,38 @@ Section LambdaO.
           }
           {
             simpl.
-
-            (*here*)
-
-
-                {
-                  Definition lower0 `{Lower t} := lower 0.
-
-                                                  Definition lowerby `{Lower t} n := iter n lower0.
-
-                                                  Lemma lowerby_liftby n (a b : size) : lowerby n a <= b -> a <= liftby n b.
-                                                    admit.
-                                                  Qed.
-                                                  Arguments lowerby / .
-                                                  Arguments lower_s / .
-                                                  Arguments lower_f / .
-                                                  simpl.
-                                                  eapply (@lowerby_liftby 2).
-                                                  simpl.
-
-                }
-                {
-                  simpl.
-                  simpl.
-                  simpl.
-                }
+            admit.
+          }
+        }
+      }
+    }
+    { eapply TPvar'; simpl; eauto. }
   Qed.
 
-      
+(*
+  Definition lower0 `{Lower t} := lower 0.
+
+  Definition lowerby `{Lower t} n := iter n lower0.
+
+  Lemma lowerby_liftby n (a b : size) : lowerby n a <= b -> a <= liftby n b.
+    admit.
+  Qed.
+
+  {
+    Arguments lowerby / .
+    Arguments lower_s / .
+    Arguments lower_f / .
+    simpl.
+    eapply (@lowerby_liftby 2).
+    simpl.
+
+  }
+  {
+    simpl.
+    simpl.
+    simpl.
+  }
+ *)
+    
 End LambdaO.
 
