@@ -919,6 +919,12 @@ Section LambdaO.
       equal : t -> t -> Prop
     }.
 
+  Definition Ole : formula -> formula -> Prop.
+    admit.
+  Defined.
+
+  Infix "<<=" := Ole (at level 70).
+
   Infix "==" := equal (at level 70).
 
   Instance Equal_type : Equal type :=
@@ -1002,7 +1008,7 @@ Section LambdaO.
       typing T e t2 n s
   | TPsub T e t n n' s s' :
       typing T e t n s ->
-      n <= n' ->
+      n <<= n' ->
       s <= s' ->
       typing T e t n' s'
   | TPpair T : 
@@ -1151,7 +1157,7 @@ Section LambdaO.
     admit.
   Qed.
 
-  Lemma Fle_refl (a : formula) : a <= a.
+  Lemma Ole_refl (a : formula) : a <<= a.
     admit.
   Qed.
 
@@ -1161,7 +1167,7 @@ Section LambdaO.
     typing T e t n s'.
   Proof.
     intros; eapply TPsub; eauto.
-    eapply Fle_refl.
+    eapply Ole_refl.
   Qed.
 (*
   Lemma TPmatch_inlinr' T e e1 e2 t1 t2 n s s1 s2 t' n' s' n'' :
@@ -1192,7 +1198,7 @@ Section LambdaO.
 
   Lemma TPsubn T e t n s n' :
     typing T e t n s ->
-    n <= n' ->
+    n <<= n' ->
     typing T e t n' s.
   Proof.
     intros; eapply TPsub; eauto.
@@ -1326,18 +1332,18 @@ Section LambdaO.
     }
     {
       simpl.
-      Lemma Fle_plus (a a' b b' : formula) : a <= a' -> b <= b' -> a + b <= a' + b'.
+      Lemma Ole_plus (a a' b b' : formula) : a <<= a' -> b <<= b' -> a + b <<= a' + b'.
         admit.
       Qed.
-      eapply Fle_plus; try eapply Fle_refl.
+      eapply Ole_plus; try eapply Ole_refl.
       Lemma subst_lift_s_f v b : subst_size_formula 0 v (lift_from_f 0 b) = b.
         admit.
       Qed.
       repeat rewrite subst_lift_s_f.
-      Lemma Fle_maxr (a b b' : formula) : b <= b' -> max a b <= max a b'.
+      Lemma Ole_maxr (a b b' : formula) : b <<= b' -> max a b <<= max a b'.
         admit.
       Qed.
-      eapply Fle_maxr.
+      eapply Ole_maxr.
       Arguments subst_size_formula n v b / .
       simpl.
       Lemma fold_subst_s_f n s : visit_f (subst_s_f_f n s) = subst_size_formula n s.
@@ -1345,14 +1351,14 @@ Section LambdaO.
         eauto.
       Qed.
       repeat rewrite fold_subst_s_f in *.
-      Lemma Fleadd0r a b : a <= b -> F0 + a <= b.
+      Lemma Oleadd0r a b : a <<= b -> F0 + a <<= b.
         admit.
       Qed.
-      eapply Fleadd0r.
-      Lemma Sle_skip_subst a b v a' : a' = lift a -> a <= b -> subst_size_formula 0 v a' <= b.
+      eapply Oleadd0r.
+      Lemma Ole_skip_subst a b v a' : a' = lift a -> a <<= b -> subst_size_formula 0 v a' <<= b.
         admit.
       Qed.
-      eapply Sle_skip_subst.
+      eapply Ole_skip_subst.
       {
         Lemma subst2_lift s2 s1 n : subst_size_formula 0 (lift_from_s 0 s2) (subst_size_formula 0 (lift_from_s 0 s1) (lift_from_f 2 n)) = lift (subst_size_formula 0 s2 (subst_size_formula 0 s1 n)).
           admit.
@@ -1360,7 +1366,7 @@ Section LambdaO.
         eapply subst2_lift.
       }
       {
-        eapply Fle_refl.
+        eapply Ole_refl.
       }
     }
   Qed.
@@ -1632,7 +1638,7 @@ Section LambdaO.
           }
           {
             simpl.
-            admit.
+            admit. (* Ole for time *)
           }
         }
       }
