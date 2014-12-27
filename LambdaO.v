@@ -1410,6 +1410,16 @@ Section LambdaO.
           let tlist := Tlist $ telm in
           Efold (Epair $$ telm $$ tlist $$ #1 $$ #0) tlist.
 
+  Notation Fmult := (Fbinop FBmult).
+  Infix "*" := Fmult : formula_scope.
+  Notation Fdiv := (Fbinop FBdiv).
+  Infix "/" := Fdiv : formula_scope.
+  Notation Flog := (Funop FUlog).
+
+  Notation F2 := (F1 + F1).
+  Notation Fvar_nil x i := (Fvar (x, []) i).
+  Notation "x ! i" := (Fvar_nil x i) (at level 4, format "x ! i").
+  Notation "{{ i | f }}" := (Sstats ((fun (i : bool) => f) false, (fun (i : bool) => f) true)).
   Notation "x '!0'" := (Fvar (x, []) false) (at level 3, format "x '!0'").
   Notation "x '!1'" := (Fvar (x, []) true) (at level 3, format "x '!1'").
  
@@ -1417,7 +1427,7 @@ Section LambdaO.
 
   Definition merge_loop_type (telm : type) := 
     let list := Tlist $ telm in
-    Tarrow list F0 size1 $ Tarrow (lift list) (#1!0 + #0!0) (Sstats (#1!0 + #0!0, #1!1 + #0!1)) (liftby 2 list).
+    Tarrow list F0 size1 $ Tarrow (lift list) (#1!0 + #0!0) ({{ i | #1!i + #0!i }}) (liftby 2 list).
 
   Definition cmp_type (A : type) := Tarrow A F0 size1 $ Tarrow (lift A) F1 bool_size Tbool.
 
@@ -1640,10 +1650,6 @@ Section LambdaO.
     }
   Qed.
 
-  Notation Fmult := (Fbinop FBmult).
-  Infix "*" := Fmult : formula_scope.
-  Notation Flog := (Funop FUlog).
-
   Definition Enil := Etabs $ Efold Ett (Tlist $ #0).
   
   Lemma TPweaken T T' e t n s T'' :
@@ -1662,13 +1668,6 @@ Section LambdaO.
     eapply TPweaken; eauto.
     simpl; eauto.
   Qed.
-
-  Notation Fdiv := (Fbinop FBdiv).
-  Infix "/" := Fdiv : formula_scope.
-  Notation F2 := (F1 + F1).
-  Notation Fvar_nil x i := (Fvar (x, []) i).
-  Notation "x ! i" := (Fvar_nil x i) (at level 4, format "x ! i").
-  Notation "{{ i | f }}" := (Sstats ((fun (i : bool) => f) false, (fun (i : bool) => f) true)).
 
   Definition split_type telm :=
     Tarrow (Tlist $ telm) ((#0!0 + F1) / F2) (Spair {{ i | (#0!i + F1) / F2 }} {{ i | #0!i / F2 }}) (Tprod (Tlist $ lift telm) (Tlist $ lift telm)).
