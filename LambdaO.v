@@ -1624,32 +1624,13 @@ Section LambdaO.
     { eapply TPvar'; simpl; eauto. }
   Qed.
 
-  Definition split : expr.
-    admit.
-  Defined.
-
-  Definition Efixpoint tlhs t0 e := Eletrec [(tlhs, t0, e)] #0.
-
   Notation Fmult := (Fbinop FBmult).
   Infix "*" := Fmult : formula_scope.
   Notation Flog := (Funop FUlog).
 
-  Definition sort_loop_type telm :=
-    Tarrow (Tlist $ telm) (#0!0 * Flog #0!0) (Sstats (#0!0, #0!1)) (Tlist $ lift telm).
-
   Definition Enil := Etabs $ Efold Ett (Tlist $ #0).
     
-  Definition sort :=
-    Etabs $ Eabs (cmp_type #0) $ Efixpoint (sort_loop_type #1) (Tlist $ #2)
-          (Ematch_list #3 #0 
-                       #0
-                       (Ematch_list #5 #0
-                                    #2
-                                    (Ematch_pair (Etapp split #7 $$ #4)
-                                                 (Etapp merge #9 $$ #8 $$ (Eapp #7 #1) $$ (Eapp #7 #0))))).
-
-  Definition sort_type :=
-    Tuniversal $ Tarrow (cmp_type #0) F0 size1 $ sort_loop_type #1.
+  Definition Efixpoint tlhs t0 e := Eletrec [(tlhs, t0, e)] #0.
 
   Lemma TPfixpoint T tlhs t0 e :
     typing (add_typing (tlhs, Some size1) T) (Eabs t0 e) (lift tlhs) F0 size1 ->
@@ -1668,9 +1649,83 @@ Section LambdaO.
     { eapply TPvar'; simpl; eauto. }
   Qed.
 
+  Lemma TPweaken T T' e t n s T'' :
+    typing T e t n s ->
+    T'' = T ++ T' ->
+    typing T'' e t n s.
+  Proof.
+    admit.
+  Qed.
+
+  Lemma TPweaken_empty T e t n s :
+    typing [] e t n s ->
+    typing T e t n s.
+  Proof.
+    intros H.
+    eapply TPweaken; eauto.
+    simpl; eauto.
+  Qed.
+
+  Notation Fdiv := (Fbinop FBdiv).
+  Infix "/" := Fdiv : formula_scope.
+  Notation F2 := (F1 + F1).
+  Notation Fvar_nil x i := (Fvar (x, []) i).
+  Notation "x ! i" := (Fvar_nil x i) (at level 4, format "x ! i").
+  Notation "{{ i | f }}" := (Sstats ((fun (i : bool) => f) false, (fun (i : bool) => f) true)).
+
+  Definition split_type telm :=
+    Tarrow (Tlist $ telm) ((#0!0 + F1) / F2) (Spair {{ i | (#0!i + F1) / F2 }} {{ i | #0!i / F2 }}) (Tprod (Tlist $ lift telm) (Tlist $ lift telm)).
+(*
+  Definition split : expr.
+    admit.
+  Defined.
+
+  Lemma TPsplit : 
+    typing [] split (split_type #0) F0 size1.
+  Proof.
+    admit.
+  Qed.
+*)
+  Definition sort_loop_type telm :=
+    Tarrow (Tlist $ telm) (#0!0 * Flog #0!0) (Sstats (#0!0, #0!1)) (Tlist $ lift telm).
+
+(* sort is equivalent to : 
+  fun A split cmp => 
+    fix sort xs :=  
+      match xs with
+        | nil => xs
+        | _ :: xs' => match xs' with
+                        | nil => xs 
+                        | _ => match split xs with
+                                 | (ys, zs) => merge (sort ys, sort zs)
+                               end end end
+*)
+  
+  Definition sort :=
+    Etabs $ Eabs (split_type #0) $ Eabs (cmp_type #1) $ Efixpoint (sort_loop_type #2) (Tlist $ #3)
+          (Ematch_list #4 #0 
+                       #0
+                       (Ematch_list #6 #0
+                                    #2
+                                    (Ematch_pair (Eapp #7 #4)
+                                                 (Etapp merge #10 $$ #8 $$ (Eapp #7 #1) $$ (Eapp #7 #0))))).
+
+  Definition sort_type :=
+    Tuniversal $ Tarrow (split_type #0) F0 size1 $ Tarrow (cmp_type #1) F0 size1 $ sort_loop_type #2.
+
+  Lemma Ksplit_type T t : kinding T t 0 -> kinding T (split_type t) 0.
+  Proof.
+    intros H.
+    eapply Karrow; eauto.
+    { eapply Klist; eauto. }
+    eapply Kprod'; eapply Klist; eauto; simpl; eapply Klift; eauto.
+  Qed.
+
   Lemma TPsort : typing [] sort sort_type F0 size1.
   Proof.
     eapply TPtabs.
+    eapply TPabs.
+    { eapply Ksplit_type; eapply Kvar; eauto. }  
     eapply TPabs.
     { eapply Kcmp_type; eapply Kvar; eauto. }  
     simpl.
@@ -1716,49 +1771,7 @@ Section LambdaO.
               eapply TPmatch_pair'.
               {
                 eapply TPapp'.
-                {
-                  eapply TPeq.
-                  {
-                    eapply TPtapp.
-                    {
-                      Notation Fdiv := (Fbinop FBdiv).
-                      Infix "/" := Fdiv : formula_scope.
-                      Notation F2 := (F1 + F1).
-                      Notation Fvar_nil x i := (Fvar (x, []) i).
-                      Notation "x ! i" := (Fvar_nil x i) (at level 4, format "x ! i").
-                      Notation "{{ i | f }}" := (Sstats ((fun (i : bool) => f) false, (fun (i : bool) => f) true)).
-                      Type ({{ i | #0!i }}).
-                      Lemma TPsplit : 
-                        typing [] split (Tuniversal $ Tarrow (Tlist $ #0) ((#0!0 + F1) / F2) (Spair {{ i | (#0!i + F1) / F2 }} {{ i | #0!i / F2 }}) (Tprod (Tlist $ #1) (Tlist $ #1))) F0 size1.
-                      Proof.
-                        admit.
-                      Qed.
-                      Lemma TPweaken T T' e t n s T'' :
-                        typing T e t n s ->
-                        T'' = T ++ T' ->
-                        typing T'' e t n s.
-                      Proof.
-                        admit.
-                      Qed.
-                      Lemma TPweaken_empty T e t n s :
-                        typing [] e t n s ->
-                        typing T e t n s.
-                      Proof.
-                        intros H.
-                        eapply TPweaken; eauto.
-                        simpl; eauto.
-                      Qed.
-                      eapply TPweaken_empty.
-                      eapply TPsplit.
-                    }
-                  }
-                  {
-                    Arguments lower_s n s / .
-                    Arguments lower_f n f / .
-                    simpl.
-                    eapply Qrefl.
-                  }
-                }
+                { eapply TPvar'; simpl; eauto; simpl; eauto. }
                 { eapply TPvar'; simpl; eauto. }
                 { simpl; eauto. }
               }
@@ -1818,6 +1831,9 @@ Section LambdaO.
   Qed.
 
 (*
+  Arguments lower_s n s / .
+  Arguments lower_f n f / .
+
   Definition lower0 `{Lower t} := lower 0.
 
   Definition lowerby `{Lower t} n := iter n lower0.
@@ -1828,6 +1844,6 @@ Section LambdaO.
 
   Arguments lowerby / .
  *)
-    
+
 End LambdaO.
 
