@@ -1429,7 +1429,7 @@ Section LambdaO.
     let list := Tlist $ telm in
     Tarrow list F0 size1 $ Tarrow (lift list) (#1!0 + #0!0) ({{ i | #1!i + #0!i }}) (liftby 2 list).
 
-  Definition cmp_type (A : type) := Tarrow A F0 size1 $ Tarrow (lift A) F1 bool_size Tbool.
+  Definition cmp_type (A : type) := Tarrow A F0 size1 $ Tarrow (lift A) (#1!0 + #0!0) bool_size Tbool.
 
   (* merge is equivalent to :
     fun A cmp =>
