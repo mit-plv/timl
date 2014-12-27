@@ -943,17 +943,17 @@ Section LambdaO.
   | TPapp T e1 e2 ta tb f g n1 n2 nouse s2 : 
       typing T e1 (Tarrow ta f g tb) n1 nouse ->
       typing T e2 ta n2 s2 ->
-      typing T (Eapp e1 e2) (subst s2 tb) (n1 + n2 + subst s2 f)%F (subst s2 g)
+      typing T (Eapp e1 e2) (subst s2 tb) (n1 + n2 + F1 + subst s2 f) (subst s2 g)
   | TPabs T e t1 t2 n s :
       kinding T t1 0 ->
       typing (add_typing (t1, None) T) e t2 n s ->
       typing T (Eabs t1 e) (Tarrow t1 n s t2) F0 size1
+  (* the metrics on a tapp arrow are fixed to F0 and size1 *)
   | TPtapp T e t2 t n s :
       typing T e (Tuniversal t) n s ->
-      let t' := subst t2 t in
-      typing T (Etapp e t2) t' n s
-  | TPtabs T e t nouse1 nouse2 :
-      typing (add_kinding 0 T) e t nouse1 nouse2 ->
+      typing T (Etapp e t2) (subst t2 t) (n + F1) s
+  | TPtabs T e t :
+      typing (add_kinding 0 T) e t F0 size1 ->
       typing T (Etabs e) (Tuniversal t) F0 size1
   | TPlet T t1 e1 e2 t2 n1 n2 s1 s2:
       typing T e1 t1 n1 s1 ->
@@ -1122,13 +1122,13 @@ Section LambdaO.
     intros; subst; eapply Qbeta; eauto.
   Qed.
 
-  Lemma list_equal (t : type) : (Tlist $$ t) == Trecur (Tsum Tunit $ Tprod (lift t) #0).
+  Lemma Qlist (t : type) : (Tlist $$ t) == Trecur (Tsum Tunit $ Tprod (lift t) #0).
   Proof.
     eapply Qbeta'.
     simpl; eauto.
   Qed.
 
-  Lemma TPmatch_pair' T e e' t t1 t2 n s n' s' s1 s2 t'' n'' s'' :
+  Lemma TPmatch_pair' T e e' t t1 t2 n s n' s' s1 s2 t'' s'' :
     typing T e (Tprod t1 t2) n s ->
     has_pair s = Some (s1, s2) ->
     let t12 := [(t1, Some s1); (t2, Some s2)] in
@@ -1136,9 +1136,8 @@ Section LambdaO.
     typing T' e' t n' s' ->
     let s12 := [s1; s2] in
     t'' = subst_list s12 t ->
-    n'' = n + subst_list s12 n' ->
     s'' = subst_list s12 s' ->
-    typing T (Ematch_pair e e') t'' n'' s''.
+    typing T (Ematch_pair e e') t'' (n + subst_list s12 n') s''.
   Proof.
     intros; subst; eapply TPmatch_pair; eauto.
   Qed.
@@ -1224,7 +1223,7 @@ Section LambdaO.
       eapply TPmatch_inlinr.
       {
         eapply TPunfold'; eauto.
-        { eapply list_equal. }
+        { eapply Qlist. }
         {
           simpl.
           Lemma fold_substn_t_t n v b : visit_t 0 (subst_t_t_f n v, lower_sub n, lower_sub n) b = substn_t_t n v b.
@@ -1255,7 +1254,6 @@ Section LambdaO.
       }
       {
         Arguments Tprod / .
-        eapply TPmatch_pair'.
         Lemma TPvar' T n t s t' s' : 
           find n T = Some (TEtyping (t, s)) -> 
           t' = liftby (S n) t ->
@@ -1264,6 +1262,7 @@ Section LambdaO.
         Proof.
           intros; subst; eapply TPvar; eauto.
         Qed.
+        eapply TPmatch_pair'.
         { eapply TPvar'; simpl; eauto; simpl; eauto. }
         {
           simpl.
@@ -1313,7 +1312,6 @@ Section LambdaO.
           repeat rewrite subst_lift_s_t.
           eauto.
         }
-        { eauto. }
         {
           simpl.
           fold (iter 2 (lift_from_s 0) s').
@@ -1391,7 +1389,7 @@ Section LambdaO.
           let tlist := Tlist $ telm in
           Efold (Epair $$ telm $$ tlist $$ #1 $$ #0) tlist.
 
-  (* loop_body is equivalent to this:
+  (* merge_loop is equivalent to this:
 
     match xs with
       | nil => ys
@@ -1403,7 +1401,7 @@ Section LambdaO.
                                       y :: loop xs ys' end end
   *)
 
-  Definition loop_body (telm : type) (cmp loop : expr) := 
+  Definition merge_loop (telm : type) (cmp loop : expr) := 
     Ematch_list telm #1(*xs*) (*level 0*)
                 #0(*ys*)
                 (Ematch_list (liftby 2 telm) #2(*ys*) (*level 2*)
@@ -1412,22 +1410,22 @@ Section LambdaO.
                                   (Econs $$ liftby 4 telm $$ #3(*x*) $$ (liftby 4 loop $$ #2(*xs'*) $$ #4(*ys*)))
                                   (Econs $$ liftby 4 telm $$ #1(*y*) $$ (liftby 4 loop $$ #5(*xs*) $$ #0(*ys'*))))).
 
-  Notation "x '!0'" := (Fvar (x, []) false) (at level 10, format "x '!0'").
-  Notation "x '!1'" := (Fvar (x, []) true) (at level 10, format "x '!1'").
+  Notation "x '!0'" := (Fvar (x, []) false) (at level 3, format "x '!0'").
+  Notation "x '!1'" := (Fvar (x, []) true) (at level 3, format "x '!1'").
  
-  Definition loop_type (telm : type) := 
+  Definition merge_loop_type (telm : type) := 
     let list := Tlist $ telm in
     Tarrow list F0 size1 $ Tarrow (lift list) (#1!0 + #0!0) (Sstats (#1!0 + #0!0, #1!1 + #0!1)) (liftby 2 list).
 
   Definition bool_size := size1.
 
-  Definition cmp_type (A : type) := Tarrow A F0 size1 $ Tarrow (lift A) (#1!0 + #0!0) bool_size Tbool.
+  Definition cmp_type (A : type) := Tarrow A F0 size1 $ Tarrow (lift A) F1 bool_size Tbool.
 
   Definition merge :=
-    Etabs $ let telm : type := #0 in let list := Tlist $ telm in Eabs (cmp_type telm) $ Eletrec [(loop_type (lift telm), (liftby 2 list), Eabs (liftby 3 list) (loop_body (liftby 4 telm) #3 #2))] #0.
+    Etabs $ let telm : type := #0 in let list := Tlist $ telm in Eabs (cmp_type telm) $ Eletrec [(merge_loop_type (lift telm), (liftby 2 list), Eabs (liftby 3 list) (merge_loop (liftby 4 telm) #3 #2))] #0.
 
   Definition merge_type := 
-    Tuniversal $ Tarrow (cmp_type #0) F0 size1 $ loop_type #1.
+    Tuniversal $ Tarrow (cmp_type #0) F0 size1 $ merge_loop_type #1.
 
   Lemma Kcmp_type T t : kinding T t 0 -> kinding T (cmp_type t) 0.
   Proof.
@@ -1454,7 +1452,7 @@ Section LambdaO.
   Arguments lift_t_f nv nq / .
   Arguments lift_f_f n nv path i / .
 
-  Lemma merge_typing : typing [] merge merge_type F0 size1.
+  Lemma TPmerge : typing [] merge merge_type F0 size1.
   Proof.
     eapply TPtabs.
     eapply TPabs.
@@ -1475,7 +1473,7 @@ Section LambdaO.
         eapply TPabs.
         { eapply Klist; eapply Kvar; eauto. }
         {
-          unfold loop_body.
+          unfold merge_loop.
           simpl.
           eapply TPsubn.
           {
@@ -1523,13 +1521,11 @@ Section LambdaO.
                 Qed.
                 eapply TPif.
                 {
-                  Lemma TPapp' T e1 e2 ta tb f g n1 n2 s1 s2 t' n' s' : 
+                  Lemma TPapp' T e1 e2 ta tb f g n1 n2 s1 s2 t' : 
                     typing T e1 (Tarrow ta f g tb) n1 s1 ->
                     typing T e2 ta n2 s2 ->
                     t' = subst s2 tb ->
-                    n' = n1 + n2 + subst s2 f ->
-                    s' = subst s2 g ->
-                    typing T (Eapp e1 e2) t' n' s'.
+                    typing T (Eapp e1 e2) t' (n1 + n2 + F1 + subst s2 f) (subst s2 g).
                   Proof.
                     intros; subst; eapply TPapp; eauto.
                   Qed.
@@ -1543,23 +1539,17 @@ Section LambdaO.
                       Arguments lower_t_f n nv nq / .
                       simpl; eauto.
                     }
-                    { eauto. }
-                    { eauto. }
                   }
                   { eapply TPvar'; simpl; eauto. }
                   { simpl; eauto. }
-                  { eauto. }
-                  { eauto. }
                 }
                 {
                   simpl.
-                  Lemma TPcons_app T telm e ls n1 s1 n2 s2 t' s' : 
+                  Lemma TPcons_app T telm e ls n1 s1 n2 s2 : 
                     let tlist := Tlist $ telm in
                     typing T e telm n1 s1 ->
                     typing T ls tlist n2 s2 -> 
-                    t' = tlist ->
-                    s' = Sfold (Spair s1 s2) ->
-                    typing T (Econs $$ telm $$ e $$ ls) t' (n1 + n2 + F1) s'.
+                    typing T (Econs $$ telm $$ e $$ ls) tlist (n1 + n2 + F1) (Sfold (Spair s1 s2)).
                   Proof.
                     admit.
                   Qed.
@@ -1577,16 +1567,10 @@ Section LambdaO.
                         { eapply TPvar'; simpl; eauto; simpl; eauto. }
                         { eapply TPvar'; simpl; eauto. }
                         { simpl; eauto. }
-                        { eauto. }
-                        { eauto. }
                       }
                       { eapply TPvar'; simpl; eauto. }
                       { simpl; eauto. }
-                      { eauto. }
-                      { eauto. }
                     }
-                    { simpl; eauto. }
-                    { eauto. }
                   }
                   {
                     Arguments subst_size_size n v b / .
@@ -1615,16 +1599,10 @@ Section LambdaO.
                         { eapply TPvar'; simpl; eauto; simpl; eauto. }
                         { eapply TPvar'; simpl; eauto. }
                         { simpl; eauto. }
-                        { eauto. }
-                        { eauto. }
                       }
                       { eapply TPvar'; simpl; eauto. }
                       { simpl; eauto. }
-                      { eauto. }
-                      { eauto. }
                     }
-                    { simpl; eauto. }
-                    { eauto. }
                   }
                   {
                     simpl.
@@ -1646,6 +1624,199 @@ Section LambdaO.
     { eapply TPvar'; simpl; eauto. }
   Qed.
 
+  Definition split : expr.
+    admit.
+  Defined.
+
+  Definition Efixpoint tlhs t0 e := Eletrec [(tlhs, t0, e)] #0.
+
+  Notation Fmult := (Fbinop FBmult).
+  Infix "*" := Fmult : formula_scope.
+  Notation Flog := (Funop FUlog).
+
+  Definition sort_loop_type telm :=
+    Tarrow (Tlist $ telm) (#0!0 * Flog #0!0) (Sstats (#0!0, #0!1)) (Tlist $ lift telm).
+
+  Definition Enil := Etabs $ Efold Ett (Tlist $ #0).
+    
+  Definition sort :=
+    Etabs $ Eabs (cmp_type #0) $ Efixpoint (sort_loop_type #1) (Tlist $ #2)
+          (Ematch_list #3 #0 
+                       #0
+                       (Ematch_list #5 #0
+                                    #2
+                                    (Ematch_pair (Etapp split #7 $$ #4)
+                                                 (Etapp merge #9 $$ #8 $$ (Eapp #7 #1) $$ (Eapp #7 #0))))).
+
+  Definition sort_type :=
+    Tuniversal $ Tarrow (cmp_type #0) F0 size1 $ sort_loop_type #1.
+
+  Lemma TPfixpoint T tlhs t0 e :
+    typing (add_typing (tlhs, Some size1) T) (Eabs t0 e) (lift tlhs) F0 size1 ->
+    typing T (Efixpoint tlhs t0 e) tlhs F0 size1.
+  Proof.
+    intros H.
+    eapply TPletrec.
+    {
+      intros until 0.
+      intros Hin.
+      eapply in_singleton_iff in Hin.
+      inject Hin.
+      simpl.
+      eauto.
+    }
+    { eapply TPvar'; simpl; eauto. }
+  Qed.
+
+  Lemma TPsort : typing [] sort sort_type F0 size1.
+  Proof.
+    eapply TPtabs.
+    eapply TPabs.
+    { eapply Kcmp_type; eapply Kvar; eauto. }  
+    simpl.
+    eapply TPfixpoint.
+    simpl.
+    eapply TPabs.
+    { eapply Klist; eapply Kvar; eauto. }
+    {
+      simpl.
+      eapply TPsubn.
+      {
+        eapply TPmatch_list.
+        { eapply TPvar'; simpl; eauto. }
+        { simpl; eauto. }
+        {
+          eapply TPsubs.
+          { eapply TPvar'; simpl; eauto. }
+          {
+            simpl.
+            Lemma Fle_refl (n : formula) : n <= n.
+              admit.
+            Qed.
+            eapply Sle_stats; simpl; eapply Fle_refl.
+          }
+        }
+        {
+          simpl.
+          eapply TPmatch_list.
+          { eapply TPvar'; simpl; eauto. }
+          { simpl; eauto. }
+          {
+            eapply TPsubs.
+            { eapply TPvar'; simpl; eauto. }
+            {
+              simpl.
+              eapply Sle_stats; simpl; eapply Fle_refl.
+            }
+          }
+          {
+            simpl.
+            eapply TPsubs.
+            {
+              eapply TPmatch_pair'.
+              {
+                eapply TPapp'.
+                {
+                  eapply TPeq.
+                  {
+                    eapply TPtapp.
+                    {
+                      Notation Fdiv := (Fbinop FBdiv).
+                      Infix "/" := Fdiv : formula_scope.
+                      Notation F2 := (F1 + F1).
+                      Notation Fvar_nil x i := (Fvar (x, []) i).
+                      Notation "x ! i" := (Fvar_nil x i) (at level 4, format "x ! i").
+                      Notation "{{ i | f }}" := (Sstats ((fun (i : bool) => f) false, (fun (i : bool) => f) true)).
+                      Type ({{ i | #0!i }}).
+                      Lemma TPsplit : 
+                        typing [] split (Tuniversal $ Tarrow (Tlist $ #0) ((#0!0 + F1) / F2) (Spair {{ i | (#0!i + F1) / F2 }} {{ i | #0!i / F2 }}) (Tprod (Tlist $ #1) (Tlist $ #1))) F0 size1.
+                      Proof.
+                        admit.
+                      Qed.
+                      Lemma TPweaken T T' e t n s T'' :
+                        typing T e t n s ->
+                        T'' = T ++ T' ->
+                        typing T'' e t n s.
+                      Proof.
+                        admit.
+                      Qed.
+                      Lemma TPweaken_empty T e t n s :
+                        typing [] e t n s ->
+                        typing T e t n s.
+                      Proof.
+                        intros H.
+                        eapply TPweaken; eauto.
+                        simpl; eauto.
+                      Qed.
+                      eapply TPweaken_empty.
+                      eapply TPsplit.
+                    }
+                  }
+                  {
+                    Arguments lower_s n s / .
+                    Arguments lower_f n f / .
+                    simpl.
+                    eapply Qrefl.
+                  }
+                }
+                { eapply TPvar'; simpl; eauto. }
+                { simpl; eauto. }
+              }
+              { simpl; eauto. }
+              {
+                eapply TPapp'.
+                {
+                  eapply TPapp'.
+                  {
+                    eapply TPapp'.
+                    {
+                      eapply TPeq.
+                      {
+                        eapply TPtapp.
+                        eapply TPweaken_empty.
+                        eapply TPmerge.
+                      }
+                      { simpl; eapply Qrefl. }
+                    }
+                    { eapply TPvar'; simpl; eauto. }
+                    { simpl; eauto. }
+                  }
+                  {
+                    eapply TPapp'.
+                    { eapply TPvar'; simpl; eauto; simpl; eauto. }
+                    { eapply TPvar'; simpl; eauto. }
+                    { simpl; eauto. }
+                  }
+                  { simpl; eauto. }
+                }
+                {
+                  eapply TPapp'.
+                  { eapply TPvar'; simpl; eauto; simpl; eauto. }
+                  { eapply TPvar'; simpl; eauto. }
+                  { simpl; eauto. }
+                }
+                { eauto. }
+              }
+              { eauto. }
+              { eauto. }
+            }
+            {
+              simpl.
+              Lemma Fle_ceil_floor n : (n + F1) / F2 + n / F2 <= n.
+                admit.
+              Qed.
+              eapply Sle_stats; simpl; eapply Fle_ceil_floor.
+            }
+          }
+        }
+      }
+      {
+        simpl.
+        admit. (* Ole *)
+      }
+    }
+  Qed.
+
 (*
   Definition lower0 `{Lower t} := lower 0.
 
@@ -1655,20 +1826,7 @@ Section LambdaO.
     admit.
   Qed.
 
-  {
-    Arguments lowerby / .
-    Arguments lower_s / .
-    Arguments lower_f / .
-    simpl.
-    eapply (@lowerby_liftby 2).
-    simpl.
-
-  }
-  {
-    simpl.
-    simpl.
-    simpl.
-  }
+  Arguments lowerby / .
  *)
     
 End LambdaO.
