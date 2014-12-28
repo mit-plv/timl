@@ -291,8 +291,8 @@ Section LambdaO.
       | Sinl s => summarize s
       | Sinr s => summarize s
       | Sfold s =>
-        let (f1, f2) := summarize s in
-        (F1 + f1, F1 + f2)
+        let (n1, n2) := summarize s in
+        (F1 + n1, F1 + n2)
     end.
 
   Definition query_idx idx s := stats_get idx $ summarize s.
