@@ -134,9 +134,7 @@ Section LambdaO.
     s0 : number of invocations of 'fold' 
          (for algebraic data types, this correspond to the number of constructor invocations to construct this value);
     s1 : parallel version of s0, where the fields of a pair are max'ed instead of sum'ed;
-    s2 : same as s0, except that it also counts folds within parameter types
-    s3 : parallel version of s2
-    For example, for lists, s0 correspond to its length; for trees, s0 corresponds to its number of nodes; s1 corresponds to its depth. s2 and s3 are used when the algorithm needs to look into each element of the list (or tree, etc.).
+    For example, for lists, s0 correspond to its length; for trees, s0 corresponds to its number of nodes; s1 corresponds to its depth.
   *)
 
   Definition stat_idx := nat. (* An index indication the statistics you want. *)
@@ -191,7 +189,7 @@ Section LambdaO.
   Delimit Scope formula_scope with F.
   Open Scope F.
 
-  Definition stats := (formula * formula * formula * formula)%type.
+  Definition stats := (formula * formula)%type.
 
   Inductive size :=
   | Svar (x : var_path)
@@ -277,12 +275,10 @@ Section LambdaO.
 
   Definition stats_get (idx : stat_idx) (ss : stats) := 
     match ss with
-      | (n0, n1, n2, n3) =>
+      | (n0, n1) =>
         match idx with
           | 0 => n0
-          | 1 => n1
-          | 2 => n2
-          | _ => n3
+          | _ => n1
         end
     end.
 
@@ -298,7 +294,7 @@ Section LambdaO.
 
   Definition stats_binop {A} (f : formula -> formula -> A) (a b : stats) :=
     match a, b with
-      | (a0, a1, a2, a3), (b0, b1, b2, b3) => (f a0 b0, f a1 b1, f a2 b2, f a3 b3)
+      | (a0, a1), (b0, b1) => (f a0 b0, f a1 b1)
     end.
 
   Definition stats_plus := stats_binop Fplus.
@@ -310,11 +306,11 @@ Section LambdaO.
       max := stats_max
     }.
   
-  Definition ones := (F1, F1, F1, F1).
+  Definition ones := (F1, F1).
 
   Fixpoint summarize (s : size) : stats :=
     match s with
-      | Svar x => (Fvar x 0, Fvar x 1, Fvar x 2, Fvar x 3)
+      | Svar x => (Fvar x 0, Fvar x 1)
       | Sstats ss => ss
       | Stt => ones
       | Spair a b => 
@@ -325,10 +321,7 @@ Section LambdaO.
       | Sinr s => summarize s
       | Sfold s =>
         (ones + summarize s)%stats
-      | Shide s =>
-        match summarize s with
-          | (n0, n1, _, _) => (F0, F0, n0, n1)
-        end
+      | Shide s => (F0, F0)
     end.
 
   Definition query_idx idx s := stats_get idx $ summarize s.
@@ -414,7 +407,7 @@ Section LambdaO.
 
   Definition map_stats {A} (f : formula -> A) (ss : stats) := 
     match ss with
-      | (n0, n1, n2, n3) => (f n0, f n1, f n2, f n3)
+      | (n0, n1) => (f n0, f n1)
     end.
  
   Fixpoint visit_s (f : (nat -> path -> size) * (formula -> formula)) s :=
@@ -1480,7 +1473,7 @@ Section LambdaO.
   Notation F2 := (F1 + F1).
   Notation Fvar_nil x i := (Fvar (x, []) i).
   Notation "x ! i" := (Fvar_nil x i) (at level 4, format "x ! i").
-  Notation "{{ i | f }}" := (Sstats ((fun i => f) 0, (fun i => f) 1, (fun i => f) 2, (fun i => f) 3)).
+  Notation "{{ i | f }}" := (Sstats ((fun i => f) 0, (fun i => f) 1)).
   (* Notation "x '!0'" := (Fvar (x, []) false) (at level 3, format "x '!0'"). *)
   (* Notation "x '!1'" := (Fvar (x, []) true) (at level 3, format "x '!1'"). *)
  
@@ -1578,7 +1571,7 @@ Section LambdaO.
             { eapply TPvar'; simpl; eauto. }
             {
               simpl.
-              Lemma Sle_var_addr x n0 n1 n2 n3 : Svar x <= Sstats (n0 + Fvar x 0, n1 + Fvar x 1, n2 + Fvar x 2, n3 + Fvar x 3).
+              Lemma Sle_var_addr x n0 n1 : Svar x <= Sstats (n0 + Fvar x 0, n1 + Fvar x 1).
                 admit.
               Qed.
               eapply Sle_var_addr.
@@ -1594,7 +1587,7 @@ Section LambdaO.
               { eapply TPvar'; simpl; eauto. }
               {
                 simpl.
-                Lemma Sle_var_addl x n0 n1 n2 n3 : Svar x <= Sstats (Fvar x 0 + n0, Fvar x 1 + n1, Fvar x 2 + n2, Fvar x 3 + n3).
+                Lemma Sle_var_addl x n0 n1 : Svar x <= Sstats (Fvar x 0 + n0, Fvar x 1 + n1).
                   admit.
                 Qed.
                 eapply Sle_var_addl.
@@ -1666,13 +1659,11 @@ Section LambdaO.
                   Arguments subst_s_f_f n v nv path i / .
                   Arguments query_idx idx s / .
                   simpl.
-                  Lemma Sle_stats s f0 f1 f2 f3 : 
+                  Lemma Sle_stats s f0 f1 : 
                     let ss := summarize s in 
                     stats_get 0 ss <= f0 -> 
                     stats_get 1 ss <= f1 -> 
-                    stats_get 2 ss <= f2 -> 
-                    stats_get 3 ss <= f3 -> 
-                    s <= Sstats (f0, f1, f2, f3).
+                    s <= Sstats (f0, f1).
                     admit.
                   Qed.
                   eapply Sle_stats; simpl.
