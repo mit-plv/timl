@@ -1886,5 +1886,5 @@ Section LambdaO.
   Arguments lowerby / .
  *)
 
-pEnd LambdaO.
+End LambdaO.
 
