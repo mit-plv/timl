@@ -424,14 +424,16 @@ Section LambdaO.
       | Shide s => Shide (visit_s f s)
     end.
 
+  Definition subst_s_s_f n v nv path :=
+    match nat_cmp nv n with 
+      | LT _ => Svar (#nv, path)
+      | EQ => default Stt $ query_path path v
+      | GT p => Svar (#p, path)
+    end.
+    
   Definition subst_size_size (n : nat) (v b : size) : size :=
     visit_s 
-      (fun nv path =>
-         match nat_cmp nv n with 
-           | LT _ => Svar (#nv, path)
-           | EQ => default Stt $ query_path path v
-           | GT p => Svar (#p, path)
-         end,
+      (subst_s_s_f n v,
       substn n v) 
       b.
 
@@ -440,15 +442,17 @@ Section LambdaO.
       substn := subst_size_size
     }.
 
+  Definition lift_s_f n nv path :=
+    let nv :=
+        match nat_cmp nv n with
+          | LT _ => nv
+          | _ => S nv
+        end in
+    Svar (#nv, path).
+
   Definition lift_from_s n s :=
     visit_s
-      (fun nv path =>
-         let nv :=
-             match nat_cmp nv n with
-               | LT _ => nv
-               | _ => S nv
-             end in
-         Svar (#nv, path),
+      (lift_s_f n,
       lift_from n)
       s.
 
@@ -939,6 +943,12 @@ Section LambdaO.
       teq (Trecur a) (Trecur b)
   .
 
+  Global Add Relation type teq
+      reflexivity proved by Qrefl
+      symmetry proved by Qsymm
+      transitivity proved by Qtrans
+        as teq_rel.
+
   Definition var_to_Svar x := Svar (x, []).
 
   Class Le t :=
@@ -957,13 +967,13 @@ Section LambdaO.
       le := le_formula
     }.
 
-  Definition le_size : size -> size -> Prop.
+  Definition Sle : size -> size -> Prop.
     admit.
   Defined.
 
   Instance Le_size : Le size :=
     {
-      le := le_size
+      le := Sle
     }.
 
   Class Equal t :=
@@ -1229,17 +1239,25 @@ Section LambdaO.
     admit.
   Qed.
 
+  Global Add Relation size Sle
+      reflexivity proved by Sle_refl
+        as Sle_rel.
+  
   Lemma Ole_refl (a : formula) : a <<= a.
     admit.
   Qed.
 
+  Global Add Relation formula Ole
+      reflexivity proved by Ole_refl
+        as Ole_rel.
+  
   Lemma TPsubs T e t n s s' :
     typing T e t n s ->
     s <= s' ->
     typing T e t n s'.
   Proof.
     intros; eapply TPsub; eauto.
-    eapply Ole_refl.
+    reflexivity.
   Qed.
 
   Lemma is_list_elim s p : is_list s = Some p -> exists s1 s2 s3 s4, is_fold s = Some s1 /\ has_inlinr s1 = Some (s2, s3) /\ is_pair s3 = Some (s4, snd p) /\ is_hide s4 = Some (fst p).
@@ -1257,7 +1275,7 @@ Section LambdaO.
     typing T e t n' s.
   Proof.
     intros; eapply TPsub; eauto.
-    eapply Sle_refl.
+    reflexivity.
   Qed.
 
   Lemma TPmatch_list T e e1 e2 telm n s s1 s2 t' na nb s' :
@@ -1408,19 +1426,12 @@ Section LambdaO.
         admit.
       Qed.
       eapply Ole_plus; try eapply Ole_refl.
-      Lemma subst_lift_s_f v b : subst_size_formula 0 v (lift_from_f 0 b) = b.
-        admit.
-      Qed.
       repeat rewrite subst_lift_s_f.
       Lemma Ole_maxr (a b b' : formula) : b <<= b' -> max a b <<= max a b'.
         admit.
       Qed.
       eapply Ole_maxr.
       simpl.
-      Lemma fold_subst_s_f n s : visit_f (subst_s_f_f n s) = subst_size_formula n s.
-      Proof.
-        eauto.
-      Qed.
       repeat rewrite fold_subst_s_f in *.
       Lemma Oleadd0r a b : a <<= b -> F0 + a <<= b.
         admit.
@@ -1594,13 +1605,124 @@ Section LambdaO.
               }
             }
             {
+              simpl.
               Lemma TPif T e e1 e2 n s t' na nb s' :
                 typing T e Tbool n s ->
                 typing T e1 t' na s' ->
                 typing T e2 t' nb s' ->
-                typing T (Eif e e1 e2) t' (n + max na nb) s'.
+                typing T (Eif e e1 e2) t' (n + F1 + max na nb) s'.
               Proof.
-                admit.
+                intros He H1 H2.
+                Lemma TPbool_elim_size T e n s :
+                  typing T e Tbool n s ->
+                  (exists s1 s2, has_inlinr s = Some (s1, s2)) \/
+                  (exists s', s = Sinl s') \/
+                  (exists s', s = Sinr s').
+                Proof.
+                  intros H.
+                  (* inversion H; subst; simpl. *)
+                  admit.
+                Qed.
+                Ltac copy_as h h' := generalize h; intro h'.
+                copy_as He He'.
+                eapply TPbool_elim_size in He'.
+                destruct He' as [ [s1 [s2 Hs]] | [ [s1 Hs] | [s2 Hs] ]]; subst.
+                {
+                  eapply TPsubn.
+                  {
+                    eapply TPmatch_inlinr.
+                    { eauto. }
+                    { eauto. }
+                    { eapply TPlift; eauto. }
+                    { eapply TPlift; eauto. }
+                  }
+                  {
+                    simpl.
+                    Lemma fold_subst_s_f n s : visit_f (subst_s_f_f n s) = subst_size_formula n s.
+                    Proof.
+                      eauto.
+                    Qed.
+                    Lemma fold_lift_from_f n t : visit_f (lift_f_f n) t = lift_from_f n t.
+                    Proof.
+                      eauto.
+                    Qed.
+                    Lemma subst_lift_s_f v b : subst_size_formula 0 v (lift_from_f 0 b) = b.
+                      admit.
+                    Qed.
+                    repeat rewrite fold_subst_s_f.
+                    repeat rewrite fold_lift_from_f.
+                    repeat rewrite subst_lift_s_f.
+                    reflexivity.
+                  }
+                }
+                {
+                  eapply TPsub.
+                  {
+                    eapply TPeq.
+                    {
+                      eapply TPmatch_inl; eauto.
+                      eapply TPlift; eauto.
+                    }
+                    {
+                      simpl.
+                      repeat rewrite fold_lift_from_t.
+                      repeat rewrite subst_lift_s_t.
+                      reflexivity.
+                    }
+                  }
+                  {
+                    simpl.
+                    repeat rewrite fold_subst_s_f.
+                    repeat rewrite fold_lift_from_f.
+                    repeat rewrite subst_lift_s_f.
+                    admit. (* Ole for time *)
+                  }
+                  {
+                    simpl.
+                    Lemma fold_subst_s_s n v b : visit_s (subst_s_s_f n v, substn n v) b = subst_size_size n v b.
+                    Proof.
+                      eauto.
+                    Qed.
+                    Lemma fold_lift_from_s n t : visit_s (lift_s_f n, lift_from_f n) t = lift_from_s n t.
+                    Proof.
+                      eauto.
+                    Qed.
+                    repeat rewrite fold_subst_s_s.
+                    repeat rewrite fold_lift_from_s.
+                    repeat rewrite subst_lift_s_s.
+                    reflexivity.
+                  }
+                }
+                {
+                  eapply TPsub.
+                  {
+                    eapply TPeq.
+                    {
+                      eapply TPmatch_inr; eauto.
+                      eapply TPlift; eauto.
+                    }
+                    {
+                      simpl.
+                      repeat rewrite fold_lift_from_t.
+                      repeat rewrite subst_lift_s_t.
+                      reflexivity.
+                    }
+                  }
+                  {
+                    simpl.
+                    repeat rewrite fold_subst_s_f.
+                    repeat rewrite fold_lift_from_f.
+                    repeat rewrite subst_lift_s_f.
+                    admit. (* Ole for time *)
+                  }
+                  {
+                    simpl.
+                    repeat rewrite fold_subst_s_s.
+                    repeat rewrite fold_lift_from_s.
+                    repeat rewrite subst_lift_s_s.
+                    reflexivity.
+                  }
+                }
               Qed.
               eapply TPif.
               {
@@ -1830,7 +1952,7 @@ Section LambdaO.
                         eapply TPweaken_empty.
                         eapply TPmerge.
                       }
-                      { simpl; eapply Qrefl. }
+                      { simpl; reflexivity. }
                     }
                     { eapply TPvar'; simpl; eauto. }
                     { simpl; eauto. }
