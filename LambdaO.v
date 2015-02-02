@@ -956,13 +956,13 @@ Section LambdaO.
 
   Infix "<=" := le.
 
-  Definition le_formula : formula -> formula -> Prop.
+  Definition Fle : formula -> formula -> Prop.
     admit.
   Defined.
 
   Instance Le_formula : Le formula :=
     {
-      le := le_formula
+      le := Fle
     }.
 
   Definition Sle : size -> size -> Prop.
@@ -1384,24 +1384,46 @@ Section LambdaO.
         eauto.
       }
       { 
+        (*here*)
         simpl.
         repeat rewrite fold_subst_s_t in *.
         repeat rewrite fold_lift_from_t in *.
         fold (iter 2 (lift_from_t 0) telm).
-        rewrite lift_from_liftby.
+        Lemma subst_lift_s_t_n n v (b : type) : visit_t n (lower_t_f 0, substn_sub 0 v, substn_sub 0 v) (iter (S n) (lift_from_t 0) b) = iter n (lift_from_t 0) b.
+          admit.
+        Qed.
+        repeat rewrite subst_lift_s_t_n.
         simpl.
-        repeat rewrite fold_lift_from_t in *.
-        repeat rewrite subst_lift_s_t.
-
         repeat rewrite fold_subst_s_t in *.
-        (*here*)
         repeat rewrite fold_lift_from_t in *.
         repeat rewrite subst_lift_s_t.
-        
         eauto. 
       }
     }
-    admit.
+    {
+      simpl.
+      admit. (* Ole for time *)
+    }
+    {
+      simpl.
+      Lemma fold_subst_s_s n v b : visit_s (subst_s_s_f n v, substn n v) b = subst_size_size n v b.
+      Proof.
+        eauto.
+      Qed.
+
+      Lemma fold_lift_from_s n t : visit_s (lift_s_f n, lift_from_f n) t = lift_from_s n t.
+      Proof.
+        eauto.
+      Qed.
+
+      repeat rewrite fold_subst_s_s in *.
+      repeat rewrite fold_lift_from_s in *.
+      Lemma subst_lift_s_s v b : subst_size_size 0 v (lift_from_s 0 b) = b.
+        admit.
+      Qed.
+      repeat rewrite subst_lift_s_s in *.
+      reflexivity.
+    }
   Qed.
 
   Definition Tbool := Tsum Tunit Tunit.
@@ -1583,16 +1605,6 @@ Section LambdaO.
         }
         {
           simpl.
-          Lemma fold_subst_s_s n v b : visit_s (subst_s_s_f n v, substn n v) b = subst_size_size n v b.
-          Proof.
-            eauto.
-          Qed.
-
-          Lemma fold_lift_from_s n t : visit_s (lift_s_f n, lift_from_f n) t = lift_from_s n t.
-          Proof.
-            eauto.
-          Qed.
-
           repeat rewrite fold_subst_s_s in *.
           repeat rewrite fold_lift_from_s in *.
           fold (iter 2 (lift_from_s 0) s').
@@ -1601,9 +1613,6 @@ Section LambdaO.
           Qed.
           rewrite (@lift_from_liftby_s 2).
           simpl.
-          Lemma subst_lift_s_s v b : subst_size_size 0 v (lift_from_s 0 b) = b.
-            admit.
-          Qed.
           repeat rewrite fold_subst_s_s in *.
           repeat rewrite fold_lift_from_s in *.
           repeat rewrite subst_lift_s_s.
