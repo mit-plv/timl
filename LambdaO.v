@@ -383,7 +383,7 @@ Section LambdaO.
       lift_from := lift_from_f
     }.
 
-  (* 'lower' is a 'dry run' of 'subst', not doing substitution, only lowering bound variables above *)
+  (* 'lower' is a 'dry run' of 'subst', not doing substitution, only lowering bound variables above n *)
   Definition lower_f n f :=
     visit_f
       (fun nv path i => 
@@ -976,17 +976,17 @@ Section LambdaO.
       le := Sle
     }.
 
-  Class Equal t :=
-    {
-      equal : t -> t -> Prop
-    }.
-
   (* big-O less-than relation on formulas *)
   Definition Ole : formula -> formula -> Prop.
     admit.
   Defined.
 
   Infix "<<=" := Ole (at level 70).
+
+  Class Equal t :=
+    {
+      equal : t -> t -> Prop
+    }.
 
   Infix "==" := equal (at level 70).
 
@@ -1260,6 +1260,14 @@ Section LambdaO.
       reflexivity proved by Ole_refl
         as Ole_rel.
   
+  Lemma Fle_refl (n : formula) : n <= n.
+    admit.
+  Qed.
+
+  Global Add Relation formula Fle
+      reflexivity proved by Fle_refl
+        as Fle_rel.
+  
   Lemma TPunfold' T e t n s s1 t1 t' :
     typing T e t n s ->
     is_fold s = Some s1 ->
@@ -1339,6 +1347,144 @@ Section LambdaO.
     }
   Qed.
 
+  Lemma subst_lift_s_t_n n v (b : type) : visit_t n (lower_t_f 0, subst_sub 0 v, subst_sub 0 v) (iter (S n) (lift_from_t 0) b) = iter n (lift_from_t 0) b.
+    admit.
+  Qed.
+  Lemma subst_lift_s_t v (b : type) : subst_size_type 0 v (lift_from_t 0 b) = b.
+    admit.
+  Qed.
+  Lemma fold_subst_s_t n v b : visit_t 0 (lower_t_f n, subst_sub n v, subst_sub n v) b = subst_size_type n v b.
+  Proof.
+    eauto.
+  Qed.
+  Lemma fold_subst_t_t n v b : visit_t 0 (subst_t_t_f n v, lower_sub n, lower_sub n) b = subst_t_t n v b.
+  Proof.
+    eauto.
+  Qed.
+  Lemma fold_lift_from_t n t : visit_t n (lift_t_f, lift_from, lift_from) t = lift_from_t n t.
+  Proof.
+    eauto.
+  Qed.
+
+  Lemma fold_lift_from_f n t : visit_f (lift_f_f n) t = lift_from_f n t.
+  Proof.
+    eauto.
+  Qed.
+
+  Lemma fold_lift_from_s n t : visit_s (lift_s_f n, lift_from_f n) t = lift_from_s n t.
+  Proof.
+    eauto.
+  Qed.
+
+  Lemma fold_iter A n f (a : A) : iter n f (f a) = iter (S n) f a.
+  Proof.
+    eauto.
+  Qed.
+
+  Open Scope nat_scope.
+
+  Lemma subst_lift_t_t_n' v (x : type) : forall n m r, m <= r -> r <= n + m -> visit_t r (subst_t_t_f 0 v, lower_sub 0, lower_sub 0) (iter (S n) (lift_from_t m) x) = iter n (lift_from_t m) x.
+  Proof.
+    induction x; intros n m r Hle1 Hle2.
+    {
+      simpl.
+      rename x1 into a.
+      rename x2 into b.
+      Lemma liftby_arrow n : forall m a tm s b, iter n (lift_from_t m) (Tarrow a tm s b) = Tarrow (iter n (lift_from m) a) (iter n (lift_from (S m)) tm) (iter n (lift_from (S m)) s) (iter n (lift_from (S m)) b).
+      Proof.
+        induction n; simpl; intros; try rewrite IHn; eauto.
+      Qed.
+      repeat rewrite liftby_arrow.
+      simpl.
+      f_equal.
+      {
+        repeat rewrite fold_lift_from_t in *.
+        rewrite fold_iter.
+        rewrite IHx1; eauto.
+      }
+      {
+        (* Arguments lower_s n s / . *)
+        (* Arguments lower_f n f / . *)
+        repeat rewrite fold_lift_from_f in *.
+        rewrite fold_iter.
+        Lemma lower_iter_lift_f x n m r : m <= r -> r <= n + m -> lower_f r (iter (S n) (lift_from_f m) x) = iter n (lift_from_f m) x.
+          admit.
+        Qed.
+        eapply lower_iter_lift_f; eauto.
+      }
+      {
+        repeat rewrite fold_lift_from_s in *.
+        rewrite fold_iter.
+        Lemma lower_iter_lift_s x n m r : m <= r -> r <= n + m -> lower_s r (iter (S n) (lift_from_s m) x) = iter n (lift_from_s m) x.
+          admit.
+        Qed.
+        eapply lower_iter_lift_s; eauto.
+      }
+      {
+        repeat rewrite fold_lift_from_t in *.
+        rewrite fold_iter.
+        rewrite IHx2; eauto.
+      }
+    }
+    {
+      simpl.
+      rename t into c.
+      Lemma liftby_constr n : forall m c, iter n (lift_from_t m) (Tconstr c) = Tconstr c.
+      Proof.
+        induction n; simpl; intros; try rewrite IHn; eauto.
+      Qed.
+      repeat rewrite liftby_constr.
+      simpl.
+      eauto.
+    }
+    {
+      simpl.
+      (*here*)
+    }
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+  Qed.
+
+  Lemma subst_lift_t_t_n (b : type) : forall n v, visit_t n (subst_t_t_f 0 v, lower_sub 0, lower_sub 0) (iter (S n) (lift_from_t 0) b) = iter n (lift_from_t 0) b.
+  Qed.
+
+  Lemma subst_lift_t_t v (b : type) : subst_t_t 0 v (lift_from_t 0 b) = b.
+  Proof.
+    simpl.
+    repeat rewrite fold_lift_from_t in *.
+    fold (iter 1 (lift_from_t 0) b).
+    repeat rewrite subst_lift_t_t_n in *.
+    simpl.
+    eauto.
+  Qed.
+
+  Lemma lift_from_liftby_t n t : lift_from_t n (iter n (lift_from_t 0) t) = iter (S n) (lift_from_t 0) t.
+    admit.
+  Qed.
+  Lemma lift_from_liftby_s n s : lift_from_s n (iter n (lift_from_s 0) s) = iter (S n) (lift_from_s 0) s.
+    admit.
+  Qed.
+
+  Lemma fold_subst_s_s n v b : visit_s (subst_s_s_f n v, substn n v) b = subst_size_size n v b.
+  Proof.
+    eauto.
+  Qed.
+
+  Lemma subst_lift_s_s v b : subst_size_size 0 v (lift_from_s 0 b) = b.
+    admit.
+  Qed.
+
+  Lemma fold_subst_s_f n s : visit_f (subst_s_f_f n s) = subst_size_formula n s.
+  Proof.
+    eauto.
+  Qed.
+  Lemma subst_lift_s_f v b : subst_size_formula 0 v (lift_from_f 0 b) = b.
+    admit.
+  Qed.
+
   Lemma TPunhide_fst_app T A B e n s s1 s2 s1' : 
     typing T e (Tprod (Thide A) B) n s ->
     is_pair s = Some (s1', s2) ->
@@ -1362,24 +1508,6 @@ Section LambdaO.
         { simpl; eauto. }
       }
       {
-        Lemma subst_lift_s_t v (b : type) : subst_size_type 0 v (lift_from_t 0 b) = b.
-          admit.
-        Qed.
-        Lemma fold_subst_s_t n v b : visit_t 0 (lower_t_f n, subst_sub n v, subst_sub n v) b = subst_size_type n v b.
-        Proof.
-          eauto.
-        Qed.
-        Lemma fold_subst_t_t n v b : visit_t 0 (subst_t_t_f n v, lower_sub n, lower_sub n) b = subst_t_t n v b.
-        Proof.
-          eauto.
-        Qed.
-        Lemma fold_lift_from_t n t : visit_t n (lift_t_f, lift_from, lift_from) t = lift_from_t n t.
-        Proof.
-          eauto.
-        Qed.
-        Lemma subst_lift_t_t v (b : type) : subst_t_t 0 v (lift_from_t 0 b) = b.
-          admit.
-        Qed.
         repeat rewrite fold_subst_t_t in *.
         repeat rewrite fold_lift_from_t in *.
         repeat rewrite subst_lift_t_t in *.
@@ -1391,12 +1519,6 @@ Section LambdaO.
         repeat rewrite fold_subst_s_t in *.
         repeat rewrite subst_lift_s_t in *.
         fold (iter 2 (lift_from_t 0) A).
-        Lemma subst_lift_s_t_n n v (b : type) : visit_t n (lower_t_f 0, subst_sub 0 v, subst_sub 0 v) (iter (S n) (lift_from_t 0) b) = iter n (lift_from_t 0) b.
-          admit.
-        Qed.
-        Lemma subst_lift_t_t_n n v (b : type) : visit_t n (subst_t_t_f 0 v, lower_sub 0, lower_sub 0) (iter (S n) (lift_from_t 0) b) = iter n (lift_from_t 0) b.
-          admit.
-        Qed.
         repeat rewrite subst_lift_t_t_n in *.
         simpl.
         repeat rewrite fold_subst_s_t in *.
@@ -1528,7 +1650,6 @@ Section LambdaO.
         eauto.
       }
       { 
-        (*here*)
         simpl.
         repeat rewrite fold_subst_s_t in *.
         repeat rewrite fold_lift_from_t in *.
@@ -1547,21 +1668,8 @@ Section LambdaO.
     }
     {
       simpl.
-      Lemma fold_subst_s_s n v b : visit_s (subst_s_s_f n v, substn n v) b = subst_size_size n v b.
-      Proof.
-        eauto.
-      Qed.
-
-      Lemma fold_lift_from_s n t : visit_s (lift_s_f n, lift_from_f n) t = lift_from_s n t.
-      Proof.
-        eauto.
-      Qed.
-
       repeat rewrite fold_subst_s_s in *.
       repeat rewrite fold_lift_from_s in *.
-      Lemma subst_lift_s_s v b : subst_size_size 0 v (lift_from_s 0 b) = b.
-        admit.
-      Qed.
       repeat rewrite subst_lift_s_s in *.
       reflexivity.
     }
@@ -1699,10 +1807,7 @@ Section LambdaO.
           simpl.
           repeat rewrite fold_lift_from_t in *.
           fold (iter 2 (lift_from_t 0) t').
-          Lemma lift_from_liftby n t : lift_from_t n (iter n (lift_from_t 0) t) = iter (S n) (lift_from_t 0) t.
-            admit.
-          Qed.
-          rewrite lift_from_liftby.
+          rewrite lift_from_liftby_t.
           simpl.
           repeat rewrite fold_subst_s_t in *.
           repeat rewrite fold_lift_from_t in *.
@@ -1714,9 +1819,6 @@ Section LambdaO.
           repeat rewrite fold_subst_s_s in *.
           repeat rewrite fold_lift_from_s in *.
           fold (iter 2 (lift_from_s 0) s').
-          Lemma lift_from_liftby_s n s : lift_from_s n (iter n (lift_from_s 0) s) = iter (S n) (lift_from_s 0) s.
-            admit.
-          Qed.
           rewrite (@lift_from_liftby_s 2).
           simpl.
           repeat rewrite fold_subst_s_s in *.
@@ -1847,11 +1949,11 @@ Section LambdaO.
     }
     eapply Kbool.
   Qed.
-
+(*
   Lemma Fle0r n : F0 <= n.
     admit.
   Qed.
-
+*)
   (* Ltac copy_as h h' := generalize h; intro h'. *)
 
   Lemma TPif T e e1 e2 n s t' na nb s' s1 s2 :
@@ -1873,17 +1975,6 @@ Section LambdaO.
       }
       {
         simpl.
-        Lemma fold_subst_s_f n s : visit_f (subst_s_f_f n s) = subst_size_formula n s.
-        Proof.
-          eauto.
-        Qed.
-        Lemma fold_lift_from_f n t : visit_f (lift_f_f n) t = lift_from_f n t.
-        Proof.
-          eauto.
-        Qed.
-        Lemma subst_lift_s_f v b : subst_size_formula 0 v (lift_from_f 0 b) = b.
-          admit.
-        Qed.
         repeat rewrite fold_subst_s_f.
         repeat rewrite fold_lift_from_f.
         repeat rewrite subst_lift_s_f.
@@ -2096,10 +2187,7 @@ Section LambdaO.
           { eapply TPvar'; simpl; eauto. }
           {
             simpl.
-            Lemma Fle_refl (n : formula) : n <= n.
-              admit.
-            Qed.
-            eapply Sle_stats; simpl; eapply Fle_refl.
+            eapply Sle_stats; simpl; reflexivity.
           }
         }
         {
@@ -2112,7 +2200,7 @@ Section LambdaO.
             { eapply TPvar'; simpl; eauto. }
             {
               simpl.
-              eapply Sle_stats; simpl; eapply Fle_refl.
+              eapply Sle_stats; simpl; reflexivity.
             }
           }
           {
@@ -2182,8 +2270,6 @@ Section LambdaO.
   Qed.
 
 (*
-  Arguments lower_s n s / .
-  Arguments lower_f n f / .
 
   Definition lower0 `{Lower t} := lower 0.
 
