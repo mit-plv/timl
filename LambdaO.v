@@ -543,15 +543,15 @@ Section LambdaO.
 
   Definition lower_sub `{Lower B} n nq b := lower (n + nq) b.
 
-  Definition substn_t_t n v b := 
+  Definition subst_t_t n v b := 
     visit_t 0 (subst_t_t_f n v, lower_sub n, lower_sub n) b.
 
   Instance Subst_type_type : Subst type type :=
     {
-      substn := substn_t_t
+      substn := subst_t_t
     }.
 
-  Definition substn_sub `{Subst V B, Lift V} n v nq b := substn (n + nq) (liftby nq v) b.
+  Definition subst_sub `{Subst V B, Lift V} n v nq b := substn (n + nq) (liftby nq v) b.
 
   Definition lower_t_f n nv nq : type :=
     match nat_cmp nv (n + nq) with 
@@ -563,8 +563,8 @@ Section LambdaO.
     visit_t
       0 
       (lower_t_f n,
-       substn_sub n v,
-       substn_sub n v)
+       subst_sub n v,
+       subst_sub n v)
       b.
 
   Instance Subst_size_type : Subst size type :=
@@ -687,19 +687,19 @@ Section LambdaO.
       lift_from := lift_from_e
     }.
 
-  Definition substn_e_e_f n v nv nq : expr :=
+  Definition subst_e_e_f n v nv nq : expr :=
     match nat_cmp nv (n + nq) with 
       | LT _ => #nv
       | EQ => liftby nq v
       | GT p => #p
     end.
 
-  Definition substn_e_e n v b := 
-    visit_e 0 (substn_e_e_f n v, lower_sub n) b.
+  Definition subst_e_e n v b := 
+    visit_e 0 (subst_e_e_f n v, lower_sub n) b.
 
   Instance Subst_expr_expr : Subst expr expr :=
     {
-      substn := substn_e_e
+      substn := subst_e_e
     }.
 
   Definition lower_e_f n nv nq : expr := 
@@ -708,16 +708,16 @@ Section LambdaO.
       | _ => #nv
     end.
 
-  Definition substn_t_e n (v : type) (b : expr) : expr :=
+  Definition subst_t_e n (v : type) (b : expr) : expr :=
     visit_e
       0
       (lower_e_f n,
-       substn_sub n v)
+       subst_sub n v)
       b.
 
   Instance Subst_type_expr : Subst type expr :=
     {
-      substn := substn_t_e
+      substn := subst_t_e
     }.
 
   Definition lower_e n e :=
@@ -947,7 +947,7 @@ Section LambdaO.
       transitivity proved by Qtrans
         as teq_rel.
 
-  Definition var_to_Svar x := Svar (x, []).
+  (* Definition var_to_Svar x := Svar (x, []). *)
 
   Class Le t :=
     {
@@ -956,6 +956,7 @@ Section LambdaO.
 
   Infix "<=" := le.
 
+  (* precise less-than relation on formulas *)
   Definition Fle : formula -> formula -> Prop.
     admit.
   Defined.
@@ -965,6 +966,7 @@ Section LambdaO.
       le := Fle
     }.
 
+  (* precise less-than relation on sizes *)
   Definition Sle : size -> size -> Prop.
     admit.
   Defined.
@@ -979,6 +981,7 @@ Section LambdaO.
       equal : t -> t -> Prop
     }.
 
+  (* big-O less-than relation on formulas *)
   Definition Ole : formula -> formula -> Prop.
     admit.
   Defined.
@@ -999,7 +1002,7 @@ Section LambdaO.
   Inductive typing : tcontext -> expr -> type -> formula -> size -> Prop :=
   | TPvar T n t s : 
       find n T = Some (TEtyping (t, s)) -> 
-      typing T #n (liftby (S n) t) F0 (default (var_to_Svar #n) (liftby (S n) s))
+      typing T #n (liftby (S n) t) F0 (default (var_to_size #n) (liftby (S n) s))
   | TPapp T e1 e2 ta tb f g n1 n2 nouse s2 : 
       typing T e1 (Tarrow ta f g tb) n1 nouse ->
       typing T e2 ta n2 s2 ->
@@ -1065,7 +1068,7 @@ Section LambdaO.
   | TPhide T e t n s :
       typing T e t n s ->
       typing T (Ehide e) (Thide t) n (Shide s)
-  | TPunhiding T e t n s s1 :
+  | TPunhide T e t n s s1 :
       typing T e (Thide t) n s ->
       is_hide s = Some s1 ->
       typing T (Eunhide e) t n s1
@@ -1101,13 +1104,6 @@ Section LambdaO.
     }.
 
   Definition Tlist := Tabs $ Trecur $ Tsum Tunit $ Tprod (Thide #1) #0.
-  Definition Eunhide_fst := Etabs $ Etabs $ Eabs (Tprod (Thide #1) #0) $ 
-                                       Ematch_pair #0 $
-                                       Eunhide #1 $ Epair $$ (#5 : type) $$ (#4 : type) $$ #0 $$ #1.
-  Definition Ematch_list (telm : type) e b_nil b_cons := 
-    let tlist := Tlist $$ telm in
-    Ematch_sum (Eunfold e tlist) (lift b_nil) (Ematch_pair (Eunhide_fst $$ (lift telm) $$ (lift tlist) $$ #0) $ lift_from 2 b_cons).
-
   Lemma Ksum' T a b :
     kinding T a 0 ->
     kinding T b 0 ->
@@ -1188,7 +1184,7 @@ Section LambdaO.
   Lemma TPvar' T n t s t' s' : 
     find n T = Some (TEtyping (t, s)) -> 
     t' = liftby (S n) t ->
-    s' = default (var_to_Svar #n) (liftby (S n) s) ->
+    s' = default (var_to_size #n) (liftby (S n) s) ->
     typing T #n t' F0 s'.
   Proof.
     intros; subst; eapply TPvar; eauto.
@@ -1218,7 +1214,7 @@ Section LambdaO.
   Arguments add_typings / . 
   Arguments add_kinding / . 
 
-  Arguments substn_t_t n v b / .
+  Arguments subst_t_t n v b / .
   Arguments subst_t_t_f n v nv nq / .
   Arguments liftby / .
   Arguments lift_from_t n t / .
@@ -1264,6 +1260,169 @@ Section LambdaO.
       reflexivity proved by Ole_refl
         as Ole_rel.
   
+  Lemma TPunfold' T e t n s s1 t1 t' :
+    typing T e t n s ->
+    is_fold s = Some s1 ->
+    t == Trecur t1 ->
+    t' = subst t t1 ->
+    typing T (Eunfold e t) t' n s1.
+  Proof.
+    intros; subst; eapply TPunfold; eauto.
+  Qed.
+
+  Lemma TPmatch_pair' T e e' t t1 t2 n s n' s' s1 s2 t'' s'' :
+    typing T e (Tprod t1 t2) n s ->
+    is_pair s = Some (s1, s2) ->
+    let t12 := [(t1, Some s1); (t2, Some s2)] in
+    let T' := add_typings t12 T in
+    typing T' e' t n' s' ->
+    let s12 := [s1; s2] in
+    t'' = subst_list s12 t ->
+    s'' = subst_list s12 s' ->
+    typing T (Ematch_pair e e') t'' (n + F1 + subst_list s12 n') s''.
+  Proof.
+    intros; subst; eapply TPmatch_pair; eauto.
+  Qed.
+
+  Definition Eunhide_fst := Etabs $ Etabs $ Eabs (Tprod (Thide #1) #0) $ 
+                                       Ematch_pair #0 $
+                                       Epair $$ (#4 : type) $$ (#3 : type) $$ (Eunhide #1) $$ #0.
+
+  Lemma TPunhide_fst :
+    typing [] Eunhide_fst (Tuniversal $ Tuniversal $ Tarrow (Tprod (Thide #1) #0) F1 (Spair (Svar (#0, [Pfst; Punhide])) (Svar (#0, [Psnd]))) $ Tprod #2 #1) F0 Stt.
+  Proof.
+    eapply TPtabs.
+    eapply TPtabs.
+    eapply TPabs.
+    { 
+      eapply Kprod'; try eapply Khide; eapply Kvar; simpl; eauto.
+    }
+    simpl.
+    eapply TPsub.
+    {
+      eapply TPmatch_pair'.
+      { eapply TPvar'; simpl; eauto; simpl; eauto. }
+      { simpl; eauto. }
+      {
+        simpl.
+        eapply TPapp.
+        {
+          eapply TPapp'.
+          {
+            eapply TPtapp'.
+            {
+              eapply TPtapp'.
+              { eapply TPpair. }
+              { simpl; eauto. }
+            }
+            { simpl; eauto. }
+          }
+          {
+            eapply TPunhide.
+            { eapply TPvar'; simpl; eauto. }
+            { simpl; eauto. }
+          }
+          { simpl; eauto. }
+        }
+        { eapply TPvar'; simpl; eauto. }
+      }
+      { simpl; eauto. }
+      { eauto. }
+    }
+    {
+      simpl.
+      admit. (* Ole for time *)
+    }
+    {
+      simpl.
+      reflexivity.
+    }
+  Qed.
+
+  Lemma TPunhide_fst_app T A B e n s s1 s2 s1' : 
+    typing T e (Tprod (Thide A) B) n s ->
+    is_pair s = Some (s1', s2) ->
+    is_hide s1' = Some s1 ->
+    typing T (Eunhide_fst $$ A $$ B $$ e) (Tprod A B) (n + F1) (Spair s1 s2).
+  Proof.
+    intros He Hs Hs1'.
+    eapply TPsub.
+    {
+      eapply TPapp'.
+      {
+        eapply TPtapp'.
+        {
+          eapply TPtapp'.
+          { 
+            eapply TPweaken_empty.
+            eapply TPunhide_fst.
+          }
+          { simpl; eauto. }
+        }
+        { simpl; eauto. }
+      }
+      {
+        Lemma subst_lift_s_t v (b : type) : subst_size_type 0 v (lift_from_t 0 b) = b.
+          admit.
+        Qed.
+        Lemma fold_subst_s_t n v b : visit_t 0 (lower_t_f n, subst_sub n v, subst_sub n v) b = subst_size_type n v b.
+        Proof.
+          eauto.
+        Qed.
+        Lemma fold_subst_t_t n v b : visit_t 0 (subst_t_t_f n v, lower_sub n, lower_sub n) b = subst_t_t n v b.
+        Proof.
+          eauto.
+        Qed.
+        Lemma fold_lift_from_t n t : visit_t n (lift_t_f, lift_from, lift_from) t = lift_from_t n t.
+        Proof.
+          eauto.
+        Qed.
+        Lemma subst_lift_t_t v (b : type) : subst_t_t 0 v (lift_from_t 0 b) = b.
+          admit.
+        Qed.
+        repeat rewrite fold_subst_t_t in *.
+        repeat rewrite fold_lift_from_t in *.
+        repeat rewrite subst_lift_t_t in *.
+        eauto.
+      }
+      { 
+        simpl. 
+        repeat rewrite fold_lift_from_t in *.
+        repeat rewrite fold_subst_s_t in *.
+        repeat rewrite subst_lift_s_t in *.
+        fold (iter 2 (lift_from_t 0) A).
+        Lemma subst_lift_s_t_n n v (b : type) : visit_t n (lower_t_f 0, subst_sub 0 v, subst_sub 0 v) (iter (S n) (lift_from_t 0) b) = iter n (lift_from_t 0) b.
+          admit.
+        Qed.
+        Lemma subst_lift_t_t_n n v (b : type) : visit_t n (subst_t_t_f 0 v, lower_sub 0, lower_sub 0) (iter (S n) (lift_from_t 0) b) = iter n (lift_from_t 0) b.
+          admit.
+        Qed.
+        repeat rewrite subst_lift_t_t_n in *.
+        simpl.
+        repeat rewrite fold_subst_s_t in *.
+        repeat rewrite fold_lift_from_t in *.
+        repeat rewrite subst_lift_s_t in *.
+        eauto. 
+      }
+    }
+    {
+      simpl.
+      admit. (* Ole for time *)
+    }
+    {
+      simpl.
+      rewrite Hs.
+      simpl.
+      rewrite Hs1'.
+      simpl.
+      reflexivity.
+    }
+  Qed.
+
+  Definition Ematch_list (telm : type) e b_nil b_cons := 
+    let tlist := Tlist $$ telm in
+    Ematch_sum (Eunfold e tlist) (lift b_nil) (Ematch_pair (Eunhide_fst $$ (lift telm) $$ (lift tlist) $$ #0) $ lift_from 2 b_cons).
+
   Definition Enil := Etabs $ Efold (Ehide Ett) (Tlist $ #0).
   
   Definition Econs := 
@@ -1363,24 +1522,9 @@ Section LambdaO.
         }
       }
       {
-        Lemma subst_lift_s_t v (b : type) : subst_size_type 0 v (lift_from_t 0 b) = b.
-          admit.
-        Qed.
-        Lemma fold_subst_s_t n v b : visit_t 0 (lower_t_f n, substn_sub n v, substn_sub n v) b = subst_size_type n v b.
-        Proof.
-          eauto.
-        Qed.
-        Lemma fold_substn_t_t n v b : visit_t 0 (subst_t_t_f n v, lower_sub n, lower_sub n) b = substn_t_t n v b.
-        Proof.
-          eauto.
-        Qed.
-        Lemma fold_lift_from_t n t : visit_t n (lift_t_f, lift_from, lift_from) t = lift_from_t n t.
-        Proof.
-          eauto.
-        Qed.
         repeat rewrite fold_subst_s_t in *.
         repeat rewrite fold_lift_from_t in *.
-        repeat rewrite subst_lift_s_t.
+        repeat rewrite subst_lift_s_t in *.
         eauto.
       }
       { 
@@ -1389,14 +1533,11 @@ Section LambdaO.
         repeat rewrite fold_subst_s_t in *.
         repeat rewrite fold_lift_from_t in *.
         fold (iter 2 (lift_from_t 0) telm).
-        Lemma subst_lift_s_t_n n v (b : type) : visit_t n (lower_t_f 0, substn_sub 0 v, substn_sub 0 v) (iter (S n) (lift_from_t 0) b) = iter n (lift_from_t 0) b.
-          admit.
-        Qed.
-        repeat rewrite subst_lift_s_t_n.
+        repeat rewrite subst_lift_s_t_n in *.
         simpl.
         repeat rewrite fold_subst_s_t in *.
         repeat rewrite fold_lift_from_t in *.
-        repeat rewrite subst_lift_s_t.
+        repeat rewrite subst_lift_s_t in *.
         eauto. 
       }
     }
@@ -1439,30 +1580,6 @@ Section LambdaO.
 
   Definition list_int := Tlist $$ Tint.
 *)
-
-  Lemma TPunfold' T e t n s s1 t1 t' :
-    typing T e t n s ->
-    is_fold s = Some s1 ->
-    t == Trecur t1 ->
-    t' = subst t t1 ->
-    typing T (Eunfold e t) t' n s1.
-  Proof.
-    intros; subst; eapply TPunfold; eauto.
-  Qed.
-
-  Lemma TPmatch_pair' T e e' t t1 t2 n s n' s' s1 s2 t'' s'' :
-    typing T e (Tprod t1 t2) n s ->
-    is_pair s = Some (s1, s2) ->
-    let t12 := [(t1, Some s1); (t2, Some s2)] in
-    let T' := add_typings t12 T in
-    typing T' e' t n' s' ->
-    let s12 := [s1; s2] in
-    t'' = subst_list s12 t ->
-    s'' = subst_list s12 s' ->
-    typing T (Ematch_pair e e') t'' (n + F1 + subst_list s12 n') s''.
-  Proof.
-    intros; subst; eapply TPmatch_pair; eauto.
-  Qed.
 
   Lemma Kbool T : kinding T Tbool 0.
   Proof.
@@ -1522,12 +1639,9 @@ Section LambdaO.
         { eapply Qlist. }
         {
           simpl.
-          rewrite fold_substn_t_t in *.
+          rewrite fold_subst_t_t in *.
           rewrite fold_lift_from_t in *.
-          Lemma subst_lift v (b : type) : substn_t_t 0 v (lift_from_t 0 b) = b.
-            admit.
-          Qed.
-          rewrite subst_lift.
+          rewrite subst_lift_t_t.
           unfold Tsum.
           eauto.
         }
@@ -1543,14 +1657,6 @@ Section LambdaO.
       {
         eapply TPmatch_pair'.
         { 
-          Lemma TPunhide_fst_app T A B e n s s1 s2 s1' : 
-            typing T e (Tprod (Thide A) B) n s ->
-            is_pair s = Some (s1', s2) ->
-            is_hide s1' = Some s1 ->
-            typing T (Eunhide_fst $$ A $$ B $$ e) (Tprod A B) (n + F1) (Spair s1 s2).
-          Proof.
-            admit.
-          Qed.
           simpl.
           eapply TPunhide_fst_app.
           { eapply TPvar'; simpl; eauto; simpl; eauto. }
