@@ -1358,12 +1358,26 @@ Section LambdaO.
         }
         { eauto. }
         { 
-          repeat rewrite fold_lift_from_t in *.
           simpl. 
           eauto. 
         }
       }
       {
+        Lemma subst_lift_s_t v (b : type) : subst_size_type 0 v (lift_from_t 0 b) = b.
+          admit.
+        Qed.
+        Lemma fold_subst_s_t n v b : visit_t 0 (lower_t_f n, substn_sub n v, substn_sub n v) b = subst_size_type n v b.
+        Proof.
+          eauto.
+        Qed.
+        Lemma fold_substn_t_t n v b : visit_t 0 (subst_t_t_f n v, lower_sub n, lower_sub n) b = substn_t_t n v b.
+        Proof.
+          eauto.
+        Qed.
+        Lemma fold_lift_from_t n t : visit_t n (lift_t_f, lift_from, lift_from) t = lift_from_t n t.
+        Proof.
+          eauto.
+        Qed.
         repeat rewrite fold_subst_s_t in *.
         repeat rewrite fold_lift_from_t in *.
         repeat rewrite subst_lift_s_t.
@@ -1486,15 +1500,7 @@ Section LambdaO.
         { eapply Qlist. }
         {
           simpl.
-          Lemma fold_substn_t_t n v b : visit_t 0 (subst_t_t_f n v, lower_sub n, lower_sub n) b = substn_t_t n v b.
-          Proof.
-            eauto.
-          Qed.
           rewrite fold_substn_t_t in *.
-          Lemma fold_lift_from_t n t : visit_t n (lift_t_f, lift_from, lift_from) t = lift_from_t n t.
-          Proof.
-            eauto.
-          Qed.
           rewrite fold_lift_from_t in *.
           Lemma subst_lift v (b : type) : substn_t_t 0 v (lift_from_t 0 b) = b.
             admit.
@@ -1570,13 +1576,6 @@ Section LambdaO.
           Qed.
           rewrite lift_from_liftby.
           simpl.
-          Lemma subst_lift_s_t v (b : type) : subst_size_type 0 v (lift_from_t 0 b) = b.
-            admit.
-          Qed.
-          Lemma fold_subst_s_t n v b : visit_t 0 (lower_t_f n, substn_sub n v, substn_sub n v) b = subst_size_type n v b.
-          Proof.
-            eauto.
-          Qed.
           repeat rewrite fold_subst_s_t in *.
           repeat rewrite fold_lift_from_t in *.
           repeat rewrite subst_lift_s_t.
