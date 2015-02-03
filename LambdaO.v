@@ -115,12 +115,14 @@ Section LambdaO.
     {
       apply := apply_arrow
     }.
-  
+(*  
   Inductive var :=
     | Vbound : nat -> var
     (* | Vfree : string -> var *)
   .
-
+*)
+  Notation var := nat.
+  Notation Vbound n := (n : nat).
   Notation "# n" := (Vbound n) (at level 3).
 
   (* Coercion Vbound : nat >-> var. *)
@@ -330,7 +332,7 @@ Section LambdaO.
     
   Fixpoint visit_f f fm :=
     match fm with
-      | Fvar (Vbound nv, path) i => f nv path i
+      | Fvar (nv, path) i => f nv path i
       | Fconst c => fm
       | Fbinop o a b => Fbinop o (visit_f f a) (visit_f f b)
       | Funop o n => Funop o (visit_f f n)
@@ -411,7 +413,7 @@ Section LambdaO.
   Fixpoint visit_s (f : (nat -> path -> size) * (formula -> formula)) s :=
     let (fv, ff) := f in
     match s with
-      | Svar (Vbound nv, path) => fv nv path
+      | Svar (nv, path) => fv nv path
       | Sstats ss => Sstats $ map_stats ff ss
       | Stt => Stt
       | Spair a b => Spair (visit_s f a) (visit_s f b)
@@ -506,7 +508,7 @@ Section LambdaO.
     let ff := snd $ fst f in
     let fs := snd f in
     match b with
-      | Tvar (Vbound n') => fv n' n
+      | Tvar n' => fv n' n
       | Tarrow a time retsize b => Tarrow (visit_t n f a) (ff (S n) time) (fs (S n) retsize) (visit_t (S n) f b)
       | Tconstr _ => b
       | Tuniversal t => Tuniversal (visit_t (S n) f t) 
@@ -516,11 +518,11 @@ Section LambdaO.
       | Thide t => Thide (visit_t n f t)
     end.
 
-  (* nv : the number in Vbound
+  (* nv : the number in var
      nq : the number of surrounding quantification layers 
    *)
 
-  Definition lift_t_f nv nq : type := 
+  Definition lift_t_f nv nq : type := Tvar $
     match nat_cmp nv nq with 
       | LT _ => #nv
       | _ => #(S nv)
@@ -650,7 +652,7 @@ Section LambdaO.
   Fixpoint visit_e n (f : (nat -> nat -> expr) * (nat -> type -> type)) b :=
     let (fv, ft) := f in
     match b with
-      | Evar (Vbound n') => fv n' n
+      | Evar n' => fv n' n
       | Econstr _ => b
       | Eapp a b => Eapp (visit_e n f a) (visit_e n f b)
       | Eabs t e => Eabs (ft n t) (visit_e (S n) f e)
@@ -1438,10 +1440,45 @@ Section LambdaO.
       eauto.
     }
     {
-      simpl.
-      (*here*)
+      Lemma subst_lift_t_t_n_var v (x : var) n m r : m <= r -> r <= n + m -> visit_t r (subst_t_t_f 0 v, lower_sub 0, lower_sub 0) (iter (S n) (lift_from_t m) x) = iter n (lift_from_t m) x.
+      Proof.
+        intros Hle1 Hle2.
+        simpl.
+        Lemma liftby_var n : forall m x, iter n (lift_from_t m) (Tvar x) = Tvar
+                                         match nat_cmp x m with
+                                           | LT _ => x
+                                           | _ => n + x
+                                         end.
+        Proof.
+          induction n; simpl; intros.
+          {
+            destruct (nat_cmp x m); eauto.
+          }
+          admit.
+          (* destruct (nat_cmp x m). *)
+          (* { *)
+          (*   rewrite IHn. *)
+          (*   destruct (nat_cmp x m); simpl; eauto. *)
+        Qed.
+        repeat rewrite liftby_var.
+        simpl.
+        Set Printing Coercions.
+        (*here*)
+      Qed.
+      eapply subst_lift_t_t_n_var; eauto.
     }
-    admit.
+    {
+      simpl.
+      Lemma liftby_universal n : forall m x, iter n (lift_from_t m) (Tuniversal x) = Tuniversal (iter n (lift_from_t (S m)) x).
+      Proof.
+        induction n; simpl; intros; try rewrite IHn; eauto.
+      Qed.
+      repeat rewrite liftby_universal.
+      simpl.
+      repeat rewrite fold_lift_from_t in *.
+      rewrite fold_iter.
+      rewrite IHx; eauto.
+    }
     admit.
     admit.
     admit.
