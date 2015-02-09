@@ -2216,22 +2216,22 @@ Section LambdaO.
   Definition split_type telm :=
     Tarrow (Tlist $ telm) ((#0!0 + F1) / F2) (Spair {{ i | (#0!i + F1) / F2 }} {{ i | #0!i / F2 }}) (Tprod (Tlist $ lift telm) (Tlist $ lift telm)).
 
-  Definition sort_loop_type telm :=
+  Definition msort_loop_type telm :=
     Tarrow (Tlist $ telm) (#0!0 * Flog #0!0) (Sstats (#0!0, #0!1)) (Tlist $ lift telm).
 
-  (* sort is equivalent to : 
+  (* msort is equivalent to : 
     fun A split cmp => 
-      fix sort xs :=  
+      fix msort xs :=  
         match xs with
           | nil => xs
           | _ :: xs' => match xs' with
                           | nil => xs 
                           | _ => match split xs with
-                                   | (ys, zs) => merge (sort ys, sort zs) end end end
+                                   | (ys, zs) => merge (msort ys, msort zs) end end end
    *)
   
-  Definition sort :=
-    Etabs $ Eabs (split_type #0) $ Eabs (cmp_type #1) $ Efixpoint (sort_loop_type #2) (Tlist $ #3)
+  Definition msort :=
+    Etabs $ Eabs (split_type #0) $ Eabs (cmp_type #1) $ Efixpoint (msort_loop_type #2) (Tlist $ #3)
           (Ematch_list #4 #0 
                        #0
                        (Ematch_list #6 #0
@@ -2239,8 +2239,8 @@ Section LambdaO.
                                     (Ematch_pair (Eapp #7 #4)
                                                  (Etapp merge #10 $$ #8 $$ (Eapp #7 #1) $$ (Eapp #7 #0))))).
 
-  Definition sort_type :=
-    Tuniversal $ Tarrow (split_type #0) F0 Stt $ Tarrow (cmp_type #1) F0 Stt $ sort_loop_type #2.
+  Definition msort_type :=
+    Tuniversal $ Tarrow (split_type #0) F0 Stt $ Tarrow (cmp_type #1) F0 Stt $ msort_loop_type #2.
 
   Lemma Ksplit_type T t : kinding T t 0 -> kinding T (split_type t) 0.
   Proof.
@@ -2250,7 +2250,7 @@ Section LambdaO.
     eapply Kprod'; eapply Klist; eauto; simpl; eapply Klift; eauto.
   Qed.
 
-  Lemma TPsort : typing [] sort sort_type F0 Stt.
+  Lemma TPmsort : typing [] msort msort_type F0 Stt.
   Proof.
     eapply TPtabs.
     eapply TPabs.
@@ -2354,6 +2354,28 @@ Section LambdaO.
         admit. (* Ole *)
       }
     }
+  Qed.
+
+  Definition singleton := Etabs $ Eabs #0 $ Econs $$ #1 $$ #0 $$ (Enil $$ #1).
+
+  Definition split :=
+    Etabs $ Efixpoint (split_type #0) #1 $ Ematch_list #2 #0 
+          (Epair $$ (Tlist $ #2) $$ (Tlist $ #2) $$ (Enil $ #2) $$ (Enil $ #2))
+          $ Ematch_list #4 #0 
+          (Epair $$ (Tlist $ #4) $$ (Tlist $ #4) $$ (singleton $$ #4 $$ #1) $$ (Enil $ #4))
+          $ Ematch_pair ((#5 : expr) $ #0) $ Epair $$ (Tlist $ #8) $$ (Tlist $8) $$ (Econs $$ #8 $$ #5 $$ #1) $$ (Econs $$ #8 $$ #3 $$ #0).
+
+  Lemma TPsplit : typing [] split (Tuniversal (split_type #0)) F0 Stt.
+    admit.
+  Qed.
+
+  Definition merge_sort := Etabs $ msort $$ #0 $ split $$ #0.
+
+  Definition merge_sort_type :=
+    Tuniversal $ Tarrow (cmp_type #0) F0 Stt $ msort_loop_type #1.
+
+  Lemma TPmerge_sort : typing [] merge_sort merge_sort_type F0 Stt.
+    admit.
   Qed.
 
 (*
