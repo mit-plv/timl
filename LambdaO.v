@@ -1383,9 +1383,12 @@ Section LambdaO.
     eauto.
   Qed.
 
-  Open Scope nat_scope.
+  Instance Le_nat : Le nat :=
+    {
+      le := Peano.le
+    }.
 
-  Lemma subst_lift_t_t_n' v (x : type) : forall n m r, m <= r -> r <= n + m -> visit_t r (subst_t_t_f 0 v, lower_sub 0, lower_sub 0) (iter (S n) (lift_from_t m) x) = iter n (lift_from_t m) x.
+  Lemma subst_lift_t_t_n' v (x : type) : forall (n m r : nat), m <= r -> (r <= n + m)%nat -> visit_t r (subst_t_t_f 0 v, lower_sub 0, lower_sub 0) (iter (S n) (lift_from_t m) x) = iter n (lift_from_t m) x.
   Proof.
     induction x; intros n m r Hle1 Hle2.
     {
@@ -1409,23 +1412,23 @@ Section LambdaO.
         (* Arguments lower_f n f / . *)
         repeat rewrite fold_lift_from_f in *.
         rewrite fold_iter.
-        Lemma lower_iter_lift_f x n m r : m <= r -> r <= n + m -> lower_f r (iter (S n) (lift_from_f m) x) = iter n (lift_from_f m) x.
+        Lemma lower_iter_lift_f x (n m r : nat) : m <= r -> (r <= n + m)%nat -> lower_f r (iter (S n) (lift_from_f m) x) = iter n (lift_from_f m) x.
           admit.
         Qed.
-        eapply lower_iter_lift_f; eauto.
+        eapply lower_iter_lift_f; simpl in *; eauto.
       }
       {
         repeat rewrite fold_lift_from_s in *.
         rewrite fold_iter.
-        Lemma lower_iter_lift_s x n m r : m <= r -> r <= n + m -> lower_s r (iter (S n) (lift_from_s m) x) = iter n (lift_from_s m) x.
+        Lemma lower_iter_lift_s x (n m r : nat) : m <= r -> (r <= n + m)%nat -> lower_s r (iter (S n) (lift_from_s m) x) = iter n (lift_from_s m) x.
           admit.
         Qed.
-        eapply lower_iter_lift_s; eauto.
+        eapply lower_iter_lift_s; simpl in *; eauto.
       }
       {
         repeat rewrite fold_lift_from_t in *.
         rewrite fold_iter.
-        rewrite IHx2; eauto.
+        rewrite IHx2; simpl in *; eauto.
       }
     }
     {
@@ -1440,7 +1443,7 @@ Section LambdaO.
       eauto.
     }
     {
-      Lemma subst_lift_t_t_n_var v (x : var) n m r : m <= r -> r <= n + m -> visit_t r (subst_t_t_f 0 v, lower_sub 0, lower_sub 0) (iter (S n) (lift_from_t m) x) = iter n (lift_from_t m) x.
+      Lemma subst_lift_t_t_n_var v (x : var) (n m r : nat) : m <= r -> (r <= n + m)%nat -> visit_t r (subst_t_t_f 0 v, lower_sub 0, lower_sub 0) (iter (S n) (lift_from_t m) x) = iter n (lift_from_t m) x.
       Proof.
         intros Hle1 Hle2.
         simpl.
@@ -1464,6 +1467,7 @@ Section LambdaO.
         simpl.
         Set Printing Coercions.
         (*here*)
+        admit.
       Qed.
       eapply subst_lift_t_t_n_var; eauto.
     }
@@ -1477,7 +1481,7 @@ Section LambdaO.
       simpl.
       repeat rewrite fold_lift_from_t in *.
       rewrite fold_iter.
-      rewrite IHx; eauto.
+      rewrite IHx; simpl in *; eauto.
     }
     admit.
     admit.
@@ -1486,6 +1490,8 @@ Section LambdaO.
   Qed.
 
   Lemma subst_lift_t_t_n (b : type) : forall n v, visit_t n (subst_t_t_f 0 v, lower_sub 0, lower_sub 0) (iter (S n) (lift_from_t 0) b) = iter n (lift_from_t 0) b.
+    intros.
+    eapply subst_lift_t_t_n'; simpl in *; eauto.
   Qed.
 
   Lemma subst_lift_t_t v (b : type) : subst_t_t 0 v (lift_from_t 0 b) = b.
