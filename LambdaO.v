@@ -232,7 +232,7 @@ Section LambdaO.
       | _ => None
     end.
 
-  Definition has_inlinr (s : size) :=
+  Definition is_inlinr (s : size) :=
     match s with
       | Svar x => Some (Svar (append_path x Pinl), Svar (append_path x Pinr))
       | Sinlinr a b => Some (a, b)
@@ -1062,24 +1062,22 @@ Section LambdaO.
       typing T' e' t n' s' ->
       let s12 := [s1; s2] in
       typing T (Ematch_pair e e') (subst_list s12 t) (n + F1 + subst_list s12 n') (subst_list s12 s')
-  | TPmatch_inlinr T e e1 e2 t1 t2 n s s1 s2 t' na nb s' :
+  | TPmatch_inlinr T e e1 e2 t1 t2 n s s1 s2 t n1 n2 s' :
       typing T e (Tsum t1 t2) n s ->
-      has_inlinr s = Some (s1, s2) ->
+      is_inlinr s = Some (s1, s2) ->
       (* timing constraints are passed forward; size and type constraints are passed backward.
          t' and s' are backward guidance for branches *)
-      typing (add_typing (t1, Some s1) T) e1 (lift t') na (lift s') -> 
-      typing (add_typing (t2, Some s2) T) e2 (lift t') nb (lift s') -> 
-      typing T (Ematch_sum e e1 e2) t' (n + F1 + max (subst s1 na) (subst s2 nb)) s'
-  | TPmatch_inl T e e1 e2 t1 t2 n s s' t' n' sa :
-      typing T e (Tsum t1 t2) n s ->
-      s = Sinl s' ->
-      typing (add_typing (t1, Some s') T) e1 t' n' sa ->
-      typing T (Ematch_sum e e1 e2) (subst s' t') (n + F1 + subst s' n') (subst s' sa)
-  | TPmatch_inr T e e1 e2 t1 t2 n s s' t' n' sa :
-      typing T e (Tsum t1 t2) n s ->
-      s = Sinr s' ->
-      typing (add_typing (t2, Some s') T) e2 t' n' sa ->
-      typing T (Ematch_sum e e1 e2) (subst s' t') (n + F1 + subst s' n') (subst s' sa)
+      typing (add_typing (t1, Some s1) T) e1 (lift t) n1 (lift s') -> 
+      typing (add_typing (t2, Some s2) T) e2 (lift t) n2 (lift s') -> 
+      typing T (Ematch_sum e e1 e2) t (n + F1 + max (subst s1 n1) (subst s2 n2)) s'
+  | TPmatch_inl T e e1 e2 t1 t2 n s t' n' s' :
+      typing T e (Tsum t1 t2) n (Sinl s) ->
+      typing (add_typing (t1, Some s) T) e1 t' n' s' ->
+      typing T (Ematch_sum e e1 e2) (subst s t') (n + F1 + subst s n') (subst s s')
+  | TPmatch_inr T e e1 e2 t1 t2 n s t' n' s' :
+      typing T e (Tsum t1 t2) n (Sinr s) ->
+      typing (add_typing (t2, Some s) T) e2 t' n' s' ->
+      typing T (Ematch_sum e e1 e2) (subst s t') (n + F1 + subst s n') (subst s s')
   | TPfold T e t n s t1 :
       t == Trecur t1 ->
       typing T e (subst t t1) n s ->
@@ -1756,7 +1754,7 @@ Section LambdaO.
 
   Definition is_list s :=
     s <- is_fold s ;;
-    p <- has_inlinr s ;;
+    p <- is_inlinr s ;;
     p <- is_pair (snd p) ;;
     let (s1, s2) := (p : size * size) in
     s1 <- is_hide s1 ;;
@@ -1771,7 +1769,7 @@ Section LambdaO.
     reflexivity.
   Qed.
 
-  Lemma is_list_elim s p : is_list s = Some p -> exists s1 s2 s3 s4, is_fold s = Some s1 /\ has_inlinr s1 = Some (s2, s3) /\ is_pair s3 = Some (s4, snd p) /\ is_hide s4 = Some (fst p).
+  Lemma is_list_elim s p : is_list s = Some p -> exists s1 s2 s3 s4, is_fold s = Some s1 /\ is_inlinr s1 = Some (s2, s3) /\ is_pair s3 = Some (s4, snd p) /\ is_hide s4 = Some (fst p).
     admit.
   Qed.
 
@@ -2045,7 +2043,7 @@ Section LambdaO.
 
   Lemma TPif T e e1 e2 n s t' na nb s' s1 s2 :
     typing T e Tbool n s ->
-    has_inlinr s = Some (s1, s2) ->
+    is_inlinr s = Some (s1, s2) ->
     typing T e1 t' na s' ->
     typing T e2 t' nb s' ->
     typing T (Eif e e1 e2) t' (n + F1 + max na nb) s'.

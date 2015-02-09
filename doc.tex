@@ -34,7 +34,14 @@
 \newcommand{\symin}{\mathsf{\;in\;}}
 \newcommand{\symletrec}{\mathsf{letrec\;}}
 \newcommand{\symand}{\mathsf{\;and\;}}
+\newcommand{\symmatch}{\mathsf{match\;}}
 \newcommand{\FV}{\mathsf{FV}}
+\newcommand{\symwith}{\mathsf{\;with\;}}
+\newcommand{\symleft}{\mathsf{left\;}}
+\newcommand{\symright}{\mathsf{right\;}}
+\newcommand{\symmax}{\mathsf{max}}
+\newcommand{\symSleft}{\mathsf{Sleft\;}}
+\newcommand{\symSright}{\mathsf{Sright\;}}
 
 \begin{document}
 
@@ -68,26 +75,31 @@ Lambda-O : lambda calculus with asymptotic complexity
 {\Gamma\typing{\Lambda X.e}{\forall X.\tau}{0}{1}} \\
 
 \inferrule* [Right=Let]
-{\Gamma\typing{e_1}{\tau_1}{n_1}{s_1} \\ \Gamma, x :: (\tau_1, s_1) \typing{e_2}{\tau_2}{n_2}{s_2}}
+{\Gamma\typing{e_1}{\tau_1}{n_1}{s_1} \\ \Gamma, x : (\tau_1, s_1) \typing{e_2}{\tau_2}{n_2}{s_2}}
 {\Gamma\typing{\symlet x : \tau_1 := e_1 \symin e_2}{\tau_2[s_1/x]}{n_1+n2[s_1/x]}{s_2[s_1/x]}}
 
 \inferrule* [Right=Letrec]
 {\Gamma' := \Gamma, f_1 : (\tau_1, 1), \dots, f_m : (\tau_m,1) \\ \forall i,\; \Gamma'\typing{e_i}{\tau_i}{0}{1} \\ \Gamma'\typing{e}{\tau}{n}{s} \\ \forall i,\; f_i\not\in\FV(\tau)\cup\FV(n)\cup\FV(s)}
 {\Gamma\typing{\symletrec f_1 : \tau_1 := e_1 \symand \dots \symand f_m : \tau_m := e_m \symin e}{\tau}{n}{s}}
 
+\inferrule* [Right=MatchPair]
+{\Gamma\typing{e}{\tau_1\times\tau_2}{n}{s} \\ \mathsf{IsPair}(s)=(s_1,s_2) \\ \Gamma, a:(\tau_1,s_1), b:(\tau_2,s_2)\typing{e'}{\tau}{n'}{s'}}
+{\Gamma\typing{\symmatch e \symwith (a,b) \Rightarrow e'}{\tau[s1/a][s2/b]}{n + 1 + n'[s1/a][s2/b]}{s[s1/a][s2/b]}}
+
+\inferrule* [Right=MatchLR]
+{\Gamma\typing{e}{\tau_1+\tau_2}{n}{s} \\ \mathsf{IsLeftRight}(s)=(s_1,s_2) \\ \forall i,\;\Gamma, x:(\tau_i,s_i)\typing{e_i}{\tau}{n_i}{s'} \\ x\not\in\FV(\tau)\cup\FV(s')}
+{\Gamma\typing{\symmatch e \symwith \symleft x \Rightarrow e_1 \;|\; \symright x \Rightarrow e_2}{\tau}{n+1+\symmax(n_1[s_1/x],n_2[s_2/x])}{s'}}
+
+\inferrule* [Right=MatchL]
+{\Gamma\typing{e}{\tau_1+\tau_2}{n}{\symSleft(s)} \\ \Gamma, x:(\tau_1,s)\typing{e_1}{\tau'}{n'}{s'}}
+{\Gamma\typing{\symmatch e \symwith \symleft x \Rightarrow e_1 \;|\; \symright x \Rightarrow e_2}{\tau'[s/x]}{n+1+n'[s/x]}{s'[s/x]}}
+
+\inferrule* [Right=MatchR]
+{\Gamma\typing{e}{\tau_1+\tau_2}{n}{\symSright(s)} \\ \Gamma, x:(\tau_2,s)\typing{e_2}{\tau'}{n'}{s'}}
+{\Gamma\typing{\symmatch e \symwith \symleft x \Rightarrow e_1 \;|\; \symright x \Rightarrow e_2}{\tau'[s/x]}{n+1+n'[s/x]}{s'[s/x]}}
+
 \end{mathpar}
 \caption{\label{opsem}Typing rules}
 \end{figure}
-
-%% \[
-%%   \renewcommand{\arraystretch}{2}%
-%%   \begin{array}{ll}
-%%     \textrm{Regular}\ \verb!s! & \textrm{Wavy}\ \verb!w! \\ \hline
-%%     A\turnstile{s}{s}{}{}{n}B & A\turnstile{s}{w}{}{}{n}B \\
-%%     A\turnstile{s}{s}{L}{}{n}B & A\turnstile{s}{w}{L}{}{n}B \\
-%%     A\turnstile{s}{s}{}{D}{n}B & A\turnstile{s}{w}{}{D}{n}B \\
-%%     A\turnstile{s}{s}{Llong}{Dlong}{n}B & A\turnstile{s}{w}{L}{D}{n}B
-%%   \end{array}
-%% \]
 
 \end{document}
