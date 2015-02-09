@@ -121,7 +121,7 @@ Section LambdaO.
     (* | Vfree : string -> var *)
   .
 *)
-  Notation var := nat.
+  Notation var := nat (only parsing).
   Notation Vbound n := (n : nat).
   Notation "# n" := (Vbound n) (at level 3).
 
@@ -187,9 +187,27 @@ Section LambdaO.
   Notation F0 := (Fconst FC0).
   Notation Fplus := (Fbinop FBplus).
   Notation Fmax := (Fbinop FBmax).
-  Infix "+" := Fplus : formula_scope.
   Delimit Scope formula_scope with F.
   Open Scope F.
+  Delimit Scope general_scope with G.
+  Open Scope G.
+
+  Class Plus t := 
+    {
+      plus : t -> t -> t
+    }.
+
+  Infix "+" := plus : G.
+
+  Instance Plus_nat : Plus nat :=
+    {
+      plus := Peano.plus
+    }.
+
+  Instance Plus_formula : Plus formula :=
+    {
+      plus := Fplus
+    }.
 
   Definition stats := (formula * formula)%type.
 
@@ -500,8 +518,6 @@ Section LambdaO.
   .
 
   Coercion Tvar : var >-> type.
-
-  Open Scope nat_scope.
 
   Fixpoint visit_t n (f : (nat -> nat -> type) * (nat -> formula -> formula) * (nat -> size -> size)) b :=
     let fv := fst $ fst f in
@@ -958,6 +974,11 @@ Section LambdaO.
 
   Infix "<=" := le.
 
+  Instance Le_nat : Le nat :=
+    {
+      le := Peano.le
+    }.
+
   (* precise less-than relation on formulas *)
   Definition Fle : formula -> formula -> Prop.
     admit.
@@ -983,23 +1004,24 @@ Section LambdaO.
     admit.
   Defined.
 
-  Infix "<<=" := Ole (at level 70).
+  Infix "<<=" := Ole (at level 70) : F.
 
   Class Equal t :=
     {
       equal : t -> t -> Prop
     }.
 
-  Infix "==" := equal (at level 70).
+  Infix "==" := equal (at level 70) : G.
 
   Instance Equal_type : Equal type :=
     {
       equal := teq
     }.
 
-  Open Scope formula_scope.
-
   Definition add_snd {A B} (b : B) (a : A) := (a, b).
+
+  Open Scope G.
+  Open Scope F.
 
   Inductive typing : tcontext -> expr -> type -> formula -> size -> Prop :=
   | TPvar T n t s : 
@@ -1382,11 +1404,6 @@ Section LambdaO.
   Proof.
     eauto.
   Qed.
-
-  Instance Le_nat : Le nat :=
-    {
-      le := Peano.le
-    }.
 
   Lemma subst_lift_t_t_n' v (x : type) : forall (n m r : nat), m <= r -> (r <= n + m)%nat -> visit_t r (subst_t_t_f 0 v, lower_sub 0, lower_sub 0) (iter (S n) (lift_from_t m) x) = iter n (lift_from_t m) x.
   Proof.
@@ -1927,10 +1944,37 @@ Section LambdaO.
   Qed.
 
   Notation Fmult := (Fbinop FBmult).
-  Infix "*" := Fmult : formula_scope.
   Notation Fdiv := (Fbinop FBdiv).
-  Infix "/" := Fdiv : formula_scope.
   Notation Flog := (Funop FUlog).
+
+  Class Mult t :=
+    {
+      mult : t -> t -> t
+    }.
+
+  Infix "*" := mult : G.
+
+  Instance Mult_nat : Mult nat :=
+    {
+      mult := Peano.mult
+    }.
+
+  Instance Mult_formula : Mult formula :=
+    {
+      mult := Fmult
+    }.
+
+  Class Div t := 
+    {
+      div : t -> t -> t
+    }.
+
+  Infix "/" := div : G.
+
+  Instance Div_formula : Div formula :=
+    {
+      div := Fdiv
+    }.
 
   Notation F2 := (F1 + F1).
   Notation Fvar_nil x i := (Fvar (x, []) i).
