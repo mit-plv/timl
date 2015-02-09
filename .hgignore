@@ -3,3 +3,6 @@ syntax: glob
 .\#*
 *~
 .dir-locals.el
+*.aux
+*.log
+*.pdf

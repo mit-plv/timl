@@ -1,0 +1,93 @@
+\documentclass{article}
+
+\usepackage{amsmath,amsfonts,amscd,amssymb,proof}
+\usepackage{mathpartir}
+\usepackage{turnstile}% http://ctan.org/pkg/turnstile
+\usepackage{adjustbox}% http://ctan.org/pkg/adjustbox
+
+\renewcommand{\makehor}[4]
+  {\ifthenelse{\equal{#1}{n}}{\hspace{#3}}{}
+   \ifthenelse{\equal{#1}{s}}{\rule[-0.5#2]{#3}{#2}}{}
+   \ifthenelse{\equal{#1}{d}}{\setlength{\lengthvar}{#2}
+     \addtolength{\lengthvar}{0.5#4}
+     \rule[-\lengthvar]{#3}{#2}
+     \hspace{-#3}
+     \rule[0.5#4]{#3}{#2}}{}
+   \ifthenelse{\equal{#1}{t}}{\setlength{\lengthvar}{1.5#2}
+     \addtolength{\lengthvar}{#4}
+     \rule[-\lengthvar]{#3}{#2}
+     \hspace{-#3}
+     \rule[-0.5#2]{#3}{#2}
+     \hspace{-#3}
+     \setlength{\lengthvar}{0.5#2}
+     \addtolength{\lengthvar}{#4}
+     \rule[\lengthvar]{#3}{#2}}{}
+   \ifthenelse{\equal{#1}{w}}{% New wavy $\sim$ definition
+     \setbox0=\hbox{$\sim$}%
+     \raisebox{-.6ex}{\hspace*{-.05ex}\adjustbox{width=#3,height=\height}{\clipbox{0.75 0 0 0}{\usebox0}}}}{}
+  }
+
+\newcommand{\typing}[4]{\turnstile{s}{s}{#4}{#3}{n}#1:#2}
+\newcommand{\arrow}[4]{#1\xrightarrow[#3]{#2}#4}
+\newcommand{\bottom}{\perp}
+\newcommand{\symlet}{\mathsf{let\;}}
+\newcommand{\symin}{\mathsf{\;in\;}}
+\newcommand{\symletrec}{\mathsf{letrec\;}}
+\newcommand{\symand}{\mathsf{\;and\;}}
+\newcommand{\FV}{\mathsf{FV}}
+
+\begin{document}
+
+Lambda-O : lambda calculus with asymptotic complexity
+
+\begin{figure}
+\begin{mathpar}
+
+\inferrule* [Right=Var] 
+{\Gamma(x)=(\tau, s)} 
+{\Gamma\typing{x}{\tau}{0}{s}} 
+
+\inferrule* [Right=Var2] 
+{\Gamma(x)=(\tau, \bottom)} 
+{\Gamma\typing{x}{\tau}{0}{x}} \\
+
+\inferrule* [Right=App] 
+{\Gamma\typing{e_1}{\arrow{\tau_1^x}{n}{s}{\tau_2}}{n_1}{s_1} \\ \Gamma\typing{e_2}{\tau_1}{n_2}{s_2} }
+{\Gamma\typing{e_1\;e_2}{\tau_2}{n_1+n_2+1+n[s_2/x]}{s[s_2/x]}} \\
+
+\inferrule* [Right=Abs] 
+{\Gamma\vdash\tau_1 :: * \\ \Gamma, x:(\tau_1, \bottom)\typing{e}{\tau_2}{n}{s} }
+{\Gamma\typing{\lambda x : \tau_1.\;e}{\arrow{\tau_1^x}{n}{s}{\tau_2}}{0}{1}} \\
+
+\inferrule* [Right=Tapp]
+{\Gamma\typing{e}{\forall X.\tau}{n}{s}}
+{\Gamma\typing{e [\tau_2]}{\tau[\tau_2/X]}{n+1}{s}}
+
+\inferrule* [Right=Tabs]
+{\Gamma, X :: * \typing{e}{\tau}{0}{1}}
+{\Gamma\typing{\Lambda X.e}{\forall X.\tau}{0}{1}} \\
+
+\inferrule* [Right=Let]
+{\Gamma\typing{e_1}{\tau_1}{n_1}{s_1} \\ \Gamma, x :: (\tau_1, s_1) \typing{e_2}{\tau_2}{n_2}{s_2}}
+{\Gamma\typing{\symlet x : \tau_1 := e_1 \symin e_2}{\tau_2[s_1/x]}{n_1+n2[s_1/x]}{s_2[s_1/x]}}
+
+\inferrule* [Right=Letrec]
+{\Gamma' := \Gamma, f_1 : (\tau_1, 1), \dots, f_m : (\tau_m,1) \\ \forall i,\; \Gamma'\typing{e_i}{\tau_i}{0}{1} \\ \Gamma'\typing{e}{\tau}{n}{s} \\ \forall i,\; f_i\not\in\FV(\tau)\cup\FV(n)\cup\FV(s)}
+{\Gamma\typing{\symletrec f_1 : \tau_1 := e_1 \symand \dots \symand f_m : \tau_m := e_m \symin e}{\tau}{n}{s}}
+
+\end{mathpar}
+\caption{\label{opsem}Typing rules}
+\end{figure}
+
+%% \[
+%%   \renewcommand{\arraystretch}{2}%
+%%   \begin{array}{ll}
+%%     \textrm{Regular}\ \verb!s! & \textrm{Wavy}\ \verb!w! \\ \hline
+%%     A\turnstile{s}{s}{}{}{n}B & A\turnstile{s}{w}{}{}{n}B \\
+%%     A\turnstile{s}{s}{L}{}{n}B & A\turnstile{s}{w}{L}{}{n}B \\
+%%     A\turnstile{s}{s}{}{D}{n}B & A\turnstile{s}{w}{}{D}{n}B \\
+%%     A\turnstile{s}{s}{Llong}{Dlong}{n}B & A\turnstile{s}{w}{L}{D}{n}B
+%%   \end{array}
+%% \]
+
+\end{document}
