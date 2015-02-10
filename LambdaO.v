@@ -2226,7 +2226,7 @@ Section LambdaO.
           | _ :: xs' => match xs' with
                           | nil => xs 
                           | _ => match split xs with
-                                   | (ys, zs) => merge (msort ys, msort zs) end end end
+                                   | (ys, zs) => merge (msort ys) (msort zs) end end end
    *)
   
   Definition msort :=
@@ -2355,13 +2355,11 @@ Section LambdaO.
     }
   Qed.
 
-  Definition singleton := Etabs $ Eabs #0 $ Econs $$ #1 $$ #0 $$ (Enil $$ #1).
-
   Definition split :=
     Etabs $ Efixpoint (split_type #0) #1 $ Ematch_list #2 #0 
-          (Epair $$ (Tlist $ #2) $$ (Tlist $ #2) $$ (Enil $ #2) $$ (Enil $ #2))
+          (Epair $$ (Tlist $ #2) $$ (Tlist $ #2) $$ #0 $$ (Enil $ #2))
           $ Ematch_list #4 #0 
-          (Epair $$ (Tlist $ #4) $$ (Tlist $ #4) $$ (singleton $$ #4 $$ #1) $$ (Enil $ #4))
+          (Epair $$ (Tlist $ #4) $$ (Tlist $ #4) $$ #2 $$ (Enil $ #4))
           $ Ematch_pair ((#5 : expr) $ #0) $ Epair $$ (Tlist $ #8) $$ (Tlist $8) $$ (Econs $$ #8 $$ #5 $$ #1) $$ (Econs $$ #8 $$ #3 $$ #0).
 
   Lemma TPsplit : typing [] split (Tuniversal (split_type #0)) F0 Stt.
