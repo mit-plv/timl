@@ -78,6 +78,7 @@
 \newcommand{\symelse}{\mathsf{\;else\;}}
 \newcommand{\symSbool}{\mathsf{Sbool}}
 \newcommand{\symuf}{\mathsf{uf}}
+\newcommand{\symuh}{\mathsf{uh}}
 \newcommand{\syml}{\mathsf{l}}
 \newcommand{\symr}{\mathsf{r}}
 \newcommand{\symf}{\mathsf{f}}
@@ -85,6 +86,10 @@
 \newcommand{\symmsort}{\mathsf{msort}}
 \newcommand{\symSstat}{\mathsf{Sstat}}
 \newcommand{\symsplit}{\mathsf{split}}
+\newcommand{\symprod}{\mathsf{prod}}
+\newcommand{\symStt}{\mathsf{Stt}}
+\newcommand{\symSpair}{\mathsf{Spair}}
+\newcommand{\symSlr}{\mathsf{Slr}}
 
 \begin{document}
 
@@ -92,6 +97,22 @@
 \author{Peng Wang}
 
 \maketitle
+
+\section{Syntax}
+
+%% \begin{figure}
+  $$\begin{array}{rrcl}
+  \textrm{Size Subpart Indices} & i &::=& \symf \textrm{(fst)} \mid \syms \textrm{(snd)} \mid \syml \textrm{(left)} \mid \symr \textrm{(right)} \mid \symuf \textrm{(unfold)} \mid \symuh \textrm{(unhide)} \\
+  \textrm{Complexity Expr.} & n &::=& x.\vec{i}.1 \mid x.\vec{i}.2 \mid 0 \mid 1 \mid n+n \mid n-n \mid n\times n \mid n/n \mid \log(n) \mid \exp(n) \\
+  \textrm{Sizes} & s &::=& x.\vec{i} \mid \symSstat(n_1,n_2) \mid \symStt \mid \symSleft\;s \mid \symSright\;s \mid \symSlr\;s\;s \mid \symSpair\;s\;s \mid \symSfold\;s \mid \symShide\;s \\
+  \textrm{Type Constants} & c_t &::=& \symunit \mid \symprod \mid \symsum \\
+  \textrm{Types} & \tau &::=& X \mid c_t \mid \arrow{\intro{x}{\tau}}{n}{s}{\tau} \mid \forall X.\tau \mid \Lambda X.\tau \mid \tau\;\tau \mid \mu X.\tau \mid [\tau] \\
+  \textrm{Constants} & c &::=& \symtt \mid \sympair \mid \symleft \mid \symright \\
+  \textrm{Expression} & e &::=& x \mid c \mid e\;e \mid \lambda x:\tau.e \mid \symlet x:= e \symin e \mid \symletrec f_1:=e_1 \symand \cdots \symand f_m:=e_m \symin e \mid \symmatch_\sympair\;e\symwith (x,y)\Rightarrow e \mid (\symmatch_\symsum\;e\symwith\symleft\;x\Rightarrow e\;|\;\symright\;x\Rightarrow e) \\
+  & & & \mid e\;\tau \mid \lambda X.e \mid \symfold\tau\;e \mid \symunfold\tau\;e \mid \symhide\tau\;e \mid \symunhide\tau\;e
+\end{array}$$
+%% \caption{\label{syntax}Syntax}
+%% \end{figure}
 
 \section{Typing rules}
 
