@@ -257,21 +257,31 @@ $$
 \newpage
 
 $$
+\inferrule* [Right=Le]
+{
+  \inferrule* {\cdots}{\Gamma''\typing{x::f\;xs'\;ys}{\symlist\;A}{1+xs.\symuf.\symr.\syms.1+ys.1}{\symSfold (\symSright (\symShide xs.\symuf.\symr.\symf, (xs.\symuf.\symr.\syms+ys)))}} \\
+  \inferrule*
+  {\textcolor{red}{\forall i.\; 1+xs.\symuf.\symr.\syms.i+ys.i \leq xs.i+ys.i}}
+  {\symSfold (\symSright (\symShide xs.\symuf.\symr.\symf, (xs.\symuf.\symr.\syms+ys))) \leq xs+ys}
+}
+{
+  \textcolor{green}{(4)}
+}
+$$
+
+$$
 \inferrule* [Right=If]
 {
   \inferrule* {\cdots}{\Gamma''\typing{cmp\;x\;y}{\symbool}{1}{\symSbool}} \\
-  \inferrule* [Right=Le] 
+  \inferrule*
   {
-    \inferrule* {\cdots}{\Gamma''\typing{x::f\;xs'\;ys}{\symlist\;A}{1+xs.\symuf.\symr.\syms.1+ys.1}{\symSfold (\symSright (\symShide xs.\symuf.\symr.\symf, (xs.\symuf.\symr.\syms+ys)))}} \\
-    \inferrule*
-    {\textcolor{red}{\forall i.\; 1+xs.\symuf.\symr.\syms.i+ys.i \leq xs.i+ys.i}}
-    {\symSfold (\symSright (\symShide xs.\symuf.\symr.\symf, (xs.\symuf.\symr.\syms+ys))) \leq xs+ys}
+    \textcolor{green}{(4)}
   }
   {\Gamma''\typing{x::f\;xs'\;ys}{\symlist\;A}{1+xs.\symuf.\symr.\syms.1+ys.1}{xs+ys}} \\
   \inferrule* {\cdots}{\Gamma''\typing{y::f\;xs\;ys'}{\symlist\;A}{1+xs.1+ys.\symuf.\symr.\syms.1}{xs+ys}}
 }
 {
-  \textcolor{green}{(2)}
+  \textcolor{green}{(3)}
 }
 $$
 
@@ -283,10 +293,29 @@ $$
   \Gamma'\typing{xs}{\symlist\;A}{0}{xs+ys} \\
   \inferrule* [Right=If]
   {
-    \textcolor{green}{(2)}
+    \textcolor{green}{(3)}
   }
   {
     \Gamma''\equiv\Gamma', y:(A,ys.\symuf.\symr.\symf), ys':(\symlist\;A,ys.\symuf.\symr.\syms)\typing{\symif cmp\;x\;y \symthen\dots}{\symlist\;A}{2+\symmax(\cdots)}{xs+ys}
+  }
+}
+{
+  \textcolor{green}{(2)}
+}
+$$
+
+$$
+\inferrule* [Right=MatchList]
+{
+  \inferrule* [Right=Var2] {\Gamma(xs)=(\symlist\;A,\bottom)} {\Gamma\typing{xs}{\symlist\;A}{0}{xs}}\\
+  \mathsf{IsList}(xs)=(xs.\symuf.\symr.\symf,xs.\symuf.\symr.\syms) \\
+  \inferrule* [Right=Le] {\Gamma\typing{ys}{\symlist\;A}{0}{ys} \\ \textcolor{red}{ys \leq xs+ys}}{\Gamma\typing{ys}{\symlist\;A}{0}{xs+ys}} \\
+  \inferrule* [Right=MatchList]
+  {
+    \textcolor{green}{(2)}
+  }
+  {
+    \Gamma'\equiv\Gamma, x:(A,xs.\symuf.\symr.\symf), xs':(\symlist\;A,xs.\symuf.\symr.\syms)\typing{\symmatch\;ys\symwith\dots}{\symlist\;A}{2+\symmax(\cdots)}{xs+ys}
   }
 }
 {
@@ -299,16 +328,7 @@ $$
 {
   \inferrule* [Right=MatchList]
   {
-    \inferrule* [Right=Var2] {\Gamma(xs)=(\symlist\;A,\bottom)} {\Gamma\typing{xs}{\symlist\;A}{0}{xs}}\\
-    \mathsf{IsList}(xs)=(xs.\symuf.\symr.\symf,xs.\symuf.\symr.\syms) \\
-    \inferrule* [Right=Le] {\Gamma\typing{ys}{\symlist\;A}{0}{ys} \\ \textcolor{red}{ys \leq xs+ys}}{\Gamma\typing{ys}{\symlist\;A}{0}{xs+ys}} \\
-    \inferrule* [Right=MatchList]
-    {
-      \textcolor{green}{(1)}
-    }
-    {
-      \Gamma'\equiv\Gamma, x:(A,xs.\symuf.\symr.\symf), xs':(\symlist\;A,xs.\symuf.\symr.\syms)\typing{\symmatch\;ys\symwith\dots}{\symlist\;A}{2+\symmax(\cdots)}{xs+ys}
-    }
+    \textcolor{green}{(1)}
   }
   {
     \Gamma\equiv A:*, cmp:(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}}, \bottom), f:(\arrow{\intro{xs}{\symlist\;A}}{0}{1}{\arrow{\intro{ys}{\symlist\;A}}{xs.1+ys.1}{xs+ys}{\symlist\;A}}, 1), xs:(\symlist\;A,\bottom), ys:(\symlist\;A,\bottom)\typing{\symmatch\;xs\symwith\dots}{\symlist;A}{2+\symmax(\cdots)}{xs+ys}
