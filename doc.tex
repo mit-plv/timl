@@ -90,6 +90,7 @@
 \newcommand{\symStt}{\mathsf{Stt}}
 \newcommand{\symSpair}{\mathsf{Spair}}
 \newcommand{\symSlr}{\mathsf{Slr}}
+\newcommand{\defeq}{\triangleq}
 
 \begin{document}
 
@@ -209,15 +210,15 @@
 \subsection{List}
 
 \begin{align*}
-\symlist &\equiv \Lambda A. \mu L. \symunit + [A] \times L \\
-\symnil &\equiv \lambda A. \symfold (\symlist\;A) \\
-\symcons &\equiv \lambda A. \lambda(x : A)(y : \symlist\;A). \symfold (\symlist\;A)\;(\symright\;(\symhide x,y)) \\
+\symlist &\defeq \Lambda A. \mu L. \symunit + [A] \times L \\
+\symnil &\defeq \lambda A. \symfold (\symlist\;A) \\
+\symcons &\defeq \lambda A. \lambda(x : A)(y : \symlist\;A). \symfold (\symlist\;A)\;(\symright\;(\symhide x,y)) \\
 \symcons &: \forall A. \arrow{\intro{x}{A}}{0}{1}{\arrow{\intro{y}{\symlist\;A}}{1}{\symSfold (\symSright (\symShide x, y))}{\symlist\;A}} 
 \end{align*}
 
 \begin{align*}
-&\symmatch_\symlist\; (e : \symlist\;A) \symwith \symnil \Rightarrow e_1 \;|\; \symcons\;x\;y \Rightarrow e_2 \\
-  & \equiv \symmatch_\symsum\;(\symunfold (\symlist\;A)\;e) \symwith \\
+\symmatch_\symlist\; (e : \symlist\;A) \symwith \symnil \Rightarrow e_1 \;|\; \symcons\;x\;y \Rightarrow e_2 
+  & \defeq \symmatch_\symsum\;(\symunfold (\symlist\;A)\;e) \symwith \\
   & \hspace{0.4in} |\;\symleft\;\_ \Rightarrow e_1 \\
   & \hspace{0.4in} |\; \symright\;p \Rightarrow \symmatch_\sympair\;(\symunhide A\;(\symfst\;p),\symsnd\;p)\symwith \\
   & \hspace{1.2in} |\; (x,y) \Rightarrow e_2
@@ -232,7 +233,7 @@ $$
 \subsection{Fixpoint}
 
 \begin{align*}
-\symfix\;f:\tau\Rightarrow e &\equiv \symletrec f:\tau := e \symin f
+\symfix\;f:\tau\Rightarrow e &\defeq \symletrec f:\tau := e \symin f
 \end{align*}
 
 $$
@@ -244,10 +245,10 @@ $$
 \subsection{Bool}
 
 \begin{align*}
-\symbool &\equiv \symunit + \symunit \\
-\symtrue &\equiv \symleft\;\symtt \\
-\symfalse &\equiv \symright\;\symtt \\
-\symif e \symthen e_1 \symelse e_2 &\equiv \symmatch_\symsum\;e\symwith \symleft\;\_\Rightarrow e_1 \;|\; \symright\;\_\Rightarrow e_2
+\symbool &\defeq \symunit + \symunit \\
+\symtrue &\defeq \symleft\;\symtt \\
+\symfalse &\defeq \symright\;\symtt \\
+\symif e \symthen e_1 \symelse e_2 &\defeq \symmatch_\symsum\;e\symwith \symleft\;\_\Rightarrow e_1 \;|\; \symright\;\_\Rightarrow e_2
 \end{align*}
 
 $$
@@ -263,7 +264,7 @@ $$
 \subsubsection{merge()}
 
 \begin{align*}
-\symmerge &\equiv \lambda A. \lambda (cmp:\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}}).\symfix\;(f:\arrow{\intro{xs}{\symlist\;A}}{0}{1}{\arrow{\intro{ys}{\symlist\;A}}{xs.1+ys.1}{xs+ys}{\symlist\;A}})\Rightarrow\lambda xs,ys. \\
+\symmerge &\defeq \lambda A. \lambda (cmp:\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}}).\symfix\;(f:\arrow{\intro{xs}{\symlist\;A}}{0}{1}{\arrow{\intro{ys}{\symlist\;A}}{xs.1+ys.1}{xs+ys}{\symlist\;A}})\Rightarrow\lambda xs,ys. \\
 & \hspace{0.3in} \symmatch\;xs\symwith \\
 & \hspace{.4in} |\; \symnil\Rightarrow ys \\
 & \hspace{.4in} |\; x::xs' \Rightarrow \symmatch\;ys\symwith \\
@@ -317,7 +318,7 @@ $$
     \textcolor{green}{(3)}
   }
   {
-    \Gamma''\equiv\Gamma', y:(A,ys.\symuf.\symr.\symf), ys':(\symlist\;A,ys.\symuf.\symr.\syms)\typing{\symif cmp\;x\;y \symthen\dots}{\symlist\;A}{2+\symmax(\cdots)}{xs+ys}
+    \Gamma''\defeq\Gamma', y:(A,ys.\symuf.\symr.\symf), ys':(\symlist\;A,ys.\symuf.\symr.\syms)\typing{\symif cmp\;x\;y \symthen\dots}{\symlist\;A}{2+\symmax(\cdots)}{xs+ys}
   }
 }
 {
@@ -336,7 +337,7 @@ $$
     \textcolor{green}{(2)}
   }
   {
-    \Gamma'\equiv\Gamma, x:(A,xs.\symuf.\symr.\symf), xs':(\symlist\;A,xs.\symuf.\symr.\syms)\typing{\symmatch\;ys\symwith\dots}{\symlist\;A}{2+\symmax(\cdots)}{xs+ys}
+    \Gamma'\defeq\Gamma, x:(A,xs.\symuf.\symr.\symf), xs':(\symlist\;A,xs.\symuf.\symr.\syms)\typing{\symmatch\;ys\symwith\dots}{\symlist\;A}{2+\symmax(\cdots)}{xs+ys}
   }
 }
 {
@@ -352,17 +353,19 @@ $$
     \textcolor{green}{(1)}
   }
   {
-    \Gamma\equiv A:*, cmp:(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}}, \bottom), f:(\arrow{\intro{xs}{\symlist\;A}}{0}{1}{\arrow{\intro{ys}{\symlist\;A}}{xs.1+ys.1}{xs+ys}{\symlist\;A}}, 1), xs:(\symlist\;A,\bottom), ys:(\symlist\;A,\bottom)\typing{\symmatch\;xs\symwith\dots}{\symlist;A}{2+\symmax(\cdots)}{xs+ys}
+    \Gamma\defeq A:*, cmp:(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}}, \bottom), f:(\arrow{\intro{xs}{\symlist\;A}}{0}{1}{\arrow{\intro{ys}{\symlist\;A}}{xs.1+ys.1}{xs+ys}{\symlist\;A}}, 1), xs:(\symlist\;A,\bottom), ys:(\symlist\;A,\bottom)\typing{\symmatch\;xs\symwith\dots}{\symlist;A}{2+\symmax(\cdots)}{xs+ys}
   } \\
   \textcolor{red}{2+\symmax(1+xs.\symuf.\symr.\syms.1+ys.1, 1+xs+ys.\symuf.\symr.\syms.1) \leO xs.1+ys.1}
 }
 {\typing{\symmerge}{\forall A.\arrow{(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}})}{0}{1}{\arrow{\intro{xs}{\symlist\;A}}{0}{1}{\arrow{\intro{ys}{\symlist\;A}}{xs.1+ys.1}{xs+ys}{\symlist\;A}}}}{0}{1}}
 $$
 
+\newpage
+
 \subsubsection{split()}
 
 \begin{align*}
-\symsplit &\equiv \lambda A. \symfix\;(f:\arrow{\intro{xs}{\symlist\;A}}{xs.1/2}{(xs/2,xs/2)}{\symlist\;A})\Rightarrow\lambda xs. \\
+\symsplit &\defeq \lambda A. \symfix\;(f:\arrow{\intro{xs}{\symlist\;A}}{xs.1/2}{(xs/2,xs/2)}{\symlist\;A})\Rightarrow\lambda xs. \\
 & \hspace{0.3in} \symmatch\;xs\symwith \\
 & \hspace{.4in} |\; \symnil\Rightarrow (xs,\symnil) \\
 & \hspace{.4in} |\; x::xs' \Rightarrow \symmatch\;xs'\symwith \\
@@ -375,7 +378,7 @@ $$
 \subsubsection{msort()}
 
 \begin{align*}
-\symmsort &\equiv \lambda A. \lambda (cmp:\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}}).\symfix\;(f:\arrow{\intro{xs}{\symlist\;A}}{xs.1*\log(xs.1)}{\symSstat(xs.1,xs.2)}{\symlist\;A})\Rightarrow\lambda xs. \\
+\symmsort &\defeq \lambda A. \lambda (cmp:\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}}).\symfix\;(f:\arrow{\intro{xs}{\symlist\;A}}{xs.1*\log(xs.1)}{\symSstat(xs.1,xs.2)}{\symlist\;A})\Rightarrow\lambda xs. \\
 & \hspace{0.3in} \symmatch\;xs\symwith \\
 & \hspace{.4in} |\; \symnil\Rightarrow xs \\
 & \hspace{.4in} |\; \_::xs' \Rightarrow \symmatch\;xs'\symwith \\
@@ -385,10 +388,12 @@ $$
 \symmsort &: \forall A.\arrow{(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}})}{0}{1}{\arrow{\intro{xs}{\symlist\;A}}{xs.1*\log(xs.1)}{\symSstat(xs.1,xs.2)}{\symlist\;A}}
 \end{align*}
 
+\newpage
+
 $$
 \inferrule* [Right=Le]
 {
-  \inferrule* {\cdots}{\Gamma''\typing{\symmerge\;(f\;ys)\;(f\;zs)}{\symlist\;A}{n\equiv xs.1/2*\log(xs.1/2)+xs.1/2*\log(xs.1/2)+1+xs.1/2+xs.1/2}{\symSstat(xs.1/2+xs.1/2,xs.2/2+xs.2/2)}} \\
+  \inferrule* {\cdots}{\Gamma''\typing{\symmerge\;(f\;ys)\;(f\;zs)}{\symlist\;A}{n\defeq xs.1/2*\log(xs.1/2)+xs.1/2*\log(xs.1/2)+1+xs.1/2+xs.1/2}{\symSstat(xs.1/2+xs.1/2,xs.2/2+xs.2/2)}} \\
   \inferrule*
   {\textcolor{red}{\forall i.\; xs.i/2+xs.i/2 \leq xs.i}}
   {\symSstat(xs.1/2+xs.1/2,xs.2/2+xs.2/2) \leq \symSstat(xs.1,xs.2)}
@@ -401,7 +406,7 @@ $$
 {
   \Gamma\typing{\symsplit\;xs}{\symlist\;A}{xs.1/2}{(xs/2, xs/2)} \\
   \mathsf{IsPair}(xs/2,xs/2)=(xs/2,xs/2) \\
-  \inferrule* {\textcolor{green}{(4)}}{\Gamma''\equiv\Gamma',ys:(\symlist\;A,xs/2),zs:(\symlist\;A,xs/2)\typing{\symmerge\;(f\;ys)\;(f\;zs)}{\symlist\;A}{n}{\symSstat(xs.1,xs.2)}}
+  \inferrule* {\textcolor{green}{(4)}}{\Gamma''\defeq\Gamma',ys:(\symlist\;A,xs/2),zs:(\symlist\;A,xs/2)\typing{\symmerge\;(f\;ys)\;(f\;zs)}{\symlist\;A}{n}{\symSstat(xs.1,xs.2)}}
 }
 {\textcolor{green}{(3)}}
 $$
@@ -423,7 +428,7 @@ $$
   \Gamma\typing{xs}{\symlist\;A}{0}{xs} \\
   \mathsf{IsList}(xs)=(xs.\symuf.\symr.\symf,xs.\symuf.\symr.\syms) \\
   \inferrule* [Right=Le] {\Gamma\typing{xs}{\symlist\;A}{0}{xs} \\ \textcolor{red}{xs \leq \symSstat(xs.1,xs.2)}}{\Gamma\typing{xs}{\symlist\;A}{0}{\symSstat(xs.1,xs.2)}} \\
-  \inferrule* {\textcolor{green}{(2)}}{\Gamma'\equiv\Gamma, xs':(\symlist\;A,xs.\symuf.\symr.\syms)\typing{\symmatch\;xs'\symwith\dots}{\symlist\;A}{n}{\symSstat(xs.1,xs.2)}}
+  \inferrule* {\textcolor{green}{(2)}}{\Gamma'\defeq\Gamma, xs':(\symlist\;A,xs.\symuf.\symr.\syms)\typing{\symmatch\;xs'\symwith\dots}{\symlist\;A}{n}{\symSstat(xs.1,xs.2)}}
 }
 {\textcolor{green}{(1)}}
 $$
@@ -433,10 +438,12 @@ $$
 {
   \inferrule* [Right=MatchList]
   {\textcolor{green}{(1)}}
-  {\Gamma\equiv A:*, cmp:(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}}, \bottom), f:(\arrow{\intro{xs}{\symlist\;A}}{0}{1}{\arrow{\intro{ys}{\symlist\;A}}{xs.1+ys.1}{xs+ys}{\symlist\;A}}, 1), xs:(\symlist\;A,\bottom) \typing{\symmatch\;xs\symwith\dots}{\symlist\;A}{n}{\symSstat(xs.1,xs.2)}} \\
+  {\Gamma\defeq A:*, cmp:(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}}, \bottom), f:(\arrow{\intro{xs}{\symlist\;A}}{0}{1}{\arrow{\intro{ys}{\symlist\;A}}{xs.1+ys.1}{xs+ys}{\symlist\;A}}, 1), xs:(\symlist\;A,\bottom) \typing{\symmatch\;xs\symwith\dots}{\symlist\;A}{n}{\symSstat(xs.1,xs.2)}} \\
   \textcolor{red}{xs.1/2*\log(xs.1/2)+xs.1/2*\log(xs.1/2)+1+xs.1/2+xs.1/2 \leO xs.1*\log(xs.1)}
 }
 {\typing{\symmsort}{\forall A.\arrow{(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}})}{0}{1}{\arrow{\intro{xs}{\symlist\;A}}{xs.1*\log(xs.1)}{\symSstat(xs.1,xs.2)}{\symlist\;A}}}{0}{1}}
 $$
+
+\newpage
 
 \end{document}
