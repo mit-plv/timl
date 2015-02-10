@@ -34,20 +34,58 @@
 \newcommand{\symin}{\mathsf{\;in\;}}
 \newcommand{\symletrec}{\mathsf{letrec\;}}
 \newcommand{\symand}{\mathsf{\;and\;}}
-\newcommand{\symmatch}{\mathsf{match\;}}
+\newcommand{\symmatch}{\mathsf{match}}
 \newcommand{\FV}{\mathsf{FV}}
 \newcommand{\symwith}{\mathsf{\;with\;}}
-\newcommand{\symleft}{\mathsf{left\;}}
-\newcommand{\symright}{\mathsf{right\;}}
+\newcommand{\symleft}{\mathsf{left}}
+\newcommand{\symright}{\mathsf{right}}
 \newcommand{\symmax}{\mathsf{max}}
 \newcommand{\symSleft}{\mathsf{Sleft\;}}
 \newcommand{\symSright}{\mathsf{Sright\;}}
+\newcommand{\symfold}{\mathsf{fold\;}}
+\newcommand{\symSfold}{\mathsf{Sfold\;}}
+\newcommand{\symunfold}{\mathsf{unfold\;}}
+\newcommand{\symSunfold}{\mathsf{Sunfold\;}}
+\newcommand{\symhide}{\mathsf{hide\;}}
+\newcommand{\symShide}{\mathsf{Shide\;}}
+\newcommand{\symunhide}{\mathsf{unhide\;}}
+\newcommand{\symSunhide}{\mathsf{Sunhide\;}}
+\newcommand{\leO}{\preceq}
+\newcommand{\sympair}{\mathsf{pair}}
+\newcommand{\symtt}{\mathsf{tt}}
+\newcommand{\symunit}{\mathsf{unit}}
+\newcommand{\symlist}{\mathsf{list}}
+\newcommand{\symnil}{\mathsf{nil}}
+\newcommand{\symcons}{\mathsf{cons}}
+\newcommand{\symfix}{\mathsf{fix}}
+\newcommand{\symbool}{\mathsf{bool}}
+\newcommand{\symtrue}{\mathsf{true}}
+\newcommand{\symfalse}{\mathsf{false}}
+\newcommand{\symmerge}{\mathsf{merge}}
+
+%% \newcommand{\intro}[2]{#2^#1}
+\newcommand{\intro}[2]{(#1 : #2)}
+%% \newcommand{\intro}[2]{(#2 \mathsf{\;size\;} #1)}
+%% \newcommand{\intro}[2]{\{#2 \mathsf{\;|\;} #1\}}
+
+\newcommand{\symsum}{\mathsf{sum}}
+\newcommand{\symfst}{\mathsf{fst}}
+\newcommand{\symsnd}{\mathsf{snd}}
+\newcommand{\symif}{\mathsf{if\;}}
+\newcommand{\symthen}{\mathsf{\;then\;}}
+\newcommand{\symelse}{\mathsf{\;else\;}}
+\newcommand{\symSbool}{\mathsf{Sbool}}
 
 \begin{document}
 
-Lambda-O : lambda calculus with asymptotic complexity
+\title{Lambda-O : lambda calculus with asymptotic complexity}
+\author{Peng Wang}
 
-\begin{figure}
+\maketitle
+
+\section{Typing rules}
+
+%% \begin{figure}
 \begin{mathpar}
 
 \inferrule* [Right=Var] 
@@ -59,20 +97,20 @@ Lambda-O : lambda calculus with asymptotic complexity
 {\Gamma\typing{x}{\tau}{0}{x}} \\
 
 \inferrule* [Right=App] 
-{\Gamma\typing{e_1}{\arrow{\tau_1^x}{n}{s}{\tau_2}}{n_1}{s_1} \\ \Gamma\typing{e_2}{\tau_1}{n_2}{s_2} }
+{\Gamma\typing{e_1}{\arrow{\intro{x}{\tau_1}}{n}{s}{\tau_2}}{n_1}{s_1} \\ \Gamma\typing{e_2}{\tau_1}{n_2}{s_2} }
 {\Gamma\typing{e_1\;e_2}{\tau_2}{n_1+n_2+1+n[s_2/x]}{s[s_2/x]}} \\
 
 \inferrule* [Right=Abs] 
 {\Gamma\vdash\tau_1 :: * \\ \Gamma, x:(\tau_1, \bottom)\typing{e}{\tau_2}{n}{s} }
-{\Gamma\typing{\lambda x : \tau_1.\;e}{\arrow{\tau_1^x}{n}{s}{\tau_2}}{0}{1}} \\
+{\Gamma\typing{\lambda x : \tau_1.\;e}{\arrow{\intro{x}{\tau_1}}{n}{s}{\tau_2}}{0}{1}} \\
 
 \inferrule* [Right=Tapp]
 {\Gamma\typing{e}{\forall X.\tau}{n}{s}}
-{\Gamma\typing{e [\tau_2]}{\tau[\tau_2/X]}{n+1}{s}}
+{\Gamma\typing{e\;\tau_2}{\tau[\tau_2/X]}{n+1}{s}}
 
 \inferrule* [Right=Tabs]
 {\Gamma, X :: * \typing{e}{\tau}{0}{1}}
-{\Gamma\typing{\Lambda X.e}{\forall X.\tau}{0}{1}} \\
+{\Gamma\typing{\lambda X.e}{\forall X.\tau}{0}{1}} \\
 
 \inferrule* [Right=Let]
 {\Gamma\typing{e_1}{\tau_1}{n_1}{s_1} \\ \Gamma, x : (\tau_1, s_1) \typing{e_2}{\tau_2}{n_2}{s_2}}
@@ -84,22 +122,132 @@ Lambda-O : lambda calculus with asymptotic complexity
 
 \inferrule* [Right=MatchPair]
 {\Gamma\typing{e}{\tau_1\times\tau_2}{n}{s} \\ \mathsf{IsPair}(s)=(s_1,s_2) \\ \Gamma, a:(\tau_1,s_1), b:(\tau_2,s_2)\typing{e'}{\tau}{n'}{s'}}
-{\Gamma\typing{\symmatch e \symwith (a,b) \Rightarrow e'}{\tau[s1/a][s2/b]}{n + 1 + n'[s1/a][s2/b]}{s[s1/a][s2/b]}}
+{\Gamma\typing{\symmatch_\sympair\;e \symwith (a,b) \Rightarrow e'}{\tau[s1/a][s2/b]}{n + 1 + n'[s1/a][s2/b]}{s[s1/a][s2/b]}}
 
 \inferrule* [Right=MatchLR]
 {\Gamma\typing{e}{\tau_1+\tau_2}{n}{s} \\ \mathsf{IsLeftRight}(s)=(s_1,s_2) \\ \forall i,\;\Gamma, x:(\tau_i,s_i)\typing{e_i}{\tau}{n_i}{s'} \\ x\not\in\FV(\tau)\cup\FV(s')}
-{\Gamma\typing{\symmatch e \symwith \symleft x \Rightarrow e_1 \;|\; \symright x \Rightarrow e_2}{\tau}{n+1+\symmax(n_1[s_1/x],n_2[s_2/x])}{s'}}
+{\Gamma\typing{\symmatch_\symsum\; e \symwith \symleft\;x \Rightarrow e_1 \;|\; \symright\;x \Rightarrow e_2}{\tau}{n+1+\symmax(n_1[s_1/x],n_2[s_2/x])}{s'}}
 
 \inferrule* [Right=MatchL]
 {\Gamma\typing{e}{\tau_1+\tau_2}{n}{\symSleft(s)} \\ \Gamma, x:(\tau_1,s)\typing{e_1}{\tau'}{n'}{s'}}
-{\Gamma\typing{\symmatch e \symwith \symleft x \Rightarrow e_1 \;|\; \symright x \Rightarrow e_2}{\tau'[s/x]}{n+1+n'[s/x]}{s'[s/x]}}
+{\Gamma\typing{\symmatch_\symsum\; e \symwith \symleft\;x \Rightarrow e_1 \;|\; \symright\;x \Rightarrow e_2}{\tau'[s/x]}{n+1+n'[s/x]}{s'[s/x]}}
 
 \inferrule* [Right=MatchR]
 {\Gamma\typing{e}{\tau_1+\tau_2}{n}{\symSright(s)} \\ \Gamma, x:(\tau_2,s)\typing{e_2}{\tau'}{n'}{s'}}
-{\Gamma\typing{\symmatch e \symwith \symleft x \Rightarrow e_1 \;|\; \symright x \Rightarrow e_2}{\tau'[s/x]}{n+1+n'[s/x]}{s'[s/x]}}
+{\Gamma\typing{\symmatch_\symsum\; e \symwith \symleft\;x \Rightarrow e_1 \;|\; \symright\;x \Rightarrow e_2}{\tau'[s/x]}{n+1+n'[s/x]}{s'[s/x]}}
+
+\inferrule* [Right=Fold]
+{\tau \equiv \mu X. \tau_1 \\ \Gamma\typing{e}{\tau_1[\tau/X]}{n}{s}}
+{\Gamma\typing{\symfold \tau \; e}{\tau}{n}{\symSfold s}} \\
 
 \end{mathpar}
-\caption{\label{opsem}Typing rules}
-\end{figure}
+\begin{mathpar}
+
+\inferrule* [Right=Unfold]
+{\Gamma\typing{e}{t}{n}{s} \\ \mathsf{IsFold}(s)=s_1 \\ \tau \equiv \mu X.\tau_1}
+{\Gamma\typing{\symunfold \tau\;e}{\tau_1[\tau/X]}{n}{s_1}} \\
+
+\inferrule* [Right=Hide]
+{\Gamma\typing{e}{\tau}{n}{s}}
+{\Gamma\typing{\symhide e}{[\tau]}{n}{\symShide s}}
+
+\inferrule* [Right=Unhide]
+{\Gamma\typing{e}{[\tau]}{n}{s} \\ \mathsf{IsHide}(s)=s_1}
+{\Gamma\typing{\symunhide e}{\tau}{n}{s_1}} \\
+
+\inferrule* [Right=Eq]
+{\Gamma\typing{e}{\tau_1}{n}{s} \\ \tau_1 \equiv \tau_2}
+{\Gamma\typing{e}{\tau_2}{n}{s}}
+
+\inferrule* [Right=Le]
+{\Gamma\typing{e}{\tau}{n}{s} \\ n \leO n' \\ s \leq s'}
+{\Gamma\typing{e}{\tau}{n'}{s'}}
+
+\end{mathpar}
+%% \caption{\label{opsem}Typing rules}
+%% \end{figure}
+
+\section{Types of constants}
+
+\begin{align*}
+\sympair&:\forall A,B.\;\arrow{\intro{x}{A}}{0}{1}{\arrow{\intro{y}{B}}{1}{(x,y)}{A\times B}} \\
+\symleft&:\forall A,B.\;\arrow{\intro{x}{A}}{1}{\symSleft x}{A+B} \\
+\symright&:\forall A,B.\;\arrow{\intro{x}{B}}{1}{\symSright x}{A+B} \\
+\symtt&:\symunit
+\end{align*}
+
+\section{Derived typing rules}
+
+\subsection{List}
+
+\begin{align*}
+\symlist &\equiv \Lambda A. \mu L. \symunit + [A] \times L \\
+\symnil &\equiv \lambda A. \symfold (\symlist\;A) \\
+\symcons &\equiv \lambda A. \lambda(x : A)(y : \symlist\;A). \symfold (\symlist\;A)\;(\symright\;(\symhide x,y)) \\
+\symcons &: \forall A. \arrow{\intro{x}{A}}{0}{1}{\arrow{\intro{y}{\symlist\;A}}{1}{\symSfold (\symSright (\symShide x, y))}{\symlist\;A}} 
+\end{align*}
+
+\begin{align*}
+&\symmatch_\symlist\; (e : \symlist\;A) \symwith \symnil \Rightarrow e_1 \;|\; \symcons\;x\;y \Rightarrow e_2 \\
+  & \equiv \symmatch_\symsum\;(\symunfold (\symlist\;A)\;e) \symwith \\
+  & \hspace{0.4in} |\;\symleft\;\_ \Rightarrow e_1 \\
+  & \hspace{0.4in} |\; \symright\;p \Rightarrow \symmatch_\sympair\;(\symunhide A\;(\symfst\;p),\symsnd\;p)\symwith \\
+  & \hspace{1.2in} |\; (x,y) \Rightarrow e_2
+\end{align*}
+
+\begin{mathpar}
+
+\inferrule* [Right=MatchList]
+{\Gamma\typing{e}{\symlist\;\tau}{n}{s} \\ \mathsf{IsList}(s)=(s_1,s_2) \\ \Gamma\typing{e_1}{\tau'}{n_1}{s'} \\ \Gamma, x:(\tau,s_1), y:(\symlist\;\tau,s_2)\typing{e_2}{\tau'}{n_2}{s'} \\ x,y\not\in \FV(\tau')\cup\FV(s')}
+{\Gamma\typing{\symmatch_\symlist\;e\symwith \symnil \Rightarrow e_1 \;|\; \symcons\;x\;y \Rightarrow e_2}{\tau'}{n+1+\symmax(n_1, n_2[s_1/x][s_2/y])}{s'}}
+
+\end{mathpar}
+
+\subsection{Fixpoint}
+
+\begin{align*}
+\symfix\;f:\tau\Rightarrow e &\equiv \symletrec f:\tau := e \symin f
+\end{align*}
+
+\begin{mathpar}
+
+\inferrule* [Right=Fix]
+{\Gamma, f:(\tau, 1)\typing{e}{\tau}{0}{1} \\ f\not\in\FV(\tau)}
+{\Gamma\typing{\symfix\;f:\tau\Rightarrow e}{\tau}{0}{1}}
+
+\end{mathpar}
+
+\subsection{Bool}
+
+\begin{align*}
+\symbool &\equiv \symunit + \symunit \\
+\symtrue &\equiv \symleft\;\symtt \\
+\symfalse &\equiv \symright\;\symtt \\
+\symif e \symthen e_1 \symelse e_2 &\equiv \symmatch_\symsum\;e\symwith \symleft\;\_\Rightarrow e_1 \;|\; \symright\;\_\Rightarrow e_2
+\end{align*}
+
+\begin{mathpar}
+
+\inferrule* [Right=If]
+{\Gamma\typing{e}{\symbool}{n}{s'} \\ \mathsf{IsInlInr}(s')=(s_1,s_2) \\ \forall i.\;\Gamma\typing{e_i}{\tau}{n_1}{s}}
+{\Gamma\typing{\symif e \symthen e_1 \symelse e_2}{\tau}{n+1+\symmax(n_1,n_2)}{s}}
+
+\end{mathpar}
+
+\section{Examples}
+
+\subsection{Merge sort}
+
+\begin{align*}
+\symmerge &\equiv \lambda A. \lambda (cmp:\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}}).\lambda xs,ys. \\
+& \hspace{0.3in} \symmatch\;xs\symwith \\
+& \hspace{.4in} |\; \symnil\Rightarrow ys \\
+& \hspace{.4in} |\; x::xs' \Rightarrow \symmatch\;ys\symwith \\
+& \hspace{1.2in} |\; \symnil\Rightarrow xs \\
+& \hspace{1.2in} |\; y::ys' \Rightarrow \symif cmp\;x\;y \symthen \\
+& \hspace{2in} x :: \symmerge\;xs'\;ys \\
+& \hspace{1.9in} \symelse \\
+& \hspace{2in} y :: \symmerge\;xs\;ys' \\
+\end{align*}
 
 \end{document}

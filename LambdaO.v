@@ -654,8 +654,8 @@ Section LambdaO.
     | Ematch_sum (target : expr) (left right : expr)
     | Etapp (e : expr) (t : type)
     | Etabs (body : expr)
-    | Efold (_ : expr) (_ : type)
-    | Eunfold (_ : expr) (_ : type)
+    | Efold (_ : type) (_ : expr)
+    | Eunfold (_ : type) (_ : expr)
     | Ehide (_ : expr)
     | Eunhide (_ : expr)
   .
@@ -684,8 +684,8 @@ Section LambdaO.
       | Ematch_sum target a b => Ematch_sum (visit_e n f target) (visit_e (S n) f a) (visit_e (S n) f b)
       | Etapp e t => Etapp (visit_e n f e) (ft n t)
       | Etabs e => Etabs (visit_e (S n) f e)
-      | Efold e t => Efold (visit_e n f e) (ft n t)
-      | Eunfold e t => Eunfold (visit_e n f e) (ft n t)
+      | Efold t e => Efold (ft n t) (visit_e n f e)
+      | Eunfold t e => Eunfold (ft n t) (visit_e n f e)
       | Ehide e =>Ehide (visit_e n f e)
       | Eunhide e =>Eunhide (visit_e n f e)
     end.
@@ -762,7 +762,7 @@ Section LambdaO.
     match a with
       | Aapp e => Eapp f e
       | Atapp t => Etapp f t
-      | Afold t => Efold f t
+      | Afold t => Efold t f
       | Ahide => Ehide f
     end.
 
@@ -789,8 +789,8 @@ Section LambdaO.
     | CTmatch_pair (target : context) (_ : expr)
     | CTmatch_sum (target : context) (a b : expr)
     | CTtapp (f : context) (t : type)
-    | CTfold (_ : context) (t : type)
-    | CTunfold (_ : context) (t : type)
+    | CTfold (t : type) (_ : context)
+    | CTunfold (t : type) (_ : context)
     | CThide (_ : context)
     | CTunhide (_ : context)
   .
@@ -805,8 +805,8 @@ Section LambdaO.
       | CTmatch_pair target k => Ematch_pair (plug target e) k
       | CTmatch_sum target a b => Ematch_sum (plug target e) a b
       | CTtapp f t => Etapp (plug f e) t
-      | CTfold c t => Efold (plug c e) t
-      | CTunfold c t => Eunfold (plug c e) t
+      | CTfold t c => Efold t (plug c e)
+      | CTunfold t c => Eunfold t (plug c e)
       | CThide c => Ehide (plug c e)
       | CTunhide c => Eunhide (plug c e)
     end.
@@ -859,7 +859,7 @@ Section LambdaO.
     | STtapp body t : step (Etapp (Etabs body) t) (subst t body)
     | STunfold_fold v t1 t2 : 
         IsValue v ->
-        step (Eunfold (Efold v t1) t2) v
+        step (Eunfold t2 (Efold t1 v)) v
     | STunhide_hide v :
         IsValue v ->
         step (Eunhide (Ehide v)) v
@@ -980,31 +980,31 @@ Section LambdaO.
     }.
 
   (* precise less-than relation on formulas *)
-  Definition Fle : formula -> formula -> Prop.
+  Definition leF : formula -> formula -> Prop.
     admit.
   Defined.
 
   Instance Le_formula : Le formula :=
     {
-      le := Fle
+      le := leF
     }.
 
   (* precise less-than relation on sizes *)
-  Definition Sle : size -> size -> Prop.
+  Definition leS : size -> size -> Prop.
     admit.
   Defined.
 
   Instance Le_size : Le size :=
     {
-      le := Sle
+      le := leS
     }.
 
   (* big-O less-than relation on formulas *)
-  Definition Ole : formula -> formula -> Prop.
+  Definition leO : formula -> formula -> Prop.
     admit.
   Defined.
 
-  Infix "<<=" := Ole (at level 70) : F.
+  Infix "<<=" := leO (at level 70) : F.
 
   Class Equal t :=
     {
@@ -1081,12 +1081,12 @@ Section LambdaO.
   | TPfold T e t n s t1 :
       t == Trecur t1 ->
       typing T e (subst t t1) n s ->
-      typing T (Efold e t) t n (Sfold s)
+      typing T (Efold t e) t n (Sfold s)
   | TPunfold T e t n s s1 t1 :
       typing T e t n s ->
       is_fold s = Some s1 ->
       t == Trecur t1 ->
-      typing T (Eunfold e t) (subst t t1) n s1
+      typing T (Eunfold t e) (subst t t1) n s1
   | TPhide T e t n s :
       typing T e t n s ->
       typing T (Ehide e) (Thide t) n (Shide s)
@@ -1125,7 +1125,6 @@ Section LambdaO.
       apply a b := Tapp a b
     }.
 
-  Definition Tlist := Tabs $ Trecur $ Tsum Tunit $ Tprod (Thide #1) #0.
   Lemma Ksum' T a b :
     kinding T a 0 ->
     kinding T b 0 ->
@@ -1155,6 +1154,8 @@ Section LambdaO.
     }
     { eauto. }
   Qed.
+
+  Definition Tlist := Tabs $ Trecur $ Tsum Tunit $ Tprod (Thide #1) #0.
 
   Lemma Klist T (t : type) : kinding T t 0 -> kinding T (Tlist $$ t) 0.
   Proof.
@@ -1266,36 +1267,36 @@ Section LambdaO.
 
   Arguments subst_s_s_f n v nv path / .
 
-  Lemma Sle_refl (a : size) : a <= a.
+  Lemma leS_refl (a : size) : a <= a.
     admit.
   Qed.
 
-  Global Add Relation size Sle
-      reflexivity proved by Sle_refl
-        as Sle_rel.
+  Global Add Relation size leS
+      reflexivity proved by leS_refl
+        as leS_rel.
   
-  Lemma Ole_refl (a : formula) : a <<= a.
+  Lemma leO_refl (a : formula) : a <<= a.
     admit.
   Qed.
 
-  Global Add Relation formula Ole
-      reflexivity proved by Ole_refl
-        as Ole_rel.
+  Global Add Relation formula leO
+      reflexivity proved by leO_refl
+        as leO_rel.
   
-  Lemma Fle_refl (n : formula) : n <= n.
+  Lemma leF_refl (n : formula) : n <= n.
     admit.
   Qed.
 
-  Global Add Relation formula Fle
-      reflexivity proved by Fle_refl
-        as Fle_rel.
+  Global Add Relation formula leF
+      reflexivity proved by leF_refl
+        as leF_rel.
   
   Lemma TPunfold' T e t n s s1 t1 t' :
     typing T e t n s ->
     is_fold s = Some s1 ->
     t == Trecur t1 ->
     t' = subst t t1 ->
-    typing T (Eunfold e t) t' n s1.
+    typing T (Eunfold t e) t' n s1.
   Proof.
     intros; subst; eapply TPunfold; eauto.
   Qed.
@@ -1361,7 +1362,7 @@ Section LambdaO.
     }
     {
       simpl.
-      admit. (* Ole for time *)
+      admit. (* leO for time *)
     }
     {
       simpl.
@@ -1587,7 +1588,7 @@ Section LambdaO.
     }
     {
       simpl.
-      admit. (* Ole for time *)
+      admit. (* leO for time *)
     }
     {
       simpl.
@@ -1601,15 +1602,15 @@ Section LambdaO.
 
   Definition Ematch_list (telm : type) e b_nil b_cons := 
     let tlist := Tlist $$ telm in
-    Ematch_sum (Eunfold e tlist) (lift b_nil) (Ematch_pair (Eunhide_fst $$ (lift telm) $$ (lift tlist) $$ #0) $ lift_from 2 b_cons).
+    Ematch_sum (Eunfold tlist e) (lift b_nil) (Ematch_pair (Eunhide_fst $$ (lift telm) $$ (lift tlist) $$ #0) $ lift_from 2 b_cons).
 
-  Definition Enil := Etabs $ Efold (Ehide Ett) (Tlist $ #0).
+  Definition Enil := Etabs $ Efold (Tlist $ #0) (Einl $$ Tunit $$ Tprod (Thide #0) (Tlist $ #0) $$ Ett).
   
   Definition Econs := 
     Etabs $ Eabs #0 $ Eabs (Tlist $ #1) $ 
           let telm := #2 : type in
           let tlist := Tlist $ telm in
-          Efold (Einr $$ Tunit $$ Tprod (Thide telm) tlist $$ (Epair $$ Thide telm $$ tlist $$ Ehide #1 $$ #0)) tlist.
+          Efold tlist (Einr $$ Tunit $$ Tprod (Thide telm) tlist $$ (Epair $$ Thide telm $$ tlist $$ Ehide #1 $$ #0)).
 
   Lemma TPcons : 
     typing [] Econs (Tuniversal $ Tarrow #0 F0 Stt $ Tarrow (Tlist $ #1) F1 (Sfold $ Sinr $ Spair (Shide #1) #0) (Tlist $ #2)) F0 Stt.
@@ -1662,7 +1663,7 @@ Section LambdaO.
       }
       {
         simpl.
-        admit. (* Ole for time *)
+        admit. (* leO for time *)
       }
       {
         simpl.
@@ -1722,7 +1723,7 @@ Section LambdaO.
     }
     {
       simpl.
-      admit. (* Ole for time *)
+      admit. (* leO for time *)
     }
     {
       simpl.
@@ -1888,27 +1889,27 @@ Section LambdaO.
     }
     {
       simpl.
-      admit. (* Ole *)
+      admit. (* leO *)
       (*
-      Lemma Ole_plus (a a' b b' : formula) : a <<= a' -> b <<= b' -> a + b <<= a' + b'.
+      Lemma leO_plus (a a' b b' : formula) : a <<= a' -> b <<= b' -> a + b <<= a' + b'.
         admit.
       Qed.
-      eapply Ole_plus; try eapply Ole_refl.
+      eapply leO_plus; try eapply leO_refl.
       repeat rewrite subst_lift_s_f.
-      Lemma Ole_maxr (a b b' : formula) : b <<= b' -> max a b <<= max a b'.
+      Lemma leO_maxr (a b b' : formula) : b <<= b' -> max a b <<= max a b'.
         admit.
       Qed.
-      eapply Ole_maxr.
+      eapply leO_maxr.
       simpl.
       repeat rewrite fold_subst_s_f in *.
-      Lemma Oleadd0r a b : a <<= b -> F0 + a <<= b.
+      Lemma leOadd0r a b : a <<= b -> F0 + a <<= b.
         admit.
       Qed.
-      eapply Oleadd0r.
-      Lemma Ole_skip_subst a b v a' : a' = lift a -> a <<= b -> subst_size_formula 0 v a' <<= b.
+      eapply leOadd0r.
+      Lemma leO_skip_subst a b v a' : a' = lift a -> a <<= b -> subst_size_formula 0 v a' <<= b.
         admit.
       Qed.
-      eapply Ole_skip_subst.
+      eapply leO_skip_subst.
       {
         Lemma subst2_lift s2 s1 n : subst_size_formula 0 (lift_from_s 0 s2) (subst_size_formula 0 (lift_from_s 0 s1) (lift_from_f 2 n)) = lift (subst_size_formula 0 s2 (subst_size_formula 0 s1 n)).
           admit.
@@ -1916,7 +1917,7 @@ Section LambdaO.
         eapply subst2_lift.
       }
       {
-        eapply Ole_refl.
+        eapply leO_refl.
       }
        *)
     }
@@ -2035,18 +2036,18 @@ Section LambdaO.
     eapply Kbool.
   Qed.
 (*
-  Lemma Fle0r n : F0 <= n.
+  Lemma leF0r n : F0 <= n.
     admit.
   Qed.
 *)
   (* Ltac copy_as h h' := generalize h; intro h'. *)
 
-  Lemma TPif T e e1 e2 n s t' na nb s' s1 s2 :
-    typing T e Tbool n s ->
-    is_inlinr s = Some (s1, s2) ->
-    typing T e1 t' na s' ->
-    typing T e2 t' nb s' ->
-    typing T (Eif e e1 e2) t' (n + F1 + max na nb) s'.
+  Lemma TPif T e e1 e2 n s' t n1 n2 s s1 s2 :
+    typing T e Tbool n s' ->
+    is_inlinr s' = Some (s1, s2) ->
+    typing T e1 t n1 s ->
+    typing T e2 t n2 s ->
+    typing T (Eif e e1 e2) t (n + F1 + max n1 n2) s.
   Proof.
     intros He Hs H1 H2.
     {
@@ -2100,10 +2101,10 @@ Section LambdaO.
             { eapply TPvar'; simpl; eauto. }
             {
               simpl.
-              Lemma Sle_var_addr x n0 n1 : Svar x <= Sstats (n0 + Fvar x 0, n1 + Fvar x 1).
+              Lemma leS_var_addr x n0 n1 : Svar x <= Sstats (n0 + Fvar x 0, n1 + Fvar x 1).
                 admit.
               Qed.
-              eapply Sle_var_addr.
+              eapply leS_var_addr.
             }
           }
           {
@@ -2116,10 +2117,10 @@ Section LambdaO.
               { eapply TPvar'; simpl; eauto. }
               {
                 simpl.
-                Lemma Sle_var_addl x n0 n1 : Svar x <= Sstats (Fvar x 0 + n0, Fvar x 1 + n1).
+                Lemma leS_var_addl x n0 n1 : Svar x <= Sstats (Fvar x 0 + n0, Fvar x 1 + n1).
                   admit.
                 Qed.
-                eapply Sle_var_addl.
+                eapply leS_var_addl.
               }
             }
             {
@@ -2162,16 +2163,16 @@ Section LambdaO.
                 }
                 {
                   simpl.
-                  Lemma Sle_stats s f0 f1 : 
+                  Lemma leS_stats s f0 f1 : 
                     let ss := summarize s in 
                     stats_get 0 ss <= f0 -> 
                     stats_get 1 ss <= f1 -> 
                     s <= Sstats (f0, f1).
                     admit.
                   Qed.
-                  eapply Sle_stats; simpl.
-                  { admit. (* Fle pair *) }
-                  { admit. (* Fle pair *) }
+                  eapply leS_stats; simpl.
+                  { admit. (* leF pair *) }
+                  { admit. (* leF pair *) }
                 }
               }
               {
@@ -2195,9 +2196,9 @@ Section LambdaO.
                 }
                 {
                   simpl.
-                  eapply Sle_stats; simpl.
-                  { admit. (* Fle pair *) }
-                  { admit. (* Fle pair *) }
+                  eapply leS_stats; simpl.
+                  { admit. (* leF pair *) }
+                  { admit. (* leF pair *) }
                 }
               }
             }
@@ -2205,7 +2206,7 @@ Section LambdaO.
         }
         {
           simpl.
-          admit. (* Ole for time *)
+          admit. (* leO for time *)
         }
       }
     }
@@ -2272,7 +2273,7 @@ Section LambdaO.
           { eapply TPvar'; simpl; eauto. }
           {
             simpl.
-            eapply Sle_stats; simpl; reflexivity.
+            eapply leS_stats; simpl; reflexivity.
           }
         }
         {
@@ -2285,7 +2286,7 @@ Section LambdaO.
             { eapply TPvar'; simpl; eauto. }
             {
               simpl.
-              eapply Sle_stats; simpl; reflexivity.
+              eapply leS_stats; simpl; reflexivity.
             }
           }
           {
@@ -2339,17 +2340,17 @@ Section LambdaO.
             }
             {
               simpl.
-              Lemma Fle_ceil_floor n : (n + F1) / F2 + n / F2 <= n.
+              Lemma leF_ceil_floor n : (n + F1) / F2 + n / F2 <= n.
                 admit.
               Qed.
-              eapply Sle_stats; simpl; eapply Fle_ceil_floor.
+              eapply leS_stats; simpl; eapply leF_ceil_floor.
             }
           }
         }
       }
       {
         simpl.
-        admit. (* Ole *)
+        admit. (* leO *)
       }
     }
   Qed.
