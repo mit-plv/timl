@@ -506,9 +506,9 @@ $$
 \begin{align*}
 \symsplit &\defeq \lambda A. \symfix\;(f:\arrow{\intro{xs}{\symlist\;A}}{xs.1/2}{(xs/2,xs/2)}{\symlist\;A})\Rightarrow\lambda xs. \\
 & \hspace{0.3in} \symmatch\;xs\symwith \\
-& \hspace{.4in} |\; \symnil\Rightarrow (xs,\symnil) \\
+& \hspace{.4in} |\; \symnil\Rightarrow (\symnil,\symnil) \\
 & \hspace{.4in} |\; x::xs' \Rightarrow \symmatch\;xs'\symwith \\
-& \hspace{1.2in} |\; \symnil\Rightarrow (xs,\symnil) \\
+& \hspace{1.2in} |\; \symnil\Rightarrow (x::\symnil,\symnil) \\
 & \hspace{1.2in} |\; y::xs'' \Rightarrow \symmatch\; f\;xs'' \symwith \\
 & \hspace{2in} |\; (a, b) \Rightarrow (x::a,y::b) \\
 \symsplit &: \forall A.\arrow{\intro{xs}{\symlist\;A}}{xs.1/2}{(xs/2,xs/2)}{\symlist\;A}
