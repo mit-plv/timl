@@ -1,7 +1,7 @@
 \documentclass{article}
 
 \usepackage[landscape, margin=0.2in]{geometry}
-\usepackage{amsmath,amsfonts,amscd,amssymb,proof}
+\usepackage{amsmath,amsfonts,amscd,amssymb,proof,MnSymbol}
 \usepackage{mathpartir}
 \usepackage{turnstile}% http://ctan.org/pkg/turnstile
 \usepackage{adjustbox}% http://ctan.org/pkg/adjustbox
@@ -29,7 +29,10 @@
      \raisebox{-.6ex}{\hspace*{-.05ex}\adjustbox{width=#3,height=\height}{\clipbox{0.75 0 0 0}{\usebox0}}}}{}
   }
 
+\newcommand{\thide}[1]{\left \langle #1 \right \rangle}
 \newcommand{\typing}[4]{\turnstile{s}{s}{#4}{#3}{n}#1:#2}
+\newcommand{\kinding}[2]{\turnstile{s}{s}{}{}{n}#1:#2}
+\newcommand{\teq}[2]{#1\equiv#2}
 \newcommand{\arrow}[4]{#1\xrightarrow[#3]{#2}#4}
 \newcommand{\bottom}{\perp}
 \newcommand{\symlet}{\mathsf{let\;}}
@@ -107,13 +110,149 @@
   \textrm{Complexity Expr.} & n &::=& x.\vec{i}.1 \mid x.\vec{i}.2 \mid 0 \mid 1 \mid n+n \mid n-n \mid n\times n \mid n/n \mid \log(n) \mid \exp(n) \\
   \textrm{Sizes} & s &::=& x.\vec{i} \mid \symSstat(n_1,n_2) \mid \symStt \mid \symSleft\;s \mid \symSright\;s \mid \symSlr\;s\;s \mid \symSpair\;s\;s \mid \symSfold\;s \mid \symShide\;s \\
   \textrm{Type Constants} & c_t &::=& \symunit \mid \symprod \mid \symsum \\
-  \textrm{Types} & \tau &::=& X \mid c_t \mid \arrow{\intro{x}{\tau}}{n}{s}{\tau} \mid \forall X.\tau \mid \Lambda X.\tau \mid \tau\;\tau \mid \mu X.\tau \mid [\tau] \\
+  \textrm{Types} & \tau &::=& X \mid c_t \mid \arrow{\intro{x}{\tau}}{n}{s}{\tau} \mid \forall X.\tau \mid \Lambda X.\tau \mid \tau\;\tau \mid \mu X.\tau \mid \thide\tau \\
   \textrm{Constants} & c &::=& \symtt \mid \sympair \mid \symleft \mid \symright \\
-  \textrm{Expression} & e &::=& x \mid c \mid e\;e \mid \lambda x:\tau.e \mid \symlet x:= e \symin e \mid \symletrec f_1:=e_1 \symand \cdots \symand f_m:=e_m \symin e \mid \symmatch_\sympair\;e\symwith (x,y)\Rightarrow e \mid (\symmatch_\symsum\;e\symwith\symleft\;x\Rightarrow e\;|\;\symright\;x\Rightarrow e) \\
-  & & & \mid e\;\tau \mid \lambda X.e \mid \symfold\tau\;e \mid \symunfold\tau\;e \mid \symhide\tau\;e \mid \symunhide\tau\;e
+  \textrm{Expressions} & e &::=& x \mid c \mid e\;e \mid \lambda x:\tau.e \mid \symlet x:\tau:= e \symin e \mid \symletrec f_1:\tau_1:=e_1 \symand \cdots \symand f_m:\tau_m:=e_m \symin e \mid \symmatch_\sympair\;e\symwith (x,y)\Rightarrow e \\
+  & & & \mid (\symmatch_\symsum\;e\symwith\symleft\;x\Rightarrow e\;|\;\symright\;x\Rightarrow e) \mid e\;\tau \mid \lambda X.e \mid \symfold\tau\;e \mid \symunfold\tau\;e \mid \symhide\;e \mid \symunhide\;e \\
+  \textrm{Values} & c &::=& \lambda x:\tau.e \mid \lambda X.e \mid \symfold\tau e \\
+  \textrm{Context} & C &::=& \Box \mid C\;e \mid v\;C \mid \symlet x:\tau:=C\symin e \mid \symletrec f_1:\tau_1:=e_1 \symand \cdots \symand f_m:\tau_m:=e_m \symin C \mid \symmatch_\sympair\;C\symwith(x,y)\Rightarrow e \\
+  & & & \mid (\symmatch_\symsum\;C\symwith\symleft\;x\Rightarrow e\;|\;\symright\;x\Rightarrow e) \mid C\;\tau \mid \symfold\tau\;C \mid \symunfold\tau\;C \mid \symhide\;C \mid \symunhide\;C \\
+  \textrm{Kinds} & k &::=& * \mid *\to k
 \end{array}$$
 %% \caption{\label{syntax}Syntax}
 %% \end{figure}
+
+\section{Evaluation rules}
+
+\begin{mathpar}
+
+\inferrule*
+{e_1\to e_2}
+{C[e_1]\to C[e_2]}
+
+\inferrule*
+{\;}
+{(\lambda x:\tau.e)\;v \to e[v/x]}
+
+\inferrule*
+{\;}
+{\symlet x:\tau:=v \symin e \to e[v/x]}
+
+\inferrule*
+{\;}
+{\symletrec f_1:\tau_1:=e_1 \symand \cdots \symand f_m:\tau_m:=e_m \symin C[f_i] \to \symletrec f_1:\tau_1:=e_1 \symand \cdots \symand f_m:\tau_m:=e_m \symin C[e_i]}
+
+\inferrule*
+{\;}
+{\symletrec f_1:\tau_1:=e_1 \symand \cdots \symand f_m:\tau_m:=e_m \symin v \to v}
+
+\inferrule*
+{\;}
+{\symmatch_\sympair\;(v_1,v_2)\symwith(x,y)\Rightarrow e \to e[v_1/x][v_2/y]}
+
+\inferrule*
+{\;}
+{\symmatch_\symsum\;\symleft\;v\symwith\symleft\;x\Rightarrow e_1\;|\;\symright\;x\Rightarrow e_2 \to e_1[v/x]}
+
+\inferrule*
+{\;}
+{\symmatch_\symsum\;\symright\;v\symwith\symleft\;x\Rightarrow e_1\;|\;\symright\;x\Rightarrow e_2 \to e_2[v/x]}
+
+\inferrule*
+{\;}
+{(\lambda X.e)\;\tau \to e[\tau/X]}
+
+\inferrule*
+{\;}
+{\symunfold\tau_2\;(\symfold\tau_1\;v) \to v}
+
+\inferrule*
+{\;}
+{\symunhide(\symhide v) \to v}
+
+\end{mathpar}
+
+\section{Kinging and Type equivalent rules}
+
+\begin{mathpar}
+
+\inferrule*
+{\Gamma(X)=k}
+{\Gamma\kinding{X}{k}}
+
+\inferrule*
+{\Gamma\kinding{\tau_1}{*\to k} \\ \Gamma\kinding{\tau_2}{*}}
+{\Gamma\kinding{\tau_1\;\tau_2}{k}}
+
+\inferrule*
+{\Gamma,X:*\kinding{\tau}{k}}
+{\Gamma\kinding{\Lambda X.\tau}{*\to k}}
+
+\inferrule*
+{\Gamma\kinding{\tau_1}{*} \\ \Gamma\kinding{\tau_2}{*}}
+{\Gamma\kinding{\arrow{\tau_1}{n}{s}{\tau_2}}{*}}
+
+\inferrule*
+{\Gamma,X:*\kinding{\tau}{*}}
+{\Gamma\kinding{\forall X.\tau}{*}}
+
+\inferrule*
+{\Gamma,X:*\kinding{\tau}{*}}
+{\Gamma\kinding{\mu X.\tau}{*}}
+
+\inferrule*
+{\Gamma\kinding{\tau}{*}}
+{\Gamma\kinding{\thide{\tau}}{*}}
+
+\inferrule*
+{\;}
+{\Gamma\kinding{\symunit}{*}}
+
+\inferrule*
+{\;}
+{\Gamma\kinding{\symprod}{*\to *\to *}}
+
+\inferrule*
+{\;}
+{\Gamma\kinding{\symsum}{*\to *\to *}}
+
+\end{mathpar}
+
+\begin{mathpar}
+
+\inferrule*
+{\;}
+{\teq{\tau}{\tau}}
+
+\inferrule*
+{\teq{\tau_1}{\tau_2} \\ \teq{\tau_2}{\tau_3}}
+{\teq{\tau_1}{\tau_3}}
+
+\inferrule*
+{\teq{\tau_2}{\tau_1}}
+{\teq{\tau_1}{\tau_2}}
+
+\inferrule*
+{\teq{\tau_1}{\tau_2}}
+{\teq{\Lambda X.\tau_1}{\Lambda X.\tau_2}}
+
+\inferrule*
+{\teq{\tau_1}{\tau_1'} \\ \teq{\tau_2}{\tau_2'}}
+{\teq{\tau_1\;\tau_2}{\tau_1'\;\tau_2'}}
+
+\inferrule*
+{\;}
+{\teq{(\Lambda X.\tau_1)\;\tau_2}{\tau_1[\tau_2/X]}}
+
+\inferrule*
+{\teq{\tau_1}{\tau_1'} \\ \teq{\tau_2}{\tau_2'}}
+{\teq{\arrow{\tau_1}{n}{s}{\tau_2}}{\arrow{\tau_1'}{n}{s}{\tau_2'}}}
+
+\inferrule*
+{\teq{\tau_1}{\tau_2}}
+{\teq{\mu X.\tau_1}{\mu X.\tau_2}}
+
+\end{mathpar}
 
 \section{Typing rules}
 
@@ -178,10 +317,10 @@
 
 \inferrule* [Right=Hide]
 {\Gamma\typing{e}{\tau}{n}{s}}
-{\Gamma\typing{\symhide e}{[\tau]}{n}{\symShide s}} \\
+{\Gamma\typing{\symhide e}{\thide{\tau}}{n}{\symShide s}} \\
 
 \inferrule* [Right=Unhide]
-{\Gamma\typing{e}{[\tau]}{n}{s} \\ \mathsf{IsHide}(s)=s_1}
+{\Gamma\typing{e}{\thide{\tau}}{n}{s} \\ \mathsf{IsHide}(s)=s_1}
 {\Gamma\typing{\symunhide e}{\tau}{n}{s_1}}
 
 \inferrule* [Right=Eq]
@@ -210,7 +349,7 @@
 \subsection{List}
 
 \begin{align*}
-\symlist &\defeq \Lambda A. \mu L. \symunit + [A] \times L \\
+\symlist &\defeq \Lambda A. \mu L. \symunit + \thide{A} \times L \\
 \symnil &\defeq \lambda A. \symfold (\symlist\;A) \\
 \symcons &\defeq \lambda A. \lambda(x : A)(y : \symlist\;A). \symfold (\symlist\;A)\;(\symright\;(\symhide x,y)) \\
 \symcons &: \forall A. \arrow{\intro{x}{A}}{0}{1}{\arrow{\intro{y}{\symlist\;A}}{1}{\symSfold (\symSright (\symShide x, y))}{\symlist\;A}} 
