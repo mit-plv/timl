@@ -4,6 +4,7 @@ Unset Printing Implicit Defensive.
 Generalizable All Variables.
 
 Require Import ListFacts4.
+Require Import Omega.
 
 Require Import List.
 Import ListNotations.
@@ -916,7 +917,7 @@ Section LambdaO.
       kinding T (Tabs t) (S k)
   | Karrow T t1 f g t2 :
       kinding T t1 0 ->
-      kinding (add_kinding 0 T) t2 0 ->
+      kinding (add_typing (t1, None) T) t2 0 ->
       kinding T (Tarrow t1 f g t2) 0
   | Kuniversal T t :
       kinding (add_kinding 0 T) t 0 ->
@@ -972,7 +973,7 @@ Section LambdaO.
       le : t -> t -> Prop
     }.
 
-  Infix "<=" := le.
+  Infix "<=" := le : G.
 
   Instance Le_nat : Le nat :=
     {
@@ -1103,6 +1104,7 @@ Section LambdaO.
       n <<= n' ->
       s <= s' ->
       typing T e t n' s'
+  (* built-in constants *)
   | TPpair T : 
       typing T Cpair (Tuniversal $ Tuniversal $ Tarrow #1 F0 Stt $ Tarrow #1 F1 (Spair #1 #0) $ Tprod #3 #2) F0 Stt
   | TPinl T :
@@ -1431,7 +1433,7 @@ Section LambdaO.
         Lemma lower_iter_lift_f x (n m r : nat) : m <= r -> (r <= n + m)%nat -> lower_f r (iter (S n) (lift_from_f m) x) = iter n (lift_from_f m) x.
           admit.
         Qed.
-        eapply lower_iter_lift_f; simpl in *; eauto.
+        eapply lower_iter_lift_f; simpl in *; eauto; omega.
       }
       {
         repeat rewrite fold_lift_from_s in *.
@@ -1439,12 +1441,12 @@ Section LambdaO.
         Lemma lower_iter_lift_s x (n m r : nat) : m <= r -> (r <= n + m)%nat -> lower_s r (iter (S n) (lift_from_s m) x) = iter n (lift_from_s m) x.
           admit.
         Qed.
-        eapply lower_iter_lift_s; simpl in *; eauto.
+        eapply lower_iter_lift_s; simpl in *; eauto; omega.
       }
       {
         repeat rewrite fold_lift_from_t in *.
         rewrite fold_iter.
-        rewrite IHx2; simpl in *; eauto.
+        rewrite IHx2; simpl in *; eauto; omega.
       }
     }
     {
@@ -1497,7 +1499,7 @@ Section LambdaO.
       simpl.
       repeat rewrite fold_lift_from_t in *.
       rewrite fold_iter.
-      rewrite IHx; simpl in *; eauto.
+      rewrite IHx; simpl in *; eauto; omega.
     }
     admit.
     admit.
@@ -1507,7 +1509,7 @@ Section LambdaO.
 
   Lemma subst_lift_t_t_n (b : type) : forall n v, visit_t n (subst_t_t_f 0 v, lower_sub 0, lower_sub 0) (iter (S n) (lift_from_t 0) b) = iter n (lift_from_t 0) b.
     intros.
-    eapply subst_lift_t_t_n'; simpl in *; eauto.
+    eapply subst_lift_t_t_n'; simpl in *; eauto; omega.
   Qed.
 
   Lemma subst_lift_t_t v (b : type) : subst_t_t 0 v (lift_from_t 0 b) = b.
@@ -2028,7 +2030,7 @@ Section LambdaO.
     eapply Karrow; eauto.
     {
       simpl.
-      Lemma Klift k' T t k : kinding T t k -> kinding (TEkinding k' :: T) (lift t) k.
+      Lemma Klift a T t k : kinding T t k -> kinding (a :: T) (lift t) k.
         admit.
       Qed.
       eapply Klift; eauto.
