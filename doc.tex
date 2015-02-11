@@ -116,7 +116,7 @@ $$
   \textrm{Complexity Expr.} & n &::=& x.\vec{i}.1 \mid x.\vec{i}.2 \mid 0 \mid 1 \mid n+n \mid n-n \mid n\times n \mid n/n \mid \log(n) \mid \exp(n) \\
   \textrm{Sizes} & s &::=& x.\vec{i} \mid \symSstat(n_1,n_2) \mid \symStt \mid \symSleft\;s \mid \symSright\;s \mid \symSlr\;s\;s \mid \symSpair\;s\;s \mid \symSfold\;s \mid \symShide\;s \\
   \textrm{Type Constants} & c_t &::=& \symunit \mid \symprod \mid \symsum \\
-  \textrm{Types} & \tau &::=& X \mid c_t \mid \arrow{\intro{x}{\tau}}{n}{s}{\tau} \mid \forall X.\tau \mid \Lambda X.\tau \mid \tau\;\tau \mid \mu X.\tau \mid \thide\tau \\
+  \textrm{Types} & \tau &::=& X \mid c_t \mid \arrow{\intro{x}{\tau}}{n}{s}{\tau} \mid \forall^n_s X.\tau \mid \Lambda X.\tau \mid \tau\;\tau \mid \mu X.\tau \mid \thide\tau \\
   \textrm{Constants} & c &::=& \symtt \mid \sympair \mid \symleft \mid \symright \\
   \textrm{Expressions} & e &::=& x \mid c \mid e\;e \mid \lambda x:\tau.e \mid \symlet x:\tau:= e \symin e \mid \symletrec f_1:\tau_1:=e_1 \symand \cdots \symand f_m:\tau_m:=e_m \symin e \mid \symmatch_\sympair\;e\symwith (x,y)\Rightarrow e \\
   & & & \mid (\symmatch_\symsum\;e\symwith\symleft\;x\Rightarrow e\;|\;\symright\;x\Rightarrow e) \mid e\;\tau \mid \lambda X.e \mid \symfold\tau\;e \mid \symunfold\tau\;e \mid \symhide\;e \mid \symunhide\;e \\
@@ -357,6 +357,7 @@ $$
 \begin{align*}
 \symlist &\defeq \Lambda A. \mu L. \symunit + \thide{A} \times L \\
 \symnil &\defeq \lambda A. \symfold (\symlist\;A) \\
+\symnil &: \forall^{1}_{\symSfold\;(\symSleft\;\symStt)} A. \symlist\;A \\
 \symcons &\defeq \lambda A. \lambda(x : A)(y : \symlist\;A). \symfold (\symlist\;A)\;(\symright\;(\symhide x,y)) \\
 \symcons &: \forall A. \arrow{\intro{x}{A}}{0}{1}{\arrow{\intro{y}{\symlist\;A}}{1}{\symSfold (\symSright (\symShide x, y))}{\symlist\;A}} 
 \end{align*}
@@ -510,15 +511,45 @@ $$
 \subsubsection{split()}
 
 \begin{align*}
-\symsplit &\defeq \lambda A. \symfix\;(f:\arrow{\intro{s}{\symlist\;A}}{s.1/2}{(s/2,s/2)}{\symlist\;A})\Rightarrow\lambda xs. \\
+\symsplit &\defeq \lambda A. \symfix\;(f:\arrow{\intro{s}{\symlist\;A}}{s.1/2}{(s/2,s/2)}{\symlist\;A\times\symlist\;A})\Rightarrow\lambda xs. \\
 & \hspace{0.3in} \symmatch\;xs\symwith \\
 & \hspace{.4in} |\; \symnil\Rightarrow (\symnil,\symnil) \\
 & \hspace{.4in} |\; x::xs' \Rightarrow \symmatch\;xs'\symwith \\
 & \hspace{1.2in} |\; \symnil\Rightarrow (x::\symnil,\symnil) \\
 & \hspace{1.2in} |\; y::xs'' \Rightarrow \symmatch\; f\;xs'' \symwith \\
 & \hspace{2in} |\; (a, b) \Rightarrow (x::a,y::b) \\
-\symsplit &: \forall A.\arrow{\intro{s}{\symlist\;A}}{s.1/2}{(s/2,s/2)}{\symlist\;A}
+\symsplit &: \forall A.\arrow{\intro{s}{\symlist\;A}}{s.1/2}{(s/2,s/2)}{\symlist\;A\times\symlist\;A}
 \end{align*}
+
+%% \newpage
+
+$$
+\inferrule* [Right=MatchList]
+{
+  \Gamma\typing{xs}{\symlist\;A}{0}{xs} \\
+  \mathsf{IsList}(xs)=(xs.\symuf.\symr.\symf,xs.\symuf.\symr.\syms) \\
+  \inferrule* [Right=Le] {\Gamma\typing{(\symnil,\symnil)}{\symlist\;A\times\symlist\;A}{1}{(1,1)} \\ \textcolor{red}{(1,1) \leq (xs/2,xs/2)}}{\Gamma\typing{(\symnil,\symnil)}{\symlist\;A\times\symlist\;A}{1}{(xs/2, xs/2)}} \\
+  \inferrule* {\textcolor{green}{(2)}}{\Gamma'\defeq\Gamma, xs':(\symlist\;A,xs.\symuf.\symr.\syms)\typing{\symmatch\;xs'\symwith\dots}{\symlist\;A\times\symlist\;A}{n}{(xs/2,xs/2)}}
+}
+{\textcolor{green}{(1)}}
+$$
+
+$$
+\inferrule* [Right=Tabs;Fix;Abs;Le]
+{
+  \inferrule* [Right=MatchList]
+  {
+    \textcolor{green}{(1)}
+  }
+  {
+    \Gamma\defeq A:*, f:(\arrow{\intro{s}{\symlist\;A}}{s.1/2}{(s/2,s/2)}{\symlist\;A\times\symlist\;A}, 1), xs:(\symlist\;A,\bottom)\typing{\symmatch\;xs\symwith\dots}{\symlist\;A\times\symlist\;A}{?}{(xs/2, xs/2)}
+  } \\
+  \textcolor{red}{n\defeq ? \leO xs.1/2}
+}
+{\typing{\symsplit}{\forall A.\arrow{\intro{s}{\symlist\;A}}{s.1/2}{(s/2,s/2)}{\symlist\;A\times\symlist\;A}}{0}{1}}
+$$
+
+\newpage
 
 \subsubsection{msort()}
 
