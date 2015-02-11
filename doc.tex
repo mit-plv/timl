@@ -120,7 +120,7 @@ $$
   \textrm{Constants} & c &::=& \symtt \mid \sympair \mid \symleft \mid \symright \\
   \textrm{Expressions} & e &::=& x \mid c \mid e\;e \mid \lambda x:\tau.e \mid \symlet x:\tau:= e \symin e \mid \symletrec f_1:\tau_1:=e_1 \symand \cdots \symand f_m:\tau_m:=e_m \symin e \mid \symmatch_\sympair\;e\symwith (x,y)\Rightarrow e \\
   & & & \mid (\symmatch_\symsum\;e\symwith\symleft\;x\Rightarrow e\;|\;\symright\;x\Rightarrow e) \mid e\;\tau \mid \lambda X.e \mid \symfold\tau\;e \mid \symunfold\tau\;e \mid \symhide\;e \mid \symunhide\;e \\
-  \textrm{Values} & c &::=& \lambda x:\tau.e \mid \lambda X.e \mid \symfold\tau e \\
+  \textrm{Values} & v &::=& \lambda x:\tau.e \mid \lambda X.e \mid \symfold\tau e \\
   \textrm{Context} & C &::=& \Box \mid C\;e \mid v\;C \mid \symlet x:\tau:=C\symin e \mid \symletrec f_1:\tau_1:=e_1 \symand \cdots \symand f_m:\tau_m:=e_m \symin C \mid \symmatch_\sympair\;C\symwith(x,y)\Rightarrow e \\
   & & & \mid (\symmatch_\symsum\;C\symwith\symleft\;x\Rightarrow e\;|\;\symright\;x\Rightarrow e) \mid C\;\tau \mid \symfold\tau\;C \mid \symunfold\tau\;C \mid \symhide\;C \mid \symunhide\;C \\
   \textrm{Kinds} & k &::=& * \mid *\to k
@@ -510,27 +510,27 @@ $$
 \subsubsection{split()}
 
 \begin{align*}
-\symsplit &\defeq \lambda A. \symfix\;(f:\arrow{\intro{xs}{\symlist\;A}}{xs.1/2}{(xs/2,xs/2)}{\symlist\;A})\Rightarrow\lambda xs. \\
+\symsplit &\defeq \lambda A. \symfix\;(f:\arrow{\intro{s}{\symlist\;A}}{s.1/2}{(s/2,s/2)}{\symlist\;A})\Rightarrow\lambda xs. \\
 & \hspace{0.3in} \symmatch\;xs\symwith \\
 & \hspace{.4in} |\; \symnil\Rightarrow (\symnil,\symnil) \\
 & \hspace{.4in} |\; x::xs' \Rightarrow \symmatch\;xs'\symwith \\
 & \hspace{1.2in} |\; \symnil\Rightarrow (x::\symnil,\symnil) \\
 & \hspace{1.2in} |\; y::xs'' \Rightarrow \symmatch\; f\;xs'' \symwith \\
 & \hspace{2in} |\; (a, b) \Rightarrow (x::a,y::b) \\
-\symsplit &: \forall A.\arrow{\intro{xs}{\symlist\;A}}{xs.1/2}{(xs/2,xs/2)}{\symlist\;A}
+\symsplit &: \forall A.\arrow{\intro{s}{\symlist\;A}}{s.1/2}{(s/2,s/2)}{\symlist\;A}
 \end{align*}
 
 \subsubsection{msort()}
 
 \begin{align*}
-\symmsort &\defeq \lambda A. \lambda (cmp:\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}}).\symfix\;(f:\arrow{\intro{xs}{\symlist\;A}}{xs.1*\log(xs.1)}{\symSstat(xs.1,xs.2)}{\symlist\;A})\Rightarrow\lambda xs. \\
+\symmsort &\defeq \lambda A. \lambda (cmp:\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}}).\symfix\;(f:\arrow{\intro{s}{\symlist\;A}}{s.1*\log(s.1)}{\symSstat(s.1,s.2)}{\symlist\;A})\Rightarrow\lambda xs. \\
 & \hspace{0.3in} \symmatch\;xs\symwith \\
 & \hspace{.4in} |\; \symnil\Rightarrow xs \\
 & \hspace{.4in} |\; \_::xs' \Rightarrow \symmatch\;xs'\symwith \\
 & \hspace{1.2in} |\; \symnil\Rightarrow xs \\
 & \hspace{1.2in} |\; \_ \Rightarrow \symmatch\; \symsplit\;xs \symwith \\
 & \hspace{1.8in} |\; (ys, zs) \Rightarrow \symmerge\;(f\;ys)\;(f\;zs) \\
-\symmsort &: \forall A.\arrow{(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}})}{0}{1}{\arrow{\intro{xs}{\symlist\;A}}{xs.1*\log(xs.1)}{\symSstat(xs.1,xs.2)}{\symlist\;A}}
+\symmsort &: \forall A.\arrow{(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}})}{0}{1}{\arrow{\intro{s}{\symlist\;A}}{s.1*\log(s.1)}{\symSstat(s.1,s.2)}{\symlist\;A}}
 \end{align*}
 
 \newpage
@@ -583,10 +583,10 @@ $$
 {
   \inferrule* [Right=MatchList]
   {\textcolor{green}{(1)}}
-  {\Gamma\defeq A:*, cmp:(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}}, \bottom), f:(\arrow{\intro{xs}{\symlist\;A}}{xs.1*\log(xs.1)}{\symSstat(xs.1,xs.2)}{\symlist\;A}, 1), xs:(\symlist\;A,\bottom) \typing{\symmatch\;xs\symwith\dots}{\symlist\;A}{n}{\symSstat(xs.1,xs.2)}} \\
+  {\Gamma\defeq A:*, cmp:(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}}, \bottom), f:(\arrow{\intro{s}{\symlist\;A}}{s.1*\log(s.1)}{\symSstat(s.1,s.2)}{\symlist\;A}, 1), xs:(\symlist\;A,\bottom) \typing{\symmatch\;xs\symwith\dots}{\symlist\;A}{n}{\symSstat(xs.1,xs.2)}} \\
   \textcolor{red}{n\defeq xs.1/2*\log(xs.1/2)+xs.1/2*\log(xs.1/2)+1+xs.1/2+xs.1/2 \leO xs.1*\log(xs.1)}
 }
-{\typing{\symmsort}{\forall A.\arrow{(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}})}{0}{1}{\arrow{\intro{xs}{\symlist\;A}}{xs.1*\log(xs.1)}{\symSstat(xs.1,xs.2)}{\symlist\;A}}}{0}{1}}
+{\typing{\symmsort}{\forall A.\arrow{(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}})}{0}{1}{\arrow{\intro{s}{\symlist\;A}}{s.1*\log(s.1)}{\symSstat(s.1,s.2)}{\symlist\;A}}}{0}{1}}
 $$
 
 \newpage
