@@ -102,6 +102,12 @@
 
 \maketitle
 
+\section{Plan}
+
+$$
+\mathrm{Type\;Checker}\xrightarrow[\mathrm{Task\;3}]{\mathrm{Soundness\;\&\;Completeness}}\mathrm{Type\;System}\xrightarrow[\mathrm{Task\;1}]{\mathrm{Soundness}}\mathrm{Operational\;Semantics\;(Evaluation\;Rules)}\xrightarrow[\mathrm{Task\;2}]{\mathrm{Complexity\;Preserving\;Compilation}}\mathrm{Assembly}
+$$
+
 \section{Syntax}
 
 %% \begin{figure}
@@ -532,7 +538,7 @@ $$
 $$
 \inferrule* [Right=Le]
 {
-  \inferrule* {\cdots}{\Gamma''\typing{\symmerge\;(f\;ys)\;(f\;zs)}{\symlist\;A}{n\defeq xs.1/2*\log(xs.1/2)+xs.1/2*\log(xs.1/2)+1+xs.1/2+xs.1/2}{\symSstat(xs.1/2+xs.1/2,xs.2/2+xs.2/2)}} \\
+  \inferrule* {\cdots}{\Gamma''\typing{\symmerge\;(f\;ys)\;(f\;zs)}{\symlist\;A}{n}{\symSstat(xs.1/2+xs.1/2,xs.2/2+xs.2/2)}} \\
   \inferrule*
   {\textcolor{red}{\forall i.\; xs.i/2+xs.i/2 \leq xs.i}}
   {\symSstat(xs.1/2+xs.1/2,xs.2/2+xs.2/2) \leq \symSstat(xs.1,xs.2)}
@@ -577,8 +583,8 @@ $$
 {
   \inferrule* [Right=MatchList]
   {\textcolor{green}{(1)}}
-  {\Gamma\defeq A:*, cmp:(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}}, \bottom), f:(\arrow{\intro{xs}{\symlist\;A}}{0}{1}{\arrow{\intro{ys}{\symlist\;A}}{xs.1+ys.1}{xs+ys}{\symlist\;A}}, 1), xs:(\symlist\;A,\bottom) \typing{\symmatch\;xs\symwith\dots}{\symlist\;A}{n}{\symSstat(xs.1,xs.2)}} \\
-  \textcolor{red}{xs.1/2*\log(xs.1/2)+xs.1/2*\log(xs.1/2)+1+xs.1/2+xs.1/2 \leO xs.1*\log(xs.1)}
+  {\Gamma\defeq A:*, cmp:(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}}, \bottom), f:(\arrow{\intro{xs}{\symlist\;A}}{xs.1*\log(xs.1)}{\symSstat(xs.1,xs.2)}{\symlist\;A}, 1), xs:(\symlist\;A,\bottom) \typing{\symmatch\;xs\symwith\dots}{\symlist\;A}{n}{\symSstat(xs.1,xs.2)}} \\
+  \textcolor{red}{n\defeq xs.1/2*\log(xs.1/2)+xs.1/2*\log(xs.1/2)+1+xs.1/2+xs.1/2 \leO xs.1*\log(xs.1)}
 }
 {\typing{\symmsort}{\forall A.\arrow{(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}})}{0}{1}{\arrow{\intro{xs}{\symlist\;A}}{xs.1*\log(xs.1)}{\symSstat(xs.1,xs.2)}{\symlist\;A}}}{0}{1}}
 $$

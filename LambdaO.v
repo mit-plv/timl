@@ -509,7 +509,7 @@ Section LambdaO.
   | Tconstr (_ : tconstr)
   (* polymorphism *)           
   | Tvar (x : var)
-  | Tuniversal (t : type)
+  | Tuniversal (time_cost : formula) (result_size : size) (t : type)
   (* higher-order operators *)
   | Tabs (t : type)
   | Tapp (a b : type)
@@ -529,7 +529,7 @@ Section LambdaO.
       | Tvar n' => fv n' n
       | Tarrow a time retsize b => Tarrow (visit_t n f a) (ff (S n) time) (fs (S n) retsize) (visit_t (S n) f b)
       | Tconstr _ => b
-      | Tuniversal t => Tuniversal (visit_t (S n) f t) 
+      | Tuniversal time retsize t => Tuniversal (ff (S n) time) (fs (S n) retsize) (visit_t (S n) f t) 
       | Tabs t => Tabs (visit_t (S n) f t) 
       | Tapp a b => Tapp (visit_t n f a) (visit_t n f b)
       | Trecur t => Trecur (visit_t (S n) f t) 
@@ -920,9 +920,9 @@ Section LambdaO.
       kinding T t1 0 ->
       kinding (add_typing (t1, None) T) t2 0 ->
       kinding T (Tarrow t1 f g t2) 0
-  | Kuniversal T t :
+  | Kuniversal T f g t :
       kinding (add_kinding 0 T) t 0 ->
-      kinding T (Tuniversal t) 0
+      kinding T (Tuniversal f g t) 0
   | Krecur T t :
       kinding (add_kinding 0 T) t 0 ->
       kinding T (Trecur t) 0
@@ -1025,25 +1025,26 @@ Section LambdaO.
   Open Scope G.
   Open Scope F.
 
+  Notation Tuniversal0 := (Tuniversal F0 Stt).
+
   Inductive typing : tcontext -> expr -> type -> formula -> size -> Prop :=
   | TPvar T n t s : 
       find n T = Some (TEtyping (t, s)) -> 
       typing T #n (liftby (S n) t) F0 (default (var_to_size #n) (liftby (S n) s))
-  | TPapp T e1 e2 ta tb f g n1 n2 nouse s2 : 
-      typing T e1 (Tarrow ta f g tb) n1 nouse ->
+  | TPapp T e1 e2 ta tb n s n1 n2 nouse s2 : 
+      typing T e1 (Tarrow ta n s tb) n1 nouse ->
       typing T e2 ta n2 s2 ->
-      typing T (Eapp e1 e2) (subst s2 tb) (n1 + n2 + F1 + subst s2 f) (subst s2 g)
+      typing T (Eapp e1 e2) (subst s2 tb) (n1 + n2 + F1 + subst s2 n) (subst s2 s)
   | TPabs T e t1 t2 n s :
       kinding T t1 0 ->
       typing (add_typing (t1, None) T) e t2 n s ->
       typing T (Eabs t1 e) (Tarrow t1 n s t2) F0 Stt
-  (* the metrics on a tapp arrow are fixed to F0 and Stt *)
-  | TPtapp T e t2 t n s :
-      typing T e (Tuniversal t) n s ->
-      typing T (Etapp e t2) (subst t2 t) (n + F1) s
-  | TPtabs T e t :
-      typing (add_kinding 0 T) e t F0 Stt ->
-      typing T (Etabs e) (Tuniversal t) F0 Stt
+  | TPtapp T e t2 n s t n' :
+      typing T e (Tuniversal (lift n) (lift s) t) n' Stt ->
+      typing T (Etapp e t2) (subst t2 t) (n' + F1 + n) s
+  | TPtabs T e n s t :
+      typing (add_kinding 0 T) e t n s ->
+      typing T (Etabs e) (Tuniversal (lift n) (lift s) t) F0 Stt
   | TPlet T t1 e1 e2 t2 n1 n2 s1 s2:
       typing T e1 t1 n1 s1 ->
       typing (add_typing (t1, Some s1) T) e2 t2 n2 s2 ->
@@ -1107,11 +1108,11 @@ Section LambdaO.
       typing T e t n' s'
   (* built-in constants *)
   | TPpair T : 
-      typing T Cpair (Tuniversal $ Tuniversal $ Tarrow #1 F0 Stt $ Tarrow #1 F1 (Spair #1 #0) $ Tprod #3 #2) F0 Stt
+      typing T Cpair (Tuniversal0 $ Tuniversal0 $ Tarrow #1 F0 Stt $ Tarrow #1 F1 (Spair #1 #0) $ Tprod #3 #2) F0 Stt
   | TPinl T :
-      typing T Cinl (Tuniversal $ Tuniversal $ Tarrow #1 F1 (Sinl #0) $ Tsum #2 #1) F0 Stt
+      typing T Cinl (Tuniversal0 $ Tuniversal0 $ Tarrow #1 F1 (Sinl #0) $ Tsum #2 #1) F0 Stt
   | TPinr T :
-      typing T Cinr (Tuniversal $ Tuniversal $ Tarrow #0 F1 (Sinr #0) $ Tsum #2 #1) F0 Stt
+      typing T Cinr (Tuniversal0 $ Tuniversal0 $ Tarrow #0 F1 (Sinr #0) $ Tsum #2 #1) F0 Stt
   | TPtt T :
       typing T Ctt Tunit F0 Stt
   .
@@ -1199,12 +1200,20 @@ Section LambdaO.
     intros; subst; eapply TPapp; eauto.
   Qed.
 
-  Lemma TPtapp' T e t2 t n s t' :
-    typing T e (Tuniversal t) n s ->
+  Lemma TPtapp' T e t2 n s t n' t' :
+    typing T e (Tuniversal (lift n) (lift s) t) n' Stt ->
     t' = subst t2 t ->
-    typing T (Etapp e t2) t' (n + F1) s.
+    typing T (Etapp e t2) t' (n' + F1 + n) s.
   Proof.
     intros; subst; eapply TPtapp; eauto.
+  Qed.
+
+  Lemma TPtapp0 T e t2 t n' t' :
+    typing T e (Tuniversal F0 Stt t) n' Stt ->
+    t' = subst t2 t ->
+    typing T (Etapp e t2) t' (n' + F1 + F0) Stt.
+  Proof.
+    intros; subst; eapply TPtapp'; eauto.
   Qed.
 
   Lemma TPvar' T n t s t' s' : 
@@ -1471,15 +1480,28 @@ Section LambdaO.
     }
     {
       simpl.
-      Lemma liftby_universal n : forall m x, iter n (lift_from_t m) (Tuniversal x) = Tuniversal (iter n (lift_from_t (S m)) x).
+      Lemma liftby_universal n : forall m tm s x, iter n (lift_from_t m) (Tuniversal tm s x) = Tuniversal (iter n (lift_from (S m)) tm) (iter n (lift_from (S m)) s) (iter n (lift_from_t (S m)) x).
       Proof.
         induction n; simpl; intros; try rewrite IHn; eauto.
       Qed.
       repeat rewrite liftby_universal.
       simpl.
-      repeat rewrite fold_lift_from_t in *.
-      rewrite fold_iter.
-      rewrite IHx; simpl in *; eauto; omega.
+      f_equal.
+      {
+        repeat rewrite fold_lift_from_f in *.
+        rewrite fold_iter.
+        eapply lower_iter_lift_f; simpl in *; eauto; omega.
+      }
+      {
+        repeat rewrite fold_lift_from_s in *.
+        rewrite fold_iter.
+        eapply lower_iter_lift_s; simpl in *; eauto; omega.
+      }
+      {
+        repeat rewrite fold_lift_from_t in *.
+        rewrite fold_iter.
+        rewrite IHx; simpl in *; eauto; omega.
+      }
     }
     {
       simpl.
@@ -1598,9 +1620,9 @@ Section LambdaO.
       {
         eapply TPapp'.
         {
-          eapply TPtapp'.
+          eapply TPtapp0.
           {
-            eapply TPtapp'.
+            eapply TPtapp0.
             { eapply TPpair. }
             { simpl; eauto. }
           }
@@ -1662,11 +1684,18 @@ Section LambdaO.
     }
   Qed.
 
-  Lemma TPunhide_fst :
-    typing [] Eunhide_fst (Tuniversal $ Tuniversal $ Tarrow (Tprod (Thide #1) #0) F1 (Spair (Svar (#0, [Pfst; Punhide])) (Svar (#0, [Psnd]))) $ Tprod #2 #1) F0 Stt.
+  Lemma TPtabs0 T e t :
+    typing (add_kinding 0 T) e t F0 Stt ->
+    typing T (Etabs e) (Tuniversal F0 Stt t) F0 Stt.
   Proof.
-    eapply TPtabs.
-    eapply TPtabs.
+    intros; eapply TPtabs with (n := F0) (s := Stt); simpl; eauto.
+  Qed.
+
+  Lemma TPunhide_fst :
+    typing [] Eunhide_fst (Tuniversal0 $ Tuniversal0 $ Tarrow (Tprod (Thide #1) #0) F1 (Spair (Svar (#0, [Pfst; Punhide])) (Svar (#0, [Psnd]))) $ Tprod #2 #1) F0 Stt.
+  Proof.
+    eapply TPtabs0.
+    eapply TPtabs0.
     eapply TPabs.
     { 
       eapply Kprod'; try eapply Khide; eapply Kvar; simpl; eauto.
@@ -1711,9 +1740,9 @@ Section LambdaO.
     {
       eapply TPapp'.
       {
-        eapply TPtapp'.
+        eapply TPtapp0.
         {
-          eapply TPtapp'.
+          eapply TPtapp0.
           { 
             eapply TPweaken_empty.
             eapply TPunhide_fst.
@@ -1768,10 +1797,17 @@ Section LambdaO.
           let tlist := Tlist $ telm in
           Efold tlist (Einr $$ Tunit $$ Tprod (Thide telm) tlist $$ (Epair $$ Thide telm $$ tlist $$ Ehide #1 $$ #0)).
 
-  Lemma TPcons : 
-    typing [] Econs (Tuniversal $ Tarrow #0 F0 Stt $ Tarrow (Tlist $ #1) F1 (Sfold $ Sinr $ Spair (Shide #1) #0) (Tlist $ #2)) F0 Stt.
+  Lemma TPnil_app T A :
+    typing T (Enil $ A) (Tlist $ A) F1 (Sfold $ Sinl Stt).
   Proof.
-    eapply TPtabs.
+    (* eapply TPtabs. *)
+    admit.
+  Qed.
+
+  Lemma TPcons : 
+    typing [] Econs (Tuniversal0 $ Tarrow #0 F0 Stt $ Tarrow (Tlist $ #1) F1 (Sfold $ Sinr $ Spair (Shide #1) #0) (Tlist $ #2)) F0 Stt.
+  Proof.
+    eapply TPtabs0.
     eapply TPabs.
     { eapply Kvar; eauto. }
     {
@@ -1785,9 +1821,9 @@ Section LambdaO.
       {
         eapply TPapp'.
         {
-          eapply TPtapp'.
+          eapply TPtapp0.
           {
-            eapply TPtapp'.
+            eapply TPtapp0.
             { eapply TPinr. }
             { simpl; eauto. }
           }              
@@ -1828,7 +1864,7 @@ Section LambdaO.
       {
         eapply TPapp'.
         {
-          eapply TPtapp'.
+          eapply TPtapp0.
           { 
             eapply TPweaken_empty.
             eapply TPcons.
@@ -2148,7 +2184,7 @@ Section LambdaO.
           merge_loop #4 #3 #2.
 
   Definition merge_type := 
-    Tuniversal $ Tarrow (cmp_type #0) F0 Stt $ merge_loop_type #1.
+    Tuniversal0 $ Tarrow (cmp_type #0) F0 Stt $ merge_loop_type #1.
 
   Lemma Kcmp_type T t : kinding T t 0 -> kinding T (cmp_type t) 0.
   Proof.
@@ -2202,7 +2238,7 @@ Section LambdaO.
 
   Lemma TPmerge : typing [] merge merge_type F0 Stt.
   Proof.
-    eapply TPtabs.
+    eapply TPtabs0.
     eapply TPabs.
     { eapply Kcmp_type; eapply Kvar; eauto. }  
     simpl.
@@ -2368,7 +2404,7 @@ Section LambdaO.
                                                  (Etapp merge #10 $$ #8 $$ (Eapp #7 #1) $$ (Eapp #7 #0))))).
 
   Definition msort_type :=
-    Tuniversal $ Tarrow (split_type #0) F0 Stt $ Tarrow (cmp_type #1) F0 Stt $ msort_loop_type #2.
+    Tuniversal0 $ Tarrow (split_type #0) F0 Stt $ Tarrow (cmp_type #1) F0 Stt $ msort_loop_type #2.
 
   Lemma Ksplit_type T t : kinding T t 0 -> kinding T (split_type t) 0.
   Proof.
@@ -2380,7 +2416,7 @@ Section LambdaO.
 
   Lemma TPmsort : typing [] msort msort_type F0 Stt.
   Proof.
-    eapply TPtabs.
+    eapply TPtabs0.
     eapply TPabs.
     { eapply Ksplit_type; eapply Kvar; eauto. }  
     eapply TPabs.
@@ -2439,9 +2475,12 @@ Section LambdaO.
                     {
                       eapply TPeq.
                       {
-                        eapply TPtapp.
-                        eapply TPweaken_empty.
-                        eapply TPmerge.
+                        eapply TPtapp0.
+                        {
+                          eapply TPweaken_empty.
+                          eapply TPmerge.
+                        }
+                        eauto.
                       }
                       { simpl; reflexivity. }
                     }
@@ -2502,9 +2541,9 @@ Section LambdaO.
           (Epair $$ (Tlist $ #4) $$ (Tlist $ #4) $$ (Econs $$ (#4 : type) $$ #1 $$ (Enil $ #4)) $$ (Enil $ #4))
           $ Ematch_pair ((#5 : expr) $ #0) $ Epair $$ (Tlist $ #8) $$ (Tlist $8) $$ (Econs $$ (#8 : type) $$ #5 $$ #1) $$ (Econs $$ (#8 : type) $$ #3 $$ #0).
 
-  Lemma TPsplit : typing [] split (Tuniversal (split_type #0)) F0 Stt.
+  Lemma TPsplit : typing [] split (Tuniversal0 (split_type #0)) F0 Stt.
   Proof.
-    eapply TPtabs.
+    eapply TPtabs0.
     eapply TPfixpoint.
     simpl.
     eapply TPabs.
@@ -2518,10 +2557,6 @@ Section LambdaO.
       {
         eapply TPpair_app.
         {
-          Lemma TPnil_app T A :
-            typing T (Enil $ A) (Tlist $ A) F1 (Sfold $ Sinl Stt).
-            admit.
-          Qed.
           eapply TPsubs.
           { eapply TPnil_app. }
           {
@@ -2618,7 +2653,7 @@ Section LambdaO.
   Definition merge_sort := Etabs $ msort $$ #0 $ split $$ #0.
 
   Definition merge_sort_type :=
-    Tuniversal $ Tarrow (cmp_type #0) F0 Stt $ msort_loop_type #1.
+    Tuniversal0 $ Tarrow (cmp_type #0) F0 Stt $ msort_loop_type #1.
 
   Lemma TPmerge_sort : typing [] merge_sort merge_sort_type F0 Stt.
     admit.
