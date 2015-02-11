@@ -48,27 +48,28 @@ Instance Functor_assoc_list A : Functor (assoc_list A) :=
     map := @map_assoc_list A
   }.
 
-Inductive cmp A :=
-| LT (_ : A)
-| EQ
-| GT (_ : A).
+Inductive cmp m n :=
+| LT n' (_ : n = S n') (_ : m < n)
+| EQ (_ : m = n)
+| GT m' (_ : m = S m') (_ : n < m).
 
-Arguments EQ {A}.
+Arguments LT [m n] n' _ _.
+Arguments GT [m n] m' _ _.
 
-Definition map_cmp A B (f : A -> B) c :=
-  match c with
-    | LT a => LT (f a)
-    | EQ => EQ
-    | GT a => GT (f a)
-  end.
-
-Fixpoint nat_cmp n m :=
-  match n, m with
-    | O, O => EQ
-    | O, S p => LT p
-    | S p, O => GT p
-    | S n', S m' => map_cmp S (nat_cmp n' m')
-  end.
+Fixpoint nat_cmp m n : cmp m n.
+refine (
+  match m, n with
+    | 0, 0 => EQ _
+    | 0, S n' => LT n' _ _
+    | S m', 0 => GT m' _ _
+    | S m', S n' => 
+      match nat_cmp m' n' with
+        | LT _ _ _ => LT n' _ _
+        | EQ _ => EQ _
+        | GT _ _ _ => GT m' _ _
+      end
+  end); subst; eauto.
+Defined.
 
 Class Monad m := 
   {
@@ -359,9 +360,9 @@ Section LambdaO.
 
   Definition subst_s_f_f n v nv path i :=
     match nat_cmp nv n with 
-      | LT _ => Fvar (#nv, path) i
-      | EQ => default (Fvar (#99, path) i) $ query_path_idx path i v
-      | GT p => Fvar (#p, path) i
+      | LT _ _ _ => Fvar (#nv, path) i
+      | EQ _ => default (Fvar (#99, path) i) $ query_path_idx path i v
+      | GT p _ _ => Fvar (#p, path) i
     end.
 
   Definition subst_size_formula (n : nat) (v : size) (b : formula) : formula :=
@@ -383,7 +384,7 @@ Section LambdaO.
   Definition lift_f_f n nv path i :=
     let nv :=
         match nat_cmp nv n with
-          | LT _ => nv
+          | LT _ _ _ => nv
           | _ => S nv
         end in
     Fvar (#nv, path) i.
@@ -409,7 +410,7 @@ Section LambdaO.
     visit_f
       (fun nv path i => 
          match nat_cmp nv n with 
-           | GT p => Fvar (#p, path) i
+           | GT p _ _ => Fvar (#p, path) i
            | _ => Fvar (#nv, path) i
          end) 
       f.
@@ -445,9 +446,9 @@ Section LambdaO.
 
   Definition subst_s_s_f n v nv path :=
     match nat_cmp nv n with 
-      | LT _ => Svar (#nv, path)
-      | EQ => default Stt $ query_path path v
-      | GT p => Svar (#p, path)
+      | LT _ _ _ => Svar (#nv, path)
+      | EQ _ => default Stt $ query_path path v
+      | GT p _ _ => Svar (#p, path)
     end.
     
   Definition subst_size_size (n : nat) (v b : size) : size :=
@@ -464,7 +465,7 @@ Section LambdaO.
   Definition lift_s_f n nv path :=
     let nv :=
         match nat_cmp nv n with
-          | LT _ => nv
+          | LT _ _ _ => nv
           | _ => S nv
         end in
     Svar (#nv, path).
@@ -484,7 +485,7 @@ Section LambdaO.
     visit_s
       (fun nv path =>
          match nat_cmp nv n with 
-           | GT p => Svar (#p, path)
+           | GT p _ _ => Svar (#p, path)
            | _ => Svar (#nv, path)
          end,
          lower n) 
@@ -541,7 +542,7 @@ Section LambdaO.
 
   Definition lift_t_f nv nq : type := Tvar $
     match nat_cmp nv nq with 
-      | LT _ => #nv
+      | LT _ _ _ => #nv
       | _ => #(S nv)
     end.
 
@@ -555,9 +556,9 @@ Section LambdaO.
                     
   Definition subst_t_t_f n v nv nq : type :=
     match nat_cmp nv (n + nq) with 
-      | LT _ => #nv
-      | EQ => liftby nq v
-      | GT p => #p (* variables above n+nq should be lowered *)
+      | LT _ _ _ => #nv
+      | EQ _ => liftby nq v
+      | GT p _ _ => #p (* variables above n+nq should be lowered *)
     end.
 
   Definition lower_sub `{Lower B} n nq b := lower (n + nq) b.
@@ -574,7 +575,7 @@ Section LambdaO.
 
   Definition lower_t_f n nv nq : type :=
     match nat_cmp nv (n + nq) with 
-      | GT p => #p
+      | GT p _ _ => #p
       | _ => #nv
     end.
 
@@ -696,7 +697,7 @@ Section LambdaO.
       n
       (fun nv nq =>
          match nat_cmp nv nq with 
-           | LT _ => #nv : expr
+           | LT _ _ _ => #nv : expr
            | _ => #(S nv) : expr
          end, lift_from) 
       e.
@@ -708,9 +709,9 @@ Section LambdaO.
 
   Definition subst_e_e_f n v nv nq : expr :=
     match nat_cmp nv (n + nq) with 
-      | LT _ => #nv
-      | EQ => liftby nq v
-      | GT p => #p
+      | LT _ _ _ => #nv
+      | EQ _ => liftby nq v
+      | GT p _ _ => #p
     end.
 
   Definition subst_e_e n v b := 
@@ -723,7 +724,7 @@ Section LambdaO.
 
   Definition lower_e_f n nv nq : expr := 
     match nat_cmp nv (n + nq) with 
-      | GT p => #p
+      | GT p _ _ => #p
       | _ => #nv
     end.
 
@@ -1467,7 +1468,7 @@ Section LambdaO.
         simpl.
         Lemma liftby_var n : forall m x, iter n (lift_from_t m) (Tvar x) = Tvar
                                          match nat_cmp x m with
-                                           | LT _ => x
+                                           | LT _ _ _ => x
                                            | _ => n + x
                                          end.
         Proof.
@@ -1475,17 +1476,38 @@ Section LambdaO.
           {
             destruct (nat_cmp x m); eauto.
           }
-          admit.
-          (* destruct (nat_cmp x m). *)
-          (* { *)
-          (*   rewrite IHn. *)
-          (*   destruct (nat_cmp x m); simpl; eauto. *)
+          destruct (nat_cmp x m) as [ m' ? Hc | ? | x' ? Hc]; subst.
+          {
+            rewrite IHn.
+            destruct (nat_cmp _ _); subst; simpl in *; eauto; omega.
+          }
+          {
+            rewrite IHn.
+            destruct (nat_cmp _ _); try subst; simpl in *; eauto; omega.
+          }
+          {
+            rewrite IHn.
+            destruct (nat_cmp _ _); subst; simpl in *; eauto; omega.
+          }
         Qed.
         repeat rewrite liftby_var.
         simpl.
-        Set Printing Coercions.
-        (*here*)
-        admit.
+        destruct (nat_cmp x m) as [ m' ? Hc | ? | x' ? Hc]; subst.
+        {
+          destruct (nat_cmp x (S m')); subst; destruct (nat_cmp _ _); subst; simpl in *; eauto; omega.
+        }
+        {
+          destruct (nat_cmp (S m) m); try subst; destruct (nat_cmp _ _); try subst; simpl in *; eauto; try omega.
+          rewrite <- plus_n_Sm in *.
+          inject e0.
+          eauto.
+        }
+        {
+          destruct (nat_cmp (S (S x')) m); subst; destruct (nat_cmp _ _); subst; simpl in *; eauto; try omega.
+          rewrite <- plus_n_Sm in *.
+          inject e0.
+          eauto.
+        }
       Qed.
       eapply subst_lift_t_t_n_var; eauto.
     }
@@ -2132,7 +2154,7 @@ Section LambdaO.
                 eapply TPapp'.
                 {
                   eapply TPapp'. 
-                  { eapply TPvar'; simpl; eauto; simpl; eauto. }
+                  { eapply TPvar'; simpl; eauto; compute; eauto. }
                   { eapply TPvar'; simpl; eauto. }
                   {
                     simpl; eauto.
@@ -2155,7 +2177,7 @@ Section LambdaO.
                     eapply TPapp'.
                     {
                       eapply TPapp'. 
-                      { eapply TPvar'; simpl; eauto; simpl; eauto. }
+                      { eapply TPvar'; simpl; eauto; compute; eauto. }
                       { eapply TPvar'; simpl; eauto. }
                       { simpl; eauto. }
                     }
@@ -2188,7 +2210,7 @@ Section LambdaO.
                     eapply TPapp'.
                     {
                       eapply TPapp'. 
-                      { eapply TPvar'; simpl; eauto; simpl; eauto. }
+                      { eapply TPvar'; simpl; eauto; compute; eauto. }
                       { eapply TPvar'; simpl; eauto. }
                       { simpl; eauto. }
                     }
@@ -2298,7 +2320,7 @@ Section LambdaO.
               eapply TPmatch_pair'.
               {
                 eapply TPapp'.
-                { eapply TPvar'; simpl; eauto; simpl; eauto. }
+                { eapply TPvar'; simpl; eauto; compute; eauto. }
                 { eapply TPvar'; simpl; eauto. }
                 { simpl; eauto. }
               }
@@ -2323,7 +2345,7 @@ Section LambdaO.
                   }
                   {
                     eapply TPapp'.
-                    { eapply TPvar'; simpl; eauto; simpl; eauto. }
+                    { eapply TPvar'; simpl; eauto; compute; eauto. }
                     { eapply TPvar'; simpl; eauto. }
                     { simpl; eauto. }
                   }
@@ -2331,7 +2353,7 @@ Section LambdaO.
                 }
                 {
                   eapply TPapp'.
-                  { eapply TPvar'; simpl; eauto; simpl; eauto. }
+                  { eapply TPvar'; simpl; eauto; compute; eauto. }
                   { eapply TPvar'; simpl; eauto. }
                   { simpl; eauto. }
                 }
@@ -2391,5 +2413,3 @@ Section LambdaO.
  *)
 
 End LambdaO.
-
-
