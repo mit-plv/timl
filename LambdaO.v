@@ -170,7 +170,7 @@ Section LambdaO.
 
   Inductive funop :=
   | FUlog
-  | FUexp
+  | FUexp (base : nat)
   .
 
   Inductive fconst :=
@@ -225,7 +225,7 @@ Section LambdaO.
   | Shide (_ : size)
   .
 
-  Definition append_path (x : var_path) p : var_path := (fst x, snd x ++ [p]).
+  Definition append_path (x : var_path) p : var_path := (fst x, p :: snd x).
 
   Definition is_pair (s : size) :=
     match s with
@@ -981,10 +981,36 @@ Section LambdaO.
       le := Peano.le
     }.
 
-  (* less-than relation on formulas that ignores constant terms (plus) *)
-  Definition leF : formula -> formula -> Prop.
-    admit.
-  Defined.
+  Notation Fmult := (Fbinop FBmult).
+  Notation Fdiv := (Fbinop FBdiv).
+  Notation Flog := (Funop FUlog).
+  Notation Fexp base := (Funop (FUexp base)).
+
+  Infix "+" := Fplus : F.
+  Infix "*" := Fmult : F.
+  Open Scope F.
+
+  Definition suffix A (a b : list A) := exists c, c ++ a = b.
+
+  (* less-than relation on formulas ignoring constant terms (plus) *)
+  Inductive leF : formula -> formula -> Prop :=
+  | LeFrefl n : leF n n
+  | LeFtrans a b c : leF a b -> leF b c -> leF a c
+  | LeF0 n : leF F0 n
+  | LeF1V x i : leF F1 (Fvar x i)
+  | LeFplusC c a b : leF a b -> leF (a + Fconst c) b
+  | LeFplus_comm a b : leF (a + b) (b + a)
+  | LeFplus_distr1 a b c : leF ((a + b) * c) (a * c + b * c)
+  | LeFplus_distr2 a b c : leF (a * c + b * c) ((a + b) * c)
+  | LeFplus_cong a b a' b' : leF a a' -> leF b b' -> leF (a + b) (a' + b')
+  | LeFmult_comm a b : leF (a * b) (b * a)
+  | LeFmult0 n : leF (n * F0) F0
+  | LeFlog_mult1 a b : leF (Flog (a * b)) (Flog a + Flog b)
+  | LeFlog_mult2 a b : leF (Flog a + Flog b) (Flog (a * b))
+  | LeFexp_cong base a b : leF a b -> leF (Fexp base a) (Fexp base b)
+  | LeFexp_base b1 b2 n : (b1 <= b2)%nat -> leF (Fexp b1 n) (Fexp b2 n)
+  | LeFexp_path p1 p2 x i : suffix p2 p1 -> leF (Fvar (x, p1) i) (Fvar (x, p2) i)
+  .
 
   Instance Le_formula : Le formula :=
     {
@@ -1599,14 +1625,6 @@ Section LambdaO.
   Lemma subst_lift_s_f v b : subst_size_formula 0 v (lift_from_f 0 b) = b.
     admit.
   Qed.
-
-  Notation Fmult := (Fbinop FBmult).
-  Notation Fdiv := (Fbinop FBdiv).
-  Notation Flog := (Funop FUlog).
-
-  Infix "+" := Fplus : F.
-  Infix "*" := Fmult : F.
-  Open Scope F.
 
   Lemma TPpair_app T A B a b n1 n2 s1 s2 :
     typing T a A n1 s1 ->
