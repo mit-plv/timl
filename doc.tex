@@ -464,7 +464,7 @@ $$
     \textcolor{green}{(3)}
   }
   {
-    \Gamma''\defeq\Gamma', y:(A,ys.\symuf.\symr.\symf), ys':(\symlist\;A,ys.\symuf.\symr.\syms)\typing{\symif cmp\;x\;y \symthen\dots}{\symlist\;A}{2+\symmax(\cdots)}{xs+ys}
+    \Gamma''\defeq\Gamma', y:(A,ys.\symuf.\symr.\symf), ys':(\symlist\;A,ys.\symuf.\symr.\syms)\typing{\symif cmp\;x\;y \symthen\dots}{\symlist\;A}{1+\symmax(\cdots)}{xs+ys}
   }
 }
 {
@@ -483,7 +483,7 @@ $$
     \textcolor{green}{(2)}
   }
   {
-    \Gamma'\defeq\Gamma, x:(A,xs.\symuf.\symr.\symf), xs':(\symlist\;A,xs.\symuf.\symr.\syms)\typing{\symmatch\;ys\symwith\dots}{\symlist\;A}{2+\symmax(\cdots)}{xs+ys}
+    \Gamma'\defeq\Gamma, x:(A,xs.\symuf.\symr.\symf), xs':(\symlist\;A,xs.\symuf.\symr.\syms)\typing{\symmatch\;ys\symwith\dots}{\symlist\;A}{1+\symmax(\cdots)}{xs+ys}
   }
 }
 {
@@ -499,9 +499,9 @@ $$
     \textcolor{green}{(1)}
   }
   {
-    \Gamma\defeq A:*, cmp:(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}}, \bottom), f:(\arrow{\intro{xs}{\symlist\;A}}{0}{1}{\arrow{\intro{ys}{\symlist\;A}}{xs.1+ys.1}{xs+ys}{\symlist\;A}}, 1), xs:(\symlist\;A,\bottom), ys:(\symlist\;A,\bottom)\typing{\symmatch\;xs\symwith\dots}{\symlist;A}{2+\symmax(\cdots)}{xs+ys}
+    \Gamma\defeq A:*, cmp:(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}}, \bottom), f:(\arrow{\intro{xs}{\symlist\;A}}{0}{1}{\arrow{\intro{ys}{\symlist\;A}}{xs.1+ys.1}{xs+ys}{\symlist\;A}}, 1), xs:(\symlist\;A,\bottom), ys:(\symlist\;A,\bottom)\typing{\symmatch\;xs\symwith\dots}{\symlist;A}{1+\symmax(\cdots)}{xs+ys}
   } \\
-  \textcolor{red}{2+\symmax(1+xs.\symuf.\symr.\syms.1+ys.1, 1+xs+ys.\symuf.\symr.\syms.1) \leO xs.1+ys.1}
+  \textcolor{red}{1+\symmax(1+xs.\symuf.\symr.\syms.1+ys.1, 1+xs+ys.\symuf.\symr.\syms.1) \leO xs.1+ys.1}
 }
 {\typing{\symmerge}{\forall A.\arrow{(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}})}{0}{1}{\arrow{\intro{xs}{\symlist\;A}}{0}{1}{\arrow{\intro{ys}{\symlist\;A}}{xs.1+ys.1}{xs+ys}{\symlist\;A}}}}{0}{1}}
 $$
@@ -521,7 +521,39 @@ $$
 \symsplit &: \forall A.\arrow{\intro{s}{\symlist\;A}}{s.1/2}{(s/2,s/2)}{\symlist\;A\times\symlist\;A}
 \end{align*}
 
-%% \newpage
+\newpage
+
+$$
+\inferrule* [Right=Le]
+{
+  \inferrule* {\cdots}{\Gamma''\typing{(x::a,y::b)}{\symlist\;A\times\symlist\;A}{1}{s\defeq(\symSfold (\symSright (\symShide xs.\symuf.\symr.\symf, xs.\symuf.\symr.\syms.\symuf.\symr.\syms/2)),\symSfold (\symSright (\symShide xs.\symuf.\symr.\syms.\symuf.\symr.\symf, xs.\symuf.\symr.\syms.\symuf.\symr.\syms/2)))}} \\
+  \inferrule*
+  {\textcolor{red}{1+xs.\symuf.\symr.\syms.\symuf.\symr.\syms/2 \leq xs/2}}
+  {s \leq (xs/2,xs/2)}
+}
+{\textcolor{green}{(4)}}
+$$
+
+$$
+\inferrule* [Right=MatchPair]
+{
+  \Gamma\typing{f\;xs''}{\symlist\;A\times\symlist\;A}{n\defeq xs.\symuf.\symr.\syms.\symuf.\symr.\syms.1/2}{(xs.\symuf.\symr.\syms.\symuf.\symr.\syms/2, xs.\symuf.\symr.\syms.\symuf.\symr.\syms/2)} \\
+  \mathsf{IsPair}(xs.\symuf.\symr.\syms.\symuf.\symr.\syms/2,xs.\symuf.\symr.\syms.\symuf.\symr.\syms/2)=(xs.\symuf.\symr.\syms.\symuf.\symr.\syms/2,xs.\symuf.\symr.\syms.\symuf.\symr.\syms/2) \\
+  \inferrule* {\textcolor{green}{(4)}}{\Gamma'''\defeq\Gamma'',a:(\symlist\;A,xs.\symuf.\symr.\syms.\symuf.\symr.\syms/2),b:(\symlist\;A,xs.\symuf.\symr.\syms.\symuf.\symr.\syms/2)\typing{(x::a,y::b)}{\symlist\;A\times\symlist\;A}{1}{(xs/2,xs/2)}}
+}
+{\textcolor{green}{(3)}}
+$$
+
+$$
+\inferrule* [Right=MatchList]
+{
+  \Gamma'\typing{xs'}{\symlist\;A}{0}{xs.\symuf.\symr.\syms} \\
+  \mathsf{IsList}(xs.\symuf.\symr.\syms)=(xs.\symuf.\symr.\syms.\symuf.\symr.\symf,xs.\symuf.\symr.\syms.\symuf.\symr.\syms) \\
+  \Gamma'\typing{(xs,\symnil)}{\symlist\;A\times\symlist\;A}{1}{(xs/2, xs/2)} \\
+  \inferrule* {\textcolor{green}{(3)}}{\Gamma''\defeq\Gamma', y:(A,xs.\symuf.\symr.\syms.\symuf.\symr.\symf), xs'':(\symlist\;A,xs.\symuf.\symr.\syms.\symuf.\symr.\syms)\typing{\symmatch\;f\;xs''\symwith\dots}{\symlist\;A\times\symlist\;A}{n+1}{(xs/2,xs/2)}}
+}
+{\textcolor{green}{(2)}}
+$$
 
 $$
 \inferrule* [Right=MatchList]
@@ -529,7 +561,7 @@ $$
   \Gamma\typing{xs}{\symlist\;A}{0}{xs} \\
   \mathsf{IsList}(xs)=(xs.\symuf.\symr.\symf,xs.\symuf.\symr.\syms) \\
   \inferrule* [Right=Le] {\Gamma\typing{(\symnil,\symnil)}{\symlist\;A\times\symlist\;A}{1}{(1,1)} \\ \textcolor{red}{(1,1) \leq (xs/2,xs/2)}}{\Gamma\typing{(\symnil,\symnil)}{\symlist\;A\times\symlist\;A}{1}{(xs/2, xs/2)}} \\
-  \inferrule* {\textcolor{green}{(2)}}{\Gamma'\defeq\Gamma, xs':(\symlist\;A,xs.\symuf.\symr.\syms)\typing{\symmatch\;xs'\symwith\dots}{\symlist\;A\times\symlist\;A}{n}{(xs/2,xs/2)}}
+  \inferrule* {\textcolor{green}{(2)}}{\Gamma'\defeq\Gamma, x:(A,xs.\symuf.\symr.\symf), xs':(\symlist\;A,xs.\symuf.\symr.\syms)\typing{\symmatch\;xs'\symwith\dots}{\symlist\;A\times\symlist\;A}{\symmax(1,n+1)}{(xs/2,xs/2)}}
 }
 {\textcolor{green}{(1)}}
 $$
@@ -542,9 +574,9 @@ $$
     \textcolor{green}{(1)}
   }
   {
-    \Gamma\defeq A:*, f:(\arrow{\intro{s}{\symlist\;A}}{s.1/2}{(s/2,s/2)}{\symlist\;A\times\symlist\;A}, 1), xs:(\symlist\;A,\bottom)\typing{\symmatch\;xs\symwith\dots}{\symlist\;A\times\symlist\;A}{?}{(xs/2, xs/2)}
+    \Gamma\defeq A:*, f:(\arrow{\intro{s}{\symlist\;A}}{s.1/2}{(s/2,s/2)}{\symlist\;A\times\symlist\;A}, 1), xs:(\symlist\;A,\bottom)\typing{\symmatch\;xs\symwith\dots}{\symlist\;A\times\symlist\;A}{\symmax(1,\symmax(1,n+1))}{(xs/2, xs/2)}
   } \\
-  \textcolor{red}{n\defeq ? \leO xs.1/2}
+  \textcolor{red}{\symmax(1,\symmax(1,xs.\symuf.\symr.\syms.\symuf.\symr.\syms.1/2+1)) \leO xs.1/2}
 }
 {\typing{\symsplit}{\forall A.\arrow{\intro{s}{\symlist\;A}}{s.1/2}{(s/2,s/2)}{\symlist\;A\times\symlist\;A}}{0}{1}}
 $$
@@ -580,7 +612,7 @@ $$
 $$
 \inferrule* [Right=MatchPair]
 {
-  \Gamma\typing{\symsplit\;xs}{\symlist\;A}{xs.1/2}{(xs/2, xs/2)} \\
+  \Gamma\typing{\symsplit\;xs}{\symlist\;A\times\symlist\;A}{xs.1/2}{(xs/2, xs/2)} \\
   \mathsf{IsPair}(xs/2,xs/2)=(xs/2,xs/2) \\
   \inferrule* {\textcolor{green}{(4)}}{\Gamma''\defeq\Gamma',ys:(\symlist\;A,xs/2),zs:(\symlist\;A,xs/2)\typing{\symmerge\;(f\;ys)\;(f\;zs)}{\symlist\;A}{n}{\symSstat(xs.1,xs.2)}}
 }
