@@ -153,62 +153,61 @@ Section LambdaO.
   Definition path := list path_command. (* The query path into a inner-component *)
   Definition var_path := (var * path)%type.
 
-(*
-  Variable formula : Type.
-  Variable Fvar : var_path -> stat_idx -> formula.
-  Variable F1 : formula.
-  Variable Fplus Fmax : formula -> formula -> formula.
-*)
+  Reserved Notation "a == b" (at level 70).
 
-  Inductive fbinop :=
-  | FBplus
-  | FBmax
-  | FBminus
-  | FBmult
-  | FBdiv
-  .
-
-  Inductive funop :=
-  | FUlog
-  | FUexp (base : nat)
-  .
-
-  Inductive fconst :=
-  | FC0
-  | FC1
-  .
+  (* nonnegative rationals *)
+  Variable QN : Type.
+  Variable QN0 QN1 : QN.
+  Variable QNadd QNmul QNdiv : QN -> QN -> QN.
+  Variable QNeq QNle : QN -> QN -> Prop.
+  Delimit Scope QN_scope with QN.
+  Notation " 0 " := QN0 : QN_scope.
+  Notation " 1 " := QN1 : QN_scope.
+  Infix "+" := QNadd : QN_scope.
+  Infix "*" := QNmul : QN_scope.
+  Infix "/" := QNdiv : QN_scope.
+  Infix "==" := QNeq : QN_scope.
+  Infix "<=" := QNle : QN_scope.
 
   Inductive formula :=
+  (* it is a ring *)
+  | F0
+  | Fadd (a b : formula)
+  | F1
+  | Fmul (a b : formula)
+  (* it is a module, so also an algebra*)
+  | Fscale (_ : QN) (_ : formula)
+  (* some special operations *)
+  | Fmax (a b : formula)
+  | Flog (base : QN) (n : formula)
+  | Fexp (base : QN) (n : formula)
+  (* variables *)
   | Fvar (x : var_path) (stat : stat_idx)
-  | Fconst (_ : fconst)
-  | Fbinop (_ : fbinop) (a b : formula)
-  | Funop (_ : funop) (_ : formula)
   .
 
-  Notation F1 := (Fconst FC1).
-  Notation F0 := (Fconst FC0).
-  Notation Fplus := (Fbinop FBplus).
-  Notation Fmax := (Fbinop FBmax).
+  Definition Fconst c := Fscale c F1.
+  Coercion Fconst : QN >-> formula.
+
   Delimit Scope formula_scope with F.
   Open Scope F.
   Delimit Scope general_scope with G.
   Open Scope G.
 
-  Class Plus t := 
+  Class Add t := 
     {
-      plus : t -> t -> t
+      add : t -> t -> t
     }.
 
-  Infix "+" := plus : G.
+  Infix "+" := add : G.
 
-  Instance Plus_nat : Plus nat :=
+  Instance Add_nat : Add nat :=
     {
-      plus := Peano.plus
+      add := Peano.plus
     }.
 
-  Instance Plus_formula : Plus formula :=
+  Instance Add_formula : Add formula :=
     {
-      plus := Fplus
+      add := Fadd
     }.
 
   Definition stats := (formula * formula)%type.
@@ -285,19 +284,21 @@ Section LambdaO.
       | Punhide => is_hide s
     end.
 
-  Fixpoint query_path path s :=
+  Fixpoint query_path' path s :=
     match path with
       | cmd :: path => 
         s <- query_cmd cmd s ;;
-        query_path path s
+        query_path' path s
       | nil => ret s
     end.
+
+  Definition query_path path := query_path' (rev path).
 
   Definition stats_get (idx : stat_idx) (ss : stats) := 
     match ss with
       | (n0, n1) =>
         match idx with
-          | 0 => n0
+          | O => n0
           | _ => n1
         end
     end.
@@ -317,8 +318,8 @@ Section LambdaO.
       | (a0, a1), (b0, b1) => (f a0 b0, f a1 b1)
     end.
 
-  Definition stats_plus := stats_binop Fplus.
-  Infix "+" := stats_plus : stats_scope.
+  Definition stats_add := stats_binop Fadd.
+  Infix "+" := stats_add : stats_scope.
   Delimit Scope stats_scope with stats.
   Definition stats_max := stats_binop Fmax.
   Instance Max_stats : Max stats :=
@@ -326,11 +327,12 @@ Section LambdaO.
       max := stats_max
     }.
   
-  Definition ones := (F1, F1).
+  Definition ones : stats := (F1, F1).
+  Definition zeros : stats := (F0, F0).
 
   Fixpoint summarize (s : size) : stats :=
     match s with
-      | Svar x => (Fvar x 0, Fvar x 1)
+      | Svar x => (Fvar x 0%nat, Fvar x 1%nat)
       | Sstats ss => ss
       | Stt => ones
       | Spair a b => 
@@ -341,7 +343,7 @@ Section LambdaO.
       | Sinr s => summarize s
       | Sfold s =>
         (ones + summarize s)%stats
-      | Shide s => (F0, F0)
+      | Shide s => zeros
     end.
 
   Definition query_idx idx s := stats_get idx $ summarize s.
@@ -353,9 +355,14 @@ Section LambdaO.
   Fixpoint visit_f f fm :=
     match fm with
       | Fvar (nv, path) i => f nv path i
-      | Fconst c => fm
-      | Fbinop o a b => Fbinop o (visit_f f a) (visit_f f b)
-      | Funop o n => Funop o (visit_f f n)
+      | F0 => fm
+      | Fadd a b => Fadd (visit_f f a) (visit_f f b)
+      | F1 => fm
+      | Fmul a b => Fmul (visit_f f a) (visit_f f b)
+      | Fscale c n => Fscale c (visit_f f n)
+      | Fmax a b => Fmax (visit_f f a) (visit_f f b)
+      | Flog b n => Flog b (visit_f f n)
+      | Fexp b n => Fexp b (visit_f f n)
     end.
 
   Definition subst_s_f_f n v nv path i :=
@@ -885,7 +892,7 @@ Section LambdaO.
 
   Fixpoint repeat A (a : A) n :=
     match n with
-      | 0 => nil
+      | O => nil
       | S n => a :: repeat a n
     end.
 
@@ -902,7 +909,7 @@ Section LambdaO.
     }.
 
   Definition add_typing t T := TEtyping t :: T.
-  Definition add_typings ls T := fst $ fold_left (fun (p : tcontext * nat) t => let (T, n) := p in (add_typing (liftby n t) T, S n)) ls (T, 0).
+  Definition add_typings ls T := fst $ fold_left (fun (p : tcontext * nat) t => let (T, n) := p in (add_typing (liftby n t) T, S n)) ls (T, 0%nat).
   Definition add_kinding k T := TEkinding k :: T.
 
   Coercion var_to_size (x : var) : size := Svar (x, []).
@@ -975,64 +982,167 @@ Section LambdaO.
     }.
 
   Infix "<=" := le : G.
+  Open Scope G.
 
   Instance Le_nat : Le nat :=
     {
       le := Peano.le
     }.
 
-  Notation Fmult := (Fbinop FBmult).
-  Notation Fdiv := (Fbinop FBdiv).
-  Notation Flog := (Funop FUlog).
-  Notation Fexp base := (Funop (FUexp base)).
+  Definition Fdiv a b := (Fscale (1 / b)%QN a).
 
-  Infix "+" := Fplus : F.
-  Infix "*" := Fmult : F.
+  Infix "+" := Fadd : F.
+  Infix "*" := Fmul : F.
+  Infix "/" := Fdiv : F.
   Open Scope F.
 
   Definition suffix A (a b : list A) := exists c, c ++ a = b.
 
-  (* less-than relation on formulas ignoring constant terms (plus) *)
-  Inductive leF : formula -> formula -> Prop :=
-  | LeFrefl n : leF n n
-  | LeFtrans a b c : leF a b -> leF b c -> leF a c
-  | LeF0 n : leF F0 n
-  | LeF1V x i : leF F1 (Fvar x i)
-  | LeFplusC c a b : leF a b -> leF (a + Fconst c) b
-  | LeFplus_comm a b : leF (a + b) (b + a)
-  | LeFplus_distr1 a b c : leF ((a + b) * c) (a * c + b * c)
-  | LeFplus_distr2 a b c : leF (a * c + b * c) ((a + b) * c)
-  | LeFplus_cong a b a' b' : leF a a' -> leF b b' -> leF (a + b) (a' + b')
-  | LeFmult_comm a b : leF (a * b) (b * a)
-  | LeFmult0 n : leF (n * F0) F0
-  | LeFlog_mult1 a b : leF (Flog (a * b)) (Flog a + Flog b)
-  | LeFlog_mult2 a b : leF (Flog a + Flog b) (Flog (a * b))
-  | LeFexp_cong base a b : leF a b -> leF (Fexp base a) (Fexp base b)
-  | LeFexp_base b1 b2 n : (b1 <= b2)%nat -> leF (Fexp b1 n) (Fexp b2 n)
-  | LeFexp_path p1 p2 x i : suffix p2 p1 -> leF (Fvar (x, p1) i) (Fvar (x, p2) i)
+  Delimit Scope formula01_scope with F01.
+  Notation " 0 " := F0 : F01.
+  Notation " 1 " := F1 : F01.
+  Open Scope F01.
+
+  Infix "*:" := Fscale (at level 40).
+
+  Inductive leE : formula -> formula -> Prop :=
+  | leE_refl n : n == n
+  | leE_trans a b c : a == b -> b == c -> a == c
+  | leE_symm a b : a == b -> b == a
+  (* ring rules *)
+  | leE_add0x n : 0 + n == n
+  | leE_addA a b c : a + (b + c) == a + b + c
+  | leE_addC a b : a + b == b + a
+  | leE_mulA a b c : a * (b * c) == a * b * c
+  | leE_mulC a b : a * b == b * a
+  | leE_mul1x n : 1 * n == n
+  | leE_mulDx a b c : (a + b) * c == a * c + b * c
+  | leE_mul0x n : 0 * n == 0
+  (* module rules *)
+  | leE_scaleA a b c : a *: (b *: c) == (a * b)%QN *: c
+  | leE_scale1v n : 1%QN *: n == n
+  | leE_scalexD a b c : a *: (b + c) == a *: b + a *: c
+  | leE_scaleDv a b c : (a + b)%QN *: c == a *: c + b *: c
+  | leE_scale c c' n : (c == c')%QN -> c *: n == c' *: n
+  (* algebra rules *)
+  | leE_scaleAl a b c : a *: (b * c) == a *: b * c
+  (* for special operations *)
+  | leE_maxC a b : Fmax a b == Fmax b a
+  | leE_log_mul bs a b : Flog bs (a * b) == Flog bs a + Flog bs b
+  (* for variables *)
+  | leE_pair x p i : Fvar (x, Pfst :: p) i + Fvar (x, Psnd :: p) i == Fvar (x, p) i
+  | leE_inlinr x p i : Fmax (Fvar (x, Pinl :: p) i) (Fvar (x, Pinr :: p) i) == Fvar (x, p) i
+  | leE_inl x p i : Fvar (x, Pinl :: p) i == Fvar (x, p) i
+  | leE_inr x p i : Fvar (x, Pinl :: p) i == Fvar (x, p) i
+  | leE_unfold x p i : 1 + Fvar (x, Punfold :: p) i == Fvar (x, p) i
+  where "a == b" := (leE a b) : leE_scope
   .
 
+  Delimit Scope leE_scope with leE.
+
+  Global Add Relation formula leE
+      reflexivity proved by leE_refl
+      symmetry proved by leE_symm
+      transitivity proved by leE_trans
+        as leE_rel.
+
+  (* precise less-than relation on formulas *)
+  Inductive leF : formula -> formula -> Prop :=
+  (* variable rules, interpreting the variable as growing ever larger (symptotic) *)
+  | leF_1x x i : 1 <= Fvar x i
+  (* preorder rules *)
+  | leF_leE a b : leE a b -> a <= b
+  | leF_trans a b c : a <= b -> b <= c -> a <= c
+  (* base rules *)
+  | leF_01 : 0 <= 1
+  (* congruent rules *)
+  | leF_add a b a' b' : a <= a' -> b <= b' -> a + b <= a' + b'
+  | leF_mul a b a' b' : a <= a' -> b <= b' -> a * b <= a' * b'
+  | leF_log bs a b : a <= b -> Flog bs a <= Flog bs b
+  | leF_exp bs a b : a <= b -> Fexp bs a <= Fexp bs b
+  (* max rules *)
+  | leF_max1 a b : a <= max a b
+  | leF_max2 a b : a <= b -> max a b <= b
+  (* log and exp rules *)
+  | leF_log_base b1 b2 n : (b1 <= b2)%QN -> Flog b1 n <= Flog b2 n
+  | leF_exp_base b1 b2 n : (b1 <= b2)%QN -> Fexp b1 n <= Fexp b2 n
+  where "a <= b" := (leF a b) : leF_scope
+  .
+
+  Delimit Scope leF_scope with leF.
+
+  (* less-than relation on formulas ignoring constant addend *)
+  Inductive leC : formula -> formula -> Prop :=
+  (* ignore constant addend *)
+  | leC_add1x n : 1 + n <= n
+  (* variable rules, interpreting the variable as growing ever larger (symptotic) *)
+  | leC_1x x i : 1 <= Fvar x i
+  (* preorder rules *)
+  | leC_leE a b : leE a b -> a <= b
+  | leC_trans a b c : a <= b -> b <= c -> a <= c
+  (* base rules *)
+  | leC_01 : 0 <= 1
+  (* congruent rules *)
+  | leC_add a b a' b' : a <= a' -> b <= b' -> a + b <= a' + b'
+  | leC_mul a b a' b' : a <= a' -> b <= b' -> a * b <= a' * b'
+  | leC_log bs a b : a <= b -> Flog bs a <= Flog bs b
+  | leC_exp bs a b : leF a b -> Fexp bs a <= Fexp bs b
+  (* max rules *)
+  | leC_max1 a b : a <= max a b
+  | leC_max2 a b : a <= b -> max a b <= b
+  (* log and exp rules *)
+  | leC_log_base b1 b2 n : (b1 <= b2)%QN -> Flog b1 n <= Flog b2 n
+  | leC_exp_base b1 b2 n : (b1 <= b2)%QN -> Fexp b1 n <= Fexp b2 n
+  where "a <= b" := (leC a b) : leC_scope
+  .
+
+  Delimit Scope leC_scope with leC.
+
+  (* big-O less-than relation on formulas *)
+  Inductive leO : formula -> formula -> Prop :=
+  (* ignore constant factor *)
+  | leO_scale c n : c *: n <= n
+  (* variable rules, interpreting the variable as growing ever larger (symptotic) *)
+  | leO_1x x i : 1 <= Fvar x i
+  (* preorder rules *)
+  | leO_leE a b : leE a b -> a <= b
+  | leO_trans a b c : a <= b -> b <= c -> a <= c
+  (* base rules *)
+  | leO_01 : 0 <= 1
+  (* congruent rules *)
+  | leO_add a b a' b' : a <= a' -> b <= b' -> a + b <= a' + b'
+  | leO_mul a b a' b' : a <= a' -> b <= b' -> a * b <= a' * b'
+  | leO_log bs a b : a <= b -> Flog bs a <= Flog bs b
+  | leO_exp bs a b : leC a b -> Fexp bs a <= Fexp bs b
+  (* max rules *)
+  | leO_max1 a b : a <= max a b
+  | leO_max2 a b : a <= b -> max a b <= b
+  (* log and exp rules *)
+  | leO_log_base b1 b2 n : (b1 <= b2)%QN -> Flog b1 n <= Flog b2 n
+  | leO_exp_base b1 b2 n : (b1 <= b2)%QN -> Fexp b1 n <= Fexp b2 n
+  where "a <= b" := (leO a b) : leO_scope
+  .
+
+  Delimit Scope leO_scope with leO.
+
+  (* the default <= on formula will be leC *)
   Instance Le_formula : Le formula :=
     {
-      le := leF
+      le := leC
     }.
+  Infix "<<=" := leO (at level 70) : F.
 
-  (* less-than relation on sizes based on leF *)
-  Definition leS : size -> size -> Prop.
-    admit.
-  Defined.
+  Close Scope F01.
+
+  (* less-than relation on sizes based on leC *)
+  Definition leS a b :=
+    stats_get 0 (summarize a) <= stats_get 0 (summarize b) /\
+    stats_get 1 (summarize a) <= stats_get 1 (summarize b).
 
   Instance Le_size : Le size :=
     {
       le := leS
     }.
-
-  (* big-O less-than relation on formulas *)
-  Definition leO : formula -> formula -> Prop.
-    admit.
-  Defined.
-
-  Infix "<<=" := leO (at level 70) : F.
 
   Class Equal t :=
     {
@@ -1048,8 +1158,8 @@ Section LambdaO.
 
   Definition add_snd {A B} (b : B) (a : A) := (a, b).
 
-  Open Scope G.
   Open Scope F.
+  Open Scope G.
 
   Notation Tuniversal0 := (Tuniversal F0 Stt).
 
@@ -1305,29 +1415,42 @@ Section LambdaO.
 
   Arguments subst_s_s_f n v nv path / .
 
+  Lemma leC_refl (n : formula) : n <= n.
+  Proof.
+    simpl; eapply leC_leE; reflexivity.
+  Qed.
+
+  Global Add Relation formula leC
+      reflexivity proved by leC_refl
+      transitivity proved by leC_trans
+        as leC_rel.
+  
   Lemma leS_refl (a : size) : a <= a.
-    admit.
+  Proof.
+    simpl; unfold leS; simpl; split; reflexivity.
+  Qed.
+
+  Require Import GeneralTactics.
+
+  Lemma leS_trans (a b c : size) : a <= b -> b <= c -> a <= c.
+  Proof.
+    intros H1 H2; simpl in *; unfold leS in *; simpl in *; openhyp; split; etransitivity; eauto.
   Qed.
 
   Global Add Relation size leS
       reflexivity proved by leS_refl
+      transitivity proved by leS_trans
         as leS_rel.
   
-  Lemma leO_refl (a : formula) : a <<= a.
-    admit.
+  Lemma leO_refl (n : formula) : n <<= n.
+  Proof.
+    simpl; eapply leO_leE; reflexivity.
   Qed.
 
   Global Add Relation formula leO
       reflexivity proved by leO_refl
+      transitivity proved by leO_trans
         as leO_rel.
-  
-  Lemma leF_refl (n : formula) : n <= n.
-    admit.
-  Qed.
-
-  Global Add Relation formula leF
-      reflexivity proved by leF_refl
-        as leF_rel.
   
   Lemma TPunfold' T e t n s s1 t1 t' :
     typing T e t n s ->
@@ -1626,6 +1749,201 @@ Section LambdaO.
     admit.
   Qed.
 
+  Open Scope F01.
+
+  Lemma leE_addx0 n : (n + 0 == n)%leE.
+  Proof.
+    etransitivity.
+    - eapply leE_addC.
+    - eapply leE_add0x.
+  Qed.
+
+  Lemma leC_mula a b a' : a <= a' -> a * b <= a' * b.
+  Proof.
+    intros H; eapply leC_mul; eauto; reflexivity.
+  Qed.
+
+  Lemma leC_mulb a b b' : b <= b' -> a * b <= a * b'.
+  Proof.
+    intros H; eapply leC_mul; eauto; reflexivity.
+  Qed.
+
+  Lemma leC_adda a b a' : a <= a' -> a + b <= a' + b.
+  Proof.
+    intros H; eapply leC_add; eauto; reflexivity.
+  Qed.
+
+  Lemma leC_addb a b b' : b <= b' -> a + b <= a + b'.
+  Proof.
+    intros H; eapply leC_add; eauto; reflexivity.
+  Qed.
+
+  Lemma leC_0 n : 0 <= n.
+  Proof.
+    etransitivity.
+    { eapply leC_leE; symmetry; eapply leE_mul0x. }
+    etransitivity.
+    { eapply leC_mula; eapply leC_01. }
+    eapply leC_leE; eapply leE_mul1x.
+  Qed.
+
+  Lemma leC_add_b n m : n <= m + n.
+  Proof.
+    etransitivity.
+    { eapply leC_leE; symmetry; eapply leE_add0x. }
+    eapply leC_adda; eapply leC_0.
+  Qed.
+
+  Lemma leC_add_a n m : n <= n + m.
+  Proof.
+    etransitivity.
+    { eapply leC_leE; symmetry; eapply leE_add0x. }
+    etransitivity.
+    { eapply leC_leE; eapply leE_addC. }
+    eapply leC_addb; eapply leC_0.
+  Qed.
+
+  Lemma leS_var_addr x n0 n1 : Svar x <= Sstats (n0 + Fvar x 0%nat, n1 + Fvar x 1%nat).
+  Proof.
+    simpl; unfold leS; simpl; split; eapply leC_add_b.
+  Qed.
+
+  Lemma leS_var_addl x n0 n1 : Svar x <= Sstats (Fvar x 0%nat + n0, Fvar x 1%nat + n1).
+  Proof.
+    simpl; unfold leS; simpl; split; eapply leC_add_a.
+  Qed.
+
+  Lemma leS_stats s f0 f1 : 
+    let ss := summarize s in 
+    stats_get 0%nat ss <= f0 -> 
+    stats_get 1%nat ss <= f1 -> 
+    s <= Sstats (f0, f1).
+  Proof.
+    simpl; intros H1 H2; unfold leS; simpl; eauto.
+  Qed.
+
+  Lemma leS_Spair a a' b b' : a <= a' -> b <= b' -> Spair a b <= Spair a' b'.
+  Proof.
+    intros H1 H2; simpl in *; unfold leS in *; simpl in *; openhyp.
+    destruct (summarize a); simpl in *.
+    destruct (summarize b); simpl in *.
+    destruct (summarize a'); simpl in *.
+    destruct (summarize b'); simpl in *.
+    split; eapply leC_add; eauto.
+  Qed.
+
+  Notation " 2 " := (1 + 1)%QN : QN_scope.
+
+  Lemma QN_two_halves : (1 == 1 / 2 + 1 / 2)%QN.
+    admit.
+  Qed.
+
+  Lemma two_halves_leC n : n / 2%QN + n / 2%QN <= n.
+  Proof.
+    simpl.
+    eapply leC_leE.
+    etransitivity.
+    { symmetry; eapply leE_scaleDv. }
+    symmetry; etransitivity.
+    { symmetry; eapply leE_scale1v. }
+    eapply leE_scale.
+    eapply QN_two_halves.
+  Qed.
+
+  Open Scope F.
+
+  Lemma leO_mula a b a' : a <<= a' -> a * b <<= a' * b.
+  Proof.
+    intros H; eapply leO_mul; eauto; reflexivity.
+  Qed.
+
+  Lemma leO_mulb a b b' : b <<= b' -> a * b <<= a * b'.
+  Proof.
+    intros H; eapply leO_mul; eauto; reflexivity.
+  Qed.
+
+  Lemma leO_adda a b a' : a <<= a' -> a + b <<= a' + b.
+  Proof.
+    intros H; eapply leO_add; eauto; reflexivity.
+  Qed.
+
+  Lemma leO_addb a b b' : b <<= b' -> a + b <<= a + b'.
+  Proof.
+    intros H; eapply leO_add; eauto; reflexivity.
+  Qed.
+
+  Lemma leO_0 n : 0 <<= n.
+  Proof.
+    etransitivity.
+    { eapply leO_leE; symmetry; eapply leE_mul0x. }
+    etransitivity.
+    { eapply leO_mula; eapply leO_01. }
+    eapply leO_leE; eapply leE_mul1x.
+  Qed.
+
+  Lemma leO_add_b n m : n <<= m + n.
+  Proof.
+    etransitivity.
+    { eapply leO_leE; symmetry; eapply leE_add0x. }
+    eapply leO_adda; eapply leO_0.
+  Qed.
+
+  Lemma leO_add_a n m : n <<= n + m.
+  Proof.
+    etransitivity.
+    { eapply leO_leE; symmetry; eapply leE_add0x. }
+    etransitivity.
+    { eapply leO_leE; eapply leE_addC. }
+    eapply leO_addb; eapply leO_0.
+  Qed.
+
+  Lemma leO_addta a b a' : a <<= a' -> a <<= a' + b.
+  Proof.
+    intros H; etransitivity; eauto; eapply leO_add_a.
+  Qed.
+
+  Lemma leO_addtb a b b' : b <<= b' -> b <<= a + b'.
+  Proof.
+    intros H; etransitivity; eauto; eapply leO_add_b.
+  Qed.
+
+  Lemma leO_add_idem n : n + n <<= n.
+  Proof.
+    etransitivity.
+    { eapply leO_adda; eapply leO_leE; symmetry; eapply leE_scale1v. }
+    etransitivity.
+    { eapply leO_addb; eapply leO_leE; symmetry; eapply leE_scale1v. }
+    etransitivity.
+    { eapply leO_leE; symmetry; eapply leE_scaleDv. }
+    eapply leO_scale.
+  Qed.
+
+  Lemma leO_add_lub a b c : a <<= c -> b <<= c -> a + b <<= c.
+  Proof.
+    intros H1 H2.
+    etransitivity.
+    { eapply leO_adda; eassumption. }
+    etransitivity.
+    { eapply leO_addb; eassumption. }
+    eapply leO_add_idem.
+  Qed.
+
+  Ltac leO_solver :=
+    repeat
+      match goal with
+        | |- ?A <<= ?A => reflexivity
+        | |- 0 <<= _ => eapply leO_0
+        | |- _ + _ <<= _ => eapply leO_add_lub
+        | |- ?S <<= ?A + _ =>
+          match A with
+              context [ S ] => eapply leO_addta
+          end
+        | |- ?S <<= _ + ?B =>
+          match B with
+              context [ S ] => eapply leO_addtb
+          end
+      end.
+
   Lemma TPpair_app T A B a b n1 n2 s1 s2 :
     typing T a A n1 s1 ->
     typing T b B n2 s2 ->
@@ -1691,7 +2009,7 @@ Section LambdaO.
     }
     {
       simpl.
-      admit. (* leO for time *)
+      leO_solver.
     }
     {
       simpl.
@@ -1702,6 +2020,8 @@ Section LambdaO.
     }
   Qed.
 
+  Close Scope F01.
+
   Lemma TPtabs0 T e t :
     typing (add_kinding 0 T) e t F0 Stt ->
     typing T (Etabs e) (Tuniversal F0 Stt t) F0 Stt.
@@ -1710,7 +2030,7 @@ Section LambdaO.
   Qed.
 
   Lemma TPunhide_fst :
-    typing [] Eunhide_fst (Tuniversal0 $ Tuniversal0 $ Tarrow (Tprod (Thide #1) #0) F1 (Spair (Svar (#0, [Pfst; Punhide])) (Svar (#0, [Psnd]))) $ Tprod #2 #1) F0 Stt.
+    typing [] Eunhide_fst (Tuniversal0 $ Tuniversal0 $ Tarrow (Tprod (Thide #1) #0) F1 (Spair (Svar (#0, [Punhide; Pfst])) (Svar (#0, [Psnd]))) $ Tprod #2 #1) F0 Stt.
   Proof.
     eapply TPtabs0.
     eapply TPtabs0.
@@ -1739,7 +2059,7 @@ Section LambdaO.
     }
     {
       simpl.
-      admit. (* leO for time *)
+      leO_solver.
     }
     {
       simpl.
@@ -1791,9 +2111,10 @@ Section LambdaO.
     }
     {
       simpl.
-      admit. (* leO for time *)
+      leO_solver.
     }
     {
+      Arguments query_path path s / .
       simpl.
       rewrite Hs.
       simpl.
@@ -1855,7 +2176,7 @@ Section LambdaO.
     }
     {
       simpl.
-      admit. (* leO for time *)
+      leO_solver.
     }
     {
       simpl.
@@ -1897,7 +2218,7 @@ Section LambdaO.
     }
     {
       simpl.
-      admit. (* leO for time *)
+      leO_solver.
     }
     {
       simpl.
@@ -1920,7 +2241,7 @@ Section LambdaO.
         eapply TPtt.
       }
       {
-        admit. (* leO for time *)
+        leO_solver.
       }
     }
   Qed.
@@ -1942,7 +2263,7 @@ Section LambdaO.
     }
     {
       simpl.
-      admit. (* leO for time *)
+      leO_solver.
     }
   Qed.
 
@@ -1971,7 +2292,7 @@ Section LambdaO.
       }
       {
         simpl.
-        admit. (* leO for time *)
+        leO_solver.
       }
       {
         simpl.
@@ -2031,7 +2352,7 @@ Section LambdaO.
     }
     {
       simpl.
-      admit. (* leO for time *)
+      leO_solver.
     }
     {
       simpl.
@@ -2188,7 +2509,89 @@ Section LambdaO.
     }
     {
       simpl.
-      admit. (* leO for time *)
+      leO_solver.
+      repeat rewrite fold_subst_s_f in *.
+      repeat rewrite fold_lift_from_s in *.
+      repeat rewrite fold_lift_from_f in *.
+      repeat rewrite subst_lift_s_f.
+      Lemma leO_max a b a' b' : a <<= a' -> b <<= b' -> Fmax a b <<= Fmax a' b'.
+        admit.
+      Qed.
+
+      Lemma leO_maxa a b a' : a <<= a' -> Fmax a b <<= Fmax a' b.
+      Proof.
+        intros H; eapply leO_max; eauto; reflexivity.
+      Qed.
+
+      (*here*)
+      Lemma leO_maxb a b b' : b <<= b' -> a + b <<= a + b'.
+      Proof.
+        intros H; eapply leO_max; eauto; reflexivity.
+      Qed.
+
+      Lemma leO_max_b n m : n <<= m + n.
+      Proof.
+        etransitivity.
+        { eapply leO_leE; symmetry; eapply leE_max0x. }
+        eapply leO_maxa; eapply leO_0.
+      Qed.
+
+      Lemma leO_max_a n m : n <<= n + m.
+      Proof.
+        etransitivity.
+        { eapply leO_leE; symmetry; eapply leE_max0x. }
+        etransitivity.
+        { eapply leO_leE; eapply leE_maxC. }
+        eapply leO_maxb; eapply leO_0.
+      Qed.
+
+      Lemma leO_maxta a b a' : a <<= a' -> a <<= a' + b.
+      Proof.
+        intros H; etransitivity; eauto; eapply leO_max_a.
+      Qed.
+
+      Lemma leO_maxtb a b b' : b <<= b' -> b <<= a + b'.
+      Proof.
+        intros H; etransitivity; eauto; eapply leO_max_b.
+      Qed.
+
+      Lemma leO_max_lub a b c : a <<= c -> b <<= c -> a + b <<= c.
+      Proof.
+        intros H1 H2.
+        etransitivity.
+        { eapply leO_maxa; eassumption. }
+        etransitivity.
+        { eapply leO_maxb; eassumption. }
+        eapply leO_max_idem.
+      Qed.
+
+      Ltac leO_solver' :=
+        repeat
+          match goal with
+            | |- ?A <<= ?A => reflexivity
+            | |- 0 <<= _ => eapply leO_0
+            | |- _ + _ <<= _ => eapply leO_add_lub
+            | |- Fmax _ _ <<= _ => eapply leO_max_lub
+            | |- ?S <<= ?A + _ =>
+              match A with
+                  context [ S ] => eapply leO_addta
+              end
+            | |- ?S <<= _ + ?B =>
+              match B with
+                  context [ S ] => eapply leO_addtb
+              end
+            | |- ?S <<= max ?A _ =>
+              match A with
+                  context [ S ] => eapply leO_maxta
+              end
+            | |- ?S <<= max _ ?B =>
+              match B with
+                  context [ S ] => eapply leO_maxtb
+              end
+          end.
+
+      rewrite (@lift_from_liftby_s 2).
+      rewrite <- (@lift_from_liftby_s 2).
     }
   Qed.
 
@@ -2211,21 +2614,21 @@ Section LambdaO.
     { eapply TPvar'; simpl; eauto. }
   Qed.
 
-  Class Mult t :=
+  Class Mul t :=
     {
-      mult : t -> t -> t
+      mul : t -> t -> t
     }.
 
-  Infix "*" := mult : G.
+  Infix "*" := mul : G.
 
-  Instance Mult_nat : Mult nat :=
+  Instance Mul_nat : Mul nat :=
     {
-      mult := Peano.mult
+      mul := Peano.mul
     }.
 
-  Instance Mult_formula : Mult formula :=
+  Instance Mul_formula : Mul formula :=
     {
-      mult := Fmult
+      mul := Fmul
     }.
 
   Class Div t := 
@@ -2301,8 +2704,6 @@ Section LambdaO.
     eapply Kbool.
   Qed.
 
-  (* Ltac copy_as h h' := generalize h; intro h'. *)
-
   Lemma TPif T e e1 e2 n s' t n1 n2 s s1 s2 :
     typing T e Tbool n s' ->
     is_inlinr s' = Some (s1, s2) ->
@@ -2362,9 +2763,6 @@ Section LambdaO.
             { eapply TPvar'; simpl; eauto. }
             {
               simpl.
-              Lemma leS_var_addr x n0 n1 : Svar x <= Sstats (n0 + Fvar x 0, n1 + Fvar x 1).
-                admit.
-              Qed.
               eapply leS_var_addr.
             }
           }
@@ -2378,9 +2776,6 @@ Section LambdaO.
               { eapply TPvar'; simpl; eauto. }
               {
                 simpl.
-                Lemma leS_var_addl x n0 n1 : Svar x <= Sstats (Fvar x 0 + n0, Fvar x 1 + n1).
-                  admit.
-                Qed.
                 eapply leS_var_addl.
               }
             }
@@ -2424,16 +2819,9 @@ Section LambdaO.
                 }
                 {
                   simpl.
-                  Lemma leS_stats s f0 f1 : 
-                    let ss := summarize s in 
-                    stats_get 0 ss <= f0 -> 
-                    stats_get 1 ss <= f1 -> 
-                    s <= Sstats (f0, f1).
-                    admit.
-                  Qed.
                   eapply leS_stats; simpl.
-                  { admit. (* leF pair *) }
-                  { admit. (* leF pair *) }
+                  { admit. (* leC pair *) }
+                  { admit. (* leC pair *) }
                 }
               }
               {
@@ -2458,8 +2846,8 @@ Section LambdaO.
                 {
                   simpl.
                   eapply leS_stats; simpl.
-                  { admit. (* leF pair *) }
-                  { admit. (* leF pair *) }
+                  { admit. (* leC pair *) }
+                  { admit. (* leC pair *) }
                 }
               }
             }
@@ -2522,8 +2910,8 @@ Section LambdaO.
           { eapply TPnil_app. }
           {
             eapply leS_stats; simpl.
-            { admit. (* leF 1 <= n/2 *) }
-            { admit. (* leF 1 <= n/2 *) }
+            { admit. (* leC 1 <= n/2 *) }
+            { admit. (* leC 1 <= n/2 *) }
           }
         }
         {
@@ -2531,8 +2919,8 @@ Section LambdaO.
           { eapply TPnil_app. }
           {
             eapply leS_stats; simpl.
-            { admit. (* leF 1 <= n/2 *) }
-            { admit. (* leF 1 <= n/2 *) }
+            { admit. (* leC 1 <= n/2 *) }
+            { admit. (* leC 1 <= n/2 *) }
           }
         }
       }
@@ -2552,8 +2940,8 @@ Section LambdaO.
           {
             simpl.
             eapply leS_stats; simpl.
-            { admit. (* leF 1 <= n/2 *) }
-            { admit. (* leF 1 <= n/2 *) }
+            { admit. (* leC 1 <= n/2 *) }
+            { admit. (* leC 1 <= n/2 *) }
           }
         }
         {
@@ -2561,8 +2949,8 @@ Section LambdaO.
           { eapply TPnil_app. }
           {
             eapply leS_stats; simpl.
-            { admit. (* leF 1 <= n/2 *) }
-            { admit. (* leF 1 <= n/2 *) }
+            { admit. (* leC 1 <= n/2 *) }
+            { admit. (* leC 1 <= n/2 *) }
           }
         }
       }
@@ -2595,14 +2983,11 @@ Section LambdaO.
       }
       { 
         simpl.
-        Lemma leS_Spair a a' b b' : a <= a' -> b <= b' -> Spair a b <= Spair a' b'.
-          admit.
-        Qed.
         eapply leS_Spair; eapply leS_stats; simpl.
-        { admit. (* leF pair *) }
-        { admit. (* leF pair *) }
-        { admit. (* leF pair *) }
-        { admit. (* leF pair *) }
+        { admit. (* leC pair *) }
+        { admit. (* leC pair *) }
+        { admit. (* leC pair *) }
+        { admit. (* leC pair *) }
       }
     }
     {
@@ -2736,10 +3121,7 @@ Section LambdaO.
             }
             {
               simpl.
-              Lemma two_halves_leF n : n / F2 + n / F2 <= n.
-                admit.
-              Qed.
-              eapply leS_stats; simpl; eapply two_halves_leF.
+              eapply leS_stats; simpl; eapply two_halves_leC.
             }
           }
         }
