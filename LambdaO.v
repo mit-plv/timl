@@ -661,6 +661,7 @@ Section LambdaO.
     | Ematch_pair (target : expr) (handler : expr)
     (* left and right can access #0 representing the corresponding payload *)
     | Ematch_sum (target : expr) (left right : expr)
+    (* | Eabs_notype (e : expr) (* a version of Eabs used in match handlers, where type annotation is not needed *) *)
     | Etapp (e : expr) (t : type)
     | Etabs (body : expr)
     | Efold (_ : type) (_ : expr)
@@ -830,7 +831,8 @@ Section LambdaO.
       find k c := @nth_error A c k
     }.
       
-  Definition subst_list `{Subst V B} (values : list V) (e : B) := fold_left (flip subst) values e.
+  Definition subst_list `{Subst V B} `{Lift V} (values : list V) (e : B) := 
+    fst $ fold_left (fun p v => let '(b, n) := p in (substn n (liftby n v) b, n - 1)) values (e, length values - 1).
 
   Instance Apply_expr_expr_expr : Apply expr expr expr :=
     {
@@ -2058,6 +2060,7 @@ Section LambdaO.
       { eauto. }
     }
     {
+      Arguments subst_list _ _ _ _ values e / .
       simpl.
       leO_solver.
     }
@@ -2403,6 +2406,89 @@ Section LambdaO.
     admit.
   Qed.
 
+  Lemma leO_max a b a' b' : a <<= a' -> b <<= b' -> Fmax a b <<= Fmax a' b'.
+    admit.
+  Qed.
+
+  Lemma leO_maxa a b a' : a <<= a' -> Fmax a b <<= Fmax a' b.
+  Proof.
+    intros H; eapply leO_max; eauto; reflexivity.
+  Qed.
+
+  Lemma leO_maxb a b b' : b <<= b' -> Fmax a b <<= Fmax a b'.
+  Proof.
+    intros H; eapply leO_max; eauto; reflexivity.
+  Qed.
+
+  Lemma leE_max0x n : (Fmax F0 n == n)%leE.
+    admit.
+  Qed.
+
+  Lemma leO_max_b n m : n <<= Fmax m n.
+  Proof.
+    etransitivity.
+    { eapply leO_leE; symmetry; eapply leE_max0x. }
+    eapply leO_maxa; eapply leO_0.
+  Qed.
+
+  Lemma leO_max_a n m : n <<= Fmax n m.
+  Proof.
+    etransitivity.
+    { eapply leO_leE; symmetry; eapply leE_max0x. }
+    etransitivity.
+    { eapply leO_leE; eapply leE_maxC. }
+    eapply leO_maxb; eapply leO_0.
+  Qed.
+
+  Lemma leO_maxta a b a' : a <<= a' -> a <<= Fmax a' b.
+  Proof.
+    intros H; etransitivity; eauto; eapply leO_max_a.
+  Qed.
+
+  Lemma leO_maxtb a b b' : b <<= b' -> b <<= Fmax a b'.
+  Proof.
+    intros H; etransitivity; eauto; eapply leO_max_b.
+  Qed.
+
+  Lemma leO_max_idem n : Fmax n n <<= n.
+    admit.
+  Qed.
+
+  Lemma leO_max_lub a b c : a <<= c -> b <<= c -> Fmax a b <<= c.
+  Proof.
+    intros H1 H2.
+    etransitivity.
+    { eapply leO_maxa; eassumption. }
+    etransitivity.
+    { eapply leO_maxb; eassumption. }
+    eapply leO_max_idem.
+  Qed.
+
+  Ltac leO_solver' :=
+    repeat
+      match goal with
+        | |- ?A <<= ?A => reflexivity
+        | |- F0 <<= _ => eapply leO_0
+        | |- _ + _ <<= _ => eapply leO_add_lub
+        | |- Fmax _ _ <<= _ => eapply leO_max_lub
+        | |- ?S <<= ?A + _ =>
+          match A with
+              context [ S ] => eapply leO_addta
+          end
+        | |- ?S <<= _ + ?B =>
+          match B with
+              context [ S ] => eapply leO_addtb
+          end
+        | |- ?S <<= Fmax ?A _ =>
+          match A with
+              context [ S ] => eapply leO_maxta
+          end
+        | |- ?S <<= Fmax _ ?B =>
+          match B with
+              context [ S ] => eapply leO_maxtb
+          end
+      end.
+
   Lemma TPmatch_list T e e1 e2 telm n s s1 s2 t' na nb s' :
     let list := Tlist $ telm in
     typing T e list n s ->
@@ -2488,110 +2574,66 @@ Section LambdaO.
           fold (iter 2 (lift_from_t 0) t').
           rewrite lift_from_liftby_t.
           simpl.
+          repeat rewrite fold_lift_from_t in *.
+          repeat rewrite fold_lift_from_s in *.
+          repeat rewrite fold_subst_s_t in *.
+          Lemma subst_lift_s_t_n2 n v (b : type) : subst_size_type n (iter n (lift_from_s 0) v) (iter (S n) (lift_from_t 0) b) = iter n (lift_from_t 0) b.
+            admit.
+          Qed.
+          fold (iter 1 (lift_from_s 0) (lift_from_s 0 s1)).
+          fold (iter 2 (lift_from_t 0) (lift_from_t 0 t')).
+          rewrite subst_lift_s_t_n2.
+          simpl.
           repeat rewrite fold_subst_s_t in *.
           repeat rewrite fold_lift_from_t in *.
-          repeat rewrite subst_lift_s_t.
+          repeat rewrite fold_lift_from_s in *.
+          repeat rewrite subst_lift_s_t in *.
           eauto.
         }
         {
           simpl.
-          repeat rewrite fold_subst_s_s in *.
           repeat rewrite fold_lift_from_s in *.
           fold (iter 2 (lift_from_s 0) s').
           rewrite (@lift_from_liftby_s 2).
           simpl.
+          repeat rewrite fold_lift_from_s in *.
+          repeat rewrite fold_subst_s_s in *.
+          fold (iter 1 (lift_from_s 0) (lift_from_s 0 s1)).
+          fold (iter 2 (lift_from_s 0) (lift_from_s 0 s')).
+          Lemma subst_lift_s_s_n2 n v b : subst_size_size n (iter n (lift_from_s 0) v) (iter (S n) (lift_from_s 0) b) = iter n (lift_from_s 0) b.
+            admit.
+          Qed.
+          rewrite subst_lift_s_s_n2.
+          simpl.
           repeat rewrite fold_subst_s_s in *.
           repeat rewrite fold_lift_from_s in *.
-          repeat rewrite subst_lift_s_s.
+          repeat rewrite subst_lift_s_s in *.
           eauto.
         }
       }
     }
     {
       simpl.
-      leO_solver.
       repeat rewrite fold_subst_s_f in *.
-      repeat rewrite fold_lift_from_s in *.
       repeat rewrite fold_lift_from_f in *.
-      repeat rewrite subst_lift_s_f.
-      Lemma leO_max a b a' b' : a <<= a' -> b <<= b' -> Fmax a b <<= Fmax a' b'.
+      repeat rewrite subst_lift_s_f in *.
+      leO_solver'.
+      eapply leO_addtb.
+      eapply leO_maxtb.
+
+      repeat rewrite fold_lift_from_s in *.
+
+      fold (iter 2 (lift_from_s 0) s1).
+      erewrite <- lift_from_liftby_s.
+
+      Lemma subst_lift_from_s_f v b n m : (m <= n)%nat -> subst_size_formula m (lift_from_s n v) (lift_from_f (S n) b) = lift_from_f n (subst_size_formula m v b).
         admit.
       Qed.
 
-      Lemma leO_maxa a b a' : a <<= a' -> Fmax a b <<= Fmax a' b.
-      Proof.
-        intros H; eapply leO_max; eauto; reflexivity.
-      Qed.
-
-      (*here*)
-      Lemma leO_maxb a b b' : b <<= b' -> a + b <<= a + b'.
-      Proof.
-        intros H; eapply leO_max; eauto; reflexivity.
-      Qed.
-
-      Lemma leO_max_b n m : n <<= m + n.
-      Proof.
-        etransitivity.
-        { eapply leO_leE; symmetry; eapply leE_max0x. }
-        eapply leO_maxa; eapply leO_0.
-      Qed.
-
-      Lemma leO_max_a n m : n <<= n + m.
-      Proof.
-        etransitivity.
-        { eapply leO_leE; symmetry; eapply leE_max0x. }
-        etransitivity.
-        { eapply leO_leE; eapply leE_maxC. }
-        eapply leO_maxb; eapply leO_0.
-      Qed.
-
-      Lemma leO_maxta a b a' : a <<= a' -> a <<= a' + b.
-      Proof.
-        intros H; etransitivity; eauto; eapply leO_max_a.
-      Qed.
-
-      Lemma leO_maxtb a b b' : b <<= b' -> b <<= a + b'.
-      Proof.
-        intros H; etransitivity; eauto; eapply leO_max_b.
-      Qed.
-
-      Lemma leO_max_lub a b c : a <<= c -> b <<= c -> a + b <<= c.
-      Proof.
-        intros H1 H2.
-        etransitivity.
-        { eapply leO_maxa; eassumption. }
-        etransitivity.
-        { eapply leO_maxb; eassumption. }
-        eapply leO_max_idem.
-      Qed.
-
-      Ltac leO_solver' :=
-        repeat
-          match goal with
-            | |- ?A <<= ?A => reflexivity
-            | |- 0 <<= _ => eapply leO_0
-            | |- _ + _ <<= _ => eapply leO_add_lub
-            | |- Fmax _ _ <<= _ => eapply leO_max_lub
-            | |- ?S <<= ?A + _ =>
-              match A with
-                  context [ S ] => eapply leO_addta
-              end
-            | |- ?S <<= _ + ?B =>
-              match B with
-                  context [ S ] => eapply leO_addtb
-              end
-            | |- ?S <<= max ?A _ =>
-              match A with
-                  context [ S ] => eapply leO_maxta
-              end
-            | |- ?S <<= max _ ?B =>
-              match B with
-                  context [ S ] => eapply leO_maxtb
-              end
-          end.
-
-      rewrite (@lift_from_liftby_s 2).
-      rewrite <- (@lift_from_liftby_s 2).
+      repeat rewrite subst_lift_from_s_f by omega.
+      eauto.
+      repeat rewrite subst_lift_s_f in *.
+      reflexivity.
     }
   Qed.
 
@@ -2623,24 +2665,12 @@ Section LambdaO.
 
   Instance Mul_nat : Mul nat :=
     {
-      mul := Peano.mul
+      mul := Peano.mult
     }.
 
   Instance Mul_formula : Mul formula :=
     {
       mul := Fmul
-    }.
-
-  Class Div t := 
-    {
-      div : t -> t -> t
-    }.
-
-  Infix "/" := div : G.
-
-  Instance Div_formula : Div formula :=
-    {
-      div := Fdiv
     }.
 
   Notation F2 := (F1 + F1).
@@ -2855,14 +2885,29 @@ Section LambdaO.
         }
         {
           simpl.
-          admit. (* leO for time *)
+          leO_solver'; try solve [eapply leO_addta; eapply leO_1x].
+          {
+            eapply leO_addta.
+            Lemma leO_path_suffix x i p1 p2 : suffix p2 p1 -> Fvar (x, p1) i <<= Fvar (x, p2) i.
+              admit.
+            Qed.
+            eapply leO_path_suffix.
+            exists [Psnd; Pinr; Punfold].
+            eauto.
+          }
+          {
+            eapply leO_addtb.
+            eapply leO_path_suffix.
+            exists [Psnd; Pinr; Punfold].
+            eauto.
+          }
         }
       }
     }
   Qed.
 
   Definition split_type telm :=
-    Tarrow (Tlist $ telm) (#0!0 / F2) (Spair {{ i | #0!i / F2 }} {{ i | #0!i / F2 }}) (Tprod (Tlist $ lift telm) (Tlist $ lift telm)).
+    Tarrow (Tlist $ telm) (#0!0 / 2%QN) (Spair {{ i | #0!i / 2%QN }} {{ i | #0!i / 2%QN }}) (Tprod (Tlist $ lift telm) (Tlist $ lift telm)).
 
   Lemma Ksplit_type T t : kinding T t 0 -> kinding T (split_type t) 0.
   Proof.
@@ -2981,23 +3026,31 @@ Section LambdaO.
         { simpl; eauto. }
         { eauto. }
       }
-      { 
-        simpl.
-        eapply leS_Spair; eapply leS_stats; simpl.
-        { admit. (* leC pair *) }
-        { admit. (* leC pair *) }
+      {
+        compute.
+        split.
         { admit. (* leC pair *) }
         { admit. (* leC pair *) }
       }
     }
     {
       simpl.
-      admit. (* leO for time *)
+      Lemma leO_1x_div2 x i : F1 <<= (1 / 2)%QN *: Fvar x i.
+        admit.
+      Qed.
+      leO_solver'; try solve [eapply leO_1x_div2].
+      Lemma leO_scaleb c n n' : n <<= n' -> c *: n <<= c *: n'.
+        admit.
+      Qed.
+      eapply leO_scaleb.
+      eapply leO_path_suffix.
+      exists [Psnd; Pinr; Punfold; Psnd; Pinr; Punfold].
+      eauto.
     }
   Qed.
 
   Definition msort_loop_type telm :=
-    Tarrow (Tlist $ telm) (#0!0 * Flog #0!0) (Sstats (#0!0, #0!1)) (Tlist $ lift telm).
+    Tarrow (Tlist $ telm) (#0!0 * Flog 2%QN #0!0) (Sstats (#0!0, #0!1)) (Tlist $ lift telm).
 
   (* msort is equivalent to : 
     fun A cmp => 
@@ -3128,7 +3181,15 @@ Section LambdaO.
       }
       {
         simpl.
+        Lemma leO_1xlogx x i x' i' : F1 <<= Fvar x i * Flog 2%QN (Fvar x' i').
+          admit.
+        Qed.
+        leO_solver'; try solve [eapply leO_1xlogx].
         admit. (* leO for time *)
+        admit.
+        admit.
+        admit.
+        admit.
       }
     }
   Qed.
