@@ -113,7 +113,7 @@ $$
 %% \begin{figure}
   $$\begin{array}{rrcl}
   \textrm{Size Subpart Indices} & i &::=& \symf \textrm{(fst)} \mid \syms \textrm{(snd)} \mid \syml \textrm{(left)} \mid \symr \textrm{(right)} \mid \symuf \textrm{(unfold)} \mid \symuh \textrm{(unhide)} \\
-  \textrm{Complexity Expr.} & n &::=& x.\vec{i}.1 \mid x.\vec{i}.2 \mid 0 \mid 1 \mid n+n \mid n-n \mid n\times n \mid n/n \mid \log(n) \mid \exp(n) \\
+  \textrm{Complexity Expr.} & n &::=& x.\vec{i}.1 \mid x.\vec{i}.2 \mid 0 \mid 1 \mid q \mid n+n \mid n\times n \mid q\times n \mid \log_q n \mid q^n \; (q:\textrm{non-negative rationals}) \\
   \textrm{Sizes} & s &::=& x.\vec{i} \mid \symSstat(n_1,n_2) \mid \symStt \mid \symSleft\;s \mid \symSright\;s \mid \symSlr\;s\;s \mid \symSpair\;s\;s \mid \symSfold\;s \mid \symShide\;s \\
   \textrm{Type Constants} & c_t &::=& \symunit \mid \symprod \mid \symsum \\
   \textrm{Types} & \tau &::=& X \mid c_t \mid \arrow{\intro{x}{\tau}}{n}{s}{\tau} \mid \forall^n_s X.\tau \mid \Lambda X.\tau \mid \tau\;\tau \mid \mu X.\tau \mid \thide\tau \\
