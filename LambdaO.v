@@ -1152,6 +1152,7 @@ Section LambdaO.
   (* congruent rules *)
   | leC_add a b a' b' : a <= a' -> b <= b' -> a + b <= a' + b'
   | leC_mul a b a' b' : a <= a' -> b <= b' -> a * b <= a' * b'
+  | leC_scale c n c' n' : (c <= c')%QN -> n <= n' -> c *: n <= c' *: n'
   | leC_log bs a b : a <= b -> Flog bs a <= Flog bs b
   | leC_exp bs a b : leF a b -> Fexp bs a <= Fexp bs b
   (* max rules *)
@@ -3078,10 +3079,40 @@ Section LambdaO.
                   Qed.
 
                   Lemma leC_addccx (c1 c2 : QN) x i : (c2 != 0)%QN -> c1 + c2 *: Fvar x i <= c2 *: Fvar x i.
-                    admit.
+                  Proof.
+                    intros H.
+                    eapply QN_exists_inverse in H.
+                    destruct H as [q' H].
+                    etransitivity.
+                    { eapply leC_adda.
+                      etransitivity.
+                      { eapply leC_leE; symmetry; eapply leE_scale1x. }
+                      etransitivity.
+                      {eapply leC_leE; symmetry; eapply leE_scale; eauto; reflexivity. }
+                      eapply leC_leE; symmetry; eapply leE_scaleA.
+                    }
+                    etransitivity.
+                    { eapply leC_leE; symmetry; eapply leE_scalexD. }
+                    eapply leC_scale; try reflexivity.
+                    etransitivity.
+                    { eapply leC_adda; eapply leC_leE; eapply leE_scaleA. }
+                    eapply leC_addcx.
                   Qed.
+
                   Lemma leC_add1cx (c : QN) x i : (c != 0)%QN -> F1 + c *: Fvar x i <= c *: Fvar x i.
-                    admit.
+                  Proof.
+                    intros H.
+                    etransitivity.
+                    { eapply leC_adda; eapply leC_leE; symmetry; eapply leE_scale1x. }
+                    eapply leC_addccx; eauto.
+                  Qed.
+(*here*)
+                  Lemma leC_add1x x i : F1 + Fvar x i' <= Fvar x i.
+                  Proof.
+                    intros H.
+                    etransitivity.
+                    { eapply leC_adda; eapply leC_leE; symmetry; eapply leE_scale1x. }
+                    eapply leC_addccx; eauto.
                   Qed.
 
                   Lemma leC_addccx' n (c1 c2 : QN) x i : (c2 != 0)%QN -> n <= c2 *: Fvar x i -> c1 + n <= c2 *: Fvar x i.
@@ -3094,7 +3125,10 @@ Section LambdaO.
 
                   Lemma leC_add1cx' n c x i : (c != 0)%QN -> n <= c *: Fvar x i -> F1 + n <= c *: Fvar x i.
                   Proof.
-                    admit.
+                    intros Hc H.
+                    etransitivity.
+                    { eapply leC_adda; eapply leC_leE; symmetry; eapply leE_scale1x. }
+                    eapply leC_addccx'; eauto.
                   Qed.
 
                   Ltac not0_solver := solve [eapply QN_half_not_0 | eapply QN_2_not_0 ].
@@ -3137,6 +3171,7 @@ Section LambdaO.
                     eapply leC_add.
                     { etransitivity.
                       { eapply leC_adda; eapply leC_leE; eapply leE_addx0. }
+                      leC_solver.
                       etransitivity.
                       { eapply leC_addcx. }
                       eapply leC_path_suffix; eapply suffix_nil.
