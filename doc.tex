@@ -592,7 +592,7 @@ $$
 & \hspace{.4in} |\; \_::xs' \Rightarrow \symmatch\;xs'\symwith \\
 & \hspace{1.2in} |\; \symnil\Rightarrow xs \\
 & \hspace{1.2in} |\; \_ \Rightarrow \symmatch\; \symsplit\;xs \symwith \\
-& \hspace{1.8in} |\; (ys, zs) \Rightarrow \symmerge\;(f\;ys)\;(f\;zs) \\
+& \hspace{1.8in} |\; (ys, zs) \Rightarrow \symmerge\;cmp\;(f\;ys)\;(f\;zs) \\
 \symmsort &: \forall A.\arrow{(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}})}{0}{1}{\arrow{\intro{s}{\symlist\;A}}{s.1*\log(s.1)}{\symSstat(s.1,s.2)}{\symlist\;A}}
 \end{align*}
 
@@ -601,7 +601,7 @@ $$
 $$
 \inferrule* [Right=Le]
 {
-  \inferrule* {\cdots}{\Gamma''\typing{\symmerge\;(f\;ys)\;(f\;zs)}{\symlist\;A}{n}{\symSstat(xs.1/2+xs.1/2,xs.2/2+xs.2/2)}} \\
+  \inferrule* {\cdots}{\Gamma''\typing{\symmerge\;cmp\;(f\;ys)\;(f\;zs)}{\symlist\;A}{n}{\symSstat(xs.1/2+xs.1/2,xs.2/2+xs.2/2)}} \\
   \inferrule*
   {\textcolor{red}{\forall i.\; xs.i/2+xs.i/2 \leq xs.i}}
   {\symSstat(xs.1/2+xs.1/2,xs.2/2+xs.2/2) \leq \symSstat(xs.1,xs.2)}
@@ -614,7 +614,7 @@ $$
 {
   \Gamma\typing{\symsplit\;xs}{\symlist\;A\times\symlist\;A}{xs.1/2}{(xs/2, xs/2)} \\
   \mathsf{IsPair}(xs/2,xs/2)=(xs/2,xs/2) \\
-  \inferrule* {\textcolor{green}{(4)}}{\Gamma''\defeq\Gamma',ys:(\symlist\;A,xs/2),zs:(\symlist\;A,xs/2)\typing{\symmerge\;(f\;ys)\;(f\;zs)}{\symlist\;A}{n}{\symSstat(xs.1,xs.2)}}
+  \inferrule* {\textcolor{green}{(4)}}{\Gamma''\defeq\Gamma',ys:(\symlist\;A,xs/2),zs:(\symlist\;A,xs/2)\typing{\symmerge\;cmp\;(f\;ys)\;(f\;zs)}{\symlist\;A}{n}{\symSstat(xs.1,xs.2)}}
 }
 {\textcolor{green}{(3)}}
 $$

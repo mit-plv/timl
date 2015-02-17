@@ -150,7 +150,8 @@ Section LambdaO.
   | Punfold
   | Punhide
   .
-  Definition path := list path_command. (* The query path into a inner-component *)
+
+  Notation path := (list path_command). (* The query path into a inner-component *)
   Definition var_path := (var * path)%type.
 
   Reserved Notation "a == b" (at level 70).
@@ -163,11 +164,42 @@ Section LambdaO.
   Delimit Scope QN_scope with QN.
   Notation " 0 " := QN0 : QN_scope.
   Notation " 1 " := QN1 : QN_scope.
+  Notation " 2 " := (QNadd 1 1)%QN : QN_scope.
   Infix "+" := QNadd : QN_scope.
   Infix "*" := QNmul : QN_scope.
   Infix "/" := QNdiv : QN_scope.
   Infix "==" := QNeq : QN_scope.
   Infix "<=" := QNle : QN_scope.
+  Notation "a != b" := (~ QNeq a b) (at level 70) : QN_scope.
+
+  Lemma QN_two_halves : (1 == 1 / 2 + 1 / 2)%QN.
+    admit.
+  Qed.
+
+  Lemma QN_exists_inverse q : (q != 0 -> exists q', q * q' == 1)%QN.
+    admit.
+  Qed.
+
+  Lemma QN_half_not_0 : (1 / 2 != 0)%QN.
+    admit.
+  Qed.
+
+  Lemma QN_2_not_0 : (2 != 0)%QN.
+    admit.
+  Qed.
+
+  Lemma QNle_refl q : (q <= q)%QN.
+    admit.
+  Qed.
+
+  Lemma QNle_trans a b c : (a <= b -> b <= c -> a <= c)%QN.
+    admit.
+  Qed.
+
+  Global Add Relation QN QNle
+      reflexivity proved by QNle_refl
+      transitivity proved by QNle_trans
+        as QNle_rel.
 
   Inductive formula :=
   (* it is a ring *)
@@ -1007,6 +1039,8 @@ Section LambdaO.
 
   Infix "*:" := Fscale (at level 40).
 
+  Notation log2 := (Flog 2%QN).
+
   Inductive leE : formula -> formula -> Prop :=
   | leE_refl n : n == n
   | leE_trans a b c : a == b -> b == c -> a == c
@@ -1022,15 +1056,16 @@ Section LambdaO.
   | leE_mul0x n : 0 * n == 0
   (* module rules *)
   | leE_scaleA a b c : a *: (b *: c) == (a * b)%QN *: c
-  | leE_scale1v n : 1%QN *: n == n
+  | leE_scale1x n : 1%QN *: n == n
   | leE_scalexD a b c : a *: (b + c) == a *: b + a *: c
-  | leE_scaleDv a b c : (a + b)%QN *: c == a *: c + b *: c
+  | leE_scaleDx a b c : (a + b)%QN *: c == a *: c + b *: c
   | leE_scale c c' n : (c == c')%QN -> c *: n == c' *: n
   (* algebra rules *)
   | leE_scaleAl a b c : a *: (b * c) == a *: b * c
   (* for special operations *)
   | leE_maxC a b : Fmax a b == Fmax b a
   | leE_log_mul bs a b : Flog bs (a * b) == Flog bs a + Flog bs b
+  | leE_logcc c : (c != 0)%QN -> Flog c c == 1
   (* for variables *)
   | leE_pair x p i : Fvar (x, Pfst :: p) i + Fvar (x, Psnd :: p) i == Fvar (x, p) i
   | leE_inlinr x p i : Fmax (Fvar (x, Pinl :: p) i) (Fvar (x, Pinr :: p) i) == Fvar (x, p) i
@@ -1076,9 +1111,7 @@ Section LambdaO.
   (* less-than relation on formulas ignoring constant addend *)
   Inductive leC : formula -> formula -> Prop :=
   (* ignore constant addend *)
-  | leC_add1x n : 1 + n <= n
-  (* variable rules, interpreting the variable as growing ever larger (symptotic) *)
-  | leC_1x x i : 1 <= Fvar x i
+  | leC_addcx c x i : c + Fvar x i <= Fvar x i
   (* preorder rules *)
   | leC_leE a b : leE a b -> a <= b
   | leC_trans a b c : a <= b -> b <= c -> a <= c
@@ -1090,8 +1123,8 @@ Section LambdaO.
   | leC_log bs a b : a <= b -> Flog bs a <= Flog bs b
   | leC_exp bs a b : leF a b -> Fexp bs a <= Fexp bs b
   (* max rules *)
-  | leC_max1 a b : a <= max a b
-  | leC_max2 a b : a <= b -> max a b <= b
+  | leC_max_a a b : a <= max a b
+  | leC_max_c a b c : a <= c -> b <= c -> max a b <= c
   (* log and exp rules *)
   | leC_log_base b1 b2 n : (b1 <= b2)%QN -> Flog b1 n <= Flog b2 n
   | leC_exp_base b1 b2 n : (b1 <= b2)%QN -> Fexp b1 n <= Fexp b2 n
@@ -1103,7 +1136,7 @@ Section LambdaO.
   (* big-O less-than relation on formulas *)
   Inductive leO : formula -> formula -> Prop :=
   (* ignore constant factor *)
-  | leO_scale c n : c *: n <= n
+  | leO_cn_n c n : c *: n <= n
   (* variable rules, interpreting the variable as growing ever larger (symptotic) *)
   | leO_1x x i : 1 <= Fvar x i
   (* preorder rules *)
@@ -1114,11 +1147,12 @@ Section LambdaO.
   (* congruent rules *)
   | leO_add a b a' b' : a <= a' -> b <= b' -> a + b <= a' + b'
   | leO_mul a b a' b' : a <= a' -> b <= b' -> a * b <= a' * b'
+  | leO_scale c n c' n' : (c <= c')%QN -> n <= n' -> c *: n <= c' *: n'
   | leO_log bs a b : a <= b -> Flog bs a <= Flog bs b
   | leO_exp bs a b : leC a b -> Fexp bs a <= Fexp bs b
   (* max rules *)
-  | leO_max1 a b : a <= max a b
-  | leO_max2 a b : a <= b -> max a b <= b
+  | leO_max_a a b : a <= max a b
+  | leO_max_c a b c : a <= c -> b <= c -> max a b <= c
   (* log and exp rules *)
   | leO_log_base b1 b2 n : (b1 <= b2)%QN -> Flog b1 n <= Flog b2 n
   | leO_exp_base b1 b2 n : (b1 <= b2)%QN -> Fexp b1 n <= Fexp b2 n
@@ -1146,6 +1180,451 @@ Section LambdaO.
       le := leS
     }.
 
+  Lemma leC_refl (n : formula) : n <= n.
+  Proof.
+    simpl; eapply leC_leE; reflexivity.
+  Qed.
+
+  Global Add Relation formula leC
+      reflexivity proved by leC_refl
+      transitivity proved by leC_trans
+        as leC_rel.
+  
+  Lemma leS_refl (a : size) : a <= a.
+  Proof.
+    simpl; unfold leS; simpl; split; reflexivity.
+  Qed.
+
+  Require Import GeneralTactics.
+
+  Lemma leS_trans (a b c : size) : a <= b -> b <= c -> a <= c.
+  Proof.
+    intros H1 H2; simpl in *; unfold leS in *; simpl in *; openhyp; split; etransitivity; eauto.
+  Qed.
+
+  Global Add Relation size leS
+      reflexivity proved by leS_refl
+      transitivity proved by leS_trans
+        as leS_rel.
+  
+  Lemma leO_refl (n : formula) : n <<= n.
+  Proof.
+    simpl; eapply leO_leE; reflexivity.
+  Qed.
+
+  Global Add Relation formula leO
+      reflexivity proved by leO_refl
+      transitivity proved by leO_trans
+        as leO_rel.
+  
+  Open Scope F01.
+
+  Lemma leE_addx0 n : (n + 0 == n)%leE.
+  Proof.
+    etransitivity.
+    - eapply leE_addC.
+    - eapply leE_add0x.
+  Qed.
+
+  Lemma leC_mula a b a' : a <= a' -> a * b <= a' * b.
+  Proof.
+    intros H; eapply leC_mul; eauto; reflexivity.
+  Qed.
+
+  Lemma leC_mulb a b b' : b <= b' -> a * b <= a * b'.
+  Proof.
+    intros H; eapply leC_mul; eauto; reflexivity.
+  Qed.
+
+  Lemma leC_adda a b a' : a <= a' -> a + b <= a' + b.
+  Proof.
+    intros H; eapply leC_add; eauto; reflexivity.
+  Qed.
+
+  Lemma leC_addb a b b' : b <= b' -> a + b <= a + b'.
+  Proof.
+    intros H; eapply leC_add; eauto; reflexivity.
+  Qed.
+
+  Lemma leC_0 n : 0 <= n.
+  Proof.
+    etransitivity.
+    { eapply leC_leE; symmetry; eapply leE_mul0x. }
+    etransitivity.
+    { eapply leC_mula; eapply leC_01. }
+    eapply leC_leE; eapply leE_mul1x.
+  Qed.
+
+  Lemma leC_add_b n m : n <= m + n.
+  Proof.
+    etransitivity.
+    { eapply leC_leE; symmetry; eapply leE_add0x. }
+    eapply leC_adda; eapply leC_0.
+  Qed.
+
+  Lemma leC_add_a n m : n <= n + m.
+  Proof.
+    etransitivity.
+    { eapply leC_leE; symmetry; eapply leE_add0x. }
+    etransitivity.
+    { eapply leC_leE; eapply leE_addC. }
+    eapply leC_addb; eapply leC_0.
+  Qed.
+
+  Lemma leC_addta a b a' : a <= a' -> a <= a' + b.
+  Proof.
+    intros H; etransitivity; eauto; eapply leC_add_a.
+  Qed.
+
+  Lemma leC_addtb a b b' : b <= b' -> b <= a + b'.
+  Proof.
+    intros H; etransitivity; eauto; eapply leC_add_b.
+  Qed.
+
+  Lemma leC_max_b a b : b <= Fmax a b.
+  Proof.
+    etransitivity.
+    { eapply leC_max_a. }
+    eapply leC_leE; eapply leE_maxC.
+  Qed.
+
+  Lemma leC_max a b a' b' : a <= a' -> b <= b' -> Fmax a b <= Fmax a' b'.
+  Proof.
+    intros H1 H2.
+    eapply leC_max_c.
+    { etransitivity; eauto; eapply leC_max_a. }
+    etransitivity; eauto; eapply leC_max_b.
+  Qed.
+
+  Lemma leC_maxa a b a' : a <= a' -> Fmax a b <= Fmax a' b.
+  Proof.
+    intros H; eapply leC_max; eauto; reflexivity.
+  Qed.
+
+  Lemma leC_maxb a b b' : b <= b' -> Fmax a b <= Fmax a b'.
+  Proof.
+    intros H; eapply leC_max; eauto; reflexivity.
+  Qed.
+
+  Lemma leC_maxta a b a' : a <= a' -> a <= Fmax a' b.
+  Proof.
+    intros H; etransitivity; eauto; eapply leC_max_a.
+  Qed.
+
+  Lemma leC_maxtb a b b' : b <= b' -> b <= Fmax a b'.
+  Proof.
+    intros H; etransitivity; eauto; eapply leC_max_b.
+  Qed.
+
+  Lemma leC_max_idem n : Fmax n n <= n.
+  Proof.
+    eapply leC_max_c; reflexivity.
+  Qed.
+
+  Lemma leC_max_lub a b c : a <= c -> b <= c -> Fmax a b <= c.
+  Proof.
+    intros H1 H2.
+    etransitivity.
+    { eapply leC_maxa; eassumption. }
+    etransitivity.
+    { eapply leC_maxb; eassumption. }
+    eapply leC_max_idem.
+  Qed.
+
+  Ltac leC_solver :=
+    repeat
+      match goal with
+        | |- ?A <= ?A => reflexivity
+        | |- F0 <= _ => eapply leC_0
+        | |- Fmax _ _ <= _ => eapply leC_max_lub
+        | |- ?S <= ?A + _ =>
+          match A with
+              context [ S ] => eapply leC_addta
+          end
+        | |- ?S <= _ + ?B =>
+          match B with
+              context [ S ] => eapply leC_addtb
+          end
+        | |- ?S <= Fmax ?A _ =>
+          match A with
+              context [ S ] => eapply leC_maxta
+          end
+        | |- ?S <= Fmax _ ?B =>
+          match B with
+              context [ S ] => eapply leC_maxtb
+          end
+      end.
+
+  Lemma leS_var_addr x n0 n1 : Svar x <= Sstats (n0 + Fvar x 0%nat, n1 + Fvar x 1%nat).
+  Proof.
+    simpl; unfold leS; simpl; split; eapply leC_add_b.
+  Qed.
+
+  Lemma leS_var_addl x n0 n1 : Svar x <= Sstats (Fvar x 0%nat + n0, Fvar x 1%nat + n1).
+  Proof.
+    simpl; unfold leS; simpl; split; eapply leC_add_a.
+  Qed.
+
+  Lemma leS_stats s f0 f1 : 
+    let ss := summarize s in 
+    stats_get 0%nat ss <= f0 -> 
+    stats_get 1%nat ss <= f1 -> 
+    s <= Sstats (f0, f1).
+  Proof.
+    simpl; intros H1 H2; unfold leS; simpl; eauto.
+  Qed.
+
+  Lemma leS_Spair a a' b b' : a <= a' -> b <= b' -> Spair a b <= Spair a' b'.
+  Proof.
+    intros H1 H2; simpl in *; unfold leS in *; simpl in *; openhyp.
+    destruct (summarize a); simpl in *.
+    destruct (summarize b); simpl in *.
+    destruct (summarize a'); simpl in *.
+    destruct (summarize b'); simpl in *.
+    split; eapply leC_add; eauto.
+  Qed.
+
+  Lemma two_halves_leC n : n / 2%QN + n / 2%QN <= n.
+  Proof.
+    simpl.
+    eapply leC_leE.
+    etransitivity.
+    { symmetry; eapply leE_scaleDx. }
+    symmetry; etransitivity.
+    { symmetry; eapply leE_scale1x. }
+    eapply leE_scale.
+    eapply QN_two_halves.
+  Qed.
+
+  Open Scope F.
+
+  Lemma leO_mula a b a' : a <<= a' -> a * b <<= a' * b.
+  Proof.
+    intros H; eapply leO_mul; eauto; reflexivity.
+  Qed.
+
+  Lemma leO_mulb a b b' : b <<= b' -> a * b <<= a * b'.
+  Proof.
+    intros H; eapply leO_mul; eauto; reflexivity.
+  Qed.
+
+  Lemma leO_adda a b a' : a <<= a' -> a + b <<= a' + b.
+  Proof.
+    intros H; eapply leO_add; eauto; reflexivity.
+  Qed.
+
+  Lemma leO_addb a b b' : b <<= b' -> a + b <<= a + b'.
+  Proof.
+    intros H; eapply leO_add; eauto; reflexivity.
+  Qed.
+
+  Lemma leO_0 n : 0 <<= n.
+  Proof.
+    etransitivity.
+    { eapply leO_leE; symmetry; eapply leE_mul0x. }
+    etransitivity.
+    { eapply leO_mula; eapply leO_01. }
+    eapply leO_leE; eapply leE_mul1x.
+  Qed.
+
+  Lemma leO_add_b n m : n <<= m + n.
+  Proof.
+    etransitivity.
+    { eapply leO_leE; symmetry; eapply leE_add0x. }
+    eapply leO_adda; eapply leO_0.
+  Qed.
+
+  Lemma leO_add_a n m : n <<= n + m.
+  Proof.
+    etransitivity.
+    { eapply leO_leE; symmetry; eapply leE_add0x. }
+    etransitivity.
+    { eapply leO_leE; eapply leE_addC. }
+    eapply leO_addb; eapply leO_0.
+  Qed.
+
+  Lemma leO_addta a b a' : a <<= a' -> a <<= a' + b.
+  Proof.
+    intros H; etransitivity; eauto; eapply leO_add_a.
+  Qed.
+
+  Lemma leO_addtb a b b' : b <<= b' -> b <<= a + b'.
+  Proof.
+    intros H; etransitivity; eauto; eapply leO_add_b.
+  Qed.
+
+  Lemma leO_add_idem n : n + n <<= n.
+  Proof.
+    etransitivity.
+    { eapply leO_adda; eapply leO_leE; symmetry; eapply leE_scale1x. }
+    etransitivity.
+    { eapply leO_addb; eapply leO_leE; symmetry; eapply leE_scale1x. }
+    etransitivity.
+    { eapply leO_leE; symmetry; eapply leE_scaleDx. }
+    eapply leO_cn_n.
+  Qed.
+
+  Lemma leO_add_lub a b c : a <<= c -> b <<= c -> a + b <<= c.
+  Proof.
+    intros H1 H2.
+    etransitivity.
+    { eapply leO_adda; eassumption. }
+    etransitivity.
+    { eapply leO_addb; eassumption. }
+    eapply leO_add_idem.
+  Qed.
+
+  Lemma leO_max_b a b : b <<= Fmax a b.
+  Proof.
+    etransitivity.
+    { eapply leO_max_a. }
+    eapply leO_leE; eapply leE_maxC.
+  Qed.
+
+  Lemma leO_max a b a' b' : a <<= a' -> b <<= b' -> Fmax a b <<= Fmax a' b'.
+  Proof.
+    intros H1 H2.
+    eapply leO_max_c.
+    { etransitivity; eauto; eapply leO_max_a. }
+    etransitivity; eauto; eapply leO_max_b.
+  Qed.
+
+  Lemma leO_maxa a b a' : a <<= a' -> Fmax a b <<= Fmax a' b.
+  Proof.
+    intros H; eapply leO_max; eauto; reflexivity.
+  Qed.
+
+  Lemma leO_maxb a b b' : b <<= b' -> Fmax a b <<= Fmax a b'.
+  Proof.
+    intros H; eapply leO_max; eauto; reflexivity.
+  Qed.
+
+  Lemma leO_maxta a b a' : a <<= a' -> a <<= Fmax a' b.
+  Proof.
+    intros H; etransitivity; eauto; eapply leO_max_a.
+  Qed.
+
+  Lemma leO_maxtb a b b' : b <<= b' -> b <<= Fmax a b'.
+  Proof.
+    intros H; etransitivity; eauto; eapply leO_max_b.
+  Qed.
+
+  Lemma leO_max_idem n : Fmax n n <<= n.
+  Proof.
+    eapply leO_max_c; reflexivity.
+  Qed.
+
+  Lemma leO_max_lub a b c : a <<= c -> b <<= c -> Fmax a b <<= c.
+  Proof.
+    intros H1 H2.
+    etransitivity.
+    { eapply leO_maxa; eassumption. }
+    etransitivity.
+    { eapply leO_maxb; eassumption. }
+    eapply leO_max_idem.
+  Qed.
+
+  Ltac leO_solver :=
+    repeat
+      match goal with
+        | |- ?A <<= ?A => reflexivity
+        | |- F0 <<= _ => eapply leO_0
+        | |- _ + _ <<= _ => eapply leO_add_lub
+        | |- Fmax _ _ <<= _ => eapply leO_max_lub
+        | |- ?S <<= ?A + _ =>
+          match A with
+              context [ S ] => eapply leO_addta
+          end
+        | |- ?S <<= _ + ?B =>
+          match B with
+              context [ S ] => eapply leO_addtb
+          end
+        | |- ?S <<= Fmax ?A _ =>
+          match A with
+              context [ S ] => eapply leO_maxta
+          end
+        | |- ?S <<= Fmax _ ?B =>
+          match B with
+              context [ S ] => eapply leO_maxtb
+          end
+      end.
+
+  Lemma leO_scaleb c n n' : n <<= n' -> c *: n <<= c *: n'.
+  Proof.
+    intros H.
+    eapply leO_scale; try reflexivity; eauto.
+  Qed.
+
+  Lemma leO_n_cn c n : (c != 0)%QN -> n <<= c *: n.
+  Proof.
+    intros H.
+    eapply QN_exists_inverse in H.
+    destruct H as [c' H].
+    etransitivity.
+    {eapply leO_leE; symmetry; eapply leE_scale1x. }
+    etransitivity.
+    {eapply leO_leE; symmetry; eapply leE_scale; eauto. }
+    etransitivity.
+    {eapply leO_leE; symmetry; eapply leE_scaleA. }
+    eapply leO_scaleb.
+    eapply leO_cn_n.
+  Qed.
+
+  Lemma leO_1x_div2 x i : F1 <<= Fvar x i / 2%QN.
+  Proof.
+    etransitivity.
+    { eapply leO_n_cn; eapply QN_half_not_0. }
+    eapply leO_scaleb.
+    eapply leO_1x.
+  Qed.
+
+  Lemma leO_c_x (c : QN) x i : c <<= Fvar x i.
+  Proof.
+    etransitivity.
+    { unfold Fconst. eapply leO_cn_n. }
+    eapply leO_1x.
+  Qed.
+
+  Lemma leO_1_log2x x i : F1 <<= log2 (Fvar x i).
+  Proof.
+    etransitivity.
+    { eapply leO_leE; symmetry; eapply leE_logcc; eapply QN_2_not_0. }
+    eapply leO_log.
+    eapply leO_c_x.
+  Qed.
+
+  Lemma leO_1_xlog2x x i x' i' : F1 <<= Fvar x i * log2 (Fvar x' i').
+  Proof.
+    etransitivity.
+    { eapply leO_leE; symmetry; eapply leE_mul1x. }
+    eapply leO_mul.
+    { eapply leO_1x. }
+    eapply leO_1_log2x.
+  Qed.
+
+  Lemma leO_cx_xlog2x c x i : c *: Fvar x i <<= Fvar x i * log2 (Fvar x i).
+  Proof.
+    etransitivity.
+    { eapply leO_cn_n. }
+    etransitivity.
+    { eapply leO_leE; symmetry; eapply leE_mul1x. }
+    etransitivity.
+    { eapply leO_leE; eapply leE_mulC. }
+    eapply leO_mul; try reflexivity.
+    eapply leO_1_log2x.
+  Qed.
+
+  Lemma leO_cxlog2cx_xlog2x c1 c2 x i : c1 *: Fvar x i * log2 (c2 *: Fvar x i) <<= Fvar x i * log2 (Fvar x i).
+  Proof.
+    etransitivity.
+    { eapply leO_leE; symmetry; eapply leE_scaleAl. }
+    etransitivity.
+    { eapply leO_cn_n. }
+    eapply leO_mul; try reflexivity.
+    eapply leO_log.
+    eapply leO_cn_n.          
+  Qed.
+
   Class Equal t :=
     {
       equal : t -> t -> Prop
@@ -1160,6 +1639,7 @@ Section LambdaO.
 
   Definition add_snd {A B} (b : B) (a : A) := (a, b).
 
+  Close Scope F01.
   Open Scope F.
   Open Scope G.
 
@@ -1417,43 +1897,6 @@ Section LambdaO.
 
   Arguments subst_s_s_f n v nv path / .
 
-  Lemma leC_refl (n : formula) : n <= n.
-  Proof.
-    simpl; eapply leC_leE; reflexivity.
-  Qed.
-
-  Global Add Relation formula leC
-      reflexivity proved by leC_refl
-      transitivity proved by leC_trans
-        as leC_rel.
-  
-  Lemma leS_refl (a : size) : a <= a.
-  Proof.
-    simpl; unfold leS; simpl; split; reflexivity.
-  Qed.
-
-  Require Import GeneralTactics.
-
-  Lemma leS_trans (a b c : size) : a <= b -> b <= c -> a <= c.
-  Proof.
-    intros H1 H2; simpl in *; unfold leS in *; simpl in *; openhyp; split; etransitivity; eauto.
-  Qed.
-
-  Global Add Relation size leS
-      reflexivity proved by leS_refl
-      transitivity proved by leS_trans
-        as leS_rel.
-  
-  Lemma leO_refl (n : formula) : n <<= n.
-  Proof.
-    simpl; eapply leO_leE; reflexivity.
-  Qed.
-
-  Global Add Relation formula leO
-      reflexivity proved by leO_refl
-      transitivity proved by leO_trans
-        as leO_rel.
-  
   Lemma TPunfold' T e t n s s1 t1 t' :
     typing T e t n s ->
     is_fold s = Some s1 ->
@@ -1750,201 +2193,6 @@ Section LambdaO.
   Lemma subst_lift_s_f v b : subst_size_formula 0 v (lift_from_f 0 b) = b.
     admit.
   Qed.
-
-  Open Scope F01.
-
-  Lemma leE_addx0 n : (n + 0 == n)%leE.
-  Proof.
-    etransitivity.
-    - eapply leE_addC.
-    - eapply leE_add0x.
-  Qed.
-
-  Lemma leC_mula a b a' : a <= a' -> a * b <= a' * b.
-  Proof.
-    intros H; eapply leC_mul; eauto; reflexivity.
-  Qed.
-
-  Lemma leC_mulb a b b' : b <= b' -> a * b <= a * b'.
-  Proof.
-    intros H; eapply leC_mul; eauto; reflexivity.
-  Qed.
-
-  Lemma leC_adda a b a' : a <= a' -> a + b <= a' + b.
-  Proof.
-    intros H; eapply leC_add; eauto; reflexivity.
-  Qed.
-
-  Lemma leC_addb a b b' : b <= b' -> a + b <= a + b'.
-  Proof.
-    intros H; eapply leC_add; eauto; reflexivity.
-  Qed.
-
-  Lemma leC_0 n : 0 <= n.
-  Proof.
-    etransitivity.
-    { eapply leC_leE; symmetry; eapply leE_mul0x. }
-    etransitivity.
-    { eapply leC_mula; eapply leC_01. }
-    eapply leC_leE; eapply leE_mul1x.
-  Qed.
-
-  Lemma leC_add_b n m : n <= m + n.
-  Proof.
-    etransitivity.
-    { eapply leC_leE; symmetry; eapply leE_add0x. }
-    eapply leC_adda; eapply leC_0.
-  Qed.
-
-  Lemma leC_add_a n m : n <= n + m.
-  Proof.
-    etransitivity.
-    { eapply leC_leE; symmetry; eapply leE_add0x. }
-    etransitivity.
-    { eapply leC_leE; eapply leE_addC. }
-    eapply leC_addb; eapply leC_0.
-  Qed.
-
-  Lemma leS_var_addr x n0 n1 : Svar x <= Sstats (n0 + Fvar x 0%nat, n1 + Fvar x 1%nat).
-  Proof.
-    simpl; unfold leS; simpl; split; eapply leC_add_b.
-  Qed.
-
-  Lemma leS_var_addl x n0 n1 : Svar x <= Sstats (Fvar x 0%nat + n0, Fvar x 1%nat + n1).
-  Proof.
-    simpl; unfold leS; simpl; split; eapply leC_add_a.
-  Qed.
-
-  Lemma leS_stats s f0 f1 : 
-    let ss := summarize s in 
-    stats_get 0%nat ss <= f0 -> 
-    stats_get 1%nat ss <= f1 -> 
-    s <= Sstats (f0, f1).
-  Proof.
-    simpl; intros H1 H2; unfold leS; simpl; eauto.
-  Qed.
-
-  Lemma leS_Spair a a' b b' : a <= a' -> b <= b' -> Spair a b <= Spair a' b'.
-  Proof.
-    intros H1 H2; simpl in *; unfold leS in *; simpl in *; openhyp.
-    destruct (summarize a); simpl in *.
-    destruct (summarize b); simpl in *.
-    destruct (summarize a'); simpl in *.
-    destruct (summarize b'); simpl in *.
-    split; eapply leC_add; eauto.
-  Qed.
-
-  Notation " 2 " := (1 + 1)%QN : QN_scope.
-
-  Lemma QN_two_halves : (1 == 1 / 2 + 1 / 2)%QN.
-    admit.
-  Qed.
-
-  Lemma two_halves_leC n : n / 2%QN + n / 2%QN <= n.
-  Proof.
-    simpl.
-    eapply leC_leE.
-    etransitivity.
-    { symmetry; eapply leE_scaleDv. }
-    symmetry; etransitivity.
-    { symmetry; eapply leE_scale1v. }
-    eapply leE_scale.
-    eapply QN_two_halves.
-  Qed.
-
-  Open Scope F.
-
-  Lemma leO_mula a b a' : a <<= a' -> a * b <<= a' * b.
-  Proof.
-    intros H; eapply leO_mul; eauto; reflexivity.
-  Qed.
-
-  Lemma leO_mulb a b b' : b <<= b' -> a * b <<= a * b'.
-  Proof.
-    intros H; eapply leO_mul; eauto; reflexivity.
-  Qed.
-
-  Lemma leO_adda a b a' : a <<= a' -> a + b <<= a' + b.
-  Proof.
-    intros H; eapply leO_add; eauto; reflexivity.
-  Qed.
-
-  Lemma leO_addb a b b' : b <<= b' -> a + b <<= a + b'.
-  Proof.
-    intros H; eapply leO_add; eauto; reflexivity.
-  Qed.
-
-  Lemma leO_0 n : 0 <<= n.
-  Proof.
-    etransitivity.
-    { eapply leO_leE; symmetry; eapply leE_mul0x. }
-    etransitivity.
-    { eapply leO_mula; eapply leO_01. }
-    eapply leO_leE; eapply leE_mul1x.
-  Qed.
-
-  Lemma leO_add_b n m : n <<= m + n.
-  Proof.
-    etransitivity.
-    { eapply leO_leE; symmetry; eapply leE_add0x. }
-    eapply leO_adda; eapply leO_0.
-  Qed.
-
-  Lemma leO_add_a n m : n <<= n + m.
-  Proof.
-    etransitivity.
-    { eapply leO_leE; symmetry; eapply leE_add0x. }
-    etransitivity.
-    { eapply leO_leE; eapply leE_addC. }
-    eapply leO_addb; eapply leO_0.
-  Qed.
-
-  Lemma leO_addta a b a' : a <<= a' -> a <<= a' + b.
-  Proof.
-    intros H; etransitivity; eauto; eapply leO_add_a.
-  Qed.
-
-  Lemma leO_addtb a b b' : b <<= b' -> b <<= a + b'.
-  Proof.
-    intros H; etransitivity; eauto; eapply leO_add_b.
-  Qed.
-
-  Lemma leO_add_idem n : n + n <<= n.
-  Proof.
-    etransitivity.
-    { eapply leO_adda; eapply leO_leE; symmetry; eapply leE_scale1v. }
-    etransitivity.
-    { eapply leO_addb; eapply leO_leE; symmetry; eapply leE_scale1v. }
-    etransitivity.
-    { eapply leO_leE; symmetry; eapply leE_scaleDv. }
-    eapply leO_scale.
-  Qed.
-
-  Lemma leO_add_lub a b c : a <<= c -> b <<= c -> a + b <<= c.
-  Proof.
-    intros H1 H2.
-    etransitivity.
-    { eapply leO_adda; eassumption. }
-    etransitivity.
-    { eapply leO_addb; eassumption. }
-    eapply leO_add_idem.
-  Qed.
-
-  Ltac leO_solver :=
-    repeat
-      match goal with
-        | |- ?A <<= ?A => reflexivity
-        | |- 0 <<= _ => eapply leO_0
-        | |- _ + _ <<= _ => eapply leO_add_lub
-        | |- ?S <<= ?A + _ =>
-          match A with
-              context [ S ] => eapply leO_addta
-          end
-        | |- ?S <<= _ + ?B =>
-          match B with
-              context [ S ] => eapply leO_addtb
-          end
-      end.
 
   Lemma TPpair_app T A B a b n1 n2 s1 s2 :
     typing T a A n1 s1 ->
@@ -2244,6 +2492,7 @@ Section LambdaO.
         eapply TPtt.
       }
       {
+        simpl.
         leO_solver.
       }
     }
@@ -2406,89 +2655,6 @@ Section LambdaO.
     admit.
   Qed.
 
-  Lemma leO_max a b a' b' : a <<= a' -> b <<= b' -> Fmax a b <<= Fmax a' b'.
-    admit.
-  Qed.
-
-  Lemma leO_maxa a b a' : a <<= a' -> Fmax a b <<= Fmax a' b.
-  Proof.
-    intros H; eapply leO_max; eauto; reflexivity.
-  Qed.
-
-  Lemma leO_maxb a b b' : b <<= b' -> Fmax a b <<= Fmax a b'.
-  Proof.
-    intros H; eapply leO_max; eauto; reflexivity.
-  Qed.
-
-  Lemma leE_max0x n : (Fmax F0 n == n)%leE.
-    admit.
-  Qed.
-
-  Lemma leO_max_b n m : n <<= Fmax m n.
-  Proof.
-    etransitivity.
-    { eapply leO_leE; symmetry; eapply leE_max0x. }
-    eapply leO_maxa; eapply leO_0.
-  Qed.
-
-  Lemma leO_max_a n m : n <<= Fmax n m.
-  Proof.
-    etransitivity.
-    { eapply leO_leE; symmetry; eapply leE_max0x. }
-    etransitivity.
-    { eapply leO_leE; eapply leE_maxC. }
-    eapply leO_maxb; eapply leO_0.
-  Qed.
-
-  Lemma leO_maxta a b a' : a <<= a' -> a <<= Fmax a' b.
-  Proof.
-    intros H; etransitivity; eauto; eapply leO_max_a.
-  Qed.
-
-  Lemma leO_maxtb a b b' : b <<= b' -> b <<= Fmax a b'.
-  Proof.
-    intros H; etransitivity; eauto; eapply leO_max_b.
-  Qed.
-
-  Lemma leO_max_idem n : Fmax n n <<= n.
-    admit.
-  Qed.
-
-  Lemma leO_max_lub a b c : a <<= c -> b <<= c -> Fmax a b <<= c.
-  Proof.
-    intros H1 H2.
-    etransitivity.
-    { eapply leO_maxa; eassumption. }
-    etransitivity.
-    { eapply leO_maxb; eassumption. }
-    eapply leO_max_idem.
-  Qed.
-
-  Ltac leO_solver' :=
-    repeat
-      match goal with
-        | |- ?A <<= ?A => reflexivity
-        | |- F0 <<= _ => eapply leO_0
-        | |- _ + _ <<= _ => eapply leO_add_lub
-        | |- Fmax _ _ <<= _ => eapply leO_max_lub
-        | |- ?S <<= ?A + _ =>
-          match A with
-              context [ S ] => eapply leO_addta
-          end
-        | |- ?S <<= _ + ?B =>
-          match B with
-              context [ S ] => eapply leO_addtb
-          end
-        | |- ?S <<= Fmax ?A _ =>
-          match A with
-              context [ S ] => eapply leO_maxta
-          end
-        | |- ?S <<= Fmax _ ?B =>
-          match B with
-              context [ S ] => eapply leO_maxtb
-          end
-      end.
-
   Lemma TPmatch_list T e e1 e2 telm n s s1 s2 t' na nb s' :
     let list := Tlist $ telm in
     typing T e list n s ->
@@ -2617,7 +2783,7 @@ Section LambdaO.
       repeat rewrite fold_subst_s_f in *.
       repeat rewrite fold_lift_from_f in *.
       repeat rewrite subst_lift_s_f in *.
-      leO_solver'.
+      leO_solver.
       eapply leO_addtb.
       eapply leO_maxtb.
 
@@ -2848,10 +3014,68 @@ Section LambdaO.
                   }
                 }
                 {
+                  Infix "<=" := leC : F.
+                  Open Scope F.
                   simpl.
                   eapply leS_stats; simpl.
-                  { admit. (* leC pair *) }
-                  { admit. (* leC pair *) }
+                  Lemma leC_path_suffix x i p1 p2 : suffix p2 p1 -> Fvar (x, p1) i <= Fvar (x, p2) i.
+                    admit.
+                  Qed.
+                  Lemma leO_path_suffix x i p1 p2 : suffix p2 p1 -> Fvar (x, p1) i <<= Fvar (x, p2) i.
+                    admit.
+                  Qed.
+                  (*here*)
+                  Lemma 
+                  Lemma leC_add1x' n n' : n <= n' -> F1 + n <= n'.
+                  Proof.
+                    intros H; etransitivity; eauto; eapply leC_add1x.
+                  Qed.
+                  Lemma leC_add0x' n n' : n <= n' -> F0 + n <= n'.
+                  Proof.
+                    intros H; etransitivity; eauto; eapply leC_leE; eapply leE_add0x.
+                  Qed.
+                  Lemma suffix_nil A (ls : list A) : suffix [] ls.
+                  Proof.
+                    exists ls; eapply app_nil_r.
+                  Qed.
+                  {
+                    Ltac leC_solver' :=
+                      repeat
+                        match goal with
+                          | |- ?A <= ?A => reflexivity
+                          | |- F0 <= _ => eapply leC_0
+                          | |- Fmax _ _ <= _ => eapply leC_max_lub
+                          | |- ?S <= ?A + _ =>
+                            match A with
+                                context [ S ] => eapply leC_addta
+                            end
+                          | |- ?S <= _ + ?B =>
+                            match B with
+                                context [ S ] => eapply leC_addtb
+                            end
+                          | |- ?S <= Fmax ?A _ =>
+                            match A with
+                                context [ S ] => eapply leC_maxta
+                            end
+                          | |- ?S <= Fmax _ ?B =>
+                            match B with
+                                context [ S ] => eapply leC_maxtb
+                            end
+                          | |- F1 + _ <= _ => eapply leC_add1x'
+                          | |- F0 + _ <= _ => eapply leC_add0x'
+                          | |- _ + ?n <= _ + ?n => eapply leC_adda
+                          | |- ?n + _ <= ?n + _ => eapply leC_addb
+                        end.
+
+                    leC_solver'.
+                    eapply leC_path_suffix.
+                    eapply suffix_nil.
+                  }
+                  { 
+                    leC_solver'.
+                    eapply leC_path_suffix.
+                    eapply suffix_nil.
+                  }
                 }
               }
               {
@@ -2876,8 +3100,16 @@ Section LambdaO.
                 {
                   simpl.
                   eapply leS_stats; simpl.
-                  { admit. (* leC pair *) }
-                  { admit. (* leC pair *) }
+                  { 
+                    leC_solver'.
+                    eapply leC_path_suffix.
+                    eapply suffix_nil.
+                  }
+                  { 
+                    leC_solver'.
+                    eapply leC_path_suffix.
+                    eapply suffix_nil.
+                  }
                 }
               }
             }
@@ -2885,21 +3117,16 @@ Section LambdaO.
         }
         {
           simpl.
-          leO_solver'; try solve [eapply leO_addta; eapply leO_1x].
+          leO_solver; try solve [eapply leO_addta; eapply leO_1x].
           {
             eapply leO_addta.
-            Lemma leO_path_suffix x i p1 p2 : suffix p2 p1 -> Fvar (x, p1) i <<= Fvar (x, p2) i.
-              admit.
-            Qed.
             eapply leO_path_suffix.
-            exists [Psnd; Pinr; Punfold].
-            eauto.
+            eapply suffix_nil.
           }
           {
             eapply leO_addtb.
             eapply leO_path_suffix.
-            exists [Psnd; Pinr; Punfold].
-            eauto.
+            eapply suffix_nil.
           }
         }
       }
@@ -2955,7 +3182,9 @@ Section LambdaO.
           { eapply TPnil_app. }
           {
             eapply leS_stats; simpl.
-            { admit. (* leC 1 <= n/2 *) }
+            { 
+              leC_solver'.
+            }
             { admit. (* leC 1 <= n/2 *) }
           }
         }
@@ -3035,22 +3264,15 @@ Section LambdaO.
     }
     {
       simpl.
-      Lemma leO_1x_div2 x i : F1 <<= (1 / 2)%QN *: Fvar x i.
-        admit.
-      Qed.
-      leO_solver'; try solve [eapply leO_1x_div2].
-      Lemma leO_scaleb c n n' : n <<= n' -> c *: n <<= c *: n'.
-        admit.
-      Qed.
+      leO_solver; try solve [eapply leO_1x_div2].
       eapply leO_scaleb.
       eapply leO_path_suffix.
-      exists [Psnd; Pinr; Punfold; Psnd; Pinr; Punfold].
-      eauto.
+      eapply suffix_nil.
     }
   Qed.
 
   Definition msort_loop_type telm :=
-    Tarrow (Tlist $ telm) (#0!0 * Flog 2%QN #0!0) (Sstats (#0!0, #0!1)) (Tlist $ lift telm).
+    Tarrow (Tlist $ telm) (#0!0 * log2 #0!0) (Sstats (#0!0, #0!1)) (Tlist $ lift telm).
 
   (* msort is equivalent to : 
     fun A cmp => 
@@ -3181,15 +3403,12 @@ Section LambdaO.
       }
       {
         simpl.
-        Lemma leO_1xlogx x i x' i' : F1 <<= Fvar x i * Flog 2%QN (Fvar x' i').
-          admit.
-        Qed.
-        leO_solver'; try solve [eapply leO_1xlogx].
-        admit. (* leO for time *)
-        admit.
-        admit.
-        admit.
-        admit.
+        leO_solver; try solve [eapply leO_1_xlog2x].
+        - eapply leO_cx_xlog2x.
+        - eapply leO_cxlog2cx_xlog2x.
+        - eapply leO_cxlog2cx_xlog2x.
+        - eapply leO_cx_xlog2x.
+        - eapply leO_cx_xlog2x.
       }
     }
   Qed.
