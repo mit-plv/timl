@@ -223,6 +223,10 @@ Section LambdaO.
     admit.
   Qed.
 
+  Lemma QN_1_not_0 : (1 != 0)%QN.
+    admit.
+  Qed.
+
   Lemma QN_mulx1 q : (q * 1 == q)%QN.
     admit.
   Qed.
@@ -1056,8 +1060,6 @@ Section LambdaO.
   Infix "/" := Fdiv : F.
   Open Scope F.
 
-  Definition suffix A (a b : list A) := exists c, c ++ a = b.
-
   Delimit Scope formula01_scope with F01.
   Notation " 0 " := F0 : F01.
   Notation " 1 " := F1 : F01.
@@ -1102,7 +1104,7 @@ Section LambdaO.
   | leE_pair x p i : Fvar (x, Pfst :: p) i + Fvar (x, Psnd :: p) i == Fvar (x, p) i
   | leE_inlinr x p i : Fmax (Fvar (x, Pinl :: p) i) (Fvar (x, Pinr :: p) i) == Fvar (x, p) i
   | leE_inl x p i : Fvar (x, Pinl :: p) i == Fvar (x, p) i
-  | leE_inr x p i : Fvar (x, Pinl :: p) i == Fvar (x, p) i
+  | leE_inr x p i : Fvar (x, Pinr :: p) i == Fvar (x, p) i
   | leE_unfold x p i : 1 + Fvar (x, Punfold :: p) i == Fvar (x, p) i
   where "a == b" := (leE a b) : leE_scope
   .
@@ -1199,7 +1201,6 @@ Section LambdaO.
     {
       le := leC
     }.
-  Infix "<<=" := leO (at level 70) : F.
 
   Close Scope F01.
 
@@ -1240,6 +1241,9 @@ Section LambdaO.
       transitivity proved by leS_trans
         as leS_rel.
   
+  Infix "<=" := leC : F.
+  Infix "<<=" := leO (at level 70) : F.
+
   Lemma leO_refl (n : formula) : n <<= n.
   Proof.
     simpl; eapply leO_leE; reflexivity.
@@ -1251,12 +1255,53 @@ Section LambdaO.
         as leO_rel.
   
   Open Scope F01.
+  Open Scope F.
 
   Lemma leE_addx0 n : (n + 0 == n)%leE.
   Proof.
     etransitivity.
     - eapply leE_addC.
     - eapply leE_add0x.
+  Qed.
+
+  Lemma leE_addcncn c n : (c *: n + c *: n == (2 * c)%QN *: n)%leE.
+  Proof.
+    etransitivity.
+    { symmetry; eapply leE_scaleDx. }
+    eapply leE_scale; try reflexivity.
+    eapply QN_addxx.
+  Qed.
+
+  Lemma leE_adda a b a' : (a == a' -> a + b == a' + b)%leE.
+  Proof.
+    intros H; eapply leE_add; try reflexivity; eauto.
+  Qed.
+
+  Lemma leE_addb a b b' : (b == b' -> a + b == a + b')%leE.
+  Proof.
+    intros H; eapply leE_add; try reflexivity; eauto.
+  Qed.
+
+  Lemma leE_addnn n : (n + n == 2%QN *: n)%leE.
+  Proof.
+    etransitivity.
+    { eapply leE_adda; symmetry; eapply leE_scale1x. }
+    etransitivity.
+    { eapply leE_addb; symmetry; eapply leE_scale1x. }
+    etransitivity.
+    { eapply leE_addcncn. }
+    eapply leE_scale; try reflexivity.
+    eapply QN_mulx1.
+  Qed.
+
+  Lemma leE_two_halves n : (n / 2%QN + n / 2%QN == n)%leE.
+  Proof.
+    etransitivity.
+    eapply leE_addcncn.
+    symmetry; etransitivity.
+    { symmetry; eapply leE_scale1x. }
+    eapply leE_scale; try reflexivity.
+    symmetry; eapply QN_2_mul_half.
   Qed.
 
   Lemma leC_mula a b a' : a <= a' -> a * b <= a' * b.
@@ -1364,6 +1409,221 @@ Section LambdaO.
     eapply leC_max_idem.
   Qed.
 
+  Lemma leC_two_halves n : n / 2%QN + n / 2%QN <= n.
+  Proof.
+    eapply leC_leE; eapply leE_two_halves.
+  Qed.
+
+  Definition subpath a b := exists c, c ++ a = b /\ Forall (fun a => a <> Punhide) c.
+
+  Lemma leC_cons x p i a : a <> Punhide -> Fvar (x, a :: p) i <= Fvar (x, p) i.
+  Proof.
+    intros H.
+    destruct a.
+    { etransitivity.
+      { eapply leC_add_a. }
+      eapply leC_leE; eapply leE_pair.
+    }
+    { etransitivity.
+      { eapply leC_add_b. }
+      eapply leC_leE; eapply leE_pair.
+    }
+    { eapply leC_leE; eapply leE_inl. }
+    { eapply leC_leE; eapply leE_inr. }
+    { etransitivity.
+      { eapply leC_add_b. }
+      eapply leC_leE; eapply leE_unfold.
+    }
+    intuition.
+  Qed.
+
+  Lemma leC_path_subpath' x i p2 d : forall p1, d ++ p2 = p1 -> Forall (fun a => a <> Punhide) d -> Fvar (x, p1) i <= Fvar (x, p2) i.
+    induction d; intros p1 H Hall; simpl in *.
+    {
+      subst.
+      reflexivity.
+    }
+    destruct p1 as [ | a' p1].
+    { discriminate. }
+    inject H.
+    inversion Hall; subst.
+    etransitivity.
+    { eapply leC_cons; eauto. }
+    eapply IHd; eauto.
+  Qed.
+
+  Lemma leC_path_subpath x i p1 p2 : subpath p2 p1 -> Fvar (x, p1) i <= Fvar (x, p2) i.
+  Proof.
+    intros H.
+    destruct H as [c [H1 H2] ].
+    subst.
+    eapply leC_path_subpath'; eauto.
+  Qed.
+
+  Lemma leC_c_x (c : QN) x i : c <= Fvar x i.
+  Proof.
+    etransitivity.
+    { eapply leC_add_a. }
+    eapply leC_addcx.
+  Qed.
+
+  Lemma leC_c_cx (c1 c2 : QN) x i : (c2 != 0)%QN -> c1 <= c2 *: Fvar x i.
+  Proof.
+    intros H.
+    eapply QN_exists_inverse in H.
+    destruct H as [q' H].
+    etransitivity.
+    { eapply leC_leE; symmetry; eapply leE_scale1x. }
+    etransitivity.
+    {eapply leC_leE; symmetry; eapply leE_scale; eauto; reflexivity. }
+    etransitivity.
+    { eapply leC_leE; symmetry; eapply leE_scaleA. }
+    eapply leC_scale; try reflexivity.
+    etransitivity.
+    { eapply leC_leE; eapply leE_scaleA. }
+    eapply leC_c_x.
+  Qed.
+
+  Lemma leC_1_cx c x i : (c != 0)%QN -> F1 <= c *: Fvar x i.
+  Proof.
+    intros H.
+    etransitivity.
+    { eapply leC_leE; symmetry; eapply leE_scale1x. }
+    eapply leC_c_cx; eauto.
+  Qed.
+
+  Lemma leC_add0x' n n' : n <= n' -> F0 + n <= n'.
+  Proof.
+    intros H; etransitivity; eauto; eapply leC_leE; eapply leE_add0x.
+  Qed.
+
+  Lemma leC_addccx (c1 c2 : QN) x i : (c2 != 0)%QN -> c1 + c2 *: Fvar x i <= c2 *: Fvar x i.
+  Proof.
+    intros H.
+    eapply QN_exists_inverse in H.
+    destruct H as [q' H].
+    etransitivity.
+    { eapply leC_adda.
+      etransitivity.
+      { eapply leC_leE; symmetry; eapply leE_scale1x. }
+      etransitivity.
+      {eapply leC_leE; symmetry; eapply leE_scale; eauto; reflexivity. }
+      eapply leC_leE; symmetry; eapply leE_scaleA.
+    }
+    etransitivity.
+    { eapply leC_leE; symmetry; eapply leE_scalexD. }
+    eapply leC_scale; try reflexivity.
+    etransitivity.
+    { eapply leC_adda; eapply leC_leE; eapply leE_scaleA. }
+    eapply leC_addcx.
+  Qed.
+
+  Lemma leC_add1cx (c : QN) x i : (c != 0)%QN -> F1 + c *: Fvar x i <= c *: Fvar x i.
+  Proof.
+    intros H.
+    etransitivity.
+    { eapply leC_adda; eapply leC_leE; symmetry; eapply leE_scale1x. }
+    eapply leC_addccx; eauto.
+  Qed.
+
+  Lemma leC_add1x x i : F1 + Fvar x i <= Fvar x i.
+  Proof.
+    etransitivity.
+    { eapply leC_addb; eapply leC_leE; symmetry; eapply leE_scale1x. }
+    etransitivity.
+    { eapply leC_add1cx; eapply QN_1_not_0. }
+    eapply leC_leE; eapply leE_scale1x.
+  Qed.
+
+  Lemma leC_addccx' n (c1 c2 : QN) x i : (c2 != 0)%QN -> n <= c2 *: Fvar x i -> c1 + n <= c2 *: Fvar x i.
+  Proof.
+    intros Hc Hn.
+    etransitivity.
+    { eapply leC_addb; eassumption. }
+    eapply leC_addccx; eauto.
+  Qed.
+
+  Lemma leC_add1cx' n c x i : (c != 0)%QN -> n <= c *: Fvar x i -> F1 + n <= c *: Fvar x i.
+  Proof.
+    intros Hc H.
+    etransitivity.
+    { eapply leC_adda; eapply leC_leE; symmetry; eapply leE_scale1x. }
+    eapply leC_addccx'; eauto.
+  Qed.
+
+  Lemma leC_add1x' n x i : n <= Fvar x i -> F1 + n <= Fvar x i.
+  Proof.
+    intros H.
+    etransitivity.
+    { eapply leC_add1cx'. 
+      { eapply QN_1_not_0. } 
+      etransitivity; eauto.
+      eapply leC_leE; symmetry; eapply leE_scale1x.
+    }
+    eapply leC_leE; eapply leE_scale1x.
+  Qed.
+
+  Lemma subpath_nil ls : Forall (fun a => a <> Punhide) ls -> subpath [] ls.
+  Proof.
+    intros H.
+    exists ls; rewrite app_nil_r; eauto.
+  Qed.
+
+  Definition is_not_Punhide a :=
+    match a with
+      | Punhide => false
+      | _ => true
+    end.
+
+  Lemma is_not_Punhide_sound a : is_not_Punhide a = true -> a <> Punhide.
+  Proof.
+    intros H; destruct a; simpl in *; try discriminate; eauto.
+  Qed.
+
+  Lemma all_not_Punhide_sound ls : forallb is_not_Punhide ls = true -> Forall (fun a => a <> Punhide) ls.
+  Proof.
+    intros H.
+    eapply Forall_forall.
+    intros x Hin.
+    eapply forallb_forall in H; eauto.
+    eapply is_not_Punhide_sound; eauto.
+  Qed.
+
+  Ltac not0_solver := solve [eapply QN_half_not_0 | eapply QN_2_not_0 | eapply QN_1_not_0 ].
+  
+  Ltac leC_solver :=
+    repeat
+      match goal with
+        | |- ?A <= ?A => reflexivity
+        | |- F0 <= _ => eapply leC_0
+        | |- Fmax _ _ <= _ => eapply leC_max_lub
+        | |- ?S <= ?A + _ =>
+          match A with
+              context [ S ] => eapply leC_addta
+          end
+        | |- ?S <= _ + ?B =>
+          match B with
+              context [ S ] => eapply leC_addtb
+          end
+        | |- ?S <= Fmax ?A _ =>
+          match A with
+              context [ S ] => eapply leC_maxta
+          end
+        | |- ?S <= Fmax _ ?B =>
+          match B with
+              context [ S ] => eapply leC_maxtb
+          end
+        | |- F0 + _ <= _ => eapply leC_add0x'
+        | |- F1 + _ <= _ *: Fvar _ _ => eapply leC_add1cx'; [not0_solver | .. ]
+        | |- F1 + _ <= Fvar _ _ => eapply leC_add1x'
+        | |- F1 <= _ *: Fvar _ _ => eapply leC_1_cx; [not0_solver | .. ]
+        | |- _ + ?n <= _ + ?n => eapply leC_adda
+        | |- ?n + _ <= ?n + _ => eapply leC_addb
+        | |- Fvar (?x, _) ?i <= Fvar (?x, nil) ?i => eapply leC_path_subpath; eapply subpath_nil; try solve [ eassumption | eapply all_not_Punhide_sound; simpl; reflexivity ]
+      end.
+
+  Open Scope G.
+
   Lemma leS_var_addr x n0 n1 : Svar x <= Sstats (n0 + Fvar x 0%nat, n1 + Fvar x 1%nat).
   Proof.
     simpl; unfold leS; simpl; split; eapply leC_add_b.
@@ -1393,52 +1653,7 @@ Section LambdaO.
     split; eapply leC_add; eauto.
   Qed.
 
-  Lemma leE_addcncn c n : (c *: n + c *: n == (2 * c)%QN *: n)%leE.
-  Proof.
-    etransitivity.
-    { symmetry; eapply leE_scaleDx. }
-    eapply leE_scale; try reflexivity.
-    eapply QN_addxx.
-  Qed.
-
-  Lemma leE_adda a b a' : (a == a' -> a + b == a' + b)%leE.
-  Proof.
-    intros H; eapply leE_add; try reflexivity; eauto.
-  Qed.
-
-  Lemma leE_addb a b b' : (b == b' -> a + b == a + b')%leE.
-  Proof.
-    intros H; eapply leE_add; try reflexivity; eauto.
-  Qed.
-
-  Lemma leE_addnn n : (n + n == 2%QN *: n)%leE.
-  Proof.
-    etransitivity.
-    { eapply leE_adda; symmetry; eapply leE_scale1x. }
-    etransitivity.
-    { eapply leE_addb; symmetry; eapply leE_scale1x. }
-    etransitivity.
-    { eapply leE_addcncn. }
-    eapply leE_scale; try reflexivity.
-    eapply QN_mulx1.
-  Qed.
-
-  Lemma leE_two_halves n : (n / 2%QN + n / 2%QN == n)%leE.
-  Proof.
-    etransitivity.
-    eapply leE_addcncn.
-    symmetry; etransitivity.
-    { symmetry; eapply leE_scale1x. }
-    eapply leE_scale; try reflexivity.
-    symmetry; eapply QN_2_mul_half.
-  Qed.
-
-  Lemma leC_two_halves n : n / 2%QN + n / 2%QN <= n.
-  Proof.
-    eapply leC_leE; eapply leE_two_halves.
-  Qed.
-
-  Open Scope F.
+  Close Scope G.
 
   Lemma leO_mula a b a' : a <<= a' -> a * b <<= a' * b.
   Proof.
@@ -1640,16 +1855,21 @@ Section LambdaO.
     eapply leO_1_log2x.
   Qed.
 
-  Lemma leO_cx_xlog2x c x i : c *: Fvar x i <<= Fvar x i * log2 (Fvar x i).
+  Lemma leO_x_xlog2x x i : Fvar x i <<= Fvar x i * log2 (Fvar x i).
   Proof.
-    etransitivity.
-    { eapply leO_cn_n. }
     etransitivity.
     { eapply leO_leE; symmetry; eapply leE_mul1x. }
     etransitivity.
     { eapply leO_leE; eapply leE_mulC. }
     eapply leO_mul; try reflexivity.
     eapply leO_1_log2x.
+  Qed.
+
+  Lemma leO_cx_xlog2x c x i : c *: Fvar x i <<= Fvar x i * log2 (Fvar x i).
+  Proof.
+    etransitivity.
+    { eapply leO_cn_n. }
+    eapply leO_x_xlog2x.
   Qed.
 
   Lemma leO_cxlog2cx_xlog2x c1 c2 x i : c1 *: Fvar x i * log2 (c2 *: Fvar x i) <<= Fvar x i * log2 (Fvar x i).
@@ -1661,6 +1881,49 @@ Section LambdaO.
     eapply leO_mul; try reflexivity.
     eapply leO_log.
     eapply leO_cn_n.          
+  Qed.
+
+  Lemma leO_cons x p i a : a <> Punhide -> Fvar (x, a :: p) i <<= Fvar (x, p) i.
+  Proof.
+    intros H.
+    destruct a.
+    { etransitivity.
+      { eapply leO_add_a. }
+      eapply leO_leE; eapply leE_pair.
+    }
+    { etransitivity.
+      { eapply leO_add_b. }
+      eapply leO_leE; eapply leE_pair.
+    }
+    { eapply leO_leE; eapply leE_inl. }
+    { eapply leO_leE; eapply leE_inr. }
+    { etransitivity.
+      { eapply leO_add_b. }
+      eapply leO_leE; eapply leE_unfold.
+    }
+    intuition.
+  Qed.
+
+  Lemma leO_path_subpath' x i p2 d : forall p1, d ++ p2 = p1 -> Forall (fun a => a <> Punhide) d -> Fvar (x, p1) i <<= Fvar (x, p2) i.
+    induction d; intros p1 H Hall; simpl in *.
+    {
+      subst.
+      reflexivity.
+    }
+    destruct p1 as [ | a' p1].
+    { discriminate. }
+    inject H.
+    inversion Hall; subst.
+    etransitivity.
+    { eapply leO_cons; eauto. }
+    eapply IHd; eauto.
+  Qed.
+
+  Lemma leO_path_subpath x i p1 p2 : subpath p2 p1 -> Fvar (x, p1) i <<= Fvar (x, p2) i.
+    intros H.
+    destruct H as [c [H1 H2] ].
+    subst.
+    eapply leO_path_subpath'; eauto.
   Qed.
 
   Class Equal t :=
@@ -2964,8 +3227,8 @@ Section LambdaO.
       }
     }
   Qed.
-  (*
-   *)
+
+  Open Scope F.
 
   Lemma TPmerge : typing [] merge merge_type F0 Stt.
   Proof.
@@ -3052,135 +3315,25 @@ Section LambdaO.
                   }
                 }
                 {
-                  Infix "<=" := leC : F.
-                  Open Scope F.
-                  Lemma leC_path_suffix x i p1 p2 : suffix p2 p1 -> Fvar (x, p1) i <= Fvar (x, p2) i.
-                    admit.
-                  Qed.
-                  Lemma leO_path_suffix x i p1 p2 : suffix p2 p1 -> Fvar (x, p1) i <<= Fvar (x, p2) i.
-                    admit.
-                  Qed.
-                  Lemma suffix_nil A (ls : list A) : suffix [] ls.
+                  Lemma leC_lemma1 x1 p1 x2 p2 i : Forall (fun a => a <> Punhide) p1 -> Forall (fun a => a <> Punhide) p2 -> F1 + (F0 + (Fvar (x1, p1) i + Fvar (x2, p2) i)) <= x1!i + x2!i.
                   Proof.
-                    exists ls; eapply app_nil_r.
-                  Qed.
-
-                  Lemma leC_c_cx (c1 c2 : QN) x i : (c2 != 0)%QN -> c1 <= c2 *: Fvar x i.
-                    admit.
-                  Qed.
-
-                  Lemma leC_1_cx c x i : (c != 0)%QN -> F1 <= c *: Fvar x i.
-                    admit.
-                  Qed.
-
-                  Lemma leC_add0x' n n' : n <= n' -> F0 + n <= n'.
-                  Proof.
-                    intros H; etransitivity; eauto; eapply leC_leE; eapply leE_add0x.
-                  Qed.
-
-                  Lemma leC_addccx (c1 c2 : QN) x i : (c2 != 0)%QN -> c1 + c2 *: Fvar x i <= c2 *: Fvar x i.
-                  Proof.
-                    intros H.
-                    eapply QN_exists_inverse in H.
-                    destruct H as [q' H].
-                    etransitivity.
-                    { eapply leC_adda.
-                      etransitivity.
-                      { eapply leC_leE; symmetry; eapply leE_scale1x. }
-                      etransitivity.
-                      {eapply leC_leE; symmetry; eapply leE_scale; eauto; reflexivity. }
-                      eapply leC_leE; symmetry; eapply leE_scaleA.
-                    }
-                    etransitivity.
-                    { eapply leC_leE; symmetry; eapply leE_scalexD. }
-                    eapply leC_scale; try reflexivity.
-                    etransitivity.
-                    { eapply leC_adda; eapply leC_leE; eapply leE_scaleA. }
-                    eapply leC_addcx.
-                  Qed.
-
-                  Lemma leC_add1cx (c : QN) x i : (c != 0)%QN -> F1 + c *: Fvar x i <= c *: Fvar x i.
-                  Proof.
-                    intros H.
-                    etransitivity.
-                    { eapply leC_adda; eapply leC_leE; symmetry; eapply leE_scale1x. }
-                    eapply leC_addccx; eauto.
-                  Qed.
-(*here*)
-                  Lemma leC_add1x x i : F1 + Fvar x i' <= Fvar x i.
-                  Proof.
-                    intros H.
-                    etransitivity.
-                    { eapply leC_adda; eapply leC_leE; symmetry; eapply leE_scale1x. }
-                    eapply leC_addccx; eauto.
-                  Qed.
-
-                  Lemma leC_addccx' n (c1 c2 : QN) x i : (c2 != 0)%QN -> n <= c2 *: Fvar x i -> c1 + n <= c2 *: Fvar x i.
-                  Proof.
-                    intros Hc Hn.
-                    etransitivity.
-                    { eapply leC_addb; eassumption. }
-                    eapply leC_addccx; eauto.
-                  Qed.
-
-                  Lemma leC_add1cx' n c x i : (c != 0)%QN -> n <= c *: Fvar x i -> F1 + n <= c *: Fvar x i.
-                  Proof.
-                    intros Hc H.
-                    etransitivity.
-                    { eapply leC_adda; eapply leC_leE; symmetry; eapply leE_scale1x. }
-                    eapply leC_addccx'; eauto.
-                  Qed.
-
-                  Ltac not0_solver := solve [eapply QN_half_not_0 | eapply QN_2_not_0 ].
-                  
-                  Ltac leC_solver :=
-                    repeat
-                      match goal with
-                        | |- ?A <= ?A => reflexivity
-                        | |- F0 <= _ => eapply leC_0
-                        | |- Fmax _ _ <= _ => eapply leC_max_lub
-                        | |- ?S <= ?A + _ =>
-                          match A with
-                              context [ S ] => eapply leC_addta
-                          end
-                        | |- ?S <= _ + ?B =>
-                          match B with
-                              context [ S ] => eapply leC_addtb
-                          end
-                        | |- ?S <= Fmax ?A _ =>
-                          match A with
-                              context [ S ] => eapply leC_maxta
-                          end
-                        | |- ?S <= Fmax _ ?B =>
-                          match B with
-                              context [ S ] => eapply leC_maxtb
-                          end
-                        | |- F0 + _ <= _ => eapply leC_add0x'
-                        | |- F1 + _ <= _ *: Fvar _ _ => eapply leC_add1cx'; [not0_solver | .. ]
-                        | |- F1 <= _ *: Fvar _ _ => eapply leC_1_cx; [not0_solver | .. ]
-                        | |- _ + ?n <= _ + ?n => eapply leC_adda
-                        | |- ?n + _ <= ?n + _ => eapply leC_addb
-                      end.
-
-                  Lemma leC_lemma1 x1 p1 x2 p2 i : F1 + (F0 + (Fvar (x1, p1) i + Fvar (x2, p2) i)) <= x1!i + x2!i.
-                  Proof.
+                    intros H1 H2.
                     etransitivity.
                     { eapply leC_leE; eapply leE_addA. }
                     etransitivity.
                     { eapply leC_leE; eapply leE_addA. }
                     eapply leC_add.
-                    { etransitivity.
-                      { eapply leC_adda; eapply leC_leE; eapply leE_addx0. }
-                      leC_solver.
+                    {
                       etransitivity.
-                      { eapply leC_addcx. }
-                      eapply leC_path_suffix; eapply suffix_nil.
+                      { eapply leC_leE; symmetry; eapply leE_addA. }
+                      simpl.
+                      leC_solver.
                     }
-                    eapply leC_path_suffix; eapply suffix_nil.
+                    leC_solver.
                   Qed.
 
                   simpl.
-                  eapply leS_stats; simpl; eapply leC_lemma1.
+                  eapply leS_stats; simpl; eapply leC_lemma1; eapply all_not_Punhide_sound; simpl; reflexivity.
                 }
               }
               {
@@ -3204,7 +3357,7 @@ Section LambdaO.
                 }
                 {
                   simpl.
-                  eapply leS_stats; simpl; eapply leC_lemma1.
+                  eapply leS_stats; simpl; eapply leC_lemma1; eapply all_not_Punhide_sound; simpl; reflexivity.
                 }
               }
             }
@@ -3215,13 +3368,13 @@ Section LambdaO.
           leO_solver; try solve [eapply leO_addta; eapply leO_1x].
           {
             eapply leO_addta.
-            eapply leO_path_suffix.
-            eapply suffix_nil.
+            eapply leO_path_subpath.
+            eapply subpath_nil; eapply all_not_Punhide_sound; simpl; reflexivity.
           }
           {
             eapply leO_addtb.
-            eapply leO_path_suffix.
-            eapply suffix_nil.
+            eapply leO_path_subpath.
+            eapply subpath_nil; eapply all_not_Punhide_sound; simpl; reflexivity.
           }
         }
       }
@@ -3229,7 +3382,7 @@ Section LambdaO.
   Qed.
 
   Definition split_type telm :=
-    Tarrow (Tlist $ telm) (#0!0 / 2%QN) (Spair {{ i | #0!i / 2%QN }} {{ i | #0!i / 2%QN }}) (Tprod (Tlist $ lift telm) (Tlist $ lift telm)).
+    Tarrow (Tlist $ telm) #0!0 (Spair {{ i | #0!i / 2%QN }} {{ i | #0!i / 2%QN }}) (Tprod (Tlist $ lift telm) (Tlist $ lift telm)).
 
   Lemma Ksplit_type T t : kinding T t 0 -> kinding T (split_type t) 0.
   Proof.
@@ -3342,17 +3495,14 @@ Section LambdaO.
       }
       {
         compute.
-        split.
-        { admit. (* leC pair *) }
-        { admit. (* leC pair *) }
+        split; eapply leC_add; leC_solver; eapply leC_scale; try reflexivity; eapply leC_path_subpath; eapply subpath_nil; eapply all_not_Punhide_sound; simpl; reflexivity.
       }
     }
     {
       simpl.
-      leO_solver; try solve [eapply leO_1x_div2].
-      eapply leO_scaleb.
-      eapply leO_path_suffix.
-      eapply suffix_nil.
+      leO_solver; try solve [eapply leO_1x].
+      eapply leO_path_subpath.
+      eapply subpath_nil; eapply all_not_Punhide_sound; simpl; reflexivity.
     }
   Qed.
 
@@ -3489,7 +3639,7 @@ Section LambdaO.
       {
         simpl.
         leO_solver; try solve [eapply leO_1_xlog2x].
-        - eapply leO_cx_xlog2x.
+        - eapply leO_x_xlog2x.
         - eapply leO_cxlog2cx_xlog2x.
         - eapply leO_cxlog2cx_xlog2x.
         - eapply leO_cx_xlog2x.
