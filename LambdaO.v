@@ -4098,6 +4098,66 @@ Section LambdaO.
     }
   Qed.
 
+  Lemma is_pair_lift sp s1 s2 : is_pair sp = Some (s1, s2) -> is_pair (lift sp) = Some (lift s1, lift s2).
+  Proof.
+    destruct sp; simpl; try discriminate; intros H; inject H; eauto.
+    destruct x.
+    eauto.
+  Qed.
+
+  Lemma is_hide_lift s s' : is_hide s = Some s' -> is_hide (lift s) = Some (lift s').
+  Proof.
+    destruct s; simpl; try discriminate; intros H; inject H; eauto.
+    destruct x.
+    eauto.
+  Qed.
+
+  Definition removen A n ls := @firstn A n ls ++ skipn (S n) ls.
+
+  Definition lift_from_TE n te :=
+    match te with
+      | TEtyping ty => TEtyping $ lift_from n ty
+      | TEkinding k => te
+    end.
+
+  Instance Lift_tc_entry : Lift tc_entry :=
+    {
+      lift_from := lift_from_TE
+    }.
+
+  Lemma Klift a T t k : kinding T t k -> kinding (a :: T) (lift t) k.
+    admit.
+  Qed.
+
+  Lemma TPlift_insert T e t c s : 
+    typing T e t c s ->
+    forall T1 x T2 T' m,
+      T = T1 ++ T2 ->
+      T' = map lift T1 ++ x :: T2 ->
+      m = length T1 ->
+      typing T' (lift_from m e) (lift_from m t) (lift_from m c) (lift_from m s).
+  Proof.
+    induction 1.
+    {
+      intros T1 x T2 T' m ? ? ?; subst.
+      simpl.
+      (*here*)
+    }
+  Qed.
+
+  Lemma TPlift T e t n s r : typing T e t n s -> typing (r :: T) (lift e) (lift t) (lift n) (lift s).
+    admit.
+  Qed.
+
+  Lemma TPlift2 T e t n s r0 r1 r2 r0' r1' : 
+    typing (r0 :: r1 :: T) e t n s ->
+    r0' = lift r0 ->
+    r1' = lift r1 ->
+    typing (r0' :: r1' :: r2 :: T) (lift_from 2 e) (lift_from 2 t) (lift_from 2 n) (lift_from 2 s).
+  Proof.
+    admit.
+  Qed.
+
   Lemma TPmatch_list T e e1 e2 telm n s s1 s2 t' na nb s' :
     let list := Tlist $ telm in
     typing T e list n s ->
@@ -4131,9 +4191,6 @@ Section LambdaO.
       { simpl; eauto. }
       {
         rewrite fold_lift_from_t in *.
-        Lemma TPlift T e t n s r : typing T e t n s -> typing (r :: T) (lift e) (lift t) (lift n) (lift s).
-          admit.
-        Qed.
         eapply TPlift; eauto.
       }
       {
@@ -4142,39 +4199,13 @@ Section LambdaO.
           simpl.
           eapply TPunhide_fst_app.
           { eapply TPvar'; simpl; eauto; simpl; eauto. }
-          Lemma is_pair_lift sp s1 s2 : is_pair sp = Some (s1, s2) -> is_pair (lift sp) = Some (lift s1, lift s2).
-            admit.
-          Qed.
           { simpl; eapply is_pair_lift; eauto. }
-          Lemma is_hide_lift s s' : is_hide s = Some s' -> is_hide (lift s) = Some (lift s').
-            admit.
-          Qed.
           { simpl; eapply is_hide_lift; eauto. }
         }
         { simpl; eauto. }
         {
           simpl.
           repeat rewrite fold_lift_from_t in *.
-          Definition removen A n ls := @firstn A n ls ++ skipn (S n) ls.
-          Definition lift_from_TE n te :=
-            match te with
-              | TEtyping ty => TEtyping $ lift_from n ty
-              | TEkinding k => te
-            end.
-
-          Instance Lift_tc_entry : Lift tc_entry :=
-            {
-              lift_from := lift_from_TE
-            }.
-
-          Lemma TPlift2 T e t n s r0 r1 r2 r0' r1' : 
-            typing (r0 :: r1 :: T) e t n s ->
-            r0' = lift r0 ->
-            r1' = lift r1 ->
-            typing (r0' :: r1' :: r2 :: T) (lift_from 2 e) (lift_from 2 t) (lift_from 2 n) (lift_from 2 s).
-          Proof.
-            admit.
-          Qed.
           eapply TPlift2; eauto.
         }
         {
@@ -4325,9 +4356,6 @@ Section LambdaO.
     eapply Karrow; eauto.
     {
       simpl.
-      Lemma Klift a T t k : kinding T t k -> kinding (a :: T) (lift t) k.
-        admit.
-      Qed.
       eapply Klift; eauto.
     }
     eapply Kbool.
