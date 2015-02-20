@@ -430,7 +430,7 @@ Section LambdaO.
   Definition subst_s_f_f n v nv path i :=
     match nat_cmp nv n with 
       | LT _ _ _ => Fvar (#nv, path) i
-      | EQ _ => default (Fvar (#99, path) i) $ query_path_idx path i v
+      | EQ _ => default F0 $ query_path_idx path i v
       | GT p _ _ => Fvar (#p, path) i
     end.
 
@@ -2578,8 +2578,101 @@ Section LambdaO.
     }
   Qed.
 
-  Lemma subst_lift_from_s_f v b n m : (m <= n)%nat -> subst_size_formula m (lift_from_s n v) (lift_from_f (S n) b) = lift_from_f n (subst_size_formula m v b).
-    admit.
+  Lemma lift_summarize v : forall n, summarize (visit_s (lift_s_f n, lift_from_f n) v) = let (a, b) := summarize v in (visit_f (lift_f_f n) a, visit_f (lift_f_f n) b).
+  Proof.
+    induction v; intros n; try solve [ simpl; eauto ].
+    { 
+      destruct x as [x p].
+      simpl.
+      eauto.
+    }
+    {
+      simpl.
+      unfold stats_max.
+      unfold stats_binop.
+      rewrite IHv1.
+      rewrite IHv2.
+      destruct (summarize v1).
+      destruct (summarize v2).
+      simpl.
+      eauto.
+    }
+    {
+      simpl.
+      unfold stats_add.
+      unfold stats_binop.
+      rewrite IHv1.
+      rewrite IHv2.
+      destruct (summarize v1).
+      destruct (summarize v2).
+      simpl.
+      eauto.
+    }
+    {
+      simpl.
+      rewrite IHv.
+      destruct (summarize v).
+      simpl.
+      eauto.
+    }
+  Qed.
+
+  Lemma lift_query_cmd v : forall n c, query_cmd c (visit_s (lift_s_f n, lift_from_f n) v) = option_map (visit_s (lift_s_f n, lift_from_f n)) (query_cmd c v).
+  Proof.
+    induction v; destruct c; try solve [simpl; eauto | simpl; destruct x; simpl; eauto].
+  Qed.
+
+  Lemma lift_query' p : forall v n i, default F0 (s <- query_path' p (visit_s (lift_s_f n, lift_from_f n) v);; ret (query_idx i s)) = visit_f (lift_f_f n) (default F0 (s <- query_path' p v;; ret (query_idx i s))).
+  Proof.
+    induction p.
+    {
+      simpl.
+      intros v n.
+      rewrite lift_summarize.
+      destruct (summarize v).
+      destruct i; simpl; eauto.
+    }
+    simpl in *.
+    intros v n i.
+    rewrite lift_query_cmd.
+    destruct (query_cmd a v); simpl; eauto.
+  Qed.
+
+  Lemma lift_query v : forall p i n, default F0 (query_path_idx p i (visit_s (lift_s_f n, lift_from_f n) v)) = visit_f (lift_f_f n) (default F0 (query_path_idx p i v)).
+  Proof.
+    intros; eapply lift_query'.
+  Qed.
+
+  Lemma subst_lift_from_s_f x : forall v n m, (m <= n)%nat -> subst_size_formula m (lift_from_s n v) (lift_from_f (S n) x) = lift_from_f n (subst_size_formula m v x).
+  Proof.
+    induction x; intros v n m Hle; try solve [simpl; f_equal; eauto ].
+    destruct x as [x p].
+    simpl.
+    destruct (nat_cmp x (S n)); subst.
+    {
+      destruct (nat_cmp x m); subst; simpl in *. 
+      {
+        destruct (nat_cmp x n); subst; simpl in *; eauto; omega.
+      }
+      {
+        eapply lift_query.
+      }
+      {
+        destruct (nat_cmp _ _); subst; simpl in *; eauto; omega.
+      }
+    }
+    {
+      destruct (nat_cmp (S (S n)) m); try subst; destruct (nat_cmp _ _); try subst; simpl in *; eauto; try omega.
+      inject e0.
+      inject e.
+      destruct (nat_cmp _ _); subst; simpl in *; eauto; omega.
+    }
+    {
+      destruct (nat_cmp (S (S m')) m); try subst; destruct (nat_cmp _ _); try subst; simpl in *; eauto; try omega.
+      inject e0.
+      inject e.
+      destruct (nat_cmp _ _); subst; simpl in *; eauto; omega.
+    }
   Qed.
 
   Lemma liftby_var_s n : forall m x p, iter n (lift_from_s m) (Svar (x, p)) = Svar (iter n (lift_nat m) x, p).
@@ -3210,11 +3303,11 @@ Section LambdaO.
     eauto.
   Qed.
 
-  Lemma lift_from_liftby_t n t : lift_from_t n (iter n (lift_from_t 0) t) = iter (S n) (lift_from_t 0) t.
+  Lemma lift_from_liftby_s n s : lift_from_s n (iter n (lift_from_s 0) s) = iter (S n) (lift_from_s 0) s.
     admit.
   Qed.
 
-  Lemma lift_from_liftby_s n s : lift_from_s n (iter n (lift_from_s 0) s) = iter (S n) (lift_from_s 0) s.
+  Lemma lift_from_liftby_t n t : lift_from_t n (iter n (lift_from_t 0) t) = iter (S n) (lift_from_t 0) t.
     admit.
   Qed.
 
