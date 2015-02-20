@@ -2953,7 +2953,28 @@ Section LambdaO.
   Qed.
 
   Lemma is_list_elim s p : is_list s = Some p -> exists s1 s2 s3 s4, is_fold s = Some s1 /\ is_inlinr s1 = Some (s2, s3) /\ is_pair s3 = Some (s4, snd p) /\ is_hide s4 = Some (fst p).
-    admit.
+  Proof.
+    intros H.
+    unfold is_list in *.    
+    destruct s; simpl in *; try discriminate.
+    { inject H.
+      repeat eexists.
+    }
+    destruct s; simpl in *; try discriminate.
+    { inject H.
+      repeat eexists.
+    }
+    destruct s2; simpl in *; try discriminate.
+    { inject H.
+      repeat eexists.
+    }
+    destruct s2_1; simpl in *; try discriminate.
+    { inject H.
+      repeat eexists.
+    }
+    { inject H.
+      repeat eexists.
+    }
   Qed.
 
   Lemma TPmatch_list T e e1 e2 telm n s s1 s2 t' na nb s' :
