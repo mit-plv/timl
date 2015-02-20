@@ -450,13 +450,14 @@ Section LambdaO.
       substn := subst_size_formula
     }.
 
+  Definition lift_nat n nv :=
+    match nat_cmp nv n with
+      | LT _ _ _ => nv
+      | _ => S nv
+    end.
+
   Definition lift_f_f n nv path i :=
-    let nv :=
-        match nat_cmp nv n with
-          | LT _ _ _ => nv
-          | _ => S nv
-        end in
-    Fvar (#nv, path) i.
+    Fvar (#(lift_nat n nv), path) i.
 
   Definition lift_from_f n f :=
     visit_f (lift_f_f n) f.
@@ -532,12 +533,7 @@ Section LambdaO.
     }.
 
   Definition lift_s_f n nv path :=
-    let nv :=
-        match nat_cmp nv n with
-          | LT _ _ _ => nv
-          | _ => S nv
-        end in
-    Svar (#nv, path).
+    Svar (#(lift_nat n nv), path).
 
   Definition lift_from_s n s :=
     visit_s
@@ -550,14 +546,16 @@ Section LambdaO.
       lift_from := lift_from_s
     }.
 
+  Definition lower_s_f n nv path :=
+    match nat_cmp nv n with 
+      | GT p _ _ => Svar (#p, path)
+      | _ => Svar (#nv, path)
+    end.
+
   Definition lower_s n s :=
     visit_s
-      (fun nv path =>
-         match nat_cmp nv n with 
-           | GT p _ _ => Svar (#p, path)
-           | _ => Svar (#nv, path)
-         end,
-         lower n) 
+      (lower_s_f n,
+       lower n) 
       s.
 
   Instance Lower_size : Lower size :=
@@ -609,11 +607,7 @@ Section LambdaO.
      nq : the number of surrounding quantification layers 
    *)
 
-  Definition lift_t_f nv nq : type := Tvar $
-    match nat_cmp nv nq with 
-      | LT _ _ _ => #nv
-      | _ => #(S nv)
-    end.
+  Definition lift_t_f nv n : type := Tvar $ #(lift_nat n nv).
 
   Definition lift_from_t n t := 
     visit_t n (lift_t_f, lift_from, lift_from) t.
@@ -2182,7 +2176,7 @@ Section LambdaO.
   Arguments lift_from_s n s / .
   Arguments lift_from_f n f / .
   Arguments map_stats / .
-  Arguments lift_t_f nv nq / .
+  Arguments lift_t_f nv n / .
   Arguments lift_f_f n nv path i / .
 
   Arguments subst_size_type n v b / .
@@ -2283,6 +2277,11 @@ Section LambdaO.
     induction n; simpl; intros; try rewrite IHn; eauto.
   Qed.
 
+  Lemma liftby_var n : forall m x, iter n (lift_from_t m) (Tvar x) = Tvar (iter n (lift_nat m) x).
+  Proof.
+    induction n; simpl; intros; try rewrite IHn; eauto.
+  Qed.
+  
   Lemma liftby_universal n : forall m tm s x, iter n (lift_from_t m) (Tuniversal tm s x) = Tuniversal (iter n (lift_from (S m)) tm) (iter n (lift_from (S m)) s) (iter n (lift_from_t (S m)) x).
   Proof.
     induction n; simpl; intros; try rewrite IHn; eauto.
@@ -2308,11 +2307,12 @@ Section LambdaO.
     induction n; simpl; intros; try rewrite IHn; eauto.
   Qed.
 
-  Lemma liftby_var n : forall m x, iter n (lift_from_t m) (Tvar x) = Tvar
-                                                                       match nat_cmp x m with
-                                                                         | LT _ _ _ => x
-                                                                         | _ => n + x
-                                                                       end.
+  Arguments lift_nat n nv / .
+
+  Lemma liftby_nat n : forall m x, iter n (lift_nat m) x = match nat_cmp x m with
+                                                                | LT _ _ _ => x
+                                                                | _ => n + x
+                                                              end.
   Proof.
     induction n; simpl; intros.
     {
@@ -2333,10 +2333,6 @@ Section LambdaO.
     }
   Qed.
 
-  Lemma lower_iter_lift_f x (n m r : nat) : m <= r -> (r <= n + m)%nat -> lower_f r (iter (S n) (lift_from_f m) x) = iter n (lift_from_f m) x.
-    admit.
-  Qed.
-
   Lemma subst_lift_s_f_n' v (x : formula) : forall (n m r : nat), m <= r -> (r <= n + m)%nat -> subst_size_formula r v (iter (S n) (lift_from_f m) x) = iter n (lift_from_f m) x.
     admit.
   Qed.
@@ -2349,20 +2345,257 @@ Section LambdaO.
     admit.
   Qed.
 
-  Lemma lower_iter_lift_s x (n m r : nat) : m <= r -> (r <= n + m)%nat -> lower_s r (iter (S n) (lift_from_s m) x) = iter n (lift_from_s m) x.
+  Arguments lower_f n f / .
+
+  Lemma lower_iter_lift_f x (n m r : nat) : m <= r -> (r <= n + m)%nat -> lower_f r (iter (S n) (lift_from_f m) x) = iter n (lift_from_f m) x.
     admit.
   Qed.
 
-  Lemma subst_lift_s_s_n' v (x : size) : forall (n m r : nat), m <= r -> (r <= n + m)%nat -> subst_size_size r v (iter (S n) (lift_from_s m) x) = iter n (lift_from_s m) x.
-    admit.
+  Lemma liftby_var_s n : forall m x p, iter n (lift_from_s m) (Svar (x, p)) = Svar (iter n (lift_nat m) x, p).
+  Proof.
+    induction n; simpl; intros; try rewrite IHn; eauto.
   Qed.
 
-  Lemma subst_lift_s_s_n2 n v b : subst_size_size n (iter n (lift_from_s 0) v) (iter (S n) (lift_from_s 0) b) = iter n (lift_from_s 0) b.
-    admit.
+  Lemma liftby_stats_s n : forall m n1 n2, iter n (lift_from_s m) (Sstats (n1, n2)) = Sstats (iter n (lift_from m) n1, iter n (lift_from m) n2).
+  Proof.
+    induction n; simpl; intros; try rewrite IHn; eauto.
+  Qed.
+
+  Lemma liftby_tt_s n : forall m, iter n (lift_from_s m) Stt = Stt.
+  Proof.
+    induction n; simpl; intros; try rewrite IHn; eauto.
+  Qed.
+
+  Lemma liftby_inl_s n : forall m x, iter n (lift_from_s m) (Sinl x) = Sinl (iter n (lift_from m) x).
+  Proof.
+    induction n; simpl; intros; try rewrite IHn; eauto.
+  Qed.
+
+  Lemma liftby_inr_s n : forall m x, iter n (lift_from_s m) (Sinr x) = Sinr (iter n (lift_from m) x).
+  Proof.
+    induction n; simpl; intros; try rewrite IHn; eauto.
+  Qed.
+
+  Lemma liftby_inlinr_s n : forall m x1 x2, iter n (lift_from_s m) (Sinlinr x1 x2) = Sinlinr (iter n (lift_from m) x1) (iter n (lift_from m) x2).
+  Proof.
+    induction n; simpl; intros; try rewrite IHn; eauto.
+  Qed.
+
+  Lemma liftby_pair_s n : forall m x1 x2, iter n (lift_from_s m) (Spair x1 x2) = Spair (iter n (lift_from m) x1) (iter n (lift_from m) x2).
+  Proof.
+    induction n; simpl; intros; try rewrite IHn; eauto.
+  Qed.
+
+  Lemma liftby_fold_s n : forall m x, iter n (lift_from_s m) (Sfold x) = Sfold (iter n (lift_from m) x).
+  Proof.
+    induction n; simpl; intros; try rewrite IHn; eauto.
+  Qed.
+
+  Lemma liftby_hide_s n : forall m x, iter n (lift_from_s m) (Shide x) = Shide (iter n (lift_from m) x).
+  Proof.
+    induction n; simpl; intros; try rewrite IHn; eauto.
+  Qed.
+
+  Lemma subst_lift_s_s_n' v (x : size) : forall (n m r : nat), m <= r -> (r <= n + m)%nat -> visit_s (subst_s_s_f r v, substn r v) (iter (S n) (lift_from_s m) x) = iter n (lift_from_s m) x.
+  Proof.
+    induction x; intros n m r Hle1 Hle2.
+    {
+      simpl.
+      destruct x as [x p].
+      repeat rewrite liftby_var_s.
+      repeat rewrite liftby_nat.
+      simpl.
+      destruct (nat_cmp x m) as [ m' ? Hc | ? | x' ? Hc]; subst.
+      {
+        destruct (nat_cmp x (S m')); subst; destruct (nat_cmp _ _); subst; simpl in *; eauto; omega.
+      }
+      {
+        destruct (nat_cmp (S m) m); try subst; destruct (nat_cmp _ _); try subst; simpl in *; eauto; try omega.
+        rewrite <- plus_n_Sm in *.
+        inject e0.
+        eauto.
+      }
+      {
+        destruct (nat_cmp (S (S x')) m); subst; destruct (nat_cmp _ _); subst; simpl in *; eauto; try omega.
+        repeat rewrite <- plus_n_Sm in *.
+        inject e0.
+        eauto.
+      }
+    }
+    {
+      destruct s as [n1 n2].
+      simpl.
+      repeat rewrite liftby_stats_s.
+      simpl.
+      repeat f_equal; repeat rewrite fold_iter; eapply subst_lift_s_f_n'; simpl in *; eauto; omega.
+    }
+    {
+      simpl.
+      repeat rewrite liftby_tt_s.
+      simpl.
+      eauto.
+    }
+    {
+      simpl.
+      repeat rewrite liftby_inl_s.
+      simpl.
+      repeat rewrite fold_lift_from_s in *.
+      repeat rewrite fold_iter.
+      rewrite IHx; simpl in *; eauto; omega.
+    }
+    {
+      simpl.
+      repeat rewrite liftby_inr_s.
+      simpl.
+      repeat rewrite fold_lift_from_s in *.
+      repeat rewrite fold_iter.
+      rewrite IHx; simpl in *; eauto; omega.
+    }
+    {
+      simpl.
+      repeat rewrite liftby_inlinr_s.
+      simpl.
+      repeat rewrite fold_lift_from_s in *.
+      repeat rewrite fold_iter.
+      repeat f_equal.
+      { rewrite IHx1; simpl in *; eauto; omega. }
+      { rewrite IHx2; simpl in *; eauto; omega. }
+    }
+    {
+      simpl.
+      repeat rewrite liftby_pair_s.
+      simpl.
+      repeat rewrite fold_lift_from_s in *.
+      repeat rewrite fold_iter.
+      repeat f_equal.
+      { rewrite IHx1; simpl in *; eauto; omega. }
+      { rewrite IHx2; simpl in *; eauto; omega. }
+    }
+    {
+      simpl.
+      repeat rewrite liftby_fold_s.
+      simpl.
+      repeat rewrite fold_lift_from_s in *.
+      repeat rewrite fold_iter.
+      rewrite IHx; simpl in *; eauto; omega.
+    }
+    {
+      simpl.
+      repeat rewrite liftby_hide_s.
+      simpl.
+      repeat rewrite fold_lift_from_s in *.
+      repeat rewrite fold_iter.
+      rewrite IHx; simpl in *; eauto; omega.
+    }
+  Qed.
+
+  Lemma subst_lift_s_s_n n v b : subst_size_size n v (iter (S n) (lift_from_s 0) b) = iter n (lift_from_s 0) b.
+  Proof.
+    intros; eapply subst_lift_s_s_n'; simpl in *; eauto; omega.
   Qed.
 
   Lemma subst_lift_s_s v b : subst_size_size 0 v (lift_from_s 0 b) = b.
-    admit.
+  Proof.
+    fold (iter 1 (lift_from_s 0) b).
+    repeat rewrite subst_lift_s_s_n in *.
+    simpl.
+    eauto.
+  Qed.
+
+  Arguments lower_s n s / .
+  Arguments lower_s_f n nv path / .
+
+  Lemma lower_iter_lift_s x : forall (n m r : nat), m <= r -> (r <= n + m)%nat -> visit_s (lower_s_f r, lower r) (iter (S n) (lift_from_s m) x) = iter n (lift_from_s m) x.
+  Proof.
+    induction x; intros n m r Hle1 Hle2.
+    {
+      simpl.
+      destruct x as [x p].
+      repeat rewrite liftby_var_s.
+      repeat rewrite liftby_nat.
+      simpl.
+      destruct (nat_cmp x m) as [ m' ? Hc | ? | x' ? Hc]; subst.
+      {
+        destruct (nat_cmp x (S m')); subst; destruct (nat_cmp _ _); subst; simpl in *; eauto; omega.
+      }
+      {
+        destruct (nat_cmp (S m) m); try subst; destruct (nat_cmp _ _); try subst; simpl in *; eauto; try omega.
+        rewrite <- plus_n_Sm in *.
+        inject e0.
+        eauto.
+      }
+      {
+        destruct (nat_cmp (S (S x')) m); subst; destruct (nat_cmp _ _); subst; simpl in *; eauto; try omega.
+        repeat rewrite <- plus_n_Sm in *.
+        inject e0.
+        eauto.
+      }
+    }
+    {
+      destruct s as [n1 n2].
+      simpl.
+      repeat rewrite liftby_stats_s.
+      simpl.
+      repeat f_equal; repeat rewrite fold_iter; eapply lower_iter_lift_f; simpl in *; eauto; omega.
+    }
+    {
+      simpl.
+      repeat rewrite liftby_tt_s.
+      simpl.
+      eauto.
+    }
+    {
+      simpl.
+      repeat rewrite liftby_inl_s.
+      simpl.
+      repeat rewrite fold_lift_from_s in *.
+      repeat rewrite fold_iter.
+      rewrite IHx; simpl in *; eauto; omega.
+    }
+    {
+      simpl.
+      repeat rewrite liftby_inr_s.
+      simpl.
+      repeat rewrite fold_lift_from_s in *.
+      repeat rewrite fold_iter.
+      rewrite IHx; simpl in *; eauto; omega.
+    }
+    {
+      simpl.
+      repeat rewrite liftby_inlinr_s.
+      simpl.
+      repeat rewrite fold_lift_from_s in *.
+      repeat rewrite fold_iter.
+      repeat f_equal.
+      { rewrite IHx1; simpl in *; eauto; omega. }
+      { rewrite IHx2; simpl in *; eauto; omega. }
+    }
+    {
+      simpl.
+      repeat rewrite liftby_pair_s.
+      simpl.
+      repeat rewrite fold_lift_from_s in *.
+      repeat rewrite fold_iter.
+      repeat f_equal.
+      { rewrite IHx1; simpl in *; eauto; omega. }
+      { rewrite IHx2; simpl in *; eauto; omega. }
+    }
+    {
+      simpl.
+      repeat rewrite liftby_fold_s.
+      simpl.
+      repeat rewrite fold_lift_from_s in *.
+      repeat rewrite fold_iter.
+      rewrite IHx; simpl in *; eauto; omega.
+    }
+    {
+      simpl.
+      repeat rewrite liftby_hide_s.
+      simpl.
+      repeat rewrite fold_lift_from_s in *.
+      repeat rewrite fold_iter.
+      rewrite IHx; simpl in *; eauto; omega.
+    }
   Qed.
 
   Lemma subst_lift_t_t_n_var v (x : var) (n m r : nat) : m <= r -> (r <= n + m)%nat -> visit_t r (subst_t_t_f 0 v, lower_sub 0, lower_sub 0) (iter (S n) (lift_from_t m) x) = iter n (lift_from_t m) x.
@@ -2370,6 +2603,7 @@ Section LambdaO.
     intros Hle1 Hle2.
     simpl.
     repeat rewrite liftby_var.
+    repeat rewrite liftby_nat.
     simpl.
     destruct (nat_cmp x m) as [ m' ? Hc | ? | x' ? Hc]; subst.
     {
@@ -2512,6 +2746,7 @@ Section LambdaO.
     intros Hle1 Hle2.
     simpl.
     repeat rewrite liftby_var.
+    repeat rewrite liftby_nat.
     simpl.
     destruct (nat_cmp x m) as [ m' ? Hc | ? | x' ? Hc]; subst.
     {
@@ -3342,7 +3577,7 @@ Section LambdaO.
           repeat rewrite fold_subst_s_s in *.
           fold (iter 1 (lift_from_s 0) (lift_from_s 0 s1)).
           fold (iter 2 (lift_from_s 0) (lift_from_s 0 s')).
-          rewrite subst_lift_s_s_n2.
+          rewrite subst_lift_s_s_n.
           simpl.
           repeat rewrite fold_subst_s_s in *.
           repeat rewrite fold_lift_from_s in *.
