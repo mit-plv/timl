@@ -3303,12 +3303,317 @@ Section LambdaO.
     eauto.
   Qed.
 
-  Lemma lift_from_liftby_s n s : lift_from_s n (iter n (lift_from_s 0) s) = iter (S n) (lift_from_s 0) s.
-    admit.
+  Lemma lift_from_liftby_f_n x : forall n m m', m' = m + n -> lift_from_f m' (iter n (lift_from_f m) x) = iter (S n) (lift_from_f m) x.
+  Proof.
+    induction x; intros n m ? ?; subst.
+    {
+      simpl.
+      repeat rewrite liftby_0_f.
+      simpl.
+      eauto.
+    }
+    {
+      simpl.
+      repeat rewrite liftby_add_f.
+      simpl.
+      repeat rewrite fold_lift_from_f in *.
+      repeat rewrite fold_iter.
+      repeat f_equal.
+      { rewrite IHx1; simpl in *; eauto; omega. }
+      { rewrite IHx2; simpl in *; eauto; omega. }
+    }
+    {
+      simpl.
+      repeat rewrite liftby_1_f.
+      simpl.
+      eauto.
+    }
+    {
+      simpl.
+      repeat rewrite liftby_mul_f.
+      simpl.
+      repeat rewrite fold_lift_from_f in *.
+      repeat rewrite fold_iter.
+      repeat f_equal.
+      { rewrite IHx1; simpl in *; eauto; omega. }
+      { rewrite IHx2; simpl in *; eauto; omega. }
+    }
+    {
+      simpl.
+      repeat rewrite liftby_scale_f.
+      simpl.
+      repeat rewrite fold_lift_from_f in *.
+      repeat rewrite fold_iter.
+      rewrite IHx; simpl in *; eauto; omega.
+    }
+    {
+      simpl.
+      repeat rewrite liftby_max_f.
+      simpl.
+      repeat rewrite fold_lift_from_f in *.
+      repeat rewrite fold_iter.
+      repeat f_equal.
+      { rewrite IHx1; simpl in *; eauto; omega. }
+      { rewrite IHx2; simpl in *; eauto; omega. }
+    }
+    {
+      simpl.
+      repeat rewrite liftby_log_f.
+      simpl.
+      repeat rewrite fold_lift_from_f in *.
+      repeat rewrite fold_iter.
+      rewrite IHx; simpl in *; eauto; omega.
+    }
+    {
+      simpl.
+      repeat rewrite liftby_exp_f.
+      simpl.
+      repeat rewrite fold_lift_from_f in *.
+      repeat rewrite fold_iter.
+      rewrite IHx; simpl in *; eauto; omega.
+    }
+    {
+      simpl.
+      destruct x as [x p].
+      repeat rewrite liftby_var_f.
+      repeat rewrite liftby_nat.
+      simpl.
+      destruct (nat_cmp x m) as [ m' ? Hc | ? | x' ? Hc]; subst; try omega.
+      {
+        destruct (nat_cmp _ (_ + _)); subst; destruct (nat_cmp _ _); subst; simpl in *; eauto; omega.
+      }
+      {
+        destruct (nat_cmp _ (_ + _)); try subst; destruct (nat_cmp _ _); try subst; simpl in *; eauto; try omega.
+        repeat rewrite <- plus_n_Sm in *.
+        eauto.
+      }
+      {
+        destruct (nat_cmp _ (_ + _)); try subst; destruct (nat_cmp _ _); try subst; simpl in *; eauto; try omega.
+        repeat rewrite <- plus_n_Sm in *.
+        eauto.
+      }
+    }
   Qed.
 
-  Lemma lift_from_liftby_t n t : lift_from_t n (iter n (lift_from_t 0) t) = iter (S n) (lift_from_t 0) t.
-    admit.
+  Lemma lift_from_liftby_f n x : lift_from_f n (iter n (lift_from_f 0) x) = iter (S n) (lift_from_f 0) x.
+  Proof.
+    intros; eapply lift_from_liftby_f_n; simpl; eauto.
+  Qed.
+
+  Lemma lift_from_liftby_s_n x : forall n m m', m' = m + n -> lift_from_s m' (iter n (lift_from_s m) x) = iter (S n) (lift_from_s m) x.
+  Proof.
+    induction x; intros n m ? ?; subst.
+    {
+      simpl.
+      destruct x as [x p].
+      repeat rewrite liftby_var_s.
+      repeat rewrite liftby_nat.
+      simpl.
+      destruct (nat_cmp x m) as [ m' ? Hc | ? | x' ? Hc]; subst; try omega.
+      {
+        destruct (nat_cmp _ (_ + _)); subst; destruct (nat_cmp _ _); subst; simpl in *; eauto; omega.
+      }
+      {
+        destruct (nat_cmp _ (_ + _)); try subst; destruct (nat_cmp _ _); try subst; simpl in *; eauto; try omega.
+        repeat rewrite <- plus_n_Sm in *.
+        eauto.
+      }
+      {
+        destruct (nat_cmp _ (_ + _)); try subst; destruct (nat_cmp _ _); try subst; simpl in *; eauto; try omega.
+        repeat rewrite <- plus_n_Sm in *.
+        eauto.
+      }
+    }
+    {
+      destruct s as [n1 n2].
+      simpl.
+      repeat rewrite liftby_stats_s.
+      simpl.
+      repeat f_equal; repeat rewrite fold_iter; eapply lift_from_liftby_f_n; simpl in *; eauto; omega.
+    }
+    {
+      simpl.
+      repeat rewrite liftby_tt_s.
+      simpl.
+      eauto.
+    }
+    {
+      simpl.
+      repeat rewrite liftby_inl_s.
+      simpl.
+      repeat rewrite fold_lift_from_s in *.
+      repeat rewrite fold_iter.
+      rewrite IHx; simpl in *; eauto; omega.
+    }
+    {
+      simpl.
+      repeat rewrite liftby_inr_s.
+      simpl.
+      repeat rewrite fold_lift_from_s in *.
+      repeat rewrite fold_iter.
+      rewrite IHx; simpl in *; eauto; omega.
+    }
+    {
+      simpl.
+      repeat rewrite liftby_inlinr_s.
+      simpl.
+      repeat rewrite fold_lift_from_s in *.
+      repeat rewrite fold_iter.
+      repeat f_equal.
+      { rewrite IHx1; simpl in *; eauto; omega. }
+      { rewrite IHx2; simpl in *; eauto; omega. }
+    }
+    {
+      simpl.
+      repeat rewrite liftby_pair_s.
+      simpl.
+      repeat rewrite fold_lift_from_s in *.
+      repeat rewrite fold_iter.
+      repeat f_equal.
+      { rewrite IHx1; simpl in *; eauto; omega. }
+      { rewrite IHx2; simpl in *; eauto; omega. }
+    }
+    {
+      simpl.
+      repeat rewrite liftby_fold_s.
+      simpl.
+      repeat rewrite fold_lift_from_s in *.
+      repeat rewrite fold_iter.
+      rewrite IHx; simpl in *; eauto; omega.
+    }
+    {
+      simpl.
+      repeat rewrite liftby_hide_s.
+      simpl.
+      repeat rewrite fold_lift_from_s in *.
+      repeat rewrite fold_iter.
+      rewrite IHx; simpl in *; eauto; omega.
+    }
+  Qed.
+
+  Lemma lift_from_liftby_s n x : lift_from_s n (iter n (lift_from_s 0) x) = iter (S n) (lift_from_s 0) x.
+  Proof.
+    intros; eapply lift_from_liftby_s_n; simpl; eauto.
+  Qed.
+
+  Lemma lift_from_liftby_t_n x : forall n m m', m' = m + n -> lift_from_t m' (iter n (lift_from_t m) x) = iter (S n) (lift_from_t m) x.
+  Proof.
+    induction x; intros n m ? ?; subst.
+    {
+      simpl.
+      repeat rewrite liftby_arrow.
+      simpl.
+      f_equal.
+      {
+        repeat rewrite fold_lift_from_t in *.
+        rewrite fold_iter.
+        rewrite IHx1; eauto.
+      }
+      {
+        repeat rewrite fold_lift_from_f in *.
+        repeat rewrite fold_iter.
+        eapply lift_from_liftby_f_n; simpl in *; eauto; omega.
+      }
+      {
+        repeat rewrite fold_lift_from_s in *.
+        repeat rewrite fold_iter.
+        eapply lift_from_liftby_s_n; simpl in *; eauto; omega.
+      }
+      {
+        repeat rewrite fold_lift_from_t in *.
+        rewrite fold_iter.
+        rewrite IHx2; simpl in *; eauto; omega.
+      }
+    }
+    {
+      simpl.
+      rename t into c.
+      repeat rewrite liftby_constr.
+      simpl.
+      eauto.
+    }
+    {
+      simpl.
+      repeat rewrite liftby_var.
+      repeat rewrite liftby_nat.
+      simpl.
+      destruct (nat_cmp x m) as [ m' ? Hc | ? | x' ? Hc]; subst; try omega.
+      {
+        destruct (nat_cmp _ (_ + _)); subst; destruct (nat_cmp _ _); subst; simpl in *; eauto; omega.
+      }
+      {
+        destruct (nat_cmp _ (_ + _)); try subst; destruct (nat_cmp _ _); try subst; simpl in *; eauto; try omega.
+      }
+      {
+        destruct (nat_cmp _ (_ + _)); try subst; destruct (nat_cmp _ _); try subst; simpl in *; eauto; try omega.
+      }
+    }
+    {
+      simpl.
+      repeat rewrite liftby_universal.
+      simpl.
+      f_equal.
+      {
+        repeat rewrite fold_lift_from_f in *.
+        repeat rewrite fold_iter.
+        eapply lift_from_liftby_f_n; simpl in *; eauto; omega.
+      }
+      {
+        repeat rewrite fold_lift_from_s in *.
+        repeat rewrite fold_iter.
+        eapply lift_from_liftby_s_n; simpl in *; eauto; omega.
+      }
+      {
+        repeat rewrite fold_lift_from_t in *.
+        rewrite fold_iter.
+        rewrite IHx; simpl in *; eauto; omega.
+      }
+    }
+    {
+      simpl.
+      repeat rewrite liftby_abs.
+      simpl.
+      repeat rewrite fold_lift_from_t in *.
+      rewrite fold_iter.
+      rewrite IHx; simpl in *; eauto; omega.
+    }
+    {
+      simpl.
+      repeat rewrite liftby_app.
+      simpl.
+      f_equal.
+      {
+        repeat rewrite fold_lift_from_t in *.
+        rewrite fold_iter.
+        rewrite IHx1; eauto.
+      }
+      {
+        repeat rewrite fold_lift_from_t in *.
+        rewrite fold_iter.
+        rewrite IHx2; simpl in *; eauto; omega.
+      }
+    }
+    {
+      simpl.
+      repeat rewrite liftby_recur.
+      simpl.
+      repeat rewrite fold_lift_from_t in *.
+      rewrite fold_iter.
+      rewrite IHx; simpl in *; eauto; omega.
+    }
+    {
+      simpl.
+      repeat rewrite liftby_hide.
+      simpl.
+      repeat rewrite fold_lift_from_t in *.
+      rewrite fold_iter.
+      rewrite IHx; simpl in *; eauto; omega.
+    }
+  Qed.
+
+  Lemma lift_from_liftby_t n x : lift_from_t n (iter n (lift_from_t 0) x) = iter (S n) (lift_from_t 0) x.
+  Proof.
+    intros; eapply lift_from_liftby_t_n; simpl; eauto.
   Qed.
 
   Lemma TPpair_app T A B a b n1 n2 s1 s2 :
