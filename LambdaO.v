@@ -759,14 +759,16 @@ Section LambdaO.
       | Eunhide e =>Eunhide (visit_e n f e)
     end.
 
+  Definition lift_e_f nv nq :=
+    match nat_cmp nv nq with 
+      | LT _ _ _ => #nv : expr
+      | _ => #(S nv) : expr
+    end.
+
   Definition lift_from_e n e := 
     visit_e 
       n
-      (fun nv nq =>
-         match nat_cmp nv nq with 
-           | LT _ _ _ => #nv : expr
-           | _ => #(S nv) : expr
-         end, lift_from) 
+      (lift_e_f, lift_from) 
       e.
 
   Instance Lift_expr : Lift expr :=
@@ -1960,7 +1962,7 @@ Section LambdaO.
       typing T (Etapp e t2) (subst t2 t) (n' + F1 + n) s
   | TPtabs T e n s t :
       typing (add_kinding 0 T) e t n s ->
-      typing T (Etabs e) (Tuniversal (lift n) (lift s) t) F0 Stt
+      typing T (Etabs e) (Tuniversal n s t) F0 Stt
   | TPlet T t1 e1 e2 t2 n1 n2 s1 s2:
       typing T e1 t1 n1 s1 ->
       typing (add_typing (t1, Some s1) T) e2 t2 n2 s2 ->
@@ -4129,33 +4131,265 @@ Section LambdaO.
     admit.
   Qed.
 
-  Lemma TPlift_insert T e t c s : 
-    typing T e t c s ->
-    forall T1 x T2 T' m,
+  Lemma fold_lift_from_e n x : visit_e n (lift_e_f, lift_from) x = lift_from_e n x.
+  Proof.
+    eauto.
+  Qed.
+
+  Definition uncurry {U V W : Type} (f : U -> V -> W) (p : U*V) : W :=
+    f (fst p) (snd p).
+  Arguments uncurry {U V W} f p / .
+
+  Fixpoint rev_range len :=
+    match len with
+      | 0 => nil
+      | S n => n :: rev_range n
+    end.
+
+  Open Scope F.
+
+  Lemma subst_lift_from_s_t x : forall v n m, (m <= n)%nat -> subst_size_type m (lift_from_s n v) (lift_from_t (S n) x) = lift_from_t n (subst_size_type m v x).
+    admit.
+  Qed.
+  Lemma subst_lift_from_s_s x : forall v n m, (m <= n)%nat -> subst_size_size m (lift_from_s n v) (lift_from_s (S n) x) = lift_from_s n (subst_size_size m v x).
+    admit.
+  Qed.
+  Lemma subst_lift_from_t_t x : forall v n m, (m <= n)%nat -> subst_t_t m (lift_from_t n v) (lift_from_t (S n) x) = lift_from_t n (subst_t_t m v x).
+    admit.
+  Qed.
+  Lemma lift_from_lift_from_f x n : lift_from_f (S n) (lift_from_f 0 x) = lift_from_f 0 (lift_from_f n x).
+    admit.
+  Qed.
+  Lemma lift_from_lift_from_s x n : lift_from_s (S n) (lift_from_s 0 x) = lift_from_s 0 (lift_from_s n x).
+    admit.
+  Qed.
+  Lemma Kinsert T t k : 
+    kinding T t k ->
+    forall T1 skipped T2 T' m,
       T = T1 ++ T2 ->
-      T' = map lift T1 ++ x :: T2 ->
       m = length T1 ->
+      T' = map (uncurry lift_from) (combine (rev_range m) T1) ++ skipped :: T2 ->
+      kinding T' (lift_from m t) k.
+    admit.
+  Qed.
+
+  Lemma TPlet' T t1 e1 e2 t2 n1 n2 s1 s2 t2' :
+    typing T e1 t1 n1 s1 ->
+    typing (add_typing (t1, Some s1) T) e2 t2 n2 s2 ->
+    t2' = subst s1 t2 ->
+    typing T (Elet t1 e1 e2) t2' (n1 + subst s1 n2)%F (subst s1 s2).
+  Proof.
+    intros; subst; eapply TPlet; eauto.
+  Qed.
+
+  Require Import GeneralTactics3.
+
+  Lemma TPinsert T e t c s : 
+    typing T e t c s ->
+    forall T1 skipped T2 T' m,
+      T = T1 ++ T2 ->
+      m = length T1 ->
+      T' = map (uncurry lift_from) (combine (rev_range m) T1) ++ skipped :: T2 ->
       typing T' (lift_from m e) (lift_from m t) (lift_from m c) (lift_from m s).
   Proof.
-    induction 1.
+    induction 1; unfold_all; intros T1 skipped T2 T' m ? ? ?; subst.
     {
-      intros T1 x T2 T' m ? ? ?; subst.
-      simpl.
-      (*here*)
+      rename n into x.
+      Arguments lift_e_f nv nq / .
+      simpl in *.
+      repeat rewrite fold_lift_from_t in *.
+      repeat rewrite fold_lift_from_s in *.
+      destruct (nat_cmp x (length T1)) as [x' ? Hc | ? | x' ? Hc]; subst.
+      {
+        eapply TPvar'.
+        { simpl.
+          rewrite Expr.nth_error_app_L in H by eauto.
+          eapply Structured.nth_error_app1.
+          etransitivity.
+          {
+            eapply map_nth_error.
+            eapply nth_error_combine.
+            {
+              Lemma nth_error_rev_range len i : i < len -> nth_error (rev_range len) i = Some (len - (1 + i)).
+                admit.
+              Qed.
+              rewrite nth_error_rev_range by eauto.
+              eauto.
+            }
+            { eauto. }
+          }
+          { simpl; eauto. }
+        }
+        { simpl.
+          admit.
+        }
+        admit.
+      }
+      admit.
+      admit.
     }
-  Qed.
+    {
+      simpl in *.
+      repeat rewrite fold_lift_from_s in *.
+      repeat rewrite fold_subst_s_f in *.
+      repeat rewrite fold_lift_from_f in *.
+      repeat rewrite <- subst_lift_from_s_f by omega.
+      repeat rewrite fold_subst_s_s in *.
+      repeat rewrite <- subst_lift_from_s_s by omega.
+      eapply TPapp'.
+      { eapply IHtyping1; eauto. }
+      { eapply IHtyping2; eauto. }
+      simpl.
+      repeat rewrite fold_lift_from_t in *.
+      repeat rewrite fold_subst_s_t in *.
+      repeat rewrite fold_lift_from_s in *.
+      repeat rewrite subst_lift_s_t in *.
+      repeat rewrite subst_lift_from_s_t by omega.
+      eauto.
+    }
+    {
+      simpl in *.
+      eapply TPabs.
+      { eapply Kinsert; eauto. }
+      eapply IHtyping. 
+      { rewrite app_comm_cons.
+        eauto.
+      }
+      { eauto. }
+      { simpl; eauto. }
+    }
+    {
+      simpl in *.
+      eapply TPtapp'.
+      { simpl. 
+        repeat rewrite fold_lift_from_e in *.
+        repeat rewrite fold_lift_from_s in *.
+        repeat rewrite fold_lift_from_f in *.
+        repeat rewrite <- lift_from_lift_from_f in *.
+        repeat rewrite <- lift_from_lift_from_s in *.
+        { eapply IHtyping; eauto. }
+      }
+      simpl.
+      repeat rewrite fold_lift_from_t in *.
+      repeat rewrite fold_subst_t_t in *.
+      repeat rewrite subst_lift_from_t_t by omega.
+      eauto.
+    }
+    {
+      simpl in *.
+      eapply TPtabs.
+      eapply IHtyping. 
+      { rewrite app_comm_cons.
+        eauto.
+      }
+      { eauto. }
+      { simpl; eauto. }
+    }
+    {
+      simpl in *.
+      repeat rewrite fold_lift_from_s in *.
+      repeat rewrite fold_subst_s_f in *.
+      repeat rewrite fold_lift_from_f in *.
+      repeat rewrite <- subst_lift_from_s_f by omega.
+      repeat rewrite fold_subst_s_s in *.
+      repeat rewrite <- subst_lift_from_s_s by omega.
+      eapply TPlet'.
+      { eapply IHtyping1; eauto. }
+      { eapply IHtyping2.
+        { rewrite app_comm_cons.
+          eauto.
+        }
+        { eauto. }
+        { simpl; eauto. }
+      }
+      simpl.
+      repeat rewrite fold_lift_from_t in *.
+      repeat rewrite fold_subst_s_t in *.
+      repeat rewrite fold_lift_from_s in *.
+      repeat rewrite subst_lift_s_t in *.
+      repeat rewrite subst_lift_from_s_t by omega.
+      eauto.
+    }
+    {
+      simpl.
+      eapply TPletrec.
+      {
+        intros lhs_t rhs_t e Hin.
+        Lemma in_loop A B ls b f : In b ((fix loop (ls : list A) : list B := match ls with [] => [] | x :: xs => f x :: loop xs end) ls) -> exists a, In a ls /\ f a = b.
+          admit.
+        Qed.
+        (*here*)
+        eapply (@in_loop (type * type * expr) (type * type * expr)) in Hin.
+      }
+      repeat rewrite fold_lift_from_s in *.
+      repeat rewrite fold_subst_s_f in *.
+      repeat rewrite fold_lift_from_f in *.
+      repeat rewrite <- subst_lift_from_s_f by omega.
+      repeat rewrite fold_subst_s_s in *.
+      repeat rewrite <- subst_lift_from_s_s by omega.
+      eapply TPlet'.
+      { eapply IHtyping1; eauto. }
+      { eapply IHtyping2.
+        { rewrite app_comm_cons.
+          eauto.
+        }
+        { eauto. }
+        { simpl; eauto. }
+      }
+      simpl.
+      repeat rewrite fold_lift_from_t in *.
+      repeat rewrite fold_subst_s_t in *.
+      repeat rewrite fold_lift_from_s in *.
+      repeat rewrite subst_lift_s_t in *.
+      repeat rewrite subst_lift_from_s_t by omega.
+      eauto.
+    }
 
-  Lemma TPlift T e t n s r : typing T e t n s -> typing (r :: T) (lift e) (lift t) (lift n) (lift s).
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
     admit.
   Qed.
 
-  Lemma TPlift2 T e t n s r0 r1 r2 r0' r1' : 
+  Lemma TPinsert2 T e t n s r0 r1 r2 r0' r1' : 
     typing (r0 :: r1 :: T) e t n s ->
-    r0' = lift r0 ->
-    r1' = lift r1 ->
+    r0' = lift_from 1 r0 ->
+    r1' = lift_from 0 r1 ->
     typing (r0' :: r1' :: r2 :: T) (lift_from 2 e) (lift_from 2 t) (lift_from 2 n) (lift_from 2 s).
   Proof.
-    admit.
+    intros H ? ?; subst.
+    eapply TPinsert; eauto.
+    {
+      instantiate (1 := T).
+      instantiate (1 := [r0; r1]).
+      eauto.
+    }
+    { eauto. }
+    simpl; eauto.
+  Qed.
+
+  Lemma TPinsert0 T e t n s r : typing T e t n s -> typing (r :: T) (lift e) (lift t) (lift n) (lift s).
+  Proof.
+    intros H.
+    eapply TPinsert; eauto.
+    {
+      instantiate (1 := T).
+      instantiate (1 := []).
+      eauto.
+    }
+    { eauto. }
+    simpl; eauto.
   Qed.
 
   Lemma TPmatch_list T e e1 e2 telm n s s1 s2 t' na nb s' :
@@ -4191,7 +4425,7 @@ Section LambdaO.
       { simpl; eauto. }
       {
         rewrite fold_lift_from_t in *.
-        eapply TPlift; eauto.
+        eapply TPinsert0; eauto.
       }
       {
         eapply TPmatch_pair'.
@@ -4206,7 +4440,18 @@ Section LambdaO.
         {
           simpl.
           repeat rewrite fold_lift_from_t in *.
-          eapply TPlift2; eauto.
+          repeat rewrite fold_lift_from_s in *.
+          repeat rewrite fold_lift_from_e in *.
+          eapply TPinsert2; simpl; eauto.
+          simpl in *.
+          repeat rewrite fold_lift_from_t in *.
+          repeat rewrite fold_lift_from_s in *.
+          repeat rewrite fold_lift_from_e in *.
+          fold (iter 1 (lift_from_t 0) telm).
+          rewrite lift_from_liftby_t.
+          fold (iter 1 (lift_from_s 0) s2).
+          rewrite lift_from_liftby_s.
+          eauto.
         }
         {
           simpl.
@@ -4375,8 +4620,8 @@ Section LambdaO.
         eapply TPmatch_inlinr.
         { eauto. }
         { eauto. }
-        { eapply TPlift; eauto. }
-        { eapply TPlift; eauto. }
+        { eapply TPinsert0; eauto. }
+        { eapply TPinsert0; eauto. }
       }
       {
         simpl.
