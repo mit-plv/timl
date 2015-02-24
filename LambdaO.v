@@ -135,9 +135,9 @@ Section LambdaO.
 
   (* 
     There are two statistics (or 'sizes') for each value :
-    s0 : number of invocations of 'fold' 
+    s0 (work) : number of invocations of 'fold' 
          (for algebraic data types, this correspond to the number of constructor invocations to construct this value);
-    s1 : parallel version of s0, where the fields of a pair are max'ed instead of sum'ed;
+    s1 (span) : parallel version of s0, where the fields of a pair are max'ed instead of sum'ed;
     For example, for lists, s0 correspond to its length; for trees, s0 corresponds to its number of nodes; s1 corresponds to its depth.
   *)
 
@@ -4192,8 +4192,9 @@ Section LambdaO.
       T' = map (uncurry lift_from) (combine (rev_range m) T1) ++ skipped :: T2 ->
       typing T' (lift_from m e) (lift_from m t) (lift_from m c) (lift_from m s).
   Proof.
-    induction 1; unfold_all; intros T1 skipped T2 T' m ? ? ?; subst.
+    induction 1.
     {
+      unfold_all; intros T1 skipped T2 T' m ? ? ?; subst.
       rename n into x.
       Arguments lift_e_f nv nq / .
       simpl in *.
@@ -4229,6 +4230,7 @@ Section LambdaO.
       admit.
     }
     {
+      unfold_all; intros T1 skipped T2 T' m ? ? ?; subst.
       simpl in *.
       repeat rewrite fold_lift_from_s in *.
       repeat rewrite fold_subst_s_f in *.
@@ -4248,6 +4250,7 @@ Section LambdaO.
       eauto.
     }
     {
+      unfold_all; intros T1 skipped T2 T' m ? ? ?; subst.
       simpl in *.
       eapply TPabs.
       { eapply Kinsert; eauto. }
@@ -4259,6 +4262,7 @@ Section LambdaO.
       { simpl; eauto. }
     }
     {
+      unfold_all; intros T1 skipped T2 T' m ? ? ?; subst.
       simpl in *.
       eapply TPtapp'.
       { simpl. 
@@ -4276,6 +4280,7 @@ Section LambdaO.
       eauto.
     }
     {
+      unfold_all; intros T1 skipped T2 T' m ? ? ?; subst.
       simpl in *.
       eapply TPtabs.
       eapply IHtyping. 
@@ -4286,6 +4291,7 @@ Section LambdaO.
       { simpl; eauto. }
     }
     {
+      unfold_all; intros T1 skipped T2 T' m ? ? ?; subst.
       simpl in *.
       repeat rewrite fold_lift_from_s in *.
       repeat rewrite fold_subst_s_f in *.
@@ -4311,6 +4317,7 @@ Section LambdaO.
       eauto.
     }
     {
+      unfold_all; intros T1 skipped T2 T' m ? ? ?; subst.
       simpl.
       eapply TPletrec.
       {
