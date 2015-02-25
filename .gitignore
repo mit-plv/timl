@@ -1,0 +1,6 @@
+.\#*
+*~
+.dir-locals.el
+*.aux
+*.log
+*.pdf
