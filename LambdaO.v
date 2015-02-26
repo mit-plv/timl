@@ -851,6 +851,7 @@ Section LambdaO.
   
   Arguments snd {A B} _.
 
+  (* evaluation context *)
   Inductive context :=
     | CTempty
     | CTapp1 (f : context) (arg : expr)
