@@ -231,29 +231,25 @@ Section LambdaO.
     admit.
   Qed.
 
-  Inductive formula :=
+  (* complexity expression *)
+  Inductive cexpr :=
   (* it is a ring *)
   | F0
-  | Fadd (a b : formula)
+  | Fadd (a b : cexpr)
   | F1
-  | Fmul (a b : formula)
+  | Fmul (a b : cexpr)
   (* it is a module, so also an algebra*)
-  | Fscale (_ : QN) (_ : formula)
+  | Fscale (_ : QN) (_ : cexpr)
   (* some special operations *)
-  | Fmax (a b : formula)
-  | Flog (base : QN) (n : formula)
-  | Fexp (base : QN) (n : formula)
+  | Fmax (a b : cexpr)
+  | Flog (base : QN) (n : cexpr)
+  | Fexp (base : QN) (n : cexpr)
   (* variables *)
   | Fvar (x : var_path) (stat : stat_idx)
   .
 
   Definition Fconst c := Fscale c F1.
-  Coercion Fconst : QN >-> formula.
-
-  Delimit Scope formula_scope with F.
-  Open Scope F.
-  Delimit Scope general_scope with G.
-  Open Scope G.
+  Coercion Fconst : QN >-> cexpr.
 
   Class Add t := 
     {
@@ -267,12 +263,12 @@ Section LambdaO.
       add := Peano.plus
     }.
 
-  Instance Add_formula : Add formula :=
+  Instance Add_cexpr : Add cexpr :=
     {
       add := Fadd
     }.
 
-  Definition stats := (formula * formula)%type.
+  Definition stats := (cexpr * cexpr)%type.
 
   Inductive size :=
   | Svar (x : var_path)
@@ -370,12 +366,12 @@ Section LambdaO.
       max : t -> t -> t
     }.
 
-  Instance Max_formula : Max formula :=
+  Instance Max_cexpr : Max cexpr :=
     {
       max := Fmax
     }.
 
-  Definition stats_binop {A} (f : formula -> formula -> A) (a b : stats) :=
+  Definition stats_binop {A} (f : cexpr -> cexpr -> A) (a b : stats) :=
     match a, b with
       | (a0, a1), (b0, b1) => (f a0 b0, f a1 b1)
     end.
@@ -434,7 +430,7 @@ Section LambdaO.
       | GT p _ _ => Fvar (#p, path) i
     end.
 
-  Definition subst_size_formula (n : nat) (v : size) (b : formula) : formula :=
+  Definition subst_size_cexpr (n : nat) (v : size) (b : cexpr) : cexpr :=
     visit_f (subst_s_f_f n v) b.
 
   (* substitute the outer-most bound variable *)
@@ -445,9 +441,9 @@ Section LambdaO.
 
   Definition subst `{Subst V B} := substn 0.
 
-  Instance Subst_size_formula : Subst size formula :=
+  Instance Subst_size_cexpr : Subst size cexpr :=
     {
-      substn := subst_size_formula
+      substn := subst_size_cexpr
     }.
 
   Definition shift_nat n nv :=
@@ -470,7 +466,7 @@ Section LambdaO.
   Definition shift `{Lift t} := shift_from 0.
   Definition shiftby `{Lift t} n := iter n shift.
   
-  Instance Lift_formula : Lift formula :=
+  Instance Lift_cexpr : Lift cexpr :=
     {
       shift_from := shift_from_f
     }.
@@ -493,17 +489,17 @@ Section LambdaO.
       lower : nat -> t -> t
     }.
 
-  Instance Lower_formula : Lower formula :=
+  Instance Lower_cexpr : Lower cexpr :=
     {
       lower := lower_f
     }.
 
-  Definition map_stats {A} (f : formula -> A) (ss : stats) := 
+  Definition map_stats {A} (f : cexpr -> A) (ss : stats) := 
     match ss with
       | (n0, n1) => (f n0, f n1)
     end.
  
-  Fixpoint visit_s (f : (nat -> path -> size) * (formula -> formula)) s :=
+  Fixpoint visit_s (f : (nat -> path -> size) * (cexpr -> cexpr)) s :=
     let (fv, ff) := f in
     match s with
       | Svar (nv, path) => fv nv path
@@ -574,12 +570,12 @@ Section LambdaO.
   .
 
   Inductive type :=
-  | Tarrow (t1 : type) (time_cost : formula) (result_size : size) (t2 : type)
+  | Tarrow (t1 : type) (time_cost : cexpr) (result_size : size) (t2 : type)
   (* basic types *)
   | Tconstr (_ : tconstr)
   (* polymorphism *)           
   | Tvar (x : var)
-  | Tuniversal (time_cost : formula) (result_size : size) (t : type)
+  | Tuniversal (time_cost : cexpr) (result_size : size) (t : type)
   (* higher-order operators *)
   | Tabs (t : type)
   | Tapp (a b : type)
@@ -591,7 +587,7 @@ Section LambdaO.
 
   Coercion Tvar : var >-> type.
 
-  Fixpoint visit_t n (f : (nat -> nat -> type) * (nat -> formula -> formula) * (nat -> size -> size)) b :=
+  Fixpoint visit_t n (f : (nat -> nat -> type) * (nat -> cexpr -> cexpr) * (nat -> size -> size)) b :=
     let fv := fst $ fst f in
     let ff := snd $ fst f in
     let fs := snd f in
@@ -817,71 +813,7 @@ Section LambdaO.
       lower := lower_e
     }.
 
-  Inductive IsOpaque : expr -> Prop :=
-    | OPvar x : IsOpaque (Evar x)
-    | OPconstr c : IsOpaque (Econstr c)
-  .
-
-  Inductive general_arg :=
-    | Aapp (_ : expr)
-    | Atapp (_ : type)
-    | Afold (_ : type)
-    | Ahide 
-  .
-
-  Definition general_apply (f : expr) (a : general_arg) :=
-    match a with
-      | Aapp e => Eapp f e
-      | Atapp t => Etapp f t
-      | Afold t => Efold t f
-      | Ahide => Ehide f
-    end.
-
-  Definition general_apply_many f args := fold_left general_apply args f.
-
-  Definition app_many f args := fold_left Eapp args f.
-
-  Inductive IsValue : expr -> Prop :=
-  | Vabs t e : IsValue (Eabs t e)
-  | Vapp f args : 
-      IsOpaque f ->
-      (forall a, In (Aapp a) args -> IsValue a) ->
-      IsValue (general_apply_many f args)
-  .
-  
   Arguments snd {A B} _.
-
-  (* evaluation context *)
-  Inductive context :=
-    | CTempty
-    | CTapp1 (f : context) (arg : expr)
-    | CTapp2 (f : expr) (arg : context) : IsValue f -> context
-    | CTlet (t : type) (def : context) (main : expr)
-    | CTletrec (defs : list letrec_entry) (main : context) (* Only evaluate main. All the definitions are already values, since that are all functions *)
-    | CTmatch_pair (target : context) (_ : expr)
-    | CTmatch_sum (target : context) (a b : expr)
-    | CTtapp (f : context) (t : type)
-    | CTfold (t : type) (_ : context)
-    | CTunfold (t : type) (_ : context)
-    | CThide (_ : context)
-    | CTunhide (_ : context)
-  .
-
-  Fixpoint plug (c : context) (e : expr) : expr :=
-    match c with
-      | CTempty => e
-      | CTapp1 f arg => Eapp (plug f e) arg
-      | CTapp2 f arg _ => Eapp f (plug arg e)
-      | CTlet t def main => Elet t (plug def e) main
-      | CTletrec defs main => Eletrec defs (plug main e)
-      | CTmatch_pair target k => Ematch_pair (plug target e) k
-      | CTmatch_sum target a b => Ematch_sum (plug target e) a b
-      | CTtapp f t => Etapp (plug f e) t
-      | CTfold t c => Efold t (plug c e)
-      | CTunfold t c => Eunfold t (plug c e)
-      | CThide c => Ehide (plug c e)
-      | CTunhide c => Eunhide (plug c e)
-    end.
 
   Class Find key value container := 
     {
@@ -910,33 +842,6 @@ Section LambdaO.
   Definition Einl := Econstr Cinl.
   Definition Einr := Econstr Cinr.
   Definition Ett := Econstr Ctt.
-
-  Inductive step : expr -> expr -> Prop :=
-    | STcontext c e1 e2 : step e1 e2 -> step (plug c e1) (plug c e2)
-    | STapp t body arg : IsValue arg -> step (Eapp (Eabs t body) arg) (subst arg body)
-    | STlet t v main : IsValue v -> step (Elet t v main) (subst v main)
-    | STletrec_instantiate defs c (n : nat) t e : 
-        find n defs = Some (t, e) -> 
-        step (Eletrec defs (plug c (Evar #n))) (Eletrec defs (plug c e))  (* the definitions are only simplified, but not making any recursive or mutual-recursive call. All these calls are made only in the evaluation of 'main' *)
-    | STletrec_finish defs v : IsValue v -> step (Eletrec defs v) v
-    | STmatch_pair ta tb a b k : 
-        IsValue a ->
-        IsValue b ->
-        step (Ematch_pair (Epair $$ ta $$ tb $$ a $$ b) k) (subst_list [a; b] k)
-    | STmatch_inl ta tb v k1 k2 : 
-        IsValue v ->
-        step (Ematch_sum (Einl $$ ta $$ tb $$ v) k1 k2) (subst v k1)
-    | STmatch_inr ta tb v k1 k2 : 
-        IsValue v ->
-        step (Ematch_sum (Einr $$ ta $$ tb $$ v) k1 k2) (subst v k2)
-    | STtapp body t : step (Etapp (Etabs body) t) (subst t body)
-    | STunfold_fold v t1 t2 : 
-        IsValue v ->
-        step (Eunfold t2 (Efold t1 v)) v
-    | STunhide_hide v :
-        IsValue v ->
-        step (Eunhide (Ehide v)) v
-  .
 
   (* Typing context.
      The second field of TEtyping is the optional size constraint
@@ -1060,7 +965,7 @@ Section LambdaO.
   Infix "/" := Fdiv : F.
   Open Scope F.
 
-  Delimit Scope formula01_scope with F01.
+  Delimit Scope cexpr01_scope with F01.
   Notation " 0 " := F0 : F01.
   Notation " 1 " := F1 : F01.
   Open Scope F01.
@@ -1069,7 +974,7 @@ Section LambdaO.
 
   Notation log2 := (Flog 2%QN).
 
-  Inductive leE : formula -> formula -> Prop :=
+  Inductive leE : cexpr -> cexpr -> Prop :=
   | leE_refl n : n == n
   | leE_trans a b c : a == b -> b == c -> a == c
   | leE_symm a b : a == b -> b == a
@@ -1111,14 +1016,14 @@ Section LambdaO.
 
   Delimit Scope leE_scope with leE.
 
-  Global Add Relation formula leE
+  Global Add Relation cexpr leE
       reflexivity proved by leE_refl
       symmetry proved by leE_symm
       transitivity proved by leE_trans
         as leE_rel.
 
-  (* precise less-than relation on formulas *)
-  Inductive leF : formula -> formula -> Prop :=
+  (* precise less-than relation on cexprs *)
+  Inductive leF : cexpr -> cexpr -> Prop :=
   (* variable rules, interpreting the variable as growing ever larger (symptotic) *)
   | leF_1x x i : 1 <= Fvar x i
   (* preorder rules *)
@@ -1142,8 +1047,8 @@ Section LambdaO.
 
   Delimit Scope leF_scope with leF.
 
-  (* less-than relation on formulas ignoring constant addend *)
-  Inductive leC : formula -> formula -> Prop :=
+  (* less-than relation on cexprs ignoring constant addend *)
+  Inductive leC : cexpr -> cexpr -> Prop :=
   (* ignore constant addend *)
   | leC_addcx c x i : c + Fvar x i <= Fvar x i
   (* preorder rules *)
@@ -1168,8 +1073,8 @@ Section LambdaO.
 
   Delimit Scope leC_scope with leC.
 
-  (* big-O less-than relation on formulas *)
-  Inductive leO : formula -> formula -> Prop :=
+  (* big-O less-than relation on cexprs *)
+  Inductive leO : cexpr -> cexpr -> Prop :=
   (* ignore constant factor *)
   | leO_cn_n c n : c *: n <= n
   (* variable rules, interpreting the variable as growing ever larger (symptotic) *)
@@ -1196,8 +1101,8 @@ Section LambdaO.
 
   Delimit Scope leO_scope with leO.
 
-  (* the default <= on formula will be leC *)
-  Instance Le_formula : Le formula :=
+  (* the default <= on cexpr will be leC *)
+  Instance Le_cexpr : Le cexpr :=
     {
       le := leC
     }.
@@ -1214,12 +1119,12 @@ Section LambdaO.
       le := leS
     }.
 
-  Lemma leC_refl (n : formula) : n <= n.
+  Lemma leC_refl (n : cexpr) : n <= n.
   Proof.
     simpl; eapply leC_leE; reflexivity.
   Qed.
 
-  Global Add Relation formula leC
+  Global Add Relation cexpr leC
       reflexivity proved by leC_refl
       transitivity proved by leC_trans
         as leC_rel.
@@ -1244,12 +1149,12 @@ Section LambdaO.
   Infix "<=" := leC : F.
   Infix "<<=" := leO (at level 70) : F.
 
-  Lemma leO_refl (n : formula) : n <<= n.
+  Lemma leO_refl (n : cexpr) : n <<= n.
   Proof.
     simpl; eapply leO_leE; reflexivity.
   Qed.
 
-  Global Add Relation formula leO
+  Global Add Relation cexpr leO
       reflexivity proved by leO_refl
       transitivity proved by leO_trans
         as leO_rel.
@@ -1946,7 +1851,7 @@ Section LambdaO.
 
   Notation Tuniversal0 := (Tuniversal F0 Stt).
 
-  Inductive typing : tcontext -> expr -> type -> formula -> size -> Prop :=
+  Inductive typing : tcontext -> expr -> type -> cexpr -> size -> Prop :=
   | TPvar T n t s : 
       find n T = Some (TEtyping (t, s)) -> 
       typing T #n (shiftby (S n) t) F0 (default (var_to_size #n) (shiftby (S n) s))
@@ -1967,7 +1872,7 @@ Section LambdaO.
   | TPlet T t1 e1 e2 t2 n1 n2 s1 s2:
       typing T e1 t1 n1 s1 ->
       typing (add_typing (t1, Some s1) T) e2 t2 n2 s2 ->
-      typing T (Elet t1 e1 e2) (subst s1 t2) (n1 + subst s1 n2)%F (subst s1 s2)
+      typing T (Elet t1 e1 e2) (subst s1 t2) (n1 + subst s1 n2) (subst s1 s2)
   | TPletrec T (defs : list letrec_entry) main t n s :
       let len := length defs in
       let T' := add_typings (map (fst >> fst >> add_snd (Some Stt)) defs) T in
@@ -2175,7 +2080,7 @@ Section LambdaO.
 
   Arguments Tprod / .
 
-  Arguments subst_size_formula n v b / .
+  Arguments subst_size_cexpr n v b / .
 
   Arguments add_snd {A B} b a / .
 
@@ -2268,7 +2173,7 @@ Section LambdaO.
     eauto.
   Qed.
 
-  Lemma fold_subst_s_f n s : visit_f (subst_s_f_f n s) = subst_size_formula n s.
+  Lemma fold_subst_s_f n s : visit_f (subst_s_f_f n s) = subst_size_cexpr n s.
   Proof.
     eauto.
   Qed.
@@ -2384,7 +2289,7 @@ Section LambdaO.
     induction n; simpl; intros; try rewrite IHn; eauto.
   Qed.
 
-  Lemma subst_shift_s_f_n' v (x : formula) : forall (n m r : nat), m <= r -> (r <= n + m)%nat -> visit_f (subst_s_f_f r v) (iter (S n) (shift_from_f m) x) = iter n (shift_from_f m) x.
+  Lemma subst_shift_s_f_n' v (x : cexpr) : forall (n m r : nat), m <= r -> (r <= n + m)%nat -> visit_f (subst_s_f_f r v) (iter (S n) (shift_from_f m) x) = iter n (shift_from_f m) x.
   Proof.
     induction x; intros n m r Hle1 Hle2.
     {
@@ -2478,7 +2383,7 @@ Section LambdaO.
     }
   Qed.
 
-  Lemma subst_shift_s_f v b : subst_size_formula 0 v (shift_from_f 0 b) = b.
+  Lemma subst_shift_s_f v b : subst_size_cexpr 0 v (shift_from_f 0 b) = b.
   Proof.
     fold (iter 1 (shift_from_f 0) b).
     eapply subst_shift_s_f_n'; simpl; eauto; try omega.
@@ -2646,7 +2551,7 @@ Section LambdaO.
     intros; eapply shift_query'.
   Qed.
 
-  Lemma subst_shift_from_s_f x : forall v n m, (m <= n)%nat -> subst_size_formula m (shift_from_s n v) (shift_from_f (S n) x) = shift_from_f n (subst_size_formula m v x).
+  Lemma subst_shift_from_s_f x : forall v n m, (m <= n)%nat -> subst_size_cexpr m (shift_from_s n v) (shift_from_f (S n) x) = shift_from_f n (subst_size_cexpr m v x).
   Proof.
     induction x; intros v n m Hle; try solve [simpl; f_equal; eauto ].
     destruct x as [x p].
@@ -4178,7 +4083,7 @@ Section LambdaO.
     typing T e1 t1 n1 s1 ->
     typing (add_typing (t1, Some s1) T) e2 t2 n2 s2 ->
     t2' = subst s1 t2 ->
-    typing T (Elet t1 e1 e2) t2' (n1 + subst s1 n2)%F (subst s1 s2).
+    typing T (Elet t1 e1 e2) t2' (n1 + subst s1 n2) (subst s1 s2).
   Proof.
     intros; subst; eapply TPlet; eauto.
   Qed.
@@ -4553,7 +4458,7 @@ Section LambdaO.
       mul := Peano.mult
     }.
 
-  Instance Mul_formula : Mul formula :=
+  Instance Mul_cexpr : Mul cexpr :=
     {
       mul := Fmul
     }.
@@ -4564,8 +4469,10 @@ Section LambdaO.
   Notation "{{ i | f }}" := (Sstats ((fun i => f) 0, (fun i => f) 1)).
   (* Notation "x '!0'" := (Fvar (x, []) false) (at level 3, format "x '!0'"). *)
   (* Notation "x '!1'" := (Fvar (x, []) true) (at level 3, format "x '!1'"). *)
- 
+
   Definition bool_size := Sinlinr Stt Stt.
+
+  (* merge-sort example *)
 
   Definition merge_loop_type (telm : type) := 
     let list := Tlist $ telm in
@@ -5061,6 +4968,148 @@ Section LambdaO.
         - eapply leO_cx_xlog2x.
       }
     }
+  Qed.
+
+  (* Type soundness *)
+
+  (* encoding of fix by recursive-type :
+       fix f(x).e := \y. (unfold v) v y 
+          where v := fold (\z. (\f. \x. e) (\y. (unfold z) z y)) 
+                      (for y,z\not\in FV(e))
+   *)
+
+  Inductive IsOpaque : expr -> Prop :=
+    | OPvar x : IsOpaque (Evar x)
+    | OPconstr c : IsOpaque (Econstr c)
+  .
+
+  Inductive general_arg :=
+    | Aapp (_ : expr)
+    | Atapp (_ : type)
+    | Afold (_ : type)
+    | Ahide 
+  .
+
+  Definition general_apply (f : expr) (a : general_arg) :=
+    match a with
+      | Aapp e => Eapp f e
+      | Atapp t => Etapp f t
+      | Afold t => Efold t f
+      | Ahide => Ehide f
+    end.
+
+  Definition general_apply_many f args := fold_left general_apply args f.
+
+  Definition app_many f args := fold_left Eapp args f.
+
+  Inductive IsValue : expr -> Prop :=
+  | Vabs t e : IsValue (Eabs t e)
+  | Vapp f args : 
+      IsOpaque f ->
+      (forall a, In (Aapp a) args -> IsValue a) ->
+      IsValue (general_apply_many f args)
+  .
+  
+  (* evaluation context *)
+  Inductive econtext :=
+    | ECempty
+    | ECapp1 (f : econtext) (arg : expr)
+    | ECapp2 (f : expr) (arg : econtext) : IsValue f -> econtext
+    | EClet (t : type) (def : econtext) (main : expr)
+    | ECletrec (defs : list letrec_entry) (main : econtext) (* Only evaluate main. All the definitions are already values, since that are all functions *)
+    | ECmatch_pair (target : econtext) (_ : expr)
+    | ECmatch_sum (target : econtext) (a b : expr)
+    | ECtapp (f : econtext) (t : type)
+    | ECfold (t : type) (_ : econtext)
+    | ECunfold (t : type) (_ : econtext)
+    | EChide (_ : econtext)
+    | ECunhide (_ : econtext)
+  .
+
+  Fixpoint plug (c : econtext) (e : expr) : expr :=
+    match c with
+      | ECempty => e
+      | ECapp1 f arg => Eapp (plug f e) arg
+      | ECapp2 f arg _ => Eapp f (plug arg e)
+      | EClet t def main => Elet t (plug def e) main
+      | ECletrec defs main => Eletrec defs (plug main e)
+      | ECmatch_pair target k => Ematch_pair (plug target e) k
+      | ECmatch_sum target a b => Ematch_sum (plug target e) a b
+      | ECtapp f t => Etapp (plug f e) t
+      | ECfold t c => Efold t (plug c e)
+      | ECunfold t c => Eunfold t (plug c e)
+      | EChide c => Ehide (plug c e)
+      | ECunhide c => Eunhide (plug c e)
+    end.
+
+  Inductive step : expr -> expr -> Prop :=
+    | STecontext c e1 e2 : step e1 e2 -> step (plug c e1) (plug c e2)
+    | STapp t body arg : IsValue arg -> step (Eapp (Eabs t body) arg) (subst arg body)
+    | STlet t v main : IsValue v -> step (Elet t v main) (subst v main)
+    | STletrec_instantiate defs c (n : nat) t e : 
+        find n defs = Some (t, e) -> 
+        step (Eletrec defs (plug c (Evar #n))) (Eletrec defs (plug c e))  (* the definitions are only simplified, but not making any recursive or mutual-recursive call. All these calls are made only in the evaluation of 'main' *)
+    | STletrec_finish defs v : IsValue v -> step (Eletrec defs v) v (* this is wrong *)
+    (* missing some rules for letrec *)
+    | STmatch_pair ta tb a b k : 
+        IsValue a ->
+        IsValue b ->
+        step (Ematch_pair (Epair $$ ta $$ tb $$ a $$ b) k) (subst_list [a; b] k)
+    | STmatch_inl ta tb v k1 k2 : 
+        IsValue v ->
+        step (Ematch_sum (Einl $$ ta $$ tb $$ v) k1 k2) (subst v k1)
+    | STmatch_inr ta tb v k1 k2 : 
+        IsValue v ->
+        step (Ematch_sum (Einr $$ ta $$ tb $$ v) k1 k2) (subst v k2)
+    | STtapp body t : step (Etapp (Etabs body) t) (subst t body)
+    | STunfold_fold v t1 t2 : 
+        IsValue v ->
+        step (Eunfold t2 (Efold t1 v)) v
+    | STunhide_hide v :
+        IsValue v ->
+        step (Eunhide (Ehide v)) v
+  .
+
+  Inductive nsteps : expr -> nat -> expr -> Prop :=
+  | Nsteps0 e : nsteps e 0 e
+  | NstepsS e1 e2 n e3 : step e1 e2 -> nsteps e2 n e3 -> nsteps e1 (S n) e3
+  .
+
+  Inductive steps : expr -> expr -> Prop :=
+  | Steps0 e : steps e e
+  | StepsS e1 e2 e3 : step e1 e2 -> steps e2 e3 -> steps e1 e3
+  .
+
+  Definition get_size (e : expr) : size.
+    admit.
+  Defined.
+
+  Definition typingsim T e t := exists c s, typing T e t c s.
+
+  Open Scope G.
+
+  Definition nat_of_cexpr (c : cexpr) : option nat.
+    admit.
+  Defined.
+
+  Definition nostuck e := forall e', steps e e' -> IsValue e' \/ exists e'', step e' e''.
+
+  Theorem type_soundness : forall t1 c s e t, 
+    typing [TEtyping (t1, None)] e t c s -> 
+    exists Ct s0, 
+      forall v1,
+        IsValue v1 ->
+        typingsim [] v1 t1 ->
+        let s1 := get_size v1 in
+        (s0 <= s1) ->
+        nostuck (subst v1 e) /\
+        forall v n, 
+          IsValue v -> 
+          nsteps (subst v1 e) n v ->
+          (exists c_s1, nat_of_cexpr (subst s1 c) = Some c_s1 /\ n <= Ct * c_s1) /\
+          get_size v <= subst s1 s.
+  Proof.
+    admit.
   Qed.
 
 End LambdaO.
