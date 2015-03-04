@@ -16,7 +16,7 @@ examples: T=$(EXAMPLES)
 examples: build
 
 BEDROCK_ROOT := ~/bedrock
-COQARGS := -R $(BEDROCK_ROOT)/Bedrock Bedrock
+COQARGS := -I $(BEDROCK_ROOT)
 COQC    := $(COQBIN)coqc $(COQARGS)
 
 build:
