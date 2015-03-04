@@ -4,3 +4,7 @@
 *.aux
 *.log
 *.pdf
+*.glob
+*.v.d
+Makefile.coq
+*.vo
