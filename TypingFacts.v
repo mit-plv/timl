@@ -10,7 +10,7 @@ Require Import Typing.
 Export Typing.
 
 Import ListNotations.
-Open Scope list_scope.
+Local Open Scope list_scope.
 
 Lemma Ksum' T a b :
   kinding T a 0 ->
@@ -48,6 +48,8 @@ Lemma Qbeta' t1 t2 t' :
 Proof.
   intros; subst; eapply Qbeta; eauto.
 Qed.
+
+Local Open Scope F.
 
 Lemma TPapp' T e1 e2 ta tb f g n1 n2 s1 s2 t' : 
   typing T e1 (Tarrow ta f g tb) n1 s1 ->
@@ -108,6 +110,8 @@ Arguments Tprod / .
 
 Arguments add_snd {A B} b a / .
 
+Local Open Scope G.
+
 Lemma TPunfold' T e t n s s1 t1 t' :
   typing T e t n s ->
   is_fold s = Some s1 ->
@@ -132,10 +136,7 @@ Proof.
   intros; subst; eapply TPmatch_pair; eauto.
 Qed.
 
-Definition Epair := Econstr Cpair.
-Definition Einl := Econstr Cinl.
-Definition Einr := Econstr Cinr.
-Definition Ett := Econstr Ctt.
+Local Open Scope prog_scope.
 
 Lemma TPpair_app T A B a b n1 n2 s1 s2 :
   typing T a A n1 s1 ->
@@ -372,7 +373,7 @@ Fixpoint rev_range len :=
     | S n => n :: rev_range n
   end.
 
-Open Scope F.
+Local Open Scope F.
 
 Lemma subst_shift_from_s_t x : forall v n m, (m <= n)%nat -> subst_size_type m (shift_from_s n v) (shift_from_t (S n) x) = shift_from_t n (subst_size_type m v x).
   admit.

@@ -32,7 +32,7 @@ Fixpoint iter {A} n f (x : A) :=
 
 Definition shiftby `{Shift t} n := iter n shift.
 
-Open Scope prog_scope.
+Local Open Scope prog_scope.
 
 Arguments fst {A B} _.
 Arguments snd {A B} _.

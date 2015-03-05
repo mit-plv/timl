@@ -6,7 +6,7 @@ Require Import Util.
 Require Import Syntax.
 
 Import ListNotations.
-Open Scope list_scope.
+Local Open Scope list_scope.
 
 Class Le t :=
   {
@@ -14,7 +14,7 @@ Class Le t :=
   }.
 
 Infix "<=" := le : G.
-Open Scope G.
+Local Open Scope G.
 
 Instance Le_nat : Le nat :=
   {
@@ -26,11 +26,11 @@ Definition Fdiv a b := (Fscale (1 / b)%QN a).
 Infix "+" := Fadd : F.
 Infix "*" := Fmul : F.
 Infix "/" := Fdiv : F.
-Open Scope F.
+Local Open Scope F.
 
 Notation " 0 " := F0 : F01.
 Notation " 1 " := F1 : F01.
-Open Scope F01.
+Local Open Scope F01.
 
 Infix "*:" := Fscale (at level 40).
 
@@ -169,7 +169,7 @@ Instance Le_cexpr : Le cexpr :=
     le := leC
   }.
 
-Close Scope F01.
+Local Close Scope F01.
 
 (* less-than relation on sizes based on leC *)
 Definition leS a b :=
@@ -219,8 +219,8 @@ Global Add Relation cexpr leO
     transitivity proved by leO_trans
       as leO_rel.
 
-Open Scope F01.
-Open Scope F.
+Local Open Scope F01.
+Local Open Scope F.
 
 Lemma leE_addx0 n : (n + 0 == n)%leE.
 Proof.
@@ -587,7 +587,7 @@ Ltac leC_solver :=
       | |- Fvar (?x, _) ?i <= Fvar (?x, nil) ?i => eapply leC_path_subpath; eapply subpath_nil; try solve [ eassumption | eapply all_not_Punhide_sound; simpl; reflexivity ]
     end.
 
-Open Scope G.
+Local Open Scope G.
 
 Lemma leS_var_addr x n0 n1 : Svar x <= Sstats (n0 + Fvar x 0%nat, n1 + Fvar x 1%nat).
 Proof.
@@ -618,7 +618,7 @@ Proof.
   split; eapply leC_add; eauto.
 Qed.
 
-Close Scope G.
+Local Close Scope G.
 
 Lemma leO_mula a b a' : a <<= a' -> a * b <<= a' * b.
 Proof.

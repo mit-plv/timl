@@ -13,7 +13,7 @@ Require Import Order.
 Export Syntax Subst Order.
 
 Import ListNotations.
-Open Scope list_scope.
+Local Open Scope list_scope.
 
 Instance Shift_option `{Shift A} : Shift (option A) :=
   {
@@ -37,23 +37,13 @@ Inductive tc_entry :=
 
 Definition tcontext := list tc_entry.
 
+Local Open Scope prog_scope.
+
 Definition add_typing t T := TEtyping t :: T.
 Definition add_typings ls T := fst $ fold_left (fun (p : tcontext * nat) t => let (T, n) := p in (add_typing (shiftby n t) T, S n)) ls (T, 0%nat).
 Definition add_kinding k T := TEkinding k :: T.
 
 Coercion var_to_size (x : var) : size := Svar (x, []).
-
-Class Find key value container := 
-  {
-    find : key -> container -> option value
-  }.
-
-Instance Find_list A : Find nat A (list A) :=
-  {
-    find k c := @nth_error A c k
-  }.
-
-Close Scope F01.
 
 Inductive kinding : tcontext -> type -> kind -> Prop :=
 | Kvar T n k : find n T = Some (TEkinding k) -> kinding T #n k
@@ -127,27 +117,10 @@ Instance Equal_type : Equal type :=
 
 Definition add_snd {A B} (b : B) (a : A) := (a, b).
 
-Open Scope F.
-Open Scope G.
+Local Open Scope F.
+Local Open Scope G.
 
-Infix "<<" := compose (at level 40) : prog_scope.
-Infix ">>" := (flip compose) (at level 40) : prog_scope.
-Open Scope prog_scope.
-
-Instance Apply_type_type_type : Apply type type type :=
-  {
-    apply := Tapp
-  }.
-
-Instance Apply_expr_expr_expr : Apply expr expr expr :=
-  {
-    apply := Eapp
-  }.
-
-Instance Apply_expr_type_expr : Apply expr type expr :=
-  {
-    apply := Etapp
-  }.
+Local Open Scope prog_scope.
 
 Definition Tunit := Tconstr TCunit.
 Definition Tprod t1 t2 := Tconstr TCprod $$ t1 $$ t2.

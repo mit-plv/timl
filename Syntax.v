@@ -1,3 +1,4 @@
+Require Import Util.
 Require Import Complexity.
 
 Export Complexity.
@@ -70,4 +71,24 @@ Definition letrec_entry := (type * type * expr)%type.
 
 Coercion Evar : var >-> expr.
 Coercion Econstr : constr >-> expr.
+
+Definition Epair := Econstr Cpair.
+Definition Einl := Econstr Cinl.
+Definition Einr := Econstr Cinr.
+Definition Ett := Econstr Ctt.
+
+Instance Apply_type_type_type : Apply type type type :=
+  {
+    apply := Tapp
+  }.
+
+Instance Apply_expr_expr_expr : Apply expr expr expr :=
+  {
+    apply := Eapp
+  }.
+
+Instance Apply_expr_type_expr : Apply expr type expr :=
+  {
+    apply := Etapp
+  }.
 

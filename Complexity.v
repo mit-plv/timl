@@ -1,5 +1,7 @@
-Require Import NonnegRational.
 Require Import Util.
+Require Import NonnegRational.
+
+Export NonnegRational.
 
 Notation var := nat (only parsing).
 Notation Vbound n := (n : nat).
