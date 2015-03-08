@@ -1,8 +1,6 @@
 Require Import List.
 Require Import Bedrock.Platform.Cito.GeneralTactics3.
 Require Import Bedrock.Platform.Cito.GeneralTactics4.
-Require Import Bedrock.Expr.
-Require Import Bedrock.Structured.
 Require Import Bedrock.Platform.Cito.ListFacts4.
 Require Import Util.
 Require Import Typing.
@@ -429,8 +427,20 @@ Proof.
     {
       eapply TPvar'.
       { simpl.
-        rewrite Bedrock.Expr.nth_error_app_L in H by eauto.
-        eapply Structured.nth_error_app1.
+        Lemma nth_error_app_L : forall T (A B : list T) n,
+                                  (n < length A)%nat ->
+                                  nth_error (A ++ B) n = nth_error A n.
+        Proof.
+          induction A; destruct n; simpl; intros; try omega; auto.
+          eapply IHA. omega.
+        Qed.
+        rewrite nth_error_app_L in H by eauto.
+        Lemma nth_error_app1 : forall A x (ls2 ls1 : list A) n,
+                                 nth_error ls1 n = Some x
+                                 -> nth_error (ls1 ++ ls2) n = Some x.
+          induction ls1; destruct n; simpl; intuition; discriminate.
+        Qed.
+        eapply nth_error_app1.
         etransitivity.
         {
           eapply map_nth_error.
