@@ -82,12 +82,6 @@ Instance Subst_csize_size : Subst csize size :=
     substn n v b := substn n (v : size) b
   }.
 
-(*
-Definition csize_of_size (s : size) : option csize.
-  admit.
-Defined.
-*)
-
 Definition bounded t1 e c (s : size) :=
   exists (C : nat) (xi0 : csize), 
     forall v1,
@@ -100,13 +94,6 @@ Definition bounded t1 e c (s : size) :=
         nsteps (subst v1 e) n v ->
         (* n is bounded *)
         (exists c_xi1, nat_of_cexpr (subst xi1 c) = Some c_xi1 /\ n <= C * c_xi1) 
-(*
-        /\
-        (* xi is the actual result size *)
-        let xi := get_size v in
-        (* xi is bounded *)
-        (exists s_xi1, csize_of_size (subst xi1 s) = Some s_xi1 /\ xi <= s_xi1)
-*)
 .
 
 Lemma sound_wrt_bounded :
