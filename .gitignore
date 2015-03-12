@@ -8,3 +8,7 @@
 *.v.d
 Makefile.coq
 *.vo
+*.nav
+*.out
+*.snm
+*.toc
