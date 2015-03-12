@@ -147,14 +147,13 @@
 {$\lambda^{\forall,\omega,\mu}_c$: Complexity Recursive Types}
 
 \author
-{Peng Wang\inst{1}}
+{Peng Wang}
 % - Give the names in the same order as the appear in the paper.
 % - Use the \inst{?} command only if the authors have different
 %   affiliation.
 
 \institute[MIT CSAIL] % (optional, but mostly needed)
 {
-  \inst{1}%
   MIT CSAIL
 }
 % - Use the \inst command only if there are several affiliations.
@@ -248,7 +247,9 @@
 
 \begin{frame}{Recursive Types}
 \begin{align*}
-\symlist &\defeq \Lambda A. \mu L. \symunit + A \times L
+\mathsf{nat} &\defeq \mu X.\; \symunit + X \\
+\symlist &\defeq \Lambda A.\; \mu X.\; \symunit + A \times X \\
+\mathsf{tree} &\defeq \Lambda A,B.\; \mu X.\; A + X \times B \times X
 \end{align*}
 
 \end{frame}
@@ -287,6 +288,13 @@ $$
 
 \begin{itemize}
 \item Logical relation
+  \begin{itemize}
+  \item A systematic way to strengthen induction hypothesis
+  \item Define a new interpretation of type $\lsem\tau\rsem(e)$
+  \item Prove 
+    $$\vdash e:\tau \Rightarrow \lsem\tau\rsem(e) \Rightarrow P(e)$$
+  \end{itemize}
+\item Modern versions: step-indexed, ``later'' modality
 \end{itemize}
 
 \end{frame}
