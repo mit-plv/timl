@@ -85,9 +85,28 @@ Notation "| v |" := (get_size v) (at level 10).
 
 (* An Logical Step-indexed Logical Relation (LSLR) for boundedness *)
 
-Inductive Rel :=
+(* A Parametric Higher-Order Abstract Syntax encoding *)
 
-Fixpoint V τ ξ ρ C θ {struct τ} : Rel :=
+Inductive typeR :=
+| TRexpr
+| TRrel (arity : nat)
+| TRother (T : Type)
+.
+
+Coercion TRrel : nat >-> typeR.
+
+Section var.
+
+  Variable var : typeR -> Type.
+  
+  Inductive PropR : typeR -> Type :=
+  | Var t : var t -> PropR t
+  | ConstExpr : expr -> 
+  .
+
+End var.
+
+Fixpoint V τ ξ ρ C θ {struct τ} : PropR 1 :=
   match τ, ξ, θ with
     | Tvar α, _, _ => ρ α
     | Tunit, _, _ => λ v ↓ τ, ⊤
