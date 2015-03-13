@@ -1,5 +1,7 @@
 (* Type soundness *)
 
+Set Implicit Arguments.
+
 Require Import List.
 Require Import Typing EvalCBV.
 
@@ -87,41 +89,86 @@ Notation "| v |" := (get_size v) (at level 10).
 
 (* A Parametric Higher-Order Abstract Syntax encoding *)
 
+Notation typeR := nat (only parsing).
+(*
 Inductive typeR :=
 | TRexpr
 | TRrel (arity : nat)
-| TRother (T : Type)
 .
 
 Coercion TRrel : nat >-> typeR.
-
-Section var.
+*)
+Section propR.
 
   Variable var : typeR -> Type.
   
-  Inductive PropR : typeR -> Type :=
-  | Var t : var t -> PropR t
-  | ConstExpr : expr -> 
+  Inductive propR : typeR -> Type :=
+  | PRvar t : var t -> propR t
+  | PRlift : Prop -> propR 0
+  | PRtrue : propR 0
+  | PRfalse : propR 0
+  | PRand (_ _ : propR 0) : propR 0
+  | PRor (_ _ : propR 0) : propR 0
+  | PRimply (_ _ : propR 0) : propR 0
+  | PRforalle : (expr -> propR 0) -> propR 0
+  | PRexistse : (expr -> propR 0) -> propR 0
+  | PRforallR n : (var n -> propR 0) -> propR 0
+  | PRexistsR n : (var n -> propR 0) -> propR 0
+  | PRforall1 T : (T -> propR 0) -> propR 0
+  | PRexists1 T : (T -> propR 0) -> propR 0
+  | PRabs (n : nat) : (expr -> propR n) -> propR (S n)
+  | PRapp (n : nat) : propR (S n) -> expr -> propR n
+  | PRrecur (n : nat) : (var n -> propR n) -> propR n
+  | PRlater : propR 0 -> propR 0
   .
 
-End var.
+End propR.
 
-Fixpoint V τ ξ ρ C θ {struct τ} : PropR 1 :=
-  match τ, ξ, θ with
-    | Tvar α, _, _ => ρ α
-    | Tunit, _, _ => λ v ↓ τ, ⊤
-    | τ₁ × τ₂, Spair ξ₁ ξ₂, _ => λ v ↓ ρ τ, ∃ a b, v = Epair a b /\ a ∈ V τ₁ ξ₁ ρ /\ b ∈ V τ₂ ξ₂ ρ
-    | τ' + _, Sinl ξ, _ => λ v ↓ ρ τ, ∃ v', v = Einl v' /\ v' ∈ V τ' ξ ρ
-    | _ + τ', Sinr ξ, _ => λ v ↓ ρ τ, ∃ v', v = Einr v' /\ v' ∈ V τ' ξ ρ
-    | Tarrow τ₁ c s τ₂, _, THarrow θ₁ ξ₀ θ₂ => λ v ↓ ρ τ, ∀ ξ₁ (v₁ ∈ V τ₁ ξ₁ ρ C θ), ξ₀ ≤ |v₁| ⇒ Eapp v v' ∈ E τ₂ c s (add ξ₁ ρ) C θ₂
-    | Tuniversal c s τ, _, _ => λ v ↓ ρ τ, ∀ τ', ∀2 S : VSet τ', Etapp v τ' ∈ E τ c s (add (τ', S) ρ) C θ
-    | Trecur τ, Sfold ξ, _ => μ S, λ v ↓ ρ τ, ∃ v', v = Efold τ v' /\ ▹ (v' ∈ V τ ξ (add (ρ τ, S) ρ) C θ)
-    | _ _ _ => ⊥
-  end
-with 
-E τ c s ρ C θ :=
-  λ e : ρ τ, ∀ (v ∈ Val), ∀1 n, nsteps e n v ⇒ ⌈ natP (fun nc => n ≤ C * nc) (ρ c) ⌉ /\ ∃1 ξ, ξ ≤ ρ s /\ v ∈ V τ ξ ρ C θ
+Notation "\ e , p" := (PRabs (fun e => p)) (at level 200, format "\ e , p").
+Notation "⊤" := (PRtrue _).
+Notation "⊥" := (PRtrue _).
+Notation "⌈ P ⌉" := (PRlift _ P).
+Notation "e ↓ τ" := (⌈ IsValue e /\ typingsim [] e τ ⌉) (at level 51).
+Section TestNotations.
+  
+  Variable var : typeR -> Type.
+
+  Definition ttt1 : propR var 1 := \e , ⊤.
+  Definition ttt2 : propR var 1 := \e , e ↓ Tunit.
+
+End TestNotations.
+
+Inductive thresholds :=
+| THleaf
+| THarrow : thresholds -> csize -> thresholds
 .
+
+(* A "step-indexed" kriple model *)
+
+Section LR.
+  
+  Variable var : typeR -> Type.
+
+  Notation Tunit := (Tconstr TCunit).
+  Notation "a × b" := 
+    
+  (* the logical relation *)
+  Fixpoint V τ (ξ : csize) ρ (C : nat) (θ : thresholds) {struct τ} : propR var 1 :=
+    match τ, ξ, θ with
+      | Tvar α, _, _ => ρ α
+      | Tunit, _, _ => \v, v ↓ τ
+      | τ₁ × τ₂, Spair ξ₁ ξ₂, _ => \v, v ↓ ρ τ /\ ∃ a b, v = Epair a b /\ a ∈ V τ₁ ξ₁ ρ /\ b ∈ V τ₂ ξ₂ ρ
+      (* | τ' + _, Sinl ξ, _ => \v, v ↓ ρ τ /\ ∃ v', v = Einl v' /\ v' ∈ V τ' ξ ρ *)
+      (* | _ + τ', Sinr ξ, _ => \v, v ↓ ρ τ /\ ∃ v', v = Einr v' /\ v' ∈ V τ' ξ ρ *)
+      (* | Tarrow τ₁ c s τ₂, _, THarrow θ₁ ξ₀ θ₂ => \v, v ↓ ρ τ /\ ∀ ξ₁ (v₁ ∈ V τ₁ ξ₁ ρ C θ), ξ₀ ≤ |v₁| ⇒ Eapp v v' ∈ E τ₂ c s (add ξ₁ ρ) C θ₂ *)
+      (* | Tuniversal c s τ, _, _ => \v, v ↓ ρ τ /\ ∀ τ', ∀ S : VSet τ', Etapp v τ' ∈ E τ c s (add (τ', S) ρ) C θ *)
+      (* | Trecur τ, Sfold ξ, _ => \μ S, \v, v ↓ ρ τ /\ ∃ v', v = Efold τ v' /\ ▹ (v' ∈ V τ ξ (add (ρ τ, S) ρ) C θ) *)
+      | _, _, _ => \_, ⊥
+    end
+  (* with  *)
+  (* E τ c s ρ C θ := *)
+  (*   λ e : ρ τ, ∀ (v ∈ Val), ∀1 n, nsteps e n v ⇒ ⌈ natP (fun nc => n ≤ C * nc) (ρ c) ⌉ /\ ∃1 ξ, ξ ≤ ρ s /\ v ∈ V τ ξ ρ C θ *)
+  .
 
 Definition bounded τ₁ e c (s : size) :=
   exists (C : nat) (ξ₀ : csize), 
