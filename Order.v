@@ -8,15 +8,15 @@ Require Import Syntax.
 Import ListNotations.
 Local Open Scope list_scope.
 
-Class Le t :=
+Class Le a b :=
   {
-    le : t -> t -> Prop
+    le : a -> b -> Prop
   }.
 
 Infix "<=" := le : G.
 Local Open Scope G.
 
-Instance Le_nat : Le nat :=
+Instance Le_nat : Le nat nat :=
   {
     le := Peano.le
   }.
@@ -164,7 +164,7 @@ where "a <= b" := (leO a b) : leO_scope
 Delimit Scope leO_scope with leO.
 
 (* the default <= on cexpr will be leC *)
-Instance Le_cexpr : Le cexpr :=
+Instance Le_cexpr : Le cexpr cexpr :=
   {
     le := leC
   }.
@@ -176,7 +176,7 @@ Definition leS a b :=
   stats_get 0 (summarize a) <= stats_get 0 (summarize b) /\
   stats_get 1 (summarize a) <= stats_get 1 (summarize b).
 
-Instance Le_size : Le size :=
+Instance Le_size : Le size size :=
   {
     le := leS
   }.

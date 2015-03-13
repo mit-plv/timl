@@ -31,8 +31,6 @@ Proof.
   admit.
 Qed.
 
-Definition value_of v τ := IsValue v /\ typingsim [] v τ.
-
 Inductive nsteps : expr -> nat -> expr -> Prop :=
 | Nsteps0 e : nsteps e 0 e
 | NstepsS e1 e2 n e3 : step e1 e2 -> nsteps e2 n e3 -> nsteps e1 (S n) e3
@@ -54,7 +52,7 @@ Definition leCS : csize -> csize -> Prop.
   admit.
 Defined.
 
-Instance Le_csize : Le csize :=
+Instance Le_csize : Le csize csize :=
   {
     le := leCS
   }.
@@ -124,23 +122,47 @@ Section propR.
 
 End propR.
 
-Notation "\ e , p" := (PRabs (fun e => p)) (at level 200, format "\ e , p").
+Infix "×" := Tprod (at level 40).
+Infix "+" := Tsum.
+Notation "⊢" := typingsim.
+
 Notation "⊤" := (PRtrue _).
 Notation "⊥" := (PRtrue _).
+(* Notation "\ e , p" := (PRabs (fun e => p)) (at level 200, format "\ e , p"). *)
+Notation "\ x .. y , p" := (PRabs (fun x => .. (PRabs (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
+Notation "∀ x .. y , p" := (PRforalle (fun x => .. (PRforalle (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
+Notation "∃ x .. y , p" := (PRexistse (fun x => .. (PRexistse (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
+Notation "∀1 x .. y , p" := (PRforall1 (fun x => .. (PRforall1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
+Notation "∃1 x .. y , p" := (PRexists1 (fun x => .. (PRexists1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
+Definition PRforallR' var n P := (@PRforallR var n (fun x => P (PRvar _ _ x))).
+Notation "∀2 x .. y , p" := (PRforallR' (fun x => .. (PRforallR' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
+Definition PRexistsR' var n P := (@PRexistsR var n (fun x => P (PRvar _ _ x))).
+Notation "∃2 x .. y , p" := (PRexistsR' (fun x => .. (PRexistsR' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
+Definition PRrecur' var n P := (@PRrecur var n (fun x => P (PRvar _ _ x))).
+Notation "@ x .. y , p" := (PRrecur' (fun x => .. (PRrecur' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
 Notation "⌈ P ⌉" := (PRlift _ P).
-Notation "e ↓ τ" := (⌈ IsValue e /\ typingsim [] e τ ⌉) (at level 51).
+Notation "e ↓ τ" := (IsValue e /\ ⊢ [] e τ) (at level 51).
+Notation "e ∈ P" := (PRapp P e) (at level 70).
+Infix "/\" := PRand.
+Infix "\/" := PRor.
+Infix "⇒" := PRimply (at level 90).
+Notation "▹" := PRlater.
+    
+Infix "≤" := le (at level 70).
+
 Section TestNotations.
   
   Variable var : typeR -> Type.
 
   Definition ttt1 : propR var 1 := \e , ⊤.
-  Definition ttt2 : propR var 1 := \e , e ↓ Tunit.
+  Definition ttt2 : propR var 1 := \e , ⌈e ↓ Tunit⌉.
+  Definition ttt3 : propR var 1 := \_ , ⌈True /\ True⌉.
 
 End TestNotations.
 
 Inductive thresholds :=
 | THleaf
-| THarrow : thresholds -> csize -> thresholds
+| THarrow : thresholds -> csize -> thresholds -> thresholds
 .
 
 (* A "step-indexed" kriple model *)
@@ -149,31 +171,104 @@ Section LR.
   
   Variable var : typeR -> Type.
 
-  Notation Tunit := (Tconstr TCunit).
-  Notation "a × b" := 
-    
+  Definition substs : Type.
+    admit.
+  Defined.
+
+  Definition substs_type : substs -> type -> type.
+    admit.
+  Defined.
+
+  Coercion substs_type : substs >-> Funclass.
+
+  Require Import Util.
+  Local Open Scope prog_scope.
+
+  Definition substs_sem : substs -> nat -> propR var 1.
+    admit.
+  Defined.
+
+  Instance Apply_substs_nat_propR : Apply substs nat (propR var 1) :=
+    {
+      apply := substs_sem
+    }.
+
+  Definition substs_cexpr : substs -> cexpr -> cexpr.
+    admit.
+  Defined.
+
+  Instance Apply_substs_cexpr_cexpr : Apply substs cexpr cexpr :=
+    {
+      apply := substs_cexpr
+    }.
+
+  Definition substs_size : substs -> size -> size.
+    admit.
+  Defined.
+
+  Instance Apply_substs_size_size : Apply substs size size :=
+    {
+      apply := substs_size
+    }.
+
+  Definition add_csize : csize -> substs -> substs.
+    admit.
+  Defined.
+
+  Instance Add_csize_substs : Add csize substs substs :=
+    {
+      add := add_csize
+    }.
+
+  Definition add_pair : (type * propR var 1) -> substs -> substs.
+    admit.
+  Defined.
+
+  Instance Add_pair_substs : Add (type * propR var 1) substs substs :=
+    {
+      add := add_pair
+    }.
+
+  Definition natP P c :=
+    (exists nc, nat_of_cexpr c = Some nc /\ P nc)%type.
+
+  Definition le_csize_size : csize -> size -> Prop.
+    admit.
+  Defined.
+
+  Instance Le_cszie_size : Le csize size :=
+    {
+      le := le_csize_size
+    }.
+
   (* the logical relation *)
-  Fixpoint V τ (ξ : csize) ρ (C : nat) (θ : thresholds) {struct τ} : propR var 1 :=
+  Definition E' V τ (c : cexpr) (s : size) (ρ : substs) C (θ : thresholds) : propR var 1 :=
+    \e, ∀ v, ∀1 n, ⌈⊢ [] e (ρ τ) /\ nsteps e n v /\ IsValue v⌉ ⇒ ⌈natP (fun nc => n ≤ C * nc) (ρ $ c)⌉ /\ ∃1 ξ : csize, ⌈ξ ≤ ρ $$ s⌉ /\ v ∈ V τ ξ ρ C θ.
+
+  Definition VSet τ (S : propR var 1) := ∀ v, v ∈ S ⇒ ⌈v ↓ τ⌉.
+
+  Fixpoint V τ (ξ : csize) (ρ : substs) (C : nat) (θ : thresholds) {struct τ} : propR var 1 :=
     match τ, ξ, θ with
-      | Tvar α, _, _ => ρ α
-      | Tunit, _, _ => \v, v ↓ τ
-      | τ₁ × τ₂, Spair ξ₁ ξ₂, _ => \v, v ↓ ρ τ /\ ∃ a b, v = Epair a b /\ a ∈ V τ₁ ξ₁ ρ /\ b ∈ V τ₂ ξ₂ ρ
-      (* | τ' + _, Sinl ξ, _ => \v, v ↓ ρ τ /\ ∃ v', v = Einl v' /\ v' ∈ V τ' ξ ρ *)
-      (* | _ + τ', Sinr ξ, _ => \v, v ↓ ρ τ /\ ∃ v', v = Einr v' /\ v' ∈ V τ' ξ ρ *)
-      (* | Tarrow τ₁ c s τ₂, _, THarrow θ₁ ξ₀ θ₂ => \v, v ↓ ρ τ /\ ∀ ξ₁ (v₁ ∈ V τ₁ ξ₁ ρ C θ), ξ₀ ≤ |v₁| ⇒ Eapp v v' ∈ E τ₂ c s (add ξ₁ ρ) C θ₂ *)
-      (* | Tuniversal c s τ, _, _ => \v, v ↓ ρ τ /\ ∀ τ', ∀ S : VSet τ', Etapp v τ' ∈ E τ c s (add (τ', S) ρ) C θ *)
-      (* | Trecur τ, Sfold ξ, _ => \μ S, \v, v ↓ ρ τ /\ ∃ v', v = Efold τ v' /\ ▹ (v' ∈ V τ ξ (add (ρ τ, S) ρ) C θ) *)
+      | Tvar α, _, _ => ρ $ α
+      | Tunit, _, _ => \v, ⌈v ↓ τ⌉
+      | τ₁ × τ₂, CSpair ξ₁ ξ₂, _ => \v, ⌈v ↓ ρ τ⌉ /\ ∃ a b, ⌈v = Epair a b⌉ /\ a ∈ V τ₁ ξ₁ ρ C θ /\ b ∈ V τ₂ ξ₂ ρ C θ
+      | τ₁ + τ₂, CSinl ξ, _ => \v, ⌈v ↓ ρ τ⌉ /\ ∃ v', ⌈v = Einl τ₂ v'⌉ /\ v' ∈ V τ₁ ξ ρ C θ
+      | τ₁ + τ₂, CSinr ξ, _ => \v, ⌈v ↓ ρ τ⌉ /\ ∃ v', ⌈v = Einr τ₁ v'⌉ /\ v' ∈ V τ₂ ξ ρ C θ
+      | Tarrow τ₁ c s τ₂, _, THarrow θ₁ ξ₀ θ₂ => \v, ⌈v ↓ ρ τ⌉ /\ ∀1 ξ₁, ∀ v₁, v₁ ∈ V τ₁ ξ₁ ρ C θ /\ ⌈ξ₀ ≤ |v₁|⌉ ⇒ Eapp v v₁ ∈ E' V τ₂ c s (add ξ₁ ρ) C θ₂
+      | Tuniversal c s τ, _, _ => \v, ⌈v ↓ ρ τ⌉ /\ ∀1 τ', ∀2 S, VSet τ' S ⇒ Etapp v τ' ∈ E' V τ c s (add (τ', S) ρ) C θ
+      | Trecur τ, CSfold ξ, _ => @S, \v, ⌈v ↓ ρ τ⌉ /\ ∃ v', ⌈v = Efold τ v'⌉ /\ ▹ (v' ∈ V τ ξ (add (ρ τ, S) ρ) C θ)
       | _, _, _ => \_, ⊥
     end
-  (* with  *)
-  (* E τ c s ρ C θ := *)
-  (*   λ e : ρ τ, ∀ (v ∈ Val), ∀1 n, nsteps e n v ⇒ ⌈ natP (fun nc => n ≤ C * nc) (ρ c) ⌉ /\ ∃1 ξ, ξ ≤ ρ s /\ v ∈ V τ ξ ρ C θ *)
   .
+
+  Definition E := E' V.
+
+End LR.
 
 Definition bounded τ₁ e c (s : size) :=
   exists (C : nat) (ξ₀ : csize), 
     forall v₁,
-      value_of v₁ τ₁ ->
+      v₁ ↓ τ₁ ->
       let ξ₁ := |v₁| in
       ξ₀ <= ξ₁ ->
       forall v n, 
@@ -181,7 +276,7 @@ Definition bounded τ₁ e c (s : size) :=
         (* n is the actual running time *)
         nsteps (subst v₁ e) n v ->
         (* n is bounded *)
-        (exists nc, nat_of_cexpr (subst ξ₁ c) = Some nc /\ n <= C * nc) 
+        natP (fun nc => n <= C * nc) (subst ξ₁ c)
 .
 
 Lemma sound_wrt_bounded :

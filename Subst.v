@@ -107,19 +107,19 @@ Instance Monad_option : Monad option :=
               end
   }.
 
-Class Add t := 
+Class Add a b c := 
   {
-    add : t -> t -> t
+    add : a -> b -> c
   }.
 
 Infix "+" := add : G.
 
-Instance Add_nat : Add nat :=
+Instance Add_nat : Add nat nat nat :=
   {
     add := Peano.plus
   }.
 
-Instance Add_cexpr : Add cexpr :=
+Instance Add_cexpr : Add cexpr cexpr cexpr :=
   {
     add := Fadd
   }.
@@ -323,12 +323,14 @@ Fixpoint visit_t n (f : (nat -> nat -> type) * (nat -> cexpr -> cexpr) * (nat ->
   match b with
     | Tvar n' => fv n' n
     | Tarrow a time retsize b => Tarrow (visit_t n f a) (ff (S n) time) (fs (S n) retsize) (visit_t (S n) f b)
-    | Tconstr _ => b
     | Tuniversal time retsize t => Tuniversal (ff (S n) time) (fs (S n) retsize) (visit_t (S n) f t) 
     | Tabs t => Tabs (visit_t (S n) f t) 
     | Tapp a b => Tapp (visit_t n f a) (visit_t n f b)
     | Trecur t => Trecur (visit_t (S n) f t) 
     | Thide t => Thide (visit_t n f t)
+    | Tunit => b
+    | Tprod a b => Tprod (visit_t n f a) (visit_t n f b)
+    | Tsum a b => Tsum (visit_t n f a) (visit_t n f b)
   end.
 
 (* nv : the number in var
@@ -400,25 +402,21 @@ Fixpoint visit_e n (f : (nat -> nat -> expr) * (nat -> type -> type)) b :=
   let (fv, ft) := f in
   match b with
     | Evar n' => fv n' n
-    | Econstr _ => b
     | Eapp a b => Eapp (visit_e n f a) (visit_e n f b)
     | Eabs t e => Eabs (ft n t) (visit_e (S n) f e)
     | Elet t def main => Elet (ft n t) (visit_e n f def) (visit_e (S n) f main)
-    | Eletrec defs main =>
-      let m := length defs in
-      Eletrec ((fix loop ls := 
-                  match ls with
-                    | nil => nil
-                    | (t1, t2, e) :: xs => (ft n t1, ft (m + n) t2, visit_e (1 + m + n) f e) :: loop xs 
-                  end) defs) (visit_e (m + n) f main)
-    | Ematch_pair target handler => Ematch_pair (visit_e n f target) (visit_e (2 + n) f handler)
-    | Ematch_sum target a b => Ematch_sum (visit_e n f target) (visit_e (S n) f a) (visit_e (S n) f b)
     | Etapp e t => Etapp (visit_e n f e) (ft n t)
     | Etabs e => Etabs (visit_e (S n) f e)
     | Efold t e => Efold (ft n t) (visit_e n f e)
-    | Eunfold t e => Eunfold (ft n t) (visit_e n f e)
+    | Eunfold e => Eunfold (visit_e n f e)
     | Ehide e =>Ehide (visit_e n f e)
     | Eunhide e =>Eunhide (visit_e n f e)
+    | Ett => b
+    | Epair a b => Epair (visit_e n f a) (visit_e n f b)
+    | Einl t e => Einl (ft n t) (visit_e n f e)
+    | Einr t e => Einr (ft n t) (visit_e n f e)
+    | Ematch_pair target handler => Ematch_pair (visit_e n f target) (visit_e (2 + n) f handler)
+    | Ematch_sum target a b => Ematch_sum (visit_e n f target) (visit_e (S n) f a) (visit_e (S n) f b)
   end.
 
 Definition shift_e_f nv nq :=
@@ -522,7 +520,7 @@ Proof.
   induction n; simpl; intros; try rewrite IHn; eauto.
 Qed.
 
-Lemma shiftby_constr n : forall m c, iter n (shift_from_t m) (Tconstr c) = Tconstr c.
+Lemma shiftby_unit n : forall m, iter n (shift_from_t m) Tunit = Tunit.
 Proof.
   induction n; simpl; intros; try rewrite IHn; eauto.
 Qed.
@@ -1252,13 +1250,6 @@ Proof.
     }
   }
   {
-    simpl.
-    rename t into c.
-    repeat rewrite shiftby_constr.
-    simpl.
-    eauto.
-  }
-  {
     eapply subst_shift_t_t_n_var; eauto.
   }
   {
@@ -1322,6 +1313,14 @@ Proof.
     rewrite fold_iter.
     rewrite IHx; simpl in *; eauto; omega.
   }
+  {
+    simpl.
+    repeat rewrite shiftby_unit.
+    simpl.
+    eauto.
+  }
+  admit. (* prod *)
+  admit. (* sum *)
 Qed.
 
 Lemma subst_shift_t_t_n (b : type) : forall n v, visit_t n (subst_t_t_f 0 v, lower_sub 0, lower_sub 0) (iter (S n) (shift_from_t 0) b) = iter n (shift_from_t 0) b.
@@ -1395,13 +1394,6 @@ Proof.
     }
   }
   {
-    simpl.
-    rename t into c.
-    repeat rewrite shiftby_constr.
-    simpl.
-    eauto.
-  }
-  {
     eapply subst_shift_s_t_n_var; eauto.
   }
   {
@@ -1465,6 +1457,14 @@ Proof.
     rewrite fold_iter.
     rewrite IHx; simpl in *; eauto; omega.
   }
+  {
+    simpl.
+    repeat rewrite shiftby_unit.
+    simpl.
+    eauto.
+  }
+  admit. (* prod *)
+  admit. (* sum *)
 Qed.
 
 Lemma subst_shift_s_t_n v (x : type) : forall n, visit_t n (lower_t_f 0, subst_sub 0 v, subst_sub 0 v) (iter (S n) (shift_from_t 0) x) = iter n (shift_from_t 0) x.
@@ -1512,7 +1512,6 @@ Proof.
     }
     { eapply IHx2. }
   }
-  { simpl; eauto. }
   { simpl; rewrite (plus_comm n n'); eauto. }
   { simpl.
     f_equal.
@@ -1551,6 +1550,9 @@ Proof.
     f_equal.
     eapply IHx.
   }
+  { simpl; eauto. }
+  admit. (* prod *)
+  admit. (* sum *)
 Qed.
 
 Lemma subst_s_t_equiv v x n : visit_t 0 (lower_t_f n, subst_sub n (iter n (shift_from_s 0) v), subst_sub n (iter n (shift_from_s 0) v)) x = visit_t n (lower_t_f 0, subst_sub 0 v, subst_sub 0 v) x.
@@ -1802,13 +1804,6 @@ Proof.
   }
   {
     simpl.
-    rename t into c.
-    repeat rewrite shiftby_constr.
-    simpl.
-    eauto.
-  }
-  {
-    simpl.
     repeat rewrite shiftby_var.
     repeat rewrite shiftby_nat.
     simpl.
@@ -1884,6 +1879,14 @@ Proof.
     rewrite fold_iter.
     rewrite IHx; simpl in *; eauto; omega.
   }
+  {
+    simpl.
+    repeat rewrite shiftby_unit.
+    simpl.
+    eauto.
+  }
+  admit. (* prod *)
+  admit. (* sum *)
 Qed.
 
 Lemma shift_from_shiftby_t n x : shift_from_t n (iter n (shift_from_t 0) x) = iter (S n) (shift_from_t 0) x.

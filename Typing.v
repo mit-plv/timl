@@ -68,11 +68,15 @@ Inductive kinding : tcontext -> type -> kind -> Prop :=
     kinding T t 0 ->
     kinding T (Thide t) 0
 | Kunit T :
-    kinding T (Tconstr TCunit) 0
-| Kprod T :
-    kinding T (Tconstr TCprod) 2
-| Ksum T :
-    kinding T (Tconstr TCsum) 2
+    kinding T Tunit 0
+| Kprod T a b :
+    kinding T a 0 ->
+    kinding T b 0 ->
+    kinding T (Tprod a b) 0
+| Ksum T a b :
+    kinding T a 0 ->
+    kinding T b 0 ->
+    kinding T (Tsum a b) 0
 .
 
 Inductive teq : type -> type -> Prop :=
@@ -95,6 +99,14 @@ Inductive teq : type -> type -> Prop :=
 | Qrecur a b :
     teq a b ->
     teq (Trecur a) (Trecur b)
+| Qprod a b a' b' :
+    teq a a' ->
+    teq b b' ->
+    teq (Tprod a b) (Tprod a' b')
+| Qsum a b a' b' :
+    teq a a' ->
+    teq b b' ->
+    teq (Tsum a b) (Tsum a' b')
 .
 
 Global Add Relation type teq
@@ -122,10 +134,6 @@ Local Open Scope G.
 
 Local Open Scope prog_scope.
 
-Definition Tunit := Tconstr TCunit.
-Definition Tprod t1 t2 := Tconstr TCprod $$ t1 $$ t2.
-Definition Tsum t1 t2 := Tconstr TCsum $$ t1 $$ t2.
-
 Notation Tuniversal0 := (Tuniversal F0 Stt).
 
 Inductive typing : tcontext -> expr -> type -> cexpr -> size -> Prop :=
@@ -150,14 +158,45 @@ Inductive typing : tcontext -> expr -> type -> cexpr -> size -> Prop :=
     typing T e1 t1 n1 s1 ->
     typing (add_typing (t1, Some s1) T) e2 t2 n2 s2 ->
     typing T (Elet t1 e1 e2) (subst s1 t2) (n1 + subst s1 n2) (subst s1 s2)
-| TPletrec T (defs : list letrec_entry) main t n s :
-    let len := length defs in
-    let T' := add_typings (map (fst >> fst >> add_snd (Some Stt)) defs) T in
-    (forall lhs_t rhs_t e, 
-       In (lhs_t, rhs_t, e) defs -> 
-       typing T' (Eabs rhs_t e) (shiftby len lhs_t) F0 Stt) ->
-    typing T' main (shiftby len t) (shiftby len n) (shiftby len s) ->
-    typing T (Eletrec defs main) t n s
+| TPfold T e t n s t1 :
+    t == Trecur t1 ->
+    typing T e (subst t t1) n s ->
+    typing T (Efold t e) t n (Sfold s)
+| TPunfold T e t n s s1 t1 :
+    typing T e t n s ->
+    is_fold s = Some s1 ->
+    t == Trecur t1 ->
+    typing T (Eunfold e) (subst t t1) n s1
+| TPhide T e t n s :
+    typing T e t n s ->
+    typing T (Ehide e) (Thide t) n (Shide s)
+| TPunhide T e t n s s1 :
+    typing T e (Thide t) n s ->
+    is_hide s = Some s1 ->
+    typing T (Eunhide e) t n s1
+| TPeq T e t1 t2 n s :
+    typing T e t1 n s ->
+    t1 == t2 ->
+    typing T e t2 n s
+| TPsub T e t n n' s s' :
+    typing T e t n s ->
+    n <<= n' ->
+    s <= s' ->
+    typing T e t n' s'
+(* basic types - intro *)
+| TPtt T :
+    typing T Ett Tunit F0 Stt
+| TPpair T e1 t1 c1 s1 e2 t2 c2 s2 : 
+    typing T e1 t1 c1 s1 ->
+    typing T e2 t2 c2 s2 ->
+    typing T (Epair e1 e2) (Tprod t1 t2) (c1 + c2) (Spair s1 s2)
+| TPinl T t e te c s:
+    typing T e te c s ->
+    typing T (Einl t e) (Tsum te t) c (Sinl s)
+| TPinr T t e te c s:
+    typing T e te c s ->
+    typing T (Einr t e) (Tsum t te) c (Sinr s)
+(* basic types - elim *)
 | TPmatch_pair T e e' t t1 t2 n s n' s' s1 s2 :
     typing T e (Tprod t1 t2) n s ->
     is_pair s = Some (s1, s2) ->
@@ -182,39 +221,5 @@ Inductive typing : tcontext -> expr -> type -> cexpr -> size -> Prop :=
     typing T e (Tsum t1 t2) n (Sinr s) ->
     typing (add_typing (t2, Some s) T) e2 t' n' s' ->
     typing T (Ematch_sum e e1 e2) (subst s t') (n + F1 + subst s n') (subst s s')
-| TPfold T e t n s t1 :
-    t == Trecur t1 ->
-    typing T e (subst t t1) n s ->
-    typing T (Efold t e) t n (Sfold s)
-| TPunfold T e t n s s1 t1 :
-    typing T e t n s ->
-    is_fold s = Some s1 ->
-    t == Trecur t1 ->
-    typing T (Eunfold t e) (subst t t1) n s1
-| TPhide T e t n s :
-    typing T e t n s ->
-    typing T (Ehide e) (Thide t) n (Shide s)
-| TPunhide T e t n s s1 :
-    typing T e (Thide t) n s ->
-    is_hide s = Some s1 ->
-    typing T (Eunhide e) t n s1
-| TPeq T e t1 t2 n s :
-    typing T e t1 n s ->
-    t1 == t2 ->
-    typing T e t2 n s
-| TPsub T e t n n' s s' :
-    typing T e t n s ->
-    n <<= n' ->
-    s <= s' ->
-    typing T e t n' s'
-(* built-in constants *)
-| TPpair T : 
-    typing T Cpair (Tuniversal0 $ Tuniversal0 $ Tarrow #1 F0 Stt $ Tarrow #1 F1 (Spair #1 #0) $ Tprod #3 #2) F0 Stt
-| TPinl T :
-    typing T Cinl (Tuniversal0 $ Tuniversal0 $ Tarrow #1 F1 (Sinl #0) $ Tsum #2 #1) F0 Stt
-| TPinr T :
-    typing T Cinr (Tuniversal0 $ Tuniversal0 $ Tarrow #0 F1 (Sinr #0) $ Tsum #2 #1) F0 Stt
-| TPtt T :
-    typing T Ctt Tunit F0 Stt
 .
 
