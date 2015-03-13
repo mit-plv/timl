@@ -23,7 +23,7 @@ Definition typingsim T e τ := exists c s, typing T e τ c s.
 
 Definition nostuck e := forall e', steps e e' -> IsValue e' \/ exists e'', step e' e''.
 
-Lemma sound_wrt_nostuck :
+Theorem sound_wrt_nostuck :
   forall e τ,
     typingsim [] e τ ->
     nostuck e.
@@ -81,26 +81,34 @@ Instance Subst_csize_size : Subst csize size :=
     substn n v b := substn n (v : size) b
   }.
 
+Definition le_csize_size : csize -> size -> Prop.
+  admit.
+Defined.
+
+Instance Le_cszie_size : Le csize size :=
+  {
+    le := le_csize_size
+  }.
+
 Notation "| v |" := (get_size v) (at level 10).
+Infix "≤" := le (at level 70).
+
+Definition terminatesWith e n v := (nsteps e n v /\ IsValue v)%type.
+Notation "⇓" := terminatesWith.
+
+Definition asNat P c :=
+  (exists nc, nat_of_cexpr c = Some nc /\ P nc)%type.
+Notation "⌊ n | P ⌋" := (asNat (fun n => P)).
 
 (* An Logical Step-indexed Logical Relation (LSLR) for boundedness *)
 
 (* A Parametric Higher-Order Abstract Syntax encoding *)
 
-Notation typeR := nat (only parsing).
-(*
-Inductive typeR :=
-| TRexpr
-| TRrel (arity : nat)
-.
-
-Coercion TRrel : nat >-> typeR.
-*)
 Section propR.
 
-  Variable var : typeR -> Type.
+  Variable var : nat -> Type.
   
-  Inductive propR : typeR -> Type :=
+  Inductive propR : nat -> Type :=
   | PRvar t : var t -> propR t
   | PRlift : Prop -> propR 0
   | PRtrue : propR 0
@@ -114,13 +122,15 @@ Section propR.
   | PRexistsR n : (var n -> propR 0) -> propR 0
   | PRforall1 T : (T -> propR 0) -> propR 0
   | PRexists1 T : (T -> propR 0) -> propR 0
-  | PRabs (n : nat) : (expr -> propR n) -> propR (S n)
-  | PRapp (n : nat) : propR (S n) -> expr -> propR n
-  | PRrecur (n : nat) : (var n -> propR n) -> propR n
+  | PRabs n : (expr -> propR n) -> propR (S n)
+  | PRapp n : propR (S n) -> expr -> propR n
+  | PRrecur n : (var n -> propR n) -> propR n
   | PRlater : propR 0 -> propR 0
   .
 
 End propR.
+
+Definition PropR n := forall var, propR var n.
 
 Infix "×" := Tprod (at level 40).
 Infix "+" := Tsum.
@@ -147,12 +157,11 @@ Infix "/\" := PRand.
 Infix "\/" := PRor.
 Infix "⇒" := PRimply (at level 90).
 Notation "▹" := PRlater.
-    
-Infix "≤" := le (at level 70).
+Definition VSet var τ (S : propR var 1) := ∀ v, v ∈ S ⇒ ⌈v ↓ τ⌉.
 
 Section TestNotations.
   
-  Variable var : typeR -> Type.
+  Variable var : nat -> Type.
 
   Definition ttt1 : propR var 1 := \e , ⊤.
   Definition ttt2 : propR var 1 := \e , ⌈e ↓ Tunit⌉.
@@ -165,11 +174,15 @@ Inductive thresholds :=
 | THarrow : thresholds -> csize -> thresholds -> thresholds
 .
 
+Require Import Util.
+Local Open Scope prog_scope.
+
 (* A "step-indexed" kriple model *)
 
+(* the logical relation *)
 Section LR.
   
-  Variable var : typeR -> Type.
+  Variable var : nat -> Type.
 
   Definition substs : Type.
     admit.
@@ -180,9 +193,6 @@ Section LR.
   Defined.
 
   Coercion substs_type : substs >-> Funclass.
-
-  Require Import Util.
-  Local Open Scope prog_scope.
 
   Definition substs_sem : substs -> nat -> propR var 1.
     admit.
@@ -229,23 +239,8 @@ Section LR.
       add := add_pair
     }.
 
-  Definition natP P c :=
-    (exists nc, nat_of_cexpr c = Some nc /\ P nc)%type.
-
-  Definition le_csize_size : csize -> size -> Prop.
-    admit.
-  Defined.
-
-  Instance Le_cszie_size : Le csize size :=
-    {
-      le := le_csize_size
-    }.
-
-  (* the logical relation *)
   Definition E' V τ (c : cexpr) (s : size) (ρ : substs) C (θ : thresholds) : propR var 1 :=
-    \e, ∀ v, ∀1 n, ⌈⊢ [] e (ρ τ) /\ nsteps e n v /\ IsValue v⌉ ⇒ ⌈natP (fun nc => n ≤ C * nc) (ρ $ c)⌉ /\ ∃1 ξ : csize, ⌈ξ ≤ ρ $$ s⌉ /\ v ∈ V τ ξ ρ C θ.
-
-  Definition VSet τ (S : propR var 1) := ∀ v, v ∈ S ⇒ ⌈v ↓ τ⌉.
+    \e, ∀ v, ∀1 n, ⌈⊢ [] e (ρ τ) /\ ⇓ e n v⌉ ⇒ ⌈ ⌊ ñ | n ≤ C * ñ ⌋ (ρ $ c) ⌉ /\ ∃1 ξ : csize, ⌈ξ ≤ ρ $$ s⌉ /\ v ∈ V τ ξ ρ C θ.
 
   Fixpoint V τ (ξ : csize) (ρ : substs) (C : nat) (θ : thresholds) {struct τ} : propR var 1 :=
     match τ, ξ, θ with
@@ -265,24 +260,23 @@ Section LR.
 
 End LR.
 
-Definition bounded τ₁ e c (s : size) :=
-  exists (C : nat) (ξ₀ : csize), 
-    forall v₁,
-      v₁ ↓ τ₁ ->
-      let ξ₁ := |v₁| in
-      ξ₀ <= ξ₁ ->
-      forall v n, 
-        IsValue v -> 
-        (* n is the actual running time *)
-        nsteps (subst v₁ e) n v ->
-        (* n is bounded *)
-        natP (fun nc => n <= C * nc) (subst ξ₁ c)
-.
+Definition relV τ ξ ρ C θ : PropR 1 := fun var => V var τ ξ ρ C θ.
+Definition relE τ c s ρ C θ : PropR 1 := fun var => E var τ c s ρ C θ.
 
-Lemma sound_wrt_bounded :
-  forall τ₁ e τ c s, 
-    typing [TEtyping (τ₁, None)] e τ c s -> 
-    bounded τ₁ e c s.
+Theorem sound_wrt_bounded :
+  forall f τ₁ c s τ₂, 
+    ⊢ [] f (Tarrow τ₁ c s τ₂) -> 
+    exists (C : nat) (ξ₀ : csize), 
+      (* ξ₀ is the threshold of input size in asymptotics *)
+      forall v,
+        v ↓ τ₁ ->
+        let ξ := |v| in
+        ξ₀ <= ξ ->
+        forall v' n, 
+          (* n is the actual running time *)
+          ⇓ (Eapp f v) n v' ->
+          (* n is bounded by c(ξ) w.r.t. constant factor C *)
+          ⌊ ñ | n <= C * ñ ⌋ (subst ξ c).
 Proof.
   admit.
 Qed.
