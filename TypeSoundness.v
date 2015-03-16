@@ -21,13 +21,13 @@ Inductive steps : expr -> expr -> Prop :=
 
 Notation "⊢" := typing.
 Definition typingsim T e τ := exists c s, ⊢ T e τ c s.
-Notation "|-" := typingsim.
+Notation "|~" := typingsim.
 
 Definition nostuck e := forall e', steps e e' -> IsValue e' \/ exists e'', step e' e''.
 
 Theorem sound_wrt_nostuck :
   forall e τ,
-    |- [] e τ ->
+    |~ [] e τ ->
     nostuck e.
 Proof.
   admit.
@@ -104,7 +104,7 @@ Notation "⌊ n | P ⌋" := (asNat (fun n => P)).
 
 Infix "×" := Tprod (at level 40).
 Infix "+" := Tsum.
-Notation "e ↓ τ" := (IsValue e /\ |- [] e τ) (at level 51).
+Notation "e ↓ τ" := (IsValue e /\ |~ [] e τ) (at level 51).
 
 (* A Parametric Higher-Order Abstract Syntax (PHOAS) encoding for a second-order modal logic (LSLR) *)
 
@@ -134,6 +134,129 @@ Section rel.
 
 End rel.
 
+Notation "⊤" := (Rtrue _).
+Notation "⊥" := (Rtrue _).
+(* Notation "\ e , p" := (Rabs (fun e => p)) (at level 200, format "\ e , p"). *)
+Notation "\ x .. y , p" := (Rabs (fun x => .. (Rabs (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
+Notation "∀ x .. y , p" := (Rforalle (fun x => .. (Rforalle (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
+Notation "∃ x .. y , p" := (Rexistse (fun x => .. (Rexistse (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
+Notation "∀1 x .. y , p" := (Rforall1 (fun x => .. (Rforall1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
+Notation "∃1 x .. y , p" := (Rexists1 (fun x => .. (Rexists1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
+Definition RforallR' var n P := (@RforallR var n (fun x => P (Rvar _ _ x))).
+Notation "∀2 x .. y , p" := (RforallR' (fun x => .. (RforallR' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
+Definition RexistsR' var n P := (@RexistsR var n (fun x => P (Rvar _ _ x))).
+Notation "∃2 x .. y , p" := (RexistsR' (fun x => .. (RexistsR' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
+Definition Rrecur' var n P := (@Rrecur var n (fun x => P (Rvar _ _ x))).
+Notation "@ x .. y , p" := (Rrecur' (fun x => .. (Rrecur' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
+Notation "⌈ P ⌉" := (Rlift _ P).
+Notation "e ∈ P" := (Rapp P e) (at level 70).
+Infix "/\" := Rand.
+Infix "\/" := Ror.
+Infix "⇒" := Rimply (at level 90).
+Notation "▹" := Rlater.
+Definition VSet var τ (S : rel var 1) := ∀ v, v ∈ S ⇒ ⌈v ↓ τ⌉.
+
+Section TestNotations.
+  
+  Variable var : nat -> Type.
+
+  Definition ttt1 : rel var 1 := \e , ⊤.
+  Definition ttt2 : rel var 1 := \e , ⌈e ↓ Tunit⌉.
+  Definition ttt3 : rel var 1 := \_ , ⌈True /\ True⌉.
+
+End TestNotations.
+
+Inductive thresholds :=
+| THleaf
+| THarrow : thresholds -> csize -> thresholds -> thresholds
+.
+
+Require Import Util.
+Local Open Scope prog_scope.
+
+(* A "step-indexed" kriple model *)
+
+(* the logical relation *)
+Section LR.
+  
+  Variable var : nat -> Type.
+
+  Definition substs : Type.
+    admit.
+  Defined.
+
+  Definition substs_type : substs -> type -> type.
+    admit.
+  Defined.
+
+  Coercion substs_type : substs >-> Funclass.
+
+  Definition substs_sem : substs -> nat -> rel var 1.
+    admit.
+  Defined.
+
+  Instance Apply_substs_nat_rel : Apply substs nat (rel var 1) :=
+    {
+      apply := substs_sem
+    }.
+
+  Definition substs_cexpr : substs -> cexpr -> cexpr.
+    admit.
+  Defined.
+
+  Instance Apply_substs_cexpr_cexpr : Apply substs cexpr cexpr :=
+    {
+      apply := substs_cexpr
+    }.
+
+  Definition substs_size : substs -> size -> size.
+    admit.
+  Defined.
+
+  Instance Apply_substs_size_size : Apply substs size size :=
+    {
+      apply := substs_size
+    }.
+
+  Definition add_csize : csize -> substs -> substs.
+    admit.
+  Defined.
+
+  Instance Add_csize_substs : Add csize substs substs :=
+    {
+      add := add_csize
+    }.
+
+  Definition add_pair : (type * rel var 1) -> substs -> substs.
+    admit.
+  Defined.
+
+  Instance Add_pair_substs : Add (type * rel var 1) substs substs :=
+    {
+      add := add_pair
+    }.
+
+  Definition E' V τ (c : cexpr) (s : size) (ρ : substs) C (θ : thresholds) : rel var 1 :=
+    \e, ∀ v, ∀1 n, ⌈|~ [] e (ρ τ) /\ ⇓ e n v⌉ ⇒ ⌈ ⌊ ñ | n ≤ C * ñ ⌋ (ρ $ c) ⌉ /\ ∃1 ξ : csize, ⌈ξ ≤ ρ $$ s⌉ /\ v ∈ V τ ξ ρ C θ.
+
+  Fixpoint V τ (ξ : csize) (ρ : substs) (C : nat) (θ : thresholds) {struct τ} : rel var 1 :=
+    match τ, ξ, θ with
+      | Tvar α, _, _ => ρ $ α
+      | Tunit, _, _ => \v, ⌈v ↓ τ⌉
+      | τ₁ × τ₂, CSpair ξ₁ ξ₂, _ => \v, ⌈v ↓ ρ τ⌉ /\ ∃ a b, ⌈v = Epair a b⌉ /\ a ∈ V τ₁ ξ₁ ρ C θ /\ b ∈ V τ₂ ξ₂ ρ C θ
+      | τ₁ + τ₂, CSinl ξ, _ => \v, ⌈v ↓ ρ τ⌉ /\ ∃ v', ⌈v = Einl τ₂ v'⌉ /\ v' ∈ V τ₁ ξ ρ C θ
+      | τ₁ + τ₂, CSinr ξ, _ => \v, ⌈v ↓ ρ τ⌉ /\ ∃ v', ⌈v = Einr τ₁ v'⌉ /\ v' ∈ V τ₂ ξ ρ C θ
+      | Tarrow τ₁ c s τ₂, _, THarrow θ₁ ξ₀ θ₂ => \v, ⌈v ↓ ρ τ⌉ /\ ∀1 ξ₁, ∀ v₁, v₁ ∈ V τ₁ ξ₁ ρ C θ /\ ⌈ξ₀ ≤ |v₁|⌉ ⇒ Eapp v v₁ ∈ E' V τ₂ c s (add ξ₁ ρ) C θ₂
+      | Tuniversal c s τ, _, _ => \v, ⌈v ↓ ρ τ⌉ /\ ∀1 τ', ∀2 S, VSet τ' S ⇒ Etapp v τ' ∈ E' V τ c s (add (τ', S) ρ) C θ
+      | Trecur τ, CSfold ξ, _ => @S, \v, ⌈v ↓ ρ τ⌉ /\ ∃ v', ⌈v = Efold τ v'⌉ /\ ▹ (v' ∈ V τ ξ (add (ρ τ, S) ρ) C θ)
+      | _, _, _ => \_, ⊥
+    end
+  .
+
+  Definition E := E' V.
+
+End LR.
+(*
 Section relOpen.
 
   Variable var : nat -> Type.
@@ -237,19 +360,6 @@ Arguments ORforalle {var R} _ .
 Notation "∀ x .. y , p" := (ORforalle (fun x => .. (ORforalle (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
 Arguments ORexistse {var R} _ .
 Notation "∃ x .. y , p" := (ORexistse (fun x => .. (ORexistse (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
-Section TestNotations.
-  
-  Variable var : nat -> Type.
-  Variable R : list nat.
-
-  Definition ttt1 : relOpen var R 1 := \e , ⊤.
-  Definition ttt2 : relOpen var R 1 := \e , ⌈e ↓ Tunit⌉.
-  Definition ttt3 : relOpen var R 1 := \_ , ⌈True /\ True⌉.
-  Definition ttt4 : relOpen var R 1 := \_ , ∀ e, ⌈e = Ett⌉.
-  Definition ttt5 : relOpen var R 1 := \_ , ∃ e, ⌈e = Ett⌉.
-
-End TestNotations.
-
 Arguments ORforall1 {var R T} _ .
 Notation "∀1 x .. y , p" := (ORforall1 (fun x => .. (ORforall1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
 Arguments ORexists1 {var R T} _ .
@@ -272,21 +382,18 @@ Arguments ORlater {var R} _ .
 Notation "▹" := ORlater.
 Definition VSet {var R} τ (S : relOpen var R 1) := ∀ v, v ∈ S ⇒ ⌈v ↓ τ⌉.
 
-(*
-Section inferRules.
-
+Section TestNotations.
+  
   Variable var : nat -> Type.
-
   Variable R : list nat.
 
-  Definition prop := openRel R 0.
+  Definition ttt1 : relOpen var R 1 := \e , ⊤.
+  Definition ttt2 : relOpen var R 1 := \e , ⌈e ↓ Tunit⌉.
+  Definition ttt3 : relOpen var R 1 := \_ , ⌈True /\ True⌉.
+  Definition ttt4 : relOpen var R 1 := \_ , ∀ e, ⌈e = Ett⌉.
+  Definition ttt5 : relOpen var R 1 := \_ , ∃ e, ⌈e = Ett⌉.
 
-  Fixpoint 
-
-  Inductive valid : list prop -> prop -> Prop :=
-  | Vmono C P : 
-*)
-
+End TestNotations.
 
 (* An Logical Step-indexed Logical Relation (LSLR) for boundedness *)
 
@@ -362,7 +469,7 @@ Section LR.
     }.
 
   Definition E' V τ (c : cexpr) (s : size) (ρ : substs) C (θ : thresholds) : relOpen var R 1 :=
-    \e, ∀ v, ∀1 n, ⌈|- [] e (ρ τ) /\ ⇓ e n v⌉ ⇒ ⌈ ⌊ ñ | n ≤ C * ñ ⌋ (ρ $ c) ⌉ /\ ∃1 ξ : csize, ⌈ξ ≤ ρ $$ s⌉ /\ v ∈ V τ ξ ρ C θ.
+    \e, ∀ v, ∀1 n, ⌈|~ [] e (ρ τ) /\ ⇓ e n v⌉ ⇒ ⌈ ⌊ ñ | n ≤ C * ñ ⌋ (ρ $ c) ⌉ /\ ∃1 ξ : csize, ⌈ξ ≤ ρ $$ s⌉ /\ v ∈ V τ ξ ρ C θ.
 
   Fixpoint V τ (ξ : csize) (ρ : substs) (C : nat) (θ : thresholds) {struct τ} : relOpen var R 1 :=
     match τ, ξ, θ with
@@ -381,15 +488,10 @@ Section LR.
   Definition E := E' V.
 
 End LR.
-
-Definition Rel n := forall var R, relOpen var R n.
-
-Definition relV τ ξ ρ C θ : Rel 1 := fun var R => V var R τ ξ ρ C θ.
-Definition relE τ c s ρ C θ : Rel 1 := fun var R => E var R τ c s ρ C θ.
-
+*)
 Definition sound_wrt_bounded :=
   forall f τ₁ c s τ₂, 
-    |- [] f (Tarrow τ₁ c s τ₂) -> 
+    |~ [] f (Tarrow τ₁ c s τ₂) -> 
     exists (C : nat) (ξ₀ : csize), 
       (* ξ₀ is the threshold of input size in asymptotics *)
       forall v,
@@ -402,13 +504,48 @@ Definition sound_wrt_bounded :=
           (* n is bounded by c(ξ) w.r.t. constant factor C *)
           ⌊ ñ | n <= C * ñ ⌋ (subst ξ c).
 
+Definition valid (X : list bool) {var} R (ctxP : list (relOpen var R 0)) (P : relOpen var R 0) : Prop.
+  admit.
+Defined.
+Notation "|- X R ctxP P" := (valid X R ctxP P) (at level 90).
+
 Definition related Γ e τ c s :=
-  (* ⊢ Γ e τ c s /\ *)
-  exists X,
-    wfVarCtx Γ X ->
-    exists R,
-      wfRelCtx Γ R ->
+  exists C ξ₀'s θ,
+    length ξₒ's = length Γ /\
+    (* ⊢ Γ e τ c s /\ *)
+    let X := map () Γ in
+    let R := map () Γ in
+    let ρ := map () Γ in
+    let ctxP := map () Γ in
+    |- X R ctxP (e ∈ E c s ρ C θ)
       
+(*
+Section inferRules.
+
+  Variable var : nat -> Type.
+
+  Variable R : list nat.
+
+  Reserved Notation "C |- P" (at level 90).
+  
+  Inductive valid : list (relOpen var R 0) -> relOpen var R 0 -> Prop :=
+  | RuleMono C P : C |- P -> C |- ▹P
+  | RuleLob C P : ▹P :: C |- P -> C |- P
+  | RuleLaterAnd1 C P Q : C |- ▹ (P /\ Q) -> C |- ▹P /\ ▹Q
+  | RuleLaterAnd2 C P Q : C |- ▹P /\ ▹Q -> C |- ▹ (P /\ Q)
+  | RuleElem1 C P e : C |- e ∈ ORabs P -> C |- P e
+  | RuleElem2 C P e : C |- P e -> C |- e ∈ ORabs P
+  where "C |- P" := (valid C P)
+  .
+
+End inferRules.
+*)
+
+Definition Rel n := forall var R, relOpen var R n.
+
+Definition relV τ ξ ρ C θ : Rel 1 := fun var R => V var R τ ξ ρ C θ.
+Definition relE τ c s ρ C θ : Rel 1 := fun var R => E var R τ c s ρ C θ.
+
 Lemma foundamental :
   forall Γ e τ c s,
     ⊢ Γ e τ c s -> 
