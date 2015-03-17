@@ -543,8 +543,7 @@ Definition add_var t ctx Ps ρ :=
   let ctx := t :: ctx in 
   let Ps := lift t Ps in
   let ρ := lift t ρ in
-  (ctx, Ps, ρ)
-.
+  (ctx, Ps, ρ).
 
 Definition add_type k :=
   let Pack ctx0 Ps ρ := C in
@@ -552,29 +551,29 @@ Definition add_type k :=
   let Ps := extend ctx0 (fun τ => kinding [] τ k) :: Ps in
   match k with
     | KDstar => 
-      let C := add_rel_var C in
-      let C := add_premise (fun τ S => VSet τ S) C in
-      let C := add_ρ_type #1 (Some #0) C in
-      C
+      let (ctx, Ps, ρ) := add_var (TTrel 1) ctx Ps ρ in
+      let Ps := extend ctx0 (fun τ S => VSet τ S) :: Ps in
+      let ρ := SEtype #1 (Some #0) :: ρ in
+      Pack ctx Ps ρ
     | _ =>
-      let C := add_ρ_type #1 None C in
-      C
+      let ρ := SEtype #1 None :: ρ in
+      Pack ctx Ps ρ
   end.
 
 Definition add_expr τ θ os :=
-  let ρ := get_ρ C in
-  let C := add_expr C in
-  let C := add_premise (#0 ∈ V τ ρ Ct θ) C in
-  let C := add_csize C in
-  let C := add_ρ_expr #1 #0 in
+  let Pack ctx0 Ps ρ := C in
+  let (ctx, Ps, ρ) := add_var TTexpr ctx0 Ps ρ in
+  let Ps := #0 ∈ V τ ρ Ct θ :: Ps in
+  let (ctx, Ps, ρ) := add_var (TTother csize) ctx0 Ps ρ in
+  let ρ := SEexpr #1 #0 :: ρ in
   match os with
-    | inl ξ =>
-      let C := add_premise (#0 = ξ ≤ |#1| ? |#1| : ξ) C in
-      C
+    | inl ξ₀ =>
+      let Ps := extend ctx0 (fun v ξ => ξ₀ ≤ |v| ? ξ = |v| : ξ = ξ₀) C :: Ps in
+      Pack ctx Ps ρ
     | inr s =>
-      let C := add_premise (asCsize (fun ξ => #0 = ξ) (ρ $$ s)) C in
-      C
-  end
+      let Ps := extend (TTexpr :: ctx0) (fun ξ => asCsize (fun ξs => ξ = ξs) (ρ $$ s)) in
+      Pack ctx Ps ρ
+  end.
 
 Fixpoint makeC Γ :=
   match Γ with
@@ -593,7 +592,7 @@ Definition related Γ e τ c s :=
   exists C ξs θs θ Γ',
     extendΓ Γ ξs θs = Some Γ' /\
     let (C, ρ) := makeC Γ' in
-    C |- ∃1 n ξ, nat_of_cexpr c = Some n /\ csize_of_size s = Some ξ /\ (ρ $ e) ∈ E τ (C * n) ξ ρ C θ
+    C |- (ρ $ e) ∈ E τ (C * c) s ρ C θ
     (* ⊢ Γ e τ c s /\ *)
     let X := map () Γ in
     let C := map () Γ in
