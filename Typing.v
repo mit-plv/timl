@@ -166,7 +166,7 @@ Inductive typing : tcontext -> expr -> type -> cexpr -> size -> Prop :=
     typing T e t n s ->
     is_fold s = Some s1 ->
     t == Trecur t1 ->
-    typing T (Eunfold e) (subst t t1) n s1
+    typing T (Eunfold e) (subst t t1) (1 + n) s1
 | TPhide T e t n s :
     typing T e t n s ->
     typing T (Ehide e) (Thide t) n (Shide s)

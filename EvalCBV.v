@@ -62,7 +62,6 @@ Inductive step : expr -> expr -> Prop :=
   | STecontext c e1 e2 : step e1 e2 -> step (plug c e1) (plug c e2)
   | STapp t body arg : IsValue arg -> step (Eapp (Eabs t body) arg) (subst arg body)
   | STlet t v main : IsValue v -> step (Elet t v main) (subst v main)
-  (* missing some rules for letrec *)
   | STmatch_pair ta tb a b k : 
       IsValue a ->
       IsValue b ->

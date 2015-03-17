@@ -109,17 +109,17 @@ Notation "e ↓ τ" := (IsValue e /\ |~ [] e τ) (at level 51).
 Definition sound_wrt_bounded :=
   forall f τ₁ c s τ₂, 
     f ↓ Tarrow τ₁ c s τ₂ -> 
+    (* ξ₀ is the threshold of input size in asymptotics *)
     exists (C : nat) (ξ₀ : csize), 
-      (* ξ₀ is the threshold of input size in asymptotics *)
       forall v,
         v ↓ τ₁ ->
         let ξ := |v| in
         ξ₀ <= ξ ->
-        forall v' n, 
-          (* n is the actual running time *)
-          ⇓ (Eapp f v) n v' ->
-          (* n is bounded by c(ξ) w.r.t. constant factor C *)
-          ⌊ ñ | n <= C * ñ ⌋ (subst ξ c).
+        exists n', 
+          nat_of_cexpr (subst ξ c) = Some n' /\
+          (* actual runing time is bounded by c(ξ) w.r.t. constant factor C *)
+          ~ exists n e',
+              nsteps (Eapp f v) n e' /\ n > C * n'.
 
 (* A Parametric Higher-Order Abstract Syntax (PHOAS) encoding for a second-order modal logic (LSLR) *)
 
@@ -253,19 +253,56 @@ Section LR.
       add := add_pair
     }.
 
-  Definition E' V τ (c : cexpr) (s : size) (ρ : substs) C (θ : thresholds) : rel var 1 :=
-    \e, ∀ v, ∀1 n, ⌈|~ [] e (ρ τ) /\ ⇓ e n v⌉ ⇒ ⌈ ⌊ ñ | n ≤ C * ñ ⌋ (ρ $ c) ⌉ /\ ∃1 ξ : csize, ⌈ξ ≤ ρ $$ s⌉ /\ v ∈ V τ ξ ρ C θ.
+  Inductive stepex : expr -> bool -> expr -> Prop :=
+  | STecontext c e1 b e2 : stepex e1 b e2 -> stepex (plug c e1) b (plug c e2)
+  | STapp t body arg : IsValue arg -> stepex (Eapp (Eabs t body) arg) false (subst arg body)
+  | STlet t v main : IsValue v -> stepex (Elet t v main) false (subst v main)
+  | STmatch_pair ta tb a b k : 
+      IsValue a ->
+      IsValue b ->
+      stepex (Ematch_pair (Epair $$ ta $$ tb $$ a $$ b) k) false (subst_list [a; b] k)
+  | STmatch_inl ta tb v k1 k2 : 
+      IsValue v ->
+      stepex (Ematch_sum (Einl $$ ta $$ tb $$ v) k1 k2) false (subst v k1)
+  | STmatch_inr ta tb v k1 k2 : 
+      IsValue v ->
+      stepex (Ematch_sum (Einr $$ ta $$ tb $$ v) k1 k2) false (subst v k2)
+  | STtapp body t : stepex (Etapp (Etabs body) t) false (subst t body)
+  | STunfold_fold v t1 : 
+      IsValue v ->
+      stepex (Eunfold (Efold t1 v)) true v
+  | STunhide_hide v :
+      IsValue v ->
+      stepex (Eunhide (Ehide v)) false v
+  .
 
-  Fixpoint V τ (ξ : csize) (ρ : substs) (C : nat) (θ : thresholds) {struct τ} : rel var 1 :=
-    match τ, ξ, θ with
-      | Tvar α, _, _ => ρ $ α
-      | Tunit, _, _ => \v, ⌈v ↓ τ⌉
-      | τ₁ × τ₂, CSpair ξ₁ ξ₂, _ => \v, ⌈v ↓ ρ τ⌉ /\ ∃ a b, ⌈v = Epair a b⌉ /\ a ∈ V τ₁ ξ₁ ρ C θ /\ b ∈ V τ₂ ξ₂ ρ C θ
-      | τ₁ + τ₂, CSinl ξ, _ => \v, ⌈v ↓ ρ τ⌉ /\ ∃ v', ⌈v = Einl τ₂ v'⌉ /\ v' ∈ V τ₁ ξ ρ C θ
-      | τ₁ + τ₂, CSinr ξ, _ => \v, ⌈v ↓ ρ τ⌉ /\ ∃ v', ⌈v = Einr τ₁ v'⌉ /\ v' ∈ V τ₂ ξ ρ C θ
-      | Tarrow τ₁ c s τ₂, _, THarrow θ₁ ξ₀ θ₂ => \v, ⌈v ↓ ρ τ⌉ /\ ∀1 ξ₁, ∀ v₁, v₁ ∈ V τ₁ ξ₁ ρ C θ /\ ⌈ξ₀ ≤ |v₁|⌉ ⇒ Eapp v v₁ ∈ E' V τ₂ c s (add ξ₁ ρ) C θ₂
-      | Tuniversal c s τ, _, _ => \v, ⌈v ↓ ρ τ⌉ /\ ∀1 τ', ∀2 S, VSet τ' S ⇒ Etapp v τ' ∈ E' V τ c s (add (τ', S) ρ) C θ
-      | Trecur τ, CSfold ξ, _ => @S, \v, ⌈v ↓ ρ τ⌉ /\ ∃ v', ⌈v = Efold τ v'⌉ /\ ▹ (v' ∈ V τ ξ (add (ρ τ, S) ρ) C θ)
+  Inductive nstepsex : expr -> nat -> nat -> expr -> Prop :=
+  | NEsteps0 e : nstepsex e 0 0 e
+  | NEstepsS e1 b e2 n m e3 : stepex e1 b e2 -> nstepsex e2 n m e3 -> nstepsex e1 (S n) ((if b then 1 else 0) + m) e3
+  .
+
+  Program Fixpoint E' V τ (n : nat) (s : size) (ρ : substs) (C : nat) (θ : thresholds) {measure n} : rel var 1 :=
+    \e, ⌈|~ [] e (ρ τ)⌉ /\ 
+        ∀1 n', ∀ e', 
+          (⌈nstepsex e n' 0 e'⌉ ⇒ ⌈n' ≤ n⌉ /\ (⌈IsValue e'⌉ ⇒ e' ∈ V τ ρ C θ /\ ⌈|e'| ≤ s⌉)) /\
+          match n with
+            | 0 => ⊤
+            | S _ =>
+              (⌈nstepsex e (S n') 1 e'⌉ ⇒ ⌈(S n') ≤ n⌉ /\ ▹ (e' ∈ E' V τ (n - S n') s ρ C θ))
+          end.
+  Next Obligation.
+    omega.
+  Defined.
+
+  Fixpoint V τ (ρ : substs) (C : nat) (θ : thresholds) {struct τ} : rel var 1 :=
+    match τ, θ with
+      | Tvar α, _ => ρ $ α
+      | Tunit, _ => \v, ⌈v ↓ τ⌉
+      | τ₁ × τ₂, _ => \v, ⌈v ↓ ρ τ⌉ /\ ∃ a b, ⌈v = Epair a b⌉ /\ a ∈ V τ₁ ρ C θ /\ b ∈ V τ₂ ρ C θ
+      | τ₁ + τ₂, _ => \v, ⌈v ↓ ρ τ⌉ /\ ∃ v', (⌈v = Einl τ₂ v'⌉ /\ v' ∈ V τ₁ ρ C θ) ‌\/ ⌈v = Einr τ₁ v'⌉ /\ v' ∈ V τ₂ ρ C θ
+      | Tarrow τ₁ c s τ₂, _, THarrow θ₁ ξ₀ θ₂ => \v, ⌈v ↓ ρ τ⌉ /\ ∀ v₁, v₁ ∈ V τ₁ ρ C θ /\ ⌈ξ₀ ≤ |v₁|⌉ ⇒ Eapp v v₁ ∈ E' V τ₂ c s (add ξ₁ ρ) C θ₂
+      | Tuniversal c s τ, _ => \v, ⌈v ↓ ρ τ⌉ /\ ∀1 τ', ∀2 S, VSet τ' S ⇒ Etapp v τ' ∈ E' V τ c s (add (τ', S) ρ) C θ
+      | Trecur τ, _ => @S, \v, ⌈v ↓ ρ τ⌉ /\ ∃ v', ⌈v = Efold τ v'⌉ /\ ▹ (v' ∈ V τ (add (ρ τ, S) ρ) C θ)
       | _, _, _ => \_, ⊥
     end
   .
