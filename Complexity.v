@@ -8,7 +8,7 @@ Notation Vbound n := (n : nat).
 Notation "# n" := (Vbound n) (at level 3).
 
 (* 
-  There are two statistics (or 'sizes') for each value :
+  There are two statistics (or 'sizes', 'size measures') for each value :
   s0 (work) : number of invocations of 'fold' 
        (for algebraic data types, this correspond to the number of constructor invocations to construct this value);
   s1 (span) : parallel version of s0, where the fields of a pair are max'ed instead of sum'ed;

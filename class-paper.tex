@@ -175,562 +175,48 @@ type system; complexity; recursive types
 
 \section{Introduction}
 
-One major obstacle of the adaptation of functional programming is the lack of clear intuition functional program's time complexity. A C programmer can easily read off the big-O complexity of a for-loop, but even experienced functional programmers are sometimes muddled about the time complexity of a piece of functional code. The confusion comes from the lack of knowledge of the compiler's inner working, as stated by the scoff ``you can hide an elephant under a beta reduction''. Two examples of the mythical objects that compilers manage internally are closures and algebraic data values. When one does not know who closures are created, passed, and used, he or she will rightfully wonder the time cost of creating a lambda abstraction, passing a function, and applying a function (beta reduction). For an algebraic data vlue such as a list defined with algebraic data types, the apparent similarity between its immutability and C's pass-by-value immutability often gives a C programmer the wrong impression that such values are copied and passed-by-value across functions and passing a list will take O(n) time to do the copying. The reality could not be further from this false impression, since immutability means almost everything can be safely implemented by pointers and references.
+One major obstacle of the adaptation of functional programming is the lack of a clear intuition of functional program's time complexity. A C programmer can easily read off the big-O complexity of a for-loop, but even experienced functional programmers are sometimes muddled about the time complexity of a piece of functional code. The confusion comes from the lack of knowledge of the compiler's inner-working, as stated by the scoff ``you can hide an elephant under a beta reduction''. Two examples of the mythical objects that compilers manage internally are closures and algebraic data values. When one does not know how closures are created, passed, and used, he or she will rightfully wonder the time cost of creating a lambda abstraction, passing a function, and applying a function (beta reduction). For values of algebraic data types such as list, the immutability of these values (one can only construct new values, not in-place modify them) often gives a C programmer the wrong impression that such values are copied and passed-by-value all the time and passing a list will take O(n) time to do the copying. The reality could not be further from this false impression, since immutability means almost everything can be safely implemented by pointers and references.
+
+But requiring every programmer to fully understand to inner-working of functional-language compilers is infeasible and unreasonable. One should be able to reason about properties of her programs in the language in which she actually writes, not in the target language of the compiler. It is the compiler's responsibility to preserve all properties of interest from the source program to the target program. So to demythify the complexity of function programming, two pieces of work need to be done: (1) we need a way to let the programmers easily reason about the complexity of functional programs in the source language level, and (2) we need a compiler that preserves the complexity of the source program downto the target program. This paper deals with the first part, with some assumptions about the second part. 
+
+One usually reason about functional programs using its operational semantics. The closest thing related to time cost in operational semantics is the number of reduction steps (in some counting metric) in small-step operational semantics, with some evaluation strategy. The design choices are (1) which evaluation strategy to use and (2) in which metric to do the counting. For (1), we choose strict call-by-value evaluation strategy against call-by-name strategy, because we think call-by-value fits people's intuition of evaluation order better, and it makes our assumption about the compiler more plausible. Call-by-name evaluation strategy has the drawback that since it can postpone computations and executing them in a sudden burst, a reduction step in the evaluation strategy could take an arbitrary amount of time on a real machine.
+
+For design choice (2), there are work ~\cite{blelloch2013cache} that employ ingenious cost models in which the counting is done, and we do believe that we need well-designed cost models to account for various machine characteristics when we want to have a more precise analysis of the time cost. But for this work, we choose the simplest cost model - the number of reduction steps in a standard strict call-by-value evaluation strategy. The justification for this choice is that (a) our top-level theorem will give any well-typed program a big-O bound on the number of reduction steps, which allows for a constant factor to be the room of imprecision, and (b) we make the assumption that {\bf any reduction step in a standard strict call-by-value evaluation strategy can be implemented by the compiler as a constant-time computation (excluding garbage collection)}. When we later make clear our definition of ``constant'' and ``non-constant'', we will come back to this assumption and try to persuade the reader that this is a reasonable assumption. Combining (a) and (b), we will have a end-to-end theorem of the big-O bound on the actual running time (defined in a well-accepted machine model such as the Random Access Machine (RAM)), independent of our choice of functional cost model, which can be treated as a intermediate proof step.
+
+Using such a cost model, programmers can do the counting in their heads and reason about their programs' complexity informally. However, we want to allow programmers to formally express their complexity constraints in a type system, which can formally guarantee the complexity via type-checking. Type systems are for preventing bugs, and we think that calling a function of a wrong complexity order, such as calling an O(n) function when an O(1) one is intended, is really a bug, not a ``performance issue''. Complexity, or at least complexity order, should be a constituent of functional correctness.
+
+We designed such a type system for the calculus $\lambda^{\forall,\omega\,\mu}$ (that is, lambda calculus extended with impredicative (first-class) universal polymorphism, type-level operator, and recursive types). Our main contribution is {\bf the first complexity type system with recursive types}. We believe this is an important milestone because the combing power of $\lambda^\forall$, $\lambda^\omega$, and $\lambda^\mu$ gives the ability to define generic algebraic data types such as lists and trees, which is the minimal requirement for a functional language to become practically ``useful''.
+
+We imagine two groups of potential users for such a language and type system. The first group is everyone programmers, for whom this type system can be incorporated into the ML language and provide additional benefits besides the already very useful ML type system. To be user-friendly, we must have a type checker (which means the type system needs to be proved decidable) and do reasonable degree of type inference. We will discuss this in Section \ref{section-example} and leave it as future work.
+
+The second group of users are computer theorists conducting complexity proofs of algorithms. As ~\cite{harper2014proposal} points out, there is an unfornately crevice between ``combinatorial'' theoriests and programming language theoriests. Members of the former still believe that the only mathematically rigid way to do complexity analysis is on the assembly level - on the Turning Machine model or Random Access Machine model; while the latter community has decades of achievements raising the abstraction level and building large systems \emph{compositionally} out of smaller components. The combinatorial theorists actually often give up rigidity by using some ``pseudo-code'' in the papers and assume that the reader can straight-forwardly ``compile'' the pseudo-code into rigid RAM code in his or her head. We hope that our language can serve as the start point when computer theoriests can express their complexity proof in a rigid whilst high-level formal language, enjoying the benefits of modern functional languages such as compositionality and abstraction. Our language is only a start point because it still lacks such important features as mutable references (and mutable arrays), which is essential for implementing matrix-based numeric algorithms; and such advanced complexity analysis as probablistic and amortized analysis, which have become mainstream for modern complexity analysis. We also lack parallelism, though in our design we intentionlly have the generality (we have the notion of ``work'' and ``span'') to make later extension to parallelism easier.
+
+Section \ref{section-example} will give an illustrating example, the merge-sort, to show what the type system can express. It will also give the top-level type soundness theorem. Section \ref{section-lang} defines the language and the typing rules. Section \ref{section-proof} gives the proof of the type soundness, using Logical Step-indexed Logical Relation ~\cite{dreyer2009logical}. Section \ref{section-related} discusses related work. Section \ref{section-discussion} discusses this work's strength and limitations, future work and conclusion.
+
+\section{\label{section-example}Example: merge-sort}
+
+\begin{align*}
+\symmsort &\defeq \lambda A. \lambda cmp.\;\symfix\;f(xs). \\
+& \hspace{.1in} \symmatch\;xs\symwith \\
+& \hspace{.2in} |\; \symnil\Rightarrow xs \\
+& \hspace{.2in} |\; \_::xs' \Rightarrow \symmatch\;xs'\symwith \\
+& \hspace{.3in} |\; \symnil\Rightarrow xs \\
+& \hspace{.3in} |\; \_ \Rightarrow \symmatch\; \symsplit\;xs \symwith \\
+& \hspace{.4in} |\; (ys, zs) \Rightarrow \symmerge\;cmp\;(f\;ys)\;(f\;zs) \\
+\\
+& \hspace{-0.2in} : \forall A.\arrow{(\arrow{A}{0}{1}{\arrow{A}{1}{1}{\symbool}})}{0}{1}{\arrow{\intro{s}{\symlist\;A}}{s*\log(s)}{<s>}{\symlist\;A}} \\
+\mathsf{where} & \\
+\end{align*}
+
+\section{\label{section-lang}Language and Type System}
+
+\section{\label{section-proof}Type Soundness Proof}
+
+\section{\label{section-related}Related Work}
+
+\section{\label{section-discussion}Discussion and Conclusion}
 
 \appendix
-
-\section{Syntax}
-
-%% \begin{figure}
-$$\begin{array}{rrcl}
-  \textrm{Size Subpart Indices} & i &::=& \symf \textrm{(fst)} \mid \syms \textrm{(snd)} \mid \syml \textrm{(left)} \mid \symr \textrm{(right)} \mid \symuf \textrm{(unfold)} \mid \symuh \textrm{(unhide)} \\
-  \textrm{Complexity Expr.} & c &::=& x.\vec{i}.\symwork \mid x.\vec{i}.\symspan \mid 0 \mid 1 \mid q \mid c+c \mid c\times c \mid q\times c \mid \log_q c \mid q^c \; (q:\textrm{non-negative rationals}) \\
-  \textrm{Sizes} & s &::=& x.\vec{i} \mid \symSstat(c_\symwork,c_\symspan) \mid \symStt \mid \symSinl\;s \mid \symSinr\;s \mid \symSlr\;s\;s \mid (s,s) \mid \symSfold\;s \mid \symShide\;s \\
-  \textrm{Types} & \tau &::=& \symunit \mid \tau\times\tau \mid \tau+\tau \mid X \mid \arrow{\intro{x}{\tau}}{c}{s}{\tau} \mid \forall^c_s X.\tau \mid \Lambda X.\tau \mid \tau\;\tau \mid \mu X.\tau \mid \thide\tau \\
-  \textrm{Expressions} & e &::=& \symtt \mid (e,e) \mid \syminl_\tau\;e \mid \syminr_\tau\;e \mid x \mid e\;e \mid \lambda x:\tau.\;e \mid \symlet x:\tau:= e \symin e \mid \symmatch_\sympair\;e\symwith (x,y)\Rightarrow e \\
-  & & & \mid (\symmatch_\symsum\;e\symwith\syminl\;x\Rightarrow e\;|\;\syminr\;x\Rightarrow e) \mid e\;\tau \mid \lambda X.e \mid \symfold\tau\;e \mid \symunfold\;e \mid \symhide\;e \mid \symunhide\;e \\
-  \textrm{Values} & v &::=& x \mid \lambda x:\tau.e \mid \lambda X.e \mid \symfold\tau\;v \mid \symtt \mid (v,v) \mid \syminl\;v \mid \syminr\;v \\
-  \textrm{Evaluation Context} & E &::=& \Box \mid E\;e \mid v\;E \mid \symlet x:\tau:=E\symin e \mid E\;\tau \mid \symfold\tau\;E \mid \symunfold\tau\;E \mid \symhide\;E \mid \symunhide\;E \\
-  & & & \mid (E, e) \mid (v, E) \mid \syminl\;E \mid \syminr\;E \mid \symmatch_\sympair\;E\symwith(x,y)\Rightarrow e \mid (\symmatch_\symsum\;E\symwith\syminl\;x\Rightarrow e\;|\;\syminr\;x\Rightarrow e) \\
-  \textrm{Kinds} & k &::=& * \mid *\to k
-\end{array}$$
-%% \caption{\label{syntax}Syntax}
-%% \end{figure}
-
-\section{Evaluation rules}
-
-\begin{mathpar}
-
-\inferrule*
-{e_1\to e_2}
-{E[e_1]\to E[e_2]}
-
-\inferrule*
-{\;}
-{(\lambda x:\tau.e)\;v \to e[v/x]}
-
-\inferrule*
-{\;}
-{\symlet x:\tau:=v \symin e \to e[v/x]}
-
-\inferrule*
-{\;}
-{\symmatch_\sympair\;(v_1,v_2)\symwith(x,y)\Rightarrow e \to e[v_1/x][v_2/y]}
-
-\inferrule*
-{\;}
-{\symmatch_\symsum\;\syminl\;v\symwith\syminl\;x\Rightarrow e_1\;|\;\syminr\;x\Rightarrow e_2 \to e_1[v/x]}
-
-\inferrule*
-{\;}
-{\symmatch_\symsum\;\syminr\;v\symwith\syminl\;x\Rightarrow e_1\;|\;\syminr\;x\Rightarrow e_2 \to e_2[v/x]}
-
-\inferrule*
-{\;}
-{(\lambda X.e)\;\tau \to e[\tau/X]}
-
-\inferrule*
-{\;}
-{\symunfold\;(\symfold\tau\;v) \to v}
-
-\inferrule*
-{\;}
-{\symunhide(\symhide v) \to v}
-
-\end{mathpar}
-
-\section{Kinging and Type equivalent rules}
-
-$$\begin{array}{rrcl}
-  \textrm{Typing Context} & \Gamma &::=& \Gamma,X \mid \Gamma, e:(\tau,s)
-\end{array}$$
-
-\begin{mathpar}
-
-\inferrule*
-{X\in\Gamma}
-{\Gamma\kinding{X}{*}}
-
-\inferrule*
-{\Gamma\kinding{\tau_1}{*\to k} \\ \Gamma\kinding{\tau_2}{*}}
-{\Gamma\kinding{\tau_1\;\tau_2}{k}}
-
-\inferrule*
-{\Gamma,X\kinding{\tau}{k}}
-{\Gamma\kinding{\Lambda X.\tau}{*\to k}}
-
-\inferrule*
-{\Gamma\kinding{\tau_1}{*} \\ \Gamma,x:(\tau_1,\bot)\kinding{\tau_2}{*}}
-{\Gamma\kinding{\arrow{(x:\tau_1)}{c}{s}{\tau_2}}{*}}
-
-\inferrule*
-{\Gamma,X\kinding{\tau}{*}}
-{\Gamma\kinding{\forall X.\tau}{*}}
-
-\inferrule*
-{\Gamma,X\kinding{\tau}{*}}
-{\Gamma\kinding{\mu X.\tau}{*}}
-
-\inferrule*
-{\Gamma\kinding{\tau}{*}}
-{\Gamma\kinding{\thide{\tau}}{*}}
-
-\inferrule*
-{\;}
-{\Gamma\kinding{\symunit}{*}}
-
-\inferrule*
-{\Gamma\kinding{\tau_1}{*} \\ \Gamma\kinding{\tau_2}{*}}
-{\Gamma\kinding{\tau_1\times\tau_2}{*}}
-
-\inferrule*
-{\Gamma\kinding{\tau_1}{*} \\ \Gamma\kinding{\tau_2}{*}}
-{\Gamma\kinding{\tau_1+\tau_2}{*}}
-
-\end{mathpar}
-
-\begin{mathpar}
-
-\inferrule*
-{\;}
-{\teq{\tau}{\tau}}
-
-\inferrule*
-{\teq{\tau_1}{\tau_2} \\ \teq{\tau_2}{\tau_3}}
-{\teq{\tau_1}{\tau_3}}
-
-\inferrule*
-{\teq{\tau_2}{\tau_1}}
-{\teq{\tau_1}{\tau_2}}
-
-\inferrule*
-{\teq{\tau_1}{\tau_2}}
-{\teq{\Lambda X.\tau_1}{\Lambda X.\tau_2}}
-
-\inferrule*
-{\teq{\tau_1}{\tau_1'} \\ \teq{\tau_2}{\tau_2'}}
-{\teq{\tau_1\;\tau_2}{\tau_1'\;\tau_2'}}
-
-\inferrule*
-{\;}
-{\teq{(\Lambda X.\tau_1)\;\tau_2}{\tau_1[\tau_2/X]}}
-
-\inferrule*
-{\teq{\tau_1}{\tau_1'} \\ \teq{\tau_2}{\tau_2'}}
-{\teq{\arrow{(x:\tau_1)}{c}{s}{\tau_2}}{\arrow{(x:\tau_1')}{c}{s}{\tau_2'}}}
-
-\inferrule*
-{\teq{\tau_1}{\tau_2}}
-{\teq{\mu X.\tau_1}{\mu X.\tau_2}}
-
-\end{mathpar}
-
-\section{Typing rules}
-
-%% \begin{figure}
-\begin{mathpar}
-
-\inferrule* [Right=Var] 
-{\Gamma(x)=(\tau, s)} 
-{\Gamma\typing{x}{\tau}{0}{s}} 
-
-\inferrule* [Right=Var2] 
-{\Gamma(x)=(\tau, \bot)} 
-{\Gamma\typing{x}{\tau}{0}{x}} 
-
-\inferrule* [Right=App] 
-{\Gamma\typing{e_1}{\arrow{\intro{x}{\tau_1}}{c}{s}{\tau_2}}{c_1}{s_1} \\ \Gamma\typing{e_2}{\tau_1}{c_2}{s_2} }
-{\Gamma\typing{e_1\;e_2}{\tau_2}{c_1+c_2+n[s_2/x]}{s[s_2/x]}} 
-
-\inferrule* [Right=Abs] 
-{\Gamma\vdash\tau_1 : * \\ \Gamma, x:(\tau_1, \bot)\typing{e}{\tau_2}{c}{s} }
-{\Gamma\typing{\lambda x : \tau_1.\;e}{\arrow{\intro{x}{\tau_1}}{c}{s}{\tau_2}}{0}{1}} 
-
-\\
-
-\inferrule* [Right=Tapp]
-{\Gamma\typing{e}{\forall^c_s X.\tau}{c'}{1}}
-{\Gamma\typing{e\;\tau_2}{\tau[\tau_2/X]}{c'+c}{s}}
-
-\inferrule* [Right=Tabs]
-{\Gamma, X\typing{e}{\tau}{c}{s}}
-{\Gamma\typing{\lambda X.\;e}{\forall X^c_s.\tau}{0}{1}} 
-
-\inferrule* [Right=Let]
-{\Gamma\typing{e_1}{\tau_1}{c_1}{s_1} \\ \Gamma, x : (\tau_1, s_1) \typing{e_2}{\tau_2}{c_2}{s_2}}
-{\Gamma\typing{\symlet x : \tau_1 := e_1 \symin e_2}{\tau_2[s_1/x]}{c_1+c_2[s_1/x]}{s_2[s_1/x]}} 
-
-\\
-
-\inferrule* [Right=Fold]
-{\tau \equiv \mu X. \tau_1 \\ \Gamma\typing{e}{\tau_1[\tau/X]}{c}{s}}
-{\Gamma\typing{\symfold \tau \; e}{\tau}{c}{\symSfold s}}
-
-\inferrule* [Right=Unfold]
-{\Gamma\typing{e}{t}{c}{s} \\ \mathsf{IsFold}(s)=s_1 \\ \tau \equiv \mu X.\tau_1}
-{\Gamma\typing{\symunfold\;e}{\tau_1[\tau/X]}{1+c}{s_1}}
-
-\inferrule* [Right=Hide]
-{\Gamma\typing{e}{\tau}{c}{s}}
-{\Gamma\typing{\symhide e}{\thide{\tau}}{c}{\symShide s}} 
-
-\\
-
-\inferrule* [Right=Unhide]
-{\Gamma\typing{e}{\thide{\tau}}{c}{s} \\ \mathsf{IsHide}(s)=s_1}
-{\Gamma\typing{\symunhide e}{\tau}{c}{s_1}}
-
-\inferrule* [Right=Eq]
-{\Gamma\typing{e}{\tau_1}{c}{s} \\ \tau_1 \equiv \tau_2}
-{\Gamma\typing{e}{\tau_2}{c}{s}}
-
-\inferrule* [Right=Le]
-{\Gamma\typing{e}{\tau}{c}{s} \\ c \leq c' \\ s \leq s'}
-{\Gamma\typing{e}{\tau}{c'}{s'}} \\
-
-\inferrule* [Right=Tt]
-{\;}
-{\Gamma\typing{\symtt}{\symunit}{0}{1}} 
-
-\inferrule* [Right=Pair]
-{\Gamma\typing{e_1}{\tau_1}{c_1}{s_1} \\ \Gamma\typing{e_2}{\tau_2}{c_2}{s_2}}
-{\Gamma\typing{(e_1,e_2)}{\tau_1\times\tau_2}{c_1+c_2}{(s_1,s_2)}} 
-
-\inferrule* [Right=Inl]
-{\Gamma\typing{e}{\tau}{c}{s}}
-{\Gamma\typing{\syminl_{\tau'}\;e}{\tau+\tau'}{c}{\symSinl\;s}} 
-
-\inferrule* [Right=Inr]
-{\Gamma\typing{e}{\tau}{c}{s}}
-{\Gamma\typing{\syminr_{\tau'}\;e}{\tau'+\tau}{c}{\symSinr\;s}} 
-
-\\
-
-\inferrule* [Right=MatchPair]
-{\Gamma\typing{e}{\tau_1\times\tau_2}{c}{s} \\ \mathsf{IsPair}(s)=(s_1,s_2) \\ \Gamma, a:(\tau_1,s_1), b:(\tau_2,s_2)\typing{e'}{\tau}{c'}{s'}}
-{\Gamma\typing{\symmatch_\sympair\;e \symwith (a,b) \Rightarrow e'}{\tau[s_1/a][s_2/b]}{c + c'[s_1/a][s_2/b]}{s[s_1/a][s_2/b]}} 
-
-\\
-
-\inferrule* [Right=MatchLR]
-{\Gamma\typing{e}{\tau_1+\tau_2}{c}{s} \\ \mathsf{IsLR}(s)=(s_1,s_2) \\ \forall i,\;\Gamma, x:(\tau_i,s_i)\typing{e_i}{\tau}{c_i}{s'} \\ x\not\in\FV(\tau)\cup\FV(s')}
-{\Gamma\typing{\symmatch_\symsum\; e \symwith \syminl\;x \Rightarrow e_1 \;|\; \syminr\;x \Rightarrow e_2}{\tau}{c+\symmax(c_1[s_1/x],c_2[s_2/x])}{s'}} 
-
-\\
-
-\inferrule* [Right=MatchL]
-{\Gamma\typing{e}{\tau_1+\tau_2}{c}{\symSinl(s)} \\ \Gamma, x:(\tau_1,s)\typing{e_1}{\tau'}{c'}{s'}}
-{\Gamma\typing{\symmatch_\symsum\; e \symwith \syminl\;x \Rightarrow e_1 \;|\; \syminr\;x \Rightarrow e_2}{\tau'[s/x]}{c+c'[s/x]}{s'[s/x]}}
-
-\inferrule* [Right=MatchR]
-{\Gamma\typing{e}{\tau_1+\tau_2}{c}{\symSinr(s)} \\ \Gamma, x:(\tau_2,s)\typing{e_2}{\tau'}{c'}{s'}}
-{\Gamma\typing{\symmatch_\symsum\; e \symwith \syminl\;x \Rightarrow e_1 \;|\; \syminr\;x \Rightarrow e_2}{\tau'[s/x]}{c+c'[s/x]}{s'[s/x]}}
-
-\end{mathpar}
-%% \caption{\label{opsem}Typing rules}
-%% \end{figure}
-
-\section{Derived typing rules}
-
-\subsection{List}
-
-\begin{align*}
-\symlist &\defeq \Lambda A. \mu L. \symunit + \thide{A} \times L \\
-\symnil &\defeq \lambda A. \symfold (\symlist\;A) \\
-\symnil &: \forall^{1}_{\symSfold\;(\symSinl\;\symStt)} A. \symlist\;A \\
-\symcons &\defeq \lambda A. \lambda(x : A)(y : \symlist\;A). \symfold (\symlist\;A)\;(\syminr\;(\symhide x,y)) \\
-\symcons &: \forall A. \arrow{\intro{x}{A}}{0}{1}{\arrow{\intro{y}{\symlist\;A}}{1}{\symSfold (\symSinr (\symShide x, y))}{\symlist\;A}} 
-\end{align*}
-
-\begin{align*}
-\symmatch_\symlist\; (e : \symlist\;A) \symwith \symnil \Rightarrow e_1 \;|\; \symcons\;x\;y \Rightarrow e_2 
-  & \defeq \symmatch_\symsum\;(\symunfold (\symlist\;A)\;e) \symwith \\
-  & \hspace{0.4in} |\;\syminl\;\_ \Rightarrow e_1 \\
-  & \hspace{0.4in} |\; \syminr\;p \Rightarrow \symmatch_\sympair\;(\symunhide A\;(\symfst\;p),\symsnd\;p)\symwith \\
-  & \hspace{1.2in} |\; (x,y) \Rightarrow e_2
-\end{align*}
-
-$$
-\inferrule* [Right=MatchList]
-{\Gamma\typing{e}{\symlist\;\tau}{n}{s} \\ \mathsf{IsList}(s)=(s_1,s_2) \\ \Gamma\typing{e_1}{\tau'}{n_1}{s'} \\ \Gamma, x:(\tau,s_1), y:(\symlist\;\tau,s_2)\typing{e_2}{\tau'}{n_2}{s'} \\ x,y\not\in \FV(\tau')\cup\FV(s')}
-{\Gamma\typing{\symmatch_\symlist\;e\symwith \symnil \Rightarrow e_1 \;|\; \symcons\;x\;y \Rightarrow e_2}{\tau'}{n+1+\symmax(n_1, n_2[s_1/x][s_2/y])}{s'}}
-$$
-
-\subsection{Fixpoint}
-
-\begin{align*}
-\symfix\;f:\tau\Rightarrow e &\defeq \symletrec f:\tau := e \symin f
-\end{align*}
-
-$$
-\inferrule* [Right=Fix]
-{\Gamma, f:(\tau, 1)\typing{e}{\tau}{0}{1} \\ f\not\in\FV(\tau)}
-{\Gamma\typing{\symfix\;f:\tau\Rightarrow e}{\tau}{0}{1}}
-$$
-
-\subsection{Bool}
-
-\begin{align*}
-\symbool &\defeq \symunit + \symunit \\
-\symtrue &\defeq \syminl\;\symtt \\
-\symfalse &\defeq \syminr\;\symtt \\
-\symif e \symthen e_1 \symelse e_2 &\defeq \symmatch_\symsum\;e\symwith \syminl\;\_\Rightarrow e_1 \;|\; \syminr\;\_\Rightarrow e_2
-\end{align*}
-
-$$
-\inferrule* [Right=If]
-{\Gamma\typing{e}{\symbool}{n}{s'} \\ \mathsf{IsLR}(s')=(s_1,s_2) \\ \forall i.\;\Gamma\typing{e_i}{\tau}{n_1}{s}}
-{\Gamma\typing{\symif e \symthen e_1 \symelse e_2}{\tau}{n+1+\symmax(n_1,n_2)}{s}}
-$$
-
-\section{Examples}
-
-\subsection{Merge sort}
-
-\subsubsection{merge()}
-
-\begin{align*}
-\symmerge &\defeq \lambda A. \lambda (cmp:\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}}).\symfix\;(f:\arrow{\intro{xs}{\symlist\;A}}{0}{1}{\arrow{\intro{ys}{\symlist\;A}}{xs.1+ys.1}{xs+ys}{\symlist\;A}})\Rightarrow\lambda xs,ys. \\
-& \hspace{0.3in} \symmatch\;xs\symwith \\
-& \hspace{.4in} |\; \symnil\Rightarrow ys \\
-& \hspace{.4in} |\; x::xs' \Rightarrow \symmatch\;ys\symwith \\
-& \hspace{1.2in} |\; \symnil\Rightarrow xs \\
-& \hspace{1.2in} |\; y::ys' \Rightarrow \symif cmp\;x\;y \symthen \\
-& \hspace{2in} x :: f\;xs'\;ys \\
-& \hspace{1.9in} \symelse \\
-& \hspace{2in} y :: f\;xs\;ys' \\
-\symmerge &: \forall A.\arrow{(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}})}{0}{1}{\arrow{\intro{xs}{\symlist\;A}}{0}{1}{\arrow{\intro{ys}{\symlist\;A}}{xs.1+ys.1}{xs+ys}{\symlist\;A}}}
-\end{align*}
-
-\newpage
-
-$$
-\inferrule* [Right=Le]
-{
-  \inferrule* {\cdots}{\Gamma''\typing{x::f\;xs'\;ys}{\symlist\;A}{1+xs.\symuf.\symr.\syms.1+ys.1}{\symSfold (\symSinr (\symShide xs.\symuf.\symr.\symf, (xs.\symuf.\symr.\syms+ys)))}} \\
-  \inferrule*
-  {\textcolor{red}{\forall i.\; 1+xs.\symuf.\symr.\syms.i+ys.i \leq xs.i+ys.i}}
-  {\symSfold (\symSinr (\symShide xs.\symuf.\symr.\symf, (xs.\symuf.\symr.\syms+ys))) \leq xs+ys}
-}
-{
-  \textcolor{green}{(4)}
-}
-$$
-
-$$
-\inferrule* [Right=If]
-{
-  \inferrule* {\cdots}{\Gamma''\typing{cmp\;x\;y}{\symbool}{1}{\symSbool}} \\
-  \inferrule*
-  {
-    \textcolor{green}{(4)}
-  }
-  {\Gamma''\typing{x::f\;xs'\;ys}{\symlist\;A}{1+xs.\symuf.\symr.\syms.1+ys.1}{xs+ys}} \\
-  \inferrule* {\cdots}{\Gamma''\typing{y::f\;xs\;ys'}{\symlist\;A}{1+xs.1+ys.\symuf.\symr.\syms.1}{xs+ys}}
-}
-{
-  \textcolor{green}{(3)}
-}
-$$
-
-$$
-\inferrule* [Right=MatchList]
-{
-  \Gamma'\typing{ys}{\symlist\;A}{0}{ys} \\
-  \mathsf{IsList}(ys)=(ys.\symuf.\symr.\symf,ys.\symuf.\symr.\syms) \\
-  \Gamma'\typing{xs}{\symlist\;A}{0}{xs+ys} \\
-  \inferrule* [Right=If]
-  {
-    \textcolor{green}{(3)}
-  }
-  {
-    \Gamma''\defeq\Gamma', y:(A,ys.\symuf.\symr.\symf), ys':(\symlist\;A,ys.\symuf.\symr.\syms)\typing{\symif cmp\;x\;y \symthen\dots}{\symlist\;A}{1+\symmax(\cdots)}{xs+ys}
-  }
-}
-{
-  \textcolor{green}{(2)}
-}
-$$
-
-$$
-\inferrule* [Right=MatchList]
-{
-  \inferrule* [Right=Var2] {\Gamma(xs)=(\symlist\;A,\bot)} {\Gamma\typing{xs}{\symlist\;A}{0}{xs}}\\
-  \mathsf{IsList}(xs)=(xs.\symuf.\symr.\symf,xs.\symuf.\symr.\syms) \\
-  \inferrule* [Right=Le] {\Gamma\typing{ys}{\symlist\;A}{0}{ys} \\ \textcolor{red}{ys \leq xs+ys}}{\Gamma\typing{ys}{\symlist\;A}{0}{xs+ys}} \\
-  \inferrule* [Right=MatchList]
-  {
-    \textcolor{green}{(2)}
-  }
-  {
-    \Gamma'\defeq\Gamma, x:(A,xs.\symuf.\symr.\symf), xs':(\symlist\;A,xs.\symuf.\symr.\syms)\typing{\symmatch\;ys\symwith\dots}{\symlist\;A}{1+\symmax(\cdots)}{xs+ys}
-  }
-}
-{
-  \textcolor{green}{(1)}
-}
-$$
-
-$$
-\inferrule* [Right=Tabs; Abs; Fix; Abs; Abs; Le]
-{
-  \inferrule* [Right=MatchList]
-  {
-    \textcolor{green}{(1)}
-  }
-  {
-    \Gamma\defeq A:*, cmp:(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}}, \bot), f:(\arrow{\intro{xs}{\symlist\;A}}{0}{1}{\arrow{\intro{ys}{\symlist\;A}}{xs.1+ys.1}{xs+ys}{\symlist\;A}}, 1), xs:(\symlist\;A,\bot), ys:(\symlist\;A,\bot)\typing{\symmatch\;xs\symwith\dots}{\symlist;A}{1+\symmax(\cdots)}{xs+ys}
-  } \\
-  \textcolor{red}{1+\symmax(1+xs.\symuf.\symr.\syms.1+ys.1, 1+xs+ys.\symuf.\symr.\syms.1) \leO xs.1+ys.1}
-}
-{\typing{\symmerge}{\forall A.\arrow{(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}})}{0}{1}{\arrow{\intro{xs}{\symlist\;A}}{0}{1}{\arrow{\intro{ys}{\symlist\;A}}{xs.1+ys.1}{xs+ys}{\symlist\;A}}}}{0}{1}}
-$$
-
-\newpage
-
-\subsubsection{split()}
-
-\begin{align*}
-\symsplit &\defeq \lambda A. \symfix\;(f:\arrow{\intro{s}{\symlist\;A}}{s.1/2}{(s/2,s/2)}{\symlist\;A\times\symlist\;A})\Rightarrow\lambda xs. \\
-& \hspace{0.3in} \symmatch\;xs\symwith \\
-& \hspace{.4in} |\; \symnil\Rightarrow (\symnil,\symnil) \\
-& \hspace{.4in} |\; x::xs' \Rightarrow \symmatch\;xs'\symwith \\
-& \hspace{1.2in} |\; \symnil\Rightarrow (x::\symnil,\symnil) \\
-& \hspace{1.2in} |\; y::xs'' \Rightarrow \symmatch\; f\;xs'' \symwith \\
-& \hspace{2in} |\; (a, b) \Rightarrow (x::a,y::b) \\
-\symsplit &: \forall A.\arrow{\intro{s}{\symlist\;A}}{s.1/2}{(s/2,s/2)}{\symlist\;A\times\symlist\;A}
-\end{align*}
-
-\newpage
-
-$$
-\inferrule* [Right=Le]
-{
-  \inferrule* {\cdots}{\Gamma''\typing{(x::a,y::b)}{\symlist\;A\times\symlist\;A}{1}{s\defeq(\symSfold (\symSinr (\symShide xs.\symuf.\symr.\symf, xs.\symuf.\symr.\syms.\symuf.\symr.\syms/2)),\symSfold (\symSinr (\symShide xs.\symuf.\symr.\syms.\symuf.\symr.\symf, xs.\symuf.\symr.\syms.\symuf.\symr.\syms/2)))}} \\
-  \inferrule*
-  {\textcolor{red}{1+xs.\symuf.\symr.\syms.\symuf.\symr.\syms/2 \leq xs/2}}
-  {s \leq (xs/2,xs/2)}
-}
-{\textcolor{green}{(4)}}
-$$
-
-$$
-\inferrule* [Right=MatchPair]
-{
-  \Gamma\typing{f\;xs''}{\symlist\;A\times\symlist\;A}{n\defeq xs.\symuf.\symr.\syms.\symuf.\symr.\syms.1/2}{(xs.\symuf.\symr.\syms.\symuf.\symr.\syms/2, xs.\symuf.\symr.\syms.\symuf.\symr.\syms/2)} \\
-  \mathsf{IsPair}(xs.\symuf.\symr.\syms.\symuf.\symr.\syms/2,xs.\symuf.\symr.\syms.\symuf.\symr.\syms/2)=(xs.\symuf.\symr.\syms.\symuf.\symr.\syms/2,xs.\symuf.\symr.\syms.\symuf.\symr.\syms/2) \\
-  \inferrule* {\textcolor{green}{(4)}}{\Gamma'''\defeq\Gamma'',a:(\symlist\;A,xs.\symuf.\symr.\syms.\symuf.\symr.\syms/2),b:(\symlist\;A,xs.\symuf.\symr.\syms.\symuf.\symr.\syms/2)\typing{(x::a,y::b)}{\symlist\;A\times\symlist\;A}{1}{(xs/2,xs/2)}}
-}
-{\textcolor{green}{(3)}}
-$$
-
-$$
-\inferrule* [Right=MatchList]
-{
-  \Gamma'\typing{xs'}{\symlist\;A}{0}{xs.\symuf.\symr.\syms} \\
-  \mathsf{IsList}(xs.\symuf.\symr.\syms)=(xs.\symuf.\symr.\syms.\symuf.\symr.\symf,xs.\symuf.\symr.\syms.\symuf.\symr.\syms) \\
-  \Gamma'\typing{(xs,\symnil)}{\symlist\;A\times\symlist\;A}{1}{(xs/2, xs/2)} \\
-  \inferrule* {\textcolor{green}{(3)}}{\Gamma''\defeq\Gamma', y:(A,xs.\symuf.\symr.\syms.\symuf.\symr.\symf), xs'':(\symlist\;A,xs.\symuf.\symr.\syms.\symuf.\symr.\syms)\typing{\symmatch\;f\;xs''\symwith\dots}{\symlist\;A\times\symlist\;A}{n+1}{(xs/2,xs/2)}}
-}
-{\textcolor{green}{(2)}}
-$$
-
-$$
-\inferrule* [Right=MatchList]
-{
-  \Gamma\typing{xs}{\symlist\;A}{0}{xs} \\
-  \mathsf{IsList}(xs)=(xs.\symuf.\symr.\symf,xs.\symuf.\symr.\syms) \\
-  \inferrule* [Right=Le] {\Gamma\typing{(\symnil,\symnil)}{\symlist\;A\times\symlist\;A}{1}{(1,1)} \\ \textcolor{red}{(1,1) \leq (xs/2,xs/2)}}{\Gamma\typing{(\symnil,\symnil)}{\symlist\;A\times\symlist\;A}{1}{(xs/2, xs/2)}} \\
-  \inferrule* {\textcolor{green}{(2)}}{\Gamma'\defeq\Gamma, x:(A,xs.\symuf.\symr.\symf), xs':(\symlist\;A,xs.\symuf.\symr.\syms)\typing{\symmatch\;xs'\symwith\dots}{\symlist\;A\times\symlist\;A}{\symmax(1,n+1)}{(xs/2,xs/2)}}
-}
-{\textcolor{green}{(1)}}
-$$
-
-$$
-\inferrule* [Right=Tabs;Fix;Abs;Le]
-{
-  \inferrule* [Right=MatchList]
-  {
-    \textcolor{green}{(1)}
-  }
-  {
-    \Gamma\defeq A:*, f:(\arrow{\intro{s}{\symlist\;A}}{s.1/2}{(s/2,s/2)}{\symlist\;A\times\symlist\;A}, 1), xs:(\symlist\;A,\bot)\typing{\symmatch\;xs\symwith\dots}{\symlist\;A\times\symlist\;A}{\symmax(1,\symmax(1,n+1))}{(xs/2, xs/2)}
-  } \\
-  \textcolor{red}{\symmax(1,\symmax(1,xs.\symuf.\symr.\syms.\symuf.\symr.\syms.1/2+1)) \leO xs.1/2}
-}
-{\typing{\symsplit}{\forall A.\arrow{\intro{s}{\symlist\;A}}{s.1/2}{(s/2,s/2)}{\symlist\;A\times\symlist\;A}}{0}{1}}
-$$
-
-\newpage
-
-\subsubsection{msort()}
-
-\begin{align*}
-\symmsort &\defeq \lambda A. \lambda (cmp:\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}}).\symfix\;(f:\arrow{\intro{s}{\symlist\;A}}{s.1*\log(s.1)}{\symSstat(s.1,s.2)}{\symlist\;A})\Rightarrow\lambda xs. \\
-& \hspace{0.3in} \symmatch\;xs\symwith \\
-& \hspace{.4in} |\; \symnil\Rightarrow xs \\
-& \hspace{.4in} |\; \_::xs' \Rightarrow \symmatch\;xs'\symwith \\
-& \hspace{1.2in} |\; \symnil\Rightarrow xs \\
-& \hspace{1.2in} |\; \_ \Rightarrow \symmatch\; \symsplit\;xs \symwith \\
-& \hspace{1.8in} |\; (ys, zs) \Rightarrow \symmerge\;cmp\;(f\;ys)\;(f\;zs) \\
-\symmsort &: \forall A.\arrow{(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}})}{0}{1}{\arrow{\intro{s}{\symlist\;A}}{s.1*\log(s.1)}{\symSstat(s.1,s.2)}{\symlist\;A}}
-\end{align*}
-
-\newpage
-
-$$
-\inferrule* [Right=Le]
-{
-  \inferrule* {\cdots}{\Gamma''\typing{\symmerge\;cmp\;(f\;ys)\;(f\;zs)}{\symlist\;A}{n}{\symSstat(xs.1/2+xs.1/2,xs.2/2+xs.2/2)}} \\
-  \inferrule*
-  {\textcolor{red}{\forall i.\; xs.i/2+xs.i/2 \leq xs.i}}
-  {\symSstat(xs.1/2+xs.1/2,xs.2/2+xs.2/2) \leq \symSstat(xs.1,xs.2)}
-}
-{\textcolor{green}{(4)}}
-$$
-
-$$
-\inferrule* [Right=MatchPair]
-{
-  \Gamma\typing{\symsplit\;xs}{\symlist\;A\times\symlist\;A}{xs.1/2}{(xs/2, xs/2)} \\
-  \mathsf{IsPair}(xs/2,xs/2)=(xs/2,xs/2) \\
-  \inferrule* {\textcolor{green}{(4)}}{\Gamma''\defeq\Gamma',ys:(\symlist\;A,xs/2),zs:(\symlist\;A,xs/2)\typing{\symmerge\;cmp\;(f\;ys)\;(f\;zs)}{\symlist\;A}{n}{\symSstat(xs.1,xs.2)}}
-}
-{\textcolor{green}{(3)}}
-$$
-
-$$
-\inferrule* [Right=MatchList]
-{
-  \Gamma\typing{xs'}{\symlist\;A}{0}{xs'} \\
-  \mathsf{IsList}(xs')=(xs'.\symuf.\symr.\symf,xs'.\symuf.\symr.\syms) \\
-  \Gamma\typing{xs}{\symlist\;A}{0}{\symSstat(xs.1,xs.2)} \\
-  \inferrule* {\textcolor{green}{(3)}}{\Gamma'\typing{\symmatch\;\symsplit\;xs\symwith\dots}{\symlist\;A}{n}{\symSstat(xs.1,xs.2)}}
-}
-{\textcolor{green}{(2)}}
-$$
-
-$$
-\inferrule* [Right=MatchList]
-{
-  \Gamma\typing{xs}{\symlist\;A}{0}{xs} \\
-  \mathsf{IsList}(xs)=(xs.\symuf.\symr.\symf,xs.\symuf.\symr.\syms) \\
-  \inferrule* [Right=Le] {\Gamma\typing{xs}{\symlist\;A}{0}{xs} \\ \textcolor{red}{xs \leq \symSstat(xs.1,xs.2)}}{\Gamma\typing{xs}{\symlist\;A}{0}{\symSstat(xs.1,xs.2)}} \\
-  \inferrule* {\textcolor{green}{(2)}}{\Gamma'\defeq\Gamma, xs':(\symlist\;A,xs.\symuf.\symr.\syms)\typing{\symmatch\;xs'\symwith\dots}{\symlist\;A}{n}{\symSstat(xs.1,xs.2)}}
-}
-{\textcolor{green}{(1)}}
-$$
-
-$$
-\inferrule* [Right=Tabs;Abs;Fix;Abs;Le]
-{
-  \inferrule* [Right=MatchList]
-  {\textcolor{green}{(1)}}
-  {\Gamma\defeq A:*, cmp:(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}}, \bot), f:(\arrow{\intro{s}{\symlist\;A}}{s.1*\log(s.1)}{\symSstat(s.1,s.2)}{\symlist\;A}, 1), xs:(\symlist\;A,\bot) \typing{\symmatch\;xs\symwith\dots}{\symlist\;A}{n}{\symSstat(xs.1,xs.2)}} \\
-  \textcolor{red}{n\defeq xs.1/2*\log(xs.1/2)+xs.1/2*\log(xs.1/2)+1+xs.1/2+xs.1/2 \leO xs.1*\log(xs.1)}
-}
-{\typing{\symmsort}{\forall A.\arrow{(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}})}{0}{1}{\arrow{\intro{s}{\symlist\;A}}{s.1*\log(s.1)}{\symSstat(s.1,s.2)}{\symlist\;A}}}{0}{1}}
-$$
 
 %% \acks
 
@@ -742,13 +228,15 @@ $$
 
 % The bibliography should be embedded for final submission.
 
-\begin{thebibliography}{}
-\softraggedright
+\bibliography{bib.bib}
 
-\bibitem[Smith et~al.(2009)Smith, Jones]{smith02}
-P. Q. Smith, and X. Y. Jones. ...reference text...
+%% \begin{thebibliography}{}
+%% \softraggedright
 
-\end{thebibliography}
+%% \bibitem[Smith et~al.(2009)Smith, Jones]{smith02}
+%% P. Q. Smith, and X. Y. Jones. ...reference text...
+
+%% \end{thebibliography}
 
 
 \end{document}

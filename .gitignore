@@ -12,3 +12,6 @@ Makefile.coq
 *.out
 *.snm
 *.toc
+*.bbl
+*.blg
+*.synctex.gz

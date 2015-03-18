@@ -30,3 +30,11 @@ clean:
 	./rmr .vo
 	./rmr .glob
 
+paper: class-paper.pdf
+
+class-paper.pdf: class-paper.tex bib.bib 
+
+clean-paper:
+	@ rm -f *.aux *.out *.nav *.toc *.vrb *.pdf *.snm *.log *.bbl *.blg
+
+include Makefile.common
