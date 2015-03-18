@@ -175,7 +175,7 @@ type system; complexity; recursive types
 
 \section{Introduction}
 
-Efficiency of functional programs is very very very important.
+One major obstacle of the adaptation of functional programming is the lack of clear intuition functional program's time complexity. A C programmer can easily read off the big-O complexity of a for-loop, but even experienced functional programmers are sometimes muddled about the time complexity of a piece of functional code. The confusion comes from the lack of knowledge of the compiler's inner working, as stated by the scoff ``you can hide an elephant under a beta reduction''. Two examples of the mythical objects that compilers manage internally are closures and algebraic data values. When one does not know who closures are created, passed, and used, he or she will rightfully wonder the time cost of creating a lambda abstraction, passing a function, and applying a function (beta reduction). For an algebraic data vlue such as a list defined with algebraic data types, the apparent similarity between its immutability and C's pass-by-value immutability often gives a C programmer the wrong impression that such values are copied and passed-by-value across functions and passing a list will take O(n) time to do the copying. The reality could not be further from this false impression, since immutability means almost everything can be safely implemented by pointers and references.
 
 \appendix
 
