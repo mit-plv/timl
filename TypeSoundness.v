@@ -196,8 +196,6 @@ Section rel.
 
 End rel.
 
-Module OpenPHOAS.
-
 Section relOpen.
 
   Variable var : nat -> Type.
@@ -309,6 +307,32 @@ Section relOpen.
 
 End relOpen.
     
+Definition Rel ctx t := forall var, relOpen var ctx t.
+
+Section REL.
+
+  Variable ctx : Ctx.
+  Notation Rel := (Rel ctx).
+  
+  Definition RELinj P : Rel 0 := fun var => ORinj var ctx P.
+  Definition RELtrue : Rel 0 := fun var => ORtrue var ctx.
+  Definition RELfalse : Rel 0 := fun var => ORfalse var ctx.
+  Definition RELand (a b : Rel 0) : Rel 0 := fun var => ORand var ctx (a var) (b var).
+  Definition RELor (a b : Rel 0) : Rel 0 := fun var => ORor var ctx (a var) (b var).
+  Definition RELimply (a b : Rel 0) : Rel 0 := fun var => ORimply var ctx (a var) (b var).
+  Definition RELforalle (F : expr -> Rel 0) : Rel 0 := fun var => ORforalle var ctx (fun e => F e var).
+  Definition RELexistse (F : expr -> Rel 0) : Rel 0 := fun var => ORexistse var ctx (fun e => F e var).
+  Definition RELforall1 T (F : T -> Rel 0) : Rel 0 := fun var => ORforall1 var ctx T (fun x => F x var).
+  Definition RELexists1 T (F : T -> Rel 0) : Rel 0 := fun var => ORexists1 var ctx T (fun x => F x var).
+  Definition RELforallR n (F : forall var, var n -> Rel 0) : Rel 0 := fun var => ORforallR var ctx n (fun x => F var x var).
+  Definition RELexistsR n (F : forall var, var n -> Rel 0) : Rel 0 := fun var => ORexistsR var ctx n (fun x => F var x var).
+  Definition RELabs (n : nat) (F : expr -> Rel n) : Rel (S n) := fun var => ORabs var ctx n (fun e => F e var).
+  Definition RELapp n (r : Rel (S n)) (e : expr) : Rel n := fun var => ORapp var ctx n (r var) e.
+  Definition RELrecur (n : nat) (F : forall var, var n -> Rel n) : Rel n := fun var => ORrecur var ctx n (fun x => F var x var).
+  Definition RELlater (P : Rel 0) : Rel 0 := fun var => ORlater var ctx (P var).
+  
+End REL.
+
 Notation "⊤" := (ORtrue _ _).
 Notation "⊥" := (ORtrue _ _).
 Notation "⌈ P ⌉" := (ORinj _ _ P).
@@ -363,10 +387,17 @@ Inductive thresholds :=
 Require Import Util.
 Local Open Scope prog_scope.
 
-(* A "step-indexed" kriple model *)
+(*
+Section substs.
+  
+  Variable ctx : Ctx.
 
-(* the logical relation *)
-Section LR.
+End substs.
+
+Arguments substs_sem {ctx} _ _ _ .
+ *)
+
+Section substs.
   
   Variable var : nat -> Type.
   Variable ctx : Ctx.
@@ -388,7 +419,7 @@ Section LR.
     admit.
   Defined.
 
-  Instance Apply_substs_nat_rel : Apply substs nat (relOpen var ctx 1) :=
+  Global Instance Apply_substs_nat_rel : Apply substs nat (relOpen var ctx 1) :=
     {
       apply := substs_sem
     }.
@@ -397,7 +428,7 @@ Section LR.
     admit.
   Defined.
 
-  Instance Apply_substs_cexpr_cexpr : Apply substs cexpr cexpr :=
+  Global Instance Apply_substs_cexpr_cexpr : Apply substs cexpr cexpr :=
     {
       apply := substs_cexpr
     }.
@@ -406,7 +437,7 @@ Section LR.
     admit.
   Defined.
 
-  Instance Apply_substs_size_size : Apply substs size size :=
+  Global Instance Apply_substs_size_size : Apply substs size size :=
     {
       apply := substs_size
     }.
@@ -415,7 +446,7 @@ Section LR.
     admit.
   Defined.
 
-  Instance Apply_substs_expr_expr : Apply substs expr expr :=
+  Global Instance Apply_substs_expr_expr : Apply substs expr expr :=
     {
       apply := substs_expr
     }.
@@ -424,7 +455,7 @@ Section LR.
     admit.
   Defined.
 
-  Instance Add_csize_substs : Add csize substs substs :=
+  Global Instance Add_csize_substs : Add csize substs substs :=
     {
       add := add_csize
     }.
@@ -433,33 +464,43 @@ Section LR.
     admit.
   Defined.
 
-  Instance Add_pair_substs : Add (type * relOpen var ctx 1) substs substs :=
+  Global Instance Add_pair_substs : Add (type * relOpen var ctx 1) (substs) (substs) :=
     {
       add := add_pair
     }.
 
-  Program Fixpoint E' V τ (n : nat) (s : size) (ρ : substs) (Ct : nat) (θ : thresholds) {measure n} : relOpen var ctx 1 :=
+End substs.
+
+Arguments substs_sem {var ctx} _ _ .
+
+(* A "step-indexed" kriple model *)
+(* the logical relation *)
+Section LR.
+  
+  Variable ctx : Ctx.
+
+  Program Fixpoint E' (V : nat -> thresholds -> forall var, substs var ctx -> relOpen var ctx 1) τ (n : nat) (s : size) (Ct : nat) (θ : thresholds) {var} (ρ : substs var ctx) {measure n} : relOpen var ctx 1 :=
     \e, ⌈|~ [] e (ρ τ)⌉ /\ 
         ∀1 n', ∀ e', 
-          (⌈nstepsex e n' 0 e'⌉ ⇒ ⌈n' ≤ n⌉ /\ (⌈IsValue e'⌉ ⇒ e' ∈ V ρ Ct θ /\ ⌈|e'| ≤ s⌉)) /\
+          (⌈nstepsex e n' 0 e'⌉ ⇒ ⌈n' ≤ n⌉ /\ (⌈IsValue e'⌉ ⇒ e' ∈ V Ct θ var ρ /\ ⌈|e'| ≤ s⌉)) /\
           match n with
             | 0 => ⊤
             | S _ =>
-              (⌈nstepsex e (S n') 1 e'⌉ ⇒ ⌈(S n') ≤ n⌉ /\ ▹ (e' ∈ E' V τ (n - S n') s ρ Ct θ))
+              (⌈nstepsex e (S n') 1 e'⌉ ⇒ ⌈(S n') ≤ n⌉ /\ ▹ (e' ∈ E' V τ (n - S n') s Ct θ ρ))
           end.
   Next Obligation.
     omega.
   Defined.
 
-  Fixpoint V τ (ρ : substs) (Ct : nat) (θ : thresholds) {struct τ} : relOpen var ctx 1 :=
+  Fixpoint V τ (Ct : nat) (θ : thresholds) {var} (ρ : substs var ctx) {struct τ} : relOpen var ctx 1 :=
     match τ, θ with
-      | Tvar α, _ => ρ $ α
+      | Tvar α, _ => substs_sem ρ α
       | Tunit, _ => \v, ⌈v ↓ τ⌉
-      | τ₁ × τ₂, _ => \v, ⌈v ↓ ρ τ⌉ /\ ∃ a b, ⌈v = Epair a b⌉ /\ a ∈ V τ₁ ρ Ct θ /\ b ∈ V τ₂ ρ Ct θ
-      | τ₁ + τ₂, _ => \v, ⌈v ↓ ρ τ⌉ /\ ∃ v', (⌈v = Einl τ₂ v'⌉ /\ v' ∈ V τ₁ ρ Ct θ) /\ ⌈v = Einr τ₁ v'⌉ /\ v' ∈ V τ₂ ρ Ct θ
-      | Tarrow τ₁ c s τ₂, THarrow θ₁ ξ₀ θ₂ => \v, ⌈v ↓ ρ τ⌉ /\ ∀ v₁, v₁ ∈ V τ₁ ρ Ct θ ⇒ Eapp v v₁ ∈ E' (V τ₂) τ₂ (cexpr_to_nat c) s (add (if ξ₀ <=? |v₁| then |v₁| else ξ₀) ρ) Ct θ₂
-      | Tuniversal c s τ, _ => \v, ⌈v ↓ ρ τ⌉ /\ ∀1 τ', ∀2 S, VSet τ' S ⇒ Etapp v τ' ∈ E' (V τ) τ (cexpr_to_nat c) s (add (τ', S) ρ) Ct θ
-      | Trecur τ, _ => @S, \v, ⌈v ↓ ρ τ⌉ /\ ∃ v', ⌈v = Efold τ v'⌉ /\ ▹ (v' ∈ V τ (add (ρ τ, S) ρ) Ct θ)
+      | τ₁ × τ₂, _ => \v, ⌈v ↓ ρ τ⌉ /\ ∃ a b, ⌈v = Epair a b⌉ /\ a ∈ V τ₁ Ct θ ρ /\ b ∈ V τ₂ Ct θ ρ
+      | τ₁ + τ₂, _ => \v, ⌈v ↓ ρ τ⌉ /\ ∃ v', (⌈v = Einl τ₂ v'⌉ /\ v' ∈ V τ₁ Ct θ ρ) /\ ⌈v = Einr τ₁ v'⌉ /\ v' ∈ V τ₂ Ct θ ρ
+      | Tarrow τ₁ c s τ₂, THarrow θ₁ ξ₀ θ₂ => \v, ⌈v ↓ ρ τ⌉ /\ ∀ v₁, v₁ ∈ V τ₁ Ct θ ρ ⇒ Eapp v v₁ ∈ E' (V τ₂) τ₂ (cexpr_to_nat c) s Ct θ₂ (add (if ξ₀ <=? |v₁| then |v₁| else ξ₀) ρ)
+      | Tuniversal c s τ, _ => \v, ⌈v ↓ ρ τ⌉ /\ ∀1 τ', ∀2 S, VSet τ' S ⇒ Etapp v τ' ∈ E' (V τ) τ (cexpr_to_nat c) s Ct θ (add (τ', S) ρ)
+      | Trecur τ, _ => @S, \v, ⌈v ↓ ρ τ⌉ /\ ∃ v', ⌈v = Efold τ v'⌉ /\ ▹ (v' ∈ V τ Ct θ (add (ρ τ, S) ρ))
       | _, _ => \_, ⊥
     end
   .
@@ -468,168 +509,177 @@ Section LR.
 
 End LR.
 
-End OpenPHOAS.
-
-Import OpenPHOAS.
-
 Unset Strict Implicit.
 Unset Printing Implicit Defensive. 
 Generalizable All Variables.
 
-Section related.
+Definition csize_of_size : size -> option csize.
+  admit.
+Defined.
 
-  Variable var : nat -> Type.
+Definition asCsize P s :=
+  (exists x, csize_of_size s = Some x /\ P x)%type.
 
-  Class Lift A B :=
-    {
-      lift : forall (t : termType), A -> B t
-    }.
+Notation TTtype := (TTother type).
+Notation TTcsize := (TTother csize).
 
-  Instance Lift_list `{Lift A B} : Lift (list A) (fun t => list (B t)) :=
-    {
-      lift t a := map (lift t) a
-    }.
+Arguments SEtype {var ctx} _ _ .
+Arguments SEexpr {var ctx} _ _ .
 
-  Definition lift_relOpen {ctx range} new : relOpen var ctx range -> relOpen var (new :: ctx) range.
-    admit.
-  Defined.
+Arguments V {ctx} _ _ _ {var} _ .
+Arguments E {ctx} _ _ _ _ _ {var} _ .
 
-  Instance Lift_relOpen ctx range : Lift (relOpen var ctx range) (fun new => relOpen var (new :: ctx) range) :=
-    {
-      lift := lift_relOpen
-    }.
+Class Lift A B :=
+  {
+    lift : forall (t : termType), A -> B t
+  }.
 
-  Definition lift_SubstEntry {ctx} new : SubstEntry var ctx -> SubstEntry var (new :: ctx).
-    admit.
-  Defined.
+Global Instance Lift_list `{Lift A B} : Lift (list A) (fun t => list (B t)) :=
+  {
+    lift t a := map (lift t) a
+  }.
 
-  Instance Lift_SubstEntry ctx : Lift (SubstEntry var ctx) (fun new => SubstEntry var (new :: ctx)) :=
-    {
-      lift := lift_SubstEntry
-    }.
+Inductive tc_entryex :=
+| TEkindingex (_ : kind)
+| TEtypingex (_ : type * thresholds * (csize + size))
+.
 
-  Definition t_Ps_ρ ctx := (list (relOpen var ctx 0) * substs var ctx)%type.
+Definition tcontextex := list tc_entryex.
 
-  Definition lift_Ps_ρ {ctx} t (Ps_ρ : t_Ps_ρ ctx) : t_Ps_ρ (t :: ctx):=
-    let (Ps, ρ) := Ps_ρ in
-    let Ps := map (lift_relOpen t) Ps in
-    let ρ := map (lift t) ρ in
-    (Ps, ρ).
+Definition lift_Rel {ctx range} new : Rel ctx range -> Rel (new :: ctx) range.
+  admit.
+Defined.
 
-  Instance Lift_Ps_ρ ctx : Lift (t_Ps_ρ ctx) (fun new => t_Ps_ρ (new :: ctx))%type :=
-    {
-      lift := lift_Ps_ρ
-    }.
+Global Instance Lift_Rel ctx range : Lift (Rel ctx range) (fun new => Rel (new :: ctx) range) :=
+  {
+    lift := lift_Rel
+  }.
 
-  Definition extend {range} ctx new : relOpen var ctx range -> relOpen var (ctx ++ new) range.
-    admit.
-  Defined.
+Definition Substs ctx := forall var, substs var ctx.
 
-  Notation TTtype := (TTother type).
-  Notation TTcsize := (TTother csize).
+Definition lift_Substs {ctx} new : Substs ctx -> Substs (new :: ctx).
+  admit.
+Defined.
 
-  Arguments SEtype {var ctx} _ _ .
-  Arguments SEexpr {var ctx} _ _ .
+Global Instance Lift_Substs ctx : Lift (Substs ctx) (fun new => Substs (new :: ctx)) :=
+  {
+    lift := lift_Substs
+  }.
 
-  Definition add_type {ctx} k (Ps_ρ : t_Ps_ρ ctx) : t_Ps_ρ (TTrel 1 :: TTtype :: ctx) :=
-    let (Ps, ρ) := lift_Ps_ρ TTtype Ps_ρ in
-    let Ps := extend [TTtype] ctx (fun τ => ⌈kinding [] τ k⌉ : relOpen var [] 0) :: Ps in
-    let (Ps, ρ) := lift_Ps_ρ 1 (Ps, ρ) in
-    match k with
-      | 0 => 
-        let Ps := extend [TTrel 1; TTtype] ctx (fun S τ => VSet τ (S : relOpen var [] 1)) :: Ps in
-        let ρ := SEtype (extend [TTrel 1; TTtype] ctx (fun _ τ => τ)) (Some (extend [TTrel 1; TTtype] ctx (fun S _ => S))) :: ρ in
-        (Ps, ρ)
-      | _ =>
-        let ρ := SEtype (extend [TTrel 1; TTtype] ctx (fun _ τ => τ)) None :: ρ in
-        (Ps, ρ)
-    end.
+Definition t_Ps_ρ ctx := (list (Rel ctx 0) * Substs ctx)%type.
 
-  Arguments V {var ctx} _ _ _ _ .
-  Arguments E {var ctx} _ _ _ _ _ _ .
+Definition lift_Ps_ρ {ctx} t (Ps_ρ : t_Ps_ρ ctx) : t_Ps_ρ (t :: ctx):=
+  let (Ps, ρ) := Ps_ρ in
+  let Ps := map (lift_Rel t) Ps in
+  let ρ := lift t ρ in
+  (Ps, ρ).
 
-  Definition csize_of_size : size -> option csize.
-    admit.
-  Defined.
+Global Instance Lift_Ps_ρ ctx : Lift (t_Ps_ρ ctx) (fun new => t_Ps_ρ (new :: ctx))%type :=
+  {
+    lift := lift_Ps_ρ
+  }.
 
-  Definition asCsize P s :=
-    (exists x, csize_of_size s = Some x /\ P x)%type.
+Definition extend {var range} ctx new : relOpen var ctx range -> relOpen var (ctx ++ new) range.
+  admit.
+Defined.
 
-  Existing Instance Apply_substs_size_size.
-  Existing Instance Apply_substs_cexpr_cexpr.
-  Existing Instance Apply_substs_expr_expr.
+Definition add_type {ctx} k (Ps_ρ : t_Ps_ρ ctx) : t_Ps_ρ (TTrel 1 :: TTtype :: ctx) :=
+  let (Ps, ρ) := lift_Ps_ρ TTtype Ps_ρ in
+  let Ps := (fun var => extend [TTtype] ctx (fun τ => ⌈kinding [] τ k⌉ : relOpen var [] 0)) :: Ps in
+  let (Ps, ρ) := lift_Ps_ρ 1 (Ps, ρ) in
+  match k with
+    | 0 => 
+      let Ps := (fun var => extend [TTrel 1; TTtype] ctx (fun S τ => VSet τ (S : relOpen var [] 1))) :: Ps in
+      let ρ := fun var => SEtype (extend [TTrel 1; TTtype] ctx (fun _ τ => τ)) (Some (extend [TTrel 1; TTtype] ctx (fun S _ => S))) :: ρ var in
+      (Ps, ρ)
+    | _ =>
+      let ρ := fun var => SEtype (extend [TTrel 1; TTtype] ctx (fun _ τ => τ)) None :: ρ var in
+      (Ps, ρ)
+  end.
 
-  Definition add_expr {ctx} τ θ (os : csize + size) Ct (Ps_ρ : t_Ps_ρ ctx) : t_Ps_ρ (TTcsize :: TTexpr :: ctx) :=
-    let (Ps, ρ) := Ps_ρ in
-    let ρ0 := ρ in
-    let (Ps, ρ) := lift_Ps_ρ TTexpr (Ps, ρ) in
-    let Ps := ((fun e => e ∈ V τ ρ0 Ct θ) : relOpen var (TTexpr :: ctx) 0) :: Ps in
-    let (Ps, ρ) := lift_Ps_ρ TTcsize (Ps, ρ) in
-    let ρ := SEexpr (extend [TTcsize; TTexpr] ctx (fun _ e => e)) (extend [TTcsize; TTexpr] ctx (fun ξ _ => ξ)) :: ρ in
-    match os with
-      | inl ξ₀ =>
-        let Ps := extend [TTcsize; TTexpr] ctx (fun ξ v => ⌈ξ = if ξ₀ <=? |v| then |v| else ξ₀⌉ : relOpen var [] 0) :: Ps in
-        (Ps, ρ)
-      | inr s =>
-        let Ps := extend [TTcsize; TTexpr] ctx (fun ξ _ => ⌈asCsize (fun ξ' => ξ = ξ') (ρ $$ s)⌉ : relOpen var [] 0) :: Ps in
-        (Ps, ρ)
-    end.
+Definition add_expr {ctx} τ θ (os : csize + size) Ct (Ps_ρ : t_Ps_ρ ctx) : t_Ps_ρ (TTcsize :: TTexpr :: ctx) :=
+  let (Ps, ρ) := Ps_ρ in
+  let ρ0 := ρ in
+  let (Ps, ρ) := lift_Ps_ρ TTexpr (Ps, ρ) in
+  let Ps := ((fun var e => e ∈ V τ Ct θ (ρ0 var)) : Rel (TTexpr :: ctx) 0) :: Ps in
+  let (Ps, ρ) := lift_Ps_ρ TTcsize (Ps, ρ) in
+  let ρ := fun var => SEexpr (extend [TTcsize; TTexpr] ctx (fun _ e => e)) (extend [TTcsize; TTexpr] ctx (fun ξ _ => ξ)) :: ρ var in
+  match os with
+    | inl ξ₀ =>
+      let Ps := (fun var => extend [TTcsize; TTexpr] ctx (fun ξ v => ⌈ξ = if ξ₀ <=? |v| then |v| else ξ₀⌉ : relOpen var [] 0)) :: Ps in
+      (Ps, ρ)
+    | inr s =>
+      let Ps := (fun var => extend [TTcsize; TTexpr] ctx (fun ξ _ => ⌈asCsize (fun ξ' => ξ = ξ') (ρ var $$ s)⌉ : relOpen var [] 0)) :: Ps in
+      (Ps, ρ)
+  end.
 
-  Inductive tc_entryex :=
-  | TEkindingex (_ : kind)
-  | TEtypingex (_ : type * thresholds * (csize + size))
-  .
+Fixpoint make_ctx Γ :=
+  match Γ with
+    | nil => nil
+    | TEkindingex _ :: Γ' =>
+      TTrel 1 :: TTtype :: make_ctx Γ'
+    | TEtypingex _ :: Γ' =>
+      TTcsize :: TTexpr :: make_ctx Γ'
+  end.
 
-  Definition tcontextex := list tc_entryex.
+Fixpoint make_Ps_ρ Γ Ct : t_Ps_ρ (make_ctx Γ) :=
+  match Γ return t_Ps_ρ (make_ctx Γ) with 
+    | nil => (nil, (fun var => nil))
+    | TEkindingex k :: Γ' =>
+      let Ps_ρ := make_Ps_ρ Γ' Ct in
+      add_type k Ps_ρ
+    | TEtypingex (τ, θ, os) :: Γ' =>
+      let Ps_ρ := make_Ps_ρ Γ' Ct in
+      add_expr τ θ os Ct Ps_ρ
+  end.
 
-  Fixpoint make_ctx Γ :=
-    match Γ with
-      | nil => nil
-      | TEkindingex _ :: Γ' =>
-        TTrel 1 :: TTtype :: make_ctx Γ'
-      | TEtypingex _ :: Γ' =>
-        TTcsize :: TTexpr :: make_ctx Γ'
-    end.
+Definition extendΓ : tcontext -> list csize -> list thresholds -> option tcontextex.
+  admit.
+Defined.
 
-  Fixpoint make_Ps_ρ Γ Ct : t_Ps_ρ (make_ctx Γ) :=
-    match Γ return t_Ps_ρ (make_ctx Γ) with 
-      | nil => (nil, nil)
-      | TEkindingex k :: Γ' =>
-        let Ps_ρ := make_Ps_ρ Γ' Ct in
-        add_type k Ps_ρ
-      | TEtypingex (τ, θ, os) :: Γ' =>
-        let Ps_ρ := make_Ps_ρ Γ' Ct in
-        add_expr τ θ os Ct Ps_ρ
-    end.
+Definition valid {ctx} (Ps : list (Rel ctx 0)) (P : Rel ctx 0) : Prop.
+  admit.
+Defined.
+Notation "Ps |- P" := (valid Ps P) (at level 90).
 
-  Definition extendΓ : tcontext -> list csize -> list thresholds -> option tcontextex.
-    admit.
-  Defined.
+Definition related Γ (e : expr) τ (c : cexpr) (s : size) :=
+  (exists Ct ξs θs θ Γ',
+     extendΓ Γ ξs θs = Some Γ' /\
+     let (Ps, ρ) := make_Ps_ρ Γ' Ct in
+     Ps |-
+     fun var => let ρ := ρ var in
+                (ρ $ e) ∈ E τ (Ct * cexpr_to_nat (ρ $ c))%nat (ρ $ s) Ct θ ρ)%type.
 
-  Definition valid {ctx} (Ps : list (relOpen var ctx 0)) (P : relOpen var ctx 0) : Prop.
-    admit.
-  Defined.
-  Notation "Ps |- P" := (valid Ps P) (at level 90).
+Notation "⊩" := related.
 
-  Definition related Γ (e : expr) τ (c : cexpr) (s : size) :=
-    (exists Ct ξs θs θ Γ',
-       extendΓ Γ ξs θs = Some Γ' /\
-       let (Ps, ρ) := make_Ps_ρ Γ' Ct in
-       Ps |- (ρ $ e) ∈ E τ (Ct * cexpr_to_nat (ρ $ c))%nat (ρ $ s) ρ Ct θ)%type.
+Lemma foundamental :
+  forall Γ e τ c s,
+    ⊢ Γ e τ c s -> 
+    ⊩ Γ e τ c s.
+Proof.
+  induction 1.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+Qed.
 
-  Notation "⊩" := related.
-
-  Lemma foundamental :
-    forall Γ e τ c s,
-      ⊢ Γ e τ c s -> 
-      ⊩ Γ e τ c s.
-  Proof.
-    (* induction 1. *)
-    admit.
-  Qed.
-
-End related.
-      
 (*
 Section inferRules.
 
@@ -652,8 +702,6 @@ Section inferRules.
 End inferRules.
 *)
 
-Definition Rel n := forall var C, relOpen var C n.
-
 Definition relV τ ξ ρ C θ : Rel 1 := fun var C => V var C τ ξ ρ C θ.
 Definition relE τ c s ρ C θ : Rel 1 := fun var C => E var C τ c s ρ C θ.
 
@@ -661,137 +709,3 @@ Theorem sound_wrt_bound_proof : sound_wrt_bounded.
 Proof.
   admit.
 Qed.
-
-Module ClosedPHOAS.
-
-Notation "⊤" := (Rtrue _).
-Notation "⊥" := (Rtrue _).
-(* Notation "\ e , p" := (Rabs (fun e => p)) (at level 200, format "\ e , p"). *)
-Notation "\ x .. y , p" := (Rabs (fun x => .. (Rabs (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
-Notation "∀ x .. y , p" := (Rforalle (fun x => .. (Rforalle (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
-Notation "∃ x .. y , p" := (Rexistse (fun x => .. (Rexistse (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
-Notation "∀1 x .. y , p" := (Rforall1 (fun x => .. (Rforall1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
-Notation "∃1 x .. y , p" := (Rexists1 (fun x => .. (Rexists1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
-Definition RforallR' var n P := (@RforallR var n (fun x => P (Rvar _ _ x))).
-Notation "∀2 x .. y , p" := (RforallR' (fun x => .. (RforallR' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
-Definition RexistsR' var n P := (@RexistsR var n (fun x => P (Rvar _ _ x))).
-Notation "∃2 x .. y , p" := (RexistsR' (fun x => .. (RexistsR' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
-Definition Rrecur' var n P := (@Rrecur var n (fun x => P (Rvar _ _ x))).
-Notation "@ x .. y , p" := (Rrecur' (fun x => .. (Rrecur' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
-Notation "⌈ P ⌉" := (Rinj _ P).
-Notation "e ∈ P" := (Rapp P e) (at level 70).
-Infix "/\" := Rand.
-Infix "\/" := Ror.
-Infix "⇒" := Rimply (at level 90).
-Notation "▹" := Rlater.
-Definition VSet var τ (S : rel var 1) := ∀ v, v ∈ S ⇒ ⌈v ↓ τ⌉.
-
-Section TestNotations.
-  
-  Variable var : nat -> Type.
-
-  Definition ttt1 : rel var 1 := \e , ⊤.
-  Definition ttt2 : rel var 1 := \e , ⌈e ↓ Tunit⌉.
-  Definition ttt3 : rel var 1 := \_ , ⌈True /\ True⌉.
-
-End TestNotations.
-
-Inductive thresholds :=
-| THleaf
-| THarrow : thresholds -> csize -> thresholds -> thresholds
-.
-
-(* A "step-indexed" kriple model *)
-
-(* the logical relation *)
-Section LR.
-  
-  Variable var : nat -> Type.
-
-  Definition substs : Type.
-    admit.
-  Defined.
-
-  Definition substs_type : substs -> type -> type.
-    admit.
-  Defined.
-
-  Coercion substs_type : substs >-> Funclass.
-
-  Definition substs_sem : substs -> nat -> rel var 1.
-    admit.
-  Defined.
-
-  Instance Apply_substs_nat_rel : Apply substs nat (rel var 1) :=
-    {
-      apply := substs_sem
-    }.
-
-  Definition substs_cexpr : substs -> cexpr -> cexpr.
-    admit.
-  Defined.
-
-  Instance Apply_substs_cexpr_cexpr : Apply substs cexpr cexpr :=
-    {
-      apply := substs_cexpr
-    }.
-
-  Definition substs_size : substs -> size -> size.
-    admit.
-  Defined.
-
-  Instance Apply_substs_size_size : Apply substs size size :=
-    {
-      apply := substs_size
-    }.
-
-  Definition add_csize : csize -> substs -> substs.
-    admit.
-  Defined.
-
-  Instance Add_csize_substs : Add csize substs substs :=
-    {
-      add := add_csize
-    }.
-
-  Definition add_pair : (type * rel var 1) -> substs -> substs.
-    admit.
-  Defined.
-
-  Instance Add_pair_substs : Add (type * rel var 1) substs substs :=
-    {
-      add := add_pair
-    }.
-
-  Program Fixpoint E' V τ (n : nat) (s : size) (ρ : substs) (C : nat) (θ : thresholds) {measure n} : rel var 1 :=
-    \e, ⌈|~ [] e (ρ τ)⌉ /\ 
-        ∀1 n', ∀ e', 
-          (⌈nstepsex e n' 0 e'⌉ ⇒ ⌈n' ≤ n⌉ /\ (⌈IsValue e'⌉ ⇒ e' ∈ V ρ C θ /\ ⌈|e'| ≤ s⌉)) /\
-          match n with
-            | 0 => ⊤
-            | S _ =>
-              (⌈nstepsex e (S n') 1 e'⌉ ⇒ ⌈(S n') ≤ n⌉ /\ ▹ (e' ∈ E' V τ (n - S n') s ρ C θ))
-          end.
-  Next Obligation.
-    omega.
-  Defined.
-
-  Fixpoint V τ (ρ : substs) (C : nat) (θ : thresholds) {struct τ} : rel var 1 :=
-    match τ, θ with
-      | Tvar α, _ => ρ $ α
-      | Tunit, _ => \v, ⌈v ↓ τ⌉
-      | τ₁ × τ₂, _ => \v, ⌈v ↓ ρ τ⌉ /\ ∃ a b, ⌈v = Epair a b⌉ /\ a ∈ V τ₁ ρ C θ /\ b ∈ V τ₂ ρ C θ
-      | τ₁ + τ₂, _ => \v, ⌈v ↓ ρ τ⌉ /\ ∃ v', (⌈v = Einl τ₂ v'⌉ /\ v' ∈ V τ₁ ρ C θ) /\ ⌈v = Einr τ₁ v'⌉ /\ v' ∈ V τ₂ ρ C θ
-      | Tarrow τ₁ c s τ₂, THarrow θ₁ ξ₀ θ₂ => \v, ⌈v ↓ ρ τ⌉ /\ ∀ v₁, v₁ ∈ V τ₁ ρ C θ ⇒ Eapp v v₁ ∈ E' (V τ₂) τ₂ (cexpr_to_nat c) s (add (if ξ₀ <=? |v₁| then |v₁| else ξ₀) ρ) C θ₂
-      | Tuniversal c s τ, _ => \v, ⌈v ↓ ρ τ⌉ /\ ∀1 τ', ∀2 S, VSet τ' S ⇒ Etapp v τ' ∈ E' (V τ) τ (cexpr_to_nat c) s (add (τ', S) ρ) C θ
-      | Trecur τ, _ => @S, \v, ⌈v ↓ ρ τ⌉ /\ ∃ v', ⌈v = Efold τ v'⌉ /\ ▹ (v' ∈ V τ (add (ρ τ, S) ρ) C θ)
-      | _, _ => \_, ⊥
-    end
-  .
-
-  Definition E τ := E' (V τ).
-
-End LR.
-
-End ClosedPHOAS.
-
