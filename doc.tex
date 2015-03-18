@@ -34,7 +34,6 @@
 \newcommand{\kinding}[2]{\turnstile{s}{s}{}{}{n}#1:#2}
 \newcommand{\teq}[2]{#1\equiv#2}
 \newcommand{\arrow}[4]{#1\xrightarrow[#3]{#2}#4}
-\newcommand{\bottom}{\perp}
 \newcommand{\symlet}{\mathsf{let\;}}
 \newcommand{\symin}{\mathsf{\;in\;}}
 \newcommand{\symletrec}{\mathsf{letrec\;}}
@@ -42,11 +41,11 @@
 \newcommand{\symmatch}{\mathsf{match}}
 \newcommand{\FV}{\mathsf{FV}}
 \newcommand{\symwith}{\mathsf{\;with\;}}
-\newcommand{\symleft}{\mathsf{left}}
-\newcommand{\symright}{\mathsf{right}}
+\newcommand{\syminl}{\mathsf{inl}}
+\newcommand{\syminr}{\mathsf{inr}}
 \newcommand{\symmax}{\mathsf{max}}
-\newcommand{\symSleft}{\mathsf{Sleft\;}}
-\newcommand{\symSright}{\mathsf{Sright\;}}
+\newcommand{\symSinl}{\mathsf{Sinl\;}}
+\newcommand{\symSinr}{\mathsf{Sinr\;}}
 \newcommand{\symfold}{\mathsf{fold\;}}
 \newcommand{\symSfold}{\mathsf{Sfold\;}}
 \newcommand{\symunfold}{\mathsf{unfold\;}}
@@ -94,6 +93,8 @@
 \newcommand{\symSpair}{\mathsf{Spair}}
 \newcommand{\symSlr}{\mathsf{Slr}}
 \newcommand{\defeq}{\triangleq}
+\newcommand{\symwork}{\mathsf{w}}
+\newcommand{\symspan}{\mathsf{s}}
 
 \begin{document}
 
@@ -111,18 +112,16 @@ $$
 \section{Syntax}
 
 %% \begin{figure}
-  $$\begin{array}{rrcl}
+$$\begin{array}{rrcl}
   \textrm{Size Subpart Indices} & i &::=& \symf \textrm{(fst)} \mid \syms \textrm{(snd)} \mid \syml \textrm{(left)} \mid \symr \textrm{(right)} \mid \symuf \textrm{(unfold)} \mid \symuh \textrm{(unhide)} \\
-  \textrm{Complexity Expr.} & n &::=& x.\vec{i}.1 \mid x.\vec{i}.2 \mid 0 \mid 1 \mid q \mid n+n \mid n\times n \mid q\times n \mid \log_q n \mid q^n \; (q:\textrm{non-negative rationals}) \\
-  \textrm{Sizes} & s &::=& x.\vec{i} \mid \symSstat(n_1,n_2) \mid \symStt \mid \symSleft\;s \mid \symSright\;s \mid \symSlr\;s\;s \mid \symSpair\;s\;s \mid \symSfold\;s \mid \symShide\;s \\
-  \textrm{Type Constants} & c_t &::=& \symunit \mid \symprod \mid \symsum \\
-  \textrm{Types} & \tau &::=& X \mid c_t \mid \arrow{\intro{x}{\tau}}{n}{s}{\tau} \mid \forall^n_s X.\tau \mid \Lambda X.\tau \mid \tau\;\tau \mid \mu X.\tau \mid \thide\tau \\
-  \textrm{Constants} & c &::=& \symtt \mid \sympair \mid \symleft \mid \symright \\
-  \textrm{Expressions} & e &::=& x \mid c \mid e\;e \mid \lambda x:\tau.e \mid \symlet x:\tau:= e \symin e \mid \symletrec f_1:\tau_1:=e_1 \symand \cdots \symand f_m:\tau_m:=e_m \symin e \mid \symmatch_\sympair\;e\symwith (x,y)\Rightarrow e \\
-  & & & \mid (\symmatch_\symsum\;e\symwith\symleft\;x\Rightarrow e\;|\;\symright\;x\Rightarrow e) \mid e\;\tau \mid \lambda X.e \mid \symfold\tau\;e \mid \symunfold\tau\;e \mid \symhide\;e \mid \symunhide\;e \\
-  \textrm{Values} & v &::=& \lambda x:\tau.e \mid \lambda X.e \mid \symfold\tau e \\
-  \textrm{Context} & C &::=& \Box \mid C\;e \mid v\;C \mid \symlet x:\tau:=C\symin e \mid \symletrec f_1:\tau_1:=e_1 \symand \cdots \symand f_m:\tau_m:=e_m \symin C \mid \symmatch_\sympair\;C\symwith(x,y)\Rightarrow e \\
-  & & & \mid (\symmatch_\symsum\;C\symwith\symleft\;x\Rightarrow e\;|\;\symright\;x\Rightarrow e) \mid C\;\tau \mid \symfold\tau\;C \mid \symunfold\tau\;C \mid \symhide\;C \mid \symunhide\;C \\
+  \textrm{Complexity Expr.} & c &::=& x.\vec{i}.\symwork \mid x.\vec{i}.\symspan \mid 0 \mid 1 \mid q \mid c+c \mid c\times c \mid q\times c \mid \log_q c \mid q^c \; (q:\textrm{non-negative rationals}) \\
+  \textrm{Sizes} & s &::=& x.\vec{i} \mid \symSstat(c_\symwork,c_\symspan) \mid \symStt \mid \symSinl\;s \mid \symSinr\;s \mid \symSlr\;s\;s \mid (s,s) \mid \symSfold\;s \mid \symShide\;s \\
+  \textrm{Types} & \tau &::=& \symunit \mid \tau\times\tau \mid \tau+\tau \mid X \mid \arrow{\intro{x}{\tau}}{c}{s}{\tau} \mid \forall^c_s X.\tau \mid \Lambda X.\tau \mid \tau\;\tau \mid \mu X.\tau \mid \thide\tau \\
+  \textrm{Expressions} & e &::=& \symtt \mid (e,e) \mid \syminl_\tau\;e \mid \syminr_\tau\;e \mid x \mid e\;e \mid \lambda x:\tau.\;e \mid \symlet x:\tau:= e \symin e \mid \symmatch_\sympair\;e\symwith (x,y)\Rightarrow e \\
+  & & & \mid (\symmatch_\symsum\;e\symwith\syminl\;x\Rightarrow e\;|\;\syminr\;x\Rightarrow e) \mid e\;\tau \mid \lambda X.e \mid \symfold\tau\;e \mid \symunfold\;e \mid \symhide\;e \mid \symunhide\;e \\
+  \textrm{Values} & v &::=& x \mid \lambda x:\tau.e \mid \lambda X.e \mid \symfold\tau\;v \mid \symtt \mid (v,v) \mid \syminl\;v \mid \syminr\;v \\
+  \textrm{Evaluation Context} & E &::=& \Box \mid E\;e \mid v\;E \mid \symlet x:\tau:=E\symin e \mid E\;\tau \mid \symfold\tau\;E \mid \symunfold\tau\;E \mid \symhide\;E \mid \symunhide\;E \\
+  & & & \mid (E, e) \mid (v, E) \mid \syminl\;E \mid \syminr\;E \mid \symmatch_\sympair\;E\symwith(x,y)\Rightarrow e \mid (\symmatch_\symsum\;E\symwith\syminl\;x\Rightarrow e\;|\;\syminr\;x\Rightarrow e) \\
   \textrm{Kinds} & k &::=& * \mid *\to k
 \end{array}$$
 %% \caption{\label{syntax}Syntax}
@@ -134,7 +133,7 @@ $$
 
 \inferrule*
 {e_1\to e_2}
-{C[e_1]\to C[e_2]}
+{E[e_1]\to E[e_2]}
 
 \inferrule*
 {\;}
@@ -146,23 +145,15 @@ $$
 
 \inferrule*
 {\;}
-{\symletrec f_1:\tau_1:=e_1 \symand \cdots \symand f_m:\tau_m:=e_m \symin C[f_i] \to \symletrec f_1:\tau_1:=e_1 \symand \cdots \symand f_m:\tau_m:=e_m \symin C[e_i]}
-
-\inferrule*
-{\;}
-{\symletrec f_1:\tau_1:=e_1 \symand \cdots \symand f_m:\tau_m:=e_m \symin v \to v}
-
-\inferrule*
-{\;}
 {\symmatch_\sympair\;(v_1,v_2)\symwith(x,y)\Rightarrow e \to e[v_1/x][v_2/y]}
 
 \inferrule*
 {\;}
-{\symmatch_\symsum\;\symleft\;v\symwith\symleft\;x\Rightarrow e_1\;|\;\symright\;x\Rightarrow e_2 \to e_1[v/x]}
+{\symmatch_\symsum\;\syminl\;v\symwith\syminl\;x\Rightarrow e_1\;|\;\syminr\;x\Rightarrow e_2 \to e_1[v/x]}
 
 \inferrule*
 {\;}
-{\symmatch_\symsum\;\symright\;v\symwith\symleft\;x\Rightarrow e_1\;|\;\symright\;x\Rightarrow e_2 \to e_2[v/x]}
+{\symmatch_\symsum\;\syminr\;v\symwith\syminl\;x\Rightarrow e_1\;|\;\syminr\;x\Rightarrow e_2 \to e_2[v/x]}
 
 \inferrule*
 {\;}
@@ -170,7 +161,7 @@ $$
 
 \inferrule*
 {\;}
-{\symunfold\tau_2\;(\symfold\tau_1\;v) \to v}
+{\symunfold\;(\symfold\tau\;v) \to v}
 
 \inferrule*
 {\;}
@@ -180,30 +171,34 @@ $$
 
 \section{Kinging and Type equivalent rules}
 
+$$\begin{array}{rrcl}
+  \textrm{Typing Context} & \Gamma &::=& \Gamma,X \mid \Gamma, e:(\tau,s)
+\end{array}$$
+
 \begin{mathpar}
 
 \inferrule*
-{\Gamma(X)=k}
-{\Gamma\kinding{X}{k}}
+{X\in\Gamma}
+{\Gamma\kinding{X}{*}}
 
 \inferrule*
 {\Gamma\kinding{\tau_1}{*\to k} \\ \Gamma\kinding{\tau_2}{*}}
 {\Gamma\kinding{\tau_1\;\tau_2}{k}}
 
 \inferrule*
-{\Gamma,X:*\kinding{\tau}{k}}
+{\Gamma,X\kinding{\tau}{k}}
 {\Gamma\kinding{\Lambda X.\tau}{*\to k}}
 
 \inferrule*
-{\Gamma\kinding{\tau_1}{*} \\ \Gamma\kinding{\tau_2}{*}}
-{\Gamma\kinding{\arrow{\tau_1}{n}{s}{\tau_2}}{*}}
+{\Gamma\kinding{\tau_1}{*} \\ \Gamma,x:(\tau_1,\bot)\kinding{\tau_2}{*}}
+{\Gamma\kinding{\arrow{(x:\tau_1)}{c}{s}{\tau_2}}{*}}
 
 \inferrule*
-{\Gamma,X:*\kinding{\tau}{*}}
+{\Gamma,X\kinding{\tau}{*}}
 {\Gamma\kinding{\forall X.\tau}{*}}
 
 \inferrule*
-{\Gamma,X:*\kinding{\tau}{*}}
+{\Gamma,X\kinding{\tau}{*}}
 {\Gamma\kinding{\mu X.\tau}{*}}
 
 \inferrule*
@@ -215,12 +210,12 @@ $$
 {\Gamma\kinding{\symunit}{*}}
 
 \inferrule*
-{\;}
-{\Gamma\kinding{\symprod}{*\to *\to *}}
+{\Gamma\kinding{\tau_1}{*} \\ \Gamma\kinding{\tau_2}{*}}
+{\Gamma\kinding{\tau_1\times\tau_2}{*}}
 
 \inferrule*
-{\;}
-{\Gamma\kinding{\symsum}{*\to *\to *}}
+{\Gamma\kinding{\tau_1}{*} \\ \Gamma\kinding{\tau_2}{*}}
+{\Gamma\kinding{\tau_1+\tau_2}{*}}
 
 \end{mathpar}
 
@@ -252,7 +247,7 @@ $$
 
 \inferrule*
 {\teq{\tau_1}{\tau_1'} \\ \teq{\tau_2}{\tau_2'}}
-{\teq{\arrow{\tau_1}{n}{s}{\tau_2}}{\arrow{\tau_1'}{n}{s}{\tau_2'}}}
+{\teq{\arrow{(x:\tau_1)}{c}{s}{\tau_2}}{\arrow{(x:\tau_1')}{c}{s}{\tau_2'}}}
 
 \inferrule*
 {\teq{\tau_1}{\tau_2}}
@@ -270,85 +265,100 @@ $$
 {\Gamma\typing{x}{\tau}{0}{s}} 
 
 \inferrule* [Right=Var2] 
-{\Gamma(x)=(\tau, \bottom)} 
+{\Gamma(x)=(\tau, \bot)} 
 {\Gamma\typing{x}{\tau}{0}{x}} 
 
 \inferrule* [Right=App] 
-{\Gamma\typing{e_1}{\arrow{\intro{x}{\tau_1}}{n}{s}{\tau_2}}{n_1}{s_1} \\ \Gamma\typing{e_2}{\tau_1}{n_2}{s_2} }
-{\Gamma\typing{e_1\;e_2}{\tau_2}{n_1+n_2+1+n[s_2/x]}{s[s_2/x]}} 
+{\Gamma\typing{e_1}{\arrow{\intro{x}{\tau_1}}{c}{s}{\tau_2}}{c_1}{s_1} \\ \Gamma\typing{e_2}{\tau_1}{c_2}{s_2} }
+{\Gamma\typing{e_1\;e_2}{\tau_2}{c_1+c_2+n[s_2/x]}{s[s_2/x]}} 
 
 \inferrule* [Right=Abs] 
-{\Gamma\vdash\tau_1 : * \\ \Gamma, x:(\tau_1, \bottom)\typing{e}{\tau_2}{n}{s} }
-{\Gamma\typing{\lambda x : \tau_1.\;e}{\arrow{\intro{x}{\tau_1}}{n}{s}{\tau_2}}{0}{1}} \\
+{\Gamma\vdash\tau_1 : * \\ \Gamma, x:(\tau_1, \bot)\typing{e}{\tau_2}{c}{s} }
+{\Gamma\typing{\lambda x : \tau_1.\;e}{\arrow{\intro{x}{\tau_1}}{c}{s}{\tau_2}}{0}{1}} 
+
+\\
 
 \inferrule* [Right=Tapp]
-{\Gamma\typing{e}{\forall X.\tau}{n}{s}}
-{\Gamma\typing{e\;\tau_2}{\tau[\tau_2/X]}{n+1}{s}}
+{\Gamma\typing{e}{\forall^c_s X.\tau}{c'}{1}}
+{\Gamma\typing{e\;\tau_2}{\tau[\tau_2/X]}{c'+c}{s}}
 
 \inferrule* [Right=Tabs]
-{\Gamma, X : * \typing{e}{\tau}{0}{1}}
-{\Gamma\typing{\lambda X.e}{\forall X.\tau}{0}{1}} 
+{\Gamma, X\typing{e}{\tau}{c}{s}}
+{\Gamma\typing{\lambda X.\;e}{\forall X^c_s.\tau}{0}{1}} 
 
 \inferrule* [Right=Let]
-{\Gamma\typing{e_1}{\tau_1}{n_1}{s_1} \\ \Gamma, x : (\tau_1, s_1) \typing{e_2}{\tau_2}{n_2}{s_2}}
-{\Gamma\typing{\symlet x : \tau_1 := e_1 \symin e_2}{\tau_2[s_1/x]}{n_1+n2[s_1/x]}{s_2[s_1/x]}}
+{\Gamma\typing{e_1}{\tau_1}{c_1}{s_1} \\ \Gamma, x : (\tau_1, s_1) \typing{e_2}{\tau_2}{c_2}{s_2}}
+{\Gamma\typing{\symlet x : \tau_1 := e_1 \symin e_2}{\tau_2[s_1/x]}{c_1+c_2[s_1/x]}{s_2[s_1/x]}} 
 
-\inferrule* [Right=Letrec]
-{\Gamma' := \Gamma, f_1 : (\tau_1, 1), \dots, f_m : (\tau_m,1) \\ \forall i,\; \Gamma'\typing{e_i}{\tau_i}{0}{1} \\ \Gamma'\typing{e}{\tau}{n}{s} \\ \forall i,\; f_i\not\in\FV(\tau)\cup\FV(n)\cup\FV(s)}
-{\Gamma\typing{\symletrec f_1 : \tau_1 := e_1 \symand \dots \symand f_m : \tau_m := e_m \symin e}{\tau}{n}{s}}
-
-\inferrule* [Right=MatchPair]
-{\Gamma\typing{e}{\tau_1\times\tau_2}{n}{s} \\ \mathsf{IsPair}(s)=(s_1,s_2) \\ \Gamma, a:(\tau_1,s_1), b:(\tau_2,s_2)\typing{e'}{\tau}{n'}{s'}}
-{\Gamma\typing{\symmatch_\sympair\;e \symwith (a,b) \Rightarrow e'}{\tau[s1/a][s2/b]}{n + 1 + n'[s1/a][s2/b]}{s[s1/a][s2/b]}} \\
-
-\inferrule* [Right=MatchLR]
-{\Gamma\typing{e}{\tau_1+\tau_2}{n}{s} \\ \mathsf{IsLR}(s)=(s_1,s_2) \\ \forall i,\;\Gamma, x:(\tau_i,s_i)\typing{e_i}{\tau}{n_i}{s'} \\ x\not\in\FV(\tau)\cup\FV(s')}
-{\Gamma\typing{\symmatch_\symsum\; e \symwith \symleft\;x \Rightarrow e_1 \;|\; \symright\;x \Rightarrow e_2}{\tau}{n+1+\symmax(n_1[s_1/x],n_2[s_2/x])}{s'}} \\
-
-\inferrule* [Right=MatchL]
-{\Gamma\typing{e}{\tau_1+\tau_2}{n}{\symSleft(s)} \\ \Gamma, x:(\tau_1,s)\typing{e_1}{\tau'}{n'}{s'}}
-{\Gamma\typing{\symmatch_\symsum\; e \symwith \symleft\;x \Rightarrow e_1 \;|\; \symright\;x \Rightarrow e_2}{\tau'[s/x]}{n+1+n'[s/x]}{s'[s/x]}}
-
-\inferrule* [Right=MatchR]
-{\Gamma\typing{e}{\tau_1+\tau_2}{n}{\symSright(s)} \\ \Gamma, x:(\tau_2,s)\typing{e_2}{\tau'}{n'}{s'}}
-{\Gamma\typing{\symmatch_\symsum\; e \symwith \symleft\;x \Rightarrow e_1 \;|\; \symright\;x \Rightarrow e_2}{\tau'[s/x]}{n+1+n'[s/x]}{s'[s/x]}} \\
+\\
 
 \inferrule* [Right=Fold]
-{\tau \equiv \mu X. \tau_1 \\ \Gamma\typing{e}{\tau_1[\tau/X]}{n}{s}}
-{\Gamma\typing{\symfold \tau \; e}{\tau}{n}{\symSfold s}}
+{\tau \equiv \mu X. \tau_1 \\ \Gamma\typing{e}{\tau_1[\tau/X]}{c}{s}}
+{\Gamma\typing{\symfold \tau \; e}{\tau}{c}{\symSfold s}}
 
 \inferrule* [Right=Unfold]
-{\Gamma\typing{e}{t}{n}{s} \\ \mathsf{IsFold}(s)=s_1 \\ \tau \equiv \mu X.\tau_1}
-{\Gamma\typing{\symunfold \tau\;e}{\tau_1[\tau/X]}{n}{s_1}}
+{\Gamma\typing{e}{t}{c}{s} \\ \mathsf{IsFold}(s)=s_1 \\ \tau \equiv \mu X.\tau_1}
+{\Gamma\typing{\symunfold\;e}{\tau_1[\tau/X]}{1+c}{s_1}}
 
 \inferrule* [Right=Hide]
-{\Gamma\typing{e}{\tau}{n}{s}}
-{\Gamma\typing{\symhide e}{\thide{\tau}}{n}{\symShide s}} \\
+{\Gamma\typing{e}{\tau}{c}{s}}
+{\Gamma\typing{\symhide e}{\thide{\tau}}{c}{\symShide s}} 
+
+\\
 
 \inferrule* [Right=Unhide]
-{\Gamma\typing{e}{\thide{\tau}}{n}{s} \\ \mathsf{IsHide}(s)=s_1}
-{\Gamma\typing{\symunhide e}{\tau}{n}{s_1}}
+{\Gamma\typing{e}{\thide{\tau}}{c}{s} \\ \mathsf{IsHide}(s)=s_1}
+{\Gamma\typing{\symunhide e}{\tau}{c}{s_1}}
 
 \inferrule* [Right=Eq]
-{\Gamma\typing{e}{\tau_1}{n}{s} \\ \tau_1 \equiv \tau_2}
-{\Gamma\typing{e}{\tau_2}{n}{s}}
+{\Gamma\typing{e}{\tau_1}{c}{s} \\ \tau_1 \equiv \tau_2}
+{\Gamma\typing{e}{\tau_2}{c}{s}}
 
 \inferrule* [Right=Le]
-{\Gamma\typing{e}{\tau}{n}{s} \\ n \leO n' \\ s \leq s'}
-{\Gamma\typing{e}{\tau}{n'}{s'}}
+{\Gamma\typing{e}{\tau}{c}{s} \\ c \leq c' \\ s \leq s'}
+{\Gamma\typing{e}{\tau}{c'}{s'}} \\
+
+\inferrule* [Right=Tt]
+{\;}
+{\Gamma\typing{\symtt}{\symunit}{0}{1}} 
+
+\inferrule* [Right=Pair]
+{\Gamma\typing{e_1}{\tau_1}{c_1}{s_1} \\ \Gamma\typing{e_2}{\tau_2}{c_2}{s_2}}
+{\Gamma\typing{(e_1,e_2)}{\tau_1\times\tau_2}{c_1+c_2}{(s_1,s_2)}} 
+
+\inferrule* [Right=Inl]
+{\Gamma\typing{e}{\tau}{c}{s}}
+{\Gamma\typing{\syminl_{\tau'}\;e}{\tau+\tau'}{c}{\symSinl\;s}} 
+
+\inferrule* [Right=Inr]
+{\Gamma\typing{e}{\tau}{c}{s}}
+{\Gamma\typing{\syminr_{\tau'}\;e}{\tau'+\tau}{c}{\symSinr\;s}} 
+
+\\
+
+\inferrule* [Right=MatchPair]
+{\Gamma\typing{e}{\tau_1\times\tau_2}{c}{s} \\ \mathsf{IsPair}(s)=(s_1,s_2) \\ \Gamma, a:(\tau_1,s_1), b:(\tau_2,s_2)\typing{e'}{\tau}{c'}{s'}}
+{\Gamma\typing{\symmatch_\sympair\;e \symwith (a,b) \Rightarrow e'}{\tau[s_1/a][s_2/b]}{c + c'[s_1/a][s_2/b]}{s[s_1/a][s_2/b]}} 
+
+\\
+
+\inferrule* [Right=MatchLR]
+{\Gamma\typing{e}{\tau_1+\tau_2}{c}{s} \\ \mathsf{IsLR}(s)=(s_1,s_2) \\ \forall i,\;\Gamma, x:(\tau_i,s_i)\typing{e_i}{\tau}{c_i}{s'} \\ x\not\in\FV(\tau)\cup\FV(s')}
+{\Gamma\typing{\symmatch_\symsum\; e \symwith \syminl\;x \Rightarrow e_1 \;|\; \syminr\;x \Rightarrow e_2}{\tau}{c+\symmax(c_1[s_1/x],c_2[s_2/x])}{s'}} 
+
+\\
+
+\inferrule* [Right=MatchL]
+{\Gamma\typing{e}{\tau_1+\tau_2}{c}{\symSinl(s)} \\ \Gamma, x:(\tau_1,s)\typing{e_1}{\tau'}{c'}{s'}}
+{\Gamma\typing{\symmatch_\symsum\; e \symwith \syminl\;x \Rightarrow e_1 \;|\; \syminr\;x \Rightarrow e_2}{\tau'[s/x]}{c+c'[s/x]}{s'[s/x]}}
+
+\inferrule* [Right=MatchR]
+{\Gamma\typing{e}{\tau_1+\tau_2}{c}{\symSinr(s)} \\ \Gamma, x:(\tau_2,s)\typing{e_2}{\tau'}{c'}{s'}}
+{\Gamma\typing{\symmatch_\symsum\; e \symwith \syminl\;x \Rightarrow e_1 \;|\; \syminr\;x \Rightarrow e_2}{\tau'[s/x]}{c+c'[s/x]}{s'[s/x]}}
 
 \end{mathpar}
 %% \caption{\label{opsem}Typing rules}
 %% \end{figure}
-
-\section{Types of constants}
-
-\begin{align*}
-\sympair&:\forall A,B.\;\arrow{\intro{x}{A}}{0}{1}{\arrow{\intro{y}{B}}{1}{(x,y)}{A\times B}} \\
-\symleft&:\forall A,B.\;\arrow{\intro{x}{A}}{1}{\symSleft x}{A+B} \\
-\symright&:\forall A,B.\;\arrow{\intro{x}{B}}{1}{\symSright x}{A+B} \\
-\symtt&:\symunit
-\end{align*}
 
 \section{Derived typing rules}
 
@@ -357,16 +367,16 @@ $$
 \begin{align*}
 \symlist &\defeq \Lambda A. \mu L. \symunit + \thide{A} \times L \\
 \symnil &\defeq \lambda A. \symfold (\symlist\;A) \\
-\symnil &: \forall^{1}_{\symSfold\;(\symSleft\;\symStt)} A. \symlist\;A \\
-\symcons &\defeq \lambda A. \lambda(x : A)(y : \symlist\;A). \symfold (\symlist\;A)\;(\symright\;(\symhide x,y)) \\
-\symcons &: \forall A. \arrow{\intro{x}{A}}{0}{1}{\arrow{\intro{y}{\symlist\;A}}{1}{\symSfold (\symSright (\symShide x, y))}{\symlist\;A}} 
+\symnil &: \forall^{1}_{\symSfold\;(\symSinl\;\symStt)} A. \symlist\;A \\
+\symcons &\defeq \lambda A. \lambda(x : A)(y : \symlist\;A). \symfold (\symlist\;A)\;(\syminr\;(\symhide x,y)) \\
+\symcons &: \forall A. \arrow{\intro{x}{A}}{0}{1}{\arrow{\intro{y}{\symlist\;A}}{1}{\symSfold (\symSinr (\symShide x, y))}{\symlist\;A}} 
 \end{align*}
 
 \begin{align*}
 \symmatch_\symlist\; (e : \symlist\;A) \symwith \symnil \Rightarrow e_1 \;|\; \symcons\;x\;y \Rightarrow e_2 
   & \defeq \symmatch_\symsum\;(\symunfold (\symlist\;A)\;e) \symwith \\
-  & \hspace{0.4in} |\;\symleft\;\_ \Rightarrow e_1 \\
-  & \hspace{0.4in} |\; \symright\;p \Rightarrow \symmatch_\sympair\;(\symunhide A\;(\symfst\;p),\symsnd\;p)\symwith \\
+  & \hspace{0.4in} |\;\syminl\;\_ \Rightarrow e_1 \\
+  & \hspace{0.4in} |\; \syminr\;p \Rightarrow \symmatch_\sympair\;(\symunhide A\;(\symfst\;p),\symsnd\;p)\symwith \\
   & \hspace{1.2in} |\; (x,y) \Rightarrow e_2
 \end{align*}
 
@@ -392,9 +402,9 @@ $$
 
 \begin{align*}
 \symbool &\defeq \symunit + \symunit \\
-\symtrue &\defeq \symleft\;\symtt \\
-\symfalse &\defeq \symright\;\symtt \\
-\symif e \symthen e_1 \symelse e_2 &\defeq \symmatch_\symsum\;e\symwith \symleft\;\_\Rightarrow e_1 \;|\; \symright\;\_\Rightarrow e_2
+\symtrue &\defeq \syminl\;\symtt \\
+\symfalse &\defeq \syminr\;\symtt \\
+\symif e \symthen e_1 \symelse e_2 &\defeq \symmatch_\symsum\;e\symwith \syminl\;\_\Rightarrow e_1 \;|\; \syminr\;\_\Rightarrow e_2
 \end{align*}
 
 $$
@@ -427,10 +437,10 @@ $$
 $$
 \inferrule* [Right=Le]
 {
-  \inferrule* {\cdots}{\Gamma''\typing{x::f\;xs'\;ys}{\symlist\;A}{1+xs.\symuf.\symr.\syms.1+ys.1}{\symSfold (\symSright (\symShide xs.\symuf.\symr.\symf, (xs.\symuf.\symr.\syms+ys)))}} \\
+  \inferrule* {\cdots}{\Gamma''\typing{x::f\;xs'\;ys}{\symlist\;A}{1+xs.\symuf.\symr.\syms.1+ys.1}{\symSfold (\symSinr (\symShide xs.\symuf.\symr.\symf, (xs.\symuf.\symr.\syms+ys)))}} \\
   \inferrule*
   {\textcolor{red}{\forall i.\; 1+xs.\symuf.\symr.\syms.i+ys.i \leq xs.i+ys.i}}
-  {\symSfold (\symSright (\symShide xs.\symuf.\symr.\symf, (xs.\symuf.\symr.\syms+ys))) \leq xs+ys}
+  {\symSfold (\symSinr (\symShide xs.\symuf.\symr.\symf, (xs.\symuf.\symr.\syms+ys))) \leq xs+ys}
 }
 {
   \textcolor{green}{(4)}
@@ -475,7 +485,7 @@ $$
 $$
 \inferrule* [Right=MatchList]
 {
-  \inferrule* [Right=Var2] {\Gamma(xs)=(\symlist\;A,\bottom)} {\Gamma\typing{xs}{\symlist\;A}{0}{xs}}\\
+  \inferrule* [Right=Var2] {\Gamma(xs)=(\symlist\;A,\bot)} {\Gamma\typing{xs}{\symlist\;A}{0}{xs}}\\
   \mathsf{IsList}(xs)=(xs.\symuf.\symr.\symf,xs.\symuf.\symr.\syms) \\
   \inferrule* [Right=Le] {\Gamma\typing{ys}{\symlist\;A}{0}{ys} \\ \textcolor{red}{ys \leq xs+ys}}{\Gamma\typing{ys}{\symlist\;A}{0}{xs+ys}} \\
   \inferrule* [Right=MatchList]
@@ -499,7 +509,7 @@ $$
     \textcolor{green}{(1)}
   }
   {
-    \Gamma\defeq A:*, cmp:(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}}, \bottom), f:(\arrow{\intro{xs}{\symlist\;A}}{0}{1}{\arrow{\intro{ys}{\symlist\;A}}{xs.1+ys.1}{xs+ys}{\symlist\;A}}, 1), xs:(\symlist\;A,\bottom), ys:(\symlist\;A,\bottom)\typing{\symmatch\;xs\symwith\dots}{\symlist;A}{1+\symmax(\cdots)}{xs+ys}
+    \Gamma\defeq A:*, cmp:(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}}, \bot), f:(\arrow{\intro{xs}{\symlist\;A}}{0}{1}{\arrow{\intro{ys}{\symlist\;A}}{xs.1+ys.1}{xs+ys}{\symlist\;A}}, 1), xs:(\symlist\;A,\bot), ys:(\symlist\;A,\bot)\typing{\symmatch\;xs\symwith\dots}{\symlist;A}{1+\symmax(\cdots)}{xs+ys}
   } \\
   \textcolor{red}{1+\symmax(1+xs.\symuf.\symr.\syms.1+ys.1, 1+xs+ys.\symuf.\symr.\syms.1) \leO xs.1+ys.1}
 }
@@ -526,7 +536,7 @@ $$
 $$
 \inferrule* [Right=Le]
 {
-  \inferrule* {\cdots}{\Gamma''\typing{(x::a,y::b)}{\symlist\;A\times\symlist\;A}{1}{s\defeq(\symSfold (\symSright (\symShide xs.\symuf.\symr.\symf, xs.\symuf.\symr.\syms.\symuf.\symr.\syms/2)),\symSfold (\symSright (\symShide xs.\symuf.\symr.\syms.\symuf.\symr.\symf, xs.\symuf.\symr.\syms.\symuf.\symr.\syms/2)))}} \\
+  \inferrule* {\cdots}{\Gamma''\typing{(x::a,y::b)}{\symlist\;A\times\symlist\;A}{1}{s\defeq(\symSfold (\symSinr (\symShide xs.\symuf.\symr.\symf, xs.\symuf.\symr.\syms.\symuf.\symr.\syms/2)),\symSfold (\symSinr (\symShide xs.\symuf.\symr.\syms.\symuf.\symr.\symf, xs.\symuf.\symr.\syms.\symuf.\symr.\syms/2)))}} \\
   \inferrule*
   {\textcolor{red}{1+xs.\symuf.\symr.\syms.\symuf.\symr.\syms/2 \leq xs/2}}
   {s \leq (xs/2,xs/2)}
@@ -574,7 +584,7 @@ $$
     \textcolor{green}{(1)}
   }
   {
-    \Gamma\defeq A:*, f:(\arrow{\intro{s}{\symlist\;A}}{s.1/2}{(s/2,s/2)}{\symlist\;A\times\symlist\;A}, 1), xs:(\symlist\;A,\bottom)\typing{\symmatch\;xs\symwith\dots}{\symlist\;A\times\symlist\;A}{\symmax(1,\symmax(1,n+1))}{(xs/2, xs/2)}
+    \Gamma\defeq A:*, f:(\arrow{\intro{s}{\symlist\;A}}{s.1/2}{(s/2,s/2)}{\symlist\;A\times\symlist\;A}, 1), xs:(\symlist\;A,\bot)\typing{\symmatch\;xs\symwith\dots}{\symlist\;A\times\symlist\;A}{\symmax(1,\symmax(1,n+1))}{(xs/2, xs/2)}
   } \\
   \textcolor{red}{\symmax(1,\symmax(1,xs.\symuf.\symr.\syms.\symuf.\symr.\syms.1/2+1)) \leO xs.1/2}
 }
@@ -646,7 +656,7 @@ $$
 {
   \inferrule* [Right=MatchList]
   {\textcolor{green}{(1)}}
-  {\Gamma\defeq A:*, cmp:(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}}, \bottom), f:(\arrow{\intro{s}{\symlist\;A}}{s.1*\log(s.1)}{\symSstat(s.1,s.2)}{\symlist\;A}, 1), xs:(\symlist\;A,\bottom) \typing{\symmatch\;xs\symwith\dots}{\symlist\;A}{n}{\symSstat(xs.1,xs.2)}} \\
+  {\Gamma\defeq A:*, cmp:(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}}, \bot), f:(\arrow{\intro{s}{\symlist\;A}}{s.1*\log(s.1)}{\symSstat(s.1,s.2)}{\symlist\;A}, 1), xs:(\symlist\;A,\bot) \typing{\symmatch\;xs\symwith\dots}{\symlist\;A}{n}{\symSstat(xs.1,xs.2)}} \\
   \textcolor{red}{n\defeq xs.1/2*\log(xs.1/2)+xs.1/2*\log(xs.1/2)+1+xs.1/2+xs.1/2 \leO xs.1*\log(xs.1)}
 }
 {\typing{\symmsort}{\forall A.\arrow{(\arrow{A}{0}{1}{\arrow{A}{1}{\symSbool}{\symbool}})}{0}{1}{\arrow{\intro{s}{\symlist\;A}}{s.1*\log(s.1)}{\symSstat(s.1,s.2)}{\symlist\;A}}}{0}{1}}

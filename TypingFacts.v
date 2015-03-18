@@ -10,36 +10,6 @@ Export Typing.
 Import ListNotations.
 Local Open Scope list_scope.
 
-Lemma Ksum' T a b :
-  kinding T a 0 ->
-  kinding T b 0 ->
-  kinding T (Tsum a b) 0.
-Proof.
-  intros.
-  eapply Kapp.
-  {
-    eapply Kapp.
-    { eapply Ksum. }
-    { eauto. }
-  }
-  { eauto. }
-Qed.
-
-Lemma Kprod' T a b :
-  kinding T a 0 ->
-  kinding T b 0 ->
-  kinding T (Tprod a b) 0.
-Proof.
-  intros.
-  eapply Kapp.
-  {
-    eapply Kapp.
-    { eapply Kprod. }
-    { eauto. }
-  }
-  { eauto. }
-Qed.
-
 Lemma Qbeta' t1 t2 t' :
   t' = subst t2 t1 ->
   teq (Tapp (Tabs t1) t2) t'.
@@ -53,7 +23,7 @@ Lemma TPapp' T e1 e2 ta tb f g n1 n2 s1 s2 t' :
   typing T e1 (Tarrow ta f g tb) n1 s1 ->
   typing T e2 ta n2 s2 ->
   t' = subst s2 tb ->
-  typing T (Eapp e1 e2) t' (n1 + n2 + F1 + subst s2 f) (subst s2 g).
+  typing T (Eapp e1 e2) t' (n1 + n2 + subst s2 f) (subst s2 g).
 Proof.
   intros; subst; eapply TPapp; eauto.
 Qed.
@@ -61,7 +31,7 @@ Qed.
 Lemma TPtapp' T e t2 n s t n' t' :
   typing T e (Tuniversal (shift n) (shift s) t) n' Stt ->
   t' = subst t2 t ->
-  typing T (Etapp e t2) t' (n' + F1 + n) s.
+  typing T (Etapp e t2) t' (n' + n) s.
 Proof.
   intros; subst; eapply TPtapp; eauto.
 Qed.
@@ -69,7 +39,7 @@ Qed.
 Lemma TPtapp0 T e t2 t n' t' :
   typing T e (Tuniversal F0 Stt t) n' Stt ->
   t' = subst t2 t ->
-  typing T (Etapp e t2) t' (n' + F1 + F0) Stt.
+  typing T (Etapp e t2) t' (n' + F0) Stt.
 Proof.
   intros; subst; eapply TPtapp'; eauto.
 Qed.
@@ -104,8 +74,6 @@ Arguments add_typing / .
 Arguments add_typings / . 
 Arguments add_kinding / . 
 
-Arguments Tprod / .
-
 Arguments add_snd {A B} b a / .
 
 Local Open Scope G.
@@ -115,7 +83,7 @@ Lemma TPunfold' T e t n s s1 t1 t' :
   is_fold s = Some s1 ->
   t == Trecur t1 ->
   t' = subst t t1 ->
-  typing T (Eunfold t e) t' n s1.
+  typing T (Eunfold e) t' (F1 + n) s1.
 Proof.
   intros; subst; eapply TPunfold; eauto.
 Qed.
@@ -129,7 +97,7 @@ Lemma TPmatch_pair' T e e' t t1 t2 n s n' s' s1 s2 t'' s'' :
   let s12 := [s1; s2] in
   t'' = subst_list s12 t ->
   s'' = subst_list s12 s' ->
-  typing T (Ematch_pair e e') t'' (n + F1 + subst_list s12 n') s''.
+  typing T (Ematch_pair e e') t'' (n + subst_list s12 n') s''.
 Proof.
   intros; subst; eapply TPmatch_pair; eauto.
 Qed.

@@ -123,7 +123,11 @@ Require Import Util.
 Local Open Scope prog_scope.
 
 Inductive stepex : expr -> bool -> expr -> Prop :=
-| STecontext c e1 b e2 : stepex e1 b e2 -> stepex (plug c e1) b (plug c e2)
+| STecontext E e1 b e2 e1' e2' : 
+    stepex e1 b e2 -> 
+    plug E e1 e1' -> 
+    plug E e2 e2' -> 
+    stepex e1' b e2'
 | STapp t body arg : IsValue arg -> stepex (Eapp (Eabs t body) arg) false (subst arg body)
 | STlet t v main : IsValue v -> stepex (Elet t v main) false (subst v main)
 | STmatch_pair ta tb a b k : 
@@ -324,11 +328,8 @@ Section REL.
   Definition RELexistse (F : expr -> Rel 0) : Rel 0 := fun var => ORexistse var ctx (fun e => F e var).
   Definition RELforall1 T (F : T -> Rel 0) : Rel 0 := fun var => ORforall1 var ctx T (fun x => F x var).
   Definition RELexists1 T (F : T -> Rel 0) : Rel 0 := fun var => ORexists1 var ctx T (fun x => F x var).
-  Definition RELforallR n (F : forall var, var n -> Rel 0) : Rel 0 := fun var => ORforallR var ctx n (fun x => F var x var).
-  Definition RELexistsR n (F : forall var, var n -> Rel 0) : Rel 0 := fun var => ORexistsR var ctx n (fun x => F var x var).
   Definition RELabs (n : nat) (F : expr -> Rel n) : Rel (S n) := fun var => ORabs var ctx n (fun e => F e var).
   Definition RELapp n (r : Rel (S n)) (e : expr) : Rel n := fun var => ORapp var ctx n (r var) e.
-  Definition RELrecur (n : nat) (F : forall var, var n -> Rel n) : Rel n := fun var => ORrecur var ctx n (fun x => F var x var).
   Definition RELlater (P : Rel 0) : Rel 0 := fun var => ORlater var ctx (P var).
   
 End REL.
@@ -403,7 +404,7 @@ Section substs.
   Variable ctx : Ctx.
 
   Inductive SubstEntry :=
-  | SEtype (_ : relOpen var ctx (TTother type)) (_ : option (relOpen var ctx 1))
+  | SEtype (_ : relOpen var ctx (TTother type)) (_ : relOpen var ctx 1)
   | SEexpr (_ : relOpen var ctx TTexpr) (_ : relOpen var ctx (TTother csize))
   .
 
@@ -540,7 +541,7 @@ Global Instance Lift_list `{Lift A B} : Lift (list A) (fun t => list (B t)) :=
   }.
 
 Inductive tc_entryex :=
-| TEkindingex (_ : kind)
+| TEkindingex
 | TEtypingex (_ : type * thresholds * (csize + size))
 .
 
@@ -583,19 +584,14 @@ Definition extend {var range} ctx new : relOpen var ctx range -> relOpen var (ct
   admit.
 Defined.
 
-Definition add_type {ctx} k (Ps_ρ : t_Ps_ρ ctx) : t_Ps_ρ (TTrel 1 :: TTtype :: ctx) :=
+Definition add_type {ctx} (Ps_ρ : t_Ps_ρ ctx) : t_Ps_ρ (TTrel 1 :: TTtype :: ctx) :=
   let (Ps, ρ) := lift_Ps_ρ TTtype Ps_ρ in
-  let Ps := (fun var => extend [TTtype] ctx (fun τ => ⌈kinding [] τ k⌉ : relOpen var [] 0)) :: Ps in
+  let Ps := (fun var => extend [TTtype] ctx (fun τ => ⌈kinding [] τ 0⌉ : relOpen var [] 0)) :: Ps in
   let (Ps, ρ) := lift_Ps_ρ 1 (Ps, ρ) in
-  match k with
-    | 0 => 
-      let Ps := (fun var => extend [TTrel 1; TTtype] ctx (fun S τ => VSet τ (S : relOpen var [] 1))) :: Ps in
-      let ρ := fun var => SEtype (extend [TTrel 1; TTtype] ctx (fun _ τ => τ)) (Some (extend [TTrel 1; TTtype] ctx (fun S _ => S))) :: ρ var in
-      (Ps, ρ)
-    | _ =>
-      let ρ := fun var => SEtype (extend [TTrel 1; TTtype] ctx (fun _ τ => τ)) None :: ρ var in
-      (Ps, ρ)
-  end.
+  let Ps := (fun var => extend [TTrel 1; TTtype] ctx (fun S τ => VSet τ (S : relOpen var [] 1))) :: Ps in
+  let ρ := fun var => SEtype (extend [TTrel 1; TTtype] ctx (fun _ τ => τ)) (extend [TTrel 1; TTtype] ctx (fun S _ => S)) :: ρ var in
+  (Ps, ρ)
+.
 
 Definition add_expr {ctx} τ θ (os : csize + size) Ct (Ps_ρ : t_Ps_ρ ctx) : t_Ps_ρ (TTcsize :: TTexpr :: ctx) :=
   let (Ps, ρ) := Ps_ρ in
@@ -616,7 +612,7 @@ Definition add_expr {ctx} τ θ (os : csize + size) Ct (Ps_ρ : t_Ps_ρ ctx) : t
 Fixpoint make_ctx Γ :=
   match Γ with
     | nil => nil
-    | TEkindingex _ :: Γ' =>
+    | TEkindingex :: Γ' =>
       TTrel 1 :: TTtype :: make_ctx Γ'
     | TEtypingex _ :: Γ' =>
       TTcsize :: TTexpr :: make_ctx Γ'
@@ -625,9 +621,9 @@ Fixpoint make_ctx Γ :=
 Fixpoint make_Ps_ρ Γ Ct : t_Ps_ρ (make_ctx Γ) :=
   match Γ return t_Ps_ρ (make_ctx Γ) with 
     | nil => (nil, (fun var => nil))
-    | TEkindingex k :: Γ' =>
+    | TEkindingex :: Γ' =>
       let Ps_ρ := make_Ps_ρ Γ' Ct in
-      add_type k Ps_ρ
+      add_type Ps_ρ
     | TEtypingex (τ, θ, os) :: Γ' =>
       let Ps_ρ := make_Ps_ρ Γ' Ct in
       add_expr τ θ os Ct Ps_ρ
@@ -701,9 +697,6 @@ Section inferRules.
 
 End inferRules.
 *)
-
-Definition relV τ ξ ρ C θ : Rel 1 := fun var C => V var C τ ξ ρ C θ.
-Definition relE τ c s ρ C θ : Rel 1 := fun var C => E var C τ c s ρ C θ.
 
 Theorem sound_wrt_bound_proof : sound_wrt_bounded.
 Proof.
