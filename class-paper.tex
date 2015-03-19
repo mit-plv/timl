@@ -57,7 +57,7 @@
      \raisebox{-.6ex}{\hspace*{-.05ex}\adjustbox{width=#3,height=\height}{\clipbox{0.75 0 0 0}{\usebox0}}}}{}
   }
 
-\newcommand{\thide}[1]{\left \langle #1 \right \rangle}
+\newcommand{\thide}[1]{\left \{ #1 \right \}}
 \newcommand{\typing}[4]{\turnstile{s}{s}{#4}{#3}{n}#1:#2}
 \newcommand{\kinding}[2]{\turnstile{s}{s}{}{}{n}#1:#2}
 \newcommand{\teq}[2]{#1\equiv#2}
@@ -75,7 +75,7 @@
 \newcommand{\symSinl}{\mathsf{Sinl\;}}
 \newcommand{\symSinr}{\mathsf{Sinr\;}}
 \newcommand{\symfold}{\mathsf{fold\;}}
-\newcommand{\symSfold}{\mathsf{Sfold\;}}
+\newcommand{\symSfold}{\mathsf{Sfold}}
 \newcommand{\symunfold}{\mathsf{unfold\;}}
 \newcommand{\symSunfold}{\mathsf{Sunfold\;}}
 \newcommand{\symhide}{\mathsf{hide\;}}
@@ -187,7 +187,7 @@ For design choice (2), there are work~\cite{blelloch2013cache} that employ ingen
 
 Using such a cost model, programmers can do the counting in their heads and reason about their programs' complexity informally. However, we want to allow programmers to formally express their complexity constraints in a type system, which can formally guarantee the complexity via type-checking. Type systems are for preventing bugs, and we think that calling a function of a wrong complexity order, such as calling an O(n) function when an O(1) one is intended, is really a bug, not a ``performance issue''. Complexity, or at least complexity order, should be a constituent of functional correctness.
 
-We designed such a type system for the calculus $\lambda^{\forall,\omega\,\mu}$ (that is, lambda calculus extended with impredicative (first-class) universal polymorphism, type-level operators, and recursive types). Our main contribution is {\bf the first complexity type system with recursive types}. We believe this is an important milestone because the combiningg power of $\lambda^\forall$, $\lambda^\omega$, and $\lambda^\mu$ gives birth to generic algebraic data types such as lists and trees, which is the minimal requirement for a functional language to become practically ``useful''.
+We designed such a type system for the calculus $\lambda^{\forall,\omega\,\mu}$ (that is, lambda calculus extended with impredicative (first-class) universal polymorphism, type-level operators, and (isomorphic) recursive types). Our main contribution is {\bf the first complexity type system with recursive types}. We believe this is an important milestone because the combiningg power of $\lambda^\forall$, $\lambda^\omega$, and $\lambda^\mu$ gives birth to generic algebraic data types such as lists and trees, which is the minimal requirement for a functional language to become practically ``useful''.
 
 We imagine two groups of potential users for such a language and type system. The first group is everyday programmers, for whom this type system can be incorporated into the ML toolchain and provide additional benefits besides the already very useful ML type system. To be user-friendly, we must have a type checker (which means the type system needs to be proved decidable) and reasonable degree of type inference. We will discuss this in Section \ref{section-discussion} as future work.
 
@@ -208,17 +208,16 @@ The merge-sort code and the types of relevant functions are shown in Figure \ref
 & \hspace{.3in} |\; \symnil\Rightarrow xs \\
 & \hspace{.3in} |\; \_ \Rightarrow \symmatch\; \symsplit\;xs \symwith \\
 & \hspace{.4in} |\; (ys, zs) \Rightarrow \symmerge\;cmp\;(f\;ys)\;(f\;zs) \\
-& \hspace{-0.2in} : \forall A.\;\arrow{(\arrow{A}{0}{1}{\arrow{A}{1}{1}{\symbool}})}{0}{1}{\arrow{\intro{s}{\symlist\;A}}{|s|*\log(|s|)}{\Sstats{s}}{\symlist\;A}} \\
+& \hspace{-0.2in} : \forall A.\;\arrow{(\arrow{A}{}{}{\arrow{A}{1}{}{\symbool}})}{}{}{\arrow{\intro{s}{\symlist\;A}}{|s|*\log(|s|)}{\Sstats{s}}{\symlist\;A}} \\
 \mathsf{where} & \\
 \symsplit &: \forall A.\;\arrow{\intro{s}{\symlist\;A}}{|s|/2}{\Sstats{s}/2}{\symlist\;A\times\symlist\;A} \\
-\symmerge &: \forall A.\arrow{(\arrow{A}{0}{1}{\arrow{A}{1}{1}{\symbool}})}{0}{1}{\arrow{\intro{x}{\symlist\;A}}{0}{1}{\arrow{\intro{y}{\symlist\;A}}{|x|+|y|}{\Sstats{x}+\Sstats{y}}{\symlist\;A}}}
+\symmerge &: \forall A.\arrow{(\arrow{A}{}{}{\arrow{A}{1}{}{\symbool}})}{}{}{\arrow{\intro{x}{\symlist\;A}}{}{}{\arrow{\intro{y}{\symlist\;A}}{|x|+|y|}{\Sstats{x}+\Sstats{y}}{\symlist\;A}}}
 \end{align*}
 \caption{\label{msort}Merge-sort}
 \end{figure}
 
-The ``size'' of an input value is not merely a natural number, as one might expect, but a tree-like structure, since we aim to deal with general algebraic data types such as trees. In order to use such a size in a time complexity expression, which is merely a number, one defined some measures on a size structure. Here the $|s|$ measure corresponds to the length of a list if $s$ is the size of a list value. The definition of $|-|$ will be given in Section \ref{section-lang}. In the size expression below the arrow, $\Sstats{s}$ stands for a size that has the same measures as size $s$, but not necessarily the same structure. In this example it can be understood as ``the size of a list whose length is the same as $s$'', which is a proper description of merge-sort's result value.  The notations $\Sstats{s}/2$ and $\Sstats{x}+\Sstats{y}$ means ``a list of half length'' and ``a list of combined length'' respectively, whose precise definitions are given in Section \ref{section-lang}. All non-recursive data structures such as functions and booleans will have size ``1'', also defined in Section \ref{section-lang}.
-
-A unit of time in the complexity expression is defined as one unfold-fold reduction, and the complexity expression states the number of unfold-fold reductions. All other reductions are ignored by complexity expressions. The reason for this seemingly bizarre choice is that (1) the actual number of all reductions depends on some details of the input value, which are not accounted for by its size structure in our definition, and (2) our type soundness theorem (see below) will state that the actual number of all reduction steps will be bounded by the number of unfold-fold reductions, with a constant factor. (2) is true crucially because we do not have built-in fixpoint or recursive-let in our language, but encode fixpoint with recursive-typed Y combinator, which has the property that each recursive call will involve exactly one unfold-fold reduction. For a functional programmer who is more familiar with algebraic data types than recursive types, she can think of the count as ``the number of recursive calls plus the number of pattern-matchings on recursive data structures''. Counting this is actually easier than counting all reduction steps, since not all programmers are familiar with the whole set of evaluation rules.
+The ``size'' of an input value is not merely a natural number, as one might expect, but a tree-like structure, since we aim to deal with general algebraic data types such as trees. In order to use such a size in a time complexity expression, which is merely a number, one defined some measures on a size structure. Here the $|s|$ measure corresponds to the length of a list if $s$ is the size of a list value. The definition of $|-|$ will be given in Section \ref{section-lang}. In the size expression below the arrow, $\Sstats{s}$ stands for a size that has the same measures as size $s$, but not necessarily the same structure. In this example it can be understood as ``the size of a list whose length is the same as $s$'', which is a proper description of merge-sort's result value.  The notations $\Sstats{s}/2$ and $\Sstats{x}+\Sstats{y}$ means ``a list of half length'' and ``a list of combined length'' respectively, whose precise definitions are given in Section \ref{section-lang}. 
+A unit of time in the complexity expression is defined as one unfold-fold reduction, and the complexity expression states the number of unfold-fold reductions. All other reductions are ignored by complexity expressions. The reason for this seemingly bizarre choice is that (1) the actual number of all reductions depends on some details of the input value, which are not accounted for by its size structure in our definition; and our type soundness theorem (see below) will state that (2) the actual number of all reduction steps will be bounded by the number of unfold-fold reductions, with a constant factor. Claim (2) is true crucially because we do not have built-in fixpoint or recursive-let in our language, so the only source of unbounded execution is via some recursive-type encoding of some combinators, which all have the property that each recursive call will involve at least one unfold-fold reduction (for the encoding we use to define fixpoint, the number is exactly one). The unfold-fold count thus covers the number of recursive calls, which is essentially the only thing that changes with input size. For functional programmers who are more familiar with algebraic data types than recursive types, they can think of the count as ``the number of recursive calls plus the number of pattern-matchings on recursive data structures''. Counting this is actually easier than counting all reduction steps, since not all programmers are familiar with the whole set of evaluation rules. 
 
 Now we give the top-level type soundness theorem of our type system. It has two parts. Theorem \ref{thm-safety} states the standard type safety, in terms of nonstuckness. Theorem \ref{thm-boundedness}, distinguishing for our type system, states the time-boundedness of any well-typed program in our language.
 
@@ -251,7 +250,7 @@ Theorem \ref{thm-boundedness} is only one corollary from the strenghened result 
 $$
 \begin{array}{l}
 \forall f,\tau_1,\tau_2,\tau_3,c,s. \\
-\hspace{0.1in} \vdash f:\arrow{(x_1:\tau_1)}{0}{1}{\arrow{(x_2:\tau_2)}{c}{s}{\tau_3}} \wedge f\in\mathsf{Val}\Rightarrow \\
+\hspace{0.1in} \vdash f:\arrow{(x_1:\tau_1)}{0}{0}{\arrow{(x_2:\tau_2)}{c}{s}{\tau_3}} \wedge f\in\mathsf{Val}\Rightarrow \\
 \hspace{0.2in} \exists C,\xi_0^1,\xi_0^2. \;\forall v_1,v_2.\; (\forall i.\;\vdash v_i:\tau_i \wedge |v_i| \geq \xi_0^i) \Rightarrow \\
 \hspace{0.3in} \forall e',n.\; f\;v_1\;v_2\leadsto^n e' \Rightarrow n\leq C\times c[|v_1|/x_1][|v_2|/x_2]
 \end{array}
@@ -259,6 +258,40 @@ $$
 \end{thm}
 
 \section{\label{section-lang}Language and Type System}
+
+The syntax of the language is given in Figure \ref{syntax}. Excluding the complexity and size part, and the ``hide'' type $\thide{\tau}$, all the syntax and evaluation context are standard. We put type annotations in lambda, $\syminl$, $\syminr$ and fold to make type unique (modulo complexity annotations), and omit them when irrelevant. All type variables are restricted to kind $*$, so we do not need kind annotation in type-level binders.
+
+\begin{figure}
+$$\begin{array}{rrcl}
+  \textrm{Size Subpart Idx} & i &::=& \symf \textrm{(fst)} \mid \syms \textrm{(snd)} \mid \syml \textrm{(left)} \mid \symr \textrm{(right)} \mid \symuf \textrm{(unfold)} \\
+  & & & \mid \symuh \textrm{(unhide)} \\
+  \textrm{Complexity Expr} & c &::=& x.\vec{i}.\symwork \textrm{(work)} \mid x.\vec{i}.\symspan \textrm{(span)} \mid 0 \mid 1 \mid c+c \mid \cdots \\
+  \textrm{Sizes} & s &::=& x.\vec{i} \mid \Sstats{c_\symwork,c_\symspan} \mid \symStt \mid \symSinl s \mid \symSinr s \mid \symSlr\;s\;s \\
+  & & & \mid (s,s) \mid \symSfold\;s \mid \symShide s \\
+  \textrm{Types} & \tau &::=& \symunit \mid \tau\times\tau \mid \tau+\tau \mid X \mid \arrow{\intro{x}{\tau}}{c}{s}{\tau} \\
+  & & & \mid \forall^c_s X.\tau \mid \Lambda X.\tau \mid \tau\;\tau \mid \mu X.\tau \mid \thide\tau \\
+  \textrm{Expressions} & e &::=& \symtt \mid (e,e) \mid \syminl_\tau\;e \mid \syminr_\tau\;e \mid x \mid e\;e \mid \lambda x:\tau.\;e \\
+  & & & \mid \symlet x := e \symin e \mid e\;\tau \mid \lambda X.e \mid \symfold\tau\;e \\
+  & & & \mid \symunfold\;e \mid \symhide\;e \mid \symunhide\;e \\
+  & & & \mid \symmatch\;e\symwith (x,y)\Rightarrow e \\
+  & & & \mid (\symmatch\;e\symwith\syminl\;x\Rightarrow e\;|\;\syminr\;x\Rightarrow e) \\
+  \textrm{Values} & v &::=& x \mid \lambda x:\tau.e \mid \lambda X.e \mid \symfold\tau\;v \mid \symtt \mid (v,v) \\
+  & & & \mid \syminl\;v \mid \syminr\;v \mid \symhide v \\
+  \textrm{CBV Eval Ctx} & E &::=& \Box \mid E\;e \mid v\;E \mid \symlet x := E\symin e \mid E\;\tau \\
+  & & & \mid \symfold\tau\;E \mid \symunfold\tau\;E \mid \symhide\;E \mid \symunhide\;E \\
+  & & & \mid (E, e) \mid (v, E) \mid \syminl\;E \mid \syminr\;E \\
+  & & & \mid \symmatch\;E\symwith(x,y)\Rightarrow e \\
+  & & & \mid (\symmatch\;E\symwith\syminl\;x\Rightarrow e\;|\;\syminr\;x\Rightarrow e) \\
+  \textrm{Kinds} & k &::=& * \mid *\to k
+\end{array}$$
+\caption{\label{syntax}Syntax}
+\end{figure}
+
+Now let's turn to the complexity and size part. Firstly, complexity and size annotations only appear on arrows and in $\forall$ binders, the latter can be seen as a degenerated case of the former. Each arrow type $\arrow{\intro{x}{\tau_1}}{c}{s}{\tau_2}$ introduces a size variable standing for the input size, which can be referred to in $c$, $s$ and $\tau_2$ (but not $\tau_1$). The $\forall$ binder does not introduce new size variables. The reason for $\forall$ to also have complexity annotation is that, just like $\lambda x.e$, $\lambda X.e$ is a ``delayed'' computation, meaning that it is itself a value but when been applied, its inner part may take some steps to reach another value. But in most cases, the $c$ and $s$ in $\forall^c_s$ are just 0. When $c$ or $s$ is 0, we elide it in this paper.
+
+We first explain the definition of sizes. As mention before, the size of a value is a tree-like structure, closely mirroring the structure of a value. Comparing ``Sizes'' and ``Values'' shows that they are almost the same except that sizes ignore functions, and sizes can be constructed by $x.\vec{i}$ and $\Sstats{c_\symwork,c_\symspan}$. $x.\vec{i}$ is used to refer to a subpart of a size variable. Since we are doing asymptotic analysis, size variables will always be instantiated with ``large enough'' instances, so we can go as deep as we like into a size variable. The query indices for subparts are the corresponding eliminators of size constructors. $\Sstats{c_\symwork,c_\symspan}$ is used to construct a size that has no structural information, only the measures. There are two measures, work and span, borrowed from the parallel computation literature. ``Work'' means the number of ``$\symSfold$'' nodes in the size; ``span'' means the height of the size seen as a tree, only considering ``$\symSfold$'' nodes. ``Span'' seems useless in a non-parallel setting, but remember we can define trees, where ``span'' is meaningful even in a non-parallel setting. The intuition behind the definition of size is that the $\symSfold$-skeleton is the real ``variable'' thing in a size, and when we say ``how computation grows with the input size'' we actually mean ``how computation grows with the input size's $\symSfold$-skeleton''. We need the $\Sstats{c_\symwork,c_\symspan}$ constructor because $s$ is also our specification language for a function's result size (below the arrow), and usually measures are the only thing we can specify for the result size. For brevity we write ``$\Sstats{s}$'' for ``$\Sstats{s.\symwork,s.\symspan}$'', ``0'' for ``$\Sstats{0,0}$'', ``$\Sstats{c_1,c_2}/2$'' for ``$\Sstats{c_1/2,c_2/2}$'' and similarly lift other operations on measures to sizes.
+
+Now we explain the time complexity expression. Since variables can appear in a complexity expression, we define complexity expression as an abstract algebra instead of just natural numbers. Which algebra to use (hence the expressiveness of complexity expressions) is almost an orthogonal issue of the type system design. We will elaborate the axioms we used in the type soundness proof regarding this algebra, and hence any algebra satisfying these axioms will give us a sound type system. But note that the choice of this algebra greatly influence the complexity precision and type checking/inference difficulty on concrete programs, so we will discuss this orthogonal but important issue in Section \ref{section-discussion}. Besides the algebraic operations, a complexity expression can also refer to a measure of (a subpart of) a size variable. For intuitiveness we write ``$|x|$'' for ``$x.\symwork$''
 
 \section{\label{section-proof}Type Soundness Proof}
 

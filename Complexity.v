@@ -97,7 +97,7 @@ Fixpoint summarize (s : size) : stats :=
   match s with
     | Svar x => (Fvar x 0%nat, Fvar x 1%nat)
     | Sstats ss => ss
-    | Stt => ones
+    | Stt => zeros
     | Spair a b => 
       (summarize a + summarize b)%stats
     | Sinlinr a b => 

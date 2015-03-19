@@ -27,7 +27,7 @@ Inductive expr :=
   | Evar (x : var)
   | Eapp (f : expr) (arg : expr)
   | Eabs (t : type) (body : expr)
-  | Elet (t : type) (def : expr) (main : expr)
+  | Elet (def : expr) (main : expr)
   | Etapp (e : expr) (t : type)
   | Etabs (body : expr)
   | Efold (_ : type) (_ : expr)

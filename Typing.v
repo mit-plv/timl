@@ -158,7 +158,7 @@ Inductive typing : tcontext -> expr -> type -> cexpr -> size -> Prop :=
 | TPlet T t1 e1 e2 t2 c1 c2 s1 s2:
     typing T e1 t1 c1 s1 ->
     typing (add_typing (t1, Some s1) T) e2 t2 c2 s2 ->
-    typing T (Elet t1 e1 e2) (subst s1 t2) (c1 + subst s1 c2) (subst s1 s2)
+    typing T (Elet e1 e2) (subst s1 t2) (c1 + subst s1 c2) (subst s1 s2)
 | TPfold T e t c s t1 :
     t == Trecur t1 ->
     typing T e (subst t t1) c s ->

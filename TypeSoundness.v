@@ -129,7 +129,7 @@ Inductive stepex : expr -> bool -> expr -> Prop :=
     plug E e2 e2' -> 
     stepex e1' b e2'
 | STapp t body arg : IsValue arg -> stepex (Eapp (Eabs t body) arg) false (subst arg body)
-| STlet t v main : IsValue v -> stepex (Elet t v main) false (subst v main)
+| STlet v main : IsValue v -> stepex (Elet v main) false (subst v main)
 | STmatch_pair ta tb a b k : 
     IsValue a ->
     IsValue b ->
