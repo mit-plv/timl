@@ -127,6 +127,7 @@
 \newcommand{\logo}{\lambda^{\forall,\omega,\mu}_\mathrm{c}}
 \newcommand{\Sstats}[1]{\left \langle #1 \right \rangle}
 \newtheorem{thm}{Theorem}
+\newcommand{\optional}[1]{\lfloor #1 \rfloor}
 
 \begin{document}
 
@@ -259,6 +260,8 @@ $$
 
 \section{\label{section-lang}Language and Type System}
 
+\subsection{Syntax}
+
 The syntax of the language is given in Figure \ref{syntax}. Excluding the complexity and size part, and the ``hide'' type $\thide{\tau}$, all the syntax and evaluation context are standard. We put type annotations in lambda, $\syminl$, $\syminr$ and fold to make type unique (modulo complexity annotations), and omit them when irrelevant. All type variables are restricted to kind $*$, so we do not need kind annotation in type-level binders.
 
 \begin{figure}
@@ -282,7 +285,8 @@ $$\begin{array}{rrcl}
   & & & \mid (E, e) \mid (v, E) \mid \syminl\;E \mid \syminr\;E \\
   & & & \mid \symmatch\;E\symwith(x,y)\Rightarrow e \\
   & & & \mid (\symmatch\;E\symwith\syminl\;x\Rightarrow e\;|\;\syminr\;x\Rightarrow e) \\
-  \textrm{Kinds} & k &::=& * \mid *\to k
+  \textrm{Kinds} & k &::=& * \mid *\to k \\
+  \textrm{Typing Ctx} & \Gamma &::=& \cdot \mid \Gamma,X \mid \Gamma, x:(\tau, \optional{s})
 \end{array}$$
 \caption{\label{syntax}Syntax}
 \end{figure}
@@ -294,6 +298,86 @@ We first explain the definition of sizes. As mention before, the size of a value
 Now we explain the time complexity expression. Since variables can appear in a complexity expression, we define complexity expression as an abstract algebra instead of just natural numbers. Which algebra to use (hence the expressiveness of complexity expressions) is almost an orthogonal issue of the type system design. We will elaborate the axioms we used in the type soundness proof regarding this algebra, thus any algebra satisfying these axioms will give us a sound type system. Do note that the choice of this algebra greatly influence the complexity precision and type checking/inference difficulty on concrete programs, so we will discuss this orthogonal but important issue in Section \ref{section-discussion}. Besides the algebraic operations, a complexity expression can also refer to a measure of (a subpart of) a size variable. For intuitiveness we write ``$|x|$'' for ``$x.\symwork$''
 
 We now introduce a new ``hide'' type constructor denoted as $\thide{\tau}$, its corresponding terms $(\symhide e)$ and $(\symunhide e)$, and its corresponding size constructor $(\symShide\;s)$. The motivation for this new type constructor is illustrated by this example: $f:\forall A.\;\arrow{\intro{x}{\symlist\;A}}{|x|}{}{\symlist\;A}$. When you first look at this function you may think its complexity is linear with the input list's length. But we you instantiate it with a type, such as $(\symlist\;\symbool)$, $f$ suddenly becomes $f\;(\symlist\;\symbool):\arrow{\intro{x}{\symlist\;(\symlist\;\symbool)}}{|x|}{}{\symlist\;(\symlist\;\symbool)}$. Its complexity is no longer linear with outer list's length! The problem is that there is not a way for a polymorphic function to express the notion of ``ignoring values of the parameter type'' in its complexity specification. Now that we have ``hide'' types and define list as $\symlist \defeq \Lambda A.\;\mu X.\;\symunit + \thide{A} \times X$, and the measure calculation ignores everything under a $\symShide$ node, both $f$'s and $(f\;(\symlist\;\symbool))$'s complexity specification mean the length of the input list.
+
+\subsection{Typing Rules}
+
+Figure \ref{typing} gives representative typing rules. Typing judgments have the form $\Gamma\typing{e}{\tau}{c}{s}$. $c$ stands for the time bound of $e$ to execute to a value. $s$ stands for the size bound of the final value. The typing rules formulate our intuition of how to count the reduction steps. In the typing context $\Gamma$ (defined in Figure \ref{syntax}), we reuse term variables $x$ to mean both a value and its size (conflating term variable and size variable), so the typing context becomes dependent (entries in it can depend on entries before them), and type variables become interleaved with term variables. But still our type system is not dependent-typed. In each typing entry $x:(\tau,\optional{s})$ of $\Gamma$ there is an optional size $\optional{s}$. The reason for it is that not all term variables stand for function arguments, for whose size there is no constraint. Some term variables are aliases of (parts of) other variables, such as the variables introduced in pattern-match clauses. This option size $\optional{s}$ is for recording this aliasing relation, as can be seen in the {\sc MatchPair} rule.
+
+\begin{figure}
+\fbox{$\Gamma\typing{e}{\tau}{c}{s}$}
+\begin{mathpar}
+
+\inferrule* [Right=Var] 
+{\Gamma(x)=(\tau, s)} 
+{\Gamma\typing{x}{\tau}{0}{s}} 
+
+\inferrule* [Right=Var2] 
+{\Gamma(x)=(\tau, \bot)} 
+{\Gamma\typing{x}{\tau}{0}{x}} 
+
+\inferrule* [Right=App] 
+{\Gamma\typing{e_1}{\arrow{\intro{x}{\tau_1}}{c}{s}{\tau_2}}{c_1}{s_1} \\ \Gamma\typing{e_2}{\tau_1}{c_2}{s_2} }
+{\Gamma\typing{e_1\;e_2}{\tau_2}{c_1+c_2+n[s_2/x]}{s[s_2/x]}} 
+
+\inferrule* [Right=Abs] 
+{\Gamma\vdash\tau_1 : * \\ \Gamma, x:(\tau_1, \bot)\typing{e}{\tau_2}{c}{s} }
+{\Gamma\typing{\lambda x : \tau_1.\;e}{\arrow{\intro{x}{\tau_1}}{c}{s}{\tau_2}}{0}{0}} 
+
+\\
+
+\inferrule* [Right=Tapp]
+{\Gamma\typing{e}{\forall^c_s X.\tau}{c'}{1}}
+{\Gamma\typing{e\;\tau_2}{\tau[\tau_2/X]}{c'+c}{s}}
+
+\inferrule* [Right=Tabs]
+{\Gamma, X\typing{e}{\tau}{c}{s}}
+{\Gamma\typing{\lambda X.\;e}{\forall X^c_s.\tau}{0}{0}} 
+
+\\
+
+\inferrule* [Right=Fold]
+{\tau \equiv \mu X. \tau_1 \\ \Gamma\typing{e}{\tau_1[\tau/X]}{c}{s}}
+{\Gamma\typing{\symfold \tau \; e}{\tau}{c}{\symSfold s}}
+
+\inferrule* [Right=Unfold]
+{\Gamma\typing{e}{t}{c}{s} \\ \mathsf{IsFold}(s)=s_1 \\ \tau \equiv \mu X.\tau_1}
+{\Gamma\typing{\symunfold\;e}{\tau_1[\tau/X]}{1+c}{s_1}}
+
+\inferrule* [Right=Hide]
+{\Gamma\typing{e}{\tau}{c}{s}}
+{\Gamma\typing{\symhide e}{\thide{\tau}}{c}{\symShide s}} 
+
+\inferrule* [Right=Unhide]
+{\Gamma\typing{e}{\thide{\tau}}{c}{s} \\ \mathsf{IsHide}(s)=s_1}
+{\Gamma\typing{\symunhide e}{\tau}{c}{s_1}}
+
+\inferrule* [Right=Le]
+{\Gamma\typing{e}{\tau}{c}{s} \\ c \leq c' \\ s \leq s'}
+{\Gamma\typing{e}{\tau}{c'}{s'}} \\
+
+\inferrule* [Right=Pair]
+{\Gamma\typing{e_1}{\tau_1}{c_1}{s_1} \\ \Gamma\typing{e_2}{\tau_2}{c_2}{s_2}}
+{\Gamma\typing{(e_1,e_2)}{\tau_1\times\tau_2}{c_1+c_2}{(s_1,s_2)}} 
+
+\inferrule* [Right=MatchPair]
+{\Gamma\typing{e}{\tau_1\times\tau_2}{c}{s} \\ \mathsf{IsPair}(s)=(s_1,s_2) \\ \Gamma, a:(\tau_1,s_1), b:(\tau_2,s_2)\typing{e'}{\tau}{c'}{s'}}
+{\Gamma\typing{\symmatch\;e \symwith (a,b) \Rightarrow e'}{\tau[s_1/a][s_2/b]}{c + c'[s_1/a][s_2/b]}{s[s_1/a][s_2/b]}} 
+
+\\
+
+\inferrule* [Right=MatchLR]
+{\Gamma\typing{e}{\tau_1+\tau_2}{c}{s} \\ \mathsf{IsLR}(s)=(s_1,s_2) \\ \forall i,\;\Gamma, x:(\tau_i,s_i)\typing{e_i}{\tau}{c_i}{s'} \\ x\not\in\FV(\tau)\cup\FV(s')}
+{\Gamma\typing{\symmatch\; e \symwith \syminl\;x \Rightarrow e_1 \;|\; \syminr\;x \Rightarrow e_2}{\tau}{c+\symmax(c_1[s_1/x],c_2[s_2/x])}{s'}} 
+
+\\
+
+\inferrule* [Right=MatchL]
+{\Gamma\typing{e}{\tau_1+\tau_2}{c}{\symSinl(s)} \\ \Gamma, x:(\tau_1,s)\typing{e_1}{\tau'}{c'}{s'}}
+{\Gamma\typing{\symmatch\; e \symwith \syminl\;x \Rightarrow e_1 \;|\; \syminr\;x \Rightarrow e_2}{\tau'[s/x]}{c+c'[s/x]}{s'[s/x]}}
+
+\end{mathpar}
+\caption{\label{typing}Typing rules}
+\end{figure}
 
 \section{\label{section-proof}Type Soundness Proof}
 
