@@ -115,9 +115,9 @@ Definition sound_wrt_bounded :=
         ξ₀ <= ξ ->
         exists n', 
           nat_of_cexpr (subst ξ c) = Some n' /\
-          (* actual runing time is bounded by c(ξ) w.r.t. constant factor C *)
-          ~ exists n e',
-              nsteps (Eapp f v) n e' /\ n > C * n'.
+          (* any reduction sequence is bounded by C * c(ξ) *)
+          forall n e',
+              nsteps (Eapp f v) n e' -> n ≤ C * n'.
 
 Require Import Util.
 Local Open Scope prog_scope.
