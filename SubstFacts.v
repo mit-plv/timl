@@ -1,3 +1,9 @@
+Require Import Omega.
+Require Import Bedrock.Platform.Cito.GeneralTactics4.
+Require Import Syntax Util.
+Require Import Subst.
+Export Subst.
+
 Lemma fold_subst_s_t n v b : visit_t 0 (lower_t_f n, subst_sub n v, subst_sub n v) b = subst_size_type n v b.
 Proof.
   eauto.

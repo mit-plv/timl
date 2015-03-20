@@ -5,7 +5,6 @@ Generalizable All Variables.
 
 Require Import List.
 Require Import Omega.
-Require Import Bedrock.Platform.Cito.GeneralTactics4.
 Require Import Syntax. 
 Require Import Util. 
 

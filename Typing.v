@@ -137,24 +137,26 @@ Local Open Scope prog_scope.
 
 Notation Tuniversal0 := (Tuniversal F0 Stt).
 
+Definition S0 := Sstats (F0, F0).
+
 Inductive typing : tcontext -> expr -> type -> cexpr -> size -> Prop :=
-| TPvar T x t s : 
-    find x T = Some (TEtyping (t, s)) -> 
-    typing T #x (shiftby (S x) t) F0 (default (var_to_size #x) (shiftby (S x) s))
-| TPapp T e1 e2 ta tb c s c1 c2 nouse s2 : 
-    typing T e1 (Tarrow ta c s tb) c1 nouse ->
-    typing T e2 ta c2 s2 ->
-    typing T (Eapp e1 e2) (subst s2 tb) (c1 + c2 + subst s2 c) (subst s2 s)
+| TPvar Γ x τ s : 
+    find x Γ = Some (TEtyping (τ, s)) -> 
+    typing Γ #x (shiftby (S x) τ) F0 (default (var_to_size #x) (shiftby (S x) s))
+| TPapp Γ e₀ e₁ τ₁ c s τ₂ c₀ nouse c₁ s₁ : 
+    typing Γ e₀ (Tarrow τ₁ c s τ₂) c₀ nouse ->
+    typing Γ e₁ τ₁ c₁ s₁ ->
+    typing Γ (Eapp e₀ e₁) (subst s₁ τ₂) (c₀ + c₁ + subst s₁ c) (subst s₁ s)
 | TPabs T e t1 t2 c s :
     kinding T t1 0 ->
     typing (add_typing (t1, None) T) e t2 c s ->
-    typing T (Eabs t1 e) (Tarrow t1 c s t2) F0 Stt
+    typing T (Eabs t1 e) (Tarrow t1 c s t2) F0 S0
 | TPtapp T e t2 c s t c' :
-    typing T e (Tuniversal (shift c) (shift s) t) c' Stt ->
+    typing T e (Tuniversal (shift c) (shift s) t) c' S0 ->
     typing T (Etapp e t2) (subst t2 t) (c' + c) s
 | TPtabs T e c s t :
     typing (add_kinding T) e t c s ->
-    typing T (Etabs e) (Tuniversal c s t) F0 Stt
+    typing T (Etabs e) (Tuniversal c s t) F0 S0
 | TPlet T t1 e1 e2 t2 c1 c2 s1 s2:
     typing T e1 t1 c1 s1 ->
     typing (add_typing (t1, Some s1) T) e2 t2 c2 s2 ->

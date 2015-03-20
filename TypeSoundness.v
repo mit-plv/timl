@@ -605,7 +605,7 @@ Definition add_expr {ctx} τ θ (os : csize + size) Ct (Ps_ρ : t_Ps_ρ ctx) : t
       let Ps := (fun var => extend [TTcsize; TTexpr] ctx (fun ξ v => ⌈ξ = if ξ₀ <=? |v| then |v| else ξ₀⌉ : relOpen var [] 0)) :: Ps in
       (Ps, ρ)
     | inr s =>
-      let Ps := (fun var => extend [TTcsize; TTexpr] ctx (fun ξ _ => ⌈asCsize (fun ξ' => ξ = ξ') (ρ var $$ s)⌉ : relOpen var [] 0)) :: Ps in
+      let Ps := (fun var => extend [TTcsize; TTexpr] ctx (fun ξ v => ⌈ξ = |v| /\ asCsize (fun ξ' => ξ = ξ') (ρ var $$ s)⌉ : relOpen var [] 0)) :: Ps in
       (Ps, ρ)
   end.
 
@@ -648,14 +648,28 @@ Definition related Γ (e : expr) τ (c : cexpr) (s : size) :=
 
 Notation "⊩" := related.
 
+Require Import SubstFacts.
+
 Lemma foundamental :
   forall Γ e τ c s,
     ⊢ Γ e τ c s -> 
     ⊩ Γ e τ c s.
 Proof.
   induction 1.
-  admit.
-  admit.
+  {
+    destruct s as [|s].
+    {
+      admit.
+    }
+    {
+      unfold related.
+      exists 1.
+      admit.
+    }
+  }
+  {
+    admit.
+  }
   admit.
   admit.
   admit.
