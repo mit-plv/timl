@@ -43,6 +43,8 @@ Inductive cexpr :=
 | Fexp (base : QN) (n : cexpr)
 (* variables *)
 | Fvar (x : var_path) (stat : stat_idx)
+(* minus 1 (lower-capped by 0) *)
+| Fminus1 (_ : cexpr)
 .
 
 Instance Max_cexpr : Max cexpr :=
@@ -67,9 +69,6 @@ Definition stats_get (idx : stat_idx) (ss : stats) :=
 Inductive size :=
 | Svar (x : var_path)
 | Sstats (_ : stats)
-| Stt
-| Sinl (_ : size)
-| Sinr (_ : size)
 | Sinlinr (a b: size)
 | Spair (a b: size)
 | Sfold (_ : size)
@@ -90,22 +89,18 @@ Instance Max_stats : Max stats :=
     max := stats_max
   }.
 
-Definition ones : stats := (F1, F1).
 Definition zeros : stats := (F0, F0).
 
 Fixpoint summarize (s : size) : stats :=
   match s with
     | Svar x => (Fvar x 0%nat, Fvar x 1%nat)
     | Sstats ss => ss
-    | Stt => zeros
     | Spair a b => 
       (summarize a + summarize b)%stats
     | Sinlinr a b => 
       max (summarize a) (summarize b)
-    | Sinl s => summarize s
-    | Sinr s => summarize s
     | Sfold s =>
-      (ones + summarize s)%stats
+      ((F1, F1) + summarize s)%stats
     | Shide s => zeros
   end.
 

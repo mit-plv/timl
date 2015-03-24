@@ -47,7 +47,7 @@ Inductive csize :=
 | CSfold (_ : csize)
 | CShide (_ : csize)
 .
-
+(*
 Definition leCS : csize -> csize -> Prop.
   admit.
 Defined.
@@ -56,7 +56,7 @@ Instance Le_csize : Le csize csize :=
   {
     le := leCS
   }.
-
+*)
 Definition get_size (e : expr) : csize.
   admit.
 Defined.
@@ -107,12 +107,10 @@ Notation "e ↓ τ" := (IsValue e /\ |~ [] e τ) (at level 51).
 Definition sound_wrt_bounded :=
   forall f τ₁ c s τ₂, 
     f ↓ Tarrow τ₁ c s τ₂ -> 
-    (* ξ₀ is the threshold of input size in asymptotics *)
-    exists (C : nat) (ξ₀ : csize), 
+    exists (C : nat), 
       forall v,
         v ↓ τ₁ ->
         let ξ := |v| in
-        ξ₀ <= ξ ->
         exists n', 
           nat_of_cexpr (subst ξ c) = Some n' /\
           (* any reduction sequence is bounded by C * c(ξ) *)
@@ -164,11 +162,6 @@ Infix "<=?" := leb (at level 70).
 Definition lebCS : csize -> csize -> bool.
   admit.
 Defined.
-
-Instance Leb_csize_csize : Leb csize csize :=
-  {
-    leb := lebCS
-  }.
 
 Definition cexpr_to_nat (c : cexpr) := default 0 (nat_of_cexpr c).
 
@@ -380,11 +373,6 @@ End TestNotations.
 
 (* An Logical Step-indexed Logical Relation (LSLR) for boundedness *)
 
-Inductive thresholds :=
-| THleaf
-| THarrow : thresholds -> csize -> thresholds -> thresholds
-.
-
 Require Import Util.
 Local Open Scope prog_scope.
 
@@ -480,29 +468,29 @@ Section LR.
   
   Variable ctx : Ctx.
 
-  Program Fixpoint E' (V : nat -> thresholds -> forall var, substs var ctx -> relOpen var ctx 1) τ (n : nat) (s : size) (Ct : nat) (θ : thresholds) {var} (ρ : substs var ctx) {measure n} : relOpen var ctx 1 :=
+  Program Fixpoint E' (V : nat -> forall var, substs var ctx -> relOpen var ctx 1) τ (n : nat) (s : size) (Ct : nat) {var} (ρ : substs var ctx) {measure n} : relOpen var ctx 1 :=
     \e, ⌈|~ [] e (ρ τ)⌉ /\ 
         ∀1 n', ∀ e', 
-          (⌈nstepsex e n' 0 e'⌉ ⇒ ⌈n' ≤ n⌉ /\ (⌈IsValue e'⌉ ⇒ e' ∈ V Ct θ var ρ /\ ⌈|e'| ≤ s⌉)) /\
+          (⌈nstepsex e n' 0 e'⌉ ⇒ ⌈n' ≤ n⌉ /\ (⌈IsValue e'⌉ ⇒ e' ∈ V Ct var ρ /\ ⌈|e'| ≤ s⌉)) /\
           match n with
             | 0 => ⊤
             | S _ =>
-              (⌈nstepsex e (S n') 1 e'⌉ ⇒ ⌈(S n') ≤ n⌉ /\ ▹ (e' ∈ E' V τ (n - S n') s Ct θ ρ))
+              (⌈nstepsex e (S n') 1 e'⌉ ⇒ ⌈(S n') ≤ n⌉ /\ ▹ (e' ∈ E' V τ (n - S n') s Ct ρ))
           end.
   Next Obligation.
     omega.
   Defined.
 
-  Fixpoint V τ (Ct : nat) (θ : thresholds) {var} (ρ : substs var ctx) {struct τ} : relOpen var ctx 1 :=
-    match τ, θ with
-      | Tvar α, _ => substs_sem ρ α
-      | Tunit, _ => \v, ⌈v ↓ τ⌉
-      | τ₁ × τ₂, _ => \v, ⌈v ↓ ρ τ⌉ /\ ∃ a b, ⌈v = Epair a b⌉ /\ a ∈ V τ₁ Ct θ ρ /\ b ∈ V τ₂ Ct θ ρ
-      | τ₁ + τ₂, _ => \v, ⌈v ↓ ρ τ⌉ /\ ∃ v', (⌈v = Einl τ₂ v'⌉ /\ v' ∈ V τ₁ Ct θ ρ) /\ ⌈v = Einr τ₁ v'⌉ /\ v' ∈ V τ₂ Ct θ ρ
-      | Tarrow τ₁ c s τ₂, THarrow θ₁ ξ₀ θ₂ => \v, ⌈v ↓ ρ τ⌉ /\ ∀ v₁, v₁ ∈ V τ₁ Ct θ ρ ⇒ Eapp v v₁ ∈ E' (V τ₂) τ₂ (cexpr_to_nat c) s Ct θ₂ (add (if ξ₀ <=? |v₁| then |v₁| else ξ₀) ρ)
-      | Tuniversal c s τ, _ => \v, ⌈v ↓ ρ τ⌉ /\ ∀1 τ', ∀2 S, VSet τ' S ⇒ Etapp v τ' ∈ E' (V τ) τ (cexpr_to_nat c) s Ct θ (add (τ', S) ρ)
-      | Trecur τ, _ => @S, \v, ⌈v ↓ ρ τ⌉ /\ ∃ v', ⌈v = Efold τ v'⌉ /\ ▹ (v' ∈ V τ Ct θ (add (ρ τ, S) ρ))
-      | _, _ => \_, ⊥
+  Fixpoint V τ (Ct : nat) {var} (ρ : substs var ctx) {struct τ} : relOpen var ctx 1 :=
+    match τ with
+      | Tvar α => substs_sem ρ α
+      | Tunit => \v, ⌈v ↓ τ⌉
+      | τ₁ × τ₂ => \v, ⌈v ↓ ρ τ⌉ /\ ∃ a b, ⌈v = Epair a b⌉ /\ a ∈ V τ₁ Ct ρ /\ b ∈ V τ₂ Ct ρ
+      | τ₁ + τ₂ => \v, ⌈v ↓ ρ τ⌉ /\ ∃ v', (⌈v = Einl τ₂ v'⌉ /\ v' ∈ V τ₁ Ct ρ) /\ ⌈v = Einr τ₁ v'⌉ /\ v' ∈ V τ₂ Ct ρ
+      | Tarrow τ₁ c s τ₂ => \v, ⌈v ↓ ρ τ⌉ /\ ∀ v₁, v₁ ∈ V τ₁ Ct ρ ⇒ Eapp v v₁ ∈ E' (V τ₂) τ₂ (cexpr_to_nat (subst (|v₁|) c)) (subst (|v₁|) s) Ct (add (|v₁|) ρ)
+      | Tuniversal c s τ => \v, ⌈v ↓ ρ τ⌉ /\ ∀1 τ', ∀2 S, VSet τ' S ⇒ Etapp v τ' ∈ E' (V τ) τ (cexpr_to_nat c) s Ct (add (τ', S) ρ)
+      | Trecur τ => @S, \v, ⌈v ↓ ρ τ⌉ /\ ∃ v', ⌈v = Efold τ v'⌉ /\ ▹ (v' ∈ V τ Ct (add (ρ τ, S) ρ))
+      | _ => \_, ⊥
     end
   .
 
@@ -527,8 +515,8 @@ Notation TTcsize := (TTother csize).
 Arguments SEtype {var ctx} _ _ .
 Arguments SEexpr {var ctx} _ _ .
 
-Arguments V {ctx} _ _ _ {var} _ .
-Arguments E {ctx} _ _ _ _ _ {var} _ .
+Arguments V {ctx} _ _ {var} _ .
+Arguments E {ctx} _ _ _ _ {var} _ .
 
 Class Lift A B :=
   {
@@ -539,13 +527,6 @@ Global Instance Lift_list `{Lift A B} : Lift (list A) (fun t => list (B t)) :=
   {
     lift t a := map (lift t) a
   }.
-
-Inductive tc_entryex :=
-| TEkindingex
-| TEtypingex (_ : type * thresholds * (csize + size))
-.
-
-Definition tcontextex := list tc_entryex.
 
 Definition lift_Rel {ctx range} new : Rel ctx range -> Rel (new :: ctx) range.
   admit.
@@ -568,6 +549,9 @@ Global Instance Lift_Substs ctx : Lift (Substs ctx) (fun new => Substs (new :: c
   }.
 
 Definition t_Ps_ρ ctx := (list (Rel ctx 0) * Substs ctx)%type.
+Definition t_Ps ctx := list (Rel ctx 0).
+Notation t_ρ := Substs.
+Notation lift_ρ := lift_Substs.
 
 Definition lift_Ps_ρ {ctx} t (Ps_ρ : t_Ps_ρ ctx) : t_Ps_ρ (t :: ctx):=
   let (Ps, ρ) := Ps_ρ in
@@ -578,6 +562,14 @@ Definition lift_Ps_ρ {ctx} t (Ps_ρ : t_Ps_ρ ctx) : t_Ps_ρ (t :: ctx):=
 Global Instance Lift_Ps_ρ ctx : Lift (t_Ps_ρ ctx) (fun new => t_Ps_ρ (new :: ctx))%type :=
   {
     lift := lift_Ps_ρ
+  }.
+
+Definition lift_Ps {ctx} t (Ps : t_Ps ctx) : t_Ps (t :: ctx):=
+  map (lift_Rel t) Ps.
+
+Global Instance Lift_Ps ctx : Lift (t_Ps ctx) (fun new => t_Ps (new :: ctx))%type :=
+  {
+    lift := lift_Ps
   }.
 
 Definition extend {var range} ctx new : relOpen var ctx range -> relOpen var (ctx ++ new) range.
@@ -593,45 +585,83 @@ Definition add_type {ctx} (Ps_ρ : t_Ps_ρ ctx) : t_Ps_ρ (TTrel 1 :: TTtype :: 
   (Ps, ρ)
 .
 
-Definition add_expr {ctx} τ θ (os : csize + size) Ct (Ps_ρ : t_Ps_ρ ctx) : t_Ps_ρ (TTcsize :: TTexpr :: ctx) :=
+Definition add_Ps_type {ctx} (Ps : t_Ps ctx) : t_Ps (TTrel 1 :: TTtype :: ctx) :=
+  let Ps := lift_Ps TTtype Ps in
+  let Ps := (fun var => extend [TTtype] ctx (fun τ => ⌈kinding [] τ 0⌉ : relOpen var [] 0)) :: Ps in
+  let Ps := lift_Ps 1 Ps in
+  let Ps := (fun var => extend [TTrel 1; TTtype] ctx (fun S τ => VSet τ (S : relOpen var [] 1))) :: Ps in
+  Ps
+.
+
+Definition add_ρ_type {ctx} (ρ : t_ρ ctx) : t_ρ (TTrel 1 :: TTtype :: ctx) :=
+  let ρ := lift_ρ TTtype ρ in
+  let ρ := lift_ρ 1 ρ in
+  let ρ := fun var => SEtype (extend [TTrel 1; TTtype] ctx (fun _ τ => τ)) (extend [TTrel 1; TTtype] ctx (fun S _ => S)) :: ρ var in
+  ρ
+.
+
+Definition add_expr {ctx} τ Ct (Ps_ρ : t_Ps_ρ ctx) : t_Ps_ρ (TTexpr :: ctx) :=
   let (Ps, ρ) := Ps_ρ in
   let ρ0 := ρ in
   let (Ps, ρ) := lift_Ps_ρ TTexpr (Ps, ρ) in
-  let Ps := ((fun var e => e ∈ V τ Ct θ (ρ0 var)) : Rel (TTexpr :: ctx) 0) :: Ps in
-  let (Ps, ρ) := lift_Ps_ρ TTcsize (Ps, ρ) in
-  let ρ := fun var => SEexpr (extend [TTcsize; TTexpr] ctx (fun _ e => e)) (extend [TTcsize; TTexpr] ctx (fun ξ _ => ξ)) :: ρ var in
-  match os with
-    | inl ξ₀ =>
-      let Ps := (fun var => extend [TTcsize; TTexpr] ctx (fun ξ v => ⌈ξ = if ξ₀ <=? |v| then |v| else ξ₀⌉ : relOpen var [] 0)) :: Ps in
-      (Ps, ρ)
-    | inr s =>
-      let Ps := (fun var => extend [TTcsize; TTexpr] ctx (fun ξ v => ⌈ξ = |v| /\ asCsize (fun ξ' => ξ = ξ') (ρ var $$ s)⌉ : relOpen var [] 0)) :: Ps in
-      (Ps, ρ)
-  end.
+  let Ps := ((fun var v => v ∈ V τ Ct (ρ0 var)) : Rel (TTexpr :: ctx) 0) :: Ps in
+  let ρ := fun var => SEexpr (extend [TTexpr] ctx (fun v => v)) (extend [TTexpr] ctx (fun v => |v| : relOpen var [] TTcsize)) :: ρ var in
+  (Ps, ρ)
+.
+
+Definition add_ρ_expr {ctx} (ρ : t_ρ ctx) : t_ρ (TTexpr :: ctx) :=
+  let ρ := lift_ρ TTexpr ρ in
+  let ρ := fun var => SEexpr (extend [TTexpr] ctx (fun v => v)) (extend [TTexpr] ctx (fun v => |v| : relOpen var [] TTcsize)) :: ρ var in
+  ρ
+.
+
+Definition add_Ps_expr {ctx} τ Ct (Ps : t_Ps ctx) ρ : t_Ps (TTexpr :: ctx) :=
+  let Ps := lift_Ps TTexpr Ps in
+  let Ps := ((fun var v => v ∈ V τ Ct (ρ var)) : Rel (TTexpr :: ctx) 0) :: Ps in
+  Ps
+.
 
 Fixpoint make_ctx Γ :=
   match Γ with
     | nil => nil
-    | TEkindingex :: Γ' =>
+    | TEkinding :: Γ' =>
       TTrel 1 :: TTtype :: make_ctx Γ'
-    | TEtypingex _ :: Γ' =>
-      TTcsize :: TTexpr :: make_ctx Γ'
+    | TEtyping _ :: Γ' =>
+      TTexpr :: make_ctx Γ'
   end.
 
 Fixpoint make_Ps_ρ Γ Ct : t_Ps_ρ (make_ctx Γ) :=
   match Γ return t_Ps_ρ (make_ctx Γ) with 
     | nil => (nil, (fun var => nil))
-    | TEkindingex :: Γ' =>
+    | TEkinding :: Γ' =>
       let Ps_ρ := make_Ps_ρ Γ' Ct in
       add_type Ps_ρ
-    | TEtypingex (τ, θ, os) :: Γ' =>
+    | TEtyping τ :: Γ' =>
       let Ps_ρ := make_Ps_ρ Γ' Ct in
-      add_expr τ θ os Ct Ps_ρ
+      add_expr τ Ct Ps_ρ
   end.
 
-Definition extendΓ : tcontext -> list csize -> list thresholds -> option tcontextex.
-  admit.
-Defined.
+Fixpoint make_ρ Γ : t_ρ (make_ctx Γ) :=
+  match Γ return t_ρ (make_ctx Γ) with 
+    | nil => (fun var => nil)
+    | TEkinding :: Γ' =>
+      let ρ := make_ρ Γ' in
+      add_ρ_type ρ
+    | TEtyping _ :: Γ' =>
+      let ρ := make_ρ Γ' in
+      add_ρ_expr ρ
+  end.
+
+Fixpoint make_Ps Γ Ct : t_Ps (make_ctx Γ) :=
+  match Γ return t_Ps (make_ctx Γ) with 
+    | nil => nil
+    | TEkinding :: Γ' =>
+      let Ps := make_Ps Γ' Ct in
+      add_Ps_type Ps
+    | TEtyping τ :: Γ' =>
+      let Ps := make_Ps Γ' Ct in
+      add_Ps_expr τ Ct Ps (make_ρ Γ')
+  end.
 
 Definition valid {ctx} (Ps : list (Rel ctx 0)) (P : Rel ctx 0) : Prop.
   admit.
@@ -639,12 +669,11 @@ Defined.
 Notation "Ps |- P" := (valid Ps P) (at level 90).
 
 Definition related Γ (e : expr) τ (c : cexpr) (s : size) :=
-  (exists Ct ξs θs θ Γ',
-     extendΓ Γ ξs θs = Some Γ' /\
-     let (Ps, ρ) := make_Ps_ρ Γ' Ct in
-     Ps |-
-     fun var => let ρ := ρ var in
-                (ρ $ e) ∈ E τ (Ct * cexpr_to_nat (ρ $ c))%nat (ρ $ s) Ct θ ρ)%type.
+  (exists Ct,
+     make_Ps Γ Ct |-
+     fun var => 
+       let ρ := make_ρ Γ var in
+       (ρ $ e) ∈ E τ (Ct * cexpr_to_nat (ρ $ c))%nat (ρ $ s) Ct ρ)%type.
 
 Notation "⊩" := related.
 
@@ -657,15 +686,9 @@ Lemma foundamental :
 Proof.
   induction 1.
   {
-    destruct s as [|s].
-    {
-      admit.
-    }
-    {
-      unfold related.
-      exists 1.
-      admit.
-    }
+    unfold related.
+    exists 1.
+    admit.
   }
   {
     admit.

@@ -56,6 +56,7 @@ Fixpoint visit_f f fm :=
     | Fmax a b => Fmax (visit_f f a) (visit_f f b)
     | Flog b n => Flog b (visit_f f n)
     | Fexp b n => Fexp b (visit_f f n)
+    | Fminus1 c => Fminus1 (visit_f f c)
   end.
 
 Inductive cmp m n :=
@@ -143,7 +144,6 @@ Definition has_inl (s : size) :=
   match s with
     | Svar x => Some (Svar (append_path x Pinl))
     | Sinlinr a b => Some a
-    | Sinl s => Some s
     | _ => None
   end.
 
@@ -151,7 +151,6 @@ Definition has_inr (s : size) :=
   match s with
     | Svar x => Some (Svar (append_path x Pinr))
     | Sinlinr a b => Some b
-    | Sinr s => Some s
     | _ => None
   end.
 
@@ -169,26 +168,27 @@ Definition is_hide (s : size) :=
     | _ => None
   end.
 
+Definition S0 := Sstats (F0, F0).
+
 Definition query_cmd cmd s :=
-  match cmd with
-    | Pfst => 
-      p <- is_pair s ;;
-      ret (fst p)
-    | Psnd =>
-      p <- is_pair s ;;
-      ret (snd p)
-    | Pinl => has_inl s
-    | Pinr => has_inr s
-    | Punfold => is_fold s
-    | Punhide => is_hide s
+  match cmd, s with
+    | Pfst, Spair a b => a
+    | Psnd, Spair a b => b
+    | Pinl, Sinlinr a b => a
+    | Pinr, Sinlinr a b => b
+    | Punfold, Sfold s => s
+    | Punfold, Sstats (w, s) => Sstats (Fminus1 w, Fminus1 s)
+    | Punhide, Shide s => s
+    | i, Svar x => Svar (append_path x i)
+    | _, _ => S0 (* type mismatch, won't happen, doesn't matter *)
   end.
 
 Fixpoint query_path' path s :=
   match path with
     | cmd :: path => 
-      s <- query_cmd cmd s ;;
+      let s := query_cmd cmd s in
       query_path' path s
-    | nil => ret s
+    | nil => s
   end.
 
 Definition query_path path := query_path' (rev path).
@@ -196,13 +196,13 @@ Definition query_path path := query_path' (rev path).
 Definition query_idx idx s := stats_get idx $ summarize s.
 
 Definition query_path_idx path idx s :=
-  s <- query_path path s ;;
-  ret (query_idx idx s).
+  let s := query_path path s in
+  query_idx idx s.
 
 Definition subst_s_f_f n v nv path i :=
   match nat_cmp nv n with 
     | LT _ _ _ => Fvar (#nv, path) i
-    | EQ _ => default F0 $ query_path_idx path i v
+    | EQ _ => query_path_idx path i v
     | GT p _ _ => Fvar (#p, path) i
   end.
 
@@ -257,11 +257,8 @@ Fixpoint visit_s (f : (nat -> path -> size) * (cexpr -> cexpr)) s :=
   match s with
     | Svar (nv, path) => fv nv path
     | Sstats ss => Sstats $ map_stats ff ss
-    | Stt => Stt
     | Spair a b => Spair (visit_s f a) (visit_s f b)
     | Sinlinr a b => Sinlinr (visit_s f a) (visit_s f b)
-    | Sinl s => Sinl (visit_s f s)
-    | Sinr s => Sinr (visit_s f s)
     | Sfold s => Sfold (visit_s f s)
     | Shide s => Shide (visit_s f s)
   end.
@@ -269,7 +266,7 @@ Fixpoint visit_s (f : (nat -> path -> size) * (cexpr -> cexpr)) s :=
 Definition subst_s_s_f n v nv path :=
   match nat_cmp nv n with 
     | LT _ _ _ => Svar (#nv, path)
-    | EQ _ => default Stt $ query_path path v
+    | EQ _ => query_path path v
     | GT p _ _ => Svar (#p, path)
   end.
 

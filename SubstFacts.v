@@ -153,6 +153,11 @@ Proof.
   induction n; simpl; intros; try rewrite IHn; eauto.
 Qed.
 
+Lemma shiftby_minus1_f n : forall m x, iter n (shift_from_f m) (Fminus1 x) = Fminus1 (iter n (shift_from m) x).
+Proof.
+  induction n; simpl; intros; try rewrite IHn; eauto.
+Qed.
+
 Lemma shiftby_var_f p i n : forall m x, iter n (shift_from_f m) (Fvar (x, p) i) = Fvar (iter n (shift_nat m) x, p) i.
 Proof.
   induction n; simpl; intros; try rewrite IHn; eauto.
@@ -269,6 +274,14 @@ Proof.
       eauto.
     }
   }
+  {
+    simpl.
+    repeat rewrite shiftby_minus1_f.
+    simpl.
+    repeat rewrite fold_shift_from_f in *.
+    repeat rewrite fold_iter.
+    rewrite IHx; simpl in *; eauto; omega.
+  }
 Qed.
 
 Lemma subst_shift_s_f v b : subst_size_cexpr 0 v (shift_from_f 0 b) = b.
@@ -372,6 +385,14 @@ Proof.
       eauto.
     }
   }
+  {
+    simpl.
+    repeat rewrite shiftby_minus1_f.
+    simpl.
+    repeat rewrite fold_shift_from_f in *.
+    repeat rewrite fold_iter.
+    rewrite IHx; simpl in *; eauto; omega.
+  }
 Qed.
 
 Lemma shift_summarize v : forall n, summarize (visit_s (shift_s_f n, shift_from_f n) v) = let (a, b) := summarize v in (visit_f (shift_f_f n) a, visit_f (shift_f_f n) b).
@@ -413,12 +434,15 @@ Proof.
   }
 Qed.
 
-Lemma shift_query_cmd v : forall n c, query_cmd c (visit_s (shift_s_f n, shift_from_f n) v) = option_map (visit_s (shift_s_f n, shift_from_f n)) (query_cmd c v).
+Arguments apply_arrow / . 
+
+Lemma shift_query_cmd v : forall n c, query_cmd c (visit_s (shift_s_f n, shift_from_f n) v) = visit_s (shift_s_f n, shift_from_f n) (query_cmd c v).
 Proof.
   induction v; destruct c; try solve [simpl; eauto | simpl; destruct x; simpl; eauto].
+  destruct s as [w s]; simpl; eauto.
 Qed.
 
-Lemma shift_query' p : forall v n i, default F0 (s <- query_path' p (visit_s (shift_s_f n, shift_from_f n) v);; ret (query_idx i s)) = visit_f (shift_f_f n) (default F0 (s <- query_path' p v;; ret (query_idx i s))).
+Lemma shift_query' p : forall v n i, (let s := query_path' p (visit_s (shift_s_f n, shift_from_f n) v) in query_idx i s) = visit_f (shift_f_f n) (let s := query_path' p v in query_idx i s).
 Proof.
   induction p.
   {
@@ -431,10 +455,10 @@ Proof.
   simpl in *.
   intros v n i.
   rewrite shift_query_cmd.
-  destruct (query_cmd a v); simpl; eauto.
+  simpl; eauto.
 Qed.
 
-Lemma shift_query v : forall p i n, default F0 (query_path_idx p i (visit_s (shift_s_f n, shift_from_f n) v)) = visit_f (shift_f_f n) (default F0 (query_path_idx p i v)).
+Lemma shift_query v : forall p i n, query_path_idx p i (visit_s (shift_s_f n, shift_from_f n) v) = visit_f (shift_f_f n) (query_path_idx p i v).
 Proof.
   intros; eapply shift_query'.
 Qed.
@@ -483,21 +507,6 @@ Proof.
   induction n; simpl; intros; try rewrite IHn; eauto.
 Qed.
 
-Lemma shiftby_tt_s n : forall m, iter n (shift_from_s m) Stt = Stt.
-Proof.
-  induction n; simpl; intros; try rewrite IHn; eauto.
-Qed.
-
-Lemma shiftby_inl_s n : forall m x, iter n (shift_from_s m) (Sinl x) = Sinl (iter n (shift_from m) x).
-Proof.
-  induction n; simpl; intros; try rewrite IHn; eauto.
-Qed.
-
-Lemma shiftby_inr_s n : forall m x, iter n (shift_from_s m) (Sinr x) = Sinr (iter n (shift_from m) x).
-Proof.
-  induction n; simpl; intros; try rewrite IHn; eauto.
-Qed.
-
 Lemma shiftby_inlinr_s n : forall m x1 x2, iter n (shift_from_s m) (Sinlinr x1 x2) = Sinlinr (iter n (shift_from m) x1) (iter n (shift_from m) x2).
 Proof.
   induction n; simpl; intros; try rewrite IHn; eauto.
@@ -517,8 +526,6 @@ Lemma shiftby_hide_s n : forall m x, iter n (shift_from_s m) (Shide x) = Shide (
 Proof.
   induction n; simpl; intros; try rewrite IHn; eauto.
 Qed.
-
-Arguments apply_arrow / . 
 
 Lemma subst_shift_s_s_n' v (x : size) : forall (n m r : nat), m <= r -> (r <= n + m)%nat -> visit_s (subst_s_s_f r v, substn r v) (iter (S n) (shift_from_s m) x) = iter n (shift_from_s m) x.
 Proof.
@@ -552,28 +559,6 @@ Proof.
     repeat rewrite shiftby_stats_s.
     simpl.
     repeat f_equal; repeat rewrite fold_iter; eapply subst_shift_s_f_n'; simpl in *; eauto; omega.
-  }
-  {
-    simpl.
-    repeat rewrite shiftby_tt_s.
-    simpl.
-    eauto.
-  }
-  {
-    simpl.
-    repeat rewrite shiftby_inl_s.
-    simpl.
-    repeat rewrite fold_shift_from_s in *.
-    repeat rewrite fold_iter.
-    rewrite IHx; simpl in *; eauto; omega.
-  }
-  {
-    simpl.
-    repeat rewrite shiftby_inr_s.
-    simpl.
-    repeat rewrite fold_shift_from_s in *.
-    repeat rewrite fold_iter.
-    rewrite IHx; simpl in *; eauto; omega.
   }
   {
     simpl.
@@ -661,28 +646,6 @@ Proof.
     repeat rewrite shiftby_stats_s.
     simpl.
     repeat f_equal; repeat rewrite fold_iter; eapply lower_iter_shift_f; simpl in *; eauto; omega.
-  }
-  {
-    simpl.
-    repeat rewrite shiftby_tt_s.
-    simpl.
-    eauto.
-  }
-  {
-    simpl.
-    repeat rewrite shiftby_inl_s.
-    simpl.
-    repeat rewrite fold_shift_from_s in *.
-    repeat rewrite fold_iter.
-    rewrite IHx; simpl in *; eauto; omega.
-  }
-  {
-    simpl.
-    repeat rewrite shiftby_inr_s.
-    simpl.
-    repeat rewrite fold_shift_from_s in *.
-    repeat rewrite fold_iter.
-    rewrite IHx; simpl in *; eauto; omega.
   }
   {
     simpl.
@@ -1197,6 +1160,14 @@ Proof.
       eauto.
     }
   }
+  {
+    simpl.
+    repeat rewrite shiftby_minus1_f.
+    simpl.
+    repeat rewrite fold_shift_from_f in *.
+    repeat rewrite fold_iter.
+    rewrite IHx; simpl in *; eauto; omega.
+  }
 Qed.
 
 Lemma shift_from_shiftby_f n x : shift_from_f n (iter n (shift_from_f 0) x) = iter (S n) (shift_from_f 0) x.
@@ -1234,28 +1205,6 @@ Proof.
     repeat rewrite shiftby_stats_s.
     simpl.
     repeat f_equal; repeat rewrite fold_iter; eapply shift_from_shiftby_f_n; simpl in *; eauto; omega.
-  }
-  {
-    simpl.
-    repeat rewrite shiftby_tt_s.
-    simpl.
-    eauto.
-  }
-  {
-    simpl.
-    repeat rewrite shiftby_inl_s.
-    simpl.
-    repeat rewrite fold_shift_from_s in *.
-    repeat rewrite fold_iter.
-    rewrite IHx; simpl in *; eauto; omega.
-  }
-  {
-    simpl.
-    repeat rewrite shiftby_inr_s.
-    simpl.
-    repeat rewrite fold_shift_from_s in *.
-    repeat rewrite fold_iter.
-    rewrite IHx; simpl in *; eauto; omega.
   }
   {
     simpl.

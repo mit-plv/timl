@@ -32,7 +32,7 @@ Definition kind := nat.
    The second field of TEtyping is the optional size constraint
  *)
 Inductive tc_entry := 
-  | TEtyping (_ : type * option size)
+  | TEtyping (_ : type)
   | TEkinding
 .
 
@@ -57,7 +57,7 @@ Inductive kinding : tcontext -> type -> kind -> Prop :=
     kinding T (Tabs t) (S k)
 | Karrow T t1 c s t2 :
     kinding T t1 0 ->
-    kinding (add_typing (t1, None) T) t2 0 ->
+    kinding (add_typing t1 T) t2 0 ->
     kinding T (Tarrow t1 c s t2) 0
 | Kuniversal T c s t :
     kinding (add_kinding T) t 0 ->
@@ -135,21 +135,19 @@ Local Open Scope G.
 
 Local Open Scope prog_scope.
 
-Notation Tuniversal0 := (Tuniversal F0 Stt).
-
-Definition S0 := Sstats (F0, F0).
+Notation Tuniversal0 := (Tuniversal F0 S0).
 
 Inductive typing : tcontext -> expr -> type -> cexpr -> size -> Prop :=
-| TPvar Γ x τ s : 
-    find x Γ = Some (TEtyping (τ, s)) -> 
-    typing Γ #x (shiftby (S x) τ) F0 (default (var_to_size #x) (shiftby (S x) s))
+| TPvar Γ x τ : 
+    find x Γ = Some (TEtyping τ) -> 
+    typing Γ #x (shiftby (S x) τ) F0 (var_to_size #x)
 | TPapp Γ e₀ e₁ τ₁ c s τ₂ c₀ nouse c₁ s₁ : 
     typing Γ e₀ (Tarrow τ₁ c s τ₂) c₀ nouse ->
     typing Γ e₁ τ₁ c₁ s₁ ->
     typing Γ (Eapp e₀ e₁) (subst s₁ τ₂) (c₀ + c₁ + subst s₁ c) (subst s₁ s)
 | TPabs T e t1 t2 c s :
     kinding T t1 0 ->
-    typing (add_typing (t1, None) T) e t2 c s ->
+    typing (add_typing t1 T) e t2 c s ->
     typing T (Eabs t1 e) (Tarrow t1 c s t2) F0 S0
 | TPtapp T e t2 c s t c' :
     typing T e (Tuniversal (shift c) (shift s) t) c' S0 ->
@@ -159,7 +157,7 @@ Inductive typing : tcontext -> expr -> type -> cexpr -> size -> Prop :=
     typing T (Etabs e) (Tuniversal c s t) F0 S0
 | TPlet T t1 e1 e2 t2 c1 c2 s1 s2:
     typing T e1 t1 c1 s1 ->
-    typing (add_typing (t1, Some s1) T) e2 t2 c2 s2 ->
+    typing (add_typing t1 T) e2 t2 c2 s2 ->
     typing T (Elet e1 e2) (subst s1 t2) (c1 + subst s1 c2) (subst s1 s2)
 | TPfold T e t c s t1 :
     t == Trecur t1 ->
@@ -188,41 +186,35 @@ Inductive typing : tcontext -> expr -> type -> cexpr -> size -> Prop :=
     typing T e t c' s'
 (* basic types - intro *)
 | TPtt T :
-    typing T Ett Tunit F0 Stt
+    typing T Ett Tunit F0 S0
 | TPpair T e1 t1 c1 s1 e2 t2 c2 s2 : 
     typing T e1 t1 c1 s1 ->
     typing T e2 t2 c2 s2 ->
     typing T (Epair e1 e2) (Tprod t1 t2) (c1 + c2) (Spair s1 s2)
 | TPinl T t e te c s:
     typing T e te c s ->
-    typing T (Einl t e) (Tsum te t) c (Sinl s)
+    typing T (Einl t e) (Tsum te t) c (Sinlinr s S0)
 | TPinr T t e te c s:
     typing T e te c s ->
-    typing T (Einr t e) (Tsum t te) c (Sinr s)
+    typing T (Einr t e) (Tsum t te) c (Sinlinr S0 s)
 (* basic types - elim *)
 | TPmatch_pair T e e' t t1 t2 c s c' s' s1 s2 :
     typing T e (Tprod t1 t2) c s ->
-    is_pair s = Some (s1, s2) ->
-    let t12 := [(t1, Some s1); (t2, Some s2)] in
+    let t12 := [t1; t2] in
     let T' := add_typings t12 T in
     typing T' e' t c' s' ->
+    is_pair s = Some (s1, s2) ->
     let s12 := [s1; s2] in
     typing T (Ematch_pair e e') (subst_list s12 t) (c + subst_list s12 c') (subst_list s12 s')
-| TPmatch_inlinr T e e1 e2 t1 t2 c s s1 s2 t c1 c2 s' :
+| TPmatch_sum T e e1 e2 t1 t2 c s s1 s2 t c1 c2 s' s1' s2' :
     typing T e (Tsum t1 t2) c s ->
-    is_inlinr s = Some (s1, s2) ->
     (* timing constraints are passed forward; size and type constraints are passed backward.
        t' and s' are backward guidance for branches *)
-    typing (add_typing (t1, Some s1) T) e1 (shift t) c1 (shift s') -> 
-    typing (add_typing (t2, Some s2) T) e2 (shift t) c2 (shift s') -> 
+    typing (add_typing t1 T) e1 (shift t) c1 s1' -> 
+    typing (add_typing t2 T) e2 (shift t) c2 s2' -> 
+    is_inlinr s = Some (s1, s2) ->
+    subst s1 s1' <= s' ->
+    subst s2 s2' <= s' ->
     typing T (Ematch_sum e e1 e2) t (c + max (subst s1 c1) (subst s2 c2)) s'
-| TPmatch_inl T e e1 e2 t1 t2 c s t' c' s' :
-    typing T e (Tsum t1 t2) c (Sinl s) ->
-    typing (add_typing (t1, Some s) T) e1 t' c' s' ->
-    typing T (Ematch_sum e e1 e2) (subst s t') (c + subst s c') (subst s s')
-| TPmatch_inr T e e1 e2 t1 t2 c s t' c' s' :
-    typing T e (Tsum t1 t2) c (Sinr s) ->
-    typing (add_typing (t2, Some s) T) e2 t' c' s' ->
-    typing T (Ematch_sum e e1 e2) (subst s t') (c + subst s c') (subst s s')
 .
 
