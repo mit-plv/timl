@@ -49,7 +49,7 @@ Definition boolProp b := b = true.
 Coercion boolProp : bool >-> Sortclass.
 
 Inductive ordinal n :=
-| Ordinal m (_ : m <? n)
+| Ordinal m (_ : m <? n = true)
 .
 
 Notation "''I_' n" := (ordinal n) (at level 8, n at level 2, format "''I_' n").
@@ -70,12 +70,26 @@ Defined.
 
 Goal nthI (1 :: 2 :: nil) (Ordinal 2 1 eq_refl) = 2. eauto. Qed.
 
+Definition ceb a b :=
+  match a, b with
+    | Some CEexpr, Some CEexpr => true
+    | Some CEtype, Some CEtype => true
+    | None, None => true
+    | _, _ => false
+  end.
+
+Lemma ceb_iff a b : ceb a b = true <-> a = b.
+  admit.
+Qed.
+
+Goal ceb (nth_error (CEexpr :: CEtype :: nil) 1) (Some CEtype) = true. exact eq_refl. Qed.
+
 Section ctx.
 
   Variable ctx : context.
   
-  Inductive var : CtxEntry -> Type :=
-  | Var (i : 'I_(length ctx)) : var (nthI ctx i)
+  Inductive var t : Type :=
+  | Var n (_ : ceb (nth_error ctx n) (Some t) = true)
   .
 
   Definition var_path := (var CEexpr * path)%type.

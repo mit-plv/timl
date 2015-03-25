@@ -8,50 +8,14 @@ Require Import Omega.
 Require Import Syntax. 
 Require Import Util. 
 
-(* substitute the outer-most bound variable *)
-Class Subst value body :=
-  {
-    substn : nat -> value -> body -> body
-  }.
-
-Definition subst `{Subst V B} := substn 0.
-
-Class Shift t := 
-  {
-    shift_from : nat -> t -> t
-  }.
-
-Definition shift `{Shift t} := shift_from 0.
-
-Fixpoint iter {A} n f (x : A) :=
-  match n with
-    | 0 => x
-    | S n' => iter n' f (f x)
-  end.
-
-Definition shiftby `{Shift t} n := iter n shift.
-
-Local Open Scope prog_scope.
-
-Global Arguments fst {A B} _.
-Global Arguments snd {A B} _.
-
-Definition subst_list `{Subst V B} `{Shift V} (values : list V) (e : B) := 
-  fst $ fold_left (fun p v => let '(b, n) := p in (substn n (shiftby n v) b, n - 1)) values (e, length values - 1).
-
-(* 'lower' is a 'dry run' of 'subst', not doing substitution, only lowering bound variables above n *)
-Class Lower t := 
-  {
-    lower : nat -> t -> t
-  }.
-
 Inductive cmp m n :=
 | LT n' (_ : n = S n') (_ : m < n)
 | EQ (_ : m = n)
 | GT m' (_ : m = S m') (_ : n < m).
 
-Global Arguments LT [m n] n' _ _.
-Global Arguments GT [m n] m' _ _.
+Global Arguments LT [m n] n' _ _ .
+Global Arguments EQ [m n] _ .
+Global Arguments GT [m n] m' _ _ .
 
 Fixpoint nat_cmp m n : cmp m n.
 refine (
@@ -156,10 +120,10 @@ Section ctx.
       | Pinl, Sinlinr a b => a
       | Pinr, Sinlinr a b => b
       | Punfold, Sfold s => s
-      | Punfold, Sstats (w, s) => Sstats (Fminus1 w, Fminus1 s)
       | Punhide, Shide s => s
-      | i, Svar x => Svar (append_path x i)
-      | _, _ => S0 (* type mismatch, won't happen, doesn't matter *)
+      | _, Svar x => Svar (append_path x cmd)
+      | _, Sstats _ => s (* being conservative *)
+      | _, _ => S0 (* type mismatch *)
     end.
 
   Fixpoint query_path' path s :=
@@ -171,6 +135,8 @@ Section ctx.
     end.
 
   Definition query_path path := query_path' (rev path).
+
+  Local Open Scope prog_scope.
 
   Definition query_idx idx s : cexpr ctx := stats_get idx $ summarize s.
 
@@ -194,12 +160,10 @@ Fixpoint visit_f {ctx ctx'} f (fm : cexpr ctx) : cexpr ctx' :=
     | Fminus1 c => Fminus1 (visit_f f c)
   end.
 
-Definition get_i {ctx t} (x : var ctx t) : 'I_(length ctx) :=
+Coercion get_i {ctx t} (x : var ctx t) :=
   match x with
-    | Var i => i
+    | Var i _ => i
   end.
-
-Coercion get_i : var >-> ordinal.
 
 Coercion nat_of_ord n (i : 'I_n) := match i with Ordinal m _ => m end.
 
@@ -215,39 +179,141 @@ Fixpoint removen {A} (ls : list A) n :=
 
 Require Import Program.
 
-Arguments Var {ctx} _ .
+Arguments Var {ctx t} _ _ .
 
-Program Definition subst_s_f_f {ctx} (n : var ctx CEexpr) (v : size (removen ctx n)) (nv : var ctx CEexpr) (path : path) (i : stat_idx) : cexpr (removen ctx n) :=
-  match n, nv with
-    | Var (Ordinal n Hn), Var (Ordinal nv Hnv) =>
-      match nat_cmp nv n with 
-        | LT _ _ _ => Fvar (Var #nv, path) i
-        | EQ _ => query_path_idx path i v
-        | GT p _ _ => Fvar (Var #p, path) i
-      end
-  end.
-Next Obligation.
-  intros H.
-  intros.
-  symmetry.
-  (*here*)
-  eapply Bool.eq_true_not_negb.
-  rewrite <- H.
-  subst.
+Require Import Coq.Bool.Bool.
+Require Import Compare_dec.
+
+Inductive unvar {ctx t} (x : var ctx t) :=
+| unVar n H (_ : x = Var n H)
+.
+
+Definition un_var {ctx t} (x : var ctx t) : unvar x.
+  destruct x.
+  econstructor.
+  eauto.
+Defined.
+
+Unset Implicit Arguments.
+
+Require Import Bedrock.Platform.Cito.GeneralTactics4.
+Require Import Bedrock.Platform.Cito.GeneralTactics3.
+
+Notation "# n" := (Var n _) (at level 3).
+
+(* Program Definition subst_s_f_f {ctx} (ni : var ctx CEexpr) (v : size (removen ctx ni)) (niv : var ctx CEexpr) (path : path) (i : stat_idx) : cexpr (removen ctx ni) := *)
+Definition subst_s_f_f {ctx} (ni : var ctx CEexpr) (v : size (removen ctx ni)) (niv : var ctx CEexpr) (path : path) (i : stat_idx) : cexpr (removen ctx ni).
+  refine
+    match un_var ni, un_var niv with
+      | unVar n Hn Hni, unVar nv Hnv Hniv =>
+        match nat_cmp nv n with 
+          | LT p Heq Hlt => Fvar (#nv, path) i
+          | EQ Heq => query_path_idx path i v
+          | GT p Heq Hlt => Fvar (#p, path) i
+        (* | LT p Heq Hlt => Fvar (Var #nv, path) i *)
+        (* | EQ Heq => query_path_idx path i v *)
+        (* | GT p Heq Hlt => Fvar (Var #p, path) i *)
+        end
+    end.
+  {
+    copy_as Hn Hn'.
+    eapply ceb_iff in Hn'.
+    copy_as Hnv Hnv'.
+    eapply ceb_iff in Hnv'.
+    eapply ceb_iff.
+    subst.
+    simpl in *.
+    Lemma remove_after A ls : forall m n (a : A), n < m -> let ls' := removen ls m in nth_error ls n = Some a -> nth_error ls' n = Some a.
+    Proof.
+      simpl.
+      induction ls; destruct m; destruct n; simpl in *; intros; try discriminate; try omega; eauto.
+      eapply IHls; eauto.
+      omega.
+    Qed.
+    eapply remove_after; eauto.
+  }
+  {
+    copy_as Hn Hn'.
+    eapply ceb_iff in Hn'.
+    copy_as Hnv Hnv'.
+    eapply ceb_iff in Hnv'.
+    eapply ceb_iff.
+    subst.
+    simpl in *.
+    Lemma remove_before A ls : forall m n (a : A), m < S n -> let ls' := removen ls m in nth_error ls (S n) = Some a -> nth_error ls' n = Some a.
+    Proof.
+      simpl.
+      induction ls; destruct m; destruct n; simpl in *; intros; try discriminate; try omega; eauto.
+      eapply IHls; eauto.
+      omega.
+    Qed.
+    eapply remove_before; eauto.
+  }
+Defined.
   
-Definition subst_size_cexpr {ctx} (n : var ctx CEexpr) (v : size (removen ctx n)) (b : cexpr (CEexpr :: ctx)) : cexpr (removen ctx n) :=
+Definition substn_size_cexpr {ctx} (n : var ctx CEexpr) (v : size (removen ctx n)) (b : cexpr ctx) : cexpr (removen ctx n) :=
   visit_f (subst_s_f_f n v) b.
 
-Global Instance Subst_size_cexpr : Subst size cexpr :=
+Global Arguments fst {A B} _.
+Global Arguments snd {A B} _.
+
+Definition subst_size_cexpr {ctx} (v : size ctx) (b : cexpr (CEexpr :: ctx)) : cexpr ctx :=
+  substn_size_cexpr (@Var (CEexpr :: ctx) CEexpr 0 (eq_refl true)) v b.
+
+(* substitute the outer-most bound variable *)
+Class Subst value body result :=
   {
-    substn := subst_size_cexpr
+    subst : value -> body -> result
   }.
 
-Definition shift_nat n nv :=
-  match nat_cmp nv n with
-    | LT _ _ _ => nv
-    | _ => S nv
-  end.
+Global Instance Subst_size_cexpr ctx : Subst (size ctx) (cexpr (CEexpr :: ctx)) (cexpr ctx) :=
+  {
+    subst := subst_size_cexpr
+  }.
+
+Definition insert {A} (ls : list A) n new := firstn n ls ++ new ++ skipn n ls.
+
+Definition shift_nat {ctx t} new n (niv : var ctx t) : var (insert ctx n new) t.
+  refine
+    match un_var niv with
+      | unVar nv Hnv Hniv =>
+        match nat_cmp nv n with
+          | LT _ _ _ => #nv
+          | _ => #(length new + nv)
+        end
+    end.
+  {
+    copy_as Hnv Hnv'.
+    eapply ceb_iff in Hnv'.
+    eapply ceb_iff.
+    subst.
+    simpl in *.
+    Lemma insert_after A ls : forall m n new (a : A), n < m -> let ls' := insert ls m new in nth_error ls n = Some a -> nth_error ls' n = Some a.
+    Proof.
+      simpl.
+      induction ls; destruct m; destruct n; simpl in *; intros; try discriminate; try omega; eauto.
+      eapply IHls; eauto.
+      omega.
+    Qed.
+    eapply insert_after; eauto.
+  }
+  {
+    copy_as Hnv Hnv'.
+    eapply ceb_iff in Hnv'.
+    eapply ceb_iff.
+    subst.
+    simpl in *.
+    Lemma insert_at A ls : forall n new (a : A), let ls' := insert ls n new in nth_error ls n = Some a -> nth_error ls' (length new + n) = Some a.
+    Proof.
+      Arguments insert {_} _ _ _ / .
+      simpl.
+      induction ls; destruct n; simpl in *; intros; try discriminate; try omega; eauto.
+      simpl.
+      (*here*)
+      eapply IHls; eauto.
+      omega.
+    Qed.
+  }
 
 Definition shift_f_f n nv path i :=
   Fvar (#(shift_nat n nv), path) i.
@@ -258,6 +324,30 @@ Definition shift_from_f n f :=
 Global Instance Shift_cexpr : Shift cexpr :=
   {
     shift_from := shift_from_f
+  }.
+
+Class Shift t := 
+  {
+    shift_from : nat -> t -> t
+  }.
+
+Definition shift `{Shift t} := shift_from 0.
+
+Fixpoint iter {A} n f (x : A) :=
+  match n with
+    | 0 => x
+    | S n' => iter n' f (f x)
+  end.
+
+Definition shiftby `{Shift t} n := iter n shift.
+
+Definition subst_list `{Subst V B} `{Shift V} (values : list V) (e : B) := 
+  fst $ fold_left (fun p v => let '(b, n) := p in (substn n (shiftby n v) b, n - 1)) values (e, length values - 1).
+
+(* 'lower' is a 'dry run' of 'subst', not doing substitution, only lowering bound variables above n *)
+Class Lower t := 
+  {
+    lower : nat -> t -> t
   }.
 
 Definition lower_f_f n nv path i :=
