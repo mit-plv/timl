@@ -152,17 +152,6 @@ Inductive nstepsex : expr -> nat -> nat -> expr -> Prop :=
 | NEstepsS e1 b e2 n m e3 : stepex e1 b e2 -> nstepsex e2 n m e3 -> nstepsex e1 (S n) ((if b then 1 else 0) + m) e3
 .
 
-Class Leb A B :=
-  {
-    leb : A -> B -> bool
-  }.
-
-Infix "<=?" := leb (at level 70).
-
-Definition lebCS : csize -> csize -> bool.
-  admit.
-Defined.
-
 Definition cexpr_to_nat (c : cexpr) := default 0 (nat_of_cexpr c).
 
 (* A Parametric Higher-Order Abstract Syntax (PHOAS) encoding for a second-order modal logic (LSLR) *)
@@ -693,8 +682,6 @@ Proof.
   {
     admit.
   }
-  admit.
-  admit.
   admit.
   admit.
   admit.

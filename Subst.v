@@ -33,8 +33,8 @@ Definition shiftby `{Shift t} n := iter n shift.
 
 Local Open Scope prog_scope.
 
-Arguments fst {A B} _.
-Arguments snd {A B} _.
+Global Arguments fst {A B} _.
+Global Arguments snd {A B} _.
 
 Definition subst_list `{Subst V B} `{Shift V} (values : list V) (e : B) := 
   fst $ fold_left (fun p v => let '(b, n) := p in (substn n (shiftby n v) b, n - 1)) values (e, length values - 1).
@@ -45,41 +45,27 @@ Class Lower t :=
     lower : nat -> t -> t
   }.
 
-Fixpoint visit_f f fm :=
-  match fm with
-    | Fvar (nv, path) i => f nv path i
-    | F0 => fm
-    | Fadd a b => Fadd (visit_f f a) (visit_f f b)
-    | F1 => fm
-    | Fmul a b => Fmul (visit_f f a) (visit_f f b)
-    | Fscale c n => Fscale c (visit_f f n)
-    | Fmax a b => Fmax (visit_f f a) (visit_f f b)
-    | Flog b n => Flog b (visit_f f n)
-    | Fexp b n => Fexp b (visit_f f n)
-    | Fminus1 c => Fminus1 (visit_f f c)
-  end.
-
 Inductive cmp m n :=
 | LT n' (_ : n = S n') (_ : m < n)
 | EQ (_ : m = n)
 | GT m' (_ : m = S m') (_ : n < m).
 
-Arguments LT [m n] n' _ _.
-Arguments GT [m n] m' _ _.
+Global Arguments LT [m n] n' _ _.
+Global Arguments GT [m n] m' _ _.
 
 Fixpoint nat_cmp m n : cmp m n.
 refine (
-  match m, n with
-    | 0, 0 => EQ _
-    | 0, S n' => LT n' _ _
-    | S m', 0 => GT m' _ _
-    | S m', S n' => 
-      match nat_cmp m' n' with
-        | LT _ _ _ => LT n' _ _
-        | EQ _ => EQ _
-        | GT _ _ _ => GT m' _ _
-      end
-  end); subst; eauto; omega.
+    match m, n with
+      | 0, 0 => EQ _
+      | 0, S n' => LT n' _ _
+      | S m', 0 => GT m' _ _
+      | S m', S n' => 
+        match nat_cmp m' n' with
+          | LT _ _ _ => LT n' _ _
+          | EQ _ => EQ _
+          | GT _ _ _ => GT m' _ _
+        end
+    end); subst; eauto; omega.
 Defined.
 
 Definition default A (def : A) x :=
@@ -97,7 +83,7 @@ Class Monad m :=
 Notation "x <- a ;; b" := (bind a (fun x => b)) (at level 90, right associativity).
 Notation "a ;;; b" := (bind a (fun _ => b)) (at level 90, right associativity).
 
-Instance Monad_option : Monad option :=
+Global Instance Monad_option : Monad option :=
   {
     ret := fun A (v : A) => Some v;
     bind := fun A (a : option A) B (f : A -> option B) =>
@@ -114,102 +100,145 @@ Class Add a b c :=
 
 Infix "+" := add : G.
 
-Instance Add_nat : Add nat nat nat :=
+Global Instance Add_nat : Add nat nat nat :=
   {
     add := Peano.plus
   }.
 
-Instance Add_cexpr : Add cexpr cexpr cexpr :=
-  {
-    add := Fadd
-  }.
+Section ctx.
 
-Definition append_path (x : var_path) p : var_path := (fst x, p :: snd x).
+  Variable ctx : context.
+  
+  Global Instance Add_cexpr : Add (cexpr ctx) (cexpr ctx) (cexpr ctx) :=
+    {
+      add := Fadd
+    }.
 
-Definition is_pair (s : size) :=
-  match s with
-    | Svar x => Some (Svar (append_path x Pfst), Svar (append_path x Psnd))
-    | Spair a b => Some (a, b)
-    | _ => None
+  Definition append_path (x : var_path ctx) p : var_path ctx := (fst x, p :: snd x).
+
+  Global Arguments Svar {ctx} _ .
+  Global Arguments Sstats {ctx} _ .
+
+  Definition is_pair (s : size ctx) :=
+    match s with
+      | Svar x => Some (Svar (append_path x Pfst), Svar (append_path x Psnd))
+      | Spair a b => Some (a, b)
+      | _ => None
+    end.
+
+  Definition is_inlinr (s : size ctx) :=
+    match s with
+      | Svar x => Some (Svar (append_path x Pinl), Svar (append_path x Pinr))
+      | Sinlinr a b => Some (a, b)
+      | _ => None
+    end.
+
+  Definition is_fold (s : size ctx) :=
+    match s with
+      | Svar x => Some (Svar (append_path x Punfold))
+      | Sfold t => Some t
+      | _ => None
+    end.
+
+  Definition is_hide (s : size ctx) :=
+    match s with
+      | Svar x => Some (Svar (append_path x Punhide))
+      | Shide t => Some t
+      | _ => None
+    end.
+
+  Definition S0 : size ctx := Sstats (F0, F0).
+
+  Definition query_cmd cmd s :=
+    match cmd, s with
+      | Pfst, Spair a b => a
+      | Psnd, Spair a b => b
+      | Pinl, Sinlinr a b => a
+      | Pinr, Sinlinr a b => b
+      | Punfold, Sfold s => s
+      | Punfold, Sstats (w, s) => Sstats (Fminus1 w, Fminus1 s)
+      | Punhide, Shide s => s
+      | i, Svar x => Svar (append_path x i)
+      | _, _ => S0 (* type mismatch, won't happen, doesn't matter *)
+    end.
+
+  Fixpoint query_path' path s :=
+    match path with
+      | cmd :: path => 
+        let s := query_cmd cmd s in
+        query_path' path s
+      | nil => s
+    end.
+
+  Definition query_path path := query_path' (rev path).
+
+  Definition query_idx idx s : cexpr ctx := stats_get idx $ summarize s.
+
+  Definition query_path_idx path idx s :=
+    let s := query_path path s in
+    query_idx idx s.
+
+End ctx.
+
+Fixpoint visit_f {ctx ctx'} f (fm : cexpr ctx) : cexpr ctx' :=
+  match fm with
+    | Fvar (nv, path) i => f nv path i
+    | F0 => @F0 ctx'
+    | Fadd a b => Fadd (visit_f f a) (visit_f f b)
+    | F1 => @F1 ctx'
+    | Fmul a b => Fmul (visit_f f a) (visit_f f b)
+    | Fscale c n => Fscale c (visit_f f n)
+    | Fmax a b => Fmax (visit_f f a) (visit_f f b)
+    | Flog b n => Flog b (visit_f f n)
+    | Fexp b n => Fexp b (visit_f f n)
+    | Fminus1 c => Fminus1 (visit_f f c)
   end.
 
-Definition is_inlinr (s : size) :=
-  match s with
-    | Svar x => Some (Svar (append_path x Pinl), Svar (append_path x Pinr))
-    | Sinlinr a b => Some (a, b)
-    | _ => None
+Definition get_i {ctx t} (x : var ctx t) : 'I_(length ctx) :=
+  match x with
+    | Var i => i
   end.
 
-Definition has_inl (s : size) :=
-  match s with
-    | Svar x => Some (Svar (append_path x Pinl))
-    | Sinlinr a b => Some a
-    | _ => None
+Coercion get_i : var >-> ordinal.
+
+Coercion nat_of_ord n (i : 'I_n) := match i with Ordinal m _ => m end.
+
+Fixpoint removen {A} (ls : list A) n :=
+  match ls with
+    | x :: ls =>
+      match n with
+        | 0 => ls
+        | S n => x :: removen ls n
+      end
+    | nil => nil
   end.
 
-Definition has_inr (s : size) :=
-  match s with
-    | Svar x => Some (Svar (append_path x Pinr))
-    | Sinlinr a b => Some b
-    | _ => None
+Require Import Program.
+
+Arguments Var {ctx} _ .
+
+Program Definition subst_s_f_f {ctx} (n : var ctx CEexpr) (v : size (removen ctx n)) (nv : var ctx CEexpr) (path : path) (i : stat_idx) : cexpr (removen ctx n) :=
+  match n, nv with
+    | Var (Ordinal n Hn), Var (Ordinal nv Hnv) =>
+      match nat_cmp nv n with 
+        | LT _ _ _ => Fvar (Var #nv, path) i
+        | EQ _ => query_path_idx path i v
+        | GT p _ _ => Fvar (Var #p, path) i
+      end
   end.
-
-Definition is_fold (s : size) :=
-  match s with
-    | Svar x => Some (Svar (append_path x Punfold))
-    | Sfold t => Some t
-    | _ => None
-  end.
-
-Definition is_hide (s : size) :=
-  match s with
-    | Svar x => Some (Svar (append_path x Punhide))
-    | Shide t => Some t
-    | _ => None
-  end.
-
-Definition S0 := Sstats (F0, F0).
-
-Definition query_cmd cmd s :=
-  match cmd, s with
-    | Pfst, Spair a b => a
-    | Psnd, Spair a b => b
-    | Pinl, Sinlinr a b => a
-    | Pinr, Sinlinr a b => b
-    | Punfold, Sfold s => s
-    | Punfold, Sstats (w, s) => Sstats (Fminus1 w, Fminus1 s)
-    | Punhide, Shide s => s
-    | i, Svar x => Svar (append_path x i)
-    | _, _ => S0 (* type mismatch, won't happen, doesn't matter *)
-  end.
-
-Fixpoint query_path' path s :=
-  match path with
-    | cmd :: path => 
-      let s := query_cmd cmd s in
-      query_path' path s
-    | nil => s
-  end.
-
-Definition query_path path := query_path' (rev path).
-
-Definition query_idx idx s := stats_get idx $ summarize s.
-
-Definition query_path_idx path idx s :=
-  let s := query_path path s in
-  query_idx idx s.
-
-Definition subst_s_f_f n v nv path i :=
-  match nat_cmp nv n with 
-    | LT _ _ _ => Fvar (#nv, path) i
-    | EQ _ => query_path_idx path i v
-    | GT p _ _ => Fvar (#p, path) i
-  end.
-
-Definition subst_size_cexpr (n : nat) (v : size) (b : cexpr) : cexpr :=
+Next Obligation.
+  intros H.
+  intros.
+  symmetry.
+  (*here*)
+  eapply Bool.eq_true_not_negb.
+  rewrite <- H.
+  subst.
+  
+Definition subst_size_cexpr {ctx} (n : var ctx CEexpr) (v : size (removen ctx n)) (b : cexpr (CEexpr :: ctx)) : cexpr (removen ctx n) :=
   visit_f (subst_s_f_f n v) b.
 
-Instance Subst_size_cexpr : Subst size cexpr :=
+Global Instance Subst_size_cexpr : Subst size cexpr :=
   {
     substn := subst_size_cexpr
   }.
@@ -226,7 +255,7 @@ Definition shift_f_f n nv path i :=
 Definition shift_from_f n f :=
   visit_f (shift_f_f n) f.
 
-Instance Shift_cexpr : Shift cexpr :=
+Global Instance Shift_cexpr : Shift cexpr :=
   {
     shift_from := shift_from_f
   }.
@@ -242,7 +271,7 @@ Definition lower_f n f :=
     (lower_f_f n) 
     f.
 
-Instance Lower_cexpr : Lower cexpr :=
+Global Instance Lower_cexpr : Lower cexpr :=
   {
     lower := lower_f
   }.
@@ -276,7 +305,7 @@ Definition subst_size_size (n : nat) (v b : size) : size :=
     substn n v) 
     b.
 
-Instance Subst_size_size : Subst size size :=
+Global Instance Subst_size_size : Subst size size :=
   {
     substn := subst_size_size
   }.
@@ -290,7 +319,7 @@ Definition shift_from_s n s :=
     shift_from n)
     s.
 
-Instance Shift_size : Shift size :=
+Global Instance Shift_size : Shift size :=
   {
     shift_from := shift_from_s
   }.
@@ -307,7 +336,7 @@ Definition lower_s n s :=
      lower n) 
     s.
 
-Instance Lower_size : Lower size :=
+Global Instance Lower_size : Lower size :=
   {
     lower := lower_s
   }.
@@ -338,7 +367,7 @@ Definition shift_t_f nv n : type := Tvar $ #(shift_nat n nv).
 Definition shift_from_t n t := 
   visit_t n (shift_t_f, shift_from, shift_from) t.
 
-Instance Shift_type : Shift type :=
+Global Instance Shift_type : Shift type :=
   {
     shift_from := shift_from_t
   }.
@@ -355,7 +384,7 @@ Definition lower_sub `{Lower B} n nq b := lower (n + nq) b.
 Definition subst_t_t n v b := 
   visit_t 0 (subst_t_t_f n v, lower_sub n, lower_sub n) b.
 
-Instance Subst_type_type : Subst type type :=
+Global Instance Subst_type_type : Subst type type :=
   {
     substn := subst_t_t
   }.
@@ -376,7 +405,7 @@ Definition subst_size_type (n : nat) (v : size) (b : type) : type :=
      subst_sub n v)
     b.
 
-Instance Subst_size_type : Subst size type :=
+Global Instance Subst_size_type : Subst size type :=
   {
     substn := subst_size_type
   }.
@@ -389,7 +418,7 @@ Definition lower_t n t :=
      lower_sub n)
     t.
 
-Instance Lower_type : Lower type :=
+Global Instance Lower_type : Lower type :=
   {
     lower := lower_t
   }.
@@ -427,7 +456,7 @@ Definition shift_from_e n e :=
     (shift_e_f, shift_from) 
     e.
 
-Instance Shift_expr : Shift expr :=
+Global Instance Shift_expr : Shift expr :=
   {
     shift_from := shift_from_e
   }.
@@ -442,7 +471,7 @@ Definition subst_e_e_f n v nv nq : expr :=
 Definition subst_e_e n v b := 
   visit_e 0 (subst_e_e_f n v, lower_sub n) b.
 
-Instance Subst_expr_expr : Subst expr expr :=
+Global Instance Subst_expr_expr : Subst expr expr :=
   {
     substn := subst_e_e
   }.
@@ -460,7 +489,7 @@ Definition subst_t_e n (v : type) (b : expr) : expr :=
      subst_sub n v)
     b.
 
-Instance Subst_type_expr : Subst type expr :=
+Global Instance Subst_type_expr : Subst type expr :=
   {
     substn := subst_t_e
   }.
@@ -468,7 +497,7 @@ Instance Subst_type_expr : Subst type expr :=
 Definition lower_e n e :=
   visit_e 0 (lower_e_f n, lower_sub n) e.
 
-Instance Lower_expr : Lower expr :=
+Global Instance Lower_expr : Lower expr :=
   {
     lower := lower_e
   }.

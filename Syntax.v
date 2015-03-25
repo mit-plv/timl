@@ -1,63 +1,61 @@
+Require Import List.
 Require Import Util.
 Require Import Complexity.
 
 Export Complexity.
 
-Inductive type :=
-| Tarrow (t1 : type) (time_cost : cexpr) (result_size : size) (t2 : type)
+Inductive type : context -> Type :=
+| Tarrow {ctx} : type ctx -> cexpr (CEexpr :: ctx) -> size (CEexpr :: ctx) ->  type (CEexpr :: ctx) -> type ctx
 (* polymorphism *)           
-| Tvar (x : var)
-| Tuniversal (time_cost : cexpr) (result_size : size) (t : type)
+| Tvar {ctx} : var ctx CEtype -> type ctx
+| Tuniversal {ctx} : cexpr ctx -> size ctx -> type (CEtype :: ctx) -> type ctx
 (* higher-order operators *)
-| Tabs (t : type)
-| Tapp (a b : type)
+| Tabs {ctx} : type (CEtype :: ctx) -> type ctx
+| Tapp {ctx} : type ctx -> type ctx -> type ctx
 (* recursive types *)         
-| Trecur (t : type)
+| Trecur {ctx} : type (CEtype :: ctx) -> type ctx
 (* to deal with statistics s2 and s3 *)
-| Thide (_ : type)
+| Thide {ctx} : type ctx -> type ctx
 (* basic types *)
-| Tunit
-| Tprod (_ _ : type)
-| Tsum (_ _ : type)
+| Tunit {ctx} : type ctx
+| Tprod {ctx} : type ctx -> type ctx -> type ctx
+| Tsum {ctx} : type ctx -> type ctx -> type ctx
 .
 
 Coercion Tvar : var >-> type.
 
-Inductive expr :=
-  | Evar (x : var)
-  | Eapp (f : expr) (arg : expr)
-  | Eabs (t : type) (body : expr)
-  | Elet (def : expr) (main : expr)
-  | Etapp (e : expr) (t : type)
-  | Etabs (body : expr)
-  | Efold (_ : type) (_ : expr)
-  | Eunfold (_ : expr)
-  | Ehide (_ : expr)
-  | Eunhide (_ : expr)
-  | Ett
-  | Epair (_ _ : expr)
-  | Einl (_ : type) (_ : expr)
-  | Einr (_ : type) (_ : expr)
-  | Ematch_pair (target : expr) (handler : expr)
-  (* left and right can access #0 representing the corresponding payload *)
-  | Ematch_sum (target : expr) (left right : expr)
-  (* | Eabs_notype (e : expr) (* a version of Eabs used in match handlers, where type annotation is not needed *) *)
+Inductive expr : context -> Type :=
+| Evar {ctx} : var ctx CEexpr -> expr ctx
+| Eapp {ctx} : expr ctx -> expr ctx -> expr ctx
+| Eabs {ctx} : type ctx -> expr (CEexpr :: ctx) -> expr ctx
+| Elet {ctx} : expr ctx -> expr (CEexpr :: ctx) -> expr ctx
+| Etapp {ctx} : expr ctx -> type ctx -> expr ctx
+| Etabs {ctx} : expr (CEtype :: ctx) -> expr ctx
+| Efold {ctx} : type ctx -> expr ctx -> expr ctx
+| Eunfold {ctx} : expr ctx -> expr ctx
+| Ehide {ctx} : expr ctx -> expr ctx
+| Eunhide {ctx} : expr ctx -> expr ctx
+| Ett {ctx} : expr ctx
+| Epair {ctx} : expr ctx -> expr ctx -> expr ctx
+| Einl {ctx} : type ctx -> expr ctx -> expr ctx
+| Einr {ctx} : type ctx -> expr ctx -> expr ctx
+| Ematch_pair {ctx} : expr ctx -> expr (CEexpr :: CEexpr :: ctx)
+| Ematch_sum {ctx} : expr ctx -> expr (CEexpr :: ctx) -> expr (CEexpr :: ctx) -> expr ctx
 .
 
 Coercion Evar : var >-> expr.
 
-Instance Apply_type_type_type : Apply type type type :=
+Global Instance Apply_type_type_type ctx : Apply (type ctx) (type ctx) (type ctx) :=
   {
     apply := Tapp
   }.
 
-Instance Apply_expr_expr_expr : Apply expr expr expr :=
+Global Instance Apply_expr_expr_expr ctx : Apply (expr ctx) (expr ctx) (expr ctx) :=
   {
     apply := Eapp
   }.
 
-Instance Apply_expr_type_expr : Apply expr type expr :=
+Global Instance Apply_expr_type_expr ctx : Apply (expr ctx) (type ctx) (expr ctx) :=
   {
     apply := Etapp
   }.
-

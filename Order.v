@@ -2,7 +2,9 @@ Require Import List.
 Require Import Bedrock.Platform.Cito.GeneralTactics.
 Require Import NonnegRational.
 Require Import Util.
-Require Import Syntax.
+Require Import Complexity.
+
+Export Complexity.
 
 Class Le a b :=
   {
@@ -12,76 +14,83 @@ Class Le a b :=
 Infix "<=" := le : G.
 Local Open Scope G.
 
-Instance Le_nat : Le nat nat :=
+Global Instance Le_nat : Le nat nat :=
   {
     le := Peano.le
   }.
 
-Definition Fdiv a b := (Fscale (1 / b)%QN a).
+Section ctx.
 
-Infix "+" := Fadd : F.
-Infix "*" := Fmul : F.
-Infix "/" := Fdiv : F.
-Local Open Scope F.
+  Variable ctx : context.
 
-Notation " 0 " := F0 : F01.
-Notation " 1 " := F1 : F01.
-Local Open Scope F01.
+  Definition Fdiv a b := (@Fscale ctx (1 / b)%QN a).
 
-Infix "*:" := Fscale (at level 40).
+  Infix "+" := Fadd : F.
+  Infix "*" := Fmul : F.
+  Infix "/" := Fdiv : F.
+  Local Open Scope F.
 
-Notation log2 := (Flog 2%QN).
+  Notation " 0 " := F0 : F01.
+  Notation " 1 " := F1 : F01.
+  Local Open Scope F01.
 
-Inductive leE : cexpr -> cexpr -> Prop :=
-| leE_refl n : n == n
-| leE_trans a b c : a == b -> b == c -> a == c
-| leE_symm a b : a == b -> b == a
-(* semiring rules *)
-| leE_add0x n : 0 + n == n
-| leE_addA a b c : a + (b + c) == a + b + c
-| leE_addC a b : a + b == b + a
-| leE_mulA a b c : a * (b * c) == a * b * c
-| leE_mulC a b : a * b == b * a
-| leE_mul1x n : 1 * n == n
-| leE_mulDx a b c : (a + b) * c == a * c + b * c
-| leE_mul0x n : 0 * n == 0
-(* module rules *)
-| leE_scaleA a b c : a *: (b *: c) == (a * b)%QN *: c
-| leE_scale1x n : 1%QN *: n == n
-| leE_scalexD a b c : a *: (b + c) == a *: b + a *: c
-| leE_scaleDx a b c : (a + b)%QN *: c == a *: c + b *: c
-(* algebra rules *)
-| leE_scaleAl a b c : a *: (b * c) == a *: b * c
-(* congruence rules *)
-| leE_add a b a' b' : a == a' -> b == b' -> a + b == a' + b'
-| leE_max a b a' b' : a == a' -> b == b' -> Fmax a b == Fmax a' b'
-| leE_mul a b a' b' : a == a' -> b == b' -> a * b == a' * b'
-| leE_scale c n c' n' : (c == c')%QN -> n == n' -> c *: n == c' *: n'
-| leE_log c n c' n' : (c == c')%QN -> n == n' -> Flog c n == Flog c' n'
-| leE_exp c n c' n' : (c == c')%QN -> n == n' -> Fexp c n == Fexp c' n'
-(* for special operations *)
-| leE_maxC a b : Fmax a b == Fmax b a
-| leE_log_mul bs a b : Flog bs (a * b) == Flog bs a + Flog bs b
-| leE_logcc c : (c != 0)%QN -> Flog c c == 1
-(* for variables *)
-| leE_pair x p i : Fvar (x, Pfst :: p) i + Fvar (x, Psnd :: p) i == Fvar (x, p) i
-| leE_inlinr x p i : Fmax (Fvar (x, Pinl :: p) i) (Fvar (x, Pinr :: p) i) == Fvar (x, p) i
-| leE_inl x p i : Fvar (x, Pinl :: p) i == Fvar (x, p) i
-| leE_inr x p i : Fvar (x, Pinr :: p) i == Fvar (x, p) i
-| leE_unfold x p i : 1 + Fvar (x, Punfold :: p) i == Fvar (x, p) i
-where "a == b" := (leE a b) : leE_scope
-.
+  Infix "*:" := Fscale (at level 40).
+
+  Notation log2 := (Flog 2%QN).
+
+  Definition Fconst c := @Fscale ctx c F1.
+  Coercion Fconst : QN >-> cexpr.
+
+  Inductive leE : cexpr ctx -> cexpr ctx -> Prop :=
+  | leE_refl n : n == n
+  | leE_trans a b c : a == b -> b == c -> a == c
+  | leE_symm a b : a == b -> b == a
+  (* semiring rules *)
+  | leE_add0x n : 0 + n == n
+  | leE_addA a b c : a + (b + c) == a + b + c
+  | leE_addC a b : a + b == b + a
+  | leE_mulA a b c : a * (b * c) == a * b * c
+  | leE_mulC a b : a * b == b * a
+  | leE_mul1x n : 1 * n == n
+  | leE_mulDx a b c : (a + b) * c == a * c + b * c
+  | leE_mul0x n : 0 * n == 0
+  (* module rules *)
+  | leE_scaleA a b c : a *: (b *: c) == (a * b)%QN *: c
+  | leE_scale1x n : 1%QN *: n == n
+  | leE_scalexD a b c : a *: (b + c) == a *: b + a *: c
+  | leE_scaleDx a b c : (a + b)%QN *: c == a *: c + b *: c
+  (* algebra rules *)
+  | leE_scaleAl a b c : a *: (b * c) == a *: b * c
+  (* congruence rules *)
+  | leE_add a b a' b' : a == a' -> b == b' -> a + b == a' + b'
+  | leE_max a b a' b' : a == a' -> b == b' -> Fmax a b == Fmax a' b'
+  | leE_mul a b a' b' : a == a' -> b == b' -> a * b == a' * b'
+  | leE_scale c n c' n' : (c == c')%QN -> n == n' -> c *: n == c' *: n'
+  | leE_log c n c' n' : (c == c')%QN -> n == n' -> Flog c n == Flog c' n'
+  | leE_exp c n c' n' : (c == c')%QN -> n == n' -> Fexp c n == Fexp c' n'
+  (* for special operations *)
+  | leE_maxC a b : Fmax a b == Fmax b a
+  | leE_log_mul bs a b : Flog bs (a * b) == Flog bs a + Flog bs b
+  | leE_logcc c : (c != 0)%QN -> Flog c c == 1
+  (* for variables *)
+  | leE_pair x p i : Fvar (x, Pfst :: p) i + Fvar (x, Psnd :: p) i == Fvar (x, p) i
+  | leE_inlinr x p i : Fmax (Fvar (x, Pinl :: p) i) (Fvar (x, Pinr :: p) i) == Fvar (x, p) i
+  | leE_inl x p i : Fvar (x, Pinl :: p) i == Fvar (x, p) i
+  | leE_inr x p i : Fvar (x, Pinr :: p) i == Fvar (x, p) i
+  | leE_unfold x p i : 1 + Fvar (x, Punfold :: p) i == Fvar (x, p) i
+                                                            where "a == b" := (leE a b) : leE_scope
+  .
 
 Delimit Scope leE_scope with leE.
 
-Global Add Relation cexpr leE
+Global Add Relation (cexpr ctx) leE
     reflexivity proved by leE_refl
     symmetry proved by leE_symm
     transitivity proved by leE_trans
       as leE_rel.
 
 (* precise less-than relation on cexprs *)
-Inductive leF : cexpr -> cexpr -> Prop :=
+Inductive leF : cexpr ctx -> cexpr ctx -> Prop :=
 (* variable rules, interpreting the variable as growing ever larger (symptotic) *)
 | leF_1x x i : 1 <= Fvar x i
 (* preorder rules *)
@@ -105,18 +114,18 @@ where "a <= b" := (leF a b) : leF_scope
 
 Delimit Scope leF_scope with leF.
 
-Lemma leF_refl (n : cexpr) : (n <= n)%leF.
+Lemma leF_refl (n : cexpr ctx) : (n <= n)%leF.
 Proof.
   simpl; eapply leF_leE; reflexivity.
 Qed.
 
-Global Add Relation cexpr leF
+Global Add Relation (cexpr ctx) leF
     reflexivity proved by leF_refl
     transitivity proved by leF_trans
       as leF_rel.
 
 (* less-than relation on cexprs ignoring constant addend *)
-Inductive leC : cexpr -> cexpr -> Prop :=
+Inductive leC : cexpr ctx -> cexpr ctx -> Prop :=
 (* ignore constant addend *)
 | leC_addcx c x i : c + Fvar x i <= Fvar x i
 (* preorder rules *)
@@ -141,18 +150,18 @@ where "a <= b" := (leC a b) : leC_scope
 
 Delimit Scope leC_scope with leC.
 
-Lemma leC_refl (n : cexpr) : (n <= n)%leC.
+Lemma leC_refl (n : cexpr ctx) : (n <= n)%leC.
 Proof.
   simpl; eapply leC_leE; reflexivity.
 Qed.
 
-Global Add Relation cexpr leC
+Global Add Relation (cexpr ctx) leC
     reflexivity proved by leC_refl
     transitivity proved by leC_trans
       as leC_rel.
 
 (* big-O less-than relation on cexprs *)
-Inductive leO : cexpr -> cexpr -> Prop :=
+Inductive leO : cexpr ctx -> cexpr ctx -> Prop :=
 (* ignore constant factor *)
 | leO_cn_n c n : c *: n <= n
 (* variable rules, interpreting the variable as growing ever larger (symptotic) *)
@@ -179,18 +188,18 @@ where "a <= b" := (leO a b) : leO_scope
 
 Delimit Scope leO_scope with leO.
 
-Lemma leO_refl (n : cexpr) : (n <= n)%leO.
+Lemma leO_refl (n : cexpr ctx) : (n <= n)%leO.
 Proof.
   simpl; eapply leO_leE; reflexivity.
 Qed.
 
-Global Add Relation cexpr leO
+Global Add Relation (cexpr ctx) leO
     reflexivity proved by leO_refl
     transitivity proved by leO_trans
       as leO_rel.
 
 (* the default <= on cexpr will be leC *)
-Instance Le_cexpr : Le cexpr cexpr :=
+Global Instance Le_cexpr : Le (cexpr ctx) (cexpr ctx) :=
   {
     le := leF
   }.
@@ -198,29 +207,40 @@ Instance Le_cexpr : Le cexpr cexpr :=
 Local Close Scope F01.
 
 (* less-than relation on sizes based on leC *)
-Definition leS a b :=
+Definition leS (a b : size ctx) :=
   stats_get 0 (summarize a) <= stats_get 0 (summarize b) /\
   stats_get 1 (summarize a) <= stats_get 1 (summarize b).
 
-Instance Le_size : Le size size :=
+Global Instance Le_size : Le (size ctx) (size ctx) :=
   {
     le := leS
   }.
 
-Lemma leS_refl (a : size) : a <= a.
+Lemma leS_refl (a : size ctx) : a <= a.
 Proof.
   simpl; unfold leS; simpl; split; reflexivity.
 Qed.
 
-Lemma leS_trans (a b c : size) : a <= b -> b <= c -> a <= c.
+Lemma leS_trans (a b c : size ctx) : a <= b -> b <= c -> a <= c.
 Proof.
   intros H1 H2; simpl in *; unfold leS in *; simpl in *; openhyp; split; etransitivity; eauto.
 Qed.
 
-Global Add Relation size leS
+Global Add Relation (size ctx) leS
     reflexivity proved by leS_refl
     transitivity proved by leS_trans
       as leS_rel.
 
+End ctx.
+
+Global Arguments leF {ctx} _ _ .
+Global Arguments leO {ctx} _ _ .
 Infix "<=" := leF : F.
 Infix "<<=" := leO (at level 70) : F.
+Infix "+" := Fadd : F.
+Infix "*" := Fmul : F.
+Infix "/" := Fdiv : F.
+Notation " 0 " := F0 : F01.
+Notation " 1 " := F1 : F01.
+Infix "*:" := Fscale (at level 40).
+Notation log2 := (Flog 2%QN).
