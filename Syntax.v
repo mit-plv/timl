@@ -1,46 +1,49 @@
+Set Maximal Implicit Insertion.
+Set Implicit Arguments.
+
 Require Import List.
 Require Import Util.
 Require Import Complexity.
 
 Export Complexity.
 
-Inductive type : context -> Type :=
-| Tarrow {ctx} : type ctx -> cexpr (CEexpr :: ctx) -> size (CEexpr :: ctx) ->  type (CEexpr :: ctx) -> type ctx
+Inductive type ctx : Type :=
+| Tarrow : type ctx -> cexpr (CEexpr :: ctx) -> size (CEexpr :: ctx) ->  type (CEexpr :: ctx) -> type ctx
 (* polymorphism *)           
-| Tvar {ctx} : var ctx CEtype -> type ctx
-| Tuniversal {ctx} : cexpr ctx -> size ctx -> type (CEtype :: ctx) -> type ctx
+| Tvar : var ctx CEtype -> type ctx
+| Tuniversal : cexpr ctx -> size ctx -> type (CEtype :: ctx) -> type ctx
 (* higher-order operators *)
-| Tabs {ctx} : type (CEtype :: ctx) -> type ctx
-| Tapp {ctx} : type ctx -> type ctx -> type ctx
+| Tabs : type (CEtype :: ctx) -> type ctx
+| Tapp : type ctx -> type ctx -> type ctx
 (* recursive types *)         
-| Trecur {ctx} : type (CEtype :: ctx) -> type ctx
+| Trecur : type (CEtype :: ctx) -> type ctx
 (* to deal with statistics s2 and s3 *)
-| Thide {ctx} : type ctx -> type ctx
+| Thide : type ctx -> type ctx
 (* basic types *)
-| Tunit {ctx} : type ctx
-| Tprod {ctx} : type ctx -> type ctx -> type ctx
-| Tsum {ctx} : type ctx -> type ctx -> type ctx
+| Tunit : type ctx
+| Tprod : type ctx -> type ctx -> type ctx
+| Tsum : type ctx -> type ctx -> type ctx
 .
 
 Coercion Tvar : var >-> type.
 
-Inductive expr : context -> Type :=
-| Evar {ctx} : var ctx CEexpr -> expr ctx
-| Eapp {ctx} : expr ctx -> expr ctx -> expr ctx
-| Eabs {ctx} : type ctx -> expr (CEexpr :: ctx) -> expr ctx
-| Elet {ctx} : expr ctx -> expr (CEexpr :: ctx) -> expr ctx
-| Etapp {ctx} : expr ctx -> type ctx -> expr ctx
-| Etabs {ctx} : expr (CEtype :: ctx) -> expr ctx
-| Efold {ctx} : type ctx -> expr ctx -> expr ctx
-| Eunfold {ctx} : expr ctx -> expr ctx
-| Ehide {ctx} : expr ctx -> expr ctx
-| Eunhide {ctx} : expr ctx -> expr ctx
-| Ett {ctx} : expr ctx
-| Epair {ctx} : expr ctx -> expr ctx -> expr ctx
-| Einl {ctx} : type ctx -> expr ctx -> expr ctx
-| Einr {ctx} : type ctx -> expr ctx -> expr ctx
-| Ematch_pair {ctx} : expr ctx -> expr (CEexpr :: CEexpr :: ctx)
-| Ematch_sum {ctx} : expr ctx -> expr (CEexpr :: ctx) -> expr (CEexpr :: ctx) -> expr ctx
+Inductive expr ctx : Type :=
+| Evar : var ctx CEexpr -> expr ctx
+| Eapp : expr ctx -> expr ctx -> expr ctx
+| Eabs : type ctx -> expr (CEexpr :: ctx) -> expr ctx
+| Elet : expr ctx -> expr (CEexpr :: ctx) -> expr ctx
+| Etapp : expr ctx -> type ctx -> expr ctx
+| Etabs : expr (CEtype :: ctx) -> expr ctx
+| Efold : type ctx -> expr ctx -> expr ctx
+| Eunfold : expr ctx -> expr ctx
+| Ehide : expr ctx -> expr ctx
+| Eunhide : expr ctx -> expr ctx
+| Ett : expr ctx
+| Epair : expr ctx -> expr ctx -> expr ctx
+| Einl : type ctx -> expr ctx -> expr ctx
+| Einr : type ctx -> expr ctx -> expr ctx
+| Ematch_pair : expr ctx -> expr (CEexpr :: CEexpr :: ctx) -> expr ctx
+| Ematch_sum : expr ctx -> expr (CEexpr :: ctx) -> expr (CEexpr :: ctx) -> expr ctx
 .
 
 Coercion Evar : var >-> expr.
