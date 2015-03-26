@@ -57,7 +57,7 @@ Instance Le_csize : Le csize csize :=
     le := leCS
   }.
 *)
-Definition get_size (e : expr) : csize.
+Definition get_csize (e : expr) : csize.
   admit.
 Defined.
 
@@ -90,7 +90,7 @@ Instance Le_cszie_size : Le csize size :=
     le := le_csize_size
   }.
 
-Notation "| v |" := (get_size v) (at level 10).
+Notation "| v |" := (get_csize v) (at level 10).
 Infix "≤" := le (at level 70).
 
 Definition terminatesWith e n v := (nsteps e n v /\ IsValue v)%type.
