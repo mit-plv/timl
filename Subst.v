@@ -445,6 +445,9 @@ Fixpoint visit_s {ctx ctx'} (f : ((var CEexpr ctx -> var CEexpr ctx') + (var CEe
 
 Unset Implicit Arguments.
 
+(* qctx : quantified context 
+   the visitors (fv, ff, fs) can only change the free context ctx (to ctx'), not the quantified context qctx
+*)
 Fixpoint visit_t {ctx ctx'} qctx (f : ((forall qctx, var CEtype (qctx ++ ctx) -> var CEtype (qctx ++ ctx')) + (forall qctx, var CEtype (qctx ++ ctx) -> type (qctx ++ ctx'))) * (forall qctx, cexpr (qctx ++ ctx) -> cexpr (qctx ++ ctx')) * (forall qctx, size (qctx ++ ctx) -> size (qctx ++ ctx'))) (b : type (qctx ++ ctx)) : type (qctx ++ ctx') :=
   let fv := fst (fst f) in
   let ff := snd (fst f) in
@@ -466,6 +469,8 @@ Fixpoint visit_t {ctx ctx'} qctx (f : ((forall qctx, var CEtype (qctx ++ ctx) ->
     | Tsum a b => Tsum (visit_t _ f a) (visit_t _ f b)
   end
 .
+
+Definition visit_type {ctx ctx'} := @visit_t ctx ctx' [].
 
 Fixpoint visit_e {ctx ctx'} qctx (f : ((forall qctx, var CEexpr (qctx ++ ctx) -> var CEexpr (qctx ++ ctx')) + (forall qctx, var CEexpr (qctx ++ ctx) -> expr (qctx ++ ctx'))) * (forall qctx, type (qctx ++ ctx) -> type (qctx ++ ctx'))) (b : expr (qctx ++ ctx)) : expr (qctx ++ ctx') :=
   let (fv, ft) := f in
@@ -491,6 +496,8 @@ Fixpoint visit_e {ctx ctx'} qctx (f : ((forall qctx, var CEexpr (qctx ++ ctx) ->
     | Ematch_pair target handler => Ematch_pair (visit_e _ f target) (visit_e (CEexpr :: CEexpr :: _) f handler)
     | Ematch_sum target a b => Ematch_sum (visit_e _ f target) (visit_e (CEexpr :: _) f a) (visit_e (CEexpr :: _) f b)
   end.
+
+Definition visit_expr {ctx ctx'} := @visit_e ctx ctx' [].
 
 (************ Consume ***************)
 (* 'consume x b' is is similar to 'substn x v b', except that it knows x is not in b, so it only removes x from b's context, without substitution.  *)
@@ -698,7 +705,12 @@ Global Instance Shift_size : Shift size :=
   }.
 
 Definition shift_t {ctx} new n t :=
-  visit_t [] (inl (shift_cast (ctx := ctx) new n), shift_cast new n, shift_cast new n) t.
+  visit_type
+    (ctx := ctx) 
+    (inl (shift_cast new n),
+     shift_cast new n,
+     shift_cast new n)
+    t.
 
 Global Instance Shift_type : Shift type :=
   {
@@ -706,7 +718,11 @@ Global Instance Shift_type : Shift type :=
   }.
 
 Definition shift_e {ctx} new n e :=
-  visit_e [] (inl (shift_cast (ctx := ctx) new n), shift_cast new n) e.
+  visit_expr
+    (ctx := ctx) 
+    (inl (shift_cast new n),
+     shift_cast new n)
+    e.
 
 Global Instance Shift_expr : Shift expr :=
   {
@@ -826,15 +842,13 @@ Definition subst_cast `{Subst var_t V B, Shift _ V, Cast _ V, Cast _ B} {ctx} (x
   }
 Defined.
 
+Definition Fvar' {ctx} path i x := Fvar (ctx := ctx) (x, path) i.
+
 Definition subst_s_f_f {ctx} x v xv path i :=
   (subst_v 
      (ctx := ctx)
      x xv
-     (fun x => 
-        match x with
-          | None => query_path_idx path i v
-          | Some x => Fvar (x, path) i
-        end)).
+     (option_map (Fvar' path i) >> default (query_path_idx path i v))).
 
 Definition subst_s_f {ctx} x v b :=
   visit_f (ctx := ctx) (inr (subst_s_f_f x v)) b.
@@ -844,15 +858,13 @@ Global Instance Subst_size_cexpr : Subst CEexpr size cexpr :=
     substx := @subst_s_f
   }.
 
+Definition Svar' {ctx} path x := Svar (ctx := ctx) (x, path).
+
 Definition subst_s_s_f {ctx} x v xv path :=
   (subst_v 
      (ctx := ctx)
      x xv
-     (fun x => 
-        match x with
-          | None => query_path path v
-          | Some x => Svar (x, path)
-        end)).
+     (option_map (Svar' path) >> default (query_path path v))).
 
 Definition subst_s_s {ctx} x v b :=
   visit_s 
@@ -867,8 +879,7 @@ Global Instance Subst_size_size : Subst CEexpr size size :=
   }.
 
 Definition subst_t_t {ctx} x v b := 
-  visit_t 
-    [] 
+  visit_type 
     (inr (subst_v_cast (@Tvar) ctx x v), 
      consume_cast x, 
      consume_cast x) 
@@ -880,9 +891,8 @@ Global Instance Subst_type_type : Subst CEtype type type :=
   }.
 
 Definition subst_s_t {ctx} x v b :=
-  visit_t
+  visit_type
     (ctx := ctx)
-    [] 
     (inl (consume_cast x),
      subst_cast x v,
      subst_cast x v)
@@ -898,8 +908,7 @@ Definition get_size {ctx} (e : expr ctx) : size ctx.
 Defined.
 
 Definition subst_e_e {ctx} x v b := 
-  visit_e 
-    [] 
+  visit_expr 
     (inr (subst_v_cast (@Evar) ctx x v), 
      subst_cast x (get_size v)) 
     b.
@@ -910,9 +919,8 @@ Global Instance Subst_expr_expr : Subst CEexpr expr expr :=
   }.
 
 Definition subst_t_e {ctx} x v b :=
-  visit_e
+  visit_expr
     (ctx := ctx) 
-    []
     (inl (consume_cast x),
      subst_cast x v)
     b.
