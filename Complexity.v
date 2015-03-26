@@ -1,3 +1,6 @@
+Set Maximal Implicit Insertion.
+Set Implicit Arguments.
+
 Require Import Arith.
 Require Import List.
 Require Import Util.
@@ -68,31 +71,54 @@ Next Obligation.
   destruct i; simpl in *; intuition.
 Defined.
 
-Goal nthI (1 :: 2 :: nil) (Ordinal 2 1 eq_refl) = 2. eauto. Qed.
+(* Goal nthI (1 :: 2 :: nil) (Ordinal 2 1 eq_refl) = 2. Proof. eauto. Qed. *)
 
-Definition ceb a b :=
+Require Import Bool.
+Require Import Bedrock.Platform.Cito.ListFacts3.
+Require Import Bedrock.Platform.Cito.ListFacts4.
+Require Import Bedrock.Platform.Cito.GeneralTactics4.
+
+Definition option_eq_b {A} (eqb : A -> A -> bool) a b :=
   match a, b with
-    | Some CEexpr, Some CEexpr => true
-    | Some CEtype, Some CEtype => true
+    | Some a, Some b => eqb a b
     | None, None => true
     | _, _ => false
   end.
 
-Lemma ceb_iff a b : ceb a b = true <-> a = b.
-  admit.
+Lemma option_eq_b_iff {A eqb} (_ : forall (a b : A), eqb a b = true <-> a = b) a b : option_eq_b eqb a b = true <-> a = b.
+Proof.
+  destruct a; destruct b; simpl in *; split; intros H1; trivial; try discriminate.
+  { f_equal; eapply H; eauto. }
+  { inject H1; eapply H; eauto. }
 Qed.
 
-Goal ceb (nth_error (CEexpr :: CEtype :: nil) 1) (Some CEtype) = true. exact eq_refl. Qed.
+Definition ce_eq_b a b :=
+  match a, b with
+    | CEexpr, CEexpr => true
+    | CEtype, CEtype => true
+    | _, _ => false
+  end.
+
+Lemma ce_eq_b_iff a b : ce_eq_b a b = true <-> a = b.
+Proof.
+  destruct a; destruct b; simpl in *; split; intros; trivial; try discriminate.
+Qed.
+
+Definition ceb := option_eq_b ce_eq_b.
+
+Definition ceb_iff : forall a b, ceb a b = true <-> a = b := option_eq_b_iff ce_eq_b_iff.
+
+Goal ceb (nth_error (CEexpr :: CEtype :: nil) 1) (Some CEtype) = true. Proof. exact eq_refl. Qed.
+
+Inductive var t ctx : Type :=
+| Var n (_ : ceb (nth_error ctx n) (Some t) = true)
+.
 
 Section ctx.
 
   Variable ctx : context.
   
-  Inductive var t : Type :=
-  | Var n (_ : ceb (nth_error ctx n) (Some t) = true)
-  .
-
-  Definition var_path := (var CEexpr * path)%type.
+  Definition var_path := (var CEexpr ctx * path)%type.
 
   (* complexity expression *)
   Inductive cexpr :=
@@ -172,16 +198,5 @@ Section ctx.
 
 End ctx.
 
-Global Arguments Fscale {ctx} _ _ .
-Global Arguments Fadd {ctx} _ _ .
-Global Arguments Fmul {ctx} _ _ .
 Global Arguments F0 {ctx} .
 Global Arguments F1 {ctx} .
-Global Arguments Flog {ctx} _ _.
-Global Arguments Fmax {ctx} _ _ .
-Global Arguments Fexp {ctx} _ _ .
-Global Arguments Fvar {ctx} _ _ .
-Global Arguments Fminus1 {ctx} _ .
-Global Arguments stats_get {ctx} _ _ .
-Global Arguments summarize {ctx} _ .
-

@@ -10,7 +10,7 @@ Export Complexity.
 Inductive type ctx : Type :=
 | Tarrow : type ctx -> cexpr (CEexpr :: ctx) -> size (CEexpr :: ctx) ->  type (CEexpr :: ctx) -> type ctx
 (* polymorphism *)           
-| Tvar : var ctx CEtype -> type ctx
+| Tvar : var CEtype ctx -> type ctx
 | Tuniversal : cexpr ctx -> size ctx -> type (CEtype :: ctx) -> type ctx
 (* higher-order operators *)
 | Tabs : type (CEtype :: ctx) -> type ctx
@@ -28,7 +28,7 @@ Inductive type ctx : Type :=
 Coercion Tvar : var >-> type.
 
 Inductive expr ctx : Type :=
-| Evar : var ctx CEexpr -> expr ctx
+| Evar : var CEexpr ctx -> expr ctx
 | Eapp : expr ctx -> expr ctx -> expr ctx
 | Eabs : type ctx -> expr (CEexpr :: ctx) -> expr ctx
 | Elet : expr ctx -> expr (CEexpr :: ctx) -> expr ctx

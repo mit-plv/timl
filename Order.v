@@ -1,3 +1,6 @@
+Set Maximal Implicit Insertion.
+Set Implicit Arguments.
+
 Require Import List.
 Require Import Bedrock.Platform.Cito.GeneralTactics.
 Require Import NonnegRational.
@@ -85,8 +88,8 @@ Delimit Scope leE_scope with leE.
 
 Global Add Relation (cexpr ctx) leE
     reflexivity proved by leE_refl
-    symmetry proved by leE_symm
-    transitivity proved by leE_trans
+    symmetry proved by @leE_symm
+    transitivity proved by @leE_trans
       as leE_rel.
 
 (* precise less-than relation on cexprs *)
@@ -121,7 +124,7 @@ Qed.
 
 Global Add Relation (cexpr ctx) leF
     reflexivity proved by leF_refl
-    transitivity proved by leF_trans
+    transitivity proved by @leF_trans
       as leF_rel.
 
 (* less-than relation on cexprs ignoring constant addend *)
@@ -157,7 +160,7 @@ Qed.
 
 Global Add Relation (cexpr ctx) leC
     reflexivity proved by leC_refl
-    transitivity proved by leC_trans
+    transitivity proved by @leC_trans
       as leC_rel.
 
 (* big-O less-than relation on cexprs *)
@@ -195,7 +198,7 @@ Qed.
 
 Global Add Relation (cexpr ctx) leO
     reflexivity proved by leO_refl
-    transitivity proved by leO_trans
+    transitivity proved by @leO_trans
       as leO_rel.
 
 (* the default <= on cexpr will be leC *)
@@ -228,13 +231,11 @@ Qed.
 
 Global Add Relation (size ctx) leS
     reflexivity proved by leS_refl
-    transitivity proved by leS_trans
+    transitivity proved by @leS_trans
       as leS_rel.
 
 End ctx.
 
-Global Arguments leF {ctx} _ _ .
-Global Arguments leO {ctx} _ _ .
 Infix "<=" := leF : F.
 Infix "<<=" := leO (at level 70) : F.
 Infix "+" := Fadd : F.
