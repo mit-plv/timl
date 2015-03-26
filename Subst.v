@@ -394,29 +394,8 @@ Fixpoint iter {A} n f (x : A) :=
 (*
 Definition subst_list `{Subst V B} `{Shift V} (values : list V) (e : B) := 
   fst $ fold_left (fun p v => let '(b, n) := p in (substn n (shiftby n v) b, n - 1)) values (e, length values - 1).
-
-(* 'lower' is a 'dry run' of 'subst', not doing substitution, only lowering bound variables above n *)
-Class Lower t := 
-  {
-    lower : nat -> t -> t
-  }.
-
-Definition lower_f_f n nv path i :=
-  match nat_cmp nv n with 
-    | GT p _ _ => Fvar (#p, path) i
-    | _ => Fvar (#nv, path) i
-  end.
-
-Definition lower_f n f :=
-  visit_f
-    (lower_f_f n) 
-    f.
-
-Global Instance Lower_cexpr : Lower cexpr :=
-  {
-    lower := lower_f
-  }.
 *)
+
 Definition map_stats {ctx A} (f : cexpr ctx -> A) (ss : stats ctx) := 
   match ss with
     | (n0, n1) => (f n0, f n1)
@@ -497,25 +476,6 @@ Global Instance Shift_size : Shift size :=
     shiftby := @shift_s
   }.
 
-(*
-Definition lower_s_f n nv path :=
-  match nat_cmp nv n with 
-    | GT p _ _ => Svar (#p, path)
-    | _ => Svar (#nv, path)
-  end.
-
-Definition lower_s n s :=
-  visit_s
-    (lower_s_f n,
-     lower n) 
-    s.
-
-Global Instance Lower_size : Lower size :=
-  {
-    lower := lower_s
-  }.
- *)
-
 Fixpoint visit_t {ctx ctx'} nq (f : (forall nq, var (nq ++ ctx) CEtype -> type (nq ++ ctx')) * (forall nq, cexpr (nq ++ ctx) -> cexpr (nq ++ ctx')) * (forall nq, size (nq ++ ctx) -> size (nq ++ ctx'))) (b : type (nq ++ ctx)) : type (nq ++ ctx') :=
   let fv := fst (fst f) in
   let ff := snd (fst f) in
@@ -534,31 +494,11 @@ Fixpoint visit_t {ctx ctx'} nq (f : (forall nq, var (nq ++ ctx) CEtype -> type (
   end
 .
 
-Definition ctx := [CEexpr; CEtype].
-
-Eval compute in
-    (match Tvar (@Var ctx CEtype 1 (eq_refl true)) with
-       | Tvar x => get_i x
-       | _ => 100 end).
-
 (* transport_xxx : non-computable casting *)
 
 Definition transport_type {ctx} (t : type ctx) {ctx'} (H : ctx = ctx') : type ctx'.
   subst; eauto.
 Defined.
-
-Variable ctx' : context.
-Lemma ctx_ctx' : ctx = ctx'.
-  admit.
-Qed.
-
-(*
-(* won't compute *)
-Eval compute in
-    (match transport_type (Tvar (@Var ctx CEtype 1 (eq_refl true))) ctx_ctx' with
-       | Tvar x => get_i x
-       | _ => 100 end).
- *)
 
 (* cast_xxx : computable casting *)
 
@@ -584,15 +524,34 @@ Program Fixpoint cast_type {from} (t : type from) {to} (H : from = to) : type to
     | Tsum a b => Tsum (cast_type a H) (cast_type b H)
   end.
 
-Goal (match cast_type (Tvar (@Var ctx CEtype 1 (eq_refl true))) ctx_ctx' with
-        | Tvar x => get_i x
-        | _ => 100 end) = 1. eapply eq_refl. Qed.
+Module test_compute.
 
-Goal (match cast_type (Tvar (@Var ctx CEtype 1 (eq_refl true))) ctx_ctx' with
-        | Tvar x => match un_var x with
-                      | unVar n _ _ => n
-                    end
-        | _ => 100 end) = 1. eapply eq_refl. Qed.
+  Definition ctx := [CEexpr; CEtype].
+
+  Goal (match Tvar (@Var ctx CEtype 1 (eq_refl true)) with
+         | Tvar x => get_i x
+         | _ => 100 end) = 1. Proof. eapply eq_refl. Qed.
+
+  Variable ctx' : context.
+  Hypothesis ctx_ctx' : ctx = ctx'.
+
+  (* won't compute *)
+  (* Eval compute in *)
+  (*     (match transport_type (Tvar (@Var ctx CEtype 1 (eq_refl true))) ctx_ctx' with *)
+  (*        | Tvar x => get_i x *)
+  (*        | _ => 100 end). *)
+
+  Goal (match cast_type (Tvar (@Var ctx CEtype 1 (eq_refl true))) ctx_ctx' with
+          | Tvar x => get_i x
+          | _ => 100 end) = 1. Proof. eapply eq_refl. Qed.
+
+  Goal (match cast_type (Tvar (@Var ctx CEtype 1 (eq_refl true))) ctx_ctx' with
+          | Tvar x => match un_var x with
+                        | unVar n _ _ => n
+                      end
+          | _ => 100 end) = 1. Proof. eapply eq_refl. Qed.
+
+End test_compute.
 
 Class Cast {A} T :=
   {
@@ -627,66 +586,291 @@ Definition shift_t_f {ctx} new n nq (nv : var (nq ++ ctx) CEtype) : type (nq ++ 
   eapply insert_prefix.
 Defined.
 
-Definition shiftby_cast `{Shift A T, Cast _ T} {ctx} new n H nq b := cast (from := insert (nq ++ ctx) (length nq + n) new) (shiftby new (length nq + n) b) (to := nq ++ insert ctx n new) (H nq).
-
-Definition shift_t {ctx} new n (t : type ctx) : type (insert ctx n new).
+Definition shiftby_cast `{Shift A T, Cast _ T} {ctx} new n nq (b : T (nq ++ ctx)) : T (nq ++ insert ctx n new).
   refine
-    (visit_t [] (@shift_t_f ctx new n, shiftby_cast new n _, shiftby_cast new n _) t).
-  { intros; eapply insert_prefix. }
-  { intros; eapply insert_prefix. }
+    (cast (from := insert (nq ++ ctx) (length nq + n) new) (shiftby new (length nq + n) b) (to := nq ++ insert ctx n new) _).
+  eapply insert_prefix.
 Defined.
+
+Definition shift_t {ctx} new n t :=
+  visit_t [] (@shift_t_f ctx new n, shiftby_cast new n, shiftby_cast new n) t.
 
 Global Instance Shift_type : Shift type :=
   {
     shiftby := @shift_t
   }.
 
-(*here*)
+Lemma remove_prefix A (ls1 : list A) : forall ls2 n, removen (ls1 ++ ls2) (length ls1 + n) = ls1 ++ removen ls2 n.
+Proof.
+  induction ls1; simpl in *; intros; eauto; f_equal; eauto.
+Qed.
 
-Definition subst_t_t_f n v nv nq : type :=
-  match nat_cmp nv (n + nq) with 
-    | LT _ _ _ => #nv
-    | EQ _ => shiftby nq v
-    | GT p _ _ => #p (* variables above n+nq should be lowered *)
-  end.
+Definition lower_t_f {ctx} (ni : var ctx CEexpr) nq (niv : var (nq ++ ctx) CEtype) : type (nq ++ removen ctx ni).
+  refine
+    match un_var ni, un_var niv with
+      | unVar n Hn Hni, unVar nv Hnv Hniv =>
+        match nat_cmp nv (length nq + n) with 
+          | GT p Heq Hlt => Tvar #p
+          | LT p Heq Hlt => Tvar #nv
+          | EQ Heq => _
+        end
+    end.
+  {
+    copy_as Hn Hn'.
+    eapply ceb_iff in Hn'.
+    copy_as Hnv Hnv'.
+    eapply ceb_iff in Hnv'.
+    eapply ceb_iff.
+    subst.
+    simpl in *.
+    rewrite <- remove_prefix.
+    eapply remove_after; eauto.
+  }
+  {
+    copy_as Hn Hn'.
+    eapply ceb_iff in Hn'.
+    copy_as Hnv Hnv'.
+    eapply ceb_iff in Hnv'.
+    subst.
+    simpl in *.
+    erewrite nth_error_prefix in Hnv'; eauto.
+    discriminate.
+  }
+  {
+    copy_as Hn Hn'.
+    eapply ceb_iff in Hn'.
+    copy_as Hnv Hnv'.
+    eapply ceb_iff in Hnv'.
+    eapply ceb_iff.
+    subst.
+    simpl in *.
+    rewrite <- remove_prefix.
+    eapply remove_before; eauto.
+  }
+Defined.
 
-Definition subst_sub `{Subst V B, Shift V} n v nq b := substn (n + nq) (shiftby nq v) b.
+Definition subst_t_t_f {ctx} (ni : var ctx CEtype) (v : type (removen ctx ni)) nq (niv : var (nq ++ ctx) CEtype) : type (nq ++ removen ctx ni).
+  refine
+    match un_var ni, un_var niv with
+      | unVar n Hn Hni, unVar nv Hnv Hniv =>
+        match nat_cmp nv (length nq + n) with 
+          | LT p Heq Hlt => Tvar #nv
+          | EQ Heq => shiftby nq 0 v
+          | GT p Heq Hlt => Tvar #p (* variables above (length nq + n) should be lowered *)
+        end
+    end.
+  {
+    copy_as Hn Hn'.
+    eapply ceb_iff in Hn'.
+    copy_as Hnv Hnv'.
+    eapply ceb_iff in Hnv'.
+    eapply ceb_iff.
+    subst.
+    simpl in *.
+    rewrite <- remove_prefix.
+    eapply remove_after; eauto.
+  }
+  {
+    copy_as Hn Hn'.
+    eapply ceb_iff in Hn'.
+    copy_as Hnv Hnv'.
+    eapply ceb_iff in Hnv'.
+    eapply ceb_iff.
+    subst.
+    simpl in *.
+    rewrite <- remove_prefix.
+    eapply remove_before; eauto.
+  }
+Defined.
 
-Definition subst_size_type (n : nat) (v : size) (b : type) : type :=
+Definition subst_cast `{Subst var_t V B, Shift _ V, Cast _ V, Cast _ B} {ctx} (ni : var ctx var_t) (v : V (removen ctx ni)) nq (b : B (nq ++ ctx)) : B (nq ++ removen ctx ni).
+  refine
+    match un_var ni with
+      | unVar n Hn Hni =>
+        cast (substn #(length nq + n) (cast (shiftby nq 0 v) _) b) _
+    end.
+  {
+    subst; simpl in *.
+    symmetry; eapply remove_prefix.
+  }
+  {
+    subst; simpl in *.
+    eapply remove_prefix.
+  }
+  Grab Existential Variables.
+  {
+    copy_as Hn Hn'.
+    eapply ceb_iff in Hn'.
+    eapply ceb_iff.
+    unfold_all.
+    subst.
+    simpl in *.
+    eapply nth_error_prefix; eauto.
+  }
+Defined.
+
+Definition subst_size_type {ctx} n v b :=
   visit_t
-    0 
-    (lower_t_f n,
-     subst_sub n v,
-     subst_sub n v)
+    [] 
+    (@lower_t_f ctx n,
+     subst_cast n v,
+     subst_cast n v)
     b.
 
-Global Instance Subst_size_type : Subst size type :=
+Global Instance Subst_size_type : Subst CEexpr size type :=
   {
-    substn := subst_size_type
+    substn := @subst_size_type
   }.
 
-Definition lower_sub `{Lower B} n nq b := lower (n + nq) b.
-
-Definition subst_t_t n v b := 
-  visit_t 0 (subst_t_t_f n v, lower_sub n, lower_sub n) b.
-
-Global Instance Subst_type_type : Subst type type :=
+Definition lower_f_f {ctx} (ni : var ctx CEtype) (niv : var ctx CEexpr) (path : path) (i : stat_idx) : cexpr (removen ctx ni).
+  refine
+    match un_var ni, un_var niv with
+      | unVar n Hn Hni, unVar nv Hnv Hniv =>
+        match nat_cmp nv n with 
+          | GT p Heq Hlt => Fvar (#p, path) i
+          | LT p Heq Hlt => Fvar (#nv, path) i
+          | EQ Heq => _
+        end
+    end.
   {
-    substn := subst_t_t
+    copy_as Hn Hn'.
+    eapply ceb_iff in Hn'.
+    copy_as Hnv Hnv'.
+    eapply ceb_iff in Hnv'.
+    eapply ceb_iff.
+    subst.
+    simpl in *.
+    eapply remove_after; eauto.
+  }
+  {
+    copy_as Hn Hn'.
+    eapply ceb_iff in Hn'.
+    copy_as Hnv Hnv'.
+    eapply ceb_iff in Hnv'.
+    subst.
+    simpl in *.
+    erewrite Hn' in Hnv'.
+    discriminate.
+  }
+  {
+    copy_as Hn Hn'.
+    eapply ceb_iff in Hn'.
+    copy_as Hnv Hnv'.
+    eapply ceb_iff in Hnv'.
+    eapply ceb_iff.
+    subst.
+    simpl in *.
+    eapply remove_before; eauto.
+  }
+Defined.
+
+Definition lower_f {ctx} n f :=
+  visit_f
+    (@lower_f_f ctx n) 
+    f.
+
+(* 'lower' is a 'dry run' of 'subst', not doing substitution, only lowering bound variables above n *)
+Class Lower var_t T := 
+  {
+    lower : forall ctx (n : var ctx var_t), T ctx -> T (removen ctx n)
   }.
 
-Definition lower_t_f n nv nq : type :=
-  match nat_cmp nv (n + nq) with 
-    | GT p _ _ => #p
-    | _ => #nv
-  end.
+Arguments lower {_ _ _ ctx} _ _ .
 
-Definition lower_t n t :=
+Global Instance Lower_cexpr : Lower CEtype cexpr :=
+  {
+    lower := @lower_f
+  }.
+
+Definition lower_s_f {ctx} (ni : var ctx CEtype) (niv : var ctx CEexpr) (path : path) : size (removen ctx ni).
+  refine
+    match un_var ni, un_var niv with
+      | unVar n Hn Hni, unVar nv Hnv Hniv =>
+        match nat_cmp nv n with 
+          | GT p Heq Hlt => Svar (#p, path)
+          | LT p Heq Hlt => Svar (#nv, path)
+          | EQ Heq => _
+        end
+    end.
+  {
+    copy_as Hn Hn'.
+    eapply ceb_iff in Hn'.
+    copy_as Hnv Hnv'.
+    eapply ceb_iff in Hnv'.
+    eapply ceb_iff.
+    subst.
+    simpl in *.
+    eapply remove_after; eauto.
+  }
+  {
+    copy_as Hn Hn'.
+    eapply ceb_iff in Hn'.
+    copy_as Hnv Hnv'.
+    eapply ceb_iff in Hnv'.
+    subst.
+    simpl in *.
+    erewrite Hn' in Hnv'.
+    discriminate.
+  }
+  {
+    copy_as Hn Hn'.
+    eapply ceb_iff in Hn'.
+    copy_as Hnv Hnv'.
+    eapply ceb_iff in Hnv'.
+    eapply ceb_iff.
+    subst.
+    simpl in *.
+    eapply remove_before; eauto.
+  }
+Defined.
+
+Definition lower_s {ctx} n s :=
+  visit_s
+    (@lower_s_f ctx n,
+     lower n) 
+    s.
+
+Global Instance Lower_size : Lower CEtype size :=
+  {
+    lower := @lower_s
+  }.
+
+Definition lower_cast `{Lower var_t B, Cast _ B} {ctx} (ni : var ctx var_t) nq (b : B (nq ++ ctx)) : B (nq ++ removen ctx ni).
+  refine
+    match un_var ni with
+      | unVar n Hn Hni =>
+        cast (lower #(length nq + n) b) _
+    end.
+  {
+    subst; simpl in *.
+    eapply remove_prefix.
+  }
+  Grab Existential Variables.
+  {
+    copy_as Hn Hn'.
+    eapply ceb_iff in Hn'.
+    eapply ceb_iff.
+    unfold_all.
+    subst.
+    simpl in *.
+    eapply nth_error_prefix; eauto.
+  }
+Defined.
+
+Definition subst_t_t {ctx} n v b := 
+  visit_t [] (@subst_t_t_f ctx n v, lower_cast n, lower_cast n) b.
+
+Global Instance Subst_type_type : Subst CEtype type type :=
+  {
+    substn := @subst_t_t
+  }.
+
+Definition lower_t {ctx} n t :=
   visit_t
-    0
-    (lower_t_f n,
-     lower_sub n,
-     lower_sub n)
+    []
+    (@lower_t_f ctx n,
+     lower_cast n,
+     lower_cast n)
     t.
 
 Global Instance Lower_type : Lower type :=
@@ -740,7 +924,7 @@ Definition subst_e_e_f n v nv nq : expr :=
   end.
 
 Definition subst_e_e n v b := 
-  visit_e 0 (subst_e_e_f n v, lower_sub n) b.
+  visit_e 0 (subst_e_e_f n v, lower_cast n) b.
 
 Global Instance Subst_expr_expr : Subst expr expr :=
   {
@@ -757,7 +941,7 @@ Definition subst_t_e n (v : type) (b : expr) : expr :=
   visit_e
     0
     (lower_e_f n,
-     subst_sub n v)
+     subst_cast n v)
     b.
 
 Global Instance Subst_type_expr : Subst type expr :=
@@ -766,7 +950,7 @@ Global Instance Subst_type_expr : Subst type expr :=
   }.
 
 Definition lower_e n e :=
-  visit_e 0 (lower_e_f n, lower_sub n) e.
+  visit_e 0 (lower_e_f n, lower_cast n) e.
 
 Global Instance Lower_expr : Lower expr :=
   {
