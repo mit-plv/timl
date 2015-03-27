@@ -222,8 +222,6 @@ Goal (findtc (Var (t := CEtype) (ctx := [CEtype; CEtype]) 1 (eq_refl true)) (TEk
 
 Coercion var_to_size {ctx} (x : var CEexpr ctx) : size ctx := Svar (x, []).
 
-Arguments S0 {ctx} .
-
 Inductive typing {ctx} : tcontext ctx -> expr ctx -> type ctx -> cexpr ctx -> size ctx -> Prop :=
 | TPvar Γ x : 
     typing Γ (Evar x) (cast (shiftby (firstn (S x) ctx) (type_of_te (findtc x Γ))) (firstn_skipn _ ctx)) F0 (Svar' [] x)

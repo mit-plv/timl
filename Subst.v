@@ -69,6 +69,8 @@ Global Instance Add_nat : Add nat nat nat :=
     add := Peano.plus
   }.
 
+Definition S0 {ctx} : size ctx := Sstats (F0, F0).
+
 Section ctx.
 
   Variable ctx : context.
@@ -110,8 +112,6 @@ Section ctx.
       | Shide t => Some t
       | _ => None
     end.
-
-  Definition S0 : size ctx := Sstats (F0, F0).
 
   Definition query_cmd cmd s :=
     match cmd, s with
@@ -221,81 +221,44 @@ Proof.
   eapply ce_eq_b_iff_conv.
 Qed.
 
-(* transport_xxx : non-computable casting *)
+(* transport : non-computable casting *)
 
-Definition transport_type {ctx} (t : type ctx) {ctx'} (H : ctx = ctx') : type ctx'.
+Definition transport {T} {from : context} (src : T from) {to} (H : from = to) : T to.
   subst; eauto.
 Defined.
 
-(* cast_xxx : computable casting *)
+(* cast : computable casting *)
 
-Definition cast_var {vart} {from} (src : var vart from) {to} (H : from = to) : var vart to.
-  refine
-    match un_var src with
-      | unVar n Hn Hsrc =>
-        Var src _
-    end.
-  subst; simpl in *.
-  eauto.
+Definition cast' : forall {from to : context} {T} (src : T from) (H : from = to), T to.
+  refine 
+    (fix cast {from to : context} {struct from} : forall {T} (src : T from) (H : from = to), T to :=
+       match from, to return forall {T} (src : T from) (H : from = to), T to with
+         | a :: from', b :: to' => _
+         | nil, nil => _
+         | _, _ => _
+       end); try discriminate.
+  {
+    intros T src H.
+    exact src.
+  }
+  {
+    destruct a; destruct b; try solve [simpl in *; discriminate].
+    {
+      intros T src H.
+      eapply cast with (T := fun ctx => T (CEtype :: ctx)).
+      - exact src.
+      - inject H; eauto.
+    }
+    {
+      intros T src H.
+      eapply cast with (T := fun ctx => T (CEexpr :: ctx)).
+      - exact src.
+      - inject H; eauto.
+    }
+  }
 Defined.
 
-Class Cast {A} T :=
-  {
-    cast : forall (from : A), T from -> forall to, from = to -> T to
-  }.
-
-Arguments cast {A T _} {from} _ {to} _ .
-
-Instance Cast_var t : Cast (var t) :=
-  {
-    cast := @cast_var t
-  }.
-
-Definition cast_cexpr {from} (src : cexpr from) {to} (H : from = to) : cexpr to.
-  admit.
-Defined.
-
-Instance Cast_cexpr : Cast cexpr :=
-  {
-    cast := @cast_cexpr
-  }.
-
-Definition cast_size {from} (src : size from) {to} (H : from = to) : size to.
-  admit.
-Defined.
-
-Instance Cast_size : Cast size :=
-  {
-    cast := @cast_size
-  }.
-
-Program Fixpoint cast_type {from} (src : type from) {to} (H : from = to) : type to :=
-  match src with
-    | Tvar x => Tvar (cast x H)
-    | Tarrow a c s b => Tarrow (cast_type a H) (cast c _) (cast s _) (cast_type b _)
-    | Tuniversal c s t => Tuniversal (cast c H) (cast s H) (cast_type t _)
-    | Tabs t => Tabs (cast_type t _)
-    | Tapp a b => Tapp (cast_type a H) (cast_type b H)
-    | Trecur t => Trecur (cast_type t _)
-    | Thide t => Thide (cast_type t H)
-    | Tunit => Tunit
-    | Tprod a b => Tprod (cast_type a H) (cast_type b H)
-    | Tsum a b => Tsum (cast_type a H) (cast_type b H)
-  end.
-
-Instance Cast_type : Cast type :=
-  {
-    cast := @cast_type
-  }.
-
-Definition cast_expr {from} (t : expr from) {to} (H : from = to) : expr to.
-  admit.
-Defined.
-
-Instance Cast_expr : Cast expr :=
-  {
-    cast := @cast_expr
-  }.
+Definition cast {T} {from} (src : T from) {to} (H : from = to) : T to := @cast' from to T src H.
 
 Module test_compute.
 
@@ -305,20 +268,20 @@ Module test_compute.
          | Tvar x => get_i x
          | _ => 100 end) = 1. Proof. eapply eq_refl. Qed.
 
-  Variable ctx' : context.
+  Definition ctx' := [CEexpr; CEtype].
   Hypothesis ctx_ctx' : ctx = ctx'.
 
   (* won't compute *)
   (* Eval compute in *)
-  (*     (match transport_type (Tvar (@Var ctx CEtype 1 (eq_refl true))) ctx_ctx' with *)
+  (*     (match transport (Tvar (@Var CEtype ctx 1 (eq_refl true))) ctx_ctx' with *)
   (*        | Tvar x => get_i x *)
   (*        | _ => 100 end). *)
 
-  Goal (match cast_type (Tvar (@Var CEtype ctx 1 (eq_refl true))) ctx_ctx' with
+  Goal (match cast (Tvar (@Var CEtype ctx 1 (eq_refl true))) ctx_ctx' with
           | Tvar x => get_i x
           | _ => 100 end) = 1. Proof. eapply eq_refl. Qed.
 
-  Goal (match cast_type (Tvar (@Var CEtype ctx 1 (eq_refl true))) ctx_ctx' with
+  Goal (match cast (Tvar (@Var CEtype ctx 1 (eq_refl true))) ctx_ctx' with
           | Tvar x => match un_var x with
                         | unVar n _ _ => n
                       end
@@ -510,7 +473,7 @@ Class Consume var_t T :=
 
 Arguments consume {_ _ _ ctx} _ _ .
 
-Definition consume_cast `{Consume var_t B, Cast _ B} {ctx} (x : var var_t ctx) qctx (b : B (qctx ++ ctx)) : B (qctx ++ removen ctx x).
+Definition consume_cast `{Consume var_t B} {ctx} (x : var var_t ctx) qctx (b : B (qctx ++ ctx)) : B (qctx ++ removen ctx x).
   refine
     match un_var x with
       | unVar n Hn Hni =>
@@ -642,7 +605,7 @@ Arguments shift {_ _ _ _} _ _ _ .
 Definition shift_from `{Shift T} {ctx} new n := shift (ctx := ctx) [new] n.
 Definition shift1 `{Shift T} {ctx} new := shift_from (ctx := ctx) new 0.
 
-Definition shift_cast `{Shift A T, Cast _ T} {ctx} new n qctx (b : T (qctx ++ ctx)) : T (qctx ++ insert ctx n new).
+Definition shift_cast `{Shift _ T} {ctx : context} new n qctx (b : T (qctx ++ ctx)) : T (qctx ++ insert ctx n new).
   refine
     (cast (shift new (length qctx + n) b) _).
   eapply insert_prefix.
@@ -779,7 +742,7 @@ Definition subst_v {vart T ctx} (x : var vart ctx) (xv : var vart ctx) (f : opti
   }
 Defined.
   
-Definition subst_v_cast `{Shift _ T, Cast _ T} {vart} (f : forall ctx, var vart ctx -> T ctx) ctx (x : var vart ctx) (v : T (removen ctx x)) qctx (xv : var vart (qctx ++ ctx)) : T (qctx ++ removen ctx x).
+Definition subst_v_cast `{Shift _ T} {vart} (f : forall ctx, var vart ctx -> T ctx) ctx (x : var vart ctx) (v : T (removen ctx x)) qctx (xv : var vart (qctx ++ ctx)) : T (qctx ++ removen ctx x).
   refine
     match un_var x with
       | unVar n Hn Hni =>
@@ -812,7 +775,7 @@ Definition subst_v_cast `{Shift _ T, Cast _ T} {vart} (f : forall ctx, var vart 
   }
 Defined.
 
-Definition subst_cast `{Subst var_t V B, Shift _ V, Cast _ V, Cast _ B} {ctx} (x : var var_t ctx) (v : V (removen ctx x)) qctx (b : B (qctx ++ ctx)) : B (qctx ++ removen ctx x).
+Definition subst_cast `{Subst var_t V B, Shift _ V} {ctx} (x : var var_t ctx) (v : V (removen ctx x)) qctx (b : B (qctx ++ ctx)) : B (qctx ++ removen ctx x).
   refine
     match un_var x with
       | unVar n Hn Hni =>
