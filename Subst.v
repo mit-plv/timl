@@ -965,3 +965,19 @@ Global Instance Subst_type_expr : Subst CEtype type expr :=
   {
     substx := @subst_t_e
   }.
+
+Fixpoint repeat {A} (a : A) n :=
+  match n with
+    | O => nil
+    | S n => a :: repeat a n
+  end.
+
+Fixpoint subst_list `{Subst vart V B, Shift _ V} {ctx} (vs : list (V ctx)) :=
+  match vs return B (repeat vart (length vs) ++ ctx) -> B ctx with
+    | nil => fun b => b
+    | v :: vs =>
+      fun b =>
+        let b := subst (shift (repeat vart (length vs)) 0 v) b in
+        subst_list vs b
+  end.
+

@@ -9,6 +9,11 @@ Import ListNotations.
 Local Open Scope list_scope.
 Local Open Scope prog_scope.
 
+Local Notation open_type := type.
+Local Notation open_expr := expr.
+Local Notation type := (open_type []).
+Local Notation expr := (open_expr []).
+
 Inductive IsValue : expr -> Prop :=
 | Vvar x : IsValue (Evar x)
 | Vabs t e : IsValue (Eabs t e)
@@ -25,7 +30,7 @@ Inductive econtext :=
 | ECempty
 | ECapp1 (f : econtext) (arg : expr)
 | ECapp2 (f : expr) (arg : econtext) : IsValue f -> econtext
-| EClet (def : econtext) (main : expr)
+| EClet (def : econtext) (main : open_expr [CEexpr])
 | ECtapp (f : econtext) (t : type)
 | ECfold (t : type) (_ : econtext)
 | ECunfold (_ : econtext)
@@ -35,8 +40,8 @@ Inductive econtext :=
 | ECpair2 (a : expr) (b : econtext) : IsValue a -> econtext
 | ECinl (_ : type) (_ : econtext)
 | ECinr (_ : type) (_ : econtext)
-| ECmatch_pair (target : econtext) (_ : expr)
-| ECmatch_sum (target : econtext) (a b : expr)
+| ECmatch_pair (target : econtext) (_ : open_expr [CEexpr; CEexpr])
+| ECmatch_sum (target : econtext) (a b : open_expr [CEexpr])
 .
 
 Inductive plug : econtext -> expr -> expr -> Prop :=

@@ -51,12 +51,6 @@ Local Open Scope prog_scope.
 Definition add_typing {ctx} t T := TEtyping (ctx := ctx) t ::: T.
 Definition add_kinding {ctx} T := TEkinding (ctx := ctx) ::: T.
 
-Fixpoint repeat {A} (a : A) n :=
-  match n with
-    | O => nil
-    | S n => a :: repeat a n
-  end.
-
 Fixpoint add_typings {ctx} ls T :=
   match ls return tcontext (repeat CEexpr (length ls) ++ ctx) with
     | nil => T
@@ -67,15 +61,6 @@ Fixpoint add_typings {ctx} ls T :=
 
 Unset Maximal Implicit Insertion.
 Unset Implicit Arguments.
-
-Fixpoint subst_list `{Subst vart V B, Shift _ V} {ctx} (vs : list (V ctx)) :=
-  match vs return B (repeat vart (length vs) ++ ctx) -> B ctx with
-    | nil => fun b => b
-    | v :: vs =>
-      fun b =>
-        let b := subst (shift (repeat vart (length vs)) 0 v) b in
-        subst_list vs b
-  end.
 
 Inductive kinding {ctx} : tcontext ctx -> type ctx -> kind -> Prop :=
 | Kvar T x : kinding T x 0

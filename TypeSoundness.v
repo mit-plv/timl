@@ -1,10 +1,22 @@
 (* Type soundness *)
 
 Require Import List.
+Require Import Program.
+Require Import Util.
 Require Import Typing EvalCBV.
 
 Import ListNotations.
 Local Open Scope list_scope.
+
+Local Notation open_var := var.
+Local Notation open_cexpr := cexpr.
+Local Notation open_size := size.
+Local Notation open_type := type.
+Local Notation open_expr := expr.
+Local Notation cexpr := (open_cexpr []).
+Local Notation size := (open_size []).
+Local Notation type := (open_type []).
+Local Notation expr := (open_expr []).
 
 (* encoding of fix by recursive-type :
      fix f(x).e := \y. (unfold v) v y 
@@ -18,14 +30,14 @@ Inductive steps : expr -> expr -> Prop :=
 .
 
 Notation "⊢" := typing.
-Definition typingsim T e τ := exists c s, ⊢ T e τ c s.
+Definition typingsim e τ := exists c s, ⊢ TCnil e τ c s.
 Notation "|~" := typingsim.
 
 Definition nostuck e := forall e', steps e e' -> IsValue e' \/ exists e'', step e' e''.
 
 Theorem sound_wrt_nostuck :
   forall e τ,
-    |~ [] e τ ->
+    |~ e τ ->
     nostuck e.
 Proof.
   admit.
@@ -61,25 +73,25 @@ Definition get_csize (e : expr) : csize.
   admit.
 Defined.
 
-Definition nat_of_cexpr (c : cexpr) : option nat.
+Definition nat_of_cexpr (c : cexpr) : nat.
   admit.
 Defined.
 
-Definition csize_to_size (ξ : csize) : size.
+Coercion c2s (ξ : csize) {ctx} : open_size ctx.
   admit.
 Defined.
 
-Coercion csize_to_size : csize >-> size.
-
-Instance Subst_csize_cexpr : Subst csize cexpr :=
+(*
+Instance Subst_csize_cexpr : Subst CEexpr (fun _ => csize) open_cexpr :=
   {
-    substn n v b := substn n (v : size) b
+    substx ctx n v b := substx n (c2s v) b
   }.
 
-Instance Subst_csize_size : Subst csize size :=
+Instance Subst_csize_size : Subst CEexpr (fun _ => csize) open_size :=
   {
-    substn n v b := substn n (v : size) b
+    substx ctx n v b := substx n (c2s v) b
   }.
+*)
 
 Definition le_csize_size : csize -> size -> Prop.
   admit.
@@ -96,13 +108,17 @@ Infix "≤" := le (at level 70).
 Definition terminatesWith e n v := (nsteps e n v /\ IsValue v)%type.
 Notation "⇓" := terminatesWith.
 
+(*
 Definition asNat P c :=
   (exists nc, nat_of_cexpr c = Some nc /\ P nc)%type.
 Notation "⌊ n | P ⌋" := (asNat (fun n => P)).
+*)
 
 Infix "×" := Tprod (at level 40).
 Infix "+" := Tsum.
-Notation "e ↓ τ" := (IsValue e /\ |~ [] e τ) (at level 51).
+Notation "e ↓ τ" := (IsValue e /\ |~ e τ) (at level 51).
+
+Notation "! n" := (c2s n) (at level 3).
 
 Definition sound_wrt_bounded :=
   forall f τ₁ c s τ₂, 
@@ -111,13 +127,10 @@ Definition sound_wrt_bounded :=
       forall v,
         v ↓ τ₁ ->
         let ξ := |v| in
-        exists n', 
-          nat_of_cexpr (subst ξ c) = Some n' /\
-          (* any reduction sequence is bounded by C * c(ξ) *)
-          forall n e',
-              nsteps (Eapp f v) n e' -> n ≤ C * n'.
+        (* any reduction sequence is bounded by C * c(ξ) *)
+        forall n e',
+          nsteps (Eapp f v) n e' -> n ≤ C * (nat_of_cexpr (subst !ξ c)).
 
-Require Import Util.
 Local Open Scope prog_scope.
 
 Inductive stepex : expr -> bool -> expr -> Prop :=
@@ -151,8 +164,6 @@ Inductive nstepsex : expr -> nat -> nat -> expr -> Prop :=
 | NEsteps0 e : nstepsex e 0 0 e
 | NEstepsS e1 b e2 n m e3 : stepex e1 b e2 -> nstepsex e2 n m e3 -> nstepsex e1 (S n) ((if b then 1 else 0) + m) e3
 .
-
-Definition cexpr_to_nat (c : cexpr) := default 0 (nat_of_cexpr c).
 
 (* A Parametric Higher-Order Abstract Syntax (PHOAS) encoding for a second-order modal logic (LSLR) *)
 
@@ -220,8 +231,6 @@ Section relOpen.
   Next Obligation.
     exact (x f (a X)).
   Defined.
-
-  Require Import Program.
 
   Program Fixpoint liftToOpen2 C {n1 n2 T} (f : (T -> rel var n1) -> rel var n2) (a : T -> relOpen C n1) : relOpen C n2 :=
     match C with
@@ -362,7 +371,6 @@ End TestNotations.
 
 (* An Logical Step-indexed Logical Relation (LSLR) for boundedness *)
 
-Require Import Util.
 Local Open Scope prog_scope.
 
 (*
@@ -375,81 +383,82 @@ End substs.
 Arguments substs_sem {ctx} _ _ _ .
  *)
 
-Section substs.
+(* closing substitutions *)
+Section csubsts.
   
   Variable var : nat -> Type.
   Variable ctx : Ctx.
 
   Inductive SubstEntry :=
   | SEtype (_ : relOpen var ctx (TTother type)) (_ : relOpen var ctx 1)
-  | SEexpr (_ : relOpen var ctx TTexpr) (_ : relOpen var ctx (TTother csize))
+  | SEexpr (_ : relOpen var ctx (TTother csize))
   .
 
-  Definition substs : Type := list SubstEntry.
+  Definition csubsts (lctx : context) : Type := list SubstEntry.
 
-  Definition substs_type : substs -> type -> type.
+  Definition csubsts_type {lctx} : csubsts lctx -> open_type lctx -> type.
     admit.
   Defined.
 
-  Coercion substs_type : substs >-> Funclass.
+  Coercion csubsts_type : csubsts >-> Funclass.
 
-  Definition substs_sem : substs -> nat -> relOpen var ctx 1.
+  Definition csubsts_sem {lctx} : csubsts lctx -> open_var CEtype lctx -> relOpen var ctx 1.
     admit.
   Defined.
 
-  Global Instance Apply_substs_nat_rel : Apply substs nat (relOpen var ctx 1) :=
+  Global Instance Apply_csubsts_nat_rel lctx : Apply (csubsts lctx) (open_var CEtype lctx) (relOpen var ctx 1) :=
     {
-      apply := substs_sem
+      apply := csubsts_sem
     }.
 
-  Definition substs_cexpr : substs -> cexpr -> cexpr.
+  Definition csubsts_cexpr {lctx} : csubsts lctx -> open_cexpr lctx -> cexpr.
     admit.
   Defined.
 
-  Global Instance Apply_substs_cexpr_cexpr : Apply substs cexpr cexpr :=
+  Global Instance Apply_csubsts_cexpr_cexpr lctx : Apply (csubsts lctx) (open_cexpr lctx) cexpr :=
     {
-      apply := substs_cexpr
+      apply := csubsts_cexpr
     }.
 
-  Definition substs_size : substs -> size -> size.
+  Definition csubsts_size {lctx} : csubsts lctx -> open_size lctx -> size.
     admit.
   Defined.
 
-  Global Instance Apply_substs_size_size : Apply substs size size :=
+  Global Instance Apply_csubsts_size_size lctx : Apply (csubsts lctx) (open_size lctx) size :=
     {
-      apply := substs_size
+      apply := csubsts_size
     }.
 
-  Definition substs_expr : substs -> expr -> expr.
+  Definition csubsts_expr {lctx} : csubsts lctx -> (open_expr lctx) -> expr.
     admit.
   Defined.
 
-  Global Instance Apply_substs_expr_expr : Apply substs expr expr :=
+  Global Instance Apply_csubsts_expr_expr lctx : Apply (csubsts lctx) (open_expr lctx) expr :=
     {
-      apply := substs_expr
+      apply := csubsts_expr
     }.
 
-  Definition add_csize : csize -> substs -> substs.
+  Definition add_csize {lctx} : csize -> csubsts lctx -> csubsts (CEexpr :: lctx).
     admit.
   Defined.
 
-  Global Instance Add_csize_substs : Add csize substs substs :=
+  Global Instance Add_csize_csubsts lctx : Add csize (csubsts lctx) (csubsts (CEexpr :: lctx)) :=
     {
       add := add_csize
     }.
 
-  Definition add_pair : (type * relOpen var ctx 1) -> substs -> substs.
+  Definition add_pair {lctx} : (type * relOpen var ctx 1) -> csubsts lctx -> csubsts (CEtype :: lctx).
     admit.
   Defined.
 
-  Global Instance Add_pair_substs : Add (type * relOpen var ctx 1) (substs) (substs) :=
+  Global Instance Add_pair_csubsts lctx : Add (type * relOpen var ctx 1) (csubsts lctx) (csubsts (CEtype :: lctx)) :=
     {
       add := add_pair
     }.
 
-End substs.
+End csubsts.
 
-Arguments substs_sem {var ctx} _ _ .
+Arguments csubsts_sem {_ ctx lctx} _ _ .
 
 (* A "step-indexed" kriple model *)
 (* the logical relation *)
@@ -457,8 +466,8 @@ Section LR.
   
   Variable ctx : Ctx.
 
-  Program Fixpoint E' (V : nat -> forall var, substs var ctx -> relOpen var ctx 1) τ (n : nat) (s : size) (Ct : nat) {var} (ρ : substs var ctx) {measure n} : relOpen var ctx 1 :=
-    \e, ⌈|~ [] e (ρ τ)⌉ /\ 
+  Program Fixpoint E' {lctx} (V : nat -> forall var, csubsts var ctx lctx -> relOpen var ctx 1) τ (n : nat) (s : size) (Ct : nat) {var} (ρ : csubsts var ctx lctx) {measure n} : relOpen var ctx 1 :=
+    \e, ⌈|~ e (ρ τ)⌉ /\ 
         ∀1 n', ∀ e', 
           (⌈nstepsex e n' 0 e'⌉ ⇒ ⌈n' ≤ n⌉ /\ (⌈IsValue e'⌉ ⇒ e' ∈ V Ct var ρ /\ ⌈|e'| ≤ s⌉)) /\
           match n with
@@ -470,15 +479,19 @@ Section LR.
     omega.
   Defined.
 
-  Fixpoint V τ (Ct : nat) {var} (ρ : substs var ctx) {struct τ} : relOpen var ctx 1 :=
+  Unset Maximal Implicit Insertion.
+  Unset Implicit Arguments.
+  (*here*)
+
+  Fixpoint relvii {lctx} (τ : open_type lctx) (Ct : nat) {var} (ρ : csubsts var ctx lctx) {struct τ} : relOpen var ctx 1 :=
     match τ with
-      | Tvar α => substs_sem ρ α
+      | Tvar α => csubsts_sem ρ α
       | Tunit => \v, ⌈v ↓ τ⌉
-      | τ₁ × τ₂ => \v, ⌈v ↓ ρ τ⌉ /\ ∃ a b, ⌈v = Epair a b⌉ /\ a ∈ V τ₁ Ct ρ /\ b ∈ V τ₂ Ct ρ
-      | τ₁ + τ₂ => \v, ⌈v ↓ ρ τ⌉ /\ ∃ v', (⌈v = Einl τ₂ v'⌉ /\ v' ∈ V τ₁ Ct ρ) /\ ⌈v = Einr τ₁ v'⌉ /\ v' ∈ V τ₂ Ct ρ
-      | Tarrow τ₁ c s τ₂ => \v, ⌈v ↓ ρ τ⌉ /\ ∀ v₁, v₁ ∈ V τ₁ Ct ρ ⇒ Eapp v v₁ ∈ E' (V τ₂) τ₂ (cexpr_to_nat (subst (|v₁|) c)) (subst (|v₁|) s) Ct (add (|v₁|) ρ)
-      | Tuniversal c s τ => \v, ⌈v ↓ ρ τ⌉ /\ ∀1 τ', ∀2 S, VSet τ' S ⇒ Etapp v τ' ∈ E' (V τ) τ (cexpr_to_nat c) s Ct (add (τ', S) ρ)
-      | Trecur τ => @S, \v, ⌈v ↓ ρ τ⌉ /\ ∃ v', ⌈v = Efold τ v'⌉ /\ ▹ (v' ∈ V τ Ct (add (ρ τ, S) ρ))
+      | τ₁ × τ₂ => \v, ⌈v ↓ ρ τ⌉ /\ ∃ a b, ⌈v = Epair a b⌉ /\ a ∈ relvii τ₁ Ct ρ /\ b ∈ relvii τ₂ Ct ρ
+      | τ₁ + τ₂ => \v, ⌈v ↓ ρ τ⌉ /\ ∃ v', (⌈v = Einl τ₂ v'⌉ /\ v' ∈ relvii τ₁ Ct ρ) /\ ⌈v = Einr τ₁ v'⌉ /\ v' ∈ relvii τ₂ Ct ρ
+      | Tarrow τ₁ c s τ₂ => \v, ⌈v ↓ ρ τ⌉ /\ ∀ v₁, v₁ ∈ relvii τ₁ Ct ρ ⇒ Eapp v v₁ ∈ E' (relvii τ₂) τ₂ (nat_of_cexpr (subst (|v₁|) c)) (subst (|v₁|) s) Ct (add (|v₁|) ρ)
+      | Tuniversal c s τ₁ => \v, ⌈v ↓ ρ τ⌉ /\ ∀1 τ', ∀2 S, VSet τ' S ⇒ Etapp v τ' ∈ E' (relvii τ₁) τ₁ (nat_of_cexpr c) s Ct (add (τ', S) ρ)
+      | Trecur τ₁ => @S, \v, ⌈v ↓ ρ τ⌉ /\ ∃ v', ⌈v = Efold (ρ τ) v'⌉ /\ ▹ (v' ∈ relvii τ₁ Ct (add (ρ τ, S) ρ))
       | _ => \_, ⊥
     end
   .
@@ -526,7 +539,7 @@ Global Instance Lift_Rel ctx range : Lift (Rel ctx range) (fun new => Rel (new :
     lift := lift_Rel
   }.
 
-Definition Substs ctx := forall var, substs var ctx.
+Definition Substs ctx := forall var, csubsts var ctx.
 
 Definition lift_Substs {ctx} new : Substs ctx -> Substs (new :: ctx).
   admit.
@@ -665,8 +678,6 @@ Definition related Γ (e : expr) τ (c : cexpr) (s : size) :=
        (ρ $ e) ∈ E τ (Ct * cexpr_to_nat (ρ $ c))%nat (ρ $ s) Ct ρ)%type.
 
 Notation "⊩" := related.
-
-Require Import SubstFacts.
 
 Lemma foundamental :
   forall Γ e τ c s,
