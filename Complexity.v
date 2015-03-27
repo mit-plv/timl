@@ -51,28 +51,6 @@ Global Instance Leb_nat : Leb nat nat :=
 Definition boolProp b := b = true.
 Coercion boolProp : bool >-> Sortclass.
 
-Inductive ordinal n :=
-| Ordinal m (_ : m <? n = true)
-.
-
-Notation "''I_' n" := (ordinal n) (at level 8, n at level 2, format "''I_' n").
-Notation "# n" := (Ordinal _ n (eq_refl true)) (at level 3).
-
-Program Fixpoint nthI {A} (ls : list A) (i : 'I_(length ls)) :=
-  match ls with
-    | x :: xs =>
-      match i with
-        | Ordinal 0 _ => x
-        | Ordinal (S n) _ => nthI xs #n
-      end
-    | nil => _
-  end.
-Next Obligation.
-  destruct i; simpl in *; intuition.
-Defined.
-
-(* Goal nthI (1 :: 2 :: nil) (Ordinal 2 1 eq_refl) = 2. Proof. eauto. Qed. *)
-
 Require Import Bool.
 Require Import Bedrock.Platform.Cito.ListFacts3.
 Require Import Bedrock.Platform.Cito.ListFacts4.

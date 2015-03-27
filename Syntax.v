@@ -25,6 +25,8 @@ Inductive type ctx : Type :=
 | Tsum : type ctx -> type ctx -> type ctx
 .
 
+Arguments Tunit {ctx} .
+
 Coercion Tvar : var >-> type.
 
 Inductive expr ctx : Type :=
@@ -45,6 +47,8 @@ Inductive expr ctx : Type :=
 | Ematch_pair : expr ctx -> expr (CEexpr :: CEexpr :: ctx) -> expr ctx
 | Ematch_sum : expr ctx -> expr (CEexpr :: ctx) -> expr (CEexpr :: ctx) -> expr ctx
 .
+
+Arguments Ett {ctx} .
 
 Coercion Evar : var >-> expr.
 

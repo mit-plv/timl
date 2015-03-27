@@ -151,7 +151,8 @@ Coercion get_i {t ctx} (x : var t ctx) :=
     | Var i _ => i
   end.
 
-Coercion nat_of_ord n (i : 'I_n) := match i with Ordinal m _ => m end.
+(* Definition removen {A} ls n := @firstn A n ls ++ skipn (S n) ls. *)
+(* Arguments removen {_} _ _ / . *)
 
 Fixpoint removen {A} (ls : list A) n :=
   match ls with
@@ -277,7 +278,7 @@ Program Fixpoint cast_type {from} (src : type from) {to} (H : from = to) : type 
     | Tapp a b => Tapp (cast_type a H) (cast_type b H)
     | Trecur t => Trecur (cast_type t _)
     | Thide t => Thide (cast_type t H)
-    | Tunit => Tunit _
+    | Tunit => Tunit
     | Tprod a b => Tprod (cast_type a H) (cast_type b H)
     | Tsum a b => Tsum (cast_type a H) (cast_type b H)
   end.
@@ -464,7 +465,7 @@ Fixpoint visit_t {ctx ctx'} qctx (f : ((forall qctx, var CEtype (qctx ++ ctx) ->
     | Tapp a b => Tapp (visit_t _ f a) (visit_t _ f b)
     | Trecur t => Trecur (visit_t (CEtype :: _) f t) 
     | Thide t => Thide (visit_t _ f t)
-    | Tunit => Tunit _
+    | Tunit => Tunit
     | Tprod a b => Tprod (visit_t _ f a) (visit_t _ f b)
     | Tsum a b => Tsum (visit_t _ f a) (visit_t _ f b)
   end
@@ -489,7 +490,7 @@ Fixpoint visit_e {ctx ctx'} qctx (f : ((forall qctx, var CEexpr (qctx ++ ctx) ->
     | Eunfold e => Eunfold (visit_e _ f e)
     | Ehide e =>Ehide (visit_e _ f e)
     | Eunhide e =>Eunhide (visit_e _ f e)
-    | Ett => Ett _
+    | Ett => Ett
     | Epair a b => Epair (visit_e _ f a) (visit_e _ f b)
     | Einl t e => Einl (ft _ t) (visit_e _ f e)
     | Einr t e => Einr (ft _ t) (visit_e _ f e)
@@ -745,11 +746,6 @@ Qed.
 
 (* substitute for the outmost free variable *)
 Definition subst `{Subst var_t V B} {ctx} (v : V ctx) (b : B (var_t :: ctx)) : B ctx := substx (@Var var_t (var_t :: ctx) 0 (ceb_iff_c eq_refl)) v b.
-
-(*
-Definition subst_list `{Subst V B} `{Shift V} (values : list V) (e : B) := 
-  fst $ fold_left (fun p v => let '(b, x) := p in (substx x (shift x v) b, x - 1)) values (e, length values - 1).
-*)
 
 Definition subst_v {vart T ctx} (x : var vart ctx) (xv : var vart ctx) (f : option (var vart (removen ctx x)) -> T (removen ctx x)) : T (removen ctx x).
   refine

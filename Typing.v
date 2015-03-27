@@ -1,3 +1,4 @@
+Set Maximal Implicit Insertion.
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive. 
@@ -15,14 +16,14 @@ Export Syntax Subst Order.
 Import ListNotations.
 Local Open Scope list_scope.
 
-Instance Shift_option `{Shift A} : Shift (option A) :=
+Instance Shift_option `{Shift A T} : Shift (fun ctx => option (T ctx)) :=
   {
-    shift_from n o := option_map (shift_from n) o
+    shift ctx new n b := option_map (shift (ctx := ctx) new n) b
   }.
 
-Instance Shift_pair `{Shift A, Shift B} : Shift (A * B) :=
+Instance Shift_pair `{Shift A T1, Shift A T2} : Shift (fun ctx => T1 ctx * T2 ctx)%type :=
   {
-    shift_from n p := (shift_from n (fst p), shift_from n (snd p))
+    shift ctx new n b := (shift (ctx := ctx) new n (fst b), shift new n (snd b))
   }.
 
 (* kinds are restricted to the form (* => * => ... => *). 0 means * *)
@@ -31,39 +32,69 @@ Definition kind := nat.
 (* Typing context.
    The second field of TEtyping is the optional size constraint
  *)
-Inductive tc_entry := 
-  | TEtyping (_ : type)
-  | TEkinding
+Inductive tc_entry : CtxEntry -> list CtxEntry -> Type := 
+  | TEtyping ctx : type ctx -> tc_entry CEexpr ctx
+  | TEkinding ctx : tc_entry CEtype ctx
 .
 
-Definition tcontext := list tc_entry.
+Arguments TEkinding {ctx} .
+
+Inductive tcontext : context -> Type :=
+| TCnil : tcontext []
+| TCcons t ctx : tc_entry t ctx -> tcontext ctx -> tcontext (t :: ctx)
+.
+
+Infix ":::" := TCcons (at level 60).
 
 Local Open Scope prog_scope.
 
-Definition add_typing t T := TEtyping t :: T.
-Definition add_typings ls T := fst $ fold_left (fun (p : tcontext * nat) t => let (T, n) := p in (add_typing (shiftby n t) T, S n)) ls (T, 0%nat).
-Definition add_kinding T := TEkinding :: T.
+Definition add_typing {ctx} t T := TEtyping (ctx := ctx) t ::: T.
+Definition add_kinding {ctx} T := TEkinding (ctx := ctx) ::: T.
 
-Coercion var_to_size (x : var) : size := Svar (x, []).
+Fixpoint repeat {A} (a : A) n :=
+  match n with
+    | O => nil
+    | S n => a :: repeat a n
+  end.
 
-Inductive kinding : tcontext -> type -> kind -> Prop :=
-| Kvar T x : find x T = Some TEkinding -> kinding T #x 0
+Fixpoint add_entries {ctx} ls T :=
+  match ls return tcontext (repeat CEexpr (length ls) ++ ctx) with
+    | nil => T
+    | t :: ls =>
+      let T := add_entries ls T in
+      add_typing (shift (repeat CEexpr (length ls)) 0 t) T
+  end.
+
+Unset Maximal Implicit Insertion.
+Unset Implicit Arguments.
+
+Fixpoint subst_list `{Subst vart V B, Shift _ V} {ctx} (vs : list (V ctx)) :=
+  match vs return B (repeat vart (length vs) ++ ctx) -> B ctx with
+    | nil => fun b => b
+    | v :: vs =>
+      fun b =>
+        let b := subst (shift (repeat vart (length vs)) 0 v) b in
+        subst_list vs b
+  end.
+
+Inductive kinding {ctx} : tcontext ctx -> type ctx -> kind -> Prop :=
+| Kvar T x : kinding T x 0
 | Kapp T t1 t2 k :
     kinding T t1 (S k) ->
     kinding T t2 0 ->
     kinding T (Tapp t1 t2) k
 | Kabs T t k :
-    kinding (add_kinding T) t k ->
+    kinding (ctx := _) (add_kinding T) t k ->
     kinding T (Tabs t) (S k)
 | Karrow T t1 c s t2 :
     kinding T t1 0 ->
-    kinding (add_typing t1 T) t2 0 ->
+    kinding (ctx := _) (add_typing t1 T) t2 0 ->
     kinding T (Tarrow t1 c s t2) 0
 | Kuniversal T c s t :
-    kinding (add_kinding T) t 0 ->
+    kinding (ctx := _) (add_kinding T) t 0 ->
     kinding T (Tuniversal c s t) 0
 | Krecur T t :
-    kinding (add_kinding T) t 0 ->
+    kinding (ctx := _) (add_kinding T) t 0 ->
     kinding T (Trecur t) 0
 | Khide T t :
     kinding T t 0 ->
@@ -80,12 +111,12 @@ Inductive kinding : tcontext -> type -> kind -> Prop :=
     kinding T (Tsum a b) 0
 .
 
-Inductive teq : type -> type -> Prop :=
+Inductive teq {ctx} : type ctx -> type ctx -> Prop :=
 | Qrefl t : teq t t
 | Qsymm a b : teq a b -> teq b a
 | Qtrans a b c : teq a b -> teq b c -> teq a c
 | Qabs a b :
-    teq a b ->
+    teq (ctx := _) a b ->
     teq (Tabs a) (Tabs b)
 | Qapp a b a' b' :
     teq a a' ->
@@ -95,10 +126,10 @@ Inductive teq : type -> type -> Prop :=
     teq (Tapp (Tabs t1) t2) (subst t2 t1)
 | Qarrow a c s b a' b' : 
     teq a a' ->
-    teq b b' ->
+    teq (ctx := _) b b' ->
     teq (Tarrow a c s b) (Tarrow a' c s b')
 | Qrecur a b :
-    teq a b ->
+    teq (ctx := _) a b ->
     teq (Trecur a) (Trecur b)
 | Qprod a b a' b' :
     teq a a' ->
@@ -110,7 +141,7 @@ Inductive teq : type -> type -> Prop :=
     teq (Tsum a b) (Tsum a' b')
 .
 
-Global Add Relation type teq
+Global Add Parametric Relation ctx : (type ctx) (@teq ctx)
     reflexivity proved by Qrefl
     symmetry proved by Qsymm
     transitivity proved by Qtrans
@@ -123,24 +154,43 @@ Class Equal t :=
 
 Infix "==" := equal (at level 70) : G.
 
-Instance Equal_type : Equal type :=
+Instance Equal_type ctx : Equal (type ctx) :=
   {
-    equal := teq
+    equal := @teq ctx
   }.
-
-Definition add_snd {A B} (b : B) (a : A) := (a, b).
 
 Local Open Scope F.
 Local Open Scope G.
 
 Local Open Scope prog_scope.
 
+Coercion var_to_size {ctx} (x : var CEexpr ctx) : size ctx := Svar (x, []).
 Notation Tuniversal0 := (Tuniversal F0 S0).
 
-Inductive typing : tcontext -> expr -> type -> cexpr -> size -> Prop :=
+(* Set Maximal Implicit Insertion. *)
+(* Set Implicit Arguments. *)
+
+Definition shiftby `{Shift A T} {ctx} new b := shift (ctx := ctx) new 0 b.
+
+Coercion type_of_te {ctx} (e : tc_entry CEexpr ctx) : type ctx :=
+  match e with
+    | TEtyping _ t => t
+  end.
+
+(*here*)
+
+Fixpoint findtc {vart ctx} (x : var vart ctx) (T : tcontext ctx) : tc_entry vart (skipn (S x) ctx) :=
+    match un_var x with
+      | unVar n Hn Hni =>
+        match n with
+          |
+.
+
+Inductive typing {ctx} : tcontext ctx -> expr ctx -> type ctx -> cexpr ctx -> size ctx -> Prop :=
 | TPvar Γ x τ : 
-    find x Γ = Some (TEtyping τ) -> 
-    typing Γ #x (shiftby (S x) τ) F0 (var_to_size #x)
+    findtc x Γ = τ -> 
+    typing Γ x (shiftby (firstn (S x) ctx) τ) F0 x
+.
 | TPapp Γ e₀ e₁ τ₁ c s τ₂ c₀ nouse c₁ s₁ : 
     typing Γ e₀ (Tarrow τ₁ c s τ₂) c₀ nouse ->
     typing Γ e₁ τ₁ c₁ s₁ ->
@@ -150,7 +200,7 @@ Inductive typing : tcontext -> expr -> type -> cexpr -> size -> Prop :=
     typing (add_typing t1 T) e t2 c s ->
     typing T (Eabs t1 e) (Tarrow t1 c s t2) F0 S0
 | TPtapp T e t2 c s t c' :
-    typing T e (Tuniversal (shift c) (shift s) t) c' S0 ->
+    typing T e (Tuniversal (shift1 c) (shift1 s) t) c' S0 ->
     typing T (Etapp e t2) (subst t2 t) (c' + c) s
 | TPtabs T e c s t :
     typing (add_kinding T) e t c s ->
@@ -200,18 +250,17 @@ Inductive typing : tcontext -> expr -> type -> cexpr -> size -> Prop :=
 (* basic types - elim *)
 | TPmatch_pair T e e' t t1 t2 c s c' s' s1 s2 :
     typing T e (Tprod t1 t2) c s ->
-    let t12 := [t1; t2] in
-    let T' := add_typings t12 T in
+    let T' := add_entries (map TEtyping [t2; t1]) T in
     typing T' e' t c' s' ->
     is_pair s = Some (s1, s2) ->
-    let s12 := [s1; s2] in
-    typing T (Ematch_pair e e') (subst_list s12 t) (c + subst_list s12 c') (subst_list s12 s')
+    let sizes := [s2; s1] in
+    typing T (Ematch_pair e e') (subst_list sizes t) (c + subst_list sizes c') (subst_list sizes s')
 | TPmatch_sum T e e1 e2 t1 t2 c s s1 s2 t c1 c2 s' s1' s2' :
     typing T e (Tsum t1 t2) c s ->
     (* timing constraints are passed forward; size and type constraints are passed backward.
        t' and s' are backward guidance for branches *)
-    typing (add_typing t1 T) e1 (shift t) c1 s1' -> 
-    typing (add_typing t2 T) e2 (shift t) c2 s2' -> 
+    typing (add_typing t1 T) e1 (shift1 t) c1 s1' -> 
+    typing (add_typing t2 T) e2 (shift1 t) c2 s2' -> 
     is_inlinr s = Some (s1, s2) ->
     subst s1 s1' <= s' ->
     subst s2 s2' <= s' ->
