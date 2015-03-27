@@ -44,7 +44,7 @@ Inductive tcontext : context -> Type :=
 | TCcons t ctx : tc_entry t ctx -> tcontext ctx -> tcontext (t :: ctx)
 .
 
-Infix ":::" := TCcons (at level 60).
+Infix ":::" := TCcons (at level 60, right associativity).
 
 Local Open Scope prog_scope.
 
@@ -57,11 +57,11 @@ Fixpoint repeat {A} (a : A) n :=
     | S n => a :: repeat a n
   end.
 
-Fixpoint add_entries {ctx} ls T :=
+Fixpoint add_typings {ctx} ls T :=
   match ls return tcontext (repeat CEexpr (length ls) ++ ctx) with
     | nil => T
     | t :: ls =>
-      let T := add_entries ls T in
+      let T := add_typings ls T in
       add_typing (shift (repeat CEexpr (length ls)) 0 t) T
   end.
 
@@ -164,7 +164,6 @@ Local Open Scope G.
 
 Local Open Scope prog_scope.
 
-Coercion var_to_size {ctx} (x : var CEexpr ctx) : size ctx := Svar (x, []).
 Notation Tuniversal0 := (Tuniversal F0 S0).
 
 (* Set Maximal Implicit Insertion. *)
@@ -177,37 +176,74 @@ Coercion type_of_te {ctx} (e : tc_entry CEexpr ctx) : type ctx :=
     | TEtyping _ t => t
   end.
 
-(*here*)
+Definition TCtl {t ctx} (T : tcontext (t :: ctx)) : tcontext ctx :=
+  match T with
+    | TCcons _ _ _ T' => T'
+  end.
 
-Fixpoint findtc {vart ctx} (x : var vart ctx) (T : tcontext ctx) : tc_entry vart (skipn (S x) ctx) :=
-    match un_var x with
-      | unVar n Hn Hni =>
-        match n with
-          |
-.
+Definition TChd {t ctx} (T : tcontext (t :: ctx)) : tc_entry t ctx :=
+  match T with
+    | TCcons _ _ e _ => e
+  end.
+
+Definition findtc : forall {vart ctx} (x : var vart ctx) (T : tcontext ctx), tc_entry vart (skipn (S x) ctx).
+  refine 
+    (fix findtc {vart ctx} {struct ctx} : forall (x : var vart ctx) (T : tcontext ctx), tc_entry vart (skipn (S x) ctx) :=
+       match ctx return forall (x : var vart ctx) (T : tcontext ctx), tc_entry vart (skipn (S x) ctx) with
+         | nil => _
+         | t :: ctx' =>
+           fun x T => 
+             match x return tc_entry vart (skipn x ctx') with
+               | Var n Hn => 
+                 match n return forall Hn, tc_entry vart (skipn (Var n Hn) ctx') with
+                   | 0 => _
+                   | S n' => _
+                 end Hn
+             end
+       end).
+  {
+    intros.
+    destruct x; destruct n; simpl in *; discriminate.
+  }
+  {
+    intros Hn'.
+    simpl in *.
+    eapply ce_eq_b_iff in Hn'.
+    destruct t; destruct vart; try discriminate; exact (TChd T).
+  }
+  {
+    intros Hn'.
+    simpl in *.
+    exact (findtc _ _ (Var n' Hn') (TCtl T)).
+  }
+Defined.
+
+Goal (findtc (Var (t := CEtype) (ctx := [CEtype; CEtype]) 1 (eq_refl true)) (TEkinding ::: TEkinding ::: TCnil)) = TEkinding. Proof. exact eq_refl. Qed.
+
+Coercion var_to_size {ctx} (x : var CEexpr ctx) : size ctx := Svar (x, []).
+
+Arguments S0 {ctx} .
 
 Inductive typing {ctx} : tcontext ctx -> expr ctx -> type ctx -> cexpr ctx -> size ctx -> Prop :=
-| TPvar Γ x τ : 
-    findtc x Γ = τ -> 
-    typing Γ x (shiftby (firstn (S x) ctx) τ) F0 x
-.
+| TPvar Γ x : 
+    typing Γ (Evar x) (cast (shiftby (firstn (S x) ctx) (type_of_te (findtc x Γ))) (firstn_skipn _ ctx)) F0 (Svar' [] x)
 | TPapp Γ e₀ e₁ τ₁ c s τ₂ c₀ nouse c₁ s₁ : 
     typing Γ e₀ (Tarrow τ₁ c s τ₂) c₀ nouse ->
     typing Γ e₁ τ₁ c₁ s₁ ->
     typing Γ (Eapp e₀ e₁) (subst s₁ τ₂) (c₀ + c₁ + subst s₁ c) (subst s₁ s)
 | TPabs T e t1 t2 c s :
     kinding T t1 0 ->
-    typing (add_typing t1 T) e t2 c s ->
+    typing (ctx := _ ) (add_typing t1 T) e t2 c s ->
     typing T (Eabs t1 e) (Tarrow t1 c s t2) F0 S0
 | TPtapp T e t2 c s t c' :
-    typing T e (Tuniversal (shift1 c) (shift1 s) t) c' S0 ->
+    typing T e (Tuniversal c s t) c' S0 ->
     typing T (Etapp e t2) (subst t2 t) (c' + c) s
 | TPtabs T e c s t :
-    typing (add_kinding T) e t c s ->
+    typing (ctx := _) (add_kinding T) e t (shift1 CEtype c) (shift1 CEtype s) ->
     typing T (Etabs e) (Tuniversal c s t) F0 S0
 | TPlet T t1 e1 e2 t2 c1 c2 s1 s2:
     typing T e1 t1 c1 s1 ->
-    typing (add_typing t1 T) e2 t2 c2 s2 ->
+    typing (ctx := _) (add_typing t1 T) e2 t2 c2 s2 ->
     typing T (Elet e1 e2) (subst s1 t2) (c1 + subst s1 c2) (subst s1 s2)
 | TPfold T e t c s t1 :
     t == Trecur t1 ->
@@ -248,19 +284,17 @@ Inductive typing {ctx} : tcontext ctx -> expr ctx -> type ctx -> cexpr ctx -> si
     typing T e te c s ->
     typing T (Einr t e) (Tsum t te) c (Sinlinr S0 s)
 (* basic types - elim *)
-| TPmatch_pair T e e' t t1 t2 c s c' s' s1 s2 :
+| TPmatch_pair T e (e' : expr (CEexpr :: CEexpr :: ctx)) (t : type (CEexpr :: CEexpr :: ctx)) t1 t2 c s c' s' s1 s2 :
     typing T e (Tprod t1 t2) c s ->
-    let T' := add_entries (map TEtyping [t2; t1]) T in
-    typing T' e' t c' s' ->
+    let T' := add_typings [t2; t1] T in
+    typing (ctx := _) T' e' t c' s' ->
     is_pair s = Some (s1, s2) ->
     let sizes := [s2; s1] in
     typing T (Ematch_pair e e') (subst_list sizes t) (c + subst_list sizes c') (subst_list sizes s')
 | TPmatch_sum T e e1 e2 t1 t2 c s s1 s2 t c1 c2 s' s1' s2' :
     typing T e (Tsum t1 t2) c s ->
-    (* timing constraints are passed forward; size and type constraints are passed backward.
-       t' and s' are backward guidance for branches *)
-    typing (add_typing t1 T) e1 (shift1 t) c1 s1' -> 
-    typing (add_typing t2 T) e2 (shift1 t) c2 s2' -> 
+    typing (ctx := _) (add_typing t1 T) e1 (shift1 CEexpr t) c1 s1' -> 
+    typing (ctx := _) (add_typing t2 T) e2 (shift1 CEexpr t) c2 s2' -> 
     is_inlinr s = Some (s1, s2) ->
     subst s1 s1' <= s' ->
     subst s2 s2' <= s' ->
