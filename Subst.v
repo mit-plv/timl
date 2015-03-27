@@ -221,14 +221,12 @@ Proof.
   eapply ce_eq_b_iff_conv.
 Qed.
 
-(* transport : non-computable casting *)
-
-Definition transport {T} {from : context} (src : T from) {to} (H : from = to) : T to.
+(* transport : computable when H is transparent *)
+Definition transport {A T} {from : A} (src : T from) {to} (H : from = to) : T to.
   subst; eauto.
 Defined.
 
-(* cast : computable casting *)
-
+(* cast : computable when from and to are transparent *)
 Definition cast' : forall {from to : context} {T} (src : T from) (H : from = to), T to.
   refine 
     (fix cast {from to : context} {struct from} : forall {T} (src : T from) (H : from = to), T to :=
@@ -260,6 +258,75 @@ Defined.
 
 Definition cast {T} {from} (src : T from) {to} (H : from = to) : T to := @cast' from to T src H.
 
+(* morph : computable when src is transparent *)
+Class Morph {A} T :=
+  {
+    morph : forall (from : A), T from -> forall to, from = to -> T to
+  }.
+
+Arguments morph {A T _} {from} _ {to} _ .
+
+Definition morph_var {vart} {from} (src : var vart from) {to} (H : from = to) : var vart to.
+  refine
+    match un_var src with
+      | unVar n Hn Hsrc =>
+        Var src _
+    end.
+  subst; simpl in *.
+  eauto.
+Defined.
+
+Instance Morph_var t : Morph (var t) :=
+  {
+    morph := @morph_var t
+  }.
+
+Definition morph_cexpr {from} (src : cexpr from) {to} (H : from = to) : cexpr to.
+  admit.
+Defined.
+
+Instance Morph_cexpr : Morph cexpr :=
+  {
+    morph := @morph_cexpr
+  }.
+
+Definition morph_size {from} (src : size from) {to} (H : from = to) : size to.
+  admit.
+Defined.
+
+Instance Morph_size : Morph size :=
+  {
+    morph := @morph_size
+  }.
+
+Program Fixpoint morph_type {from} (src : type from) {to} (H : from = to) : type to :=
+  match src with
+    | Tvar x => Tvar (morph x H)
+    | Tarrow a c s b => Tarrow (morph_type a H) (morph c _) (morph s _) (morph_type b _)
+    | Tuniversal c s t => Tuniversal (morph c H) (morph s H) (morph_type t _)
+    | Tabs t => Tabs (morph_type t _)
+    | Tapp a b => Tapp (morph_type a H) (morph_type b H)
+    | Trecur t => Trecur (morph_type t _)
+    | Thide t => Thide (morph_type t H)
+    | Tunit => Tunit
+    | Tprod a b => Tprod (morph_type a H) (morph_type b H)
+    | Tsum a b => Tsum (morph_type a H) (morph_type b H)
+  end.
+
+Instance Morph_type : Morph type :=
+  {
+    morph := @morph_type
+  }.
+
+Definition morph_expr {from} (t : expr from) {to} (H : from = to) : expr to.
+  admit.
+Defined.
+
+Instance Morph_expr : Morph expr :=
+  {
+    morph := @morph_expr
+  }.
+
 Module test_compute.
 
   Definition ctx := [CEexpr; CEtype].
@@ -269,22 +336,32 @@ Module test_compute.
          | _ => 100 end) = 1. Proof. eapply eq_refl. Qed.
 
   Definition ctx' := [CEexpr; CEtype].
+
+  (* transport can compute when proof is transparent *)
+  Goal (match transport (Tvar (@Var CEtype ctx 1 (eq_refl true))) eq_refl with
+          | Tvar x => get_i x
+          | _ => 100 end) = 1. Proof. eapply eq_refl. Qed.
+
   Hypothesis ctx_ctx' : ctx = ctx'.
 
-  (* won't compute *)
+  (* transport won't compute when proof is opaque *)
   (* Eval compute in *)
   (*     (match transport (Tvar (@Var CEtype ctx 1 (eq_refl true))) ctx_ctx' with *)
   (*        | Tvar x => get_i x *)
   (*        | _ => 100 end). *)
 
+  (* cast can compute when from and to are transparent (but proof is opaque) *)
   Goal (match cast (Tvar (@Var CEtype ctx 1 (eq_refl true))) ctx_ctx' with
           | Tvar x => get_i x
           | _ => 100 end) = 1. Proof. eapply eq_refl. Qed.
 
-  Goal (match cast (Tvar (@Var CEtype ctx 1 (eq_refl true))) ctx_ctx' with
-          | Tvar x => match un_var x with
-                        | unVar n _ _ => n
-                      end
+  Variable ctx1 ctx2 : context.
+  Hypothesis ctx1_ctx2 : ctx1 = ctx2.
+  Hypothesis ctx1_1 : ceb (nth_error ctx1 1) (Some CEtype) = true.
+
+  (* morph can compute when src is transparent (but from, to and proof are opaque) *)
+  Goal (match morph (Tvar (@Var CEtype ctx1 1 ctx1_1)) ctx1_ctx2 with
+          | Tvar x => get_i x
           | _ => 100 end) = 1. Proof. eapply eq_refl. Qed.
 
 End test_compute.
@@ -888,4 +965,3 @@ Global Instance Subst_type_expr : Subst CEtype type expr :=
   {
     substx := @subst_t_e
   }.
-
