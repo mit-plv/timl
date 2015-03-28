@@ -263,10 +263,28 @@ Section relOpen.
       | domain :: C' => interp domain -> relOpen C' range
     end.
 
-  Program Fixpoint liftToOpen C {n1 n2} (f : rel var n1 -> rel var n2) (a : relOpen C n1) : relOpen C n2 :=
+  Definition liftToOpen : forall C {n1 n2} (f : rel var n1 -> rel var n2) (a : relOpen C n1), relOpen C n2.
+    refine
+      (fix liftToOpen C : forall {n1 n2} (f : rel var n1 -> rel var n2) (a : relOpen C n1), relOpen C n2 :=
+         match C return forall {n1 n2} (f : rel var n1 -> rel var n2) (a : relOpen C n1), relOpen C n2 with
+           | nil => fun n1 n2 f a => _
+           | nv :: C' => fun n1 n2 f a => _ (*@liftToOpen C' n1 n2*)
+         end).
+    {
+      exact (f a).
+    }
+    {
+      simpl in *.
+      intros X.
+      exact ((liftToOpen C' _ _) f (a X)).
+    }
+  Defined.
+
+  (* should also compute *)
+  Program Fixpoint liftToOpen' C {n1 n2} (f : rel var n1 -> rel var n2) (a : relOpen C n1) : relOpen C n2 :=
     match C with
       | nil => _
-      | nv :: C' => _ (@liftToOpen C' n1 n2)
+      | nv :: C' => _ (@liftToOpen' C' n1 n2)
     end.
   Next Obligation.
     exact (f a).
@@ -663,14 +681,36 @@ Section LR.
 
   Definition E {lctx} τ := E' (lctx := lctx) (V τ) τ.
 
-  (*here*)
-  (* V and E should be defined on ctx = [] and lifted to any ctx, because csubsts_type can have type (csubsts lctx -> open_type lctx -> type) only when ctx = [] *)
-  
 End LR.
 
-Unset Strict Implicit.
-Unset Printing Implicit Defensive. 
-Generalizable All Variables.
+Definition csubsts_close1 {lctx var t ctx} : csubsts var (t :: ctx) lctx -> interp var t -> csubsts var ctx lctx.
+  admit.
+Defined.
+
+Instance Apply_csubsts_interp lctx var t ctx : Apply (csubsts var (t :: ctx) lctx) (interp var t) (csubsts var ctx lctx) :=
+  {
+    apply := @csubsts_close1 lctx var t ctx
+  }.
+
+Definition liftLR {lctx var} : forall ctx (f : csubsts var [] lctx -> rel var 1) (a : csubsts var ctx lctx), relOpen var ctx 1.
+  refine
+    (fix F ctx : forall (f : csubsts var [] lctx -> rel var 1) (a : csubsts var ctx lctx), relOpen var ctx 1 :=
+       match ctx return forall (f : csubsts var [] lctx -> rel var 1) (a : csubsts var ctx lctx), relOpen var ctx 1 with
+         | nil => fun f a => _
+         | nv :: ctx' => fun f a => _ 
+       end).
+  {
+    exact (f a).
+  }
+  {
+    simpl in *.
+    intros X.
+    exact ((F ctx') f (a $ X)).
+  }
+Defined.
+
+Definition openE Ct {lctx} tau n s {var ctx} := liftLR (ctx := ctx) (@E Ct lctx tau n s var).
+Definition openV Ct {lctx} tau {var ctx} := liftLR (ctx := ctx) (@V Ct lctx tau var).
 
 (*
 Definition csize_of_size : size -> option csize.
