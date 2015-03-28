@@ -431,7 +431,7 @@ Arguments substs_sem {ctx} _ _ _ .
  *)
 
 Set Implicit Arguments.
-  
+
 (* closing substitutions *)
 Section csubsts.
   
@@ -445,7 +445,7 @@ Section csubsts.
 
   Inductive csubsts : context -> Type :=
   | CSnil : csubsts []
-  | CScons {t ctx} : SubstEntry t -> csubsts ctx -> csubsts (t :: ctx)
+  | CScons {t lctx} : SubstEntry t -> csubsts lctx -> csubsts (t :: lctx)
   .
 
 End csubsts.
@@ -454,8 +454,114 @@ Section csubstsClosed.
   
   Variable var : nat -> Type.
 
-  Definition csubsts_sem {lctx} : csubsts var [] lctx -> open_var CEtype lctx -> rel var 1.
-    admit.
+  Generalizable All Variables.
+
+  Definition pair_of_se (e : SubstEntry var [] CEtype) : (type * rel var 1) :=
+    match e with
+      | SEtype t r => (t, r)
+    end.
+
+  Definition type_of_se := pair_of_se >> fst.
+  Definition sem_of_se := pair_of_se >> snd.
+
+  Definition csize_of_se (e : SubstEntry var [] CEexpr) : csize :=
+    match e with
+      | SEexpr s => s
+    end.
+
+  Definition csubst_type `{Subst CEtype open_type B} {lctx} (v : SubstEntry var [] CEtype) (b : B (CEtype :: lctx)) : B lctx.
+    refine
+      (subst (cast (shiftby lctx (type_of_se v)) _) b).
+    simpl.
+    eapply app_nil_r.
+  Defined.
+  
+  Definition csubst_csize `{Subst CEexpr open_size B} {lctx} (v : SubstEntry var [] CEexpr) (b : B (CEexpr :: lctx)) : B lctx :=
+    subst !(csize_of_se v) b.
+  
+  Arguments tl {A} _ .
+
+  Definition subst_close `{Subst CEtype open_type B, Subst CEexpr open_size B} : forall lctx, csubsts var [] lctx -> B lctx -> B [].
+    refine
+      (fix subst_close lctx : csubsts var [] lctx -> B lctx -> B [] :=
+         match lctx return csubsts var [] lctx -> B lctx -> B [] with
+           | nil => fun _ b => b
+           | t :: lctx' =>
+             fun rho =>
+               match rho in (csubsts _ _ c) return c = t :: lctx' -> B (t :: lctx') -> B [] with
+                 | CSnil => _
+                 | CScons t' _ v rho' => _
+               end eq_refl
+         end).
+    {
+      discriminate.
+    }
+    destruct t; destruct t'; try discriminate.
+    {
+      intros Heq b.
+      eapply subst_close with (lctx := lctx').
+      (* can use transport here because we are sure that the proof is generated from eq_refl (hence is concrete) *)
+      - eapply (transport rho' _).
+      - eapply (csubst_type v b).
+    }
+    {
+      intros Heq b.
+      eapply subst_close with (lctx := lctx').
+      - eapply (transport rho' _).
+      - eapply (csubst_csize v b).
+    }
+    Grab Existential Variables.
+    { eapply f_equal with (f := tl) in Heq; exact Heq. }
+    { eapply f_equal with (f := tl) in Heq; exact Heq. }
+  Defined.
+
+  Require Import Bedrock.Platform.Cito.ListFacts4.
+
+  Definition csubsts_sem : forall {lctx}, csubsts var [] lctx -> open_var CEtype lctx -> rel var 1.
+    refine
+      (fix csubsts_sem {lctx} : csubsts var [] lctx -> open_var CEtype lctx -> rel var 1 :=
+         match lctx return csubsts var [] lctx -> open_var CEtype lctx -> rel var 1 with
+           | nil => _
+           | t :: lctx' => 
+             fun rho =>
+               match rho in (csubsts _ _ c) return c = t :: lctx' -> open_var CEtype (t :: lctx') -> rel var 1 with
+                 | CSnil => _
+                 | CScons t' _ v rho' => _
+                   (* fun Heq x => *)
+                   (*   match x with *)
+                   (*     | Var n Hn => (fun (H : x = Var n Hn) => _) (eq_refl (Var n Hn)) *)
+                   (*   end *)
+               end eq_refl
+         end).
+    {
+      intros ? x.
+      destruct x.
+      eapply ceb_iff in e.
+      rewrite nth_error_nil in e; discriminate.
+    }
+    {
+      discriminate.
+    }
+    {
+      intros Heq x.
+      destruct x.
+      eapply ceb_iff in e.
+      destruct n as [| n'].
+      {
+        simpl in *.
+        destruct t; try discriminate; destruct t'; try discriminate.
+        exact (sem_of_se v).
+      }
+      {
+        simpl in *.
+        eapply csubsts_sem with (lctx := lctx').
+        - eapply (transport rho' _).
+        - eapply (#n').
+      }
+    }
+    Grab Existential Variables.
+    { eapply ceb_iff; eauto. }
+    { eapply f_equal with (f := tl) in Heq; exact Heq. }
   Defined.
 
   Global Instance Apply_csubsts_nat_rel lctx : Apply (csubsts var [] lctx) (open_var CEtype lctx) (rel var 1) :=
@@ -463,79 +569,47 @@ Section csubstsClosed.
       apply := csubsts_sem
     }.
 
-  Definition csubsts_cexpr {lctx} : csubsts var [] lctx -> open_cexpr lctx -> cexpr.
-    admit.
-  Defined.
+  Definition csubsts_type :=
+    subst_close (B := open_type).
+
+  Global Instance Apply_csubsts_type_type lctx : Apply (csubsts var [] lctx) (open_type lctx) type :=
+    {
+      apply := @csubsts_type _
+    }.
+
+  Definition csubsts_cexpr :=
+    subst_close (B := open_cexpr).
 
   Global Instance Apply_csubsts_cexpr_cexpr lctx : Apply (csubsts var [] lctx) (open_cexpr lctx) cexpr :=
     {
-      apply := csubsts_cexpr
+      apply := @csubsts_cexpr _
     }.
 
-  Definition csubsts_size {lctx} : csubsts var [] lctx -> open_size lctx -> size.
-    admit.
-  Defined.
+  Definition csubsts_size :=
+    subst_close (B := open_size).
 
   Global Instance Apply_csubsts_size_size lctx : Apply (csubsts var [] lctx) (open_size lctx) size :=
     {
-      apply := csubsts_size
+      apply := @csubsts_size _
     }.
 
-  Definition csubsts_expr {lctx} : csubsts var [] lctx -> (open_expr lctx) -> expr.
-    admit.
-  Defined.
+  Arguments SEtype {var ctx} _ _ .
+  Arguments SEexpr {var ctx} _ .
 
-  Global Instance Apply_csubsts_expr_expr lctx : Apply (csubsts var [] lctx) (open_expr lctx) expr :=
-    {
-      apply := csubsts_expr
-    }.
-
-  Definition add_csize {lctx} : csize -> csubsts var [] lctx -> csubsts var [] (CEexpr :: lctx).
-    admit.
-  Defined.
-
+  Definition add_csize {lctx} s rho :=
+    CScons (lctx := lctx) (SEexpr (var := var) (ctx := []) s) rho.
+  
   Global Instance Add_csize_csubsts lctx : Add csize (csubsts var [] lctx) (csubsts var [] (CEexpr :: lctx)) :=
     {
       add := add_csize
     }.
 
-  Definition add_pair {lctx} : (type * rel var 1) -> csubsts var [] lctx -> csubsts var [] (CEtype :: lctx).
-    admit.
-  Defined.
+  Definition add_pair {lctx} p rho :=
+    CScons (lctx := lctx) (SEtype (var := var) (ctx := []) (fst p) (snd p)) rho.
 
   Global Instance Add_pair_csubsts lctx : Add (type * rel var 1) (csubsts var [] lctx) (csubsts var [] (CEtype :: lctx)) :=
     {
       add := add_pair
-    }.
-
-    (*
-  (* Definition csubsts_dec {lctx} (rho : csubsts lctx) : {} *)
-  Definition csubsts_type : forall {lctx}, csubsts lctx -> open_type lctx -> type.
-    refine
-      (
-        (* fix csubsts_type {lctx} : csubsts lctx -> open_type lctx -> type := *)
-        fun lctx =>
-         match lctx return csubsts lctx -> open_type lctx -> type with
-           | nil => fun _ b => b
-           | t :: lctx' =>
-             fun rho =>
-               _
-               (* match rho return open_type (t :: lctx') -> type with *)
-               (*   | CSnil => _ *)
-               (*   | CScons _ _ f rho' => _ (* csubsts_type rho' (f b) *) *)
-               (* end *)
-         end).
-    admit.
-  Defined.
-   *)
-
-  Definition csubsts_type {lctx} : csubsts var [] lctx -> open_type lctx -> type.
-    admit.
-  Defined.
-
-  Global Instance Apply_csubsts_type_type lctx : Apply (csubsts var [] lctx) (open_type lctx) type :=
-    {
-      apply := csubsts_type
     }.
 
 End csubstsClosed.

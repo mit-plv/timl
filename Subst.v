@@ -780,6 +780,12 @@ Class Subst var_t value body :=
 
 Arguments substx {_ _ _ _ _} _ _ _ .
 
+(* if it can consume, it can subst *)
+Instance Subst_Consume `{Consume t B} {V} : Subst t V B :=
+  {
+    substx ctx x v b := consume (ctx := ctx) x b
+  }.
+
 Lemma ceb_iff_c {a b} : a = b -> ceb a b = true.
   intros; eapply ceb_iff; eauto.
 Qed.
@@ -917,8 +923,8 @@ Global Instance Subst_size_size : Subst CEexpr size size :=
 Definition subst_t_t {ctx} x v b := 
   visit_type 
     (inr (subst_v_cast (@Tvar) ctx x v), 
-     consume_cast x, 
-     consume_cast x) 
+     subst_cast x v, 
+     subst_cast x v) 
     b.
 
 Global Instance Subst_type_type : Subst CEtype type type :=
@@ -929,7 +935,7 @@ Global Instance Subst_type_type : Subst CEtype type type :=
 Definition subst_s_t {ctx} x v b :=
   visit_type
     (ctx := ctx)
-    (inl (consume_cast x),
+    (inl (subst_cast x v),
      subst_cast x v,
      subst_cast x v)
     b.
@@ -957,7 +963,7 @@ Global Instance Subst_expr_expr : Subst CEexpr expr expr :=
 Definition subst_t_e {ctx} x v b :=
   visit_expr
     (ctx := ctx) 
-    (inl (consume_cast x),
+    (inl (subst_cast x v),
      subst_cast x v)
     b.
 

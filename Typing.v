@@ -156,7 +156,7 @@ Notation Tuniversal0 := (Tuniversal F0 S0).
 
 Definition shiftby `{Shift A T} {ctx} new b := shift (ctx := ctx) new 0 b.
 
-Coercion type_of_te {ctx} (e : tc_entry CEexpr ctx) : type ctx :=
+Definition type_of_te {ctx} (e : tc_entry CEexpr ctx) : type ctx :=
   match e with
     | TEtyping _ t => t
   end.
@@ -205,7 +205,8 @@ Defined.
 
 Goal (findtc (Var (t := CEtype) (ctx := [CEtype; CEtype]) 1 (eq_refl true)) (TEkinding ::: TEkinding ::: TCnil)) = TEkinding. Proof. exact eq_refl. Qed.
 
-Coercion var_to_size {ctx} (x : var CEexpr ctx) : size ctx := Svar (x, []).
+(* Coercion var_to_size {ctx} (x : var CEexpr ctx) : size ctx := Svar (x, []). *)
+(* Coercion type_of_te : tc_entry >-> type. *)
 
 Inductive typing {ctx} : tcontext ctx -> expr ctx -> type ctx -> cexpr ctx -> size ctx -> Prop :=
 | TPvar Γ x : 
