@@ -450,6 +450,9 @@ Arguments substs_sem {ctx} _ _ _ .
 
 Set Implicit Arguments.
 
+Notation TTtype := (TTother type).
+Notation TTcsize := (TTother csize).
+
 (* closing substitutions *)
 Section csubsts.
   
@@ -457,8 +460,8 @@ Section csubsts.
   Variable ctx : Ctx.
 
   Inductive SubstEntry : CtxEntry -> Type :=
-  | SEtype (_ : relOpen var ctx (TTother type)) (_ : relOpen var ctx 1) : SubstEntry CEtype
-  | SEexpr (_ : relOpen var ctx (TTother csize)) : SubstEntry CEexpr
+  | SEtype (_ : relOpen var ctx (TTtype)) (_ : relOpen var ctx 1) : SubstEntry CEtype
+  | SEexpr (_ : relOpen var ctx (TTexpr)) : SubstEntry CEexpr
   .
 
   Inductive csubsts : context -> Type :=
@@ -468,70 +471,26 @@ Section csubsts.
 
 End csubsts.
 
+Generalizable All Variables.
+
 Section csubstsClosed.
   
   Variable var : nat -> Type.
 
-  Generalizable All Variables.
-
-  Definition pair_of_se (e : SubstEntry var [] CEtype) : (type * rel var 1) :=
+  Definition pair_of_se {ctx} (e : SubstEntry var ctx CEtype) : (relOpen var ctx TTtype * relOpen var ctx 1) :=
     match e with
       | SEtype t r => (t, r)
     end.
 
-  Definition type_of_se := pair_of_se >> fst.
-  Definition sem_of_se := pair_of_se >> snd.
+  Definition type_of_se {ctx} := pair_of_se (ctx := ctx) >> fst.
+  Definition sem_of_se {ctx} := pair_of_se (ctx := ctx) >> snd.
 
-  Definition csize_of_se (e : SubstEntry var [] CEexpr) : csize :=
+  Definition expr_of_se {ctx} (e : SubstEntry var ctx CEexpr) : (relOpen var ctx TTexpr) :=
     match e with
       | SEexpr s => s
     end.
 
-  Definition csubst_type `{Subst CEtype open_type B} {lctx} (v : SubstEntry var [] CEtype) (b : B (CEtype :: lctx)) : B lctx.
-    refine
-      (subst (cast (shiftby lctx (type_of_se v)) _) b).
-    simpl.
-    eapply app_nil_r.
-  Defined.
-  
-  Definition csubst_csize `{Subst CEexpr open_size B} {lctx} (v : SubstEntry var [] CEexpr) (b : B (CEexpr :: lctx)) : B lctx :=
-    subst !(csize_of_se v) b.
-  
   Arguments tl {A} _ .
-
-  Definition subst_close `{Subst CEtype open_type B, Subst CEexpr open_size B} : forall lctx, csubsts var [] lctx -> B lctx -> B [].
-    refine
-      (fix subst_close lctx : csubsts var [] lctx -> B lctx -> B [] :=
-         match lctx return csubsts var [] lctx -> B lctx -> B [] with
-           | nil => fun _ b => b
-           | t :: lctx' =>
-             fun rho =>
-               match rho in (csubsts _ _ c) return c = t :: lctx' -> B (t :: lctx') -> B [] with
-                 | CSnil => _
-                 | CScons t' _ v rho' => _
-               end eq_refl
-         end).
-    {
-      discriminate.
-    }
-    destruct t; destruct t'; try discriminate.
-    {
-      intros Heq b.
-      eapply subst_close with (lctx := lctx').
-      (* can use transport here because we are sure that the proof is generated from eq_refl (hence is concrete) *)
-      - eapply (transport rho' _).
-      - eapply (csubst_type v b).
-    }
-    {
-      intros Heq b.
-      eapply subst_close with (lctx := lctx').
-      - eapply (transport rho' _).
-      - eapply (csubst_csize v b).
-    }
-    Grab Existential Variables.
-    { eapply f_equal with (f := tl) in Heq; exact Heq. }
-    { eapply f_equal with (f := tl) in Heq; exact Heq. }
-  Defined.
 
   Require Import Bedrock.Platform.Cito.ListFacts4.
 
@@ -587,13 +546,53 @@ Section csubstsClosed.
       apply := csubsts_sem
     }.
 
-  Definition csubsts_type :=
-    subst_close (B := open_type).
-
-  Global Instance Apply_csubsts_type_type lctx : Apply (csubsts var [] lctx) (open_type lctx) type :=
+  Definition csubst_type `{Subst CEtype open_type B} {lctx} (v : SubstEntry var [] CEtype) (b : B (CEtype :: lctx)) : B lctx.
+    refine
+      (subst (cast (shiftby lctx (type_of_se v)) _) b).
+    simpl.
+    eapply app_nil_r.
+  Defined.
+  
+  Definition csubst_expr `{Subst CEexpr open_expr B} {lctx} (v : SubstEntry var [] CEexpr) (b : B (CEexpr :: lctx)) : B lctx.
+    refine
+      (subst (cast (shiftby lctx (expr_of_se v)) _) b).
+    simpl.
+    eapply app_nil_r.
+  Defined.
+  
+  Definition subst_close `{Subst CEtype open_type B, Subst CEexpr open_expr B} : forall lctx, csubsts var [] lctx -> B lctx -> B [].
+    refine
+      (fix subst_close lctx : csubsts var [] lctx -> B lctx -> B [] :=
+         match lctx return csubsts var [] lctx -> B lctx -> B [] with
+           | nil => fun _ b => b
+           | t :: lctx' =>
+             fun rho =>
+               match rho in (csubsts _ _ c) return c = t :: lctx' -> B (t :: lctx') -> B [] with
+                 | CSnil => _
+                 | CScons t' _ v rho' => _
+               end eq_refl
+         end).
     {
-      apply := @csubsts_type _
-    }.
+      discriminate.
+    }
+    destruct t; destruct t'; try discriminate.
+    {
+      intros Heq b.
+      eapply subst_close with (lctx := lctx').
+      (* can use transport here because we are sure that the proof is generated from eq_refl (hence is concrete) *)
+      - eapply (transport rho' _).
+      - eapply (csubst_type v b).
+    }
+    {
+      intros Heq b.
+      eapply subst_close with (lctx := lctx').
+      - eapply (transport rho' _).
+      - eapply (csubst_expr v b).
+    }
+    Grab Existential Variables.
+    { eapply f_equal with (f := tl) in Heq; exact Heq. }
+    { eapply f_equal with (f := tl) in Heq; exact Heq. }
+  Defined.
 
   Definition csubsts_cexpr :=
     subst_close (B := open_cexpr).
@@ -611,16 +610,24 @@ Section csubstsClosed.
       apply := @csubsts_size _
     }.
 
+  Definition csubsts_type :=
+    subst_close (B := open_type).
+
+  Global Instance Apply_csubsts_type_type lctx : Apply (csubsts var [] lctx) (open_type lctx) type :=
+    {
+      apply := @csubsts_type _
+    }.
+
+  Definition csubsts_expr :=
+    subst_close (B := open_expr).
+
+  Global Instance Apply_csubsts_expr_expr lctx : Apply (csubsts var [] lctx) (open_expr lctx) expr :=
+    {
+      apply := @csubsts_expr _
+    }.
+
   Arguments SEtype {var ctx} _ _ .
   Arguments SEexpr {var ctx} _ .
-
-  Definition add_csize {lctx} s rho :=
-    CScons (lctx := lctx) (SEexpr (var := var) (ctx := []) s) rho.
-  
-  Global Instance Add_csize_csubsts lctx : Add csize (csubsts var [] lctx) (csubsts var [] (CEexpr :: lctx)) :=
-    {
-      add := add_csize
-    }.
 
   Definition add_pair {lctx} p rho :=
     CScons (lctx := lctx) (SEtype (var := var) (ctx := []) (fst p) (snd p)) rho.
@@ -628,6 +635,14 @@ Section csubstsClosed.
   Global Instance Add_pair_csubsts lctx : Add (type * rel var 1) (csubsts var [] lctx) (csubsts var [] (CEtype :: lctx)) :=
     {
       add := add_pair
+    }.
+
+  Definition add_expr {lctx} e rho :=
+    CScons (lctx := lctx) (SEexpr (var := var) (ctx := []) e) rho.
+  
+  Global Instance Add_expr_csubsts lctx : Add expr (csubsts var [] lctx) (csubsts var [] (CEexpr :: lctx)) :=
+    {
+      add := add_expr
     }.
 
 End csubstsClosed.
@@ -672,7 +687,7 @@ Section LR.
       | Tunit => \v, ⌈v ↓ Tunit⌉
       | τ₁ × τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃ a b, ⌈v = Epair a b⌉ /\ a ∈ V τ₁ ρ /\ b ∈ V τ₂ ρ
       | τ₁ + τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃ v', (⌈v = Einl (ρ $ τ₂) v'⌉ /\ v' ∈ V τ₁ ρ) \/ (⌈v = Einr (ρ $ τ₁) v'⌉ /\ v' ∈ V τ₂ ρ)
-      | Tarrow τ₁ c s τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∀ v₁, v₁ ∈ V τ₁ ρ ⇒ Eapp v v₁ ∈ E' (V τ₂) τ₂ (Ct * nat_of_cexpr (ρ $ subst !(&v₁) c)) (ρ $ subst !(&v₁) s) (add &v₁ ρ)
+      | Tarrow τ₁ c s τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∀ v₁, v₁ ∈ V τ₁ ρ ⇒ Eapp v v₁ ∈ E' (V τ₂) τ₂ (Ct * nat_of_cexpr (ρ $ subst !(&v₁) c)) (ρ $ subst !(&v₁) s) (add v₁ ρ)
       | Tuniversal c s τ₁ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∀1 τ', ∀2 S, VSet τ' S ⇒ Etapp v τ' ∈ E' (V τ₁) τ₁ (Ct * nat_of_cexpr (ρ $ c)) (ρ $ s) (add (τ', S) ρ)
       | Trecur τ₁ => @@S, \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃ v', ⌈v = Efold (ρ $ τ) v'⌉ /\ ▹ (v' ∈ V τ₁ (add (ρ $ τ, S) ρ))
       | _ => \_, ⊥
@@ -683,8 +698,48 @@ Section LR.
 
 End LR.
 
-Definition csubsts_close1 {lctx var t ctx} : csubsts var (t :: ctx) lctx -> interp var t -> csubsts var ctx lctx.
-  admit.
+Definition se_close1 {vart} : forall {var t ctx}, SubstEntry var (t :: ctx) vart -> interp var t -> SubstEntry var ctx vart.
+  destruct vart.
+  {
+    intros var t ctx.
+    intros e x.
+    destruct (pair_of_se e) as [tau r].
+    simpl in *.
+    econstructor.
+    - exact (tau x).
+    - exact (r x).
+  }
+  {
+    intros var t ctx.
+    intros e x.
+    eapply expr_of_se in e.
+    simpl in *.
+    econstructor.
+    exact (e x).
+  }
+Defined.
+
+Require Import Bedrock.Platform.Cito.GeneralTactics4.
+
+Definition csubsts_close1 : forall {lctx var t ctx}, csubsts var (t :: ctx) lctx -> interp var t -> csubsts var ctx lctx.
+  refine
+    (fix F {lctx} : forall {var t ctx}, csubsts var (t :: ctx) lctx -> interp var t -> csubsts var ctx lctx :=
+       match lctx return forall {var t ctx}, csubsts var (t :: ctx) lctx -> interp var t -> csubsts var ctx lctx with
+         | nil => fun _ _ _ _ _ => CSnil _ _
+         | t :: lctx' => fun var t ctx rho => _
+       end).
+  (* should be able to compute *)
+  inversion rho.
+  intros x.
+  econstructor.
+  {
+    eapply se_close1.
+    - exact X.
+    - exact x.
+  }
+  eapply F.
+  - exact X0.
+  - exact x.
 Defined.
 
 Instance Apply_csubsts_interp lctx var t ctx : Apply (csubsts var (t :: ctx) lctx) (interp var t) (csubsts var ctx lctx) :=
@@ -692,10 +747,10 @@ Instance Apply_csubsts_interp lctx var t ctx : Apply (csubsts var (t :: ctx) lct
     apply := @csubsts_close1 lctx var t ctx
   }.
 
-Definition liftLR {lctx var} : forall ctx (f : csubsts var [] lctx -> rel var 1) (a : csubsts var ctx lctx), relOpen var ctx 1.
+Definition liftLR {lctx var range} : forall ctx (f : csubsts var [] lctx -> rel var range) (a : csubsts var ctx lctx), relOpen var ctx range.
   refine
-    (fix F ctx : forall (f : csubsts var [] lctx -> rel var 1) (a : csubsts var ctx lctx), relOpen var ctx 1 :=
-       match ctx return forall (f : csubsts var [] lctx -> rel var 1) (a : csubsts var ctx lctx), relOpen var ctx 1 with
+    (fix F ctx : forall (f : csubsts var [] lctx -> rel var range) (a : csubsts var ctx lctx), relOpen var ctx range :=
+       match ctx return forall (f : csubsts var [] lctx -> rel var range) (a : csubsts var ctx lctx), relOpen var ctx range with
          | nil => fun f a => _
          | nv :: ctx' => fun f a => _ 
        end).
@@ -721,14 +776,8 @@ Definition asCsize P s :=
   (exists x, csize_of_size s = Some x /\ P x)%type.
  *)
 
-Notation TTtype := (TTother type).
-Notation TTcsize := (TTother csize).
-
 Arguments SEtype {var ctx} _ _ .
-Arguments SEexpr {var ctx} _ _ .
-
-Arguments V {ctx} _ _ {var} _ .
-Arguments E {ctx} _ _ _ _ {var} _ .
+Arguments SEexpr {var ctx} _ .
 
 Class Lift A B :=
   {
@@ -749,22 +798,23 @@ Global Instance Lift_Rel ctx range : Lift (Rel ctx range) (fun new => Rel (new :
     lift := lift_Rel
   }.
 
-Definition Substs ctx := forall var, csubsts var ctx.
+Definition Substs ctx lctx := forall var, csubsts var ctx lctx.
 
-Definition lift_Substs {ctx} new : Substs ctx -> Substs (new :: ctx).
+Definition lift_Substs {ctx lctx} new : Substs ctx lctx -> Substs (new :: ctx) lctx.
   admit.
 Defined.
 
-Global Instance Lift_Substs ctx : Lift (Substs ctx) (fun new => Substs (new :: ctx)) :=
+Global Instance Lift_Substs ctx lctx : Lift (Substs ctx lctx) (fun new => Substs (new :: ctx) lctx) :=
   {
     lift := lift_Substs
   }.
 
-Definition t_Ps_ρ ctx := (list (Rel ctx 0) * Substs ctx)%type.
+Definition t_Ps_ρ ctx lctx := (list (Rel ctx 0) * Substs ctx lctx)%type.
 Definition t_Ps ctx := list (Rel ctx 0).
 Notation t_ρ := Substs.
 Notation lift_ρ := lift_Substs.
 
+(*
 Definition lift_Ps_ρ {ctx} t (Ps_ρ : t_Ps_ρ ctx) : t_Ps_ρ (t :: ctx):=
   let (Ps, ρ) := Ps_ρ in
   let Ps := map (lift_Rel t) Ps in
@@ -775,6 +825,7 @@ Global Instance Lift_Ps_ρ ctx : Lift (t_Ps_ρ ctx) (fun new => t_Ps_ρ (new :: 
   {
     lift := lift_Ps_ρ
   }.
+ *)
 
 Definition lift_Ps {ctx} t (Ps : t_Ps ctx) : t_Ps (t :: ctx):=
   map (lift_Rel t) Ps.
@@ -788,109 +839,96 @@ Definition extend {var range} ctx new : relOpen var ctx range -> relOpen var (ct
   admit.
 Defined.
 
-Definition add_type {ctx} (Ps_ρ : t_Ps_ρ ctx) : t_Ps_ρ (TTrel 1 :: TTtype :: ctx) :=
-  let (Ps, ρ) := lift_Ps_ρ TTtype Ps_ρ in
-  let Ps := (fun var => extend [TTtype] ctx (fun τ => ⌈kinding [] τ 0⌉ : relOpen var [] 0)) :: Ps in
-  let (Ps, ρ) := lift_Ps_ρ 1 (Ps, ρ) in
-  let Ps := (fun var => extend [TTrel 1; TTtype] ctx (fun S τ => VSet τ (S : relOpen var [] 1))) :: Ps in
-  let ρ := fun var => SEtype (extend [TTrel 1; TTtype] ctx (fun _ τ => τ)) (extend [TTrel 1; TTtype] ctx (fun S _ => S)) :: ρ var in
-  (Ps, ρ)
+Arguments CScons {var ctx t lctx} _ _ .
+Infix ":::" := CScons (at level 60, right associativity).
+
+Definition add_ρ_type {ctx lctx} (ρ : t_ρ ctx lctx) : t_ρ (TTrel 1 :: TTtype :: ctx) (CEtype :: lctx) :=
+  let ρ := lift_ρ TTtype ρ in
+  let ρ := lift_ρ 1 ρ in
+  let ρ := fun var => SEtype (extend [TTrel 1; TTtype] ctx (fun _ τ => τ)) (extend [TTrel 1; TTtype] ctx (fun S _ => S)) ::: ρ var in
+  ρ
 .
 
 Definition add_Ps_type {ctx} (Ps : t_Ps ctx) : t_Ps (TTrel 1 :: TTtype :: ctx) :=
   let Ps := lift_Ps TTtype Ps in
-  let Ps := (fun var => extend [TTtype] ctx (fun τ => ⌈kinding [] τ 0⌉ : relOpen var [] 0)) :: Ps in
+  let Ps := (fun var => extend [TTtype] ctx (fun τ => ⌈kinding TCnil τ 0⌉ : relOpen var [] 0)) :: Ps in
   let Ps := lift_Ps 1 Ps in
-  let Ps := (fun var => extend [TTrel 1; TTtype] ctx (fun S τ => VSet τ (S : relOpen var [] 1))) :: Ps in
+  let Ps := (fun var => extend [TTrel 1; TTtype] ctx (fun S τ => VSet τ S : relOpen var [] 0)) :: Ps in
   Ps
 .
 
-Definition add_ρ_type {ctx} (ρ : t_ρ ctx) : t_ρ (TTrel 1 :: TTtype :: ctx) :=
-  let ρ := lift_ρ TTtype ρ in
-  let ρ := lift_ρ 1 ρ in
-  let ρ := fun var => SEtype (extend [TTrel 1; TTtype] ctx (fun _ τ => τ)) (extend [TTrel 1; TTtype] ctx (fun S _ => S)) :: ρ var in
-  ρ
-.
-
-Definition add_expr {ctx} τ Ct (Ps_ρ : t_Ps_ρ ctx) : t_Ps_ρ (TTexpr :: ctx) :=
-  let (Ps, ρ) := Ps_ρ in
-  let ρ0 := ρ in
-  let (Ps, ρ) := lift_Ps_ρ TTexpr (Ps, ρ) in
-  let Ps := ((fun var v => v ∈ V τ Ct (ρ0 var)) : Rel (TTexpr :: ctx) 0) :: Ps in
-  let ρ := fun var => SEexpr (extend [TTexpr] ctx (fun v => v)) (extend [TTexpr] ctx (fun v => |v| : relOpen var [] TTcsize)) :: ρ var in
-  (Ps, ρ)
-.
-
-Definition add_ρ_expr {ctx} (ρ : t_ρ ctx) : t_ρ (TTexpr :: ctx) :=
+Definition add_ρ_expr {ctx lctx} (ρ : t_ρ ctx lctx) : t_ρ (TTexpr :: ctx) (CEexpr :: lctx) :=
   let ρ := lift_ρ TTexpr ρ in
-  let ρ := fun var => SEexpr (extend [TTexpr] ctx (fun v => v)) (extend [TTexpr] ctx (fun v => |v| : relOpen var [] TTcsize)) :: ρ var in
+  let ρ := fun var => SEexpr (extend [TTexpr] ctx (fun v => v : relOpen var [] TTexpr)) ::: ρ var in
   ρ
 .
 
-Definition add_Ps_expr {ctx} τ Ct (Ps : t_Ps ctx) ρ : t_Ps (TTexpr :: ctx) :=
+Definition add_Ps_expr {ctx lctx} τ Ct (Ps : t_Ps ctx) (ρ : t_ρ ctx lctx) : t_Ps (TTexpr :: ctx) :=
   let Ps := lift_Ps TTexpr Ps in
-  let Ps := ((fun var v => v ∈ V τ Ct (ρ var)) : Rel (TTexpr :: ctx) 0) :: Ps in
+  let Ps := (fun var v => liftLR (fun ρ => v ∈ V Ct τ ρ) (ρ var)) :: Ps in
   Ps
 .
 
-Fixpoint make_ctx Γ :=
-  match Γ with
+Fixpoint make_ctx lctx :=
+  match lctx with
     | nil => nil
-    | TEkinding :: Γ' =>
-      TTrel 1 :: TTtype :: make_ctx Γ'
-    | TEtyping _ :: Γ' =>
-      TTexpr :: make_ctx Γ'
+    | e :: Γ' =>
+      let ctx := make_ctx Γ' in
+      match e with
+        | CEtype =>
+          TTrel 1 :: TTtype :: ctx
+        | CEexpr =>
+          TTexpr :: ctx
+      end
   end.
 
-Fixpoint make_Ps_ρ Γ Ct : t_Ps_ρ (make_ctx Γ) :=
-  match Γ return t_Ps_ρ (make_ctx Γ) with 
-    | nil => (nil, (fun var => nil))
-    | TEkinding :: Γ' =>
-      let Ps_ρ := make_Ps_ρ Γ' Ct in
-      add_type Ps_ρ
-    | TEtyping τ :: Γ' =>
-      let Ps_ρ := make_Ps_ρ Γ' Ct in
-      add_expr τ Ct Ps_ρ
-  end.
-
-Fixpoint make_ρ Γ : t_ρ (make_ctx Γ) :=
-  match Γ return t_ρ (make_ctx Γ) with 
-    | nil => (fun var => nil)
-    | TEkinding :: Γ' =>
-      let ρ := make_ρ Γ' in
+Fixpoint make_ρ lctx : t_ρ (make_ctx lctx) lctx :=
+  match lctx return t_ρ (make_ctx lctx) lctx with 
+    | nil => (fun var => CSnil _ _)
+    | CEtype :: lctx' =>
+      let ρ := make_ρ lctx' in
       add_ρ_type ρ
-    | TEtyping _ :: Γ' =>
-      let ρ := make_ρ Γ' in
+    | CEexpr :: lctx' =>
+      let ρ := make_ρ lctx' in
       add_ρ_expr ρ
   end.
 
-Fixpoint make_Ps Γ Ct : t_Ps (make_ctx Γ) :=
-  match Γ return t_Ps (make_ctx Γ) with 
-    | nil => nil
-    | TEkinding :: Γ' =>
-      let Ps := make_Ps Γ' Ct in
-      add_Ps_type Ps
-    | TEtyping τ :: Γ' =>
-      let Ps := make_Ps Γ' Ct in
-      add_Ps_expr τ Ct Ps (make_ρ Γ')
+Definition pair_of_tc {t lctx} (T : tcontext (t :: lctx)) : tc_entry t lctx * tcontext lctx :=
+  match T with
+    | TCcons _ _ e T' => (e, T')
   end.
+
+Section make_Ps.
+  Variable Ct : nat.
+  Fixpoint make_Ps {lctx} : tcontext lctx -> t_Ps (make_ctx lctx) :=
+    match lctx return tcontext lctx -> t_Ps (make_ctx lctx) with 
+      | nil => fun _ => nil
+      | CEtype :: lctx' =>
+        fun Γ =>
+          let Ps := make_Ps (snd (pair_of_tc Γ)) in
+          add_Ps_type Ps
+      | CEexpr :: lctx' =>
+        fun Γ =>
+          let Ps := make_Ps (snd (pair_of_tc Γ)) in
+          add_Ps_expr ((type_of_te << fst << pair_of_tc) Γ) Ct Ps (make_ρ lctx')
+    end.
+End make_Ps.
 
 Definition valid {ctx} (Ps : list (Rel ctx 0)) (P : Rel ctx 0) : Prop.
   admit.
 Defined.
 Notation "Ps |- P" := (valid Ps P) (at level 90).
 
-Definition related Γ (e : expr) τ (c : cexpr) (s : size) :=
-  (exists Ct,
-     make_Ps Γ Ct |-
-     fun var => 
-       let ρ := make_ρ Γ var in
-       (ρ $ e) ∈ E τ (Ct * cexpr_to_nat (ρ $ c))%nat (ρ $ s) Ct ρ)%type.
+Definition related {lctx} Γ (e : open_expr lctx) τ (c : open_cexpr lctx) (s : open_size lctx) :=
+  exists Ct,
+    make_Ps Ct Γ |-
+    fun var => 
+      liftLR (fun ρ => (ρ $ e) ∈ E Ct τ (Ct * nat_of_cexpr (ρ $ c))%nat (ρ $ s) ρ) (make_ρ lctx var).
 
 Notation "⊩" := related.
 
 Lemma foundamental :
-  forall Γ e τ c s,
+  forall {ctx} (Γ : tcontext ctx) e τ c s,
     ⊢ Γ e τ c s -> 
     ⊩ Γ e τ c s.
 Proof.
@@ -898,6 +936,7 @@ Proof.
   {
     unfold related.
     exists 1.
+    simpl.
     admit.
   }
   {

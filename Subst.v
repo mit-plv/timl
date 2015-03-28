@@ -949,10 +949,16 @@ Definition get_size {ctx} (e : expr ctx) : size ctx.
   admit.
 Defined.
 
+(* if you can substitute size, you can substitute expr *)
+Instance Subst_expr_Subst_value `{Subst t size B} : Subst t expr B :=
+  {
+    substx ctx x v b := substx x (get_size v) b
+  }.
+
 Definition subst_e_e {ctx} x v b := 
   visit_expr 
     (inr (subst_v_cast (@Evar) ctx x v), 
-     subst_cast x (get_size v)) 
+     subst_cast x v) 
     b.
 
 Global Instance Subst_expr_expr : Subst CEexpr expr expr :=
