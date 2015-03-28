@@ -698,6 +698,33 @@ Section LR.
 
 End LR.
 
+Definition lift_se var ctx t : forall new, SubstEntry var ctx t -> SubstEntry var (new :: ctx) t.
+  destruct t.
+  {
+    intros new e.
+    destruct (pair_of_se e) as [tau r].
+    econstructor.
+    {
+      simpl in *.
+      intros x.
+      exact tau.
+    }
+    {
+      simpl in *.
+      intros x.
+      exact r.
+    }
+  }
+  {
+    intros new e.
+    eapply expr_of_se in e.
+    econstructor.
+    simpl in *.
+    intros x.
+    exact e.
+  }
+Defined.  
+
 Definition se_close1 {vart} : forall {var t ctx}, SubstEntry var (t :: ctx) vart -> interp var t -> SubstEntry var ctx vart.
   destruct vart.
   {
@@ -721,6 +748,40 @@ Defined.
 
 Require Import Bedrock.Platform.Cito.GeneralTactics4.
 
+Definition pair_of_cs {var ctx t lctx} (rho : csubsts var ctx (t :: lctx)) : SubstEntry var ctx t * csubsts var ctx lctx :=
+  match rho with
+    | CScons _ _ e rho' => (e, rho')
+  end.
+
+Definition Substs ctx lctx := forall var, csubsts var ctx lctx.
+
+Definition lift_Substs' : forall {var ctx lctx} new, csubsts var ctx lctx -> csubsts var (new :: ctx) lctx.
+  refine
+    (fix F {var ctx lctx} {struct lctx} : forall new, csubsts var ctx lctx -> csubsts var (new :: ctx) lctx :=
+       match lctx return forall new, csubsts var ctx lctx -> csubsts var (new :: ctx) lctx with
+         | nil => fun _ _ => CSnil _ _
+         | t :: lctx' => fun new rho => _
+       end).
+  destruct (pair_of_cs rho) as [e rho'].
+  econstructor.
+  { exact (lift_se _ e). }
+  eapply F.
+  - exact rho'.
+Defined.
+
+Definition lift_Substs {ctx lctx} new : Substs ctx lctx -> Substs (new :: ctx) lctx :=
+  fun rho var => lift_Substs' new (rho var).
+
+Class Lift A B :=
+  {
+    lift : forall (t : termType), A -> B t
+  }.
+
+Global Instance Lift_Substs ctx lctx : Lift (Substs ctx lctx) (fun new => Substs (new :: ctx) lctx) :=
+  {
+    lift := lift_Substs
+  }.
+
 Definition csubsts_close1 : forall {lctx var t ctx}, csubsts var (t :: ctx) lctx -> interp var t -> csubsts var ctx lctx.
   refine
     (fix F {lctx} : forall {var t ctx}, csubsts var (t :: ctx) lctx -> interp var t -> csubsts var ctx lctx :=
@@ -728,17 +789,16 @@ Definition csubsts_close1 : forall {lctx var t ctx}, csubsts var (t :: ctx) lctx
          | nil => fun _ _ _ _ _ => CSnil _ _
          | t :: lctx' => fun var t ctx rho => _
        end).
-  (* should be able to compute *)
-  inversion rho.
+  destruct (pair_of_cs rho) as [e rho'].
   intros x.
   econstructor.
   {
     eapply se_close1.
-    - exact X.
+    - exact e.
     - exact x.
   }
   eapply F.
-  - exact X0.
+  - exact rho'.
   - exact x.
 Defined.
 
@@ -767,46 +827,20 @@ Defined.
 Definition openE Ct {lctx} tau n s {var ctx} := liftLR (ctx := ctx) (@E Ct lctx tau n s var).
 Definition openV Ct {lctx} tau {var ctx} := liftLR (ctx := ctx) (@V Ct lctx tau var).
 
-(*
-Definition csize_of_size : size -> option csize.
-  admit.
-Defined.
-
-Definition asCsize P s :=
-  (exists x, csize_of_size s = Some x /\ P x)%type.
- *)
-
 Arguments SEtype {var ctx} _ _ .
 Arguments SEexpr {var ctx} _ .
-
-Class Lift A B :=
-  {
-    lift : forall (t : termType), A -> B t
-  }.
 
 Global Instance Lift_list `{Lift A B} : Lift (list A) (fun t => list (B t)) :=
   {
     lift t a := map (lift t) a
   }.
 
-Definition lift_Rel {ctx range} new : Rel ctx range -> Rel (new :: ctx) range.
-  admit.
-Defined.
+Definition lift_Rel {ctx range} new : Rel ctx range -> Rel (new :: ctx) range :=
+  fun r var x => r var.
 
 Global Instance Lift_Rel ctx range : Lift (Rel ctx range) (fun new => Rel (new :: ctx) range) :=
   {
     lift := lift_Rel
-  }.
-
-Definition Substs ctx lctx := forall var, csubsts var ctx lctx.
-
-Definition lift_Substs {ctx lctx} new : Substs ctx lctx -> Substs (new :: ctx) lctx.
-  admit.
-Defined.
-
-Global Instance Lift_Substs ctx lctx : Lift (Substs ctx lctx) (fun new => Substs (new :: ctx) lctx) :=
-  {
-    lift := lift_Substs
   }.
 
 Definition t_Ps_ρ ctx lctx := (list (Rel ctx 0) * Substs ctx lctx)%type.
@@ -835,8 +869,38 @@ Global Instance Lift_Ps ctx : Lift (t_Ps ctx) (fun new => t_Ps (new :: ctx))%typ
     lift := lift_Ps
   }.
 
+Definition liftToOpenSingle {var range} : forall {ctx}, interp var range -> relOpen var ctx range.
+  refine
+    (fix F {ctx} : interp var range -> relOpen var ctx range :=
+       match ctx return interp var range -> relOpen var ctx range with
+         | nil => _
+         | t :: ctx' => _ 
+       end).
+  {
+    simpl.
+    exact id.
+  }
+  {
+    simpl.
+    intros a x.
+    eapply F.
+    exact a.
+  }
+Defined.
+
+(* should compute *)
 Definition extend {var range} ctx new : relOpen var ctx range -> relOpen var (ctx ++ new) range.
-  admit.
+  induction ctx.
+  {
+    simpl.
+    intros r.
+    exact (liftToOpenSingle r).
+  }
+  {
+    simpl.
+    intros r x.
+    exact (IHctx (r x)).
+  }
 Defined.
 
 Arguments CScons {var ctx t lctx} _ _ .
