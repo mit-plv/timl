@@ -77,7 +77,7 @@ Definition nat_of_cexpr (c : cexpr) : nat.
   admit.
 Defined.
 
-Coercion c2s (ξ : csize) {ctx} : open_size ctx.
+Definition c2s {ctx} (ξ : csize) : open_size ctx.
   admit.
 Defined.
 
@@ -102,7 +102,9 @@ Instance Le_cszie_size : Le csize size :=
     le := le_csize_size
   }.
 
-Notation "| v |" := (get_csize v) (at level 10).
+(* Notation "| v |" := (get_csize v) (at level 10). *)
+Notation "& v" := (get_csize v) (at level 3, format "& v").
+Notation "! n" := (c2s n) (at level 3, format "! n").
 Infix "≤" := le (at level 70).
 
 Definition terminatesWith e n v := (nsteps e n v /\ IsValue v)%type.
@@ -118,7 +120,9 @@ Infix "×" := Tprod (at level 40).
 Infix "+" := Tsum.
 Notation "e ↓ τ" := (IsValue e /\ |~ e τ) (at level 51).
 
-Notation "! n" := (c2s n) (at level 3).
+Coercion c2s : csize >-> open_size.
+Coercion get_csize : open_expr >-> csize.
+Coercion nat_of_cexpr : open_cexpr >-> nat.
 
 Definition sound_wrt_bounded :=
   forall f τ₁ c s τ₂, 
@@ -126,10 +130,9 @@ Definition sound_wrt_bounded :=
     exists (C : nat), 
       forall v,
         v ↓ τ₁ ->
-        let ξ := |v| in
-        (* any reduction sequence is bounded by C * c(ξ) *)
+        (* any reduction sequence is bounded by C * c(|v|) *)
         forall n e',
-          nsteps (Eapp f v) n e' -> n ≤ C * (nat_of_cexpr (subst !ξ c)).
+          nsteps (Eapp f v) n e' -> n ≤ C * (nat_of_cexpr (subst !(&v) c)).
 
 Local Open Scope prog_scope.
 
@@ -389,12 +392,36 @@ Section csubsts.
   Variable var : nat -> Type.
   Variable ctx : Ctx.
 
-  Inductive SubstEntry :=
-  | SEtype (_ : relOpen var ctx (TTother type)) (_ : relOpen var ctx 1)
-  | SEexpr (_ : relOpen var ctx (TTother csize))
+  Inductive SubstEntry : CtxEntry -> Type :=
+  | SEtype (_ : relOpen var ctx (TTother type)) (_ : relOpen var ctx 1) : SubstEntry CEtype
+  | SEexpr (_ : relOpen var ctx (TTother csize)) : SubstEntry CEexpr
   .
 
-  Definition csubsts (lctx : context) : Type := list SubstEntry.
+  Inductive csubsts : context -> Type :=
+  | CSnil : csubsts []
+  | CScons {t ctx} : SubstEntry t -> csubsts ctx -> csubsts (t :: ctx)
+  .
+
+  (*
+  (* Definition csubsts_dec {lctx} (rho : csubsts lctx) : {} *)
+  Definition csubsts_type : forall {lctx}, csubsts lctx -> open_type lctx -> type.
+    refine
+      (
+        (* fix csubsts_type {lctx} : csubsts lctx -> open_type lctx -> type := *)
+        fun lctx =>
+         match lctx return csubsts lctx -> open_type lctx -> type with
+           | nil => fun _ b => b
+           | t :: lctx' =>
+             fun rho =>
+               _
+               (* match rho return open_type (t :: lctx') -> type with *)
+               (*   | CSnil => _ *)
+               (*   | CScons _ _ f rho' => _ (* csubsts_type rho' (f b) *) *)
+               (* end *)
+         end).
+    admit.
+  Defined.
+   *)
 
   Definition csubsts_type {lctx} : csubsts lctx -> open_type lctx -> type.
     admit.
@@ -464,52 +491,58 @@ Arguments csubsts_sem {_ ctx lctx} _ _ .
 (* the logical relation *)
 Section LR.
   
-  Variable ctx : Ctx.
+  Variable Ct : nat.
 
-  Program Fixpoint E' {lctx} (V : nat -> forall var, csubsts var ctx lctx -> relOpen var ctx 1) τ (n : nat) (s : size) (Ct : nat) {var} (ρ : csubsts var ctx lctx) {measure n} : relOpen var ctx 1 :=
+  Variable ctx : Ctx.
+  (* Variable var : nat -> Type. *)
+
+  Set Implicit Arguments.
+  
+  Program Fixpoint E' {lctx} (V : forall var, csubsts var ctx lctx -> relOpen var ctx 1) τ (n : nat) (s : size) var (ρ : csubsts var ctx lctx) {measure n} : relOpen var ctx 1 :=
     \e, ⌈|~ e (ρ τ)⌉ /\ 
         ∀1 n', ∀ e', 
-          (⌈nstepsex e n' 0 e'⌉ ⇒ ⌈n' ≤ n⌉ /\ (⌈IsValue e'⌉ ⇒ e' ∈ V Ct var ρ /\ ⌈|e'| ≤ s⌉)) /\
+          (⌈nstepsex e n' 0 e'⌉ ⇒ ⌈n' ≤ n⌉ /\ (⌈IsValue e'⌉ ⇒ e' ∈ V var ρ /\ ⌈&e' ≤ s⌉)) /\
           match n with
             | 0 => ⊤
             | S _ =>
-              (⌈nstepsex e (S n') 1 e'⌉ ⇒ ⌈(S n') ≤ n⌉ /\ ▹ (e' ∈ E' V τ (n - S n') s Ct ρ))
+              (⌈nstepsex e (S n') 1 e'⌉ ⇒ ⌈(S n') ≤ n⌉ /\ ▹ (e' ∈ E' V τ (n - S n') s ρ))
           end.
   Next Obligation.
     omega.
   Defined.
 
-  Unset Maximal Implicit Insertion.
-  Unset Implicit Arguments.
-  (*here*)
-
-  Fixpoint relvii {lctx} (τ : open_type lctx) (Ct : nat) {var} (ρ : csubsts var ctx lctx) {struct τ} : relOpen var ctx 1 :=
+  Fixpoint V {lctx} τ var (ρ : csubsts var ctx lctx) : relOpen var ctx 1 :=
     match τ with
       | Tvar α => csubsts_sem ρ α
-      | Tunit => \v, ⌈v ↓ τ⌉
-      | τ₁ × τ₂ => \v, ⌈v ↓ ρ τ⌉ /\ ∃ a b, ⌈v = Epair a b⌉ /\ a ∈ relvii τ₁ Ct ρ /\ b ∈ relvii τ₂ Ct ρ
-      | τ₁ + τ₂ => \v, ⌈v ↓ ρ τ⌉ /\ ∃ v', (⌈v = Einl τ₂ v'⌉ /\ v' ∈ relvii τ₁ Ct ρ) /\ ⌈v = Einr τ₁ v'⌉ /\ v' ∈ relvii τ₂ Ct ρ
-      | Tarrow τ₁ c s τ₂ => \v, ⌈v ↓ ρ τ⌉ /\ ∀ v₁, v₁ ∈ relvii τ₁ Ct ρ ⇒ Eapp v v₁ ∈ E' (relvii τ₂) τ₂ (nat_of_cexpr (subst (|v₁|) c)) (subst (|v₁|) s) Ct (add (|v₁|) ρ)
-      | Tuniversal c s τ₁ => \v, ⌈v ↓ ρ τ⌉ /\ ∀1 τ', ∀2 S, VSet τ' S ⇒ Etapp v τ' ∈ E' (relvii τ₁) τ₁ (nat_of_cexpr c) s Ct (add (τ', S) ρ)
-      | Trecur τ₁ => @S, \v, ⌈v ↓ ρ τ⌉ /\ ∃ v', ⌈v = Efold (ρ τ) v'⌉ /\ ▹ (v' ∈ relvii τ₁ Ct (add (ρ τ, S) ρ))
+      | Tunit => \v, ⌈v ↓ Tunit⌉
+      | τ₁ × τ₂ => \v, ⌈v ↓ ρ τ⌉ /\ ∃ a b, ⌈v = Epair a b⌉ /\ a ∈ V τ₁ ρ /\ b ∈ V τ₂ ρ
+      | τ₁ + τ₂ => \v, ⌈v ↓ ρ τ⌉ /\ ∃ v', (⌈v = Einl (ρ τ₂) v'⌉ /\ v' ∈ V τ₁ ρ) \/ (⌈v = Einr (ρ τ₁) v'⌉ /\ v' ∈ V τ₂ ρ)
+      | Tarrow τ₁ c s τ₂ => \v, ⌈v ↓ ρ τ⌉ /\ ∀ v₁, v₁ ∈ V τ₁ ρ ⇒ Eapp v v₁ ∈ E' (V τ₂) τ₂ (Ct * nat_of_cexpr (ρ $ (subst !(&v₁) c))) (ρ $ (subst !(&v₁) s)) (add &v₁ ρ)
+      | Tuniversal c s τ₁ => \v, ⌈v ↓ ρ τ⌉ /\ ∀1 τ', ∀2 S, VSet τ' S ⇒ Etapp v τ' ∈ E' (V τ₁) τ₁ (Ct * nat_of_cexpr (ρ $ c)) (ρ $ s) (add (τ', S) ρ)
+      | Trecur τ₁ => @S, \v, ⌈v ↓ ρ τ⌉ /\ ∃ v', ⌈v = Efold (ρ τ) v'⌉ /\ ▹ (v' ∈ V τ₁ (add (ρ τ, S) ρ))
       | _ => \_, ⊥
     end
   .
 
-  Definition E τ := E' (V τ) τ.
+  Definition E {lctx} τ := E' (lctx := lctx) (V τ) τ.
 
+  (*here*)
+  (* V and E should be defined on ctx = [] and lifted to any ctx, because csubsts_type can have type (csubsts lctx -> open_type lctx -> type) only when ctx = [] *)
+  
 End LR.
 
 Unset Strict Implicit.
 Unset Printing Implicit Defensive. 
 Generalizable All Variables.
 
+(*
 Definition csize_of_size : size -> option csize.
   admit.
 Defined.
 
 Definition asCsize P s :=
   (exists x, csize_of_size s = Some x /\ P x)%type.
+ *)
 
 Notation TTtype := (TTother type).
 Notation TTcsize := (TTother csize).

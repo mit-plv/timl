@@ -184,7 +184,7 @@ Defined.
 Require Import Bedrock.Platform.Cito.GeneralTactics4.
 Require Import Bedrock.Platform.Cito.GeneralTactics3.
 
-Notation "# n" := (Var n _) (at level 3).
+Notation "# n" := (Var n _) (at level 3, format "# n").
 
 Lemma remove_after A ls : forall m n (a : A), n < m -> let ls' := removen ls m in nth_error ls n = Some a -> nth_error ls' n = Some a.
 Proof.
