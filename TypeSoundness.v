@@ -120,9 +120,11 @@ Infix "×" := Tprod (at level 40).
 Infix "+" := Tsum.
 Notation "e ↓ τ" := (IsValue e /\ |~ e τ) (at level 51).
 
+(*
 Coercion c2s : csize >-> open_size.
 Coercion get_csize : open_expr >-> csize.
 Coercion nat_of_cexpr : open_cexpr >-> nat.
+ *)
 
 Definition sound_wrt_bounded :=
   forall f τ₁ c s τ₂, 
@@ -170,6 +172,7 @@ Inductive nstepsex : expr -> nat -> nat -> expr -> Prop :=
 
 (* A Parametric Higher-Order Abstract Syntax (PHOAS) encoding for a second-order modal logic (LSLR) *)
 
+Set Implicit Arguments.
 Section rel.
 
   Variable var : nat -> Type.
@@ -195,6 +198,43 @@ Section rel.
   .
 
 End rel.
+Unset Implicit Arguments.
+
+Module ClosedPHOAS.
+
+Notation "⊤" := (Rtrue _).
+Notation "⊥" := (Rtrue _).
+(* Notation "\ e , p" := (Rabs (fun e => p)) (at level 200, format "\ e , p"). *)
+Notation "\ x .. y , p" := (Rabs (fun x => .. (Rabs (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
+Notation "∀ x .. y , p" := (Rforalle (fun x => .. (Rforalle (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
+Notation "∃ x .. y , p" := (Rexistse (fun x => .. (Rexistse (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
+Notation "∀1 x .. y , p" := (Rforall1 (fun x => .. (Rforall1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
+Notation "∃1 x .. y , p" := (Rexists1 (fun x => .. (Rexists1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
+Definition RforallR' {var n} P := (@RforallR var n (fun x => P (Rvar _ _ x))).
+Notation "∀2 x .. y , p" := (RforallR' (fun x => .. (RforallR' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
+Definition RexistsR' {var n} P := (@RexistsR var n (fun x => P (Rvar _ _ x))).
+Notation "∃2 x .. y , p" := (RexistsR' (fun x => .. (RexistsR' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
+Definition Rrecur' {var n} P := (@Rrecur var n (fun x => P (Rvar _ _ x))).
+Notation "@@ x .. y , p" := (Rrecur' (fun x => .. (Rrecur' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
+Notation "⌈ P ⌉" := (Rinj _ P).
+Notation "e ∈ P" := (Rapp P e) (at level 70).
+Infix "/\" := Rand.
+Infix "\/" := Ror.
+Infix "⇒" := Rimply (at level 90).
+Notation "▹" := Rlater.
+Definition VSet {var} τ (S : rel var 1) := ∀ v, v ∈ S ⇒ ⌈v ↓ τ⌉.
+
+Section TestNotations.
+  
+  Variable var : nat -> Type.
+
+  Definition ttt1 : rel var 1 := \e , ⊤.
+  Definition ttt2 : rel var 1 := \e , ⌈e ↓ Tunit⌉.
+  Definition ttt3 : rel var 1 := \_ , ⌈True /\ True⌉.
+
+End TestNotations.
+
+End ClosedPHOAS.
 
 Section relOpen.
 
@@ -328,6 +368,8 @@ Section REL.
   
 End REL.
 
+Module OpenPHOAS.
+  
 Notation "⊤" := (ORtrue _ _).
 Notation "⊥" := (ORtrue _ _).
 Notation "⌈ P ⌉" := (ORinj _ _ P).
@@ -346,7 +388,7 @@ Notation "∀2 x .. y , p" := (ORforallR' (fun x => .. (ORforallR' (fun y => p))
 Definition ORexistsR' {var C n} P := (@ORexistsR var C n (fun x => P (ORvar var C _ x))).
 Notation "∃2 x .. y , p" := (ORexistsR' (fun x => .. (ORexistsR' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
 Definition ORrecur' {var C n} P := (@ORrecur var C n (fun x => P (ORvar var C _ x))).
-Notation "@ x .. y , p" := (ORrecur' (fun x => .. (ORrecur' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
+Notation "@@ x .. y , p" := (ORrecur' (fun x => .. (ORrecur' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
 Arguments ORapp {var C n} _ _ .
 Notation "e ∈ P" := (ORapp P e) (at level 70).
 Arguments ORand {var C} _ _ .
@@ -372,6 +414,8 @@ Section TestNotations.
 
 End TestNotations.
 
+End OpenPHOAS.
+
 (* An Logical Step-indexed Logical Relation (LSLR) for boundedness *)
 
 Local Open Scope prog_scope.
@@ -386,6 +430,8 @@ End substs.
 Arguments substs_sem {ctx} _ _ _ .
  *)
 
+Set Implicit Arguments.
+  
 (* closing substitutions *)
 Section csubsts.
   
@@ -402,7 +448,67 @@ Section csubsts.
   | CScons {t ctx} : SubstEntry t -> csubsts ctx -> csubsts (t :: ctx)
   .
 
-  (*
+End csubsts.
+
+Section csubstsClosed.
+  
+  Variable var : nat -> Type.
+
+  Definition csubsts_sem {lctx} : csubsts var [] lctx -> open_var CEtype lctx -> rel var 1.
+    admit.
+  Defined.
+
+  Global Instance Apply_csubsts_nat_rel lctx : Apply (csubsts var [] lctx) (open_var CEtype lctx) (rel var 1) :=
+    {
+      apply := csubsts_sem
+    }.
+
+  Definition csubsts_cexpr {lctx} : csubsts var [] lctx -> open_cexpr lctx -> cexpr.
+    admit.
+  Defined.
+
+  Global Instance Apply_csubsts_cexpr_cexpr lctx : Apply (csubsts var [] lctx) (open_cexpr lctx) cexpr :=
+    {
+      apply := csubsts_cexpr
+    }.
+
+  Definition csubsts_size {lctx} : csubsts var [] lctx -> open_size lctx -> size.
+    admit.
+  Defined.
+
+  Global Instance Apply_csubsts_size_size lctx : Apply (csubsts var [] lctx) (open_size lctx) size :=
+    {
+      apply := csubsts_size
+    }.
+
+  Definition csubsts_expr {lctx} : csubsts var [] lctx -> (open_expr lctx) -> expr.
+    admit.
+  Defined.
+
+  Global Instance Apply_csubsts_expr_expr lctx : Apply (csubsts var [] lctx) (open_expr lctx) expr :=
+    {
+      apply := csubsts_expr
+    }.
+
+  Definition add_csize {lctx} : csize -> csubsts var [] lctx -> csubsts var [] (CEexpr :: lctx).
+    admit.
+  Defined.
+
+  Global Instance Add_csize_csubsts lctx : Add csize (csubsts var [] lctx) (csubsts var [] (CEexpr :: lctx)) :=
+    {
+      add := add_csize
+    }.
+
+  Definition add_pair {lctx} : (type * rel var 1) -> csubsts var [] lctx -> csubsts var [] (CEtype :: lctx).
+    admit.
+  Defined.
+
+  Global Instance Add_pair_csubsts lctx : Add (type * rel var 1) (csubsts var [] lctx) (csubsts var [] (CEtype :: lctx)) :=
+    {
+      add := add_pair
+    }.
+
+    (*
   (* Definition csubsts_dec {lctx} (rho : csubsts lctx) : {} *)
   Definition csubsts_type : forall {lctx}, csubsts lctx -> open_type lctx -> type.
     refine
@@ -423,69 +529,20 @@ Section csubsts.
   Defined.
    *)
 
-  Definition csubsts_type {lctx} : csubsts lctx -> open_type lctx -> type.
+  Definition csubsts_type {lctx} : csubsts var [] lctx -> open_type lctx -> type.
     admit.
   Defined.
 
-  Coercion csubsts_type : csubsts >-> Funclass.
-
-  Definition csubsts_sem {lctx} : csubsts lctx -> open_var CEtype lctx -> relOpen var ctx 1.
-    admit.
-  Defined.
-
-  Global Instance Apply_csubsts_nat_rel lctx : Apply (csubsts lctx) (open_var CEtype lctx) (relOpen var ctx 1) :=
+  Global Instance Apply_csubsts_type_type lctx : Apply (csubsts var [] lctx) (open_type lctx) type :=
     {
-      apply := csubsts_sem
+      apply := csubsts_type
     }.
 
-  Definition csubsts_cexpr {lctx} : csubsts lctx -> open_cexpr lctx -> cexpr.
-    admit.
-  Defined.
+End csubstsClosed.
 
-  Global Instance Apply_csubsts_cexpr_cexpr lctx : Apply (csubsts lctx) (open_cexpr lctx) cexpr :=
-    {
-      apply := csubsts_cexpr
-    }.
+Arguments csubsts_sem {_ lctx} _ _ .
 
-  Definition csubsts_size {lctx} : csubsts lctx -> open_size lctx -> size.
-    admit.
-  Defined.
-
-  Global Instance Apply_csubsts_size_size lctx : Apply (csubsts lctx) (open_size lctx) size :=
-    {
-      apply := csubsts_size
-    }.
-
-  Definition csubsts_expr {lctx} : csubsts lctx -> (open_expr lctx) -> expr.
-    admit.
-  Defined.
-
-  Global Instance Apply_csubsts_expr_expr lctx : Apply (csubsts lctx) (open_expr lctx) expr :=
-    {
-      apply := csubsts_expr
-    }.
-
-  Definition add_csize {lctx} : csize -> csubsts lctx -> csubsts (CEexpr :: lctx).
-    admit.
-  Defined.
-
-  Global Instance Add_csize_csubsts lctx : Add csize (csubsts lctx) (csubsts (CEexpr :: lctx)) :=
-    {
-      add := add_csize
-    }.
-
-  Definition add_pair {lctx} : (type * relOpen var ctx 1) -> csubsts lctx -> csubsts (CEtype :: lctx).
-    admit.
-  Defined.
-
-  Global Instance Add_pair_csubsts lctx : Add (type * relOpen var ctx 1) (csubsts lctx) (csubsts (CEtype :: lctx)) :=
-    {
-      add := add_pair
-    }.
-
-End csubsts.
-
-Arguments csubsts_sem {_ ctx lctx} _ _ .
+Import ClosedPHOAS.
 
 (* A "step-indexed" kriple model *)
 (* the logical relation *)
@@ -493,13 +550,19 @@ Section LR.
   
   Variable Ct : nat.
 
-  Variable ctx : Ctx.
-  (* Variable var : nat -> Type. *)
-
-  Set Implicit Arguments.
+  (* don't know why this coercion stopped working *)
+  Coercion csubsts_type : csubsts >-> Funclass.
+  (*
+  Context {var lctx} `{ρ : csubsts var [] lctx}.
+  Context {τ : open_type lctx}.
+  Check (@csubsts_type _ lctx ρ).
+  Set Printing All.
+  Check (ρ τ).
+  Check (@csubsts_type var (@nil termType) lctx ρ).
+   *)
   
-  Program Fixpoint E' {lctx} (V : forall var, csubsts var ctx lctx -> relOpen var ctx 1) τ (n : nat) (s : size) var (ρ : csubsts var ctx lctx) {measure n} : relOpen var ctx 1 :=
-    \e, ⌈|~ e (ρ τ)⌉ /\ 
+  Program Fixpoint E' {lctx} (V : forall var, csubsts var [] lctx -> rel var 1) τ (n : nat) (s : size) var (ρ : csubsts var [] lctx) {measure n} : rel var 1 :=
+    \e, ⌈|~ e (ρ $ τ)⌉ /\ 
         ∀1 n', ∀ e', 
           (⌈nstepsex e n' 0 e'⌉ ⇒ ⌈n' ≤ n⌉ /\ (⌈IsValue e'⌉ ⇒ e' ∈ V var ρ /\ ⌈&e' ≤ s⌉)) /\
           match n with
@@ -511,15 +574,15 @@ Section LR.
     omega.
   Defined.
 
-  Fixpoint V {lctx} τ var (ρ : csubsts var ctx lctx) : relOpen var ctx 1 :=
+  Fixpoint V {lctx} τ var (ρ : csubsts var [] lctx) : rel var 1 :=
     match τ with
       | Tvar α => csubsts_sem ρ α
       | Tunit => \v, ⌈v ↓ Tunit⌉
-      | τ₁ × τ₂ => \v, ⌈v ↓ ρ τ⌉ /\ ∃ a b, ⌈v = Epair a b⌉ /\ a ∈ V τ₁ ρ /\ b ∈ V τ₂ ρ
-      | τ₁ + τ₂ => \v, ⌈v ↓ ρ τ⌉ /\ ∃ v', (⌈v = Einl (ρ τ₂) v'⌉ /\ v' ∈ V τ₁ ρ) \/ (⌈v = Einr (ρ τ₁) v'⌉ /\ v' ∈ V τ₂ ρ)
-      | Tarrow τ₁ c s τ₂ => \v, ⌈v ↓ ρ τ⌉ /\ ∀ v₁, v₁ ∈ V τ₁ ρ ⇒ Eapp v v₁ ∈ E' (V τ₂) τ₂ (Ct * nat_of_cexpr (ρ $ (subst !(&v₁) c))) (ρ $ (subst !(&v₁) s)) (add &v₁ ρ)
-      | Tuniversal c s τ₁ => \v, ⌈v ↓ ρ τ⌉ /\ ∀1 τ', ∀2 S, VSet τ' S ⇒ Etapp v τ' ∈ E' (V τ₁) τ₁ (Ct * nat_of_cexpr (ρ $ c)) (ρ $ s) (add (τ', S) ρ)
-      | Trecur τ₁ => @S, \v, ⌈v ↓ ρ τ⌉ /\ ∃ v', ⌈v = Efold (ρ τ) v'⌉ /\ ▹ (v' ∈ V τ₁ (add (ρ τ, S) ρ))
+      | τ₁ × τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃ a b, ⌈v = Epair a b⌉ /\ a ∈ V τ₁ ρ /\ b ∈ V τ₂ ρ
+      | τ₁ + τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃ v', (⌈v = Einl (ρ $ τ₂) v'⌉ /\ v' ∈ V τ₁ ρ) \/ (⌈v = Einr (ρ $ τ₁) v'⌉ /\ v' ∈ V τ₂ ρ)
+      | Tarrow τ₁ c s τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∀ v₁, v₁ ∈ V τ₁ ρ ⇒ Eapp v v₁ ∈ E' (V τ₂) τ₂ (Ct * nat_of_cexpr (ρ $ subst !(&v₁) c)) (ρ $ subst !(&v₁) s) (add &v₁ ρ)
+      | Tuniversal c s τ₁ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∀1 τ', ∀2 S, VSet τ' S ⇒ Etapp v τ' ∈ E' (V τ₁) τ₁ (Ct * nat_of_cexpr (ρ $ c)) (ρ $ s) (add (τ', S) ρ)
+      | Trecur τ₁ => @@S, \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃ v', ⌈v = Efold (ρ $ τ) v'⌉ /\ ▹ (v' ∈ V τ₁ (add (ρ $ τ, S) ρ))
       | _ => \_, ⊥
     end
   .
