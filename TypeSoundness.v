@@ -186,10 +186,8 @@ Section rel.
   | Rand (_ _ : rel 0) : rel 0
   | Ror (_ _ : rel 0) : rel 0
   | Rimply (_ _ : rel 0) : rel 0
-  | RforallE : (expr -> rel 0) -> rel 0
-  | RexistsE : (expr -> rel 0) -> rel 0
-  | RforallR n : (var n -> rel 0) -> rel 0
-  | RexistsR n : (var n -> rel 0) -> rel 0
+  | Rforall2 n : (var n -> rel 0) -> rel 0
+  | Rexists2 n : (var n -> rel 0) -> rel 0
   | Rforall1 T : (T -> rel 0) -> rel 0
   | Rexists1 T : (T -> rel 0) -> rel 0
   | Rabs n : (expr -> rel n) -> rel (S n)
@@ -213,14 +211,12 @@ Notation "⊤" := Rtrue.
 Notation "⊥" := Rtrue.
 (* Notation "\ e , p" := (Rabs (fun e => p)) (at level 200, format "\ e , p"). *)
 Notation "\ x .. y , p" := (Rabs (fun x => .. (Rabs (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
-Notation "∀ x .. y , p" := (RforallE (fun x => .. (RforallE (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
-Notation "∃ x .. y , p" := (RexistsE (fun x => .. (RexistsE (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
-Notation "∀1 x .. y , p" := (Rforall1 (fun x => .. (Rforall1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
-Notation "∃1 x .. y , p" := (Rexists1 (fun x => .. (Rexists1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
-Definition RforallR' {var n} P := (@RforallR var n (fun x => P (Rvar x))).
-Notation "∀2 x .. y , p" := (RforallR' (fun x => .. (RforallR' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
-Definition RexistsR' {var n} P := (@RexistsR var n (fun x => P (Rvar x))).
-Notation "∃2 x .. y , p" := (RexistsR' (fun x => .. (RexistsR' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
+Notation "∀ x .. y , p" := (Rforall1 (fun x => .. (Rforall1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
+Notation "∃ x .. y , p" := (Rexists1 (fun x => .. (Rexists1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
+Definition Rforall2' {var n} P := (@Rforall2 var n (fun x => P (Rvar x))).
+Notation "∀2 x .. y , p" := (Rforall2' (fun x => .. (Rforall2' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
+Definition Rexists2' {var n} P := (@Rexists2 var n (fun x => P (Rvar x))).
+Notation "∃2 x .. y , p" := (Rexists2' (fun x => .. (Rexists2' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
 Definition Rrecur' {var n} P := (@Rrecur var n (fun x => P (Rvar x))).
 Notation "@@ x .. y , p" := (Rrecur' (fun x => .. (Rrecur' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
 Notation "⌈ P ⌉" := (Rinj P).
@@ -251,7 +247,6 @@ Section relOpen.
   
   Inductive termType :=
     | TTrel (arity : nat)
-    | TTexpr
     | TTother (T : Type)
   .
 
@@ -260,7 +255,6 @@ Section relOpen.
   Definition interp t :=
     match t with
       | TTrel n => rel var n
-      | TTexpr => expr
       | TTother T => T
     end.
 
@@ -359,10 +353,8 @@ Section relOpen.
   Definition ORand := liftToOpen5 ctx (@Rand var).
   Definition ORor := liftToOpen5 ctx (@Ror var).
   Definition ORimply := liftToOpen5 ctx (@Rimply var).
-  Definition ORforallE := liftToOpen2 ctx (@RforallE var).
-  Definition ORexistsE := liftToOpen2 ctx (@RexistsE var).
-  Definition ORforallR n := liftToOpen2 ctx (@RforallR var n).
-  Definition ORexistsR n := liftToOpen2 ctx (@RexistsR var n).
+  Definition ORforall2 n := liftToOpen2 ctx (@Rforall2 var n).
+  Definition ORexists2 n := liftToOpen2 ctx (@Rexists2 var n).
   Definition ORforall1 T := liftToOpen2 ctx (@Rforall1 var T).
   Definition ORexists1 T := liftToOpen2 ctx (@Rexists1 var T).
   Definition ORabs n := liftToOpen2 ctx (@Rabs var n).
@@ -377,8 +369,6 @@ Arguments ORtrue {var ctx} .
 Arguments ORfalse {var ctx} .
 Arguments ORinj {var ctx} _ .
 Arguments ORabs {var ctx n} _ .
-Arguments ORforallE {var ctx} _ .
-Arguments ORexistsE {var ctx} _ .
 Arguments ORforall1 {var ctx T} _ .
 Arguments ORexists1 {var ctx T} _ .
 Arguments ORapp {var ctx n} _ _ .
@@ -386,8 +376,8 @@ Arguments ORand {var ctx} _ _ .
 Arguments ORor {var ctx} _ _ .
 Arguments ORimply {var ctx} _ _ .
 Arguments ORlater {var ctx} _ .
-Arguments ORforallR {var ctx n} _ .
-Arguments ORexistsR {var ctx n} _ .
+Arguments ORforall2 {var ctx n} _ .
+Arguments ORexists2 {var ctx n} _ .
 Arguments ORrecur {var ctx n} _ .
 
 Definition Rel ctx t := forall var, relOpen var ctx t.
@@ -406,6 +396,7 @@ End substs.
 Arguments substs_sem {ctx} _ _ _ .
  *)
 
+Notation TTexpr := (TTother expr).
 Notation TTtype := (TTother type).
 Notation TTcsize := (TTother csize).
 
@@ -607,7 +598,7 @@ Arguments csubsts_sem {_ lctx} _ _ .
 
 Import ClosedPHOAS.
 
-Definition VSet {var} τ (S : rel var 1) := ∀ v, v ∈ S ⇒ ⌈v ↓ τ⌉.
+Definition VSet {var} τ (S : rel var 1) := ∀v, v ∈ S ⇒ ⌈v ↓ τ⌉.
 
 (* A "step-indexed" kriple model *)
 (* the logical relation *)
@@ -628,7 +619,7 @@ Section LR.
   
   Program Fixpoint E' {lctx} (V : forall var, csubsts var [] lctx -> rel var 1) τ (n : nat) (s : size) var (ρ : csubsts var [] lctx) {measure n} : rel var 1 :=
     \e, ⌈|~ e (ρ $ τ)⌉ /\ 
-        ∀1 n', ∀ e', 
+        ∀n', ∀e', 
           (⌈nstepsex e n' 0 e'⌉ ⇒ ⌈n' ≤ n⌉ /\ (⌈IsValue e'⌉ ⇒ e' ∈ V var ρ /\ ⌈&e' ≤ s⌉)) /\
           match n with
             | 0 => ⊤
@@ -643,11 +634,11 @@ Section LR.
     match τ with
       | Tvar α => csubsts_sem ρ α
       | Tunit => \v, ⌈v ↓ Tunit⌉
-      | τ₁ × τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃ a b, ⌈v = Epair a b⌉ /\ a ∈ V τ₁ ρ /\ b ∈ V τ₂ ρ
-      | τ₁ + τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃ v', (⌈v = Einl (ρ $ τ₂) v'⌉ /\ v' ∈ V τ₁ ρ) \/ (⌈v = Einr (ρ $ τ₁) v'⌉ /\ v' ∈ V τ₂ ρ)
-      | Tarrow τ₁ c s τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∀ v₁, v₁ ∈ V τ₁ ρ ⇒ Eapp v v₁ ∈ E' (V τ₂) τ₂ (Ct * nat_of_cexpr (ρ $ subst !(&v₁) c)) (ρ $ subst !(&v₁) s) (add v₁ ρ)
-      | Tuniversal c s τ₁ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∀1 τ', ∀2 S, VSet τ' S ⇒ Etapp v τ' ∈ E' (V τ₁) τ₁ (Ct * nat_of_cexpr (ρ $ c)) (ρ $ s) (add (τ', S) ρ)
-      | Trecur τ₁ => @@S, \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃ v', ⌈v = Efold (ρ $ τ) v'⌉ /\ ▹ (v' ∈ V τ₁ (add (ρ $ τ, S) ρ))
+      | τ₁ × τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃a b, ⌈v = Epair a b⌉ /\ a ∈ V τ₁ ρ /\ b ∈ V τ₂ ρ
+      | τ₁ + τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃v', (⌈v = Einl (ρ $ τ₂) v'⌉ /\ v' ∈ V τ₁ ρ) \/ (⌈v = Einr (ρ $ τ₁) v'⌉ /\ v' ∈ V τ₂ ρ)
+      | Tarrow τ₁ c s τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∀v₁, v₁ ∈ V τ₁ ρ ⇒ Eapp v v₁ ∈ E' (V τ₂) τ₂ (Ct * nat_of_cexpr (ρ $ subst !(&v₁) c)) (ρ $ subst !(&v₁) s) (add v₁ ρ)
+      | Tuniversal c s τ₁ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∀τ', ∀2 S, VSet τ' S ⇒ Etapp v τ' ∈ E' (V τ₁) τ₁ (Ct * nat_of_cexpr (ρ $ c)) (ρ $ s) (add (τ', S) ρ)
+      | Trecur τ₁ => @@S, \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃v', ⌈v = Efold (ρ $ τ) v'⌉ /\ ▹ (v' ∈ V τ₁ (add (ρ $ τ, S) ρ))
       | _ => \_, ⊥
     end
   .
@@ -942,14 +933,12 @@ Notation "⊤" := ORtrue : OR.
 Notation "⊥" := ORtrue : OR.
 Notation "⌈ P ⌉" := (ORinj P) : OR.
 Notation "\ x .. y , p" := (ORabs (fun x => .. (ORabs (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
-Notation "∀ x .. y , p" := (ORforallE (fun x => .. (ORforallE (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
-Notation "∃ x .. y , p" := (ORexistsE (fun x => .. (ORexistsE (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
-Notation "∀1 x .. y , p" := (ORforall1 (fun x => .. (ORforall1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
-Notation "∃1 x .. y , p" := (ORexists1 (fun x => .. (ORexists1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
-Definition ORforallR' {var ctx n} P := (@ORforallR var ctx n (fun x => P (ORvar var ctx _ x))).
-Notation "∀2 x .. y , p" := (ORforallR' (fun x => .. (ORforallR' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
-Definition ORexistsR' {var ctx n} P := (@ORexistsR var ctx n (fun x => P (ORvar var ctx _ x))).
-Notation "∃2 x .. y , p" := (ORexistsR' (fun x => .. (ORexistsR' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
+Notation "∀ x .. y , p" := (ORforall1 (fun x => .. (ORforall1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
+Notation "∃ x .. y , p" := (ORexists1 (fun x => .. (ORexists1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
+Definition ORforall2' {var ctx n} P := (@ORforall2 var ctx n (fun x => P (ORvar var ctx _ x))).
+Notation "∀2 x .. y , p" := (ORforall2' (fun x => .. (ORforall2' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
+Definition ORexists2' {var ctx n} P := (@ORexists2 var ctx n (fun x => P (ORvar var ctx _ x))).
+Notation "∃2 x .. y , p" := (ORexists2' (fun x => .. (ORexists2' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
 Definition ORrecur' {var ctx n} P := (@ORrecur var ctx n (fun x => P (ORvar var ctx _ x))).
 Notation "@@ x .. y , p" := (ORrecur' (fun x => .. (ORrecur' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
 Notation "@@@ x .. y , p" := (ORrecur (fun x => .. (ORrecur (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
@@ -971,8 +960,8 @@ Section TestNotations.
   Definition ttt1 : relOpen var ctx 1 := \e , ⊤.
   Definition ttt2 : relOpen var ctx 1 := \e , ⌈e ↓ Tunit⌉.
   Definition ttt3 : relOpen var ctx 1 := \_ , ⌈True /\ True⌉.
-  Definition ttt4 : relOpen var ctx 1 := \_ , ∀ e, ⌈e = Ett⌉.
-  Definition ttt5 : relOpen var ctx 1 := \_ , ∃ e, ⌈e = Ett⌉.
+  Definition ttt4 : relOpen var ctx 1 := \_ , ∀e, ⌈e = @Ett nil⌉.
+  Definition ttt5 : relOpen var ctx 1 := \_ , ∃e, ⌈e = @Ett nil⌉.
 
 End TestNotations.
 
@@ -990,8 +979,6 @@ Section REL.
   Definition RELand (a b : Rel 0) : Rel 0 := fun var => ORand (a var) (b var).
   Definition RELor (a b : Rel 0) : Rel 0 := fun var => ORor (a var) (b var).
   Definition RELimply (a b : Rel 0) : Rel 0 := fun var => ORimply (a var) (b var).
-  Definition RELforallE (F : expr -> Rel 0) : Rel 0 := fun var => ORforallE (fun e => F e var).
-  Definition RELexistsE (F : expr -> Rel 0) : Rel 0 := fun var => ORexistsE (fun e => F e var).
   Definition RELforall1 T (F : T -> Rel 0) : Rel 0 := fun var => ORforall1 (fun x => F x var).
   Definition RELexists1 T (F : T -> Rel 0) : Rel 0 := fun var => ORexists1 (fun x => F x var).
   Definition RELabs (n : nat) (F : expr -> Rel n) : Rel (S n) := fun var => ORabs (fun e => F e var).
@@ -1011,10 +998,8 @@ Notation "⊤" := RELtrue.
 Notation "⊥" := RELtrue.
 Notation "⌈ P ⌉" := (RELinj P).
 Notation "\ x .. y , p" := (RELabs (fun x => .. (RELabs (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
-Notation "∀ x .. y , p" := (RELforallE (fun x => .. (RELforallE (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
-Notation "∃ x .. y , p" := (RELexistsE (fun x => .. (RELexistsE (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
-Notation "∀1 x .. y , p" := (RELforall1 (fun x => .. (RELforall1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
-Notation "∃1 x .. y , p" := (RELexists1 (fun x => .. (RELexists1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
+Notation "∀ x .. y , p" := (RELforall1 (fun x => .. (RELforall1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
+Notation "∃ x .. y , p" := (RELexists1 (fun x => .. (RELexists1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
 Notation "e ∈ P" := (RELapp P e) (at level 70).
 Infix "/\" := RELand.
 Infix "\/" := RELor.
@@ -1028,8 +1013,8 @@ Section TestNotations.
   Definition ttt1 : Rel ctx 1 := \e , ⊤.
   Definition ttt2 : Rel ctx 1 := \e , ⌈e ↓ Tunit⌉.
   Definition ttt3 : Rel ctx 1 := \_ , ⌈True /\ True⌉.
-  Definition ttt4 : Rel ctx 1 := \_ , ∀ e, ⌈e = Ett⌉.
-  Definition ttt5 : Rel ctx 1 := \_ , ∃ e, ⌈e = Ett⌉.
+  Definition ttt4 : Rel ctx 1 := \_ , ∀e, ⌈e = @Ett nil⌉.
+  Definition ttt5 : Rel ctx 1 := \_ , ∃e, ⌈e = @Ett nil⌉.
 
 End TestNotations.
 
@@ -1080,10 +1065,8 @@ Section inferRules.
   | ERuleLaterAnd P Q : eqv (▹ (P /\ Q)) (▹P /\ ▹Q)
   | ERuleLaterOr P Q : eqv (▹ (P \/ Q)) (▹P \/ ▹Q)
   | ERuleLaterImply P Q : eqv (▹ (P ⇒ Q)) (▹P ⇒ ▹Q)
-  | ERuleLaterForalle P : eqv (▹ (∀e, P e)) (∀e, ▹(P e))
-  | ERuleLaterExistse P : eqv (▹ (∃e, P e)) (∃e, ▹(P e))
-  | ERuleLaterForall1 T P : eqv (▹ (∀1 (x : T), P x)) (∀1 x, ▹(P x))
-  | ERuleLaterExists1 T P : eqv (▹ (∃1 (x : T), P x)) (∃1 x, ▹(P x))
+  | ERuleLaterForall1 T P : eqv (▹ (∀x:T, P x)) (∀x, ▹(P x))
+  | ERuleLaterExists1 T P : eqv (▹ (∃x:T, P x)) (∃x, ▹(P x))
   | ERuleLaterForallR (n : nat) P : eqv (fun var => ▹ (∀2 (R : relOpen var ctx n), P var R))%OR (fun var => ∀2 R, ▹(P var R))%OR
   | ERuleLaterExistsR (n : nat) P : eqv (fun var => ▹ (∃2 (R : relOpen var ctx n), P var R))%OR (fun var => ∃2 R, ▹(P var R))%OR
   | RuleElem n (R : Rel ctx (S n)) e : eqv ((\x, R $ x) $ e) (R $ e)
