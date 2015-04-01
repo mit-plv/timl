@@ -534,8 +534,9 @@ Fixpoint visit_e {ctx ctx'} qctx (f : ((forall qctx, var CEexpr (qctx ++ ctx) ->
     | Epair a b => Epair (visit_e _ f a) (visit_e _ f b)
     | Einl t e => Einl (ft _ t) (visit_e _ f e)
     | Einr t e => Einr (ft _ t) (visit_e _ f e)
-    | Ematch_pair target handler => Ematch_pair (visit_e _ f target) (visit_e (CEexpr :: CEexpr :: _) f handler)
-    | Ematch_sum target a b => Ematch_sum (visit_e _ f target) (visit_e (CEexpr :: _) f a) (visit_e (CEexpr :: _) f b)
+    | Efst e => Efst (visit_e _ f e)
+    | Esnd e => Esnd (visit_e _ f e)
+    | Ematch target a b => Ematch (visit_e _ f target) (visit_e (CEexpr :: _) f a) (visit_e (CEexpr :: _) f b)
   end.
 
 Definition visit_expr {ctx ctx'} := @visit_e ctx ctx' [].

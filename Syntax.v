@@ -27,6 +27,11 @@ Inductive type ctx : Type :=
 
 Arguments Tunit {ctx} .
 
+Infix "*" := Tprod : ty.
+Infix "+" := Tsum : ty.
+Delimit Scope ty with ty.
+Bind Scope ty with type.
+
 Coercion Tvar : var >-> type.
 
 Inductive expr ctx : Type :=
@@ -44,8 +49,9 @@ Inductive expr ctx : Type :=
 | Epair : expr ctx -> expr ctx -> expr ctx
 | Einl : type ctx -> expr ctx -> expr ctx
 | Einr : type ctx -> expr ctx -> expr ctx
-| Ematch_pair : expr ctx -> expr (CEexpr :: CEexpr :: ctx) -> expr ctx
-| Ematch_sum : expr ctx -> expr (CEexpr :: ctx) -> expr (CEexpr :: ctx) -> expr ctx
+| Efst : expr ctx -> expr ctx
+| Esnd : expr ctx -> expr ctx
+| Ematch : expr ctx -> expr (CEexpr :: ctx) -> expr (CEexpr :: ctx) -> expr ctx
 .
 
 Arguments Ett {ctx} .

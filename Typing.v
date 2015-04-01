@@ -93,11 +93,11 @@ Inductive kinding {ctx} : tcontext ctx -> type ctx -> kind -> Prop :=
 | Kprod T a b :
     kinding T a 0 ->
     kinding T b 0 ->
-    kinding T (Tprod a b) 0
+    kinding T (a * b) 0
 | Ksum T a b :
     kinding T a 0 ->
     kinding T b 0 ->
-    kinding T (Tsum a b) 0
+    kinding T (a + b) 0
 .
 
 Inductive teq {ctx} : type ctx -> type ctx -> Prop :=
@@ -123,11 +123,11 @@ Inductive teq {ctx} : type ctx -> type ctx -> Prop :=
 | Qprod a b a' b' :
     teq a a' ->
     teq b b' ->
-    teq (Tprod a b) (Tprod a' b')
+    teq (a * b) (a' * b')
 | Qsum a b a' b' :
     teq a a' ->
     teq b b' ->
-    teq (Tsum a b) (Tsum a' b')
+    teq (a + b) (a' + b')
 .
 
 Global Add Parametric Relation ctx : (type ctx) (@teq ctx)
@@ -228,6 +228,13 @@ Instance Coerce_tc_entry_type ctx : Coerce (tc_entry CEexpr ctx) (type ctx) :=
     coerce := type_of_te (ctx := ctx)
   }.
 
+Definition pair_to_Spair {ctx} (p : size ctx * size ctx) := Spair (fst p) (snd p).
+
+Instance Coerce_prod_size ctx : Coerce (size ctx * size ctx) (size ctx) :=
+  {
+    coerce := pair_to_Spair (ctx := ctx)
+  }.
+
 Inductive typing {ctx} : tcontext ctx -> expr ctx -> type ctx -> cexpr ctx -> size ctx -> Prop :=
 | TPvar Γ x : 
     typing Γ (Evar x) (cast (shiftby (firstn (S x) ctx) !(findtc x Γ)) (firstn_skipn _ ctx)) F0 !x
@@ -280,28 +287,29 @@ Inductive typing {ctx} : tcontext ctx -> expr ctx -> type ctx -> cexpr ctx -> si
 | TPpair T e1 t1 c1 s1 e2 t2 c2 s2 : 
     typing T e1 t1 c1 s1 ->
     typing T e2 t2 c2 s2 ->
-    typing T (Epair e1 e2) (Tprod t1 t2) (c1 + c2) (Spair s1 s2)
+    typing T (Epair e1 e2) (t1 * t2) (c1 + c2) !(s1, s2)
 | TPinl T t e te c s:
     typing T e te c s ->
-    typing T (Einl t e) (Tsum te t) c (Sinlinr s S0)
+    typing T (Einl t e) (te + t) c (Sinlinr s S0)
 | TPinr T t e te c s:
     typing T e te c s ->
-    typing T (Einr t e) (Tsum t te) c (Sinlinr S0 s)
+    typing T (Einr t e) (t + te) c (Sinlinr S0 s)
 (* basic types - elim *)
-| TPmatch_pair T e (e' : expr (CEexpr :: CEexpr :: ctx)) (t : type (CEexpr :: CEexpr :: ctx)) t1 t2 c s c' s' s1 s2 :
-    typing T e (Tprod t1 t2) c s ->
-    let T' := add_typings [t2; t1] T in
-    typing (ctx := _) T' e' t c' s' ->
+| TPfst T e t1 t2 c s s1 s2 :
+    typing T e (t1 * t2) c s ->
     is_pair s = Some (s1, s2) ->
-    let sizes := [s2; s1] in
-    typing T (Ematch_pair e e') (subst_list sizes t) (c + subst_list sizes c') (subst_list sizes s')
-| TPmatch_sum T e e1 e2 t1 t2 c s s1 s2 t c1 c2 s' s1' s2' :
-    typing T e (Tsum t1 t2) c s ->
+    typing T (Efst e) t1 c s1
+| TPsnd T e t1 t2 c s s1 s2 :
+    typing T e (t1 * t2) c s ->
+    is_pair s = Some (s1, s2) ->
+    typing T (Esnd e) t2 c s2
+| TPmatch T e e1 e2 t1 t2 c s s1 s2 t c1 c2 s' s1' s2' :
+    typing T e (t1 + t2) c s ->
     typing (ctx := _) (add_typing t1 T) e1 (shift1 CEexpr t) c1 s1' -> 
     typing (ctx := _) (add_typing t2 T) e2 (shift1 CEexpr t) c2 s2' -> 
     is_inlinr s = Some (s1, s2) ->
     subst s1 s1' <= s' ->
     subst s2 s2' <= s' ->
-    typing T (Ematch_sum e e1 e2) t (c + max (subst s1 c1) (subst s2 c2)) s'
+    typing T (Ematch e e1 e2) t (c + max (subst s1 c1) (subst s2 c2)) s'
 .
 

@@ -110,8 +110,8 @@ Definition asNat P c :=
 Notation "⌊ n | P ⌋" := (asNat (fun n => P)).
 *)
 
-Infix "×" := Tprod (at level 40).
-Infix "+" := Tsum.
+Infix "×" := Tprod (at level 40) : ty.
+Infix "+" := Tsum : ty.
 Notation "e ↓ τ" := (IsValue e /\ |- e τ) (at level 51).
 
 (* Notation "| v |" := (get_csize v) (at level 10). *)
@@ -154,16 +154,20 @@ Inductive stepex : expr -> bool -> expr -> Prop :=
     stepex e1' b e2'
 | STapp t body arg : IsValue arg -> stepex (Eapp (Eabs t body) arg) false (subst arg body)
 | STlet v main : IsValue v -> stepex (Elet v main) false (subst v main)
-| STmatch_pair ta tb a b k : 
-    IsValue a ->
-    IsValue b ->
-    stepex (Ematch_pair (Epair $$ ta $$ tb $$ a $$ b) k) false (subst_list [a; b] k)
-| STmatch_inl ta tb v k1 k2 : 
+| STfst v1 v2 :
+    IsValue v1 ->
+    IsValue v2 ->
+    stepex (Efst (Epair v1 v2)) false v1
+| STsnd v1 v2 :
+    IsValue v1 ->
+    IsValue v2 ->
+    stepex (Esnd (Epair v1 v2)) false v2
+| STmatch_inl t v k1 k2 : 
     IsValue v ->
-    stepex (Ematch_sum (Einl $$ ta $$ tb $$ v) k1 k2) false (subst v k1)
-| STmatch_inr ta tb v k1 k2 : 
+    stepex (Ematch (Einl t v) k1 k2) false (subst v k1)
+| STmatch_inr t v k1 k2 : 
     IsValue v ->
-    stepex (Ematch_sum (Einr $$ ta $$ tb $$ v) k1 k2) false (subst v k2)
+    stepex (Ematch (Einr t v) k1 k2) false (subst v k2)
 | STtapp body t : stepex (Etapp (Etabs body) t) false (subst t body)
 | STunfold_fold v t1 : 
     IsValue v ->
@@ -640,14 +644,23 @@ Section LR.
                   ⌈stepsex e 1 e'⌉ ⇒ ▹ (e' ∈ E' V τ c' s ρ)
               end).
 
+  Open Scope ty.
+
+  Definition pair_to_Epair {ctx} (p : open_expr ctx * open_expr ctx) := Epair (fst p) (snd p).
+
+  Instance Coerce_prod_expr ctx : Coerce (open_expr ctx * open_expr ctx) (open_expr ctx) :=
+    {
+      coerce := pair_to_Epair (ctx := ctx)
+    }.
+
   Fixpoint V {lctx} τ var (ρ : csubsts var [] lctx) : rel var 1 :=
     match τ with
       | Tvar α => csubsts_sem ρ α
       | Tunit => \v, ⌈v ↓ Tunit⌉
-      | τ₁ × τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃a b, ⌈v = Epair a b⌉ /\ a ∈ V τ₁ ρ /\ b ∈ V τ₂ ρ
+      | τ₁ × τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃a b, ⌈v = !(a, b)⌉ /\ a ∈ V τ₁ ρ /\ b ∈ V τ₂ ρ
       | τ₁ + τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃v', (⌈v = Einl (ρ $ τ₂) v'⌉ /\ v' ∈ V τ₁ ρ) \/ (⌈v = Einr (ρ $ τ₁) v'⌉ /\ v' ∈ V τ₂ ρ)
-      | Tarrow τ₁ c s τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∀v₁, v₁ ∈ V τ₁ ρ ⇒ Eapp v v₁ ∈ E' (V τ₂) τ₂ !(ρ $ subst !(!v₁) c) (ρ $ subst !(!v₁) s) (add v₁ ρ)
-      | Tuniversal c s τ₁ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∀τ', ∀2 S, VSet τ' S ⇒ Etapp v τ' ∈ E' (V τ₁) τ₁ !(ρ $ c) (ρ $ s) (add (τ', S) ρ)
+      | Tarrow τ₁ c s τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∀v₁, v₁ ∈ V τ₁ ρ ⇒ v $$ v₁ ∈ E' (V τ₂) τ₂ !(ρ $ subst !(!v₁) c) (ρ $ subst !(!v₁) s) (add v₁ ρ)
+      | Tuniversal c s τ₁ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∀τ', ∀2 S, VSet τ' S ⇒ v $$ τ' ∈ E' (V τ₁) τ₁ !(ρ $ c) (ρ $ s) (add (τ', S) ρ)
       | Trecur τ₁ => @@S, \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃v', ⌈v = Efold (ρ $ τ) v'⌉ /\ ▹ (v' ∈ V τ₁ (add (ρ $ τ, S) ρ))
       | _ => \_, ⊥
     end
@@ -782,9 +795,6 @@ Definition liftLR {lctx var range} : forall ctx (f : csubsts var [] lctx -> rel 
     exact ((F ctx') f (a $ X)).
   }
 Defined.
-
-Definition openE Ct {lctx} tau n s {var ctx} := liftLR (ctx := ctx) (@E Ct lctx tau n s var).
-Definition openV Ct {lctx} tau {var ctx} := liftLR (ctx := ctx) (@V Ct lctx tau var).
 
 Arguments SEtype {var ctx} _ _ .
 Arguments SEexpr {var ctx} _ .
@@ -1004,21 +1014,25 @@ Arguments RELfalse {ctx} _ .
 
 Module StandalonePHOAS.
   
-Notation "⊤" := RELtrue.
-Notation "⊥" := RELtrue.
-Notation "⌈ P ⌉" := (RELinj P).
-Notation "\ x .. y , p" := (RELabs (fun x => .. (RELabs (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
-Notation "∀ x .. y , p" := (RELforall1 (fun x => .. (RELforall1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
-Notation "∃ x .. y , p" := (RELexists1 (fun x => .. (RELexists1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity).
-Notation "e ∈ P" := (RELapp P e) (at level 70).
-Infix "/\" := RELand.
-Infix "\/" := RELor.
-Infix "⇒" := RELimply (at level 90).
-Notation "▹" := RELlater.
+Notation "⊤" := RELtrue : REL.
+Notation "⊥" := RELtrue : REL.
+Notation "⌈ P ⌉" := (RELinj P) : REL.
+Notation "\ x .. y , p" := (RELabs (fun x => .. (RELabs (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : REL.
+Notation "∀ x .. y , p" := (RELforall1 (fun x => .. (RELforall1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : REL.
+Notation "∃ x .. y , p" := (RELexists1 (fun x => .. (RELexists1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : REL.
+Notation "e ∈ P" := (RELapp P e) (at level 70) : REL.
+Infix "/\" := RELand : REL.
+Infix "\/" := RELor : REL.
+Infix "⇒" := RELimply (at level 90) : REL.
+Notation "▹" := RELlater : REL.
+
+Delimit Scope REL with REL.
 
 Section TestNotations.
   
   Variable ctx : Ctx.
+
+  Open Scope REL.
 
   Definition ttt1 : Rel ctx 1 := \e , ⊤.
   Definition ttt2 : Rel ctx 1 := \e , ⌈e ↓ Tunit⌉.
@@ -1060,6 +1074,7 @@ Section inferRules.
 
   Import OpenPHOAS.
   Import StandalonePHOAS.
+  Open Scope REL.
 
   Variable ctx : Ctx.
 
@@ -1113,6 +1128,24 @@ Notation "⊩" := related.
 Lemma adequacy Ct e τ c s : ⊩ Ct [] e τ c s -> forall n e', nsteps e n e' -> n ≤ (1 + Ct) * (1 + !c).
   admit.
 Qed.
+
+Definition openE Ct {lctx} tau n s {var ctx} := liftLR (ctx := ctx) (@E Ct lctx tau n s var).
+Definition openV Ct {lctx} tau {var ctx} := liftLR (ctx := ctx) (@V Ct lctx tau var).
+Definition RelE Ct {lctx} tau n s {ctx} (ρ : t_ρ ctx lctx) : Rel ctx 1 := fun var => @openE Ct lctx tau n s _ _ (ρ var).
+
+Import StandalonePHOAS.
+
+Section DerivedRules.
+
+  Context `{C : list (Rel ctx 0)}.
+  Context `{lctx : list CtxEntry}.
+  (* Implicit Types e : open_expr lctx. *)
+
+  Lemma LRbind Ct e τ c₁ s₁ ρ : C |~ (e ∈ RelE (lctx := lctx) Ct τ c₁ s₁ ρ)%REL.
+    admit.
+  Qed.
+
+End DerivedRules.
 
 Lemma foundamental :
   forall {ctx} (Γ : tcontext ctx) e τ c s,
