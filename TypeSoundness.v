@@ -73,25 +73,30 @@ Definition get_csize (e : expr) : csize.
   admit.
 Defined.
 
+Instance Coerce_expr_csize : Coerce expr csize :=
+  {
+    coerce := get_csize
+  }.
+
 Definition nat_of_cexpr (c : cexpr) : nat.
   admit.
 Defined.
+
+Definition c2n := nat_of_cexpr.
+
+Instance Coerce_cexpr_nat : Coerce cexpr nat :=
+  {
+    coerce := c2n
+  }.
 
 Definition c2s {ctx} (ξ : csize) : open_size ctx.
   admit.
 Defined.
 
-(*
-Instance Subst_csize_cexpr : Subst CEexpr (fun _ => csize) open_cexpr :=
+Instance Coerce_csize_size ctx : Coerce csize (open_size ctx) :=
   {
-    substx ctx n v b := substx n (c2s v) b
+    coerce := c2s (ctx := ctx)
   }.
-
-Instance Subst_csize_size : Subst CEexpr (fun _ => csize) open_size :=
-  {
-    substx ctx n v b := substx n (c2s v) b
-  }.
-*)
 
 Definition le_csize_size : csize -> size -> Prop.
   admit.
@@ -104,47 +109,21 @@ Instance Le_cszie_size : Le csize size :=
 
 Infix "≤" := le (at level 70).
 
-(*
-Definition asNat P c :=
-  (exists nc, nat_of_cexpr c = Some nc /\ P nc)%type.
-Notation "⌊ n | P ⌋" := (asNat (fun n => P)).
-*)
-
 Infix "×" := Tprod (at level 40) : ty.
 Infix "+" := Tsum : ty.
 Notation "e ↓ τ" := (IsValue e /\ |- e τ) (at level 51).
 
-(* Notation "| v |" := (get_csize v) (at level 10). *)
-(* Notation "& v" := (get_csize v) (at level 3, format "& v"). *)
-
-Instance Coerce_csize_size ctx : Coerce csize (open_size ctx) :=
-  {
-    coerce := c2s (ctx := ctx)
-  }.
-
-Instance Coerce_expr_csize : Coerce expr csize :=
-  {
-    coerce := get_csize
-  }.
-
-Definition c2n := nat_of_cexpr.
-
-Instance Coerce_cexpr_nat : Coerce cexpr nat :=
-  {
-    coerce := c2n
-  }.
+Local Open Scope prog_scope.
 
 Definition sound_wrt_bounded :=
   forall f τ₁ c s τ₂, 
     f ↓ Tarrow τ₁ c s τ₂ -> 
-    exists (C : nat), 
+    exists C, 
       forall v,
         v ↓ τ₁ ->
         (* any reduction sequence is bounded by C * c(|v|) *)
         forall n e',
-          nsteps (Eapp f v) n e' -> n ≤ C * (1 + nat_of_cexpr (subst !(!v) c)).
-
-Local Open Scope prog_scope.
+          nsteps (f $ v) n e' -> n ≤ C * (1 + !(subst !(!v) c)).
 
 Inductive stepex : expr -> bool -> expr -> Prop :=
 | STecontext E e1 b e2 e1' e2' : 
@@ -278,119 +257,8 @@ Section relOpen.
       | domain :: C' => interp domain -> relOpen C' range
     end.
 
-  Definition liftToOpen : forall C {n1 n2} (f : rel var n1 -> rel var n2) (a : relOpen C n1), relOpen C n2.
-    refine
-      (fix liftToOpen C : forall {n1 n2} (f : rel var n1 -> rel var n2) (a : relOpen C n1), relOpen C n2 :=
-         match C return forall {n1 n2} (f : rel var n1 -> rel var n2) (a : relOpen C n1), relOpen C n2 with
-           | nil => fun n1 n2 f a => _
-           | nv :: C' => fun n1 n2 f a => _ (*@liftToOpen C' n1 n2*)
-         end).
-    {
-      exact (f a).
-    }
-    {
-      simpl in *.
-      intros X.
-      exact ((liftToOpen C' _ _) f (a X)).
-    }
-  Defined.
-
-  (* should also compute *)
-  Program Fixpoint liftToOpen' C {n1 n2} (f : rel var n1 -> rel var n2) (a : relOpen C n1) : relOpen C n2 :=
-    match C with
-      | nil => _
-      | nv :: C' => _ (@liftToOpen' C' n1 n2)
-    end.
-  Next Obligation.
-    exact (f a).
-  Defined.
-  Next Obligation.
-    exact (x f (a X)).
-  Defined.
-
-  Program Fixpoint liftToOpen2 C {n1 n2 T} (f : (T -> rel var n1) -> rel var n2) (a : T -> relOpen C n1) : relOpen C n2 :=
-    match C with
-      | nil => _
-      | nv :: C' => _ (@liftToOpen2 C' n1 n2)
-    end.
-  Next Obligation.
-    exact (f a).
-  Defined.
-  Next Obligation.
-    exact (x _ f (flip a X)).
-  Defined.
-
-  Program Fixpoint liftToOpen3 C {n T} (f : T -> rel var n) (a : T) : relOpen C n :=
-    match C with
-      | nil => _
-      | nv :: C' => _ (@liftToOpen3 C' n)
-    end.
-
-  Program Fixpoint liftToOpen4 C {n} (f : rel var n) : relOpen C n :=
-    match C with
-      | nil => _
-      | nv :: C' => _ (@liftToOpen4 C' n)
-    end.
-
-  Program Fixpoint liftToOpen5 C {n1 n2 n3} (f : rel var n1 -> rel var n2 -> rel var n3) (a : relOpen C n1) (b : relOpen C n2) : relOpen C n3 :=
-    match C with
-      | nil => _
-      | nv :: C' => _ (@liftToOpen5 C' n1 n2 n3)
-    end.
-  Next Obligation.
-    exact (f a b).
-  Defined.
-  Next Obligation.
-    exact (x f (a X) (b X)).
-  Defined.
-
-  Program Fixpoint liftToOpen6 C {n1 T n2} (f : rel var n1 -> T -> rel var n2) (a : relOpen C n1) (b : T) : relOpen C n2 :=
-    match C with
-      | nil => _
-      | nv :: C' => _ (@liftToOpen6 C' n1 T n2)
-    end.
-  Next Obligation.
-    exact (f a b).
-  Defined.
-  Next Obligation.
-    exact (x f (a X) b).
-  Defined.
-
-  Variable ctx : Ctx.
-
-  Definition ORvar n := liftToOpen3 ctx (@Rvar var n).
-  Definition ORinj := liftToOpen3 ctx (@Rinj var).
-  Definition ORtrue := liftToOpen4 ctx (@Rtrue var).
-  Definition ORfalse := liftToOpen4 ctx (@Rfalse var).
-  Definition ORand := liftToOpen5 ctx (@Rand var).
-  Definition ORor := liftToOpen5 ctx (@Ror var).
-  Definition ORimply := liftToOpen5 ctx (@Rimply var).
-  Definition ORforall2 n := liftToOpen2 ctx (@Rforall2 var n).
-  Definition ORexists2 n := liftToOpen2 ctx (@Rexists2 var n).
-  Definition ORforall1 T := liftToOpen2 ctx (@Rforall1 var T).
-  Definition ORexists1 T := liftToOpen2 ctx (@Rexists1 var T).
-  Definition ORabs n := liftToOpen2 ctx (@Rabs var n).
-  Definition ORapp n := liftToOpen6 ctx (@Rapp var n).
-  Definition ORrecur n := liftToOpen2 ctx (@Rrecur var n).
-  Definition ORlater := liftToOpen ctx (@Rlater var).
-
 End relOpen.
 Unset Maximal Implicit Insertion.
-
-Arguments ORtrue {var ctx} .
-Arguments ORfalse {var ctx} .
-Arguments ORinj {var ctx} _ .
-Arguments ORabs {var ctx n} _ .
-Arguments ORforall1 {var ctx T} _ .
-Arguments ORexists1 {var ctx T} _ .
-Arguments ORapp {var ctx n} _ _ .
-Arguments ORand {var ctx} _ _ .
-Arguments ORor {var ctx} _ _ .
-Arguments ORimply {var ctx} _ _ .
-Arguments ORlater {var ctx} _ .
-Arguments ORforall2 {var ctx n} _ .
-Arguments ORexists2 {var ctx n} _ .
-Arguments ORrecur {var ctx n} _ .
 
 Definition Rel ctx t := forall var, relOpen var ctx t.
 
@@ -779,20 +647,21 @@ Instance Apply_csubsts_interp lctx var t ctx : Apply (csubsts var (t :: ctx) lct
     apply := @csubsts_close1 lctx var t ctx
   }.
 
-Definition liftLR {lctx var range} : forall ctx (f : csubsts var [] lctx -> rel var range) (a : csubsts var ctx lctx), relOpen var ctx range.
+Definition openup_csubsts {lctx var range} (f : csubsts var [] lctx -> interp var range) : forall ctx, csubsts var ctx lctx -> relOpen var ctx range.
   refine
-    (fix F ctx : forall (f : csubsts var [] lctx -> rel var range) (a : csubsts var ctx lctx), relOpen var ctx range :=
-       match ctx return forall (f : csubsts var [] lctx -> rel var range) (a : csubsts var ctx lctx), relOpen var ctx range with
-         | nil => fun f a => _
-         | nv :: ctx' => fun f a => _ 
+    (fix F ctx : csubsts var ctx lctx -> relOpen var ctx range :=
+       match ctx return csubsts var ctx lctx -> relOpen var ctx range with
+         | nil => _
+         | nv :: ctx' => _
        end).
   {
+    intros a.
     exact (f a).
   }
   {
     simpl in *.
-    intros X.
-    exact ((F ctx') f (a $ X)).
+    intros a b.
+    exact ((F ctx') (a $ b)).
   }
 Defined.
 
@@ -838,7 +707,7 @@ Global Instance Lift_Ps ctx : Lift (t_Ps ctx) (fun new => t_Ps (new :: ctx))%typ
     lift := lift_Ps
   }.
 
-Definition liftToOpenSingle {var range} : forall {ctx}, interp var range -> relOpen var ctx range.
+Definition openupSingle {var range} : forall {ctx}, interp var range -> relOpen var ctx range.
   refine
     (fix F {ctx} : interp var range -> relOpen var ctx range :=
        match ctx return interp var range -> relOpen var ctx range with
@@ -863,7 +732,7 @@ Definition extend {var range} ctx new : relOpen var ctx range -> relOpen var (ct
   {
     simpl.
     intros r.
-    exact (liftToOpenSingle r).
+    exact (openupSingle r).
   }
   {
     simpl.
@@ -898,7 +767,7 @@ Definition add_ρ_expr {ctx lctx} (ρ : t_ρ ctx lctx) : t_ρ (TTexpr :: ctx) (C
 
 Definition add_Ps_expr {ctx lctx} τ Ct (Ps : t_Ps ctx) (ρ : t_ρ ctx lctx) : t_Ps (TTexpr :: ctx) :=
   let Ps := lift_Ps TTexpr Ps in
-  let Ps := (fun var v => liftLR (fun ρ => v ∈ V Ct τ ρ) (ρ var)) :: Ps in
+  let Ps := (fun var v => openup_csubsts (fun ρ => v ∈ V Ct τ ρ : interp _ 0) (ρ var)) :: Ps in
   Ps
 .
 
@@ -947,6 +816,142 @@ Section make_Ps.
     end.
 End make_Ps.
 
+Section OR.
+
+  Variable var : nat -> Type.
+  Notation relOpen := (relOpen var).
+
+  Definition openup1 {domain range} (f : interp var domain -> interp var range) : forall C, relOpen C domain -> relOpen C range.
+    refine
+      (fix F C : relOpen C domain -> relOpen C range :=
+         match C return relOpen C domain -> relOpen C range with
+           | nil => _
+           | nv :: C' => _
+         end).
+    {
+      intros a.
+      exact (f a).
+    }
+    {
+      simpl in *.
+      intros a b.
+      eauto.
+    }
+  Defined.
+
+  Program Fixpoint openup2 C {n1 n2 T} (f : (T -> rel var n1) -> rel var n2) (a : T -> relOpen C n1) : relOpen C n2 :=
+    match C with
+      | nil => _
+      | nv :: C' => _ (@openup2 C' n1 n2)
+    end.
+  Next Obligation.
+    exact (f a).
+  Defined.
+  Next Obligation.
+    exact (x _ f (flip a X)).
+  Defined.
+
+  Program Fixpoint openup3 C {n T} (f : T -> rel var n) (a : T) : relOpen C n :=
+    match C with
+      | nil => _
+      | nv :: C' => _ (@openup3 C' n)
+    end.
+
+  Program Fixpoint openup4 C {n} (f : rel var n) : relOpen C n :=
+    match C with
+      | nil => _
+      | nv :: C' => _ (@openup4 C' n)
+    end.
+
+  Definition openup5 {t1 t2 t3} (f : interp var t1 -> interp var t2 -> interp var t3) : forall C, relOpen C t1 -> relOpen C t2 -> relOpen C t3.
+    refine
+      (fix F C : relOpen C t1 -> relOpen C t2 -> relOpen C t3 :=
+         match C return relOpen C t1 -> relOpen C t2 -> relOpen C t3 with
+           | nil => _
+           | nv :: C' => _ 
+         end).
+    {
+      intros a b.
+      exact (f a b).
+    }
+    {
+      simpl in *.
+      intros.
+      eauto.
+    }
+  Defined.
+
+  Definition openup6 {n1 T n2} (f : rel var n1 -> T -> rel var n2) : forall C, relOpen C n1 -> relOpen C (TTother T) -> relOpen C n2.
+    refine
+      (fix F C : relOpen C n1 -> relOpen C (TTother T) -> relOpen C n2 :=
+         match C return relOpen C n1 -> relOpen C (TTother T) -> relOpen C n2 with
+           | nil => _
+           | nv :: C' => _ 
+         end).
+    {
+      intros a b.
+      exact (f a b).
+    }
+    {
+      simpl in *.
+      intros a b.
+      eauto.
+    }
+  Defined.
+
+  Definition openup8 {n1 n2 T} (f : (T -> rel var n1) -> rel var n2) : forall C, (relOpen C (TTother T) -> relOpen C n1) -> relOpen C n2.
+    refine
+      (fix F C : (relOpen C (TTother T) -> relOpen C n1) -> relOpen C n2 :=
+         match C return (relOpen C (TTother T) -> relOpen C n1) -> relOpen C n2 with
+           | nil => _
+           | nv :: C' => _
+         end).
+    {
+      intros a.
+      exact (f a).
+    }
+    {
+      simpl in *.
+      intros a b.
+      eauto.
+    }      
+  Defined.
+
+  Variable ctx : Ctx.
+
+  Definition ORvar n := openup3 ctx (@Rvar var n).
+  Definition ORinj := openup3 ctx (@Rinj var).
+  Definition ORtrue := openup4 ctx (@Rtrue var).
+  Definition ORfalse := openup4 ctx (@Rfalse var).
+  Definition ORand := openup5 (@Rand var) (t1 := 0) (t2 := 0) (t3 := 0) ctx.
+  Definition ORor := openup5 (@Ror var) (t1 := 0) (t2 := 0) (t3 := 0) ctx.
+  Definition ORimply := openup5 (@Rimply var) (t1 := 0) (t2 := 0) (t3 := 0) ctx.
+  Definition ORforall2 n := openup2 ctx (@Rforall2 var n).
+  Definition ORexists2 n := openup2 ctx (@Rexists2 var n).
+  Definition ORforall1 T := openup2 ctx (@Rforall1 var T).
+  Definition ORexists1 T := openup2 ctx (@Rexists1 var T).
+  Definition ORabs n := openup2 ctx (@Rabs var n).
+  Definition ORapp n := openup6 (@Rapp var n) ctx.
+  Definition ORrecur n := openup2 ctx (@Rrecur var n).
+  Definition ORlater := openup1 (domain := 0) (range := 0) (@Rlater var) ctx.
+
+End OR.
+
+Arguments ORtrue {var ctx} .
+Arguments ORfalse {var ctx} .
+Arguments ORinj {var ctx} _ .
+Arguments ORabs {var ctx n} _ .
+Arguments ORforall1 {var ctx T} _ .
+Arguments ORexists1 {var ctx T} _ .
+Arguments ORapp {var ctx n} _ _ .
+Arguments ORand {var ctx} _ _ .
+Arguments ORor {var ctx} _ _ .
+Arguments ORimply {var ctx} _ _ .
+Arguments ORlater {var ctx} _ .
+Arguments ORforall2 {var ctx n} _ .
+Arguments ORexists2 {var ctx n} _ .
+Arguments ORrecur {var ctx n} _ .
+
 Module OpenPHOAS.
   
 Notation "⊤" := ORtrue : OR.
@@ -959,9 +964,9 @@ Definition ORforall2' {var ctx n} P := (@ORforall2 var ctx n (fun x => P (ORvar 
 Notation "∀2 x .. y , p" := (ORforall2' (fun x => .. (ORforall2' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
 Definition ORexists2' {var ctx n} P := (@ORexists2 var ctx n (fun x => P (ORvar var ctx _ x))).
 Notation "∃2 x .. y , p" := (ORexists2' (fun x => .. (ORexists2' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
+Notation "@@ x .. y , p" := (ORrecur (fun x => .. (ORrecur (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
 Definition ORrecur' {var ctx n} P := (@ORrecur var ctx n (fun x => P (ORvar var ctx _ x))).
-Notation "@@ x .. y , p" := (ORrecur' (fun x => .. (ORrecur' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
-Notation "@@@ x .. y , p" := (ORrecur (fun x => .. (ORrecur (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
+Notation "@@@ x .. y , p" := (ORrecur' (fun x => .. (ORrecur' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
 Notation "e ∈ P" := (ORapp P e) (at level 70) : OR.
 Infix "/\" := ORand : OR.
 Infix "\/" := ORor : OR.
@@ -979,9 +984,9 @@ Section TestNotations.
   
   Definition ttt1 : relOpen var ctx 1 := \e , ⊤.
   Definition ttt2 : relOpen var ctx 1 := \e , ⌈e ↓ Tunit⌉.
-  Definition ttt3 : relOpen var ctx 1 := \_ , ⌈True /\ True⌉.
-  Definition ttt4 : relOpen var ctx 1 := \_ , ∀e, ⌈e = @Ett nil⌉.
-  Definition ttt5 : relOpen var ctx 1 := \_ , ∃e, ⌈e = @Ett nil⌉.
+  Definition ttt3 : relOpen var ctx 0 := ⌈True /\ True⌉.
+  Definition ttt4 : relOpen var ctx 0 := ∀e, ⌈e = @Ett nil⌉.
+  Definition ttt5 : relOpen var ctx 0 := ∃e, ⌈e = @Ett nil⌉.
 
 End TestNotations.
 
@@ -1002,7 +1007,7 @@ Section REL.
   Definition RELforall1 T (F : T -> Rel 0) : Rel 0 := fun var => ORforall1 (fun x => F x var).
   Definition RELexists1 T (F : T -> Rel 0) : Rel 0 := fun var => ORexists1 (fun x => F x var).
   Definition RELabs (n : nat) (F : expr -> Rel n) : Rel (S n) := fun var => ORabs (fun e => F e var).
-  Definition RELapp n (r : Rel (S n)) (e : expr) : Rel n := fun var => ORapp (r var) e.
+  Definition RELapp n (r : Rel (S n)) (e : Rel TTexpr) : Rel n := fun var => ORapp (r var) (e var).
   Definition RELlater (P : Rel 0) : Rel 0 := fun var => ORlater (P var).
   
 End REL.
@@ -1036,15 +1041,15 @@ Section TestNotations.
 
   Definition ttt1 : Rel ctx 1 := \e , ⊤.
   Definition ttt2 : Rel ctx 1 := \e , ⌈e ↓ Tunit⌉.
-  Definition ttt3 : Rel ctx 1 := \_ , ⌈True /\ True⌉.
-  Definition ttt4 : Rel ctx 1 := \_ , ∀e, ⌈e = @Ett nil⌉.
-  Definition ttt5 : Rel ctx 1 := \_ , ∃e, ⌈e = @Ett nil⌉.
+  Definition ttt3 : Rel ctx 0 := ⌈True /\ True⌉.
+  Definition ttt4 : Rel ctx 0 := ∀e, ⌈e = @Ett nil⌉.
+  Definition ttt5 : Rel ctx 0 := ∃e, ⌈e = @Ett nil⌉.
 
 End TestNotations.
 
 End StandalonePHOAS.
 
-Definition liftToOpen7 {var domain range} : forall {ctx}, (interp var domain -> relOpen var ctx range) -> relOpen var ctx domain -> relOpen var ctx range.
+Definition openup7 {var domain range} : forall {ctx}, (interp var domain -> relOpen var ctx range) -> relOpen var ctx domain -> relOpen var ctx range.
   refine
     (fix F {ctx} : (interp var domain -> relOpen var ctx range) -> relOpen var ctx domain -> relOpen var ctx range :=
        match ctx return (interp var domain -> relOpen var ctx range) -> relOpen var ctx domain -> relOpen var ctx range with
@@ -1061,11 +1066,11 @@ Definition liftToOpen7 {var domain range} : forall {ctx}, (interp var domain -> 
 Defined.
 
 Definition apply_Rel_Rel {n ctx range} : Rel (n :: ctx) range -> Rel ctx n -> Rel ctx range :=
-  fun f x var => liftToOpen7 (f var) (x var).
+  fun f x var => openup7 (f var) (x var).
 
 Instance Apply_Rel_Rel n ctx range : Apply (Rel (n :: ctx) range) (Rel ctx n) (Rel ctx range) :=
   {
-    apply := @apply_Rel_Rel n ctx range
+    apply := apply_Rel_Rel
   }.
 
 Section inferRules.
@@ -1078,10 +1083,24 @@ Section inferRules.
 
   Variable ctx : Ctx.
 
+  Instance Apply_Rel_TTexpr ctx n : Apply (Rel ctx (S n)) (Rel ctx TTexpr) (Rel ctx n) :=
+    {
+      apply := RELapp
+    }.
+
+  Definition RELapp' {ctx n} (r : Rel ctx (S n)) (e : expr) : Rel ctx n :=
+    fun var =>
+      ORapp (r var) (openupSingle (ctx := ctx) (e : interp var TTexpr)).
+
   Instance Apply_Rel_expr ctx n : Apply (Rel ctx (S n)) expr (Rel ctx n) :=
     {
-      apply := @RELapp ctx n
+      apply := RELapp'
     }.
+
+  (* Instance Apply_relOpen_expr var ctx n : Apply (relOpen var ctx (S n)) (relOpen var ctx TTexpr) (relOpen var ctx n) := *)
+  (*   { *)
+  (*     apply := @ORapp var ctx n *)
+  (*   }. *)
 
   Inductive eqv : forall {n}, Rel ctx n -> Rel ctx n -> Prop :=
   | ERuleRefl n R : @eqv n R R
@@ -1094,14 +1113,14 @@ Section inferRules.
   | ERuleLaterExists1 T P : eqv (▹ (∃x:T, P x)) (∃x, ▹(P x))
   | ERuleLaterForallR (n : nat) P : eqv (fun var => ▹ (∀2 (R : relOpen var ctx n), P var R))%OR (fun var => ∀2 R, ▹(P var R))%OR
   | ERuleLaterExistsR (n : nat) P : eqv (fun var => ▹ (∃2 (R : relOpen var ctx n), P var R))%OR (fun var => ∃2 R, ▹(P var R))%OR
-  | RuleElem n (R : Rel ctx (S n)) e : eqv ((\x, R $ x) $ e) (R $ e)
-  | RuleRecur {n : nat} (R : Rel (TTrel n :: ctx) n) : eqv (fun var => @@@r, R var (Rvar r))%OR (fun var => (@@@r, R var (Rvar r)))%OR
+  | RuleElem n (R : Rel ctx (S n)) (e : Rel ctx TTexpr) : eqv ((\x, R $ x) $ e) (R $ e)
+  | RuleRecur {n : nat} (R : Rel (TTrel n :: ctx) n) : eqv (fun var => @@r, R var (Rvar r))%OR (fun var => (@@r, R var (Rvar r)))%OR
   .
 
   Fixpoint Iff {n : nat} : Rel ctx n -> Rel ctx n -> Rel ctx 0 :=
     match n return Rel ctx n -> Rel ctx n -> Rel ctx 0 with
       | 0 => fun P1 P2 => P1 ⇒ P2 /\ P2 ⇒ P1
-      | S n' => fun R1 R2 => ∀e, Iff (R1 $ e) (R2 $ e)
+      | S n' => fun R1 R2 => ∀e : expr, Iff (R1 $ e) (R2 $ e)
     end.
 
   Infix "≡" := Iff (at level 70, no associativity).
@@ -1118,10 +1137,65 @@ End inferRules.
 
 Notation "Ps |~ P" := (valid Ps P) (at level 90).
 
+Definition apply_Substs {lctx} `{forall var, Apply (csubsts var [] lctx) (B lctx) B'} {ctx} (rho : Substs ctx lctx) (b : B lctx) : Rel ctx (TTother B') :=
+  fun var =>
+    openup_csubsts (fun rho => rho $ b) (rho var).
+
+Instance Apply_Substs_expr lctx ctx : Apply (Substs ctx lctx) (open_expr lctx) (Rel ctx TTexpr) :=
+  {
+    apply := apply_Substs
+  }.
+
+Instance Apply_Substs_cexpr lctx ctx : Apply (Substs ctx lctx) (open_cexpr lctx) (Rel ctx (TTother cexpr)) :=
+  {
+    apply := apply_Substs
+  }.
+
+Instance Apply_Substs_size lctx ctx : Apply (Substs ctx lctx) (open_size lctx) (Rel ctx (TTother size)) :=
+  {
+    apply := apply_Substs
+  }.
+
+Import StandalonePHOAS.
+Local Open Scope REL.
+
+Definition openupE {t1 t2 t3 lctx var} (f : t1 -> t2 -> csubsts var [] lctx -> interp var t3) : forall ctx, (relOpen var ctx (TTother t1) -> relOpen var ctx (TTother t2) -> csubsts var ctx lctx -> relOpen var ctx t3).
+  admit.
+(*
+  refine
+    (fix F ctx : csubsts var ctx lctx -> relOpen var ctx range :=
+       match ctx return csubsts var ctx lctx -> relOpen var ctx range with
+         | nil => _
+         | nv :: ctx' => _
+       end).
+  {
+    intros a.
+    exact (f a).
+  }
+  {
+    simpl in *.
+    intros a b.
+    exact ((F ctx') (a $ b)).
+  }
+*)
+Defined.
+
+Definition E'' Ct {lctx} tau {var} n s := @E Ct lctx tau n s var.
+Definition openE Ct {lctx} tau {var ctx} := openupE (var := var) (t1 := nat) (t2 := size) (t3 := 1) (ctx := ctx) (lctx := lctx) (@E'' Ct lctx tau var).
+Definition goodExpr Ct {lctx} tau {ctx} (n : Rel ctx (TTother nat)) (s : Rel ctx (TTother size)) (ρ : t_ρ ctx lctx) : Rel ctx 1 := fun var => openE Ct tau (n var) (s var) (ρ var).
+
+Definition c2n' {ctx} (c : Rel ctx (TTother cexpr)) : Rel ctx (TTother nat) :=
+  fun var => openup1 var (domain := TTother cexpr) (range := TTother nat) c2n ctx (c var).
+
+Instance Coerce_cexpr_nat' : Coerce (Rel ctx (TTother cexpr)) (Rel ctx (TTother nat)) :=
+  {
+    coerce := c2n'
+  }.
+
 Definition related {lctx} Ct Γ (e : open_expr lctx) τ (c : open_cexpr lctx) (s : open_size lctx) :=
   make_Ps Ct Γ |~
-  fun var => 
-    liftLR (fun ρ => (ρ $ e) ∈ E Ct τ (Ct * nat_of_cexpr (ρ $ c))%nat (ρ $ s) ρ) (make_ρ lctx var).
+          let ρ := (make_ρ lctx) in
+          ρ $$ e ∈ goodExpr Ct τ !(ρ $ c) (ρ $ s) ρ.
 
 Notation "⊩" := related.
 
@@ -1129,19 +1203,47 @@ Lemma adequacy Ct e τ c s : ⊩ Ct [] e τ c s -> forall n e', nsteps e n e' ->
   admit.
 Qed.
 
-Definition openE Ct {lctx} tau n s {var ctx} := liftLR (ctx := ctx) (@E Ct lctx tau n s var).
-Definition openV Ct {lctx} tau {var ctx} := liftLR (ctx := ctx) (@V Ct lctx tau var).
-Definition RelE Ct {lctx} tau n s {ctx} (ρ : t_ρ ctx lctx) : Rel ctx 1 := fun var => @openE Ct lctx tau n s _ _ (ρ var).
+Definition add_Rel `{Add A B C} {ctx} (a : Rel ctx (TTother A)) (b : Rel ctx (TTother B)) : Rel ctx (TTother C) :=
+  fun var => openup5 var (t1 := TTother A) (t2 := TTother B) add ctx (a var) (b var).
 
-Import StandalonePHOAS.
+Instance Add_Rel `{Add A B C} {ctx} : Add (Rel ctx (TTother A)) (Rel ctx (TTother B)) (Rel ctx (TTother C)) :=
+  {
+    add := add_Rel
+  }.
+
+Definition open_EC : context -> context -> Type.
+  admit.
+Defined.
+
+Definition EC := open_EC [] [].
+
+Definition plug {ctx} : Rel ctx (TTother EC) -> Rel ctx TTexpr -> Rel ctx TTexpr.
+  admit.
+Defined.
+
+Definition goodEC {ctx lctx lctx'} : nat -> Rel ctx TTexpr -> Rel ctx (TTother EC) -> Substs ctx lctx -> open_type lctx -> Rel ctx (TTother (open_cexpr [CEexpr])) -> Rel ctx (TTother (open_size [CEexpr])) -> Substs ctx lctx' -> open_type lctx' -> Rel ctx 0.
+  admit.
+Defined.
+
+Definition subst_Rel `{Subst t A B} {ctx} lctx (x : var t lctx) (v : Rel ctx (TTother (A (removen lctx x)))) (b : Rel ctx (TTother (B lctx))) : Rel ctx (TTother (B (removen lctx x))) :=
+  fun var =>
+    openup5 var (t1 := TTother (A (removen lctx x))) (t2 := TTother (B lctx)) (t3 := TTother (B (removen lctx x))) (substx x) ctx (v var) (b var).
+
+Instance Subst_Rel `{Subst t A B} {ctx} : Subst t (fun lctx => Rel ctx (TTother (A lctx))) (fun lctx => Rel ctx (TTother (B lctx))) :=
+  {
+    substx := subst_Rel
+  }.
 
 Section DerivedRules.
 
   Context `{C : list (Rel ctx 0)}.
-  Context `{lctx : list CtxEntry}.
-  (* Implicit Types e : open_expr lctx. *)
 
-  Lemma LRbind Ct e τ c₁ s₁ ρ : C |~ (e ∈ RelE (lctx := lctx) Ct τ c₁ s₁ ρ)%REL.
+  (*here*)
+
+  Lemma LRbind {lctx lctx'} Ct e (τ : open_type lctx) (ρ : Substs ctx lctx) c₁ s₁ E c₂ s₂ (τ' : open_type lctx') (ρ' : Substs ctx lctx') : 
+    C |~ e ∈ goodExpr Ct τ c₁ s₁ ρ ->
+    C |~ goodEC Ct e E ρ τ c₂ s₂ ρ' τ' ->
+    C |~ plug E e ∈ goodExpr (1+2*Ct) τ' (c₁ + !(subst s₁ c₂)) (subst s₁ s₂) ρ'.
     admit.
   Qed.
 
