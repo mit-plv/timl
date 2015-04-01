@@ -1234,16 +1234,19 @@ Instance Subst_Rel `{Subst t A B} {ctx} : Subst t (fun lctx => Rel ctx (TTother 
     substx := subst_Rel
   }.
 
+Definition openup_t {ctx} A (lctx : context) := Rel ctx (TTother (A lctx)).
+Definition open_cexpr' {ctx} := openup_t (ctx := ctx) open_cexpr.
+Definition open_size' {ctx} := openup_t (ctx := ctx) open_size.
+
 Section DerivedRules.
 
   Context `{C : list (Rel ctx 0)}.
 
-  (*here*)
-
   Lemma LRbind {lctx lctx'} Ct e (τ : open_type lctx) (ρ : Substs ctx lctx) c₁ s₁ E c₂ s₂ (τ' : open_type lctx') (ρ' : Substs ctx lctx') : 
     C |~ e ∈ goodExpr Ct τ c₁ s₁ ρ ->
     C |~ goodEC Ct e E ρ τ c₂ s₂ ρ' τ' ->
-    C |~ plug E e ∈ goodExpr (1+2*Ct) τ' (c₁ + !(subst s₁ c₂)) (subst s₁ s₂) ρ'.
+    C |~ plug E e ∈ goodExpr (1 + 2 * Ct) τ' (c₁ + !(subst (V := open_size') (B := open_cexpr') s₁ c₂)) (subst (V := open_size') (B := open_size') s₁ s₂) ρ'.
+  Proof.
     admit.
   Qed.
 
@@ -1264,6 +1267,7 @@ Proof.
   {
     admit.
   }
+  admit.
   admit.
   admit.
   admit.
