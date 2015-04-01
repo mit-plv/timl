@@ -31,13 +31,13 @@ Inductive steps : expr -> expr -> Prop :=
 
 Notation "⊢" := typing.
 Definition typingsim e τ := exists c s, ⊢ TCnil e τ c s.
-Notation "|~" := typingsim.
+Notation "|-" := typingsim.
 
 Definition nostuck e := forall e', steps e e' -> IsValue e' \/ exists e'', step e' e''.
 
 Theorem sound_wrt_nostuck :
   forall e τ,
-    |~ e τ ->
+    |- e τ ->
     nostuck e.
 Proof.
   admit.
@@ -102,13 +102,7 @@ Instance Le_cszie_size : Le csize size :=
     le := le_csize_size
   }.
 
-(* Notation "| v |" := (get_csize v) (at level 10). *)
-Notation "& v" := (get_csize v) (at level 3, format "& v").
-Notation "! n" := (c2s n) (at level 3, format "! n").
 Infix "≤" := le (at level 70).
-
-Definition terminatesWith e n v := (nsteps e n v /\ IsValue v)%type.
-Notation "⇓" := terminatesWith.
 
 (*
 Definition asNat P c :=
@@ -118,13 +112,27 @@ Notation "⌊ n | P ⌋" := (asNat (fun n => P)).
 
 Infix "×" := Tprod (at level 40).
 Infix "+" := Tsum.
-Notation "e ↓ τ" := (IsValue e /\ |~ e τ) (at level 51).
+Notation "e ↓ τ" := (IsValue e /\ |- e τ) (at level 51).
 
-(*
-Coercion c2s : csize >-> open_size.
-Coercion get_csize : open_expr >-> csize.
-Coercion nat_of_cexpr : open_cexpr >-> nat.
- *)
+(* Notation "| v |" := (get_csize v) (at level 10). *)
+(* Notation "& v" := (get_csize v) (at level 3, format "& v"). *)
+
+Instance Coerce_csize_size ctx : Coerce csize (open_size ctx) :=
+  {
+    coerce := c2s (ctx := ctx)
+  }.
+
+Instance Coerce_expr_csize : Coerce expr csize :=
+  {
+    coerce := get_csize
+  }.
+
+Definition c2n := nat_of_cexpr.
+
+Instance Coerce_cexpr_nat : Coerce cexpr nat :=
+  {
+    coerce := c2n
+  }.
 
 Definition sound_wrt_bounded :=
   forall f τ₁ c s τ₂, 
@@ -134,7 +142,7 @@ Definition sound_wrt_bounded :=
         v ↓ τ₁ ->
         (* any reduction sequence is bounded by C * c(|v|) *)
         forall n e',
-          nsteps (Eapp f v) n e' -> n ≤ C * (nat_of_cexpr (subst !(&v) c)).
+          nsteps (Eapp f v) n e' -> n ≤ C * (1 + nat_of_cexpr (subst !(!v) c)).
 
 Local Open Scope prog_scope.
 
@@ -600,6 +608,11 @@ Import ClosedPHOAS.
 
 Definition VSet {var} τ (S : rel var 1) := ∀v, v ∈ S ⇒ ⌈v ↓ τ⌉.
 
+Definition terminatesWith e v := (steps e v /\ IsValue v)%type.
+Infix "⇓" := terminatesWith (at level 51).
+
+Definition stepsex e m e' := exists n, nstepsex e n m e'.
+
 (* A "step-indexed" kriple model *)
 (* the logical relation *)
 Section LR.
@@ -617,18 +630,15 @@ Section LR.
   Check (@csubsts_type var (@nil termType) lctx ρ).
    *)
   
-  Program Fixpoint E' {lctx} (V : forall var, csubsts var [] lctx -> rel var 1) τ (n : nat) (s : size) var (ρ : csubsts var [] lctx) {measure n} : rel var 1 :=
-    \e, ⌈|~ e (ρ $ τ)⌉ /\ 
-        ∀n', ∀e', 
-          (⌈nstepsex e n' 0 e'⌉ ⇒ ⌈n' ≤ n⌉ /\ (⌈IsValue e'⌉ ⇒ e' ∈ V var ρ /\ ⌈&e' ≤ s⌉)) /\
-          match n with
-            | 0 => ⊤
-            | S _ =>
-              (⌈nstepsex e (S n') 1 e'⌉ ⇒ ⌈(S n') ≤ n⌉ /\ ▹ (e' ∈ E' V τ (n - S n') s ρ))
-          end.
-  Next Obligation.
-    omega.
-  Defined.
+  Fixpoint E' {lctx} (V : forall var, csubsts var [] lctx -> rel var 1) τ (c : nat) (s : size) var (ρ : csubsts var [] lctx) {struct c} : rel var 1 :=
+    \e, ⌈|- e (ρ $ τ) /\ 
+        (forall n e', nstepsex e n 0 e' -> n ≤ 1 + Ct)%nat⌉ /\ 
+        (∀v, ⌈e ⇓ v⌉ ⇒ v ∈ V var ρ /\ ⌈!v ≤ s⌉) /\
+        (∀e', match c with
+                | 0 => ⊤
+                | S c' =>
+                  ⌈stepsex e 1 e'⌉ ⇒ ▹ (e' ∈ E' V τ c' s ρ)
+              end).
 
   Fixpoint V {lctx} τ var (ρ : csubsts var [] lctx) : rel var 1 :=
     match τ with
@@ -636,8 +646,8 @@ Section LR.
       | Tunit => \v, ⌈v ↓ Tunit⌉
       | τ₁ × τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃a b, ⌈v = Epair a b⌉ /\ a ∈ V τ₁ ρ /\ b ∈ V τ₂ ρ
       | τ₁ + τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃v', (⌈v = Einl (ρ $ τ₂) v'⌉ /\ v' ∈ V τ₁ ρ) \/ (⌈v = Einr (ρ $ τ₁) v'⌉ /\ v' ∈ V τ₂ ρ)
-      | Tarrow τ₁ c s τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∀v₁, v₁ ∈ V τ₁ ρ ⇒ Eapp v v₁ ∈ E' (V τ₂) τ₂ (Ct * nat_of_cexpr (ρ $ subst !(&v₁) c)) (ρ $ subst !(&v₁) s) (add v₁ ρ)
-      | Tuniversal c s τ₁ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∀τ', ∀2 S, VSet τ' S ⇒ Etapp v τ' ∈ E' (V τ₁) τ₁ (Ct * nat_of_cexpr (ρ $ c)) (ρ $ s) (add (τ', S) ρ)
+      | Tarrow τ₁ c s τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∀v₁, v₁ ∈ V τ₁ ρ ⇒ Eapp v v₁ ∈ E' (V τ₂) τ₂ !(ρ $ subst !(!v₁) c) (ρ $ subst !(!v₁) s) (add v₁ ρ)
+      | Tuniversal c s τ₁ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∀τ', ∀2 S, VSet τ' S ⇒ Etapp v τ' ∈ E' (V τ₁) τ₁ !(ρ $ c) (ρ $ s) (add (τ', S) ρ)
       | Trecur τ₁ => @@S, \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃v', ⌈v = Efold (ρ $ τ) v'⌉ /\ ▹ (v' ∈ V τ₁ (add (ρ $ τ, S) ρ))
       | _ => \_, ⊥
     end
@@ -1046,7 +1056,7 @@ Instance Apply_Rel_Rel n ctx range : Apply (Rel (n :: ctx) range) (Rel ctx n) (R
 
 Section inferRules.
 
-  Reserved Notation "C |- P" (at level 90).
+  Reserved Notation "C |~ P" (at level 90).
 
   Import OpenPHOAS.
   Import StandalonePHOAS.
@@ -1082,34 +1092,37 @@ Section inferRules.
   Infix "≡" := Iff (at level 70, no associativity).
 
   Inductive valid : list (Rel ctx 0) -> Rel ctx 0 -> Prop :=
-  | RuleEqv C P1 P2 : eqv P1 P2 -> C |- P1 -> C |- P2
-  | RuleMono C P : C |- P -> C |- ▹P
-  | RuleLob C P : ▹P :: C |- P -> C |- P
-  | RuleReplace2 C {n : nat} R1 R2 (P : Rel (TTrel n :: ctx) 0) : C |- R1 ≡ R2 -> C |- P $$ R1 -> C |- P $$ R2
-  where "C |- P" := (valid C P)
+  | RuleEqv C P1 P2 : eqv P1 P2 -> C |~ P1 -> C |~ P2
+  | RuleMono C P : C |~ P -> C |~ ▹P
+  | RuleLob C P : ▹P :: C |~ P -> C |~ P
+  | RuleReplace2 C {n : nat} R1 R2 (P : Rel (TTrel n :: ctx) 0) : C |~ R1 ≡ R2 -> C |~ P $$ R1 -> C |~ P $$ R2
+  where "C |~ P" := (valid C P)
   .
 
 End inferRules.
 
-Notation "Ps |- P" := (valid Ps P) (at level 90).
+Notation "Ps |~ P" := (valid Ps P) (at level 90).
 
-Definition related {lctx} Γ (e : open_expr lctx) τ (c : open_cexpr lctx) (s : open_size lctx) :=
-  exists Ct,
-    make_Ps Ct Γ |-
-    fun var => 
-      liftLR (fun ρ => (ρ $ e) ∈ E Ct τ (Ct * nat_of_cexpr (ρ $ c))%nat (ρ $ s) ρ) (make_ρ lctx var).
+Definition related {lctx} Ct Γ (e : open_expr lctx) τ (c : open_cexpr lctx) (s : open_size lctx) :=
+  make_Ps Ct Γ |~
+  fun var => 
+    liftLR (fun ρ => (ρ $ e) ∈ E Ct τ (Ct * nat_of_cexpr (ρ $ c))%nat (ρ $ s) ρ) (make_ρ lctx var).
 
 Notation "⊩" := related.
+
+Lemma adequacy Ct e τ c s : ⊩ Ct [] e τ c s -> forall n e', nsteps e n e' -> n ≤ (1 + Ct) * (1 + !c).
+  admit.
+Qed.
 
 Lemma foundamental :
   forall {ctx} (Γ : tcontext ctx) e τ c s,
     ⊢ Γ e τ c s -> 
-    ⊩ Γ e τ c s.
+    exists Ct, ⊩ Ct Γ e τ c s.
 Proof.
   induction 1.
   {
     unfold related.
-    exists 1.
+    exists 0.
     simpl.
     admit.
   }

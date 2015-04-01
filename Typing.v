@@ -44,12 +44,16 @@ Inductive tcontext : context -> Type :=
 | TCcons t ctx : tc_entry t ctx -> tcontext ctx -> tcontext (t :: ctx)
 .
 
-Infix ":::" := TCcons (at level 60, right associativity).
+Notation "[ ]" := TCnil : TC.
+Notation "[ x ; .. ; y ]" := (TCcons x .. (TCcons y TCnil) ..) : TC.
+Infix "::" := TCcons (at level 60, right associativity) : TC.
+Delimit Scope TC with TC.
+Bind Scope TC with tcontext.
 
 Local Open Scope prog_scope.
 
-Definition add_typing {ctx} t T := TEtyping (ctx := ctx) t ::: T.
-Definition add_kinding {ctx} T := TEkinding (ctx := ctx) ::: T.
+Definition add_typing {ctx} t T := (TEtyping (ctx := ctx) t :: T)%TC.
+Definition add_kinding {ctx} T := (TEkinding (ctx := ctx) :: T)%TC.
 
 Fixpoint add_typings {ctx} ls T :=
   match ls return tcontext (repeat CEexpr (length ls) ++ ctx) with
@@ -203,14 +207,30 @@ Definition findtc : forall {vart ctx} (x : var vart ctx) (T : tcontext ctx), tc_
   }
 Defined.
 
-Goal (findtc (Var (t := CEtype) (ctx := [CEtype; CEtype]) 1 (eq_refl true)) (TEkinding ::: TEkinding ::: TCnil)) = TEkinding. Proof. exact eq_refl. Qed.
+Goal (findtc (Var (t := CEtype) (ctx := [CEtype; CEtype]) 1 (eq_refl true)) [TEkinding; TEkinding]%TC) = TEkinding. Proof. exact eq_refl. Qed.
 
-(* Coercion var_to_size {ctx} (x : var CEexpr ctx) : size ctx := Svar (x, []). *)
-(* Coercion type_of_te : tc_entry >-> type. *)
+Class Coerce A B :=
+  {
+    coerce : A -> B
+  }.
+
+Notation "! a" := (coerce a) (at level 3, format "! a").
+
+Definition var_to_size {ctx} (x : var CEexpr ctx) : size ctx := Svar (x, []).
+
+Instance Coerce_var_size ctx : Coerce (var CEexpr ctx) (size ctx) :=
+  {
+    coerce := var_to_size (ctx := ctx)
+  }.
+
+Instance Coerce_tc_entry_type ctx : Coerce (tc_entry CEexpr ctx) (type ctx) :=
+  {
+    coerce := type_of_te (ctx := ctx)
+  }.
 
 Inductive typing {ctx} : tcontext ctx -> expr ctx -> type ctx -> cexpr ctx -> size ctx -> Prop :=
 | TPvar Γ x : 
-    typing Γ (Evar x) (cast (shiftby (firstn (S x) ctx) (type_of_te (findtc x Γ))) (firstn_skipn _ ctx)) F0 (Svar' [] x)
+    typing Γ (Evar x) (cast (shiftby (firstn (S x) ctx) !(findtc x Γ)) (firstn_skipn _ ctx)) F0 !x
 | TPapp Γ e₀ e₁ τ₁ c s τ₂ c₀ nouse c₁ s₁ : 
     typing Γ e₀ (Tarrow τ₁ c s τ₂) c₀ nouse ->
     typing Γ e₁ τ₁ c₁ s₁ ->
