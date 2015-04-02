@@ -474,11 +474,12 @@ Section LR.
     \e, ⌈|- e (ρ $ τ) /\ 
         (forall n e', nstepsex e n 0 e' -> n ≤ 1 + Ct)%nat⌉ /\ 
         (∀v, ⌈⇓# e 0 v⌉ ⇒ v ∈ relV var ρ /\ ⌈!v ≤ s⌉) /\
-        (∀e', match c with
-                | 0 => ⊤
-                | S c' =>
-                  ⌈stepsex e 1 e'⌉ ⇒ ▹ (e' ∈ relE' relV τ c' s ρ)
-              end).
+        (∀e', ⌈stepsex e 1 e'⌉ ⇒ 
+               match c with
+                 | 0 => ⊥
+                 | S c' =>
+                   ▹ (e' ∈ relE' relV τ c' s ρ)
+               end).
 
   Open Scope ty.
 
