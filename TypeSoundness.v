@@ -466,13 +466,13 @@ Notation "⇓#" := terminatesWithEx.
 (* the logical relation *)
 Section LR.
   
-  Variable Ct : nat.
+  Variable B : nat.
 
   Open Scope rel.
 
   Fixpoint relE' {lctx} (relV : forall var, csubsts var lctx -> rel var 1) τ (c : nat) (s : size) var (ρ : csubsts var lctx) {struct c} : rel var 1 :=
     \e, ⌈|- e (ρ $ τ) /\ 
-        (forall n e', nstepsex e n 0 e' -> n ≤ Ct)⌉ /\ 
+        (forall n e', nstepsex e n 0 e' -> n ≤ B)⌉ /\ 
         (∀v, ⌈⇓# e 0 v⌉ ⇒ v ∈ relV var ρ /\ ⌈!v ≤ s⌉) /\
         (∀e', ⌈stepsex e 1 e'⌉ ⇒ 
                match c with
@@ -702,9 +702,9 @@ Global Instance Apply_rel_expr' {var n} : Apply (rel var (S n)) (TTexpr var) (re
     apply := Rapp
   }.
 
-Definition add_Ps_expr {ctx lctx} τ Ct (Ps : t_Ps ctx) (ρ : t_ρ ctx lctx) : t_Ps (TTexpr :: ctx) :=
+Definition add_Ps_expr {ctx lctx} τ B (Ps : t_Ps ctx) (ρ : t_ρ ctx lctx) : t_Ps (TTexpr :: ctx) :=
   let Ps := lift_Ps TTexpr Ps in
-  let Ps := (fun var v => openup1 (fun ρ => v ∈ relV Ct τ ρ) _ (ρ var)) :: Ps in
+  let Ps := (fun var v => openup1 (fun ρ => v ∈ relV B τ ρ) _ (ρ var)) :: Ps in
   Ps
 .
 
@@ -738,7 +738,7 @@ Definition pair_of_tc {t lctx} (T : tcontext (t :: lctx)) : tc_entry t lctx * tc
   end.
 
 Section make_Ps.
-  Variable Ct : nat.
+  Variable B : nat.
   Fixpoint make_Ps {lctx} : tcontext lctx -> t_Ps (make_ctx lctx) :=
     match lctx return tcontext lctx -> t_Ps (make_ctx lctx) with 
       | nil => fun _ => nil
@@ -749,7 +749,7 @@ Section make_Ps.
       | CEexpr :: lctx' =>
         fun Γ =>
           let Ps := make_Ps (snd (pair_of_tc Γ)) in
-          add_Ps_expr ((type_of_te << fst << pair_of_tc) Γ) Ct Ps (make_ρ lctx')
+          add_Ps_expr ((type_of_te << fst << pair_of_tc) Γ) B Ps (make_ρ lctx')
     end.
 End make_Ps.
 
@@ -961,13 +961,13 @@ Definition openup9 {t1 t2 t3 t4 var} (f : t1 var -> t2 var -> t3 var -> t4 var) 
   simpl; eauto.
 Defined.
 
-Definition relE'' Ct {lctx} tau {var} n s := @relE Ct lctx tau n s var.
-Definition openE Ct {lctx} tau {var ctx} := openup9 (t1 := const nat) (t2 := const size) (t3 := flip csubsts lctx) (t4 := 1) (@relE'' Ct lctx tau var) ctx.
-Definition goodExpr Ct {lctx} tau {ctx} (n : Rel ctx (const nat)) (s : Rel ctx (const size)) (ρ : t_ρ ctx lctx) : Rel ctx 1 := fun var => openE Ct tau (n var) (s var) (ρ var).
-Definition openE2 Ct {lctx} tau c s {var ctx} := openup1 (t1 := flip csubsts lctx) (t2 := 1) (@relE Ct lctx tau c s var) ctx.
-Definition goodExpr2 Ct {lctx} tau c s {ctx} (ρ : t_ρ ctx lctx) : Rel ctx 1 := fun var => openE2 Ct tau c s (ρ var).
-Definition openV2 Ct {lctx} tau {var ctx} := openup1 (t1 := flip csubsts lctx) (t2 := 1) (@relV Ct lctx tau var) ctx.
-Definition goodValue2 Ct {lctx} tau {ctx} (ρ : t_ρ ctx lctx) : Rel ctx 1 := fun var => openV2 Ct tau (ρ var).
+Definition relE'' B {lctx} tau {var} n s := @relE B lctx tau n s var.
+Definition openE B {lctx} tau {var ctx} := openup9 (t1 := const nat) (t2 := const size) (t3 := flip csubsts lctx) (t4 := 1) (@relE'' B lctx tau var) ctx.
+Definition goodExpr B {lctx} tau {ctx} (n : Rel ctx (const nat)) (s : Rel ctx (const size)) (ρ : t_ρ ctx lctx) : Rel ctx 1 := fun var => openE B tau (n var) (s var) (ρ var).
+Definition openE2 B {lctx} tau c s {var ctx} := openup1 (t1 := flip csubsts lctx) (t2 := 1) (@relE B lctx tau c s var) ctx.
+Definition goodExpr2 B {lctx} tau c s {ctx} (ρ : t_ρ ctx lctx) : Rel ctx 1 := fun var => openE2 B tau c s (ρ var).
+Definition openV2 B {lctx} tau {var ctx} := openup1 (t1 := flip csubsts lctx) (t2 := 1) (@relV B lctx tau var) ctx.
+Definition goodValue2 B {lctx} tau {ctx} (ρ : t_ρ ctx lctx) : Rel ctx 1 := fun var => openV2 B tau (ρ var).
 
 Definition c2n' {ctx} (c : Rel ctx (const cexpr)) : Rel ctx (const nat) :=
   fun var => openup1 (t1 := const cexpr) (t2 := const nat) c2n ctx (c var).
@@ -977,14 +977,14 @@ Global Instance Coerce_cexpr_nat' : Coerce (Rel ctx (const cexpr)) (Rel ctx (con
     coerce := c2n'
   }.
 
-Definition related {lctx} Ct Γ (e : open_expr lctx) τ (c : open_cexpr lctx) (s : open_size lctx) :=
-  make_Ps Ct Γ |~
+Definition related {lctx} B Γ (e : open_expr lctx) τ (c : open_cexpr lctx) (s : open_size lctx) :=
+  make_Ps B Γ |~
           let ρ := (make_ρ lctx) in
-          ρ $$ e ∈ goodExpr Ct τ !(ρ $ c) (ρ $ s) ρ.
+          ρ $$ e ∈ goodExpr B τ !(ρ $ c) (ρ $ s) ρ.
 
 Notation "⊩" := related.
 
-Lemma adequacy Ct e τ c s : ⊩ Ct [] e τ c s -> forall n e', nsteps e n e' -> n ≤ (1 + Ct) * (1 + !c).
+Lemma adequacy B e τ c s : ⊩ B [] e τ c s -> forall n e', nsteps e n e' -> n ≤ (1 + B) * (1 + !c).
   admit.
 Qed.
 
@@ -1019,17 +1019,17 @@ Instance Apply_Subst `{Subst t A B} {ctx} : Apply (B (t :: ctx)) (A ctx) (B ctx)
   }.
 
 Definition goodEC {lctx lctx'} : nat -> expr -> econtext -> Substs [] lctx -> open_type lctx -> open_cexpr [CEexpr] -> open_size [CEexpr] -> Substs [] lctx' -> open_type lctx' -> Rel [] 0 :=
-  fun Ct e E ρ τ c s ρ' τ' => 
-    (∀v, v ∈ goodValue2 Ct τ ρ /\ ⌈e ↝* v⌉ ⇒ E $$ v ∈ goodExpr2 Ct τ' !(c $ v) (s $ v) ρ')%REL.
+  fun B e E ρ τ c s ρ' τ' => 
+    (∀v, v ∈ goodValue2 B τ ρ /\ ⌈e ↝* v⌉ ⇒ E $$ v ∈ goodExpr2 B τ' !(c $ v) (s $ v) ρ')%REL.
 
 (*
 Definition goodECopen {var lctx lctx'} : nat -> expr -> econtext -> csubsts var lctx -> open_type lctx -> open_cexpr [CEexpr] -> open_size [CEexpr] -> csubsts var lctx' -> open_type lctx' -> rel var 0 :=
-  fun Ct e E ρ τ c s ρ' τ' =>
-    (∀v, v ∈ relV Ct τ ρ /\ ⌈e ↝* v⌉ ⇒ plug E v ∈ relE Ct τ' !(c $ v) (s $ v) ρ')%rel.
+  fun B e E ρ τ c s ρ' τ' =>
+    (∀v, v ∈ relV B τ ρ /\ ⌈e ↝* v⌉ ⇒ plug E v ∈ relE B τ' !(c $ v) (s $ v) ρ')%rel.
 
 Definition goodEC {lctx lctx'} : nat -> expr -> econtext -> Substs [] lctx -> open_type lctx -> open_cexpr [CEexpr] -> open_size [CEexpr] -> Substs [] lctx' -> open_type lctx' -> Rel [] 0 :=
-  fun Ct e E ρ τ c s ρ' τ' var => 
-    goodECopen Ct e E (ρ var) τ c s (ρ' var) τ'.
+  fun B e E ρ τ c s ρ' τ' var => 
+    goodECopen B e E (ρ var) τ c s (ρ' var) τ'.
 *)
 
 Definition subst_Rel `{Subst t A B} {ctx} lctx (x : var t lctx) (v : Rel ctx (const (A (removen lctx x)))) (b : Rel ctx (const (B lctx))) : Rel ctx (const (B (removen lctx x))) :=
@@ -1061,8 +1061,8 @@ Definition open_size' {ctx} := openup_t (ctx := ctx) open_size.
 
 Section DerivedRules.
 
-  Lemma LRbind {lctx lctx'} Ct (τ : open_type lctx) (ρ : Substs [] lctx) s₁ E c₂ s₂ (τ' : open_type lctx') (ρ' : Substs [] lctx') : 
-    [] |~ ∀ e c₁, e ∈ goodExpr2 Ct τ c₁ s₁ ρ /\ goodEC Ct e E ρ τ c₂ s₂ ρ' τ' ⇒ E $$ e ∈ goodExpr2 (2 * Ct) τ' (c₁ + !(c₂ $ s₁)) (s₂ $ s₁) ρ'.
+  Lemma LRbind {lctx lctx'} B (τ : open_type lctx) (ρ : Substs [] lctx) s₁ E c₂ s₂ (τ' : open_type lctx') (ρ' : Substs [] lctx') : 
+    [] |~ ∀ e c₁, e ∈ goodExpr2 B τ c₁ s₁ ρ /\ goodEC B e E ρ τ c₂ s₂ ρ' τ' ⇒ E $$ e ∈ goodExpr2 (2 * B) τ' (c₁ + !(c₂ $ s₁)) (s₂ $ s₁) ρ'.
   Proof.
     eapply RuleLob.
     unfold goodEC.
@@ -1079,7 +1079,7 @@ End DerivedRules.
 Lemma foundamental :
   forall {ctx} (Γ : tcontext ctx) e τ c s,
     ⊢ Γ e τ c s -> 
-    exists Ct, ⊩ Ct Γ e τ c s.
+    exists B, ⊩ B Γ e τ c s.
 Proof.
   induction 1.
   {
@@ -1099,7 +1099,11 @@ Proof.
     unfold related in *.
     admit.
   }
-  admit.
+  {
+    unfold related in *.
+    simpl in *.
+    admit.
+  }
   admit.
   admit.
   admit.
