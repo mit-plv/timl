@@ -472,7 +472,7 @@ Section LR.
 
   Fixpoint relE' {lctx} (relV : forall var, csubsts var lctx -> rel var 1) τ (c : nat) (s : size) var (ρ : csubsts var lctx) {struct c} : rel var 1 :=
     \e, ⌈|- e (ρ $ τ) /\ 
-        (forall n e', nstepsex e n 0 e' -> n ≤ 1 + Ct)%nat⌉ /\ 
+        (forall n e', nstepsex e n 0 e' -> n ≤ Ct)⌉ /\ 
         (∀v, ⌈⇓# e 0 v⌉ ⇒ v ∈ relV var ρ /\ ⌈!v ≤ s⌉) /\
         (∀e', ⌈stepsex e 1 e'⌉ ⇒ 
                match c with
@@ -1061,19 +1061,17 @@ Definition open_size' {ctx} := openup_t (ctx := ctx) open_size.
 
 Section DerivedRules.
 
-  Lemma LRbind {lctx lctx'} Ct e (τ : open_type lctx) (ρ : Substs [] lctx) c₁ s₁ E c₂ s₂ (τ' : open_type lctx') (ρ' : Substs [] lctx') : 
-    [] |~ e ∈ goodExpr2 Ct τ c₁ s₁ ρ ->
-    [] |~ goodEC Ct e E ρ τ c₂ s₂ ρ' τ' ->
-    [] |~ E $$ e ∈ goodExpr2 (1 + 2 * Ct) τ' (c₁ + !(c₂ $ s₁)) (s₂ $ s₁) ρ'.
+  Lemma LRbind {lctx lctx'} Ct (τ : open_type lctx) (ρ : Substs [] lctx) s₁ E c₂ s₂ (τ' : open_type lctx') (ρ' : Substs [] lctx') : 
+    [] |~ ∀ e c₁, e ∈ goodExpr2 Ct τ c₁ s₁ ρ /\ goodEC Ct e E ρ τ c₂ s₂ ρ' τ' ⇒ E $$ e ∈ goodExpr2 (2 * Ct) τ' (c₁ + !(c₂ $ s₁)) (s₂ $ s₁) ρ'.
   Proof.
-    unfold goodEC.
-    intros Hge HgE.
     eapply RuleLob.
-    unfold goodExpr2 at 2.
+    unfold goodEC.
+    unfold goodExpr2 at 4.
     unfold openE2.
     unfold relE.
     unfold relE'.
     simpl.
+    admit.
   Qed.
 
 End DerivedRules.
