@@ -498,7 +498,7 @@ Section LR.
       | Tunit => \v, ⌈v ↓ Tunit⌉
       | τ₁ × τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃a b, ⌈v = !(a, b)⌉ /\ a ∈ relV τ₁ ρ /\ b ∈ relV τ₂ ρ
       | τ₁ + τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃v', (⌈v = Einl (ρ $ τ₂) v'⌉ /\ v' ∈ relV τ₁ ρ) \/ (⌈v = Einr (ρ $ τ₁) v'⌉ /\ v' ∈ relV τ₂ ρ)
-      | Tarrow τ₁ c s τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∀v₁, v₁ ∈ relV τ₁ ρ ⇒ v $$ v₁ ∈ relE' (relV τ₂) τ₂ !(ρ $ subst !(!v₁) c) (ρ $ subst !(!v₁) s) (add v₁ ρ)
+      | Tarrow τ₁ c s τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃τ₁' e, ⌈v = Eabs τ₁' e⌉ /\ ∀v₁, v₁ ∈ relV τ₁ ρ ⇒ subst v₁ e ∈ relE' (relV τ₂) τ₂ !(ρ $ subst !(!v₁) c) (ρ $ subst !(!v₁) s) (add v₁ ρ)
       | Tuniversal c s τ₁ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∀τ', ∀₂ S, VSet τ' S ⇒ v $$ τ' ∈ relE' (relV τ₁) τ₁ !(ρ $ c) (ρ $ s) (add (τ', S) ρ)
       | Trecur τ₁ => @@S, \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃v', ⌈v = Efold (ρ $ τ) v'⌉ /\ ▹ (v' ∈ relV τ₁ (add (ρ $ τ, S) ρ))
       | _ => \_, ⊥
@@ -510,19 +510,19 @@ Section LR.
 End LR.
 
 Set Maximal Implicit Insertion.
-Section relOpen.
+Section Funvar.
 
   Variable var : nat -> Type.
 
   Definition Ctx := list ((nat -> Type) -> Type).
 
-  Fixpoint relOpen C range :=
-    match C with
+  Fixpoint Funvar domains range :=
+    match domains with
       | nil => range var
-      | domain :: C' => domain var -> relOpen C' range
+      | domain :: domains' => domain var -> Funvar domains' range
     end.
 
-End relOpen.
+End Funvar.
 
 Definition TTrel n var := rel var n.
 Coercion TTrel : nat >-> Funclass.
@@ -531,72 +531,72 @@ Section OR.
 
   Context `{var : nat -> Type}.
   
-  Notation relOpen := (relOpen var).
+  Notation Funvar := (Funvar var).
 
-  Definition openup1 {t1 t2} (f : t1 var -> t2 var) : forall C, relOpen C t1 -> relOpen C t2.
+  Definition openup1 {t1 t2} (f : t1 var -> t2 var) : forall C, Funvar C t1 -> Funvar C t2.
     refine
-      (fix F C : relOpen C t1 -> relOpen C t2 :=
-         match C return relOpen C t1 -> relOpen C t2 with
+      (fix F C : Funvar C t1 -> Funvar C t2 :=
+         match C return Funvar C t1 -> Funvar C t2 with
            | nil => _
            | nv :: C' => _
          end);
     simpl; eauto.
   Defined.
 
-  Definition openup2 {n1 n2 T} (f : (T -> rel var n1) -> rel var n2) : forall C, (T -> relOpen C n1) -> relOpen C n2.
+  Definition openup2 {n1 n2 T} (f : (T -> rel var n1) -> rel var n2) : forall C, (T -> Funvar C n1) -> Funvar C n2.
     refine
-      (fix F C : (T -> relOpen C n1) -> relOpen C n2 :=
-         match C return (T -> relOpen C n1) -> relOpen C n2 with
+      (fix F C : (T -> Funvar C n1) -> Funvar C n2 :=
+         match C return (T -> Funvar C n1) -> Funvar C n2 with
            | nil => _
            | nv :: C' => _ 
          end);
     simpl; eauto.
   Defined.
 
-  Definition openup3 {n T} (f : T -> rel var n) : forall C, T -> relOpen C n.
+  Definition openup3 {n T} (f : T -> rel var n) : forall C, T -> Funvar C n.
     refine
-      (fix F C : T -> relOpen C n :=
-         match C return T -> relOpen C n with
+      (fix F C : T -> Funvar C n :=
+         match C return T -> Funvar C n with
            | nil => _
            | nv :: C' => _ 
          end);
     simpl; eauto.
   Defined.
   
-  Definition openupSingle {t2} (f : t2 var) : forall ctx, relOpen ctx t2.
+  Definition openupSingle {t2} (f : t2 var) : forall ctx, Funvar ctx t2.
     refine
-      (fix F ctx : relOpen ctx t2 :=
-         match ctx return relOpen ctx t2 with
+      (fix F ctx : Funvar ctx t2 :=
+         match ctx return Funvar ctx t2 with
            | nil => _
            | t :: ctx' => _ 
          end);
     simpl; eauto.
   Defined.
 
-  Definition openup5 {t1 t2 t3} (f : t1 var -> t2 var -> t3 var) : forall C, relOpen C t1 -> relOpen C t2 -> relOpen C t3.
+  Definition openup5 {t1 t2 t3} (f : t1 var -> t2 var -> t3 var) : forall C, Funvar C t1 -> Funvar C t2 -> Funvar C t3.
     refine
-      (fix F C : relOpen C t1 -> relOpen C t2 -> relOpen C t3 :=
-         match C return relOpen C t1 -> relOpen C t2 -> relOpen C t3 with
+      (fix F C : Funvar C t1 -> Funvar C t2 -> Funvar C t3 :=
+         match C return Funvar C t1 -> Funvar C t2 -> Funvar C t3 with
            | nil => _
            | nv :: C' => _ 
          end);
     simpl; eauto.
   Defined.
 
-  Definition openup6 {n1 T n2} (f : rel var n1 -> T -> rel var n2) : forall C, relOpen C n1 -> relOpen C (const T) -> relOpen C n2.
+  Definition openup6 {n1 T n2} (f : rel var n1 -> T -> rel var n2) : forall C, Funvar C n1 -> Funvar C (const T) -> Funvar C n2.
     refine
-      (fix F C : relOpen C n1 -> relOpen C (const T) -> relOpen C n2 :=
-         match C return relOpen C n1 -> relOpen C (const T) -> relOpen C n2 with
+      (fix F C : Funvar C n1 -> Funvar C (const T) -> Funvar C n2 :=
+         match C return Funvar C n1 -> Funvar C (const T) -> Funvar C n2 with
            | nil => _
            | nv :: C' => _ 
          end);
     simpl; eauto.
   Defined.
 
-  Definition openup8 {n1 n2 T} (f : (T -> rel var n1) -> rel var n2) : forall C, (relOpen C (const T) -> relOpen C n1) -> relOpen C n2.
+  Definition openup8 {n1 n2 T} (f : (T -> rel var n1) -> rel var n2) : forall C, (Funvar C (const T) -> Funvar C n1) -> Funvar C n2.
     refine
-      (fix F C : (relOpen C (const T) -> relOpen C n1) -> relOpen C n2 :=
-         match C return (relOpen C (const T) -> relOpen C n1) -> relOpen C n2 with
+      (fix F C : (Funvar C (const T) -> Funvar C n1) -> Funvar C n2 :=
+         match C return (Funvar C (const T) -> Funvar C n1) -> Funvar C n2 with
            | nil => _
            | nv :: C' => _
          end);
@@ -625,7 +625,7 @@ End OR.
 
 Unset Maximal Implicit Insertion.
 
-Definition Rel ctx t := forall var, relOpen var ctx t.
+Definition Rel ctx t := forall var, Funvar var ctx t.
 
 Definition lift_Rel {ctx t2} new : Rel ctx t2 -> Rel (new :: ctx) t2 :=
   fun r var x => r var.
@@ -639,7 +639,7 @@ Definition lift_Ps {ctx} t (Ps : t_Ps ctx) : t_Ps (t :: ctx):=
   map (lift_Rel t) Ps.
 
 (* should compute *)
-Definition extend {var t2} ctx new : relOpen var ctx t2 -> relOpen var (ctx ++ new) t2.
+Definition extend {var t2} ctx new : Funvar var ctx t2 -> Funvar var (ctx ++ new) t2.
   induction ctx.
   {
     simpl.
@@ -653,12 +653,12 @@ Definition extend {var t2} ctx new : relOpen var ctx t2 -> relOpen var (ctx ++ n
   }
 Defined.
 
-Definition add_relOpen {var} `{H : Add (A var) (B var) (C var)} {ctx} (a : relOpen var ctx A) (b : relOpen var ctx B) : relOpen var ctx C :=
+Definition add_Funvar {var} `{H : Add (A var) (B var) (C var)} {ctx} (a : Funvar var ctx A) (b : Funvar var ctx B) : Funvar var ctx C :=
   openup5 (t1 := A) (t2 := B) add ctx a b.
 
-Global Instance Add_relOpen {var} `{Add (A var) (B var) (C var)} {ctx} : Add (relOpen var ctx A) (relOpen var ctx B) (relOpen var ctx C) :=
+Global Instance Add_Funvar {var} `{Add (A var) (B var) (C var)} {ctx} : Add (Funvar var ctx A) (Funvar var ctx B) (Funvar var ctx C) :=
   {
-    add := add_relOpen
+    add := add_Funvar
   }.
 
 Definition pair_var var := (type * rel var 1)%type.
@@ -680,9 +680,9 @@ Definition add_ρ_type {ctx lctx} (ρ : t_ρ ctx lctx) : t_ρ (TTrel 1 :: TTtype
 
 Definition add_Ps_type {ctx} (Ps : t_Ps ctx) : t_Ps (TTrel 1 :: TTtype :: ctx) :=
   let Ps := lift_Ps TTtype Ps in
-  let Ps := (fun var => extend [TTtype] ctx (fun τ => ⌈kinding TCnil τ 0⌉%rel : relOpen var [] 0)) :: Ps in
+  let Ps := (fun var => extend [TTtype] ctx (fun τ => ⌈kinding TCnil τ 0⌉%rel : Funvar var [] 0)) :: Ps in
   let Ps := lift_Ps 1 Ps in
-  let Ps := (fun var => extend [TTrel 1; TTtype] ctx (fun S τ => VSet τ S : relOpen var [] 0)) :: Ps in
+  let Ps := (fun var => extend [TTrel 1; TTtype] ctx (fun S τ => VSet τ S : Funvar var [] 0)) :: Ps in
   Ps
 .
 
@@ -768,7 +768,7 @@ Notation "∃₂ x .. y , p" := (ORexists2' (fun x => .. (ORexists2' (fun y => p
 Notation "@@ x .. y , p" := (ORrecur (fun x => .. (ORrecur (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
 Definition ORrecur' {var ctx n} P := (@ORrecur var ctx n (fun x => P (ORvar (ctx := ctx) x))).
 Notation "@@@ x .. y , p" := (ORrecur' (fun x => .. (ORrecur' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
-Global Instance Apply_relOpen_TTexpr {var ctx n} : Apply (relOpen var ctx (S n)) (relOpen var ctx TTexpr) (relOpen var ctx n) :=
+Global Instance Apply_Funvar_TTexpr {var ctx n} : Apply (Funvar var ctx (S n)) (Funvar var ctx TTexpr) (Funvar var ctx n) :=
   {
     apply := ORapp
   }.
@@ -786,11 +786,11 @@ Section TestNotations.
 
   Open Scope OR.
   
-  Definition ttt1 : relOpen var ctx 1 := \e , ⊤.
-  Definition ttt2 : relOpen var ctx 1 := \e , ⌈e ↓ Tunit⌉.
-  Definition ttt3 : relOpen var ctx 0 := ⌈True /\ True⌉.
-  Definition ttt4 : relOpen var ctx 0 := ∀e, ⌈e = @Ett nil⌉.
-  Definition ttt5 : relOpen var ctx 0 := ∃e, ⌈e = @Ett nil⌉.
+  Definition ttt1 : Funvar var ctx 1 := \e , ⊤.
+  Definition ttt2 : Funvar var ctx 1 := \e , ⌈e ↓ Tunit⌉.
+  Definition ttt3 : Funvar var ctx 0 := ⌈True /\ True⌉.
+  Definition ttt4 : Funvar var ctx 0 := ∀e, ⌈e = @Ett nil⌉.
+  Definition ttt5 : Funvar var ctx 0 := ∃e, ⌈e = @Ett nil⌉.
 
 End TestNotations.
 
@@ -852,10 +852,10 @@ End TestNotations.
 
 End StandalonePHOAS.
 
-Definition openup7 {var t1 t2} : forall ctx, (t1 var -> relOpen var ctx t2) -> relOpen var ctx t1 -> relOpen var ctx t2.
+Definition openup7 {var t1 t2} : forall ctx, (t1 var -> Funvar var ctx t2) -> Funvar var ctx t1 -> Funvar var ctx t2.
   refine
-    (fix F ctx : (t1 var -> relOpen var ctx t2) -> relOpen var ctx t1 -> relOpen var ctx t2 :=
-       match ctx return (t1 var -> relOpen var ctx t2) -> relOpen var ctx t1 -> relOpen var ctx t2 with
+    (fix F ctx : (t1 var -> Funvar var ctx t2) -> Funvar var ctx t1 -> Funvar var ctx t2 :=
+       match ctx return (t1 var -> Funvar var ctx t2) -> Funvar var ctx t1 -> Funvar var ctx t2 with
          | nil => _
          | t :: ctx' => _ 
        end);
@@ -903,8 +903,8 @@ Section inferRules.
   | ERuleLaterImply P Q : eqv (▹ (P ⇒ Q)) (▹P ⇒ ▹Q)
   | ERuleLaterForall1 T P : eqv (▹ (∀x:T, P x)) (∀x, ▹(P x))
   | ERuleLaterExists1 T P : eqv (▹ (∃x:T, P x)) (∃x, ▹(P x))
-  | ERuleLaterForallR (n : nat) P : eqv (fun var => ▹ (∀₂ (R : relOpen var ctx n), P var R))%OR (fun var => ∀₂ R, ▹(P var R))%OR
-  | ERuleLaterExistsR (n : nat) P : eqv (fun var => ▹ (∃₂ (R : relOpen var ctx n), P var R))%OR (fun var => ∃₂ R, ▹(P var R))%OR
+  | ERuleLaterForallR (n : nat) P : eqv (fun var => ▹ (∀₂ (R : Funvar var ctx n), P var R))%OR (fun var => ∀₂ R, ▹(P var R))%OR
+  | ERuleLaterExistsR (n : nat) P : eqv (fun var => ▹ (∃₂ (R : Funvar var ctx n), P var R))%OR (fun var => ∃₂ R, ▹(P var R))%OR
   | RuleElem n (R : Rel ctx (S n)) (e : Rel ctx TTexpr) : eqv ((\x, R $ x) $ e) (R $ e)
   | RuleRecur {n : nat} (R : Rel (TTrel n :: ctx) n) : eqv (fun var => @@r, R var (Rvar r))%OR (fun var => (@@r, R var (Rvar r)))%OR
   .
@@ -951,10 +951,10 @@ Global Instance Apply_Substs_size lctx ctx : Apply (Substs ctx lctx) (open_size 
 Import StandalonePHOAS.
 Local Open Scope REL.
 
-Definition openup9 {t1 t2 t3 t4 var} (f : t1 var -> t2 var -> t3 var -> t4 var) : forall ctx, relOpen var ctx t1 -> relOpen var ctx t2 -> relOpen var ctx t3 -> relOpen var ctx t4.
+Definition openup9 {t1 t2 t3 t4 var} (f : t1 var -> t2 var -> t3 var -> t4 var) : forall ctx, Funvar var ctx t1 -> Funvar var ctx t2 -> Funvar var ctx t3 -> Funvar var ctx t4.
   refine
-    (fix F ctx : relOpen var ctx t1 -> relOpen var ctx t2 -> relOpen var ctx t3 -> relOpen var ctx t4 :=
-       match ctx return relOpen var ctx t1 -> relOpen var ctx t2 -> relOpen var ctx t3 -> relOpen var ctx t4 with
+    (fix F ctx : Funvar var ctx t1 -> Funvar var ctx t2 -> Funvar var ctx t3 -> Funvar var ctx t4 :=
+       match ctx return Funvar var ctx t1 -> Funvar var ctx t2 -> Funvar var ctx t3 -> Funvar var ctx t4 with
          | nil => _
          | nv :: ctx' => _
        end);
@@ -1041,9 +1041,9 @@ Global Instance Subst_Rel `{Subst t A B} {ctx} : Subst t (fun lctx => Rel ctx (c
     substx := subst_Rel
   }.
 
-Global Instance Add_relOpen' {var} `{H : Add A B C} {ctx} : Add (relOpen var ctx (const A)) (relOpen var ctx (const B)) (relOpen var ctx (const C)) :=
+Global Instance Add_Funvar' {var} `{H : Add A B C} {ctx} : Add (Funvar var ctx (const A)) (Funvar var ctx (const B)) (Funvar var ctx (const C)) :=
   {
-    add := add_relOpen (A := const A) (B := const B) (C := const C) (H := H)
+    add := add_Funvar (A := const A) (B := const B) (C := const C) (H := H)
   }.
 
 Definition add_Rel `{Add A B C} {ctx} (a : Rel ctx (const A)) (b : Rel ctx (const B)) : Rel ctx (const C) :=
@@ -1102,6 +1102,7 @@ Proof.
   {
     unfold related in *.
     simpl in *.
+    unfold add_Ps_expr in *.
     admit.
   }
   admit.
