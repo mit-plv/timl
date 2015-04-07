@@ -26,19 +26,19 @@ Local Notation expr := (open_expr []).
                     (for y,z\not\in FV(e))
  *)
 
+Infix "~>" := step (at level 50).
+
 Inductive steps : expr -> expr -> Prop :=
 | Steps0 e : steps e e
-| StepsS e1 e2 e3 : step e1 e2 -> steps e2 e3 -> steps e1 e3
+| StepsS e1 e2 e3 : e1 ~> e2 -> steps e2 e3 -> steps e1 e3
 .
-
-Infix "↝" := step (at level 50).
-Infix "↝*" := steps (at level 50).
+Infix "~>*" := steps (at level 50).
 
 Notation "⊢" := typing.
 Definition typingsim e τ := exists c s, ⊢ TCnil e τ c s.
 Notation "|-" := typingsim.
 
-Definition nostuck e := forall e', e ↝* e' -> IsValue e' \/ exists e'', e' ↝ e''.
+Definition nostuck e := forall e', e ~>* e' -> IsValue e' \/ exists e'', e' ~> e''.
 
 Theorem sound_wrt_nostuck :
   forall e τ,
@@ -50,8 +50,9 @@ Qed.
 
 Inductive nsteps : expr -> nat -> expr -> Prop :=
 | Nsteps0 e : nsteps e 0 e
-| NstepsS e1 e2 n e3 : step e1 e2 -> nsteps e2 n e3 -> nsteps e1 (S n) e3
+| NstepsS e1 e2 n e3 : e1 ~> e2 -> nsteps e2 n e3 -> nsteps e1 (S n) e3
 .
+Notation "~>#" := nsteps.
 
 Local Open Scope G.
 
@@ -128,7 +129,7 @@ Definition sound_wrt_bounded :=
         v ↓ τ₁ ->
         (* any reduction sequence is bounded by C * c(|v|) *)
         forall n e',
-          nsteps (f $ v) n e' -> n ≤ C * (1 + !(subst v c)).
+          ~># (f $ v) n e' -> n ≤ C * (1 + !(subst v c)).
 
 Inductive stepex : expr -> bool -> expr -> Prop :=
 | STecontext E e1 b e2 e1' e2' : 
@@ -165,6 +166,16 @@ Inductive nstepsex : expr -> nat -> nat -> expr -> Prop :=
 | NEsteps0 e : nstepsex e 0 0 e
 | NEstepsS e1 b e2 n m e3 : stepex e1 b e2 -> nstepsex e2 n m e3 -> nstepsex e1 (S n) ((if b then 1 else 0) + m) e3
 .
+Notation "~>##" := nstepsex.
+
+Definition stepsex e m e' := exists n, ~>## e n m e'.
+Notation "~>*#" := stepsex.
+
+Definition terminatesWith e v := e ~>* v /\ IsValue v.
+Infix "⇓" := terminatesWith (at level 51).
+
+Definition terminatesWithEx e m v := ~>*# e m v /\ IsValue v.
+Notation "⇓*#" := terminatesWithEx.
 
 (* A Parametric Higher-Order Abstract Syntax (PHOAS) encoding for a second-order modal logic (LSLR) *)
 
@@ -233,10 +244,11 @@ Global Instance Apply_rel_expr {var n} : Apply (rel var (S n)) expr (rel var n) 
   }.
 Infix "/\" := Rand : rel.
 Infix "\/" := Ror : rel.
-Infix "⇒" := Rimply (at level 90) : rel.
+Infix "==>" := Rimply (at level 86) : rel.
 Notation "▹" := Rlater : rel.
 
 Delimit Scope rel with rel.
+Bind Scope rel with rel.
 
 Section TestNotations.
   
@@ -454,13 +466,7 @@ Bind Scope CS with csubsts.
 
 Import ClosedPHOAS.
 
-Definition VSet {var} τ (S : rel var 1) := (∀v, v ∈ S ⇒ ⌈v ↓ τ⌉)%rel.
-
-Definition terminatesWith e v := e ↝* v /\ IsValue v.
-Infix "⇓" := terminatesWith (at level 51).
-Definition stepsex e m e' := exists n, nstepsex e n m e'.
-Definition terminatesWithEx e m v := stepsex e m v /\ IsValue v.
-Notation "⇓#" := terminatesWithEx.
+Definition VSet {var} τ (S : rel var 1) := (∀v, v ∈ S ==> ⌈v ↓ τ⌉)%rel.
 
 (* A "step-indexed" kriple model *)
 (* the logical relation *)
@@ -472,9 +478,9 @@ Section LR.
 
   Fixpoint relE' {lctx} (relV : forall var, csubsts var lctx -> rel var 1) τ (c : nat) (s : size) var (ρ : csubsts var lctx) {struct c} : rel var 1 :=
     \e, ⌈|- e (ρ $ τ) /\ 
-        (forall n e', nstepsex e n 0 e' -> n ≤ B)⌉ /\ 
-        (∀v, ⌈⇓# e 0 v⌉ ⇒ v ∈ relV var ρ /\ ⌈!v ≤ s⌉) /\
-        (∀e', ⌈stepsex e 1 e'⌉ ⇒ 
+        (forall n e', (~>## e n 0 e') -> n ≤ B)⌉ /\ 
+        (∀v, ⌈⇓*# e 0 v⌉ ==> v ∈ relV var ρ /\ ⌈!v ≤ s⌉) /\
+        (∀e', ⌈~>*# e 1 e'⌉ ==> 
                match c with
                  | 0 => ⊥
                  | S c' =>
@@ -498,9 +504,9 @@ Section LR.
       | Tunit => \v, ⌈v ↓ Tunit⌉
       | τ₁ × τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃a b, ⌈v = !(a, b)⌉ /\ a ∈ relV τ₁ ρ /\ b ∈ relV τ₂ ρ
       | τ₁ + τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃v', (⌈v = Einl (ρ $ τ₂) v'⌉ /\ v' ∈ relV τ₁ ρ) \/ (⌈v = Einr (ρ $ τ₁) v'⌉ /\ v' ∈ relV τ₂ ρ)
-      | Tarrow τ₁ c s τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃τ₁' e, ⌈v = Eabs τ₁' e⌉ /\ ∀v₁, v₁ ∈ relV τ₁ ρ ⇒ subst v₁ e ∈ relE' (relV τ₂) τ₂ !(ρ $ subst !(!v₁) c) (ρ $ subst !(!v₁) s) (add v₁ ρ)
-      | Tuniversal c s τ₁ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∀τ', ∀₂ S, VSet τ' S ⇒ v $$ τ' ∈ relE' (relV τ₁) τ₁ !(ρ $ c) (ρ $ s) (add (τ', S) ρ)
-      | Trecur τ₁ => @@S, \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃v', ⌈v = Efold (ρ $ τ) v'⌉ /\ ▹ (v' ∈ relV τ₁ (add (ρ $ τ, S) ρ))
+      | Tarrow τ₁ c s τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃τ₁' e, ⌈v = Eabs τ₁' e⌉ /\ ∀v₁, v₁ ∈ relV τ₁ ρ ==> subst v₁ e ∈ relE' (relV τ₂) τ₂ !(ρ $ subst !(!v₁) c) (ρ $ subst !(!v₁) s) (add v₁ ρ)
+      | Tuniversal c s τ₁ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∀τ', ∀₂ S, VSet τ' S ==> v $$ τ' ∈ relE' (relV τ₁) τ₁ !(ρ $ c) (ρ $ s) (add (τ', S) ρ)
+      | Trecur τ₁ => @@S, \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃τ' v', ⌈v = Efold τ' v'⌉ /\ ▹ (v' ∈ relV τ₁ (add (ρ $ τ, S) ρ))
       | _ => \_, ⊥
     end
   .
@@ -632,8 +638,8 @@ Definition lift_Rel {ctx t2} new : Rel ctx t2 -> Rel (new :: ctx) t2 :=
 
 Definition t_Ps ctx := list (Rel ctx 0).
 Definition Substs ctx lctx := Rel ctx (flip csubsts lctx).
-Notation t_ρ := Substs.
-Notation lift_ρ := lift_Rel.
+Notation t_ρ := Substs (only parsing).
+Notation lift_ρ := lift_Rel (only parsing).
 
 Definition lift_Ps {ctx} t (Ps : t_Ps ctx) : t_Ps (t :: ctx):=
   map (lift_Rel t) Ps.
@@ -774,7 +780,7 @@ Global Instance Apply_Funvar_TTexpr {var ctx n} : Apply (Funvar var ctx (S n)) (
   }.
 Infix "/\" := ORand : OR.
 Infix "\/" := ORor : OR.
-Infix "⇒" := ORimply (at level 90) : OR.
+Infix "==>" := ORimply (at level 86) : OR.
 Notation "▹" := ORlater : OR.
 
 Delimit Scope OR with OR.
@@ -796,51 +802,52 @@ End TestNotations.
 
 End OpenPHOAS.
 
+Delimit Scope Rel with Rel.
+Bind Scope Rel with Rel.
+
 Set Maximal Implicit Insertion.
-Section REL.
+Section Rel.
 
   Context `{ctx : Ctx}.
   Notation Rel := (Rel ctx).
   
-  Definition RELinj P : Rel 0 := fun var => ORinj P.
-  Definition RELtrue : Rel 0 := fun var => ORtrue.
-  Definition RELfalse : Rel 0 := fun var => ORfalse.
-  Definition RELand (a b : Rel 0) : Rel 0 := fun var => ORand (a var) (b var).
-  Definition RELor (a b : Rel 0) : Rel 0 := fun var => ORor (a var) (b var).
-  Definition RELimply (a b : Rel 0) : Rel 0 := fun var => ORimply (a var) (b var).
-  Definition RELforall1 T (F : T -> Rel 0) : Rel 0 := fun var => ORforall1 (fun x => F x var).
-  Definition RELexists1 T (F : T -> Rel 0) : Rel 0 := fun var => ORexists1 (fun x => F x var).
-  Definition RELabs (n : nat) (F : expr -> Rel n) : Rel (S n) := fun var => ORabs (fun e => F e var).
-  Definition RELapp n (r : Rel (S n)) (e : Rel TTexpr) : Rel n := fun var => ORapp (r var) (e var).
-  Definition RELlater (P : Rel 0) : Rel 0 := fun var => ORlater (P var).
+  Definition Relinj P : Rel 0 := fun var => ORinj P.
+  Definition Reltrue : Rel 0 := fun var => ORtrue.
+  Definition Relfalse : Rel 0 := fun var => ORfalse.
+  Definition Reland (a b : Rel 0) : Rel 0 := fun var => ORand (a var) (b var).
+  Definition Relor (a b : Rel 0) : Rel 0 := fun var => ORor (a var) (b var).
+  Definition Relimply (a b : Rel 0) : Rel 0 := fun var => ORimply (a var) (b var).
+  Definition Relforall1 T (F : T -> Rel 0) : Rel 0 := fun var => ORforall1 (fun x => F x var).
+  Definition Relexists1 T (F : T -> Rel 0) : Rel 0 := fun var => ORexists1 (fun x => F x var).
+  Definition Relabs (n : nat) (F : expr -> Rel n) : Rel (S n) := fun var => ORabs (fun e => F e var).
+  Definition Relapp n (r : Rel (S n)) (e : Rel TTexpr) : Rel n := fun var => ORapp (r var) (e var).
+  Definition Rellater (P : Rel 0) : Rel 0 := fun var => ORlater (P var).
   
-End REL.
+End Rel.
 Unset Maximal Implicit Insertion.
 
 Module StandalonePHOAS.
   
-Notation "⊤" := RELtrue : REL.
-Notation "⊥" := RELtrue : REL.
-Notation "⌈ P ⌉" := (RELinj P) : REL.
-Notation "\ x .. y , p" := (RELabs (fun x => .. (RELabs (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : REL.
-Notation "∀ x .. y , p" := (RELforall1 (fun x => .. (RELforall1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : REL.
-Notation "∃ x .. y , p" := (RELexists1 (fun x => .. (RELexists1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : REL.
+Notation "⊤" := Reltrue : Rel.
+Notation "⊥" := Reltrue : Rel.
+Notation "⌈ P ⌉" := (Relinj P) : Rel.
+Notation "\ x .. y , p" := (Relabs (fun x => .. (Relabs (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : Rel.
+Notation "∀ x .. y , p" := (Relforall1 (fun x => .. (Relforall1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : Rel.
+Notation "∃ x .. y , p" := (Relexists1 (fun x => .. (Relexists1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : Rel.
 Global Instance Apply_Rel_TTexpr {ctx n} : Apply (Rel ctx (S n)) (Rel ctx TTexpr) (Rel ctx n) :=
   {
-    apply := RELapp
+    apply := Relapp
   }.
-Infix "/\" := RELand : REL.
-Infix "\/" := RELor : REL.
-Infix "⇒" := RELimply (at level 90) : REL.
-Notation "▹" := RELlater : REL.
-
-Delimit Scope REL with REL.
+Infix "/\" := Reland : Rel.
+Infix "\/" := Relor : Rel.
+Infix "==>" := Relimply (at level 86) : Rel.
+Notation "▹" := Rellater : Rel.
 
 Section TestNotations.
   
   Variable ctx : Ctx.
 
-  Open Scope REL.
+  Open Scope Rel.
 
   Definition ttt1 : Rel ctx 1 := \e , ⊤.
   Definition ttt2 : Rel ctx 1 := \e , ⌈e ↓ Tunit⌉.
@@ -870,86 +877,83 @@ Global Instance Apply_Rel_Rel n ctx t2 : Apply (Rel (n :: ctx) t2) (Rel ctx n) (
     apply := apply_Rel_Rel
   }.
 
-Reserved Notation "C |~ P" (at level 89).
+Global Instance Apply_Rel_TTexpr ctx n : Apply (Rel ctx (S n)) (Rel ctx TTexpr) (Rel ctx n) :=
+  {
+    apply := Relapp
+  }.
 
-Section inferRules.
+Definition Relapp' {ctx n} (r : Rel ctx (S n)) (e : expr) : Rel ctx n :=
+  fun var =>
+    ORapp (r var) (openupSingle e ctx).
+
+Global Instance Apply_Rel_expr ctx n : Apply (Rel ctx (S n)) expr (Rel ctx n) :=
+  {
+    apply := Relapp'
+  }.
+
+Section infer_rules.
 
   Import OpenPHOAS.
   Import StandalonePHOAS.
-  Open Scope REL.
+  Open Scope Rel.
 
-  Variable ctx : Ctx.
-
-  Global Instance Apply_Rel_TTexpr ctx n : Apply (Rel ctx (S n)) (Rel ctx TTexpr) (Rel ctx n) :=
-    {
-      apply := RELapp
-    }.
-
-  Definition RELapp' {ctx n} (r : Rel ctx (S n)) (e : expr) : Rel ctx n :=
-    fun var =>
-      ORapp (r var) (openupSingle e ctx).
-
-  Global Instance Apply_Rel_expr ctx n : Apply (Rel ctx (S n)) expr (Rel ctx n) :=
-    {
-      apply := RELapp'
-    }.
+  Context `{ctx : Ctx}.
 
   Inductive eqv : forall {n}, Rel ctx n -> Rel ctx n -> Prop :=
-  | ERuleRefl n R : @eqv n R R
-  | ERuleSymm n R1 R2 : @eqv n R1 R2 -> @eqv n R2 R1
-  | ERuleTran n R1 R2 R3 : @eqv n R1 R2 -> @eqv n R2 R3 -> @eqv n R1 R3
-  | ERuleLaterAnd P Q : eqv (▹ (P /\ Q)) (▹P /\ ▹Q)
-  | ERuleLaterOr P Q : eqv (▹ (P \/ Q)) (▹P \/ ▹Q)
-  | ERuleLaterImply P Q : eqv (▹ (P ⇒ Q)) (▹P ⇒ ▹Q)
-  | ERuleLaterForall1 T P : eqv (▹ (∀x:T, P x)) (∀x, ▹(P x))
-  | ERuleLaterExists1 T P : eqv (▹ (∃x:T, P x)) (∃x, ▹(P x))
-  | ERuleLaterForallR (n : nat) P : eqv (fun var => ▹ (∀₂ (R : Funvar var ctx n), P var R))%OR (fun var => ∀₂ R, ▹(P var R))%OR
-  | ERuleLaterExistsR (n : nat) P : eqv (fun var => ▹ (∃₂ (R : Funvar var ctx n), P var R))%OR (fun var => ∃₂ R, ▹(P var R))%OR
-  | RuleElem n (R : Rel ctx (S n)) (e : Rel ctx TTexpr) : eqv ((\x, R $ x) $ e) (R $ e)
-  | RuleRecur {n : nat} (R : Rel (TTrel n :: ctx) n) : eqv (fun var => @@r, R var (Rvar r))%OR (fun var => (@@r, R var (Rvar r)))%OR
+  | EVRefl n R : @eqv n R R
+  | EVSymm n R1 R2 : @eqv n R1 R2 -> @eqv n R2 R1
+  | EVTran n R1 R2 R3 : @eqv n R1 R2 -> @eqv n R2 R3 -> @eqv n R1 R3
+  | EVLaterAnd P Q : eqv (▹ (P /\ Q)) (▹P /\ ▹Q)
+  | EVLaterOr P Q : eqv (▹ (P \/ Q)) (▹P \/ ▹Q)
+  | EVLaterImply P Q : eqv (▹ (P ==> Q)) (▹P ==> ▹Q)
+  | EVLaterForall1 T P : eqv (▹ (∀x:T, P x)) (∀x, ▹(P x))
+  | EVLaterExists1 T P : eqv (▹ (∃x:T, P x)) (∃x, ▹(P x))
+  | EVLaterForallR (n : nat) P : eqv (fun var => ▹ (∀₂ (R : Funvar var ctx n), P var R))%OR (fun var => ∀₂ R, ▹(P var R))%OR
+  | EVLaterExistsR (n : nat) P : eqv (fun var => ▹ (∃₂ (R : Funvar var ctx n), P var R))%OR (fun var => ∃₂ R, ▹(P var R))%OR
+  | VElem n (R : Rel ctx (S n)) (e : Rel ctx TTexpr) : eqv ((\x, R $ x) $ e) (R $ e)
+  | VRecur {n : nat} (R : Rel (TTrel n :: ctx) n) : eqv (fun var => @@r, R var (Rvar r))%OR (fun var => (@@r, R var (Rvar r)))%OR
   .
 
   Fixpoint Iff {n : nat} : Rel ctx n -> Rel ctx n -> Rel ctx 0 :=
     match n return Rel ctx n -> Rel ctx n -> Rel ctx 0 with
-      | 0 => fun P1 P2 => P1 ⇒ P2 /\ P2 ⇒ P1
+      | 0 => fun P1 P2 => P1 ==> P2 /\ P2 ==> P1
       | S n' => fun R1 R2 => ∀e : expr, Iff (R1 $ e) (R2 $ e)
     end.
 
-  Infix "≡" := Iff (at level 70, no associativity).
+End infer_rules.
 
-  Inductive valid : list (Rel ctx 0) -> Rel ctx 0 -> Prop :=
-  | RuleEqv C P1 P2 : eqv P1 P2 -> C |~ P1 -> C |~ P2
-  | RuleMono C P : C |~ P -> C |~ ▹P
-  | RuleLob C P : ▹P :: C |~ P -> C |~ P
-  | RuleReplace2 C {n : nat} R1 R2 (P : Rel (TTrel n :: ctx) 0) : C |~ R1 ≡ R2 -> C |~ P $$ R1 -> C |~ P $$ R2
-  where "C |~ P" := (valid C P)
-  .
-
-End inferRules.
-
-Notation "Ps |~ P" := (valid Ps P) (at level 89).
-
-Definition apply_Substs {lctx} `{H : forall var, Apply (flip csubsts lctx var) (B lctx) (B' var)} {ctx} (rho : Substs ctx lctx) (b : B lctx) : Rel ctx B' :=
-  fun var =>
-    openup1 (fun rho => rho $ b) _ (rho var).
-
-Global Instance Apply_Substs_expr lctx ctx : Apply (Substs ctx lctx) (open_expr lctx) (Rel ctx TTexpr) :=
-  {
-    apply := apply_Substs (H := fun var => @Apply_csubsts_expr_expr var lctx)
-  }.
-
-Global Instance Apply_Substs_cexpr lctx ctx : Apply (Substs ctx lctx) (open_cexpr lctx) (Rel ctx (const cexpr)) :=
-  {
-    apply := apply_Substs (H := fun var => @Apply_csubsts_cexpr_cexpr var lctx)
-  }.
-
-Global Instance Apply_Substs_size lctx ctx : Apply (Substs ctx lctx) (open_size lctx) (Rel ctx (const size)) :=
-  {
-    apply := apply_Substs (H := fun var => @Apply_csubsts_size_size var lctx)
-  }.
+Infix "≡" := Iff (at level 70, no associativity).
 
 Import StandalonePHOAS.
-Local Open Scope REL.
+
+Definition valid : Rel [] 0 -> Prop.
+  admit.
+Defined.
+
+Notation "|~ P" := (valid P) (at level 89, format "|~  P").
+
+Lemma VEqv P Q : eqv P Q -> |~ P -> |~ Q.
+  admit.
+Qed.
+
+Lemma VMono P : |~ P ==> ▹P.
+  admit.
+Qed.
+
+Lemma VLob P : |~ (▹P ==> P) ==> P.
+  admit.
+Qed.
+
+Lemma VReplace2 {n : nat} R1 R2 (P : Rel (TTrel n :: nil) 0) : |~ R1 ≡ R2 -> |~ P $$ R1 -> |~ P $$ R2.
+  admit.
+Qed.
+
+Lemma VForall1Intro T P : (forall a : T, |~ P a) -> |~ ∀ a : T, P a.
+  admit.
+Qed.
+
+Import StandalonePHOAS.
+Local Open Scope Rel.
 
 Definition openup9 {t1 t2 t3 t4 var} (f : t1 var -> t2 var -> t3 var -> t4 var) : forall ctx, Funvar var ctx t1 -> Funvar var ctx t2 -> Funvar var ctx t3 -> Funvar var ctx t4.
   refine
@@ -961,13 +965,10 @@ Definition openup9 {t1 t2 t3 t4 var} (f : t1 var -> t2 var -> t3 var -> t4 var) 
   simpl; eauto.
 Defined.
 
-Definition relE'' B {lctx} tau {var} n s := @relE B lctx tau n s var.
-Definition openE B {lctx} tau {var ctx} := openup9 (t1 := const nat) (t2 := const size) (t3 := flip csubsts lctx) (t4 := 1) (@relE'' B lctx tau var) ctx.
-Definition goodExpr B {lctx} tau {ctx} (n : Rel ctx (const nat)) (s : Rel ctx (const size)) (ρ : t_ρ ctx lctx) : Rel ctx 1 := fun var => openE B tau (n var) (s var) (ρ var).
-Definition openE2 B {lctx} tau c s {var ctx} := openup1 (t1 := flip csubsts lctx) (t2 := 1) (@relE B lctx tau c s var) ctx.
-Definition goodExpr2 B {lctx} tau c s {ctx} (ρ : t_ρ ctx lctx) : Rel ctx 1 := fun var => openE2 B tau c s (ρ var).
-Definition openV2 B {lctx} tau {var ctx} := openup1 (t1 := flip csubsts lctx) (t2 := 1) (@relV B lctx tau var) ctx.
-Definition goodValue2 B {lctx} tau {ctx} (ρ : t_ρ ctx lctx) : Rel ctx 1 := fun var => openV2 B tau (ρ var).
+Definition openE B {lctx} tau c s {var ctx} := openup1 (t1 := flip csubsts lctx) (t2 := 1) (@relE B lctx tau c s var) ctx.
+Definition goodExpr B {lctx} tau c s {ctx} (ρ : t_ρ ctx lctx) : Rel ctx 1 := fun var => openE B tau c s (ρ var).
+Definition openV B {lctx} tau {var ctx} := openup1 (t1 := flip csubsts lctx) (t2 := 1) (@relV B lctx tau var) ctx.
+Definition goodValue B {lctx} tau {ctx} (ρ : t_ρ ctx lctx) : Rel ctx 1 := fun var => openV B tau (ρ var).
 
 Definition c2n' {ctx} (c : Rel ctx (const cexpr)) : Rel ctx (const nat) :=
   fun var => openup1 (t1 := const cexpr) (t2 := const nat) c2n ctx (c var).
@@ -977,16 +978,11 @@ Global Instance Coerce_cexpr_nat' : Coerce (Rel ctx (const cexpr)) (Rel ctx (con
     coerce := c2n'
   }.
 
-Definition related {lctx} B Γ (e : open_expr lctx) τ (c : open_cexpr lctx) (s : open_size lctx) :=
-  make_Ps B Γ |~
-          let ρ := (make_ρ lctx) in
-          ρ $$ e ∈ goodExpr B τ !(ρ $ c) (ρ $ s) ρ.
-
-Notation "⊩" := related.
-
-Lemma adequacy B e τ c s : ⊩ B [] e τ c s -> forall n e', nsteps e n e' -> n ≤ (1 + B) * (1 + !c).
-  admit.
-Qed.
+Fixpoint All ls :=
+  match ls with
+    | nil => True
+    | P :: ls' => (P /\ All ls')%type
+  end.
 
 Fixpoint plug (c : econtext) (e : expr) : expr :=
   match c with
@@ -1020,12 +1016,12 @@ Instance Apply_Subst `{Subst t A B} {ctx} : Apply (B (t :: ctx)) (A ctx) (B ctx)
 
 Definition goodEC {lctx lctx'} : nat -> expr -> econtext -> Substs [] lctx -> open_type lctx -> open_cexpr [CEexpr] -> open_size [CEexpr] -> Substs [] lctx' -> open_type lctx' -> Rel [] 0 :=
   fun B e E ρ τ c s ρ' τ' => 
-    (∀v, v ∈ goodValue2 B τ ρ /\ ⌈e ↝* v⌉ ⇒ E $$ v ∈ goodExpr2 B τ' !(c $ v) (s $ v) ρ')%REL.
+    (∀v, v ∈ goodValue B τ ρ /\ ⌈e ~>* v⌉ ==> E $$ v ∈ goodExpr B τ' !(c $ v) (s $ v) ρ')%Rel.
 
 (*
 Definition goodECopen {var lctx lctx'} : nat -> expr -> econtext -> csubsts var lctx -> open_type lctx -> open_cexpr [CEexpr] -> open_size [CEexpr] -> csubsts var lctx' -> open_type lctx' -> rel var 0 :=
   fun B e E ρ τ c s ρ' τ' =>
-    (∀v, v ∈ relV B τ ρ /\ ⌈e ↝* v⌉ ⇒ plug E v ∈ relE B τ' !(c $ v) (s $ v) ρ')%rel.
+    (∀v, v ∈ relV B τ ρ /\ ⌈e ~>* v⌉ ==> plug E v ∈ relE B τ' !(c $ v) (s $ v) ρ')%rel.
 
 Definition goodEC {lctx lctx'} : nat -> expr -> econtext -> Substs [] lctx -> open_type lctx -> open_cexpr [CEexpr] -> open_size [CEexpr] -> Substs [] lctx' -> open_type lctx' -> Rel [] 0 :=
   fun B e E ρ τ c s ρ' τ' var => 
@@ -1055,26 +1051,96 @@ Global Instance Add_Rel `{Add A B C} {ctx} : Add (Rel ctx (const A)) (Rel ctx (c
   }.
 
 
-Definition openup_t {ctx} A (lctx : context) := Rel ctx (const (A lctx)).
-Definition open_cexpr' {ctx} := openup_t (ctx := ctx) open_cexpr.
-Definition open_size' {ctx} := openup_t (ctx := ctx) open_size.
-
 Section DerivedRules.
 
   Lemma LRbind {lctx lctx'} B (τ : open_type lctx) (ρ : Substs [] lctx) s₁ E c₂ s₂ (τ' : open_type lctx') (ρ' : Substs [] lctx') : 
-    [] |~ ∀ e c₁, e ∈ goodExpr2 B τ c₁ s₁ ρ /\ goodEC B e E ρ τ c₂ s₂ ρ' τ' ⇒ E $$ e ∈ goodExpr2 (2 * B) τ' (c₁ + !(c₂ $ s₁)) (s₂ $ s₁) ρ'.
+    |~ ∀ e c₁, e ∈ goodExpr B τ c₁ s₁ ρ /\ goodEC B e E ρ τ c₂ s₂ ρ' τ' ==> E $$ e ∈ goodExpr (2 * B) τ' (c₁ + !(c₂ $ s₁)) (s₂ $ s₁) ρ'.
   Proof.
-    eapply RuleLob.
+(*
+    eapply Vlob; intros IH.
+    eapply Vforall1intro; intros e.
+    eapply Vforall1intro; intros c₁.
+    Lemma VImplyIntro P Q : (|~ P -> |~ Q) -> |~ P ==> Q.
+      admit.
+    Qed.
+    eapply VImplyIntro; intros H.
+    Local Open Scope type.
+    Lemma VAndElim P Q : |~ P /\ Q -> (|~ P) /\ (|~ Q).
+      admit.
+    Qed.
+    eapply VAndElim in H; destruct H as [He Hec].
     unfold goodEC.
-    unfold goodExpr2 at 4.
-    unfold openE2.
+
+    Definition apply_Substs {lctx} `{H : Apply (flip csubsts lctx (const unit)) (B lctx) B'} (rho : Substs [] lctx) (b : B lctx) : B' :=
+      rho (const unit) $ b.
+
+    Global Instance Apply_Substs {lctx} `{H : Apply (csubsts (const unit) lctx) (B lctx) B'} : Apply (Substs [] lctx) (B lctx) B' :=
+      {
+        apply := apply_Substs (H := H)
+      }.
+
+    Lemma goodExprIntro {lctx} e B (τ : open_type lctx) c s (ρ : Substs [] lctx) : 
+      (|- e (ρ $ τ)) -> 
+      (forall n e', ~>## e n 0 e' -> n <= c) ->
+      (forall v, ⇓*# e 0 v -> !v <= s /\ |~ v ∈ goodValue B τ ρ) ->
+      (forall e', ~>*# e 1 e' -> 0 < c /\ |~ ▹(e' ∈ goodExpr B τ (c - 1) s ρ)) ->
+      |~ e ∈ goodExpr B τ c s ρ.
+    Proof.
+      admit.
+    Qed.
+    unfold goodExpr.
+    unfold openE.
+    simpl.
     unfold relE.
     unfold relE'.
     simpl.
+*)
     admit.
   Qed.
 
 End DerivedRules.
+
+Definition valid_ctx {ctx} : Rel ctx 0 -> Prop.
+(*
+  match ctx return Rel ctx 0 -> Prop with
+    | nil => valid
+    | t :: ctx' => fun r => valid_ctx (fun var => )
+*)
+  admit.
+Defined.
+
+Lemma addctx {lctx} (P : forall var, csubsts var lctx -> rel var 0) (f : forall ρ : Substs [] lctx, |~ fun var => P var (ρ var)) : forall ctx (ρ : Substs ctx lctx), valid_ctx (fun var => openup1 (P var) ctx (ρ var)).
+Proof.
+  induction ctx.
+  {
+    simpl.
+    intros ρ.
+    Lemma valid_valid_ctx P : |~ P -> valid_ctx P.
+      admit.
+    Qed.
+    eapply valid_valid_ctx.
+    eauto.
+  }  
+  {
+    simpl.
+    (*here*)
+    intros ρ.
+  }
+Qed.
+
+Definition openup1forall {t1 t2} (f : Rel [] t1 -> Rel [] t2) : forall C, Rel C t1 -> Rel C t2.
+
+Definition related {lctx} B Γ (e : open_expr lctx) τ (c : open_cexpr lctx) (s : open_size lctx) :=
+  All (map valid_ctx (make_Ps (lctx := lctx) B Γ)) -> 
+  valid_ctx (let ρ := make_ρ lctx in
+             (fun ρ =>
+               ρ $$ e ∈ goodExpr B τ !(ρ $ c) (ρ $ s) ρ) ρ).
+
+Notation "⊩" := related.
+
+Lemma adequacy B e τ c s : ⊩ B [] e τ c s -> forall n e', ~># e n e' -> n ≤ (1 + B) * (1 + !c).
+  admit.
+Qed.
 
 Lemma foundamental :
   forall {ctx} (Γ : tcontext ctx) e τ c s,
