@@ -224,8 +224,6 @@ Instance MemberOf_Apply `{Apply A B C} : MemberOf B A C :=
 
 Infix "∈" := memberOf (at level 70).
 
-Module ClosedPHOAS.
-
 Notation "⊤" := Rtrue : rel.
 Notation "⊥" := Rtrue : rel.
 Notation "\ x .. y , p" := (Rabs (fun x => .. (Rabs (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : rel.
@@ -250,7 +248,7 @@ Notation "▹" := Rlater : rel.
 Delimit Scope rel with rel.
 Bind Scope rel with rel.
 
-Section TestNotations.
+Module test_rel.
   
   Variable var : nat -> Type.
 
@@ -260,9 +258,7 @@ Section TestNotations.
   Definition ttt2 : rel var 1 := \e , ⌈e ↓ Tunit⌉.
   Definition ttt3 : rel var 1 := \_ , ⌈True /\ True⌉.
 
-End TestNotations.
-
-End ClosedPHOAS.
+End test_rel.
 
 (* An Logical Step-indexed Logical Relation (LSLR) for boundedness *)
 
@@ -464,8 +460,6 @@ Infix "::" := CScons (at level 60, right associativity) : CS.
 Delimit Scope CS with CS.
 Bind Scope CS with csubsts.
 
-Import ClosedPHOAS.
-
 Definition VSet {var} τ (S : rel var 1) := (∀v, v ∈ S ==> ⌈v ↓ τ⌉)%rel.
 
 (* A "step-indexed" kriple model *)
@@ -520,7 +514,7 @@ Section Funvar.
 
   Variable var : nat -> Type.
 
-  Definition Ctx := list ((nat -> Type) -> Type).
+  Definition varTs := list ((nat -> Type) -> Type).
 
   Fixpoint Funvar domains range :=
     match domains with
@@ -530,102 +524,106 @@ Section Funvar.
 
 End Funvar.
 
-Definition TTrel n var := rel var n.
-Coercion TTrel : nat >-> Funclass.
-
-Section OR.
+Section openup.
 
   Context `{var : nat -> Type}.
   
   Notation Funvar := (Funvar var).
 
-  Definition openup1 {t1 t2} (f : t1 var -> t2 var) : forall C, Funvar C t1 -> Funvar C t2.
+  Definition openup1 {t1 t2} (f : t1 var -> t2 var) : forall {ctx}, Funvar ctx t1 -> Funvar ctx t2.
     refine
-      (fix F C : Funvar C t1 -> Funvar C t2 :=
-         match C return Funvar C t1 -> Funvar C t2 with
+      (fix F ctx : Funvar ctx t1 -> Funvar ctx t2 :=
+         match ctx return Funvar ctx t1 -> Funvar ctx t2 with
            | nil => _
-           | nv :: C' => _
+           | nv :: ctx' => _
          end);
     simpl; eauto.
   Defined.
 
-  Definition openup2 {n1 n2 T} (f : (T -> rel var n1) -> rel var n2) : forall C, (T -> Funvar C n1) -> Funvar C n2.
+  Definition openup2 {t1 t2 T} (f : (T -> t1 var) -> t2 var) : forall {ctx}, (T -> Funvar ctx t1) -> Funvar ctx t2.
     refine
-      (fix F C : (T -> Funvar C n1) -> Funvar C n2 :=
-         match C return (T -> Funvar C n1) -> Funvar C n2 with
+      (fix F ctx : (T -> Funvar ctx t1) -> Funvar ctx t2 :=
+         match ctx return (T -> Funvar ctx t1) -> Funvar ctx t2 with
            | nil => _
-           | nv :: C' => _ 
+           | nv :: ctx' => _ 
          end);
     simpl; eauto.
   Defined.
 
-  Definition openup3 {n T} (f : T -> rel var n) : forall C, T -> Funvar C n.
+  Definition openup3 {t T} (f : T -> t var) : forall {ctx}, T -> Funvar ctx t.
     refine
-      (fix F C : T -> Funvar C n :=
-         match C return T -> Funvar C n with
+      (fix F ctx : T -> Funvar ctx t :=
+         match ctx return T -> Funvar ctx t with
            | nil => _
-           | nv :: C' => _ 
+           | nv :: ctx' => _ 
          end);
     simpl; eauto.
   Defined.
   
-  Definition openupSingle {t2} (f : t2 var) : forall ctx, Funvar ctx t2.
+  Definition openupSingle {t} (f : t var) : forall {ctx}, Funvar ctx t.
     refine
-      (fix F ctx : Funvar ctx t2 :=
-         match ctx return Funvar ctx t2 with
+      (fix F ctx : Funvar ctx t :=
+         match ctx return Funvar ctx t with
            | nil => _
            | t :: ctx' => _ 
          end);
     simpl; eauto.
   Defined.
 
-  Definition openup5 {t1 t2 t3} (f : t1 var -> t2 var -> t3 var) : forall C, Funvar C t1 -> Funvar C t2 -> Funvar C t3.
+  Definition openup5 {t1 t2 t3} (f : t1 var -> t2 var -> t3 var) : forall {ctx}, Funvar ctx t1 -> Funvar ctx t2 -> Funvar ctx t3.
     refine
-      (fix F C : Funvar C t1 -> Funvar C t2 -> Funvar C t3 :=
-         match C return Funvar C t1 -> Funvar C t2 -> Funvar C t3 with
+      (fix F ctx : Funvar ctx t1 -> Funvar ctx t2 -> Funvar ctx t3 :=
+         match ctx return Funvar ctx t1 -> Funvar ctx t2 -> Funvar ctx t3 with
            | nil => _
-           | nv :: C' => _ 
+           | nv :: ctx' => _ 
          end);
     simpl; eauto.
   Defined.
 
-  Definition openup6 {n1 T n2} (f : rel var n1 -> T -> rel var n2) : forall C, Funvar C n1 -> Funvar C (const T) -> Funvar C n2.
+  Definition openup6 {t1 T t2} (f : t1 var -> T -> t2 var) : forall {ctx}, Funvar ctx t1 -> Funvar ctx (const T) -> Funvar ctx t2.
     refine
-      (fix F C : Funvar C n1 -> Funvar C (const T) -> Funvar C n2 :=
-         match C return Funvar C n1 -> Funvar C (const T) -> Funvar C n2 with
+      (fix F ctx : Funvar ctx t1 -> Funvar ctx (const T) -> Funvar ctx t2 :=
+         match ctx return Funvar ctx t1 -> Funvar ctx (const T) -> Funvar ctx t2 with
            | nil => _
-           | nv :: C' => _ 
+           | nv :: ctx' => _ 
          end);
     simpl; eauto.
   Defined.
 
-  Definition openup8 {n1 n2 T} (f : (T -> rel var n1) -> rel var n2) : forall C, (Funvar C (const T) -> Funvar C n1) -> Funvar C n2.
+  Definition openup8 {t1 t2 T} (f : (T -> t1 var) -> t2 var) : forall {ctx}, (Funvar ctx (const T) -> Funvar ctx t1) -> Funvar ctx t2.
     refine
-      (fix F C : (Funvar C (const T) -> Funvar C n1) -> Funvar C n2 :=
-         match C return (Funvar C (const T) -> Funvar C n1) -> Funvar C n2 with
+      (fix F ctx : (Funvar ctx (const T) -> Funvar ctx t1) -> Funvar ctx t2 :=
+         match ctx return (Funvar ctx (const T) -> Funvar ctx t1) -> Funvar ctx t2 with
            | nil => _
-           | nv :: C' => _
+           | nv :: ctx' => _
          end);
     simpl; eauto.
   Defined.
 
-  Context `{ctx : Ctx}.
+End openup.
 
-  Definition ORvar {n} := openup3 (@Rvar var n) ctx.
-  Definition ORinj := openup3 (@Rinj var) ctx.
-  Definition ORtrue := openupSingle (t2 := 0) (@Rtrue var) ctx.
-  Definition ORfalse := openupSingle (t2 := 0) (@Rfalse var) ctx.
-  Definition ORand := openup5 (@Rand var) (t1 := 0) (t2 := 0) (t3 := 0) ctx.
-  Definition ORor := openup5 (@Ror var) (t1 := 0) (t2 := 0) (t3 := 0) ctx.
-  Definition ORimply := openup5 (@Rimply var) (t1 := 0) (t2 := 0) (t3 := 0) ctx.
-  Definition ORforall2 {n} := openup2 (@Rforall2 var n) ctx.
-  Definition ORexists2 {n} := openup2 (@Rexists2 var n) ctx.
-  Definition ORforall1 {T} := openup2 (@Rforall1 var T) ctx.
-  Definition ORexists1 {T} := openup2 (@Rexists1 var T) ctx.
-  Definition ORabs {n} := openup2 (@Rabs var n) ctx.
-  Definition ORapp {n} := openup6 (@Rapp var n) ctx.
-  Definition ORrecur {n} := openup2 (@Rrecur var n) ctx.
-  Definition ORlater := openup1 (t1 := 0) (t2 := 0) (@Rlater var) ctx.
+Section OR.
+
+  Context `{var : nat -> Type, ctx : varTs}.
+
+  Definition TTrel n var := rel var n.
+  Coercion TTrel : nat >-> Funclass.
+
+  Definition ORvar {n : nat} := openup3 (t := n) (@Rvar var n) (ctx := ctx).
+  Definition ORinj := openup3 (t := 0) (@Rinj var) (ctx := ctx).
+  Definition ORtrue := openupSingle (t := 0) (@Rtrue var) (ctx := ctx).
+  Definition ORfalse := openupSingle (t := 0) (@Rfalse var) (ctx := ctx).
+  Definition ORand := openup5 (@Rand var) (t1 := 0) (t2 := 0) (t3 := 0) (ctx := ctx).
+  Definition ORor := openup5 (@Ror var) (t1 := 0) (t2 := 0) (t3 := 0) (ctx := ctx).
+  Definition ORimply := openup5 (@Rimply var) (t1 := 0) (t2 := 0) (t3 := 0) (ctx := ctx).
+  Definition ORforall2 {n} := openup2 (t1 := 0) (t2 := 0) (@Rforall2 var n) (ctx := ctx).
+  Definition ORexists2 {n} := openup2 (t1 := 0) (t2 := 0) (@Rexists2 var n) (ctx := ctx).
+  Definition ORforall1 {T} := openup2 (t1 := 0) (t2 := 0) (@Rforall1 var T) (ctx := ctx).
+  Definition ORexists1 {T} := openup2 (t1 := 0) (t2 := 0) (@Rexists1 var T) (ctx := ctx).
+  Definition ORabs {n : nat} := openup2 (t1 := n) (t2 := S n) (@Rabs var n) (ctx := ctx).
+  Definition ORapp {n} := openup6 (t1 := S n) (t2 := n) (@Rapp var n) (ctx := ctx).
+  Definition ORrecur {n : nat} := openup2 (t1 := n) (t2 := n) (@Rrecur var n) (ctx := ctx).
+  Definition ORlater := openup1 (t1 := 0) (t2 := 0) (@Rlater var) (ctx := ctx).
 
 End OR.
 
@@ -650,7 +648,7 @@ Definition extend {var t2} ctx new : Funvar var ctx t2 -> Funvar var (ctx ++ new
   {
     simpl.
     intros r.
-    exact (openupSingle r _).
+    exact (openupSingle r).
   }
   {
     simpl.
@@ -660,7 +658,7 @@ Definition extend {var t2} ctx new : Funvar var ctx t2 -> Funvar var (ctx ++ new
 Defined.
 
 Definition add_Funvar {var} `{H : Add (A var) (B var) (C var)} {ctx} (a : Funvar var ctx A) (b : Funvar var ctx B) : Funvar var ctx C :=
-  openup5 (t1 := A) (t2 := B) add ctx a b.
+  openup5 (t1 := A) (t2 := B) add a b.
 
 Global Instance Add_Funvar {var} `{Add (A var) (B var) (C var)} {ctx} : Add (Funvar var ctx A) (Funvar var ctx B) (Funvar var ctx C) :=
   {
@@ -710,7 +708,7 @@ Global Instance Apply_rel_expr' {var n} : Apply (rel var (S n)) (TTexpr var) (re
 
 Definition add_Ps_expr {ctx lctx} τ B (Ps : t_Ps ctx) (ρ : t_ρ ctx lctx) : t_Ps (TTexpr :: ctx) :=
   let Ps := lift_Ps TTexpr Ps in
-  let Ps := (fun var v => openup1 (fun ρ => v ∈ relV B τ ρ) _ (ρ var)) :: Ps in
+  let Ps := (fun var v => openup1 (fun ρ => v ∈ relV B τ ρ) (ρ var)) :: Ps in
   Ps
 .
 
@@ -759,8 +757,6 @@ Section make_Ps.
     end.
 End make_Ps.
 
-Module OpenPHOAS.
-  
 Notation "⊤" := ORtrue : OR.
 Notation "⊥" := ORtrue : OR.
 Notation "⌈ P ⌉" := (ORinj P) : OR.
@@ -785,10 +781,10 @@ Notation "▹" := ORlater : OR.
 
 Delimit Scope OR with OR.
 
-Section TestNotations.
+Module test_OR.
   
   Variable var : nat -> Type.
-  Variable ctx : Ctx.
+  Variable ctx : varTs.
 
   Open Scope OR.
   
@@ -798,9 +794,7 @@ Section TestNotations.
   Definition ttt4 : Funvar var ctx 0 := ∀e, ⌈e = @Ett nil⌉.
   Definition ttt5 : Funvar var ctx 0 := ∃e, ⌈e = @Ett nil⌉.
 
-End TestNotations.
-
-End OpenPHOAS.
+End test_OR.
 
 Delimit Scope Rel with Rel.
 Bind Scope Rel with Rel.
@@ -808,7 +802,7 @@ Bind Scope Rel with Rel.
 Set Maximal Implicit Insertion.
 Section Rel.
 
-  Context `{ctx : Ctx}.
+  Context `{ctx : varTs}.
   Notation Rel := (Rel ctx).
   
   Definition Relinj P : Rel 0 := fun var => ORinj P.
@@ -826,8 +820,6 @@ Section Rel.
 End Rel.
 Unset Maximal Implicit Insertion.
 
-Module StandalonePHOAS.
-  
 Notation "⊤" := Reltrue : Rel.
 Notation "⊥" := Reltrue : Rel.
 Notation "⌈ P ⌉" := (Relinj P) : Rel.
@@ -843,9 +835,9 @@ Infix "\/" := Relor : Rel.
 Infix "==>" := Relimply (at level 86) : Rel.
 Notation "▹" := Rellater : Rel.
 
-Section TestNotations.
+Module test_Rel.
   
-  Variable ctx : Ctx.
+  Variable ctx : varTs.
 
   Open Scope Rel.
 
@@ -855,11 +847,9 @@ Section TestNotations.
   Definition ttt4 : Rel ctx 0 := ∀e, ⌈e = @Ett nil⌉.
   Definition ttt5 : Rel ctx 0 := ∃e, ⌈e = @Ett nil⌉.
 
-End TestNotations.
+End test_Rel.
 
-End StandalonePHOAS.
-
-Definition openup7 {var t1 t2} : forall ctx, (t1 var -> Funvar var ctx t2) -> Funvar var ctx t1 -> Funvar var ctx t2.
+Definition openup7 {var t1 t2} : forall {ctx}, (t1 var -> Funvar var ctx t2) -> Funvar var ctx t1 -> Funvar var ctx t2.
   refine
     (fix F ctx : (t1 var -> Funvar var ctx t2) -> Funvar var ctx t1 -> Funvar var ctx t2 :=
        match ctx return (t1 var -> Funvar var ctx t2) -> Funvar var ctx t1 -> Funvar var ctx t2 with
@@ -870,34 +860,30 @@ Definition openup7 {var t1 t2} : forall ctx, (t1 var -> Funvar var ctx t2) -> Fu
 Defined.
 
 Definition apply_Rel_Rel {n ctx t2} : Rel (n :: ctx) t2 -> Rel ctx n -> Rel ctx t2 :=
-  fun f x var => openup7 _ (f var) (x var).
+  fun f x var => openup7 (f var) (x var).
 
 Global Instance Apply_Rel_Rel n ctx t2 : Apply (Rel (n :: ctx) t2) (Rel ctx n) (Rel ctx t2) :=
   {
     apply := apply_Rel_Rel
   }.
 
-Global Instance Apply_Rel_TTexpr ctx n : Apply (Rel ctx (S n)) (Rel ctx TTexpr) (Rel ctx n) :=
-  {
-    apply := Relapp
-  }.
-
 Definition Relapp' {ctx n} (r : Rel ctx (S n)) (e : expr) : Rel ctx n :=
   fun var =>
-    ORapp (r var) (openupSingle e ctx).
+    ORapp (r var) (openupSingle e).
 
 Global Instance Apply_Rel_expr ctx n : Apply (Rel ctx (S n)) expr (Rel ctx n) :=
   {
     apply := Relapp'
   }.
 
+Reserved Infix "==" (at level 70, no associativity).
+Reserved Infix "|~" (at level 89, no associativity).
+
 Section infer_rules.
 
-  Import OpenPHOAS.
-  Import StandalonePHOAS.
   Open Scope Rel.
 
-  Context `{ctx : Ctx}.
+  Context `{ctx : varTs}.
 
   Inductive eqv : forall {n}, Rel ctx n -> Rel ctx n -> Prop :=
   | EVRefl n R : @eqv n R R
@@ -920,42 +906,22 @@ Section infer_rules.
       | S n' => fun R1 R2 => ∀e : expr, Iff (R1 $ e) (R2 $ e)
     end.
 
+  Infix "==" := Iff.
+
+  Inductive valid : list (Rel ctx 0) -> Rel ctx 0 -> Prop :=
+  | VEqv Ps P1 P2 : eqv P1 P2 -> Ps |~ P1 -> Ps |~ P2
+  | VMono Ps P : Ps |~ P -> Ps |~ ▹P
+  | VLob Ps P : ▹P :: Ps |~ P -> Ps |~ P
+  | VReplace2 Ps {n : nat} R1 R2 (P : Rel (TTrel n :: ctx) 0) : Ps |~ R1 == R2 -> Ps |~ P $$ R1 -> Ps |~ P $$ R2
+  where "Ps |~ P" := (valid Ps P)
+  .
+
 End infer_rules.
 
-Infix "≡" := Iff (at level 70, no associativity).
+Infix "==" := Iff.
+Infix "|~" := valid.
 
-Import StandalonePHOAS.
-
-Definition valid : Rel [] 0 -> Prop.
-  admit.
-Defined.
-
-Notation "|~ P" := (valid P) (at level 89, format "|~  P").
-
-Lemma VEqv P Q : eqv P Q -> |~ P -> |~ Q.
-  admit.
-Qed.
-
-Lemma VMono P : |~ P ==> ▹P.
-  admit.
-Qed.
-
-Lemma VLob P : |~ (▹P ==> P) ==> P.
-  admit.
-Qed.
-
-Lemma VReplace2 {n : nat} R1 R2 (P : Rel (TTrel n :: nil) 0) : |~ R1 ≡ R2 -> |~ P $$ R1 -> |~ P $$ R2.
-  admit.
-Qed.
-
-Lemma VForall1Intro T P : (forall a : T, |~ P a) -> |~ ∀ a : T, P a.
-  admit.
-Qed.
-
-Import StandalonePHOAS.
-Local Open Scope Rel.
-
-Definition openup9 {t1 t2 t3 t4 var} (f : t1 var -> t2 var -> t3 var -> t4 var) : forall ctx, Funvar var ctx t1 -> Funvar var ctx t2 -> Funvar var ctx t3 -> Funvar var ctx t4.
+Definition openup9 {t1 t2 t3 t4 var} (f : t1 var -> t2 var -> t3 var -> t4 var) : forall {ctx}, Funvar var ctx t1 -> Funvar var ctx t2 -> Funvar var ctx t3 -> Funvar var ctx t4.
   refine
     (fix F ctx : Funvar var ctx t1 -> Funvar var ctx t2 -> Funvar var ctx t3 -> Funvar var ctx t4 :=
        match ctx return Funvar var ctx t1 -> Funvar var ctx t2 -> Funvar var ctx t3 -> Funvar var ctx t4 with
@@ -965,24 +931,13 @@ Definition openup9 {t1 t2 t3 t4 var} (f : t1 var -> t2 var -> t3 var -> t4 var) 
   simpl; eauto.
 Defined.
 
-Definition openE B {lctx} tau c s {var ctx} := openup1 (t1 := flip csubsts lctx) (t2 := 1) (@relE B lctx tau c s var) ctx.
-Definition goodExpr B {lctx} tau c s {ctx} (ρ : t_ρ ctx lctx) : Rel ctx 1 := fun var => openE B tau c s (ρ var).
-Definition openV B {lctx} tau {var ctx} := openup1 (t1 := flip csubsts lctx) (t2 := 1) (@relV B lctx tau var) ctx.
-Definition goodValue B {lctx} tau {ctx} (ρ : t_ρ ctx lctx) : Rel ctx 1 := fun var => openV B tau (ρ var).
-
 Definition c2n' {ctx} (c : Rel ctx (const cexpr)) : Rel ctx (const nat) :=
-  fun var => openup1 (t1 := const cexpr) (t2 := const nat) c2n ctx (c var).
+  fun var => openup1 (t1 := const cexpr) (t2 := const nat) c2n (c var).
 
 Global Instance Coerce_cexpr_nat' : Coerce (Rel ctx (const cexpr)) (Rel ctx (const nat)) :=
   {
     coerce := c2n'
   }.
-
-Fixpoint All ls :=
-  match ls with
-    | nil => True
-    | P :: ls' => (P /\ All ls')%type
-  end.
 
 Fixpoint plug (c : econtext) (e : expr) : expr :=
   match c with
@@ -1014,9 +969,16 @@ Instance Apply_Subst `{Subst t A B} {ctx} : Apply (B (t :: ctx)) (A ctx) (B ctx)
     apply := flip subst
   }.
 
-Definition goodEC {lctx lctx'} : nat -> expr -> econtext -> Substs [] lctx -> open_type lctx -> open_cexpr [CEexpr] -> open_size [CEexpr] -> Substs [] lctx' -> open_type lctx' -> Rel [] 0 :=
-  fun B e E ρ τ c s ρ' τ' => 
-    (∀v, v ∈ goodValue B τ ρ /\ ⌈e ~>* v⌉ ==> E $$ v ∈ goodExpr B τ' !(c $ v) (s $ v) ρ')%Rel.
+(*
+Definition openE B {lctx} tau c s {var ctx} := openup1 (t1 := flip csubsts lctx) (t2 := 1) (@relE B lctx tau c s var) (ctx := ctx).
+Definition goodExpr B {lctx} tau c s {ctx} (ρ : t_ρ ctx lctx) : Rel ctx 1 := fun var => openE B tau c s (ρ var).
+Definition openV B {lctx} tau {var ctx} := openup1 (t1 := flip csubsts lctx) (t2 := 1) (@relV B lctx tau var) (ctx := ctx).
+Definition goodValue B {lctx} tau {ctx} (ρ : t_ρ ctx lctx) : Rel ctx 1 := fun var => openV B tau (ρ var).
+*)
+
+Definition goodEC {lctx lctx'} : nat -> expr -> econtext -> open_type lctx -> open_cexpr [CEexpr] -> open_size [CEexpr] -> open_type lctx' -> Rel [flip csubsts lctx; flip csubsts lctx'] 0 :=
+  fun B e E τ c s τ' var ρ ρ' => 
+    (∀v, v ∈ relV B τ ρ /\ ⌈e ~>* v⌉ ==> E $$ v ∈ relE B τ' !(c $ v) (s $ v) ρ')%rel.
 
 (*
 Definition goodECopen {var lctx lctx'} : nat -> expr -> econtext -> csubsts var lctx -> open_type lctx -> open_cexpr [CEexpr] -> open_size [CEexpr] -> csubsts var lctx' -> open_type lctx' -> rel var 0 :=
@@ -1030,7 +992,7 @@ Definition goodEC {lctx lctx'} : nat -> expr -> econtext -> Substs [] lctx -> op
 
 Definition subst_Rel `{Subst t A B} {ctx} lctx (x : var t lctx) (v : Rel ctx (const (A (removen lctx x)))) (b : Rel ctx (const (B lctx))) : Rel ctx (const (B (removen lctx x))) :=
   fun var =>
-    openup5 (t1 := const (A (removen lctx x))) (t2 := const (B lctx)) (t3 := const (B (removen lctx x))) (substx x) ctx (v var) (b var).
+    openup5 (t1 := const (A (removen lctx x))) (t2 := const (B lctx)) (t3 := const (B (removen lctx x))) (substx x) (v var) (b var).
 
 Global Instance Subst_Rel `{Subst t A B} {ctx} : Subst t (fun lctx => Rel ctx (const (A lctx))) (fun lctx => Rel ctx (const (B lctx))) :=
   {
@@ -1053,8 +1015,10 @@ Global Instance Add_Rel `{Add A B C} {ctx} : Add (Rel ctx (const A)) (Rel ctx (c
 
 Section DerivedRules.
 
-  Lemma LRbind {lctx lctx'} B (τ : open_type lctx) (ρ : Substs [] lctx) s₁ E c₂ s₂ (τ' : open_type lctx') (ρ' : Substs [] lctx') : 
-    |~ ∀ e c₁, e ∈ goodExpr B τ c₁ s₁ ρ /\ goodEC B e E ρ τ c₂ s₂ ρ' τ' ==> E $$ e ∈ goodExpr (2 * B) τ' (c₁ + !(c₂ $ s₁)) (s₂ $ s₁) ρ'.
+  Open Scope rel.
+
+  Lemma LRbind {lctx lctx'} B (τ : open_type lctx) s₁ E c₂ s₂ (τ' : open_type lctx') : 
+    [] |~ fun var => (fun ρ ρ' => ∀ e c₁, e ∈ relE B τ c₁ s₁ ρ /\ goodEC B e E τ c₂ s₂ τ' ρ ρ' ==> E $$ e ∈ relE (2 * B) τ' (c₁ + !(c₂ $ s₁)) (s₂ $ s₁) ρ') : Funvar var [flip csubsts lctx; flip csubsts lctx'] 0.
   Proof.
 (*
     eapply Vlob; intros IH.
@@ -1100,47 +1064,10 @@ Section DerivedRules.
 
 End DerivedRules.
 
-Definition valid_ctx {ctx} : Rel ctx 0 -> Prop.
-(*
-  match ctx return Rel ctx 0 -> Prop with
-    | nil => valid
-    | t :: ctx' => fun r => valid_ctx (fun var => )
-*)
-  admit.
-Defined.
-
-Lemma addctx {lctx} (P : forall var, csubsts var lctx -> rel var 0) (f : forall ρ : Substs [] lctx, |~ fun var => P var (ρ var)) : forall ctx (ρ : Substs ctx lctx), valid_ctx (fun var => openup1 (P var) ctx (ρ var)).
-Proof.
-  induction ctx.
-  {
-    simpl.
-    intros ρ.
-    Lemma valid_valid_ctx P : |~ P -> valid_ctx P.
-      admit.
-    Qed.
-    eapply valid_valid_ctx.
-    eauto.
-  }  
-  {
-    simpl.
-    (*here*)
-    intros ρ.
-  }
-Qed.
-
-Definition openup1forall {t1 t2} (f : Rel [] t1 -> Rel [] t2) : forall C, Rel C t1 -> Rel C t2.
-
 Definition related {lctx} B Γ (e : open_expr lctx) τ (c : open_cexpr lctx) (s : open_size lctx) :=
-  All (map valid_ctx (make_Ps (lctx := lctx) B Γ)) -> 
-  valid_ctx (let ρ := make_ρ lctx in
-             (fun ρ =>
-               ρ $$ e ∈ goodExpr B τ !(ρ $ c) (ρ $ s) ρ) ρ).
+  make_Ps (lctx := lctx) B Γ |~ fun var => openup1 (fun ρ : csubsts var lctx => ρ $$ e ∈ relE B τ !(ρ $ c) (ρ $ s) ρ) (var := var) (t1 := flip csubsts lctx) (make_ρ lctx var).
 
 Notation "⊩" := related.
-
-Lemma adequacy B e τ c s : ⊩ B [] e τ c s -> forall n e', ~># e n e' -> n ≤ (1 + B) * (1 + !c).
-  admit.
-Qed.
 
 Lemma foundamental :
   forall {ctx} (Γ : tcontext ctx) e τ c s,
@@ -1155,14 +1082,24 @@ Proof.
     admit.
   }
   {
-    destruct IHtyping1 as [C₀ IH₀].
-    destruct IHtyping2 as [C₁ IH₁].
-    Global Instance Max_nat : Max nat := 
-      {
-        max := Peano.max
-      }.
-    exists (3 + 3 * max C₀ C₁).
+    destruct IHtyping1 as [B0 IH₀].
+    destruct IHtyping2 as [B1 IH₁].
+    exists (2 * B0 + B1 + 1).
     unfold related in *.
+    Lemma VCtxElim t (P : Rel [t] 0) : [] |~ P -> forall ctx (x : Rel ctx t), [] |~ fun var => openup1 (P var) (x var).
+      admit.
+    Qed.
+    Lemma addctx {lctx} (P : Rel [flip csubsts lctx] 0) : [] |~ P -> forall ctx (ρ : Substs ctx lctx), [] |~ (fun var => openup1 (P var) (ρ var)).
+    Proof.
+      intros.
+      eapply VCtxElim.
+      eauto.
+    Qed.
+    Lemma VMorePs ctx (P : Rel ctx 0) Ps : [] |~ P -> Ps |~ P.
+      admit.
+    Qed.
+    eapply VMorePs.
+    eapply VCtxElim.
     admit.
   }
   {
@@ -1186,6 +1123,10 @@ Proof.
   admit.
   admit.
   admit.
+  admit.
+Qed.
+
+Lemma adequacy B e τ c s : ⊩ B [] e τ c s -> forall n e', ~># e n e' -> n ≤ (1 + B) * (1 + !c).
   admit.
 Qed.
 
