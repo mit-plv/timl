@@ -182,13 +182,11 @@ Notation "⇓*#" := terminatesWithEx.
 Set Maximal Implicit Insertion.
 Section rel.
 
-  Variable var : nat -> Type.
+  Context `{var : nat -> Type}.
   
   Inductive rel : nat -> Type :=
-  | Rvar n : var n -> rel n
+  | Rvar {n} : var n -> rel n
   | Rinj : Prop -> rel 0
-  | Rtrue : rel 0
-  | Rfalse : rel 0
   | Rand (_ _ : rel 0) : rel 0
   | Ror (_ _ : rel 0) : rel 0
   | Rimply (_ _ : rel 0) : rel 0
@@ -202,13 +200,13 @@ Section rel.
   | Rlater : rel 0 -> rel 0
   .
 
+  Definition Rtrue := Rinj True.
+  Definition Rfalse := Rinj False.
+
 End rel.
 Unset Maximal Implicit Insertion.
 
-Arguments Rvar {var n} _ .
-Arguments Rinj {var} _ .
-Arguments Rtrue {var} .
-Arguments Rfalse {var} .
+Arguments rel : clear implicits.
 
 Generalizable All Variables.
 
@@ -876,6 +874,22 @@ Global Instance Apply_Rel_expr ctx n : Apply (Rel ctx (S n)) expr (Rel ctx n) :=
     apply := Relapp'
   }.
 
+Fixpoint interp m (r : rel interp_arity m) : interp_arity m :=
+  match r with
+    | Rvar _ f => f
+    | Rinj P => const_model P
+    | Rand a b => fun n => interp a n /\ interp b n
+    | Ror a b => fun n => interp a n \/ interp b n
+    | Rimply a b => fun n => forall k, k <= n -> interp a k ->interp b k
+    | Rforall1 _ g => fun n => forall x, interp (g x) n
+    | Rexists1 _ g => fun n => exists x, interp (g x) n
+    | Rforall2 _ g => fun n => forall r, interp (g r) n
+    | Rexists2 _ g => fun n => exists r, interp (g r) n
+    | Rabs _ g => fun e => interp (g e)
+    | Rapp _ r e => interp r e
+    | Rrecur _ g => _
+  end.
+
 Reserved Infix "==" (at level 70, no associativity).
 Reserved Infix "|~" (at level 89, no associativity).
 
@@ -1039,11 +1053,38 @@ Proof.
     Qed.
     eapply VMorePs.
 
-    Lemma VCtxElim t ctx (P : Rel (t :: ctx) 0) : [] |~ P -> forall (x : Rel ctx t), [] |~ fun var => openup7 (P var) (x var). 
-      admit.
+    Lemma VCtxElimEmpty' t (P : Rel [t] 0) : [] |~ P -> forall ctx (x : Rel ctx t), [] |~ fun var => openup1 (P var) (x var).
+    Proof.
+      intros H.
+      induction ctx.
+      {
+        simpl.
+        intros x.
+        admit.
+      }
+      {
+        simpl in *.
+        intros x.
+        admit.
+      }
+    Qed.
+    
+    Lemma VCtxElim t ctx (P : Rel (t :: ctx) 0) : [] |~ P -> forall (x : Rel ctx t), [] |~ fun var => openup7 (P var) (x var).
+    Proof.
+      induction ctx.
+      {
+        simpl.
+        intros H x.
+        admit.
+      }
+      {
+        simpl in *.
+        intros H x.
+        admit.
+      }
     Qed.
 
-    Lemma VCtxElim' t (P : Rel [t] 0) : [] |~ P -> forall ctx (x : Rel ctx t), [] |~ fun var => openup1 (P var) (x var).
+    Lemma VCtxElimEmpty t (P : Rel [t] 0) : [] |~ P -> forall ctx (x : Rel ctx t), [] |~ fun var => openup1 (P var) (x var).
     Proof.
       intros H ctx x.
 
@@ -1092,7 +1133,7 @@ Proof.
       eapply VExtend with (P := P).
       eauto.
     Qed.
-    eapply VCtxElim'.
+    eapply VCtxElimEmpty.
 
     Open Scope rel.
 
