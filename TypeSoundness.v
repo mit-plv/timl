@@ -190,13 +190,13 @@ Section rel.
   | Rand (_ _ : rel 0) : rel 0
   | Ror (_ _ : rel 0) : rel 0
   | Rimply (_ _ : rel 0) : rel 0
-  | Rforall2 n : (var n -> rel 0) -> rel 0
-  | Rexists2 n : (var n -> rel 0) -> rel 0
-  | Rforall1 T : (T -> rel 0) -> rel 0
-  | Rexists1 T : (T -> rel 0) -> rel 0
-  | Rabs n : (expr -> rel n) -> rel (S n)
-  | Rapp n : rel (S n) -> expr -> rel n
-  | Rrecur n : (var n -> rel n) -> rel n
+  | Rforall2 {n} : (var n -> rel 0) -> rel 0
+  | Rexists2 {n} : (var n -> rel 0) -> rel 0
+  | Rforall1 {T} : (T -> rel 0) -> rel 0
+  | Rexists1 {T} : (T -> rel 0) -> rel 0
+  | Rabs {n} : (expr -> rel n) -> rel (S n)
+  | Rapp {n} : rel (S n) -> expr -> rel n
+  | Rrecur {n} : (var n -> rel n) -> rel n
   | Rlater : rel 0 -> rel 0
   .
 
@@ -227,12 +227,12 @@ Notation "⊥" := Rtrue : rel.
 Notation "\ x .. y , p" := (Rabs (fun x => .. (Rabs (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : rel.
 Notation "∀ x .. y , p" := (Rforall1 (fun x => .. (Rforall1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : rel.
 Notation "∃ x .. y , p" := (Rexists1 (fun x => .. (Rexists1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : rel.
-Definition Rforall2' {var n} P := (@Rforall2 var n (fun x => P (Rvar x))).
-Notation "∀₂ x .. y , p" := (Rforall2' (fun x => .. (Rforall2' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : rel.
-Definition Rexists2' {var n} P := (@Rexists2 var n (fun x => P (Rvar x))).
-Notation "∃₂ x .. y , p" := (Rexists2' (fun x => .. (Rexists2' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : rel.
-Definition Rrecur' {var n} P := (@Rrecur var n (fun x => P (Rvar x))).
-Notation "@@ x .. y , p" := (Rrecur' (fun x => .. (Rrecur' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : rel.
+(* Definition Rforall2' {var n} P := (@Rforall2 var n (fun x => P (Rvar x))). *)
+Notation "∀₂ x .. y , p" := (Rforall2 (fun x => .. (Rforall2 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : rel.
+(* Definition Rexists2' {var n} P := (@Rexists2 var n (fun x => P (Rvar x))). *)
+Notation "∃₂ x .. y , p" := (Rexists2 (fun x => .. (Rexists2 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : rel.
+(* Definition Rrecur' {var n} P := (@Rrecur var n (fun x => P (Rvar x))). *)
+Notation "@@ x .. y , p" := (Rrecur (fun x => .. (Rrecur (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : rel.
 Notation "⌈ P ⌉" := (Rinj P) : rel.
 Global Instance Apply_rel_expr {var n} : Apply (rel var (S n)) expr (rel var n) :=
   {
@@ -268,7 +268,7 @@ Section csubsts.
   Context `{var : nat -> Type}.
 
   Inductive SubstEntry : CtxEntry -> Type :=
-  | SEtype (_ : type) (_ : rel var 1) : SubstEntry CEtype
+  | SEtype (_ : type) (_ : var 1) : SubstEntry CEtype
   | SEexpr (_ : expr) : SubstEntry CEexpr
   .
 
@@ -277,7 +277,7 @@ Section csubsts.
   | CScons {t lctx} : SubstEntry t -> csubsts lctx -> csubsts (t :: lctx)
   .
 
-  Definition pair_of_se (e : SubstEntry CEtype) : type * rel var 1 :=
+  Definition pair_of_se (e : SubstEntry CEtype) : type * var 1 :=
     match e with
       | SEtype t r => (t, r)
     end.
@@ -299,14 +299,14 @@ Section csubsts.
 
   Require Import Bedrock.Platform.Cito.ListFacts4.
 
-  Definition csubsts_sem : forall {lctx}, csubsts lctx -> open_var CEtype lctx -> rel var 1.
+  Definition csubsts_sem : forall {lctx}, csubsts lctx -> open_var CEtype lctx -> var 1.
     refine
-      (fix csubsts_sem {lctx} : csubsts lctx -> open_var CEtype lctx -> rel var 1 :=
-         match lctx return csubsts lctx -> open_var CEtype lctx -> rel var 1 with
+      (fix csubsts_sem {lctx} : csubsts lctx -> open_var CEtype lctx -> var 1 :=
+         match lctx return csubsts lctx -> open_var CEtype lctx -> var 1 with
            | nil => _
            | t :: lctx' => 
              fun rho =>
-               match rho in (csubsts c) return c = t :: lctx' -> open_var CEtype (t :: lctx') -> rel var 1 with
+               match rho in (csubsts c) return c = t :: lctx' -> open_var CEtype (t :: lctx') -> var 1 with
                  | CSnil => _
                  | CScons t' _ v rho' => _
                    (* fun Heq x => *)
@@ -346,7 +346,7 @@ Section csubsts.
     { eapply f_equal with (f := tl) in Heq; exact Heq. }
   Defined.
 
-  Global Instance Apply_csubsts_nat_rel lctx : Apply (csubsts lctx) (open_var CEtype lctx) (rel var 1) :=
+  Global Instance Apply_csubsts_nat_rel lctx : Apply (csubsts lctx) (open_var CEtype lctx) (var 1) :=
     {
       apply := csubsts_sem
     }.
@@ -434,7 +434,7 @@ Section csubsts.
   Definition add_pair {lctx} p rho :=
     CScons (lctx := lctx) (SEtype (fst p) (snd p)) rho.
 
-  Global Instance Add_pair_csubsts lctx : Add (type * rel var 1) (csubsts lctx) (csubsts (CEtype :: lctx)) :=
+  Global Instance Add_pair_csubsts lctx : Add (type * var 1) (csubsts lctx) (csubsts (CEtype :: lctx)) :=
     {
       add := add_pair
     }.
@@ -492,12 +492,12 @@ Section LR.
 
   Fixpoint relV {lctx} τ var (ρ : csubsts var lctx) : rel var 1 :=
     match τ with
-      | Tvar α => csubsts_sem ρ α
+      | Tvar α => Rvar (csubsts_sem ρ α)
       | Tunit => \v, ⌈v ↓ Tunit⌉
       | τ₁ × τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃a b, ⌈v = !(a, b)⌉ /\ a ∈ relV τ₁ ρ /\ b ∈ relV τ₂ ρ
       | τ₁ + τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃v', (⌈v = Einl (ρ $ τ₂) v'⌉ /\ v' ∈ relV τ₁ ρ) \/ (⌈v = Einr (ρ $ τ₁) v'⌉ /\ v' ∈ relV τ₂ ρ)
       | Tarrow τ₁ c s τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃τ₁' e, ⌈v = Eabs τ₁' e⌉ /\ ∀v₁, v₁ ∈ relV τ₁ ρ ===> subst v₁ e ∈ relE' (relV τ₂) τ₂ !(ρ $ subst !(!v₁) c) (ρ $ subst !(!v₁) s) (add v₁ ρ)
-      | Tuniversal c s τ₁ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∀τ', ∀₂ S, VSet τ' S ===> v $$ τ' ∈ relE' (relV τ₁) τ₁ !(ρ $ c) (ρ $ s) (add (τ', S) ρ)
+      | Tuniversal c s τ₁ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∀τ', ∀₂ S, VSet τ' (Rvar S) ===> v $$ τ' ∈ relE' (relV τ₁) τ₁ !(ρ $ c) (ρ $ s) (add (τ', S) ρ)
       | Trecur τ₁ => @@S, \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃τ' v', ⌈v = Efold τ' v'⌉ /\ ▹ (v' ∈ relV τ₁ (add (ρ $ τ, S) ρ))
       | _ => \_, ⊥
     end
@@ -507,12 +507,107 @@ Section LR.
 
 End LR.
 
+(* a version of rel without recur *)
+Set Maximal Implicit Insertion.
+Section rel2.
+
+  Context `{var : nat -> Type}.
+  
+  Inductive rel2 : nat -> Type :=
+  | R2var {n} : var n -> rel2 n
+  | R2inj : Prop -> rel2 0
+  | R2and (_ _ : rel2 0) : rel2 0
+  | R2or (_ _ : rel2 0) : rel2 0
+  | R2imply (_ _ : rel2 0) : rel2 0
+  | R2forall2 {n} : (var n -> rel2 0) -> rel2 0
+  | R2exists2 {n} : (var n -> rel2 0) -> rel2 0
+  | R2forall1 {T} : (T -> rel2 0) -> rel2 0
+  | R2exists1 {T} : (T -> rel2 0) -> rel2 0
+  | R2abs {n} : (expr -> rel2 n) -> rel2 (S n)
+  | R2app {n} : rel2 (S n) -> expr -> rel2 n
+  | R2later : rel2 0 -> rel2 0
+  .
+
+End rel2.
+Unset Maximal Implicit Insertion.
+Arguments rel2 : clear implicits.
+
+Fixpoint const_rel2 {var} P  m : rel2 var m :=
+  match m with
+    | 0 => R2inj P
+    | S m' => R2abs (fun _ => const_rel2 P m')
+  end.
+
+(* unfolding Rrecur up to n levels of "later" *)
+Fixpoint unrecur n {var} : forall m (r : rel (rel2 var) m), rel2 var m :=
+  match n with
+    | 0 => fun m _ => const_rel2 True m
+    | S n' =>
+      (fix unrecur' {m} (r : rel (rel2 var) m) : rel2 var m :=
+         match r with
+           | Rvar _ v => v
+           | Rrecur _ g => unrecur' (g (unrecur n' (Rrecur g)))
+           | Rlater P => unrecur n' P
+           | Rinj P => R2inj P
+           | Rand a b => R2and (unrecur' a) (unrecur' b)
+           | Ror a b => R2or (unrecur' a) (unrecur' b)
+           | Rimply a b => R2imply (unrecur' a) (unrecur' b)
+           | Rforall1 _ g => R2forall1 (fun x => unrecur' (g x))
+           | Rexists1 _ g => R2exists1 (fun x => unrecur' (g x))
+           | Rforall2 _ g => R2forall2 (fun a => unrecur' (g (R2var a)))
+           | Rexists2 _ g => R2exists2 (fun a => unrecur' (g (R2var a)))
+           | Rabs _ g => R2abs (fun e => unrecur' (g e))
+           | Rapp _ r e => R2app (unrecur' r) e
+         end)
+  end.
+
+Fixpoint erel m :=
+  match m with
+    | 0 => Prop
+    | S m' => expr -> erel m'
+  end.
+
+Inductive monotone : forall {m}, (nat -> erel m) -> Prop :=
+| MN0 (f : nat -> erel 0) : (forall n, f n -> forall n', n' < n -> f n') -> monotone f
+| MNS m (f : nat -> erel (S m)) : (forall e, monotone (fun n => f n e)) -> monotone f
+.
+
+Definition mono_erel m := { f : nat -> erel m | monotone f}.
+
+Fixpoint const_erel (P : Prop) (m : nat) : erel m :=
+  match m with
+    | 0 => P
+    | S m' => fun _ => const_erel P m'
+  end.
+
+Fixpoint interp n {struct n} : forall m (r : rel2 mono_erel m), erel m :=
+  match n with
+    | 0 => fun m _ => const_erel True m
+    | S n' =>
+      (fix interp' n {m} (r : rel2 mono_erel m) : erel m :=
+         match r with
+           | R2var _ v => proj1_sig v n
+           | R2inj P => P
+           | R2and a b => interp' n a /\ interp' n b
+           | R2or a b => interp' n a \/ interp' n b
+           | R2imply a b => forall k, k <= n -> interp' k a ->interp' k b
+           | R2forall1 _ g => forall x, interp' n (g x)
+           | R2exists1 _ g => exists x, interp' n (g x)
+           | R2forall2 _ g => forall r, interp' n (g r)
+           | R2exists2 _ g => exists r, interp' n (g r)
+           | R2abs _ g => fun e => interp' n (g e)
+           | R2app _ r e => interp' n r e
+           | R2later P => interp n' P
+         end) n
+  end.
+
 Set Maximal Implicit Insertion.
 Section Funvar.
 
   Variable var : nat -> Type.
 
-  Definition varTs := list ((nat -> Type) -> Type).
+  Definition varT := (nat -> Type) -> Type.
+  Definition varTs := list varT.
 
   Fixpoint Funvar domains range :=
     match domains with
@@ -600,12 +695,72 @@ Section openup.
 
 End openup.
 
+Section open_term.
+  
+  Inductive rtype :=
+  | RTvar (_ : nat)
+  | RTcsubsts (_ : context)
+  | RTother (_ : Type)
+  .
+
+  Coercion RTvar : nat >-> rtype.
+
+  Definition rcontext := list rtype.
+
+  Variable var : nat -> Type.
+
+  Definition interp_rtype t :=
+    match t with
+      | RTvar m => var m
+      | RTcsubsts lctx => csubsts var lctx
+      | RTother T => T
+    end.
+
+  Fixpoint open_term (domains : rcontext) (range : varT) : Type :=
+    match domains with
+      | nil => range var
+      | domain :: domains' => interp_rtype domain -> open_term domains' range
+    end.
+
+End open_term.
+
+Definition Rel1 m := forall var, rel var m.
+Definition Rel2 m := forall var, rel2 var m.
+
+Definition Unrecur n {m} (R : Rel1 m) : Rel2 m := fun var => unrecur n (R (rel2 var)).
+
+Definition Interp {m} (R : Rel1 m) n : erel m := 
+  let R' := Unrecur n R in 
+  interp n (R' mono_erel).
+
+Lemma Interp_monotone m (R : Rel1 m) : monotone (Interp R).
+  admit.
+Qed.
+
+Fixpoint for_all {T m} : (T -> erel m) -> erel m :=
+  match m with
+    | 0 => fun f => forall x, f x
+    | S m' => fun f e => for_all (flip f e)
+  end.
+
+Definition OpenTerm ctx t := forall var, open_term var ctx t.
+
+(*here*)
+
+Definition unrecur_open n {var ctx m} : open_term var ctx (fun var => rel (rel2 var) m) -> open_term var ctx (flip rel m) := openup1 (unrecur n (var := var) (m := m)).
+
+Definition UnrecurOpen n {ctx m} (R : OpenTerm ctx (flip rel m)) : OpenTerm ctx (flip rel2 m) := 
+  fun var => unrecur_open n (R (rel2 var)).
+
+Fixpoint interp_open n {m ctx} : open_term mono_erel ctx (flip red2 m) -> erel m :=
+  match ctx with
+    | nil => interp n
+    | t :: ctx' => fun r => for_all (fun x => open_term n (r t))
+  end.
+
 Section OR.
 
-  Context `{var : nat -> Type, ctx : varTs}.
-
-  Definition TTrel n var := rel var n.
-  Coercion TTrel : nat >-> Funclass.
+  Context `{var : nat -> Type, ctx : rcontext}.
 
   Definition ORvar {n : nat} := openup3 (t := n) (@Rvar var n) (ctx := ctx).
   Definition ORinj := openup3 (t := 0) (@Rinj var) (ctx := ctx).
@@ -626,8 +781,6 @@ Section OR.
 End OR.
 
 Unset Maximal Implicit Insertion.
-
-Definition Rel ctx t := forall var, Funvar var ctx t.
 
 Definition lift_Rel {ctx t2} new : Rel ctx t2 -> Rel (new :: ctx) t2 :=
   fun r var x => r var.
@@ -670,42 +823,42 @@ Global Instance Add_pair_csubsts' {var lctx} : Add (pair_var var) (flip csubsts 
     add := add_pair
   }.
 
-Notation TTexpr := (const expr).
-Notation TTtype := (const type).
+Notation RTexpr := (const expr).
+Notation RTtype := (const type).
 
-Definition add_ρ_type {ctx lctx} (ρ : t_ρ ctx lctx) : t_ρ (TTrel 1 :: TTtype :: ctx) (CEtype :: lctx) :=
-  let ρ := lift_ρ TTtype ρ in
+Definition add_ρ_type {ctx lctx} (ρ : t_ρ ctx lctx) : t_ρ (RTrel 1 :: RTtype :: ctx) (CEtype :: lctx) :=
+  let ρ := lift_ρ RTtype ρ in
   let ρ := lift_ρ 1 ρ in
-  let ρ := fun var => add (extend (t2 := pair_var) [TTrel 1; TTtype] ctx (fun S τ => (τ, S))) (ρ var) in
+  let ρ := fun var => add (extend (t2 := pair_var) [RTrel 1; RTtype] ctx (fun S τ => (τ, S))) (ρ var) in
   ρ
 .
 
-Definition add_Ps_type {ctx} (Ps : t_Ps ctx) : t_Ps (TTrel 1 :: TTtype :: ctx) :=
-  let Ps := lift_Ps TTtype Ps in
-  let Ps := (fun var => extend [TTtype] ctx (fun τ => ⌈kinding TCnil τ 0⌉%rel : Funvar var [] 0)) :: Ps in
+Definition add_Ps_type {ctx} (Ps : t_Ps ctx) : t_Ps (RTrel 1 :: RTtype :: ctx) :=
+  let Ps := lift_Ps RTtype Ps in
+  let Ps := (fun var => extend [RTtype] ctx (fun τ => ⌈kinding TCnil τ 0⌉%rel : Funvar var [] 0)) :: Ps in
   let Ps := lift_Ps 1 Ps in
-  let Ps := (fun var => extend [TTrel 1; TTtype] ctx (fun S τ => VSet τ S : Funvar var [] 0)) :: Ps in
+  let Ps := (fun var => extend [RTrel 1; RTtype] ctx (fun S τ => VSet τ S : Funvar var [] 0)) :: Ps in
   Ps
 .
 
-Global Instance Add_expr_csubsts' {var lctx} : Add (TTexpr var) (flip csubsts lctx var) (flip csubsts (CEexpr :: lctx) var) :=
+Global Instance Add_expr_csubsts' {var lctx} : Add (RTexpr var) (flip csubsts lctx var) (flip csubsts (CEexpr :: lctx) var) :=
   {
     add := add_expr
   }.
 
-Definition add_ρ_expr {ctx lctx} (ρ : t_ρ ctx lctx) : t_ρ (TTexpr :: ctx) (CEexpr :: lctx) :=
-  let ρ := lift_ρ TTexpr ρ in
-  let ρ := fun var => add (extend [TTexpr] ctx (fun v => v)) (ρ var) in
+Definition add_ρ_expr {ctx lctx} (ρ : t_ρ ctx lctx) : t_ρ (RTexpr :: ctx) (CEexpr :: lctx) :=
+  let ρ := lift_ρ RTexpr ρ in
+  let ρ := fun var => add (extend [RTexpr] ctx (fun v => v)) (ρ var) in
   ρ
 .
 
-Global Instance Apply_rel_expr' {var n} : Apply (rel var (S n)) (TTexpr var) (rel var n) :=
+Global Instance Apply_rel_expr' {var n} : Apply (rel var (S n)) (RTexpr var) (rel var n) :=
   {
     apply := Rapp
   }.
 
-Definition add_Ps_expr {ctx lctx} τ B (Ps : t_Ps ctx) (ρ : t_ρ ctx lctx) : t_Ps (TTexpr :: ctx) :=
-  let Ps := lift_Ps TTexpr Ps in
+Definition add_Ps_expr {ctx lctx} τ B (Ps : t_Ps ctx) (ρ : t_ρ ctx lctx) : t_Ps (RTexpr :: ctx) :=
+  let Ps := lift_Ps RTexpr Ps in
   let Ps := (fun var v => openup1 (fun ρ => v ∈ relV B τ ρ) (ρ var)) :: Ps in
   Ps
 .
@@ -717,9 +870,9 @@ Fixpoint make_ctx lctx :=
       let ctx := make_ctx Γ' in
       match e with
         | CEtype =>
-          TTrel 1 :: TTtype :: ctx
+          RTrel 1 :: RTtype :: ctx
         | CEexpr =>
-          TTexpr :: ctx
+          RTexpr :: ctx
       end
   end.
 
@@ -768,7 +921,7 @@ Notation "∃₂ x .. y , p" := (ORexists2' (fun x => .. (ORexists2' (fun y => p
 Notation "@@ x .. y , p" := (ORrecur (fun x => .. (ORrecur (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
 Definition ORrecur' {var ctx n} P := (@ORrecur var ctx n (fun x => P (ORvar (ctx := ctx) x))).
 Notation "@@@ x .. y , p" := (ORrecur' (fun x => .. (ORrecur' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
-Global Instance Apply_Funvar_TTexpr {var ctx n} : Apply (Funvar var ctx (S n)) (Funvar var ctx TTexpr) (Funvar var ctx n) :=
+Global Instance Apply_Funvar_RTexpr {var ctx n} : Apply (Funvar var ctx (S n)) (Funvar var ctx RTexpr) (Funvar var ctx n) :=
   {
     apply := ORapp
   }.
@@ -812,7 +965,7 @@ Section Rel.
   Definition Relforall1 T (F : T -> Rel 0) : Rel 0 := fun var => ORforall1 (fun x => F x var).
   Definition Relexists1 T (F : T -> Rel 0) : Rel 0 := fun var => ORexists1 (fun x => F x var).
   Definition Relabs (n : nat) (F : expr -> Rel n) : Rel (S n) := fun var => ORabs (fun e => F e var).
-  Definition Relapp n (r : Rel (S n)) (e : Rel TTexpr) : Rel n := fun var => ORapp (r var) (e var).
+  Definition Relapp n (r : Rel (S n)) (e : Rel RTexpr) : Rel n := fun var => ORapp (r var) (e var).
   Definition Rellater (P : Rel 0) : Rel 0 := fun var => ORlater (P var).
   
 End Rel.
@@ -824,7 +977,7 @@ Notation "⌈ P ⌉" := (Relinj P) : Rel.
 Notation "\ x .. y , p" := (Relabs (fun x => .. (Relabs (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : Rel.
 Notation "∀ x .. y , p" := (Relforall1 (fun x => .. (Relforall1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : Rel.
 Notation "∃ x .. y , p" := (Relexists1 (fun x => .. (Relexists1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : Rel.
-Global Instance Apply_Rel_TTexpr {ctx n} : Apply (Rel ctx (S n)) (Rel ctx TTexpr) (Rel ctx n) :=
+Global Instance Apply_Rel_RTexpr {ctx n} : Apply (Rel ctx (S n)) (Rel ctx RTexpr) (Rel ctx n) :=
   {
     apply := Relapp
   }.
@@ -874,22 +1027,6 @@ Global Instance Apply_Rel_expr ctx n : Apply (Rel ctx (S n)) expr (Rel ctx n) :=
     apply := Relapp'
   }.
 
-Fixpoint interp m (r : rel interp_arity m) : interp_arity m :=
-  match r with
-    | Rvar _ f => f
-    | Rinj P => const_model P
-    | Rand a b => fun n => interp a n /\ interp b n
-    | Ror a b => fun n => interp a n \/ interp b n
-    | Rimply a b => fun n => forall k, k <= n -> interp a k ->interp b k
-    | Rforall1 _ g => fun n => forall x, interp (g x) n
-    | Rexists1 _ g => fun n => exists x, interp (g x) n
-    | Rforall2 _ g => fun n => forall r, interp (g r) n
-    | Rexists2 _ g => fun n => exists r, interp (g r) n
-    | Rabs _ g => fun e => interp (g e)
-    | Rapp _ r e => interp r e
-    | Rrecur _ g => _
-  end.
-
 Reserved Infix "==" (at level 70, no associativity).
 Reserved Infix "|~" (at level 89, no associativity).
 
@@ -910,8 +1047,8 @@ Section infer_rules.
   | EVLaterExists1 T P : eqv (▹ (∃x:T, P x)) (∃x, ▹(P x))
   | EVLaterForallR (n : nat) P : eqv (fun var => ▹ (∀₂ (R : Funvar var ctx n), P var R))%OR (fun var => ∀₂ R, ▹(P var R))%OR
   | EVLaterExistsR (n : nat) P : eqv (fun var => ▹ (∃₂ (R : Funvar var ctx n), P var R))%OR (fun var => ∃₂ R, ▹(P var R))%OR
-  | VElem n (R : Rel ctx (S n)) (e : Rel ctx TTexpr) : eqv ((\x, R $ x) $ e) (R $ e)
-  | VRecur {n : nat} (R : Rel (TTrel n :: ctx) n) : eqv (fun var => @@r, R var (Rvar r))%OR (fun var => (@@r, R var (Rvar r)))%OR
+  | VElem n (R : Rel ctx (S n)) (e : Rel ctx RTexpr) : eqv ((\x, R $ x) $ e) (R $ e)
+  | VRecur {n : nat} (R : Rel (RTrel n :: ctx) n) : eqv (fun var => @@r, R var (Rvar r))%OR (fun var => (@@r, R var (Rvar r)))%OR
   .
 
   Fixpoint Iff {n : nat} : Rel ctx n -> Rel ctx n -> Rel ctx 0 :=
@@ -926,7 +1063,7 @@ Section infer_rules.
   | VEqv Ps P1 P2 : eqv P1 P2 -> Ps |~ P1 -> Ps |~ P2
   | VMono Ps P : Ps |~ P -> Ps |~ ▹P
   | VLob Ps P : ▹P :: Ps |~ P -> Ps |~ P
-  | VReplace2 Ps {n : nat} R1 R2 (P : Rel (TTrel n :: ctx) 0) : Ps |~ R1 == R2 -> Ps |~ P $$ R1 -> Ps |~ P $$ R2
+  | VReplace2 Ps {n : nat} R1 R2 (P : Rel (RTrel n :: ctx) 0) : Ps |~ R1 == R2 -> Ps |~ P $$ R1 -> Ps |~ P $$ R2
   where "Ps |~ P" := (valid Ps P)
   .
 
