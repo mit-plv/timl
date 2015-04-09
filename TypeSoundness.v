@@ -673,16 +673,6 @@ Section openup.
     simpl; eauto.
   Defined.
 
-  Definition openup6 {t1 T t2} (f : t1 var -> T -> t2 var) : forall {ctx}, Funvar ctx t1 -> Funvar ctx (const T) -> Funvar ctx t2.
-    refine
-      (fix F ctx : Funvar ctx t1 -> Funvar ctx (const T) -> Funvar ctx t2 :=
-         match ctx return Funvar ctx t1 -> Funvar ctx (const T) -> Funvar ctx t2 with
-           | nil => _
-           | nv :: ctx' => _ 
-         end);
-    simpl; eauto.
-  Defined.
-
   Definition openup8 {t1 t2 T} (f : (T -> t1 var) -> t2 var) : forall {ctx}, (Funvar ctx (const T) -> Funvar ctx t1) -> Funvar ctx t2.
     refine
       (fix F ctx : (Funvar ctx (const T) -> Funvar ctx t1) -> Funvar ctx t2 :=
@@ -724,6 +714,10 @@ Section open_term.
 
 End open_term.
 
+Definition OpenTerm ctx t := forall var, open_term var ctx t.
+
+Definition Rel ctx t := forall var, Funvar var ctx t.
+
 Definition Rel1 m := forall var, rel var m.
 Definition Rel2 m := forall var, rel2 var m.
 
@@ -737,50 +731,304 @@ Lemma Interp_monotone m (R : Rel1 m) : monotone (Interp R).
   admit.
 Qed.
 
+Definition map_se {var} {F : (nat -> Type) -> nat -> Type} (f : var 1 -> F var 1) {t} : SubstEntry var t -> SubstEntry (F var) t :=
+  match t with
+    | CEtype => fun e => let (tau, x) := pair_of_se e in SEtype tau (f x)
+    | CEexpr => fun e => SEexpr (expr_of_se e)
+  end.
+
+Fixpoint map_csubsts {var} {F : (nat -> Type) -> nat -> Type} (f : var 1 -> F var 1) {lctx} : csubsts var lctx -> csubsts (F var) lctx :=
+  match lctx return csubsts var lctx -> csubsts (F var) lctx with
+    | nil => fun _ => []%CS
+    | t :: lctx' => 
+      fun rho => 
+        let (e, rho') := pair_of_cs rho in 
+        (map_se f e :: map_csubsts f rho')%CS
+  end.
+
+Definition flip_rel := flip rel.
+Coercion flip_rel : nat >-> Funclass.
+
+Fixpoint unrecur_open n {m : nat} {var ctx} : open_term (rel2 var) ctx m -> open_term var ctx (flip rel2 m) :=
+  match ctx return open_term (rel2 var) ctx (flip rel m) -> open_term var ctx (flip rel2 m) with
+    | nil => fun r => unrecur n (m := m) r
+    | RTvar _ :: ctx' => fun r x => unrecur_open n (r (R2var x))
+    | RTcsubsts _ :: ctx' => fun r x => unrecur_open n (r (map_csubsts R2var x))
+    | RTother _ :: ctx' => fun r x => unrecur_open n (r x)
+  end.
+
+Definition UnrecurOpen n {ctx} {m : nat} (R : OpenTerm ctx m) : OpenTerm ctx (flip rel2 m) := 
+  fun var => unrecur_open n (R (rel2 var)).
+
+Fixpoint interp_open n {m ctx} : open_term mono_erel ctx (flip rel2 m) -> open_term mono_erel ctx (const (erel m)) :=
+  match ctx return open_term mono_erel ctx (flip rel2 m) -> open_term mono_erel ctx (const (erel m)) with
+    | nil => interp n (m := m)
+    | _ :: ctx' => fun r x => interp_open n (r x)
+  end.
+
+Definition InterpOpen {ctx} {m : nat} n (R : OpenTerm ctx m) : open_term mono_erel ctx (const (erel m)) :=
+  let R' := UnrecurOpen n R in
+  interp_open n (R' mono_erel).
+
 Fixpoint for_all {T m} : (T -> erel m) -> erel m :=
   match m with
     | 0 => fun f => forall x, f x
     | S m' => fun f e => for_all (flip f e)
   end.
 
-Definition OpenTerm ctx t := forall var, open_term var ctx t.
-
-(*here*)
-
-Definition unrecur_open n {var ctx m} : open_term var ctx (fun var => rel (rel2 var) m) -> open_term var ctx (flip rel m) := openup1 (unrecur n (var := var) (m := m)).
-
-Definition UnrecurOpen n {ctx m} (R : OpenTerm ctx (flip rel m)) : OpenTerm ctx (flip rel2 m) := 
-  fun var => unrecur_open n (R (rel2 var)).
-
-Fixpoint interp_open n {m ctx} : open_term mono_erel ctx (flip red2 m) -> erel m :=
-  match ctx with
-    | nil => interp n
-    | t :: ctx' => fun r => for_all (fun x => open_term n (r t))
+Fixpoint All ls :=
+  match ls with
+    | nil => True
+    | P :: ls' => (P /\ All ls')%type
   end.
+
+Fixpoint forall_ctx {ctx} : list (open_term mono_erel ctx (const Prop)) -> open_term mono_erel ctx (const Prop) -> Prop :=
+  match ctx return list (open_term mono_erel ctx (const Prop)) -> open_term mono_erel ctx (const Prop) -> Prop with
+    | nil => fun Ps P => All Ps -> P
+    | t :: ctx' => fun Ps P => forall x, forall_ctx (map (flip apply_arrow x) Ps) (P x)
+  end.
+
+Definition valid {ctx} : list (OpenTerm ctx 0) -> OpenTerm ctx 0 -> Prop :=
+  fun Ps P => forall n, forall_ctx (map (InterpOpen n) Ps) (InterpOpen n P).
+
+Infix "|~" := valid (at level 89, no associativity).
+
+Delimit Scope OR with OR.
+Bind Scope OR with open_term.
 
 Section OR.
 
+  Definition interp2varT (t : rtype) : varT :=
+    fun var =>
+      match t with
+        | RTvar m => var m
+        | RTcsubsts lctx => csubsts var lctx
+        | RTother T => T
+      end.
+
+  Fixpoint Funvar2open_term {t var ctx} : Funvar var (map interp2varT ctx) t -> open_term var ctx t :=
+    match ctx with
+      | nil => id
+      | t :: ctx' => fun f x => Funvar2open_term (f x)
+    end.
+
+  Global Instance Coerce_Funvar_open_term {t var ctx} : Coerce (Funvar var (map interp2varT ctx) t) (open_term var ctx t) :=
+    {
+      coerce := Funvar2open_term
+    }.
+
+  Fixpoint open_term2Funvar {t var ctx} : open_term var ctx t -> Funvar var (map interp2varT ctx) t :=
+    match ctx with
+      | nil => id
+      | t :: ctx' => fun f x => open_term2Funvar (f x)
+    end.
+
+  Global Instance Coerce_open_term_Funvar {t var ctx} : Coerce (open_term var ctx t) (Funvar var (map interp2varT ctx) t) :=
+    {
+      coerce := open_term2Funvar
+    }.
+
   Context `{var : nat -> Type, ctx : rcontext}.
 
-  Definition ORvar {n : nat} := openup3 (t := n) (@Rvar var n) (ctx := ctx).
-  Definition ORinj := openup3 (t := 0) (@Rinj var) (ctx := ctx).
-  Definition ORtrue := openupSingle (t := 0) (@Rtrue var) (ctx := ctx).
-  Definition ORfalse := openupSingle (t := 0) (@Rfalse var) (ctx := ctx).
-  Definition ORand := openup5 (@Rand var) (t1 := 0) (t2 := 0) (t3 := 0) (ctx := ctx).
-  Definition ORor := openup5 (@Ror var) (t1 := 0) (t2 := 0) (t3 := 0) (ctx := ctx).
-  Definition ORimply := openup5 (@Rimply var) (t1 := 0) (t2 := 0) (t3 := 0) (ctx := ctx).
-  Definition ORforall2 {n} := openup2 (t1 := 0) (t2 := 0) (@Rforall2 var n) (ctx := ctx).
-  Definition ORexists2 {n} := openup2 (t1 := 0) (t2 := 0) (@Rexists2 var n) (ctx := ctx).
-  Definition ORforall1 {T} := openup2 (t1 := 0) (t2 := 0) (@Rforall1 var T) (ctx := ctx).
-  Definition ORexists1 {T} := openup2 (t1 := 0) (t2 := 0) (@Rexists1 var T) (ctx := ctx).
-  Definition ORabs {n : nat} := openup2 (t1 := n) (t2 := S n) (@Rabs var n) (ctx := ctx).
-  Definition ORapp {n} := openup6 (t1 := S n) (t2 := n) (@Rapp var n) (ctx := ctx).
-  Definition ORrecur {n : nat} := openup2 (t1 := n) (t2 := n) (@Rrecur var n) (ctx := ctx).
-  Definition ORlater := openup1 (t1 := 0) (t2 := 0) (@Rlater var) (ctx := ctx).
+  (* Notation  := (map interp2varT). *)
+
+  (* Global Instance Coerce_rcontext_varTs : Coerce rcontext (list ((nat -> Type) -> Type)) := *)
+  (*   { *)
+  (*     coerce := map interp2varT *)
+  (*   }. *)
+
+  (* Definition ORvar {n : nat} := openup3 (t := n) (@Rvar var n) (ctx := ctx). *)
+  Definition openup3' {var t T} f {ctx} (a : T) : open_term var ctx t :=
+    !(openup3 f a).
+
+  Definition ORinj : Prop -> open_term var ctx 0 := 
+    openup3' (t := 0) (@Rinj var).
+
+  Definition openup5' {var t1 t2 t3} f {ctx} (a : open_term var ctx t1) (b : open_term var ctx t2) : open_term var ctx t3 :=
+    !(openup5 f !a !b).
+
+  Definition ORand : open_term var ctx 0 -> open_term var ctx 0 -> open_term var ctx 0 := 
+    openup5' (@Rand var) (t1 := 0) (t2 := 0) (t3 := 0).
+  Definition ORor : open_term var ctx 0 -> open_term var ctx 0 -> open_term var ctx 0 := 
+    openup5' (@Ror var) (t1 := 0) (t2 := 0) (t3 := 0).
+  Definition ORimply : open_term var ctx 0 -> open_term var ctx 0 -> open_term var ctx 0 := 
+    openup5' (@Rimply var) (t1 := 0) (t2 := 0) (t3 := 0).
+
+  Definition openup2' {var t1 t2 T} f {ctx} (a : T -> open_term var ctx t1) : open_term var ctx t2 :=
+    !(openup2 f (fun x => !(a x))).
+
+  Definition ORforall2 {n} : (var n -> open_term var ctx 0) -> open_term var ctx 0 := 
+    openup2' (t1 := 0) (t2 := 0) (@Rforall2 var n).
+  Definition ORexists2 {n} : (var n -> open_term var ctx 0) -> open_term var ctx 0 := 
+    openup2' (t1 := 0) (t2 := 0) (@Rexists2 var n).
+  Definition ORforall1 {T} : (T -> open_term var ctx 0) -> open_term var ctx 0 := 
+    openup2' (t1 := 0) (t2 := 0) (@Rforall1 var T).
+  Definition ORexists1 {T} : (T -> open_term var ctx 0) -> open_term var ctx 0 := 
+    openup2' (t1 := 0) (t2 := 0) (@Rexists1 var T).
+  Definition ORabs {n : nat} : (expr -> open_term var ctx n) -> open_term var ctx (S n) := 
+    openup2' (t1 := n) (t2 := S n) (@Rabs var n).
+  Definition ORapp {n} : open_term var ctx (S n) -> open_term var ctx (const expr) -> open_term var ctx n := 
+    openup5' (t1 := S n) (t2 := const expr) (t3 := n) (@Rapp var n).
+  Definition ORrecur {n : nat} : (var n -> open_term var ctx n) -> open_term var ctx n := 
+    openup2' (t1 := n) (t2 := n) (@Rrecur var n).
+
+  Definition openup1' {var t1 t2} f {ctx} (a : open_term var ctx t1) : open_term var ctx t2 := 
+    !(openup1 f !a).
+
+  Definition ORlater : open_term var ctx 0 -> open_term var ctx 0 := 
+    openup1' (t1 := 0) (t2 := 0) (@Rlater var).
+
+  Definition ORtrue : open_term var ctx 0 := ORinj True.
+  Definition ORfalse : open_term var ctx 0 := ORinj False.
 
 End OR.
 
 Unset Maximal Implicit Insertion.
+
+Notation RTexpr := (const expr).
+
+Global Instance Apply_open_term_RTexpr {var ctx n} : Apply (open_term var ctx (S n)) (open_term var ctx RTexpr) (open_term var ctx n) :=
+  {
+    apply := ORapp
+  }.
+
+Notation "⊤" := ORtrue : OR.
+Notation "⊥" := ORtrue : OR.
+Notation "⌈ P ⌉" := (ORinj P) : OR.
+Notation "\ x .. y , p" := (ORabs (fun x => .. (ORabs (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
+Notation "∀ x .. y , p" := (ORforall1 (fun x => .. (ORforall1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
+Notation "∃ x .. y , p" := (ORexists1 (fun x => .. (ORexists1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
+Notation "∀₂ x .. y , p" := (ORforall2 (fun x => .. (ORforall2 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
+Notation "∃₂ x .. y , p" := (ORexists2 (fun x => .. (ORexists2 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
+Notation "@@ x .. y , p" := (ORrecur (fun x => .. (ORrecur (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
+Infix "/\" := ORand : OR.
+Infix "\/" := ORor : OR.
+Infix "===>" := ORimply (at level 86) : OR.
+Notation "▹" := ORlater : OR.
+
+Delimit Scope OR with OR.
+
+Module test_OR.
+  
+  Variable var : nat -> Type.
+  Variable ctx : rcontext.
+
+  Open Scope OR.
+  
+  Definition ttt1 : open_term var ctx 1 := \e , ⊤.
+  Definition ttt2 : open_term var ctx 1 := \e , ⌈e ↓ Tunit⌉.
+  Definition ttt3 : open_term var ctx 0 := ⌈True /\ True⌉.
+  Definition ttt4 : open_term var ctx 0 := ∀e, ⌈e = @Ett nil⌉.
+  Definition ttt5 : open_term var ctx 0 := ∃e, ⌈e = @Ett nil⌉.
+
+End test_OR.
+
+Delimit Scope OpenTerm with OpenTerm.
+Bind Scope OpenTerm with OpenTerm.
+
+Set Maximal Implicit Insertion.
+Section OpenTerm.
+
+  Context `{ctx : rcontext}.
+  Notation OpenTerm := (OpenTerm ctx).
+  
+  Definition OTinj P : OpenTerm 0 := fun var => ORinj P.
+  Definition OTtrue : OpenTerm 0 := fun var => ORtrue.
+  Definition OTfalse : OpenTerm 0 := fun var => ORfalse.
+  Definition OTand (a b : OpenTerm 0) : OpenTerm 0 := fun var => ORand (a var) (b var).
+  Definition OTor (a b : OpenTerm 0) : OpenTerm 0 := fun var => ORor (a var) (b var).
+  Definition OTimply (a b : OpenTerm 0) : OpenTerm 0 := fun var => ORimply (a var) (b var).
+  Definition OTforall1 T (F : T -> OpenTerm 0) : OpenTerm 0 := fun var => ORforall1 (fun x => F x var).
+  Definition OTexists1 T (F : T -> OpenTerm 0) : OpenTerm 0 := fun var => ORexists1 (fun x => F x var).
+  Definition OTabs (n : nat) (F : expr -> OpenTerm n) : OpenTerm (S n) := fun var => ORabs (fun e => F e var).
+  Definition OTapp n (r : OpenTerm (S n)) (e : OpenTerm RTexpr) : OpenTerm n := fun var => ORapp (r var) (e var).
+  Definition OTlater (P : OpenTerm 0) : OpenTerm 0 := fun var => ORlater (P var).
+  
+End OpenTerm.
+Unset Maximal Implicit Insertion.
+
+Global Instance Apply_OpenTerm_RTexpr {ctx n} : Apply (OpenTerm ctx (S n)) (OpenTerm ctx RTexpr) (OpenTerm ctx n) :=
+  {
+    apply := OTapp
+  }.
+
+Notation "⊤" := OTtrue : OpenTerm.
+Notation "⊥" := OTtrue : OpenTerm.
+Notation "⌈ P ⌉" := (OTinj P) : OpenTerm.
+Notation "\ x .. y , p" := (OTabs (fun x => .. (OTabs (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OpenTerm.
+Notation "∀ x .. y , p" := (OTforall1 (fun x => .. (OTforall1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OpenTerm.
+Notation "∃ x .. y , p" := (OTexists1 (fun x => .. (OTexists1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OpenTerm.
+Infix "/\" := OTand : OpenTerm.
+Infix "\/" := OTor : OpenTerm.
+Infix "===>" := OTimply (at level 86) : OpenTerm.
+Notation "▹" := OTlater : OpenTerm.
+
+Module test_OpenTerm.
+  
+  Variable ctx : rcontext.
+
+  Open Scope OpenTerm.
+
+  Definition ttt1 : OpenTerm ctx 1 := \e , ⊤.
+  Definition ttt2 : OpenTerm ctx 1 := \e , ⌈e ↓ Tunit⌉.
+  Definition ttt3 : OpenTerm ctx 0 := ⌈True /\ True⌉.
+  Definition ttt4 : OpenTerm ctx 0 := ∀e, ⌈e = @Ett nil⌉.
+  Definition ttt5 : OpenTerm ctx 0 := ∃e, ⌈e = @Ett nil⌉.
+
+End test_OpenTerm.
+(*here*)
+Definition Relapp' {ctx n} (r : Rel ctx (S n)) (e : expr) : Rel ctx n :=
+  fun var =>
+    ORapp (r var) (openupSingle e).
+
+Global Instance Apply_Rel_expr ctx n : Apply (Rel ctx (S n)) expr (Rel ctx n) :=
+  {
+    apply := Relapp'
+  }.
+
+Reserved Infix "==" (at level 70, no associativity).
+
+Section infer_rules.
+
+  Context `{ctx : rcontext}.
+
+  Open Scope OpenTerm.
+
+  Inductive eqv : forall {n}, OpenTerm ctx n -> OpenTerm ctx n -> Prop :=
+  | EVRefl n R : @eqv n R R
+  | EVSymm n R1 R2 : @eqv n R1 R2 -> @eqv n R2 R1
+  | EVTran n R1 R2 R3 : @eqv n R1 R2 -> @eqv n R2 R3 -> @eqv n R1 R3
+  | EVLaterAnd P Q : eqv (▹ (P /\ Q)) (▹P /\ ▹Q)
+  | EVLaterOr P Q : eqv (▹ (P \/ Q)) (▹P \/ ▹Q)
+  | EVLaterImply P Q : eqv (▹ (P ===> Q)) (▹P ===> ▹Q)
+  | EVLaterForall1 T P : eqv (▹ (∀x:T, P x)) (∀x, ▹(P x))
+  | EVLaterExists1 T P : eqv (▹ (∃x:T, P x)) (∃x, ▹(P x))
+  | EVLaterForallR (n : nat) P : eqv (fun var => ▹ (∀₂ R : var n, P var R))%OR (fun var => ∀₂ R, ▹(P var R))%OR
+  | EVLaterExistsR (n : nat) P : eqv (fun var => ▹ (∃₂ R : var n, P var R))%OR (fun var => ∃₂ R, ▹(P var R))%OR
+  | VElem n (R : OpenTerm ctx (S n)) (e : OpenTerm ctx RTexpr) : eqv ((\x, R $ x) $ e) (R $ e)
+  (* | VRecur {n : nat} (R : OpenTerm (RTrel n :: ctx) n) : eqv (fun var => @@r, R var (Rvar r))%OR (fun var => (@@r, R var (Rvar r)))%OR *)
+  .
+
+  Fixpoint Iff {n : nat} : OpenTerm ctx n -> OpenTerm ctx n -> OpenTerm ctx 0 :=
+    match n return OpenTerm ctx n -> OpenTerm ctx n -> OpenTerm ctx 0 with
+      | 0 => fun P1 P2 => P1 ===> P2 /\ P2 ===> P1
+      | S n' => fun R1 R2 => ∀e : expr, Iff (R1 $ e) (R2 $ e)
+    end.
+
+  Infix "==" := Iff.
+
+  Inductive valid : list (OpenTerm ctx 0) -> OpenTerm ctx 0 -> Prop :=
+  | VEqv Ps P1 P2 : eqv P1 P2 -> Ps |~ P1 -> Ps |~ P2
+  | VMono Ps P : Ps |~ P -> Ps |~ ▹P
+  | VLob Ps P : ▹P :: Ps |~ P -> Ps |~ P
+  | VReplace2 Ps {n : nat} R1 R2 (P : OpenTerm (RTrel n :: ctx) 0) : Ps |~ R1 == R2 -> Ps |~ P $$ R1 -> Ps |~ P $$ R2
+  where "Ps |~ P" := (valid Ps P)
+  .
+
+End infer_rules.
+
+Infix "==" := Iff.
+Infix "|~" := valid.
 
 Definition lift_Rel {ctx t2} new : Rel ctx t2 -> Rel (new :: ctx) t2 :=
   fun r var x => r var.
@@ -908,98 +1156,6 @@ Section make_Ps.
     end.
 End make_Ps.
 
-Notation "⊤" := ORtrue : OR.
-Notation "⊥" := ORtrue : OR.
-Notation "⌈ P ⌉" := (ORinj P) : OR.
-Notation "\ x .. y , p" := (ORabs (fun x => .. (ORabs (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
-Notation "∀ x .. y , p" := (ORforall1 (fun x => .. (ORforall1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
-Notation "∃ x .. y , p" := (ORexists1 (fun x => .. (ORexists1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
-Definition ORforall2' {var ctx n} P := (@ORforall2 var ctx n (fun x => P (ORvar (ctx := ctx) x))).
-Notation "∀₂ x .. y , p" := (ORforall2' (fun x => .. (ORforall2' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
-Definition ORexists2' {var ctx n} P := (@ORexists2 var ctx n (fun x => P (ORvar (ctx := ctx) x))).
-Notation "∃₂ x .. y , p" := (ORexists2' (fun x => .. (ORexists2' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
-Notation "@@ x .. y , p" := (ORrecur (fun x => .. (ORrecur (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
-Definition ORrecur' {var ctx n} P := (@ORrecur var ctx n (fun x => P (ORvar (ctx := ctx) x))).
-Notation "@@@ x .. y , p" := (ORrecur' (fun x => .. (ORrecur' (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
-Global Instance Apply_Funvar_RTexpr {var ctx n} : Apply (Funvar var ctx (S n)) (Funvar var ctx RTexpr) (Funvar var ctx n) :=
-  {
-    apply := ORapp
-  }.
-Infix "/\" := ORand : OR.
-Infix "\/" := ORor : OR.
-Infix "===>" := ORimply (at level 86) : OR.
-Notation "▹" := ORlater : OR.
-
-Delimit Scope OR with OR.
-
-Module test_OR.
-  
-  Variable var : nat -> Type.
-  Variable ctx : varTs.
-
-  Open Scope OR.
-  
-  Definition ttt1 : Funvar var ctx 1 := \e , ⊤.
-  Definition ttt2 : Funvar var ctx 1 := \e , ⌈e ↓ Tunit⌉.
-  Definition ttt3 : Funvar var ctx 0 := ⌈True /\ True⌉.
-  Definition ttt4 : Funvar var ctx 0 := ∀e, ⌈e = @Ett nil⌉.
-  Definition ttt5 : Funvar var ctx 0 := ∃e, ⌈e = @Ett nil⌉.
-
-End test_OR.
-
-Delimit Scope Rel with Rel.
-Bind Scope Rel with Rel.
-
-Set Maximal Implicit Insertion.
-Section Rel.
-
-  Context `{ctx : varTs}.
-  Notation Rel := (Rel ctx).
-  
-  Definition Relinj P : Rel 0 := fun var => ORinj P.
-  Definition Reltrue : Rel 0 := fun var => ORtrue.
-  Definition Relfalse : Rel 0 := fun var => ORfalse.
-  Definition Reland (a b : Rel 0) : Rel 0 := fun var => ORand (a var) (b var).
-  Definition Relor (a b : Rel 0) : Rel 0 := fun var => ORor (a var) (b var).
-  Definition Relimply (a b : Rel 0) : Rel 0 := fun var => ORimply (a var) (b var).
-  Definition Relforall1 T (F : T -> Rel 0) : Rel 0 := fun var => ORforall1 (fun x => F x var).
-  Definition Relexists1 T (F : T -> Rel 0) : Rel 0 := fun var => ORexists1 (fun x => F x var).
-  Definition Relabs (n : nat) (F : expr -> Rel n) : Rel (S n) := fun var => ORabs (fun e => F e var).
-  Definition Relapp n (r : Rel (S n)) (e : Rel RTexpr) : Rel n := fun var => ORapp (r var) (e var).
-  Definition Rellater (P : Rel 0) : Rel 0 := fun var => ORlater (P var).
-  
-End Rel.
-Unset Maximal Implicit Insertion.
-
-Notation "⊤" := Reltrue : Rel.
-Notation "⊥" := Reltrue : Rel.
-Notation "⌈ P ⌉" := (Relinj P) : Rel.
-Notation "\ x .. y , p" := (Relabs (fun x => .. (Relabs (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : Rel.
-Notation "∀ x .. y , p" := (Relforall1 (fun x => .. (Relforall1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : Rel.
-Notation "∃ x .. y , p" := (Relexists1 (fun x => .. (Relexists1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : Rel.
-Global Instance Apply_Rel_RTexpr {ctx n} : Apply (Rel ctx (S n)) (Rel ctx RTexpr) (Rel ctx n) :=
-  {
-    apply := Relapp
-  }.
-Infix "/\" := Reland : Rel.
-Infix "\/" := Relor : Rel.
-Infix "===>" := Relimply (at level 86) : Rel.
-Notation "▹" := Rellater : Rel.
-
-Module test_Rel.
-  
-  Variable ctx : varTs.
-
-  Open Scope Rel.
-
-  Definition ttt1 : Rel ctx 1 := \e , ⊤.
-  Definition ttt2 : Rel ctx 1 := \e , ⌈e ↓ Tunit⌉.
-  Definition ttt3 : Rel ctx 0 := ⌈True /\ True⌉.
-  Definition ttt4 : Rel ctx 0 := ∀e, ⌈e = @Ett nil⌉.
-  Definition ttt5 : Rel ctx 0 := ∃e, ⌈e = @Ett nil⌉.
-
-End test_Rel.
-
 Definition openup7 {var t1 t2} : forall {ctx}, (t1 var -> Funvar var ctx t2) -> Funvar var ctx t1 -> Funvar var ctx t2.
   refine
     (fix F ctx : (t1 var -> Funvar var ctx t2) -> Funvar var ctx t1 -> Funvar var ctx t2 :=
@@ -1017,60 +1173,6 @@ Global Instance Apply_Rel_Rel n ctx t2 : Apply (Rel (n :: ctx) t2) (Rel ctx n) (
   {
     apply := apply_Rel_Rel
   }.
-
-Definition Relapp' {ctx n} (r : Rel ctx (S n)) (e : expr) : Rel ctx n :=
-  fun var =>
-    ORapp (r var) (openupSingle e).
-
-Global Instance Apply_Rel_expr ctx n : Apply (Rel ctx (S n)) expr (Rel ctx n) :=
-  {
-    apply := Relapp'
-  }.
-
-Reserved Infix "==" (at level 70, no associativity).
-Reserved Infix "|~" (at level 89, no associativity).
-
-Section infer_rules.
-
-  Open Scope Rel.
-
-  Context `{ctx : varTs}.
-
-  Inductive eqv : forall {n}, Rel ctx n -> Rel ctx n -> Prop :=
-  | EVRefl n R : @eqv n R R
-  | EVSymm n R1 R2 : @eqv n R1 R2 -> @eqv n R2 R1
-  | EVTran n R1 R2 R3 : @eqv n R1 R2 -> @eqv n R2 R3 -> @eqv n R1 R3
-  | EVLaterAnd P Q : eqv (▹ (P /\ Q)) (▹P /\ ▹Q)
-  | EVLaterOr P Q : eqv (▹ (P \/ Q)) (▹P \/ ▹Q)
-  | EVLaterImply P Q : eqv (▹ (P ===> Q)) (▹P ===> ▹Q)
-  | EVLaterForall1 T P : eqv (▹ (∀x:T, P x)) (∀x, ▹(P x))
-  | EVLaterExists1 T P : eqv (▹ (∃x:T, P x)) (∃x, ▹(P x))
-  | EVLaterForallR (n : nat) P : eqv (fun var => ▹ (∀₂ (R : Funvar var ctx n), P var R))%OR (fun var => ∀₂ R, ▹(P var R))%OR
-  | EVLaterExistsR (n : nat) P : eqv (fun var => ▹ (∃₂ (R : Funvar var ctx n), P var R))%OR (fun var => ∃₂ R, ▹(P var R))%OR
-  | VElem n (R : Rel ctx (S n)) (e : Rel ctx RTexpr) : eqv ((\x, R $ x) $ e) (R $ e)
-  | VRecur {n : nat} (R : Rel (RTrel n :: ctx) n) : eqv (fun var => @@r, R var (Rvar r))%OR (fun var => (@@r, R var (Rvar r)))%OR
-  .
-
-  Fixpoint Iff {n : nat} : Rel ctx n -> Rel ctx n -> Rel ctx 0 :=
-    match n return Rel ctx n -> Rel ctx n -> Rel ctx 0 with
-      | 0 => fun P1 P2 => P1 ===> P2 /\ P2 ===> P1
-      | S n' => fun R1 R2 => ∀e : expr, Iff (R1 $ e) (R2 $ e)
-    end.
-
-  Infix "==" := Iff.
-
-  Inductive valid : list (Rel ctx 0) -> Rel ctx 0 -> Prop :=
-  | VEqv Ps P1 P2 : eqv P1 P2 -> Ps |~ P1 -> Ps |~ P2
-  | VMono Ps P : Ps |~ P -> Ps |~ ▹P
-  | VLob Ps P : ▹P :: Ps |~ P -> Ps |~ P
-  | VReplace2 Ps {n : nat} R1 R2 (P : Rel (RTrel n :: ctx) 0) : Ps |~ R1 == R2 -> Ps |~ P $$ R1 -> Ps |~ P $$ R2
-  where "Ps |~ P" := (valid Ps P)
-  .
-
-End infer_rules.
-
-Infix "==" := Iff.
-Infix "|~" := valid.
 
 Definition openup9 {t1 t2 t3 t4 var} (f : t1 var -> t2 var -> t3 var -> t4 var) : forall {ctx}, Funvar var ctx t1 -> Funvar var ctx t2 -> Funvar var ctx t3 -> Funvar var ctx t4.
   refine
