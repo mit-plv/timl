@@ -976,15 +976,47 @@ Module test_OpenTerm.
   Definition ttt5 : OpenTerm ctx 0 := ∃e, ⌈e = @Ett nil⌉.
 
 End test_OpenTerm.
-(*here*)
-Definition Relapp' {ctx n} (r : Rel ctx (S n)) (e : expr) : Rel ctx n :=
-  fun var =>
-    ORapp (r var) (openupSingle e).
 
-Global Instance Apply_Rel_expr ctx n : Apply (Rel ctx (S n)) expr (Rel ctx n) :=
+Definition openupSingle' {var t} f {ctx} : open_term var ctx t := !(openupSingle f).
+
+Definition Relapp' {ctx n} (r : OpenTerm ctx (S n)) (e : expr) : OpenTerm ctx n :=
+  fun var =>
+    ORapp (r var) (openupSingle' e).
+
+Global Instance Apply_OpenTerm_expr ctx n : Apply (OpenTerm ctx (S n)) expr (OpenTerm ctx n) :=
   {
     apply := Relapp'
   }.
+
+Definition openup7 {var t1 t2} : forall {ctx}, (t1 var -> Funvar var ctx t2) -> Funvar var ctx t1 -> Funvar var ctx t2.
+  refine
+    (fix F ctx : (t1 var -> Funvar var ctx t2) -> Funvar var ctx t1 -> Funvar var ctx t2 :=
+       match ctx return (t1 var -> Funvar var ctx t2) -> Funvar var ctx t1 -> Funvar var ctx t2 with
+         | nil => _
+         | t :: ctx' => _ 
+       end);
+  simpl; eauto.
+Defined.
+
+Definition openup9 {t1 t2 t3 t4 var} (f : t1 var -> t2 var -> t3 var -> t4 var) : forall {ctx}, Funvar var ctx t1 -> Funvar var ctx t2 -> Funvar var ctx t3 -> Funvar var ctx t4.
+  refine
+    (fix F ctx : Funvar var ctx t1 -> Funvar var ctx t2 -> Funvar var ctx t3 -> Funvar var ctx t4 :=
+       match ctx return Funvar var ctx t1 -> Funvar var ctx t2 -> Funvar var ctx t3 -> Funvar var ctx t4 with
+         | nil => _
+         | nv :: ctx' => _
+       end);
+  simpl; eauto.
+Defined.
+
+(*
+Definition apply_Rel_Rel {n ctx t2} : Rel (n :: ctx) t2 -> Rel ctx n -> Rel ctx t2 :=
+  fun f x var => openup7 (f var) (x var).
+
+Global Instance Apply_Rel_Rel n ctx t2 : Apply (Rel (n :: ctx) t2) (Rel ctx n) (Rel ctx t2) :=
+  {
+    apply := apply_Rel_Rel
+  }.
+ *)
 
 Reserved Infix "==" (at level 70, no associativity).
 
@@ -1006,7 +1038,7 @@ Section infer_rules.
   | EVLaterForallR (n : nat) P : eqv (fun var => ▹ (∀₂ R : var n, P var R))%OR (fun var => ∀₂ R, ▹(P var R))%OR
   | EVLaterExistsR (n : nat) P : eqv (fun var => ▹ (∃₂ R : var n, P var R))%OR (fun var => ∃₂ R, ▹(P var R))%OR
   | VElem n (R : OpenTerm ctx (S n)) (e : OpenTerm ctx RTexpr) : eqv ((\x, R $ x) $ e) (R $ e)
-  (* | VRecur {n : nat} (R : OpenTerm (RTrel n :: ctx) n) : eqv (fun var => @@r, R var (Rvar r))%OR (fun var => (@@r, R var (Rvar r)))%OR *)
+  | VRecur {n : nat} (R : OpenTerm (RTvar n :: ctx) n) : eqv (fun var => @@r, R var r)%OR (fun var => (@@r, R var r))%OR
   .
 
   Fixpoint Iff {n : nat} : OpenTerm ctx n -> OpenTerm ctx n -> OpenTerm ctx 0 :=
@@ -1017,18 +1049,137 @@ Section infer_rules.
 
   Infix "==" := Iff.
 
-  Inductive valid : list (OpenTerm ctx 0) -> OpenTerm ctx 0 -> Prop :=
-  | VEqv Ps P1 P2 : eqv P1 P2 -> Ps |~ P1 -> Ps |~ P2
-  | VMono Ps P : Ps |~ P -> Ps |~ ▹P
-  | VLob Ps P : ▹P :: Ps |~ P -> Ps |~ P
-  | VReplace2 Ps {n : nat} R1 R2 (P : OpenTerm (RTrel n :: ctx) 0) : Ps |~ R1 == R2 -> Ps |~ P $$ R1 -> Ps |~ P $$ R2
-  where "Ps |~ P" := (valid Ps P)
-  .
+  Implicit Types Ps : list (OpenTerm ctx 0).
+  
+  Lemma VEqv Ps P1 P2 : eqv P1 P2 -> Ps |~ P1 -> Ps |~ P2.
+    admit.
+  Qed.
+
+  Lemma VMono Ps P : Ps |~ P -> Ps |~ ▹P.
+    admit.
+  Qed.
+
+  Lemma VLob Ps P : ▹P :: Ps |~ P -> Ps |~ P.
+    admit.
+  Qed.
+  
+  (* Lemma VReplace2 Ps {n : nat} R1 R2 (P : OpenTerm (RTvar n :: ctx) 0) : Ps |~ R1 == R2 -> Ps |~ P $$ R1 -> Ps |~ P $$ R2. *)
 
 End infer_rules.
 
 Infix "==" := Iff.
-Infix "|~" := valid.
+
+Lemma VMorePs ctx (P : OpenTerm ctx 0) Ps : [] |~ P -> Ps |~ P.
+  admit.
+Qed.
+
+Lemma VCtxElimEmpty' t (P : OpenTerm [t] 0) : [] |~ P -> forall ctx (x : OpenTerm ctx (interp2varT t)), [] |~ fun var => openup1' (P var) (x var).
+Proof.
+  intros H.
+  induction ctx.
+  {
+    simpl.
+    intros x.
+    unfold valid in *.
+    simpl in *.
+    intros n Htrue.
+    unfold InterpOpen in *.
+    simpl in *.
+    unfold openup1', openup1 in *.
+    simpl in *.
+    unfold id in *.
+    simpl in *.
+    unfold UnrecurOpen in *.
+    destruct t.
+    {
+      simpl in *.
+      (*here*)
+      (* need substitution in this case *)
+      eapply H.
+      admit.
+    }
+    {
+      admit.
+    }
+    {
+      simpl in *.
+      unfold interp2varT in *.
+      simpl in *.
+      eapply H.
+      eauto.
+    }
+  }
+  {
+    simpl in *.
+    intros x.
+    admit.
+  }
+Qed.
+
+Lemma VCtxElim t ctx (P : OpenTerm (t :: ctx) 0) : [] |~ P -> forall (x : OpenTerm ctx t), [] |~ fun var => openup7 (P var) (x var).
+Proof.
+  induction ctx.
+  {
+    simpl.
+    intros H x.
+    admit.
+  }
+  {
+    simpl in *.
+    intros H x.
+    admit.
+  }
+Qed.
+
+Lemma VCtxElimEmpty t (P : OpenTerm [t] 0) : [] |~ P -> forall ctx (x : OpenTerm ctx t), [] |~ fun var => openup1 (P var) (x var).
+Proof.
+  intros H ctx x.
+
+  Require Import Setoid.
+  Require Import Coq.Classes.Morphisms.
+
+  Fixpoint Funvar_pointwise_relation {var t} (R : t var -> t var -> Prop) {ctx} : Funvar var ctx t -> Funvar var ctx t -> Prop :=
+    match ctx return Funvar var ctx t -> Funvar var ctx t -> Prop with
+      | nil => R
+      | t' :: ctx' => fun a b => forall x, Funvar_pointwise_relation R (a x) (b x)
+    end.
+
+  Definition Funvar_eq {var t ctx} (a b : Funvar var ctx t) := Funvar_pointwise_relation eq a b.
+
+  Infix "===" := Funvar_eq (at level 70).
+
+  Lemma Funvar_eq_refl var t ctx (a : Funvar var ctx t) : a === a.
+    admit.
+  Qed.
+
+  Lemma extend_openup1 t (P : OpenTerm [t] 0) ctx var (x : Funvar var ctx t) : openup7 (extend [t] ctx (P var)) x === openup1 (P var) x.
+    induction ctx.
+    {
+      simpl in *.
+      eapply Funvar_eq_refl.
+    }
+    {
+      simpl in *.
+      unfold Funvar_eq in *; simpl in *.
+      intros x1.
+      eapply IHctx.
+    }
+  Qed.
+  Lemma VFunvarEq ctx (P Q : OpenTerm ctx 0) Ps : (forall var, P var === Q var) -> Ps |~ P -> Ps |~ Q.
+    admit.
+  Qed.
+  eapply VFunvarEq.
+  {
+    intros.
+    eapply extend_openup1.
+  }
+  eapply VCtxElim.
+  Lemma VExtend ctx (P : OpenTerm ctx 0) : [] |~ P -> forall new, [] |~ (fun var => extend ctx new (P var)).
+    admit.
+  Qed.
+  eapply VExtend with (P := P).
+  eauto.
+Qed.
 
 Definition lift_Rel {ctx t2} new : Rel ctx t2 -> Rel (new :: ctx) t2 :=
   fun r var x => r var.
@@ -1156,34 +1307,6 @@ Section make_Ps.
     end.
 End make_Ps.
 
-Definition openup7 {var t1 t2} : forall {ctx}, (t1 var -> Funvar var ctx t2) -> Funvar var ctx t1 -> Funvar var ctx t2.
-  refine
-    (fix F ctx : (t1 var -> Funvar var ctx t2) -> Funvar var ctx t1 -> Funvar var ctx t2 :=
-       match ctx return (t1 var -> Funvar var ctx t2) -> Funvar var ctx t1 -> Funvar var ctx t2 with
-         | nil => _
-         | t :: ctx' => _ 
-       end);
-  simpl; eauto.
-Defined.
-
-Definition apply_Rel_Rel {n ctx t2} : Rel (n :: ctx) t2 -> Rel ctx n -> Rel ctx t2 :=
-  fun f x var => openup7 (f var) (x var).
-
-Global Instance Apply_Rel_Rel n ctx t2 : Apply (Rel (n :: ctx) t2) (Rel ctx n) (Rel ctx t2) :=
-  {
-    apply := apply_Rel_Rel
-  }.
-
-Definition openup9 {t1 t2 t3 t4 var} (f : t1 var -> t2 var -> t3 var -> t4 var) : forall {ctx}, Funvar var ctx t1 -> Funvar var ctx t2 -> Funvar var ctx t3 -> Funvar var ctx t4.
-  refine
-    (fix F ctx : Funvar var ctx t1 -> Funvar var ctx t2 -> Funvar var ctx t3 -> Funvar var ctx t4 :=
-       match ctx return Funvar var ctx t1 -> Funvar var ctx t2 -> Funvar var ctx t3 -> Funvar var ctx t4 with
-         | nil => _
-         | nv :: ctx' => _
-       end);
-  simpl; eauto.
-Defined.
-
 Definition c2n' {ctx} (c : Rel ctx (const cexpr)) : Rel ctx (const nat) :=
   fun var => openup1 (t1 := const cexpr) (t2 := const nat) c2n (c var).
 
@@ -1287,91 +1410,8 @@ Proof.
     destruct IHtyping2 as [B1 IH₁].
     exists (2 * B0 + B1 + 1).
     unfold related in *.
-    Lemma VMorePs ctx (P : Rel ctx 0) Ps : [] |~ P -> Ps |~ P.
-      admit.
-    Qed.
     eapply VMorePs.
 
-    Lemma VCtxElimEmpty' t (P : Rel [t] 0) : [] |~ P -> forall ctx (x : Rel ctx t), [] |~ fun var => openup1 (P var) (x var).
-    Proof.
-      intros H.
-      induction ctx.
-      {
-        simpl.
-        intros x.
-        admit.
-      }
-      {
-        simpl in *.
-        intros x.
-        admit.
-      }
-    Qed.
-    
-    Lemma VCtxElim t ctx (P : Rel (t :: ctx) 0) : [] |~ P -> forall (x : Rel ctx t), [] |~ fun var => openup7 (P var) (x var).
-    Proof.
-      induction ctx.
-      {
-        simpl.
-        intros H x.
-        admit.
-      }
-      {
-        simpl in *.
-        intros H x.
-        admit.
-      }
-    Qed.
-
-    Lemma VCtxElimEmpty t (P : Rel [t] 0) : [] |~ P -> forall ctx (x : Rel ctx t), [] |~ fun var => openup1 (P var) (x var).
-    Proof.
-      intros H ctx x.
-
-      Require Import Setoid.
-      Require Import Coq.Classes.Morphisms.
-
-      Fixpoint Funvar_pointwise_relation {var t} (R : t var -> t var -> Prop) {ctx} : Funvar var ctx t -> Funvar var ctx t -> Prop :=
-        match ctx return Funvar var ctx t -> Funvar var ctx t -> Prop with
-          | nil => R
-          | t' :: ctx' => fun a b => forall x, Funvar_pointwise_relation R (a x) (b x)
-        end.
-
-      Definition Funvar_eq {var t ctx} (a b : Funvar var ctx t) := Funvar_pointwise_relation eq a b.
-
-      Infix "===" := Funvar_eq (at level 70).
-
-      Lemma Funvar_eq_refl var t ctx (a : Funvar var ctx t) : a === a.
-        admit.
-      Qed.
-
-      Lemma extend_openup1 t (P : Rel [t] 0) ctx var (x : Funvar var ctx t) : openup7 (extend [t] ctx (P var)) x === openup1 (P var) x.
-        induction ctx.
-        {
-          simpl in *.
-          eapply Funvar_eq_refl.
-        }
-        {
-          simpl in *.
-          unfold Funvar_eq in *; simpl in *.
-          intros x1.
-          eapply IHctx.
-        }
-      Qed.
-      Lemma VFunvarEq ctx (P Q : Rel ctx 0) Ps : (forall var, P var === Q var) -> Ps |~ P -> Ps |~ Q.
-        admit.
-      Qed.
-      eapply VFunvarEq.
-      {
-        intros.
-        eapply extend_openup1.
-      }
-      eapply VCtxElim.
-      Lemma VExtend ctx (P : Rel ctx 0) : [] |~ P -> forall new, [] |~ (fun var => extend ctx new (P var)).
-        admit.
-      Qed.
-      eapply VExtend with (P := P).
-      eauto.
-    Qed.
     eapply VCtxElimEmpty.
 
     Open Scope rel.
