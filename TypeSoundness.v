@@ -693,7 +693,7 @@ Section open_term.
   | RTother (_ : Type)
   .
 
-  Coercion RTvar : nat >-> rtype.
+  (* Coercion RTvar : nat >-> rtype. *)
 
   Definition rcontext := list rtype.
 
@@ -716,10 +716,15 @@ End open_term.
 
 Definition OpenTerm ctx t := forall var, open_term var ctx t.
 
-Definition Rel ctx t := forall var, Funvar var ctx t.
+Definition flip_rel := flip rel.
+Coercion flip_rel : nat >-> Funclass.
 
-Definition Rel1 m := forall var, rel var m.
-Definition Rel2 m := forall var, rel2 var m.
+(* Definition Rel ctx t := forall var, Funvar var ctx t. *)
+(* Definition Rel1 m := forall var, rel var m. *)
+(* Definition Rel2 m := forall var, rel2 var m. *)
+
+Definition Rel1 m := OpenTerm [] (flip_rel m).
+Definition Rel2 m := OpenTerm [] (flip rel2 m).
 
 Definition Unrecur n {m} (R : Rel1 m) : Rel2 m := fun var => unrecur n (R (rel2 var)).
 
@@ -737,24 +742,26 @@ Definition map_se {var} {F : (nat -> Type) -> nat -> Type} (f : var 1 -> F var 1
     | CEexpr => fun e => SEexpr (expr_of_se e)
   end.
 
-Fixpoint map_csubsts {var} {F : (nat -> Type) -> nat -> Type} (f : var 1 -> F var 1) {lctx} : csubsts var lctx -> csubsts (F var) lctx :=
+Fixpoint map_csubsts {var} {F : (nat -> Type) -> nat -> Type} (f : forall m, var m -> F var m) {lctx} : csubsts var lctx -> csubsts (F var) lctx :=
   match lctx return csubsts var lctx -> csubsts (F var) lctx with
     | nil => fun _ => []%CS
     | t :: lctx' => 
       fun rho => 
         let (e, rho') := pair_of_cs rho in 
-        (map_se f e :: map_csubsts f rho')%CS
+        (map_se (f 1) e :: map_csubsts f rho')%CS
   end.
 
-Definition flip_rel := flip rel.
-Coercion flip_rel : nat >-> Funclass.
+Definition map_rtype {var F} (f : forall m, var m -> F var m) {t} : interp_rtype var t -> interp_rtype (F var) t :=
+  match t return interp_rtype var t -> interp_rtype (F var) t with
+    | RTvar _ => fun x => f _ x
+    | RTcsubsts _ => fun x => map_csubsts f x
+    | RTother _ => fun x => x
+  end.
 
 Fixpoint unrecur_open n {m : nat} {var ctx} : open_term (rel2 var) ctx m -> open_term var ctx (flip rel2 m) :=
   match ctx return open_term (rel2 var) ctx (flip rel m) -> open_term var ctx (flip rel2 m) with
     | nil => fun r => unrecur n (m := m) r
-    | RTvar _ :: ctx' => fun r x => unrecur_open n (r (R2var x))
-    | RTcsubsts _ :: ctx' => fun r x => unrecur_open n (r (map_csubsts R2var x))
-    | RTother _ :: ctx' => fun r x => unrecur_open n (r x)
+    | t :: ctx' => fun r x => unrecur_open n (r (map_rtype (@R2var _) x))
   end.
 
 Definition UnrecurOpen n {ctx} {m : nat} (R : OpenTerm ctx m) : OpenTerm ctx (flip rel2 m) := 
@@ -1073,9 +1080,113 @@ Lemma VMorePs ctx (P : OpenTerm ctx 0) Ps : [] |~ P -> Ps |~ P.
   admit.
 Qed.
 
-Lemma VCtxElimEmpty' t (P : OpenTerm [t] 0) : [] |~ P -> forall ctx (x : OpenTerm ctx (interp2varT t)), [] |~ fun var => openup1' (P var) (x var).
+Fixpoint squash {var t} (r : rel (rel var) t) : rel var t :=
+  match r with
+    | Rvar _ v => v
+    | Rinj P => Rinj P
+    | Rand a b => Rand (squash a) (squash b)
+    | Ror a b => Ror (squash a) (squash b)
+    | Rimply a b => Rimply (squash a) (squash b)
+    | Rforall1 _ g => Rforall1 (fun x => squash (g x))
+    | Rexists1 _ g => Rexists1 (fun x => squash (g x))
+    | Rforall2 _ g => Rforall2 (fun x => squash (g (Rvar x)))
+    | Rexists2 _ g => Rexists2 (fun x => squash (g (Rvar x)))
+    | Rabs _ g => Rabs (fun e => squash (g e))
+    | Rapp _ a e => Rapp (squash a) e
+    | Rrecur _ g => Rrecur (fun x => squash (g (Rvar x)))
+    | Rlater P => Rlater (squash P)
+  end.
+
+Fixpoint Sub' {t1 t2} (f : forall var, t1 var -> rel var t2) (x : forall var, t1 var) : forall var, rel var t2 :=
+  fun var => squash ((f (rel var)) (x (rel var))).
+
+Coercion interp2varT : rtype >-> varT.
+
+Definition Sub {t1 t2} (f : OpenTerm [t1] (flip_rel t2)) (x : OpenTerm [] t1) : OpenTerm [] (flip_rel t2) := Sub' f x.
+
+Fixpoint sub_open' {var t1 t2} {ctx} : open_term (rel var) (t1 :: ctx) (flip_rel t2) -> open_term (rel var) ctx t1 -> open_term var ctx (flip_rel t2) :=
+  match ctx return open_term (rel var) (t1 :: ctx) (flip_rel t2) -> open_term (rel var) ctx t1 -> open_term var ctx (flip_rel t2) with
+    | nil => fun f x => squash (f x)
+    | t :: ctx' => fun f x a => sub_open' (flip f (map_rtype (@Rvar _) a)) (x (map_rtype (@Rvar _) a))
+  end.
+
+Definition SubOpen' {t1 t2 ctx} (f : OpenTerm (t1 :: ctx) (flip_rel t2)) (x : OpenTerm ctx t1) : OpenTerm ctx (flip_rel t2) := fun var => sub_open' (f (rel var)) (x (rel var)).
+
+Global Instance Apply_OpenTerm_OpenTerm' {t1 t2 ctx} : Apply (OpenTerm (t1 :: ctx) (flip_rel t2)) (OpenTerm ctx t1) (OpenTerm ctx (flip_rel t2)) := 
+  {
+    apply := SubOpen'
+  }.
+
+Fixpoint sub_open {var t1 t2} (f : t1 (rel var) -> rel (rel var) t2) {ctx} : open_term (rel var) ctx t1 -> open_term var ctx (flip_rel t2) :=
+  match ctx return open_term (rel var) ctx t1 -> open_term var ctx (flip_rel t2) with
+    | nil => fun x => squash (f x)
+    | t :: ctx' => fun x a => sub_open f (x (map_rtype (@Rvar _) a))
+  end.
+
+Definition SubOpen {t1 t2 ctx} (f : OpenTerm [t1] (flip_rel t2)) (x : OpenTerm ctx t1) : OpenTerm ctx (flip_rel t2) := fun var => sub_open (f (rel var)) (x (rel var)).
+
+Global Instance Apply_OpenTerm_OpenTerm {t1 t2 ctx} : Apply (OpenTerm [t1] (flip_rel t2)) (OpenTerm ctx t1) (OpenTerm ctx (flip_rel t2)) := 
+  {
+    apply := SubOpen
+  }.
+
+Lemma VCtxElimEmpty' t (P : open_term (rel (rel2 mono_erel)) [t] 0) : 
+  (forall n (x : interp_rtype (rel (rel2 mono_erel)) t),
+     interp n (unrecur n (squash (P x)))) ->
+  forall ctx (x : open_term (rel (rel2 mono_erel)) ctx t) n, 
+    forall_ctx [] (interp_open n (unrecur_open n (sub_open P x))).
 Proof.
   intros H.
+  induction ctx.
+  {
+    simpl.
+    intros x.
+    simpl in *.
+    intros n Htrue.
+    eapply H.
+  }
+  {
+    rename t into t2.
+    rename a into t1.
+    simpl in *.
+    intros x.
+    intros n a.
+    eapply IHctx.
+  }
+Qed.
+
+Lemma VCtxElimEmpty t (P : OpenTerm [t] 0) : [] |~ P -> forall ctx (x : OpenTerm ctx t), [] |~ P $ x.
+Proof.
+  intros H.
+  intros ctx x.
+  unfold valid in *.
+  simpl in *.
+  unfold InterpOpen in *.
+  simpl in *.
+  unfold SubOpen in *.
+  simpl in *.
+  unfold UnrecurOpen in *.
+  simpl in *.
+  intros n.
+  eapply VCtxElimEmpty'.
+  intros n' x'.
+  destruct t.
+  {
+    simpl in *.
+    rename n0 into m.
+    (*here*)
+  }
+  Lemma squash_apply var t1 t2 (f : forall var, t1 var -> rel var t2) (x : forall var, t1 var) : squash ((f (rel var)) (x (rel var))) = f var (x var).
+    admit.
+  Qed.
+  rewrite squash_apply.
+  Lemma map_rtype_good var {F} f (t : rtype) (x : forall var, interp_rtype var t) : map_rtype f (x var) = x (F var).
+    admit.
+  Qed.
+  erewrite <- (map_rtype_good mono_erel (@R2var _) t).
+  eapply H.
+  eauto.
+
   induction ctx.
   {
     simpl.
@@ -1085,38 +1196,39 @@ Proof.
     intros n Htrue.
     unfold InterpOpen in *.
     simpl in *.
-    unfold openup1', openup1 in *.
-    simpl in *.
-    unfold id in *.
+    unfold SubOpen in *.
     simpl in *.
     unfold UnrecurOpen in *.
-    destruct t.
-    {
-      simpl in *.
-      (*here*)
-      (* need substitution in this case *)
-      eapply H.
+    simpl in *.
+    Lemma squash_apply var t1 t2 (f : forall var, t1 var -> rel var t2) (x : forall var, t1 var) : squash ((f (rel var)) (x (rel var))) = f var (x var).
       admit.
-    }
-    {
+    Qed.
+    rewrite squash_apply.
+    Lemma map_rtype_good var {F} f (t : rtype) (x : forall var, interp_rtype var t) : map_rtype f (x var) = x (F var).
       admit.
-    }
-    {
-      simpl in *.
-      unfold interp2varT in *.
-      simpl in *.
-      eapply H.
-      eauto.
-    }
+    Qed.
+    erewrite <- (map_rtype_good mono_erel (@R2var _) t).
+    eapply H.
+    eauto.
   }
   {
+    rename t into t2.
+    rename a into t1.
     simpl in *.
     intros x.
-    admit.
+    unfold valid in *.
+    simpl in *.
+    intros n a.
+    unfold InterpOpen in *.
+    simpl in *.
+    unfold SubOpen in *.
+    simpl in *.
+    unfold UnrecurOpen in *.
+    simpl in *.
   }
 Qed.
 
-Lemma VCtxElim t ctx (P : OpenTerm (t :: ctx) 0) : [] |~ P -> forall (x : OpenTerm ctx t), [] |~ fun var => openup7 (P var) (x var).
+Lemma VCtxElim t ctx (P : OpenTerm (t :: ctx) 0) : [] |~ P -> forall (x : OpenTerm ctx t), [] |~ P $ x.
 Proof.
   induction ctx.
   {
