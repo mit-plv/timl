@@ -777,10 +777,10 @@ Definition InterpOpen {ctx} {m : nat} n (R : OpenTerm ctx m) : open_term mono_er
   let R' := UnrecurOpen n R in
   interp_open n (R' mono_erel).
 
-Fixpoint for_all {T m} : (T -> erel m) -> erel m :=
+Fixpoint forall_erel {T m} : (T -> erel m) -> erel m :=
   match m with
     | 0 => fun f => forall x, f x
-    | S m' => fun f e => for_all (flip f e)
+    | S m' => fun f e => forall_erel (flip f e)
   end.
 
 Fixpoint All ls :=
@@ -1155,6 +1155,205 @@ Proof.
   }
 Qed.
 
+Section wf.
+
+  Variable var1 var2 : nat -> Type.
+  
+  Record varEntry :=
+    {
+      Arity : nat;
+      First : var1 Arity;
+      Second : var2 Arity
+    }.
+
+  Inductive wf : list varEntry -> forall t, rel var1 t -> rel var2 t -> Prop :=
+  | WFvar G t x x' : In (@Build_varEntry t x x') G -> wf G (Rvar x) (Rvar x')
+  | WFinj G P : wf G (Rinj P) (Rinj P)
+  | WFand G a b a' b' :
+      wf G a a' ->
+      wf G b b' ->
+      wf G (Rand a b) (Rand a' b')
+  | WFor G a b a' b' :
+      wf G a a' ->
+      wf G b b' ->
+      wf G (Ror a b) (Ror a' b')
+  | WFimply G a b a' b' :
+      wf G a a' ->
+      wf G b b' ->
+      wf G (Rimply a b) (Rimply a' b')
+  | WFforall1 G T g g' :
+      (forall x : T, wf G (g x) (g' x)) ->
+      wf G (Rforall1 g) (Rforall1 g')
+  | WFexists1 G T g g' :
+      (forall x : T, wf G (g x) (g' x)) ->
+      wf G (Rexists1 g) (Rexists1 g')
+  | WFforall2 G n g g' :
+      (forall x x', wf (@Build_varEntry n x x' :: G) (g x) (g' x')) ->
+      wf G (Rforall2 g) (Rforall2 g')
+  | WFexists2 G n g g' :
+      (forall x x', wf (@Build_varEntry n x x' :: G) (g x) (g' x')) ->
+      wf G (Rexists2 g) (Rexists2 g')
+  | WFrecur G n g g' :
+      (forall x x', wf (@Build_varEntry n x x' :: G) (g x) (g' x')) ->
+      wf G (Rrecur g) (Rrecur g')
+  | WFabs G n g g' :
+      (forall e, wf G (g e) (g' e)) ->
+      wf G (Rabs (n := n) g) (Rabs g')
+  | WFapp G n r r' e :
+      wf G r r' ->
+      wf G (Rapp (n := n) r e) (Rapp r' e)
+  | WFlater G P P' :
+      wf G P P' ->
+      wf G (Rlater P) (Rlater P')
+  .
+
+End wf.
+
+Lemma Forall_In A P ls (x : A) : Forall P ls -> In x ls -> P x.
+Proof.
+  intros Hf Hin; eapply Forall_forall in Hf; eauto.
+Qed.
+
+Fixpoint and_erel {m} : erel m -> erel m -> erel m :=
+  match m with
+    | 0 => and
+    | S m' => fun a b x => and_erel (a x) (b x)
+  end.
+
+Fixpoint iff_erel {m} : erel m -> erel m -> Prop :=
+  match m with
+    | 0 => iff
+    | S m' => fun a b => forall x, iff_erel (a x) (b x)
+  end.
+
+Instance Equal_erel m : Equal (erel m) :=
+  {
+    equal := iff_erel
+  }.
+
+Local Open Scope G.
+
+Lemma iff_erel_refl {m} (a : erel m) : a == a.
+  admit.
+Qed.
+
+Lemma iff_erel_symm {m} (a b : erel m) : a == b -> b == a.
+  admit.
+Qed.
+
+Lemma iff_erel_trans {m} (a b c : erel m) : a == b -> b == c -> a == c.
+  admit.
+Qed.
+
+Global Add Parametric Relation m : (erel m) (@iff_erel m)
+    reflexivity proved by iff_erel_refl
+    symmetry proved by iff_erel_symm
+    transitivity proved by iff_erel_trans
+      as iff_erel_Rel.
+
+Hint Extern 0 (iff_erel _ _) => reflexivity.
+Hint Extern 0 (_ <-> _) => reflexivity.
+
+Lemma squash_interp' :
+  forall n G m (r1 : rel (rel (rel2 mono_erel)) m) (r2 : rel (rel2 mono_erel) m),
+    wf G r1 r2 ->
+    Forall (fun ve => interp n (unrecur n (First ve)) == interp n (Second ve)) G ->
+    interp n (unrecur n (squash r1)) == interp n (unrecur n r2).
+Proof.
+  induction n.
+  { simpl; eauto. }
+  induction 1.
+  Focus 10.
+  {
+    rename n0 into m.
+    intros Hforall.
+    Require Import Arith.
+    Lemma interp_recur n m : forall g, interp n (unrecur n (Rrecur (n := m) g)) == interp n (unrecur n (g (unrecur (n - 1) (Rrecur g)))).
+    Proof.
+      induction n; simpl; try rewrite <- minus_n_O; intuition. 
+    Qed.
+    Lemma interp_var n m (x : rel2 mono_erel m) : interp n (unrecur n (Rvar x)) == interp n x.
+    Proof.
+      destruct n; simpl; eauto.
+    Qed.
+    (* simpl. *)
+    Opaque unrecur interp.
+    simpl.
+    repeat rewrite interp_recur.
+    simpl.
+    repeat rewrite <- minus_n_O.
+    eapply H0.
+    eapply Forall_cons; eauto.
+    simpl.
+    rewrite interp_var.
+    repeat rewrite interp_recur.
+    Transparent unrecur interp.
+    (*here*)
+  }
+
+
+  induction 1.
+  {
+    intros n Hforall.
+    simpl in *.
+    eapply Forall_In in Hforall; eauto.
+    simpl in *.
+    rewrite interp_var.
+    eauto.
+  }
+  {
+    intros n Hforall.
+    reflexivity.
+  }
+  {
+    intros n Hforall.
+    simpl.
+    Lemma interp_and n : forall (a b : rel (rel2 mono_erel) 0), interp n (unrecur n (a /\ b)) <-> interp n (unrecur n a) /\ interp n (unrecur n b).
+    Proof.
+      induction n; simpl; intuition.
+    Qed.
+    repeat rewrite interp_and.
+    simpl in *.
+    rewrite IHwf1 by eauto.
+    rewrite IHwf2 by eauto.
+    eauto.
+  }
+  admit.
+  admit.
+  {
+    intros n Hforall.
+    simpl in *.
+    Lemma interp_forall1 n T : forall (g : T -> rel (rel2 mono_erel) 0), interp n (unrecur n (Rforall1 g)) <-> forall x, interp n (unrecur n (g x)).
+    Proof.
+      induction n; simpl; intuition.
+    Qed.
+    repeat rewrite interp_forall1.
+    intuition; eapply H0; eauto.
+  }
+  admit.
+  {
+    rename n into m.
+    intros n Hforall.
+    simpl in *.
+    Lemma interp_forall2 n m : forall g, interp n (unrecur n (Rforall2 (n := m) g)) <-> forall x, interp n (unrecur n (g (R2var x))).
+    Proof.
+      induction n; simpl; intuition. 
+    Qed.
+    repeat rewrite interp_forall2.
+    intuition; eapply H0; eauto; eapply Forall_cons; eauto; simpl; repeat rewrite interp_var; eauto.
+  }
+  admit.
+Qed.
+
+Lemma interp_monotone {m} (r : rel (rel2 mono_erel) m) : monotone (fun n => interp n (unrecur n r)).
+  admit.
+Qed.
+
+Lemma squash_interp m (P : OpenTerm [RTvar m] 0) n (x : rel (rel2 mono_erel) m) : interp n (unrecur n (squash (P (rel (rel2 mono_erel)) x))) = interp n (unrecur n (P (rel2 mono_erel) (R2var (exist _ _ (interp_monotone x))))).
+Proof.
+  admit.
+Qed.
+
 Lemma VCtxElimEmpty t (P : OpenTerm [t] 0) : [] |~ P -> forall ctx (x : OpenTerm ctx t), [] |~ P $ x.
 Proof.
   intros H.
@@ -1174,7 +1373,9 @@ Proof.
   {
     simpl in *.
     rename n0 into m.
-    (*here*)
+    rewrite squash_interp.
+    eapply H.
+    eauto.
   }
   Lemma squash_apply var t1 t2 (f : forall var, t1 var -> rel var t2) (x : forall var, t1 var) : squash ((f (rel var)) (x (rel var))) = f var (x var).
     admit.
