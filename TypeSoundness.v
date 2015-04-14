@@ -1155,60 +1155,6 @@ Proof.
   }
 Qed.
 
-Section wf.
-
-  Variable var1 var2 : nat -> Type.
-  
-  Record varEntry :=
-    {
-      Arity : nat;
-      First : var1 Arity;
-      Second : var2 Arity
-    }.
-
-  Inductive wf : list varEntry -> forall t, rel var1 t -> rel var2 t -> Prop :=
-  | WFvar G t x x' : In (@Build_varEntry t x x') G -> wf G (Rvar x) (Rvar x')
-  | WFinj G P : wf G (Rinj P) (Rinj P)
-  | WFand G a b a' b' :
-      wf G a a' ->
-      wf G b b' ->
-      wf G (Rand a b) (Rand a' b')
-  | WFor G a b a' b' :
-      wf G a a' ->
-      wf G b b' ->
-      wf G (Ror a b) (Ror a' b')
-  | WFimply G a b a' b' :
-      wf G a a' ->
-      wf G b b' ->
-      wf G (Rimply a b) (Rimply a' b')
-  | WFforall1 G T g g' :
-      (forall x : T, wf G (g x) (g' x)) ->
-      wf G (Rforall1 g) (Rforall1 g')
-  | WFexists1 G T g g' :
-      (forall x : T, wf G (g x) (g' x)) ->
-      wf G (Rexists1 g) (Rexists1 g')
-  | WFforall2 G n g g' :
-      (forall x x', wf (@Build_varEntry n x x' :: G) (g x) (g' x')) ->
-      wf G (Rforall2 g) (Rforall2 g')
-  | WFexists2 G n g g' :
-      (forall x x', wf (@Build_varEntry n x x' :: G) (g x) (g' x')) ->
-      wf G (Rexists2 g) (Rexists2 g')
-  | WFrecur G n g g' :
-      (forall x x', wf (@Build_varEntry n x x' :: G) (g x) (g' x')) ->
-      wf G (Rrecur g) (Rrecur g')
-  | WFabs G n g g' :
-      (forall e, wf G (g e) (g' e)) ->
-      wf G (Rabs (n := n) g) (Rabs g')
-  | WFapp G n r r' e :
-      wf G r r' ->
-      wf G (Rapp (n := n) r e) (Rapp r' e)
-  | WFlater G P P' :
-      wf G P P' ->
-      wf G (Rlater P) (Rlater P')
-  .
-
-End wf.
-
 Lemma Forall_In A P ls (x : A) : Forall P ls -> In x ls -> P x.
 Proof.
   intros Hf Hin; eapply Forall_forall in Hf; eauto.
@@ -1254,47 +1200,115 @@ Global Add Parametric Relation m : (erel m) (@iff_erel m)
 Hint Extern 0 (iff_erel _ _) => reflexivity.
 Hint Extern 0 (_ <-> _) => reflexivity.
 
+Section wf.
+
+  Variable var1 var2 : nat -> Type.
+  
+  Record varEntry :=
+    {
+      Level : nat;
+      Arity : nat;
+      First : var1 Arity;
+      Second : var2 Arity
+    }.
+
+  Inductive wf : nat -> list varEntry -> forall t, rel var1 t -> rel var2 t -> Prop :=
+  | WFrecur n G m g g' :
+      wf n G  (Rrecur g) (Rrecur g') ->
+      (forall x x', wf (S n) (@Build_varEntry n m x x' :: G) (g x) (g' x')) ->
+      wf (S n) G (Rrecur g) (Rrecur g')
+  | WFlater n G P P' :
+      wf n G P P' ->
+      wf n G (Rlater P) (Rlater P')
+  | WF0 G t r r' : @wf 0 G t r r'
+  | WFvar n G t x x' : In (@Build_varEntry n t x x') G -> wf n G (Rvar x) (Rvar x')
+  | WFinj n G P : wf n G (Rinj P) (Rinj P)
+  | WFand n G a b a' b' :
+      wf n G a a' ->
+      wf n G b b' ->
+      wf n G (Rand a b) (Rand a' b')
+  | WFor n G a b a' b' :
+      wf n G a a' ->
+      wf n G b b' ->
+      wf n G (Ror a b) (Ror a' b')
+  | WFimply n G a b a' b' :
+      wf n G a a' ->
+      wf n G b b' ->
+      wf n G (Rimply a b) (Rimply a' b')
+  | WFforall1 n G T g g' :
+      (forall x : T, wf n G (g x) (g' x)) ->
+      wf n G (Rforall1 g) (Rforall1 g')
+  | WFexists1 n G T g g' :
+      (forall x : T, wf n G (g x) (g' x)) ->
+      wf n G (Rexists1 g) (Rexists1 g')
+  | WFforall2 n G m g g' :
+      (forall x x', wf n (@Build_varEntry n m x x' :: G) (g x) (g' x')) ->
+      wf n G (Rforall2 g) (Rforall2 g')
+  | WFexists2 n G m g g' :
+      (forall x x', wf n (@Build_varEntry n m x x' :: G) (g x) (g' x')) ->
+      wf n G (Rexists2 g) (Rexists2 g')
+  | WFabs n G m g g' :
+      (forall e, wf n G (g e) (g' e)) ->
+      wf n G (Rabs (n := m) g) (Rabs g')
+  | WFapp n G m r r' e :
+      wf n G r r' ->
+      wf n G (Rapp (n := m) r e) (Rapp r' e)
+  .
+
+End wf.
+
+Lemma interp_recur m n : forall n2 g, interp n2 (unrecur n (Rrecur (n := m) g)) == interp n2 (unrecur n (g (unrecur (pred n) (Rrecur g)))).
+Proof.
+  induction n; simpl; intuition. 
+Qed.
+Lemma interp_var m (x : rel2 mono_erel m) n : interp n (unrecur n (Rvar x)) == interp n x.
+Proof.
+  destruct n; simpl; eauto.
+Qed.
+Lemma interp_var' m (x : rel2 mono_erel m) n : forall n2, n2 <= n -> interp n2 (unrecur n (Rvar x)) == interp n2 x.
+Proof.
+  destruct n; simpl; eauto.
+  destruct n2; simpl; intros; eauto; try omega.
+Qed.
+Lemma interp_const_rel2_true m : forall n, interp n (const_rel2 True m) == const_erel True m.
+Proof.
+  induction m; destruct n; simpl in *; intuition eauto.
+  eapply IHm with (n := S n).
+Qed.
+
+(* Lemma squash_interp' : *)
+(*   forall n G m (r1 : rel (rel (rel2 mono_erel)) m) (r2 : rel (rel2 mono_erel) m), *)
+(*     wf n G r1 r2 -> *)
+(*     Forall (fun ve => forall k k2, k <= n -> k2 <= k -> interp k2 (unrecur k (First ve)) == interp k2 (Second ve)) G -> *)
+(*     forall k, *)
+(*       k <= n -> *)
+(*       interp k (unrecur n (squash r1)) == interp k (unrecur n r2). *)
 Lemma squash_interp' :
   forall n G m (r1 : rel (rel (rel2 mono_erel)) m) (r2 : rel (rel2 mono_erel) m),
-    wf G r1 r2 ->
-    Forall (fun ve => interp n (unrecur n (First ve)) == interp n (Second ve)) G ->
+    wf n G r1 r2 ->
+    Forall (fun ve => let n := Level ve in interp n (unrecur n (First ve)) == interp n (Second ve)) G ->
     interp n (unrecur n (squash r1)) == interp n (unrecur n r2).
 Proof.
-  induction n.
-  { simpl; eauto. }
-  induction 1.
-  Focus 10.
+  induction 1; intros Hforall.
   {
-    rename n0 into m.
-    intros Hforall.
-    Require Import Arith.
-    Lemma interp_recur n m : forall g, interp n (unrecur n (Rrecur (n := m) g)) == interp n (unrecur n (g (unrecur (n - 1) (Rrecur g)))).
-    Proof.
-      induction n; simpl; try rewrite <- minus_n_O; intuition. 
-    Qed.
-    Lemma interp_var n m (x : rel2 mono_erel m) : interp n (unrecur n (Rvar x)) == interp n x.
-    Proof.
-      destruct n; simpl; eauto.
-    Qed.
-    (* simpl. *)
     Opaque unrecur interp.
     simpl.
     repeat rewrite interp_recur.
     simpl.
-    repeat rewrite <- minus_n_O.
-    eapply H0.
+    eapply H1; eauto.
     eapply Forall_cons; eauto.
     simpl.
-    rewrite interp_var.
-    repeat rewrite interp_recur.
+    (* intros k1 k2 Hk1 Hk2. *)
+    rewrite interp_var by eauto.
+    eapply IHwf.
+    eauto.
     Transparent unrecur interp.
-    (*here*)
   }
-
-
-  induction 1.
+  admit.
   {
-    intros n Hforall.
+    reflexivity.
+  }
+  {
     simpl in *.
     eapply Forall_In in Hforall; eauto.
     simpl in *.
@@ -1302,11 +1316,9 @@ Proof.
     eauto.
   }
   {
-    intros n Hforall.
     reflexivity.
   }
   {
-    intros n Hforall.
     simpl.
     Lemma interp_and n : forall (a b : rel (rel2 mono_erel) 0), interp n (unrecur n (a /\ b)) <-> interp n (unrecur n a) /\ interp n (unrecur n b).
     Proof.
@@ -1321,7 +1333,6 @@ Proof.
   admit.
   admit.
   {
-    intros n Hforall.
     simpl in *.
     Lemma interp_forall1 n T : forall (g : T -> rel (rel2 mono_erel) 0), interp n (unrecur n (Rforall1 g)) <-> forall x, interp n (unrecur n (g x)).
     Proof.
@@ -1332,8 +1343,6 @@ Proof.
   }
   admit.
   {
-    rename n into m.
-    intros n Hforall.
     simpl in *.
     Lemma interp_forall2 n m : forall g, interp n (unrecur n (Rforall2 (n := m) g)) <-> forall x, interp n (unrecur n (g (R2var x))).
     Proof.
@@ -1343,15 +1352,30 @@ Proof.
     intuition; eapply H0; eauto; eapply Forall_cons; eauto; simpl; repeat rewrite interp_var; eauto.
   }
   admit.
+  admit.
+  admit.
 Qed.
 
 Lemma interp_monotone {m} (r : rel (rel2 mono_erel) m) : monotone (fun n => interp n (unrecur n r)).
   admit.
 Qed.
 
-Lemma squash_interp m (P : OpenTerm [RTvar m] 0) n (x : rel (rel2 mono_erel) m) : interp n (unrecur n (squash (P (rel (rel2 mono_erel)) x))) = interp n (unrecur n (P (rel2 mono_erel) (R2var (exist _ _ (interp_monotone x))))).
+Lemma wf_OpenTerm m (P : OpenTerm [RTvar m] 0) n x1 x2 : wf n [@Build_varEntry _ _ n m x1 x2] (P (rel (rel2 mono_erel)) x1) (P (rel2 mono_erel) x2).
 Proof.
   admit.
+Qed.
+
+Lemma squash_interp m (P : OpenTerm [RTvar m] 0) n (x : rel (rel2 mono_erel) m) : interp n (unrecur n (squash (P (rel (rel2 mono_erel)) x))) == interp n (unrecur n (P (rel2 mono_erel) (R2var (exist _ _ (interp_monotone x))))).
+Proof.
+  eapply squash_interp'.
+  {
+    eapply wf_OpenTerm.
+  }
+  {
+    simpl.
+    repeat econstructor; simpl.
+    destruct n; eauto.
+  }
 Qed.
 
 Lemma VCtxElimEmpty t (P : OpenTerm [t] 0) : [] |~ P -> forall ctx (x : OpenTerm ctx t), [] |~ P $ x.
@@ -1377,58 +1401,11 @@ Proof.
     eapply H.
     eauto.
   }
-  Lemma squash_apply var t1 t2 (f : forall var, t1 var -> rel var t2) (x : forall var, t1 var) : squash ((f (rel var)) (x (rel var))) = f var (x var).
-    admit.
-  Qed.
-  rewrite squash_apply.
-  Lemma map_rtype_good var {F} f (t : rtype) (x : forall var, interp_rtype var t) : map_rtype f (x var) = x (F var).
-    admit.
-  Qed.
-  erewrite <- (map_rtype_good mono_erel (@R2var _) t).
-  eapply H.
-  eauto.
-
-  induction ctx.
-  {
-    simpl.
-    intros x.
-    unfold valid in *.
-    simpl in *.
-    intros n Htrue.
-    unfold InterpOpen in *.
-    simpl in *.
-    unfold SubOpen in *.
-    simpl in *.
-    unfold UnrecurOpen in *.
-    simpl in *.
-    Lemma squash_apply var t1 t2 (f : forall var, t1 var -> rel var t2) (x : forall var, t1 var) : squash ((f (rel var)) (x (rel var))) = f var (x var).
-      admit.
-    Qed.
-    rewrite squash_apply.
-    Lemma map_rtype_good var {F} f (t : rtype) (x : forall var, interp_rtype var t) : map_rtype f (x var) = x (F var).
-      admit.
-    Qed.
-    erewrite <- (map_rtype_good mono_erel (@R2var _) t).
-    eapply H.
-    eauto.
-  }
-  {
-    rename t into t2.
-    rename a into t1.
-    simpl in *.
-    intros x.
-    unfold valid in *.
-    simpl in *.
-    intros n a.
-    unfold InterpOpen in *.
-    simpl in *.
-    unfold SubOpen in *.
-    simpl in *.
-    unfold UnrecurOpen in *.
-    simpl in *.
-  }
+  admit. (* csubsts *)
+  admit. (* other *)
 Qed.
 
+(*
 Lemma VCtxElim t ctx (P : OpenTerm (t :: ctx) 0) : [] |~ P -> forall (x : OpenTerm ctx t), [] |~ P $ x.
 Proof.
   induction ctx.
@@ -1493,6 +1470,7 @@ Proof.
   eapply VExtend with (P := P).
   eauto.
 Qed.
+ *)
 
 Definition lift_Rel {ctx t2} new : Rel ctx t2 -> Rel (new :: ctx) t2 :=
   fun r var x => r var.
