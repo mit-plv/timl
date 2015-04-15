@@ -795,6 +795,28 @@ Fixpoint forall_ctx {ctx} : list (open_term mono_erel ctx (const Prop)) -> open_
     | t :: ctx' => fun Ps P => forall x, forall_ctx (map (flip apply_arrow x) Ps) (P x)
   end.
 
+Definition onat_eq_b := option_eq_b EqNat.beq_nat.
+
+Inductive relDD ctx : nat -> Type :=
+| DDvar m n : onat_eq_b (nth_error ctx n) (Some m) = true -> relDD ctx m
+| DDinj : Prop -> relDD ctx 0
+| DDand (_ _ : relDD ctx 0) : relDD ctx 0
+| DDor (_ _ : relDD ctx 0) : relDD ctx 0
+| DDimply (_ _ : relDD ctx 0) : relDD ctx 0
+| DDforall1 T : (T -> relDD ctx 0) -> relDD ctx 0
+| DDexists1 T : (T -> relDD ctx 0) -> relDD ctx 0
+| DDforall2 m : relDD (m :: ctx) 0 -> relDD ctx 0
+| DDexists2 m : relDD (m :: ctx) 0 -> relDD ctx 0
+| DDabs m : (expr -> relDD ctx m) -> relDD ctx (S m)
+| DDapp m : relDD ctx (S m) -> expr -> relDD ctx m
+| DDrecur m : relDD (m :: ctx) m -> relDD ctx m
+| DDlater : relDD ctx 0 -> relDD ctx 0
+.
+
+Fixpoint toDD {m} (r : rel ? m) ctx :=
+  match r with
+    | Rforall2 m' g => toDD (g []) (m' :: ctx)
+
 Definition valid {ctx} : list (OpenTerm ctx 0) -> OpenTerm ctx 0 -> Prop :=
   fun Ps P => forall n, forall_ctx (map (InterpOpen n) Ps) (InterpOpen n P).
 
@@ -1217,6 +1239,9 @@ Section wf.
       wf n G (Rrecur g) (Rrecur g') ->
       (forall x x', wf (S n) (@Build_varEntry n m x x' :: G) (g x) (g' x')) ->
       wf (S n) G (Rrecur g) (Rrecur g')
+  | WFvar n G t x x' : 
+      In (@Build_varEntry n t x x') G -> 
+      wf n G (Rvar x) (Rvar x')
   | WFlater n G P P' :
       wf n G P P' ->
       wf (S n) G (Rlater P) (Rlater P')
@@ -1226,9 +1251,6 @@ Section wf.
   (*     forall n2, *)
   (*       n2 <= n1 -> *)
   (*       wf n2 G r r' *)
-  | WFvar n G t x x' : 
-      In (@Build_varEntry n t x x') G -> 
-      wf n G (Rvar x) (Rvar x')
   | WFinj n G P : wf n G (Rinj P) (Rinj P)
   | WFand n G a b a' b' :
       wf n G a a' ->
@@ -1273,10 +1295,10 @@ Section wf.
   | WF2recur G m g g' :
       (forall x x', wf2 (@Build_varEntry2 m x x' :: G) (g x) (g' x')) ->
       wf2 G (Rrecur g) (Rrecur g')
+  | WF2var G t x x' : In (@Build_varEntry2 t x x') G -> wf2 G (Rvar x) (Rvar x')
   | WF2later G P P' :
       wf2 G P P' ->
       wf2 G (Rlater P) (Rlater P')
-  | WF2var G t x x' : In (@Build_varEntry2 t x x') G -> wf2 G (Rvar x) (Rvar x')
   | WF2inj G P : wf2 G (Rinj P) (Rinj P)
   | WF2and G a b a' b' :
       wf2 G a a' ->
@@ -1326,7 +1348,89 @@ Section wf.
   (*   } *)
   (* Qed. *)
 
-  (* Lemma wf2_wf n : forall r1 r2, wf2 G r1 r2 -> wf n G r1 r2. *)
+  Definition to_varEntry n e := let '(Build_varEntry2 m a b) := e in @Build_varEntry n m a b.
+
+  (* Definition toG n (G : list varEntry2) := *)
+  (*   map (to_varEntry n) G. *)
+
+  Fixpoint anyG f (G : list varEntry2) : Prop :=
+    match G with
+      | nil => f nil
+      | e :: G' => forall n, anyG (fun G => f (to_varEntry n e :: G)) G'
+    end.
+
+  Lemma wf2_wf : forall G t r1 r2, @wf2 G t r1 r2 -> forall n, anyG (fun G => wf n G r1 r2) G.
+  Proof.
+    induction 1; simpl in *.
+    {
+      induction n; simpl in *.
+      { 
+        Lemma anyG_any G : forall f, (forall G, f G : Prop) -> anyG f G.
+        Proof.
+          induction G; simpl in *; eauto.
+        Qed.
+        eapply anyG_any.
+        { intros; econstructor. }
+      }
+      Lemma anyG_imp2 G : forall (f1 f2 f : _ -> Prop), (forall G, f1 G -> f2 G -> f G) -> anyG f1 G -> anyG f2 G -> anyG f G.
+      Proof.
+        induction G; simpl in *; eauto.
+        intros.
+        eapply IHG; [ | eapply H0 | eapply H1]; eauto.
+        simpl.
+        eauto.
+      Qed.
+      eapply anyG_imp2.
+      {
+        intros G'; intros.
+        econstructor; pattern G'; eauto.
+      }
+      {
+        Lemma anyG_lift G : forall T f, (forall x : T, anyG (f x) G) -> anyG (fun G => forall x, f x G) G.
+        Proof.
+          induction G; simpl in *; eauto.
+        Qed.
+        eapply anyG_lift; intros x.
+        eapply anyG_lift; intros x'.
+        eapply H0.
+      }      
+      eapply IHn.
+    }
+    {
+     admit. (* var *) 
+    }
+    {
+      induction n; simpl in *.
+      { 
+        eapply anyG_any.
+        { intros; econstructor. }
+      }
+      Lemma anyG_imp1 G : forall (f1 f : _ -> Prop), (forall G, f1 G -> f G) -> anyG f1 G -> anyG f G.
+      Proof.
+        induction G; simpl in *; eauto.
+        intros.
+        eapply IHG; [ | eapply H0 ]; eauto.
+        simpl.
+        eauto.
+      Qed.
+      eapply anyG_imp1.
+      {
+        intros G'; intros.
+        econstructor; pattern G'; eauto.
+      }
+      eauto.
+    }
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+  Qed.
 
   Fixpoint wfOpen {t : nat} n G {ctx} : open_term var1 ctx t -> open_term var2 ctx t -> Type :=
     match ctx return open_term var1 ctx t -> open_term var2 ctx t -> Type with
@@ -1379,6 +1483,13 @@ Proof.
     eapply IHwf; simpl; eauto.
     Transparent unrecur interp.
   }
+  {
+    simpl in *.
+    eapply Forall_In in Hforall; eauto.
+    simpl in *.
+    rewrite interp_var.
+    eauto.
+  }
   admit. (* later *)
   {
     (* assert (n' = 0) by (simpl in *; omega); subst. *)
@@ -1387,13 +1498,6 @@ Proof.
   (* { *)
   (*   eapply IHwf; simpl in *; eauto; omega. *)
   (* } *)
-  {
-    simpl in *.
-    eapply Forall_In in Hforall; eauto.
-    simpl in *.
-    rewrite interp_var.
-    eauto.
-  }
   {
     reflexivity.
   }
