@@ -797,8 +797,10 @@ Fixpoint forall_ctx {ctx} : list (open_term mono_erel ctx (const Prop)) -> open_
 
 Definition onat_eq_b := option_eq_b EqNat.beq_nat.
 
+Definition DDv ctx m := {n | onat_eq_b (nth_error ctx n) (Some m) = true}.
+
 Inductive relDD ctx : nat -> Type :=
-| DDvar m n : onat_eq_b (nth_error ctx n) (Some m) = true -> relDD ctx m
+| DDvar m : DDv ctx m -> relDD ctx m
 | DDinj : Prop -> relDD ctx 0
 | DDand (_ _ : relDD ctx 0) : relDD ctx 0
 | DDor (_ _ : relDD ctx 0) : relDD ctx 0
@@ -813,9 +815,21 @@ Inductive relDD ctx : nat -> Type :=
 | DDlater : relDD ctx 0 -> relDD ctx 0
 .
 
-Fixpoint toDD {m} (r : rel ? m) ctx :=
-  match r with
-    | Rforall2 m' g => toDD (g []) (m' :: ctx)
+Definition DDrev ctx := DDv (rev ctx).
+
+Definition relDDrev ctx m := rel (DDrev ctx) m.
+
+Fixpoint DDlift new {m ctx} : (DDrev ctx m ->  relDDrev ctx m) -> (DDrev (new ++ ctx) m ->  relDDrev (new ++ ctx) m) :=
+  match ctx with
+    | nil => fun r x => 
+
+Definition toDD {m} : forall ctx, relDDV ctx m -> relDD ctx m.
+  refine
+    (fix {ctx} (r : rel (DDv (rev ctx)) m) : relDD ctx m :=
+       match r with
+         | Rforall2 m' g => DDforall2 (toDD (m' :: ctx) (DDlift [m'] g (exist (length ctx) _)))
+         | _ => DDinj _ True
+       end).
 
 Definition valid {ctx} : list (OpenTerm ctx 0) -> OpenTerm ctx 0 -> Prop :=
   fun Ps P => forall n, forall_ctx (map (InterpOpen n) Ps) (InterpOpen n P).
