@@ -177,36 +177,34 @@ Infix "⇓" := terminatesWith (at level 51).
 Definition terminatesWithEx e m v := ~>*# e m v /\ IsValue v.
 Notation "⇓*#" := terminatesWithEx.
 
-(* A Parametric Higher-Order Abstract Syntax (PHOAS) encoding for a second-order modal logic (LSLR) *)
-
 Set Maximal Implicit Insertion.
-Section rel.
 
-  Context `{var : nat -> Type}.
-  
-  Inductive rel : nat -> Type :=
-  | Rvar {n} : var n -> rel n
-  | Rinj : Prop -> rel 0
-  | Rand (_ _ : rel 0) : rel 0
-  | Ror (_ _ : rel 0) : rel 0
-  | Rimply (_ _ : rel 0) : rel 0
-  | Rforall2 {n} : (var n -> rel 0) -> rel 0
-  | Rexists2 {n} : (var n -> rel 0) -> rel 0
-  | Rforall1 {T} : (T -> rel 0) -> rel 0
-  | Rexists1 {T} : (T -> rel 0) -> rel 0
-  | Rabs {n} : (expr -> rel n) -> rel (S n)
-  | Rapp {n} : rel (S n) -> expr -> rel n
-  | Rrecur {n} : (var n -> rel n) -> rel n
-  | Rlater : rel 0 -> rel 0
-  .
+Definition onat_eq_b := option_eq_b EqNat.beq_nat.
 
-  Definition Rtrue := Rinj True.
-  Definition Rfalse := Rinj False.
+Definition varR ctx m := {n | onat_eq_b (nth_error ctx n) (Some m) = true}.
+Definition make_varR {ctx m} n (P : onat_eq_b (nth_error ctx n) (Some m) = true) : varR ctx m := exist _ n P.
 
-End rel.
+Inductive rel ctx : nat -> Type :=
+| Rvar m : varR ctx m -> rel ctx m
+| Rinj : Prop -> rel ctx 0
+| Rand (_ _ : rel ctx 0) : rel ctx 0
+| Ror (_ _ : rel ctx 0) : rel ctx 0
+| Rimply (_ _ : rel ctx 0) : rel ctx 0
+| Rforall1 T : (T -> rel ctx 0) -> rel ctx 0
+| Rexists1 T : (T -> rel ctx 0) -> rel ctx 0
+| Rforall2 m : rel (m :: ctx) 0 -> rel ctx 0
+| Rexists2 m : rel (m :: ctx) 0 -> rel ctx 0
+| Rabs m : (expr -> rel ctx m) -> rel ctx (S m)
+| Rapp m : rel ctx (S m) -> expr -> rel ctx m
+| Rrecur m : rel (m :: ctx) m -> rel ctx m
+| Rlater : rel ctx 0 -> rel ctx 0
+.
+
+Definition Rtrue {ctx} := Rinj ctx True.
+Definition Rfalse {ctx} := Rinj ctx False.
+Arguments Rinj {ctx} _ .
+
 Unset Maximal Implicit Insertion.
-
-Arguments rel : clear implicits.
 
 Generalizable All Variables.
 
@@ -227,12 +225,9 @@ Notation "⊥" := Rtrue : rel.
 Notation "\ x .. y , p" := (Rabs (fun x => .. (Rabs (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : rel.
 Notation "∀ x .. y , p" := (Rforall1 (fun x => .. (Rforall1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : rel.
 Notation "∃ x .. y , p" := (Rexists1 (fun x => .. (Rexists1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : rel.
-(* Definition Rforall2' {var n} P := (@Rforall2 var n (fun x => P (Rvar x))). *)
-Notation "∀₂ x .. y , p" := (Rforall2 (fun x => .. (Rforall2 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : rel.
-(* Definition Rexists2' {var n} P := (@Rexists2 var n (fun x => P (Rvar x))). *)
-Notation "∃₂ x .. y , p" := (Rexists2 (fun x => .. (Rexists2 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : rel.
-(* Definition Rrecur' {var n} P := (@Rrecur var n (fun x => P (Rvar x))). *)
-Notation "@@ x .. y , p" := (Rrecur (fun x => .. (Rrecur (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : rel.
+Notation "∀₂ , P" := (Rforall2 P) (at level 200, right associativity) : rel.
+Notation "∃₂ , P" := (Rexists2 P) (at level 200, right associativity) : rel.
+Notation "@@ , P" := (Rrecur P) (at level 200, right associativity) : rel.
 Notation "⌈ P ⌉" := (Rinj P) : rel.
 Global Instance Apply_rel_expr {var n} : Apply (rel var (S n)) expr (rel var n) :=
   {
@@ -248,13 +243,13 @@ Bind Scope rel with rel.
 
 Module test_rel.
   
-  Variable var : nat -> Type.
+  Variable ctx : list nat.
 
   Open Scope rel.
 
-  Definition ttt1 : rel var 1 := \e , ⊤.
-  Definition ttt2 : rel var 1 := \e , ⌈e ↓ Tunit⌉.
-  Definition ttt3 : rel var 1 := \_ , ⌈True /\ True⌉.
+  Definition ttt1 : rel ctx 1 := \e , ⊤.
+  Definition ttt2 : rel ctx 1 := \e , ⌈e ↓ Tunit⌉.
+  Definition ttt3 : rel ctx 1 := \_ , ⌈True /\ True⌉.
 
 End test_rel.
 
@@ -263,194 +258,16 @@ End test_rel.
 Local Open Scope prog_scope.
 
 (* closing substitutions *)
-Section csubsts.
-  
-  Context `{var : nat -> Type}.
 
-  Inductive SubstEntry : CtxEntry -> Type :=
-  | SEtype (_ : type) (_ : var 1) : SubstEntry CEtype
-  | SEexpr (_ : expr) : SubstEntry CEexpr
-  .
+Inductive SubstEntry : CtxEntry -> list nat -> Type :=
+| SEtype {ctx} (_ : type) (_ : varR ctx 1) : SubstEntry CEtype ctx
+| SEexpr {ctx} (_ : expr) : SubstEntry CEexpr ctx
+.
 
-  Inductive csubsts : context -> Type :=
-  | CSnil : csubsts []
-  | CScons {t lctx} : SubstEntry t -> csubsts lctx -> csubsts (t :: lctx)
-  .
-
-  Definition pair_of_se (e : SubstEntry CEtype) : type * var 1 :=
-    match e with
-      | SEtype t r => (t, r)
-    end.
-
-  Definition type_of_se := pair_of_se >> fst.
-  Definition sem_of_se := pair_of_se >> snd.
-
-  Definition expr_of_se (e : SubstEntry CEexpr) : expr :=
-    match e with
-      | SEexpr s => s
-    end.
-
-  Definition pair_of_cs {t lctx} (rho : csubsts (t :: lctx)) : SubstEntry t * csubsts lctx :=
-    match rho with
-      | CScons _ _ e rho' => (e, rho')
-    end.
-
-  Arguments tl {A} _ .
-
-  Require Import Bedrock.Platform.Cito.ListFacts4.
-
-  Definition csubsts_sem : forall {lctx}, csubsts lctx -> open_var CEtype lctx -> var 1.
-    refine
-      (fix csubsts_sem {lctx} : csubsts lctx -> open_var CEtype lctx -> var 1 :=
-         match lctx return csubsts lctx -> open_var CEtype lctx -> var 1 with
-           | nil => _
-           | t :: lctx' => 
-             fun rho =>
-               match rho in (csubsts c) return c = t :: lctx' -> open_var CEtype (t :: lctx') -> var 1 with
-                 | CSnil => _
-                 | CScons t' _ v rho' => _
-                   (* fun Heq x => *)
-                   (*   match x with *)
-                   (*     | Var n Hn => (fun (H : x = Var n Hn) => _) (eq_refl (Var n Hn)) *)
-                   (*   end *)
-               end eq_refl
-         end).
-    {
-      intros ? x.
-      destruct x.
-      eapply ceb_iff in e.
-      rewrite nth_error_nil in e; discriminate.
-    }
-    {
-      discriminate.
-    }
-    {
-      intros Heq x.
-      destruct x.
-      eapply ceb_iff in e.
-      destruct n as [| n'].
-      {
-        simpl in *.
-        destruct t; try discriminate; destruct t'; try discriminate.
-        exact (sem_of_se v).
-      }
-      {
-        simpl in *.
-        eapply csubsts_sem with (lctx := lctx').
-        - eapply (transport rho' _).
-        - eapply (#n').
-      }
-    }
-    Grab Existential Variables.
-    { eapply ceb_iff; eauto. }
-    { eapply f_equal with (f := tl) in Heq; exact Heq. }
-  Defined.
-
-  Global Instance Apply_csubsts_nat_rel lctx : Apply (csubsts lctx) (open_var CEtype lctx) (var 1) :=
-    {
-      apply := csubsts_sem
-    }.
-
-  Definition csubst_type `{Subst CEtype open_type B} {lctx} (v : SubstEntry CEtype) (b : B (CEtype :: lctx)) : B lctx.
-    refine
-      (subst (cast (shiftby lctx (type_of_se v)) _) b).
-    simpl.
-    eapply app_nil_r.
-  Defined.
-  
-  Definition csubst_expr `{Subst CEexpr open_expr B} {lctx} (v : SubstEntry CEexpr) (b : B (CEexpr :: lctx)) : B lctx.
-    refine
-      (subst (cast (shiftby lctx (expr_of_se v)) _) b).
-    simpl.
-    eapply app_nil_r.
-  Defined.
-  
-  Definition subst_close `{Subst CEtype open_type B, Subst CEexpr open_expr B} : forall lctx, csubsts lctx -> B lctx -> B [].
-    refine
-      (fix subst_close lctx : csubsts lctx -> B lctx -> B [] :=
-         match lctx return csubsts lctx -> B lctx -> B [] with
-           | nil => fun _ b => b
-           | t :: lctx' =>
-             fun rho =>
-               match rho in (csubsts c) return c = t :: lctx' -> B (t :: lctx') -> B [] with
-                 | CSnil => _
-                 | CScons t' _ v rho' => _
-               end eq_refl
-         end).
-    {
-      discriminate.
-    }
-    destruct t; destruct t'; try discriminate.
-    {
-      intros Heq b.
-      eapply subst_close with (lctx := lctx').
-      (* can use transport here because we are sure that the proof is generated from eq_refl (hence is concrete) *)
-      - eapply (transport rho' _).
-      - eapply (csubst_type v b).
-    }
-    {
-      intros Heq b.
-      eapply subst_close with (lctx := lctx').
-      - eapply (transport rho' _).
-      - eapply (csubst_expr v b).
-    }
-    Grab Existential Variables.
-    { eapply f_equal with (f := tl) in Heq; exact Heq. }
-    { eapply f_equal with (f := tl) in Heq; exact Heq. }
-  Defined.
-
-  Definition csubsts_cexpr :=
-   subst_close (B := open_cexpr).
-
-  Global Instance Apply_csubsts_cexpr_cexpr lctx : Apply (csubsts lctx) (open_cexpr lctx) cexpr :=
-    {
-      apply := @csubsts_cexpr _
-    }.
-
-  Definition csubsts_size :=
-    subst_close (B := open_size).
-
-  Global Instance Apply_csubsts_size_size lctx : Apply (csubsts lctx) (open_size lctx) size :=
-    {
-      apply := @csubsts_size _
-    }.
-
-  Definition csubsts_type :=
-    subst_close (B := open_type).
-
-  Global Instance Apply_csubsts_type_type lctx : Apply (csubsts lctx) (open_type lctx) type :=
-    {
-      apply := @csubsts_type _
-    }.
-
-  Definition csubsts_expr :=
-    subst_close (B := open_expr).
-
-  Global Instance Apply_csubsts_expr_expr lctx : Apply (csubsts lctx) (open_expr lctx) expr :=
-    {
-      apply := @csubsts_expr _
-    }.
-
-  Definition add_pair {lctx} p rho :=
-    CScons (lctx := lctx) (SEtype (fst p) (snd p)) rho.
-
-  Global Instance Add_pair_csubsts lctx : Add (type * var 1) (csubsts lctx) (csubsts (CEtype :: lctx)) :=
-    {
-      add := add_pair
-    }.
-
-  Definition add_expr {lctx} e rho :=
-    CScons (lctx := lctx) (SEexpr e) rho.
-  
-  Global Instance Add_expr_csubsts lctx : Add expr (csubsts lctx) (csubsts (CEexpr :: lctx)) :=
-    {
-      add := add_expr
-    }.
-
-End csubsts.
-
-Arguments SubstEntry : clear implicits.
-Arguments csubsts : clear implicits.
+Inductive csubsts : context -> list nat -> Type :=
+| CSnil {ctx} : csubsts [] ctx
+| CScons {ctx t lctx} : SubstEntry t ctx -> csubsts lctx ctx -> csubsts (t :: lctx) ctx
+.
 
 Notation "[ ]" := CSnil : CS.
 Notation "[ x ; .. ; y ]" := (CScons x .. (CScons y CSnil) ..) : CS.
@@ -458,7 +275,184 @@ Infix "::" := CScons (at level 60, right associativity) : CS.
 Delimit Scope CS with CS.
 Bind Scope CS with csubsts.
 
+Definition pair_of_se {ctx} (e : SubstEntry CEtype ctx) : type * varR ctx 1 :=
+  match e with
+    | SEtype _ t r => (t, r)
+  end.
+
+Definition type_of_se {ctx} := pair_of_se (ctx := ctx) >> fst.
+Definition sem_of_se {ctx} := pair_of_se (ctx := ctx) >> snd.
+
+Definition expr_of_se {ctx} (e : SubstEntry CEexpr ctx) : expr :=
+  match e with
+    | SEexpr _ s => s
+  end.
+
+Definition pair_of_cs {ctx t lctx} (rho : csubsts (t :: lctx) ctx) : SubstEntry t ctx * csubsts lctx ctx :=
+  match rho with
+    | CScons _ _ _ e rho' => (e, rho')
+  end.
+
+Arguments tl {A} _ .
+
+Require Import Bedrock.Platform.Cito.ListFacts4.
+
+Definition csubsts_sem : forall {lctx ctx}, csubsts lctx ctx -> open_var CEtype lctx -> varR ctx 1.
+  refine
+    (fix csubsts_sem {lctx} : forall ctx, csubsts lctx ctx -> open_var CEtype lctx -> varR ctx 1 :=
+       match lctx return forall ctx, csubsts lctx ctx -> open_var CEtype lctx -> varR ctx 1 with
+         | nil => _
+         | t :: lctx' => 
+           fun ctx rho =>
+             match rho in (csubsts c ctx) return c = t :: lctx' -> open_var CEtype (t :: lctx') -> varR ctx 1 with
+               | CSnil _ => _
+               | CScons _ t' _ v rho' => _
+             end eq_refl
+       end).
+  {
+    intros ? ? x.
+    destruct x.
+    eapply ceb_iff in e.
+    rewrite nth_error_nil in e; discriminate.
+  }
+  {
+    discriminate.
+  }
+  {
+    intros Heq x.
+    destruct x.
+    eapply ceb_iff in e.
+    destruct n as [| n'].
+    {
+      simpl in *.
+      destruct t; try discriminate; destruct t'; try discriminate.
+      exact (sem_of_se v).
+    }
+    {
+      simpl in *.
+      eapply csubsts_sem with (lctx := lctx').
+      - eapply (transport (T := fun lctx => csubsts lctx ctx0) rho' _).
+      - eapply (#n').
+    }
+  }
+  Grab Existential Variables.
+  { eapply ceb_iff; eauto. }
+  { eapply f_equal with (f := tl) in Heq; exact Heq. }
+Defined.
+
+Global Instance Apply_csubsts_nat_rel {ctx} lctx : Apply (csubsts lctx ctx) (open_var CEtype lctx) (varR ctx 1) :=
+  {
+    apply := csubsts_sem
+  }.
+
+Definition csubst_type `{Subst CEtype open_type B} {ctx lctx} (v : SubstEntry CEtype ctx) (b : B (CEtype :: lctx)) : B lctx.
+  refine
+    (subst (cast (shiftby lctx (type_of_se v)) _) b).
+  simpl.
+  eapply app_nil_r.
+Defined.
+
+Definition csubst_expr `{Subst CEexpr open_expr B} {ctx lctx} (v : SubstEntry CEexpr ctx) (b : B (CEexpr :: lctx)) : B lctx.
+  refine
+    (subst (cast (shiftby lctx (expr_of_se v)) _) b).
+  simpl.
+  eapply app_nil_r.
+Defined.
+
+Definition subst_close `{Subst CEtype open_type B, Subst CEexpr open_expr B} : forall lctx ctx, csubsts lctx ctx -> B lctx -> B [].
+  refine
+    (fix subst_close lctx : forall ctx, csubsts lctx ctx -> B lctx -> B [] :=
+       match lctx return forall ctx, csubsts lctx ctx -> B lctx -> B [] with
+         | nil => fun _ _ b => b
+         | t :: lctx' =>
+           fun ctx rho =>
+             match rho in (csubsts c ctx) return c = t :: lctx' -> B (t :: lctx') -> B [] with
+               | CSnil _ => _
+               | CScons _ t' _ v rho' => _
+             end eq_refl
+       end).
+  {
+    discriminate.
+  }
+  destruct t; destruct t'; try discriminate.
+  {
+    intros Heq b.
+    eapply subst_close with (lctx := lctx').
+    (* can use transport here because we are sure that the proof is generated from eq_refl (hence is concrete) *)
+    - eapply (transport (T := fun lctx => csubsts lctx ctx0) rho' _).
+    - eapply (csubst_type v b).
+  }
+  {
+    intros Heq b.
+    eapply subst_close with (lctx := lctx').
+    - eapply (transport (T := fun lctx => csubsts lctx ctx0) rho' _).
+    - eapply (csubst_expr v b).
+  }
+  Grab Existential Variables.
+  { eapply f_equal with (f := tl) in Heq; exact Heq. }
+  { eapply f_equal with (f := tl) in Heq; exact Heq. }
+Defined.
+
+Definition csubsts_cexpr :=
+  subst_close (B := open_cexpr).
+
+Global Instance Apply_csubsts_cexpr_cexpr {ctx} lctx : Apply (csubsts lctx ctx) (open_cexpr lctx) cexpr :=
+  {
+    apply := @csubsts_cexpr _ _
+  }.
+
+Definition csubsts_size :=
+  subst_close (B := open_size).
+
+Global Instance Apply_csubsts_size_size {ctx} lctx : Apply (csubsts lctx ctx) (open_size lctx) size :=
+  {
+    apply := @csubsts_size _ _
+  }.
+
+Definition csubsts_type :=
+  subst_close (B := open_type).
+
+Global Instance Apply_csubsts_type_type {ctx} lctx : Apply (csubsts lctx ctx) (open_type lctx) type :=
+  {
+    apply := @csubsts_type _ _
+  }.
+
+Definition csubsts_expr :=
+  subst_close (B := open_expr).
+
+Global Instance Apply_csubsts_expr_expr {ctx} lctx : Apply (csubsts lctx ctx) (open_expr lctx) expr :=
+  {
+    apply := @csubsts_expr _ _
+  }.
+
+Definition add_pair {ctx lctx} p rho :=
+  CScons (ctx := ctx) (lctx := lctx) (SEtype (fst p) (snd p)) rho.
+
+Global Instance Add_pair_csubsts {ctx} lctx : Add (type * varR ctx 1) (csubsts lctx ctx) (csubsts (CEtype :: lctx) ctx) :=
+  {
+    add := add_pair
+  }.
+
+Definition add_expr {ctx lctx} e rho :=
+  CScons (ctx := ctx) (lctx := lctx) (SEexpr e) rho.
+
+Global Instance Add_expr_csubsts {ctx} lctx : Add expr (csubsts lctx ctx) (csubsts (CEexpr :: lctx) ctx) :=
+  {
+    add := add_expr
+  }.
+
 Definition VSet {var} τ (S : rel var 1) := (∀v, v ∈ S ===> ⌈v ↓ τ⌉)%rel.
+
+Definition shift_csubsts {lctx ctx new} n (rho : csubsts lctx ctx) : csubsts lctx (insert ctx n new).
+  admit.
+Defined.
+
+Instance Shift_csubsts lctx : Shift (csubsts lctx) :=
+  {
+    shift := @shift_csubsts lctx
+  }.
+
+Notation "#0" := ((make_varR (ctx := 1 :: _) (m := 1) 0 eq_refl)).
 
 (* A "step-indexed" kriple model *)
 (* the logical relation *)
@@ -468,10 +462,10 @@ Section LR.
 
   Open Scope rel.
 
-  Fixpoint relE' {lctx} (relV : forall var, csubsts var lctx -> rel var 1) τ (c : nat) (s : size) var (ρ : csubsts var lctx) {struct c} : rel var 1 :=
+  Fixpoint relE' {lctx} (relV : forall ctx, csubsts lctx ctx -> rel ctx 1) τ (c : nat) (s : size) ctx (ρ : csubsts lctx ctx) {struct c} : rel ctx 1 :=
     \e, ⌈|- e (ρ $ τ) /\ 
         (forall n e', (~>## e n 0 e') -> n ≤ B)⌉ /\ 
-        (∀v, ⌈⇓*# e 0 v⌉ ===> v ∈ relV var ρ /\ ⌈!v ≤ s⌉) /\
+        (∀v, ⌈⇓*# e 0 v⌉ ===> v ∈ relV ctx ρ /\ ⌈!v ≤ s⌉) /\
         (∀e', ⌈~>*# e 1 e'⌉ ===> 
                match c with
                  | 0 => ⊥
@@ -490,15 +484,15 @@ Section LR.
 
   Existing Instance Apply_rel_expr.
 
-  Fixpoint relV {lctx} τ var (ρ : csubsts var lctx) : rel var 1 :=
+  Fixpoint relV {lctx} τ ctx (ρ : csubsts lctx ctx) : rel ctx 1 :=
     match τ with
       | Tvar α => Rvar (csubsts_sem ρ α)
       | Tunit => \v, ⌈v ↓ Tunit⌉
       | τ₁ × τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃a b, ⌈v = !(a, b)⌉ /\ a ∈ relV τ₁ ρ /\ b ∈ relV τ₂ ρ
       | τ₁ + τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃v', (⌈v = Einl (ρ $ τ₂) v'⌉ /\ v' ∈ relV τ₁ ρ) \/ (⌈v = Einr (ρ $ τ₁) v'⌉ /\ v' ∈ relV τ₂ ρ)
       | Tarrow τ₁ c s τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃τ₁' e, ⌈v = Eabs τ₁' e⌉ /\ ∀v₁, v₁ ∈ relV τ₁ ρ ===> subst v₁ e ∈ relE' (relV τ₂) τ₂ !(ρ $ subst !(!v₁) c) (ρ $ subst !(!v₁) s) (add v₁ ρ)
-      | Tuniversal c s τ₁ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∀τ', ∀₂ S, VSet τ' (Rvar S) ===> v $$ τ' ∈ relE' (relV τ₁) τ₁ !(ρ $ c) (ρ $ s) (add (τ', S) ρ)
-      | Trecur τ₁ => @@S, \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃τ' v', ⌈v = Efold τ' v'⌉ /\ ▹ (v' ∈ relV τ₁ (add (ρ $ τ, S) ρ))
+      | Tuniversal c s τ₁ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∀τ', ∀₂, VSet τ' (Rvar #0) ===> v $$ τ' ∈ relE' (relV τ₁) τ₁ !(ρ $ c) (ρ $ s) (add (τ', #0) (shift1 _ ρ))
+      | Trecur τ₁ => @@, \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃τ' v', ⌈v = Efold τ' v'⌉ /\ ▹ (v' ∈ relV τ₁ (add (ρ $ τ, #0) (shift1 _ ρ)))
       | _ => \_, ⊥
     end
   .
@@ -507,59 +501,11 @@ Section LR.
 
 End LR.
 
-(* a version of rel without recur *)
-Set Maximal Implicit Insertion.
-Section rel2.
-
-  Context `{var : nat -> Type}.
-  
-  Inductive rel2 : nat -> Type :=
-  | R2var {n} : var n -> rel2 n
-  | R2inj : Prop -> rel2 0
-  | R2and (_ _ : rel2 0) : rel2 0
-  | R2or (_ _ : rel2 0) : rel2 0
-  | R2imply (_ _ : rel2 0) : rel2 0
-  | R2forall2 {n} : (var n -> rel2 0) -> rel2 0
-  | R2exists2 {n} : (var n -> rel2 0) -> rel2 0
-  | R2forall1 {T} : (T -> rel2 0) -> rel2 0
-  | R2exists1 {T} : (T -> rel2 0) -> rel2 0
-  | R2abs {n} : (expr -> rel2 n) -> rel2 (S n)
-  | R2app {n} : rel2 (S n) -> expr -> rel2 n
-  | R2later : rel2 0 -> rel2 0
-  .
-
-End rel2.
-Unset Maximal Implicit Insertion.
-Arguments rel2 : clear implicits.
-
-Fixpoint const_rel2 {var} P  m : rel2 var m :=
-  match m with
-    | 0 => R2inj P
-    | S m' => R2abs (fun _ => const_rel2 P m')
-  end.
-
-(* unfolding Rrecur up to n levels of "later" *)
-Fixpoint unrecur n {var} : forall m (r : rel (rel2 var) m), rel2 var m :=
-  match n with
-    | 0 => fun m _ => const_rel2 True m
-    | S n' =>
-      (fix unrecur' {m} (r : rel (rel2 var) m) : rel2 var m :=
-         match r with
-           | Rvar _ v => v
-           | Rrecur _ g => unrecur' (g (unrecur n' (Rrecur g)))
-           | Rlater P => unrecur n' P
-           | Rinj P => R2inj P
-           | Rand a b => R2and (unrecur' a) (unrecur' b)
-           | Ror a b => R2or (unrecur' a) (unrecur' b)
-           | Rimply a b => R2imply (unrecur' a) (unrecur' b)
-           | Rforall1 _ g => R2forall1 (fun x => unrecur' (g x))
-           | Rexists1 _ g => R2exists1 (fun x => unrecur' (g x))
-           | Rforall2 _ g => R2forall2 (fun a => unrecur' (g (R2var a)))
-           | Rexists2 _ g => R2exists2 (fun a => unrecur' (g (R2var a)))
-           | Rabs _ g => R2abs (fun e => unrecur' (g e))
-           | Rapp _ r e => R2app (unrecur' r) e
-         end)
-  end.
+(* Fixpoint const_rel {ctx} P m : rel ctx m := *)
+(*   match m with *)
+(*     | 0 => Rinj P *)
+(*     | S m' => Rabs (fun _ => const_rel P m') *)
+(*   end. *)
 
 Fixpoint erel m :=
   match m with
@@ -580,33 +526,206 @@ Fixpoint const_erel (P : Prop) (m : nat) : erel m :=
     | S m' => fun _ => const_erel P m'
   end.
 
-Fixpoint interp n {struct n} : forall m (r : rel2 mono_erel m), erel m :=
-  match n with
-    | 0 => fun m _ => const_erel True m
-    | S n' =>
-      (fix interp' n {m} (r : rel2 mono_erel m) : erel m :=
-         match r with
-           | R2var _ v => proj1_sig v n
-           | R2inj P => P
-           | R2and a b => interp' n a /\ interp' n b
-           | R2or a b => interp' n a \/ interp' n b
-           | R2imply a b => forall k, k <= n -> interp' k a ->interp' k b
-           | R2forall1 _ g => forall x, interp' n (g x)
-           | R2exists1 _ g => exists x, interp' n (g x)
-           | R2forall2 _ g => forall r, interp' n (g r)
-           | R2exists2 _ g => exists r, interp' n (g r)
-           | R2abs _ g => fun e => interp' n (g e)
-           | R2app _ r e => interp' n r e
-           | R2later P => interp n' P
-         end) n
+Definition rsubsts : list nat -> Prop.
+  admit.
+Defined.
+
+Definition apply_rsubsts_var {ctx m} : rsubsts ctx -> varR ctx m -> mono_erel m.
+  admit.
+Defined.
+
+Instance Apply_rsubsts_var {ctx m} : Apply (rsubsts ctx) (varR ctx m) (mono_erel m) :=
+  {
+    apply := apply_rsubsts_var
+  }.
+
+Definition add_rsubsts {ctx m} : mono_erel m -> rsubsts ctx -> rsubsts (m :: ctx).
+  admit.
+Defined.
+
+Instance Add_rsubsts {ctx m} : Add (mono_erel m) (rsubsts ctx) (rsubsts (m :: ctx)) :=
+  {
+    add := add_rsubsts
+  }.
+
+Definition apply_rel_rel {m ctx m'} : rel (m :: ctx) m' -> rel ctx m -> rel ctx m'.
+  admit.
+Defined.
+
+Instance Apply_rel_rel {m ctx m'} : Apply (rel (m :: ctx) m') (rel ctx m) (rel ctx m') :=
+  {
+    apply := apply_rel_rel
+  }.
+
+Definition lexical {A B} : (A -> A -> Prop) -> (B -> B -> Prop) -> (A * B) -> A * B -> Prop.
+  admit.
+Defined.
+
+Inductive relsize :=
+| RS1 : relsize
+| RSadd (_ _ : relsize) : relsize
+| RSbind {T} : (T -> relsize) -> relsize
+.
+
+Instance Add_relsize : Add relsize relsize relsize :=
+  {
+    add := RSadd
+  }.
+
+Definition RSadd1 := RSadd RS1.
+
+Fixpoint rel2size {ctx m} (r : rel ctx m) : relsize :=
+  match r with
+    | Rvar _ _ => RS1
+    | Rinj _ => RS1
+    | Rand a b => rel2size a + rel2size b
+    | Ror a b => rel2size a + rel2size b
+    | Rimply a b => rel2size a + rel2size b
+    | Rforall1 _ g => RSbind (fun x => rel2size (g x))
+    | Rexists1 _ g => RSbind (fun x => rel2size (g x))
+    | Rforall2 _ g => RSadd1 (rel2size g)
+    | Rexists2 _ g => RSadd1 (rel2size g)
+    | Rabs _ g => RSbind (fun e => rel2size (g e))
+    | Rapp _ a _ => RSadd1 (rel2size a)
+    | Rrecur _ g => RSadd1 (rel2size g)
+    | Rlater _ => RS1
   end.
+
+Inductive rlt : relsize -> relsize -> Prop :=
+| RLTadd1 a b : rlt a (a + b)
+| RLTadd2 a b : rlt b (a + b)
+| RLTbind T g x : rlt (g x) (RSbind (T := T) g)
+.
+
+Lemma rlt_wf : well_founded rlt.
+Proof.
+  unfold well_founded.
+  induction a.
+  {
+    econstructor.
+    intros y H.
+    inversion H.
+  }
+  {
+    econstructor.
+    intros y H.
+    inversion H; subst; eauto.
+  }
+  {
+    econstructor.
+    intros y Hrlt.
+    inversion Hrlt.
+    Require Import Eqdep.
+    eapply inj_pair2 in H3.
+    rewrite H3.
+    (* or : dependent induction Hrlt. *)
+    eauto.
+  }
+Defined.
+
+Lemma lexical_wf A B Ra Rb : well_founded Ra -> well_founded Rb -> well_founded (@lexical A B Ra Rb).
+  admit.
+Defined.
+
+Obligation Tactic := try solve [intros; eassumption]; program_simpl.
+
+Program Fixpoint interp {ctx m} (r : rel ctx m) (d : rsubsts ctx) n {measure (n, rel2size r) (lexical lt rlt)} : erel m :=
+  match n with
+    | 0 => const_erel True m
+    | S n' =>
+      match r with
+        | Rvar _ x => ` (d $ x) n
+        | Rinj P => P
+        | Rand a b => interp a d n /\ interp b d n
+        | Ror a b => interp a d n \/ interp b d n
+        | Rimply a b => forall k, k <= n -> interp a d k -> interp b d k
+        | Rforall1 _ g => forall x, interp (g x) d n
+        | Rexists1 _ g => exists x, interp (g x) d n
+        | Rforall2 _ g => forall x, interp g (add x d) n
+        | Rexists2 _ g => exists x, interp g (add x d) n
+        | Rabs _ g => fun e => interp (g e) d n
+        | Rapp _ r e => interp r d n e
+        | Rrecur m' g => interp (g $ transport (to := m') r (eq_sym _)) d n
+        | Rlater P => interp P d n'
+      end
+  end.
+Next Obligation.
+  subst.
+  admit.
+Defined.
+Next Obligation.
+  subst.
+  admit.
+Defined.
+Next Obligation.
+  subst.
+  admit.
+Defined.
+Next Obligation.
+  subst.
+  simpl.
+  admit.
+Defined.
+Next Obligation.
+  subst.
+  simpl.
+  admit.
+Defined.
+Next Obligation.
+  rewrite <- Heq_r.
+  admit.
+Defined.
+Next Obligation.
+  subst.
+  simpl.
+  admit.
+Defined.
+Next Obligation.
+  subst.
+  admit.
+Defined.
+Next Obligation.
+  subst.
+  simpl.
+  admit.
+Defined.
+Next Obligation.
+  subst.
+  admit.
+Defined.
+Next Obligation.
+  subst.
+  admit.
+Defined.
+Next Obligation.
+  subst.
+  admit.
+Defined.
+Next Obligation.
+  replace (rel2size r) with (rel2size (Rrecur g)) by (rewrite <- Heq_r; eauto).
+  simpl.
+  admit.
+Defined.
+Next Obligation.
+  subst.
+  simpl.
+  admit.
+Defined.
+Next Obligation.
+  eapply measure_wf.
+  eapply lexical_wf.
+  { eapply Wf_nat.lt_wf. }
+  eapply rlt_wf.
+Defined.
+
+(*here*)
 
 Set Maximal Implicit Insertion.
 Section Funvar.
 
-  Variable var : nat -> Type.
+  Variable var : list nat.
 
-  Definition varT := (nat -> Type) -> Type.
+  Definition varT := list nat -> Type.
   Definition varTs := list varT.
 
   Fixpoint Funvar domains range :=
@@ -619,7 +738,7 @@ End Funvar.
 
 Section openup.
 
-  Context `{var : nat -> Type}.
+  Context `{var : list nat}.
   
   Notation Funvar := (Funvar var).
 
@@ -697,12 +816,12 @@ Section open_term.
 
   Definition rcontext := list rtype.
 
-  Variable var : nat -> Type.
+  Variable var : list nat.
 
-  Definition interp_rtype t :=
+  Definition interp_rtype t : Type :=
     match t with
-      | RTvar m => var m
-      | RTcsubsts lctx => csubsts var lctx
+      | RTvar m => varR var m
+      | RTcsubsts lctx => csubsts lctx var
       | RTother T => T
     end.
 
@@ -714,10 +833,10 @@ Section open_term.
 
 End open_term.
 
-Definition OpenTerm ctx t := forall var, open_term var ctx t.
-
 Definition flip_rel := flip rel.
 Coercion flip_rel : nat >-> Funclass.
+
+Definition OpenTerm ctx t := forall var, open_term var ctx t.
 
 (* Definition Rel ctx t := forall var, Funvar var ctx t. *)
 (* Definition Rel1 m := forall var, rel var m. *)
@@ -794,26 +913,6 @@ Fixpoint forall_ctx {ctx} : list (open_term mono_erel ctx (const Prop)) -> open_
     | nil => fun Ps P => All Ps -> P
     | t :: ctx' => fun Ps P => forall x, forall_ctx (map (flip apply_arrow x) Ps) (P x)
   end.
-
-Definition onat_eq_b := option_eq_b EqNat.beq_nat.
-
-Definition DDv ctx m := {n | onat_eq_b (nth_error ctx n) (Some m) = true}.
-
-Inductive relDD ctx : nat -> Type :=
-| DDvar m : DDv ctx m -> relDD ctx m
-| DDinj : Prop -> relDD ctx 0
-| DDand (_ _ : relDD ctx 0) : relDD ctx 0
-| DDor (_ _ : relDD ctx 0) : relDD ctx 0
-| DDimply (_ _ : relDD ctx 0) : relDD ctx 0
-| DDforall1 T : (T -> relDD ctx 0) -> relDD ctx 0
-| DDexists1 T : (T -> relDD ctx 0) -> relDD ctx 0
-| DDforall2 m : relDD (m :: ctx) 0 -> relDD ctx 0
-| DDexists2 m : relDD (m :: ctx) 0 -> relDD ctx 0
-| DDabs m : (expr -> relDD ctx m) -> relDD ctx (S m)
-| DDapp m : relDD ctx (S m) -> expr -> relDD ctx m
-| DDrecur m : relDD (m :: ctx) m -> relDD ctx m
-| DDlater : relDD ctx 0 -> relDD ctx 0
-.
 
 Definition DDrev ctx := DDv (rev ctx).
 
