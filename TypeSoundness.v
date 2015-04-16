@@ -564,7 +564,7 @@ Defined.
 Inductive relsize :=
 | RS1 : relsize
 | RSadd (_ _ : relsize) : relsize
-| RSbind {T} : (T -> relsize) -> relsize
+| RSbind T : (T -> relsize) -> relsize
 .
 
 Instance Add_relsize : Add relsize relsize relsize :=
@@ -590,6 +590,62 @@ Fixpoint rel2size {ctx m} (r : rel ctx m) : relsize :=
     | Rrecur _ g => RSadd1 (rel2size g)
     | Rlater _ => RS1
   end.
+
+Definition imply (a b : Prop) : Prop := a -> b.
+Infix "-->" := imply (at level 95, right associativity).
+
+Require Import Bedrock.Platform.Cito.GeneralTactics4.
+
+Definition interp : forall (n : nat) {ctx m} (r : rel ctx m) (d : rsubsts ctx), erel m.
+  refine
+    (fix interp n {ctx m} (r : rel ctx m) (d : rsubsts ctx) : erel m :=
+       match n with
+         | 0 => const_erel True m
+         | S n' =>
+           (fix interp' n (rs : relsize) {ctx m} (r : rel ctx m) (d : rsubsts ctx) {struct rs} : rs = rel2size r -> erel m :=
+              match rs with
+                | RS1 => 
+                  match r in rel _ m return RS1 = rel2size r -> erel m with
+                    | Rvar _ x => fun Heq => ` (d $ x) n
+                    | Rinj P => fun Heq => P
+                    | Rlater P => fun Heq => interp n' P d
+                    | _ => fun Heq => _
+                  end
+                | RSadd sa sb =>
+                  match r in rel _ m return RSadd sa sb = rel2size r -> erel m with
+                    | Rand a b => fun Heq => interp' n sa a d _ /\ interp' n sb b d _
+                    | Ror a b => fun Heq => interp' n sa a d _ \/ interp' n sb b d _
+                    | Rimply a b => fun Heq => (fun f : _ -> Prop => forall k, k <= n -> f k) (fun k => interp' k sa a d _ --> interp' k sb b d _)
+                    | Rforall2 _ g => fun Heq => (fun f : _ -> Prop => forall x, f x) (fun x => interp' n sb g (add x d) _)
+                    | Rexists2 _ g => fun Heq => (fun f : _ -> Prop => exists x, f x) (fun x => interp' n sb g (add x d) _)
+                    | Rapp _ r e => fun Heq => interp' n sb r d _ e
+                    | Rrecur m' g => fun Heq => interp' n sb (g $ Rrecur g) d _
+                    | _ => fun Heq => _
+                  end
+                | RSbind _ sg =>
+                  match r in rel _ m return RSbind sg = rel2size r -> erel m with
+                    | Rforall1 _ g => fun Heq => (fun f => forall sx x (Heq_x : sx ~= x), (f sx x Heq_x : Prop)) (fun sx x Heq_x => interp' n (sg sx) (g x) d _)
+                    | Rexists1 _ g => fun Heq => (fun f => exists sx x (Heq_x : sx ~= x), (f sx x Heq_x : Prop)) (fun sx x Heq_x => interp' n (sg sx) (g x) d _)
+                    | Rabs _ g => fun Heq => fun e => interp' n (sg _) (g e) d _
+                    | _ => fun Heq => _
+                  end
+              end) n (rel2size r) ctx m r d eq_refl
+       end); simpl in *; try solve [discriminate | inject Heq; eauto]; simpl in *.
+  {
+    inject Heq.
+    admit. (* rel2size g = rel2size (apply_rel_rel g (@@ , g)) *)
+  }
+  {
+    inject Heq; subst.
+    dependent induction H; eauto.
+  }
+  {
+    inject Heq; subst.
+    dependent induction H; eauto.
+  }
+  Focus 7.
+  intros k.
+  refine (interp' k sa _ _ a d _ -> interp' k sb _ _ b d _).
 
 Inductive rlt : relsize -> relsize -> Prop :=
 | RLTadd1 a b : rlt a (a + b)
@@ -629,26 +685,6 @@ Defined.
 
 Obligation Tactic := try solve [intros; eassumption]; program_simpl.
 
-Program Fixpoint interp {ctx m} (r : rel ctx m) (d : rsubsts ctx) n {measure (n, rel2size r) (lexical lt rlt)} : erel m :=
-  match n with
-    | 0 => const_erel True m
-    | S n' =>
-      match r with
-        | Rvar _ x => ` (d $ x) n
-        | Rinj P => P
-        | Rand a b => interp a d n /\ interp b d n
-        | Ror a b => interp a d n \/ interp b d n
-        | Rimply a b => forall k, k <= n -> interp a d k -> interp b d k
-        | Rforall1 _ g => forall x, interp (g x) d n
-        | Rexists1 _ g => exists x, interp (g x) d n
-        | Rforall2 _ g => forall x, interp g (add x d) n
-        | Rexists2 _ g => exists x, interp g (add x d) n
-        | Rabs _ g => fun e => interp (g e) d n
-        | Rapp _ r e => interp r d n e
-        | Rrecur m' g => interp (g $ transport (to := m') r (eq_sym _)) d n
-        | Rlater P => interp P d n'
-      end
-  end.
 Next Obligation.
   subst.
   admit.
