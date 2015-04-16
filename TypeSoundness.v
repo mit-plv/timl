@@ -565,6 +565,7 @@ Inductive relsize :=
 | RS1 : relsize
 | RSadd (_ _ : relsize) : relsize
 | RSbind T : (T -> relsize) -> relsize
+| RSbinde : (expr -> relsize) -> relsize
 .
 
 Instance Add_relsize : Add relsize relsize relsize :=
@@ -585,7 +586,7 @@ Fixpoint rel2size {ctx m} (r : rel ctx m) : relsize :=
     | Rexists1 _ g => RSbind (fun x => rel2size (g x))
     | Rforall2 _ g => RSadd1 (rel2size g)
     | Rexists2 _ g => RSadd1 (rel2size g)
-    | Rabs _ g => RSbind (fun e => rel2size (g e))
+    | Rabs _ g => RSbinde (fun e => rel2size (g e))
     | Rapp _ a _ => RSadd1 (rel2size a)
     | Rrecur _ g => RSadd1 (rel2size g)
     | Rlater _ => RS1
@@ -626,13 +627,18 @@ Definition interp : forall (n : nat) {ctx m} (r : rel ctx m) (d : rsubsts ctx), 
                   match r in rel _ m return RSbind sg = rel2size r -> erel m with
                     | Rforall1 _ g => fun Heq => (fun f => forall sx x (Heq_x : sx ~= x), (f sx x Heq_x : Prop)) (fun sx x Heq_x => interp' n (sg sx) (g x) d _)
                     | Rexists1 _ g => fun Heq => (fun f => exists sx x (Heq_x : sx ~= x), (f sx x Heq_x : Prop)) (fun sx x Heq_x => interp' n (sg sx) (g x) d _)
-                    | Rabs _ g => fun Heq => fun e => interp' n (sg _) (g e) d _
+                    | _ => fun Heq => _
+                  end
+                | RSbinde sg =>
+                  match r in rel _ m return RSbinde sg = rel2size r -> erel m with
+                    | Rabs _ g => fun Heq => fun e => interp' n (sg e) (g e) d _
                     | _ => fun Heq => _
                   end
               end) n (rel2size r) ctx m r d eq_refl
        end); simpl in *; try solve [discriminate | inject Heq; eauto]; simpl in *.
   {
     inject Heq.
+    clear.
     admit. (* rel2size g = rel2size (apply_rel_rel g (@@ , g)) *)
   }
   {
@@ -643,9 +649,7 @@ Definition interp : forall (n : nat) {ctx m} (r : rel ctx m) (d : rsubsts ctx), 
     inject Heq; subst.
     dependent induction H; eauto.
   }
-  Focus 7.
-  intros k.
-  refine (interp' k sa _ _ a d _ -> interp' k sb _ _ b d _).
+Defined.
 
 Inductive rlt : relsize -> relsize -> Prop :=
 | RLTadd1 a b : rlt a (a + b)
