@@ -452,7 +452,12 @@ Instance Shift_csubsts lctx : Shift (csubsts lctx) :=
     shift := @shift_csubsts lctx
   }.
 
-Notation "#0" := ((make_varR (ctx := 1 :: _) (m := 1) 0 eq_refl)).
+Definition varR0 {ctx m} : varR (m :: ctx) m.
+  refine ((make_varR (ctx := m%nat :: _) (m := m) 0 _)).
+  symmetry; eapply EqNat.beq_nat_refl.
+Defined.
+
+Notation "#0" := varR0.
 
 (* A "step-indexed" kriple model *)
 (* the logical relation *)
@@ -557,9 +562,56 @@ Instance Apply_rel_rel {m ctx m'} : Apply (rel (m :: ctx) m') (rel ctx m) (rel c
     apply := apply_rel_rel
   }.
 
-Definition lexical {A B} : (A -> A -> Prop) -> (B -> B -> Prop) -> (A * B) -> A * B -> Prop.
+Definition imply (a b : Prop) : Prop := a -> b.
+Infix "-->" := imply (at level 95, right associativity).
+
+Require Import Bedrock.Platform.Cito.GeneralTactics4.
+
+Definition shift_varR {t ctx} new n (xv : varR ctx t) : varR (insert ctx n new) t.
   admit.
-Defined.
+Qed.
+
+Global Instance Shift_varR t : Shift (fun ctx => varR ctx t) :=
+  {
+    shift := @shift_varR t
+  }.
+
+Fixpoint guarded {ctx m m'} (x : varR ctx m) (g : rel ctx m') : Prop :=
+  match g with
+    | Rvar _ x' => 
+      match nat_cmp (`x) (`x') with
+        | EQ _ => False
+        | _ => True
+      end
+    | Rinj _ => True
+    | Rand a b => guarded x a /\ guarded x b
+    | Ror a b => guarded x a /\ guarded x b
+    | Rimply a b => guarded x a /\ guarded x b
+    | Rforall1 _ g => forall y, guarded x (g y)
+    | Rexists1 _ g => forall y, guarded x (g y)
+    | Rforall2 _ g => guarded (shift1 _ x) g
+    | Rexists2 _ g => guarded (shift1 (T0 := fun ctx => varR ctx _) _ x) g
+    | Rabs _ g => forall e, guarded x (g e)
+    | Rapp _ r e => guarded x r
+    | Rrecur _ g => guarded (shift1 (T0 := fun ctx => varR ctx _) _ x) g
+    | Rlater _ => True
+  end.
+
+Inductive wf : forall {ctx m}, rel ctx m -> Prop :=
+| WFvar {ctx m} x : wf (Rvar (ctx := ctx) (m := m) x)
+| WFinj {ctx} P : wf (Rinj (ctx := ctx) P)
+| WFand {ctx} a b : wf a -> wf b -> wf (Rand (ctx := ctx) a b)
+| WFor {ctx} a b : wf a -> wf b -> wf (Ror (ctx := ctx) a b)
+| WFimply {ctx} a b : wf a -> wf b -> wf (Rimply (ctx := ctx) a b)
+| WFforall1 {ctx T} g : (forall x : T, wf (g x)) -> wf (Rforall1 (ctx := ctx) g)
+| WFexists1 {ctx T} g : (forall x : T, wf (g x)) -> wf (Rexists1 (ctx := ctx) g)
+| WFforall2 {ctx m} g : wf g -> wf (Rforall2 (ctx := ctx) (m := m) g)
+| WFexists2 {ctx m} g : wf g -> wf (Rexists2 (ctx := ctx) (m := m) g)
+| WFabs {ctx m} g : (forall e, wf (g e)) -> wf (Rabs (ctx := ctx) (m := m) g)
+| WFapp {ctx m} r e : wf r -> wf (Rapp (ctx := ctx) (m := m) r e)
+| WFrecur {ctx m} g : guarded varR0 g -> wf g -> wf (Rrecur (ctx := ctx) (m := m) g)
+| WFlater {ctx} P : wf P -> wf (Rlater (ctx := ctx) P)
+.
 
 Inductive relsize :=
 | RS1 : relsize
@@ -592,170 +644,70 @@ Fixpoint rel2size {ctx m} (r : rel ctx m) : relsize :=
     | Rlater _ => RS1
   end.
 
-Definition imply (a b : Prop) : Prop := a -> b.
-Infix "-->" := imply (at level 95, right associativity).
+Lemma guarded_size {m ctx} (g : rel (m :: ctx) m) : guarded varR0 g -> forall r, rel2size g = rel2size (g $ r).
+  admit.
+Qed.
 
-Require Import Bedrock.Platform.Cito.GeneralTactics4.
+Lemma wf_unrecur {ctx m} g : wf (Rrecur (ctx := ctx) (m := m) g) -> wf (g $ (Rrecur g)).
+  admit.
+Qed.
 
-Definition interp : forall (n : nat) {ctx m} (r : rel ctx m) (d : rsubsts ctx), erel m.
+Definition interp : forall (n : nat) {ctx m} (r : rel ctx m) (Hwf : wf r) (d : rsubsts ctx), erel m.
   refine
-    (fix interp n {ctx m} (r : rel ctx m) (d : rsubsts ctx) : erel m :=
+    (fix interp n {ctx m} (r : rel ctx m) (Hwf : wf r) (d : rsubsts ctx) : erel m :=
        match n with
          | 0 => const_erel True m
          | S n' =>
-           (fix interp' n (rs : relsize) {ctx m} (r : rel ctx m) (d : rsubsts ctx) {struct rs} : rs = rel2size r -> erel m :=
+           (fix interp' n (rs : relsize) {ctx m} (r : rel ctx m) (d : rsubsts ctx) {struct rs} : wf r -> rs = rel2size r -> erel m :=
               match rs with
                 | RS1 => 
-                  match r in rel _ m return RS1 = rel2size r -> erel m with
-                    | Rvar _ x => fun Heq => ` (d $ x) n
-                    | Rinj P => fun Heq => P
-                    | Rlater P => fun Heq => interp n' P d
-                    | _ => fun Heq => _
+                  match r in rel _ m return wf r -> RS1 = rel2size r -> erel m with
+                    | Rvar _ x => fun _ Heq => ` (d $ x) n
+                    | Rinj P => fun _ Heq => P
+                    | Rlater P => fun Hwf' Heq => interp n' P _ d
+                    | _ => _
                   end
                 | RSadd sa sb =>
-                  match r in rel _ m return RSadd sa sb = rel2size r -> erel m with
-                    | Rand a b => fun Heq => interp' n sa a d _ /\ interp' n sb b d _
-                    | Ror a b => fun Heq => interp' n sa a d _ \/ interp' n sb b d _
-                    | Rimply a b => fun Heq => (fun f : _ -> Prop => forall k, k <= n -> f k) (fun k => interp' k sa a d _ --> interp' k sb b d _)
-                    | Rforall2 _ g => fun Heq => (fun f : _ -> Prop => forall x, f x) (fun x => interp' n sb g (add x d) _)
-                    | Rexists2 _ g => fun Heq => (fun f : _ -> Prop => exists x, f x) (fun x => interp' n sb g (add x d) _)
-                    | Rapp _ r e => fun Heq => interp' n sb r d _ e
-                    | Rrecur m' g => fun Heq => interp' n sb (g $ Rrecur g) d _
-                    | _ => fun Heq => _
+                  match r in rel _ m return wf r -> RSadd sa sb = rel2size r -> erel m with
+                    | Rand a b => fun Hwf' Heq => interp' n sa a d _ _ /\ interp' n sb b d _ _
+                    | Ror a b => fun Hwf' Heq => interp' n sa a d _ _ \/ interp' n sb b d _ _
+                    | Rimply a b => fun Hwf' Heq => (fun f : _ -> Prop => forall k, k <= n -> f k) (fun k => interp' k sa a d _ _ --> interp' k sb b d _ _)
+                    | Rforall2 _ g => fun Hwf' Heq => (fun f : _ -> Prop => forall x, f x) (fun x => interp' n sb g (add x d) _ _)
+                    | Rexists2 _ g => fun Hwf' Heq => (fun f : _ -> Prop => exists x, f x) (fun x => interp' n sb g (add x d) _ _)
+                    | Rapp _ r e => fun Hwf' Heq => interp' n sb r d _ _ e
+                    | Rrecur m' g => fun Hwf' Heq => interp' n sb (g $ Rrecur g) d _ _
+                    | _ => _
                   end
                 | RSbind _ sg =>
-                  match r in rel _ m return RSbind sg = rel2size r -> erel m with
-                    | Rforall1 _ g => fun Heq => (fun f => forall sx x (Heq_x : sx ~= x), (f sx x Heq_x : Prop)) (fun sx x Heq_x => interp' n (sg sx) (g x) d _)
-                    | Rexists1 _ g => fun Heq => (fun f => exists sx x (Heq_x : sx ~= x), (f sx x Heq_x : Prop)) (fun sx x Heq_x => interp' n (sg sx) (g x) d _)
-                    | _ => fun Heq => _
+                  match r in rel _ m return wf r -> RSbind sg = rel2size r -> erel m with
+                    | Rforall1 _ g => fun Hwf' Heq => (fun f => forall sx x (Heq_x : sx ~= x), (f sx x Heq_x : Prop)) (fun sx x Heq_x => interp' n (sg sx) (g x) d _ _)
+                    | Rexists1 _ g => fun Hwf' Heq => (fun f => exists sx x (Heq_x : sx ~= x), (f sx x Heq_x : Prop)) (fun sx x Heq_x => interp' n (sg sx) (g x) d _ _)
+                    | _ => _
                   end
                 | RSbinde sg =>
-                  match r in rel _ m return RSbinde sg = rel2size r -> erel m with
-                    | Rabs _ g => fun Heq => fun e => interp' n (sg e) (g e) d _
-                    | _ => fun Heq => _
+                  match r in rel _ m return wf r -> RSbinde sg = rel2size r -> erel m with
+                    | Rabs _ g => fun Hwf' Heq => fun e => interp' n (sg e) (g e) d _ _
+                    | _ => _
                   end
-              end) n (rel2size r) ctx m r d eq_refl
-       end); simpl in *; try solve [discriminate | inject Heq; eauto]; simpl in *.
+              end) n (rel2size r) ctx m r d Hwf eq_refl
+       end); simpl in *; try solve [intros; discriminate | intros; inject Heq; eauto | dependent destruction Hwf'; eauto]; simpl in *.
+  { 
+    eapply wf_unrecur; eauto.
+  }
   {
     inject Heq.
-    clear.
-    admit. (* rel2size g = rel2size (apply_rel_rel g (@@ , g)) *)
-  }
-  {
-    inject Heq; subst.
-    dependent induction H; eauto.
-  }
-  {
-    inject Heq; subst.
-    dependent induction H; eauto.
-  }
-Defined.
-
-Inductive rlt : relsize -> relsize -> Prop :=
-| RLTadd1 a b : rlt a (a + b)
-| RLTadd2 a b : rlt b (a + b)
-| RLTbind T g x : rlt (g x) (RSbind (T := T) g)
-.
-
-Lemma rlt_wf : well_founded rlt.
-Proof.
-  unfold well_founded.
-  induction a.
-  {
-    econstructor.
-    intros y H.
-    inversion H.
-  }
-  {
-    econstructor.
-    intros y H.
-    inversion H; subst; eauto.
-  }
-  {
-    econstructor.
-    intros y Hrlt.
-    inversion Hrlt.
-    Require Import Eqdep.
-    eapply inj_pair2 in H3.
-    rewrite H3.
-    (* or : dependent induction Hrlt. *)
+    eapply guarded_size.
+    dependent destruction Hwf'.
     eauto.
   }
-Defined.
-
-Lemma lexical_wf A B Ra Rb : well_founded Ra -> well_founded Rb -> well_founded (@lexical A B Ra Rb).
-  admit.
-Defined.
-
-Obligation Tactic := try solve [intros; eassumption]; program_simpl.
-
-Next Obligation.
-  subst.
-  admit.
-Defined.
-Next Obligation.
-  subst.
-  admit.
-Defined.
-Next Obligation.
-  subst.
-  admit.
-Defined.
-Next Obligation.
-  subst.
-  simpl.
-  admit.
-Defined.
-Next Obligation.
-  subst.
-  simpl.
-  admit.
-Defined.
-Next Obligation.
-  rewrite <- Heq_r.
-  admit.
-Defined.
-Next Obligation.
-  subst.
-  simpl.
-  admit.
-Defined.
-Next Obligation.
-  subst.
-  admit.
-Defined.
-Next Obligation.
-  subst.
-  simpl.
-  admit.
-Defined.
-Next Obligation.
-  subst.
-  admit.
-Defined.
-Next Obligation.
-  subst.
-  admit.
-Defined.
-Next Obligation.
-  subst.
-  admit.
-Defined.
-Next Obligation.
-  replace (rel2size r) with (rel2size (Rrecur g)) by (rewrite <- Heq_r; eauto).
-  simpl.
-  admit.
-Defined.
-Next Obligation.
-  subst.
-  simpl.
-  admit.
-Defined.
-Next Obligation.
-  eapply measure_wf.
-  eapply lexical_wf.
-  { eapply Wf_nat.lt_wf. }
-  eapply rlt_wf.
+  {
+    inject Heq; subst.
+    dependent induction H; eauto.
+  }
+  {
+    inject Heq; subst.
+    dependent induction H; eauto.
+  }
 Defined.
 
 (*here*)
