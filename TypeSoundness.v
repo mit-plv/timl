@@ -652,7 +652,10 @@ Lemma wf_unrecur {ctx m} g : wf (Rrecur (ctx := ctx) (m := m) g) -> wf (g $ (Rre
   admit.
 Qed.
 
-Definition interp : forall (n : nat) {ctx m} (r : rel ctx m) (Hwf : wf r) (d : rsubsts ctx), erel m.
+Definition wfrel ctx m := {r : rel ctx m | wf r}.
+Definition make_wfrel {ctx m} r H : wfrel ctx m := exist wf r H.
+
+Definition interp' : forall (n : nat) {ctx m} (r : rel ctx m) (Hwf : wf r) (d : rsubsts ctx), erel m.
   refine
     (fix interp n {ctx m} (r : rel ctx m) (Hwf : wf r) (d : rsubsts ctx) : erel m :=
        match n with
@@ -710,183 +713,25 @@ Definition interp : forall (n : nat) {ctx m} (r : rel ctx m) (Hwf : wf r) (d : r
   }
 Defined.
 
-(*here*)
+Definition interp {ctx m} (r : wfrel ctx m) (d : rsubsts ctx) (n : nat) : erel m :=
+  interp' n (proj2_sig r) d.
 
-Set Maximal Implicit Insertion.
-Section Funvar.
-
-  Variable var : list nat.
-
-  Definition varT := list nat -> Type.
-  Definition varTs := list varT.
-
-  Fixpoint Funvar domains range :=
-    match domains with
-      | nil => range var
-      | domain :: domains' => domain var -> Funvar domains' range
-    end.
-
-End Funvar.
-
-Section openup.
-
-  Context `{var : list nat}.
-  
-  Notation Funvar := (Funvar var).
-
-  Definition openup1 {t1 t2} (f : t1 var -> t2 var) : forall {ctx}, Funvar ctx t1 -> Funvar ctx t2.
-    refine
-      (fix F ctx : Funvar ctx t1 -> Funvar ctx t2 :=
-         match ctx return Funvar ctx t1 -> Funvar ctx t2 with
-           | nil => _
-           | nv :: ctx' => _
-         end);
-    simpl; eauto.
-  Defined.
-
-  Definition openup2 {t1 t2 T} (f : (T -> t1 var) -> t2 var) : forall {ctx}, (T -> Funvar ctx t1) -> Funvar ctx t2.
-    refine
-      (fix F ctx : (T -> Funvar ctx t1) -> Funvar ctx t2 :=
-         match ctx return (T -> Funvar ctx t1) -> Funvar ctx t2 with
-           | nil => _
-           | nv :: ctx' => _ 
-         end);
-    simpl; eauto.
-  Defined.
-
-  Definition openup3 {t T} (f : T -> t var) : forall {ctx}, T -> Funvar ctx t.
-    refine
-      (fix F ctx : T -> Funvar ctx t :=
-         match ctx return T -> Funvar ctx t with
-           | nil => _
-           | nv :: ctx' => _ 
-         end);
-    simpl; eauto.
-  Defined.
-  
-  Definition openupSingle {t} (f : t var) : forall {ctx}, Funvar ctx t.
-    refine
-      (fix F ctx : Funvar ctx t :=
-         match ctx return Funvar ctx t with
-           | nil => _
-           | t :: ctx' => _ 
-         end);
-    simpl; eauto.
-  Defined.
-
-  Definition openup5 {t1 t2 t3} (f : t1 var -> t2 var -> t3 var) : forall {ctx}, Funvar ctx t1 -> Funvar ctx t2 -> Funvar ctx t3.
-    refine
-      (fix F ctx : Funvar ctx t1 -> Funvar ctx t2 -> Funvar ctx t3 :=
-         match ctx return Funvar ctx t1 -> Funvar ctx t2 -> Funvar ctx t3 with
-           | nil => _
-           | nv :: ctx' => _ 
-         end);
-    simpl; eauto.
-  Defined.
-
-  Definition openup8 {t1 t2 T} (f : (T -> t1 var) -> t2 var) : forall {ctx}, (Funvar ctx (const T) -> Funvar ctx t1) -> Funvar ctx t2.
-    refine
-      (fix F ctx : (Funvar ctx (const T) -> Funvar ctx t1) -> Funvar ctx t2 :=
-         match ctx return (Funvar ctx (const T) -> Funvar ctx t1) -> Funvar ctx t2 with
-           | nil => _
-           | nv :: ctx' => _
-         end);
-    simpl; eauto.
-  Defined.
-
-End openup.
-
-Section open_term.
-  
-  Inductive rtype :=
-  | RTvar (_ : nat)
-  | RTcsubsts (_ : context)
-  | RTother (_ : Type)
-  .
-
-  (* Coercion RTvar : nat >-> rtype. *)
-
-  Definition rcontext := list rtype.
-
-  Variable var : list nat.
-
-  Definition interp_rtype t : Type :=
-    match t with
-      | RTvar m => varR var m
-      | RTcsubsts lctx => csubsts lctx var
-      | RTother T => T
-    end.
-
-  Fixpoint open_term (domains : rcontext) (range : varT) : Type :=
-    match domains with
-      | nil => range var
-      | domain :: domains' => interp_rtype domain -> open_term domains' range
-    end.
-
-End open_term.
-
-Definition flip_rel := flip rel.
-Coercion flip_rel : nat >-> Funclass.
-
-Definition OpenTerm ctx t := forall var, open_term var ctx t.
-
-(* Definition Rel ctx t := forall var, Funvar var ctx t. *)
-(* Definition Rel1 m := forall var, rel var m. *)
-(* Definition Rel2 m := forall var, rel2 var m. *)
-
-Definition Rel1 m := OpenTerm [] (flip_rel m).
-Definition Rel2 m := OpenTerm [] (flip rel2 m).
-
-Definition Unrecur n {m} (R : Rel1 m) : Rel2 m := fun var => unrecur n (R (rel2 var)).
-
-Definition Interp {m} (R : Rel1 m) n : erel m := 
-  let R' := Unrecur n R in 
-  interp n (R' mono_erel).
-
-Lemma Interp_monotone m (R : Rel1 m) : monotone (Interp R).
+Lemma interp_monotone ctx m (r : wfrel ctx m) (d : rsubsts ctx) : monotone (interp r d).
   admit.
 Qed.
 
-Definition map_se {var} {F : (nat -> Type) -> nat -> Type} (f : var 1 -> F var 1) {t} : SubstEntry var t -> SubstEntry (F var) t :=
-  match t with
-    | CEtype => fun e => let (tau, x) := pair_of_se e in SEtype tau (f x)
-    | CEexpr => fun e => SEexpr (expr_of_se e)
+(* Lemma VCtxElimEmpty t (f : csubsts lctx ctx -> wfrel ctx 0) : (forall (rho : csubsts lctx ctx), [] |~ f rho) -> (forall ctxfo (rho : open_term ctxfo (csubsts lctx ctx)), [] |~ f $ rho). *)
+
+Fixpoint open_term (domains : list Type) (range : Type) : Type :=
+  match domains with
+    | nil => range
+    | domain :: domains' => domain -> open_term domains' range
   end.
 
-Fixpoint map_csubsts {var} {F : (nat -> Type) -> nat -> Type} (f : forall m, var m -> F var m) {lctx} : csubsts var lctx -> csubsts (F var) lctx :=
-  match lctx return csubsts var lctx -> csubsts (F var) lctx with
-    | nil => fun _ => []%CS
-    | t :: lctx' => 
-      fun rho => 
-        let (e, rho') := pair_of_cs rho in 
-        (map_se (f 1) e :: map_csubsts f rho')%CS
-  end.
+Definition open_wfrel ctxfo ctx m := open_term ctxfo (wfrel ctx m).
 
-Definition map_rtype {var F} (f : forall m, var m -> F var m) {t} : interp_rtype var t -> interp_rtype (F var) t :=
-  match t return interp_rtype var t -> interp_rtype (F var) t with
-    | RTvar _ => fun x => f _ x
-    | RTcsubsts _ => fun x => map_csubsts f x
-    | RTother _ => fun x => x
-  end.
-
-Fixpoint unrecur_open n {m : nat} {var ctx} : open_term (rel2 var) ctx m -> open_term var ctx (flip rel2 m) :=
-  match ctx return open_term (rel2 var) ctx (flip rel m) -> open_term var ctx (flip rel2 m) with
-    | nil => fun r => unrecur n (m := m) r
-    | t :: ctx' => fun r x => unrecur_open n (r (map_rtype (@R2var _) x))
-  end.
-
-Definition UnrecurOpen n {ctx} {m : nat} (R : OpenTerm ctx m) : OpenTerm ctx (flip rel2 m) := 
-  fun var => unrecur_open n (R (rel2 var)).
-
-Fixpoint interp_open n {m ctx} : open_term mono_erel ctx (flip rel2 m) -> open_term mono_erel ctx (const (erel m)) :=
-  match ctx return open_term mono_erel ctx (flip rel2 m) -> open_term mono_erel ctx (const (erel m)) with
-    | nil => interp n (m := m)
-    | _ :: ctx' => fun r x => interp_open n (r x)
-  end.
-
-Definition InterpOpen {ctx} {m : nat} n (R : OpenTerm ctx m) : open_term mono_erel ctx (const (erel m)) :=
-  let R' := UnrecurOpen n R in
-  interp_open n (R' mono_erel).
+Definition valid {ctx} : list (open_wfrem ctxfo ctx 0) -> open_wfrel ctxfo ctx 0 -> Prop :=
+  fun Ps P => forall n, forall_ctx (map (InterpOpen n) Ps) (InterpOpen n P).
 
 Fixpoint forall_erel {T m} : (T -> erel m) -> erel m :=
   match m with
@@ -905,25 +750,6 @@ Fixpoint forall_ctx {ctx} : list (open_term mono_erel ctx (const Prop)) -> open_
     | nil => fun Ps P => All Ps -> P
     | t :: ctx' => fun Ps P => forall x, forall_ctx (map (flip apply_arrow x) Ps) (P x)
   end.
-
-Definition DDrev ctx := DDv (rev ctx).
-
-Definition relDDrev ctx m := rel (DDrev ctx) m.
-
-Fixpoint DDlift new {m ctx} : (DDrev ctx m ->  relDDrev ctx m) -> (DDrev (new ++ ctx) m ->  relDDrev (new ++ ctx) m) :=
-  match ctx with
-    | nil => fun r x => 
-
-Definition toDD {m} : forall ctx, relDDV ctx m -> relDD ctx m.
-  refine
-    (fix {ctx} (r : rel (DDv (rev ctx)) m) : relDD ctx m :=
-       match r with
-         | Rforall2 m' g => DDforall2 (toDD (m' :: ctx) (DDlift [m'] g (exist (length ctx) _)))
-         | _ => DDinj _ True
-       end).
-
-Definition valid {ctx} : list (OpenTerm ctx 0) -> OpenTerm ctx 0 -> Prop :=
-  fun Ps P => forall n, forall_ctx (map (InterpOpen n) Ps) (InterpOpen n P).
 
 Infix "|~" := valid (at level 89, no associativity).
 
