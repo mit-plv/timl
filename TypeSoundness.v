@@ -179,13 +179,61 @@ Notation "⇓*#" := terminatesWithEx.
 
 Set Maximal Implicit Insertion.
 
-Definition onat_eq_b := option_eq_b EqNat.beq_nat.
+Inductive usab := Usable | Unusable.
+Definition relvart := (nat * usab)%type.
+Definition nat2relvart n : relvart := (n, Usable).
+Coercion nat2relvart : nat >-> relvart.
 
-Definition varR m ctx := {n | onat_eq_b (nth_error ctx n) (Some m) = true}.
-Definition make_varR {m ctx} n (P : onat_eq_b (nth_error ctx n) (Some m) = true) : varR m ctx := exist _ n P.
+Require Import Bool.
+Definition beq_pair {A B} fa fb (a b : A * B) := fa (fst a) (fst b) && fb (snd a) (snd b).
 
-Inductive rel : nat -> list nat -> Type :=
-| Rvar {m ctx} : varR m ctx -> rel m ctx
+Definition beq_usab a b :=
+  match a, b with
+    | Usable, Usable => true
+    | Unusable, Unusable => true
+    | _, _ => false
+  end.
+
+Require Import EqNat.
+Definition beq_relvart : relvart -> relvart -> bool := beq_pair beq_nat beq_usab.
+Definition beq_orelvart := option_eq_b beq_relvart.
+
+Lemma beq_relvart_refl m : beq_relvart m m = true.
+  admit.
+Qed.
+
+Definition varR m ctx := {n | beq_orelvart (nth_error ctx n) (Some m) = true}.
+Definition make_varR {m ctx} n (P : beq_orelvart (nth_error ctx n) (Some m) = true) : varR m ctx := exist _ n P.
+Definition varR0 {m ctx} : varR m (m :: ctx).
+  refine ((make_varR (ctx := m%nat :: _) (m := m) 0 _)).
+  eapply beq_relvart_refl.
+Defined.
+Notation "#0" := varR0.
+
+(*
+Fixpoint forall2b A B (f : A -> B -> bool) ls1 ls2 :=
+  match ls1, ls2 with
+    | nil, nil => true
+    | a :: ls1', b :: ls2' => f a b && forall2b f ls1' ls2'
+    | _, _ => false
+  end.
+Definition compat_ctx : list relvart -> list relvart -> bool := forall2b (fun m m' => beq_nat (fst m) (fst m')).
+Arguments compat_ctx _ _ / .
+Lemma compat_ctx_refl {ctx} : compat_ctx ctx ctx = true.
+  admit.
+Qed.
+ *)
+
+Fixpoint change_usab chg (ctx : list relvart) : list relvart :=
+  match chg, ctx with
+    | new :: chg', old :: ctx' =>
+      (fst old, default (snd old) new) :: change_usab chg' ctx'
+    | nil, _ => ctx
+    | _, _ => nil
+  end.
+
+Inductive rel : nat -> list relvart -> Type :=
+| Rvar {m ctx} : varR (m, Usable) ctx -> rel m ctx
 | Rinj {ctx} : Prop -> rel 0 ctx
 | Rand {ctx} (_ _ : rel 0 ctx) : rel 0 ctx
 | Ror {ctx} (_ _ : rel 0 ctx) : rel 0 ctx
@@ -196,8 +244,8 @@ Inductive rel : nat -> list nat -> Type :=
 | Rexists2 {ctx m} : rel 0 (m :: ctx) -> rel 0 ctx
 | Rabs {ctx m} : (expr -> rel m ctx) -> rel (S m) ctx
 | Rapp {ctx m} : rel (S m) ctx -> expr -> rel m ctx
-| Rrecur {ctx m} : rel m (m :: ctx) -> rel m ctx
-| Rlater {ctx} : rel 0 ctx -> rel 0 ctx
+| Rrecur {ctx m} : rel m ((m, Unusable) :: ctx) -> rel m ctx
+| Rlater {ctx} chg : rel 0 (change_usab chg ctx) -> rel 0 ctx
 .
 
 Arguments Rinj {ctx} _ .
@@ -236,14 +284,13 @@ Global Instance Apply_rel_expr {m ctx} : Apply (rel (S m) ctx) expr (rel m ctx) 
 Infix "/\" := Rand : rel.
 Infix "\/" := Ror : rel.
 Infix "===>" := Rimply (at level 86) : rel.
-Notation "▹" := Rlater : rel.
 
 Delimit Scope rel with rel.
 Bind Scope rel with rel.
 
 Module test_rel.
   
-  Variable ctx : list nat.
+  Variable ctx : list relvart.
 
   Open Scope rel.
 
@@ -259,12 +306,12 @@ Local Open Scope prog_scope.
 
 (* closing substitutions *)
 
-Inductive SubstEntry : CtxEntry -> list nat -> Type :=
+Inductive SubstEntry : CtxEntry -> list relvart -> Type :=
 | SEtype {ctx} (_ : type) (_ : varR 1 ctx) : SubstEntry CEtype ctx
 | SEexpr {ctx} (_ : expr) : SubstEntry CEexpr ctx
 .
 
-Inductive csubsts : context -> list nat -> Type :=
+Inductive csubsts : context -> list relvart -> Type :=
 | CSnil {ctx} : csubsts [] ctx
 | CScons {ctx t lctx} : SubstEntry t ctx -> csubsts lctx ctx -> csubsts (t :: lctx) ctx
 .
@@ -452,13 +499,6 @@ Instance Shift_csubsts lctx : Shift (csubsts lctx) :=
     shift := @shift_csubsts lctx
   }.
 
-Definition varR0 {m ctx} : varR m (m :: ctx).
-  refine ((make_varR (ctx := m%nat :: _) (m := m) 0 _)).
-  symmetry; eapply EqNat.beq_nat_refl.
-Defined.
-
-Notation "#0" := varR0.
-
 (* A "step-indexed" kriple model *)
 (* the logical relation *)
 Section LR.
@@ -467,17 +507,19 @@ Section LR.
 
   Open Scope rel.
 
-  Fixpoint relE' {lctx} (relV : forall ctx, csubsts lctx ctx -> rel 1 ctx) τ (c : nat) (s : size) ctx (ρ : csubsts lctx ctx) {struct c} : rel 1 ctx :=
+  Notation "▹" := Rlater : rel.
+
+  Fixpoint relE' {lctx} (relV : forall ctx, csubsts lctx ctx -> rel 1 ctx) (τ : open_type lctx) (c : nat) (s : size) ctx (ρ : csubsts lctx ctx) : rel 1 ctx :=
     \e, ⌈|- e (ρ $ τ) /\ 
         (forall n e', (~>## e n 0 e') -> n ≤ B)⌉ /\ 
         (∀v, ⌈⇓*# e 0 v⌉ ===> v ∈ relV ctx ρ /\ ⌈!v ≤ s⌉) /\
         (∀e', ⌈~>*# e 1 e'⌉ ===> 
-               match c with
-                 | 0 => ⊥
-                 | S c' =>
-                   ▹ (e' ∈ relE' relV τ c' s ρ)
-               end).
-
+                    match c with
+                      | 0 => ⊥
+                      | S c' =>
+                        ▹ [] (e' ∈ relE' relV τ c' s ρ)
+                    end).
+  
   Open Scope ty.
 
   Definition pair_to_Epair {ctx} (p : open_expr ctx * open_expr ctx) := Epair (fst p) (snd p).
@@ -489,7 +531,7 @@ Section LR.
 
   Existing Instance Apply_rel_expr.
 
-  Fixpoint relV {lctx} τ ctx (ρ : csubsts lctx ctx) : rel 1 ctx :=
+  Fixpoint relV {lctx} (τ : open_type lctx) ctx (ρ : csubsts lctx ctx) : rel 1 ctx :=
     match τ with
       | Tvar α => Rvar (csubsts_sem ρ α)
       | Tunit => \v, ⌈v ↓ Tunit⌉
@@ -497,10 +539,9 @@ Section LR.
       | τ₁ + τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃v', (⌈v = Einl (ρ $ τ₂) v'⌉ /\ v' ∈ relV τ₁ ρ) \/ (⌈v = Einr (ρ $ τ₁) v'⌉ /\ v' ∈ relV τ₂ ρ)
       | Tarrow τ₁ c s τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃τ₁' e, ⌈v = Eabs τ₁' e⌉ /\ ∀v₁, v₁ ∈ relV τ₁ ρ ===> subst v₁ e ∈ relE' (relV τ₂) τ₂ !(ρ $ subst !(!v₁) c) (ρ $ subst !(!v₁) s) (add v₁ ρ)
       | Tuniversal c s τ₁ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∀τ', ∀₂, VSet τ' (Rvar #0) ===> v $$ τ' ∈ relE' (relV τ₁) τ₁ !(ρ $ c) (ρ $ s) (add (τ', #0) (shift1 _ ρ))
-      | Trecur τ₁ => @@, \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃τ' v', ⌈v = Efold τ' v'⌉ /\ ▹ (v' ∈ relV τ₁ (add (ρ $ τ, #0) (shift1 _ ρ)))
+      | Trecur τ₁ => @@, \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃τ' v', ⌈v = Efold τ' v'⌉ /\ ▹ [Some Usable] (v' ∈ relV τ₁ (add (ρ $ τ, #0) (shift1 _ ρ)))
       | _ => \_, ⊥
-    end
-  .
+    end.
 
   Definition relE {lctx} τ := relE' (lctx := lctx) (relV τ) τ.
 
@@ -526,33 +567,33 @@ Fixpoint const_erel (P : Prop) (m : nat) : erel m :=
     | S m' => fun _ => const_erel P m'
   end.
 
-Definition rsubsts : list nat -> Prop.
+Definition rsubsts : list relvart -> Prop.
   admit.
 Defined.
 
-Definition apply_rsubsts_var {ctx m} : rsubsts ctx -> varR m ctx -> mono_erel m.
+Definition apply_rsubsts_var {m : nat} {ctx} : rsubsts ctx -> varR m ctx -> mono_erel m.
   admit.
 Defined.
 
-Instance Apply_rsubsts_var {ctx m} : Apply (rsubsts ctx) (varR m ctx) (mono_erel m) :=
+Instance Apply_rsubsts_var {m : nat} {ctx} : Apply (rsubsts ctx) (varR m ctx) (mono_erel m) :=
   {
     apply := apply_rsubsts_var
   }.
 
-Definition add_rsubsts {ctx m} : mono_erel m -> rsubsts ctx -> rsubsts (m :: ctx).
+Definition add_rsubsts {m : nat} {u ctx} : mono_erel m -> rsubsts ctx -> rsubsts ((m, u) :: ctx).
   admit.
 Defined.
 
-Instance Add_rsubsts {ctx m} : Add (mono_erel m) (rsubsts ctx) (rsubsts (m :: ctx)) :=
+Instance Add_rsubsts {m : nat} {u ctx} : Add (mono_erel m) (rsubsts ctx) (rsubsts ((m, u) :: ctx)) :=
   {
     add := add_rsubsts
   }.
 
-Definition apply_rel_rel {m ctx m'} : rel m' (m :: ctx) -> rel m ctx -> rel m' ctx.
+Definition apply_rel_rel {m m' : nat} {u ctx} : rel m' ((m, u) :: ctx) -> rel m ctx -> rel m' ctx.
   admit.
 Defined.
 
-Instance Apply_rel_rel {m ctx m'} : Apply (rel m' (m :: ctx)) (rel m ctx) (rel m' ctx) :=
+Instance Apply_rel_rel {m m' : nat} {u ctx} : Apply (rel m' ((m, u) :: ctx)) (rel m ctx) (rel m' ctx) :=
   {
     apply := apply_rel_rel
   }.
@@ -570,45 +611,6 @@ Global Instance Shift_varR m : Shift (varR m) :=
   {
     shift := @shift_varR m
   }.
-
-Definition guarded {ctx m'} (g : rel m' ctx) {m} (x : varR m ctx) : Prop.
-  admit.
-  (* match g with *)
-  (*   | Rvar _ x' => *)
-  (*     match nat_cmp (`x) (`x') with *)
-  (*       | EQ _ => False *)
-  (*       | _ => True *)
-  (*     end *)
-  (*   | Rinj _ => True *)
-  (*   | Rand a b => guarded a x /\ guarded b x *)
-  (*   | Ror a b => guarded a x /\ guarded b x *)
-  (*   | Rimply a b => guarded a x /\ guarded b x *)
-  (*   | Rforall1 _ g => forall y, guarded (g y) x *)
-  (*   | Rexists1 _ g => forall y, guarded (g y) x *)
-  (*   | Rforall2 _ g => guarded g (shift1 _ x) *)
-  (*   | Rexists2 _ g => guarded g (shift1 (T0 := fun ctx => varR _ ctx) _ x) *)
-  (*   | Rabs _ g => forall e, guarded (g e) x *)
-  (*   | Rapp _ r e => guarded r x *)
-  (*   | Rrecur _ g => guarded g (shift1 (T0 := fun ctx => varR _ ctx) _ x) *)
-  (*   | Rlater _ => True *)
-  (* end. *)
-Defined.
-
-Inductive wf : forall {m ctx}, rel m ctx -> Prop :=
-| WFvar {ctx m} x : wf (Rvar (ctx := ctx) (m := m) x)
-| WFinj {ctx} P : wf (Rinj (ctx := ctx) P)
-| WFand {ctx} a b : wf a -> wf b -> wf (Rand (ctx := ctx) a b)
-| WFor {ctx} a b : wf a -> wf b -> wf (Ror (ctx := ctx) a b)
-| WFimply {ctx} a b : wf a -> wf b -> wf (Rimply (ctx := ctx) a b)
-| WFforall1 {ctx T} g : (forall x : T, wf (g x)) -> wf (Rforall1 (ctx := ctx) g)
-| WFexists1 {ctx T} g : (forall x : T, wf (g x)) -> wf (Rexists1 (ctx := ctx) g)
-| WFforall2 {ctx m} g : wf g -> wf (Rforall2 (ctx := ctx) (m := m) g)
-| WFexists2 {ctx m} g : wf g -> wf (Rexists2 (ctx := ctx) (m := m) g)
-| WFabs {ctx m} g : (forall e, wf (g e)) -> wf (Rabs (ctx := ctx) (m := m) g)
-| WFapp {ctx m} r e : wf r -> wf (Rapp (ctx := ctx) (m := m) r e)
-| WFrecur {ctx m} g : guarded g varR0 -> wf g -> wf (Rrecur (ctx := ctx) (m := m) g)
-| WFlater {ctx} P : wf P -> wf (Rlater (ctx := ctx) P)
-.
 
 Inductive relsize :=
 | RS1 : relsize
@@ -638,167 +640,61 @@ Fixpoint rel2size {m ctx} (r : rel m ctx) : relsize :=
     | Rabs _ _ g => RSbinde (fun e => rel2size (g e))
     | Rapp _ _ a _ => RSadd1 (rel2size a)
     | Rrecur _ _ g => RSadd1 (rel2size g)
-    | Rlater _ _ => RS1
+    | Rlater _ _ _ => RS1
   end.
 
-Lemma guarded_size {m ctx} (g : rel m (m :: ctx)) : guarded g varR0 -> forall r, rel2size g = rel2size (g $ r).
+Lemma guarded_size {m : nat} {ctx} (g : rel m ((m, Unusable) :: ctx)) : forall r, rel2size g = rel2size (g $ r).
   admit.
 Qed.
 
-Lemma wf_unrecur {ctx m} g : wf (Rrecur (ctx := ctx) (m := m) g) -> wf (g $ (Rrecur g)).
+Definition change_rsubsts chg {ctx} : rsubsts ctx -> rsubsts (change_usab chg ctx).
   admit.
-Qed.
-
-Definition wfrel m ctx := {r : rel m ctx | wf r}.
-
-Definition make_wfrel {m ctx} r H : wfrel m ctx := exist wf r H.
-Arguments make_wfrel {m ctx} r H.
-
-Definition WFRvar {m ctx} (x : varR m ctx) : wfrel m ctx.
-  refine (make_wfrel (Rvar x) _).
-  econstructor.
 Defined.
 
-Definition WFRinj {ctx} (P : Prop) : wfrel 0 ctx.
-  refine (make_wfrel (Rinj P) _).
-  econstructor.
-Defined.
-
-Definition WFRtrue {ctx} := WFRinj (ctx := ctx) True.
-Definition WFRfalse {ctx} := WFRinj (ctx := ctx) False.
-
-Definition proj_rel {m ctx} (r : wfrel m ctx) := proj1_sig r.
-Coercion proj_rel : wfrel >-> rel.
-
-Definition WFRand {ctx} (a b : wfrel 0 ctx) : wfrel 0 ctx.
-  refine (make_wfrel (Rand a b) _).
-  destruct a.
-  destruct b.
-  simpl.
-  econstructor; eauto.
-Defined.
-
-Definition WFRor {ctx} (a b : wfrel 0 ctx) : wfrel 0 ctx.
-  refine (make_wfrel (Ror a b) _).
-  destruct a.
-  destruct b.
-  simpl.
-  econstructor; eauto.
-Defined.
-
-Definition WFRimply {ctx} (a b : wfrel 0 ctx) : wfrel 0 ctx.
-  refine (make_wfrel (Rimply a b) _).
-  destruct a.
-  destruct b.
-  simpl.
-  econstructor; eauto.
-Defined.
-
-Definition WFRforall1 {ctx T} (g : T -> wfrel 0 ctx) : wfrel 0 ctx.
-  refine (make_wfrel (Rforall1 (fun x => g x)) _).
-  econstructor.
-  intros x.
-  destruct (g x).
-  simpl; eauto.
-Defined.
-
-Definition WFRexists1 {ctx T} (g : T -> wfrel 0 ctx) : wfrel 0 ctx.
-  refine (make_wfrel (Rexists1 (fun x => g x)) _).
-  econstructor.
-  intros x.
-  destruct (g x).
-  simpl; eauto.
-Defined.
-
-Definition WFRapp {m ctx} (r : wfrel (S m) ctx) (e : expr) : wfrel m ctx.
-  refine (make_wfrel (Rapp r e) _).
-  destruct r.
-  simpl.
-  econstructor; eauto.
-Defined.
-
-Notation "⊤" := WFRtrue : wfrel.
-Notation "⊥" := WFRtrue : wfrel.
-(* Notation "\ x .. y , p" := (WFRabs (fun x => .. (WFRabs (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : wfrel. *)
-Notation "∀ x .. y , p" := (WFRforall1 (fun x => .. (WFRforall1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : wfrel.
-Notation "∃ x .. y , p" := (WFRexists1 (fun x => .. (WFRexists1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : wfrel.
-(* Notation "∀₂ , P" := (WFRforall2 P) (at level 200, right associativity) : wfrel. *)
-(* Notation "∃₂ , P" := (WFRexists2 P) (at level 200, right associativity) : wfrel. *)
-(* Notation "@@ , P" := (WFRrecur P) (at level 200, right associativity) : wfrel. *)
-Notation "⌈ P ⌉" := (WFRinj P) : wfrel.
-Global Instance Apply_wfrel_expr {m ctx} : Apply (wfrel (S m) ctx) expr (wfrel m ctx) :=
-  {
-    apply := WFRapp
-  }.
-Infix "/\" := WFRand : wfrel.
-Infix "\/" := WFRor : wfrel.
-Infix "===>" := WFRimply (at level 86) : wfrel.
-(* Notation "▹" := WFRlater : wfrel. *)
-
-Delimit Scope wfrel with wfrel.
-Bind Scope wfrel with wfrel.
-
-Module test_wfrel.
-  
-  Variable ctx : list nat.
-
-  Open Scope wfrel.
-
-  (* Definition ttt1 : wfrel 1 ctx := \e , ⊤. *)
-  (* Definition ttt2 : wfrel 1 ctx := \e , ⌈e ↓ Tunit⌉. *)
-  (* Definition ttt3 : wfrel 1 ctx := \_ , ⌈True /\ True⌉. *)
-
-End test_wfrel.
-
-Definition VSet_wf {ctx} τ (S : wfrel 1 ctx) := (∀v, v ∈ S ===> ⌈v ↓ τ⌉)%wfrel.
-
-Definition interp' : forall (n : nat) {ctx m} (r : rel m ctx), wf r -> rsubsts ctx -> erel m.
+Definition interp' : forall (n : nat) {m ctx} (r : rel m ctx), rsubsts ctx -> erel m.
   refine
-    (fix interp n {ctx m} (r : rel m ctx) : wf r -> rsubsts ctx -> erel m :=
+    (fix interp n : forall {m ctx}, rel m ctx -> rsubsts ctx -> erel m :=
        match n with
-         | 0 => fun _ _ => const_erel True m
+         | 0 => fun m _ _ _ => const_erel True m
          | S n' =>
-           (fix interp' n (rs : relsize) {ctx m} (r : rel m ctx) {struct rs} : rs = rel2size r -> wf r -> rsubsts ctx -> erel m :=
-              match rs with
-                | RS1 => 
-                  match r in rel m ctx return RS1 = rel2size r -> wf r -> rsubsts ctx -> erel m with
-                    | Rvar _ _ x => fun Heq _ d => ` (d $ x) n
-                    | Rinj _ P => fun _ _ _ => P
-                    | Rlater _ P => fun _ Hwf d => interp n' P _ d
-                    | _ => _
-                  end
-                | RSadd sa sb =>
-                  match r in rel m ctx return RSadd sa sb = rel2size r -> wf r -> rsubsts ctx -> erel m with
-                    | Rand _ a b => fun Heq Hwf d => interp' n sa a _ _ d /\ interp' n sb b _ _ d
-                    | Ror _ a b => fun Heq Hwf d => interp' n sa a _ _ d \/ interp' n sb b _ _ d
-                    | Rimply _ a b => fun Heq Hwf d => (fun f : _ -> Prop => forall k, k <= n -> f k) (fun k => interp' k sa a _ _ d --> interp' k sb b _ _ d)
-                    | Rforall2 _ _ g => fun Heq Hwf d => (fun f : _ -> Prop => forall x, f x) (fun x => interp' n sb g _ _ (add x d))
-                    | Rexists2 _ _ g => fun Heq Hwf d => (fun f : _ -> Prop => exists x, f x) (fun x => interp' n sb g _ _ (add x d))
-                    | Rapp _ _ r e => fun Heq Hwf d => interp' n sb r _ _ d e
-                    | Rrecur _ m' g => fun Heq Hwf d => interp' n sb (g $ Rrecur g) _ _ d
-                    | _ => _
-                  end
-                | RSbind _ sg =>
-                  match r in rel m ctx return RSbind sg = rel2size r -> wf r -> rsubsts ctx -> erel m with
-                    | Rforall1 _ _ g => fun Heq Hwf d => (fun f => forall sx x (Heq_x : sx ~= x), (f sx x Heq_x : Prop)) (fun sx x Heq_x => interp' n (sg sx) (g x) _ _ d)
-                    | Rexists1 _ _ g => fun Heq Hwf d => (fun f => exists sx x (Heq_x : sx ~= x), (f sx x Heq_x : Prop)) (fun sx x Heq_x => interp' n (sg sx) (g x) _ _ d)
-                    | _ => _
-                  end
-                | RSbinde sg =>
-                  match r in rel m ctx return RSbinde sg = rel2size r -> wf r -> rsubsts ctx -> erel m with
-                    | Rabs _ _ g => fun Heq Hwf d => fun e => interp' n (sg e) (g e) _ _ d
-                    | _ => _
-                  end
-              end) n (rel2size r) ctx m r eq_refl
-       end); simpl in *; try solve [intros; discriminate | intros; inject Heq; eauto | dependent destruction Hwf; eauto]; simpl in *.
+           let interp' :=
+               (fix interp' n (rs : relsize) {ctx m} (r : rel m ctx) {struct rs} : rs = rel2size r -> rsubsts ctx -> erel m :=
+                  match rs with
+                    | RS1 => 
+                      match r in rel m ctx return RS1 = rel2size r -> rsubsts ctx -> erel m with
+                        | Rvar _ _ x => fun Heq d => ` (d $ x) n
+                        | Rinj _ P => fun _ _ => P
+                        | Rlater _ chg P => fun _ d => interp n' P (change_rsubsts chg d)
+                        | _ => _
+                      end
+                    | RSadd sa sb =>
+                      match r in rel m ctx return RSadd sa sb = rel2size r -> rsubsts ctx -> erel m with
+                        | Rand _ a b => fun Heq d => interp' n sa a _ d /\ interp' n sb b _ d
+                        | Ror _ a b => fun Heq d => interp' n sa a _ d \/ interp' n sb b _ d
+                        | Rimply _ a b => fun Heq d => (fun f : _ -> Prop => forall k, k <= n -> f k) (fun k => interp' k sa a _ d --> interp' k sb b _ d)
+                        | Rforall2 _ (_, _) g => fun Heq d => (fun f : _ -> Prop => forall x, f x) (fun x => interp' n sb g _ (add x d))
+                        | Rexists2 _ (_, _) g => fun Heq d => (fun f : _ -> Prop => exists x, f x) (fun x => interp' n sb g _ (add x d))
+                        | Rapp _ _ r e => fun Heq d => interp' n sb r _ d e
+                        | Rrecur _ m' g => fun Heq d => interp' n sb (g $ Rrecur g) _ d
+                        | _ => _
+                      end
+                    | RSbind _ sg =>
+                      match r in rel m ctx return RSbind sg = rel2size r -> rsubsts ctx -> erel m with
+                        | Rforall1 _ _ g => fun Heq d => (fun f => forall sx x (Heq_x : sx ~= x), (f sx x Heq_x : Prop)) (fun sx x Heq_x => interp' n (sg sx) (g x) _ d)
+                        | Rexists1 _ _ g => fun Heq d => (fun f => exists sx x (Heq_x : sx ~= x), (f sx x Heq_x : Prop)) (fun sx x Heq_x => interp' n (sg sx) (g x) _ d)
+                        | _ => _
+                      end
+                    | RSbinde sg =>
+                      match r in rel m ctx return RSbinde sg = rel2size r -> rsubsts ctx -> erel m with
+                        | Rabs _ _ g => fun Heq d => fun e => interp' n (sg e) (g e) _ d
+                        | _ => _
+                      end
+                  end) in
+           fun m ctx r => interp' n (rel2size r) r eq_refl
+       end); simpl in *; try solve [intros; discriminate | intros; inject Heq; eauto]; simpl in *.
   {
     inject Heq.
     eapply guarded_size.
-    dependent destruction Hwf.
-    eauto.
-  }
-  { 
-    eapply wf_unrecur; eauto.
   }
   {
     inject Heq; subst.
@@ -810,10 +706,10 @@ Definition interp' : forall (n : nat) {ctx m} (r : rel m ctx), wf r -> rsubsts c
   }
 Defined.
 
-Definition interp {ctx m} (r : wfrel m ctx) (d : rsubsts ctx) (n : nat) : erel m :=
-  interp' n (proj2_sig r) d.
+Definition interp {ctx m} (r : rel m ctx) (d : rsubsts ctx) (n : nat) : erel m :=
+  interp' n r d.
 
-Lemma interp_monotone ctx m (r : wfrel m ctx) (d : rsubsts ctx) : monotone (interp r d).
+Lemma interp_monotone ctx m (r : rel m ctx) (d : rsubsts ctx) : monotone (interp r d).
   admit.
 Qed.
 
@@ -823,7 +719,7 @@ Fixpoint open_term (domains : list Type) (range : Type) : Type :=
     | domain :: domains' => domain -> open_term domains' range
   end.
 
-Definition open_wfrel ctxfo m ctx := open_term ctxfo (wfrel m ctx).
+Definition open_rel ctxfo m ctx := open_term ctxfo (rel m ctx).
 
 Fixpoint openup1 {t1 t2} (f : t1 -> t2) {ctx} : open_term ctx t1 -> open_term ctx t2 :=
   match ctx return open_term ctx t1 -> open_term ctx t2 with
@@ -831,7 +727,7 @@ Fixpoint openup1 {t1 t2} (f : t1 -> t2) {ctx} : open_term ctx t1 -> open_term ct
     | t :: ctx' => fun r x => openup1 f (r x)
   end.
 
-Definition interp_open n {ctx m} d {ctxfo} : open_wfrel ctxfo m ctx -> open_term ctxfo (erel m) :=
+Definition interp_open n {ctx m} d {ctxfo} : open_rel ctxfo m ctx -> open_term ctxfo (erel m) :=
   openup1 (fun r => interp r d n).
 
 Fixpoint All ls :=
@@ -846,12 +742,12 @@ Fixpoint forall_ctx {ctxfo} : list (open_term ctxfo Prop) -> open_term ctxfo Pro
     | t :: ctxfo' => fun Ps P => forall x, forall_ctx (map (flip apply_arrow x) Ps) (P x)
   end.
 
-Definition valid {ctx ctxfo} : list (open_wfrel ctxfo 0 ctx) -> open_wfrel ctxfo 0 ctx -> Prop :=
+Definition valid {ctx ctxfo} : list (open_rel ctxfo 0 ctx) -> open_rel ctxfo 0 ctx -> Prop :=
   fun Ps P => forall n d, forall_ctx (map (interp_open n d) Ps) (interp_open n d P).
 
 Infix "|~" := valid (at level 89, no associativity).
 
-Lemma VCtxElimEmpty lctx ctx (f : csubsts lctx ctx -> open_wfrel [] 0 ctx) : (forall rho : csubsts lctx ctx, [] |~ f rho) -> forall ctxfo (rho : open_term ctxfo (csubsts lctx ctx)), [] |~ openup1 f rho.
+Lemma VCtxElimEmpty lctx ctx (f : csubsts lctx ctx -> open_rel [] 0 ctx) : (forall rho : csubsts lctx ctx, [] |~ f rho) -> forall ctxfo (rho : open_term ctxfo (csubsts lctx ctx)), [] |~ openup1 f rho.
 Proof.
   intros H.
   induction ctxfo.
@@ -885,7 +781,7 @@ Global Instance Add_pair_open_csubsts {ctxfo lctx ctx} : Add (type * varR 1 ctx)
     add := add_pair_open_csubsts
   }.
 
-Definition t_Ps ctxfo ctx := list (open_wfrel ctxfo 0 ctx).
+Definition t_Ps ctxfo ctx := list (open_rel ctxfo 0 ctx).
 
 Definition shift_list `{Shift A T} ctx new n (ls : list (T ctx)) :=
   map (shift new n) ls.
@@ -899,15 +795,11 @@ Definition shift_rel {m ctx} new n (r : rel m ctx) : rel m (insert ctx n new).
   admit.
 Defined.
 
-Definition shift_wfrel {m ctx} new n (r : wfrel m ctx) : wfrel m (insert ctx n new).
-  admit.
-Defined.
+Definition shift_open_rel {ctxfo m ctx} new n (r : open_rel ctxfo m ctx) : open_rel ctxfo m (insert ctx n new) := openup1 (shift_rel new n) r.
 
-Definition shift_open_wfrel {ctxfo m ctx} new n (r : open_wfrel ctxfo m ctx) : open_wfrel ctxfo m (insert ctx n new) := openup1 (shift_wfrel new n) r.
-
-Instance Shift_open_wfrel {ctxfo m} : Shift (open_wfrel ctxfo m) :=
+Instance Shift_open_rel {ctxfo m} : Shift (open_rel ctxfo m) :=
   {
-    shift := @shift_open_wfrel ctxfo m
+    shift := @shift_open_rel ctxfo m
   }.
 
 Fixpoint openup0 {T} (f : T) {ctx} : open_term ctx T :=
@@ -926,16 +818,16 @@ Global Instance Add_expr_open_csubsts {ctxfo lctx ctx} : Add expr (open_csubsts 
     add := add_expr_open_csubsts
   }.
 
-Definition add_ρ_type {ctxfo lctx ctx} (ρ : t_ρ ctxfo lctx ctx) : t_ρ (type :: ctxfo) (CEtype :: lctx) (1 :: ctx) :=
-  let ρ := shift1 1 ρ in
+Definition add_ρ_type {ctxfo lctx ctx} (ρ : t_ρ ctxfo lctx ctx) : t_ρ (type :: ctxfo) (CEtype :: lctx) ((1 : relvart) :: ctx) :=
+  let ρ := shift1 (1 : relvart) ρ in
   let ρ := fun τ => add (τ, #0) ρ in
   ρ
 .
 
-Definition add_Ps_type {ctxfo ctx} (Ps : t_Ps ctxfo ctx) : t_Ps (type :: ctxfo) (1 :: ctx) :=
-  let Ps := shift1 1 Ps in
+Definition add_Ps_type {ctxfo ctx} (Ps : t_Ps ctxfo ctx) : t_Ps (type :: ctxfo) ((1 : relvart) :: ctx) :=
+  let Ps := shift1 (1 : relvart) Ps in
   let Ps := lift_Ps type Ps in
-  let Ps := (fun τ => openup0 (⌈kinding [] τ 0⌉ /\ VSet_wf τ (WFRvar #0))%wfrel) :: Ps in
+  let Ps := (fun τ => openup0 (⌈kinding [] τ 0⌉ /\ VSet τ (Rvar #0))%rel) :: Ps in
   Ps
 .
 
@@ -944,13 +836,9 @@ Definition add_ρ_expr {ctxfo lctx ctx} (ρ : t_ρ ctxfo lctx ctx) : t_ρ (expr 
   ρ
 .
 
-Definition relV_wf : nat -> forall lctx : context, open_type lctx -> forall ctx : list nat, csubsts lctx ctx -> wfrel 1 ctx.
-  admit.
-Defined.
-
 Definition add_Ps_expr {ctxfo lctx ctx} τ B (Ps : t_Ps ctxfo ctx) (ρ : t_ρ ctxfo lctx ctx) : t_Ps (expr :: ctxfo) ctx :=
   let Ps := lift_Ps expr Ps in
-  let Ps := (fun v => openup1 (fun ρ => v ∈ relV_wf B τ ρ)%wfrel ρ) :: Ps in
+  let Ps := (fun v => openup1 (fun ρ => v ∈ relV B τ ρ)%rel ρ) :: Ps in
   Ps
 .
 
@@ -967,14 +855,14 @@ Fixpoint make_ctxfo lctx :=
       end
   end.
 
-Fixpoint make_ctx lctx :=
+Fixpoint make_ctx lctx : list relvart :=
   match lctx with
     | nil => nil
     | e :: Γ' =>
       let ctx := make_ctx Γ' in
       match e with
         | CEtype =>
-          1 :: ctx
+          (1 : relvart) :: ctx
         | CEexpr =>
           ctx
       end
@@ -1012,12 +900,8 @@ Section make_Ps.
     end.
 End make_Ps.
 
-Definition relE_wf : nat -> forall lctx : context, open_type lctx -> nat -> size -> forall ctx : list nat, csubsts lctx ctx -> wfrel 1 ctx.
-  admit.
-Defined.
-
 Definition related {lctx} B Γ (e : open_expr lctx) τ (c : open_cexpr lctx) (s : open_size lctx) :=
-  make_Ps (lctx := lctx) B Γ |~ openup1 (fun ρ => (ρ $ e) ∈ relE_wf B τ !(ρ $ c) (ρ $ s) ρ) (make_ρ lctx).
+  make_Ps (lctx := lctx) B Γ |~ openup1 (fun ρ => (ρ $ e) ∈ relE B τ !(ρ $ c) (ρ $ s) ρ) (make_ρ lctx).
 
 Notation "⊩" := related.
 
@@ -1038,7 +922,7 @@ Proof.
     destruct IHtyping2 as [B1 IH₁].
     exists (2 * B0 + B1 + 1).
     unfold related in *.
-    Lemma VMorePs ctxfo ctx (P : open_wfrel ctxfo 0 ctx) Ps : [] |~ P -> Ps |~ P.
+    Lemma VMorePs ctxfo ctx (P : open_rel ctxfo 0 ctx) Ps : [] |~ P -> Ps |~ P.
       admit.
     Qed.
 
@@ -1046,7 +930,7 @@ Proof.
     eapply VCtxElimEmpty.
     intros ρ.
 
-    Open Scope wfrel.
+    Open Scope rel.
 
     Fixpoint plug (c : econtext) (e : expr) : expr :=
       match c with
