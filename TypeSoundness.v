@@ -653,44 +653,42 @@ Defined.
 
 Definition interp' : forall (n : nat) {m ctx} (r : rel m ctx), rsubsts ctx -> erel m.
   refine
-    (fix interp n : forall {m ctx}, rel m ctx -> rsubsts ctx -> erel m :=
+    (fix interp n {m ctx} (r : rel m ctx) (d : rsubsts ctx) : erel m :=
        match n with
-         | 0 => fun m _ _ _ => const_erel True m
+         | 0 => const_erel True m
          | S n' =>
-           let interp' :=
-               (fix interp' n (rs : relsize) {ctx m} (r : rel m ctx) {struct rs} : rs = rel2size r -> rsubsts ctx -> erel m :=
-                  match rs with
-                    | RS1 => 
-                      match r in rel m ctx return RS1 = rel2size r -> rsubsts ctx -> erel m with
-                        | Rvar _ _ x => fun Heq d => ` (d $ x) n
-                        | Rinj _ P => fun _ _ => P
-                        | Rlater _ chg P => fun _ d => interp n' P (change_rsubsts chg d)
-                        | _ => _
-                      end
-                    | RSadd sa sb =>
-                      match r in rel m ctx return RSadd sa sb = rel2size r -> rsubsts ctx -> erel m with
-                        | Rand _ a b => fun Heq d => interp' n sa a _ d /\ interp' n sb b _ d
-                        | Ror _ a b => fun Heq d => interp' n sa a _ d \/ interp' n sb b _ d
-                        | Rimply _ a b => fun Heq d => (fun f : _ -> Prop => forall k, k <= n -> f k) (fun k => interp' k sa a _ d --> interp' k sb b _ d)
-                        | Rforall2 _ (_, _) g => fun Heq d => (fun f : _ -> Prop => forall x, f x) (fun x => interp' n sb g _ (add x d))
-                        | Rexists2 _ (_, _) g => fun Heq d => (fun f : _ -> Prop => exists x, f x) (fun x => interp' n sb g _ (add x d))
-                        | Rapp _ _ r e => fun Heq d => interp' n sb r _ d e
-                        | Rrecur _ m' g => fun Heq d => interp' n sb (g $ Rrecur g) _ d
-                        | _ => _
-                      end
-                    | RSbind _ sg =>
-                      match r in rel m ctx return RSbind sg = rel2size r -> rsubsts ctx -> erel m with
-                        | Rforall1 _ _ g => fun Heq d => (fun f => forall sx x (Heq_x : sx ~= x), (f sx x Heq_x : Prop)) (fun sx x Heq_x => interp' n (sg sx) (g x) _ d)
-                        | Rexists1 _ _ g => fun Heq d => (fun f => exists sx x (Heq_x : sx ~= x), (f sx x Heq_x : Prop)) (fun sx x Heq_x => interp' n (sg sx) (g x) _ d)
-                        | _ => _
-                      end
-                    | RSbinde sg =>
-                      match r in rel m ctx return RSbinde sg = rel2size r -> rsubsts ctx -> erel m with
-                        | Rabs _ _ g => fun Heq d => fun e => interp' n (sg e) (g e) _ d
-                        | _ => _
-                      end
-                  end) in
-           fun m ctx r => interp' n (rel2size r) r eq_refl
+           (fix interp' n (rs : relsize) {ctx m} (r : rel m ctx) {struct rs} : rs = rel2size r -> rsubsts ctx -> erel m :=
+              match rs with
+                | RS1 => 
+                  match r in rel m ctx return RS1 = rel2size r -> rsubsts ctx -> erel m with
+                    | Rvar _ _ x => fun Heq d => ` (d $ x) n
+                    | Rinj _ P => fun _ _ => P
+                    | Rlater _ chg P => fun _ d => interp n' P (change_rsubsts chg d)
+                    | _ => _
+                  end
+                | RSadd sa sb =>
+                  match r in rel m ctx return RSadd sa sb = rel2size r -> rsubsts ctx -> erel m with
+                    | Rand _ a b => fun Heq d => interp' n sa a _ d /\ interp' n sb b _ d
+                    | Ror _ a b => fun Heq d => interp' n sa a _ d \/ interp' n sb b _ d
+                    | Rimply _ a b => fun Heq d => (fun f : _ -> Prop => forall k, k <= n -> f k) (fun k => interp' k sa a _ d --> interp' k sb b _ d)
+                    | Rforall2 _ (_, _) g => fun Heq d => (fun f : _ -> Prop => forall x, f x) (fun x => interp' n sb g _ (add x d))
+                    | Rexists2 _ (_, _) g => fun Heq d => (fun f : _ -> Prop => exists x, f x) (fun x => interp' n sb g _ (add x d))
+                    | Rapp _ _ r e => fun Heq d => interp' n sb r _ d e
+                    | Rrecur _ m' g => fun Heq d => interp' n sb (g $ Rrecur g) _ d
+                    | _ => _
+                  end
+                | RSbind _ sg =>
+                  match r in rel m ctx return RSbind sg = rel2size r -> rsubsts ctx -> erel m with
+                    | Rforall1 _ _ g => fun Heq d => (fun f => forall sx x (Heq_x : sx ~= x), (f sx x Heq_x : Prop)) (fun sx x Heq_x => interp' n (sg sx) (g x) _ d)
+                    | Rexists1 _ _ g => fun Heq d => (fun f => exists sx x (Heq_x : sx ~= x), (f sx x Heq_x : Prop)) (fun sx x Heq_x => interp' n (sg sx) (g x) _ d)
+                    | _ => _
+                  end
+                | RSbinde sg =>
+                  match r in rel m ctx return RSbinde sg = rel2size r -> rsubsts ctx -> erel m with
+                    | Rabs _ _ g => fun Heq d => fun e => interp' n (sg e) (g e) _ d
+                    | _ => _
+                  end
+              end) n (rel2size r) _ _ r eq_refl d
        end); simpl in *; try solve [intros; discriminate | intros; inject Heq; eauto]; simpl in *.
   {
     inject Heq.
@@ -920,7 +918,13 @@ Proof.
   {
     destruct IHtyping1 as [B0 IH₀].
     destruct IHtyping2 as [B1 IH₁].
-    exists (2 * B0 + B1 + 1).
+    Instance Max_nat : Max nat :=
+      {
+        max := Peano.max
+      }.
+    exists (3 * max B0 B1 + 1).
+    (*here*)
+    
     unfold related in *.
     Lemma VMorePs ctxfo ctx (P : open_rel ctxfo 0 ctx) Ps : [] |~ P -> Ps |~ P.
       admit.
@@ -957,8 +961,6 @@ Proof.
         apply := plug
       }.
 
-    (*here*)
-    
     Definition goodEC {lctx lctx'} : nat -> expr -> econtext -> open_type lctx -> open_cexpr [CEexpr] -> open_size [CEexpr] -> open_type lctx' -> Rel [flip csubsts lctx; flip csubsts lctx'] 0 :=
       fun B e E τ c s τ' var ρ ρ' => 
         (∀v, v ∈ relV B τ ρ /\ ⌈e ~>* v⌉ ===> E $$ v ∈ relE B τ' !(c $ v) (s $ v) ρ')%rel.
