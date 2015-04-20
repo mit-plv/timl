@@ -184,20 +184,20 @@ Definition onat_eq_b := option_eq_b EqNat.beq_nat.
 Definition varR m ctx := {n | onat_eq_b (nth_error ctx n) (Some m) = true}.
 Definition make_varR {m ctx} n (P : onat_eq_b (nth_error ctx n) (Some m) = true) : varR m ctx := exist _ n P.
 
-Inductive rel ctx : nat -> Type :=
-| Rvar {m} : varR m ctx -> rel ctx m
-| Rinj : Prop -> rel ctx 0
-| Rand (_ _ : rel ctx 0) : rel ctx 0
-| Ror (_ _ : rel ctx 0) : rel ctx 0
-| Rimply (_ _ : rel ctx 0) : rel ctx 0
-| Rforall1 {T} : (T -> rel ctx 0) -> rel ctx 0
-| Rexists1 {T} : (T -> rel ctx 0) -> rel ctx 0
-| Rforall2 {m} : rel (m :: ctx) 0 -> rel ctx 0
-| Rexists2 {m} : rel (m :: ctx) 0 -> rel ctx 0
-| Rabs {m} : (expr -> rel ctx m) -> rel ctx (S m)
-| Rapp {m} : rel ctx (S m) -> expr -> rel ctx m
-| Rrecur {m} : rel (m :: ctx) m -> rel ctx m
-| Rlater : rel ctx 0 -> rel ctx 0
+Inductive rel : nat -> list nat -> Type :=
+| Rvar {m ctx} : varR m ctx -> rel m ctx
+| Rinj {ctx} : Prop -> rel 0 ctx
+| Rand {ctx} (_ _ : rel 0 ctx) : rel 0 ctx
+| Ror {ctx} (_ _ : rel 0 ctx) : rel 0 ctx
+| Rimply {ctx} (_ _ : rel 0 ctx) : rel 0 ctx
+| Rforall1 {ctx T} : (T -> rel 0 ctx) -> rel 0 ctx
+| Rexists1 {ctx T} : (T -> rel 0 ctx) -> rel 0 ctx
+| Rforall2 {ctx m} : rel 0 (m :: ctx) -> rel 0 ctx
+| Rexists2 {ctx m} : rel 0 (m :: ctx) -> rel 0 ctx
+| Rabs {ctx m} : (expr -> rel m ctx) -> rel (S m) ctx
+| Rapp {ctx m} : rel (S m) ctx -> expr -> rel m ctx
+| Rrecur {ctx m} : rel m (m :: ctx) -> rel m ctx
+| Rlater {ctx} : rel 0 ctx -> rel 0 ctx
 .
 
 Arguments Rinj {ctx} _ .
@@ -229,7 +229,7 @@ Notation "∀₂ , P" := (Rforall2 P) (at level 200, right associativity) : rel.
 Notation "∃₂ , P" := (Rexists2 P) (at level 200, right associativity) : rel.
 Notation "@@ , P" := (Rrecur P) (at level 200, right associativity) : rel.
 Notation "⌈ P ⌉" := (Rinj P) : rel.
-Global Instance Apply_rel_expr {m ctx} : Apply (rel ctx (S m)) expr (rel ctx m) :=
+Global Instance Apply_rel_expr {m ctx} : Apply (rel (S m) ctx) expr (rel m ctx) :=
   {
     apply := Rapp
   }.
@@ -247,9 +247,9 @@ Module test_rel.
 
   Open Scope rel.
 
-  Definition ttt1 : rel ctx 1 := \e , ⊤.
-  Definition ttt2 : rel ctx 1 := \e , ⌈e ↓ Tunit⌉.
-  Definition ttt3 : rel ctx 1 := \_ , ⌈True /\ True⌉.
+  Definition ttt1 : rel 1 ctx := \e , ⊤.
+  Definition ttt2 : rel 1 ctx := \e , ⌈e ↓ Tunit⌉.
+  Definition ttt3 : rel 1 ctx := \_ , ⌈True /\ True⌉.
 
 End test_rel.
 
@@ -441,7 +441,7 @@ Global Instance Add_expr_csubsts {ctx} lctx : Add expr (csubsts lctx ctx) (csubs
     add := add_expr
   }.
 
-Definition VSet {ctx} τ (S : rel ctx 1) := (∀v, v ∈ S ===> ⌈v ↓ τ⌉)%rel.
+Definition VSet {ctx} τ (S : rel 1 ctx) := (∀v, v ∈ S ===> ⌈v ↓ τ⌉)%rel.
 
 Definition shift_csubsts {lctx ctx} new n (rho : csubsts lctx ctx) : csubsts lctx (insert ctx n new).
   admit.
@@ -467,7 +467,7 @@ Section LR.
 
   Open Scope rel.
 
-  Fixpoint relE' {lctx} (relV : forall ctx, csubsts lctx ctx -> rel ctx 1) τ (c : nat) (s : size) ctx (ρ : csubsts lctx ctx) {struct c} : rel ctx 1 :=
+  Fixpoint relE' {lctx} (relV : forall ctx, csubsts lctx ctx -> rel 1 ctx) τ (c : nat) (s : size) ctx (ρ : csubsts lctx ctx) {struct c} : rel 1 ctx :=
     \e, ⌈|- e (ρ $ τ) /\ 
         (forall n e', (~>## e n 0 e') -> n ≤ B)⌉ /\ 
         (∀v, ⌈⇓*# e 0 v⌉ ===> v ∈ relV ctx ρ /\ ⌈!v ≤ s⌉) /\
@@ -489,7 +489,7 @@ Section LR.
 
   Existing Instance Apply_rel_expr.
 
-  Fixpoint relV {lctx} τ ctx (ρ : csubsts lctx ctx) : rel ctx 1 :=
+  Fixpoint relV {lctx} τ ctx (ρ : csubsts lctx ctx) : rel 1 ctx :=
     match τ with
       | Tvar α => Rvar (csubsts_sem ρ α)
       | Tunit => \v, ⌈v ↓ Tunit⌉
@@ -548,11 +548,11 @@ Instance Add_rsubsts {ctx m} : Add (mono_erel m) (rsubsts ctx) (rsubsts (m :: ct
     add := add_rsubsts
   }.
 
-Definition apply_rel_rel {m ctx m'} : rel (m :: ctx) m' -> rel ctx m -> rel ctx m'.
+Definition apply_rel_rel {m ctx m'} : rel m' (m :: ctx) -> rel m ctx -> rel m' ctx.
   admit.
 Defined.
 
-Instance Apply_rel_rel {m ctx m'} : Apply (rel (m :: ctx) m') (rel ctx m) (rel ctx m') :=
+Instance Apply_rel_rel {m ctx m'} : Apply (rel m' (m :: ctx)) (rel m ctx) (rel m' ctx) :=
   {
     apply := apply_rel_rel
   }.
@@ -571,28 +571,30 @@ Global Instance Shift_varR m : Shift (varR m) :=
     shift := @shift_varR m
   }.
 
-Fixpoint guarded {ctx m'} (g : rel ctx m') {m} (x : varR m ctx) : Prop :=
-  match g with
-    | Rvar _ x' =>
-      match nat_cmp (`x) (`x') with
-        | EQ _ => False
-        | _ => True
-      end
-    | Rinj _ => True
-    | Rand a b => guarded a x /\ guarded b x
-    | Ror a b => guarded a x /\ guarded b x
-    | Rimply a b => guarded a x /\ guarded b x
-    | Rforall1 _ g => forall y, guarded (g y) x
-    | Rexists1 _ g => forall y, guarded (g y) x
-    | Rforall2 _ g => guarded g (shift1 _ x)
-    | Rexists2 _ g => guarded g (shift1 (T0 := fun ctx => varR _ ctx) _ x)
-    | Rabs _ g => forall e, guarded (g e) x
-    | Rapp _ r e => guarded r x
-    | Rrecur _ g => guarded g (shift1 (T0 := fun ctx => varR _ ctx) _ x)
-    | Rlater _ => True
-  end.
+Definition guarded {ctx m'} (g : rel m' ctx) {m} (x : varR m ctx) : Prop.
+  admit.
+  (* match g with *)
+  (*   | Rvar _ x' => *)
+  (*     match nat_cmp (`x) (`x') with *)
+  (*       | EQ _ => False *)
+  (*       | _ => True *)
+  (*     end *)
+  (*   | Rinj _ => True *)
+  (*   | Rand a b => guarded a x /\ guarded b x *)
+  (*   | Ror a b => guarded a x /\ guarded b x *)
+  (*   | Rimply a b => guarded a x /\ guarded b x *)
+  (*   | Rforall1 _ g => forall y, guarded (g y) x *)
+  (*   | Rexists1 _ g => forall y, guarded (g y) x *)
+  (*   | Rforall2 _ g => guarded g (shift1 _ x) *)
+  (*   | Rexists2 _ g => guarded g (shift1 (T0 := fun ctx => varR _ ctx) _ x) *)
+  (*   | Rabs _ g => forall e, guarded (g e) x *)
+  (*   | Rapp _ r e => guarded r x *)
+  (*   | Rrecur _ g => guarded g (shift1 (T0 := fun ctx => varR _ ctx) _ x) *)
+  (*   | Rlater _ => True *)
+  (* end. *)
+Defined.
 
-Inductive wf : forall {m ctx}, rel ctx m -> Prop :=
+Inductive wf : forall {m ctx}, rel m ctx -> Prop :=
 | WFvar {ctx m} x : wf (Rvar (ctx := ctx) (m := m) x)
 | WFinj {ctx} P : wf (Rinj (ctx := ctx) P)
 | WFand {ctx} a b : wf a -> wf b -> wf (Rand (ctx := ctx) a b)
@@ -622,24 +624,24 @@ Instance Add_relsize : Add relsize relsize relsize :=
 
 Definition RSadd1 := RSadd RS1.
 
-Fixpoint rel2size {m ctx} (r : rel ctx m) : relsize :=
+Fixpoint rel2size {m ctx} (r : rel m ctx) : relsize :=
   match r with
-    | Rvar _ _ => RS1
-    | Rinj _ => RS1
-    | Rand a b => rel2size a + rel2size b
-    | Ror a b => rel2size a + rel2size b
-    | Rimply a b => rel2size a + rel2size b
-    | Rforall1 _ g => RSbind (fun x => rel2size (g x))
-    | Rexists1 _ g => RSbind (fun x => rel2size (g x))
-    | Rforall2 _ g => RSadd1 (rel2size g)
-    | Rexists2 _ g => RSadd1 (rel2size g)
-    | Rabs _ g => RSbinde (fun e => rel2size (g e))
-    | Rapp _ a _ => RSadd1 (rel2size a)
-    | Rrecur _ g => RSadd1 (rel2size g)
-    | Rlater _ => RS1
+    | Rvar _ _ _ => RS1
+    | Rinj _ _ => RS1
+    | Rand _ a b => rel2size a + rel2size b
+    | Ror _ a b => rel2size a + rel2size b
+    | Rimply _ a b => rel2size a + rel2size b
+    | Rforall1 _ _ g => RSbind (fun x => rel2size (g x))
+    | Rexists1 _ _ g => RSbind (fun x => rel2size (g x))
+    | Rforall2 _ _ g => RSadd1 (rel2size g)
+    | Rexists2 _ _ g => RSadd1 (rel2size g)
+    | Rabs _ _ g => RSbinde (fun e => rel2size (g e))
+    | Rapp _ _ a _ => RSadd1 (rel2size a)
+    | Rrecur _ _ g => RSadd1 (rel2size g)
+    | Rlater _ _ => RS1
   end.
 
-Lemma guarded_size {m ctx} (g : rel (m :: ctx) m) : guarded g varR0 -> forall r, rel2size g = rel2size (g $ r).
+Lemma guarded_size {m ctx} (g : rel m (m :: ctx)) : guarded g varR0 -> forall r, rel2size g = rel2size (g $ r).
   admit.
 Qed.
 
@@ -647,7 +649,7 @@ Lemma wf_unrecur {ctx m} g : wf (Rrecur (ctx := ctx) (m := m) g) -> wf (g $ (Rre
   admit.
 Qed.
 
-Definition wfrel m ctx := {r : rel ctx m | wf r}.
+Definition wfrel m ctx := {r : rel m ctx | wf r}.
 
 Definition make_wfrel {m ctx} r H : wfrel m ctx := exist wf r H.
 Arguments make_wfrel {m ctx} r H.
@@ -742,61 +744,61 @@ Module test_wfrel.
 
   Open Scope wfrel.
 
-  (* Definition ttt1 : wfrel ctx 1 := \e , ⊤. *)
-  (* Definition ttt2 : wfrel ctx 1 := \e , ⌈e ↓ Tunit⌉. *)
-  (* Definition ttt3 : wfrel ctx 1 := \_ , ⌈True /\ True⌉. *)
+  (* Definition ttt1 : wfrel 1 ctx := \e , ⊤. *)
+  (* Definition ttt2 : wfrel 1 ctx := \e , ⌈e ↓ Tunit⌉. *)
+  (* Definition ttt3 : wfrel 1 ctx := \_ , ⌈True /\ True⌉. *)
 
 End test_wfrel.
 
 Definition VSet_wf {ctx} τ (S : wfrel 1 ctx) := (∀v, v ∈ S ===> ⌈v ↓ τ⌉)%wfrel.
 
-Definition interp' : forall (n : nat) {ctx m} (r : rel ctx m) (Hwf : wf r) (d : rsubsts ctx), erel m.
+Definition interp' : forall (n : nat) {ctx m} (r : rel m ctx), wf r -> rsubsts ctx -> erel m.
   refine
-    (fix interp n {ctx m} (r : rel ctx m) (Hwf : wf r) (d : rsubsts ctx) : erel m :=
+    (fix interp n {ctx m} (r : rel m ctx) : wf r -> rsubsts ctx -> erel m :=
        match n with
-         | 0 => const_erel True m
+         | 0 => fun _ _ => const_erel True m
          | S n' =>
-           (fix interp' n (rs : relsize) {ctx m} (r : rel ctx m) (d : rsubsts ctx) {struct rs} : wf r -> rs = rel2size r -> erel m :=
+           (fix interp' n (rs : relsize) {ctx m} (r : rel m ctx) {struct rs} : rs = rel2size r -> wf r -> rsubsts ctx -> erel m :=
               match rs with
                 | RS1 => 
-                  match r in rel _ m return wf r -> RS1 = rel2size r -> erel m with
-                    | Rvar _ x => fun _ Heq => ` (d $ x) n
-                    | Rinj P => fun _ Heq => P
-                    | Rlater P => fun Hwf' Heq => interp n' P _ d
+                  match r in rel m ctx return RS1 = rel2size r -> wf r -> rsubsts ctx -> erel m with
+                    | Rvar _ _ x => fun Heq _ d => ` (d $ x) n
+                    | Rinj _ P => fun _ _ _ => P
+                    | Rlater _ P => fun _ Hwf d => interp n' P _ d
                     | _ => _
                   end
                 | RSadd sa sb =>
-                  match r in rel _ m return wf r -> RSadd sa sb = rel2size r -> erel m with
-                    | Rand a b => fun Hwf' Heq => interp' n sa a d _ _ /\ interp' n sb b d _ _
-                    | Ror a b => fun Hwf' Heq => interp' n sa a d _ _ \/ interp' n sb b d _ _
-                    | Rimply a b => fun Hwf' Heq => (fun f : _ -> Prop => forall k, k <= n -> f k) (fun k => interp' k sa a d _ _ --> interp' k sb b d _ _)
-                    | Rforall2 _ g => fun Hwf' Heq => (fun f : _ -> Prop => forall x, f x) (fun x => interp' n sb g (add x d) _ _)
-                    | Rexists2 _ g => fun Hwf' Heq => (fun f : _ -> Prop => exists x, f x) (fun x => interp' n sb g (add x d) _ _)
-                    | Rapp _ r e => fun Hwf' Heq => interp' n sb r d _ _ e
-                    | Rrecur m' g => fun Hwf' Heq => interp' n sb (g $ Rrecur g) d _ _
+                  match r in rel m ctx return RSadd sa sb = rel2size r -> wf r -> rsubsts ctx -> erel m with
+                    | Rand _ a b => fun Heq Hwf d => interp' n sa a _ _ d /\ interp' n sb b _ _ d
+                    | Ror _ a b => fun Heq Hwf d => interp' n sa a _ _ d \/ interp' n sb b _ _ d
+                    | Rimply _ a b => fun Heq Hwf d => (fun f : _ -> Prop => forall k, k <= n -> f k) (fun k => interp' k sa a _ _ d --> interp' k sb b _ _ d)
+                    | Rforall2 _ _ g => fun Heq Hwf d => (fun f : _ -> Prop => forall x, f x) (fun x => interp' n sb g _ _ (add x d))
+                    | Rexists2 _ _ g => fun Heq Hwf d => (fun f : _ -> Prop => exists x, f x) (fun x => interp' n sb g _ _ (add x d))
+                    | Rapp _ _ r e => fun Heq Hwf d => interp' n sb r _ _ d e
+                    | Rrecur _ m' g => fun Heq Hwf d => interp' n sb (g $ Rrecur g) _ _ d
                     | _ => _
                   end
                 | RSbind _ sg =>
-                  match r in rel _ m return wf r -> RSbind sg = rel2size r -> erel m with
-                    | Rforall1 _ g => fun Hwf' Heq => (fun f => forall sx x (Heq_x : sx ~= x), (f sx x Heq_x : Prop)) (fun sx x Heq_x => interp' n (sg sx) (g x) d _ _)
-                    | Rexists1 _ g => fun Hwf' Heq => (fun f => exists sx x (Heq_x : sx ~= x), (f sx x Heq_x : Prop)) (fun sx x Heq_x => interp' n (sg sx) (g x) d _ _)
+                  match r in rel m ctx return RSbind sg = rel2size r -> wf r -> rsubsts ctx -> erel m with
+                    | Rforall1 _ _ g => fun Heq Hwf d => (fun f => forall sx x (Heq_x : sx ~= x), (f sx x Heq_x : Prop)) (fun sx x Heq_x => interp' n (sg sx) (g x) _ _ d)
+                    | Rexists1 _ _ g => fun Heq Hwf d => (fun f => exists sx x (Heq_x : sx ~= x), (f sx x Heq_x : Prop)) (fun sx x Heq_x => interp' n (sg sx) (g x) _ _ d)
                     | _ => _
                   end
                 | RSbinde sg =>
-                  match r in rel _ m return wf r -> RSbinde sg = rel2size r -> erel m with
-                    | Rabs _ g => fun Hwf' Heq => fun e => interp' n (sg e) (g e) d _ _
+                  match r in rel m ctx return RSbinde sg = rel2size r -> wf r -> rsubsts ctx -> erel m with
+                    | Rabs _ _ g => fun Heq Hwf d => fun e => interp' n (sg e) (g e) _ _ d
                     | _ => _
                   end
-              end) n (rel2size r) ctx m r d Hwf eq_refl
-       end); simpl in *; try solve [intros; discriminate | intros; inject Heq; eauto | dependent destruction Hwf'; eauto]; simpl in *.
-  { 
-    eapply wf_unrecur; eauto.
-  }
+              end) n (rel2size r) ctx m r eq_refl
+       end); simpl in *; try solve [intros; discriminate | intros; inject Heq; eauto | dependent destruction Hwf; eauto]; simpl in *.
   {
     inject Heq.
     eapply guarded_size.
-    dependent destruction Hwf'.
+    dependent destruction Hwf.
     eauto.
+  }
+  { 
+    eapply wf_unrecur; eauto.
   }
   {
     inject Heq; subst.
@@ -893,7 +895,7 @@ Instance Shift_list `{Shift A T} : Shift (fun ctx => list (T ctx)) :=
     shift := shift_list
   }.
 
-Definition shift_rel {m ctx} new n (r : rel ctx m) : rel (insert ctx n new) m.
+Definition shift_rel {m ctx} new n (r : rel m ctx) : rel m (insert ctx n new).
   admit.
 Defined.
 
