@@ -181,28 +181,28 @@ Set Maximal Implicit Insertion.
 
 Definition onat_eq_b := option_eq_b EqNat.beq_nat.
 
-Definition varR ctx m := {n | onat_eq_b (nth_error ctx n) (Some m) = true}.
-Definition make_varR {ctx m} n (P : onat_eq_b (nth_error ctx n) (Some m) = true) : varR ctx m := exist _ n P.
+Definition varR m ctx := {n | onat_eq_b (nth_error ctx n) (Some m) = true}.
+Definition make_varR {m ctx} n (P : onat_eq_b (nth_error ctx n) (Some m) = true) : varR m ctx := exist _ n P.
 
 Inductive rel ctx : nat -> Type :=
-| Rvar m : varR ctx m -> rel ctx m
+| Rvar {m} : varR m ctx -> rel ctx m
 | Rinj : Prop -> rel ctx 0
 | Rand (_ _ : rel ctx 0) : rel ctx 0
 | Ror (_ _ : rel ctx 0) : rel ctx 0
 | Rimply (_ _ : rel ctx 0) : rel ctx 0
-| Rforall1 T : (T -> rel ctx 0) -> rel ctx 0
-| Rexists1 T : (T -> rel ctx 0) -> rel ctx 0
-| Rforall2 m : rel (m :: ctx) 0 -> rel ctx 0
-| Rexists2 m : rel (m :: ctx) 0 -> rel ctx 0
-| Rabs m : (expr -> rel ctx m) -> rel ctx (S m)
-| Rapp m : rel ctx (S m) -> expr -> rel ctx m
-| Rrecur m : rel (m :: ctx) m -> rel ctx m
+| Rforall1 {T} : (T -> rel ctx 0) -> rel ctx 0
+| Rexists1 {T} : (T -> rel ctx 0) -> rel ctx 0
+| Rforall2 {m} : rel (m :: ctx) 0 -> rel ctx 0
+| Rexists2 {m} : rel (m :: ctx) 0 -> rel ctx 0
+| Rabs {m} : (expr -> rel ctx m) -> rel ctx (S m)
+| Rapp {m} : rel ctx (S m) -> expr -> rel ctx m
+| Rrecur {m} : rel (m :: ctx) m -> rel ctx m
 | Rlater : rel ctx 0 -> rel ctx 0
 .
 
-Definition Rtrue {ctx} := Rinj ctx True.
-Definition Rfalse {ctx} := Rinj ctx False.
 Arguments Rinj {ctx} _ .
+Definition Rtrue {ctx} := Rinj (ctx := ctx) True.
+Definition Rfalse {ctx} := Rinj (ctx := ctx) False.
 
 Unset Maximal Implicit Insertion.
 
@@ -229,7 +229,7 @@ Notation "∀₂ , P" := (Rforall2 P) (at level 200, right associativity) : rel.
 Notation "∃₂ , P" := (Rexists2 P) (at level 200, right associativity) : rel.
 Notation "@@ , P" := (Rrecur P) (at level 200, right associativity) : rel.
 Notation "⌈ P ⌉" := (Rinj P) : rel.
-Global Instance Apply_rel_expr {var n} : Apply (rel var (S n)) expr (rel var n) :=
+Global Instance Apply_rel_expr {m ctx} : Apply (rel ctx (S m)) expr (rel ctx m) :=
   {
     apply := Rapp
   }.
@@ -260,7 +260,7 @@ Local Open Scope prog_scope.
 (* closing substitutions *)
 
 Inductive SubstEntry : CtxEntry -> list nat -> Type :=
-| SEtype {ctx} (_ : type) (_ : varR ctx 1) : SubstEntry CEtype ctx
+| SEtype {ctx} (_ : type) (_ : varR 1 ctx) : SubstEntry CEtype ctx
 | SEexpr {ctx} (_ : expr) : SubstEntry CEexpr ctx
 .
 
@@ -275,7 +275,7 @@ Infix "::" := CScons (at level 60, right associativity) : CS.
 Delimit Scope CS with CS.
 Bind Scope CS with csubsts.
 
-Definition pair_of_se {ctx} (e : SubstEntry CEtype ctx) : type * varR ctx 1 :=
+Definition pair_of_se {ctx} (e : SubstEntry CEtype ctx) : type * varR 1 ctx :=
   match e with
     | SEtype _ t r => (t, r)
   end.
@@ -297,14 +297,14 @@ Arguments tl {A} _ .
 
 Require Import Bedrock.Platform.Cito.ListFacts4.
 
-Definition csubsts_sem : forall {lctx ctx}, csubsts lctx ctx -> open_var CEtype lctx -> varR ctx 1.
+Definition csubsts_sem : forall {lctx ctx}, csubsts lctx ctx -> open_var CEtype lctx -> varR 1 ctx.
   refine
-    (fix csubsts_sem {lctx} : forall ctx, csubsts lctx ctx -> open_var CEtype lctx -> varR ctx 1 :=
-       match lctx return forall ctx, csubsts lctx ctx -> open_var CEtype lctx -> varR ctx 1 with
+    (fix csubsts_sem {lctx} : forall ctx, csubsts lctx ctx -> open_var CEtype lctx -> varR 1 ctx :=
+       match lctx return forall ctx, csubsts lctx ctx -> open_var CEtype lctx -> varR 1 ctx with
          | nil => _
          | t :: lctx' => 
            fun ctx rho =>
-             match rho in (csubsts c ctx) return c = t :: lctx' -> open_var CEtype (t :: lctx') -> varR ctx 1 with
+             match rho in (csubsts c ctx) return c = t :: lctx' -> open_var CEtype (t :: lctx') -> varR 1 ctx with
                | CSnil _ => _
                | CScons _ t' _ v rho' => _
              end eq_refl
@@ -340,7 +340,7 @@ Definition csubsts_sem : forall {lctx ctx}, csubsts lctx ctx -> open_var CEtype 
   { eapply f_equal with (f := tl) in Heq; exact Heq. }
 Defined.
 
-Global Instance Apply_csubsts_nat_rel {ctx} lctx : Apply (csubsts lctx ctx) (open_var CEtype lctx) (varR ctx 1) :=
+Global Instance Apply_csubsts_nat_rel {ctx} lctx : Apply (csubsts lctx ctx) (open_var CEtype lctx) (varR 1 ctx) :=
   {
     apply := csubsts_sem
   }.
@@ -428,7 +428,7 @@ Global Instance Apply_csubsts_expr_expr {ctx} lctx : Apply (csubsts lctx ctx) (o
 Definition add_pair {ctx lctx} p rho :=
   CScons (ctx := ctx) (lctx := lctx) (SEtype (fst p) (snd p)) rho.
 
-Global Instance Add_pair_csubsts {ctx} lctx : Add (type * varR ctx 1) (csubsts lctx ctx) (csubsts (CEtype :: lctx) ctx) :=
+Global Instance Add_pair_csubsts {ctx} lctx : Add (type * varR 1 ctx) (csubsts lctx ctx) (csubsts (CEtype :: lctx) ctx) :=
   {
     add := add_pair
   }.
@@ -441,9 +441,9 @@ Global Instance Add_expr_csubsts {ctx} lctx : Add expr (csubsts lctx ctx) (csubs
     add := add_expr
   }.
 
-Definition VSet {var} τ (S : rel var 1) := (∀v, v ∈ S ===> ⌈v ↓ τ⌉)%rel.
+Definition VSet {ctx} τ (S : rel ctx 1) := (∀v, v ∈ S ===> ⌈v ↓ τ⌉)%rel.
 
-Definition shift_csubsts {lctx ctx new} n (rho : csubsts lctx ctx) : csubsts lctx (insert ctx n new).
+Definition shift_csubsts {lctx ctx} new n (rho : csubsts lctx ctx) : csubsts lctx (insert ctx n new).
   admit.
 Defined.
 
@@ -452,7 +452,7 @@ Instance Shift_csubsts lctx : Shift (csubsts lctx) :=
     shift := @shift_csubsts lctx
   }.
 
-Definition varR0 {ctx m} : varR (m :: ctx) m.
+Definition varR0 {m ctx} : varR m (m :: ctx).
   refine ((make_varR (ctx := m%nat :: _) (m := m) 0 _)).
   symmetry; eapply EqNat.beq_nat_refl.
 Defined.
@@ -506,22 +506,17 @@ Section LR.
 
 End LR.
 
-(* Fixpoint const_rel {ctx} P m : rel ctx m := *)
-(*   match m with *)
-(*     | 0 => Rinj P *)
-(*     | S m' => Rabs (fun _ => const_rel P m') *)
-(*   end. *)
-
 Fixpoint erel m :=
   match m with
     | 0 => Prop
     | S m' => expr -> erel m'
   end.
 
-Inductive monotone : forall {m}, (nat -> erel m) -> Prop :=
-| MN0 (f : nat -> erel 0) : (forall n, f n -> forall n', n' < n -> f n') -> monotone f
-| MNS m (f : nat -> erel (S m)) : (forall e, monotone (fun n => f n e)) -> monotone f
-.
+Fixpoint monotone {m} : (nat -> erel m) -> Prop :=
+  match m return (nat -> erel m) -> Prop with
+    | 0 => fun f => forall n, f n -> forall n', n' < n -> f n'
+    | S m' => fun f => forall e, monotone (fun n => f n e)
+  end.
 
 Definition mono_erel m := { f : nat -> erel m | monotone f}.
 
@@ -535,11 +530,11 @@ Definition rsubsts : list nat -> Prop.
   admit.
 Defined.
 
-Definition apply_rsubsts_var {ctx m} : rsubsts ctx -> varR ctx m -> mono_erel m.
+Definition apply_rsubsts_var {ctx m} : rsubsts ctx -> varR m ctx -> mono_erel m.
   admit.
 Defined.
 
-Instance Apply_rsubsts_var {ctx m} : Apply (rsubsts ctx) (varR ctx m) (mono_erel m) :=
+Instance Apply_rsubsts_var {ctx m} : Apply (rsubsts ctx) (varR m ctx) (mono_erel m) :=
   {
     apply := apply_rsubsts_var
   }.
@@ -567,37 +562,37 @@ Infix "-->" := imply (at level 95, right associativity).
 
 Require Import Bedrock.Platform.Cito.GeneralTactics4.
 
-Definition shift_varR {t ctx} new n (xv : varR ctx t) : varR (insert ctx n new) t.
+Definition shift_varR {m ctx} new n (xv : varR m ctx) : varR m (insert ctx n new).
   admit.
 Qed.
 
-Global Instance Shift_varR t : Shift (fun ctx => varR ctx t) :=
+Global Instance Shift_varR m : Shift (varR m) :=
   {
-    shift := @shift_varR t
+    shift := @shift_varR m
   }.
 
-Fixpoint guarded {ctx m m'} (x : varR ctx m) (g : rel ctx m') : Prop :=
+Fixpoint guarded {ctx m'} (g : rel ctx m') {m} (x : varR m ctx) : Prop :=
   match g with
-    | Rvar _ x' => 
+    | Rvar _ x' =>
       match nat_cmp (`x) (`x') with
         | EQ _ => False
         | _ => True
       end
     | Rinj _ => True
-    | Rand a b => guarded x a /\ guarded x b
-    | Ror a b => guarded x a /\ guarded x b
-    | Rimply a b => guarded x a /\ guarded x b
-    | Rforall1 _ g => forall y, guarded x (g y)
-    | Rexists1 _ g => forall y, guarded x (g y)
-    | Rforall2 _ g => guarded (shift1 _ x) g
-    | Rexists2 _ g => guarded (shift1 (T0 := fun ctx => varR ctx _) _ x) g
-    | Rabs _ g => forall e, guarded x (g e)
-    | Rapp _ r e => guarded x r
-    | Rrecur _ g => guarded (shift1 (T0 := fun ctx => varR ctx _) _ x) g
+    | Rand a b => guarded a x /\ guarded b x
+    | Ror a b => guarded a x /\ guarded b x
+    | Rimply a b => guarded a x /\ guarded b x
+    | Rforall1 _ g => forall y, guarded (g y) x
+    | Rexists1 _ g => forall y, guarded (g y) x
+    | Rforall2 _ g => guarded g (shift1 _ x)
+    | Rexists2 _ g => guarded g (shift1 (T0 := fun ctx => varR _ ctx) _ x)
+    | Rabs _ g => forall e, guarded (g e) x
+    | Rapp _ r e => guarded r x
+    | Rrecur _ g => guarded g (shift1 (T0 := fun ctx => varR _ ctx) _ x)
     | Rlater _ => True
   end.
 
-Inductive wf : forall {ctx m}, rel ctx m -> Prop :=
+Inductive wf : forall {m ctx}, rel ctx m -> Prop :=
 | WFvar {ctx m} x : wf (Rvar (ctx := ctx) (m := m) x)
 | WFinj {ctx} P : wf (Rinj (ctx := ctx) P)
 | WFand {ctx} a b : wf a -> wf b -> wf (Rand (ctx := ctx) a b)
@@ -609,7 +604,7 @@ Inductive wf : forall {ctx m}, rel ctx m -> Prop :=
 | WFexists2 {ctx m} g : wf g -> wf (Rexists2 (ctx := ctx) (m := m) g)
 | WFabs {ctx m} g : (forall e, wf (g e)) -> wf (Rabs (ctx := ctx) (m := m) g)
 | WFapp {ctx m} r e : wf r -> wf (Rapp (ctx := ctx) (m := m) r e)
-| WFrecur {ctx m} g : guarded varR0 g -> wf g -> wf (Rrecur (ctx := ctx) (m := m) g)
+| WFrecur {ctx m} g : guarded g varR0 -> wf g -> wf (Rrecur (ctx := ctx) (m := m) g)
 | WFlater {ctx} P : wf P -> wf (Rlater (ctx := ctx) P)
 .
 
@@ -627,7 +622,7 @@ Instance Add_relsize : Add relsize relsize relsize :=
 
 Definition RSadd1 := RSadd RS1.
 
-Fixpoint rel2size {ctx m} (r : rel ctx m) : relsize :=
+Fixpoint rel2size {m ctx} (r : rel ctx m) : relsize :=
   match r with
     | Rvar _ _ => RS1
     | Rinj _ => RS1
@@ -644,7 +639,7 @@ Fixpoint rel2size {ctx m} (r : rel ctx m) : relsize :=
     | Rlater _ => RS1
   end.
 
-Lemma guarded_size {m ctx} (g : rel (m :: ctx) m) : guarded varR0 g -> forall r, rel2size g = rel2size (g $ r).
+Lemma guarded_size {m ctx} (g : rel (m :: ctx) m) : guarded g varR0 -> forall r, rel2size g = rel2size (g $ r).
   admit.
 Qed.
 
@@ -652,8 +647,108 @@ Lemma wf_unrecur {ctx m} g : wf (Rrecur (ctx := ctx) (m := m) g) -> wf (g $ (Rre
   admit.
 Qed.
 
-Definition wfrel ctx m := {r : rel ctx m | wf r}.
-Definition make_wfrel {ctx m} r H : wfrel ctx m := exist wf r H.
+Definition wfrel m ctx := {r : rel ctx m | wf r}.
+
+Definition make_wfrel {m ctx} r H : wfrel m ctx := exist wf r H.
+Arguments make_wfrel {m ctx} r H.
+
+Definition WFRvar {m ctx} (x : varR m ctx) : wfrel m ctx.
+  refine (make_wfrel (Rvar x) _).
+  econstructor.
+Defined.
+
+Definition WFRinj {ctx} (P : Prop) : wfrel 0 ctx.
+  refine (make_wfrel (Rinj P) _).
+  econstructor.
+Defined.
+
+Definition WFRtrue {ctx} := WFRinj (ctx := ctx) True.
+Definition WFRfalse {ctx} := WFRinj (ctx := ctx) False.
+
+Definition proj_rel {m ctx} (r : wfrel m ctx) := proj1_sig r.
+Coercion proj_rel : wfrel >-> rel.
+
+Definition WFRand {ctx} (a b : wfrel 0 ctx) : wfrel 0 ctx.
+  refine (make_wfrel (Rand a b) _).
+  destruct a.
+  destruct b.
+  simpl.
+  econstructor; eauto.
+Defined.
+
+Definition WFRor {ctx} (a b : wfrel 0 ctx) : wfrel 0 ctx.
+  refine (make_wfrel (Ror a b) _).
+  destruct a.
+  destruct b.
+  simpl.
+  econstructor; eauto.
+Defined.
+
+Definition WFRimply {ctx} (a b : wfrel 0 ctx) : wfrel 0 ctx.
+  refine (make_wfrel (Rimply a b) _).
+  destruct a.
+  destruct b.
+  simpl.
+  econstructor; eauto.
+Defined.
+
+Definition WFRforall1 {ctx T} (g : T -> wfrel 0 ctx) : wfrel 0 ctx.
+  refine (make_wfrel (Rforall1 (fun x => g x)) _).
+  econstructor.
+  intros x.
+  destruct (g x).
+  simpl; eauto.
+Defined.
+
+Definition WFRexists1 {ctx T} (g : T -> wfrel 0 ctx) : wfrel 0 ctx.
+  refine (make_wfrel (Rexists1 (fun x => g x)) _).
+  econstructor.
+  intros x.
+  destruct (g x).
+  simpl; eauto.
+Defined.
+
+Definition WFRapp {m ctx} (r : wfrel (S m) ctx) (e : expr) : wfrel m ctx.
+  refine (make_wfrel (Rapp r e) _).
+  destruct r.
+  simpl.
+  econstructor; eauto.
+Defined.
+
+Notation "⊤" := WFRtrue : wfrel.
+Notation "⊥" := WFRtrue : wfrel.
+(* Notation "\ x .. y , p" := (WFRabs (fun x => .. (WFRabs (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : wfrel. *)
+Notation "∀ x .. y , p" := (WFRforall1 (fun x => .. (WFRforall1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : wfrel.
+Notation "∃ x .. y , p" := (WFRexists1 (fun x => .. (WFRexists1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : wfrel.
+(* Notation "∀₂ , P" := (WFRforall2 P) (at level 200, right associativity) : wfrel. *)
+(* Notation "∃₂ , P" := (WFRexists2 P) (at level 200, right associativity) : wfrel. *)
+(* Notation "@@ , P" := (WFRrecur P) (at level 200, right associativity) : wfrel. *)
+Notation "⌈ P ⌉" := (WFRinj P) : wfrel.
+Global Instance Apply_wfrel_expr {m ctx} : Apply (wfrel (S m) ctx) expr (wfrel m ctx) :=
+  {
+    apply := WFRapp
+  }.
+Infix "/\" := WFRand : wfrel.
+Infix "\/" := WFRor : wfrel.
+Infix "===>" := WFRimply (at level 86) : wfrel.
+(* Notation "▹" := WFRlater : wfrel. *)
+
+Delimit Scope wfrel with wfrel.
+Bind Scope wfrel with wfrel.
+
+Module test_wfrel.
+  
+  Variable ctx : list nat.
+
+  Open Scope wfrel.
+
+  (* Definition ttt1 : wfrel ctx 1 := \e , ⊤. *)
+  (* Definition ttt2 : wfrel ctx 1 := \e , ⌈e ↓ Tunit⌉. *)
+  (* Definition ttt3 : wfrel ctx 1 := \_ , ⌈True /\ True⌉. *)
+
+End test_wfrel.
+
+Definition VSet_wf {ctx} τ (S : wfrel 1 ctx) := (∀v, v ∈ S ===> ⌈v ↓ τ⌉)%wfrel.
 
 Definition interp' : forall (n : nat) {ctx m} (r : rel ctx m) (Hwf : wf r) (d : rsubsts ctx), erel m.
   refine
@@ -713,14 +808,12 @@ Definition interp' : forall (n : nat) {ctx m} (r : rel ctx m) (Hwf : wf r) (d : 
   }
 Defined.
 
-Definition interp {ctx m} (r : wfrel ctx m) (d : rsubsts ctx) (n : nat) : erel m :=
+Definition interp {ctx m} (r : wfrel m ctx) (d : rsubsts ctx) (n : nat) : erel m :=
   interp' n (proj2_sig r) d.
 
-Lemma interp_monotone ctx m (r : wfrel ctx m) (d : rsubsts ctx) : monotone (interp r d).
+Lemma interp_monotone ctx m (r : wfrel m ctx) (d : rsubsts ctx) : monotone (interp r d).
   admit.
 Qed.
-
-(* Lemma VCtxElimEmpty t (f : csubsts lctx ctx -> wfrel ctx 0) : (forall (rho : csubsts lctx ctx), [] |~ f rho) -> (forall ctxfo (rho : open_term ctxfo (csubsts lctx ctx)), [] |~ f $ rho). *)
 
 Fixpoint open_term (domains : list Type) (range : Type) : Type :=
   match domains with
@@ -728,16 +821,16 @@ Fixpoint open_term (domains : list Type) (range : Type) : Type :=
     | domain :: domains' => domain -> open_term domains' range
   end.
 
-Definition open_wfrel ctxfo ctx m := open_term ctxfo (wfrel ctx m).
+Definition open_wfrel ctxfo m ctx := open_term ctxfo (wfrel m ctx).
 
-Definition valid {ctx} : list (open_wfrem ctxfo ctx 0) -> open_wfrel ctxfo ctx 0 -> Prop :=
-  fun Ps P => forall n, forall_ctx (map (InterpOpen n) Ps) (InterpOpen n P).
-
-Fixpoint forall_erel {T m} : (T -> erel m) -> erel m :=
-  match m with
-    | 0 => fun f => forall x, f x
-    | S m' => fun f e => forall_erel (flip f e)
+Fixpoint openup1 {t1 t2} (f : t1 -> t2) {ctx} : open_term ctx t1 -> open_term ctx t2 :=
+  match ctx return open_term ctx t1 -> open_term ctx t2 with
+    | nil => fun r => f r
+    | t :: ctx' => fun r x => openup1 f (r x)
   end.
+
+Definition interp_open n {ctx m} d {ctxfo} : open_wfrel ctxfo m ctx -> open_term ctxfo (erel m) :=
+  openup1 (fun r => interp r d n).
 
 Fixpoint All ls :=
   match ls with
@@ -745,13 +838,431 @@ Fixpoint All ls :=
     | P :: ls' => (P /\ All ls')%type
   end.
 
-Fixpoint forall_ctx {ctx} : list (open_term mono_erel ctx (const Prop)) -> open_term mono_erel ctx (const Prop) -> Prop :=
-  match ctx return list (open_term mono_erel ctx (const Prop)) -> open_term mono_erel ctx (const Prop) -> Prop with
+Fixpoint forall_ctx {ctxfo} : list (open_term ctxfo Prop) -> open_term ctxfo Prop -> Prop :=
+  match ctxfo return list (open_term ctxfo Prop) -> open_term ctxfo Prop -> Prop with
     | nil => fun Ps P => All Ps -> P
-    | t :: ctx' => fun Ps P => forall x, forall_ctx (map (flip apply_arrow x) Ps) (P x)
+    | t :: ctxfo' => fun Ps P => forall x, forall_ctx (map (flip apply_arrow x) Ps) (P x)
   end.
 
+Definition valid {ctx ctxfo} : list (open_wfrel ctxfo 0 ctx) -> open_wfrel ctxfo 0 ctx -> Prop :=
+  fun Ps P => forall n d, forall_ctx (map (interp_open n d) Ps) (interp_open n d P).
+
 Infix "|~" := valid (at level 89, no associativity).
+
+Lemma VCtxElimEmpty lctx ctx (f : csubsts lctx ctx -> open_wfrel [] 0 ctx) : (forall rho : csubsts lctx ctx, [] |~ f rho) -> forall ctxfo (rho : open_term ctxfo (csubsts lctx ctx)), [] |~ openup1 f rho.
+Proof.
+  intros H.
+  induction ctxfo.
+  {
+    simpl; eauto.
+  }
+  {
+    simpl.
+    intros rho.
+    unfold valid in *.
+    simpl in *.
+    intros n d x.
+    eapply IHctxfo.
+  }
+Qed.
+
+Definition open_csubsts ctxfo lctx ctx := open_term ctxfo (csubsts lctx ctx).
+Notation t_ρ := open_csubsts (only parsing).
+
+Definition shift_open_csubsts {ctxfo lctx ctx new} n (rho : open_csubsts ctxfo lctx ctx) : open_csubsts ctxfo lctx (insert ctx n new) := openup1 (shift new n) rho.
+
+Instance Shift_open_csubsts {ctxfo lctx} : Shift (open_csubsts ctxfo lctx) :=
+  {
+    shift := @shift_open_csubsts ctxfo lctx
+  }.
+
+Definition add_pair_open_csubsts {ctxfo lctx ctx} p (rho : open_csubsts ctxfo lctx ctx) : open_csubsts ctxfo (CEtype :: lctx) ctx := openup1 (add_pair p) rho.
+
+Global Instance Add_pair_open_csubsts {ctxfo lctx ctx} : Add (type * varR 1 ctx) (open_csubsts ctxfo lctx ctx) (open_csubsts ctxfo (CEtype :: lctx) ctx) :=
+  {
+    add := add_pair_open_csubsts
+  }.
+
+Definition t_Ps ctxfo ctx := list (open_wfrel ctxfo 0 ctx).
+
+Definition shift_list `{Shift A T} ctx new n (ls : list (T ctx)) :=
+  map (shift new n) ls.
+
+Instance Shift_list `{Shift A T} : Shift (fun ctx => list (T ctx)) :=
+  {
+    shift := shift_list
+  }.
+
+Definition shift_rel {m ctx} new n (r : rel ctx m) : rel (insert ctx n new) m.
+  admit.
+Defined.
+
+Definition shift_wfrel {m ctx} new n (r : wfrel m ctx) : wfrel m (insert ctx n new).
+  admit.
+Defined.
+
+Definition shift_open_wfrel {ctxfo m ctx} new n (r : open_wfrel ctxfo m ctx) : open_wfrel ctxfo m (insert ctx n new) := openup1 (shift_wfrel new n) r.
+
+Instance Shift_open_wfrel {ctxfo m} : Shift (open_wfrel ctxfo m) :=
+  {
+    shift := @shift_open_wfrel ctxfo m
+  }.
+
+Fixpoint openup0 {T} (f : T) {ctx} : open_term ctx T :=
+  match ctx return open_term ctx T with
+    | nil => f
+    | t :: ctx' => fun _ => openup0 f
+  end.
+
+Definition lift_Ps {ctxfo ctx} T (ls : t_Ps ctxfo ctx) : t_Ps (T :: ctxfo) ctx :=
+  map (fun P => fun _ => P) ls.
+
+Definition add_expr_open_csubsts {ctxfo lctx ctx} e (rho : open_csubsts ctxfo lctx ctx) : open_csubsts ctxfo (CEexpr :: lctx) ctx := openup1 (add_expr e) rho.
+
+Global Instance Add_expr_open_csubsts {ctxfo lctx ctx} : Add expr (open_csubsts ctxfo lctx ctx) (open_csubsts ctxfo (CEexpr :: lctx) ctx) :=
+  {
+    add := add_expr_open_csubsts
+  }.
+
+Definition add_ρ_type {ctxfo lctx ctx} (ρ : t_ρ ctxfo lctx ctx) : t_ρ (type :: ctxfo) (CEtype :: lctx) (1 :: ctx) :=
+  let ρ := shift1 1 ρ in
+  let ρ := fun τ => add (τ, #0) ρ in
+  ρ
+.
+
+Definition add_Ps_type {ctxfo ctx} (Ps : t_Ps ctxfo ctx) : t_Ps (type :: ctxfo) (1 :: ctx) :=
+  let Ps := shift1 1 Ps in
+  let Ps := lift_Ps type Ps in
+  let Ps := (fun τ => openup0 (⌈kinding [] τ 0⌉ /\ VSet_wf τ (WFRvar #0))%wfrel) :: Ps in
+  Ps
+.
+
+Definition add_ρ_expr {ctxfo lctx ctx} (ρ : t_ρ ctxfo lctx ctx) : t_ρ (expr :: ctxfo) (CEexpr :: lctx) ctx :=
+  let ρ := fun v => add v ρ in
+  ρ
+.
+
+Definition relV_wf : nat -> forall lctx : context, open_type lctx -> forall ctx : list nat, csubsts lctx ctx -> wfrel 1 ctx.
+  admit.
+Defined.
+
+Definition add_Ps_expr {ctxfo lctx ctx} τ B (Ps : t_Ps ctxfo ctx) (ρ : t_ρ ctxfo lctx ctx) : t_Ps (expr :: ctxfo) ctx :=
+  let Ps := lift_Ps expr Ps in
+  let Ps := (fun v => openup1 (fun ρ => v ∈ relV_wf B τ ρ)%wfrel ρ) :: Ps in
+  Ps
+.
+
+Fixpoint make_ctxfo lctx :=
+  match lctx with
+    | nil => nil
+    | e :: Γ' =>
+      let ctxfo := make_ctxfo Γ' in
+      match e with
+        | CEtype =>
+          type :: ctxfo
+        | CEexpr =>
+          expr :: ctxfo
+      end
+  end.
+
+Fixpoint make_ctx lctx :=
+  match lctx with
+    | nil => nil
+    | e :: Γ' =>
+      let ctx := make_ctx Γ' in
+      match e with
+        | CEtype =>
+          1 :: ctx
+        | CEexpr =>
+          ctx
+      end
+  end.
+
+Fixpoint make_ρ lctx : t_ρ (make_ctxfo lctx) lctx (make_ctx lctx) :=
+  match lctx return t_ρ (make_ctxfo lctx) lctx (make_ctx lctx) with 
+    | nil => []%CS
+    | CEtype :: lctx' =>
+      let ρ := make_ρ lctx' in
+      add_ρ_type ρ
+    | CEexpr :: lctx' =>
+      let ρ := make_ρ lctx' in
+      add_ρ_expr ρ
+  end.
+
+Definition pair_of_tc {t lctx} (T : tcontext (t :: lctx)) : tc_entry t lctx * tcontext lctx :=
+  match T with
+    | TCcons _ _ e T' => (e, T')
+  end.
+
+Section make_Ps.
+  Variable B : nat.
+  Fixpoint make_Ps {lctx} : tcontext lctx -> t_Ps (make_ctxfo lctx) (make_ctx lctx) :=
+    match lctx return tcontext lctx -> t_Ps (make_ctxfo lctx) (make_ctx lctx) with 
+      | nil => fun _ => nil
+      | CEtype :: lctx' =>
+        fun Γ =>
+          let Ps := make_Ps (snd (pair_of_tc Γ)) in
+          add_Ps_type Ps
+      | CEexpr :: lctx' =>
+        fun Γ =>
+          let Ps := make_Ps (snd (pair_of_tc Γ)) in
+          add_Ps_expr ((type_of_te << fst << pair_of_tc) Γ) B Ps (make_ρ lctx')
+    end.
+End make_Ps.
+
+Definition relE_wf : nat -> forall lctx : context, open_type lctx -> nat -> size -> forall ctx : list nat, csubsts lctx ctx -> wfrel 1 ctx.
+  admit.
+Defined.
+
+Definition related {lctx} B Γ (e : open_expr lctx) τ (c : open_cexpr lctx) (s : open_size lctx) :=
+  make_Ps (lctx := lctx) B Γ |~ openup1 (fun ρ => (ρ $ e) ∈ relE_wf B τ !(ρ $ c) (ρ $ s) ρ) (make_ρ lctx).
+
+Notation "⊩" := related.
+
+Lemma foundamental :
+  forall {ctx} (Γ : tcontext ctx) e τ c s,
+    ⊢ Γ e τ c s -> 
+    exists B, ⊩ B Γ e τ c s.
+Proof.
+  induction 1.
+  {
+    unfold related.
+    exists 0.
+    simpl.
+    admit.
+  }
+  {
+    destruct IHtyping1 as [B0 IH₀].
+    destruct IHtyping2 as [B1 IH₁].
+    exists (2 * B0 + B1 + 1).
+    unfold related in *.
+    Lemma VMorePs ctxfo ctx (P : open_wfrel ctxfo 0 ctx) Ps : [] |~ P -> Ps |~ P.
+      admit.
+    Qed.
+
+    eapply VMorePs.
+    eapply VCtxElimEmpty.
+    intros ρ.
+
+    Open Scope wfrel.
+
+    Fixpoint plug (c : econtext) (e : expr) : expr :=
+      match c with
+        | ECempty => e
+        | ECapp1 f arg => Eapp (plug f e) arg
+        | ECapp2 f arg _ => Eapp f (plug arg e)
+        | EClet def main => Elet (plug def e) main
+        | ECtapp f t => Etapp (plug f e) t
+        | ECfold t c => Efold t (plug c e)
+        | ECunfold c => Eunfold (plug c e)
+        | EChide c => Ehide (plug c e)
+        | ECunhide c => Eunhide (plug c e)
+        | ECpair1 a b => Epair (plug a e) b
+        | ECpair2 a b _ => Epair a (plug b e)
+        | ECinl t c => Einl t (plug c e)
+        | ECinr t c => Einr t (plug c e)
+        | ECfst c => Efst (plug c e)
+        | ECsnd c => Esnd (plug c e)
+        | ECmatch target a b => Ematch (plug target e) a b
+      end.
+
+    Instance Apply_EC_expr : Apply econtext expr expr :=
+      {
+        apply := plug
+      }.
+
+    (*here*)
+    
+    Definition goodEC {lctx lctx'} : nat -> expr -> econtext -> open_type lctx -> open_cexpr [CEexpr] -> open_size [CEexpr] -> open_type lctx' -> Rel [flip csubsts lctx; flip csubsts lctx'] 0 :=
+      fun B e E τ c s τ' var ρ ρ' => 
+        (∀v, v ∈ relV B τ ρ /\ ⌈e ~>* v⌉ ===> E $$ v ∈ relE B τ' !(c $ v) (s $ v) ρ')%rel.
+
+    Lemma LRbind {lctx lctx'} B (τ : open_type lctx) s₁ E c₂ s₂ (τ' : open_type lctx') : 
+      [] |~ fun var => (fun ρ ρ' => ∀ e c₁, e ∈ relE B τ c₁ s₁ ρ /\ goodEC B e E τ c₂ s₂ τ' ρ ρ' ===> E $$ e ∈ relE (2 * B) τ' (c₁ + !(c₂ $ s₁)) (s₂ $ s₁) ρ') : Funvar var [flip csubsts lctx; flip csubsts lctx'] 0.
+    Proof.
+      eapply VLob.
+      (*
+      eapply Vforall1intro; intros e.
+      eapply Vforall1intro; intros c₁.
+      Lemma VImplyIntro P Q : (|~ P -> |~ Q) -> |~ P ===> Q.
+        admit.
+      Qed.
+      eapply VImplyIntro; intros H.
+      Local Open Scope type.
+      Lemma VAndElim P Q : |~ P /\ Q -> (|~ P) /\ (|~ Q).
+        admit.
+      Qed.
+      eapply VAndElim in H; destruct H as [He Hec].
+      unfold goodEC.
+
+      Definition apply_Substs {lctx} `{H : Apply (flip csubsts lctx (const unit)) (B lctx) B'} (rho : Substs [] lctx) (b : B lctx) : B' :=
+        rho (const unit) $ b.
+
+      Global Instance Apply_Substs {lctx} `{H : Apply (csubsts (const unit) lctx) (B lctx) B'} : Apply (Substs [] lctx) (B lctx) B' :=
+        {
+          apply := apply_Substs (H := H)
+        }.
+
+      Lemma goodExprIntro {lctx} e B (τ : open_type lctx) c s (ρ : Substs [] lctx) : 
+        (|- e (ρ $ τ)) -> 
+        (forall n e', ~>## e n 0 e' -> n <= c) ->
+        (forall v, ⇓*# e 0 v -> !v <= s /\ |~ v ∈ goodValue B τ ρ) ->
+        (forall e', ~>*# e 1 e' -> 0 < c /\ |~ ▹(e' ∈ goodExpr B τ (c - 1) s ρ)) ->
+        |~ e ∈ goodExpr B τ c s ρ.
+      Proof.
+        admit.
+      Qed.
+      unfold goodExpr.
+      unfold openE.
+      simpl.
+      unfold relE.
+      unfold relE'.
+      simpl.
+       *)
+      admit.
+    Qed.
+
+    admit.
+  }
+  {
+    unfold related in *.
+    simpl in *.
+    unfold add_Ps_expr in *.
+    admit.
+  }
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+Qed.
+
+Lemma adequacy B e τ c s : ⊩ B [] e τ c s -> forall n e', ~># e n e' -> n ≤ (1 + B) * (1 + !c).
+  admit.
+Qed.
+
+Theorem sound_wrt_bound_proof : sound_wrt_bounded.
+Proof.
+  admit.
+Qed.
+
+Definition lift_Rel {ctx t2} new : Rel ctx t2 -> Rel (new :: ctx) t2 :=
+  fun r var x => r var.
+
+Notation lift_ρ := lift_Rel (only parsing).
+
+(* should compute *)
+Definition extend {var t2} ctx new : Funvar var ctx t2 -> Funvar var (ctx ++ new) t2.
+  induction ctx.
+  {
+    simpl.
+    intros r.
+    exact (openupSingle r).
+  }
+  {
+    simpl.
+    intros r x.
+    exact (IHctx (r x)).
+  }
+Defined.
+
+Definition add_Funvar {var} `{H : Add (A var) (B var) (C var)} {ctx} (a : Funvar var ctx A) (b : Funvar var ctx B) : Funvar var ctx C :=
+  openup5 (t1 := A) (t2 := B) add a b.
+
+Global Instance Add_Funvar {var} `{Add (A var) (B var) (C var)} {ctx} : Add (Funvar var ctx A) (Funvar var ctx B) (Funvar var ctx C) :=
+  {
+    add := add_Funvar
+  }.
+
+Definition pair_var var := (type * rel var 1)%type.
+
+Global Instance Add_pair_csubsts' {var lctx} : Add (pair_var var) (flip csubsts lctx var) (flip csubsts (CEtype :: lctx) var) :=
+  {
+    add := add_pair
+  }.
+
+Notation RTexpr := (const expr).
+Notation RTtype := (const type).
+
+Global Instance Add_expr_csubsts' {var lctx} : Add (RTexpr var) (flip csubsts lctx var) (flip csubsts (CEexpr :: lctx) var) :=
+  {
+    add := add_expr
+  }.
+
+Global Instance Apply_rel_expr' {var n} : Apply (rel var (S n)) (RTexpr var) (rel var n) :=
+  {
+    apply := Rapp
+  }.
+
+Definition c2n' {ctx} (c : Rel ctx (const cexpr)) : Rel ctx (const nat) :=
+  fun var => openup1 (t1 := const cexpr) (t2 := const nat) c2n (c var).
+
+Global Instance Coerce_cexpr_nat' : Coerce (Rel ctx (const cexpr)) (Rel ctx (const nat)) :=
+  {
+    coerce := c2n'
+  }.
+
+Instance Apply_Subst `{Subst t A B} {ctx} : Apply (B (t :: ctx)) (A ctx) (B ctx) :=
+  {
+    apply := flip subst
+  }.
+
+(*
+Definition openE B {lctx} tau c s {var ctx} := openup1 (t1 := flip csubsts lctx) (t2 := 1) (@relE B lctx tau c s var) (ctx := ctx).
+Definition goodExpr B {lctx} tau c s {ctx} (ρ : t_ρ ctx lctx) : Rel ctx 1 := fun var => openE B tau c s (ρ var).
+Definition openV B {lctx} tau {var ctx} := openup1 (t1 := flip csubsts lctx) (t2 := 1) (@relV B lctx tau var) (ctx := ctx).
+Definition goodValue B {lctx} tau {ctx} (ρ : t_ρ ctx lctx) : Rel ctx 1 := fun var => openV B tau (ρ var).
+*)
+
+(*
+Definition goodECopen {var lctx lctx'} : nat -> expr -> econtext -> csubsts var lctx -> open_type lctx -> open_cexpr [CEexpr] -> open_size [CEexpr] -> csubsts var lctx' -> open_type lctx' -> rel var 0 :=
+  fun B e E ρ τ c s ρ' τ' =>
+    (∀v, v ∈ relV B τ ρ /\ ⌈e ~>* v⌉ ===> plug E v ∈ relE B τ' !(c $ v) (s $ v) ρ')%rel.
+
+Definition goodEC {lctx lctx'} : nat -> expr -> econtext -> Substs [] lctx -> open_type lctx -> open_cexpr [CEexpr] -> open_size [CEexpr] -> Substs [] lctx' -> open_type lctx' -> Rel [] 0 :=
+  fun B e E ρ τ c s ρ' τ' var => 
+    goodECopen B e E (ρ var) τ c s (ρ' var) τ'.
+*)
+
+Definition subst_Rel `{Subst t A B} {ctx} lctx (x : var t lctx) (v : Rel ctx (const (A (removen lctx x)))) (b : Rel ctx (const (B lctx))) : Rel ctx (const (B (removen lctx x))) :=
+  fun var =>
+    openup5 (t1 := const (A (removen lctx x))) (t2 := const (B lctx)) (t3 := const (B (removen lctx x))) (substx x) (v var) (b var).
+
+Global Instance Subst_Rel `{Subst t A B} {ctx} : Subst t (fun lctx => Rel ctx (const (A lctx))) (fun lctx => Rel ctx (const (B lctx))) :=
+  {
+    substx := subst_Rel
+  }.
+
+Global Instance Add_Funvar' {var} `{H : Add A B C} {ctx} : Add (Funvar var ctx (const A)) (Funvar var ctx (const B)) (Funvar var ctx (const C)) :=
+  {
+    add := add_Funvar (A := const A) (B := const B) (C := const C) (H := H)
+  }.
+
+Definition add_Rel `{Add A B C} {ctx} (a : Rel ctx (const A)) (b : Rel ctx (const B)) : Rel ctx (const C) :=
+  fun var => add (a var) (b var).
+
+Global Instance Add_Rel `{Add A B C} {ctx} : Add (Rel ctx (const A)) (Rel ctx (const B)) (Rel ctx (const C)) :=
+  {
+    add := add_Rel
+  }.
+
+
+Fixpoint forall_erel {T m} : (T -> erel m) -> erel m :=
+  match m with
+    | 0 => fun f => forall x, f x
+    | S m' => fun f e => forall_erel (flip f e)
+  end.
 
 Delimit Scope OR with OR.
 Bind Scope OR with open_term.
@@ -1028,10 +1539,6 @@ Section infer_rules.
 End infer_rules.
 
 Infix "==" := Iff.
-
-Lemma VMorePs ctx (P : OpenTerm ctx 0) Ps : [] |~ P -> Ps |~ P.
-  admit.
-Qed.
 
 Fixpoint squash {var t} (r : rel (rel var) t) : rel var t :=
   match r with
@@ -1581,317 +2088,3 @@ Proof.
 Qed.
  *)
 
-Definition lift_Rel {ctx t2} new : Rel ctx t2 -> Rel (new :: ctx) t2 :=
-  fun r var x => r var.
-
-Definition t_Ps ctx := list (Rel ctx 0).
-Definition Substs ctx lctx := Rel ctx (flip csubsts lctx).
-Notation t_ρ := Substs (only parsing).
-Notation lift_ρ := lift_Rel (only parsing).
-
-Definition lift_Ps {ctx} t (Ps : t_Ps ctx) : t_Ps (t :: ctx):=
-  map (lift_Rel t) Ps.
-
-(* should compute *)
-Definition extend {var t2} ctx new : Funvar var ctx t2 -> Funvar var (ctx ++ new) t2.
-  induction ctx.
-  {
-    simpl.
-    intros r.
-    exact (openupSingle r).
-  }
-  {
-    simpl.
-    intros r x.
-    exact (IHctx (r x)).
-  }
-Defined.
-
-Definition add_Funvar {var} `{H : Add (A var) (B var) (C var)} {ctx} (a : Funvar var ctx A) (b : Funvar var ctx B) : Funvar var ctx C :=
-  openup5 (t1 := A) (t2 := B) add a b.
-
-Global Instance Add_Funvar {var} `{Add (A var) (B var) (C var)} {ctx} : Add (Funvar var ctx A) (Funvar var ctx B) (Funvar var ctx C) :=
-  {
-    add := add_Funvar
-  }.
-
-Definition pair_var var := (type * rel var 1)%type.
-
-Global Instance Add_pair_csubsts' {var lctx} : Add (pair_var var) (flip csubsts lctx var) (flip csubsts (CEtype :: lctx) var) :=
-  {
-    add := add_pair
-  }.
-
-Notation RTexpr := (const expr).
-Notation RTtype := (const type).
-
-Definition add_ρ_type {ctx lctx} (ρ : t_ρ ctx lctx) : t_ρ (RTrel 1 :: RTtype :: ctx) (CEtype :: lctx) :=
-  let ρ := lift_ρ RTtype ρ in
-  let ρ := lift_ρ 1 ρ in
-  let ρ := fun var => add (extend (t2 := pair_var) [RTrel 1; RTtype] ctx (fun S τ => (τ, S))) (ρ var) in
-  ρ
-.
-
-Definition add_Ps_type {ctx} (Ps : t_Ps ctx) : t_Ps (RTrel 1 :: RTtype :: ctx) :=
-  let Ps := lift_Ps RTtype Ps in
-  let Ps := (fun var => extend [RTtype] ctx (fun τ => ⌈kinding TCnil τ 0⌉%rel : Funvar var [] 0)) :: Ps in
-  let Ps := lift_Ps 1 Ps in
-  let Ps := (fun var => extend [RTrel 1; RTtype] ctx (fun S τ => VSet τ S : Funvar var [] 0)) :: Ps in
-  Ps
-.
-
-Global Instance Add_expr_csubsts' {var lctx} : Add (RTexpr var) (flip csubsts lctx var) (flip csubsts (CEexpr :: lctx) var) :=
-  {
-    add := add_expr
-  }.
-
-Definition add_ρ_expr {ctx lctx} (ρ : t_ρ ctx lctx) : t_ρ (RTexpr :: ctx) (CEexpr :: lctx) :=
-  let ρ := lift_ρ RTexpr ρ in
-  let ρ := fun var => add (extend [RTexpr] ctx (fun v => v)) (ρ var) in
-  ρ
-.
-
-Global Instance Apply_rel_expr' {var n} : Apply (rel var (S n)) (RTexpr var) (rel var n) :=
-  {
-    apply := Rapp
-  }.
-
-Definition add_Ps_expr {ctx lctx} τ B (Ps : t_Ps ctx) (ρ : t_ρ ctx lctx) : t_Ps (RTexpr :: ctx) :=
-  let Ps := lift_Ps RTexpr Ps in
-  let Ps := (fun var v => openup1 (fun ρ => v ∈ relV B τ ρ) (ρ var)) :: Ps in
-  Ps
-.
-
-Fixpoint make_ctx lctx :=
-  match lctx with
-    | nil => nil
-    | e :: Γ' =>
-      let ctx := make_ctx Γ' in
-      match e with
-        | CEtype =>
-          RTrel 1 :: RTtype :: ctx
-        | CEexpr =>
-          RTexpr :: ctx
-      end
-  end.
-
-Fixpoint make_ρ lctx : t_ρ (make_ctx lctx) lctx :=
-  match lctx return t_ρ (make_ctx lctx) lctx with 
-    | nil => (fun var => [])%CS
-    | CEtype :: lctx' =>
-      let ρ := make_ρ lctx' in
-      add_ρ_type ρ
-    | CEexpr :: lctx' =>
-      let ρ := make_ρ lctx' in
-      add_ρ_expr ρ
-  end.
-
-Definition pair_of_tc {t lctx} (T : tcontext (t :: lctx)) : tc_entry t lctx * tcontext lctx :=
-  match T with
-    | TCcons _ _ e T' => (e, T')
-  end.
-
-Section make_Ps.
-  Variable B : nat.
-  Fixpoint make_Ps {lctx} : tcontext lctx -> t_Ps (make_ctx lctx) :=
-    match lctx return tcontext lctx -> t_Ps (make_ctx lctx) with 
-      | nil => fun _ => nil
-      | CEtype :: lctx' =>
-        fun Γ =>
-          let Ps := make_Ps (snd (pair_of_tc Γ)) in
-          add_Ps_type Ps
-      | CEexpr :: lctx' =>
-        fun Γ =>
-          let Ps := make_Ps (snd (pair_of_tc Γ)) in
-          add_Ps_expr ((type_of_te << fst << pair_of_tc) Γ) B Ps (make_ρ lctx')
-    end.
-End make_Ps.
-
-Definition c2n' {ctx} (c : Rel ctx (const cexpr)) : Rel ctx (const nat) :=
-  fun var => openup1 (t1 := const cexpr) (t2 := const nat) c2n (c var).
-
-Global Instance Coerce_cexpr_nat' : Coerce (Rel ctx (const cexpr)) (Rel ctx (const nat)) :=
-  {
-    coerce := c2n'
-  }.
-
-Fixpoint plug (c : econtext) (e : expr) : expr :=
-  match c with
-    | ECempty => e
-    | ECapp1 f arg => Eapp (plug f e) arg
-    | ECapp2 f arg _ => Eapp f (plug arg e)
-    | EClet def main => Elet (plug def e) main
-    | ECtapp f t => Etapp (plug f e) t
-    | ECfold t c => Efold t (plug c e)
-    | ECunfold c => Eunfold (plug c e)
-    | EChide c => Ehide (plug c e)
-    | ECunhide c => Eunhide (plug c e)
-    | ECpair1 a b => Epair (plug a e) b
-    | ECpair2 a b _ => Epair a (plug b e)
-    | ECinl t c => Einl t (plug c e)
-    | ECinr t c => Einr t (plug c e)
-    | ECfst c => Efst (plug c e)
-    | ECsnd c => Esnd (plug c e)
-    | ECmatch target a b => Ematch (plug target e) a b
-  end.
-
-Instance Apply_EC_expr : Apply econtext expr expr :=
-  {
-    apply := plug
-  }.
-
-Instance Apply_Subst `{Subst t A B} {ctx} : Apply (B (t :: ctx)) (A ctx) (B ctx) :=
-  {
-    apply := flip subst
-  }.
-
-(*
-Definition openE B {lctx} tau c s {var ctx} := openup1 (t1 := flip csubsts lctx) (t2 := 1) (@relE B lctx tau c s var) (ctx := ctx).
-Definition goodExpr B {lctx} tau c s {ctx} (ρ : t_ρ ctx lctx) : Rel ctx 1 := fun var => openE B tau c s (ρ var).
-Definition openV B {lctx} tau {var ctx} := openup1 (t1 := flip csubsts lctx) (t2 := 1) (@relV B lctx tau var) (ctx := ctx).
-Definition goodValue B {lctx} tau {ctx} (ρ : t_ρ ctx lctx) : Rel ctx 1 := fun var => openV B tau (ρ var).
-*)
-
-Definition goodEC {lctx lctx'} : nat -> expr -> econtext -> open_type lctx -> open_cexpr [CEexpr] -> open_size [CEexpr] -> open_type lctx' -> Rel [flip csubsts lctx; flip csubsts lctx'] 0 :=
-  fun B e E τ c s τ' var ρ ρ' => 
-    (∀v, v ∈ relV B τ ρ /\ ⌈e ~>* v⌉ ===> E $$ v ∈ relE B τ' !(c $ v) (s $ v) ρ')%rel.
-
-(*
-Definition goodECopen {var lctx lctx'} : nat -> expr -> econtext -> csubsts var lctx -> open_type lctx -> open_cexpr [CEexpr] -> open_size [CEexpr] -> csubsts var lctx' -> open_type lctx' -> rel var 0 :=
-  fun B e E ρ τ c s ρ' τ' =>
-    (∀v, v ∈ relV B τ ρ /\ ⌈e ~>* v⌉ ===> plug E v ∈ relE B τ' !(c $ v) (s $ v) ρ')%rel.
-
-Definition goodEC {lctx lctx'} : nat -> expr -> econtext -> Substs [] lctx -> open_type lctx -> open_cexpr [CEexpr] -> open_size [CEexpr] -> Substs [] lctx' -> open_type lctx' -> Rel [] 0 :=
-  fun B e E ρ τ c s ρ' τ' var => 
-    goodECopen B e E (ρ var) τ c s (ρ' var) τ'.
-*)
-
-Definition subst_Rel `{Subst t A B} {ctx} lctx (x : var t lctx) (v : Rel ctx (const (A (removen lctx x)))) (b : Rel ctx (const (B lctx))) : Rel ctx (const (B (removen lctx x))) :=
-  fun var =>
-    openup5 (t1 := const (A (removen lctx x))) (t2 := const (B lctx)) (t3 := const (B (removen lctx x))) (substx x) (v var) (b var).
-
-Global Instance Subst_Rel `{Subst t A B} {ctx} : Subst t (fun lctx => Rel ctx (const (A lctx))) (fun lctx => Rel ctx (const (B lctx))) :=
-  {
-    substx := subst_Rel
-  }.
-
-Global Instance Add_Funvar' {var} `{H : Add A B C} {ctx} : Add (Funvar var ctx (const A)) (Funvar var ctx (const B)) (Funvar var ctx (const C)) :=
-  {
-    add := add_Funvar (A := const A) (B := const B) (C := const C) (H := H)
-  }.
-
-Definition add_Rel `{Add A B C} {ctx} (a : Rel ctx (const A)) (b : Rel ctx (const B)) : Rel ctx (const C) :=
-  fun var => add (a var) (b var).
-
-Global Instance Add_Rel `{Add A B C} {ctx} : Add (Rel ctx (const A)) (Rel ctx (const B)) (Rel ctx (const C)) :=
-  {
-    add := add_Rel
-  }.
-
-Definition related {lctx} B Γ (e : open_expr lctx) τ (c : open_cexpr lctx) (s : open_size lctx) :=
-  make_Ps (lctx := lctx) B Γ |~ fun var => openup1 (fun ρ : csubsts var lctx => ρ $$ e ∈ relE B τ !(ρ $ c) (ρ $ s) ρ) (var := var) (t1 := flip csubsts lctx) (make_ρ lctx var).
-
-Notation "⊩" := related.
-
-Lemma foundamental :
-  forall {ctx} (Γ : tcontext ctx) e τ c s,
-    ⊢ Γ e τ c s -> 
-    exists B, ⊩ B Γ e τ c s.
-Proof.
-  induction 1.
-  {
-    unfold related.
-    exists 0.
-    simpl.
-    admit.
-  }
-  {
-    destruct IHtyping1 as [B0 IH₀].
-    destruct IHtyping2 as [B1 IH₁].
-    exists (2 * B0 + B1 + 1).
-    unfold related in *.
-    eapply VMorePs.
-
-    eapply VCtxElimEmpty.
-
-    Open Scope rel.
-
-    Lemma LRbind {lctx lctx'} B (τ : open_type lctx) s₁ E c₂ s₂ (τ' : open_type lctx') : 
-      [] |~ fun var => (fun ρ ρ' => ∀ e c₁, e ∈ relE B τ c₁ s₁ ρ /\ goodEC B e E τ c₂ s₂ τ' ρ ρ' ===> E $$ e ∈ relE (2 * B) τ' (c₁ + !(c₂ $ s₁)) (s₂ $ s₁) ρ') : Funvar var [flip csubsts lctx; flip csubsts lctx'] 0.
-    Proof.
-      eapply VLob.
-      (*
-      eapply Vforall1intro; intros e.
-      eapply Vforall1intro; intros c₁.
-      Lemma VImplyIntro P Q : (|~ P -> |~ Q) -> |~ P ===> Q.
-        admit.
-      Qed.
-      eapply VImplyIntro; intros H.
-      Local Open Scope type.
-      Lemma VAndElim P Q : |~ P /\ Q -> (|~ P) /\ (|~ Q).
-        admit.
-      Qed.
-      eapply VAndElim in H; destruct H as [He Hec].
-      unfold goodEC.
-
-      Definition apply_Substs {lctx} `{H : Apply (flip csubsts lctx (const unit)) (B lctx) B'} (rho : Substs [] lctx) (b : B lctx) : B' :=
-        rho (const unit) $ b.
-
-      Global Instance Apply_Substs {lctx} `{H : Apply (csubsts (const unit) lctx) (B lctx) B'} : Apply (Substs [] lctx) (B lctx) B' :=
-        {
-          apply := apply_Substs (H := H)
-        }.
-
-      Lemma goodExprIntro {lctx} e B (τ : open_type lctx) c s (ρ : Substs [] lctx) : 
-        (|- e (ρ $ τ)) -> 
-        (forall n e', ~>## e n 0 e' -> n <= c) ->
-        (forall v, ⇓*# e 0 v -> !v <= s /\ |~ v ∈ goodValue B τ ρ) ->
-        (forall e', ~>*# e 1 e' -> 0 < c /\ |~ ▹(e' ∈ goodExpr B τ (c - 1) s ρ)) ->
-        |~ e ∈ goodExpr B τ c s ρ.
-      Proof.
-        admit.
-      Qed.
-      unfold goodExpr.
-      unfold openE.
-      simpl.
-      unfold relE.
-      unfold relE'.
-      simpl.
-       *)
-      admit.
-    Qed.
-
-    admit.
-  }
-  {
-    unfold related in *.
-    simpl in *.
-    unfold add_Ps_expr in *.
-    admit.
-  }
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-Qed.
-
-Lemma adequacy B e τ c s : ⊩ B [] e τ c s -> forall n e', ~># e n e' -> n ≤ (1 + B) * (1 + !c).
-  admit.
-Qed.
-
-Theorem sound_wrt_bound_proof : sound_wrt_bounded.
-Proof.
-  admit.
-Qed.
