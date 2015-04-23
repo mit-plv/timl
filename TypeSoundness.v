@@ -284,6 +284,7 @@ Global Instance Apply_rel_expr {m ctx} : Apply (rel (S m) ctx) expr (rel m ctx) 
 Infix "/\" := Rand : rel.
 Infix "\/" := Ror : rel.
 Infix "===>" := Rimply (at level 86) : rel.
+Notation "▹" := Rlater : rel.
 
 Delimit Scope rel with rel.
 Bind Scope rel with rel.
@@ -506,8 +507,6 @@ Section LR.
   Variable B : nat.
 
   Open Scope rel.
-
-  Notation "▹" := Rlater : rel.
 
   Fixpoint relE' {lctx} (relV : forall ctx, csubsts lctx ctx -> rel 1 ctx) (τ : open_type lctx) (c : nat) (s : size) ctx (ρ : csubsts lctx ctx) : rel 1 ctx :=
     \e, ⌈|- e (ρ $ τ) /\ 
@@ -923,18 +922,6 @@ Proof.
         max := Peano.max
       }.
     exists (3 * max B0 B1 + 1).
-    (*here*)
-    
-    unfold related in *.
-    Lemma VMorePs ctxfo ctx (P : open_rel ctxfo 0 ctx) Ps : [] |~ P -> Ps |~ P.
-      admit.
-    Qed.
-
-    eapply VMorePs.
-    eapply VCtxElimEmpty.
-    intros ρ.
-
-    Open Scope rel.
 
     Fixpoint plug (c : econtext) (e : expr) : expr :=
       match c with
@@ -956,16 +943,44 @@ Proof.
         | ECmatch target a b => Ematch (plug target e) a b
       end.
 
+    Inductive typingEC : econtext -> type -> type -> Prop :=
+    | TECempty τ : typingEC ECempty τ τ
+    | TECapp1 f arg τ τ₁ c s τ₂ :
+        typingEC f τ (Tarrow τ₁ c s τ₂) ->
+        (|- arg τ₁) ->
+        typingEC (ECapp1 f arg) τ τ₂
+    .
+    
     Instance Apply_EC_expr : Apply econtext expr expr :=
       {
         apply := plug
       }.
 
-    Definition goodEC {lctx lctx'} : nat -> expr -> econtext -> open_type lctx -> open_cexpr [CEexpr] -> open_size [CEexpr] -> open_type lctx' -> Rel [flip csubsts lctx; flip csubsts lctx'] 0 :=
-      fun B e E τ c s τ' var ρ ρ' => 
-        (∀v, v ∈ relV B τ ρ /\ ⌈e ~>* v⌉ ===> E $$ v ∈ relE B τ' !(c $ v) (s $ v) ρ')%rel.
+    Open Scope rel.
 
-    Lemma LRbind {lctx lctx'} B (τ : open_type lctx) s₁ E c₂ s₂ (τ' : open_type lctx') : 
+    Fixpoint relE₂ (B₁ B₂ : nat) {lctx} (τ : open_type lctx) (c : nat) (s : size) ctx (ρ : csubsts lctx ctx) : rel 1 ctx :=
+      \e, ⌈|- e (ρ $ τ) /\ 
+          (forall n e', (~>## e n 0 e') -> n ≤ B₁)⌉ /\ 
+          (∀v, ⌈⇓*# e 0 v⌉ ===> v ∈ relV B₂ τ ρ /\ ⌈!v ≤ s⌉) /\
+          (∀e', ⌈~>*# e 1 e'⌉ ===> 
+                      match c with
+                        | 0 => ⊥
+                        | S c' =>
+                          ▹ [] (e' ∈ relE₂ B₁ B₂ τ c' s ρ)
+                      end).
+    
+    Instance Apply_Subst `{Subst t A B} {ctx} : Apply (B (t :: ctx)) (A ctx) (B ctx) :=
+      {
+        apply := flip subst
+      }.
+
+    Definition relEC (E : econtext) (B₁ B₂ : nat) (s₁ : size) (c₂ : open_cexpr [CEexpr]) (s₂ : open_size [CEexpr]) {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) : rel 1 ctx :=
+      \e, ∀v, v ∈ relV B₁ τ ρ /\ ⌈e ~>* v /\ !v ≤ s₁⌉ ===> (E $ v) ∈ relE₂ B₂ (B₁ + B₂) τ' !(c₂ $ s₁) (s₂ $ s₁) ρ'.
+
+    (* unfold related in *. *)
+
+    Lemma LRbind {lctx lctx'} B (τ : open_type lctx) s₁ E c₂ s₂ (τ' : open_type lctx') :
+      ⊩ B₁ Γ e τ 
       [] |~ fun var => (fun ρ ρ' => ∀ e c₁, e ∈ relE B τ c₁ s₁ ρ /\ goodEC B e E τ c₂ s₂ τ' ρ ρ' ===> E $$ e ∈ relE (2 * B) τ' (c₁ + !(c₂ $ s₁)) (s₂ $ s₁) ρ') : Funvar var [flip csubsts lctx; flip csubsts lctx'] 0.
     Proof.
       eapply VLob.
@@ -1009,6 +1024,14 @@ Proof.
        *)
       admit.
     Qed.
+
+    Lemma VMorePs ctxfo ctx (P : open_rel ctxfo 0 ctx) Ps : [] |~ P -> Ps |~ P.
+      admit.
+    Qed.
+
+    eapply VMorePs.
+    eapply VCtxElimEmpty.
+    intros ρ.
 
     admit.
   }
@@ -1099,11 +1122,6 @@ Definition c2n' {ctx} (c : Rel ctx (const cexpr)) : Rel ctx (const nat) :=
 Global Instance Coerce_cexpr_nat' : Coerce (Rel ctx (const cexpr)) (Rel ctx (const nat)) :=
   {
     coerce := c2n'
-  }.
-
-Instance Apply_Subst `{Subst t A B} {ctx} : Apply (B (t :: ctx)) (A ctx) (B ctx) :=
-  {
-    apply := flip subst
   }.
 
 (*
