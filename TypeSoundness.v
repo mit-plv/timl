@@ -943,14 +943,6 @@ Proof.
         | ECmatch target a b => Ematch (plug target e) a b
       end.
 
-    Inductive typingEC : econtext -> type -> type -> Prop :=
-    | TECempty τ : typingEC ECempty τ τ
-    | TECapp1 f arg τ τ₁ c s τ₂ :
-        typingEC f τ (Tarrow τ₁ c s τ₂) ->
-        (|- arg τ₁) ->
-        typingEC (ECapp1 f arg) τ τ₂
-    .
-    
     Instance Apply_EC_expr : Apply econtext expr expr :=
       {
         apply := plug
@@ -979,6 +971,14 @@ Proof.
 
     (* unfold related in *. *)
 
+    Inductive typingEC : econtext -> type -> type -> Prop :=
+    | TECempty τ : typingEC ECempty τ τ
+    (* | TECapp1 f arg τ τ₁ c s τ₂ : *)
+    (*     typingEC f τ (Tarrow τ₁ c s τ₂) -> *)
+    (*     (|- arg τ₁) -> *)
+    (*     typingEC (ECapp1 f arg) τ τ₂ *)
+    .
+    
     Lemma LRbind {lctx lctx'} B (τ : open_type lctx) s₁ E c₂ s₂ (τ' : open_type lctx') :
       ⊩ B₁ Γ e τ 
       [] |~ fun var => (fun ρ ρ' => ∀ e c₁, e ∈ relE B τ c₁ s₁ ρ /\ goodEC B e E τ c₂ s₂ τ' ρ ρ' ===> E $$ e ∈ relE (2 * B) τ' (c₁ + !(c₂ $ s₁)) (s₂ $ s₁) ρ') : Funvar var [flip csubsts lctx; flip csubsts lctx'] 0.
