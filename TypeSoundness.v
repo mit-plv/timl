@@ -232,6 +232,44 @@ Fixpoint change_usab chg (ctx : list relvart) : list relvart :=
     | _, _ => nil
   end.
 
+Module width.
+
+Inductive width : wtype -> context -> Type :=
+| Wvar : var CEexpr ctx -> width WTstruct ctx
+| WappB : width WTstruct ctx -> width WTstruct ctx -> width WTnat ctx
+| Wapp : width WTstruct ctx -> width WTstruct ctx -> width WTstruct ctx
+| Wabs : width WTnat (CEexpr :: ctx) -> width WTstruct (CEexpr :: ctx) -> width WTstruct ctx
+| Wtabs : width WTstruct ctx -> width WTstruct ctx
+| Wtt {t} : width t ctx
+(*here*)
+| Epair : expr ctx -> expr ctx -> expr ctx
+| Einl : type ctx -> expr ctx -> expr ctx
+| Einr : type ctx -> expr ctx -> expr ctx
+| Efst : expr ctx -> expr ctx
+| Esnd : expr ctx -> expr ctx
+| Ematch : expr ctx -> expr (CEexpr :: ctx) -> expr (CEexpr :: ctx) -> expr ctx
+.
+
+Inductive type ctx : Type :=
+| Tarrow : type ctx -> cexpr (CEexpr :: ctx) -> size (CEexpr :: ctx) ->  type (CEexpr :: ctx) -> type ctx
+(* polymorphism *)           
+| Tvar : var CEtype ctx -> type ctx
+| Tuniversal : cexpr ctx -> size ctx -> type (CEtype :: ctx) -> type ctx
+(* higher-order operators *)
+| Tabs : type (CEtype :: ctx) -> type ctx
+| Tapp : type ctx -> type ctx -> type ctx
+(* recursive types *)         
+| Trecur : type (CEtype :: ctx) -> type ctx
+(* to deal with statistics s2 and s3 *)
+| Thide : type ctx -> type ctx
+(* basic types *)
+| Tunit : type ctx
+| Tprod : type ctx -> type ctx -> type ctx
+| Tsum : type ctx -> type ctx -> type ctx
+.
+
+End width.
+
 Inductive rel : nat -> list relvart -> Type :=
 | Rvar {m ctx} : varR (m, Usable) ctx -> rel m ctx
 | Rinj {ctx} : Prop -> rel 0 ctx
@@ -517,26 +555,26 @@ Section LR.
 
   Existing Instance Apply_rel_expr.
 
-  Fixpoint relE' {lctx} (relV : forall ctx, width -> csubsts lctx ctx -> rel 1 ctx) B (τ : open_type lctx) Br (c : nat) (s : size) ctx (ρ : csubsts lctx ctx) : rel 1 ctx :=
-    \e, ⌈|- e (ρ $ τ) /\ 
+  Fixpoint relE' {lctx} (relV : forall ctx, csubsts lctx ctx -> rel 1 ctx) (τ : open_type lctx) B (c : nat) (s : size) ctx (ρ : csubsts lctx ctx) : rel 1 ctx :=
+    \\e w, ⌈|- e (ρ $ τ) /\ |-- w (ρ $ τ) /\
         (forall n e', (~>## e n 0 e') -> n ≤ B)⌉ /\ 
-        (∀v, ⌈⇓*# e 0 v⌉ ===> v ∈ relV Br ctx ρ /\ ⌈!v ≤ s⌉) /\
+        (∀v, ⌈⇓*# e 0 v⌉ ===> (v, w) ∈ relV Br ctx ρ /\ ⌈!v ≤ s⌉) /\
         (∀e', ⌈~>*# e 1 e'⌉ ===> 
                     match c with
                       | 0 => ⊥
                       | S c' =>
-                        ▹ [] (e' ∈ relE' relV B τ Br c' s ρ)
+                        ▹ [] ((e', w) ∈ relE' relV τ B c' s ρ)
                     end).
   
-  Fixpoint relV {lctx} (τ : open_type lctx) Br ctx (ρ : csubsts lctx ctx) : rel 1 ctx :=
+  Fixpoint relV {lctx} (τ : open_type lctx) ctx (ρ : csubsts lctx ctx) : rel 1 ctx :=
     match τ with
       | Tvar α => Rvar (csubsts_sem ρ α)
-      | Tunit => \v, ⌈v ↓ Tunit⌉
-      | τ₁ × τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃a b, ⌈v = !(a, b)⌉ /\ a ∈ relV τ₁ ρ /\ b ∈ relV τ₂ ρ
-      | τ₁ + τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃v', (⌈v = Einl (ρ $ τ₂) v'⌉ /\ v' ∈ relV τ₁ ρ) \/ (⌈v = Einr (ρ $ τ₁) v'⌉ /\ v' ∈ relV τ₂ ρ)
-      | Tarrow τ₁ c s τ₂ => \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃τ₁' e, ⌈v = Eabs τ₁' e⌉ /\ ∃B Br₂, ⌈Br = Wabs B Br₂⌉ /\ ∀v₁ Br₁, v₁ ∈ relV τ₁ Br₁ ρ ===> subst v₁ e ∈ relE' (relV τ₂) !(subst Br₁ B) τ₂ (subst Br₁ Br₂) !(ρ $ subst !(!v₁) c) (ρ $ subst !(!v₁) s) (add v₁ ρ)
-      | Tuniversal c s τ₁ => \v, ⌈v ↓ ρ $$ τ /\ |- Br : ρ $$ τ⌉ /\ ∀τ', ∀₂, VSet τ' (Rvar #0) ===> v $$ τ' ∈ relE' (relV τ₁) τ₁ !(ρ $ c) (ρ $ s) (add (τ', #0) (shift1 _ ρ))
-      | Trecur τ₁ => @@, \v, ⌈v ↓ ρ $$ τ⌉ /\ ∃τ' v', ⌈v = Efold τ' v'⌉ /\ ∃Br', ⌈Br = Wfold Br'⌉ /\ ▹ [Some Usable] (v' ∈ relV τ₁ Br' (add (ρ $ τ, #0) (shift1 _ ρ)))
+      | Tunit => \vw, ⌈vw ↓ Tunit⌉
+      | τ₁ × τ₂ => \vw, ⌈vw ↓ ρ $$ τ⌉ /\ ∃a b, ⌈vw = !(a, b)⌉ /\ a ∈ relV τ₁ ρ /\ b ∈ relV τ₂ ρ
+      | τ₁ + τ₂ => \vw, ⌈vw ↓ ρ $$ τ⌉ /\ ∃vw', (⌈vw = EWinl (ρ $ τ₂) vw'⌉ /\ vw' ∈ relV τ₁ ρ) \/ (⌈vw = EWinr (ρ $ τ₁) vw'⌉ /\ vw' ∈ relV τ₂ ρ)
+      | Tarrow τ₁ c s τ₂ => \vw, ⌈vw ↓ ρ $$ τ⌉ /\ let (v, w) := vw in ∃τ₁' e, ⌈v = Eabs τ₁' e⌉ /\ ∃wB w₂, ⌈w = Wabs wB w₂⌉ /\ ∀vw₁, vw₁ ∈ relV τ₁ ρ ===> let (v₁, w₁) := vw₁ in ∃B, ⌈getB (subst Br₁ wB) B⌉ /\ (subst v₁ e, subst Br₁ Br₂) ∈ relE' (relV τ₂) τ₂ B !(ρ $ subst !(!v₁) c) (ρ $ subst !(!v₁) s) (add v₁ ρ)
+      | Tuniversal c s τ₁ => \vw, ⌈vw ↓ ρ $$ τ⌉ /\ let (v, w) := vw in ∃e, ⌈v = Etabs e⌉ /\ ∃wB w₂, ⌈w = Wtabs wB w₂⌉ /\ ∀τ', ∀₂, VSet τ' (Rvar #0) ===> ∃B, ⌈getB wB B⌉ /\ (v $$ τ', w) ∈ relE' (relV τ₁) τ₁ B !(ρ $ c) (ρ $ s) (add (τ', #0) (shift1 _ ρ))
+      | Trecur τ₁ => @@, \vw, ⌈vw ↓ ρ $$ τ⌉ /\ let (v, w) := vw in ∃τ' v', ⌈v = Efold τ' v'⌉ /\ ▹ [Some Usable] ((v', w) ∈ relV τ₁ (add (ρ $ τ, #0) (shift1 _ ρ)))
       | _ => \_, ⊥
     end.
 
@@ -895,15 +933,15 @@ Section make_Ps.
     end.
 End make_Ps.
 
-Definition related {lctx} B Γ (e : open_expr lctx) τ (c : open_cexpr lctx) (s : open_size lctx) :=
-  make_Ps (lctx := lctx) B Γ |~ openup1 (fun ρ => (ρ $ e) ∈ relE B τ !(ρ $ c) (ρ $ s) ρ) (make_ρ lctx).
+Definition related {lctx} Γ wB w (e : open_expr lctx) τ (c : open_cexpr lctx) (s : open_size lctx) :=
+  make_Ps (lctx := lctx) Γ |~ openup1 (fun ρ => ∃B, ⌈getB (ρ $ wB) B⌉ /\ (ρ $$ e, ρ $$ w) ∈ relE τ B !(ρ $ c) (ρ $ s) ρ) (make_ρ lctx).
 
 Notation "⊩" := related.
 
 Lemma foundamental :
   forall {ctx} (Γ : tcontext ctx) e τ c s,
     ⊢ Γ e τ c s -> 
-    exists B, ⊩ B Γ e τ c s.
+    exists wB w, ⊩ Γ wB w e τ c s.
 Proof.
   induction 1.
   {
