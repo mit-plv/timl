@@ -10,6 +10,109 @@ Local Open Scope list_scope.
 
 Set Implicit Arguments.
 
+Module width.
+
+  Inductive wtype := WTstruct | WTnat.
+  
+  Inductive width : wtype -> context -> Type :=
+  | Wvar {ctx} : var CEexpr ctx -> width WTstruct ctx
+  | WappB {ctx} : width WTstruct ctx -> width WTstruct ctx -> width WTnat ctx
+  | Wapp {ctx} : width WTstruct ctx -> width WTstruct ctx -> width WTstruct ctx
+  | Wabs {ctx} : width WTnat (CEexpr :: ctx) -> width WTstruct (CEexpr :: ctx) -> width WTstruct ctx
+  | Wtabs {ctx} : width WTnat ctx -> width WTstruct ctx -> width WTstruct ctx
+  | Wfold {ctx} : width WTstruct ctx -> width WTstruct ctx
+  | Wunfold {ctx} : width WTstruct ctx -> width WTstruct ctx
+  | Wtt {t ctx} : width t ctx
+  | Wpair {ctx} : width WTstruct ctx -> width WTstruct ctx -> width WTstruct ctx
+  | Winl {ctx} : width WTstruct ctx -> width WTstruct ctx
+  | Winr {ctx} : width WTstruct ctx -> width WTstruct ctx
+  | Wfst {ctx} : width WTstruct ctx -> width WTstruct ctx
+  | Wsnd {ctx} : width WTstruct ctx -> width WTstruct ctx
+  | Wmatch {ctx} : width WTstruct ctx -> width WTstruct (CEexpr :: ctx) -> width WTstruct (CEexpr :: ctx) -> width WTstruct ctx
+  | Wadd {ctx} : width WTnat ctx -> width WTnat ctx -> width WTnat ctx
+  | Wmax {ctx} : width WTnat ctx -> width WTnat ctx -> width WTnat ctx
+  .
+
+  Global Instance Coerce_option A : Coerce A (option A) :=
+    {
+      coerce := Some
+    }.
+
+  Lemma shift_width : forall t (ctx new : list CtxEntry) (n : nat), width t ctx -> width t (insert ctx n new).
+    admit.
+  Qed.
+
+  Global Instance Shift_width t : Shift (width t) :=
+    {
+      shift := @shift_width t
+    }.
+
+  Local Open Scope ty.
+  Local Open Scope G.
+
+  Inductive wtyping {ctx} : tcontext ctx -> forall {t}, width t ctx -> option (type ctx) -> Prop :=
+  | WTPvar Γ x : 
+      wtyping Γ (Wvar x) !(cast (shiftby (firstn (S x) ctx) !(findtc x Γ)) (firstn_skipn _ ctx))
+  | WTPapp Γ e₀ e₁ τ₁ c s τ₂ s₁ : 
+      wtyping Γ e₀ !(Tarrow τ₁ c s τ₂) ->
+      wtyping Γ e₁ !τ₁ ->
+      wtyping Γ (Wapp e₀ e₁) !(subst s₁ τ₂)
+  | WTPappB Γ e₀ e₁ τ₁ c s τ₂ : 
+      wtyping Γ e₀ !(Tarrow τ₁ c s τ₂) ->
+      wtyping Γ e₁ !τ₁ ->
+      wtyping Γ (WappB e₀ e₁) None
+  | WTPabs T wB w t1 t2 c s :
+      kinding T t1 0 ->
+      wtyping (ctx := _ ) (add_typing t1 T) wB None ->
+      wtyping (ctx := _ ) (add_typing t1 T) w !t2 ->
+      wtyping T (Wabs wB w) !(Tarrow t1 c s t2)
+  | WTPtabs T wB w c s t :
+      wtyping (ctx := _) T wB None ->
+      wtyping (ctx := _) (add_kinding T) (shift1 CEtype w) !t ->
+      wtyping T (Wtabs wB w) !(Tuniversal c s t)
+  | WTPfold T w t t1 :
+      t == Trecur t1 ->
+      wtyping T w !(subst t t1) ->
+      wtyping T (Wfold w) !t
+  | WTPunfold T w t t1 :
+      wtyping T w !t ->
+      t == Trecur t1 ->
+      wtyping T (Wunfold w) !(subst t t1)
+  | WTPeq T t w t1 t2 :
+      wtyping T (t := t) w !t1 ->
+      t1 == t2 ->
+      wtyping T w !t2
+  (* basic types - intro *)
+  | WTPtt T :
+      wtyping T (t := WTstruct) Wtt !Tunit
+  | WTPttB T :
+      wtyping T (t := WTnat) Wtt None
+  | WTPpair T w1 t1 w2 t2 : 
+      wtyping T w1 !t1 ->
+      wtyping T w2 !t2 ->
+      wtyping T (Wpair w1 w2) !(t1 * t2)
+  | WTPinl T t w tw :
+      wtyping T w !tw ->
+      wtyping T (Winl w) !(tw + t)%ty
+  | WTPinr T t w tw :
+      wtyping T w !tw ->
+      wtyping T (Winr w) !(t + tw)%ty
+  (* basic types - elim *)
+  | WTPfst T w t1 t2 :
+      wtyping T w !(t1 * t2) ->
+      wtyping T (Wfst w) !t1
+  | WTPsnd T w t1 t2 :
+      wtyping T w !(t1 * t2) ->
+      wtyping T (Wsnd w) !t2
+  | WTPmatch T w w1 w2 t1 t2 t :
+      wtyping T w !(t1 + t2)%ty ->
+      wtyping (ctx := _) (add_typing t1 T) w1 !(shift1 CEexpr t) -> 
+      wtyping (ctx := _) (add_typing t2 T) w2 !(shift1 CEexpr t) -> 
+      wtyping T (Wmatch w w1 w2) !t
+  .
+
+End width.
+
 Local Notation open_var := var.
 Local Notation open_cexpr := cexpr.
 Local Notation open_size := size.
@@ -19,6 +122,12 @@ Local Notation cexpr := (open_cexpr []).
 Local Notation size := (open_size []).
 Local Notation type := (open_type []).
 Local Notation expr := (open_expr []).
+
+Import width.
+
+Notation open_width ctx := (width WTstruct ctx).
+Notation width := (open_width []).
+Notation wexpr := (expr * width)%type.
 
 (* encoding of fix by recursive-type :
      fix f(x).e := \y. (unfold v) v y 
@@ -117,7 +226,8 @@ Infix "≤" := le (at level 70).
 
 Infix "×" := Tprod (at level 40) : ty.
 Infix "+" := Tsum : ty.
-Notation "e ↓ τ" := (IsValue e /\ |- e τ) (at level 51).
+Definition runsto e τ := IsValue e /\ |- e τ.
+Infix "↓" := runsto (at level 51).
 
 Local Open Scope prog_scope.
 
@@ -232,44 +342,6 @@ Fixpoint change_usab chg (ctx : list relvart) : list relvart :=
     | _, _ => nil
   end.
 
-Module width.
-
-Inductive width : wtype -> context -> Type :=
-| Wvar : var CEexpr ctx -> width WTstruct ctx
-| WappB : width WTstruct ctx -> width WTstruct ctx -> width WTnat ctx
-| Wapp : width WTstruct ctx -> width WTstruct ctx -> width WTstruct ctx
-| Wabs : width WTnat (CEexpr :: ctx) -> width WTstruct (CEexpr :: ctx) -> width WTstruct ctx
-| Wtabs : width WTstruct ctx -> width WTstruct ctx
-| Wtt {t} : width t ctx
-(*here*)
-| Epair : expr ctx -> expr ctx -> expr ctx
-| Einl : type ctx -> expr ctx -> expr ctx
-| Einr : type ctx -> expr ctx -> expr ctx
-| Efst : expr ctx -> expr ctx
-| Esnd : expr ctx -> expr ctx
-| Ematch : expr ctx -> expr (CEexpr :: ctx) -> expr (CEexpr :: ctx) -> expr ctx
-.
-
-Inductive type ctx : Type :=
-| Tarrow : type ctx -> cexpr (CEexpr :: ctx) -> size (CEexpr :: ctx) ->  type (CEexpr :: ctx) -> type ctx
-(* polymorphism *)           
-| Tvar : var CEtype ctx -> type ctx
-| Tuniversal : cexpr ctx -> size ctx -> type (CEtype :: ctx) -> type ctx
-(* higher-order operators *)
-| Tabs : type (CEtype :: ctx) -> type ctx
-| Tapp : type ctx -> type ctx -> type ctx
-(* recursive types *)         
-| Trecur : type (CEtype :: ctx) -> type ctx
-(* to deal with statistics s2 and s3 *)
-| Thide : type ctx -> type ctx
-(* basic types *)
-| Tunit : type ctx
-| Tprod : type ctx -> type ctx -> type ctx
-| Tsum : type ctx -> type ctx -> type ctx
-.
-
-End width.
-
 Inductive rel : nat -> list relvart -> Type :=
 | Rvar {m ctx} : varR (m, Usable) ctx -> rel m ctx
 | Rinj {ctx} : Prop -> rel 0 ctx
@@ -280,8 +352,8 @@ Inductive rel : nat -> list relvart -> Type :=
 | Rexists1 {ctx T} : (T -> rel 0 ctx) -> rel 0 ctx
 | Rforall2 {ctx m} : rel 0 (m :: ctx) -> rel 0 ctx
 | Rexists2 {ctx m} : rel 0 (m :: ctx) -> rel 0 ctx
-| Rabs {ctx m} : (expr -> rel m ctx) -> rel (S m) ctx
-| Rapp {ctx m} : rel (S m) ctx -> expr -> rel m ctx
+| Rabs {ctx m} : (wexpr -> rel m ctx) -> rel (S m) ctx
+| Rapp {ctx m} : rel (S m) ctx -> wexpr -> rel m ctx
 | Rrecur {ctx m} : rel m ((m, Unusable) :: ctx) -> rel m ctx
 | Rlater {ctx} chg : rel 0 (change_usab chg ctx) -> rel 0 ctx
 .
@@ -304,6 +376,11 @@ Instance MemberOf_Apply `{Apply A B C} : MemberOf B A C :=
     memberOf := flip apply
   }.
 
+Require Import Bedrock.Platform.Cito.ListFacts4.
+
+Definition uncurry {U V W : Type} (f : U -> V -> W) : U*V -> W :=
+  fun p => f (fst p) (snd p).
+
 Infix "∈" := memberOf (at level 70).
 
 Notation "⊤" := Rtrue : rel.
@@ -315,7 +392,7 @@ Notation "∀₂ , P" := (Rforall2 P) (at level 200, right associativity) : rel.
 Notation "∃₂ , P" := (Rexists2 P) (at level 200, right associativity) : rel.
 Notation "@@ , P" := (Rrecur P) (at level 200, right associativity) : rel.
 Notation "⌈ P ⌉" := (Rinj P) : rel.
-Global Instance Apply_rel_expr {m ctx} : Apply (rel (S m) ctx) expr (rel m ctx) :=
+Global Instance Apply_rel_wexpr {m ctx} : Apply (rel (S m) ctx) wexpr (rel m ctx) :=
   {
     apply := Rapp
   }.
@@ -327,6 +404,9 @@ Notation "▹" := Rlater : rel.
 Delimit Scope rel with rel.
 Bind Scope rel with rel.
 
+Definition typingew (ew : wexpr) τ := let (e, w) := ew in e ↓ τ /\ wtyping [] w !τ.
+Infix "↓↓" := typingew (at level 51).
+
 Module test_rel.
   
   Variable ctx : list relvart.
@@ -334,7 +414,7 @@ Module test_rel.
   Open Scope rel.
 
   Definition ttt1 : rel 1 ctx := \e , ⊤.
-  Definition ttt2 : rel 1 ctx := \e , ⌈e ↓ Tunit⌉.
+  Definition ttt2 : rel 1 ctx := \e , ⌈e ↓↓ Tunit⌉.
   Definition ttt3 : rel 1 ctx := \_ , ⌈True /\ True⌉.
 
 End test_rel.
@@ -380,8 +460,6 @@ Definition pair_of_cs {ctx t lctx} (rho : csubsts (t :: lctx) ctx) : SubstEntry 
   end.
 
 Arguments tl {A} _ .
-
-Require Import Bedrock.Platform.Cito.ListFacts4.
 
 Definition csubsts_sem : forall {lctx ctx}, csubsts lctx ctx -> open_var CEtype lctx -> varR 1 ctx.
   refine
@@ -527,7 +605,7 @@ Global Instance Add_expr_csubsts {ctx} lctx : Add expr (csubsts lctx ctx) (csubs
     add := add_expr
   }.
 
-Definition VSet {ctx} τ (S : rel 1 ctx) := (∀v, v ∈ S ===> ⌈v ↓ τ⌉)%rel.
+Definition VSet {ctx} τ (S : rel 1 ctx) := (∀v, v ∈ S ===> ⌈v ↓↓ τ⌉)%rel.
 
 Definition shift_csubsts {lctx ctx} new n (rho : csubsts lctx ctx) : csubsts lctx (insert ctx n new).
   admit.
@@ -553,28 +631,31 @@ Section LR.
       coerce := pair_to_Epair (ctx := ctx)
     }.
 
-  Existing Instance Apply_rel_expr.
+  Existing Instance Apply_rel_wexpr.
 
-  Fixpoint relE' {lctx} (relV : forall ctx, csubsts lctx ctx -> rel 1 ctx) (τ : open_type lctx) B (c : nat) (s : size) ctx (ρ : csubsts lctx ctx) : rel 1 ctx :=
-    \\e w, ⌈|- e (ρ $ τ) /\ |-- w (ρ $ τ) /\
-        (forall n e', (~>## e n 0 e') -> n ≤ B)⌉ /\ 
-        (∀v, ⌈⇓*# e 0 v⌉ ===> (v, w) ∈ relV Br ctx ρ /\ ⌈!v ≤ s⌉) /\
-        (∀e', ⌈~>*# e 1 e'⌉ ===> 
-                    match c with
-                      | 0 => ⊥
-                      | S c' =>
-                        ▹ [] ((e', w) ∈ relE' relV τ B c' s ρ)
-                    end).
+  (* Notation "\\ e w , p" := (Rabs (uncurry (fun e w => p))) (at level 200, right associativity) : rel. *)
+
+  Fixpoint relE' {lctx} (relV : forall ctx, csubsts lctx ctx -> rel 1 ctx) (τ : open_type lctx) (B : nat) (c : nat) (s : size) ctx (ρ : csubsts lctx ctx) : rel 1 ctx :=
+    \ew, let (e, w) := ew in
+         ⌈|- e (ρ $ τ) /\ wtyping [] w !(ρ $ τ) /\
+         (forall n e', (~>## e n 0 e') -> n ≤ B)⌉ /\ 
+         (∀v, ⌈⇓*# e 0 v⌉ ===> (v, w) ∈ relV ctx ρ /\ ⌈!v ≤ s⌉) /\
+         (∀e', ⌈~>*# e 1 e'⌉ ===> 
+                     match c with
+                       | 0 => ⊥
+                       | S c' =>
+                         ▹ [] ((e', w) ∈ relE' relV τ B c' s ρ)
+                     end).
   
   Fixpoint relV {lctx} (τ : open_type lctx) ctx (ρ : csubsts lctx ctx) : rel 1 ctx :=
     match τ with
       | Tvar α => Rvar (csubsts_sem ρ α)
-      | Tunit => \vw, ⌈vw ↓ Tunit⌉
-      | τ₁ × τ₂ => \vw, ⌈vw ↓ ρ $$ τ⌉ /\ ∃a b, ⌈vw = !(a, b)⌉ /\ a ∈ relV τ₁ ρ /\ b ∈ relV τ₂ ρ
-      | τ₁ + τ₂ => \vw, ⌈vw ↓ ρ $$ τ⌉ /\ ∃vw', (⌈vw = EWinl (ρ $ τ₂) vw'⌉ /\ vw' ∈ relV τ₁ ρ) \/ (⌈vw = EWinr (ρ $ τ₁) vw'⌉ /\ vw' ∈ relV τ₂ ρ)
-      | Tarrow τ₁ c s τ₂ => \vw, ⌈vw ↓ ρ $$ τ⌉ /\ let (v, w) := vw in ∃τ₁' e, ⌈v = Eabs τ₁' e⌉ /\ ∃wB w₂, ⌈w = Wabs wB w₂⌉ /\ ∀vw₁, vw₁ ∈ relV τ₁ ρ ===> let (v₁, w₁) := vw₁ in ∃B, ⌈getB (subst Br₁ wB) B⌉ /\ (subst v₁ e, subst Br₁ Br₂) ∈ relE' (relV τ₂) τ₂ B !(ρ $ subst !(!v₁) c) (ρ $ subst !(!v₁) s) (add v₁ ρ)
-      | Tuniversal c s τ₁ => \vw, ⌈vw ↓ ρ $$ τ⌉ /\ let (v, w) := vw in ∃e, ⌈v = Etabs e⌉ /\ ∃wB w₂, ⌈w = Wtabs wB w₂⌉ /\ ∀τ', ∀₂, VSet τ' (Rvar #0) ===> ∃B, ⌈getB wB B⌉ /\ (v $$ τ', w) ∈ relE' (relV τ₁) τ₁ B !(ρ $ c) (ρ $ s) (add (τ', #0) (shift1 _ ρ))
-      | Trecur τ₁ => @@, \vw, ⌈vw ↓ ρ $$ τ⌉ /\ let (v, w) := vw in ∃τ' v', ⌈v = Efold τ' v'⌉ /\ ▹ [Some Usable] ((v', w) ∈ relV τ₁ (add (ρ $ τ, #0) (shift1 _ ρ)))
+      | Tunit => \vw, ⌈vw ↓↓ Tunit⌉
+      | τ₁ × τ₂ => \vw, ⌈vw ↓↓ ρ $$ τ⌉ /\ ∃a b, ⌈vw = !(a, b)⌉ /\ a ∈ relV τ₁ ρ /\ b ∈ relV τ₂ ρ
+      | τ₁ + τ₂ => \vw, ⌈vw ↓↓ ρ $$ τ⌉ /\ ∃vw', (⌈vw = EWinl (ρ $ τ₂) vw'⌉ /\ vw' ∈ relV τ₁ ρ) \/ (⌈vw = EWinr (ρ $ τ₁) vw'⌉ /\ vw' ∈ relV τ₂ ρ)
+      | Tarrow τ₁ c s τ₂ => \vw, ⌈vw ↓↓ ρ $$ τ⌉ /\ let (v, w) := vw in ∃τ₁' e, ⌈v = Eabs τ₁' e⌉ /\ ∃wB w₂, ⌈w = Wabs wB w₂⌉ /\ ∀vw₁, vw₁ ∈ relV τ₁ ρ ===> let (v₁, w₁) := vw₁ in ∃B, ⌈getB (subst Br₁ wB) B⌉ /\ (subst v₁ e, subst Br₁ Br₂) ∈ relE' (relV τ₂) τ₂ B !(ρ $ subst !(!v₁) c) (ρ $ subst !(!v₁) s) (add v₁ ρ)
+      | Tuniversal c s τ₁ => \vw, ⌈vw ↓↓ ρ $$ τ⌉ /\ let (v, w) := vw in ∃e, ⌈v = Etabs e⌉ /\ ∃wB w₂, ⌈w = Wtabs wB w₂⌉ /\ ∀τ', ∀₂, VSet τ' (Rvar #0) ===> ∃B, ⌈getB wB B⌉ /\ (v $$ τ', w) ∈ relE' (relV τ₁) τ₁ B !(ρ $ c) (ρ $ s) (add (τ', #0) (shift1 _ ρ))
+      | Trecur τ₁ => @@, \vw, ⌈vw ↓↓ ρ $$ τ⌉ /\ let (v, w) := vw in ∃τ' v' w', ⌈v = Efold τ' v' /\ w = Wfold w'⌉ /\ ▹ [Some Usable] ((v', w') ∈ relV τ₁ (add (ρ $ τ, #0) (shift1 _ ρ)))
       | _ => \_, ⊥
     end.
 
