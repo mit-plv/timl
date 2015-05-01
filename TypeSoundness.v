@@ -647,6 +647,12 @@ Section LR.
                          ▹ [] ((e', w) ∈ relE' relV τ B c' s ρ)
                      end).
   
+  Definition EWinl {ctx} t vw := (Einl (ctx := ctx) t (fst vw), Winl (ctx := ctx) (snd vw)).
+  Definition EWinr {ctx} t vw := (Einr (ctx := ctx) t (fst vw), Winr (ctx := ctx) (snd vw)).
+
+  Inductive getB : width WTnat [] -> nat -> Prop :=
+  | GBtt : getB Wtt 0.
+
   Fixpoint relV {lctx} (τ : open_type lctx) ctx (ρ : csubsts lctx ctx) : rel 1 ctx :=
     match τ with
       | Tvar α => Rvar (csubsts_sem ρ α)
