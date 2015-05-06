@@ -10,6 +10,8 @@
 \usepackage{amsthm}
 
 \newtheorem{thm}{Theorem}
+\newtheorem{lem}{Lemma}
+\newtheorem{prop}{Proposition}
 
 \renewcommand{\makehor}[4]
   {\ifthenelse{\equal{#1}{n}}{\hspace{#3}}{}
@@ -193,7 +195,7 @@
 % If you wish to uncover everything in a step-wise fashion, uncomment
 % the following command: 
 
-\beamerdefaultoverlayspecification{<+->}
+%% \beamerdefaultoverlayspecification{<+->}
 
 
 \begin{document}
@@ -263,7 +265,7 @@ $$
 \begin{array}{l}
 \forall e,\tau. \\
 \hspace{0.2in} \vdash e:\tau \Rightarrow \\
-\hspace{0.4in} \forall e'.\; e \to^* e' \Rightarrow e'\in\mathsf{Val} \;\vee\; \exists e''. e' \to e''.
+\hspace{0.4in} \forall e'.\; e \leadsto^* e' \Rightarrow e'\in\mathsf{Val} \;\vee\; \exists e''. e' \leadsto e''.
 \end{array}
 $$
 \end{thm}
@@ -273,8 +275,8 @@ $$
 \begin{array}{l}
 \forall f,\tau_1,c,s,\tau_2. \\
 \hspace{0.2in} \vdash f:\arrow{(x:\tau_1)}{c(x)}{s(x)}{\tau_2} \Rightarrow \\
-\hspace{0.4in} \exists C,\xi_0. \;\forall v.\; \vdash v:\tau_1 \wedge |v| \geq \xi_0 \Rightarrow \\
-\hspace{0.4in} \forall v',n.\; f\;v\to^n v' \Rightarrow n\leq C\times c(|v|)
+\hspace{0.4in} \exists C. \;\forall v.\; \vdash v:\tau_1 \wedge v\in\mathsf{Val} \Rightarrow \\
+\hspace{0.4in} \forall e',n.\; f\;v\leadsto^n e' \Rightarrow n\leq C\times c(|v|)
 \end{array}
 $$
 \end{thm}
@@ -284,17 +286,61 @@ $$
 \section{Proof Techniques}
 
 
-\begin{frame}{Proof Techniques}
+\begin{frame}{Proof Techniques - First Attempt}
+
+  \begin{thm}[Soundness]
+    $$
+    \vdash e:\tau \Rightarrow P(e)
+    $$
+  \end{thm}
+
+  \begin{itemize}
+  \item First Attempt: Proof by induction on typing derivation
+  \item Problem: Application Case
+  \begin{prop}[APP Case]
+    $$
+    P(e_1) \wedge P(e_2) \Rightarrow P(e_1\;e_2)
+    $$
+  \end{prop}
+  \end{itemize}
+
+\end{frame}
+
+
+\begin{frame}{Logical Relation}
 
 \begin{itemize}
 \item Logical relation
   \begin{itemize}
   \item A systematic way to strengthen induction hypothesis
-  \item Define a new interpretation of type $\lsem\tau\rsem(e)$
+  \item Define a new interpretation of types : $\lsem\tau\rsem$
+    \begin{itemize}
+    \item $\lsem\tau\rsem$ is the set of ``good expressions'' of type $\tau$
+    \end{itemize}
+    
   \item Prove 
-    $$\vdash e:\tau \Rightarrow \lsem\tau\rsem(e) \Rightarrow P(e)$$
+    \begin{lem}[Foundamental]
+      $$
+      \vdash e:\tau \Rightarrow \lsem\tau\rsem(e)
+      $$
+    \end{lem}
+
+    \begin{lem}[Adequacy Lemma]
+      $$
+      \lsem\tau\rsem(e) \Rightarrow P(e)
+      $$
+    \end{lem}
   \end{itemize}
-\item Modern versions: step-indexed, ``later'' modality
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Logical Relation}
+
+\begin{itemize}
+\item Define $\lsem\tau\rsem$ by $\mathcal{E}\lsem\tau\rsem$ (``good expressions'') and $\mathcal{V}\lsem\tau\rsem$ (``good values'')
+$$
+$$
 \end{itemize}
 
 \end{frame}
