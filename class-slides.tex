@@ -99,8 +99,8 @@
 \newcommand{\symStt}{\mathsf{Stt}}
 \newcommand{\symSpair}{\mathsf{Spair}}
 \newcommand{\symSlr}{\mathsf{Slr}}
-\newcommand{\defeq}{\triangleq}
-
+%% \newcommand{\defeq}{\triangleq}
+\newcommand\defeq{\mathrel{\overset{\makebox[0pt]{\mbox{\normalfont\tiny\sffamily def}}}{=}}}
 
 % This file is a solution template for:
 
@@ -195,7 +195,7 @@
 % If you wish to uncover everything in a step-wise fashion, uncomment
 % the following command: 
 
-%% \beamerdefaultoverlayspecification{<+->}
+\beamerdefaultoverlayspecification{<+->}
 
 
 \begin{document}
@@ -264,7 +264,7 @@
 $$
 \begin{array}{l}
 \forall e,\tau. \\
-\hspace{0.2in} \vdash e:\tau \Rightarrow \\
+\hspace{0.2in}  e:\tau \Rightarrow \\
 \hspace{0.4in} \forall e'.\; e \leadsto^* e' \Rightarrow e'\in\mathsf{Val} \;\vee\; \exists e''. e' \leadsto e''.
 \end{array}
 $$
@@ -274,9 +274,9 @@ $$
 $$
 \begin{array}{l}
 \forall f,\tau_1,c,s,\tau_2. \\
-\hspace{0.2in} \vdash f:\arrow{(x:\tau_1)}{c(x)}{s(x)}{\tau_2} \Rightarrow \\
-\hspace{0.4in} \exists C. \;\forall v.\; \vdash v:\tau_1 \wedge v\in\mathsf{Val} \Rightarrow \\
-\hspace{0.4in} \forall e',n.\; f\;v\leadsto^n e' \Rightarrow n\leq C\times c(|v|)
+\hspace{0.2in} f \downarrow \arrow{(x:\tau_1)}{c(x)}{s(x)}{\tau_2} \Rightarrow \\
+\hspace{0.4in} \exists B. \;\forall v.\; v \downarrow \tau_1 \Rightarrow \\
+\hspace{0.4in} \forall e',n.\; f\;v\leadsto^n e' \Rightarrow n\leq B\times c(|v|)
 \end{array}
 $$
 \end{thm}
@@ -290,7 +290,7 @@ $$
 
   \begin{thm}[Soundness]
     $$
-    \vdash e:\tau \Rightarrow P(e)
+     e:\tau \Rightarrow P(e)
     $$
   \end{thm}
 
@@ -321,13 +321,13 @@ $$
   \item Prove 
     \begin{lem}[Foundamental]
       $$
-      \vdash e:\tau \Rightarrow \lsem\tau\rsem(e)
+       e:\tau \Rightarrow e\in\lsem\tau\rsem
       $$
     \end{lem}
 
-    \begin{lem}[Adequacy Lemma]
+    \begin{lem}[Adequacy]
       $$
-      \lsem\tau\rsem(e) \Rightarrow P(e)
+      e\in\lsem\tau\rsem \Rightarrow P(e)
       $$
     \end{lem}
   \end{itemize}
@@ -339,8 +339,87 @@ $$
 
 \begin{itemize}
 \item Define $\lsem\tau\rsem$ by $\mathcal{E}\lsem\tau\rsem$ (``good expressions'') and $\mathcal{V}\lsem\tau\rsem$ (``good values'')
+  $$
+  \begin{array}{lcl}
+    \mathcal{V}\lsem\tau_1\to\tau_2\rsem &\defeq& \{e \;\mid\; e \downarrow \tau \wedge \forall v.\;v \in \mathcal{V}\lsem\tau_1\rsem \Rightarrow e\;v\in \mathcal{E}\lsem\tau_2\rsem \} \\
+    \mathcal{V}\lsem\tau_1\times\tau_2\rsem &\defeq& \cdots \\
+    \mathcal{E}\lsem\tau\rsem &\defeq& \{e \;\mid\; e : \tau \wedge P(e) \wedge \forall v.\;e \Downarrow v \Rightarrow v \in \mathcal{V}\lsem\tau\rsem \}
+  \end{array}
+  $$
+\item $\mathcal{V}\lsem\tau\rsem$ should be defined recusively on $\tau$, but
+  $$
+  \begin{array}{lcl}
+    \mathcal{V}\lsem\mu\alpha.\tau'\rsem &\defeq& \{e \;\mid\; e \downarrow \tau \wedge e \in \mathcal{V}\lsem\textcolor{red}{\tau'[\tau/\alpha]}\rsem \}
+  \end{array}
+  $$
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Logical Relation}
+
+\begin{itemize}
+\item Solution 1 : Step-index
+\item Solution 2 : Postpone substituting for $\alpha$
+  $$
+  \begin{array}{lcl}
+    \mathcal{V}\lsem\alpha\rsem_\rho &\defeq& \rho_2(\alpha) \\
+    \mathcal{V}\lsem\mu\alpha.\tau'\rsem_\rho &\defeq& \{e \;\mid\; e \downarrow \rho_1(\tau) \wedge e \in \mathcal{V}\lsem\textcolor{green}{\tau'}\rsem_{\rho[\alpha\mapsto(\tau,\textcolor{red}{?})]} \}
+  \end{array}
+  $$
+\item Solution 2' : Postpone substituting for $\alpha$ + Special logic
+  $$
+  \begin{array}{lcl}
+    \mathcal{V}\lsem\mu\alpha.\tau'\rsem_\rho &\defeq& \mu S.\;\lambda e.\; e \downarrow \rho_1(\tau) \wedge \textcolor{green}{\triangleright} (e \in \mathcal{V}\lsem\textcolor{green}{\tau'}\rsem_{\rho[\alpha\mapsto(\tau,\textcolor{green}{S})]})
+  \end{array}
+  $$
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Logical Relation}
+
+\begin{itemize}
+\item Encode this special logic in Coq
+  \begin{itemize}
+    \item HOAS + de Bruijn indices
+  \end{itemize}
+\item Prove the Foundamental Lemma by induction on typing derivation
+  \begin{lem}[Foundamental]
+    $$
+     e:\tau \Rightarrow e\in\mathcal{E}\lsem\tau\rsem
+    $$
+  \end{lem}
+
+  \begin{lem}[Bind]
+    $$
+    \inferrule*
+        {E : \tau\rightsquigarrow\tau' \\ e\in \mathcal{E}\lsem\tau\rsem \\ \forall v.\; v\in\mathcal{V}\lsem\tau\rsem \wedge e \leadsto^* v \Rightarrow E[v]\in\mathcal{E}\lsem\tau'\rsem}
+        {E[e] \in \mathcal{E}\lsem\tau'\rsem}
+    $$
+  \end{lem}
+\end{itemize}
+
+\end{frame}
+
+\begin{frame}{Currently Working On}
+
+\begin{thm}[Soundness w.r.t. Boundedness]
 $$
+\begin{array}{l}
+\forall f,\tau_1,c,s,\tau_2. \\
+\hspace{0.2in} f \downarrow \arrow{(x:\tau_1)}{c(x)}{s(x)}{\tau_2} \Rightarrow \\
+\hspace{0.4in} \textcolor{red}{\exists B}. \;\forall v.\; v \downarrow \tau_1 \Rightarrow \\
+\hspace{0.4in} \forall e',n.\; f\;v\leadsto^n e' \Rightarrow n\leq B\times c(|v|)
+\end{array}
 $$
+\end{thm}
+
+\begin{itemize}
+\item $B$ actually can depend on $v$, when $\tau_1$ is also an arrow type
+  \begin{itemize}
+  \item For a higher-order function, the constant factor (``width'') can depend on the ``callback''
+  \end{itemize}
 \end{itemize}
 
 \end{frame}
