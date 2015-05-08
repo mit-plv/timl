@@ -792,7 +792,7 @@ Lemma ceb_iff_c {a b} : a = b -> ceb a b = true.
 Qed.
 
 (* substitute for the outmost free variable *)
-Definition subst `{Subst var_t V B} {ctx} (v : V ctx) (b : B (var_t :: ctx)) : B ctx := substx (@Var var_t (var_t :: ctx) 0 (ceb_iff_c eq_refl)) v b.
+Definition subst `{H : Subst var_t V B} {ctx} (v : V ctx) (b : B (var_t :: ctx)) : B ctx := substx (@Var var_t (var_t :: ctx) 0 (ceb_iff_c eq_refl)) v b.
 
 Definition subst_v {vart T ctx} (x : var vart ctx) (xv : var vart ctx) (f : option (var vart (removen ctx x)) -> T (removen ctx x)) : T (removen ctx x).
   refine

@@ -10,6 +10,11 @@ Local Open Scope list_scope.
 
 Set Implicit Arguments.
 
+Inductive star A (R : A -> A -> Prop) : A -> A -> Prop :=
+| Star0 e : star R e e
+| StarS e1 e2 e3 : R e1 e2 -> star R e2 e3 -> star R e1 e3
+.
+
 Module width.
 
   Inductive wtype := WTstruct | WTnat.
@@ -22,15 +27,15 @@ Module width.
   | Wtabs {ctx} : width WTnat ctx -> width WTstruct ctx -> width WTstruct ctx
   | Wfold {ctx} : width WTstruct ctx -> width WTstruct ctx
   | Wunfold {ctx} : width WTstruct ctx -> width WTstruct ctx
-  | Wtt {t ctx} : width t ctx
+  | Wtt {ctx} : width WTstruct ctx
   | Wpair {ctx} : width WTstruct ctx -> width WTstruct ctx -> width WTstruct ctx
   | Winl {ctx} : width WTstruct ctx -> width WTstruct ctx
   | Winr {ctx} : width WTstruct ctx -> width WTstruct ctx
   | Wfst {ctx} : width WTstruct ctx -> width WTstruct ctx
   | Wsnd {ctx} : width WTstruct ctx -> width WTstruct ctx
   | Wmatch {ctx} : width WTstruct ctx -> width WTstruct (CEexpr :: ctx) -> width WTstruct (CEexpr :: ctx) -> width WTstruct ctx
-  | Wadd {ctx} : width WTnat ctx -> width WTnat ctx -> width WTnat ctx
-  | Wmax {ctx} : width WTnat ctx -> width WTnat ctx -> width WTnat ctx
+  | Wconst {ctx} : nat -> width WTnat ctx
+  | Wbinop {ctx} : (nat -> nat -> nat) -> width WTnat ctx -> width WTnat ctx -> width WTnat ctx
   .
 
   Global Instance Coerce_option A : Coerce A (option A) :=
@@ -84,9 +89,7 @@ Module width.
       wtyping T w !t2
   (* basic types - intro *)
   | WTPtt T :
-      wtyping T (t := WTstruct) Wtt !Tunit
-  | WTPttB T :
-      wtyping T (t := WTnat) Wtt None
+      wtyping T Wtt !Tunit
   | WTPpair T w1 t1 w2 t2 : 
       wtyping T w1 !t1 ->
       wtyping T w2 !t2 ->
@@ -109,7 +112,39 @@ Module width.
       wtyping (ctx := _) (add_typing t1 T) w1 !(shift1 CEexpr t) -> 
       wtyping (ctx := _) (add_typing t2 T) w2 !(shift1 CEexpr t) -> 
       wtyping T (Wmatch w w1 w2) !t
+  | WTPconst T n :
+      wtyping T (Wconst n) None
+  | WTPbinop T op a b : 
+      wtyping T a None ->
+      wtyping T b None ->
+      wtyping T (Wbinop op a b) None
   .
+
+  Definition subst_width_width {t ctx} (x : var CEexpr ctx) : width WTstruct (removen ctx x) -> width t ctx -> width t (removen ctx x).
+    admit.
+  Defined.
+
+  Global Instance Subst_width_width {t} : Subst CEexpr (width WTstruct) (width t) :=
+    {
+      substx := @subst_width_width t
+    }.
+
+  Definition consume_width {t ctx} (x : var CEtype ctx) : width t ctx -> width t (removen ctx x).
+    admit.
+  Defined.
+
+  Global Instance Consume_width {t} : Consume CEtype (width t) :=
+    {
+      consume := @consume_width t
+    }.
+
+  Inductive wstep : forall {t}, width t [] -> width t [] -> Prop :=
+  | WSappB B w w' : wstep (WappB (Wabs B w) w') (subst w' B)
+  | WSapp B w w' : wstep (Wapp (Wabs B w) w') (subst w' w)
+  | WSbinop op a b : wstep (Wbinop op (Wconst a) (Wconst b)) (Wconst (op a b))
+  .
+
+  Definition wsteps {t} : width t [] -> width t [] -> Prop := star wstep.
 
 End width.
 
@@ -125,8 +160,8 @@ Local Notation expr := (open_expr []).
 
 Import width.
 
-Notation open_width ctx := (width WTstruct ctx).
-Notation width := (open_width []).
+Notation open_width := width.
+Notation width := (open_width WTstruct []).
 Notation wexpr := (expr * width)%type.
 
 (* encoding of fix by recursive-type :
@@ -137,10 +172,8 @@ Notation wexpr := (expr * width)%type.
 
 Infix "~>" := step (at level 50).
 
-Inductive steps : expr -> expr -> Prop :=
-| Steps0 e : steps e e
-| StepsS e1 e2 e3 : e1 ~> e2 -> steps e2 e3 -> steps e1 e3
-.
+Definition steps : expr -> expr -> Prop := star step.
+
 Infix "~>*" := steps (at level 50).
 
 Notation "⊢" := typing.
@@ -427,7 +460,7 @@ Local Open Scope prog_scope.
 
 Inductive SubstEntry : CtxEntry -> list relvart -> Type :=
 | SEtype {ctx} (_ : type) (_ : varR 1 ctx) : SubstEntry CEtype ctx
-| SEexpr {ctx} (_ : expr) : SubstEntry CEexpr ctx
+| SEexpr {ctx} (_ : wexpr) : SubstEntry CEexpr ctx
 .
 
 Inductive csubsts : context -> list relvart -> Type :=
@@ -449,10 +482,13 @@ Definition pair_of_se {ctx} (e : SubstEntry CEtype ctx) : type * varR 1 ctx :=
 Definition type_of_se {ctx} := pair_of_se (ctx := ctx) >> fst.
 Definition sem_of_se {ctx} := pair_of_se (ctx := ctx) >> snd.
 
-Definition expr_of_se {ctx} (e : SubstEntry CEexpr ctx) : expr :=
+Definition wexpr_of_se {ctx} (e : SubstEntry CEexpr ctx) : wexpr :=
   match e with
     | SEexpr _ s => s
   end.
+
+Definition expr_of_se {ctx} := wexpr_of_se (ctx := ctx) >> fst.
+Definition width_of_se {ctx} := wexpr_of_se (ctx := ctx) >> snd.
 
 Definition pair_of_cs {ctx t lctx} (rho : csubsts (t :: lctx) ctx) : SubstEntry t ctx * csubsts lctx ctx :=
   match rho with
@@ -597,15 +633,15 @@ Global Instance Add_pair_csubsts {ctx} lctx : Add (type * varR 1 ctx) (csubsts l
     add := add_pair
   }.
 
-Definition add_expr {ctx lctx} e rho :=
+Definition add_wexpr {ctx lctx} e rho :=
   CScons (ctx := ctx) (lctx := lctx) (SEexpr e) rho.
 
-Global Instance Add_expr_csubsts {ctx} lctx : Add expr (csubsts lctx ctx) (csubsts (CEexpr :: lctx) ctx) :=
+Global Instance Add_wexpr_csubsts {ctx} lctx : Add wexpr (csubsts lctx ctx) (csubsts (CEexpr :: lctx) ctx) :=
   {
-    add := add_expr
+    add := add_wexpr
   }.
 
-Definition VSet {ctx} τ (S : rel 1 ctx) := (∀v, v ∈ S ===> ⌈v ↓↓ τ⌉)%rel.
+Definition VWSet {ctx} τ (S : rel 1 ctx) := (∀vw, vw ∈ S ===> ⌈vw ↓↓ τ⌉)%rel.
 
 Definition shift_csubsts {lctx ctx} new n (rho : csubsts lctx ctx) : csubsts lctx (insert ctx n new).
   admit.
@@ -649,18 +685,16 @@ Section LR.
   
   Definition EWinl {ctx} t vw := (Einl (ctx := ctx) t (fst vw), Winl (ctx := ctx) (snd vw)).
   Definition EWinr {ctx} t vw := (Einr (ctx := ctx) t (fst vw), Winr (ctx := ctx) (snd vw)).
-
-  Inductive getB : width WTnat [] -> nat -> Prop :=
-  | GBtt : getB Wtt 0.
+  Definition EWpair {ctx} a b := (Epair (ctx := ctx) (fst a) (fst b), Wpair (ctx := ctx) (snd a) (snd b)).
 
   Fixpoint relV {lctx} (τ : open_type lctx) ctx (ρ : csubsts lctx ctx) : rel 1 ctx :=
     match τ with
       | Tvar α => Rvar (csubsts_sem ρ α)
       | Tunit => \vw, ⌈vw ↓↓ Tunit⌉
-      | τ₁ × τ₂ => \vw, ⌈vw ↓↓ ρ $$ τ⌉ /\ ∃a b, ⌈vw = !(a, b)⌉ /\ a ∈ relV τ₁ ρ /\ b ∈ relV τ₂ ρ
+      | τ₁ × τ₂ => \vw, ⌈vw ↓↓ ρ $$ τ⌉ /\ ∃a b, ⌈vw = EWpair a b⌉ /\ a ∈ relV τ₁ ρ /\ b ∈ relV τ₂ ρ
       | τ₁ + τ₂ => \vw, ⌈vw ↓↓ ρ $$ τ⌉ /\ ∃vw', (⌈vw = EWinl (ρ $ τ₂) vw'⌉ /\ vw' ∈ relV τ₁ ρ) \/ (⌈vw = EWinr (ρ $ τ₁) vw'⌉ /\ vw' ∈ relV τ₂ ρ)
-      | Tarrow τ₁ c s τ₂ => \vw, ⌈vw ↓↓ ρ $$ τ⌉ /\ let (v, w) := vw in ∃τ₁' e, ⌈v = Eabs τ₁' e⌉ /\ ∃wB w₂, ⌈w = Wabs wB w₂⌉ /\ ∀vw₁, vw₁ ∈ relV τ₁ ρ ===> let (v₁, w₁) := vw₁ in ∃B, ⌈getB (subst Br₁ wB) B⌉ /\ (subst v₁ e, subst Br₁ Br₂) ∈ relE' (relV τ₂) τ₂ B !(ρ $ subst !(!v₁) c) (ρ $ subst !(!v₁) s) (add v₁ ρ)
-      | Tuniversal c s τ₁ => \vw, ⌈vw ↓↓ ρ $$ τ⌉ /\ let (v, w) := vw in ∃e, ⌈v = Etabs e⌉ /\ ∃wB w₂, ⌈w = Wtabs wB w₂⌉ /\ ∀τ', ∀₂, VSet τ' (Rvar #0) ===> ∃B, ⌈getB wB B⌉ /\ (v $$ τ', w) ∈ relE' (relV τ₁) τ₁ B !(ρ $ c) (ρ $ s) (add (τ', #0) (shift1 _ ρ))
+      | Tarrow τ₁ c s τ₂ => \vw, ⌈vw ↓↓ ρ $$ τ⌉ /\ let (v, w) := vw in ∃τ₁' e, ⌈v = Eabs τ₁' e⌉ /\ ∃wB w₂, ⌈w = Wabs wB w₂⌉ /\ ∀vw₁ : wexpr, vw₁ ∈ relV τ₁ ρ ===> let (v₁, w₁) := vw₁ in ∃B, ⌈wsteps (subst w₁ wB) (Wconst B)⌉ /\ (subst v₁ e, subst w₁ w₂) ∈ relE' (relV τ₂) τ₂ B !(ρ $ subst !(!v₁) c) (ρ $ subst !(!v₁) s) (add vw₁ ρ)
+      | Tuniversal c s τ₁ => \vw, ⌈vw ↓↓ ρ $$ τ⌉ /\ let (v, w) := vw in ∃e, ⌈v = Etabs e⌉ /\ ∃wB w₂, ⌈w = Wtabs wB w₂⌉ /\ ∀τ', ∀₂, VWSet τ' (Rvar #0) ===> ∃B, ⌈wsteps wB (Wconst B)⌉ /\ (v $$ τ', w) ∈ relE' (relV τ₁) τ₁ B !(ρ $ c) (ρ $ s) (add (τ', #0) (shift1 _ ρ))
       | Trecur τ₁ => @@, \vw, ⌈vw ↓↓ ρ $$ τ⌉ /\ let (v, w) := vw in ∃τ' v' w', ⌈v = Efold τ' v' /\ w = Wfold w'⌉ /\ ▹ [Some Usable] ((v', w') ∈ relV τ₁ (add (ρ $ τ, #0) (shift1 _ ρ)))
       | _ => \_, ⊥
     end.
@@ -672,7 +706,7 @@ End LR.
 Fixpoint erel m :=
   match m with
     | 0 => Prop
-    | S m' => expr -> erel m'
+    | S m' => wexpr -> erel m'
   end.
 
 Fixpoint monotone {m} : (nat -> erel m) -> Prop :=
@@ -738,7 +772,7 @@ Inductive relsize :=
 | RS1 : relsize
 | RSadd (_ _ : relsize) : relsize
 | RSbind T : (T -> relsize) -> relsize
-| RSbinde : (expr -> relsize) -> relsize
+| RSbinde : (wexpr -> relsize) -> relsize
 .
 
 Instance Add_relsize : Add relsize relsize relsize :=
@@ -931,11 +965,11 @@ Fixpoint openup0 {T} (f : T) {ctx} : open_term ctx T :=
 Definition lift_Ps {ctxfo ctx} T (ls : t_Ps ctxfo ctx) : t_Ps (T :: ctxfo) ctx :=
   map (fun P => fun _ => P) ls.
 
-Definition add_expr_open_csubsts {ctxfo lctx ctx} e (rho : open_csubsts ctxfo lctx ctx) : open_csubsts ctxfo (CEexpr :: lctx) ctx := openup1 (add_expr e) rho.
+Definition add_wexpr_open_csubsts {ctxfo lctx ctx} e (rho : open_csubsts ctxfo lctx ctx) : open_csubsts ctxfo (CEexpr :: lctx) ctx := openup1 (add_wexpr e) rho.
 
-Global Instance Add_expr_open_csubsts {ctxfo lctx ctx} : Add expr (open_csubsts ctxfo lctx ctx) (open_csubsts ctxfo (CEexpr :: lctx) ctx) :=
+Global Instance Add_wexpr_open_csubsts {ctxfo lctx ctx} : Add wexpr (open_csubsts ctxfo lctx ctx) (open_csubsts ctxfo (CEexpr :: lctx) ctx) :=
   {
-    add := add_expr_open_csubsts
+    add := add_wexpr_open_csubsts
   }.
 
 Definition add_ρ_type {ctxfo lctx ctx} (ρ : t_ρ ctxfo lctx ctx) : t_ρ (type :: ctxfo) (CEtype :: lctx) ((1 : relvart) :: ctx) :=
@@ -947,18 +981,18 @@ Definition add_ρ_type {ctxfo lctx ctx} (ρ : t_ρ ctxfo lctx ctx) : t_ρ (type 
 Definition add_Ps_type {ctxfo ctx} (Ps : t_Ps ctxfo ctx) : t_Ps (type :: ctxfo) ((1 : relvart) :: ctx) :=
   let Ps := shift1 (1 : relvart) Ps in
   let Ps := lift_Ps type Ps in
-  let Ps := (fun τ => openup0 (⌈kinding [] τ 0⌉ /\ VSet τ (Rvar #0))%rel) :: Ps in
+  let Ps := (fun τ => openup0 (⌈kinding [] τ 0⌉ /\ VWSet τ (Rvar #0))%rel) :: Ps in
   Ps
 .
 
-Definition add_ρ_expr {ctxfo lctx ctx} (ρ : t_ρ ctxfo lctx ctx) : t_ρ (expr :: ctxfo) (CEexpr :: lctx) ctx :=
-  let ρ := fun v => add v ρ in
+Definition add_ρ_expr {ctxfo lctx ctx} (ρ : t_ρ ctxfo lctx ctx) : t_ρ (wexpr :: ctxfo) (CEexpr :: lctx) ctx :=
+  let ρ := fun vw => add vw ρ in
   ρ
 .
 
-Definition add_Ps_expr {ctxfo lctx ctx} τ B (Ps : t_Ps ctxfo ctx) (ρ : t_ρ ctxfo lctx ctx) : t_Ps (expr :: ctxfo) ctx :=
-  let Ps := lift_Ps expr Ps in
-  let Ps := (fun v => openup1 (fun ρ => v ∈ relV B τ ρ)%rel ρ) :: Ps in
+Definition add_Ps_expr {ctxfo lctx ctx} τ (Ps : t_Ps ctxfo ctx) (ρ : t_ρ ctxfo lctx ctx) : t_Ps (wexpr :: ctxfo) ctx :=
+  let Ps := lift_Ps wexpr Ps in
+  let Ps := (fun vw => openup1 (fun ρ => vw ∈ relV τ ρ)%rel ρ) :: Ps in
   Ps
 .
 
@@ -971,7 +1005,7 @@ Fixpoint make_ctxfo lctx :=
         | CEtype =>
           type :: ctxfo
         | CEexpr =>
-          expr :: ctxfo
+          wexpr :: ctxfo
       end
   end.
 
@@ -1004,24 +1038,30 @@ Definition pair_of_tc {t lctx} (T : tcontext (t :: lctx)) : tc_entry t lctx * tc
     | TCcons _ _ e T' => (e, T')
   end.
 
-Section make_Ps.
-  Variable B : nat.
-  Fixpoint make_Ps {lctx} : tcontext lctx -> t_Ps (make_ctxfo lctx) (make_ctx lctx) :=
-    match lctx return tcontext lctx -> t_Ps (make_ctxfo lctx) (make_ctx lctx) with 
-      | nil => fun _ => nil
-      | CEtype :: lctx' =>
-        fun Γ =>
-          let Ps := make_Ps (snd (pair_of_tc Γ)) in
-          add_Ps_type Ps
-      | CEexpr :: lctx' =>
-        fun Γ =>
-          let Ps := make_Ps (snd (pair_of_tc Γ)) in
-          add_Ps_expr ((type_of_te << fst << pair_of_tc) Γ) B Ps (make_ρ lctx')
-    end.
-End make_Ps.
+Fixpoint make_Ps {lctx} : tcontext lctx -> t_Ps (make_ctxfo lctx) (make_ctx lctx) :=
+  match lctx return tcontext lctx -> t_Ps (make_ctxfo lctx) (make_ctx lctx) with 
+    | nil => fun _ => nil
+    | CEtype :: lctx' =>
+      fun Γ =>
+        let Ps := make_Ps (snd (pair_of_tc Γ)) in
+        add_Ps_type Ps
+    | CEexpr :: lctx' =>
+      fun Γ =>
+        let Ps := make_Ps (snd (pair_of_tc Γ)) in
+        add_Ps_expr ((type_of_te << fst << pair_of_tc) Γ) Ps (make_ρ lctx')
+  end.
+
+Definition csubsts_width {t lctx ctx} : csubsts lctx ctx -> open_width t lctx -> open_width t [].
+  admit.
+Defined.
+
+Global Instance Apply_csubsts_width_width {t ctx lctx} : Apply (csubsts lctx ctx) (open_width t lctx) (open_width t []) :=
+  {
+    apply := @csubsts_width _ _ _
+  }.
 
 Definition related {lctx} Γ wB w (e : open_expr lctx) τ (c : open_cexpr lctx) (s : open_size lctx) :=
-  make_Ps (lctx := lctx) Γ |~ openup1 (fun ρ => ∃B, ⌈getB (ρ $ wB) B⌉ /\ (ρ $$ e, ρ $$ w) ∈ relE τ B !(ρ $ c) (ρ $ s) ρ) (make_ρ lctx).
+  make_Ps (lctx := lctx) Γ |~ openup1 (fun ρ => ∃B, ⌈wsteps (ρ $ wB) (Wconst B)⌉ /\ (ρ $$ e, ρ $$ w) ∈ relE τ B !(ρ $ c) (ρ $ s) ρ)%rel (make_ρ lctx).
 
 Notation "⊩" := related.
 
@@ -1033,18 +1073,13 @@ Proof.
   induction 1.
   {
     unfold related.
-    exists 0.
+    exists (Wconst (ctx := ctx) 0).
     simpl.
     admit.
   }
   {
-    destruct IHtyping1 as [B0 IH₀].
-    destruct IHtyping2 as [B1 IH₁].
-    Instance Max_nat : Max nat :=
-      {
-        max := Peano.max
-      }.
-    exists (3 * max B0 B1 + 1).
+    destruct IHtyping1 as [B0 [w0 IH₀]].
+    destruct IHtyping2 as [B1 [w1 IH₁]].
 
     Fixpoint plug (c : econtext) (e : expr) : expr :=
       match c with
@@ -1073,21 +1108,12 @@ Proof.
 
     Open Scope rel.
 
-    Fixpoint relE₂ (B₁ B₂ : nat) {lctx} (τ : open_type lctx) (c : nat) (s : size) ctx (ρ : csubsts lctx ctx) : rel 1 ctx :=
-      \e, ⌈|- e (ρ $ τ) /\ 
-          (forall n e', (~>## e n 0 e') -> n ≤ B₁)⌉ /\ 
-          (∀v, ⌈⇓*# e 0 v⌉ ===> v ∈ relV B₂ τ ρ /\ ⌈!v ≤ s⌉) /\
-          (∀e', ⌈~>*# e 1 e'⌉ ===> 
-                      match c with
-                        | 0 => ⊥
-                        | S c' =>
-                          ▹ [] (e' ∈ relE₂ B₁ B₂ τ c' s ρ)
-                      end).
-    
     Instance Apply_Subst `{Subst t A B} {ctx} : Apply (B (t :: ctx)) (A ctx) (B ctx) :=
       {
         apply := flip subst
       }.
+
+    (*here*)
 
     Definition relEC (E : econtext) (B₁ B₂ : nat) (s₁ : size) (c₂ : open_cexpr [CEexpr]) (s₂ : open_size [CEexpr]) {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) : rel 1 ctx :=
       \e, ∀v, v ∈ relV B₁ τ ρ /\ ⌈e ~>* v /\ !v ≤ s₁⌉ ===> (E $ v) ∈ relE₂ B₂ (B₁ + B₂) τ' !(c₂ $ s₁) (s₂ $ s₁) ρ'.
@@ -1151,6 +1177,12 @@ Proof.
     Lemma VMorePs ctxfo ctx (P : open_rel ctxfo 0 ctx) Ps : [] |~ P -> Ps |~ P.
       admit.
     Qed.
+
+    Instance Max_nat : Max nat :=
+      {
+        max := Peano.max
+      }.
+    exists (3 * max B0 B1 + 1).
 
     eapply VMorePs.
     eapply VCtxElimEmpty.
