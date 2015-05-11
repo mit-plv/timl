@@ -1101,7 +1101,7 @@ Proof.
         | ECmatch target a b => Ematch (plug target e) a b
       end.
 
-    Instance Apply_EC_expr : Apply econtext expr expr :=
+    Instance Apply_econtext_expr : Apply econtext expr expr :=
       {
         apply := plug
       }.
@@ -1113,12 +1113,8 @@ Proof.
         apply := flip subst
       }.
 
-    (*here*)
-
-    Definition relEC (E : econtext) (B₁ B₂ : nat) (s₁ : size) (c₂ : open_cexpr [CEexpr]) (s₂ : open_size [CEexpr]) {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) : rel 1 ctx :=
-      \e, ∀v, v ∈ relV B₁ τ ρ /\ ⌈e ~>* v /\ !v ≤ s₁⌉ ===> (E $ v) ∈ relE₂ B₂ (B₁ + B₂) τ' !(c₂ $ s₁) (s₂ $ s₁) ρ'.
-
-    (* unfold related in *. *)
+    Definition relEC (E : econtext) (wE : open_width WTstruct [CEexpr]) (wBE : open_width WTnat [CEexpr]) (s₁ : size) (c₂ : open_cexpr [CEexpr]) (s₂ : open_size [CEexpr]) {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) : rel 1 ctx :=
+      \ew, let (e, we) := ew in ∀v we', (v, we') ∈ relV τ ρ /\ ⌈e ~>* v /\ !v ≤ s₁ /\ wsteps we we'⌉ ===> ∃BE, ⌈wsteps (wBE $ we) (Wconst BE)⌉ /\ (E $ v, wE $ we) ∈ relE τ' BE !(c₂ $ s₁) (s₂ $ s₁) ρ'.
 
     Inductive typingEC : econtext -> type -> type -> Prop :=
     | TECempty τ : typingEC ECempty τ τ
@@ -1128,10 +1124,18 @@ Proof.
     (*     typingEC (ECapp1 f arg) τ τ₂ *)
     .
     
-    Lemma LRbind {lctx lctx'} B (τ : open_type lctx) s₁ E c₂ s₂ (τ' : open_type lctx') :
-      ⊩ B₁ Γ e τ 
-      [] |~ fun var => (fun ρ ρ' => ∀ e c₁, e ∈ relE B τ c₁ s₁ ρ /\ goodEC B e E τ c₂ s₂ τ' ρ ρ' ===> E $$ e ∈ relE (2 * B) τ' (c₁ + !(c₂ $ s₁)) (s₂ $ s₁) ρ') : Funvar var [flip csubsts lctx; flip csubsts lctx'] 0.
+    Global Instance Add_width_width lctx : Add (open_width WTnat lctx) (open_width WTnat lctx)(open_width WTnat lctx) :=
+      {
+        add := Wbinop add
+      }.
+
+    Lemma LRbind E wE wBE s₁ c₂ s₂ {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) :
+      valid (ctxfo := []) [] (∀e we c₁ wBe, (∃Be, ⌈wsteps wBe (Wconst Be)⌉ /\ (e, we) ∈ relE τ Be c₁ s₁ ρ /\ (e, we) ∈ relEC E wE wBE s₁ c₂ s₂ τ τ' ρ ρ') ===> ∃Ball, ⌈wsteps (wBe + wBE $$ we) (Wconst Ball)⌉ /\ (E $$ e, wE $ we) ∈ relE τ' Ball (c₁ + !(c₂ $ s₁)) (s₂ $ s₁) ρ').
     Proof.
+      Lemma VLob {ctxfo ctx} Ps (P : open_rel ctxfo 0 ctx) : openup1 (▹ []) P :: Ps |~ P -> Ps |~ P.
+        admit.
+      Qed.
+      
       eapply VLob.
       (*
       eapply Vforall1intro; intros e.
@@ -1171,6 +1175,57 @@ Proof.
       unfold relE'.
       simpl.
        *)
+      admit.
+    Qed.
+
+    unfold related in *.
+
+    Definition open_econtext : context -> Type.
+      admit.
+    Defined.
+
+    Global Instance Apply_open_econtext_expr {lctx} : Apply (open_econtext lctx) (open_expr lctx) (open_expr lctx).
+      admit.
+    Defined.
+
+    Global Instance Apply_csubsts_econtext_econtext {ctx} lctx : Apply (csubsts lctx ctx) (open_econtext lctx) econtext.
+      admit.
+    Defined.
+
+    Global Instance Apply_csubsts_cexpr_cexpr' {ctx} lctx' lctx : Apply (csubsts lctx ctx) (open_cexpr (lctx' :: lctx)) (open_cexpr [lctx']).
+      admit.
+    Defined.
+
+    Global Instance Apply_csubsts_size_size' {ctx} lctx' lctx : Apply (csubsts lctx ctx) (open_size (lctx' :: lctx)) (open_size [lctx']).
+      admit.
+    Defined.
+
+    Global Instance Apply_csubsts_width_width' {t ctx lctx' lctx} : Apply (csubsts lctx ctx) (open_width t (lctx' :: lctx)) (open_width t [lctx']).
+      admit.
+    Defined.
+
+    Lemma LRbind' {lctx} (e : open_expr lctx) (we : open_width WTstruct lctx) (wBe : open_width WTnat lctx) (E : open_econtext lctx) (wE : open_width WTstruct (CEexpr :: lctx)) (wBE : open_width WTnat (CEexpr :: lctx)) (c₁ : open_cexpr lctx) (s₁ : open_size lctx) (c₂ : open_cexpr (CEexpr :: lctx)) (s₂ : open_size (CEexpr :: lctx)) (τ : open_type lctx) (τ' : open_type lctx) {ctxfo ctx} (ρ : open_csubsts ctxfo lctx ctx) (Ps : list (open_rel ctxfo 0 ctx)) :
+      Ps |~ openup1 (fun ρ => ∃Be, ⌈wsteps (ρ $ wBe) (Wconst Be)⌉ /\ (ρ $ e, ρ $ we) ∈ relE τ Be !(ρ $ c₁) (ρ $ s₁) ρ) ρ ->
+      Ps |~ openup1 (fun ρ => (ρ $ e, ρ $ we) ∈ relEC (ρ $ E) (ρ $ wE) (ρ $ wBE) (ρ $ s₁) (ρ $ c₂) (ρ $ s₂) τ τ' ρ ρ) ρ ->
+      Ps |~ openup1 (fun ρ => ∃Ball, ⌈wsteps (ρ $ (wBe + wBE $$ we)) (Wconst Ball)⌉ /\ (ρ $ (E $ e), ρ $ (wE $ we)) ∈ relE τ' Ball !(ρ $ (c₁ + c₂ $$ s₁)) (ρ $ (s₂ $ s₁)) ρ) ρ.
+    Proof.
+      admit.
+    Qed.
+    
+    (*here*)
+
+    eapply LRbind' in IH₀.
+    Focus 2.
+    eapply LRbind' in IH₁.
+    Focus 2.
+
+    Lemma LRapp {lctx ctx} (ρ : csubsts lctx ctx) : 
+      valid (ctxfo := []) [] 
+            (∀ (e₀ : expr) (w₀ : width) (τ₁ : open_type lctx) (c : open_cexpr (CEexpr :: lctx)) (s : open_size (CEexpr :: lctx)) (τ₂ : open_type (CEexpr :: lctx)) (B₀ : nat) (c₀ : cexpr) nouse (e₁ : expr) (w₁ : width) (B₁ : nat) (c₁ : cexpr) (s₁ : open_size lctx),
+               (e₀, w₀) ∈ relE (Tarrow τ₁ c s τ₂) B₀ !c₀ nouse ρ ===> 
+               (e₁, w₁) ∈ relE τ₁ B₁ !c₁ (ρ $ s₁) ρ ===> 
+               ∃(w : open_width WTstruct [CEexpr]) (wB : open_width WTnat [CEexpr]) (B : nat), ⌈wsteps w₀ (Wabs wB w) /\ wsteps (wB $ w₁) (Wconst B)⌉ /\ (e₀ $ e₁, w $ w₁) ∈ relE (τ₂ $ s₁) (B₀ + B₁ + 1 + B) (!c₀ + !c₁ + !(ρ $ (c $ s₁))) (ρ $ (s $ s₁)) ρ).
+    Proof.
       admit.
     Qed.
 
@@ -1591,10 +1646,6 @@ Section infer_rules.
     admit.
   Qed.
 
-  Lemma VLob Ps P : ▹P :: Ps |~ P -> Ps |~ P.
-    admit.
-  Qed.
-  
   (* Lemma VReplace2 Ps {n : nat} R1 R2 (P : OpenTerm (RTvar n :: ctx) 0) : Ps |~ R1 == R2 -> Ps |~ P $$ R1 -> Ps |~ P $$ R2. *)
 
 End infer_rules.
