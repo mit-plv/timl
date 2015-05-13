@@ -1,3 +1,6 @@
+Set Maximal Implicit Insertion.
+Set Implicit Arguments.
+
 Require Import List.
 Require Import Util.
 Require Import Syntax.
@@ -9,12 +12,7 @@ Import ListNotations.
 Local Open Scope list_scope.
 Local Open Scope prog_scope.
 
-Local Notation open_type := type.
-Local Notation open_expr := expr.
-Local Notation type := (open_type []).
-Local Notation expr := (open_expr []).
-
-Inductive IsValue : expr -> Prop :=
+Inductive IsValue {ctx} : expr ctx -> Prop :=
 | Vvar x : IsValue (Evar x)
 | Vabs t e : IsValue (Eabs t e)
 | Vtabs e : IsValue (Etabs e)
@@ -26,25 +24,48 @@ Inductive IsValue : expr -> Prop :=
 .
 
 (* evaluation context *)
-Inductive econtext :=
-| ECempty
-| ECapp1 (f : econtext) (arg : expr)
-| ECapp2 (f : expr) (arg : econtext) : IsValue f -> econtext
-| EClet (def : econtext) (main : open_expr [CEexpr])
-| ECtapp (f : econtext) (t : type)
-| ECfold (t : type) (_ : econtext)
-| ECunfold (_ : econtext)
-| EChide (_ : econtext)
-| ECunhide (_ : econtext)
-| ECpair1 (a : econtext) (b : expr)
-| ECpair2 (a : expr) (b : econtext) : IsValue a -> econtext
-| ECinl (_ : type) (_ : econtext)
-| ECinr (_ : type) (_ : econtext)
-| ECfst (_ : econtext)
-| ECsnd (_ : econtext)
-| ECmatch (target : econtext) (a b : open_expr [CEexpr])
+Inductive econtext ctx : Type :=
+| ECempty : econtext ctx
+| ECapp1 (f : econtext ctx) (arg : expr ctx) : econtext ctx
+| ECapp2 (f : expr ctx) (arg : econtext ctx) : IsValue f -> econtext ctx
+| EClet (def : econtext ctx) (main : expr (CEexpr :: ctx)) : econtext ctx
+| ECtapp (f : econtext ctx) (t : type ctx)  : econtext ctx
+| ECfold (t : type ctx) (_ : econtext ctx) : econtext ctx
+| ECunfold (_ : econtext ctx) : econtext ctx
+| EChide (_ : econtext ctx) : econtext ctx
+| ECunhide (_ : econtext ctx) : econtext ctx
+| ECpair1 (a : econtext ctx) (b : expr ctx) : econtext ctx
+| ECpair2 (a : expr ctx) (b : econtext ctx) : IsValue a -> econtext ctx
+| ECinl (_ : type ctx) (_ : econtext ctx) : econtext ctx
+| ECinr (_ : type ctx) (_ : econtext ctx) : econtext ctx
+| ECfst (_ : econtext ctx) : econtext ctx
+| ECsnd (_ : econtext ctx) : econtext ctx
+| ECmatch (target : econtext ctx) (a b : expr (CEexpr :: ctx)) : econtext ctx
 .
 
+Arguments ECempty {ctx} .
+
+Fixpoint plug {ctx} (c : econtext ctx) (e : expr ctx) : expr ctx :=
+  match c with
+    | ECempty => e
+    | ECapp1 f arg => Eapp (plug f e) arg
+    | ECapp2 f arg _ => Eapp f (plug arg e)
+    | EClet def main => Elet (plug def e) main
+    | ECtapp f t => Etapp (plug f e) t
+    | ECfold t c => Efold t (plug c e)
+    | ECunfold c => Eunfold (plug c e)
+    | EChide c => Ehide (plug c e)
+    | ECunhide c => Eunhide (plug c e)
+    | ECpair1 a b => Epair (plug a e) b
+    | ECpair2 a b _ => Epair a (plug b e)
+    | ECinl t c => Einl t (plug c e)
+    | ECinr t c => Einr t (plug c e)
+    | ECfst c => Efst (plug c e)
+    | ECsnd c => Esnd (plug c e)
+    | ECmatch target a b => Ematch (plug target e) a b
+  end.
+
+(*
 Inductive plug : econtext -> expr -> expr -> Prop :=
 | Pempty e : plug ECempty e e
 | Papp1 E e f arg : plug E e f -> plug (ECapp1 E arg) e (Eapp f arg)
@@ -63,13 +84,12 @@ Inductive plug : econtext -> expr -> expr -> Prop :=
 | Psnd E e e' : plug E e e' -> plug (ECsnd E) e (Esnd e')
 | Pmatch E e target k1 k2 : plug E e target -> plug (ECmatch E k1 k2) e (Ematch target k1 k2)
 .
+*)
 
-Inductive step : expr -> expr -> Prop :=
-| STecontext E e1 e2 e1' e2' : 
+Inductive step : expr [] -> expr [] -> Prop :=
+| STecontext E e1 e2 : 
     step e1 e2 -> 
-    plug E e1 e1' -> 
-    plug E e2 e2' -> 
-    step e1' e2'
+    step (plug E e1) (plug E e2)
 | STapp t body arg : IsValue arg -> step (Eapp (Eabs t body) arg) (subst arg body)
 | STlet v main : IsValue v -> step (Elet v main) (subst v main)
 | STfst v1 v2 :

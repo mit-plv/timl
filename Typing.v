@@ -241,7 +241,7 @@ Inductive typing {ctx} : tcontext ctx -> expr ctx -> type ctx -> cexpr ctx -> si
 | TPapp Γ e₀ e₁ τ₁ c s τ₂ c₀ nouse c₁ s₁ : 
     typing Γ e₀ (Tarrow τ₁ c s τ₂) c₀ nouse ->
     typing Γ e₁ τ₁ c₁ s₁ ->
-    typing Γ (Eapp e₀ e₁) (subst s₁ τ₂) (c₀ + c₁ + subst s₁ c) (subst s₁ s)
+    typing Γ (Eapp e₀ e₁) (subst s₁ τ₂) (c₀ + (c₁ + subst s₁ c)) (subst s₁ s)
 | TPabs T e t1 t2 c s :
     kinding T t1 0 ->
     typing (ctx := _ ) (add_typing t1 T) e t2 c s ->
