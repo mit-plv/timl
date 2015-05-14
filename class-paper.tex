@@ -119,7 +119,7 @@
 \newcommand{\symprod}{\mathsf{prod}}
 \newcommand{\symStt}{\mathsf{Stt}}
 \newcommand{\symSpair}{\mathsf{Spair}}
-\newcommand{\symSlr}{\mathsf{Slr}}
+\newcommand{\symSlr}{\mathsf{Ssum}}
 \newcommand{\defeq}{\triangleq}
 \newcommand{\symwork}{\mathsf{w}}
 \newcommand{\symspan}{\mathsf{s}}
@@ -238,28 +238,30 @@ $$
 \begin{array}{l}
 \forall f,\tau_1,\tau_2,c,s. \\
 \hspace{0.1in} \vdash f:\arrow{(x:\tau_1)}{c}{s}{\tau_2} \wedge f\in\mathsf{Val}\Rightarrow \\
-\hspace{0.2in} \exists C,\xi_0. \;\forall v.\; \vdash v:\tau_1 \wedge |v| \geq \xi_0 \Rightarrow \\
-\hspace{0.3in} \forall e',n.\; f\;v\leadsto^n e' \Rightarrow n\leq C\times c[|v|/x]
+\hspace{0.2in} \exists B. \;\forall v.\; \vdash v:\tau_1 \Rightarrow \\
+\hspace{0.3in} \forall e',n.\; f\;v\leadsto^n e' \Rightarrow n\leq B\times c[|v|/x]
 \end{array}
 $$
 \end{thm}
 
 Theorem \ref{thm-safety}, the standard nonstuckness property, says that for any well-typed program (in an empty typing context), wherever the program runs to ($e'$), it is either successfully done (be a value) or can take one more step. That is, it won't get stuck in some erronous state where there is no legal step to progress.
 
-Theorem \ref{thm-boundedness} says that for any well-typed value $f$ of the arrow type $\arrow{(x:\tau_1)}{c}{s}{\tau_2}$, there exists some constant factor $C$ and a threshold $\xi_0$, so that for any input value of the right type and whose size is larger than or equal to the threshold $\xi_0$, the composed expression $f\;v$ won't run for more than $C\times c[|v|/x]$ steps, where $c$ is the complexity guarantee given by the type. Combining it with Theorem \ref{thm-safety}, we can conclude that $f\;v$ will always successfully terminate within $C\times c[|v|/x]$ steps. Here a step $\leadsto$ means any reduction step in a standard strict call-by-value evaluation strategy (defined in Section \ref{section-lang}), not just the unfold-fold count used for complexity expressions in types. Note that the existentially quantified $C$ and $\xi_0$ are outside hence independent of the input value, which meets the standard definition of asymptotic complexity. The reason we need a threshold for input size and do not guarentee time bound for inputs of all sizes is that sometimes the complexity expressions do not make sense with too small sizes, as will be seen in Section \ref{section-lang}. Small inputs do not matter since in asymptotic analysis we only care about the performance behavior as the inputs grow ever larger. We do guarentee safety on inputs of all sizes, since Theorem \ref{thm-safety} does not involve thresholds.
+Theorem \ref{thm-boundedness} says that for any well-typed value $f$ of the arrow type $\arrow{(x:\tau_1)}{c}{s}{\tau_2}$, there exists some constant factor $B$, so that for any input value of the right type, the composed expression $f\;v$ won't run for more than $B\times c[|v|/x]$ steps, where $c$ is the complexity guarantee given by the type. Combining it with Theorem \ref{thm-safety}, we can conclude that $f\;v$ will always successfully terminate within $B\times c[|v|/x]$ steps. Here a step $\leadsto$ means any reduction step in a standard strict call-by-value evaluation strategy (defined in Section \ref{section-lang}), not just the unfold-fold count used for complexity expressions in types. Note that the existentially quantified $B$ is outside hence independent of the input value, which meets the standard definition of asymptotic complexity. 
 
-Theorem \ref{thm-boundedness} is only one corollary from the strenghened result in the main proof, for unary functions. We can have theorems such as Theorem \ref{thm-boundedness2} for binary and n-arity functions, and all existentially quantified constant factors and thresholds will be independent of any input.
+Theorem \ref{thm-boundedness} is only one corollary from the strenghened result in the main proof, for unary functions. We can have theorems such as Theorem \ref{thm-boundedness2} for binary and n-arity functions, and the existentially quantified constant factor will be independent of any input.
 
 \begin{thm}[\label{thm-boundedness2}Soundness w.r.t. Boundedness (2-arity)]
 $$
 \begin{array}{l}
 \forall f,\tau_1,\tau_2,\tau_3,c,s. \\
 \hspace{0.1in} \vdash f:\arrow{(x_1:\tau_1)}{0}{0}{\arrow{(x_2:\tau_2)}{c}{s}{\tau_3}} \wedge f\in\mathsf{Val}\Rightarrow \\
-\hspace{0.2in} \exists C,\xi_0^1,\xi_0^2. \;\forall v_1,v_2.\; (\forall i.\;\vdash v_i:\tau_i \wedge |v_i| \geq \xi_0^i) \Rightarrow \\
-\hspace{0.3in} \forall e',n.\; f\;v_1\;v_2\leadsto^n e' \Rightarrow n\leq C\times c[|v_1|/x_1][|v_2|/x_2]
+\hspace{0.2in} \exists B. \;\forall v_1,v_2.\; (\forall i.\;\vdash v_i:\tau_i) \Rightarrow \\
+\hspace{0.3in} \forall e',n.\; f\;v_1\;v_2\leadsto^n e' \Rightarrow n\leq B\times c[|v_1|/x_1][|v_2|/x_2]
 \end{array}
 $$
 \end{thm}
+
+Technically, Theorem \ref{thm-boundedness} is only true for first-order cases, where type $\tau_1$ does not have any arrow. For higher-order cases, the theorem takes a slightly more complicated form, as will be explained in Section \ref{section-proof}.
 
 \section{\label{section-lang}Language and Type System}
 
@@ -272,21 +274,19 @@ $$\begin{array}{rrcl}
   \textrm{Size Subpart Idx} & i &::=& \symf \textrm{(fst)} \mid \syms \textrm{(snd)} \mid \syml \textrm{(left)} \mid \symr \textrm{(right)} \mid \symuf \textrm{(unfold)} \\
   & & & \mid \symuh \textrm{(unhide)} \\
   \textrm{Complexity Expr} & c &::=& x.\vec{i}.\symwork \textrm{(work)} \mid x.\vec{i}.\symspan \textrm{(span)} \mid 0 \mid 1 \mid c+c \mid \cdots \\
-  \textrm{Sizes} & s &::=& x.\vec{i} \mid \Sstats{c_\symwork,c_\symspan} \mid \symStt \mid \symSinl s \mid \symSinr s \mid \symSlr\;s\;s \\
-  & & & \mid (s,s) \mid \symSfold\;s \mid \symShide\;s \\
+  \textrm{Sizes} & s &::=& x.\vec{i} \mid \Sstats{c_\symwork,c_\symspan} \mid \symSlr\;s\;s \\
+  & & & \mid \symSpair\;s\;s \mid \symSfold\;s \mid \symShide\;s \\
   \textrm{Types} & \tau &::=& \symunit \mid \tau\times\tau \mid \tau+\tau \mid X \mid \arrow{\intro{x}{\tau}}{c}{s}{\tau} \\
   & & & \mid \forall^c_s X.\tau \mid \Lambda X.\tau \mid \tau\;\tau \mid \mu X.\tau \mid \thide\tau \\
-  \textrm{Expressions} & e &::=& \symtt \mid (e,e) \mid \syminl_\tau\;e \mid \syminr_\tau\;e \mid x \mid e\;e \mid \lambda x:\tau.\;e \\
+  \textrm{Expressions} & e &::=& \symtt \mid \sympair\;e\;e \mid \syminl_\tau\;e \mid \syminr_\tau\;e \mid x \mid e\;e \mid \lambda x:\tau.\;e \\
   & & & \mid \symlet x := e \symin e \mid e\;\tau \mid \lambda X.e \mid \symfold\tau\;e \\
-  & & & \mid \symunfold\;e \mid \symhide\;e \mid \symunhide\;e \\
-  & & & \mid \symmatch\;e\symwith (x,y)\Rightarrow e \\
+  & & & \mid \symunfold\;e \mid \symhide\;e \mid \symunhide\;e \mid \symfst\;e \mid \symsnd\;e \\
   & & & \mid (\symmatch\;e\symwith\syminl\;x\Rightarrow e\;|\;\syminr\;x\Rightarrow e) \\
   \textrm{Values} & v &::=& x \mid \lambda x:\tau.e \mid \lambda X.e \mid \symfold\tau\;v \mid \symtt \mid (v,v) \\
   & & & \mid \syminl\;v \mid \syminr\;v \mid \symhide v \\
   \textrm{CBV Eval Ctx} & E &::=& \Box \mid E\;e \mid v\;E \mid \symlet x := E\symin e \mid E\;\tau \\
   & & & \mid \symfold\tau\;E \mid \symunfold\tau\;E \mid \symhide\;E \mid \symunhide\;E \\
-  & & & \mid (E, e) \mid (v, E) \mid \syminl\;E \mid \syminr\;E \\
-  & & & \mid \symmatch\;E\symwith(x,y)\Rightarrow e \\
+  & & & \mid (E, e) \mid (v, E) \mid \syminl_\tau\;E \mid \syminr_\tau\;E \mid \symfst\;E \mid \symsnd\;E \\
   & & & \mid (\symmatch\;E\symwith\syminl\;x\Rightarrow e\;|\;\syminr\;x\Rightarrow e) \\
   \textrm{Kinds} & k &::=& * \mid *\to k \\
   \textrm{Typing Ctx} & \Gamma &::=& \cdot \mid \Gamma,X \mid \Gamma, x:(\tau, \optional{s})
@@ -296,11 +296,11 @@ $$\begin{array}{rrcl}
 
 Now let's turn to the complexity and size part. Firstly, complexity and size annotations only appear on arrows and in $\forall$ binders (the latter can be seen as a degenerated case of the former). Each arrow type $\arrow{\intro{x}{\tau_1}}{c}{s}{\tau_2}$ introduces a size variable standing for the input size, which can be referred to in $c$, $s$ and $\tau_2$ (but not $\tau_1$). The $\forall$ binder does not introduce new size variables. The reason for $\forall$ to also have complexity annotation is that, just like $\lambda x.e$, $\lambda X.e$ is a ``delayed'' computation, meaning that it is itself a value but when been applied, its inner part may take some steps to reach another value. But in most cases, the $c$ and $s$ in $\forall^c_s$ are just 0. When $c$ or $s$ is 0, we elide it in this paper.
 
-We first explain the definition of sizes. As mention before, the size of a value is a tree-like structure, closely mirroring the structure of a value. Comparing ``Sizes'' and ``Values'' shows that they are almost isomorphic except that sizes do not have $\lambda$-abstractions but have constructors $x.\vec{i}$, $\Sstats{c_\symwork,c_\symspan}$ and $(\symSlr\;s\;s)$. $x.\vec{i}$ is used to refer to a subpart of a size variable. Since we are doing asymptotic analysis, size variables will always be instantiated with ``large enough'' instances, so we can go as deep as we like into a size variable. The query indices for subparts are the corresponding eliminators of size constructors. $\Sstats{c_\symwork,c_\symspan}$ is used to construct a size that has no structural information, only the measures. There are two measures, ``work'' and ``span'', borrowed from the parallel computation literature. ``Work'' means the number of ``$\symSfold$'' nodes in the size; ``span'' means the height of the size seen as a tree, only considering ``$\symSfold$'' nodes. ``Span'' seems useless in a non-parallel setting, but remember we can define trees, where ``span'' is meaningful even in a non-parallel setting.
+We first explain the definition of sizes. As mention before, the size of a value is a tree-like structure, closely mirroring the structure of a value. Comparing ``Sizes'' and ``Values'' shows that they are almost isomorphic except that sizes do not have $\lambda$-abstractions but have constructors $x.\vec{i}$ and $\Sstats{c_\symwork,c_\symspan}$. $x.\vec{i}$ is used to refer to a subpart of a size variable. One can go as deep as she like into a size variable (ToDo: explain). The query indices for subparts are the corresponding eliminators of size constructors. $\Sstats{c_\symwork,c_\symspan}$ is used to construct a size that has no structural information, only the measures. There are two measures, ``work'' and ``span'', borrowed from the parallel computation literature. ``Work'' means the number of ``$\symSfold$'' nodes in the size; ``span'' means the height of the size seen as a tree, only considering ``$\symSfold$'' nodes. ``Span'' seems useless in a non-parallel setting, but remember we can define trees, where ``span'' is meaningful even in a non-parallel setting.
 
 The intuition behind the definition of size is that the $\symSfold$-skeleton is the real ``variable'' thing in a size, and when we say ``how computation grows with the input size'' we actually mean ``how computation grows with the input size's $\symSfold$-skeleton''.
 
-We need the $\Sstats{c_\symwork,c_\symspan}$ constructor because $s$ is also our specification language for a function's result size (below the arrow), and usually measures are the only thing we can specify about the result size. We need $(\symSlr\;s\;s)$ to specify the size of sum-type values when we are not sure which branch it will take. For brevity we write ``$\Sstats{s}$'' for ``$\Sstats{s.\symwork,s.\symspan}$'', ``0'' for ``$\Sstats{0,0}$'', ``$\Sstats{c_1,c_2}/2$'' for ``$\Sstats{c_1/2,c_2/2}$'' and similarly lift other operations on measures to sizes. 
+We need the $\Sstats{c_\symwork,c_\symspan}$ constructor because $s$ is also our specification language for a function's result size (below the arrow), and usually measures are the only thing we can specify about the result size. For brevity we write ``$\Sstats{s}$'' for $\Sstats{s.\symwork,s.\symspan}$, ``0'' for $\Sstats{0,0}$, ``$\Sstats{c_1,c_2}/2$'' for $\Sstats{c_1/2,c_2/2}$ and similarly lift other operations on measures to sizes. We also overload the notation ``$(a,b)$'' to stands for $(\sympair\;a\;b)$, $(\symSpair\;a\;b)$ and other pair-like constructions.
 
 Now we explain the time complexity expression. Since variables can appear in a complexity expression, we define complexity expression as an abstract algebra instead of just natural numbers. Which algebra to use (hence the expressiveness of complexity expressions) is almost an orthogonal issue of the type system design. We will elaborate the axioms we used in the type soundness proof regarding this algebra, thus any algebra satisfying these axioms will give us a sound type system. Do note that the choice of this algebra greatly influence the complexity precision and type checking/inference difficulty on concrete programs, so we will discuss this orthogonal but important issue in Section \ref{section-discussion}. Besides the algebraic operations, a complexity expression can also refer to a measure of (a subpart of) a size variable. For intuitiveness we write ``$|x|$'' for ``$x.\symwork$''
 
@@ -308,11 +308,7 @@ We introduced a new ``hide'' type constructor denoted as $\thide{\tau}$, its cor
 
 \subsection{Typing Rules}
 
-Figure \ref{typing} gives representative typing rules. Typing judgments have the form $\Gamma\typing{e}{\tau}{c}{s}$. $c$ stands for the time bound of $e$ executing to a value. $s$ stands for the size bound of the final value. The typing rules formalize our intuition of how to count the reduction steps. In the typing context $\Gamma$ (defined in Figure \ref{syntax}), we reuse term variables $x$ to mean both a value and its size (conflating term variable and size variable), so the typing context becomes dependent (entries in it can depend on entries before them), and type variables become interleaved with term variables. But still our type system is not dependent-typed.
-
-In each typing entry $x:(\tau,\optional{s})$ of $\Gamma$ there is an optional size $\optional{s}$. It is needed because of a nuance in the design of rule {\sc MatchLR}. For ease of type checking, in this rule we want to propagate time information forward: calculating each branch's time complexity and max them in the end. But because we want to avoid defining max for sizes, we want to propagate size information backward: taking the size requirement in the end and check whether it is satisfied in each branch. For this reason, the size requirement $s'$ in each branch is the same as the overall size requirement (which cannot mention branch-local variable $x$), and each branch needs the fact that the branch-local variable $x$ is just an alias of some outer term and its size, hence $\optional{s}$. Type information is also propagated backward since there may be arrows (with sizes) within the type.
-
-
+Figure \ref{typing} gives representative typing rules. Typing judgments have the form $\Gamma\typing{e}{\tau}{c}{s}$, where $c$ stands for the time bound of $e$ executing to a value. $s$ stands for the size bound of the final value. The typing rules formalize our intuition of how to count the reduction steps. In the typing context $\Gamma$ (defined in Figure \ref{syntax}), we reuse term variables $x$ to mean both a value and its size (conflating term variable and size variable), so the typing context becomes dependent (entries in it can depend on entries before them), and type variables become interleaved with term variables. But still our type system is not dependent-typed.
 
 (To be continued)
 
@@ -321,19 +317,15 @@ In each typing entry $x:(\tau,\optional{s})$ of $\Gamma$ there is an optional si
 \begin{mathpar}
 
 \inferrule* [Right=Var] 
-{\Gamma(x)=(\tau, s)} 
-{\Gamma\typing{x}{\tau}{0}{s}} 
-
-\inferrule* [Right=Var2] 
-{\Gamma(x)=(\tau, \bot)} 
+{\Gamma(x)=\tau} 
 {\Gamma\typing{x}{\tau}{0}{x}} 
 
 \inferrule* [Right=App] 
 {\Gamma\typing{e_1}{\arrow{\intro{x}{\tau_1}}{c}{s}{\tau_2}}{c_1}{s_1} \\ \Gamma\typing{e_2}{\tau_1}{c_2}{s_2} }
-{\Gamma\typing{e_1\;e_2}{\tau_2}{c_1+c_2+n[s_2/x]}{s[s_2/x]}} 
+{\Gamma\typing{e_1\;e_2}{\tau_2}{c_1+c_2+c[s_2/x]}{s[s_2/x]}} 
 
 \inferrule* [Right=Abs] 
-{\Gamma\vdash\tau_1 : * \\ \Gamma, x:(\tau_1, \bot)\typing{e}{\tau_2}{c}{s} }
+{\Gamma\vdash\tau_1 : * \\ \Gamma, x:\tau_1\typing{e}{\tau_2}{c}{s} }
 {\Gamma\typing{\lambda x : \tau_1.\;e}{\arrow{\intro{x}{\tau_1}}{c}{s}{\tau_2}}{0}{0}} 
 
 \\
@@ -372,21 +364,31 @@ In each typing entry $x:(\tau,\optional{s})$ of $\Gamma$ there is an optional si
 {\Gamma\typing{e_1}{\tau_1}{c_1}{s_1} \\ \Gamma\typing{e_2}{\tau_2}{c_2}{s_2}}
 {\Gamma\typing{(e_1,e_2)}{\tau_1\times\tau_2}{c_1+c_2}{(s_1,s_2)}} 
 
-\inferrule* [Right=MatchPair]
-{\Gamma\typing{e}{\tau_1\times\tau_2}{c}{s} \\ \mathsf{IsPair}(s)=(s_1,s_2) \\ \Gamma, a:(\tau_1,s_1), b:(\tau_2,s_2)\typing{e'}{\tau}{c'}{s'}}
-{\Gamma\typing{\symmatch\;e \symwith (a,b) \Rightarrow e'}{\tau[s_1/a][s_2/b]}{c + c'[s_1/a][s_2/b]}{s[s_1/a][s_2/b]}} 
+\\
+
+\inferrule* [Right=Fst]
+{\Gamma\typing{e}{\tau_1\times\tau_2}{c}{s} \\ \mathsf{IsPair}(s)=(s_1, s_2)}
+{\Gamma\typing{\symfst\;e}{\tau_1}{c}{s_1}} 
+
+\inferrule* [Right=Snd]
+{\Gamma\typing{e}{\tau_1\times\tau_2}{c}{s} \\ \mathsf{IsPair}(s)=(s_1, s_2)}
+{\Gamma\typing{\symsnd\;e}{\tau_2}{c}{s_2}} 
 
 \\
 
-\inferrule* [Right=MatchLR]
+\inferrule* [Right=Inl]
+{\Gamma\typing{e}{\tau}{c}{s}}
+{\Gamma\typing{\syminl_{\tau'}\;e}{\tau+\tau'}{c}{\symSlr\;s\;0}} 
+
+\inferrule* [Right=Inr]
+{\Gamma\typing{e}{\tau}{c}{s}}
+{\Gamma\typing{\syminr_{\tau'}\;e}{\tau'+\tau}{c}{\symSlr\;0\;s}} 
+
+\inferrule* [Right=Match]
 {\Gamma\typing{e}{\tau_1+\tau_2}{c}{s} \\ \mathsf{IsLR}(s)=(s_1,s_2) \\ \forall i,\;\Gamma, x:(\tau_i,s_i)\typing{e_i}{\tau}{c_i}{s'} \\ x\not\in\FV(\tau)\cup\FV(s')}
 {\Gamma\typing{\symmatch\; e \symwith \syminl\;x \Rightarrow e_1 \;|\; \syminr\;x \Rightarrow e_2}{\tau}{c+\symmax(c_1[s_1/x],c_2[s_2/x])}{s'}} 
 
 \\
-
-\inferrule* [Right=MatchL]
-{\Gamma\typing{e}{\tau_1+\tau_2}{c}{\symSinl(s)} \\ \Gamma, x:(\tau_1,s)\typing{e_1}{\tau'}{c'}{s'}}
-{\Gamma\typing{\symmatch\; e \symwith \syminl\;x \Rightarrow e_1 \;|\; \syminr\;x \Rightarrow e_2}{\tau'[s/x]}{c+c'[s/x]}{s'[s/x]}}
 
 \end{mathpar}
 \caption{\label{typing}Typing rules}
