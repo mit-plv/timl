@@ -69,6 +69,7 @@
 \newcommand{\symmatch}{\mathsf{match}}
 \newcommand{\FV}{\mathsf{FV}}
 \newcommand{\symwith}{\mathsf{\;with\;}}
+\newcommand{\symreturn}{\mathsf{\;return\;}}
 \newcommand{\syminl}{\mathsf{inl}}
 \newcommand{\syminr}{\mathsf{inr}}
 \newcommand{\symmax}{\mathsf{max}}
@@ -120,9 +121,11 @@
 \newcommand{\symStt}{\mathsf{Stt}}
 \newcommand{\symSpair}{\mathsf{Spair}}
 \newcommand{\symSlr}{\mathsf{Ssum}}
-\newcommand{\defeq}{\triangleq}
 \newcommand{\symwork}{\mathsf{w}}
 \newcommand{\symspan}{\mathsf{s}}
+
+%% \newcommand{\defeq}{\triangleq}
+\newcommand\defeq{\mathrel{\overset{\makebox[0pt]{\mbox{\normalfont\tiny\sffamily def}}}{=}}}
 
 \newcommand{\logo}{\lambda^{\forall,\omega,\mu}_\mathrm{c}}
 \newcommand{\Sstats}[1]{\left \langle #1 \right \rangle}
@@ -267,7 +270,7 @@ Technically, Theorem \ref{thm-boundedness} is only true for first-order cases, w
 
 \subsection{Syntax}
 
-The syntax of the language is given in Figure \ref{syntax}. Excluding the complexity and size part, and the ``hide'' type $\thide{\tau}$, all the syntax and evaluation context are standard. We put type annotations in lambda, $\syminl$, $\syminr$ and fold to make type unique (modulo complexity annotations), and elide them when irrelevant. All type variables are restricted to kind $*$, so we do not need kind annotations in type-level binders.
+The syntax of the language is given in Figure \ref{syntax}. Excluding the complexity and size part, and the ``hide'' type $\thide{\tau}$, all the syntax and evaluation context are standard. We put type annotations in lambda, $\syminl$, $\syminr$ and fold to make type unique (modulo complexity annotations), and elide them when irrelevant. We also borrow the return clause of pattern-matching from Coq to guide the type checker to find the common type and size of all branches. All type variables are restricted to kind $*$, so we do not need kind annotations in type-level binders.
 
 \begin{figure}
 $$\begin{array}{rrcl}
@@ -281,13 +284,13 @@ $$\begin{array}{rrcl}
   \textrm{Expressions} & e &::=& \symtt \mid \sympair\;e\;e \mid \syminl_\tau\;e \mid \syminr_\tau\;e \mid x \mid e\;e \mid \lambda x:\tau.\;e \\
   & & & \mid \symlet x := e \symin e \mid e\;\tau \mid \lambda X.e \mid \symfold\tau\;e \\
   & & & \mid \symunfold\;e \mid \symhide\;e \mid \symunhide\;e \mid \symfst\;e \mid \symsnd\;e \\
-  & & & \mid (\symmatch\;e\symwith\syminl\;x\Rightarrow e\;|\;\syminr\;x\Rightarrow e) \\
+  & & & \mid (\symmatch\;e \symreturn \tau \symand s \symwith\syminl\;x\Rightarrow e\;|\;\syminr\;x\Rightarrow e) \\
   \textrm{Values} & v &::=& x \mid \lambda x:\tau.e \mid \lambda X.e \mid \symfold\tau\;v \mid \symtt \mid (v,v) \\
   & & & \mid \syminl\;v \mid \syminr\;v \mid \symhide v \\
   \textrm{CBV Eval Ctx} & E &::=& \Box \mid E\;e \mid v\;E \mid \symlet x := E\symin e \mid E\;\tau \\
   & & & \mid \symfold\tau\;E \mid \symunfold\tau\;E \mid \symhide\;E \mid \symunhide\;E \\
   & & & \mid (E, e) \mid (v, E) \mid \syminl_\tau\;E \mid \syminr_\tau\;E \mid \symfst\;E \mid \symsnd\;E \\
-  & & & \mid (\symmatch\;E\symwith\syminl\;x\Rightarrow e\;|\;\syminr\;x\Rightarrow e) \\
+  & & & \mid (\symmatch\;E\symreturn \tau \symand s \symwith\syminl\;x\Rightarrow e\;|\;\syminr\;x\Rightarrow e) \\
   \textrm{Kinds} & k &::=& * \mid *\to k \\
   \textrm{Typing Ctx} & \Gamma &::=& \cdot \mid \Gamma,X \mid \Gamma, x:(\tau, \optional{s})
 \end{array}$$
@@ -310,10 +313,23 @@ We introduced a new ``hide'' type constructor denoted as $\thide{\tau}$, its cor
 
 Figure \ref{typing} gives representative typing rules. Typing judgments have the form $\Gamma\typing{e}{\tau}{c}{s}$, where $c$ stands for the time bound of $e$ executing to a value. $s$ stands for the size bound of the final value. The typing rules formalize our intuition of how to count the reduction steps. In the typing context $\Gamma$ (defined in Figure \ref{syntax}), we reuse term variables $x$ to mean both a value and its size (conflating term variable and size variable), so the typing context becomes dependent (entries in it can depend on entries before them), and type variables become interleaved with term variables. But still our type system is not dependent-typed.
 
-(To be continued)
+As is usually the case for functional languages, the most essential rules are {\sc App} and {\sc Abs}. They directly correspond to our intuition of how to count steps, and they demonstrate the meaning of the annotations on the arrow. Rule {\sc App} postulates that the time to evaluate $e_1\;e_2$ is the time to evaluate $e_1$ (i.e. $c_1$) plus that for $e_2$ (i.e. $c_2$), plus the time to evaluate the function body (i.e. $c[s_2/x]$). The final size is given by $s[s_2/x]$. Rule $Abs$ introduces arrows and its annotations. Since $\lambda$-abstract is already a value, and its size is 0 (ToDo: explain), we have $\turnstile{s}{s}{0}{0}{n}$.
+
+Rule {\sc Tapp} and {\sc Tabs} are similar to {\sc App} and {\sc Abs} respectively, since $\forall$ is just another kind of ``arrow''. Rule {\sc Unfold} is the only place where time complexity is actually increased, corresponding to a unfold-fold reduction. The partial functions $\mathsf{IsFold}$, $\mathsf{IsHide}$, $\mathsf{IsPair}$ and $\mathsf{IsSum}$ check that the size has the right structure, and destruct it into subparts. Especially, they know how to properly destruct a size variable. As an example, $\mathsf{IsPair}$ is defined as
+
+$$
+\mathsf{IsPair}(s)\defeq\begin{cases}
+(s_1, s_2) & \mbox{if } s = \symSpair\;s_1\;s_2 \\
+(x.\syml, x.\symr) & \mbox{if } s = x \\
+\bot & \mbox{otherwise}\\
+\end{cases}
+$$
+
+Rule {\sc LE} relaxes and time and size bounds. The definitions of $c\leq c'$ and $s\leq s'$ are a crucial part of design (ToDo: elaborate).
 
 \begin{figure}
 \fbox{$\Gamma\typing{e}{\tau}{c}{s}$}
+{\small
 \begin{mathpar}
 
 \inferrule* [Right=Var] 
@@ -385,20 +401,21 @@ Figure \ref{typing} gives representative typing rules. Typing judgments have the
 {\Gamma\typing{\syminr_{\tau'}\;e}{\tau'+\tau}{c}{\symSlr\;0\;s}} 
 
 \inferrule* [Right=Match]
-{\Gamma\typing{e}{\tau_1+\tau_2}{c}{s} \\ \mathsf{IsLR}(s)=(s_1,s_2) \\ \forall i,\;\Gamma, x:(\tau_i,s_i)\typing{e_i}{\tau}{c_i}{s'} \\ x\not\in\FV(\tau)\cup\FV(s')}
-{\Gamma\typing{\symmatch\; e \symwith \syminl\;x \Rightarrow e_1 \;|\; \syminr\;x \Rightarrow e_2}{\tau}{c+\symmax(c_1[s_1/x],c_2[s_2/x])}{s'}} 
+{\Gamma\typing{e}{\tau_1+\tau_2}{c}{s'} \\ \mathsf{IsSum}(s')=(s_1,s_2) \\ \forall i,\;\Gamma, x:(\tau_i,s_i)\typing{e_i}{\tau}{c_i}{s} \\ x\not\in\FV(\tau)\cup\FV(s)}
+{\Gamma\typing{\symmatch\; e \symreturn \tau \symand s \symwith \syminl\;x \Rightarrow e_1 \;|\; \syminr\;x \Rightarrow e_2}{\tau}{c+\symmax(c_1[s_1/x],c_2[s_2/x])}{s}} 
 
 \\
 
 \end{mathpar}
+}
 \caption{\label{typing}Typing rules}
 \end{figure}
 
-\section{(For 6.888) Curret Status}
-
-I have encoded all the definitions in Coq, and proved the typing of the merge-sort example. Currently I'm proving the type soundness, having designed a logical relation that will be the main proof technique.
-
 \section{\label{section-proof}Type Soundness Proof}
+
+Since this system is strictly more restrictive than System F, Thoerem \ref{thm-safety} is straight-forward to prove, and we will focus on the proof of Theorem \ref{thm-boundedness} (in its more general form). The proof is done by Logical Step-indexed Logical Relation~\cite{dreyer2009logical}.
+
+Logical Relations (or Logical Predicates for unary relations as in this case) are essentially interpretations of types. By interpreting a type into the set of ``good expressions'' that have the right type and property, Logical Relations can be used to prove that any well-typed expression has the wanted property. Following the common practice
 
 \section{\label{section-related}Related Work}
 
