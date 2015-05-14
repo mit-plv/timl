@@ -95,6 +95,9 @@
 \newcommand{\symtrue}{\mathsf{true}}
 \newcommand{\symfalse}{\mathsf{false}}
 \newcommand{\symmerge}{\mathsf{merge}}
+\newcommand{\relV}[1]{\mathcal{V}\lsem#1\rsem}
+\newcommand{\relE}[1]{\mathcal{E}\lsem#1\rsem}
+\newcommand{\later}{\triangleright}
 
 %% \newcommand{\intro}[2]{#2^#1}
 \newcommand{\intro}[2]{(#1 : #2)}
@@ -415,7 +418,28 @@ Rule {\sc LE} relaxes and time and size bounds. The definitions of $c\leq c'$ an
 
 Since this system is strictly more restrictive than System F, Thoerem \ref{thm-safety} is straight-forward to prove, and we will focus on the proof of Theorem \ref{thm-boundedness} (in its more general form). The proof is done by Logical Step-indexed Logical Relation~\cite{dreyer2009logical}.
 
-Logical Relations (or Logical Predicates for unary relations as in this case) are essentially interpretations of types. By interpreting a type into the set of ``good expressions'' that have the right type and property, Logical Relations can be used to prove that any well-typed expression has the wanted property. Following the common practice
+Logical relations (or Logical Predicates for unary relations as in this case) are essentially interpretations of types. By interpreting a type into the set of ``good expressions'' that have the right type and property, logical relations can be used to prove that any well-typed expression has the wanted property. Following the common practice, we define our logical relations in terms of $\relV{-}$ and $\relE{-}$. The logical relations are defined in Figure \ref{lrel}.
+
+\begin{figure}
+\fbox{$\relV{\tau}$} and \fbox{$\relE{\tau}$}
+$$
+\begin{array}{lcl}
+  \relV{\alpha}_\rho &\defeq& \cdots \\
+  \relV{\tau_1\times\tau_2}_\rho &\defeq& \cdots \\
+  \relV{\tau_1+\tau_2}_\rho &\defeq& \cdots \\
+  \relV{\arrow{\tau_1}{c}{s}{\tau_2}}_\rho &\defeq& \{(v,w) \;\mid\; v \downarrow \rho_1(\tau) \wedge \exists e.\;v=\lambda x.e \\
+  & & \hspace{.15in} \wedge w=\lambda x.(B,w_2) \wedge \forall v_1\;w_1.\;(v_1,w_1) \in \relV{\tau_1}_\rho \\
+  & & \hspace{.15in} \Rightarrow (e[v_1/x], w_2[w_1/x])\in \relE{\tau_2}^{\rho(c[|v_1|/x]),\rho(s[|v_1|/x])}_{\rho[x\mapsto(v_1,w_1)],B[w_1/x]}\} \\
+  \relV{\mu\alpha.\tau'}_\rho &\defeq& \mu S.\;\lambda (e,w).\; e \downarrow \rho_1(\tau) \wedge w \downarrow \rho_1(\tau) \wedge \\
+  & & \later (e \in \relV{\tau'}_{\rho[\alpha\mapsto(\rho_1(\tau),S)]}) \\
+  \relE{\tau}^{c,s}_{\rho,B} &\defeq& \{(e,w) \;\mid\; \vdash e:\rho_1(\tau) \wedge \vdash w:\rho_1(\tau) \wedge \\
+  & & \hspace{.15in} (\forall n\;e'.\; e\leadsto^n_0 e' \Rightarrow n \leq B) \wedge \\
+  & & \hspace{.15in} (\forall v\;w'.\; e\Downarrow v \wedge w\Downarrow w'\Rightarrow (v,w') \in \relV{\tau}_\rho) \wedge \\
+  & & \hspace{.15in} (\forall e'.\; e\leadsto^*_1 e' \Rightarrow c > 0 \wedge \later (e',w)\in \relE{\tau}^{c-1,s}_{\rho,B}) \}
+\end{array}
+$$
+\caption{\label{lrel}Logical Relations}
+\end{figure}
 
 \section{\label{section-related}Related Work}
 
@@ -432,7 +456,7 @@ Logical Relations (or Logical Predicates for unary relations as in this case) ar
 \bibliographystyle{abbrvnat}
 
 % The bibliography should be embedded for final submission.
-
+p
 \bibliography{bib.bib}
 
 %% \begin{thebibliography}{}
