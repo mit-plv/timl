@@ -418,28 +418,78 @@ Rule {\sc LE} relaxes and time and size bounds. The definitions of $c\leq c'$ an
 
 Since this system is strictly more restrictive than System F, Thoerem \ref{thm-safety} is straight-forward to prove, and we will focus on the proof of Theorem \ref{thm-boundedness} (in its more general form). The proof is done by Logical Step-indexed Logical Relation~\cite{dreyer2009logical}.
 
-Logical relations (or Logical Predicates for unary relations as in this case) are essentially interpretations of types. By interpreting a type into the set of ``good expressions'' that have the right type and property, logical relations can be used to prove that any well-typed expression has the wanted property. Following the common practice, we define our logical relations in terms of $\relV{-}$ and $\relE{-}$. The logical relations are defined in Figure \ref{lrel}.
+Logical relations (or logical predicates for unary relations as in this case) are essentially interpretations of types. By interpreting a type into the set of ``good expressions'' that have the right type and property, logical relations can be used to prove that any well-typed expression has the wanted property. Following the common practice, we define our logical relations in terms of $\relV{-}$ and $\relE{-}$. The logical relations are defined in Figure \ref{lrel}.
 
 \begin{figure}
 \fbox{$\relV{\tau}$} and \fbox{$\relE{\tau}$}
 $$
 \begin{array}{lcl}
-  \relV{\alpha}_\rho &\defeq& \cdots \\
-  \relV{\tau_1\times\tau_2}_\rho &\defeq& \cdots \\
-  \relV{\tau_1+\tau_2}_\rho &\defeq& \cdots \\
-  \relV{\arrow{\tau_1}{c}{s}{\tau_2}}_\rho &\defeq& \{(v,w) \;\mid\; v \downarrow \rho_1(\tau) \wedge \exists e.\;v=\lambda x.e \\
-  & & \hspace{.15in} \wedge w=\lambda x.(B,w_2) \wedge \forall v_1\;w_1.\;(v_1,w_1) \in \relV{\tau_1}_\rho \\
-  & & \hspace{.15in} \Rightarrow (e[v_1/x], w_2[w_1/x])\in \relE{\tau_2}^{\rho(c[|v_1|/x]),\rho(s[|v_1|/x])}_{\rho[x\mapsto(v_1,w_1)],B[w_1/x]}\} \\
+  \relV{\alpha}_\rho &\defeq& \rho_2(\alpha) \\
+  \relV{\symunit}_\rho &\defeq& \lambda(v,w).\; v \downarrow \rho_1(\tau) \wedge w \downarrow \rho_1(\tau) \\
+  \relV{\tau_1\times\tau_2}_\rho &\defeq& \lambda(v,w).\; v \downarrow \rho_1(\tau) \wedge w \downarrow \rho_1(\tau) \wedge \exists v_1\;v_2\;w_1\;w_2. \\
+  & & \hspace{.15in} v=(v_1,v_2) \wedge w=(w_1,w_2) \wedge (v_1,w_1) \in \relV{\tau_1}_\rho \wedge \\
+  & & \hspace{.15in} (v_2,w_2) \in \relV{\tau_2}_\rho \\
+  \relV{\tau_1+\tau_2}_\rho &\defeq& \lambda(v,w).\; v \downarrow \rho_1(\tau) \wedge w \downarrow \rho_1(\tau) \wedge \exists v'\;w'. \\
+  & & \hspace{.15in} v=\syminl\;v' \wedge w=\syminl\;w' \wedge (v',w') \in \relV{\tau_1}_\rho \vee \\
+  & & \hspace{.15in} v=\syminr\;v' \wedge w=\syminr\;w' \wedge (v',w') \in \relV{\tau_2}_\rho \\
+  \relV{\arrow{\tau_1}{c}{s}{\tau_2}}_\rho &\defeq& \lambda (v,w).\;v \downarrow \rho_1(\tau) \wedge w \downarrow \rho_1(\tau) \wedge \exists e.\;v=\lambda x.e \wedge \\
+  & & \hspace{.15in} w=\lambda x.(B,w_2) \wedge \forall v_1\;w_1.\;(v_1,w_1) \in \relV{\tau_1}_\rho \\
+  & & \hspace{.15in} \Rightarrow (e[v_1/x], w_2[w_1/x])\in \relE{\tau_2}^{\rho(c[|v_1|/x]),\rho(s[|v_1|/x])}_{\rho[x\mapsto(v_1,w_1)],B[w_1/x]} \\
+  \relV{\forall^c_s\tau_1}_\rho &\defeq& \lambda (v,w).\;v \downarrow \rho_1(\tau) \wedge w \downarrow \rho_1(\tau) \wedge \exists e.\;v=\lambda\alpha.e \wedge \\
+  & & \hspace{.15in} w=\lambda.(B,w_2) \wedge \forall \tau'\;S.\;S \in \mathsf{VSet}(\tau') \\
+  & & \hspace{.15in} \Rightarrow (e[\tau'/\alpha], w_2)\in \relE{\tau_1}^{\rho(c),\rho(s)}_{\rho[\alpha\mapsto(\tau',S)],B} \\
   \relV{\mu\alpha.\tau'}_\rho &\defeq& \mu S.\;\lambda (e,w).\; e \downarrow \rho_1(\tau) \wedge w \downarrow \rho_1(\tau) \wedge \\
-  & & \later (e \in \relV{\tau'}_{\rho[\alpha\mapsto(\rho_1(\tau),S)]}) \\
-  \relE{\tau}^{c,s}_{\rho,B} &\defeq& \{(e,w) \;\mid\; \vdash e:\rho_1(\tau) \wedge \vdash w:\rho_1(\tau) \wedge \\
-  & & \hspace{.15in} (\forall n\;e'.\; e\leadsto^n_0 e' \Rightarrow n \leq B) \wedge \\
+  & & \hspace{.15in} \later (e \in \relV{\tau'}_{\rho[\alpha\mapsto(\rho_1(\tau),S)]}) \\
+  \relE{\tau}^{c,s}_{\rho,B} &\defeq& \lambda(e,w).\;\vdash e:\rho_1(\tau) \wedge \vdash w:\rho_1(\tau) \wedge \\
+  & & \hspace{.15in} (\exists m, B \Downarrow m \wedge \forall n\;e'.\; e\leadsto^n_0 e' \Rightarrow n \leq m) \wedge \\
   & & \hspace{.15in} (\forall v\;w'.\; e\Downarrow v \wedge w\Downarrow w'\Rightarrow (v,w') \in \relV{\tau}_\rho) \wedge \\
-  & & \hspace{.15in} (\forall e'.\; e\leadsto^*_1 e' \Rightarrow c > 0 \wedge \later (e',w)\in \relE{\tau}^{c-1,s}_{\rho,B}) \}
+  & & \hspace{.15in} (\forall e'.\; e\leadsto^*_1 e' \Rightarrow c > 0 \wedge \later (e',w)\in \relE{\tau}^{c-1,s}_{\rho,B})
 \end{array}
 $$
 \caption{\label{lrel}Logical Relations}
 \end{figure}
+
+The logic relation is defined in a special logic introduced in \cite{dreyer2009logical} where they called it LSLR. The crucial novel features of this logic are the recursive binder $\mu$ and the later operator $\later$. A syntactic rule is that any appearance of variables introduced by $\mu$ must be under $\later$. With this syntactic constraint, this logic can be given a Kripke model that corresponds to step-indices in \cite{step-index}. The most salient feature of our logic relation design is that the target of interpretation is no longer sets of expressions, but sets of pairs of expression and ``width'' (denoted by $w$).
+
+``Width'' stands for the constant factor in asymptotic complexity analysis, such as the $B$ in Theorem \ref{thm-boundedness}. It is the maximal number of steps allowed bewteen two consecutive unfold-fold reduction. The reason it is a structural thing instead of just a natural number is that, for example in Theorem \ref{thm-boundedness}, when $\tau_1$ has arrows in it, the ``width'' of function $f$ (i.e. $B$) actually dependents on the width of the input argument ``v''. For example, suppose $\tau_1=\arrow{\symunit}{1}{0}{\symunit}$, $v$ could be any of the following values:
+$$
+\begin{array}{l}
+  \lambda x.\symtt \\
+  \lambda x.\symlet y=\symtt\symin\symtt \\
+  \lambda x.\symlet y=\symtt\symin\symlet y=\symtt\symin\symtt \\
+  \lambda x.\symlet y=\symtt\symin\symlet y=\symtt\symin\symlet y=\symtt\symin\symtt \\
+  \cdots
+\end{array}
+$$
+
+So if $f=\lambda v.\; v\;\symtt$, the width of $f$ will depend on the width of $v$. Equivalently by skolemization, $B$ in Theorem \ref{thm-boundedness} should be a function from width to width, instead of just a natural number. Taking widths into consideration, Theorem \ref{thm-boundedness} becomes:
+
+\begin{thm}[\label{thm-boundedness'}Soundness w.r.t. Boundedness]
+$$
+\begin{array}{l}
+\forall f,\tau_1,\tau_2,c,s. \\
+\hspace{0.1in} \vdash f:\arrow{(x:\tau_1)}{c}{s}{\tau_2} \wedge f\in\mathsf{Val}\Rightarrow \\
+\hspace{0.2in} \exists B. \;\forall v\;B_1.\; \vdash v:\tau_1 \Rightarrow \\
+\hspace{0.3in} \forall e',n.\; f\;v\leadsto^n e' \Rightarrow n\leq B(B_1)\times c[|v|/x]
+\end{array}
+$$
+\end{thm}
+
+This line of thinking needs to be taken further, because arrows can appear anywhere inside a type, and the structure of widths is almost isomorphic to the structure of expressions, with all the $\lambda$-abstraction, pair and recursive structures. Thus widths become ``shadow expressions'', accompanying expressions in our logical relations. The definition of widths is give by Figure \ref{widths}. Since they are almost isomorphic to expressions, we use the same constructors for both of them.
+
+\begin{figure}
+$$\begin{array}{rrcl}
+  \textrm{Widths} & w &::=& \symtt \mid \sympair\;w\;w \mid \syminl\;w \mid \syminr\;w \mid x \mid w(w)_1 \mid \lambda x.(B,w) \\
+  & & & \mid w\;\tau \mid \lambda.(B,w) \mid \symfold w \mid \symunfold\;w \mid \symfst\;w \mid \symsnd\;w \\
+  & & & \mid (\symmatch\;w \symwith\syminl\;x\Rightarrow w\;|\;\syminr\;x\Rightarrow w) \\
+  & B &::=& \mathsf{const}\;n \mid w(w)_2 \mid B\;+\;B \mid B\;*\;B \mid \symmax\;B\;B
+\end{array}$$
+\caption{\label{widths}Widths}
+\end{figure}
+
+An $\lambda$-abstraction of width packages two pieces of information: $B$, the width of the function body; and $w$, the width structure of the result value. Since the $\lambda$-abstraction has two pieces of information, we need two kinds of applications to get the information out, hence $w(w)_1$ and $w(w)_2$. Syntactic class $B$ is a symbolic representation of natural numbers, meaning that it has abstractions and applications in it, but it should evaluates to a natural number. We also have definitions of values and evaluation rules for widths (ToDo: add them), similar to those for expressions. Since widths are not terminating by definition, in the logical relations we have to explicitly require that they terminate.
+
+The roadmap of using logical relations is to split the theorem we want to prove, schematically write as $\vdash e:\tau \Rightarrow P_\tau(e)$, into two lemmas: (1) the Foundamental Lemma, $\vdash e:\tau \Rightarrow e\in\relE{\tau}$; and (2) the Adequacy Lemma, $e\in\relE{\tau} \Rightarrow P_\tau(e)$. The Foundamental Lemma is proved by induction on the typing derivation. The logical relations defined in Figure \ref{lrel} are only for ``good'' closed expressions, but for the proof by induction to work, we need to abduce it to open terms in a typing context.
 
 \section{\label{section-related}Related Work}
 
