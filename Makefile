@@ -32,7 +32,7 @@ clean:
 
 paper: class-paper.pdf
 
-class-paper.pdf: class-paper.tex bib.bib 
+class-paper.pdf: class-paper.tex bib.bib lstcoq.sty
 
 clean-paper:
 	@ rm -f *.aux *.out *.nav *.toc *.vrb *.pdf *.snm *.log *.bbl *.blg
