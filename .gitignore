@@ -14,4 +14,4 @@ Makefile.coq
 *.toc
 *.bbl
 *.blg
-*.synctex.gz
+*.synctex.gz*

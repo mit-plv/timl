@@ -103,6 +103,7 @@
 \newcommand{\relE}[1]{\mathcal{E}\lsem#1\rsem}
 \newcommand{\relEC}[1]{\mathcal{EC}\lsem#1\rsem}
 \newcommand{\later}{\triangleright}
+\newcommand{\vtos}[1]{\lfloor #1 \rfloor}
 
 %% \newcommand{\intro}[2]{#2^#1}
 \newcommand{\intro}[2]{(#1 : #2)}
@@ -163,7 +164,7 @@
                                   % short abstracts)
 
 %% \titlebanner{banner above paper title}        % These are ignored unless
-\preprintfooter{short description of paper}   % 'preprint' option specified.
+%% \preprintfooter{short description of paper}   % 'preprint' option specified.
 
 \title{$\logo$ : Complexity Recursive Types}
 %% \subtitle{Subtitle Text, if any}
@@ -251,14 +252,14 @@ $$
 \forall f\;\tau_1\;\tau_2\;c\;s, \\
 \hspace{0.1in} \vdash f:\arrow{(x:\tau_1)}{c}{s}{\tau_2} \wedge f\in\mathsf{Val}\Rightarrow \\
 \hspace{0.2in} \exists B, \;\forall v,\; \vdash v:\tau_1 \Rightarrow \\
-\hspace{0.3in} \forall e'\;n,\; f\;v\leadsto^n e' \Rightarrow n\leq B\times c[|v|/x]
+\hspace{0.3in} \forall e'\;n,\; f\;v\leadsto^n e' \Rightarrow n\leq B\times c[\vtos{v}/x]
 \end{array}
 $$
 \end{thm}
 
 Theorem \ref{thm-safety}, the standard nonstuckness property, says that for any well-typed program (in an empty typing context), wherever the program runs to ($e'$), it is either successfully done (be a value) or can take one more step. That is, it won't get stuck in some erronous state where there is no legal step to progress.
 
-Theorem \ref{thm-boundedness} says that for any well-typed value $f$ of the arrow type $\arrow{(x:\tau_1)}{c}{s}{\tau_2}$, there exists some constant factor $B$, so that for any input value of the right type, the composed expression $f\;v$ won't run for more than $B\times c[|v|/x]$ steps, where $c$ is the complexity guarantee given by the type. Combining it with Theorem \ref{thm-safety}, we can conclude that $f\;v$ will always successfully terminate within $B\times c[|v|/x]$ steps. Here a step $\leadsto$ means any reduction step in a standard strict call-by-value evaluation strategy (defined in Section \ref{section-lang}), not just the unfold-fold count used for complexity expressions in types. Note that the existentially quantified $B$ is outside hence independent of the input value, which meets the standard definition of asymptotic complexity. 
+Theorem \ref{thm-boundedness} says that for any well-typed value $f$ of the arrow type $\arrow{(x:\tau_1)}{c}{s}{\tau_2}$, there exists some constant factor $B$, so that for any input value of the right type, the composed expression $f\;v$ won't run for more than $B\times c[\vtos{v}/x]$ steps ($\vtos{v}$ means the size of value $v$), where $c$ is the complexity guarantee given by the type. Combining it with Theorem \ref{thm-safety}, we can conclude that $f\;v$ will always successfully terminate within $B\times c[\vtos{v}/x]$ steps. Here a step $\leadsto$ means any reduction step in a standard strict call-by-value evaluation strategy (defined in Section \ref{section-lang}), not just the unfold-fold count used for complexity expressions in types. Note that the existentially quantified $B$ is outside hence independent of the input value, which meets the standard definition of asymptotic complexity. 
 
 Theorem \ref{thm-boundedness} is only one corollary from the strenghened result in the main proof, for unary functions. We can have theorems such as Theorem \ref{thm-boundedness2} for binary and n-arity functions, and the existentially quantified constant factor will be independent of any input.
 
@@ -268,7 +269,7 @@ $$
 \forall f\;\tau_1\;\tau_2\;\tau_3\;c\;s, \\
 \hspace{0.1in} \vdash f:\arrow{(x_1:\tau_1)}{0}{0}{\arrow{(x_2:\tau_2)}{c}{s}{\tau_3}} \wedge f\in\mathsf{Val}\Rightarrow \\
 \hspace{0.2in} \exists B, \;\forall v_1\;v_2,\; (\forall i,\;\vdash v_i:\tau_i) \Rightarrow \\
-\hspace{0.3in} \forall e'\;n,\; f\;v_1\;v_2\leadsto^n e' \Rightarrow n\leq B\times c[|v_1|/x_1][|v_2|/x_2]
+\hspace{0.3in} \forall e'\;n,\; f\;v_1\;v_2\leadsto^n e' \Rightarrow n\leq B\times c[\vtos{v_1}/x_1][\vtos{v_2}/x_2]
 \end{array}
 $$
 \end{thm}
@@ -288,27 +289,29 @@ $$\begin{array}{rrcl}
   \textrm{Complexity Expr} & c &::=& x.\vec{i}.\symwork \textrm{(work)} \mid x.\vec{i}.\symspan \textrm{(span)} \mid 0 \mid 1 \mid c+c \mid \cdots \\
   \textrm{Sizes} & s &::=& x.\vec{i} \mid \Sstats{c_\symwork,c_\symspan} \mid \symSlr\;s\;s \\
   & & & \mid \symSpair\;s\;s \mid \symSfold\;s \mid \symShide\;s \\
-  \textrm{Types} & \tau &::=& \symunit \mid \tau\times\tau \mid \tau+\tau \mid X \mid \arrow{\intro{x}{\tau}}{c}{s}{\tau} \\
-  & & & \mid \forall^c_s X.\tau \mid \Lambda X.\tau \mid \tau\;\tau \mid \mu X.\tau \mid \thide\tau \\
+  \textrm{Types} & \tau &::=& \symunit \mid \tau\times\tau \mid \tau+\tau \mid \alpha \mid \arrow{\intro{x}{\tau}}{c}{s}{\tau} \\
+  & & & \mid \forall^c_s \alpha.\tau \mid \Lambda \alpha.\tau \mid \tau\;\tau \mid \mu \alpha.\tau \mid \thide\tau \\
   \textrm{Expressions} & e &::=& \symtt \mid \sympair\;e\;e \mid \syminl_\tau\;e \mid \syminr_\tau\;e \mid x \mid e\;e \mid \lambda x:\tau.\;e \\
-  & & & \mid \symlet x := e \symin e \mid e\;\tau \mid \lambda X.e \mid \symfold\tau\;e \\
+  & & & \mid \symlet x := e \symin e \mid e\;\tau \mid \lambda \alpha.e \mid \symfold\tau\;e \\
   & & & \mid \symunfold\;e \mid \symhide\;e \mid \symunhide\;e \mid \symfst\;e \mid \symsnd\;e \\
-  & & & \mid (\symmatch\;e \symreturn \tau \symand s \symwith\syminl\;x\Rightarrow e\;|\;\syminr\;x\Rightarrow e) \\
-  \textrm{Values} & v &::=& x \mid \lambda x:\tau.e \mid \lambda X.e \mid \symfold\tau\;v \mid \symtt \mid (v,v) \\
+  & & & \mid (\symmatch\;e \symreturn \tau \symand s \symwith \\
+  & & & \hspace{.1in} \syminl\;x\Rightarrow e\;|\;\syminr\;x\Rightarrow e) \\
+  \textrm{Values} & v &::=& x \mid \lambda x:\tau.e \mid \lambda \alpha.e \mid \symfold\tau\;v \mid \symtt \mid (v,v) \\
   & & & \mid \syminl\;v \mid \syminr\;v \mid \symhide v \\
   \textrm{CBV Eval Ctx} & E &::=& \Box \mid E\;e \mid v\;E \mid \symlet x := E\symin e \mid E\;\tau \\
   & & & \mid \symfold\tau\;E \mid \symunfold\tau\;E \mid \symhide\;E \mid \symunhide\;E \\
   & & & \mid (E, e) \mid (v, E) \mid \syminl_\tau\;E \mid \syminr_\tau\;E \mid \symfst\;E \mid \symsnd\;E \\
-  & & & \mid (\symmatch\;E\symreturn \tau \symand s \symwith\syminl\;x\Rightarrow e\;|\;\syminr\;x\Rightarrow e) \\
+  & & & \mid (\symmatch\;E\symreturn \tau \symand s \symwith \\
+  & & & \hspace{.1in} \syminl\;x\Rightarrow e\;|\;\syminr\;x\Rightarrow e) \\
   \textrm{Kinds} & k &::=& * \mid *\to k \\
-  \textrm{Typing Ctx} & \Gamma &::=& \cdot \mid \Gamma,X \mid \Gamma, x:(\tau, \optional{s})
+  \textrm{Typing Ctx} & \Gamma &::=& \cdot \mid \Gamma,\alpha \mid \Gamma, x:\tau
 \end{array}$$
 \caption{\label{syntax}Syntax}
 \end{figure}
 
-Now let's turn to the complexity and size part. Firstly, complexity and size annotations only appear on arrows and in $\forall$ binders (the latter can be seen as a degenerated case of the former). Each arrow type $\arrow{\intro{x}{\tau_1}}{c}{s}{\tau_2}$ introduces a size variable standing for the input size, which can be referred to in $c$, $s$ and $\tau_2$ (but not $\tau_1$). The $\forall$ binder does not introduce new size variables. The reason for $\forall$ to also have complexity annotation is that, just like $\lambda x.e$, $\lambda X.e$ is a ``delayed'' computation, meaning that it is itself a value but when been applied, its inner part may take some steps to reach another value. But in most cases, the $c$ and $s$ in $\forall^c_s$ are just 0. When $c$ or $s$ is 0, we elide it in this paper.
+Now let's turn to the complexity and size part. Firstly, complexity and size annotations only appear on arrows and in $\forall$ binders (the latter can be seen as a degenerated case of the former). Each arrow type $\arrow{\intro{x}{\tau_1}}{c}{s}{\tau_2}$ introduces a size variable standing for the input size, which can be referred to in $c$, $s$ and $\tau_2$ (but not $\tau_1$). The $\forall$ binder does not introduce new size variables. The reason for $\forall$ to also have complexity annotation is that, just like $\lambda x.e$, $\lambda \alpha.e$ is a ``delayed'' computation, meaning that it is itself a value but when been applied, its inner part may take some steps to reach another value. But in most cases, the $c$ and $s$ in $\forall^c_s$ are just 0. When $c$ or $s$ is 0, we elide it in this paper.
 
-We first explain the definition of sizes. As mention before, the size of a value is a tree-like structure, closely mirroring the structure of a value. Comparing ``Sizes'' and ``Values'' shows that they are almost isomorphic except that sizes do not have $\lambda$-abstractions but have constructors $x.\vec{i}$ and $\Sstats{c_\symwork,c_\symspan}$. $x.\vec{i}$ is used to refer to a subpart of a size variable. One can go as deep as she like into a size variable (ToDo: explain). The query indices for subparts are the corresponding eliminators of size constructors. $\Sstats{c_\symwork,c_\symspan}$ is used to construct a size that has no structural information, only the measures. There are two measures, ``work'' and ``span'', borrowed from the parallel computation literature. ``Work'' means the number of ``$\symSfold$'' nodes in the size; ``span'' means the height of the size seen as a tree, only considering ``$\symSfold$'' nodes. ``Span'' seems useless in a non-parallel setting, but remember we can define trees, where ``span'' is meaningful even in a non-parallel setting. (ToDo: explain the difference and relation between ``size'' and ``concrete size'').
+We first explain the definition of sizes. As mention before, the size of a value is a tree-like structure, closely mirroring the structure of a value. Comparing ``Sizes'' and ``Values'' shows that they are almost isomorphic except that sizes do not have $\lambda$-abstractions but have constructors $x.\vec{i}$ and $\Sstats{c_\symwork,c_\symspan}$. $x.\vec{i}$ is used to refer to a subpart of a size variable. One can go as deep as she like into a size variable (ToDo: explain). The query indices for subparts are the corresponding eliminators of size constructors. $\Sstats{c_\symwork,c_\symspan}$ is used to construct a size that has no structural information, only the measures. There are two measures, ``work'' and ``span'', borrowed from the parallel computation literature. ``Work'' means the number of ``$\symSfold$'' nodes in the size; ``span'' means the height of the size seen as a tree, only considering ``$\symSfold$'' nodes. ``Span'' seems useless in a non-parallel setting, but remember we can define trees, where ``span'' is meaningful even in a non-parallel setting. 
 
 The intuition behind the definition of size is that the $\symSfold$-skeleton is the real ``variable'' thing in a size, and when we say ``how computation grows with the input size'' we actually mean ``how computation grows with the input size's $\symSfold$-skeleton''.
 
@@ -316,7 +319,7 @@ We need the $\Sstats{c_\symwork,c_\symspan}$ constructor because $s$ is also our
 
 Now we explain the time complexity expression. Since variables can appear in a complexity expression, we define complexity expression as an abstract algebra instead of just natural numbers. Which algebra to use (hence the expressiveness of complexity expressions) is almost an orthogonal issue of the type system design. We will elaborate the axioms we used in the type soundness proof regarding this algebra, thus any algebra satisfying these axioms will give us a sound type system. Do note that the choice of this algebra greatly influence the complexity precision and type checking/inference difficulty on concrete programs, so we will discuss this orthogonal but important issue in Section \ref{section-discussion}. Besides the algebraic operations, a complexity expression can also refer to a measure of (a subpart of) a size variable. For intuitiveness we write ``$|x|$'' for ``$x.\symwork$''
 
-We introduced a new ``hide'' type constructor denoted as $\thide{\tau}$, its corresponding terms $(\symhide e)$ and $(\symunhide e)$, and its corresponding size constructor $(\symShide\;s)$. The motivation for this new type constructor is illustrated by this example: $f:\forall A.\;\arrow{\intro{x}{\symlist\;A}}{|x|}{}{\symlist\;A}$. When one first looks at this function one may think its complexity is linear with the input list's length. But when one instantiates it with a type, such as $(\symlist\;\symbool)$, $f$ suddenly becomes $f\;(\symlist\;\symbool):\arrow{\intro{x}{\symlist\;(\symlist\;\symbool)}}{|x|}{}{\symlist\;(\symlist\;\symbool)}$. Its complexity is no longer linear with the outer list's length! The problem is that there is not a way for a polymorphic function to express the notion of ``ignoring values of the parameter type'' in its complexity specification. Now that we have ``hide'' types and define list as $\symlist \defeq \Lambda A.\;\mu X.\;\symunit + \thide{A} \times X$, and the measure calculation ignores everything under a $\symShide$ node, both $f$'s and $(f\;(\symlist\;\symbool))$'s complexity specification mean the length of the input list.
+We introduced a new ``hide'' type constructor denoted as $\thide{\tau}$, its corresponding terms $(\symhide e)$ and $(\symunhide e)$, and its corresponding size constructor $(\symShide\;s)$. The motivation for this new type constructor is illustrated by this example: $f:\forall A.\;\arrow{\intro{x}{\symlist\;A}}{|x|}{}{\symlist\;A}$. When one first looks at this function one may think its complexity is linear with the input list's length. But when one instantiates it with a type, such as $(\symlist\;\symbool)$, $f$ suddenly becomes $f\;(\symlist\;\symbool):\arrow{\intro{x}{\symlist\;(\symlist\;\symbool)}}{|x|}{}{\symlist\;(\symlist\;\symbool)}$. Its complexity is no longer linear with the outer list's length! The problem is that there is not a way for a polymorphic function to express the notion of ``ignoring values of the parameter type'' in its complexity specification. Now that we have ``hide'' types and define list as $\symlist \defeq \Lambda A.\;\mu \alpha.\;\symunit + \thide{A} \times \alpha$, and the measure calculation ignores everything under a $\symShide$ node, both $f$'s and $(f\;(\symlist\;\symbool))$'s complexity specification mean the length of the input list.
 
 \subsection{Typing Rules}
 
@@ -334,7 +337,24 @@ $$
 \end{cases}
 $$
 
-Rule {\sc LE} relaxes and time and size bounds. The definitions of $c\leq c'$ and $s\leq s'$ are a crucial part of design (ToDo: elaborate).
+Rule {\sc LE} relaxes and time and size bounds. The definitions of $c\leq c'$ and $s\leq s'$, given in Figure \ref{cle} and Figure \ref{sle} respectively, are a crucial part of design (ToDo: elaborate).
+
+\begin{figure}
+\fbox{$c_1\leq c_2$}
+\begin{mathpar}
+\end{mathpar}
+(ToDo: fill in)
+\caption{\label{cle}Complexity Order}
+\end{figure}
+
+\begin{figure}
+\fbox{$s_1\leq s_2$}
+\begin{mathpar}
+\end{mathpar}
+(ToDo: fill in)
+\caption{\label{sle}Size Order}
+\end{figure}
+
 
 \begin{figure}
 \fbox{$\Gamma\typing{e}{\tau}{c}{s}$}
@@ -356,22 +376,22 @@ Rule {\sc LE} relaxes and time and size bounds. The definitions of $c\leq c'$ an
 \\
 
 \inferrule* [Right=Tapp]
-{\Gamma\typing{e}{\forall^c_s X.\tau}{c'}{1}}
-{\Gamma\typing{e\;\tau_2}{\tau[\tau_2/X]}{c'+c}{s}}
+{\Gamma\typing{e}{\forall^c_s \alpha.\tau}{c'}{1}}
+{\Gamma\typing{e\;\tau_2}{\tau[\tau_2/\alpha]}{c'+c}{s}}
 
 \inferrule* [Right=Tabs]
-{\Gamma, X\typing{e}{\tau}{c}{s}}
-{\Gamma\typing{\lambda X.\;e}{\forall X^c_s.\tau}{0}{0}} 
+{\Gamma, \alpha\typing{e}{\tau}{c}{s}}
+{\Gamma\typing{\lambda \alpha.\;e}{\forall \alpha^c_s.\tau}{0}{0}} 
 
 \\
 
 \inferrule* [Right=Fold]
-{\tau \equiv \mu X. \tau_1 \\ \Gamma\typing{e}{\tau_1[\tau/X]}{c}{s}}
+{\tau \equiv \mu \alpha. \tau_1 \\ \Gamma\typing{e}{\tau_1[\tau/\alpha]}{c}{s}}
 {\Gamma\typing{\symfold \tau \; e}{\tau}{c}{\symSfold s}}
 
 \inferrule* [Right=Unfold]
-{\Gamma\typing{e}{t}{c}{s} \\ \mathsf{IsFold}(s)=s_1 \\ \tau \equiv \mu X.\tau_1}
-{\Gamma\typing{\symunfold\;e}{\tau_1[\tau/X]}{1+c}{s_1}}
+{\Gamma\typing{e}{t}{c}{s} \\ \mathsf{IsFold}(s)=s_1 \\ \tau \equiv \mu \alpha.\tau_1}
+{\Gamma\typing{\symunfold\;e}{\tau_1[\tau/\alpha]}{1+c}{s_1}}
 
 \inferrule* [Right=Hide]
 {\Gamma\typing{e}{\tau}{c}{s}}
@@ -422,7 +442,7 @@ Rule {\sc LE} relaxes and time and size bounds. The definitions of $c\leq c'$ an
 
 \section{\label{section-proof}Type Soundness Proof}
 
-Since this system is strictly more restrictive than System F, Thoerem \ref{thm-safety} is straight-forward to prove, and we will focus on the proof of Theorem \ref{thm-boundedness} (in its more general form). The proof is done with Logical Step-indexed Logical Relation~\cite{dreyer2009logical}.
+Since this system is strictly more restrictive than System F, Thoerem \ref{thm-safety} is straight-forward to prove, and we will focus on the proof of Theorem \ref{thm-boundedness} (in its more general form). The proof is done by using Logical Step-indexed Logical Relation~\cite{dreyer2009logical}.
 
 Logical relations (or logical predicates for unary relations as in this case) are essentially interpretations of types. By interpreting a type into the set of ``good expressions'' that have the right type and property, logical relations can be used to prove that any well-typed expression has the wanted property. Following the common practice, we define our logical relations in terms of $\relV{-}$ and $\relE{-}$. The logical relation definitions are given in Figure \ref{lrel}.
 
@@ -442,7 +462,7 @@ Logical relations (or logical predicates for unary relations as in this case) ar
   & \hspace{.1in} v=\syminr\;v' \wedge w=\syminr\;w' \wedge (v',w') \in \relV{\tau_2}_\rho \\
   \relV{\arrow{\tau_1}{c}{s}{\tau_2}}_\rho &\defeq \lambda (v,w).\;v \downarrow \rho(\tau) \wedge w \downarrow \rho(\tau) \wedge \exists e,\;v=\lambda x.e \wedge \\
   & \hspace{.1in} w=\lambda x.(B,w_2) \wedge \forall v_1\;w_1,\;(v_1,w_1) \in \relV{\tau_1}_\rho \Rightarrow \\
-  & \hspace{.1in} (e[v_1/x], w_2[w_1/x])\in \relE{\tau_2}^{\rho(c[|v_1|/x]),\rho(s[|v_1|/x])}_{\rho[x\mapsto(v_1,w_1)],B[w_1/x]} \\
+  & \hspace{.1in} (e[v_1/x], w_2[w_1/x])\in \relE{\tau_2}^{\rho(c[\vtos{v_1}/x]),\rho(s[\vtos{v_1}/x])}_{\rho[x\mapsto(v_1,w_1)],B[w_1/x]} \\
   \relV{\forall^c_s\tau_1}_\rho &\defeq \lambda (v,w).\;v \downarrow \rho(\tau) \wedge w \downarrow \rho(\tau) \wedge \exists e,\;v=\lambda\alpha.e \wedge \\
   & \hspace{.1in} w=\lambda.(B,w_2) \wedge \forall \tau'\;r,\;r \in \mathsf{VRel}(\tau') \Rightarrow \\
   & \hspace{.1in} (e[\tau'/\alpha], w_2)\in \relE{\tau_1}^{\rho(c),\rho(s)}_{\rho[\alpha\mapsto(\tau',r)],B} \\
@@ -461,9 +481,15 @@ Logical relations (or logical predicates for unary relations as in this case) ar
 \end{figure}
 
 \subsection {Logical Step-indexed Logical Relation}
-Recursive types cause trouble for defining logical relations because in the recursive type case the unfolded type is not strictly smaller which prevents $\relV{\tau}$ from being defined recursively on $\tau$ (it cannot be defined inductively as a proposition either since in the arrow type case there is a non-positive appearance of $\relV{-}$). One solution is to define $\relV{\tau}$ recursively on another thing called ``step index'' \cite{ahmed2006step}. Here we employ another solution, by defining the logical relation in Figure \ref{lrel} in a special logic introduced in \cite{dreyer2009logical} called Logical Step-indexed Logical Relation (LSLR). The crucial novel connectives of this logic are the recursive binder $\mu$ and the later operator $\later$. A syntactic rule says that any appearance of variables introduced by $\mu$ must be under $\later$. With this syntactic constraint, this logic can be given a Kripke model that corresponds to step-indices in \cite{ahmed2006step}. 
+Recursive types cause trouble for defining logical relations because in the recursive type case the unfolded type is not strictly smaller, which prevents $\relV{\tau}$ from being defined recursively on $\tau$ (it cannot be defined inductively as a proposition either since in the arrow type case there is a non-positive appearance of $\relV{-}$). One solution is to define $\relV{\tau}$ recursively on another decreasing parameter called ``step index'' \cite{ahmed2006step}. Here we employ another solution, by defining the logical relation in Figure \ref{lrel} in a special logic introduced in \cite{dreyer2009logical} called Logical Step-indexed Logical Relation (LSLR). The crucial novel connectives of this logic are the recursive binder $\mu$ and the later operator $\later$. A syntactic rule says that any appearance of variables introduced by $\mu$ must be under $\later$. With this syntactic constraint, this logic can be given a Kripke model that corresponds to step-indices in \cite{ahmed2006step}. 
 
 The syntax of LSLR is summarized in Figure \ref{lslr}. It is a second-order logic, so we distinguish between first-order variable $x$ (which can range over any domain other than $R$) and second-order variable $r$ (which impredicatively ranges over $R$), and the $\forall$ and $\exists$ quantifiers on them. $\lceil P \rceil$ lifts any proposition $P$ in the meta-logic (Coq in our case) to LSLR. Each LSLR formula $R$ is also associated with an arity, elided here and made precise in our Coq formalization using dependent types (see Figure \ref{coq-lslr}). For example, $R$ must have arity 0 in $R \wedge R$ and $\later R$, and $\lambda x.R$ and $x\in R$ increases and decreases the arity respectively. $D$ is a parameter of LSLR which determines how LSLR formulas are interpreted. For example, if $D$ is chosen to be closed expressions, then LSLR formulas with arity 1 are interpreted as sets of closed expressions. In our usage, we instantiate $D$ to be pairs of closed-expression/closed-width (explained below).
+
+A LSLR validity judgment takes the form
+$$
+\mathcal{X};\mathcal{R};\mathcal{P}\vdash R
+$$
+where $\mathcal{X}$ is the context (a list) of first-order variables, $\mathcal{R}$ is the context of second-order variables, and $\mathcal{P}$ is a list of LSLR propositions (arity 0) well-formed in context, serving as premises. $R$ must be a well-formed LSLR proposition of arity 0. Readers are referred to \cite{dreyer2009logical} for the rules for establishing validity.
 
 \begin{figure}
   $$\begin{array}{rrcl}
@@ -495,13 +521,13 @@ $$
 \forall f\;\tau_1\;\tau_2\;c\;s, \\
 \hspace{0.1in} \vdash f:\arrow{(x:\tau_1)}{c}{s}{\tau_2} \wedge f\in\mathsf{Val}\Rightarrow \\
 \hspace{0.2in} \exists B, \;\forall v\;w_1,\; \vdash v:\tau_1 \wedge v\textrm{\ has\ width\ } w_1 \Rightarrow \\
-\hspace{0.3in} \forall e'\;n,\; f\;v\leadsto^n e' \Rightarrow n\leq B(w_1)\times c[|v|/x]
+\hspace{0.3in} \forall e'\;n,\; f\;v\leadsto^n e' \Rightarrow n\leq B(w_1)\times c[\vtos{v}/x]
 \end{array}
 $$
 \end{thm}
 where the ``$v$ has width $w_1$'' part needs to be made formal.
 
-This line of thinking needs to be taken further, because arrows can appear anywhere inside a type, and the structure of widths becomes almost isomorphic to the structure of expressions, with all the $\lambda$-abstraction, pair and recursive structures. Thus widths become ``shadow expressions'', accompanying expressions everywhere in our logical relations. The definition of widths is give by Figure \ref{widths}. Since they are almost isomorphic to expressions, we use the same constructors for both of them.
+This line of thinking needs to be taken further, because arrows can appear anywhere inside a type, and the structure of widths becomes almost isomorphic to the structure of expressions, with all the $\lambda$-abstraction, pair and recursive structures. Thus widths become ``shadow expressions'', accompanying expressions everywhere in our logical relations. The definition of widths is give by Figure \ref{widths}. Since they are almost isomorphic to expressions, we use the same notations for both of them.
 
 \begin{figure}
 $$\begin{array}{rrcl}
@@ -509,14 +535,13 @@ $$\begin{array}{rrcl}
   & & & \mid w\;\tau \mid \lambda.(B,w) \mid \symfold w \mid \symunfold\;w \mid \symfst\;w \mid \symsnd\;w \\
   & & & \mid (\symmatch\;w \symwith\syminl\;x\Rightarrow w\;|\;\syminr\;x\Rightarrow w) \\
   & B &::=& \mathsf{const}\;n \mid w(w)_2 \mid B\;+\;B \mid B\;*\;B \mid \symmax\;B\;B \\
-  & & & \textrm{ToDo: values and eval rules for widths} \\
 \end{array}$$
 \caption{\label{widths}Widths}
 \end{figure}
 
-An $\lambda$-abstraction of width packages two pieces of information: $B$, the width of the function body; and $w$, the width structure of the result value. Since the $\lambda$-abstraction has two pieces of information, we need two kinds of applications to get the information out, hence $w(w)_1$ and $w(w)_2$. Syntactic class $B$ is a symbolic representation of natural numbers, meaning that it has abstractions and applications in it, but it should evaluates to a natural number. We also have definitions of values and evaluation rules for widths (ToDo: add them), similar to those for expressions. Since widths are not terminating by definition, in the logical relations we have to explicitly require that they terminate.
+An $\lambda$-abstraction of width packages two pieces of information: $B$, the width of the function body; and $w$, the width structure of the result value. Since the $\lambda$-abstraction has two pieces of information, we need two kinds of applications to get the information out, hence $w(w)_1$ and $w(w)_2$. Syntactic class $B$ is a symbolic representation of natural numbers, meaning that it has abstractions and applications in it, but it should evaluates to a natural number. We also have definitions of values and evaluation rules for widths, similar to those for expressions. Since widths are not terminating by definition, in the logical relations we have to explicitly require that they terminate.
 
-The design in Figure \ref{lrel} largely follows \cite{dreyer2009logical}, with the addition of widths accompanying and mirroring expressions. As in \cite{dreyer2009logical}, in order to make types strictly shrink for recursive definition, substitution for type variables are postponed and the substitutes are collected in a substitution table $\rho$, defined in Figure \ref{lrel-aux}. For each type variable $\alpha$, we need both a syntactic substitute $\tau$ and a semantic substitute $r$. The former is needed to close an open type; the latter is needed in the $\relV{\alpha}_\rho$ case. Because our types can have size variables, we also need to collect substitutes for size variables. And Because $\rho$ is also used later to close open expressions and open widths, we directly put $(v,w)$ as the substitute for size variable (and term variable) $x$ (concrete size can be calculated from an expression).
+The design in Figure \ref{lrel} largely follows \cite{dreyer2009logical}, with the addition of widths accompanying and mirroring expressions. As in \cite{dreyer2009logical}, in order to make types strictly shrink for recursive definition, substitution for type variables are postponed and the substitutes are collected in a substitution table $\rho$, defined in Figure \ref{lrel-aux}. For each type variable $\alpha$, we need both a syntactic substitute $\tau$ and a semantic substitute $r$. The former is needed to close an open type; the latter is needed in the $\relV{\alpha}_\rho$ case. Because our types can have size variables, we also need to collect substitutes for size variables. And Because $\rho$ is also used later to close open expressions and open widths, we directly put $(v,w)$ as the substitute for size variable (and term variable) $x$ (size can be calculated from a value).
 
 \begin{figure}
 $$\begin{array}{rrcl}
@@ -524,14 +549,16 @@ $$\begin{array}{rrcl}
   & r\in\mathsf{VRel}(\tau) &\defeq& \forall v\;w,\;(v,w)\in r \Rightarrow v\downarrow\tau \wedge w\downarrow\tau \\
   & v \downarrow \tau &\defeq& \vdash v:\tau \wedge v\in\mathsf{Val} \\
   & e \Downarrow v &\defeq& e\leadsto^*v \wedge v\in\mathsf{Val} \\
-  & e \leadsto^n_m e' &\defeq& n\textrm{\ steps\ wherein\ }m\textrm{\ are\ unfold-folds}
+  & e \leadsto^n_m e' &\defeq& n\textrm{\ steps\ wherein\ }m\textrm{\ are\ unfold-folds} \\
+  & w \downarrow \tau &\defeq& \textrm{similar to }e\downarrow\tau \\
+  & w \Downarrow w' &\defeq& \textrm{similar to }e\Downarrow v \\
 \end{array}$$
 \caption{\label{lrel-aux}Auxiliary Definitions for Logical Relation}
 \end{figure}
 
 The clauses of $\relE{\tau}$ are so designed to enable the proof of Lemma \ref{lem-bind}. The $(\exists m,\cdots)$ clause states the meaning of ``width'' to be ``the maximal number of steps between two consecutive unfold-fold reductions''. $e\leadsto^n_l e'$ means $e$ evaluates to $e'$ with $n$ reduction steps (any kind) within which $l$ of them are unfold-fold reductions. Since $B$ is a symbolic representation of natural numbers which does not necessarily terminate, we must explicitly require that it terminate to a natural number $m$. The next clause is a usual requirement connecting $\relE{\tau}$ and $\relV{\tau}$. The last clause, as in \cite{dreyer2009logical}, is needed because $\relV{\mu\alpha.\tau}$ only gives us $\later (v',w') \in \relV{\tau'}$, and we need to establish $\relE{\tau'}$ from this later/weaker information.
 
-The roadmap of using logical relations is to split the theorem we want to prove, schematically write as $\vdash e:\tau \Rightarrow P_\tau(e)$, into two lemmas: (1) the Foundamental Lemma, $\vdash e:\tau \Rightarrow e\in\relE{\tau}$; and (2) the Adequacy Lemma, $e\in\relE{\tau} \Rightarrow P_\tau(e)$. The Foundamental Lemma is proved by induction on the typing derivation. The logical relations defined in Figure \ref{lrel} are only for ``good'' closed expressions, but for the proof-by-induction to work, we need to abduce it to open terms in a typing context. As an example, suppose a typing context $\Gamma=\alpha_1,x_2:\tau_2,x_3:\tau_3,\alpha_4,\cdots,\alpha_{n-1},x_n:\tau_n$, define:
+The roadmap of using logical relations is to split the theorem we want to prove, schematically written as $\vdash e:\tau \Rightarrow P_\tau(e)$, into two lemmas: (1) the Foundamental Lemma, $\vdash e:\tau \Rightarrow e\in\relE{\tau}$; and (2) the Adequacy Lemma, $e\in\relE{\tau} \Rightarrow P_\tau(e)$. The Foundamental Lemma is proved by induction on the typing derivation. The logical relations defined in Figure \ref{lrel} are only for closed expressions, but for the proof-by-induction to work, we need to expand it to open terms in a typing context. As an example, suppose a typing context $\Gamma=\alpha_1,x_2:\tau_2,x_3:\tau_3,\alpha_4,\cdots,\alpha_{n-1},x_n:\tau_n$, we define:
 
 $$
 \begin{array}{rcl}
@@ -543,14 +570,13 @@ $$
 & & r_4\in\mathsf{VRel}(\alpha_4),\cdots,r_{n-1}\in\mathsf{VRel}(\alpha_{n-1}),(x_n,w_n)\in\relV{\tau_n}_\rho
 \end{array}
 $$
-
-Then we can define the ``related'' relation as
+and define the ``related'' relation as
 
 $$
 w;B;\Gamma\related{e}{\tau}{c}{s}\defeq\mathcal{X};\mathcal{R};\mathcal{P}\vdash(\rho(e),\rho(w))\in\relE{\tau}^{\rho(c),\rho(s)}_{\rho,\rho(B)}
 $$
 
-And we can state the Foundamental Lemma and the Adequacy Lemma:
+We can now precisely state the Foundamental Lemma and the Adequacy Lemma:
 
 \begin{lem}[\label{lem-foundamental}Foundamental]
 $$
@@ -580,7 +606,7 @@ $$
 \hspace{0.1in} \vdash f:\arrow{(x:\tau_1)}{c}{s}{\tau_2} \wedge f\in\mathsf{Val}\Rightarrow \\
 \hspace{0.2in} \exists B, \;\forall v\;w_1,\; (v,w_1)\in\relV{\tau_1}_{[]} \Rightarrow \\
 \hspace{0.3in} \exists m,\; B(w_1)_2\Downarrow \mathsf{const}\;m \wedge \\
-\hspace{0.4in} \forall e'\;n,\; f\;v\leadsto^n e' \Rightarrow n\leq (m+1)\times (c[|v|/x]+1)
+\hspace{0.4in} \forall e'\;n,\; f\;v\leadsto^n e' \Rightarrow n\leq (m+1)\times (c[\vtos{v}/x]+1)
 \end{array}
 $$
 \end{thm}
@@ -601,17 +627,17 @@ $$
 \begin{array}{l}
 \relEC{\tau,\tau'}^{s_1,c_2,s_2}_{E,\rho,\rho',w_E,B_E}\defeq \\
 \hspace{.2in} \lambda(e,w_e).\;\forall v\;w_e',\;(v,w_e')\in\relV{\tau}_\rho \wedge e\leadsto*v \wedge w_e\leadsto*w_e' \wedge \\
-\hspace{.3in} |v|\leq s_1 \Rightarrow (E[v],w_E)\in\relE{\tau'}^{c_2,s_2}_{\rho',B_E}
+\hspace{.3in} \vtos{v}\leq s_1 \Rightarrow (E[v],w_E)\in\relE{\tau'}^{c_2,s_2}_{\rho',B_E}
 \end{array}
 $$
 
-The intuition of the usefulness of this lemma is that when considering a term $E[e]$ (terms such as $e_1\;e_2$, $\symfold e$, $\sympair\;e_1\;e_2$, etc. can all be decomposed into this form), we only need to consider the case when $e$ is a value. So for example proving $e_1\;e_2\in\relE{\tau}$ can be reduced to proving $v_1\;v_2\in\relV{\tau}$ where we can appeal to the definition of $\relV{\tau}$.
+The intuition of the usefulness of this lemma is that when considering a term $E[e]$ (terms such as $e_1\;e_2$, $\symfold e$, $\sympair\;e_1\;e_2$, etc. can all be decomposed into this form), we only need to consider the case where $e$ is a value. So, for example, proving $e_1\;e_2\in\relE{\tau}$ can be reduced to proving $v_1\;v_2\in\relV{\tau}$ where we can appeal to the definition of $\relV{\tau}$.
 
 (ToDo: list other key lemmas for the proof)
 
 \section{\label{section-coq}Coq Formalization}
 
-The central design decision in the Coq formalization of our language and proofs is how to encode the language and the LSLR logic used in the proof. For the language, we choose deBruijn indices, which is a common and popular encoding scheme for binding structures. In our Coq formalization, we used both dependent and non-dependent deBruijn indices, and found them having complemental in strength and weakness and both worthwhile.
+The central design decision in the Coq formalization of our language and proofs is how to encode the language and the LSLR logic used in the proof. For the language, we choose deBruijn indices, which is a common and popular encoding scheme for binding structures. In our Coq formalization, we used both dependent and non-dependent deBruijn indices, and found them having complemental strength and weakness and both worthwhile.
 
 Dependent deBruijn-index encoding is to use dependent types to parameterize terms over a variable context, which is a list of in-scope variables (possibly with their types or other information). The dependent deBruijin-index encoding of our expressions is given in Figure \ref{coq-depdeb}.
 
@@ -643,9 +669,9 @@ Inductive expr (ctx : list ty) :=
 \caption{\label{coq-depdeb}Dependent deBruijn-index Encoding of Expressions}
 \end{figure}
 
-Non-dependent deBruijn-index encoding is the above encoding without the context part, so variables are represented by natural numbers with the traditional deBruijn-index scheme, and there is no guarentee that the natural number makes sense in the current variable scope. Dependent deBruijn-index encoding builds in scoping constraints, thus has more information and is more convenient to use (eliminate); Terms in non-dependent deBruijn-index encoding is easier to create (introduce) because one can freely pick natural numbers regardless of scoping constraints. So we choose non-dependent deBruijn-index encoding for writing example programs and type-checking them, while dependent deBruijn-index encoding in type soundness proof. The two are related by the lemma that any well-typed non-dependent deBruijn-index encoded expression is well-scoped hence has a corresponding dependent deBruijn-index encoding.
+Non-dependent deBruijn-index encoding is the above encoding without the context part, so variables are represented by natural numbers with the traditional deBruijn-index scheme, and there is no guarentee that the natural number makes sense in the current variable scope. Dependent deBruijn-index encoding builds in scoping constraints, thus has more information and is more convenient to use (eliminate); on the other hand, terms in non-dependent deBruijn-index encoding is easier to create (introduce) because one can freely pick natural numbers regardless of scoping constraints. So we choose non-dependent deBruijn-index encoding for writing example programs and type-checking them, while dependent deBruijn-index encoding is used in our type soundness proof. The two are related by the fact that any well-typed non-dependent deBruijn-index encoded expression is well-scoped hence has a corresponding dependent deBruijn-index encoding.
 
-Dependent deBruijn-index encoding could also be used to encode the LSLR logic, but since most parts of LSLR formulas are just lifted Coq propositions, we want to use Coq's native Gallina terms for these lifted parts. When such a part refers a variable, such as $\forall x,\lceil P(x)\rceil$, $x$ also needs to be a Gallina variable, therefore we need Higher-Order Abstract Syntax (HOAS) encoding. As the solution, we use HOAS encoding for first-order variables in LSLR (because they need to appear in lifted Gallina terms), and dependent deBruijn indices for second-order variables (since HOAS cannot handle impredicative variables). The Coq definition of LSLR formulas is given in Figure \ref{coq-lslr}.
+Dependent deBruijn-index encoding could have been used also to encode the LSLR logic, but since most parts of LSLR formulas are just lifted Coq propositions, we want to use Coq's native Gallina terms for these lifted parts. When such a part refers a variable, such as $\forall x,\lceil P(x)\rceil$, $x$ also needs to be a Gallina variable, therefore we need Higher-Order Abstract Syntax (HOAS) encoding. As the solution, we use HOAS encoding for first-order variables in LSLR (because they need to appear in lifted Gallina terms), and dependent deBruijn indices for second-order variables (since HOAS cannot handle impredicative variables). The Coq definition of LSLR formulas is given in Figure \ref{coq-lslr}.
 
 \begin{figure}
 \begin{coq}
@@ -686,7 +712,141 @@ We also tried the Parametric Higher-Order Abstract Syntax (PHOAS) encoding but f
 
 \section{\label{append1}Evaluation, Kinding and Type Equivalence Rules}
 
-(ToDo: fill in the other rules)
+\begin{figure}
+\fbox{$e\leadsto e'$}
+\begin{mathpar}
+
+\inferrule*
+{e_1\leadsto e_2}
+{E[e_1]\leadsto E[e_2]}
+
+\inferrule*
+{\;}
+{(\lambda x:\tau.e)\;v \leadsto e[v/x]}
+
+\inferrule*
+{\;}
+{\symlet x:\tau:=v \symin e \leadsto e[v/x]}
+
+\inferrule*
+{\;}
+{\symfst\;(v_1,v_2)\leadsto v_1}
+
+\inferrule*
+{\;}
+{\symsnd\;(v_1,v_2)\leadsto v_2}
+
+\inferrule*
+{\;}
+{\symmatch\;\syminl\;v\symwith\syminl\;x\Rightarrow e_1\;|\;\syminr\;x\Rightarrow e_2 \leadsto e_1[v/x]}
+
+\inferrule*
+{\;}
+{\symmatch\;\syminr\;v\symwith\syminl\;x\Rightarrow e_1\;|\;\syminr\;x\Rightarrow e_2 \leadsto e_2[v/x]}
+
+\inferrule*
+{\;}
+{(\lambda \alpha.e)\;\tau \leadsto e[\tau/\alpha]}
+
+\inferrule*
+{\;}
+{\symunfold\;(\symfold\tau\;v) \leadsto v}
+
+\inferrule*
+{\;}
+{\symunhide(\symhide v) \leadsto v}
+
+\end{mathpar}
+\caption{\label{eval}Call-by-value Evaluation Rules}
+\end{figure}
+
+\begin{figure}
+\fbox{$\Gamma\vdash \tau:k$}
+\begin{mathpar}
+
+\inferrule*
+{\alpha\in\Gamma}
+{\Gamma\kinding{\alpha}{*}}
+
+\inferrule*
+{\Gamma\kinding{\tau_1}{*\to k} \\ \Gamma\kinding{\tau_2}{*}}
+{\Gamma\kinding{\tau_1\;\tau_2}{k}}
+
+\inferrule*
+{\Gamma,\alpha\kinding{\tau}{k}}
+{\Gamma\kinding{\Lambda \alpha.\tau}{*\to k}}
+
+\inferrule*
+{\Gamma\kinding{\tau_1}{*} \\ \Gamma,x:(\tau_1,\bot)\kinding{\tau_2}{*}}
+{\Gamma\kinding{\arrow{(x:\tau_1)}{c}{s}{\tau_2}}{*}}
+
+\inferrule*
+{\Gamma,\alpha\kinding{\tau}{*}}
+{\Gamma\kinding{\forall \alpha.\tau}{*}}
+
+\inferrule*
+{\Gamma,\alpha\kinding{\tau}{*}}
+{\Gamma\kinding{\mu \alpha.\tau}{*}}
+
+\inferrule*
+{\Gamma\kinding{\tau}{*}}
+{\Gamma\kinding{\thide{\tau}}{*}}
+
+\inferrule*
+{\;}
+{\Gamma\kinding{\symunit}{*}}
+
+\inferrule*
+{\Gamma\kinding{\tau_1}{*} \\ \Gamma\kinding{\tau_2}{*}}
+{\Gamma\kinding{\tau_1\times\tau_2}{*}}
+
+\inferrule*
+{\Gamma\kinding{\tau_1}{*} \\ \Gamma\kinding{\tau_2}{*}}
+{\Gamma\kinding{\tau_1+\tau_2}{*}}
+
+\end{mathpar}
+\caption{\label{kinding}Kinding Rules}
+\end{figure}
+
+\begin{figure}
+\fbox{$\teq{\tau_1}{\tau_2$}}
+\begin{mathpar}
+
+\inferrule*
+{\;}
+{\teq{\tau}{\tau}}
+
+\inferrule*
+{\teq{\tau_1}{\tau_2} \\ \teq{\tau_2}{\tau_3}}
+{\teq{\tau_1}{\tau_3}}
+
+\inferrule*
+{\teq{\tau_2}{\tau_1}}
+{\teq{\tau_1}{\tau_2}}
+
+\inferrule*
+{\teq{\tau_1}{\tau_2}}
+{\teq{\Lambda \alpha.\tau_1}{\Lambda \alpha.\tau_2}}
+
+\inferrule*
+{\teq{\tau_1}{\tau_1'} \\ \teq{\tau_2}{\tau_2'}}
+{\teq{\tau_1\;\tau_2}{\tau_1'\;\tau_2'}}
+
+\inferrule*
+{\;}
+{\teq{(\Lambda \alpha.\tau_1)\;\tau_2}{\tau_1[\tau_2/\alpha]}}
+
+\inferrule*
+{\teq{\tau_1}{\tau_1'} \\ \teq{\tau_2}{\tau_2'}}
+{\teq{\arrow{(x:\tau_1)}{c}{s}{\tau_2}}{\arrow{(x:\tau_1')}{c}{s}{\tau_2'}}}
+
+\inferrule*
+{\teq{\tau_1}{\tau_2}}
+{\teq{\mu \alpha.\tau_1}{\mu \alpha.\tau_2}}
+
+\end{mathpar}
+\caption{\label{teq}Type Equivalence Rules}
+\end{figure}
 
 %% \acks
 
