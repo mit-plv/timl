@@ -1194,7 +1194,7 @@ Proof.
     exists (wB₀ + (wB₁ + (Wconst 1 + WappB w₀ w₁))).
     exists (Wapp w₀ w₁).
 
-    eapply LRbind' with (wEe := Wapp w₀ w₁) (wBEe := wB₁ + (Wconst 1 + WappB w₀ w₁)) (c₂ := c₁ + subst s₁ c) (s₂ := subst s₁ s) (E := ECapp1 ECempty e₁) (τ' := subst s₁ τ₂) in IH₀.
+    eapply LRbind' with (wEe := Wapp w₀ w₁) (wBEe := wB₁ + (Wconst 1 + WappB w₀ w₁)) (c₂ := c₁ + subst s₁ c) (s₂ := subst s₁ s) (E := ECapp1 ECempty e₁) (τ' := subst s₁ τ₂). 
     {
       eapply IH₀.
     }
@@ -1218,7 +1218,7 @@ Proof.
           |~ 
           openup1
           (fun ρ : csubsts (CEexpr :: lctx) ctx =>
-             (ρ $$ Eapp (Evar #0) (shift1 _ e₁), ρ $$ shift1 _ (Wapp w₀ w₁))
+             (ρ $$ (ECapp2 (f := Evar #0) ECempty (Vvar _) $ shift1 _ e₁), ρ $$ shift1 _ (Wapp w₀ w₁))
                ∈ relE (shift1 _ (subst s₁ τ₂)) (ρ $$ (shift1 _ wB₁ + shift1 _ (Wconst 1 + WappB w₀ w₁)))
                !(ρ $$ (shift1 _ c₁ + shift1 _ (subst s₁ c))) (ρ $$ shift1 _ (subst s₁ s)) ρ)
           ((fun vw => openup1 (add vw) ρ) : open_csubsts (wexpr :: ctxfo) _ _) 
@@ -1267,14 +1267,36 @@ Proof.
       Qed.
 
       eapply rearrange.
-
-      (*here*)
-      simpl.
-      (*here*)
-      simpl.
-      eapply LRbind' in IH₁.
-      Focus 2.
-    }
+      eapply LRbind' with (we := shift1 CEexpr (Wapp w₀ w₁)) (τ := shift1 CEexpr τ₁).
+      {
+        instantiate (1 := shift1 CEexpr s₁).
+        admit. (* eapply IH₁ *)
+      }
+      {
+        unfold relEC.
+        Lemma imply_elim {ctxfo lctx ctx} (ρ : open_csubsts ctxfo lctx ctx) (P Q : csubsts lctx ctx -> rel 0 ctx) Ps :
+          Ps |~ openup1 (fun ρ => P ρ ===> Q ρ) ρ ->
+          openup1 P ρ :: Ps |~ openup1 Q ρ.
+          admit.
+        Qed.
+        eapply imply_elim.
+        Lemma VMorePs ctxfo ctx (P : open_rel ctxfo 0 ctx) Ps : [] |~ P -> Ps |~ P.
+          admit.
+        Qed.
+        eapply VMorePs.
+        eapply VCtxElimEmpty.
+        intros ρ.
+        (* need to change EC to C and IsEC *)
+        Lemma LRappvv :
+          [] |~ (v₀, w₀') ∈ relV (Tarrow τ₁ c s τ₂) ρ /\ ⌈wsteps w₀ w₀'⌉ ===>
+                (∀v we', (v, we') ∈ relV τ₁ ρ /\ ⌈!v ≤ s₁ /\ wsteps (Wapp w₀ w₁) we'⌉ ===>
+                         (ECapp2 (f := v₀) ECempty _ $$ v, Wapp w₀ w₁) ∈ relE (subst s₁ τ₂) (Wconst 1 + WappB w₀ w₁) !(subst s₁ c) (subst s₁ s) ρ).
+        Proof
+          admit.
+        Qed.
+      }
+      }
+      }
     Lemma LRapp {lctx ctx} (ρ : csubsts lctx ctx) : 
       valid (ctxfo := []) [] 
             (∀ (e₀ : expr) (w₀ : width) (τ₁ : open_type lctx) (c : open_cexpr (CEexpr :: lctx)) (s : open_size (CEexpr :: lctx)) (τ₂ : open_type (CEexpr :: lctx)) (B₀ : nat) (c₀ : cexpr) nouse (e₁ : expr) (w₁ : width) (B₁ : nat) (c₁ : cexpr) (s₁ : open_size lctx),
@@ -1285,18 +1307,12 @@ Proof.
       admit.
     Qed.
 
-    Lemma VMorePs ctxfo ctx (P : open_rel ctxfo 0 ctx) Ps : [] |~ P -> Ps |~ P.
-      admit.
-    Qed.
-
     Instance Max_nat : Max nat :=
       {
         max := Peano.max
       }.
     exists (3 * max B0 B1 + 1).
 
-    eapply VMorePs.
-    eapply VCtxElimEmpty.
     intros ρ.
 
     admit.
