@@ -23,11 +23,10 @@ Inductive IsValue {ctx} : expr ctx -> Prop :=
 | Vinr t v : IsValue v -> IsValue (Einr t v)
 .
 
-(* evaluation context *)
 Inductive econtext ctx : Type :=
 | ECempty : econtext ctx
 | ECapp1 (f : econtext ctx) (arg : expr ctx) : econtext ctx
-| ECapp2 (f : expr ctx) (arg : econtext ctx) : IsValue f -> econtext ctx
+| ECapp2 (f : expr ctx) (arg : econtext ctx) : econtext ctx
 | EClet (def : econtext ctx) (main : expr (CEexpr :: ctx)) : econtext ctx
 | ECtapp (f : econtext ctx) (t : type ctx)  : econtext ctx
 | ECfold (t : type ctx) (_ : econtext ctx) : econtext ctx
@@ -35,7 +34,7 @@ Inductive econtext ctx : Type :=
 | EChide (_ : econtext ctx) : econtext ctx
 | ECunhide (_ : econtext ctx) : econtext ctx
 | ECpair1 (a : econtext ctx) (b : expr ctx) : econtext ctx
-| ECpair2 (a : expr ctx) (b : econtext ctx) : IsValue a -> econtext ctx
+| ECpair2 (a : expr ctx) (b : econtext ctx) : econtext ctx
 | ECinl (_ : type ctx) (_ : econtext ctx) : econtext ctx
 | ECinr (_ : type ctx) (_ : econtext ctx) : econtext ctx
 | ECfst (_ : econtext ctx) : econtext ctx
@@ -45,11 +44,30 @@ Inductive econtext ctx : Type :=
 
 Arguments ECempty {ctx} .
 
+Inductive IsEC {ctx} : econtext ctx -> Prop :=
+| IECempty : IsEC ECempty
+| IECapp1 (f : econtext ctx) (arg : expr ctx) : IsEC f ->IsEC (ECapp1 f arg)
+| IECapp2 (f : expr ctx) (arg : econtext ctx) : IsValue f -> IsEC arg -> IsEC (ECapp2 f arg)
+| IEClet (def : econtext ctx) (main : expr (CEexpr :: ctx)) : IsEC def -> IsEC (EClet def main)
+| IECtapp (f : econtext ctx) (t : type ctx)  : IsEC f -> IsEC (ECtapp f t)
+| IECfold (t : type ctx) (e : econtext ctx) : IsEC e -> IsEC (ECfold t e)
+| IECunfold (e : econtext ctx) : IsEC e -> IsEC (ECunfold e)
+| IEChide (e : econtext ctx) : IsEC e -> IsEC (EChide e)
+| IECunhide (e : econtext ctx) : IsEC e -> IsEC (ECunhide e)
+| IECpair1 (a : econtext ctx) (b : expr ctx) : IsEC a -> IsEC (ECpair1 a b)
+| IECpair2 (a : expr ctx) (b : econtext ctx) : IsValue a -> IsEC b -> IsEC (ECpair2 a b)
+| IECinl (t : type ctx) (e : econtext ctx) : IsEC e -> IsEC (ECinl t e)
+| IECinr (t : type ctx) (e : econtext ctx) : IsEC e -> IsEC (ECinr t e)
+| IECfst (e : econtext ctx) : IsEC e -> IsEC (ECfst e)
+| IECsnd (e : econtext ctx) : IsEC e -> IsEC (ECsnd e)
+| IECmatch (target : econtext ctx) (a b : expr (CEexpr :: ctx)) : IsEC target -> IsEC (ECmatch target a b)
+.
+
 Fixpoint plug {ctx} (c : econtext ctx) (e : expr ctx) : expr ctx :=
   match c with
     | ECempty => e
     | ECapp1 f arg => Eapp (plug f e) arg
-    | ECapp2 f arg _ => Eapp f (plug arg e)
+    | ECapp2 f arg => Eapp f (plug arg e)
     | EClet def main => Elet (plug def e) main
     | ECtapp f t => Etapp (plug f e) t
     | ECfold t c => Efold t (plug c e)
@@ -57,7 +75,7 @@ Fixpoint plug {ctx} (c : econtext ctx) (e : expr ctx) : expr ctx :=
     | EChide c => Ehide (plug c e)
     | ECunhide c => Eunhide (plug c e)
     | ECpair1 a b => Epair (plug a e) b
-    | ECpair2 a b _ => Epair a (plug b e)
+    | ECpair2 a b => Epair a (plug b e)
     | ECinl t c => Einl t (plug c e)
     | ECinr t c => Einr t (plug c e)
     | ECfst c => Efst (plug c e)
@@ -89,6 +107,7 @@ Inductive plug : econtext -> expr -> expr -> Prop :=
 Inductive step : expr [] -> expr [] -> Prop :=
 | STecontext E e1 e2 : 
     step e1 e2 -> 
+    IsEC E ->
     step (plug E e1) (plug E e2)
 | STapp t body arg : IsValue arg -> step (Eapp (Eabs t body) arg) (subst arg body)
 | STlet v main : IsValue v -> step (Elet v main) (subst v main)
