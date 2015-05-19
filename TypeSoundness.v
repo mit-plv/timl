@@ -1109,60 +1109,10 @@ Proof.
         add := Wbinop add
       }.
 
-    Lemma LRbind E (wEe : width) (wBEe : open_width WTnat []) s₁ c₂ s₂ {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) :
-      valid (ctxfo := []) [] 
-            (⌈IsEC E⌉ /\
-            ∀e we c₁ wBe, 
-              ((e, we) ∈ relE τ wBe c₁ s₁ ρ /\ 
-               relEC E e we wEe wBEe s₁ c₂ s₂ τ τ' ρ ρ') ===> 
-               (E $$ e, wEe) ∈ relE τ' (wBe + wBEe) (c₁ + !c₂) s₂ ρ').
-    Proof.
-      Lemma VLob {ctxfo ctx} Ps (P : open_rel ctxfo 0 ctx) : openup1 (▹ []) P :: Ps |~ P -> Ps |~ P.
-        admit.
-      Qed.
-      
-      eapply VLob.
-      (*
-      eapply Vforall1intro; intros e.
-      eapply Vforall1intro; intros c₁.
-      Lemma VImplyIntro P Q : (|~ P -> |~ Q) -> |~ P ===> Q.
-        admit.
-      Qed.
-      eapply VImplyIntro; intros H.
-      Local Open Scope type.
-      Lemma VAndElim P Q : |~ P /\ Q -> (|~ P) /\ (|~ Q).
-        admit.
-      Qed.
-      eapply VAndElim in H; destruct H as [He Hec].
-      unfold goodEC.
-
-      Definition apply_Substs {lctx} `{H : Apply (flip csubsts lctx (const unit)) (B lctx) B'} (rho : Substs [] lctx) (b : B lctx) : B' :=
-        rho (const unit) $ b.
-
-      Global Instance Apply_Substs {lctx} `{H : Apply (csubsts (const unit) lctx) (B lctx) B'} : Apply (Substs [] lctx) (B lctx) B' :=
-        {
-          apply := apply_Substs (H := H)
-        }.
-
-      Lemma goodExprIntro {lctx} e B (τ : open_type lctx) c s (ρ : Substs [] lctx) : 
-        (|- e (ρ $ τ)) -> 
-        (forall n e', ~>## e n 0 e' -> n <= c) ->
-        (forall v, ⇓*# e 0 v -> !v <= s /\ |~ v ∈ goodValue B τ ρ) ->
-        (forall e', ~>*# e 1 e' -> 0 < c /\ |~ ▹(e' ∈ goodExpr B τ (c - 1) s ρ)) ->
-        |~ e ∈ goodExpr B τ c s ρ.
-      Proof.
-        admit.
-      Qed.
-      unfold goodExpr.
-      unfold openE.
-      simpl.
-      unfold relE.
-      unfold relE'.
-      simpl.
-       *)
+    Lemma VLob {ctxfo ctx} Ps (P : open_rel ctxfo 0 ctx) : openup1 (▹ []) P :: Ps |~ P -> Ps |~ P.
       admit.
     Qed.
-
+    
     unfold related in *.
 
     Global Instance Apply_csubsts_econtext_econtext {ctx} lctx : Apply (csubsts lctx ctx) (open_econtext lctx) econtext.
@@ -1181,13 +1131,79 @@ Proof.
       admit.
     Defined.
 
+    Lemma LRbind E (wEe : width) (wBEe : open_width WTnat []) s₁ c₂ s₂ {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) :
+      valid (ctxfo := []) [] 
+            (⌈IsEC E⌉ /\
+            ∀e we c₁ wBe, 
+              ((e, we) ∈ relE τ wBe c₁ s₁ ρ /\ 
+               relEC E e we wEe wBEe s₁ c₂ s₂ τ τ' ρ ρ') ===> 
+               (E $$ e, wEe) ∈ relE τ' (wBe + wBEe) (c₁ + !c₂) s₂ ρ').
+    Proof.
+      admit.
+    Qed.
+
     Lemma LRbind' {lctx} (e : open_expr lctx) (we : open_width WTstruct lctx) (wBe : open_width WTnat lctx) (E : open_econtext lctx) (wEe : open_width WTstruct lctx) (wBEe : open_width WTnat lctx) (c₁ : open_cexpr lctx) (s₁ : open_size lctx) (c₂ : open_cexpr lctx) (s₂ : open_size lctx) (τ : open_type lctx) (τ' : open_type lctx) {ctxfo ctx} (ρ : open_csubsts ctxfo lctx ctx) (Ps : list (open_rel ctxfo 0 ctx)) :
       Ps |~ openup1 (fun ρ => ⌈IsEC (ρ $ E)⌉) ρ ->
       Ps |~ openup1 (fun ρ => (ρ $ e, ρ $ we) ∈ relE τ (ρ $ wBe) !(ρ $ c₁) (ρ $ s₁) ρ) ρ ->
       Ps |~ openup1 (fun ρ => relEC (ρ $ E) (ρ $ e) (ρ $ we) (ρ $ wEe) (ρ $ wBEe) (ρ $ s₁) (ρ $ c₂) (ρ $ s₂) τ τ' ρ ρ) ρ ->
       Ps |~ openup1 (fun ρ => (ρ $ (E $ e), ρ $ wEe) ∈ relE τ' ((ρ $ (wBe + wBEe))) !(ρ $ (c₁ + c₂)) (ρ $ s₂) ρ) ρ.
     Proof.
-      admit.
+      Lemma imply_elim {ctxfo lctx ctx} (P Q : csubsts lctx ctx -> rel 0 ctx) (ρ : open_csubsts ctxfo lctx ctx) Ps : 
+        Ps |~ openup1 (fun ρ => P ρ ===> Q ρ) ρ ->
+        Ps |~ openup1 (fun ρ => P ρ) ρ ->
+        Ps |~ openup1 (fun ρ => Q ρ) ρ.
+        admit.
+      Qed.
+      Lemma imply_elim3 {ctxfo lctx ctx} (P1 P2 P3 Q : csubsts lctx ctx -> rel 0 ctx) (ρ : open_csubsts ctxfo lctx ctx) Ps : 
+        Ps |~ openup1 (fun ρ => P1 ρ /\ P2 ρ /\ P3 ρ ===> Q ρ) ρ ->
+        Ps |~ openup1 (fun ρ => P1 ρ) ρ ->
+        Ps |~ openup1 (fun ρ => P2 ρ) ρ ->
+        Ps |~ openup1 (fun ρ => P3 ρ) ρ ->
+        Ps |~ openup1 (fun ρ => Q ρ) ρ.
+        admit.
+      Qed.
+      Lemma imply_gen {ctxfo lctx ctx} (ρ : open_csubsts ctxfo lctx ctx) (P Q : csubsts lctx ctx -> rel 0 ctx) Ps :
+        Ps |~ openup1 (fun ρ => P ρ ===> Q ρ) ρ ->
+        openup1 P ρ :: Ps |~ openup1 Q ρ.
+      Proof.
+        intros H.
+        eapply imply_elim.
+        {
+          Lemma add_Ps ctxfo ctx (P Q : open_rel ctxfo 0 ctx) Ps : Ps |~ Q -> P :: Ps |~ Q.
+            admit.
+          Qed.
+          Lemma VMorePs ctxfo ctx (P : open_rel ctxfo 0 ctx) Ps : [] |~ P -> Ps |~ P.
+            admit.
+          Qed.
+          eapply add_Ps.
+          eauto.
+        }
+        Lemma ctx_refl {ctxfo ctx} (P : open_rel ctxfo 0 ctx) Ps : P :: Ps |~ P.
+          admit.
+        Qed.
+        eapply ctx_refl.
+      Qed.
+      eapply imply_elim3; eauto.
+      eapply VMorePs.
+      eapply VCtxElimEmpty.
+      rename ρ into ρ'.
+      intros ρ.
+      Infix "|~~" := (valid (ctxfo := [])) (at level 89, no associativity, only parsing).
+      Lemma imply_elim_e {ctx} (P Q : rel 0 ctx) Ps : 
+        Ps |~~ P ===> Q ->
+        Ps |~ P ->
+        Ps |~ Q.
+      Proof.
+        admit.
+      Qed.
+      eapply imply_elim_e; [ | eapply LRbind].
+      Lemma and_imply_and {ctx} (P P' Q Q' : rel 0 ctx) Ps :
+        Ps |~~ P ===> P' ->
+        Ps |~~ Q ===> Q' ->
+        Ps |~~ P /\ Q ===> P' /\ Q'.
+        admit.
+      Qed.
+      eapply and_imply_and.
     Qed.
     
     destruct IHtyping1 as [wB₀ [w₀ IH₀]].
@@ -1213,162 +1229,120 @@ Proof.
       Defined.
       Notation "#0" := var0.
 
-      Lemma rearrange {ctxfo lctx ctx} (ρ : open_csubsts ctxfo lctx ctx) (Ps : list (open_rel ctxfo 0 ctx)) (τ₁ : open_type lctx) (c : open_cexpr (CEexpr :: lctx)) (s : open_size (CEexpr :: lctx)) (τ₂ : open_type (CEexpr :: lctx)) (e₀ e₁ : open_expr lctx) (nouse : open_size lctx) (w₀ w₁: open_width WTstruct lctx) (c₁ : open_cexpr lctx) (s₁ : open_size lctx) (wB₁ : open_width WTnat lctx) :
+      rename ctx into lctx.
+      set (ρ := make_ρ lctx) in *.
+      set (ctx := make_ctx lctx) in *.
+      set (Ps := make_Ps Γ) in *.
+      assert (Hassert :
         openup1
           (fun ρ : csubsts (CEexpr :: lctx) ctx =>
              let v := ρ $ (Evar #0) in
              let we' := ρ $ (Wvar #0) in
              ((v, we') ∈ relV (shift1 _ (Tarrow τ₁ c s τ₂)) ρ /\ ⌈ρ $$ shift1 _ e₀ ~>* v /\ !v ≤ ρ $$ shift1 _ nouse /\ wsteps (ρ $$ shift1 _ w₀) we' ⌉))
-          ((fun vw => openup1 (add vw) ρ) : open_csubsts (wexpr :: ctxfo) _ _) :: lift_Ps wexpr Ps
+          ((fun vw => openup1 (add vw) ρ) : open_csubsts (wexpr :: _) _ _) :: lift_Ps wexpr Ps
           |~ 
           openup1
           (fun ρ : csubsts (CEexpr :: lctx) ctx =>
              (ρ $$ (ECapp2 (Evar #0) ECempty $ shift1 _ e₁), ρ $$ shift1 _ (Wapp w₀ w₁))
                ∈ relE (shift1 _ (subst s₁ τ₂)) (ρ $$ (shift1 _ wB₁ + shift1 _ (Wconst 1 + WappB w₀ w₁)))
                !(ρ $$ (shift1 _ c₁ + shift1 _ (subst s₁ c))) (ρ $$ shift1 _ (subst s₁ s)) ρ)
-          ((fun vw => openup1 (add vw) ρ) : open_csubsts (wexpr :: ctxfo) _ _) 
-        ->
-        Ps |~ openup1
-           (fun ρ =>
-              ∀(v : expr) (we' : width),
-                (v, we') ∈ relV (Tarrow τ₁ c s τ₂) ρ /\ ⌈ρ $$ e₀ ~>* v /\ !v ≤ ρ $$ nouse /\ wsteps (ρ $$ w₀) we' ⌉ ===> (ρ $$ ECapp1 ECempty e₁ $$ v, ρ $$ Wapp w₀ w₁)  ∈ relE (subst s₁ τ₂) (ρ $$ (wB₁ + (Wconst 1 + WappB w₀ w₁))) !(ρ $$ (c₁ + subst s₁ c)) (ρ $$ subst s₁ s) ρ) ρ
-      .
-      Proof.
-        Definition pair_of_csubsts {lctx ctx} (ρ : csubsts (CEexpr :: lctx) ctx) : wexpr * csubsts lctx ctx.
-          admit.
-        Qed.
+          ((fun vw => openup1 (add vw) ρ) : open_csubsts (wexpr :: _) _ _)).
+      {
+        eapply LRbind' with (we := shift1 CEexpr w₁) (τ := shift1 CEexpr τ₁).
+        {
+          admit. (* IsEC *)
+        }
+        {
+          instantiate (1 := shift1 CEexpr s₁).
+          admit. (* eapply IH₁ *)
+        }
+        {
+          unfold relEC.
+          eapply imply_gen.
+          eapply VMorePs.
+          eapply VCtxElimEmpty.
+          subst ρ.
+          intros ρ.
+          (* need to change EC to C and IsEC *)
+          simpl in ρ.
+          Lemma LRappvv {lctx ctx} {v₀ : expr} {w₀ w₀' : width} {τ₁ : open_type lctx} {c : open_cexpr (CEexpr :: lctx)} {s : open_size (CEexpr :: lctx)} {τ₂ : open_type (CEexpr :: lctx)} {ρ : csubsts lctx ctx} {w₁ : width} {s₁ : open_size lctx} {P1 P2 Q} :
+            [] |~~ 
+               (v₀, w₀') ∈ relV (Tarrow τ₁ c s τ₂) ρ /\ ⌈P1 /\ P2 /\ wsteps w₀ w₀'⌉ ===>
+               ∀v we', (v, we') ∈ relV τ₁ ρ /\ ⌈Q v /\ !v ≤ ρ $$ s₁ /\ wsteps w₁ we'⌉ ===>
+                       (Eapp v₀ v, Wapp w₀ w₁) ∈ relE (subst s₁ τ₂) (Wconst 1 + WappB w₀ w₁) !(ρ $ (subst s₁ c)) (ρ $ (subst s₁ s)) ρ.
+          Proof.
+            admit.
+          Qed.
 
-        Lemma forall1intro {ctxfo lctx ctx} (ρ : open_csubsts ctxfo lctx ctx) (f : expr -> width -> csubsts lctx ctx -> rel 0 ctx) Ps :
-          lift_Ps wexpr Ps |~ openup1 
-                  (fun ρ => 
-                     let pr := pair_of_csubsts ρ in 
-                     let vw := fst pr in 
-                     let ρ := snd pr in 
-                     let v := fst vw in
-                     let w := snd vw in
-                     f v w ρ) ((fun vw => openup1 (add vw) ρ) : open_csubsts (wexpr :: ctxfo) _ _) ->
-          Ps |~ openup1 (fun ρ => ∀v w, f v w ρ) ρ.
-          admit.
-        Qed.
+          Definition pair_of_csubsts {lctx ctx} (ρ : csubsts (CEexpr :: lctx) ctx) : wexpr * csubsts lctx ctx.
+            admit.
+          Qed.
 
-        intros H.
-        eapply forall1intro.
-        Lemma imply_intro {ctxfo lctx ctx} (ρ : open_csubsts ctxfo lctx ctx) (P Q : csubsts lctx ctx -> rel 0 ctx) Ps :
-          openup1 P ρ :: Ps |~ openup1 Q ρ ->
-          Ps |~ openup1 (fun ρ => P ρ ===> Q ρ) ρ.
-          admit.
-        Qed.
-        eapply imply_intro.
-        Lemma snd_pair_of_csubsts_cexpr {lctx ctx} (rho : csubsts (CEexpr :: lctx) ctx) (x : open_cexpr lctx) : snd (pair_of_csubsts rho) $$ x = rho $$ (shift1 CEexpr x).
-          admit.
-        Qed.
-        Lemma snd_pair_of_csubsts_cexpr' {lctx ctx} (rho : csubsts (CEexpr :: lctx) ctx) (x : open_cexpr lctx) : csubsts_cexpr (snd (pair_of_csubsts rho)) x = csubsts_cexpr rho (shift1 CEexpr x).
-          admit.
-        Qed.
-        simpl.
-        (* erewrite snd_pair_of_csubsts_cexpr. *)
-        (* erewrite snd_pair_of_csubsts_cexpr'. *)
+          Definition rhosnd {lctx ctx} (rho : csubsts (CEexpr :: lctx) ctx) := snd (pair_of_csubsts rho).
+          assert (Hassert :
+                    [] |~~
+                       (ρ $$ Evar #0, ρ $$ Wvar #0)
+                       ∈ relV (Tarrow τ₁ c s τ₂) (rhosnd ρ) /\
+                    ⌈ρ $$ shift1 CEexpr e₀ ~>* ρ $$ Evar #0 /\
+                    !(ρ $$ Evar #0) ≤ ρ $$ shift1 CEexpr nouse /\
+                    wsteps (rhosnd ρ $ w₀) (ρ $$ Wvar #0) ⌉ ===>
+                           (∀(v : expr) (we' : width),
+                              (v, we') ∈ relV τ₁ (rhosnd ρ) /\
+                              ⌈ρ $$ shift1 CEexpr e₁ ~>* v /\
+                              !v ≤ rhosnd ρ $$ s₁ /\ wsteps (rhosnd ρ $ w₁) we' ⌉ ===>
+                              (Eapp (ρ $ Evar #0) v, Wapp (rhosnd ρ $ w₀) (rhosnd ρ $ w₁))
+                              ∈ relE (subst s₁ τ₂)
+                              (Wconst 1 + WappB (rhosnd ρ $ w₀) (rhosnd ρ $ w₁))
+                              !(rhosnd ρ $ subst s₁ c)
+                              (rhosnd ρ $ subst s₁ s) (rhosnd ρ))).
+          {
+            eapply LRappvv.
+          }
+          admit. (* rearrange *)
+        }
+      }
+      Lemma forall1intro {ctxfo lctx ctx} (ρ : open_csubsts ctxfo lctx ctx) (f : expr -> width -> csubsts lctx ctx -> rel 0 ctx) Ps :
+        lift_Ps wexpr Ps |~ openup1 
+                (fun ρ => 
+                   let pr := pair_of_csubsts ρ in 
+                   let vw := fst pr in 
+                   let ρ := snd pr in 
+                   let v := fst vw in
+                   let w := snd vw in
+                   f v w ρ) ((fun vw => openup1 (add vw) ρ) : open_csubsts (wexpr :: ctxfo) _ _) ->
+        Ps |~ openup1 (fun ρ => ∀v w, f v w ρ) ρ.
         admit.
       Qed.
 
-      eapply rearrange.
-      eapply LRbind' with (we := shift1 CEexpr w₁) (τ := shift1 CEexpr τ₁).
-      {
-        admit. (* IsEC *)
-      }
-      {
-        instantiate (1 := shift1 CEexpr s₁).
-        admit. (* eapply IH₁ *)
-      }
-      {
-        unfold relEC.
-        Lemma imply_elim {ctxfo lctx ctx} (ρ : open_csubsts ctxfo lctx ctx) (P Q : csubsts lctx ctx -> rel 0 ctx) Ps :
-          Ps |~ openup1 (fun ρ => P ρ ===> Q ρ) ρ ->
-          openup1 P ρ :: Ps |~ openup1 Q ρ.
-          admit.
-        Qed.
-        eapply imply_elim.
-        Lemma VMorePs ctxfo ctx (P : open_rel ctxfo 0 ctx) Ps : [] |~ P -> Ps |~ P.
-          admit.
-        Qed.
-        eapply VMorePs.
-        eapply VCtxElimEmpty.
-        intros ρ.
-        (* need to change EC to C and IsEC *)
-        simpl in ρ.
-        Infix "|~~" := (valid (ctxfo := [])) (at level 89, no associativity, only parsing).
-        Lemma LRappvv {lctx ctx} {v₀ : expr} {w₀ w₀' : width} {τ₁ : open_type lctx} {c : open_cexpr (CEexpr :: lctx)} {s : open_size (CEexpr :: lctx)} {τ₂ : open_type (CEexpr :: lctx)} {ρ : csubsts lctx ctx} {w₁ : width} {s₁ : open_size lctx} {P Q} :
-          [] |~~ 
-             (v₀, w₀') ∈ relV (Tarrow τ₁ c s τ₂) ρ /\ ⌈P /\ wsteps w₀ w₀'⌉ ===>
-             ∀v we', (v, we') ∈ relV τ₁ ρ /\ ⌈Q v /\ !v ≤ ρ $$ s₁ /\ wsteps w₁ we'⌉ ===>
-                     (Eapp v₀ v, Wapp w₀ w₁) ∈ relE (subst s₁ τ₂) (Wconst 1 + WappB w₀ w₁) !(ρ $ (subst s₁ c)) (ρ $ (subst s₁ s)) ρ.
-        Proof.
-          admit.
-        Qed.
-        Definition rhosnd {lctx ctx} (rho : csubsts (CEexpr :: lctx) ctx) := snd (pair_of_csubsts rho).
-        assert (Hassert :
-   valid (ctxfo := []) []
-         ((ρ $$ Evar #0, ρ $$ Wvar #0)
-      ∈ relV (Tarrow τ₁ c s τ₂) (rhosnd ρ) /\
-      ⌈ρ $$ shift1 CEexpr e₀ ~>* ρ $$ Evar #0 /\
-       !(ρ $$ Evar #0) ≤ ρ $$ shift1 CEexpr nouse /\
-       wsteps (rhosnd ρ $ w₀) (ρ $$ Wvar #0) ⌉ ===>
-      (∀(v : expr) (we' : width),
-       (v, we') ∈ relV τ₁ (rhosnd ρ) /\
-       ⌈ρ $$ shift1 CEexpr e₁ ~>* v /\
-        !v ≤ rhosnd ρ $$ s₁ /\ wsteps (rhosnd ρ $ w₁) we' ⌉ ===>
-       (Eapp (ρ $ Evar #0) v, Wapp (rhosnd ρ $ w₀) (rhosnd ρ $ w₁))
-       ∈ relE (subst s₁ τ₂)
-           (Wconst 1 + WappB (rhosnd ρ $ w₀) (rhosnd ρ $ w₁))
-           !(rhosnd ρ $ subst s₁ c)
-           (rhosnd ρ $ subst s₁ s) (rhosnd ρ))) ->
-   valid (ctxfo := []) []
-         ((ρ $$ Evar #0, ρ $$ Wvar #0)
-      ∈ relV (shift1 CEexpr (Tarrow τ₁ c s τ₂)) ρ /\
-      ⌈ρ $$ shift1 CEexpr e₀ ~>* ρ $$ Evar #0 /\
-       !(ρ $$ Evar #0) ≤ ρ $$ shift1 CEexpr nouse /\
-       wsteps (ρ $$ shift1 CEexpr w₀) (ρ $$ Wvar #0) ⌉ ===>
-      (∀(v : expr) (we' : width),
-       (v, we') ∈ relV (shift1 CEexpr τ₁) ρ /\
-       ⌈ρ $$ shift1 CEexpr e₁ ~>* v /\
-        !v ≤ ρ $$ shift1 CEexpr s₁ /\ wsteps (ρ $$ shift1 CEexpr w₁) we' ⌉ ===>
-       (ρ $$ ECapp2 (Evar #0) ECempty $$ v, ρ $$ shift1 CEexpr (Wapp w₀ w₁))
-       ∈ relE (shift1 CEexpr (subst s₁ τ₂))
-           (ρ $$ shift1 CEexpr (Wconst 1 + WappB w₀ w₁))
-           !(ρ $$ shift1 CEexpr (subst s₁ c))
-           (ρ $$ shift1 CEexpr (subst s₁ s)) ρ))
-          ) by admit. 
-        eapply Hassert.
-        Lemma imply_trans {ctx} (P Q R : rel 0 ctx) : [] |~~ Q ===> R -> [] |~~ P ===> Q -> [] |~~ P ===> R.
-          admit.
-        Qed.
-        eapply imply_trans.
-        {
-          eapply LRappvv.
-        }
-        
-      }
-      }
-      }
-    Lemma LRapp {lctx ctx} (ρ : csubsts lctx ctx) : 
-      valid (ctxfo := []) [] 
-            (∀ (e₀ : expr) (w₀ : width) (τ₁ : open_type lctx) (c : open_cexpr (CEexpr :: lctx)) (s : open_size (CEexpr :: lctx)) (τ₂ : open_type (CEexpr :: lctx)) (B₀ : nat) (c₀ : cexpr) nouse (e₁ : expr) (w₁ : width) (B₁ : nat) (c₁ : cexpr) (s₁ : open_size lctx),
-               (e₀, w₀) ∈ relE (Tarrow τ₁ c s τ₂) B₀ !c₀ nouse ρ ===> 
-               (e₁, w₁) ∈ relE τ₁ B₁ !c₁ (ρ $ s₁) ρ ===> 
-               ∃(w : open_width WTstruct [CEexpr]) (wB : open_width WTnat [CEexpr]) (B : nat), ⌈wsteps w₀ (Wabs wB w) /\ wsteps (wB $ w₁) (Wconst B)⌉ /\ (e₀ $ e₁, w $ w₁) ∈ relE (τ₂ $ s₁) (B₀ + B₁ + 1 + B) (!c₀ + !c₁ + !(ρ $ (c $ s₁))) (ρ $ (s $ s₁)) ρ).
-    Proof.
+      eapply forall1intro.
+      Lemma imply_intro {ctxfo lctx ctx} (ρ : open_csubsts ctxfo lctx ctx) (P Q : csubsts lctx ctx -> rel 0 ctx) Ps :
+        openup1 P ρ :: Ps |~ openup1 Q ρ ->
+        Ps |~ openup1 (fun ρ => P ρ ===> Q ρ) ρ.
+        admit.
+      Qed.
+      eapply imply_intro.
+      Lemma snd_pair_of_csubsts_cexpr {lctx ctx} (rho : csubsts (CEexpr :: lctx) ctx) (x : open_cexpr lctx) : snd (pair_of_csubsts rho) $$ x = rho $$ (shift1 CEexpr x).
+        admit.
+      Qed.
+      Lemma snd_pair_of_csubsts_cexpr' {lctx ctx} (rho : csubsts (CEexpr :: lctx) ctx) (x : open_cexpr lctx) : csubsts_cexpr (snd (pair_of_csubsts rho)) x = csubsts_cexpr rho (shift1 CEexpr x).
+        admit.
+      Qed.
+      simpl.
+      (* erewrite snd_pair_of_csubsts_cexpr. *)
+      (* erewrite snd_pair_of_csubsts_cexpr'. *)
+      admit. (* rearrange *)
+    }
+
+    Lemma imply_trans {ctx} (P Q R : rel 0 ctx) : [] |~~ Q ===> R -> [] |~~ P ===> Q -> [] |~~ P ===> R.
       admit.
     Qed.
-
+    Lemma imply_refl {ctx} (P : rel 0 ctx) : [] |~~ P ===> P.
+      admit.
+    Qed.
     Instance Max_nat : Max nat :=
       {
         max := Peano.max
       }.
-    exists (3 * max B0 B1 + 1).
-
-    intros ρ.
-
-    admit.
   }
   {
     unfold related in *.
