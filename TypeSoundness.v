@@ -1131,13 +1131,14 @@ Proof.
       admit.
     Defined.
 
+    Infix "|~~" := (valid (ctxfo := [])) (at level 89, no associativity, only parsing).
+
     Lemma LRbind E (wEe : width) (wBEe : open_width WTnat []) s₁ c₂ s₂ {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) :
-      valid (ctxfo := []) [] 
-            (⌈IsEC E⌉ /\
-            ∀e we c₁ wBe, 
-              ((e, we) ∈ relE τ wBe c₁ s₁ ρ /\ 
-               relEC E e we wEe wBEe s₁ c₂ s₂ τ τ' ρ ρ') ===> 
-               (E $$ e, wEe) ∈ relE τ' (wBe + wBEe) (c₁ + !c₂) s₂ ρ').
+      [] |~~ ∀e we c₁ wBe, 
+               ⌈IsEC E⌉ /\
+               (e, we) ∈ relE τ wBe !c₁ s₁ ρ /\ 
+               relEC E e we wEe wBEe s₁ c₂ s₂ τ τ' ρ ρ' ===> 
+               (E $$ e, wEe) ∈ relE τ' (wBe + wBEe) !(c₁ + c₂) s₂ ρ'.
     Proof.
       admit.
     Qed.
@@ -1188,22 +1189,33 @@ Proof.
       eapply VCtxElimEmpty.
       rename ρ into ρ'.
       intros ρ.
-      Infix "|~~" := (valid (ctxfo := [])) (at level 89, no associativity, only parsing).
-      Lemma imply_elim_e {ctx} (P Q : rel 0 ctx) Ps : 
-        Ps |~~ P ===> Q ->
-        Ps |~ P ->
-        Ps |~ Q.
-      Proof.
-        admit.
-      Qed.
-      eapply imply_elim_e; [ | eapply LRbind].
-      Lemma and_imply_and {ctx} (P P' Q Q' : rel 0 ctx) Ps :
-        Ps |~~ P ===> P' ->
-        Ps |~~ Q ===> Q' ->
-        Ps |~~ P /\ Q ===> P' /\ Q'.
-        admit.
-      Qed.
-      eapply and_imply_and.
+      assert (Hassert :
+                []
+                  |~~ ⌈IsEC (ρ $$ E) ⌉ /\
+                (ρ $$ e, ρ $$ we) ∈ relE τ (ρ $$ wBe) !(ρ $$ c₁) (ρ $$ s₁) ρ /\
+                relEC (ρ $$ E) (ρ $$ e) (ρ $$ we) (ρ $$ wEe) 
+                      (ρ $$ wBEe) (ρ $$ s₁) (ρ $$ c₂) (ρ $$ s₂) τ τ' ρ ρ ===>
+                      ((ρ $ E) $ (ρ $ e), ρ $$ wEe)
+                      ∈ relE τ' (ρ $$ wBe + ρ $$ wBEe) !(ρ $$ c₁ + ρ $$ c₂) (ρ $$ s₂) ρ
+             ).
+      {
+        Lemma forall1_elim4 {ctx} A B C D (P : A -> B -> C -> D -> rel 0 ctx) e we c₁ wBe :
+          [] |~~ (∀e we c₁ wBe, P e we c₁ wBe) ->
+          [] |~~ P e we c₁ wBe.
+          admit.
+        Qed.
+        eapply forall1_elim4 with (
+          P := fun (e : expr) (we : width) (c₁ : cexpr) (wBe : open_width WTnat []) =>
+                 ⌈IsEC (ρ $$ E) ⌉ /\
+                 (e, we) ∈ relE τ wBe !c₁ (ρ $$ s₁) ρ /\
+                 relEC (ρ $$ E) e we (ρ $$ wEe) 
+                       (ρ $$ wBEe) (ρ $$ s₁) (ρ $$ c₂) (ρ $$ s₂) τ τ' ρ ρ ===>
+                       (ρ $$ E $$ e, ρ $$ wEe)
+                       ∈ relE τ' (wBe + ρ $$ wBEe) !(c₁ + ρ $$ c₂) (ρ $$ s₂) ρ
+        ).
+        eapply LRbind.
+      }
+      admit. (* rearrange *)
     Qed.
     
     destruct IHtyping1 as [wB₀ [w₀ IH₀]].
@@ -1271,6 +1283,9 @@ Proof.
                ∀v we', (v, we') ∈ relV τ₁ ρ /\ ⌈Q v /\ !v ≤ ρ $$ s₁ /\ wsteps w₁ we'⌉ ===>
                        (Eapp v₀ v, Wapp w₀ w₁) ∈ relE (subst s₁ τ₂) (Wconst 1 + WappB w₀ w₁) !(ρ $ (subst s₁ c)) (ρ $ (subst s₁ s)) ρ.
           Proof.
+            set (tmp := relV (Tarrow τ₁ c s τ₂) ρ) at 1.
+            simpl in tmp.
+            (*here*)
             admit.
           Qed.
 
@@ -1332,6 +1347,21 @@ Proof.
       (* erewrite snd_pair_of_csubsts_cexpr'. *)
       admit. (* rearrange *)
     }
+
+    Lemma imply_elim_e {ctx} (P Q : rel 0 ctx) Ps : 
+      Ps |~~ P ===> Q ->
+      Ps |~ P ->
+      Ps |~ Q.
+    Proof.
+      admit.
+    Qed.
+
+    Lemma and_imply_and {ctx} (P P' Q Q' : rel 0 ctx) Ps :
+      Ps |~~ P ===> P' ->
+      Ps |~~ Q ===> Q' ->
+      Ps |~~ P /\ Q ===> P' /\ Q'.
+      admit.
+    Qed.
 
     Lemma imply_trans {ctx} (P Q R : rel 0 ctx) : [] |~~ Q ===> R -> [] |~~ P ===> Q -> [] |~~ P ===> R.
       admit.
