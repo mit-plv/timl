@@ -1059,13 +1059,94 @@ Global Instance Apply_csubsts_width_width {t ctx lctx} : Apply (csubsts lctx ctx
     apply := @csubsts_width _ _ _
   }.
 
-Definition related {lctx} Γ wB w (e : open_expr lctx) τ (c : open_cexpr lctx) (s : open_size lctx) :=
-  make_Ps (lctx := lctx) Γ |~ openup1 (fun ρ => (ρ $$ e, ρ $$ w) ∈ relE τ (ρ $ wB) !(ρ $ c) (ρ $ s) ρ)%rel (make_ρ lctx).
+Fixpoint openup2 {t1 t2 t3} (f : t1 -> t2 -> t3) {ctx} : open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 :=
+  match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 with
+    | nil => f
+    | t :: ctx' => fun r1 r2 x => openup2 f (r1 x) (r2 x)
+  end.
 
-Notation "⊩" := related.
+Fixpoint openup4 {t1 t2 t3 t4 t5} (f : t1 -> t2 -> t3 -> t4 -> t5) {ctx} : open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 :=
+  match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 with
+    | nil => f
+    | t :: ctx' => fun r1 r2 r3 r4 x => openup4 f (r1 x) (r2 x) (r3 x) (r4 x)
+  end.
 
+Fixpoint openup6 {t1 t2 t3 t4 t5 t6 t7} (f : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7) {ctx} : open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> open_term ctx t7 :=
+  match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> open_term ctx t7 with
+    | nil => f
+    | t :: ctx' => fun r1 r2 r3 r4 r5 r6 x => openup6 f (r1 x) (r2 x) (r3 x) (r4 x) (r5 x) (r6 x)
+  end.
+
+Notation width_nat := (open_width WTnat []).
 Local Notation open_econtext := econtext .
 Local Notation econtext := (open_econtext []).
+
+Instance Apply_open_econtext_open_expr {ctxfo} : Apply (open_term ctxfo econtext) (open_term ctxfo expr) (open_term ctxfo expr) :=
+  {
+    apply := openup2 plug
+  }.
+
+Global Instance Add_open_width_open_width {ctxfo} : Add (open_term ctxfo width_nat) (open_term ctxfo width_nat)(open_term ctxfo width_nat) :=
+  {
+    add := openup2 (Wbinop add)
+  }.
+
+Global Instance Apply_open_csubsts_expr {ctxfo lctx ctx} : Apply (open_csubsts ctxfo lctx ctx) (open_expr lctx) (open_term ctxfo expr).
+  admit.
+Defined.
+
+Global Instance Apply_open_csubsts_width {t ctxfo lctx ctx} : Apply (open_csubsts ctxfo lctx ctx) (open_width t lctx) (open_term ctxfo (open_width t [])).
+  admit.
+Defined.
+
+Definition related {lctx} Γ wB w (e : open_expr lctx) τ (c : open_cexpr lctx) (s : open_size lctx) :=
+  make_Ps (lctx := lctx) Γ |~ let ρ := make_ρ lctx in openup4 (fun ρ e w wB => (e, w) ∈ relE τ wB !(ρ $ c) (ρ $ s) ρ) ρ (ρ $ e) (ρ $ w) (ρ $ wB).
+
+(* Definition related {lctx} Γ wB w (e : open_expr lctx) τ (c : open_cexpr lctx) (s : open_size lctx) := *)
+(*   make_Ps (lctx := lctx) Γ |~ openup1 (fun ρ => (ρ $$ e, ρ $$ w) ∈ relE τ (ρ $ wB) !(ρ $ c) (ρ $ s) ρ)%rel (make_ρ lctx). *)
+
+(*
+Definition ORand {ctxfo ctx} : open_rel ctxfo 0 ctx -> open_rel ctxfo 0 ctx -> open_rel ctxfo 0 ctx := openup2 Rand.
+Definition ORor {ctxfo ctx} : open_rel ctxfo 0 ctx -> open_rel ctxfo 0 ctx -> open_rel ctxfo 0 ctx := openup2 Ror.
+
+Fixpoint openup_binder1 {t1 t2 t3} (f : (t1 -> t2) -> t3) {ctx} : (t1 -> open_term ctx t2) -> open_term ctx t3 :=
+  match ctx return (t1 -> open_term ctx t2) -> open_term ctx t3 with
+    | nil => f
+    | t :: ctx' => fun r x => openup_binder1 f (fun y => r y x)
+  end.
+
+Definition ORexists1 {T ctxfo ctx} : (T -> open_rel ctxfo 0 ctx) -> open_rel ctxfo 0 ctx := openup_binder1 Rexists1.
+Definition ORforall1 {T ctxfo ctx} : (T -> open_rel ctxfo 0 ctx) -> open_rel ctxfo 0 ctx := openup_binder1 Rforall1.
+
+Definition ORapp {ctxfo m ctx} : open_rel ctxfo (S m) ctx -> open_term ctxfo wexpr -> open_rel ctxfo m ctx := openup2 Rapp.
+
+Global Instance Apply_open_rel_open_wexpr {ctxfo m ctx} : Apply (open_rel ctxfo (S m) ctx) (open_term ctxfo wexpr) (open_rel ctxfo m ctx) :=
+  {
+    apply := ORapp
+  }.
+
+Definition ORapp' {ctxfo m ctx} : open_rel ctxfo (S m) ctx -> open_term ctxfo expr * open_term ctxfo width -> open_rel ctxfo m ctx.
+  admit.
+Defined.
+
+Global Instance Apply_open_rel_open_expr_open_width {ctxfo m ctx} : Apply (open_rel ctxfo (S m) ctx) (open_term ctxfo expr * open_term ctxfo width) (open_rel ctxfo m ctx) :=
+  {
+    apply := ORapp'
+  }.
+
+Infix "/\" := ORand : OR.
+Infix "\/" := ORor : OR.
+Notation "∀ x .. y , p" := (ORforall1 (fun x => .. (ORforall1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
+Notation "∃ x .. y , p" := (ORexists1 (fun x => .. (ORexists1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
+
+Open Scope OR.
+
+Definition related {lctx} Γ wB w (e : open_expr lctx) τ (c : open_cexpr lctx) (s : open_size lctx) :=
+  make_Ps (lctx := lctx) Γ |~ let ρ := make_ρ lctx in (ρ $$ e, ρ $$ w) ∈ openup1 (fun ρ => relE τ (ρ $ wB) !(ρ $ c) (ρ $ s) ρ) ρ.
+
+*)
+
+Notation "⊩" := related.
 
 Lemma foundamental :
   forall ctx (Γ : tcontext ctx) e τ c s,
@@ -1134,6 +1215,17 @@ Proof.
 
     Infix "|~~" := (valid (ctxfo := [])) (at level 89, no associativity, only parsing).
 
+    destruct IHtyping1 as [wB₀ [w₀ IH₀]].
+    destruct IHtyping2 as [wB₁ [w₁ IH₁]].
+
+    exists (wB₀ + (wB₁ + (Wconst 1 + WappB w₀ w₁))).
+    exists (Wapp w₀ w₁).
+
+    rename ctx into lctx.
+    set (ρ := make_ρ lctx) in *.
+    set (ctx := make_ctx lctx) in *.
+    set (Ps := make_Ps Γ) in *.
+
     Lemma LRbind E (wEe : width) (wBEe : open_width WTnat []) s₁ c₂ s₂ {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) :
       [] |~~ ∀e we c₁ wBe, 
                ⌈IsEC E⌉ /\
@@ -1144,12 +1236,13 @@ Proof.
       admit.
     Qed.
 
-    Lemma LRbind' lctx (e : open_expr lctx) (we : open_width WTstruct lctx) (wBe : open_width WTnat lctx) (E : open_econtext lctx) (wEe : open_width WTstruct lctx) (wBEe : open_width WTnat lctx) (c₁ : open_cexpr lctx) (s₁ : open_size lctx) (c₂ : open_cexpr lctx) (s₂ : open_size lctx) (τ : open_type lctx) (τ' : open_type lctx) ctxfo ctx (ρ : open_csubsts ctxfo lctx ctx) (Ps : list (open_rel ctxfo 0 ctx)) :
-      Ps |~ openup1 (fun ρ => ⌈IsEC (ρ $ E)⌉) ρ ->
-      Ps |~ openup1 (fun ρ => (ρ $ e, ρ $ we) ∈ relE τ (ρ $ wBe) !(ρ $ c₁) (ρ $ s₁) ρ) ρ ->
-      Ps |~ openup1 (fun ρ => relEC (ρ $ E) (ρ $ e) (ρ $ we) (ρ $ wEe) (ρ $ wBEe) (ρ $ s₁) (ρ $ c₂) (ρ $ s₂) τ τ' ρ ρ) ρ ->
-      Ps |~ openup1 (fun ρ => (ρ $ (E $ e), ρ $ wEe) ∈ relE τ' ((ρ $ (wBe + wBEe))) !(ρ $ (c₁ + c₂)) (ρ $ s₂) ρ) ρ.
+    Lemma LRbind' ctxfo (e : open_term ctxfo expr) (we : open_term ctxfo width) (wBe : open_term ctxfo width_nat) (E : open_term ctxfo econtext) (wEe : open_term ctxfo width) (wBEe : open_term ctxfo width_nat) lctx (c₁ : open_cexpr lctx) (s₁ : open_size lctx) (c₂ : open_cexpr lctx) (s₂ : open_size lctx) (τ : open_type lctx) (τ' : open_type lctx) ctx (ρ : open_csubsts ctxfo lctx ctx) (Ps : list (open_rel ctxfo 0 ctx)) :
+      Ps |~ openup2 (fun ρ E => ⌈IsEC E⌉) ρ E ->
+      Ps |~ openup4 (fun ρ e we wBe => (e, we) ∈ relE τ wBe !(ρ $ c₁) (ρ $ s₁) ρ) ρ e we wBe ->
+      Ps |~ openup6 (fun ρ E e we wEe wBEe => relEC E e we wEe wBEe (ρ $ s₁) (ρ $ c₂) (ρ $ s₂) τ τ' ρ ρ) ρ E e we wEe wBEe ->
+      Ps |~ openup4 (fun ρ Ee wEe wBall => (Ee, wEe) ∈ relE τ' wBall !(ρ $ (c₁ + c₂)) (ρ $ s₂) ρ) ρ (E $ e) wEe (wBe + wBEe).
     Proof.
+(*
       Lemma imply_elim ctxfo lctx ctx (P Q : csubsts lctx ctx -> rel 0 ctx) (ρ : open_csubsts ctxfo lctx ctx) Ps : 
         Ps |~ openup1 (fun ρ => P ρ ===> Q ρ) ρ ->
         Ps |~ openup1 (fun ρ => P ρ) ρ ->
@@ -1235,16 +1328,22 @@ Proof.
         ).
         eapply LRbind.
       }
+ *)
       admit. (* rearrange *)
     Qed.
-    
-    destruct IHtyping1 as [wB₀ [w₀ IH₀]].
-    destruct IHtyping2 as [wB₁ [w₁ IH₁]].
 
-    exists (wB₀ + (wB₁ + (Wconst 1 + WappB w₀ w₁))).
-    exists (Wapp w₀ w₁).
+    Lemma open_csubsts_Wadd ctxfo lctx ctx (ρ : open_csubsts ctxfo lctx ctx) (w1 w2 : open_width WTnat lctx) : ρ $$ (w1 + w2) = ρ $$ w1 + ρ $$ w2.
+      admit.
+    Qed.
 
-    eapply LRbind' with (wEe := Wapp w₀ w₁) (wBEe := wB₁ + (Wconst 1 + WappB w₀ w₁)) (c₂ := c₁ + subst s₁ c) (s₂ := subst s₁ s) (E := ECapp1 ECempty e₁) (τ' := subst s₁ τ₂). 
+    rewrite open_csubsts_Wadd.
+
+    Lemma open_csubsts_Eapp ctxfo lctx ctx (ρ : open_csubsts ctxfo lctx ctx) (e1 e2 : open_expr lctx) : ρ $$ (Eapp e1 e2) = (openup1 (fun ρ => ECapp1 ECempty (ρ $$ e2)) ρ) $$ (ρ $$ e1).
+      admit.
+    Qed.
+
+    rewrite open_csubsts_Eapp.
+    eapply LRbind' with (c₂ := c₁ + subst s₁ c) (s₂ := subst s₁ s) (τ' := subst s₁ τ₂). 
     {
       admit. (* IsEC *)
     }
@@ -1253,6 +1352,34 @@ Proof.
     }
     {
       unfold relEC.
+      (*here*)
+      Lemma relEC_relE :
+        Ps 
+          |~ openup6 (fun ρ E e we wEe wBEe => ∀v we', 
+          (v, we') ∈ relV (Tarrow τ₁ c s τ₂) ρ /\
+          ⌈e ~>* v /\ !v ≤ ρ $$ nouse /\ wsteps we we'⌉ ===>
+          (E $$ v, wEe) ∈ relE (subst s₁ τ₂) wBEe !(ρ $$ (c₁ + subst s₁ c)) (ρ $$ subst s₁ s) ρ)) ρ E e we wEe wBEe ->
+        (fun v we' => openup2 (fun ρ we =>
+          (v, we') ∈ relV (Tarrow τ₁ c s τ₂) ρ /\
+          ⌈e ~>* v /\ !v ≤ ρ $$ nouse /\ wsteps we we'⌉) ρ we) :: lift_Ps [width; expr] Ps 
+          |~ openup4 (fun ρ Ee wEe wBEe => 
+          (Ee, wEe) ∈ relE (subst s₁ τ₂) wBEe !(ρ $$ (c₁ + subst s₁ c)) (ρ $$ subst s₁ s) ρ)) (lift [width; expr] ρ) (lift [width; expr] E $ extend ctxfo (fun v _ => v)) (lift [width; expr] wEe) (lift [width; expr] wBEe).
+
+
+      Fixpoint openup6' {t1 t2 t3 t4 t5 t6 t t7} (f : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t -> t7) {ctx} : open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> t -> open_term ctx t7 :=
+        match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> t -> open_term ctx t7 with
+          | nil => f
+          | t :: ctx' => fun r1 r2 r3 r4 r5 r6 y x => openup6' f (r1 x) (r2 x) (r3 x) (r4 x) (r5 x) (r6 x) y
+        end.
+
+      Lemma openup6_forall1 T1 T2 T3 T4 T5 T6 T ctx (f : T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T -> rel 0 ctx) ctxfo ρ E e we wEe wBEe Ps :
+      lift_Ps T Ps |~ (openup6' (fun ρ E e we wEe wBEe => fun v => f ρ E e we wEe wBEe v) ρ E e we wEe wBEe : open_rel (_ :: ctxfo) _ _) ->
+      Ps |~ openup6 (fun ρ E e we wEe wBEe => ∀v, f ρ E e we wEe wBEe v) ρ E e we wEe wBEe.
+        admit.
+      Qed.
+
+      eapply openup6_forall1.
+
       Definition make_var {m ctx} n (P : ceb (nth_error ctx n) (Some m) = true) : var m ctx := Var n P.
       Definition var0 {m ctx} : var m (m :: ctx).
         refine ((make_var (ctx := m%nat :: _) (m := m) 0 _)).
@@ -1261,10 +1388,6 @@ Proof.
       Defined.
       Notation "#0" := var0.
 
-      rename ctx into lctx.
-      set (ρ := make_ρ lctx) in *.
-      set (ctx := make_ctx lctx) in *.
-      set (Ps := make_Ps Γ) in *.
       assert (Hassert :
         openup1
           (fun ρ : csubsts (CEexpr :: lctx) ctx =>
@@ -1400,29 +1523,6 @@ Proof.
               Qed.
               eapply totop with (n := 1); simpl; eauto.
 
-              Fixpoint openup2 {t1 t2 t3} (f : t1 -> t2 -> t3) {ctx} : open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 :=
-                match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 with
-                  | nil => f
-                  | t :: ctx' => fun r1 r2 x => openup2 f (r1 x) (r2 x)
-                end.
-
-              Definition ORand {ctxfo ctx} : open_rel ctxfo 0 ctx -> open_rel ctxfo 0 ctx -> open_rel ctxfo 0 ctx := openup2 Rand.
-              Definition ORor {ctxfo ctx} : open_rel ctxfo 0 ctx -> open_rel ctxfo 0 ctx -> open_rel ctxfo 0 ctx := openup2 Ror.
-
-              Fixpoint openup_binder1 {t1 t2 t3} (f : (t1 -> t2) -> t3) {ctx} : (t1 -> open_term ctx t2) -> open_term ctx t3 :=
-                match ctx return (t1 -> open_term ctx t2) -> open_term ctx t3 with
-                  | nil => f
-                  | t :: ctx' => fun r x => openup_binder1 f (fun y => r y x)
-                end.
-
-              Definition ORexists1 {T ctxfo ctx} : (T -> open_rel ctxfo 0 ctx) -> open_rel ctxfo 0 ctx := openup_binder1 Rexists1.
-              Definition ORforall1 {T ctxfo ctx} : (T -> open_rel ctxfo 0 ctx) -> open_rel ctxfo 0 ctx := openup_binder1 Rforall1.
-
-              Infix "/\" := ORand : OR.
-              Infix "\/" := ORor : OR.
-              Notation "∀ x .. y , p" := (ORforall1 (fun x => .. (ORforall1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
-              Notation "∃ x .. y , p" := (ORexists1 (fun x => .. (ORexists1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
-              
               (*here*)
 
               Definition lift_e {T ctx} (r : rel 0 ctx) : open_rel [T] 0 ctx := fun _ => r.
