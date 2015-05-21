@@ -55,6 +55,7 @@ Module width.
   Local Open Scope ty.
   Local Open Scope G.
 
+  (* ToDo: need to change wtyping to require that when τ doesn't contain arrows, w can only be Wtt *)
   Inductive wtyping {ctx} : tcontext ctx -> forall {t}, width t ctx -> option (type ctx) -> Prop :=
   | WTPvar Γ x : 
       wtyping Γ (Wvar x) !(cast (shiftby (firstn (S x) ctx) !(findtc x Γ)) (firstn_skipn _ ctx))
@@ -1398,13 +1399,48 @@ Proof.
                 admit.
               Qed.
               eapply totop with (n := 1); simpl; eauto.
-              Definition lift {ctxfo ctx T} (r : open_rel ctxfo 0 ctx) : open_rel (T :: ctxfo) 0 ctx := fun _ => r.
-              (*here*)
-              Lemma rdestruct_e ctxfo ctx T (Q : open_rel ctxfo 0 ctx) (P : T -> ) Ps :
-                P :: lift_Ps T Ps |~ lift Q ->
-                (∃x, P x) :: Ps |~ Q.
 
-              admit.
+              Fixpoint openup2 {t1 t2 t3} (f : t1 -> t2 -> t3) {ctx} : open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 :=
+                match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 with
+                  | nil => f
+                  | t :: ctx' => fun r1 r2 x => openup2 f (r1 x) (r2 x)
+                end.
+
+              Definition ORand {ctxfo ctx} : open_rel ctxfo 0 ctx -> open_rel ctxfo 0 ctx -> open_rel ctxfo 0 ctx := openup2 Rand.
+              Definition ORor {ctxfo ctx} : open_rel ctxfo 0 ctx -> open_rel ctxfo 0 ctx -> open_rel ctxfo 0 ctx := openup2 Ror.
+
+              Fixpoint openup_binder1 {t1 t2 t3} (f : (t1 -> t2) -> t3) {ctx} : (t1 -> open_term ctx t2) -> open_term ctx t3 :=
+                match ctx return (t1 -> open_term ctx t2) -> open_term ctx t3 with
+                  | nil => f
+                  | t :: ctx' => fun r x => openup_binder1 f (fun y => r y x)
+                end.
+
+              Definition ORexists1 {T ctxfo ctx} : (T -> open_rel ctxfo 0 ctx) -> open_rel ctxfo 0 ctx := openup_binder1 Rexists1.
+              Definition ORforall1 {T ctxfo ctx} : (T -> open_rel ctxfo 0 ctx) -> open_rel ctxfo 0 ctx := openup_binder1 Rforall1.
+
+              Infix "/\" := ORand : OR.
+              Infix "\/" := ORor : OR.
+              Notation "∀ x .. y , p" := (ORforall1 (fun x => .. (ORforall1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
+              Notation "∃ x .. y , p" := (ORexists1 (fun x => .. (ORexists1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
+              
+              (*here*)
+
+              Definition lift_e {T ctx} (r : rel 0 ctx) : open_rel [T] 0 ctx := fun _ => r.
+
+              Lemma rdestruct_e ctx T (Q : rel 0 ctx) (P : T -> rel 0 ctx) Ps :
+                (P : open_rel [T] _ _) :: lift_Ps T Ps |~ lift_e Q ->
+                (∃x, P x) :: Ps |~~ Q.
+                admit.
+              Qed.
+              eapply rdestruct_e.
+
+              Definition lift {T ctxfo ctx} (r : open_rel ctxfo 0 ctx) : open_rel (T :: ctxfo) 0 ctx := fun _ => r.
+
+              Lemma rdestruct_1 T1 T2 ctxfo ctx (Q : open_rel ctxfo 0 ctx) (P : T1 -> T2 -> rel 0 ctx) Ps :
+                (P : open_rel [T1;T2] _ _) :: lift_Ps T Ps |~ lift_e Q ->
+                (fun x1 => ∃x2, P x1 x2) :: Ps |~~ Q.
+                admit.
+              Qed.  
             Qed.
             admit.
           Qed.
