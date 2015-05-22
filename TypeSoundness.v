@@ -162,7 +162,7 @@ Local Notation expr := (open_expr []).
 Import width.
 
 Notation open_width := width.
-Notation width := (open_width WTstruct []).
+Notation width := (open_width WTstruct [] : Type).
 Notation wexpr := (expr * width)%type.
 
 (* encoding of fix by recursive-type :
@@ -961,7 +961,7 @@ Fixpoint openup0 {T} (f : T) {ctx} : open_term ctx T :=
     | t :: ctx' => fun _ => openup0 f
   end.
 
-Definition lift_Ps {ctxfo ctx} T (ls : t_Ps ctxfo ctx) : t_Ps (T :: ctxfo) ctx :=
+Definition liftPs1 {ctxfo ctx} T (ls : t_Ps ctxfo ctx) : t_Ps (T :: ctxfo) ctx :=
   map (fun P => fun _ => P) ls.
 
 Definition add_wexpr_open_csubsts {ctxfo lctx ctx} e (rho : open_csubsts ctxfo lctx ctx) : open_csubsts ctxfo (CEexpr :: lctx) ctx := openup1 (add_wexpr e) rho.
@@ -979,7 +979,7 @@ Definition add_ρ_type {ctxfo lctx ctx} (ρ : t_ρ ctxfo lctx ctx) : t_ρ (type 
 
 Definition add_Ps_type {ctxfo ctx} (Ps : t_Ps ctxfo ctx) : t_Ps (type :: ctxfo) ((1 : relvart) :: ctx) :=
   let Ps := shift1 (1 : relvart) Ps in
-  let Ps := lift_Ps type Ps in
+  let Ps := liftPs1 type Ps in
   let Ps := (fun τ => openup0 (⌈kinding [] τ 0⌉ /\ VWSet τ (Rvar #0))%rel) :: Ps in
   Ps
 .
@@ -990,7 +990,7 @@ Definition add_ρ_expr {ctxfo lctx ctx} (ρ : t_ρ ctxfo lctx ctx) : t_ρ (wexpr
 .
 
 Definition add_Ps_expr {ctxfo lctx ctx} τ (Ps : t_Ps ctxfo ctx) (ρ : t_ρ ctxfo lctx ctx) : t_Ps (wexpr :: ctxfo) ctx :=
-  let Ps := lift_Ps wexpr Ps in
+  let Ps := liftPs1 wexpr Ps in
   let Ps := (fun vw => openup1 (fun ρ => vw ∈ relV τ ρ)%rel ρ) :: Ps in
   Ps
 .
@@ -1338,11 +1338,21 @@ Proof.
 
     rewrite open_csubsts_Wadd.
 
-    Lemma open_csubsts_Eapp ctxfo lctx ctx (ρ : open_csubsts ctxfo lctx ctx) (e1 e2 : open_expr lctx) : ρ $$ (Eapp e1 e2) = (openup1 (fun ρ => ECapp1 ECempty (ρ $$ e2)) ρ) $$ (ρ $$ e1).
+    Lemma open_csubsts_Eapp ctxfo lctx ctx (ρ : open_csubsts ctxfo lctx ctx) (e1 e2 : open_expr lctx) : ρ $$ (Eapp e1 e2) = openup2 (fun e1 e2 => Eapp e1 e2) (ρ $$ e1) (ρ $$ e2).
       admit.
     Qed.
 
     rewrite open_csubsts_Eapp.
+
+    Lemma open_ECapp1 ctxfo (e1 e2 : open_term ctxfo expr) : openup1 (fun e => ECapp1 ECempty e) e2 $$ e1 = openup2 (fun e1 e2 => Eapp e1 e2) e1 e2.
+      admit.
+    Qed.
+    Lemma open_ECapp2 ctxfo (e1 e2 : open_term ctxfo expr) : openup1 (fun e => ECapp2 e ECempty) e1 $$ e2 = openup2 (fun e1 e2 => Eapp e1 e2) e1 e2.
+      admit.
+    Qed.
+
+    rewrite <- open_ECapp1.
+
     eapply LRbind' with (c₂ := c₁ + subst s₁ c) (s₂ := subst s₁ s) (τ' := subst s₁ τ₂). 
     {
       admit. (* IsEC *)
@@ -1352,74 +1362,88 @@ Proof.
     }
     {
       unfold relEC.
-      (*here*)
-      Lemma relEC_relE :
-        Ps 
-          |~ openup6 (fun ρ E e we wEe wBEe => ∀v we', 
-          (v, we') ∈ relV (Tarrow τ₁ c s τ₂) ρ /\
-          ⌈e ~>* v /\ !v ≤ ρ $$ nouse /\ wsteps we we'⌉ ===>
-          (E $$ v, wEe) ∈ relE (subst s₁ τ₂) wBEe !(ρ $$ (c₁ + subst s₁ c)) (ρ $$ subst s₁ s) ρ)) ρ E e we wEe wBEe ->
-        (fun v we' => openup2 (fun ρ we =>
-          (v, we') ∈ relV (Tarrow τ₁ c s τ₂) ρ /\
-          ⌈e ~>* v /\ !v ≤ ρ $$ nouse /\ wsteps we we'⌉) ρ we) :: lift_Ps [width; expr] Ps 
-          |~ openup4 (fun ρ Ee wEe wBEe => 
-          (Ee, wEe) ∈ relE (subst s₁ τ₂) wBEe !(ρ $$ (c₁ + subst s₁ c)) (ρ $$ subst s₁ s) ρ)) (lift [width; expr] ρ) (lift [width; expr] E $ extend ctxfo (fun v _ => v)) (lift [width; expr] wEe) (lift [width; expr] wBEe).
-
-
-      Fixpoint openup6' {t1 t2 t3 t4 t5 t6 t t7} (f : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t -> t7) {ctx} : open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> t -> open_term ctx t7 :=
-        match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> t -> open_term ctx t7 with
-          | nil => f
-          | t :: ctx' => fun r1 r2 r3 r4 r5 r6 y x => openup6' f (r1 x) (r2 x) (r3 x) (r4 x) (r5 x) (r6 x) y
+      Fixpoint liftPs {ctxfo ctx new} (Ps : t_Ps ctxfo ctx) : t_Ps (new ++ ctxfo) ctx :=
+        match new with
+          | nil => Ps
+          | T :: new' => liftPs1 T (liftPs Ps)
         end.
 
-      Lemma openup6_forall1 T1 T2 T3 T4 T5 T6 T ctx (f : T1 -> T2 -> T3 -> T4 -> T5 -> T6 -> T -> rel 0 ctx) ctxfo ρ E e we wEe wBEe Ps :
-      lift_Ps T Ps |~ (openup6' (fun ρ E e we wEe wBEe => fun v => f ρ E e we wEe wBEe v) ρ E e we wEe wBEe : open_rel (_ :: ctxfo) _ _) ->
-      Ps |~ openup6 (fun ρ E e we wEe wBEe => ∀v, f ρ E e we wEe wBEe v) ρ E e we wEe wBEe.
+      Definition lift1 {ctxfo t} T (a : open_term ctxfo t) : open_term (T :: ctxfo) t := fun _ => a.
+
+      Fixpoint lift {ctxfo t new} (a : open_term ctxfo t) : open_term (new ++ ctxfo) t :=
+        match new return open_term (new ++ ctxfo) t with
+          | nil => a
+          | T :: new' => lift1 (lift a)
+        end.
+
+      Definition fovar1 {T0 T1 ctxfo} : open_term (T0 :: T1 :: ctxfo) T1 := fun _ x => openup0 x.
+
+      Fixpoint openup3 {t1 t2 t3 t4} (f : t1 -> t2 -> t3 -> t4) {ctx} : open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 :=
+        match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 with
+          | nil => f
+          | t :: ctx' => fun r1 r2 r3 x => openup3 f (r1 x) (r2 x) (r3 x)
+        end.
+
+      Lemma relE_relEC ctxfo ctx A (ρ : open_term ctxfo A) (E : open_term ctxfo econtext) (e : open_term ctxfo expr) (we : open_term ctxfo width) (wEe : open_term ctxfo width) (wBEe : open_term ctxfo width_nat) Ps P Q :
+        ((fun we' v => openup3 (fun ρ e we => P v we' ρ e we) ρ e we) : open_rel (_ :: _ :: _) _ _) :: liftPs (ctx := ctx) (new := [width; expr]) Ps 
+          |~ openup4 (fun ρ Ee wEe wBEe => 
+          (Ee, wEe) ∈ Q wBEe ρ) (lift ρ) (lift E $ fovar1) (lift wEe) (lift (new := [width; expr]) wBEe) ->
+        Ps 
+          |~ openup6 (fun ρ E e we wEe wBEe => 
+          ∀v we', 
+          P v we' ρ e we ===>
+          (E $$ v, wEe) ∈ Q wBEe ρ) ρ E e we wEe wBEe.
         admit.
       Qed.
 
-      eapply openup6_forall1.
-
-      Definition make_var {m ctx} n (P : ceb (nth_error ctx n) (Some m) = true) : var m ctx := Var n P.
-      Definition var0 {m ctx} : var m (m :: ctx).
-        refine ((make_var (ctx := m%nat :: _) (m := m) 0 _)).
-        eapply ceb_iff.
-        eauto.
-      Defined.
-      Notation "#0" := var0.
-
-      assert (Hassert :
-        openup1
-          (fun ρ : csubsts (CEexpr :: lctx) ctx =>
-             let v := ρ $ (Evar #0) in
-             let we' := ρ $ (Wvar #0) in
-             ((v, we') ∈ relV (shift1 _ (Tarrow τ₁ c s τ₂)) ρ /\ ⌈ρ $$ shift1 _ e₀ ~>* v /\ !v ≤ ρ $$ shift1 _ nouse /\ wsteps (ρ $$ shift1 _ w₀) we' ⌉))
-          ((fun vw => openup1 (add vw) ρ) : open_csubsts (wexpr :: _) _ _) :: lift_Ps wexpr Ps
-          |~ 
-          openup1
-          (fun ρ : csubsts (CEexpr :: lctx) ctx =>
-             (ρ $$ (ECapp2 (Evar #0) ECempty $ shift1 _ e₁), ρ $$ shift1 _ (Wapp w₀ w₁))
-               ∈ relE (shift1 _ (subst s₁ τ₂)) (ρ $$ (shift1 _ wB₁ + shift1 _ (Wconst 1 + WappB w₀ w₁)))
-               !(ρ $$ (shift1 _ c₁ + shift1 _ (subst s₁ c))) (ρ $$ shift1 _ (subst s₁ s)) ρ)
-          ((fun vw => openup1 (add vw) ρ) : open_csubsts (wexpr :: _) _ _)).
+      eapply relE_relEC.
+      rewrite open_csubsts_Wadd.
+      Lemma lift_Wadd ctxfo (w1 w2 : open_term ctxfo width_nat) new : lift (new := new) (w1 + w2) = lift w1 + lift w2.
+        admit.
+      Qed.
+      rewrite lift_Wadd.
+      Lemma lift_openup1 ctxfo t1 t2 (a : open_term ctxfo t1) (f : t1 -> t2) new : lift (new := new) (openup1 f a) = openup1 f (lift a).
+        admit.
+      Qed.
+      rewrite lift_openup1.
+      rewrite open_ECapp1.
+      rewrite <- open_ECapp2.
+      eapply LRbind'.
       {
-        eapply LRbind' with (we := shift1 CEexpr w₁) (τ := shift1 CEexpr τ₁).
-        {
-          admit. (* IsEC *)
-        }
-        {
-          instantiate (1 := shift1 CEexpr s₁).
-          admit. (* eapply IH₁ *)
-        }
-        {
-          unfold relEC.
-          eapply imply_gen.
-          eapply VMorePs.
-          eapply VCtxElimEmpty.
-          subst ρ.
-          intros ρ.
-          (* need to change EC to C and IsEC *)
-          simpl in ρ.
+        admit. (* IsEC *)
+      }
+      {
+        instantiate (1 := lift (ρ $ w₁)).
+        instantiate (1 := s₁).
+        instantiate (1 := τ₁).
+        admit. (* eapply IH₁ *)
+      }
+      {
+        unfold relEC.
+        eapply relE_relEC.
+        Lemma lift_lift ctxfo t (a : open_term ctxfo t) A1 A2 B1 B2 : lift (new := [A1;A2]) (lift (new := [B1;B2]) a) = lift (new := [A1;A2;B1;B2]) a.
+          admit.
+        Qed.
+        repeat rewrite lift_lift in *.
+        Lemma liftPs_cons ctxfo ctx (a : open_rel ctxfo 0 ctx) ls new : liftPs (new := new) (a :: ls) = lift a :: liftPs ls.
+          admit.
+        Qed.
+        rewrite liftPs_cons.
+        Lemma liftPs_liftPs ctxfo ctx (a : t_Ps ctxfo ctx) A1 A2 B1 B2 : liftPs (ctxfo := _ :: _ :: _) (new := [A1;A2]) (liftPs (new := [B1;B2]) a) = liftPs (new := [A1;A2;B1;B2]) a.
+          admit.
+        Qed.
+        rewrite liftPs_liftPs.
+        rewrite lift_openup1.
+        rewrite open_ECapp2.
+        (*here*)
+
+        eapply imply_gen.
+        eapply VMorePs.
+        eapply VCtxElimEmpty.
+        subst ρ.
+        intros ρ.
+        (* need to change EC to C and IsEC *)
+        simpl in ρ.
           Lemma LRappvv lctx ctx (v₀ : expr) (w₀ w₀' : width) (τ₁ : open_type lctx) (c : open_cexpr (CEexpr :: lctx)) (s : open_size (CEexpr :: lctx)) (τ₂ : open_type (CEexpr :: lctx)) (ρ : csubsts lctx ctx) (w₁ : width) (s₁ : open_size lctx) P1 P2 Q :
             [] |~~ 
                (v₀, w₀') ∈ relV (Tarrow τ₁ c s τ₂) ρ /\ ⌈P1 /\ P2 /\ wsteps w₀ w₀'⌉ ===>
@@ -1528,16 +1552,14 @@ Proof.
               Definition lift_e {T ctx} (r : rel 0 ctx) : open_rel [T] 0 ctx := fun _ => r.
 
               Lemma rdestruct_e ctx T (Q : rel 0 ctx) (P : T -> rel 0 ctx) Ps :
-                (P : open_rel [T] _ _) :: lift_Ps T Ps |~ lift_e Q ->
+                (P : open_rel [T] _ _) :: liftPs1 T Ps |~ lift_e Q ->
                 (∃x, P x) :: Ps |~~ Q.
                 admit.
               Qed.
               eapply rdestruct_e.
 
-              Definition lift {T ctxfo ctx} (r : open_rel ctxfo 0 ctx) : open_rel (T :: ctxfo) 0 ctx := fun _ => r.
-
               Lemma rdestruct_1 T1 T2 ctxfo ctx (Q : open_rel ctxfo 0 ctx) (P : T1 -> T2 -> rel 0 ctx) Ps :
-                (P : open_rel [T1;T2] _ _) :: lift_Ps T Ps |~ lift_e Q ->
+                (P : open_rel [T1;T2] _ _) :: liftPs1 T Ps |~ lift_e Q ->
                 (fun x1 => ∃x2, P x1 x2) :: Ps |~~ Q.
                 admit.
               Qed.  
@@ -1573,7 +1595,7 @@ Proof.
         }
       }
       Lemma forall1intro ctxfo lctx ctx (ρ : open_csubsts ctxfo lctx ctx) (f : expr -> width -> csubsts lctx ctx -> rel 0 ctx) Ps :
-        lift_Ps wexpr Ps |~ openup1 
+        liftPs1 wexpr Ps |~ openup1 
                 (fun ρ => 
                    let pr := pair_of_csubsts ρ in 
                    let vw := fst pr in 
