@@ -1887,7 +1887,7 @@ Proof.
         Proof.
           admit.
         Qed.
-
+(*
         Lemma rewrite_openup5 {t0 t1 t2 t3 t4 t5 ctxfo} {f g : t0 -> t1 -> t2 -> t3 -> t4 -> t5} {x0 x1 x2 x3 x4} : (t0 ====> t1 ====> t2 ====> t3 ====> t4 ====> eq) f g -> openup5 (ctx := ctxfo) f x0 x1 x2 x3 x4 = openup5 g x0 x1 x2 x3 x4.
           intros H.
           setoid_rewrite H.
@@ -1902,9 +1902,29 @@ Proof.
           rewrite csubsts_subst_s_s.
           reflexivity.
         }
+*)
+        Lemma rewrite_openup5 {t0 t1 t2 t3 t4 t5 ctxfo} {f g : t0 -> t1 -> t2 -> t3 -> t4 -> t5} {x0 x1 x2 x3 x4} : f = g -> openup5 (ctx := ctxfo) f x0 x1 x2 x3 x4 = openup5 g x0 x1 x2 x3 x4.
+          intros H.
+          setoid_rewrite H.
+          reflexivity.
+        Qed.
+
+        erewrite (rewrite_openup5 (x0 := ρ' $ w₁)); last first.
+        {
+          Tactic Notation "extensionality'" :=
+            match goal with
+                [ |- ?X = ?Y ] =>
+                (apply (@functional_extensionality _ _ X Y) ||
+                       apply (@functional_extensionality_dep _ _ X Y)) ; intro
+            end.
+          repeat extensionality'.
+          rewrite csubsts_subst_s_c.
+          rewrite csubsts_subst_s_s.
+          reflexivity.
+        }
 
         Lemma relE_mono_tau_c_s lctx τ c s s₁ ctx (ρ : csubsts lctx ctx) e w wB (v : expr) : 
-          [] |~~ (e, w) ∈ relE (subst !(!v) τ) wB !(subst !(!v) (ρ $ c)) (subst !(!v) (ρ $ s)) ρ /\ ⌈!v ≤ ρ $$ s₁⌉ ===> (e, w) ∈ relE (subst s₁ τ) wB !(subst (ρ $ s₁) (ρ $ c)) (subst (ρ $ s₁) (ρ $ s)) ρ.
+          [] |~~ (e, w) ∈ relE (subst !(!v) τ) wB !(subst !(!v) c) (subst !(!v) s) ρ /\ ⌈!v ≤ ρ $$ s₁⌉ ===> (e, w) ∈ relE (subst s₁ τ) wB !(subst (ρ $ s₁) c) (subst (ρ $ s₁) s) ρ.
           admit.
         Qed.
         Lemma openup5_apply ctx t1 t2 t3 t4 t5 (f g : t1 -> t2 -> t3 -> t4 -> t5 -> rel 0 ctx) ctxfo x1 x2 x3 x4 x5 Ps : 
@@ -1935,11 +1955,11 @@ Proof.
           eapply openup5_apply.
           {
             intros.
-            eapply relE_rho with (w' := x2).
+            eapply relE_rho with (w' := x1).
           }
           Lemma relE_app_subst lctx τ c s ctx (ρ : csubsts lctx ctx) v₀ v₁ w₀ w₁ : 
             [] |~~
-            (∃e w wB, (subst v₁ e, subst w₁ w) ∈ relE τ (subst w₁ wB) c s ρ /\ ⌈exists τ', v₀ = Eabs τ' e /\ w₀ = Wabs wB w⌉%type) ===>
+            (∃e w wB, (subst v₁ e, subst w₁ w) ∈ relE τ (subst w₁ wB) c s ρ /\ ⌈(exists τ', v₀ = Eabs τ' e) /\ w₀ = Wabs wB w⌉%type) ===>
             (Eapp v₀ v₁, Wapp w₀ w₁) ∈ relE τ (Wconst 1 + WappB w₀ w₁) c s ρ.
             admit.
           Qed.
@@ -1948,8 +1968,140 @@ Proof.
             intros.
             eapply relE_app_subst. 
           }
-        (*here*)
+
+          Lemma openup5_exists1 ctx t t1 t2 t3 t4 t5 (f : t -> t1 -> t2 -> t3 -> t4 -> t5 -> rel 0 ctx) ctxfo x x1 x2 x3 x4 x5 Ps : 
+            Ps |~ openup6 f x x1 x2 x3 x4 x5 ->
+            Ps |~ openup5 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 => ∃x, f x x1 x2 x3 x4 x5) x1 x2 x3 x4 x5.
+          Proof.
+            intros H.
+            Lemma openup5_exists1' ctx t t1 t2 t3 t4 t5 (f : t -> t1 -> t2 -> t3 -> t4 -> t5 -> rel 0 ctx) ctxfo x1 x2 x3 x4 x5 : openup5 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 => ∃x, f x x1 x2 x3 x4 x5) x1 x2 x3 x4 x5 == (∃x, openup5 (f x) x1 x2 x3 x4 x5)%OR.
+              admit.
+            Qed.
+            rewrite openup5_exists1'.
+            Fixpoint openup1' {t1 t2} {ctx} : (t1 -> open_term ctx t2) -> open_term ctx t1 -> open_term ctx t2 :=
+              match ctx return (t1 -> open_term ctx t2) -> open_term ctx t1 -> open_term ctx t2 with
+                | nil => id
+                | t :: ctx' => fun f r x => openup1' (fun y => f y x) (r x)
+              end.
+            Lemma exists1_intro t ctxfo ctx (f : t -> open_rel ctxfo 0 ctx) Ps x :
+              Ps |~ openup1' f x ->
+              Ps |~ (∃x, f x)%OR.
+              admit.
+            Qed.
+            eapply exists1_intro with (x := x).
+            Lemma openup1'_openup5 t t1 t2 t3 t4 t5 t6 (f : t -> t1 -> t2 -> t3 -> t4 -> t5 -> t6) ctxfo x x1 x2 x3 x4 x5 : openup1' (fun x => openup5 (ctx := ctxfo) (f x) x1 x2 x3 x4 x5) x = openup6 f x x1 x2 x3 x4 x5.
+              admit.
+            Qed.
+            rewrite openup1'_openup5.
+            eauto.
+          Qed.
+          eapply openup5_exists1 with (x := V2).
+          Lemma openup6_exists1 ctx t t1 t2 t3 t4 t5 t6 (f : t -> t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> rel 0 ctx) ctxfo x x1 x2 x3 x4 x5 x6 Ps : 
+            Ps |~ openup7 f x x1 x2 x3 x4 x5 x6 ->
+            Ps |~ openup6 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 x6 => ∃x, f x x1 x2 x3 x4 x5 x6) x1 x2 x3 x4 x5 x6.
+            admit.
+          Qed.
+          eapply openup6_exists1 with (x := V0).
+          Fixpoint openup8 {t1 t2 t3 t4 t5 t6 t7 t8 t9} (f : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8 -> t9) {ctx} : open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> open_term ctx t7 -> open_term ctx t8 -> open_term ctx t9 :=
+            match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> open_term ctx t7 -> open_term ctx t8 -> open_term ctx t9 with
+              | nil => f
+              | t :: ctx' => fun r1 r2 r3 r4 r5 r6 r7 r8 x => openup8 f (r1 x) (r2 x) (r3 x) (r4 x) (r5 x) (r6 x) (r7 x) (r8 x)
+            end.
+          Lemma openup7_exists1 ctx t t1 t2 t3 t4 t5 t6 t7 (f : t -> t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> rel 0 ctx) ctxfo x x1 x2 x3 x4 x5 x6 x7 Ps : 
+            Ps |~ openup8 f x x1 x2 x3 x4 x5 x6 x7 ->
+            Ps |~ openup7 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 x6 x7 => ∃x, f x x1 x2 x3 x4 x5 x6 x7) x1 x2 x3 x4 x5 x6 x7.
+            admit.
+          Qed.
+          eapply openup7_exists1 with (x := V1).
+          Lemma openup8_and ctx t1 t2 t3 t4 t5 t6 t7 t8 (f g : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8 -> rel 0 ctx) ctxfo x1 x2 x3 x4 x5 x6 x7 x8 : openup8 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 x6 x7 x8 => f x1 x2 x3 x4 x5 x6 x7 x8 /\ g x1 x2 x3 x4 x5 x6 x7 x8) x1 x2 x3 x4 x5 x6 x7 x8 == (openup8 f x1 x2 x3 x4 x5 x6 x7 x8 /\ openup8 g x1 x2 x3 x4 x5 x6 x7 x8)%OR.
+            admit.
+          Qed.
+          rewrite openup8_and.
+          eapply rsplit.
+          {
+            Lemma openup8_totop6 {t0 t1 t2 t3 t4 t5 t6 t7 t8} {f : t0 -> t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8} {ctxfo x0 x1 x2 x3 x4 x5 x6 x7} : openup8 (ctx := ctxfo) f x0 x1 x2 x3 x4 x5 x6 x7 = openup8 (fun x6 x0 x1 x2 x3 x4 x5 x7 => f x0 x1 x2 x3 x4 x5 x6 x7) x6 x0 x1 x2 x3 x4 x5 x7.
+              admit.
+            Qed.
+            rewrite openup8_totop6.
+            Lemma openup8_openup7 t1 t2 t3 t4 t5 t6 t7 t8 t9 (f : t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8 -> t9) ctxfo x1 x2 x3 x4 x5 x6 x7 x8 : openup8 (ctx := ctxfo) (fun (_ : t1) x2 x3 x4 x5 x6 x7 x8 => f x2 x3 x4 x5 x6 x7 x8) x1 x2 x3 x4 x5 x6 x7 x8 = openup7 f x2 x3 x4 x5 x6 x7 x8.
+              admit.
+            Qed.
+            rewrite openup8_openup7.
+            Lemma openup7_totop4 {t0 t1 t2 t3 t4 t5 t6 t7} {f : t0 -> t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7} {ctxfo x0 x1 x2 x3 x4 x5 x6} : openup7 (ctx := ctxfo) f x0 x1 x2 x3 x4 x5 x6 = openup7 (fun x4 x0 x1 x2 x3 x5 x6 => f x0 x1 x2 x3 x4 x5 x6) x4 x0 x1 x2 x3 x5 x6.
+              admit.
+            Qed.
+            rewrite openup7_totop4.
+            Lemma openup7_openup6 t1 t2 t3 t4 t5 t6 t7 t8 (f : t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8) ctxfo x1 x2 x3 x4 x5 x6 x7 : openup7 (ctx := ctxfo) (fun (_ : t1) x2 x3 x4 x5 x6 x7 => f x2 x3 x4 x5 x6 x7) x1 x2 x3 x4 x5 x6 x7 = openup6 f x2 x3 x4 x5 x6 x7.
+              admit.
+            Qed.
+            rewrite openup7_openup6.
+            Lemma relE_replace_width lctx τ c s ctx (ρ : csubsts lctx ctx) e v₁ w wB w₁ : 
+              [] |~~
+                 (∃w₁', (subst v₁ e, subst w₁' w) ∈ relE τ (subst w₁' wB) c s (add (v₁, w₁') ρ) /\ ⌈wsteps w₁ w₁'⌉) ===>
+                 (subst v₁ e, subst w₁ w) ∈ relE τ (subst w₁ wB) c s (add (v₁, w₁) ρ).
+              admit.
+            Qed.
+            Lemma openup6_apply ctx t1 t2 t3 t4 t5 t6 (f g : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> rel 0 ctx) ctxfo x1 x2 x3 x4 x5 x6 Ps : 
+              (forall x1 x2 x3 x4 x5 x6, [] |~~ f x1 x2 x3 x4 x5 x6 ===> g x1 x2 x3 x4 x5 x6) ->
+              Ps |~ openup6 (ctx := ctxfo) f x1 x2 x3 x4 x5 x6 ->
+              Ps |~ openup6 (ctx := ctxfo) g x1 x2 x3 x4 x5 x6.
+              admit.
+            Qed.
+            eapply openup6_apply.
+            {
+              intros.
+              eapply relE_replace_width.
+            }
+            eapply openup6_exists1 with (x := V3).
+            Lemma openup7_and ctx t1 t2 t3 t4 t5 t6 t7 (f g : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> rel 0 ctx) ctxfo x1 x2 x3 x4 x5 x6 x7 : openup7 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 x6 x7 => f x1 x2 x3 x4 x5 x6 x7 /\ g x1 x2 x3 x4 x5 x6 x7) x1 x2 x3 x4 x5 x6 x7 == (openup7 f x1 x2 x3 x4 x5 x6 x7 /\ openup7 g x1 x2 x3 x4 x5 x6 x7)%OR.
+              admit.
+            Qed.
+            rewrite openup7_and.
+            eapply rsplit.
+            {
+              rewrite openup7_totop4.
+              rewrite openup7_openup6.
+              rewrite openup6_totop1.
+              Lemma openup6_totop3 {t0 t1 t2 t3 t4 t5 t6} {f : t0 -> t1 -> t2 -> t3 -> t4 -> t5 -> t6} {ctxfo x0 x1 x2 x3 x4 x5} : openup6 (ctx := ctxfo) f x0 x1 x2 x3 x4 x5 = openup6 (fun x3 x0 x1 x2 x4 x5 => f x0 x1 x2 x3 x4 x5) x3 x0 x1 x2 x4 x5.
+                admit.
+              Qed.
+              rewrite openup6_totop3.
+              rewrite openup6_totop3.
+              Lemma openup6_totop4 {t0 t1 t2 t3 t4 t5 t6} {f : t0 -> t1 -> t2 -> t3 -> t4 -> t5 -> t6} {ctxfo x0 x1 x2 x3 x4 x5} : openup6 (ctx := ctxfo) f x0 x1 x2 x3 x4 x5 = openup6 (fun x4 x0 x1 x2 x3 x5 => f x0 x1 x2 x3 x4 x5) x4 x0 x1 x2 x3 x5.
+                admit.
+              Qed.
+              rewrite openup6_totop4.
+              Lemma rewrite_openup6 {t0 t1 t2 t3 t4 t5 t6 ctxfo} {f g : t0 -> t1 -> t2 -> t3 -> t4 -> t5 -> t6} {x0 x1 x2 x3 x4 x5} : f = g -> openup6 (ctx := ctxfo) f x0 x1 x2 x3 x4 x5 = openup6 g x0 x1 x2 x3 x4 x5.
+                intros H.
+                rewrite H.
+                reflexivity.
+              Qed.
+              erewrite rewrite_openup6; last first.
+              {
+                repeat extensionality'.
+                rewrite csubsts_subst_s_c.
+                rewrite csubsts_subst_s_s.
+                Lemma csubsts_value lctx ctx (ρ : csubsts lctx ctx) (v : expr) : ρ $$ (!(!v : csize) : open_size lctx) = !(!v).
+                  admit.
+                Qed.
+                repeat rewrite csubsts_value.
+                reflexivity.
+              }
+              Lemma ctx_refl ctxfo ctx (P : open_rel ctxfo 0 ctx) Ps : P :: Ps |~ P.
+                admit.
+              Qed.
+              eapply ctx_refl.
+            }
+            admit. (* wsteps *)
+          }
+          admit. (* = Eabs /\ = Wabs *)
         }
+        admit. (* !v <= rho $ s1 *)
+      }
+    }
+  }
+  {
+      (*here*)
 
 
         Global Instance Apply_open_rel_open_wexpr {ctxfo m ctx} : Apply (open_rel ctxfo (S m) ctx) (open_term ctxfo wexpr) (open_rel ctxfo m ctx) :=
