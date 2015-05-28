@@ -1330,6 +1330,28 @@ Proof.
       admit.
     Qed.
 
+    Lemma LRbind''' E (wEe : width) (wBEe : open_width WTnat []) s₁ c₂ s₂ {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) e we c₁ wBe :
+      [] |~~ 
+         ⌈IsEC E⌉ /\
+      (e, we) ∈ relE τ wBe !c₁ s₁ ρ /\ 
+      relEC E e we wEe wBEe s₁ c₂ s₂ τ τ' ρ ρ' ===> 
+            (E $$ e, wEe) ∈ relE τ' (wBe + wBEe) !(c₁ + c₂) s₂ ρ'.
+    Proof.
+      Lemma forall1_elim4 ctx A B C D (P : A -> B -> C -> D -> rel 0 ctx) e we c₁ wBe :
+        [] |~~ (∀e we c₁ wBe, P e we c₁ wBe) ->
+        [] |~~ P e we c₁ wBe.
+        admit.
+      Qed.
+      eapply forall1_elim4 with (
+        P := fun e we c₁ wBe =>
+               ⌈IsEC E⌉ /\
+               (e, we) ∈ relE τ wBe !c₁ s₁ ρ /\
+               relEC E e we wEe wBEe s₁ c₂ s₂ τ τ' ρ ρ' ===>
+                     (E $$ e, wEe) ∈ relE τ' (wBe + wBEe) !(c₁ + c₂) s₂ ρ'
+      ).
+      eapply LRbind.
+    Qed.
+
     Lemma LRbind'' E (wEe : width) (wBEe : open_width WTnat []) s₁ c₂ s₂ {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) e c₁ wBe :
       [] |~~ 
          (∃we, ⌈IsEC E⌉ /\
@@ -1337,8 +1359,63 @@ Proof.
                relEC E e we wEe wBEe s₁ c₂ s₂ τ τ' ρ ρ') ===> 
          (E $$ e, wEe) ∈ relE τ' (wBe + wBEe) !(c₁ + c₂) s₂ ρ'.
     Proof.
-      (*here*)
-      admit.
+      Lemma imply_intro ctx (P Q : rel 0 ctx) Ps :
+        P :: Ps |~~ Q ->
+        Ps |~~ P ===> Q.
+        admit.
+      Qed.
+      eapply imply_intro.
+      Fixpoint liftPs {new ctxfo ctx} (Ps : t_Ps ctxfo ctx) : t_Ps (new ++ ctxfo) ctx :=
+        match new with
+          | nil => Ps
+          | T :: new' => liftPs1 T (liftPs Ps)
+        end.
+
+      Definition lift1 {T ctxfo t} (a : open_term ctxfo t) : open_term (T :: ctxfo) t := fun _ => a.
+
+      Fixpoint lift {new ctxfo t} (a : open_term ctxfo t) : open_term (new ++ ctxfo) t :=
+        match new return open_term (new ++ ctxfo) t with
+          | nil => a
+          | T :: new' => lift1 (lift a)
+        end.
+
+      Definition V0 {T0 ctxfo} : open_term (T0 :: ctxfo) T0 := fun x => openup0 x.
+      Notation V1 := (lift (new := [_]) V0).
+      Notation V2 := (lift (new := [_;_]) V0).
+      Notation V3 := (lift (new := [_;_;_]) V0).
+      Notation V4 := (lift (new := [_;_;_;_]) V0).
+      Notation V5 := (lift (new := [_;_;_;_;_]) V0).
+      Notation V6 := (lift (new := [_;_;_;_;_;_]) V0).
+      Notation V7 := (lift (new := [_;_;_;_;_;_;_]) V0).
+      Notation V8 := (lift (new := [_;_;_;_;_;_;_;_]) V0).
+
+      Lemma exists1_elim ctx t (Q : open_rel [] 0 ctx) (f : t -> rel 0 ctx) (Ps : list (open_rel [] 0 ctx)) :
+        openup1 (ctx := [t]) f V0 :: liftPs (new := [t]) Ps |~ lift (new := [t]) Q ->
+        ((∃x, f x) : open_rel [] 0 ctx) :: Ps |~ Q.
+        admit.
+      Qed.
+
+      eapply exists1_elim.
+      Lemma openup0_lift_1 A1 t1 (f : t1) : openup0 (ctx := [A1]) f = lift (new := [A1]) (f : open_term [] _).
+        admit.
+      Qed.
+      rewrite <- openup0_lift_1.
+      Lemma openup1_openup0 {t1 t2} {f : t2} {ctxfo x1} : openup1 (ctx := ctxfo) (fun (_ : t1) => f) x1 = openup0 f.
+        admit.
+      Qed.
+      erewrite <- (openup1_openup0 (x1 := V0)).
+      Lemma openup1_apply ctx t1 (f g : t1 -> rel 0 ctx) ctxfo x1 Ps : 
+        (forall x1, [] |~~ f x1 ===> g x1) ->
+        Ps |~ openup1 (ctx := ctxfo) f x1 ->
+        Ps |~ openup1 (ctx := ctxfo) g x1.
+        admit.
+      Qed.
+      eapply openup1_apply.
+      {
+        intros.
+        eapply LRbind''' with (we := x1) (s₁ := s₁) (τ := τ) (ρ := ρ).
+      }
+      eapply ctx_refl.
     Qed.
 
     Lemma LRbind' ctxfo (e : open_term ctxfo expr) (we : open_term ctxfo width) (wBe : open_term ctxfo width_nat) (E : open_term ctxfo econtext) (wEe : open_term ctxfo width) (wBEe : open_term ctxfo width_nat) lctx (c₁ : open_cexpr lctx) (s₁ : open_size lctx) (c₂ : open_cexpr lctx) (s₂ : open_size lctx) (τ : open_type lctx) (τ' : open_type lctx) ctx (ρ : open_csubsts ctxfo lctx ctx) (Ps : list (open_rel ctxfo 0 ctx)) :
@@ -1494,11 +1571,6 @@ Proof.
                       ∈ relE τ' (ρ $$ wBe + ρ $$ wBEe) !(ρ $$ c₁ + ρ $$ c₂) (ρ $$ s₂) ρ
              ).
       {
-        Lemma forall1_elim4 ctx A B C D (P : A -> B -> C -> D -> rel 0 ctx) e we c₁ wBe :
-          [] |~~ (∀e we c₁ wBe, P e we c₁ wBe) ->
-          [] |~~ P e we c₁ wBe.
-          admit.
-        Qed.
         eapply forall1_elim4 with (
           P := fun (e : expr) (we : width) (c₁ : cexpr) (wBe : open_width WTnat []) =>
                  ⌈IsEC (ρ $$ E) ⌉ /\
@@ -1572,30 +1644,6 @@ Proof.
     }
     {
       unfold relEC.
-      Fixpoint liftPs {new ctxfo ctx} (Ps : t_Ps ctxfo ctx) : t_Ps (new ++ ctxfo) ctx :=
-        match new with
-          | nil => Ps
-          | T :: new' => liftPs1 T (liftPs Ps)
-        end.
-
-      Definition lift1 {T ctxfo t} (a : open_term ctxfo t) : open_term (T :: ctxfo) t := fun _ => a.
-
-      Fixpoint lift {new ctxfo t} (a : open_term ctxfo t) : open_term (new ++ ctxfo) t :=
-        match new return open_term (new ++ ctxfo) t with
-          | nil => a
-          | T :: new' => lift1 (lift a)
-        end.
-
-      Definition V0 {T0 ctxfo} : open_term (T0 :: ctxfo) T0 := fun x => openup0 x.
-      Notation V1 := (lift (new := [_]) V0).
-      Notation V2 := (lift (new := [_;_]) V0).
-      Notation V3 := (lift (new := [_;_;_]) V0).
-      Notation V4 := (lift (new := [_;_;_;_]) V0).
-      Notation V5 := (lift (new := [_;_;_;_;_]) V0).
-      Notation V6 := (lift (new := [_;_;_;_;_;_]) V0).
-      Notation V7 := (lift (new := [_;_;_;_;_;_;_]) V0).
-      Notation V8 := (lift (new := [_;_;_;_;_;_;_;_]) V0).
-      (* Definition V1 {T0 T1 ctxfo} : open_term (T0 :: T1 :: ctxfo) T1 := fun _ x => openup0 x. *)
 
       Fixpoint openup3 {t1 t2 t3 t4} (f : t1 -> t2 -> t3 -> t4) {ctx} : open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 :=
         match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 with
@@ -1612,7 +1660,140 @@ Proof.
           ∀v we', 
           P v we' ρ e we ===>
           (E $$ v, wEe) ∈ Q wBEe ρ) ρ E e we wEe wBEe.
-        admit.
+      Proof.
+        intros H.
+        Lemma openup6_forall1 ctx t1 t2 t3 t4 t5 t6 t (f : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t -> rel 0 ctx) ctxfo x1 x2 x3 x4 x5 x6 Ps : 
+          liftPs (new := [_]) Ps |~ openup7 f (lift (new := [t]) x1) (lift x2) (lift x3) (lift x4) (lift x5) (lift x6) V0 ->
+          Ps |~ openup6 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 x6 => ∀x, f x1 x2 x3 x4 x5 x6 x) x1 x2 x3 x4 x5 x6.
+          admit.
+        Qed.
+        eapply openup6_forall1.
+        Fixpoint openup8 {t1 t2 t3 t4 t5 t6 t7 t8 t9} (f : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8 -> t9) {ctx} : open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> open_term ctx t7 -> open_term ctx t8 -> open_term ctx t9 :=
+          match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> open_term ctx t7 -> open_term ctx t8 -> open_term ctx t9 with
+            | nil => f
+            | t :: ctx' => fun r1 r2 r3 r4 r5 r6 r7 r8 x => openup8 f (r1 x) (r2 x) (r3 x) (r4 x) (r5 x) (r6 x) (r7 x) (r8 x)
+          end.
+        Lemma openup7_forall1 ctx t1 t2 t3 t4 t5 t6 t7 t (f : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t -> rel 0 ctx) ctxfo x1 x2 x3 x4 x5 x6 x7 Ps : 
+          liftPs (new := [_]) Ps |~ openup8 f (lift (new := [t]) x1) (lift x2) (lift x3) (lift x4) (lift x5) (lift x6) (lift x7) V0 ->
+          Ps |~ openup7 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 x6 x7 => ∀x, f x1 x2 x3 x4 x5 x6 x7 x) x1 x2 x3 x4 x5 x6 x7.
+          admit.
+        Qed.
+        eapply openup7_forall1.
+        Lemma openup8_imply ctx t1 t2 t3 t4 t5 t6 t7 t8 (f g : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8 -> rel 0 ctx) ctxfo x1 x2 x3 x4 x5 x6 x7 x8 : openup8 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 x6 x7 x8 => f x1 x2 x3 x4 x5 x6 x7 x8 ===> g x1 x2 x3 x4 x5 x6 x7 x8) x1 x2 x3 x4 x5 x6 x7 x8 == (openup8 f x1 x2 x3 x4 x5 x6 x7 x8 ===> openup8 g x1 x2 x3 x4 x5 x6 x7 x8)%OR.
+          admit.
+        Qed.
+        rewrite openup8_imply.
+        Lemma ORimply_intro ctxfo ctx (P Q : open_rel ctxfo 0 ctx) Ps :
+          P :: Ps |~ Q ->
+          Ps |~ (P ===> Q)%OR.
+          admit.
+        Qed.
+        eapply ORimply_intro.
+        Lemma openup8_totop1 {t0 t1 t2 t3 t4 t5 t6 t7 t8} {f : t0 -> t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8} {ctxfo x0 x1 x2 x3 x4 x5 x6 x7} : openup8 (ctx := ctxfo) f x0 x1 x2 x3 x4 x5 x6 x7 = openup8 (fun x1 x0 x2 x3 x4 x5 x6 x7 => f x0 x1 x2 x3 x4 x5 x6 x7) x1 x0 x2 x3 x4 x5 x6 x7.
+          admit.
+        Qed.
+        Lemma openup8_totop6 {t0 t1 t2 t3 t4 t5 t6 t7 t8} {f : t0 -> t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8} {ctxfo x0 x1 x2 x3 x4 x5 x6 x7} : openup8 (ctx := ctxfo) f x0 x1 x2 x3 x4 x5 x6 x7 = openup8 (fun x6 x0 x1 x2 x3 x4 x5 x7 => f x0 x1 x2 x3 x4 x5 x6 x7) x6 x0 x1 x2 x3 x4 x5 x7.
+          admit.
+        Qed.
+        rewrite openup8_totop1.
+        Lemma openup8_openup7 t1 t2 t3 t4 t5 t6 t7 t8 t9 (f : t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8 -> t9) ctxfo x1 x2 x3 x4 x5 x6 x7 x8 : openup8 (ctx := ctxfo) (fun (_ : t1) x2 x3 x4 x5 x6 x7 x8 => f x2 x3 x4 x5 x6 x7 x8) x1 x2 x3 x4 x5 x6 x7 x8 = openup7 f x2 x3 x4 x5 x6 x7 x8.
+          admit.
+        Qed.
+        rewrite openup8_openup7.
+        Lemma openup7_totop3 {t0 t1 t2 t3 t4 t5 t6 t7} {f : t0 -> t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7} {ctxfo x0 x1 x2 x3 x4 x5 x6} : openup7 (ctx := ctxfo) f x0 x1 x2 x3 x4 x5 x6 = openup7 (fun x3 x0 x1 x2 x4 x5 x6 => f x0 x1 x2 x3 x4 x5 x6) x3 x0 x1 x2 x4 x5 x6.
+          admit.
+        Qed.
+        Lemma openup7_totop4 {t0 t1 t2 t3 t4 t5 t6 t7} {f : t0 -> t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7} {ctxfo x0 x1 x2 x3 x4 x5 x6} : openup7 (ctx := ctxfo) f x0 x1 x2 x3 x4 x5 x6 = openup7 (fun x4 x0 x1 x2 x3 x5 x6 => f x0 x1 x2 x3 x4 x5 x6) x4 x0 x1 x2 x3 x5 x6.
+          admit.
+        Qed.
+        rewrite openup7_totop3.
+        rewrite openup7_openup6.
+        rewrite openup6_totop3.
+        rewrite openup6_openup5.
+        Lemma openup5_totop3 {t0 t1 t2 t3 t4 t5} {f : t0 -> t1 -> t2 -> t3 -> t4 -> t5} {ctxfo x0 x1 x2 x3 x4} : openup5 (ctx := ctxfo) f x0 x1 x2 x3 x4 = openup5 (fun x3 x0 x1 x2 x4 => f x0 x1 x2 x3 x4) x3 x0 x1 x2 x4.
+          admit.
+        Qed.
+        rewrite openup5_totop3.
+        do 4 rewrite openup5_totop4.
+        set (tmp := openup5 _ _ _ _ _ _).
+        Lemma openup8_totop2 {t0 t1 t2 t3 t4 t5 t6 t7 t8} {f : t0 -> t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8} {ctxfo x0 x1 x2 x3 x4 x5 x6 x7} : openup8 (ctx := ctxfo) f x0 x1 x2 x3 x4 x5 x6 x7 = openup8 (fun x2 x0 x1 x3 x4 x5 x6 x7 => f x0 x1 x2 x3 x4 x5 x6 x7) x2 x0 x1 x3 x4 x5 x6 x7.
+          admit.
+        Qed.
+        rewrite openup8_totop2.
+        rewrite openup8_openup7.
+        rewrite openup7_totop2.
+        rewrite openup7_openup6.
+        rewrite openup6_totop5.
+        rewrite openup6_openup5.
+        Lemma fold_lift8 {ctxfo t} (a : open_term ctxfo t) {t1 t2 t3 t4 t5 t6 t7 t8} : lift1 (lift1 (lift1 (lift1 (lift1 (lift1 (lift1 (lift1 a))))))) = lift (new := [t1;t2;t3;t4;t5;t6;t7;t8]) a.
+          admit.
+        Qed.
+        Lemma fold_lift7 {ctxfo t} (a : open_term ctxfo t) {t1 t2 t3 t4 t5 t6 t7} : lift1 (lift1 (lift1 (lift1 (lift1 (lift1 (lift1 a)))))) = lift (new := [t1;t2;t3;t4;t5;t6;t7]) a.
+          admit.
+        Qed.
+        Lemma fold_lift6 {ctxfo t} (a : open_term ctxfo t) {t1 t2 t3 t4 t5 t6} : lift1 (lift1 (lift1 (lift1 (lift1 (lift1 a))))) = lift (new := [t1;t2;t3;t4;t5;t6]) a.
+          admit.
+        Qed.
+        Lemma fold_lift5 {ctxfo t} (a : open_term ctxfo t) {t1 t2 t3 t4 t5} : lift1 (lift1 (lift1 (lift1 (lift1 a)))) = lift (new := [t1;t2;t3;t4;t5]) a.
+          admit.
+        Qed.
+        Lemma fold_lift4 {ctxfo t} (a : open_term ctxfo t) {t1 t2 t3 t4} : lift1 (lift1 (lift1 (lift1 a))) = lift (new := [t1;t2;t3;t4]) a.
+          admit.
+        Qed.
+        Lemma fold_lift3 {ctxfo t} (a : open_term ctxfo t) {t1 t2 t3} : lift1 (lift1 (lift1 a)) = lift (new := [t1;t2;t3]) a.
+          admit.
+        Qed.
+        Lemma fold_lift2 {ctxfo t} (a : open_term ctxfo t) {t1 t2} : lift1 (lift1 a) = lift (new := [t1;t2]) a.
+          admit.
+        Qed.
+        Lemma fold_lift1 {ctxfo t} (a : open_term ctxfo t) {t1} : lift1 a = lift (new := [t1]) a.
+          admit.
+        Qed.
+        Require Import ssreflect.
+        Ltac fold_lift :=
+          repeat rewrite fold_lift8;
+          repeat rewrite fold_lift7;
+          repeat rewrite fold_lift6;
+          repeat rewrite fold_lift5;
+          repeat rewrite fold_lift4;
+          repeat rewrite fold_lift3;
+          repeat rewrite fold_lift2;
+          repeat rewrite fold_lift1.
+        Ltac combine_lift :=
+          unfold lift; fold_lift.
+
+        Lemma liftPs_liftPs ctxfo ctx (a : t_Ps ctxfo ctx) A1 A2 B1 B2 : liftPs (new := [A1;A2]) (liftPs (new := [B1;B2]) a) = liftPs (new := [A1;A2;B1;B2]) a.
+          admit.
+        Qed.
+        set (tmp2 := lift E $ V1) in H.
+        Arguments memberOf : simpl never.
+        Arguments apply : simpl never.
+        Arguments subst : simpl never.
+        Arguments add : simpl never.
+        Arguments coerce : simpl never.
+        Arguments lift : simpl never.
+        Arguments openup2 : simpl never.
+        Arguments plug : simpl never.
+        unfold apply in tmp2.
+        simpl in tmp2.
+        subst tmp2.
+        Lemma openup4_totop1 {t0 t1 t2 t3 t4} {f : t0 -> t1 -> t2 -> t3 -> t4} {ctxfo x0 x1 x2 x3} : openup4 (ctx := ctxfo) f x0 x1 x2 x3 = openup4 (fun x1 x0 x2 x3 => f x0 x1 x2 x3) x1 x0 x2 x3.
+          admit.
+        Qed.
+        rewrite openup4_totop1 in H.
+        Lemma openup4_comp_openup2 t1 t2 t3 t4 t5 (f : t1 -> t2 -> t3 -> t4 -> t5) A1 A2 (g : A1 -> A2 -> t1) ctxfo x2 x3 x4 y1 y2 : openup4 (ctx := ctxfo) (fun x1 x2 x3 x4 => f x1 x2 x3 x4) (openup2 (fun y1 y2 => g y1 y2) y1 y2) x2 x3 x4 = openup5 (fun y1 y2 x2 x3 x4 => f (g y1 y2) x2 x3 x4) y1 y2 x2 x3 x4.
+          admit.
+        Qed.
+        erewrite openup4_comp_openup2 in H.
+        rewrite openup5_totop4.
+        Lemma openup5_totop2 {t0 t1 t2 t3 t4 t5} {f : t0 -> t1 -> t2 -> t3 -> t4 -> t5} {ctxfo x0 x1 x2 x3 x4} : openup5 (ctx := ctxfo) f x0 x1 x2 x3 x4 = openup5 (fun x2 x0 x1 x3 x4 => f x0 x1 x2 x3 x4) x2 x0 x1 x3 x4.
+          admit.
+        Qed.
+        rewrite openup5_totop2.
+        subst tmp.
+        combine_lift.
+        unfold liftPs in *.
+        eauto.
       Qed.
 
       eapply relE_relEC.
@@ -1651,46 +1832,7 @@ Proof.
         Qed.
         rewrite lift_openup5.
         rewrite lift_openup1.
-        Lemma liftPs_liftPs ctxfo ctx (a : t_Ps ctxfo ctx) A1 A2 B1 B2 : liftPs (new := [A1;A2]) (liftPs (new := [B1;B2]) a) = liftPs (new := [A1;A2;B1;B2]) a.
-          admit.
-        Qed.
         rewrite liftPs_liftPs.
-        Lemma fold_lift8 {ctxfo t} (a : open_term ctxfo t) {t1 t2 t3 t4 t5 t6 t7 t8} : lift1 (lift1 (lift1 (lift1 (lift1 (lift1 (lift1 (lift1 a))))))) = lift (new := [t1;t2;t3;t4;t5;t6;t7;t8]) a.
-          admit.
-        Qed.
-        Lemma fold_lift7 {ctxfo t} (a : open_term ctxfo t) {t1 t2 t3 t4 t5 t6 t7} : lift1 (lift1 (lift1 (lift1 (lift1 (lift1 (lift1 a)))))) = lift (new := [t1;t2;t3;t4;t5;t6;t7]) a.
-          admit.
-        Qed.
-        Lemma fold_lift6 {ctxfo t} (a : open_term ctxfo t) {t1 t2 t3 t4 t5 t6} : lift1 (lift1 (lift1 (lift1 (lift1 (lift1 a))))) = lift (new := [t1;t2;t3;t4;t5;t6]) a.
-          admit.
-        Qed.
-        Lemma fold_lift5 {ctxfo t} (a : open_term ctxfo t) {t1 t2 t3 t4 t5} : lift1 (lift1 (lift1 (lift1 (lift1 a)))) = lift (new := [t1;t2;t3;t4;t5]) a.
-          admit.
-        Qed.
-        Lemma fold_lift4 {ctxfo t} (a : open_term ctxfo t) {t1 t2 t3 t4} : lift1 (lift1 (lift1 (lift1 a))) = lift (new := [t1;t2;t3;t4]) a.
-          admit.
-        Qed.
-        Lemma fold_lift3 {ctxfo t} (a : open_term ctxfo t) {t1 t2 t3} : lift1 (lift1 (lift1 a)) = lift (new := [t1;t2;t3]) a.
-          admit.
-        Qed.
-        Lemma fold_lift2 {ctxfo t} (a : open_term ctxfo t) {t1 t2} : lift1 (lift1 a) = lift (new := [t1;t2]) a.
-          admit.
-        Qed.
-        Lemma fold_lift1 {ctxfo t} (a : open_term ctxfo t) {t1} : lift1 a = lift (new := [t1]) a.
-          admit.
-        Qed.
-        Require Import ssreflect.
-        Ltac fold_lift :=
-          repeat rewrite fold_lift8;
-          repeat rewrite fold_lift7;
-          repeat rewrite fold_lift6;
-          repeat rewrite fold_lift5;
-          repeat rewrite fold_lift4;
-          repeat rewrite fold_lift3;
-          repeat rewrite fold_lift2;
-          repeat rewrite fold_lift1.
-        Ltac combine_lift :=
-          unfold lift; fold_lift.
         combine_lift.
         rewrite unfold_open_plug.
         rewrite open_ECapp2.
@@ -1768,11 +1910,6 @@ Proof.
 
         rewrite openup5_openup3.
 
-        Arguments memberOf : simpl never.
-        Arguments apply : simpl never.
-        Arguments subst : simpl never.
-        Arguments add : simpl never.
-        Arguments coerce : simpl never.
         set (tmp := relV (Tarrow τ₁ c s τ₂)) at 1.
         simpl in tmp.
         subst tmp.
@@ -1792,16 +1929,16 @@ Proof.
 
         eapply totop with (n := 1); [ reflexivity | unfold removen ].
 
-        Lemma openup3_exists1 ctxfo ctx t1 t2 t3 t (Q : open_rel ctxfo 0 ctx) (f : t1 -> t2 -> t3 -> t -> rel 0 ctx) x1 x2 x3 (Ps : list (open_rel ctxfo 0 ctx)) :
+        Lemma openup3_exists1_elim ctxfo ctx t1 t2 t3 t (Q : open_rel ctxfo 0 ctx) (f : t1 -> t2 -> t3 -> t -> rel 0 ctx) x1 x2 x3 (Ps : list (open_rel ctxfo 0 ctx)) :
           openup4 (fun x1 x2 x3 x => f x1 x2 x3 x) (lift (new := [_]) x1) (lift x2) (lift x3) V0 :: liftPs (new := [_]) Ps |~ lift Q ->
           openup3 (fun x1 x2 x3 => ∃x, f x1 x2 x3 x) x1 x2 x3 :: Ps |~ Q.
           admit.
         Qed.
 
-        eapply openup3_exists1.
+        eapply openup3_exists1_elim.
         repeat rewrite liftPs_cons.
         repeat rewrite lift_openup5.
-        Lemma openup4_exists1 ctxfo ctx t1 t2 t3 t4 t (Q : open_rel ctxfo 0 ctx) (f : t1 -> t2 -> t3 -> t4 -> t -> rel 0 ctx) x1 x2 x3 x4 (Ps : list (open_rel ctxfo 0 ctx)) :
+        Lemma openup4_exists1_elim ctxfo ctx t1 t2 t3 t4 t (Q : open_rel ctxfo 0 ctx) (f : t1 -> t2 -> t3 -> t4 -> t -> rel 0 ctx) x1 x2 x3 x4 (Ps : list (open_rel ctxfo 0 ctx)) :
           openup5 (fun x1 x2 x3 x4 x => f x1 x2 x3 x4 x) (lift (new := [_]) x1) (lift x2) (lift x3) (lift x4) V0 :: liftPs (new := [_]) Ps |~ lift Q ->
           openup4 (fun x1 x2 x3 x4 => ∃x, f x1 x2 x3 x4 x) x1 x2 x3 x4 :: Ps |~ Q.
           admit.
@@ -1825,10 +1962,10 @@ Proof.
         Qed.
 
         rewrite openup4_openup3.
-        eapply openup3_exists1.
+        eapply openup3_exists1_elim.
         repeat rewrite liftPs_cons.
         repeat rewrite lift_openup5.
-        eapply openup4_exists1.
+        eapply openup4_exists1_elim.
         repeat rewrite liftPs_cons.
         repeat rewrite lift_openup5.
         rewrite openup5_and.
@@ -1836,13 +1973,13 @@ Proof.
         eapply totop with (n := 1); [ reflexivity | unfold removen ].
         rewrite openup5_openup4'.
 
-        Lemma openup4_forall1 t1 t2 t3 t4 ctx (f : t1 -> t2 -> t3 -> t4 -> wexpr -> rel 0 ctx) ctxfo x1 x2 x3 x4 e w Ps Q :
+        Lemma openup4_forall1_elim t1 t2 t3 t4 ctx (f : t1 -> t2 -> t3 -> t4 -> wexpr -> rel 0 ctx) ctxfo x1 x2 x3 x4 e w Ps Q :
           openup6 (ctx := ctxfo) (fun x1 x2 x3 x4 w e => f x1 x2 x3 x4 (e, w)) x1 x2 x3 x4 w e :: Ps |~ Q ->
           openup4 (fun x1 x2 x3 x4 => ∀x, f x1 x2 x3 x4 x) x1 x2 x3 x4 :: Ps |~ Q.
           admit.
         Qed.
 
-        eapply openup4_forall1 with (e := V4) (w := V3).
+        eapply openup4_forall1_elim with (e := V4) (w := V3).
         Lemma openup6_imply ctx t1 t2 t3 t4 t5 t6 (f g : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> rel 0 ctx) ctxfo x1 x2 x3 x4 x5 x6 : openup6 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 x6 => f x1 x2 x3 x4 x5 x6 ===> g x1 x2 x3 x4 x5 x6) x1 x2 x3 x4 x5 x6 == (openup6 f x1 x2 x3 x4 x5 x6 ===> openup6 g x1 x2 x3 x4 x5 x6)%OR.
           admit.
         Qed.
@@ -1893,9 +2030,6 @@ Proof.
           admit.
         Qed.
         rewrite openup5_openup3'''.
-        Lemma openup5_totop3 {t0 t1 t2 t3 t4 t5} {f : t0 -> t1 -> t2 -> t3 -> t4 -> t5} {ctxfo x0 x1 x2 x3 x4} : openup5 (ctx := ctxfo) f x0 x1 x2 x3 x4 = openup5 (fun x3 x0 x1 x2 x4 => f x0 x1 x2 x3 x4) x3 x0 x1 x2 x4.
-          admit.
-        Qed.
         rewrite (openup5_totop3 (x3 := openup2 _ _ _)).
         rewrite openup5_comp_openup2.
         rewrite (openup6_totop5 (x5 := openup2 _ _ _)).
@@ -2093,11 +2227,6 @@ Proof.
           Qed.
           eapply openup5_exists1 with (x := V2).
           eapply openup6_exists1 with (x := V0).
-          Fixpoint openup8 {t1 t2 t3 t4 t5 t6 t7 t8 t9} (f : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8 -> t9) {ctx} : open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> open_term ctx t7 -> open_term ctx t8 -> open_term ctx t9 :=
-            match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> open_term ctx t7 -> open_term ctx t8 -> open_term ctx t9 with
-              | nil => f
-              | t :: ctx' => fun r1 r2 r3 r4 r5 r6 r7 r8 x => openup8 f (r1 x) (r2 x) (r3 x) (r4 x) (r5 x) (r6 x) (r7 x) (r8 x)
-            end.
           Lemma openup7_exists1 ctx t t1 t2 t3 t4 t5 t6 t7 (f : t -> t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> rel 0 ctx) ctxfo x x1 x2 x3 x4 x5 x6 x7 Ps : 
             Ps |~ openup8 f x x1 x2 x3 x4 x5 x6 x7 ->
             Ps |~ openup7 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 x6 x7 => ∃x, f x x1 x2 x3 x4 x5 x6 x7) x1 x2 x3 x4 x5 x6 x7.
@@ -2110,17 +2239,8 @@ Proof.
           rewrite openup8_and.
           eapply rsplit.
           {
-            Lemma openup8_totop6 {t0 t1 t2 t3 t4 t5 t6 t7 t8} {f : t0 -> t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8} {ctxfo x0 x1 x2 x3 x4 x5 x6 x7} : openup8 (ctx := ctxfo) f x0 x1 x2 x3 x4 x5 x6 x7 = openup8 (fun x6 x0 x1 x2 x3 x4 x5 x7 => f x0 x1 x2 x3 x4 x5 x6 x7) x6 x0 x1 x2 x3 x4 x5 x7.
-              admit.
-            Qed.
             rewrite openup8_totop6.
-            Lemma openup8_openup7 t1 t2 t3 t4 t5 t6 t7 t8 t9 (f : t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8 -> t9) ctxfo x1 x2 x3 x4 x5 x6 x7 x8 : openup8 (ctx := ctxfo) (fun (_ : t1) x2 x3 x4 x5 x6 x7 x8 => f x2 x3 x4 x5 x6 x7 x8) x1 x2 x3 x4 x5 x6 x7 x8 = openup7 f x2 x3 x4 x5 x6 x7 x8.
-              admit.
-            Qed.
             rewrite openup8_openup7.
-            Lemma openup7_totop4 {t0 t1 t2 t3 t4 t5 t6 t7} {f : t0 -> t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7} {ctxfo x0 x1 x2 x3 x4 x5 x6} : openup7 (ctx := ctxfo) f x0 x1 x2 x3 x4 x5 x6 = openup7 (fun x4 x0 x1 x2 x3 x5 x6 => f x0 x1 x2 x3 x4 x5 x6) x4 x0 x1 x2 x3 x5 x6.
-              admit.
-            Qed.
             rewrite openup7_totop4.
             rewrite openup7_openup6.
             Lemma relE_replace_width lctx τ c s ctx (ρ : csubsts lctx ctx) e v₁ w wB w₁ : 
@@ -2227,11 +2347,6 @@ Proof.
                  ∀v we', (v, we') ∈ relV τ₁ ρ /\ ⌈!v ≤ ρ $$ s₁ /\ wsteps w₁ we'⌉ ===>
                          (Eapp v₀ v, Wapp w₀ w₁) ∈ relE (subst s₁ τ₂) (Wconst 1 + WappB w₀ w₁) !(ρ $ (subst s₁ c)) (ρ $ (subst s₁ s)) ρ.
             Proof.
-              Lemma imply_intro_e ctx (P Q : rel 0 ctx) Ps :
-                P :: Ps |~~ Q ->
-                Ps |~~ P ===> Q.
-                admit.
-              Qed.
               Lemma imply_intro ctxfo lctx ctx (ρ : open_csubsts ctxfo lctx ctx) (P Q : csubsts lctx ctx -> rel 0 ctx) Ps :
                 openup1 P ρ :: Ps |~ openup1 Q ρ ->
                 Ps |~ openup1 (fun ρ => P ρ ===> Q ρ) ρ.
