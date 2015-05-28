@@ -1676,14 +1676,89 @@ Qed.
 Definition relEC (E : econtext) e we (wEe : width) (wBEe : open_width WTnat []) (s₁ : size) (c₂ : cexpr) (s₂ : size) {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) : rel 0 ctx :=
   ∀v we', (v, we') ∈ relV τ ρ /\ ⌈e ~>* v /\ !v ≤ s₁ /\ wsteps we we'⌉ ===> (E $ v, wEe) ∈ relE τ' wBEe !c₂ s₂ ρ'.
 
-Lemma LRbind E (wEe : width) (wBEe : open_width WTnat []) s₁ c₂ s₂ {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) :
-  [] |~~ ∀e we c₁ wBe, 
-           ⌈IsEC E⌉ /\
-           (e, we) ∈ relE τ wBe !c₁ s₁ ρ /\ 
-           relEC E e we wEe wBEe s₁ c₂ s₂ τ τ' ρ ρ' ===> 
-                 (E $$ e, wEe) ∈ relE τ' (wBe + wBEe) !(c₁ + c₂) s₂ ρ'.
+Lemma relE_relEC ctxfo ctx A (ρ : open_term ctxfo A) (E : open_term ctxfo econtext) (e : open_term ctxfo expr) (we : open_term ctxfo width) (wEe : open_term ctxfo width) (wBEe : open_term ctxfo width_nat) Ps P Q :
+  openup5 (fun ρ e we we' v => P v we' ρ e we) (lift (new := [_; _]) ρ) (lift e) (lift we) V0 V1 :: liftPs (ctx := ctx) (new := [_; _]) Ps 
+          |~ openup4 (fun ρ Ee wEe wBEe => 
+                        (Ee, wEe) ∈ Q wBEe ρ) (lift (new := [width : Type; expr])  ρ) (lift E $ V1) (lift wEe) (lift wBEe) ->
+  Ps 
+    |~ openup6 (fun ρ E e we wEe wBEe => 
+                  ∀v we', 
+                    P v we' ρ e we ===>
+                      (E $$ v, wEe) ∈ Q wBEe ρ) ρ E e we wEe wBEe.
 Proof.
-  admit.
+  intros H.
+  eapply openup6_forall1.
+  eapply openup7_forall1.
+  rewrite openup8_imply.
+  eapply ORimply_intro.
+  rewrite openup8_totop1.
+  rewrite openup8_openup7.
+  rewrite openup7_totop3.
+  rewrite openup7_openup6.
+  rewrite openup6_totop3.
+  rewrite openup6_openup5.
+  rewrite openup5_totop3.
+  do 4 rewrite openup5_totop4.
+  set (tmp := openup5 _ _ _ _ _ _).
+  rewrite openup8_totop2.
+  rewrite openup8_openup7.
+  rewrite openup7_totop2.
+  rewrite openup7_openup6.
+  rewrite openup6_totop5.
+  rewrite openup6_openup5.
+  set (tmp2 := lift E $ V1) in H.
+  Arguments memberOf : simpl never.
+  Arguments apply : simpl never.
+  Arguments subst : simpl never.
+  Arguments add : simpl never.
+  Arguments coerce : simpl never.
+  Arguments lift : simpl never.
+  Arguments openup2 : simpl never.
+  Arguments plug : simpl never.
+  unfold apply in tmp2.
+  simpl in tmp2.
+  subst tmp2.
+  rewrite openup4_totop1 in H.
+  erewrite openup4_comp_openup2 in H.
+  rewrite openup5_totop4.
+  rewrite openup5_totop2.
+  subst tmp.
+  combine_lift.
+  unfold liftPs in *.
+  eauto.
+Qed.
+
+Lemma LRbind E (wEe : width) (wBEe : open_width WTnat []) s₁ c₂ s₂ {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) :
+  [] |~~ 
+     ∀e we c₁ wBe, 
+       ⌈IsEC E⌉ /\
+       (e, we) ∈ relE τ wBe !c₁ s₁ ρ /\ 
+       relEC E e we wEe wBEe s₁ c₂ s₂ τ τ' ρ ρ' ===> 
+       (E $$ e, wEe) ∈ relE τ' (wBe + wBEe) !(c₁ + c₂) s₂ ρ'.
+Proof.
+  Lemma VLob ctxfo ctx Ps (P : open_rel ctxfo 0 ctx) : openup1 (▹ []) P :: Ps |~ P -> Ps |~ P.
+    admit.
+  Qed.
+  eapply VLob.
+  set (Hlob := openup1 (▹ [])
+      ((∀(e : expr) (we : width) (c₁ : cexpr) (wBe : width_nat),
+       ⌈IsEC E⌉ /\
+       (e, we) ∈ relE τ wBe !c₁ s₁ ρ /\
+       relEC E e we wEe wBEe s₁ c₂ s₂ τ τ' ρ ρ' ===>
+       (E $$ e, wEe) ∈ relE τ' (wBe + wBEe) !(c₁ + c₂) s₂ ρ') : open_rel [] _ _)).
+  
+  Lemma forall1_intro ctx t (f : t -> rel 0 ctx) Ps : 
+    liftPs (new := [_]) Ps |~ openup1 f V0 ->
+    Ps |~~ ∀x, f x.
+    admit.
+  Qed.
+  eapply forall1_intro.
+  Lemma openup1_forall1 ctx t1 t (f : t1 -> t -> rel 0 ctx) ctxfo x1 Ps : 
+    liftPs (new := [_]) Ps |~ openup2 f (lift (new := [t]) x1) V0 ->
+    Ps |~ openup1 (ctx := ctxfo) (fun x1 => ∀x, f x1 x) x1.
+    admit.
+  Qed.
+  eapply openup1_forall1.
 Qed.
 
 Lemma LRbind''' E (wEe : width) (wBEe : open_width WTnat []) s₁ c₂ s₂ {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) e we c₁ wBe :
@@ -1778,10 +1853,6 @@ Proof.
         typingEC (ECapp1 f arg) τ τ₂
     .
 
-    Lemma VLob ctxfo ctx Ps (P : open_rel ctxfo 0 ctx) : openup1 (▹ []) P :: Ps |~ P -> Ps |~ P.
-      admit.
-    Qed.
-    
       Lemma imply_elim ctxfo lctx ctx (P Q : csubsts lctx ctx -> rel 0 ctx) (ρ : open_csubsts ctxfo lctx ctx) Ps : 
         Ps |~ openup1 (fun ρ => P ρ ===> Q ρ) ρ ->
         Ps |~ openup1 (fun ρ => P ρ) ρ ->
@@ -1860,58 +1931,6 @@ Proof.
         eapply LRbind.
       }
  *)
-Qed.
-
-Lemma relE_relEC ctxfo ctx A (ρ : open_term ctxfo A) (E : open_term ctxfo econtext) (e : open_term ctxfo expr) (we : open_term ctxfo width) (wEe : open_term ctxfo width) (wBEe : open_term ctxfo width_nat) Ps P Q :
-  openup5 (fun ρ e we we' v => P v we' ρ e we) (lift (new := [_; _]) ρ) (lift e) (lift we) V0 V1 :: liftPs (ctx := ctx) (new := [_; _]) Ps 
-          |~ openup4 (fun ρ Ee wEe wBEe => 
-                        (Ee, wEe) ∈ Q wBEe ρ) (lift (new := [width : Type; expr])  ρ) (lift E $ V1) (lift wEe) (lift wBEe) ->
-  Ps 
-    |~ openup6 (fun ρ E e we wEe wBEe => 
-                  ∀v we', 
-                    P v we' ρ e we ===>
-                      (E $$ v, wEe) ∈ Q wBEe ρ) ρ E e we wEe wBEe.
-Proof.
-  intros H.
-  eapply openup6_forall1.
-  eapply openup7_forall1.
-  rewrite openup8_imply.
-  eapply ORimply_intro.
-  rewrite openup8_totop1.
-  rewrite openup8_openup7.
-  rewrite openup7_totop3.
-  rewrite openup7_openup6.
-  rewrite openup6_totop3.
-  rewrite openup6_openup5.
-  rewrite openup5_totop3.
-  do 4 rewrite openup5_totop4.
-  set (tmp := openup5 _ _ _ _ _ _).
-  rewrite openup8_totop2.
-  rewrite openup8_openup7.
-  rewrite openup7_totop2.
-  rewrite openup7_openup6.
-  rewrite openup6_totop5.
-  rewrite openup6_openup5.
-  set (tmp2 := lift E $ V1) in H.
-  Arguments memberOf : simpl never.
-  Arguments apply : simpl never.
-  Arguments subst : simpl never.
-  Arguments add : simpl never.
-  Arguments coerce : simpl never.
-  Arguments lift : simpl never.
-  Arguments openup2 : simpl never.
-  Arguments plug : simpl never.
-  unfold apply in tmp2.
-  simpl in tmp2.
-  subst tmp2.
-  rewrite openup4_totop1 in H.
-  erewrite openup4_comp_openup2 in H.
-  rewrite openup5_totop4.
-  rewrite openup5_totop2.
-  subst tmp.
-  combine_lift.
-  unfold liftPs in *.
-  eauto.
 Qed.
 
 Definition related {lctx} Γ wB w (e : open_expr lctx) τ (c : open_cexpr lctx) (s : open_size lctx) :=
