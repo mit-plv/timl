@@ -674,7 +674,8 @@ Section LR.
     \ew, let (e, w) := ew in
          ⌈|- e (ρ $ τ) /\ wtyping [] w !(ρ $ τ) /\
          exists B, wsteps wB (Wconst B) /\ forall n e', (~>## e n 0 e') -> n ≤ B⌉%type /\ 
-         (∀v, ⌈⇓*# e 0 v⌉ ===> (v, w) ∈ relV ctx ρ /\ ⌈!v ≤ s⌉) /\
+         ⌈exists v, e ⇓ v⌉ /\
+         (∀v, ⌈e ⇓ v⌉ ===> (v, w) ∈ relV ctx ρ /\ ⌈!v ≤ s⌉) /\
          (∀e', ⌈~>*# e 1 e'⌉ ===> 
                      match c with
                        | 0 => ⊥
@@ -1759,6 +1760,74 @@ Proof.
     admit.
   Qed.
   eapply openup1_forall1.
+  Lemma openup2_forall1 ctx t1 t2 t (f : t1 -> t2 -> t -> rel 0 ctx) ctxfo x1 x2 Ps : 
+    liftPs (new := [_]) Ps |~ openup3 f (lift (new := [t]) x1) (lift x2) V0 ->
+    Ps |~ openup2 (ctx := ctxfo) (fun x1 x2 => ∀x, f x1 x2 x) x1 x2.
+    admit.
+  Qed.
+  eapply openup2_forall1.
+  Lemma openup3_forall1 ctx t1 t2 t3 t (f : t1 -> t2 -> t3 -> t -> rel 0 ctx) ctxfo x1 x2 x3 Ps : 
+    liftPs (new := [_]) Ps |~ openup4 f (lift (new := [t]) x1) (lift x2) (lift x3) V0 ->
+    Ps |~ openup3 (ctx := ctxfo) (fun x1 x2 x3 => ∀x, f x1 x2 x3 x) x1 x2 x3.
+    admit.
+  Qed.
+  eapply openup3_forall1.
+  Lemma openup4_imply ctx t1 t2 t3 t4 (f g : t1 -> t2 -> t3 -> t4 -> rel 0 ctx) ctxfo x1 x2 x3 x4 : openup4 (ctx := ctxfo) (fun x1 x2 x3 x4 => f x1 x2 x3 x4 ===> g x1 x2 x3 x4) x1 x2 x3 x4 == (openup4 f x1 x2 x3 x4 ===> openup4 g x1 x2 x3 x4)%OR.
+    admit.
+  Qed.
+  rewrite openup4_imply.
+  eapply ORimply_intro.
+  rewrite openup4_and.
+  eapply destruct_and.
+  eapply totop with (n := 1); [ reflexivity | unfold removen ].
+  rewrite openup4_and.
+  eapply destruct_and.
+  set (Ps := _ :: _ :: _ :: _).
+  rewrite openup4_totop1.
+  rewrite openup4_openup3.
+  combine_lift.
+  Lemma relE_intro lctx ctx e w τ wB c s (ρ : csubsts lctx ctx) :
+    [] |~~ 
+       ⌈|- e (ρ $ τ) /\ wtyping [] w !(ρ $ τ) ⌉ /\
+       ⌈exists B, wsteps wB (Wconst B) /\ forall n e', (~>## e n 0 e') -> n ≤ B⌉%type /\ 
+       ⌈exists v, e ⇓ v⌉ /\
+       (∀v, ⌈e ⇓ v⌉ ===> (v, w) ∈ relV τ ρ /\ ⌈!v ≤ s⌉) /\
+       (∀e', ⌈~>*# e 1 e'⌉ ===> ⌈0 < c⌉ /\ ▹ [] ((e', w) ∈ relE τ wB (c - 1) s ρ)) ===>
+       (e, w) ∈ relE τ wB c s ρ.
+    admit.
+  Qed.
+  Lemma openup3_apply ctx t1 t2 t3 (f g : t1 -> t2 -> t3 -> rel 0 ctx) ctxfo x1 x2 x3 Ps : 
+    (forall x1 x2 x3, [] |~~ f x1 x2 x3 ===> g x1 x2 x3) ->
+    Ps |~ openup3 (ctx := ctxfo) f x1 x2 x3 ->
+    Ps |~ openup3 (ctx := ctxfo) g x1 x2 x3.
+    admit.
+  Qed.
+  eapply openup3_apply.
+  {
+    intros.
+    eapply relE_intro.
+  }
+  rewrite openup3_and.
+  eapply rsplit.
+  {
+    admit. (* typing *)
+  }
+  rewrite openup3_and.
+  eapply rsplit.
+  {
+    admit. 
+  }
+  rewrite openup3_and.
+  eapply rsplit.
+  {
+    admit. 
+  }
+  rewrite openup3_and.
+  eapply rsplit.
+  {
+    admit. 
+  }
+  admit.
 Qed.
 
 Lemma LRbind''' E (wEe : width) (wBEe : open_width WTnat []) s₁ c₂ s₂ {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) e we c₁ wBe :
