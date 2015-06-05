@@ -2280,7 +2280,75 @@ Proof.
     rewrite openup3_shrink.
     rewrite openup2_totop1.
     rewrite openup2_shrink.
+    eapply openup1_forall1.
+    eapply openup2_forall1.
+    rewrite openup3_imply.
+    eapply ORimply_intro.
+    subst Ps.
+    repeat rewrite liftPs_cons.
+    repeat rewrite lift_openup4.
+    combine_lift.
+    unfold liftPs, liftPs1, map.
+    eapply openup3_apply_in.
+    {
+      intros.
+      eapply inj_and_elim.
+    }
+    rewrite openup3_and.
+    eapply destruct_and.
+    rewrite openup3_totop2.
+    rewrite openup3_shrink.
+    Lemma plug_runsto_elim E e v :
+      E $$ e ⇓ v ->
+      (exists v', e ⇓ v' /\ E $$ v' ⇓ v)%type.
+      admit.
+    Qed.
+    eapply openup2_apply_in.
+    {
+      intros.
+      eapply imply_trans; last first.
+      {
+        eapply inj_imply.
+        {
+          eapply plug_runsto_elim.
+        }
+      }
+      eapply inj_exists_elim.
+    }
+    eapply openup2_exists1_elim.
+    repeat rewrite liftPs_cons.
+    repeat rewrite lift_openup4.
+    combine_lift.
+    unfold liftPs, liftPs1, map.
+    eapply openup3_apply_in.
+    {
+      intros.
+      eapply inj_and_elim.
+    }
+    rewrite openup3_and.
+    eapply destruct_and.
+    rewrite openup3_totop1.
+    rewrite openup3_shrink.
+    eapply totop with (n := 2); [ reflexivity | unfold removen ].
+    rewrite lift_openup3.
+    rewrite openup3_shrink.
+    rewrite openup2_shrink.
     (*here*)
+    Lemma plug_runsto_elim E e v :
+      E $$ e ⇓ v ->
+      (exists v', e ⇓ v' /\ E $$ v' ⇓ v)%type.
+      admit.
+    Qed.
+
+
+
+    eapply totop with (n := 3); [ reflexivity | unfold removen ].
+    eapply openup4_apply_in.
+    {
+      intros.
+      eapply relE_elim.
+    }
+
     admit. 
   }
   rewrite openup3_and.
