@@ -1913,9 +1913,9 @@ Lemma LRbind E (wE : open_width WTstruct [CEexpr]) (wBE : open_width WTnat [CEex
   [] |~~ 
      ∀e we c₁ wBe, 
        ⌈IsEC E⌉ /\
-       (e, we) ∈ relE τ wBe !c₁ s₁ ρ /\ 
+       (e, we) ∈ relE τ wBe c₁ s₁ ρ /\ 
        relEC E e we (wE $ we) (wBE $ we) s₁ c₂ s₂ τ τ' ρ ρ' ===> 
-       (E $$ e, wE $$ we) ∈ relE τ' (wBe + wBE $$ we) !(c₁ + c₂) s₂ ρ'.
+       (E $$ e, wE $$ we) ∈ relE τ' (wBe + wBE $$ we) (c₁ + !c₂) s₂ ρ'.
 Proof.
   Lemma VLob ctxfo ctx Ps (P : open_rel ctxfo 0 ctx) : openup1 (▹ []) P :: Ps |~ P -> Ps |~ P.
     admit.
@@ -2601,7 +2601,7 @@ Proof.
     Lemma plug_steps_1_elim E e e' :
       ~>*# (E $ e) 1 e' ->
       ((exists v, ⇓*# e 0 v /\ ~>*# (E $ v) 1 e') \/
-       (exists e'', ~>*# e 1 e' /\ ~>*# (E $ e'') 0 e'))%type.
+       (exists e'', ~>*# e 1 e'' /\ ~>*# (E $ e'') 0 e'))%type.
       admit.
     Qed.
     eapply openup3_apply_in.
@@ -2922,10 +2922,10 @@ Proof.
         {
           intros.
           eapply inj_imply.
-          Lemma Fadd_gt_0 (a b : cexpr) : 0 < !b -> 0 < !(a + b).
-            admit.
+          Lemma lt_plus_trans_r : forall n m p : nat, n < p -> n < m + p.
+            intros; omega.
           Qed.
-          eapply Fadd_gt_0.
+          eapply lt_plus_trans_r.
         }
         rewrite openup1_shrink.
         subst Ps.
@@ -2991,7 +2991,7 @@ Proof.
         intros.
         eapply inj_imply.
         intros H.
-        Lemma relE_mono_wB_c_VC (c₁ c₂ : cexpr) (wBE : open_width WTnat [CEexpr]) (w : width) (w' : width_nat) : !c₂ - 1 ≤ !(c₁ + c₂) - 1 /\ wBE $$ w ≤ w' + wBE $$ w.
+        Lemma relE_mono_wB_c_VC c₁ (c₂ : cexpr) (wBE : open_width WTnat [CEexpr]) (w : width) (w' : width_nat) : !c₂ - 1 ≤ c₁ + !c₂ - 1 /\ wBE $$ w ≤ w' + wBE $$ w.
           admit.
         Qed.
         eapply relE_mono_wB_c_VC.
@@ -3024,7 +3024,7 @@ Proof.
     }
     rewrite openup3_and.
     eapply destruct_and.
-    rewrite openup3_totop2.
+    rewrite openup3_totop1.
     rewrite openup3_shrink.
     eapply totop with (n := 2); [ reflexivity | unfold removen ].
     rewrite lift_openup3.
@@ -3089,7 +3089,7 @@ Proof.
     repeat rewrite lift_openup2.
     rewrite lift_openup3.
     combine_lift.
-    eapply openup4_forall1_elim with (x := V3).
+    eapply openup4_forall1_elim with (x := V2).
     rewrite openup5_imply.
     eapply imply_eelim.
     {
@@ -3151,10 +3151,7 @@ Proof.
       {
         intros.
         eapply inj_imply.
-        Lemma Fadd_gt_0_l (a b : cexpr) : 0 < !a -> 0 < !(a + b).
-          admit.
-        Qed.
-        eapply Fadd_gt_0_l.
+        eapply Plus.lt_plus_trans.
       }
       subst Ps.
       eapply ctx_refl.
@@ -3177,7 +3174,7 @@ Proof.
     Qed.
     eapply assert with (P := openup2
       (fun (x2 : expr) (x3 : width) =>
-       relEC E x2 x3 (wE $$ x3) (wBE $$ x3) s₁ c₂ s₂ τ τ' ρ ρ') V3 V6).
+       relEC E x2 x3 (wE $$ x3) (wBE $$ x3) s₁ c₂ s₂ τ τ' ρ ρ') V2 V6).
     {
       eapply openup2_apply.
       {
@@ -3250,11 +3247,56 @@ Proof.
       openup1 (fun x1 => ∀x, f x1 x) x1 :: Ps |~ Q.
       admit.
     Qed.
-    eapply openup0_forall1_elim with (x := V3).
+    eapply openup0_forall1_elim with (x := V2).
     eapply openup1_forall1_elim with (x := V6).
+    eapply openup2_forall1_elim with (x := openup1 (fun x => x - 1) V5).
+    eapply openup3_forall1_elim with (x := V4).
+    Lemma openup4_comp_openup1 t1 t2 t3 t4 t5 (f : t1 -> t2 -> t3 -> t4 -> t5) A1 (g : A1 -> t1) ctxfo x2 x3 x4 y1 : openup4 (ctx := ctxfo) (fun x1 x2 x3 x4 => f x1 x2 x3 x4) (openup1 (fun y1 => g y1) y1) x2 x3 x4 = openup4 (fun y1 x2 x3 x4 => f (g y1) x2 x3 x4) y1 x2 x3 x4.
+      admit.
+    Qed.
+    rewrite openup4_totop2.
+    rewrite openup4_comp_openup1.
+    rewrite openup4_imply.
+    eapply imply_eelim.
+    {
+      subst Ps.
+      set (Ps := [_;_;_;_;_;_;_;_;_;_;_;_;_;_;_;_;_]).
+      rewrite openup4_and.
+      eapply split.
+      {
+        rewrite openup4_shrink.
+        rewrite openup3_shrink.
+        rewrite openup2_shrink.
+        rewrite openup1_shrink.
+        subst Ps.
+        eapply totop with (n := 16); [ reflexivity | unfold removen ].
+        rewrite openup4_shrink.
+        rewrite openup3_shrink.
+        rewrite openup2_shrink.
+        rewrite openup1_shrink.
+        eapply ctx_refl.
+      }
+      rewrite openup4_and.
+      eapply split.
+      {
+        rewrite openup4_totop1.
+        rewrite openup4_totop3.
+        rewrite openup4_totop2.
+        rewrite openup4_totop3.
+        eapply ctx_refl.
+      }
+      rewrite openup4_shrink.
+      rewrite openup3_totop2.
+      rewrite openup3_shrink.
+      subst Ps.
+      eapply totop with (n := 3); [ reflexivity | unfold removen ].
+      eapply ctx_refl.
+    }
+    Lemma relE_red e' w lctx (τ : open_type lctx) wB c s ctx (ρ : csubsts lctx ctx) :
+      [] |~~ (∃e, [|~>*# e 0 e'|] /\ (e, w) ∈ relE τ wB c s ρ) ===> (e', w) ∈ relE τ wB c s ρ.
+      admit.
+    Qed.
     (*here*)
-    eapply openup2_forall1_elim with (x := V6).
-
     admit. 
   }
   rewrite openup3_and.
