@@ -681,7 +681,7 @@ Section LR.
          ⌈|- e (ρ $ τ) /\ wtyping [] w !(ρ $ τ) /\
          exists B, wsteps wB (Wconst B) /\ forall n e', (~>## e n 0 e') -> n ≤ B⌉%type /\ 
          (∀v w', ⌈e ⇓ v /\ wrunsto w w'⌉%type ===> (v, w') ∈ relV ctx ρ /\ ⌈!v ≤ s⌉) /\
-         (∀e', ⌈~>*# e 1 e'⌉ ===> 
+         (∀e', ⌈~>*# e 1 e' /\ exists w', wrunsto w w'⌉ ===> 
                      match c with
                        | 0 => ⊥
                        | S c' =>
@@ -1947,7 +1947,7 @@ Proof.
        ⌈|- e (ρ $ τ) /\ wtyping [] w !(ρ $ τ) ⌉ /\
        ⌈exists B, wsteps wB (Wconst B) /\ forall n e', (~>## e n 0 e') -> n ≤ B⌉%type /\ 
        (∀v w', ⌈e ⇓ v /\ wrunsto w w'⌉%type ===> (v, w') ∈ relV τ ρ /\ ⌈!v ≤ s⌉) /\
-       (∀e', ⌈~>*# e 1 e'⌉ ===> ⌈0 < c⌉ /\ ▹ [] ((e', w) ∈ relE τ wB (c - 1) s ρ)) /\
+       (∀e', ⌈~>*# e 1 e' /\ exists w', wrunsto w w'⌉ ===> ⌈0 < c⌉ /\ ▹ [] ((e', w) ∈ relE τ wB (c - 1) s ρ)) /\
        ⌈exists v, e ⇓ v⌉ /\
        ⌈exists w', wrunsto w w'⌉ ===>
        (e, w) ∈ relE τ wB c s ρ.
@@ -1959,7 +1959,7 @@ Proof.
        ⌈|- e (ρ $ τ) /\ wtyping [] w !(ρ $ τ) ⌉ /\
        ⌈exists B, wsteps wB (Wconst B) /\ forall n e', (~>## e n 0 e') -> n ≤ B⌉%type /\ 
        (∀v w', ⌈e ⇓ v /\ wrunsto w w'⌉%type ===> (v, w') ∈ relV τ ρ /\ ⌈!v ≤ s⌉) /\
-       (∀e', ⌈~>*# e 1 e'⌉ ===> ⌈0 < c⌉ /\ ▹ [] ((e', w) ∈ relE τ wB (c - 1) s ρ)) /\
+       (∀e', ⌈~>*# e 1 e' /\ exists w', wrunsto w w'⌉ ===> ⌈0 < c⌉ /\ ▹ [] ((e', w) ∈ relE τ wB (c - 1) s ρ)) /\
        ⌈exists v, e ⇓ v⌉ /\
        ⌈exists w', wrunsto w w'⌉.
     admit.
@@ -2346,6 +2346,7 @@ Proof.
       (exists w', wrunsto w2 w' /\ wrunsto (w1 $ w') w)%type.
       admit.
     Qed.
+    eapply dup_premise.
     eapply openup2_apply_in.
     {
       intros.
@@ -2372,7 +2373,7 @@ Proof.
     eapply destruct_and.
     rewrite openup3_totop1.
     rewrite openup3_shrink.
-    eapply totop with (n := 4); [ reflexivity | unfold removen ].
+    eapply totop with (n := 5); [ reflexivity | unfold removen ].
     eapply dup_premise.
     eapply openup4_apply_in.
     {
@@ -2402,7 +2403,7 @@ Proof.
     }
     eapply imply_eelim.
     {
-      set (Ps := [_;_;_;_;_;_;_;_;_;_;_]).
+      set (Ps := [_;_;_;_;_;_;_;_;_;_;_;_]).
       eapply openup4_apply.
       {
         intros.
@@ -2416,7 +2417,7 @@ Proof.
         rewrite openup3_totop2.
         rewrite openup3_shrink.
         subst Ps.
-        eapply totop with (n := 6); [ reflexivity | unfold removen ].
+        eapply totop with (n := 7); [ reflexivity | unfold removen ].
         eapply ctx_refl.
       }
       rewrite openup4_shrink.
@@ -2430,7 +2431,7 @@ Proof.
     rewrite openup3_shrink.
     rewrite openup2_and.
     eapply destruct_and.
-    eapply totop with (n := 10); [ reflexivity | unfold removen ].
+    eapply totop with (n := 11); [ reflexivity | unfold removen ].
     eapply dup_premise.
     unfold relEC at 1.
     rewrite openup4_totop2.
@@ -2445,7 +2446,7 @@ Proof.
     }
     eapply imply_eelim.
     {
-      set (Ps := [_;_;_;_;_;_;_;_;_;_;_;_;_]).
+      set (Ps := [_;_;_;_;_;_;_;_;_;_;_;_;_;_]).
       rewrite openup4_and.
       eapply rsplit.
       {
@@ -2468,7 +2469,8 @@ Proof.
         rewrite openup3_totop2.
         rewrite openup3_shrink.
         subst Ps.
-        eapply totop with (n := 9); [ reflexivity | unfold removen ].
+        eapply totop with (n := 10); [ reflexivity | unfold removen ].
+        rewrite lift_openup2.
         eapply openup2_apply_in.
         {
           intros.
@@ -2520,7 +2522,6 @@ Proof.
     rewrite openup4_shrink.
     rewrite openup3_totop2.
     rewrite openup3_shrink.
-    (*here*)
     eapply openup2_apply_in.
     {
       intros.
@@ -2531,32 +2532,407 @@ Proof.
     eapply totop with (n := 1); [ reflexivity | unfold removen ].
     eapply eqv_premise; [ eapply openup2_and | ].
     eapply destruct_and.
-    eapply openup2_apply_in.
+    eapply totop with (n := 1); [ reflexivity | unfold removen ].
+    eapply eqv_premise; [ eapply openup2_and | ].
+    eapply destruct_and.
+    eapply openup2_forall1_elim with (x := V3).
+    eapply openup3_forall1_elim with (x := V2).
+    eapply eqv_premise.
     {
-      intros.
-      eapply inj_exists_elim.
+      eapply openup4_imply.
     }
-    eapply openup2_exists1_elim.
+    eapply imply_eelim.
+    {
+      set (Ps := [_;_;_;_;_;_;_;_;_;_;_;_;_;_;_;_;_]).
+      eapply openup4_apply.
+      {
+        intros.
+        eapply inj_and_intro.
+      }
+      rewrite openup4_and.
+      eapply rsplit.
+      {
+        rewrite openup4_shrink.
+        rewrite openup3_totop2.
+        rewrite openup3_shrink.
+        subst Ps.
+        eapply totop with (n := 14); [ reflexivity | unfold removen ].
+        rewrite openup3_shrink.
+        rewrite openup2_totop1.
+        eapply ctx_refl.
+      }
+      rewrite openup4_totop1.
+      rewrite openup4_shrink.
+      rewrite openup3_totop1.
+      rewrite openup3_shrink.
+      subst Ps.
+      eapply totop with (n := 12); [ reflexivity | unfold removen ].
+      eapply ctx_refl.
+    }
+    rewrite openup4_shrink.
+    rewrite openup3_shrink.
+    set (Ps := [_;_;_;_;_;_;_;_;_;_;_;_;_;_;_;_;_]).
+    rewrite openup4_shrink.
+    rewrite openup3_shrink.
+    eapply ctx_refl.
+  }
+  rewrite openup4_and.
+  eapply rsplit.
+  {
+    (* subgoal (4) *)
+    Lemma openup4_forall1 ctx t1 t2 t3 t4 t (f : t1 -> t2 -> t3 -> t4 -> t -> rel 0 ctx) ctxfo x1 x2 x3 x4 Ps : 
+      liftPs (new := [_]) Ps |~ openup5 f (lift (new := [t]) x1) (lift x2) (lift x3) (lift x4) V0 ->
+      Ps |~ openup4 (ctx := ctxfo) (fun x1 x2 x3 x4 => ∀x, f x1 x2 x3 x4 x) x1 x2 x3 x4.
+      admit.
+    Qed.
+    eapply openup4_forall1.
+    Lemma openup5_forall1 ctx t1 t2 t3 t4 t5 t (f : t1 -> t2 -> t3 -> t4 -> t5 -> t -> rel 0 ctx) ctxfo x1 x2 x3 x4 x5 Ps : 
+      liftPs (new := [_]) Ps |~ openup6 f (lift (new := [t]) x1) (lift x2) (lift x3) (lift x4) (lift x5) V0 ->
+      Ps |~ openup5 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 => ∀x, f x1 x2 x3 x4 x5 x) x1 x2 x3 x4 x5.
+      admit.
+    Qed.
+    Lemma openup5_imply ctx t1 t2 t3 t4 t5 (f g : t1 -> t2 -> t3 -> t4 -> t5 -> rel 0 ctx) ctxfo x1 x2 x3 x4 x5 : openup5 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 => f x1 x2 x3 x4 x5 ===> g x1 x2 x3 x4 x5) x1 x2 x3 x4 x5 == (openup5 f x1 x2 x3 x4 x5 ===> openup5 g x1 x2 x3 x4 x5)%OR.
+      admit.
+    Qed.
+    rewrite openup5_imply.
+    rewrite openup5_shrink.
+    eapply ORimply_intro.
+    subst Ps.
     repeat rewrite liftPs_cons.
     repeat rewrite lift_openup4.
     combine_lift.
     unfold liftPs, liftPs1, map.
-    eapply totop with (n := 9); [ reflexivity | unfold removen ].
-    (*here*)
-
-
-    eapply totop with (n := 3); [ reflexivity | unfold removen ].
-    eapply openup4_apply_in.
+    rewrite openup5_totop2.
+    rewrite openup5_shrink.
+    rewrite openup4_totop2.
+    rewrite openup4_shrink.
+    eapply openup3_apply_in.
+    {
+      intros.
+      eapply inj_and_elim.
+    }
+    rewrite openup3_and.
+    eapply destruct_and.
+    Lemma plug_steps_1_elim E e e' :
+      ~>*# (E $ e) 1 e' ->
+      ((exists v, ⇓*# e 0 v /\ ~>*# (E $ v) 1 e') \/
+       (exists e'', ~>*# e 1 e' /\ ~>*# (E $ e'') 0 e'))%type.
+      admit.
+    Qed.
+    eapply openup3_apply_in.
+    {
+      intros.
+      eapply imply_trans; last first.
+      {
+        eapply inj_imply.
+        {
+          eapply plug_steps_1_elim.
+        }
+      }
+      Lemma inj_or_elim (P Q : Prop) ctx :
+        [] |~~ ([| P \/ Q |] : rel 0 ctx) ===> [| P |] \/ [| Q |].
+        admit.
+      Qed.
+      eapply inj_or_elim.
+    }
+    Lemma openup2_or ctx t1 t2 (f g : t1 -> t2 -> rel 0 ctx) ctxfo x1 x2 : openup2 (ctx := ctxfo) (fun x1 x2 => f x1 x2 \/ g x1 x2) x1 x2 == (openup2 f x1 x2 \/ openup2 g x1 x2)%OR.
+      admit.
+    Qed.
+    Lemma openup3_or ctx t1 t2 t3 (f g : t1 -> t2 -> t3 -> rel 0 ctx) ctxfo x1 x2 x3 : openup3 (ctx := ctxfo) (fun x1 x2 x3 => f x1 x2 x3 \/ g x1 x2 x3) x1 x2 x3 == (openup3 f x1 x2 x3 \/ openup3 g x1 x2 x3)%OR.
+      admit.
+    Qed.
+    rewrite openup3_or.
+    Lemma destruct_or ctxfo ctx (P1 P2 Q : open_rel ctxfo 0 ctx) Ps :
+      P1 :: Ps |~ Q ->
+      P2 :: Ps |~ Q ->
+      (P1 \/ P2)%OR :: Ps |~ Q.
+      admit.
+    Qed.
+    eapply destruct_or.
+    {
+      rewrite openup3_totop1.
+      rewrite openup3_shrink.
+      eapply openup2_apply_in.
+      {
+        intros.
+        eapply inj_exists_elim.
+      }
+      eapply openup2_exists1_elim.
+      repeat rewrite liftPs_cons.
+      repeat rewrite lift_openup4.
+      combine_lift.
+      unfold liftPs, liftPs1, map.
+      eapply openup3_apply_in.
+      {
+        intros.
+        eapply inj_and_elim.
+      }
+      rewrite openup3_and.
+      eapply destruct_and.
+      rewrite openup3_totop1.
+      rewrite openup3_shrink.
+      eapply totop with (n := 2); [ reflexivity | unfold removen ].
+      rewrite lift_openup3.
+      rewrite openup3_shrink.
+      rewrite openup2_totop1.
+      rewrite openup2_shrink.
+      eapply openup1_apply_in.
+      {
+        intros.
+        eapply inj_exists_elim.
+      }
+      eapply openup1_exists1_elim.
+      repeat rewrite liftPs_cons.
+      repeat rewrite lift_openup4.
+      combine_lift.
+      unfold liftPs, liftPs1, map.
+      eapply dup_premise.
+      eapply openup2_apply_in.
+      {
+        intros.
+        eapply imply_trans; last first.
+        {
+          eapply inj_imply.
+          {
+            eapply app_wrunsto_elim.
+          }
+        }
+        eapply inj_exists_elim.
+      }
+      eapply openup2_exists1_elim.
+      repeat rewrite liftPs_cons.
+      repeat rewrite lift_openup4.
+      combine_lift.
+      unfold liftPs, liftPs1, map.
+      eapply openup3_apply_in.
+      {
+        intros.
+        eapply inj_and_elim.
+      }
+      rewrite openup3_and.
+      eapply destruct_and.
+      rewrite openup3_totop1.
+      rewrite openup3_shrink.
+      eapply totop with (n := 5); [ reflexivity | unfold removen ].
+      eapply dup_premise.
+      eapply openup4_apply_in.
+      {
+        intros.
+        eapply relE_elim.
+      }
+      rewrite openup4_and.
+      eapply destruct_and.
+      eapply totop with (n := 1); [ reflexivity | unfold removen ].
+      rewrite openup4_and.
+      eapply destruct_and.
+      eapply totop with (n := 1); [ reflexivity | unfold removen ].
+      rewrite openup4_and.
+      eapply destruct_and.
+      rewrite openup4_totop2.
+      rewrite openup4_shrink.
+      rewrite openup3_totop2.
+      rewrite openup3_shrink.
+      repeat rewrite lift_openup2.
+      rewrite lift_openup3.
+      combine_lift.
+      eapply openup2_forall1_elim with (x := V2).
+      eapply openup3_forall1_elim with (x := V0).
+      eapply eqv_premise.
+      {
+        eapply openup4_imply.
+      }
+      eapply imply_eelim.
+      {
+        set (Ps := [_;_;_;_;_;_;_;_;_;_;_;_]).
+        eapply openup4_apply.
+        {
+          intros.
+          eapply inj_and_intro.
+        }
+        rewrite openup4_and.
+        eapply rsplit.
+        {
+          rewrite openup4_totop1.
+          rewrite openup4_shrink.
+          rewrite openup3_totop2.
+          rewrite openup3_shrink.
+          subst Ps.
+          eapply totop with (n := 7); [ reflexivity | unfold removen ].
+          eapply openup2_apply_in.
+          {
+            intros.
+            eapply inj_imply.
+            {
+              Lemma terminatesWithEx_terminatesWith e m v : ⇓*# e m v -> e ⇓ v.
+                admit.
+              Qed.
+              eapply terminatesWithEx_terminatesWith.
+            }
+          }
+          eapply ctx_refl.
+        }
+        rewrite openup4_shrink.
+        rewrite openup3_totop1.
+        rewrite openup3_shrink.
+        subst Ps.
+        eapply totop with (n := 4); [ reflexivity | unfold removen ].
+        eapply ctx_refl.
+      }
+      rewrite openup4_shrink.
+      rewrite openup3_shrink.
+      rewrite openup2_and.
+      eapply destruct_and.
+      eapply totop with (n := 11); [ reflexivity | unfold removen ].
+      eapply dup_premise.
+      unfold relEC at 1.
+      rewrite openup4_totop2.
+      rewrite openup4_shrink.
+      rewrite openup3_totop2.
+      rewrite openup3_shrink.
+      eapply openup2_forall1_elim with (x := V2).
+      eapply openup3_forall1_elim with (x := V0).
+      eapply eqv_premise.
+      {
+        eapply openup4_imply.
+      }
+      eapply imply_eelim.
+      {
+        set (Ps := [_;_;_;_;_;_;_;_;_;_;_;_;_;_]).
+        rewrite openup4_and.
+        eapply rsplit.
+        {
+          rewrite openup4_shrink.
+          rewrite openup3_shrink.
+          subst Ps.
+          eapply totop with (n := 1); [ reflexivity | unfold removen ].
+          eapply ctx_refl.
+        }
+        eapply openup4_apply.
+        (*here*)
+        {
+          intros.
+          eapply inj_and_intro.
+        }
+        rewrite openup4_and.
+        eapply rsplit.
+        {
+          rewrite openup4_totop1.
+          rewrite openup4_shrink.
+          rewrite openup3_totop2.
+          rewrite openup3_shrink.
+          subst Ps.
+          eapply totop with (n := 10); [ reflexivity | unfold removen ].
+          rewrite lift_openup2.
+          eapply openup2_apply_in.
+          {
+            intros.
+            eapply inj_imply.
+            {
+              intros H.
+              unfold terminatesWith in H.
+              destruct H as [H1 H2].
+              exact H1.
+            }
+          }
+          eapply ctx_refl.
+        }
+        rewrite openup4_shrink.
+        eapply openup3_apply.
+      {
+        intros.
+        eapply inj_and_intro.
+      }
+      rewrite openup3_and.
+      eapply rsplit.
+      {
+        rewrite openup3_shrink.
+        rewrite openup2_totop1.
+        rewrite openup2_shrink.
+        subst Ps.
+        eapply totop with (n := 2); [ reflexivity | unfold removen ].
+        rewrite openup2_totop1.
+        rewrite openup2_shrink.
+        eapply ctx_refl.
+      }
+      rewrite openup3_totop1.
+      rewrite openup3_shrink.
+      subst Ps.
+      eapply totop with (n := 7); [ reflexivity | unfold removen ].
+      eapply openup2_apply_in.
+      {
+        intros.
+        eapply inj_imply.
+        {
+          intros H.
+          unfold wrunsto in H.
+          destruct H as [H1 H2].
+          exact H1.
+        }
+      }
+      eapply ctx_refl.
+    }
+    rewrite openup4_shrink.
+    rewrite openup3_totop2.
+    rewrite openup3_shrink.
+    eapply openup2_apply_in.
     {
       intros.
       eapply relE_elim.
     }
+    eapply eqv_premise; [ eapply openup2_and | ].
+    eapply destruct_and.
+    eapply totop with (n := 1); [ reflexivity | unfold removen ].
+    eapply eqv_premise; [ eapply openup2_and | ].
+    eapply destruct_and.
+    eapply totop with (n := 1); [ reflexivity | unfold removen ].
+    eapply eqv_premise; [ eapply openup2_and | ].
+    eapply destruct_and.
+    eapply openup2_forall1_elim with (x := V3).
+    eapply openup3_forall1_elim with (x := V2).
+    eapply eqv_premise.
+    {
+      eapply openup4_imply.
+    }
+    eapply imply_eelim.
+    {
+      set (Ps := [_;_;_;_;_;_;_;_;_;_;_;_;_;_;_;_;_]).
+      eapply openup4_apply.
+      {
+        intros.
+        eapply inj_and_intro.
+      }
+      rewrite openup4_and.
+      eapply rsplit.
+      {
+        rewrite openup4_shrink.
+        rewrite openup3_totop2.
+        rewrite openup3_shrink.
+        subst Ps.
+        eapply totop with (n := 14); [ reflexivity | unfold removen ].
+        rewrite openup3_shrink.
+        rewrite openup2_totop1.
+        eapply ctx_refl.
+      }
+      rewrite openup4_totop1.
+      rewrite openup4_shrink.
+      rewrite openup3_totop1.
+      rewrite openup3_shrink.
+      subst Ps.
+      eapply totop with (n := 12); [ reflexivity | unfold removen ].
+      eapply ctx_refl.
+    }
+    rewrite openup4_shrink.
+    rewrite openup3_shrink.
+    set (Ps := [_;_;_;_;_;_;_;_;_;_;_;_;_;_;_;_;_]).
+    rewrite openup4_shrink.
+    rewrite openup3_shrink.
+    eapply ctx_refl.
+      (*here*)
 
-    admit. 
-  }
-  rewrite openup3_and.
-  eapply rsplit.
-  {
+
+
+
+
     admit. 
   }
   rewrite openup3_and.
