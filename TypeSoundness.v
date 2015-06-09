@@ -3296,6 +3296,41 @@ Proof.
       [] |~~ (∃e, [|~>*# e 0 e'|] /\ (e, w) ∈ relE τ wB c s ρ) ===> (e', w) ∈ relE τ wB c s ρ.
       admit.
     Qed.
+    eapply openup4_apply.
+    {
+      intros.
+      eapply relE_red.
+    }
+    Lemma openup4_exists1 ctx t t1 t2 t3 t4 (f : t -> t1 -> t2 -> t3 -> t4 -> rel 0 ctx) ctxfo x x1 x2 x3 x4 Ps : 
+      Ps |~ openup5 f x x1 x2 x3 x4 ->
+      Ps |~ openup4 (ctx := ctxfo) (fun x1 x2 x3 x4 => ∃x, f x x1 x2 x3 x4) x1 x2 x3 x4.
+      admit.
+    Qed.
+    eapply openup4_exists1 with (x := openup1 (fun x => E $ x) V2).
+    rewrite openup5_and.
+    subst Ps.
+    set (Ps := [_;_;_;_;_;_;_;_;_;_;_;_;_;_;_;_;_;_]).
+    eapply split.
+    {
+      rewrite openup5_totop1.
+      rewrite openup5_shrink.
+      rewrite openup4_comp_openup1.
+      rewrite openup4_totop1.
+      rewrite openup4_shrink.
+      rewrite openup3_totop1.
+      rewrite openup3_shrink.
+      rewrite openup2_totop1.
+      subst Ps.
+      eapply totop with (n := 16); [ reflexivity | unfold removen ].
+      rewrite openup3_shrink.
+      eapply ctx_refl.
+    }
+    rewrite openup5_totop4.
+    rewrite openup5_shrink.
+    rewrite openup4_comp_openup1.
+
+
+    
     (*here*)
     admit. 
   }
