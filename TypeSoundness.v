@@ -3328,13 +3328,42 @@ Proof.
     rewrite openup5_totop4.
     rewrite openup5_shrink.
     rewrite openup4_comp_openup1.
-
-
-    
-    (*here*)
-    admit. 
+    Lemma relE_c_eq e w lctx (τ : open_type lctx) wB c c' s ctx (ρ : csubsts lctx ctx) :
+      [] |~~ (e, w) ∈ relE τ wB c s ρ /\ [|c = c'|] ===> (e, w) ∈ relE τ wB c' s ρ.
+      admit.
+    Qed.
+    eapply openup4_apply.
+    {
+      intros.
+      eapply relE_c_eq.
+    }
+    rewrite openup4_and.
+    eapply split.
+    {
+      rewrite openup4_totop3.
+      rewrite openup4_totop2.
+      rewrite openup4_totop2.
+      rewrite openup4_totop3.
+      eapply ctx_refl.
+    }
+    rewrite openup4_shrink.
+    rewrite openup3_shrink.
+    rewrite openup2_totop1.
+    rewrite openup2_shrink.
+    eapply openup1_apply.
+    {
+      intros.
+      eapply inj_imply.
+      Lemma swap_minus_plus (n m : nat) : 0 < n -> n - 1 + m = n + m - 1.
+        admit.
+      Qed.
+      eapply swap_minus_plus.
+    }
+    subst Ps.
+    eapply totop with (n := 6); [ reflexivity | unfold removen ].
+    eapply ctx_refl.
   }
-  rewrite openup3_and.
+  rewrite openup4_and.
   eapply split.
   {
     Lemma split_exists A B P Q :
