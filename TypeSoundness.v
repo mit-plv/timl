@@ -3375,6 +3375,8 @@ Proof.
       exists a b.
       eauto.
     Qed.
+    rewrite openup4_totop1.
+    rewrite openup4_shrink.
     rewrite openup3_totop1.
     rewrite openup3_shrink.
     rewrite openup2_totop1.
@@ -3456,10 +3458,7 @@ Proof.
     rewrite openup3_shrink.
     eapply openup2_forall1_elim with (x := V1).
     eapply openup3_forall1_elim with (x := V0).
-    eapply eqv_premise.
-    {
-      eapply openup4_imply.
-    }
+    rewrite openup4_imply.
     eapply imply_eelim.
     {
       set (Ps := [_;_;_;_;_;_;_;_]).
@@ -3499,10 +3498,7 @@ Proof.
     unfold relEC at 1.
     eapply openup2_forall1_elim with (x := V1).
     eapply openup3_forall1_elim with (x := V0).
-    eapply eqv_premise.
-    {
-      eapply openup4_imply.
-    }
+    rewrite openup4_imply.
     eapply imply_eelim.
     {
       rewrite openup4_and.
@@ -3516,27 +3512,26 @@ Proof.
       admit. (* ⌈x1 ~>* x3 /\ !x3 ≤ s₁ /\ wsteps x2 x4⌉ *)
     }
     rewrite openup4_shrink.
+    rewrite openup3_totop2.
     rewrite openup3_shrink.
-    rewrite openup2_totop1.
-    rewrite openup2_shrink.
-    eapply openup1_apply_in.
+    eapply openup2_apply_in.
     {
       intros.
       eapply relE_elim.
     }
-    eapply eqv_premise; [ eapply openup1_and | ].
+    rewrite openup2_and.
     eapply destruct_and.
     eapply totop with (n := 1); [ reflexivity | unfold removen ].
-    eapply eqv_premise; [ eapply openup1_and | ].
+    rewrite openup2_and.
     eapply destruct_and.
     eapply totop with (n := 1); [ reflexivity | unfold removen ].
-    eapply eqv_premise; [ eapply openup1_and | ].
+    rewrite openup2_and.
     eapply destruct_and.
     eapply totop with (n := 1); [ reflexivity | unfold removen ].
-    eapply eqv_premise; [ eapply openup1_and | ].
+    rewrite openup2_and.
     eapply destruct_and.
     eapply totop with (n := 1); [ reflexivity | unfold removen ].
-    eapply eqv_premise; [ eapply openup1_and | ].
+    rewrite openup2_and.
     eapply destruct_and.
     set (Ps := [_;_;_;_;_;_;_;_;_;_;_;_;_;_;_;_]).
     rewrite lift_openup1.
@@ -3560,6 +3555,7 @@ Proof.
     subst Ps.
     eapply ctx_refl.
   }
+  (*here*)
   admit.
 Qed.
 
