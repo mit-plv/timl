@@ -3679,15 +3679,13 @@ Proof.
     eapply LRbind''' with (E := x4) (s₁ := x3 $ s₁) (τ := τ) (ρ := x3).
   }
   eapply openup6_exists1 with (x := we).
-  (*here*)
-  rewrite openup9_and.
+  rewrite openup7_and.
   eapply split.
   {
-    rewrite openup9_shrink.
-    rewrite openup8_shrink.
     rewrite openup7_shrink.
     rewrite openup6_shrink.
     rewrite openup5_shrink.
+    rewrite openup4_totop1.
     rewrite openup4_totop1.
     rewrite openup4_shrink.
     rewrite openup3_totop1.
@@ -3696,54 +3694,43 @@ Proof.
     rewrite openup2_shrink.
     admit. (* IsEC *)
   }
-  rewrite openup9_and.
+  rewrite openup7_and.
   eapply split.
   {
-    rewrite openup9_shrink.
-    rewrite openup8_shrink.
-    rewrite openup7_totop3.
+    rewrite openup7_totop2.
     rewrite openup7_shrink.
-    rewrite openup6_totop4.
+    rewrite openup6_totop3.
     rewrite openup6_shrink.
     rewrite openup5_totop4.
     rewrite openup5_shrink.
+    rewrite openup4_totop1.
     rewrite openup4_totop1.
     rewrite openup4_totop3.
     rewrite openup4_totop3.
     eauto.
   }      
-  rewrite openup9_and.
+  rewrite openup7_and.
   eapply split.
   {
-    rewrite openup9_totop2.
-    rewrite openup9_shrink.
-    rewrite openup8_totop6.
-    rewrite openup8_shrink.
-    rewrite openup7_totop6.
+    rewrite openup7_totop1.
     rewrite openup7_shrink.
-    rewrite openup6_totop4 in Hec.
-    rewrite openup6_comp_openup2 in Hec.
-    rewrite openup7_totop1 in Hec.
-    rewrite openup7_totop5 in Hec.
-    rewrite openup7_dedup in Hec.
-    rewrite openup6_totop5 in Hec.
-    rewrite openup6_comp_openup2 in Hec.
-    rewrite openup7_totop1 in Hec.
-    rewrite openup7_totop2 in Hec.
-    rewrite openup7_dedup in Hec.
+    rewrite openup6_totop1.
+    rewrite openup6_totop5.
+    rewrite openup6_totop2.
     rewrite openup6_totop5.
     rewrite openup6_totop5.
-    rewrite openup6_totop5.
-    rewrite openup6_totop4.
-    rewrite openup6_totop4.
     rewrite openup6_totop5.
     eauto.
   }
+  destruct HwEe as [wE HwEe].
+  destruct HwBEe as [wBE HwBEe].
+  eapply openup7_exists1 with (x := wE).
+  eapply openup8_exists1 with (x := wBE).
   rewrite openup9_and.
   eapply split.
   {
     rewrite openup9_shrink.
-    rewrite openup8_totop1.
+    rewrite openup8_totop2.
     rewrite openup8_shrink.
     rewrite openup7_totop2.
     rewrite openup7_shrink.
@@ -3751,7 +3738,7 @@ Proof.
     rewrite openup6_shrink.
     rewrite openup5_totop2.
     rewrite openup5_shrink.
-    rewrite openup4_totop3.
+    rewrite openup4_totop2.
     rewrite openup4_shrink.
     rewrite openup2_totop1 in HwEe.
     rewrite openup2_comp_openup2 in HwEe.
@@ -3759,7 +3746,7 @@ Proof.
   }
   rewrite openup9_totop1.
   rewrite openup9_shrink.
-  rewrite openup8_totop3.
+  rewrite openup8_totop2.
   rewrite openup8_shrink.
   rewrite openup7_totop3.
   rewrite openup7_shrink.
@@ -3767,14 +3754,10 @@ Proof.
   rewrite openup6_shrink.
   rewrite openup5_totop3.
   rewrite openup5_shrink.
-  rewrite openup2_totop1 in HwBall.
-  rewrite openup2_comp_openup2 in HwBall.
-  rewrite openup3_totop1 in HwBall.
-  rewrite openup3_comp_openup2 in HwBall.
   rewrite openup4_totop3.
-  rewrite openup4_totop2.
-  rewrite openup4_totop3.
-  rewrite openup4_totop3.
+  rewrite openup4_shrink.
+  rewrite openup2_totop1 in HwBEe.
+  rewrite openup2_comp_openup2 in HwBEe.
   eauto.
 (*
     Inductive typingEC : econtext -> type -> type -> Prop :=
@@ -3914,12 +3897,6 @@ Proof.
     rewrite openup4_comp_openup2.
     rewrite openup5_totop2.
 
-    Definition var0 {m ctx} : open_var m (m :: ctx).
-      admit.
-    Defined.
-    Notation "#0" := var0 : var.
-    Delimit Scope var with var.
-
     eapply LRbind' with (c₂ := c₁ + subst s₁ c) (s₂ := subst s₁ s) (τ' := subst s₁ τ₂).
     {
       admit. (* IsEC *)
@@ -3927,7 +3904,6 @@ Proof.
     {
       eapply IH₀.
     }
-    (*here*)
     {
       unfold relEC.
 
@@ -4144,15 +4120,48 @@ Proof.
         }
         admit. (* !v <= rho $ s1 *)
       }
+      {
+        repeat rewrite lift_rho_width.
+        set (ρ' := lift ρ) in *.
+        exists (ρ' $ w₀).
+        rewrite open_csubsts_Wapp.
+        Lemma openup2_dedup {t0 t2} {f : t0 -> t0 -> t2} {ctxfo x0} : openup2 (ctx := ctxfo) f x0 x0 = openup1 (fun x => f x x) x0.
+          admit.
+        Qed.
+        rewrite openup2_dedup.
+        eapply openup1_apply.
+        {
+          intros.
+          eapply inj_imply.
+          intros.
+          Lemma wsteps_refl t (w : open_width t []) : wsteps w w.
+            admit.
+          Qed.
+          eapply wsteps_refl.
+        }
+        instantiate (1 := True).
+        rewrite openup1_shrink.
+        eapply inj_true_intro.
+      }
+      repeat rewrite lift_rho_width.
+      set (ρ' := lift ρ) in *.
+      Definition var0 {m ctx} : open_var m (m :: ctx).
+        admit.
+      Defined.
+      Notation "#0" := var0 : var.
+      Delimit Scope var with var.
+      admit. (* exists wBE *)
     }
     {
-      instantiate (1 := ).
-  (wE := openup0 (Wabs (ρ $$ wB₁ + (Wconst 1 + Wapp (Wvar #0%var) (ρ $ w₁))) (Wapp (Wvar #0%var) (ρ $ w₁)))).    
-    set (wE := openup0 (Wabs (ρ $$ wB₁ + (Wconst 1 + Wapp (Wvar #0%var) (ρ $ w₁))) (Wapp (Wvar #0%var) (ρ $ w₁)))).
+      admit. (* exists wE *)
+      (* exists (openup0 (Wabs (ρ $$ wB₁ + (Wconst 1 + Wapp (Wvar #0%var) (ρ $ w₁))) (Wapp (Wvar #0%var) (ρ $ w₁)))).     *)
+    }
+    {
+      admit. (* exists wBE *)
     }
   }
   {
-      (*here*)
+    (*here*)
 
 
 
