@@ -1909,13 +1909,13 @@ Proof.
   eauto.
 Qed.
 
-Lemma LRbind E (wE : open_width WTstruct [CEexpr]) (wBE : open_width WTnat [CEexpr]) s₁ c₂ s₂ {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) :
+Lemma LRbind E (wE : width) (wBE : width) s₁ c₂ s₂ {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) :
   [] |~~ 
      ∀e we c₁ wBe, 
        ⌈IsEC E⌉ /\
        (e, we) ∈ relE τ wBe c₁ s₁ ρ /\ 
-       relEC E e we (wE $ we) (wBE $ we) s₁ c₂ s₂ τ τ' ρ ρ' ===> 
-       (E $$ e, wE $$ we) ∈ relE τ' (wBe + wBE $$ we) (c₁ + !c₂) s₂ ρ'.
+       relEC E e we (Wapp wE we) (WappB wBE we) s₁ c₂ s₂ τ τ' ρ ρ' ===> 
+       (E $$ e, Wapp wE we) ∈ relE τ' (wBe + WappB wBE we) (c₁ + !c₂) s₂ ρ'.
 Proof.
   Lemma VLob ctxfo ctx Ps (P : open_rel ctxfo 0 ctx) : openup1 (▹ []) P :: Ps |~ P -> Ps |~ P.
     admit.
@@ -1923,11 +1923,12 @@ Proof.
   eapply VLob.
   set (Hlob := 
       openup1 (▹ [])
-      ((∀(e : expr) (we : width) (c₁ : cexpr) (wBe : width_nat),
-       ⌈IsEC E⌉ /\
-       (e, we) ∈ relE τ wBe !c₁ s₁ ρ /\
-       relEC E e we (wE $$ we) (wBE $$ we) s₁ c₂ s₂ τ τ' ρ ρ' ===>
-       (E $$ e, wE $$ we) ∈ relE τ' (wBe + wBE $$ we) !(c₁ + c₂) s₂ ρ') : open_rel [] _ _)).
+      ((∀e we c₁ wBe,
+          ⌈IsEC E⌉ /\
+          (e, we) ∈ relE τ wBe c₁ s₁ ρ /\
+          relEC E e we (Wapp wE we) (WappB wBE we) s₁ c₂ s₂ τ τ' ρ ρ' ===>
+                (E $$ e, Wapp wE we) ∈ relE τ' (wBe + WappB wBE we) (c₁ + !c₂) s₂ ρ'
+       ) : open_rel [] _ _)).
   
   eapply forall1_intro.
   eapply openup1_forall1.
@@ -2335,9 +2336,9 @@ Proof.
     rewrite openup4_shrink.
     rewrite openup3_totop1.
     rewrite openup3_shrink.
-    Lemma app_wrunsto_elim (w1 : open_width WTstruct [CEexpr]) (w2 w : width) :
-      wrunsto (w1 $ w2) w ->
-      (exists w', wrunsto w2 w' /\ wrunsto (w1 $ w') w)%type.
+    Lemma app_wrunsto_elim (w1 w2 w : width) :
+      wrunsto (Wapp w1 w2) w ->
+      (exists w', wrunsto w2 w' /\ wrunsto (Wapp w1 w') w)%type.
       admit.
     Qed.
     eapply dup_premise.
@@ -2964,7 +2965,7 @@ Proof.
         eapply openup4_apply.
         {
           intros.
-          eapply relE_mono_wB_c with (τ := τ') (wB := wBE $$ x1) (c := !c₂ - 1).
+          eapply relE_mono_wB_c with (τ := τ') (wB := WappB wBE x1) (c := !c₂ - 1).
         }
         eapply ctx_refl.
       }
@@ -2991,7 +2992,7 @@ Proof.
         intros.
         eapply inj_imply.
         intros H.
-        Lemma relE_mono_wB_c_VC c₁ (c₂ : cexpr) (wBE : open_width WTnat [CEexpr]) (w : width) (w' : width_nat) : !c₂ - 1 ≤ c₁ + !c₂ - 1 /\ wBE $$ w ≤ w' + wBE $$ w.
+        Lemma relE_mono_wB_c_VC c₁ (c₂ : cexpr) (w w' : width_nat) : !c₂ - 1 ≤ c₁ + !c₂ - 1 /\ w ≤ w' + w.
           admit.
         Qed.
         eapply relE_mono_wB_c_VC.
@@ -3174,7 +3175,7 @@ Proof.
     Qed.
     eapply assert with (P := openup2
       (fun (x2 : expr) (x3 : width) =>
-       relEC E x2 x3 (wE $$ x3) (wBE $$ x3) s₁ c₂ s₂ τ τ' ρ ρ') V2 V6).
+       relEC E x2 x3 (Wapp wE x3) (WappB wBE x3) s₁ c₂ s₂ τ τ' ρ ρ') V2 V6).
     {
       eapply openup2_apply.
       {
@@ -3559,48 +3560,30 @@ Proof.
   admit.
 Qed.
 
-Lemma LRbind''' E (wEe : width) (wBEe : open_width WTnat []) s₁ c₂ s₂ {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) e we c₁ wBe :
+Lemma LRbind''' E (wE : open_width WTstruct [CEexpr]) (wBE : open_width WTnat [CEexpr]) s₁ c₂ s₂ {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) e we c₁ wBe :
   [] |~~ 
      ⌈IsEC E⌉ /\
-  (e, we) ∈ relE τ wBe !c₁ s₁ ρ /\ 
-  relEC E e we wEe wBEe s₁ c₂ s₂ τ τ' ρ ρ' ===> 
-        (E $$ e, wEe) ∈ relE τ' (wBe + wBEe) !(c₁ + c₂) s₂ ρ'.
+     (e, we) ∈ relE τ wBe c₁ s₁ ρ /\ 
+     relEC E e we (wE $ we) (wBE $ we) s₁ c₂ s₂ τ τ' ρ ρ' ===> 
+     (E $$ e, wE $$ we) ∈ relE τ' (wBe + wBE $$ we) (c₁ + !c₂) s₂ ρ'.
 Proof.
   eapply forall1_elim4 with (
     P := fun e we c₁ wBe =>
-           ⌈IsEC E⌉ /\
-           (e, we) ∈ relE τ wBe !c₁ s₁ ρ /\
-           relEC E e we wEe wBEe s₁ c₂ s₂ τ τ' ρ ρ' ===>
-                 (E $$ e, wEe) ∈ relE τ' (wBe + wBEe) !(c₁ + c₂) s₂ ρ'
+     ⌈IsEC E⌉ /\
+     (e, we) ∈ relE τ wBe c₁ s₁ ρ /\ 
+     relEC E e we (wE $ we) (wBE $ we) s₁ c₂ s₂ τ τ' ρ ρ' ===> 
+     (E $$ e, wE $$ we) ∈ relE τ' (wBe + wBE $$ we) (c₁ + !c₂) s₂ ρ'
   ).
   eapply LRbind.
 Qed.
 
-Lemma LRbind'' E (wEe : width) (wBEe : open_width WTnat []) s₁ c₂ s₂ {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) e c₁ wBe :
-  [] |~~ 
-     (∃we, ⌈IsEC E⌉ /\
-           (e, we) ∈ relE τ wBe !c₁ s₁ ρ /\ 
-           relEC E e we wEe wBEe s₁ c₂ s₂ τ τ' ρ ρ') ===> 
-     (E $$ e, wEe) ∈ relE τ' (wBe + wBEe) !(c₁ + c₂) s₂ ρ'.
-Proof.
-  eapply imply_intro.
-  eapply exists1_elim.
-  rewrite <- openup0_lift_1.
-  erewrite <- (openup1_shrink (x1 := V0)).
-  eapply openup1_apply.
-  {
-    intros.
-    eapply LRbind''' with (we := x1) (s₁ := s₁) (τ := τ) (ρ := ρ).
-  }
-  eapply ctx_refl.
-Qed.
-
-Lemma LRbind' ctxfo (e : open_term ctxfo expr) (we : open_term ctxfo width) (wBe : open_term ctxfo width_nat) (E : open_term ctxfo econtext) (wEe : open_term ctxfo width) (wBEe : open_term ctxfo width_nat) lctx (c₁ : open_cexpr lctx) (s₁ : open_size lctx) (c₂ : open_cexpr lctx) (s₂ : open_size lctx) (τ : open_type lctx) (τ' : open_type lctx) ctx (ρ : open_csubsts ctxfo lctx ctx) (Ps : list (open_rel ctxfo 0 ctx)) :
+Lemma LRbind' ctxfo (e : open_term ctxfo expr) (we : open_term ctxfo width) (wBe : open_term ctxfo width_nat) (E : open_term ctxfo econtext) (wE : open_term ctxfo width) (wBE : open_term ctxfo width) lctx (c₁ : open_cexpr lctx) (s₁ : open_size lctx) (c₂ : open_cexpr lctx) (s₂ : open_size lctx) (τ : open_type lctx) (τ' : open_type lctx) ctx (ρ : open_csubsts ctxfo lctx ctx) (Ps : list (open_rel ctxfo 0 ctx)) :
   Ps |~ openup1 (fun E => ⌈IsEC E⌉) E ->
   Ps |~ openup4 (fun ρ e we wBe => (e, we) ∈ relE τ wBe !(ρ $ c₁) (ρ $ s₁) ρ) ρ e we wBe ->
-  Ps |~ openup6 (fun ρ E e we wEe wBEe => relEC E e we wEe wBEe (ρ $ s₁) (ρ $ c₂) (ρ $ s₂) τ τ' ρ ρ) ρ E e we wEe wBEe ->
-  Ps |~ openup5 (fun ρ E e wEe wBall => (E $$ e, wEe) ∈ relE τ' wBall !(ρ $ (c₁ + c₂)) (ρ $ s₂) ρ) ρ E e wEe (wBe + wBEe).
+  Ps |~ openup6 (fun ρ E e we wEe wBEe => relEC E e we wEe wBEe (ρ $ s₁) (ρ $ c₂) (ρ $ s₂) τ τ' ρ ρ) ρ E e we (openup2 Wapp wE we) (openup2 WappB wBE we) ->
+  Ps |~ openup5 (fun ρ E e wEe wBall => (E $$ e, wEe) ∈ relE τ' wBall !(ρ $ (c₁ + c₂)) (ρ $ s₂) ρ) ρ E e (openup2 Wapp wE we) (wBe + openup2 WappB wBE we).
 Proof.
+  (*here*)
   intros H1 H2 H3.
   rewrite openup5_totop4.
   set (ttt := wBe + wBEe).
