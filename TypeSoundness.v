@@ -3560,70 +3560,221 @@ Proof.
   admit.
 Qed.
 
-Lemma LRbind''' E (wE : open_width WTstruct [CEexpr]) (wBE : open_width WTnat [CEexpr]) s₁ c₂ s₂ {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) e we c₁ wBe :
+Lemma LRbind'' E (wE : width) (wBE : width) s₁ c₂ s₂ {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) e we c₁ wBe :
   [] |~~ 
      ⌈IsEC E⌉ /\
      (e, we) ∈ relE τ wBe c₁ s₁ ρ /\ 
-     relEC E e we (wE $ we) (wBE $ we) s₁ c₂ s₂ τ τ' ρ ρ' ===> 
-     (E $$ e, wE $$ we) ∈ relE τ' (wBe + wBE $$ we) (c₁ + !c₂) s₂ ρ'.
+     relEC E e we (Wapp wE we) (WappB wBE we) s₁ c₂ s₂ τ τ' ρ ρ' ===> 
+     (E $$ e, Wapp wE we) ∈ relE τ' (wBe + WappB wBE we) (c₁ + !c₂) s₂ ρ'.
 Proof.
   eapply forall1_elim4 with (
     P := fun e we c₁ wBe =>
      ⌈IsEC E⌉ /\
      (e, we) ∈ relE τ wBe c₁ s₁ ρ /\ 
-     relEC E e we (wE $ we) (wBE $ we) s₁ c₂ s₂ τ τ' ρ ρ' ===> 
-     (E $$ e, wE $$ we) ∈ relE τ' (wBe + wBE $$ we) (c₁ + !c₂) s₂ ρ'
+     relEC E e we (Wapp wE we) (WappB wBE we) s₁ c₂ s₂ τ τ' ρ ρ' ===> 
+     (E $$ e, Wapp wE we) ∈ relE τ' (wBe + WappB wBE we) (c₁ + !c₂) s₂ ρ'
   ).
   eapply LRbind.
 Qed.
 
-Lemma LRbind' ctxfo (e : open_term ctxfo expr) (we : open_term ctxfo width) (wBe : open_term ctxfo width_nat) (E : open_term ctxfo econtext) (wE : open_term ctxfo width) (wBE : open_term ctxfo width) lctx (c₁ : open_cexpr lctx) (s₁ : open_size lctx) (c₂ : open_cexpr lctx) (s₂ : open_size lctx) (τ : open_type lctx) (τ' : open_type lctx) ctx (ρ : open_csubsts ctxfo lctx ctx) (Ps : list (open_rel ctxfo 0 ctx)) :
+Lemma openup7_totop6 {t0 t1 t2 t3 t4 t5 t6 t7} {f : t0 -> t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7} {ctxfo x0 x1 x2 x3 x4 x5 x6} : openup7 (ctx := ctxfo) f x0 x1 x2 x3 x4 x5 x6 = openup7 (fun x6 x0 x1 x2 x3 x4 x5 => f x0 x1 x2 x3 x4 x5 x6) x6 x0 x1 x2 x3 x4 x5.
+  admit.
+Qed.
+Lemma openup7_comp_openup2 t1 t2 t3 t4 t5 t6 t7 t8 (f : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8) A1 A2 (g : A1 -> A2 -> t1) ctxfo x2 x3 x4 x5 x6 x7 y1 y2 : openup7 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 x6 x7 => f x1 x2 x3 x4 x5 x6 x7) (openup2 (fun y1 y2 => g y1 y2) y1 y2) x2 x3 x4 x5 x6 x7 = openup8 (fun y1 y2 x2 x3 x4 x5 x6 x7 => f (g y1 y2) x2 x3 x4 x5 x6 x7) y1 y2 x2 x3 x4 x5 x6 x7.
+  admit.
+Qed.
+Lemma openup8_apply ctx t1 t2 t3 t4 t5 t6 t7 t8 (f g : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8 -> rel 0 ctx) ctxfo x1 x2 x3 x4 x5 x6 x7 x8 Ps : 
+  (forall x1 x2 x3 x4 x5 x6 x7 x8, [] |~~ f x1 x2 x3 x4 x5 x6 x7 x8 ===> g x1 x2 x3 x4 x5 x6 x7 x8) ->
+  Ps |~ openup8 (ctx := ctxfo) f x1 x2 x3 x4 x5 x6 x7 x8 ->
+  Ps |~ openup8 (ctx := ctxfo) g x1 x2 x3 x4 x5 x6 x7 x8.
+  admit.
+Qed.
+Lemma openup8_totop3 {t0 t1 t2 t3 t4 t5 t6 t7 t8} {f : t0 -> t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8} {ctxfo x0 x1 x2 x3 x4 x5 x6 x7} : openup8 (ctx := ctxfo) f x0 x1 x2 x3 x4 x5 x6 x7 = openup8 (fun x3 x0 x1 x2 x4 x5 x6 x7 => f x0 x1 x2 x3 x4 x5 x6 x7) x3 x0 x1 x2 x4 x5 x6 x7.
+  admit.
+Qed.
+Lemma openup8_dedup {t0 t2 t3 t4 t5 t6 t7 t8} {f : t0 -> t0 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8} {ctxfo x0 x2 x3 x4 x5 x6 x7} : openup8 (ctx := ctxfo) f x0 x0 x2 x3 x4 x5 x6 x7 = openup7 (fun x => f x x) x0 x2 x3 x4 x5 x6 x7.
+  admit.
+Qed.
+Lemma openup7_apply ctx t1 t2 t3 t4 t5 t6 t7 (f g : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> rel 0 ctx) ctxfo x1 x2 x3 x4 x5 x6 x7 Ps : 
+  (forall x1 x2 x3 x4 x5 x6 x7, [] |~~ f x1 x2 x3 x4 x5 x6 x7 ===> g x1 x2 x3 x4 x5 x6 x7) ->
+  Ps |~ openup7 (ctx := ctxfo) f x1 x2 x3 x4 x5 x6 x7 ->
+  Ps |~ openup7 (ctx := ctxfo) g x1 x2 x3 x4 x5 x6 x7.
+  admit.
+Qed.
+
+Lemma coerce_cexpr (a b : cexpr) : !(a + b) = !a + !b.
+  admit.
+Qed.
+
+Fixpoint openup9 {t1 t2 t3 t4 t5 t6 t7 t8 t9 t10} (f : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8 -> t9 -> t10) {ctx} : open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> open_term ctx t7 -> open_term ctx t8 -> open_term ctx t9 -> open_term ctx t10 :=
+  match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> open_term ctx t7 -> open_term ctx t8 -> open_term ctx t9 -> open_term ctx t10 with
+    | nil => f
+    | t :: ctx' => fun r1 r2 r3 r4 r5 r6 r7 r8 r9 x => openup9 f (r1 x) (r2 x) (r3 x) (r4 x) (r5 x) (r6 x) (r7 x) (r8 x) (r9 x)
+  end.
+
+Lemma openup8_exists1 ctx t t1 t2 t3 t4 t5 t6 t7 t8 (f : t -> t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8 -> rel 0 ctx) ctxfo x x1 x2 x3 x4 x5 x6 x7 x8 Ps : 
+  Ps |~ openup9 f x x1 x2 x3 x4 x5 x6 x7 x8 ->
+  Ps |~ openup8 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 x6 x7 x8 => ∃x, f x x1 x2 x3 x4 x5 x6 x7 x8) x1 x2 x3 x4 x5 x6 x7 x8.
+  admit.
+Qed.
+
+Lemma openup9_and ctx t1 t2 t3 t4 t5 t6 t7 t8 t9 (f g : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8 -> t9 -> rel 0 ctx) ctxfo x1 x2 x3 x4 x5 x6 x7 x8 x9 : openup9 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 x6 x7 x8 x9 => f x1 x2 x3 x4 x5 x6 x7 x8 x9 /\ g x1 x2 x3 x4 x5 x6 x7 x8 x9) x1 x2 x3 x4 x5 x6 x7 x8 x9 = (openup9 f x1 x2 x3 x4 x5 x6 x7 x8 x9 /\ openup9 g x1 x2 x3 x4 x5 x6 x7 x8 x9)%OR.
+  admit.
+Qed.
+Lemma openup9_shrink t1 t2 t3 t4 t5 t6 t7 t8 t9 t10 (f : t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8 -> t9 -> t10) ctxfo x1 x2 x3 x4 x5 x6 x7 x8 x9 : openup9 (ctx := ctxfo) (fun (_ : t1) x2 x3 x4 x5 x6 x7 x8 x9 => f x2 x3 x4 x5 x6 x7 x8 x9) x1 x2 x3 x4 x5 x6 x7 x8 x9 = openup8 f x2 x3 x4 x5 x6 x7 x8 x9.
+  admit.
+Qed.
+
+Lemma openup9_totop2 {t0 t1 t2 t3 t4 t5 t6 t7 t8 t9} {f : t0 -> t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8 -> t9} {ctxfo x0 x1 x2 x3 x4 x5 x6 x7 x8} : openup9 (ctx := ctxfo) f x0 x1 x2 x3 x4 x5 x6 x7 x8 = openup9 (fun x2 x0 x1 x3 x4 x5 x6 x7 x8 => f x0 x1 x2 x3 x4 x5 x6 x7 x8) x2 x0 x1 x3 x4 x5 x6 x7 x8.
+  admit.
+Qed.
+Lemma openup7_totop5 {t0 t1 t2 t3 t4 t5 t6 t7} {f : t0 -> t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7} {ctxfo x0 x1 x2 x3 x4 x5 x6} : openup7 (ctx := ctxfo) f x0 x1 x2 x3 x4 x5 x6 = openup7 (fun x5 x0 x1 x2 x3 x4 x6 => f x0 x1 x2 x3 x4 x5 x6) x5 x0 x1 x2 x3 x4 x6.
+  admit.
+Qed.
+Lemma openup2_comp_openup2 t1 t2 t3 (f : t1 -> t2 -> t3) A1 A2 (g : A1 -> A2 -> t1) ctxfo x2 y1 y2 : openup2 (ctx := ctxfo) (fun x1 x2 => f x1 x2) (openup2 (fun y1 y2 => g y1 y2) y1 y2) x2 = openup3 (fun y1 y2 x2 => f (g y1 y2) x2) y1 y2 x2.
+  admit.
+Qed.
+Lemma openup9_totop1 {t0 t1 t2 t3 t4 t5 t6 t7 t8 t9} {f : t0 -> t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8 -> t9} {ctxfo x0 x1 x2 x3 x4 x5 x6 x7 x8} : openup9 (ctx := ctxfo) f x0 x1 x2 x3 x4 x5 x6 x7 x8 = openup9 (fun x1 x0 x2 x3 x4 x5 x6 x7 x8 => f x0 x1 x2 x3 x4 x5 x6 x7 x8) x1 x0 x2 x3 x4 x5 x6 x7 x8.
+  admit.
+Qed.
+
+Lemma LRbind''' E s₁ c₂ s₂ {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) e c₁ wBe wEe wBEe :
+  [] |~~ 
+     (∃we, 
+        ⌈IsEC E⌉ /\
+        (e, we) ∈ relE τ wBe c₁ s₁ ρ /\ 
+        relEC E e we wEe wBEe s₁ c₂ s₂ τ τ' ρ ρ' /\
+        (∃wE wBE,
+          [| wsteps wEe (Wapp wE we) |] /\
+          [| wsteps wBEe (WappB wBE we) |])) ===> 
+     (E $$ e, wEe) ∈ relE τ' (wBe + wBEe) (c₁ + !c₂) s₂ ρ'.
+Proof.
+  eapply imply_intro.
+  Lemma relE_replace_w lctx τ c s ctx (ρ : csubsts lctx ctx) e w wB : 
+    [] |~~
+       (∃w', (e, w') ∈ relE τ wB c s ρ /\ ⌈wsteps w w'⌉) ===>
+       (e, w) ∈ relE τ wB c s ρ.
+    admit.
+  Qed.
+
+  admit.
+Qed.
+
+Lemma LRbind' ctxfo (e : open_term ctxfo expr) (we : open_term ctxfo width) (wBe : open_term ctxfo width_nat) (E : open_term ctxfo econtext) wEe wBEe lctx (c₁ : open_cexpr lctx) (s₁ : open_size lctx) (c₂ : open_cexpr lctx) (s₂ : open_size lctx) (τ : open_type lctx) (τ' : open_type lctx) ctx (ρ : open_csubsts ctxfo lctx ctx) (Ps : list (open_rel ctxfo 0 ctx)) :
   Ps |~ openup1 (fun E => ⌈IsEC E⌉) E ->
   Ps |~ openup4 (fun ρ e we wBe => (e, we) ∈ relE τ wBe !(ρ $ c₁) (ρ $ s₁) ρ) ρ e we wBe ->
-  Ps |~ openup6 (fun ρ E e we wEe wBEe => relEC E e we wEe wBEe (ρ $ s₁) (ρ $ c₂) (ρ $ s₂) τ τ' ρ ρ) ρ E e we (openup2 Wapp wE we) (openup2 WappB wBE we) ->
-  Ps |~ openup5 (fun ρ E e wEe wBall => (E $$ e, wEe) ∈ relE τ' wBall !(ρ $ (c₁ + c₂)) (ρ $ s₂) ρ) ρ E e (openup2 Wapp wE we) (wBe + openup2 WappB wBE we).
+  Ps |~ openup6 (fun ρ E e we wEe wBEe => relEC E e we wEe wBEe (ρ $ s₁) (ρ $ c₂) (ρ $ s₂) τ τ' ρ ρ) ρ E e we wEe wBEe ->
+  (exists wE, Ps |~ openup2 (fun w w' => [|wsteps w w'|]) wEe (openup2 Wapp wE we)) -> 
+  (exists wBE, Ps |~ openup2 (fun w w' => [|wsteps w w'|]) wBEe (openup2 WappB wBE we)) ->
+  Ps |~ openup5 (fun ρ E e wEe wBall => (E $$ e, wEe) ∈ relE τ' wBall !(ρ $ (c₁ + c₂)) (ρ $ s₂) ρ) ρ E e wEe (wBe + wBEe).
 Proof.
-  (*here*)
-  intros H1 H2 H3.
+  intros Hty He Hec HwEe HwBEe.
   rewrite openup5_totop4.
-  set (ttt := wBe + wBEe).
-  simpl in ttt.
-  subst ttt.
   rewrite openup5_comp_openup2.
   eapply openup6_apply.
   {
     intros.
     rewrite csubsts_Fadd.
-    eapply LRbind'' with (E := x4) (s₁ := x3 $ s₁) (τ := τ) (ρ := x3).
+    rewrite coerce_cexpr.
+    eapply LRbind''' with (E := x4) (s₁ := x3 $ s₁) (τ := τ) (ρ := x3).
   }
   eapply openup6_exists1 with (x := we).
-  rewrite openup7_and.
+  (*here*)
+  rewrite openup9_and.
   eapply split.
   {
+    rewrite openup9_shrink.
+    rewrite openup8_shrink.
     rewrite openup7_shrink.
+    rewrite openup6_shrink.
+    rewrite openup5_shrink.
+    rewrite openup4_totop1.
+    rewrite openup4_shrink.
+    rewrite openup3_totop1.
+    rewrite openup3_shrink.
+    rewrite openup2_totop1.
+    rewrite openup2_shrink.
     admit. (* IsEC *)
   }
-  rewrite openup7_and.
+  rewrite openup9_and.
   eapply split.
   {
-    rewrite openup7_totop2.
+    rewrite openup9_shrink.
+    rewrite openup8_shrink.
+    rewrite openup7_totop3.
     rewrite openup7_shrink.
-    rewrite openup6_totop3.
+    rewrite openup6_totop4.
     rewrite openup6_shrink.
     rewrite openup5_totop4.
     rewrite openup5_shrink.
+    rewrite openup4_totop1.
     rewrite openup4_totop3.
     rewrite openup4_totop3.
     eauto.
   }      
-  rewrite openup7_totop1.
+  rewrite openup9_and.
+  eapply split.
+  {
+    rewrite openup9_totop2.
+    rewrite openup9_shrink.
+    rewrite openup8_totop6.
+    rewrite openup8_shrink.
+    rewrite openup7_totop6.
+    rewrite openup7_shrink.
+    rewrite openup6_totop4 in Hec.
+    rewrite openup6_comp_openup2 in Hec.
+    rewrite openup7_totop1 in Hec.
+    rewrite openup7_totop5 in Hec.
+    rewrite openup7_dedup in Hec.
+    rewrite openup6_totop5 in Hec.
+    rewrite openup6_comp_openup2 in Hec.
+    rewrite openup7_totop1 in Hec.
+    rewrite openup7_totop2 in Hec.
+    rewrite openup7_dedup in Hec.
+    rewrite openup6_totop5.
+    rewrite openup6_totop5.
+    rewrite openup6_totop5.
+    rewrite openup6_totop4.
+    rewrite openup6_totop4.
+    rewrite openup6_totop5.
+    eauto.
+  }
+  rewrite openup9_and.
+  eapply split.
+  {
+    rewrite openup9_shrink.
+    rewrite openup8_totop1.
+    rewrite openup8_shrink.
+    rewrite openup7_totop2.
+    rewrite openup7_shrink.
+    rewrite openup6_totop2.
+    rewrite openup6_shrink.
+    rewrite openup5_totop2.
+    rewrite openup5_shrink.
+    rewrite openup4_totop3.
+    rewrite openup4_shrink.
+    rewrite openup2_totop1 in HwEe.
+    rewrite openup2_comp_openup2 in HwEe.
+    eauto.
+  }
+  rewrite openup9_totop1.
+  rewrite openup9_shrink.
+  rewrite openup8_totop3.
+  rewrite openup8_shrink.
+  rewrite openup7_totop3.
   rewrite openup7_shrink.
-  rewrite openup6_totop1.
-  rewrite openup6_totop5.
-  rewrite openup6_totop2.
-  rewrite openup6_totop5.
-  rewrite openup6_totop5.
-  rewrite openup6_totop5.
+  rewrite openup6_totop3.
+  rewrite openup6_shrink.
+  rewrite openup5_totop3.
+  rewrite openup5_shrink.
+  rewrite openup2_totop1 in HwBall.
+  rewrite openup2_comp_openup2 in HwBall.
+  rewrite openup3_totop1 in HwBall.
+  rewrite openup3_comp_openup2 in HwBall.
+  rewrite openup4_totop3.
+  rewrite openup4_totop2.
+  rewrite openup4_totop3.
+  rewrite openup4_totop3.
   eauto.
 (*
     Inductive typingEC : econtext -> type -> type -> Prop :=
@@ -3763,13 +3914,20 @@ Proof.
     rewrite openup4_comp_openup2.
     rewrite openup5_totop2.
 
-    eapply LRbind' with (c₂ := c₁ + subst s₁ c) (s₂ := subst s₁ s) (τ' := subst s₁ τ₂). 
+    Definition var0 {m ctx} : open_var m (m :: ctx).
+      admit.
+    Defined.
+    Notation "#0" := var0 : var.
+    Delimit Scope var with var.
+
+    eapply LRbind' with (c₂ := c₁ + subst s₁ c) (s₂ := subst s₁ s) (τ' := subst s₁ τ₂).
     {
       admit. (* IsEC *)
     }
     {
       eapply IH₀.
     }
+    (*here*)
     {
       unfold relEC.
 
@@ -3986,6 +4144,11 @@ Proof.
         }
         admit. (* !v <= rho $ s1 *)
       }
+    }
+    {
+      instantiate (1 := ).
+  (wE := openup0 (Wabs (ρ $$ wB₁ + (Wconst 1 + Wapp (Wvar #0%var) (ρ $ w₁))) (Wapp (Wvar #0%var) (ρ $ w₁)))).    
+    set (wE := openup0 (Wabs (ρ $$ wB₁ + (Wconst 1 + Wapp (Wvar #0%var) (ρ $ w₁))) (Wapp (Wvar #0%var) (ρ $ w₁)))).
     }
   }
   {
