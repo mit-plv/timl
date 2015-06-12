@@ -1074,6 +1074,8 @@ Notation width_nat := (open_width WTnat []).
 Notation open_econtext := econtext .
 Notation econtext := (open_econtext []).
 
+Require Import ssreflect.
+
 Fixpoint openup2 {t1 t2 t3} {ctx} (f : t1 -> t2 -> t3) : open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 :=
   match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 with
     | nil => f
@@ -1114,6 +1116,12 @@ Fixpoint openup8 {t1 t2 t3 t4 t5 t6 t7 t8 t9} (f : t1 -> t2 -> t3 -> t4 -> t5 ->
   match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> open_term ctx t7 -> open_term ctx t8 -> open_term ctx t9 with
     | nil => f
     | t :: ctx' => fun r1 r2 r3 r4 r5 r6 r7 r8 x => openup8 f (r1 x) (r2 x) (r3 x) (r4 x) (r5 x) (r6 x) (r7 x) (r8 x)
+  end.
+
+Fixpoint openup9 {t1 t2 t3 t4 t5 t6 t7 t8 t9 t10} (f : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8 -> t9 -> t10) {ctx} : open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> open_term ctx t7 -> open_term ctx t8 -> open_term ctx t9 -> open_term ctx t10 :=
+  match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> open_term ctx t7 -> open_term ctx t8 -> open_term ctx t9 -> open_term ctx t10 with
+    | nil => f
+    | t :: ctx' => fun r1 r2 r3 r4 r5 r6 r7 r8 r9 x => openup9 f (r1 x) (r2 x) (r3 x) (r4 x) (r5 x) (r6 x) (r7 x) (r8 x) (r9 x)
   end.
 
 Lemma openup2_totop1 {t0 t1 t2} {f : t0 -> t1 -> t2} {ctxfo x0 x1} : openup2 (ctx := ctxfo) f x0 x1 = openup2 (fun x1 x0 => f x0 x1) x1 x0.
@@ -1176,6 +1184,12 @@ Qed.
 Lemma openup7_totop4 {t0 t1 t2 t3 t4 t5 t6 t7} {f : t0 -> t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7} {ctxfo x0 x1 x2 x3 x4 x5 x6} : openup7 (ctx := ctxfo) f x0 x1 x2 x3 x4 x5 x6 = openup7 (fun x4 x0 x1 x2 x3 x5 x6 => f x0 x1 x2 x3 x4 x5 x6) x4 x0 x1 x2 x3 x5 x6.
   admit.
 Qed.
+Lemma openup7_totop5 {t0 t1 t2 t3 t4 t5 t6 t7} {f : t0 -> t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7} {ctxfo x0 x1 x2 x3 x4 x5 x6} : openup7 (ctx := ctxfo) f x0 x1 x2 x3 x4 x5 x6 = openup7 (fun x5 x0 x1 x2 x3 x4 x6 => f x0 x1 x2 x3 x4 x5 x6) x5 x0 x1 x2 x3 x4 x6.
+  admit.
+Qed.
+Lemma openup7_totop6 {t0 t1 t2 t3 t4 t5 t6 t7} {f : t0 -> t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7} {ctxfo x0 x1 x2 x3 x4 x5 x6} : openup7 (ctx := ctxfo) f x0 x1 x2 x3 x4 x5 x6 = openup7 (fun x6 x0 x1 x2 x3 x4 x5 => f x0 x1 x2 x3 x4 x5 x6) x6 x0 x1 x2 x3 x4 x5.
+  admit.
+Qed.
 
 Lemma openup8_totop1 {t0 t1 t2 t3 t4 t5 t6 t7 t8} {f : t0 -> t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8} {ctxfo x0 x1 x2 x3 x4 x5 x6 x7} : openup8 (ctx := ctxfo) f x0 x1 x2 x3 x4 x5 x6 x7 = openup8 (fun x1 x0 x2 x3 x4 x5 x6 x7 => f x0 x1 x2 x3 x4 x5 x6 x7) x1 x0 x2 x3 x4 x5 x6 x7.
   admit.
@@ -1183,10 +1197,22 @@ Qed.
 Lemma openup8_totop2 {t0 t1 t2 t3 t4 t5 t6 t7 t8} {f : t0 -> t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8} {ctxfo x0 x1 x2 x3 x4 x5 x6 x7} : openup8 (ctx := ctxfo) f x0 x1 x2 x3 x4 x5 x6 x7 = openup8 (fun x2 x0 x1 x3 x4 x5 x6 x7 => f x0 x1 x2 x3 x4 x5 x6 x7) x2 x0 x1 x3 x4 x5 x6 x7.
   admit.
 Qed.
+Lemma openup8_totop3 {t0 t1 t2 t3 t4 t5 t6 t7 t8} {f : t0 -> t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8} {ctxfo x0 x1 x2 x3 x4 x5 x6 x7} : openup8 (ctx := ctxfo) f x0 x1 x2 x3 x4 x5 x6 x7 = openup8 (fun x3 x0 x1 x2 x4 x5 x6 x7 => f x0 x1 x2 x3 x4 x5 x6 x7) x3 x0 x1 x2 x4 x5 x6 x7.
+  admit.
+Qed.
 Lemma openup8_totop6 {t0 t1 t2 t3 t4 t5 t6 t7 t8} {f : t0 -> t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8} {ctxfo x0 x1 x2 x3 x4 x5 x6 x7} : openup8 (ctx := ctxfo) f x0 x1 x2 x3 x4 x5 x6 x7 = openup8 (fun x6 x0 x1 x2 x3 x4 x5 x7 => f x0 x1 x2 x3 x4 x5 x6 x7) x6 x0 x1 x2 x3 x4 x5 x7.
   admit.
 Qed.
+Lemma openup9_totop1 {t0 t1 t2 t3 t4 t5 t6 t7 t8 t9} {f : t0 -> t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8 -> t9} {ctxfo x0 x1 x2 x3 x4 x5 x6 x7 x8} : openup9 (ctx := ctxfo) f x0 x1 x2 x3 x4 x5 x6 x7 x8 = openup9 (fun x1 x0 x2 x3 x4 x5 x6 x7 x8 => f x0 x1 x2 x3 x4 x5 x6 x7 x8) x1 x0 x2 x3 x4 x5 x6 x7 x8.
+  admit.
+Qed.
+Lemma openup9_totop2 {t0 t1 t2 t3 t4 t5 t6 t7 t8 t9} {f : t0 -> t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8 -> t9} {ctxfo x0 x1 x2 x3 x4 x5 x6 x7 x8} : openup9 (ctx := ctxfo) f x0 x1 x2 x3 x4 x5 x6 x7 x8 = openup9 (fun x2 x0 x1 x3 x4 x5 x6 x7 x8 => f x0 x1 x2 x3 x4 x5 x6 x7 x8) x2 x0 x1 x3 x4 x5 x6 x7 x8.
+  admit.
+Qed.
 
+Lemma openup9_shrink t1 t2 t3 t4 t5 t6 t7 t8 t9 t10 (f : t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8 -> t9 -> t10) ctxfo x1 x2 x3 x4 x5 x6 x7 x8 x9 : openup9 (ctx := ctxfo) (fun (_ : t1) x2 x3 x4 x5 x6 x7 x8 x9 => f x2 x3 x4 x5 x6 x7 x8 x9) x1 x2 x3 x4 x5 x6 x7 x8 x9 = openup8 f x2 x3 x4 x5 x6 x7 x8 x9.
+  admit.
+Qed.
 Lemma openup8_shrink t1 t2 t3 t4 t5 t6 t7 t8 t9 (f : t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8 -> t9) ctxfo x1 x2 x3 x4 x5 x6 x7 x8 : openup8 (ctx := ctxfo) (fun (_ : t1) x2 x3 x4 x5 x6 x7 x8 => f x2 x3 x4 x5 x6 x7 x8) x1 x2 x3 x4 x5 x6 x7 x8 = openup7 f x2 x3 x4 x5 x6 x7 x8.
   admit.
 Qed.
@@ -1212,14 +1238,28 @@ Lemma openup1_shrink {t1 t2} {f : t2} {ctxfo x1} : openup1 (ctx := ctxfo) (fun (
   admit.
 Qed.
 
+Lemma openup2_dedup {t0 t2} {f : t0 -> t0 -> t2} {ctxfo x0} : openup2 (ctx := ctxfo) f x0 x0 = openup1 (fun x => f x x) x0.
+  admit.
+Qed.
 Lemma openup6_dedup {t0 t2 t3 t4 t5 t6} {f : t0 -> t0 -> t2 -> t3 -> t4 -> t5 -> t6} {ctxfo x0 x2 x3 x4 x5} : openup6 (ctx := ctxfo) f x0 x0 x2 x3 x4 x5 = openup5 (fun x => f x x) x0 x2 x3 x4 x5.
   admit.
 Qed.
 Lemma openup7_dedup {t0 t2 t3 t4 t5 t6 t7} {f : t0 -> t0 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7} {ctxfo x0 x2 x3 x4 x5 x6} : openup7 (ctx := ctxfo) f x0 x0 x2 x3 x4 x5 x6 = openup6 (fun x => f x x) x0 x2 x3 x4 x5 x6.
   admit.
 Qed.
+Lemma openup8_dedup {t0 t2 t3 t4 t5 t6 t7 t8} {f : t0 -> t0 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8} {ctxfo x0 x2 x3 x4 x5 x6 x7} : openup8 (ctx := ctxfo) f x0 x0 x2 x3 x4 x5 x6 x7 = openup7 (fun x => f x x) x0 x2 x3 x4 x5 x6 x7.
+  admit.
+Qed.
 
 Lemma openup7_comp_openup0 t1 t2 t3 t4 t5 t6 t7 t8 (f : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8) (g : t1) ctxfo x2 x3 x4 x5 x6 x7 : openup7 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 x6 x7 => f x1 x2 x3 x4 x5 x6 x7) (openup0 g) x2 x3 x4 x5 x6 x7 = openup6 (fun x2 x3 x4 x5 x6 x7 => f g x2 x3 x4 x5 x6 x7) x2 x3 x4 x5 x6 x7.
+  admit.
+Qed.
+
+Lemma openup4_comp_openup1 t1 t2 t3 t4 t5 (f : t1 -> t2 -> t3 -> t4 -> t5) A1 (g : A1 -> t1) ctxfo x2 x3 x4 y1 : openup4 (ctx := ctxfo) (fun x1 x2 x3 x4 => f x1 x2 x3 x4) (openup1 (fun y1 => g y1) y1) x2 x3 x4 = openup4 (fun y1 x2 x3 x4 => f (g y1) x2 x3 x4) y1 x2 x3 x4.
+  admit.
+Qed.
+
+Lemma openup2_comp_openup2 t1 t2 t3 (f : t1 -> t2 -> t3) A1 A2 (g : A1 -> A2 -> t1) ctxfo x2 y1 y2 : openup2 (ctx := ctxfo) (fun x1 x2 => f x1 x2) (openup2 (fun y1 y2 => g y1 y2) y1 y2) x2 = openup3 (fun y1 y2 x2 => f (g y1 y2) x2) y1 y2 x2.
   admit.
 Qed.
 Lemma openup3_comp_openup2 t1 t2 t3 t4 (f : t1 -> t2 -> t3 -> t4) A1 A2 (g : A1 -> A2 -> t1) ctxfo x2 x3 y1 y2 : openup3 (ctx := ctxfo) (fun x1 x2 x3 => f x1 x2 x3) (openup2 (fun y1 y2 => g y1 y2) y1 y2) x2 x3 = openup4 (fun y1 y2 x2 x3 => f (g y1 y2) x2 x3) y1 y2 x2 x3.
@@ -1237,6 +1277,9 @@ Lemma openup5_comp_openup2 t1 t2 t3 t4 t5 t6 (f : t1 -> t2 -> t3 -> t4 -> t5 -> 
   admit.
 Qed.
 Lemma openup6_comp_openup2 t1 t2 t3 t4 t5 t6 t7 (f : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7) A1 A2 (g : A1 -> A2 -> t1) ctxfo x2 x3 x4 x5 x6 y1 y2 : openup6 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 x6 => f x1 x2 x3 x4 x5 x6) (openup2 (fun y1 y2 => g y1 y2) y1 y2) x2 x3 x4 x5 x6 = openup7 (fun y1 y2 x2 x3 x4 x5 x6 => f (g y1 y2) x2 x3 x4 x5 x6) y1 y2 x2 x3 x4 x5 x6.
+  admit.
+Qed.
+Lemma openup7_comp_openup2 t1 t2 t3 t4 t5 t6 t7 t8 (f : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8) A1 A2 (g : A1 -> A2 -> t1) ctxfo x2 x3 x4 x5 x6 x7 y1 y2 : openup7 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 x6 x7 => f x1 x2 x3 x4 x5 x6 x7) (openup2 (fun y1 y2 => g y1 y2) y1 y2) x2 x3 x4 x5 x6 x7 = openup8 (fun y1 y2 x2 x3 x4 x5 x6 x7 => f (g y1 y2) x2 x3 x4 x5 x6 x7) y1 y2 x2 x3 x4 x5 x6 x7.
   admit.
 Qed.
 
@@ -1279,6 +1322,18 @@ Lemma openup6_apply ctx t1 t2 t3 t4 t5 t6 (f g : t1 -> t2 -> t3 -> t4 -> t5 -> t
   Ps |~ openup6 (ctx := ctxfo) g x1 x2 x3 x4 x5 x6.
   admit.
 Qed.
+Lemma openup7_apply ctx t1 t2 t3 t4 t5 t6 t7 (f g : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> rel 0 ctx) ctxfo x1 x2 x3 x4 x5 x6 x7 Ps : 
+  (forall x1 x2 x3 x4 x5 x6 x7, [] |~~ f x1 x2 x3 x4 x5 x6 x7 ===> g x1 x2 x3 x4 x5 x6 x7) ->
+  Ps |~ openup7 (ctx := ctxfo) f x1 x2 x3 x4 x5 x6 x7 ->
+  Ps |~ openup7 (ctx := ctxfo) g x1 x2 x3 x4 x5 x6 x7.
+  admit.
+Qed.
+Lemma openup8_apply ctx t1 t2 t3 t4 t5 t6 t7 t8 (f g : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8 -> rel 0 ctx) ctxfo x1 x2 x3 x4 x5 x6 x7 x8 Ps : 
+  (forall x1 x2 x3 x4 x5 x6 x7 x8, [] |~~ f x1 x2 x3 x4 x5 x6 x7 x8 ===> g x1 x2 x3 x4 x5 x6 x7 x8) ->
+  Ps |~ openup8 (ctx := ctxfo) f x1 x2 x3 x4 x5 x6 x7 x8 ->
+  Ps |~ openup8 (ctx := ctxfo) g x1 x2 x3 x4 x5 x6 x7 x8.
+  admit.
+Qed.
 
 Lemma openup1_apply_in ctx t1 (f g : t1 -> rel 0 ctx) ctxfo x1 Ps P : 
   (forall x1, [] |~~ f x1 ===> g x1) ->
@@ -1309,6 +1364,18 @@ Definition ORand {ctxfo ctx} : open_rel ctxfo 0 ctx -> open_rel ctxfo 0 ctx -> o
 Definition ORor {ctxfo ctx} : open_rel ctxfo 0 ctx -> open_rel ctxfo 0 ctx -> open_rel ctxfo 0 ctx := openup2 Ror.
 Definition ORimply {ctxfo ctx} : open_rel ctxfo 0 ctx -> open_rel ctxfo 0 ctx -> open_rel ctxfo 0 ctx := openup2 Rimply.
 
+Delimit Scope OR with OR.
+Bind Scope OR with open_term.
+
+Definition ORlater {ctxfo ctx} chg : open_rel ctxfo 0 (change_usab chg ctx) -> open_rel ctxfo 0 ctx := openup1 (Rlater chg).
+Notation "▹" := ORlater : OR.
+Notation "|>" := Rlater (only parsing) : rel.
+Notation "|>" := ORlater (only parsing) : OR.
+Lemma fold_ORlater ctxfo ctx chg (P : open_rel ctxfo 0 (change_usab chg ctx)) : openup1 (|> chg) P = (|> chg P)%OR.
+Proof.
+  eauto.
+Qed.
+
 Fixpoint openup_binder1 {t1 t2 t3} (f : (t1 -> t2) -> t3) {ctx} : (t1 -> open_term ctx t2) -> open_term ctx t3 :=
   match ctx return (t1 -> open_term ctx t2) -> open_term ctx t3 with
     | nil => f
@@ -1327,9 +1394,6 @@ Infix "===>" := ORimply : OR.
 Notation "∀ x .. y , p" := (ORforall1 (fun x => .. (ORforall1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
 Notation "∃ x .. y , p" := (ORexists1 (fun x => .. (ORexists1 (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
 Notation "\ x .. y , p" := (ORabs (fun x => .. (ORabs (fun y => p)) ..)) (at level 200, x binder, y binder, right associativity) : OR.
-
-Delimit Scope OR with OR.
-Bind Scope OR with open_term.
 
 Definition eqv {ctxfo m ctx} : open_rel ctxfo m ctx -> open_rel ctxfo m ctx -> Prop.
   admit.
@@ -1400,12 +1464,25 @@ Qed.
 Lemma openup8_and ctx t1 t2 t3 t4 t5 t6 t7 t8 (f g : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8 -> rel 0 ctx) ctxfo x1 x2 x3 x4 x5 x6 x7 x8 : openup8 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 x6 x7 x8 => f x1 x2 x3 x4 x5 x6 x7 x8 /\ g x1 x2 x3 x4 x5 x6 x7 x8) x1 x2 x3 x4 x5 x6 x7 x8 = (openup8 f x1 x2 x3 x4 x5 x6 x7 x8 /\ openup8 g x1 x2 x3 x4 x5 x6 x7 x8)%OR.
   admit.
 Qed.
+Lemma openup9_and ctx t1 t2 t3 t4 t5 t6 t7 t8 t9 (f g : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8 -> t9 -> rel 0 ctx) ctxfo x1 x2 x3 x4 x5 x6 x7 x8 x9 : openup9 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 x6 x7 x8 x9 => f x1 x2 x3 x4 x5 x6 x7 x8 x9 /\ g x1 x2 x3 x4 x5 x6 x7 x8 x9) x1 x2 x3 x4 x5 x6 x7 x8 x9 = (openup9 f x1 x2 x3 x4 x5 x6 x7 x8 x9 /\ openup9 g x1 x2 x3 x4 x5 x6 x7 x8 x9)%OR.
+  admit.
+Qed.
+
+Lemma openup2_or ctx t1 t2 (f g : t1 -> t2 -> rel 0 ctx) ctxfo x1 x2 : openup2 (ctx := ctxfo) (fun x1 x2 => f x1 x2 \/ g x1 x2) x1 x2 = (openup2 f x1 x2 \/ openup2 g x1 x2)%OR.
+  admit.
+Qed.
+Lemma openup3_or ctx t1 t2 t3 (f g : t1 -> t2 -> t3 -> rel 0 ctx) ctxfo x1 x2 x3 : openup3 (ctx := ctxfo) (fun x1 x2 x3 => f x1 x2 x3 \/ g x1 x2 x3) x1 x2 x3 = (openup3 f x1 x2 x3 \/ openup3 g x1 x2 x3)%OR.
+  admit.
+Qed.
 
 Lemma openup3_imply {ctx t1 t2 t3} {f g : t1 -> t2 -> t3 -> rel 0 ctx} {ctxfo x1 x2 x3} : openup3 (ctx := ctxfo) (fun x1 x2 x3 => f x1 x2 x3 ===> g x1 x2 x3) x1 x2 x3 = (openup3 f x1 x2 x3 ===> openup3 g x1 x2 x3)%OR.
   (* should be eq *)
   admit.
 Qed.
 Lemma openup4_imply ctx t1 t2 t3 t4 (f g : t1 -> t2 -> t3 -> t4 -> rel 0 ctx) ctxfo x1 x2 x3 x4 : openup4 (ctx := ctxfo) (fun x1 x2 x3 x4 => f x1 x2 x3 x4 ===> g x1 x2 x3 x4) x1 x2 x3 x4 = (openup4 f x1 x2 x3 x4 ===> openup4 g x1 x2 x3 x4)%OR.
+  admit.
+Qed.
+Lemma openup5_imply ctx t1 t2 t3 t4 t5 (f g : t1 -> t2 -> t3 -> t4 -> t5 -> rel 0 ctx) ctxfo x1 x2 x3 x4 x5 : openup5 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 => f x1 x2 x3 x4 x5 ===> g x1 x2 x3 x4 x5) x1 x2 x3 x4 x5 = (openup5 f x1 x2 x3 x4 x5 ===> openup5 g x1 x2 x3 x4 x5)%OR.
   admit.
 Qed.
 Lemma openup6_imply ctx t1 t2 t3 t4 t5 t6 (f g : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> rel 0 ctx) ctxfo x1 x2 x3 x4 x5 x6 : openup6 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 x6 => f x1 x2 x3 x4 x5 x6 ===> g x1 x2 x3 x4 x5 x6) x1 x2 x3 x4 x5 x6 = (openup6 f x1 x2 x3 x4 x5 x6 ===> openup6 g x1 x2 x3 x4 x5 x6)%OR.
@@ -1415,6 +1492,23 @@ Lemma openup8_imply ctx t1 t2 t3 t4 t5 t6 t7 t8 (f g : t1 -> t2 -> t3 -> t4 -> t
   admit.
 Qed.
 
+Lemma openup1_later ctx t1 (f : t1 -> rel 0 ctx) ctxfo x1 : openup1 (ctx := ctxfo) (fun x1 => ▹ [] (f x1)) x1 = (▹ [] (openup1 f x1))%OR.
+  admit.
+Qed.
+Lemma openup4_later ctx t1 t2 t3 t4 (f : t1 -> t2 -> t3 -> t4 -> rel 0 ctx) ctxfo x1 x2 x3 x4 : openup4 (ctx := ctxfo) (fun x1 x2 x3 x4 => ▹ [] (f x1 x2 x3 x4)) x1 x2 x3 x4 = (▹ [] (openup4 f x1 x2 x3 x4))%OR.
+  admit.
+Qed.
+
+Lemma openup0_forall1_elim t ctx (f : t -> rel 0 ctx) ctxfo x Ps Q :
+  openup1 (ctx := ctxfo) f x :: Ps |~ Q ->
+  openup0 (∀x, f x) :: Ps |~ Q.
+  admit.
+Qed.
+Lemma openup1_forall1_elim t1 t ctx (f : t1 -> t -> rel 0 ctx) ctxfo x1 x Ps Q :
+  openup2 (ctx := ctxfo) f x1 x :: Ps |~ Q ->
+  openup1 (fun x1 => ∀x, f x1 x) x1 :: Ps |~ Q.
+  admit.
+Qed.
 Lemma openup2_forall1_elim t1 t2 t ctx (f : t1 -> t2 -> t -> rel 0 ctx) ctxfo x1 x2 x Ps Q :
   openup3 (ctx := ctxfo) f x1 x2 x :: Ps |~ Q ->
   openup2 (fun x1 x2 => ∀x, f x1 x2 x) x1 x2 :: Ps |~ Q.
@@ -1444,6 +1538,16 @@ Qed.
 Lemma openup2_exists1 ctx t t1 t2 (f : t -> t1 -> t2 -> rel 0 ctx) ctxfo x x1 x2 Ps : 
   Ps |~ openup3 f x x1 x2 ->
   Ps |~ openup2 (ctx := ctxfo) (fun x1 x2 => ∃x, f x x1 x2) x1 x2.
+  admit.
+Qed.
+Lemma openup3_exists1 ctx t t1 t2 t3 (f : t -> t1 -> t2 -> t3 -> rel 0 ctx) ctxfo x x1 x2 x3 Ps : 
+  Ps |~ openup4 f x x1 x2 x3 ->
+  Ps |~ openup3 (ctx := ctxfo) (fun x1 x2 x3 => ∃x, f x x1 x2 x3) x1 x2 x3.
+  admit.
+Qed.
+Lemma openup4_exists1 ctx t t1 t2 t3 t4 (f : t -> t1 -> t2 -> t3 -> t4 -> rel 0 ctx) ctxfo x x1 x2 x3 x4 Ps : 
+  Ps |~ openup5 f x x1 x2 x3 x4 ->
+  Ps |~ openup4 (ctx := ctxfo) (fun x1 x2 x3 x4 => ∃x, f x x1 x2 x3 x4) x1 x2 x3 x4.
   admit.
 Qed.
 Lemma openup5_exists1 ctx t t1 t2 t3 t4 t5 (f : t -> t1 -> t2 -> t3 -> t4 -> t5 -> rel 0 ctx) ctxfo x x1 x2 x3 x4 x5 Ps : 
@@ -1480,6 +1584,11 @@ Qed.
 Lemma openup7_exists1 ctx t t1 t2 t3 t4 t5 t6 t7 (f : t -> t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> rel 0 ctx) ctxfo x x1 x2 x3 x4 x5 x6 x7 Ps : 
   Ps |~ openup8 f x x1 x2 x3 x4 x5 x6 x7 ->
   Ps |~ openup7 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 x6 x7 => ∃x, f x x1 x2 x3 x4 x5 x6 x7) x1 x2 x3 x4 x5 x6 x7.
+  admit.
+Qed.
+Lemma openup8_exists1 ctx t t1 t2 t3 t4 t5 t6 t7 t8 (f : t -> t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8 -> rel 0 ctx) ctxfo x x1 x2 x3 x4 x5 x6 x7 x8 Ps : 
+  Ps |~ openup9 f x x1 x2 x3 x4 x5 x6 x7 x8 ->
+  Ps |~ openup8 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 x6 x7 x8 => ∃x, f x x1 x2 x3 x4 x5 x6 x7 x8) x1 x2 x3 x4 x5 x6 x7 x8.
   admit.
 Qed.
 
@@ -1521,7 +1630,6 @@ Qed.
 Lemma fold_lift1 {ctxfo t} (a : open_term ctxfo t) {t1} : lift1 a = lift (new := [t1]) a.
   admit.
 Qed.
-Require Import ssreflect.
 Ltac fold_lift :=
   repeat rewrite fold_lift8;
   repeat rewrite fold_lift7;
@@ -1549,6 +1657,9 @@ Notation V7 := (lift (new := [_;_;_;_;_;_;_]) V0).
 Notation V8 := (lift (new := [_;_;_;_;_;_;_;_]) V0).
 
 Lemma lift_openup0 ctxfo t1 (f : t1) new : lift (new := new) (openup0 (ctx := ctxfo) f) = openup0 f.
+  admit.
+Qed.
+Lemma lift_openup0_empty t1 (f : t1) new : lift (new := new) (f : open_term [] _) = openup0 f.
   admit.
 Qed.
 Lemma lift_openup1 ctxfo t1 t2 (a : open_term ctxfo t1) (f : t1 -> t2) new : lift (new := new) (openup1 f a) = openup1 f (lift a).
@@ -1580,6 +1691,16 @@ Qed.
 Lemma openup3_forall1 ctx t1 t2 t3 t (f : t1 -> t2 -> t3 -> t -> rel 0 ctx) ctxfo x1 x2 x3 Ps : 
   liftPs (new := [_]) Ps |~ openup4 f (lift (new := [t]) x1) (lift x2) (lift x3) V0 ->
   Ps |~ openup3 (ctx := ctxfo) (fun x1 x2 x3 => ∀x, f x1 x2 x3 x) x1 x2 x3.
+  admit.
+Qed.
+Lemma openup4_forall1 ctx t1 t2 t3 t4 t (f : t1 -> t2 -> t3 -> t4 -> t -> rel 0 ctx) ctxfo x1 x2 x3 x4 Ps : 
+  liftPs (new := [_]) Ps |~ openup5 f (lift (new := [t]) x1) (lift x2) (lift x3) (lift x4) V0 ->
+  Ps |~ openup4 (ctx := ctxfo) (fun x1 x2 x3 x4 => ∀x, f x1 x2 x3 x4 x) x1 x2 x3 x4.
+  admit.
+Qed.
+Lemma openup5_forall1 ctx t1 t2 t3 t4 t5 t (f : t1 -> t2 -> t3 -> t4 -> t5 -> t -> rel 0 ctx) ctxfo x1 x2 x3 x4 x5 Ps : 
+  liftPs (new := [_]) Ps |~ openup6 f (lift (new := [t]) x1) (lift x2) (lift x3) (lift x4) (lift x5) V0 ->
+  Ps |~ openup5 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 => ∀x, f x1 x2 x3 x4 x5 x) x1 x2 x3 x4 x5.
   admit.
 Qed.
 Lemma openup6_forall1 ctx t1 t2 t3 t4 t5 t6 t (f : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t -> rel 0 ctx) ctxfo x1 x2 x3 x4 x5 x6 Ps : 
@@ -1779,6 +1900,9 @@ Lemma exists1_elim ctx t (Q : open_rel [] 0 ctx) (f : t -> rel 0 ctx) (Ps : list
 Qed.
 
 Notation "[| P |]" := (Rinj P) (only parsing) : rel.
+Lemma inj_true_intro ctxfo ctx (Ps : list (open_rel ctxfo 0 ctx)) : Ps |~ openup0 [| True |].
+  admit.
+Qed.
 Lemma inj_exists_intro T (P : T -> Prop) ctx :
   [] |~~ (∃x, [| P x |] : rel 0 ctx) ===> [| exists x, P x |].
   admit.
@@ -1793,6 +1917,10 @@ Lemma inj_and_intro (P Q : Prop) ctx :
 Qed.
 Lemma inj_and_elim (P Q : Prop) ctx :
   [] |~~ ([| P /\ Q |] : rel 0 ctx) ===> [| P |] /\ [| Q |].
+  admit.
+Qed.
+Lemma inj_or_elim (P Q : Prop) ctx :
+  [] |~~ ([| P \/ Q |] : rel 0 ctx) ===> [| P |] \/ [| Q |].
   admit.
 Qed.
 Lemma inj_imply (P Q : Prop) ctx :
@@ -1821,6 +1949,12 @@ Lemma ORimply_intro ctxfo ctx (P Q : open_rel ctxfo 0 ctx) Ps :
   Ps |~ (P ===> Q)%OR.
   admit.
 Qed.
+Lemma assert ctxfo ctx (P Q : open_rel ctxfo 0 ctx) Ps :
+  Ps |~ P ->
+  P :: Ps |~ Q ->
+  Ps |~ Q.
+  admit.
+Qed.
 Lemma dup_premise ctxfo ctx (P Q : open_rel ctxfo 0 ctx) Ps :
   P :: P :: Ps |~ Q ->
   P :: Ps |~ Q.
@@ -1829,6 +1963,28 @@ Qed.
 Lemma destruct_and ctxfo ctx (P1 P2 Q : open_rel ctxfo 0 ctx) Ps :
   P1 :: P2 :: Ps |~ Q ->
   (P1 /\ P2)%OR :: Ps |~ Q.
+  admit.
+Qed.
+Lemma destruct_or ctxfo ctx (P1 P2 Q : open_rel ctxfo 0 ctx) Ps :
+  P1 :: Ps |~ Q ->
+  P2 :: Ps |~ Q ->
+  (P1 \/ P2)%OR :: Ps |~ Q.
+  admit.
+Qed.
+Lemma later_mono_ctx ctxfo ctx (P Q : open_rel ctxfo 0 ctx) Ps :
+  (P :: Ps |~ Q ->
+   Ps |~ |> [] P ->
+   Ps |~ |> [] Q)%OR.
+  admit.
+Qed.
+Lemma later_mono_ctx2 ctxfo ctx (P1 P2 Q : open_rel ctxfo 0 ctx) Ps :
+  (P1 :: P2 :: Ps |~ Q ->
+   Ps |~ |> [] P1 /\ |> [] P2 ->
+   Ps |~ |> [] Q)%OR.
+  admit.
+Qed.
+
+Lemma later_and_distr ctxfo ctx (P Q : open_rel ctxfo 0 ctx) : (|> [] (P /\ Q) == ((|> [] P) /\ (|> [] Q)))%OR.
   admit.
 Qed.
 Lemma openup3_beta ctx t1 t2 t3 (f : t1 -> t2 -> t3 -> wexpr) m g ctxfo x1 x2 x3 : openup3 (ctx := ctxfo) (fun x1 x2 x3 => f x1 x2 x3 ∈ Rabs (m := m) (ctx := ctx) (g x1 x2 x3)) x1 x2 x3 == openup3 (fun x1 x2 x3 => g x1 x2 x3 (f x1 x2 x3)) x1 x2 x3.
