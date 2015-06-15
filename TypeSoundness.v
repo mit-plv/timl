@@ -45,14 +45,114 @@ Lemma LRbind''' E s₁ c₂ s₂ {lctx lctx'} (τ : open_type lctx) (τ' : open_
           [| wsteps wBEe (WappB wBE we) |])) ===> 
      (E $$ e, wEe) ∈ relE τ' (wBe + wBEe) (c₁ + !c₂) s₂ ρ'.
 Proof.
-  eapply imply_intro.
-  Lemma relE_replace_w lctx τ c s ctx (ρ : csubsts lctx ctx) e w wB : 
-    [] |~~
-       (∃w', (e, w') ∈ relE τ wB c s ρ /\ ⌈wsteps w w'⌉) ===>
-       (e, w) ∈ relE τ wB c s ρ.
+  Lemma exists1_elim' ctx t (Q : open_rel [] 0 ctx) (f : t -> rel 0 ctx) (Ps : list (open_rel [] 0 ctx)) :
+    openup1 (ctx := [t]) f V0 :: liftPs (new := [t]) Ps |~ openup0 (ctx := [t]) Q ->
+    ((∃x, f x) : open_rel [] 0 ctx) :: Ps |~ Q.
     admit.
   Qed.
 
+  eapply imply_intro.
+  Ltac totopn m :=
+    eapply totop with (n := m); [ reflexivity | unfold removen ].
+  
+  eapply exists1_elim'.
+  rewrite openup1_and.
+  eapply destruct_and.
+  rewrite openup1_shrink.
+  totopn 1.
+  rewrite openup1_and.
+  eapply destruct_and.
+  totopn 1.
+  rewrite openup1_and.
+  eapply destruct_and.
+  totopn 1.
+  eapply openup1_exists1_elim.
+  eapply openup2_exists1_elim.
+  rewrite openup3_and.
+  eapply destruct_and.
+  rewrite openup3_totop2.
+  rewrite openup3_shrink.
+  repeat rewrite liftPs_cons.
+  unfold liftPs, liftPs1, map.
+  combine_lift.
+  set (Ps := [_;_;_;_;_]).
+  rewrite lift_openup0_empty.
+  Lemma openup0_apply ctx (f g : rel 0 ctx) ctxfo Ps : 
+    ([] |~~ f ===> g) ->
+    Ps |~ openup0 (ctx := ctxfo) f ->
+    Ps |~ openup0 (ctx := ctxfo) g.
+    admit.
+  Qed.
+  eapply openup0_apply.
+  {
+    Lemma relE_replace_w lctx τ c s ctx (ρ : csubsts lctx ctx) e w wB : 
+      [] |~~
+         (∃w', (e, w') ∈ relE τ wB c s ρ /\ ⌈wsteps w w'⌉) ===>
+         (e, w) ∈ relE τ wB c s ρ.
+      admit.
+    Qed.
+    eapply relE_replace_w.
+  }
+  Lemma openup0_exists1 ctx t (f : t -> rel 0 ctx) ctxfo x Ps : 
+    Ps |~ openup1 f x ->
+    Ps |~ openup0 (ctx := ctxfo) (∃x, f x).
+    admit.
+  Qed.
+  eapply openup0_exists1 with (x := openup2 Wapp V1 V2).
+  rewrite openup1_and.
+  eapply split.
+  {
+    eapply openup1_apply.
+    {
+      intros.
+      Lemma relE_replace_wB lctx τ c s ctx (ρ : csubsts lctx ctx) e w wB : 
+        [] |~~
+           (∃wB', (e, w) ∈ relE τ wB' c s ρ /\ ⌈wsteps wB wB'⌉) ===>
+           (e, w) ∈ relE τ wB c s ρ.
+        admit.
+      Qed.
+      eapply relE_replace_wB.
+    }
+    eapply openup1_exists1 with (x := openup2 (fun wBE we => wBe + WappB wBE we) V0 V2).
+    rewrite openup2_and.
+    eapply split.
+    {
+      rewrite openup2_comp_openup2.
+      rewrite openup3_totop2.
+      rewrite openup3_comp_openup2.
+      rewrite openup4_totop1.
+      rewrite openup4_totop3.
+      Lemma openup4_dedup {t0 t2 t3 t4} {f : t0 -> t0 -> t2 -> t3 -> t4} {ctxfo x0 x2 x3} : openup4 (ctx := ctxfo) f x0 x0 x2 x3 = openup3 (fun x => f x x) x0 x2 x3.
+        admit.
+      Qed.
+      rewrite openup4_dedup.
+      eapply openup3_apply.
+      {
+        intros.
+        eapply LRbind'' with (s₁ := s₁) (τ := τ) (ρ := ρ).
+      }
+      rewrite openup3_and.
+      eapply split.
+      {
+        rewrite openup3_shrink.
+        rewrite openup2_shrink.
+        rewrite openup1_shrink.
+        subst Ps.
+        totopn 4.
+        rewrite lift_openup0_empty.
+        eapply ctx_refl.
+      }
+      rewrite openup3_and.
+      eapply split.
+      {
+        rewrite openup3_totop1.
+        rewrite openup3_shrink.
+        rewrite openup2_totop1.
+        rewrite openup2_shrink.
+      (*here*)
+      }
+    }
+  }
   admit.
 Qed.
 

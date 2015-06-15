@@ -1268,11 +1268,7 @@ Qed.
 Lemma openup4_comp_openup2 t1 t2 t3 t4 t5 (f : t1 -> t2 -> t3 -> t4 -> t5) A1 A2 (g : A1 -> A2 -> t1) ctxfo x2 x3 x4 y1 y2 : openup4 (ctx := ctxfo) (fun x1 x2 x3 x4 => f x1 x2 x3 x4) (openup2 (fun y1 y2 => g y1 y2) y1 y2) x2 x3 x4 = openup5 (fun y1 y2 x2 x3 x4 => f (g y1 y2) x2 x3 x4) y1 y2 x2 x3 x4.
   admit.
 Qed.
-(*
-Lemma openup4_comp_openup2' T1 T2 T3 T4 T5 (f : T1 -> T2 -> T3 -> T4 -> T5) A1 A2 (g : A1 -> A2 -> T2) ctxfo x1 x3 x4 y1 y2 : openup4 (ctx := ctxfo) (fun x1 x2 x3 x4 => f x1 x2 x3 x4) x1 (openup2 (fun y1 y2 => g y1 y2) y1 y2) x3 x4 = openup5 (fun x1 y1 y2 x3 x4 => f x1 (g y1 y2) x3 x4) x1 y1 y2 x3 x4.
-  admit.
-Qed.
-*)
+
 Lemma openup5_comp_openup2 t1 t2 t3 t4 t5 t6 (f : t1 -> t2 -> t3 -> t4 -> t5 -> t6) A1 A2 (g : A1 -> A2 -> t1) ctxfo x2 x3 x4 x5 y1 y2 : openup5 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 => f x1 x2 x3 x4 x5) (openup2 (fun y1 y2 => g y1 y2) y1 y2) x2 x3 x4 x5 = openup6 (fun y1 y2 x2 x3 x4 x5 => f (g y1 y2) x2 x3 x4 x5) y1 y2 x2 x3 x4 x5.
   admit.
 Qed.
