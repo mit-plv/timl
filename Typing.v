@@ -260,11 +260,11 @@ Inductive typing {ctx} : tcontext ctx -> expr ctx -> type ctx -> cexpr ctx -> si
     t == Trecur t1 ->
     typing T e (subst t t1) c s ->
     typing T (Efold t e) t c (Sfold s)
-| TPunfold T e t c s s1 t1 :
-    typing T e t c s ->
-    is_fold s = Some s1 ->
-    t == Trecur t1 ->
-    typing T (Eunfold e) (subst t t1) (F1 + c) s1
+| TPunfold Γ e τ c s s₁ τ₁ :
+    typing Γ e τ c s ->
+    is_fold s = Some s₁ ->
+    τ == Trecur τ₁ ->
+    typing Γ (Eunfold e) (subst τ τ₁) (c + F1) s₁
 | TPhide T e t c s :
     typing T e t c s ->
     typing T (Ehide e) (Thide t) c (Shide s)

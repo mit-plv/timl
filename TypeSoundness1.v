@@ -1983,9 +1983,6 @@ Qed.
 Lemma later_and_distr ctxfo ctx (P Q : open_rel ctxfo 0 ctx) : (|> [] (P /\ Q) == ((|> [] P) /\ (|> [] Q)))%OR.
   admit.
 Qed.
-Lemma openup3_beta ctx t1 t2 t3 (f : t1 -> t2 -> t3 -> wexpr) m g ctxfo x1 x2 x3 : openup3 (ctx := ctxfo) (fun x1 x2 x3 => f x1 x2 x3 ∈ Rabs (m := m) (ctx := ctx) (g x1 x2 x3)) x1 x2 x3 == openup3 (fun x1 x2 x3 => g x1 x2 x3 (f x1 x2 x3)) x1 x2 x3.
-  admit.
-Qed.
 
 Lemma relE_mono_tau_c_s lctx τ c s s₁ ctx (ρ : csubsts lctx ctx) e w wB (v : expr) : 
   [] |~~ (e, w) ∈ relE (subst !(!v) τ) wB !(subst !(!v) c) (subst !(!v) s) ρ /\ ⌈!v ≤ ρ $$ s₁⌉ ===> (e, w) ∈ relE (subst s₁ τ) wB !(subst (ρ $ s₁) c) (subst (ρ $ s₁) s) ρ.
