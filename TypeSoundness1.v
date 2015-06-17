@@ -1748,13 +1748,15 @@ Global Instance Add_open_width_open_width {ctxfo} : Add (open_term ctxfo width_n
     add := openup2 (Wbinop add)
   }.
 
-Global Instance Apply_open_csubsts_expr {ctxfo lctx ctx} : Apply (open_csubsts ctxfo lctx ctx) (open_expr lctx) (open_term ctxfo expr).
-  admit.
-Defined.
+Global Instance Apply_open_csubsts_expr {ctxfo lctx ctx} : Apply (open_csubsts ctxfo lctx ctx) (open_expr lctx) (open_term ctxfo expr) :=
+  {
+    apply ρ x := openup1 (fun ρ => ρ $ x) ρ
+  }.
 
-Global Instance Apply_open_csubsts_width {t ctxfo lctx ctx} : Apply (open_csubsts ctxfo lctx ctx) (open_width t lctx) (open_term ctxfo (open_width t [])).
-  admit.
-Defined.
+Global Instance Apply_open_csubsts_width {t ctxfo lctx ctx} : Apply (open_csubsts ctxfo lctx ctx) (open_width t lctx) (open_term ctxfo (open_width t [])) :=
+  {
+    apply ρ x := openup1 (fun ρ => ρ $ x) ρ
+  }.
 
 Global Instance Apply_econtext_expr {ctx} : Apply (open_econtext ctx) (open_expr ctx) (open_expr ctx):=
   {
