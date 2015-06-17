@@ -50,7 +50,7 @@ Proof.
     [] |~~ 
        ⌈|- e (ρ $ τ) /\ wtyping [] w !(ρ $ τ) ⌉ /\
        ⌈exists B, wsteps wB (Wconst B) /\ forall n e', (~>## e n 0 e') -> n ≤ B⌉%type /\ 
-       (∀v w', ⌈e ⇓ v /\ wrunsto w w'⌉%type ===> (v, w') ∈ relV τ ρ /\ ⌈!v ≤ s⌉) /\
+       (∀v w', ⌈⇓*# e 0 v /\ wrunsto w w'⌉%type ===> (v, w') ∈ relV τ ρ /\ ⌈!v ≤ s⌉) /\
        (∀e', ⌈~>*# e 1 e' /\ exists w', wrunsto w w'⌉ ===> ⌈0 < c⌉ /\ ▹ [] ((e', w) ∈ relE τ wB (c - 1) s ρ)) /\
        ⌈exists v, e ⇓ v⌉ /\
        ⌈exists w', wrunsto w w'⌉ ===>
@@ -62,7 +62,7 @@ Proof.
        (e, w) ∈ relE τ wB c s ρ ===>
        ⌈|- e (ρ $ τ) /\ wtyping [] w !(ρ $ τ) ⌉ /\
        ⌈exists B, wsteps wB (Wconst B) /\ forall n e', (~>## e n 0 e') -> n ≤ B⌉%type /\ 
-       (∀v w', ⌈e ⇓ v /\ wrunsto w w'⌉%type ===> (v, w') ∈ relV τ ρ /\ ⌈!v ≤ s⌉) /\
+       (∀v w', ⌈⇓*# e 0 v /\ wrunsto w w'⌉%type ===> (v, w') ∈ relV τ ρ /\ ⌈!v ≤ s⌉) /\
        (∀e', ⌈~>*# e 1 e' /\ exists w', wrunsto w w'⌉ ===> ⌈0 < c⌉ /\ ▹ [] ((e', w) ∈ relE τ wB (c - 1) s ρ)) /\
        ⌈exists v, e ⇓ v⌉ /\
        ⌈exists w', wrunsto w w'⌉.
@@ -163,7 +163,9 @@ Proof.
         subst Ps.
         eapply totop with (n := 1); [ reflexivity | unfold removen ].
         erewrite lift_openup2.
-        eapply ctx_refl.
+        (*here*)
+        admit.
+        (* eapply ctx_refl. *)
       }
       rewrite openup4_shrink.
       rewrite openup3_totop1.
@@ -399,9 +401,9 @@ Proof.
     rewrite openup4_shrink.
     rewrite openup3_totop2.
     rewrite openup3_shrink.
-    Lemma plug_runsto_elim E e v :
-      E $$ e ⇓ v ->
-      (exists v', e ⇓ v' /\ E $$ v' ⇓ v)%type.
+    Lemma plug_runsto_0_elim E e v :
+      ⇓*# (E $ e) 0 v ->
+      (exists v', ⇓*# e 0 v' /\ ⇓*# (E $ v') 0 v)%type.
       admit.
     Qed.
     eapply openup2_apply_in.
@@ -411,7 +413,7 @@ Proof.
       {
         eapply inj_imply.
         {
-          eapply plug_runsto_elim.
+          eapply plug_runsto_0_elim.
         }
       }
       eapply inj_exists_elim.
@@ -562,12 +564,11 @@ Proof.
         {
           intros.
           eapply inj_imply.
-          {
-            intros H.
-            unfold runsto in H.
-            destruct H as [H1 H2].
-            exact H1.
-          }
+          Lemma runstoEx_steps e m e' :
+            ⇓*# e m e' -> e ~>* e'.
+            admit.
+          Qed.
+          eapply runstoEx_steps.
         }
         eapply ctx_refl.
       }
@@ -810,17 +811,6 @@ Proof.
           rewrite openup3_shrink.
           subst Ps.
           eapply totop with (n := 7); [ reflexivity | unfold removen ].
-          eapply openup2_apply_in.
-          {
-            intros.
-            eapply inj_imply.
-            {
-              Lemma runstoEx_runsto e m v : ⇓*# e m v -> e ⇓ v.
-                admit.
-              Qed.
-              eapply runstoEx_runsto.
-            }
-          }
           eapply ctx_refl.
         }
         rewrite openup4_shrink.
@@ -874,13 +864,7 @@ Proof.
           {
             intros.
             eapply inj_imply.
-            {
-              intros H.
-              eapply runstoEx_runsto in H.
-              unfold runsto in H.
-              destruct H as [H1 H2].
-              exact H1.
-            }
+            eapply runstoEx_steps.
           }
           eapply ctx_refl.
         }
@@ -1491,7 +1475,9 @@ Proof.
         subst Ps.
         eapply totop with (n := 1); [ reflexivity | unfold removen ].
         erewrite lift_openup2.
-        eapply ctx_refl.
+        (*here*)
+        admit.
+        (* eapply ctx_refl. *)
       }
       rewrite openup4_shrink.
       rewrite openup3_totop1.

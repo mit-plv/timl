@@ -30,7 +30,10 @@ Proof.
   eapply LRbind.
 Qed.
 
-Lemma coerce_cexpr (a b : cexpr) : !(a + b) = !a + !b.
+Lemma coerce_Fadd (a b : cexpr) : !(a + b) = !a + !b.
+  admit.
+Qed.
+Lemma coerce_F1 : !F1 = 1.
   admit.
 Qed.
 
@@ -45,16 +48,7 @@ Lemma LRbind''' E s₁ c₂ s₂ {lctx lctx'} (τ : open_type lctx) (τ' : open_
           [| wsteps wBEe (WappB wBE we) |])) ===> 
      (E $$ e, wEe) ∈ relE τ' (wBe + wBEe) (c₁ + !c₂) s₂ ρ'.
 Proof.
-  Lemma exists1_elim' ctx t (Q : open_rel [] 0 ctx) (f : t -> rel 0 ctx) (Ps : list (open_rel [] 0 ctx)) :
-    openup1 (ctx := [t]) f V0 :: liftPs (new := [t]) Ps |~ openup0 (ctx := [t]) Q ->
-    ((∃x, f x) : open_rel [] 0 ctx) :: Ps |~ Q.
-    admit.
-  Qed.
-
   eapply imply_intro.
-  Ltac totopn m :=
-    eapply totop with (n := m); [ reflexivity | unfold removen ].
-  
   eapply exists1_elim'.
   rewrite openup1_and.
   eapply destruct_and.
@@ -82,12 +76,6 @@ Proof.
   rewrite lift_openup1.
   set (Ps := [_;_;_;_;_]).
   rewrite lift_openup0_empty.
-  Lemma openup0_apply ctx (f g : rel 0 ctx) ctxfo Ps : 
-    ([] |~~ f ===> g) ->
-    Ps |~ openup0 (ctx := ctxfo) f ->
-    Ps |~ openup0 (ctx := ctxfo) g.
-    admit.
-  Qed.
   eapply openup0_apply.
   {
     Lemma relE_replace_w lctx τ c s ctx (ρ : csubsts lctx ctx) e w wB : 
@@ -98,11 +86,6 @@ Proof.
     Qed.
     eapply relE_replace_w.
   }
-  Lemma openup0_exists1 ctx t (f : t -> rel 0 ctx) ctxfo x Ps : 
-    Ps |~ openup1 f x ->
-    Ps |~ openup0 (ctx := ctxfo) (∃x, f x).
-    admit.
-  Qed.
   eapply openup0_exists1 with (x := openup2 Wapp V1 V2).
   rewrite openup1_and.
   eapply split.
@@ -127,9 +110,6 @@ Proof.
       rewrite openup3_comp_openup2.
       rewrite openup4_totop1.
       rewrite openup4_totop3.
-      Lemma openup4_dedup {t0 t2 t3 t4} {f : t0 -> t0 -> t2 -> t3 -> t4} {ctxfo x0 x2 x3} : openup4 (ctx := ctxfo) f x0 x0 x2 x3 = openup3 (fun x => f x x) x0 x2 x3.
-        admit.
-      Qed.
       rewrite openup4_dedup.
       eapply openup3_apply.
       {
@@ -170,9 +150,6 @@ Proof.
         eapply relEC_replace_wEe_wBEe.
       }
       eapply openup3_exists1 with (x := openup0 wEe).
-      Lemma openup4_comp_openup0 t1 t2 t3 t4 t5 (f : t1 -> t2 -> t3 -> t4 -> t5) (g : t1) ctxfo x2 x3 x4 : openup4 (ctx := ctxfo) (fun x1 x2 x3 x4 => f x1 x2 x3 x4) (openup0 g) x2 x3 x4 = openup3 (fun x2 x3 x4 => f g x2 x3 x4) x2 x3 x4.
-        admit.
-      Qed.
       rewrite openup4_comp_openup0.
       eapply openup3_exists1 with (x := openup0 wBEe).
       rewrite openup4_comp_openup0.
@@ -203,9 +180,6 @@ Proof.
     }
     rewrite openup2_totop1.
     rewrite openup2_shrink.
-    Lemma openup1_comp_openup2 t1 t2 (f : t1 -> t2) A1 A2 (g : A1 -> A2 -> t1) ctxfo y1 y2 : openup1 (ctx := ctxfo) (fun x1 => f x1) (openup2 (fun y1 y2 => g y1 y2) y1 y2) = openup2 (fun y1 y2 => f (g y1 y2)) y1 y2.
-      admit.
-    Qed.
     rewrite openup1_comp_openup2.
     eapply openup2_apply.
     {
@@ -242,7 +216,7 @@ Proof.
   {
     intros.
     rewrite csubsts_Fadd.
-    rewrite coerce_cexpr.
+    rewrite coerce_Fadd.
     eapply LRbind''' with (E := x4) (s₁ := x3 $ s₁) (τ := τ) (ρ := x3).
   }
   eapply openup6_exists1 with (x := we).
@@ -534,17 +508,10 @@ Proof.
         eapply openup3_apply_in.
         {
           intros.
-          Lemma beta ew ctx g : 
-            [] |~~ ew ∈ Rabs (ctx := ctx) g ===> g ew.
-            admit.
-          Qed.
           eapply imply_trans; first last.
           {
             eapply beta.
           }
-          Lemma imply_refl ctx (P : rel 0 ctx) : [] |~~ P ===> P.
-            admit.
-          Qed.
           eapply imply_refl.
         }
 
@@ -713,9 +680,6 @@ Proof.
           intros.
           eapply inj_imply.
           intros.
-          Lemma wsteps_refl t (w : open_width t []) : wsteps w w.
-            admit.
-          Qed.
           eapply wsteps_refl.
         }
         instantiate (1 := True).
@@ -804,13 +768,6 @@ Proof.
       eapply openup3_apply_in.
       {
         intros.
-        Definition substr {mx u m ctx} : rel mx ctx -> rel m ((mx, u) :: ctx) -> rel m ctx.
-          admit.
-        Defined.
-        Lemma iota ew ctx R : 
-          [] |~~ ew ∈ (Rrecur R) ===> ew ∈ (substr (ctx := ctx) (Rrecur R) R).
-          admit.
-        Qed.
         eapply iota.
       }
       eapply openup3_apply_in.
@@ -999,9 +956,6 @@ Proof.
           admit.
         Qed.
         rewrite csubsts_Wunfold.
-        Lemma coerce_F1 : !F1 = 1.
-          admit.
-        Qed.
         rewrite coerce_F1.
         eapply imply_refl.
       }
