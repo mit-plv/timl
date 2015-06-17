@@ -466,7 +466,7 @@ Open Scope prog_scope.
 (* closing substitutions *)
 
 Inductive SubstEntry : CtxEntry -> list relvart -> Type :=
-| SEtype {ctx} (_ : type) (_ : varR 1 ctx) : SubstEntry CEtype ctx
+| SEtype {ctx} (_ : type) (_ : rel 1 ctx) : SubstEntry CEtype ctx
 | SEexpr {ctx} (_ : wexpr) : SubstEntry CEexpr ctx
 .
 
@@ -481,7 +481,7 @@ Infix "::" := CScons (at level 60, right associativity) : CS.
 Delimit Scope CS with CS.
 Bind Scope CS with csubsts.
 
-Definition pair_of_se {ctx} (e : SubstEntry CEtype ctx) : type * varR 1 ctx :=
+Definition pair_of_se {ctx} (e : SubstEntry CEtype ctx) : type * rel 1 ctx :=
   match e with
     | SEtype _ t r => (t, r)
   end.
@@ -504,14 +504,14 @@ Definition pair_of_cs {ctx t lctx} (rho : csubsts (t :: lctx) ctx) : SubstEntry 
 
 Arguments tl {A} _ .
 
-Definition csubsts_sem : forall {lctx ctx}, csubsts lctx ctx -> open_var CEtype lctx -> varR 1 ctx.
+Definition csubsts_sem : forall {lctx ctx}, csubsts lctx ctx -> open_var CEtype lctx -> rel 1 ctx.
   refine
-    (fix csubsts_sem {lctx} : forall ctx, csubsts lctx ctx -> open_var CEtype lctx -> varR 1 ctx :=
-       match lctx return forall ctx, csubsts lctx ctx -> open_var CEtype lctx -> varR 1 ctx with
+    (fix csubsts_sem {lctx} : forall ctx, csubsts lctx ctx -> open_var CEtype lctx -> rel 1 ctx :=
+       match lctx return forall ctx, csubsts lctx ctx -> open_var CEtype lctx -> rel 1 ctx with
          | nil => _
          | t :: lctx' => 
            fun ctx rho =>
-             match rho in (csubsts c ctx) return c = t :: lctx' -> open_var CEtype (t :: lctx') -> varR 1 ctx with
+             match rho in (csubsts c ctx) return c = t :: lctx' -> open_var CEtype (t :: lctx') -> rel 1 ctx with
                | CSnil _ => _
                | CScons _ t' _ v rho' => _
              end eq_refl
@@ -547,7 +547,7 @@ Definition csubsts_sem : forall {lctx ctx}, csubsts lctx ctx -> open_var CEtype 
   { eapply f_equal with (f := tl) in Heq; exact Heq. }
 Defined.
 
-Global Instance Apply_csubsts_nat_rel {ctx} lctx : Apply (csubsts lctx ctx) (open_var CEtype lctx) (varR 1 ctx) :=
+Global Instance Apply_csubsts_nat_rel {ctx} lctx : Apply (csubsts lctx ctx) (open_var CEtype lctx) (rel 1 ctx) :=
   {
     apply := csubsts_sem
   }.
@@ -635,7 +635,7 @@ Global Instance Apply_csubsts_expr_expr {ctx} lctx : Apply (csubsts lctx ctx) (o
 Definition add_pair {ctx lctx} p rho :=
   CScons (ctx := ctx) (lctx := lctx) (SEtype (fst p) (snd p)) rho.
 
-Global Instance Add_pair_csubsts {ctx} lctx : Add (type * varR 1 ctx) (csubsts lctx ctx) (csubsts (CEtype :: lctx) ctx) :=
+Global Instance Add_pair_csubsts {ctx} lctx : Add (type * rel 1 ctx) (csubsts lctx ctx) (csubsts (CEtype :: lctx) ctx) :=
   {
     add := add_pair
   }.
@@ -699,13 +699,13 @@ Section LR.
 
   Fixpoint relV {lctx} (τ : open_type lctx) ctx (ρ : csubsts lctx ctx) : rel 1 ctx :=
     match τ with
-      | Tvar α => Rvar (csubsts_sem ρ α)
+      | Tvar α => csubsts_sem ρ α
       | Tunit => \vw, ⌈vw ↓↓ Tunit⌉
       | τ₁ × τ₂ => \vw, ⌈vw ↓↓ ρ $$ τ⌉ /\ ∃a b, ⌈vw = EWpair a b⌉ /\ a ∈ relV τ₁ ρ /\ b ∈ relV τ₂ ρ
       | τ₁ + τ₂ => \vw, ⌈vw ↓↓ ρ $$ τ⌉ /\ ∃vw', (⌈vw = EWinl (ρ $ τ₂) vw'⌉ /\ vw' ∈ relV τ₁ ρ) \/ (⌈vw = EWinr (ρ $ τ₁) vw'⌉ /\ vw' ∈ relV τ₂ ρ)
       | Tarrow τ₁ c s τ₂ => \vw, ⌈vw ↓↓ ρ $$ τ⌉ /\ let (v, w) := vw in ∃e, ⌈exists τ₁', v = Eabs τ₁' e⌉ /\ ∃wB w₂, ⌈w = Wabs wB w₂⌉ /\ ∀vw₁ : wexpr, vw₁ ∈ relV τ₁ ρ ===> let (v₁, w₁) := vw₁ in (subst v₁ e, subst w₁ w₂) ∈ relE' (relV τ₂) τ₂ (subst w₁ wB) !(ρ $ subst !(!v₁) c) (ρ $ subst !(!v₁) s) (add vw₁ ρ)
-      | Tuniversal c s τ₁ => \vw, ⌈vw ↓↓ ρ $$ τ⌉ /\ let (v, w) := vw in ∃e, ⌈v = Etabs e⌉ /\ ∃wB w₂, ⌈w = Wtabs wB w₂⌉ /\ ∀τ', ∀₂, VWSet τ' (Rvar #0) ===> (v $$ τ', w) ∈ relE' (relV τ₁) τ₁ wB !(ρ $ c) (ρ $ s) (add (τ', #0) (shift1 _ ρ))
-      | Trecur τ₁ => @@, \vw, ⌈vw ↓↓ ρ $$ τ⌉ /\ let (v, w) := vw in ∃τ' v' w', ⌈v = Efold τ' v' /\ w = Wfold w'⌉ /\ ▹ [Some Usable] ((v', w') ∈ relV τ₁ (add (ρ $ τ, #0) (shift1 _ ρ)))
+      | Tuniversal c s τ₁ => \vw, ⌈vw ↓↓ ρ $$ τ⌉ /\ let (v, w) := vw in ∃e, ⌈v = Etabs e⌉ /\ ∃wB w₂, ⌈w = Wtabs wB w₂⌉ /\ ∀τ', ∀₂, VWSet τ' (Rvar #0) ===> (v $$ τ', w) ∈ relE' (relV τ₁) τ₁ wB !(ρ $ c) (ρ $ s) (add (τ', Rvar #0) (shift1 _ ρ))
+      | Trecur τ₁ => @@, \vw, ⌈vw ↓↓ ρ $$ τ⌉ /\ let (v, w) := vw in ∃v' w', ⌈(exists τ', v = Efold τ' v') /\ w = Wfold w'⌉ /\ ▹ [Some Usable] ((v', w') ∈ relV τ₁ (add (ρ $ τ, Rvar #0) (shift1 _ ρ)))
       | _ => \_, ⊥
     end.
 
@@ -940,7 +940,7 @@ Global Instance Shift_open_csubsts {ctxfo lctx} : Shift (open_csubsts ctxfo lctx
 
 Definition add_pair_open_csubsts {ctxfo lctx ctx} p (rho : open_csubsts ctxfo lctx ctx) : open_csubsts ctxfo (CEtype :: lctx) ctx := openup1 (add_pair p) rho.
 
-Global Instance Add_pair_open_csubsts {ctxfo lctx ctx} : Add (type * varR 1 ctx) (open_csubsts ctxfo lctx ctx) (open_csubsts ctxfo (CEtype :: lctx) ctx) :=
+Global Instance Add_pair_open_csubsts {ctxfo lctx ctx} : Add (type * rel 1 ctx) (open_csubsts ctxfo lctx ctx) (open_csubsts ctxfo (CEtype :: lctx) ctx) :=
   {
     add := add_pair_open_csubsts
   }.
@@ -984,7 +984,7 @@ Global Instance Add_wexpr_open_csubsts {ctxfo lctx ctx} : Add wexpr (open_csubst
 
 Definition add_ρ_type {ctxfo lctx ctx} (ρ : t_ρ ctxfo lctx ctx) : t_ρ (type :: ctxfo) (CEtype :: lctx) ((1 : relvart) :: ctx) :=
   let ρ := shift1 (1 : relvart) ρ in
-  let ρ := fun τ => add (τ, #0) ρ in
+  let ρ := fun τ => add (τ, Rvar #0) ρ in
   ρ
 .
 
