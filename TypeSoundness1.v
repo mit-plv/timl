@@ -1241,6 +1241,9 @@ Qed.
 Lemma openup2_dedup {t0 t2} {f : t0 -> t0 -> t2} {ctxfo x0} : openup2 (ctx := ctxfo) f x0 x0 = openup1 (fun x => f x x) x0.
   admit.
 Qed.
+Lemma openup3_dedup {t0 t2 t3} {f : t0 -> t0 -> t2 -> t3} {ctxfo x0 x2} : openup3 (ctx := ctxfo) f x0 x0 x2 = openup2 (fun x => f x x) x0 x2.
+  admit.
+Qed.
 Lemma openup4_dedup {t0 t2 t3 t4} {f : t0 -> t0 -> t2 -> t3 -> t4} {ctxfo x0 x2 x3} : openup4 (ctx := ctxfo) f x0 x0 x2 x3 = openup3 (fun x => f x x) x0 x2 x3.
   admit.
 Qed.
@@ -1257,10 +1260,16 @@ Qed.
 Lemma openup4_comp_openup0 t1 t2 t3 t4 t5 (f : t1 -> t2 -> t3 -> t4 -> t5) (g : t1) ctxfo x2 x3 x4 : openup4 (ctx := ctxfo) (fun x1 x2 x3 x4 => f x1 x2 x3 x4) (openup0 g) x2 x3 x4 = openup3 (fun x2 x3 x4 => f g x2 x3 x4) x2 x3 x4.
   admit.
 Qed.
+Lemma openup5_comp_openup0 t1 t2 t3 t4 t5 t6 (f : t1 -> t2 -> t3 -> t4 -> t5 -> t6) (g : t1) ctxfo x2 x3 x4 x5 : openup5 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 => f x1 x2 x3 x4 x5) (openup0 g) x2 x3 x4 x5 = openup4 (fun x2 x3 x4 x5 => f g x2 x3 x4 x5) x2 x3 x4 x5.
+  admit.
+Qed.
 Lemma openup7_comp_openup0 t1 t2 t3 t4 t5 t6 t7 t8 (f : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8) (g : t1) ctxfo x2 x3 x4 x5 x6 x7 : openup7 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 x6 x7 => f x1 x2 x3 x4 x5 x6 x7) (openup0 g) x2 x3 x4 x5 x6 x7 = openup6 (fun x2 x3 x4 x5 x6 x7 => f g x2 x3 x4 x5 x6 x7) x2 x3 x4 x5 x6 x7.
   admit.
 Qed.
 
+Lemma openup3_comp_openup1 t1 t2 t3 t4 (f : t1 -> t2 -> t3 -> t4) A1 (g : A1 -> t1) ctxfo x2 x3 y1 : openup3 (ctx := ctxfo) (fun x1 x2 x3 => f x1 x2 x3) (openup1 (fun y1 => g y1) y1) x2 x3 = openup3 (fun y1 x2 x3 => f (g y1) x2 x3) y1 x2 x3.
+  admit.
+Qed.
 Lemma openup4_comp_openup1 t1 t2 t3 t4 t5 (f : t1 -> t2 -> t3 -> t4 -> t5) A1 (g : A1 -> t1) ctxfo x2 x3 x4 y1 : openup4 (ctx := ctxfo) (fun x1 x2 x3 x4 => f x1 x2 x3 x4) (openup1 (fun y1 => g y1) y1) x2 x3 x4 = openup4 (fun y1 x2 x3 x4 => f (g y1) x2 x3 x4) y1 x2 x3 x4.
   admit.
 Qed.
@@ -1370,6 +1379,18 @@ Lemma openup4_apply_in ctx t1 t2 t3 t4 (f g : t1 -> t2 -> t3 -> t4 -> rel 0 ctx)
   openup4 (ctx := ctxfo) f x1 x2 x3 x4 :: Ps |~ P.
   admit.
 Qed.
+Lemma openup5_apply_in ctx t1 t2 t3 t4 t5 (f g : t1 -> t2 -> t3 -> t4 -> t5 -> rel 0 ctx) ctxfo x1 x2 x3 x4 x5 Ps P : 
+  (forall x1 x2 x3 x4 x5, [] |~~ f x1 x2 x3 x4 x5 ===> g x1 x2 x3 x4 x5) ->
+  openup5 (ctx := ctxfo) g x1 x2 x3 x4 x5 :: Ps |~ P ->
+  openup5 (ctx := ctxfo) f x1 x2 x3 x4 x5 :: Ps |~ P.
+  admit.
+Qed.
+Lemma openup6_apply_in ctx t1 t2 t3 t4 t5 t6 (f g : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> rel 0 ctx) ctxfo x1 x2 x3 x4 x5 x6 Ps P : 
+  (forall x1 x2 x3 x4 x5 x6, [] |~~ f x1 x2 x3 x4 x5 x6 ===> g x1 x2 x3 x4 x5 x6) ->
+  openup6 (ctx := ctxfo) g x1 x2 x3 x4 x5 x6 :: Ps |~ P ->
+  openup6 (ctx := ctxfo) f x1 x2 x3 x4 x5 x6 :: Ps |~ P.
+  admit.
+Qed.
 
 Definition ORand {ctxfo ctx} : open_rel ctxfo 0 ctx -> open_rel ctxfo 0 ctx -> open_rel ctxfo 0 ctx := openup2 Rand.
 Definition ORor {ctxfo ctx} : open_rel ctxfo 0 ctx -> open_rel ctxfo 0 ctx -> open_rel ctxfo 0 ctx := openup2 Ror.
@@ -1469,6 +1490,9 @@ Qed.
 Lemma openup5_and ctx t1 t2 t3 t4 t5 (f g : t1 -> t2 -> t3 -> t4 -> t5 -> rel 0 ctx) ctxfo x1 x2 x3 x4 x5 : openup5 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 => f x1 x2 x3 x4 x5 /\ g x1 x2 x3 x4 x5) x1 x2 x3 x4 x5 = (openup5 f x1 x2 x3 x4 x5 /\ openup5 g x1 x2 x3 x4 x5)%OR.
   admit.
 Qed.
+Lemma openup6_and ctx t1 t2 t3 t4 t5 t6 (f g : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> rel 0 ctx) ctxfo x1 x2 x3 x4 x5 x6 : openup6 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 x6 => f x1 x2 x3 x4 x5 x6 /\ g x1 x2 x3 x4 x5 x6) x1 x2 x3 x4 x5 x6 = (openup6 f x1 x2 x3 x4 x5 x6 /\ openup6 g x1 x2 x3 x4 x5 x6)%OR.
+  admit.
+Qed.
 Lemma openup7_and ctx t1 t2 t3 t4 t5 t6 t7 (f g : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> rel 0 ctx) ctxfo x1 x2 x3 x4 x5 x6 x7 : openup7 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 x6 x7 => f x1 x2 x3 x4 x5 x6 x7 /\ g x1 x2 x3 x4 x5 x6 x7) x1 x2 x3 x4 x5 x6 x7 = (openup7 f x1 x2 x3 x4 x5 x6 x7 /\ openup7 g x1 x2 x3 x4 x5 x6 x7)%OR.
   admit.
 Qed.
@@ -1504,6 +1528,12 @@ Lemma openup8_imply ctx t1 t2 t3 t4 t5 t6 t7 t8 (f g : t1 -> t2 -> t3 -> t4 -> t
 Qed.
 
 Lemma openup1_later ctx t1 (f : t1 -> rel 0 ctx) ctxfo x1 : openup1 (ctx := ctxfo) (fun x1 => ▹ [] (f x1)) x1 = (▹ [] (openup1 f x1))%OR.
+  admit.
+Qed.
+Lemma openup2_later ctx t1 t2 (f : t1 -> t2 -> rel 0 ctx) ctxfo x1 x2 : openup2 (ctx := ctxfo) (fun x1 x2 => ▹ [] (f x1 x2)) x1 x2 = (▹ [] (openup2 f x1 x2))%OR.
+  admit.
+Qed.
+Lemma openup3_later ctx t1 t2 t3 (f : t1 -> t2 -> t3 -> rel 0 ctx) ctxfo x1 x2 x3 : openup3 (ctx := ctxfo) (fun x1 x2 x3 => ▹ [] (f x1 x2 x3)) x1 x2 x3 = (▹ [] (openup3 f x1 x2 x3))%OR.
   admit.
 Qed.
 Lemma openup4_later ctx t1 t2 t3 t4 (f : t1 -> t2 -> t3 -> t4 -> rel 0 ctx) ctxfo x1 x2 x3 x4 : openup4 (ctx := ctxfo) (fun x1 x2 x3 x4 => ▹ [] (f x1 x2 x3 x4)) x1 x2 x3 x4 = (▹ [] (openup4 f x1 x2 x3 x4))%OR.
@@ -1750,6 +1780,11 @@ Lemma openup4_exists1_elim ctxfo ctx t1 t2 t3 t4 t (Q : open_rel ctxfo 0 ctx) (f
   openup4 (fun x1 x2 x3 x4 => ∃x, f x1 x2 x3 x4 x) x1 x2 x3 x4 :: Ps |~ Q.
   admit.
 Qed.
+Lemma openup5_exists1_elim ctxfo ctx t1 t2 t3 t4 t5 t (Q : open_rel ctxfo 0 ctx) (f : t1 -> t2 -> t3 -> t4 -> t5 -> t -> rel 0 ctx) x1 x2 x3 x4 x5 (Ps : list (open_rel ctxfo 0 ctx)) :
+  openup6 (fun x1 x2 x3 x4 x5 x => f x1 x2 x3 x4 x5 x) (lift (new := [_]) x1) (lift x2) (lift x3) (lift x4) (lift x5) V0 :: liftPs (new := [_]) Ps |~ lift Q ->
+  openup5 (fun x1 x2 x3 x4 x5 => ∃x, f x1 x2 x3 x4 x5 x) x1 x2 x3 x4 x5 :: Ps |~ Q.
+  admit.
+Qed.
 
 Lemma split ctxfo ctx (P Q : open_rel ctxfo 0 ctx) Ps :
   Ps |~ P ->
@@ -1830,6 +1865,18 @@ Qed.
 Lemma csubsts_Fadd lctx ctx (ρ : csubsts lctx ctx) (a b : open_cexpr lctx) : ρ $$ (a + b) = ρ $$ a + ρ $$ b.
   admit.
 Qed.
+Lemma csubsts_Wconst lctx ctx (ρ : csubsts lctx ctx) n :
+  ρ $$ Wconst n = Wconst (ctx := []) n.
+  admit.
+Qed.
+Lemma csubsts_F1 lctx ctx (ρ : csubsts lctx ctx) :
+  ρ $$ F1 = F1 (ctx := []).
+  admit.
+Qed.
+Lemma csubsts_Wunfold lctx ctx (ρ : csubsts lctx ctx) w :
+  ρ $$ Wunfold w = Wunfold (ctx := []) (ρ $ w).
+  admit.
+Qed.
 Lemma open_csubsts_Wadd ctxfo lctx ctx (ρ : open_csubsts ctxfo lctx ctx) (w1 w2 : open_width WTnat lctx) : ρ $$ (w1 + w2) = ρ $$ w1 + ρ $$ w2.
   admit.
 Qed.
@@ -1855,6 +1902,9 @@ Lemma lift_rho_width ctxfo lctx ctx (ρ : open_csubsts ctxfo lctx ctx) t (w : op
   admit.
 Qed.
 Lemma lift_rho_expr ctxfo lctx ctx (ρ : open_csubsts ctxfo lctx ctx) (e : open_expr lctx) new : lift (new := new) (ρ $ e) = lift ρ $$ e.
+  admit.
+Qed.
+Lemma lift_plug ctxfo (E : open_term ctxfo econtext) (e : open_term ctxfo expr) new : lift (new := new) (E $ e) = lift E $$ lift e.
   admit.
 Qed.
 Lemma open_csubsts_Wapp ctxfo lctx ctx (ρ : open_csubsts ctxfo lctx ctx) (w1 w2 : open_width WTstruct lctx) : ρ $$ (Wapp w1 w2) = openup2 Wapp (ρ $ w1) (ρ $ w2).
@@ -1965,6 +2015,15 @@ Lemma inj_imply (P Q : Prop) ctx :
   [] |~~ ([| P |] ===> [| Q |] : rel 0 ctx).
   admit.
 Qed.
+Lemma inj_tauto (Q : Prop) ctx :
+  Q ->
+  [] |~~ ([| True |] ===> [| Q |] : rel 0 ctx).
+  admit.
+Qed.
+Lemma later_inj ctx P :
+  [] |~~ ▹ [] [| P |] ===> ([| P |] : rel 0 ctx).
+  admit.
+Qed.
 
 Lemma ctx_refl ctxfo ctx (P : open_rel ctxfo 0 ctx) Ps : P :: Ps |~ P.
   admit.
@@ -2016,15 +2075,43 @@ Lemma later_mono_ctx ctxfo ctx (P Q : open_rel ctxfo 0 ctx) Ps :
    Ps |~ |> [] Q)%OR.
   admit.
 Qed.
+Lemma later_mono_ctx' ctxfo ctx (P Q : open_rel ctxfo 0 ctx) Ps :
+  (P :: Ps |~ Q ->
+   |> [] P :: Ps |~ |> [] Q)%OR.
+  admit.
+Qed.
 Lemma later_mono_ctx2 ctxfo ctx (P1 P2 Q : open_rel ctxfo 0 ctx) Ps :
   (P1 :: P2 :: Ps |~ Q ->
    Ps |~ |> [] P1 /\ |> [] P2 ->
    Ps |~ |> [] Q)%OR.
   admit.
 Qed.
+Lemma VLob ctxfo ctx Ps (P : open_rel ctxfo 0 ctx) : (▹ [] P)%OR :: Ps |~ P -> Ps |~ P.
+  admit.
+Qed.
+Lemma VMono ctxfo ctx Ps (P : open_rel ctxfo 0 ctx) : Ps |~ P -> Ps |~ (|> [] P)%OR.
+  admit.
+Qed.
 
 Lemma later_and_distr ctxfo ctx (P Q : open_rel ctxfo 0 ctx) : (|> [] (P /\ Q) == ((|> [] P) /\ (|> [] Q)))%OR.
   admit.
+Qed.
+
+Lemma lt_plus_trans_r : forall n m p : nat, n < p -> n < m + p.
+  intros; omega.
+Qed.
+Lemma swap_minus_plus (n m : nat) : 0 < n -> n - 1 + m = n + m - 1.
+  admit.
+Qed.
+
+Lemma split_exists A B P Q :
+  ((exists a, P a) /\ (exists b, Q b) ->
+   exists (a : A) (b : B), P a /\ Q b)%type.
+Proof.
+  intros H.
+  destruct H as [[a Ha] [b Hb]].
+  exists a b.
+  eauto.
 Qed.
 
 Definition relEC (E : econtext) e we (wEe : width) (wBEe : open_width WTnat []) (s₁ : size) (c₂ : cexpr) (s₂ : size) {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) : rel 0 ctx :=
@@ -2082,8 +2169,110 @@ Proof.
   eauto.
 Qed.
 
+Definition wle : width_nat -> width_nat -> Prop.
+  admit.
+Qed.
+Global Instance Le_width_nat : Le width_nat width_nat :=
+  {
+    le := wle
+  }.
+
+Lemma stepsex_steps e m e' : ~>*# e m e' -> e ~>* e'.
+  admit.
+Qed.
+Lemma runstoEx_steps e m e' :
+  ⇓*# e m e' -> e ~>* e'.
+  admit.
+Qed.
+Lemma plug_steps_0 E e n1 n2 : 
+  (forall n e', ~>## e n 0 e' -> n <= n1) /\
+  (exists v, e ⇓ v /\ forall n e', ~>## (E $ v) n 0 e' -> n <= n2)%type ->
+  forall n e', ~>## (E $ e) n 0 e' -> n <= n1 + n2.
+  admit.
+Qed.
+Lemma plug_runsto E e :
+  (exists v, e ⇓ v /\ exists v', E $$ v ⇓ v')%type ->
+  (exists v, E $$ e ⇓ v).
+  admit.
+Qed.
+Lemma plug_runsto_0_elim E e v :
+  ⇓*# (E $ e) 0 v ->
+  (exists v', ⇓*# e 0 v' /\ ⇓*# (E $ v') 0 v)%type.
+  admit.
+Qed.
+Lemma plug_steps_1_elim E e e' :
+  ~>*# (E $ e) 1 e' ->
+  ((exists v, ⇓*# e 0 v /\ ~>*# (E $ v) 1 e') \/
+   (exists e'', ~>*# e 1 e'' /\ ~>*# (E $ e'') 0 e'))%type.
+  admit.
+Qed.
+Lemma unfold_fold_v_0_elim t v n e' : ~>## (Eunfold (Efold t v)) n 0 e' -> IsValue v -> n = 0.
+  admit.
+Qed.
+
+Lemma wsteps_refl t (w : open_width t []) : wsteps w w.
+  admit.
+Qed.
+Lemma wsteps_Wadd_b a b b' : wsteps b b' -> wsteps (a + b) (a + b').
+  admit.
+Qed.
+Lemma Wadd_wsteps w1 w2 n1 n2 : 
+  wsteps w1 (Wconst n1) /\ wsteps w2 (Wconst n2) ->
+  wsteps (w1 + w2) (Wconst (n1 + n2)).
+  admit.
+Qed.
+Lemma app_wrunsto_elim (w1 w2 w : width) :
+  wrunsto (Wapp w1 w2) w ->
+  (exists w', wrunsto w2 w' /\ wrunsto (Wapp w1 w') w)%type.
+  admit.
+Qed.
+
+Lemma coerce_Fadd (a b : cexpr) : !(a + b) = !a + !b.
+  admit.
+Qed.
+Lemma coerce_F1 : !F1 = 1.
+  admit.
+Qed.
+
+Lemma relV_value v w lctx ctx τ (ρ : csubsts lctx ctx) : 
+  [] |~~ (v, w) ∈ relV τ ρ ===> [|IsValue v /\ IsWValue w |].
+  admit.
+Qed.
+Lemma relV_type_equal ew lctx ctx τ τ' (ρ : csubsts lctx ctx) : equal τ τ' -> [] |~~ ew ∈ relV τ ρ ===> ew ∈ relV τ' ρ.
+  admit.
+Qed.
+
+Lemma relE_intro lctx ctx e w τ wB c s (ρ : csubsts lctx ctx) :
+  [] |~~ 
+     ⌈|- e (ρ $ τ) /\ wtyping [] w !(ρ $ τ) ⌉ /\
+     ⌈exists B, wsteps wB (Wconst B) /\ forall n e', (~>## e n 0 e') -> n ≤ B⌉%type /\ 
+     (∀v w', ⌈⇓*# e 0 v /\ wrunsto w w'⌉%type ===> (v, w') ∈ relV τ ρ /\ ⌈!v ≤ s⌉) /\
+     (∀e', ⌈~>*# e 1 e' /\ exists w', wrunsto w w'⌉ ===> ⌈0 < c⌉ /\ ▹ [] ((e', w) ∈ relE τ wB (c - 1) s ρ)) /\
+     ⌈exists v, e ⇓ v⌉ /\
+     ⌈exists w', wrunsto w w'⌉ ===>
+     (e, w) ∈ relE τ wB c s ρ.
+  admit.
+Qed.
+Lemma relE_elim lctx ctx e w τ wB c s (ρ : csubsts lctx ctx) :
+  [] |~~ 
+     (e, w) ∈ relE τ wB c s ρ ===>
+     ⌈|- e (ρ $ τ) /\ wtyping [] w !(ρ $ τ) ⌉ /\
+     ⌈exists B, wsteps wB (Wconst B) /\ forall n e', (~>## e n 0 e') -> n ≤ B⌉%type /\ 
+     (∀v w', ⌈⇓*# e 0 v /\ wrunsto w w'⌉%type ===> (v, w') ∈ relV τ ρ /\ ⌈!v ≤ s⌉) /\
+     (∀e', ⌈~>*# e 1 e' /\ exists w', wrunsto w w'⌉ ===> ⌈0 < c⌉ /\ ▹ [] ((e', w) ∈ relE τ wB (c - 1) s ρ)) /\
+     ⌈exists v, e ⇓ v⌉ /\
+     ⌈exists w', wrunsto w w'⌉.
+  admit.
+Qed.
 Lemma relE_mono_tau_c_s lctx τ c s s₁ ctx (ρ : csubsts lctx ctx) e w wB (v : expr) : 
   [] |~~ (e, w) ∈ relE (subst !(!v) τ) wB !(subst !(!v) c) (subst !(!v) s) ρ /\ ⌈!v ≤ ρ $$ s₁⌉ ===> (e, w) ∈ relE (subst s₁ τ) wB !(subst (ρ $ s₁) c) (subst (ρ $ s₁) s) ρ.
+  admit.
+Qed.
+Lemma relE_mono_wB_c lctx τ c c' s ctx (ρ : csubsts lctx ctx) e w wB wB' : 
+  [] |~~ (e, w) ∈ relE τ wB c s ρ /\ [| c <= c' /\ wB <= wB' |] ===> (e, w) ∈ relE τ wB' c' s ρ.
+  admit.
+Qed.
+Lemma relE_mono_wB_c_VC c₁ (c₂ : cexpr) (w w' : width_nat) : !c₂ - 1 ≤ c₁ + !c₂ - 1 /\ w ≤ w' + w.
   admit.
 Qed.
 Lemma relE_rho lctx τ c s ctx (ρ : csubsts lctx ctx) e w wB (v : expr) w' : 
@@ -2096,14 +2285,101 @@ Lemma relE_app_subst lctx τ c s ctx (ρ : csubsts lctx ctx) v₀ v₁ w₀ w₁
      (Eapp v₀ v₁, Wapp w₀ w₁) ∈ relE τ (Wconst 1 + WappB w₀ w₁) c s ρ.
   admit.
 Qed.
+Lemma relE_replace_w lctx τ c s ctx (ρ : csubsts lctx ctx) e w wB : 
+  [] |~~
+     (∃w', (e, w') ∈ relE τ wB c s ρ /\ ⌈wsteps w w'⌉) ===>
+     (e, w) ∈ relE τ wB c s ρ.
+  admit.
+Qed.
+Lemma relE_replace_wB lctx τ c s ctx (ρ : csubsts lctx ctx) e w wB : 
+  [] |~~
+     (∃wB', (e, w) ∈ relE τ wB' c s ρ /\ ⌈wsteps wB wB'⌉) ===>
+     (e, w) ∈ relE τ wB c s ρ.
+  admit.
+Qed.
 Lemma relE_replace_width lctx τ c s ctx (ρ : csubsts lctx ctx) e v₁ w wB w₁ : 
   [] |~~
      (∃w₁', (subst v₁ e, subst w₁' w) ∈ relE τ (subst w₁' wB) c s (add (v₁, w₁') ρ) /\ ⌈wsteps w₁ w₁'⌉) ===>
      (subst v₁ e, subst w₁ w) ∈ relE τ (subst w₁ wB) c s (add (v₁, w₁) ρ).
   admit.
 Qed.
-
-Lemma wsteps_refl t (w : open_width t []) : wsteps w w.
+Lemma relE_red e' w lctx (τ : open_type lctx) wB c s ctx (ρ : csubsts lctx ctx) :
+  [] |~~ (∃e, [|~>*# e 0 e'|] /\ (e, w) ∈ relE τ wB c s ρ) ===> (e', w) ∈ relE τ wB c s ρ.
+  admit.
+Qed.
+Lemma relE_e_eq e w lctx (τ : open_type lctx) wB c s ctx (ρ : csubsts lctx ctx) :
+  [] |~~ (∃e', [|e = e'|] /\ (e', w) ∈ relE τ wB c s ρ) ===> (e, w) ∈ relE τ wB c s ρ.
+  admit.
+Qed.
+Lemma relE_c_eq e w lctx (τ : open_type lctx) wB c c' s ctx (ρ : csubsts lctx ctx) :
+  [] |~~ (e, w) ∈ relE τ wB c s ρ /\ [|c = c'|] ===> (e, w) ∈ relE τ wB c' s ρ.
   admit.
 Qed.
 
+Lemma relEC_replace_wEe_wBEe E e we wEe' wBEe' s₁ c₂ s₂ lctx lctx' τ τ' ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) : 
+  [] |~~
+     (∃wEe wBEe, relEC E e we wEe wBEe s₁ c₂ s₂ τ τ' ρ ρ' /\ [|wsteps wEe wEe'|] /\ [|wsteps wBEe wBEe'|]) ===>
+     relEC E e we wEe' wBEe' s₁ c₂ s₂ τ τ' ρ ρ'.
+  admit.
+Qed.
+Lemma relEC_red E e' we wEe wBEe s₁ c₂ s₂ lctx lctx' (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) ρ' : 
+  [] |~~ (∃e, [|e ~>* e'|] /\ relEC E e we wEe wBEe s₁ c₂ s₂ τ τ' ρ ρ') ===> relEC E e' we wEe wBEe s₁ c₂ s₂ τ τ' ρ ρ'.
+  admit.
+Qed.
+
+Definition var0 {m ctx} : open_var m (m :: ctx).
+  admit.
+Defined.
+Notation "#0" := var0 : var.
+Delimit Scope var with var.
+
+Lemma open_csubsts_Eunfold ctxfo lctx ctx (ρ : open_csubsts ctxfo lctx ctx) (e : open_expr lctx) : ρ $$ (Eunfold e) = openup1 Eunfold (ρ $$ e).
+  admit.
+Qed.
+Lemma open_ECunfold ctxfo (e : open_term ctxfo expr) : openup2 (fun E e => E $ e) (openup0 (ECunfold ECempty)) e = openup1 Eunfold e.
+  admit.
+Qed.
+
+Lemma substr_abs mx u m ctx v (g : wexpr -> rel m ((mx, u) :: ctx)) :
+  substr v (Rabs g) = (Rabs (fun x => substr v (g x))).
+  admit.
+Qed.
+Lemma substr_and mx u ctx v (P Q : rel 0 ((mx, u) :: ctx)) :
+  substr v (P /\ Q) = (substr v P /\ substr v Q).
+  admit.
+Qed.
+Lemma substr_inj mx u ctx v (P : Prop) :
+  substr (mx := mx) (u := u) (ctx := ctx) v (Rinj P) = Rinj P.
+  admit.
+Qed.
+Lemma substr_exists1 mx u T ctx v (g : T -> rel 0 ((mx, u) :: ctx)) :
+  substr v (Rexists1 g) = (Rexists1 (fun x => substr v (g x))).
+  admit.
+Qed.
+Lemma substr_later mx u ctx v (P : rel 0 (change_usab [Some Usable] ((mx, u) :: ctx))) :
+  substr v (Rlater [Some Usable] P) = Rlater [] (substr v P).
+  admit.
+Qed.
+Lemma substr_app ew mx m u ctx v (R : rel (S m) ((mx, u) :: ctx)) :
+  substr v (ew ∈ R) = (ew ∈ substr v R).
+  admit.
+Qed.
+Definition substr_csubsts {mx u lctx ctx} : rel mx ctx -> csubsts lctx ((mx, u) :: ctx) -> csubsts lctx ctx.
+  admit.
+Defined.
+Lemma substr_relV mx lctx u ctx v τ (ρ : csubsts lctx ((mx, u) :: ctx)) :
+  substr v (relV τ ρ) = relV τ (substr_csubsts v ρ).
+  admit.
+Qed.
+Lemma substr_add_pair mx lctx u ctx v τ (ρ : csubsts lctx ((mx, u) :: ctx)) R :
+  substr_csubsts v (add (τ, R) ρ) = add (τ, substr v R) (substr_csubsts v ρ).
+  admit.
+Qed.
+Lemma substr_var0 m ctx v :
+  substr (m := m) (ctx := ctx) v (Rvar #0) = v.
+  admit.
+Qed.
+Lemma substr_csubsts_shift mx u lctx ctx v (ρ : csubsts lctx ctx) :
+  substr_csubsts v (shift_csubsts [(mx, u)] 0 ρ) = ρ.
+  admit.
+Qed.

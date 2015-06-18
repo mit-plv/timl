@@ -30,13 +30,6 @@ Proof.
   eapply LRbind.
 Qed.
 
-Lemma coerce_Fadd (a b : cexpr) : !(a + b) = !a + !b.
-  admit.
-Qed.
-Lemma coerce_F1 : !F1 = 1.
-  admit.
-Qed.
-
 Lemma LRbind''' E s₁ c₂ s₂ {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) e c₁ wBe wEe wBEe :
   [] |~~ 
      (∃we, 
@@ -78,12 +71,6 @@ Proof.
   rewrite lift_openup0_empty.
   eapply openup0_apply.
   {
-    Lemma relE_replace_w lctx τ c s ctx (ρ : csubsts lctx ctx) e w wB : 
-      [] |~~
-         (∃w', (e, w') ∈ relE τ wB c s ρ /\ ⌈wsteps w w'⌉) ===>
-         (e, w) ∈ relE τ wB c s ρ.
-      admit.
-    Qed.
     eapply relE_replace_w.
   }
   eapply openup0_exists1 with (x := openup2 Wapp V1 V2).
@@ -93,12 +80,6 @@ Proof.
     eapply openup1_apply.
     {
       intros.
-      Lemma relE_replace_wB lctx τ c s ctx (ρ : csubsts lctx ctx) e w wB : 
-        [] |~~
-           (∃wB', (e, w) ∈ relE τ wB' c s ρ /\ ⌈wsteps wB wB'⌉) ===>
-           (e, w) ∈ relE τ wB c s ρ.
-        admit.
-      Qed.
       eapply relE_replace_wB.
     }
     eapply openup1_exists1 with (x := openup2 (fun wBE we => wBe + WappB wBE we) V0 V2).
@@ -141,12 +122,6 @@ Proof.
       eapply openup3_apply.
       {
         intros.
-        Lemma relEC_replace_wEe_wBEe E e we wEe' wBEe' s₁ c₂ s₂ lctx lctx' τ τ' ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) : 
-          [] |~~
-             (∃wEe wBEe, relEC E e we wEe wBEe s₁ c₂ s₂ τ τ' ρ ρ' /\ [|wsteps wEe wEe'|] /\ [|wsteps wBEe wBEe'|]) ===>
-             relEC E e we wEe' wBEe' s₁ c₂ s₂ τ τ' ρ ρ'.
-          admit.
-        Qed.
         eapply relEC_replace_wEe_wBEe.
       }
       eapply openup3_exists1 with (x := openup0 wEe).
@@ -185,9 +160,6 @@ Proof.
     {
       intros.
       eapply inj_imply.
-      Lemma wsteps_Wadd_b a b b' : wsteps b b' -> wsteps (a + b) (a + b').
-        admit.
-      Qed.
       eapply wsteps_Wadd_b.
     }
     subst Ps.
@@ -688,11 +660,6 @@ Proof.
       }
       repeat rewrite lift_rho_width.
       set (ρ' := lift ρ) in *.
-      Definition var0 {m ctx} : open_var m (m :: ctx).
-        admit.
-      Defined.
-      Notation "#0" := var0 : var.
-      Delimit Scope var with var.
       admit. (* exists wBE *)
     }
     {
@@ -724,13 +691,7 @@ Proof.
     set (Ps := make_Ps Γ) in *.
 
     rewrite open_csubsts_Wadd.
-    Lemma open_csubsts_Eunfold ctxfo lctx ctx (ρ : open_csubsts ctxfo lctx ctx) (e : open_expr lctx) : ρ $$ (Eunfold e) = openup1 Eunfold (ρ $$ e).
-      admit.
-    Qed.
     rewrite open_csubsts_Eunfold.
-    Lemma open_ECunfold ctxfo (e : open_term ctxfo expr) : openup2 (fun E e => E $ e) (openup0 (ECunfold ECempty)) e = openup1 Eunfold e.
-      admit.
-    Qed.
     rewrite <- open_ECunfold.
     
     rewrite openup4_totop1.
@@ -757,9 +718,6 @@ Proof.
       eapply openup3_apply_in.
       {
         intros.
-        Lemma relV_type_equal ew lctx ctx τ τ' (ρ : csubsts lctx ctx) : equal τ τ' -> [] |~~ ew ∈ relV τ ρ ===> ew ∈ relV τ' ρ.
-          admit.
-        Qed.
         eapply relV_type_equal; eauto.
       }
       set (tmp := relV _) at 1.
@@ -774,18 +732,6 @@ Proof.
       {
         intros.
         set (v := @@, _) at 1.
-        Lemma substr_abs mx u m ctx v (g : wexpr -> rel m ((mx, u) :: ctx)) :
-          substr v (Rabs g) = (Rabs (fun x => substr v (g x))).
-          admit.
-        Qed.
-        Lemma substr_and mx u ctx v (P Q : rel 0 ((mx, u) :: ctx)) :
-          substr v (P /\ Q) = (substr v P /\ substr v Q).
-          admit.
-        Qed.
-        Lemma substr_inj mx u ctx v (P : Prop) :
-          substr (mx := mx) (u := u) (ctx := ctx) v (Rinj P) = Rinj P.
-          admit.
-        Qed.
         rewrite substr_abs.
         eapply imply_trans; first last.
         {
@@ -793,10 +739,6 @@ Proof.
         }
         rewrite substr_and.
         rewrite substr_inj.
-        Lemma substr_exists1 mx u T ctx v (g : T -> rel 0 ((mx, u) :: ctx)) :
-          substr v (Rexists1 g) = (Rexists1 (fun x => substr v (g x))).
-          admit.
-        Qed.
         rewrite substr_exists1.
         subst v.
         eapply imply_refl.
@@ -814,68 +756,21 @@ Proof.
       }
       eapply openup4_exists1_elim.
       repeat rewrite liftPs_cons.
-      Lemma openup5_apply_in ctx t1 t2 t3 t4 t5 (f g : t1 -> t2 -> t3 -> t4 -> t5 -> rel 0 ctx) ctxfo x1 x2 x3 x4 x5 Ps P : 
-        (forall x1 x2 x3 x4 x5, [] |~~ f x1 x2 x3 x4 x5 ===> g x1 x2 x3 x4 x5) ->
-        openup5 (ctx := ctxfo) g x1 x2 x3 x4 x5 :: Ps |~ P ->
-        openup5 (ctx := ctxfo) f x1 x2 x3 x4 x5 :: Ps |~ P.
-        admit.
-      Qed.
       eapply openup5_apply_in.
-      Lemma openup5_exists1_elim ctxfo ctx t1 t2 t3 t4 t5 t (Q : open_rel ctxfo 0 ctx) (f : t1 -> t2 -> t3 -> t4 -> t5 -> t -> rel 0 ctx) x1 x2 x3 x4 x5 (Ps : list (open_rel ctxfo 0 ctx)) :
-        openup6 (fun x1 x2 x3 x4 x5 x => f x1 x2 x3 x4 x5 x) (lift (new := [_]) x1) (lift x2) (lift x3) (lift x4) (lift x5) V0 :: liftPs (new := [_]) Ps |~ lift Q ->
-        openup5 (fun x1 x2 x3 x4 x5 => ∃x, f x1 x2 x3 x4 x5 x) x1 x2 x3 x4 x5 :: Ps |~ Q.
-        admit.
-      Qed.
-      Lemma openup6_apply_in ctx t1 t2 t3 t4 t5 t6 (f g : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> rel 0 ctx) ctxfo x1 x2 x3 x4 x5 x6 Ps P : 
-        (forall x1 x2 x3 x4 x5 x6, [] |~~ f x1 x2 x3 x4 x5 x6 ===> g x1 x2 x3 x4 x5 x6) ->
-        openup6 (ctx := ctxfo) g x1 x2 x3 x4 x5 x6 :: Ps |~ P ->
-        openup6 (ctx := ctxfo) f x1 x2 x3 x4 x5 x6 :: Ps |~ P.
-        admit.
-      Qed.
       {
         intros.
         set (v := @@, _) at 1.
         rewrite substr_and.
-        Lemma substr_later mx u ctx v (P : rel 0 (change_usab [Some Usable] ((mx, u) :: ctx))) :
-          substr v (Rlater [Some Usable] P) = Rlater [] (substr v P).
-          admit.
-        Qed.
         rewrite substr_later.
-        Lemma substr_app ew mx m u ctx v (R : rel (S m) ((mx, u) :: ctx)) :
-          substr v (ew ∈ R) = (ew ∈ substr v R).
-          admit.
-        Qed.
         rewrite substr_app.
-        Definition substr_csubsts {mx u lctx ctx} : rel mx ctx -> csubsts lctx ((mx, u) :: ctx) -> csubsts lctx ctx.
-          admit.
-        Defined.
-        Lemma substr_relV mx lctx u ctx v τ (ρ : csubsts lctx ((mx, u) :: ctx)) :
-          substr v (relV τ ρ) = relV τ (substr_csubsts v ρ).
-          admit.
-        Qed.
         rewrite substr_relV.
-        Lemma substr_add_pair mx lctx u ctx v τ (ρ : csubsts lctx ((mx, u) :: ctx)) R :
-          substr_csubsts v (add (τ, R) ρ) = add (τ, substr v R) (substr_csubsts v ρ).
-          admit.
-        Qed.
         rewrite substr_add_pair.
-        Lemma substr_var0 m ctx v :
-          substr (m := m) (ctx := ctx) v (Rvar #0) = v.
-          admit.
-        Qed.
         rewrite substr_var0.
-        Lemma substr_csubsts_shift mx u lctx ctx v (ρ : csubsts lctx ctx) :
-          substr_csubsts v (shift_csubsts [(mx, u)] 0 ρ) = ρ.
-          admit.
-        Qed.
         rewrite substr_csubsts_shift.
         rewrite substr_inj.
         subst v.
         eapply imply_refl.
       }
-      Lemma openup6_and ctx t1 t2 t3 t4 t5 t6 (f g : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> rel 0 ctx) ctxfo x1 x2 x3 x4 x5 x6 : openup6 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 x6 => f x1 x2 x3 x4 x5 x6 /\ g x1 x2 x3 x4 x5 x6) x1 x2 x3 x4 x5 x6 = (openup6 f x1 x2 x3 x4 x5 x6 /\ openup6 g x1 x2 x3 x4 x5 x6)%OR.
-        admit.
-      Qed.
       rewrite openup5_and.
       eapply destruct_and.
       rewrite openup5_shrink.
@@ -909,9 +804,6 @@ Proof.
       repeat rewrite lift_rho_width.
       repeat rewrite lift_rho_expr.
       set (ρ' := lift ρ) in *.
-      Lemma lift_plug ctxfo (E : open_term ctxfo econtext) (e : open_term ctxfo expr) new : lift (new := new) (E $ e) = lift E $$ lift e.
-        admit.
-      Qed.
       repeat rewrite lift_plug.
       combine_lift.
       rewrite lift_openup0.
@@ -920,49 +812,24 @@ Proof.
       rewrite openup4_totop1.
       rewrite unfold_open_plug.
       erewrite openup4_comp_openup2.
-      Lemma openup5_comp_openup0 t1 t2 t3 t4 t5 t6 (f : t1 -> t2 -> t3 -> t4 -> t5 -> t6) (g : t1) ctxfo x2 x3 x4 x5 : openup5 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 => f x1 x2 x3 x4 x5) (openup0 g) x2 x3 x4 x5 = openup4 (fun x2 x3 x4 x5 => f g x2 x3 x4 x5) x2 x3 x4 x5.
-        admit.
-      Qed.
       rewrite openup5_comp_openup0.
       rewrite openup4_totop3.
       rewrite openup4_comp_openup1.
       rewrite openup4_totop2.
       rewrite openup4_dedup.
       rewrite openup3_totop2.
-      Lemma openup3_comp_openup1 t1 t2 t3 t4 (f : t1 -> t2 -> t3 -> t4) A1 (g : A1 -> t1) ctxfo x2 x3 y1 : openup3 (ctx := ctxfo) (fun x1 x2 x3 => f x1 x2 x3) (openup1 (fun y1 => g y1) y1) x2 x3 = openup3 (fun y1 x2 x3 => f (g y1) x2 x3) y1 x2 x3.
-        admit.
-      Qed.
       rewrite openup3_comp_openup1.
-      Lemma openup3_dedup {t0 t2 t3} {f : t0 -> t0 -> t2 -> t3} {ctxfo x0 x2} : openup3 (ctx := ctxfo) f x0 x0 x2 = openup2 (fun x => f x x) x0 x2.
-        admit.
-      Qed.
       rewrite openup3_dedup.
       eapply openup2_apply.
       {
         intros.
         unfold plug.
-        Lemma csubsts_Wconst lctx ctx (ρ : csubsts lctx ctx) n :
-          ρ $$ Wconst n = Wconst (ctx := []) n.
-          admit.
-        Qed.
         rewrite csubsts_Wconst.
-        Lemma csubsts_F1 lctx ctx (ρ : csubsts lctx ctx) :
-          ρ $$ F1 = F1 (ctx := []).
-          admit.
-        Qed.
         rewrite csubsts_F1.
-        Lemma csubsts_Wunfold lctx ctx (ρ : csubsts lctx ctx) w :
-          ρ $$ Wunfold w = Wunfold (ctx := []) (ρ $ w).
-          admit.
-        Qed.
         rewrite csubsts_Wunfold.
         rewrite coerce_F1.
         eapply imply_refl.
       }
-      Lemma relE_e_eq e w lctx (τ : open_type lctx) wB c s ctx (ρ : csubsts lctx ctx) :
-        [] |~~ (∃e', [|e = e'|] /\ (e', w) ∈ relE τ wB c s ρ) ===> (e, w) ∈ relE τ wB c s ρ.
-        admit.
-      Qed.
       eapply openup2_apply.
       {
         intros.
@@ -996,31 +863,12 @@ Proof.
         eapply openup2_apply.
         {
           intros.
-          Lemma later_inj ctx P :
-            [] |~~ ▹ [] [| P |] ===> ([| P |] : rel 0 ctx).
-            admit.
-          Qed.
           eapply later_inj.
         }
-        Lemma openup2_later ctx t1 t2 (f : t1 -> t2 -> rel 0 ctx) ctxfo x1 x2 : openup2 (ctx := ctxfo) (fun x1 x2 => ▹ [] (f x1 x2)) x1 x2 = (▹ [] (openup2 f x1 x2))%OR.
-          admit.
-        Qed.
         rewrite openup2_later.
         subst Ps.
-        Lemma openup3_later ctx t1 t2 t3 (f : t1 -> t2 -> t3 -> rel 0 ctx) ctxfo x1 x2 x3 : openup3 (ctx := ctxfo) (fun x1 x2 x3 => ▹ [] (f x1 x2 x3)) x1 x2 x3 = (▹ [] (openup3 f x1 x2 x3))%OR.
-          admit.
-        Qed.
         rewrite openup3_later.
-        Lemma later_mono_ctx' ctxfo ctx (P Q : open_rel ctxfo 0 ctx) Ps :
-          (P :: Ps |~ Q ->
-           |> [] P :: Ps |~ |> [] Q)%OR.
-          admit.
-        Qed.
         eapply later_mono_ctx'.
-        Lemma relV_value v w lctx ctx τ (ρ : csubsts lctx ctx) : 
-          [] |~~ (v, w) ∈ relV τ ρ ===> [|IsValue v /\ IsWValue w |].
-          admit.
-        Qed.
         eapply openup3_apply_in.
         {
           intros.
@@ -1058,20 +906,12 @@ Proof.
         eapply openup2_apply.
         {
           intros.
-          Lemma inj_tauto (Q : Prop) ctx :
-            Q ->
-            [] |~~ ([| True |] ===> [| Q |] : rel 0 ctx).
-            admit.
-          Qed.
           eapply inj_imply.
           intros Hevar.
           exists 1.
           split.
           { eapply wsteps_refl. }
           intros n e' Heval.
-          Lemma unfold_fold_v_0_elim t v n e' : ~>## (Eunfold (Efold t v)) n 0 e' -> IsValue v -> n = 0.
-            admit.
-          Qed.
           eapply unfold_fold_v_0_elim in Heval.
           {
             subst.

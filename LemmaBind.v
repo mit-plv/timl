@@ -20,9 +20,6 @@ Lemma LRbind E (wE : width) (wBE : width) s₁ c₂ s₂ {lctx lctx'} (τ : open
        relEC E e we (Wapp wE we) (WappB wBE we) s₁ c₂ s₂ τ τ' ρ ρ' ===> 
        (E $$ e, Wapp wE we) ∈ relE τ' (wBe + WappB wBE we) (c₁ + !c₂) s₂ ρ'.
 Proof.
-  Lemma VLob ctxfo ctx Ps (P : open_rel ctxfo 0 ctx) : openup1 (▹ []) P :: Ps |~ P -> Ps |~ P.
-    admit.
-  Qed.
   eapply VLob.
   set (Hlob := 
       openup1 (▹ [])
@@ -46,28 +43,6 @@ Proof.
   eapply destruct_and.
   set (Ps := _ :: _ :: _ :: _).
   combine_lift.
-  Lemma relE_intro lctx ctx e w τ wB c s (ρ : csubsts lctx ctx) :
-    [] |~~ 
-       ⌈|- e (ρ $ τ) /\ wtyping [] w !(ρ $ τ) ⌉ /\
-       ⌈exists B, wsteps wB (Wconst B) /\ forall n e', (~>## e n 0 e') -> n ≤ B⌉%type /\ 
-       (∀v w', ⌈⇓*# e 0 v /\ wrunsto w w'⌉%type ===> (v, w') ∈ relV τ ρ /\ ⌈!v ≤ s⌉) /\
-       (∀e', ⌈~>*# e 1 e' /\ exists w', wrunsto w w'⌉ ===> ⌈0 < c⌉ /\ ▹ [] ((e', w) ∈ relE τ wB (c - 1) s ρ)) /\
-       ⌈exists v, e ⇓ v⌉ /\
-       ⌈exists w', wrunsto w w'⌉ ===>
-       (e, w) ∈ relE τ wB c s ρ.
-    admit.
-  Qed.
-  Lemma relE_elim lctx ctx e w τ wB c s (ρ : csubsts lctx ctx) :
-    [] |~~ 
-       (e, w) ∈ relE τ wB c s ρ ===>
-       ⌈|- e (ρ $ τ) /\ wtyping [] w !(ρ $ τ) ⌉ /\
-       ⌈exists B, wsteps wB (Wconst B) /\ forall n e', (~>## e n 0 e') -> n ≤ B⌉%type /\ 
-       (∀v w', ⌈⇓*# e 0 v /\ wrunsto w w'⌉%type ===> (v, w') ∈ relV τ ρ /\ ⌈!v ≤ s⌉) /\
-       (∀e', ⌈~>*# e 1 e' /\ exists w', wrunsto w w'⌉ ===> ⌈0 < c⌉ /\ ▹ [] ((e', w) ∈ relE τ wB (c - 1) s ρ)) /\
-       ⌈exists v, e ⇓ v⌉ /\
-       ⌈exists w', wrunsto w w'⌉.
-    admit.
-  Qed.
   eapply openup4_apply.
   {
     intros.
@@ -284,11 +259,6 @@ Proof.
         {
           eapply inj_imply.
           {
-            Lemma Wadd_wsteps w1 w2 n1 n2 : 
-              wsteps w1 (Wconst n1) /\ wsteps w2 (Wconst n2) ->
-              wsteps (w1 + w2) (Wconst (n1 + n2)).
-              admit.
-            Qed.
             eapply Wadd_wsteps.
           }
         }
@@ -316,12 +286,6 @@ Proof.
     rewrite openup4_totop3.
     rewrite openup4_shrink.
     combine_lift.
-    Lemma plug_steps_0 E e n1 n2 : 
-      (forall n e', ~>## e n 0 e' -> n <= n1) /\
-      (exists v, e ⇓ v /\ forall n e', ~>## (E $ v) n 0 e' -> n <= n2)%type ->
-      forall n e', ~>## (E $ e) n 0 e' -> n <= n1 + n2.
-      admit.
-    Qed.
     eapply openup3_apply.
     {
       intros.
@@ -401,11 +365,6 @@ Proof.
     rewrite openup4_shrink.
     rewrite openup3_totop2.
     rewrite openup3_shrink.
-    Lemma plug_runsto_0_elim E e v :
-      ⇓*# (E $ e) 0 v ->
-      (exists v', ⇓*# e 0 v' /\ ⇓*# (E $ v') 0 v)%type.
-      admit.
-    Qed.
     eapply openup2_apply_in.
     {
       intros.
@@ -436,11 +395,6 @@ Proof.
     rewrite openup4_shrink.
     rewrite openup3_totop1.
     rewrite openup3_shrink.
-    Lemma app_wrunsto_elim (w1 w2 w : width) :
-      wrunsto (Wapp w1 w2) w ->
-      (exists w', wrunsto w2 w' /\ wrunsto (Wapp w1 w') w)%type.
-      admit.
-    Qed.
     eapply dup_premise.
     eapply openup2_apply_in.
     {
@@ -564,10 +518,6 @@ Proof.
         {
           intros.
           eapply inj_imply.
-          Lemma runstoEx_steps e m e' :
-            ⇓*# e m e' -> e ~>* e'.
-            admit.
-          Qed.
           eapply runstoEx_steps.
         }
         eapply ctx_refl.
@@ -685,12 +635,6 @@ Proof.
     }
     rewrite openup3_and.
     eapply destruct_and.
-    Lemma plug_steps_1_elim E e e' :
-      ~>*# (E $ e) 1 e' ->
-      ((exists v, ⇓*# e 0 v /\ ~>*# (E $ v) 1 e') \/
-       (exists e'', ~>*# e 1 e'' /\ ~>*# (E $ e'') 0 e'))%type.
-      admit.
-    Qed.
     eapply openup3_apply_in.
     {
       intros.
@@ -976,29 +920,12 @@ Proof.
         {
           intros.
           eapply inj_imply.
-          Lemma lt_plus_trans_r : forall n m p : nat, n < p -> n < m + p.
-            intros; omega.
-          Qed.
           eapply lt_plus_trans_r.
         }
         rewrite openup1_shrink.
         subst Ps.
         eapply ctx_refl.
       }
-      Definition wle : width_nat -> width_nat -> Prop.
-        admit.
-      Qed.
-      Global Instance Le_width_nat : Le width_nat width_nat :=
-        {
-          le := wle
-        }.
-      Lemma relE_mono_wB_c lctx τ c c' s ctx (ρ : csubsts lctx ctx) e w wB wB' : 
-        [] |~~ (e, w) ∈ relE τ wB c s ρ /\ [| c <= c' /\ wB <= wB' |] ===> (e, w) ∈ relE τ wB' c' s ρ.
-        admit.
-      Qed.
-      Lemma VMono ctxfo ctx Ps (P : open_rel ctxfo 0 ctx) : Ps |~ P -> Ps |~ (|> [] P)%OR.
-        admit.
-      Qed.
       rewrite openup4_later.
       eapply later_mono_ctx.
       {
@@ -1029,9 +956,6 @@ Proof.
         intros.
         eapply inj_imply.
         intros H.
-        Lemma relE_mono_wB_c_VC c₁ (c₂ : cexpr) (w w' : width_nat) : !c₂ - 1 ≤ c₁ + !c₂ - 1 /\ w ≤ w' + w.
-          admit.
-        Qed.
         eapply relE_mono_wB_c_VC.
       }
       instantiate (1 := True).
@@ -1197,10 +1121,6 @@ Proof.
     rewrite openup4_shrink.
     rewrite openup3_totop2.
     rewrite openup3_shrink.
-    Lemma relEC_red E e' we wEe wBEe s₁ c₂ s₂ lctx lctx' (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) ρ' : 
-      [] |~~ (∃e, [|e ~>* e'|] /\ relEC E e we wEe wBEe s₁ c₂ s₂ τ τ' ρ ρ') ===> relEC E e' we wEe wBEe s₁ c₂ s₂ τ τ' ρ ρ'.
-      admit.
-    Qed.
     eapply assert with (P := openup2
       (fun (x2 : expr) (x3 : width) =>
        relEC E x2 x3 (Wapp wE x3) (WappB wBE x3) s₁ c₂ s₂ τ τ' ρ ρ') V2 V6).
@@ -1221,9 +1141,6 @@ Proof.
         {
           intros.
           eapply inj_imply.
-          Lemma stepsex_steps e m e' : ~>*# e m e' -> e ~>* e'.
-            admit.
-          Qed.
           eapply stepsex_steps.
         }
         subst Ps.
@@ -1238,7 +1155,6 @@ Proof.
     eapply totop with (n := 15); [ reflexivity | unfold removen ].
     subst Hlob.
     rewrite lift_openup1.
-    rewrite fold_ORlater.
     eapply totop with (n := 4); [ reflexivity | unfold removen ].
     rewrite openup4_later.
     set (Ps := [_;_;_;_;_;_;_;_;_;_;_;_;_;_;_;_]).
@@ -1295,10 +1211,6 @@ Proof.
       eapply totop with (n := 3); [ reflexivity | unfold removen ].
       eapply ctx_refl.
     }
-    Lemma relE_red e' w lctx (τ : open_type lctx) wB c s ctx (ρ : csubsts lctx ctx) :
-      [] |~~ (∃e, [|~>*# e 0 e'|] /\ (e, w) ∈ relE τ wB c s ρ) ===> (e', w) ∈ relE τ wB c s ρ.
-      admit.
-    Qed.
     eapply openup4_apply.
     {
       intros.
@@ -1326,10 +1238,6 @@ Proof.
     rewrite openup5_totop4.
     rewrite openup5_shrink.
     rewrite openup4_comp_openup1.
-    Lemma relE_c_eq e w lctx (τ : open_type lctx) wB c c' s ctx (ρ : csubsts lctx ctx) :
-      [] |~~ (e, w) ∈ relE τ wB c s ρ /\ [|c = c'|] ===> (e, w) ∈ relE τ wB c' s ρ.
-      admit.
-    Qed.
     eapply openup4_apply.
     {
       intros.
@@ -1352,9 +1260,6 @@ Proof.
     {
       intros.
       eapply inj_imply.
-      Lemma swap_minus_plus (n m : nat) : 0 < n -> n - 1 + m = n + m - 1.
-        admit.
-      Qed.
       eapply swap_minus_plus.
     }
     subst Ps.
@@ -1364,26 +1269,12 @@ Proof.
   rewrite openup4_and.
   eapply split.
   {
-    Lemma split_exists A B P Q :
-      ((exists a, P a) /\ (exists b, Q b) ->
-      exists (a : A) (b : B), P a /\ Q b)%type.
-    Proof.
-      intros H.
-      destruct H as [[a Ha] [b Hb]].
-      exists a b.
-      eauto.
-    Qed.
     rewrite openup4_totop1.
     rewrite openup4_shrink.
     rewrite openup3_totop1.
     rewrite openup3_shrink.
     rewrite openup2_totop1.
     rewrite openup2_shrink.
-    Lemma plug_runsto E e :
-      (exists v, e ⇓ v /\ exists v', E $$ v ⇓ v')%type ->
-      (exists v, E $$ e ⇓ v).
-      admit.
-    Qed.
     eapply openup1_apply.
     {
       intros.
