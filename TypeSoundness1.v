@@ -2188,6 +2188,7 @@ Lemma plug_steps_0 E e n1 n2 :
   (forall n e', ~>## e n 0 e' -> n <= n1) /\
   (exists v, e ⇓ v /\ forall n e', ~>## (E $ v) n 0 e' -> n <= n2)%type ->
   forall n e', ~>## (E $ e) n 0 e' -> n <= n1 + n2.
+  (* because expr is deterministic *)
   admit.
 Qed.
 Lemma plug_runsto E e :
