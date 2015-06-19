@@ -382,13 +382,9 @@ Lemma foundamental :
     exists wB w, ⊩ Γ wB w e τ c s.
 Proof.
   induction 1.
+  Focus 2.
   {
-    unfold related.
-    exists (Wconst (ctx := ctx) 0).
-    simpl.
-    admit.
-  }
-  {
+    (* case app *)
     unfold related in *.
 
     destruct IHtyping1 as [wB₀ [w₀ IH₀]].
@@ -670,17 +666,10 @@ Proof.
       admit. (* exists wBE *)
     }
   }
+  Unfocus.
+  Focus 7.
   {
-    unfold related in *.
-    simpl in *.
-    unfold add_Ps_expr in *.
-    admit.
-  }
-  admit.
-  admit.
-  admit.
-  admit.
-  {
+    (* case unfold *)
     unfold related in *.
     destruct IHtyping as [wB [w IH]].
     exists (wB + Wconst 1).
@@ -1289,6 +1278,135 @@ Proof.
       admit. (* exists wBE *)
     }
   }
+  Unfocus.
+  Focus 2.
+  {
+    (* case abs *)
+    unfold related in *.
+    destruct IHtyping as [wB [w IH]].
+    rename ctx into lctx.
+    set (ρ := make_ρ lctx) in *.
+    set (ctx := make_ctx lctx) in *.
+    set (Ps := make_Ps T) in *.
+    exists (Wconst (ctx := lctx) 0).
+    exists (Wabs wB w).
+    rewrite openup4_totop3.
+    rewrite openup4_comp_openup1.
+    rewrite openup4_dedup.
+    rewrite openup3_totop2.
+    rewrite openup3_comp_openup1.
+    rewrite openup3_dedup.
+    rewrite openup2_totop1.
+    rewrite openup2_comp_openup1.
+    rewrite openup2_dedup.
+    eapply openup1_apply.
+    {
+      intros.
+      rewrite csubsts_Wconst.
+      Lemma csubsts_F0 lctx ctx (ρ : csubsts lctx ctx) :
+        ρ $$ F0 = F0 (ctx := []).
+        admit.
+      Qed.
+      rewrite csubsts_F0.
+      Lemma coerce_F0 : !F0 = 0.
+        admit.
+      Qed.
+      rewrite coerce_F0.
+      Global Instance Apply_csubsts_expr_expr' {ctx} lctx' lctx : Apply (csubsts lctx ctx) (open_expr (lctx' :: lctx)) (open_expr [lctx']).
+        admit.
+      Defined.
+      Lemma csubsts_Eabs lctx ctx (ρ : csubsts lctx ctx) t e :
+        ρ $$ Eabs t e = Eabs (ρ $ t) (ρ $ e).
+        admit.
+      Qed.
+      rewrite csubsts_Eabs.
+      Lemma csubsts_Wabs lctx ctx (ρ : csubsts lctx ctx) wB w :
+        ρ $$ Wabs wB w = Wabs (ρ $ wB) (ρ $ w).
+        admit.
+      Qed.
+      rewrite csubsts_Wabs.
+      eapply relV_relE.
+    }
+    set (tmp := relV _) at 1.
+    simpl in tmp.
+    subst tmp.
+    eapply openup1_apply.
+    {
+      intros.
+      Lemma beta_inv ew ctx g : 
+        [] |~~ g ew ===> ew ∈ Rabs (ctx := ctx) g.
+        admit.
+      Qed.
+      eapply imply_trans.
+      { eapply beta_inv. }
+      eapply imply_refl.
+    }
+    rewrite openup1_and.
+    eapply split.
+    {
+      admit. (* typing *)
+    }
+    eapply openup1_exists1 with (x := openup1 (fun ρ => ρ $ e) ρ).
+    rewrite openup2_comp_openup1.
+    rewrite openup2_dedup.
+    rewrite openup1_and.
+    eapply split.
+    {
+      eapply openup1_apply.
+      {
+        intros.
+        eapply inj_tauto.
+        eexists.
+        eauto.
+      }
+      rewrite openup1_shrink.
+      eapply inj_true_intro.
+    }
+    eapply openup1_exists1 with (x := openup1 (fun ρ => ρ $ wB) ρ).
+    rewrite openup2_comp_openup1.
+    rewrite openup2_dedup.
+    eapply openup1_exists1 with (x := openup1 (fun ρ => ρ $ w) ρ).
+    rewrite openup2_comp_openup1.
+    rewrite openup2_dedup.
+    rewrite openup1_and.
+    eapply split.
+    {
+      eapply openup1_apply.
+      {
+        intros.
+        eapply inj_tauto.
+        eauto.
+      }
+      rewrite openup1_shrink.
+      eapply inj_true_intro.
+    }
+    eapply openup1_forall1.
+    rewrite openup2_imply.
+    eapply ORimply_intro.
+    simpl in IH.
+    unfold add_Ps_expr in IH.
+    unfold add_ρ_expr in IH.
+    unfold add_typing in IH.
+    unfold compose in IH.
+    simpl in IH.
+    subst ctx ρ Ps.
+    set (ctx := make_ctx lctx) in *.
+    set (ρ := make_ρ lctx) in *.
+    set (Ps := make_Ps T) in *.
+    (*here*)
+  }
+  Unfocus.
+  {
+    (* case var *)
+    unfold related.
+    exists (Wconst (ctx := ctx) 0).
+    simpl.
+    admit.
+  }
+  admit.
+  admit.
+  admit.
+  admit.
   admit.
   admit.
   admit.

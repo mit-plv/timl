@@ -995,14 +995,85 @@ Definition add_Ps_type {ctxfo ctx} (Ps : t_Ps ctxfo ctx) : t_Ps (type :: ctxfo) 
   Ps
 .
 
+Fixpoint liftPs {new ctxfo ctx} (Ps : t_Ps ctxfo ctx) : t_Ps (new ++ ctxfo) ctx :=
+  match new with
+    | nil => Ps
+    | T :: new' => liftPs1 T (liftPs Ps)
+  end.
+
+Definition lift1 {T ctxfo t} (a : open_term ctxfo t) : open_term (T :: ctxfo) t := fun _ => a.
+
+Fixpoint lift {new ctxfo t} (a : open_term ctxfo t) : open_term (new ++ ctxfo) t :=
+  match new return open_term (new ++ ctxfo) t with
+    | nil => a
+    | T :: new' => lift1 (lift a)
+  end.
+
+Fixpoint openup2 {t1 t2 t3} {ctx} (f : t1 -> t2 -> t3) : open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 :=
+  match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 with
+    | nil => f
+    | t :: ctx' => fun r1 r2 x => openup2 f (r1 x) (r2 x)
+  end.
+
+Fixpoint openup3 {t1 t2 t3 t4} (f : t1 -> t2 -> t3 -> t4) {ctx} : open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 :=
+  match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 with
+    | nil => f
+    | t :: ctx' => fun r1 r2 r3 x => openup3 f (r1 x) (r2 x) (r3 x)
+  end.
+
+Fixpoint openup4 {t1 t2 t3 t4 t5} (f : t1 -> t2 -> t3 -> t4 -> t5) {ctx} : open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 :=
+  match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 with
+    | nil => f
+    | t :: ctx' => fun r1 r2 r3 r4 x => openup4 f (r1 x) (r2 x) (r3 x) (r4 x)
+  end.
+
+Fixpoint openup5 {t1 t2 t3 t4 t5 t6} {ctx} (f : t1 -> t2 -> t3 -> t4 -> t5 -> t6) : open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 :=
+  match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 with
+    | nil => f
+    | t :: ctx' => fun r1 r2 r3 r4 r5 x => openup5 f (r1 x) (r2 x) (r3 x) (r4 x) (r5 x)
+  end.
+
+Fixpoint openup6 {t1 t2 t3 t4 t5 t6 t7} (f : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7) {ctx} : open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> open_term ctx t7 :=
+  match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> open_term ctx t7 with
+    | nil => f
+    | t :: ctx' => fun r1 r2 r3 r4 r5 r6 x => openup6 f (r1 x) (r2 x) (r3 x) (r4 x) (r5 x) (r6 x)
+  end.
+
+Fixpoint openup7 {t1 t2 t3 t4 t5 t6 t7 t8} (f : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8) {ctx} : open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> open_term ctx t7 -> open_term ctx t8 :=
+  match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> open_term ctx t7 -> open_term ctx t8 with
+    | nil => f
+    | t :: ctx' => fun r1 r2 r3 r4 r5 r6 r7 x => openup7 f (r1 x) (r2 x) (r3 x) (r4 x) (r5 x) (r6 x) (r7 x)
+  end.
+
+Fixpoint openup8 {t1 t2 t3 t4 t5 t6 t7 t8 t9} (f : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8 -> t9) {ctx} : open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> open_term ctx t7 -> open_term ctx t8 -> open_term ctx t9 :=
+  match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> open_term ctx t7 -> open_term ctx t8 -> open_term ctx t9 with
+    | nil => f
+    | t :: ctx' => fun r1 r2 r3 r4 r5 r6 r7 r8 x => openup8 f (r1 x) (r2 x) (r3 x) (r4 x) (r5 x) (r6 x) (r7 x) (r8 x)
+  end.
+
+Fixpoint openup9 {t1 t2 t3 t4 t5 t6 t7 t8 t9 t10} (f : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8 -> t9 -> t10) {ctx} : open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> open_term ctx t7 -> open_term ctx t8 -> open_term ctx t9 -> open_term ctx t10 :=
+  match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> open_term ctx t7 -> open_term ctx t8 -> open_term ctx t9 -> open_term ctx t10 with
+    | nil => f
+    | t :: ctx' => fun r1 r2 r3 r4 r5 r6 r7 r8 r9 x => openup9 f (r1 x) (r2 x) (r3 x) (r4 x) (r5 x) (r6 x) (r7 x) (r8 x) (r9 x)
+  end.
+
+Definition V0 {T0 ctxfo} : open_term (T0 :: ctxfo) T0 := fun x => openup0 x.
+Notation V1 := (lift (new := [_]) V0).
+Notation V2 := (lift (new := [_;_]) V0).
+Notation V3 := (lift (new := [_;_;_]) V0).
+Notation V4 := (lift (new := [_;_;_;_]) V0).
+Notation V5 := (lift (new := [_;_;_;_;_]) V0).
+Notation V6 := (lift (new := [_;_;_;_;_;_]) V0).
+Notation V7 := (lift (new := [_;_;_;_;_;_;_]) V0).
+Notation V8 := (lift (new := [_;_;_;_;_;_;_;_]) V0).
+
 Definition add_ρ_expr {ctxfo lctx ctx} (ρ : t_ρ ctxfo lctx ctx) : t_ρ (wexpr :: ctxfo) (CEexpr :: lctx) ctx :=
-  let ρ := fun vw => add vw ρ in
+  let ρ := openup2 (fun ρ vw => add vw ρ) (lift (new := [_]) ρ) V0 in
   ρ
 .
 
 Definition add_Ps_expr {ctxfo lctx ctx} τ (Ps : t_Ps ctxfo ctx) (ρ : t_ρ ctxfo lctx ctx) : t_Ps (wexpr :: ctxfo) ctx :=
-  let Ps := liftPs1 wexpr Ps in
-  let Ps := (fun vw => openup1 (fun ρ => vw ∈ relV τ ρ)%rel ρ) :: Ps in
+  let Ps := openup2 (fun ρ vw => vw ∈ relV τ ρ)%rel (lift (new := [_]) ρ) V0 :: liftPs (new := [_]) Ps in
   Ps
 .
 
@@ -1075,54 +1146,6 @@ Notation open_econtext := econtext .
 Notation econtext := (open_econtext []).
 
 Require Import ssreflect.
-
-Fixpoint openup2 {t1 t2 t3} {ctx} (f : t1 -> t2 -> t3) : open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 :=
-  match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 with
-    | nil => f
-    | t :: ctx' => fun r1 r2 x => openup2 f (r1 x) (r2 x)
-  end.
-
-Fixpoint openup3 {t1 t2 t3 t4} (f : t1 -> t2 -> t3 -> t4) {ctx} : open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 :=
-  match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 with
-    | nil => f
-    | t :: ctx' => fun r1 r2 r3 x => openup3 f (r1 x) (r2 x) (r3 x)
-  end.
-
-Fixpoint openup4 {t1 t2 t3 t4 t5} (f : t1 -> t2 -> t3 -> t4 -> t5) {ctx} : open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 :=
-  match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 with
-    | nil => f
-    | t :: ctx' => fun r1 r2 r3 r4 x => openup4 f (r1 x) (r2 x) (r3 x) (r4 x)
-  end.
-
-Fixpoint openup5 {t1 t2 t3 t4 t5 t6} {ctx} (f : t1 -> t2 -> t3 -> t4 -> t5 -> t6) : open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 :=
-  match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 with
-    | nil => f
-    | t :: ctx' => fun r1 r2 r3 r4 r5 x => openup5 f (r1 x) (r2 x) (r3 x) (r4 x) (r5 x)
-  end.
-
-Fixpoint openup6 {t1 t2 t3 t4 t5 t6 t7} (f : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7) {ctx} : open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> open_term ctx t7 :=
-  match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> open_term ctx t7 with
-    | nil => f
-    | t :: ctx' => fun r1 r2 r3 r4 r5 r6 x => openup6 f (r1 x) (r2 x) (r3 x) (r4 x) (r5 x) (r6 x)
-  end.
-
-Fixpoint openup7 {t1 t2 t3 t4 t5 t6 t7 t8} (f : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8) {ctx} : open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> open_term ctx t7 -> open_term ctx t8 :=
-  match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> open_term ctx t7 -> open_term ctx t8 with
-    | nil => f
-    | t :: ctx' => fun r1 r2 r3 r4 r5 r6 r7 x => openup7 f (r1 x) (r2 x) (r3 x) (r4 x) (r5 x) (r6 x) (r7 x)
-  end.
-
-Fixpoint openup8 {t1 t2 t3 t4 t5 t6 t7 t8 t9} (f : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8 -> t9) {ctx} : open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> open_term ctx t7 -> open_term ctx t8 -> open_term ctx t9 :=
-  match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> open_term ctx t7 -> open_term ctx t8 -> open_term ctx t9 with
-    | nil => f
-    | t :: ctx' => fun r1 r2 r3 r4 r5 r6 r7 r8 x => openup8 f (r1 x) (r2 x) (r3 x) (r4 x) (r5 x) (r6 x) (r7 x) (r8 x)
-  end.
-
-Fixpoint openup9 {t1 t2 t3 t4 t5 t6 t7 t8 t9 t10} (f : t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8 -> t9 -> t10) {ctx} : open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> open_term ctx t7 -> open_term ctx t8 -> open_term ctx t9 -> open_term ctx t10 :=
-  match ctx return open_term ctx t1 -> open_term ctx t2 -> open_term ctx t3 -> open_term ctx t4 -> open_term ctx t5 -> open_term ctx t6 -> open_term ctx t7 -> open_term ctx t8 -> open_term ctx t9 -> open_term ctx t10 with
-    | nil => f
-    | t :: ctx' => fun r1 r2 r3 r4 r5 r6 r7 r8 r9 x => openup9 f (r1 x) (r2 x) (r3 x) (r4 x) (r5 x) (r6 x) (r7 x) (r8 x) (r9 x)
-  end.
 
 Lemma openup2_totop1 {t0 t1 t2} {f : t0 -> t1 -> t2} {ctxfo x0 x1} : openup2 (ctx := ctxfo) f x0 x1 = openup2 (fun x1 x0 => f x0 x1) x1 x0.
   admit.
@@ -1638,20 +1661,6 @@ Lemma openup8_exists1 ctx t t1 t2 t3 t4 t5 t6 t7 t8 (f : t -> t1 -> t2 -> t3 -> 
   admit.
 Qed.
 
-Fixpoint liftPs {new ctxfo ctx} (Ps : t_Ps ctxfo ctx) : t_Ps (new ++ ctxfo) ctx :=
-  match new with
-    | nil => Ps
-    | T :: new' => liftPs1 T (liftPs Ps)
-  end.
-
-Definition lift1 {T ctxfo t} (a : open_term ctxfo t) : open_term (T :: ctxfo) t := fun _ => a.
-
-Fixpoint lift {new ctxfo t} (a : open_term ctxfo t) : open_term (new ++ ctxfo) t :=
-  match new return open_term (new ++ ctxfo) t with
-    | nil => a
-    | T :: new' => lift1 (lift a)
-  end.
-
 Lemma fold_lift8 {ctxfo t} (a : open_term ctxfo t) {t1 t2 t3 t4 t5 t6 t7 t8} : lift1 (lift1 (lift1 (lift1 (lift1 (lift1 (lift1 (lift1 a))))))) = lift (new := [t1;t2;t3;t4;t5;t6;t7;t8]) a.
   admit.
 Qed.
@@ -1691,16 +1700,6 @@ Ltac combine_lift :=
 Lemma liftPs_liftPs ctxfo ctx (a : t_Ps ctxfo ctx) A1 A2 B1 B2 : liftPs (new := [A1;A2]) (liftPs (new := [B1;B2]) a) = liftPs (new := [A1;A2;B1;B2]) a.
   admit.
 Qed.
-
-Definition V0 {T0 ctxfo} : open_term (T0 :: ctxfo) T0 := fun x => openup0 x.
-Notation V1 := (lift (new := [_]) V0).
-Notation V2 := (lift (new := [_;_]) V0).
-Notation V3 := (lift (new := [_;_;_]) V0).
-Notation V4 := (lift (new := [_;_;_;_]) V0).
-Notation V5 := (lift (new := [_;_;_;_;_]) V0).
-Notation V6 := (lift (new := [_;_;_;_;_;_]) V0).
-Notation V7 := (lift (new := [_;_;_;_;_;_;_]) V0).
-Notation V8 := (lift (new := [_;_;_;_;_;_;_;_]) V0).
 
 Lemma lift_openup0 ctxfo t1 (f : t1) new : lift (new := new) (openup0 (ctx := ctxfo) f) = openup0 f.
   admit.
