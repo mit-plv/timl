@@ -59,6 +59,7 @@ Proof.
     rewrite openup4_totop2.
     rewrite openup4_shrink.
     subst Ps.
+    eapply dup_premise.
     eapply openup4_apply_in.
     {
       intros.
@@ -112,11 +113,46 @@ Proof.
     combine_lift.
     rewrite lift_openup3.
     unfold liftPs, liftPs1, map.
-    eapply totop with (n := 3); [ reflexivity | unfold removen ].
+    totopn 1.
+    rewrite lift_openup2.
+    Lemma runsto_runstoEx e v :
+      e ⇓ v -> exists m,⇓*# e m v.
+      admit.
+    Qed.
+    eapply openup2_apply_in.
+    {
+      intros.
+      eapply imply_trans; first last.
+      {
+        eapply inj_imply.
+        eapply runsto_runstoEx.
+      }
+      eapply inj_exists_elim.
+    }
+    eapply openup2_exists1_elim.
+    repeat rewrite liftPs_cons.
+    combine_lift.
+    unfold liftPs, liftPs1, map.
+    Definition Rlatern n {ctx} (P : rel 0 ctx) : rel 0 ctx := iter n (Rlater []) P.
+    Notation "▹#" := Rlatern.
+    Lemma relE_elim_3_latern e w lctx τ wB c s ctx (ρ : csubsts lctx ctx) :
+      [] |~~ (e, w) ∈ relE τ wB c s ρ ===> ∀m v w', ⌈⇓*# e m v /\ wrunsto w w'⌉%type ===> ▹# m ((v, w') ∈ relV τ ρ) /\ ⌈!v ≤ s⌉.
+      admit.
+    Qed. 
+    totopn 6.
+    rewrite lift_openup4.
+    eapply openup4_apply_in.
+    {
+      intros.
+      eapply relE_elim_3_latern.
+    }
     rewrite openup4_totop2.
     rewrite openup4_shrink.
     rewrite openup3_totop2.
     rewrite openup3_shrink.
+    combine_lift.
+    (*here*)
+    eapply openup2_forall1_elim with (x := V0).
     eapply openup2_forall1_elim with (x := V1).
     eapply openup3_forall1_elim with (x := V0).
     rewrite openup4_imply.
@@ -138,7 +174,6 @@ Proof.
         subst Ps.
         eapply totop with (n := 1); [ reflexivity | unfold removen ].
         erewrite lift_openup2.
-        (*here*)
         admit.
         (* eapply ctx_refl. *)
       }
