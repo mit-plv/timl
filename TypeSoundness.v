@@ -1383,17 +1383,101 @@ Proof.
     eapply openup1_forall1.
     rewrite openup2_imply.
     eapply ORimply_intro.
+    Opaque openup4.
     simpl in IH.
     unfold add_Ps_expr in IH.
     unfold add_ρ_expr in IH.
     unfold add_typing in IH.
     unfold compose in IH.
     simpl in IH.
+    Transparent openup4.
     subst ctx ρ Ps.
     set (ctx := make_ctx lctx) in *.
     set (ρ := make_ρ lctx) in *.
     set (Ps := make_Ps T) in *.
-    (*here*)
+    unfold liftPs.
+    rewrite openup4_comp_openup2 in IH.
+    rewrite openup5_totop2 in IH.
+    Lemma openup5_comp_openup1 t1 t2 t3 t4 t5 t6 (f : t1 -> t2 -> t3 -> t4 -> t5 -> t6) A1 (g : A1 -> t1) ctxfo x2 x3 x4 x5 y1 : openup5 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 => f x1 x2 x3 x4 x5) (openup1 (fun y1 => g y1) y1) x2 x3 x4 x5 = openup5 (fun y1 x2 x3 x4 x5 => f (g y1) x2 x3 x4 x5) y1 x2 x3 x4 x5.
+      admit.
+    Qed.
+    rewrite openup5_comp_openup1 in IH.
+    rewrite openup5_comp_openup2 in IH.
+    rewrite openup6_totop2 in IH.
+    rewrite openup6_dedup in IH.
+    rewrite openup5_totop1 in IH.
+    rewrite openup5_totop2 in IH.
+    Lemma openup5_dedup {t0 t2 t3 t4 t5} {f : t0 -> t0 -> t2 -> t3 -> t4 -> t5} {ctxfo x0 x2 x3 x4} : openup5 (ctx := ctxfo) f x0 x0 x2 x3 x4 = openup4 (fun x => f x x) x0 x2 x3 x4.
+      admit.
+    Qed.
+    rewrite openup5_dedup in IH.
+    rewrite openup4_totop2 in IH.
+    rewrite openup4_comp_openup1 in IH.
+    rewrite openup4_comp_openup2 in IH.
+    rewrite openup5_totop3 in IH.
+    rewrite openup5_dedup in IH.
+    rewrite openup4_totop1 in IH.
+    rewrite openup4_totop2 in IH.
+    rewrite openup4_dedup in IH.
+    rewrite openup3_totop2 in IH.
+    rewrite openup3_comp_openup1 in IH.
+    rewrite openup3_comp_openup2 in IH.
+    rewrite openup4_totop3 in IH.
+    rewrite openup4_dedup in IH.
+    rewrite openup3_totop1 in IH.
+    rewrite openup3_totop2 in IH.
+    rewrite openup3_dedup in IH.
+    eapply openup2_apply in IH; first last.
+    {
+      intros.
+      Lemma add_csubsts_expr ew lctx ctx (ρ : csubsts lctx ctx) (e : open_expr _) :
+        (add ew ρ) $$ e = subst (fst ew) (ρ $ e).
+        admit.
+      Qed.
+      rewrite add_csubsts_expr.
+      Lemma add_csubsts_width ew lctx ctx (ρ : csubsts lctx ctx) t (w : open_width t _) :
+        (add ew ρ) $$ w = subst (snd ew) (ρ $ w).
+        admit.
+      Qed.
+      repeat rewrite add_csubsts_width.
+      Lemma add_csubsts_cexpr ew lctx ctx (ρ : csubsts lctx ctx) (c : open_cexpr _) :
+        (add ew ρ) $$ c = subst (fst ew) (ρ $ c).
+        admit.
+      Qed.
+      rewrite add_csubsts_cexpr.
+      Lemma add_csubsts_size ew lctx ctx (ρ : csubsts lctx ctx) (s : open_size _) :
+        (add ew ρ) $$ s = subst (fst ew) (ρ $ s).
+        admit.
+      Qed.
+      rewrite add_csubsts_size.
+      eapply imply_refl.
+    }
+    eapply openup2_apply.
+    {
+      intros.
+      Lemma unfold_pair A B (ab : A * B) : ab = (fst ab, snd ab).
+        destruct ab; eauto.
+      Qed.
+      erewrite (unfold_pair x2) at 2.
+      rewrite csubsts_subst_s_c.
+      rewrite csubsts_subst_s_s.
+      repeat rewrite csubsts_value.
+      Lemma subst_s_c_subst_e (e : expr) (b : open_cexpr _) :
+        subst !(!e) b = subst e b.
+        admit.
+      Qed.
+      rewrite subst_s_c_subst_e.
+      Lemma subst_s_s_subst_e (e : expr) (b : open_size _) :
+        subst !(!e) b = subst e b.
+        admit.
+      Qed.
+      rewrite subst_s_s_subst_e.
+      eapply imply_refl.
+    }
+    set (Ps' := _ :: _) at 2.
+    rewrite openup2_totop1.
+    subst Ps'.
+    eapply IH.
   }
   Unfocus.
   {
