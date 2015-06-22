@@ -1487,6 +1487,203 @@ Proof.
     simpl.
     admit.
   }
+  Focus 4.
+  {
+    (* case fold *)
+    destruct IHtyping as [wB [w IH]].
+    unfold related in *.
+    exists wB.
+    exists (Wfold w).
+    rename ctx into lctx.
+    set (ρ := make_ρ lctx) in *.
+    set (ctx := make_ctx lctx) in *.
+    set (Ps := make_Ps T) in *.
+
+    rewrite openup4_totop1.
+    rewrite openup4_comp_openup1.
+    rewrite openup4_dedup.
+    rewrite openup3_totop1.
+    rewrite openup3_comp_openup1.
+    rewrite openup3_dedup.
+    rewrite openup2_totop1.
+    rewrite openup2_comp_openup1.
+    rewrite openup2_dedup.
+    eapply openup1_apply.
+    {
+      intros.
+      Lemma csubsts_Efold lctx ctx (ρ : csubsts lctx ctx) t (e : open_expr lctx) : ρ $$ (Efold t e) = Efold (ρ $$ t) (ρ $$ e).
+        admit.
+      Qed.
+      rewrite csubsts_Efold.
+      Lemma plug_ECfold t (e : expr) : (ECfold t ECempty) $$ e = Efold t e.
+        admit.
+      Qed.
+      rewrite <- plug_ECfold.
+      Lemma tmp_add_0 lctx ctx (ρ : csubsts lctx ctx) n : n + !F0 = n.
+        admit.
+      Qed.
+      erewrite <- (tmp_add_0 x1 !(x1 $$ c)).
+      Lemma relE_replace_wB_add_0 lctx τ c s ctx (ρ : csubsts lctx ctx) e w wB : 
+        [] |~~
+           (e, w) ∈ relE τ (wB + Wconst 0) c s ρ ===>
+           (e, w) ∈ relE τ wB c s ρ.
+        admit.
+      Qed.
+      eapply imply_trans.
+      { eapply relE_replace_wB_add_0. }
+      eapply LRbind'''.
+    }
+    rewrite openup4_totop1 in IH.
+    rewrite openup4_comp_openup1 in IH.
+    rewrite openup4_dedup in IH.
+    rewrite openup3_totop1 in IH.
+    rewrite openup3_comp_openup1 in IH.
+    rewrite openup3_dedup in IH.
+    rewrite openup2_totop1 in IH.
+    rewrite openup2_comp_openup1 in IH.
+    rewrite openup2_dedup in IH.
+    eapply openup1_exists1 with (x := ρ $ w).
+    rewrite openup2_comp_openup1.
+    rewrite openup2_dedup.
+    rewrite openup1_and.
+    eapply split.
+    {
+      admit. (* IsEC *)
+    }
+    rewrite openup1_and.
+    eapply split.
+    {
+      eapply IH.
+    }
+    rewrite openup1_and.
+    eapply split.
+    {
+      unfold relEC.
+      eapply openup1_forall1.
+      eapply openup2_forall1.
+      rewrite openup3_imply.
+      eapply ORimply_intro.
+      rewrite openup3_and.
+      eapply destruct_and.
+      subst Ps.
+      set (Ps := _ :: _ :: _).
+      rewrite openup3_totop2.
+      rewrite openup3_shrink.
+      eapply openup2_apply.
+      {
+        intros.
+        eapply relE_replace_w.
+      }
+      eapply openup2_exists1 with (x := openup1 Wfold V0).
+      rewrite openup3_comp_openup1.
+      rewrite openup3_and.
+      eapply split; first last.
+      {
+        admit. (* wsteps *)
+      }
+      eapply openup3_apply.
+      {
+        intros.
+        unfold apply at 1.
+        simpl.
+        unfold plug.
+        rewrite coerce_F0.
+        eapply imply_trans.
+        {
+          eapply relV_relE.
+        }
+        eapply imply_trans.
+        {
+          eapply relV_type_equal.
+          symmetry; eauto.
+        }
+        simpl.
+        eapply imply_trans.
+        {
+          Lemma iota_inv ew ctx R : 
+            [] |~~ ew ∈ (substr (ctx := ctx) (Rrecur R) R) ===> ew ∈ (Rrecur R).
+            admit.
+          Qed.
+          eapply iota_inv.
+        }
+        set (v := @@, _) at 1.
+        rewrite substr_abs.
+        eapply imply_trans.
+        {
+          eapply beta_inv.
+        }
+        rewrite substr_and.
+        rewrite substr_inj.
+        rewrite substr_exists1.
+        subst v.
+        eapply imply_refl.
+      }
+      rewrite openup3_and.
+      eapply split.
+      {
+        admit. (* typing *)
+      }
+      eapply openup3_exists1 with (x := V1).
+      rewrite openup4_totop3.
+      rewrite openup4_dedup.
+      eapply openup3_apply.
+      {
+        intros.
+        rewrite substr_exists1.
+        eapply imply_refl.
+      }
+      combine_lift.
+      set (ρ' := lift ρ).
+      eapply openup3_exists1 with (x := V0).
+      rewrite openup4_totop2.
+      rewrite openup4_dedup.
+      eapply openup3_apply.
+      {
+        intros.
+        rewrite substr_and.
+        rewrite substr_inj.
+        rewrite substr_later.
+        rewrite substr_app.
+        rewrite substr_relV.
+        rewrite substr_add_pair.
+        rewrite substr_var0.
+        rewrite substr_csubsts_shift.
+        eapply imply_refl.
+      }
+      rewrite openup3_and.
+      eapply split.
+      {
+        admit. (* fold _ = fold _ *)
+      }
+      rewrite openup3_later.
+      eapply VMono.
+      eapply openup3_apply.
+      {
+        intros.
+        Lemma relV_rho_inv v w lctx τ' τ ctx (ρ : csubsts lctx ctx) :
+          [] |~~ (v, w) ∈ relV (subst τ' τ) ρ ===> (v, w) ∈ relV τ (add (ρ $$ τ', relV τ' ρ) ρ).
+          admit.
+        Qed.
+        eapply relV_rho_inv.
+      }
+      eapply openup3_apply.
+      {
+        intros.
+        eapply relV_type_equal.
+        {
+          eapply subst_v_equal; eauto.
+        }
+      }
+      rewrite openup3_totop1.
+      rewrite openup3_totop2.
+      subst Ps.
+      eapply ctx_refl.
+    }
+    {
+      admit. (* exists wE wBE *)
+    }
+  }
+  Unfocus.
   admit.
   admit.
   admit.
