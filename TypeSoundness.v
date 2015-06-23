@@ -679,32 +679,45 @@ Proof.
     set (ρ := make_ρ lctx) in *.
     set (ctx := make_ctx lctx) in *.
     set (Ps := make_Ps Γ) in *.
-
-    rewrite open_csubsts_Wadd.
-    rewrite open_csubsts_Eunfold.
-    rewrite <- open_ECunfold.
-    
-    rewrite openup4_totop1.
-    rewrite openup4_comp_openup2.
-    rewrite openup5_totop2.
-
-    eapply LRbind'.
+    eapply openup1_apply.
+    {
+      intros.
+      rewrite csubsts_Wadd.
+      Lemma csubsts_Eunfold lctx ctx (ρ : csubsts lctx ctx) (e : open_expr lctx) : ρ $$ (Eunfold e) = Eunfold (ρ $$ e).
+        admit.
+      Qed.
+      rewrite csubsts_Eunfold.
+      Lemma plug_ECunfold (e : expr) : (ECunfold ECempty) $$ e = Eunfold e.
+        admit.
+      Qed.
+      rewrite <- plug_ECunfold.
+      rewrite csubsts_Fadd.
+      rewrite coerce_Fadd.
+      eapply LRbind'''.
+    }
+    eapply openup1_exists1 with (x := ρ $ w).
+    rewrite openup2_comp_openup1.
+    rewrite openup2_dedup.
+    rewrite openup1_and.
+    eapply split.
     {
       admit. (* IsEC *)
     }
+    rewrite openup1_and.
+    eapply split.
     {
       eapply IH.
     }
+    rewrite openup1_and.
+    eapply split.
     {
       unfold relEC.
-
-      eapply relE_relEC.
-      rewrite openup5_and.
+      eapply openup1_forall1.
+      eapply openup2_forall1.
+      rewrite openup3_imply.
+      eapply ORimply_intro.
+      rewrite openup3_and.
       eapply destruct_and.
-      rewrite openup5_totop1.
-      rewrite openup5_shrink.
-      rewrite openup4_totop1.
-      rewrite openup4_shrink.
       eapply openup3_apply_in.
       {
         intros.
@@ -771,6 +784,7 @@ Proof.
       }
       rewrite openup4_and.
       eapply destruct_and.
+      rewrite openup4_totop1.
       rewrite openup4_shrink.
       rewrite openup3_totop2.
       rewrite openup3_shrink.
@@ -791,25 +805,12 @@ Proof.
       rewrite openup4_totop1.
       rewrite openup4_shrink.
       combine_lift.
-      repeat rewrite lift_rho_width.
-      repeat rewrite lift_rho_expr.
       set (ρ' := lift ρ) in *.
-      repeat rewrite lift_plug.
       combine_lift.
-      rewrite lift_openup0.
-      rename Ps into Ps_Γ.
+      subst Ps.
       set (Ps := _::_::_::_::_::_) at 1.
-      rewrite openup4_totop1.
-      rewrite unfold_open_plug.
-      erewrite openup4_comp_openup2.
-      rewrite openup5_comp_openup0.
-      rewrite openup4_totop3.
-      rewrite openup4_comp_openup1.
-      rewrite openup4_totop2.
-      rewrite openup4_dedup.
       rewrite openup3_totop2.
-      rewrite openup3_comp_openup1.
-      rewrite openup3_dedup.
+      rewrite openup3_shrink.
       eapply openup2_apply.
       {
         intros.
@@ -835,6 +836,7 @@ Proof.
           intros.
           eapply inj_imply.
           intros Hmy.
+          rewrite plug_ECunfold.
           f_equal.
           exact Hmy.
         }
@@ -964,27 +966,24 @@ Proof.
       {
         subst Ps.
         totopn 6.
-        eapply openup5_apply_in.
+        eapply openup3_apply_in.
         {
           intros.
           eapply inj_and_elim.
         }
-        rewrite openup5_and.
+        rewrite openup3_and.
         eapply destruct_and.
         totopn 1.
-        eapply openup5_apply_in.
+        eapply openup3_apply_in.
         {
           intros.
           eapply inj_and_elim.
         }
-        rewrite openup5_and.
+        rewrite openup3_and.
         eapply destruct_and.
         totopn 1.
-        rewrite openup5_shrink.
-        rewrite openup4_shrink.
-        rewrite openup3_totop2.
+        rewrite openup3_totop1.
         rewrite openup3_shrink.
-        rewrite openup2_comp_openup1.
         eapply openup2_apply.
         {
           intros.
@@ -1043,7 +1042,6 @@ Proof.
         eapply split.
         {
           do 7 eapply clear.
-          rewrite openup4_totop1.
           rewrite openup4_shrink.
           rewrite openup3_totop1.
           rewrite openup3_shrink.
@@ -1263,12 +1261,8 @@ Proof.
       totopn 2.
       eapply ctx_refl.
     }
-    (*here*)
     {
-      admit. (* exists wE *)
-    }
-    {
-      admit. (* exists wBE *)
+      admit. (* exists wE wBE *)
     }
   }
   Unfocus.
@@ -1283,15 +1277,6 @@ Proof.
     set (Ps := make_Ps T) in *.
     exists (Wconst (ctx := lctx) 0).
     exists (Wabs wB w).
-    rewrite openup4_totop3.
-    rewrite openup4_comp_openup1.
-    rewrite openup4_dedup.
-    rewrite openup3_totop2.
-    rewrite openup3_comp_openup1.
-    rewrite openup3_dedup.
-    rewrite openup2_totop1.
-    rewrite openup2_comp_openup1.
-    rewrite openup2_dedup.
     eapply openup1_apply.
     {
       intros.
@@ -1376,50 +1361,26 @@ Proof.
     eapply openup1_forall1.
     rewrite openup2_imply.
     eapply ORimply_intro.
-    Opaque openup4.
+    Opaque openup1.
     simpl in IH.
     unfold add_Ps_expr in IH.
     unfold add_ρ_expr in IH.
     unfold add_typing in IH.
     unfold compose in IH.
     simpl in IH.
-    Transparent openup4.
+    Transparent openup1.
     subst ctx ρ Ps.
     set (ctx := make_ctx lctx) in *.
     set (ρ := make_ρ lctx) in *.
     set (Ps := make_Ps T) in *.
     unfold liftPs.
-    rewrite openup4_comp_openup2 in IH.
-    rewrite openup5_totop2 in IH.
+    rewrite openup1_comp_openup2 in IH.
     Lemma openup5_comp_openup1 t1 t2 t3 t4 t5 t6 (f : t1 -> t2 -> t3 -> t4 -> t5 -> t6) A1 (g : A1 -> t1) ctxfo x2 x3 x4 x5 y1 : openup5 (ctx := ctxfo) (fun x1 x2 x3 x4 x5 => f x1 x2 x3 x4 x5) (openup1 (fun y1 => g y1) y1) x2 x3 x4 x5 = openup5 (fun y1 x2 x3 x4 x5 => f (g y1) x2 x3 x4 x5) y1 x2 x3 x4 x5.
       admit.
     Qed.
-    rewrite openup5_comp_openup1 in IH.
-    rewrite openup5_comp_openup2 in IH.
-    rewrite openup6_totop2 in IH.
-    rewrite openup6_dedup in IH.
-    rewrite openup5_totop1 in IH.
-    rewrite openup5_totop2 in IH.
     Lemma openup5_dedup {t0 t2 t3 t4 t5} {f : t0 -> t0 -> t2 -> t3 -> t4 -> t5} {ctxfo x0 x2 x3 x4} : openup5 (ctx := ctxfo) f x0 x0 x2 x3 x4 = openup4 (fun x => f x x) x0 x2 x3 x4.
       admit.
     Qed.
-    rewrite openup5_dedup in IH.
-    rewrite openup4_totop2 in IH.
-    rewrite openup4_comp_openup1 in IH.
-    rewrite openup4_comp_openup2 in IH.
-    rewrite openup5_totop3 in IH.
-    rewrite openup5_dedup in IH.
-    rewrite openup4_totop1 in IH.
-    rewrite openup4_totop2 in IH.
-    rewrite openup4_dedup in IH.
-    rewrite openup3_totop2 in IH.
-    rewrite openup3_comp_openup1 in IH.
-    rewrite openup3_comp_openup2 in IH.
-    rewrite openup4_totop3 in IH.
-    rewrite openup4_dedup in IH.
-    rewrite openup3_totop1 in IH.
-    rewrite openup3_totop2 in IH.
-    rewrite openup3_dedup in IH.
     eapply openup2_apply in IH; first last.
     {
       intros.
@@ -1468,19 +1429,11 @@ Proof.
       eapply imply_refl.
     }
     set (Ps' := _ :: _) at 2.
-    rewrite openup2_totop1.
     subst Ps'.
     eapply IH.
   }
   Unfocus.
-  {
-    (* case var *)
-    unfold related.
-    exists (Wconst (ctx := ctx) 0).
-    simpl.
-    admit.
-  }
-  Focus 4.
+  Focus 5.
   {
     (* case fold *)
     destruct IHtyping as [wB [w IH]].
@@ -1492,15 +1445,6 @@ Proof.
     set (ctx := make_ctx lctx) in *.
     set (Ps := make_Ps T) in *.
 
-    rewrite openup4_totop1.
-    rewrite openup4_comp_openup1.
-    rewrite openup4_dedup.
-    rewrite openup3_totop1.
-    rewrite openup3_comp_openup1.
-    rewrite openup3_dedup.
-    rewrite openup2_totop1.
-    rewrite openup2_comp_openup1.
-    rewrite openup2_dedup.
     eapply openup1_apply.
     {
       intros.
@@ -1526,15 +1470,6 @@ Proof.
       { eapply relE_replace_wB_add_0. }
       eapply LRbind'''.
     }
-    rewrite openup4_totop1 in IH.
-    rewrite openup4_comp_openup1 in IH.
-    rewrite openup4_dedup in IH.
-    rewrite openup3_totop1 in IH.
-    rewrite openup3_comp_openup1 in IH.
-    rewrite openup3_dedup in IH.
-    rewrite openup2_totop1 in IH.
-    rewrite openup2_comp_openup1 in IH.
-    rewrite openup2_dedup in IH.
     eapply openup1_exists1 with (x := ρ $ w).
     rewrite openup2_comp_openup1.
     rewrite openup2_dedup.
@@ -1677,6 +1612,13 @@ Proof.
     }
   }
   Unfocus.
+  {
+    (* case var *)
+    unfold related.
+    exists (Wconst (ctx := ctx) 0).
+    simpl.
+    admit.
+  }
   admit.
   admit.
   admit.
