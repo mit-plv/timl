@@ -18,7 +18,7 @@ Lemma LRbind E (wE : width) (wBE : width) s₁ c₂ s₂ {lctx lctx'} (τ : open
        ⌈IsEC E⌉ /\
        (e, we) ∈ relE τ wBe c₁ s₁ ρ /\ 
        relEC E e we (Wapp wE we) (WappB wBE we) s₁ c₂ s₂ τ τ' ρ ρ' ===> 
-       (E $$ e, Wapp wE we) ∈ relE τ' (wBe + WappB wBE we) (c₁ + !c₂) s₂ ρ'.
+       (E $$ e, Wapp wE we) ∈ relE τ' (wBe + WappB wBE we) (c₁ + c₂) s₂ ρ'.
 Proof.
   eapply VLob.
   set (Hlob := 
@@ -27,7 +27,7 @@ Proof.
           ⌈IsEC E⌉ /\
           (e, we) ∈ relE τ wBe c₁ s₁ ρ /\
           relEC E e we (Wapp wE we) (WappB wBE we) s₁ c₂ s₂ τ τ' ρ ρ' ===>
-                (E $$ e, Wapp wE we) ∈ relE τ' (wBe + WappB wBE we) (c₁ + !c₂) s₂ ρ'
+                (E $$ e, Wapp wE we) ∈ relE τ' (wBe + WappB wBE we) (c₁ + c₂) s₂ ρ'
        ) : open_rel [] _ _)).
   
   eapply forall1_intro.
@@ -198,8 +198,8 @@ Proof.
     rewrite openup3_totop2.
     rewrite openup3_shrink.
     eapply dup_premise.
-    Lemma relEC_elim_latern (E : econtext) e we (wEe : width) (wBEe : open_width WTnat []) (s₁ : size) (c₂ : cexpr) (s₂ : size) {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) :
-      [] |~~ relEC E e we wEe wBEe s₁ c₂ s₂ τ τ' ρ ρ' ===> ∀m v we', ▹# m ((v, we') ∈ relV τ ρ) /\ ⌈e ~>* v /\ !v ≤ s₁ /\ wsteps we we'⌉ ===> ▹# m ((E $ v, wEe) ∈ relE τ' wBEe !c₂ s₂ ρ').
+    Lemma relEC_elim_latern (E : econtext) e we (wEe : width) (wBEe : open_width WTnat []) (s₁ : size) c₂ (s₂ : size) {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) :
+      [] |~~ relEC E e we wEe wBEe s₁ c₂ s₂ τ τ' ρ ρ' ===> ∀m v we', ▹# m ((v, we') ∈ relV τ ρ) /\ ⌈e ~>* v /\ !v ≤ s₁ /\ wsteps we we'⌉ ===> ▹# m ((E $ v, wEe) ∈ relE τ' wBEe c₂ s₂ ρ').
       admit.
     Qed.
     repeat rewrite lift_openup2.
@@ -1014,7 +1014,7 @@ Proof.
         eapply openup4_apply.
         {
           intros.
-          eapply relE_mono_wB_c with (τ := τ') (wB := WappB wBE x1) (c := !c₂ - 1).
+          eapply relE_mono_wB_c with (τ := τ') (wB := WappB wBE x1) (c := c₂ - 1).
         }
         eapply ctx_refl.
       }
@@ -1038,6 +1038,9 @@ Proof.
         intros.
         eapply inj_imply.
         intros H.
+        Lemma relE_mono_wB_c_VC c₁ c₂ (w w' : width_nat) : c₂ - 1 ≤ c₁ + c₂ - 1 /\ w ≤ w' + w.
+          admit.
+        Qed.
         eapply relE_mono_wB_c_VC.
       }
       instantiate (1 := True).
@@ -1598,21 +1601,4 @@ Proof.
   }
   (*here*)
   admit.
-Qed.
-
-Lemma LRbind'' E (wE : width) (wBE : width) s₁ c₂ s₂ {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) e we c₁ wBe :
-  [] |~~ 
-     ⌈IsEC E⌉ /\
-     (e, we) ∈ relE τ wBe c₁ s₁ ρ /\ 
-     relEC E e we (Wapp wE we) (WappB wBE we) s₁ c₂ s₂ τ τ' ρ ρ' ===> 
-     (E $$ e, Wapp wE we) ∈ relE τ' (wBe + WappB wBE we) (c₁ + !c₂) s₂ ρ'.
-Proof.
-  eapply forall1_elim4 with (
-    P := fun e we c₁ wBe =>
-     ⌈IsEC E⌉ /\
-     (e, we) ∈ relE τ wBe c₁ s₁ ρ /\ 
-     relEC E e we (Wapp wE we) (WappB wBE we) s₁ c₂ s₂ τ τ' ρ ρ' ===> 
-     (E $$ e, Wapp wE we) ∈ relE τ' (wBe + WappB wBE we) (c₁ + !c₂) s₂ ρ'
-  ).
-  eapply LRbind.
 Qed.

@@ -2113,8 +2113,8 @@ Proof.
   eauto.
 Qed.
 
-Definition relEC (E : econtext) e we (wEe : width) (wBEe : open_width WTnat []) (s₁ : size) (c₂ : cexpr) (s₂ : size) {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) : rel 0 ctx :=
-  ∀v we', (v, we') ∈ relV τ ρ /\ ⌈e ~>* v /\ !v ≤ s₁ /\ wsteps we we'⌉ ===> (E $ v, wEe) ∈ relE τ' wBEe !c₂ s₂ ρ'.
+Definition relEC (E : econtext) e we (wEe : width) (wBEe : open_width WTnat []) (s₁ : size) c₂ (s₂ : size) {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) : rel 0 ctx :=
+  ∀v we', (v, we') ∈ relV τ ρ /\ ⌈e ~>* v /\ !v ≤ s₁ /\ wsteps we we'⌉ ===> (E $ v, wEe) ∈ relE τ' wBEe c₂ s₂ ρ'.
 
 Lemma relE_relEC ctxfo ctx A (ρ : open_term ctxfo A) (E : open_term ctxfo econtext) (e : open_term ctxfo expr) (we : open_term ctxfo width) (wEe : open_term ctxfo width) (wBEe : open_term ctxfo width_nat) Ps P Q :
   openup5 (fun ρ e we we' v => P v we' ρ e we) (lift (new := [_; _]) ρ) (lift e) (lift we) V0 V1 :: liftPs (ctx := ctx) (new := [_; _]) Ps 
@@ -2270,9 +2270,6 @@ Lemma relE_mono_tau_c_s lctx τ c s s₁ ctx (ρ : csubsts lctx ctx) e w wB (v :
 Qed.
 Lemma relE_mono_wB_c lctx τ c c' s ctx (ρ : csubsts lctx ctx) e w wB wB' : 
   [] |~~ (e, w) ∈ relE τ wB c s ρ /\ [| c <= c' /\ wB <= wB' |] ===> (e, w) ∈ relE τ wB' c' s ρ.
-  admit.
-Qed.
-Lemma relE_mono_wB_c_VC c₁ (c₂ : cexpr) (w w' : width_nat) : !c₂ - 1 ≤ c₁ + !c₂ - 1 /\ w ≤ w' + w.
   admit.
 Qed.
 Lemma relE_rho lctx τ c s ctx (ρ : csubsts lctx ctx) e w wB (v : expr) w' : 
