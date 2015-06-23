@@ -1876,44 +1876,8 @@ Lemma csubsts_Wunfold lctx ctx (ρ : csubsts lctx ctx) w :
   ρ $$ Wunfold w = Wunfold (ctx := []) (ρ $ w).
   admit.
 Qed.
-Lemma open_csubsts_Wadd ctxfo lctx ctx (ρ : open_csubsts ctxfo lctx ctx) (w1 w2 : open_width WTnat lctx) : ρ $$ (w1 + w2) = ρ $$ w1 + ρ $$ w2.
-  admit.
-Qed.
-Lemma open_csubsts_Eapp ctxfo lctx ctx (ρ : open_csubsts ctxfo lctx ctx) (e1 e2 : open_expr lctx) : ρ $$ (Eapp e1 e2) = openup2 (fun e1 e2 => Eapp e1 e2) (ρ $$ e1) (ρ $$ e2).
-  admit.
-Qed.
 Lemma plug_ECapp1 (e1 e2 : expr) : ECapp1 ECempty e2 $$ e1 = Eapp e1 e2.
   eauto.
-Qed.
-Lemma unfold_open_plug ctxfo E e : E $$ e = openup2 (ctx := ctxfo) plug E e.
-  admit.
-Qed.
-Lemma open_ECapp1 ctxfo (e1 e2 : open_term ctxfo expr) : openup2 (fun E e => E $ e) (openup1 (fun e => ECapp1 ECempty e) e2) e1 = openup2 (fun e1 e2 => Eapp e1 e2) e1 e2.
-  admit.
-Qed.
-Lemma open_ECapp2 ctxfo (e1 e2 : open_term ctxfo expr) : openup2 (fun E e => E $ e) (openup1 (fun e => ECapp2 e ECempty) e1) e2 = openup2 (fun e1 e2 => Eapp e1 e2) e1 e2.
-  admit.
-Qed.
-Lemma lift_Wadd ctxfo (w1 w2 : open_term ctxfo width_nat) new : lift (new := new) (w1 + w2) = lift w1 + lift w2.
-  admit.
-Qed.
-Lemma lift_rho_width ctxfo lctx ctx (ρ : open_csubsts ctxfo lctx ctx) t (w : open_width t lctx) new : lift (new := new) (ρ $ w) = lift ρ $$ w.
-  admit.
-Qed.
-Lemma lift_rho_expr ctxfo lctx ctx (ρ : open_csubsts ctxfo lctx ctx) (e : open_expr lctx) new : lift (new := new) (ρ $ e) = lift ρ $$ e.
-  admit.
-Qed.
-Lemma lift_plug ctxfo (E : open_term ctxfo econtext) (e : open_term ctxfo expr) new : lift (new := new) (E $ e) = lift E $$ lift e.
-  admit.
-Qed.
-Lemma open_csubsts_Wapp ctxfo lctx ctx (ρ : open_csubsts ctxfo lctx ctx) (w1 w2 : open_width WTstruct lctx) : ρ $$ (Wapp w1 w2) = openup2 Wapp (ρ $ w1) (ρ $ w2).
-  admit.
-Qed.
-Lemma open_csubsts_WappB ctxfo lctx ctx (ρ : open_csubsts ctxfo lctx ctx) (w1 w2 : open_width WTstruct lctx) : ρ $$ (WappB w1 w2) = openup2 WappB (ρ $ w1) (ρ $ w2).
-  admit.
-Qed.
-Lemma open_csubsts_Wconst ctxfo lctx ctx (ρ : open_csubsts ctxfo lctx ctx) n : ρ $$ Wconst n = openup0 (Wconst n).
-  admit.
 Qed.
 Lemma csubsts_subst_s_c lctx ctx (ρ : csubsts lctx ctx) (s : open_size lctx) (c : open_cexpr (CEexpr :: lctx)) : ρ $$ (subst s c) = subst (ρ $ s) (ρ $ c).
   admit.
@@ -2116,57 +2080,14 @@ Qed.
 Definition relEC (E : econtext) e we (wEe : width) (wBEe : open_width WTnat []) (s₁ : size) c₂ (s₂ : size) {lctx lctx'} (τ : open_type lctx) (τ' : open_type lctx') ctx (ρ : csubsts lctx ctx) (ρ' : csubsts lctx' ctx) : rel 0 ctx :=
   ∀v we', (v, we') ∈ relV τ ρ /\ ⌈e ~>* v /\ !v ≤ s₁ /\ wsteps we we'⌉ ===> (E $ v, wEe) ∈ relE τ' wBEe c₂ s₂ ρ'.
 
-Lemma relE_relEC ctxfo ctx A (ρ : open_term ctxfo A) (E : open_term ctxfo econtext) (e : open_term ctxfo expr) (we : open_term ctxfo width) (wEe : open_term ctxfo width) (wBEe : open_term ctxfo width_nat) Ps P Q :
-  openup5 (fun ρ e we we' v => P v we' ρ e we) (lift (new := [_; _]) ρ) (lift e) (lift we) V0 V1 :: liftPs (ctx := ctx) (new := [_; _]) Ps 
-          |~ openup4 (fun ρ Ee wEe wBEe => 
-                        (Ee, wEe) ∈ Q wBEe ρ) (lift (new := [width : Type; expr])  ρ) (lift E $ V1) (lift wEe) (lift wBEe) ->
-  Ps 
-    |~ openup6 (fun ρ E e we wEe wBEe => 
-                  ∀v we', 
-                    P v we' ρ e we ===>
-                      (E $$ v, wEe) ∈ Q wBEe ρ) ρ E e we wEe wBEe.
-Proof.
-  intros H.
-  eapply openup6_forall1.
-  eapply openup7_forall1.
-  rewrite openup8_imply.
-  eapply ORimply_intro.
-  rewrite openup8_totop1.
-  rewrite openup8_shrink.
-  rewrite openup7_totop3.
-  rewrite openup7_shrink.
-  rewrite openup6_totop3.
-  rewrite openup6_shrink.
-  rewrite openup5_totop3.
-  do 4 rewrite openup5_totop4.
-  set (tmp := openup5 _ _ _ _ _ _).
-  rewrite openup8_totop2.
-  rewrite openup8_shrink.
-  rewrite openup7_totop2.
-  rewrite openup7_shrink.
-  rewrite openup6_totop5.
-  rewrite openup6_shrink.
-  set (tmp2 := lift E $ V1) in H.
-  Arguments memberOf : simpl never.
-  Arguments apply : simpl never.
-  Arguments subst : simpl never.
-  Arguments add : simpl never.
-  Arguments coerce : simpl never.
-  Arguments lift : simpl never.
-  Arguments openup2 : simpl never.
-  Arguments plug : simpl never.
-  unfold apply in tmp2.
-  simpl in tmp2.
-  subst tmp2.
-  rewrite openup4_totop1 in H.
-  erewrite openup4_comp_openup2 in H.
-  rewrite openup5_totop4.
-  rewrite openup5_totop2.
-  subst tmp.
-  combine_lift.
-  unfold liftPs in *.
-  eauto.
-Qed.
+Arguments memberOf : simpl never.
+Arguments apply : simpl never.
+Arguments subst : simpl never.
+Arguments add : simpl never.
+Arguments coerce : simpl never.
+Arguments lift : simpl never.
+Arguments openup2 : simpl never.
+Arguments plug : simpl never.
 
 Definition wle : width_nat -> width_nat -> Prop.
   admit.
@@ -2329,13 +2250,6 @@ Definition var0 {m ctx} : open_var m (m :: ctx).
 Defined.
 Notation "#0" := var0 : var.
 Delimit Scope var with var.
-
-Lemma open_csubsts_Eunfold ctxfo lctx ctx (ρ : open_csubsts ctxfo lctx ctx) (e : open_expr lctx) : ρ $$ (Eunfold e) = openup1 Eunfold (ρ $$ e).
-  admit.
-Qed.
-Lemma open_ECunfold ctxfo (e : open_term ctxfo expr) : openup2 (fun E e => E $ e) (openup0 (ECunfold ECempty)) e = openup1 Eunfold e.
-  admit.
-Qed.
 
 Lemma substr_abs mx u m ctx v (g : wexpr -> rel m ((mx, u) :: ctx)) :
   substr v (Rabs g) = (Rabs (fun x => substr v (g x))).

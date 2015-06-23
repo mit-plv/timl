@@ -173,105 +173,6 @@ Proof.
   eapply ctx_refl.
 Qed.
 
-Lemma LRbind' ctxfo (e : open_term ctxfo expr) (we : open_term ctxfo width) (wBe : open_term ctxfo width_nat) (E : open_term ctxfo econtext) wEe wBEe lctx (c₁ : open_cexpr lctx) (s₁ : open_size lctx) (c₂ : open_cexpr lctx) (s₂ : open_size lctx) (τ : open_type lctx) (τ' : open_type lctx) ctx (ρ : open_csubsts ctxfo lctx ctx) (Ps : list (open_rel ctxfo 0 ctx)) :
-  Ps |~ openup1 (fun E => ⌈IsEC E⌉) E ->
-  Ps |~ openup4 (fun ρ e we wBe => (e, we) ∈ relE τ wBe !(ρ $ c₁) (ρ $ s₁) ρ) ρ e we wBe ->
-  Ps |~ openup6 (fun ρ E e we wEe wBEe => relEC E e we wEe wBEe (ρ $ s₁) !(ρ $ c₂) (ρ $ s₂) τ τ' ρ ρ) ρ E e we wEe wBEe ->
-  (exists wE, Ps |~ openup2 (fun w w' => [|wsteps w w'|]) wEe (openup2 Wapp wE we)) -> 
-  (exists wBE, Ps |~ openup2 (fun w w' => [|wsteps w w'|]) wBEe (openup2 WappB wBE we)) ->
-  Ps |~ openup5 (fun ρ E e wEe wBall => (E $$ e, wEe) ∈ relE τ' wBall !(ρ $ (c₁ + c₂)) (ρ $ s₂) ρ) ρ E e wEe (wBe + wBEe).
-Proof.
-  intros Hty He Hec HwEe HwBEe.
-  rewrite openup5_totop4.
-  rewrite openup5_comp_openup2.
-  eapply openup6_apply.
-  {
-    intros.
-    rewrite csubsts_Fadd.
-    rewrite coerce_Fadd.
-    eapply LRbind''' with (E := x4) (s₁ := x3 $ s₁) (τ := τ) (ρ := x3).
-  }
-  eapply openup6_exists1 with (x := we).
-  rewrite openup7_and.
-  eapply split.
-  {
-    rewrite openup7_shrink.
-    rewrite openup6_shrink.
-    rewrite openup5_shrink.
-    rewrite openup4_totop1.
-    rewrite openup4_totop1.
-    rewrite openup4_shrink.
-    rewrite openup3_totop1.
-    rewrite openup3_shrink.
-    rewrite openup2_totop1.
-    rewrite openup2_shrink.
-    admit. (* IsEC *)
-  }
-  rewrite openup7_and.
-  eapply split.
-  {
-    rewrite openup7_totop2.
-    rewrite openup7_shrink.
-    rewrite openup6_totop3.
-    rewrite openup6_shrink.
-    rewrite openup5_totop4.
-    rewrite openup5_shrink.
-    rewrite openup4_totop1.
-    rewrite openup4_totop1.
-    rewrite openup4_totop3.
-    rewrite openup4_totop3.
-    eauto.
-  }      
-  rewrite openup7_and.
-  eapply split.
-  {
-    rewrite openup7_totop1.
-    rewrite openup7_shrink.
-    rewrite openup6_totop1.
-    rewrite openup6_totop5.
-    rewrite openup6_totop2.
-    rewrite openup6_totop5.
-    rewrite openup6_totop5.
-    rewrite openup6_totop5.
-    eauto.
-  }
-  destruct HwEe as [wE HwEe].
-  destruct HwBEe as [wBE HwBEe].
-  eapply openup7_exists1 with (x := wE).
-  eapply openup8_exists1 with (x := wBE).
-  rewrite openup9_and.
-  eapply split.
-  {
-    rewrite openup9_shrink.
-    rewrite openup8_totop2.
-    rewrite openup8_shrink.
-    rewrite openup7_totop2.
-    rewrite openup7_shrink.
-    rewrite openup6_totop2.
-    rewrite openup6_shrink.
-    rewrite openup5_totop2.
-    rewrite openup5_shrink.
-    rewrite openup4_totop2.
-    rewrite openup4_shrink.
-    rewrite openup2_totop1 in HwEe.
-    rewrite openup2_comp_openup2 in HwEe.
-    eauto.
-  }
-  rewrite openup9_totop1.
-  rewrite openup9_shrink.
-  rewrite openup8_totop2.
-  rewrite openup8_shrink.
-  rewrite openup7_totop3.
-  rewrite openup7_shrink.
-  rewrite openup6_totop3.
-  rewrite openup6_shrink.
-  rewrite openup5_totop3.
-  rewrite openup5_shrink.
-  rewrite openup4_totop3.
-  rewrite openup4_shrink.
-  rewrite openup2_totop1 in HwBEe.
-  rewrite openup2_comp_openup2 in HwBEe.
-  eauto.
 (*
     Inductive typingEC : econtext -> type -> type -> Prop :=
     | TECempty τ : typingEC ECempty τ τ
@@ -280,86 +181,7 @@ Proof.
         (|- arg τ₁) ->
         typingEC (ECapp1 f arg) τ τ₂
     .
-
-      Lemma imply_elim ctxfo lctx ctx (P Q : csubsts lctx ctx -> rel 0 ctx) (ρ : open_csubsts ctxfo lctx ctx) Ps : 
-        Ps |~ openup1 (fun ρ => P ρ ===> Q ρ) ρ ->
-        Ps |~ openup1 (fun ρ => P ρ) ρ ->
-        Ps |~ openup1 (fun ρ => Q ρ) ρ.
-        admit.
-      Qed.
-      Lemma imply_elim3 ctxfo lctx ctx (P1 P2 P3 Q : csubsts lctx ctx -> rel 0 ctx) (ρ : open_csubsts ctxfo lctx ctx) Ps : 
-        Ps |~ openup1 (fun ρ => P1 ρ /\ P2 ρ /\ P3 ρ ===> Q ρ) ρ ->
-        Ps |~ openup1 (fun ρ => P1 ρ) ρ ->
-        Ps |~ openup1 (fun ρ => P2 ρ) ρ ->
-        Ps |~ openup1 (fun ρ => P3 ρ) ρ ->
-        Ps |~ openup1 (fun ρ => Q ρ) ρ.
-        admit.
-      Qed.
-      Lemma imply_elim_e ctx (P Q : rel 0 ctx) Ps : 
-        Ps |~~ P ===> Q ->
-        Ps |~ P ->
-        Ps |~ Q.
-      Proof.
-        admit.
-      Qed.
-      Lemma imply_gen_e ctx (P Q : rel 0 ctx) Ps :
-        Ps |~~ P ===> Q ->
-        P :: Ps |~~ Q.
-      Proof.
-        intros H.
-        eapply imply_elim_e.
-        {
-          Lemma add_Ps ctxfo ctx (P Q : open_rel ctxfo 0 ctx) Ps : Ps |~ Q -> P :: Ps |~ Q.
-            admit.
-          Qed.
-          eapply add_Ps.
-          eauto.
- }
-        eapply ctx_refl.
-      Qed.
-      Lemma imply_gen ctxfo lctx ctx (ρ : open_csubsts ctxfo lctx ctx) (P Q : csubsts lctx ctx -> rel 0 ctx) Ps :
-        Ps |~ openup1 (fun ρ => P ρ ===> Q ρ) ρ ->
-        openup1 P ρ :: Ps |~ openup1 Q ρ.
-      Proof.
-        intros H.
-        eapply imply_elim.
-        {
-          eapply add_Ps.
-          eauto.
-        }
-        eapply ctx_refl.
-      Qed.
-      eapply imply_elim3; eauto.
-      Lemma VMorePs ctxfo ctx (P : open_rel ctxfo 0 ctx) Ps : [] |~ P -> Ps |~ P.
-        admit.
-      Qed.
-      eapply VMorePs.
-      eapply VCtxElimEmpty.
-      rename ρ into ρ'.
-      intros ρ.
-      assert (Hassert :
-                []
-                  |~~ ⌈IsEC (ρ $$ E) ⌉ /\
-                (ρ $$ e, ρ $$ we) ∈ relE τ (ρ $$ wBe) !(ρ $$ c₁) (ρ $$ s₁) ρ /\
-                relEC (ρ $$ E) (ρ $$ e) (ρ $$ we) (ρ $$ wEe) 
-                      (ρ $$ wBEe) (ρ $$ s₁) (ρ $$ c₂) (ρ $$ s₂) τ τ' ρ ρ ===>
-                      ((ρ $ E) $ (ρ $ e), ρ $$ wEe)
-                      ∈ relE τ' (ρ $$ wBe + ρ $$ wBEe) !(ρ $$ c₁ + ρ $$ c₂) (ρ $$ s₂) ρ
-             ).
-      {
-        eapply forall1_elim4 with (
-          P := fun (e : expr) (we : width) (c₁ : cexpr) (wBe : open_width WTnat []) =>
-                 ⌈IsEC (ρ $$ E) ⌉ /\
-                 (e, we) ∈ relE τ wBe !c₁ (ρ $$ s₁) ρ /\
-                 relEC (ρ $$ E) e we (ρ $$ wEe) 
-                       (ρ $$ wBEe) (ρ $$ s₁) (ρ $$ c₂) (ρ $$ s₂) τ τ' ρ ρ ===>
-                       (ρ $$ E $$ e, ρ $$ wEe)
-                       ∈ relE τ' (wBe + ρ $$ wBEe) !(c₁ + ρ $$ c₂) (ρ $$ s₂) ρ
-        ).
-        eapply LRbind.
-      }
  *)
-Qed.
 
 Definition related {lctx} Γ wB w (e : open_expr lctx) τ (c : open_cexpr lctx) (s : open_size lctx) :=
   make_Ps (lctx := lctx) Γ |~ let ρ := make_ρ lctx in openup1 (fun ρ => (ρ $$ e, ρ $$ w) ∈ relE τ (ρ $ wB) !(ρ $ c) (ρ $ s) ρ) ρ.
@@ -407,9 +229,6 @@ Proof.
         admit.
       Qed.
       rewrite csubsts_Eapp.
-      Lemma plug_ECapp1 (e1 e2 : expr) : (ECapp1 ECempty e2) $$ e1 = Eapp e1 e2.
-        admit.
-      Qed.
       rewrite <- plug_ECapp1.
       rewrite csubsts_Fadd.
       rewrite coerce_Fadd.
@@ -1616,8 +1435,20 @@ Proof.
     (* case var *)
     unfold related.
     exists (Wconst (ctx := ctx) 0).
-    simpl.
-    admit.
+    exists (Wvar x).
+    rename ctx into lctx.
+    set (ρ := make_ρ lctx) in *.
+    set (ctx := make_ctx lctx) in *.
+    set (Ps := make_Ps Γ) in *.
+    eapply openup1_apply.
+    {
+      intros.
+      rewrite csubsts_F0.
+      rewrite coerce_F0.
+      rewrite csubsts_Wconst.
+      eapply relV_relE.
+    }
+    (*here*)
   }
   admit.
   admit.
