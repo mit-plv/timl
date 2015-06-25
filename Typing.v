@@ -16,12 +16,12 @@ Export Syntax Subst Order.
 Import ListNotations.
 Local Open Scope list_scope.
 
-Instance Shift_option `{Shift A T} : Shift (fun ctx => option (T ctx)) :=
+Global Instance Shift_option `{Shift A T} : Shift (fun ctx => option (T ctx)) :=
   {
     shift ctx new n b := option_map (shift (ctx := ctx) new n) b
   }.
 
-Instance Shift_pair `{Shift A T1, Shift A T2} : Shift (fun ctx => T1 ctx * T2 ctx)%type :=
+Global Instance Shift_pair `{Shift A T1, Shift A T2} : Shift (fun ctx => T1 ctx * T2 ctx)%type :=
   {
     shift ctx new n b := (shift (ctx := ctx) new n (fst b), shift new n (snd b))
   }.
@@ -143,7 +143,7 @@ Class Equal t :=
 
 Infix "==" := equal (at level 70) : G.
 
-Instance Equal_type ctx : Equal (type ctx) :=
+Global Instance Equal_type ctx : Equal (type ctx) :=
   {
     equal := @teq ctx
   }.
@@ -218,19 +218,19 @@ Notation "! a" := (coerce a) (at level 3, format "! a").
 
 Definition var_to_size {ctx} (x : var CEexpr ctx) : size ctx := Svar (x, []).
 
-Instance Coerce_var_size ctx : Coerce (var CEexpr ctx) (size ctx) :=
+Global Instance Coerce_var_size ctx : Coerce (var CEexpr ctx) (size ctx) :=
   {
     coerce := var_to_size (ctx := ctx)
   }.
 
-Instance Coerce_tc_entry_type ctx : Coerce (tc_entry CEexpr ctx) (type ctx) :=
+Global Instance Coerce_tc_entry_type ctx : Coerce (tc_entry CEexpr ctx) (type ctx) :=
   {
     coerce := type_of_te (ctx := ctx)
   }.
 
 Definition pair_to_Spair {ctx} (p : size ctx * size ctx) := Spair (fst p) (snd p).
 
-Instance Coerce_prod_size ctx : Coerce (size ctx * size ctx) (size ctx) :=
+Global Instance Coerce_prod_size ctx : Coerce (size ctx * size ctx) (size ctx) :=
   {
     coerce := pair_to_Spair (ctx := ctx)
   }.
