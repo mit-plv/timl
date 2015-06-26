@@ -25,6 +25,8 @@ Module width.
   | Wapp {ctx} : width WTstruct ctx -> width WTstruct ctx -> width WTstruct ctx
   | Wabs {ctx} : width WTnat (CEexpr :: ctx) -> width WTstruct (CEexpr :: ctx) -> width WTstruct ctx
   | Wtabs {ctx} : width WTnat ctx -> width WTstruct ctx -> width WTstruct ctx
+  | WtappB {ctx} : width WTstruct ctx ->  width WTnat ctx
+  | Wtapp {ctx} : width WTstruct ctx ->  width WTstruct ctx
   | Wfold {ctx} : width WTstruct ctx -> width WTstruct ctx
   | Wunfold {ctx} : width WTstruct ctx -> width WTstruct ctx
   | Wtt {ctx} : width WTstruct ctx
@@ -704,8 +706,9 @@ Section LR.
       | τ₁ × τ₂ => \vw, ⌈vw ↓↓ ρ $$ τ⌉ /\ ∃a b, ⌈vw = EWpair a b⌉ /\ a ∈ relV τ₁ ρ /\ b ∈ relV τ₂ ρ
       | τ₁ + τ₂ => \vw, ⌈vw ↓↓ ρ $$ τ⌉ /\ ∃vw', (⌈vw = EWinl (ρ $ τ₂) vw'⌉ /\ vw' ∈ relV τ₁ ρ) \/ (⌈vw = EWinr (ρ $ τ₁) vw'⌉ /\ vw' ∈ relV τ₂ ρ)
       | Tarrow τ₁ c s τ₂ => \vw, ⌈vw ↓↓ ρ $$ τ⌉ /\ let (v, w) := vw in ∃e, ⌈exists τ₁', v = Eabs τ₁' e⌉ /\ ∃wB w₂, ⌈w = Wabs wB w₂⌉ /\ ∀vw₁ : wexpr, vw₁ ∈ relV τ₁ ρ ===> let (v₁, w₁) := vw₁ in (subst v₁ e, subst w₁ w₂) ∈ relE' (relV τ₂) τ₂ (subst w₁ wB) !(ρ $ subst !(!v₁) c) (ρ $ subst !(!v₁) s) (add vw₁ ρ)
-      | Tuniversal c s τ₁ => \vw, ⌈vw ↓↓ ρ $$ τ⌉ /\ let (v, w) := vw in ∃e, ⌈v = Etabs e⌉ /\ ∃wB w₂, ⌈w = Wtabs wB w₂⌉ /\ ∀τ', ∀₂, VWSet τ' (Rvar #0) ===> (v $$ τ', w) ∈ relE' (relV τ₁) τ₁ wB !(ρ $ c) (ρ $ s) (add (τ', Rvar #0) (shift1 _ ρ))
+      | Tuniversal c s τ₁ => \vw, ⌈vw ↓↓ ρ $$ τ⌉ /\ let (v, w) := vw in ∃e, ⌈v = Etabs e⌉ /\ ∃wB w₂, ⌈w = Wtabs wB w₂⌉ /\ ∀τ', ∀₂, VWSet τ' (Rvar #0) ===> (subst τ' e, w₂) ∈ relE' (relV τ₁) τ₁ wB !(ρ $ c) (ρ $ s) (add (τ', Rvar #0) (shift1 _ ρ))
       | Trecur τ₁ => @@, \vw, ⌈vw ↓↓ ρ $$ τ⌉ /\ let (v, w) := vw in ∃v' w', ⌈(exists τ', v = Efold τ' v') /\ w = Wfold w'⌉ /\ ▹ [Some Usable] ((v', w') ∈ relV τ₁ (add (ρ $ τ, Rvar #0) (shift1 _ ρ)))
+      | Thide τ => \vw, ⌈vw ↓↓ ρ $$ τ⌉ /\ let (v, w) := vw in ∃v', ⌈v = Ehide v'⌉ /\ (v', w) ∈ relV τ ρ
       | _ => \_, ⊥
     end.
 
