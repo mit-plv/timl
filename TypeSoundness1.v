@@ -82,6 +82,10 @@ Module width.
       t == Trecur t1 ->
       wtyping T w !(subst t t1) ->
       wtyping T (Wfold w) !t
+  | WTPfoldtt T t t1 :
+      t == Trecur t1 ->
+      wtyping T Wtt !(subst t t1) ->
+      wtyping T Wtt !t
   | WTPunfold T w t t1 :
       wtyping T w !t ->
       t == Trecur t1 ->
@@ -97,12 +101,22 @@ Module width.
       wtyping T w1 !t1 ->
       wtyping T w2 !t2 ->
       wtyping T (Wpair w1 w2) !(t1 * t2)
+  | WTPpairtt T t1 t2 : 
+      wtyping T Wtt !t1 ->
+      wtyping T Wtt !t2 ->
+      wtyping T Wtt !(t1 * t2)
   | WTPinl T t w tw :
       wtyping T w !tw ->
       wtyping T (Winl w) !(tw + t)%ty
+  | WTPinltt T t tw :
+      wtyping T Wtt !tw ->
+      wtyping T Wtt !(tw + t)%ty
   | WTPinr T t w tw :
       wtyping T w !tw ->
       wtyping T (Winr w) !(t + tw)%ty
+  | WTPinrtt T t tw :
+      wtyping T Wtt !tw ->
+      wtyping T Wtt !(t + tw)%ty
   (* basic types - elim *)
   | WTPfst T w t1 t2 :
       wtyping T w !(t1 * t2) ->
@@ -145,6 +159,12 @@ Module width.
   | WSappB B w w' : wstep (WappB (Wabs B w) w') (subst w' B)
   | WSapp B w w' : wstep (Wapp (Wabs B w) w') (subst w' w)
   | WSbinop op a b : wstep (Wbinop op (Wconst a) (Wconst b)) (Wconst (op a b))
+  | WSpairtt : wstep (Wpair Wtt Wtt) Wtt
+  | WSinltt : wstep (Winl Wtt) Wtt
+  | WSinrtt : wstep (Winr Wtt) Wtt
+  | WSfsttt : wstep (Wfst Wtt) Wtt
+  | WSsndtt : wstep (Wsnd Wtt) Wtt
+  | WSmatchtt : wstep (Wfst Wtt) Wtt
   .
 
   Definition wsteps {t} : width t [] -> width t [] -> Prop := star wstep.

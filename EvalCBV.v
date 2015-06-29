@@ -17,6 +17,7 @@ Inductive IsValue {ctx} : expr ctx -> Prop :=
 | Vabs t e : IsValue (Eabs t e)
 | Vtabs e : IsValue (Etabs e)
 | Vfold t v : IsValue v -> IsValue (Efold t v)
+| Vhide v : IsValue v -> IsValue (Ehide v)
 | Vtt : IsValue Ett
 | Vpair a b : IsValue a -> IsValue b -> IsValue (Epair a b)
 | Vinl t v : IsValue v -> IsValue (Einl t v)
