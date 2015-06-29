@@ -1003,10 +1003,81 @@ Proof.
         {
           intros.
           Lemma relV_relE lctx τ s ctx (ρ : csubsts lctx ctx) e w : 
-            [] |~~ (e, w) ∈ relV τ ρ ===> (e, w) ∈ relE τ (Wconst 0) 0 s ρ.
+            [] |~~ [|!e <= s|] /\ (e, w) ∈ relV τ ρ ===> (e, w) ∈ relE τ (Wconst 0) 0 s ρ.
             admit.
           Qed.
           eapply relV_relE.
+        }
+        rewrite openup3_and.
+        eapply split.
+        {
+          rewrite openup3_shrink.
+          erewrite <- openup3_shrink.
+          instantiate (1 := V5).
+          erewrite <- openup4_shrink.
+          instantiate (1 := V1).
+          subst Ps.
+          repeat rewrite lift_openup3.
+          subst ρ'.
+          combine_lift.
+          totopn 8.
+          eapply openup3_apply_in.
+          {
+            intros.
+            eapply inj_and_elim.
+          }
+          rewrite openup3_and.
+          eapply destruct_and.
+          totopn 1.
+          eapply openup3_apply_in.
+          {
+            intros.
+            eapply inj_and_elim.
+          }
+          rewrite openup3_and.
+          eapply destruct_and.
+          rewrite openup3_totop2.
+          rewrite openup3_shrink.
+          totopn 8.
+          eapply openup4_apply.
+          {
+            intros.
+            eapply inj_imply.
+            intros.
+            Lemma is_fold_sle_elim lctx ctx (ρ : csubsts lctx ctx) t (v v' : expr) (s s' : open_size lctx) :
+              is_fold s = Some s' /\
+              !v <= ρ $$ s /\
+              v = Efold t v' ->
+              !v' <= ρ $$ s'.
+              admit.
+            Qed.
+            eapply is_fold_sle_elim with (v := x2) (t := x1).
+            split.
+            { eapply H0. }
+            exact H2.
+          }
+          eapply openup4_apply.
+          {
+            intros.
+            eapply inj_and_intro.
+          }
+          set (Ps := _::_::_::_::_::_::_::_) at 1.
+          rewrite openup4_and.
+          eapply split.
+          {
+            rewrite openup4_shrink.
+            rewrite openup3_totop1.
+            rewrite openup3_shrink.
+            rewrite openup2_totop1.
+            subst Ps.
+            totopn 1.
+            eapply ctx_refl.
+          }
+          rewrite openup4_totop3.
+          rewrite openup4_shrink.
+          rewrite openup3_totop2.
+          rewrite openup3_totop2.
+          eapply ctx_refl.
         }
         eapply openup3_apply.
         {
@@ -1123,6 +1194,27 @@ Proof.
       Qed.
       rewrite csubsts_Wabs.
       eapply relV_relE.
+    }
+    rewrite openup1_and.
+    eapply split.
+    {
+      eapply openup1_apply.
+      {
+        intros.
+        Lemma csubsts_S0 lctx ctx (ρ : csubsts lctx ctx) :
+          ρ $$ S0 = S0 (ctx := []).
+          admit.
+        Qed.
+        rewrite csubsts_S0.
+        eapply inj_tauto.
+        Lemma abs_sle_0 (t : type) e :
+          !(Eabs t e) <= S0.
+          admit.
+        Qed.
+        eapply abs_sle_0.
+      }
+      rewrite openup1_shrink.
+      eapply inj_true_intro.
     }
     set (tmp := relV _) at 1.
     simpl in tmp.
@@ -1335,10 +1427,52 @@ Proof.
         simpl.
         unfold plug.
         rewrite coerce_F0.
-        eapply imply_trans.
+        eapply relV_relE.
+      }
+      rewrite openup3_and.
+      eapply split.
+      {
+        rewrite openup3_shrink.
+        eapply openup2_apply.
         {
-          eapply relV_relE.
+          intros.
+          eapply inj_imply.
+          Lemma csubsts_Sfold lctx ctx (ρ : csubsts lctx ctx) (s : open_size lctx) :
+            ρ $$ (Sfold s) = Sfold (ρ $ s).
+            admit.
+          Qed.
+          rewrite csubsts_Sfold.
+          Lemma fold_sle_intro t (e : expr) (s : size) :
+            !e <= s ->
+            !(Efold t e) <= Sfold s.
+            admit.
+          Qed.
+          eapply fold_sle_intro.
         }
+        subst Ps.
+        totopn 1.
+        eapply openup3_apply_in.
+        {
+          intros.
+          eapply inj_and_elim.
+        }
+        rewrite openup3_and.
+        eapply destruct_and.
+        totopn 1.
+        eapply openup3_apply_in.
+        {
+          intros.
+          eapply inj_and_elim.
+        }
+        rewrite openup3_and.
+        eapply destruct_and.
+        rewrite openup3_totop2.
+        rewrite openup3_shrink.
+        eapply ctx_refl.
+      }
+      eapply openup3_apply.
+      {
+        intros.
         eapply imply_trans.
         {
           eapply relV_type_equal.
