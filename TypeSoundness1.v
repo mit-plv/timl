@@ -221,34 +221,7 @@ Inductive nsteps : expr -> nat -> expr -> Prop :=
 Notation "~>#" := nsteps.
 
 Open Scope G.
-
-(* concrete size *)
-Inductive csize :=
-| CStt
-| CSinl (_ : csize)
-| CSinr (_ : csize)
-| CSpair (a b: csize)
-| CSfold (_ : csize)
-| CShide (_ : csize)
-.
-(*
-Definition leCS : csize -> csize -> Prop.
-  admit.
-Defined.
-
-Global Instance Le_csize : Le csize csize :=
-  {
-    le := leCS
-  }.
-*)
-Definition get_csize (e : expr) : csize.
-  admit.
-Defined.
-
-Global Instance Coerce_expr_csize : Coerce expr csize :=
-  {
-    coerce := get_csize
-  }.
+Delimit Scope G with G.
 
 Definition nat_of_cexpr (c : cexpr) : nat.
   admit.
@@ -261,8 +234,57 @@ Global Instance Coerce_cexpr_nat : Coerce cexpr nat :=
     coerce := c2n
   }.
 
-Definition c2s {ctx} (ξ : csize) : open_size ctx.
-  admit.
+(* concrete size *)
+Inductive csize :=
+| CStt
+| CSinl (_ : csize)
+| CSinr (_ : csize)
+| CSpair (a b: csize)
+| CSfold (_ : csize)
+| CShide (_ : csize)
+.
+
+(* only makes sense when e is a value *)
+Definition get_csize : expr -> csize.
+  refine 
+    (fix get_csize (e : expr) : csize :=
+       match e with
+         | Evar x => _
+         | Efold _ e => CSfold (get_csize e)
+         | Ehide e => CShide (get_csize e)
+         | Epair e1 e2 => CSpair (get_csize e1) (get_csize e2)
+         | Einl _ e => CSinl (get_csize e)
+         | Einr _ e => CSinr (get_csize e)
+         | _ => CStt
+       end).
+  {
+    clear e.
+    destruct x.
+    destruct n; simpl in *; intuition.
+  }
+Defined.
+
+Global Instance Coerce_expr_csize : Coerce expr csize :=
+  {
+    coerce := get_csize
+  }.
+
+Fixpoint c2s' (cs : csize) : size :=
+  match cs with
+    | CStt => S0
+    | CSinl cs => Sinlinr (c2s' cs) S0
+    | CSinr cs => Sinlinr S0 (c2s' cs)
+    | CSpair cs1 cs2 => Spair (c2s' cs1) (c2s' cs2)
+    | CSfold cs => Sfold (c2s' cs)
+    | CShide cs => Shide (c2s' cs)
+  end.
+
+Definition c2s {ctx} (cs : csize) : open_size ctx.
+ refine 
+   (cast (shift (T := open_size) ctx 0 (c2s' cs)) _).
+ simpl.
+ rewrite app_nil_r.
+ eauto.
 Defined.
 
 Global Instance Coerce_csize_size ctx : Coerce csize (open_size ctx) :=
@@ -270,13 +292,43 @@ Global Instance Coerce_csize_size ctx : Coerce csize (open_size ctx) :=
     coerce := c2s (ctx := ctx)
   }.
 
-Definition le_csize_size : csize -> size -> Prop.
-  admit.
-Defined.
+Fixpoint get_work (cs : csize) : nat :=
+  match cs with
+    | CStt => 0
+    | CSinl cs => get_work cs
+    | CSinr cs => get_work cs
+    | CSpair a b => get_work a + get_work b
+    | CSfold cs => 1 + get_work cs
+    | CShide _ => 0
+  end.
+
+Instance Max_nat : Max nat :=
+  {
+    max := Peano.max
+  }.
+
+Fixpoint get_span (cs : csize) : nat :=
+  match cs with
+    | CStt => 0
+    | CSinl cs => get_span cs
+    | CSinr cs => get_span cs
+    | CSpair a b => max (get_span a) (get_span b)
+    | CSfold cs => 1 + get_span cs
+    | CShide _ => 0
+  end.
+
+Inductive leCS : csize -> size -> Prop :=
+| LeCSinl cs s1 s2 : leCS cs s1 -> leCS (CSinl cs) (Sinlinr s1 s2)
+| LeCSinr cs s1 s2 : leCS cs s2 -> leCS (CSinr cs) (Sinlinr s1 s2)
+| LeCSpair cs1 cs2 s1 s2 : leCS cs1 s1 -> leCS cs2 s2 -> leCS (CSpair cs1 cs2) (Spair s1 s2)
+| LeCSfold cs s : leCS (CSfold cs) (Sfold s)
+| LeCShide cs s : leCS (CShide cs) (Shide s)
+| LeCSstats cs c_w c_s : get_work cs <= !c_w -> get_span cs <= !c_s -> leCS cs (Sstats (c_w, c_s))
+.
 
 Global Instance Le_cszie_size : Le csize size :=
   {
-    le := le_csize_size
+    le := leCS
   }.
 
 Infix "≤" := le (at level 70).

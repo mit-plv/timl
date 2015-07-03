@@ -1750,10 +1750,6 @@ Qed.
     Lemma imply_refl ctx (P : rel 0 ctx) : [] |~~ P ===> P.
       admit.
     Qed.
-    Instance Max_nat : Max nat :=
-      {
-        max := Peano.max
-      }.
 *)
 
 (*
