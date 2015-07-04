@@ -79,13 +79,13 @@
 \newcommand{\symmax}{\mathsf{max}}
 \newcommand{\symSinl}{\mathsf{Sinl\;}}
 \newcommand{\symSinr}{\mathsf{Sinr\;}}
-\newcommand{\symfold}{\mathsf{fold\;}}
+\newcommand{\symfold}{\mathsf{fold}}
 \newcommand{\symSfold}{\mathsf{Sfold}}
-\newcommand{\symunfold}{\mathsf{unfold\;}}
+\newcommand{\symunfold}{\mathsf{unfold}}
 \newcommand{\symSunfold}{\mathsf{Sunfold\;}}
-\newcommand{\symhide}{\mathsf{hide\;}}
+\newcommand{\symhide}{\mathsf{hide}}
 \newcommand{\symShide}{\mathsf{Shide}}
-\newcommand{\symunhide}{\mathsf{unhide\;}}
+\newcommand{\symunhide}{\mathsf{unhide}}
 \newcommand{\symSunhide}{\mathsf{Sunhide\;}}
 \newcommand{\leO}{\preceq}
 \newcommand{\sympair}{\mathsf{pair}}
@@ -105,6 +105,7 @@
 \newcommand{\later}{\triangleright}
 \newcommand{\vtos}[1]{\lfloor #1 \rfloor}
 \newcommand{\getcsize}{\mathsf{get\_csize}}
+\newcommand{\symCShide}{\mathsf{CShide}}
 
 %% \newcommand{\intro}[2]{#2^#1}
 \newcommand{\intro}[2]{(#1 : #2)}
@@ -130,7 +131,7 @@
 \newcommand{\symprod}{\mathsf{prod}}
 \newcommand{\symStt}{\mathsf{Stt}}
 \newcommand{\symSpair}{\mathsf{Spair}}
-\newcommand{\symSlr}{\mathsf{Ssum}}
+\newcommand{\symSlr}{\mathsf{Slr}}
 \newcommand{\symwork}{\mathsf{w}}
 \newcommand{\symspan}{\mathsf{s}}
 
@@ -180,15 +181,25 @@
 \begin{abstract}
 This paper contributes the first time-complexity type system with recursive types. The type system lets functional programmers specify time-complexity bounds of functions, and the type system checks and guarantees such bounds. This language is a milestone towards the ``great synthesis'' of complexity analysis and programming languages, for it supports universal polymorphism, type-level operators and isomorphic recursive types, the combined power of which enables generic algebraic data types, the watershed of practical usefulness. Potential beneficiaries of our language includes everyday functional programmers and computer theoriests, using it both as a practical bug-preventing tool and as a formal logic to prove algorithm complexities. 
 
-This soundness of the type system is proved using the Logical Step-indexed Logical Relation. We formalize our design and proof in the Coq proof assistant (in progress). Key technical contributions include:
+The soundness of the type system is proved using the Logical Step-indexed Logical Relation. We formalize our design and proof in the Coq proof assistant (in progress). Key technical contributions include:
 
 \begin{itemize}
-\item Recognizing the number of unfold-fold reductions as the only relevant metric in asymptotic complexity counting;
-\item Introduction of structured ``sizes'' of values in a functional language with algebraic data types;
-\item Introduction of structured ``widths'' as a generalization of the constant factor in asymptotic complexity analysis especially for higher-order functions;
+\item Recognizing the number of unfold-fold reductions as the only relevant metric in asymptotic complexity analysis.
+\item Introduction of structured ``sizes'' of values in a functional language with algebraic data types.
+\item Introduction of ``hide type''.
+\item Introduction of structured ``widths'' as a generalization of the ``constant factor'' in asymptotic complexity analysis especially for higher-order functions.
 \item Strengths and weaknesses of different language encoding schemes in Coq.
 \end{itemize}
 
+
+%% This paper introduces \lambda_c, the first time-complexity type system with recursive types. \lambda_c lets functional programmers specify time-complexity bounds of functions, and the type system checks and guarantees such bounds. \lambda_c is a milestone towards the "great synthesis" of complexity analysis and programming languages, for it supports recursive types, universal polymorphism and type-level operators, the combined power of which enables generic algebraic data types, the watershed of practical usefulness. Potential beneficiaries of \lambda_c includes everyday functional programmers and computer theorists, using it both as a practical bug-preventing tool and as a formal logic to prove algorithm complexities.
+
+%% Soundness of \lambda_c is proved using the Logical Step-indexed Logical Relation. We formalize our design and proof in the Coq proof assistant (in progress). Key technical contributions include:
+%% (*) Realization that the number of unfold-fold reductions is the only metric needed in counting a program's asymptotic complexity.
+%% (*) Introduction of structured "size", a generalization of the "input size" in complexity analysis.
+%% (*) Introduction of "hide type".
+%% (*) Introduction of structured "width", a generalization of the "constant factor" in asymptotic complexity, especially for higher-order functions.
+%% (*) Strengths and weaknesses of different language encoding schemes in Coq.
 
 \end{abstract}
 
@@ -317,14 +328,14 @@ $$\begin{array}{rrcl}
   \textrm{Types} & \tau &::=& \symunit \mid \tau\times\tau \mid \tau+\tau \mid \alpha \mid \arrow{\intro{x}{\tau}}{c}{s}{\tau} \\
   & & & \mid \forall^c_s \alpha.\tau \mid \Lambda \alpha.\tau \mid \tau\;\tau \mid \mu \alpha.\tau \mid \thide\tau \\
   \textrm{Expressions} & e &::=& \symtt \mid \sympair\;e\;e \mid \syminl_\tau\;e \mid \syminr_\tau\;e \mid x \mid e\;e \mid \lambda x:\tau.\;e \\
-  & & & \mid \symlet x := e \symin e \mid e\;\tau \mid \lambda \alpha.e \mid \symfold\tau\;e \\
-  & & & \mid \symunfold\;e \mid \symhide\;e \mid \symunhide\;e \mid \symfst\;e \mid \symsnd\;e \\
+  & & & \mid \symlet x := e \symin e \mid e\;\tau \mid \lambda \alpha.e \mid \symfold\;\tau\;e \\
+  & & & \mid \symunfold\;\;e \mid \symhide\;\;e \mid \symunhide\;\;e \mid \symfst\;e \mid \symsnd\;e \\
   & & & \mid (\symmatch\;e \symreturn \tau \symand s \symwith \\
   & & & \hspace{.1in} \syminl\;x\Rightarrow e\;|\;\syminr\;x\Rightarrow e) \\
-  \textrm{Values} & v &::=& x \mid \lambda x:\tau.e \mid \lambda \alpha.e \mid \symfold\tau\;v \mid \symtt \mid (v,v) \\
-  & & & \mid \syminl\;v \mid \syminr\;v \mid \symhide v \\
+  \textrm{Values} & v &::=& x \mid \lambda x:\tau.e \mid \lambda \alpha.e \mid \symfold\;\tau\;v \mid \symtt \mid (v,v) \\
+  & & & \mid \syminl\;v \mid \syminr\;v \mid \symhide\; v \\
   \textrm{CBV Eval Ctx} & E &::=& \Box \mid E\;e \mid v\;E \mid \symlet x := E\symin e \mid E\;\tau \\
-  & & & \mid \symfold\tau\;E \mid \symunfold\tau\;E \mid \symhide\;E \mid \symunhide\;E \\
+  & & & \mid \symfold\;\tau\;E \mid \symunfold\;\tau\;E \mid \symhide\;\;E \mid \symunhide\;\;E \\
   & & & \mid (E, e) \mid (v, E) \mid \syminl_\tau\;E \mid \syminr_\tau\;E \mid \symfst\;E \mid \symsnd\;E \\
   & & & \mid (\symmatch\;E\symreturn \tau \symand s \symwith \\
   & & & \hspace{.1in} \syminl\;x\Rightarrow e\;|\;\syminr\;x\Rightarrow e) \\
@@ -340,7 +351,7 @@ Each type has a built-in kind in their syntactic class (formalized by dependent-
 
 Now let's turn to the complexity and size part. Firstly, complexity and size annotations appear only on arrows and in $\forall$ binders (they are the same in a dependent type system). Each arrow type $\arrow{\intro{x}{\tau_1}}{c}{s}{\tau_2}$ introduces a size variable standing for the input size, which can be referred to in $c$, $s$ and $\tau_2$ (but not $\tau_1$). The $\forall$ binder does not introduce new size variables. The reason for $\forall$ to also have complexity annotation is that, just like $\lambda x.e$, $\lambda \alpha.e$ is a ``delayed'' computation, meaning that it is itself a value but when been applied, its inner part may take some steps to reach another value. But in most cases, the $c$ and $s$ in $\forall^c_s$ are just 0. When $c$ or $s$ is 0, we elide it in this paper.
 
-We first explain the definition of sizes. There are two notions of ``size'' in this paper: ``concrete size'' and ``size spec''. A ``concrete size'' is the shape ``skeleton'' of a value; a ``size spec'' is a syntactic construct that will be interpretted as a set of concrete sizes. The size annotations underneath the arrow are size specs. Concrete sizes only appear in the type soundness theorem and proof. We use ``size'' for either of them when context makes it clear.
+We first explain the definition of sizes. There are two notions of ``size'' in this paper: ``concrete size'' and ``size spec''. A ``concrete size'' is the shape ``skeleton'' of a value; a ``size spec'' is a syntactic construct and a closed size spec can be interpretted into a set of concrete sizes (the interpretation is defined in Figure \ref{interpret-cexpr-size}). The size annotations underneath the arrow are size specs. Concrete sizes only appear in the type soundness theorem and proof. We use ``size'' for either of them when context makes it clear.
 
 The concrete size of a value is a tree-like structure, closely mirroring the structure of a value. Comparing ``Concrete Sizes'' and ``Values'' in Figure \ref{syntax} shows that they are almost isomorphic except that concrete sizes do not have variables (because they will only be used for closed values) and $\lambda$-abstractions. There is a function $\getcsize$ defined in Figure \ref{lrel-aux} for getting the concrete size of a value, which is straight-forward.
 
@@ -350,17 +361,25 @@ For (1), we have the constructor $\Sstats{c_\symwork,c_\symspan}$. It constructs
 
 The intuition for only counting the  ``$\symSfold$'' nodes in concrete sizes is similar to the intuition of only counting unfold-fold reductions when analysing time complexity. The $\symSfold$-skeleton is what is really ``variable'' in a concrete size, and when we say ``how computation grows with the input size'' we actually mean ``how computation grows with the input size's $\symSfold$-skeleton''.
 
-For (2),
+For (2), we have structural constructors similar to concrete sizes. We have $\symSlr$ instead of $\symSinl$ and $\symSinr$. A requirement of ``only $\syminl$'' will be written as $\symSlr\;s\;\Sstats{0,0}$.
 
-For (3), we have the constructor $x.\vec{i}$. $x.\vec{i}$ not only mentions a variable $x$, but also a ``subpart query path'' $\vec{i}$, which is a list of ``subpart query indices''. The subpart query path is used to refer to a subpart of a size variable. One can go as deep as s/he likes into a size variable. This seems alarming since their is no guarantee that the future substitute for the variable have that desired subpart. The definition of substitution (in Figure \ref{subst}) dictates that when the wanted subpart is not present, the substitution result is $\Sstats{0,0}$. This substitution policy is OK because our type soundness proof only uses three axioms about size specs, shown in Figure \ref{size-axioms}, so any design of size spec substitution and size spec ordering satisfying these axioms will give us a sound type system. Our definition of size spec substitution and ordering satisfies them. 
-
-The axiomization of size spec and complexity expression (discussed below) in our type soundness proof makes the design choices of size specs and complexity algebra an orthogonal issue of the type system design and soundness.
+For (3), we have the constructor $x.\vec{i}$. $x.\vec{i}$ not only mentions a variable $x$, but also a ``subpart query path'' $\vec{i}$, which is a list of ``subpart query indices''. The subpart query path is used to refer to a subpart of a size variable. One can go as deep as s/he likes into a size variable. This seems alarming since their is no guarantee that the future substitute for the variable have that desired subpart. The definition of substitution (in Figure \ref{subst}) dictates that when the wanted subpart is not present, the substitution result is $\Sstats{0,0}$. This substitution policy is OK because our type soundness proof only uses three axioms about size specs, shown in Figure \ref{axioms}, so any design of size spec substitution and size spec ordering satisfying these axioms will give us a sound type system. Our definition of size spec substitution and ordering satisfies them. 
 
 For brevity we write ``$\Sstats{s}$'' for $\Sstats{s.\symwork,s.\symspan}$, ``0'' for $\Sstats{0,0}$, ``$\Sstats{c_1,c_2}/2$'' for $\Sstats{c_1/2,c_2/2}$ and similarly lift other operations on measures to sizes. We also overload the notation ``$(a,b)$'' to stands for $(\sympair\;a\;b)$, $(\symSpair\;a\;b)$ and other pair-like constructions.
 
-Now we explain the time complexity expression. Since variables can appear in a complexity expression, we define complexity expression as an abstract algebra instead of just natural numbers. Which algebra to use (hence the expressiveness of complexity expressions) is almost an orthogonal issue of the type system design. We will elaborate the axioms we used in the type soundness proof regarding this algebra, thus any algebra satisfying these axioms will give us a sound type system. Do note that the choice of this algebra greatly influence the complexity precision and type checking/inference difficulty on concrete programs, so we will discuss this orthogonal but important issue in Section \ref{section-discussion}. Besides the algebraic operations, a complexity expression can also refer to a measure of (a subpart of) a size variable. For intuitiveness we write ``$|x|$'' for ``$x.\symwork$''
+Now we explain the time complexity expression. Ideally time complexities are just numbers. But since they should be able to mention size variables in scope, we define complexities as syntactic expressions. A closed complexity expression can be interpreted into a natural number (the interpretation is defined in Figure \ref{interpret-cexpr-size}). When referring to a variable, complexity expressions must specify which measure (work or span) they want, since complexities are numbers not trees. We write ``$|x|$'' for ``$x.\symwork$'' for intuitiveness. Like size specs, a complexity expression can refer to a subpart of a size variable. When doing substitution and the wanted subpart is not present, the result of $x.\vec{i}.\symwork$ (or $x.\vec{i}.\symspan$) will be 0 (a consequence of $x.\vec{i}$ being $\Sstats{0,0}$). The axioms about complexity expressions used by our type soundness proof are listed in Figure \ref{axioms}.
 
-We introduced a new ``hide'' type constructor denoted as $\thide{\tau}$, its corresponding terms $(\symhide e)$ and $(\symunhide e)$, and its corresponding size constructor $(\symShide\;s)$. The motivation for this new type constructor is illustrated by this example: $f:\forall A.\;\arrow{\intro{x}{\symlist\;A}}{|x|}{}{\symlist\;A}$. When one first looks at this function one may think its complexity is linear with the input list's length. But when one instantiates it with a type, such as $(\symlist\;\symbool)$, $f$ suddenly becomes $f\;(\symlist\;\symbool):\arrow{\intro{x}{\symlist\;(\symlist\;\symbool)}}{|x|}{}{\symlist\;(\symlist\;\symbool)}$. Its complexity is no longer linear with the outer list's length! The problem is that there is not a way for a polymorphic function to express the notion of ``ignoring values of the parameter type'' in its complexity specification. Now that we have ``hide'' types and define list as $\symlist \defeq \Lambda A.\;\mu \alpha.\;\symunit + \thide{A} \times \alpha$, and the measure calculation ignores everything under a $\symShide$ node, both $f$'s and $(f\;(\symlist\;\symbool))$'s complexity specification mean the length of the input list.
+The axiomization of size spec and complexity expression in our type soundness proof makes the design choices of size specs and complexity expression an orthogonal issue of the type system design, and they do not affect type soundness when the axioms are fulfilled. However, these choices greatly influence expressiveness, precision and type checking/inference difficulty, so we will discuss this orthogonal but important issue in Section \ref{section-discussion}. 
+
+We introduced a new ``hide'' type constructor denoted as $\thide{\tau}$, its corresponding terms $(\symhide\; e)$ and $(\symunhide\; e)$, and its corresponding size constructors $(\symShide\;s)$ and $(\symCShide\;s)$. The motivation for this new type constructor is illustrated by this example: 
+$$f:\forall A.\;\arrow{\intro{x}{\symlist\;A}}{|x|}{}{\symlist\;A}.$$
+When one first looks at this function one may think its complexity is linear with the input list's length. But when one instantiates it with a type, such as $(\symlist\;\symbool)$, $f$ suddenly becomes 
+$$f\;(\symlist\;\symbool):\arrow{\intro{x}{\symlist\;(\symlist\;\symbool)}}{|x|}{}{\symlist\;(\symlist\;\symbool)}.$$
+Its complexity is no longer linear with the outer list's length! The problem is that there is not a way for a polymorphic function to express the notion of ``ignoring values of the parameter type'' in its complexity specification. Now that we have ``hide'' types and define list as 
+$$\symlist \defeq \Lambda A.\;\mu \alpha.\;\symunit + \thide{A} \times \alpha,$$ 
+and the measure calculation ignores everything under a $\symShide$ node, both $f$'s and $(f\;(\symlist\;\symbool))$'s complexity specification mean the length of the input list.
+
+In languages like ML, $\mu\alpha.\tau$, $\symfold$ and $\symunfold$ are hidden in algebraic data type definitions and pattern-matchings. The same can be done for $\thide{\tau}$, $\symhide$ and $\symunhide$.
 
 \subsection{Typing Rules}
 
@@ -428,19 +447,19 @@ Rule {\sc LE} relaxes and time and size bounds. The definitions of $c\leq c'$ an
 
 \inferrule* [Right=Fold]
 {\tau \equiv \mu \alpha. \tau_1 \\ \Gamma\typing{e}{\tau_1[\tau/\alpha]}{c}{s}}
-{\Gamma\typing{\symfold \tau \; e}{\tau}{c}{\symSfold s}}
+{\Gamma\typing{\symfold\; \tau \; e}{\tau}{c}{\symSfold s}}
 
 \inferrule* [Right=Unfold]
 {\Gamma\typing{e}{t}{c}{s} \\ \mathsf{IsFold}(s)=s_1 \\ \tau \equiv \mu \alpha.\tau_1}
-{\Gamma\typing{\symunfold\;e}{\tau_1[\tau/\alpha]}{1+c}{s_1}}
+{\Gamma\typing{\symunfold\;\;e}{\tau_1[\tau/\alpha]}{1+c}{s_1}}
 
 \inferrule* [Right=Hide]
 {\Gamma\typing{e}{\tau}{c}{s}}
-{\Gamma\typing{\symhide e}{\thide{\tau}}{c}{\symShide s}} 
+{\Gamma\typing{\symhide\; e}{\thide{\tau}}{c}{\symShide s}} 
 
 \inferrule* [Right=Unhide]
 {\Gamma\typing{e}{\thide{\tau}}{c}{s} \\ \mathsf{IsHide}(s)=s_1}
-{\Gamma\typing{\symunhide e}{\tau}{c}{s_1}}
+{\Gamma\typing{\symunhide\; e}{\tau}{c}{s_1}}
 
 \inferrule* [Right=Le]
 {\Gamma\typing{e}{\tau}{c}{s} \\ c \leq c' \\ s \leq s'}
@@ -508,7 +527,7 @@ Logical relations (or logical predicates for unary relations as in this case) ar
   & \hspace{.1in} w=\lambda.(B,w_2) \wedge \forall \tau'\;r,\;r \in \mathsf{VRel}(\tau') \Rightarrow \\
   & \hspace{.1in} (e[\tau'/\alpha], w_2)\in \relE{\tau_1}^{\rho(c),\rho(s)}_{\rho[\alpha\mapsto(\tau',r)],B} \\
   \relV{\mu\alpha.\tau'}_\rho &\defeq \mu r.\;\lambda (v,w).\; v \downarrow \rho(\tau) \wedge w \downarrow \rho(\tau) \wedge \exists v'\;w',\; \\
-  & \hspace{.1in} v = \symfold v' \wedge w = \symfold w' \wedge \\
+  & \hspace{.1in} v = \symfold\; v' \wedge w = \symfold\; w' \wedge \\
   & \hspace{.1in} \later (v',w') \in \relV{\tau'}_{\rho[\alpha\mapsto(\rho(\tau),r)]} \\
   \relE{\tau}^{c,s}_{\rho,B} &\defeq \lambda(e,w).\;\vdash e:\rho(\tau) \wedge \vdash w:\rho(\tau) \wedge \\
   & \hspace{.1in} (\exists m, B \Downarrow \mathsf{const}\;m \wedge \forall n\;e',\; e\leadsto^n_0 e' \Rightarrow n \leq m) \wedge \\
@@ -573,7 +592,7 @@ This line of thinking needs to be taken further, because arrows can appear anywh
 \begin{figure}
 $$\begin{array}{rrcl}
   \textrm{Widths} & w &::=& \symtt \mid \sympair\;w\;w \mid \syminl\;w \mid \syminr\;w \mid x \mid w(w)_1 \mid \lambda x.(B,w) \\
-  & & & \mid w\;\tau \mid \lambda.(B,w) \mid \symfold w \mid \symunfold\;w \mid \symfst\;w \mid \symsnd\;w \\
+  & & & \mid w\;\tau \mid \lambda.(B,w) \mid \symfold\; w \mid \symunfold\;\;w \mid \symfst\;w \mid \symsnd\;w \\
   & & & \mid (\symmatch\;w \symwith\syminl\;x\Rightarrow w\;|\;\syminr\;x\Rightarrow w) \\
   & B &::=& \mathsf{const}\;n \mid w(w)_2 \mid B\;+\;B \mid B\;*\;B \mid \symmax\;B\;B \\
 \end{array}$$
@@ -672,7 +691,7 @@ $$
 \end{array}
 $$
 
-The intuition of the usefulness of this lemma is that when considering a term $E[e]$ (terms such as $e_1\;e_2$, $\symfold e$, $\sympair\;e_1\;e_2$, etc. can all be decomposed into this form), we only need to consider the case where $e$ is a value. So, for example, proving $e_1\;e_2\in\relE{\tau}$ can be reduced to proving $v_1\;v_2\in\relV{\tau}$ where we can appeal to the definition of $\relV{\tau}$.
+The intuition of the usefulness of this lemma is that when considering a term $E[e]$ (terms such as $e_1\;e_2$, $\symfold\; e$, $\sympair\;e_1\;e_2$, etc. can all be decomposed into this form), we only need to consider the case where $e$ is a value. So, for example, proving $e_1\;e_2\in\relE{\tau}$ can be reduced to proving $v_1\;v_2\in\relV{\tau}$ where we can appeal to the definition of $\relV{\tau}$.
 
 (ToDo: list other key lemmas for the proof)
 
@@ -791,11 +810,11 @@ We also tried the Parametric Higher-Order Abstract Syntax (PHOAS) encoding but f
 
 \inferrule*
 {\;}
-{\symunfold\;(\symfold\tau\;v) \leadsto v}
+{\symunfold\;\;(\symfold\;\tau\;v) \leadsto v}
 
 \inferrule*
 {\;}
-{\symunhide(\symhide v) \leadsto v}
+{\symunhide\;(\symhide\; v) \leadsto v}
 
 \end{mathpar}
 \caption{\label{eval}Call-by-value Evaluation Rules}
