@@ -410,7 +410,7 @@ Figure \ref{typing} gives representative typing rules. Typing judgments have the
 {\Gamma\typing{e_1\;e_2}{\tau_2}{c_1+c_2+c[s_2/x]}{s[s_2/x]}} 
 
 \inferrule* [Right=Abs] 
-{\Gamma\vdash\tau_1 : * \\ \Gamma, x:\tau_1\typing{e}{\tau_2}{c}{s} }
+{\Gamma, x:\tau_1\typing{e}{\tau_2}{c}{s} }
 {\Gamma\typing{\lambda x : \tau_1.\;e}{\arrow{\intro{x}{\tau_1}}{c}{s}{\tau_2}}{0}{0}} 
 
 \\
@@ -896,54 +896,6 @@ $$\begin{array}{rrcl}
 
 \end{mathpar}
 \caption{\label{eval}Call-by-value evaluation rules}
-\end{figure}
-
-\begin{figure}
-\fbox{$\Gamma\vdash \tau:k$}
-\begin{mathpar}
-
-\inferrule*
-{\alpha\in\Gamma}
-{\Gamma\kinding{\alpha}{*}}
-
-\inferrule*
-{\Gamma\kinding{\tau_1}{*\to k} \\ \Gamma\kinding{\tau_2}{*}}
-{\Gamma\kinding{\tau_1\;\tau_2}{k}}
-
-\inferrule*
-{\Gamma,\alpha\kinding{\tau}{k}}
-{\Gamma\kinding{\Lambda \alpha.\tau}{*\to k}}
-
-\inferrule*
-{\Gamma\kinding{\tau_1}{*} \\ \Gamma,x:(\tau_1,\bot)\kinding{\tau_2}{*}}
-{\Gamma\kinding{\arrow{(x:\tau_1)}{c}{s}{\tau_2}}{*}}
-
-\inferrule*
-{\Gamma,\alpha\kinding{\tau}{*}}
-{\Gamma\kinding{\forall \alpha.\tau}{*}}
-
-\inferrule*
-{\Gamma,\alpha\kinding{\tau}{*}}
-{\Gamma\kinding{\mu \alpha.\tau}{*}}
-
-\inferrule*
-{\Gamma\kinding{\tau}{*}}
-{\Gamma\kinding{\thide{\tau}}{*}}
-
-\inferrule*
-{\;}
-{\Gamma\kinding{\symunit}{*}}
-
-\inferrule*
-{\Gamma\kinding{\tau_1}{*} \\ \Gamma\kinding{\tau_2}{*}}
-{\Gamma\kinding{\tau_1\times\tau_2}{*}}
-
-\inferrule*
-{\Gamma\kinding{\tau_1}{*} \\ \Gamma\kinding{\tau_2}{*}}
-{\Gamma\kinding{\tau_1+\tau_2}{*}}
-
-\end{mathpar}
-\caption{\label{kinding}Kinding Rules}
 \end{figure}
 
 \begin{figure}
