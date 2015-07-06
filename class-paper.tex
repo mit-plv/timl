@@ -113,6 +113,7 @@
 \newcommand{\symCShide}{\mathsf{CShide}}
 \newcommand{\symapp}{\mathsf{app}}
 \newcommand{\symclp}{\mathsf{clp}}
+\newcommand{\symnormal}{\mathsf{normal}}
 
 %% \newcommand{\intro}[2]{#2^#1}
 \newcommand{\intro}[2]{(#1 : #2)}
@@ -255,7 +256,7 @@ Section \ref{section-example} will give an illustrating example, the merge-sort,
 
 \section{\label{section-example}Merge-Sort Example and Main Theorem}
 
-The merge-sort code and the types of relevant functions are shown in Figure \ref{msort}. Function $\symmsort$ is generic for the element type of the input list and generic for the comparison function (but not its complexity). The type of $\symmsort$ requires that the comparison function $cmp$ should compare a pair of elements within 1 unit time (the meaning of ``1 unit'' will be explained later), and guarantees that $\symmsort$ will finish within $|s|*\log(|s|)$ units of time. As seen from the example, complexities are annotated on the arrows in the type, where above the arrow is the time complexity bound of the function, and below the arrow is the size bound of the this function's result value. In order to refer to the input size, each type on the left side of an arrow will introduce a \emph{size variable}, whose scope consists of the complexity expressions above and below the arrow, and the type on the right side of the arrow. Together with currying, the complexity expressions can refer to multiple arguments' sizes for n-arity functions, as shown in the type of the $\symmerge$ function. This notation may give a dependent-typed flavor, but the type system is not fully dependent-typed because return types can only depend on the sizes of arguments, not their values, and size variables will only be used on the arrows.
+As an example program of $\logo$, consider the merge-sort code and the types of relevant functions shown in Figure \ref{msort}. Function $\symmsort$ is generic for the element type of the input list and generic for the comparison function (but not its complexity). The type of $\symmsort$ requires that the comparison function $cmp$ should compare a pair of elements within 1 unit time (the meaning of ``1 unit'' will be explained later), and guarantees that $\symmsort$ will finish within $|s|*\log(|s|)$ units of time. As seen from the example, complexities are annotated on the arrows in the type, where above the arrow is the time complexity bound of the function, and below the arrow is the size bound of the this function's result value. In order to refer to the input size, each type on the left side of an arrow will introduce a \emph{size variable}, whose scope consists of the complexity expressions above and below the arrow, and the type on the right side of the arrow. Together with currying, the complexity expressions can refer to multiple arguments' sizes for n-arity functions, as shown in the type of the $\symmerge$ function. This notation may give a dependent-typed flavor, but the type system is not fully dependent-typed because return types can only depend on the sizes of arguments, not their values, and size variables will only be used on the arrows.
 
 \begin{figure}
 \begin{align*}
@@ -328,11 +329,17 @@ The syntax of $\logo$ is given in Figure \ref{syntax}. The call-by-value evaluat
 
 \begin{figure}
 $$\begin{array}{rrcl}
-  \multicolumn{4}{l}{\textrm{Size Subpart Idx}} \\
-  & i &::=& \symf \textrm{(fst)} \mid \syms \textrm{(snd)} \mid \syml \textrm{(left)} \mid \symr \textrm{(right)} \mid \symuf \textrm{(unfold)} \\
-  & & & \mid \symuh \textrm{(unhide)} \\
-  \multicolumn{4}{l}{\textrm{Complexity Expr}} \\
-  & c &::=& x.\vec{i}.\symwork \textrm{(work)} \mid x.\vec{i}.\symspan \textrm{(span)} \mid 0 \mid 1 \mid c+c \mid \cdots \\
+  \multicolumn{4}{l}{\textrm{Unnormalized Types}} \\
+  & \pi &::=& \symunit \mid \pi\times\pi \mid \pi+\pi \mid \alpha \mid \arrow{\intro{x}{\pi}}{c}{s}{\pi} \\
+  & & & \mid \forall^c_s \alpha.\pi \mid \mu \alpha.\pi \mid \thide\pi \mid \Lambda \alpha.\pi \mid \pi\;\pi \\
+  \multicolumn{4}{l}{\textrm{(Normalized) Types}} \\
+  & \tau &::=& \symunit \mid \tau\times\tau \mid \tau+\tau \mid \alpha \mid \arrow{\intro{x}{\tau}}{c}{s}{\tau} \\
+  & & & \mid \forall^c_s \alpha.\tau \mid \mu \alpha.\tau \mid \thide\tau \\
+  \multicolumn{4}{l}{\textrm{Expressions}} \\
+  & e &::=& \symtt \mid \sympair\;e\;e \mid \syminl_\pi\;e \mid \syminr_\pi\;e \mid x \mid e\;e \mid \lambda x:\pi.\;e \\
+  & & & \mid \symlet x := e \symin e \mid e\;\pi \mid \lambda \alpha.e \mid \symfold_\pi\;e \\
+  & & & \mid \symunfold\;\;e \mid \symhide\;\;e \mid \symunhide\;\;e \mid \symfst\;e \mid \symsnd\;e \\
+  & & & \mid (\symmatch\;e \symreturn \pi \symand s \symwith \syminl\;x\Rightarrow e\;|\;\syminr\;x\Rightarrow e) \\
   \multicolumn{4}{l}{\textrm{Concrete Sizes}} \\
   & \xi &::=& \symCStt \mid \symCSpair\;\xi\;\xi \mid \symCSinl\;\xi \mid \symCSinl\;\xi \\
   & & & \mid \symCSfold\;\xi \mid \symCShide\;\xi \\
@@ -340,30 +347,24 @@ $$\begin{array}{rrcl}
   & s &::=& \Sstats{c_\symwork,c_\symspan} \mid x.\vec{i} \mid \symSpair\;s\;s \\
   & & & \mid \symSlr\;s\;s \mid \symSfold\;s \mid \symShide\;s \\
   & & & \mid \symSpair\;s\;s \mid \symSfold\;s \mid \symShide\;s \\
-  \multicolumn{4}{l}{\textrm{Types}} \\
-  & \tau^0 &::=& \symunit \mid \tau^0\times\tau^0 \mid \tau^0+\tau^0 \mid \alpha \mid \arrow{\intro{x}{\tau^0}}{c}{s}{\tau^0} \\
-  & & & \mid \forall^c_s \alpha.\tau^0 \mid \mu \alpha.\tau^0 \mid \thide\tau^0 \\
-  & \tau^k &::=& \tau^{k+1}\;\tau^0 \\
-  & \tau^{k+1} &::=& \Lambda \alpha.\tau^k \\
-  \multicolumn{4}{l}{\textrm{Expressions}} \\
-  & e &::=& \symtt \mid \sympair\;e\;e \mid \syminl_\tau\;e \mid \syminr_\tau\;e \mid x \mid e\;e \mid \lambda x:\tau.\;e \\
-  & & & \mid \symlet x := e \symin e \mid e\;\tau \mid \lambda \alpha.e \mid \symfold\;\tau\;e \\
-  & & & \mid \symunfold\;\;e \mid \symhide\;\;e \mid \symunhide\;\;e \mid \symfst\;e \mid \symsnd\;e \\
-  & & & \mid (\symmatch\;e \symreturn \tau \symand s \symwith \\
-  & & & \hspace{.1in} \syminl\;x\Rightarrow e\;|\;\syminr\;x\Rightarrow e)
+  \multicolumn{4}{l}{\textrm{Size Subpart Idx}} \\
+  & i &::=& \symf \textrm{(fst)} \mid \syms \textrm{(snd)} \mid \syml \textrm{(left)} \mid \symr \textrm{(right)} \mid \symuf \textrm{(unfold)} \\
+  & & & \mid \symuh \textrm{(unhide)} \\
+  \multicolumn{4}{l}{\textrm{Complexity Expr}} \\
+  & c &::=& x.\vec{i}.\symwork \textrm{(work)} \mid x.\vec{i}.\symspan \textrm{(span)} \mid 0 \mid 1 \mid c+c \mid \cdots \\
 \end{array}$$
 \caption{\label{syntax}Syntax}
 \end{figure}
 
-Excluding the complexity and size part, and the ``hide'' type $\thide{\tau}$, all the syntax. We put type annotations in lambda, $\syminl$, $\syminr$ and fold to make type unique (modulo complexity annotations), and elide them when irrelevant. We also borrow the return clause of pattern-matching from Coq to guide the type checker to find the common type and size of all branches. 
+In order to support generic algebraic data types, $\logo$ has type-level operations, enabled by type-level abstraction $\Lambda\alpha.\pi$ and type-level application $\pi\;\pi$. We employ a 2-stage system to support type-level operations. Types that can contain $\Lambda\alpha.\pi$ and $\pi\;\pi$ are called ``unnormalized types'' (denoted by $\pi$). They have a simple kinding system, shown in Figure \ref{kinding} (in Appendix). Because of the normalizability of simply typed lambda calculus and the fact that we are using iso-recursive types (rather than equi-recursive types), all well-kinded types can be normalized to ``normalized types'' (denoted by $\tau$), where there is no $\Lambda\alpha.\tau$ or $\tau\;\tau$. We assume that all the types appearing in a programs will be kind-checked and normalized before typing checking. So from now on we ignore unnormalized types and assume that all types are normalized.
 
-Each type has a built-in kind in their syntactic class (formalized by dependent-type in Coq), shown as superscripts in Figure \ref{syntax}. We have a very simple kinding system where kinds can only be $*$, $*\to *$, $*\to (*\to *)$, etc., so kinds are represented as natural numbers. The reason to build-in kinds into types (instead of having a separate set of kinding rules) is that some operations on types are defined by recursion on kind. When kind is 0 it is elided.
+Most of the syntax are standard, except the complexities, sizes and the ``hide'' type $\thide{\tau}$. We put type annotations in lambda, $\syminl$, $\syminr$ and fold to make type unique (modulo complexity annotations), and elide them when irrelevant. We also borrow the return clause of pattern-matching from Coq to guide the type checker to find the common type and size of all branches. 
 
 Now let us turn to the complexity and size part. Firstly, complexity and size annotations appear only on arrows and in $\forall$ binders (they are the same in a dependent type system). Each arrow type $\arrow{\intro{x}{\tau_1}}{c}{s}{\tau_2}$ introduces a size variable standing for the input size, which can be referred to in $c$, $s$ and $\tau_2$ (but not $\tau_1$). The $\forall$ binder does not introduce new size variables. The reason for $\forall$ to also have complexity annotation is that, just like $\lambda x.e$, $\lambda \alpha.e$ is a ``delayed'' computation, meaning that it is itself a value but when been applied, its inner part may take some steps to reach another value. But in most cases, the $c$ and $s$ in $\forall^c_s$ are just 0. When $c$ or $s$ is 0, we elide it in this paper.
 
-We first explain the definition of sizes. There are two notions of ``size'' in this paper: ``concrete size'' and ``size spec''. A ``concrete size'' is the shape ``skeleton'' of a value; a ``size spec'' is a syntactic construct and a closed size spec can be interpretted into a set of concrete sizes (the interpretation is defined in Figure \ref{interpret-cexpr-size}). The size annotations underneath the arrow are size specs. Concrete sizes only appear in the type soundness theorem and proof. We use ``size'' for either of them when context makes it clear.
+We first explain the definition of sizes. There are two notions of ``size'' in this paper: ``concrete size'' and ``size spec''. A ``concrete size'' is the shape ``skeleton'' of a value; a ``size spec'' is a syntactic construct and a closed size spec can be interpretted into a set of concrete sizes (the interpretation is defined in Figure \ref{cexpr-size-aux}). Concrete sizes only appear in the type soundness theorem and proof, so it is not a part of program syntax (we list it here only to make a closer comparison with size specs). The size annotations underneath the arrow are size specs. We use ``size'' for either of them when context makes it clear.
 
-The concrete size of a value is a tree-like structure, closely mirroring the structure of a value. Comparing ``Concrete Sizes'' and ``Values'' in Figure \ref{syntax} shows that they are almost isomorphic except that concrete sizes do not have variables (because they will only be used for closed values) and $\lambda$-abstractions. There is a function $\getcsize$ defined in Figure \ref{lrel-aux} for getting the concrete size of a value, which is straight-forward.
+The concrete size of a value is a tree-like structure, closely mirroring the structure of a value. Comparing ``Concrete Sizes'' and ``Values'' in Figure \ref{syntax} shows that they are almost isomorphic except that concrete sizes do not have variables (because they will only be used for closed values) and $\lambda$-abstractions. There is a function $\getcsize$ defined in Figure \ref{cexpr-size-aux} for getting the concrete size of a value, which is straight-forward.
 
 Size specs are predicates on concrete types. In principle they can be as simple as numbers, specifying the maximal number of nodes in the concrete types. In our design of size specs, we want to make them expressive enough to (1) constrain some measure of the concrete size (such as the number of nodes as above); (2) constrain the shape of the concrete size (such as ``the concrete size must be a pair whose first and second part satisfy these two constraints respectively''); (3) be able to mention size variables in scope.
 
@@ -476,7 +477,7 @@ Figure \ref{typing} gives representative typing rules. Typing judgments have the
 \caption{\label{typing}Typing rules}
 \end{figure}
 
-The most essential rules are {\sc App} and {\sc Abs}, which give the meaning of the annotations on the arrow. Rule {\sc App} postulates that the time to evaluate $e_1\;e_2$ is the time to evaluate $e_1$ (i.e. $c_1$) plus that for $e_2$ (i.e. $c_2$), plus the time to evaluate the function body (i.e. $c[s_2/x]$). The final size is given by $s[s_2/x]$. Rule $Abs$ introduces arrows and its annotations. Since $\lambda$-abstract is already a value, and its size is 0 (see definition of $\getcsize$ in Figure \ref{lrec-aux}), we have $\turnstile{s}{s}{0}{0}{n}$.
+The most essential rules are {\sc App} and {\sc Abs}, which give the meaning of the annotations on the arrow. Rule {\sc App} postulates that the time to evaluate $e_1\;e_2$ is the time to evaluate $e_1$ (i.e. $c_1$) plus that for $e_2$ (i.e. $c_2$), plus the time to evaluate the function body (i.e. $c[s_2/x]$). The final size is given by $s[s_2/x]$. Rule $Abs$ introduces arrows and its annotations. Since $\lambda$-abstract is already a value, and its size is 0 (see definition of $\getcsize$ in Figure \ref{cexpr-size-aux}), we have $\turnstile{s}{s}{0}{0}{n}$.
 
 Rule {\sc Tapp} and {\sc Tabs} are similar to {\sc App} and {\sc Abs} respectively, since $\forall$ is just another kind of ``arrow''. Rule {\sc Unfold} is the only place where time complexity is actually increased, corresponding to a unfold-fold reduction. The partial functions $\mathsf{IsFold}$, $\mathsf{IsHide}$, $\mathsf{IsPair}$ and $\mathsf{IsSum}$ check that the size has the right structure, and destruct it into subparts. As an example, $\mathsf{IsPair}$ is defined as
 
@@ -491,6 +492,16 @@ $$
 As this example shows, $\mathsf{IsPair}(s)=(s_1,s_2)$ is almost the same as the equition $s = \symSpair\;s_1\;s_2$. The purpose for $\mathsf{IsPair}$ is that when $s$ is a variable (with subpart query path), $\mathsf{IsPair}$ knows that the destruction of it is two new variables with the proper subpart query indices appended.
 
 Rule {\sc LE} relaxes and time and size bounds. The definitions of $c\leq c'$ and $s\leq s'$, given in Figure \ref{cle} and Figure \ref{sle} respectively, satisfy the axioms listed in Figure \ref{axioms}. They are one example among many legitimate choices. (ToDo: talk about exp, log and other real-number expressions).
+
+\begin{figure}
+(ToDo: fill in)
+\caption{\label{axioms}Axioms about complexity and size}
+\end{figure}
+
+\begin{figure}
+(ToDo: fill in)
+\caption{\label{cexpr-size-aux}Auxiliary definitions for complexity and size}
+\end{figure}
 
 \begin{figure}
 \fbox{$c_1\leq c_2$}
@@ -523,17 +534,17 @@ Here we employ another solution: instead of defining the logical relation in a c
 
 \begin{figure}
   $$\begin{array}{rrcl}
-    & R &::=& r \mid x \mid \lceil P \rceil \mid R_0 \wedge R_0 \mid R_0 \vee R_0 \mid R_0 \Rightarrow R_0 \mid \forall x,R_0 \\ 
-    & & & \mid \exists x,R_0 \mid \forall r,R_0 \mid \exists r,R_0 \mid \lambda x:D.R_n \mid x\in R_{n+1} \\
-    & & & \mid \mu r. R_n \mid \later R_0
+    & R^m &::=& r \mid x \mid \lceil P \rceil \mid R^0 \wedge R^0 \mid R^0 \vee R^0 \mid R^0 \Rightarrow R^0 \mid \forall x,R^0 \\ 
+    & & & \mid \exists x,R^0 \mid \forall r^0,R^0 \mid \exists r^0,R^0 \mid \lambda x:D.R^n \mid x\in R^{n+1} \\
+    & & & \mid \mu r^n. R^n \mid \later R^0
   \end{array}$$
   \caption{\label{lslr}Logical Step-indexed Logical Relation}
 \end{figure}
 
-The syntax of LSLR is summarized in Figure \ref{lslr}. It is a second-order logic, so we distinguish between first-order variable $x$ (which can range over any domain other than $R$) and second-order variable $r$ (which impredicatively ranges over $R$). The universal and existential quantifiers on first-order and second-order variables are different, but we use the $\forall$ and $\exists$ notations for both of them when context can tell which is intended. $\lceil P \rceil$ lifts any proposition $P$ in the ambient meta-logic (CiC of Coq in our case) to LSLR. Each LSLR formula $R$ is also associated with an arity, shown as subscripts. For example, $R$ must have arity 0 in $R \wedge R$ and $\later R$, and $\lambda x.R$ and $x\in R$ increases and decreases the arity respectively. $D$ is a parameter of LSLR which determines how LSLR formulas are interpreted. For example, if $D$ is chosen to be expressions, then LSLR formulas with arity 1 are interpreted as sets of expressions. 
+The syntax of LSLR is summarized in Figure \ref{lslr}. It is a second-order logic, so we distinguish between first-order variable $x$ (which can range over any domain other than $R$) and second-order variable $r$ (which impredicatively ranges over $R$). The universal and existential quantifiers on first-order and second-order variables are different, but we use the $\forall$ and $\exists$ notations for both of them when context can tell which is intended. $\lceil P \rceil$ lifts any proposition $P$ in the ambient meta-logic (CiC of Coq in our case) to LSLR. Each LSLR formula $R$ is also associated with an arity, shown as superscripts. For example, $R$ must have arity 0 in $R \wedge R$ and $\later R$, and $\lambda x.R$ and $x\in R$ increases and decreases the arity respectively. $D$ is a parameter of LSLR which determines how LSLR formulas are interpreted. For example, if $D$ is chosen to be expressions, then LSLR formulas with arity 1 are interpreted as sets of expressions. 
 
 A LSLR validity judgment takes the form
-$$\mathcal{X};\mathcal{R};\mathcal{P}\vdash R_0$$
+$$\mathcal{X};\mathcal{R};\mathcal{P}\vdash R^0$$
 where $\mathcal{X}$ is the context (a list) of first-order variables, $\mathcal{R}$ is the context of second-order variables, and $\mathcal{P}$ is a list of LSLR propositions (arity 0) well-formed in context, serving as premises. $R$ must be a well-formed LSLR proposition of arity 0. Readers are referred to \cite{dreyer2009logical} for the rules for establishing validity.
 
 \subsection {Width}
@@ -608,22 +619,34 @@ One design goal is that when $\tau_1$ does not contain arrows, Theorem \ref{thm-
 {\Gamma\vdash \lambda x.(B,w) : \tau_1\to\tau_2} 
 
 \inferrule* [Right=WPair]
-{\Gamma\vdash w_1 : \tau_1 \\ \Gamma\vdash w_2 : \tau_2 \\ \symclp(\tau_1\times\tau_2)\not\equal\symunit}
+{\Gamma\vdash w_1 : \tau_1 \\ \Gamma\vdash w_2 : \tau_2 \\ \symclp(\tau_1\times\tau_2)\equal\symfalse}
 {\Gamma\vdash (w_1,w_2) : \tau_1\times\tau_2} 
 
 \inferrule* [Right=WPair']
-{\symclp(\tau_1\times\tau_2)\equal\symunit}
+{\symclp(\tau_1\times\tau_2)\equal\symtrue}
 {\Gamma\vdash \symtt : \tau_1\times\tau_2} 
+
+%% \inferrule* [Right=WFold]
+%% {\Gamma\vdash w : \tau[\mu\alpha.\tau/\alpha] \\ \symclp(\tau_1\times\tau_2)\equal\symfalse}
+%% {\Gamma\vdash \symfold\;w : \mu\alpha.\tau} 
 
 \end{mathpar}
 }
-\caption{\label{wtyping}Typing rules for widths}
+\caption{\label{wtyping}Typing rules for widths (seleted)}
 \end{figure}
 
-The most interesting rules in Figure \ref{wtyping} are {\sc WPair} and {\sc WPair'}. They split the typing for product type into two cases, depending on the result of $\symclp$. $\symclp$ stands for ``collapse'', whose definition is given in Figure \ref{width-aux}. It collapses the part of a type that does not contain arrows into $\symunit$. Since types can have applications of type-level operators, $\symclp$ must evaluate a type into a normal form firstly. This evaluation is terminating and is defined by recursion on type and its kind. This is one of the reasons why we put kinds in the syntactic class of type.
+The most interesting rules in Figure \ref{wtyping} are {\sc WPair} and {\sc WPair'} (sum and recursive types have similar two-case rules). They split the typing for product type into two cases, depending on the test result of $\symclp$. This $\symclp$ test, meaning ``collapses'', is true if the type contains no arrow (and hence can ``collapse'' into $\symunit$). Its definition is given in Figure \ref{width-aux}. 
 
 \begin{figure}
-\caption{\label{width-aux}Auxiliary Definitions for widths}
+$$\begin{array}{rcl}
+\symclp(\tau_1\times\tau_2) &=& \symclp(\tau_1)\wedge\symclp(\tau_2) \\
+\symclp(\tau_1+\tau_2) &=& \symclp(\tau_1)\wedge\symclp(\tau_2) \\
+\symclp(\mu\alpha.\tau) &=& \symclp(\tau[\symunit/\alpha]) \\
+\symclp(\{\tau\}) &=& \symclp(\tau) \\
+\symclp(\symunit) &=& \symtrue \\
+\symclp(\tau) &=& \symfalse \\
+\end{array}$$
+\caption{\label{width-aux}Auxiliary definitions for widths}
 \end{figure}
 
 \subsection {\label{subsection-proof}Logical Relation for $\logo$}
@@ -839,10 +862,10 @@ We also tried the Parametric Higher-Order Abstract Syntax (PHOAS) encoding but f
 
 \begin{figure}
 $$\begin{array}{rrcl}
-  \textrm{Values} & v &::=& x \mid \lambda x:\tau.e \mid \lambda \alpha.e \mid \symfold\;\tau\;v \mid \symtt \mid (v,v) \\
-  & & & \mid \syminl\;v \mid \syminr\;v \mid \symhide\; v \\
+  \textrm{Values} & v &::=& x \mid \lambda x:\tau.e \mid \lambda \alpha.e \mid \symfold_\tau\;v \mid \symtt \mid (v,v) \\
+  & & & \mid \syminl_\tau\;v \mid \syminr_\tau\;v \mid \symhide\; v \\
   \textrm{CBV Eval Ctx} & E &::=& \Box \mid E\;e \mid v\;E \mid \symlet x := E\symin e \mid E\;\tau \\
-  & & & \mid \symfold\;\tau\;E \mid \symunfold\;\tau\;E \mid \symhide\;\;E \mid \symunhide\;\;E \\
+  & & & \mid \symfold_\tau\;E \mid \symunfold\;E \mid \symhide\;\;E \mid \symunhide\;\;E \\
   & & & \mid (E, e) \mid (v, E) \mid \syminl_\tau\;E \mid \syminr_\tau\;E \mid \symfst\;E \mid \symsnd\;E \\
   & & & \mid (\symmatch\;E\symreturn \tau \symand s \symwith \\
   & & & \hspace{.1in} \syminl\;x\Rightarrow e\;|\;\syminr\;x\Rightarrow e)
@@ -888,7 +911,7 @@ $$\begin{array}{rrcl}
 
 \inferrule*
 {\;}
-{\symunfold\;\;(\symfold\;\tau\;v) \leadsto v}
+{\symunfold\;\;(\symfold_\tau\;v) \leadsto v}
 
 \inferrule*
 {\;}
@@ -899,43 +922,52 @@ $$\begin{array}{rrcl}
 \end{figure}
 
 \begin{figure}
-\fbox{$\teq{\tau_1}{\tau_2$}}
+\fbox{$\Gamma\vdash \pi:k$}
+\quad$k ::= * \mid *\to k$
 \begin{mathpar}
 
 \inferrule*
+{\alpha\in\Gamma}
+{\Gamma\kinding{\alpha}{*}}
+
+\inferrule*
+{\Gamma\kinding{\pi_1}{*\to k} \\ \Gamma\kinding{\pi_2}{*}}
+{\Gamma\kinding{\pi_1\;\pi_2}{k}}
+
+\inferrule*
+{\Gamma,\alpha\kinding{\pi}{k}}
+{\Gamma\kinding{\Lambda \alpha.\pi}{*\to k}}
+
+\inferrule*
+{\Gamma\kinding{\pi_1}{*} \\ \Gamma,x:(\pi_1,\bot)\kinding{\pi_2}{*}}
+{\Gamma\kinding{\arrow{(x:\pi_1)}{c}{s}{\pi_2}}{*}}
+
+\inferrule*
+{\Gamma,\alpha\kinding{\pi}{*}}
+{\Gamma\kinding{\forall \alpha.\pi}{*}}
+
+\inferrule*
+{\Gamma,\alpha\kinding{\pi}{*}}
+{\Gamma\kinding{\mu \alpha.\pi}{*}}
+
+\inferrule*
+{\Gamma\kinding{\pi}{*}}
+{\Gamma\kinding{\thide{\pi}}{*}}
+
+\inferrule*
 {\;}
-{\teq{\tau}{\tau}}
+{\Gamma\kinding{\symunit}{*}}
 
 \inferrule*
-{\teq{\tau_1}{\tau_2} \\ \teq{\tau_2}{\tau_3}}
-{\teq{\tau_1}{\tau_3}}
+{\Gamma\kinding{\pi_1}{*} \\ \Gamma\kinding{\pi_2}{*}}
+{\Gamma\kinding{\pi_1\times\pi_2}{*}}
 
 \inferrule*
-{\teq{\tau_2}{\tau_1}}
-{\teq{\tau_1}{\tau_2}}
-
-\inferrule*
-{\teq{\tau_1}{\tau_2}}
-{\teq{\Lambda \alpha.\tau_1}{\Lambda \alpha.\tau_2}}
-
-\inferrule*
-{\teq{\tau_1}{\tau_1'} \\ \teq{\tau_2}{\tau_2'}}
-{\teq{\tau_1\;\tau_2}{\tau_1'\;\tau_2'}}
-
-\inferrule*
-{\;}
-{\teq{(\Lambda \alpha.\tau_1)\;\tau_2}{\tau_1[\tau_2/\alpha]}}
-
-\inferrule*
-{\teq{\tau_1}{\tau_1'} \\ \teq{\tau_2}{\tau_2'}}
-{\teq{\arrow{(x:\tau_1)}{c}{s}{\tau_2}}{\arrow{(x:\tau_1')}{c}{s}{\tau_2'}}}
-
-\inferrule*
-{\teq{\tau_1}{\tau_2}}
-{\teq{\mu \alpha.\tau_1}{\mu \alpha.\tau_2}}
+{\Gamma\kinding{\pi_1}{*} \\ \Gamma\kinding{\pi_2}{*}}
+{\Gamma\kinding{\pi_1+\pi_2}{*}}
 
 \end{mathpar}
-\caption{\label{teq}Type Equivalence Rules}
+\caption{\label{kinding}Kinding Rules}
 \end{figure}
 
 %% \acks
