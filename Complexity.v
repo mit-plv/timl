@@ -168,7 +168,7 @@ Section ctx.
       | Spair a b => 
         let (a_w, a_s) := summarize a in
         let (b_w, b_s) := summarize b in
-        (a_w + b_w, max a_s b_s)
+        (Fadd a_w b_w, max a_s b_s)
       | Sinlinr a b => 
         max (summarize a) (summarize b)
       | Sfold s =>
