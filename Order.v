@@ -2,7 +2,7 @@ Set Maximal Implicit Insertion.
 Set Implicit Arguments.
 
 Require Import List.
-Require Import Bedrock.Platform.Cito.GeneralTactics.
+Require Import GeneralTactics.
 Require Import NonnegRational.
 Require Import Util.
 Require Import Complexity.

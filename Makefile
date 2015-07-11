@@ -2,22 +2,16 @@ VNAME := -name \*.v ! -name \*.\#\*
 
 ALL := $(shell find . $(VNAME))
 
-EXAMPLES := \
-	examples/MergeSort \
-
-.PHONY: default all examples
+.PHONY: default all
 
 default: all
 
-all: T=$(ALL)
-all: build
+all: soundness
 
-examples: T=$(EXAMPLES)
-examples: build
+soundness: T=TypeSoundness
+soundness: build
 
-BEDROCK_ROOT := ~/bedrock
-COQARGS := -I $(BEDROCK_ROOT)
-COQC    := $(COQBIN)coqc $(COQARGS)
+COQC    := $(COQBIN)coqc
 
 build:
 	$(COQBIN)coq_makefile $(COQARGS) $(addsuffix .v,$(basename $(T))) -o Makefile.coq
@@ -29,12 +23,3 @@ clean:
 	./rmr .v.d
 	./rmr .vo
 	./rmr .glob
-
-paper: class-paper.pdf
-
-class-paper.pdf: class-paper.tex bib.bib lstcoq.sty
-
-clean-paper:
-	@ rm -f *.aux *.out *.nav *.toc *.vrb *.pdf *.snm *.log *.bbl *.blg
-
-include Makefile.common

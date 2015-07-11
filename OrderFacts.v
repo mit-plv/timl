@@ -1,6 +1,6 @@
 Require Import List.
-Require Import Bedrock.Platform.Cito.GeneralTactics.
-Require Import Bedrock.Platform.Cito.GeneralTactics4.
+Require Import GeneralTactics.
+Require Import GeneralTactics4.
 Require Import Order.
 Export Order.
 

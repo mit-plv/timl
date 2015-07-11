@@ -52,9 +52,9 @@ Definition boolProp b := b = true.
 Coercion boolProp : bool >-> Sortclass.
 
 Require Import Bool.
-Require Import Bedrock.Platform.Cito.ListFacts3.
-Require Import Bedrock.Platform.Cito.ListFacts4.
-Require Import Bedrock.Platform.Cito.GeneralTactics4.
+Require Import ListFacts3.
+Require Import ListFacts4.
+Require Import GeneralTactics4.
 
 Definition option_eq_b {A} (eqb : A -> A -> bool) a b :=
   match a, b with

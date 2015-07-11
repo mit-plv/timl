@@ -7,6 +7,7 @@ Require Import List.
 Require Import Omega.
 Require Import Syntax. 
 Require Import Util. 
+Require Import FSetFacts1.
 
 Inductive cmp m n :=
 | LT n' (_ : n = S n') (_ : m < n)
@@ -181,8 +182,8 @@ Definition un_var {t ctx} (x : var t ctx) : unvar x.
   eauto.
 Defined.
 
-Require Import Bedrock.Platform.Cito.GeneralTactics4.
-Require Import Bedrock.Platform.Cito.GeneralTactics3.
+Require Import GeneralTactics4.
+Require Import GeneralTactics3.
 
 Notation "# n" := (Var n _) (at level 3, format "# n").
 
@@ -203,8 +204,6 @@ Proof.
 Qed.
 
 Definition ce_neq_b a b := negb (ce_eq_b a b).
-
-Require Import Bedrock.Platform.Cito.StringSetFacts.
 
 Lemma ce_eq_b_iff_conv a b : ce_eq_b a b = false <-> a <> b.
 Proof.
@@ -381,7 +380,7 @@ Proof.
   omega.
 Qed.
 
-Require Import Bedrock.Platform.Cito.ListFacts4.
+Require Import ListFacts4.
 
 Lemma nth_error_prefix A ls1 : forall ls2 n (a : A), nth_error ls2 n = Some a -> nth_error (ls1 ++ ls2) (length ls1 + n) = Some a.
 Proof.

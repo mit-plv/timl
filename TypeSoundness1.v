@@ -484,7 +484,7 @@ Global Instance MemberOf_Apply `{Apply A B C} : MemberOf B A C :=
     memberOf := flip apply
   }.
 
-Require Import Bedrock.Platform.Cito.ListFacts4.
+Require Import ListFacts4.
 
 Definition uncurry {U V W : Type} (f : U -> V -> W) : U*V -> W :=
   fun p => f (fst p) (snd p).
@@ -842,7 +842,7 @@ Global Instance Apply_rel_rel {m m' : nat} {u ctx} : Apply (rel m' ((m, u) :: ct
 Definition imply (a b : Prop) : Prop := a -> b.
 Infix "--->" := imply (at level 95, right associativity).
 
-Require Import Bedrock.Platform.Cito.GeneralTactics4.
+Require Import GeneralTactics4.
 
 Definition shift_varR {m ctx} new n (xv : varR m ctx) : varR m (insert ctx n new).
   admit.
