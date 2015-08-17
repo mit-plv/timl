@@ -40,7 +40,7 @@ Inductive econtext ctx : Type :=
 | ECinr (_ : type ctx) (_ : econtext ctx) : econtext ctx
 | ECfst (_ : econtext ctx) : econtext ctx
 | ECsnd (_ : econtext ctx) : econtext ctx
-| ECmatch (target : econtext ctx) (a b : expr (CEexpr :: ctx)) : econtext ctx
+| ECmatch (target : econtext ctx) (t : type ctx) (s : size ctx) (a b : expr (CEexpr :: ctx)) : econtext ctx
 .
 
 Arguments ECempty {ctx} .
@@ -61,7 +61,7 @@ Inductive IsEC {ctx} : econtext ctx -> Prop :=
 | IECinr (t : type ctx) (e : econtext ctx) : IsEC e -> IsEC (ECinr t e)
 | IECfst (e : econtext ctx) : IsEC e -> IsEC (ECfst e)
 | IECsnd (e : econtext ctx) : IsEC e -> IsEC (ECsnd e)
-| IECmatch (target : econtext ctx) (a b : expr (CEexpr :: ctx)) : IsEC target -> IsEC (ECmatch target a b)
+| IECmatch (target : econtext ctx) (t : type ctx) (s : size ctx) (a b : expr (CEexpr :: ctx)) : IsEC target -> IsEC (ECmatch target t s a b)
 .
 
 (* Both Fixpoint and Inductive version of plug are useful *)
@@ -81,7 +81,7 @@ Fixpoint plug {ctx} (c : econtext ctx) (e : expr ctx) : expr ctx :=
     | ECinr t c => Einr t (plug c e)
     | ECfst c => Efst (plug c e)
     | ECsnd c => Esnd (plug c e)
-    | ECmatch target a b => Ematch (plug target e) a b
+    | ECmatch target t s a b => Ematch (plug target e) t s a b
   end.
 
 (*
@@ -120,12 +120,12 @@ Inductive step : nat -> expr [] -> nat -> expr [] -> Prop :=
     IsValue v1 ->
     IsValue v2 ->
     step (1 + n) (Esnd (Epair v1 v2)) n v2
-| STmatch_inl n t v k1 k2 : 
+| STmatch_inl n t' v t s k1 k2 : 
     IsValue v ->
-    step (1 + n) (Ematch (Einl t v) k1 k2) n (subst v k1)
-| STmatch_inr n t v k1 k2 : 
+    step (1 + n) (Ematch (Einl t' v) t s k1 k2) n (subst v k1)
+| STmatch_inr n t' v t s k1 k2 : 
     IsValue v ->
-    step (1 + n) (Ematch (Einr t v) k1 k2) n (subst v k2)
+    step (1 + n) (Ematch (Einr t' v) t s k1 k2) n (subst v k2)
 | STtapp n body t : step (1 + n) (Etapp (Etabs body) t) n (subst t body)
 | STunfold_fold n v t1 : 
     IsValue v ->

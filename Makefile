@@ -8,7 +8,8 @@ default: all
 
 all: soundness
 
-soundness: T=TypeSoundness
+# soundness: T=TypeSoundness
+soundness: T=Safety
 soundness: build
 
 COQC    := $(COQBIN)coqc

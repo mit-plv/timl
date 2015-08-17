@@ -219,13 +219,11 @@ Inductive typing {ctx} : tcontext ctx -> expr ctx -> type ctx -> cexpr ctx -> si
     typing T e (t1 * t2) c s ->
     is_pair s = Some (s1, s2) ->
     typing T (Esnd e) t2 (c + F1) s2
-| TPmatch T e e1 e2 t1 t2 c s s1 s2 t c1 c2 s' s1' s2' :
-    typing T e (t1 + t2) c s ->
-    typing (ctx := _) (add_typing t1 T) e1 (shift1 CEexpr t) c1 s1' -> 
-    typing (ctx := _) (add_typing t2 T) e2 (shift1 CEexpr t) c2 s2' -> 
-    is_inlinr s = Some (s1, s2) ->
-    subst s1 s1' <= s' ->
-    subst s2 s2' <= s' ->
-    typing T (Ematch e e1 e2) t (c + F1 + max (subst s1 c1) (subst s2 c2)) s'
+| TPmatch T e e1 e2 t1 t2 c s12 s1 s2 t c1 c2 s :
+    typing T e (t1 + t2) c s12 ->
+    typing (ctx := _) (add_typing t1 T) e1 (shift1 CEexpr t) c1 (shift1 CEexpr s) -> 
+    typing (ctx := _) (add_typing t2 T) e2 (shift1 CEexpr t) c2 (shift1 CEexpr s) -> 
+    is_inlinr s12 = Some (s1, s2) ->
+    typing T (Ematch e t s e1 e2) t (c + F1 + max (subst s1 c1) (subst s2 c2)) s
 .
 

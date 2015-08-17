@@ -47,7 +47,7 @@ Inductive expr ctx : Type :=
 | Einr : type ctx -> expr ctx -> expr ctx
 | Efst : expr ctx -> expr ctx
 | Esnd : expr ctx -> expr ctx
-| Ematch : expr ctx -> expr (CEexpr :: ctx) -> expr (CEexpr :: ctx) -> expr ctx
+| Ematch : expr ctx -> type ctx -> size ctx -> expr (CEexpr :: ctx) -> expr (CEexpr :: ctx) -> expr ctx
 .
 
 Arguments Ett {ctx} .

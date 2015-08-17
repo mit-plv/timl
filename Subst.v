@@ -508,8 +508,8 @@ Fixpoint visit_t {ctx ctx'} qctx (f : ((forall qctx, var CEtype (qctx ++ ctx) ->
 
 Definition visit_type {ctx ctx'} := @visit_t ctx ctx' [].
 
-Fixpoint visit_e {ctx ctx'} qctx (f : ((forall qctx, var CEexpr (qctx ++ ctx) -> var CEexpr (qctx ++ ctx')) + (forall qctx, var CEexpr (qctx ++ ctx) -> expr (qctx ++ ctx'))) * (forall qctx, type (qctx ++ ctx) -> type (qctx ++ ctx'))) (b : expr (qctx ++ ctx)) : expr (qctx ++ ctx') :=
-  let (fv, ft) := f in
+Fixpoint visit_e {ctx ctx'} qctx (f : ((forall qctx, var CEexpr (qctx ++ ctx) -> var CEexpr (qctx ++ ctx')) + (forall qctx, var CEexpr (qctx ++ ctx) -> expr (qctx ++ ctx'))) * (forall qctx, type (qctx ++ ctx) -> type (qctx ++ ctx')) * (forall qctx, size (qctx ++ ctx) -> size (qctx ++ ctx'))) (b : expr (qctx ++ ctx)) : expr (qctx ++ ctx') :=
+  let '(fv, ft, fs) := f in
   match b with
     | Evar n' => 
       match fv with
@@ -530,7 +530,7 @@ Fixpoint visit_e {ctx ctx'} qctx (f : ((forall qctx, var CEexpr (qctx ++ ctx) ->
     | Einr t e => Einr (ft _ t) (visit_e _ f e)
     | Efst e => Efst (visit_e _ f e)
     | Esnd e => Esnd (visit_e _ f e)
-    | Ematch target a b => Ematch (visit_e _ f target) (visit_e (CEexpr :: _) f a) (visit_e (CEexpr :: _) f b)
+    | Ematch target t s a b => Ematch (visit_e _ f target) (ft _ t) (fs _ s) (visit_e (CEexpr :: _) f a) (visit_e (CEexpr :: _) f b)
   end.
 
 Definition visit_expr {ctx ctx'} := @visit_e ctx ctx' [].
@@ -757,6 +757,7 @@ Definition shift_e {ctx} new n e :=
   visit_expr
     (ctx := ctx) 
     (inl (shift_cast new n),
+     shift_cast new n,
      shift_cast new n)
     e.
 
@@ -953,6 +954,7 @@ Instance Subst_expr_Subst_value `{Subst t size B} : Subst t expr B :=
 Definition subst_e_e {ctx} x v b := 
   visit_expr 
     (inr (subst_v_cast (@Evar) ctx x v), 
+     subst_cast x v,
      subst_cast x v) 
     b.
 
@@ -965,6 +967,7 @@ Definition subst_t_e {ctx} x v b :=
   visit_expr
     (ctx := ctx) 
     (inl (subst_cast x v),
+     subst_cast x v,
      subst_cast x v)
     b.
 
