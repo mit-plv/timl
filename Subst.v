@@ -303,8 +303,6 @@ Program Fixpoint morph_type {from} (src : type from) {to} (H : from = to) : type
     | Tvar x => Tvar (morph x H)
     | Tarrow a c s b => Tarrow (morph_type a H) (morph c _) (morph s _) (morph_type b _)
     | Tuniversal c s t => Tuniversal (morph c H) (morph s H) (morph_type t _)
-    | Tabs t => Tabs (morph_type t _)
-    | Tapp a b => Tapp (morph_type a H) (morph_type b H)
     | Trecur t => Trecur (morph_type t _)
     | Thide t => Thide (morph_type t H)
     | Tunit => Tunit
@@ -500,8 +498,6 @@ Fixpoint visit_t {ctx ctx'} qctx (f : ((forall qctx, var CEtype (qctx ++ ctx) ->
       end
     | Tarrow a time retsize b => Tarrow (visit_t _ f a) (ff (CEexpr :: _) time) (fs (CEexpr :: _) retsize) (visit_t (CEexpr :: _) f b)
     | Tuniversal time retsize t => Tuniversal (ff _ time) (fs _ retsize) (visit_t (CEtype :: _) f t) 
-    | Tabs t => Tabs (visit_t (CEtype :: _) f t) 
-    | Tapp a b => Tapp (visit_t _ f a) (visit_t _ f b)
     | Trecur t => Trecur (visit_t (CEtype :: _) f t) 
     | Thide t => Thide (visit_t _ f t)
     | Tunit => Tunit
@@ -522,7 +518,6 @@ Fixpoint visit_e {ctx ctx'} qctx (f : ((forall qctx, var CEexpr (qctx ++ ctx) ->
       end
     | Eapp a b => Eapp (visit_e _ f a) (visit_e _ f b)
     | Eabs t e => Eabs (ft _ t) (visit_e (CEexpr :: _) f e)
-    | Elet def main => Elet (visit_e _ f def) (visit_e (CEexpr :: _) f main)
     | Etapp e t => Etapp (visit_e _ f e) (ft _ t)
     | Etabs e => Etabs (visit_e (CEtype :: _) f e)
     | Efold t e => Efold (ft _ t) (visit_e _ f e)

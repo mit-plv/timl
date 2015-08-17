@@ -66,87 +66,12 @@ Fixpoint add_typings {ctx} ls T :=
 Unset Maximal Implicit Insertion.
 Unset Implicit Arguments.
 
-Inductive kinding {ctx} : tcontext ctx -> type ctx -> kind -> Prop :=
-| Kvar T x : kinding T x 0
-| Kapp T t1 t2 k :
-    kinding T t1 (S k) ->
-    kinding T t2 0 ->
-    kinding T (Tapp t1 t2) k
-| Kabs T t k :
-    kinding (ctx := _) (add_kinding T) t k ->
-    kinding T (Tabs t) (S k)
-| Karrow T t1 c s t2 :
-    kinding T t1 0 ->
-    kinding (ctx := _) (add_typing t1 T) t2 0 ->
-    kinding T (Tarrow t1 c s t2) 0
-| Kuniversal T c s t :
-    kinding (ctx := _) (add_kinding T) t 0 ->
-    kinding T (Tuniversal c s t) 0
-| Krecur T t :
-    kinding (ctx := _) (add_kinding T) t 0 ->
-    kinding T (Trecur t) 0
-| Khide T t :
-    kinding T t 0 ->
-    kinding T (Thide t) 0
-| Kunit T :
-    kinding T Tunit 0
-| Kprod T a b :
-    kinding T a 0 ->
-    kinding T b 0 ->
-    kinding T (a * b) 0
-| Ksum T a b :
-    kinding T a 0 ->
-    kinding T b 0 ->
-    kinding T (a + b) 0
-.
-
-Inductive teq {ctx} : type ctx -> type ctx -> Prop :=
-| Qrefl t : teq t t
-| Qsymm a b : teq a b -> teq b a
-| Qtrans a b c : teq a b -> teq b c -> teq a c
-| Qabs a b :
-    teq (ctx := _) a b ->
-    teq (Tabs a) (Tabs b)
-| Qapp a b a' b' :
-    teq a a' ->
-    teq b b' ->
-    teq (Tapp a b) (Tapp a' b')
-| Qbeta t1 t2 :
-    teq (Tapp (Tabs t1) t2) (subst t2 t1)
-| Qarrow a c s b a' b' : 
-    teq a a' ->
-    teq (ctx := _) b b' ->
-    teq (Tarrow a c s b) (Tarrow a' c s b')
-| Qrecur a b :
-    teq (ctx := _) a b ->
-    teq (Trecur a) (Trecur b)
-| Qprod a b a' b' :
-    teq a a' ->
-    teq b b' ->
-    teq (a * b) (a' * b')
-| Qsum a b a' b' :
-    teq a a' ->
-    teq b b' ->
-    teq (a + b) (a' + b')
-.
-
-Global Add Parametric Relation ctx : (type ctx) (@teq ctx)
-    reflexivity proved by Qrefl
-    symmetry proved by Qsymm
-    transitivity proved by Qtrans
-      as teq_rel.
-
 Class Equal t :=
   {
     equal : t -> t -> Prop
   }.
 
 Infix "==" := equal (at level 70) : G.
-
-Global Instance Equal_type ctx : Equal (type ctx) :=
-  {
-    equal := @teq ctx
-  }.
 
 Local Open Scope F.
 Local Open Scope G.
@@ -241,29 +166,24 @@ Inductive typing {ctx} : tcontext ctx -> expr ctx -> type ctx -> cexpr ctx -> si
 | TPapp Γ e₀ e₁ τ₁ c s τ₂ c₀ nouse c₁ s₁ : 
     typing Γ e₀ (Tarrow τ₁ c s τ₂) c₀ nouse ->
     typing Γ e₁ τ₁ c₁ s₁ ->
-    typing Γ (Eapp e₀ e₁) (subst s₁ τ₂) (c₀ + (c₁ + subst s₁ c)) (subst s₁ s)
+    typing Γ (Eapp e₀ e₁) (subst s₁ τ₂) (c₀ + c₁ + F1 + subst s₁ c) (subst s₁ s)
 | TPabs T e t1 t2 c s :
-    kinding T t1 0 ->
     typing (ctx := _ ) (add_typing t1 T) e t2 c s ->
     typing T (Eabs t1 e) (Tarrow t1 c s t2) F0 S0
 | TPtapp T e t2 c s t c' :
     typing T e (Tuniversal c s t) c' S0 ->
-    typing T (Etapp e t2) (subst t2 t) (c' + c) s
+    typing T (Etapp e t2) (subst t2 t) (c' + F1 + c) s
 | TPtabs T e c s t :
     typing (ctx := _) (add_kinding T) e t (shift1 CEtype c) (shift1 CEtype s) ->
     typing T (Etabs e) (Tuniversal c s t) F0 S0
-| TPlet T t1 e1 e2 t2 c1 c2 s1 s2:
-    typing T e1 t1 c1 s1 ->
-    typing (ctx := _) (add_typing t1 T) e2 t2 c2 s2 ->
-    typing T (Elet e1 e2) (subst s1 t2) (c1 + subst s1 c2) (subst s1 s2)
 | TPfold T e t c s t1 :
-    t == Trecur t1 ->
+    t = Trecur t1 ->
     typing T e (subst t t1) c s ->
     typing T (Efold t e) t c (Sfold s)
 | TPunfold Γ e τ c s s₁ τ₁ :
     typing Γ e τ c s ->
     is_fold s = Some s₁ ->
-    τ == Trecur τ₁ ->
+    τ = Trecur τ₁ ->
     typing Γ (Eunfold e) (subst τ τ₁) (c + F1) s₁
 | TPhide T e t c s :
     typing T e t c s ->
@@ -271,11 +191,7 @@ Inductive typing {ctx} : tcontext ctx -> expr ctx -> type ctx -> cexpr ctx -> si
 | TPunhide T e t c s s1 :
     typing T e (Thide t) c s ->
     is_hide s = Some s1 ->
-    typing T (Eunhide e) t c s1
-| TPeq T e t1 t2 c s :
-    typing T e t1 c s ->
-    t1 == t2 ->
-    typing T e t2 c s
+    typing T (Eunhide e) t (c + F1) s1
 | TPsub T e t c c' s s' :
     typing T e t c s ->
     c <<= c' ->
@@ -298,11 +214,11 @@ Inductive typing {ctx} : tcontext ctx -> expr ctx -> type ctx -> cexpr ctx -> si
 | TPfst T e t1 t2 c s s1 s2 :
     typing T e (t1 * t2) c s ->
     is_pair s = Some (s1, s2) ->
-    typing T (Efst e) t1 c s1
+    typing T (Efst e) t1 (c + F1) s1
 | TPsnd T e t1 t2 c s s1 s2 :
     typing T e (t1 * t2) c s ->
     is_pair s = Some (s1, s2) ->
-    typing T (Esnd e) t2 c s2
+    typing T (Esnd e) t2 (c + F1) s2
 | TPmatch T e e1 e2 t1 t2 c s s1 s2 t c1 c2 s' s1' s2' :
     typing T e (t1 + t2) c s ->
     typing (ctx := _) (add_typing t1 T) e1 (shift1 CEexpr t) c1 s1' -> 
@@ -310,6 +226,6 @@ Inductive typing {ctx} : tcontext ctx -> expr ctx -> type ctx -> cexpr ctx -> si
     is_inlinr s = Some (s1, s2) ->
     subst s1 s1' <= s' ->
     subst s2 s2' <= s' ->
-    typing T (Ematch e e1 e2) t (c + max (subst s1 c1) (subst s2 c2)) s'
+    typing T (Ematch e e1 e2) t (c + F1 + max (subst s1 c1) (subst s2 c2)) s'
 .
 

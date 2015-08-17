@@ -24,11 +24,11 @@ Inductive IsValue {ctx} : expr ctx -> Prop :=
 | Vinr t v : IsValue v -> IsValue (Einr t v)
 .
 
+(* expression context *)
 Inductive econtext ctx : Type :=
 | ECempty : econtext ctx
 | ECapp1 (f : econtext ctx) (arg : expr ctx) : econtext ctx
 | ECapp2 (f : expr ctx) (arg : econtext ctx) : econtext ctx
-| EClet (def : econtext ctx) (main : expr (CEexpr :: ctx)) : econtext ctx
 | ECtapp (f : econtext ctx) (t : type ctx)  : econtext ctx
 | ECfold (t : type ctx) (_ : econtext ctx) : econtext ctx
 | ECunfold (_ : econtext ctx) : econtext ctx
@@ -45,11 +45,11 @@ Inductive econtext ctx : Type :=
 
 Arguments ECempty {ctx} .
 
+(* evaluation context *)
 Inductive IsEC {ctx} : econtext ctx -> Prop :=
 | IECempty : IsEC ECempty
 | IECapp1 (f : econtext ctx) (arg : expr ctx) : IsEC f ->IsEC (ECapp1 f arg)
 | IECapp2 (f : expr ctx) (arg : econtext ctx) : IsValue f -> IsEC arg -> IsEC (ECapp2 f arg)
-| IEClet (def : econtext ctx) (main : expr (CEexpr :: ctx)) : IsEC def -> IsEC (EClet def main)
 | IECtapp (f : econtext ctx) (t : type ctx)  : IsEC f -> IsEC (ECtapp f t)
 | IECfold (t : type ctx) (e : econtext ctx) : IsEC e -> IsEC (ECfold t e)
 | IECunfold (e : econtext ctx) : IsEC e -> IsEC (ECunfold e)
@@ -64,12 +64,12 @@ Inductive IsEC {ctx} : econtext ctx -> Prop :=
 | IECmatch (target : econtext ctx) (a b : expr (CEexpr :: ctx)) : IsEC target -> IsEC (ECmatch target a b)
 .
 
+(* Both Fixpoint and Inductive version of plug are useful *)
 Fixpoint plug {ctx} (c : econtext ctx) (e : expr ctx) : expr ctx :=
   match c with
     | ECempty => e
     | ECapp1 f arg => Eapp (plug f e) arg
     | ECapp2 f arg => Eapp f (plug arg e)
-    | EClet def main => Elet (plug def e) main
     | ECtapp f t => Etapp (plug f e) t
     | ECfold t c => Efold t (plug c e)
     | ECunfold c => Eunfold (plug c e)
@@ -105,33 +105,33 @@ Inductive plug : econtext -> expr -> expr -> Prop :=
 .
 *)
 
-Inductive step : expr [] -> expr [] -> Prop :=
-| STecontext E e1 e2 : 
-    step e1 e2 -> 
+(* (n, e) ~> (n', e'), n is the "fuel" *)
+Inductive step : nat -> expr [] -> nat -> expr [] -> Prop :=
+| STecontext E n1 e1 n2 e2 : 
+    step n1 e1 n2 e2 -> 
     IsEC E ->
-    step (plug E e1) (plug E e2)
-| STapp t body arg : IsValue arg -> step (Eapp (Eabs t body) arg) (subst arg body)
-| STlet v main : IsValue v -> step (Elet v main) (subst v main)
-| STfst v1 v2 :
+    step n1 (plug E e1) n2 (plug E e2)
+| STapp n t body arg : IsValue arg -> step (1 + n) (Eapp (Eabs t body) arg) n (subst arg body)
+| STfst n v1 v2 :
     IsValue v1 ->
     IsValue v2 ->
-    step (Efst (Epair v1 v2)) v1
-| STsnd v1 v2 :
+    step (1 + n) (Efst (Epair v1 v2)) n v1
+| STsnd n v1 v2 :
     IsValue v1 ->
     IsValue v2 ->
-    step (Esnd (Epair v1 v2)) v2
-| STmatch_inl t v k1 k2 : 
+    step (1 + n) (Esnd (Epair v1 v2)) n v2
+| STmatch_inl n t v k1 k2 : 
     IsValue v ->
-    step (Ematch (Einl t v) k1 k2) (subst v k1)
-| STmatch_inr t v k1 k2 : 
+    step (1 + n) (Ematch (Einl t v) k1 k2) n (subst v k1)
+| STmatch_inr n t v k1 k2 : 
     IsValue v ->
-    step (Ematch (Einr t v) k1 k2) (subst v k2)
-| STtapp body t : step (Etapp (Etabs body) t) (subst t body)
-| STunfold_fold v t1 : 
+    step (1 + n) (Ematch (Einr t v) k1 k2) n (subst v k2)
+| STtapp n body t : step (1 + n) (Etapp (Etabs body) t) n (subst t body)
+| STunfold_fold n v t1 : 
     IsValue v ->
-    step (Eunfold (Efold t1 v)) v
-| STunhide_hide v :
+    step (1 + n) (Eunfold (Efold t1 v)) n v
+| STunhide_hide n v :
     IsValue v ->
-    step (Eunhide (Ehide v)) v
+    step (1 + n) (Eunhide (Ehide v)) n v
 .
 
