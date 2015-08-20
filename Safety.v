@@ -59,27 +59,24 @@ Notation "||-" := typingex.
 Definition not_stuck n e := IsValue e \/ exists n' e', (n, e) ~> (n', e').
 Definition safe n e := forall n' e', (n, e) ~>* (n', e') -> not_stuck n' e'.
 
+Lemma transport_eq_refl A (T : A -> Type) (from : A) (a : T from) : transport a eq_refl = a.
+Proof.
+  eauto.
+Qed.
+
 Lemma progress' ctx (T : tcontext ctx) e tau c s :
   |- T e tau c s ->
-  forall (Heq : ctx = []) (e' : expr) (c' : cexpr) n, 
-    e' = transport e Heq -> 
-    c' = transport c Heq ->
-    !c' <= n -> 
-    not_stuck n e'.
+  forall (Heq : ctx = []) (ee : expr) (cc : cexpr) n, 
+    ee = transport e Heq -> 
+    cc = transport c Heq ->
+    !cc <= n -> 
+    not_stuck n ee.
 Proof.
-  induction 1.
+  induction 1; intros Heq ee cc n Hee Hcc Hle; subst; rewrite transport_eq_refl in *.
   Focus 2.
   (* Case App *)
   {
-    intros Heq e' c' n He' Hc' Hle.
-    unfold not_stuck.
     right.
-    subst.
-    Lemma transport_eq_refl A (T : A -> Type) (from : A) (a : T from) : transport a eq_refl = a.
-    Proof.
-      eauto.
-    Qed.
-    rewrite transport_eq_refl in *.
     assert (Hn : exists n', n = 1 + n').
     {
       admit.
@@ -140,6 +137,71 @@ Proof.
     Qed.
     eapply step_app1; eauto.
   }
+  Unfocus.
+  Focus 2.
+  (* Case Abs *)
+  {
+    left.
+    econstructor.
+  }
+  Unfocus.
+  Focus 5.
+  (* Case Unfold *)
+  {
+    right.
+    assert (Hn : exists n', n = 1 + n').
+    {
+      admit.
+    }
+    destruct Hn as [n' ?].
+    subst.
+    assert (IH : not_stuck (1 + n') e).
+    {
+      eapply IHtyping with (Heq := eq_refl); eauto.
+      rewrite transport_eq_refl.
+      admit. (* !c <= _ *)
+    }
+    destruct IH as [IH | IH].
+    {
+      copy_as IH IH'.
+      Lemma cf_recur (e : expr) T t c s : 
+        IsValue e -> 
+        |- T e (Trecur t) c s -> 
+        exists v,
+          e = Efold (Trecur t) v /\ IsValue v.
+        admit.
+      Qed.
+      eapply cf_recur in IH'; eauto.
+      destruct IH' as [v [? Hv]].
+      subst.
+      exists n'.
+      eexists.
+      econstructor; eauto.
+    }
+    destruct IH as [n'' [e' IH]].
+    exists n''.
+    eexists.
+    Lemma step_unfold n e n' e' :
+      (n, e) ~> (n', e') ->
+      (n, Eunfold e) ~> (n', Eunfold e').
+      admit.
+    Qed.
+    eapply step_unfold; eauto.
+  }
+  Unfocus.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
   admit.
 Qed.
 
