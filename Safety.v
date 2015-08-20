@@ -59,10 +59,87 @@ Notation "||-" := typingex.
 Definition not_stuck n e := IsValue e \/ exists n' e', (n, e) ~> (n', e').
 Definition safe n e := forall n' e', (n, e) ~>* (n', e') -> not_stuck n' e'.
 
-Lemma progress' e tau c s :
-  |- [] e tau c s ->
-     forall n, !c <= n -> not_stuck n e.
+Lemma progress' ctx (T : tcontext ctx) e tau c s :
+  |- T e tau c s ->
+  forall (Heq : ctx = []) (e' : expr) (c' : cexpr) n, 
+    e' = transport e Heq -> 
+    c' = transport c Heq ->
+    !c' <= n -> 
+    not_stuck n e'.
 Proof.
+  induction 1.
+  Focus 2.
+  (* Case App *)
+  {
+    intros Heq e' c' n He' Hc' Hle.
+    unfold not_stuck.
+    right.
+    subst.
+    Lemma transport_eq_refl A (T : A -> Type) (from : A) (a : T from) : transport a eq_refl = a.
+    Proof.
+      eauto.
+    Qed.
+    rewrite transport_eq_refl in *.
+    assert (Hn : exists n', n = 1 + n').
+    {
+      admit.
+    }
+    destruct Hn as [n' ?].
+    subst.
+    assert (IH1 : not_stuck (1 + n') e₀).
+    {
+      eapply IHtyping1 with (Heq := eq_refl); eauto.
+      rewrite transport_eq_refl.
+      admit. (* !c0 <= _ *)
+    }
+    destruct IH1 as [IH1 | IH1].
+    {
+      Notation ".|-" := typingsim.
+      Lemma cf_arrow (e : expr) T t1 c s t2 c0 s0 : 
+        IsValue e -> 
+        |- T e (Tarrow t1 c s t2) c0 s0 -> 
+        exists e',
+          e = Eabs t1 e'.
+        admit.
+      Qed.
+      Require Import GeneralTactics4.
+      copy_as IH1 IH1'.
+      eapply cf_arrow in IH1'; eauto.
+      destruct IH1' as [e0' ?].
+      subst.
+      assert (IH2 : not_stuck (1 + n') e₁).
+      {
+        eapply IHtyping2 with (Heq := eq_refl); eauto.
+        rewrite transport_eq_refl.
+        admit. (* !c1 <= _ *)
+      }
+      destruct IH2 as [IH2 | IH2].
+      {
+        exists n'.
+        eexists.
+        unfold step2; simpl.
+        econstructor; eauto.
+      }
+      destruct IH2 as [n'' [e1' IH2]].
+      exists n''.
+      eexists.
+      Lemma step_app2 n e2 n' e2' t e : 
+        (n, e2) ~> (n', e2') ->
+        (n, Eapp (Eabs t e) e2) ~> (n', Eapp (Eabs t e) e2).
+        admit.
+      Qed.
+      eapply step_app2; eauto.
+    }
+    destruct IH1 as [n'' [e0' IH1]].
+    exists n''.
+    eexists.
+    Lemma step_app1 n e1 n' e1' e2 :
+      (n, e1) ~> (n', e1') ->
+      (n, Eapp e1 e2) ~> (n', Eapp e1' e2).
+      admit.
+    Qed.
+    eapply step_app1; eauto.
+  }
   admit.
 Qed.
 
@@ -70,7 +147,7 @@ Lemma progress n e tau c s :
   ||- n e tau c s -> not_stuck n e.
 Proof.
   intros [Hwt Hle].
-  eapply progress'; eauto.
+  eapply progress' with (Heq := eq_refl); eauto.
 Qed.
 
 Lemma preservation' n e n' e' :
