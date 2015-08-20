@@ -192,9 +192,9 @@ Inductive typing {ctx} : tcontext ctx -> expr ctx -> type ctx -> cexpr ctx -> si
     typing T e (Thide t) c s ->
     is_hide s = Some s1 ->
     typing T (Eunhide e) t (c + F1) s1
-| TPsub T e t c c' s s' :
+| TPle T e t c c' s s' :
     typing T e t c s ->
-    c <<= c' ->
+    c <= c' ->
     s <= s' ->
     typing T e t c' s'
 (* basic types - intro *)
