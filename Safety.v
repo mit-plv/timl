@@ -220,12 +220,10 @@ Lemma preservation' n e n' e' :
     ||- n e tau c s ->
     exists c', ||- (n' - (n - !c)) e' tau c' s.
 Proof.
-  induction 1.
+  induction 1; (try rename s into s0); intros tau c s [Hwt Hle].
   Focus 2.
   {
     (* Case Beta *)
-    intros tau c s Hwt.
-    destruct Hwt as [Hwt Hle].
     Lemma invert_app e0 e1 tau3 c3 s3 :
       |- [] (Eapp e0 e1) tau3 c3 s3 ->
       exists t1 c s t2 c0 s0 c1 s1,
@@ -267,6 +265,47 @@ Proof.
     admit. (* <= *)
   }
   Unfocus.
+  {
+    (* Case EC *)
+    Definition typingec : econtext [] -> type -> open_cexpr [CEexpr] -> open_size [CEexpr] -> open_type [CEexpr] -> Prop.
+      admit.
+    Defined.
+    Lemma invert_ec E e t c s : 
+      |- [] (plug E e) t c s ->
+      exists t1 c1 s1 c2 s2 t2,
+        |- [] e t1 c1 s1 /\
+        typingec E t1 c2 s2 t2 /\
+        t = subst s1 t2 /\
+        c1 + subst s1 c2 <= c /\
+        subst s1 s2 <= s.
+      admit.
+    Qed.
+    Lemma constr_ec e t1 c1 s1 E c2 s2 t2 :
+      |- [] e t1 c1 s1 ->
+      typingec E t1 c2 s2 t2 ->
+      |- [] (plug E e) (subst s1 t2) (c1 + subst s1 c2) (subst s1 s2).
+      admit.
+    Qed.
+    eapply invert_ec in Hwt.
+    destruct Hwt as [t1 [c1 [s1 [c2 [s2 [t2 Hwt]]]]]].
+    destruct Hwt as [Hwte [HwtE [? [Hc Hs]]]].
+    subst.
+    unfold typingex in IHstep.
+    edestruct IHstep as [c1' IH].
+    {
+      split.
+      { eauto. }
+      admit. (* le *)
+    }
+    destruct IH as [IHwt IHle].
+    eapply constr_ec in IHwt; eauto.
+    exists (c1' + subst s1 c2).
+    split.
+    {
+      eapply TPle; eauto.
+    }
+    admit. (* le *)
+  }
   admit.
   admit.
   admit.
