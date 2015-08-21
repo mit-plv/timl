@@ -255,7 +255,7 @@ Proof.
       |- [] (subst v e) (subst s1 tau) (subst s1 c) (subst s1 s).
         admit.
       Qed.
-      eapply TPle.
+      eapply TPsub.
       { eapply subst_wt; eauto. }
       Existing Instance leF_rel_Reflexive.
       Hint Extern 1 (_ <= _) => reflexivity.
@@ -302,11 +302,60 @@ Proof.
     exists (c1' + subst s1 c2).
     split.
     {
-      eapply TPle; eauto.
+      eapply TPsub; eauto.
     }
     admit. (* le *)
   }
-  admit.
+  Focus 6.
+  {
+    (* Case Unfold-fold *)
+    Lemma invert_unfold e t c s :
+      |- [] (Eunfold e) t c s ->
+      exists t' c' s',
+        |- [] e (Trecur t') c' (Sfold s') /\
+        t = subst (Trecur t') t' /\
+        c' + F1 <= c /\
+        s' <= s.
+      admit.
+    Qed.
+    eapply invert_unfold in Hwt.
+    destruct Hwt as [t' [c' [s' Hwt]]].
+    destruct Hwt as [Hwt [? [Hc Hs]]].
+    subst.
+    Lemma invert_fold t1 e t c s :
+      |- [] (Efold t1 e) t c s ->
+      exists t' c' s',
+        |- [] e (subst (Trecur t') t') c' s' /\
+        t1 = t /\
+        t = Trecur t' /\
+        c' <= c /\
+        Sfold s' <= s.
+      admit.
+    Qed.
+    eapply invert_fold in Hwt.
+    destruct Hwt as [t1' [c1 [s1 Hwt]]].
+    destruct Hwt as [Hwt [? [Ht1' [Hc' Hs']]]].
+    subst.
+    symmetry in Ht1'; inject Ht1'.
+    exists c'.
+    split.
+    {
+      eapply TPsub.
+      { eauto. }
+      { eauto. }
+      Existing Instance leS_rel_Transitive.
+      { etransitivity; [ | eauto ].
+        Lemma Sfold_le_le (a b : size) :
+          Sfold a <= Sfold b ->
+          a <= b.
+          admit.
+        Qed.
+        eapply Sfold_le_le; eauto.
+      }
+    }
+    admit. (* le *)
+  }
+  Unfocus.
   admit.
   admit.
   admit.
