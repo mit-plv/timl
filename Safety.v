@@ -356,6 +356,113 @@ Proof.
     admit. (* le *)
   }
   Unfocus.
+  {
+    (* Case Fst *)
+    Lemma invert_fst e t c s :
+      |- [] (Efst e) t c s ->
+      exists t' c' s1 s2,
+        |- [] e (Tprod t t') c' (Spair s1 s2) /\
+        c' + F1 <= c /\
+        s1 <= s.
+      admit.
+    Qed.
+    eapply invert_fst in Hwt.
+    destruct Hwt as [t' [c' [s1 [s2 Hwt]]]].
+    destruct Hwt as [Hwt [Hc Hs]].
+    Lemma invert_pair e1 e2 t c s :
+      |- [] (Epair e1 e2) t c s ->
+      exists t1 c1 s1 t2 c2 s2,
+        |- [] e1 t1 c1 s1 /\
+        |- [] e2 t2 c2 s2 /\
+        t = Tprod t1 t2 /\
+        c1 + c2 <= c /\
+        Spair s1 s2 <= s.
+      admit.
+    Qed.
+    eapply invert_pair in Hwt.
+    destruct Hwt as [t1 [c1 [s1' [t2 [c2 [s2' Hwt]]]]]].
+    destruct Hwt as [Htw1 [Htw2 [Ht [Hc' Hss]]]].
+    inject Ht.
+    exists c'.
+    split.
+    {
+      eapply TPsub.
+      { eauto. }
+      { admit. (* le *) }
+      { etransitivity; [ | eauto ].
+        Lemma Spair_le_le (a b a' b' : size) :
+          Spair a b <= Spair a' b' ->
+          a <= a' /\ b <= b'.
+          admit.
+        Qed.
+        eapply Spair_le_le in Hss.
+        eapply Hss.
+      }
+    }
+    admit. (* le *)
+  }
+  Focus 2.
+  {
+    (* Case Match-inl *)
+    Lemma invert_match e t' s' k1 k2 t c s :
+      |- [] (Ematch e t' s' k1 k2) t c s ->
+      exists t1 t2 c0 s1 s2 c1 c2,
+        |- [] e (Tsum t1 t2) c0 (Sinlinr s1 s2) /\
+        |- (add_typing t1 []) k1 (shift1 CEexpr t) c1 (shift1 CEexpr s') /\
+        |- (add_typing t2 []) k2 (shift1 CEexpr t) c2 (shift1 CEexpr s') /\
+        t' = t /\
+        c0 + F1 + max (subst s1 c1) (subst s2 c2) <= c /\
+        s' <= s.
+      admit.
+    Qed.
+    eapply invert_match in Hwt.
+    destruct Hwt as [t1 [t2 [c0 [s1 [s2 [c1 [c2 Hwt]]]]]]].
+    destruct Hwt as [Hwt0 [Hwt1 [Hwt2 [? [Hc Hs]]]]].
+    subst.
+    Lemma invert_inl t2 e t c s :
+      |- [] (Einl t2 e) t c s ->
+      exists t1 c1 s1,
+        |- [] e t1 c1 s1 /\
+        t = Tsum t1 t2 /\
+        c1 <= c /\
+        Sinlinr s1 S0 <= s.
+      admit.
+    Qed.
+    eapply invert_inl in Hwt0.
+    destruct Hwt0 as [t1' [c1' [s1' Hwt0]]].
+    destruct Hwt0 as [Htw0 [Ht [Hc0 Hss]]].
+    symmetry in Ht; inject Ht.
+    exists (subst s1 c1).
+    split.
+    {
+      eapply TPsub.
+      { 
+        replace tau with (subst s1 (shift1 CEexpr tau)).
+        {
+          eapply subst_wt; eauto.
+          eapply TPsub; eauto.
+          Lemma Sinlinr_le_le (a b a' b' : size):
+            Sinlinr a b <= Sinlinr a' b' ->
+            a <= a' /\ b <= b'.
+            admit.
+          Qed.
+          eapply Sinlinr_le_le in Hss.
+          eapply Hss.
+        }
+        Lemma subst_shift1_s_t ctx (v : open_size ctx) (b : open_type _) : subst v (shift1 CEexpr b) = b.
+          admit.
+        Qed.
+        eapply subst_shift1_s_t.
+      }
+      { eauto. }
+      Lemma subst_shift1_s_s ctx (v : open_size ctx) (b : open_size _) : subst v (shift1 CEexpr b) = b.
+        admit.
+      Qed.
+      (*here*)
+      rewrite subst_shift1_s_s.
+    }
+  }
+  Unfocus.
   admit.
   admit.
   admit.
