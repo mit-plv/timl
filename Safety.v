@@ -464,6 +464,15 @@ Proof.
     admit. (* le *)
   }
   Unfocus.
+  Focus 3.
+  {
+    (* Case Tapp *)
+    Lemma invert_tapp : 
+      |- [] (Etapp e t1) t c s ->
+      exists,
+        |- [] e
+  }
+  Unfocus.
   admit.
   admit.
   admit.
