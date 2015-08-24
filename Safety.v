@@ -458,9 +458,10 @@ Proof.
       Lemma subst_shift1_s_s ctx (v : open_size ctx) (b : open_size _) : subst v (shift1 CEexpr b) = b.
         admit.
       Qed.
-      (*here*)
-      rewrite subst_shift1_s_s.
+      rewrite (@subst_shift1_s_s []).
+      eauto.
     }
+    admit. (* le *)
   }
   Unfocus.
   admit.
