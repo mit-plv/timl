@@ -238,8 +238,10 @@ Proof.
     destruct Hwt as [t1 [c0 [s0 [t2 [c1 [s1 [c2 [s2 Hwt]]]]]]]].
     destruct Hwt as [Hwtf [Hwtarg [? [Hc Hs]]]].
     Lemma invert_abs t1' e t1 c s t2 c0 s0 :
-    |- [] (Eabs t1' e) (Tarrow t1 c s t2) c0 s0 ->
-    |- (add_typing t1 []) e t2 c s /\ t1' = t1.
+      |- [] (Eabs t1' e) (Tarrow t1 c s t2) c0 s0 ->
+      |- (add_typing t1 []) e t2 c s /\
+      t1' = t1 /\
+      S0 <= s.   
       admit.
     Qed.
     eapply invert_abs in Hwtf.
@@ -467,10 +469,26 @@ Proof.
   Focus 3.
   {
     (* Case Tapp *)
-    Lemma invert_tapp : 
+    Lemma invert_tapp e t1 t c s: 
       |- [] (Etapp e t1) t c s ->
-      exists,
-        |- [] e
+      exists c0 s0 t0 c' s',
+        |- [] e (Tuniversal c0 s0 t0) c' s' /\
+        t = subst t1 t0 /\
+        c' + F1 + c0 <= c /\
+        s0 <= s.
+      admit.
+    Qed.
+    eapply invert_tapp in Hwt.
+    destruct Hwt as [c0 [s0 [t0 [c' [s' Hwt]]]]].
+    destruct Hwt as [Hwt [? [Hc Hs]]].
+    subst.
+    Lemma invert_tabs e t c s :
+      |- [] (Etabs e) t c s ->
+      exists t' c' s',
+        |- (add_kinding []) e t' (shift1 CEexpr c') (shift1 CEexpr s') /\
+        t = Tuniversal c' s' t' /\
+        S0 <= s.   
+    (*here*)
   }
   Unfocus.
   admit.
