@@ -525,13 +525,118 @@ Proof.
     admit. (* le *)
   }
   Unfocus.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
+  {
+    (* Case Snd *)
+    Lemma invert_snd e t c s :
+      |- [] (Esnd e) t c s ->
+      exists t' c' s1 s2,
+        |- [] e (Tprod t' t) c' (Spair s1 s2) /\
+        c' + F1 <= c /\
+        s2 <= s.
+      admit.
+    Qed.
+    eapply invert_snd in Hwt.
+    destruct Hwt as [t' [c' [s1 [s2 Hwt]]]].
+    destruct Hwt as [Hwt [Hc Hs]].
+    eapply invert_pair in Hwt.
+    destruct Hwt as [t1 [c1 [s1' [t2 [c2 [s2' Hwt]]]]]].
+    destruct Hwt as [Htw1 [Htw2 [Ht [Hc' Hss]]]].
+    inject Ht.
+    exists c'.
+    split.
+    {
+      eapply TPsub.
+      { eauto. }
+      { admit. (* le *) }
+      { etransitivity; [ | eauto ].
+        eapply Spair_le_le in Hss.
+        eapply Hss.
+      }
+    }
+    admit. (* le *)
+  }
+  {
+    (* Case Match-inr *)
+    eapply invert_match in Hwt.
+    destruct Hwt as [t1 [t2 [c0 [s1 [s2 [c1 [c2 Hwt]]]]]]].
+    destruct Hwt as [Hwt0 [Hwt1 [Hwt2 [? [Hc Hs]]]]].
+    subst.
+    Lemma invert_inr t1 e t c s :
+      |- [] (Einr t1 e) t c s ->
+      exists t2 c2 s2,
+        |- [] e t2 c2 s2 /\
+        t = Tsum t1 t2 /\
+        c2 <= c /\
+        Sinlinr S0 s2 <= s.
+      admit.
+    Qed.
+    eapply invert_inr in Hwt0.
+    destruct Hwt0 as [t2' [c2' [s2' Hwt0]]].
+    destruct Hwt0 as [Htw0 [Ht [Hc0 Hss]]].
+    symmetry in Ht; inject Ht.
+    exists (subst s2 c2).
+    split.
+    {
+      eapply TPsub.
+      { 
+        replace tau with (subst s2 (shift1 CEexpr tau)).
+        {
+          eapply subst_wt; eauto.
+          eapply TPsub; eauto.
+          eapply Sinlinr_le_le in Hss.
+          eapply Hss.
+        }
+        eapply subst_shift1_s_t.
+      }
+      { eauto. }
+      rewrite (@subst_shift1_s_s []).
+      eauto.
+    }
+    admit. (* le *)
+  }
+  {
+    (* Case Unhide-hide *)
+    Lemma invert_unhide e t c s :
+      |- [] (Eunhide e) t c s ->
+      exists c' s',
+        |- [] e (Thide t) c' (Shide s') /\
+        c' + F1 <= c /\
+        s' <= s.
+      admit.
+    Qed.
+    eapply invert_unhide in Hwt.
+    destruct Hwt as [c' [s' Hwt]].
+    destruct Hwt as [Hwt [Hc Hs]].
+    Lemma invert_hide e t c s :
+      |- [] (Ehide e) t c s ->
+      exists t' c' s',
+        |- [] e t' c' s' /\
+        t = Thide t' /\
+        c' <= c /\
+        Shide s' <= s.
+      admit.
+    Qed.
+    eapply invert_hide in Hwt.
+    destruct Hwt as [t1' [c1 [s1 Hwt]]].
+    destruct Hwt as [Hwt [Ht1' [Hc' Hs']]].
+    symmetry in Ht1'; inject Ht1'.
+    exists c'.
+    split.
+    {
+      eapply TPsub.
+      { eauto. }
+      { eauto. }
+      { etransitivity; [ | eauto ].
+        Lemma Shide_le_le (a b : size) :
+          Shide a <= Shide b ->
+          a <= b.
+          admit.
+        Qed.
+        eapply Shide_le_le; eauto.
+      }
+    }
+    admit. (* le *)
+  }
 Qed.
 
 Lemma preservation n e n' e' :
