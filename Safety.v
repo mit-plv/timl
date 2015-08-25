@@ -66,6 +66,30 @@ Qed.
 
 Open Scope G.
 
+Existing Instance leF_rel_Reflexive.
+Existing Instance leS_rel_Transitive.
+Hint Extern 1 (_ <= _) => reflexivity.
+
+Lemma TPsubst ctx (T : tcontext ctx) e t c s : 
+  |- T e t c s ->
+  forall ctx',
+    let ctx'' := CEexpr :: ctx' in
+    forall (Heq : ctx = ctx'') (TT : tcontext ctx'') (ee : open_expr ctx'') (tt : open_type ctx'') (cc : open_cexpr ctx'') (ss : open_size ctx'') t1 T' v c1 s1,
+      TT = transport T Heq -> 
+      ee = transport e Heq -> 
+      tt = transport t Heq -> 
+      cc = transport c Heq ->
+      ss = transport s Heq ->
+      TT = add_typing t1 T' ->
+      |- T' v t1 c1 s1 ->
+      IsValue v ->
+      |- T' (subst v ee) (subst s1 tt) (subst s1 cc) (subst s1 ss).
+Proof.
+  induction 1.
+  Focus 3.
+  (*here*) 
+Qed.
+
 Lemma progress' ctx (T : tcontext ctx) e tau c s :
   |- T e tau c s ->
   forall (Heq : ctx = []) (ee : expr) (cc : cexpr) n, 
@@ -575,6 +599,20 @@ Proof.
   eapply progress' with (Heq := eq_refl); eauto.
 Qed.
 
+Lemma subst_wt tau1 e tau c s v c1 s1 :
+|- (add_typing tau1 []) e tau c s ->
+|- [] v tau1 c1 s1 ->
+   IsValue v ->
+|- [] (subst v e) (subst s1 tau) (subst s1 c) (subst s1 s).
+  admit.
+Qed.
+
+Lemma subst_t_wt e t c s t1 :
+|- (add_kinding []) e t c s ->
+|- [] (subst t1 e) (subst t1 t) (subst t1 c) (subst t1 s).
+  admit.
+Qed.
+
 Lemma preservation' n e n' e' :
   step n e n' e' ->
   forall tau c s,
@@ -611,17 +649,8 @@ Proof.
     exists (subst s2 c0).
     split.
     {
-      Lemma subst_wt tau1 e tau c s v c1 s1 :
-      |- (add_typing tau1 []) e tau c s ->
-      |- [] v tau1 c1 s1 ->
-         IsValue v ->
-      |- [] (subst v e) (subst s1 tau) (subst s1 c) (subst s1 s).
-        admit.
-      Qed.
       eapply TPsub.
       { eapply subst_wt; eauto. }
-      Existing Instance leF_rel_Reflexive.
-      Hint Extern 1 (_ <= _) => reflexivity.
       { eauto. }
       { eauto. }
     }
@@ -706,7 +735,6 @@ Proof.
       eapply TPsub.
       { eauto. }
       { eauto. }
-      Existing Instance leS_rel_Transitive.
       { etransitivity; [ | eauto ].
         Lemma Sfold_le_le (a b : size) :
           Sfold a <= Sfold b ->
@@ -858,11 +886,6 @@ Proof.
     exists c0.
     split.
     {
-      Lemma subst_t_wt e t c s t1 :
-      |- (add_kinding []) e t c s ->
-      |- [] (subst t1 e) (subst t1 t) (subst t1 c) (subst t1 s).
-        admit.
-      Qed.
       eapply TPsub.
       {
         eapply subst_t_wt.
