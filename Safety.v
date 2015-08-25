@@ -191,20 +191,381 @@ Proof.
     eapply step_unfold; eauto.
   }
   Unfocus.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
+  {
+    (* Case Var *)
+    destruct x as [n' ?].
+    destruct n'; simpl in *; discriminate.
+  }
+  {
+    (* Case Tapp *)
+    right.
+    assert (Hn : exists n', n = 1 + n').
+    {
+      admit.
+    }
+    destruct Hn as [n' ?].
+    subst.
+    assert (IH : not_stuck (1 + n') e).
+    {
+      eapply IHtyping with (Heq := eq_refl); eauto.
+      rewrite transport_eq_refl.
+      admit. (* le *)
+    }
+    destruct IH as [IH | IH].
+    {
+      Lemma cf_universal (e : expr) T c s t2 c0 s0 : 
+        IsValue e -> 
+        |- T e (Tuniversal c s t2) c0 s0 -> 
+        exists e',
+          e = Etabs e'.
+        admit.
+      Qed.
+      copy_as IH IH'.
+      eapply cf_universal in IH'; eauto.
+      destruct IH' as [e0' ?].
+      subst.
+      exists n'.
+      eexists.
+      unfold step2; simpl.
+      econstructor; eauto.
+    }
+    destruct IH as [n'' [e0' IH]].
+    exists n''.
+    eexists.
+    Lemma step_tapp1 n e n' e' t :
+      (n, e) ~> (n', e') ->
+      (n, Etapp e t) ~> (n', Etapp e' t).
+      admit.
+    Qed.
+    eapply step_tapp1; eauto.
+  }
+  {
+    (* Case Tabs *)
+    left.
+    econstructor.
+  }
+  {
+    (* Case Fold *)
+    assert (IH : not_stuck n e).
+    {
+      eapply IHtyping with (Heq := eq_refl); eauto.
+    }
+    destruct IH as [IH | IH].
+    {
+      left.
+      econstructor.
+      eauto.
+    }
+    right.
+    destruct IH as [n' [e' IH]].
+    exists n'.
+    eexists.
+    Lemma step_fold n e n' e' t :
+      (n, e) ~> (n', e') ->
+      (n, Efold t e) ~> (n', Efold t e').
+      admit.
+    Qed.
+    eapply step_fold; eauto.
+  }
+  {
+    (* Case Hide *)
+    assert (IH : not_stuck n e).
+    {
+      eapply IHtyping with (Heq := eq_refl); eauto.
+    }
+    destruct IH as [IH | IH].
+    {
+      left.
+      econstructor.
+      eauto.
+    }
+    right.
+    destruct IH as [n' [e' IH]].
+    exists n'.
+    eexists.
+    Lemma step_hide n e n' e' :
+      (n, e) ~> (n', e') ->
+      (n, Ehide e) ~> (n', Ehide e').
+      admit.
+    Qed.
+    eapply step_hide; eauto.
+  }
+  {
+    (* Case Unhide *)
+    right.
+    assert (Hn : exists n', n = 1 + n').
+    {
+      admit.
+    }
+    destruct Hn as [n' ?].
+    subst.
+    assert (IH : not_stuck (1 + n') e).
+    {
+      eapply IHtyping with (Heq := eq_refl); eauto.
+      rewrite transport_eq_refl.
+      admit. (* !c <= _ *)
+    }
+    destruct IH as [IH | IH].
+    {
+      copy_as IH IH'.
+      Lemma cf_hide (e : expr) T t c s : 
+        IsValue e -> 
+        |- T e (Thide t) c s -> 
+        exists v,
+          e = Ehide v /\ IsValue v.
+        admit.
+      Qed.
+      eapply cf_hide in IH'; eauto.
+      destruct IH' as [v [? Hv]].
+      subst.
+      exists n'.
+      eexists.
+      econstructor; eauto.
+    }
+    destruct IH as [n'' [e' IH]].
+    exists n''.
+    eexists.
+    Lemma step_unhide n e n' e' :
+      (n, e) ~> (n', e') ->
+      (n, Eunhide e) ~> (n', Eunhide e').
+      admit.
+    Qed.
+    eapply step_unhide; eauto.
+  }
+  {
+    (* Case Sub *)
+    assert (IH : not_stuck n e).
+    {
+      eapply IHtyping with (Heq := eq_refl); eauto.
+      rewrite transport_eq_refl.
+      etransitivity; [ | eauto ].
+      admit. (* le *)
+    }
+    eauto.
+  }
+  {
+    (* Case Tt *)
+    left.
+    econstructor.
+  }
+  {
+    (* Case Pair *)
+    assert (IH1 : not_stuck n e1).
+    {
+      eapply IHtyping1 with (Heq := eq_refl); eauto.
+      rewrite transport_eq_refl.
+      admit. (* le *)
+    }
+    destruct IH1 as [IH1 | IH1].
+    {
+      assert (IH2 : not_stuck n e2).
+      {
+        eapply IHtyping2 with (Heq := eq_refl); eauto.
+        rewrite transport_eq_refl.
+        admit. (* le *)
+      }
+      destruct IH2 as [IH2 | IH2].
+      {
+        left.
+        econstructor; eauto.
+      }
+      destruct IH2 as [n' [e2' IH2]].
+      right.
+      exists n'.
+      eexists.
+      Lemma step_pair2 n e2 n' e2' e1 : 
+        (n, e2) ~> (n', e2') ->
+        IsValue e1 ->
+        (n, Epair e1 e2) ~> (n', Epair e1 e2).
+        admit.
+      Qed.
+      eapply step_pair2; eauto.
+    }
+    destruct IH1 as [n' [e1' IH1]].
+    right.
+    exists n'.
+    eexists.
+    Lemma step_pair1 n e1 n' e1' e2 :
+      (n, e1) ~> (n', e1') ->
+      (n, Epair e1 e2) ~> (n', Epair e1' e2).
+      admit.
+    Qed.
+    eapply step_pair1; eauto.
+  }
+  {
+    (* Case Inl *)
+    assert (IH : not_stuck n e).
+    {
+      eapply IHtyping with (Heq := eq_refl); eauto.
+    }
+    destruct IH as [IH | IH].
+    {
+      left.
+      econstructor.
+      eauto.
+    }
+    right.
+    destruct IH as [n' [e' IH]].
+    exists n'.
+    eexists.
+    Lemma step_inl n e n' e' t :
+      (n, e) ~> (n', e') ->
+      (n, Einl t e) ~> (n', Einl t e').
+      admit.
+    Qed.
+    eapply step_inl; eauto.
+  }
+  {
+    (* Case Inr *)
+    assert (IH : not_stuck n e).
+    {
+      eapply IHtyping with (Heq := eq_refl); eauto.
+    }
+    destruct IH as [IH | IH].
+    {
+      left.
+      econstructor.
+      eauto.
+    }
+    right.
+    destruct IH as [n' [e' IH]].
+    exists n'.
+    eexists.
+    Lemma step_inr n e n' e' t :
+      (n, e) ~> (n', e') ->
+      (n, Einr t e) ~> (n', Einr t e').
+      admit.
+    Qed.
+    eapply step_inr; eauto.
+  }
+  {
+    (* Case Fst *)
+    right.
+    assert (Hn : exists n', n = 1 + n').
+    {
+      admit.
+    }
+    destruct Hn as [n' ?].
+    subst.
+    assert (IH : not_stuck (1 + n') e).
+    {
+      eapply IHtyping with (Heq := eq_refl); eauto.
+      rewrite transport_eq_refl.
+      admit. (* !c <= _ *)
+    }
+    destruct IH as [IH | IH].
+    {
+      copy_as IH IH'.
+      Lemma cf_prod (e : expr) T t1 t2 c s : 
+        IsValue e -> 
+        |- T e (t1 * t2) c s -> 
+        exists v1 v2,
+          e = Epair v1 v2 /\ IsValue v1 /\ IsValue v2.
+        admit.
+      Qed.
+      eapply cf_prod in IH'; eauto.
+      destruct IH' as [v1 [v2 [? [Hv1 Hv2]]]].
+      subst.
+      exists n'.
+      eexists.
+      econstructor; eauto.
+    }
+    destruct IH as [n'' [e' IH]].
+    exists n''.
+    eexists.
+    Lemma step_fst n e n' e' :
+      (n, e) ~> (n', e') ->
+      (n, Efst e) ~> (n', Efst e').
+      admit.
+    Qed.
+    eapply step_fst; eauto.
+  }
+  {
+    (* Case Snd *)
+    right.
+    assert (Hn : exists n', n = 1 + n').
+    {
+      admit.
+    }
+    destruct Hn as [n' ?].
+    subst.
+    assert (IH : not_stuck (1 + n') e).
+    {
+      eapply IHtyping with (Heq := eq_refl); eauto.
+      rewrite transport_eq_refl.
+      admit. (* !c <= _ *)
+    }
+    destruct IH as [IH | IH].
+    {
+      copy_as IH IH'.
+      eapply cf_prod in IH'; eauto.
+      destruct IH' as [v1 [v2 [? [Hv1 Hv2]]]].
+      subst.
+      exists n'.
+      eexists.
+      econstructor; eauto.
+    }
+    destruct IH as [n'' [e' IH]].
+    exists n''.
+    eexists.
+    Lemma step_snd n e n' e' :
+      (n, e) ~> (n', e') ->
+      (n, Esnd e) ~> (n', Esnd e').
+      admit.
+    Qed.
+    eapply step_snd; eauto.
+  }
+  {
+    (* Case Match *)
+    right.
+    assert (Hn : exists n', n = 1 + n').
+    {
+      admit.
+    }
+    destruct Hn as [n' ?].
+    subst.
+    assert (IH : not_stuck (1 + n') e).
+    {
+      eapply IHtyping1 with (Heq := eq_refl); eauto.
+      rewrite transport_eq_refl.
+      admit. (* !c <= _ *)
+    }
+    destruct IH as [IH | IH].
+    {
+      copy_as IH IH'.
+      Lemma cf_sum (e : expr) T t1 t2 c s : 
+        IsValue e -> 
+        |- T e (t1 + t2) c s -> 
+        exists v,
+          IsValue v /\
+          (e = Einl t2 v \/ e = Einr t1 v).
+        admit.
+      Qed.
+      eapply cf_sum in IH'; eauto.
+      destruct IH' as [v [Hv [? | ?]]].
+      {
+        subst.
+        exists n'.
+        eexists.
+        econstructor; eauto.
+      }
+      {
+        subst.
+        exists n'.
+        eexists.
+        econstructor; eauto.
+      }
+    }
+    destruct IH as [n'' [e' IH]].
+    exists n''.
+    eexists.
+    Lemma step_match n e n' e' t s e1 e2 :
+      (n, e) ~> (n', e') ->
+      (n, Ematch e t s e1 e2) ~> (n', Ematch e' t s e1 e2).
+      admit.
+    Qed.
+    eapply step_match; eauto.
+  }
 Qed.
 
 Lemma progress n e tau c s :
