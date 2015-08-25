@@ -485,10 +485,44 @@ Proof.
     Lemma invert_tabs e t c s :
       |- [] (Etabs e) t c s ->
       exists t' c' s',
-        |- (add_kinding []) e t' (shift1 CEexpr c') (shift1 CEexpr s') /\
+        |- (add_kinding []) e t' (shift1 CEtype c') (shift1 CEtype s') /\
         t = Tuniversal c' s' t' /\
         S0 <= s.   
-    (*here*)
+      admit.
+    Qed.
+    eapply invert_tabs in Hwt.
+    destruct Hwt as [t' [c'' [s'' Hwt]]].
+    destruct Hwt as [Hwt [Ht Hs']].
+    symmetry in Ht; inject Ht.
+    exists c0.
+    split.
+    {
+      Lemma subst_t_wt e t c s t1 :
+      |- (add_kinding []) e t c s ->
+      |- [] (subst t1 e) (subst t1 t) (subst t1 c) (subst t1 s).
+        admit.
+      Qed.
+      eapply TPsub.
+      {
+        eapply subst_t_wt.
+        eauto.
+      }
+      {
+        Lemma subst_shift1_t_c ctx (v : open_type ctx) (b : open_cexpr _) : subst v (shift1 CEtype b) = b.
+          admit.
+        Qed.
+        rewrite (@subst_shift1_t_c []).
+        eauto.
+      }
+      {
+        Lemma subst_shift1_t_s ctx (v : open_type ctx) (b : open_size _) : subst v (shift1 CEtype b) = b.
+          admit.
+        Qed.
+        rewrite (@subst_shift1_t_s []).
+        eauto.
+      }
+    }
+    admit. (* le *)
   }
   Unfocus.
   admit.
