@@ -147,11 +147,6 @@ Section ctx.
 
 End ctx.
 
-Coercion get_i {t ctx} (x : var t ctx) :=
-  match x with
-    | Var i _ => i
-  end.
-
 (* Definition removen {A} ls n := @firstn A n ls ++ skipn (S n) ls. *)
 (* Arguments removen {_} _ _ / . *)
 
@@ -170,22 +165,8 @@ Require Import Program.
 Require Import Bool.
 Require Import Compare_dec.
 
-Arguments Var {t ctx} _ _ .
-
-Inductive unvar {t ctx} (x : var t ctx) :=
-| unVar n H (_ : x = Var n H)
-.
-
-Definition un_var {t ctx} (x : var t ctx) : unvar x.
-  destruct x.
-  econstructor.
-  eauto.
-Defined.
-
 Require Import GeneralTactics4.
 Require Import GeneralTactics3.
-
-Notation "# n" := (Var n _) (at level 3, format "# n").
 
 Lemma remove_after A ls : forall m n (a : A), n < m -> let ls' := removen ls m in nth_error ls n = Some a -> nth_error ls' n = Some a.
 Proof.
@@ -782,12 +763,8 @@ Instance Subst_Consume `{Consume t B} {V} : Subst t V B :=
     substx ctx x v b := consume (ctx := ctx) x b
   }.
 
-Lemma ceb_iff_c {a b} : a = b -> ceb a b = true.
-  intros; eapply ceb_iff; eauto.
-Qed.
-
 (* substitute for the outmost free variable *)
-Definition subst `{H : Subst var_t V B} {ctx} (v : V ctx) (b : B (var_t :: ctx)) : B ctx := substx (@Var var_t (var_t :: ctx) 0 (ceb_iff_c eq_refl)) v b.
+Definition subst `{H : Subst var_t V B} {ctx} (v : V ctx) (b : B (var_t :: ctx)) : B ctx := substx var0 v b.
 
 Definition subst_v {vart T ctx} (x : var vart ctx) (xv : var vart ctx) (f : option (var vart (removen ctx x)) -> T (removen ctx x)) : T (removen ctx x).
   refine

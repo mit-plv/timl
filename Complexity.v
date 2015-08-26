@@ -5,8 +5,10 @@ Require Import Arith.
 Require Import List.
 Require Import Util.
 Require Import NonnegRational.
+Require Import Var.
 
 Export NonnegRational.
+Export Var.
 
 (* 
   There are two statistics (or 'sizes', 'size measures') for each value :
@@ -28,13 +30,6 @@ Inductive path_command :=
 
 Notation path := (list path_command). (* The query path into a inner-component *)
 
-Inductive CtxEntry :=
-| CEtype
-| CEexpr
-.
-
-Definition context := list CtxEntry.
-
 Class Leb A B :=
   {
     leb : A -> B -> bool
@@ -55,42 +50,6 @@ Require Import Bool.
 Require Import ListFacts3.
 Require Import ListFacts4.
 Require Import GeneralTactics4.
-
-Definition option_eq_b {A} (eqb : A -> A -> bool) a b :=
-  match a, b with
-    | Some a, Some b => eqb a b
-    | None, None => true
-    | _, _ => false
-  end.
-
-Lemma option_eq_b_iff {A eqb} (_ : forall (a b : A), eqb a b = true <-> a = b) a b : option_eq_b eqb a b = true <-> a = b.
-Proof.
-  destruct a; destruct b; simpl in *; split; intros H1; trivial; try discriminate.
-  { f_equal; eapply H; eauto. }
-  { inject H1; eapply H; eauto. }
-Qed.
-
-Definition ce_eq_b a b :=
-  match a, b with
-    | CEexpr, CEexpr => true
-    | CEtype, CEtype => true
-    | _, _ => false
-  end.
-
-Lemma ce_eq_b_iff a b : ce_eq_b a b = true <-> a = b.
-Proof.
-  destruct a; destruct b; simpl in *; split; intros; trivial; try discriminate.
-Qed.
-
-Definition ceb := option_eq_b ce_eq_b.
-
-Definition ceb_iff : forall a b, ceb a b = true <-> a = b := option_eq_b_iff ce_eq_b_iff.
-
-Goal ceb (nth_error (CEexpr :: CEtype :: nil) 1) (Some CEtype) = true. Proof. exact eq_refl. Qed.
-
-Inductive var t ctx : Type :=
-| Var n (_ : ceb (nth_error ctx n) (Some t) = true)
-.
 
 Section ctx.
 

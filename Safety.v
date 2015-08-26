@@ -601,11 +601,10 @@ Lemma TPsubst ctx (T : tcontext ctx) e t c s :
       IsValue v ->
       |- (substx x v T) (substx x v e) (substx x v t) (substx x v c) (substx x v s).
 Proof.
-  induction 1.
+  induction 1; try rename x into x0; intros x t' v ? ? Hwtv Hval.
   Focus 3.
   {
     (* Case Abs *)
-    intros x t' v c' s' Hwtv Hval.
     Lemma removen_cons ctx xt {x : open_var xt ctx} {var_t} :
       removen (var_t :: ctx) (shift1 (H := Shift_var) var_t x) = var_t :: removen ctx x.
       admit.
@@ -691,7 +690,62 @@ Proof.
     eauto.
   }
   Unfocus.
-  (*here*)
+  Focus 2.
+  {
+    (* Case App *)
+    Lemma substx_app ctx (x : open_var CEexpr ctx) (v : open_expr _) e1 e2 :
+      let x' := shift1 (H := Shift_var) CEexpr x in
+      let ctx' := CEexpr :: ctx in
+      let v' := transport (shift1 CEexpr v) (eq_sym removen_cons) in
+      substx x v (Eapp e1 e2) = Eapp (substx x v e1) (substx x v e2).
+      admit.
+    Qed.
+    rewrite substx_app.
+    Lemma substx_Fadd ctx (x : open_var CEexpr ctx) (v : open_expr _) c1 c2 :
+      let x' := shift1 (H := Shift_var) CEexpr x in
+      let ctx' := CEexpr :: ctx in
+      let v' := transport (shift1 CEexpr v) (eq_sym removen_cons) in
+      substx x v (c1 + c2) = substx x v c1 + substx x v c2.
+      admit.
+    Qed.
+    repeat rewrite substx_Fadd.
+    Lemma substx_F1 ctx (x : open_var CEexpr ctx) (v : open_expr _) :
+      substx x v F1 = F1.
+      admit.
+    Qed.
+    rewrite substx_F1.
+    Lemma substx_subst_s_t ctx (x : open_var CEexpr ctx) (v : open_expr _) (vv : open_size _) (b : open_type _) :
+      let x' := shift1 (H := Shift_var) CEexpr x in
+      let ctx' := CEexpr :: ctx in
+      let v' := transport (shift1 CEexpr v) (eq_sym removen_cons) in
+      substx x v (subst vv b) = subst (substx x v vv) (transport (substx x' v' b) removen_cons).
+      admit.
+    Qed.
+    rewrite substx_subst_s_t.
+    Lemma substx_subst_s_s ctx (x : open_var CEexpr ctx) (v : open_expr _) (vv : open_size _) (b : open_size _) :
+      let x' := shift1 (H := Shift_var) CEexpr x in
+      let ctx' := CEexpr :: ctx in
+      let v' := transport (shift1 CEexpr v) (eq_sym removen_cons) in
+      substx x v (subst vv b) = subst (substx x v vv) (transport (substx x' v' b) removen_cons).
+      admit.
+    Qed.
+    rewrite substx_subst_s_s.
+    Lemma substx_subst_s_c ctx (x : open_var CEexpr ctx) (v : open_expr _) (vv : open_size _) (b : open_cexpr _) :
+      let x' := shift1 (H := Shift_var) CEexpr x in
+      let ctx' := CEexpr :: ctx in
+      let v' := transport (shift1 CEexpr v) (eq_sym removen_cons) in
+      substx x v (subst vv b) = subst (substx x v vv) (transport (substx x' v' b) removen_cons).
+      admit.
+    Qed.
+    rewrite substx_subst_s_c.
+    eapply (TPapp _ _ _ (substx x v τ₁)).
+    {
+      ssrewrite_r substx_arrow.
+      eapply IHtyping1; eauto.
+    }
+    eapply IHtyping2; eauto.
+  }
+  Unfocus.
   admit.
   admit.
   admit.
@@ -710,11 +764,46 @@ Proof.
   admit.
 Qed.
 
+Lemma TPsubst' ctx (x : open_var CEexpr ctx) (T : tcontext ctx) e t c s v : 
+  |- T e t c s ->
+  forall vt c' s',
+      |- (substx x v T) v vt c' s' ->
+      IsValue v ->
+      |- (substx x v T) (substx x v e) (substx x v t) (substx x v c) (substx x v s).
+  admit.
+Qed.
+
+Lemma subst_wt' tau1 e tau c s v c1 s1 :
+|- (add_typing tau1 []) e tau c s ->
+|- [] v tau1 c1 s1 ->
+   IsValue v ->
+|- [] (subst v e) (subst v tau) (subst v c) (subst v s).
+Proof.
+  intros Hwt Hwtv Hval.
+  Lemma subst_add_typing' ctx (T : tcontext ctx) t (v : open_expr _) :
+    substx var0 v (add_typing t T) = T.
+    admit.
+  Qed.
+  Lemma subst_add_typing ctx (T : tcontext ctx) t (v : open_expr _) :
+    subst v (add_typing t T) = T.
+  Proof.
+    unfold subst.
+    eapply subst_add_typing'.
+  Qed.
+  rewrite <- (subst_add_typing [] tau1 v).
+  eapply (@TPsubst' [CEexpr] #0); eauto.
+  rewrite subst_add_typing'.
+  eauto.
+Qed.
+
 Lemma subst_wt tau1 e tau c s v c1 s1 :
 |- (add_typing tau1 []) e tau c s ->
 |- [] v tau1 c1 s1 ->
    IsValue v ->
 |- [] (subst v e) (subst s1 tau) (subst s1 c) (subst s1 s).
+Proof.
+  intros Hwt Hwtv Hval.
+  (* use subst_wt' *)
   admit.
 Qed.
 
