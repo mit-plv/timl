@@ -87,13 +87,11 @@ End ssrewrite.
 
 Lemma progress' ctx (T : tcontext ctx) e tau c s :
   |- T e tau c s ->
-  forall (Heq : ctx = []) (ee : expr) (cc : cexpr) n, 
-    ee = transport e Heq -> 
-    cc = transport c Heq ->
-    !cc <= n -> 
-    not_stuck n ee.
+  forall (Heq : ctx = []) n, 
+    !(transport c Heq) <= n -> 
+    not_stuck n (transport e Heq).
 Proof.
-  induction 1; intros Heq ee cc n Hee Hcc Hle; subst; rewrite transport_eq_refl in *.
+  induction 1; intros Heq n Hle; subst; rewrite transport_eq_refl in *.
   Focus 2.
   {
     (* Case App *)
@@ -746,8 +744,10 @@ Proof.
     eapply IHtyping2; eauto.
   }
   Unfocus.
-  admit.
-  admit.
+  {
+    (* Case Var *)
+    admit.
+  }
   admit.
   admit.
   admit.
