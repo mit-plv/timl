@@ -176,9 +176,6 @@ Proof.
     {
       subst.
       Lemma substx_type_of_te ctx (x : open_var CEexpr ctx) (v : open_expr _) (te : tc_entry CEexpr _) :
-        let x' := shift1 (H := Shift_var) CEexpr x in
-        let ctx' := CEexpr :: ctx in
-        let v' := transport (shift1 CEexpr v) (eq_sym removen_cons) in
         substx x v (!te) = !(substx x v te).
         admit.
       Qed.
@@ -210,17 +207,11 @@ Proof.
   {
     (* Case App *)
     Lemma substx_app ctx (x : open_var CEexpr ctx) (v : open_expr _) e1 e2 :
-      let x' := shift1 (H := Shift_var) CEexpr x in
-      let ctx' := CEexpr :: ctx in
-      let v' := transport (shift1 CEexpr v) (eq_sym removen_cons) in
       substx x v (Eapp e1 e2) = Eapp (substx x v e1) (substx x v e2).
       admit.
     Qed.
     rewrite substx_app.
     Lemma substx_Fadd ctx (x : open_var CEexpr ctx) (v : open_expr _) c1 c2 :
-      let x' := shift1 (H := Shift_var) CEexpr x in
-      let ctx' := CEexpr :: ctx in
-      let v' := transport (shift1 CEexpr v) (eq_sym removen_cons) in
       substx x v (c1 + c2) = substx x v c1 + substx x v c2.
       admit.
     Qed.
@@ -314,8 +305,31 @@ Proof.
   }
   {
     (* Case Tapp *)
-    (*here*)
-    admit.
+    Lemma substx_tapp ctx (x : open_var CEexpr ctx) (v : open_expr _) e t :
+      substx x v (Etapp e t) = Etapp (substx x v e) (substx x v t).
+      admit.
+    Qed.
+    rewrite substx_tapp.
+    repeat rewrite substx_Fadd.
+    rewrite substx_F1.
+    Lemma substx_subst_t_t ctx (x : open_var CEexpr ctx) (v : open_expr _) (vv : open_type _) (b : open_type _) :
+      let x' := shift1 (H := Shift_var) _ x in
+      let ctx' := CEtype :: ctx in
+      let v' := transport (shift1 _ v) (eq_sym removen_cons) in
+      substx x v (subst vv b) = subst (substx x v vv) (transport (substx x' v' b) removen_cons).
+      admit.
+    Qed.
+    rewrite substx_subst_t_t.
+    eapply TPtapp.
+    Lemma substx_universal ctx (x : open_var CEexpr ctx) (v : open_expr _) c s t2 :
+      let x' := shift1 (H := Shift_var) _ x in
+      let ctx' := CEtype :: ctx in
+      let v' := transport (shift1 _ v) (eq_sym removen_cons) in
+      substx x v (Tuniversal c s t2) = Tuniversal (substx x v c) (substx x v s) (transport (substx x' v' t2) removen_cons).
+      admit.
+    Qed.
+    ssrewrite_r substx_universal.
+    eapply IHtyping; eauto.
   }
   admit.
   admit.
