@@ -128,15 +128,6 @@ Proof.
       admit.
     Qed.
     rewrite <- (transport_cancel' _ (add_typing _ _) removen_cons).
-    Lemma substx_add_typing ctx (x : open_var CEexpr ctx) (v : open_expr _) t T :
-      let x' := shift1 (H := Shift_var) CEexpr x in
-      let ctx' := CEexpr :: ctx in
-      let v' := transport (shift1 CEexpr v) (eq_sym removen_cons) in
-      substx x' v' (add_typing t T) = transport (add_typing (substx x v t) (substx x v T)) (eq_sym removen_cons).
-      admit.
-    Qed.
-    Import ssrewrite.
-    ssrewrite_r (substx_add_typing x v t1 T).
     Lemma TPtransport ctx (T : tcontext ctx) e t c s ctx' (Heq : ctx = ctx') :
       |- T e t c s -> |- (transport T Heq) (transport e Heq) (transport t Heq) (transport c Heq) (transport s Heq).
       admit.
@@ -146,6 +137,15 @@ Proof.
       admit.
     Qed.
     eapply TPtransport.
+    Lemma substx_add_typing ctx (x : open_var CEexpr ctx) (v : open_expr _) t T :
+      let x' := shift1 (H := Shift_var) CEexpr x in
+      let ctx' := CEexpr :: ctx in
+      let v' := transport (shift1 CEexpr v) (eq_sym removen_cons) in
+      substx x' v' (add_typing t T) = transport (add_typing (substx x v t) (substx x v T)) (eq_sym removen_cons).
+      admit.
+    Qed.
+    Import ssrewrite.
+    ssrewrite_r (substx_add_typing x v t1 T).
     eapply IHtyping.
     {
       ssrewrite (substx_add_typing x v t1 T).
@@ -165,9 +165,9 @@ Proof.
         admit.
       Qed.
       eapply IsValue_transport.
-      Lemma IsValue_shift1 ctx (v : open_expr ctx) :
+      Lemma IsValue_shift1 vart ctx (v : open_expr ctx) :
         IsValue v ->
-        IsValue (shift1 CEexpr v).
+        IsValue (shift1 vart v).
         admit.
       Qed.
       eapply IsValue_shift1.
@@ -185,16 +185,16 @@ Proof.
         admit.
       Qed.
       ssrewrite get_entry_add_typing.
-      Lemma type_of_te_shift1 ctx (te : tc_entry CEexpr ctx) :
-        !(shift1 CEexpr te) = shift1 CEexpr !te.
+      Lemma type_of_te_shift1 vart ctx (te : tc_entry CEexpr ctx) :
+        !(shift1 vart te) = shift1 vart !te.
         admit.
       Qed.
       ssrewrite type_of_te_shift1.
-      Lemma shift1_substx_e_t ctx (x : open_var CEexpr ctx) (v : open_expr _) (b : open_type _) :
-        let x' := shift1 (H := Shift_var) CEexpr x in
-        let ctx' := CEexpr :: ctx in
-        let v' := transport (shift1 CEexpr v) (eq_sym removen_cons) in
-        shift1 CEexpr (substx x v b) = transport (substx x' v' (shift1 CEexpr b)) removen_cons.
+      Lemma shift1_substx_e_t vart ctx (x : open_var CEexpr ctx) (v : open_expr _) (b : open_type _) :
+        let x' := shift1 (H := Shift_var) vart x in
+        let ctx' := vart :: ctx in
+        let v' := transport (shift1 _ v) (eq_sym removen_cons) in
+        shift1 _ (substx x v b) = transport (substx x' v' (shift1 _ b)) removen_cons.
         admit.
       Qed.
       rewrite shift1_substx_e_t.
@@ -330,6 +330,81 @@ Proof.
     Qed.
     ssrewrite_r substx_universal.
     eapply IHtyping; eauto.
+  }
+  {
+    (* Case Tabs *)
+    Lemma substx_tabs ctx (x : open_var CEexpr ctx) (v : open_expr _) e :
+      let x' := shift1 (H := Shift_var) _ x in
+      let ctx' := CEtype :: ctx in
+      let v' := transport (shift1 _ v) (eq_sym removen_cons) in
+      substx x v (Etabs e) = Etabs (transport (substx x' v' e) removen_cons).
+      admit.
+    Qed.
+    rewrite substx_tabs.
+    rewrite substx_universal.
+    rewrite substx_F0.
+    rewrite substx_S0.
+    eapply TPtabs.
+    rewrite <- (transport_cancel' _ (add_kinding _) removen_cons).
+    rewrite <- (transport_cancel' _ (shift1 _ (substx x v c)) removen_cons).
+    rewrite <- (transport_cancel' _ (shift1 _ (substx x v s)) removen_cons).
+    eapply TPtransport.
+    Lemma substx_add_kinding ctx (x : open_var CEexpr ctx) (v : open_expr _) T :
+      let x' := shift1 (H := Shift_var) _ x in
+      let ctx' := CEtype :: ctx in
+      let v' := transport (shift1 _ v) (eq_sym removen_cons) in
+      substx x' v' (add_kinding T) = transport (add_kinding (substx x v T)) (eq_sym removen_cons).
+      admit.
+    Qed.
+    ssrewrite_r (substx_add_kinding x v T).
+    Lemma shift1_substx_e_c vart ctx (x : open_var CEexpr ctx) (v : open_expr _) (b : open_cexpr _) :
+      let x' := shift1 (H := Shift_var) _ x in
+      let ctx' := vart :: ctx in
+      let v' := transport (shift1 _ v) (eq_sym removen_cons) in
+      shift1 vart (substx x v b) = transport (substx x' v' (shift1 vart b)) removen_cons.
+      admit.
+    Qed.
+    rewrite shift1_substx_e_c.
+    rewrite transport_cancel.
+    Lemma shift1_substx_e_s vart ctx (x : open_var CEexpr ctx) (v : open_expr _) (b : open_size _) :
+      let x' := shift1 (H := Shift_var) _ x in
+      let ctx' := vart :: ctx in
+      let v' := transport (shift1 _ v) (eq_sym removen_cons) in
+      shift1 vart (substx x v b) = transport (substx x' v' (shift1 vart b)) removen_cons.
+      admit.
+    Qed.
+    rewrite shift1_substx_e_s.
+    rewrite transport_cancel.
+    eapply IHtyping.
+    {
+      ssrewrite (substx_add_kinding x v T).
+      eapply TPtransport.
+      Lemma TPweaken_t ctx (T : tcontext ctx) e t c s : 
+      |- T e t c s -> 
+      |- (add_kinding T) (shift1 CEtype e) (shift1 _ t) (shift1 _ c) (shift1 _ s).
+        admit.
+      Qed.
+      eapply TPweaken_t.
+      eauto.
+    }
+    {
+      eapply IsValue_transport.
+      eapply IsValue_shift1.
+      eauto.
+    }
+    {
+      subst.
+      Lemma get_entry_add_kinding ctx (x : open_var CEexpr ctx) T :
+        let x' := shift1 (H := Shift_var) _ x in
+        get_entry x' (add_kinding T) = shift1 _ (get_entry x T).
+        admit.
+      Qed.
+      ssrewrite get_entry_add_kinding.
+      ssrewrite type_of_te_shift1.
+      rewrite shift1_substx_e_t.
+      rewrite transport_cancel.
+      eauto.
+    }
   }
   admit.
   admit.
