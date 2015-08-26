@@ -406,6 +406,34 @@ Proof.
       eauto.
     }
   }
+  {
+    (* Case Fold *)
+    subst.
+    Lemma substx_fold ctx (x : open_var CEexpr ctx) (v : open_expr _) t e :
+      substx x v (Efold t e) = Efold (substx x v t) (substx x v e).
+      admit.
+    Qed.
+    rewrite substx_fold.
+    Lemma substx_Sfold ctx (x : open_var CEexpr ctx) (v : open_expr _) s :
+      substx x v (Sfold s) = Sfold (substx x v s).
+      admit.
+    Qed.
+    rewrite substx_Sfold.
+    Lemma substx_recur ctx (x : open_var CEexpr ctx) (v : open_expr _) t :
+      let x' := shift1 (H := Shift_var) _ x in
+      let ctx' := CEtype :: ctx in
+      let v' := transport (shift1 _ v) (eq_sym removen_cons) in
+      substx x v (Trecur t) = Trecur (transport (substx x' v' t) removen_cons).
+      admit.
+    Qed.
+    eapply TPfold.
+    {
+      ssrewrite substx_recur.
+      eauto.
+    }
+    ssrewrite_r substx_subst_t_t.
+    eapply IHtyping; eauto.
+  }
   admit.
   admit.
   admit.
