@@ -70,25 +70,20 @@ Existing Instance leF_rel_Reflexive.
 Existing Instance leS_rel_Transitive.
 Hint Extern 1 (_ <= _) => reflexivity.
 
-Lemma TPsubst ctx (T : tcontext ctx) e t c s : 
-  |- T e t c s ->
-  forall ctx',
-    let ctx'' := CEexpr :: ctx' in
-    forall (Heq : ctx = ctx'') (TT : tcontext ctx'') (ee : open_expr ctx'') (tt : open_type ctx'') (cc : open_cexpr ctx'') (ss : open_size ctx'') t1 T' v c1 s1,
-      TT = transport T Heq -> 
-      ee = transport e Heq -> 
-      tt = transport t Heq -> 
-      cc = transport c Heq ->
-      ss = transport s Heq ->
-      TT = add_typing t1 T' ->
-      |- T' v t1 c1 s1 ->
-      IsValue v ->
-      |- T' (subst v ee) (subst s1 tt) (subst s1 cc) (subst s1 ss).
-Proof.
-  induction 1.
-  Focus 3.
-  (*here*) 
-Qed.
+Definition subst_s_tc {ctx} (x : open_var CEexpr ctx) (v : open_size (removen ctx x)) (b : tcontext ctx) : tcontext (removen ctx x).
+  admit.
+Defined.
+
+Global Instance Subst_size_tc : Subst CEexpr open_size tcontext :=
+  {
+    substx := @subst_s_tc
+  }.
+
+Module ssrewrite.
+  Require Import ssreflect.
+  Ltac ssrewrite x := rewrite x.
+  Ltac ssrewrite_r x := rewrite -x.
+End ssrewrite.
 
 Lemma progress' ctx (T : tcontext ctx) e tau c s :
   |- T e tau c s ->
@@ -597,6 +592,122 @@ Lemma progress n e tau c s :
 Proof.
   intros [Hwt Hle].
   eapply progress' with (Heq := eq_refl); eauto.
+Qed.
+
+Lemma TPsubst ctx (T : tcontext ctx) e t c s : 
+  |- T e t c s ->
+  forall (x : open_var CEexpr ctx) vt v c' s',
+      |- (substx x v T) v vt c' s' ->
+      IsValue v ->
+      |- (substx x v T) (substx x v e) (substx x v t) (substx x v c) (substx x v s).
+Proof.
+  induction 1.
+  Focus 3.
+  {
+    (* Case Abs *)
+    intros x t' v c' s' Hwtv Hval.
+    Lemma removen_cons ctx xt {x : open_var xt ctx} {var_t} :
+      removen (var_t :: ctx) (shift1 (H := Shift_var) var_t x) = var_t :: removen ctx x.
+      admit.
+    Qed.
+    Lemma substx_abs ctx (x : open_var CEexpr ctx) (v : open_expr _) t e :
+      let x' := shift1 (H := Shift_var) CEexpr x in
+      let ctx' := CEexpr :: ctx in
+      let v' := transport (shift1 CEexpr v) (eq_sym removen_cons) in
+      substx x v (Eabs t e) = Eabs (substx x v t) (transport (substx x' v' e) removen_cons).
+      admit.
+    Qed.
+    rewrite substx_abs.
+    Lemma substx_arrow ctx (x : open_var CEexpr ctx) (v : open_expr _) t1 c s t2 :
+      let x' := shift1 (H := Shift_var) CEexpr x in
+      let ctx' := CEexpr :: ctx in
+      let v' := transport (shift1 CEexpr v) (eq_sym removen_cons) in
+      substx x v (Tarrow t1 c s t2) = Tarrow (substx x v t1) (transport (substx x' v' c) removen_cons) (transport (substx x' v' s) removen_cons) (transport (substx x' v' t2) removen_cons).
+      admit.
+    Qed.
+    rewrite substx_arrow.
+    Lemma substx_F0 ctx (x : open_var CEexpr ctx) (v : open_expr _) :
+      substx x v F0 = F0.
+      admit.
+    Qed.
+    rewrite substx_F0.
+    Lemma substx_S0 ctx (x : open_var CEexpr ctx) (v : open_expr _) :
+      substx x v S0 = S0.
+      admit.
+    Qed.
+    rewrite substx_S0.
+    eapply TPabs.
+    Lemma transport_cancel A (T : A -> Type) (from : A) (a : T from) (to : A) (Heq : from = to) : transport (transport a Heq) (eq_sym Heq) = a.
+    Proof.
+      admit.
+    Qed.
+    Lemma transport_cancel' A (T : A -> Type) (from : A) (a : T from) (to : A) (Heq : to = from) : transport (transport a (eq_sym Heq)) Heq = a.
+    Proof.
+      admit.
+    Qed.
+    rewrite <- (transport_cancel' _ (add_typing _ _) removen_cons).
+    Lemma substx_add_typing ctx (x : open_var CEexpr ctx) (v : open_expr _) t T :
+      let x' := shift1 (H := Shift_var) CEexpr x in
+      let ctx' := CEexpr :: ctx in
+      let v' := transport (shift1 CEexpr v) (eq_sym removen_cons) in
+      substx x' v' (add_typing t T) = transport (add_typing (substx x v t) (substx x v T)) (eq_sym removen_cons).
+      admit.
+    Qed.
+    Import ssrewrite.
+    ssrewrite_r (substx_add_typing x v t1 T).
+    Lemma TPtransport ctx (T : tcontext ctx) e t c s ctx' (Heq : ctx = ctx') :
+      |- T e t c s -> |- (transport T Heq) (transport e Heq) (transport t Heq) (transport c Heq) (transport s Heq).
+      admit.
+    Qed.
+    Lemma TPtransport_r ctx (T : tcontext ctx) e t c s ctx' (Heq : ctx = ctx') :
+      |- (transport T Heq) (transport e Heq) (transport t Heq) (transport c Heq) (transport s Heq) -> |- T e t c s.
+      admit.
+    Qed.
+    eapply TPtransport.
+    eapply IHtyping.
+    {
+      ssrewrite (substx_add_typing x v t1 T).
+      eapply TPtransport.
+      Lemma TPadd_typing ctx (T : tcontext ctx) e t c s t1 : 
+      |- T e t c s -> 
+      |- (add_typing t1 T) (shift1 CEexpr e) (shift1 _ t) (shift1 _ c) (shift1 _ s).
+        admit.
+      Qed.
+      eapply TPadd_typing.
+      eauto.
+    }
+    Lemma IsValue_transport ctx (v : open_expr ctx) ctx' (Heq : ctx = ctx') :
+      IsValue v ->
+      IsValue (transport v Heq).
+      admit.
+    Qed.
+    eapply IsValue_transport.
+    Lemma IsValue_shift1 ctx (v : open_expr ctx) :
+      IsValue v ->
+      IsValue (shift1 CEexpr v).
+      admit.
+    Qed.
+    eapply IsValue_shift1.
+    eauto.
+  }
+  Unfocus.
+  (*here*)
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
+  admit.
 Qed.
 
 Lemma subst_wt tau1 e tau c s v c1 s1 :

@@ -675,7 +675,7 @@ Class Shift {A} T :=
 Arguments shift {_ _ _ _} _ _ _ .
 
 Definition shift_from `{Shift T} {ctx} new n := shift (ctx := ctx) [new] n.
-Definition shift1 `{Shift T} {ctx} new := shift_from (ctx := ctx) new 0.
+Definition shift1 `{H : Shift T} {ctx} new := shift_from (ctx := ctx) new 0.
 
 Definition shift_cast `{Shift _ T} {ctx : context} new n qctx (b : T (qctx ++ ctx)) : T (qctx ++ insert ctx n new).
   refine
@@ -716,7 +716,7 @@ Definition shift_v {t ctx} new n (xv : var t ctx) : var t (insert ctx n new).
   }
 Defined.
 
-Global Instance Shift_var t : Shift (var t) :=
+Global Instance Shift_var {t} : Shift (var t) :=
   {
     shift := @shift_v t
   }.
@@ -946,7 +946,7 @@ Definition get_size {ctx} (e : expr ctx) : size ctx.
 Defined.
 
 (* if you can substitute size, you can substitute expr *)
-Instance Subst_expr_Subst_value `{Subst t size B} : Subst t expr B :=
+Instance Subst_size_Subst_expr `{Subst t size B} : Subst t expr B :=
   {
     substx ctx x v b := substx x (get_size v) b
   }.
