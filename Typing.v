@@ -85,6 +85,33 @@ Notation Tuniversal0 := (Tuniversal F0 S0).
 
 Definition shiftby `{Shift A T} {ctx} new b := shift (ctx := ctx) new 0 b.
 
+Definition shift_tc_entry vart ctx new n : tc_entry vart ctx -> tc_entry vart (insert ctx n new).
+  admit.
+Defined.
+
+Global Instance Shift_tc_entry vart : Shift (tc_entry vart) :=
+  {
+    shift := @shift_tc_entry _
+  }.
+
+Definition subst_s_tc_entry {ctx} (x : var CEexpr ctx) (v : size (removen ctx x)) (b : tc_entry CEexpr ctx) : tc_entry CEexpr (removen ctx x).
+  admit.
+Defined.
+
+Global Instance Subst_size_tc_entry : Subst CEexpr size (tc_entry CEexpr) :=
+  {
+    substx := @subst_s_tc_entry
+  }.
+
+Definition subst_s_tc {ctx} (x : var CEexpr ctx) (v : size (removen ctx x)) (b : tcontext ctx) : tcontext (removen ctx x).
+  admit.
+Defined.
+
+Global Instance Subst_size_tc : Subst CEexpr size tcontext :=
+  {
+    substx := @subst_s_tc
+  }.
+
 Definition type_of_te {ctx} (e : tc_entry CEexpr ctx) : type ctx :=
   match e with
     | TEtyping _ t => t
@@ -134,6 +161,8 @@ Defined.
 
 Goal (findtc (Var (t := CEtype) (ctx := [CEtype; CEtype]) 1 (eq_refl true)) [TEkinding; TEkinding]%TC) = TEkinding. Proof. exact eq_refl. Qed.
 
+Definition get_entry {vart ctx} (x : var vart ctx) (T : tcontext ctx) : tc_entry vart ctx := transport (shiftby (firstn (S x) ctx) (findtc x T)) (firstn_skipn _ ctx).
+
 Class Coerce A B :=
   {
     coerce : A -> B
@@ -162,7 +191,7 @@ Global Instance Coerce_prod_size ctx : Coerce (size ctx * size ctx) (size ctx) :
 
 Inductive typing {ctx} : tcontext ctx -> expr ctx -> type ctx -> cexpr ctx -> size ctx -> Prop :=
 | TPvar Γ x : 
-    typing Γ (Evar x) (cast (shiftby (firstn (S x) ctx) !(findtc x Γ)) (firstn_skipn _ ctx)) F0 !x
+    typing Γ (Evar x) !(get_entry x Γ) F0 !x
 | TPapp Γ e₀ e₁ τ₁ c s τ₂ c₀ nouse c₁ s₁ : 
     typing Γ e₀ (Tarrow τ₁ c s τ₂) c₀ nouse ->
     typing Γ e₁ τ₁ c₁ s₁ ->
