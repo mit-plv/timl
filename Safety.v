@@ -645,19 +645,99 @@ Proof.
       eapply is_pair_substx; eauto.
     }
   }
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
-  admit.
+  {
+    (* Case Match *)
+    subst.
+    Lemma substx_match ctx (x : open_var CEexpr ctx) (v : open_expr _) e t s e1 e2 :
+      let x' := shift1 (H := Shift_var) CEexpr x in
+      let ctx' := CEexpr :: ctx in
+      let v' := transport (shift1 CEexpr v) (eq_sym removen_cons) in
+      substx x v (Ematch e t s e1 e2) = Ematch (substx x v e) (substx x v t) (substx x v s) (transport (substx x' v' e1) removen_cons) (transport (substx x' v' e2) removen_cons).
+      admit.
+    Qed.
+    rewrite substx_match.
+    repeat rewrite substx_Fadd.
+    rewrite substx_F1.
+    Lemma substx_Fmax ctx (x : open_var CEexpr ctx) (v : open_expr _) c1 c2 :
+      substx x v (max c1 c2) = max (substx x v c1) (substx x v c2).
+      admit.
+    Qed.
+    repeat rewrite substx_Fmax.
+    repeat rewrite substx_subst_s_c.
+    eapply TPmatch.
+    {
+      erewrite <-  substx_sum.
+      eapply IHtyping1; eauto.
+    }
+    {
+      rewrite <- (transport_cancel' _ (add_typing _ _) removen_cons).
+      rewrite <- (transport_cancel' _ (shift1 _ (substx x v t)) removen_cons).
+      rewrite <- (transport_cancel' _ (shift1 _ (substx x v s)) removen_cons).
+      eapply TPtransport.
+      ssrewrite_r (substx_add_typing x v t1 T).
+      rewrite shift1_substx_e_t.
+      rewrite transport_cancel.
+      rewrite shift1_substx_e_s.
+      rewrite transport_cancel.
+      eapply IHtyping2.
+      {
+        ssrewrite (substx_add_typing x v t1 T).
+        eapply TPtransport.
+        eapply TPweaken.
+        eauto.
+      }
+      {
+        eapply IsValue_transport.
+        eapply IsValue_shift1.
+        eauto.
+      }
+      {
+        ssrewrite get_entry_add_typing.
+        ssrewrite type_of_te_shift1.
+        rewrite shift1_substx_e_t.
+        rewrite transport_cancel.
+        eauto.
+      }
+    }
+    {
+      rewrite <- (transport_cancel' _ (add_typing _ _) removen_cons).
+      rewrite <- (transport_cancel' _ (shift1 _ (substx x v t)) removen_cons).
+      rewrite <- (transport_cancel' _ (shift1 _ (substx x v s)) removen_cons).
+      eapply TPtransport.
+      ssrewrite_r (substx_add_typing x v t2 T).
+      rewrite shift1_substx_e_t.
+      rewrite transport_cancel.
+      rewrite shift1_substx_e_s.
+      rewrite transport_cancel.
+      eapply IHtyping3.
+      {
+        ssrewrite (substx_add_typing x v t2 T).
+        eapply TPtransport.
+        eapply TPweaken.
+        eauto.
+      }
+      {
+        eapply IsValue_transport.
+        eapply IsValue_shift1.
+        eauto.
+      }
+      {
+        ssrewrite get_entry_add_typing.
+        ssrewrite type_of_te_shift1.
+        rewrite shift1_substx_e_t.
+        rewrite transport_cancel.
+        eauto.
+      }
+    }
+    {
+      Lemma is_inlinr_substx ctx (x : open_var CEexpr ctx) (v : open_expr _) s s1 s2 :
+        is_inlinr s = Some (s1, s2) ->
+        is_inlinr (substx x v s) = Some (substx x v s1, substx x v s2).
+        admit.
+      Qed.
+      eapply is_inlinr_substx; eauto.
+    }
+  }
 Qed.
 
 Lemma TPsubst' ctx (x : open_var CEexpr ctx) (T : tcontext ctx) e t c s v : 
