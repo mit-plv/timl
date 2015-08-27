@@ -434,6 +434,32 @@ Proof.
     ssrewrite_r substx_subst_t_t.
     eapply IHtyping; eauto.
   }
+  {
+    (* Case Unfold *)
+    subst.
+    Lemma substx_unfold ctx (x : open_var CEexpr ctx) (v : open_expr _) e :
+      substx x v (Eunfold e) = Eunfold (substx x v e).
+      admit.
+    Qed.
+    rewrite substx_unfold.
+    repeat rewrite substx_Fadd.
+    rewrite substx_F1.
+    rewrite substx_subst_t_t.
+    eapply TPunfold.
+    {
+      eapply IHtyping; eauto.
+    }
+    {
+      Lemma is_fold_substx ctx (x : open_var CEexpr ctx) (v : open_expr _) s s' :
+        is_fold s = Some s' ->
+        is_fold (substx x v s) = Some (substx x v s').
+        admit.
+      Qed.
+      eapply is_fold_substx; eauto.
+    }
+    rewrite substx_recur.
+    eauto.
+  }
   admit.
   admit.
   admit.
