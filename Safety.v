@@ -460,6 +460,50 @@ Proof.
     rewrite substx_recur.
     eauto.
   }
+  {
+    (* Case Hide *)
+    subst.
+    Lemma substx_hide ctx (x : open_var CEexpr ctx) (v : open_expr _) e :
+      substx x v (Ehide e) = Ehide (substx x v e).
+      admit.
+    Qed.
+    rewrite substx_hide.
+    Lemma substx_Shide ctx (x : open_var CEexpr ctx) (v : open_expr _) s :
+      substx x v (Shide s) = Shide (substx x v s).
+      admit.
+    Qed.
+    rewrite substx_Shide.
+    Lemma substx_Thide ctx (x : open_var CEexpr ctx) (v : open_expr _) t :
+      substx x v (Thide t) = Thide (substx x v t).
+      admit.
+    Qed.
+    ssrewrite substx_Thide.
+    eapply TPhide.
+    eapply IHtyping; eauto.
+  }
+  {
+    (* Case Unhide *)
+    subst.
+    Lemma substx_unhide ctx (x : open_var CEexpr ctx) (v : open_expr _) e :
+      substx x v (Eunhide e) = Eunhide (substx x v e).
+      admit.
+    Qed.
+    rewrite substx_unhide.
+    repeat rewrite substx_Fadd.
+    rewrite substx_F1.
+    eapply TPunhide.
+    {
+      eapply IHtyping; eauto.
+    }
+    {
+      Lemma is_hide_substx ctx (x : open_var CEexpr ctx) (v : open_expr _) s s' :
+        is_hide s = Some s' ->
+        is_hide (substx x v s) = Some (substx x v s').
+        admit.
+      Qed.
+      eapply is_hide_substx; eauto.
+    }
+  }
   admit.
   admit.
   admit.
