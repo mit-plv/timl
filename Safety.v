@@ -528,6 +528,46 @@ Proof.
       eapply leS_substx; eauto.
     }
   }
+  {
+    (* Case Tt *)
+    subst.
+    Lemma substx_tt ctx (x : open_var CEexpr ctx) (v : open_expr _) :
+      substx x v Ett = Ett.
+      admit.
+    Qed.
+    rewrite substx_tt.
+    rewrite substx_F0.
+    rewrite substx_S0.
+    Lemma substx_unit ctx (x : open_var CEexpr ctx) (v : open_expr _) :
+      substx x v Tunit = Tunit.
+      admit.
+    Qed.
+    rewrite substx_unit.
+    eapply TPtt.
+  }
+  {
+    (* Case Pair *)
+    subst.
+    Lemma substx_pair ctx (x : open_var CEexpr ctx) (v : open_expr _) e1 e2 :
+      substx x v (Epair e1 e2) = Epair (substx x v e1) (substx x v e2).
+      admit.
+    Qed.
+    rewrite substx_pair.
+    Lemma substx_Spair ctx (x : open_var CEexpr ctx) (v : open_expr _) s1 s2 :
+      substx x v !(s1, s2) = !(substx x v s1, substx x v s2).
+      admit.
+    Qed.
+    rewrite substx_Spair.
+    rewrite substx_Fadd.
+    Lemma substx_prod ctx (x : open_var CEexpr ctx) (v : open_expr _) t1 t2 :
+      substx x v (Tprod t1 t2) = Tprod (substx x v t1) (substx x v t2).
+      admit.
+    Qed.
+    rewrite substx_prod.
+    eapply TPpair.
+    { eapply IHtyping1; eauto. }
+    { eapply IHtyping2; eauto. }
+  }
   admit.
   admit.
   admit.
