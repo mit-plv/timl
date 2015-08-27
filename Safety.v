@@ -604,6 +604,47 @@ Proof.
     eapply TPinr.
     eapply IHtyping; eauto.
   }
+  {
+    (* Case Fst *)
+    subst.
+    Lemma substx_fst ctx (x : open_var CEexpr ctx) (v : open_expr _) e :
+      substx x v (Efst e) = Efst (substx x v e).
+      admit.
+    Qed.
+    rewrite substx_fst.
+    repeat rewrite substx_Fadd.
+    rewrite substx_F1.
+    eapply TPfst.
+    {
+      eapply IHtyping; eauto.
+    }
+    {
+      Lemma is_pair_substx ctx (x : open_var CEexpr ctx) (v : open_expr _) s s1 s2 :
+        is_pair s = Some (s1, s2) ->
+        is_pair (substx x v s) = Some (substx x v s1, substx x v s2).
+        admit.
+      Qed.
+      eapply is_pair_substx; eauto.
+    }
+  }
+  {
+    (* Case Snd *)
+    subst.
+    Lemma substx_snd ctx (x : open_var CEexpr ctx) (v : open_expr _) e :
+      substx x v (Esnd e) = Esnd (substx x v e).
+      admit.
+    Qed.
+    rewrite substx_snd.
+    repeat rewrite substx_Fadd.
+    rewrite substx_F1.
+    eapply TPsnd.
+    {
+      eapply IHtyping; eauto.
+    }
+    {
+      eapply is_pair_substx; eauto.
+    }
+  }
   admit.
   admit.
   admit.
