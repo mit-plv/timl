@@ -504,6 +504,30 @@ Proof.
       eapply is_hide_substx; eauto.
     }
   }
+  {
+    (* Case Sub *)
+    subst.
+    eapply TPsub.
+    {
+      eapply IHtyping; eauto.
+    }
+    {
+      Lemma leF_substx ctx (x : open_var CEexpr ctx) (v : open_expr _) (a b : open_cexpr _) :
+        a <= b ->
+        substx x v a <= substx x v b.
+        admit.
+      Qed.
+      eapply leF_substx; eauto.
+    }
+    {
+      Lemma leS_substx ctx (x : open_var CEexpr ctx) (v : open_expr _) (a b : open_size _) :
+        a <= b ->
+        substx x v a <= substx x v b.
+        admit.
+      Qed.
+      eapply leS_substx; eauto.
+    }
+  }
   admit.
   admit.
   admit.
