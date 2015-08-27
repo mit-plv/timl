@@ -568,6 +568,42 @@ Proof.
     { eapply IHtyping1; eauto. }
     { eapply IHtyping2; eauto. }
   }
+  {
+    (* Case Inl *)
+    subst.
+    Lemma substx_inl ctx (x : open_var CEexpr ctx) (v : open_expr _) t e :
+      substx x v (Einl t e) = Einl (substx x v t) (substx x v e).
+      admit.
+    Qed.
+    rewrite substx_inl.
+    Lemma substx_Sinlinr ctx (x : open_var CEexpr ctx) (v : open_expr _) s1 s2 :
+      substx x v (Sinlinr s1 s2) = Sinlinr (substx x v s1) (substx x v s2).
+      admit.
+    Qed.
+    rewrite substx_Sinlinr.
+    rewrite substx_S0.
+    Lemma substx_sum ctx (x : open_var CEexpr ctx) (v : open_expr _) t1 t2 :
+      substx x v (Tsum t1 t2) = Tsum (substx x v t1) (substx x v t2).
+      admit.
+    Qed.
+    rewrite substx_sum.
+    eapply TPinl.
+    eapply IHtyping; eauto.
+  }
+  {
+    (* Case Inl *)
+    subst.
+    Lemma substx_inr ctx (x : open_var CEexpr ctx) (v : open_expr _) t e :
+      substx x v (Einr t e) = Einr (substx x v t) (substx x v e).
+      admit.
+    Qed.
+    rewrite substx_inr.
+    rewrite substx_Sinlinr.
+    rewrite substx_S0.
+    rewrite substx_sum.
+    eapply TPinr.
+    eapply IHtyping; eauto.
+  }
   admit.
   admit.
   admit.
