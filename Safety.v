@@ -789,6 +789,13 @@ Lemma subst_t_wt e t c s t1 :
   admit.
 Qed.
 
+Lemma c2n_Fadd (a b : cexpr) : !(a + b) = !a + !b.
+  admit.
+Qed.
+Lemma c2n_F1 : !F1 = 1.
+  admit.
+Qed.
+
 Lemma progress' ctx (T : tcontext ctx) e tau c s :
   |- T e tau c s ->
   forall (Heq : ctx = []) n, 
@@ -802,7 +809,11 @@ Proof.
     right.
     assert (Hn : exists n', n = 1 + n').
     {
-      admit.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      destruct n as [|n].
+      { simpl in *; omega. }
+      eexists; eauto.
     }
     destruct Hn as [n' ?].
     subst.
@@ -810,7 +821,9 @@ Proof.
     {
       eapply IHtyping1 with (Heq := eq_refl); eauto.
       rewrite transport_eq_refl.
-      admit. (* !c0 <= _ *)
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      simpl in *; omega.
     }
     destruct IH1 as [IH1 | IH1].
     {
@@ -831,7 +844,9 @@ Proof.
       {
         eapply IHtyping2 with (Heq := eq_refl); eauto.
         rewrite transport_eq_refl.
-        admit. (* !c1 <= _ *)
+        repeat rewrite c2n_Fadd in *.
+        repeat rewrite c2n_F1 in *.
+        simpl in *; omega.
       }
       destruct IH2 as [IH2 | IH2].
       {
@@ -874,7 +889,11 @@ Proof.
     right.
     assert (Hn : exists n', n = 1 + n').
     {
-      admit.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      destruct n as [|n].
+      { simpl in *; omega. }
+      eexists; eauto.
     }
     destruct Hn as [n' ?].
     subst.
@@ -882,7 +901,9 @@ Proof.
     {
       eapply IHtyping with (Heq := eq_refl); eauto.
       rewrite transport_eq_refl.
-      admit. (* !c <= _ *)
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      simpl in *; omega.
     }
     destruct IH as [IH | IH].
     {
@@ -922,7 +943,11 @@ Proof.
     right.
     assert (Hn : exists n', n = 1 + n').
     {
-      admit.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      destruct n as [|n].
+      { simpl in *; omega. }
+      eexists; eauto.
     }
     destruct Hn as [n' ?].
     subst.
@@ -930,7 +955,9 @@ Proof.
     {
       eapply IHtyping with (Heq := eq_refl); eauto.
       rewrite transport_eq_refl.
-      admit. (* le *)
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      simpl in *; omega.
     }
     destruct IH as [IH | IH].
     {
@@ -1016,7 +1043,11 @@ Proof.
     right.
     assert (Hn : exists n', n = 1 + n').
     {
-      admit.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      destruct n as [|n].
+      { simpl in *; omega. }
+      eexists; eauto.
     }
     destruct Hn as [n' ?].
     subst.
@@ -1024,7 +1055,9 @@ Proof.
     {
       eapply IHtyping with (Heq := eq_refl); eauto.
       rewrite transport_eq_refl.
-      admit. (* !c <= _ *)
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      simpl in *; omega.
     }
     destruct IH as [IH | IH].
     {
@@ -1060,7 +1093,12 @@ Proof.
       eapply IHtyping with (Heq := eq_refl); eauto.
       rewrite transport_eq_refl.
       etransitivity; [ | eauto ].
-      admit. (* le *)
+      Lemma leF_sound (a b : cexpr) : a <= b -> !a <= !b.
+        admit.
+      Qed.
+      rename H0 into Hcle.
+      eapply leF_sound in Hcle.
+      simpl in *; omega.
     }
     eauto.
   }
@@ -1075,7 +1113,9 @@ Proof.
     {
       eapply IHtyping1 with (Heq := eq_refl); eauto.
       rewrite transport_eq_refl.
-      admit. (* le *)
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      simpl in *; omega.
     }
     destruct IH1 as [IH1 | IH1].
     {
@@ -1083,7 +1123,9 @@ Proof.
       {
         eapply IHtyping2 with (Heq := eq_refl); eauto.
         rewrite transport_eq_refl.
-        admit. (* le *)
+        repeat rewrite c2n_Fadd in *.
+        repeat rewrite c2n_F1 in *.
+        simpl in *; omega.
       }
       destruct IH2 as [IH2 | IH2].
       {
@@ -1164,7 +1206,11 @@ Proof.
     right.
     assert (Hn : exists n', n = 1 + n').
     {
-      admit.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      destruct n as [|n].
+      { simpl in *; omega. }
+      eexists; eauto.
     }
     destruct Hn as [n' ?].
     subst.
@@ -1172,7 +1218,9 @@ Proof.
     {
       eapply IHtyping with (Heq := eq_refl); eauto.
       rewrite transport_eq_refl.
-      admit. (* !c <= _ *)
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      simpl in *; omega.
     }
     destruct IH as [IH | IH].
     {
@@ -1206,7 +1254,11 @@ Proof.
     right.
     assert (Hn : exists n', n = 1 + n').
     {
-      admit.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      destruct n as [|n].
+      { simpl in *; omega. }
+      eexists; eauto.
     }
     destruct Hn as [n' ?].
     subst.
@@ -1214,7 +1266,9 @@ Proof.
     {
       eapply IHtyping with (Heq := eq_refl); eauto.
       rewrite transport_eq_refl.
-      admit. (* !c <= _ *)
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      simpl in *; omega.
     }
     destruct IH as [IH | IH].
     {
@@ -1241,7 +1295,11 @@ Proof.
     right.
     assert (Hn : exists n', n = 1 + n').
     {
-      admit.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      destruct n as [|n].
+      { simpl in *; omega. }
+      eexists; eauto.
     }
     destruct Hn as [n' ?].
     subst.
@@ -1249,7 +1307,9 @@ Proof.
     {
       eapply IHtyping1 with (Heq := eq_refl); eauto.
       rewrite transport_eq_refl.
-      admit. (* !c <= _ *)
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      simpl in *; omega.
     }
     destruct IH as [IH | IH].
     {
@@ -1300,7 +1360,7 @@ Lemma preservation' n e n' e' :
   step n e n' e' ->
   forall tau c s,
     ||- n e tau c s ->
-    exists c', ||- (n' - (n - !c)) e' tau c' s.
+    exists c', ||- (n' - (n - !c)) e' tau c' s /\ n - !c <= n'.
 Proof.
   induction 1; (try rename s into s0); intros tau c s [Hwt Hle].
   Focus 2.
@@ -1330,14 +1390,29 @@ Proof.
     destruct Hwtf as [Hwtf ?].
     subst.
     exists (subst s2 c0).
-    split.
+    repeat split.
     {
       eapply TPsub.
       { eapply subst_wt; eauto. }
       { eauto. }
       { eauto. }
     }
-    admit. (* <= *)
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
   }
   Unfocus.
   {
@@ -1370,16 +1445,36 @@ Proof.
     {
       split.
       { eauto. }
-      admit. (* le *)
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
     }
-    destruct IH as [IHwt IHle].
+    destruct IH as [[IHwt IHle] IHle2].
     eapply constr_ec in IHwt; eauto.
     exists (c1' + subst s1 c2).
-    split.
+    repeat split.
     {
       eapply TPsub; eauto.
     }
-    admit. (* le *)
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
   }
   Focus 6.
   {
@@ -1413,7 +1508,7 @@ Proof.
     subst.
     symmetry in Ht1'; inject Ht1'.
     exists c'.
-    split.
+    repeat split.
     {
       eapply TPsub.
       { eauto. }
@@ -1427,7 +1522,22 @@ Proof.
         eapply Sfold_le_le; eauto.
       }
     }
-    admit. (* le *)
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
   }
   Unfocus.
   {
@@ -1458,11 +1568,18 @@ Proof.
     destruct Hwt as [Htw1 [Htw2 [Ht [Hc' Hss]]]].
     inject Ht.
     exists c'.
-    split.
+    repeat split.
     {
       eapply TPsub.
       { eauto. }
-      { admit. (* le *) }
+      { 
+        Existing Instance leF_rel_Transitive.
+        etransitivity; [ | eauto ].
+        Lemma leF_a_aAb (a b : cexpr) : a <= a + b.
+          admit.
+        Qed.
+        eapply leF_a_aAb.
+      }
       { etransitivity; [ | eauto ].
         Lemma Spair_le_le (a b a' b' : size) :
           Spair a b <= Spair a' b' ->
@@ -1473,7 +1590,22 @@ Proof.
         eapply Hss.
       }
     }
-    admit. (* le *)
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
   }
   Focus 2.
   {
@@ -1507,7 +1639,7 @@ Proof.
     destruct Hwt0 as [Htw0 [Ht [Hc0 Hss]]].
     symmetry in Ht; inject Ht.
     exists (subst s1 c1).
-    split.
+    repeat split.
     {
       eapply TPsub.
       { 
@@ -1535,7 +1667,36 @@ Proof.
       rewrite (@subst_shift1_s_s []).
       eauto.
     }
-    admit. (* le *)
+    {
+      Instance Max_nat : Max nat :=
+        {
+          max := Peano.max
+        }.
+
+      Lemma c2n_Fmax (a b : cexpr) : !(max a b) = max !a !b.
+        admit.
+      Qed.
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_Fmax in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold max, Max_nat in *.
+      unfold le, Le_nat in *.
+      assert (!(subst s1 c1) <= Peano.max !(subst s1 c1) !(subst s2 c2))%nat.
+      {
+        eapply Max.le_max_l.
+      }
+      omega.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
   }
   Unfocus.
   Focus 3.
@@ -1567,7 +1728,7 @@ Proof.
     destruct Hwt as [Hwt [Ht Hs']].
     symmetry in Ht; inject Ht.
     exists c0.
-    split.
+    repeat split.
     {
       eapply TPsub.
       {
@@ -1589,7 +1750,22 @@ Proof.
         eauto.
       }
     }
-    admit. (* le *)
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
   }
   Unfocus.
   {
@@ -1610,17 +1786,38 @@ Proof.
     destruct Hwt as [Htw1 [Htw2 [Ht [Hc' Hss]]]].
     inject Ht.
     exists c'.
-    split.
+    repeat split.
     {
       eapply TPsub.
       { eauto. }
-      { admit. (* le *) }
+      { 
+        etransitivity; [ | eauto ].
+        Lemma leF_b_aAb (a b : cexpr) : b <= a + b.
+          admit.
+        Qed.
+        eapply leF_b_aAb.
+      }
       { etransitivity; [ | eauto ].
         eapply Spair_le_le in Hss.
         eapply Hss.
       }
     }
-    admit. (* le *)
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
   }
   {
     (* Case Match-inr *)
@@ -1642,7 +1839,7 @@ Proof.
     destruct Hwt0 as [Htw0 [Ht [Hc0 Hss]]].
     symmetry in Ht; inject Ht.
     exists (subst s2 c2).
-    split.
+    repeat split.
     {
       eapply TPsub.
       { 
@@ -1659,7 +1856,28 @@ Proof.
       rewrite (@subst_shift1_s_s []).
       eauto.
     }
-    admit. (* le *)
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_Fmax in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold max, Max_nat in *.
+      unfold le, Le_nat in *.
+      assert (!(subst s2 c2) <= Peano.max !(subst s1 c1) !(subst s2 c2))%nat.
+      {
+        eapply Max.le_max_r.
+      }
+      omega.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
   }
   {
     (* Case Unhide-hide *)
@@ -1688,7 +1906,7 @@ Proof.
     destruct Hwt as [Hwt [Ht1' [Hc' Hs']]].
     symmetry in Ht1'; inject Ht1'.
     exists c'.
-    split.
+    repeat split.
     {
       eapply TPsub.
       { eauto. }
@@ -1702,7 +1920,22 @@ Proof.
         eapply Shide_le_le; eauto.
       }
     }
-    admit. (* le *)
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
   }
 Qed.
 
@@ -1718,7 +1951,7 @@ Proof.
   destruct Hwt as [c' Hwt].
   exists c'.
   unfold typingex in *.
-  destruct Hwt as [Hwt Hle].
+  destruct Hwt as [[Hwt Hle] Hle2].
   split; eauto.
   etransitivity; eauto.
   omega.
