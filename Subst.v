@@ -655,8 +655,8 @@ Class Shift {A} T :=
 
 Arguments shift {_ _ _ _} _ _ _ .
 
-Definition shift_from `{Shift T} {ctx} new n := shift (ctx := ctx) [new] n.
-Definition shift1 `{H : Shift T} {ctx} new := shift_from (ctx := ctx) new 0.
+Definition shift_from `{H : Shift A T} {ctx} new n := shift (ctx := ctx) [new] n.
+Definition shift1 `{H : Shift A T} {ctx} new := shift_from (ctx := ctx) new 0.
 
 Definition shift_cast `{Shift _ T} {ctx : context} new n qctx (b : T (qctx ++ ctx)) : T (qctx ++ insert ctx n new).
   refine

@@ -89,11 +89,11 @@ Proof.
   {
     (* Case Abs *)
     Lemma removen_cons ctx xt {x : open_var xt ctx} {var_t} :
-      removen (var_t :: ctx) (shift1 (H := Shift_var) var_t x) = var_t :: removen ctx x.
+      removen (var_t :: ctx) (shift1 (T := open_var _) var_t x) = var_t :: removen ctx x.
       admit.
     Qed.
     Lemma substx_abs ctx (x : open_var CEexpr ctx) (v : open_expr _) t e :
-      let x' := shift1 (H := Shift_var) CEexpr x in
+      let x' := shift1 (T := open_var _) CEexpr x in
       let ctx' := CEexpr :: ctx in
       let v' := transport (shift1 CEexpr v) (eq_sym removen_cons) in
       substx x v (Eabs t e) = Eabs (substx x v t) (transport (substx x' v' e) removen_cons).
@@ -101,7 +101,7 @@ Proof.
     Qed.
     rewrite substx_abs.
     Lemma substx_arrow ctx (x : open_var CEexpr ctx) (v : open_expr _) t1 c s t2 :
-      let x' := shift1 (H := Shift_var) CEexpr x in
+      let x' := shift1 (T := open_var _) CEexpr x in
       let ctx' := CEexpr :: ctx in
       let v' := transport (shift1 CEexpr v) (eq_sym removen_cons) in
       substx x v (Tarrow t1 c s t2) = Tarrow (substx x v t1) (transport (substx x' v' c) removen_cons) (transport (substx x' v' s) removen_cons) (transport (substx x' v' t2) removen_cons).
@@ -138,7 +138,7 @@ Proof.
     Qed.
     eapply TPtransport.
     Lemma substx_add_typing ctx (x : open_var CEexpr ctx) (v : open_expr _) t T :
-      let x' := shift1 (H := Shift_var) CEexpr x in
+      let x' := shift1 (T := open_var _) CEexpr x in
       let ctx' := CEexpr :: ctx in
       let v' := transport (shift1 CEexpr v) (eq_sym removen_cons) in
       substx x' v' (add_typing t T) = transport (add_typing (substx x v t) (substx x v T)) (eq_sym removen_cons).
@@ -180,7 +180,7 @@ Proof.
         admit.
       Qed.
       Lemma get_entry_add_typing ctx (x : open_var CEexpr ctx) t T :
-        let x' := shift1 (H := Shift_var) CEexpr x in
+        let x' := shift1 (T := open_var _) CEexpr x in
         get_entry x' (add_typing t T) = shift1 CEexpr (get_entry x T).
         admit.
       Qed.
@@ -191,7 +191,7 @@ Proof.
       Qed.
       ssrewrite type_of_te_shift1.
       Lemma shift1_substx_e_t vart ctx (x : open_var CEexpr ctx) (v : open_expr _) (b : open_type _) :
-        let x' := shift1 (H := Shift_var) vart x in
+        let x' := shift1 (T := open_var _) vart x in
         let ctx' := vart :: ctx in
         let v' := transport (shift1 _ v) (eq_sym removen_cons) in
         shift1 _ (substx x v b) = transport (substx x' v' (shift1 _ b)) removen_cons.
@@ -222,7 +222,7 @@ Proof.
     Qed.
     rewrite substx_F1.
     Lemma substx_subst_s_t ctx (x : open_var CEexpr ctx) (v : open_expr _) (vv : open_size _) (b : open_type _) :
-      let x' := shift1 (H := Shift_var) CEexpr x in
+      let x' := shift1 (T := open_var _) CEexpr x in
       let ctx' := CEexpr :: ctx in
       let v' := transport (shift1 CEexpr v) (eq_sym removen_cons) in
       substx x v (subst vv b) = subst (substx x v vv) (transport (substx x' v' b) removen_cons).
@@ -230,7 +230,7 @@ Proof.
     Qed.
     rewrite substx_subst_s_t.
     Lemma substx_subst_s_s ctx (x : open_var CEexpr ctx) (v : open_expr _) (vv : open_size _) (b : open_size _) :
-      let x' := shift1 (H := Shift_var) CEexpr x in
+      let x' := shift1 (T := open_var _) CEexpr x in
       let ctx' := CEexpr :: ctx in
       let v' := transport (shift1 CEexpr v) (eq_sym removen_cons) in
       substx x v (subst vv b) = subst (substx x v vv) (transport (substx x' v' b) removen_cons).
@@ -238,7 +238,7 @@ Proof.
     Qed.
     rewrite substx_subst_s_s.
     Lemma substx_subst_s_c ctx (x : open_var CEexpr ctx) (v : open_expr _) (vv : open_size _) (b : open_cexpr _) :
-      let x' := shift1 (H := Shift_var) CEexpr x in
+      let x' := shift1 (T := open_var _) CEexpr x in
       let ctx' := CEexpr :: ctx in
       let v' := transport (shift1 CEexpr v) (eq_sym removen_cons) in
       substx x v (subst vv b) = subst (substx x v vv) (transport (substx x' v' b) removen_cons).
@@ -313,7 +313,7 @@ Proof.
     repeat rewrite substx_Fadd.
     rewrite substx_F1.
     Lemma substx_subst_t_t ctx (x : open_var CEexpr ctx) (v : open_expr _) (vv : open_type _) (b : open_type _) :
-      let x' := shift1 (H := Shift_var) _ x in
+      let x' := shift1 (T := open_var _) _ x in
       let ctx' := CEtype :: ctx in
       let v' := transport (shift1 _ v) (eq_sym removen_cons) in
       substx x v (subst vv b) = subst (substx x v vv) (transport (substx x' v' b) removen_cons).
@@ -322,7 +322,7 @@ Proof.
     rewrite substx_subst_t_t.
     eapply TPtapp.
     Lemma substx_universal ctx (x : open_var CEexpr ctx) (v : open_expr _) c s t2 :
-      let x' := shift1 (H := Shift_var) _ x in
+      let x' := shift1 (T := open_var _) _ x in
       let ctx' := CEtype :: ctx in
       let v' := transport (shift1 _ v) (eq_sym removen_cons) in
       substx x v (Tuniversal c s t2) = Tuniversal (substx x v c) (substx x v s) (transport (substx x' v' t2) removen_cons).
@@ -334,7 +334,7 @@ Proof.
   {
     (* Case Tabs *)
     Lemma substx_tabs ctx (x : open_var CEexpr ctx) (v : open_expr _) e :
-      let x' := shift1 (H := Shift_var) _ x in
+      let x' := shift1 (T := open_var _) _ x in
       let ctx' := CEtype :: ctx in
       let v' := transport (shift1 _ v) (eq_sym removen_cons) in
       substx x v (Etabs e) = Etabs (transport (substx x' v' e) removen_cons).
@@ -350,7 +350,7 @@ Proof.
     rewrite <- (transport_cancel' _ (shift1 _ (substx x v s)) removen_cons).
     eapply TPtransport.
     Lemma substx_add_kinding ctx (x : open_var CEexpr ctx) (v : open_expr _) T :
-      let x' := shift1 (H := Shift_var) _ x in
+      let x' := shift1 (T := open_var _) _ x in
       let ctx' := CEtype :: ctx in
       let v' := transport (shift1 _ v) (eq_sym removen_cons) in
       substx x' v' (add_kinding T) = transport (add_kinding (substx x v T)) (eq_sym removen_cons).
@@ -358,7 +358,7 @@ Proof.
     Qed.
     ssrewrite_r (substx_add_kinding x v T).
     Lemma shift1_substx_e_c vart ctx (x : open_var CEexpr ctx) (v : open_expr _) (b : open_cexpr _) :
-      let x' := shift1 (H := Shift_var) _ x in
+      let x' := shift1 (T := open_var _) _ x in
       let ctx' := vart :: ctx in
       let v' := transport (shift1 _ v) (eq_sym removen_cons) in
       shift1 vart (substx x v b) = transport (substx x' v' (shift1 vart b)) removen_cons.
@@ -367,7 +367,7 @@ Proof.
     rewrite shift1_substx_e_c.
     rewrite transport_cancel.
     Lemma shift1_substx_e_s vart ctx (x : open_var CEexpr ctx) (v : open_expr _) (b : open_size _) :
-      let x' := shift1 (H := Shift_var) _ x in
+      let x' := shift1 (T := open_var _) _ x in
       let ctx' := vart :: ctx in
       let v' := transport (shift1 _ v) (eq_sym removen_cons) in
       shift1 vart (substx x v b) = transport (substx x' v' (shift1 vart b)) removen_cons.
@@ -395,7 +395,7 @@ Proof.
     {
       subst.
       Lemma get_entry_add_kinding ctx (x : open_var CEexpr ctx) T :
-        let x' := shift1 (H := Shift_var) _ x in
+        let x' := shift1 (T := open_var _) _ x in
         get_entry x' (add_kinding T) = shift1 _ (get_entry x T).
         admit.
       Qed.
@@ -420,7 +420,7 @@ Proof.
     Qed.
     rewrite substx_Sfold.
     Lemma substx_recur ctx (x : open_var CEexpr ctx) (v : open_expr _) t :
-      let x' := shift1 (H := Shift_var) _ x in
+      let x' := shift1 (T := open_var _) _ x in
       let ctx' := CEtype :: ctx in
       let v' := transport (shift1 _ v) (eq_sym removen_cons) in
       substx x v (Trecur t) = Trecur (transport (substx x' v' t) removen_cons).
@@ -649,7 +649,7 @@ Proof.
     (* Case Match *)
     subst.
     Lemma substx_match ctx (x : open_var CEexpr ctx) (v : open_expr _) e t s e1 e2 :
-      let x' := shift1 (H := Shift_var) CEexpr x in
+      let x' := shift1 (T := open_var _) CEexpr x in
       let ctx' := CEexpr :: ctx in
       let v' := transport (shift1 CEexpr v) (eq_sym removen_cons) in
       substx x v (Ematch e t s e1 e2) = Ematch (substx x v e) (substx x v t) (substx x v s) (transport (substx x' v' e1) removen_cons) (transport (substx x' v' e2) removen_cons).
@@ -1417,9 +1417,25 @@ Proof.
   Unfocus.
   {
     (* Case EC *)
-    Definition typingec : econtext [] -> type -> open_cexpr [CEexpr] -> open_size [CEexpr] -> open_type [CEexpr] -> Prop.
-      admit.
-    Defined.
+    Require Import Subst.
+    Inductive typingec : econtext [] -> type -> open_cexpr [CEexpr] -> open_size [CEexpr] -> open_type [CEexpr] -> Prop :=
+    | TECempty t : typingec ECempty t F0 !var0 (shift1 CEexpr t)
+    | TECapp1 E t c s t1 c2 s2 t2 e c1 s1 : 
+        typingec E t c s (Tarrow (shift1 CEexpr t1) c2 s2 t2) -> 
+        typing [] e t1 c1 s1 -> 
+        let s1' := shift1 CEexpr s1 in
+        typingec (ECapp1 E e) t (c + shift1 CEexpr c1 + F1 + subst s1' c2) (subst s1' s2) (subst s1' t2)
+    | TECapp2 e t1 c2 s2 t2 c1 s1 E t c s : 
+        typing [] e (Tarrow t1 c2 s2 t2) c1 s1 -> 
+        typingec E t c s (shift1 CEexpr t1) -> 
+        typingec (ECapp2 e E) t (shift1 CEexpr c1 + c + F1 + subst s (shift (T := open_cexpr) [CEexpr] 1 c2)) (subst s (shift (T := open_size) [CEexpr] 1 s2)) (subst s (shift (T := open_type) [CEexpr] 1 t2))
+    | TECtapp E t c s c2 s2 t2 t1 : 
+        typingec E t c s (Tuniversal c2 s2 t2) -> 
+        typingec (ECtapp E t1) t (c + F1 + c2) s2 (subst (shift1 CEexpr t1) t2)
+    | TECfold :
+        typingec (ECfold t1 E) t c (Sfold s) ()
+    .
+
     Lemma invert_ec E e t c s : 
       |- [] (plug E e) t c s ->
       exists t1 c1 s1 c2 s2 t2,
