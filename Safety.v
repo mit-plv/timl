@@ -1417,7 +1417,6 @@ Proof.
   Unfocus.
   {
     (* Case EC *)
-    Require Import Subst.
     Inductive typingec : econtext [] -> type -> open_cexpr [CEexpr] -> open_size [CEexpr] -> open_type [CEexpr] -> Prop :=
     | TECempty t : typingec ECempty t F0 !var0 (shift1 CEexpr t)
     | TECapp1 E t c s t1 c2 s2 t2 e c1 s1 : 
@@ -1432,9 +1431,138 @@ Proof.
     | TECtapp E t c s c2 s2 t2 t1 : 
         typingec E t c s (Tuniversal c2 s2 t2) -> 
         typingec (ECtapp E t1) t (c + F1 + c2) s2 (subst (shift1 CEexpr t1) t2)
-    | TECfold :
-        typingec (ECfold t1 E) t c (Sfold s) ()
+    | TECfold E t c s t1 :
+        typingec E t c s (shift1 CEexpr (subst (Trecur t1) t1)) ->
+        typingec (ECfold (Trecur t1) E) t c (Sfold s) (shift1 CEexpr (Trecur t1))
+    | TECunfold E t c s t1 s1 :
+        typingec E t c s (Trecur t1) ->
+        is_fold s = Some s1 ->
+        typingec (ECunfold E) t (c + F1) s1 (subst (Trecur t1) t1)
+    | TEChide E t c s t1 :
+        typingec E t c s t1 ->
+        typingec (EChide E) t c (Shide s) (Thide t1)
+    | TECunhide E t c s t1 s1 :
+        typingec E t c s (Thide t1) ->
+        is_hide s = Some s1 ->
+        typingec (ECunhide E) t (c + F1) s1 t1
+    | TECpair1 E t c1 s1 t1 e t2 c2 s2 :
+        typingec E t c1 s1 t1 ->
+        typing [] e t2 c2 s2 ->
+        typingec (ECpair1 E e) t (c1 + shift1 CEexpr c2) (Spair s1 (shift1 CEexpr s2)) (t1 * shift1 CEexpr t2)
+    | TECpair2 e t1 c1 s1 E t c2 s2 t2 :
+        typing [] e t1 c1 s1 ->
+        typingec E t c2 s2 t2 ->
+        typingec (ECpair2 e E) t (shift1 CEexpr c1 + c2) (Spair (shift1 CEexpr s1) s2) (shift1 CEexpr t1 * t2)
+    | TECinl E t c s t1 t2 :
+        typingec E t c s t1 ->
+        typingec (ECinl t2 E) t c (Sinlinr s S0) (t1 + shift1 CEexpr t2)
+    | TECinr E t c s t1 t2 :
+        typingec E t c s t2 ->
+        typingec (ECinl t1 E) t c (Sinlinr S0 s) (shift1 CEexpr t1 + t2)
+    | TECfst E t c s t1 t2 s1 s2 :
+        typingec E t c s (t1 * t2) ->
+        is_pair s = Some (s1, s2) ->
+        typingec (ECfst E) t (c + F1) s1 t1
+    | TECsnd E t c s t1 t2 s1 s2 :
+        typingec E t c s (t1 * t2) ->
+        is_pair s = Some (s1, s2) ->
+        typingec (ECsnd E) t (c + F1) s2 t2
+    | TECmatch E t0 c s12 t1 t2 e1 t c1 s e2 c2 s1 s2 :
+        typingec E t0 c s12 (shift1 CEexpr (Tsum t1 t2)) ->
+        typing (add_typing t1 []) e1 (shift1 CEexpr t) c1 (shift1 CEexpr s) ->
+        typing (add_typing t2 []) e2 (shift1 CEexpr t) c2 (shift1 CEexpr s) ->
+        is_inlinr s12 = Some (s1, s2) ->
+        typingec (ECmatch E t s e1 e2) t0 (c + F1 + max (subst s1 (shift1 CEexpr c1)) (subst s2 (shift1 CEexpr c2))) (shift1 CEexpr s) (shift1 CEexpr t)
     .
+
+    Lemma invert_ec' ctx (T : tcontext ctx) Ee t c s : 
+      |- T Ee t c s ->
+      forall (Heq : ctx = []) (E : econtext []) (e : expr),
+        plug E e = transport Ee Heq ->
+        exists t1 c1 s1 c2 s2 t2,
+          |- [] e t1 c1 s1 /\
+          typingec E t1 c2 s2 t2 /\
+          transport t Heq = subst s1 t2 /\
+          c1 + subst s1 c2 <= transport c Heq /\
+          subst s1 s2 <= transport s Heq.
+    Proof.
+      induction 1; try rename e into e'; intros Heq E e Hplug; subst; rewrite transport_eq_refl in *.
+      {
+        (* Case Var *)
+        destruct x as [n ?].
+        destruct n; simpl in *; discriminate.
+      }
+      {
+        (* Case App1 *)
+        Inductive plugto {ctx} : econtext ctx -> open_expr ctx -> open_expr ctx -> Prop :=
+        | Pempty e : plugto ECempty e e
+        | Papp1 E e f arg : plugto E e f -> plugto (ECapp1 E arg) e (Eapp f arg)
+        | Papp2 E e arg f : plugto E e arg -> plugto (ECapp2 f E) e (Eapp f arg)
+        | Ptapp E e f t : plugto E e f -> plugto (ECtapp E t) e (Etapp f t)
+        | Pfold E e e' t : plugto E e e' -> plugto (ECfold t E) e (Efold t e')
+        | Punfold E e e' : plugto E e e' -> plugto (ECunfold E) e (Eunfold e')
+        | Phide E e e' : plugto E e e' -> plugto (EChide E) e (Ehide e')
+        | Punhide E e e' : plugto E e e' -> plugto (ECunhide E) e (Eunhide e')
+        | Ppair1 E e a b : plugto E e a -> plugto (ECpair1 E b) e (Epair a b)
+        | Ppair2 E e b a : plugto E e b -> plugto (ECpair2 a E) e (Epair a b)
+        | Pinl E e e' t : plugto E e e' -> plugto (ECinl t E) e (Einl t e')
+        | Pinr E e e' t : plugto E e e' -> plugto (ECinr t E) e (Einr t e')
+        | Pfst E e e' : plugto E e e' -> plugto (ECfst E) e (Efst e')
+        | Psnd E e e' : plugto E e e' -> plugto (ECsnd E) e (Esnd e')
+        | Pmatch E e target t s k1 k2 : plugto E e target -> plugto (ECmatch E t s k1 k2) e (Ematch target t s k1 k2)
+        .
+
+        Lemma plug_plugto ctx (E : econtext ctx) e Ee : plug E e = Ee <-> plugto E e Ee.
+          admit.
+        Qed.
+        eapply plug_plugto in Hplug.
+        Lemma tcontext_empty (T : tcontext []) : T = []%TC.
+          admit.
+        Qed.
+        specialize (tcontext_empty Γ); intros ?; subst.
+        inversion Hplug; subst.
+        {
+          Require Import GeneralTactics5.
+          repeat try_eexists.
+          repeat try_split.
+          {
+            eapply TPapp; eauto.
+          }
+          {
+            eapply TECempty.
+          }
+          {
+            Lemma subst_shift1_s_t ctx (v : open_size ctx) (b : open_type _) : subst v (shift1 CEexpr b) = b.
+              admit.
+            Qed.
+            ssrewrite subst_shift1_s_t.
+            eauto.
+          }
+          {
+            rewrite transport_eq_refl in *.
+            Lemma subst_F0 ctx (v : open_size ctx) :
+              subst v F0 = F0.
+              admit.
+            Qed.
+            rewrite subst_F0.
+            admit.
+          }
+          {
+            rewrite transport_eq_refl in *.
+            Lemma subst_var ctx (v : open_size ctx) :
+              subst v !var0 = v.
+              admit.
+            Qed.
+            rewrite subst_var.
+            Existing Instance leS_rel_Reflexive.
+            eauto.
+          }
+        }
+        {
+        }
+      }
+      admit.
+    Qed.
 
     Lemma invert_ec E e t c s : 
       |- [] (plug E e) t c s ->
@@ -1444,8 +1572,10 @@ Proof.
         t = subst s1 t2 /\
         c1 + subst s1 c2 <= c /\
         subst s1 s2 <= s.
+    Proof.
       admit.
     Qed.
+
     Lemma constr_ec e t1 c1 s1 E c2 s2 t2 :
       |- [] e t1 c1 s1 ->
       typingec E t1 c2 s2 t2 ->
@@ -1671,9 +1801,6 @@ Proof.
           eapply Sinlinr_le_le in Hss.
           eapply Hss.
         }
-        Lemma subst_shift1_s_t ctx (v : open_size ctx) (b : open_type _) : subst v (shift1 CEexpr b) = b.
-          admit.
-        Qed.
         eapply subst_shift1_s_t.
       }
       { eauto. }

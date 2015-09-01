@@ -84,27 +84,6 @@ Fixpoint plug {ctx} (c : econtext ctx) (e : expr ctx) : expr ctx :=
     | ECmatch target t s a b => Ematch (plug target e) t s a b
   end.
 
-(*
-Inductive plug : econtext -> expr -> expr -> Prop :=
-| Pempty e : plug ECempty e e
-| Papp1 E e f arg : plug E e f -> plug (ECapp1 E arg) e (Eapp f arg)
-| Papp2 E e arg f h : plug E e arg -> plug (ECapp2 f E h) e (Eapp f arg)
-| Plet E e def main : plug E e def -> plug (EClet E main) e (Elet def main)
-| Ptapp E e f t : plug E e f -> plug (ECtapp E t) e (Etapp f t)
-| Pfold E e e' t : plug E e e' -> plug (ECfold t E) e (Efold t e')
-| Punfold E e e' : plug E e e' -> plug (ECunfold E) e (Eunfold e')
-| Phide E e e' : plug E e e' -> plug (EChide E) e (Ehide e')
-| Punhide E e e' : plug E e e' -> plug (ECunhide E) e (Eunhide e')
-| Ppair1 E e a b : plug E e a -> plug (ECpair1 E b) e (Epair a b)
-| Ppair2 E e b a h : plug E e b -> plug (ECpair2 a E h) e (Epair a b)
-| Pinl E e e' t : plug E e e' -> plug (ECinl t E) e (Einl t e')
-| Pinr E e e' t : plug E e e' -> plug (ECinr t E) e (Einr t e')
-| Pfst E e e' : plug E e e' -> plug (ECfst E) e (Efst e')
-| Psnd E e e' : plug E e e' -> plug (ECsnd E) e (Esnd e')
-| Pmatch E e target k1 k2 : plug E e target -> plug (ECmatch E k1 k2) e (Ematch target k1 k2)
-.
-*)
-
 (* (n, e) ~> (n', e'), n is the "fuel" *)
 Inductive step : nat -> expr [] -> nat -> expr [] -> Prop :=
 | STecontext E n1 e1 n2 e2 : 
