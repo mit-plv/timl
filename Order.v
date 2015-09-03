@@ -127,6 +127,14 @@ Section ctx.
       transitivity proved by @leF_trans
         as leF_rel.
 
+  Require Import Setoid.
+  Global Add Morphism (@Fadd ctx)
+      with signature leF ++> leF ++> leF as Fadd_leF.
+  Proof.
+    intros.
+    eapply leF_add; eauto.
+  Qed.
+
   (* less-than relation on cexprs ignoring constant addend *)
   Inductive leC : cexpr ctx -> cexpr ctx -> Prop :=
   (* ignore constant addend *)

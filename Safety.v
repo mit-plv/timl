@@ -67,8 +67,12 @@ Qed.
 Open Scope G.
 
 Existing Instance leF_rel_Reflexive.
+Existing Instance leF_rel_Transitive.
+Existing Instance leS_rel_Reflexive.
 Existing Instance leS_rel_Transitive.
 Hint Extern 1 (_ <= _) => reflexivity.
+Hint Extern 1 (leF _ _) => reflexivity.
+Hint Extern 1 (leS _ _) => reflexivity.
 
 Module ssrewrite.
   Require Import ssreflect.
@@ -1475,10 +1479,32 @@ Proof.
         typingec (ECmatch E t s e1 e2) t0 (c + F1 + max (subst s1 (shift1 CEexpr c1)) (subst s2 (shift1 CEexpr c2))) (shift1 CEexpr s) (shift1 CEexpr t)
     .
 
+    Inductive plugto {ctx} : econtext ctx -> open_expr ctx -> open_expr ctx -> Prop :=
+    | Pempty e : plugto ECempty e e
+    | Papp1 E e f arg : plugto E e f -> plugto (ECapp1 E arg) e (Eapp f arg)
+    | Papp2 E e arg f : plugto E e arg -> plugto (ECapp2 f E) e (Eapp f arg)
+    | Ptapp E e f t : plugto E e f -> plugto (ECtapp E t) e (Etapp f t)
+    | Pfold E e e' t : plugto E e e' -> plugto (ECfold t E) e (Efold t e')
+    | Punfold E e e' : plugto E e e' -> plugto (ECunfold E) e (Eunfold e')
+    | Phide E e e' : plugto E e e' -> plugto (EChide E) e (Ehide e')
+    | Punhide E e e' : plugto E e e' -> plugto (ECunhide E) e (Eunhide e')
+    | Ppair1 E e a b : plugto E e a -> plugto (ECpair1 E b) e (Epair a b)
+    | Ppair2 E e b a : plugto E e b -> plugto (ECpair2 a E) e (Epair a b)
+    | Pinl E e e' t : plugto E e e' -> plugto (ECinl t E) e (Einl t e')
+    | Pinr E e e' t : plugto E e e' -> plugto (ECinr t E) e (Einr t e')
+    | Pfst E e e' : plugto E e e' -> plugto (ECfst E) e (Efst e')
+    | Psnd E e e' : plugto E e e' -> plugto (ECsnd E) e (Esnd e')
+    | Pmatch E e target t s k1 k2 : plugto E e target -> plugto (ECmatch E t s k1 k2) e (Ematch target t s k1 k2)
+    .
+
+    Lemma plug_plugto ctx (E : econtext ctx) e Ee : plug E e = Ee <-> plugto E e Ee.
+      admit.
+    Qed.
+
     Lemma invert_ec' ctx (T : tcontext ctx) Ee t c s : 
       |- T Ee t c s ->
       forall (Heq : ctx = []) (E : econtext []) (e : expr),
-        plug E e = transport Ee Heq ->
+        plugto E e (transport Ee Heq) ->
         exists t1 c1 s1 c2 s2 t2,
           |- [] e t1 c1 s1 /\
           typingec E t1 c2 s2 t2 /\
@@ -1494,34 +1520,13 @@ Proof.
       }
       {
         (* Case App1 *)
-        Inductive plugto {ctx} : econtext ctx -> open_expr ctx -> open_expr ctx -> Prop :=
-        | Pempty e : plugto ECempty e e
-        | Papp1 E e f arg : plugto E e f -> plugto (ECapp1 E arg) e (Eapp f arg)
-        | Papp2 E e arg f : plugto E e arg -> plugto (ECapp2 f E) e (Eapp f arg)
-        | Ptapp E e f t : plugto E e f -> plugto (ECtapp E t) e (Etapp f t)
-        | Pfold E e e' t : plugto E e e' -> plugto (ECfold t E) e (Efold t e')
-        | Punfold E e e' : plugto E e e' -> plugto (ECunfold E) e (Eunfold e')
-        | Phide E e e' : plugto E e e' -> plugto (EChide E) e (Ehide e')
-        | Punhide E e e' : plugto E e e' -> plugto (ECunhide E) e (Eunhide e')
-        | Ppair1 E e a b : plugto E e a -> plugto (ECpair1 E b) e (Epair a b)
-        | Ppair2 E e b a : plugto E e b -> plugto (ECpair2 a E) e (Epair a b)
-        | Pinl E e e' t : plugto E e e' -> plugto (ECinl t E) e (Einl t e')
-        | Pinr E e e' t : plugto E e e' -> plugto (ECinr t E) e (Einr t e')
-        | Pfst E e e' : plugto E e e' -> plugto (ECfst E) e (Efst e')
-        | Psnd E e e' : plugto E e e' -> plugto (ECsnd E) e (Esnd e')
-        | Pmatch E e target t s k1 k2 : plugto E e target -> plugto (ECmatch E t s k1 k2) e (Ematch target t s k1 k2)
-        .
-
-        Lemma plug_plugto ctx (E : econtext ctx) e Ee : plug E e = Ee <-> plugto E e Ee.
-          admit.
-        Qed.
-        eapply plug_plugto in Hplug.
         Lemma tcontext_empty (T : tcontext []) : T = []%TC.
           admit.
         Qed.
         specialize (tcontext_empty Γ); intros ?; subst.
         inversion Hplug; subst.
         {
+          (* Case ECempty *)
           Require Import GeneralTactics5.
           repeat try_eexists.
           repeat try_split.
@@ -1545,7 +1550,13 @@ Proof.
               admit.
             Qed.
             rewrite subst_F0.
-            admit.
+            Lemma leF_aA0_a ctx (c : open_cexpr ctx) : leF (Fadd c F0) c.
+              admit.
+            Qed.
+            unfold le, Le_cexpr.
+            unfold add, Add_cexpr.
+            erewrite leF_aA0_a.
+            eauto.
           }
           {
             rewrite transport_eq_refl in *.
@@ -1554,11 +1565,26 @@ Proof.
               admit.
             Qed.
             rewrite subst_var.
-            Existing Instance leS_rel_Reflexive.
             eauto.
           }
         }
         {
+          (* Case ECapp1 *)
+          edestruct (IHtyping1 eq_refl) as [t1 IH1].
+          {
+            erewrite transport_eq_refl.
+            eauto.
+          }
+          destruct IH1 as [c1 [s1 [c2 [s2 [t2 IH1]]]]].
+          destruct IH1 as [Hwte [HwtE0 [Ht [Hc Hs]]]].
+          rewrite transport_eq_refl in *.
+          repeat try_eexists.
+          repeat try_split.
+          { eauto. } 
+          {
+            eapply TECapp1; eauto.
+            (*here*)
+          }
         }
       }
       admit.
@@ -1719,7 +1745,6 @@ Proof.
       eapply TPsub.
       { eauto. }
       { 
-        Existing Instance leF_rel_Transitive.
         etransitivity; [ | eauto ].
         Lemma leF_a_aAb (a b : cexpr) : a <= a + b.
           admit.
