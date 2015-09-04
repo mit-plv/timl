@@ -1367,7 +1367,6 @@ Lemma preservation' n e n' e' :
     exists c', ||- (n' - (n - !c)) e' tau c' s /\ n - !c <= n'.
 Proof.
   induction 1; (try rename s into s0); intros tau c s [Hwt Hle].
-  Focus 2.
   {
     (* Case Beta *)
     Lemma invert_app e0 e1 tau3 c3 s3 :
@@ -1400,251 +1399,6 @@ Proof.
       { eapply subst_wt; eauto. }
       { eauto. }
       { eauto. }
-    }
-    {
-      eapply leF_sound in Hc.
-      repeat rewrite c2n_Fadd in *.
-      repeat rewrite c2n_F1 in *.
-      unfold add, Add_nat in *.
-      unfold le, Le_nat in *.
-      omega.
-    }
-    {
-      eapply leF_sound in Hc.
-      repeat rewrite c2n_Fadd in *.
-      repeat rewrite c2n_F1 in *.
-      unfold add, Add_nat in *.
-      unfold le, Le_nat in *.
-      omega.
-    }
-  }
-  Unfocus.
-  {
-    Inductive plugto {ctx} : econtext ctx -> open_expr ctx -> open_expr ctx -> Prop :=
-    | Pempty e : plugto ECempty e e
-    | Papp1 E e f arg : plugto E e f -> plugto (ECapp1 E arg) e (Eapp f arg)
-    | Papp2 E e arg f : plugto E e arg -> plugto (ECapp2 f E) e (Eapp f arg)
-    | Ptapp E e f t : plugto E e f -> plugto (ECtapp E t) e (Etapp f t)
-    | Pfold E e e' t : plugto E e e' -> plugto (ECfold t E) e (Efold t e')
-    | Punfold E e e' : plugto E e e' -> plugto (ECunfold E) e (Eunfold e')
-    | Phide E e e' : plugto E e e' -> plugto (EChide E) e (Ehide e')
-    | Punhide E e e' : plugto E e e' -> plugto (ECunhide E) e (Eunhide e')
-    | Ppair1 E e a b : plugto E e a -> plugto (ECpair1 E b) e (Epair a b)
-    | Ppair2 E e b a : plugto E e b -> plugto (ECpair2 a E) e (Epair a b)
-    | Pinl E e e' t : plugto E e e' -> plugto (ECinl t E) e (Einl t e')
-    | Pinr E e e' t : plugto E e e' -> plugto (ECinr t E) e (Einr t e')
-    | Pfst E e e' : plugto E e e' -> plugto (ECfst E) e (Efst e')
-    | Psnd E e e' : plugto E e e' -> plugto (ECsnd E) e (Esnd e')
-    | Pmatch E e target t s k1 k2 : plugto E e target -> plugto (ECmatch E t s k1 k2) e (Ematch target t s k1 k2)
-    .
-
-    Lemma plug_plugto ctx (E : econtext ctx) e Ee : plug E e = Ee <-> plugto E e Ee.
-      admit.
-    Qed.
-
-    (* Case EC *)
-    Inductive typingec : econtext [] -> type -> open_cexpr [CEexpr] -> open_size [CEexpr] -> open_type [CEexpr] -> Prop :=
-    | TECempty t : typingec ECempty t F0 !var0 (shift1 CEexpr t)
-    | TECapp1 E t c s t1 c2 s2 t2 e c1 s1 : 
-        typingec E t c s (Tarrow (shift1 CEexpr t1) c2 s2 t2) -> 
-        typing [] e t1 c1 s1 -> 
-        let s1' := shift1 CEexpr s1 in
-        typingec (ECapp1 E e) t (c + shift1 CEexpr c1 + F1 + subst s1' c2) (subst s1' s2) (subst s1' t2)
-    | TECapp2 e t1 c2 s2 t2 c1 s1 E t c s : 
-        typing [] e (Tarrow t1 c2 s2 t2) c1 s1 -> 
-        typingec E t c s (shift1 CEexpr t1) -> 
-        typingec (ECapp2 e E) t (shift1 CEexpr c1 + c + F1 + subst s (shift (T := open_cexpr) [CEexpr] 1 c2)) (subst s (shift (T := open_size) [CEexpr] 1 s2)) (subst s (shift (T := open_type) [CEexpr] 1 t2))
-    | TECtapp E t c s c2 s2 t2 t1 : 
-        typingec E t c s (Tuniversal c2 s2 t2) -> 
-        typingec (ECtapp E t1) t (c + F1 + c2) s2 (subst (shift1 CEexpr t1) t2)
-    | TECfold E t c s t1 :
-        typingec E t c s (shift1 CEexpr (subst (Trecur t1) t1)) ->
-        typingec (ECfold (Trecur t1) E) t c (Sfold s) (shift1 CEexpr (Trecur t1))
-    | TECunfold E t c s t1 s1 :
-        typingec E t c s (Trecur t1) ->
-        is_fold s = Some s1 ->
-        typingec (ECunfold E) t (c + F1) s1 (subst (Trecur t1) t1)
-    | TEChide E t c s t1 :
-        typingec E t c s t1 ->
-        typingec (EChide E) t c (Shide s) (Thide t1)
-    | TECunhide E t c s t1 s1 :
-        typingec E t c s (Thide t1) ->
-        is_hide s = Some s1 ->
-        typingec (ECunhide E) t (c + F1) s1 t1
-    | TECpair1 E t c1 s1 t1 e t2 c2 s2 :
-        typingec E t c1 s1 t1 ->
-        typing [] e t2 c2 s2 ->
-        typingec (ECpair1 E e) t (c1 + shift1 CEexpr c2) (Spair s1 (shift1 CEexpr s2)) (t1 * shift1 CEexpr t2)
-    | TECpair2 e t1 c1 s1 E t c2 s2 t2 :
-        typing [] e t1 c1 s1 ->
-        typingec E t c2 s2 t2 ->
-        typingec (ECpair2 e E) t (shift1 CEexpr c1 + c2) (Spair (shift1 CEexpr s1) s2) (shift1 CEexpr t1 * t2)
-    | TECinl E t c s t1 t2 :
-        typingec E t c s t1 ->
-        typingec (ECinl t2 E) t c (Sinlinr s S0) (t1 + shift1 CEexpr t2)
-    | TECinr E t c s t1 t2 :
-        typingec E t c s t2 ->
-        typingec (ECinl t1 E) t c (Sinlinr S0 s) (shift1 CEexpr t1 + t2)
-    | TECfst E t c s t1 t2 s1 s2 :
-        typingec E t c s (t1 * t2) ->
-        is_pair s = Some (s1, s2) ->
-        typingec (ECfst E) t (c + F1) s1 t1
-    | TECsnd E t c s t1 t2 s1 s2 :
-        typingec E t c s (t1 * t2) ->
-        is_pair s = Some (s1, s2) ->
-        typingec (ECsnd E) t (c + F1) s2 t2
-    | TECmatch E t0 c s12 t1 t2 e1 t c1 s e2 c2 s1 s2 :
-        typingec E t0 c s12 (shift1 CEexpr (Tsum t1 t2)) ->
-        typing (add_typing t1 []) e1 (shift1 CEexpr t) c1 (shift1 CEexpr s) ->
-        typing (add_typing t2 []) e2 (shift1 CEexpr t) c2 (shift1 CEexpr s) ->
-        is_inlinr s12 = Some (s1, s2) ->
-        typingec (ECmatch E t s e1 e2) t0 (c + F1 + max (subst s1 (shift1 CEexpr c1)) (subst s2 (shift1 CEexpr c2))) (shift1 CEexpr s) (shift1 CEexpr t)
-    .
-
-    Lemma invert_ec' ctx (T : tcontext ctx) Ee t c s : 
-      |- T Ee t c s ->
-      forall (Heq : ctx = []) (E : econtext []) (e : expr),
-        plugto E e (transport Ee Heq) ->
-        exists t1 c1 s1 c2 s2 t2,
-          |- [] e t1 c1 s1 /\
-          typingec E t1 c2 s2 t2 /\
-          transport t Heq = subst s1 t2 /\
-          c1 + subst s1 c2 <= transport c Heq /\
-          subst s1 s2 <= transport s Heq.
-    Proof.
-      induction 1; try rename e into e'; intros Heq E e Hplug; subst; rewrite transport_eq_refl in *.
-      {
-        (* Case Var *)
-        destruct x as [n ?].
-        destruct n; simpl in *; discriminate.
-      }
-      {
-        (* Case App1 *)
-        Lemma tcontext_empty (T : tcontext []) : T = []%TC.
-          admit.
-        Qed.
-        specialize (tcontext_empty Γ); intros ?; subst.
-        inversion Hplug; subst.
-        {
-          (* Case ECempty *)
-          Require Import GeneralTactics5.
-          repeat try_eexists.
-          repeat try_split.
-          {
-            eapply TPapp; eauto.
-          }
-          {
-            eapply TECempty.
-          }
-          {
-            Lemma subst_shift1_s_t ctx (v : open_size ctx) (b : open_type _) : subst v (shift1 CEexpr b) = b.
-              admit.
-            Qed.
-            ssrewrite subst_shift1_s_t.
-            eauto.
-          }
-          {
-            rewrite transport_eq_refl in *.
-            Lemma subst_F0 ctx (v : open_size ctx) :
-              subst v F0 = F0.
-              admit.
-            Qed.
-            rewrite subst_F0.
-            Lemma leF_aA0_a ctx (c : open_cexpr ctx) : leF (Fadd c F0) c.
-              admit.
-            Qed.
-            unfold le, Le_cexpr.
-            unfold add, Add_cexpr.
-            erewrite leF_aA0_a.
-            eauto.
-          }
-          {
-            rewrite transport_eq_refl in *.
-            Lemma subst_var ctx (v : open_size ctx) :
-              subst v !var0 = v.
-              admit.
-            Qed.
-            rewrite subst_var.
-            eauto.
-          }
-        }
-        {
-          (* Case ECapp1 *)
-          edestruct (IHtyping1 eq_refl) as [t1 IH1].
-          {
-            erewrite transport_eq_refl.
-            eauto.
-          }
-          destruct IH1 as [c1 [s1 [c2 [s2 [t2 IH1]]]]].
-          destruct IH1 as [Hwte [HwtE0 [Ht [Hc Hs]]]].
-          rewrite transport_eq_refl in *.
-          Lemma subst_arrow_invert ctx (s1 : open_size ctx) t t1 c s t2 :
-            subst s1 t = Tarrow t1 c s t2 ->
-            exists t1' c' s' t2',
-              t = Tarrow t1' c' s' t2' /\
-              subst s1 t1' = t1 /\
-              subst (shift1 _ s1) c' = c /\
-              subst (shift1 _ s1) s' = s /\
-              subst (shift1 _ s1) t2' = t2.
-            admit.
-          Qed.
-          symmetry in Ht.
-          eapply subst_arrow_invert in Ht.
-          destruct Ht as [t1' [c' [s' [t2' Ht]]]].
-          destruct Ht as [Ht2 [Ht1' [Hc' [Hs' Ht2']]]].
-          subst.
-          repeat try_eexists.
-          repeat try_split.
-          { eauto. } 
-          {
-            eapply TECapp1.
-            (*here*)
-          }
-        }
-      }
-      admit.
-    Qed.
-
-    Lemma invert_ec E e t c s : 
-      |- [] (plug E e) t c s ->
-      exists t1 c1 s1 c2 s2 t2,
-        |- [] e t1 c1 s1 /\
-        typingec E t1 c2 s2 t2 /\
-        t = subst s1 t2 /\
-        c1 + subst s1 c2 <= c /\
-        subst s1 s2 <= s.
-    Proof.
-      admit.
-    Qed.
-
-    Lemma constr_ec e t1 c1 s1 E c2 s2 t2 :
-      |- [] e t1 c1 s1 ->
-      typingec E t1 c2 s2 t2 ->
-      |- [] (plug E e) (subst s1 t2) (c1 + subst s1 c2) (subst s1 s2).
-      admit.
-    Qed.
-    eapply invert_ec in Hwt.
-    destruct Hwt as [t1 [c1 [s1 [c2 [s2 [t2 Hwt]]]]]].
-    destruct Hwt as [Hwte [HwtE [? [Hc Hs]]]].
-    subst.
-    unfold typingex in IHstep.
-    edestruct IHstep as [c1' IH].
-    {
-      split.
-      { eauto. }
-      eapply leF_sound in Hc.
-      repeat rewrite c2n_Fadd in *.
-      repeat rewrite c2n_F1 in *.
-      unfold add, Add_nat in *.
-      unfold le, Le_nat in *.
-      omega.
-    }
-    destruct IH as [[IHwt IHle] IHle2].
-    eapply constr_ec in IHwt; eauto.
-    exists (c1' + subst s1 c2).
-    repeat split.
-    {
-      eapply TPsub; eauto.
     }
     {
       eapply leF_sound in Hc.
@@ -1841,6 +1595,9 @@ Proof.
           eapply Sinlinr_le_le in Hss.
           eapply Hss.
         }
+        Lemma subst_shift1_s_t ctx (v : open_size ctx) (b : open_type _) : subst v (shift1 CEexpr b) = b.
+          admit.
+        Qed.
         eapply subst_shift1_s_t.
       }
       { eauto. }
@@ -2102,6 +1859,582 @@ Proof.
         Qed.
         eapply Shide_le_le; eauto.
       }
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+  }
+  {
+    (* Case Capp1 *)
+    eapply invert_app in Hwt.
+    destruct Hwt as [t2 [c3 [s3 [t3 [c1 [s1 [c2 [s2 Hwt]]]]]]]].
+    destruct Hwt as [Hwt1 [Hwt2 [Ht [Hc Hs]]]].
+    subst.
+    edestruct IHstep as [c1' IH].
+    {
+      split.
+      { eauto. }
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    destruct IH as [[IHwt IHle] IHle2].
+    exists (c1' + c2 + F1 + subst s2 c3).
+    repeat split.
+    {
+      eapply TPsub; eauto.
+      eapply TPapp; eauto.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+  }
+  {
+    (* Case Capp2 *)
+    eapply invert_app in Hwt.
+    destruct Hwt as [t2 [c3 [s3 [t3 [c1 [s1 [c2 [s2 Hwt]]]]]]]].
+    destruct Hwt as [Hwt1 [Hwt2 [Ht [Hc Hs]]]].
+    subst.
+    edestruct IHstep as [c2' IH].
+    {
+      split.
+      { eauto. }
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    destruct IH as [[IHwt IHle] IHle2].
+    exists (c1 + c2' + F1 + subst s2 c3).
+    repeat split.
+    {
+      eapply TPsub; eauto.
+      eapply TPapp; eauto.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+  }
+  {
+    (* Case Ctapp *)
+    eapply invert_tapp in Hwt.
+    destruct Hwt as [c2 [s2 [t2 [c1 [s1 Hwt]]]]].
+    destruct Hwt as [Hwt [Ht [Hc Hs]]].
+    subst.
+    edestruct IHstep as [c1' IH].
+    {
+      split.
+      { eauto. }
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    destruct IH as [[IHwt IHle] IHle2].
+    exists (c1' + F1 + c2).
+    repeat split.
+    {
+      eapply TPsub; eauto.
+      eapply TPtapp; eauto.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+  }
+  {
+    (* Case Cfold *)
+    eapply invert_fold in Hwt.
+    destruct Hwt as [t1 [c1 [s1 Hwt]]].
+    destruct Hwt as [Hwt [Ht [Htau [Hc Hs]]]].
+    subst.
+    edestruct IHstep as [c1' IH].
+    {
+      split.
+      { eauto. }
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    destruct IH as [[IHwt IHle] IHle2].
+    exists c1'.
+    repeat split.
+    {
+      eapply TPsub; eauto.
+      eapply TPfold; eauto.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+  }
+  {
+    (* Case Cunfold *)
+    eapply invert_unfold in Hwt.
+    destruct Hwt as [t1 [c1 [s1 Hwt]]].
+    destruct Hwt as [Hwt [Ht [Hc Hs]]].
+    subst.
+    edestruct IHstep as [c1' IH].
+    {
+      split.
+      { eauto. }
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    destruct IH as [[IHwt IHle] IHle2].
+    exists (c1' + F1).
+    repeat split.
+    {
+      eapply TPsub; eauto.
+      eapply TPunfold; eauto.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+  }
+  {
+    (* Case Chide *)
+    eapply invert_hide in Hwt.
+    destruct Hwt as [t1 [c1 [s1 Hwt]]].
+    destruct Hwt as [Hwt [Ht [Hc Hs]]].
+    subst.
+    edestruct IHstep as [c1' IH].
+    {
+      split.
+      { eauto. }
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    destruct IH as [[IHwt IHle] IHle2].
+    exists c1'.
+    repeat split.
+    {
+      eapply TPsub; eauto.
+      eapply TPhide; eauto.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+  }
+  {
+    (* Case Cunhide *)
+    eapply invert_unhide in Hwt.
+    destruct Hwt as [c1 [s1 Hwt]].
+    destruct Hwt as [Hwt [Hc Hs]].
+    subst.
+    edestruct IHstep as [c1' IH].
+    {
+      split.
+      { eauto. }
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    destruct IH as [[IHwt IHle] IHle2].
+    exists (c1' + F1).
+    repeat split.
+    {
+      eapply TPsub; eauto.
+      eapply TPunhide; eauto.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+  }
+  {
+    (* Case Cpair1 *)
+    eapply invert_pair in Hwt.
+    destruct Hwt as [t1 [c1 [s1 [t2 [c2 [s2 Hwt]]]]]].
+    destruct Hwt as [Hwt1 [Hwt2 [Ht [Hc Hs]]]].
+    subst.
+    edestruct IHstep as [c1' IH].
+    {
+      split.
+      { eauto. }
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    destruct IH as [[IHwt IHle] IHle2].
+    exists (c1' + c2).
+    repeat split.
+    {
+      eapply TPsub; eauto.
+      eapply TPpair; eauto.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+  }
+  {
+    (* Case Cpair2 *)
+    eapply invert_pair in Hwt.
+    destruct Hwt as [t1 [c1 [s1 [t2 [c2 [s2 Hwt]]]]]].
+    destruct Hwt as [Hwt1 [Hwt2 [Ht [Hc Hs]]]].
+    subst.
+    edestruct IHstep as [c2' IH].
+    {
+      split.
+      { eauto. }
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    destruct IH as [[IHwt IHle] IHle2].
+    exists (c1 + c2').
+    repeat split.
+    {
+      eapply TPsub; eauto.
+      eapply TPpair; eauto.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+  }
+  {
+    (* Case Cinl *)
+    eapply invert_inl in Hwt.
+    destruct Hwt as [t1 [c1 [s1 Hwt]]].
+    destruct Hwt as [Hwt [Ht [Hc Hs]]].
+    subst.
+    edestruct IHstep as [c1' IH].
+    {
+      split.
+      { eauto. }
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    destruct IH as [[IHwt IHle] IHle2].
+    exists c1'.
+    repeat split.
+    {
+      eapply TPsub; eauto.
+      eapply TPinl; eauto.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+  }
+  {
+    (* Case Cinr *)
+    eapply invert_inr in Hwt.
+    destruct Hwt as [t1 [c1 [s1 Hwt]]].
+    destruct Hwt as [Hwt [Ht [Hc Hs]]].
+    subst.
+    edestruct IHstep as [c1' IH].
+    {
+      split.
+      { eauto. }
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    destruct IH as [[IHwt IHle] IHle2].
+    exists c1'.
+    repeat split.
+    {
+      eapply TPsub; eauto.
+      eapply TPinr; eauto.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+  }
+  {
+    (* Case Cfst *)
+    eapply invert_fst in Hwt.
+    destruct Hwt as [t0 [c0 [s1 [s2 Hwt]]]].
+    destruct Hwt as [Hwt [Hc Hs]].
+    subst.
+    edestruct IHstep as [c0' IH].
+    {
+      split.
+      { eauto. }
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    destruct IH as [[IHwt IHle] IHle2].
+    exists (c0' + F1).
+    repeat split.
+    {
+      eapply TPsub; eauto.
+      eapply TPfst; eauto.
+      simpl; eauto.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+  }
+  {
+    (* Case Csnd *)
+    eapply invert_snd in Hwt.
+    destruct Hwt as [t0 [c0 [s1 [s2 Hwt]]]].
+    destruct Hwt as [Hwt [Hc Hs]].
+    subst.
+    edestruct IHstep as [c0' IH].
+    {
+      split.
+      { eauto. }
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    destruct IH as [[IHwt IHle] IHle2].
+    exists (c0' + F1).
+    repeat split.
+    {
+      eapply TPsub; eauto.
+      eapply TPsnd; eauto.
+      simpl; eauto.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    {
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+  }
+  {
+    (* Case Cmatch *)
+    eapply invert_match in Hwt.
+    destruct Hwt as [t1 [t2 [c0 [s1 [s2 [c1 [c2 Hwt]]]]]]].
+    destruct Hwt as [Hwt0 [Hwt1 [Hwt2 [Ht [Hc Hs]]]]].
+    subst.
+    edestruct IHstep as [c0' IH].
+    {
+      split.
+      { eauto. }
+      eapply leF_sound in Hc.
+      repeat rewrite c2n_Fadd in *.
+      repeat rewrite c2n_F1 in *.
+      unfold add, Add_nat in *.
+      unfold le, Le_nat in *.
+      omega.
+    }
+    destruct IH as [[IHwt IHle] IHle2].
+    exists (c0' + F1 + max (subst s1 c1) (subst s2 c2)).
+    repeat split.
+    {
+      eapply TPsub; eauto.
+      eapply TPmatch; eauto.
     }
     {
       eapply leF_sound in Hc.

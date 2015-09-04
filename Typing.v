@@ -199,8 +199,8 @@ Inductive typing {ctx} : tcontext ctx -> expr ctx -> type ctx -> cexpr ctx -> si
 | TPabs T e t1 t2 c s :
     typing (ctx := _ ) (add_typing t1 T) e t2 c s ->
     typing T (Eabs t1 e) (Tarrow t1 c s t2) F0 S0
-| TPtapp T e t2 c s t c' :
-    typing T e (Tuniversal c s t) c' S0 ->
+| TPtapp T e t2 c s t c' nouse :
+    typing T e (Tuniversal c s t) c' nouse  ->
     typing T (Etapp e t2) (subst t2 t) (c' + F1 + c) s
 | TPtabs T e c s t :
     typing (ctx := _) (add_kinding T) e t (shift1 CEtype c) (shift1 CEtype s) ->
