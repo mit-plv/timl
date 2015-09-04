@@ -1420,6 +1420,28 @@ Proof.
   }
   Unfocus.
   {
+    Inductive plugto {ctx} : econtext ctx -> open_expr ctx -> open_expr ctx -> Prop :=
+    | Pempty e : plugto ECempty e e
+    | Papp1 E e f arg : plugto E e f -> plugto (ECapp1 E arg) e (Eapp f arg)
+    | Papp2 E e arg f : plugto E e arg -> plugto (ECapp2 f E) e (Eapp f arg)
+    | Ptapp E e f t : plugto E e f -> plugto (ECtapp E t) e (Etapp f t)
+    | Pfold E e e' t : plugto E e e' -> plugto (ECfold t E) e (Efold t e')
+    | Punfold E e e' : plugto E e e' -> plugto (ECunfold E) e (Eunfold e')
+    | Phide E e e' : plugto E e e' -> plugto (EChide E) e (Ehide e')
+    | Punhide E e e' : plugto E e e' -> plugto (ECunhide E) e (Eunhide e')
+    | Ppair1 E e a b : plugto E e a -> plugto (ECpair1 E b) e (Epair a b)
+    | Ppair2 E e b a : plugto E e b -> plugto (ECpair2 a E) e (Epair a b)
+    | Pinl E e e' t : plugto E e e' -> plugto (ECinl t E) e (Einl t e')
+    | Pinr E e e' t : plugto E e e' -> plugto (ECinr t E) e (Einr t e')
+    | Pfst E e e' : plugto E e e' -> plugto (ECfst E) e (Efst e')
+    | Psnd E e e' : plugto E e e' -> plugto (ECsnd E) e (Esnd e')
+    | Pmatch E e target t s k1 k2 : plugto E e target -> plugto (ECmatch E t s k1 k2) e (Ematch target t s k1 k2)
+    .
+
+    Lemma plug_plugto ctx (E : econtext ctx) e Ee : plug E e = Ee <-> plugto E e Ee.
+      admit.
+    Qed.
+
     (* Case EC *)
     Inductive typingec : econtext [] -> type -> open_cexpr [CEexpr] -> open_size [CEexpr] -> open_type [CEexpr] -> Prop :=
     | TECempty t : typingec ECempty t F0 !var0 (shift1 CEexpr t)
@@ -1478,28 +1500,6 @@ Proof.
         is_inlinr s12 = Some (s1, s2) ->
         typingec (ECmatch E t s e1 e2) t0 (c + F1 + max (subst s1 (shift1 CEexpr c1)) (subst s2 (shift1 CEexpr c2))) (shift1 CEexpr s) (shift1 CEexpr t)
     .
-
-    Inductive plugto {ctx} : econtext ctx -> open_expr ctx -> open_expr ctx -> Prop :=
-    | Pempty e : plugto ECempty e e
-    | Papp1 E e f arg : plugto E e f -> plugto (ECapp1 E arg) e (Eapp f arg)
-    | Papp2 E e arg f : plugto E e arg -> plugto (ECapp2 f E) e (Eapp f arg)
-    | Ptapp E e f t : plugto E e f -> plugto (ECtapp E t) e (Etapp f t)
-    | Pfold E e e' t : plugto E e e' -> plugto (ECfold t E) e (Efold t e')
-    | Punfold E e e' : plugto E e e' -> plugto (ECunfold E) e (Eunfold e')
-    | Phide E e e' : plugto E e e' -> plugto (EChide E) e (Ehide e')
-    | Punhide E e e' : plugto E e e' -> plugto (ECunhide E) e (Eunhide e')
-    | Ppair1 E e a b : plugto E e a -> plugto (ECpair1 E b) e (Epair a b)
-    | Ppair2 E e b a : plugto E e b -> plugto (ECpair2 a E) e (Epair a b)
-    | Pinl E e e' t : plugto E e e' -> plugto (ECinl t E) e (Einl t e')
-    | Pinr E e e' t : plugto E e e' -> plugto (ECinr t E) e (Einr t e')
-    | Pfst E e e' : plugto E e e' -> plugto (ECfst E) e (Efst e')
-    | Psnd E e e' : plugto E e e' -> plugto (ECsnd E) e (Esnd e')
-    | Pmatch E e target t s k1 k2 : plugto E e target -> plugto (ECmatch E t s k1 k2) e (Ematch target t s k1 k2)
-    .
-
-    Lemma plug_plugto ctx (E : econtext ctx) e Ee : plug E e = Ee <-> plugto E e Ee.
-      admit.
-    Qed.
 
     Lemma invert_ec' ctx (T : tcontext ctx) Ee t c s : 
       |- T Ee t c s ->
@@ -1578,11 +1578,26 @@ Proof.
           destruct IH1 as [c1 [s1 [c2 [s2 [t2 IH1]]]]].
           destruct IH1 as [Hwte [HwtE0 [Ht [Hc Hs]]]].
           rewrite transport_eq_refl in *.
+          Lemma subst_arrow_invert ctx (s1 : open_size ctx) t t1 c s t2 :
+            subst s1 t = Tarrow t1 c s t2 ->
+            exists t1' c' s' t2',
+              t = Tarrow t1' c' s' t2' /\
+              subst s1 t1' = t1 /\
+              subst (shift1 _ s1) c' = c /\
+              subst (shift1 _ s1) s' = s /\
+              subst (shift1 _ s1) t2' = t2.
+            admit.
+          Qed.
+          symmetry in Ht.
+          eapply subst_arrow_invert in Ht.
+          destruct Ht as [t1' [c' [s' [t2' Ht]]]].
+          destruct Ht as [Ht2 [Ht1' [Hc' [Hs' Ht2']]]].
+          subst.
           repeat try_eexists.
           repeat try_split.
           { eauto. } 
           {
-            eapply TECapp1; eauto.
+            eapply TECapp1.
             (*here*)
           }
         }
