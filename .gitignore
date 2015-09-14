@@ -15,3 +15,8 @@ Makefile.coq
 *.bbl
 *.blg
 *.synctex.gz*
+*.cmi
+*.cmo
+impl/typecheck
+impl/learn-sml/io
+impl/learn-sml/regexp
