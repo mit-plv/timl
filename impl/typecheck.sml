@@ -113,10 +113,6 @@ open TimeTheory
 open Constr
 open Expr
 
-datatype 'a error =
-	 OK of 'a
-	 | Error of string
-
 (* kinding context *)
 type kcontext = (string * kind) list
 
@@ -151,47 +147,68 @@ fun whnf (c : constr) : constr =
 	 | c1' => Constr.App (c1', c2))
     | _ => raise Unimpl 
 
-fun vcgen_le (c : constr) (c' : constr) : (prop list) error = raise Unimpl
-								    
-fun vcgen_subtype (c : constr) (c' : constr) : (prop list) error =
-  case (whnf c, whnf c') of
-      (Arrow (c1, d, c2), Arrow (c1', d', c2')) =>
-      (case vcgen_subtype c1' c1 of
-	   OK vc1 =>
-	   (case vcgen_le d d' of
-		OK vcd =>
-		(case vcgen_subtype c2 c2' of
-		     OK vc2 => OK (vc1 @ vcd @ vc2)
-		   | Error msg => Error msg)
-	      | Error msg => Error msg)
-	 | Error msg => Error msg)
-   | _ => 
-     Error "Unimplement"
-								     
-fun vcgen (kctx : kcontext) (tctx : tcontext) (e : expr) : (constr * constr * prop list) error =
-  case e of
-      Var x =>
-      (case lookup x tctx of
-      	   SOME t =>
-	   OK (t, T0, [])
-      	 | NONE => Error ("Unbound variable " ^ var_toString x))
-    | App (e1, e2) =>
-      (case vcgen kctx tctx e1 of
-    	   OK (t1, d1, vc1) =>
-    	   (case whnf t1 of
-    		Arrow (t2, d, t) =>
-    		(case vcgen kctx tctx e2 of
-    		     OK (t2', d2, vc2) =>
-    		     (case vcgen_subtype t2' t2 of
-    			  OK vc3 => OK (t, d1 + d2 + T1 + d,  vc1 @ vc2 @ vc3)
-			| Error msg => Error msg)
-    		   | Error msg => Error msg)
-    	      | t1' =>  Error ("Type of " ^ expr_toString e ^ " should have type pattern (_ time _ -> _) but is " ^ constr_toString t1'))
-	 | Error msg  => Error msg)
-    | _  => Error "Unimplemented"
+datatype 'a result =
+	 OK of 'a
+	 | Failed of string
+
+(* use exception and cell to mimic the Error and Writer monads *)
+local								    
+
+    exception Fail of string
+
+    fun runError m _ =
+	OK (m ())
+	handle
+	Fail msg => Failed msg
+
+    val acc = ref ([] : prop list)
+
+    fun tell a = acc := !acc @ a
+
+    fun runWriter m _ =
+	(acc := []; let val r = m () in (r, !acc) end)
+
+    fun time_le (c : constr) (c' : constr) = raise Unimpl
+
+    fun subtyping (c : constr) (c' : constr) =
+	case (whnf c, whnf c') of
+	    (Arrow (c1, d, c2), Arrow (c1', d', c2')) =>
+	    (subtyping c1' c1;
+	     time_le d d';
+	     subtyping c2 c2')
+	  | _ => 
+	    raise Unimpl
+
+    fun typing (kctx : kcontext) (tctx : tcontext) (e : expr) : constr * constr =
+	case e of
+	    Var x =>
+	    (case lookup x tctx of
+      		 SOME t =>
+		 (t, T0)
+      	       | NONE => raise Fail ("Unbound variable " ^ var_toString x))
+	  | App (e1, e2) =>
+	    let val (t1, d1) = typing kctx tctx e1 
+	    in
+    		case whnf t1 of
+    		    Arrow (t2, d, t) =>
+    		    let val (t2', d2) = typing kctx tctx e2 
+		    in
+			subtyping t2' t2;
+    			(t, d1 + d2 + T1 + d) 
+		    end
+    		  | t1' =>  raise Fail ("Type of " ^ expr_toString e ^ " should have type pattern (_ time _ -> _) but is " ^ constr_toString t1')
+	    end
+	  | _  => raise Unimpl
+
+in								     
+
+    fun vcgen (kctx : kcontext) (tctx : tcontext) (e : expr) : ((constr * constr) * prop list) result =
+	runError (runWriter (fn _ => typing kctx tctx e)) ()
+
+end
 
 val result = vcgen [] [] (Var 0)
 val _ =
     case result of
 	OK _ => print "OK\n"
-      | Error msg => print ("Error: " ^ msg ^ "\n")
+      | Failed msg => print ("Failed: " ^ msg ^ "\n")
