@@ -29,6 +29,8 @@ functor MakeTimeTheory (structure Theory : THEORY) : TIME_THEORY = struct
 	datatype kind =
 		 Unit
 		 | Prod of kind * kind
+		 | Fst of kind
+		 | Snd of kind
 		 | Subset of kind * string * prop
 		 | Time
 		 | Other of Theory.kind
@@ -40,7 +42,6 @@ functor MakeTimeTheory (structure Theory : THEORY) : TIME_THEORY = struct
 (* constructors *)
 signature CONSTR = sig
     type kind
-    type hkind
     type constr
     val T0 : constr
     val T1 : constr
@@ -53,21 +54,18 @@ functor MakeConstr (structure Theory : TIME_THEORY) = struct
 	datatype kind = 
 		 Type
 		 | Other of Theory.kind
-	(* higher kinds with arrows *)
-	datatype hkind = 
-		 Simple of kind
-		 | Arrow of kind * hkind
 	datatype constr = 
 		 Var of var
 		 | Arrow of constr * constr * constr
-		 | Abs of kind * string * constr
 		 | Unit
 		 | Prod of constr * constr
 		 | Sum of constr * constr
-		 | App of constr * constr
 		 | Uni of kind * string * constr
 		 | Ex of kind * string * constr
-		 | Recur of hkind * string * constr
+		 (* the kind of Recur is Theory.kind => Type, to allow for change of index *)
+		 | Recur of Theory.kind * string * string * constr
+		 (* the first operant of App can only be a recursive type*)
+		 | App of constr * constr
 		 | T0
 		 | T1
 		 | Tadd of constr * constr
@@ -103,7 +101,10 @@ functor MakeExpr (structure Constr : CONSTR) = struct
 		 | Tapp of expr * constr
 		 (* existential *)
 		 | Pack of constr * constr * expr
-		 | Unpack of expr * string * string * expr
+		 | Unpack of expr * constr * constr * string * string * expr
+		 (* recursive type *)
+		 | Fold of constr * expr
+		 | Unfold of expr
 	end			       
 
 structure TimeTheory = MakeTimeTheory (structure Theory = Theory)
@@ -165,14 +166,6 @@ local
     fun runWriter m _ =
 	(acc := []; let val r = m () in (r, !acc) end)
 
-    fun whnf (c : constr) : constr =
-	case c of
-	    Constr.App (c1, c2) =>
-	    (case whnf c1 of
-		 Constr.Abs (_, _, c1') => whnf (subst c2 c1')
-	       | c1' => Constr.App (c1', c2))
-	  | _ => raise Unimpl 
-
     fun time_le (kctx : kcontext) (c : constr) (c' : constr) = raise Unimpl
 
     fun wfkind (kctx : kcontext) (k : kind) = raise Unimpl
@@ -181,10 +174,12 @@ local
 
     fun kinding (kctx : kcontext) (c : constr) : kind = raise Unimpl
 
+    fun check_kind kctx t k = subkinding kctx (kinding kctx t) k
+
     fun join (c : constr) (c' : constr) : constr = raise Unimpl
 
     fun subtyping (kctx : kcontext) (c : constr) (c' : constr) =
-	case (whnf c, whnf c') of
+	case (c, c') of
 	    (Arrow (c1, d, c2), Arrow (c1', d', c2')) =>
 	    (subtyping kctx c1' c1;
 	     time_le kctx d d';
@@ -193,6 +188,7 @@ local
 	    raise Unimpl
 
     fun mismatch e expect have =  "Type mismatch for " ^ (expr_toString e) ^ ": expect " ^ expect ^ " have " ^ (constr_toString have)
+    fun mismatch_anno expect have =  "Type annotation mismatch: expect " ^ expect ^ " have " ^ (constr_toString have)
 
     fun is_value (e : expr) : bool = raise Unimpl
 
@@ -205,7 +201,7 @@ local
       		   | NONE => raise Fail ("Unbound variable " ^ var_toString x))
 	      | App (e1, e2) =>
 		let val (t1, d1) = typing ctx e1 in
-    		    case whnf t1 of
+    		    case t1 of
     			Arrow (t2, d, t) =>
     			let val (t2', d2) = typing ctx e2 in
 			    subtyping kctx t2' t2;
@@ -214,8 +210,7 @@ local
     		      | t1' =>  raise Fail (mismatch e "(_ time _ -> _)" t1')
 		end
 	      | Abs (t, varname, e) => 
-		let val k = kinding kctx t
-		    val _ = subkinding kctx k Type 
+		let val _ = check_kind kctx t Type
 		    val (t1, d) = typing (kctx, (add_typing (varname, t) tctx)) e in
 		    (Arrow (t, d, t1), T0)
 		end
@@ -227,31 +222,29 @@ local
 		end
 	      | Fst e => 
 		let val (t, d) = typing ctx e in 
-		    case whnf t of
+		    case t of
 			Prod (t1, t2) => (t1, d + T1)
 		      | t' => raise Fail (mismatch e "(_ * _)" t')
 		end
 	      | Snd e => 
 		let val (t, d) = typing ctx e in 
-		    case whnf t of
+		    case t of
 			Prod (t1, t2) => (t2, d + T1)
 		      | t' => raise Fail (mismatch e "(_ * _)" t')
 		end
 	      | Inl (t2, e) => 
-		let val k = kinding kctx t2
-		    val _ = subkinding kctx k Type
-		    val (t1, d) = typing ctx e in
+		let val (t1, d) = typing ctx e in
+		    check_kind kctx t2 Type;
 		    (Sum (t1, t2), d)
 		end
 	      | Inr (t1, e) => 
-		let val k = kinding kctx t1
-		    val _ = subkinding kctx k Type
-		    val (t2, d) = typing ctx e in
+		let val (t2, d) = typing ctx e in
+		    check_kind kctx t1 Type;
 		    (Sum (t1, t2), d)
 		end
 	      | Match (e, name1, e1, name2, e2) => 
 		let val (t, d) = typing ctx e in
-		    case whnf t of
+		    case t of
 			Sum (t1, t2) => 
 			let val (tr1, d1) = typing (kctx, add_typing (name1, t1) tctx) e1
 			    val (tr2, d2) = typing (kctx, add_typing (name2, t2) tctx) e2
@@ -268,6 +261,53 @@ local
 		    end 
 		else
 		    raise Fail ("The body of a universal abstraction must be a value")
+	      | Tapp (e, c) =>
+		let val (t, d) = typing ctx e in
+		    case t of
+			Uni (k, name, t1) => 
+			(check_kind kctx c k;
+			 (subst c t1, d + T1))
+		      | t' => raise Fail (mismatch e "(forall _ : _, _)" t')
+		end
+	      | Fold (t, e) => 
+		(case t of
+		     Constr.App (t1 as Recur (_, _, _, t2), c) =>
+		     let val (t3, d) = typing ctx e in
+			 check_kind kctx t Type;
+			 subtyping kctx t3 (subst c (subst t1 t2));
+			 (t, d)
+		     end
+		   | t' => raise Fail (mismatch_anno "((recur (_ :: _) (_ : _), _) [_])" t'))
+	      | Unfold e =>
+	      	let val (t, d) = typing ctx e in
+	      	    case t of
+	      		Constr.App (t1 as Recur (_, _, _, t2), c) =>
+			(subst c (subst t1 t2), d + T1)
+		      | t' => raise Fail (mismatch e "((recur (_ :: _) (_ : _), _) [_])" t')
+	      	end
+	      | Pack (t, c, e) =>
+		(case t of
+		     Ex (k, _, t1) =>
+		     let val _ = check_kind kctx t Type
+			 val _ = check_kind kctx c k
+			 val (t2, d) = typing ctx e in
+			 subtyping kctx t2 (subst c t1);
+			 (t, d)
+		     end
+		   | t' => raise Fail (mismatch_anno "(ex _ : _, _)" t'))
+	      | Unpack (e1, t, d, type_var, expr_var, e2) => 
+		let val _ = check_kind kctx t Type
+		    val _ = check_kind kctx d Time
+		    val (t1, d1) = typing ctx e1 in
+		    case t1 of
+			Ex (k, _, t1') => 
+			let val (t2, d2) = typing (add_kinding (type_var, k) kctx, add_typing (expr_var, t1') tctx) e2 in
+			    subtyping kctx t2 t;
+			    time_le kctx d2 d;
+			    (t, d1 + T1 + d)
+			end
+		      | t1' => raise Fail (mismatch e1 "(ex _ : _, _)" t1')
+		end
 	      | _  => raise Unimpl
 	end
 
