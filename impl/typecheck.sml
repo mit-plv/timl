@@ -41,12 +41,19 @@ functor MakeTimeTheory (structure Theory : THEORY) : TIME_THEORY = struct
 signature CONSTR = sig
     type kind
     type constr
-    val Time : kind
-    val T0 : constr
-    val T1 : constr
-    val Tadd : constr * constr -> constr
-    val Tmax : constr * constr -> constr
+(* val Time : kind *)
+(* val T0 : constr *)
+(* val T1 : constr *)
+(* val Tadd : constr * constr -> constr *)
+(* val Tmax : constr * constr -> constr *)
 end
+
+datatype 'a result =
+	 OK of 'a
+	 | Failed of string
+
+exception Unimpl
+exception Impossible of string
 
 functor MakeConstr (structure Theory : TIME_THEORY) = struct
 	(* simple kind without arrows *)
@@ -55,7 +62,7 @@ functor MakeConstr (structure Theory : TIME_THEORY) = struct
 		 | Time
 		 (* will only be used by recursive types in a restricted form *)
 		 | KArrow of kind * kind
-		 | Other of Theory.kind
+		 | KOther of Theory.kind
 
 	datatype constr = 
 		 Var of var
@@ -65,8 +72,8 @@ functor MakeConstr (structure Theory : TIME_THEORY) = struct
 		 | Sum of constr * constr
 		 | Uni of kind * string * constr
 		 | Ex of kind * string * constr
-		 (* the kind of Recur is kind => Type, where kind is not Type or Arrow, to allow for change of index *)
-		 | Recur of kind * string * string * constr
+		 (* the kind of Recur is kind => Type (where kind is not Type or Arrow), to allow for change of index *)
+		 | Recur of string * kind * string * constr
 		 (* the first operant of App can only be a recursive type*)
 		 | App of constr * constr
 		 | T0
@@ -74,6 +81,16 @@ functor MakeConstr (structure Theory : TIME_THEORY) = struct
 		 | Tadd of constr * constr
 		 | Tmax of constr * constr
 		 | Other of Theory.constr
+
+	(* kinding context *)
+	type kcontext = (string * kind) list
+	fun add_kinding (name, k) kctx = (name, k) :: kctx
+	fun lookup (x : var) (kctx : kcontext) : kind option = NONE
+
+	fun is_subconstr (kctx : kcontext, c : constr, c' : constr, k : Theory.kind) : unit result
+	    = raise Unimpl
+	fun get_kind (kctx : kcontext, c : Theory.constr) : kind result 
+	    = raise Unimpl
 
 	end
 
@@ -118,30 +135,25 @@ open TimeTheory
 open Constr
 open Expr
 
-(* kinding context *)
-type kcontext = (string * kind) list
-fun add_kinding (name, k) kctx = (name, k) :: kctx
-(* add k=>Type *)
-fun add_recur_kinding (name, k) kctx = (name, k) :: kctx
-
 (* typing context *)
 type tcontext = (string * constr) list
 fun add_typing (name, c) tctx = (name, c) :: tctx
 
-exception Unimpl
-
 fun lookup (x : var) (tctx : tcontext) : constr option = NONE
 
 fun var_toString (x : var) : string = Int.toString x
-fun expr_toString (e : expr) : string =
-    case e of
-	Var x => var_toString x
-      | App (e1, e2) => "(" ^ expr_toString e1 ^ " " ^ expr_toString e2 ^ ")"
-      | _ => raise Unimpl
+
+fun kind_toString (k : kind) : string = raise Unimpl
 
 fun constr_toString (c : constr) : string =
     case c of
 	Arrow (c1, d, c2) => "(" ^ constr_toString c1 ^ " time " ^ constr_toString d ^ " -> " ^ constr_toString c2 ^ ")"
+      | _ => raise Unimpl
+
+fun expr_toString (e : expr) : string =
+    case e of
+	Var x => var_toString x
+      | App (e1, e2) => "(" ^ expr_toString e1 ^ " " ^ expr_toString e2 ^ ")"
       | _ => raise Unimpl
 
 fun a + b = Tadd (a, b)
@@ -150,10 +162,6 @@ fun a $ b = Tmax (a, b)
 
 fun subst (v : constr) (b : constr) : constr = raise Unimpl
 						     
-datatype 'a result =
-	 OK of 'a
-	 | Failed of string
-
 (* use exception and cell to mimic the Error and Writer monads *)
 local								    
 
@@ -172,67 +180,150 @@ local
 	(acc := []; let val r = m () in (r, !acc) end)
 
     fun is_le (arg : kcontext * constr * constr) = raise Unimpl
+    fun is_eq (arg : kcontext * constr * constr) = raise Unimpl
 
     fun wfkind (arg : kcontext * kind) = raise Unimpl
 
     fun is_subkind (arg : kcontext * kind * kind) = raise Unimpl
     fun is_eqvkind (kctx, k, k') = (is_subkind (kctx, k, k'); is_subkind (kctx, k', k))
 
-    fun get_kind (arg : kcontext * constr) : kind = raise Unimpl
-
-    fun check_kind (kctx, t, k) = is_subkind (kctx, get_kind (kctx, t), k)
-
     fun join (c : constr) (c' : constr) : constr = raise Unimpl
 
-    fun not_subtype c c' = constr_toString c ^ " is not subtype of " ^ constr_toString c'
-
-    fun wrong_recur_kind c = "Invalid kind annotation in recursive type " ^ constr_toString c
+    (* k => Type *)
+    fun recur_kind k = KArrow (k, Type)
 
     fun check_recur_kind k =
-	case k of
-	    Type => false
-	  | KArrow _ => false
-	  | _ => true
+	if
+	    case k of
+		Type => false
+	      | KArrow _ => false
+	      | _ => true
+	then ()
+	else
+	    raise Fail ("Invalid kind annotation " ^ kind_toString k ^ " in recursive type ")
 
-    fun is_subtype (kctx : kcontext, c : constr, c' : constr) =
-	case (c, c') of
-	    (Arrow (c1, d, c2), Arrow (c1', d', c2')) =>
-	    (is_subtype (kctx, c1', c1);
-	     is_le (kctx, d, d');
-	     is_subtype (kctx, c2, c2'))
-	  | (Constr.Var x, Constr.Var x') => 
-	    if x = x' then
-		check_kind (kctx, c, Type)
-	    else
-		raise Fail (not_subtype c c')
-	  | (Unit, Unit) => ()
-	  | (Prod (c1, c2), Prod (c1', c2')) =>
-	    (is_subtype (kctx, c1, c1');
-	     is_subtype (kctx, c2, c2'))
-	  | (Sum (c1, c2), Sum (c1', c2')) => 
-	    (is_subtype (kctx, c1, c1');
-	     is_subtype (kctx, c2, c2'))
-	  | (Uni (k, name, c), Uni (k', _, c')) => 
-	    (is_eqvkind (kctx, k, k');
-	     is_subtype (add_kinding (name, k) kctx, c, c'))
-	  | (Ex (k, name, c), Ex (k', _, c')) => 
-	    (is_eqvkind (kctx, k, k');
-	     is_subtype (add_kinding (name, k) kctx, c, c'))
-	  (* currently don't support nontrivial subtyping for recursive types *)
-	  | (Recur (k, nameself, namearg, c1), Recur (k', _, _, c1')) => 
-	    if check_recur_kind k then
-		if check_recur_kind k' then
-		    let val () = is_eqvkind (kctx, k, k')
-			val kctx' = add_kinding (namearg, k) (add_recur_kinding (nameself, k) kctx) in
-			is_subtype (kctx', c1, c1');
-			is_subtype (kctx', c1', c1)
-		    end
-		else
-		    raise Fail (wrong_recur_kind c')
-	    else
-		raise Fail (wrong_recur_kind c)
-	  | _ => 
-	    raise Unimpl
+    fun kind_mismatch c expect have =  "Kind mismatch for " ^ constr_toString c ^ ": expect " ^ expect ^ " have " ^ kind_toString have
+
+    fun get_kind (kctx : kcontext, c : constr) : kind = 
+	case c of
+	    Constr.Var a =>
+	    (case Constr.lookup a kctx of
+      		 SOME k => k
+      	       | NONE => raise Fail ("Unbound type variable " ^ var_toString a))
+	  | Arrow (c1, d, c2) => 
+	    (check_kind (kctx, c1, Type);
+	     check_kind (kctx, d, Time);
+	     check_kind (kctx, c2, Type);
+	     Type)
+	  | Unit => Type
+	  | Prod (c1, c2) => 
+	    (check_kind (kctx, c1, Type);
+	     check_kind (kctx, c2, Type);
+	     Type)
+	  | Sum (c1, c2) => 
+	    (check_kind (kctx, c1, Type);
+	     check_kind (kctx, c2, Type);
+	     Type)
+	  | Uni (k, name, c) => 
+	    (wfkind (kctx, k);
+	     check_kind (add_kinding (name, k) kctx, c, Type);
+	     Type)
+	  | Ex (k, name, c) => 
+	    (wfkind (kctx, k);
+	     check_kind (add_kinding (name, k) kctx, c, Type);
+	     Type)
+	  | Recur (nameself, k, namearg, t) =>
+	    (wfkind (kctx, k);
+	     check_recur_kind k;
+	     check_kind (add_kinding (namearg, k) (add_kinding (nameself, recur_kind k) kctx), t, Type);
+	     recur_kind k)
+	  | Constr.App (c1, c2) => 
+	    let val k1 = get_kind (kctx, c1) in
+		case k1 of
+		    KArrow (k2, k) => 
+		    (check_kind (kctx, c2, k2);
+		     k)
+		  | _ => raise Fail (kind_mismatch c1 "(_ => _)" k1)
+	    end
+	  | T0 => Time
+	  | T1 => Time
+	  | Tadd (d1, d2) => 
+	    (check_kind (kctx, d1, Time);
+	     check_kind (kctx, d2, Time);
+	     Time)
+	  | Tmax (d1, d2) => 
+	    (check_kind (kctx, d1, Time);
+	     check_kind (kctx, d2, Time);
+	     Time)
+	  | Other c1 => 
+	    (case Constr.get_kind (kctx, c1) of
+		 OK k => k
+	       | Failed msg => raise Fail msg)
+
+    and check_kind (kctx, t, k) : unit = is_subkind (kctx, get_kind (kctx, t), k)
+
+    local
+	fun not_subtype c c' = constr_toString c ^ " is not subtype of " ^ constr_toString c'
+	(* is_subconstr assumes that the constructors are already checked against the given kind, so it doesn't need to worry about their well-formedness *)
+	fun is_subconstr (kctx : kcontext, c : constr, c' : constr, k : kind) =
+	    let fun is_eqvconstr (kctx, c, c', k) = (is_subconstr (kctx, c, c', k); is_subconstr (kctx, c', c, k)) in
+		case k of
+		    Type =>
+		    (case (c, c') of
+			 (Arrow (c1, d, c2), Arrow (c1', d', c2')) =>
+			 (is_subconstr (kctx, c1', c1, Type);
+			  is_le (kctx, d, d');
+			  is_subconstr (kctx, c2, c2', Type))
+		       | (Constr.Var a, Constr.Var a') => 
+			 if a = a' then
+			     ()
+			 else
+			     raise Fail (not_subtype c c')
+		       | (Unit, Unit) => ()
+		       | (Prod (c1, c2), Prod (c1', c2')) =>
+			 (is_subconstr (kctx, c1, c1', Type);
+			  is_subconstr (kctx, c2, c2', Type))
+		       | (Sum (c1, c2), Sum (c1', c2')) => 
+			 (is_subconstr (kctx, c1, c1', Type);
+			  is_subconstr (kctx, c2, c2', Type))
+		       | (Uni (k, name, c), Uni (k', _, c')) => 
+			 (is_eqvkind (kctx, k, k');
+			  is_subconstr (add_kinding (name, k) kctx, c, c', Type))
+		       | (Ex (k, name, c), Ex (k', _, c')) => 
+			 (is_eqvkind (kctx, k, k');
+			  is_subconstr (add_kinding (name, k) kctx, c, c', Type))
+		       (* currently don't support subtyping for recursive types, so they must be equivalent *)
+		       | (Constr.App (Recur (nameself, k, namearg, c1), c2), Constr.App (Recur (_, k', _, c1'), c2')) => 
+			 let val () = is_eqvkind (kctx, k, k')
+			     val () = is_eqvconstr (kctx, c2, c2', k)
+			     val kctx' = add_kinding (namearg, k) (add_kinding (nameself, recur_kind k) kctx) in
+			     is_eqvconstr (kctx', c1, c1', Type)
+			 end
+		       | (Constr.App (c1 as Constr.Var a, c2), Constr.App (Constr.Var a', c2')) => 
+			 if a = a' then
+			     let val k = get_kind (kctx, c1) in
+				 case k of
+				     KArrow (k1, _) => 
+				     is_eqvconstr (kctx, c2, c2', k)
+				   | _ => raise Impossible "is_subconstr: x in (x c) should have an arrow kind"
+			     end
+			 else
+			     raise Fail (not_subtype c c')
+		       | _ => raise Fail (not_subtype c c'))
+		  | Time => 
+		    is_eq (kctx, c, c')
+		  | KArrow _ => raise Impossible "is_subconstr: should never test subconstr in higher-order kinds"
+		  | KOther k1 => 
+		    (case Constr.is_subconstr (kctx, c, c', k1) of
+			 OK () => ()
+		       | Failed msg => raise Fail msg)
+	    end
+    in
+    fun is_subtype (kctx, t, t') =
+	(check_kind (kctx, t, Type);
+	 check_kind (kctx, t', Type);
+	 is_subconstr (kctx, t, t', Type))
+    end
 
     fun mismatch e expect have =  "Type mismatch for " ^ expr_toString e ^ ": expect " ^ expect ^ " have " ^ constr_toString have
     fun mismatch_anno expect have =  "Type annotation mismatch: expect " ^ expect ^ " have " ^ constr_toString have
@@ -258,7 +349,7 @@ local
 			val () = is_subtype (kctx, t2', t2) in
     			(t, d1 + d2 + T1 + d) 
 		    end
-    		  | t1' =>  raise Fail (mismatch e "(_ time _ -> _)" t1')
+    		  | t1' =>  raise Fail (mismatch e1 "(_ time _ -> _)" t1')
 	    end
 	  | Abs (t, varname, e) => 
 	    let val () = check_kind (kctx, t, Type)
@@ -329,13 +420,13 @@ local
 		     val () = is_subtype (kctx, t3, (subst c (subst t1 t2))) in
 		     (t, d)
 		 end
-	       | t' => raise Fail (mismatch_anno "((recur (_ :: _) (_ : _), _) [_])" t'))
+	       | t' => raise Fail (mismatch_anno "((recur (_ :: _) (_ : _), _) _)" t'))
 	  | Unfold e =>
 	    let val (t, d) = get_type (ctx, e) in
 	      	case t of
 	      	    Constr.App (t1 as Recur (_, _, _, t2), c) =>
 		    (subst c (subst t1 t2), d + T1)
-		  | t' => raise Fail (mismatch e "((recur (_ :: _) (_ : _), _) [_])" t')
+		  | t' => raise Fail (mismatch e "((recur (_ :: _) (_ : _), _) _)" t')
 	    end
 	  | Pack (t, c, e) =>
 	    (case t of
