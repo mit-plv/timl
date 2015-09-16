@@ -53,7 +53,10 @@ functor MakeConstr (structure Theory : TIME_THEORY) = struct
 	datatype kind = 
 		 Type
 		 | Time
+		 (* will only be used by recursive types in a restricted form *)
+		 | KArrow of kind * kind
 		 | Other of Theory.kind
+
 	datatype constr = 
 		 Var of var
 		 | Arrow of constr * constr * constr
@@ -62,8 +65,8 @@ functor MakeConstr (structure Theory : TIME_THEORY) = struct
 		 | Sum of constr * constr
 		 | Uni of kind * string * constr
 		 | Ex of kind * string * constr
-		 (* the kind of Recur is Theory.kind => Type, to allow for change of index *)
-		 | Recur of Theory.kind * string * string * constr
+		 (* the kind of Recur is kind => Type, where kind is not Type or Arrow, to allow for change of index *)
+		 | Recur of kind * string * string * constr
 		 (* the first operant of App can only be a recursive type*)
 		 | App of constr * constr
 		 | T0
@@ -118,6 +121,8 @@ open Expr
 (* kinding context *)
 type kcontext = (string * kind) list
 fun add_kinding (name, k) kctx = (name, k) :: kctx
+(* add k=>Type *)
+fun add_recur_kinding (name, k) kctx = (name, k) :: kctx
 
 (* typing context *)
 type tcontext = (string * constr) list
@@ -171,6 +176,7 @@ local
     fun wfkind (arg : kcontext * kind) = raise Unimpl
 
     fun is_subkind (arg : kcontext * kind * kind) = raise Unimpl
+    fun is_eqvkind (kctx, k, k') = (is_subkind (kctx, k, k'); is_subkind (kctx, k', k))
 
     fun get_kind (arg : kcontext * constr) : kind = raise Unimpl
 
@@ -178,17 +184,58 @@ local
 
     fun join (c : constr) (c' : constr) : constr = raise Unimpl
 
+    fun not_subtype c c' = constr_toString c ^ " is not subtype of " ^ constr_toString c'
+
+    fun wrong_recur_kind c = "Invalid kind annotation in recursive type " ^ constr_toString c
+
+    fun check_recur_kind k =
+	case k of
+	    Type => false
+	  | KArrow _ => false
+	  | _ => true
+
     fun is_subtype (kctx : kcontext, c : constr, c' : constr) =
 	case (c, c') of
 	    (Arrow (c1, d, c2), Arrow (c1', d', c2')) =>
 	    (is_subtype (kctx, c1', c1);
 	     is_le (kctx, d, d');
 	     is_subtype (kctx, c2, c2'))
+	  | (Constr.Var x, Constr.Var x') => 
+	    if x = x' then
+		check_kind (kctx, c, Type)
+	    else
+		raise Fail (not_subtype c c')
+	  | (Unit, Unit) => ()
+	  | (Prod (c1, c2), Prod (c1', c2')) =>
+	    (is_subtype (kctx, c1, c1');
+	     is_subtype (kctx, c2, c2'))
+	  | (Sum (c1, c2), Sum (c1', c2')) => 
+	    (is_subtype (kctx, c1, c1');
+	     is_subtype (kctx, c2, c2'))
+	  | (Uni (k, name, c), Uni (k', _, c')) => 
+	    (is_eqvkind (kctx, k, k');
+	     is_subtype (add_kinding (name, k) kctx, c, c'))
+	  | (Ex (k, name, c), Ex (k', _, c')) => 
+	    (is_eqvkind (kctx, k, k');
+	     is_subtype (add_kinding (name, k) kctx, c, c'))
+	  (* currently don't support nontrivial subtyping for recursive types *)
+	  | (Recur (k, nameself, namearg, c1), Recur (k', _, _, c1')) => 
+	    if check_recur_kind k then
+		if check_recur_kind k' then
+		    let val () = is_eqvkind (kctx, k, k')
+			val kctx' = add_kinding (namearg, k) (add_recur_kinding (nameself, k) kctx) in
+			is_subtype (kctx', c1, c1');
+			is_subtype (kctx', c1', c1)
+		    end
+		else
+		    raise Fail (wrong_recur_kind c')
+	    else
+		raise Fail (wrong_recur_kind c)
 	  | _ => 
 	    raise Unimpl
 
-    fun mismatch e expect have =  "Type mismatch for " ^ (expr_toString e) ^ ": expect " ^ expect ^ " have " ^ (constr_toString have)
-    fun mismatch_anno expect have =  "Type annotation mismatch: expect " ^ expect ^ " have " ^ (constr_toString have)
+    fun mismatch e expect have =  "Type mismatch for " ^ expr_toString e ^ ": expect " ^ expect ^ " have " ^ constr_toString have
+    fun mismatch_anno expect have =  "Type annotation mismatch: expect " ^ expect ^ " have " ^ constr_toString have
 
     fun is_value (e : expr) : bool = raise Unimpl
     fun check_fix_body e =
