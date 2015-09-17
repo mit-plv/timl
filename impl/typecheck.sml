@@ -80,6 +80,7 @@ functor MakeConstr (structure Theory : TIME_THEORY) = struct
 		 | T1
 		 | Tadd of constr * constr
 		 | Tmax of constr * constr
+		 | Tmin of constr * constr
 		 | Other of Theory.constr
 
 	(* kinding context *)
@@ -88,6 +89,10 @@ functor MakeConstr (structure Theory : TIME_THEORY) = struct
 	fun lookup (x : var) (kctx : kcontext) : kind option = NONE
 
 	fun is_subconstr (kctx : kcontext, c : Theory.constr, c' : Theory.constr, k : Theory.kind) : unit result
+	    = raise Unimpl
+	fun join (kctx : kcontext, c : Theory.constr, c' : Theory.constr, k : Theory.kind) : Theory.constr result
+	    = raise Unimpl
+	fun meet (kctx : kcontext, c : Theory.constr, c' : Theory.constr, k : Theory.kind) : Theory.constr result
 	    = raise Unimpl
 	fun get_kind (kctx : kcontext, c : Theory.constr) : kind result 
 	    = raise Unimpl
@@ -255,6 +260,10 @@ local
 	    (check_kind (kctx, d1, Time);
 	     check_kind (kctx, d2, Time);
 	     Time)
+	  | Tmin (d1, d2) => 
+	    (check_kind (kctx, d1, Time);
+	     check_kind (kctx, d2, Time);
+	     Time)
 	  | Other c1 => 
 	    (case Constr.get_kind (kctx, c1) of
 		 OK k => k
@@ -329,6 +338,7 @@ local
     fun is_subtype (kctx, t, t') = is_subconstr (kctx, t, t', Type)
 
     fun no_join c c' = "Cannot find a join (minimal supertype) of " ^ constr_toString c ^ " and " ^ constr_toString c'
+    fun no_meet c c' = "Cannot find a meet (maximal subtype) of " ^ constr_toString c ^ " and " ^ constr_toString c'
 
     (* c and c' are already checked against k *)
     fun join (kctx : kcontext, c : constr, c' : constr, k : kind) : constr = 
@@ -379,8 +389,69 @@ local
 	    (is_eq (kctx, c, c');
 	     c)
 	  | KArrow _ => raise Impossible "join: should never try join in higher-order kinds"
-	  | KOther k1 => raise Unimpl
-    and meet (kctx, c, c', k) = raise Unimpl
+	  | KOther k1 => 
+	    (case (c, c') of
+		 (Other c1, Other c1') =>
+		 (case Constr.join (kctx, c1, c1', k1) of
+		      OK c1'' => Other c1''
+		    | Failed msg => raise Fail msg)
+	       | _ => raise Impossible "join: should never try join in this 'other' kind")
+
+    and meet (kctx, c, c', k) = 
+	case k of
+	    Type =>
+	    (case (c, c') of
+		 (Arrow (c1, d, c2), Arrow (c1', d', c2')) => 
+		 let val c1'' = join (kctx, c1, c1', Type) 
+		     val d'' = Tmin (d, d')
+		     val c2'' = meet (kctx, c2, c2', Type) in
+		     Arrow (c1'', d'', c2'')
+		 end
+	       | (Constr.Var a, Constr.Var a') => 
+		 if a = a' then
+		     c
+		 else
+		     raise Fail (no_meet c c')
+	       | (Unit, Unit) => Unit
+	       | (Prod (c1, c2), Prod (c1', c2')) => 
+		 let val c1'' = meet (kctx, c1, c1', Type) 
+		     val c2'' = meet (kctx, c2, c2', Type) in
+		     Prod (c1'', c2'')
+		 end
+	       | (Sum (c1, c2), Sum (c1', c2')) => 
+		 let val c1'' = meet (kctx, c1, c1', Type) 
+		     val c2'' = meet (kctx, c2, c2', Type) in
+		     Sum (c1'', c2'')
+		 end
+	       | (Uni (k, name, t), Uni (k', name', t')) => 
+		 let val () = is_eqvkind (kctx, k, k')
+		     val t'' = meet (add_kinding (name, k) kctx, t, t', k) in
+		     Uni (k, name, t'')
+		 end
+	       | (Ex (k, name, t), Ex (k', name', t')) => 
+		 let val () = is_eqvkind (kctx, k, k')
+		     val t'' = meet (add_kinding (name, k) kctx, t, t', k) in
+		     Ex (k, name, t'')
+		 end
+	       (* currently don't support meet for recursive types, so they must be equivalent *)
+	       | (Constr.App (Recur _, _), Constr.App (Recur _, _)) => 
+		 (is_eqvconstr (kctx, c, c', Type);
+		  c)
+	       | (Constr.App (Constr.Var _, _), Constr.App (Constr.Var _, _)) => 
+		 (is_eqvconstr (kctx, c, c', Type);
+		  c)
+	       | _ => raise Fail (no_meet c c'))
+	  | Time => 
+	    (is_eq (kctx, c, c');
+	     c)
+	  | KArrow _ => raise Impossible "meet: should never try meet in higher-order kinds"
+	  | KOther k1 => 
+	    (case (c, c') of
+		 (Other c1, Other c1') =>
+		 (case Constr.meet (kctx, c1, c1', k1) of
+		      OK c1'' => Other c1''
+		    | Failed msg => raise Fail msg)
+	       | _ => raise Impossible "meet: should never try meet in this 'other' kind")
 
     end
 
