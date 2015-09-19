@@ -11,7 +11,7 @@ exception Impossible of string
 structure Constr = struct
 
 datatype idx =
-	 | T0
+	 T0
 	 | T1
 	 | Tadd of idx * idx
 	 | Tmax of idx * idx
@@ -48,7 +48,7 @@ datatype kind =
 
 datatype constr = 
 	 Var of var
-	 | Arrow of constr * constr * constr
+	 | Arrow of constr * idx * constr
 	 | Unit
 	 | Prod of constr * constr
 	 | Sum of constr * constr
@@ -79,7 +79,7 @@ datatype expr =
 	 | Fix of constr * string * expr
 	 | Let of expr * string * expr
 	 | Ascription of expr * constr
-	 | AscriptionTime of expr * constr
+	 | AscriptionTime of expr * idx
 	 (* unit type *)
 	 | TT
 	 (* product type *)
@@ -124,6 +124,7 @@ fun lookup_sort (x : var) (sctx : scontext) : sort option = NONE
 
 fun add_kinding (name, k) kctx = (name, k) :: kctx
 fun add_kinding_t (name, k) ktctx = raise Unimpl
+fun add_kinding_s (name, k) (sctx, kctx) = (sctx, add_kinding (name, k) kctx)
 fun lookup_kind (x : var) (kctx : kcontext) : kind option = NONE
 
 fun add_typing (name, c) tctx = (name, c) :: tctx
@@ -131,14 +132,12 @@ fun add_typing_sk (name, c) (sctx, (kctx, tctx)) = (sctx, (kctx, add_typing (nam
 fun lookup (x : var) (tctx : tcontext) : constr option = NONE
 
 fun var_toString (x : var) : string = Int.toString x
-
+fun sort_toString (s : sort) : string = raise Unimpl
 fun idx_toString (i : idx) : string = raise Unimpl
-
 fun kind_toString (k : kind) : string = raise Unimpl
-
 fun constr_toString (c : constr) : string =
   case c of
-      Arrow (c1, d, c2) => "(" ^ constr_toString c1 ^ " time " ^ constr_toString d ^ " -> " ^ constr_toString c2 ^ ")"
+      Arrow (c1, d, c2) => "(" ^ constr_toString c1 ^ " time " ^ idx_toString d ^ " -> " ^ constr_toString c2 ^ ")"
     | _ => raise Unimpl
 
 fun expr_toString (e : expr) : string =
@@ -152,6 +151,7 @@ infix 3 $
 fun a $ b = Tmax (a, b)
 
 fun subst (v : constr) (b : constr) : constr = raise Unimpl
+fun subst_idx (v : idx) (b : constr) : constr = raise Unimpl
 						     
 (* use exception and cell to mimic the Error and Writer monads *)
 local								    
@@ -170,9 +170,9 @@ local
     fun runWriter m _ =
       (acc := []; let val r = m () in (r, !acc) end)
 
-    fun is_le (arg : kcontext * constr * constr) = raise Unimpl
-    fun is_eq (arg : kcontext * constr * constr * sort) = raise Unimpl
-    fun is_iff (arg : kcontext * prop * prop) = raise Unimpl
+    fun is_le (arg : scontext * idx * idx) = raise Unimpl
+    fun is_eq (arg : scontext * idx * idx * sort) = raise Unimpl
+    fun is_iff (arg : scontext * prop * prop) = raise Unimpl
 
     fun is_eqvsort (ctx, s, s') =
       case (s, s') of
@@ -183,13 +183,15 @@ local
 	  (is_eqvsort (ctx, s1, s1');
 	   is_eqvsort (ctx, s2, s2'))
 	| (Subset (s1, name, p), Subset (s1', _, p')) =>
-	  ???
+	  raise Unimpl
 	  (* (is_eqvsort (ctx, s1, s1'); *)
 	  (*  is_iff (add_kinding (name, NonType k1) kctx, p, p')) *)
-	| _ => raise Fail ("Kind mismatch: " ^ kind_toString (NonType k) ^ " and " ^ kind_toString (NonType k'))
+	| _ => raise Fail ("Sort mismatch: " ^ sort_toString s ^ " and " ^ sort_toString s')
 
     (* k => Type *)
     fun recur_kind k = KArrow k
+
+    fun sort_mismatch i expect have =  "Sort mismatch for " ^ idx_toString i ^ ": expect " ^ expect ^ " have " ^ sort_toString have
 
     fun kind_mismatch c expect have =  "Kind mismatch for " ^ constr_toString c ^ ": expect " ^ expect ^ " have " ^ kind_toString have
 
@@ -245,7 +247,7 @@ local
 	| Bfalse => Bool
 	| Constr.TT => SUnit
 	| Constr.Pair (i1, i2) =>
-	  SProd (get_sort (ctx, i1), get_sort (kctx, i2))
+	  SProd (get_sort (ctx, i1), get_sort (ctx, i2))
 	| Constr.Fst i1 =>
 	  let val s = get_sort (ctx, i1) in
 	      case s of
@@ -261,7 +263,7 @@ local
 
     and check_sort (ctx, i, s) : unit =
 	let val s' = get_sort (ctx, i) in
-	    ???
+	    raise Unimpl
 	end
 
     fun is_eqvkind (ctx, k, k') =
@@ -304,9 +306,9 @@ local
 	     Type)
 	  | Recur (nameself, s, namearg, t) =>
 	    (is_wfsort (sctx, s);
-	     check_kind (add_sorting_k (namearg, s) (add_kinding_s (nameself, recur_kind k) ctx), t, Type);
+	     check_kind (add_sorting_k (namearg, s) (add_kinding_s (nameself, recur_kind s) ctx), t, Type);
 	     recur_kind s)
-	  | Constr.App (c1, i) => 
+	  | Constr.AppI (c1, i) => 
 	    let val k1 = get_kind (ctx, c1) in
 		case k1 of
 		    KArrow s => 
@@ -316,7 +318,7 @@ local
 	    end
 
     and check_kind (ctx, c : constr, k : kind) : unit = 
-	is_eqvkind (fst ctx, get_kind (ctx, c), k)
+	is_eqvkind (#1 ctx, get_kind (ctx, c), k)
 
     local
 	fun not_subtype c c' = constr_toString c ^ " is not subtype of " ^ constr_toString c'
@@ -350,18 +352,18 @@ local
 		   (is_eqvsort (sctx, s, s');
 		    is_subconstr (add_sorting_k (name, s) ctx, c, c', Type))
 		 (* currently don't support subtyping for recursive types, so they must be equivalent *)
-		 | (Constr.App (Recur (nameself, s, namearg, t), i), Constr.App (Recur (_, s', _, t'), i')) => 
+		 | (Constr.AppI (Recur (nameself, s, namearg, t), i), Constr.AppI (Recur (_, s', _, t'), i')) => 
 		   let val () = is_eqvsort (sctx, s, s')
-		       val () = is_eqvidx (sctx, i, i', s)
+		       val () = is_eq (sctx, i, i', s)
 		       val ctx' = add_sorting_k (namearg, s) (add_kinding_s (nameself, recur_kind s) ctx) in
 		       is_eqvconstr (ctx', t, t', Type)
 		   end
-		 | (Constr.App (c1 as Constr.Var a, i), Constr.App (Constr.Var a', i')) => 
+		 | (Constr.AppI (c1 as Constr.Var a, i), Constr.AppI (Constr.Var a', i')) => 
 		   if a = a' then
-		       let val k = get_kind (kctx, c1) in
+		       let val k = get_kind (ctx, c1) in
 			   case k of
 			       KArrow s => 
-			       is_eqvidx (kctx, i, i', s)
+			       is_eq (sctx, i, i', s)
 			     | _ => raise Impossible "is_subconstr: x in (x c) should have an arrow kind"
 		       end
 		   else
@@ -409,7 +411,7 @@ local
 	       end
 	     | (Uni (name, t), Uni (_, t')) => 
 	       let val t'' = join (add_kinding_s (name, Type) ctx, t, t', Type) in
-		   Uni (k, name, t'')
+		   Uni (name, t'')
 	       end
 	     | (UniI (s, name, t), UniI (s', _, t')) => 
 	       let val () = is_eqvsort (sctx, s, s')
@@ -422,10 +424,10 @@ local
 		   ExI (s, name, t'')
 	       end
 	     (* currently don't support join for recursive types, so they must be equivalent *)
-	     | (Constr.App (Recur _, _), Constr.App (Recur _, _)) => 
+	     | (Constr.AppI (Recur _, _), Constr.AppI (Recur _, _)) => 
 	       (is_eqvconstr (ctx, c, c', Type);
 		c)
-	     | (Constr.App (Constr.Var _, _), Constr.App (Constr.Var _, _)) => 
+	     | (Constr.AppI (Constr.Var _, _), Constr.AppI (Constr.Var _, _)) => 
 	       (is_eqvconstr (ctx, c, c', Type);
 		c)
 	     | _ => raise Fail (no_join c c'))
@@ -459,7 +461,7 @@ local
 		 end
 	       | (Uni (name, t), Uni (_, t')) => 
 		 let val t'' = meet (add_kinding_s (name, Type) ctx, t, t', Type) in
-		     Uni (k, name, t'')
+		     Uni (name, t'')
 		 end
 	       | (UniI (s, name, t), UniI (s', _, t')) => 
 		 let val () = is_eqvsort (sctx, s, s')
@@ -472,10 +474,10 @@ local
 		     ExI (s, name, t'')
 		 end
 	       (* currently don't support meet for recursive types, so they must be equivalent *)
-	       | (Constr.App (Recur _, _), Constr.App (Recur _, _)) => 
+	       | (Constr.AppI (Recur _, _), Constr.AppI (Recur _, _)) => 
 		 (is_eqvconstr (ctx, c, c', Type);
 		  c)
-	       | (Constr.App (Constr.Var _, _), Constr.App (Constr.Var _, _)) => 
+	       | (Constr.AppI (Constr.Var _, _), Constr.AppI (Constr.Var _, _)) => 
 		 (is_eqvconstr (ctx, c, c', Type);
 		  c)
 	       | _ => raise Fail (no_meet c c'))
@@ -490,7 +492,7 @@ local
 
     fun check_fix_body e =
       case e of
-	  Tabs (_, _, e') => check_fix_body e'
+	  Tabs (_, e') => check_fix_body e'
 	| Abs _ => ()
 	| _ => raise Fail "The body of fixpoint must have the form (fn [(_ :: _) ... (_ :: _)] (_ : _) => _)"
 
@@ -584,24 +586,24 @@ local
 		  case t of
 		      UniI (s, _, t1) => 
 		      let val () = check_sort (sctx, i, s) in
-			  (subst_sort i t1, d + T1)
+			  (subst_idx i t1, d + T1)
 		      end
 		    | t' => raise Fail (mismatch e "(forallI _ : _, _)" t')
 	      end
 	    | Fold (t, e) => 
 	      (case t of
-		   Constr.App (t1 as Recur (_, _, _, t2), i) =>
+		   Constr.AppI (t1 as Recur (_, _, _, t2), i) =>
 		   let val () = check_kind (skctx, t, Type)
 		       val (t3, d) = get_type (ctx, e)
-		       val () = is_subtype (skctx, t3, (subst t1 (subst_sort i t2))) in
+		       val () = is_subtype (skctx, t3, (subst t1 (subst_idx i t2))) in
 		       (t, d)
 		   end
 		 | t' => raise Fail (mismatch_anno "((recur (_ :: _) (_ : _), _) _)" t'))
 	    | Unfold e =>
 	      let val (t, d) = get_type (ctx, e) in
 		  case t of
-	      	      Constr.App (t1 as Recur (_, _, _, t2), i) =>
-		      (subst t1 (subst_sort i t2), d + T1)
+	      	      Constr.AppI (t1 as Recur (_, _, _, t2), i) =>
+		      (subst t1 (subst_idx i t2), d + T1)
 		    | t' => raise Fail (mismatch e "((recur (_ :: _) (_ : _), _) _)" t')
 	      end
 	    | Pack (t, i, e) =>
@@ -610,7 +612,7 @@ local
 		   let val () = check_kind (skctx, t, Type)
 		       val () = check_sort (sctx, i, s)
 		       val (t2, d) = get_type (ctx, e)
-		       val () = is_subtype (skctx, t2, (subst_sort i t1)) in
+		       val () = is_subtype (skctx, t2, (subst_idx i t1)) in
 		       (t, d)
 		   end
 		 | t' => raise Fail (mismatch_anno "(ex _ : _, _)" t'))
@@ -655,15 +657,13 @@ local
       end
 in								     
 
-fun vcgen (sctx : scontext) (kctx : kcontext) (tctx : tcontext) (e : expr) : (constr * idx * prop list) result =
-  let val ((t, d), vc) = runError (runWriter (fn () => get_type ((sctx, (kctx, tctx)), e))) () in
-      (t, d, vc)
-  end
+fun vcgen (sctx : scontext) (kctx : kcontext) (tctx : tcontext) (e : expr) : ((constr * idx) * prop list) result =
+  runError (runWriter (fn () => get_type ((sctx, (kctx, tctx)), e))) ()
       
 end
 
 val result = vcgen [] [] [] (Var 0)
 val _ =
     case result of
-	OK (t, d, vc) => print "OK: type=" ^ constr_toString t ^ " d=" ^ idx_toString d
+	OK ((t, d), vc) => print ("OK: type=" ^ constr_toString t ^ " d=" ^ idx_toString d)
       | Failed msg => print ("Failed: " ^ msg ^ "\n")
