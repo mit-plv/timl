@@ -99,7 +99,6 @@ datatype expr =
 end			       
 
 structure Expr = MakeExpr (structure Type = Type)
-open ListPair
 open Type
 open Expr
 
@@ -176,8 +175,18 @@ local
     fun runWriter m _ =
       (acc := []; let val r = m () in (r, !acc) end)
 
+    fun check_length (a, b) =
+      if length a = length b then
+	  ()
+      else
+	  raise Fail "List length mismatch"
+		
     fun is_le (arg : scontext * idx * idx) = raise Unimpl
     fun is_eq (arg : scontext * idx * idx * sort) = raise Unimpl
+    fun is_eqs (ctx, i, i', s) =
+      (check_length (i, i');
+       check_length (i, s);
+       app (fn ((i, i'), s) => is_eq (ctx, i, i', s)) (ListPair.zip ((ListPair.zip (i, i')), s)))
     fun is_iff (arg : scontext * prop * prop) = raise Unimpl
     fun is_imply (arg : scontext * prop * prop) = raise Unimpl
     fun is_true (arg : scontext * prop) = raise Unimpl
@@ -217,8 +226,11 @@ local
 	| (Basic s1, Subset (s1', name, p)) =>
 	  (is_eqvbsort (s1, s1');
 	   is_true (add_sorting (name, Basic s1) ctx, p))
-	| _ => raise Fail ("Sort mismatch: " ^ sort_toString s ^ " and " ^ sort_toString s')
 
+    fun is_eqvsorts (ctx, s, s') =
+      (check_length (s, s');
+       ListPair.app (fn (s, s') => is_eqvsort (ctx, s, s')) (s, s'))
+		    
     fun sort_mismatch i expect have =  "Sort mismatch for " ^ idx_toString i ^ ": expect " ^ expect ^ " have " ^ sort_toString have
 
     fun is_wfsort (ctx : scontext, s : sort) =
@@ -282,16 +294,10 @@ local
 	  | Bfalse => SBool
 	  | Type.TT => SUnit
 
-    fun check_length (a, b) =
-      if length a = length b then
-	  ()
-      else
-	  raise Fail "List length mismatch"
-		
     fun is_wfsorts (ctx, s) = List.app (fn s => is_wfsort (ctx, s)) s
     fun check_sorts (ctx, i, s) =
       (check_length (i, s);
-      List.app (fn (i, s) => check_sort (ctx, i, s)) (zip (i, s)))
+      ListPair.app (fn (i, s) => check_sort (ctx, i, s)) (i, s))
 
     (* k => Type *)
     fun recur_kind k = KArrow k
@@ -333,13 +339,13 @@ local
 	      check_sorts (sctx, i, s)
 	  end
 	| AppVar (a, i) => 
-	  let val c = Type.Var a
-	      val k = is_wftype (ctx, c) in
-	      case k of
-		  KArrow s => 
-		  check_sorts (sctx, i, s)
-		| _ => raise Fail (kind_mismatch c "(_ => _)" k)
-	  end
+	  (case lookup_kind a kctx of
+      	       SOME k =>
+	       (case k of
+		    KArrow s => 
+		    check_sorts (sctx, i, s)
+		  | _ => raise Fail (kind_mismatch c "(_ => _)" k))
+      	     | NONE => raise Fail ("Unbound type variable " ^ var_toString a))
 
     fun not_subtype c c' = type_toString c ^ " is not subtype of " ^ type_toString c'
 
@@ -350,7 +356,7 @@ local
 	  (is_subtype (ctx, c1', c1);
 	   is_le (sctx, d, d');
 	   is_subtype (ctx, c2, c2'))
-	| (Type.Var a.Var a') => 
+	| (Type.Var a, Type.Var a') => 
 	  if a = a' then
 	      ()
 	  else
@@ -363,7 +369,7 @@ local
 	  (is_subtype (ctx, c1, c1');
 	   is_subtype (ctx, c2, c2'))
 	| (Uni (name, c), Uni (_, c')) => 
-	  is_subtype (add_kinding_s (name) ctx, c, c')
+	  is_subtype (add_kinding_s (name, Type) ctx, c, c')
 	| (UniI (s, name, c), UniI (s', _, c')) => 
 	  (is_eqvsort (sctx, s, s');
 	   is_subtype (add_sorting_k (name, s) ctx, c, c'))
@@ -372,8 +378,8 @@ local
 	   is_subtype (add_sorting_k (name, s) ctx, c, c'))
 	(* currently don't support subtyping for recursive types, so they must be equivalent *)
 	| (AppRecur (nameself, ns, t, i), AppRecur (_, ns', t', i')) => 
-	  let val s = map #2 ns
-	      val s' = map #2 ns'
+	  let val s = List.map #2 ns
+	      val s' = List.map #2 ns'
 	      val () = is_eqvsorts (sctx, s, s')
 	      val () = is_eqs (sctx, i, i', s)
 	      val ctx' = add_sortings_k ns (add_kinding_s (nameself, recur_kind s) ctx) in
@@ -381,12 +387,14 @@ local
 	  end
 	| (AppVar (a, i), AppVar (a', i')) => 
 	  if a = a' then
-	      let val k = is_wftype (ctx, Type.Var a) in
-		  case k of
-		      KArrow s => 
-		      is_eqs (sctx, i, i', s)
-		    | _ => raise Impossible "is_subtype: x in (x c) should have an arrow kind"
-	      end
+	      case lookup_kind a kctx of
+      		  SOME k =>
+		  (case k of
+		       KArrow s => 
+		       is_eqs (sctx, i, i', s)
+		     | Type =>
+		       raise Impossible "is_subtype: x in (x c) should have an arrow kind")
+      		| NONE => raise Fail ("Unbound type variable " ^ var_toString a)
 	  else
 	      raise Fail (not_subtype c c')
 	| _ => raise Fail (not_subtype c c')
@@ -424,7 +432,7 @@ local
 	      Sum (c1'', c2'')
 	  end
 	| (Uni (name, t), Uni (_, t')) => 
-	  let val t'' = join (add_kinding_s (name) ctx, t, t') in
+	  let val t'' = join (add_kinding_s (name, Type) ctx, t, t') in
 	      Uni (name, t'')
 	  end
 	| (UniI (s, name, t), UniI (s', _, t')) => 
@@ -471,7 +479,7 @@ local
 		Sum (c1'', c2'')
 	    end
 	  | (Uni (name, t), Uni (_, t')) => 
-	    let val t'' = meet (add_kinding_s (name) ctx, t, t') in
+	    let val t'' = meet (add_kinding_s (name, Type) ctx, t, t') in
 		Uni (name, t'')
 	    end
 	  | (UniI (s, name, t), UniI (s', _, t')) => 
