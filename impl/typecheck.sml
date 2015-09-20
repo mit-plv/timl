@@ -176,6 +176,44 @@ val STime = Basic Time
 val SBool = Basic Bool
 val SUnit = Basic BSUnit
 
+exception Subst of string
+		       
+fun shift1_i_t b = raise Unimpl
+fun shift1_i_i b = raise Unimpl
+fun shift1_t_t b = raise Unimpl
+fun subst_i_p (v : idx) (b : prop) : prop = raise Unimpl
+fun subst_i_t (v : idx) (b : ty) : ty = raise Unimpl
+fun substx_t_t x (v : ty) (b : ty) : ty =
+  case b of
+      Type.Var y =>
+      if y = x then
+	  v
+      else if y > x then
+	  Type.Var (y - 1)
+      else
+	  Type.Var y
+    | Arrow (t1, d, t2) => Arrow (substx_t_t x v t1, d, substx_t_t x v t2)
+    | Unit => Unit
+    | Prod (t1, t2) => Prod (substx_t_t x v t1, substx_t_t x v t2)
+    | Sum (t1, t2) => Sum (substx_t_t x v t1, substx_t_t x v t2)
+    | Uni (name, t) => Uni (name, substx_t_t (x + 1) (shift1_t_t v) t)
+    | AppRecur (name, ns, t, i) => AppRecur (name, ns, substx_t_t (x + 1) (shift1_t_t v) t, i)
+    | AppVar (y, i) => 
+      if y = x then
+	  raise Subst "self-reference variable should only be subtitute for via unrolling"
+      else if y > x then
+	  Type.Var (y - 1)
+      else
+	  Type.Var y
+    | UniI (s, name, t) => UniI (s, name, substx_t_t x v t)
+    | ExI (s, name, t) => ExI (s, name, substx_t_t x v t)
+
+fun subst (v : ty) (b : ty) : ty = substx_t_t 0 v b
+
+fun unroll t =
+  raise Unimpl
+(* (subst t1 (subst_i_t i t2)) *)
+
 (* level 7 *)
 infix 7 $
 fun a $ b = Tmax (a, b)
@@ -189,16 +227,6 @@ fun a /\ b = And (a, b)
 (* level 1 *)
 infix 1 -->
 fun a --> b = Imply (a, b)
-
-fun shift1_i_t b = raise Unimpl
-fun shift1_i_i b = raise Unimpl
-fun subst (v : ty) (b : ty) : ty = raise Unimpl
-fun subst_i_t (v : idx) (b : ty) : ty = raise Unimpl
-fun subst_i_p (v : idx) (b : prop) : prop = raise Unimpl
-
-fun unfold t =
-  raise Unimpl
-(* (subst t1 (subst_i_t i t2)) *)
 
 type bscontext = bsort list
 type vc = bscontext * prop list * prop
@@ -664,7 +692,7 @@ local
 		   AppRecur t1 =>
 		   let val () = is_wftype (skctx, t)
 		       val (t', d) = get_type (ctx, e)
-		       val () = is_subtype (skctx, t', unfold t1) in
+		       val () = is_subtype (skctx, t', unroll t1) in
 		       (t, d)
 		   end
 		 | t' => raise Fail (mismatch_anno "((recur (_ :: _) (_ : _), _) _)" t'))
@@ -672,7 +700,7 @@ local
 	      let val (t, d) = get_type (ctx, e) in
 		  case t of
 	      	      AppRecur t1 =>
-		      (unfold t1, d + T1)
+		      (unroll t1, d + T1)
 		    | t' => raise Fail (mismatch e "((recur (_ :: _) (_ : _), _) _)" t')
 	      end
 	    | Pack (t, i, e) =>
