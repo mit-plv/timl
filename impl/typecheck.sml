@@ -178,37 +178,154 @@ val SUnit = Basic BSUnit
 
 exception Subst of string
 		       
-fun shift1_i_t b = raise Unimpl
-fun shift1_i_i b = raise Unimpl
-fun shift1_t_t b = raise Unimpl
-fun subst_i_p (v : idx) (b : prop) : prop = raise Unimpl
-fun subst_i_t (v : idx) (b : ty) : ty = raise Unimpl
-fun substx_t_t x (v : ty) (b : ty) : ty =
-  case b of
-      Type.Var y =>
-      if y = x then
-	  v
-      else if y > x then
-	  Type.Var (y - 1)
-      else
-	  Type.Var y
-    | Arrow (t1, d, t2) => Arrow (substx_t_t x v t1, d, substx_t_t x v t2)
-    | Unit => Unit
-    | Prod (t1, t2) => Prod (substx_t_t x v t1, substx_t_t x v t2)
-    | Sum (t1, t2) => Sum (substx_t_t x v t1, substx_t_t x v t2)
-    | Uni (name, t) => Uni (name, substx_t_t (x + 1) (shift1_t_t v) t)
-    | AppRecur (name, ns, t, i) => AppRecur (name, ns, substx_t_t (x + 1) (shift1_t_t v) t, i)
-    | AppVar (y, i) => 
-      if y = x then
-	  raise Subst "self-reference variable should only be subtitute for via unrolling"
-      else if y > x then
-	  Type.Var (y - 1)
-      else
-	  Type.Var y
-    | UniI (s, name, t) => UniI (s, name, substx_t_t x v t)
-    | ExI (s, name, t) => ExI (s, name, substx_t_t x v t)
+fun shiftx_i_i x n b = raise Unimpl
+fun shift_i_i b = raise Unimpl
 
+fun shiftx_i_s x n b = raise Unimpl
+fun shift_i_s b = raise Unimpl
+			
+local
+    fun f x n b =
+      case b of
+	  Type.Var y => Type.Var y
+	| Arrow (t1, d, t2) => Arrow (f x n t1, shiftx_i_i x n d, f x n t2)
+	| Unit => Unit
+	| Prod (t1, t2) => Prod (f x n t1, f x n t2)
+	| Sum (t1, t2) => Sum (f x n t1, f x n t2)
+	| Uni (name, t) => Uni (name, f x n t)
+	| UniI (s, name, t) => UniI (shiftx_i_s x n s, name, f (x + 1) n t)
+	| ExI (s, name, t) => ExI (shiftx_i_s x n s, name, f (x + 1) n t)
+	| AppRecur (name, ns, t, i) => AppRecur (name, map (fn (name, s) => (name, shiftx_i_s x n s)) ns, f (x + length ns) n t, shiftx_i_i x n i)
+	| AppVar (y, i) =>  AppVar (y, shiftx_i_i x n i)
+in
+fun shiftx_i_t x n b = f x n b
+fun shift_i_t b = shiftx_i_t 0 1 b
+end
+
+local
+    fun f x n b =
+      case b of
+	  Type.Var y =>
+	  if y >= x then
+	      Type.Var (y + n)
+	  else
+	      Type.Var y
+	| Arrow (t1, d, t2) => Arrow (f x n t1, d, f x n t2)
+	| Unit => Unit
+	| Prod (t1, t2) => Prod (f x n t1, f x n t2)
+	| Sum (t1, t2) => Sum (f x n t1, f x n t2)
+	| Uni (name, t) => Uni (name, f (x + 1) n t)
+	| AppRecur (name, ns, t, i) => AppRecur (name, ns, f (x + 1) n t, i)
+	| AppVar (y, i) => 
+	  if y >= x then
+	      AppVar (y + n, i)
+	  else
+	      AppVar (y, i)
+	| UniI (s, name, t) => UniI (s, name, f x n t)
+	| ExI (s, name, t) => ExI (s, name, f x n t)
+in
+fun shiftx_t_t x n b = f x n b
+fun shift_t_t b = shiftx_t_t 0 1 b
+end
+
+local
+    fun f x v b =
+      case b of
+	  VarI y =>
+	  if y = x then
+	      v
+	  else if y > x then
+	      VarI (y - 1)
+	  else
+	      VarI y
+	| Tadd (d1, d2) => Tadd (f x v d1, f x v d2)
+	| Tmax (d1, d2) => Tmax (f x v d1, f x v d2)
+	| Tmin (d1, d2) => Tmin (f x v d1, f x v d2)
+	| T0 => T0
+	| T1 => T1
+	| Btrue => Btrue
+	| Bfalse => Bfalse
+	| Type.TT => Type.TT
+in
+fun substx_i_i x (v : idx) (b : idx) : idx = f x v b
+fun subst_i_i v b = substx_i_i 0 v b
+end
+
+local
+    fun f x v b =
+      case b of
+	  True => True
+	| False => False
+	| And (p1, p2) => And (f x v p1, f x v p2)
+	| Or (p1, p2) => Or (f x v p1, f x v p2)
+	| Imply (p1, p2) => Imply (f x v p1, f x v p2)
+	| TimeLe (d1, d2) => TimeLe (substx_i_i x v d1, substx_i_i x v d2)
+	| Eq (s, i1, i2) => Eq (s, substx_i_i x v i1, substx_i_i x v i2)
+in
+fun substx_i_p x (v : idx) b = f x v b
+fun subst_i_p (v : idx) (b : prop) : prop = substx_i_p 0 v b
+end
+
+local
+    fun f x v b =
+      case b of
+	  Basic s => Basic s
+	| Subset (s, name, p) => Subset (s, name, substx_i_p x v p)
+in
+fun substx_i_s x (v : idx) (b : sort) : sort = f x v b
+fun subst_i_s (v : idx) (b : sort) : sort = substx_i_s 0 v b
+end
+
+local
+    fun f x v b =
+      case b of
+	  Type.Var y => Type.Var y
+	| Arrow (t1, d, t2) => Arrow (f x v t1, substx_i_i x v d, f x v t2)
+	| Unit => Unit
+	| Prod (t1, t2) => Prod (f x v t1, f x v t2)
+	| Sum (t1, t2) => Sum (f x v t1, f x v t2)
+	| Uni (name, t) => Uni (name, f x v t)
+	| UniI (s, name, t) => UniI (substx_i_s x v s, name, f x v t)
+	| ExI (s, name, t) => ExI (substx_i_s x v s, name, f x v t)
+	| AppRecur (name, ns, t, i) =>
+	  let val n = length ns in
+	      AppRecur (name, map (fn (name, s) => (name, substx_i_s x v s)) ns, f (x + n) (shiftx_i_i 0 n v) t, map (substx_i_i x v) i)
+	  end
+	| AppVar (y, i) => AppVar (y, map (substx_i_i x v) i)
+in
+fun substx_i_t x (v : idx) (b : ty) : ty = f x v b
+fun subst_i_t (v : idx) (b : ty) : ty = substx_i_t 0 v b
+end
+
+local
+    fun f x (v : ty) (b : ty) : ty =
+      case b of
+	  Type.Var y =>
+	  if y = x then
+	      v
+	  else if y > x then
+	      Type.Var (y - 1)
+	  else
+	      Type.Var y
+	| Arrow (t1, d, t2) => Arrow (f x v t1, d, f x v t2)
+	| Unit => Unit
+	| Prod (t1, t2) => Prod (f x v t1, f x v t2)
+	| Sum (t1, t2) => Sum (f x v t1, f x v t2)
+	| Uni (name, t) => Uni (name, f (x + 1) (shift_t_t v) t)
+	| AppRecur (name, ns, t, i) => AppRecur (name, ns, f (x + 1) (shiftx_i_t 0 (length ns) (shift_t_t v)) t, i)
+	| AppVar (y, i) => 
+	  if y = x then
+	      raise Subst "self-reference variable should only be subtitute for via unrolling"
+	  else if y > x then
+	      AppVar (y - 1, i)
+	  else
+	      AppVar (y, i)
+	| UniI (s, name, t) => UniI (s, name, f x v t)
+	| ExI (s, name, t) => ExI (s, name, f x v t)
+in
+fun substx_t_t x (v : ty) (b : ty) : ty = f x v b
 fun subst (v : ty) (b : ty) : ty = substx_t_t 0 v b
+end
 
 fun unroll t =
   raise Unimpl
@@ -218,9 +335,11 @@ fun unroll t =
 infix 7 $
 fun a $ b = Tmax (a, b)
 (* level 6 *)
-fun a + b = Tadd (a, b)
+infix 6 %+
+fun a %+ b = Tadd (a, b)
 (* level 4 *)
-fun a <= b = TimeLe (a, b)
+infix 4 %<=
+fun a %<= b = TimeLe (a, b)
 (* level 3 *)
 infix 3 /\
 fun a /\ b = And (a, b)
@@ -264,7 +383,7 @@ local
 
     fun is_le (ctx : scontext, d : idx, d' : idx) =
       let val (bctx, ps) = collect ctx in
-	  tell (bctx, ps, d <= d')
+	  tell (bctx, ps, d %<= d')
       end
       
     fun is_eq (ctx : scontext, i : idx, i' : idx, s : sort) = 
@@ -606,7 +725,7 @@ local
     		      Arrow (t2, d, t) =>
     		      let val (t2', d2) = get_type (ctx, e2) 
 			  val () = is_subtype (skctx, t2', t2) in
-    			  (t, d1 + d2 + T1 + d) 
+    			  (t, d1 %+ d2 %+ T1 %+ d) 
 		      end
     		    | t1' =>  raise Fail (mismatch e1 "(_ time _ -> _)" t1')
 	      end
@@ -619,18 +738,18 @@ local
 	    | Pair (e1, e2) => 
 	      let val (t1, d1) = get_type (ctx, e1) 
 		  val (t2, d2) = get_type (ctx, e2) in
-		  (Prod (t1, t2), d1 + d2)
+		  (Prod (t1, t2), d1 %+ d2)
 	      end
 	    | Fst e => 
 	      let val (t, d) = get_type (ctx, e) in 
 		  case t of
-		      Prod (t1, t2) => (t1, d + T1)
+		      Prod (t1, t2) => (t1, d %+ T1)
 		    | t' => raise Fail (mismatch e "(_ * _)" t')
 	      end
 	    | Snd e => 
 	      let val (t, d) = get_type (ctx, e) in 
 		  case t of
-		      Prod (t1, t2) => (t2, d + T1)
+		      Prod (t1, t2) => (t2, d %+ T1)
 		    | t' => raise Fail (mismatch e "(_ * _)" t')
 	      end
 	    | Inl (t2, e) => 
@@ -650,7 +769,7 @@ local
 		      let val (tr1, d1) = get_type (add_typing_sk (name1, t1) ctx, e1)
 			  val (tr2, d2) = get_type (add_typing_sk (name2, t2) ctx, e2)
 			  val tr = join (skctx, tr1, tr2) in
-			  (tr, d + T1 + d1 $ d2)
+			  (tr, d %+ T1 %+ d1 $ d2)
 		      end
 		    | t' => raise Fail (mismatch e "(_ + _)" t')
 	      end
@@ -666,7 +785,7 @@ local
 		  case t of
 		      Uni (_, t1) => 
 		      let val () = is_wftype (skctx, c) in
-			  (subst c t1, d + T1)
+			  (subst c t1, d %+ T1)
 		      end
 		    | t' => raise Fail (mismatch e "(forall _ : _, _)" t')
 	      end
@@ -683,7 +802,7 @@ local
 		  case t of
 		      UniI (s, _, t1) => 
 		      let val () = check_sort (sctx, i, s) in
-			  (subst_i_t i t1, d + T1)
+			  (subst_i_t i t1, d %+ T1)
 		      end
 		    | t' => raise Fail (mismatch e "(forallI _ : _, _)" t')
 	      end
@@ -700,7 +819,7 @@ local
 	      let val (t, d) = get_type (ctx, e) in
 		  case t of
 	      	      AppRecur t1 =>
-		      (unroll t1, d + T1)
+		      (unroll t1, d %+ T1)
 		    | t' => raise Fail (mismatch e "((recur (_ :: _) (_ : _), _) _)" t')
 	      end
 	    | Pack (t, i, e) =>
@@ -721,16 +840,16 @@ local
 		      ExI (s, _, t1') => 
 		      let val ctx' as (sctx', (kctx', _)) = add_typing_sk (expr_var, t1') (add_sorting_kt (idx_var, s) ctx)
 			  val (t2, d2) = get_type (ctx', e2)
-			  val () = is_subtype ((sctx', kctx'), t2, shift1_i_t t)
-			  val () = is_le (sctx', d2, shift1_i_i d) in
-			  (t, d1 + T1 + d)
+			  val () = is_subtype ((sctx', kctx'), t2, shift_i_t t)
+			  val () = is_le (sctx', d2, shift_i_i d) in
+			  (t, d1 %+ T1 %+ d)
 		      end
 		    | t1' => raise Fail (mismatch e1 "(ex _ : _, _)" t1')
 	      end
 	    | Let (e1, name, e2) => 
 	      let val (t1, d1) = get_type (ctx, e1)
 		  val (t2, d2) = get_type (add_typing_sk (name, t1) ctx, e2) in
-		  (t2, d1 + T1 + d2)
+		  (t2, d1 %+ T1 %+ d2)
 	      end
 	    | Fix (t1, d, t2, name, argname, e1) => 
 	      let val t = Arrow (t1, d, t2)
