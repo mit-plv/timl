@@ -17,7 +17,8 @@ datatype bsort =
 	 | BSUnit
 
 datatype idx =
-	 T0
+	 VarI of var
+	 | T0
 	 | T1
 	 | Tadd of idx * idx
 	 | Tmax of idx * idx
@@ -31,9 +32,9 @@ datatype prop =
 	 | False
 	 | And of prop * prop
 	 | Or of prop * prop
-	 | TimeEq of idx * idx
+	 | Imply of prop * prop
 	 | TimeLe of idx * idx
-	 | BoolEq of idx * idx
+	 | Eq of bsort * idx * idx
 
 (* index sort *)
 datatype sort =
@@ -149,15 +150,37 @@ fun expr_toString (e : expr) : string =
 val STime = Basic Time
 val SBool = Basic Bool
 val SUnit = Basic BSUnit
-		  
-fun a + b = Tadd (a, b)
-infix 3 $
-fun a $ b = Tmax (a, b)
 
+(* level 7 *)
+infix 7 $
+fun a $ b = Tmax (a, b)
+(* level 6 *)
+fun a + b = Tadd (a, b)
+(* level 4 *)
+fun a <= b = TimeLe (a, b)
+(* level 3 *)
+infix 3 /\
+fun a /\ b = And (a, b)
+(* level 1 *)
+infix 1 -->
+fun a --> b = Imply (a, b)
+
+fun shift1_i_t b = raise Unimpl
+fun shift1_i_i b = raise Unimpl
 fun subst (v : ty) (b : ty) : ty = raise Unimpl
 fun subst_i_t (v : idx) (b : ty) : ty = raise Unimpl
 fun subst_i_p (v : idx) (b : prop) : prop = raise Unimpl
-						  
+
+type bscontext = bsort list
+type vc = bscontext * prop list * prop
+
+fun collect ctx : bscontext * prop list = raise Unimpl
+
+fun get_base s =
+  case s of
+      Basic s => s
+    | Subset (s, _, _) => s
+
 (* use exception and cell to mimic the Error and Writer monads *)
 local								    
 
@@ -168,9 +191,10 @@ local
       handle
       Fail msg => Failed msg
 
-    val acc = ref ([] : prop list)
+    val acc = ref ([] : vc list)
 
-    fun tell a = acc := !acc @ a
+    fun tell a =
+      acc := a :: !acc
 
     fun runWriter m _ =
       (acc := []; let val r = m () in (r, !acc) end)
@@ -180,25 +204,31 @@ local
 	  ()
       else
 	  raise Fail "List length mismatch"
-		
-    fun is_le (arg : scontext * idx * idx) = raise Unimpl
-    fun is_eq (arg : scontext * idx * idx * sort) = raise Unimpl
+
+    fun is_le (ctx : scontext, d : idx, d' : idx) =
+      let val (bctx, ps) = collect ctx in
+	  tell (bctx, ps, d <= d')
+      end
+      
+    fun is_eq (ctx : scontext, i : idx, i' : idx, s : sort) = 
+      let val (bctx, ps) = collect ctx in
+	  tell (bctx, ps, Eq (get_base s, i, i'))
+      end
+
     fun is_eqs (ctx, i, i', s) =
       (check_length (i, i');
        check_length (i, s);
        app (fn ((i, i'), s) => is_eq (ctx, i, i', s)) (ListPair.zip ((ListPair.zip (i, i')), s)))
-    fun is_iff (arg : scontext * prop * prop) = raise Unimpl
-    fun is_imply (arg : scontext * prop * prop) = raise Unimpl
-    fun is_true (arg : scontext * prop) = raise Unimpl
+	  
+    fun is_true (ctx : scontext, p : prop) = 
+      let val (bctx, ps) = collect ctx in
+	  tell (bctx, ps, p)
+      end
 
-    (*       	| Type.Fst s' => *)
-    (*   (case flatten s' of *)
-    (*        SProd (s1, s2) => s1 *)
-    (*     | s'' => Type.Fst s'') *)
-    (* | Type.Snd s' => *)
-    (*   (case flatten s' of *)
-    (*        SProd (s1, s2) => s2 *)
-    (*      | s'' => Type.Snd s'') *)
+    fun is_iff (ctx : scontext, p1 : prop, p2 : prop) = 
+      let val (bctx, ps) = collect ctx in
+	  tell (bctx, ps, (p1 --> p2) /\ (p2 --> p1))
+      end
 
     fun is_eqvbsort_b s s' =
       case (s, s') of
@@ -249,50 +279,52 @@ local
 	  | Or (p1, p2) =>
 	    (is_wfprop (ctx, p1);
 	     is_wfprop (ctx, p2))
-	  | TimeEq (d1, d2) =>
-	    (check_sort (ctx, d1, STime);
-	     check_sort (ctx, d2, STime))
+	  | Imply (p1, p2) =>
+	    (is_wfprop (ctx, p1);
+	     is_wfprop (ctx, p2))
 	  | TimeLe (d1, d2) =>
 	    (check_sort (ctx, d1, STime);
 	     check_sort (ctx, d2, STime))
-	  | BoolEq (d1, d2) =>
-	    (check_sort (ctx, d1, SBool);
-	     check_sort (ctx, d2, SBool))
+	  | Eq (s, i1, i2) =>
+	    (check_sort (ctx, i1, Basic s);
+	     check_sort (ctx, i2, Basic s))
 
     and check_sort (ctx, i, s) : unit =
-	let val s' = get_sort (ctx, i) in
-	    case (s', s) of
-		(Subset (s1', _, p'), Subset (s1, _, p)) =>
-		(is_eqvbsort (s1', s1);
-		 is_imply (ctx, subst_i_p i p', subst_i_p i p))
-	      | (Basic s1', Subset (s1, _, p)) =>
-		(is_eqvbsort (s1', s1);
+	let val s' = get_bsort (ctx, i) in
+	    case s of
+		Subset (s1, _, p) =>
+		(is_eqvbsort (s', s1);
 		 is_true (ctx, subst_i_p i p))
-	      | (Subset (s1', _, _), Basic s1) => 
-		is_eqvbsort (s1', s1)
-	      | (Basic s1', Basic s1) => 
-		is_eqvbsort (s1', s1)
+	      | Basic s1 => 
+		is_eqvbsort (s', s1)
 	end
 
-    and get_sort (ctx, i) =
+    and check_bsort (ctx, i, s) : unit =
+	is_eqvbsort (get_bsort (ctx, i), s)
+
+    and get_bsort (ctx, i) =
 	case i of
-      	    T0 => STime
-	  | T1 => STime
+	    VarI x =>
+	    (case lookup_sort x ctx of
+      		 SOME s => get_base s
+      	       | NONE => raise Fail ("Unbound index variable " ^ var_toString x))
+      	  | T0 => Time
+	  | T1 => Time
 	  | Tadd (d1, d2) => 
-	    (check_sort (ctx, d1, STime);
-	     check_sort (ctx, d2, STime);
-	     STime)
+	    (check_bsort (ctx, d1, Time);
+	     check_bsort (ctx, d2, Time);
+	     Time)
 	  | Tmax (d1, d2) => 
-	    (check_sort (ctx, d1, STime);
-	     check_sort (ctx, d2, STime);
-	     STime)
+	    (check_bsort (ctx, d1, Time);
+	     check_bsort (ctx, d2, Time);
+	     Time)
 	  | Tmin (d1, d2) => 
-	    (check_sort (ctx, d1, STime);
-	     check_sort (ctx, d2, STime);
-	     STime)
-	  | Btrue => SBool
-	  | Bfalse => SBool
-	  | Type.TT => SUnit
+	    (check_bsort (ctx, d1, Time);
+	     check_bsort (ctx, d2, Time);
+	     Time)
+	  | Btrue => Bool
+	  | Bfalse => Bool
+	  | Type.TT => BSUnit
 
     fun is_wfsorts (ctx, s) = List.app (fn s => is_wfsort (ctx, s)) s
     fun check_sorts (ctx, i, s) =
@@ -641,10 +673,10 @@ local
 		  val (t1, d1) = get_type (ctx, e1) in
 		  case t1 of
 		      ExI (s, _, t1') => 
-		      let val ctx' = add_typing_sk (expr_var, t1') (add_sorting_kt (idx_var, s) ctx)
+		      let val ctx' as (sctx', (kctx', _)) = add_typing_sk (expr_var, t1') (add_sorting_kt (idx_var, s) ctx)
 			  val (t2, d2) = get_type (ctx', e2)
-			  val () = is_subtype (skctx, t2, t)
-			  val () = is_le (sctx, d2, d) in
+			  val () = is_subtype ((sctx', kctx'), t2, shift1_i_t t)
+			  val () = is_le (sctx', d2, shift1_i_i d) in
 			  (t, d1 + T1 + d)
 		      end
 		    | t1' => raise Fail (mismatch e1 "(ex _ : _, _)" t1')
@@ -676,7 +708,7 @@ local
       end
 in								     
 
-fun vcgen (sctx : scontext) (kctx : kcontext) (tctx : tcontext) (e : expr) : ((ty * idx) * prop list) result =
+fun vcgen (sctx : scontext) (kctx : kcontext) (tctx : tcontext) (e : expr) : ((ty * idx) * vc list) result =
   runError (runWriter (fn () => get_type ((sctx, (kctx, tctx)), e))) ()
 	   
 end
