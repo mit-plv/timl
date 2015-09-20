@@ -71,7 +71,7 @@ datatype expr =
 	 | App of expr * expr
 	 | Abs of ty * string * expr (* string is the variable name only for debug purpose *)
 	 (* convenience facilities *)
-	 | Fix of ty * string * expr
+	 | Fix of ty * idx * ty * string * string * expr
 	 | Let of expr * string * expr
 	 | Ascription of expr * ty
 	 | AscriptionTime of expr * idx
@@ -102,6 +102,31 @@ end
 structure Expr = MakeExpr (structure Type = Type)
 open Type
 open Expr
+
+fun is_value (e : expr) : bool =
+  case e of
+      Var _ => true
+    | App _ => false
+    | Abs _ => true
+    | TT => true
+    | Pair (e1, e2) => is_value e1 andalso is_value e2
+    | Fst _ => false
+    | Snd _ => false
+    | Inl (_, e) => is_value e
+    | Inr (_, e) => is_value e
+    | Match _ => false
+    | Fold (_, e) => is_value e
+    | Unfold _ => false
+    | Tabs _ => true
+    | Tapp _ => false
+    | TabsI _ => true
+    | TappI _ => false
+    | Pack (_, _, e) => is_value e
+    | Unpack _ => false
+    | Fix _ => true
+    | Let _ => false
+    | Ascription _ => false
+    | AscriptionTime _ => false
 
 (* sorting context *)
 type scontext = (string * sort) list
@@ -170,6 +195,10 @@ fun shift1_i_i b = raise Unimpl
 fun subst (v : ty) (b : ty) : ty = raise Unimpl
 fun subst_i_t (v : idx) (b : ty) : ty = raise Unimpl
 fun subst_i_p (v : idx) (b : prop) : prop = raise Unimpl
+
+fun unfold t =
+  raise Unimpl
+(* (subst t1 (subst_i_t i t2)) *)
 
 type bscontext = bsort list
 type vc = bscontext * prop list * prop
@@ -533,20 +562,9 @@ local
 	     c)
 	  | _ => raise Fail (no_meet c c')
 
-    fun is_value (e : expr) : bool = raise Unimpl
-
     fun mismatch e expect have =  "Type mismatch for " ^ expr_toString e ^ ": expect " ^ expect ^ " have " ^ type_toString have
     fun mismatch_anno expect have =  "Type annotation mismatch: expect " ^ expect ^ " have " ^ type_toString have
 
-    fun check_fix_body e =
-      case e of
-	  Tabs (_, e') => check_fix_body e'
-	| Abs _ => ()
-	| _ => raise Fail "The body of fixpoint must have the form (fn [(_ :: _) ... (_ :: _)] (_ : _) => _)"
-    fun unfold t =
-      raise Unimpl
-    (* (subst t1 (subst_i_t i t2)) *)
-	    
     fun get_type (ctx as (sctx : scontext, ktctx as (kctx : kcontext, tctx : tcontext)), e : expr) : ty * idx =
       let val skctx = (sctx, kctx) in
 	  case e of
@@ -686,8 +704,9 @@ local
 		  val (t2, d2) = get_type (add_typing_sk (name, t1) ctx, e2) in
 		  (t2, d1 + T1 + d2)
 	      end
-	    | Fix (t, name, e) => 
-	      let val () = check_fix_body e
+	    | Fix (t1, d, t2, name, argname, e1) => 
+	      let val t = Arrow (t1, d, t2)
+		  val e = Abs (t1, argname, e1)
 		  val () = is_wftype (skctx, t)
 		  val (t1, _) = get_type (add_typing_sk (name, t) ctx, e)
 		  val () = is_subtype (skctx, t1, t) in
