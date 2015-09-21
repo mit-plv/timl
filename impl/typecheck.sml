@@ -132,7 +132,6 @@ fun var_toString (x : var) : string = Int.toString x
 fun bsort_toString (s : bsort) : string = raise Unimpl
 fun sort_toString (s : sort) : string = raise Unimpl
 fun idx_toString (i : idx) : string = raise Unimpl
-fun kind_toString (k : kind) : string = raise Unimpl
 fun type_toString (c : ty) : string =
     case c of
 	Arrow (c1, d, c2) => "(" ^ type_toString c1 ^ " time " ^ idx_toString d ^ " -> " ^ type_toString c2 ^ ")"
@@ -188,7 +187,7 @@ local
     fun f x n b =
 	case b of
 	    Basic s => Basic s
-	  | Subset (s, name, p) => Subset (s, name, shiftx_i_p x n p)
+	  | Subset (s, name, p) => Subset (s, name, shiftx_i_p (x + 1) n p)
 in
 fun shiftx_i_s x n b = f x n b
 fun shift_i_s b = shiftx_i_s 0 1 b
@@ -282,7 +281,7 @@ local
     fun f x v b =
 	case b of
 	    Basic s => Basic s
-	  | Subset (s, name, p) => Subset (s, name, substx_i_p x v p)
+	  | Subset (s, name, p) => Subset (s, name, substx_i_p (x + 1) (shift_i_i v) p)
 in
 fun substx_i_s x (v : idx) (b : sort) : sort = f x v b
 fun subst_i_s (v : idx) (b : sort) : sort = substx_i_s 0 v b
@@ -386,11 +385,13 @@ local
     fun f x n b =
 	case b of
 	    Type => Type
-	  | KArrow s => KArrow (shiftx_i_s x n s)
+	  | KArrow s => KArrow (map (shiftx_i_s x n) s)
 in
 fun shiftx_i_k x n b = f x n b
 fun shift_i_k b = shiftx_i_k 0 1 b
 end
+
+fun kind_toString (k : kind) : string = raise Unimpl
 
 (* sorting context *)
 type scontext = (string * sort) list
@@ -400,20 +401,69 @@ type kcontext = (string * kind) list
 type tcontext = (string * ty) list
 type context = scontext * kcontext * tcontext
 
-fun add_sorting (name, s) sctx = (name, s) :: sctx
-fun add_sorting_k (name, s) (sctx, kctx) = (add_sorting (name, s) sctx, map (fn (name, k) => (name, shift_i_k k)) kctx)
-fun add_sortings_k ns skctx = raise Unimpl
-fun add_sorting_kt (name, s) ctx = raise Unimpl
-fun lookup_sort (x : var) (sctx : scontext) : sort option = NONE
+fun shiftx_i_ks n ctx = map (fn (name, k) => (name, shiftx_i_k 0 n k)) ctx
+fun shiftx_i_ts n ctx = map (fn (name, t) => (name, shiftx_i_t 0 n t)) ctx
+fun shiftx_t_ts n ctx = map (fn (name, t) => (name, shiftx_t_t 0 n t)) ctx
+fun add_sorting ns sctx = ns :: sctx
+fun add_sorting_k ns (sctx, kctx) = 
+    (add_sorting ns sctx, shiftx_i_ks 1 kctx)
+fun add_sortings_k ns (sctx, kctx) = 
+    let val (sctx', _) = foldl (fn ((name, s), (ctx, n)) => (add_sorting (name, (shiftx_i_s 0 n s)) ctx, n + 1)) (sctx, 0) ns
+	val kctx' = shiftx_i_ks (length ns) kctx in
+	(sctx', kctx')
+    end
+fun add_sorting_kt ns (sctx, (kctx, tctx)) = 
+    (add_sorting ns sctx, 
+     (shiftx_i_ks 1 kctx, 
+      shiftx_i_ts 1 tctx))
+
+fun nth_error ls n =
+    if n < 0 orelse n >= length ls then
+	NONE
+    else
+	SOME (List.nth (ls, n))
+
+fun lookup_sort (n : int) (ctx : scontext) : sort option = 
+    case nth_error ctx n of
+	NONE => NONE
+      | SOME (_, s) => 
+	SOME (shiftx_i_s 0 (n + 1) s)
 
 fun add_kinding (name, k) kctx = (name, k) :: kctx
-fun add_kinding_t (name, k) ktctx = raise Unimpl
-fun add_kinding_s (name, k) (sctx, kctx) = (sctx, add_kinding (name, k) kctx)
-fun lookup_kind (x : var) (kctx : kcontext) : kind option = NONE
+fun add_kinding_t nk (kctx, tctx) = 
+    (add_kinding nk kctx,
+     shiftx_t_ts 1 tctx)
+fun add_kinding_s nk (sctx, kctx) = (sctx, add_kinding nk kctx)
+fun lookup_kind (n : int) (ctx : kcontext) : kind option = 
+    case nth_error ctx n of
+	NONE => NONE
+      | SOME (_, k) => SOME k
 
-fun add_typing (name, c) tctx = (name, c) :: tctx
-fun add_typing_sk (name, c) (sctx, (kctx, tctx)) = (sctx, (kctx, add_typing (name, c) tctx))
-fun lookup (x : var) (tctx : tcontext) : ty option = NONE
+fun add_typing nt tctx = nt :: tctx
+fun add_typing_sk nt (sctx, (kctx, tctx)) = (sctx, (kctx, add_typing nt tctx))
+fun lookup (n : int) (ctx : tcontext) : ty option = 
+    case nth_error ctx n of
+	NONE => NONE
+      | SOME (_, t) => SOME t
+
+fun get_base s =
+    case s of
+	Basic s => s
+      | Subset (s, _, _) => s
+
+type bscontext = (string * bsort) list
+
+fun collect ctx : bscontext * prop list = 
+    let fun get_p s n ps =
+	    case s of
+		Basic _ => ps
+	      | Subset (_, _, p) => shiftx_i_p 0 n p :: ps
+	val (ps, _) = foldl (fn ((name, s), (ps, n)) => (get_p s n ps, n + 1)) ([], 0) ctx
+	val bctx = map (fn (name, s) => (name, get_base s)) ctx in
+	(bctx, ps)
+    end
+
+type vc = bscontext * prop list * prop
 
 (* level 7 *)
 infix 7 $
@@ -430,16 +480,6 @@ fun a /\ b = And (a, b)
 (* level 1 *)
 infix 1 -->
 fun a --> b = Imply (a, b)
-
-type bscontext = bsort list
-type vc = bscontext * prop list * prop
-
-fun collect ctx : bscontext * prop list = raise Unimpl
-
-fun get_base s =
-    case s of
-	Basic s => s
-      | Subset (s, _, _) => s
 
 (* use exception and cell to mimic the Error and Writer monads *)
 local								    
