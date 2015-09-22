@@ -566,7 +566,10 @@ type vc = bscontext * prop list * prop
 
 fun str_vc (ctx : bscontext, ps, p) =
   let val ctxn = map #1 ctx in
-      printf "$===============\n$\n" [join "" (map (fn p => str_p ctxn p ^ "\n") ps), str_p ctxn p]
+      printf "$$===============\n$\n" 
+	     [join "" (map (fn (name, s) => printf "$ : $\n" [name, str_b s]) ctx), 
+	      join "" (map (fn p => str_p ctxn p ^ "\n") ps), 
+	      str_p ctxn p]
   end 
 
 (* level 7 *)
@@ -1135,16 +1138,34 @@ fun vcgen (sctx : scontext) (kctx : kcontext) (tctx : tcontext) (e : expr) : ((t
 	   
 end
 
+local
+    fun solver (ctx, ps, p) =
+	isSome (List.find (fn x => x = p) ps) orelse
+	case p of
+	    Imply (p1, p2) => solver (ctx, p1 :: ps, p2)
+	  | Iff (p1, p2) => solver (ctx, p1 :: ps, p2) andalso solver (ctx, p2 :: ps, p1)
+	  | And (p1, p2) => solver (ctx, ps, p1) andalso solver (ctx, ps, p1)
+	  | Or (p1, p2) => solver (ctx, ps, p1) orelse solver (ctx, ps, p1)
+	  | True => true
+	  | Eq (_, i1, i2) => i1 = i2
+	  | _ => false
+
+in
+fun trivial_solver vcs = List.filter (fn vc => solver vc = false) vcs
+end
+
 fun check sctx kctx tctx e =
   let val (sctxn, kctxn, tctxn) = (map #1 sctx, map #1 kctx, map #1 tctx) in
       case vcgen sctx kctx tctx e of
 	  OK ((t, d), vcs) =>
-	  printf
-	      "OK: \ntype = $\nd = $\nVCs: [count=$]\n$\n"
-	      [str_t (sctxn, kctxn) t,
-	       str_i sctxn d,
-	       Int.toString (length vcs),
-	       join "\n" (map str_vc vcs)]
+	  let val vcs = trivial_solver vcs in
+	      printf
+		  "OK: \ntype = $\nd = $\nVCs: [count=$]\n$\n"
+		  [str_t (sctxn, kctxn) t,
+		   str_i sctxn d,
+		   Int.toString (length vcs),
+		   join "\n" (map str_vc vcs)]
+	  end
 	| Failed msg => "Failed: " ^ msg ^ "\n"
   end
 
