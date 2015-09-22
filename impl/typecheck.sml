@@ -564,8 +564,21 @@ fun collect ctx : bscontext * prop list =
 
 type vc = bscontext * prop list * prop
 
+fun mapFst f (a, b) = (f a, b)
+
+local
+    fun find x ls = List.find (fn y => y = x) ls
+    fun find_unique name ls =
+	if not isSome (find name ls) then
+	    name
+	else
+in
+fun unique names = foldr (fn (name, acc) => find_unique name acc :: acc) [] names
+end
+		       
 fun str_vc (ctx : bscontext, ps, p) =
-  let val ctxn = map #1 ctx in
+    let val ctx = ListPair.zip (mapFst unique (ListPair.unzip ctx))
+	val ctxn = map #1 ctx in
       printf "$$===============\n$\n" 
 	     [join "" (map (fn (name, s) => printf "$ : $\n" [name, str_b s]) ctx), 
 	      join "" (map (fn p => str_p ctxn p ^ "\n") ps), 
@@ -1169,15 +1182,19 @@ fun check sctx kctx tctx e =
 	| Failed msg => "Failed: " ^ msg ^ "\n"
   end
 
+fun curry f a b = f (a, b)
+fun uncurry f (a, b) = f a b
+
 fun main () = 
   let
       fun ilist_left l = ExI ((Subset (BSUnit, "_", Eq (Time, shift_i_i l, T0))), "_", Unit)
-      fun ilist_right ilist l t = ExI ((Subset (Time, "l'", Eq (Time, shift_i_i l, VarI 0 %+ T1))), "l'", Prod (shift_i_t t, ilist [VarI 0]))
+      fun ilist_right ilist t l = ExI ((Subset (Time, "l'", Eq (Time, shift_i_i l, VarI 0 %+ T1))), "l'", Prod (shift_i_t t, ilist [VarI 0]))
       fun ilist_core t i = ("ilist", [("l", STime)],
 			    Sum (ilist_left (VarI 0),
-				 ilist_right (fn i => AppVar (0, i)) (VarI 0) (shift_t_t t)), i)
+				 ilist_right (curry AppVar 0) (shift_t_t t) (VarI 0)), i)
       fun ilist t i = AppRecur (ilist_core t i)
-      fun inil t = Fold (ilist t [T0], Inl (ilist_right (fn i => ilist t i) T0 t, Pack (ilist_left T0, Type.TT, TT)))
+      fun nil_ t = Fold (ilist t [T0], Inl (ilist_right (ilist t) t T0, Pack (ilist_left T0, Type.TT, TT)))
+      fun cons_ t (n : idx) = Abs (t, "x", Abs (ilist t [n], "xs", Fold (ilist t [n %+ T1], Inr (ilist_left n, Pack (ilist_right (ilist t) t (n %+ T1), n, Pair (Var 1, Var 0))))))
 
       val output = str_t (["l"], ["ilist"]) (ExI ((Subset (BSUnit, "nouse2", Eq (Time, VarI 1, T0))), "nouse1", Unit))
       val output = str_t (["l"], ["a", "ilist"]) (Sum (ExI ((Subset (BSUnit, "nouse2", Eq (Time, VarI 1, T0))), "nouse1", Unit),
@@ -1197,7 +1214,7 @@ fun main () =
 
       val bool = Sum (Unit, Unit)
       fun cmp_t t n = Arrow (t, T0, Arrow (t, n, bool))
-      val msort = Tabs ("a", TabsI (STime, "m", Abs (cmp_t (VarT 0) (VarI 0), "cmp", TabsI (STime, "n", Fix (ilist (VarT 0) [VarI 0], VarI 1 %+ VarI 0, ilist (VarT 0) [VarI 0], "msort", "xs", inil (VarT 0))))))
+      val msort = Tabs ("a", TabsI (STime, "m", Abs (cmp_t (VarT 0) (VarI 0), "cmp", TabsI (STime, "n", Fix (ilist (VarT 0) [VarI 0], VarI 1 %+ VarI 0, ilist (VarT 0) [VarI 0], "msort", "xs", nil_ (VarT 0))))))
 
       val empty = (([], []), [])
 
@@ -1205,7 +1222,9 @@ fun main () =
       val output = check [] [] [] plus_5_7
 
       val output = str_e empty msort
-      val output = check [] [] [] msort in
+      val output = check [] [] [] msort
+      val output = check [("n", STime)] [("a", Type)] [] (cons_ (VarT 0) (VarI 0))
+  in			 
       print (output ^ "\n")
   end
 
