@@ -1201,32 +1201,32 @@ fun main () =
 	fun nil_ t = Fold (ilist t [T0], Inl (ilist_right (ilist t) t T0, Pack (ilist_left T0, Type.TT, TT)))
 	fun cons_ t (n : idx) = Abs (t, "x", Abs (ilist t [n], "xs", Fold (ilist t [n %+ T1], Inr (ilist_left (n %+ T1), Pack (ilist_right (ilist t) t (n %+ T1), n, Pair (Var 1, Var 0))))))
 
-	val output = str_t (["l"], ["ilist"]) (ExI ((Subset (BSUnit, "nouse2", Eq (Time, VarI 1, T0))), "nouse1", Unit))
-	val output = str_t (["l"], ["a", "ilist"]) (Sum (ExI ((Subset (BSUnit, "nouse2", Eq (Time, VarI 1, T0))), "nouse1", Unit),
-							 ExI ((Subset (Time, "l'", Eq (Time, VarI 1, VarI 0 %+ T1))), "l'", Prod (shift_t_t (VarT 0), AppVar (0, [VarI 0])))))
-	val ilist1_core = ilist_core (VarT 0) [VarI 0]
-	val ilist1 = ilist (VarT 0) [VarI 0]
-	val output = str_t (["n"], ["a"]) ilist1
-	val output = str_t (["n"], ["a"]) (unroll ilist1_core)
+	(* val output = str_t (["l"], ["ilist"]) (ExI ((Subset (BSUnit, "nouse2", Eq (Time, VarI 1, T0))), "nouse1", Unit)) *)
+	(* val output = str_t (["l"], ["a", "ilist"]) (Sum (ExI ((Subset (BSUnit, "nouse2", Eq (Time, VarI 1, T0))), "nouse1", Unit), *)
+	(* 						 ExI ((Subset (Time, "l'", Eq (Time, VarI 1, VarI 0 %+ T1))), "l'", Prod (shift_t_t (VarT 0), AppVar (0, [VarI 0]))))) *)
+	(* val ilist1_core = ilist_core (VarT 0) [VarI 0] *)
+	(* val ilist1 = ilist (VarT 0) [VarI 0] *)
+	(* val output = str_t (["n"], ["a"]) ilist1 *)
+	(* val output = str_t (["n"], ["a"]) (unroll ilist1_core) *)
 
-	val plus = Abs (Int, "a", Abs (Int, "b", Plus (Var 1, Var 0)))
-	val output = str_e (([], []), []) plus
-	val plus1 = Abs (Int, "a", Abs (Int, "b", Plus (Plus (Var 1, Var 0), Var 2)))
-	val output = str_e (([], []), ["c"]) plus1
-	val ttt = Uni ("a", Uni ("b", Prod (Prod (VarT 1, VarT 0), VarT 2)))
-	val output = str_t ([], ["c"]) ttt
-	val output = str_t ([], []) (subst_t_t Int ttt)
+	(* val plus = Abs (Int, "a", Abs (Int, "b", Plus (Var 1, Var 0))) *)
+	(* val output = str_e (([], []), []) plus *)
+	(* val plus1 = Abs (Int, "a", Abs (Int, "b", Plus (Plus (Var 1, Var 0), Var 2))) *)
+	(* val output = str_e (([], []), ["c"]) plus1 *)
+	(* val ttt = Uni ("a", Uni ("b", Prod (Prod (VarT 1, VarT 0), VarT 2))) *)
+	(* val output = str_t ([], ["c"]) ttt *)
+	(* val output = str_t ([], []) (subst_t_t Int ttt) *)
 
-	val bool = Sum (Unit, Unit)
-	fun cmp_t t n = Arrow (t, T0, Arrow (t, n, bool))
-	val msort = Tabs ("a", TabsI (STime, "m", Abs (cmp_t (VarT 0) (VarI 0), "cmp", TabsI (STime, "n", Fix (ilist (VarT 0) [VarI 0], VarI 1 %+ VarI 0, ilist (VarT 0) [VarI 0], "msort", "xs", nil_ (VarT 0))))))
+	(* val bool = Sum (Unit, Unit) *)
+	(* fun cmp_t t n = Arrow (t, T0, Arrow (t, n, bool)) *)
+	(* val msort = Tabs ("a", TabsI (STime, "m", Abs (cmp_t (VarT 0) (VarI 0), "cmp", TabsI (STime, "n", Fix (ilist (VarT 0) [VarI 0], VarI 1 %+ VarI 0, ilist (VarT 0) [VarI 0], "msort", "xs", nil_ (VarT 0)))))) *)
 
-	val empty = (([], []), [])
+	(* val empty = (([], []), []) *)
 
-	val plus_5_7 = App (App (plus, Const 5), Const 7)
-	(* val output = check [] [] [] plus_5_7 *)
+	(* val plus_5_7 = App (App (plus, Const 5), Const 7) *)
+	(* (* val output = check [] [] [] plus_5_7 *) *)
 
-	val output = str_e empty msort
+	(* val output = str_e empty msort *)
 	(* val output = check [] [] [] msort *)
 	val output = check [("n", STime)] [("a", Type)] [] (cons_ (VarT 0) (VarI 0))
 
