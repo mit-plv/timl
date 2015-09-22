@@ -21,6 +21,7 @@ datatype idx =
 	 | T0
 	 | T1
 	 | Tadd of idx * idx
+	 | Tmult of idx * idx
 	 | Tmax of idx * idx
 	 | Tmin of idx * idx
 	 | TrueI
@@ -88,11 +89,11 @@ functor MakeExpr (structure Type : TYPE) = struct
 		 | Inr of ty * expr
 		 | Match of expr * string * expr * string * expr
 		 (* universal *)
-		 | Tabs of string * expr
-		 | Tapp of expr * ty
+		 | AbsT of string * expr
+		 | AppT of expr * ty
 		 (* universal index *)
-		 | TabsI of sort * string * expr
-		 | TappI of expr * idx
+		 | AbsI of sort * string * expr
+		 | AppI of expr * idx
 		 (* existential index *)
 		 | Pack of ty * idx * expr
 		 | Unpack of expr * ty * idx * string * string * expr
@@ -121,10 +122,10 @@ fun is_value (e : expr) : bool =
       | Match _ => false
       | Fold (_, e) => is_value e
       | Unfold _ => false
-      | Tabs _ => true
-      | Tapp _ => false
-      | TabsI _ => true
-      | TappI _ => false
+      | AbsT _ => true
+      | AppT _ => false
+      | AbsI _ => true
+      | AppI _ => false
       | Pack (_, _, e) => is_value e
       | Unpack _ => false
       | Fix _ => true
@@ -167,6 +168,7 @@ fun str_i ctx (i : idx) : string =
       | T0 => "0"
       | T1 => "1"
       | Tadd (d1, d2) => printf "($ + $)" [str_i ctx d1, str_i ctx d2]
+      | Tmult (d1, d2) => printf "($ * $)" [str_i ctx d1, str_i ctx d2]
       | Tmax (d1, d2) => printf "(max $ $)" [str_i ctx d1, str_i ctx d2]
       | Tmin (d1, d2) => printf "(min $ $)" [str_i ctx d1, str_i ctx d2]
       | Type.TT => "()"
@@ -226,10 +228,10 @@ fun str_e (ctx as ((sctx, kctx), tctx)) (e : expr) : string =
 	  | Match (e, name1, e1, name2, e2) => printf "(case $ of inl $ => $ | inr $  => $)" [str_e ctx e, name1, str_e (add_t name1 ctx) e1, name2, str_e (add_t name2 ctx) e2]
 	  | Fold (t, e) => printf "(fold $ $)" [str_t skctx t, str_e ctx e]
 	  | Unfold e => printf "(unfold $)" [str_e ctx e]
-	  | Tabs (name, e) => printf "(fn $ => $)" [name, str_e ((sctx, name :: kctx), tctx) e]
-	  | Tapp (e, t) => printf "($ [$])" [str_e ctx e, str_t skctx t]
-	  | TabsI (s, name, e) => printf "(fn ($ :: $) => $)" [name, str_s sctx s, str_e ((name :: sctx, kctx), tctx) e]
-	  | TappI (e, i) => printf "($ [$])" [str_e ctx e, str_i sctx i]
+	  | AbsT (name, e) => printf "(fn $ => $)" [name, str_e ((sctx, name :: kctx), tctx) e]
+	  | AppT (e, t) => printf "($ [$])" [str_e ctx e, str_t skctx t]
+	  | AbsI (s, name, e) => printf "(fn ($ :: $) => $)" [name, str_s sctx s, str_e ((name :: sctx, kctx), tctx) e]
+	  | AppI (e, i) => printf "($ [$])" [str_e ctx e, str_i sctx i]
 	  | Pack (t, i, e) => printf "(pack $ ($, $))" [str_t skctx t, str_i sctx i, str_e ctx e]
 	  | Unpack (e1, t, d, iname, ename, e2) => printf "unpack $ return $ time $ as ($, $) in $ end" [str_e ctx e1, str_t skctx t, str_i sctx d, iname, ename, str_e ((iname :: sctx, kctx), ename :: tctx) e2]
 	  | Fix (t1, d, t2, nameself, namearg, e) => printf "(fix ($ : $) $ => $)" [nameself, str_t skctx (Arrow (t1, d, t2)), namearg, str_e (add_t namearg (add_t nameself ctx)) e]
@@ -257,6 +259,7 @@ local
 	  | T0 => T0
 	  | T1 => T1
 	  | Tadd (d1, d2) => Tadd (f x n d1, f x n d2)
+	  | Tmult (d1, d2) => Tmult (f x n d1, f x n d2)
 	  | Tmax (d1, d2) => Tmax (f x n d1, f x n d2)
 	  | Tmin (d1, d2) => Tmin (f x n d1, f x n d2)
 	  | Type.TT => Type.TT
@@ -331,6 +334,41 @@ fun shiftx_t_t x n b = f x n b
 fun shift_t_t b = shiftx_t_t 0 1 b
 end
 
+local
+    fun f x n b =
+	case b of
+	    Var y => Var (shiftx_v x n y)
+	  | Abs (t, name, e) => Abs (t, name, f (x + 1) n e)
+	  | App (e1, e2) => App (f x n e1, f x n e2)
+	  | TT => TT
+	  | Pair (e1, e2) => Pair (f x n e1, f x n e2)
+	  | Fst e => Fst (f x n e)
+	  | Snd e => Snd (f x n e)
+	  | Inl (t, e) => Inl (t, f x n e)
+	  | Inr (t, e) => Inr (t, f x n e)
+	  | Match (e, name1, e1, name2, e2) => 
+	    Match (f x n e, name1, f (x + 1) n e1, name2, f (x + 1) n e2)
+	  | Fold (t, e) => Fold (t, f x n e)
+	  | Unfold e => Unfold (f x n e)
+	  | AbsT (name, e) => AbsT (name, f x n e)
+	  | AppT (e, t) => AppT (f x n e, t)
+	  | AbsI (s, name, e) => AbsI (s, name, f x n e)
+	  | AppI (e, i) => AppI (f x n e, i)
+	  | Pack (t, i, e) => Pack (t, i, f x n e)
+	  | Unpack (e1, t, d, iname, ename, e2) => 
+	    Unpack (f x n e1, t, d, iname, ename, f (x + 1) n e2)
+	  | Fix (t1, d, t2, selfname, argname, e) => 
+	    Fix (t1, d, t2, selfname, argname, f (x + 2) n e)
+	  | Let (e1, name, e2) => Let (f x n e1, name, f (x + 1) n e2)
+	  | Ascription (e, t) => Ascription (f x n e, t)
+	  | AscriptionTime (e, d) => AscriptionTime (f x n e, d)
+	  | Const n => Const n
+	  | Plus (e1, e2) => Plus (f x n e1, f x n e2)
+in
+fun shiftx_e_e x n b = f x n b
+fun shift_e_e b = shiftx_e_e 0 1 b
+end
+
 exception Subst of string
 
 local
@@ -344,6 +382,7 @@ local
 	    else
 		VarI y
 	  | Tadd (d1, d2) => Tadd (f x v d1, f x v d2)
+	  | Tmult (d1, d2) => Tmult (f x v d1, f x v d2)
 	  | Tmax (d1, d2) => Tmax (f x v d1, f x v d2)
 	  | Tmin (d1, d2) => Tmin (f x v d1, f x v d2)
 	  | T0 => T0
@@ -436,8 +475,9 @@ fun subst_t_t (v : ty) (b : ty) : ty = substx_t_t 0 v b
 end
 
 local
-    fun shift_i n (name, ns, t) = (name, map (fn (name, s) => (name, shiftx_i_s 0 n s)) ns, shiftx_i_t (length ns) n t)
-    fun shift_t (name, ns, t) = (name, ns, shiftx_t_t 1 1 t)
+    datatype recur = Recur of string * (string * sort) list * ty
+    fun shift_i_r n (Recur (name, ns, t)) = Recur (name, map (fn (name, s) => (name, shiftx_i_s 0 n s)) ns, shiftx_i_t (length ns) n t)
+    fun shift_t_r (Recur (name, ns, t)) = Recur (name, ns, shiftx_t_t 1 1 t)
     fun f x v (b : ty) : ty =
 	case b of
 	    VarT y =>
@@ -451,13 +491,13 @@ local
 	  | Unit => Unit
 	  | Prod (t1, t2) => Prod (f x v t1, f x v t2)
 	  | Sum (t1, t2) => Sum (f x v t1, f x v t2)
-	  | Uni (name, t) => Uni (name, f (x + 1) (shift_t v) t)
-	  | UniI (s, name, t) => UniI (s, name, f x (shift_i 1 v) t)
-	  | ExI (s, name, t) => ExI (s, name, f x (shift_i 1 v) t)
-	  | AppRecur (name, ns, t, i) => AppRecur (name, ns, f (x + 1) (shift_i (length ns) (shift_t v)) t, i)
+	  | Uni (name, t) => Uni (name, f (x + 1) (shift_t_r v) t)
+	  | UniI (s, name, t) => UniI (s, name, f x (shift_i_r 1 v) t)
+	  | ExI (s, name, t) => ExI (s, name, f x (shift_i_r 1 v) t)
+	  | AppRecur (name, ns, t, i) => AppRecur (name, ns, f (x + 1) (shift_i_r (length ns) (shift_t_r v)) t, i)
 	  | AppVar (y, i) => 
 	    if y = x then
-		let val (name, ns, t) = v in
+		let val Recur (name, ns, t) = v in
 		    AppRecur (name, ns, t, i)
 		end
 	    else if y > x then
@@ -469,7 +509,7 @@ in
 fun subst_is_t i t = 
     #1 (foldl (fn (i, (t, x)) => (substx_i_t x (shiftx_i_i 0 x i) t, x - 1)) (t, length i - 1) i)
 fun unroll (name, ns, t, i) =
-    subst_is_t i (f 0 (shift_i (length ns) (name, ns, t)) t)
+    subst_is_t i (f 0 (shift_i_r (length ns) (Recur (name, ns, t))) t)
 end
 
 datatype kind = 
@@ -592,6 +632,8 @@ fun a $ b = Tmax (a, b)
 (* level 6 *)
 infix 6 %+
 fun a %+ b = Tadd (a, b)
+infix 6 %*
+fun a %* b = Tmult (a, b)
 (* level 4 *)
 infix 4 %<=
 fun a %<= b = TimeLe (a, b)
@@ -739,6 +781,10 @@ local
       	  | T0 => Time
 	  | T1 => Time
 	  | Tadd (d1, d2) => 
+	    (check_bsort (ctx, d1, Time);
+	     check_bsort (ctx, d2, Time);
+	     Time)
+	  | Tmult (d1, d2) => 
 	    (check_bsort (ctx, d1, Time);
 	     check_bsort (ctx, d2, Time);
 	     Time)
@@ -979,6 +1025,12 @@ local
     fun mismatch (ctx as (skctx, tctx)) e expect have =  "Type mismatch for " ^ str_e ctx e ^ ": expect " ^ expect ^ " have " ^ str_t skctx have
     fun mismatch_anno ctx expect have =  "Type annotation mismatch: expect " ^ expect ^ " have " ^ str_t ctx have
 
+    (* fun check_fix_body e = *)
+    (*   case e of *)
+    (* 	  Tabs (_, e') => check_fix_body e' *)
+    (* 	| Abs _ => () *)
+    (* 	| _ => raise Fail "The body of fixpoint must have the form (fn [(_ :: _) ... (_ :: _)] (_ : _) => _)" *)
+
     fun get_type (ctx as (sctx : scontext, ktctx as (kctx : kcontext, tctx : tcontext)), e : expr) : ty * idx =
 	let val skctx = (sctx, kctx) 
 	    val ctxn as (skctxn as (sctxn, kctxn), tctxn) = ((map #1 sctx, map #1 kctx), map #1 tctx) 
@@ -1042,14 +1094,14 @@ local
 			end
 		      | t' => raise Fail (mismatch ctxn e "(_ + _)" t')
 		end
-	      | Tabs (name, e) => 
+	      | AbsT (name, e) => 
 		if is_value e then
 		    let val (t, _) = get_type ((sctx, add_kinding_t (name, Type) ktctx), e) in
 			(Uni (name, t), T0)
 		    end 
 		else
 		    raise Fail ("The body of a universal abstraction must be a value")
-	      | Tapp (e, c) =>
+	      | AppT (e, c) =>
 		let val (t, d) = get_type (ctx, e) in
 		    case t of
 			Uni (_, t1) => 
@@ -1058,7 +1110,7 @@ local
 			end
 		      | t' => raise Fail (mismatch ctxn e "(forall _ : _, _)" t')
 		end
-	      | TabsI (s, name, e) => 
+	      | AbsI (s, name, e) => 
 		if is_value e then
 		    let val () = is_wfsort (sctx, s)
 			val (t, _) = get_type ((add_sorting_kt (name, s) ctx), e) in
@@ -1066,7 +1118,7 @@ local
 		    end 
 		else
 		    raise Fail ("The body of a universal abstraction must be a value")
-	      | TappI (e, i) =>
+	      | AppI (e, i) =>
 		let val (t, d) = get_type (ctx, e) in
 		    case t of
 			UniI (s, _, t1) => 
@@ -1194,6 +1246,7 @@ fun uncurry f (a, b) = f a b
 
 fun main () = 
     let
+	val output = ""
 	fun ilist_left l = ExI ((Subset (BSUnit, "_", Eq (Time, shift_i_i l, T0))), "_", Unit)
 	fun ilist_right ilist t l = ExI ((Subset (Time, "l'", Eq (Time, shift_i_i l, VarI 0 %+ T1))), "l'", Prod (shift_i_t t, ilist [VarI 0]))
 	fun ilist_core t i = ("ilist", [("l", STime)],
@@ -1202,6 +1255,10 @@ fun main () =
 	fun ilist t i = AppRecur (ilist_core t i)
 	fun nil_ t = Fold (ilist t [T0], Inl (ilist_right (ilist t) t T0, Pack (ilist_left T0, Type.TT, TT)))
 	fun cons_ t (n : idx) = Abs (t, "x", Abs (ilist t [n], "xs", Fold (ilist t [n %+ T1], Inr (ilist_left (n %+ T1), Pack (ilist_right (ilist t) t (n %+ T1), n, Pair (Var 1, Var 0))))))
+	(* val output = check [("n", STime)] [("a", Type)] [] (cons_ (VarT 0) (VarI 0)) *)
+	fun match_list e t d e1 iname ename e2 = Match (Unfold e, "_", Unpack (Var 0, t, d, "_", "_", shiftx_e_e 0 2 e1), "_", Unpack (Var 0, t, d, iname, ename, shiftx_e_e 1 1 e2))
+	fun map_ a b = AbsI (STime, "m", Abs (Arrow (shift_i_t a, VarI 0, shift_i_t b), "f", AbsI (STime, "n", Fix (ilist (shiftx_i_t 0 2 a) [VarI 0], VarI 1 %* VarI 0, ilist (shiftx_i_t 0 2 b) [VarI 0], "map", "ls", match_list (Var 0) (ilist (shiftx_i_t 0 2 b) [VarI 0]) (VarI 1 %* VarI 0) (nil_ (shiftx_i_t 0 2 b)) "n'" "x_xs" (App (App (cons_ (shiftx_i_t 0 2 b) (VarI 0), App (Var 3, Fst (Var 0))), App (Var 2, Snd (Var 0))))))))
+	val output = check [] [("b", Type), ("a", Type)] [] (map_ (VarT 1) (VarT 0))
 
 	(* val output = str_t (["l"], ["ilist"]) (ExI ((Subset (BSUnit, "nouse2", Eq (Time, VarI 1, T0))), "nouse1", Unit)) *)
 	(* val output = str_t (["l"], ["a", "ilist"]) (Sum (ExI ((Subset (BSUnit, "nouse2", Eq (Time, VarI 1, T0))), "nouse1", Unit), *)
@@ -1217,18 +1274,16 @@ fun main () =
 	(* val output = str_t ([], ["c"]) ttt *)
 	(* val output = str_t ([], []) (subst_t_t Int ttt) *)
 
-	val bool = Sum (Unit, Unit)
-	fun cmp_t t n = Arrow (t, T0, Arrow (t, n, bool))
-	val msort = Tabs ("a", TabsI (STime, "m", Abs (cmp_t (VarT 0) (VarI 0), "cmp", TabsI (STime, "n", Fix (ilist (VarT 0) [VarI 0], VarI 1 %+ VarI 0, ilist (VarT 0) [VarI 0], "msort", "xs", nil_ (VarT 0))))))
-
+	(* val bool = Sum (Unit, Unit) *)
+	(* fun cmp_t t n = Arrow (t, T0, Arrow (t, n, bool)) *)
+	(* val msort = AbsT ("a", AbsI (STime, "m", Abs (cmp_t (VarT 0) (VarI 0), "cmp", AbsI (STime, "n", Fix (ilist (VarT 0) [VarI 0], VarI 1 %+ VarI 0, ilist (VarT 0) [VarI 0], "msort", "xs", nil_ (VarT 0)))))) *)
 	(* val empty = (([], []), []) *)
+	(* val output = str_e empty msort *)
+	(* val output = check [] [] [] msort *)
 
 	(* val plus_5_7 = App (App (plus, Const 5), Const 7) *)
 	(* (* val output = check [] [] [] plus_5_7 *) *)
 
-	(* val output = str_e empty msort *)
-	val output = check [] [] [] msort
-	(* val output = check [("n", STime)] [("a", Type)] [] (cons_ (VarT 0) (VarI 0)) *)
 	(* val ilist1_core = ilist_core (VarT 0) [VarI 0 %+ T1] *)
 	(* val output = str_t (["n"], ["a"]) (unroll ilist1_core) *)
 
