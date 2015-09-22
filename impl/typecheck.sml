@@ -1176,7 +1176,9 @@ fun check sctx kctx tctx e =
     let val (sctxn, kctxn, tctxn) = (map #1 sctx, map #1 kctx, map #1 tctx) in
 	case vcgen sctx kctx tctx e of
 	    OK ((t, d), vcs) =>
-	    let val vcs = trivial_solver vcs in
+	    let
+		val vcs = trivial_solver vcs
+	    in
 		printf
 		    "OK: \ntype = $\nd = $\nVCs: [count=$]\n$\n"
 		    [str_t (sctxn, kctxn) t,
@@ -1215,9 +1217,9 @@ fun main () =
 	(* val output = str_t ([], ["c"]) ttt *)
 	(* val output = str_t ([], []) (subst_t_t Int ttt) *)
 
-	(* val bool = Sum (Unit, Unit) *)
-	(* fun cmp_t t n = Arrow (t, T0, Arrow (t, n, bool)) *)
-	(* val msort = Tabs ("a", TabsI (STime, "m", Abs (cmp_t (VarT 0) (VarI 0), "cmp", TabsI (STime, "n", Fix (ilist (VarT 0) [VarI 0], VarI 1 %+ VarI 0, ilist (VarT 0) [VarI 0], "msort", "xs", nil_ (VarT 0)))))) *)
+	val bool = Sum (Unit, Unit)
+	fun cmp_t t n = Arrow (t, T0, Arrow (t, n, bool))
+	val msort = Tabs ("a", TabsI (STime, "m", Abs (cmp_t (VarT 0) (VarI 0), "cmp", TabsI (STime, "n", Fix (ilist (VarT 0) [VarI 0], VarI 1 %+ VarI 0, ilist (VarT 0) [VarI 0], "msort", "xs", nil_ (VarT 0))))))
 
 	(* val empty = (([], []), []) *)
 
@@ -1225,8 +1227,8 @@ fun main () =
 	(* (* val output = check [] [] [] plus_5_7 *) *)
 
 	(* val output = str_e empty msort *)
-	(* val output = check [] [] [] msort *)
-	val output = check [("n", STime)] [("a", Type)] [] (cons_ (VarT 0) (VarI 0))
+	val output = check [] [] [] msort
+	(* val output = check [("n", STime)] [("a", Type)] [] (cons_ (VarT 0) (VarI 0)) *)
 	(* val ilist1_core = ilist_core (VarT 0) [VarI 0 %+ T1] *)
 	(* val output = str_t (["n"], ["a"]) (unroll ilist1_core) *)
 
