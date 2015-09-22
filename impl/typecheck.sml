@@ -436,8 +436,8 @@ fun subst_t_t (v : ty) (b : ty) : ty = substx_t_t 0 v b
 end
 
 local
-    fun shift_i n (name, ns, t) = (name, map (fn (name, s) => (name, shiftx_i_s 0 n s)) ns, shiftx_i_t 0 n t)
-    fun shift_t (name, ns, t) = (name, ns, shiftx_t_t 0 1 t)
+    fun shift_i n (name, ns, t) = (name, map (fn (name, s) => (name, shiftx_i_s 0 n s)) ns, shiftx_i_t (length ns) n t)
+    fun shift_t (name, ns, t) = (name, ns, shiftx_t_t 1 1 t)
     fun f x v (b : ty) : ty =
 	case b of
 	    VarT y =>
@@ -1204,10 +1204,8 @@ fun main () =
 	(* val output = str_t (["l"], ["ilist"]) (ExI ((Subset (BSUnit, "nouse2", Eq (Time, VarI 1, T0))), "nouse1", Unit)) *)
 	(* val output = str_t (["l"], ["a", "ilist"]) (Sum (ExI ((Subset (BSUnit, "nouse2", Eq (Time, VarI 1, T0))), "nouse1", Unit), *)
 	(* 						 ExI ((Subset (Time, "l'", Eq (Time, VarI 1, VarI 0 %+ T1))), "l'", Prod (shift_t_t (VarT 0), AppVar (0, [VarI 0]))))) *)
-	(* val ilist1_core = ilist_core (VarT 0) [VarI 0] *)
 	(* val ilist1 = ilist (VarT 0) [VarI 0] *)
 	(* val output = str_t (["n"], ["a"]) ilist1 *)
-	(* val output = str_t (["n"], ["a"]) (unroll ilist1_core) *)
 
 	(* val plus = Abs (Int, "a", Abs (Int, "b", Plus (Var 1, Var 0))) *)
 	(* val output = str_e (([], []), []) plus *)
@@ -1229,6 +1227,8 @@ fun main () =
 	(* val output = str_e empty msort *)
 	(* val output = check [] [] [] msort *)
 	val output = check [("n", STime)] [("a", Type)] [] (cons_ (VarT 0) (VarI 0))
+	(* val ilist1_core = ilist_core (VarT 0) [VarI 0 %+ T1] *)
+	(* val output = str_t (["n"], ["a"]) (unroll ilist1_core) *)
 
     in			 
 	print (output ^ "\n")
