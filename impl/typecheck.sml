@@ -1065,13 +1065,13 @@ local
 	      | Fst e => 
 		let val (t, d) = get_type (ctx, e) in 
 		    case t of
-			Prod (t1, t2) => (t1, d %+ T1)
+			Prod (t1, t2) => (t1, d)
 		      | t' => raise Fail (mismatch ctxn e "(_ * _)" t')
 		end
 	      | Snd e => 
 		let val (t, d) = get_type (ctx, e) in 
 		    case t of
-			Prod (t1, t2) => (t2, d %+ T1)
+			Prod (t1, t2) => (t2, d)
 		      | t' => raise Fail (mismatch ctxn e "(_ * _)" t')
 		end
 	      | Inl (t2, e) => 
@@ -1091,7 +1091,7 @@ local
 			let val (tr1, d1) = get_type (add_typing_sk (name1, t1) ctx, e1)
 			    val (tr2, d2) = get_type (add_typing_sk (name2, t2) ctx, e2)
 			    val tr = join (skctx, tr1, tr2) in
-			    (tr, d %+ T1 %+ d1 $ d2)
+			    (tr, d %+ d1 $ d2)
 			end
 		      | t' => raise Fail (mismatch ctxn e "(_ + _)" t')
 		end
@@ -1107,7 +1107,7 @@ local
 		    case t of
 			Uni (_, t1) => 
 			let val () = is_wftype (skctx, c) in
-			    (subst_t_t c t1, d %+ T1)
+			    (subst_t_t c t1, d)
 			end
 		      | t' => raise Fail (mismatch ctxn e "(forall _ : _, _)" t')
 		end
@@ -1124,7 +1124,7 @@ local
 		    case t of
 			UniI (s, _, t1) => 
 			let val () = check_sort (sctx, i, s) in
-			    (subst_i_t i t1, d %+ T1)
+			    (subst_i_t i t1, d)
 			end
 		      | t' => raise Fail (mismatch ctxn e "(forallI _ : _, _)" t')
 		end
@@ -1141,7 +1141,7 @@ local
 		let val (t, d) = get_type (ctx, e) in
 		    case t of
 	      		AppRecur t1 =>
-			(unroll t1, d %+ T1)
+			(unroll t1, d)
 		      | t' => raise Fail (mismatch ctxn e "((recur (_ :: _) (_ : _), _) _)" t')
 		end
 	      | Pack (t, i, e) =>
@@ -1164,14 +1164,14 @@ local
 			    val (t2, d2) = get_type (ctx', e2)
 			    val () = is_subtype ((sctx', kctx'), t2, shift_i_t t)
 			    val () = is_le (sctx', d2, shift_i_i d) in
-			    (t, d1 %+ T1 %+ d)
+			    (t, d1 %+ d)
 			end
 		      | t1' => raise Fail (mismatch ctxn e1 "(ex _ : _, _)" t1')
 		end
 	      | Let (e1, name, e2) => 
 		let val (t1, d1) = get_type (ctx, e1)
 		    val (t2, d2) = get_type (add_typing_sk (name, t1) ctx, e2) in
-		    (t2, d1 %+ T1 %+ d2)
+		    (t2, d1 %+ d2)
 		end
 	      | Fix (t, name, e) => 
 		let val () = check_fix_body e
