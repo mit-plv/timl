@@ -1227,10 +1227,96 @@ local
 	  | Or (p1, p2) => solver (ctx, ps, p1) orelse solver (ctx, ps, p1)
 	  | True => true
 	  | Eq (_, i1, i2) => i1 = i2
+	  | TimeLe (i1, i2) => i1 = i2
 	  | _ => false
 
 in
 fun trivial_solver vcs = List.filter (fn vc => solver vc = false) vcs
+end
+
+local
+fun passi i =
+    case i of
+	Tmax (i1, i2) =>
+	if i1 = i2 then
+	    (true, i1)
+	else
+	    let val (b1, i1) = passi i1
+		val (b2, i2) = passi i2 in
+		(b1 orelse b2, Tmax (i1, i2))
+	    end
+      | Tmin (i1, i2) =>
+	if i1 = i2 then
+	    (true, i1)
+	else
+	    let val (b1, i1) = passi i1
+		val (b2, i2) = passi i2 in
+		(b1 orelse b2, Tmin (i1, i2))
+	    end
+      | Tadd (i1, i2) => 
+	if i1 = T0 then (true, i2)
+	else if i2 = T0 then (true, i1)
+	else
+	    let val (b1, i1) = passi i1
+		val (b2, i2) = passi i2 in
+		(b1 orelse b2, Tadd (i1, i2))
+	    end
+      | Tmult (i1, i2) => 
+	if i1 = T0 then (true, T0)
+	else if i2 = T0 then (true, T0)
+	else if i1 = T1 then (true, i2)
+	else if i2 = T1 then (true, i1)
+	else
+	    let val (b1, i1) = passi i1
+		val (b2, i2) = passi i2 in
+		(b1 orelse b2, Tmult (i1, i2))
+	    end
+      | _ => (false, i)
+	    
+fun passp p = 
+    case p of
+	And (p1, p2) => 
+	let val (b1, p1) = passp p1
+	    val (b2, p2) = passp p2 in
+	    (b1 orelse b2, And (p1, p2))
+	end
+      | Or (p1, p2) => 
+	let val (b1, p1) = passp p1
+	    val (b2, p2) = passp p2 in
+	    (b1 orelse b2, Or (p1, p2))
+	end
+      | Imply (p1, p2) => 
+	let val (b1, p1) = passp p1
+	    val (b2, p2) = passp p2 in
+	    (b1 orelse b2, Imply (p1, p2))
+	end
+      | Iff (p1, p2) => 
+	let val (b1, p1) = passp p1
+	    val (b2, p2) = passp p2 in
+	    (b1 orelse b2, Iff (p1, p2))
+	end
+      | Eq (s, i1, i2) => 
+	let val (b1, i1) = passi i1
+	    val (b2, i2) = passi i2 in
+	    (b1 orelse b2, Eq (s, i1, i2))
+	end
+      | TimeLe (i1, i2) => 
+	let val (b1, i1) = passi i1
+	    val (b2, i2) = passi i2 in
+	    (b1 orelse b2, TimeLe (i1, i2))
+	end
+      | _ => (false, p)
+
+fun simp p = 
+    let fun loop p =
+	    let val (changed, p') = passp p in
+		if changed then loop p'
+		else p
+	    end in
+	loop p
+    end
+in
+fun simplify (ctx, ps, p) = (ctx, map simp ps, simp p)
 end
 
 fun check sctx kctx tctx e =
@@ -1238,6 +1324,8 @@ fun check sctx kctx tctx e =
 	case vcgen sctx kctx tctx e of
 	    OK ((t, d), vcs) =>
 	    let
+		val vcs = trivial_solver vcs
+		val vcs = map simplify vcs
 		val vcs = trivial_solver vcs
 	    in
 		printf
