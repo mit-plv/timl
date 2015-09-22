@@ -74,7 +74,7 @@ functor MakeExpr (structure Type : TYPE) = struct
 		 | App of expr * expr
 		 | Abs of ty * string * expr (* string is the variable name only for debug purpose *)
 		 (* convenience facilities *)
-		 | Fix of ty * idx * ty * string * string * expr
+		 | Fix of ty * string * expr
 		 | Let of expr * string * expr
 		 | Ascription of expr * ty
 		 | AscriptionTime of expr * idx
@@ -234,7 +234,7 @@ fun str_e (ctx as ((sctx, kctx), tctx)) (e : expr) : string =
 	  | AppI (e, i) => printf "($ [$])" [str_e ctx e, str_i sctx i]
 	  | Pack (t, i, e) => printf "(pack $ ($, $))" [str_t skctx t, str_i sctx i, str_e ctx e]
 	  | Unpack (e1, t, d, iname, ename, e2) => printf "unpack $ return $ time $ as ($, $) in $ end" [str_e ctx e1, str_t skctx t, str_i sctx d, iname, ename, str_e ((iname :: sctx, kctx), ename :: tctx) e2]
-	  | Fix (t1, d, t2, nameself, namearg, e) => printf "(fix ($ : $) $ => $)" [nameself, str_t skctx (Arrow (t1, d, t2)), namearg, str_e (add_t namearg (add_t nameself ctx)) e]
+	  | Fix (t, name, e) => printf "(fix ($ : $) => $)" [name, str_t skctx t, str_e (add_t name ctx) e]
 	  | Let (e1, name, e2) => printf "let $ = $ in $ end" [name, str_e ctx e1, str_e ctx e2]
 	  | Ascription (e, t) => printf "($ : $)" [str_e ctx e, str_t skctx t]
 	  | AscriptionTime (e, d) => printf "($ |> $)" [str_e ctx e, str_i sctx d]
@@ -357,8 +357,8 @@ local
 	  | Pack (t, i, e) => Pack (t, i, f x n e)
 	  | Unpack (e1, t, d, iname, ename, e2) => 
 	    Unpack (f x n e1, t, d, iname, ename, f (x + 1) n e2)
-	  | Fix (t1, d, t2, selfname, argname, e) => 
-	    Fix (t1, d, t2, selfname, argname, f (x + 2) n e)
+	  | Fix (t, name, e) => 
+	    Fix (t, name, f (x + 1) n e)
 	  | Let (e1, name, e2) => Let (f x n e1, name, f (x + 1) n e2)
 	  | Ascription (e, t) => Ascription (f x n e, t)
 	  | AscriptionTime (e, d) => AscriptionTime (f x n e, d)
@@ -1022,14 +1022,15 @@ local
 	      | _ => raise Fail (no_meet ctxn c c')
 	end
 
-    fun mismatch (ctx as (skctx, tctx)) e expect have =  "Type mismatch for " ^ str_e ctx e ^ ": expect " ^ expect ^ " have " ^ str_t skctx have
+    fun mismatch (ctx as (skctx, tctx)) e expect have =  
+	printf "Type mismatch for $:\n  expect: $\n  got: $\n" [str_e ctx e, expect, str_t skctx have]
     fun mismatch_anno ctx expect have =  "Type annotation mismatch: expect " ^ expect ^ " have " ^ str_t ctx have
 
-    (* fun check_fix_body e = *)
-    (*   case e of *)
-    (* 	  Tabs (_, e') => check_fix_body e' *)
-    (* 	| Abs _ => () *)
-    (* 	| _ => raise Fail "The body of fixpoint must have the form (fn [(_ :: _) ... (_ :: _)] (_ : _) => _)" *)
+    fun check_fix_body e =
+      case e of
+    	  AbsI (_, _, e') => check_fix_body e'
+    	| Abs _ => ()
+    	| _ => raise Fail "The body of fixpoint must have the form (fn [(_ :: _) ... (_ :: _)] (_ : _) => _)"
 
     fun get_type (ctx as (sctx : scontext, ktctx as (kctx : kcontext, tctx : tcontext)), e : expr) : ty * idx =
 	let val skctx = (sctx, kctx) 
@@ -1172,9 +1173,8 @@ local
 		    val (t2, d2) = get_type (add_typing_sk (name, t1) ctx, e2) in
 		    (t2, d1 %+ T1 %+ d2)
 		end
-	      | Fix (t1, d, t2, name, argname, e1) => 
-		let val t = Arrow (t1, d, t2)
-		    val e = Abs (t1, argname, e1)
+	      | Fix (t, name, e) => 
+		let val () = check_fix_body e
 		    val () = is_wftype (skctx, t)
 		    val (t1, _) = get_type (add_typing_sk (name, t) ctx, e)
 		    val () = is_subtype (skctx, t1, t) in
@@ -1247,8 +1247,8 @@ fun uncurry f (a, b) = f a b
 fun main () = 
     let
 	val output = ""
-	fun ilist_left l = ExI ((Subset (BSUnit, "_", Eq (Time, shift_i_i l, T0))), "_", Unit)
-	fun ilist_right ilist t l = ExI ((Subset (Time, "l'", Eq (Time, shift_i_i l, VarI 0 %+ T1))), "l'", Prod (shift_i_t t, ilist [VarI 0]))
+	fun ilist_left l = ExI ((Subset (BSUnit, "_", Eq (Time, T0, shift_i_i l))), "_", Unit)
+	fun ilist_right ilist t l = ExI ((Subset (Time, "l'", Eq (Time, VarI 0 %+ T1, shift_i_i l))), "l'", Prod (shift_i_t t, ilist [VarI 0]))
 	fun ilist_core t i = ("ilist", [("l", STime)],
 			      Sum (ilist_left (VarI 0),
 				   ilist_right (curry AppVar 0) (shift_t_t t) (VarI 0)), i)
@@ -1257,7 +1257,7 @@ fun main () =
 	fun cons_ t (n : idx) = Abs (t, "x", Abs (ilist t [n], "xs", Fold (ilist t [n %+ T1], Inr (ilist_left (n %+ T1), Pack (ilist_right (ilist t) t (n %+ T1), n, Pair (Var 1, Var 0))))))
 	(* val output = check [("n", STime)] [("a", Type)] [] (cons_ (VarT 0) (VarI 0)) *)
 	fun match_list e t d e1 iname ename e2 = Match (Unfold e, "_", Unpack (Var 0, t, d, "_", "_", shiftx_e_e 0 2 e1), "_", Unpack (Var 0, t, d, iname, ename, shiftx_e_e 1 1 e2))
-	fun map_ a b = AbsI (STime, "m", Abs (Arrow (shift_i_t a, VarI 0, shift_i_t b), "f", AbsI (STime, "n", Fix (ilist (shiftx_i_t 0 2 a) [VarI 0], VarI 1 %* VarI 0, ilist (shiftx_i_t 0 2 b) [VarI 0], "map", "ls", match_list (Var 0) (ilist (shiftx_i_t 0 2 b) [VarI 0]) (VarI 1 %* VarI 0) (nil_ (shiftx_i_t 0 2 b)) "n'" "x_xs" (App (App (cons_ (shiftx_i_t 0 2 b) (VarI 0), App (Var 3, Fst (Var 0))), App (Var 2, Snd (Var 0))))))))
+	fun map_ a b = AbsI (STime, "m", Abs (Arrow (shift_i_t a, VarI 0, shift_i_t b), "f", Fix (UniI (STime, "n", Arrow (ilist (shiftx_i_t 0 2 a) [VarI 0], VarI 1 %* VarI 0, ilist (shiftx_i_t 0 2 b) [VarI 0])), "map", AbsI (STime, "n", Abs (ilist (shiftx_i_t 0 2 a) [VarI 0], "ls", match_list (Var 0) (ilist (shiftx_i_t 0 2 b) [VarI 0]) (VarI 1 %* VarI 0) (nil_ (shiftx_i_t 0 2 b)) "n'" "x_xs" (App (App (cons_ (shiftx_i_t 0 2 b) (VarI 0), App (Var 3, Fst (Var 0))), App (AppI (Var 2, VarI 0), Snd (Var 0)))))))))
 	val output = check [] [("b", Type), ("a", Type)] [] (map_ (VarT 1) (VarT 0))
 
 	(* val output = str_t (["l"], ["ilist"]) (ExI ((Subset (BSUnit, "nouse2", Eq (Time, VarI 1, T0))), "nouse1", Unit)) *)
