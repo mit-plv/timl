@@ -617,8 +617,9 @@ local
     val acc = ref ([] : vc list)
 
     fun tell vc =
-	(print (printf "Output VC:\n$" [str_vc vc]);
-	 acc := vc :: !acc)
+	(
+	  (* print (printf "Output VC:\n$" [str_vc vc]); *)
+	  acc := vc :: !acc)
 
     fun runWriter m _ =
 	(acc := []; let val r = m () in (r, !acc) end)
@@ -765,7 +766,8 @@ local
 
     fun is_wftype (ctx as (sctx : scontext, kctx : kcontext), c : ty) : unit = 
 	let val ctxn as (sctxn, kctxn) = (map #1 sctx, map #1 kctx)
-	    val () = print (printf "Type wellformedness checking: $\n" [str_t ctxn c]) in
+	    (* val () = print (printf "Type wellformedness checking: $\n" [str_t ctxn c])  *)
+	in
 	    case c of
 		VarT a =>
 		(case lookup_kind a kctx of
@@ -814,7 +816,8 @@ local
 
     (* is_subtype assumes that the types are already checked against the given kind, so it doesn't need to worry about their well-formedness *)
     fun is_subtype (ctx as (sctx : scontext, kctx : kcontext), c : ty, c' : ty) =
-	let val ctxn as (sctxn, kctxn) = (map #1 sctx, map #1 kctx) in
+	let val ctxn as (sctxn, kctxn) = (map #1 sctx, map #1 kctx)
+	    val () = print (printf "Subtyping checking: \n$\n<:\n$\n" [str_t ctxn c, str_t ctxn c']) in
 	    case (c, c') of
 		(Arrow (c1, d, c2), Arrow (c1', d', c2')) =>
 		(is_subtype (ctx, c1', c1);
@@ -1196,7 +1199,7 @@ fun main () =
 				   ilist_right (curry AppVar 0) (shift_t_t t) (VarI 0)), i)
 	fun ilist t i = AppRecur (ilist_core t i)
 	fun nil_ t = Fold (ilist t [T0], Inl (ilist_right (ilist t) t T0, Pack (ilist_left T0, Type.TT, TT)))
-	fun cons_ t (n : idx) = Abs (t, "x", Abs (ilist t [n], "xs", Fold (ilist t [n %+ T1], Inr (ilist_left n, Pack (ilist_right (ilist t) t (n %+ T1), n, Pair (Var 1, Var 0))))))
+	fun cons_ t (n : idx) = Abs (t, "x", Abs (ilist t [n], "xs", Fold (ilist t [n %+ T1], Inr (ilist_left (n %+ T1), Pack (ilist_right (ilist t) t (n %+ T1), n, Pair (Var 1, Var 0))))))
 
 	val output = str_t (["l"], ["ilist"]) (ExI ((Subset (BSUnit, "nouse2", Eq (Time, VarI 1, T0))), "nouse1", Unit))
 	val output = str_t (["l"], ["a", "ilist"]) (Sum (ExI ((Subset (BSUnit, "nouse2", Eq (Time, VarI 1, T0))), "nouse1", Unit),
