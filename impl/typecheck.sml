@@ -27,6 +27,7 @@ datatype idx =
 	 | TrueI
 	 | FalseI
 	 | TT
+	 | Tconst of int
 
 datatype prop =
 	 True
@@ -174,6 +175,7 @@ fun str_i ctx (i : idx) : string =
       | Type.TT => "()"
       | TrueI => "true"
       | FalseI => "false"
+      | Tconst n => str_int n
 
 fun str_p ctx p = 
     case p of
@@ -265,6 +267,7 @@ local
 	  | Type.TT => Type.TT
 	  | TrueI => TrueI
 	  | FalseI => FalseI
+	  | Tconst n => Tconst n
 in
 fun shiftx_i_i x n b = f x n b
 fun shift_i_i b = shiftx_i_i 0 1 b
@@ -390,6 +393,7 @@ local
 	  | TrueI => TrueI
 	  | FalseI => FalseI
 	  | Type.TT => Type.TT
+	  | Tconst n => Tconst n
 in
 fun substx_i_i x (v : idx) (b : idx) : idx = f x v b
 fun subst_i_i v b = substx_i_i 0 v b
@@ -799,6 +803,11 @@ local
 	  | TrueI => Bool
 	  | FalseI => Bool
 	  | Type.TT => BSUnit
+	  | Tconst n => 
+	    if n >= 0 then
+		Time
+	    else
+		raise Fail ("Time constant must be non-negative")
 
     fun is_wfsorts (ctx, s) = List.app (fn s => is_wfsort (ctx, s)) s
     fun check_sorts (ctx, i, s) =
@@ -1257,7 +1266,7 @@ fun main () =
 	fun cons_ t (n : idx) = Abs (t, "x", Abs (ilist t [n], "xs", Fold (ilist t [n %+ T1], Inr (ilist_left (n %+ T1), Pack (ilist_right (ilist t) t (n %+ T1), n, Pair (Var 1, Var 0))))))
 	(* val output = check [("n", STime)] [("a", Type)] [] (cons_ (VarT 0) (VarI 0)) *)
 	fun match_list e t d e1 iname ename e2 = Match (Unfold e, "_", Unpack (Var 0, t, d, "_", "_", shiftx_e_e 0 2 e1), "_", Unpack (Var 0, t, d, iname, ename, shiftx_e_e 1 1 e2))
-	fun map_ a b = AbsI (STime, "m", Abs (Arrow (shift_i_t a, VarI 0, shift_i_t b), "f", Fix (UniI (STime, "n", Arrow (ilist (shiftx_i_t 0 2 a) [VarI 0], VarI 1 %* VarI 0, ilist (shiftx_i_t 0 2 b) [VarI 0])), "map", AbsI (STime, "n", Abs (ilist (shiftx_i_t 0 2 a) [VarI 0], "ls", match_list (Var 0) (ilist (shiftx_i_t 0 2 b) [VarI 0]) (VarI 1 %* VarI 0) (nil_ (shiftx_i_t 0 2 b)) "n'" "x_xs" (App (App (cons_ (shiftx_i_t 0 2 b) (VarI 0), App (Var 3, Fst (Var 0))), App (AppI (Var 2, VarI 0), Snd (Var 0)))))))))
+	fun map_ a b = AbsI (STime, "m", Abs (Arrow (shift_i_t a, VarI 0, shift_i_t b), "f", Fix (UniI (STime, "n", Arrow (ilist (shiftx_i_t 0 2 a) [VarI 0], (VarI 1 %+ Tconst 4) %* VarI 0, ilist (shiftx_i_t 0 2 b) [VarI 0])), "map", AbsI (STime, "n", Abs (ilist (shiftx_i_t 0 2 a) [VarI 0], "ls", match_list (Var 0) (ilist (shiftx_i_t 0 2 b) [VarI 0]) ((VarI 1 %+ Tconst 4) %* VarI 0) (nil_ (shiftx_i_t 0 2 b)) "n'" "x_xs" (App (App (cons_ (shiftx_i_t 0 2 b) (VarI 0), App (Var 3, Fst (Var 0))), App (AppI (Var 2, VarI 0), Snd (Var 0)))))))))
 	val output = check [] [("b", Type), ("a", Type)] [] (map_ (VarT 1) (VarT 0))
 
 	(* val output = str_t (["l"], ["ilist"]) (ExI ((Subset (BSUnit, "nouse2", Eq (Time, VarI 1, T0))), "nouse1", Unit)) *)
