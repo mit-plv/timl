@@ -57,7 +57,8 @@ datatype ty =
 	 | AppRecur of string * (string * sort) list * ty * idx list
 	 (* the first operant of App can only be a recursive type*)
 	 | AppVar of var * idx list
-       | Int
+	 | Int
+	 | AppDatatype of var * ty list * idx * list
 
 end
 
@@ -70,6 +71,8 @@ end
 (* expressions *)
 functor MakeExpr (structure Type : TYPE) = struct
 	open Type
+	datatype rule =
+		 Constr of var * string list * string * expr
 	datatype expr =
 		 Var of var
 		 | App of expr * expr
@@ -103,6 +106,8 @@ functor MakeExpr (structure Type : TYPE) = struct
 		 | Unfold of expr
 		 | Plus of expr * expr
 		 | Const of int
+		 | AppConstr of var * ty list * idx list * expr
+		 | Case of expr * ty * idx * rule list
 	end			       
 
 structure Expr = MakeExpr (structure Type = Type)
@@ -821,7 +826,7 @@ local
 
     fun is_wftype (ctx as (sctx : scontext, kctx : kcontext), c : ty) : unit = 
 	let val ctxn as (sctxn, kctxn) = (map #1 sctx, map #1 kctx)
-	    (* val () = print (printf "Type wellformedness checking: $\n" [str_t ctxn c])  *)
+	(* val () = print (printf "Type wellformedness checking: $\n" [str_t ctxn c])  *)
 	in
 	    case c of
 		VarT a =>
@@ -872,7 +877,8 @@ local
     (* is_subtype assumes that the types are already checked against the given kind, so it doesn't need to worry about their well-formedness *)
     fun is_subtype (ctx as (sctx : scontext, kctx : kcontext), c : ty, c' : ty) =
 	let val ctxn as (sctxn, kctxn) = (map #1 sctx, map #1 kctx)
-	    val () = print (printf "Subtyping checking: \n$\n<:\n$\n" [str_t ctxn c, str_t ctxn c']) in
+	    (* val () = print (printf "Subtyping checking: \n$\n<:\n$\n" [str_t ctxn c, str_t ctxn c'])  *)
+	in
 	    case (c, c') of
 		(Arrow (c1, d, c2), Arrow (c1', d', c2')) =>
 		(is_subtype (ctx, c1', c1);
@@ -1036,15 +1042,16 @@ local
     fun mismatch_anno ctx expect have =  "Type annotation mismatch: expect " ^ expect ^ " have " ^ str_t ctx have
 
     fun check_fix_body e =
-      case e of
-    	  AbsI (_, _, e') => check_fix_body e'
-    	| Abs _ => ()
-    	| _ => raise Fail "The body of fixpoint must have the form (fn [(_ :: _) ... (_ :: _)] (_ : _) => _)"
+	case e of
+    	    AbsI (_, _, e') => check_fix_body e'
+    	  | Abs _ => ()
+    	  | _ => raise Fail "The body of fixpoint must have the form (fn [(_ :: _) ... (_ :: _)] (_ : _) => _)"
 
     fun get_type (ctx as (sctx : scontext, ktctx as (kctx : kcontext, tctx : tcontext)), e : expr) : ty * idx =
 	let val skctx = (sctx, kctx) 
 	    val ctxn as (skctxn as (sctxn, kctxn), tctxn) = ((map #1 sctx, map #1 kctx), map #1 tctx) 
-	    val () = print (printf "Type checking: $\n" [str_e ctxn e]) in
+	    (* val () = print (printf "Type checking: $\n" [str_e ctxn e])  *)
+	in
 	    case e of
 		Var x =>
 		(case lookup x tctx of
@@ -1209,6 +1216,17 @@ local
 		    (Int, d1 %+ d2 %+ T1)
 		end
 	      | Const _ => (Int, T0)
+	      | AppConstr (x, ts, is, e) => 
+		let (t, _) = get_type (ctx, App (foldl (fn (i, e) => AppI (e, i)) (foldl (fn (i, t) => AppT (e, t)) (Var x) ts) is, e)) in
+		    (t, T0)
+		end
+	      | Case (e, t, d, rules) => 
+		let val () = is_wftype (skctx, t)
+		    val () = check_sort (sctx, d, STime)
+		    val (t1, d1) = get_type (ctx, e)
+		    val (range, ) = check_rules 
+		in
+		end
 	end
 in								     
 
@@ -1235,86 +1253,86 @@ fun trivial_solver vcs = List.filter (fn vc => solver vc = false) vcs
 end
 
 local
-fun passi i =
-    case i of
-	Tmax (i1, i2) =>
-	if i1 = i2 then
-	    (true, i1)
-	else
+    fun passi i =
+	case i of
+	    Tmax (i1, i2) =>
+	    if i1 = i2 then
+		(true, i1)
+	    else
+		let val (b1, i1) = passi i1
+		    val (b2, i2) = passi i2 in
+		    (b1 orelse b2, Tmax (i1, i2))
+		end
+	  | Tmin (i1, i2) =>
+	    if i1 = i2 then
+		(true, i1)
+	    else
+		let val (b1, i1) = passi i1
+		    val (b2, i2) = passi i2 in
+		    (b1 orelse b2, Tmin (i1, i2))
+		end
+	  | Tadd (i1, i2) => 
+	    if i1 = T0 then (true, i2)
+	    else if i2 = T0 then (true, i1)
+	    else
+		let val (b1, i1) = passi i1
+		    val (b2, i2) = passi i2 in
+		    (b1 orelse b2, Tadd (i1, i2))
+		end
+	  | Tmult (i1, i2) => 
+	    if i1 = T0 then (true, T0)
+	    else if i2 = T0 then (true, T0)
+	    else if i1 = T1 then (true, i2)
+	    else if i2 = T1 then (true, i1)
+	    else
+		let val (b1, i1) = passi i1
+		    val (b2, i2) = passi i2 in
+		    (b1 orelse b2, Tmult (i1, i2))
+		end
+	  | _ => (false, i)
+		     
+    fun passp p = 
+	case p of
+	    And (p1, p2) => 
+	    let val (b1, p1) = passp p1
+		val (b2, p2) = passp p2 in
+		(b1 orelse b2, And (p1, p2))
+	    end
+	  | Or (p1, p2) => 
+	    let val (b1, p1) = passp p1
+		val (b2, p2) = passp p2 in
+		(b1 orelse b2, Or (p1, p2))
+	    end
+	  | Imply (p1, p2) => 
+	    let val (b1, p1) = passp p1
+		val (b2, p2) = passp p2 in
+		(b1 orelse b2, Imply (p1, p2))
+	    end
+	  | Iff (p1, p2) => 
+	    let val (b1, p1) = passp p1
+		val (b2, p2) = passp p2 in
+		(b1 orelse b2, Iff (p1, p2))
+	    end
+	  | Eq (s, i1, i2) => 
 	    let val (b1, i1) = passi i1
 		val (b2, i2) = passi i2 in
-		(b1 orelse b2, Tmax (i1, i2))
+		(b1 orelse b2, Eq (s, i1, i2))
 	    end
-      | Tmin (i1, i2) =>
-	if i1 = i2 then
-	    (true, i1)
-	else
+	  | TimeLe (i1, i2) => 
 	    let val (b1, i1) = passi i1
 		val (b2, i2) = passi i2 in
-		(b1 orelse b2, Tmin (i1, i2))
+		(b1 orelse b2, TimeLe (i1, i2))
 	    end
-      | Tadd (i1, i2) => 
-	if i1 = T0 then (true, i2)
-	else if i2 = T0 then (true, i1)
-	else
-	    let val (b1, i1) = passi i1
-		val (b2, i2) = passi i2 in
-		(b1 orelse b2, Tadd (i1, i2))
-	    end
-      | Tmult (i1, i2) => 
-	if i1 = T0 then (true, T0)
-	else if i2 = T0 then (true, T0)
-	else if i1 = T1 then (true, i2)
-	else if i2 = T1 then (true, i1)
-	else
-	    let val (b1, i1) = passi i1
-		val (b2, i2) = passi i2 in
-		(b1 orelse b2, Tmult (i1, i2))
-	    end
-      | _ => (false, i)
-	    
-fun passp p = 
-    case p of
-	And (p1, p2) => 
-	let val (b1, p1) = passp p1
-	    val (b2, p2) = passp p2 in
-	    (b1 orelse b2, And (p1, p2))
-	end
-      | Or (p1, p2) => 
-	let val (b1, p1) = passp p1
-	    val (b2, p2) = passp p2 in
-	    (b1 orelse b2, Or (p1, p2))
-	end
-      | Imply (p1, p2) => 
-	let val (b1, p1) = passp p1
-	    val (b2, p2) = passp p2 in
-	    (b1 orelse b2, Imply (p1, p2))
-	end
-      | Iff (p1, p2) => 
-	let val (b1, p1) = passp p1
-	    val (b2, p2) = passp p2 in
-	    (b1 orelse b2, Iff (p1, p2))
-	end
-      | Eq (s, i1, i2) => 
-	let val (b1, i1) = passi i1
-	    val (b2, i2) = passi i2 in
-	    (b1 orelse b2, Eq (s, i1, i2))
-	end
-      | TimeLe (i1, i2) => 
-	let val (b1, i1) = passi i1
-	    val (b2, i2) = passi i2 in
-	    (b1 orelse b2, TimeLe (i1, i2))
-	end
-      | _ => (false, p)
+	  | _ => (false, p)
 
-fun simp p = 
-    let fun loop p =
-	    let val (changed, p') = passp p in
-		if changed then loop p'
-		else p
-	    end in
-	loop p
-    end
+    fun simp p = 
+	let fun loop p =
+		let val (changed, p') = passp p in
+		    if changed then loop p'
+		    else p
+		end in
+	    loop p
+	end
 in
 fun simplify (ctx, ps, p) = (ctx, map simp ps, simp p)
 end
@@ -1357,32 +1375,32 @@ fun main () =
 	fun map_ a b = AbsI (STime, "m", Abs (Arrow (shift_i_t a, VarI 0, shift_i_t b), "f", Fix (UniI (STime, "n", Arrow (ilist (shiftx_i_t 0 2 a) [VarI 0], (VarI 1 %+ Tconst 2) %* VarI 0, ilist (shiftx_i_t 0 2 b) [VarI 0])), "map", AbsI (STime, "n", Abs (ilist (shiftx_i_t 0 2 a) [VarI 0], "ls", match_list (Var 0) (ilist (shiftx_i_t 0 2 b) [VarI 0]) ((VarI 1 %+ Tconst 2) %* VarI 0) (nil_ (shiftx_i_t 0 2 b)) "n'" "x_xs" (cons_ (shiftx_i_t 0 2 b) (VarI 0) (App (Var 3, Fst (Var 0))) (App (AppI (Var 2, VarI 0), Snd (Var 0)))))))))
 	val output = check [] [("b", Type), ("a", Type)] [] (map_ (VarT 1) (VarT 0))
 
-	(* val output = str_t (["l"], ["ilist"]) (ExI ((Subset (BSUnit, "nouse2", Eq (Time, VarI 1, T0))), "nouse1", Unit)) *)
-	(* val output = str_t (["l"], ["a", "ilist"]) (Sum (ExI ((Subset (BSUnit, "nouse2", Eq (Time, VarI 1, T0))), "nouse1", Unit), *)
-	(* 						 ExI ((Subset (Time, "l'", Eq (Time, VarI 1, VarI 0 %+ T1))), "l'", Prod (shift_t_t (VarT 0), AppVar (0, [VarI 0]))))) *)
-	(* val ilist1 = ilist (VarT 0) [VarI 0] *)
-	(* val output = str_t (["n"], ["a"]) ilist1 *)
+    (* val output = str_t (["l"], ["ilist"]) (ExI ((Subset (BSUnit, "nouse2", Eq (Time, VarI 1, T0))), "nouse1", Unit)) *)
+    (* val output = str_t (["l"], ["a", "ilist"]) (Sum (ExI ((Subset (BSUnit, "nouse2", Eq (Time, VarI 1, T0))), "nouse1", Unit), *)
+    (* 						 ExI ((Subset (Time, "l'", Eq (Time, VarI 1, VarI 0 %+ T1))), "l'", Prod (shift_t_t (VarT 0), AppVar (0, [VarI 0]))))) *)
+    (* val ilist1 = ilist (VarT 0) [VarI 0] *)
+    (* val output = str_t (["n"], ["a"]) ilist1 *)
 
-	(* val plus = Abs (Int, "a", Abs (Int, "b", Plus (Var 1, Var 0))) *)
-	(* val output = str_e (([], []), []) plus *)
-	(* val plus1 = Abs (Int, "a", Abs (Int, "b", Plus (Plus (Var 1, Var 0), Var 2))) *)
-	(* val output = str_e (([], []), ["c"]) plus1 *)
-	(* val ttt = Uni ("a", Uni ("b", Prod (Prod (VarT 1, VarT 0), VarT 2))) *)
-	(* val output = str_t ([], ["c"]) ttt *)
-	(* val output = str_t ([], []) (subst_t_t Int ttt) *)
+    (* val plus = Abs (Int, "a", Abs (Int, "b", Plus (Var 1, Var 0))) *)
+    (* val output = str_e (([], []), []) plus *)
+    (* val plus1 = Abs (Int, "a", Abs (Int, "b", Plus (Plus (Var 1, Var 0), Var 2))) *)
+    (* val output = str_e (([], []), ["c"]) plus1 *)
+    (* val ttt = Uni ("a", Uni ("b", Prod (Prod (VarT 1, VarT 0), VarT 2))) *)
+    (* val output = str_t ([], ["c"]) ttt *)
+    (* val output = str_t ([], []) (subst_t_t Int ttt) *)
 
-	(* val bool = Sum (Unit, Unit) *)
-	(* fun cmp_t t n = Arrow (t, T0, Arrow (t, n, bool)) *)
-	(* val msort = AbsT ("a", AbsI (STime, "m", Abs (cmp_t (VarT 0) (VarI 0), "cmp", AbsI (STime, "n", Fix (ilist (VarT 0) [VarI 0], VarI 1 %+ VarI 0, ilist (VarT 0) [VarI 0], "msort", "xs", nil_ (VarT 0)))))) *)
-	(* val empty = (([], []), []) *)
-	(* val output = str_e empty msort *)
-	(* val output = check [] [] [] msort *)
+    (* val bool = Sum (Unit, Unit) *)
+    (* fun cmp_t t n = Arrow (t, T0, Arrow (t, n, bool)) *)
+    (* val msort = AbsT ("a", AbsI (STime, "m", Abs (cmp_t (VarT 0) (VarI 0), "cmp", AbsI (STime, "n", Fix (ilist (VarT 0) [VarI 0], VarI 1 %+ VarI 0, ilist (VarT 0) [VarI 0], "msort", "xs", nil_ (VarT 0)))))) *)
+    (* val empty = (([], []), []) *)
+    (* val output = str_e empty msort *)
+    (* val output = check [] [] [] msort *)
 
-	(* val plus_5_7 = App (App (plus, Const 5), Const 7) *)
-	(* (* val output = check [] [] [] plus_5_7 *) *)
+    (* val plus_5_7 = App (App (plus, Const 5), Const 7) *)
+    (* (* val output = check [] [] [] plus_5_7 *) *)
 
-	(* val ilist1_core = ilist_core (VarT 0) [VarI 0 %+ T1] *)
-	(* val output = str_t (["n"], ["a"]) (unroll ilist1_core) *)
+    (* val ilist1_core = ilist_core (VarT 0) [VarI 0 %+ T1] *)
+    (* val output = str_t (["n"], ["a"]) (unroll ilist1_core) *)
 
     in			 
 	print (output ^ "\n")
