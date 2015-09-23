@@ -71,8 +71,9 @@ end
 (* expressions *)
 functor MakeExpr (structure Type : TYPE) = struct
 	open Type
-	datatype rule =
-		 Constr of var * string list * string * expr
+	datatype ptrn =
+		 Constr of var * string list * string
+	type rule = ptrn * expr
 	datatype expr =
 		 Var of var
 		 | App of expr * expr
@@ -1176,10 +1177,9 @@ local
 		    val (t1, d1) = get_type (ctx, e1) in
 		    case t1 of
 			ExI (s, _, t1') => 
-			let val ctx' as (sctx', (kctx', _)) = add_typing_sk (expr_var, t1') (add_sorting_kt (idx_var, s) ctx)
-			    val (t2, d2) = get_type (ctx', e2)
-			    val () = is_subtype ((sctx', kctx'), t2, shift_i_t t)
-			    val () = is_le (sctx', d2, shift_i_i d) in
+			let val ctx' = add_typing_sk (expr_var, t1') (add_sorting_kt (idx_var, s) ctx)
+			    val () = check_type (ctx', e2, shift_i_t t, shift_i_i d)
+			in
 			    (t, d1 %+ d)
 			end
 		      | t1' => raise Fail (mismatch ctxn e1 "(ex _ : _, _)" t1')
@@ -1217,17 +1217,47 @@ local
 		end
 	      | Const _ => (Int, T0)
 	      | AppConstr (x, ts, is, e) => 
+		let (_, d) = get_type (ctx, e)
 		let (t, _) = get_type (ctx, App (foldl (fn (i, e) => AppI (e, i)) (foldl (fn (i, t) => AppT (e, t)) (Var x) ts) is, e)) in
-		    (t, T0)
+		    (t, d)
 		end
 	      | Case (e, t, d, rules) => 
 		let val () = is_wftype (skctx, t)
 		    val () = check_sort (sctx, d, STime)
 		    val (t1, d1) = get_type (ctx, e)
-		    val (range, ) = check_rules 
+		    val cover = check_rules (ctx, rules, (t1, d, t))
+		    val () = check_exhaustive cover
 		in
+		    (t, d1 %+ d)
 		end
 	end
+
+    and check_type (ctx as (sctx, (kctx, tctx)), e, t, d) =
+	let val skctx = (sctx, kctx) 
+	    val (t', d') = get_type (ctx, e)
+	in
+	    is_subtype (skctx, t', t);
+	    is_le (sctx, d', d)
+	end
+
+    and check_rules (ctx, (pn, e), t as (t1, d, t2)) =
+	let val (sctx', ps) = match_ptrn (skctx, pn, t1)
+	    val () = check_type (, e, shift t2, shift d)
+	in
+	    
+	end
+
+    and check_rules (ctx, rules, t as (t1, d, t2)) =
+	let fun f (rule, acc) =
+		let val cover = check_rule (ctx, rule, t)
+		    val () = check_redundancy (acc, cover)
+		in
+		    cover \/ acc
+		end 
+	in
+	    foldl f Cover.False rules
+	end
+
 in								     
 
 fun vcgen (sctx : scontext) (kctx : kcontext) (tctx : tcontext) (e : expr) : ((ty * idx) * vc list) result =
@@ -1347,7 +1377,7 @@ fun check sctx kctx tctx e =
 		val vcs = trivial_solver vcs
 	    in
 		printf
-		    "OK: \ntype = $\nd = $\nVCs: [count=$]\n$\n"
+		    "OK: \n  Type: $\n  Time: $\nVCs: [count=$]\n$\n"
 		    [str_t (sctxn, kctxn) t,
 		     str_i sctxn d,
 		     str_int (length vcs),
