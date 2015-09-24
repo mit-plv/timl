@@ -1223,17 +1223,17 @@ local
 
     fun fetch_constr (ctx, x) =
 	case nth_error ctx x of
-	    SOME (_, c) => c
+	    SOME (name, c) => (name, c)
 	  | NONE => raise Fail (printf "Unbound constructor $" [str_v (names ctx) x])
 
     fun fetch_constr_type (ctx, cx) =
-	let val (family, tnames, ns, t, is) = fetch_constr (ctx, cx)
+	let val (cname, (family, tnames, ns, t, is)) = fetch_constr (ctx, cx)
 	    val ts = (map VarT o rev o range o length) tnames
 	    val t = Arrow (t, T0, AppDatatype (shiftx_v 0 (length tnames) family, ts, is))
 	    val t = foldr (fn ((name, s), t) => UniI (s, name, t)) t ns
-	    val t = foldr (fn (name, t) => Uni (name, t)) t tnames
+	    val t = foldr Uni t tnames
 	in
-	    t
+	    (cname, t)
 	end
 
     (* t is already checked for wellformedness *)
@@ -1242,7 +1242,7 @@ local
 	in
 	    case (pn, t) of
 		(Constr (cx, inames, ename), AppDatatype (x, ts, is)) =>
-		let val c as (x', tnames, ns, t1, is') = fetch_constr (cctx, cx)
+		let val (_, c as (x', tnames, ns, t1, is')) = fetch_constr (cctx, cx)
 		in
 		    if x' = x then
 			let val () = check_length (tnames, ts)
@@ -1275,7 +1275,7 @@ local
 	let val skctx = (sctx, kctx) 
 	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = (sctx_names sctx, names kctx, names cctx, names tctx) 
 	    val skctxn = (sctxn, kctxn)
-	(* val () = print (printf "Type checking: $\n" [str_e ctxn e])  *)
+	val () = print (printf "Type checking: $\n" [str_e ctxn e])
 	in
 	    case e of
 		Var x =>
@@ -1442,9 +1442,9 @@ local
 	      | Const _ => 
 		(Int, T0)
 	      | AppConstr (cx, ts, is, e) => 
-		let val tc = fetch_constr_type (cctx, cx)
+		let val (cname, tc) = fetch_constr_type (cctx, cx)
 		    val (_, d) = get_type (ctx, e)
-		    val (t, _) = get_type (add_typing_skct ("_", tc) ctx, App (foldl (fn (i, e) => AppI (e, i)) (foldl (fn (t, e) => AppT (e, t)) (Var 0) ts) is, shift_e_e e)) 
+		    val (t, _) = get_type (add_typing_skct (cname, tc) ctx, App (foldl (fn (i, e) => AppI (e, i)) (foldl (fn (t, e) => AppT (e, t)) (Var 0) ts) is, shift_e_e e)) 
 		in
 		    (* constructor application doesn't incur count *)
 		    (t, d)
@@ -1619,49 +1619,66 @@ fun check (ctx as (sctx, kctx, cctx, tctx)) e =
 fun curry f a b = f (a, b)
 fun uncurry f (a, b) = f a b
 
+structure RecurExamples = struct
+fun ilist_left l = ExI ((Subset (BSUnit, "_", Eq (Time, T0, shift_i_i l))), "_", Unit)
+fun ilist_right ilist t l = ExI ((Subset (Time, "l'", Eq (Time, VarI 0 %+ T1, shift_i_i l))), "l'", Prod (shift_i_t t, ilist [VarI 0]))
+fun ilist_core t i = ("ilist", [("l", STime)],
+		      Sum (ilist_left (VarI 0),
+			   ilist_right (curry AppVar 0) (shift_t_t t) (VarI 0)), i)
+fun ilist t i = AppRecur (ilist_core t i)
+fun nil_ t = Fold (ilist t [T0], Inl (ilist_right (ilist t) t T0, Pack (ilist_left T0, Type.TT, TT)))
+fun cons_ t (n : idx) x xs = Fold (ilist t [n %+ T1], Inr (ilist_left (n %+ T1), Pack (ilist_right (ilist t) t (n %+ T1), n, Pair (x, xs))))
+(* val output = check [("n", STime)] [("a", Type)] [] (cons_ (VarT 0) (VarI 0)) *)
+fun match_list e t d e1 iname ename e2 = Match (Unfold e, "_", Unpack (Var 0, t, d, "_", "_", shiftx_e_e 0 2 e1), "_", Unpack (Var 0, t, d, iname, ename, shiftx_e_e 1 1 e2))
+fun map_ a b = AbsI (STime, "m", Abs (Arrow (shift_i_t a, VarI 0, shift_i_t b), "f", Fix (UniI (STime, "n", Arrow (ilist (shiftx_i_t 0 2 a) [VarI 0], (VarI 1 %+ Tconst 2) %* VarI 0, ilist (shiftx_i_t 0 2 b) [VarI 0])), "map", AbsI (STime, "n", Abs (ilist (shiftx_i_t 0 2 a) [VarI 0], "ls", match_list (Var 0) (ilist (shiftx_i_t 0 2 b) [VarI 0]) ((VarI 1 %+ Tconst 2) %* VarI 0) (nil_ (shiftx_i_t 0 2 b)) "n'" "x_xs" (cons_ (shiftx_i_t 0 2 b) (VarI 0) (App (Var 3, Fst (Var 0))) (App (AppI (Var 2, VarI 0), Snd (Var 0)))))))))
+fun main () = check (([], []), [("b", Type), ("a", Type)], [], []) (map_ (VarT 1) (VarT 0))
+(* val output = str_t (["l"], ["ilist"]) (ExI ((Subset (BSUnit, "nouse2", Eq (Time, VarI 1, T0))), "nouse1", Unit)) *)
+(* val output = str_t (["l"], ["a", "ilist"]) (Sum (ExI ((Subset (BSUnit, "nouse2", Eq (Time, VarI 1, T0))), "nouse1", Unit), *)
+(* 						 ExI ((Subset (Time, "l'", Eq (Time, VarI 1, VarI 0 %+ T1))), "l'", Prod (shift_t_t (VarT 0), AppVar (0, [VarI 0]))))) *)
+(* val ilist1 = ilist (VarT 0) [VarI 0] *)
+(* val output = str_t (["n"], ["a"]) ilist1 *)
+
+(* val plus = Abs (Int, "a", Abs (Int, "b", Plus (Var 1, Var 0))) *)
+(* val output = str_e (([], []), []) plus *)
+(* val plus1 = Abs (Int, "a", Abs (Int, "b", Plus (Plus (Var 1, Var 0), Var 2))) *)
+(* val output = str_e (([], []), ["c"]) plus1 *)
+(* val ttt = Uni ("a", Uni ("b", Prod (Prod (VarT 1, VarT 0), VarT 2))) *)
+(* val output = str_t ([], ["c"]) ttt *)
+(* val output = str_t ([], []) (subst_t_t Int ttt) *)
+
+(* val bool = Sum (Unit, Unit) *)
+(* fun cmp_t t n = Arrow (t, T0, Arrow (t, n, bool)) *)
+(* val msort = AbsT ("a", AbsI (STime, "m", Abs (cmp_t (VarT 0) (VarI 0), "cmp", AbsI (STime, "n", Fix (ilist (VarT 0) [VarI 0], VarI 1 %+ VarI 0, ilist (VarT 0) [VarI 0], "msort", "xs", nil_ (VarT 0)))))) *)
+(* val empty = (([], []), []) *)
+(* val output = str_e empty msort *)
+(* val output = check [] [] [] msort *)
+
+(* val plus_5_7 = App (App (plus, Const 5), Const 7) *)
+(* (* val output = check [] [] [] plus_5_7 *) *)
+
+(* val ilist1_core = ilist_core (VarT 0) [VarI 0 %+ T1] *)
+(* val output = str_t (["n"], ["a"]) (unroll ilist1_core) *)
+
+end
+
+structure DatatypeExamples = struct
+val ilist = KArrowDatatype (1, [STime])
+fun inil family = (family, ["a"], [], Unit, [T0])
+fun icons family = (family, ["a"], [("n", STime)], Prod (VarT 0, AppDatatype (shiftx_v 0 1 family, [VarT 0], [VarI 0])), [VarI 0 %+ T1])
+val ctx : context = (([], []), [("ilist", ilist)], [("inil", inil 0), ("icons", icons 0)], []) 
+fun main () = check ctx (AppConstr (1, [Unit], [], TT))
+
+(* fun match_list e t d e1 iname ename e2 = Match (Unfold e, "_", Unpack (Var 0, t, d, "_", "_", shiftx_e_e 0 2 e1), "_", Unpack (Var 0, t, d, iname, ename, shiftx_e_e 1 1 e2)) *)
+(* fun map_ a b = AbsI (STime, "m", Abs (Arrow (shift_i_t a, VarI 0, shift_i_t b), "f", Fix (UniI (STime, "n", Arrow (ilist (shiftx_i_t 0 2 a) [VarI 0], (VarI 1 %+ Tconst 2) %* VarI 0, ilist (shiftx_i_t 0 2 b) [VarI 0])), "map", AbsI (STime, "n", Abs (ilist (shiftx_i_t 0 2 a) [VarI 0], "ls", match_list (Var 0) (ilist (shiftx_i_t 0 2 b) [VarI 0]) ((VarI 1 %+ Tconst 2) %* VarI 0) (nil_ (shiftx_i_t 0 2 b)) "n'" "x_xs" (cons_ (shiftx_i_t 0 2 b) (VarI 0) (App (Var 3, Fst (Var 0))) (App (AppI (Var 2, VarI 0), Snd (Var 0))))))))) *)
+(* val output = check (([], []), [("b", Type), ("a", Type)], [], []) (map_ (VarT 1) (VarT 0)) *)
+
+end
+
 fun main () = 
     let
 	val output = ""
-	fun ilist_left l = ExI ((Subset (BSUnit, "_", Eq (Time, T0, shift_i_i l))), "_", Unit)
-	fun ilist_right ilist t l = ExI ((Subset (Time, "l'", Eq (Time, VarI 0 %+ T1, shift_i_i l))), "l'", Prod (shift_i_t t, ilist [VarI 0]))
-	fun ilist_core t i = ("ilist", [("l", STime)],
-			      Sum (ilist_left (VarI 0),
-				   ilist_right (curry AppVar 0) (shift_t_t t) (VarI 0)), i)
-	fun ilist t i = AppRecur (ilist_core t i)
-	fun nil_ t = Fold (ilist t [T0], Inl (ilist_right (ilist t) t T0, Pack (ilist_left T0, Type.TT, TT)))
-	fun cons_ t (n : idx) x xs = Fold (ilist t [n %+ T1], Inr (ilist_left (n %+ T1), Pack (ilist_right (ilist t) t (n %+ T1), n, Pair (x, xs))))
-	(* val output = check [("n", STime)] [("a", Type)] [] (cons_ (VarT 0) (VarI 0)) *)
-	fun match_list e t d e1 iname ename e2 = Match (Unfold e, "_", Unpack (Var 0, t, d, "_", "_", shiftx_e_e 0 2 e1), "_", Unpack (Var 0, t, d, iname, ename, shiftx_e_e 1 1 e2))
-	fun map_ a b = AbsI (STime, "m", Abs (Arrow (shift_i_t a, VarI 0, shift_i_t b), "f", Fix (UniI (STime, "n", Arrow (ilist (shiftx_i_t 0 2 a) [VarI 0], (VarI 1 %+ Tconst 2) %* VarI 0, ilist (shiftx_i_t 0 2 b) [VarI 0])), "map", AbsI (STime, "n", Abs (ilist (shiftx_i_t 0 2 a) [VarI 0], "ls", match_list (Var 0) (ilist (shiftx_i_t 0 2 b) [VarI 0]) ((VarI 1 %+ Tconst 2) %* VarI 0) (nil_ (shiftx_i_t 0 2 b)) "n'" "x_xs" (cons_ (shiftx_i_t 0 2 b) (VarI 0) (App (Var 3, Fst (Var 0))) (App (AppI (Var 2, VarI 0), Snd (Var 0)))))))))
-	val output = check (([], []), [("b", Type), ("a", Type)], [], []) (map_ (VarT 1) (VarT 0))
-
-    (* val output = str_t (["l"], ["ilist"]) (ExI ((Subset (BSUnit, "nouse2", Eq (Time, VarI 1, T0))), "nouse1", Unit)) *)
-    (* val output = str_t (["l"], ["a", "ilist"]) (Sum (ExI ((Subset (BSUnit, "nouse2", Eq (Time, VarI 1, T0))), "nouse1", Unit), *)
-    (* 						 ExI ((Subset (Time, "l'", Eq (Time, VarI 1, VarI 0 %+ T1))), "l'", Prod (shift_t_t (VarT 0), AppVar (0, [VarI 0]))))) *)
-    (* val ilist1 = ilist (VarT 0) [VarI 0] *)
-    (* val output = str_t (["n"], ["a"]) ilist1 *)
-
-    (* val plus = Abs (Int, "a", Abs (Int, "b", Plus (Var 1, Var 0))) *)
-    (* val output = str_e (([], []), []) plus *)
-    (* val plus1 = Abs (Int, "a", Abs (Int, "b", Plus (Plus (Var 1, Var 0), Var 2))) *)
-    (* val output = str_e (([], []), ["c"]) plus1 *)
-    (* val ttt = Uni ("a", Uni ("b", Prod (Prod (VarT 1, VarT 0), VarT 2))) *)
-    (* val output = str_t ([], ["c"]) ttt *)
-    (* val output = str_t ([], []) (subst_t_t Int ttt) *)
-
-    (* val bool = Sum (Unit, Unit) *)
-    (* fun cmp_t t n = Arrow (t, T0, Arrow (t, n, bool)) *)
-    (* val msort = AbsT ("a", AbsI (STime, "m", Abs (cmp_t (VarT 0) (VarI 0), "cmp", AbsI (STime, "n", Fix (ilist (VarT 0) [VarI 0], VarI 1 %+ VarI 0, ilist (VarT 0) [VarI 0], "msort", "xs", nil_ (VarT 0)))))) *)
-    (* val empty = (([], []), []) *)
-    (* val output = str_e empty msort *)
-    (* val output = check [] [] [] msort *)
-
-    (* val plus_5_7 = App (App (plus, Const 5), Const 7) *)
-    (* (* val output = check [] [] [] plus_5_7 *) *)
-
-    (* val ilist1_core = ilist_core (VarT 0) [VarI 0 %+ T1] *)
-    (* val output = str_t (["n"], ["a"]) (unroll ilist1_core) *)
-
+	(* val output = RecurExamples.main () *)
+	val output = DatatypeExamples.main ()
     in			 
 	print (output ^ "\n")
     end
