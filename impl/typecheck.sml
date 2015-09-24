@@ -58,7 +58,7 @@ datatype ty =
 	 (* the first operant of App can only be a recursive type*)
 	 | AppVar of var * idx list
 	 | Int
-	 | AppDatatype of var * ty list * idx * list
+	 | AppDatatype of var * ty list * idx list
 
 end
 
@@ -70,11 +70,14 @@ end
 
 (* expressions *)
 functor MakeExpr (structure Type : TYPE) = struct
+
 	open Type
+
 	datatype ptrn =
 		 Constr of var * string list * string
-	type rule = ptrn * expr
-	type constr = string list * (string * sort) list * ty * var * idx list
+
+	type constr = var * string list * (string * sort) list * ty * idx list
+
 	datatype expr =
 		 Var of var
 		 | App of expr * expr
@@ -108,8 +111,9 @@ functor MakeExpr (structure Type : TYPE) = struct
 		 | Unfold of expr
 		 | Plus of expr * expr
 		 | Const of int
-		 | AppConstr of string * ty list * idx list * expr
-		 | Case of expr * ty * idx * rule list
+		 | AppConstr of var * ty list * idx list * expr
+		 | Case of expr * ty * idx * (ptrn * expr) list
+
 	end			       
 
 structure Expr = MakeExpr (structure Type = Type)
@@ -136,12 +140,14 @@ fun is_value (e : expr) : bool =
       | AppI _ => false
       | Pack (_, _, e) => is_value e
       | Unpack _ => false
-      | Fix _ => true
+      | Fix _ => false
       | Let _ => false
       | Ascription _ => false
       | AscriptionTime _ => false
       | Plus _ => false
       | Const _ => true
+      | AppConstr (_, _, _, e) => is_value e
+      | Case _ => false
 
 fun nth_error ls n =
     if n < 0 orelse n >= length ls then
@@ -220,10 +226,16 @@ fun str_t (ctx as (sctx, kctx)) (c : ty) : string =
 		join " " (map (str_i sctx) i)]
       | AppVar (x, i) => printf "($ $)" [str_v kctx x, join " " (map (str_i sctx) i)]
       | Int => "int"
+      | AppDatatype (x, ts, is) => printf "($ $ $)" [str_v kctx x, join " " (map (str_t ctx) ts), join " " (map (str_i sctx) is)]
 
-fun str_e (ctx as ((sctx, kctx), tctx)) (e : expr) : string =
-    let fun add_t name (skctx, tctx) = (skctx, name :: tctx) 
-	val skctx = (sctx, kctx) in
+fun str_pn ctx pn = 
+    case pn of
+	Constr (x, inames, ename) => printf "$ $ $" [str_v ctx x, join " " inames, ename]
+
+fun str_e (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
+    let fun add_t name (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx) 
+	val skctx = (sctx, kctx) 
+    in
 	case e of
 	    Var x => str_v tctx x
 	  | Abs (t, name, e) => printf "(fn ($ : $) => $)" [name, str_t skctx t, str_e (add_t name ctx) e]
@@ -237,23 +249,27 @@ fun str_e (ctx as ((sctx, kctx), tctx)) (e : expr) : string =
 	  | Match (e, name1, e1, name2, e2) => printf "(case $ of inl $ => $ | inr $  => $)" [str_e ctx e, name1, str_e (add_t name1 ctx) e1, name2, str_e (add_t name2 ctx) e2]
 	  | Fold (t, e) => printf "(fold $ $)" [str_t skctx t, str_e ctx e]
 	  | Unfold e => printf "(unfold $)" [str_e ctx e]
-	  | AbsT (name, e) => printf "(fn $ => $)" [name, str_e ((sctx, name :: kctx), tctx) e]
+	  | AbsT (name, e) => printf "(fn $ => $)" [name, str_e (sctx, name :: kctx, cctx, tctx) e]
 	  | AppT (e, t) => printf "($ [$])" [str_e ctx e, str_t skctx t]
-	  | AbsI (s, name, e) => printf "(fn ($ :: $) => $)" [name, str_s sctx s, str_e ((name :: sctx, kctx), tctx) e]
+	  | AbsI (s, name, e) => printf "(fn ($ :: $) => $)" [name, str_s sctx s, str_e (name :: sctx, kctx, cctx, tctx) e]
 	  | AppI (e, i) => printf "($ [$])" [str_e ctx e, str_i sctx i]
 	  | Pack (t, i, e) => printf "(pack $ ($, $))" [str_t skctx t, str_i sctx i, str_e ctx e]
-	  | Unpack (e1, t, d, iname, ename, e2) => printf "unpack $ return $ time $ as ($, $) in $ end" [str_e ctx e1, str_t skctx t, str_i sctx d, iname, ename, str_e ((iname :: sctx, kctx), ename :: tctx) e2]
+	  | Unpack (e1, t, d, iname, ename, e2) => printf "unpack $ return $ time $ as ($, $) in $ end" [str_e ctx e1, str_t skctx t, str_i sctx d, iname, ename, str_e (iname :: sctx, kctx, cctx, ename :: tctx) e2]
 	  | Fix (t, name, e) => printf "(fix ($ : $) => $)" [name, str_t skctx t, str_e (add_t name ctx) e]
 	  | Let (e1, name, e2) => printf "let $ = $ in $ end" [name, str_e ctx e1, str_e ctx e2]
 	  | Ascription (e, t) => printf "($ : $)" [str_e ctx e, str_t skctx t]
 	  | AscriptionTime (e, d) => printf "($ |> $)" [str_e ctx e, str_i sctx d]
 	  | Plus (e1, e2) => printf "($ + $)" [str_e ctx e1, str_e ctx e2]
 	  | Const n => str_int n
+	  | AppConstr (x, ts, is, e) => printf "$ $ $ $" [str_v cctx x, join " " (map (str_t skctx) ts), join " " (map (str_i sctx) is), str_e ctx e]
     end
 
 val STime = Basic Time
 val SBool = Basic Bool
 val SUnit = Basic BSUnit
+
+fun mapFst f (a, b) = (f a, b)
+fun mapSnd f (a, b) = (a, f b)
 
 fun shiftx_v x n y = 
     if y >= x then
@@ -317,7 +333,7 @@ local
 	  | Uni (name, t) => Uni (name, f x n t)
 	  | UniI (s, name, t) => UniI (shiftx_i_s x n s, name, f (x + 1) n t)
 	  | ExI (s, name, t) => ExI (shiftx_i_s x n s, name, f (x + 1) n t)
-	  | AppRecur (name, ns, t, i) => AppRecur (name, map (fn (name, s) => (name, shiftx_i_s x n s)) ns, f (x + length ns) n t, map (shiftx_i_i x n) i)
+	  | AppRecur (name, ns, t, i) => AppRecur (name, map (mapSnd (shiftx_i_s x n)) ns, f (x + length ns) n t, map (shiftx_i_i x n) i)
 	  | AppVar (y, i) =>  AppVar (y, map (shiftx_i_i x n) i)
 	  | Int => Int
 in
@@ -445,7 +461,7 @@ local
 	  | ExI (s, name, t) => ExI (substx_i_s x v s, name, f (x + 1) (shift_i_i v) t)
 	  | AppRecur (name, ns, t, i) =>
 	    let val n = length ns in
-		AppRecur (name, map (fn (name, s) => (name, substx_i_s x v s)) ns, f (x + n) (shiftx_i_i 0 n v) t, map (substx_i_i x v) i)
+		AppRecur (name, map (mapSnd (substx_i_s x v)) ns, f (x + n) (shiftx_i_i 0 n v) t, map (substx_i_i x v) i)
 	    end
 	  | AppVar (y, i) => AppVar (y, map (substx_i_i x v) i)
 	  | Int => Int
@@ -493,7 +509,7 @@ fun subst_ts_t vs b =
 
 local
     datatype recur = Recur of string * (string * sort) list * ty
-    fun shift_i_r n (Recur (name, ns, t)) = Recur (name, map (fn (name, s) => (name, shiftx_i_s 0 n s)) ns, shiftx_i_t (length ns) n t)
+    fun shift_i_r n (Recur (name, ns, t)) = Recur (name, map (mapSnd (shiftx_i_s 0 n)) ns, shiftx_i_t (length ns) n t)
     fun shift_t_r (Recur (name, ns, t)) = Recur (name, ns, shiftx_t_t 1 1 t)
     fun f x v (b : ty) : ty =
 	case b of
@@ -527,6 +543,14 @@ fun unroll (name, ns, t, i) =
     subst_is_t i (f 0 (shift_i_r (length ns) (Recur (name, ns, t))) t)
 end
 
+fun shiftx_i_c x n (family, tnames, named_sorts, t, is) =
+    (family, tnames, map (mapSnd (shiftx_i_s x n)) named_sorts, shiftx_i_t x n t, map (shiftx_i_i x n) is)
+fun shift_i_c b = shiftx_i_c 0 1 b
+
+fun shiftx_t_c x n (family, tnames, named_sorts, t, is) =
+    (shiftx_v x n family, tnames, named_sorts, shiftx_t_t (x + length tnames) n t, is)
+fun shift_t_c b = shiftx_t_c 0 1 b
+
 datatype kind = 
 	 Type
 	 (* will only be used by recursive types in a restricted form *)
@@ -550,41 +574,69 @@ fun str_k ctx (k : kind) : string =
 (* sorting context *)
 type scontext = (string * sort) list * prop list
 (* kinding context *)
-type kcontext = (string * kind) list * (string * constr) list
+type kcontext = (string * kind) list 
+(* constructor context *)
+type ccontext = (string * constr) list
 (* typing context *)
 type tcontext = (string * ty) list
-type context = scontext * kcontext * tcontext
+type context = scontext * kcontext * ccontext * tcontext
 
-fun mapFst f (a, b) = (f a, b)
-fun mapSnd f (a, b) = (a, f b)
+fun names ctx = map #1 ctx
 
-fun shiftx_i_ps n ps = map (shiftx_i_p 0 n) ps
-fun shiftx_i_ks n (kctx, cctx) = 
-    (map (mapSnd (shiftx_i_k 0 n)) kctx,
-     map (mapSnd (shiftx_i_c 0 n)) cctx)
-fun shiftx_i_ts n ctx = map (fn (name, t) => (name, shiftx_i_t 0 n t)) ctx
-fun shiftx_t_ts n ctx = map (fn (name, t) => (name, shiftx_t_t 0 n t)) ctx
+fun shiftx_i_ps n ps = 
+    map (shiftx_i_p 0 n) ps
+fun shiftx_i_ks n ctx = 
+    map (mapSnd (shiftx_i_k 0 n)) ctx
+fun shiftx_i_cs n ctx = 
+    map (mapSnd (shiftx_i_c 0 n)) ctx
+fun shiftx_t_cs n ctx = 
+    map (mapSnd (shiftx_t_c 0 n)) ctx
+fun shiftx_i_ts n ctx = 
+    map (mapSnd (shiftx_i_t 0 n)) ctx
+fun shiftx_t_ts n ctx = 
+    map (mapSnd (shiftx_t_t 0 n)) ctx
 
 fun add_sorting pair (pairs, ps) = (pair :: pairs, shiftx_i_ps 1 ps)
-fun add_sorting_k pair (sctx, kctx) = 
-    (add_sorting pair sctx, shiftx_i_ks 1 kctx)
-fun add_sorting_kt pair (sctx, (kctx, tctx)) = 
+fun add_sorting_sk pair (sctx, kctx) = 
     (add_sorting pair sctx, 
-     (shiftx_i_ks 1 kctx, 
-      shiftx_i_ts 1 tctx))
+     shiftx_i_ks 1 kctx)
+fun add_sorting_skc pair (sctx, kctx, cctx) = 
+    (add_sorting pair sctx, 
+     shiftx_i_ks 1 kctx,
+     shiftx_i_cs 1 cctx)
+fun add_sorting_skct pair (sctx, kctx, cctx, tctx) = 
+    (add_sorting pair sctx, 
+     shiftx_i_ks 1 kctx, 
+     shiftx_i_cs 1 cctx, 
+     shiftx_i_ts 1 tctx)
 (* Within 'pairs', sort depends on previous sort *)
-fun add_dep_sortings_kt (pairs', ps') ((pairs, ps), kctx) = 
-    let val n = length pairs' in
-	((pairs' @ pair, ps' @ shiftx_i_ps n ps), shiftx_i_ks n kctx)
+fun add_dep_sortings_skct (pairs', ps') ((pairs, ps), kctx, cctx, tctx) = 
+    let val n = length pairs' 
+    in
+	((pairs' @ pairs, ps' @ shiftx_i_ps n ps), 
+	 shiftx_i_ks n kctx, 
+	 shiftx_i_cs n cctx, 
+	 shiftx_i_ts n tctx)
     end
 (* Within 'pairs', sort doesn't depend on previous sort. All of them point to 'sctx'. So the front elements of 'pairs' must be shifted to skip 'pairs' and point to 'sctx' *)
-fun add_nondep_sortings_k pairs (sctx, kctx) = 
-    let val (sctx', _) = foldr (fn ((name, s), (ctx, n)) => (add_sorting (name, (shiftx_i_s 0 n s)) ctx, n + 1)) (sctx, 0) pairs
-	val kctx' = shiftx_i_ks (length pairs) kctx in
-	(sctx', kctx')
+fun add_nondep_sortings pairs sctx = 
+    #1 (foldr (fn ((name, s), (ctx, n)) => (add_sorting (name, (shiftx_i_s 0 n s)) ctx, n + 1)) (sctx, 0) pairs)
+fun add_nondep_sortings_sk pairs (sctx, kctx) = 
+    let val n = length pairs
+    in
+	(add_nondep_sortings pairs sctx,
+	 shiftx_i_ks n kctx)
+    end
+fun add_nondep_sortings_skc pairs (sctx, kctx, cctx) = 
+    let val n = length pairs
+    in
+	(add_nondep_sortings pairs sctx,
+	 shiftx_i_ks n kctx,
+	 shiftx_i_ks n cctx)
     end
 
 fun sctx_length (pairs, _) = length pairs
+fun sctx_names (pairs, _) = map #1 pairs
 
 fun lookup_sort (n : int) (pairs, _) : sort option = 
     case nth_error pairs n of
@@ -592,19 +644,35 @@ fun lookup_sort (n : int) (pairs, _) : sort option =
       | SOME (_, s) => 
 	SOME (shiftx_i_s 0 (n + 1) s)
 
-fun add_kinding pair (pairs, cctx) = (pair :: pairs, map (mapSnd shift_t_c) cctx)
-fun add_kinding_t pair (kctx, tctx) = 
+fun add_kinding pair (kctx : kcontext) = pair :: kctx
+fun add_kinding_kc pair (kctx, cctx) = 
+    (add_kinding pair kctx, 
+     shiftx_t_cs 1 cctx)
+fun add_kinding_kct pair (kctx, cctx, tctx) = 
     (add_kinding pair kctx,
+     shiftx_t_cs 1 cctx,
      shiftx_t_ts 1 tctx)
-fun add_kinding_s pair (sctx, kctx) = (sctx, add_kinding pair kctx)
-fun lookup_kind (n : int) (pairs, _) : kind option = 
-    case nth_error pairs n of
+fun add_kinding_skct pair (sctx, kctx, cctx, tctx) = 
+    (sctx,
+     add_kinding pair kctx,
+     shiftx_t_cs 1 cctx,
+     shiftx_t_ts 1 tctx)
+fun add_kinding_sk pair (sctx, kctx) = 
+    (sctx, 
+     add_kinding pair kctx)
+
+fun lookup_kind (n : int) kctx : kind option = 
+    case nth_error kctx n of
 	NONE => NONE
       | SOME (_, k) => SOME k
-fun get_cctx (_, cctx) = cctx
 
-fun add_typing nt tctx = nt :: tctx
-fun add_typing_sk nt (sctx, (kctx, tctx)) = (sctx, (kctx, add_typing nt tctx))
+fun add_typing pair tctx = pair :: tctx
+fun add_typing_skct pair (sctx, kctx, cctx, tctx) = 
+    (sctx, 
+     kctx, 
+     cctx,
+     add_typing pair tctx)
+
 fun lookup (n : int) (ctx : tcontext) : ty option = 
     case nth_error ctx n of
 	NONE => NONE
@@ -630,7 +698,10 @@ fun collect (pairs, ps) : bscontext * prop list =
 
 type vc = bscontext * prop list * prop
 
-fun mem cmp (x : string) ls = exists (fn y => cmp (y, x)) ls
+fun mem eq x ls = List.exists (fn y => eq (y, x)) ls
+fun subset eq a b =
+    List.all (fn x => mem eq x b) a
+fun diff eq a b = List.filter (fn x => not (mem eq x b)) a
 
 local
     fun find_unique name ls =
@@ -807,7 +878,7 @@ local
 	    VarI x =>
 	    (case lookup_sort x ctx of
       		 SOME s => get_base s
-      	       | NONE => raise Fail ("Unbound index variable " ^ str_v (map #1 ctx) x))
+      	       | NONE => raise Fail ("Unbound index variable " ^ str_v (sctx_names ctx) x))
       	  | T0 => Time
 	  | T1 => Time
 	  | Tadd (d1, d2) => 
@@ -845,18 +916,20 @@ local
 
     fun kind_mismatch (ctx as (sctx, kctx)) c expect have =  "Kind mismatch for " ^ str_t ctx c ^ ": expect " ^ expect ^ " have " ^ str_k sctx have
 
+    fun fetch_kind (kctx, a) =
+	case lookup_kind a kctx of
+      	    SOME k => k
+      	  | NONE => raise Fail ("Unbound type variable " ^ str_v (names kctx) a)
+
     fun is_wftype (ctx as (sctx : scontext, kctx : kcontext), c : ty) : unit = 
-	let val ctxn as (sctxn, kctxn) = (map #1 sctx, map #1 kctx)
+	let val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
 	(* val () = print (printf "Type wellformedness checking: $\n" [str_t ctxn c])  *)
 	in
 	    case c of
 		VarT a =>
-		(case lookup_kind a kctx of
-      		     SOME k =>
-		     (case k of
-			  Type => ()
-			| KArrow _ => raise Fail (kind_mismatch ctxn c "Type" k))
-      		   | NONE => raise Fail ("Unbound type variable " ^ str_v kctxn a))
+		(case fetch_kind (kctx, a) of
+		     Type => ()
+		   | k => raise Fail (kind_mismatch ctxn c "Type" k))
 	      | Arrow (c1, d, c2) => 
 		(is_wftype (ctx, c1);
 		 check_sort (sctx, d, STime);
@@ -869,27 +942,23 @@ local
 		(is_wftype (ctx, c1);
 		 is_wftype (ctx, c2))
 	      | Uni (name, c) => 
-		is_wftype (add_kinding_s (name, Type) ctx, c)
+		is_wftype (add_kinding_sk (name, Type) ctx, c)
 	      | UniI (s, name, c) => 
 		(is_wfsort (sctx, s);
-		 is_wftype (add_sorting_k (name, s) ctx, c))
+		 is_wftype (add_sorting_sk (name, s) ctx, c))
 	      | ExI (s, name, c) => 
 		(is_wfsort (sctx, s);
-		 is_wftype (add_sorting_k (name, s) ctx, c))
+		 is_wftype (add_sorting_sk (name, s) ctx, c))
 	      | AppRecur (nameself, ns, t, i) =>
 		let val s = List.map #2 ns in
 		    is_wfsorts (sctx, s);
-		    is_wftype (add_nondep_sortings_k (rev ns) (add_kinding_s (nameself, recur_kind s) ctx), t);
+		    is_wftype (add_nondep_sortings_sk (rev ns) (add_kinding_sk (nameself, recur_kind s) ctx), t);
 		    check_sorts (sctx, i, s)
 		end
 	      | AppVar (a, i) => 
-		(case lookup_kind a kctx of
-      		     SOME k =>
-		     (case k of
-			  KArrow s => 
-			  check_sorts (sctx, i, s)
-			| _ => raise Fail (kind_mismatch ctxn c "(_ => _)" k))
-      		   | NONE => raise Fail ("Unbound type variable " ^ str_v kctxn a))
+		(case fetch_kind (kctx, a) of
+		     KArrow s => check_sorts (sctx, i, s)
+		   | k => raise Fail (kind_mismatch ctxn c "(_ => _)" k))
 	      | Int => ()
 	end
 
@@ -897,8 +966,8 @@ local
 
     (* is_subtype assumes that the types are already checked against the given kind, so it doesn't need to worry about their well-formedness *)
     fun is_subtype (ctx as (sctx : scontext, kctx : kcontext), c : ty, c' : ty) =
-	let val ctxn as (sctxn, kctxn) = (map #1 sctx, map #1 kctx)
-	    (* val () = print (printf "Subtyping checking: \n$\n<:\n$\n" [str_t ctxn c, str_t ctxn c'])  *)
+	let val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
+	(* val () = print (printf "Subtyping checking: \n$\n<:\n$\n" [str_t ctxn c, str_t ctxn c'])  *)
 	in
 	    case (c, c') of
 		(Arrow (c1, d, c2), Arrow (c1', d', c2')) =>
@@ -918,32 +987,27 @@ local
 		(is_subtype (ctx, c1, c1');
 		 is_subtype (ctx, c2, c2'))
 	      | (Uni (name, c), Uni (_, c')) => 
-		is_subtype (add_kinding_s (name, Type) ctx, c, c')
+		is_subtype (add_kinding_sk (name, Type) ctx, c, c')
 	      | (UniI (s, name, c), UniI (s', _, c')) => 
 		(is_eqvsort (sctx, s, s');
-		 is_subtype (add_sorting_k (name, s) ctx, c, c'))
+		 is_subtype (add_sorting_sk (name, s) ctx, c, c'))
 	      | (ExI (s, name, c), ExI (s', _, c')) => 
 		(is_eqvsort (sctx, s, s');
-		 is_subtype (add_sorting_k (name, s) ctx, c, c'))
+		 is_subtype (add_sorting_sk (name, s) ctx, c, c'))
 	      (* currently don't support subtyping for recursive types, so they must be equivalent *)
 	      | (AppRecur (nameself, ns, t, i), AppRecur (_, ns', t', i')) => 
 		let val s = List.map #2 ns
 		    val s' = List.map #2 ns'
 		    val () = is_eqvsorts (sctx, s, s')
 		    val () = is_eqs (sctx, i, i', s)
-		    val ctx' = add_nondep_sortings_k (rev ns) (add_kinding_s (nameself, recur_kind s) ctx) in
+		    val ctx' = add_nondep_sortings_sk (rev ns) (add_kinding_sk (nameself, recur_kind s) ctx) in
 		    is_eqvtype (ctx', t, t')
 		end
 	      | (AppVar (a, i), AppVar (a', i')) => 
 		if a = a' then
-		    case lookup_kind a kctx of
-      			SOME k =>
-			(case k of
-			     KArrow s => 
-			     is_eqs (sctx, i, i', s)
-			   | Type =>
-			     raise Impossible "is_subtype: x in (x c) should have an arrow kind")
-      		      | NONE => raise Fail ("Unbound type variable " ^ str_v kctxn a)
+		    case fetch_kind (kctx, a) of
+			KArrow s => is_eqs (sctx, i, i', s)
+		      | Type => raise Impossible "is_subtype: x in (x c) should have an arrow kind"
 		else
 		    raise Fail (not_subtype ctxn c c')
 	      | (Int, Int) => ()
@@ -958,13 +1022,14 @@ local
     fun no_meet ctx c c' = "Cannot find a meet (maximal subtype) of " ^ str_t ctx c ^ " and " ^ str_t ctx c'
 
     (* c and c' are already checked for wellformedness *)
-    fun join (ctx as (sctx : scontext, kctx : kcontext), c : ty, c' : ty) : ty = 
-	let val ctxn as (sctxn, kctxn) = (map #1 sctx, map #1 kctx) in
+    fun join_type (ctx as (sctx : scontext, kctx : kcontext), c : ty, c' : ty) : ty = 
+	let val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
+	in
 	    case (c, c') of
 		(Arrow (c1, d, c2), Arrow (c1', d', c2')) => 
 		let val c1'' = meet (ctx, c1, c1') 
 		    val d'' = d $ d' 
-		    val c2'' = join (ctx, c2, c2') in
+		    val c2'' = join_type (ctx, c2, c2') in
 		    Arrow (c1'', d'', c2'')
 		end
 	      | (VarT a, VarT a') => 
@@ -974,27 +1039,27 @@ local
 		    raise Fail (no_join ctxn c c')
 	      | (Unit, Unit) => Unit
 	      | (Prod (c1, c2), Prod (c1', c2')) => 
-		let val c1'' = join (ctx, c1, c1') 
-		    val c2'' = join (ctx, c2, c2') in
+		let val c1'' = join_type (ctx, c1, c1') 
+		    val c2'' = join_type (ctx, c2, c2') in
 		    Prod (c1'', c2'')
 		end
 	      | (Sum (c1, c2), Sum (c1', c2')) => 
-		let val c1'' = join (ctx, c1, c1') 
-		    val c2'' = join (ctx, c2, c2') in
+		let val c1'' = join_type (ctx, c1, c1') 
+		    val c2'' = join_type (ctx, c2, c2') in
 		    Sum (c1'', c2'')
 		end
 	      | (Uni (name, t), Uni (_, t')) => 
-		let val t'' = join (add_kinding_s (name, Type) ctx, t, t') in
+		let val t'' = join_type (add_kinding_sk (name, Type) ctx, t, t') in
 		    Uni (name, t'')
 		end
 	      | (UniI (s, name, t), UniI (s', _, t')) => 
 		let val () = is_eqvsort (sctx, s, s')
-		    val t'' = join (add_sorting_k (name, s) ctx, t, t') in
+		    val t'' = join_type (add_sorting_sk (name, s) ctx, t, t') in
 		    UniI (s, name, t'')
 		end
 	      | (ExI (s, name, t), ExI (s', _, t')) => 
 		let val () = is_eqvsort (#1 ctx, s, s')
-		    val t'' = join (add_sorting_k (name, s) ctx, t, t') in
+		    val t'' = join_type (add_sorting_sk (name, s) ctx, t, t') in
 		    ExI (s, name, t'')
 		end
 	      (* currently don't support join for recursive types, so they must be equivalent *)
@@ -1009,10 +1074,11 @@ local
 	end
 
     and meet (ctx as (sctx : scontext, kctx : kcontext), c : ty, c' : ty) : ty = 
-	let val ctxn as (sctxn, kctxn) = (map #1 sctx, map #1 kctx) in
+	let val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
+	in
 	    case (c, c') of
 		(Arrow (c1, d, c2), Arrow (c1', d', c2')) => 
-		let val c1'' = join (ctx, c1, c1') 
+		let val c1'' = join_type (ctx, c1, c1') 
 		    val d'' = Tmin (d, d')
 		    val c2'' = meet (ctx, c2, c2') in
 		    Arrow (c1'', d'', c2'')
@@ -1034,17 +1100,17 @@ local
 		    Sum (c1'', c2'')
 		end
 	      | (Uni (name, t), Uni (_, t')) => 
-		let val t'' = meet (add_kinding_s (name, Type) ctx, t, t') in
+		let val t'' = meet (add_kinding_sk (name, Type) ctx, t, t') in
 		    Uni (name, t'')
 		end
 	      | (UniI (s, name, t), UniI (s', _, t')) => 
 		let val () = is_eqvsort (sctx, s, s')
-		    val t'' = meet (add_sorting_k (name, s) ctx, t, t') in
+		    val t'' = meet (add_sorting_sk (name, s) ctx, t, t') in
 		    UniI (s, name, t'')
 		end
 	      | (ExI (s, name, t), ExI (s', _, t')) => 
 		let val () = is_eqvsort (#1 ctx, s, s')
-		    val t'' = meet (add_sorting_k (name, s) ctx, t, t') in
+		    val t'' = meet (add_sorting_sk (name, s) ctx, t, t') in
 		    ExI (s, name, t'')
 		end
 	      (* currently don't support meet for recursive types, so they must be equivalent *)
@@ -1059,54 +1125,43 @@ local
 	end
 
     val Cover_False = []
-    val Cover_Or (a, b) = a @ b
-    val Cover_Constr e = [e]
-    fun is_subset cmp a b =
-	all (fn x => mem cmp x prev) this
+    fun Cover_Or (a, b) = a @ b
+    fun Cover_Constr e = [e]
 
-    fun check_redundancy (skctx as (sctx, kctx), t, prev, this) =
-	if not (is_subset op= this prev) then ()
-	else raise Fail (printf "Redundant pattern $ after [$]" [join ", " this, join ", " prev])
+    fun id x = x
+    fun range n = List.tabulate (n, id)
+    fun add_idx ls = ListPair.zip (range (length ls), ls)
 
-    fun get_all_constr_names cctx x =
-	partialMap (fn (name, c) => if get_family c = x then SOME name else NONE) cctx
+    fun get_family (x, _, _, _, _) = x
 
-    fun check_exhaustive (skctx as (sctx, kctx), t, cover) =
-	let val all = get_all_constr_names (get_cctx kctx) x
-	    val missed = diff op= all cover
-	in
-	    if missed = [] then ()
-	    else raise Fail (printf "Not exhaustive, missing these constructors: $" [join ", " missed])
-	end
+    fun get_family_members cctx x =
+	List.mapPartial (fn (n, (_, c)) => if get_family c = x then SOME n else NONE) (add_idx cctx)
 
-    fun get_family (_, _, _, x, _) = x
+    (* covers should already have type t *)
+    fun check_redundancy ((_, _, cctx), t, prev, this) =
+	if not (subset op= this prev) then ()
+	else raise Fail (printf "Redundant pattern $ after [$]" [join ", " (map (str_v (names cctx)) this), join ", " (map (str_v (names cctx)) prev)])
 
-    (* find the first constructor with name 'cname'. If 'family' is (Some x), then the constructor's result type needs to be datatype 'x' *)
-    fun get_constr (ctx as (_, (_, cctx), cname, family) =
-	let fun f (name, c) =
-		if name = cname then
-		    case family of
-			NONE => true
-		      | SOME x => get_family c = x
-		else
-		    false
-	in
-	    case find f cctx of
-		SOME (_, c) => c
-	      | NONE => 
-		let val family_msg =
-			case family of
-			    SOME x => printf " of datatype $" [str_t ctx (VarT x)]
-			  | NONE => ""
-		in
-		    raise Fail (printf "Can't find constructor $$", [cname, family_msg])
-		end
-	end
+    fun check_exhaustive ((_, _, cctx), t, cover) =
+	case t of
+	    AppDatatype (family, _, _) =>
+	    let val all = get_family_members cctx family
+		val missed = diff op= all cover
+	    in
+		if missed = [] then ()
+		else raise Fail (printf "Not exhaustive, missing these constructors: $" [join ", " (map (str_v (names cctx)) missed)])
+	    end
+	  | _ => raise Impossible "shouldn't check exhaustiveness under this type"
 
-    fun get_constr_type (ctx, cname) =
-	let val (tnames, ns, t, x, is) = get_constr (ctx, cname, NONE)
+    fun fetch_constr (ctx, x) =
+	case nth_error ctx x of
+	    SOME (_, c) => c
+	  | NONE => raise Fail (printf "Unbound constructor $" [str_v (names ctx) x])
+
+    fun fetch_constr_type (ctx, cx) =
+	let val (family, tnames, ns, t, is) = fetch_constr (ctx, cx)
 	    val ts = (map VarT o rev o range o length) tnames
-	    val t = Arrow (t, T0, AppDataType (x, ts, is))
+	    val t = Arrow (t, T0, AppDatatype (shiftx_v 0 (length tnames) family, ts, is))
 	    val t = foldr (fn ((name, s), t) => UniI (s, name, t)) t ns
 	    val t = foldr (fn (name, t) => Uni (name, t)) t tnames
 	in
@@ -1114,31 +1169,32 @@ local
 	end
 
     (* t is already checked for wellformedness *)
-    fun match_ptrn (ctx as (sctx, kctx), pn, t) =
-	case (pn, t) of
-	    (Constr (cname, inames, ename), AppDatatype (x, ts, is)) =>
-	    let val type_sensitive_constr_scope = true
-		val family = if type_sentitive_constr_scope then SOME x else NONE
-		val c as (tnames, ns, t1, x', is') = get_constr (skctx, cname, family)
-	    in
-		if x' = x then
-		    let val () = check_length (tnames, ts)
-			val t1 = subst_ts_t ts t1
-			val bs = map (fn i => get_bsort (sctx, i)) is
-			val is = map (shiftx_i_i 0 (length ns)) is
-			val () = check_length (is', is)
-			val ps = map (fn (s, (i', i)) => Eq (s, i', i)) (ListPair.zip (bs, ListPair.zip (is', is)))
-			val () = check_length (inames, ns)
-		    in
-			((rev (ListPair.zip (inames, #2 (ListPair.unzip ns))), ps), (ename, t1), Cover_Constr cname)
-		    end
-		else
-		    raise Fail (printf "Type of constructor $ doesn't match datatype:\n  expect: $\n  got: $\n" [cname, str_t skctx (VarT x), str_t skctx (VarT x')])
-	    end
-	  | _ => raise Fail (printf "Pattern $ doesn't match type $" [str_pn pn, str_t ctx t])
+    fun match_ptrn (ctx as (sctx, kctx, cctx), pn, t) =
+	let val skctxn = (sctx_names sctx, names kctx)
+	in
+	    case (pn, t) of
+		(Constr (cx, inames, ename), AppDatatype (x, ts, is)) =>
+		let val c as (x', tnames, ns, t1, is') = fetch_constr (cctx, cx)
+		in
+		    if x' = x then
+			let val () = check_length (tnames, ts)
+			    val t1 = subst_ts_t ts t1
+			    val bs = map (fn i => get_bsort (sctx, i)) is
+			    val is = map (shiftx_i_i 0 (length ns)) is
+			    val () = check_length (is', is)
+			    val ps = map (fn (s, (i', i)) => Eq (s, i', i)) (ListPair.zip (bs, ListPair.zip (is', is)))
+			    val () = check_length (inames, ns)
+			in
+			    ((rev (ListPair.zip (inames, #2 (ListPair.unzip ns))), ps), (ename, t1), Cover_Constr cx)
+			end
+		    else
+			raise Fail (printf "Type of constructor $ doesn't match datatype:\n  expect: $\n  got: $\n" [str_v (names cctx) cx, str_t skctxn (VarT x), str_t skctxn (VarT x')])
+		end
+	      | _ => raise Fail (printf "Pattern $ doesn't match type $" [str_pn (names cctx) pn, str_t skctxn t])
+	end
 
-    fun mismatch (ctx as (skctx, tctx)) e expect have =  
-	printf "Type mismatch for $:\n  expect: $\n  got: $\n" [str_e ctx e, expect, str_t skctx have]
+    fun mismatch (ctx as (sctx, kctx, _, _)) e expect have =  
+	printf "Type mismatch for $:\n  expect: $\n  got: $\n" [str_e ctx e, expect, str_t (sctx, kctx) have]
     fun mismatch_anno ctx expect have =  "Type annotation mismatch: expect " ^ expect ^ " have " ^ str_t ctx have
 
     fun check_fix_body e =
@@ -1147,10 +1203,11 @@ local
     	  | Abs _ => ()
     	  | _ => raise Fail "The body of fixpoint must have the form (fn [(_ :: _) ... (_ :: _)] (_ : _) => _)"
 
-    fun get_type (ctx as (sctx : scontext, ktctx as (kctx : kcontext, tctx : tcontext)), e : expr) : ty * idx =
+    fun get_type (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, tctx : tcontext), e : expr) : ty * idx =
 	let val skctx = (sctx, kctx) 
-	    val ctxn as (skctxn as (sctxn, kctxn), tctxn) = ((map #1 sctx, map #1 kctx), map #1 tctx) 
-	    (* val () = print (printf "Type checking: $\n" [str_e ctxn e])  *)
+	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = (sctx_names sctx, names kctx, names cctx, names tctx) 
+	    val skctxn = (sctxn, kctxn)
+	(* val () = print (printf "Type checking: $\n" [str_e ctxn e])  *)
 	in
 	    case e of
 		Var x =>
@@ -1169,7 +1226,7 @@ local
 		end
 	      | Abs (t, varname, e) => 
 		let val () = is_wftype (skctx, t)
-		    val (t1, d) = get_type (add_typing_sk (varname, t) ctx, e) in
+		    val (t1, d) = get_type (add_typing_skct (varname, t) ctx, e) in
 		    (Arrow (t, d, t1), T0)
 		end
 	      | TT => (Unit, T0)
@@ -1204,16 +1261,16 @@ local
 		let val (t, d) = get_type (ctx, e) in
 		    case t of
 			Sum (t1, t2) => 
-			let val (tr1, d1) = get_type (add_typing_sk (name1, t1) ctx, e1)
-			    val (tr2, d2) = get_type (add_typing_sk (name2, t2) ctx, e2)
-			    val tr = join (skctx, tr1, tr2) in
+			let val (tr1, d1) = get_type (add_typing_skct (name1, t1) ctx, e1)
+			    val (tr2, d2) = get_type (add_typing_skct (name2, t2) ctx, e2)
+			    val tr = join_type (skctx, tr1, tr2) in
 			    (tr, d %+ d1 $ d2)
 			end
 		      | t' => raise Fail (mismatch ctxn e "(_ + _)" t')
 		end
 	      | AbsT (name, e) => 
 		if is_value e then
-		    let val (t, _) = get_type ((sctx, add_kinding_t (name, Type) ktctx), e) in
+		    let val (t, _) = get_type (add_kinding_skct (name, Type) ctx, e) in
 			(Uni (name, t), T0)
 		    end 
 		else
@@ -1230,7 +1287,7 @@ local
 	      | AbsI (s, name, e) => 
 		if is_value e then
 		    let val () = is_wfsort (sctx, s)
-			val (t, _) = get_type ((add_sorting_kt (name, s) ctx), e) in
+			val (t, _) = get_type ((add_sorting_skct (name, s) ctx), e) in
 			(UniI (s, name, t), T0)
 		    end 
 		else
@@ -1276,7 +1333,7 @@ local
 		    val (t1, d1) = get_type (ctx, e1) in
 		    case t1 of
 			ExI (s, _, t1') => 
-			let val ctx' = add_typing_sk (expr_var, t1') (add_sorting_kt (idx_var, s) ctx)
+			let val ctx' = add_typing_skct (expr_var, t1') (add_sorting_skct (idx_var, s) ctx)
 			    val () = check_type (ctx', e2, shift_i_t t, shift_i_i d)
 			in
 			    (t, d1 %+ d)
@@ -1285,13 +1342,13 @@ local
 		end
 	      | Let (e1, name, e2) => 
 		let val (t1, d1) = get_type (ctx, e1)
-		    val (t2, d2) = get_type (add_typing_sk (name, t1) ctx, e2) in
+		    val (t2, d2) = get_type (add_typing_skct (name, t1) ctx, e2) in
 		    (t2, d1 %+ d2)
 		end
 	      | Fix (t, name, e) => 
 		let val () = check_fix_body e
 		    val () = is_wftype (skctx, t)
-		    val (t1, _) = get_type (add_typing_sk (name, t) ctx, e)
+		    val (t1, _) = get_type (add_typing_skct (name, t) ctx, e)
 		    val () = is_subtype (skctx, t1, t) in
 		    (t, T0)
 		end
@@ -1316,10 +1373,11 @@ local
 		end
 	      | Const _ => 
 		(Int, T0)
-	      | AppConstr (cname, ts, is, e) => 
-		let tc = get_constr_type (skctx, cname)
-		let (_, d) = get_type (ctx, e)
-		let (t, _) = get_type (add_typing_sk (c, tc) ctx, App (foldl (fn (i, e) => AppI (e, i)) (foldl (fn (i, t) => AppT (e, t)) (Var 0) ts) is, shift_e_e e)) in
+	      | AppConstr (cx, ts, is, e) => 
+		let val tc = fetch_constr_type (cctx, cx)
+		    val (_, d) = get_type (ctx, e)
+		    val (t, _) = get_type (add_typing_skct ("_", tc) ctx, App (foldl (fn (i, e) => AppI (e, i)) (foldl (fn (t, e) => AppT (e, t)) (Var 0) ts) is, shift_e_e e)) 
+		in
 		    (* constructor application doesn't incur count *)
 		    (t, d)
 		end
@@ -1333,30 +1391,30 @@ local
 		end
 	end
 
-    and check_type (ctx as (sctx, (kctx, tctx)), e, t, d) =
-	let val skctx = (sctx, kctx) 
-	    val (t', d') = get_type (ctx, e)
+    and check_type (ctx as (sctx, kctx, cctx, tctx), e, t, d) =
+	let val (t', d') = get_type (ctx, e)
 	in
-	    is_subtype (skctx, t', t);
+	    is_subtype ((sctx, kctx), t', t);
 	    is_le (sctx, d', d)
 	end
 
-    and check_rules (ctx as (sctx, (kctx, tctx)), rules, t as (t1, _, _)) =
-	let val skctx = (sctx, kctx) 
+    and check_rules (ctx as (sctx, kctx, cctx, tctx), rules, t as (t1, _, _)) =
+	let val skcctx = (sctx, kctx, cctx) 
 	    fun f (rule, acc) =
 		let val cover = check_rule (ctx, rule, t)
-		    val () = check_redundancy (skctx, t1, acc, cover)
+		    val () = check_redundancy (skcctx, t1, acc, cover)
 		in
 		    Cover_Or (cover, acc)
 		end 
 	    val cover = foldl f Cover_False rules
 	in
-	    check_exhaustive (skctx, t1, cover)
+	    check_exhaustive (skcctx, t1, cover)
 	end
 
-    and check_rule (ctx as (sctx, (kctx, tctx)), (pn, e), t as (t1, d, t2)) =
-	let val (sctx', nt, cover) = match_ptrn (skctx, pn, t1)
-	    val ctx' = add_typing_sk nt (add_dep_sortings_kt sctx' ctx)
+    and check_rule (ctx as (sctx, kctx, cctx, tctx), (pn, e), t as (t1, d, t2)) =
+	let val skcctx = (sctx, kctx, cctx) 
+	    val (sctx', nt, cover) = match_ptrn (skcctx, pn, t1)
+	    val ctx' = add_typing_skct nt (add_dep_sortings_skct sctx' ctx)
 	    val n = sctx_length sctx'
 	in
 	    check_type (ctx, e, shiftx_i_t 0 n t2, shiftx_i_i 0 n d);
@@ -1365,8 +1423,8 @@ local
 
 in								     
 
-fun vcgen (sctx : scontext) (kctx : kcontext) (tctx : tcontext) (e : expr) : ((ty * idx) * vc list) result =
-    runError (runWriter (fn () => get_type ((sctx, (kctx, tctx)), e))) ()
+fun vcgen ctx e : ((ty * idx) * vc list) result =
+    runError (runWriter (fn () => get_type (ctx, e))) ()
 	     
 end
 
@@ -1472,9 +1530,9 @@ in
 fun simplify (ctx, ps, p) = (ctx, map simp ps, simp p)
 end
 
-fun check sctx kctx tctx e =
-    let val (sctxn, kctxn, tctxn) = (map #1 sctx, map #1 kctx, map #1 tctx) in
-	case vcgen sctx kctx tctx e of
+fun check (ctx as (sctx, kctx, cctx, tctx)) e =
+    let val skctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx) in
+	case vcgen ctx e of
 	    OK ((t, d), vcs) =>
 	    let
 		val vcs = trivial_solver vcs
@@ -1483,7 +1541,7 @@ fun check sctx kctx tctx e =
 	    in
 		printf
 		    "OK: \n  Type: $\n  Time: $\nVCs: [count=$]\n$\n"
-		    [str_t (sctxn, kctxn) t,
+		    [str_t skctxn t,
 		     str_i sctxn d,
 		     str_int (length vcs),
 		     join "\n" (map str_vc vcs)]
@@ -1508,7 +1566,7 @@ fun main () =
 	(* val output = check [("n", STime)] [("a", Type)] [] (cons_ (VarT 0) (VarI 0)) *)
 	fun match_list e t d e1 iname ename e2 = Match (Unfold e, "_", Unpack (Var 0, t, d, "_", "_", shiftx_e_e 0 2 e1), "_", Unpack (Var 0, t, d, iname, ename, shiftx_e_e 1 1 e2))
 	fun map_ a b = AbsI (STime, "m", Abs (Arrow (shift_i_t a, VarI 0, shift_i_t b), "f", Fix (UniI (STime, "n", Arrow (ilist (shiftx_i_t 0 2 a) [VarI 0], (VarI 1 %+ Tconst 2) %* VarI 0, ilist (shiftx_i_t 0 2 b) [VarI 0])), "map", AbsI (STime, "n", Abs (ilist (shiftx_i_t 0 2 a) [VarI 0], "ls", match_list (Var 0) (ilist (shiftx_i_t 0 2 b) [VarI 0]) ((VarI 1 %+ Tconst 2) %* VarI 0) (nil_ (shiftx_i_t 0 2 b)) "n'" "x_xs" (cons_ (shiftx_i_t 0 2 b) (VarI 0) (App (Var 3, Fst (Var 0))) (App (AppI (Var 2, VarI 0), Snd (Var 0)))))))))
-	val output = check [] [("b", Type), ("a", Type)] [] (map_ (VarT 1) (VarT 0))
+	val output = check (([], []), [("b", Type), ("a", Type)], [], []) (map_ (VarT 1) (VarT 0))
 
     (* val output = str_t (["l"], ["ilist"]) (ExI ((Subset (BSUnit, "nouse2", Eq (Time, VarI 1, T0))), "nouse1", Unit)) *)
     (* val output = str_t (["l"], ["a", "ilist"]) (Sum (ExI ((Subset (BSUnit, "nouse2", Eq (Time, VarI 1, T0))), "nouse1", Unit), *)
