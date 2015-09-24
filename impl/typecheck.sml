@@ -174,7 +174,7 @@ fun interleave xs ys =
 	x :: xs' => x :: interleave ys xs'
       | nil => ys
 
-fun printf s ls =
+fun sprintf s ls =
     String.concat (interleave (String.fields (fn c => c = #"$") s) ls)
 
 fun str_i ctx (i : idx) : string = 
@@ -182,10 +182,10 @@ fun str_i ctx (i : idx) : string =
 	VarI x => str_v ctx x
       | T0 => "0"
       | T1 => "1"
-      | Tadd (d1, d2) => printf "($ + $)" [str_i ctx d1, str_i ctx d2]
-      | Tmult (d1, d2) => printf "($ * $)" [str_i ctx d1, str_i ctx d2]
-      | Tmax (d1, d2) => printf "(max $ $)" [str_i ctx d1, str_i ctx d2]
-      | Tmin (d1, d2) => printf "(min $ $)" [str_i ctx d1, str_i ctx d2]
+      | Tadd (d1, d2) => sprintf "($ + $)" [str_i ctx d1, str_i ctx d2]
+      | Tmult (d1, d2) => sprintf "($ * $)" [str_i ctx d1, str_i ctx d2]
+      | Tmax (d1, d2) => sprintf "(max $ $)" [str_i ctx d1, str_i ctx d2]
+      | Tmin (d1, d2) => sprintf "(min $ $)" [str_i ctx d1, str_i ctx d2]
       | Type.TT => "()"
       | TrueI => "true"
       | FalseI => "false"
@@ -195,17 +195,17 @@ fun str_p ctx p =
     case p of
 	True => "True"
       | False => "False"
-      | And (p1, p2) => printf "($ /\\ $)" [str_p ctx p1, str_p ctx p2]
-      | Or (p1, p2) => printf "($ \\/ $)" [str_p ctx p1, str_p ctx p2]
-      | Imply (p1, p2) => printf "($ -> $)" [str_p ctx p1, str_p ctx p2]
-      | Iff (p1, p2) => printf "($ <-> $)" [str_p ctx p1, str_p ctx p2]
-      | TimeLe (d1, d2) => printf "($ <= $)" [str_i ctx d1, str_i ctx d2]
-      | Eq (s, i1, i2) => printf "($ = $)" [str_i ctx i1, str_i ctx i2]
+      | And (p1, p2) => sprintf "($ /\\ $)" [str_p ctx p1, str_p ctx p2]
+      | Or (p1, p2) => sprintf "($ \\/ $)" [str_p ctx p1, str_p ctx p2]
+      | Imply (p1, p2) => sprintf "($ -> $)" [str_p ctx p1, str_p ctx p2]
+      | Iff (p1, p2) => sprintf "($ <-> $)" [str_p ctx p1, str_p ctx p2]
+      | TimeLe (d1, d2) => sprintf "($ <= $)" [str_i ctx d1, str_i ctx d2]
+      | Eq (s, i1, i2) => sprintf "($ = $)" [str_i ctx i1, str_i ctx i2]
 
 fun str_s ctx (s : sort) : string = 
     case s of
 	Basic s => str_b s
-      | Subset (s, name, p) => printf "{ $ :: $ | $ }" [name, str_b s, str_p (name :: ctx) p]
+      | Subset (s, name, p) => sprintf "{ $ :: $ | $ }" [name, str_b s, str_p (name :: ctx) p]
 
 val join = String.concatWith
 
@@ -215,27 +215,27 @@ fun ptrn_names pn =
 
 fun str_t (ctx as (sctx, kctx)) (c : ty) : string =
     case c of
-	Arrow (c1, d, c2) => printf "($ -- $ -> $)" [str_t ctx c1, str_i sctx d, str_t ctx c2]
+	Arrow (c1, d, c2) => sprintf "($ -- $ -> $)" [str_t ctx c1, str_i sctx d, str_t ctx c2]
       | VarT x => str_v kctx x
       | Unit => "unit"
-      | Prod (t1, t2) => printf "($ * $)" [str_t ctx t1, str_t ctx t2]
-      | Sum (t1, t2) => printf "($ + $)" [str_t ctx t1, str_t ctx t2]
-      | Uni (name, t) => printf "(forall $, $)" [name, str_t (sctx, name :: kctx) t]
-      | UniI (s, name, t) => printf "(forall $ :: $, $)" [name, str_s sctx s, str_t (name :: sctx, kctx) t]
-      | ExI (s, name, t) => printf "(exists $ :: $, $)" [name, str_s sctx s, str_t (name :: sctx, kctx) t]
+      | Prod (t1, t2) => sprintf "($ * $)" [str_t ctx t1, str_t ctx t2]
+      | Sum (t1, t2) => sprintf "($ + $)" [str_t ctx t1, str_t ctx t2]
+      | Uni (name, t) => sprintf "(forall $, $)" [name, str_t (sctx, name :: kctx) t]
+      | UniI (s, name, t) => sprintf "(forall $ :: $, $)" [name, str_s sctx s, str_t (name :: sctx, kctx) t]
+      | ExI (s, name, t) => sprintf "(exists $ :: $, $)" [name, str_s sctx s, str_t (name :: sctx, kctx) t]
       | AppRecur (name, ns, t, i) => 
-	printf "((rec $ $, $) $)" 
-	       [name, 
-		join " " (map (fn (name, s) => printf "($ :: $)" [name, str_s sctx s]) ns),
-		str_t (rev (map #1 ns) @ sctx, name :: kctx) t,
-		join " " (map (str_i sctx) i)]
-      | AppVar (x, i) => printf "($ $)" [str_v kctx x, join " " (map (str_i sctx) i)]
+	sprintf "((rec $ $, $) $)" 
+		[name, 
+		 join " " (map (fn (name, s) => sprintf "($ :: $)" [name, str_s sctx s]) ns),
+		 str_t (rev (map #1 ns) @ sctx, name :: kctx) t,
+		 join " " (map (str_i sctx) i)]
+      | AppVar (x, i) => sprintf "($ $)" [str_v kctx x, join " " (map (str_i sctx) i)]
       | Int => "int"
-      | AppDatatype (x, ts, is) => printf "($ $ $)" [str_v kctx x, join " " (map (str_t ctx) ts), join " " (map (str_i sctx) is)]
+      | AppDatatype (x, ts, is) => sprintf "($ $ $)" [str_v kctx x, join " " (map (str_t ctx) ts), join " " (map (str_i sctx) is)]
 
 fun str_pn ctx pn = 
     case pn of
-	Constr (x, inames, ename) => printf "$ $ $" [str_v ctx x, join " " inames, ename]
+	Constr (x, inames, ename) => sprintf "$ $ $" [str_v ctx x, join " " inames, ename]
 
 fun str_e (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
     let fun add_t name (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx) 
@@ -243,38 +243,38 @@ fun str_e (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
     in
 	case e of
 	    Var x => str_v tctx x
-	  | Abs (t, name, e) => printf "(fn ($ : $) => $)" [name, str_t skctx t, str_e (add_t name ctx) e]
-	  | App (e1, e2) => printf "($ $)" [str_e ctx e1, str_e ctx e2]
+	  | Abs (t, name, e) => sprintf "(fn ($ : $) => $)" [name, str_t skctx t, str_e (add_t name ctx) e]
+	  | App (e1, e2) => sprintf "($ $)" [str_e ctx e1, str_e ctx e2]
 	  | TT => "()"
-	  | Pair (e1, e2) => printf "($, $)" [str_e ctx e1, str_e ctx e2]
-	  | Fst e => printf "(fst $)" [str_e ctx e]
-	  | Snd e => printf "(snd $)" [str_e ctx e]
-	  | Inl (t, e) => printf "(inl $ $)" [str_t skctx t, str_e ctx e]
-	  | Inr (t, e) => printf "(inr $ $)" [str_t skctx t, str_e ctx e]
-	  | Match (e, name1, e1, name2, e2) => printf "(sumcase $ of inl $ => $ | inr $  => $)" [str_e ctx e, name1, str_e (add_t name1 ctx) e1, name2, str_e (add_t name2 ctx) e2]
-	  | Fold (t, e) => printf "(fold $ $)" [str_t skctx t, str_e ctx e]
-	  | Unfold e => printf "(unfold $)" [str_e ctx e]
-	  | AbsT (name, e) => printf "(fn $ => $)" [name, str_e (sctx, name :: kctx, cctx, tctx) e]
-	  | AppT (e, t) => printf "($ [$])" [str_e ctx e, str_t skctx t]
-	  | AbsI (s, name, e) => printf "(fn ($ :: $) => $)" [name, str_s sctx s, str_e (name :: sctx, kctx, cctx, tctx) e]
-	  | AppI (e, i) => printf "($ [$])" [str_e ctx e, str_i sctx i]
-	  | Pack (t, i, e) => printf "(pack $ ($, $))" [str_t skctx t, str_i sctx i, str_e ctx e]
-	  | Unpack (e1, t, d, iname, ename, e2) => printf "unpack $ return $ time $ as ($, $) in $ end" [str_e ctx e1, str_t skctx t, str_i sctx d, iname, ename, str_e (iname :: sctx, kctx, cctx, ename :: tctx) e2]
-	  | Fix (t, name, e) => printf "(fix ($ : $) => $)" [name, str_t skctx t, str_e (add_t name ctx) e]
-	  | Let (e1, name, e2) => printf "let $ = $ in $ end" [name, str_e ctx e1, str_e ctx e2]
-	  | Ascription (e, t) => printf "($ : $)" [str_e ctx e, str_t skctx t]
-	  | AscriptionTime (e, d) => printf "($ |> $)" [str_e ctx e, str_i sctx d]
-	  | Plus (e1, e2) => printf "($ + $)" [str_e ctx e1, str_e ctx e2]
+	  | Pair (e1, e2) => sprintf "($, $)" [str_e ctx e1, str_e ctx e2]
+	  | Fst e => sprintf "(fst $)" [str_e ctx e]
+	  | Snd e => sprintf "(snd $)" [str_e ctx e]
+	  | Inl (t, e) => sprintf "(inl $ $)" [str_t skctx t, str_e ctx e]
+	  | Inr (t, e) => sprintf "(inr $ $)" [str_t skctx t, str_e ctx e]
+	  | Match (e, name1, e1, name2, e2) => sprintf "(sumcase $ of inl $ => $ | inr $  => $)" [str_e ctx e, name1, str_e (add_t name1 ctx) e1, name2, str_e (add_t name2 ctx) e2]
+	  | Fold (t, e) => sprintf "(fold $ $)" [str_t skctx t, str_e ctx e]
+	  | Unfold e => sprintf "(unfold $)" [str_e ctx e]
+	  | AbsT (name, e) => sprintf "(fn $ => $)" [name, str_e (sctx, name :: kctx, cctx, tctx) e]
+	  | AppT (e, t) => sprintf "($ [$])" [str_e ctx e, str_t skctx t]
+	  | AbsI (s, name, e) => sprintf "(fn ($ :: $) => $)" [name, str_s sctx s, str_e (name :: sctx, kctx, cctx, tctx) e]
+	  | AppI (e, i) => sprintf "($ [$])" [str_e ctx e, str_i sctx i]
+	  | Pack (t, i, e) => sprintf "(pack $ ($, $))" [str_t skctx t, str_i sctx i, str_e ctx e]
+	  | Unpack (e1, t, d, iname, ename, e2) => sprintf "unpack $ return $ time $ as ($, $) in $ end" [str_e ctx e1, str_t skctx t, str_i sctx d, iname, ename, str_e (iname :: sctx, kctx, cctx, ename :: tctx) e2]
+	  | Fix (t, name, e) => sprintf "(fix ($ : $) => $)" [name, str_t skctx t, str_e (add_t name ctx) e]
+	  | Let (e1, name, e2) => sprintf "let $ = $ in $ end" [name, str_e ctx e1, str_e ctx e2]
+	  | Ascription (e, t) => sprintf "($ : $)" [str_e ctx e, str_t skctx t]
+	  | AscriptionTime (e, d) => sprintf "($ |> $)" [str_e ctx e, str_i sctx d]
+	  | Plus (e1, e2) => sprintf "($ + $)" [str_e ctx e1, str_e ctx e2]
 	  | Const n => str_int n
-	  | AppConstr (x, ts, is, e) => printf "($ $ $ $)" [str_v cctx x, join " " (map (str_t skctx) ts), join " " (map (str_i sctx) is), str_e ctx e]
-	  | Case (e, t, d, rules) => printf "(case $ return $ time $ of $)" [str_e ctx e, str_t skctx t, str_i sctx d, join " | " (map (str_rule ctx) rules)]
+	  | AppConstr (x, ts, is, e) => sprintf "($ $ $ $)" [str_v cctx x, join " " (map (str_t skctx) ts), join " " (map (str_i sctx) is), str_e ctx e]
+	  | Case (e, t, d, rules) => sprintf "(case $ return $ time $ of $)" [str_e ctx e, str_t skctx t, str_i sctx d, join " | " (map (str_rule ctx) rules)]
     end
 
 and str_rule (ctx as (sctx, kctx, cctx, tctx)) (pn, e) =
     let val (inames, enames) = ptrn_names pn
 	val ctx' = (rev inames @ sctx, kctx, cctx, enames @ tctx)
     in
-	printf "$ => $" [str_pn cctx pn, str_e ctx' e]
+	sprintf "$ => $" [str_pn cctx pn, str_e ctx' e]
     end
 
 val STime = Basic Time
@@ -418,7 +418,7 @@ local
 	  | AscriptionTime (e, d) => AscriptionTime (f x n e, d)
 	  | Const n => Const n
 	  | Plus (e1, e2) => Plus (f x n e1, f x n e2)
-	  | AppConstr (cx, ts, is, e) => AppConstr (cx, ts, is, f x n b)
+	  | AppConstr (cx, ts, is, e) => AppConstr (cx, ts, is, f x n e)
 	  | Case (e, t, d, rules) => Case (f x n e, t, d, map (f_rule x n) rules)
     and f_rule x n (pn, e) =
 	let val (_, enames) = ptrn_names pn 
@@ -637,8 +637,8 @@ fun add_idx ls = ListPair.zip (range (length ls), ls)
 fun str_k ctx (k : kind) : string = 
     case k of
 	Type => "Type"
-      | KArrow s => printf "($ => Type)" [join " * " (map (str_s ctx) s)]
-      | KArrowDatatype (n, sorts) => printf "($ => $ => Type)" [join " * " (repeat n "Type"), join " * " (map (str_s ctx) sorts)]
+      | KArrow s => sprintf "($ => Type)" [join " * " (map (str_s ctx) s)]
+      | KArrowDatatype (n, sorts) => sprintf "($ => $ => Type)" [join " * " (repeat n "Type"), join " * " (map (str_s ctx) sorts)]
 
 (* sorting context *)
 type scontext = (string * sort) list * prop list
@@ -790,10 +790,10 @@ end
 fun str_vc (ctx : bscontext, ps, p) =
     let val ctx = ListPair.zip (mapFst unique (ListPair.unzip ctx))
 	val ctxn = map #1 ctx in
-	printf "$$===============\n$\n" 
-	       [join "" (map (fn (name, s) => printf "$ : $\n" [name, str_b s]) (rev ctx)), 
-		join "" (map (fn p => str_p ctxn p ^ "\n") ps), 
-		str_p ctxn p]
+	sprintf "$$===============\n$\n" 
+		[join "" (map (fn (name, s) => sprintf "$ : $\n" [name, str_b s]) (rev ctx)), 
+		 join "" (map (fn p => str_p ctxn p ^ "\n") ps), 
+		 str_p ctxn p]
     end 
 
 (* level 7 *)
@@ -830,7 +830,7 @@ local
 
     fun tell vc =
 	(
-	  (* print (printf "Output VC:\n$" [str_vc vc]); *)
+	  (* print (sprintf "Output VC:\n$" [str_vc vc]); *)
 	  acc := vc :: !acc)
 
     fun runWriter m _ =
@@ -998,7 +998,7 @@ local
 
     fun is_wftype (ctx as (sctx : scontext, kctx : kcontext), c : ty) : unit = 
 	let val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
-	(* val () = print (printf "Type wellformedness checking: $\n" [str_t ctxn c]) *)
+	(* val () = print (sprintf "Type wellformedness checking: $\n" [str_t ctxn c]) *)
 	in
 	    case c of
 		VarT a =>
@@ -1048,7 +1048,7 @@ local
     (* is_subtype assumes that the types are already checked against the given kind, so it doesn't need to worry about their well-formedness *)
     fun is_subtype (ctx as (sctx : scontext, kctx : kcontext), c : ty, c' : ty) =
 	let val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
-	(* val () = print (printf "Subtyping checking: \n$\n<:\n$\n" [str_t ctxn c, str_t ctxn c'])  *)
+	(* val () = print (sprintf "Subtyping checking: \n$\n<:\n$\n" [str_t ctxn c, str_t ctxn c'])  *)
 	in
 	    case (c, c') of
 		(Arrow (c1, d, c2), Arrow (c1', d', c2')) =>
@@ -1088,10 +1088,19 @@ local
 		if a = a' then
 		    case fetch_kind (kctx, a) of
 			KArrow s => is_eqs (sctx, i, i', s)
-		      | _ => raise Impossible "is_subtype: x in (x c) should have an arrow kind"
+		      | _ => raise Impossible "is_subtype: x in (x is) should have an arrow kind"
 		else
 		    raise Fail (not_subtype ctxn c c')
 	      | (Int, Int) => ()
+	      | (AppDatatype (a, ts, is), AppDatatype (a', ts', is')) => 
+		if a = a' then
+		    case fetch_kind (kctx, a) of
+			KArrowDatatype (_, sorts) =>
+			(app (fn (t, t') => is_eqvtype (ctx, t, t')) (ListPair.zip (ts, ts'));
+			 is_eqs (sctx, is, is', sorts))
+		      | k => raise Impossible "is_subtype: x in (x ts is) should have an datatype-arrow kind"
+		else
+		    raise Fail (not_subtype ctxn c c')
 	      | _ => raise Fail (not_subtype ctxn c c')
 	end
 
@@ -1217,7 +1226,7 @@ local
     (* covers should already have type t *)
     fun check_redundancy ((_, _, cctx), t, prev, this) =
 	if not (subset op= this prev) then ()
-	else raise Fail (printf "Redundant pattern $ after [$]" [join ", " (map (str_v (names cctx)) this), join ", " (map (str_v (names cctx)) prev)])
+	else raise Fail (sprintf "Redundant pattern $ after [$]" [join ", " (map (str_v (names cctx)) this), join ", " (map (str_v (names cctx)) prev)])
 
     fun check_exhaustive ((_, _, cctx), t, cover) =
 	case t of
@@ -1226,14 +1235,14 @@ local
 		val missed = diff op= all cover
 	    in
 		if missed = [] then ()
-		else raise Fail (printf "Not exhaustive, missing these constructors: $" [join ", " (map (str_v (names cctx)) missed)])
+		else raise Fail (sprintf "Not exhaustive, missing these constructors: $" [join ", " (map (str_v (names cctx)) missed)])
 	    end
 	  | _ => raise Impossible "shouldn't check exhaustiveness under this type"
 
     fun fetch_constr (ctx, x) =
 	case nth_error ctx x of
 	    SOME (name, c) => (name, c)
-	  | NONE => raise Fail (printf "Unbound constructor $" [str_v (names ctx) x])
+	  | NONE => raise Fail (sprintf "Unbound constructor $" [str_v (names ctx) x])
 
     fun fetch_constr_type (ctx, cx) =
 	let val (cname, (family, tnames, ns, t, is)) = fetch_constr (ctx, cx)
@@ -1265,13 +1274,13 @@ local
 			    ((rev (ListPair.zip (inames, #2 (ListPair.unzip ns))), ps), (ename, t1), Cover_Constr cx)
 			end
 		    else
-			raise Fail (printf "Type of constructor $ doesn't match datatype:\n  expect: $\n  got: $\n" [str_v (names cctx) cx, str_t skctxn (VarT x), str_t skctxn (VarT x')])
+			raise Fail (sprintf "Type of constructor $ doesn't match datatype:\n  expect: $\n  got: $\n" [str_v (names cctx) cx, str_t skctxn (VarT x), str_t skctxn (VarT x')])
 		end
-	      | _ => raise Fail (printf "Pattern $ doesn't match type $" [str_pn (names cctx) pn, str_t skctxn t])
+	      | _ => raise Fail (sprintf "Pattern $ doesn't match type $" [str_pn (names cctx) pn, str_t skctxn t])
 	end
 
     fun mismatch (ctx as (sctx, kctx, _, _)) e expect have =  
-	printf "Type mismatch for $:\n  expect: $\n  got: $\n" [str_e ctx e, expect, str_t (sctx, kctx) have]
+	sprintf "Type mismatch for $:\n  expect: $\n  got: $\n" [str_e ctx e, expect, str_t (sctx, kctx) have]
     fun mismatch_anno ctx expect have =  "Type annotation mismatch: expect " ^ expect ^ " have " ^ str_t ctx have
 
     fun check_fix_body e =
@@ -1284,7 +1293,7 @@ local
 	let val skctx = (sctx, kctx) 
 	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = (sctx_names sctx, names kctx, names cctx, names tctx) 
 	    val skctxn = (sctxn, kctxn)
-	    val () = print (printf "Typing $\n" [str_e ctxn e])
+	    val () = print (sprintf "Typing $\n" [str_e ctxn e])
 	    val (t, d) =
 		case e of
 		    Var x =>
@@ -1454,7 +1463,12 @@ local
 		    let val (cname, tc) = fetch_constr_type (cctx, cx)
 			val () = is_wftype (skctx, tc)
 			val (_, d) = get_type (ctx, e)
-			val (t, _) = get_type (add_typing_skct (cname, tc) ctx, App (foldl (fn (i, e) => AppI (e, i)) (foldl (fn (t, e) => AppT (e, t)) (Var 0) ts) is, shift_e_e e)) 
+			(* delegate to checking e' *)
+			val f = Var 0
+			val f = foldl (fn (t, e) => AppT (e, t)) f ts
+			val f = foldl (fn (i, e) => AppI (e, i)) f is
+			val e' = App (f, shift_e_e e)
+			val (t, _) = get_type (add_typing_skct (cname, tc) ctx, e') 
 		    in
 			(* constructor application doesn't incur count *)
 			(t, d)
@@ -1467,7 +1481,7 @@ local
 			check_rules (ctx, rules, (t1, d, t));
 			(t, d1 %+ d)
 		    end
-	    val () = print (printf "  type: $ [for $]\n  time: $\n" [str_t skctxn t, str_e ctxn e, str_i sctxn d])
+	    val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_t skctxn t, str_e ctxn e, str_i sctxn d])
 	in
 	    (t, d)
 	end
@@ -1475,7 +1489,7 @@ local
     and check_type (ctx as (sctx, kctx, cctx, tctx), e, t, d) =
 	let 
 	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = (sctx_names sctx, names kctx, names cctx, names tctx) 
-	    val () = print (printf "Type checking $ against $ and $\n" [str_e ctxn e, str_t (sctxn, kctxn) t, str_i sctxn d])
+	    val () = print (sprintf "Type checking $ against $ and $\n" [str_e ctxn e, str_t (sctxn, kctxn) t, str_i sctxn d])
 	    val (t', d') = get_type (ctx, e)
 	in
 	    is_subtype ((sctx, kctx), t', t);
@@ -1600,17 +1614,43 @@ local
 		(b1 orelse b2, TimeLe (i1, i2))
 	    end
 	  | _ => (false, p)
-
-    fun simp p = 
-	let fun loop p =
-		let val (changed, p') = passp p in
-		    if changed then loop p'
-		    else p
+    fun until_unchanged f a = 
+	let fun loop a =
+		let val (changed, a') = f a in
+		    if changed then loop a'
+		    else a
 		end in
-	    loop p
+	    loop a
 	end
 in
-fun simplify (ctx, ps, p) = (ctx, map simp ps, simp p)
+val simp_p = until_unchanged passp
+val simp_i = until_unchanged passi
+fun simplify (ctx, ps, p) = (ctx, map simp_p ps, simp_p p)
+end
+
+fun simp_s s =
+    case s of
+	Basic b => Basic b
+      | Subset (b, name, p) => Subset (b, name, simp_p p)
+
+local
+    fun f t =
+	case t of
+	    VarT _ => t
+	  | Arrow (t1, d, t2) => Arrow (f t1, simp_i d, f t2)
+	  | Prod (t1, t2) => Prod (f t1, f t2)
+	  | Sum (t1, t2) => Sum (f t1, f t2)
+	  | Unit => Unit
+	  | AppRecur (name, ns, t, is) => AppRecur (name, map (mapSnd simp_s) ns, f t, map simp_i is)
+	  | AppVar (x, is) => AppVar (x, map simp_i is)
+	  | Uni (name, t) => Uni (name, f t)
+	  | UniI (s, name, t) => UniI (simp_s s, name, f t)
+	  | ExI (s, name, t) => ExI (simp_s s, name, f t)
+	  | Int => Int
+	  | AppDatatype (x, ts, is) => AppDatatype (x, map f ts, map simp_i is)
+
+in
+val simp_t = f
 end
 
 fun check (ctx as (sctx, kctx, cctx, tctx)) e =
@@ -1618,11 +1658,14 @@ fun check (ctx as (sctx, kctx, cctx, tctx)) e =
 	case vcgen ctx e of
 	    OK ((t, d), vcs) =>
 	    let
+		val () = print "Simplify and trivially solve ...\n"
 		val vcs = trivial_solver vcs
 		val vcs = map simplify vcs
 		val vcs = trivial_solver vcs
+		val t = simp_t t
+		val d = simp_i d
 	    in
-		printf
+		sprintf
 		    "OK: \n  Type: $\n  Time: $\nVCs: [count=$]\n$\n"
 		    [str_t skctxn t,
 		     str_i sctxn d,
@@ -1682,7 +1725,10 @@ val ilist = KArrowDatatype (1, [STime])
 fun inil family = (family, ["a"], [], Unit, [T0])
 fun icons family = (family, ["a"], [("n", STime)], Prod (VarT 0, AppDatatype (shiftx_v 0 1 family, [VarT 0], [VarI 0])), [VarI 0 %+ T1])
 val ctx : context = (([], []), [("ilist", ilist)], [("icons", icons 0), ("inil", inil 0)], []) 
-fun main () = check ctx (AppConstr (1, [Int], [], TT))
+val inil_int = AppConstr (1, [Int], [], TT)
+val icons_int = AppConstr (0, [Int], [T0], Pair (Const 77, inil_int))
+fun main () = check ctx inil_int
+fun main () = check ctx icons_int
 
 (* fun match_list e t d e1 iname ename e2 = Match (Unfold e, "_", Unpack (Var 0, t, d, "_", "_", shiftx_e_e 0 2 e1), "_", Unpack (Var 0, t, d, iname, ename, shiftx_e_e 1 1 e2)) *)
 (* fun map_ a b = AbsI (STime, "m", Abs (Arrow (shift_i_t a, VarI 0, shift_i_t b), "f", Fix (UniI (STime, "n", Arrow (ilist (shiftx_i_t 0 2 a) [VarI 0], (VarI 1 %+ Tconst 2) %* VarI 0, ilist (shiftx_i_t 0 2 b) [VarI 0])), "map", AbsI (STime, "n", Abs (ilist (shiftx_i_t 0 2 a) [VarI 0], "ls", match_list (Var 0) (ilist (shiftx_i_t 0 2 b) [VarI 0]) ((VarI 1 %+ Tconst 2) %* VarI 0) (nil_ (shiftx_i_t 0 2 b)) "n'" "x_xs" (cons_ (shiftx_i_t 0 2 b) (VarI 0) (App (Var 3, Fst (Var 0))) (App (AppI (Var 2, VarI 0), Snd (Var 0))))))))) *)
