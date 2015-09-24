@@ -74,6 +74,7 @@ functor MakeExpr (structure Type : TYPE) = struct
 	datatype ptrn =
 		 Constr of var * string list * string
 	type rule = ptrn * expr
+	type constr = string list * (string * sort) list * ty * var * idx list
 	datatype expr =
 		 Var of var
 		 | App of expr * expr
@@ -107,7 +108,7 @@ functor MakeExpr (structure Type : TYPE) = struct
 		 | Unfold of expr
 		 | Plus of expr * expr
 		 | Const of int
-		 | AppConstr of var * ty list * idx list * expr
+		 | AppConstr of string * ty list * idx list * expr
 		 | Case of expr * ty * idx * rule list
 	end			       
 
@@ -484,6 +485,12 @@ fun substx_t_t x (v : ty) (b : ty) : ty = f x v b
 fun subst_t_t (v : ty) (b : ty) : ty = substx_t_t 0 v b
 end
 
+fun subst_is_t is t = 
+    #1 (foldl (fn (i, (t, x)) => (substx_i_t x (shiftx_i_i 0 x i) t, x - 1)) (t, length is - 1) is)
+
+fun subst_ts_t vs b = 
+    #1 (foldl (fn (v, (b, x)) => (substx_t_t x (shiftx_t_t 0 x v) b, x - 1)) (b, length vs - 1) vs)
+
 local
     datatype recur = Recur of string * (string * sort) list * ty
     fun shift_i_r n (Recur (name, ns, t)) = Recur (name, map (fn (name, s) => (name, shiftx_i_s 0 n s)) ns, shiftx_i_t (length ns) n t)
@@ -516,8 +523,6 @@ local
 		AppVar (y, i)
 	  | Int => Int
 in
-fun subst_is_t i t = 
-    #1 (foldl (fn (i, (t, x)) => (substx_i_t x (shiftx_i_i 0 x i) t, x - 1)) (t, length i - 1) i)
 fun unroll (name, ns, t, i) =
     subst_is_t i (f 0 (shift_i_r (length ns) (Recur (name, ns, t))) t)
 end
@@ -543,44 +548,60 @@ fun str_k ctx (k : kind) : string =
       | KArrow s => printf "($ => Type)" [join " * " (map (str_s ctx) s)]
 
 (* sorting context *)
-type scontext = (string * sort) list
+type scontext = (string * sort) list * prop list
 (* kinding context *)
-type kcontext = (string * kind) list
+type kcontext = (string * kind) list * (string * constr) list
 (* typing context *)
 type tcontext = (string * ty) list
 type context = scontext * kcontext * tcontext
 
-fun shiftx_i_ks n ctx = map (fn (name, k) => (name, shiftx_i_k 0 n k)) ctx
+fun mapFst f (a, b) = (f a, b)
+fun mapSnd f (a, b) = (a, f b)
+
+fun shiftx_i_ps n ps = map (shiftx_i_p 0 n) ps
+fun shiftx_i_ks n (kctx, cctx) = 
+    (map (mapSnd (shiftx_i_k 0 n)) kctx,
+     map (mapSnd (shiftx_i_c 0 n)) cctx)
 fun shiftx_i_ts n ctx = map (fn (name, t) => (name, shiftx_i_t 0 n t)) ctx
 fun shiftx_t_ts n ctx = map (fn (name, t) => (name, shiftx_t_t 0 n t)) ctx
-fun add_sorting ns sctx = ns :: sctx
-fun add_sorting_k ns (sctx, kctx) = 
-    (add_sorting ns sctx, shiftx_i_ks 1 kctx)
-fun add_sortings_k ns (sctx, kctx) = 
-    let val (sctx', _) = foldl (fn ((name, s), (ctx, n)) => (add_sorting (name, (shiftx_i_s 0 n s)) ctx, n + 1)) (sctx, 0) ns
-	val kctx' = shiftx_i_ks (length ns) kctx in
-	(sctx', kctx')
-    end
-fun add_sorting_kt ns (sctx, (kctx, tctx)) = 
-    (add_sorting ns sctx, 
+
+fun add_sorting pair (pairs, ps) = (pair :: pairs, shiftx_i_ps 1 ps)
+fun add_sorting_k pair (sctx, kctx) = 
+    (add_sorting pair sctx, shiftx_i_ks 1 kctx)
+fun add_sorting_kt pair (sctx, (kctx, tctx)) = 
+    (add_sorting pair sctx, 
      (shiftx_i_ks 1 kctx, 
       shiftx_i_ts 1 tctx))
+(* Within 'pairs', sort depends on previous sort *)
+fun add_dep_sortings_kt (pairs', ps') ((pairs, ps), kctx) = 
+    let val n = length pairs' in
+	((pairs' @ pair, ps' @ shiftx_i_ps n ps), shiftx_i_ks n kctx)
+    end
+(* Within 'pairs', sort doesn't depend on previous sort. All of them point to 'sctx'. So the front elements of 'pairs' must be shifted to skip 'pairs' and point to 'sctx' *)
+fun add_nondep_sortings_k pairs (sctx, kctx) = 
+    let val (sctx', _) = foldr (fn ((name, s), (ctx, n)) => (add_sorting (name, (shiftx_i_s 0 n s)) ctx, n + 1)) (sctx, 0) pairs
+	val kctx' = shiftx_i_ks (length pairs) kctx in
+	(sctx', kctx')
+    end
 
-fun lookup_sort (n : int) (ctx : scontext) : sort option = 
-    case nth_error ctx n of
+fun sctx_length (pairs, _) = length pairs
+
+fun lookup_sort (n : int) (pairs, _) : sort option = 
+    case nth_error pairs n of
 	NONE => NONE
       | SOME (_, s) => 
 	SOME (shiftx_i_s 0 (n + 1) s)
 
-fun add_kinding (name, k) kctx = (name, k) :: kctx
-fun add_kinding_t nk (kctx, tctx) = 
-    (add_kinding nk kctx,
+fun add_kinding pair (pairs, cctx) = (pair :: pairs, map (mapSnd shift_t_c) cctx)
+fun add_kinding_t pair (kctx, tctx) = 
+    (add_kinding pair kctx,
      shiftx_t_ts 1 tctx)
-fun add_kinding_s nk (sctx, kctx) = (sctx, add_kinding nk kctx)
-fun lookup_kind (n : int) (ctx : kcontext) : kind option = 
-    case nth_error ctx n of
+fun add_kinding_s pair (sctx, kctx) = (sctx, add_kinding pair kctx)
+fun lookup_kind (n : int) (pairs, _) : kind option = 
+    case nth_error pairs n of
 	NONE => NONE
       | SOME (_, k) => SOME k
+fun get_cctx (_, cctx) = cctx
 
 fun add_typing nt tctx = nt :: tctx
 fun add_typing_sk nt (sctx, (kctx, tctx)) = (sctx, (kctx, add_typing nt tctx))
@@ -596,30 +617,29 @@ fun get_base s =
 
 type bscontext = (string * bsort) list
 
-fun collect ctx : bscontext * prop list = 
+fun collect (pairs, ps) : bscontext * prop list = 
     let fun get_p s n ps =
 	    case s of
 		Basic _ => ps
 	      | Subset (_, _, p) => shiftx_i_p 0 n p :: ps
-	val (ps, _) = foldl (fn ((name, s), (ps, n)) => (get_p s n ps, n + 1)) ([], 0) ctx
-	val bctx = map (fn (name, s) => (name, get_base s)) ctx in
-	(bctx, ps)
+	val bctx = map (mapSnd get_base) pairs
+	val (ps', _) = foldl (fn ((name, s), (ps, n)) => (get_p s n ps, n + 1)) ([], 0) pairs
+    in
+	(bctx, ps @ ps')
     end
 
 type vc = bscontext * prop list * prop
 
-fun mapFst f (a, b) = (f a, b)
+fun mem cmp (x : string) ls = exists (fn y => cmp (y, x)) ls
 
 local
-    fun find (x : string) ls = List.find (fn y => y = x) ls
-    fun ok name ls = not (isSome (find name ls))
     fun find_unique name ls =
-	if ok name ls then
+	if not (mem op= name ls) then
 	    name
 	else
 	    let fun loop n =
 		    let val name' = name ^ str_int n in
-			if ok name' ls then name' else loop (n + 1)
+			if not (mem op= name' ls) then name' else loop (n + 1)
 		    end in
 		loop 0
 	    end
@@ -859,7 +879,7 @@ local
 	      | AppRecur (nameself, ns, t, i) =>
 		let val s = List.map #2 ns in
 		    is_wfsorts (sctx, s);
-		    is_wftype (add_sortings_k ns (add_kinding_s (nameself, recur_kind s) ctx), t);
+		    is_wftype (add_nondep_sortings_k (rev ns) (add_kinding_s (nameself, recur_kind s) ctx), t);
 		    check_sorts (sctx, i, s)
 		end
 	      | AppVar (a, i) => 
@@ -911,7 +931,7 @@ local
 		    val s' = List.map #2 ns'
 		    val () = is_eqvsorts (sctx, s, s')
 		    val () = is_eqs (sctx, i, i', s)
-		    val ctx' = add_sortings_k ns (add_kinding_s (nameself, recur_kind s) ctx) in
+		    val ctx' = add_nondep_sortings_k (rev ns) (add_kinding_s (nameself, recur_kind s) ctx) in
 		    is_eqvtype (ctx', t, t')
 		end
 	      | (AppVar (a, i), AppVar (a', i')) => 
@@ -1037,6 +1057,85 @@ local
 	      | (Int, Int) => Int
 	      | _ => raise Fail (no_meet ctxn c c')
 	end
+
+    val Cover_False = []
+    val Cover_Or (a, b) = a @ b
+    val Cover_Constr e = [e]
+    fun is_subset cmp a b =
+	all (fn x => mem cmp x prev) this
+
+    fun check_redundancy (skctx as (sctx, kctx), t, prev, this) =
+	if not (is_subset op= this prev) then ()
+	else raise Fail (printf "Redundant pattern $ after [$]" [join ", " this, join ", " prev])
+
+    fun get_all_constr_names cctx x =
+	partialMap (fn (name, c) => if get_family c = x then SOME name else NONE) cctx
+
+    fun check_exhaustive (skctx as (sctx, kctx), t, cover) =
+	let val all = get_all_constr_names (get_cctx kctx) x
+	    val missed = diff op= all cover
+	in
+	    if missed = [] then ()
+	    else raise Fail (printf "Not exhaustive, missing these constructors: $" [join ", " missed])
+	end
+
+    fun get_family (_, _, _, x, _) = x
+
+    (* find the first constructor with name 'cname'. If 'family' is (Some x), then the constructor's result type needs to be datatype 'x' *)
+    fun get_constr (ctx as (_, (_, cctx), cname, family) =
+	let fun f (name, c) =
+		if name = cname then
+		    case family of
+			NONE => true
+		      | SOME x => get_family c = x
+		else
+		    false
+	in
+	    case find f cctx of
+		SOME (_, c) => c
+	      | NONE => 
+		let val family_msg =
+			case family of
+			    SOME x => printf " of datatype $" [str_t ctx (VarT x)]
+			  | NONE => ""
+		in
+		    raise Fail (printf "Can't find constructor $$", [cname, family_msg])
+		end
+	end
+
+    fun get_constr_type (ctx, cname) =
+	let val (tnames, ns, t, x, is) = get_constr (ctx, cname, NONE)
+	    val ts = (map VarT o rev o range o length) tnames
+	    val t = Arrow (t, T0, AppDataType (x, ts, is))
+	    val t = foldr (fn ((name, s), t) => UniI (s, name, t)) t ns
+	    val t = foldr (fn (name, t) => Uni (name, t)) t tnames
+	in
+	    t
+	end
+
+    (* t is already checked for wellformedness *)
+    fun match_ptrn (ctx as (sctx, kctx), pn, t) =
+	case (pn, t) of
+	    (Constr (cname, inames, ename), AppDatatype (x, ts, is)) =>
+	    let val type_sensitive_constr_scope = true
+		val family = if type_sentitive_constr_scope then SOME x else NONE
+		val c as (tnames, ns, t1, x', is') = get_constr (skctx, cname, family)
+	    in
+		if x' = x then
+		    let val () = check_length (tnames, ts)
+			val t1 = subst_ts_t ts t1
+			val bs = map (fn i => get_bsort (sctx, i)) is
+			val is = map (shiftx_i_i 0 (length ns)) is
+			val () = check_length (is', is)
+			val ps = map (fn (s, (i', i)) => Eq (s, i', i)) (ListPair.zip (bs, ListPair.zip (is', is)))
+			val () = check_length (inames, ns)
+		    in
+			((rev (ListPair.zip (inames, #2 (ListPair.unzip ns))), ps), (ename, t1), Cover_Constr cname)
+		    end
+		else
+		    raise Fail (printf "Type of constructor $ doesn't match datatype:\n  expect: $\n  got: $\n" [cname, str_t skctx (VarT x), str_t skctx (VarT x')])
+	    end
+	  | _ => raise Fail (printf "Pattern $ doesn't match type $" [str_pn pn, str_t ctx t])
 
     fun mismatch (ctx as (skctx, tctx)) e expect have =  
 	printf "Type mismatch for $:\n  expect: $\n  got: $\n" [str_e ctx e, expect, str_t skctx have]
@@ -1215,19 +1314,21 @@ local
 		    is_subtype (skctx, t2, Int);
 		    (Int, d1 %+ d2 %+ T1)
 		end
-	      | Const _ => (Int, T0)
-	      | AppConstr (x, ts, is, e) => 
+	      | Const _ => 
+		(Int, T0)
+	      | AppConstr (cname, ts, is, e) => 
+		let tc = get_constr_type (skctx, cname)
 		let (_, d) = get_type (ctx, e)
-		let (t, _) = get_type (ctx, App (foldl (fn (i, e) => AppI (e, i)) (foldl (fn (i, t) => AppT (e, t)) (Var x) ts) is, e)) in
+		let (t, _) = get_type (add_typing_sk (c, tc) ctx, App (foldl (fn (i, e) => AppI (e, i)) (foldl (fn (i, t) => AppT (e, t)) (Var 0) ts) is, shift_e_e e)) in
+		    (* constructor application doesn't incur count *)
 		    (t, d)
 		end
 	      | Case (e, t, d, rules) => 
 		let val () = is_wftype (skctx, t)
 		    val () = check_sort (sctx, d, STime)
 		    val (t1, d1) = get_type (ctx, e)
-		    val cover = check_rules (ctx, rules, (t1, d, t))
-		    val () = check_exhaustive cover
 		in
+		    check_rules (ctx, rules, (t1, d, t));
 		    (t, d1 %+ d)
 		end
 	end
@@ -1240,22 +1341,26 @@ local
 	    is_le (sctx, d', d)
 	end
 
-    and check_rules (ctx, (pn, e), t as (t1, d, t2)) =
-	let val (sctx', ps) = match_ptrn (skctx, pn, t1)
-	    val () = check_type (, e, shift t2, shift d)
+    and check_rules (ctx as (sctx, (kctx, tctx)), rules, t as (t1, _, _)) =
+	let val skctx = (sctx, kctx) 
+	    fun f (rule, acc) =
+		let val cover = check_rule (ctx, rule, t)
+		    val () = check_redundancy (skctx, t1, acc, cover)
+		in
+		    Cover_Or (cover, acc)
+		end 
+	    val cover = foldl f Cover_False rules
 	in
-	    
+	    check_exhaustive (skctx, t1, cover)
 	end
 
-    and check_rules (ctx, rules, t as (t1, d, t2)) =
-	let fun f (rule, acc) =
-		let val cover = check_rule (ctx, rule, t)
-		    val () = check_redundancy (acc, cover)
-		in
-		    cover \/ acc
-		end 
+    and check_rule (ctx as (sctx, (kctx, tctx)), (pn, e), t as (t1, d, t2)) =
+	let val (sctx', nt, cover) = match_ptrn (skctx, pn, t1)
+	    val ctx' = add_typing_sk nt (add_dep_sortings_kt sctx' ctx)
+	    val n = sctx_length sctx'
 	in
-	    foldl f Cover.False rules
+	    check_type (ctx, e, shiftx_i_t 0 n t2, shiftx_i_i 0 n d);
+	    cover
 	end
 
 in								     
