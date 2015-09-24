@@ -158,8 +158,9 @@ fun nth_error ls n =
 val str_int = Int.toString
 
 fun str_v ctx (x : var) : string =
+    (* str_int x *)
     case nth_error ctx x of
-	SOME name => name
+    	SOME name => name
       | NONE => "unbound_" ^ str_int x
 				     
 fun str_b (s : bsort) : string = 
@@ -214,7 +215,7 @@ fun ptrn_names pn =
 
 fun str_t (ctx as (sctx, kctx)) (c : ty) : string =
     case c of
-	Arrow (c1, d, c2) => printf "($ time $ -> $)" [str_t ctx c1, str_i sctx d, str_t ctx c2]
+	Arrow (c1, d, c2) => printf "($ -- $ -> $)" [str_t ctx c1, str_i sctx d, str_t ctx c2]
       | VarT x => str_v kctx x
       | Unit => "unit"
       | Prod (t1, t2) => printf "($ * $)" [str_t ctx t1, str_t ctx t2]
@@ -265,8 +266,8 @@ fun str_e (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
 	  | AscriptionTime (e, d) => printf "($ |> $)" [str_e ctx e, str_i sctx d]
 	  | Plus (e1, e2) => printf "($ + $)" [str_e ctx e1, str_e ctx e2]
 	  | Const n => str_int n
-	  | AppConstr (x, ts, is, e) => printf "$ $ $ $" [str_v cctx x, join " " (map (str_t skctx) ts), join " " (map (str_i sctx) is), str_e ctx e]
-	  | Case (e, t, d, rules) => printf "case $ return $ time $ of $" [str_e ctx e, str_t skctx t, str_i sctx d, join " | " (map (str_rule ctx) rules)]
+	  | AppConstr (x, ts, is, e) => printf "($ $ $ $)" [str_v cctx x, join " " (map (str_t skctx) ts), join " " (map (str_i sctx) is), str_e ctx e]
+	  | Case (e, t, d, rules) => printf "(case $ return $ time $ of $)" [str_e ctx e, str_t skctx t, str_i sctx d, join " | " (map (str_rule ctx) rules)]
     end
 
 and str_rule (ctx as (sctx, kctx, cctx, tctx)) (pn, e) =
@@ -532,12 +533,16 @@ local
 		AppVar (y, i)
 	  | Int => Int
 	  | AppDatatype (y, ts, is) => 
-	    if y = x then
-		raise Subst "datatype can't be substituted for"
-	    else if y > x then
-		AppDatatype (y - 1, ts, is)
-	    else
-		AppDatatype (y, ts, is)
+	    let val y' = 
+		    if y = x then
+			raise Subst "datatype can't be substituted for"
+		    else if y > x then
+			y - 1
+		    else
+			y 
+	    in
+		AppDatatype (y', map (f x v) ts, is)
+	    end
 in
 fun substx_t_t x (v : ty) (b : ty) : ty = f x v b
 fun subst_t_t (v : ty) (b : ty) : ty = substx_t_t 0 v b
@@ -581,12 +586,16 @@ local
 		AppVar (y, i)
 	  | Int => Int
 	  | AppDatatype (y, ts, is) => 
-	    if y = x then
-		raise Subst "unroll should only do subtitution on self-reference variable"
-	    else if y > x then
-		AppDatatype (y - 1, ts, is)
-	    else
-		AppDatatype (y, ts, is)
+	    let val y' = 
+		    if y = x then
+			raise Subst "unroll should only do subtitution on self-reference variable"
+		    else if y > x then
+			y - 1
+		    else
+			y 
+	    in
+		AppDatatype (y', map (f x v) ts, is)
+	    end
 
 in
 fun unroll (name, ns, t, i) =
@@ -989,7 +998,7 @@ local
 
     fun is_wftype (ctx as (sctx : scontext, kctx : kcontext), c : ty) : unit = 
 	let val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
-	(* val () = print (printf "Type wellformedness checking: $\n" [str_t ctxn c])  *)
+	(* val () = print (printf "Type wellformedness checking: $\n" [str_t ctxn c]) *)
 	in
 	    case c of
 		VarT a =>
@@ -1275,192 +1284,199 @@ local
 	let val skctx = (sctx, kctx) 
 	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = (sctx_names sctx, names kctx, names cctx, names tctx) 
 	    val skctxn = (sctxn, kctxn)
-	val () = print (printf "Type checking: $\n" [str_e ctxn e])
+	    val () = print (printf "Typing $\n" [str_e ctxn e])
+	    val (t, d) =
+		case e of
+		    Var x =>
+		    (case lookup x tctx of
+      			 SOME t => (t, T0)
+      		       | NONE => raise Fail ("Unbound variable " ^ str_v tctxn x))
+		  | App (e1, e2) =>
+		    let val (t1, d1) = get_type (ctx, e1) in
+    			case t1 of
+    			    Arrow (t2, d, t) =>
+    			    let val (t2', d2) = get_type (ctx, e2) 
+				val () = is_subtype (skctx, t2', t2) in
+    				(t, d1 %+ d2 %+ T1 %+ d) 
+			    end
+    			  | t1' =>  raise Fail (mismatch ctxn e1 "(_ -- _ -> _)" t1')
+		    end
+		  | Abs (t, varname, e) => 
+		    let val () = is_wftype (skctx, t)
+			val (t1, d) = get_type (add_typing_skct (varname, t) ctx, e) in
+			(Arrow (t, d, t1), T0)
+		    end
+		  | TT => (Unit, T0)
+		  | Pair (e1, e2) => 
+		    let val (t1, d1) = get_type (ctx, e1) 
+			val (t2, d2) = get_type (ctx, e2) in
+			(Prod (t1, t2), d1 %+ d2)
+		    end
+		  | Fst e => 
+		    let val (t, d) = get_type (ctx, e) in 
+			case t of
+			    Prod (t1, t2) => (t1, d)
+			  | t' => raise Fail (mismatch ctxn e "(_ * _)" t')
+		    end
+		  | Snd e => 
+		    let val (t, d) = get_type (ctx, e) in 
+			case t of
+			    Prod (t1, t2) => (t2, d)
+			  | t' => raise Fail (mismatch ctxn e "(_ * _)" t')
+		    end
+		  | Inl (t2, e) => 
+		    let val (t1, d) = get_type (ctx, e)
+			val () = is_wftype (skctx, t2) in
+			(Sum (t1, t2), d)
+		    end
+		  | Inr (t1, e) => 
+		    let val (t2, d) = get_type (ctx, e)
+			val () = is_wftype (skctx, t1) in
+			(Sum (t1, t2), d)
+		    end
+		  | Match (e, name1, e1, name2, e2) => 
+		    let val (t, d) = get_type (ctx, e) in
+			case t of
+			    Sum (t1, t2) => 
+			    let val (tr1, d1) = get_type (add_typing_skct (name1, t1) ctx, e1)
+				val (tr2, d2) = get_type (add_typing_skct (name2, t2) ctx, e2)
+				val tr = join_type (skctx, tr1, tr2) in
+				(tr, d %+ d1 $ d2)
+			    end
+			  | t' => raise Fail (mismatch ctxn e "(_ + _)" t')
+		    end
+		  | AbsT (name, e) => 
+		    if is_value e then
+			let val (t, _) = get_type (add_kinding_skct (name, Type) ctx, e) in
+			    (Uni (name, t), T0)
+			end 
+		    else
+			raise Fail ("The body of a universal abstraction must be a value")
+		  | AppT (e, c) =>
+		    let val (t, d) = get_type (ctx, e) in
+			case t of
+			    Uni (_, t1) => 
+			    let val () = is_wftype (skctx, c) in
+				(subst_t_t c t1, d)
+			    end
+			  | t' => raise Fail (mismatch ctxn e "(forall _ : _, _)" t')
+		    end
+		  | AbsI (s, name, e) => 
+		    if is_value e then
+			let val () = is_wfsort (sctx, s)
+			    val (t, _) = get_type ((add_sorting_skct (name, s) ctx), e) in
+			    (UniI (s, name, t), T0)
+			end 
+		    else
+			raise Fail ("The body of a universal abstraction must be a value")
+		  | AppI (e, i) =>
+		    let val (t, d) = get_type (ctx, e) in
+			case t of
+			    UniI (s, _, t1) => 
+			    let val () = check_sort (sctx, i, s) in
+				(subst_i_t i t1, d)
+			    end
+			  | t' => raise Fail (mismatch ctxn e "(forallI _ : _, _)" t')
+		    end
+		  | Fold (t, e) => 
+		    (case t of
+			 AppRecur t1 =>
+			 let val () = is_wftype (skctx, t)
+			     val (t', d) = get_type (ctx, e)
+			     val () = is_subtype (skctx, t', unroll t1) in
+			     (t, d)
+			 end
+		       | t' => raise Fail (mismatch_anno skctxn "((recur (_ :: _) (_ : _), _) _)" t'))
+		  | Unfold e =>
+		    let val (t, d) = get_type (ctx, e) in
+			case t of
+	      		    AppRecur t1 =>
+			    (unroll t1, d)
+			  | t' => raise Fail (mismatch ctxn e "((recur (_ :: _) (_ : _), _) _)" t')
+		    end
+		  | Pack (t, i, e) =>
+		    (case t of
+			 ExI (s, _, t1) =>
+			 let val () = is_wftype (skctx, t)
+			     val () = check_sort (sctx, i, s)
+			     val (t2, d) = get_type (ctx, e)
+			     val () = is_subtype (skctx, t2, (subst_i_t i t1)) in
+			     (t, d)
+			 end
+		       | t' => raise Fail (mismatch_anno skctxn "(ex _ : _, _)" t'))
+		  | Unpack (e1, t, d, idx_var, expr_var, e2) => 
+		    let val () = is_wftype (skctx, t)
+			val () = check_sort (sctx, d, STime)
+			val (t1, d1) = get_type (ctx, e1) in
+			case t1 of
+			    ExI (s, _, t1') => 
+			    let val ctx' = add_typing_skct (expr_var, t1') (add_sorting_skct (idx_var, s) ctx)
+				val () = check_type (ctx', e2, shift_i_t t, shift_i_i d)
+			    in
+				(t, d1 %+ d)
+			    end
+			  | t1' => raise Fail (mismatch ctxn e1 "(ex _ : _, _)" t1')
+		    end
+		  | Let (e1, name, e2) => 
+		    let val (t1, d1) = get_type (ctx, e1)
+			val (t2, d2) = get_type (add_typing_skct (name, t1) ctx, e2) in
+			(t2, d1 %+ d2)
+		    end
+		  | Fix (t, name, e) => 
+		    let val () = check_fix_body e
+			val () = is_wftype (skctx, t)
+			val (t1, _) = get_type (add_typing_skct (name, t) ctx, e)
+			val () = is_subtype (skctx, t1, t) in
+			(t, T0)
+		    end
+		  | Ascription (e, t) => 
+		    let val () = is_wftype (skctx, t)
+			val (t1, d) = get_type (ctx, e)
+			val () = is_subtype (skctx, t1, t) in
+			(t, d)
+		    end
+		  | AscriptionTime (e, d) => 
+		    let val () = check_sort (sctx, d, STime)
+			val (t, d1) = get_type (ctx, e)
+			val () = is_le (sctx, d1, d) in
+			(t, d)
+		    end
+		  | Plus (e1, e2) =>
+		    let val (t1, d1) = get_type (ctx, e1)
+			val (t2, d2) = get_type (ctx, e2) in
+			is_subtype (skctx, t1, Int);
+			is_subtype (skctx, t2, Int);
+			(Int, d1 %+ d2 %+ T1)
+		    end
+		  | Const _ => 
+		    (Int, T0)
+		  | AppConstr (cx, ts, is, e) => 
+		    let val (cname, tc) = fetch_constr_type (cctx, cx)
+			val () = is_wftype (skctx, tc)
+			val (_, d) = get_type (ctx, e)
+			val (t, _) = get_type (add_typing_skct (cname, tc) ctx, App (foldl (fn (i, e) => AppI (e, i)) (foldl (fn (t, e) => AppT (e, t)) (Var 0) ts) is, shift_e_e e)) 
+		    in
+			(* constructor application doesn't incur count *)
+			(t, d)
+		    end
+		  | Case (e, t, d, rules) => 
+		    let val () = is_wftype (skctx, t)
+			val () = check_sort (sctx, d, STime)
+			val (t1, d1) = get_type (ctx, e)
+		    in
+			check_rules (ctx, rules, (t1, d, t));
+			(t, d1 %+ d)
+		    end
+	    val () = print (printf "  type: $ [for $]\n  time: $\n" [str_t skctxn t, str_e ctxn e, str_i sctxn d])
 	in
-	    case e of
-		Var x =>
-		(case lookup x tctx of
-      		     SOME t => (t, T0)
-      		   | NONE => raise Fail ("Unbound variable " ^ str_v tctxn x))
-	      | App (e1, e2) =>
-		let val (t1, d1) = get_type (ctx, e1) in
-    		    case t1 of
-    			Arrow (t2, d, t) =>
-    			let val (t2', d2) = get_type (ctx, e2) 
-			    val () = is_subtype (skctx, t2', t2) in
-    			    (t, d1 %+ d2 %+ T1 %+ d) 
-			end
-    		      | t1' =>  raise Fail (mismatch ctxn e1 "(_ time _ -> _)" t1')
-		end
-	      | Abs (t, varname, e) => 
-		let val () = is_wftype (skctx, t)
-		    val (t1, d) = get_type (add_typing_skct (varname, t) ctx, e) in
-		    (Arrow (t, d, t1), T0)
-		end
-	      | TT => (Unit, T0)
-	      | Pair (e1, e2) => 
-		let val (t1, d1) = get_type (ctx, e1) 
-		    val (t2, d2) = get_type (ctx, e2) in
-		    (Prod (t1, t2), d1 %+ d2)
-		end
-	      | Fst e => 
-		let val (t, d) = get_type (ctx, e) in 
-		    case t of
-			Prod (t1, t2) => (t1, d)
-		      | t' => raise Fail (mismatch ctxn e "(_ * _)" t')
-		end
-	      | Snd e => 
-		let val (t, d) = get_type (ctx, e) in 
-		    case t of
-			Prod (t1, t2) => (t2, d)
-		      | t' => raise Fail (mismatch ctxn e "(_ * _)" t')
-		end
-	      | Inl (t2, e) => 
-		let val (t1, d) = get_type (ctx, e)
-		    val () = is_wftype (skctx, t2) in
-		    (Sum (t1, t2), d)
-		end
-	      | Inr (t1, e) => 
-		let val (t2, d) = get_type (ctx, e)
-		    val () = is_wftype (skctx, t1) in
-		    (Sum (t1, t2), d)
-		end
-	      | Match (e, name1, e1, name2, e2) => 
-		let val (t, d) = get_type (ctx, e) in
-		    case t of
-			Sum (t1, t2) => 
-			let val (tr1, d1) = get_type (add_typing_skct (name1, t1) ctx, e1)
-			    val (tr2, d2) = get_type (add_typing_skct (name2, t2) ctx, e2)
-			    val tr = join_type (skctx, tr1, tr2) in
-			    (tr, d %+ d1 $ d2)
-			end
-		      | t' => raise Fail (mismatch ctxn e "(_ + _)" t')
-		end
-	      | AbsT (name, e) => 
-		if is_value e then
-		    let val (t, _) = get_type (add_kinding_skct (name, Type) ctx, e) in
-			(Uni (name, t), T0)
-		    end 
-		else
-		    raise Fail ("The body of a universal abstraction must be a value")
-	      | AppT (e, c) =>
-		let val (t, d) = get_type (ctx, e) in
-		    case t of
-			Uni (_, t1) => 
-			let val () = is_wftype (skctx, c) in
-			    (subst_t_t c t1, d)
-			end
-		      | t' => raise Fail (mismatch ctxn e "(forall _ : _, _)" t')
-		end
-	      | AbsI (s, name, e) => 
-		if is_value e then
-		    let val () = is_wfsort (sctx, s)
-			val (t, _) = get_type ((add_sorting_skct (name, s) ctx), e) in
-			(UniI (s, name, t), T0)
-		    end 
-		else
-		    raise Fail ("The body of a universal abstraction must be a value")
-	      | AppI (e, i) =>
-		let val (t, d) = get_type (ctx, e) in
-		    case t of
-			UniI (s, _, t1) => 
-			let val () = check_sort (sctx, i, s) in
-			    (subst_i_t i t1, d)
-			end
-		      | t' => raise Fail (mismatch ctxn e "(forallI _ : _, _)" t')
-		end
-	      | Fold (t, e) => 
-		(case t of
-		     AppRecur t1 =>
-		     let val () = is_wftype (skctx, t)
-			 val (t', d) = get_type (ctx, e)
-			 val () = is_subtype (skctx, t', unroll t1) in
-			 (t, d)
-		     end
-		   | t' => raise Fail (mismatch_anno skctxn "((recur (_ :: _) (_ : _), _) _)" t'))
-	      | Unfold e =>
-		let val (t, d) = get_type (ctx, e) in
-		    case t of
-	      		AppRecur t1 =>
-			(unroll t1, d)
-		      | t' => raise Fail (mismatch ctxn e "((recur (_ :: _) (_ : _), _) _)" t')
-		end
-	      | Pack (t, i, e) =>
-		(case t of
-		     ExI (s, _, t1) =>
-		     let val () = is_wftype (skctx, t)
-			 val () = check_sort (sctx, i, s)
-			 val (t2, d) = get_type (ctx, e)
-			 val () = is_subtype (skctx, t2, (subst_i_t i t1)) in
-			 (t, d)
-		     end
-		   | t' => raise Fail (mismatch_anno skctxn "(ex _ : _, _)" t'))
-	      | Unpack (e1, t, d, idx_var, expr_var, e2) => 
-		let val () = is_wftype (skctx, t)
-		    val () = check_sort (sctx, d, STime)
-		    val (t1, d1) = get_type (ctx, e1) in
-		    case t1 of
-			ExI (s, _, t1') => 
-			let val ctx' = add_typing_skct (expr_var, t1') (add_sorting_skct (idx_var, s) ctx)
-			    val () = check_type (ctx', e2, shift_i_t t, shift_i_i d)
-			in
-			    (t, d1 %+ d)
-			end
-		      | t1' => raise Fail (mismatch ctxn e1 "(ex _ : _, _)" t1')
-		end
-	      | Let (e1, name, e2) => 
-		let val (t1, d1) = get_type (ctx, e1)
-		    val (t2, d2) = get_type (add_typing_skct (name, t1) ctx, e2) in
-		    (t2, d1 %+ d2)
-		end
-	      | Fix (t, name, e) => 
-		let val () = check_fix_body e
-		    val () = is_wftype (skctx, t)
-		    val (t1, _) = get_type (add_typing_skct (name, t) ctx, e)
-		    val () = is_subtype (skctx, t1, t) in
-		    (t, T0)
-		end
-	      | Ascription (e, t) => 
-		let val () = is_wftype (skctx, t)
-		    val (t1, d) = get_type (ctx, e)
-		    val () = is_subtype (skctx, t1, t) in
-		    (t, d)
-		end
-	      | AscriptionTime (e, d) => 
-		let val () = check_sort (sctx, d, STime)
-		    val (t, d1) = get_type (ctx, e)
-		    val () = is_le (sctx, d1, d) in
-		    (t, d)
-		end
-	      | Plus (e1, e2) =>
-		let val (t1, d1) = get_type (ctx, e1)
-		    val (t2, d2) = get_type (ctx, e2) in
-		    is_subtype (skctx, t1, Int);
-		    is_subtype (skctx, t2, Int);
-		    (Int, d1 %+ d2 %+ T1)
-		end
-	      | Const _ => 
-		(Int, T0)
-	      | AppConstr (cx, ts, is, e) => 
-		let val (cname, tc) = fetch_constr_type (cctx, cx)
-		    val (_, d) = get_type (ctx, e)
-		    val (t, _) = get_type (add_typing_skct (cname, tc) ctx, App (foldl (fn (i, e) => AppI (e, i)) (foldl (fn (t, e) => AppT (e, t)) (Var 0) ts) is, shift_e_e e)) 
-		in
-		    (* constructor application doesn't incur count *)
-		    (t, d)
-		end
-	      | Case (e, t, d, rules) => 
-		let val () = is_wftype (skctx, t)
-		    val () = check_sort (sctx, d, STime)
-		    val (t1, d1) = get_type (ctx, e)
-		in
-		    check_rules (ctx, rules, (t1, d, t));
-		    (t, d1 %+ d)
-		end
+	    (t, d)
 	end
 
     and check_type (ctx as (sctx, kctx, cctx, tctx), e, t, d) =
-	let val (t', d') = get_type (ctx, e)
+	let 
+	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = (sctx_names sctx, names kctx, names cctx, names tctx) 
+	    val () = print (printf "Type checking $ against $ and $\n" [str_e ctxn e, str_t (sctxn, kctxn) t, str_i sctxn d])
+	    val (t', d') = get_type (ctx, e)
 	in
 	    is_subtype ((sctx, kctx), t', t);
 	    is_le (sctx, d', d)
@@ -1665,8 +1681,8 @@ structure DatatypeExamples = struct
 val ilist = KArrowDatatype (1, [STime])
 fun inil family = (family, ["a"], [], Unit, [T0])
 fun icons family = (family, ["a"], [("n", STime)], Prod (VarT 0, AppDatatype (shiftx_v 0 1 family, [VarT 0], [VarI 0])), [VarI 0 %+ T1])
-val ctx : context = (([], []), [("ilist", ilist)], [("inil", inil 0), ("icons", icons 0)], []) 
-fun main () = check ctx (AppConstr (1, [Unit], [], TT))
+val ctx : context = (([], []), [("ilist", ilist)], [("icons", icons 0), ("inil", inil 0)], []) 
+fun main () = check ctx (AppConstr (1, [Int], [], TT))
 
 (* fun match_list e t d e1 iname ename e2 = Match (Unfold e, "_", Unpack (Var 0, t, d, "_", "_", shiftx_e_e 0 2 e1), "_", Unpack (Var 0, t, d, iname, ename, shiftx_e_e 1 1 e2)) *)
 (* fun map_ a b = AbsI (STime, "m", Abs (Arrow (shift_i_t a, VarI 0, shift_i_t b), "f", Fix (UniI (STime, "n", Arrow (ilist (shiftx_i_t 0 2 a) [VarI 0], (VarI 1 %+ Tconst 2) %* VarI 0, ilist (shiftx_i_t 0 2 b) [VarI 0])), "map", AbsI (STime, "n", Abs (ilist (shiftx_i_t 0 2 a) [VarI 0], "ls", match_list (Var 0) (ilist (shiftx_i_t 0 2 b) [VarI 0]) ((VarI 1 %+ Tconst 2) %* VarI 0) (nil_ (shiftx_i_t 0 2 b)) "n'" "x_xs" (cons_ (shiftx_i_t 0 2 b) (VarI 0) (App (Var 3, Fst (Var 0))) (App (AppI (Var 2, VarI 0), Snd (Var 0))))))))) *)
