@@ -208,6 +208,10 @@ fun str_s ctx (s : sort) : string =
 
 val join = String.concatWith
 
+fun ptrn_names pn =
+    case pn of
+	Constr (_, inames, ename) => (inames, [ename])
+
 fun str_t (ctx as (sctx, kctx)) (c : ty) : string =
     case c of
 	Arrow (c1, d, c2) => printf "($ time $ -> $)" [str_t ctx c1, str_i sctx d, str_t ctx c2]
@@ -246,7 +250,7 @@ fun str_e (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
 	  | Snd e => printf "(snd $)" [str_e ctx e]
 	  | Inl (t, e) => printf "(inl $ $)" [str_t skctx t, str_e ctx e]
 	  | Inr (t, e) => printf "(inr $ $)" [str_t skctx t, str_e ctx e]
-	  | Match (e, name1, e1, name2, e2) => printf "(case $ of inl $ => $ | inr $  => $)" [str_e ctx e, name1, str_e (add_t name1 ctx) e1, name2, str_e (add_t name2 ctx) e2]
+	  | Match (e, name1, e1, name2, e2) => printf "(sumcase $ of inl $ => $ | inr $  => $)" [str_e ctx e, name1, str_e (add_t name1 ctx) e1, name2, str_e (add_t name2 ctx) e2]
 	  | Fold (t, e) => printf "(fold $ $)" [str_t skctx t, str_e ctx e]
 	  | Unfold e => printf "(unfold $)" [str_e ctx e]
 	  | AbsT (name, e) => printf "(fn $ => $)" [name, str_e (sctx, name :: kctx, cctx, tctx) e]
@@ -262,6 +266,14 @@ fun str_e (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
 	  | Plus (e1, e2) => printf "($ + $)" [str_e ctx e1, str_e ctx e2]
 	  | Const n => str_int n
 	  | AppConstr (x, ts, is, e) => printf "$ $ $ $" [str_v cctx x, join " " (map (str_t skctx) ts), join " " (map (str_i sctx) is), str_e ctx e]
+	  | Case (e, t, d, rules) => printf "case $ return $ time $ of $" [str_e ctx e, str_t skctx t, str_i sctx d, join " | " (map (str_rule ctx) rules)]
+    end
+
+and str_rule (ctx as (sctx, kctx, cctx, tctx)) (pn, e) =
+    let val (inames, enames) = ptrn_names pn
+	val ctx' = (rev inames @ sctx, kctx, cctx, enames @ tctx)
+    in
+	printf "$ => $" [str_pn cctx pn, str_e ctx' e]
     end
 
 val STime = Basic Time
@@ -336,6 +348,7 @@ local
 	  | AppRecur (name, ns, t, i) => AppRecur (name, map (mapSnd (shiftx_i_s x n)) ns, f (x + length ns) n t, map (shiftx_i_i x n) i)
 	  | AppVar (y, i) =>  AppVar (y, map (shiftx_i_i x n) i)
 	  | Int => Int
+	  | AppDatatype (family, ts, is) => AppDatatype (family, map (f x n) ts, map (shiftx_i_i x n) is)
 in
 fun shiftx_i_t x n b = f x n b
 fun shift_i_t b = shiftx_i_t 0 1 b
@@ -355,10 +368,24 @@ local
 	  | AppRecur (name, ns, t, i) => AppRecur (name, ns, f (x + 1) n t, i)
 	  | AppVar (y, i) => AppVar (shiftx_v x n y, i)
 	  | Int => Int
+	  | AppDatatype (family, ts, is) => AppDatatype (shiftx_v x n family, map (f x n) ts, is)
+
 in
 fun shiftx_t_t x n b = f x n b
 fun shift_t_t b = shiftx_t_t 0 1 b
 end
+
+fun shift_pn_i pn i =
+    let val (inames, _) = ptrn_names pn
+    in
+	shiftx_i_i 0 (length inames) i
+    end
+
+fun shift_pn_t pn t =
+    let val (inames, _) = ptrn_names pn
+    in
+	shiftx_i_t 0 (length inames) t
+    end
 
 local
     fun f x n b =
@@ -390,6 +417,13 @@ local
 	  | AscriptionTime (e, d) => AscriptionTime (f x n e, d)
 	  | Const n => Const n
 	  | Plus (e1, e2) => Plus (f x n e1, f x n e2)
+	  | AppConstr (cx, ts, is, e) => AppConstr (cx, ts, is, f x n b)
+	  | Case (e, t, d, rules) => Case (f x n e, t, d, map (f_rule x n) rules)
+    and f_rule x n (pn, e) =
+	let val (_, enames) = ptrn_names pn 
+	in
+	    (pn, f (x + length enames) n e)
+	end
 in
 fun shiftx_e_e x n b = f x n b
 fun shift_e_e b = shiftx_e_e 0 1 b
@@ -465,6 +499,7 @@ local
 	    end
 	  | AppVar (y, i) => AppVar (y, map (substx_i_i x v) i)
 	  | Int => Int
+	  | AppDatatype (family, ts, is) => AppDatatype (family, map (f x v) ts, map (substx_i_i x v) is)
 in
 fun substx_i_t x (v : idx) (b : ty) : ty = f x v b
 fun subst_i_t (v : idx) (b : ty) : ty = substx_i_t 0 v b
@@ -490,12 +525,19 @@ local
 	  | AppRecur (name, ns, t, i) => AppRecur (name, ns, f (x + 1) (shiftx_i_t 0 (length ns) (shift_t_t v)) t, i)
 	  | AppVar (y, i) => 
 	    if y = x then
-		raise Subst "self-reference variable should only be subtitute for via unrolling"
+		raise Subst "self-reference variable should only be substitute for via unrolling"
 	    else if y > x then
 		AppVar (y - 1, i)
 	    else
 		AppVar (y, i)
 	  | Int => Int
+	  | AppDatatype (y, ts, is) => 
+	    if y = x then
+		raise Subst "datatype can't be substituted for"
+	    else if y > x then
+		AppDatatype (y - 1, ts, is)
+	    else
+		AppDatatype (y, ts, is)
 in
 fun substx_t_t x (v : ty) (b : ty) : ty = f x v b
 fun subst_t_t (v : ty) (b : ty) : ty = substx_t_t 0 v b
@@ -538,6 +580,14 @@ local
 	    else
 		AppVar (y, i)
 	  | Int => Int
+	  | AppDatatype (y, ts, is) => 
+	    if y = x then
+		raise Subst "unroll should only do subtitution on self-reference variable"
+	    else if y > x then
+		AppDatatype (y - 1, ts, is)
+	    else
+		AppDatatype (y, ts, is)
+
 in
 fun unroll (name, ns, t, i) =
     subst_is_t i (f 0 (shift_i_r (length ns) (Recur (name, ns, t))) t)
@@ -553,23 +603,33 @@ fun shift_t_c b = shiftx_t_c 0 1 b
 
 datatype kind = 
 	 Type
-	 (* will only be used by recursive types in a restricted form *)
+	 (* will only be used by recursive types *)
 	 | KArrow of sort list
+	 (* will only be used by datatypes *)
+	 | KArrowDatatype of int * sort list
 
 local
     fun f x n b =
 	case b of
 	    Type => Type
 	  | KArrow s => KArrow (map (shiftx_i_s x n) s)
+	  | KArrowDatatype (n, sorts) => KArrowDatatype (n, map (shiftx_i_s x n) sorts)
 in
 fun shiftx_i_k x n b = f x n b
 fun shift_i_k b = shiftx_i_k 0 1 b
 end
 
+fun id x = x
+fun const a _ = a
+fun range n = List.tabulate (n, id)
+fun repeat n a = List.tabulate (n, const a)
+fun add_idx ls = ListPair.zip (range (length ls), ls)
+
 fun str_k ctx (k : kind) : string = 
     case k of
 	Type => "Type"
       | KArrow s => printf "($ => Type)" [join " * " (map (str_s ctx) s)]
+      | KArrowDatatype (n, sorts) => printf "($ => $ => Type)" [join " * " (repeat n "Type"), join " * " (map (str_s ctx) sorts)]
 
 (* sorting context *)
 type scontext = (string * sort) list * prop list
@@ -581,7 +641,7 @@ type ccontext = (string * constr) list
 type tcontext = (string * ty) list
 type context = scontext * kcontext * ccontext * tcontext
 
-fun names ctx = map #1 ctx
+fun names (ctx : ('a * 'b) list) = map #1 ctx
 
 fun shiftx_i_ps n ps = 
     map (shiftx_i_p 0 n) ps
@@ -636,7 +696,7 @@ fun add_nondep_sortings_skc pairs (sctx, kctx, cctx) =
     end
 
 fun sctx_length (pairs, _) = length pairs
-fun sctx_names (pairs, _) = map #1 pairs
+fun sctx_names ((pairs, _) : scontext) = map #1 pairs
 
 fun lookup_sort (n : int) (pairs, _) : sort option = 
     case nth_error pairs n of
@@ -766,6 +826,12 @@ local
 
     fun runWriter m _ =
 	(acc := []; let val r = m () in (r, !acc) end)
+
+    fun check_length_n (n, ls) =
+	if length ls = n then
+	    ()
+	else
+	    raise Fail "List length mismatch"
 
     fun check_length (a, b) =
 	if length a = length b then
@@ -958,8 +1024,14 @@ local
 	      | AppVar (a, i) => 
 		(case fetch_kind (kctx, a) of
 		     KArrow s => check_sorts (sctx, i, s)
-		   | k => raise Fail (kind_mismatch ctxn c "(_ => _)" k))
+		   | k => raise Fail (kind_mismatch ctxn c "(s* => Type)" k))
 	      | Int => ()
+	      | AppDatatype (family, ts, is) => 
+		(case fetch_kind (kctx, family) of
+		     KArrowDatatype (n, sorts) => 
+		     (check_length_n (n, ts);
+		      check_sorts (sctx, is, sorts))
+		   | k => raise Fail (kind_mismatch ctxn c "Type* => s* => Type" k))
 	end
 
     fun not_subtype ctx c c' = str_t ctx c ^ " is not subtype of " ^ str_t ctx c'
@@ -1007,7 +1079,7 @@ local
 		if a = a' then
 		    case fetch_kind (kctx, a) of
 			KArrow s => is_eqs (sctx, i, i', s)
-		      | Type => raise Impossible "is_subtype: x in (x c) should have an arrow kind"
+		      | _ => raise Impossible "is_subtype: x in (x c) should have an arrow kind"
 		else
 		    raise Fail (not_subtype ctxn c c')
 	      | (Int, Int) => ()
@@ -1128,11 +1200,7 @@ local
     fun Cover_Or (a, b) = a @ b
     fun Cover_Constr e = [e]
 
-    fun id x = x
-    fun range n = List.tabulate (n, id)
-    fun add_idx ls = ListPair.zip (range (length ls), ls)
-
-    fun get_family (x, _, _, _, _) = x
+    fun get_family ((x, _, _, _, _) : constr) = x
 
     fun get_family_members cctx x =
 	List.mapPartial (fn (n, (_, c)) => if get_family c = x then SOME n else NONE) (add_idx cctx)
@@ -1415,9 +1483,8 @@ local
 	let val skcctx = (sctx, kctx, cctx) 
 	    val (sctx', nt, cover) = match_ptrn (skcctx, pn, t1)
 	    val ctx' = add_typing_skct nt (add_dep_sortings_skct sctx' ctx)
-	    val n = sctx_length sctx'
 	in
-	    check_type (ctx, e, shiftx_i_t 0 n t2, shiftx_i_i 0 n d);
+	    check_type (ctx', e, shift_pn_t pn t2, shift_pn_i pn d);
 	    cover
 	end
 
