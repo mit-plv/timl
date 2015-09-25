@@ -1,1 +1,1 @@
-sml @SMLload=main-image.x86-linux
+sml @SMLload=$(find . -name main-image.\*)
