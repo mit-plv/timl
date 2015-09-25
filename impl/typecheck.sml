@@ -2032,5 +2032,3 @@ fun main (prog_name, args : string list) : int =
     end
 end
 
-(* for mlton *)
-val _ = Main.main ("", [])

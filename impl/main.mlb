@@ -1,3 +1,5 @@
 $(SML_LIB)/basis/basis.mlb
 
 typecheck.sml
+mlton-main.sml
+
