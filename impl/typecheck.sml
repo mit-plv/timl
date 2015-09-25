@@ -10,6 +10,12 @@ val join = String.concatWith
 fun prefix a b = a ^ b
 val str_int = Int.toString
 
+fun id x = x
+fun const a _ = a
+fun range n = List.tabulate (n, id)
+fun repeat n a = List.tabulate (n, const a)
+fun add_idx ls = ListPair.zip (range (length ls), ls)
+
 fun nth_error ls n =
   if n < 0 orelse n >= length ls then
       NONE
@@ -88,6 +94,15 @@ datatype ty =
 	 | Int
 	 | AppDatatype of var * ty list * idx list
 
+type constr = var * string list * (string * sort) list * ty * idx list
+
+datatype kind = 
+	 Type
+	 (* will only be used by recursive types *)
+	 | KArrow of sort list
+	 (* will only be used by datatypes *)
+	 | KArrowDatatype of int * sort list
+
 infix 7 $ val op$ = Tmax
 infix 6 %+ val op%+ = Tadd
 infix 6 %* val op%* = Tmult
@@ -145,6 +160,12 @@ fun str_t (ctx as (sctx, kctx)) (c : ty) : string =
     | AppVar (x, i) => sprintf "($$)" [str_v kctx x, (join "" o map (prefix " ") o map (str_i sctx)) i]
     | Int => "int"
     | AppDatatype (x, ts, is) => sprintf "($$$)" [str_v kctx x, (join "" o map (prefix " ") o map (str_t ctx)) ts, (join "" o map (prefix " ") o map (str_i sctx)) is]
+
+fun str_k ctx (k : kind) : string = 
+    case k of
+	Type => "Type"
+      | KArrow s => sprintf "($ => Type)" [join " * " (map (str_s ctx) s)]
+      | KArrowDatatype (n, sorts) => sprintf "($ => $ => Type)" [join " * " (repeat n "Type"), join " * " (map (str_s ctx) sorts)]
 
 end
 
@@ -268,12 +289,6 @@ fun error_monad () =
       (Error, runError)
   end
 
-fun id x = x
-fun const a _ = a
-fun range n = List.tabulate (n, id)
-fun repeat n a = List.tabulate (n, const a)
-fun add_idx ls = ListPair.zip (range (length ls), ls)
-
 structure StringVar = struct
 type var = string
 fun str_v ctx x : string = x
@@ -288,16 +303,25 @@ fun str_v ctx x : string =
     | NONE => "unbound_" ^ str_int x
 end
 
-structure NameResolve = struct
-structure T = MakeType (structure Var = StringVar)
-structure E = MakeExpr (structure Var = StringVar structure Type = T)
+structure NamefulType = MakeType (structure Var = StringVar)
+structure NamefulExpr = MakeExpr (structure Var = StringVar structure Type = NamefulType)
 structure Type = MakeType (structure Var = IntVar)
 structure Expr = MakeExpr (structure Var = IntVar structure Type = Type)
+
+structure NameResolve = struct
+structure T = NamefulType
+structure E = NamefulExpr
 open Type
 open Expr
 
 local
-    val (Error, runError) = error_monad ()
+    (* val (Error, runError) = error_monad () *)
+    exception Error of string
+    fun runError m _ =
+	OK (m ())
+	handle
+	Error msg => Failed msg
+
     fun on_var ctx x =
       case List.find (fn (_, y) => y = x) (add_idx ctx) of
 	  SOME (i, _) => i
@@ -343,7 +367,7 @@ local
 	  | T.Uni (name, t) => Uni (name, on_type (sctx, name :: kctx) t)
 	  | T.UniI (s, name, t) => UniI (on_sort sctx s, name, on_type (name :: sctx, kctx) t)
 	  | T.ExI (s, name, t) => ExI (on_sort sctx s, name, on_type (name :: sctx, kctx) t)
-	  | T.AppRecur (name, named_sorts, t, is) => AppRecur (name, map (mapSnd (on_sort sctx)) named_sorts, on_type (rev (map #1 named_sorts) @ sctx, name :: kctx) t, map (on_idx sctx) is)
+	  | T.AppRecur (name, name_sorts, t, is) => AppRecur (name, map (mapSnd (on_sort sctx)) name_sorts, on_type (rev (map #1 name_sorts) @ sctx, name :: kctx) t, map (on_idx sctx) is)
 	  | T.AppVar (x, is) => AppVar (on_var kctx x, map (on_idx sctx) is)
 	  | T.Int => Int
 	  | T.AppDatatype (x, ts, is) => AppDatatype (on_var kctx x, map (on_type ctx) ts, map (on_idx sctx) is)
@@ -385,16 +409,32 @@ local
 	      | E.Case (e, t, d, rules) => Case (on_expr ctx e, on_type skctx t, on_idx sctx d, map (fn (pn, e) => (on_ptrn cctx pn, let val (inames, enames) = E.ptrn_names pn in on_expr (inames @ sctx, kctx, cctx, enames @ tctx ) e end)) rules)
 	      | E.Never t => Never (on_type skctx t)
 	end
+
+    fun on_constr (ctx as (sctx, kctx)) (family, tnames, name_sorts, t, is) =
+	let val sctx' = rev (map #1 name_sorts) @ sctx
+	in
+	    (on_var kctx family, tnames, 
+	     (rev o #1) (foldl (fn ((name, s), (acc, names)) => ((name, on_sort (names @ sctx) s) :: acc, name :: names)) ([], []) name_sorts),
+	     on_type (sctx', rev tnames @ kctx) t,
+	     map (on_idx sctx') is
+	    )
+	end
+
+    fun on_kind ctx k =
+	case k of
+	    T.Type => Type
+	  | T.KArrow sorts => KArrow (map (on_sort ctx) sorts)
+	  | T.KArrowDatatype (n, sorts) => KArrowDatatype (n, map (on_sort ctx) sorts)
+
 in
 fun resolve_type ctx e = runError (fn () => on_type ctx e) ()
 fun resolve_expr ctx e = runError (fn () => on_expr ctx e) ()
+fun resolve_constr ctx e = runError (fn () => on_constr ctx e) ()
+fun resolve_kind ctx e = runError (fn () => on_kind ctx e) ()
 end
 end
 			    
 structure TypeCheck = struct
-
-structure Type = MakeType (structure Var = IntVar)
-structure Expr = MakeExpr (structure Var = IntVar structure Type = Type)
 open Type
 open Expr
 
@@ -756,26 +796,19 @@ fun unroll (name, ns, t, i) =
   subst_is_t i (f 0 (shift_i_r (length ns) (Recur (name, ns, t))) t)
 end
 
-fun shiftx_i_c x n (family, tnames, named_sorts, t, is) =
-  let val m = length named_sorts 
+fun shiftx_i_c x n (family, tnames, name_sorts, t, is) =
+  let val m = length name_sorts 
   in
       (family, tnames, 
-       #1 (foldr (fn ((name, s), (acc, m)) => ((name, shiftx_i_s (x + m) n s) :: acc, m - 1)) ([], m - 1) named_sorts), 
+       #1 (foldr (fn ((name, s), (acc, m)) => ((name, shiftx_i_s (x + m) n s) :: acc, m - 1)) ([], m - 1) name_sorts), 
        shiftx_i_t (x + m) n t, 
        map (shiftx_i_i (x + m) n) is)
   end
 fun shift_i_c b = shiftx_i_c 0 1 b
 
-fun shiftx_t_c x n (family, tnames, named_sorts, t, is) =
-  (shiftx_v x n family, tnames, named_sorts, shiftx_t_t (x + length tnames) n t, is)
+fun shiftx_t_c x n (family, tnames, name_sorts, t, is) =
+  (shiftx_v x n family, tnames, name_sorts, shiftx_t_t (x + length tnames) n t, is)
 fun shift_t_c b = shiftx_t_c 0 1 b
-
-datatype kind = 
-	 Type
-	 (* will only be used by recursive types *)
-	 | KArrow of sort list
-	 (* will only be used by datatypes *)
-	 | KArrowDatatype of int * sort list
 
 local
     fun f x n b =
@@ -788,18 +821,11 @@ fun shiftx_i_k x n b = f x n b
 fun shift_i_k b = shiftx_i_k 0 1 b
 end
 
-fun str_k ctx (k : kind) : string = 
-  case k of
-      Type => "Type"
-    | KArrow s => sprintf "($ => Type)" [join " * " (map (str_s ctx) s)]
-    | KArrowDatatype (n, sorts) => sprintf "($ => $ => Type)" [join " * " (repeat n "Type"), join " * " (map (str_s ctx) sorts)]
-
 (* sorting context *)
 type scontext = (string * sort) list * prop list
 (* kinding context *)
 type kcontext = (string * kind) list 
 (* constructor context *)
-type constr = var * string list * (string * sort) list * ty * idx list
 type ccontext = (string * constr) list
 (* typing context *)
 type tcontext = (string * ty) list
@@ -1923,10 +1949,10 @@ fun main () =
 
 end
 
-structure NamedDatatypeExamples = struct
+structure NamefulDatatypeExamples = struct
 
-structure T = MakeType (structure Var = StringVar)
-structure E = MakeExpr (structure Var = StringVar structure Type = T)
+structure T = NamefulType
+structure E = NamefulExpr
 open T
 open E
 
@@ -1938,14 +1964,15 @@ infix 3 /\
 infix 1 -->
 infix 1 <->
 
+val ilist = KArrowDatatype (1, [STime])
 fun NilI family = (family, ["a"], [], Unit, [T0])
 fun ConsI family = (family, ["a"], [("n", STime)], Prod (VarT "a", AppDatatype (family, [VarT "a"], [VarI "n"])), [VarI "n" %+ T1])
 val NilI_int = AppConstr ("NilI", [Int], [], TT)
 val ConsI_int = AppConstr ("ConsI", [Int], [T0], Pair (Const 77, NilI_int))
 
 val map_ = 
-    AbsT ("'a",
-	  AbsT ("'b",
+    AbsT ("a",
+	  AbsT ("b",
 		AbsI (STime, "m", 
 		      Abs (Arrow (VarT "a", VarI "m", VarT "b"), "f", 
 			   Fix (UniI (STime, "n", Arrow (AppDatatype ("ilist", [VarT "a"], [VarI "n"]), (VarI "m" %+ Tconst 2) %* VarI "n", AppDatatype ("ilist", [VarT "b"], [VarI "n"]))), "map", 
@@ -1957,29 +1984,38 @@ val map_ =
 
 val wrong = AppConstr ("NilI", [Int], [T0], Pair (Const 77, NilI_int))
 
-structure Type = MakeType (structure Var = IntVar)
-structure Expr = MakeExpr (structure Var = IntVar structure Type = Type)
 open Type
 open Expr
-
 open NameResolve
 open TypeCheck
 
 exception Resolve of string
+fun try r = 
+    case r of 
+	OK v => v 
+      | Failed msg => raise Resolve msg
 
 (* fun main () = check ctx NilI_int *)
 (* fun main () = check ctx ConsI_int *)
 fun main () =
     let
-	val ctxn = ([], ["ilist"], ["ConsI", "NilI"], [])
-	val map_ = case resolve_expr ctxn map_ of OK v => v 
-						| Failed msg => raise Resolve msg
-	val ilist = KArrowDatatype (1, [STime])
-	val ctx : context = (([], []), [("ilist", ilist)], [("ConsI", ConsI "ilist"), ("NilI", NilI "ilist")], [])
+	val sctx = ([], [])
+	val sctxn = sctx_names sctx
+	val ilist = (try o resolve_kind sctxn) ilist
+	val skctx as (_, kctx) = (sctx, [("ilist", ilist)])
+	val skctxn as (_, kctxn) = (sctxn, names kctx)
+	val NilI = (try o resolve_constr skctxn) (NilI "ilist")
+	val ConsI = (try o resolve_constr skctxn) (ConsI "ilist")
+	val ctx as (_, _, cctx, tctx) : context = (sctx, kctx, [("ConsI", ConsI), ("NilI", NilI)], [])
+	val ctxn = (sctxn, kctxn, names cctx, names tctx)
+	val wrong = (try o resolve_expr ctxn) wrong
+	val map_ = (try o resolve_expr ctxn) map_
     in
 	check ctx wrong ^ "\n" ^
 	check ctx map_
     end
+    handle 
+    Resolve msg => sprintf "Failed to resolve variable: $\n" [msg]
 
 end
 
@@ -1987,7 +2023,8 @@ fun main () =
   let
       val output = ""
       (* val output = RecurExamples.main () *)
-      val output = DatatypeExamples.main ()
+      (* val output = DatatypeExamples.main () *)
+      val output = NamefulDatatypeExamples.main ()
   in			 
       print (output ^ "\n")
   end
