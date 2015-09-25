@@ -1970,6 +1970,16 @@ fun ConsI family = (family, ["a"], [("n", STime)], Prod (VarT "a", AppDatatype (
 val NilI_int = AppConstr ("NilI", [Int], [], TT)
 val ConsI_int = AppConstr ("ConsI", [Int], [T0], Pair (Const 77, NilI_int))
 
+(*
+
+map = fn a b (m :: Time) (f : a -- m -> b) 
+        fix (map : forall n :: Time, list a n -- (m + 2) * n -> list b n) (n :: Time) (ls : list a n) =>
+          case ls return list b n time (m + 2) * n of
+              NilI _ => NilI [b] ()
+            | ConsI n' x_xs => ConsI [b] [n'] (f (fst x_xs), map [n'] (snd x_xs))
+
+ *)
+			  
 val map_ = 
     AbsT ("a",
 	  AbsT ("b",
