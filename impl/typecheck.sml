@@ -268,7 +268,7 @@ fun str_e (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
 	  | AscriptionTime (e, d) => sprintf "($ |> $)" [str_e ctx e, str_i sctx d]
 	  | Plus (e1, e2) => sprintf "($ + $)" [str_e ctx e1, str_e ctx e2]
 	  | Const n => str_int n
-	  | AppConstr (x, ts, is, e) => sprintf "($$$ $)" [str_v cctx x, (join "" o map (prefix " ") o map (str_t skctx)) ts, (join "" o map (prefix " ") o map (str_i sctx)) is, str_e ctx e]
+	  | AppConstr (x, ts, is, e) => sprintf "($$$ $)" [str_v cctx x, (join "" o map (prefix " ") o map (fn t => sprintf "[$]" [str_t skctx t])) ts, (join "" o map (prefix " ") o map (fn i => sprintf "[$]" [str_i sctx i])) is, str_e ctx e]
 	  | Case (e, t, d, rules) => sprintf "(case $ return $ time $ of $)" [str_e ctx e, str_t skctx t, str_i sctx d, join " | " (map (str_rule ctx) rules)]
     end
 
@@ -1735,7 +1735,7 @@ structure DatatypeExamples = struct
 val ilist = KArrowDatatype (1, [STime])
 fun inil family = (family, ["a"], [], Unit, [T0])
 fun icons family = (family, ["a"], [("n", STime)], Prod (VarT 0, AppDatatype (shiftx_v 0 1 family, [VarT 0], [VarI 0])), [VarI 0 %+ T1])
-val ctx : context = (([], []), [("ilist", ilist)], [("icons", icons 0), ("inil", inil 0)], []) 
+val ctx : context = (([], []), [("ilist", ilist)], [("ConsI", icons 0), ("NilI", inil 0)], []) 
 val inil_int = AppConstr (1, [Int], [], TT)
 val icons_int = AppConstr (0, [Int], [T0], Pair (Const 77, inil_int))
 fun main () = check ctx inil_int
