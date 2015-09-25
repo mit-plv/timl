@@ -20,3 +20,9 @@ Makefile.coq
 impl/typecheck
 impl/learn-sml/io
 impl/learn-sml/regexp
+*.x86-linux
+*.s
+*.o
+impl/main
+*.asm
+.cm

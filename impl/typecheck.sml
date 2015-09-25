@@ -2019,14 +2019,18 @@ fun main () =
 
 end
 
-fun main () = 
-  let
-      val output = ""
-      (* val output = RecurExamples.main () *)
-      (* val output = DatatypeExamples.main () *)
-      val output = NamefulDatatypeExamples.main ()
-  in			 
-      print (output ^ "\n")
-  end
+structure Main = struct
+fun main (prog_name, args : string list) : int = 
+    let
+	val output = ""
+	(* val output = RecurExamples.main () *)
+	(* val output = DatatypeExamples.main () *)
+	val output = NamefulDatatypeExamples.main ()
+    in	
+	print (output ^ "\n");
+	0
+    end
+end
 
-val _ = main ()
+(* for mlton *)
+val _ = Main.main ("", [])
