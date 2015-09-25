@@ -155,10 +155,18 @@ fun nth_error ls n =
     else
 	SOME (List.nth (ls, n))
 
+fun interleave xs ys =
+    case xs of
+	x :: xs' => x :: interleave ys xs'
+      | nil => ys
+
+fun sprintf s ls =
+    String.concat (interleave (String.fields (fn c => c = #"$") s) ls)
+
 val str_int = Int.toString
 
 fun str_v ctx (x : var) : string =
-    (* str_int x *)
+    (* sprintf "%$" [str_int x] *)
     case nth_error ctx x of
     	SOME name => name
       | NONE => "unbound_" ^ str_int x
@@ -168,14 +176,6 @@ fun str_b (s : bsort) : string =
 	Time => "Time"
       | Bool => "Bool"
       | BSUnit => "Unit"
-
-fun interleave xs ys =
-    case xs of
-	x :: xs' => x :: interleave ys xs'
-      | nil => ys
-
-fun sprintf s ls =
-    String.concat (interleave (String.fields (fn c => c = #"$") s) ls)
 
 fun str_i ctx (i : idx) : string = 
     case i of
@@ -605,7 +605,13 @@ fun unroll (name, ns, t, i) =
 end
 
 fun shiftx_i_c x n (family, tnames, named_sorts, t, is) =
-    (family, tnames, map (mapSnd (shiftx_i_s x n)) named_sorts, shiftx_i_t x n t, map (shiftx_i_i x n) is)
+    let val m = length named_sorts 
+    in
+	(family, tnames, 
+	 #1 (foldr (fn ((name, s), (acc, m)) => ((name, shiftx_i_s (x + m) n s) :: acc, m - 1)) ([], m - 1) named_sorts), 
+	 shiftx_i_t (x + m) n t, 
+	 map (shiftx_i_i (x + m) n) is)
+    end
 fun shift_i_c b = shiftx_i_c 0 1 b
 
 fun shiftx_t_c x n (family, tnames, named_sorts, t, is) =
@@ -1258,7 +1264,7 @@ local
 
     (* t is already checked for wellformedness *)
     fun match_ptrn (ctx as (sctx, kctx, cctx), pn, t) =
-	let val skctxn = (sctx_names sctx, names kctx)
+	let val skctxn as (sctxn, _) = (sctx_names sctx, names kctx)
 	in
 	    case (pn, t) of
 		(Constr (cx, inames, ename), AppDatatype (x, ts, is)) =>
@@ -1295,7 +1301,7 @@ local
 	let val skctx = (sctx, kctx) 
 	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = (sctx_names sctx, names kctx, names cctx, names tctx) 
 	    val skctxn = (sctxn, kctxn)
-	    val () = print (sprintf "Typing $\n" [str_e ctxn e])
+	    (* val () = print (sprintf "Typing $\n" [str_e ctxn e]) *)
 	    val (t, d) =
 		case e of
 		    Var x =>
@@ -1483,7 +1489,7 @@ local
 			check_rules (ctx, rules, (t1, d, t));
 			(t, d1 %+ d)
 		    end
-	    val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_t skctxn t, str_e ctxn e, str_i sctxn d])
+	    (* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_t skctxn t, str_e ctxn e, str_i sctxn d]) *)
 	in
 	    (t, d)
 	end
@@ -1491,7 +1497,7 @@ local
     and check_type (ctx as (sctx, kctx, cctx, tctx), e, t, d) =
 	let 
 	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = (sctx_names sctx, names kctx, names cctx, names tctx) 
-	    val () = print (sprintf "Type checking $ against $ and $\n" [str_e ctxn e, str_t (sctxn, kctxn) t, str_i sctxn d])
+	    (* val () = print (sprintf "Type checking $ against $ and $\n" [str_e ctxn e, str_t (sctxn, kctxn) t, str_i sctxn d]) *)
 	    val (t', d') = get_type (ctx, e)
 	in
 	    is_subtype ((sctx, kctx), t', t);
@@ -1662,7 +1668,7 @@ fun check (ctx as (sctx, kctx, cctx, tctx)) e =
 	case vcgen ctx e of
 	    OK ((t, d), vcs) =>
 	    let
-		val () = print "Simplify and trivially solve ...\n"
+		(* val () = print "Simplifying and applying trivial solver ...\n" *)
 		val vcs = trivial_solver vcs
 		val vcs = map simplify vcs
 		val vcs = trivial_solver vcs
@@ -1736,8 +1742,8 @@ fun main () = check ctx inil_int
 fun main () = check ctx icons_int
 
 val map_ = 
-    AbsT ("a",
-	  AbsT ("b",
+    AbsT ("'a",
+	  AbsT ("'b",
 		AbsI (STime, "m", 
 		      Abs (Arrow (VarT 1, VarI 0, VarT 0), "f", 
 			   Fix (UniI (STime, "n", Arrow (AppDatatype (2, [VarT 1], [VarI 0]), (VarI 1 %+ Tconst 2) %* VarI 0, AppDatatype (2, [VarT 0], [VarI 0]))), "map", 
