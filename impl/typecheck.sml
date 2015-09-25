@@ -24,15 +24,21 @@ end
 fun mapFst f (a, b) = (f a, b)
 fun mapSnd f (a, b) = (a, f b)
 
-(* types *)
-functor MakeType (structure Var : VAR) = struct
-open Var
-
 (* basic index sort *)
 datatype bsort =
 	 Time
 	 | Bool
 	 | BSUnit
+
+fun str_b (s : bsort) : string = 
+  case s of
+      Time => "Time"
+    | Bool => "Bool"
+    | BSUnit => "Unit"
+
+(* types *)
+functor MakeType (structure Var : VAR) = struct
+open Var
 
 datatype idx =
 	 VarI of var
@@ -62,6 +68,10 @@ datatype sort =
 	 Basic of bsort
 	 | Subset of bsort * string * prop
 					  
+val STime = Basic Time
+val SBool = Basic Bool
+val SUnit = Basic BSUnit
+
 datatype ty = 
 	 VarT of var
 	 | Arrow of ty * idx * ty
@@ -85,12 +95,6 @@ infix 4 %<= val op%<= = TimeLe
 infix 3 /\ val op/\ = And
 infix 1 --> val op--> = Imply
 infix 1 <-> val op<-> = Iff
-
-fun str_b (s : bsort) : string = 
-  case s of
-      Time => "Time"
-    | Bool => "Bool"
-    | BSUnit => "Unit"
 
 fun str_i ctx (i : idx) : string = 
   case i of
@@ -179,7 +183,7 @@ datatype expr =
 	 (* sum type *)
 	 | Inl of ty * expr
 	 | Inr of ty * expr
-	 | Match of expr * string * expr * string * expr
+	 | SumCase of expr * string * expr * string * expr
 	 (* universal *)
 	 | AbsT of string * expr
 	 | AppT of expr * ty
@@ -196,6 +200,7 @@ datatype expr =
 	 | Const of int
 	 | AppConstr of var * ty list * idx list * expr
 	 | Case of expr * ty * idx * (ptrn * expr) list
+	 | Never of ty
 
 fun str_pn ctx pn = 
   case pn of
@@ -203,7 +208,7 @@ fun str_pn ctx pn =
 
 fun ptrn_names pn =
   case pn of
-      Constr (_, inames, ename) => (inames, [ename])
+      Constr (_, inames, ename) => (rev inames, [ename])
 
 fun str_e (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
   let fun add_t name (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx) 
@@ -217,14 +222,14 @@ fun str_e (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
 	| Pair (e1, e2) => sprintf "($, $)" [str_e ctx e1, str_e ctx e2]
 	| Fst e => sprintf "(fst $)" [str_e ctx e]
 	| Snd e => sprintf "(snd $)" [str_e ctx e]
-	| Inl (t, e) => sprintf "(inl $ $)" [str_t skctx t, str_e ctx e]
-	| Inr (t, e) => sprintf "(inr $ $)" [str_t skctx t, str_e ctx e]
-	| Match (e, name1, e1, name2, e2) => sprintf "(sumcase $ of inl $ => $ | inr $  => $)" [str_e ctx e, name1, str_e (add_t name1 ctx) e1, name2, str_e (add_t name2 ctx) e2]
-	| Fold (t, e) => sprintf "(fold $ $)" [str_t skctx t, str_e ctx e]
+	| Inl (t, e) => sprintf "(inl [$] $)" [str_t skctx t, str_e ctx e]
+	| Inr (t, e) => sprintf "(inr [$] $)" [str_t skctx t, str_e ctx e]
+	| SumCase (e, name1, e1, name2, e2) => sprintf "(sumcase $ of inl $ => $ | inr $  => $)" [str_e ctx e, name1, str_e (add_t name1 ctx) e1, name2, str_e (add_t name2 ctx) e2]
+	| Fold (t, e) => sprintf "(fold [$] $)" [str_t skctx t, str_e ctx e]
 	| Unfold e => sprintf "(unfold $)" [str_e ctx e]
 	| AbsT (name, e) => sprintf "(fn $ => $)" [name, str_e (sctx, name :: kctx, cctx, tctx) e]
 	| AppT (e, t) => sprintf "($ [$])" [str_e ctx e, str_t skctx t]
-	| AbsI (s, name, e) => sprintf "(fn ($ :: $) => $)" [name, str_s sctx s, str_e (name :: sctx, kctx, cctx, tctx) e]
+	| AbsI (s, name, e) => sprintf "(fn $ :: $ => $)" [name, str_s sctx s, str_e (name :: sctx, kctx, cctx, tctx) e]
 	| AppI (e, i) => sprintf "($ [$])" [str_e ctx e, str_i sctx i]
 	| Pack (t, i, e) => sprintf "(pack $ ($, $))" [str_t skctx t, str_i sctx i, str_e ctx e]
 	| Unpack (e1, t, d, iname, ename, e2) => sprintf "unpack $ return $ time $ as ($, $) in $ end" [str_e ctx e1, str_t skctx t, str_i sctx d, iname, ename, str_e (iname :: sctx, kctx, cctx, ename :: tctx) e2]
@@ -236,11 +241,12 @@ fun str_e (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
 	| Const n => str_int n
 	| AppConstr (x, ts, is, e) => sprintf "($$$ $)" [str_v cctx x, (join "" o map (prefix " ") o map (fn t => sprintf "[$]" [str_t skctx t])) ts, (join "" o map (prefix " ") o map (fn i => sprintf "[$]" [str_i sctx i])) is, str_e ctx e]
 	| Case (e, t, d, rules) => sprintf "(case $ return $ time $ of $)" [str_e ctx e, str_t skctx t, str_i sctx d, join " | " (map (str_rule ctx) rules)]
+	| Never t => sprintf "(never [$])" [str_t skctx t]
   end
 
 and str_rule (ctx as (sctx, kctx, cctx, tctx)) (pn, e) =
     let val (inames, enames) = ptrn_names pn
-	val ctx' = (rev inames @ sctx, kctx, cctx, enames @ tctx)
+	val ctx' = (inames @ sctx, kctx, cctx, enames @ tctx)
     in
 	sprintf "$ => $" [str_pn cctx pn, str_e ctx' e]
     end
@@ -292,26 +298,96 @@ open Expr
 
 local
     val (Error, runError) = error_monad ()
-    fun pos ctx x =
-      case find (fn (_, y) => y = x) (add_idx ctx) of
+    fun on_var ctx x =
+      case List.find (fn (_, y) => y = x) (add_idx ctx) of
 	  SOME (i, _) => i
 	| NONE => raise Error ("Unbound variable " ^ x)
 
-    local
-	fun f (ctx as (sctx, kctx, cctx, tctx)) e =
-	  case e of
-	      E.Var x => Var (pos tctx x)
-	    | E.Abs (t, name, e) => Abs (on_type skctx t, name, f (sctx, kctx, cctx, name :: tctx) e)
-	    | E.App (e1, e2) => App (f ctx e1, f ctx e2)
-	    | E.TT => TT
-	    | E.Pair (e1, e2) => Pair (f ctx e1, f ctx e2)
-	    | E.Fst e => Fst (f ctx e)
-	    | E.Snd e => Snd (f ctx e)
+    fun on_idx ctx i =
+	case i of
+	    T.VarI x => VarI (on_var ctx x)
+	  | T.T0 => T0
+	  | T.T1 => T1
+	  | T.Tadd (i1, i2) => Tadd (on_idx ctx i1, on_idx ctx i2)
+	  | T.Tmult (i1, i2) => Tmult (on_idx ctx i1, on_idx ctx i2)
+	  | T.Tmax (i1, i2) => Tmax (on_idx ctx i1, on_idx ctx i2)
+	  | T.Tmin (i1, i2) => Tmin (on_idx ctx i1, on_idx ctx i2)
+	  | T.TrueI => TrueI
+	  | T.FalseI => FalseI
+	  | T.TT => Type.TT
+	  | T.Tconst n => Tconst n
 
-    in
-    val on_expr = f
-    end
+    fun on_prop ctx p =
+	case p of
+	    T.True => True
+	  | T.False => False
+	  | T.And (p1, p2) => And (on_prop ctx p1, on_prop ctx p2)
+	  | T.Or (p1, p2) => Or (on_prop ctx p1, on_prop ctx p2)
+	  | T.Imply (p1, p2) => Imply (on_prop ctx p1, on_prop ctx p2)
+	  | T.Iff (p1, p2) => Iff (on_prop ctx p1, on_prop ctx p2)
+	  | T.TimeLe (i1, i2) => TimeLe (on_idx ctx i1, on_idx ctx i2)
+	  | T.Eq (s, i1, i2) => Eq (s, on_idx ctx i1, on_idx ctx i2)
+
+    fun on_sort ctx s =
+	case s of
+	    T.Basic s => Basic s
+	  | T.Subset (s, name, p) => Subset (s, name, on_prop (name :: ctx) p)
+
+    fun on_type (ctx as (sctx, kctx)) t =
+	case t of
+	    T.VarT x => VarT (on_var kctx x)
+	  | T.Arrow (t1, d, t2) => Arrow (on_type ctx t1, on_idx sctx d, on_type ctx t2)
+	  | T.Prod (t1, t2) => Prod (on_type ctx t1, on_type ctx t2)
+	  | T.Sum (t1, t2) => Sum (on_type ctx t1, on_type ctx t2)
+	  | T.Unit => Unit
+	  | T.Uni (name, t) => Uni (name, on_type (sctx, name :: kctx) t)
+	  | T.UniI (s, name, t) => UniI (on_sort sctx s, name, on_type (name :: sctx, kctx) t)
+	  | T.ExI (s, name, t) => ExI (on_sort sctx s, name, on_type (name :: sctx, kctx) t)
+	  | T.AppRecur (name, named_sorts, t, is) => AppRecur (name, map (mapSnd (on_sort sctx)) named_sorts, on_type (rev (map #1 named_sorts) @ sctx, name :: kctx) t, map (on_idx sctx) is)
+	  | T.AppVar (x, is) => AppVar (on_var kctx x, map (on_idx sctx) is)
+	  | T.Int => Int
+	  | T.AppDatatype (x, ts, is) => AppDatatype (on_var kctx x, map (on_type ctx) ts, map (on_idx sctx) is)
+
+    fun on_ptrn cctx pn =
+	case pn of
+	    E.Constr (x, inames, ename) => Constr (on_var cctx x, inames, ename)
+
+    fun on_expr (ctx as (sctx, kctx, cctx, tctx)) e =
+	let fun add_t name (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx)
+	    val skctx = (sctx, kctx)
+	in
+	    case e of
+		E.Var x => Var (on_var tctx x)
+	      | E.Abs (t, name, e) => Abs (on_type skctx t, name, on_expr (add_t name ctx) e)
+	      | E.App (e1, e2) => App (on_expr ctx e1, on_expr ctx e2)
+	      | E.TT => TT
+	      | E.Pair (e1, e2) => Pair (on_expr ctx e1, on_expr ctx e2)
+	      | E.Fst e => Fst (on_expr ctx e)
+	      | E.Snd e => Snd (on_expr ctx e)
+	      | E.Inr (t, e) => Inr (on_type skctx t, on_expr ctx e)
+	      | E.Inl (t, e) => Inl (on_type skctx t, on_expr ctx e)
+	      | E.SumCase (e, name1, e1, name2, e2) => SumCase (on_expr ctx e, name1, on_expr (add_t name1 ctx) e1, name2, on_expr (add_t name2 ctx) e2)
+	      | E.Fold (t, e) => Fold (on_type skctx t, on_expr ctx e)
+	      | E.Unfold e => Unfold (on_expr ctx e)
+	      | E.AbsT (name, e) => AbsT (name, on_expr (sctx, name :: kctx, cctx, tctx) e)
+	      | E.AppT (e, t) => AppT (on_expr ctx e, on_type skctx t)
+	      | E.AbsI (s, name, e) => AbsI (on_sort sctx s, name, on_expr (name :: sctx, kctx, cctx, tctx) e)
+	      | E.AppI (e, i) => AppI (on_expr ctx e, on_idx sctx i)
+	      | E.Pack (t, i, e) => Pack (on_type skctx t, on_idx sctx i, on_expr ctx e)
+	      | E.Unpack (e1, t, d, iname, ename, e2) => Unpack (on_expr ctx e1, on_type skctx t, on_idx sctx d, iname, ename, on_expr (iname :: sctx, kctx, cctx, ename :: tctx) e2)
+	      | E.Fix (t, name, e) => Fix (on_type skctx t, name, on_expr (add_t name ctx) e)
+	      | E.Let (e1, name, e2) => Let (on_expr ctx e1, name, on_expr (add_t name ctx) e2)
+	      | E.Ascription (e, t) => Ascription (on_expr ctx e, on_type skctx t)
+	      | E.AscriptionTime (e, d) => AscriptionTime (on_expr ctx e, on_idx sctx d)
+	      | E.Const n => Const n
+	      | E.Plus (e1, e2) => Plus (on_expr ctx e1, on_expr ctx e2)
+	      | E.AppConstr (x, ts, is, e) => AppConstr (on_var cctx x, map (on_type skctx) ts, map (on_idx sctx) is, on_expr ctx e)
+	      | E.Case (e, t, d, rules) => Case (on_expr ctx e, on_type skctx t, on_idx sctx d, map (fn (pn, e) => (on_ptrn cctx pn, let val (inames, enames) = E.ptrn_names pn in on_expr (inames @ sctx, kctx, cctx, enames @ tctx ) e end)) rules)
+	      | E.Never t => Never (on_type skctx t)
+	end
 in
+fun resolve_type ctx e = runError (fn () => on_type ctx e) ()
+fun resolve_expr ctx e = runError (fn () => on_expr ctx e) ()
 end
 end
 			    
@@ -341,7 +417,7 @@ fun is_value (e : expr) : bool =
     | Snd _ => false
     | Inl (_, e) => is_value e
     | Inr (_, e) => is_value e
-    | Match _ => false
+    | SumCase _ => false
     | Fold (_, e) => is_value e
     | Unfold _ => false
     | AbsT _ => true
@@ -358,10 +434,7 @@ fun is_value (e : expr) : bool =
     | Const _ => true
     | AppConstr (_, _, _, e) => is_value e
     | Case _ => false
-
-val STime = Basic Time
-val SBool = Basic Bool
-val SUnit = Basic BSUnit
+    | Never _ => false
 
 fun shiftx_v x n y = 
   if y >= x then
@@ -479,8 +552,8 @@ local
 	| Snd e => Snd (f x n e)
 	| Inl (t, e) => Inl (t, f x n e)
 	| Inr (t, e) => Inr (t, f x n e)
-	| Match (e, name1, e1, name2, e2) => 
-	  Match (f x n e, name1, f (x + 1) n e1, name2, f (x + 1) n e2)
+	| SumCase (e, name1, e1, name2, e2) => 
+	  SumCase (f x n e, name1, f (x + 1) n e1, name2, f (x + 1) n e2)
 	| Fold (t, e) => Fold (t, f x n e)
 	| Unfold e => Unfold (f x n e)
 	| AbsT (name, e) => AbsT (name, f x n e)
@@ -499,6 +572,8 @@ local
 	| Plus (e1, e2) => Plus (f x n e1, f x n e2)
 	| AppConstr (cx, ts, is, e) => AppConstr (cx, ts, is, f x n e)
 	| Case (e, t, d, rules) => Case (f x n e, t, d, map (f_rule x n) rules)
+	| Never t => Never t
+
     and f_rule x n (pn, e) =
 	let val (_, enames) = ptrn_names pn 
 	in
@@ -1401,7 +1476,7 @@ local
 		      val () = is_wftype (skctx, t1) in
 		      (Sum (t1, t2), d)
 		  end
-		| Match (e, name1, e1, name2, e2) => 
+		| SumCase (e, name1, e1, name2, e2) => 
 		  let val (t, d) = get_type (ctx, e) in
 		      case t of
 			  Sum (t1, t2) => 
@@ -1539,6 +1614,10 @@ local
 		      check_rules (ctx, rules, (t1, d, t));
 		      (t, d1 %+ d)
 		  end
+		| Never t => 
+		  (is_wftype (skctx, t);
+		   is_true (sctx, False);
+		   (t, T0))
 		      (* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_t skctxn t, str_e ctxn e, str_i sctxn d]) *)
       in
 	  (t, d)
@@ -1772,7 +1851,7 @@ fun ilist t i = AppRecur (ilist_core t i)
 fun nil_ t = Fold (ilist t [T0], Inl (ilist_right (ilist t) t T0, Pack (ilist_left T0, Type.TT, TT)))
 fun cons_ t (n : idx) x xs = Fold (ilist t [n %+ T1], Inr (ilist_left (n %+ T1), Pack (ilist_right (ilist t) t (n %+ T1), n, Pair (x, xs))))
 (* val output = check [("n", STime)] [("a", Type)] [] (cons_ (VarT 0) (VarI 0)) *)
-fun match_list e t d e1 iname ename e2 = Match (Unfold e, "_", Unpack (Var 0, t, d, "_", "_", shiftx_e_e 0 2 e1), "_", Unpack (Var 0, t, d, iname, ename, shiftx_e_e 1 1 e2))
+fun match_list e t d e1 iname ename e2 = SumCase (Unfold e, "_", Unpack (Var 0, t, d, "_", "_", shiftx_e_e 0 2 e1), "_", Unpack (Var 0, t, d, iname, ename, shiftx_e_e 1 1 e2))
 fun map_ a b = AbsI (STime, "m", Abs (Arrow (shift_i_t a, VarI 0, shift_i_t b), "f", Fix (UniI (STime, "n", Arrow (ilist (shiftx_i_t 0 2 a) [VarI 0], (VarI 1 %+ Tconst 2) %* VarI 0, ilist (shiftx_i_t 0 2 b) [VarI 0])), "map", AbsI (STime, "n", Abs (ilist (shiftx_i_t 0 2 a) [VarI 0], "ls", match_list (Var 0) (ilist (shiftx_i_t 0 2 b) [VarI 0]) ((VarI 1 %+ Tconst 2) %* VarI 0) (nil_ (shiftx_i_t 0 2 b)) "n'" "x_xs" (cons_ (shiftx_i_t 0 2 b) (VarI 0) (App (Var 3, Fst (Var 0))) (App (AppI (Var 2, VarI 0), Snd (Var 0)))))))))
 fun main () = check (([], []), [("b", Type), ("a", Type)], [], []) (map_ (VarT 1) (VarT 0))
 		    (* val output = str_t (["l"], ["ilist"]) (ExI ((Subset (BSUnit, "nouse2", Eq (Time, VarI 1, T0))), "nouse1", Unit)) *)
@@ -1816,13 +1895,13 @@ infix 1 -->
 infix 1 <->
 
 val ilist = KArrowDatatype (1, [STime])
-fun inil family = (family, ["a"], [], Unit, [T0])
-fun icons family = (family, ["a"], [("n", STime)], Prod (VarT 0, AppDatatype (shiftx_v 0 1 family, [VarT 0], [VarI 0])), [VarI 0 %+ T1])
-val ctx : context = (([], []), [("ilist", ilist)], [("ConsI", icons 0), ("NilI", inil 0)], []) 
-val inil_int = AppConstr (1, [Int], [], TT)
-val icons_int = AppConstr (0, [Int], [T0], Pair (Const 77, inil_int))
-fun main () = check ctx inil_int
-fun main () = check ctx icons_int
+fun NilI family = (family, ["a"], [], Unit, [T0])
+fun ConsI family = (family, ["a"], [("n", STime)], Prod (VarT 0, AppDatatype (shiftx_v 0 1 family, [VarT 0], [VarI 0])), [VarI 0 %+ T1])
+val ctx : context = (([], []), [("ilist", ilist)], [("ConsI", ConsI 0), ("NilI", NilI 0)], []) 
+val NilI_int = AppConstr (1, [Int], [], TT)
+val ConsI_int = AppConstr (0, [Int], [T0], Pair (Const 77, NilI_int))
+fun main () = check ctx NilI_int
+fun main () = check ctx ConsI_int
 
 val map_ = 
     AbsT ("'a",
@@ -1836,11 +1915,71 @@ val map_ =
 						 [(Constr (1, [], "_"), AppConstr (1, [VarT 0], [], TT)),
 						  (Constr (0, ["n'"], "x_xs"), AppConstr (0, [VarT 0], [VarI 0], Pair (App (Var 3, Fst (Var 0)), App (AppI (Var 2, VarI 0), Snd (Var 0)))))]))))))))
 
-val wrong = AppConstr (1, [Int], [T0], Pair (Const 77, inil_int))
+val wrong = AppConstr (1, [Int], [T0], Pair (Const 77, NilI_int))
 
 fun main () =
   check ctx wrong ^ "\n" ^
   check ctx map_
+
+end
+
+structure NamedDatatypeExamples = struct
+
+structure T = MakeType (structure Var = StringVar)
+structure E = MakeExpr (structure Var = StringVar structure Type = T)
+open T
+open E
+
+infix 7 $
+infix 6 %+
+infix 6 %*
+infix 4 %<=
+infix 3 /\
+infix 1 -->
+infix 1 <->
+
+fun NilI family = (family, ["a"], [], Unit, [T0])
+fun ConsI family = (family, ["a"], [("n", STime)], Prod (VarT "a", AppDatatype (family, [VarT "a"], [VarI "n"])), [VarI "n" %+ T1])
+val NilI_int = AppConstr ("NilI", [Int], [], TT)
+val ConsI_int = AppConstr ("ConsI", [Int], [T0], Pair (Const 77, NilI_int))
+
+val map_ = 
+    AbsT ("'a",
+	  AbsT ("'b",
+		AbsI (STime, "m", 
+		      Abs (Arrow (VarT "a", VarI "m", VarT "b"), "f", 
+			   Fix (UniI (STime, "n", Arrow (AppDatatype ("ilist", [VarT "a"], [VarI "n"]), (VarI "m" %+ Tconst 2) %* VarI "n", AppDatatype ("ilist", [VarT "b"], [VarI "n"]))), "map", 
+				AbsI (STime, "n", 
+				      Abs (AppDatatype ("ilist", [VarT "a"], [VarI "n"]), "ls", 
+					   Case (Var "ls", AppDatatype ("ilist", [VarT "b"], [VarI "n"]), (VarI "m" %+ Tconst 2) %* VarI "n", 
+						 [(Constr ("NilI", [], "_"), AppConstr ("NilI", [VarT "b"], [], TT)),
+						  (Constr ("ConsI", ["n'"], "x_xs"), AppConstr ("ConsI", [VarT "b"], [VarI "n'"], Pair (App (Var "f", Fst (Var "x_xs")), App (AppI (Var "map", VarI "n'"), Snd (Var "x_xs")))))]))))))))
+
+val wrong = AppConstr ("NilI", [Int], [T0], Pair (Const 77, NilI_int))
+
+structure Type = MakeType (structure Var = IntVar)
+structure Expr = MakeExpr (structure Var = IntVar structure Type = Type)
+open Type
+open Expr
+
+open NameResolve
+open TypeCheck
+
+exception Resolve of string
+
+(* fun main () = check ctx NilI_int *)
+(* fun main () = check ctx ConsI_int *)
+fun main () =
+    let
+	val ctxn = ([], ["ilist"], ["ConsI", "NilI"], [])
+	val map_ = case resolve_expr ctxn map_ of OK v => v 
+						| Failed msg => raise Resolve msg
+	val ilist = KArrowDatatype (1, [STime])
+	val ctx : context = (([], []), [("ilist", ilist)], [("ConsI", ConsI "ilist"), ("NilI", NilI "ilist")], [])
+    in
+	check ctx wrong ^ "\n" ^
+	check ctx map_
+    end
 
 end
 
