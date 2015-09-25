@@ -247,19 +247,6 @@ and str_rule (ctx as (sctx, kctx, cctx, tctx)) (pn, e) =
 
 end			       
 
-structure StringVar = struct
-type var = string
-end
-
-structure IntVar = struct
-type var = int
-fun str_v ctx (x : var) : string =
-  (* sprintf "%$" [str_int x] *)
-  case nth_error ctx x of
-      SOME name => name
-    | NONE => "unbound_" ^ str_int x
-end
-
 datatype 'a result =
 	 OK of 'a
 	 | Failed of string
@@ -275,6 +262,59 @@ fun error_monad () =
       (Error, runError)
   end
 
+fun id x = x
+fun const a _ = a
+fun range n = List.tabulate (n, id)
+fun repeat n a = List.tabulate (n, const a)
+fun add_idx ls = ListPair.zip (range (length ls), ls)
+
+structure StringVar = struct
+type var = string
+fun str_v ctx x : string = x
+end
+
+structure IntVar = struct
+type var = int
+fun str_v ctx x : string =
+  (* sprintf "%$" [str_int x] *)
+  case nth_error ctx x of
+      SOME name => name
+    | NONE => "unbound_" ^ str_int x
+end
+
+structure NameResolve = struct
+structure T = MakeType (structure Var = StringVar)
+structure E = MakeExpr (structure Var = StringVar structure Type = T)
+structure Type = MakeType (structure Var = IntVar)
+structure Expr = MakeExpr (structure Var = IntVar structure Type = Type)
+open Type
+open Expr
+
+local
+    val (Error, runError) = error_monad ()
+    fun pos ctx x =
+      case find (fn (_, y) => y = x) (add_idx ctx) of
+	  SOME (i, _) => i
+	| NONE => raise Error ("Unbound variable " ^ x)
+
+    local
+	fun f (ctx as (sctx, kctx, cctx, tctx)) e =
+	  case e of
+	      E.Var x => Var (pos tctx x)
+	    | E.Abs (t, name, e) => Abs (on_type skctx t, name, f (sctx, kctx, cctx, name :: tctx) e)
+	    | E.App (e1, e2) => App (f ctx e1, f ctx e2)
+	    | E.TT => TT
+	    | E.Pair (e1, e2) => Pair (f ctx e1, f ctx e2)
+	    | E.Fst e => Fst (f ctx e)
+	    | E.Snd e => Snd (f ctx e)
+
+    in
+    val on_expr = f
+    end
+in
+end
+end
+			    
 structure TypeCheck = struct
 
 structure Type = MakeType (structure Var = IntVar)
@@ -672,12 +712,6 @@ in
 fun shiftx_i_k x n b = f x n b
 fun shift_i_k b = shiftx_i_k 0 1 b
 end
-
-fun id x = x
-fun const a _ = a
-fun range n = List.tabulate (n, id)
-fun repeat n a = List.tabulate (n, const a)
-fun add_idx ls = ListPair.zip (range (length ls), ls)
 
 fun str_k ctx (k : kind) : string = 
   case k of
