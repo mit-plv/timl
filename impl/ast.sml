@@ -25,6 +25,24 @@ fun nth_error ls n =
 
 fun mapFst f (a, b) = (f a, b)
 fun mapSnd f (a, b) = (a, f b)
+fun curry f a b = f (a, b)
+fun uncurry f (a, b) = f a b
+
+datatype 'a result =
+	 OK of 'a
+	 | Failed of string
+
+fun error_monad () =
+    let
+	exception Error of string
+	fun runError m _ =
+	    OK (m ())
+	    handle
+	    Error msg => Failed msg
+    in
+	(Error, runError)
+    end
+ 
 end
 
 signature VAR = sig
@@ -280,21 +298,6 @@ functor MakeExpr (structure Var : VAR structure Type : TYPE) = struct
 	    end
 
 	end			       
-
-datatype 'a result =
-	 OK of 'a
-	 | Failed of string
-
-fun error_monad () =
-    let
-	exception Error of string
-	fun runError m _ =
-	    OK (m ())
-	    handle
-	    Error msg => Failed msg
-    in
-	(Error, runError)
-    end
 
 structure StringVar = struct
 type var = string

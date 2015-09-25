@@ -1533,9 +1533,6 @@ fun check (ctx as (sctx, kctx, cctx, tctx)) e =
 
 end
 			  
-fun curry f a b = f (a, b)
-fun uncurry f (a, b) = f a b
-
 structure RecurExamples = struct
 open TypeCheck
 

@@ -1,3 +1,5 @@
+default: smlnj
+
 all: smlnj mlton
 
 mlton: main.mlb
