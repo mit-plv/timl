@@ -213,6 +213,8 @@ fun ptrn_names pn =
     case pn of
 	Constr (_, inames, ename) => (inames, [ename])
 
+fun prefix a b = a ^ b
+
 fun str_t (ctx as (sctx, kctx)) (c : ty) : string =
     case c of
 	Arrow (c1, d, c2) => sprintf "($ -- $ -> $)" [str_t ctx c1, str_i sctx d, str_t ctx c2]
@@ -229,9 +231,9 @@ fun str_t (ctx as (sctx, kctx)) (c : ty) : string =
 		 join " " (map (fn (name, s) => sprintf "($ :: $)" [name, str_s sctx s]) ns),
 		 str_t (rev (map #1 ns) @ sctx, name :: kctx) t,
 		 join " " (map (str_i sctx) i)]
-      | AppVar (x, i) => sprintf "($ $)" [str_v kctx x, join " " (map (str_i sctx) i)]
+      | AppVar (x, i) => sprintf "($$)" [str_v kctx x, (join "" o map (prefix " ") o map (str_i sctx)) i]
       | Int => "int"
-      | AppDatatype (x, ts, is) => sprintf "($ $ $)" [str_v kctx x, join " " (map (str_t ctx) ts), join " " (map (str_i sctx) is)]
+      | AppDatatype (x, ts, is) => sprintf "($$$)" [str_v kctx x, (join "" o map (prefix " ") o map (str_t ctx)) ts, (join "" o map (prefix " ") o map (str_i sctx)) is]
 
 fun str_pn ctx pn = 
     case pn of
@@ -266,7 +268,7 @@ fun str_e (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
 	  | AscriptionTime (e, d) => sprintf "($ |> $)" [str_e ctx e, str_i sctx d]
 	  | Plus (e1, e2) => sprintf "($ + $)" [str_e ctx e1, str_e ctx e2]
 	  | Const n => str_int n
-	  | AppConstr (x, ts, is, e) => sprintf "($ $ $ $)" [str_v cctx x, join " " (map (str_t skctx) ts), join " " (map (str_i sctx) is), str_e ctx e]
+	  | AppConstr (x, ts, is, e) => sprintf "($$$ $)" [str_v cctx x, (join "" o map (prefix " ") o map (str_t skctx)) ts, (join "" o map (prefix " ") o map (str_i sctx)) is, str_e ctx e]
 	  | Case (e, t, d, rules) => sprintf "(case $ return $ time $ of $)" [str_e ctx e, str_t skctx t, str_i sctx d, join " | " (map (str_rule ctx) rules)]
     end
 
@@ -1654,7 +1656,9 @@ val simp_t = f
 end
 
 fun check (ctx as (sctx, kctx, cctx, tctx)) e =
-    let val skctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx) in
+    let 
+	val ctxn as (sctxn, kctxn, cctxn, tctxn) = (sctx_names sctx, names kctx, names cctx, names tctx)
+    in
 	case vcgen ctx e of
 	    OK ((t, d), vcs) =>
 	    let
@@ -1666,8 +1670,9 @@ fun check (ctx as (sctx, kctx, cctx, tctx)) e =
 		val d = simp_i d
 	    in
 		sprintf
-		    "OK: \n  Type: $\n  Time: $\nVCs: [count=$]\n$\n"
-		    [str_t skctxn t,
+		    "OK: \n  Expr: $\n  Type: $\n  Time: $\nVCs: [count=$]\n$\n"
+		    [str_e ctxn e,
+		     str_t (sctxn, kctxn) t,
 		     str_i sctxn d,
 		     str_int (length vcs),
 		     join "\n" (map str_vc vcs)]
@@ -1730,9 +1735,19 @@ val icons_int = AppConstr (0, [Int], [T0], Pair (Const 77, inil_int))
 fun main () = check ctx inil_int
 fun main () = check ctx icons_int
 
-(* fun match_list e t d e1 iname ename e2 = Match (Unfold e, "_", Unpack (Var 0, t, d, "_", "_", shiftx_e_e 0 2 e1), "_", Unpack (Var 0, t, d, iname, ename, shiftx_e_e 1 1 e2)) *)
-(* fun map_ a b = AbsI (STime, "m", Abs (Arrow (shift_i_t a, VarI 0, shift_i_t b), "f", Fix (UniI (STime, "n", Arrow (ilist (shiftx_i_t 0 2 a) [VarI 0], (VarI 1 %+ Tconst 2) %* VarI 0, ilist (shiftx_i_t 0 2 b) [VarI 0])), "map", AbsI (STime, "n", Abs (ilist (shiftx_i_t 0 2 a) [VarI 0], "ls", match_list (Var 0) (ilist (shiftx_i_t 0 2 b) [VarI 0]) ((VarI 1 %+ Tconst 2) %* VarI 0) (nil_ (shiftx_i_t 0 2 b)) "n'" "x_xs" (cons_ (shiftx_i_t 0 2 b) (VarI 0) (App (Var 3, Fst (Var 0))) (App (AppI (Var 2, VarI 0), Snd (Var 0))))))))) *)
-(* val output = check (([], []), [("b", Type), ("a", Type)], [], []) (map_ (VarT 1) (VarT 0)) *)
+val map_ = 
+    AbsT ("a",
+	  AbsT ("b",
+		AbsI (STime, "m", 
+		      Abs (Arrow (VarT 1, VarI 0, VarT 0), "f", 
+			   Fix (UniI (STime, "n", Arrow (AppDatatype (2, [VarT 1], [VarI 0]), (VarI 1 %+ Tconst 2) %* VarI 0, AppDatatype (2, [VarT 0], [VarI 0]))), "map", 
+				AbsI (STime, "n", 
+				      Abs (AppDatatype (2, [VarT 1], [VarI 0]), "ls", 
+					   Case (Var 0, AppDatatype (2, [VarT 0], [VarI 0]), (VarI 1 %+ Tconst 2) %* VarI 0, 
+						 [(Constr (1, [], "_"), AppConstr (1, [VarT 0], [], TT)),
+					    (Constr (0, ["n'"], "x_xs"), AppConstr (0, [VarT 0], [VarI 0], Pair (App (Var 3, Fst (Var 0)), App (AppI (Var 2, VarI 0), Snd (Var 0)))))]))))))))
+
+fun main () = check ctx map_
 
 end
 
