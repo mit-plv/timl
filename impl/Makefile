@@ -2,7 +2,9 @@ default: smlnj
 
 all: smlnj mlton
 
-mlton: main.mlb
+mlton : main
+
+main: main.mlb
 	mlton main.mlb
 
 smlnj: main.cm
