@@ -31,6 +31,8 @@ open Ast
 
 %nonterm start of expr
        | expr of expr
+       | ty of ty
+       | idx of idx
        | expr_comma_star of expr list
        | binding_plus of binding list
        | binding_star of binding list
