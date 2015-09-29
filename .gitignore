@@ -15,15 +15,4 @@ Makefile.coq
 *.bbl
 *.blg
 *.synctex.gz*
-*.cmi
-*.cmo
-impl/typecheck
-impl/learn-sml/io
-impl/learn-sml/regexp
-*.x86-linux
-impl/main-image*
-*.s
-*.o
-impl/main
-*.asm
-.cm
+

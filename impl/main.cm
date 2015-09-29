@@ -1,5 +1,8 @@
 Group is
+      front-end/ast.sml
+      front-end/timl.grm
       expr.sml
       typecheck.sml
 
       $/basis.cm
+      $/ml-yacc-lib.cm

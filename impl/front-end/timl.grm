@@ -1,10 +1,3 @@
-structure Ast = struct
-
-(* the line and col fields of right position are not used *)
-type pos = {abs : int, line : int, col : int}
-
-end
-
 open Ast
 
 %%
@@ -14,7 +7,9 @@ open Ast
 %term ID of string
     | LPAREN
     | RPAREN
-    | FN of fn
+    | DRARROW
+    | FN
+    | FIX
     | LSQ
 	  | RSQ
 	  | LCUR
@@ -28,30 +23,71 @@ open Ast
 	  | END
 	  | COMMA
 	  | RETURN
+	  | ARROW
+	  | DDASH
+	  | MULT
+	  | PLUS
+	  | QUAN
+	  | MU
+	  | INT of int
+	  | BAR
+	  | TRUE
+	  | FALSE
+	  | AND
+	  | OR
+	  | IMPLY
+	  | IFF
+	  | EQ
+	  | LE
+	  | VAL
+	  | EOF
+	  | FORALL
+	  | EXISTS
+	  (* | APP (* dummy terminal for precedence *) *)
 
-%nonterm start of expr
-       | expr of expr
+%nonterm start of exp
+       | exp of exp
+       | aexp of exp
        | ty of ty
+       | aty of ty
        | idx of idx
-       | expr_comma_star of expr list
+       | sort of sort
+       | bsort of bsort
+       | prop of prop
+       | exp_comma_star of exp list
+       | abs of abs
        | binding_plus of binding list
        | binding_star of binding list
        | binding of binding
        | return_opt of (ty * idx) option
        | return of ty * idx
-       | rule_bar_star (ptrn * expr) list
-       | rule of ptrn * expr
+       | rule_bar_star of (ptrn * exp) list
+       | rule of ptrn * exp
        | ptrn of ptrn
        | id_sq_space of string list
        | id_plus of string list
        | id_star of string list
        | def_star of def list
        | def of def
+       | quan of quan
 
 
-%keyword FN CASE OF LET IN END RETURN
+%keyword FN FIX CASE OF LET IN END RETURN
 
 %pos pos
+
+(* %nonassoc LET *)
+(* %nonassoc RTRI *)
+%right ARROW
+%nonassoc IFF
+%right IMPLY
+%right OR
+%right AND
+%nonassoc EQ LE
+%left PLUS
+%left MULT
+(* %left APP *)
+
 %eop EOF
 %noshift EOF
 %nodefault
@@ -59,37 +95,57 @@ open Ast
 
 %%
 
-begin : expr (expr, exprleft, exprright)
+start : exp (exp)
 
-expr : ID (Var (ID, IDleft, IDright))
-     | LPAREN expr_comma_star RPAREN (Tuple (expr_comma_star, LPARENleft, RPARENright))
-     | FN binding_plus DRARROW expr (Abs (FN, binding_plus, expr, FNleft, exprright))
-     | expr expr (App (expr1, expr2, expr1left, expr2right))
-     | expr LSQ ty RSQ (AppT (expr, ty, exprleft, tyright))
-     | expr LCUR idx RCUR (AppI (expr, idx, exprleft, idxright))
-     | CASE expr return_opt OF rule_bar_star (Case (expr, return_opt, rule_bar_star, CASEleft, rule_bar_starright))
-     | expr COLON ty (Ascription (expr, ty, exprleft, tyright))
-     | expr RTRI idx (AscriptionTime (expr, idx, exprleft, idxright))
-     | LPAREN expr RPAREN (expr)
-     | LET def_star IN expr END (Let (def_star, expr, LETleft, ENDright))
+exp : aexp (aexp)
+    | exp aexp (App (exp, aexp, expleft, aexpright))
+    | exp LSQ ty RSQ (AppT (exp, ty, expleft, tyright))
+    | exp LCUR idx RCUR (AppI (exp, idx, expleft, idxright))
+    | exp COLON ty (Ascription (exp, ty, expleft, tyright))
+    | exp RTRI idx (AscriptionTime (exp, idx, expleft, idxright))
 
-ty : ID (VarT (ID, IDleft, IDright))
-   | ty DDASH idx RARROW ty (Arrow (ty1, idx, ty2, ty1left, ty2right))
+aexp : ID (Var (ID, IDleft, IDright))
+     | LPAREN exp_comma_star RPAREN (Tuple (exp_comma_star, LPARENleft, RPARENright))
+     | abs binding_plus DRARROW exp (Abs (abs, binding_plus, exp, absleft, expright))
+     | CASE exp return_opt OF rule_bar_star (Case (exp, return_opt, rule_bar_star, CASEleft, rule_bar_starright))
+     | LPAREN exp RPAREN (exp)
+     | LET def_star IN exp END (Let (def_star, exp, LETleft, ENDright))
+
+ty : aty (aty)
+   | ty aty (AppTT (ty, aty, tyleft, atyright))
+   | ty LCUR idx RCUR (AppTI (ty, idx, tyleft, RCURright))
+   | ty DDASH idx ARROW ty (Arrow (ty1, idx, ty2, ty1left, ty2right))
    | ty MULT ty (Prod (ty1, ty2, ty1left, ty2right))
    | ty PLUS ty (Sum (ty1, ty2, ty1left, ty2right))
-   | QUAN binding_plus COMMA ty (Quan (QUAN, binding_plus, ty, QUANleft, tyright))
-   | MU ID binding_star COMMA ty (Recur (ID, binding_star, ty, MUleft, tyright))
-   | ty ty (AppTT (ty1, ty2, ty1left, ty2right))
-   | ty LCUR idx RCUR (AppTI (ty, idx, tyleft, RCURright))
+
+aty : ID (VarT (ID, IDleft, IDright))
+    | quan binding_plus COMMA ty (Quan (quan, binding_plus, ty, quanleft, tyright))
+    | MU ID binding_star COMMA ty (Recur (ID, binding_star, ty, MUleft, tyright))
 
 idx : ID (VarI (ID, IDleft, IDright))
     | INT (Tconst (INT, INTleft, INTright))
     | idx PLUS idx (Tadd (idx1, idx2, idx1left, idx2right))
     | idx MULT idx (Tmult (idx1, idx2, idx1left, idx2right))
 
+sort : bsort (Basic (bsort, bsortleft, bsortright))
+     | LCUR ID COLON bsort BAR prop RCUR (Subset (bsort, ID, prop, LCURleft, RCURright))
 
-expr_comma_star : expr_comma_star COMMA expr (expr_comma_star @ [expr])
+bsort : ID (Bsort ID)
+
+prop : TRUE (True (TRUEleft, TRUEright))
+     | FALSE (False (FALSEleft, FALSEright))
+     | prop AND prop (And (prop1, prop2, prop1left, prop2right))
+     | prop OR prop (Or (prop1, prop2, prop1left, prop2right))
+     | prop IMPLY prop (Imply (prop1, prop2, prop1left, prop2right))
+     | prop IFF prop (Iff (prop1, prop2, prop1left, prop2right))
+     | idx EQ idx (Eq (idx1, idx2, idx1left, idx2right))
+     | idx LE idx (TimeLe (idx1, idx2, idx1left, idx2right))
+
+exp_comma_star : exp_comma_star COMMA exp (exp_comma_star @ [exp])
 		| ([])
+
+abs : FN (Fn)
+    | FIX (Fix)
 
 binding_plus : binding binding_star (binding :: binding_star)
 binding_star : binding binding_star (binding :: binding_star)
@@ -97,7 +153,7 @@ binding_star : binding binding_star (binding :: binding_star)
 
 binding : ID COLON ty (Typing (ID, ty, IDleft, tyright))
 	| LSQ ID RSQ (Kinding (ID, LSQleft, RSQright))
-	| LCUR ID COLON sort RCUR (Sorting (ID, sort, LCURCleft, RCURright))
+	| LCUR ID COLON sort RCUR (Sorting (ID, sort, LCURleft, RCURright))
 	| LPAREN binding RPAREN (binding)
 
 return_opt : return (SOME return)
@@ -108,7 +164,7 @@ return : RETURN ty RTRI idx ((ty, idx))
 rule_bar_star : rule_bar_star BAR rule (rule_bar_star @ [rule])
 	      | ([])
 
-rule : ptrn DRARROW expr ((ptrn, expr))
+rule : ptrn DRARROW exp ((ptrn, exp))
 
 ptrn : ID id_sq_space ID (Constr (ID1, id_sq_space, ID2, ID1left, ID2right))
 
@@ -122,4 +178,7 @@ id_star : ID id_star (ID :: id_star)
 def_star : def def_star (def :: def_star)
 	 | ([])
 
-def : VAL ID EQ expr (Val (ID, expr, VALleft, exprright))
+def : VAL ID EQ exp (Val (ID, exp, VALleft, expright))
+
+quan : FORALL (Forall)
+     | EXISTS (Exists)
