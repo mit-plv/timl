@@ -1,1 +1,1 @@
-sml @SMLload=$(find . -name main-image.\*)
+sml @SMLload=main-image
