@@ -8,12 +8,19 @@ structure TiMLParser = JoinWithArg (
     structure LrParser = LrParser)
 
 structure Parser = struct
-open Util
+open Ast
+	 
 val lookahead = 15
-fun parse input on_lex_error on_parse_error = OK (TiMLParser.parse 
+type input_stream = int -> string 
+exception Error
+fun parse (input : input_stream) (on_lex_error : reporter) (on_parse_error : reporter) = TiMLParser.parse 
 		    (lookahead,
 		     TiMLParser.makeLexer input on_lex_error,
 		     on_parse_error,
-		     on_lex_error))
-	    handle TiMLParser.ParseError => Failed "Parse error"
+		     on_lex_error)
+	    handle TiMLParser.ParseError => raise Error
+open Util
+fun parse_opt (input : input_stream) (on_lex_error : reporter) (on_parse_error : reporter) =
+    OK (parse input on_parse_error on_lex_error) handle Error => Failed "Parse error"
+									    
 end
