@@ -27,15 +27,11 @@ open Ast
     | DDASH
     | MULT
     | PLUS
-    | QUAN
     | MU
     | INT of int
     | BAR
-    | TRUE
-    | FALSE
     | AND
     | OR
-    | IMPLY
     | IFF
     | EQ
     | LE
@@ -74,15 +70,14 @@ open Ast
        | quan of quan
 
 
-%keyword FN FIX CASE OF LET IN END RETURN
+%keyword FN FIX CASE OF LET IN END RETURN VAL
 
 %pos pos
 
 		(* %nonassoc LET *)
 		(* %nonassoc RTRI *)
-%right ARROW
 %nonassoc IFF
-%right IMPLY
+%right ARROW
 %right OR
 %right AND
 %nonassoc EQ LE
@@ -94,6 +89,8 @@ open Ast
 %noshift EOF
 %nodefault
 %verbose
+
+%arg (reporter) : reporter
 
 %%
 
@@ -136,11 +133,10 @@ sort : bsort (Basic (bsort, bsortleft, bsortright))
 
 bsort : ID (Bsort ID)
 
-prop : TRUE (True (TRUEleft, TRUEright))
-     | FALSE (False (FALSEleft, FALSEright))
+prop : ID (Pconst (ID, IDleft, IDright))
      | prop AND prop (And (prop1, prop2, prop1left, prop2right))
      | prop OR prop (Or (prop1, prop2, prop1left, prop2right))
-     | prop IMPLY prop (Imply (prop1, prop2, prop1left, prop2right))
+     | prop ARROW prop (Imply (prop1, prop2, prop1left, prop2right))
      | prop IFF prop (Iff (prop1, prop2, prop1left, prop2right))
      | idx EQ idx (Eq (idx1, idx2, idx1left, idx2right))
      | idx LE idx (TimeLe (idx1, idx2, idx1left, idx2right))

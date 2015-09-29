@@ -12,8 +12,7 @@ datatype idx =
 	 | Tmin of idx * idx * pos * pos
 
 datatype prop =
-	 True of pos * pos
-	 | False of pos * pos
+	 Pconst of string * pos * pos
 	 | And of prop * prop * pos * pos
 	 | Or of prop * prop * pos * pos
 	 | Imply of prop * prop * pos * pos
@@ -68,6 +67,8 @@ datatype exp =
 
 and def =
     Val of string * exp * pos * pos
+
+type reporter = string * pos * pos -> unit
 
 end
 

@@ -3,6 +3,7 @@ Group is
       front-end/timl.lex
       front-end/timl.grm
       util.sml
+      front-end/parser.sml
       expr.sml
       typecheck.sml
 
