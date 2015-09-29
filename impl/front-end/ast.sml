@@ -5,9 +5,11 @@ type pos = {abs : int, line : int, col : int}
 
 datatype idx = 
 	 VarI of string * pos * pos
-	 | Tconst of int * pos * pos
+	 | Tint of int * pos * pos
 	 | Tadd of idx * idx * pos * pos
 	 | Tmult of idx * idx * pos * pos
+	 | Tmax of idx * idx * pos * pos
+	 | Tmin of idx * idx * pos * pos
 
 datatype prop =
 	 True of pos * pos

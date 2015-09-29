@@ -11,39 +11,41 @@ open Ast
     | FN
     | FIX
     | LSQ
-	  | RSQ
-	  | LCUR
-	  | RCUR
-	  | CASE
-	  | OF
-	  | COLON
-	  | RTRI
-	  | LET
-	  | IN
-	  | END
-	  | COMMA
-	  | RETURN
-	  | ARROW
-	  | DDASH
-	  | MULT
-	  | PLUS
-	  | QUAN
-	  | MU
-	  | INT of int
-	  | BAR
-	  | TRUE
-	  | FALSE
-	  | AND
-	  | OR
-	  | IMPLY
-	  | IFF
-	  | EQ
-	  | LE
-	  | VAL
-	  | EOF
-	  | FORALL
-	  | EXISTS
-	  (* | APP (* dummy terminal for precedence *) *)
+    | RSQ
+    | LCUR
+    | RCUR
+    | CASE
+    | OF
+    | COLON
+    | RTRI
+    | LET
+    | IN
+    | END
+    | COMMA
+    | RETURN
+    | ARROW
+    | DDASH
+    | MULT
+    | PLUS
+    | QUAN
+    | MU
+    | INT of int
+    | BAR
+    | TRUE
+    | FALSE
+    | AND
+    | OR
+    | IMPLY
+    | IFF
+    | EQ
+    | LE
+    | VAL
+    | EOF
+    | FORALL
+    | EXISTS
+      (* | APP (* dummy terminal for precedence *) *)
+    | MAX
+    | MIN
 
 %nonterm start of exp
        | exp of exp
@@ -76,8 +78,8 @@ open Ast
 
 %pos pos
 
-(* %nonassoc LET *)
-(* %nonassoc RTRI *)
+		(* %nonassoc LET *)
+		(* %nonassoc RTRI *)
 %right ARROW
 %nonassoc IFF
 %right IMPLY
@@ -85,8 +87,8 @@ open Ast
 %right AND
 %nonassoc EQ LE
 %left PLUS
-%left MULT
-(* %left APP *)
+%left MULT MAX MIN
+		(* %left APP *)
 
 %eop EOF
 %noshift EOF
@@ -123,9 +125,11 @@ aty : ID (VarT (ID, IDleft, IDright))
     | MU ID binding_star COMMA ty (Recur (ID, binding_star, ty, MUleft, tyright))
 
 idx : ID (VarI (ID, IDleft, IDright))
-    | INT (Tconst (INT, INTleft, INTright))
+    | INT (Tint (INT, INTleft, INTright))
     | idx PLUS idx (Tadd (idx1, idx2, idx1left, idx2right))
     | idx MULT idx (Tmult (idx1, idx2, idx1left, idx2right))
+    | idx MAX idx (Tmax (idx1, idx2, idx1left, idx2right))
+    | idx MIN idx (Tmin (idx1, idx2, idx1left, idx2right))
 
 sort : bsort (Basic (bsort, bsortleft, bsortright))
      | LCUR ID COLON bsort BAR prop RCUR (Subset (bsort, ID, prop, LCURleft, RCURright))
@@ -142,7 +146,7 @@ prop : TRUE (True (TRUEleft, TRUEright))
      | idx LE idx (TimeLe (idx1, idx2, idx1left, idx2right))
 
 exp_comma_star : exp_comma_star COMMA exp (exp_comma_star @ [exp])
-		| ([])
+	       | ([])
 
 abs : FN (Fn)
     | FIX (Fix)

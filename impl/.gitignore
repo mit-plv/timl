@@ -11,3 +11,4 @@ main
 *.cmi
 *.cmo
 *.grm.*
+*.lex.*

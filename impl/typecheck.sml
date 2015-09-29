@@ -673,7 +673,12 @@ exception Impossible of string
 (* use exception and cell to mimic the Error and Writer monads *)
 local								    
 
-    val (Error, runError) = error_monad ()
+    exception Error of string
+
+    fun runError m _ =
+	OK (m ())
+	handle
+	Error msg => Failed msg
 
     val acc = ref ([] : vc list)
 
