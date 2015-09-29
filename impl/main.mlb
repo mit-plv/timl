@@ -1,6 +1,6 @@
 $(SML_LIB)/basis/basis.mlb
 
-ast.sml
+expr.sml
 typecheck.sml
 mlton-main.sml
 
