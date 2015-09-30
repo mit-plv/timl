@@ -1,1 +1,1 @@
-sml @SMLload=main-image
+sml @SMLload=$(dirname $0)/main-image $*

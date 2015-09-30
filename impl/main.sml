@@ -214,6 +214,7 @@ fun main () =
   in
       s
   end
+  handle IO.Io e => sprintf "Error calling $ on file $\n" [#function e, #name e]
 					      
 end
 
