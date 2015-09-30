@@ -50,43 +50,48 @@ fun is_keyword s = find (keywords, s)
 				 %header (functor TiMLLexFun (structure Tokens : TiML_TOKENS));
 
 %arg (reporter : reporter);
+				 %s COMMENT;
 
 alpha = [A-Za-z];
 digit = [0-9];
 ws = [\ \t];
 eol = ("\013\010"|"\010"|"\013");
-id_init = alpha|[_'];
+id_init = ({alpha}|[_']);
 
 %%
 
-    eol => (update_line yypos; continue());
+eol => (update_line yypos; continue());
 
-{ws}+ => (continue ());
+<INITIAL>{ws}+ => (continue ());
 
-"+" => (T.PLUS (make_region (yypos, 0)));
-"-" => (T.MULT (make_region (yypos, 0)));
-"(" => (T.LPAREN (make_region (yypos, 0)));
-")" => (T.RPAREN (make_region (yypos, 0)));
-"=>" => (T.DRARROW (make_region (yypos, 0)));
-"[" => (T.LSQ (make_region (yypos, 0)));
-"]" => (T.RSQ (make_region (yypos, 0)));
-"{" => (T.LCUR (make_region (yypos, 0)));
-"}" => (T.RCUR (make_region (yypos, 0)));
-":" => (T.COLON (make_region (yypos, 0)));
-"|>" => (T.RTRI (make_region (yypos, 0)));
-"," => (T.COMMA (make_region (yypos, 0)));
-"->" => (T.ARROW (make_region (yypos, 0)));
-"--" => (T.DDASH (make_region (yypos, 0)));
-"|" => (T.BAR (make_region (yypos, 0)));
-"/\\" => (T.AND (make_region (yypos, 0)));
-"\\/" => (T.OR (make_region (yypos, 0)));
-"<->" => (T.IFF (make_region (yypos, 0)));
-"=" => (T.EQ (make_region (yypos, 0)));
-"<=" => (T.LE (make_region (yypos, 0)));
+<INITIAL>"(" => (T.LPAREN (make_region (yypos, 0)));
+<INITIAL>")" => (T.RPAREN (make_region (yypos, 0)));
+<INITIAL>"=>" => (T.DRARROW (make_region (yypos, 0)));
+<INITIAL>"[" => (T.LSQ (make_region (yypos, 0)));
+<INITIAL>"]" => (T.RSQ (make_region (yypos, 0)));
+<INITIAL>"{" => (T.LCUR (make_region (yypos, 0)));
+<INITIAL>"}" => (T.RCUR (make_region (yypos, 0)));
+<INITIAL>":" => (T.COLON (make_region (yypos, 0)));
+<INITIAL>"|>" => (T.RTRI (make_region (yypos, 0)));
+<INITIAL>"," => (T.COMMA (make_region (yypos, 0)));
+<INITIAL>"->" => (T.ARROW (make_region (yypos, 0)));
+<INITIAL>"--" => (T.DDASH (make_region (yypos, 0)));
+<INITIAL>"|" => (T.BAR (make_region (yypos, 0)));
+<INITIAL>"/\\" => (T.AND (make_region (yypos, 0)));
+<INITIAL>"\\/" => (T.OR (make_region (yypos, 0)));
+<INITIAL>"<->" => (T.IFF (make_region (yypos, 0)));
+<INITIAL>"=" => (T.EQ (make_region (yypos, 0)));
+<INITIAL>"<=" => (T.LE (make_region (yypos, 0)));
+<INITIAL>"+" => (T.PLUS (make_region (yypos, 0)));
+<INITIAL>"-" => (T.MULT (make_region (yypos, 0)));
 
-{digit}+ => ((T.INT o flat)
+<INITIAL>{digit}+ => ((T.INT o flat)
                  (foldl (fn (a,r) => ord(a)-ord(#"0")+10*r) 0 (explode yytext),
                     make_region (yypos, 0)));
-
-{id_init}{id_init|digit}* => ((getOpt (is_keyword yytext, fn r => (T.ID o flat) (yytext, r)))
+ 
+<INITIAL>{id_init}({id_init}|{digit})* => ((getOpt (is_keyword yytext, fn r => (T.ID o flat) (yytext, r)))
 				  (make_region (yypos, size yytext)));
+
+<INITIAL>"(*" => (YYBEGIN COMMENT; continue());
+<COMMENT>"*)" => (YYBEGIN INITIAL; continue());
+<COMMENT>. => (continue());

@@ -6,6 +6,7 @@ Group is
       front-end/parser.sml
       expr.sml
       typecheck.sml
+      main.sml
 
       $/basis.cm
       $/ml-yacc-lib.cm

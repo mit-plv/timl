@@ -62,7 +62,7 @@ open Ast
        | rule_bar_star of (ptrn * exp) list
        | rule of ptrn * exp
        | ptrn of ptrn
-       | id_sq_space of string list
+       | id_cur_space of string list
        | id_plus of string list
        | id_star of string list
        | def_star of def list
@@ -166,9 +166,9 @@ rule_bar_star : rule_bar_star BAR rule (rule_bar_star @ [rule])
 
 rule : ptrn DRARROW exp ((ptrn, exp))
 
-ptrn : ID id_sq_space ID (Constr (ID1, id_sq_space, ID2, ID1left, ID2right))
+ptrn : ID id_cur_space ID (Constr (ID1, id_cur_space, ID2, ID1left, ID2right))
 
-id_sq_space : LSQ id_plus RSQ (id_plus)
+id_cur_space : LCUR id_plus RCUR (id_plus)
 	    | ([])
 
 id_plus : ID id_star (ID :: id_star)
