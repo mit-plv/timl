@@ -185,7 +185,7 @@ structure TestParser = struct
 open Util
 open Parser
 
-fun main () =
+fun main filename =
   let
       val src = ref (
 	      "      map = fn [a] [b] {m : Time} (f : a -- m -> b) =>  " ^
@@ -198,9 +198,9 @@ fun main () =
       val src = ref ")"
 	      
       fun input _ = let val s = !src in src := ""; s end
-      val filename = "string"
+      (* val filename = "string" *)
 
-      val filename = "test.timl"
+      (* val filename = "test.timl" *)
       val inStream =  TextIO.openIn filename
       fun input n =
 	if TextIO.endOfStream inStream
@@ -209,7 +209,7 @@ fun main () =
 
       fun str_pos (pos : pos) = sprintf "$.$" [str_int (#line pos), str_int (#col pos)]
       fun on_error (msg, left : pos, right) = print (sprintf "Error: $ $.\n  $\n" [filename, str_pos left, msg])
-      val s = (case parse_opt (input, on_error, on_error) of OK e => "" | Failed msg =>  msg) handle _ => "Unknown exception"
+      val s = case parse_opt (input, on_error, on_error) of OK e => "" | Failed msg =>  msg
       val _ = TextIO.closeIn inStream
   in
       s
@@ -225,7 +225,10 @@ fun main (prog_name, args : string list) : int =
 	(* val output = RecurExamples.main () *)
 	(* val output = DatatypeExamples.main () *)
 	(* val output = NamefulDatatypeExamples.main () *)
-	val output = TestParser.main ()
+	val output = 
+	    case args of
+		filename :: _ => (TestParser.main filename; "")
+	      | _ => "Usage: filename"
     in	
 	print (output ^ "\n");
 	0

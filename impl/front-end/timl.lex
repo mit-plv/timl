@@ -19,7 +19,7 @@ fun make_region (abs, size) : pos * pos =
      {abs = abs + size, line = 0, col = 0})
 fun update_line yypos = (inc line; linestart := yypos)
 
-fun eof _ = T.EOF (make_region (!linestart, 0))
+fun eof _ = (print "matched eof\n"; T.EOF (make_region (!linestart, 0)))
 fun error (f, msg, left, right) = f (msg, left, right)
 
 fun flat (a, (b, c)) = (a, b, c)
@@ -64,8 +64,8 @@ eol => (update_line yypos; continue());
 
 <INITIAL>{ws}+ => (continue ());
 
-<INITIAL>"(" => (T.LPAREN (make_region (yypos, 0)));
-<INITIAL>")" => (T.RPAREN (make_region (yypos, 0)));
+<INITIAL>"(" => (print "matched (\n";T.LPAREN (make_region (yypos, 0)));
+<INITIAL>")" => (print "matched )\n";T.RPAREN (make_region (yypos, 0)));
 <INITIAL>"=>" => (T.DRARROW (make_region (yypos, 0)));
 <INITIAL>"[" => (T.LSQ (make_region (yypos, 0)));
 <INITIAL>"]" => (T.RSQ (make_region (yypos, 0)));
@@ -91,6 +91,7 @@ eol => (update_line yypos; continue());
  
 <INITIAL>{id_init}({id_init}|{digit})* => ((getOpt (is_keyword yytext, fn r => (T.ID o flat) (yytext, r)))
 				  (make_region (yypos, size yytext)));
+<INITIAL>. => ((reporter o flat) (sprintf "Bad character: $" [yytext], make_region (yypos, 1)));
 
 <INITIAL>"(*" => (YYBEGIN COMMENT; continue());
 <COMMENT>"*)" => (YYBEGIN INITIAL; continue());
