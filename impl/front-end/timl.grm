@@ -42,6 +42,7 @@ open Ast
       (* | APP (* dummy terminal for precedence *) *)
     | MAX
     | MIN
+    | BOGUS of string
 
 %nonterm start of exp
        | exp of exp
@@ -53,6 +54,7 @@ open Ast
        | bsort of bsort
        | prop of prop
        | exp_comma_star of exp list
+       | comma_exp_star of exp list
        | abs of abs
        | binding_plus of binding list
        | binding_star of binding list
@@ -60,6 +62,7 @@ open Ast
        | return_opt of (ty * idx) option
        | return of ty * idx
        | rule_bar_star of (ptrn * exp) list
+       | bar_rule_star of (ptrn * exp) list
        | rule of ptrn * exp
        | ptrn of ptrn
        | id_cur_space of string list
@@ -120,6 +123,7 @@ ty : aty (aty)
 aty : ID (VarT (ID, IDleft, IDright))
     | quan binding_plus COMMA ty (Quan (quan, binding_plus, ty, quanleft, tyright))
     | MU ID binding_star COMMA ty (Recur (ID, binding_star, ty, MUleft, tyright))
+    | LPAREN ty RPAREN (ty)
 
 idx : ID (VarI (ID, IDleft, IDright))
     | INT (Tint (INT, INTleft, INTright))
@@ -127,6 +131,7 @@ idx : ID (VarI (ID, IDleft, IDright))
     | idx MULT idx (Tmult (idx1, idx2, idx1left, idx2right))
     | idx MAX idx (Tmax (idx1, idx2, idx1left, idx2right))
     | idx MIN idx (Tmin (idx1, idx2, idx1left, idx2right))
+    | LPAREN idx RPAREN (idx)
 
 sort : bsort (Basic (bsort, bsortleft, bsortright))
      | LCUR ID COLON bsort BAR prop RCUR (Subset (bsort, ID, prop, LCURleft, RCURright))
@@ -141,7 +146,10 @@ prop : ID (Pconst (ID, IDleft, IDright))
      | idx EQ idx (Eq (idx1, idx2, idx1left, idx2right))
      | idx LE idx (TimeLe (idx1, idx2, idx1left, idx2right))
 
-exp_comma_star : exp_comma_star COMMA exp (exp_comma_star @ [exp])
+exp_comma_star : exp comma_exp_star (exp :: comma_exp_star)
+	       | ([])
+
+comma_exp_star : COMMA exp comma_exp_star (exp :: comma_exp_star)
 	       | ([])
 
 abs : FN (Fn)
@@ -161,7 +169,10 @@ return_opt : return (SOME return)
 
 return : RETURN ty RTRI idx ((ty, idx))
 
-rule_bar_star : rule_bar_star BAR rule (rule_bar_star @ [rule])
+rule_bar_star : rule bar_rule_star (rule :: bar_rule_star)
+	      | ([])
+
+bar_rule_star : BAR rule bar_rule_star (rule :: bar_rule_star)
 	      | ([])
 
 rule : ptrn DRARROW exp ((ptrn, exp))
