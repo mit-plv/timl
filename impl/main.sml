@@ -20,8 +20,8 @@ infix 3 /\
 infix 1 -->
 infix 1 <->
 
-fun ilist_left l = ExI ((Subset (BSUnit, "_", Eq (Time, T0, shift_i_i l))), "_", Unit)
-fun ilist_right ilist t l = ExI ((Subset (Time, "l'", Eq (Time, VarI 0 %+ T1, shift_i_i l))), "l'", Prod (shift_i_t t, ilist [VarI 0]))
+fun ilist_left l = ExI ((Subset (BSUnit, "_", Eq (T0, shift_i_i l))), "_", Unit)
+fun ilist_right ilist t l = ExI ((Subset (Time, "l'", Eq (VarI 0 %+ T1, shift_i_i l))), "l'", Prod (shift_i_t t, ilist [VarI 0]))
 fun ilist_core t i = ("ilist", [("l", STime)],
 		      Sum (ilist_left (VarI 0),
 			   ilist_right (curry AppVar 0) (shift_t_t t) (VarI 0)), i)

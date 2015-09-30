@@ -44,7 +44,7 @@ functor MakeType (structure Var : VAR) = struct
 		 | Imply of prop * prop
 		 | Iff of prop * prop
 		 | TimeLe of idx * idx
-		 | Eq of bsort * idx * idx
+		 | Eq of idx * idx
 
 	(* index sort *)
 	datatype sort =
@@ -111,7 +111,7 @@ functor MakeType (structure Var : VAR) = struct
 	      | Imply (p1, p2) => sprintf "($ -> $)" [str_p ctx p1, str_p ctx p2]
 	      | Iff (p1, p2) => sprintf "($ <-> $)" [str_p ctx p1, str_p ctx p2]
 	      | TimeLe (d1, d2) => sprintf "($ <= $)" [str_i ctx d1, str_i ctx d2]
-	      | Eq (s, i1, i2) => sprintf "($ = $)" [str_i ctx i1, str_i ctx i2]
+	      | Eq (i1, i2) => sprintf "($ = $)" [str_i ctx i1, str_i ctx i2]
 
 	fun str_s ctx (s : sort) : string = 
 	    case s of

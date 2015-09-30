@@ -40,7 +40,7 @@ local
 	  | T.Imply (p1, p2) => Imply (on_prop ctx p1, on_prop ctx p2)
 	  | T.Iff (p1, p2) => Iff (on_prop ctx p1, on_prop ctx p2)
 	  | T.TimeLe (i1, i2) => TimeLe (on_idx ctx i1, on_idx ctx i2)
-	  | T.Eq (s, i1, i2) => Eq (s, on_idx ctx i1, on_idx ctx i2)
+	  | T.Eq (i1, i2) => Eq (on_idx ctx i1, on_idx ctx i2)
 
     fun on_sort ctx s =
 	case s of
@@ -201,7 +201,7 @@ local
 	  | Imply (p1, p2) => Imply (f x n p1, f x n p2)
 	  | Iff (p1, p2) => Iff (f x n p1, f x n p2)
 	  | TimeLe (d1, d2) => TimeLe (shiftx_i_i x n d1, shiftx_i_i x n d2)
-	  | Eq (s, i1, i2) => Eq (s, shiftx_i_i x n i1, shiftx_i_i x n i2)
+	  | Eq (i1, i2) => Eq (shiftx_i_i x n i1, shiftx_i_i x n i2)
 in
 fun shiftx_i_p x n b = f x n b
 fun shift_i_p b = shiftx_i_p 0 1 b
@@ -351,7 +351,7 @@ local
 	  | Imply (p1, p2) => Imply (f x v p1, f x v p2)
 	  | Iff (p1, p2) => Iff (f x v p1, f x v p2)
 	  | TimeLe (d1, d2) => TimeLe (substx_i_i x v d1, substx_i_i x v d2)
-	  | Eq (s, i1, i2) => Eq (s, substx_i_i x v i1, substx_i_i x v i2)
+	  | Eq (i1, i2) => Eq (substx_i_i x v i1, substx_i_i x v i2)
 in
 fun substx_i_p x (v : idx) b = f x v b
 fun subst_i_p (v : idx) (b : prop) : prop = substx_i_p 0 v b
@@ -709,7 +709,7 @@ local
 	    
     fun is_eq (ctx : scontext, i : idx, i' : idx, s : sort) = 
 	let val (bctx, ps) = collect ctx in
-	    tell (bctx, ps, Eq (get_base s, i, i'))
+	    tell (bctx, ps, Eq (i, i'))
 	end
 
     fun is_eqs (ctx, i, i', s) =
@@ -785,9 +785,14 @@ local
 	  | TimeLe (d1, d2) =>
 	    (check_sort (ctx, d1, STime);
 	     check_sort (ctx, d2, STime))
-	  | Eq (s, i1, i2) =>
-	    (check_sort (ctx, i1, Basic s);
-	     check_sort (ctx, i2, Basic s))
+	  | Eq (i1, i2) =>
+	    let val s1 = get_bsort (ctx, i1)
+		val s2 = get_bsort (ctx, i2)
+	    in
+		if s1 = s2 then ()
+		else raise Error (sprintf "Base-sorts not equal: $ and $" [str_b s1, str_b s2])
+	    end
+
 
     and check_sort (ctx, i, s) : unit =
 	let val s' = get_bsort (ctx, i) in
@@ -1119,10 +1124,9 @@ local
 		    if x' = x then
 			let val () = check_length (tnames, ts)
 			    val t1 = subst_ts_t ts t1
-			    val bs = map (fn i => get_bsort (sctx, i)) is
 			    val is = map (shiftx_i_i 0 (length ns)) is
 			    val () = check_length (is', is)
-			    val ps = map (fn (s, (i', i)) => Eq (s, i', i)) (ListPair.zip (bs, ListPair.zip (is', is)))
+			    val ps = map Eq (ListPair.zip (is', is))
 			    val () = check_length (inames, ns)
 			in
 			    ((rev (ListPair.zip (inames, #2 (ListPair.unzip ns))), ps), (ename, t1), Cover_Constr cx)
@@ -1392,7 +1396,7 @@ local
 	  | And (p1, p2) => solver (ctx, ps, p1) andalso solver (ctx, ps, p1)
 	  | Or (p1, p2) => solver (ctx, ps, p1) orelse solver (ctx, ps, p1)
 	  | True => true
-	  | Eq (_, i1, i2) => i1 = i2
+	  | Eq (i1, i2) => i1 = i2
 	  | TimeLe (i1, i2) => i1 = i2
 	  | _ => false
 
@@ -1461,10 +1465,10 @@ local
 		val (b2, p2) = passp p2 in
 		(b1 orelse b2, Iff (p1, p2))
 	    end
-	  | Eq (s, i1, i2) => 
+	  | Eq (i1, i2) => 
 	    let val (b1, i1) = passi i1
 		val (b2, i2) = passi i2 in
-		(b1 orelse b2, Eq (s, i1, i2))
+		(b1 orelse b2, Eq (i1, i2))
 	    end
 	  | TimeLe (i1, i2) => 
 	    let val (b1, i1) = passi i1
