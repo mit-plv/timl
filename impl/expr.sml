@@ -18,7 +18,7 @@ fun str_b (s : bsort) : string =
 end
 
 (* types *)
-functor MakeType (structure Var : VAR) = struct
+functor TypeFun (structure Var : VAR) = struct
 	open Var
 	open BasicSorts
 	open Util
@@ -156,7 +156,7 @@ signature TYPE = sig
 end
 
 (* expressions *)
-functor MakeExpr (structure Var : VAR structure Type : TYPE) = struct
+functor ExprFun (structure Var : VAR structure Type : TYPE) = struct
 	open Var
 	open Type
 	open Util
@@ -267,8 +267,8 @@ fun str_v ctx x : string =
       | NONE => "unbound_" ^ str_int x
 end
 
-structure NamefulType = MakeType (structure Var = StringVar)
-structure NamefulExpr = MakeExpr (structure Var = StringVar structure Type = NamefulType)
-structure Type = MakeType (structure Var = IntVar)
-structure Expr = MakeExpr (structure Var = IntVar structure Type = Type)
+structure NamefulType = TypeFun (structure Var = StringVar)
+structure NamefulExpr = ExprFun (structure Var = StringVar structure Type = NamefulType)
+structure Type = TypeFun (structure Var = IntVar)
+structure Expr = ExprFun (structure Var = IntVar structure Type = Type)
 

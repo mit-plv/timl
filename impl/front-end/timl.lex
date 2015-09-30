@@ -17,7 +17,7 @@ val linestart = ref 0
 val print = fn s => ()
 
 fun inc r = r := !r + 1
-fun make_region (abs, size) : pos * pos = 
+fun make_region (abs, size) : region = 
     ({abs = abs, line = !line, col = abs - !linestart}, 
      {abs = abs + size, line = 0, col = 0})
 fun update_line yypos = (inc line; linestart := yypos)
@@ -44,7 +44,7 @@ val keywords = [
     ("min", T.MIN)
 ]
 
-fun find (m, k) = Option.map #2 (List.find (fn (k', _) => k' = k) m)
+fun find (m, k : string) = Option.map #2 (List.find (fn (k', _) => k' = k) m)
 
 fun is_keyword s = find (keywords, s)
 
