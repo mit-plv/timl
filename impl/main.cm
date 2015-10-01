@@ -5,6 +5,7 @@ Group is
       util.sml
       front-end/parser.sml
       expr.sml
+      name_resolve.sml
       typecheck.sml
       main.sml
 

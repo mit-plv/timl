@@ -185,7 +185,7 @@ structure TestParser = struct
 open Util
 open Parser
 
-fun main filename =
+fun do_parse filename =
   let
       val src = ref (
 	      "      map = fn [a] [b] {m : Time} (f : a -- m -> b) =>  " ^
@@ -209,13 +209,18 @@ fun main filename =
 
       fun str_pos (pos : pos) = sprintf "$.$" [str_int (#line pos), str_int (#col pos)]
       fun on_error (msg, left : pos, right) = print (sprintf "Error: $ $.\n  $\n" [filename, str_pos left, msg])
-      val s = case parse_opt (input, on_error, on_error) of OK e => "" | Failed msg =>  msg
+      val s = parse (input, on_error, on_error)
       val _ = TextIO.closeIn inStream
   in
       s
   end
-  handle IO.Io e => sprintf "Error calling $ on file $\n" [#function e, #name e]
 					      
+fun main filename =
+    (do_parse filename;
+     "")
+    handle 
+    IO.Io e => sprintf "Error calling $ on file $\n" [#function e, #name e]
+    | Error => "Parse error"
 end
 
 structure Main = struct
