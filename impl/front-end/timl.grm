@@ -131,12 +131,13 @@ idx : ID (VarI (ID, (IDleft, IDright)))
     | idx MULT idx (Tmult (idx1, idx2, (idx1left, idx2right)))
     | idx MAX idx (Tmax (idx1, idx2, (idx1left, idx2right)))
     | idx MIN idx (Tmin (idx1, idx2, (idx1left, idx2right)))
+    | LPAREN RPAREN (TTI (LPARENleft, RPARENright))
     | LPAREN idx RPAREN (idx)
 
 sort : bsort (Basic (bsort, (bsortleft, bsortright)))
      | LCUR ID COLON bsort BAR prop RCUR (Subset (bsort, ID, prop, (LCURleft, RCURright)))
 
-bsort : ID (Bsort ID)
+bsort : ID (Bsort (ID, (IDleft, IDright)))
 
 prop : ID (Pconst (ID, (IDleft, IDright)))
      | prop AND prop (And (prop1, prop2, (prop1left, prop2right)))

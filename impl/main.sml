@@ -26,7 +26,7 @@ fun ilist_core t i = ("ilist", [("l", STime)],
 		      Sum (ilist_left (VarI 0),
 			   ilist_right (curry AppVar 0) (shift_t_t t) (VarI 0)), i)
 fun ilist t i = AppRecur (ilist_core t i)
-fun nil_ t = Fold (ilist t [T0], Inl (ilist_right (ilist t) t T0, Pack (ilist_left T0, Type.TT, TT)))
+fun nil_ t = Fold (ilist t [T0], Inl (ilist_right (ilist t) t T0, Pack (ilist_left T0, TTI, TT)))
 fun cons_ t (n : idx) x xs = Fold (ilist t [n %+ T1], Inr (ilist_left (n %+ T1), Pack (ilist_right (ilist t) t (n %+ T1), n, Pair (x, xs))))
 (* val output = check [("n", STime)] [("a", Type)] [] (cons_ (VarT 0) (VarI 0)) *)
 fun match_list e t d e1 iname ename e2 = SumCase (Unfold e, "_", Unpack (Var 0, t, d, "_", "_", shiftx_e_e 0 2 e1), "_", Unpack (Var 0, t, d, iname, ename, shiftx_e_e 1 1 e2))
@@ -184,6 +184,12 @@ end
 structure TestParser = struct
 open Util
 open Parser
+open Elaborate
+open NamefulExpr
+
+fun str_pos (pos : pos) = sprintf "$.$" [str_int (#line pos), str_int (#col pos)]
+fun str_region header filename (r : region) = sprintf "$: $ $.\n" [header, filename, str_pos (#1 r)]
+fun str_error header filename region msg = sprintf "$  $\n" [str_region "Error" filename region, msg]
 
 fun do_parse filename =
   let
@@ -207,8 +213,7 @@ fun do_parse filename =
 	then ""
 	else TextIO.inputN (inStream,n);
 
-      fun str_pos (pos : pos) = sprintf "$.$" [str_int (#line pos), str_int (#col pos)]
-      fun on_error (msg, left : pos, right) = print (sprintf "Error: $ $.\n  $\n" [filename, str_pos left, msg])
+      fun on_error (msg, left, right) = print (str_error "Error" filename (left, right) msg)
       val s = parse (input, on_error, on_error)
       val _ = TextIO.closeIn inStream
   in
@@ -216,11 +221,16 @@ fun do_parse filename =
   end
 					      
 fun main filename =
-    (do_parse filename;
-     "")
+    let
+	val e = do_parse filename
+	val e = elaborate e
+    in
+	str_e ([], [], [], []) e
+    end
     handle 
     IO.Io e => sprintf "Error calling $ on file $\n" [#function e, #name e]
-    | Error => "Parse error"
+    | Parser.Error => "Parse error"
+    | Elaborate.Error (r, msg) => str_error "Error" filename r msg
 end
 
 structure Main = struct
@@ -232,7 +242,7 @@ fun main (prog_name, args : string list) : int =
 	val output = NamefulDatatypeExamples.main ()
 	val output =
 	    case args of
-		filename :: _ => (TestParser.main filename; "")
+		filename :: _ => TestParser.main filename
 	      | _ => "Usage: filename"
     in	
 	print (output ^ "\n");

@@ -56,7 +56,7 @@ local
 	  | Tmult (d1, d2) => Tmult (f x n d1, f x n d2)
 	  | Tmax (d1, d2) => Tmax (f x n d1, f x n d2)
 	  | Tmin (d1, d2) => Tmin (f x n d1, f x n d2)
-	  | Type.TT => Type.TT
+	  | TTI => TTI
 	  | TrueI => TrueI
 	  | FalseI => FalseI
 	  | Tconst n => Tconst n
@@ -204,7 +204,7 @@ local
 	  | T1 => T1
 	  | TrueI => TrueI
 	  | FalseI => FalseI
-	  | Type.TT => Type.TT
+	  | TTI => TTI
 	  | Tconst n => Tconst n
 in
 fun substx_i_i x (v : idx) (b : idx) : idx = f x v b
@@ -725,7 +725,7 @@ local
 	     Time)
 	  | TrueI => Bool
 	  | FalseI => Bool
-	  | Type.TT => BSUnit
+	  | TTI => BSUnit
 	  | Tconst n => 
 	    if n >= 0 then
 		Time

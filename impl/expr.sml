@@ -33,7 +33,7 @@ functor TypeFun (structure Var : VAR) = struct
 		 | Tmin of idx * idx
 		 | TrueI
 		 | FalseI
-		 | TT
+		 | TTI
 		 | Tconst of int
 
 	datatype prop =
@@ -95,7 +95,7 @@ functor TypeFun (structure Var : VAR) = struct
 	      | Tmult (d1, d2) => sprintf "($ * $)" [str_i ctx d1, str_i ctx d2]
 	      | Tmax (d1, d2) => sprintf "(max $ $)" [str_i ctx d1, str_i ctx d2]
 	      | Tmin (d1, d2) => sprintf "(min $ $)" [str_i ctx d1, str_i ctx d2]
-	      | TT => "()"
+	      | TTI => "()"
 	      | TrueI => "true"
 	      | FalseI => "false"
 	      | Tconst n => str_int n
@@ -131,7 +131,11 @@ functor TypeFun (structure Var : VAR) = struct
 			 join " " (map (fn (name, s) => sprintf "($ :: $)" [name, str_s sctx s]) ns),
 			 str_t (rev (map #1 ns) @ sctx, name :: kctx) t,
 			 join " " (map (str_i sctx) i)]
-	      | AppV (x, ts, is) => sprintf "($$$)" [str_v kctx x, (join "" o map (prefix " ") o map (str_t ctx)) ts, (join "" o map (prefix " ") o map (str_i sctx)) is]
+	      | AppV (x, ts, is) => 
+		if null ts andalso null is then
+		    str_v kctx x
+		else
+		    sprintf "($$$)" [str_v kctx x, (join "" o map (prefix " ") o map (str_t ctx)) ts, (join "" o map (prefix " ") o map (str_i sctx)) is]
 	      | Int => "int"
 
 	fun str_k ctx (k : kind) : string = 

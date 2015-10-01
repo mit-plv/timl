@@ -11,6 +11,7 @@ datatype idx =
 	 | Tmult of idx * idx * region
 	 | Tmax of idx * idx * region
 	 | Tmin of idx * idx * region
+	 | TTI of region
 
 datatype prop =
 	 Pconst of string * region
@@ -22,7 +23,7 @@ datatype prop =
 	 | TimeLe of idx * idx * region
 
 datatype bsort =
-	 Bsort of string
+	 Bsort of string * region
 
 datatype sort =
 	 Basic of bsort * region

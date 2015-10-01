@@ -13,9 +13,12 @@ local
 	handle
 	Error msg => Failed msg
 
+    fun find_idx (x : string) ctx =
+	Option.map #1 (List.find (fn (_, y) => y = x) (add_idx ctx))
+
     fun on_var ctx x =
-	case List.find (fn (_, y) => y = x) (add_idx ctx) of
-	    SOME (i, _) => i
+	case find_idx x ctx of
+	    SOME i => i
 	  | NONE => raise Error ("Unbound variable " ^ x)
 
     fun on_idx ctx i =
@@ -29,7 +32,7 @@ local
 	  | T.Tmin (i1, i2) => Tmin (on_idx ctx i1, on_idx ctx i2)
 	  | T.TrueI => TrueI
 	  | T.FalseI => FalseI
-	  | T.TT => Type.TT
+	  | T.TTI => TTI
 	  | T.Tconst n => Tconst n
 
     fun on_prop ctx p =
@@ -65,6 +68,22 @@ local
 	case pn of
 	    E.Constr (x, inames, ename) => Constr (on_var cctx x, inames, ename)
 
+    fun get_is e =
+	case e of 
+	    E.AppI (e, i) =>
+	    let val (e, is) = get_is e in
+		(e, is @ [i])
+	    end
+	  | _ => (e, [])
+
+    fun get_ts e =
+	case e of 
+	    E.AppT (e, t) =>
+	    let val (e, ts) = get_ts e in
+		(e, ts @ [t])
+	    end
+	  | _ => (e, [])
+
     fun on_expr (ctx as (sctx, kctx, cctx, tctx)) e =
 	let fun add_t name (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx)
 	    val skctx = (sctx, kctx)
@@ -72,7 +91,19 @@ local
 	    case e of
 		E.Var x => Var (on_var tctx x)
 	      | E.Abs (t, name, e) => Abs (on_type skctx t, name, on_expr (add_t name ctx) e)
-	      | E.App (e1, e2) => App (on_expr ctx e1, on_expr ctx e2)
+	      | E.App (e1, e2) => 
+		let val e2 = on_expr ctx e2
+		    fun default () = App (on_expr ctx e1, e2)
+		    val (e1, is) = get_is e1 
+		    val (e1, ts) = get_ts e1
+		in
+		    case e1 of
+			E.Var x =>
+			(case find_idx x cctx of
+			     SOME i => AppConstr (i, map (on_type skctx) ts, map (on_idx sctx) is, e2)
+			   | NONE => default ())
+		      | _ => default ()
+		end
 	      | E.TT => TT
 	      | E.Pair (e1, e2) => Pair (on_expr ctx e1, on_expr ctx e2)
 	      | E.Fst e => Fst (on_expr ctx e)
