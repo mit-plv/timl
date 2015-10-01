@@ -1256,7 +1256,7 @@ local
 
 in								     
 
-fun vcgen ctx e : ((ty * idx) * vc list) result =
+fun vcgen ctx e : ((ty * idx) * vc list, string) result =
     runError (runWriter (fn () => get_type (ctx, e))) ()
 	     
 end

@@ -26,7 +26,7 @@ fun parse (input : input_stream, on_lex_error : reporter, on_parse_error : repor
 					
 open Util
 	 
-fun parse_opt (input : input_stream, on_lex_error : reporter, on_parse_error : reporter) : exp result =
+fun parse_opt (input : input_stream, on_lex_error : reporter, on_parse_error : reporter) : (exp, string) result =
     OK (parse (input, on_parse_error, on_lex_error)) handle Error => Failed "Parse error"
 									    
 end

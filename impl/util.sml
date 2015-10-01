@@ -28,7 +28,7 @@ fun mapSnd f (a, b) = (a, f b)
 fun curry f a b = f (a, b)
 fun uncurry f (a, b) = f a b
 
-datatype 'a 'b result =
+datatype ('a, 'b) result =
 	 OK of 'a
 	 | Failed of 'b
 
