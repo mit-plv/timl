@@ -50,8 +50,7 @@ local
 
     fun on_type (ctx as (sctx, kctx)) t =
 	case t of
-	    T.VarT x => VarT (on_var kctx x)
-	  | T.Arrow (t1, d, t2) => Arrow (on_type ctx t1, on_idx sctx d, on_type ctx t2)
+	    T.Arrow (t1, d, t2) => Arrow (on_type ctx t1, on_idx sctx d, on_type ctx t2)
 	  | T.Prod (t1, t2) => Prod (on_type ctx t1, on_type ctx t2)
 	  | T.Sum (t1, t2) => Sum (on_type ctx t1, on_type ctx t2)
 	  | T.Unit => Unit
@@ -59,9 +58,8 @@ local
 	  | T.UniI (s, name, t) => UniI (on_sort sctx s, name, on_type (name :: sctx, kctx) t)
 	  | T.ExI (s, name, t) => ExI (on_sort sctx s, name, on_type (name :: sctx, kctx) t)
 	  | T.AppRecur (name, name_sorts, t, is) => AppRecur (name, map (mapSnd (on_sort sctx)) name_sorts, on_type (rev (map #1 name_sorts) @ sctx, name :: kctx) t, map (on_idx sctx) is)
-	  | T.AppVar (x, is) => AppVar (on_var kctx x, map (on_idx sctx) is)
+	  | T.AppV (x, ts, is) => AppV (on_var kctx x, map (on_type ctx) ts, map (on_idx sctx) is)
 	  | T.Int => Int
-	  | T.AppDatatype (x, ts, is) => AppDatatype (on_var kctx x, map (on_type ctx) ts, map (on_idx sctx) is)
 
     fun on_ptrn cctx pn =
 	case pn of
@@ -113,9 +111,7 @@ local
 
     fun on_kind ctx k =
 	case k of
-	    T.Type => Type
-	  | T.KArrow sorts => KArrow (map (on_sort ctx) sorts)
-	  | T.KArrowDatatype (n, sorts) => KArrowDatatype (n, map (on_sort ctx) sorts)
+	    T.ArrowK (n, sorts) => ArrowK (n, map (on_sort ctx) sorts)
 
 in
 fun resolve_type ctx e = runError (fn () => on_type ctx e) ()

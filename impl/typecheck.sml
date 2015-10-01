@@ -94,8 +94,7 @@ end
 local
     fun f x n b =
 	case b of
-	    VarT y => VarT y
-	  | Arrow (t1, d, t2) => Arrow (f x n t1, shiftx_i_i x n d, f x n t2)
+	    Arrow (t1, d, t2) => Arrow (f x n t1, shiftx_i_i x n d, f x n t2)
 	  | Unit => Unit
 	  | Prod (t1, t2) => Prod (f x n t1, f x n t2)
 	  | Sum (t1, t2) => Sum (f x n t1, f x n t2)
@@ -103,9 +102,8 @@ local
 	  | UniI (s, name, t) => UniI (shiftx_i_s x n s, name, f (x + 1) n t)
 	  | ExI (s, name, t) => ExI (shiftx_i_s x n s, name, f (x + 1) n t)
 	  | AppRecur (name, ns, t, i) => AppRecur (name, map (mapSnd (shiftx_i_s x n)) ns, f (x + length ns) n t, map (shiftx_i_i x n) i)
-	  | AppVar (y, i) =>  AppVar (y, map (shiftx_i_i x n) i)
+	  | AppV (y, ts, is) => AppV (y, map (f x n) ts, map (shiftx_i_i x n) is)
 	  | Int => Int
-	  | AppDatatype (family, ts, is) => AppDatatype (family, map (f x n) ts, map (shiftx_i_i x n) is)
 in
 fun shiftx_i_t x n b = f x n b
 fun shift_i_t b = shiftx_i_t 0 1 b
@@ -114,8 +112,7 @@ end
 local
     fun f x n b =
 	case b of
-	    VarT y => VarT (shiftx_v x n y)
-	  | Arrow (t1, d, t2) => Arrow (f x n t1, d, f x n t2)
+	    Arrow (t1, d, t2) => Arrow (f x n t1, d, f x n t2)
 	  | Unit => Unit
 	  | Prod (t1, t2) => Prod (f x n t1, f x n t2)
 	  | Sum (t1, t2) => Sum (f x n t1, f x n t2)
@@ -123,9 +120,8 @@ local
 	  | UniI (s, name, t) => UniI (s, name, f x n t)
 	  | ExI (s, name, t) => ExI (s, name, f x n t)
 	  | AppRecur (name, ns, t, i) => AppRecur (name, ns, f (x + 1) n t, i)
-	  | AppVar (y, i) => AppVar (shiftx_v x n y, i)
+	  | AppV (y, ts, is) => AppV (shiftx_v x n y, map (f x n) ts, is)
 	  | Int => Int
-	  | AppDatatype (family, ts, is) => AppDatatype (shiftx_v x n family, map (f x n) ts, is)
 
 in
 fun shiftx_t_t x n b = f x n b
@@ -244,8 +240,7 @@ end
 local
     fun f x v b =
 	case b of
-	    VarT y => VarT y
-	  | Arrow (t1, d, t2) => Arrow (f x v t1, substx_i_i x v d, f x v t2)
+	    Arrow (t1, d, t2) => Arrow (f x v t1, substx_i_i x v d, f x v t2)
 	  | Unit => Unit
 	  | Prod (t1, t2) => Prod (f x v t1, f x v t2)
 	  | Sum (t1, t2) => Sum (f x v t1, f x v t2)
@@ -256,25 +251,72 @@ local
 	    let val n = length ns in
 		AppRecur (name, map (mapSnd (substx_i_s x v)) ns, f (x + n) (shiftx_i_i 0 n v) t, map (substx_i_i x v) i)
 	    end
-	  | AppVar (y, i) => AppVar (y, map (substx_i_i x v) i)
+	  | AppV (y, ts, is) => AppV (y, map (f x v) ts, map (substx_i_i x v) is)
 	  | Int => Int
-	  | AppDatatype (family, ts, is) => AppDatatype (family, map (f x v) ts, map (substx_i_i x v) is)
 in
 fun substx_i_t x (v : idx) (b : ty) : ty = f x v b
 fun subst_i_t (v : idx) (b : ty) : ty = substx_i_t 0 v b
 end
 
 local
+    (* the substitute can be a type or a recursive type definition *)
+    datatype value = 
+	     Type of ty
+	     | Recur of string * (string * sort) list * ty
+    fun f x v (b : ty) : ty =
+	case b of
+	    Arrow (t1, d, t2) => Arrow (f x v t1, d, f x v t2)
+	  | Unit => Unit
+	  | Prod (t1, t2) => Prod (f x v t1, f x v t2)
+	  | Sum (t1, t2) => Sum (f x v t1, f x v t2)
+	  | Uni (name, t) => Uni (name, f (x + 1) (shift_t v) t)
+	  | UniI (s, name, t) => UniI (s, name, f x (shift_i 1 v) t)
+	  | ExI (s, name, t) => ExI (s, name, f x (shift_i 1 v) t)
+	  | AppRecur (name, ns, t, i) => AppRecur (name, ns, f (x + 1) (shift_i (length ns) (shift_t v)) t, i)
+	  | AppV (y, ts, is) => 
+	    if y = x then
+		case v of
+		    Type t =>
+		    if null ts andalso null is then
+			t
+		    else
+			raise Subst "can't be substituted type for this higher-kind type variable"
+		  | Recur (name, ns, t) =>
+		    if null ts then
+			AppRecur (name, ns, t, is)
+		    else
+			raise Subst "can't substitute recursive type definition for this type variable because this application has type arguments"
+	    else if y > x then
+		AppV (y - 1, map (f x v) ts, is)
+	    else
+		AppV (y, map (f x v) ts, is)
+	  | Int => Int
+
+    and shift_i n v =
+	case v of
+	    Type t => Type (shiftx_i_t 0 n t)
+	  | Recur (name, ns, t) => Recur (name, map (mapSnd (shiftx_i_s 0 n)) ns, shiftx_i_t (length ns) n t)
+    and shift_t v =
+	case v of
+	    Type t => Type (shiftx_t_t 1 1 t)
+	  | Recur (name, ns, t) => Recur (name, ns, shiftx_t_t 1 1 t)
+in
+
+fun substx_t_t x (v : ty) (b : ty) : ty = f x (Type v) b
+fun subst_t_t (v : ty) (b : ty) : ty = substx_t_t 0 v b
+fun subst_is_t is t = 
+    #1 (foldl (fn (i, (t, x)) => (substx_i_t x (shiftx_i_i 0 x i) t, x - 1)) (t, length is - 1) is)
+fun subst_ts_t vs b = 
+    #1 (foldl (fn (v, (b, x)) => (substx_t_t x (shiftx_t_t 0 x v) b, x - 1)) (b, length vs - 1) vs)
+fun unroll (name, ns, t, i) =
+    subst_is_t i (f 0 (shift_i (length ns) (Recur (name, ns, t))) t)
+end
+
+(*
+local
     fun f x (v : ty) (b : ty) : ty =
 	case b of
-	    VarT y =>
-	    if y = x then
-		v
-	    else if y > x then
-		VarT (y - 1)
-	    else
-		VarT y
-	  | Arrow (t1, d, t2) => Arrow (f x v t1, d, f x v t2)
+	    Arrow (t1, d, t2) => Arrow (f x v t1, d, f x v t2)
 	  | Unit => Unit
 	  | Prod (t1, t2) => Prod (f x v t1, f x v t2)
 	  | Sum (t1, t2) => Sum (f x v t1, f x v t2)
@@ -282,25 +324,17 @@ local
 	  | UniI (s, name, t) => UniI (s, name, f x (shift_i_t v) t)
 	  | ExI (s, name, t) => ExI (s, name, f x (shift_i_t v) t)
 	  | AppRecur (name, ns, t, i) => AppRecur (name, ns, f (x + 1) (shiftx_i_t 0 (length ns) (shift_t_t v)) t, i)
-	  | AppVar (y, i) => 
+	  | AppV (y, ts, is) => 
 	    if y = x then
-		raise Subst "self-reference variable should only be substitute for via unrolling"
+		if null ts andalso null is then
+		    v
+		else
+		    raise Subst "can't be substituted for this higher-kind type variable"
 	    else if y > x then
-		AppVar (y - 1, i)
+		AppV (y - 1, map (f x v) ts, is)
 	    else
-		AppVar (y, i)
+		AppV (y, map (f x v) ts, is)
 	  | Int => Int
-	  | AppDatatype (y, ts, is) => 
-	    let val y' = 
-		    if y = x then
-			raise Subst "datatype can't be substituted for"
-		    else if y > x then
-			y - 1
-		    else
-			y 
-	    in
-		AppDatatype (y', map (f x v) ts, is)
-	    end
 in
 fun substx_t_t x (v : ty) (b : ty) : ty = f x v b
 fun subst_t_t (v : ty) (b : ty) : ty = substx_t_t 0 v b
@@ -318,14 +352,7 @@ local
     fun shift_t_r (Recur (name, ns, t)) = Recur (name, ns, shiftx_t_t 1 1 t)
     fun f x v (b : ty) : ty =
 	case b of
-	    VarT y =>
-	    if y = x then
-		raise Subst "unroll should only do subtitution on self-reference variable"
-	    else if y > x then
-		VarT (y - 1)
-	    else
-		VarT y
-	  | Arrow (t1, d, t2) => Arrow (f x v t1, d, f x v t2)
+	    Arrow (t1, d, t2) => Arrow (f x v t1, d, f x v t2)
 	  | Unit => Unit
 	  | Prod (t1, t2) => Prod (f x v t1, f x v t2)
 	  | Sum (t1, t2) => Sum (f x v t1, f x v t2)
@@ -333,32 +360,25 @@ local
 	  | UniI (s, name, t) => UniI (s, name, f x (shift_i_r 1 v) t)
 	  | ExI (s, name, t) => ExI (s, name, f x (shift_i_r 1 v) t)
 	  | AppRecur (name, ns, t, i) => AppRecur (name, ns, f (x + 1) (shift_i_r (length ns) (shift_t_r v)) t, i)
-	  | AppVar (y, i) => 
+	  | AppV (y, ts, is) => 
 	    if y = x then
-		let val Recur (name, ns, t) = v in
-		    AppRecur (name, ns, t, i)
-		end
+		if null ts then
+		    let val Recur (name, ns, t) = v in
+			AppRecur (name, ns, t, is)
+		    end
+		else
+		    raise Subst "can't substitute recursive type for this type variable"
 	    else if y > x then
-		AppVar (y - 1, i)
+		AppV (y - 1, map (f x v) ts, is)
 	    else
-		AppVar (y, i)
+		AppV (y, map (f x v) ts, is)
 	  | Int => Int
-	  | AppDatatype (y, ts, is) => 
-	    let val y' = 
-		    if y = x then
-			raise Subst "unroll should only do subtitution on self-reference variable"
-		    else if y > x then
-			y - 1
-		    else
-			y 
-	    in
-		AppDatatype (y', map (f x v) ts, is)
-	    end
 
 in
 fun unroll (name, ns, t, i) =
     subst_is_t i (f 0 (shift_i_r (length ns) (Recur (name, ns, t))) t)
 end
+*)
 
 fun shiftx_i_c x n (family, tnames, name_sorts, t, is) =
     let val m = length name_sorts 
@@ -377,9 +397,7 @@ fun shift_t_c b = shiftx_t_c 0 1 b
 local
     fun f x n b =
 	case b of
-	    Type => Type
-	  | KArrow s => KArrow (map (shiftx_i_s x n) s)
-	  | KArrowDatatype (n, sorts) => KArrowDatatype (n, map (shiftx_i_s x n) sorts)
+	    ArrowK (n, sorts) => ArrowK (n, map (shiftx_i_s x n) sorts)
 in
 fun shiftx_i_k x n b = f x n b
 fun shift_i_k b = shiftx_i_k 0 1 b
@@ -720,7 +738,7 @@ local
 	 ListPair.app (fn (i, s) => check_sort (ctx, i, s)) (i, s))
 
     (* k => Type *)
-    fun recur_kind k = KArrow k
+    fun recur_kind k = ArrowK (0, k)
 
     fun kind_mismatch (ctx as (sctx, kctx)) c expect have =  "Kind mismatch for " ^ str_t ctx c ^ ": expect " ^ expect ^ " have " ^ str_k sctx have
 
@@ -734,11 +752,7 @@ local
 	(* val () = print (sprintf "Type wellformedness checking: $\n" [str_t ctxn c]) *)
 	in
 	    case c of
-		VarT a =>
-		(case fetch_kind (kctx, a) of
-		     Type => ()
-		   | k => raise Error (kind_mismatch ctxn c "Type" k))
-	      | Arrow (c1, d, c2) => 
+		Arrow (c1, d, c2) => 
 		(is_wftype (ctx, c1);
 		 check_sort (sctx, d, STime);
 		 is_wftype (ctx, c2))
@@ -763,17 +777,12 @@ local
 		    is_wftype (add_nondep_sortings_sk (rev ns) (add_kinding_sk (nameself, recur_kind s) ctx), t);
 		    check_sorts (sctx, i, s)
 		end
-	      | AppVar (a, i) => 
-		(case fetch_kind (kctx, a) of
-		     KArrow s => check_sorts (sctx, i, s)
-		   | k => raise Error (kind_mismatch ctxn c "(s* => Type)" k))
-	      | Int => ()
-	      | AppDatatype (family, ts, is) => 
-		(case fetch_kind (kctx, family) of
-		     KArrowDatatype (n, sorts) => 
+	      | AppV (x, ts, is) => 
+		(case fetch_kind (kctx, x) of
+		     ArrowK (n, sorts) => 
 		     (check_length_n (n, ts);
-		      check_sorts (sctx, is, sorts))
-		   | k => raise Error (kind_mismatch ctxn c "Type* => s* => Type" k))
+		      check_sorts (sctx, is, sorts)))
+	      | Int => ()
 	end
 
     fun not_subtype ctx c c' = str_t ctx c ^ " is not subtype of " ^ str_t ctx c'
@@ -788,11 +797,6 @@ local
 		(is_subtype (ctx, c1', c1);
 		 is_le (sctx, d, d');
 		 is_subtype (ctx, c2, c2'))
-	      | (VarT a, VarT a') => 
-		if a = a' then
-		    ()
-		else
-		    raise Error (not_subtype ctxn c c')
 	      | (Unit, Unit) => ()
 	      | (Prod (c1, c2), Prod (c1', c2')) =>
 		(is_subtype (ctx, c1, c1');
@@ -817,23 +821,15 @@ local
 		    val ctx' = add_nondep_sortings_sk (rev ns) (add_kinding_sk (nameself, recur_kind s) ctx) in
 		    is_eqvtype (ctx', t, t')
 		end
-	      | (AppVar (a, i), AppVar (a', i')) => 
+	      | (AppV (a, ts, is), AppV (a', ts', is')) => 
 		if a = a' then
-		    case fetch_kind (kctx, a) of
-			KArrow s => is_eqs (sctx, i, i', s)
-		      | _ => raise Impossible "is_subtype: x in (x is) should have an arrow kind"
+		    (app (fn (t, t') => is_eqvtype (ctx, t, t')) (ListPair.zip (ts, ts'));
+		     case fetch_kind (kctx, a) of
+			 ArrowK (_, sorts) =>
+			 is_eqs (sctx, is, is', sorts))
 		else
 		    raise Error (not_subtype ctxn c c')
 	      | (Int, Int) => ()
-	      | (AppDatatype (a, ts, is), AppDatatype (a', ts', is')) => 
-		if a = a' then
-		    case fetch_kind (kctx, a) of
-			KArrowDatatype (_, sorts) =>
-			(app (fn (t, t') => is_eqvtype (ctx, t, t')) (ListPair.zip (ts, ts'));
-			 is_eqs (sctx, is, is', sorts))
-		      | k => raise Impossible "is_subtype: x in (x ts is) should have an datatype-arrow kind"
-		else
-		    raise Error (not_subtype ctxn c c')
 	      | _ => raise Error (not_subtype ctxn c c')
 	end
 
@@ -855,11 +851,6 @@ local
 		    val c2'' = join_type (ctx, c2, c2') in
 		    Arrow (c1'', d'', c2'')
 		end
-	      | (VarT a, VarT a') => 
-		if a = a' then
-		    c
-		else
-		    raise Error (no_join ctxn c c')
 	      | (Unit, Unit) => Unit
 	      | (Prod (c1, c2), Prod (c1', c2')) => 
 		let val c1'' = join_type (ctx, c1, c1') 
@@ -889,7 +880,7 @@ local
 	      | (AppRecur _, AppRecur _) => 
 		(is_eqvtype (ctx, c, c');
 		 c)
-	      | (AppVar _, AppVar _) => 
+	      | (AppV _, AppV _) => 
 		(is_eqvtype (ctx, c, c');
 		 c)
 	      | (Int, Int) => Int
@@ -906,11 +897,6 @@ local
 		    val c2'' = meet (ctx, c2, c2') in
 		    Arrow (c1'', d'', c2'')
 		end
-	      | (VarT a, VarT a') => 
-		if a = a' then
-		    c
-		else
-		    raise Error (no_meet ctxn c c')
 	      | (Unit, Unit) => Unit
 	      | (Prod (c1, c2), Prod (c1', c2')) => 
 		let val c1'' = meet (ctx, c1, c1') 
@@ -940,7 +926,7 @@ local
 	      | (AppRecur _, AppRecur _) => 
 		(is_eqvtype (ctx, c, c');
 		 c)
-	      | (AppVar _, AppVar _) => 
+	      | (AppV _, AppV _) => 
 		(is_eqvtype (ctx, c, c');
 		 c)
 	      | (Int, Int) => Int
@@ -963,7 +949,7 @@ local
 
     fun check_exhaustive ((_, _, cctx), t, cover) =
 	case t of
-	    AppDatatype (family, _, _) =>
+	    AppV (family, _, _) =>
 	    let val all = get_family_members cctx family
 		val missed = diff op= all cover
 	    in
@@ -980,7 +966,7 @@ local
     fun fetch_constr_type (ctx, cx) =
 	let val (cname, (family, tnames, ns, t, is)) = fetch_constr (ctx, cx)
 	    val ts = (map VarT o rev o range o length) tnames
-	    val t = Arrow (t, T0, AppDatatype (shiftx_v 0 (length tnames) family, ts, is))
+	    val t = Arrow (t, T0, AppV (shiftx_v 0 (length tnames) family, ts, is))
 	    val t = foldr (fn ((name, s), t) => UniI (s, name, t)) t ns
 	    val t = foldr Uni t tnames
 	in
@@ -992,7 +978,7 @@ local
 	let val skctxn as (sctxn, _) = (sctx_names sctx, names kctx)
 	in
 	    case (pn, t) of
-		(Constr (cx, inames, ename), AppDatatype (x, ts, is)) =>
+		(Constr (cx, inames, ename), AppV (x, ts, is)) =>
 		let val (_, c as (x', tnames, ns, t1, is')) = fetch_constr (cctx, cx)
 		in
 		    if x' = x then
@@ -1372,18 +1358,16 @@ fun simp_s s =
 local
     fun f t =
 	case t of
-	    VarT _ => t
-	  | Arrow (t1, d, t2) => Arrow (f t1, simp_i d, f t2)
+	    Arrow (t1, d, t2) => Arrow (f t1, simp_i d, f t2)
 	  | Prod (t1, t2) => Prod (f t1, f t2)
 	  | Sum (t1, t2) => Sum (f t1, f t2)
 	  | Unit => Unit
 	  | AppRecur (name, ns, t, is) => AppRecur (name, map (mapSnd simp_s) ns, f t, map simp_i is)
-	  | AppVar (x, is) => AppVar (x, map simp_i is)
+	  | AppV (x, ts, is) => AppV (x, map f ts, map simp_i is)
 	  | Uni (name, t) => Uni (name, f t)
 	  | UniI (s, name, t) => UniI (simp_s s, name, f t)
 	  | ExI (s, name, t) => ExI (simp_s s, name, f t)
 	  | Int => Int
-	  | AppDatatype (x, ts, is) => AppDatatype (x, map f ts, map simp_i is)
 
 in
 val simp_t = f

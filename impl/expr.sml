@@ -56,8 +56,7 @@ functor TypeFun (structure Var : VAR) = struct
 	val SUnit = Basic BSUnit
 
 	datatype ty = 
-		 VarT of var
-		 | Arrow of ty * idx * ty
+		 Arrow of ty * idx * ty
 		 | Unit
 		 | Prod of ty * ty
 		 | Sum of ty * ty
@@ -66,19 +65,18 @@ functor TypeFun (structure Var : VAR) = struct
 		 | Uni of string * ty
 		 (* the kind of Recur is sort => Type, to allow for change of index *)
 		 | AppRecur of string * (string * sort) list * ty * idx list
-		 (* the first operant of App can only be a recursive type*)
-		 | AppVar of var * idx list
+		 (* the first operant of App can only be a type variable. The degenerated case of no-arguments is also included *)
+		 | AppV of var * ty list * idx list
 		 | Int
-		 | AppDatatype of var * ty list * idx list
+
+	fun VarT x = AppV (x, [], [])
+	fun AppVar (x, is) = AppV (x, [], is)
 
 	type constr = var * string list * (string * sort) list * ty * idx list
 
 	datatype kind = 
-		 Type
-		 (* will only be used by recursive types *)
-		 | KArrow of sort list
-		 (* will only be used by datatypes *)
-		 | KArrowDatatype of int * sort list
+		 ArrowK of int * sort list
+	val Type = ArrowK (0, [])
 
 	infix 7 $ val op$ = Tmax
 	infix 6 %+ val op%+ = Tadd
@@ -121,7 +119,6 @@ functor TypeFun (structure Var : VAR) = struct
 	fun str_t (ctx as (sctx, kctx)) (c : ty) : string =
 	    case c of
 		Arrow (c1, d, c2) => sprintf "($ -- $ -> $)" [str_t ctx c1, str_i sctx d, str_t ctx c2]
-	      | VarT x => str_v kctx x
 	      | Unit => "unit"
 	      | Prod (t1, t2) => sprintf "($ * $)" [str_t ctx t1, str_t ctx t2]
 	      | Sum (t1, t2) => sprintf "($ + $)" [str_t ctx t1, str_t ctx t2]
@@ -134,15 +131,12 @@ functor TypeFun (structure Var : VAR) = struct
 			 join " " (map (fn (name, s) => sprintf "($ :: $)" [name, str_s sctx s]) ns),
 			 str_t (rev (map #1 ns) @ sctx, name :: kctx) t,
 			 join " " (map (str_i sctx) i)]
-	      | AppVar (x, i) => sprintf "($$)" [str_v kctx x, (join "" o map (prefix " ") o map (str_i sctx)) i]
+	      | AppV (x, ts, is) => sprintf "($$$)" [str_v kctx x, (join "" o map (prefix " ") o map (str_t ctx)) ts, (join "" o map (prefix " ") o map (str_i sctx)) is]
 	      | Int => "int"
-	      | AppDatatype (x, ts, is) => sprintf "($$$)" [str_v kctx x, (join "" o map (prefix " ") o map (str_t ctx)) ts, (join "" o map (prefix " ") o map (str_i sctx)) is]
 
 	fun str_k ctx (k : kind) : string = 
 	    case k of
-		Type => "Type"
-	      | KArrow s => sprintf "($ => Type)" [join " * " (map (str_s ctx) s)]
-	      | KArrowDatatype (n, sorts) => sprintf "($ => $ => Type)" [join " * " (repeat n "Type"), join " * " (map (str_s ctx) sorts)]
+		ArrowK (n, sorts) => sprintf "($$Type)" [if n = 0 then "" else join " * " (repeat n "Type") ^ " => ", if null sorts then "" else join " * " (map (str_s ctx) sorts) ^ " => "]
 
 	end
 

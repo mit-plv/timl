@@ -72,9 +72,9 @@ infix 3 /\
 infix 1 -->
 infix 1 <->
 
-val ilist = KArrowDatatype (1, [STime])
+val ilist = ArrowK (1, [STime])
 fun NilI family = (family, ["a"], [], Unit, [T0])
-fun ConsI family = (family, ["a"], [("n", STime)], Prod (VarT 0, AppDatatype (shiftx_v 0 1 family, [VarT 0], [VarI 0])), [VarI 0 %+ T1])
+fun ConsI family = (family, ["a"], [("n", STime)], Prod (VarT 0, AppV (shiftx_v 0 1 family, [VarT 0], [VarI 0])), [VarI 0 %+ T1])
 val ctx : context = (([], []), [("ilist", ilist)], [("ConsI", ConsI 0), ("NilI", NilI 0)], []) 
 val NilI_int = AppConstr (1, [Int], [], TT)
 val ConsI_int = AppConstr (0, [Int], [T0], Pair (Const 77, NilI_int))
@@ -86,10 +86,10 @@ val map_ =
 	  AbsT ("'b",
 		AbsI (STime, "m", 
 		      Abs (Arrow (VarT 1, VarI 0, VarT 0), "f", 
-			   Fix (UniI (STime, "n", Arrow (AppDatatype (2, [VarT 1], [VarI 0]), (VarI 1 %+ Tconst 2) %* VarI 0, AppDatatype (2, [VarT 0], [VarI 0]))), "map", 
+			   Fix (UniI (STime, "n", Arrow (AppV (2, [VarT 1], [VarI 0]), (VarI 1 %+ Tconst 2) %* VarI 0, AppV (2, [VarT 0], [VarI 0]))), "map", 
 				AbsI (STime, "n", 
-				      Abs (AppDatatype (2, [VarT 1], [VarI 0]), "ls", 
-					   Case (Var 0, AppDatatype (2, [VarT 0], [VarI 0]), (VarI 1 %+ Tconst 2) %* VarI 0, 
+				      Abs (AppV (2, [VarT 1], [VarI 0]), "ls", 
+					   Case (Var 0, AppV (2, [VarT 0], [VarI 0]), (VarI 1 %+ Tconst 2) %* VarI 0, 
 						 [(Constr (1, [], "_"), AppConstr (1, [VarT 0], [], TT)),
 						  (Constr (0, ["n'"], "x_xs"), AppConstr (0, [VarT 0], [VarI 0], Pair (App (Var 3, Fst (Var 0)), App (AppI (Var 2, VarI 0), Snd (Var 0)))))]))))))))
 
@@ -116,9 +116,9 @@ infix 3 /\
 infix 1 -->
 infix 1 <->
 
-val ilist = KArrowDatatype (1, [STime])
+val ilist = ArrowK (1, [STime])
 fun NilI family = (family, ["a"], [], Unit, [T0])
-fun ConsI family = (family, ["a"], [("n", STime)], Prod (VarT "a", AppDatatype (family, [VarT "a"], [VarI "n"])), [VarI "n" %+ T1])
+fun ConsI family = (family, ["a"], [("n", STime)], Prod (VarT "a", AppV (family, [VarT "a"], [VarI "n"])), [VarI "n" %+ T1])
 val NilI_int = AppConstr ("NilI", [Int], [], TT)
 val ConsI_int = AppConstr ("ConsI", [Int], [T0], Pair (Const 77, NilI_int))
 
@@ -137,10 +137,10 @@ val map_ =
 	  AbsT ("b",
 		AbsI (STime, "m", 
 		      Abs (Arrow (VarT "a", VarI "m", VarT "b"), "f", 
-			   Fix (UniI (STime, "n", Arrow (AppDatatype ("ilist", [VarT "a"], [VarI "n"]), (VarI "m" %+ Tconst 2) %* VarI "n", AppDatatype ("ilist", [VarT "b"], [VarI "n"]))), "map", 
+			   Fix (UniI (STime, "n", Arrow (AppV ("ilist", [VarT "a"], [VarI "n"]), (VarI "m" %+ Tconst 2) %* VarI "n", AppV ("ilist", [VarT "b"], [VarI "n"]))), "map", 
 				AbsI (STime, "n", 
-				      Abs (AppDatatype ("ilist", [VarT "a"], [VarI "n"]), "ls", 
-					   Case (Var "ls", AppDatatype ("ilist", [VarT "b"], [VarI "n"]), (VarI "m" %+ Tconst 2) %* VarI "n", 
+				      Abs (AppV ("ilist", [VarT "a"], [VarI "n"]), "ls", 
+					   Case (Var "ls", AppV ("ilist", [VarT "b"], [VarI "n"]), (VarI "m" %+ Tconst 2) %* VarI "n", 
 						 [(Constr ("NilI", [], "_"), AppConstr ("NilI", [VarT "b"], [], TT)),
 						  (Constr ("ConsI", ["n'"], "x_xs"), AppConstr ("ConsI", [VarT "b"], [VarI "n'"], Pair (App (Var "f", Fst (Var "x_xs")), App (AppI (Var "map", VarI "n'"), Snd (Var "x_xs")))))]))))))))
 
@@ -227,10 +227,10 @@ structure Main = struct
 fun main (prog_name, args : string list) : int = 
     let
 	val output = ""
-	(* val output = RecurExamples.main () *)
-	(* val output = DatatypeExamples.main () *)
-	(* val output = NamefulDatatypeExamples.main () *)
-	val output = 
+	val output = RecurExamples.main ()
+	val output = DatatypeExamples.main ()
+	val output = NamefulDatatypeExamples.main ()
+	val output =
 	    case args of
 		filename :: _ => (TestParser.main filename; "")
 	      | _ => "Usage: filename"
