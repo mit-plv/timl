@@ -6,6 +6,7 @@ fun interleave xs ys =
 
 fun sprintf s ls =
     String.concat (interleave (String.fields (fn c => c = #"$") s) ls)
+fun println s = print (s ^ "\n")
 
 val join = String.concatWith
 fun prefix a b = a ^ b

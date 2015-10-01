@@ -4,9 +4,9 @@ structure E = NamefulExpr
 open Type
 open Expr
 
-local
+exception Error of string
 
-    exception Error of string
+local
 
     fun runError m _ =
 	OK (m ())
@@ -145,10 +145,14 @@ local
 	    T.ArrowK (n, sorts) => ArrowK (n, map (on_sort ctx) sorts)
 
 in
-fun resolve_type ctx e = runError (fn () => on_type ctx e) ()
-fun resolve_expr ctx e = runError (fn () => on_expr ctx e) ()
-fun resolve_constr ctx e = runError (fn () => on_constr ctx e) ()
-fun resolve_kind ctx e = runError (fn () => on_kind ctx e) ()
+val resolve_type = on_type
+val resolve_expr = on_expr
+val resolve_constr = on_constr
+val resolve_kind = on_kind
+fun resolve_type_opt ctx e = runError (fn () => on_type ctx e) ()
+fun resolve_expr_opt ctx e = runError (fn () => on_expr ctx e) ()
+fun resolve_constr_opt ctx e = runError (fn () => on_constr ctx e) ()
+fun resolve_kind_opt ctx e = runError (fn () => on_kind ctx e) ()
 end
 
 end

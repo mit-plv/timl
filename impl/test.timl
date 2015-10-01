@@ -1,7 +1,7 @@
 let val map =
      fn [a] [b] {m : Time} (f : a -- m -> b) =>
-	fix (map : forall {n : Time}, list a {n} -- (m + 2) * n -> list b {n}) {n : Time} (ls : list a {n}) =>
-    	case ls return list b {n} |> (m + 2) * n of
+	fix (map : forall {n : Time}, ilist a {n} -- (m + 2) * n -> ilist b {n}) {n : Time} (ls : ilist a {n}) =>
+    	case ls return ilist b {n} |> (m + 2) * n of
 	    NilI _ => NilI [b] ()
 	  | ConsI {n'} x_xs => ConsI [b] {n'} (f (fst x_xs), map {n'} (snd x_xs))
 in

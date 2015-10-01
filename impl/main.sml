@@ -101,7 +101,7 @@ fun main () =
 
 end
 
-structure NamefulDatatypeExamples = struct
+structure Ilist = struct
 
 structure T = NamefulType
 structure E = NamefulExpr
@@ -121,6 +121,39 @@ fun NilI family = (family, ["a"], [], Unit, [T0])
 fun ConsI family = (family, ["a"], [("n", STime)], Prod (VarT "a", AppV (family, [VarT "a"], [VarI "n"])), [VarI "n" %+ T1])
 val NilI_int = AppConstr ("NilI", [Int], [], TT)
 val ConsI_int = AppConstr ("ConsI", [Int], [T0], Pair (Const 77, NilI_int))
+
+open Type
+open Expr
+open NameResolve
+open TypeCheck
+
+val sctx = ([], [])
+val sctxn = sctx_names sctx
+val ilist = resolve_kind sctxn ilist
+val skctx as (_, kctx) = (sctx, [("ilist", ilist)])
+val skctxn as (_, kctxn) = (sctxn, names kctx)
+val NilI = resolve_constr skctxn (NilI "ilist")
+val ConsI = resolve_constr skctxn (ConsI "ilist")
+val ctx as (_, _, cctx, tctx) : context = (sctx, kctx, [("ConsI", ConsI), ("NilI", NilI)], [])
+val ctxn = (sctxn, kctxn, names cctx, names tctx)
+
+end
+
+structure NamefulDatatypeExamples = struct
+
+open Ilist
+structure T = NamefulType
+structure E = NamefulExpr
+open T
+open E
+
+infix 7 $
+infix 6 %+
+infix 6 %*
+infix 4 %<=
+infix 3 /\
+infix 1 -->
+infix 1 <->
 
 (*
 
@@ -151,33 +184,18 @@ open Expr
 open NameResolve
 open TypeCheck
 
-exception Resolve of string
-fun try r = 
-    case r of 
-	OK v => v 
-      | Failed msg => raise Resolve msg
-
 (* fun main () = check ctx NilI_int *)
 (* fun main () = check ctx ConsI_int *)
 fun main () =
     let
-	val sctx = ([], [])
-	val sctxn = sctx_names sctx
-	val ilist = (try o resolve_kind sctxn) ilist
-	val skctx as (_, kctx) = (sctx, [("ilist", ilist)])
-	val skctxn as (_, kctxn) = (sctxn, names kctx)
-	val NilI = (try o resolve_constr skctxn) (NilI "ilist")
-	val ConsI = (try o resolve_constr skctxn) (ConsI "ilist")
-	val ctx as (_, _, cctx, tctx) : context = (sctx, kctx, [("ConsI", ConsI), ("NilI", NilI)], [])
-	val ctxn = (sctxn, kctxn, names cctx, names tctx)
-	val wrong = (try o resolve_expr ctxn) wrong
-	val map_ = (try o resolve_expr ctxn) map_
+	val wrong = resolve_expr ctxn wrong
+	val map_ = resolve_expr ctxn map_
     in
 	check ctx wrong ^ "\n" ^
 	check ctx map_
     end
     handle 
-    Resolve msg => sprintf "Failed to resolve variable: $\n" [msg]
+    NameResolve.Error msg => sprintf "Failed to resolve variable: $\n" [msg]
 
 end
 
@@ -185,7 +203,10 @@ structure TestParser = struct
 open Util
 open Parser
 open Elaborate
-open NamefulExpr
+structure T = NamefulType
+structure E = NamefulExpr
+open T
+open E
 
 fun str_pos (pos : pos) = sprintf "$.$" [str_int (#line pos), str_int (#col pos)]
 fun str_region header filename (r : region) = sprintf "$: $ $.\n" [header, filename, str_pos (#1 r)]
@@ -219,18 +240,23 @@ fun do_parse filename =
   in
       s
   end
+
+open Ilist
 					      
 fun main filename =
     let
 	val e = do_parse filename
 	val e = elaborate e
+	val () = println (E.str_e ([], [], [], []) e)
+	val e = resolve_expr ctxn e
     in
-	str_e ([], [], [], []) e
+	check ctx e
     end
     handle 
     IO.Io e => sprintf "Error calling $ on file $\n" [#function e, #name e]
     | Parser.Error => "Parse error"
     | Elaborate.Error (r, msg) => str_error "Error" filename r msg
+    | NameResolve.Error msg => sprintf "Failed to resolve variable: $\n" [msg]
 end
 
 structure Main = struct
