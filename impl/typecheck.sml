@@ -16,7 +16,7 @@ fun is_value (e : expr) : bool =
 	Var _ => true
       | App _ => false
       | Abs _ => true
-      | TT => true
+      | TT _ => true
       | Pair (e1, e2) => is_value e1 andalso is_value e2
       | Fst _ => false
       | Snd _ => false
@@ -69,8 +69,8 @@ end
 local
     fun f x n b =
 	case b of
-	    True => True
-	  | False => False
+	    True r => True r
+	  | False r => False r
 	  | And (p1, p2) => And (f x n p1, f x n p2)
 	  | Or (p1, p2) => Or (f x n p1, f x n p2)
 	  | Imply (p1, p2) => Imply (f x n p1, f x n p2)
@@ -96,15 +96,15 @@ local
     fun f x n b =
 	case b of
 	    Arrow (t1, d, t2) => Arrow (f x n t1, shiftx_i_i x n d, f x n t2)
-	  | Unit => Unit
+	  | Unit r => Unit r
 	  | Prod (t1, t2) => Prod (f x n t1, f x n t2)
 	  | Sum (t1, t2) => Sum (f x n t1, f x n t2)
 	  | Uni (name, t) => Uni (name, f x n t)
 	  | UniI (s, name, t) => UniI (shiftx_i_s x n s, name, f (x + 1) n t)
 	  | ExI (s, name, t) => ExI (shiftx_i_s x n s, name, f (x + 1) n t)
-	  | AppRecur (name, ns, t, i) => AppRecur (name, map (mapSnd (shiftx_i_s x n)) ns, f (x + length ns) n t, map (shiftx_i_i x n) i)
-	  | AppV (y, ts, is) => AppV (y, map (f x n) ts, map (shiftx_i_i x n) is)
-	  | Int => Int
+	  | AppRecur (name, ns, t, i, r) => AppRecur (name, map (mapSnd (shiftx_i_s x n)) ns, f (x + length ns) n t, map (shiftx_i_i x n) i, r)
+	  | AppV (y, ts, is, r) => AppV (y, map (f x n) ts, map (shiftx_i_i x n) is, r)
+	  | Int r => Int r
 in
 fun shiftx_i_t x n b = f x n b
 fun shift_i_t b = shiftx_i_t 0 1 b
@@ -114,15 +114,15 @@ local
     fun f x n b =
 	case b of
 	    Arrow (t1, d, t2) => Arrow (f x n t1, d, f x n t2)
-	  | Unit => Unit
+	  | Unit r => Unit r
 	  | Prod (t1, t2) => Prod (f x n t1, f x n t2)
 	  | Sum (t1, t2) => Sum (f x n t1, f x n t2)
 	  | Uni (name, t) => Uni (name, f (x + 1) n t)
 	  | UniI (s, name, t) => UniI (s, name, f x n t)
 	  | ExI (s, name, t) => ExI (s, name, f x n t)
-	  | AppRecur (name, ns, t, i) => AppRecur (name, ns, f (x + 1) n t, i)
-	  | AppV ((y, r), ts, is) => AppV ((shiftx_v x n y, r), map (f x n) ts, is)
-	  | Int => Int
+	  | AppRecur (name, ns, t, i, r) => AppRecur (name, ns, f (x + 1) n t, i, r)
+	  | AppV ((y, r1), ts, is, r) => AppV ((shiftx_v x n y, r1), map (f x n) ts, is, r)
+	  | Int r => Int r
 
 in
 fun shiftx_t_t x n b = f x n b
@@ -147,7 +147,7 @@ local
 	    Var (y, r) => Var (shiftx_v x n y, r)
 	  | Abs (t, name, e) => Abs (t, name, f (x + 1) n e)
 	  | App (e1, e2) => App (f x n e1, f x n e2)
-	  | TT => TT
+	  | TT r => TT r
 	  | Pair (e1, e2) => Pair (f x n e1, f x n e2)
 	  | Fst e => Fst (f x n e)
 	  | Snd e => Snd (f x n e)
@@ -166,13 +166,13 @@ local
 	    Unpack (f x n e1, t, d, iname, ename, f (x + 1) n e2)
 	  | Fix (t, name, e) => 
 	    Fix (t, name, f (x + 1) n e)
-	  | Let (e1, name, e2) => Let (f x n e1, name, f (x + 1) n e2)
+	  | Let (e1, name, e2, r) => Let (f x n e1, name, f (x + 1) n e2, r)
 	  | Ascription (e, t) => Ascription (f x n e, t)
 	  | AscriptionTime (e, d) => AscriptionTime (f x n e, d)
 	  | Const n => Const n
 	  | Plus (e1, e2) => Plus (f x n e1, f x n e2)
 	  | AppConstr (cx, ts, is, e) => AppConstr (cx, ts, is, f x n e)
-	  | Case (e, t, d, rules) => Case (f x n e, t, d, map (f_rule x n) rules)
+	  | Case (e, t, d, rules, r) => Case (f x n e, t, d, map (f_rule x n) rules, r)
 	  | Never t => Never t
 
     and f_rule x n (pn, e) =
@@ -215,8 +215,8 @@ end
 local
     fun f x v b =
 	case b of
-	    True => True
-	  | False => False
+	    True r => True r
+	  | False r => False r
 	  | And (p1, p2) => And (f x v p1, f x v p2)
 	  | Or (p1, p2) => Or (f x v p1, f x v p2)
 	  | Imply (p1, p2) => Imply (f x v p1, f x v p2)
@@ -242,18 +242,18 @@ local
     fun f x v b =
 	case b of
 	    Arrow (t1, d, t2) => Arrow (f x v t1, substx_i_i x v d, f x v t2)
-	  | Unit => Unit
+	  | Unit r => Unit r
 	  | Prod (t1, t2) => Prod (f x v t1, f x v t2)
 	  | Sum (t1, t2) => Sum (f x v t1, f x v t2)
 	  | Uni (name, t) => Uni (name, f x v t)
 	  | UniI (s, name, t) => UniI (substx_i_s x v s, name, f (x + 1) (shift_i_i v) t)
 	  | ExI (s, name, t) => ExI (substx_i_s x v s, name, f (x + 1) (shift_i_i v) t)
-	  | AppRecur (name, ns, t, i) =>
+	  | AppRecur (name, ns, t, i, r) =>
 	    let val n = length ns in
-		AppRecur (name, map (mapSnd (substx_i_s x v)) ns, f (x + n) (shiftx_i_i 0 n v) t, map (substx_i_i x v) i)
+		AppRecur (name, map (mapSnd (substx_i_s x v)) ns, f (x + n) (shiftx_i_i 0 n v) t, map (substx_i_i x v) i, r)
 	    end
-	  | AppV (y, ts, is) => AppV (y, map (f x v) ts, map (substx_i_i x v) is)
-	  | Int => Int
+	  | AppV (y, ts, is, r) => AppV (y, map (f x v) ts, map (substx_i_i x v) is, r)
+	  | Int r => Int r
 in
 fun substx_i_t x (v : idx) (b : ty) : ty = f x v b
 fun subst_i_t (v : idx) (b : ty) : ty = substx_i_t 0 v b
@@ -267,14 +267,14 @@ local
     fun f x v (b : ty) : ty =
 	case b of
 	    Arrow (t1, d, t2) => Arrow (f x v t1, d, f x v t2)
-	  | Unit => Unit
+	  | Unit r => Unit r
 	  | Prod (t1, t2) => Prod (f x v t1, f x v t2)
 	  | Sum (t1, t2) => Sum (f x v t1, f x v t2)
 	  | Uni (name, t) => Uni (name, f (x + 1) (shift_t v) t)
 	  | UniI (s, name, t) => UniI (s, name, f x (shift_i 1 v) t)
 	  | ExI (s, name, t) => ExI (s, name, f x (shift_i 1 v) t)
-	  | AppRecur (name, ns, t, i) => AppRecur (name, ns, f (x + 1) (shift_i (length ns) (shift_t v)) t, i)
-	  | AppV ((y, r), ts, is) => 
+	  | AppRecur (name, ns, t, i, r) => AppRecur (name, ns, f (x + 1) (shift_i (length ns) (shift_t v)) t, i, r)
+	  | AppV ((y, r), ts, is, r2) => 
 	    if y = x then
 		case v of
 		    Type t =>
@@ -284,14 +284,14 @@ local
 			raise Subst "can't be substituted type for this higher-kind type variable"
 		  | Recur (name, ns, t) =>
 		    if null ts then
-			AppRecur (name, ns, t, is)
+			AppRecur (name, ns, t, is, r2)
 		    else
 			raise Subst "can't substitute recursive type definition for this type variable because this application has type arguments"
 	    else if y > x then
-		AppV ((y - 1, r), map (f x v) ts, is)
+		AppV ((y - 1, r), map (f x v) ts, is, r2)
 	    else
-		AppV ((y, r), map (f x v) ts, is)
-	  | Int => Int
+		AppV ((y, r), map (f x v) ts, is, r2)
+	  | Int r => Int r
 
     and shift_i n v =
 	case v of
@@ -309,7 +309,7 @@ fun subst_is_t is t =
     #1 (foldl (fn (i, (t, x)) => (substx_i_t x (shiftx_i_i 0 x i) t, x - 1)) (t, length is - 1) is)
 fun subst_ts_t vs b = 
     #1 (foldl (fn (v, (b, x)) => (substx_t_t x (shiftx_t_t 0 x v) b, x - 1)) (b, length vs - 1) vs)
-fun unroll (name, ns, t, i) =
+fun unroll (name, ns, t, i, _) =
     subst_is_t i (f 0 (shift_i (length ns) (Recur (name, ns, t))) t)
 end
 
@@ -443,7 +443,7 @@ fun add_sorting_skct pair (sctx, kctx, cctx, tctx) =
      shiftx_i_cs 1 cctx, 
      shiftx_i_ts 1 tctx)
 (* Within 'pairs', sort depends on previous sort *)
-fun add_dep_sortings_skct (pairs', ps') ((pairs, ps), kctx, cctx, tctx) = 
+fun add_dep_sortings_skct (pairs', ps') ((pairs, ps), kctx, cctx, tctx) : context = 
     let val n = length pairs' 
     in
 	((pairs' @ pairs, ps' @ shiftx_i_ps n ps), 
@@ -500,7 +500,7 @@ fun lookup_kind (n : int) kctx : kind option =
       | SOME (_, k) => SOME k
 
 fun add_typing pair tctx = pair :: tctx
-fun add_typing_skct pair (sctx, kctx, cctx, tctx) = 
+fun add_typing_skct pair ((sctx, kctx, cctx, tctx) : context) : context = 
     (sctx, 
      kctx, 
      cctx,
@@ -560,7 +560,7 @@ fun str_vc (ctx : bscontext, ps, p) =
 		 str_p ctxn p]
     end 
 
-exception Unimpl
+(* exception Unimpl *)
 exception Impossible of string
 
 exception Error of region * string list
@@ -620,26 +620,81 @@ local
           | Tmax (i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
           | Tmin (i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
 
-    fun get_region_s s = raise Unimpl
-    fun get_region_p p = raise Unimpl
-    fun get_region_t t = raise Unimpl
-    fun get_region_pn pn = raise Unimpl
-    fun get_region_e t = raise Unimpl
-    fun get_region_r r = raise Unimpl
+    fun get_region_p p = 
+        case p of
+            True r => r
+          | False r => r
+          | And (p1, p2) => combine_region (get_region_p p1) (get_region_p p2)
+          | Or (p1, p2) => combine_region (get_region_p p1) (get_region_p p2)
+          | Imply (p1, p2) => combine_region (get_region_p p1) (get_region_p p2)
+          | Iff (p1, p2) => combine_region (get_region_p p1) (get_region_p p2)
+          | Eq (i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
+          | TimeLe (i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
 
-    fun get_region_is is =
-        combine_regions (map get_region_i is)
-    fun get_region_sorts sorts =
-        combine_regions (map get_region_s sorts)
-    fun get_region_ts ts =
-        combine_regions (map get_region_t ts)
+    fun get_region_s s = 
+        case s of
+            Basic (_, r) => r
+          | Subset (_, (_, r), p) => combine_region r (get_region_p p)
 
-    fun is_eqs (ctx, is, is') =
-        let val r = get_region_is is
-        in
-	    check_length (is, is', r);
-	    app (fn (i, i') => is_eq (ctx, i, i')) (ListPair.zip (is, is'))
-        end
+    fun get_region_t t = 
+        case t of
+            Arrow (t1, d, t2) => combine_region (get_region_t t1) (get_region_t t2)
+          | Prod (t1, t2) => combine_region (get_region_t t1) (get_region_t t2)
+          | Sum (t1, t2) => combine_region (get_region_t t1) (get_region_t t2)
+          | Unit r => r
+          | Uni ((_, r), t) => combine_region r (get_region_t t)
+          | UniI (_, (_, r), t) => combine_region r (get_region_t t)
+          | ExI (_, (_, r), t) => combine_region r (get_region_t t)
+          | AppRecur (_, _, t, _, r) => r
+          | AppV (_, _, _, r) => r
+          | Int r => r
+
+    fun get_region_pn pn = 
+        case pn of
+            Constr ((_, r1), _, (_, r2)) => combine_region r1 r2
+
+    fun get_region_e e = 
+        case e of
+            Var (_, r) => r
+          | Abs (_, (_, r), e) => combine_region r (get_region_e e)
+          | App (e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
+          | TT r => r
+          | Pair (e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
+          | Fst e => get_region_e e
+          | Snd e => get_region_e e
+          | Inl (t, e) => combine_region (get_region_t t) (get_region_e e)
+          | Inr (t, e) => combine_region (get_region_t t) (get_region_e e)
+          | SumCase (e, _, _, _, e2) => combine_region (get_region_e e) (get_region_e e2)
+          | AbsT ((_, r), e) => combine_region r (get_region_e e)
+          | AppT (e, t) => combine_region (get_region_e e) (get_region_t t)
+          | AbsI (_, (_, r), e) => combine_region r (get_region_e e)
+          | AppI (e, i) => combine_region (get_region_e e) (get_region_i i)
+          | Pack (t, _, e) => combine_region (get_region_t t) (get_region_e e)
+          | Unpack (e1, _, _, _, _, e2) => combine_region (get_region_e e1) (get_region_e e2)
+          | Fold (t, e) => combine_region (get_region_t t) (get_region_e e)
+          | Unfold e => get_region_e e
+          | Plus (e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
+          | Const (_, r) => r
+          | AppConstr ((_, r), _, _, e) => combine_region r (get_region_e e)
+          | Case (_, _, _, _, r) => r
+          | Never t => get_region_t t
+          | Let (_, _, _, r) => r
+          | Fix (_, (_, r), e) => combine_region r (get_region_e e)
+          | Ascription (e, t) => combine_region (get_region_e e) (get_region_t t)
+          | AscriptionTime (e, i) => combine_region (get_region_e e) (get_region_i i)
+
+    fun get_region_rule (pn, e) = combine_region (get_region_pn pn) (get_region_e e)
+
+    (* fun get_region_is is = *)
+    (*     combine_regions (map get_region_i is) *)
+    (* fun get_region_sorts sorts = *)
+    (*     combine_regions (map get_region_s sorts) *)
+    (* fun get_region_ts ts = *)
+    (*     combine_regions (map get_region_t ts) *)
+
+    fun is_eqs (ctx, is, is', r) =
+	(check_length (is, is', r);
+         app (fn (i, i') => is_eq (ctx, i, i')) (ListPair.zip (is, is')))
 	    
     fun is_true (ctx : scontext, p : prop) = 
 	let val (bctx, ps) = collect ctx in
@@ -668,35 +723,32 @@ local
 	case (s, s') of
 	    (Basic s1, Basic s1') =>
 	    is_eqvbsort (s1, s1')
-	  | (Subset (s1, name, p), Subset (s1', _, p')) =>
+	  | (Subset (s1, (name, _), p), Subset (s1', _, p')) =>
 	    (is_eqvbsort (s1, s1');
 	     is_iff (add_sorting (name, Basic s1) ctx, p, p'))
-	  | (Subset (s1, name, p), Basic s1') =>
+	  | (Subset (s1, (name, _), p), Basic s1') =>
 	    (is_eqvbsort (s1, s1');
 	     is_true (add_sorting (name, Basic s1) ctx, p))
-	  | (Basic s1, Subset (s1', name, p)) =>
+	  | (Basic s1, Subset (s1', (name, _), p)) =>
 	    (is_eqvbsort (s1, s1');
 	     is_true (add_sorting (name, Basic s1) ctx, p))
 
-    fun is_eqvsorts (ctx, sorts, sorts') =
-        let val r = get_region_sorts sorts
-        in
-	    check_length (sorts, sorts', r);
-	    ListPair.app (fn (s, s') => is_eqvsort (ctx, s, s')) (sorts, sorts')
-        end
+    fun is_eqvsorts (ctx, sorts, sorts', r) =
+	(check_length (sorts, sorts', r);
+	 ListPair.app (fn (s, s') => is_eqvsort (ctx, s, s')) (sorts, sorts'))
 	    
     fun sort_mismatch ctx i expect have =  "Sort mismatch for " ^ str_i ctx i ^ ": expect " ^ expect ^ " have " ^ str_s ctx have
 
     fun is_wfsort (ctx : scontext, s : sort) =
 	case s of
 	    Basic _ => ()
-	  | Subset (s, name, p) =>
+	  | Subset (s, (name, _), p) =>
 	    is_wfprop (add_sorting (name, Basic s) ctx, p)
 
     and is_wfprop (ctx : scontext, p : prop) =
 	case p of
-	    True => ()
-	  | False => ()
+	    True _ => ()
+	  | False _ => ()
 	  | And (p1, p2) =>
 	    (is_wfprop (ctx, p1);
 	     is_wfprop (ctx, p2))
@@ -778,8 +830,8 @@ local
 
     fun is_wfsorts (ctx, s) = List.app (fn s => is_wfsort (ctx, s)) s
 
-    fun check_sorts (ctx, is, sorts) =
-	(check_length (is, sorts, get_region_is is);
+    fun check_sorts (ctx, is, sorts, r) =
+	(check_length (is, sorts, r);
 	 ListPair.app (fn (i, s) => check_sort (ctx, i, s)) (is, sorts))
 
     (* k => Type *)
@@ -801,33 +853,33 @@ local
 		(is_wftype (ctx, c1);
 		 check_sort (sctx, d, STime);
 		 is_wftype (ctx, c2))
-	      | Unit => ()
+	      | Unit _ => ()
 	      | Prod (c1, c2) => 
 		(is_wftype (ctx, c1);
 		 is_wftype (ctx, c2))
 	      | Sum (c1, c2) => 
 		(is_wftype (ctx, c1);
 		 is_wftype (ctx, c2))
-	      | Uni (name, c) => 
+	      | Uni ((name, _), c) => 
 		is_wftype (add_kinding_sk (name, Type) ctx, c)
-	      | UniI (s, name, c) => 
+	      | UniI (s, (name, _), c) => 
 		(is_wfsort (sctx, s);
 		 is_wftype (add_sorting_sk (name, s) ctx, c))
-	      | ExI (s, name, c) => 
+	      | ExI (s, (name, _), c) => 
 		(is_wfsort (sctx, s);
 		 is_wftype (add_sorting_sk (name, s) ctx, c))
-	      | AppRecur (nameself, ns, t, is) =>
+	      | AppRecur (nameself, ns, t, is, r) =>
 		let val sorts = List.map #2 ns in
 		    is_wfsorts (sctx, sorts);
 		    is_wftype (add_nondep_sortings_sk (rev ns) (add_kinding_sk (nameself, recur_kind sorts) ctx), t);
-		    check_sorts (sctx, is, sorts)
+		    check_sorts (sctx, is, sorts, r)
 		end
-	      | AppV (x, ts, is) => 
+	      | AppV (x, ts, is, r) => 
 		(case fetch_kind (kctx, x) of
 		     ArrowK (n, sorts) => 
-		     (check_length_n (n, ts, get_region_ts ts);
-		      check_sorts (sctx, is, sorts)))
-	      | Int => ()
+		     (check_length_n (n, ts, r);
+		      check_sorts (sctx, is, sorts, r)))
+	      | Int _ => ()
 	end
 
     fun not_subtype ctx c c' = str_t ctx c ^ " is not subtype of " ^ str_t ctx c'
@@ -842,37 +894,37 @@ local
 		(is_subtype (ctx, c1', c1);
 		 is_le (sctx, d, d');
 		 is_subtype (ctx, c2, c2'))
-	      | (Unit, Unit) => ()
+	      | (Unit _, Unit _) => ()
 	      | (Prod (c1, c2), Prod (c1', c2')) =>
 		(is_subtype (ctx, c1, c1');
 		 is_subtype (ctx, c2, c2'))
 	      | (Sum (c1, c2), Sum (c1', c2')) => 
 		(is_subtype (ctx, c1, c1');
 		 is_subtype (ctx, c2, c2'))
-	      | (Uni (name, c), Uni (_, c')) => 
+	      | (Uni ((name, _), c), Uni (_, c')) => 
 		is_subtype (add_kinding_sk (name, Type) ctx, c, c')
-	      | (UniI (s, name, c), UniI (s', _, c')) => 
+	      | (UniI (s, (name, _), c), UniI (s', _, c')) => 
 		(is_eqvsort (sctx, s, s');
 		 is_subtype (add_sorting_sk (name, s) ctx, c, c'))
-	      | (ExI (s, name, c), ExI (s', _, c')) => 
+	      | (ExI (s, (name, _), c), ExI (s', _, c')) => 
 		(is_eqvsort (sctx, s, s');
 		 is_subtype (add_sorting_sk (name, s) ctx, c, c'))
 	      (* currently don't support subtyping for recursive types, so they must be equivalent *)
-	      | (AppRecur (nameself, ns, t, i), AppRecur (_, ns', t', i')) => 
-		let val s = List.map #2 ns
-		    val s' = List.map #2 ns'
-		    val () = is_eqvsorts (sctx, s, s')
-		    val () = is_eqs (sctx, i, i')
-		    val ctx' = add_nondep_sortings_sk (rev ns) (add_kinding_sk (nameself, recur_kind s) ctx) in
+	      | (AppRecur (nameself, ns, t, is, r), AppRecur (_, ns', t', is', _)) => 
+		let val sorts = List.map #2 ns
+		    val sorts' = List.map #2 ns'
+		    val () = is_eqvsorts (sctx, sorts, sorts', r)
+		    val () = is_eqs (sctx, is, is', r)
+		    val ctx' = add_nondep_sortings_sk (rev ns) (add_kinding_sk (nameself, recur_kind sorts) ctx) in
 		    is_eqvtype (ctx', t, t')
 		end
-	      | (AppV ((a, r), ts, is), AppV ((a', _), ts', is')) => 
+	      | (AppV ((a, r), ts, is, r2), AppV ((a', _), ts', is', _)) => 
 		if a = a' then
 		    (app (fn (t, t') => is_eqvtype (ctx, t, t')) (ListPair.zip (ts, ts'));
-		     is_eqs (sctx, is, is'))
+		     is_eqs (sctx, is, is', r2))
 		else
 		    raise Error (get_region_t c, [not_subtype ctxn c c'])
-	      | (Int, Int) => ()
+	      | (Int _, Int _) => ()
 	      | _ => raise Error (get_region_t c, [not_subtype ctxn c c'])
 	end
 
@@ -894,7 +946,7 @@ local
 		    val c2'' = join_type (ctx, c2, c2') in
 		    Arrow (c1'', d'', c2'')
 		end
-	      | (Unit, Unit) => Unit
+	      | (Unit r, Unit _) => Unit r
 	      | (Prod (c1, c2), Prod (c1', c2')) => 
 		let val c1'' = join_type (ctx, c1, c1') 
 		    val c2'' = join_type (ctx, c2, c2') in
@@ -905,19 +957,19 @@ local
 		    val c2'' = join_type (ctx, c2, c2') in
 		    Sum (c1'', c2'')
 		end
-	      | (Uni (name, t), Uni (_, t')) => 
+	      | (Uni ((name, r), t), Uni (_, t')) => 
 		let val t'' = join_type (add_kinding_sk (name, Type) ctx, t, t') in
-		    Uni (name, t'')
+		    Uni ((name, r), t'')
 		end
-	      | (UniI (s, name, t), UniI (s', _, t')) => 
+	      | (UniI (s, (name, r), t), UniI (s', _, t')) => 
 		let val () = is_eqvsort (sctx, s, s')
 		    val t'' = join_type (add_sorting_sk (name, s) ctx, t, t') in
-		    UniI (s, name, t'')
+		    UniI (s, (name, r), t'')
 		end
-	      | (ExI (s, name, t), ExI (s', _, t')) => 
+	      | (ExI (s, (name, r), t), ExI (s', _, t')) => 
 		let val () = is_eqvsort (#1 ctx, s, s')
 		    val t'' = join_type (add_sorting_sk (name, s) ctx, t, t') in
-		    ExI (s, name, t'')
+		    ExI (s, (name, r), t'')
 		end
 	      (* currently don't support join for recursive types, so they must be equivalent *)
 	      | (AppRecur _, AppRecur _) => 
@@ -926,7 +978,7 @@ local
 	      | (AppV _, AppV _) => 
 		(is_eqvtype (ctx, c, c');
 		 c)
-	      | (Int, Int) => Int
+	      | (Int r, Int _) => Int r
 	      | _ => raise Error (get_region_t c, [no_join ctxn c c'])
 	end
 
@@ -940,7 +992,7 @@ local
 		    val c2'' = meet (ctx, c2, c2') in
 		    Arrow (c1'', d'', c2'')
 		end
-	      | (Unit, Unit) => Unit
+	      | (Unit r, Unit _) => Unit r
 	      | (Prod (c1, c2), Prod (c1', c2')) => 
 		let val c1'' = meet (ctx, c1, c1') 
 		    val c2'' = meet (ctx, c2, c2') in
@@ -951,19 +1003,19 @@ local
 		    val c2'' = meet (ctx, c2, c2') in
 		    Sum (c1'', c2'')
 		end
-	      | (Uni (name, t), Uni (_, t')) => 
+	      | (Uni ((name, r), t), Uni (_, t')) => 
 		let val t'' = meet (add_kinding_sk (name, Type) ctx, t, t') in
-		    Uni (name, t'')
+		    Uni ((name, r), t'')
 		end
-	      | (UniI (s, name, t), UniI (s', _, t')) => 
+	      | (UniI (s, (name, r), t), UniI (s', _, t')) => 
 		let val () = is_eqvsort (sctx, s, s')
 		    val t'' = meet (add_sorting_sk (name, s) ctx, t, t') in
-		    UniI (s, name, t'')
+		    UniI (s, (name, r), t'')
 		end
-	      | (ExI (s, name, t), ExI (s', _, t')) => 
+	      | (ExI (s, (name, r), t), ExI (s', _, t')) => 
 		let val () = is_eqvsort (#1 ctx, s, s')
 		    val t'' = meet (add_sorting_sk (name, s) ctx, t, t') in
-		    ExI (s, name, t'')
+		    ExI (s, (name, r), t'')
 		end
 	      (* currently don't support meet for recursive types, so they must be equivalent *)
 	      | (AppRecur _, AppRecur _) => 
@@ -972,10 +1024,11 @@ local
 	      | (AppV _, AppV _) => 
 		(is_eqvtype (ctx, c, c');
 		 c)
-	      | (Int, Int) => Int
+	      | (Int r, Int _) => Int r
 	      | _ => raise Error (get_region_t c, [no_meet ctxn c c'])
 	end
 
+    type cover = var list
     val Cover_False = []
     fun Cover_Or (a, b) = a @ b
     fun Cover_Constr e = [e]
@@ -992,7 +1045,7 @@ local
 
     fun check_exhaustive ((_, _, cctx), t, cover, r) =
 	case t of
-	    AppV ((family, _), _, _) =>
+	    AppV ((family, _), _, _, _) =>
 	    let val all = get_family_members cctx family
 		val missed = diff op= all cover
 	    in
@@ -1006,29 +1059,29 @@ local
 	    SOME (name, c) => (name, c)
 	  | NONE => raise Error (r, [sprintf "Unbound constructor: $" [str_v (names ctx) x]])
 
-    fun fetch_constr_type (ctx, cx) =
+    fun fetch_constr_type (ctx : ccontext, cx) =
 	let val (cname, (family, tnames, ns, t, is)) = fetch_constr (ctx, cx)
 	    val ts = (map (fn x => VarT (x, dummy)) o rev o range o length) tnames
-	    val t = Arrow (t, T0 dummy, AppV ((shiftx_v 0 (length tnames) family, dummy), ts, is))
-	    val t = foldr (fn ((name, s), t) => UniI (s, name, t)) t ns
-	    val t = foldr Uni t tnames
+	    val t = Arrow (t, T0 dummy, AppV ((shiftx_v 0 (length tnames) family, dummy), ts, is, dummy))
+	    val t = foldr (fn ((name, s), t) => UniI (s, (name, dummy), t)) t ns
+	    val t = foldr (fn (name, t) => Uni ((name, dummy), t)) t tnames
 	in
 	    (cname, t)
 	end
 
     (* t is already checked for wellformedness *)
-    fun match_ptrn (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext), pn : ptrn, t) =
+    fun match_ptrn (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext), pn : ptrn, t) : scontext * (string * ty) * cover =
 	let val skctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
 	in
 	    case (pn, t) of
-		(Constr ((cx, r), inames, ename), AppV ((x, _), ts, is)) =>
+		(Constr ((cx, r), inames, (ename, _)), AppV ((x, _), ts, is, _)) =>
 		let val (_, c as (x', tnames, ns, t1, is')) = fetch_constr (cctx, (cx, r))
 		in
 		    if x' = x then
-			let val () = check_length (tnames, ts, get_region_ts ts)
+			let val () = check_length (tnames, ts, r)
 			    val t1 = subst_ts_t ts t1
 			    val is = map (shiftx_i_i 0 (length ns)) is
-			    val () = check_length (is', is, get_region_is is)
+			    val () = check_length (is', is, r)
 			    val ps = map Eq (ListPair.zip (is', is))
 			    val () = check_length (inames, ns, get_region_pn pn)
 			in
@@ -1083,12 +1136,12 @@ local
 			    end
     			  | t1' =>  raise Error (mismatch ctxn e1 "(_ -- _ -> _)" t1')
 		    end
-		  | Abs (t, varname, e) => 
+		  | Abs (t, (varname, _), e) => 
 		    let val () = is_wftype (skctx, t)
 			val (t1, d) = get_type (add_typing_skct (varname, t) ctx, e) in
 			(Arrow (t, d, t1), T0 dummy)
 		    end
-		  | TT => (Unit, T0 dummy)
+		  | TT _ => (Unit dummy, T0 dummy)
 		  | Pair (e1, e2) => 
 		    let val (t1, d1) = get_type (ctx, e1) 
 			val (t2, d2) = get_type (ctx, e2) in
@@ -1127,10 +1180,10 @@ local
 			    end
 			  | t' => raise Error (mismatch ctxn e "(_ + _)" t')
 		    end
-		  | AbsT (name, e) => 
+		  | AbsT ((name, _), e) => 
 		    if is_value e then
 			let val (t, _) = get_type (add_kinding_skct (name, Type) ctx, e) in
-			    (Uni (name, t), T0 dummy)
+			    (Uni ((name, dummy), t), T0 dummy)
 			end 
 		    else
 			raise Error (get_region_e e, ["The body of a universal abstraction must be a value"])
@@ -1143,11 +1196,11 @@ local
 			    end
 			  | t' => raise Error (mismatch ctxn e "(forall _ : _, _)" t')
 		    end
-		  | AbsI (s, name, e) => 
+		  | AbsI (s, (name, r), e) => 
 		    if is_value e then
 			let val () = is_wfsort (sctx, s)
 			    val (t, _) = get_type ((add_sorting_skct (name, s) ctx), e) in
-			    (UniI (s, name, t), T0 dummy)
+			    (UniI (s, (name, dummy), t), T0 dummy)
 			end 
 		    else
 			raise Error (get_region_e e, ["The body of a universal abstraction must be a value"])
@@ -1199,12 +1252,12 @@ local
 			    end
 			  | t1' => raise Error (mismatch ctxn e1 "(ex _ : _, _)" t1')
 		    end
-		  | Let (e1, name, e2) => 
+		  | Let (e1, name, e2, _) => 
 		    let val (t1, d1) = get_type (ctx, e1)
 			val (t2, d2) = get_type (add_typing_skct (name, t1) ctx, e2) in
 			(t2, d1 %+ d2)
 		    end
-		  | Fix (t, name, e) => 
+		  | Fix (t, (name, r), e) => 
 		    let val () = check_fix_body e
 			val () = is_wftype (skctx, t)
 			val (t1, _) = get_type (add_typing_skct (name, t) ctx, e)
@@ -1226,12 +1279,12 @@ local
 		  | Plus (e1, e2) =>
 		    let val (t1, d1) = get_type (ctx, e1)
 			val (t2, d2) = get_type (ctx, e2) in
-			is_subtype (skctx, t1, Int);
-			is_subtype (skctx, t2, Int);
-			(Int, d1 %+ d2 %+ T1 dummy)
+			is_subtype (skctx, t1, Int dummy);
+			is_subtype (skctx, t2, Int dummy);
+			(Int dummy, d1 %+ d2 %+ T1 dummy)
 		    end
 		  | Const _ => 
-		    (Int, T0 dummy)
+		    (Int dummy, T0 dummy)
 		  | AppConstr (cx, ts, is, e) => 
 		    let val (cname, tc) = fetch_constr_type (cctx, cx)
 			val () = is_wftype (skctx, tc)
@@ -1246,7 +1299,7 @@ local
 			(* constructor application doesn't incur count *)
 			(t, d)
 		    end
-		  | Case (e, t, d, rules) => 
+		  | Case (e, t, d, rules, _) => 
 		    let val () = is_wftype (skctx, t)
 			val () = check_sort (sctx, d, STime)
 			val (t1, d1) = get_type (ctx, e)
@@ -1256,7 +1309,7 @@ local
 		    end
 		  | Never t => 
 		    (is_wftype (skctx, t);
-		     is_true (sctx, False);
+		     is_true (sctx, False dummy);
 		     (t, T0 dummy))
 	(* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_t skctxn t, str_e ctxn e, str_i sctxn d]) *)
 	in
@@ -1282,7 +1335,7 @@ local
 	let val skcctx = (sctx, kctx, cctx) 
 	    fun f (rule, acc) =
 		let val cover = check_rule (ctx, rule, t)
-		    val () = check_redundancy (skcctx, t1, acc, cover, get_region_r rule)
+		    val () = check_redundancy (skcctx, t1, acc, cover, get_region_rule rule)
 		in
 		    Cover_Or (cover, acc)
 		end 
@@ -1327,8 +1380,8 @@ fun eq_i i i' =
 
 fun eq_p p p' =
     case (p, p') of
-        (True, True) => true
-      | (False, False) => true
+        (True _ , True _) => true
+      | (False _, False _) => true
       | (And (p1, p2), And (p1', p2')) => eq_p p1 p1' andalso eq_p p2 p2'
       | (Or (p1, p2), Or (p1', p2')) => eq_p p1 p1' andalso eq_p p2 p2'
       | (Imply (p1, p2), Imply (p1', p2')) => eq_p p1 p1' andalso eq_p p2 p2'
@@ -1345,7 +1398,7 @@ local
 	  | Iff (p1, p2) => solver (ctx, p1 :: ps, p2) andalso solver (ctx, p2 :: ps, p1)
 	  | And (p1, p2) => solver (ctx, ps, p1) andalso solver (ctx, ps, p1)
 	  | Or (p1, p2) => solver (ctx, ps, p1) orelse solver (ctx, ps, p1)
-	  | True => true
+	  | True _ => true
 	  | Eq (i1, i2) => eq_i i1 i2
 	  | TimeLe (i1, i2) => eq_i i1 i2
 	  | _ => false
@@ -1451,13 +1504,13 @@ local
 	    Arrow (t1, d, t2) => Arrow (f t1, simp_i d, f t2)
 	  | Prod (t1, t2) => Prod (f t1, f t2)
 	  | Sum (t1, t2) => Sum (f t1, f t2)
-	  | Unit => Unit
-	  | AppRecur (name, ns, t, is) => AppRecur (name, map (mapSnd simp_s) ns, f t, map simp_i is)
-	  | AppV (x, ts, is) => AppV (x, map f ts, map simp_i is)
+	  | Unit r => Unit r
+	  | AppRecur (name, ns, t, is, r) => AppRecur (name, map (mapSnd simp_s) ns, f t, map simp_i is, r)
+	  | AppV (x, ts, is, r) => AppV (x, map f ts, map simp_i is, r)
 	  | Uni (name, t) => Uni (name, f t)
 	  | UniI (s, name, t) => UniI (simp_s s, name, f t)
 	  | ExI (s, name, t) => ExI (simp_s s, name, f t)
-	  | Int => Int
+	  | Int r => Int r
 
 in
 val simp_t = f

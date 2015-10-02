@@ -18,10 +18,10 @@ fun str_region header filename (r as (left, right) : region) = sprintf "File $, 
 fun str_error header filename region msg = sprintf "$  $\n" [str_region header filename region, msg]
 
 fun combine_region (r1 : region) (r2 : region) : region = (#1 r1, #2 r2)
-fun combine_regions rs = 
-    case rs of
-        [] => dummy_region
-      | r :: rs => foldl (fn (r2, r1) => combine_region r1 r2) r rs
+(* fun combine_regions rs =  *)
+(*     case rs of *)
+(*         [] => dummy_region *)
+(*       | r :: rs => foldl (fn (r2, r1) => combine_region r1 r2) r rs *)
 
 end
 

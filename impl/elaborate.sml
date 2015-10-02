@@ -46,9 +46,9 @@ local
 	case p of
 	    Pconst (name, r) =>
 	    if name = "True" then
-		True
+		True r
 	    else if name = "False" then
-		False
+		False r
 	    else raise Error (r, sprintf "Unrecognized proposition: $" [name])
 	  | S.And (p1, p2, _) => And (elab_p p1, elab_p p2)
 	  | S.Or (p1, p2, _) => Or (elab_p p1, elab_p p2)
@@ -59,17 +59,17 @@ local
 
     fun elab_b (name, r) =
 	if name = "Time" then
-	    Time
+	    (Time, r)
 	else if name = "Bool" then
-	    Bool
+	    (Bool, r)
 	else if name = "Unit" then
-	    BSUnit
+	    (BSUnit, r)
 	else raise Error (r, sprintf "Unrecognized base sort: $" [name])
 
     fun elab_s s =
 	case s of
-	    S.Basic (b, r) => Basic (elab_b b, r)
-	  | S.Subset (b as (_, r), name, p, _) => Subset ((elab_b b, r), name, elab_p p)
+	    S.Basic b => Basic (elab_b b)
+	  | S.Subset (b, name, p, _) => Subset (elab_b b, name, elab_p p)
 
     fun get_is t =
 	case t of 
@@ -96,18 +96,18 @@ local
 
     fun elab_t t =
 	let 
-	    fun make_AppRecur (name, binds, t, is) =
+	    fun make_AppRecur (name, binds, t, is, r) =
 		let fun f b =
 			case b of
 			    Typing (_, _, r) => raise Error (r, "Can't have typing bind in a recursive type")
 			  | Kinding (_, r) => raise Error (r, "Can't have kinding bind in a recursive type")
-			  | Sorting (x, s, _) => (x, elab_s s)
+			  | Sorting ((x, _), s, _) => (x, elab_s s)
 		in
-		    AppRecur (name, map f binds, elab_t t, map elab_i is)
+		    AppRecur (name, map f binds, elab_t t, map elab_i is, r)
 		end
 	in
 	    case t of
-		S.VarT x => AppV (x, [], [])
+		S.VarT (x, r) => AppV ((x, r), [], [], r)
 	      | S.Arrow (t1, d, t2, _) => Arrow (elab_t t1, elab_i d, elab_t t2)
 	      | S.Prod (t1, t2, _) => Prod (elab_t t1, elab_t t2)
 	      | S.Sum (t1, t2, _) => Sum (elab_t t1, elab_t t2)
@@ -117,7 +117,7 @@ local
 			    Typing (_, _, r) => raise Error (r, "Can't have typing bind in a quantification")
 			  | Kinding (x, r) =>
 			    (case quan of
-				 Forall => Uni (x, t)
+				 Forall => Uni ((x, r), t)
 			       | Exists => raise Error (r, "Doesn't support existential quantification over types"))
 			  | Sorting (x, s, _) =>
 			    (case quan of
@@ -126,21 +126,21 @@ local
 		in
 		    foldr f (elab_t t) binds
 		end
-	      | S.Recur (name, binds, t, _) => 
-		make_AppRecur (name, binds, t, [])
+	      | S.Recur (name, binds, t, r) => 
+		make_AppRecur (name, binds, t, [], r)
 	      | S.AppTT (t1, t2, r) =>
 		(case is_var_app_ts t1 of
-		     SOME (x, ts) => AppV (x, map elab_t (ts @ [t2]), [])
+		     SOME (x, ts) => AppV (x, map elab_t (ts @ [t2]), [], r)
 		   | NONE => raise Error (r, "Head of type-type application must be a variable"))
 	      | S.AppTI (t, i, r) =>
 		let val (t, is) = get_is t 
 		    val is = is @ [i]
 		in
 		    case t of
-			S.Recur (name, binds, t, _) => make_AppRecur (name, binds, t, is)
+			S.Recur (name, binds, t, _) => make_AppRecur (name, binds, t, is, r)
 		      | _ =>
 			(case is_var_app_ts t of
-			     SOME (x, ts) => AppV (x, map elab_t ts, map elab_i is)
+			     SOME (x, ts) => AppV (x, map elab_t ts, map elab_i is, r)
 			   | NONE => raise Error (r, "The form of type-index application can only be (recursive-type indices) or (variable types indices)"))
 		end
 	end
@@ -150,7 +150,7 @@ local
 	    S.Var x => Var x
 	  | S.Tuple (es, r) =>
 	    (case es of
-		 [] => TT
+		 [] => TT r
 	       | e :: es => foldl (fn (e2, e1) => Pair (e1, elab e2)) (elab e) es)
 	  | S.Abs (abs, binds, e, r) =>
 	    (case abs of
@@ -162,7 +162,7 @@ local
 		 let fun f (b, e) =
 			 case b of
 			     Typing (x, t, _) => Abs (elab_t t, x, e)
-			   | Kinding (x, _) => AbsT (x, e)
+			   | Kinding x => AbsT (x, e)
 			   | Sorting (x, s, _) => AbsI (elab_s s, x, e)
 		 in
 		     foldr f (elab e) binds
@@ -193,7 +193,7 @@ local
 	    AppI (elab e, elab_i i)
 	  | S.Case (e, NONE, rules, r) =>
 	    (case rules of
-		 [(S.Constr ((c1, _), [], x1, _), e1), (S.Constr ((c2, _), [], x2, _), e2)] =>
+		 [(S.Constr ((c1, _), [], (x1, _), _), e1), (S.Constr ((c2, _), [], (x2, _), _), e2)] =>
 		 let 
 		     val ((x1, e1), (x2, e2)) =
 			 if c1 = "inl" andalso c2 = "inr" then
@@ -206,15 +206,15 @@ local
 		     SumCase (elab e, x1, elab e1, x2, elab e2)
 		 end
 	       | _ => raise Error (r, "wrong match patterns for sum type"))
-	  | S.Case (e, SOME (t, d), rules, _) =>
+	  | S.Case (e, SOME (t, d), rules, r) =>
 	    let 
 		fun elab_pn (S.Constr (cname, inames, ename, _)) =
 		    Constr (cname, inames, ename)
 		fun default () = 
-		    Case (elab e, elab_t t, elab_i d, map (fn (pn, e) => (elab_pn pn, elab e)) rules)
+		    Case (elab e, elab_t t, elab_i d, map (fn (pn, e) => (elab_pn pn, elab e)) rules, r)
 	    in
 		case rules of
-		    [(S.Constr ((c, _), [iname], ename, _), e1)] =>
+		    [(S.Constr ((c, _), [iname], (ename, _), _), e1)] =>
 		    if c = "pack" then
 			Unpack (elab e, elab_t t, elab_i d, iname, ename, elab e1)
 		    else
@@ -225,10 +225,10 @@ local
 	    Ascription (elab e, elab_t t)
 	  | S.AscriptionTime (e, i, _) =>
 	    AscriptionTime (elab e, elab_i i)
-	  | S.Let (defs, e, _) =>
+	  | S.Let (defs, e, r) =>
 	    let fun f (def, e) =
 		    case def of
-			Val (x, e1, _) => Let (elab e1, x, e)
+			Val (x, e1, _) => Let (elab e1, x, e, r)
 	    in
 		foldr f (elab e) defs
 	    end

@@ -57,9 +57,9 @@ open Ast
        | exp_comma_star of exp list
        | comma_exp_star of exp list
        | abs of abs
-       | binding_plus of binding list
-       | binding_star of binding list
-       | binding of binding
+       | bind_plus of bind list
+       | bind_star of bind list
+       | bind of bind
        | return_opt of (ty * idx) option
        | return of ty * idx
        | rule_bar_star of (ptrn * exp) list
@@ -110,7 +110,7 @@ exp : aexp (aexp)
 aexp : id (Var id)
      | LPAREN exp_comma_star RPAREN (Tuple (exp_comma_star, (LPARENleft, RPARENright)))
      (* | LPAREN exp RPAREN (exp) *) (* already covered by previous one *)
-     | abs binding_plus DRARROW exp (Abs (abs, binding_plus, exp, (absleft, expright)))
+     | abs bind_plus DRARROW exp (Abs (abs, bind_plus, exp, (absleft, expright)))
      | CASE exp return_opt OF rule_bar_star (Case (exp, return_opt, rule_bar_star, (CASEleft, rule_bar_starright)))
      | LET def_star IN exp END (Let (def_star, exp, (LETleft, ENDright)))
 
@@ -122,8 +122,8 @@ ty : aty (aty)
    | ty PLUS ty (Sum (ty1, ty2, (ty1left, ty2right)))
 
 aty : id (VarT id)
-    | quan binding_plus COMMA ty (Quan (quan, binding_plus, ty, (quanleft, tyright)))
-    | MU ID binding_star COMMA ty (Recur (ID, binding_star, ty, (MUleft, tyright)))
+    | quan bind_plus COMMA ty (Quan (quan, bind_plus, ty, (quanleft, tyright)))
+    | MU ID bind_star COMMA ty (Recur (ID, bind_star, ty, (MUleft, tyright)))
     | LPAREN ty RPAREN (ty)
 
 idx : id (VarI id)
@@ -135,8 +135,8 @@ idx : id (VarI id)
     | LPAREN RPAREN (TTI (LPARENleft, RPARENright))
     | LPAREN idx RPAREN (idx)
 
-sort : bsort (Basic (bsort, (bsortleft, bsortright)))
-     | LCUR ID COLON bsort BAR prop RCUR (Subset (bsort, ID, prop, (LCURleft, RCURright)))
+sort : bsort (Basic bsort)
+     | LCUR id COLON bsort BAR prop RCUR (Subset (bsort, id, prop, (LCURleft, RCURright)))
 
 bsort : id (id)
 
@@ -159,14 +159,14 @@ comma_exp_star : COMMA exp comma_exp_star (exp :: comma_exp_star)
 abs : FN (Fn)
     | FIX (Fix)
 
-binding_plus : binding binding_star (binding :: binding_star)
-binding_star : binding binding_star (binding :: binding_star)
+bind_plus : bind bind_star (bind :: bind_star)
+bind_star : bind bind_star (bind :: bind_star)
 	     | ([])
 
-binding : ID COLON ty (Typing (ID, ty, (IDleft, tyright)))
-	| LSQ ID RSQ (Kinding (ID, (LSQleft, RSQright)))
-	| LCUR ID COLON sort RCUR (Sorting (ID, sort, (LCURleft, RCURright)))
-	| LPAREN binding RPAREN (binding)
+bind : id COLON ty (Typing (id, ty, (idleft, tyright)))
+	| LSQ id RSQ (Kinding id)
+	| LCUR id COLON sort RCUR (Sorting (id, sort, (LCURleft, RCURright)))
+	| LPAREN bind RPAREN (bind)
 
 return_opt : return (SOME return)
 	   | (NONE)
@@ -181,7 +181,7 @@ bar_rule_star : BAR rule bar_rule_star (rule :: bar_rule_star)
 
 rule : ptrn DRARROW exp ((ptrn, exp))
 
-ptrn : id id_cur_space ID (Constr (id, id_cur_space, ID, (idleft, IDright)))
+ptrn : id id_cur_space id (Constr (id1, id_cur_space, id2, (id1left, id2right)))
 
 id_cur_space : LCUR id_plus RCUR (id_plus)
 	    | ([])

@@ -24,8 +24,8 @@ datatype prop =
 type bsort = id
 
 datatype sort =
-	 Basic of bsort * region
-	 | Subset of bsort * string * prop * region
+	 Basic of bsort
+	 | Subset of bsort * id * prop * region
 
 datatype quan =
 	 Forall
@@ -40,23 +40,23 @@ datatype ty =
 	 | Arrow of ty * idx * ty * region
 	 | Prod of ty * ty * region
 	 | Sum of ty * ty * region
-	 | Quan of quan * binding list * ty * region
-	 | Recur of string * binding list * ty * region
+	 | Quan of quan * bind list * ty * region
+	 | Recur of string * bind list * ty * region
 	 | AppTT of ty * ty * region
 	 | AppTI of ty * idx * region
 
-and binding =
-	 Typing of string * ty * region
-	 | Kinding of string * region
-	 | Sorting of string * sort * region
+and bind =
+	 Typing of id * ty * region
+	 | Kinding of id
+	 | Sorting of id * sort * region
 
 datatype ptrn =
-	 Constr of id * string list * string * region
+	 Constr of id * string list * id * region
 
 datatype exp = 
 	 Var of string * region
        | Tuple of exp list * region
-       | Abs of abs * binding list * exp * region
+       | Abs of abs * bind list * exp * region
        | App of exp * exp * region
        | AppT of exp * ty * region
        | AppI of exp * idx * region
