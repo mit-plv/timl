@@ -513,8 +513,8 @@ fun lookup (n : int) (ctx : tcontext) : ty option =
 
 fun get_base s =
     case s of
-	Basic s => s
-      | Subset (s, _, _) => s
+	Basic (s, _) => s
+      | Subset ((s, _), _, _) => s
 
 type bscontext = (string * bsort) list
 
@@ -560,15 +560,16 @@ fun str_vc (ctx : bscontext, ps, p) =
 		 str_p ctxn p]
     end 
 
-(* exception Unimpl *)
+exception Unimpl
 exception Impossible of string
 
-exception Error of string
+exception Error of region * string list
+fun indent msg = map (fn s => "  " ^ s) msg
 
 fun runError m _ =
     OK (m ())
     handle
-    Error msg => Failed msg
+    Error e => Failed e
 
 (* use cell to mimic the Writer monad *)
 local								    
@@ -583,32 +584,55 @@ local
     fun runWriter m _ =
 	(acc := []; let val r = m () in (r, !acc) end)
 
-    fun check_length_n (n, ls) =
+    fun check_length_n (n, ls, r) =
 	if length ls = n then
 	    ()
 	else
-	    raise Error "List length mismatch"
+	    raise Error (r, ["List length mismatch"])
 
-    fun check_length (a, b) =
+    fun check_length (a, b, r) =
 	if length a = length b then
 	    ()
 	else
-	    raise Error "List length mismatch"
+	    raise Error (r, ["List length mismatch"])
 
     fun is_le (ctx : scontext, d : idx, d' : idx) =
 	let val (bctx, ps) = collect ctx in
 	    tell (bctx, ps, d %<= d')
 	end
 	    
-    fun is_eq (ctx : scontext, i : idx, i' : idx, s : sort) = 
+    fun is_eq (ctx : scontext, i : idx, i' : idx) = 
 	let val (bctx, ps) = collect ctx in
 	    tell (bctx, ps, Eq (i, i'))
 	end
 
-    fun is_eqs (ctx, i, i', s) =
-	(check_length (i, i');
-	 check_length (i, s);
-	 app (fn ((i, i'), s) => is_eq (ctx, i, i', s)) (ListPair.zip ((ListPair.zip (i, i')), s)))
+    fun get_region_i i =
+        case i of
+            VarI (_, r) => r
+          | _ => raise Unimpl
+
+    fun get_region_s s = raise Unimpl
+    fun get_region_p p = raise Unimpl
+    fun get_region_t t = raise Unimpl
+    fun get_region_pn pn = raise Unimpl
+    fun get_region_e t = raise Unimpl
+    fun get_region_r r = raise Unimpl
+
+    fun combine_regions rs = raise Unimpl
+
+    fun get_region_is is =
+        combine_regions (map get_region_i is)
+    fun get_region_sorts sorts =
+        combine_regions (map get_region_s sorts)
+    fun get_region_ts ts =
+        combine_regions (map get_region_t ts)
+
+    fun is_eqs (ctx, is, is') =
+        let val r = get_region_is is
+        in
+	    check_length (is, is', r);
+	    app (fn (i, i') => is_eq (ctx, i, i')) (ListPair.zip (is, is'))
+        end
 	    
     fun is_true (ctx : scontext, p : prop) = 
 	let val (bctx, ps) = collect ctx in
@@ -627,11 +651,11 @@ local
 	  | (BSUnit, BSUnit) => true
 	  | _ => false
 
-    fun is_eqvbsort (s, s') =
+    fun is_eqvbsort ((s, r), (s', _)) =
 	if is_eqvbsort_b s s' then
 	    ()
 	else
-	    raise Error ("Basic sort mismatch: " ^ str_b s ^ " and " ^ str_b s')
+	    raise Error (r, [sprintf "Basic sort mismatch: $ and $" [str_b s, str_b s']])
 		  
     fun is_eqvsort (ctx, s, s') =
 	case (s, s') of
@@ -647,9 +671,12 @@ local
 	    (is_eqvbsort (s1, s1');
 	     is_true (add_sorting (name, Basic s1) ctx, p))
 
-    fun is_eqvsorts (ctx, s, s') =
-	(check_length (s, s');
-	 ListPair.app (fn (s, s') => is_eqvsort (ctx, s, s')) (s, s'))
+    fun is_eqvsorts (ctx, sorts, sorts') =
+        let val r = get_region_sorts sorts
+        in
+	    check_length (sorts, sorts', r);
+	    ListPair.app (fn (s, s') => is_eqvsort (ctx, s, s')) (sorts, sorts')
+        end
 	    
     fun sort_mismatch ctx i expect have =  "Sort mismatch for " ^ str_i ctx i ^ ": expect " ^ expect ^ " have " ^ str_s ctx have
 
@@ -683,12 +710,14 @@ local
 		val s2 = get_bsort (ctx, i2)
 	    in
 		if s1 = s2 then ()
-		else raise Error (sprintf "Base-sorts not equal: $ and $" [str_b s1, str_b s2])
+		else raise Error (get_region_p p, [sprintf "Base-sorts not equal: $ and $" [str_b s1, str_b s2]])
 	    end
 
 
     and check_sort (ctx, i, s) : unit =
-	let val s' = get_bsort (ctx, i) in
+	let val s' = get_bsort (ctx, i)
+            val s' = (s', get_region_i i)
+        in
 	    case s of
 		Subset (s1, _, p) =>
 		(is_eqvbsort (s', s1);
@@ -696,16 +725,20 @@ local
 	      | Basic s1 => 
 		is_eqvbsort (s', s1)
 	end
-
-    and check_bsort (ctx, i, s) : unit =
-	is_eqvbsort (get_bsort (ctx, i), s)
+        handle Error (_, msg) => 
+               let val ctxn = sctx_names ctx in
+                   raise Error (get_region_i i, 
+                                sprintf "index $ is not of sort $" [str_i ctxn i, str_s ctxn s] :: 
+                                "Cause:" :: 
+                                indent msg)
+               end
 
     and get_bsort (ctx, i) =
 	case i of
-	    VarI (x, _) =>
+	    VarI (x, r) =>
 	    (case lookup_sort x ctx of
       		 SOME s => get_base s
-      	       | NONE => raise Error ("Unbound index variable " ^ str_v (sctx_names ctx) x))
+      	       | NONE => raise Error (r, ["Unbound index variable: " ^ str_v (sctx_names ctx) x]))
       	  | T0 => Time
 	  | T1 => Time
 	  | Tadd (d1, d2) => 
@@ -727,26 +760,30 @@ local
 	  | TrueI => Bool
 	  | FalseI => Bool
 	  | TTI => BSUnit
-	  | Tconst n => 
+	  | Tconst (n, r) => 
 	    if n >= 0 then
 		Time
 	    else
-		raise Error ("Time constant must be non-negative")
+		raise Error (r, ["Time constant must be non-negative"])
+
+    and check_bsort (ctx, i, s) : unit =
+	is_eqvbsort ((get_bsort (ctx, i), get_region_i i), (s, dummy))
 
     fun is_wfsorts (ctx, s) = List.app (fn s => is_wfsort (ctx, s)) s
-    fun check_sorts (ctx, i, s) =
-	(check_length (i, s);
-	 ListPair.app (fn (i, s) => check_sort (ctx, i, s)) (i, s))
+
+    fun check_sorts (ctx, is, sorts) =
+	(check_length (is, sorts, get_region_is is);
+	 ListPair.app (fn (i, s) => check_sort (ctx, i, s)) (is, sorts))
 
     (* k => Type *)
     fun recur_kind k = ArrowK (0, k)
 
     fun kind_mismatch (ctx as (sctx, kctx)) c expect have =  "Kind mismatch for " ^ str_t ctx c ^ ": expect " ^ expect ^ " have " ^ str_k sctx have
 
-    fun fetch_kind (kctx, a) =
+    fun fetch_kind (kctx, (a, r)) =
 	case lookup_kind a kctx of
       	    SOME k => k
-      	  | NONE => raise Error ("Unbound type variable " ^ str_v (names kctx) a)
+      	  | NONE => raise Error (r, ["Unbound type variable: " ^ str_v (names kctx) a])
 
     fun is_wftype (ctx as (sctx : scontext, kctx : kcontext), c : ty) : unit = 
 	let val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
@@ -772,16 +809,16 @@ local
 	      | ExI (s, name, c) => 
 		(is_wfsort (sctx, s);
 		 is_wftype (add_sorting_sk (name, s) ctx, c))
-	      | AppRecur (nameself, ns, t, i) =>
-		let val s = List.map #2 ns in
-		    is_wfsorts (sctx, s);
-		    is_wftype (add_nondep_sortings_sk (rev ns) (add_kinding_sk (nameself, recur_kind s) ctx), t);
-		    check_sorts (sctx, i, s)
+	      | AppRecur (nameself, ns, t, is) =>
+		let val sorts = List.map #2 ns in
+		    is_wfsorts (sctx, sorts);
+		    is_wftype (add_nondep_sortings_sk (rev ns) (add_kinding_sk (nameself, recur_kind sorts) ctx), t);
+		    check_sorts (sctx, is, sorts)
 		end
-	      | AppV ((x, _), ts, is) => 
+	      | AppV (x, ts, is) => 
 		(case fetch_kind (kctx, x) of
 		     ArrowK (n, sorts) => 
-		     (check_length_n (n, ts);
+		     (check_length_n (n, ts, get_region_ts ts);
 		      check_sorts (sctx, is, sorts)))
 	      | Int => ()
 	end
@@ -818,20 +855,18 @@ local
 		let val s = List.map #2 ns
 		    val s' = List.map #2 ns'
 		    val () = is_eqvsorts (sctx, s, s')
-		    val () = is_eqs (sctx, i, i', s)
+		    val () = is_eqs (sctx, i, i')
 		    val ctx' = add_nondep_sortings_sk (rev ns) (add_kinding_sk (nameself, recur_kind s) ctx) in
 		    is_eqvtype (ctx', t, t')
 		end
-	      | (AppV ((a, _), ts, is), AppV ((a', _), ts', is')) => 
+	      | (AppV ((a, r), ts, is), AppV ((a', _), ts', is')) => 
 		if a = a' then
 		    (app (fn (t, t') => is_eqvtype (ctx, t, t')) (ListPair.zip (ts, ts'));
-		     case fetch_kind (kctx, a) of
-			 ArrowK (_, sorts) =>
-			 is_eqs (sctx, is, is', sorts))
+		     is_eqs (sctx, is, is'))
 		else
-		    raise Error (not_subtype ctxn c c')
+		    raise Error (get_region_t c, [not_subtype ctxn c c'])
 	      | (Int, Int) => ()
-	      | _ => raise Error (not_subtype ctxn c c')
+	      | _ => raise Error (get_region_t c, [not_subtype ctxn c c'])
 	end
 
     and is_eqvtype (kctx, c, c') =
@@ -885,7 +920,7 @@ local
 		(is_eqvtype (ctx, c, c');
 		 c)
 	      | (Int, Int) => Int
-	      | _ => raise Error (no_join ctxn c c')
+	      | _ => raise Error (get_region_t c, [no_join ctxn c c'])
 	end
 
     and meet (ctx as (sctx : scontext, kctx : kcontext), c : ty, c' : ty) : ty = 
@@ -931,7 +966,7 @@ local
 		(is_eqvtype (ctx, c, c');
 		 c)
 	      | (Int, Int) => Int
-	      | _ => raise Error (no_meet ctxn c c')
+	      | _ => raise Error (get_region_t c, [no_meet ctxn c c'])
 	end
 
     val Cover_False = []
@@ -944,30 +979,30 @@ local
 	List.mapPartial (fn (n, (_, c)) => if get_family c = x then SOME n else NONE) (add_idx cctx)
 
     (* covers should already have type t *)
-    fun check_redundancy ((_, _, cctx), t, prev, this) =
+    fun check_redundancy ((_, _, cctx), t, prev, this, r) =
 	if not (subset op= this prev) then ()
-	else raise Error (sprintf "Redundant pattern $ after [$]" [join ", " (map (str_v (names cctx)) this), join ", " (map (str_v (names cctx)) prev)])
+	else raise Error (r, [sprintf "Redundant pattern $ after [$]" [join ", " (map (str_v (names cctx)) this), join ", " (map (str_v (names cctx)) prev)]])
 
-    fun check_exhaustive ((_, _, cctx), t, cover) =
+    fun check_exhaustive ((_, _, cctx), t, cover, r) =
 	case t of
 	    AppV ((family, _), _, _) =>
 	    let val all = get_family_members cctx family
 		val missed = diff op= all cover
 	    in
 		if missed = [] then ()
-		else raise Error (sprintf "Not exhaustive, missing these constructors: $" [join ", " (map (str_v (names cctx)) missed)])
+		else raise Error (r, [sprintf "Not exhaustive, missing these constructors: $" [join ", " (map (str_v (names cctx)) missed)]])
 	    end
 	  | _ => raise Impossible "shouldn't check exhaustiveness under this type"
 
-    fun fetch_constr (ctx, x) =
+    fun fetch_constr (ctx, (x, r)) =
 	case nth_error ctx x of
 	    SOME (name, c) => (name, c)
-	  | NONE => raise Error (sprintf "Unbound constructor $" [str_v (names ctx) x])
+	  | NONE => raise Error (r, [sprintf "Unbound constructor: $" [str_v (names ctx) x]])
 
     fun fetch_constr_type (ctx, cx) =
 	let val (cname, (family, tnames, ns, t, is)) = fetch_constr (ctx, cx)
-	    val ts = (map (fn x => VarT (x, dummy_region)) o rev o range o length) tnames
-	    val t = Arrow (t, T0, AppV ((shiftx_v 0 (length tnames) family, dummy_region), ts, is))
+	    val ts = (map (fn x => VarT (x, dummy)) o rev o range o length) tnames
+	    val t = Arrow (t, T0, AppV ((shiftx_v 0 (length tnames) family, dummy), ts, is))
 	    val t = foldr (fn ((name, s), t) => UniI (s, name, t)) t ns
 	    val t = foldr Uni t tnames
 	in
@@ -979,34 +1014,46 @@ local
 	let val skctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
 	in
 	    case (pn, t) of
-		(Constr ((cx, _), inames, ename), AppV ((x, _), ts, is)) =>
-		let val (_, c as (x', tnames, ns, t1, is')) = fetch_constr (cctx, cx)
+		(Constr ((cx, r), inames, ename), AppV ((x, _), ts, is)) =>
+		let val (_, c as (x', tnames, ns, t1, is')) = fetch_constr (cctx, (cx, r))
 		in
 		    if x' = x then
-			let val () = check_length (tnames, ts)
+			let val () = check_length (tnames, ts, get_region_ts ts)
 			    val t1 = subst_ts_t ts t1
 			    val is = map (shiftx_i_i 0 (length ns)) is
-			    val () = check_length (is', is)
+			    val () = check_length (is', is, get_region_is is)
 			    val ps = map Eq (ListPair.zip (is', is))
-			    val () = check_length (inames, ns)
+			    val () = check_length (inames, ns, get_region_pn pn)
 			in
 			    ((rev (ListPair.zip (inames, #2 (ListPair.unzip ns))), ps), (ename, t1), Cover_Constr cx)
 			end
 		    else
-			raise Error (sprintf "Type of constructor $ doesn't match datatype:\n  expect: $\n  got: $\n" [str_v (names cctx) cx, str_v kctxn x, str_v kctxn x'])
+			raise Error 
+                              (r, sprintf "Type of constructor $ doesn't match datatype:" [str_v (names cctx) cx] :: 
+                                  indent ["expect: " ^ str_v kctxn x, 
+                                          "got: " ^ str_v kctxn x'])
 		end
-	      | _ => raise Error (sprintf "Pattern $ doesn't match type $" [str_pn (names cctx) pn, str_t skctxn t])
+	      | _ => raise Error (get_region_pn pn, [sprintf "Pattern $ doesn't match type $" [str_pn (names cctx) pn, str_t skctxn t]])
 	end
 
-    fun mismatch (ctx as (sctx, kctx, _, _)) e expect have =  
-	sprintf "Type mismatch for $:\n  expect: $\n  got: $\n" [str_e ctx e, expect, str_t (sctx, kctx) have]
-    fun mismatch_anno ctx expect have =  "Type annotation mismatch: expect " ^ expect ^ " have " ^ str_t ctx have
+    fun mismatch (ctx as (sctx, kctx, _, _)) e expect got =  
+        (get_region_e e,
+	 "Type mismatch:" ::
+         indent ["expect: " ^ expect, 
+                 "got: " ^ str_t (sctx, kctx) got,
+                 "in: " ^ str_e ctx e])
+
+    fun mismatch_anno ctx expect got =  
+        (get_region_t got,
+         "Type annotation mismatch:" ::
+         indent ["expect: " ^ expect,
+                 "got: " ^ str_t ctx got])
 
     fun check_fix_body e =
 	case e of
     	    AbsI (_, _, e') => check_fix_body e'
     	  | Abs _ => ()
-    	  | _ => raise Error "The body of fixpoint must have the form (fn [(_ :: _) ... (_ :: _)] (_ : _) => _)"
+    	  | _ => raise Error (get_region_e e, ["The body of fixpoint must have the form ({_ : _} ... {_ : _} (_ : _) => _)"])
 
     fun get_type (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, tctx : tcontext), e : expr) : ty * idx =
 	let val skctx = (sctx, kctx) 
@@ -1015,10 +1062,10 @@ local
 	    (* val () = print (sprintf "Typing $\n" [str_e ctxn e]) *)
 	    val (t, d) =
 		case e of
-		    Var (x, _) =>
+		    Var (x, r) =>
 		    (case lookup x tctx of
       			 SOME t => (t, T0)
-      		       | NONE => raise Error ("Unbound variable " ^ str_v tctxn x))
+      		       | NONE => raise Error (r, ["Unbound variable: " ^ str_v tctxn x]))
 		  | App (e1, e2) =>
 		    let val (t1, d1) = get_type (ctx, e1) in
     			case t1 of
@@ -1079,7 +1126,7 @@ local
 			    (Uni (name, t), T0)
 			end 
 		    else
-			raise Error ("The body of a universal abstraction must be a value")
+			raise Error (get_region_e e, ["The body of a universal abstraction must be a value"])
 		  | AppT (e, c) =>
 		    let val (t, d) = get_type (ctx, e) in
 			case t of
@@ -1096,7 +1143,7 @@ local
 			    (UniI (s, name, t), T0)
 			end 
 		    else
-			raise Error ("The body of a universal abstraction must be a value")
+			raise Error (get_region_e e, ["The body of a universal abstraction must be a value"])
 		  | AppI (e, i) =>
 		    let val (t, d) = get_type (ctx, e) in
 			case t of
@@ -1178,12 +1225,12 @@ local
 		    end
 		  | Const _ => 
 		    (Int, T0)
-		  | AppConstr ((cx, _), ts, is, e) => 
+		  | AppConstr (cx, ts, is, e) => 
 		    let val (cname, tc) = fetch_constr_type (cctx, cx)
 			val () = is_wftype (skctx, tc)
 			val (_, d) = get_type (ctx, e)
 			(* delegate to checking e' *)
-			val f = Var (0, dummy_region)
+			val f = Var (0, dummy)
 			val f = foldl (fn (t, e) => AppT (e, t)) f ts
 			val f = foldl (fn (i, e) => AppI (e, i)) f is
 			val e' = App (f, shift_e_e e)
@@ -1215,7 +1262,12 @@ local
 	    (* val () = print (sprintf "Type checking $ against $ and $\n" [str_e ctxn e, str_t (sctxn, kctxn) t, str_i sctxn d]) *)
 	    val (t', d') = get_type (ctx, e)
 	in
-	    is_subtype ((sctx, kctx), t', t);
+	    is_subtype ((sctx, kctx), t', t)
+            handle Error (_, msg) =>
+                   raise Error (get_region_e e, 
+                                #2 (mismatch ctxn e (str_t (sctxn, kctxn) t) t') @
+                                "Cause:" ::
+                                indent msg);
 	    is_le (sctx, d', d)
 	end
 
@@ -1223,13 +1275,13 @@ local
 	let val skcctx = (sctx, kctx, cctx) 
 	    fun f (rule, acc) =
 		let val cover = check_rule (ctx, rule, t)
-		    val () = check_redundancy (skcctx, t1, acc, cover)
+		    val () = check_redundancy (skcctx, t1, acc, cover, get_region_r rule)
 		in
 		    Cover_Or (cover, acc)
 		end 
 	    val cover = foldl f Cover_False rules
 	in
-	    check_exhaustive (skcctx, t1, cover)
+	    check_exhaustive (skcctx, t1, cover, get_region_t t1)
 	end
 
     and check_rule (ctx as (sctx, kctx, cctx, tctx), (pn, e), t as (t1, d, t2)) =
@@ -1246,7 +1298,7 @@ in
 fun vcgen ctx e : (ty * idx) * vc list =
     runWriter (fn () => get_type (ctx, e)) ()
 	     
-fun vcgen_opt ctx e : ((ty * idx) * vc list, string) result =
+fun vcgen_opt ctx e =
     runError (fn () => vcgen ctx e) ()
 	     
 end

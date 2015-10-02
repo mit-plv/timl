@@ -21,8 +21,7 @@ datatype prop =
 	 | Eq of idx * idx * region
 	 | TimeLe of idx * idx * region
 
-datatype bsort =
-	 Bsort of id
+type bsort = id
 
 datatype sort =
 	 Basic of bsort * region

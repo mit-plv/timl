@@ -17,17 +17,19 @@ signature VAR = sig
     val str_v : string list -> var -> string
 end
 
-signature T = sig
+signature DEBUG = sig
     type t
+    val dummy : t
 end
 
 (* types *)
-functor TypeFun (structure Var : VAR structure Other : T) = struct
+functor TypeFun (structure Var : VAR structure Other : DEBUG) = struct
 	open Var
 	open BasicSorts
 	open Util
 
 	type other = Other.t
+        val dummy = Other.dummy
 	type id = var * other
 
 	datatype idx =
@@ -41,7 +43,7 @@ functor TypeFun (structure Var : VAR structure Other : T) = struct
 		 | TrueI
 		 | FalseI
 		 | TTI
-		 | Tconst of int
+		 | Tconst of int * other
 
 	datatype prop =
 		 True
@@ -55,12 +57,12 @@ functor TypeFun (structure Var : VAR structure Other : T) = struct
 
 	(* index sort *)
 	datatype sort =
-		 Basic of bsort
-		 | Subset of bsort * string * prop
+		 Basic of bsort * other
+		 | Subset of (bsort * other) * string * prop
 						  
-	val STime = Basic Time
-	val SBool = Basic Bool
-	val SUnit = Basic BSUnit
+	val STime = Basic (Time, dummy)
+	val SBool = Basic (Bool, dummy)
+	val SUnit = Basic (BSUnit, dummy)
 
 	datatype ty = 
 		 Arrow of ty * idx * ty
@@ -105,7 +107,7 @@ functor TypeFun (structure Var : VAR structure Other : T) = struct
 	      | TTI => "()"
 	      | TrueI => "true"
 	      | FalseI => "false"
-	      | Tconst n => str_int n
+	      | Tconst (n, _) => str_int n
 
 	fun str_p ctx p = 
 	    case p of
@@ -120,8 +122,8 @@ functor TypeFun (structure Var : VAR structure Other : T) = struct
 
 	fun str_s ctx (s : sort) : string = 
 	    case s of
-		Basic s => str_b s
-	      | Subset (s, name, p) => sprintf "{ $ :: $ | $ }" [name, str_b s, str_p (name :: ctx) p]
+		Basic (s, _) => str_b s
+	      | Subset ((s, _), name, p) => sprintf "{ $ :: $ | $ }" [name, str_b s, str_p (name :: ctx) p]
 
 	fun str_t (ctx as (sctx, kctx)) (c : ty) : string =
 	    case c of
@@ -161,7 +163,7 @@ signature TYPE = sig
 end
 
 (* expressions *)
-functor ExprFun (structure Var : VAR structure Type : TYPE structure Other : T) = struct
+functor ExprFun (structure Var : VAR structure Type : TYPE structure Other : DEBUG) = struct
 	open Var
 	open Type
 	open Util
@@ -277,6 +279,7 @@ end
 structure R = struct
 open Region
 type t = region
+val dummy = dummy_region
 end
 
 structure NamefulType = TypeFun (structure Var = StringVar structure Other = R)

@@ -138,7 +138,7 @@ idx : id (VarI id)
 sort : bsort (Basic (bsort, (bsortleft, bsortright)))
      | LCUR ID COLON bsort BAR prop RCUR (Subset (bsort, ID, prop, (LCURleft, RCURright)))
 
-bsort : id (Bsort id)
+bsort : id (id)
 
 prop : id (Pconst id)
      | prop AND prop (And (prop1, prop2, (prop1left, prop2right)))

@@ -24,7 +24,7 @@ local
 		FalseI
 	    else
 		VarI (x, r)
-	  | Tint (n, _) =>
+	  | Tint n =>
 	    Tconst n
 	  | S.Tadd (i1, i2, _) =>
 	    Tadd (elab_i i1, elab_i i2)
@@ -52,21 +52,19 @@ local
 	  | S.Eq (i1, i2, _) => Eq (elab_i i1, elab_i i2)
 	  | S.TimeLe (i1, i2, _) => TimeLe (elab_i i1, elab_i i2)
 
-    fun elab_b b =
-	case b of
-	    Bsort (name, r) =>
-	    if name = "Time" then
-		Time
-	    else if name = "Bool" then
-		Bool
-	    else if name = "Unit" then
-		BSUnit
-	    else raise Error (r, sprintf "Unrecognized base sort: $" [name])
+    fun elab_b (name, r) =
+	if name = "Time" then
+	    Time
+	else if name = "Bool" then
+	    Bool
+	else if name = "Unit" then
+	    BSUnit
+	else raise Error (r, sprintf "Unrecognized base sort: $" [name])
 
     fun elab_s s =
 	case s of
-	    S.Basic (b, _) => Basic (elab_b b)
-	  | S.Subset (b, name, p, _) => Subset (elab_b b, name, elab_p p)
+	    S.Basic (b, r) => Basic (elab_b b, r)
+	  | S.Subset (b as (_, r), name, p, _) => Subset ((elab_b b, r), name, elab_p p)
 
     fun get_is t =
 	case t of 
