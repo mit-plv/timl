@@ -48,7 +48,7 @@ open Ast
        | exp of exp
        | aexp of exp
        | ty of ty
-       | aty of ty
+       (* | aty of ty *)
        | idx of idx
        | sort of sort
        | bsort of bsort
@@ -115,17 +115,16 @@ aexp : id (Var id)
      | CASE exp return_opt OF rule_bar_star (Case (exp, return_opt, rule_bar_star, (CASEleft, rule_bar_starright)))
      | LET def_star IN exp END (Let (def_star, exp, (LETleft, ENDright)))
 
-ty : aty (aty)
-   | aty ty %prec APPR (AppTT (ty, aty, (atyleft, tyright)))
+ty : ty ty %prec APPR (AppTT (ty2, ty1, (ty1left, ty2right)))
    | LCUR idx RCUR ty %prec APPR (AppTI (ty, idx, (LCURleft, tyright)))
    | ty DDASH idx ARROW ty (Arrow (ty1, idx, ty2, (ty1left, ty2right)))
    | ty MULT ty (Prod (ty1, ty2, (ty1left, ty2right)))
    | ty PLUS ty (Sum (ty1, ty2, (ty1left, ty2right)))
-
-aty : id (VarT id)
-    | quan bind_plus COMMA ty (Quan (quan, bind_plus, ty, (quanleft, tyright)))
-    | MU ID bind_star COMMA ty (Recur (ID, bind_star, ty, (MUleft, tyright)))
-    | LPAREN ty RPAREN (ty)
+(* aty : *)
+   | id (VarT id)
+   | quan bind_plus COMMA ty (Quan (quan, bind_plus, ty, (quanleft, tyright)))
+   | MU ID bind_star COMMA ty (Recur (ID, bind_star, ty, (MUleft, tyright)))
+   | LPAREN ty RPAREN (ty)
 
 idx : id (VarI id)
     | INT (Tint (INT, (INTleft, INTright)))

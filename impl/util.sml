@@ -9,7 +9,9 @@ fun sprintf s ls =
 fun println s = print (s ^ "\n")
 
 val join = String.concatWith
-fun prefix a b = a ^ b
+fun prefix fix s = fix ^ s
+fun suffix fix s = s ^ fix
+fun surround pre post s = pre ^ s ^ post
 val str_int = Int.toString
 
 fun id x = x

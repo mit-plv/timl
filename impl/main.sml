@@ -10,9 +10,8 @@ fun check_file filename (ctx as (sctx, kctx, cctx, tctx)) e =
 	    let
 	    in
 		sprintf
-		    "OK: \nExpr: $\nType: $\nTime: $\nVCs: [count=$]\n$\n"
-		    [str_e ctxn e,
-		     str_t (sctxn, kctxn) t,
+		    "OK: \nType: $\nTime: $\nVCs: [count=$]\n$\n"
+		    [str_t (sctxn, kctxn) t,
 		     str_i sctxn d,
 		     str_int (length vcs),
 		     join "\n" (map str_vc vcs)]

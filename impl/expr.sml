@@ -126,27 +126,61 @@ functor TypeFun (structure Var : VAR structure Other : DEBUG) = struct
 		Basic (s, _) => str_b s
 	      | Subset ((s, _), (name, _), p) => sprintf "{ $ :: $ | $ }" [name, str_b s, str_p (name :: ctx) p]
 
+        local
+            datatype bind = 
+                     Kinding of string
+                     | Sorting of string * sort
+
+            fun collect_Uni_UniI t =
+                case t of
+                    Uni ((name, _), t) =>
+                    let val (names, t) = collect_Uni_UniI t
+                    in
+                        (Kinding name :: names, t)
+                    end
+                  | UniI (s, (name, _), t) =>
+                    let val (names, t) = collect_Uni_UniI t
+                    in
+                        (Sorting (name, s) :: names, t)
+                    end
+                  | _ => ([], t)
+        in
 	fun str_t (ctx as (sctx, kctx)) (c : ty) : string =
-	    case c of
-		Arrow (c1, d, c2) => sprintf "($ -- $ -> $)" [str_t ctx c1, str_i sctx d, str_t ctx c2]
-	      | Unit _ => "unit"
-	      | Prod (t1, t2) => sprintf "($ * $)" [str_t ctx t1, str_t ctx t2]
-	      | Sum (t1, t2) => sprintf "($ + $)" [str_t ctx t1, str_t ctx t2]
-	      | Uni ((name, _), t) => sprintf "(forall $, $)" [name, str_t (sctx, name :: kctx) t]
-	      | UniI (s, (name, _), t) => sprintf "(forall $ :: $, $)" [name, str_s sctx s, str_t (name :: sctx, kctx) t]
-	      | ExI (s, (name, _), t) => sprintf "(exists $ :: $, $)" [name, str_s sctx s, str_t (name :: sctx, kctx) t]
-	      | AppRecur (name, ns, t, i, _) => 
-		sprintf "((rec $ $, $) $)" 
-			[name, 
-			 join " " (map (fn (name, s) => sprintf "($ :: $)" [name, str_s sctx s]) ns),
-			 str_t (rev (map #1 ns) @ sctx, name :: kctx) t,
-			 join " " (map (str_i sctx) i)]
-	      | AppV ((x, _), ts, is, _) => 
-		if null ts andalso null is then
-		    str_v kctx x
-		else
-		    sprintf "($$$)" [str_v kctx x, (join "" o map (prefix " ") o map (str_t ctx)) ts, (join "" o map (prefix " ") o map (str_i sctx)) is]
-	      | Int _ => "int"
+            let
+                fun str_uni ctx t =
+                    let val (binds, t) = collect_Uni_UniI t 
+                        fun f (bind, (acc, (sctx, kctx))) =
+                            case bind of
+                                Kinding name => (surround "[" "]" name :: acc, (sctx, name :: kctx))
+                              | Sorting (name, s) => (surround "{" "}" (str_s sctx s) :: acc, (name :: sctx, kctx))
+                        val (binds, ctx) = foldl f ([], ctx) binds
+                        val binds = rev binds
+                    in
+                        sprintf "(forall$, $)" [(join "" o map (prefix " ")) binds, str_t ctx t]
+                    end
+            in
+	        case c of
+		    Arrow (c1, d, c2) => sprintf "($ -- $ -> $)" [str_t ctx c1, str_i sctx d, str_t ctx c2]
+	          | Unit _ => "unit"
+	          | Prod (t1, t2) => sprintf "($ * $)" [str_t ctx t1, str_t ctx t2]
+	          | Sum (t1, t2) => sprintf "($ + $)" [str_t ctx t1, str_t ctx t2]
+	          | Uni _ => str_uni ctx c
+	          | UniI _ => str_uni ctx c
+	          | ExI (s, (name, _), t) => sprintf "(exists {$ : $}, $)" [name, str_s sctx s, str_t (name :: sctx, kctx) t]
+	          | AppRecur (name, ns, t, i, _) => 
+		    sprintf "((rec $ $, $) $)" 
+			    [name, 
+			     join " " (map (fn (name, s) => sprintf "($ :: $)" [name, str_s sctx s]) ns),
+			     str_t (rev (map #1 ns) @ sctx, name :: kctx) t,
+			     join " " (map (str_i sctx) i)]
+	          | AppV ((x, _), ts, is, _) => 
+		    if null ts andalso null is then
+		        str_v kctx x
+		    else
+		        sprintf "($$$)" [(join "" o map (suffix " ") o map (surround "{" "}") o map (str_i sctx) o rev) is, (join "" o map (suffix " ") o map (str_t ctx) o rev) ts, str_v kctx x]
+	          | Int _ => "int"
+            end
+        end
 
 	fun str_k ctx (k : kind) : string = 
 	    case k of
