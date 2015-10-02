@@ -225,12 +225,12 @@ local
 	    Ascription (elab e, elab_t t)
 	  | S.AscriptionTime (e, i, _) =>
 	    AscriptionTime (elab e, elab_i i)
-	  | S.Let (defs, e, r) =>
-	    let fun f (def, e) =
-		    case def of
-			Val (x, e1, _) => Let (elab e1, x, e, r)
+	  | S.Let (decs, e, r) =>
+	    let fun elab_dec dec =
+		    case dec of
+			S.Val (x, e, _) => Val (x, elab e)
 	    in
-		foldr f (elab e) defs
+                Let (map elab_dec decs, elab e, r)
 	    end
 
 in

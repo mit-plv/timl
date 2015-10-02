@@ -69,8 +69,8 @@ open Ast
        | id_cur_space of string list
        | id_plus of string list
        | id_star of string list
-       | def_star of def list
-       | def of def
+       | dec_star of dec list
+       | dec of dec
        | quan of quan
 
 
@@ -113,7 +113,7 @@ aexp : id (Var id)
                 (* | LPAREN exp RPAREN (exp) *) (* already covered by previous one *)
      | abs bind_plus DARROW exp (Abs (abs, bind_plus, exp, (absleft, expright)))
      | CASE exp return_opt OF rule_bar_star (Case (exp, return_opt, rule_bar_star, (CASEleft, rule_bar_starright)))
-     | LET def_star IN exp END (Let (def_star, exp, (LETleft, ENDright)))
+     | LET dec_star IN exp END (Let (dec_star, exp, (LETleft, ENDright)))
 
 ty : ty ty %prec APPR (AppTT (ty2, ty1, (ty1left, ty2right)))
    | LCUR idx RCUR ty %prec APPR (AppTI (ty, idx, (LCURleft, tyright)))
@@ -190,10 +190,10 @@ id_plus : ID id_star (ID :: id_star)
 id_star : ID id_star (ID :: id_star)
 	| ([])
 
-def_star : def def_star (def :: def_star)
+dec_star : dec dec_star (dec :: dec_star)
 	 | ([])
 
-def : VAL ID EQ exp (Val (ID, exp, (VALleft, expright)))
+dec : VAL ID EQ exp (Val (ID, exp, (VALleft, expright)))
 
 quan : FORALL (Forall)
      | EXISTS (Exists)

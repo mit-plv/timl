@@ -8,6 +8,9 @@ Group is
       expr.sml
       elaborate.sml
       name_resolve.sml
+      subst.sml
+      expr_region.sml
+      trivial_solver.sml
       typecheck.sml
       main.sml
 

@@ -63,9 +63,9 @@ datatype exp =
        | Case of exp * (ty * idx) option * (ptrn * exp) list * region
        | Ascription of exp * ty * region
        | AscriptionTime of exp * idx * region
-       | Let of def list * exp * region
+       | Let of dec list * exp * region
 
-and def =
+and dec =
     Val of string * exp * region
 
 type reporter = string * pos * pos -> unit

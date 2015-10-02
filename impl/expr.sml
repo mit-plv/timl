@@ -241,10 +241,13 @@ functor ExprFun (structure Var : VAR structure Type : TYPE structure Other : DEB
 		 | AppConstr of id * ty list * idx list * expr
 		 | Case of expr * ty * idx * (ptrn * expr) list * other
 		 | Never of ty
-		 | Let of expr * string * expr * other
+		 | Let of dec list * expr * other
 		 | Fix of ty * name * expr
 		 | Ascription of expr * ty
 		 | AscriptionTime of expr * idx
+
+             and dec =
+                 Val of name * expr
 
 	fun str_pn ctx pn = 
 	    case pn of
@@ -278,7 +281,17 @@ functor ExprFun (structure Var : VAR structure Type : TYPE structure Other : DEB
 		  | Pack (t, i, e) => sprintf "(pack $ ($, $))" [str_t skctx t, str_i sctx i, str_e ctx e]
 		  | Unpack (e1, t, d, iname, ename, e2) => sprintf "unpack $ return $ |> $ as ($, $) in $ end" [str_e ctx e1, str_t skctx t, str_i sctx d, iname, ename, str_e (iname :: sctx, kctx, cctx, ename :: tctx) e2]
 		  | Fix (t, (name, _), e) => sprintf "(fix ($ : $) => $)" [name, str_t skctx t, str_e (add_t name ctx) e]
-		  | Let (e1, name, e2, _) => sprintf "let $ = $ in $ end" [name, str_e ctx e1, str_e ctx e2]
+		  | Let (decs, e, _) => 
+                    let fun f (dec, (acc, ctx)) =
+                            let val (s, ctx) = str_dec ctx dec
+                            in
+                                (s :: acc, ctx)
+                            end
+                        val (decs, ctx) = foldl f ([], ctx) decs
+                        val decs = rev decs
+                    in
+                        sprintf "let$ in $ end" [(join "" o map (prefix " ")) decs, str_e ctx e]
+                    end
 		  | Ascription (e, t) => sprintf "($ : $)" [str_e ctx e, str_t skctx t]
 		  | AscriptionTime (e, d) => sprintf "($ |> $)" [str_e ctx e, str_i sctx d]
 		  | Plus (e1, e2) => sprintf "($ + $)" [str_e ctx e1, str_e ctx e2]
@@ -294,6 +307,11 @@ functor ExprFun (structure Var : VAR structure Type : TYPE structure Other : DEB
 	    in
 		sprintf "$ => $" [str_pn cctx pn, str_e ctx' e]
 	    end
+
+        and str_dec (ctx as (sctx, kctx, cctx, tctx)) dec =
+            case dec of
+                Val ((name, _), e) =>
+                (sprintf "val $ = $" [name, str_e ctx e], (sctx, kctx, cctx, name :: tctx))
 
 	end			       
 

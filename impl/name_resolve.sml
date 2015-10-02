@@ -121,7 +121,17 @@ local
 	      | E.Pack (t, i, e) => Pack (on_type skctx t, on_idx sctx i, on_expr ctx e)
 	      | E.Unpack (e1, t, d, iname, ename, e2) => Unpack (on_expr ctx e1, on_type skctx t, on_idx sctx d, iname, ename, on_expr (iname :: sctx, kctx, cctx, ename :: tctx) e2)
 	      | E.Fix (t, (name, r), e) => Fix (on_type skctx t, (name, r), on_expr (add_t name ctx) e)
-	      | E.Let (e1, name, e2, r) => Let (on_expr ctx e1, name, on_expr (add_t name ctx) e2, r)
+	      | E.Let (decs, e, r) => 
+                let fun f (dec, (acc, ctx)) =
+                        let val (dec, ctx) = on_dec ctx dec
+                        in
+                            (dec :: acc, ctx)
+                        end
+                    val (decs, ctx) = foldl f ([], ctx) decs
+                    val decs = rev decs
+                in
+                    Let (decs, on_expr ctx e, r)
+                end
 	      | E.Ascription (e, t) => Ascription (on_expr ctx e, on_type skctx t)
 	      | E.AscriptionTime (e, d) => AscriptionTime (on_expr ctx e, on_idx sctx d)
 	      | E.Const n => Const n
@@ -130,6 +140,12 @@ local
 	      | E.Case (e, t, d, rules, r) => Case (on_expr ctx e, on_type skctx t, on_idx sctx d, map (fn (pn, e) => (on_ptrn cctx pn, let val (inames, enames) = E.ptrn_names pn in on_expr (inames @ sctx, kctx, cctx, enames @ tctx ) e end)) rules, r)
 	      | E.Never t => Never (on_type skctx t)
 	end
+
+    and on_dec (ctx as (sctx, kctx, cctx, tctx)) dec =
+        case dec of
+            E.Val ((name, r), e) =>
+            (Val ((name, r), on_expr ctx e), (sctx, kctx, cctx, name :: tctx))
+
 
     fun on_constr (ctx as (sctx, kctx)) ((family, tnames, name_sorts, t, is) : T.constr) : constr =
 	let val sctx' = rev (map #1 name_sorts) @ sctx

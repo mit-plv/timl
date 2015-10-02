@@ -1,4 +1,5 @@
 structure TypeCheck = struct
+open ExprRegion
 open Region
 open Type
 open Expr
@@ -41,368 +42,7 @@ fun is_value (e : expr) : bool =
       | Case _ => false
       | Never _ => false
 
-fun shiftx_v x n y = 
-    if y >= x then
-	y + n
-    else
-	y
-
-local
-    fun f x n b =
-	case b of
-	    VarI (y, r) => VarI (shiftx_v x n y, r)
-	  | T0 r => T0 r
-	  | T1 r => T1 r
-	  | Tadd (d1, d2) => Tadd (f x n d1, f x n d2)
-	  | Tmult (d1, d2) => Tmult (f x n d1, f x n d2)
-	  | Tmax (d1, d2) => Tmax (f x n d1, f x n d2)
-	  | Tmin (d1, d2) => Tmin (f x n d1, f x n d2)
-	  | TTI r => TTI r
-	  | TrueI r => TrueI r
-	  | FalseI r => FalseI r
-	  | Tconst n => Tconst n
-in
-fun shiftx_i_i x n b = f x n b
-fun shift_i_i b = shiftx_i_i 0 1 b
-end
-
-local
-    fun f x n b =
-	case b of
-	    True r => True r
-	  | False r => False r
-	  | And (p1, p2) => And (f x n p1, f x n p2)
-	  | Or (p1, p2) => Or (f x n p1, f x n p2)
-	  | Imply (p1, p2) => Imply (f x n p1, f x n p2)
-	  | Iff (p1, p2) => Iff (f x n p1, f x n p2)
-	  | TimeLe (d1, d2) => TimeLe (shiftx_i_i x n d1, shiftx_i_i x n d2)
-	  | Eq (i1, i2) => Eq (shiftx_i_i x n i1, shiftx_i_i x n i2)
-in
-fun shiftx_i_p x n b = f x n b
-fun shift_i_p b = shiftx_i_p 0 1 b
-end
-
-local
-    fun f x n b =
-	case b of
-	    Basic s => Basic s
-	  | Subset (s, name, p) => Subset (s, name, shiftx_i_p (x + 1) n p)
-in
-fun shiftx_i_s x n b = f x n b
-fun shift_i_s b = shiftx_i_s 0 1 b
-end
-
-local
-    fun f x n b =
-	case b of
-	    Arrow (t1, d, t2) => Arrow (f x n t1, shiftx_i_i x n d, f x n t2)
-	  | Unit r => Unit r
-	  | Prod (t1, t2) => Prod (f x n t1, f x n t2)
-	  | Sum (t1, t2) => Sum (f x n t1, f x n t2)
-	  | Uni (name, t) => Uni (name, f x n t)
-	  | UniI (s, name, t) => UniI (shiftx_i_s x n s, name, f (x + 1) n t)
-	  | ExI (s, name, t) => ExI (shiftx_i_s x n s, name, f (x + 1) n t)
-	  | AppRecur (name, ns, t, i, r) => AppRecur (name, map (mapSnd (shiftx_i_s x n)) ns, f (x + length ns) n t, map (shiftx_i_i x n) i, r)
-	  | AppV (y, ts, is, r) => AppV (y, map (f x n) ts, map (shiftx_i_i x n) is, r)
-	  | Int r => Int r
-in
-fun shiftx_i_t x n b = f x n b
-fun shift_i_t b = shiftx_i_t 0 1 b
-end
-
-local
-    fun f x n b =
-	case b of
-	    Arrow (t1, d, t2) => Arrow (f x n t1, d, f x n t2)
-	  | Unit r => Unit r
-	  | Prod (t1, t2) => Prod (f x n t1, f x n t2)
-	  | Sum (t1, t2) => Sum (f x n t1, f x n t2)
-	  | Uni (name, t) => Uni (name, f (x + 1) n t)
-	  | UniI (s, name, t) => UniI (s, name, f x n t)
-	  | ExI (s, name, t) => ExI (s, name, f x n t)
-	  | AppRecur (name, ns, t, i, r) => AppRecur (name, ns, f (x + 1) n t, i, r)
-	  | AppV ((y, r1), ts, is, r) => AppV ((shiftx_v x n y, r1), map (f x n) ts, is, r)
-	  | Int r => Int r
-
-in
-fun shiftx_t_t x n b = f x n b
-fun shift_t_t b = shiftx_t_t 0 1 b
-end
-
-fun shift_pn_i pn i =
-    let val (inames, _) = ptrn_names pn
-    in
-	shiftx_i_i 0 (length inames) i
-    end
-
-fun shift_pn_t pn t =
-    let val (inames, _) = ptrn_names pn
-    in
-	shiftx_i_t 0 (length inames) t
-    end
-
-local
-    fun f x n b =
-	case b of
-	    Var (y, r) => Var (shiftx_v x n y, r)
-	  | Abs (t, name, e) => Abs (t, name, f (x + 1) n e)
-	  | App (e1, e2) => App (f x n e1, f x n e2)
-	  | TT r => TT r
-	  | Pair (e1, e2) => Pair (f x n e1, f x n e2)
-	  | Fst e => Fst (f x n e)
-	  | Snd e => Snd (f x n e)
-	  | Inl (t, e) => Inl (t, f x n e)
-	  | Inr (t, e) => Inr (t, f x n e)
-	  | SumCase (e, name1, e1, name2, e2) => 
-	    SumCase (f x n e, name1, f (x + 1) n e1, name2, f (x + 1) n e2)
-	  | Fold (t, e) => Fold (t, f x n e)
-	  | Unfold e => Unfold (f x n e)
-	  | AbsT (name, e) => AbsT (name, f x n e)
-	  | AppT (e, t) => AppT (f x n e, t)
-	  | AbsI (s, name, e) => AbsI (s, name, f x n e)
-	  | AppI (e, i) => AppI (f x n e, i)
-	  | Pack (t, i, e) => Pack (t, i, f x n e)
-	  | Unpack (e1, t, d, iname, ename, e2) => 
-	    Unpack (f x n e1, t, d, iname, ename, f (x + 1) n e2)
-	  | Fix (t, name, e) => 
-	    Fix (t, name, f (x + 1) n e)
-	  | Let (e1, name, e2, r) => Let (f x n e1, name, f (x + 1) n e2, r)
-	  | Ascription (e, t) => Ascription (f x n e, t)
-	  | AscriptionTime (e, d) => AscriptionTime (f x n e, d)
-	  | Const n => Const n
-	  | Plus (e1, e2) => Plus (f x n e1, f x n e2)
-	  | AppConstr (cx, ts, is, e) => AppConstr (cx, ts, is, f x n e)
-	  | Case (e, t, d, rules, r) => Case (f x n e, t, d, map (f_rule x n) rules, r)
-	  | Never t => Never t
-
-    and f_rule x n (pn, e) =
-	let val (_, enames) = ptrn_names pn 
-	in
-	    (pn, f (x + length enames) n e)
-	end
-in
-fun shiftx_e_e x n b = f x n b
-fun shift_e_e b = shiftx_e_e 0 1 b
-end
-
-exception Subst of string
-
-local
-    fun f x v b =
-	case b of
-	    VarI (y, r) =>
-	    if y = x then
-		v
-	    else if y > x then
-		VarI (y - 1, r)
-	    else
-		VarI (y, r)
-	  | Tadd (d1, d2) => Tadd (f x v d1, f x v d2)
-	  | Tmult (d1, d2) => Tmult (f x v d1, f x v d2)
-	  | Tmax (d1, d2) => Tmax (f x v d1, f x v d2)
-	  | Tmin (d1, d2) => Tmin (f x v d1, f x v d2)
-	  | T0 r => T0 r
-	  | T1 r => T1 r
-	  | TrueI r => TrueI r
-	  | FalseI r => FalseI r
-	  | TTI r => TTI r
-	  | Tconst n => Tconst n
-in
-fun substx_i_i x (v : idx) (b : idx) : idx = f x v b
-fun subst_i_i v b = substx_i_i 0 v b
-end
-
-local
-    fun f x v b =
-	case b of
-	    True r => True r
-	  | False r => False r
-	  | And (p1, p2) => And (f x v p1, f x v p2)
-	  | Or (p1, p2) => Or (f x v p1, f x v p2)
-	  | Imply (p1, p2) => Imply (f x v p1, f x v p2)
-	  | Iff (p1, p2) => Iff (f x v p1, f x v p2)
-	  | TimeLe (d1, d2) => TimeLe (substx_i_i x v d1, substx_i_i x v d2)
-	  | Eq (i1, i2) => Eq (substx_i_i x v i1, substx_i_i x v i2)
-in
-fun substx_i_p x (v : idx) b = f x v b
-fun subst_i_p (v : idx) (b : prop) : prop = substx_i_p 0 v b
-end
-
-local
-    fun f x v b =
-	case b of
-	    Basic s => Basic s
-	  | Subset (s, name, p) => Subset (s, name, substx_i_p (x + 1) (shift_i_i v) p)
-in
-fun substx_i_s x (v : idx) (b : sort) : sort = f x v b
-fun subst_i_s (v : idx) (b : sort) : sort = substx_i_s 0 v b
-end
-
-local
-    fun f x v b =
-	case b of
-	    Arrow (t1, d, t2) => Arrow (f x v t1, substx_i_i x v d, f x v t2)
-	  | Unit r => Unit r
-	  | Prod (t1, t2) => Prod (f x v t1, f x v t2)
-	  | Sum (t1, t2) => Sum (f x v t1, f x v t2)
-	  | Uni (name, t) => Uni (name, f x v t)
-	  | UniI (s, name, t) => UniI (substx_i_s x v s, name, f (x + 1) (shift_i_i v) t)
-	  | ExI (s, name, t) => ExI (substx_i_s x v s, name, f (x + 1) (shift_i_i v) t)
-	  | AppRecur (name, ns, t, i, r) =>
-	    let val n = length ns in
-		AppRecur (name, map (mapSnd (substx_i_s x v)) ns, f (x + n) (shiftx_i_i 0 n v) t, map (substx_i_i x v) i, r)
-	    end
-	  | AppV (y, ts, is, r) => AppV (y, map (f x v) ts, map (substx_i_i x v) is, r)
-	  | Int r => Int r
-in
-fun substx_i_t x (v : idx) (b : ty) : ty = f x v b
-fun subst_i_t (v : idx) (b : ty) : ty = substx_i_t 0 v b
-end
-
-local
-    (* the substitute can be a type or a recursive type definition *)
-    datatype value = 
-	     Type of ty
-	     | Recur of string * (string * sort) list * ty
-    fun f x v (b : ty) : ty =
-	case b of
-	    Arrow (t1, d, t2) => Arrow (f x v t1, d, f x v t2)
-	  | Unit r => Unit r
-	  | Prod (t1, t2) => Prod (f x v t1, f x v t2)
-	  | Sum (t1, t2) => Sum (f x v t1, f x v t2)
-	  | Uni (name, t) => Uni (name, f (x + 1) (shift_t v) t)
-	  | UniI (s, name, t) => UniI (s, name, f x (shift_i 1 v) t)
-	  | ExI (s, name, t) => ExI (s, name, f x (shift_i 1 v) t)
-	  | AppRecur (name, ns, t, i, r) => AppRecur (name, ns, f (x + 1) (shift_i (length ns) (shift_t v)) t, i, r)
-	  | AppV ((y, r), ts, is, r2) => 
-	    if y = x then
-		case v of
-		    Type t =>
-		    if null ts andalso null is then
-			t
-		    else
-			raise Subst "can't be substituted type for this higher-kind type variable"
-		  | Recur (name, ns, t) =>
-		    if null ts then
-			AppRecur (name, ns, t, is, r2)
-		    else
-			raise Subst "can't substitute recursive type definition for this type variable because this application has type arguments"
-	    else if y > x then
-		AppV ((y - 1, r), map (f x v) ts, is, r2)
-	    else
-		AppV ((y, r), map (f x v) ts, is, r2)
-	  | Int r => Int r
-
-    and shift_i n v =
-	case v of
-	    Type t => Type (shiftx_i_t 0 n t)
-	  | Recur (name, ns, t) => Recur (name, map (mapSnd (shiftx_i_s 0 n)) ns, shiftx_i_t (length ns) n t)
-    and shift_t v =
-	case v of
-	    Type t => Type (shiftx_t_t 1 1 t)
-	  | Recur (name, ns, t) => Recur (name, ns, shiftx_t_t 1 1 t)
-in
-
-fun substx_t_t x (v : ty) (b : ty) : ty = f x (Type v) b
-fun subst_t_t (v : ty) (b : ty) : ty = substx_t_t 0 v b
-fun subst_is_t is t = 
-    #1 (foldl (fn (i, (t, x)) => (substx_i_t x (shiftx_i_i 0 x i) t, x - 1)) (t, length is - 1) is)
-fun subst_ts_t vs b = 
-    #1 (foldl (fn (v, (b, x)) => (substx_t_t x (shiftx_t_t 0 x v) b, x - 1)) (b, length vs - 1) vs)
-fun unroll (name, ns, t, i, _) =
-    subst_is_t i (f 0 (shift_i (length ns) (Recur (name, ns, t))) t)
-end
-
-(*
-local
-    fun f x (v : ty) (b : ty) : ty =
-	case b of
-	    Arrow (t1, d, t2) => Arrow (f x v t1, d, f x v t2)
-	  | Unit => Unit
-	  | Prod (t1, t2) => Prod (f x v t1, f x v t2)
-	  | Sum (t1, t2) => Sum (f x v t1, f x v t2)
-	  | Uni (name, t) => Uni (name, f (x + 1) (shift_t_t v) t)
-	  | UniI (s, name, t) => UniI (s, name, f x (shift_i_t v) t)
-	  | ExI (s, name, t) => ExI (s, name, f x (shift_i_t v) t)
-	  | AppRecur (name, ns, t, i) => AppRecur (name, ns, f (x + 1) (shiftx_i_t 0 (length ns) (shift_t_t v)) t, i)
-	  | AppV (y, ts, is) => 
-	    if y = x then
-		if null ts andalso null is then
-		    v
-		else
-		    raise Subst "can't be substituted for this higher-kind type variable"
-	    else if y > x then
-		AppV (y - 1, map (f x v) ts, is)
-	    else
-		AppV (y, map (f x v) ts, is)
-	  | Int => Int
-in
-fun substx_t_t x (v : ty) (b : ty) : ty = f x v b
-fun subst_t_t (v : ty) (b : ty) : ty = substx_t_t 0 v b
-end
-
-fun subst_is_t is t = 
-    #1 (foldl (fn (i, (t, x)) => (substx_i_t x (shiftx_i_i 0 x i) t, x - 1)) (t, length is - 1) is)
-
-fun subst_ts_t vs b = 
-    #1 (foldl (fn (v, (b, x)) => (substx_t_t x (shiftx_t_t 0 x v) b, x - 1)) (b, length vs - 1) vs)
-
-local
-    datatype recur = Recur of string * (string * sort) list * ty
-    fun shift_i_r n (Recur (name, ns, t)) = Recur (name, map (mapSnd (shiftx_i_s 0 n)) ns, shiftx_i_t (length ns) n t)
-    fun shift_t_r (Recur (name, ns, t)) = Recur (name, ns, shiftx_t_t 1 1 t)
-    fun f x v (b : ty) : ty =
-	case b of
-	    Arrow (t1, d, t2) => Arrow (f x v t1, d, f x v t2)
-	  | Unit => Unit
-	  | Prod (t1, t2) => Prod (f x v t1, f x v t2)
-	  | Sum (t1, t2) => Sum (f x v t1, f x v t2)
-	  | Uni (name, t) => Uni (name, f (x + 1) (shift_t_r v) t)
-	  | UniI (s, name, t) => UniI (s, name, f x (shift_i_r 1 v) t)
-	  | ExI (s, name, t) => ExI (s, name, f x (shift_i_r 1 v) t)
-	  | AppRecur (name, ns, t, i) => AppRecur (name, ns, f (x + 1) (shift_i_r (length ns) (shift_t_r v)) t, i)
-	  | AppV (y, ts, is) => 
-	    if y = x then
-		if null ts then
-		    let val Recur (name, ns, t) = v in
-			AppRecur (name, ns, t, is)
-		    end
-		else
-		    raise Subst "can't substitute recursive type for this type variable"
-	    else if y > x then
-		AppV (y - 1, map (f x v) ts, is)
-	    else
-		AppV (y, map (f x v) ts, is)
-	  | Int => Int
-
-in
-fun unroll (name, ns, t, i) =
-    subst_is_t i (f 0 (shift_i_r (length ns) (Recur (name, ns, t))) t)
-end
-*)
-
-fun shiftx_i_c x n (family, tnames, name_sorts, t, is) =
-    let val m = length name_sorts 
-    in
-	(family, tnames, 
-	 #1 (foldr (fn ((name, s), (acc, m)) => ((name, shiftx_i_s (x + m) n s) :: acc, m - 1)) ([], m - 1) name_sorts), 
-	 shiftx_i_t (x + m) n t, 
-	 map (shiftx_i_i (x + m) n) is)
-    end
-fun shift_i_c b = shiftx_i_c 0 1 b
-
-fun shiftx_t_c x n (family, tnames, name_sorts, t, is) =
-    (shiftx_v x n family, tnames, name_sorts, shiftx_t_t (x + length tnames) n t, is)
-fun shift_t_c b = shiftx_t_c 0 1 b
-
-local
-    fun f x n b =
-	case b of
-	    ArrowK (n, sorts) => ArrowK (n, map (shiftx_i_s x n) sorts)
-in
-fun shiftx_i_k x n b = f x n b
-fun shift_i_k b = shiftx_i_k 0 1 b
-end
+open Subst
 
 (* sorting context *)
 type scontext = (string * sort) list * prop list
@@ -605,92 +245,6 @@ local
 	let val (bctx, ps) = collect ctx in
 	    tell (bctx, ps, Eq (i, i'))
 	end
-
-    fun get_region_i i =
-        case i of
-            VarI (_, r) => r
-          | Tconst (_, r) => r
-          | T0 r => r
-          | T1 r => r
-          | TrueI r => r
-          | FalseI r => r
-          | TTI r => r
-          | Tadd (i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
-          | Tmult (i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
-          | Tmax (i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
-          | Tmin (i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
-
-    fun get_region_p p = 
-        case p of
-            True r => r
-          | False r => r
-          | And (p1, p2) => combine_region (get_region_p p1) (get_region_p p2)
-          | Or (p1, p2) => combine_region (get_region_p p1) (get_region_p p2)
-          | Imply (p1, p2) => combine_region (get_region_p p1) (get_region_p p2)
-          | Iff (p1, p2) => combine_region (get_region_p p1) (get_region_p p2)
-          | Eq (i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
-          | TimeLe (i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
-
-    fun get_region_s s = 
-        case s of
-            Basic (_, r) => r
-          | Subset (_, (_, r), p) => combine_region r (get_region_p p)
-
-    fun get_region_t t = 
-        case t of
-            Arrow (t1, d, t2) => combine_region (get_region_t t1) (get_region_t t2)
-          | Prod (t1, t2) => combine_region (get_region_t t1) (get_region_t t2)
-          | Sum (t1, t2) => combine_region (get_region_t t1) (get_region_t t2)
-          | Unit r => r
-          | Uni ((_, r), t) => combine_region r (get_region_t t)
-          | UniI (_, (_, r), t) => combine_region r (get_region_t t)
-          | ExI (_, (_, r), t) => combine_region r (get_region_t t)
-          | AppRecur (_, _, t, _, r) => r
-          | AppV (_, _, _, r) => r
-          | Int r => r
-
-    fun get_region_pn pn = 
-        case pn of
-            Constr ((_, r1), _, (_, r2)) => combine_region r1 r2
-
-    fun get_region_e e = 
-        case e of
-            Var (_, r) => r
-          | Abs (_, (_, r), e) => combine_region r (get_region_e e)
-          | App (e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
-          | TT r => r
-          | Pair (e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
-          | Fst e => get_region_e e
-          | Snd e => get_region_e e
-          | Inl (t, e) => combine_region (get_region_t t) (get_region_e e)
-          | Inr (t, e) => combine_region (get_region_t t) (get_region_e e)
-          | SumCase (e, _, _, _, e2) => combine_region (get_region_e e) (get_region_e e2)
-          | AbsT ((_, r), e) => combine_region r (get_region_e e)
-          | AppT (e, t) => combine_region (get_region_e e) (get_region_t t)
-          | AbsI (_, (_, r), e) => combine_region r (get_region_e e)
-          | AppI (e, i) => combine_region (get_region_e e) (get_region_i i)
-          | Pack (t, _, e) => combine_region (get_region_t t) (get_region_e e)
-          | Unpack (e1, _, _, _, _, e2) => combine_region (get_region_e e1) (get_region_e e2)
-          | Fold (t, e) => combine_region (get_region_t t) (get_region_e e)
-          | Unfold e => get_region_e e
-          | Plus (e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
-          | Const (_, r) => r
-          | AppConstr ((_, r), _, _, e) => combine_region r (get_region_e e)
-          | Case (_, _, _, _, r) => r
-          | Never t => get_region_t t
-          | Let (_, _, _, r) => r
-          | Fix (_, (_, r), e) => combine_region r (get_region_e e)
-          | Ascription (e, t) => combine_region (get_region_e e) (get_region_t t)
-          | AscriptionTime (e, i) => combine_region (get_region_e e) (get_region_i i)
-
-    fun get_region_rule (pn, e) = combine_region (get_region_pn pn) (get_region_e e)
-
-    (* fun get_region_is is = *)
-    (*     combine_regions (map get_region_i is) *)
-    (* fun get_region_sorts sorts = *)
-    (*     combine_regions (map get_region_s sorts) *)
-    (* fun get_region_ts ts = *)
-    (*     combine_regions (map get_region_t ts) *)
 
     fun is_eqs (ctx, is, is', r) =
 	(check_length (is, is', r);
@@ -1115,9 +669,12 @@ local
     	  | Abs _ => ()
     	  | _ => raise Error (get_region_e e, ["The body of fixpoint must have the form ({_ : _} ... {_ : _} (_ : _) => _)"])
 
+    fun ctx_names (sctx, kctx, cctx, tctx) =
+        (sctx_names sctx, names kctx, names cctx, names tctx) 
+
     fun get_type (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, tctx : tcontext), e : expr) : ty * idx =
 	let val skctx = (sctx, kctx) 
-	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = (sctx_names sctx, names kctx, names cctx, names tctx) 
+	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
 	    val skctxn = (sctxn, kctxn)
 	    (* val () = print (sprintf "Typing $\n" [str_e ctxn e]) *)
 	    val (t, d) =
@@ -1252,11 +809,6 @@ local
 			    end
 			  | t1' => raise Error (mismatch ctxn e1 "(ex _ : _, _)" t1')
 		    end
-		  | Let (e1, name, e2, _) => 
-		    let val (t1, d1) = get_type (ctx, e1)
-			val (t2, d2) = get_type (add_typing_skct (name, t1) ctx, e2) in
-			(t2, d1 %+ d2)
-		    end
 		  | Fix (t, (name, r), e) => 
 		    let val () = check_fix_body e
 			val () = is_wftype (skctx, t)
@@ -1311,14 +863,71 @@ local
 		    (is_wftype (skctx, t);
 		     is_true (sctx, False dummy);
 		     (t, T0 dummy))
+		  (* | Let (e1, name, e2, _) =>  *)
+		  (*   let val (t1, d1) = get_type (ctx, e1) *)
+		  (*       val (t2, d2) = get_type (add_typing_skct (name, t1) ctx, e2) in *)
+		  (*       (t2, d1 %+ d2) *)
+		  (*   end *)
+		  | Let (decs, e, r) => 
+		    let val (ctxd, ctx) = check_decs (ctx, decs)
+	                val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
+			val (t, d) = get_type (ctx, e)
+			val t = lower_t r (sctxn, kctxn) ctxd t 
+                        val ds = get_ds ctxd
+                        val ds = map (lower_d r sctxn ctxd) ds
+			val d = lower_d r sctxn ctxd d
+                    in
+			(t2, foldl (fn (d, acc) => acc %+ d) T0 ds %+ d)
+		    end
 	(* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_t skctxn t, str_e ctxn e, str_i sctxn d]) *)
 	in
 	    (t, d)
 	end
 
+    and check_dec (ctx, dec) =
+        case dec of
+            Val ((name, _), e) =>
+            let val (t, d) = get_type (ctx, e)
+            in
+                ((([], []), [], [], [(name, t)]), d)
+            end
+
+    and check_decs (ctx, decs) = 
+        let fun f (dec, (ctxd, ctx)) =
+                let val ctxd' = check_dec (ctx, dec)
+                    val ctx = add_delta ctxd' ctx
+                    val ctxd = combine_delta ctxd' ctxd
+                in
+                    (ctxd, ctx)
+                end
+        in
+            foldl f ((([], []), [], [], []), ctx) decs
+        end
+
+    and get_ds (_, _, _, tctxd) = map #2 tctxd
+
+    (* placeholders *)
+    and add_delta (_, _, _, tctxd) (sctx, kctx, cctx, tctx) =
+        (sctx, kctx, cctx, map #1 tctxd @ tctx)
+
+    and combine_delta (_, _, _, tctxd) (sctx, kctx, cctx, tctx) =
+        (sctx, kctx, cctx, tctxd @ tctx)
+
+    and lower_t r skctxn ctxd t = 
+        t 
+        handle LowerError name =>
+               raise Error (r, 
+                            [sprintf "$ escapes local scope in type $" [name, str_t skctxn t]])
+
+    and lower_d r sctxn ctxd d = 
+        d
+        handle LowerError name =>
+               raise Error (r, 
+                            [sprintf "$ escapes local scope in time $" [name, str_i sctxn d]])
+
     and check_type (ctx as (sctx, kctx, cctx, tctx), e, t) =
 	let 
-	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = (sctx_names sctx, names kctx, names cctx, names tctx) 
+	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
 	    (* val () = print (sprintf "Type checking $ against $ and $\n" [str_e ctxn e, str_t (sctxn, kctxn) t, str_i sctxn d]) *)
 	    val (t', d') = get_type (ctx, e)
 	in
@@ -1370,162 +979,11 @@ fun vcgen_opt ctx e =
 	     
 end
 
-fun eq_i i i' =
-    case (i, i') of
-        (VarI (x, _), VarI (x', _)) => x = x'
-      | (T0 _, T0 _) => true
-      | (T1 _, T1 _) => true
-      | (Tconst (n, _), Tconst (n', _)) => n = n'
-      | (Tadd (i1, i2), Tadd (i1', i2')) => eq_i i1 i1' andalso eq_i i2 i2'
-      | (Tmult (i1, i2), Tmult (i1', i2')) => eq_i i1 i1' andalso eq_i i2 i2'
-      | (Tmax (i1, i2), Tmax (i1', i2')) => eq_i i1 i1' andalso eq_i i2 i2'
-      | (Tmin (i1, i2), Tmin (i1', i2')) => eq_i i1 i1' andalso eq_i i2 i2'
-      | (TrueI _, TrueI _) => true
-      | (FalseI _, FalseI _) => true
-      | (TTI _, TTI _) => true
-      | _ => false
-
-fun eq_p p p' =
-    case (p, p') of
-        (True _ , True _) => true
-      | (False _, False _) => true
-      | (And (p1, p2), And (p1', p2')) => eq_p p1 p1' andalso eq_p p2 p2'
-      | (Or (p1, p2), Or (p1', p2')) => eq_p p1 p1' andalso eq_p p2 p2'
-      | (Imply (p1, p2), Imply (p1', p2')) => eq_p p1 p1' andalso eq_p p2 p2'
-      | (Iff (p1, p2), Iff (p1', p2')) => eq_p p1 p1' andalso eq_p p2 p2'
-      | (Eq (i1, i2), Eq (i1', i2')) => eq_i i1 i1' andalso eq_i i2 i2'
-      | (TimeLe (i1, i2), TimeLe (i1', i2')) => eq_i i1 i1' andalso eq_i i2 i2'
-      | _ => false
-
-local
-    fun solver (ctx, ps, p) =
-	isSome (List.find (eq_p p) ps) orelse
-	case p of
-	    Imply (p1, p2) => solver (ctx, p1 :: ps, p2)
-	  | Iff (p1, p2) => solver (ctx, p1 :: ps, p2) andalso solver (ctx, p2 :: ps, p1)
-	  | And (p1, p2) => solver (ctx, ps, p1) andalso solver (ctx, ps, p1)
-	  | Or (p1, p2) => solver (ctx, ps, p1) orelse solver (ctx, ps, p1)
-	  | True _ => true
-	  | Eq (i1, i2) => eq_i i1 i2
-	  | TimeLe (i1, i2) => eq_i i1 i2
-	  | _ => false
-
-in
-fun trivial_solver vcs = List.filter (fn vc => solver vc = false) vcs
-end
-
-local
-    fun passi i =
-	case i of
-	    Tmax (i1, i2) =>
-	    if eq_i i1 i2 then
-		(true, i1)
-	    else
-		let val (b1, i1) = passi i1
-		    val (b2, i2) = passi i2 in
-		    (b1 orelse b2, Tmax (i1, i2))
-		end
-	  | Tmin (i1, i2) =>
-	    if eq_i i1 i2 then
-		(true, i1)
-	    else
-		let val (b1, i1) = passi i1
-		    val (b2, i2) = passi i2 in
-		    (b1 orelse b2, Tmin (i1, i2))
-		end
-	  | Tadd (i1, i2) => 
-	    if eq_i i1 (T0 dummy) then (true, i2)
-	    else if eq_i i2 (T0 dummy) then (true, i1)
-	    else
-		let val (b1, i1) = passi i1
-		    val (b2, i2) = passi i2 in
-		    (b1 orelse b2, Tadd (i1, i2))
-		end
-	  | Tmult (i1, i2) => 
-	    if eq_i i1 (T0 dummy) then (true, (T0 dummy))
-	    else if eq_i i2 (T0 dummy) then (true, (T0 dummy))
-	    else if eq_i i1 (T1 dummy) then (true, i2)
-	    else if eq_i i2 (T1 dummy) then (true, i1)
-	    else
-		let val (b1, i1) = passi i1
-		    val (b2, i2) = passi i2 in
-		    (b1 orelse b2, Tmult (i1, i2))
-		end
-	  | _ => (false, i)
-		     
-    fun passp p = 
-	case p of
-	    And (p1, p2) => 
-	    let val (b1, p1) = passp p1
-		val (b2, p2) = passp p2 in
-		(b1 orelse b2, And (p1, p2))
-	    end
-	  | Or (p1, p2) => 
-	    let val (b1, p1) = passp p1
-		val (b2, p2) = passp p2 in
-		(b1 orelse b2, Or (p1, p2))
-	    end
-	  | Imply (p1, p2) => 
-	    let val (b1, p1) = passp p1
-		val (b2, p2) = passp p2 in
-		(b1 orelse b2, Imply (p1, p2))
-	    end
-	  | Iff (p1, p2) => 
-	    let val (b1, p1) = passp p1
-		val (b2, p2) = passp p2 in
-		(b1 orelse b2, Iff (p1, p2))
-	    end
-	  | Eq (i1, i2) => 
-	    let val (b1, i1) = passi i1
-		val (b2, i2) = passi i2 in
-		(b1 orelse b2, Eq (i1, i2))
-	    end
-	  | TimeLe (i1, i2) => 
-	    let val (b1, i1) = passi i1
-		val (b2, i2) = passi i2 in
-		(b1 orelse b2, TimeLe (i1, i2))
-	    end
-	  | _ => (false, p)
-    fun until_unchanged f a = 
-	let fun loop a =
-		let val (changed, a') = f a in
-		    if changed then loop a'
-		    else a
-		end in
-	    loop a
-	end
-in
-val simp_p = until_unchanged passp
-val simp_i = until_unchanged passi
-fun simplify (ctx, ps, p) = (ctx, map simp_p ps, simp_p p)
-end
-
-fun simp_s s =
-    case s of
-	Basic b => Basic b
-      | Subset (b, name, p) => Subset (b, name, simp_p p)
-
-local
-    fun f t =
-	case t of
-	    Arrow (t1, d, t2) => Arrow (f t1, simp_i d, f t2)
-	  | Prod (t1, t2) => Prod (f t1, f t2)
-	  | Sum (t1, t2) => Sum (f t1, f t2)
-	  | Unit r => Unit r
-	  | AppRecur (name, ns, t, is, r) => AppRecur (name, map (mapSnd simp_s) ns, f t, map simp_i is, r)
-	  | AppV (x, ts, is, r) => AppV (x, map f ts, map simp_i is, r)
-	  | Uni (name, t) => Uni (name, f t)
-	  | UniI (s, name, t) => UniI (simp_s s, name, f t)
-	  | ExI (s, name, t) => ExI (simp_s s, name, f t)
-	  | Int r => Int r
-
-in
-val simp_t = f
-end
+open TrivialSolver
 
 fun typecheck (ctx as (sctx, kctx, cctx, tctx) : context) e : (ty * idx) * vc list =
     let 
-	val ctxn as (sctxn, kctxn, cctxn, tctxn) = (sctx_names sctx, names kctx, names cctx, names tctx)
+	val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
 	val ((t, d), vcs) = vcgen ctx e
 	(* val () = print "Simplifying and applying trivial solver ...\n" *)
 	val vcs = trivial_solver vcs
