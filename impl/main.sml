@@ -118,7 +118,7 @@ fun main filename =
     let
 	val e = do_parse filename
 	val e = elaborate e
-	val () = println (E.str_e ([], [], [], []) e)
+	(* val () = println (E.str_e ([], [], [], []) e) *)
 	val e = resolve_expr ctxn e
     in
 	check_file filename ctx e

@@ -1098,7 +1098,7 @@ local
 
     fun mismatch (ctx as (sctx, kctx, _, _)) e expect got =  
         (get_region_e e,
-	 "Type mismatch:" ::
+	 "Type-mismatch:" ::
          indent ["expect: " ^ expect, 
                  "got: " ^ str_t (sctx, kctx) got,
                  "in: " ^ str_e ctx e])
@@ -1130,8 +1130,8 @@ local
 		    let val (t1, d1) = get_type (ctx, e1) in
     			case t1 of
     			    Arrow (t2, d, t) =>
-    			    let val (t2', d2) = get_type (ctx, e2) 
-				val () = is_subtype (skctx, t2', t2) in
+    			    let val d2 = check_type (ctx, e2, t2) 
+                            in
     				(t, d1 %+ d2 %+ T1 dummy %+ d) 
 			    end
     			  | t1' =>  raise Error (mismatch ctxn e1 "(_ -- _ -> _)" t1')
@@ -1246,7 +1246,7 @@ local
 			case t1 of
 			    ExI (s, _, t1') => 
 			    let val ctx' = add_typing_skct (expr_var, t1') (add_sorting_skct (idx_var, s) ctx)
-				val () = check_type (ctx', e2, shift_i_t t, shift_i_i d)
+				val () = check_type_time (ctx', e2, shift_i_t t, shift_i_i d)
 			    in
 				(t, d1 %+ d)
 			    end
@@ -1316,7 +1316,7 @@ local
 	    (t, d)
 	end
 
-    and check_type (ctx as (sctx, kctx, cctx, tctx), e, t, d) =
+    and check_type (ctx as (sctx, kctx, cctx, tctx), e, t) =
 	let 
 	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = (sctx_names sctx, names kctx, names cctx, names tctx) 
 	    (* val () = print (sprintf "Type checking $ against $ and $\n" [str_e ctxn e, str_t (sctxn, kctxn) t, str_i sctxn d]) *)
@@ -1328,6 +1328,13 @@ local
                                 #2 (mismatch ctxn e (str_t (sctxn, kctxn) t) t') @
                                 "Cause:" ::
                                 indent msg);
+            d'
+	end
+
+    and check_type_time (ctx as (sctx, kctx, cctx, tctx), e, t, d) =
+	let 
+	    val d' = check_type (ctx, e, t)
+	in
 	    is_le (sctx, d', d)
 	end
 
@@ -1349,7 +1356,7 @@ local
 	    val (sctx', nt, cover) = match_ptrn (skcctx, pn, t1)
 	    val ctx' = add_typing_skct nt (add_dep_sortings_skct sctx' ctx)
 	in
-	    check_type (ctx', e, shift_pn_t pn t2, shift_pn_i pn d);
+	    check_type_time (ctx', e, shift_pn_t pn t2, shift_pn_i pn d);
 	    cover
 	end
 
