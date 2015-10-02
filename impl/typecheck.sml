@@ -1248,17 +1248,44 @@ fun vcgen ctx e : ((ty * idx) * vc list, string) result =
 	     
 end
 
+fun eq_i i i' =
+    case (i, i') of
+        (VarI (x, _), VarI (x', _)) => x = x'
+      | (T0, T0) => true
+      | (T1, T1) => true
+      | (Tconst n, Tconst n') => n = n'
+      | (Tadd (i1, i2), Tadd (i1', i2')) => eq_i i1 i1' andalso eq_i i2 i2'
+      | (Tmult (i1, i2), Tmult (i1', i2')) => eq_i i1 i1' andalso eq_i i2 i2'
+      | (Tmax (i1, i2), Tmax (i1', i2')) => eq_i i1 i1' andalso eq_i i2 i2'
+      | (Tmin (i1, i2), Tmin (i1', i2')) => eq_i i1 i1' andalso eq_i i2 i2'
+      | (TrueI, TrueI) => true
+      | (FalseI, FalseI) => true
+      | (TTI, TTI) => true
+      | _ => false
+
+fun eq_p p p' =
+    case (p, p') of
+        (True, True) => true
+      | (False, False) => true
+      | (And (p1, p2), And (p1', p2')) => eq_p p1 p1' andalso eq_p p2 p2'
+      | (Or (p1, p2), Or (p1', p2')) => eq_p p1 p1' andalso eq_p p2 p2'
+      | (Imply (p1, p2), Imply (p1', p2')) => eq_p p1 p1' andalso eq_p p2 p2'
+      | (Iff (p1, p2), Iff (p1', p2')) => eq_p p1 p1' andalso eq_p p2 p2'
+      | (Eq (i1, i2), Eq (i1', i2')) => eq_i i1 i1' andalso eq_i i2 i2'
+      | (TimeLe (i1, i2), TimeLe (i1', i2')) => eq_i i1 i1' andalso eq_i i2 i2'
+      | _ => false
+
 local
     fun solver (ctx, ps, p) =
-	isSome (List.find (fn x => x = p) ps) orelse
+	isSome (List.find (eq_p p) ps) orelse
 	case p of
 	    Imply (p1, p2) => solver (ctx, p1 :: ps, p2)
 	  | Iff (p1, p2) => solver (ctx, p1 :: ps, p2) andalso solver (ctx, p2 :: ps, p1)
 	  | And (p1, p2) => solver (ctx, ps, p1) andalso solver (ctx, ps, p1)
 	  | Or (p1, p2) => solver (ctx, ps, p1) orelse solver (ctx, ps, p1)
 	  | True => true
-	  | Eq (i1, i2) => i1 = i2
-	  | TimeLe (i1, i2) => i1 = i2
+	  | Eq (i1, i2) => eq_i i1 i2
+	  | TimeLe (i1, i2) => eq_i i1 i2
 	  | _ => false
 
 in
@@ -1269,7 +1296,7 @@ local
     fun passi i =
 	case i of
 	    Tmax (i1, i2) =>
-	    if i1 = i2 then
+	    if eq_i i1 i2 then
 		(true, i1)
 	    else
 		let val (b1, i1) = passi i1
@@ -1277,7 +1304,7 @@ local
 		    (b1 orelse b2, Tmax (i1, i2))
 		end
 	  | Tmin (i1, i2) =>
-	    if i1 = i2 then
+	    if eq_i i1 i2 then
 		(true, i1)
 	    else
 		let val (b1, i1) = passi i1
@@ -1285,18 +1312,18 @@ local
 		    (b1 orelse b2, Tmin (i1, i2))
 		end
 	  | Tadd (i1, i2) => 
-	    if i1 = T0 then (true, i2)
-	    else if i2 = T0 then (true, i1)
+	    if eq_i i1 T0 then (true, i2)
+	    else if eq_i i2 T0 then (true, i1)
 	    else
 		let val (b1, i1) = passi i1
 		    val (b2, i2) = passi i2 in
 		    (b1 orelse b2, Tadd (i1, i2))
 		end
 	  | Tmult (i1, i2) => 
-	    if i1 = T0 then (true, T0)
-	    else if i2 = T0 then (true, T0)
-	    else if i1 = T1 then (true, i2)
-	    else if i2 = T1 then (true, i1)
+	    if eq_i i1 T0 then (true, T0)
+	    else if eq_i i2 T0 then (true, T0)
+	    else if eq_i i1 T1 then (true, i2)
+	    else if eq_i i2 T1 then (true, i1)
 	    else
 		let val (b1, i1) = passi i1
 		    val (b2, i2) = passi i2 in

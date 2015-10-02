@@ -13,12 +13,12 @@ fun str_b (s : bsort) : string =
 end
 
 signature VAR = sig
-    eqtype var
+    type var
     val str_v : string list -> var -> string
 end
 
 signature T = sig
-    eqtype t
+    type t
 end
 
 (* types *)
@@ -74,7 +74,7 @@ functor TypeFun (structure Var : VAR structure Other : T) = struct
 		 | AppRecur of string * (string * sort) list * ty * idx list
 		 (* the first operant of App can only be a type variable. The degenerated case of no-arguments is also included *)
 		 | AppV of id * ty list * idx list
-		 | Int
+		         | Int
 
 	fun VarT x = AppV (x, [], [])
 	fun AppVar (x, is) = AppV (x, [], is)
@@ -147,7 +147,7 @@ functor TypeFun (structure Var : VAR structure Other : T) = struct
 
 	fun str_k ctx (k : kind) : string = 
 	    case k of
-		ArrowK (n, sorts) => sprintf "($$Type)" [if n = 0 then "" else join " * " (repeat n "Type") ^ " => ", if null sorts then "" else join " * " (map (str_s ctx) sorts) ^ " => "]
+                ArrowK (n, sorts) => sprintf "($$Type)" [if n = 0 then "" else join " * " (repeat n "Type") ^ " => ", if null sorts then "" else join " * " (map (str_s ctx) sorts) ^ " => "]
 
 	end
 
