@@ -1,5 +1,28 @@
-structure RecurExamples = struct
+structure TypeCheckPrint = struct
 open TypeCheck
+
+fun check (ctx as (sctx, kctx, cctx, tctx)) e =
+    let 
+	val ctxn as (sctxn, kctxn, cctxn, tctxn) = (sctx_names sctx, names kctx, names cctx, names tctx)
+    in
+	case typecheck_opt ctx e of
+	    OK ((t, d), vcs) =>
+	    let
+	    in
+		sprintf
+		    "OK: \nExpr: $\nType: $\nTime: $\nVCs: [count=$]\n$\n"
+		    [str_e ctxn e,
+		     str_t (sctxn, kctxn) t,
+		     str_i sctxn d,
+		     str_int (length vcs),
+		     join "\n" (map str_vc vcs)]
+	    end
+	  | Failed msg => sprintf "Failed: $\nExpr: $\n" [msg, str_e ctxn e]
+    end
+end
+
+structure RecurExamples = struct
+open TypeCheckPrint
 
 infix  3 <\     fun x <\ f = fn y => f (x, y)     (* Left section      *)
 infix  3 \>     fun f \> y = f y                  (* Left application  *)
@@ -67,7 +90,7 @@ fun main () = check (([], []), [("b", Type), ("a", Type)], [], []) (map_ (VarT' 
 end
 
 structure DatatypeExamples = struct
-open TypeCheck
+open TypeCheckPrint
 
 infix 7 $
 infix 6 %+
@@ -204,7 +227,7 @@ val wrong = AppConstr' ("NilI", [Int], [T0], Pair (Const 77, NilI_int))
 open Type
 open Expr
 open NameResolve
-open TypeCheck
+open TypeCheckPrint
 
 (* fun main () = check ctx NilI_int *)
 (* fun main () = check ctx ConsI_int *)
@@ -260,6 +283,7 @@ fun do_parse filename =
   end
 
 open Ilist
+open TypeCheckPrint
 					      
 fun main filename =
     let

@@ -563,15 +563,15 @@ fun str_vc (ctx : bscontext, ps, p) =
 (* exception Unimpl *)
 exception Impossible of string
 
-(* use exception and cell to mimic the Error and Writer monads *)
+exception Error of string
+
+fun runError m _ =
+    OK (m ())
+    handle
+    Error msg => Failed msg
+
+(* use cell to mimic the Writer monad *)
 local								    
-
-    exception Error of string
-
-    fun runError m _ =
-	OK (m ())
-	handle
-	Error msg => Failed msg
 
     val acc = ref ([] : vc list)
 
@@ -1243,8 +1243,11 @@ local
 
 in								     
 
-fun vcgen ctx e : ((ty * idx) * vc list, string) result =
-    runError (runWriter (fn () => get_type (ctx, e))) ()
+fun vcgen ctx e : (ty * idx) * vc list =
+    runWriter (fn () => get_type (ctx, e)) ()
+	     
+fun vcgen_opt ctx e : ((ty * idx) * vc list, string) result =
+    runError (fn () => vcgen ctx e) ()
 	     
 end
 
@@ -1401,30 +1404,22 @@ in
 val simp_t = f
 end
 
-fun check (ctx as (sctx, kctx, cctx, tctx)) e =
+fun typecheck (ctx as (sctx, kctx, cctx, tctx) : context) e : (ty * idx) * vc list =
     let 
 	val ctxn as (sctxn, kctxn, cctxn, tctxn) = (sctx_names sctx, names kctx, names cctx, names tctx)
+	val ((t, d), vcs) = vcgen ctx e
+	(* val () = print "Simplifying and applying trivial solver ...\n" *)
+	val vcs = trivial_solver vcs
+	val vcs = map simplify vcs
+	val vcs = trivial_solver vcs
+	val t = simp_t t
+	val d = simp_i d
     in
-	case vcgen ctx e of
-	    OK ((t, d), vcs) =>
-	    let
-		(* val () = print "Simplifying and applying trivial solver ...\n" *)
-		val vcs = trivial_solver vcs
-		val vcs = map simplify vcs
-		val vcs = trivial_solver vcs
-		val t = simp_t t
-		val d = simp_i d
-	    in
-		sprintf
-		    "OK: \nExpr: $\nType: $\nTime: $\nVCs: [count=$]\n$\n"
-		    [str_e ctxn e,
-		     str_t (sctxn, kctxn) t,
-		     str_i sctxn d,
-		     str_int (length vcs),
-		     join "\n" (map str_vc vcs)]
-	    end
-	  | Failed msg => sprintf "Failed: $\nExpr: $\n" [msg, str_e ctxn e]
+        ((t, d), vcs)
     end
+
+fun typecheck_opt ctx e =
+    runError (fn () => typecheck ctx e) ()
 
 end
 			  
