@@ -74,7 +74,7 @@ id_init = ({alpha}|[_']);
 
 <INITIAL>"(" => (print "matched (\n"; T.LPAREN (make_region (yypos, size yytext)));
 <INITIAL>")" => (print "matched )\n"; T.RPAREN (make_region (yypos, size yytext)));
-<INITIAL>"=>" => (T.DRARROW (make_region (yypos, size yytext)));
+<INITIAL>"=>" => (T.DARROW (make_region (yypos, size yytext)));
 <INITIAL>"[" => (T.LSQ (make_region (yypos, size yytext)));
 <INITIAL>"]" => (T.RSQ (make_region (yypos, size yytext)));
 <INITIAL>"{" => (T.LCUR (make_region (yypos, size yytext)));

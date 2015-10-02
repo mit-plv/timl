@@ -7,7 +7,7 @@ open Ast
 %term ID of string
     | LPAREN
     | RPAREN
-    | DRARROW
+    | DARROW
     | FN
     | FIX
     | LSQ
@@ -39,7 +39,7 @@ open Ast
     | EOF
     | FORALL
     | EXISTS
-      (* | APP (* dummy terminal for precedence *) *)
+    | APPR (* dummy terminal for precedence *)
     | MAX
     | MIN
     | BOGUS of string
@@ -81,13 +81,14 @@ open Ast
 		(* %nonassoc LET *)
 		(* %nonassoc RTRI *)
 %nonassoc IFF
-%right ARROW
+(* %right ARROW *)
+%right DDASH
 %right OR
 %right AND
 %nonassoc EQ LE
 %left PLUS
 %left MULT MAX MIN
-		(* %left APP *)
+%right APPR
 
 %eop EOF
 %noshift EOF
@@ -109,14 +110,14 @@ exp : aexp (aexp)
 
 aexp : id (Var id)
      | LPAREN exp_comma_star RPAREN (Tuple (exp_comma_star, (LPARENleft, RPARENright)))
-     (* | LPAREN exp RPAREN (exp) *) (* already covered by previous one *)
-     | abs bind_plus DRARROW exp (Abs (abs, bind_plus, exp, (absleft, expright)))
+                (* | LPAREN exp RPAREN (exp) *) (* already covered by previous one *)
+     | abs bind_plus DARROW exp (Abs (abs, bind_plus, exp, (absleft, expright)))
      | CASE exp return_opt OF rule_bar_star (Case (exp, return_opt, rule_bar_star, (CASEleft, rule_bar_starright)))
      | LET def_star IN exp END (Let (def_star, exp, (LETleft, ENDright)))
 
 ty : aty (aty)
-   | ty aty (AppTT (ty, aty, (tyleft, atyright)))
-   | ty LCUR idx RCUR (AppTI (ty, idx, (tyleft, RCURright)))
+   | aty ty %prec APPR (AppTT (ty, aty, (atyleft, tyright)))
+   | LCUR idx RCUR ty %prec APPR (AppTI (ty, idx, (LCURleft, tyright)))
    | ty DDASH idx ARROW ty (Arrow (ty1, idx, ty2, (ty1left, ty2right)))
    | ty MULT ty (Prod (ty1, ty2, (ty1left, ty2right)))
    | ty PLUS ty (Sum (ty1, ty2, (ty1left, ty2right)))
@@ -161,12 +162,12 @@ abs : FN (Fn)
 
 bind_plus : bind bind_star (bind :: bind_star)
 bind_star : bind bind_star (bind :: bind_star)
-	     | ([])
+	  | ([])
 
 bind : id COLON ty (Typing (id, ty, (idleft, tyright)))
-	| LSQ id RSQ (Kinding id)
-	| LCUR id COLON sort RCUR (Sorting (id, sort, (LCURleft, RCURright)))
-	| LPAREN bind RPAREN (bind)
+     | LSQ id RSQ (Kinding id)
+     | LCUR id COLON sort RCUR (Sorting (id, sort, (LCURleft, RCURright)))
+     | LPAREN bind RPAREN (bind)
 
 return_opt : return (SOME return)
 	   | (NONE)
@@ -179,12 +180,12 @@ rule_bar_star : rule bar_rule_star (rule :: bar_rule_star)
 bar_rule_star : BAR rule bar_rule_star (rule :: bar_rule_star)
 	      | ([])
 
-rule : ptrn DRARROW exp ((ptrn, exp))
+rule : ptrn DARROW exp ((ptrn, exp))
 
 ptrn : id id_cur_space id (Constr (id1, id_cur_space, id2, (id1left, id2right)))
 
 id_cur_space : LCUR id_plus RCUR (id_plus)
-	    | ([])
+	     | ([])
 
 id_plus : ID id_star (ID :: id_star)
 id_star : ID id_star (ID :: id_star)

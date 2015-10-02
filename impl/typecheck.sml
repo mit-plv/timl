@@ -1375,7 +1375,7 @@ fun eq_i i i' =
         (VarI (x, _), VarI (x', _)) => x = x'
       | (T0 _, T0 _) => true
       | (T1 _, T1 _) => true
-      | (Tconst n, Tconst n') => n = n'
+      | (Tconst (n, _), Tconst (n', _)) => n = n'
       | (Tadd (i1, i2), Tadd (i1', i2')) => eq_i i1 i1' andalso eq_i i2 i2'
       | (Tmult (i1, i2), Tmult (i1', i2')) => eq_i i1 i1' andalso eq_i i2 i2'
       | (Tmax (i1, i2), Tmax (i1', i2')) => eq_i i1 i1' andalso eq_i i2 i2'
