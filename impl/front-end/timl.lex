@@ -11,15 +11,17 @@ type lexarg = reporter
 type arg = lexarg
 
 val line = ref 1
-val linestart = ref 0
+val linestart = ref 1
 
 (* debug toggle *)
 val print = fn s => ()
 
 fun inc r = r := !r + 1
+fun make_pos abs : pos = 
+    {abs = abs, line = !line, col = abs - !linestart}
 fun make_region (abs, size) : region = 
-    ({abs = abs, line = !line, col = abs - !linestart}, 
-     {abs = abs + size, line = 0, col = 0})
+    (make_pos abs, 
+     make_pos (abs + size))
 fun update_line yypos = (inc line; linestart := yypos)
 
 fun eof _ = (print "matched eof\n"; T.EOF (make_region (!linestart, 0)))
