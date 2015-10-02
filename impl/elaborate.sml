@@ -19,13 +19,18 @@ local
 	case i of
 	    S.VarI (x, r) =>
 	    if x = "true" then
-		TrueI
+		TrueI r
 	    else if x = "false" then
-		FalseI
+		FalseI r
 	    else
 		VarI (x, r)
-	  | Tint n =>
-	    Tconst n
+	  | Tint (n, r) =>
+            if n = 0 then
+                T0 r
+            else if n = 1 then
+                T1 r
+            else
+	        Tconst (n, r)
 	  | S.Tadd (i1, i2, _) =>
 	    Tadd (elab_i i1, elab_i i2)
 	  | S.Tmult (i1, i2, _) =>
@@ -34,8 +39,8 @@ local
 	    Tmax (elab_i i1, elab_i i2)
 	  | S.Tmin (i1, i2, _) =>
 	    Tmin (elab_i i1, elab_i i2)
-	  | S.TTI _ =>
-	    TTI  
+	  | S.TTI r =>
+	    TTI r
 
     fun elab_p p =
 	case p of
@@ -146,8 +151,7 @@ local
 	  | S.Tuple (es, r) =>
 	    (case es of
 		 [] => TT
-	       | [e1, e2] => Pair (elab e1, elab e2)
-	       | _ => raise Error (r, "Doesn't support tuples other than () and pair"))
+	       | e :: es => foldl (fn (e2, e1) => Pair (e1, elab e2)) (elab e) es)
 	  | S.Abs (abs, binds, e, r) =>
 	    (case abs of
 		 S.Fix => 

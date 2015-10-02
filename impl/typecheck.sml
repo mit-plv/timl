@@ -51,15 +51,15 @@ local
     fun f x n b =
 	case b of
 	    VarI (y, r) => VarI (shiftx_v x n y, r)
-	  | T0 => T0
-	  | T1 => T1
+	  | T0 r => T0 r
+	  | T1 r => T1 r
 	  | Tadd (d1, d2) => Tadd (f x n d1, f x n d2)
 	  | Tmult (d1, d2) => Tmult (f x n d1, f x n d2)
 	  | Tmax (d1, d2) => Tmax (f x n d1, f x n d2)
 	  | Tmin (d1, d2) => Tmin (f x n d1, f x n d2)
-	  | TTI => TTI
-	  | TrueI => TrueI
-	  | FalseI => FalseI
+	  | TTI r => TTI r
+	  | TrueI r => TrueI r
+	  | FalseI r => FalseI r
 	  | Tconst n => Tconst n
 in
 fun shiftx_i_i x n b = f x n b
@@ -201,11 +201,11 @@ local
 	  | Tmult (d1, d2) => Tmult (f x v d1, f x v d2)
 	  | Tmax (d1, d2) => Tmax (f x v d1, f x v d2)
 	  | Tmin (d1, d2) => Tmin (f x v d1, f x v d2)
-	  | T0 => T0
-	  | T1 => T1
-	  | TrueI => TrueI
-	  | FalseI => FalseI
-	  | TTI => TTI
+	  | T0 r => T0 r
+	  | T1 r => T1 r
+	  | TrueI r => TrueI r
+	  | FalseI r => FalseI r
+	  | TTI r => TTI r
 	  | Tconst n => Tconst n
 in
 fun substx_i_i x (v : idx) (b : idx) : idx = f x v b
@@ -609,7 +609,16 @@ local
     fun get_region_i i =
         case i of
             VarI (_, r) => r
-          | _ => raise Unimpl
+          | Tconst (_, r) => r
+          | T0 r => r
+          | T1 r => r
+          | TrueI r => r
+          | FalseI r => r
+          | TTI r => r
+          | Tadd (i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
+          | Tmult (i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
+          | Tmax (i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
+          | Tmin (i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
 
     fun get_region_s s = raise Unimpl
     fun get_region_p p = raise Unimpl
@@ -617,8 +626,6 @@ local
     fun get_region_pn pn = raise Unimpl
     fun get_region_e t = raise Unimpl
     fun get_region_r r = raise Unimpl
-
-    fun combine_regions rs = raise Unimpl
 
     fun get_region_is is =
         combine_regions (map get_region_i is)
@@ -739,8 +746,8 @@ local
 	    (case lookup_sort x ctx of
       		 SOME s => get_base s
       	       | NONE => raise Error (r, ["Unbound index variable: " ^ str_v (sctx_names ctx) x]))
-      	  | T0 => Time
-	  | T1 => Time
+      	  | T0 _ => Time
+	  | T1 _ => Time
 	  | Tadd (d1, d2) => 
 	    (check_bsort (ctx, d1, Time);
 	     check_bsort (ctx, d2, Time);
@@ -757,9 +764,9 @@ local
 	    (check_bsort (ctx, d1, Time);
 	     check_bsort (ctx, d2, Time);
 	     Time)
-	  | TrueI => Bool
-	  | FalseI => Bool
-	  | TTI => BSUnit
+	  | TrueI _ => Bool
+	  | FalseI _ => Bool
+	  | TTI _ => BSUnit
 	  | Tconst (n, r) => 
 	    if n >= 0 then
 		Time
@@ -1002,7 +1009,7 @@ local
     fun fetch_constr_type (ctx, cx) =
 	let val (cname, (family, tnames, ns, t, is)) = fetch_constr (ctx, cx)
 	    val ts = (map (fn x => VarT (x, dummy)) o rev o range o length) tnames
-	    val t = Arrow (t, T0, AppV ((shiftx_v 0 (length tnames) family, dummy), ts, is))
+	    val t = Arrow (t, T0 dummy, AppV ((shiftx_v 0 (length tnames) family, dummy), ts, is))
 	    val t = foldr (fn ((name, s), t) => UniI (s, name, t)) t ns
 	    val t = foldr Uni t tnames
 	in
@@ -1064,7 +1071,7 @@ local
 		case e of
 		    Var (x, r) =>
 		    (case lookup x tctx of
-      			 SOME t => (t, T0)
+      			 SOME t => (t, T0 dummy)
       		       | NONE => raise Error (r, ["Unbound variable: " ^ str_v tctxn x]))
 		  | App (e1, e2) =>
 		    let val (t1, d1) = get_type (ctx, e1) in
@@ -1072,16 +1079,16 @@ local
     			    Arrow (t2, d, t) =>
     			    let val (t2', d2) = get_type (ctx, e2) 
 				val () = is_subtype (skctx, t2', t2) in
-    				(t, d1 %+ d2 %+ T1 %+ d) 
+    				(t, d1 %+ d2 %+ T1 dummy %+ d) 
 			    end
     			  | t1' =>  raise Error (mismatch ctxn e1 "(_ -- _ -> _)" t1')
 		    end
 		  | Abs (t, varname, e) => 
 		    let val () = is_wftype (skctx, t)
 			val (t1, d) = get_type (add_typing_skct (varname, t) ctx, e) in
-			(Arrow (t, d, t1), T0)
+			(Arrow (t, d, t1), T0 dummy)
 		    end
-		  | TT => (Unit, T0)
+		  | TT => (Unit, T0 dummy)
 		  | Pair (e1, e2) => 
 		    let val (t1, d1) = get_type (ctx, e1) 
 			val (t2, d2) = get_type (ctx, e2) in
@@ -1123,7 +1130,7 @@ local
 		  | AbsT (name, e) => 
 		    if is_value e then
 			let val (t, _) = get_type (add_kinding_skct (name, Type) ctx, e) in
-			    (Uni (name, t), T0)
+			    (Uni (name, t), T0 dummy)
 			end 
 		    else
 			raise Error (get_region_e e, ["The body of a universal abstraction must be a value"])
@@ -1140,7 +1147,7 @@ local
 		    if is_value e then
 			let val () = is_wfsort (sctx, s)
 			    val (t, _) = get_type ((add_sorting_skct (name, s) ctx), e) in
-			    (UniI (s, name, t), T0)
+			    (UniI (s, name, t), T0 dummy)
 			end 
 		    else
 			raise Error (get_region_e e, ["The body of a universal abstraction must be a value"])
@@ -1202,7 +1209,7 @@ local
 			val () = is_wftype (skctx, t)
 			val (t1, _) = get_type (add_typing_skct (name, t) ctx, e)
 			val () = is_subtype (skctx, t1, t) in
-			(t, T0)
+			(t, T0 dummy)
 		    end
 		  | Ascription (e, t) => 
 		    let val () = is_wftype (skctx, t)
@@ -1221,10 +1228,10 @@ local
 			val (t2, d2) = get_type (ctx, e2) in
 			is_subtype (skctx, t1, Int);
 			is_subtype (skctx, t2, Int);
-			(Int, d1 %+ d2 %+ T1)
+			(Int, d1 %+ d2 %+ T1 dummy)
 		    end
 		  | Const _ => 
-		    (Int, T0)
+		    (Int, T0 dummy)
 		  | AppConstr (cx, ts, is, e) => 
 		    let val (cname, tc) = fetch_constr_type (cctx, cx)
 			val () = is_wftype (skctx, tc)
@@ -1250,7 +1257,7 @@ local
 		  | Never t => 
 		    (is_wftype (skctx, t);
 		     is_true (sctx, False);
-		     (t, T0))
+		     (t, T0 dummy))
 	(* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_t skctxn t, str_e ctxn e, str_i sctxn d]) *)
 	in
 	    (t, d)
@@ -1306,16 +1313,16 @@ end
 fun eq_i i i' =
     case (i, i') of
         (VarI (x, _), VarI (x', _)) => x = x'
-      | (T0, T0) => true
-      | (T1, T1) => true
+      | (T0 _, T0 _) => true
+      | (T1 _, T1 _) => true
       | (Tconst n, Tconst n') => n = n'
       | (Tadd (i1, i2), Tadd (i1', i2')) => eq_i i1 i1' andalso eq_i i2 i2'
       | (Tmult (i1, i2), Tmult (i1', i2')) => eq_i i1 i1' andalso eq_i i2 i2'
       | (Tmax (i1, i2), Tmax (i1', i2')) => eq_i i1 i1' andalso eq_i i2 i2'
       | (Tmin (i1, i2), Tmin (i1', i2')) => eq_i i1 i1' andalso eq_i i2 i2'
-      | (TrueI, TrueI) => true
-      | (FalseI, FalseI) => true
-      | (TTI, TTI) => true
+      | (TrueI _, TrueI _) => true
+      | (FalseI _, FalseI _) => true
+      | (TTI _, TTI _) => true
       | _ => false
 
 fun eq_p p p' =
@@ -1367,18 +1374,18 @@ local
 		    (b1 orelse b2, Tmin (i1, i2))
 		end
 	  | Tadd (i1, i2) => 
-	    if eq_i i1 T0 then (true, i2)
-	    else if eq_i i2 T0 then (true, i1)
+	    if eq_i i1 (T0 dummy) then (true, i2)
+	    else if eq_i i2 (T0 dummy) then (true, i1)
 	    else
 		let val (b1, i1) = passi i1
 		    val (b2, i2) = passi i2 in
 		    (b1 orelse b2, Tadd (i1, i2))
 		end
 	  | Tmult (i1, i2) => 
-	    if eq_i i1 T0 then (true, T0)
-	    else if eq_i i2 T0 then (true, T0)
-	    else if eq_i i1 T1 then (true, i2)
-	    else if eq_i i2 T1 then (true, i1)
+	    if eq_i i1 (T0 dummy) then (true, (T0 dummy))
+	    else if eq_i i2 (T0 dummy) then (true, (T0 dummy))
+	    else if eq_i i1 (T1 dummy) then (true, i2)
+	    else if eq_i i2 (T1 dummy) then (true, i1)
 	    else
 		let val (b1, i1) = passi i1
 		    val (b2, i2) = passi i2 in

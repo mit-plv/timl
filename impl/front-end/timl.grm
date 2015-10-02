@@ -109,9 +109,9 @@ exp : aexp (aexp)
 
 aexp : id (Var id)
      | LPAREN exp_comma_star RPAREN (Tuple (exp_comma_star, (LPARENleft, RPARENright)))
+     (* | LPAREN exp RPAREN (exp) *) (* already covered by previous one *)
      | abs binding_plus DRARROW exp (Abs (abs, binding_plus, exp, (absleft, expright)))
      | CASE exp return_opt OF rule_bar_star (Case (exp, return_opt, rule_bar_star, (CASEleft, rule_bar_starright)))
-     | LPAREN exp RPAREN (exp)
      | LET def_star IN exp END (Let (def_star, exp, (LETleft, ENDright)))
 
 ty : aty (aty)

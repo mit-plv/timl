@@ -47,12 +47,14 @@ fun VarT' x =  VarT (x, dummy)
 fun AppV' (x, ts, is) =  AppV ((x, dummy), ts, is)
 fun AppConstr' (x, ts, is, e) =  AppConstr ((x, dummy), ts, is, e)
 fun Constr' (x, inames, ename) =  Constr ((x, dummy), inames, ename)
+val T0' = T0 dummy
+val T1' = T1 dummy
 
 val ilist = ArrowK (1, [STime])
-fun NilI family = (family, ["a"], [], Unit, [T0])
-fun ConsI family = (family, ["a"], [("n", STime)], Prod (VarT' "a", AppV' (family, [VarT' "a"], [VarI' "n"])), [VarI' "n" %+ T1])
+fun NilI family = (family, ["a"], [], Unit, [T0'])
+fun ConsI family = (family, ["a"], [("n", STime)], Prod (VarT' "a", AppV' (family, [VarT' "a"], [VarI' "n"])), [VarI' "n" %+ T1'])
 val NilI_int = AppConstr' ("NilI", [Int], [], TT)
-val ConsI_int = AppConstr' ("ConsI", [Int], [T0], Pair (Const 77, NilI_int))
+val ConsI_int = AppConstr' ("ConsI", [Int], [T0'], Pair (Const 77, NilI_int))
 
 open Type
 open Expr

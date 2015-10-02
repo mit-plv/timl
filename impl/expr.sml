@@ -34,15 +34,15 @@ functor TypeFun (structure Var : VAR structure Other : DEBUG) = struct
 
 	datatype idx =
 		 VarI of var * other
-		 | T0
-		 | T1
+		 | T0 of other
+		 | T1 of other
 		 | Tadd of idx * idx
 		 | Tmult of idx * idx
 		 | Tmax of idx * idx
 		 | Tmin of idx * idx
-		 | TrueI
-		 | FalseI
-		 | TTI
+		 | TrueI of other
+		 | FalseI of other
+		 | TTI of other
 		 | Tconst of int * other
 
 	datatype prop =
@@ -98,15 +98,15 @@ functor TypeFun (structure Var : VAR structure Other : DEBUG) = struct
 	fun str_i ctx (i : idx) : string = 
 	    case i of
 		VarI (x, _) => str_v ctx x
-	      | T0 => "0"
-	      | T1 => "1"
+	      | T0 _ => "0"
+	      | T1 _ => "1"
 	      | Tadd (d1, d2) => sprintf "($ + $)" [str_i ctx d1, str_i ctx d2]
 	      | Tmult (d1, d2) => sprintf "($ * $)" [str_i ctx d1, str_i ctx d2]
 	      | Tmax (d1, d2) => sprintf "(max $ $)" [str_i ctx d1, str_i ctx d2]
 	      | Tmin (d1, d2) => sprintf "(min $ $)" [str_i ctx d1, str_i ctx d2]
-	      | TTI => "()"
-	      | TrueI => "true"
-	      | FalseI => "false"
+	      | TTI _ => "()"
+	      | TrueI _ => "true"
+	      | FalseI _ => "false"
 	      | Tconst (n, _) => str_int n
 
 	fun str_p ctx p = 

@@ -25,15 +25,15 @@ local
     fun on_idx ctx i =
 	case i of
 	    T.VarI x => VarI (on_var ctx x)
-	  | T.T0 => T0
-	  | T.T1 => T1
+	  | T.T0 r => T0 r
+	  | T.T1 r => T1 r
 	  | T.Tadd (i1, i2) => Tadd (on_idx ctx i1, on_idx ctx i2)
 	  | T.Tmult (i1, i2) => Tmult (on_idx ctx i1, on_idx ctx i2)
 	  | T.Tmax (i1, i2) => Tmax (on_idx ctx i1, on_idx ctx i2)
 	  | T.Tmin (i1, i2) => Tmin (on_idx ctx i1, on_idx ctx i2)
-	  | T.TrueI => TrueI
-	  | T.FalseI => FalseI
-	  | T.TTI => TTI
+	  | T.TrueI r => TrueI r
+	  | T.FalseI r => FalseI r
+	  | T.TTI r => TTI r
 	  | T.Tconst n => Tconst n
 
     fun on_prop ctx p =
