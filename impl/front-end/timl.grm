@@ -53,6 +53,7 @@ open Ast
        | sort of sort
        | bsort of bsort
        | prop of prop
+       | id of id
        | exp_comma_star of exp list
        | comma_exp_star of exp list
        | abs of abs
@@ -106,7 +107,7 @@ exp : aexp (aexp)
     | exp COLON ty (Ascription (exp, ty, (expleft, tyright)))
     | exp RTRI idx (AscriptionTime (exp, idx, (expleft, idxright)))
 
-aexp : ID (Var (ID, (IDleft, IDright)))
+aexp : id (Var id)
      | LPAREN exp_comma_star RPAREN (Tuple (exp_comma_star, (LPARENleft, RPARENright)))
      | abs binding_plus DRARROW exp (Abs (abs, binding_plus, exp, (absleft, expright)))
      | CASE exp return_opt OF rule_bar_star (Case (exp, return_opt, rule_bar_star, (CASEleft, rule_bar_starright)))
@@ -120,12 +121,12 @@ ty : aty (aty)
    | ty MULT ty (Prod (ty1, ty2, (ty1left, ty2right)))
    | ty PLUS ty (Sum (ty1, ty2, (ty1left, ty2right)))
 
-aty : ID (VarT (ID, (IDleft, IDright)))
+aty : id (VarT id)
     | quan binding_plus COMMA ty (Quan (quan, binding_plus, ty, (quanleft, tyright)))
     | MU ID binding_star COMMA ty (Recur (ID, binding_star, ty, (MUleft, tyright)))
     | LPAREN ty RPAREN (ty)
 
-idx : ID (VarI (ID, (IDleft, IDright)))
+idx : id (VarI id)
     | INT (Tint (INT, (INTleft, INTright)))
     | idx PLUS idx (Tadd (idx1, idx2, (idx1left, idx2right)))
     | idx MULT idx (Tmult (idx1, idx2, (idx1left, idx2right)))
@@ -137,15 +138,17 @@ idx : ID (VarI (ID, (IDleft, IDright)))
 sort : bsort (Basic (bsort, (bsortleft, bsortright)))
      | LCUR ID COLON bsort BAR prop RCUR (Subset (bsort, ID, prop, (LCURleft, RCURright)))
 
-bsort : ID (Bsort (ID, (IDleft, IDright)))
+bsort : id (Bsort id)
 
-prop : ID (Pconst (ID, (IDleft, IDright)))
+prop : id (Pconst id)
      | prop AND prop (And (prop1, prop2, (prop1left, prop2right)))
      | prop OR prop (Or (prop1, prop2, (prop1left, prop2right)))
      | prop ARROW prop (Imply (prop1, prop2, (prop1left, prop2right)))
      | prop IFF prop (Iff (prop1, prop2, (prop1left, prop2right)))
      | idx EQ idx (Eq (idx1, idx2, (idx1left, idx2right)))
      | idx LE idx (TimeLe (idx1, idx2, (idx1left, idx2right)))
+
+id : ID ((ID, (IDleft, IDright)))
 
 exp_comma_star : exp comma_exp_star (exp :: comma_exp_star)
 	       | ([])
@@ -178,7 +181,7 @@ bar_rule_star : BAR rule bar_rule_star (rule :: bar_rule_star)
 
 rule : ptrn DRARROW exp ((ptrn, exp))
 
-ptrn : ID id_cur_space ID (Constr (ID1, id_cur_space, ID2, (ID1left, ID2right)))
+ptrn : id id_cur_space ID (Constr (id, id_cur_space, ID, (idleft, IDright)))
 
 id_cur_space : LCUR id_plus RCUR (id_plus)
 	    | ([])

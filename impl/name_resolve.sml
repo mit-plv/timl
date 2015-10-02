@@ -4,22 +4,23 @@ structure E = NamefulExpr
 open Type
 open Expr
 
-exception Error of string
+open Region
+exception Error of region * string
 
 local
 
     fun runError m _ =
 	OK (m ())
 	handle
-	Error msg => Failed msg
+	Error e => Failed e
 
     fun find_idx (x : string) ctx =
 	Option.map #1 (List.find (fn (_, y) => y = x) (add_idx ctx))
 
-    fun on_var ctx x =
+    fun on_var ctx (x, r) =
 	case find_idx x ctx of
-	    SOME i => i
-	  | NONE => raise Error ("Unbound variable " ^ x)
+	    SOME i => (i, r)
+	  | NONE => raise Error (r, "Unbound variable " ^ x)
 
     fun on_idx ctx i =
 	case i of
@@ -98,9 +99,9 @@ local
 		    val (e1, ts) = get_ts e1
 		in
 		    case e1 of
-			E.Var x =>
+			E.Var (x, r) =>
 			(case find_idx x cctx of
-			     SOME i => AppConstr (i, map (on_type skctx) ts, map (on_idx sctx) is, e2)
+			     SOME i => AppConstr ((i, r), map (on_type skctx) ts, map (on_idx sctx) is, e2)
 			   | NONE => default ())
 		      | _ => default ()
 		end
@@ -130,10 +131,10 @@ local
 	      | E.Never t => Never (on_type skctx t)
 	end
 
-    fun on_constr (ctx as (sctx, kctx)) (family, tnames, name_sorts, t, is) =
+    fun on_constr (ctx as (sctx, kctx)) ((family, tnames, name_sorts, t, is) : T.constr) : constr =
 	let val sctx' = rev (map #1 name_sorts) @ sctx
 	in
-	    (on_var kctx family, tnames, 
+	    (#1 (on_var kctx (family, dummy_region)), tnames, 
 	     (rev o #1) (foldl (fn ((name, s), (acc, names)) => ((name, on_sort (names @ sctx) s) :: acc, name :: names)) ([], []) name_sorts),
 	     on_type (sctx', rev tnames @ kctx) t,
 	     map (on_idx sctx') is
@@ -147,10 +148,13 @@ local
 in
 val resolve_type = on_type
 val resolve_expr = on_expr
+
 val resolve_constr = on_constr
 val resolve_kind = on_kind
+
 fun resolve_type_opt ctx e = runError (fn () => on_type ctx e) ()
 fun resolve_expr_opt ctx e = runError (fn () => on_expr ctx e) ()
+
 fun resolve_constr_opt ctx e = runError (fn () => on_constr ctx e) ()
 fun resolve_kind_opt ctx e = runError (fn () => on_kind ctx e) ()
 end

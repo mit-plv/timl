@@ -1,8 +1,3 @@
-signature VAR = sig
-    eqtype var
-    val str_v : string list -> var -> string
-end
-
 structure BasicSorts = struct
 (* basic index sort *)
 datatype bsort =
@@ -17,14 +12,26 @@ fun str_b (s : bsort) : string =
       | BSUnit => "Unit"
 end
 
+signature VAR = sig
+    eqtype var
+    val str_v : string list -> var -> string
+end
+
+signature T = sig
+    eqtype t
+end
+
 (* types *)
-functor TypeFun (structure Var : VAR) = struct
+functor TypeFun (structure Var : VAR structure Other : T) = struct
 	open Var
 	open BasicSorts
 	open Util
 
+	type other = Other.t
+	type id = var * other
+
 	datatype idx =
-		 VarI of var
+		 VarI of var * other
 		 | T0
 		 | T1
 		 | Tadd of idx * idx
@@ -66,7 +73,7 @@ functor TypeFun (structure Var : VAR) = struct
 		 (* the kind of Recur is sort => Type, to allow for change of index *)
 		 | AppRecur of string * (string * sort) list * ty * idx list
 		 (* the first operant of App can only be a type variable. The degenerated case of no-arguments is also included *)
-		 | AppV of var * ty list * idx list
+		 | AppV of id * ty list * idx list
 		 | Int
 
 	fun VarT x = AppV (x, [], [])
@@ -88,7 +95,7 @@ functor TypeFun (structure Var : VAR) = struct
 
 	fun str_i ctx (i : idx) : string = 
 	    case i of
-		VarI x => str_v ctx x
+		VarI (x, _) => str_v ctx x
 	      | T0 => "0"
 	      | T1 => "1"
 	      | Tadd (d1, d2) => sprintf "($ + $)" [str_i ctx d1, str_i ctx d2]
@@ -131,7 +138,7 @@ functor TypeFun (structure Var : VAR) = struct
 			 join " " (map (fn (name, s) => sprintf "($ :: $)" [name, str_s sctx s]) ns),
 			 str_t (rev (map #1 ns) @ sctx, name :: kctx) t,
 			 join " " (map (str_i sctx) i)]
-	      | AppV (x, ts, is) => 
+	      | AppV ((x, _), ts, is) => 
 		if null ts andalso null is then
 		    str_v kctx x
 		else
@@ -154,23 +161,21 @@ signature TYPE = sig
 end
 
 (* expressions *)
-functor ExprFun (structure Var : VAR structure Type : TYPE) = struct
+functor ExprFun (structure Var : VAR structure Type : TYPE structure Other : T) = struct
 	open Var
 	open Type
 	open Util
 
+	type other = Other.t
+	type id = var * other
+
 	datatype ptrn =
-		 Constr of var * string list * string
+		 Constr of id * string list * string
 
 	datatype expr =
-		 Var of var
+		 Var of var * other
 		 | App of expr * expr
 		 | Abs of ty * string * expr (* string is the variable name only for debug purpose *)
-		 (* convenience facilities *)
-		 | Fix of ty * string * expr
-		 | Let of expr * string * expr
-		 | Ascription of expr * ty
-		 | AscriptionTime of expr * idx
 		 (* unit type *)
 		 | TT
 		 (* product type *)
@@ -195,13 +200,17 @@ functor ExprFun (structure Var : VAR structure Type : TYPE) = struct
 		 | Unfold of expr
 		 | Plus of expr * expr
 		 | Const of int
-		 | AppConstr of var * ty list * idx list * expr
+		 | AppConstr of id * ty list * idx list * expr
 		 | Case of expr * ty * idx * (ptrn * expr) list
 		 | Never of ty
+		 | Let of expr * string * expr
+		 | Fix of ty * string * expr
+		 | Ascription of expr * ty
+		 | AscriptionTime of expr * idx
 
 	fun str_pn ctx pn = 
 	    case pn of
-		Constr (x, inames, ename) => sprintf "$ $ $" [str_v ctx x, join " " inames, ename]
+		Constr ((x, _), inames, ename) => sprintf "$ $ $" [str_v ctx x, join " " inames, ename]
 
 	fun ptrn_names pn =
 	    case pn of
@@ -212,7 +221,7 @@ functor ExprFun (structure Var : VAR structure Type : TYPE) = struct
 		val skctx = (sctx, kctx) 
 	    in
 		case e of
-		    Var x => str_v tctx x
+		    Var (x, _) => str_v tctx x
 		  | Abs (t, name, e) => sprintf "(fn ($ : $) => $)" [name, str_t skctx t, str_e (add_t name ctx) e]
 		  | App (e1, e2) => sprintf "($ $)" [str_e ctx e1, str_e ctx e2]
 		  | TT => "()"
@@ -236,7 +245,7 @@ functor ExprFun (structure Var : VAR structure Type : TYPE) = struct
 		  | AscriptionTime (e, d) => sprintf "($ |> $)" [str_e ctx e, str_i sctx d]
 		  | Plus (e1, e2) => sprintf "($ + $)" [str_e ctx e1, str_e ctx e2]
 		  | Const n => str_int n
-		  | AppConstr (x, ts, is, e) => sprintf "($$$ $)" [str_v cctx x, (join "" o map (prefix " ") o map (fn t => sprintf "[$]" [str_t skctx t])) ts, (join "" o map (prefix " ") o map (fn i => sprintf "[$]" [str_i sctx i])) is, str_e ctx e]
+		  | AppConstr ((x, _), ts, is, e) => sprintf "($$$ $)" [str_v cctx x, (join "" o map (prefix " ") o map (fn t => sprintf "[$]" [str_t skctx t])) ts, (join "" o map (prefix " ") o map (fn i => sprintf "[$]" [str_i sctx i])) is, str_e ctx e]
 		  | Case (e, t, d, rules) => sprintf "(case $ return $ |> $ of $)" [str_e ctx e, str_t skctx t, str_i sctx d, join " | " (map (str_rule ctx) rules)]
 		  | Never t => sprintf "(never [$])" [str_t skctx t]
 	    end
@@ -265,8 +274,13 @@ fun str_v ctx x : string =
       | NONE => "unbound_" ^ str_int x
 end
 
-structure NamefulType = TypeFun (structure Var = StringVar)
-structure NamefulExpr = ExprFun (structure Var = StringVar structure Type = NamefulType)
-structure Type = TypeFun (structure Var = IntVar)
-structure Expr = ExprFun (structure Var = IntVar structure Type = Type)
+structure R = struct
+open Region
+type t = region
+end
+
+structure NamefulType = TypeFun (structure Var = StringVar structure Other = R)
+structure NamefulExpr = ExprFun (structure Var = StringVar structure Type = NamefulType structure Other = R)
+structure Type = TypeFun (structure Var = IntVar structure Other = R)
+structure Expr = ExprFun (structure Var = IntVar structure Type = Type structure Other = R)
 

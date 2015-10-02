@@ -17,13 +17,13 @@ local
 
     fun elab_i i =
 	case i of
-	    S.VarI (x, _) =>
+	    S.VarI (x, r) =>
 	    if x = "true" then
 		TrueI
 	    else if x = "false" then
 		FalseI
 	    else
-		VarI x
+		VarI (x, r)
 	  | Tint (n, _) =>
 	    Tconst n
 	  | S.Tadd (i1, i2, _) =>
@@ -87,7 +87,7 @@ local
     fun is_var_app_ts t = 
 	let val (t, ts) = get_ts t in
 	    case t of
-		S.VarT (x, _) => SOME (x, ts)
+		S.VarT x => SOME (x, ts)
 	      | _ => NONE
 	end
 
@@ -104,7 +104,7 @@ local
 		end
 	in
 	    case t of
-		S.VarT (x, _) => AppV (x, [], [])
+		S.VarT x => AppV (x, [], [])
 	      | S.Arrow (t1, d, t2, _) => Arrow (elab_t t1, elab_i d, elab_t t2)
 	      | S.Prod (t1, t2, _) => Prod (elab_t t1, elab_t t2)
 	      | S.Sum (t1, t2, _) => Sum (elab_t t1, elab_t t2)
@@ -144,7 +144,7 @@ local
 
     fun elab e =
 	case e of
-	    S.Var (x, _) => Var x
+	    S.Var x => Var x
 	  | S.Tuple (es, r) =>
 	    (case es of
 		 [] => TT
@@ -191,7 +191,7 @@ local
 	    AppI (elab e, elab_i i)
 	  | S.Case (e, NONE, rules, r) =>
 	    (case rules of
-		 [(S.Constr (c1, [], x1, _), e1), (S.Constr (c2, [], x2, _), e2)] =>
+		 [(S.Constr ((c1, _), [], x1, _), e1), (S.Constr ((c2, _), [], x2, _), e2)] =>
 		 let 
 		     val ((x1, e1), (x2, e2)) =
 			 if c1 = "inl" andalso c2 = "inr" then
@@ -212,7 +212,7 @@ local
 		    Case (elab e, elab_t t, elab_i d, map (fn (pn, e) => (elab_pn pn, elab e)) rules)
 	    in
 		case rules of
-		    [(S.Constr (c, [iname], ename, _), e1)] =>
+		    [(S.Constr ((c, _), [iname], ename, _), e1)] =>
 		    if c = "pack" then
 			Unpack (elab e, elab_t t, elab_i d, iname, ename, elab e1)
 		    else

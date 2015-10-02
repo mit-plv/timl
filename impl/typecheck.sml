@@ -1,4 +1,5 @@
 structure TypeCheck = struct
+open Region
 open Type
 open Expr
 
@@ -49,7 +50,7 @@ fun shiftx_v x n y =
 local
     fun f x n b =
 	case b of
-	    VarI y => VarI (shiftx_v x n y)
+	    VarI (y, r) => VarI (shiftx_v x n y, r)
 	  | T0 => T0
 	  | T1 => T1
 	  | Tadd (d1, d2) => Tadd (f x n d1, f x n d2)
@@ -120,7 +121,7 @@ local
 	  | UniI (s, name, t) => UniI (s, name, f x n t)
 	  | ExI (s, name, t) => ExI (s, name, f x n t)
 	  | AppRecur (name, ns, t, i) => AppRecur (name, ns, f (x + 1) n t, i)
-	  | AppV (y, ts, is) => AppV (shiftx_v x n y, map (f x n) ts, is)
+	  | AppV ((y, r), ts, is) => AppV ((shiftx_v x n y, r), map (f x n) ts, is)
 	  | Int => Int
 
 in
@@ -143,7 +144,7 @@ fun shift_pn_t pn t =
 local
     fun f x n b =
 	case b of
-	    Var y => Var (shiftx_v x n y)
+	    Var (y, r) => Var (shiftx_v x n y, r)
 	  | Abs (t, name, e) => Abs (t, name, f (x + 1) n e)
 	  | App (e1, e2) => App (f x n e1, f x n e2)
 	  | TT => TT
@@ -189,13 +190,13 @@ exception Subst of string
 local
     fun f x v b =
 	case b of
-	    VarI y =>
+	    VarI (y, r) =>
 	    if y = x then
 		v
 	    else if y > x then
-		VarI (y - 1)
+		VarI (y - 1, r)
 	    else
-		VarI y
+		VarI (y, r)
 	  | Tadd (d1, d2) => Tadd (f x v d1, f x v d2)
 	  | Tmult (d1, d2) => Tmult (f x v d1, f x v d2)
 	  | Tmax (d1, d2) => Tmax (f x v d1, f x v d2)
@@ -273,7 +274,7 @@ local
 	  | UniI (s, name, t) => UniI (s, name, f x (shift_i 1 v) t)
 	  | ExI (s, name, t) => ExI (s, name, f x (shift_i 1 v) t)
 	  | AppRecur (name, ns, t, i) => AppRecur (name, ns, f (x + 1) (shift_i (length ns) (shift_t v)) t, i)
-	  | AppV (y, ts, is) => 
+	  | AppV ((y, r), ts, is) => 
 	    if y = x then
 		case v of
 		    Type t =>
@@ -287,9 +288,9 @@ local
 		    else
 			raise Subst "can't substitute recursive type definition for this type variable because this application has type arguments"
 	    else if y > x then
-		AppV (y - 1, map (f x v) ts, is)
+		AppV ((y - 1, r), map (f x v) ts, is)
 	    else
-		AppV (y, map (f x v) ts, is)
+		AppV ((y, r), map (f x v) ts, is)
 	  | Int => Int
 
     and shift_i n v =
@@ -701,7 +702,7 @@ local
 
     and get_bsort (ctx, i) =
 	case i of
-	    VarI x =>
+	    VarI (x, _) =>
 	    (case lookup_sort x ctx of
       		 SOME s => get_base s
       	       | NONE => raise Error ("Unbound index variable " ^ str_v (sctx_names ctx) x))
@@ -777,7 +778,7 @@ local
 		    is_wftype (add_nondep_sortings_sk (rev ns) (add_kinding_sk (nameself, recur_kind s) ctx), t);
 		    check_sorts (sctx, i, s)
 		end
-	      | AppV (x, ts, is) => 
+	      | AppV ((x, _), ts, is) => 
 		(case fetch_kind (kctx, x) of
 		     ArrowK (n, sorts) => 
 		     (check_length_n (n, ts);
@@ -821,7 +822,7 @@ local
 		    val ctx' = add_nondep_sortings_sk (rev ns) (add_kinding_sk (nameself, recur_kind s) ctx) in
 		    is_eqvtype (ctx', t, t')
 		end
-	      | (AppV (a, ts, is), AppV (a', ts', is')) => 
+	      | (AppV ((a, _), ts, is), AppV ((a', _), ts', is')) => 
 		if a = a' then
 		    (app (fn (t, t') => is_eqvtype (ctx, t, t')) (ListPair.zip (ts, ts'));
 		     case fetch_kind (kctx, a) of
@@ -949,7 +950,7 @@ local
 
     fun check_exhaustive ((_, _, cctx), t, cover) =
 	case t of
-	    AppV (family, _, _) =>
+	    AppV ((family, _), _, _) =>
 	    let val all = get_family_members cctx family
 		val missed = diff op= all cover
 	    in
@@ -965,8 +966,8 @@ local
 
     fun fetch_constr_type (ctx, cx) =
 	let val (cname, (family, tnames, ns, t, is)) = fetch_constr (ctx, cx)
-	    val ts = (map VarT o rev o range o length) tnames
-	    val t = Arrow (t, T0, AppV (shiftx_v 0 (length tnames) family, ts, is))
+	    val ts = (map (fn x => VarT (x, dummy_region)) o rev o range o length) tnames
+	    val t = Arrow (t, T0, AppV ((shiftx_v 0 (length tnames) family, dummy_region), ts, is))
 	    val t = foldr (fn ((name, s), t) => UniI (s, name, t)) t ns
 	    val t = foldr Uni t tnames
 	in
@@ -974,11 +975,11 @@ local
 	end
 
     (* t is already checked for wellformedness *)
-    fun match_ptrn (ctx as (sctx, kctx, cctx), pn, t) =
-	let val skctxn as (sctxn, _) = (sctx_names sctx, names kctx)
+    fun match_ptrn (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext), pn : ptrn, t) =
+	let val skctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
 	in
 	    case (pn, t) of
-		(Constr (cx, inames, ename), AppV (x, ts, is)) =>
+		(Constr ((cx, _), inames, ename), AppV ((x, _), ts, is)) =>
 		let val (_, c as (x', tnames, ns, t1, is')) = fetch_constr (cctx, cx)
 		in
 		    if x' = x then
@@ -992,7 +993,7 @@ local
 			    ((rev (ListPair.zip (inames, #2 (ListPair.unzip ns))), ps), (ename, t1), Cover_Constr cx)
 			end
 		    else
-			raise Error (sprintf "Type of constructor $ doesn't match datatype:\n  expect: $\n  got: $\n" [str_v (names cctx) cx, str_t skctxn (VarT x), str_t skctxn (VarT x')])
+			raise Error (sprintf "Type of constructor $ doesn't match datatype:\n  expect: $\n  got: $\n" [str_v (names cctx) cx, str_v kctxn x, str_v kctxn x'])
 		end
 	      | _ => raise Error (sprintf "Pattern $ doesn't match type $" [str_pn (names cctx) pn, str_t skctxn t])
 	end
@@ -1014,7 +1015,7 @@ local
 	    (* val () = print (sprintf "Typing $\n" [str_e ctxn e]) *)
 	    val (t, d) =
 		case e of
-		    Var x =>
+		    Var (x, _) =>
 		    (case lookup x tctx of
       			 SOME t => (t, T0)
       		       | NONE => raise Error ("Unbound variable " ^ str_v tctxn x))
@@ -1177,12 +1178,12 @@ local
 		    end
 		  | Const _ => 
 		    (Int, T0)
-		  | AppConstr (cx, ts, is, e) => 
+		  | AppConstr ((cx, _), ts, is, e) => 
 		    let val (cname, tc) = fetch_constr_type (cctx, cx)
 			val () = is_wftype (skctx, tc)
 			val (_, d) = get_type (ctx, e)
 			(* delegate to checking e' *)
-			val f = Var 0
+			val f = Var (0, dummy_region)
 			val f = foldl (fn (t, e) => AppT (e, t)) f ts
 			val f = foldl (fn (i, e) => AppI (e, i)) f is
 			val e' = App (f, shift_e_e e)

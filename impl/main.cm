@@ -1,5 +1,6 @@
 Group is
       util.sml
+      region.sml
       front-end/ast.sml
       front-end/timl.lex
       front-end/timl.grm

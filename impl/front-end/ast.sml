@@ -1,8 +1,7 @@
 structure Ast = struct
+open Region
 
-(* the line and col fields of right position are not used *)
-type pos = {abs : int, line : int, col : int}
-type region = pos * pos
+type id = string * region
 
 datatype idx = 
 	 VarI of string * region
@@ -23,7 +22,7 @@ datatype prop =
 	 | TimeLe of idx * idx * region
 
 datatype bsort =
-	 Bsort of string * region
+	 Bsort of id
 
 datatype sort =
 	 Basic of bsort * region
@@ -53,7 +52,7 @@ and binding =
 	 | Sorting of string * sort * region
 
 datatype ptrn =
-	 Constr of string * string list * string * region
+	 Constr of id * string list * string * region
 
 datatype exp = 
 	 Var of string * region
