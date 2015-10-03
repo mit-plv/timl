@@ -83,7 +83,7 @@ fun add_sorting_skct pair (sctx, kctx, cctx, tctx) =
      shiftx_i_cs 1 cctx, 
      shiftx_i_ts 1 tctx)
 (* Within 'pairs', sort depends on previous sort *)
-fun add_dep_sortings_skct (pairs', ps') ((pairs, ps), kctx, cctx, tctx) : context = 
+fun add_sortings_skct (pairs', ps') ((pairs, ps), kctx, cctx, tctx) : context = 
     let val n = length pairs' 
     in
 	((pairs' @ pairs, ps' @ shiftx_i_ps n ps), 
@@ -133,11 +133,24 @@ fun add_kinding_skct pair (sctx, kctx, cctx, tctx) =
 fun add_kinding_sk pair (sctx, kctx) = 
     (sctx, 
      add_kinding pair kctx)
+fun add_kindings_skct pairs (sctx, kctx, cctx, tctx) =
+  let val n = length pairs in
+      (sctx,
+       pairs @ kctx,
+       shiftx_t_cs n cctx,
+       shiftx_t_ts n tctx)
+  end
 
 fun lookup_kind (n : int) kctx : kind option = 
     case nth_error kctx n of
 	NONE => NONE
       | SOME (_, k) => SOME k
+
+fun add_constrs_skct pairs (sctx, kctx, cctx, tctx) = 
+    (sctx, 
+     kctx, 
+     pairs @ cctx,
+     tctx)
 
 fun add_typing pair tctx = pair :: tctx
 fun add_typing_skct pair ((sctx, kctx, cctx, tctx) : context) : context = 
@@ -145,6 +158,11 @@ fun add_typing_skct pair ((sctx, kctx, cctx, tctx) : context) : context =
      kctx, 
      cctx,
      add_typing pair tctx)
+fun add_typings_skct pairs (sctx, kctx, cctx, tctx) = 
+    (sctx, 
+     kctx, 
+     cctx,
+     pairs @ tctx)
 
 fun lookup (n : int) (ctx : tcontext) : ty option = 
     case nth_error ctx n of
@@ -153,6 +171,29 @@ fun lookup (n : int) (ctx : tcontext) : ty option =
 
 fun ctx_names (sctx, kctx, cctx, tctx) =
   (sctx_names sctx, names kctx, names cctx, names tctx) 
+
+(* a slightly different version where tctx is of ((string * (ty * idx)) list) *)
+fun shiftx_i_tds n ctx = 
+    map (mapSnd (fn (t, d) => (shiftx_i_t 0 n t, shiftx_i_i 0 n d))) ctx
+fun shiftx_t_tds n ctx = 
+    map (mapSnd (mapFst (shiftx_t_t 0 n))) ctx
+fun add_sortings_skctd (pairs', ps') ((pairs, ps), kctx, cctx, tctx) = 
+    let val n = length pairs' 
+    in
+	((pairs' @ pairs, ps' @ shiftx_i_ps n ps), 
+	 shiftx_i_ks n kctx, 
+	 shiftx_i_cs n cctx, 
+	 shiftx_i_tds n tctx)
+    end
+fun add_kindings_skctd pairs (sctx, kctx, cctx, tctx) =
+  let val n = length pairs in
+      (sctx,
+       pairs @ kctx,
+       shiftx_t_cs n cctx,
+       shiftx_t_tds n tctx)
+  end
+val add_constrs_skctd = add_constrs_skct
+val add_typings_skctd = add_typings_skct
 
 fun get_base s =
     case s of
@@ -616,12 +657,19 @@ local
 	    SOME (name, c) => (name, c)
 	  | NONE => raise Error (r, [sprintf "Unbound constructor: $" [str_v (names ctx) x]])
 
+    fun constr_type ((family, tnames, ns, t, is) : constr) = 
+      let val ts = (map (fn x => VarT (x, dummy)) o rev o range o length) tnames
+	  val t2 = AppV ((shiftx_v 0 (length tnames) family, dummy), ts, is, dummy)
+	  val t = Arrow (t, T0 dummy, t2)
+	  val t = foldr (fn ((name, s), t) => UniI (s, (name, dummy), t)) t ns
+	  val t = foldr (fn (name, t) => Uni ((name, dummy), t)) t tnames
+      in
+	  t
+      end
+
     fun fetch_constr_type (ctx : ccontext, cx) =
-	let val (cname, (family, tnames, ns, t, is)) = fetch_constr (ctx, cx)
-	    val ts = (map (fn x => VarT (x, dummy)) o rev o range o length) tnames
-	    val t = Arrow (t, T0 dummy, AppV ((shiftx_v 0 (length tnames) family, dummy), ts, is, dummy))
-	    val t = foldr (fn ((name, s), t) => UniI (s, (name, dummy), t)) t ns
-	    val t = foldr (fn (name, t) => Uni ((name, dummy), t)) t tnames
+	let val (cname, c) = fetch_constr (ctx, cx)
+	    val t = constr_type c
 	in
 	    (cname, t)
 	end
@@ -672,8 +720,6 @@ local
     	  | Abs _ => ()
     	  | _ => raise Error (get_region_e e, ["The body of fixpoint must have the form ({_ : _} ... {_ : _} (_ : _) => _)"])
 
-    exception LowerError of string
-				
     fun get_type (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, tctx : tcontext), e : expr) : ty * idx =
 	let val skctx = (sctx, kctx) 
 	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
@@ -874,10 +920,10 @@ local
 		    let val (ctxd, ctx) = check_decs (ctx, decs)
 	                val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
 			val (t, d) = get_type (ctx, e)
-			val t = lower_t r (sctxn, kctxn) ctxd t 
+			val t = forget_t r (sctxn, kctxn) ctxd t 
                         val ds = get_ds ctxd
-                        val ds = map (lower_d r sctxn ctxd) ds
-			val d = lower_d r sctxn ctxd d
+                        val ds = map (forget_d r sctxn ctxd) ds
+			val d = forget_d r sctxn ctxd d
                     in
 			(t, foldl (fn (d, acc) => acc %+ d) (T0 dummy) ds %+ d)
 		    end
@@ -886,19 +932,39 @@ local
 	    (t, d)
 	end
 
-    and check_dec (ctx, dec) =
+    and check_dec (ctx as (sctx, kctx, _, _), dec) =
         case dec of
             Val ((name, _), e) =>
             let val (t, d) = get_type (ctx, e)
             in
-                ((([], []), [], [], [((name, t), d)]))
+                (([], []), [], [], [(name, (t, d))])
             end
+	  | Datatype (name, tnames, sorts, constr_decs, _) =>
+	    let val () = is_wfsorts (sctx, sorts)
+		val nk = (name, ArrowK (length tnames, sorts))
+		val ctx = add_kinding_skct nk ctx
+		fun make_constr (name, name_sorts, t, ids, r) =
+		  let val c = (0, tnames, name_sorts, t, ids)
+		      val t = constr_type c
+		      val () = is_wftype ((sctx, kctx), t)
+			       handle Error (_, msg) =>
+				      raise Error (r, 
+						   "Constructor is ill-formed" :: 
+						   "Cause:" :: 
+						   indent msg)
+		  in
+		      (name, c)
+		  end
+		val constrs = map make_constr constr_decs
+	    in
+		(([], []), [nk], rev constrs, [])
+	    end
 
     and check_decs (ctx, decs) = 
         let fun f (dec, (ctxd, ctx)) =
                 let val ctxd' = check_dec (ctx, dec)
-                    val ctx = add_delta ctxd' ctx
-                    val ctxd = combine_delta ctxd' ctxd
+                    val ctx = add_ctxd_ctx ctxd' ctx
+                    val ctxd = add_ctxd ctxd' ctxd
                 in
                     (ctxd, ctx)
                 end
@@ -906,26 +972,45 @@ local
             foldl f ((([], []), [], [], []), ctx) decs
         end
 
-    and get_ds (_, _, _, tctxd) = map #2 tctxd
+    and get_ds (_, _, _, tctxd) = map (#2 o #2) tctxd
 
     (* placeholders *)
-    and add_delta (_, _, _, tctxd) (sctx, kctx, cctx, tctx) =
-        (sctx, kctx, cctx, map #1 tctxd @ tctx)
+    and add_ctx (sctx, kctx, cctx, tctx) ctx =
+	let val ctx = add_sortings_skct sctx ctx
+	    val ctx = add_kindings_skct kctx ctx
+	    val ctx = add_constrs_skct cctx ctx
+	    val ctx = add_typings_skct tctx ctx
+	in
+	    ctx
+	end
 
-    and combine_delta (_, _, _, tctxd) (sctx, kctx, cctx, tctx) =
-        (sctx, kctx, cctx, tctxd @ tctx)
+    and add_ctxd (sctx, kctx, cctx, tctx) ctx =
+	let val ctx = add_sortings_skctd sctx ctx
+	    val ctx = add_kindings_skctd kctx ctx
+	    val ctx = add_constrs_skctd cctx ctx
+	    val ctx = add_typings_skctd tctx ctx
+	in
+	    ctx
+	end
 
-    and lower_t r skctxn ctxd t = 
-        t 
-        handle LowerError name =>
-               raise Error (r, 
-                            [sprintf "$ escapes local scope in type $" [name, str_t skctxn t]])
+    and add_ctxd_ctx (sctx, kctx, cctx, tctx) ctx =
+	add_ctx (sctx, kctx, cctx, map (mapSnd #1) tctx) ctx
 
-    and lower_d r sctxn ctxd d = 
-        d
-        handle LowerError name =>
-               raise Error (r, 
-                            [sprintf "$ escapes local scope in time $" [name, str_i sctxn d]])
+    and escapes nametype name domaintype domain =
+	[sprintf "$ $ escapes local scope in $ $" [nametype, name, domaintype, domain]]
+	    
+    and forget_t r (skctxn as (sctxn, kctxn)) (sctxd, kctxd, _, _) t = 
+        let val t = forget_t_t 0 (length kctxd) t
+		    handle ForgetError x => raise Error (r, escapes "type variable" (str_v kctxn x) "type" (str_t skctxn t))
+	    val t = forget_i_t 0 (length sctxd) t
+		    handle ForgetError x => raise Error (r, escapes "index variable" (str_v sctxn x) "type" (str_t skctxn t))
+	in
+	    t
+	end
+
+    and forget_d r sctxn (sctxd, _, _, _) d =
+	forget_i_i 0 (length sctxd) d
+        handle ForgetError x => raise Error (r, escapes "index variable" (str_v sctxn x) "time" (str_i sctxn d))
 
     and check_type (ctx as (sctx, kctx, cctx, tctx), e, t) =
 	let 
@@ -965,7 +1050,7 @@ local
     and check_rule (ctx as (sctx, kctx, cctx, tctx), (pn, e), t as (t1, d, t2)) =
 	let val skcctx = (sctx, kctx, cctx) 
 	    val (sctx', nt, cover) = match_ptrn (skcctx, pn, t1)
-	    val ctx' = add_typing_skct nt (add_dep_sortings_skct sctx' ctx)
+	    val ctx' = add_typing_skct nt (add_sortings_skct sctx' ctx)
 	in
 	    check_type_time (ctx', e, shift_pn_t pn t2, shift_pn_i pn d);
 	    cover

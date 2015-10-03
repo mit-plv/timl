@@ -36,6 +36,7 @@ open Ast
     | EQ
     | LE
     | VAL
+    | DATATYPE
     | EOF
     | FORALL
     | EXISTS
@@ -60,6 +61,9 @@ open Ast
        | bind_plus of bind list
        | bind_star of bind list
        | bind of bind
+       | tbind_plus of bind list
+       | tbind_star of bind list
+       | tbind of bind
        | return_opt of (ty * idx) option
        | return of ty * idx
        | rule_bar_star of (ptrn * exp) list
@@ -72,9 +76,14 @@ open Ast
        | dec_star of dec list
        | dec of dec
        | quan of quan
+       | sort_star of sort list
+       | sort_plus of sort list
+       | constr_bar_star of constr_dec list
+       | bar_constr_star of constr_dec list
+       | constr of constr_dec
 
 
-%keyword FN FIX CASE OF LET IN END RETURN VAL
+%keyword FN FIX CASE OF LET IN END RETURN VAL DATATYPE
 
 %pos pos
 
@@ -123,8 +132,8 @@ ty : ty ty %prec APPR (AppTT (ty2, ty1, (ty1left, ty2right)))
    | ty PLUS ty (Sum (ty1, ty2, (ty1left, ty2right)))
 (* aty : *)
    | id (VarT id)
-   | quan bind_plus COMMA ty (Quan (quan, bind_plus, ty, (quanleft, tyright)))
-   | MU ID bind_star COMMA ty (Recur (ID, bind_star, ty, (MUleft, tyright)))
+   | quan tbind_plus COMMA ty (Quan (quan, tbind_plus, ty, (quanleft, tyright)))
+   | MU ID tbind_star COMMA ty (Recur (ID, tbind_star, ty, (MUleft, tyright)))
    | LPAREN ty RPAREN (ty)
 
 idx : id (VarI id)
@@ -169,6 +178,14 @@ bind : id COLON ty (Typing (id, ty, (idleft, tyright)))
      | LCUR id COLON sort RCUR (Sorting (id, sort, (LCURleft, RCURright)))
      | LPAREN bind RPAREN (bind)
 
+tbind_plus : tbind tbind_star (tbind :: tbind_star)
+tbind_star : tbind tbind_star (tbind :: tbind_star)
+	  | ([])
+
+tbind : id (Kinding id)
+      | LCUR id COLON sort RCUR (Sorting (id, sort, (LCURleft, RCURright)))
+      | LPAREN tbind RPAREN (tbind)
+
 return_opt : return (SOME return)
 	   | (NONE)
 
@@ -191,10 +208,26 @@ id_plus : ID id_star (ID :: id_star)
 id_star : ID id_star (ID :: id_star)
 	| ([])
 
+quan : FORALL (Forall)
+     | EXISTS (Exists)
+
 dec_star : dec dec_star (dec :: dec_star)
 	 | ([])
 
 dec : VAL id EQ exp (Val (id, exp, (VALleft, expright)))
+    | DATATYPE id_star id OF sort_star EQ constr_bar_star (Datatype (id, rev id_star, rev sort_star, constr_bar_star, (DATATYPEleft, constr_bar_starright)))
 
-quan : FORALL (Forall)
-     | EXISTS (Exists)
+(* sort_cur_space : LCUR sort_plus RCUR (sort_plus) *)
+(* 	     | ([]) *)
+
+sort_plus : sort sort_star (sort :: sort_star)
+sort_star : sort sort_star (sort :: sort_star)
+	| ([])
+
+constr_bar_star : constr bar_constr_star (constr :: bar_constr_star)
+	      | ([])
+
+bar_constr_star : BAR constr bar_constr_star (constr :: bar_constr_star)
+	      | ([])
+
+constr : id OF tbind_star COMMA ty ARROW ty ((tbind_star, ty1, ty2, (idleft, ty2right)))

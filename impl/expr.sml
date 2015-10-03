@@ -151,8 +151,8 @@ functor TypeFun (structure Var : VAR structure Other : DEBUG) = struct
                     let val (binds, t) = collect_Uni_UniI t 
                         fun f (bind, (acc, (sctx, kctx))) =
                             case bind of
-                                Kinding name => (surround "[" "]" name :: acc, (sctx, name :: kctx))
-                              | Sorting (name, s) => (surround "{" "}" (str_s sctx s) :: acc, (name :: sctx, kctx))
+                                Kinding name => (name :: acc, (sctx, name :: kctx))
+                              | Sorting (name, s) => (sprintf "{$ : $}" [name, str_s sctx s] :: acc, (name :: sctx, kctx))
                         val (binds, ctx) = foldl f ([], ctx) binds
                         val binds = rev binds
                     in
@@ -210,6 +210,8 @@ functor ExprFun (structure Var : VAR structure Type : TYPE structure Other : DEB
 	datatype ptrn =
 		 Constr of id * string list * name
 
+	type constr_dec = string * (string * sort) list * ty * idx list * other
+								   
 	datatype expr =
 		 Var of var * other
 		 | App of expr * expr
@@ -248,6 +250,7 @@ functor ExprFun (structure Var : VAR structure Type : TYPE structure Other : DEB
 
              and dec =
                  Val of name * expr
+		 | Datatype of string * string list * sort list * constr_dec list * other
 
 	fun str_pn ctx pn = 
 	    case pn of

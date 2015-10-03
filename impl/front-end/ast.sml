@@ -53,6 +53,8 @@ and bind =
 datatype ptrn =
 	 Constr of id * string list * id * region
 
+type constr_dec = bind list * ty * ty * region
+     
 datatype exp = 
 	 Var of string * region
        | Tuple of exp list * region
@@ -68,6 +70,7 @@ datatype exp =
 
 and dec =
     Val of id * exp * region
+  | Datatype of id * string list * sort list * constr_dec list * region
 
 type reporter = string * pos * pos -> unit
 

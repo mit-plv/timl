@@ -40,6 +40,7 @@ val keywords = [
     ("return", T.RETURN),
     ("mu", T.MU),
     ("val", T.VAL),
+    ("datatype", T.DATATYPE),
     ("forall", T.FORALL),
     ("exists", T.EXISTS),
     ("max", T.MAX),

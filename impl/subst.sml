@@ -2,6 +2,8 @@ structure Subst = struct
 open Type
 open Expr
 
+(* shift *)
+	 
 fun shiftx_v x n y = 
     if y >= x then
 	y + n
@@ -160,6 +162,17 @@ in
 fun shiftx_e_e x n b = f x n b
 fun shift_e_e b = shiftx_e_e 0 1 b
 end
+
+(* forget *)
+
+exception ForgetError of var
+exception Unimpl
+
+fun forget_i_i x n i = raise Unimpl
+fun forget_i_t x n t = raise Unimpl
+fun forget_t_t x n t = raise Unimpl
+
+(* subst *)
 
 exception Error of string
 
