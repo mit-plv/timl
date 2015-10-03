@@ -29,22 +29,19 @@ fun eq_p p p' =
       | (TimeLe (i1, i2), TimeLe (i1', i2')) => eq_i i1 i1' andalso eq_i i2 i2'
       | _ => false
 
-local
-    fun solver (ctx, ps, p) =
-	isSome (List.find (eq_p p) ps) orelse
-	case p of
-	    Imply (p1, p2) => solver (ctx, p1 :: ps, p2)
-	  | Iff (p1, p2) => solver (ctx, p1 :: ps, p2) andalso solver (ctx, p2 :: ps, p1)
-	  | And (p1, p2) => solver (ctx, ps, p1) andalso solver (ctx, ps, p1)
-	  | Or (p1, p2) => solver (ctx, ps, p1) orelse solver (ctx, ps, p1)
-	  | True _ => true
-	  | Eq (i1, i2) => eq_i i1 i2
-	  | TimeLe (i1, i2) => eq_i i1 i2
-	  | _ => false
+fun solve (ctx, ps, p) =
+  isSome (List.find (eq_p p) ps) orelse
+  case p of
+      Imply (p1, p2) => solve (ctx, p1 :: ps, p2)
+    | Iff (p1, p2) => solve (ctx, p1 :: ps, p2) andalso solve (ctx, p2 :: ps, p1)
+    | And (p1, p2) => solve (ctx, ps, p1) andalso solve (ctx, ps, p1)
+    | Or (p1, p2) => solve (ctx, ps, p1) orelse solve (ctx, ps, p1)
+    | True _ => true
+    | Eq (i1, i2) => eq_i i1 i2
+    | TimeLe (i1, i2) => eq_i i1 i2
+    | _ => false
 
-in
-fun trivial_solver vcs = List.filter (fn vc => solver vc = false) vcs
-end
+fun filter_solve vcs = List.filter (fn vc => solve vc = false) vcs
 
 local
     fun passi i =
@@ -129,7 +126,7 @@ local
 in
 val simp_p = until_unchanged passp
 val simp_i = until_unchanged passi
-fun simplify (ctx, ps, p) = (ctx, map simp_p ps, simp_p p)
+fun simp_vc (ctx, ps, p) = (ctx, map simp_p ps, simp_p p)
 end
 
 fun simp_s s =
@@ -154,5 +151,15 @@ local
 in
 val simp_t = f
 end
+
+fun simp_and_solve_vcs vcs =
+    let 
+	(* val () = print "Simplifying and applying trivial solver ...\n" *)
+	val vcs = filter_solve vcs
+	val vcs = map simp_vc vcs
+	val vcs = filter_solve vcs
+    in
+        vcs
+    end
 
 end

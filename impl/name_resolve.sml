@@ -121,16 +121,10 @@ local
 	      | E.Pack (t, i, e) => Pack (on_type skctx t, on_idx sctx i, on_expr ctx e)
 	      | E.Unpack (e1, t, d, iname, ename, e2) => Unpack (on_expr ctx e1, on_type skctx t, on_idx sctx d, iname, ename, on_expr (iname :: sctx, kctx, cctx, ename :: tctx) e2)
 	      | E.Fix (t, (name, r), e) => Fix (on_type skctx t, (name, r), on_expr (add_t name ctx) e)
-	      | E.Let (decs, e, r) => 
-                let fun f (dec, (acc, ctx)) =
-                        let val (dec, ctx) = on_dec ctx dec
-                        in
-                            (dec :: acc, ctx)
-                        end
-                    val (decs, ctx) = foldl f ([], ctx) decs
-                    val decs = rev decs
+	      | E.Let (decls, e, r) =>
+                let val (decls, ctx) = on_decls ctx decls
                 in
-                    Let (decs, on_expr ctx e, r)
+                    Let (decls, on_expr ctx e, r)
                 end
 	      | E.Ascription (e, t) => Ascription (on_expr ctx e, on_type skctx t)
 	      | E.AscriptionTime (e, d) => AscriptionTime (on_expr ctx e, on_idx sctx d)
@@ -141,8 +135,20 @@ local
 	      | E.Never t => Never (on_type skctx t)
 	end
 
-    and on_dec (ctx as (sctx, kctx, cctx, tctx)) dec =
-        case dec of
+    and on_decls (ctx as (sctx, kctx, cctx, tctx)) decls =
+        let fun f (decl, (acc, ctx)) =
+              let val (decl, ctx) = on_decl ctx decl
+              in
+                  (decl :: acc, ctx)
+              end
+            val (decls, ctx) = foldl f ([], ctx) decls
+            val decls = rev decls
+        in
+            (decls, ctx)
+        end
+
+    and on_decl (ctx as (sctx, kctx, cctx, tctx)) decl =
+        case decl of
             E.Val ((name, r), e) =>
             (Val ((name, r), on_expr ctx e), (sctx, kctx, cctx, name :: tctx))
 
@@ -164,6 +170,7 @@ local
 in
 val resolve_type = on_type
 val resolve_expr = on_expr
+fun resolve_decls ctx decls = fst (on_decls ctx decls)
 
 val resolve_constr = on_constr
 val resolve_kind = on_kind

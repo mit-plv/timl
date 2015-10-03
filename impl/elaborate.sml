@@ -226,17 +226,48 @@ local
 	  | S.AscriptionTime (e, i, _) =>
 	    AscriptionTime (elab e, elab_i i)
 	  | S.Let (decs, e, r) =>
-	    let fun elab_dec dec =
-		    case dec of
-			S.Val (x, e, _) => Val (x, elab e)
-	    in
-                Let (map elab_dec decs, elab e, r)
-	    end
+            Let (map elab_decl decs, elab e, r)
 	  | S.Const n => Const n
+
+    and elab_decl decl =
+        case decl of
+	    S.Val (x, e, _) =>
+            Val (x, elab e)
+          | S.Datatype (name, tnames, sorts, constrs, r) =>
+            let
+                fun elab_constr (((cname, _), binds, t1, t2, r) : S.constr_decl) : constr_decl =
+                  let fun f bind =
+                        case bind of
+                            Sorting ((name, _), sort, r) => (name, elab_s sort)
+                          | _ => raise Error (r, "Constructors can only have sorting binds")
+                      val binds = map f binds
+                      val t2_orig = t2
+                      val (t2, is) = get_is t2
+                      val (t2, ts) = get_ts t2
+                      val () = if case t2 of S.VarT (x, _) => x = name | _ => false then
+                                   ()
+                               else
+                                   raise Error (get_region_t t2, "Result type of constructor must be " ^ name)
+                      val () = if length ts = length tnames then () else raise Error (get_region_t t2_orig, "Must have type arguments " ^ join " " tnames)
+                      fun f (t, tname) =
+                        let val targ_mismatch = "This type argument must be " ^ tname in
+                            case t of
+                                S.VarT (x, r) => if x = tname then () else raise Error (r, targ_mismatch)
+                              | _ => raise Error (get_region_t t, targ_mismatch)
+                        end
+                      val () = app f (zip (ts, tnames))
+                  in
+                      (cname, binds, elab_t t1, map elab_i is, r)
+                  end
+            in
+                Datatype (name, tnames, map elab_s sorts, map elab_constr constrs, r)
+            end
 
 in
 val elaborate = elab
 fun elaborate_opt e = runError (fn () => elab e) ()
+val elaborate_decl = elab_decl
+fun elaborate_decl_opt d = runError (fn () => elab_decl d) ()
 end
 
 end

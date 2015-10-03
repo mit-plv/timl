@@ -16,7 +16,7 @@ type input_stream = int -> string
 			       
 exception Error
 	      
-fun parse (input : input_stream, on_lex_error : reporter, on_parse_error : reporter) : exp =
+fun parse (input : input_stream, on_lex_error : reporter, on_parse_error : reporter) =
   #1 (TiMLParser.parse 
 	  (lookahead,
 	   TiMLParser.makeLexer input on_lex_error,
@@ -26,7 +26,7 @@ fun parse (input : input_stream, on_lex_error : reporter, on_parse_error : repor
 					
 open Util
 	 
-fun parse_opt (input : input_stream, on_lex_error : reporter, on_parse_error : reporter) : (exp, string) result =
+fun parse_opt (input : input_stream, on_lex_error : reporter, on_parse_error : reporter) =
     OK (parse (input, on_parse_error, on_lex_error)) handle Error => Failed "Parse error"
 									    
 end

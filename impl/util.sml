@@ -12,7 +12,9 @@ val join = String.concatWith
 fun prefix fix s = fix ^ s
 fun suffix fix s = s ^ fix
 fun surround pre post s = pre ^ s ^ post
+fun indent msg = map (fn s => "  " ^ s) msg
 val str_int = Int.toString
+fun join_lines ls = (join "" o map (suffix "\n")) ls
 
 fun id x = x
 fun const a _ = a
@@ -30,11 +32,16 @@ fun fst (a, b) = a
 fun snd (a, b) = b
 fun mapFst f (a, b) = (f a, b)
 fun mapSnd f (a, b) = (a, f b)
+fun mapPair (fa, fb) (a, b) = (fa a, fb b)
 fun curry f a b = f (a, b)
 fun uncurry f (a, b) = f a b
+fun upd4 f (a, b, c, d) = (a, b, c, f d)
 
 datatype ('a, 'b) result =
 	 OK of 'a
 	 | Failed of 'b
+
+val zip = ListPair.zip
+val unzip = ListPair.unzip
 
 end

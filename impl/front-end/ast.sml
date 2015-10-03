@@ -50,10 +50,21 @@ and bind =
 	 | Kinding of id
 	 | Sorting of id * sort * region
 
+fun get_region_t t =
+  case t of
+      VarT (_, r) => r
+    | Arrow (_, _, _, r) => r
+    | Prod (_, _, r) => r
+    | Sum (_, _, r) => r
+    | Quan (_, _, _, r) => r
+    | Recur (_, _, _, r) => r
+    | AppTT (_, _, r) => r
+    | AppTI (_, _, r) => r
+
 datatype ptrn =
 	 Constr of id * string list * id * region
 
-type constr_dec = bind list * ty * ty * region
+type constr_decl = id * bind list * ty * ty * region
      
 datatype exp = 
 	 Var of string * region
@@ -65,12 +76,12 @@ datatype exp =
        | Case of exp * (ty * idx) option * (ptrn * exp) list * region
        | Ascription of exp * ty * region
        | AscriptionTime of exp * idx * region
-       | Let of dec list * exp * region
+       | Let of decl list * exp * region
        | Const of int * region
 
-and dec =
+and decl =
     Val of id * exp * region
-  | Datatype of id * string list * sort list * constr_dec list * region
+  | Datatype of string * string list * sort list * constr_decl list * region
 
 type reporter = string * pos * pos -> unit
 

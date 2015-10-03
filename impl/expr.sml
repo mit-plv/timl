@@ -210,7 +210,7 @@ functor ExprFun (structure Var : VAR structure Type : TYPE structure Other : DEB
 	datatype ptrn =
 		 Constr of id * string list * name
 
-	type constr_dec = string * (string * sort) list * ty * idx list * other
+	type constr_decl = string * (string * sort) list * ty * idx list * other
 								   
 	datatype expr =
 		 Var of var * other
@@ -243,14 +243,14 @@ functor ExprFun (structure Var : VAR structure Type : TYPE structure Other : DEB
 		 | AppConstr of id * ty list * idx list * expr
 		 | Case of expr * ty * idx * (ptrn * expr) list * other
 		 | Never of ty
-		 | Let of dec list * expr * other
+		 | Let of decl list * expr * other
 		 | Fix of ty * name * expr
 		 | Ascription of expr * ty
 		 | AscriptionTime of expr * idx
 
-             and dec =
+             and decl =
                  Val of name * expr
-		 | Datatype of string * string list * sort list * constr_dec list * other
+		 | Datatype of string * string list * sort list * constr_decl list * other
 
 	fun str_pn ctx pn = 
 	    case pn of
@@ -285,8 +285,8 @@ functor ExprFun (structure Var : VAR structure Type : TYPE structure Other : DEB
 		  | Unpack (e1, t, d, iname, ename, e2) => sprintf "unpack $ return $ |> $ as ($, $) in $ end" [str_e ctx e1, str_t skctx t, str_i sctx d, iname, ename, str_e (iname :: sctx, kctx, cctx, ename :: tctx) e2]
 		  | Fix (t, (name, _), e) => sprintf "(fix ($ : $) => $)" [name, str_t skctx t, str_e (add_t name ctx) e]
 		  | Let (decs, e, _) => 
-                    let fun f (dec, (acc, ctx)) =
-                            let val (s, ctx) = str_dec ctx dec
+                    let fun f (decl, (acc, ctx)) =
+                            let val (s, ctx) = str_decl ctx decl
                             in
                                 (s :: acc, ctx)
                             end
@@ -311,11 +311,12 @@ functor ExprFun (structure Var : VAR structure Type : TYPE structure Other : DEB
 		sprintf "$ => $" [str_pn cctx pn, str_e ctx' e]
 	    end
 
-        and str_dec (ctx as (sctx, kctx, cctx, tctx)) dec =
-            case dec of
+        and str_decl (ctx as (sctx, kctx, cctx, tctx)) decl =
+            case decl of
                 Val ((name, _), e) =>
                 (sprintf "val $ = $" [name, str_e ctx e], (sctx, kctx, cctx, name :: tctx))
-
+                (* | Datatype *)
+                    (*here*)
 	end			       
 
 structure StringVar = struct

@@ -250,7 +250,6 @@ fun str_vc (ctx : bscontext, ps, p) =
 exception Impossible of string
 
 exception Error of region * string list
-fun indent msg = map (fn s => "  " ^ s) msg
 
 fun runError m _ =
     OK (m ())
@@ -953,8 +952,8 @@ local
 		    (is_wftype (skctx, t);
 		     is_true (sctx, False dummy);
 		     (t, T0 dummy))
-		  | Let (decs, e, r) => 
-		    let val (ctxd, ctx) = check_decs (ctx, decs)
+		  | Let (decls, e, r) => 
+		    let val (ctxd, ctx) = check_decls (ctx, decls)
 	                val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
 			val (t, d) = get_type (ctx, e)
 			val t = forget_t r (sctxn, kctxn) ctxd t 
@@ -991,26 +990,26 @@ local
 	    is_le (sctx, d', d)
 	end
 
-    and check_decs (ctx, decs) : contextd * context = 
-        let fun f (dec, (ctxd, ctx)) =
-                let val ctxd' = check_dec (ctx, dec)
+    and check_decls (ctx, decls) : contextd * context = 
+        let fun f (decl, (ctxd, ctx)) =
+                let val ctxd' = check_decl (ctx, decl)
                     val ctx = add_ctxd_ctx ctxd' ctx
                     val ctxd = add_ctxd ctxd' ctxd
                 in
                     (ctxd, ctx)
                 end
         in
-            foldl f ((([], []), [], [], []), ctx) decs
+            foldl f ((([], []), [], [], []), ctx) decls
         end
 
-    and check_dec (ctx as (sctx, kctx, _, _), dec) =
-        case dec of
+    and check_decl (ctx as (sctx, kctx, _, _), decl) =
+        case decl of
             Val ((name, _), e) =>
             let val (t, d) = get_type (ctx, e)
             in
                 (([], []), [], [], [(name, (t, d))])
             end
-	  | Datatype (name, tnames, sorts, constr_decs, _) =>
+	  | Datatype (name, tnames, sorts, constr_decls, _) =>
 	    let val () = is_wfsorts (sctx, sorts)
 		val nk = (name, ArrowK (length tnames, sorts))
 		val ctx = add_kinding_skct nk ctx
@@ -1026,7 +1025,7 @@ local
 		  in
 		      (name, c)
 		  end
-		val constrs = map make_constr constr_decs
+		val constrs = map make_constr constr_decls
 	    in
 		(([], []), [nk], rev constrs, [])
 	    end
@@ -1055,32 +1054,46 @@ local
 
 in								     
 
-fun vcgen ctx e : (ty * idx) * vc list =
+fun vcgen_expr ctx e : (ty * idx) * vc list =
     runWriter (fn () => get_type (ctx, e)) ()
 	     
-fun vcgen_opt ctx e =
-    runError (fn () => vcgen ctx e) ()
+fun vcgen_expr_opt ctx e =
+    runError (fn () => vcgen_expr ctx e) ()
+	     
+fun vcgen_decls ctx decls =
+    runWriter (fn () => check_decls (ctx, decls)) ()
+	     
+fun vcgen_expr_opt ctx decls =
+    runError (fn () => vcgen_decls ctx decls) ()
 	     
 end
 
 open TrivialSolver
 
-fun typecheck (ctx as (sctx, kctx, cctx, tctx) : context) e : (ty * idx) * vc list =
+fun typecheck_expr (ctx as (sctx, kctx, cctx, tctx) : context) e : (ty * idx) * vc list =
     let 
-	val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
-	val ((t, d), vcs) = vcgen ctx e
-	(* val () = print "Simplifying and applying trivial solver ...\n" *)
-	val vcs = trivial_solver vcs
-	val vcs = map simplify vcs
-	val vcs = trivial_solver vcs
+	val ((t, d), vcs) = vcgen_expr ctx e
 	val t = simp_t t
 	val d = simp_i d
+	val vcs = simp_and_solve_vcs vcs
     in
         ((t, d), vcs)
     end
 
-fun typecheck_opt ctx e =
-    runError (fn () => typecheck ctx e) ()
+fun typecheck_expr_opt ctx e =
+    runError (fn () => typecheck_expr ctx e) ()
+
+fun typecheck_decls (ctx as (sctx, kctx, cctx, tctx) : context) decls : (contextd * context) * vc list =
+    let 
+	val ((ctxd, ctx), vcs) = vcgen_decls ctx decls
+        val ctxd = (upd4 o map o mapSnd o mapPair) (simp_t, simp_i) ctxd
+	val vcs = simp_and_solve_vcs vcs
+    in
+        ((ctxd, ctx), vcs)
+    end
+
+fun typecheck_decls_opt ctx e =
+    runError (fn () => typecheck_decls ctx e) ()
 
 end
 			  
