@@ -26,6 +26,8 @@ fun nth_error ls n =
     else
 	SOME (List.nth (ls, n))
 
+fun fst (a, b) = a
+fun snd (a, b) = b
 fun mapFst f (a, b) = (f a, b)
 fun mapSnd f (a, b) = (a, f b)
 fun curry f a b = f (a, b)

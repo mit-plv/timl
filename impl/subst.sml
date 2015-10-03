@@ -2,18 +2,13 @@ structure Subst = struct
 open Type
 open Expr
 
-(* shift *)
-	 
-fun shiftx_v x n y = 
-    if y >= x then
-	y + n
-    else
-	y
-
-local
-    fun f x n b =
+(* generic traversers for both 'shift' and 'forget' *)
+         
+fun on_i_i on_v x n b =
+  let
+      fun f x n b =
 	case b of
-	    VarI (y, r) => VarI (shiftx_v x n y, r)
+	    VarI (y, r) => VarI (on_v x n y, r)
 	  | T0 r => T0 r
 	  | T1 r => T1 r
 	  | Tadd (d1, d2) => Tadd (f x n d1, f x n d2)
@@ -24,57 +19,57 @@ local
 	  | TrueI r => TrueI r
 	  | FalseI r => FalseI r
 	  | Tconst n => Tconst n
-in
-fun shiftx_i_i x n b = f x n b
-fun shift_i_i b = shiftx_i_i 0 1 b
-end
+  in
+      f x n b
+  end
 
-local
-    fun f x n b =
-	case b of
+fun on_i_p on_i_i x n b =
+  let
+      fun f x n b =
+        case b of
 	    True r => True r
 	  | False r => False r
 	  | And (p1, p2) => And (f x n p1, f x n p2)
 	  | Or (p1, p2) => Or (f x n p1, f x n p2)
 	  | Imply (p1, p2) => Imply (f x n p1, f x n p2)
 	  | Iff (p1, p2) => Iff (f x n p1, f x n p2)
-	  | TimeLe (d1, d2) => TimeLe (shiftx_i_i x n d1, shiftx_i_i x n d2)
-	  | Eq (i1, i2) => Eq (shiftx_i_i x n i1, shiftx_i_i x n i2)
-in
-fun shiftx_i_p x n b = f x n b
-fun shift_i_p b = shiftx_i_p 0 1 b
-end
+	  | TimeLe (d1, d2) => TimeLe (on_i_i x n d1, on_i_i x n d2)
+	  | Eq (i1, i2) => Eq (on_i_i x n i1, on_i_i x n i2)
+  in
+      f x n b
+  end
 
-local
-    fun f x n b =
+fun on_i_s on_i_p x n b =
+  let
+      fun f x n b =
 	case b of
 	    Basic s => Basic s
-	  | Subset (s, name, p) => Subset (s, name, shiftx_i_p (x + 1) n p)
-in
-fun shiftx_i_s x n b = f x n b
-fun shift_i_s b = shiftx_i_s 0 1 b
-end
+	  | Subset (s, name, p) => Subset (s, name, on_i_p (x + 1) n p)
+  in
+      f x n b
+  end
 
-local
-    fun f x n b =
+fun on_i_t on_i_i on_i_s x n b =
+  let
+      fun f x n b =
 	case b of
-	    Arrow (t1, d, t2) => Arrow (f x n t1, shiftx_i_i x n d, f x n t2)
+	    Arrow (t1, d, t2) => Arrow (f x n t1, on_i_i x n d, f x n t2)
 	  | Unit r => Unit r
 	  | Prod (t1, t2) => Prod (f x n t1, f x n t2)
 	  | Sum (t1, t2) => Sum (f x n t1, f x n t2)
 	  | Uni (name, t) => Uni (name, f x n t)
-	  | UniI (s, name, t) => UniI (shiftx_i_s x n s, name, f (x + 1) n t)
-	  | ExI (s, name, t) => ExI (shiftx_i_s x n s, name, f (x + 1) n t)
-	  | AppRecur (name, ns, t, i, r) => AppRecur (name, map (mapSnd (shiftx_i_s x n)) ns, f (x + length ns) n t, map (shiftx_i_i x n) i, r)
-	  | AppV (y, ts, is, r) => AppV (y, map (f x n) ts, map (shiftx_i_i x n) is, r)
+	  | UniI (s, name, t) => UniI (on_i_s x n s, name, f (x + 1) n t)
+	  | ExI (s, name, t) => ExI (on_i_s x n s, name, f (x + 1) n t)
+	  | AppRecur (name, ns, t, i, r) => AppRecur (name, map (mapSnd (on_i_s x n)) ns, f (x + length ns) n t, map (on_i_i x n) i, r)
+	  | AppV (y, ts, is, r) => AppV (y, map (f x n) ts, map (on_i_i x n) is, r)
 	  | Int r => Int r
-in
-fun shiftx_i_t x n b = f x n b
-fun shift_i_t b = shiftx_i_t 0 1 b
-end
+  in
+      f x n b
+  end
 
-local
-    fun f x n b =
+fun on_t_t on_v x n b =
+  let
+      fun f x n b =
 	case b of
 	    Arrow (t1, d, t2) => Arrow (f x n t1, d, f x n t2)
 	  | Unit r => Unit r
@@ -84,13 +79,35 @@ local
 	  | UniI (s, name, t) => UniI (s, name, f x n t)
 	  | ExI (s, name, t) => ExI (s, name, f x n t)
 	  | AppRecur (name, ns, t, i, r) => AppRecur (name, ns, f (x + 1) n t, i, r)
-	  | AppV ((y, r1), ts, is, r) => AppV ((shiftx_v x n y, r1), map (f x n) ts, is, r)
+	  | AppV ((y, r1), ts, is, r) => AppV ((on_v x n y, r1), map (f x n) ts, is, r)
 	  | Int r => Int r
 
-in
-fun shiftx_t_t x n b = f x n b
+  in
+      f x n b
+  end
+
+(* shift *)
+	 
+fun shiftx_v x n y = 
+    if y >= x then
+	y + n
+    else
+	y
+
+fun shiftx_i_i x n b = on_i_i shiftx_v x n b
+fun shift_i_i b = shiftx_i_i 0 1 b
+
+fun shiftx_i_p x n b = on_i_p shiftx_i_i x n b
+fun shift_i_p b = shiftx_i_p 0 1 b
+
+fun shiftx_i_s x n b = on_i_s shiftx_i_p x n b
+fun shift_i_s b = shiftx_i_s 0 1 b
+
+fun shiftx_i_t x n b = on_i_t shiftx_i_i shiftx_i_s x n b
+fun shift_i_t b = shiftx_i_t 0 1 b
+
+fun shiftx_t_t x n b = on_t_t shiftx_v x n b
 fun shift_t_t b = shiftx_t_t 0 1 b
-end
 
 fun shift_pn_i pn i =
     let val (inames, _) = ptrn_names pn
@@ -152,6 +169,7 @@ local
     and f_dec x n dec =
 	case dec of
 	    Val (name, e) => (Val (name, f x n e), 1)
+          | Datatype a => (Datatype a, 0)
 
     and f_rule x n (pn, e) =
 	let val (_, enames) = ptrn_names pn 
@@ -166,11 +184,21 @@ end
 (* forget *)
 
 exception ForgetError of var
-exception Unimpl
+(* exception Unimpl *)
 
-fun forget_i_i x n i = raise Unimpl
-fun forget_i_t x n t = raise Unimpl
-fun forget_t_t x n t = raise Unimpl
+fun forget_v x n y = 
+    if y >= x + n then
+	y - n
+    else if y < x then
+	y
+    else
+        raise ForgetError y
+
+fun forget_i_i x n b = on_i_i forget_v x n b
+fun forget_i_p x n b = on_i_p forget_i_i x n b
+fun forget_i_s x n b = on_i_s forget_i_p x n b
+fun forget_i_t x n b = on_i_t forget_i_i forget_i_s x n b
+fun forget_t_t x n b = on_t_t forget_v x n b
 
 (* subst *)
 

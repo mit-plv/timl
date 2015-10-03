@@ -173,11 +173,13 @@ fun ctx_names (sctx, kctx, cctx, tctx) =
   (sctx_names sctx, names kctx, names cctx, names tctx) 
 
 (* a slightly different version where tctx is of ((string * (ty * idx)) list) *)
+type tdcontext = (string * (ty * idx)) list
+type contextd = scontext * kcontext * ccontext * tdcontext
 fun shiftx_i_tds n ctx = 
     map (mapSnd (fn (t, d) => (shiftx_i_t 0 n t, shiftx_i_i 0 n d))) ctx
 fun shiftx_t_tds n ctx = 
     map (mapSnd (mapFst (shiftx_t_t 0 n))) ctx
-fun add_sortings_skctd (pairs', ps') ((pairs, ps), kctx, cctx, tctx) = 
+fun add_sortings_skctd (pairs', ps') (((pairs, ps), kctx, cctx, tctx) : contextd) : contextd = 
     let val n = length pairs' 
     in
 	((pairs' @ pairs, ps' @ shiftx_i_ps n ps), 
@@ -185,7 +187,7 @@ fun add_sortings_skctd (pairs', ps') ((pairs, ps), kctx, cctx, tctx) =
 	 shiftx_i_cs n cctx, 
 	 shiftx_i_tds n tctx)
     end
-fun add_kindings_skctd pairs (sctx, kctx, cctx, tctx) =
+fun add_kindings_skctd pairs ((sctx, kctx, cctx, tctx) : contextd) : contextd =
   let val n = length pairs in
       (sctx,
        pairs @ kctx,
@@ -701,6 +703,46 @@ local
 	      | _ => raise Error (get_region_pn pn, [sprintf "Pattern $ doesn't match type $" [str_pn (names cctx) pn, str_t skctxn t]])
 	end
 
+    fun get_ds (_, _, _, tctxd) = map (snd o snd) tctxd
+
+    (* placeholders *)
+    fun add_ctx (sctx, kctx, cctx, tctx) ctx =
+	let val ctx = add_sortings_skct sctx ctx
+	    val ctx = add_kindings_skct kctx ctx
+	    val ctx = add_constrs_skct cctx ctx
+	    val ctx = add_typings_skct tctx ctx
+	in
+	    ctx
+	end
+
+    fun add_ctxd (sctx, kctx, cctx, tctx) ctx =
+	let val ctx = add_sortings_skctd sctx ctx
+	    val ctx = add_kindings_skctd kctx ctx
+	    val ctx = add_constrs_skctd cctx ctx
+	    val ctx = add_typings_skctd tctx ctx
+	in
+	    ctx
+	end
+
+    fun add_ctxd_ctx (sctx, kctx, cctx, tctx) ctx =
+	add_ctx (sctx, kctx, cctx, map (mapSnd fst) tctx) ctx
+
+    fun escapes nametype name domaintype domain =
+	[sprintf "$ $ escapes local scope in $ $" [nametype, name, domaintype, domain]]
+	    
+    fun forget_t r (skctxn as (sctxn, kctxn)) ((sctxd, kctxd, _, _) : contextd) t = 
+        let val t = forget_t_t 0 (length kctxd) t
+		    handle ForgetError x => raise Error (r, escapes "type variable" (str_v kctxn x) "type" (str_t skctxn t))
+	    val t = forget_i_t 0 (sctx_length sctxd) t
+		    handle ForgetError x => raise Error (r, escapes "index variable" (str_v sctxn x) "type" (str_t skctxn t))
+	in
+	    t
+	end
+
+    fun forget_d r sctxn (sctxd, _, _, _) d =
+	forget_i_i 0 (sctx_length sctxd) d
+        handle ForgetError x => raise Error (r, escapes "index variable" (str_v sctxn x) "time" (str_i sctxn d))
+
     fun mismatch (ctx as (sctx, kctx, _, _)) e expect got =  
         (get_region_e e,
 	 "Type-mismatch:" ::
@@ -911,11 +953,6 @@ local
 		    (is_wftype (skctx, t);
 		     is_true (sctx, False dummy);
 		     (t, T0 dummy))
-		  (* | Let (e1, name, e2, _) =>  *)
-		  (*   let val (t1, d1) = get_type (ctx, e1) *)
-		  (*       val (t2, d2) = get_type (add_typing_skct (name, t1) ctx, e2) in *)
-		  (*       (t2, d1 %+ d2) *)
-		  (*   end *)
 		  | Let (decs, e, r) => 
 		    let val (ctxd, ctx) = check_decs (ctx, decs)
 	                val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
@@ -931,6 +968,40 @@ local
 	in
 	    (t, d)
 	end
+
+    and check_type (ctx as (sctx, kctx, cctx, tctx), e, t) =
+	let 
+	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
+	    (* val () = print (sprintf "Type checking $ against $ and $\n" [str_e ctxn e, str_t (sctxn, kctxn) t, str_i sctxn d]) *)
+	    val (t', d') = get_type (ctx, e)
+	in
+	    is_subtype ((sctx, kctx), t', t)
+            handle Error (_, msg) =>
+                   raise Error (get_region_e e, 
+                                #2 (mismatch ctxn e (str_t (sctxn, kctxn) t) t') @
+                                "Cause:" ::
+                                indent msg);
+            d'
+	end
+
+    and check_type_time (ctx as (sctx, kctx, cctx, tctx), e, t, d) =
+	let 
+	    val d' = check_type (ctx, e, t)
+	in
+	    is_le (sctx, d', d)
+	end
+
+    and check_decs (ctx, decs) : contextd * context = 
+        let fun f (dec, (ctxd, ctx)) =
+                let val ctxd' = check_dec (ctx, dec)
+                    val ctx = add_ctxd_ctx ctxd' ctx
+                    val ctxd = add_ctxd ctxd' ctxd
+                in
+                    (ctxd, ctx)
+                end
+        in
+            foldl f ((([], []), [], [], []), ctx) decs
+        end
 
     and check_dec (ctx as (sctx, kctx, _, _), dec) =
         case dec of
@@ -959,80 +1030,6 @@ local
 	    in
 		(([], []), [nk], rev constrs, [])
 	    end
-
-    and check_decs (ctx, decs) = 
-        let fun f (dec, (ctxd, ctx)) =
-                let val ctxd' = check_dec (ctx, dec)
-                    val ctx = add_ctxd_ctx ctxd' ctx
-                    val ctxd = add_ctxd ctxd' ctxd
-                in
-                    (ctxd, ctx)
-                end
-        in
-            foldl f ((([], []), [], [], []), ctx) decs
-        end
-
-    and get_ds (_, _, _, tctxd) = map (#2 o #2) tctxd
-
-    (* placeholders *)
-    and add_ctx (sctx, kctx, cctx, tctx) ctx =
-	let val ctx = add_sortings_skct sctx ctx
-	    val ctx = add_kindings_skct kctx ctx
-	    val ctx = add_constrs_skct cctx ctx
-	    val ctx = add_typings_skct tctx ctx
-	in
-	    ctx
-	end
-
-    and add_ctxd (sctx, kctx, cctx, tctx) ctx =
-	let val ctx = add_sortings_skctd sctx ctx
-	    val ctx = add_kindings_skctd kctx ctx
-	    val ctx = add_constrs_skctd cctx ctx
-	    val ctx = add_typings_skctd tctx ctx
-	in
-	    ctx
-	end
-
-    and add_ctxd_ctx (sctx, kctx, cctx, tctx) ctx =
-	add_ctx (sctx, kctx, cctx, map (mapSnd #1) tctx) ctx
-
-    and escapes nametype name domaintype domain =
-	[sprintf "$ $ escapes local scope in $ $" [nametype, name, domaintype, domain]]
-	    
-    and forget_t r (skctxn as (sctxn, kctxn)) (sctxd, kctxd, _, _) t = 
-        let val t = forget_t_t 0 (length kctxd) t
-		    handle ForgetError x => raise Error (r, escapes "type variable" (str_v kctxn x) "type" (str_t skctxn t))
-	    val t = forget_i_t 0 (length sctxd) t
-		    handle ForgetError x => raise Error (r, escapes "index variable" (str_v sctxn x) "type" (str_t skctxn t))
-	in
-	    t
-	end
-
-    and forget_d r sctxn (sctxd, _, _, _) d =
-	forget_i_i 0 (length sctxd) d
-        handle ForgetError x => raise Error (r, escapes "index variable" (str_v sctxn x) "time" (str_i sctxn d))
-
-    and check_type (ctx as (sctx, kctx, cctx, tctx), e, t) =
-	let 
-	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
-	    (* val () = print (sprintf "Type checking $ against $ and $\n" [str_e ctxn e, str_t (sctxn, kctxn) t, str_i sctxn d]) *)
-	    val (t', d') = get_type (ctx, e)
-	in
-	    is_subtype ((sctx, kctx), t', t)
-            handle Error (_, msg) =>
-                   raise Error (get_region_e e, 
-                                #2 (mismatch ctxn e (str_t (sctxn, kctxn) t) t') @
-                                "Cause:" ::
-                                indent msg);
-            d'
-	end
-
-    and check_type_time (ctx as (sctx, kctx, cctx, tctx), e, t, d) =
-	let 
-	    val d' = check_type (ctx, e, t)
-	in
-	    is_le (sctx, d', d)
-	end
 
     and check_rules (ctx as (sctx, kctx, cctx, tctx), rules, t as (t1, _, _)) =
 	let val skcctx = (sctx, kctx, cctx) 
