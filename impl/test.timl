@@ -1,9 +1,10 @@
-let val map = 
+let val n = 77
+    val map = 
      fn ['a] ['b] {m : Time} (f : 'a -- m -> 'b) =>
         fix (map : forall {n : Time}, {n} 'a ilist -- (m + 2) * n -> {n} 'b ilist) {n : Time} (ls : {n} 'a ilist) =>
         case ls return {n} 'b ilist |> (m + 2) * n of
             NilI _ => NilI ['b] ()
           | ConsI {n'} x_xs => ConsI ['b] {n'} (f (fst x_xs), map {n'} (snd x_xs))
 in
-    map
+    (n, map)
 end

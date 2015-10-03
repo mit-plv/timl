@@ -114,6 +114,7 @@ aexp : id (Var id)
      | abs bind_plus DARROW exp (Abs (abs, bind_plus, exp, (absleft, expright)))
      | CASE exp return_opt OF rule_bar_star (Case (exp, return_opt, rule_bar_star, (CASEleft, rule_bar_starright)))
      | LET dec_star IN exp END (Let (dec_star, exp, (LETleft, ENDright)))
+     | INT (Const (INT, (INTleft, INTright)))
 
 ty : ty ty %prec APPR (AppTT (ty2, ty1, (ty1left, ty2right)))
    | LCUR idx RCUR ty %prec APPR (AppTI (ty, idx, (LCURleft, tyright)))
@@ -193,7 +194,7 @@ id_star : ID id_star (ID :: id_star)
 dec_star : dec dec_star (dec :: dec_star)
 	 | ([])
 
-dec : VAL ID EQ exp (Val (ID, exp, (VALleft, expright)))
+dec : VAL id EQ exp (Val (id, exp, (VALleft, expright)))
 
 quan : FORALL (Forall)
      | EXISTS (Exists)

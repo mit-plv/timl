@@ -127,7 +127,18 @@ local
 	    Unpack (f x n e1, t, d, iname, ename, f (x + 1) n e2)
 	  | Fix (t, name, e) => 
 	    Fix (t, name, f (x + 1) n e)
-	  | Let (e1, name, e2, r) => Let (f x n e1, name, f (x + 1) n e2, r)
+	  | Let (decs, e, r) =>
+	    let fun g (dec, (acc, m)) =
+		  let
+		      val (dec, m') = f_dec (x + m) n dec
+		  in
+		      (dec :: acc, m' + m)
+		  end
+		val (decs, m) = foldl g ([], 0) decs
+		val decs = rev decs
+	    in
+		Let (decs, f (x + m) n e, r)
+	    end
 	  | Ascription (e, t) => Ascription (f x n e, t)
 	  | AscriptionTime (e, d) => AscriptionTime (f x n e, d)
 	  | Const n => Const n
@@ -135,6 +146,10 @@ local
 	  | AppConstr (cx, ts, is, e) => AppConstr (cx, ts, is, f x n e)
 	  | Case (e, t, d, rules, r) => Case (f x n e, t, d, map (f_rule x n) rules, r)
 	  | Never t => Never t
+
+    and f_dec x n dec =
+	case dec of
+	    Val (name, e) => (Val (name, f x n e), 1)
 
     and f_rule x n (pn, e) =
 	let val (_, enames) = ptrn_names pn 

@@ -1,4 +1,4 @@
-structure TrivialSolve = struct
+structure TrivialSolver = struct
 open Type
 open Expr
 

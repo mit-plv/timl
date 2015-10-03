@@ -232,6 +232,7 @@ local
 	    in
                 Let (map elab_dec decs, elab e, r)
 	    end
+	  | S.Const n => Const n
 
 in
 val elaborate = elab

@@ -64,9 +64,10 @@ datatype exp =
        | Ascription of exp * ty * region
        | AscriptionTime of exp * idx * region
        | Let of dec list * exp * region
+       | Const of int * region
 
 and dec =
-    Val of string * exp * region
+    Val of id * exp * region
 
 type reporter = string * pos * pos -> unit
 

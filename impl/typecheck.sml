@@ -151,6 +151,9 @@ fun lookup (n : int) (ctx : tcontext) : ty option =
 	NONE => NONE
       | SOME (_, t) => SOME t
 
+fun ctx_names (sctx, kctx, cctx, tctx) =
+  (sctx_names sctx, names kctx, names cctx, names tctx) 
+
 fun get_base s =
     case s of
 	Basic (s, _) => s
@@ -669,9 +672,8 @@ local
     	  | Abs _ => ()
     	  | _ => raise Error (get_region_e e, ["The body of fixpoint must have the form ({_ : _} ... {_ : _} (_ : _) => _)"])
 
-    fun ctx_names (sctx, kctx, cctx, tctx) =
-        (sctx_names sctx, names kctx, names cctx, names tctx) 
-
+    exception LowerError of string
+				
     fun get_type (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, tctx : tcontext), e : expr) : ty * idx =
 	let val skctx = (sctx, kctx) 
 	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
@@ -877,7 +879,7 @@ local
                         val ds = map (lower_d r sctxn ctxd) ds
 			val d = lower_d r sctxn ctxd d
                     in
-			(t2, foldl (fn (d, acc) => acc %+ d) T0 ds %+ d)
+			(t, foldl (fn (d, acc) => acc %+ d) (T0 dummy) ds %+ d)
 		    end
 	(* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_t skctxn t, str_e ctxn e, str_i sctxn d]) *)
 	in
@@ -889,7 +891,7 @@ local
             Val ((name, _), e) =>
             let val (t, d) = get_type (ctx, e)
             in
-                ((([], []), [], [], [(name, t)]), d)
+                ((([], []), [], [], [((name, t), d)]))
             end
 
     and check_decs (ctx, decs) = 
