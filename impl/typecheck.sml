@@ -284,7 +284,7 @@ local
 	acc := vc :: !acc)
 
     fun runWriter m _ =
-      (acc := []; let val r = m () in (r, !acc) end)
+      (acc := []; let val r = m () in (r, rev (!acc)) end)
 
     fun check_length_n (n, ls, r) =
       if length ls = n then
