@@ -254,14 +254,14 @@ datatype expr =
 	 | AppI of expr * idx
 	 (* existential index *)
 	 | Pack of ty * idx * expr
-	 | Unpack of expr * ty * idx * string * string * expr
+	 | Unpack of expr * (ty * idx) option * string * string * expr
 	 (* recursive type *)
 	 | Fold of ty * expr
 	 | Unfold of expr
 	 | Plus of expr * expr
 	 | Const of int * other
 	 | AppConstr of id * ty list * idx list * expr
-	 | Case of expr * ty * idx * (ptrn * expr) list * other
+	 | Case of expr * (ty * idx) option * (ptrn * expr) list * other
 	 | Never of ty
 	 | Let of decl list * expr * other
 	 | Fix of ty * name * expr
@@ -280,6 +280,8 @@ fun ptrn_names pn : string list * string list =
   case pn of
       Constr (_, inames, (ename, _)) => (rev inames, [ename])
 
+fun str_return (skctx as (sctx, _)) return = str_opt (fn (t, d) => sprintf "return $ |> $ " [str_t skctx t, str_i sctx d]) return
+                                                     
 fun str_e (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
   let fun add_t name (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx) 
       val skctx = (sctx, kctx) 
@@ -302,7 +304,7 @@ fun str_e (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
 	| AbsI (s, (name, _), e) => sprintf "(fn $ :: $ => $)" [name, str_s sctx s, str_e (name :: sctx, kctx, cctx, tctx) e]
 	| AppI (e, i) => sprintf "($ [$])" [str_e ctx e, str_i sctx i]
 	| Pack (t, i, e) => sprintf "(pack $ ($, $))" [str_t skctx t, str_i sctx i, str_e ctx e]
-	| Unpack (e1, t, d, iname, ename, e2) => sprintf "unpack $ return $ |> $ as ($, $) in $ end" [str_e ctx e1, str_t skctx t, str_i sctx d, iname, ename, str_e (iname :: sctx, kctx, cctx, ename :: tctx) e2]
+	| Unpack (e1, return, iname, ename, e2) => sprintf "unpack $ $as ($, $) in $ end" [str_e ctx e1, str_return skctx return, iname, ename, str_e (iname :: sctx, kctx, cctx, ename :: tctx) e2]
 	| Fix (t, (name, _), e) => sprintf "(fix ($ : $) => $)" [name, str_t skctx t, str_e (add_t name ctx) e]
 	| Let (decls, e, _) => 
           let val (decls, ctx) = str_decls ctx decls
@@ -314,7 +316,7 @@ fun str_e (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
 	| Plus (e1, e2) => sprintf "($ + $)" [str_e ctx e1, str_e ctx e2]
 	| Const (n, _) => str_int n
 	| AppConstr ((x, _), ts, is, e) => sprintf "($$$ $)" [str_v cctx x, (join "" o map (prefix " ") o map (fn t => sprintf "[$]" [str_t skctx t])) ts, (join "" o map (prefix " ") o map (fn i => sprintf "[$]" [str_i sctx i])) is, str_e ctx e]
-	| Case (e, t, d, rules, _) => sprintf "(case $ return $ |> $ of $)" [str_e ctx e, str_t skctx t, str_i sctx d, join " | " (map (str_rule ctx) rules)]
+	| Case (e, return, rules, _) => sprintf "(case $ $of $)" [str_e ctx e, str_return skctx return, join " | " (map (str_rule ctx) rules)]
 	| Never t => sprintf "(never [$])" [str_t skctx t]
   end
 

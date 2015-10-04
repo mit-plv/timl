@@ -65,7 +65,12 @@ datatype ptrn =
 	 Constr of id * string list * id * region
 
 type constr_decl = id * bind list * ty * ty * region
-     
+
+datatype case_type =
+         HSumCase
+       | HUnpack
+       | HCase
+             
 datatype exp = 
 	 Var of string * region
        | Tuple of exp list * region
@@ -73,7 +78,7 @@ datatype exp =
        | App of exp * exp * region
        | AppT of exp * ty * region
        | AppI of exp * idx * region
-       | Case of exp * (ty * idx) option * (ptrn * exp) list * region
+       | Case of case_type * exp * (ty * idx) option * (ptrn * exp) list * region
        | Ascription of exp * ty * region
        | AscriptionTime of exp * idx * region
        | Let of decl list * exp * region

@@ -67,23 +67,24 @@ fun get_region_e e =
       | AbsI (_, (_, r), e) => combine_region r (get_region_e e)
       | AppI (e, i) => combine_region (get_region_e e) (get_region_i i)
       | Pack (t, _, e) => combine_region (get_region_t t) (get_region_e e)
-      | Unpack (e1, _, _, _, _, e2) => combine_region (get_region_e e1) (get_region_e e2)
+      | Unpack (e1, _, _, _, e2) => combine_region (get_region_e e1) (get_region_e e2)
       | Fold (t, e) => combine_region (get_region_t t) (get_region_e e)
       | Unfold e => get_region_e e
       | Plus (e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
       | Const (_, r) => r
       | AppConstr ((_, r), _, _, e) => combine_region r (get_region_e e)
-      | Case (_, _, _, _, r) => r
+      | Case (_, _, _, r) => r
       | Never t => get_region_t t
       | Let (_, _, r) => r
       | Fix (_, (_, r), e) => combine_region r (get_region_e e)
       | Ascription (e, t) => combine_region (get_region_e e) (get_region_t t)
       | AscriptionTime (e, i) => combine_region (get_region_e e) (get_region_i i)
-
+ 
 fun get_region_rule (pn, e) = combine_region (get_region_pn pn) (get_region_e e)
 
 fun get_region_dec dec =
     case dec of
         Val ((_, r), e) => combine_region r (get_region_e e)
+      | Datatype (_, _, _, _, r) => r
 
 end

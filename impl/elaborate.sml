@@ -151,6 +151,8 @@ local
 		end
 	end
 
+    fun elab_return return = Option.map (mapPair (elab_t, elab_i)) return
+                                        
     fun elab e =
 	case e of
 	    S.Var x => Var x
@@ -197,35 +199,39 @@ local
 	    AppT (elab e, elab_t t)
 	  | S.AppI (e, i, _) =>
 	    AppI (elab e, elab_i i)
-	  | S.Case (e, NONE, rules, r) =>
-	    (case rules of
-		 [(S.Constr ((c1, _), [], (x1, _), _), e1), (S.Constr ((c2, _), [], (x2, _), _), e2)] =>
-		 let 
-		     val ((x1, e1), (x2, e2)) =
-			 if c1 = "inl" andalso c2 = "inr" then
-			     ((x1, e1), (x2, e2))
-			 else if c2 = "inl" andalso c1 = "inr" then
-			     ((x2, e2), (x1, e1))
-			 else
-			     raise Error (r, "constructor names of sum type must be inl or inr")
-		 in
-		     SumCase (elab e, x1, elab e1, x2, elab e2)
-		 end
-	       | _ => raise Error (r, "wrong match patterns for sum type"))
-	  | S.Case (e, SOME (t, d), rules, r) =>
-	    let 
-		fun elab_pn (S.Constr (cname, inames, ename, _)) =
-		    Constr (cname, inames, ename)
-		fun default () = 
-		    Case (elab e, elab_t t, elab_i d, map (fn (pn, e) => (elab_pn pn, elab e)) rules, r)
+	  | S.Case (HSumCase, e, return, rules, r) =>
+            let val () = case return of NONE => () | _ => raise Error (r, "sumcase can't have return clause") in
+	        case rules of
+		    [(S.Constr ((c1, _), [], (x1, _), _), e1), (S.Constr ((c2, _), [], (x2, _), _), e2)] =>
+		    let 
+		        val ((x1, e1), (x2, e2)) =
+			    if c1 = "inl" andalso c2 = "inr" then
+			        ((x1, e1), (x2, e2))
+			    else if c2 = "inl" andalso c1 = "inr" then
+			        ((x2, e2), (x1, e1))
+			    else
+			        raise Error (r, "constructor names of sum type must be inl or inr")
+		    in
+		        SumCase (elab e, x1, elab e1, x2, elab e2)
+		    end
+	          | _ => raise Error (r, "wrong match patterns for sum type")
+            end
+	  | S.Case (HUnpack, e, return, rules, r) =>
+	    let
 	    in
 		case rules of
-		    [(S.Constr ((c, _), [iname], (ename, _), _), e1)] =>
+		    [(S.Constr ((c, r), [iname], (ename, _), _), e1)] =>
 		    if c = "pack" then
-			Unpack (elab e, elab_t t, elab_i d, iname, ename, elab e1)
+			Unpack (elab e, elab_return return, iname, ename, elab e1)
 		    else
-			default ()
-		  | _ => default ()
+			raise Error (r, "Constructor name must be pack")
+		  | _ => raise Error (r, "Pattern can only be (pack {idx} x => ...)")
+	    end
+	  | S.Case (HCase, e, return, rules, r) =>
+	    let 
+		fun elab_pn (S.Constr (cname, inames, ename, _)) = Constr (cname, inames, ename)
+	    in
+		Case (elab e, elab_return return, map (fn (pn, e) => (elab_pn pn, elab e)) rules, r)
 	    end
 	  | S.Ascription (e, t, _) =>
 	    Ascription (elab e, elab_t t)

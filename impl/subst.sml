@@ -109,18 +109,6 @@ fun shift_i_t b = shiftx_i_t 0 1 b
 fun shiftx_t_t x n b = on_t_t shiftx_v x n b
 fun shift_t_t b = shiftx_t_t 0 1 b
 
-fun shift_pn_i pn i =
-    let val (inames, _) = ptrn_names pn
-    in
-	shiftx_i_i 0 (length inames) i
-    end
-
-fun shift_pn_t pn t =
-    let val (inames, _) = ptrn_names pn
-    in
-	shiftx_i_t 0 (length inames) t
-    end
-
 local
     fun f x n b =
 	case b of
@@ -142,8 +130,8 @@ local
 	  | AbsI (s, name, e) => AbsI (s, name, f x n e)
 	  | AppI (e, i) => AppI (f x n e, i)
 	  | Pack (t, i, e) => Pack (t, i, f x n e)
-	  | Unpack (e1, t, d, iname, ename, e2) => 
-	    Unpack (f x n e1, t, d, iname, ename, f (x + 1) n e2)
+	  | Unpack (e1, return, iname, ename, e2) => 
+	    Unpack (f x n e1, return, iname, ename, f (x + 1) n e2)
 	  | Fix (t, name, e) => 
 	    Fix (t, name, f (x + 1) n e)
 	  | Let (decs, e, r) =>
@@ -163,7 +151,7 @@ local
 	  | Const n => Const n
 	  | Plus (e1, e2) => Plus (f x n e1, f x n e2)
 	  | AppConstr (cx, ts, is, e) => AppConstr (cx, ts, is, f x n e)
-	  | Case (e, t, d, rules, r) => Case (f x n e, t, d, map (f_rule x n) rules, r)
+	  | Case (e, return, rules, r) => Case (f x n e, return, map (f_rule x n) rules, r)
 	  | Never t => Never t
 
     and f_dec x n dec =

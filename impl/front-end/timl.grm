@@ -14,6 +14,8 @@ open Ast
     | RSQ
     | LCUR
     | RCUR
+    | SUMCASE
+    | UNPACK
     | CASE
     | OF
     | COLON
@@ -64,6 +66,7 @@ open Ast
        | tbind_plus of bind list
        | tbind_star of bind list
        | tbind of bind
+       | case_type of case_type
        | return_opt of (ty * idx) option
        | return of ty * idx
        | rule_bar_star of (ptrn * exp) list
@@ -85,7 +88,7 @@ open Ast
        | sorting of bind
 
 
-%keyword FN FIX CASE OF LET IN END RETURN VAL DATATYPE
+%keyword FN FIX CASE SUMCASE UNPACK OF LET IN END RETURN VAL DATATYPE
 
 %pos pos
 
@@ -126,7 +129,7 @@ aexp : id (Var id)
      | LPAREN exp_comma_star RPAREN (Tuple (exp_comma_star, (LPARENleft, RPARENright)))
                 (* | LPAREN exp RPAREN (exp) *) (* already covered by previous one *)
      | abs bind_plus DARROW exp (Abs (abs, bind_plus, exp, (absleft, expright)))
-     | CASE exp return_opt OF rule_bar_star (Case (exp, return_opt, rule_bar_star, (CASEleft, rule_bar_starright)))
+     | case_type exp return_opt OF rule_bar_star (Case (case_type, exp, return_opt, rule_bar_star, (case_typeleft, rule_bar_starright)))
      | LET decl_star IN exp END (Let (decl_star, exp, (LETleft, ENDright)))
      | INT (Const (INT, (INTleft, INTright)))
 
@@ -191,6 +194,10 @@ tbind : id (Kinding id)
       | LCUR id COLON sort RCUR (Sorting (id, sort, (LCURleft, RCURright)))
       | LPAREN tbind RPAREN (tbind)
 
+case_type : SUMCASE (HSumCase)
+          | UNPACK (HUnpack)
+          | CASE (HCase)
+                 
 return_opt : return (SOME return)
 	   | (NONE)
 

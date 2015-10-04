@@ -105,6 +105,8 @@ local
        tnames, 
        on_constr_core ctx tnames core)
 
+    fun on_return (ctx as (sctx, _)) return = Option.map (mapPair (on_type ctx, on_idx sctx)) return
+
     fun on_expr (ctx as (sctx, kctx, cctx, tctx)) e =
       let fun add_t name (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx)
 	  val skctx = (sctx, kctx)
@@ -139,7 +141,7 @@ local
 	    | E.AbsI (s, (name, r), e) => AbsI (on_sort sctx s, (name, r), on_expr (name :: sctx, kctx, cctx, tctx) e)
 	    | E.AppI (e, i) => AppI (on_expr ctx e, on_idx sctx i)
 	    | E.Pack (t, i, e) => Pack (on_type skctx t, on_idx sctx i, on_expr ctx e)
-	    | E.Unpack (e1, t, d, iname, ename, e2) => Unpack (on_expr ctx e1, on_type skctx t, on_idx sctx d, iname, ename, on_expr (iname :: sctx, kctx, cctx, ename :: tctx) e2)
+	    | E.Unpack (e1, return, iname, ename, e2) => Unpack (on_expr ctx e1, on_return skctx return, iname, ename, on_expr (iname :: sctx, kctx, cctx, ename :: tctx) e2)
 	    | E.Fix (t, (name, r), e) => Fix (on_type skctx t, (name, r), on_expr (add_t name ctx) e)
 	    | E.Let (decls, e, r) =>
               let val (decls, ctx) = on_decls ctx decls
@@ -151,7 +153,7 @@ local
 	    | E.Const n => Const n
 	    | E.Plus (e1, e2) => Plus (on_expr ctx e1, on_expr ctx e2)
 	    | E.AppConstr (x, ts, is, e) => AppConstr (on_var cctx x, map (on_type skctx) ts, map (on_idx sctx) is, on_expr ctx e)
-	    | E.Case (e, t, d, rules, r) => Case (on_expr ctx e, on_type skctx t, on_idx sctx d, map (fn (pn, e) => (on_ptrn cctx pn, let val (inames, enames) = E.ptrn_names pn in on_expr (inames @ sctx, kctx, cctx, enames @ tctx ) e end)) rules, r)
+	    | E.Case (e, return, rules, r) => Case (on_expr ctx e, on_return skctx return, map (fn (pn, e) => (on_ptrn cctx pn, let val (inames, enames) = E.ptrn_names pn in on_expr (inames @ sctx, kctx, cctx, enames @ tctx ) e end)) rules, r)
 	    | E.Never t => Never (on_type skctx t)
       end
 

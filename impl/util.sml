@@ -8,6 +8,9 @@ fun sprintf s ls =
     String.concat (interleave (String.fields (fn c => c = #"$") s) ls)
 fun println s = print (s ^ "\n")
 
+fun default v opt = getOpt (opt, v)
+fun str_opt f opt = (default "" o Option.map f) opt
+
 val join = String.concatWith
 fun prefix fix s = fix ^ s
 fun suffix fix s = s ^ fix
@@ -36,6 +39,7 @@ fun mapSnd f (a, b) = (a, f b)
 fun mapPair (fa, fb) (a, b) = (fa a, fb b)
 fun curry f a b = f (a, b)
 fun uncurry f (a, b) = f a b
+fun swap f (a, b) = f (b, a)
 fun upd4 f (a, b, c, d) = (a, b, c, f d)
 
 datatype ('a, 'b) result =

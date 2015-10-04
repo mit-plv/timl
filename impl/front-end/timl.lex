@@ -33,6 +33,8 @@ val keywords = [
     ("fn", T.FN),
     ("fix", T.FIX),
     ("case", T.CASE),
+    ("sumcase", T.SUMCASE),
+    ("unpack", T.UNPACK),
     ("of", T.OF),
     ("let", T.LET),
     ("in", T.IN),
