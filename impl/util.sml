@@ -15,7 +15,8 @@ fun surround pre post s = pre ^ s ^ post
 fun indent msg = map (fn s => "  " ^ s) msg
 val str_int = Int.toString
 fun join_lines ls = (join "" o map (suffix "\n")) ls
-
+fun join_prefix pre ls = (join "" o map (prefix pre)) ls
+                                                                
 fun id x = x
 fun const a _ = a
 fun range n = List.tabulate (n, id)

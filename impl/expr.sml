@@ -260,6 +260,15 @@ functor ExprFun (structure Var : VAR structure Type : TYPE structure Other : DEB
 	    case pn of
 		Constr (_, inames, (ename, _)) => (rev inames, [ename])
 
+        fun str_sortings ctx name_sorts =
+            let fun f ((nm, s), (acc, ctx)) =
+                  (sprintf "$ : $" [nm, str_s ctx s] :: acc, nm :: ctx)
+                val (name_sorts, ctx) = foldl f ([], ctx) name_sorts
+                val name_sorts = rev name_sorts
+            in
+                (name_sorts, ctx)
+            end
+
 	fun str_e (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
 	    let fun add_t name (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx) 
 		val skctx = (sctx, kctx) 
@@ -284,16 +293,10 @@ functor ExprFun (structure Var : VAR structure Type : TYPE structure Other : DEB
 		  | Pack (t, i, e) => sprintf "(pack $ ($, $))" [str_t skctx t, str_i sctx i, str_e ctx e]
 		  | Unpack (e1, t, d, iname, ename, e2) => sprintf "unpack $ return $ |> $ as ($, $) in $ end" [str_e ctx e1, str_t skctx t, str_i sctx d, iname, ename, str_e (iname :: sctx, kctx, cctx, ename :: tctx) e2]
 		  | Fix (t, (name, _), e) => sprintf "(fix ($ : $) => $)" [name, str_t skctx t, str_e (add_t name ctx) e]
-		  | Let (decs, e, _) => 
-                    let fun f (decl, (acc, ctx)) =
-                            let val (s, ctx) = str_decl ctx decl
-                            in
-                                (s :: acc, ctx)
-                            end
-                        val (decs, ctx) = foldl f ([], ctx) decs
-                        val decs = rev decs
+		  | Let (decls, e, _) => 
+                    let val (decls, ctx) = str_decls ctx decls
                     in
-                        sprintf "let$ in $ end" [(join "" o map (prefix " ")) decs, str_e ctx e]
+                        sprintf "let$ in $ end" [join_prefix " " decls, str_e ctx e]
                     end
 		  | Ascription (e, t) => sprintf "($ : $)" [str_e ctx e, str_t skctx t]
 		  | AscriptionTime (e, d) => sprintf "($ |> $)" [str_e ctx e, str_i sctx d]
@@ -311,14 +314,38 @@ functor ExprFun (structure Var : VAR structure Type : TYPE structure Other : DEB
 		sprintf "$ => $" [str_pn cctx pn, str_e ctx' e]
 	    end
 
+        and str_decls (ctx as (sctx, kctx, cctx, tctx)) decls =
+            let fun f (decl, (acc, ctx)) =
+                  let val (s, ctx) = str_decl ctx decl
+                  in
+                      (s :: acc, ctx)
+                  end
+                val (decls, ctx) = foldl f ([], ctx) decls
+                val decls = rev decls
+            in
+                (decls, ctx)
+            end
+                
         and str_decl (ctx as (sctx, kctx, cctx, tctx)) decl =
             case decl of
                 Val ((name, _), e) =>
                 (sprintf "val $ = $" [name, str_e ctx e], (sctx, kctx, cctx, name :: tctx))
-                (* | Datatype *)
-                    (*here*)
-	end			       
+              | Datatype (name, tnames, sorts, constrs, _) =>
+                let val str_tnames = (join_prefix " " o rev) tnames
+                    fun str_constr (cname, name_sorts, t, idxs, _) =
+                      let val (name_sorts, sctx') = str_sortings sctx name_sorts
+                      in
+                          sprintf "$ of$ $ ->$$ $" [cname, (join_prefix " " o map (surround "{" "}")) name_sorts, str_t (sctx', rev tnames @ name :: kctx) t, (join_prefix " " o map (surround "{" "}" o str_i sctx') o rev) idxs, str_tnames, name]
+                      end
+                    val s = sprintf "datatype$$ $ = $" [(join_prefix " " o map (surround "{" "}" o str_s sctx) o rev) sorts, str_tnames, name, join " | " (map str_constr constrs)]
+                    val cnames = map #1 constrs
+                    val ctx = (sctx, name :: kctx, rev cnames @ cctx, tctx)
+                in
+                    (s, ctx)
+                end
 
+end
+ 
 structure StringVar = struct
 type var = string
 fun str_v ctx x : string = x

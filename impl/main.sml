@@ -11,7 +11,7 @@ fun typecheck_decls_file filename (ctx as (sctx, kctx, cctx, tctx)) decls =
       val vc_lines =
           sprintf "VCs: [count=$]" [str_int (length vcs)] :: "" ::
 	  map str_vc vcs
-      val s = join_lines (type_lines @ [""] @ vc_lines)
+      val s = join_lines (type_lines @ "" :: vc_lines)
   in
       s
   end
@@ -57,8 +57,9 @@ fun main filename =
       val ctxn = ctx_names ctx
       val decls = parse_file filename
       val decls = map elaborate_decl decls
-      val () = app (fn decl => println (fst (E.str_decl ctxn decl))) decls
+      val () = (print o join_lines o map (suffix "\n") o fst o E.str_decls ctxn) decls
       val decls = resolve_decls ctxn decls
+      val () = (print o join_lines o map (suffix "\n") o fst o str_decls ctxn) decls
       val s = typecheck_decls_file filename ctx decls
   in
       s
