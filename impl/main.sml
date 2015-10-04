@@ -3,11 +3,11 @@ open TypeCheck
 
 fun typecheck_decls_file filename (ctx as (sctx, kctx, cctx, tctx)) decls =
   let 
+      val ((ctxd, ctx as (sctx, kctx, cctx, tctx)), vcs) = typecheck_decls ctx decls
       val ctxn as (sctxn, kctxn, cctxn, tctxn) = (sctx_names sctx, names kctx, names cctx, names tctx)
-      val ((ctxd, ctx), vcs) = typecheck_decls ctx decls
       val type_lines =
-          "OK:" :: "" ::
-          (List.concat o map (fn (name, (t, d)) => [sprintf "$ : $" [name, str_t (sctxn, kctxn) t], sprintf "|> $" [str_i sctxn d]]) o #4) ctxd
+          "OK: Type checked." :: "" ::
+          (List.concat o map (fn (name, (t, d)) => [sprintf "$ : $" [name, str_t (sctxn, kctxn) t], sprintf "|> $" [str_i sctxn d], ""]) o #4) ctxd
       val vc_lines =
           sprintf "VCs: [count=$]" [str_int (length vcs)] :: "" ::
 	  map str_vc vcs

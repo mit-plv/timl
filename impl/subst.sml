@@ -330,18 +330,20 @@ fun unroll (name, ns, t, i, _) =
     subst_is_t i (f 0 (shift_i (length ns) (Recur (name, ns, t))) t)
 end
 
-fun shiftx_i_c x n (family, tnames, name_sorts, t, is) =
-    let val m = length name_sorts 
-    in
-	(family, tnames, 
-	 #1 (foldr (fn ((name, s), (acc, m)) => ((name, shiftx_i_s (x + m) n s) :: acc, m - 1)) ([], m - 1) name_sorts), 
-	 shiftx_i_t (x + m) n t, 
-	 map (shiftx_i_i (x + m) n) is)
-    end
+fun shiftx_i_c x n ((family, tnames, (name_sorts, t, is)) : constr) : constr =
+  let val m = length name_sorts 
+  in
+      (family,
+       tnames, 
+       (#1 (foldr (fn ((name, s), (acc, m)) => ((name, shiftx_i_s (x + m) n s) :: acc, m - 1)) ([], m - 1) name_sorts), 
+	shiftx_i_t (x + m) n t, 
+	map (shiftx_i_i (x + m) n) is))
+  end
+
 fun shift_i_c b = shiftx_i_c 0 1 b
 
-fun shiftx_t_c x n (family, tnames, name_sorts, t, is) =
-    (shiftx_v x n family, tnames, name_sorts, shiftx_t_t (x + length tnames) n t, is)
+fun shiftx_t_c x n ((family, tnames, (name_sorts, t, is)) : constr) : constr =
+    (shiftx_v x n family, tnames, (name_sorts, shiftx_t_t (x + length tnames) n t, is))
 fun shift_t_c b = shiftx_t_c 0 1 b
 
 local

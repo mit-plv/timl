@@ -107,7 +107,13 @@ local
 		end
 	in
 	    case t of
-		S.VarT (x, r) => AppV ((x, r), [], [], r)
+		S.VarT (x, r) =>
+                if x = "unit" then
+                    Unit r
+                else if x = "int" then
+                    Int r
+                else
+                    AppV ((x, r), [], [], r)
 	      | S.Arrow (t1, d, t2, _) => Arrow (elab_t t1, elab_i d, elab_t t2)
 	      | S.Prod (t1, t2, _) => Prod (elab_t t1, elab_t t2)
 	      | S.Sum (t1, t2, _) => Sum (elab_t t1, elab_t t2)
@@ -257,7 +263,7 @@ local
                         end
                       val () = app f (zip (ts, tnames))
                   in
-                      (cname, binds, elab_t t1, map elab_i is, r)
+                      (cname, (binds, elab_t t1, map elab_i is), r)
                   end
             in
                 Datatype (name, tnames, map elab_s sorts, map elab_constr constrs, r)

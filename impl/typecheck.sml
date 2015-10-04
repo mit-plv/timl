@@ -247,7 +247,6 @@ fun str_vc (ctx : bscontext, ps, p) =
     end 
 
 (* exception Unimpl *)
-exception Impossible of string
 
 exception Error of region * string list
 
@@ -632,7 +631,7 @@ local
     fun Cover_Or (a, b) = a @ b
     fun Cover_Constr e = [e]
 
-    fun get_family ((x, _, _, _, _) : constr) = x
+    fun get_family (x : constr) = #1 x
 
     fun get_family_members cctx x =
 	List.mapPartial (fn (n, (_, c)) => if get_family c = x then SOME n else NONE) (add_idx cctx)
@@ -658,7 +657,7 @@ local
 	    SOME (name, c) => (name, c)
 	  | NONE => raise Error (r, [sprintf "Unbound constructor: $" [str_v (names ctx) x]])
 
-    fun constr_type ((family, tnames, ns, t, is) : constr) = 
+    fun constr_type ((family, tnames, (ns, t, is)) : constr) = 
       let val ts = (map (fn x => VarT (x, dummy)) o rev o range o length) tnames
 	  val t2 = AppV ((shiftx_v 0 (length tnames) family, dummy), ts, is, dummy)
 	  val t = Arrow (t, T0 dummy, t2)
@@ -681,7 +680,7 @@ local
 	in
 	    case (pn, t) of
 		(Constr ((cx, r), inames, (ename, _)), AppV ((x, _), ts, is, _)) =>
-		let val (_, c as (x', tnames, ns, t1, is')) = fetch_constr (cctx, (cx, r))
+		let val (_, c as (x', tnames, (ns, t1, is'))) = fetch_constr (cctx, (cx, r))
 		in
 		    if x' = x then
 			let val () = check_length (tnames, ts, r)
@@ -1012,9 +1011,9 @@ local
 	  | Datatype (name, tnames, sorts, constr_decls, _) =>
 	    let val () = is_wfsorts (sctx, sorts)
 		val nk = (name, ArrowK (length tnames, sorts))
-		val ctx = add_kinding_skct nk ctx
-		fun make_constr (name, name_sorts, t, ids, r) =
-		  let val c = (0, tnames, name_sorts, t, ids)
+		val ctx as (sctx, kctx, _, _) = add_kinding_skct nk ctx
+		fun make_constr ((name, (name_sorts, t, ids), r) : constr_decl) =
+		  let val c = (0, tnames, (name_sorts, t, ids))
 		      val t = constr_type c
 		      val () = is_wftype ((sctx, kctx), t)
 			       handle Error (_, msg) =>

@@ -45,4 +45,6 @@ datatype ('a, 'b) result =
 val zip = ListPair.zip
 val unzip = ListPair.unzip
 
+exception Impossible of string
+                
 end
