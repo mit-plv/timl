@@ -151,7 +151,7 @@ local
 		end
 	end
 
-    fun elab_return return = Option.map (mapPair (elab_t, elab_i)) return
+    fun elab_return return = mapPair (Option.map elab_t, Option.map elab_i) return
                                         
     fun elab e =
 	case e of
@@ -200,7 +200,7 @@ local
 	  | S.AppI (e, i, _) =>
 	    AppI (elab e, elab_i i)
 	  | S.Case (HSumCase, e, return, rules, r) =>
-            let val () = case return of NONE => () | _ => raise Error (r, "sumcase can't have return clause") in
+            let val () = case return of (NONE, NONE) => () | _ => raise Error (r, "sumcase can't have return clause") in
 	        case rules of
 		    [(S.Constr ((c1, _), [], (x1, _), _), e1), (S.Constr ((c2, _), [], (x2, _), _), e2)] =>
 		    let 

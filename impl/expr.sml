@@ -229,6 +229,8 @@ type constr_core = (string * sort) list * ty * idx list
 type constr_decl = string * constr_core * other
 type constr = var * string list * constr_core
 
+type return = ty option * idx option
+                              
 datatype ptrn =
 	 Constr of id * string list * name
 
@@ -254,14 +256,14 @@ datatype expr =
 	 | AppI of expr * idx
 	 (* existential index *)
 	 | Pack of ty * idx * expr
-	 | Unpack of expr * (ty * idx) option * string * string * expr
+	 | Unpack of expr * return * string * string * expr
 	 (* recursive type *)
 	 | Fold of ty * expr
 	 | Unfold of expr
 	 | Plus of expr * expr
 	 | Const of int * other
 	 | AppConstr of id * ty list * idx list * expr
-	 | Case of expr * (ty * idx) option * (ptrn * expr) list * other
+	 | Case of expr * return * (ptrn * expr) list * other
 	 | Never of ty
 	 | Let of decl list * expr * other
 	 | Fix of ty * name * expr
@@ -280,7 +282,12 @@ fun ptrn_names pn : string list * string list =
   case pn of
       Constr (_, inames, (ename, _)) => (rev inames, [ename])
 
-fun str_return (skctx as (sctx, _)) return = str_opt (fn (t, d) => sprintf "return $ |> $ " [str_t skctx t, str_i sctx d]) return
+fun str_return (skctx as (sctx, _)) return =
+  case return of
+      (NONE, NONE) => ""
+    | (SOME t, NONE) => sprintf "return $ " [str_t skctx t]
+    | (NONE, SOME d) => sprintf "return |> $ " [str_i sctx d]
+    | (SOME t, SOME d) => sprintf "return $ |> $ " [str_t skctx t, str_i sctx d]
                                                      
 fun str_e (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
   let fun add_t name (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx) 

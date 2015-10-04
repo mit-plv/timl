@@ -105,7 +105,7 @@ local
        tnames, 
        on_constr_core ctx tnames core)
 
-    fun on_return (ctx as (sctx, _)) return = Option.map (mapPair (on_type ctx, on_idx sctx)) return
+    fun on_return (ctx as (sctx, _)) return = mapPair (Option.map (on_type ctx), Option.map (on_idx sctx)) return
 
     fun on_expr (ctx as (sctx, kctx, cctx, tctx)) e =
       let fun add_t name (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx)

@@ -78,7 +78,7 @@ datatype exp =
        | App of exp * exp * region
        | AppT of exp * ty * region
        | AppI of exp * idx * region
-       | Case of case_type * exp * (ty * idx) option * (ptrn * exp) list * region
+       | Case of case_type * exp * (ty option * idx option) * (ptrn * exp) list * region
        | Ascription of exp * ty * region
        | AscriptionTime of exp * idx * region
        | Let of decl list * exp * region

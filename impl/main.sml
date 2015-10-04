@@ -57,9 +57,9 @@ fun main filename =
       val ctxn = ctx_names ctx
       val decls = parse_file filename
       val decls = map elaborate_decl decls
-      val () = (print o join_lines o map (suffix "\n") o fst o E.str_decls ctxn) decls
+      (* val () = (print o join_lines o map (suffix "\n") o fst o E.str_decls ctxn) decls *)
       val decls = resolve_decls ctxn decls
-      val () = (print o join_lines o map (suffix "\n") o fst o str_decls ctxn) decls
+      (* val () = (print o join_lines o map (suffix "\n") o fst o str_decls ctxn) decls *)
       val s = typecheck_decls_file filename ctx decls
   in
       s
