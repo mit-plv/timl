@@ -58,7 +58,7 @@ local
 	  | S.TimeLe (i1, i2, _) => TimeLe (elab_i i1, elab_i i2)
 
     fun elab_b (name, r) =
-	if name = "Time" then
+	if name = "Nat" then
 	    (Time, r)
 	else if name = "Bool" then
 	    (Bool, r)

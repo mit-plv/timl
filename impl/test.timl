@@ -1,12 +1,19 @@
-datatype {Time} 'a ilist =
+datatype {Nat} 'a ilist =
          NilI of unit -> {0} 'a ilist
-         | ConsI of {n' : Time} 'a * {n'} 'a ilist -> {n' + 1} 'a ilist
-                                                               
+         | ConsI of {n' : Nat} 'a * {n'} 'a ilist -> {n' + 1} 'a ilist
+                                                              
 val map = 
- fn ['a] ['b] {m : Time} (f : 'a -- m -> 'b) =>
-    fix (map : forall {n : Time}, {n} 'a ilist -- (m + 2) * n -> {n} 'b ilist) {n : Time} (ls : {n} 'a ilist) =>
+ fn ['a] ['b] {m : Nat} (f : 'a -- m -> 'b) =>
+    fix (map : forall {n : Nat}, {n} 'a ilist -- (m + 2) * n -> {n} 'b ilist) {n : Nat} (ls : {n} 'a ilist) =>
     case ls return {n} 'b ilist |> (m + 2) * n of
         NilI _ => NilI ['b] ()
       | ConsI {n'} x_xs => ConsI ['b] {n'} (f (fst x_xs), map {n'} (snd x_xs))
 
 val n = 77
+
+datatype {Nat} {Bool} 'a rbt =
+         Leaf of unit -> {0} {true} 'a rbt
+         | Black of {lc : Bool} {rc : Bool} {bh : Nat}
+                                'a * {bh} {lc} 'a rbt * {bh} {rc} 'a rbt -> {bh + 1} {true} 'a rbt
+         | Red of {bh : Nat}
+                      'a * {bh} {true} 'a rbt * {bh} {true} 'a rbt -> {bh} {false} 'a rbt

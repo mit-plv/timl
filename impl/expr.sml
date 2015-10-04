@@ -7,7 +7,7 @@ datatype bsort =
 
 fun str_b (s : bsort) : string = 
   case s of
-      Time => "Time"
+      Time => "Nat"
     | Bool => "Bool"
     | BSUnit => "Unit"
 end
