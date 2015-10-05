@@ -132,7 +132,8 @@ local
 	    | E.Abs (t, (name, r), e) => Abs (on_type skctx t, (name, r), on_expr (add_t name ctx) e)
 	    | E.App (e1, e2) => 
 	      let val e2 = on_expr ctx e2
-		  fun default () = App (on_expr ctx e1, e2)
+		  fun default () = 
+                      App (on_expr ctx e1, e2)
 		  val (e1, is) = get_is e1 
 		  val (e1, ts) = get_ts e1
 	      in
@@ -153,9 +154,34 @@ local
 	    | E.Fold (t, e) => Fold (on_type skctx t, on_expr ctx e)
 	    | E.Unfold e => Unfold (on_expr ctx e)
 	    | E.AbsT ((name, r), e) => AbsT ((name, r), on_expr (sctx, name :: kctx, cctx, tctx) e)
-	    | E.AppT (e, t) => AppT (on_expr ctx e, on_type skctx t)
+	    | E.AppT (e, t) => 
+	      let fun default () = 
+                      AppT (on_expr ctx e, on_type skctx t)
+		  val (e, ts) = get_ts e
+                  val ts = ts @ [t]
+	      in
+		  case e of
+		      E.Var (x, r) =>
+		      (case find_idx x cctx of
+			   SOME i => AppConstr ((i, r), map (on_type skctx) ts, [], TT dummy)
+			 | NONE => default ())
+		    | _ => default ()
+	      end
 	    | E.AbsI (s, (name, r), e) => AbsI (on_sort sctx s, (name, r), on_expr (name :: sctx, kctx, cctx, tctx) e)
-	    | E.AppI (e, i) => AppI (on_expr ctx e, on_idx sctx i)
+	    | E.AppI (e, i) => 
+	      let fun default () = 
+                      AppI (on_expr ctx e, on_idx sctx i)
+		  val (e, is) = get_is e
+                  val is = is @ [i]
+		  val (e, ts) = get_ts e
+	      in
+		  case e of
+		      E.Var (x, r) =>
+		      (case find_idx x cctx of
+			   SOME i => AppConstr ((i, r), map (on_type skctx) ts, map (on_idx sctx) is, TT dummy)
+			 | NONE => default ())
+		    | _ => default ()
+	      end
 	    | E.Pack (t, i, e) => Pack (on_type skctx t, on_idx sctx i, on_expr ctx e)
 	    | E.Unpack (e1, return, iname, ename, e2) => Unpack (on_expr ctx e1, on_return skctx return, iname, ename, on_expr (iname :: sctx, kctx, cctx, ename :: tctx) e2)
 	    | E.Fix (t, (name, r), e) => Fix (on_type skctx t, (name, r), on_expr (add_t name ctx) e)
