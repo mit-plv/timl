@@ -46,3 +46,18 @@ val map3 =
     case ls of
         NilI _ => NilI ['b] () : {n} 'b ilist
       | ConsI {n'} x_xs => ConsI ['b] {n'} (f (fst x_xs), map {n'} (snd x_xs)) : {n} 'b ilist |> (m + 2) * n
+
+val map4 = 
+ fn ['a] ['b] {m : Nat} (f : 'a -- m -> 'b) =>
+    fix (map : forall {n : Nat}, {n} 'a ilist -- (m + 2) * n -> {n} 'b ilist) {n : Nat} (ls : {n} 'a ilist) =>
+    case ls return {n} 'b ilist |> (m + 2) * n of
+        NilI => NilI ['b] ()
+      | ConsI {n'} (x, xs as NilI) => ConsI ['b] {n'} (f x, map {n'} xs)
+      | ConsI {n'} (x, xs) => ConsI ['b] {n'} (f x, map {n'} xs)
+
+val map5 = 
+ fn ['a] ['b] {m : Nat} (f : 'a -- m -> 'b) =>
+    fix (map : forall {n : Nat}, {n} 'a ilist -- (m + 2) * n -> {n} 'b ilist) {n : Nat} (ls : {n} 'a ilist) =>
+    case ls return {n} 'b ilist |> (m + 2) * n of
+        NilI => NilI ['b] ()
+                                                                                                               

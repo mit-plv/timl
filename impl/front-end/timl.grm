@@ -46,6 +46,7 @@ open Ast
     | MAX
     | MIN
     | BOGUS of string
+    | AS
 
 %nonterm start of decl list
        | exp of exp
@@ -72,6 +73,9 @@ open Ast
        | bar_rule_star of (ptrn * exp) list
        | rule of ptrn * exp
        | ptrn of ptrn
+       | ptrn_opt of ptrn option
+       | ptrn_comma_star of ptrn list
+       | comma_ptrn_star of ptrn list
        | id_cur_space of id list
        | id_plus of id list
        | id_star of id list
@@ -87,7 +91,7 @@ open Ast
        | sorting of bind
 
 
-%keyword FN FIX CASE SUMCASE UNPACK OF LET IN END RETURN VAL DATATYPE
+%keyword FN FIX CASE SUMCASE UNPACK OF LET IN END RETURN VAL DATATYPE AS
 
 %pos pos
 
@@ -210,8 +214,17 @@ bar_rule_star : BAR rule bar_rule_star (rule :: bar_rule_star)
 
 rule : ptrn DARROW exp ((ptrn, exp))
 
-ptrn : id id_cur_space id (Constr (id1, map fst id_cur_space, id2, (id1left, id2right)))
-(* ptrn : id_plus id (Constr (hd id_plus, map fst (tl id_plus), id, (id_plusleft, idright))) *)
+ptrn : id id_cur_space ptrn_opt (ConstrP (id, map fst id_cur_space, ptrn_opt, (idleft, ptrn_optright)))
+     | LPAREN ptrn_comma_star RPAREN (TupleP (ptrn_comma_star, (LPARENleft, RPARENright)))
+     | id AS ptrn (AliasP (id, ptrn, (idleft, ptrnright)))
+
+ptrn_opt : ptrn (SOME ptrn)
+         | (NONE)
+               
+ptrn_comma_star : ptrn comma_ptrn_star (ptrn :: comma_ptrn_star)
+	       | ([])
+comma_ptrn_star : COMMA ptrn comma_ptrn_star (ptrn :: comma_ptrn_star)
+	        | ([])
 
 id_cur_space : LCUR id_plus RCUR (id_plus)
 	     | ([])

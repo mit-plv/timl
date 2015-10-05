@@ -62,7 +62,9 @@ fun get_region_t t =
     | AppTI (_, _, r) => r
 
 datatype ptrn =
-	 Constr of id * string list * id * region
+	 ConstrP of id * string list * ptrn option * region
+         | TupleP of ptrn list * region
+         | AliasP of id * ptrn * region
 
 type constr_decl = id * bind list * ty * ty * region
 

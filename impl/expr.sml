@@ -222,6 +222,7 @@ open Type
 open Util
 
 type other = Other.t
+val dummy = Other.dummy
 type id = var * other
 type name = string * other
 
@@ -232,7 +233,11 @@ type constr = var * string list * constr_core
 type return = ty option * idx option
                               
 datatype ptrn =
-	 Constr of id * string list * name
+	 ConstrP of id * string list * ptrn option * other
+         | VarP of name
+         | PairP of ptrn * ptrn
+         | TTP of other
+         | AliasP of name * ptrn * other
 
 datatype expr =
 	 Var of var * other
@@ -274,13 +279,36 @@ datatype expr =
          Val of name * expr
 	 | Datatype of string * string list * sort list * constr_decl list * other
 
-fun str_pn ctx pn = 
-  case pn of
-      Constr ((x, _), inames, (ename, _)) => sprintf "$ $ $" [str_v ctx x, join " " inames, ename]
-
 fun ptrn_names pn : string list * string list =
   case pn of
-      Constr (_, inames, (ename, _)) => (rev inames, [ename])
+      ConstrP (_, inames, pn, _) =>
+      let val (inames', enames) = ptrn_names (default (TTP dummy) pn)
+      in
+          (inames' @ rev inames, enames)
+      end
+    | VarP (name, _) =>
+      ([], [name])
+    | PairP (pn1, pn2) =>
+      let val (inames1, enames1) = ptrn_names pn1
+          val (inames2, enames2) = ptrn_names pn2
+      in
+          (inames2 @ inames1, enames2 @ enames1)
+      end
+    | TTP _ =>
+      ([], [])
+    | AliasP ((name, _), pn, _) =>
+      let val (inames, enames) = ptrn_names pn
+      in
+          (inames, enames @ [name])
+      end
+
+fun str_pn cctx pn = 
+  case pn of
+      ConstrP ((x, _), inames, pn, _) => sprintf "$ $$" [str_v cctx x, join " " inames, str_opt (str_pn cctx) pn]
+    | VarP (name, _) => name
+    | PairP (pn1, pn2) => sprintf "($, $)" [str_pn cctx pn1, str_pn cctx pn2]
+    | TTP _ => "()"
+    | AliasP ((name, _), pn, _) => sprintf "$ as $" [name, str_pn cctx pn]
 
 fun str_return (skctx as (sctx, _)) return =
   case return of

@@ -46,9 +46,10 @@ val keywords = [
     ("forall", T.FORALL),
     ("exists", T.EXISTS),
     ("max", T.MAX),
-    ("min", T.MIN)
+    ("min", T.MIN),
+    ("as", T.AS)
 ]
-
+ 
 fun find (m, k : string) = Option.map #2 (List.find (fn (k', _) => k' = k) m)
 
 fun is_keyword s = find (keywords, s)
@@ -64,13 +65,10 @@ alpha = [A-Za-z];
 digit = [0-9];
 ws = [\ \t];
 eol = (\013\010|\010|\013);
-(* eol = ("\013\010"|"\010"|"\013"); *)
-(* eol = \n; *)
 id_init = ({alpha}|[_']);
 
 %%
 
-(* \013\010|\010|\013 => (print "matched eol\n"; update_line yypos; continue()); *)
 {eol} => (print "matched eol\n"; update_line yypos; continue());
 
 <INITIAL>{ws}+ => (continue ());

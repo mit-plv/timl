@@ -48,7 +48,11 @@ fun get_region_t t =
 
 fun get_region_pn pn = 
     case pn of
-        Constr ((_, r1), _, (_, r2)) => combine_region r1 r2
+        ConstrP (_, _, _, r) => r
+      | VarP (_, r) => r
+      | PairP (pn1, pn2) => combine_region (get_region_pn pn1) (get_region_pn pn2)
+      | TTP r => r
+      | AliasP (_, _, r) => r
 
 fun get_region_e e = 
     case e of

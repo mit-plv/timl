@@ -197,6 +197,32 @@ fun add_kindings_skctd pairs ((sctx, kctx, cctx, tctx) : contextd) : contextd =
 val add_constrs_skctd = add_constrs_skct
 val add_typings_skctd = add_typings_skct
 
+fun add_ctx (sctx, kctx, cctx, tctx) ctx =
+  let val ctx = add_sortings_skct sctx ctx
+      val ctx = add_kindings_skct kctx ctx
+      val ctx = add_constrs_skct cctx ctx
+      val ctx = add_typings_skct tctx ctx
+  in
+      ctx
+  end
+
+fun add_ctxd (sctx, kctx, cctx, tctx) ctx =
+  let val ctx = add_sortings_skctd sctx ctx
+      val ctx = add_kindings_skctd kctx ctx
+      val ctx = add_constrs_skctd cctx ctx
+      val ctx = add_typings_skctd tctx ctx
+  in
+      ctx
+  end
+
+fun add_ctxd_ctx (sctx, kctx, cctx, tctx) ctx =
+  add_ctx (sctx, kctx, cctx, map (mapSnd fst) tctx) ctx
+
+fun add_ctx_skc ctx (sctx, kctx, cctx) =
+  let val (sctx, kctx, cctx, _) = add_ctx ctx (sctx, kctx, cctx, []) in
+      (sctx, kctx, cctx)
+  end
+
 fun shift_pn_i pn i =
   let val (inames, _) = ptrn_names pn
   in
@@ -644,27 +670,41 @@ local
 	      | _ => raise Error (get_region_t c, [no_meet ctxn c c'])
 	end
 
-    type cover = var list
-    val Cover_False = []
-    fun Cover_Or (a, b) = a @ b
-    fun Cover_Constr e = [e]
+    datatype cover =
+             TrueC
+           | FalseC
+           | AndC of cover * cover
+           | OrC of cover * cover
+           | ConstrC of var * cover
+           | PairC of cover * cover
+           | TTC
+
+    (* type cover = var list *)
+    (* val Cover_False = [] *)
+    (* fun Cover_Or (a, b) = a @ b *)
+    (* fun Cover_Constr e = [e] *)
 
     fun get_family (x : constr) = #1 x
 
     fun get_family_members cctx x =
       List.mapPartial (fn (n, (_, c)) => if get_family c = x then SOME n else NONE) (add_idx cctx)
 
-    fun combine_covers covers =                        
-      foldl (swap Cover_Or) Cover_False covers
+    (* fun combine_covers covers =                         *)
+    (*   foldl (swap Cover_Or) Cover_False covers *)
 
     (* covers should already have type t *)
     fun check_redundancy ((_, _, cctx), t, prevs, this, r) =
+      ()
+      (*
       let val prev = combine_covers prevs in
 	  if not (subset op= this prev) then ()
 	  else raise Error (r, [sprintf "Redundant pattern $ after [$]" [join ", " (map (str_v (names cctx)) this), join ", " (map (str_v (names cctx)) prev)]])
       end
-
+      *)
+      
     fun check_exhaustive ((_, _, cctx), t, covers, r) =
+      ()
+          (*
       let val cover = combine_covers covers in
 	  case t of
 	      AppV ((family, _), _, _, _) =>
@@ -676,6 +716,7 @@ local
 	      end
 	    | _ => raise Impossible "shouldn't check exhaustiveness under this type"
       end
+*)
 
     fun fetch_constr (ctx, (x, r)) =
       case nth_error ctx x of
@@ -702,52 +743,65 @@ local
     (* t is already checked for wellformedness *)
     fun match_ptrn (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext), pn : ptrn, t) : cover * context =
       let val skctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
+          fun match_error () = raise Error (get_region_pn pn, [sprintf "Pattern $ doesn't match type $" [str_pn (names cctx) pn, str_t skctxn t]])
       in
-	  case (pn, t) of
-	      (Constr ((cx, r), inames, (ename, _)), AppV ((x, _), ts, is, _)) =>
-	      let val (_, c as (x', tnames, (ns, t1, is'))) = fetch_constr (cctx, (cx, r))
-	      in
-		  if x' = x then
-		      let val () = check_length (tnames, ts, r)
-			  val t1 = subst_ts_t ts t1
-			  val is = map (shiftx_i_i 0 (length ns)) is
-			  val () = check_length (is', is, r)
-			  val ps = map Eq (ListPair.zip (is', is))
-			  val () = check_length (inames, ns, get_region_pn pn)
-		      in
-			  (Cover_Constr cx, ((rev (ListPair.zip (inames, #2 (ListPair.unzip ns))), ps), [], [], [(ename, t1)]))
-		      end
-		  else
-		      raise Error 
-                            (r, sprintf "Type of constructor $ doesn't match datatype:" [str_v (names cctx) cx] :: 
-                                indent ["expect: " ^ str_v kctxn x, 
-                                        "got: " ^ str_v kctxn x'])
-	      end
-	    | _ => raise Error (get_region_pn pn, [sprintf "Pattern $ doesn't match type $" [str_pn (names cctx) pn, str_t skctxn t]])
+	  case pn of
+	      ConstrP ((cx, cr), inames, pn, r) =>
+              (case t of
+                   AppV ((family, _), ts, is, _) =>
+ 	           let val (_, c as (family', tnames, (name_sorts, t1, is'))) = fetch_constr (cctx, (cx, cr))
+                   in
+		       if family' = family andalso length tnames = length ts andalso length is' = length is then
+                           if length inames = length name_sorts then
+		               let val t1 = subst_ts_t ts t1
+			           val is = map (shiftx_i_i 0 (length name_sorts)) is
+			           val ps = map Eq (ListPair.zip (is', is))
+                                   val ctxd = ((rev (ListPair.zip (inames, snd (ListPair.unzip name_sorts))), ps), [], [], [])
+                                   val ctx = add_ctx_skc ctxd ctx
+                                   val (cover, ctxd') = match_ptrn (ctx, default (TTP dummy) pn, t1)
+                                   val ctxd = add_ctx ctxd' ctxd
+                                   val cover = ConstrC (cx, cover)
+		               in
+			           (cover, ctxd)
+		               end
+                           else
+                               raise Error (r, ["Length of index variable list in pattern doesn't match the constructor"])
+		       else
+		           raise Error 
+                                 (r, sprintf "Type of constructor $ doesn't match datatype " [str_v (names cctx) cx] :: 
+                                     indent ["expect: " ^ str_v kctxn family, 
+                                             "got: " ^ str_v kctxn family'])
+                   end
+                 | _ => match_error ())
+            | VarP (name, _) =>
+              (TrueC, (([], []), [], [], [(name, t)]))
+            | PairP (pn1, pn2) =>
+              (case t of
+                   Prod (t1, t2) =>                          
+                   let
+                       val (cover1, ctxd) = match_ptrn (ctx, pn1, t1)
+                       val ctx = add_ctx_skc ctxd ctx
+                       val (cover2, ctxd') = match_ptrn (ctx, pn2, shift_ctx_t ctxd t2)
+                       val ctxd = add_ctx ctxd' ctxd
+                   in
+                       (PairC (cover1, cover2), ctxd)
+                   end
+                 | _ => match_error ())
+            | TTP _ =>
+              (case t of
+                   Unit _ =>
+                   (TTC, (([], []), [], [], []))
+                 | _ => match_error ())
+            | AliasP ((pname, _), pn, _) =>
+              let val ctxd = (([], []), [], [], [(pname, t)])
+                  val (cover, ctxd') = match_ptrn (ctx, pn, t)
+                  val ctxd = add_ctx ctxd' ctxd
+              in
+                  (cover, ctxd)
+              end
       end
 
     fun get_ds (_, _, _, tctxd) = map (snd o snd) tctxd
-
-    fun add_ctx (sctx, kctx, cctx, tctx) ctx =
-      let val ctx = add_sortings_skct sctx ctx
-	  val ctx = add_kindings_skct kctx ctx
-	  val ctx = add_constrs_skct cctx ctx
-	  val ctx = add_typings_skct tctx ctx
-      in
-	  ctx
-      end
-
-    fun add_ctxd (sctx, kctx, cctx, tctx) ctx =
-      let val ctx = add_sortings_skctd sctx ctx
-	  val ctx = add_kindings_skctd kctx ctx
-	  val ctx = add_constrs_skctd cctx ctx
-	  val ctx = add_typings_skctd tctx ctx
-      in
-	  ctx
-      end
-
-    fun add_ctxd_ctx (sctx, kctx, cctx, tctx) ctx =
-      add_ctx (sctx, kctx, cctx, map (mapSnd fst) tctx) ctx
 
     fun escapes nametype name domaintype domain =
       [sprintf "$ $ escapes local scope in $ $" [nametype, name, domaintype, domain]]

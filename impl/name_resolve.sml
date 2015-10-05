@@ -67,7 +67,23 @@ local
 
     fun on_ptrn cctx pn =
       case pn of
-	  E.Constr (x, inames, ename) => Constr (on_var cctx x, inames, ename)
+	  E.ConstrP ((x, xr), inames, pn, r) =>
+          (case find_idx x cctx of
+	       SOME i => 
+               ConstrP ((i, xr), inames, Option.map (on_ptrn cctx) pn, r)
+	     | NONE =>
+               (case (inames, pn) of
+                    ([], NONE) => VarP (x, r)
+                  | _ =>
+                    raise Error (r, "Unknown constructor " ^ x)))
+        | E.VarP name =>
+          VarP name
+        | E.PairP (pn1, pn2) =>
+          PairP (on_ptrn cctx pn1, on_ptrn cctx pn2)
+        | E.TTP r =>
+          TTP r
+        | E.AliasP (name, pn, r) =>
+          AliasP (name, on_ptrn cctx pn, r)
 
     fun get_is e =
       case e of 
@@ -153,7 +169,8 @@ local
 	    | E.Const n => Const n
 	    | E.Plus (e1, e2) => Plus (on_expr ctx e1, on_expr ctx e2)
 	    | E.AppConstr (x, ts, is, e) => AppConstr (on_var cctx x, map (on_type skctx) ts, map (on_idx sctx) is, on_expr ctx e)
-	    | E.Case (e, return, rules, r) => Case (on_expr ctx e, on_return skctx return, map (fn (pn, e) => (on_ptrn cctx pn, let val (inames, enames) = E.ptrn_names pn in on_expr (inames @ sctx, kctx, cctx, enames @ tctx ) e end)) rules, r)
+	    | E.Case (e, return, rules, r) =>
+              Case (on_expr ctx e, on_return skctx return, map (on_rule ctx) rules, r)
 	    | E.Never t => Never (on_type skctx t)
       end
 
@@ -183,6 +200,13 @@ local
                 (decl, ctx)
             end
 
+    and on_rule (ctx as (sctx, kctx, cctx, tctx)) (pn, e) =
+        let val pn = on_ptrn cctx pn
+            val (inames, enames) = ptrn_names pn
+            val ctx' = (inames @ sctx, kctx, cctx, enames @ tctx)
+        in
+            (pn, on_expr ctx' e)
+        end
 
     fun on_kind ctx k =
       case k of

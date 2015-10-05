@@ -153,6 +153,17 @@ local
 
     fun elab_return return = mapPair (Option.map elab_t, Option.map elab_i) return
                                         
+    fun elab_pn pn =
+      case pn of
+          S.ConstrP (cname, inames, pn, r) =>
+          ConstrP (cname, inames, Option.map elab_pn pn, r)
+        | S.TupleP (pns, r) =>
+          (case pns of
+               [] => TTP r
+             | pn :: pns => foldl (fn (pn2, pn1) => PairP (pn1, elab_pn pn2)) (elab_pn pn) pns)
+        | S.AliasP (name, pn, r) =>
+          AliasP (name, elab_pn pn, r)
+                                                              
     fun elab e =
 	case e of
 	    S.Var x => Var x
@@ -202,7 +213,7 @@ local
 	  | S.Case (HSumCase, e, return, rules, r) =>
             let val () = case return of (NONE, NONE) => () | _ => raise Error (r, "sumcase can't have return clause") in
 	        case rules of
-		    [(S.Constr ((c1, _), [], (x1, _), _), e1), (S.Constr ((c2, _), [], (x2, _), _), e2)] =>
+		    [(S.ConstrP ((c1, _), [], SOME (S.ConstrP ((x1, _), [], NONE, _)), _), e1), (S.ConstrP ((c2, _), [], SOME (S.ConstrP ((x2, _), [], NONE, _)), _), e2)] =>
 		    let 
 		        val ((x1, e1), (x2, e2)) =
 			    if c1 = "inl" andalso c2 = "inr" then
@@ -220,7 +231,7 @@ local
 	    let
 	    in
 		case rules of
-		    [(S.Constr ((c, r), [iname], (ename, _), _), e1)] =>
+		    [(S.ConstrP ((c, r), [iname], SOME (S.ConstrP ((ename, _), [], NONE, _)), _), e1)] =>
 		    if c = "pack" then
 			Unpack (elab e, elab_return return, iname, ename, elab e1)
 		    else
@@ -229,7 +240,6 @@ local
 	    end
 	  | S.Case (HCase, e, return, rules, r) =>
 	    let 
-		fun elab_pn (S.Constr (cname, inames, ename, _)) = Constr (cname, inames, ename)
 	    in
 		Case (elab e, elab_return return, map (fn (pn, e) => (elab_pn pn, elab e)) rules, r)
 	    end
