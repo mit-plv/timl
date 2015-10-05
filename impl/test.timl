@@ -25,6 +25,7 @@ val _ =
       | ConsI {_} _ => 0
 
 (* redundant *)
+
 (* val _ =  *)
 (*  fn ['a] {n : Nat} (ls : {n} 'a ilist) => *)
 (*     case ls of *)
@@ -33,12 +34,13 @@ val _ =
 (*       | ConsI {_} (_, NilI) => 0 *)
 
 (* not exhaustive *)
-(* val _ =  *)
-(*  fn ['a] {n : Nat} (ls : {n} 'a ilist) => *)
-(*     case ls of *)
-(*         NilI => 0 *)
-(*       | ConsI {_} (_, NilI) => 0 *)
-(*       | ConsI {_} (_, (ConsI {_} (_, NilI))) => 0 *)
+
+val _ =
+ fn ['a] {n : Nat} (ls : {n} 'a ilist) =>
+    case ls of
+        NilI => 0
+      | ConsI {_} (_, NilI) => 0
+      | ConsI {_} (_, (ConsI {_} (_, NilI))) => 0
 
 val map = 
  fn ['a] ['b] {m : Nat} (f : 'a -- m -> 'b) =>

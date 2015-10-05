@@ -67,4 +67,9 @@ fun to_hd i l = List.nth (l, i) :: List.take (l, i) @ List.drop (l, i + 1)
 
 exception Impossible of string
                 
+fun mem eq x ls = List.exists (fn y => eq (y, x)) ls
+fun subset eq a b =
+  List.all (fn x => mem eq x b) a
+fun diff eq a b = List.filter (fn x => not (mem eq x b)) a
+
 end

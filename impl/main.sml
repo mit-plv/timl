@@ -43,7 +43,7 @@ fun main filename =
   | Parser.Error => "Unknown parse error"
   | Elaborate.Error (r, msg) => str_error "Error" filename r ["Elaborate error: " ^ msg]
   | NameResolve.Error (r, msg) => str_error "Error" filename r ["Resolve error: " ^ msg]
-  | TypeCheck.Error (r, msg) => str_error "Error" filename r ("Type error: " :: msg)
+  | TypeCheck.Error (r, msg) => str_error "Error" filename r ((* "Type error: " :: *) msg)
                                             
 end
 
