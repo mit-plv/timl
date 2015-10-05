@@ -87,6 +87,8 @@ open Ast
        | constr_bar_star of constr_decl list
        | bar_constr_star of constr_decl list
        | constr of constr_decl
+       | constr_core_opt of constr_core option
+       | constr_result_opt of ty option
        | sorting_star of bind list
        | sorting of bind
 
@@ -239,7 +241,11 @@ quan : FORALL (Forall)
 decl_star : decl decl_star (decl :: decl_star)
 	 | ([])
 
-constr : id OF sorting_star ty ARROW ty ((id, sorting_star, ty1, ty2, (idleft, ty2right)))
+constr : id constr_core_opt ((id, constr_core_opt, (idleft, constr_core_optright)))
+constr_core_opt : OF sorting_star ty constr_result_opt (SOME (sorting_star, ty, constr_result_opt))
+                | (NONE)
+constr_result_opt : ARROW ty (SOME (ty))
+                  | (NONE)
 
 cur_sort_star : LCUR sort RCUR cur_sort_star (sort :: cur_sort_star)
 	  | ([])

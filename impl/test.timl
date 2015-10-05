@@ -1,3 +1,7 @@
+datatype 'a list =
+         nil
+         | cons of 'a * 'a list
+
 datatype {Nat} 'a ilist =
          NilI of unit -> {0} 'a ilist
          | ConsI of {n' : Nat} 'a * {n'} 'a ilist -> {n' + 1} 'a ilist
@@ -19,6 +23,12 @@ val _ =
     end
 
 val _ = 
+ fn ['a] (ls : 'a list) =>
+    case ls of
+        nil => 0
+      | cons _ => 0
+
+val _ = 
  fn ['a] {n : Nat} (ls : {n} 'a ilist) =>
     case ls of
         NilI => 0
@@ -35,19 +45,19 @@ val _ =
 
 (* not exhaustive *)
 
-val _ =
- fn ['a] {n : Nat} (ls : {n} 'a ilist) =>
-    case ls of
-        NilI => 0
-      | ConsI {_} (_, NilI) => 0
-      | ConsI {_} (_, (ConsI {_} (_, NilI))) => 0
+(* val _ = *)
+(*  fn ['a] {n : Nat} (ls : {n} 'a ilist) => *)
+(*     case ls of *)
+(*         NilI => 0 *)
+(*       | ConsI {_} (_, NilI) => 0 *)
+(*       | ConsI {_} (_, (ConsI {_} (_, NilI))) => 0 *)
 
 val map = 
  fn ['a] ['b] {m : Nat} (f : 'a -- m -> 'b) =>
     fix (map : forall {n : Nat}, {n} 'a ilist -- (m + 2) * n -> {n} 'b ilist) {n : Nat} (ls : {n} 'a ilist) =>
     case ls return {n} 'b ilist |> (m + 2) * n of
         NilI => NilI ['b] ()
-      | ConsI {n'} x_xs => ConsI ['b] {n'} (f (fst x_xs), map {n'} (snd x_xs))
+      | ConsI {n'} (x, xs) => ConsI ['b] {n'} (f x, map {n'} xs)
 
 (* omit time in return clause *)
 val map2 = 
@@ -55,7 +65,7 @@ val map2 =
     fix (map : forall {n : Nat}, {n} 'a ilist -- (m + 2) * n -> {n} 'b ilist) {n : Nat} (ls : {n} 'a ilist) =>
     case ls return {n} 'b ilist of
         NilI => NilI ['b] () 
-      | ConsI {n'} x_xs => ConsI ['b] {n'} (f (fst x_xs), map {n'} (snd x_xs)) |> (m + 2) * n
+      | ConsI {n'} (x, xs) => ConsI ['b] {n'} (f x, map {n'} xs) |> (m + 2) * n
 
 (* omit return clause *)
 val map3 = 
@@ -63,19 +73,12 @@ val map3 =
     fix (map : forall {n : Nat}, {n} 'a ilist -- (m + 2) * n -> {n} 'b ilist) {n : Nat} (ls : {n} 'a ilist) =>
     case ls of
         NilI => NilI ['b] () : {n} 'b ilist
-      | ConsI {n'} x_xs => ConsI ['b] {n'} (f (fst x_xs), map {n'} (snd x_xs)) : {n} 'b ilist |> (m + 2) * n
+      | ConsI {n'} (x, xs) => ConsI ['b] {n'} (f x, map {n'} xs) : {n} 'b ilist |> (m + 2) * n
 
 val map4 = 
  fn ['a] ['b] {m : Nat} (f : 'a -- m -> 'b) =>
     fix (map : forall {n : Nat}, {n} 'a ilist -- (m + 2) * n -> {n} 'b ilist) {n : Nat} (ls : {n} 'a ilist) =>
     case ls return {n} 'b ilist |> (m + 2) * n of
         NilI => NilI ['b] ()
-      | ConsI {n'} (x, xs as NilI) => ConsI ['b] {n'} (f x, map {n'} xs)
+      | ConsI {n'} (pair as (x, xs as NilI)) => ConsI ['b] {n'} (f x, map {n'} xs)
       | ConsI {n'} (x, xs) => ConsI ['b] {n'} (f x, map {n'} xs)
-
-                                    (* val map5 = *)
-                                    (*  fn ['a] ['b] {m : Nat} (f : 'a -- m -> 'b) => *)
-                                    (*     fix (map : forall {n : Nat}, {n} 'a ilist -- (m + 2) * n -> {n} 'b ilist) {n : Nat} (ls : {n} 'a ilist) => *)
-                                    (*     case ls return {n} 'b ilist |> (m + 2) * n of *)
-                                    (*         NilI => NilI ['b] () *)
-                                    

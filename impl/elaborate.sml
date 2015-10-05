@@ -256,9 +256,11 @@ local
 	    S.Val (x, e, _) =>
             Val (x, elab e)
           | S.Datatype (name, tnames, sorts, constrs, r) =>
-            let
-                fun elab_constr (((cname, _), binds, t1, t2, r) : S.constr_decl) : constr_decl =
-                  let fun f bind =
+            let val default_t2 = foldl (fn (arg, f) => S.AppTT (f, S.VarT (arg, dummy), dummy)) (S.VarT (name, dummy)) tnames
+                fun elab_constr (((cname, _), core, r) : S.constr_decl) : constr_decl =
+                  let val (binds, t1, t2) = default ([], S.VarT ("unit", dummy), SOME default_t2) core
+                      val t2 = default (default_t2) t2
+                      fun f bind =
                         case bind of
                             Sorting ((name, _), sort, r) => (name, elab_s sort)
                           | _ => raise Error (r, "Constructors can only have sorting binds")

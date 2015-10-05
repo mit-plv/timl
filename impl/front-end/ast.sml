@@ -66,7 +66,8 @@ datatype ptrn =
          | TupleP of ptrn list * region
          | AliasP of id * ptrn * region
 
-type constr_decl = id * bind list * ty * ty * region
+type constr_core = bind list * ty * ty option
+type constr_decl = id * constr_core option * region
 
 datatype case_type =
          HSumCase
