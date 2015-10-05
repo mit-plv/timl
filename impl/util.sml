@@ -10,6 +10,7 @@ fun println s = print (s ^ "\n")
 
 fun default v opt = getOpt (opt, v)
 fun str_opt f opt = (default "" o Option.map f) opt
+fun isNull opt = not (isSome opt)
 
 val join = String.concatWith
 fun prefix fix s = fix ^ s
@@ -48,6 +49,21 @@ datatype ('a, 'b) result =
 
 val zip = ListPair.zip
 val unzip = ListPair.unzip
+
+fun allSome f xs =
+  case xs of
+      [] => OK []
+    | x :: xs =>
+      (case f x of
+           SOME x =>
+           (case allSome f xs of
+                OK xs => OK (x :: xs)
+              | Failed i => Failed (i + 1)
+           )
+         | NONE => Failed 0
+      )
+
+fun to_hd i l = List.nth (l, i) :: List.take (l, i) @ List.drop (l, i + 1)
 
 exception Impossible of string
                 
