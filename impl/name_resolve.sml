@@ -210,7 +210,7 @@ local
 
     fun on_kind ctx k =
       case k of
-	  T.ArrowK (n, sorts) => ArrowK (n, map (on_sort ctx) sorts)
+	  T.ArrowK (is_datatype, n, sorts) => ArrowK (is_datatype, n, map (on_sort ctx) sorts)
 
 in
 val resolve_type = on_type

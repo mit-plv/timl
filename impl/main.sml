@@ -1,7 +1,15 @@
-structure TypeCheckPrint = struct
+structure TiML = struct
+structure T = NamefulType
+structure E = NamefulExpr
+open Type
+open Expr
+open Util
+open Parser
+open Elaborate
+open NameResolve
 open TypeCheck
-
-fun typecheck_decls_file filename (ctx as (sctx, kctx, cctx, tctx)) decls =
+	 
+fun typecheck_decls_print (ctx as (sctx, kctx, cctx, tctx)) decls =
   let 
       val ((ctxd, ctx as (sctx, kctx, cctx, tctx)), vcs) = typecheck_decls ctx decls
       val ctxn as (sctxn, kctxn, cctxn, tctxn) = (sctx_names sctx, names kctx, names cctx, names tctx)
@@ -15,41 +23,7 @@ fun typecheck_decls_file filename (ctx as (sctx, kctx, cctx, tctx)) decls =
   in
       s
   end
-  handle
-  TypeCheck.Error (r, msg) => str_error "Error" filename r msg
 
-end
-
-structure TestParser = struct
-open Util
-open Region
-open Parser
-
-fun parse_file filename =
-  let
-      val inStream =  TextIO.openIn filename
-      fun input n =
-	if TextIO.endOfStream inStream
-	then ""
-	else TextIO.inputN (inStream,n);
-
-      fun on_error (msg, left, right) = print (str_error "Error" filename (left, right) [msg])
-      val s = parse (input, on_error, on_error)
-      val _ = TextIO.closeIn inStream
-  in
-      s
-  end
-
-structure T = NamefulType
-structure E = NamefulExpr
-(* open T *)
-(* open E *)
-open Type
-open Expr
-open Elaborate
-open NameResolve
-open TypeCheckPrint
-	 
 fun main filename =
   let
       val empty_ctx = (([], []), [], [], [])
@@ -60,15 +34,16 @@ fun main filename =
       (* val () = (print o join_lines o map (suffix "\n") o fst o E.str_decls ctxn) decls *)
       val decls = resolve_decls ctxn decls
       (* val () = (print o join_lines o map (suffix "\n") o fst o str_decls ctxn) decls *)
-      val s = typecheck_decls_file filename ctx decls
+      val s = typecheck_decls_print ctx decls
   in
       s
   end
   handle 
   IO.Io e => sprintf "Error in $ on file $\n" [#function e, #name e]
   | Parser.Error => "Unknown parse error"
-  | Elaborate.Error (r, msg) => str_error "Error" filename r [msg]
-  | NameResolve.Error (r, msg) => str_error "Error" filename r [msg]
+  | Elaborate.Error (r, msg) => str_error "Error" filename r ["Elaborate error: " ^ msg]
+  | NameResolve.Error (r, msg) => str_error "Error" filename r ["Resolve error: " ^ msg]
+  | TypeCheck.Error (r, msg) => str_error "Error" filename r ("Type error: " :: msg)
                                             
 end
 
@@ -78,7 +53,7 @@ fun main (prog_name, args : string list) : int =
       val output = ""
       val output =
 	  case args of
-	      filename :: _ => TestParser.main filename
+	      filename :: _ => TiML.main filename
 	    | _ => "Usage: filename"
   in	
       print (output ^ "\n");

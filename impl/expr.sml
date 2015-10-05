@@ -83,9 +83,9 @@ fun VarT x = AppV (x, [], [], dummy)
 fun AppVar (x, is) = AppV (x, [], is, dummy)
 
 datatype kind = 
-	 ArrowK of int * sort list
+	 ArrowK of bool (* is datatype *) * int * sort list
 
-val Type = ArrowK (0, [])
+val Type = ArrowK (false, 0, [])
 
 infix 7 $ val op$ = Tmax
 infix 6 %+ val op%+ = Tadd
@@ -201,7 +201,7 @@ fun str_t (ctx as (sctx, kctx)) (c : ty) : string =
 
 fun str_k ctx (k : kind) : string = 
   case k of
-      ArrowK (n, sorts) => sprintf "($$Type)" [if n = 0 then "" else join " * " (repeat n "Type") ^ " => ", if null sorts then "" else join " * " (map (str_s ctx) sorts) ^ " => "]
+      ArrowK (_, n, sorts) => sprintf "($$Type)" [if n = 0 then "" else join " * " (repeat n "Type") ^ " => ", if null sorts then "" else join " * " (map (str_s ctx) sorts) ^ " => "]
 
 end
 

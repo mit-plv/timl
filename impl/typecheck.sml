@@ -465,7 +465,7 @@ local
        ListPair.app (fn (i, s) => check_sort (ctx, i, s)) (is, sorts))
 
     (* k => Type *)
-    fun recur_kind k = ArrowK (0, k)
+    fun recur_kind k = ArrowK (false, 0, k)
 
     fun kind_mismatch (ctx as (sctx, kctx)) c expect have =  "Kind mismatch for " ^ str_t ctx c ^ ": expect " ^ expect ^ " have " ^ str_k sctx have
 
@@ -506,7 +506,7 @@ local
 	      end
 	    | AppV (x, ts, is, r) => 
 	      (case fetch_kind (kctx, x) of
-		   ArrowK (n, sorts) => 
+		   ArrowK (_, n, sorts) => 
 		   (check_length_n (n, ts, r);
 		    check_sorts (sctx, is, sorts, r)))
 	    | Int _ => ()
@@ -667,10 +667,28 @@ local
              | PairC of cover * cover
              | TTC
 
-    (* type cover = var list *)
-    (* val Cover_False = [] *)
-    (* fun Cover_Or (a, b) = a @ b *)
-    (* fun Cover_Constr e = [e] *)
+    datatype inhab =
+             TrueH
+             | ConstrH of var * inhab
+             | PairH of inhab * inhab
+             | TTH
+
+    fun str_cover cctx c =
+        case c of
+            TrueC => "_"
+          | FalseC => "nothing"
+          | AndC (c1, c2) => sprintf "($ /\\ $)" [str_cover cctx c1, str_cover cctx c2]
+          | OrC (c1, c2) => sprintf "($ \\/ $)" [str_cover cctx c1, str_cover cctx c2]
+          | ConstrC (x, c) => sprintf "($ $)" [str_v cctx x, str_cover cctx c]
+          | PairC (c1, c2) => sprintf "($, $)" [str_cover cctx c1, str_cover cctx c2]
+          | TTC => "()"
+
+    fun str_inhab cctx c =
+        case c of
+            TrueH => "_"
+          | ConstrH (x, c) => sprintf "($ $)" [str_v cctx x, str_inhab cctx c]
+          | PairH (c1, c2) => sprintf "($, $)" [str_inhab cctx c1, str_inhab cctx c2]
+          | TTH => "()"
 
     fun fetch_constr (ctx, (x, r)) =
       case nth_error ctx x of
@@ -697,7 +715,7 @@ local
     fun get_family (x : constr) = #1 x
 
     fun get_family_members cctx x =
-      List.mapPartial (fn (n, (_, c)) => if get_family c = x then SOME n else NONE) (add_idx cctx)
+      (rev o List.mapPartial (fn (n, (_, c)) => if get_family c = x then SOME n else NONE) o add_idx) cctx
                       
     (* all the following cover operations assume that the cover has type t *)
 
@@ -708,7 +726,9 @@ local
         val op\/ = OrC
 
         fun combine_covers covers =
-          foldl (swap OrC) FalseC covers
+            case covers of
+                [] => FalseC
+              | c :: covers => foldl (swap OrC) c covers
 
         val impossible = Impossible "cover has the wrong type"
 
@@ -731,11 +751,12 @@ local
                      | _ => raise impossible)
                 | ConstrC (x, c) =>
 	          (case t of
-	               AppV ((family, _), _, _, _) =>
+	               AppV ((family, _), ts, _, _) =>
 	               let val all = get_family_members cctx family
 		           val others = diff op= all [x]
-                           val (_, (_, _, (_, t1, _))) = fetch_constr (cctx, (x, dummy))
-                           val covers = ConstrC (x, cover_neg cctx t1 c) :: map (fn y => ConstrC (y, TrueC)) others
+                           val (_, (_, _, (_, t', _))) = fetch_constr (cctx, (x, dummy))
+		           val t' = subst_ts_t ts t'
+                           val covers = ConstrC (x, cover_neg cctx t' c) :: map (fn y => ConstrC (y, TrueC)) others
 	               in
                            combine_covers covers
 	               end
@@ -743,126 +764,129 @@ local
           end
 
               
-        fun inhab cctx t cs =
+        fun find_inhabitant (ctx as (sctx, kctx, cctx)) t cs =
           let (* use exception to mimic Error monad *)
               exception Incon of string
-              fun try_all f xs =
-                case xs of
-                    [] => raise Incon "empty"
-                  | x :: xs => f x handle Incon _ => try_all f xs
-              fun f t cs : cover =
+              fun f t cs : inhab =
                 case cs of
                     [] =>
-                    (* now try to find any inhabitant of type t *)
-                    (case t of
-                         AppV ((family, _), _, _, _) =>
-	                 let val all = get_family_members cctx family
-                             fun g x =
-                                 let val (_, (_, _, (_, t', _))) = fetch_constr (cctx, (x, dummy))
+                    let
+                        val () = Debug.println (sprintf "Empty constraints now. Now try to find any inhabitant of type $" [str_t (sctx_names sctx, names kctx) t])
+                    in
+                        case t of
+                            AppV (tx as (family, _), ts, _, _) =>
+                            (case fetch_kind (kctx, tx) of
+                                 ArrowK (true, _, _) =>
+	                         let val all = get_family_members cctx family
+                                     val ans = case all of x :: _ => ConstrH (x, TrueH) | [] => raise Incon "empty datatype"
+                                 (* fun try_all f xs = *)
+                                 (*     case xs of *)
+                                 (*         [] => raise Incon "empty" *)
+                                 (*       | x :: xs => f x handle Incon _ => try_all f xs *)
+                                 (* fun g x = *)
+                                 (*     let val (_, (_, _, (_, t', _))) = fetch_constr (cctx, (x, dummy)) *)
+		                 (*         val t' = subst_ts_t ts t' *)
+                                 (*     in *)
+                                 (*         f t' [] *)
+                                 (*     end *)
+                                 (* val ans = try_all g all *)
                                  in
-                                     f t' []
+                                     ans
                                  end
-                         in
-                             try_all g all
-                         end
-                       | Unit _ => TTC
-                       | Prod (t1, t2) => PairC (f t1 [], f t2 [])
-                       | _ => raise impossible
-                    )
+                               | _ => TrueH (* an abstract type is treated as an inhabited type *)
+                            )
+                          | Unit _ => TTH
+                          | Prod (t1, t2) => PairH (f t1 [], f t2 [])
+                          | _ => TrueH
+                    end
                   | c :: cs =>
-                    (case (c, t) of
-                         (TrueC, _) => f t cs
-                       | (FalseC, _) => raise Incon "false"
-                       | (AndC (c1, c2), _) => f t (c1 :: c2 :: cs)
-                       | (OrC (c1, c2), _) =>
-                         (f t (c1 :: cs) handle Incon _ => f t (c2 :: cs))
-                       | (TTC, Unit _) =>
-                         (case allSome (fn c => case c of TTC => SOME () | _ => NONE) cs of
-                              OK _ => c
-                            | Failed i => f t (to_hd i cs @ [c])
-                         )
-                       | (PairC (c1, c2), Prod (t1, t2)) =>
-                         (case allSome (fn c => case c of PairC p => SOME p | _ => NONE ) cs of
-                              OK cs =>
-                              let val (cs1, cs2) = unzip cs
-                                  val c1 = f t1 (c1 :: cs1)
-                                  val c2 = f t2 (c2 :: cs2)
-                              in
-                                  PairC (c1, c2)
-                              end
-                            | Failed i => f t (to_hd i cs @ [c])
-                         )
-                       | (ConstrC (x, c), AppV ((family, _), _, _, _)) =>
-                         let fun g c =
-                               case c of
-                                   ConstrC (y, c) =>
-                                   if y = x then
-                                       SOME c
-                                   else
-                                       raise Incon "diff"
-                                 | _ => NONE
-                         in
-                             case allSome g cs of
+                    let
+                        val () = Debug.println (sprintf "try to satisfy $" [(join ", " o map (str_cover (names cctx))) (c :: cs)])
+                    in
+                        case (c, t) of
+                            (TrueC, _) => f t cs
+                          | (FalseC, _) => raise Incon "false"
+                          | (AndC (c1, c2), _) => f t (c1 :: c2 :: cs)
+                          | (OrC (c1, c2), _) =>
+                            (f t (c1 :: cs) handle Incon _ => f t (c2 :: cs))
+                          | (TTC, Unit _) =>
+                            (case allSome (fn c => case c of TTC => SOME () | _ => NONE) cs of
+                                 OK _ => TTH
+                               | Failed i => f t (to_hd i cs @ [c])
+                            )
+                          | (PairC (c1, c2), Prod (t1, t2)) =>
+                            (case allSome (fn c => case c of PairC p => SOME p | _ => NONE ) cs of
                                  OK cs =>
-                                 let val (_, (_, _, (_, t', _))) = fetch_constr (cctx, (x, dummy))
-                                     val c = f t' (c :: cs)
+                                 let val (cs1, cs2) = unzip cs
+                                     val c1 = f t1 (c1 :: cs1)
+                                     val c2 = f t2 (c2 :: cs2)
                                  in
-                                     ConstrC (x, c)
+                                     PairH (c1, c2)
                                  end
                                | Failed i => f t (to_hd i cs @ [c])
-                         end
-                       | _ => raise impossible
-                    )
+                            )
+                          | (ConstrC (x, c'), AppV ((family, _), ts, _, _)) =>
+                            let fun g c =
+                                    case c of
+                                        ConstrC (y, c) =>
+                                        if y = x then
+                                            SOME c
+                                        else
+                                            raise Incon "diff-constr"
+                                      | _ => NONE
+                            in
+                                case allSome g cs of
+                                    OK cs' =>
+                                    let val (_, (_, _, (_, t', _))) = fetch_constr (cctx, (x, dummy))
+		                        val t' = subst_ts_t ts t'
+                                        val () = Debug.println (sprintf "All are $, now try to satisfy $" [str_v (names cctx) x, (join ", " o map (str_cover (names cctx))) (c' :: cs')])
+                                        val c' = f t' (c' :: cs')
+                                        val () = Debug.println (sprintf "Plugging $ into $" [str_inhab (names cctx) c', str_v (names cctx) x])
+                                    in
+                                        ConstrH (x, c')
+                                    end
+                                  | Failed i => f t (to_hd i cs @ [c])
+                            end
+                          | _ => raise impossible
+                    end
           in
               SOME (f t cs) handle Incon debug => (println debug; NONE)
           end
               
-        fun any_missing cctx t c =
-          inhab cctx t [cover_neg cctx t c]
+        fun any_missing ctx t c =
+            let val nc = cover_neg (#3 ctx) t c
+                val () = Debug.println (str_cover (names (#3 ctx)) nc)
+            in
+                find_inhabitant ctx t [nc]
+            end
 
         fun cover_imply cctx t (a, b) : cover =
           cover_neg cctx t a \/ b
                                     
-        fun is_covered cctx t small big =
-          (isNull o any_missing cctx t o cover_imply cctx t) (small, big)
-
-        fun str_cover cctx c =
-          case c of
-              TrueC => "any"
-            | FalseC => "none"
-            | AndC (c1, c2) => sprintf "($ /\\ $)" [str_cover cctx c1, str_cover cctx c2]
-            | OrC (c1, c2) => sprintf "($ \\/ $)" [str_cover cctx c1, str_cover cctx c2]
-            | ConstrC (x, c) => sprintf "$ $" [str_v cctx x, str_cover cctx c]
-            | PairC (c1, c2) => sprintf "($, $)" [str_cover cctx c1, str_cover cctx c2]
-            | TTC => "()"
+        fun is_covered ctx t small big =
+          (isNull o any_missing ctx t o cover_imply (#3 ctx) t) (small, big)
 
     in
 
     fun check_redundancy (ctx as (_, _, cctx), t, prevs, this, r) =
       let val prev = combine_covers prevs
       in
-	  if not (is_covered cctx t this prev) then ()
-	  else raise Error (r, ["Redundant pattern"])
+	  if not (is_covered ctx t this prev) then ()
+	  else raise Error (r, sprintf "Redundant rule: $" [str_cover (names cctx) this] :: indent [sprintf "Has already been covered by previous rules: $" [(join ", " o map (str_cover (names cctx))) prevs]])
       end
           
     fun check_exhaustive (ctx as (_, _, cctx), t, covers, r) =
       let val cover = combine_covers covers
+          val () = Debug.println (str_cover (names cctx) cover)
       in
-          case any_missing cctx t cover of
+          case any_missing ctx t cover of
               NONE => ()
             | SOME missed =>
-	      raise Error (r, [sprintf "Not exhaustive, missing these constructors: $" [str_cover (names cctx) missed]])
+	      raise Error (r, [sprintf "Not exhaustive, at least missing this constructor: $" [str_inhab (names cctx) missed]])
       end
 
     end
 
-    fun matchable t =
-      case t of 
-          AppV _ => true (* todo: need to further distinguish between datatype variables and type variables *)
-        | Prod _ => true
-        | Unit _ => true
-        | _ => false
-    
     (* t is already checked for wellformedness *)
     fun match_ptrn (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext), pn : ptrn, t) : cover * context =
       let val skctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
@@ -888,7 +912,7 @@ local
 			           (cover, ctxd)
 		               end
                            else
-                               raise Error (r, ["Length of index variable list in pattern doesn't match the constructor"])
+                               raise Error (r, [sprintf "This constructor requires $ index argument(s), not $" [str_int (length name_sorts), str_int (length inames)]])
 		       else
 		           raise Error 
                                  (r, sprintf "Type of constructor $ doesn't match datatype " [str_v (names cctx) cx] :: 
@@ -897,10 +921,7 @@ local
                    end
                  | _ => match_error ())
             | VarP (name, _) =>
-              if matchable t then
-                  (TrueC, (([], []), [], [], [(name, t)]))
-              else
-                  raise Error (get_region_pn pn, [sprintf "Cannot do pattern matching on type $" [str_t skctxn t]])
+              (TrueC, (([], []), [], [], [(name, t)]))
             | PairP (pn1, pn2) =>
               (case t of
                    Prod (t1, t2) =>                          
@@ -1285,7 +1306,7 @@ local
             end
 	  | Datatype (name, tnames, sorts, constr_decls, _) =>
 	    let val () = is_wfsorts (sctx, sorts)
-		val nk = (name, ArrowK (length tnames, sorts))
+		val nk = (name, ArrowK (true, length tnames, sorts))
 		val ctx as (sctx, kctx, _, _) = add_kinding_skct nk ctx
 		fun make_constr ((name, (name_sorts, t, ids), r) : constr_decl) =
 		  let val c = (0, tnames, (name_sorts, t, ids))
@@ -1308,7 +1329,7 @@ local
 	let val skcctx = (sctx, kctx, cctx) 
 	    fun f (rule, acc) =
 	      let val ans as (td, cover) = check_rule (ctx, rule, t)
-		  val () = check_redundancy (skcctx, t1, map snd acc, cover, get_region_rule rule)
+		  val () = check_redundancy (skcctx, t1, (rev o map snd) acc, cover, get_region_rule rule)
 	      in
 		  (ans :: acc)
 	      end 

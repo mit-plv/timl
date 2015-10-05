@@ -337,7 +337,7 @@ fun shift_t_c b = shiftx_t_c 0 1 b
 local
     fun f x n b =
 	case b of
-	    ArrowK (n, sorts) => ArrowK (n, map (shiftx_i_s x n) sorts)
+	    ArrowK (is_datatype, n, sorts) => ArrowK (is_datatype, n, map (shiftx_i_s x n) sorts)
 in
 fun shiftx_i_k x n b = f x n b
 fun shift_i_k b = shiftx_i_k 0 1 b
