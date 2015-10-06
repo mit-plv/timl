@@ -57,7 +57,7 @@ fun get_region_pn pn =
 fun get_region_e e = 
     case e of
         Var (_, r) => r
-      | Abs (_, (_, r), e) => combine_region r (get_region_e e)
+      | Abs (_, pn, e) => combine_region (get_region_pn pn) (get_region_e e)
       | App (e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
       | TT r => r
       | Pair (e1, e2) => combine_region (get_region_e e1) (get_region_e e2)

@@ -242,7 +242,7 @@ datatype ptrn =
 datatype expr =
 	 Var of var * other
 	 | App of expr * expr
-	 | Abs of ty * name * expr 
+	 | Abs of ty * ptrn * expr 
 	 (* unit type *)
 	 | TT of other
 	 (* product type *)
@@ -323,7 +323,15 @@ fun str_e (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
   in
       case e of
 	  Var (x, _) => str_v tctx x
-	| Abs (t, (name, _), e) => sprintf "(fn ($ : $) => $)" [name, str_t skctx t, str_e (add_t name ctx) e]
+	| Abs (t, pn, e) => 
+          let val t = str_t skctx t
+              val (inames, enames) = ptrn_names pn
+              val pn = str_pn cctx pn
+              val ctx = (inames @ sctx, kctx, cctx, enames @ tctx)
+	      val e = str_e ctx e
+          in
+              sprintf "(fn ($ : $) => $)" [pn, t, e]
+          end
 	| App (e1, e2) => sprintf "($ $)" [str_e ctx e1, str_e ctx e2]
 	| TT _ => "()"
 	| Pair (e1, e2) => sprintf "($, $)" [str_e ctx e1, str_e ctx e2]

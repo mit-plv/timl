@@ -175,12 +175,12 @@ local
 	    (case abs of
 		 S.Fix => 
 		 (case binds of
-		      Typing (x, t, _) :: binds => Fix (elab_t t, x, elab (S.Abs (Fn, binds, e, r)))
-		    | _ => raise Error (r, "fixpoint must have a typing bind as the first bind"))
+		      Typing ((S.ConstrP (x, [], NONE, _)), t, _) :: binds => Fix (elab_t t, x, elab (S.Abs (Fn, binds, e, r)))
+		    | _ => raise Error (r, "fixpoint must have a single-variable typing bind as the first bind"))
 	       | Fn =>
 		 let fun f (b, e) =
 			 case b of
-			     Typing (x, t, _) => Abs (elab_t t, x, e)
+			     Typing (pn, t, _) => Abs (elab_t t, elab_pn pn, e)
 			   | Kinding x => AbsT (x, e)
 			   | Sorting (x, s, _) => AbsI (elab_s s, x, e)
 		 in

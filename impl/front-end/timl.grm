@@ -186,7 +186,7 @@ bind_star : bind bind_star (bind :: bind_star)
 	  | ([])
 bind_plus : bind bind_star (bind :: bind_star)
 
-bind : id COLON ty (Typing (id, ty, (idleft, tyright)))
+bind : ptrn COLON ty (Typing (ptrn, ty, (ptrnleft, tyright)))
      | LSQ id RSQ (Kinding id)
      | LCUR id COLON sort RCUR (Sorting (id, sort, (LCURleft, RCURright)))
      | LPAREN bind RPAREN (bind)

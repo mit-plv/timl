@@ -35,6 +35,11 @@ datatype abs =
 	 Fn
 	 | Fix
 
+datatype ptrn =
+	 ConstrP of id * string list * ptrn option * region
+         | TupleP of ptrn list * region
+         | AliasP of id * ptrn * region
+
 datatype ty =
 	 VarT of string * region
 	 | Arrow of ty * idx * ty * region
@@ -46,7 +51,7 @@ datatype ty =
 	 | AppTI of ty * idx * region
 
 and bind =
-	 Typing of id * ty * region
+	 Typing of ptrn * ty * region
 	 | Kinding of id
 	 | Sorting of id * sort * region
 
@@ -60,11 +65,6 @@ fun get_region_t t =
     | Recur (_, _, _, r) => r
     | AppTT (_, _, r) => r
     | AppTI (_, _, r) => r
-
-datatype ptrn =
-	 ConstrP of id * string list * ptrn option * region
-         | TupleP of ptrn list * region
-         | AliasP of id * ptrn * region
 
 type constr_core = bind list * ty * ty option
 type constr_decl = id * constr_core option * region

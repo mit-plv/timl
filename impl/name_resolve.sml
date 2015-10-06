@@ -129,7 +129,15 @@ local
       in
 	  case e of
 	      E.Var x => Var (on_var tctx x)
-	    | E.Abs (t, (name, r), e) => Abs (on_type skctx t, (name, r), on_expr (add_t name ctx) e)
+	    | E.Abs (t, pn, e) => 
+              let val t = on_type skctx t
+                  val pn = on_ptrn cctx pn
+                  val (inames, enames) = ptrn_names pn
+                  val ctx = (inames @ sctx, kctx, cctx, enames @ tctx)
+                  val e = on_expr ctx e
+              in
+                  Abs (t, pn, e)
+              end
 	    | E.App (e1, e2) => 
 	      let val e2 = on_expr ctx e2
 		  fun default () = 

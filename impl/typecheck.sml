@@ -909,6 +909,20 @@ local
         forget_i_i 0 sctxl d
         handle ForgetError x => raise Error (r, escapes "index variable" (str_v sctxn x) "time" (str_i sctxn d))
 
+    fun forget_ctx_t r (sctx, kctx, _, _) (sctxd, kctxd, _, _) t =
+        let val (sctxn, kctxn) = (sctx_names sctx, names kctx)
+            val sctxl = sctx_length sctxd
+        in
+            forget_t r (sctxn, kctxn) (sctxl, length kctxd) t
+        end
+            
+    fun forget_ctx_d r (sctx, _, _, _) (sctxd, _, _, _) d =
+        let val sctxn = sctx_names sctx
+            val sctxl = sctx_length sctxd
+        in
+            forget_d r sctxn sctxl d
+        end
+
     fun mismatch (ctx as (sctx, kctx, _, _)) e expect got =  
         (get_region_e e,
          "Type-mismatch:" ::
@@ -949,9 +963,16 @@ local
 			    end
     			  | t1' =>  raise Error (mismatch ctxn e1 "(_ -- _ -> _)" t1')
 		    end
-		  | Abs (t, (varname, _), e) => 
+		  | Abs (t, pn, e) => 
 		    let val () = is_wftype (skctx, t)
-		        val (t1, d) = get_type (add_typing_skct (varname, t) ctx, e) in
+                        val skcctx = (sctx, kctx, cctx) 
+                        val (cover, ctxd) = match_ptrn (skcctx, pn, t)
+	                val () = check_exhaustive (skcctx, t, [cover], get_region_pn pn)
+                        val ctx = add_ctx ctxd ctx
+		        val (t1, d) = get_type (ctx, e)
+		        val t1 = forget_ctx_t (get_region_e e) ctx ctxd t1 
+                        val d = forget_ctx_d (get_region_e e) ctx ctxd d
+                    in
 		        (Arrow (t, d, t1), T0 dummy)
 		    end
 		  | TT _ => (Unit dummy, T0 dummy)
@@ -1181,12 +1202,10 @@ local
 		     (t, T0 dummy))
 		  | Let (decls, e, r) => 
 		    let val (ctxd as (sctxd, kctxd, _, _), ds, ctx) = check_decls (ctx, decls)
-	                val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
 		        val (t, d) = get_type (ctx, e)
                         val ds = rev (d :: ds)
-                        val sctxl = sctx_length sctxd
-		        val t = forget_t r (sctxn, kctxn) (sctxl, length kctxd) t 
-                        val ds = map (forget_d r sctxn sctxl) ds
+		        val t = forget_ctx_t r ctx ctxd t 
+                        val ds = map (forget_ctx_d r ctx ctxd) ds
                         val d = foldl' (fn (d, acc) => acc %+ d) (T0 dummy) ds
                     in
 		        (t, d)
@@ -1296,26 +1315,20 @@ local
                           (t, d))
                        | (SOME t, NONE) =>
                          let val d = check_type (ctx, e, shift_ctx_t ctxd t)
-	                     val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
-                             val sctxl = sctx_length sctxd
-			     val d = forget_d (get_region_e e) sctxn sctxl d
+			     val d = forget_ctx_d (get_region_e e) ctx ctxd d
                          in
                              (t, d)
                          end
                        | (NONE, SOME d) =>
                          let val t = check_time (ctx, e, shift_ctx_i ctxd d)
-	                     val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
-                             val sctxl = sctx_length sctxd
-			     val t = forget_t (get_region_e e) (sctxn, kctxn) (sctxl, length kctxd) t 
+			     val t = forget_ctx_t (get_region_e e) ctx ctxd t 
                          in
                              (t, d)
                          end
                        | (NONE, NONE) =>
                          let val (t, d) = get_type (ctx, e)
-	                     val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
-                             val sctxl = sctx_length sctxd
-			     val t = forget_t (get_region_e e) (sctxn, kctxn) (sctxl, length kctxd) t 
-			     val d = forget_d (get_region_e e) sctxn sctxl d
+			     val t = forget_ctx_t (get_region_e e) ctx ctxd t 
+			     val d = forget_ctx_d (get_region_e e) ctx ctxd d
                          in
                              (t, d)
                          end
