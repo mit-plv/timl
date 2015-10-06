@@ -11,10 +11,10 @@ front-end/timl.lex.sml
 front-end/parser.sml
 expr.sml
 elaborate.sml
-name_resolve.sml
+name-resolve.sml
 subst.sml
-expr_region.sml
-trivial_solver.sml
+expr-region.sml
+trivial-solver.sml
 typecheck.sml
 main.sml
 mlton-main.sml
