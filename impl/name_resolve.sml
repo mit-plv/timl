@@ -214,8 +214,14 @@ local
 
     and on_decl (ctx as (sctx, kctx, cctx, tctx)) decl =
         case decl of
-            E.Val ((name, r), e) =>
-            (Val ((name, r), on_expr ctx e), (sctx, kctx, cctx, name :: tctx))
+            E.Val (pn, e) =>
+            let val e = on_expr ctx e
+                val pn = on_ptrn cctx pn
+                val (inames, enames) = ptrn_names pn
+                val ctx = (inames @ sctx, kctx, cctx, enames @ tctx)
+            in
+                (Val (pn, e), ctx)
+            end
           | E.Datatype (name, tnames, sorts, constr_decls, r) =>
             let fun on_constr_decl (cname, core, r) =
                   (cname, on_constr_core (sctx, name :: kctx) tnames core, r)

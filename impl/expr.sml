@@ -276,7 +276,7 @@ datatype expr =
 	 | AscriptionTime of expr * idx
 
      and decl =
-         Val of name * expr
+         Val of ptrn * expr
 	 | Datatype of string * string list * sort list * constr_decl list * other
 
 fun ptrn_names pn : string list * string list =
@@ -369,8 +369,14 @@ and str_decls (ctx as (sctx, kctx, cctx, tctx)) decls =
         
 and str_decl (ctx as (sctx, kctx, cctx, tctx)) decl =
     case decl of
-        Val ((name, _), e) =>
-        (sprintf "val $ = $" [name, str_e ctx e], (sctx, kctx, cctx, name :: tctx))
+        Val (pn, e) =>
+        let val e = str_e ctx e
+            val (inames, enames) = ptrn_names pn
+            val pn = str_pn cctx pn
+	    val ctx = (inames @ sctx, kctx, cctx, enames @ tctx)
+        in
+            (sprintf "val $ = $" [pn, e], ctx)
+        end
       | Datatype (name, tnames, sorts, constrs, _) =>
         let val str_tnames = (join_prefix " " o rev) tnames
             fun str_constr_decl (cname, (name_sorts, t, idxs), _) =

@@ -172,31 +172,6 @@ fun lookup (n : int) (ctx : tcontext) : ty option =
 fun ctx_names (sctx, kctx, cctx, tctx) =
     (sctx_names sctx, names kctx, names cctx, names tctx) 
 
-(* a slightly different version where tctx is of ((string * (ty * idx)) list) *)
-type tdcontext = (string * (ty * idx)) list
-type contextd = scontext * kcontext * ccontext * tdcontext
-fun shiftx_i_tds n ctx = 
-    map (mapSnd (fn (t, d) => (shiftx_i_t 0 n t, shiftx_i_i 0 n d))) ctx
-fun shiftx_t_tds n ctx = 
-    map (mapSnd (mapFst (shiftx_t_t 0 n))) ctx
-fun add_sortings_skctd (pairs', ps') (((pairs, ps), kctx, cctx, tctx) : contextd) : contextd = 
-    let val n = length pairs' 
-    in
-        ((pairs' @ pairs, ps' @ shiftx_i_ps n ps), 
-         shiftx_i_ks n kctx, 
-         shiftx_i_cs n cctx, 
-         shiftx_i_tds n tctx)
-    end
-fun add_kindings_skctd pairs ((sctx, kctx, cctx, tctx) : contextd) : contextd =
-    let val n = length pairs in
-        (sctx,
-         pairs @ kctx,
-         shiftx_t_cs n cctx,
-         shiftx_t_tds n tctx)
-    end
-val add_constrs_skctd = add_constrs_skct
-val add_typings_skctd = add_typings_skct
-
 fun add_ctx (sctx, kctx, cctx, tctx) ctx =
     let val ctx = add_sortings_skct sctx ctx
         val ctx = add_kindings_skct kctx ctx
@@ -205,18 +180,6 @@ fun add_ctx (sctx, kctx, cctx, tctx) ctx =
     in
         ctx
     end
-
-fun add_ctxd (sctx, kctx, cctx, tctx) ctx =
-    let val ctx = add_sortings_skctd sctx ctx
-        val ctx = add_kindings_skctd kctx ctx
-        val ctx = add_constrs_skctd cctx ctx
-        val ctx = add_typings_skctd tctx ctx
-    in
-        ctx
-    end
-
-fun add_ctxd_ctx (sctx, kctx, cctx, tctx) ctx =
-    add_ctx (sctx, kctx, cctx, map (mapSnd fst) tctx) ctx
 
 fun add_ctx_skc ctx (sctx, kctx, cctx) =
     let val (sctx, kctx, cctx, _) = add_ctx ctx (sctx, kctx, cctx, []) in
@@ -716,10 +679,7 @@ local
         val op/\ = AndC
         val op\/ = OrC
 
-        fun combine_covers covers =
-            case covers of
-                [] => FalseC
-              | c :: covers => foldl (swap OrC) c covers
+        fun combine_covers covers = foldl' (swap OrC) FalseC covers
 
         val impossible = Impossible "cover has the wrong type"
 
@@ -1185,7 +1145,7 @@ local
                                 (SOME t, SOME d) =>
                                 let val () = is_wftype (skctx, t)
 		                    val () = check_sort (sctx, d, STime)
-                                    val tds = check_rules (ctx, rules, (t1, return), r)
+                                    val _ = check_rules (ctx, rules, (t1, return), r)
 		                in
 		                    (t, d)
 		                end
@@ -1220,17 +1180,16 @@ local
 		     is_true (sctx, False dummy);
 		     (t, T0 dummy))
 		  | Let (decls, e, r) => 
-		    let val (ctxd as (sctxd, kctxd, _, _), ctx) = check_decls (ctx, decls)
+		    let val (ctxd as (sctxd, kctxd, _, _), ds, ctx) = check_decls (ctx, decls)
 	                val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
 		        val (t, d) = get_type (ctx, e)
+                        val ds = rev (d :: ds)
                         val sctxl = sctx_length sctxd
 		        val t = forget_t r (sctxn, kctxn) (sctxl, length kctxd) t 
-                        val ds = get_ds ctxd
                         val ds = map (forget_d r sctxn sctxl) ds
-		        val d = forget_d r sctxn sctxl d
-                        val ds = foldl (fn (d, acc) => acc %+ d) (T0 dummy) ds
+                        val d = foldl' (fn (d, acc) => acc %+ d) (T0 dummy) ds
                     in
-		        (t, ds %+ d)
+		        (t, d)
 		    end
 	(* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_t skctxn t, str_e ctxn e, str_i sctxn d]) *)
         in
@@ -1268,24 +1227,29 @@ local
 	    is_le (sctx, d', d)
 	end
 
-    and check_decls (ctx, decls) : contextd * context = 
-        let fun f (decl, (ctxd, ctx)) =
-                let val ctxd' = check_decl (ctx, decl)
-                    val ctx = add_ctxd_ctx ctxd' ctx
-                    val ctxd = add_ctxd ctxd' ctxd
+    and check_decls (ctx, decls) : context * idx list * context = 
+        let fun f (decl, (ctxd, ds, ctx)) =
+                let val (ctxd', ds') = check_decl (ctx, decl)
+                    val ctxd = add_ctx ctxd' ctxd
+                    val ds = ds' @ map (shift_ctx_i ctxd') ds
+                    val ctx = add_ctx ctxd' ctx
                 in
-                    (ctxd, ctx)
+                    (ctxd, ds, ctx)
                 end
         in
-            foldl f ((([], []), [], [], []), ctx) decls
+            foldl f ((([], []), [], [], []), [], ctx) decls
         end
 
-    and check_decl (ctx as (sctx, kctx, _, _), decl) =
+    and check_decl (ctx as (sctx, kctx, cctx, _), decl) =
         case decl of
-            Val ((name, _), e) =>
+            Val (pn, e) =>
             let val (t, d) = get_type (ctx, e)
+                val skcctx = (sctx, kctx, cctx) 
+                val (cover, ctxd) = match_ptrn (skcctx, pn, t)
+                val d = shift_ctx_i ctxd d
+	        val () = check_exhaustive (skcctx, t, [cover], get_region_pn pn)
             in
-                (([], []), [], [], [(name, (t, d))])
+                (ctxd, [d])
             end
 	  | Datatype (name, tnames, sorts, constr_decls, _) =>
 	    let val () = is_wfsorts (sctx, sorts)
@@ -1305,7 +1269,7 @@ local
 		    end
 		val constrs = map make_constr constr_decls
 	    in
-		(([], []), [nk], rev constrs, [])
+		((([], []), [nk], rev constrs, []), [])
 	    end
 
     and check_rules (ctx as (sctx, kctx, cctx, tctx), rules, t as (t1, return), r) =
@@ -1390,13 +1354,15 @@ fun typecheck_expr (ctx as (sctx, kctx, cctx, tctx) : context) e : (ty * idx) * 
 fun typecheck_expr_opt ctx e =
     runError (fn () => typecheck_expr ctx e) ()
 
-fun typecheck_decls (ctx as (sctx, kctx, cctx, tctx) : context) decls : (contextd * context) * vc list =
+fun typecheck_decls (ctx as (sctx, kctx, cctx, tctx) : context) decls : (context * idx list * context) * vc list =
     let 
-        val ((ctxd, ctx), vcs) = vcgen_decls ctx decls
-        val ctxd = (upd4 o map o mapSnd o mapPair) (simp_t, simp_i) ctxd
+        val ((ctxd, ds, ctx), vcs) = vcgen_decls ctx decls
+        val ctxd = (upd4 o map o mapSnd) simp_t ctxd
+        val ds = rev ds
+        val ds = map simp_i ds
         val vcs = simp_and_solve_vcs vcs
     in
-        ((ctxd, ctx), vcs)
+        ((ctxd, ds, ctx), vcs)
     end
 
 fun typecheck_decls_opt ctx e =

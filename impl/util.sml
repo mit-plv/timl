@@ -72,4 +72,9 @@ fun subset eq a b =
   List.all (fn x => mem eq x b) a
 fun diff eq a b = List.filter (fn x => not (mem eq x b)) a
 
+fun foldl' f init xs =
+    case xs of
+        [] => init
+      | x :: xs => foldl f x xs
+
 end

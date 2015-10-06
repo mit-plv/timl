@@ -88,7 +88,7 @@ datatype exp =
        | Const of int * region
 
 and decl =
-    Val of id * exp * region
+    Val of ptrn * exp * region
   | Datatype of string * string list * sort list * constr_decl list * region
 
 type reporter = string * pos * pos -> unit

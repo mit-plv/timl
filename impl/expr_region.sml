@@ -88,7 +88,7 @@ fun get_region_rule (pn, e) = combine_region (get_region_pn pn) (get_region_e e)
 
 fun get_region_dec dec =
     case dec of
-        Val ((_, r), e) => combine_region r (get_region_e e)
+        Val (pn, e) => combine_region (get_region_pn pn) (get_region_e e)
       | Datatype (_, _, _, _, r) => r
 
 end

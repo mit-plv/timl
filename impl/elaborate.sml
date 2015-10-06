@@ -253,8 +253,8 @@ local
 
     and elab_decl decl =
         case decl of
-	    S.Val (x, e, _) =>
-            Val (x, elab e)
+	    S.Val (pn, e, _) =>
+            Val (elab_pn pn, elab e)
           | S.Datatype (name, tnames, sorts, constrs, r) =>
             let val default_t2 = foldl (fn (arg, f) => S.AppTT (f, S.VarT (arg, dummy), dummy)) (S.VarT (name, dummy)) tnames
                 fun elab_constr (((cname, _), core, r) : S.constr_decl) : constr_decl =

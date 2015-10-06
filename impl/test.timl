@@ -22,6 +22,8 @@ val _ =
         n
     end
 
+val (a, (b, (c, ()))) = (1, (2, (3, ())))
+
 val _ = 
  fn ['a] (ls : 'a list) =>
     case ls of

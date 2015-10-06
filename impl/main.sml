@@ -11,15 +11,18 @@ open TypeCheck
 	 
 fun typecheck_decls_print (ctx as (sctx, kctx, cctx, tctx)) decls =
   let 
-      val ((ctxd, ctx as (sctx, kctx, cctx, tctx)), vcs) = typecheck_decls ctx decls
+      val ((ctxd, ds, ctx as (sctx, kctx, cctx, tctx)), vcs) = typecheck_decls ctx decls
       val ctxn as (sctxn, kctxn, cctxn, tctxn) = (sctx_names sctx, names kctx, names cctx, names tctx)
       val type_lines =
           "OK: Typechecked" :: "" ::
-          (List.concat o map (fn (name, (t, d)) => [sprintf "$ : $" [name, str_t (sctxn, kctxn) t], sprintf "|> $" [str_i sctxn d], ""]) o rev o #4) ctxd
+          (List.concat o map (fn (name, t) => [sprintf "$ : $" [name, str_t (sctxn, kctxn) t], ""]) o rev o #4) ctxd
+      val time_lines =
+          "Times:" :: "" ::
+          (List.concat o map (fn d => [sprintf "|> $" [str_i sctxn d], ""])) ds
       val vc_lines =
           sprintf "VCs: [count=$]" [str_int (length vcs)] :: "" ::
 	  map str_vc vcs
-      val s = join_lines (type_lines @ vc_lines)
+      val s = join_lines (type_lines @ time_lines @ vc_lines)
   in
       s
   end
