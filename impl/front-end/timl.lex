@@ -58,7 +58,7 @@ fun is_keyword s = find (keywords, s)
 
 				 %header (functor TiMLLexFun (structure Tokens : TiML_TOKENS));
 
-%arg (reporter : reporter);
+%arg (reporter : Ast.reporter);
 				 %s COMMENT;
 
 alpha = [A-Za-z];

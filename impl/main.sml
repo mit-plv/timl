@@ -57,7 +57,7 @@ fun main (prog_name, args : string list) : int =
       val output =
 	  case args of
 	      filename :: _ => TiML.main filename
-	    | _ => "Usage: filename"
+	    | _ => "Usage: THIS filename"
   in	
       print (output ^ "\n");
       0

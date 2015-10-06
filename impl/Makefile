@@ -1,17 +1,33 @@
+.PHONY: Main.main
+
 default: smlnj
 
 all: smlnj mlton
 
-mlton : main
+mlton: main
 
-main: main.mlb front-end/timl.grm.sml front-end/timl.lex.sml
+FILES = \
+	util.sml \
+	debug.sml \
+	region.sml \
+	front-end/ast.sml \
+	front-end/timl.grm \
+	front-end/timl.lex \
+	front-end/parser.sml \
+	expr.sml \
+	elaborate.sml \
+	name-resolve.sml \
+	subst.sml \
+	expr-region.sml \
+	trivial-solver.sml \
+	typecheck.sml \
+	main.sml \
+	mlton-main.sml \
 
-	mlton main.mlb
-front-end/timl.grm.sig front-end/timl.grm.sml: front-end/timl.grm
+main: main.mlb $(FILES)
 	mlyacc front-end/timl.grm
-
-front-end/timl.lex.sml: front-end/timl.lex
 	mllex front-end/timl.lex
+	mlton main.mlb
 
 smlnj: main.cm
 	ml-build main.cm Main.main main-image
