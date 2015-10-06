@@ -26,6 +26,9 @@ val (a, (b, (c, ()))) = (1, (2, (3, ())))
 
 val _ = fn ['a] ['b] ((x, y) : 'a * 'b) => (y, x)
 
+(* not exhaustive *)
+(* val _ = fn ['a] (nil : 'a list) => nil ['a] *)
+
 val _ = 
  fn ['a] (ls : 'a list) =>
     case ls of
