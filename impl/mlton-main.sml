@@ -1,2 +1,2 @@
 (* for mlton *)
-val _ = Main.main ("", [])
+val _ = Main.main (CommandLine.name (), CommandLine.arguments ())

@@ -1,7 +1,21 @@
 $(SML_LIB)/basis/basis.mlb
+$(SML_LIB)/mlyacc-lib/mlyacc-lib.mlb
 
 util.sml
+debug.sml
+region.sml
+front-end/ast.sml
+front-end/timl.grm.sig
+front-end/timl.grm.sml
+front-end/timl.lex.sml
+front-end/parser.sml
 expr.sml
+elaborate.sml
+name_resolve.sml
+subst.sml
+expr_region.sml
+trivial_solver.sml
 typecheck.sml
+main.sml
 mlton-main.sml
 
