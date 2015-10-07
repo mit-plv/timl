@@ -87,7 +87,6 @@ datatype kind =
 
 val Type = ArrowK (false, 0, [])
 
-infix 7 $ val op$ = Tmax
 infix 6 %+ val op%+ = Tadd
 infix 6 %* val op%* = Tmult
 infix 4 %<= val op%<= = TimeLe

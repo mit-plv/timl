@@ -1,0 +1,54 @@
+datatype {Nat} 'a ilist =
+         NilI of unit -> {0} 'a ilist
+         | ConsI of {n' : Nat} 'a * {n'} 'a ilist -> {n' + 1} 'a ilist
+
+val map = 
+ fn ['a] ['b] {m : Nat} (f : 'a -- m --> 'b) =>
+    fix (map : forall {n : Nat}, {n} 'a ilist -- (m + 2) * n --> {n} 'b ilist) {n : Nat} (ls : {n} 'a ilist) =>
+    case ls return {n} 'b ilist of
+        NilI => NilI ['b]
+      | ConsI {n'} (x, xs) => ConsI ['b] {n'} (f x, map {n'} xs) |> (m + 2) * n
+
+(*
+fun foldl f =
+    let rec loop =
+        fn y xs =>
+           case xs of
+               [] => y
+             | x :: xs => loop (f (x, y)) xs
+*)
+
+val foldl =
+ fn ['a] ['b] {m : Nat} (f : 'a * 'b -- m --> 'b) =>
+    fix (loop : 'b -- 0 --> forall {n : Nat}, {n} 'a ilist -- (m + 3) * n --> 'b) (y : 'b) {n : Nat} (xs : {n} 'a ilist) =>
+    case xs of
+        NilI => y
+      | ConsI {n'} (x, xs) => loop (f (x, y)) {n'} xs |> (m + 3) * n
+
+val compose = 
+ fn ['a] ['b] ['c] {m : Nat} (f : 'b -- m --> 'c) {n : Nat} (g : 'a -- n --> 'b) (x : 'a) =>
+    f (g x)
+
+datatype {Nat} 'a tree =
+         Leaf of unit -> {0} 'a tree
+         | Node of {n1 : Nat} {n2 : Nat} 'a * {n1} 'a tree * {n2} 'a tree -> {n1 + 1 + n2} 'a tree
+
+val map_tree =
+ fn ['a] ['b] {m : Nat} (f : 'a -- m --> 'b) =>
+    fix (map : forall {n : Nat}, {n} 'a tree -- (m + 3) * n --> {n} 'b tree) {n : Nat} (tr : {n} 'a tree) =>
+    case tr return {n} 'b tree of
+        Leaf => Leaf ['b]
+      | Node {n1 n2} (x, tr1, tr2) => Node ['b] {n1} {n2} (f x, map {n1} tr1, map {n2} tr2) |> (m + 3) * n
+
+datatype {Nat} 'a even_split =
+         Even of {n1 : Nat} {n2 : {n2 : Nat | n1 <= n2 + 1 /\ n2 <= n1 + 1}} ({n1} 'a ilist * {n2} 'a ilist) -> {n1 + n2} 'a even_split
+
+val split =
+ fn ['a] =>
+    fix (split : forall {n : Nat}, {n} 'a ilist -- n --> {n} 'a even_split) {n : Nat} (xs : {n} 'a ilist) =>
+    case xs return |> n of
+        NilI => Even ['a] {0} {0} (NilI ['a], NilI ['a])
+      | ConsI {_} (x, NilI) => Even ['a] {1} {0} (xs, NilI ['a])
+      | ConsI {_} (x1, (ConsI {n'} (x2, xs))) =>
+        (case split {n'} xs return {n} 'a even_split of
+             Even {n1 n2} (xs1, xs2) => Even ['a] {n1 + 1} {n2 + 1} (ConsI ['a] {n1} (x1, xs1), ConsI ['a] {n2} (x2, xs2)))

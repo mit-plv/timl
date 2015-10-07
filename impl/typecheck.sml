@@ -4,7 +4,6 @@ open Region
 open Type
 open Expr
 
-infix 7 $
 infix 6 %+
 infix 6 %*
 infix 4 %<=
@@ -32,7 +31,7 @@ fun is_value (e : expr) : bool =
       | AppI _ => false
       | Pack (_, _, e) => is_value e
       | Unpack _ => false
-      | Fix _ => false
+      | Fix _ => true
       | Let _ => false
       | Ascription _ => false
       | AscriptionTime _ => false
@@ -523,6 +522,12 @@ local
     fun no_join ctx c c' = "Cannot find a join (minimal supertype) of " ^ str_t ctx c ^ " and " ^ str_t ctx c'
     fun no_meet ctx c c' = "Cannot find a meet (maximal subtype) of " ^ str_t ctx c ^ " and " ^ str_t ctx c'
 
+    fun smart_max a b =
+        case (a, b) of
+            (T0 _, b) => b
+          | (a, T0 _) => a
+          | _ => Tmax (a, b)
+
     (* c and c' are already checked for wellformedness *)
     fun join_type (ctx as (sctx : scontext, kctx : kcontext), c : ty, c' : ty) : ty = 
         let val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
@@ -530,7 +535,7 @@ local
 	    case (c, c') of
 	        (Arrow (c1, d, c2), Arrow (c1', d', c2')) => 
 	        let val c1'' = meet (ctx, c1, c1') 
-		    val d'' = d $ d' 
+		    val d'' = smart_max d d' 
 		    val c2'' = join_type (ctx, c2, c2') in
 		    Arrow (c1'', d'', c2'')
 	        end
@@ -1010,7 +1015,7 @@ local
 			    let val (tr1, d1) = get_type (add_typing_skct (name1, t1) ctx, e1)
 			        val (tr2, d2) = get_type (add_typing_skct (name2, t2) ctx, e2)
 			        val tr = join_type (skctx, tr1, tr2) in
-			        (tr, d %+ d1 $ d2)
+			        (tr, d %+ smart_max d1 d2)
 			    end
 			  | t' => raise Error (mismatch ctxn e "(_ + _)" t')
 		    end
@@ -1174,7 +1179,7 @@ local
                                 let val () = is_wftype (skctx, t)
                                     val tds = check_rules (ctx, rules, (t1, return), r)
                                 in
-                                    (t, (foldl (fn (d, ds) => ds $ d) (T0 dummy) o map snd) tds)
+                                    (t, (foldl' (fn (d, ds) => smart_max ds d) (T0 dummy) o map snd) tds)
                                 end
                               | (NONE, SOME d) =>
                                 let val () = check_sort (sctx, d, STime)
@@ -1191,7 +1196,7 @@ local
                                     case tds of
                                         [] => raise Error (r, ["Empty case-matching must have a return type clause"])
                                       | td :: tds => 
-                                        foldl (fn ((t, d), (ts, ds)) => (join_type (skctx, ts, t), ds $ d)) td tds
+                                        foldl (fn ((t, d), (ts, ds)) => (join_type (skctx, ts, t), smart_max ds d)) td tds
                                 end
                     in
 		        (t, d1 %+ d)

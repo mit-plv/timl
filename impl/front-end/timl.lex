@@ -84,6 +84,7 @@ id_init = ({alpha}|[_']);
 <INITIAL>"|>" => (T.RTRI (make_region (yypos, size yytext)));
 <INITIAL>"," => (T.COMMA (make_region (yypos, size yytext)));
 <INITIAL>"->" => (T.ARROW (make_region (yypos, size yytext)));
+<INITIAL>"-->" => (T.LARROW (make_region (yypos, size yytext)));
 <INITIAL>"--" => (T.DDASH (make_region (yypos, size yytext)));
 <INITIAL>"|" => (T.BAR (make_region (yypos, size yytext)));
 <INITIAL>"/\\" => (T.AND (make_region (yypos, size yytext)));

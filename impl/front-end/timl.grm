@@ -26,6 +26,7 @@ open Ast
     | COMMA
     | RETURN
     | ARROW
+    | LARROW
     | DDASH
     | MULT
     | PLUS
@@ -101,7 +102,7 @@ open Ast
 		(* %nonassoc RTRI *)
 %left COMMA
 %nonassoc IFF
-%right DDASH ARROW
+%right DDASH LARROW ARROW
 %right OR
 %right AND
 %nonassoc EQ LE
@@ -140,7 +141,7 @@ aexp : id (Var id)
 
 ty : ty ty %prec APPR (AppTT (ty2, ty1, (ty1left, ty2right)))
            | LCUR idx RCUR ty %prec APPR (AppTI (ty, idx, (LCURleft, tyright)))
-                              | ty DDASH idx ARROW ty (Arrow (ty1, idx, ty2, (ty1left, ty2right)))
+                              | ty DDASH idx LARROW ty (Arrow (ty1, idx, ty2, (ty1left, ty2right)))
                               | ty MULT ty (Prod (ty1, ty2, (ty1left, ty2right)))
                               | ty PLUS ty (Sum (ty1, ty2, (ty1left, ty2right)))
                 (* aty : *)
