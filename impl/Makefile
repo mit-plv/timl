@@ -32,7 +32,7 @@ main: main.mlb $(FILES)
 	mlton main.mlb
 
 smlnj: main.cm
-	ml-build main.cm Main.main main-image
+	./format.rb ml-build main.cm Main.main main-image
 
 clean:
 	rm main
