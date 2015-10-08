@@ -16,6 +16,8 @@ Group is
       typecheck.sml
       smt2-printer.sml
       main.sml
+(*      sexp.sig *)
+(*      sexp.sml *)
 
       $/basis.cm
       $/ml-yacc-lib.cm

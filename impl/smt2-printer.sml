@@ -6,6 +6,7 @@ open Type
 infixr 0 $
 
 val prelude = [
+    (* "(set-option :produce-proofs true)", *)
     "(define-fun max ((x Int) (y Int)) Int",
     "  (ite (< x y) y x))",
     "(define-fun mymin ((x Int) (y Int)) Int",
@@ -23,7 +24,10 @@ val pop = [
 ]
 
 val check = [
-    "(check-sat)"
+    "(check-sat)",
+    (* "(get-proof)", *)
+    (* "(get-value (n))", *)
+    "(get-model)"
 ]
 
 datatype escaped = Escaped of string

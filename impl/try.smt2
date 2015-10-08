@@ -1,3 +1,5 @@
+;; (set-option :produce-proofs true) 
+
 (define-fun max ((x Int) (y Int)) Int
   (ite (< x y) y x))
 
@@ -32,4 +34,12 @@
 (assert (<= 0 (max 1 2)))
 (assert (<= 0 (mymin 1 2)))
 (check-sat)
+;; (get-proof)
+(pop)
+
+(push)
+(declare-const n Int)
+(assert (>= n 0))
+(check-sat)
+(get-model)
 (pop)

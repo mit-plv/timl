@@ -1,4 +1,4 @@
-#! /usr/bin/env ruby
+#!/usr/bin/env ruby
 
 def filter(s)
   s.gsub(/([^ ]*):(\d*\.\d*)(-(\d*\.\d*))? (Error|Warning):/, "\\5: \\1 \\2.\n")
