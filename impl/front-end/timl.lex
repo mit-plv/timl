@@ -18,7 +18,7 @@ val print = fn s => ()
 
 fun inc r = r := !r + 1
 fun make_pos abs : pos = 
-    {abs = abs, line = !line, col = abs - !linestart}
+    {abs = abs, line = !line, col = abs - !linestart - 1}
 fun make_region (abs, size) : region = 
     (make_pos abs, 
      make_pos (abs + size))

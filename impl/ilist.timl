@@ -43,3 +43,26 @@ val split =
       | ConsI {_} (x1, (ConsI {n'} (x2, xs))) =>
         (case split {n'} xs return {n} 'a even_split of
              Even {n1 n2} (xs1, xs2) => Even ['a] {n1 + 1} {n2 + 1} (ConsI ['a] {n1} (x1, xs1), ConsI ['a] {n2} (x2, xs2)))
+
+datatype bool = true | false
+
+val merge =
+ fn ['a] {m : Nat} (le : 'a * 'a -- m --> bool) =>
+    fix (merge : forall {n1 : Nat} {n2 : Nat}, {n1} 'a ilist -- 0 --> {n2} 'a ilist -- (m + 3) * (n1 + n2) --> {n1 + n2} 'a ilist) {n1 : Nat} {n2 : Nat} (xs : {n1} 'a ilist) (ys : {n2} 'a ilist) =>
+    case (xs, ys) return {n1 + n2} 'a ilist |> (m + 3) * (n1 + n2) of
+        (NilI, _) => ys
+      | (_, NilI) => xs
+      | (ConsI {n1'} (x, xs'), ConsI {n2'} (y, ys')) =>
+        case le (x, y) of
+            true => ConsI ['a] {n1' + n2} (x, merge {n1'} {n2} xs' ys)
+          | false => ConsI ['a] {n1 + n2'} (y, merge {n1} {n2'} xs ys')
+
+val msort =
+ fn ['a] {m : Nat} (le : 'a * 'a -- m --> bool) =>
+    fix (sort : forall {n : Nat}, {n} 'a ilist -- m * n (* just a placeholder*) --> {n} 'a ilist) {n : Nat} (xs : {n} 'a ilist) =>
+    case xs return {n} 'a ilist of
+        NilI => xs
+      | (ConsI {_} (_, NilI)) => xs
+      | (ConsI {_} (_, ConsI {_} (_, _))) =>
+        case split ['a] {n} xs return {n} 'a ilist |> m * n of
+            Even {n1 n2} (xs1, xs2) => merge ['a] {m} le {n1} {n2} (sort {n1} xs1) (sort {n2} xs2)

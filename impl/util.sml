@@ -77,4 +77,6 @@ fun foldl' f init xs =
         [] => init
       | x :: xs => foldl f x xs
 
+fun max a b = if a < b then b else a
+
 end

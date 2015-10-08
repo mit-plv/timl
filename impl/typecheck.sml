@@ -34,7 +34,7 @@ fun is_value (e : expr) : bool =
       | AppI _ => false
       | Pack (_, _, e) => is_value e
       | Unpack _ => false
-      | Fix _ => true
+      | Fix _ => false
       | Let _ => false
       | Ascription _ => false
       | AscriptionTime _ => false
@@ -43,6 +43,11 @@ fun is_value (e : expr) : bool =
       | AppConstr (_, _, _, e) => is_value e
       | Case _ => false
       | Never _ => false
+
+fun is_fixpoint e =
+    case e of
+        Fix _ => true
+      | _ => false
 
 open Subst
 
@@ -487,7 +492,7 @@ local
 	    case (c, c') of
 	        (Arrow (c1, d, c2), Arrow (c1', d', c2')) =>
 	        (is_subtype (ctx, c1', c1, r);
-	         is_le (sctx, d, d', get_region_i d);
+	         is_le (sctx, d, d', r);
 	         is_subtype (ctx, c2, c2', r))
 	      | (Unit _, Unit _) => ()
 	      | (Prod (c1, c2), Prod (c1', c2')) =>
@@ -940,7 +945,7 @@ local
 
     fun mismatch (ctx as (sctx, kctx, _, _)) e expect got =  
         (get_region_e e,
-         "Type-mismatch:" ::
+         "Type mismatch:" ::
          indent ["expect: " ^ expect, 
                  "got: " ^ str_t (sctx, kctx) got,
                  "in: " ^ str_e ctx e])
@@ -1030,7 +1035,7 @@ local
 			  | t' => raise Error (mismatch ctxn e "(_ + _)" t')
 		    end
 		  | AbsT ((name, _), e) => 
-		    if is_value e then
+		    if is_value e orelse is_fixpoint e then
 		        let val (t, _) = get_type (add_kinding_skct (name, Type) ctx, e) in
 			    (Uni ((name, dummy), t), T0 dummy)
 		        end 
@@ -1043,10 +1048,10 @@ local
 			    let val () = is_wftype (skctx, c) in
 			        (subst_t_t c t1, d)
 			    end
-			  | t' => raise Error (mismatch ctxn e "(forall _ : _, _)" t')
+			  | t' => raise Error (mismatch ctxn e "(forall _, _)" t')
 		    end
 		  | AbsI (s, (name, r), e) => 
-		    if is_value e then
+		    if is_value e orelse is_fixpoint e then
 		        let val () = is_wfsort (sctx, s)
 			    val (t, _) = get_type ((add_sorting_skct (name, s) ctx), e) in
 			    (UniI (s, (name, dummy), t), T0 dummy)
@@ -1060,7 +1065,7 @@ local
 			    let val () = check_sort (sctx, i, s) in
 			        (subst_i_t i t1, d)
 			    end
-			  | t' => raise Error (mismatch ctxn e "(forallI _ : _, _)" t')
+			  | t' => raise Error (mismatch ctxn e "(forall {_ : _}, _)" t')
 		    end
 		  | Fold (t, e) => 
 		    (case t of
@@ -1158,12 +1163,12 @@ local
 		    end
 		  | Const _ => 
 		    (Int dummy, T0 dummy)
-		  | AppConstr (cx, ts, is, e) => 
+		  | AppConstr (cx as (_, rc), ts, is, e) => 
 		    let val (cname, tc) = fetch_constr_type (cctx, cx)
 		        val () = is_wftype (skctx, tc)
 		        val (_, d) = get_type (ctx, e)
 		        (* delegate to checking e' *)
-		        val f = Var (0, dummy)
+		        val f = Var (0, rc)
 		        val f = foldl (fn (t, e) => AppT (e, t)) f ts
 		        val f = foldl (fn (i, e) => AppI (e, i)) f is
 		        val e' = App (f, shift_e_e e)
@@ -1238,6 +1243,8 @@ local
                                          #2 (mismatch ctxn e (str_t (sctxn, kctxn) t) t') @
                                          "Cause:" ::
                                          indent msg)
+            (* val () = println "check type" *)
+            (* val () = println $ str_region "" "ilist.timl" $ get_region_e e *)
 	in
             d'
 	end
