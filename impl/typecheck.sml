@@ -4,6 +4,9 @@ open Region
 open Type
 open Expr
 
+infixr 0 $
+fun f $ x = f x
+
 infix 6 %+
 infix 6 %*
 infix 4 %<=
@@ -209,7 +212,7 @@ fun collect (pairs, ps) : bscontext * prop list =
         (bctx, ps @ ps')
     end
 
-type vc = bscontext * prop list * prop
+type vc = bscontext * prop list * prop * region
 
 local
     fun find_unique name ls =
@@ -226,13 +229,17 @@ in
 fun unique names = foldr (fn (name, acc) => find_unique name acc :: acc) [] names
 end
 
-fun str_vc (ctx : bscontext, ps, p) =
+fun str_vc filename (ctx : bscontext, ps, p, r : region) =
     let val ctx = ListPair.zip (mapFst unique (ListPair.unzip ctx))
         val ctxn = map #1 ctx in
-        sprintf "$$===============\n$\n" 
-	        [join "" (map (fn (name, s) => sprintf "$ : $\n" [name, str_b s]) (rev ctx)), 
+        sprintf "$$$===============\n$\n" 
+	        [str_region "" filename r,
+                 join "" (map (fn (name, s) => sprintf "$ : $\n" [name, str_b s]) (rev ctx)), 
 	         join "" (map (fn p => str_p ctxn p ^ "\n") ps), 
-	         str_p ctxn p]
+	         str_p ctxn p
+(* , *)
+(*                  sprintf "(from $.$-$.$)" [str_int (#line (fst r)), str_int (#col (fst r)), str_int (#line (snd r)), str_int (#col (snd r))] *)
+]
     end 
 
 (* exception Unimpl *)
@@ -269,28 +276,28 @@ local
         else
 	    raise Error (r, ["List length mismatch"])
 
-    fun is_le (ctx : scontext, d : idx, d' : idx) =
+    fun is_le (ctx : scontext, d : idx, d' : idx, r) =
         let val (bctx, ps) = collect ctx in
-	    tell (bctx, ps, d %<= d')
+	    tell (bctx, ps, d %<= d', r)
         end
 	    
-    fun is_eq (ctx : scontext, i : idx, i' : idx) = 
+    fun is_eq (ctx : scontext, i : idx, i' : idx, r) = 
         let val (bctx, ps) = collect ctx in
-	    tell (bctx, ps, Eq (i, i'))
+	    tell (bctx, ps, Eq (i, i'), r)
         end
 
     fun is_eqs (ctx, is, is', r) =
         (check_length (is, is', r);
-         app (fn (i, i') => is_eq (ctx, i, i')) (ListPair.zip (is, is')))
+         app (fn (i, i') => is_eq (ctx, i, i', r)) (ListPair.zip (is, is')))
 	    
-    fun is_true (ctx : scontext, p : prop) = 
+    fun is_true (ctx : scontext, p : prop, r) = 
         let val (bctx, ps) = collect ctx in
-	    tell (bctx, ps, p)
+	    tell (bctx, ps, p, r)
         end
 
     fun is_iff (ctx : scontext, p1 : prop, p2 : prop) = 
         let val (bctx, ps) = collect ctx in
-	    tell (bctx, ps, p1 <-> p2)
+	    tell (bctx, ps, p1 <-> p2, get_region_p p1)
         end
 
     fun is_eqvbsort_b s s' =
@@ -315,10 +322,10 @@ local
 	     is_iff (add_sorting (name, Basic s1) ctx, p, p'))
 	  | (Subset (s1, (name, _), p), Basic s1') =>
 	    (is_eqvbsort (s1, s1');
-	     is_true (add_sorting (name, Basic s1) ctx, p))
+	     is_true (add_sorting (name, Basic s1) ctx, p, get_region_p p))
 	  | (Basic s1, Subset (s1', (name, _), p)) =>
 	    (is_eqvbsort (s1, s1');
-	     is_true (add_sorting (name, Basic s1) ctx, p))
+	     is_true (add_sorting (name, Basic s1) ctx, p, get_region_p p))
 
     fun is_eqvsorts (ctx, sorts, sorts', r) =
         (check_length (sorts, sorts', r);
@@ -367,7 +374,7 @@ local
 	    case s of
 		Subset (s1, _, p) =>
 		(is_eqvbsort (s', s1);
-		 is_true (ctx, subst_i_p i p))
+		 is_true (ctx, subst_i_p i p, get_region_i i))
 	      | Basic s1 => 
 		is_eqvbsort (s', s1)
 	end
@@ -472,52 +479,53 @@ local
     fun not_subtype ctx c c' = str_t ctx c ^ " is not subtype of " ^ str_t ctx c'
 
     (* is_subtype assumes that the types are already checked against the given kind, so it doesn't need to worry about their well-formedness *)
-    fun is_subtype (ctx as (sctx : scontext, kctx : kcontext), c : ty, c' : ty) =
+    fun is_subtype (ctx as (sctx : scontext, kctx : kcontext), c : ty, c' : ty, r) =
         let val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
-	(* val () = print (sprintf "Subtyping checking: \n$\n<:\n$\n" [str_t ctxn c, str_t ctxn c'])  *)
+	    (* val () = print (sprintf "Subtyping checking: \n$\n<:\n$\n" [str_t ctxn c, str_t ctxn c']) *)
+            (* val () = println $ str_region "" "ilist.timl" r *)
         in
 	    case (c, c') of
 	        (Arrow (c1, d, c2), Arrow (c1', d', c2')) =>
-	        (is_subtype (ctx, c1', c1);
-	         is_le (sctx, d, d');
-	         is_subtype (ctx, c2, c2'))
+	        (is_subtype (ctx, c1', c1, r);
+	         is_le (sctx, d, d', get_region_i d);
+	         is_subtype (ctx, c2, c2', r))
 	      | (Unit _, Unit _) => ()
 	      | (Prod (c1, c2), Prod (c1', c2')) =>
-	        (is_subtype (ctx, c1, c1');
-	         is_subtype (ctx, c2, c2'))
+	        (is_subtype (ctx, c1, c1', r);
+	         is_subtype (ctx, c2, c2', r))
 	      | (Sum (c1, c2), Sum (c1', c2')) => 
-	        (is_subtype (ctx, c1, c1');
-	         is_subtype (ctx, c2, c2'))
+	        (is_subtype (ctx, c1, c1', r);
+	         is_subtype (ctx, c2, c2', r))
 	      | (Uni ((name, _), c), Uni (_, c')) => 
-	        is_subtype (add_kinding_sk (name, Type) ctx, c, c')
+	        is_subtype (add_kinding_sk (name, Type) ctx, c, c', r)
 	      | (UniI (s, (name, _), c), UniI (s', _, c')) => 
 	        (is_eqvsort (sctx, s, s');
-	         is_subtype (add_sorting_sk (name, s) ctx, c, c'))
+	         is_subtype (add_sorting_sk (name, s) ctx, c, c', r))
 	      | (ExI (s, (name, _), c), ExI (s', _, c')) => 
 	        (is_eqvsort (sctx, s, s');
-	         is_subtype (add_sorting_sk (name, s) ctx, c, c'))
+	         is_subtype (add_sorting_sk (name, s) ctx, c, c', r))
 	      (* currently don't support subtyping for recursive types, so they must be equivalent *)
-	      | (AppRecur (nameself, ns, t, is, r), AppRecur (_, ns', t', is', _)) => 
+	      | (AppRecur (nameself, ns, t, is, _), AppRecur (_, ns', t', is', _)) => 
 	        let val sorts = List.map #2 ns
 		    val sorts' = List.map #2 ns'
 		    val () = is_eqvsorts (sctx, sorts, sorts', r)
 		    val () = is_eqs (sctx, is, is', r)
 		    val ctx' = add_nondep_sortings_sk (rev ns) (add_kinding_sk (nameself, recur_kind sorts) ctx) in
-		    is_eqvtype (ctx', t, t')
+		    is_eqvtype (ctx', t, t', r)
 	        end
-	      | (AppV ((a, r), ts, is, r2), AppV ((a', _), ts', is', _)) => 
+	      | (AppV ((a, _), ts, is, _), AppV ((a', _), ts', is', _)) => 
 	        if a = a' then
-		    (app (fn (t, t') => is_eqvtype (ctx, t, t')) (ListPair.zip (ts, ts'));
-		     is_eqs (sctx, is, is', r2))
+		    (app (fn (t, t') => is_eqvtype (ctx, t, t', r)) (ListPair.zip (ts, ts'));
+		     is_eqs (sctx, is, is', r))
 	        else
 		    raise Error (get_region_t c, [not_subtype ctxn c c'])
 	      | (Int _, Int _) => ()
 	      | _ => raise Error (get_region_t c, [not_subtype ctxn c c'])
         end
 
-    and is_eqvtype (kctx, c, c') =
-	(is_subtype (kctx, c, c');
-	 is_subtype (kctx, c', c))
+    and is_eqvtype (kctx, c, c', r) =
+	(is_subtype (kctx, c, c', r);
+	 is_subtype (kctx, c', c, r))
 
     fun no_join ctx c c' = "Cannot find a join (minimal supertype) of " ^ str_t ctx c ^ " and " ^ str_t ctx c'
     fun no_meet ctx c c' = "Cannot find a meet (maximal subtype) of " ^ str_t ctx c ^ " and " ^ str_t ctx c'
@@ -529,95 +537,97 @@ local
           | _ => Tmax (a, b)
 
     (* c and c' are already checked for wellformedness *)
-    fun join_type (ctx as (sctx : scontext, kctx : kcontext), c : ty, c' : ty) : ty = 
+    fun join_type (ctx as (sctx : scontext, kctx : kcontext), c : ty, c' : ty, r) : ty = 
         let val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
+	    (* val () = print (sprintf "Joining $ and $\n" [str_t ctxn c, str_t ctxn c']) *)
+            (* val () = println $ str_region "" "ilist.timl" r *)
         in
 	    case (c, c') of
 	        (Arrow (c1, d, c2), Arrow (c1', d', c2')) => 
-	        let val c1'' = meet (ctx, c1, c1') 
+	        let val c1'' = meet (ctx, c1, c1', r) 
 		    val d'' = smart_max d d' 
-		    val c2'' = join_type (ctx, c2, c2') in
+		    val c2'' = join_type (ctx, c2, c2', r) in
 		    Arrow (c1'', d'', c2'')
 	        end
-	      | (Unit r, Unit _) => Unit r
+	      | (Unit r0, Unit _) => Unit r0
 	      | (Prod (c1, c2), Prod (c1', c2')) => 
-	        let val c1'' = join_type (ctx, c1, c1') 
-		    val c2'' = join_type (ctx, c2, c2') in
+	        let val c1'' = join_type (ctx, c1, c1', r) 
+		    val c2'' = join_type (ctx, c2, c2', r) in
 		    Prod (c1'', c2'')
 	        end
 	      | (Sum (c1, c2), Sum (c1', c2')) => 
-	        let val c1'' = join_type (ctx, c1, c1') 
-		    val c2'' = join_type (ctx, c2, c2') in
+	        let val c1'' = join_type (ctx, c1, c1', r) 
+		    val c2'' = join_type (ctx, c2, c2', r) in
 		    Sum (c1'', c2'')
 	        end
-	      | (Uni ((name, r), t), Uni (_, t')) => 
-	        let val t'' = join_type (add_kinding_sk (name, Type) ctx, t, t') in
-		    Uni ((name, r), t'')
+	      | (Uni ((name, r0), t), Uni (_, t')) => 
+	        let val t'' = join_type (add_kinding_sk (name, Type) ctx, t, t', r) in
+		    Uni ((name, r0), t'')
 	        end
-	      | (UniI (s, (name, r), t), UniI (s', _, t')) => 
+	      | (UniI (s, (name, r0), t), UniI (s', _, t')) => 
 	        let val () = is_eqvsort (sctx, s, s')
-		    val t'' = join_type (add_sorting_sk (name, s) ctx, t, t') in
-		    UniI (s, (name, r), t'')
+		    val t'' = join_type (add_sorting_sk (name, s) ctx, t, t', r) in
+		    UniI (s, (name, r0), t'')
 	        end
-	      | (ExI (s, (name, r), t), ExI (s', _, t')) => 
+	      | (ExI (s, (name, r0), t), ExI (s', _, t')) => 
 	        let val () = is_eqvsort (#1 ctx, s, s')
-		    val t'' = join_type (add_sorting_sk (name, s) ctx, t, t') in
-		    ExI (s, (name, r), t'')
+		    val t'' = join_type (add_sorting_sk (name, s) ctx, t, t', r) in
+		    ExI (s, (name, r0), t'')
 	        end
 	      (* currently don't support join for recursive types, so they must be equivalent *)
 	      | (AppRecur _, AppRecur _) => 
-	        (is_eqvtype (ctx, c, c');
+	        (is_eqvtype (ctx, c, c', r);
 	         c)
 	      | (AppV _, AppV _) => 
-	        (is_eqvtype (ctx, c, c');
+	        (is_eqvtype (ctx, c, c', r);
 	         c)
-	      | (Int r, Int _) => Int r
+	      | (Int r0, Int _) => Int r0
 	      | _ => raise Error (get_region_t c, [no_join ctxn c c'])
         end
 
-    and meet (ctx as (sctx : scontext, kctx : kcontext), c : ty, c' : ty) : ty = 
+    and meet (ctx as (sctx : scontext, kctx : kcontext), c : ty, c' : ty, r) : ty = 
 	let val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
 	in
 	    case (c, c') of
 		(Arrow (c1, d, c2), Arrow (c1', d', c2')) => 
-		let val c1'' = join_type (ctx, c1, c1') 
+		let val c1'' = join_type (ctx, c1, c1', r) 
 		    val d'' = Tmin (d, d')
-		    val c2'' = meet (ctx, c2, c2') in
+		    val c2'' = meet (ctx, c2, c2', r) in
 		    Arrow (c1'', d'', c2'')
 		end
-	      | (Unit r, Unit _) => Unit r
+	      | (Unit r0, Unit _) => Unit r0
 	      | (Prod (c1, c2), Prod (c1', c2')) => 
-		let val c1'' = meet (ctx, c1, c1') 
-		    val c2'' = meet (ctx, c2, c2') in
+		let val c1'' = meet (ctx, c1, c1', r) 
+		    val c2'' = meet (ctx, c2, c2', r) in
 		    Prod (c1'', c2'')
 		end
 	      | (Sum (c1, c2), Sum (c1', c2')) => 
-		let val c1'' = meet (ctx, c1, c1') 
-		    val c2'' = meet (ctx, c2, c2') in
+		let val c1'' = meet (ctx, c1, c1', r) 
+		    val c2'' = meet (ctx, c2, c2', r) in
 		    Sum (c1'', c2'')
 		end
-	      | (Uni ((name, r), t), Uni (_, t')) => 
-		let val t'' = meet (add_kinding_sk (name, Type) ctx, t, t') in
-		    Uni ((name, r), t'')
+	      | (Uni ((name, r0), t), Uni (_, t')) => 
+		let val t'' = meet (add_kinding_sk (name, Type) ctx, t, t', r) in
+		    Uni ((name, r0), t'')
 		end
-	      | (UniI (s, (name, r), t), UniI (s', _, t')) => 
+	      | (UniI (s, (name, r0), t), UniI (s', _, t')) => 
 		let val () = is_eqvsort (sctx, s, s')
-		    val t'' = meet (add_sorting_sk (name, s) ctx, t, t') in
-		    UniI (s, (name, r), t'')
+		    val t'' = meet (add_sorting_sk (name, s) ctx, t, t', r) in
+		    UniI (s, (name, r0), t'')
 		end
-	      | (ExI (s, (name, r), t), ExI (s', _, t')) => 
+	      | (ExI (s, (name, r0), t), ExI (s', _, t')) => 
 		let val () = is_eqvsort (#1 ctx, s, s')
-		    val t'' = meet (add_sorting_sk (name, s) ctx, t, t') in
-		    ExI (s, (name, r), t'')
+		    val t'' = meet (add_sorting_sk (name, s) ctx, t, t', r) in
+		    ExI (s, (name, r0), t'')
 		end
 	      (* currently don't support meet for recursive types, so they must be equivalent *)
 	      | (AppRecur _, AppRecur _) => 
-		(is_eqvtype (ctx, c, c');
+		(is_eqvtype (ctx, c, c', r);
 		 c)
 	      | (AppV _, AppV _) => 
-		(is_eqvtype (ctx, c, c');
+		(is_eqvtype (ctx, c, c', r);
 		 c)
-	      | (Int r, Int _) => Int r
+	      | (Int r0, Int _) => Int r0
 	      | _ => raise Error (get_region_t c, [no_meet ctxn c c'])
 	end
 
@@ -1008,13 +1018,13 @@ local
 		        val () = is_wftype (skctx, t1) in
 		        (Sum (t1, t2), d)
 		    end
-		  | SumCase (e, name1, e1, name2, e2) => 
+		  | e_all as SumCase (e, name1, e1, name2, e2) => 
 		    let val (t, d) = get_type (ctx, e) in
 		        case t of
 			    Sum (t1, t2) => 
 			    let val (tr1, d1) = get_type (add_typing_skct (name1, t1) ctx, e1)
 			        val (tr2, d2) = get_type (add_typing_skct (name2, t2) ctx, e2)
-			        val tr = join_type (skctx, tr1, tr2) in
+			        val tr = join_type (skctx, tr1, tr2, get_region_e e_all) in
 			        (tr, d %+ smart_max d1 d2)
 			    end
 			  | t' => raise Error (mismatch ctxn e "(_ + _)" t')
@@ -1056,8 +1066,8 @@ local
 		    (case t of
 		         AppRecur t1 =>
 		         let val () = is_wftype (skctx, t)
-			     val (t', d) = get_type (ctx, e)
-			     val () = is_subtype (skctx, t', unroll t1) in
+			     val d = check_type (ctx, e, unroll t1)
+                         in
 			     (t, d)
 		         end
 		       | t' => raise Error (mismatch_anno skctxn "((recur (_ :: _) (_ : _), _) _)" t'))
@@ -1073,8 +1083,8 @@ local
 		         ExI (s, _, t1) =>
 		         let val () = is_wftype (skctx, t)
 			     val () = check_sort (sctx, i, s)
-			     val (t2, d) = get_type (ctx, e)
-			     val () = is_subtype (skctx, t2, (subst_i_t i t1)) in
+			     val d = check_type (ctx, e, (subst_i_t i t1))
+                         in
 			     (t, d)
 		         end
 		       | t' => raise Error (mismatch_anno skctxn "(ex _ : _, _)" t'))
@@ -1125,27 +1135,25 @@ local
 		  | Fix (t, (name, r), e) => 
 		    let val () = check_fix_body e
 		        val () = is_wftype (skctx, t)
-		        val (t1, _) = get_type (add_typing_skct (name, t) ctx, e)
-		        val () = is_subtype (skctx, t1, t) in
+		        val _ = check_type (add_typing_skct (name, t) ctx, e, t)
+                    in
 		        (t, T0 dummy)
 		    end
 		  | Ascription (e, t) => 
 		    let val () = is_wftype (skctx, t)
-		        val (t1, d) = get_type (ctx, e)
-		        val () = is_subtype (skctx, t1, t) in
+		        val d = check_type (ctx, e, t)
+                    in
 		        (t, d)
 		    end
 		  | AscriptionTime (e, d) => 
 		    let val () = check_sort (sctx, d, STime)
-		        val (t, d1) = get_type (ctx, e)
-		        val () = is_le (sctx, d1, d) in
+		        val t = check_time (ctx, e, d)
+                    in
 		        (t, d)
 		    end
 		  | Plus (e1, e2) =>
-		    let val (t1, d1) = get_type (ctx, e1)
-		        val (t2, d2) = get_type (ctx, e2) in
-		        is_subtype (skctx, t1, Int dummy);
-		        is_subtype (skctx, t2, Int dummy);
+		    let val d1 = check_type (ctx, e1, Int dummy)
+		        val d2 = check_type (ctx, e2, Int dummy) in
 		        (Int dummy, d1 %+ d2 %+ T1 dummy)
 		    end
 		  | Const _ => 
@@ -1188,7 +1196,7 @@ local
                                     case map fst tds of
                                         [] => raise Error (r, ["Empty case-matching must have a return type clause"])
                                       | t :: ts => 
-                                        (foldl (fn (t, ts) => join_type (skctx, ts, t)) t ts, d)
+                                        (foldl (fn (t, ts) => join_type (skctx, ts, t, r)) t ts, d)
                                 end
                               | (NONE, NONE) =>
                                 let val tds = check_rules (ctx, rules, (t1, return), r)
@@ -1196,14 +1204,14 @@ local
                                     case tds of
                                         [] => raise Error (r, ["Empty case-matching must have a return type clause"])
                                       | td :: tds => 
-                                        foldl (fn ((t, d), (ts, ds)) => (join_type (skctx, ts, t), smart_max ds d)) td tds
+                                        foldl (fn ((t, d), (ts, ds)) => (join_type (skctx, ts, t, r), smart_max ds d)) td tds
                                 end
                     in
 		        (t, d1 %+ d)
                     end
 		  | Never t => 
 		    (is_wftype (skctx, t);
-		     is_true (sctx, False dummy);
+		     is_true (sctx, False dummy, get_region_e e);
 		     (t, T0 dummy))
 		  | Let (decls, e, r) => 
 		    let val (ctxd as (sctxd, kctxd, _, _), ds, ctx) = check_decls (ctx, decls)
@@ -1224,7 +1232,7 @@ local
 	let 
 	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
 	    val (t', d') = get_type (ctx, e)
-            val () = is_subtype ((sctx, kctx), t', t)
+            val () = is_subtype ((sctx, kctx), t', t, get_region_e e)
                      handle Error (_, msg) =>
                             raise Error (get_region_e e, 
                                          #2 (mismatch ctxn e (str_t (sctxn, kctxn) t) t') @
@@ -1237,7 +1245,9 @@ local
     and check_time (ctx as (sctx, kctx, cctx, tctx), e, d) =
 	let 
 	    val (t', d') = get_type (ctx, e)
-            val () = is_le (sctx, d', d)
+            val () = is_le (sctx, d', d, get_region_e e)
+            (* val () = println "check time" *)
+            (* val () = println $ str_region "" "ilist.timl" $ get_region_e e *)
 	in
             t'
 	end
@@ -1247,8 +1257,10 @@ local
 	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
 	    (* val () = print (sprintf "Type checking $ against $ and $\n" [str_e ctxn e, str_t (sctxn, kctxn) t, str_i sctxn d]) *)
 	    val d' = check_type (ctx, e, t)
+            (* val () = println "check type & time" *)
+            (* val () = println $ str_region "" "ilist.timl" $ get_region_e e *)
 	in
-	    is_le (sctx, d', d)
+	    is_le (sctx, d', d, get_region_e e)
 	end
 
     and check_decls (ctx, decls) : context * idx list * context = 

@@ -171,7 +171,7 @@ local
 		  case e of
 		      E.Var (x, r) =>
 		      (case find_idx x cctx of
-			   SOME i => AppConstr ((i, r), map (on_type skctx) ts, [], TT dummy)
+			   SOME n => AppConstr ((n, r), map (on_type skctx) ts, [], TT (ExprRegion.get_region_t (on_type skctx t)))
 			 | NONE => default ())
 		    | _ => default ()
 	      end
@@ -186,7 +186,7 @@ local
 		  case e of
 		      E.Var (x, r) =>
 		      (case find_idx x cctx of
-			   SOME i => AppConstr ((i, r), map (on_type skctx) ts, map (on_idx sctx) is, TT dummy)
+			   SOME n => AppConstr ((n, r), map (on_type skctx) ts, map (on_idx sctx) is, TT (ExprRegion.get_region_i (on_idx sctx i)))
 			 | NONE => default ())
 		    | _ => default ()
 	      end

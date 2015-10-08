@@ -41,7 +41,9 @@ fun solve (ctx, ps, p) =
     | TimeLe (i1, i2) => eq_i i1 i2
     | _ => false
 
-fun filter_solve vcs = List.filter (fn vc => solve vc = false) vcs
+fun solve_vc (ctx, ps, p, _) = solve (ctx, ps, p)
+
+fun filter_solve vcs = List.filter (fn vc => solve_vc vc = false) vcs
 
 local
     fun passi i =
@@ -126,7 +128,7 @@ local
 in
 val simp_p = until_unchanged passp
 val simp_i = until_unchanged passi
-fun simp_vc (ctx, ps, p) = (ctx, map simp_p ps, simp_p p)
+fun simp_vc (ctx, ps, p, r) = (ctx, map simp_p ps, simp_p p, r)
 end
 
 fun simp_s s =

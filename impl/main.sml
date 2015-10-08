@@ -9,7 +9,7 @@ open Elaborate
 open NameResolve
 open TypeCheck
 	 
-fun typecheck_decls_print (ctx as (sctx, kctx, cctx, tctx)) decls =
+fun typecheck_decls_print filename (ctx as (sctx, kctx, cctx, tctx)) decls =
   let 
       val ((ctxd, ds, ctx as (sctx, kctx, cctx, tctx)), vcs) = typecheck_decls ctx decls
       val ctxn as (sctxn, kctxn, cctxn, tctxn) = (sctx_names sctx, names kctx, names cctx, names tctx)
@@ -21,7 +21,7 @@ fun typecheck_decls_print (ctx as (sctx, kctx, cctx, tctx)) decls =
           (List.concat o map (fn d => [sprintf "|> $" [str_i sctxn d], ""])) ds
       val vc_lines =
           sprintf "VCs: [count=$]" [str_int (length vcs)] :: "" ::
-	  map str_vc vcs
+	  map (str_vc filename) vcs
       val s = join_lines (type_lines @ time_lines @ vc_lines)
   in
       s
@@ -37,7 +37,7 @@ fun main filename =
       (* val () = (print o join_lines o map (suffix "\n") o fst o E.str_decls ctxn) decls *)
       val decls = resolve_decls ctxn decls
       (* val () = (print o join_lines o map (suffix "\n") o fst o str_decls ctxn) decls *)
-      val s = typecheck_decls_print ctx decls
+      val s = typecheck_decls_print filename ctx decls
   in
       s
   end
