@@ -40,6 +40,7 @@ local
       case p of
 	  T.True r => True r
 	| T.False r => False r
+        | T.Not (p, r) => Not (on_prop ctx p, r)
 	| T.And (p1, p2) => And (on_prop ctx p1, on_prop ctx p2)
 	| T.Or (p1, p2) => Or (on_prop ctx p1, on_prop ctx p2)
 	| T.Imply (p1, p2) => Imply (on_prop ctx p1, on_prop ctx p2)

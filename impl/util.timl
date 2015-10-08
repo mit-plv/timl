@@ -1,0 +1,4 @@
+val compose = 
+ fn ['a] ['b] ['c] {m : Nat} (f : 'b -- m --> 'c) {n : Nat} (g : 'a -- n --> 'b) (x : 'a) =>
+    f (g x)
+

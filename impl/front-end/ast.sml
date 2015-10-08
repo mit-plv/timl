@@ -14,6 +14,7 @@ datatype idx =
 
 datatype prop =
 	 Pconst of string * region
+         | Not of prop * region
 	 | And of prop * prop * region
 	 | Or of prop * prop * region
 	 | Imply of prop * prop * region

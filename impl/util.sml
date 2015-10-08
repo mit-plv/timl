@@ -1,4 +1,8 @@
 structure Util = struct
+
+infixr 0 $
+fun f $ x = f x
+
 fun interleave xs ys =
     case xs of
 	x :: xs' => x :: interleave ys xs'
@@ -78,5 +82,16 @@ fun foldl' f init xs =
       | x :: xs => foldl f x xs
 
 fun max a b = if a < b then b else a
+
+fun write_file (filename, s) =
+    let
+        val out =  TextIO.openOut filename
+        val () = TextIO.output (out, s)
+        val () = TextIO.closeOut out
+    in
+        ()
+    end
+
+fun concatMap f ls = (List.concat o map f) ls
 
 end

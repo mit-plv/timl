@@ -16,11 +16,13 @@ FILES = \
 	front-end/parser.sml \
 	expr.sml \
 	elaborate.sml \
+	expr-region.sml \
 	name-resolve.sml \
 	subst.sml \
-	expr-region.sml \
 	trivial-solver.sml \
+	vc.sml \
 	typecheck.sml \
+	smt2-printer.sml \
 	main.sml \
 	mlton-main.sml \
 

@@ -87,6 +87,7 @@ id_init = ({alpha}|[_']);
 <INITIAL>"-->" => (T.LARROW (make_region (yypos, size yytext)));
 <INITIAL>"--" => (T.DDASH (make_region (yypos, size yytext)));
 <INITIAL>"|" => (T.BAR (make_region (yypos, size yytext)));
+<INITIAL>"~" => (T.NOT (make_region (yypos, size yytext)));
 <INITIAL>"/\\" => (T.AND (make_region (yypos, size yytext)));
 <INITIAL>"\\/" => (T.OR (make_region (yypos, size yytext)));
 <INITIAL>"<->" => (T.IFF (make_region (yypos, size yytext)));

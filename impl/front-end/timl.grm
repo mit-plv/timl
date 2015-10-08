@@ -33,6 +33,7 @@ open Ast
     | MU
     | INT of int
     | BAR
+    | NOT
     | AND
     | OR
     | IFF
@@ -105,6 +106,7 @@ open Ast
 %right DDASH LARROW ARROW
 %right OR
 %right AND
+%nonassoc NOT
 %nonassoc EQ LE
 %left PLUS
 %left MULT MAX MIN
@@ -165,6 +167,7 @@ sort : bsort (Basic bsort)
 bsort : id (id)
 
 prop : id (Pconst id)
+     | NOT prop (Not (prop, (NOTleft, propright)))
      | prop AND prop (And (prop1, prop2, (prop1left, prop2right)))
      | prop OR prop (Or (prop1, prop2, (prop1left, prop2right)))
      | prop ARROW prop (Imply (prop1, prop2, (prop1left, prop2right)))

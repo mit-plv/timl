@@ -49,6 +49,7 @@ datatype idx =
 datatype prop =
 	 True of other
 	 | False of other
+         | Not of prop * other
 	 | And of prop * prop
 	 | Or of prop * prop
 	 | Imply of prop * prop
@@ -112,6 +113,7 @@ fun str_p ctx p =
   case p of
       True _ => "True"
     | False _ => "False"
+    | Not (p, _) => sprintf "(~ $)" [str_p ctx p]
     | And (p1, p2) => sprintf "($ /\\ $)" [str_p ctx p1, str_p ctx p2]
     | Or (p1, p2) => sprintf "($ \\/ $)" [str_p ctx p1, str_p ctx p2]
     | Imply (p1, p2) => sprintf "($ -> $)" [str_p ctx p1, str_p ctx p2]

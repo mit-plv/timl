@@ -1,5 +1,17 @@
+(define-fun max ((x Int) (y Int)) Int
+  (ite (< x y) y x))
+
+(define-fun mymin ((x Int) (y Int)) Int
+  (ite (> x y) y x))
+
+(declare-datatypes () ((Unit TT)))
+
 (push)
 (declare-const n Int)
+(declare-const t Unit)
+(declare-const tt Bool)
+(assert (= tt true))
+(assert (and tt true))
 (assert (>= n 0))
 (declare-const m Int)
 (assert (>= m 0))
@@ -17,5 +29,7 @@
 (assert (>= n! 0))
 (assert (= (+ n! 1) n))
 (assert (not (<= (+ (+ 1 m) (+ 1 (* (+ m 2) n!))) (* (+ m 2) n))))
+(assert (<= 0 (max 1 2)))
+(assert (<= 0 (mymin 1 2)))
 (check-sat)
 (pop)

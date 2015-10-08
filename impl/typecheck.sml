@@ -3,9 +3,9 @@ open ExprRegion
 open Region
 open Type
 open Expr
+open VC
 
 infixr 0 $
-fun f $ x = f x
 
 infix 6 %+
 infix 6 %*
@@ -204,8 +204,6 @@ fun get_base s =
         Basic (s, _) => s
       | Subset ((s, _), _, _) => s
 
-type bscontext = (string * bsort) list
-
 fun collect (pairs, ps) : bscontext * prop list = 
     let fun get_p s n ps =
 	    case s of
@@ -216,36 +214,6 @@ fun collect (pairs, ps) : bscontext * prop list =
     in
         (bctx, ps @ ps')
     end
-
-type vc = bscontext * prop list * prop * region
-
-local
-    fun find_unique name ls =
-        if not (mem op= name ls) then
-	    name
-        else
-	    let fun loop n =
-		    let val name' = name ^ str_int n in
-		        if not (mem op= name' ls) then name' else loop (n + 1)
-		    end in
-	        loop 0
-	    end
-in
-fun unique names = foldr (fn (name, acc) => find_unique name acc :: acc) [] names
-end
-
-fun str_vc filename (ctx : bscontext, ps, p, r : region) =
-    let val ctx = ListPair.zip (mapFst unique (ListPair.unzip ctx))
-        val ctxn = map #1 ctx in
-        sprintf "$$$===============\n$\n" 
-	        [str_region "" filename r,
-                 join "" (map (fn (name, s) => sprintf "$ : $\n" [name, str_b s]) (rev ctx)), 
-	         join "" (map (fn p => str_p ctxn p ^ "\n") ps), 
-	         str_p ctxn p
-(* , *)
-(*                  sprintf "(from $.$-$.$)" [str_int (#line (fst r)), str_int (#col (fst r)), str_int (#line (snd r)), str_int (#col (snd r))] *)
-]
-    end 
 
 (* exception Unimpl *)
 
@@ -348,6 +316,8 @@ local
 	case p of
 	    True _ => ()
 	  | False _ => ()
+          | Not (p, _) => 
+            is_wfprop (ctx, p)
 	  | And (p1, p2) =>
 	    (is_wfprop (ctx, p1);
 	     is_wfprop (ctx, p2))
@@ -1391,7 +1361,9 @@ fun typecheck_expr (ctx as (sctx, kctx, cctx, tctx) : context) e : (ty * idx) * 
 fun typecheck_expr_opt ctx e =
     runError (fn () => typecheck_expr ctx e) ()
 
-fun typecheck_decls (ctx as (sctx, kctx, cctx, tctx) : context) decls : (context * idx list * context) * vc list =
+type tc_result = (context * idx list * context) * vc list
+
+fun typecheck_decls (ctx as (sctx, kctx, cctx, tctx) : context) decls : tc_result =
     let 
         val ((ctxd, ds, ctx), vcs) = vcgen_decls ctx decls
         val ctxd = (upd4 o map o mapSnd) simp_t ctxd

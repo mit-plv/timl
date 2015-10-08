@@ -50,6 +50,7 @@ local
 	    else if name = "False" then
 		False r
 	    else raise Error (r, sprintf "Unrecognized proposition: $" [name])
+          | S.Not (p, r) => Not (elab_p p, r)
 	  | S.And (p1, p2, _) => And (elab_p p1, elab_p p2)
 	  | S.Or (p1, p2, _) => Or (elab_p p1, elab_p p2)
 	  | S.Imply (p1, p2, _) => Imply (elab_p p1, elab_p p2)

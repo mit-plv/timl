@@ -21,6 +21,7 @@ fun get_region_p p =
     case p of
         True r => r
       | False r => r
+      | Not (_, r) => r
       | And (p1, p2) => combine_region (get_region_p p1) (get_region_p p2)
       | Or (p1, p2) => combine_region (get_region_p p1) (get_region_p p2)
       | Imply (p1, p2) => combine_region (get_region_p p1) (get_region_p p2)

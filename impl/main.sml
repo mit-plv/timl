@@ -8,11 +8,11 @@ open Parser
 open Elaborate
 open NameResolve
 open TypeCheck
-	 
-fun typecheck_decls_print filename (ctx as (sctx, kctx, cctx, tctx)) decls =
+open SMT2Printer
+
+fun print_result filename (((ctxd, ds, ctx), vcs) : tc_result) =
   let 
-      val ((ctxd, ds, ctx as (sctx, kctx, cctx, tctx)), vcs) = typecheck_decls ctx decls
-      val ctxn as (sctxn, kctxn, cctxn, tctxn) = (sctx_names sctx, names kctx, names cctx, names tctx)
+      val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
       val type_lines =
           "OK: Typechecked" :: "" ::
           (List.concat o map (fn (name, t) => [sprintf "$ : $" [name, str_t (sctxn, kctxn) t], ""]) o rev o #4) ctxd
@@ -37,7 +37,10 @@ fun main filename =
       (* val () = (print o join_lines o map (suffix "\n") o fst o E.str_decls ctxn) decls *)
       val decls = resolve_decls ctxn decls
       (* val () = (print o join_lines o map (suffix "\n") o fst o str_decls ctxn) decls *)
-      val s = typecheck_decls_print filename ctx decls
+      val result as ((ctxd, ds, ctx), vcs) = typecheck_decls ctx decls
+      val smt = to_smt vcs
+      val () = write_file (filename ^ ".smt2", smt)
+      val s = print_result filename result
   in
       s
   end

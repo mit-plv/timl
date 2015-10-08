@@ -29,6 +29,7 @@ fun on_i_p on_i_i x n b =
         case b of
 	    True r => True r
 	  | False r => False r
+          | Not (p, r) => Not (f x n p, r)
 	  | And (p1, p2) => And (f x n p1, f x n p2)
 	  | Or (p1, p2) => Or (f x n p1, f x n p2)
 	  | Imply (p1, p2) => Imply (f x n p1, f x n p2)
@@ -222,6 +223,7 @@ local
 	case b of
 	    True r => True r
 	  | False r => False r
+          | Not (p, r) => Not (f x v p, r)
 	  | And (p1, p2) => And (f x v p1, f x v p2)
 	  | Or (p1, p2) => Or (f x v p1, f x v p2)
 	  | Imply (p1, p2) => Imply (f x v p1, f x v p2)
