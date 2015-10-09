@@ -23,13 +23,13 @@ fun unique names = foldr (fn (name, acc) => find_unique name acc :: acc) [] name
 fun uniquefy ctx = ListPair.zip (mapFst unique (ListPair.unzip ctx))
 end
 
-fun str_vc filename (ctx : bscontext, ps, p, r : region) =
+fun str_vc show_region filename (ctx : bscontext, ps, p, r : region) =
     let 
         val ctx = uniquefy ctx
         val ctxn = map #1 ctx in
-        sprintf "$$===============\n$\n" 
+        sprintf "$$$===============\n$\n" 
 	        [
-                  (* str_region "" filename r ^ *)
+                  if show_region then str_region "" filename r else "",
                   join "" (map (fn (name, s) => sprintf "$ : $\n" [name, str_b s]) (rev ctx)), 
 	          join "" (map (fn p => str_p ctxn p ^ "\n") ps), 
 	          str_p ctxn p

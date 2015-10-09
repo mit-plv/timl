@@ -22,6 +22,7 @@ fun suffix fix s = s ^ fix
 fun surround pre post s = pre ^ s ^ post
 fun indent msg = map (fn s => "  " ^ s) msg
 val str_int = Int.toString
+fun str_bool b = if b then "true" else "false"
 fun join_lines ls = (join "" o map (suffix "\n")) ls
 fun join_prefix pre ls = (join "" o map (prefix pre)) ls
                                                                 
@@ -92,6 +93,15 @@ fun write_file (filename, s) =
         ()
     end
 
+fun read_file filename =
+    let
+        val ins = TextIO.openIn filename
+        val s = TextIO.input ins
+        val _ = TextIO.closeIn ins
+    in
+        s
+    end
+                       
 fun concatMap f ls = (List.concat o map f) ls
 
 fun inc r = r := !r + 1

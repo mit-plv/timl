@@ -98,7 +98,7 @@ fun print_vc ((ctx, ps, goal, _) : vc) =
         lines
     end
 
-fun to_smt vcs = 
+fun to_smt2 vcs = 
     let
         val lines =
 	    concatMap print_vc vcs
