@@ -1,0 +1,36 @@
+open SExp
+
+%%
+
+%name SExp
+
+%term ATOM of string
+    | STRING of string
+    | LPAREN
+    | RPAREN
+    | EOF
+    | BOGUS of string
+
+%nonterm start of sexp list
+       | sexp of sexp
+       | sexp_star of sexp list
+
+%pos pos
+
+%eop EOF
+%noshift EOF
+%nodefault
+%verbose
+
+%arg (reporter) : reporter
+
+%%
+
+start : sexp_star (sexp_star)
+
+sexp : ATOM (Atom ATOM)
+    | STRING (String STRING)
+    | LPAREN sexp_star RPAREN (List sexp_star)
+             
+sexp_star : sexp sexp_star (sexp :: sexp_star)
+	  | ([])

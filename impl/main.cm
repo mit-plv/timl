@@ -3,8 +3,8 @@ Group is
       debug.sml
       region.sml
       front-end/ast.sml
-      front-end/timl.lex
       front-end/timl.grm
+      front-end/timl.lex
       front-end/parser.sml
       expr.sml
       elaborate.sml
@@ -15,9 +15,11 @@ Group is
       vc.sml
       typecheck.sml
       smt2-printer.sml
+      sexp/sexp.sml
+      sexp/sexp.grm
+      sexp/sexp.lex
+      sexp/parser.sml
       main.sml
-(*      sexp.sig *)
-(*      sexp.sml *)
 
       $/basis.cm
       $/ml-yacc-lib.cm

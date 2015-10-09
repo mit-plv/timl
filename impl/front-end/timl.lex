@@ -17,9 +17,6 @@ val comment_level = ref 0
 (* debug toggle *)
 val print = fn s => ()
 
-fun inc r = r := !r + 1
-fun dec r = r := !r - 1
-  
 fun make_pos abs : pos = 
     {abs = abs, line = !line, col = abs - !linestart - 1}
 fun make_region (abs, size) : region = 
@@ -33,7 +30,7 @@ fun eof reporter =
   let
       val r = make_region (!linestart, 0)
   in
-      Debug.print "matched eof\n";
+      print "matched eof\n";
       if !comment_level > 0 then (reporter o flat) ("Unclosed comment", r) else ();
       T.EOF r
   end
