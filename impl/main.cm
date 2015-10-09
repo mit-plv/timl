@@ -14,11 +14,12 @@ Group is
       trivial-solver.sml
       vc.sml
       typecheck.sml
-      smt2-printer.sml
       sexp/sexp.sml
       sexp/sexp.grm
       sexp/sexp.lex
       sexp/parser.sml
+      smt2-printer.sml
+      smt-solver.sml
       main.sml
 
       $/basis.cm

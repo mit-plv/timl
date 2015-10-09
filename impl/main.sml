@@ -9,6 +9,7 @@ open Elaborate
 open NameResolve
 open TypeCheck
 open SMT2Printer
+open SMTSolver
 
 fun print_result filename (((ctxd, ds, ctx), vcs) : tc_result) =
   let 
@@ -40,7 +41,7 @@ fun main filename =
       val result as ((ctxd, ds, ctx), vcs) = typecheck_decls ctx decls
       val smt = to_smt vcs
       val () = write_file (filename ^ ".smt2", smt)
-      (* val result = mapSnd (smt_solver filename) result *)
+      val result = mapSnd (smt_solver filename) result
       val s = print_result filename result
   in
       s
