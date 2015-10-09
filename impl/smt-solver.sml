@@ -8,13 +8,21 @@ open SExp
 
 infixr 0 $
 
-fun dowhile cond body st =
-    if cond st then
-        dowhile cond body (body st)
-    else
-        st
+(* fun dowhile cond body st = *)
+(*     if cond st then *)
+(*         dowhile cond body (body st) *)
+(*     else *)
+(*         st *)
 
+fun group n ls =
+    if length ls <= n then
+        [ls]
+    else
+        List.take (ls, n) :: group n (List.drop (ls, n))
+                                
 exception SMTError of string
+
+fun get_model model = ()
                           
 fun smt_solver filename vcs = 
     let
@@ -27,23 +35,27 @@ fun smt_solver filename vcs =
         (* val () = println resp *)
         val resps = SExpParserString.parse_file resp_filename
         (* val () = println $ str_int $ length resps *)
-        fun on_resp vc (is_sat, model) =
-            case is_sat of
-                Atom is_sat =>
-                if is_sat = "sat" then
-                    (vc, false)
-                else
-                    (vc, true)
-              | _ => raise SMTError "wrong response format"
-        fun on_resps vcs resps =
-            case (vcs, resps) of
-                (vc :: vcs, is_sat :: model :: resps) =>
-                on_resp vc (is_sat, model) :: on_resps vcs resps
-              | _ => []
-        val vcs = on_resps vcs resps
-        val vcs = List.filter (fn (_, valid) => not valid) vcs
-        val vcs = map fst vcs
-
+        val () = if length resps = 2 * length vcs then ()
+                 else raise SMTError "Wrong number of responses"
+        val resps = group 2 resps
+        fun on_resp (vc, resp) =
+            let val error_msg = "Wrong response format: first answer should be either (sat) or (unsat)"
+            in
+                case resp of
+                    [is_sat, model] =>
+                    (case is_sat of
+                         Atom is_sat =>
+                         if is_sat = "sat" then
+                             SOME ((vc, get_model model))
+                         else if is_sat = "unsat" then
+                             NONE
+                         else
+                             raise SMTError error_msg
+                       | _ => raise SMTError error_msg
+                    )
+                  | _ => raise Impossible "number of responses should have been checked "
+            end
+        val vcs = List.mapPartial on_resp (zip (vcs, resps))
                       
         (* val proc = execute ("z3", ["-in"]) *)
         (* val (ins, outs) = (textInstreamOf proc, textOutstreamOf proc) *)

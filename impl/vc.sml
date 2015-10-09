@@ -26,16 +26,13 @@ end
 fun str_vc show_region filename (ctx : bscontext, ps, p, r : region) =
     let 
         val ctx = uniquefy ctx
-        val ctxn = map #1 ctx in
-        sprintf "$$$===============\n$\n" 
-	        [
-                  if show_region then str_region "" filename r else "",
-                  join "" (map (fn (name, s) => sprintf "$ : $\n" [name, str_b s]) (rev ctx)), 
-	          join "" (map (fn p => str_p ctxn p ^ "\n") ps), 
-	          str_p ctxn p
-                (* , *)
-                (*                  sprintf "(from $.$-$.$)" [str_int (#line (fst r)), str_int (#col (fst r)), str_int (#line (snd r)), str_int (#col (snd r))] *)
-                ]
+        val ctxn = map #1 ctx
+    in
+        (if show_region then [str_region "" filename r] else []) @
+        map (fn (name, s) => sprintf "$ : $" [name, str_b s]) (rev ctx) @
+        map (fn p => str_p ctxn p ^ "\n") ps @
+        ["==============="] @
+        [str_p ctxn p]
     end 
 
 end
