@@ -12,11 +12,14 @@ type arg = lexarg
 
 val line = ref 1
 val linestart = ref 1
-
+val comment_level = ref 0
+  
 (* debug toggle *)
 val print = fn s => ()
 
 fun inc r = r := !r + 1
+fun dec r = r := !r - 1
+  
 fun make_pos abs : pos = 
     {abs = abs, line = !line, col = abs - !linestart - 1}
 fun make_region (abs, size) : region = 
@@ -24,10 +27,18 @@ fun make_region (abs, size) : region =
      make_pos (abs + size))
 fun update_line yypos = (inc line; linestart := yypos)
 
-fun eof _ = (print "matched eof\n"; T.EOF (make_region (!linestart, 0)))
-(* fun error (f, msg, left, right) = f (msg, left, right) *)
-
 fun flat (a, (b, c)) = (a, b, c)
+
+fun eof reporter =
+  let
+      val r = make_region (!linestart, 0)
+  in
+      Debug.print "matched eof\n";
+      if !comment_level > 0 then (reporter o flat) ("Unclosed comment", r) else ();
+      T.EOF r
+  end
+      
+(* fun error (f, msg, left, right) = f (msg, left, right) *)
 
 val keywords = [
     ("fn", T.FN),
@@ -104,6 +115,7 @@ id_init = ({alpha}|[_']);
 				  (make_region (yypos, size yytext)));
 <INITIAL>. => ((reporter o flat) (sprintf "Bad character: $" [yytext], make_region (yypos, size yytext)); (T.BOGUS o flat) (yytext, make_region (yypos, size yytext)));
 
-<INITIAL>"(*" => (YYBEGIN COMMENT; continue());
-<COMMENT>"*)" => (YYBEGIN INITIAL; continue());
+<INITIAL>"(*" => (inc comment_level; YYBEGIN COMMENT; continue());
+<COMMENT>"(*" => (inc comment_level; continue());
+<COMMENT>"*)" => (dec comment_level; if !comment_level = 0 then YYBEGIN INITIAL else (); continue());
 <COMMENT>. => (continue());

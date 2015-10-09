@@ -51,3 +51,4 @@ val msort =
       | (ConsI {_} (_, ConsI {_} (_, _))) =>
         case split ['a] {n} xs return {n} 'a ilist |> m * n of
             Even {n1 n2} (xs1, xs2) => merge ['a] {m} le {n1} {n2} (sort {n1} xs1) (sort {n2} xs2)
+

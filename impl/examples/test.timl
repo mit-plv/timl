@@ -26,7 +26,7 @@ val (a, (b, (c, ()))) = (1, (2, (3, ())))
 
 val _ = fn ['a] ['b] ((x, y) : 'a * 'b) => (y, x)
 
-(* not exhaustive *)
+(*(* not exhaustive *)*)
 (* val _ = fn ['a] (nil : 'a list) => nil ['a] *)
 
 val _ = 
@@ -89,3 +89,5 @@ val map4 =
         NilI => NilI ['b]
       | ConsI {n'} (pair as (x, xs as NilI)) => ConsI ['b] {n'} (f x, map {n'} xs)
       | ConsI {n'} (x, xs) => ConsI ['b] {n'} (f x, map {n'} xs)
+
+                                    
