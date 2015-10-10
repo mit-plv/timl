@@ -27,9 +27,9 @@ fun get_model model =
       val err = SMTError "Wrong model format"
       fun on_def def =
         case def of
-            List [Atom header, Atom name, List [], _, Atom value] =>
+            List [Atom header, Atom name, List [], _, value] =>
             if header = "define-fun" then
-                (name, value)
+                (name, str_sexp value)
             else
                 raise err
           | _ => raise err
@@ -50,8 +50,8 @@ fun smt_solver filename vcs =
         val resp_filename = filename ^ ".lisp"
         val () = write_file (smt2_filename, smt2)
         val _ = system (sprintf "z3 $ > $" [smt2_filename, resp_filename])
-        (* val resp = read_file resp_filename *)
-        (* val () = println resp *)
+        val resp = read_file resp_filename
+        val () = println resp
         val resps = SExpParserString.parse_file resp_filename
         (* val () = println $ str_int $ length resps *)
         val () = if length resps = 2 * length vcs then ()

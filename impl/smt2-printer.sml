@@ -81,6 +81,7 @@ fun print_bind (name, bsort) =
     case bsort of
         BSUnit => declare_const name "Unit"
       | Bool => declare_const name "Bool"
+      (* | Time => declare_const name "Real" @ *)
       | Time => declare_const name "Int" @
                 assert (sprintf "(<= 0 $)" [print_escaped name])
 

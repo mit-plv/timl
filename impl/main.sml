@@ -67,22 +67,21 @@ fun typecheck_file (filename, ctx) =
       ctx
   end
   handle 
-  IO.Io e => raise Error $ sprintf "Error in $ on file $\n" [#function e, #name e]
-  | Parser.Error => raise Error $ "Unknown parse error"
-  | Elaborate.Error (r, msg) => raise Error $ str_error "Error" filename r ["Elaborate error: " ^ msg]
+  Elaborate.Error (r, msg) => raise Error $ str_error "Error" filename r ["Elaborate error: " ^ msg]
   | NameResolve.Error (r, msg) => raise Error $ str_error "Error" filename r ["Resolve error: " ^ msg]
   | TypeCheck.Error (r, msg) => raise Error $ str_error "Error" filename r ((* "Type error: " :: *) msg)
-  | OS.SysErr (msg, _) => raise Error $ "SysErr: " ^ msg
+  | Parser.Error => raise Error "Unknown parse error"
+  | SMTError msg => raise Error $ "SMT error: " ^ msg
+  | IO.Io e => raise Error $ sprintf "IO error in function $ on file $" [#function e, #name e]
+  | OS.SysErr (msg, err) => raise Error $ sprintf "System error$: $" [(default "" o Option.map (prefix " " o OS.errorName)) err, msg]
                                                          
 fun main filenames =
   let
       val empty_ctx = (([], []), [], [], [])
       val ctx = foldl typecheck_file empty_ctx filenames
   in
-      OK ctx
+      ctx
   end
-  handle 
-  Error msg => Failed $ msg
                       
 end
 
@@ -96,13 +95,12 @@ fun main (prog_name, args : string list) : int =
 	  case args of
 	      [] => (println "Usage: THIS filename1 filename2 ..."; exit(failure))
 	    | filenames =>
-              (case TiML.main filenames of
-                   OK _ => ()
-                 | Failed msg => println msg
-              )
+              TiML.main filenames
   in	
       0
   end
+  handle 
+  TiML.Error msg => (println msg; 1)
 
 end
 
