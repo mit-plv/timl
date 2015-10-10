@@ -38,7 +38,7 @@ fun eof reporter =
 %header (functor SExpLexFun (structure Tokens : SExp_TOKENS));
 
 %arg (reporter : SExp.reporter);
-%s COMMENT STRING_S;
+%s COMMENT STRING;
 
 ws = [\ \t];
 eol = (\013\010|\010|\013);
@@ -51,11 +51,11 @@ eol = (\013\010|\010|\013);
 <INITIAL>"(" => (print "matched (\n"; T.LPAREN (make_region (yypos, size yytext)));
 <INITIAL>")" => (print "matched )\n"; T.RPAREN (make_region (yypos, size yytext)));
 <INITIAL>[^\ \t\n"()]+ => ((T.ATOM o flat) (yytext, make_region (yypos, size yytext)));
-<INITIAL>"\"" => (YYBEGIN STRING_S; continue());
+<INITIAL>"\"" => (YYBEGIN STRING; continue());
 <INITIAL>";" => (YYBEGIN COMMENT; continue());
 <INITIAL>. => ((reporter o flat) (sprintf "Bad character: $" [yytext], make_region (yypos, size yytext)); (T.BOGUS o flat) (yytext, make_region (yypos, size yytext)));
 
-<STRING_S> (\\\"|[^\n"])* => ((T.STRING o flat) (yytext, make_region (yypos, size yytext)));
-<STRING_S> "\"" => (YYBEGIN INITIAL; continue());
+<STRING> (\\\"|[^\n"])* => ((T.STRING o flat) (yytext, make_region (yypos, size yytext)));
+<STRING> "\"" => (YYBEGIN INITIAL; continue());
  
 <COMMENT>. => (continue());

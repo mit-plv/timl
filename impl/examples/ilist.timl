@@ -11,10 +11,10 @@ val map =
 
 val foldl =
  fn ['a] ['b] {m : Nat} (f : 'a * 'b -- m --> 'b) =>
-    fix loop (y : 'b) {n : Nat} (xs : {n} 'a ilist) : 'b |> (m + 3) * n =>
+    fix loop {n : Nat} ((y, xs) : 'b * {n} 'a ilist) : 'b |> (m + 2) * n =>
     case xs of
         NilI => y
-      | ConsI {n'} (x, xs) => loop (f (x, y)) {n'} xs |> (m + 3) * n
+      | ConsI {n'} (x, xs) => loop {n'} (f (x, y), xs) |> (m + 2) * n
 
 datatype {Nat} 'a even_split =
          Even of {n1 : Nat} {n2 : {n2 : Nat | n1 <= n2 + 1 /\ n2 <= n1 + 1}} ({n1} 'a ilist * {n2} 'a ilist) -> {n1 + n2} 'a even_split
