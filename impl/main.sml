@@ -57,7 +57,7 @@ fun main filename =
            | NONE => ["Can't prove and can't find counter example"]) 
       val () =
           if length (snd result) <> 0 then
-              (println "Can't prove these conditions:\n";
+              (println (sprintf "Can't prove the following $ condition(s):\n" [str_int $ length unsats]);
                (app println o concatMap (print_unsat filename)) unsats)
           else
               println "All conditions proved."

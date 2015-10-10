@@ -4,7 +4,7 @@ datatype {Nat} 'a tree =
 
 val map_tree =
  fn ['a] ['b] {m : Nat} (f : 'a -- m --> 'b) =>
-    fix (map : forall {n : Nat}, {n} 'a tree -- (m + 3) * n --> {n} 'b tree) {n : Nat} (tr : {n} 'a tree) =>
+    fix map {n : Nat} (tr : {n} 'a tree) : {n} 'b tree |> (m + 3) * n =>
     case tr return {n} 'b tree of
         Leaf => Leaf ['b]
       | Node {n1 n2} (x, tr1, tr2) => Node ['b] {n1} {n2} (f x, map {n1} tr1, map {n2} tr2) |> (m + 3) * n

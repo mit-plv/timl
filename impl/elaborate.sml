@@ -174,10 +174,10 @@ local
 	       | e :: es => foldl (fn (e2, e1) => Pair (e1, elab e2)) (elab e) es)
 	  | S.Abs (abs, binds, e, r) =>
 	    (case abs of
-		 S.Fix => 
+		 S.Rec => 
 		 (case binds of
 		      Typing ((S.ConstrP (x, [], NONE, _)), t, _) :: binds => Fix (elab_t t, x, elab (S.Abs (Fn, binds, e, r)))
-		    | _ => raise Error (r, "fixpoint must have a single-variable typing bind as the first bind"))
+		    | _ => raise Error (r, "recursion must have a single-variable typing bind as the first bind"))
 	       | Fn =>
 		 let fun f (b, e) =
 			 case b of
@@ -187,6 +187,19 @@ local
 		 in
 		     foldr f (elab e) binds
 		 end)
+	  | S.Fix (name, binds, t, d, e, r) =>
+            let fun on_bind (b, t0) =
+                  case b of
+		      Typing (pn, t, r) => Arrow (elab_t t, T0 r, t0)
+		    | Kinding x => Uni (x, t0)
+		    | Sorting (x, s, _) => UniI (elab_s s, x, t0)
+                val t =
+                    case rev binds of
+                        Typing (pn, t1, _) :: binds => foldl on_bind (Arrow (elab_t t1, elab_i d, elab_t t)) binds
+                      | _ => raise Error (r, "Fixpoint must have a typing bind as the last bind")
+            in
+	        Fix (t, name, elab (S.Abs (Fn, binds, e, r)))
+            end
 	  | S.App (e1, e2, _) =>
 	    let 
 		fun default () = App (elab e1, elab e2)

@@ -9,6 +9,7 @@ open Ast
     | RPAREN
     | DARROW
     | FN
+    | REC
     | FIX
     | LSQ
     | RSQ
@@ -137,6 +138,7 @@ aexp : id (Var id)
      | LPAREN exp_comma_star RPAREN (Tuple (exp_comma_star, (LPARENleft, RPARENright)))
                 (* | LPAREN exp RPAREN (exp) *) (* already covered by previous one *)
      | abs bind_plus DARROW exp (Abs (abs, bind_plus, exp, (absleft, expright)))
+     | FIX id bind_star COLON ty RTRI idx DARROW exp (Fix (id, bind_star, ty, idx, exp, (FIXleft, expright)))
      | case_type exp return OF rule_bar_star (Case (case_type, exp, return, rule_bar_star, (case_typeleft, rule_bar_starright)))
      | LET decl_star IN exp END (Let (decl_star, exp, (LETleft, ENDright)))
      | INT (Const (INT, (INTleft, INTright)))
@@ -184,7 +186,7 @@ comma_exp_star : COMMA exp comma_exp_star (exp :: comma_exp_star)
 	       | ([])
 
 abs : FN (Fn)
-    | FIX (Fix)
+    | REC (Rec)
 
 bind_star : bind bind_star (bind :: bind_star)
 	  | ([])
