@@ -79,7 +79,7 @@ open Ast
        | ptrn_opt of ptrn option
        | ptrn_comma_star of ptrn list
        | comma_ptrn_star of ptrn list
-       | id_cur_space of id list
+       | idx_ids of id list
        | id_plus of id list
        | id_star of id list
        | decl_star of decl list
@@ -222,7 +222,7 @@ bar_rule_star : BAR rule bar_rule_star (rule :: bar_rule_star)
 
 rule : ptrn DARROW exp ((ptrn, exp))
 
-ptrn : id id_cur_space ptrn_opt (ConstrP (id, map fst id_cur_space, ptrn_opt, (idleft, ptrn_optright)))
+ptrn : id idx_ids ptrn_opt (ConstrP (id, map fst idx_ids, ptrn_opt, (idleft, ptrn_optright)))
      | LPAREN ptrn_comma_star RPAREN (TupleP (ptrn_comma_star, (LPARENleft, RPARENright)))
      | id AS ptrn (AliasP (id, ptrn, (idleft, ptrnright)))
 
@@ -234,8 +234,8 @@ ptrn_comma_star : ptrn comma_ptrn_star (ptrn :: comma_ptrn_star)
 comma_ptrn_star : COMMA ptrn comma_ptrn_star (ptrn :: comma_ptrn_star)
 	        | ([])
 
-id_cur_space : LCUR id_plus RCUR (id_plus)
-	     | ([])
+idx_ids : LCUR id_plus RCUR idx_ids (id_plus @ idx_ids)
+	| ([])
 
 id_star : id id_star (id :: id_star)
 	| ([])
