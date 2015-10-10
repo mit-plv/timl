@@ -1,5 +1,5 @@
 structure SMTSolver = struct
-open Unix
+(* open Unix *)
 
 open TextIO
 open SMT2Printer
@@ -22,7 +22,26 @@ fun group n ls =
                                 
 exception SMTError of string
 
-fun get_model model = ()
+fun get_model model =
+  let
+      val err = SMTError "Wrong model format"
+      fun on_def def =
+        case def of
+            List [Atom header, Atom name, List [], _, Atom value] =>
+            if header = "define-fun" then
+                (name, value)
+            else
+                raise err
+          | _ => raise err
+  in
+      case model of
+          List (Atom header :: defs) =>
+          if header = "model" then
+              map on_def defs
+          else
+              raise err
+        | _ => raise err
+  end
                           
 fun smt_solver filename vcs = 
     let
@@ -39,16 +58,18 @@ fun smt_solver filename vcs =
                  else raise SMTError "Wrong number of responses"
         val resps = group 2 resps
         fun on_resp (vc, resp) =
-            let val error_msg = "Wrong response format: first answer should be either (sat) or (unsat)"
+            let val error_msg = "Wrong response format: first answer should be (sat), (unsat) or (unknown)"
             in
                 case resp of
                     [is_sat, model] =>
                     (case is_sat of
                          Atom is_sat =>
-                         if is_sat = "sat" then
-                             SOME ((vc, get_model model))
-                         else if is_sat = "unsat" then
+                         if is_sat = "unsat" then
                              NONE
+                         else if is_sat = "sat" then
+                             SOME (vc, SOME (get_model model))
+                         else if is_sat = "unknown" then
+                             SOME (vc, NONE)
                          else
                              raise SMTError error_msg
                        | _ => raise SMTError error_msg
@@ -73,8 +94,5 @@ fun smt_solver filename vcs =
     in
         vcs
     end
-    (* handle OS.SysErr (msg, _) => *)
-    (*        (println ("SysErr: " ^ msg); *)
-    (*         vcs) *)
         
 end

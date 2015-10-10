@@ -22,13 +22,20 @@ FILES = \
 	trivial-solver.sml \
 	vc.sml \
 	typecheck.sml \
+	sexp/sexp.sml \
+	sexp/sexp.grm \
+	sexp/sexp.lex \
+	sexp/parser.sml \
 	smt2-printer.sml \
+	smt-solver.sml \
 	main.sml \
 	mlton-main.sml \
 
 main: main.mlb $(FILES)
 	mlyacc front-end/timl.grm
 	mllex front-end/timl.lex
+	mlyacc sexp/sexp.grm
+	mllex sexp/sexp.lex
 	mlton main.mlb
 
 smlnj: main.cm

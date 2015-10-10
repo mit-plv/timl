@@ -86,7 +86,6 @@ fun print_bind (name, bsort) =
 
 fun print_vc ((ctx, ps, goal, _) : vc) =
     let
-        val ctx = uniquefy ctx
         val ctx = map (mapFst escape) ctx
         val lines = push
         val lines = lines @ concatMap print_bind ctx

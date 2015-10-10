@@ -1353,6 +1353,7 @@ fun typecheck_expr (ctx as (sctx, kctx, cctx, tctx) : context) e : (ty * idx) * 
         val ((t, d), vcs) = vcgen_expr ctx e
         val t = simp_t t
         val d = simp_i d
+        val vcs = map (uniquefy_names) vcs
         val vcs = simp_and_solve_vcs vcs
     in
         ((t, d), vcs)
@@ -1369,6 +1370,7 @@ fun typecheck_decls (ctx as (sctx, kctx, cctx, tctx) : context) decls : tc_resul
         val ctxd = (upd4 o map o mapSnd) simp_t ctxd
         val ds = rev ds
         val ds = map simp_i ds
+        val vcs = map (uniquefy_names) vcs
         val vcs = simp_and_solve_vcs vcs
     in
         ((ctxd, ds, ctx), vcs)

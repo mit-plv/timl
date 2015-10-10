@@ -23,7 +23,7 @@ fun print_result show_region filename (((ctxd, ds, ctx), vcs) : tc_result) =
           "Times:" :: "" ::
           (List.concat o map (fn d => [sprintf "|> $" [str_i sctxn d], ""])) ds
       val vc_lines =
-          sprintf "VCs: [count=$]" [str_int (length vcs)] :: "" ::
+          sprintf "Verification Conditions: [count=$]" [str_int (length vcs)] :: "" ::
 	  concatMap (str_vc show_region filename) vcs
       val s = join_lines (type_lines @ time_lines @ vc_lines)
   in
@@ -47,7 +47,14 @@ fun main filename =
       val () = println "Solving by Z3 SMT solver ..."
       val result as (_, unsats) = mapSnd (smt_solver filename) result
       fun print_unsat filename (vc, counter) =
-          str_vc true filename vc
+        str_vc true filename vc @
+        [""] @
+        (case counter of
+             SOME assigns =>
+             ["Counter example:"] @
+             map (fn (name, value) => sprintf "$ = $" [name, value]) assigns @
+             [""]
+           | NONE => ["Can't prove and can't find counter example"]) 
       val () =
           if length (snd result) <> 0 then
               (println "Can't prove these conditions:\n";
@@ -55,25 +62,32 @@ fun main filename =
           else
               println "All conditions proved."
   in
-      result
+      OK result
   end
   handle 
-  IO.Io e => sprintf "Error in $ on file $\n" [#function e, #name e]
-  | Parser.Error => "Unknown parse error"
-  | Elaborate.Error (r, msg) => str_error "Error" filename r ["Elaborate error: " ^ msg]
-  | NameResolve.Error (r, msg) => str_error "Error" filename r ["Resolve error: " ^ msg]
-  | TypeCheck.Error (r, msg) => str_error "Error" filename r ((* "Type error: " :: *) msg)
+  IO.Io e => Failed $ sprintf "Error in $ on file $\n" [#function e, #name e]
+  | Parser.Error => Failed $ "Unknown parse error"
+  | Elaborate.Error (r, msg) => Failed $ str_error "Error" filename r ["Elaborate error: " ^ msg]
+  | NameResolve.Error (r, msg) => Failed $ str_error "Error" filename r ["Resolve error: " ^ msg]
+  | TypeCheck.Error (r, msg) => Failed $ str_error "Error" filename r ((* "Type error: " :: *) msg)
+  | OS.SysErr (msg, _) => Failed $ "SysErr: " ^ msg
                                             
 end
 
 structure Main = struct
-
+open Util
+open OS.Process
+         
 fun main (prog_name, args : string list) : int = 
     let
         val _ =
 	    case args of
-	        filename :: _ => TiML.main filename
-	      | _ => "Usage: THIS filename"
+	        filename :: _ =>
+                (case TiML.main filename of
+                     OK _ => ()
+                   | Failed msg => println msg
+                )
+	      | _ => (println "Usage: THIS filename"; exit(failure));
     in	
         0
     end

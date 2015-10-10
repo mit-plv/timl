@@ -17,9 +17,13 @@ subst.sml
 trivial-solver.sml
 vc.sml
 typecheck.sml
+sexp/sexp.sml
+sexp/sexp.grm.sig
+sexp/sexp.grm.sml
+sexp/sexp.lex.sml
+sexp/parser.sml
 smt2-printer.sml
+smt-solver.sml
 main.sml
 mlton-main.sml
-(* sexp.sig *)
-(* sexp.sml *)
 

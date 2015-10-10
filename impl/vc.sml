@@ -21,16 +21,16 @@ local
 in
 fun unique names = foldr (fn (name, acc) => find_unique name acc :: acc) [] names
 fun uniquefy ctx = ListPair.zip (mapFst unique (ListPair.unzip ctx))
+fun uniquefy_names (ctx, ps, p, r) = (uniquefy ctx, ps, p, r)
 end
 
 fun str_vc show_region filename (ctx : bscontext, ps, p, r : region) =
     let 
-        val ctx = uniquefy ctx
         val ctxn = map #1 ctx
     in
         (if show_region then [str_region "" filename r] else []) @
         map (fn (name, s) => sprintf "$ : $" [name, str_b s]) (rev ctx) @
-        map (fn p => str_p ctxn p ^ "\n") ps @
+        map (str_p ctxn) ps @
         ["==============="] @
         [str_p ctxn p]
     end 
