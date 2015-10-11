@@ -31,6 +31,7 @@ open Ast
     | DDASH
     | MULT
     | PLUS
+    | MINUS
     | MU
     | INT of int
     | BAR
@@ -109,7 +110,7 @@ open Ast
 %right AND
 %nonassoc NOT
 %nonassoc EQ LE
-%left PLUS
+%left PLUS MINUS
 %left MULT MAX MIN
 %right APPR
 
@@ -157,6 +158,7 @@ ty : ty ty %prec APPR (AppTT (ty2, ty1, (ty1left, ty2right)))
 idx : id (VarI id)
     | INT (Tint (INT, (INTleft, INTright)))
     | idx PLUS idx (Tadd (idx1, idx2, (idx1left, idx2right)))
+    | idx MINUS idx (Tminus (idx1, idx2, (idx1left, idx2right)))
     | idx MULT idx (Tmult (idx1, idx2, (idx1left, idx2right)))
     | idx MAX idx (Tmax (idx1, idx2, (idx1left, idx2right)))
     | idx MIN idx (Tmin (idx1, idx2, (idx1left, idx2right)))

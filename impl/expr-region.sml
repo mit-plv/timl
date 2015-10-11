@@ -13,6 +13,7 @@ fun get_region_i i =
       | FalseI r => r
       | TTI r => r
       | Tadd (i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
+      | Tminus (i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
       | Tmult (i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
       | Tmax (i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
       | Tmin (i1, i2) => combine_region (get_region_i i1) (get_region_i i2)

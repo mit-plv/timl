@@ -28,6 +28,7 @@ local
 	| T.T0 r => T0 r
 	| T.T1 r => T1 r
 	| T.Tadd (i1, i2) => Tadd (on_idx ctx i1, on_idx ctx i2)
+	| T.Tminus (i1, i2) => Tminus (on_idx ctx i1, on_idx ctx i2)
 	| T.Tmult (i1, i2) => Tmult (on_idx ctx i1, on_idx ctx i2)
 	| T.Tmax (i1, i2) => Tmax (on_idx ctx i1, on_idx ctx i2)
 	| T.Tmin (i1, i2) => Tmin (on_idx ctx i1, on_idx ctx i2)

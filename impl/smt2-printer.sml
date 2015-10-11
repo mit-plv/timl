@@ -53,6 +53,7 @@ fun print_i ctx i =
       | FalseI _ => "false"
       | TTI _ => "TT"
       | Tadd (i1, i2) => sprintf "(+ $ $)" [print_i ctx i1, print_i ctx i2]
+      | Tminus (i1, i2) => sprintf "(- $ $)" [print_i ctx i1, print_i ctx i2]
       | Tmult (i1, i2) => sprintf "($ $ $)" ["*", print_i ctx i1, print_i ctx i2]
       | Tmax (i1, i2) => sprintf "(max $ $)" [print_i ctx i1, print_i ctx i2]
       | Tmin (i1, i2) => sprintf "(mymin $ $)" [print_i ctx i1, print_i ctx i2]
@@ -94,6 +95,7 @@ fun print_vc ((ctx, ps, goal, _) : vc) =
         val lines = lines @ assert_p ctx (Not (goal, dummy))
         val lines = lines @ check
         val lines = lines @ pop
+        val lines = lines @ [""]
     in
         lines
     end

@@ -373,6 +373,10 @@ local
 	    (check_bsort (ctx, d1, Time);
 	     check_bsort (ctx, d2, Time);
 	     Time)
+	  | Tminus (d1, d2) => 
+	    (check_bsort (ctx, d1, Time);
+	     check_bsort (ctx, d2, Time);
+	     Time)
 	  | Tmult (d1, d2) => 
 	    (check_bsort (ctx, d1, Time);
 	     check_bsort (ctx, d2, Time);

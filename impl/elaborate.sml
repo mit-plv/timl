@@ -33,6 +33,8 @@ local
 	        Tconst (n, r)
 	  | S.Tadd (i1, i2, _) =>
 	    Tadd (elab_i i1, elab_i i2)
+	  | S.Tminus (i1, i2, _) =>
+	    Tminus (elab_i i1, elab_i i2)
 	  | S.Tmult (i1, i2, _) =>
 	    Tmult (elab_i i1, elab_i i2)
 	  | S.Tmax (i1, i2, _) =>

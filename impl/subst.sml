@@ -12,6 +12,7 @@ fun on_i_i on_v x n b =
 	  | T0 r => T0 r
 	  | T1 r => T1 r
 	  | Tadd (d1, d2) => Tadd (f x n d1, f x n d2)
+	  | Tminus (d1, d2) => Tminus (f x n d1, f x n d2)
 	  | Tmult (d1, d2) => Tmult (f x n d1, f x n d2)
 	  | Tmax (d1, d2) => Tmax (f x n d1, f x n d2)
 	  | Tmin (d1, d2) => Tmin (f x n d1, f x n d2)
@@ -204,6 +205,7 @@ local
 	    else
 		VarI (y, r)
 	  | Tadd (d1, d2) => Tadd (f x v d1, f x v d2)
+	  | Tminus (d1, d2) => Tminus (f x v d1, f x v d2)
 	  | Tmult (d1, d2) => Tmult (f x v d1, f x v d2)
 	  | Tmax (d1, d2) => Tmax (f x v d1, f x v d2)
 	  | Tmin (d1, d2) => Tmin (f x v d1, f x v d2)

@@ -38,6 +38,7 @@ datatype idx =
 	 | T0 of other
 	 | T1 of other
 	 | Tadd of idx * idx
+	 | Tminus of idx * idx
 	 | Tmult of idx * idx
 	 | Tmax of idx * idx
 	 | Tmin of idx * idx
@@ -101,6 +102,7 @@ fun str_i ctx (i : idx) : string =
     | T0 _ => "0"
     | T1 _ => "1"
     | Tadd (d1, d2) => sprintf "($ + $)" [str_i ctx d1, str_i ctx d2]
+    | Tminus (d1, d2) => sprintf "($ - $)" [str_i ctx d1, str_i ctx d2]
     | Tmult (d1, d2) => sprintf "($ * $)" [str_i ctx d1, str_i ctx d2]
     | Tmax (d1, d2) => sprintf "(max $ $)" [str_i ctx d1, str_i ctx d2]
     | Tmin (d1, d2) => sprintf "(min $ $)" [str_i ctx d1, str_i ctx d2]

@@ -103,6 +103,7 @@ id_init = ({alpha}|[_']);
 <INITIAL>"=" => (T.EQ (make_region (yypos, size yytext)));
 <INITIAL>"<=" => (T.LE (make_region (yypos, size yytext)));
 <INITIAL>"+" => (T.PLUS (make_region (yypos, size yytext)));
+<INITIAL>"-" => (T.MINUS (make_region (yypos, size yytext)));
 <INITIAL>"*" => (T.MULT (make_region (yypos, size yytext)));
 
 <INITIAL>{digit}+ => ((T.INT o flat)

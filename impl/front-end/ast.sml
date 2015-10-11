@@ -7,6 +7,7 @@ datatype idx =
 	 VarI of string * region
 	 | Tint of int * region
 	 | Tadd of idx * idx * region
+	 | Tminus of idx * idx * region
 	 | Tmult of idx * idx * region
 	 | Tmax of idx * idx * region
 	 | Tmin of idx * idx * region
