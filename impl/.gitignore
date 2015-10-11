@@ -12,3 +12,4 @@ main
 *.cmo
 *.grm.*
 *.lex.*
+*.model

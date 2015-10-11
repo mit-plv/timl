@@ -44,7 +44,7 @@ val merge =
 
 val msort =
  fn ['a] {m : Nat} (le : 'a * 'a -- m --> bool) =>
-    fix sort {n : Nat} (xs : {n} 'a ilist) : {n} 'a ilist |> m * n * n (* just a placeholder*) =>
+    fix sort {n : Nat} (xs : {n} 'a ilist) : {n} 'a ilist |> m * n * n (* just a placeholder, a valid comlexity is (4 * (m + 3) * n * log n) *) =>
     case xs return {n} 'a ilist of
         NilI => xs
       | (ConsI {_} (_, NilI)) => xs
