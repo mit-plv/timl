@@ -1,27 +1,22 @@
 structure Ast = struct
 open Region
-
+open Operators
+         
 type id = string * region
 
 datatype idx = 
 	 VarI of string * region
-	 | Tint of int * region
-	 | Tadd of idx * idx * region
-	 | Tminus of idx * idx * region
-	 | Tmult of idx * idx * region
-	 | Tmax of idx * idx * region
-	 | Tmin of idx * idx * region
+	 | ConstIN of int * region
+	 | ConstIT of string * region
+	 | BinOpI of idx_bin_op * idx * idx * region
 	 | TTI of region
+         | ToReal of idx * region
 
 datatype prop =
-	 Pconst of string * region
+	 ConstP of string * region
          | Not of prop * region
-	 | And of prop * prop * region
-	 | Or of prop * prop * region
-	 | Imply of prop * prop * region
-	 | Iff of prop * prop * region
-	 | Eq of idx * idx * region
-	 | TimeLe of idx * idx * region
+	 | BinConn of bin_conn * prop * prop * region
+	 | BinPred of bin_pred * idx * idx * region
 
 type bsort = id
 
@@ -89,6 +84,7 @@ datatype exp =
        | AscriptionTime of exp * idx * region
        | Let of decl list * exp * region
        | Const of int * region
+       | BinOp of bin_op * exp * exp * region
 
 and decl =
     Val of ptrn * exp * region

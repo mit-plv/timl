@@ -105,7 +105,11 @@ id_init = ({alpha}|[_']);
 <INITIAL>"+" => (T.PLUS (make_region (yypos, size yytext)));
 <INITIAL>"-" => (T.MINUS (make_region (yypos, size yytext)));
 <INITIAL>"*" => (T.MULT (make_region (yypos, size yytext)));
+<INITIAL>"$" => (T.DOLLAR (make_region (yypos, size yytext)));
 
+<INITIAL>{digit}+\.{digit}+ => ((T.NNREAL o flat)
+                 (yytext, make_region (yypos, size yytext)));
+ 
 <INITIAL>{digit}+ => ((T.INT o flat)
                  (foldl (fn (a,r) => ord(a)-ord(#"0")+10*r) 0 (explode yytext),
                     make_region (yypos, size yytext)));

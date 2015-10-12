@@ -2,12 +2,14 @@ structure BasicSorts = struct
 (* basic index sort *)
 datatype bsort =
 	 Time
+         | Nat
 	 | Bool
 	 | BSUnit
 
 fun str_b (s : bsort) : string = 
   case s of
-      Time => "Nat"
+      Time => "Time"
+    | Nat => "Nat"
     | Bool => "Bool"
     | BSUnit => "Unit"
 end
@@ -27,7 +29,8 @@ functor TypeFun (structure Var : VAR structure Other : DEBUG) = struct
 open Var
 open BasicSorts
 open Util
-
+open Operators
+         
 type other = Other.t
 val dummy = Other.dummy
 type id = var * other
@@ -35,28 +38,23 @@ type name = string * other
 
 datatype idx =
 	 VarI of var * other
-	 | T0 of other
-	 | T1 of other
-	 | Tadd of idx * idx
-	 | Tminus of idx * idx
-	 | Tmult of idx * idx
-	 | Tmax of idx * idx
-	 | Tmin of idx * idx
+	 | ConstIT of string * other
+	 | ConstIN of int * other
+         | ToReal of idx * other
+         | BinOpI of idx_bin_op * idx * idx
 	 | TrueI of other
 	 | FalseI of other
 	 | TTI of other
-	 | Tconst of int * other
+
+fun T0 r = ConstIT ("0.0", r)
+fun T1 r = ConstIT ("1.0", r)
 
 datatype prop =
 	 True of other
 	 | False of other
+         | BinConn of bin_conn * prop * prop
          | Not of prop * other
-	 | And of prop * prop
-	 | Or of prop * prop
-	 | Imply of prop * prop
-	 | Iff of prop * prop
-	 | TimeLe of idx * idx
-	 | Eq of idx * idx
+	 | BinPred of bin_pred * idx * idx
 
 (* index sort *)
 datatype sort =
@@ -89,39 +87,37 @@ datatype kind =
 
 val Type = ArrowK (false, 0, [])
 
-infix 6 %+ val op%+ = Tadd
-infix 6 %* val op%* = Tmult
-infix 4 %<= val op%<= = TimeLe
-infix 3 /\ val op/\ = And
-infix 1 --> val op--> = Imply
-infix 1 <-> val op<-> = Iff
+infix 6 %+ 
+fun a %+ b = BinOpI (AddI, a, b)
+infix 6 %*
+fun a %* b = BinOpI (MultI, a, b)
+infix 4 %<=
+fun a %<= b = BinPred (LeP, a, b)
+infix 3 /\
+fun a /\ b = BinConn (And, a, b)
+infix 1 -->
+fun a --> b = BinConn (Imply, a, b)
+infix 1 <->
+fun a <-> b = BinConn (Iff, a, b)
 
 fun str_i ctx (i : idx) : string = 
   case i of
       VarI (x, _) => str_v ctx x
-    | T0 _ => "0"
-    | T1 _ => "1"
-    | Tadd (d1, d2) => sprintf "($ + $)" [str_i ctx d1, str_i ctx d2]
-    | Tminus (d1, d2) => sprintf "($ - $)" [str_i ctx d1, str_i ctx d2]
-    | Tmult (d1, d2) => sprintf "($ * $)" [str_i ctx d1, str_i ctx d2]
-    | Tmax (d1, d2) => sprintf "(max $ $)" [str_i ctx d1, str_i ctx d2]
-    | Tmin (d1, d2) => sprintf "(min $ $)" [str_i ctx d1, str_i ctx d2]
+    | ConstIN (n, _) => str_int n
+    | ConstIT (x, _) => x
+    | ToReal (i, _) => surround "($ " ")" (str_i ctx i)
+    | BinOpI (opr, i1, i2) => sprintf "($ $ $)" [str_i ctx i1, str_idx_bin_op opr, str_i ctx i2]
     | TTI _ => "()"
     | TrueI _ => "true"
     | FalseI _ => "false"
-    | Tconst (n, _) => str_int n
 
 fun str_p ctx p = 
   case p of
       True _ => "True"
     | False _ => "False"
     | Not (p, _) => sprintf "(~ $)" [str_p ctx p]
-    | And (p1, p2) => sprintf "($ /\\ $)" [str_p ctx p1, str_p ctx p2]
-    | Or (p1, p2) => sprintf "($ \\/ $)" [str_p ctx p1, str_p ctx p2]
-    | Imply (p1, p2) => sprintf "($ -> $)" [str_p ctx p1, str_p ctx p2]
-    | Iff (p1, p2) => sprintf "($ <-> $)" [str_p ctx p1, str_p ctx p2]
-    | TimeLe (d1, d2) => sprintf "($ <= $)" [str_i ctx d1, str_i ctx d2]
-    | Eq (i1, i2) => sprintf "($ = $)" [str_i ctx i1, str_i ctx i2]
+    | BinConn (opr, p1, p2) => sprintf "($ $ $)" [str_p ctx p1, str_bin_conn opr, str_p ctx p2]
+    | BinPred (opr, i1, i2) => sprintf "($ $ $)" [str_i ctx i1, str_bin_pred opr, str_i ctx i2]
 
 fun str_s ctx (s : sort) : string = 
   case s of
@@ -223,6 +219,7 @@ functor ExprFun (structure Var : VAR structure Type : TYPE structure Other : DEB
 open Var
 open Type
 open Util
+open Operators
 
 type other = Other.t
 val dummy = Other.dummy
@@ -268,7 +265,7 @@ datatype expr =
 	 (* recursive type *)
 	 | Fold of ty * expr
 	 | Unfold of expr
-	 | Plus of expr * expr
+	 | BinOp of bin_op * expr * expr
 	 | Const of int * other
 	 | AppConstr of id * ty list * idx list * expr
 	 | Case of expr * return * (ptrn * expr) list * other
@@ -319,7 +316,7 @@ fun str_return (skctx as (sctx, _)) return =
     | (SOME t, NONE) => sprintf "return $ " [str_t skctx t]
     | (NONE, SOME d) => sprintf "return |> $ " [str_i sctx d]
     | (SOME t, SOME d) => sprintf "return $ |> $ " [str_t skctx t, str_i sctx d]
-                                                     
+                                  
 fun str_e (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
   let fun add_t name (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx) 
       val skctx = (sctx, kctx) 
@@ -359,7 +356,7 @@ fun str_e (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
           end
 	| Ascription (e, t) => sprintf "($ : $)" [str_e ctx e, str_t skctx t]
 	| AscriptionTime (e, d) => sprintf "($ |> $)" [str_e ctx e, str_i sctx d]
-	| Plus (e1, e2) => sprintf "($ + $)" [str_e ctx e1, str_e ctx e2]
+	| BinOp (opr, e1, e2) => sprintf "($ $ $)" [str_e ctx e1, str_bin_op opr, str_e ctx e2]
 	| Const (n, _) => str_int n
 	| AppConstr ((x, _), ts, is, e) => sprintf "($$$ $)" [str_v cctx x, (join "" o map (prefix " ") o map (fn t => sprintf "[$]" [str_t skctx t])) ts, (join "" o map (prefix " ") o map (fn i => sprintf "[$]" [str_i sctx i])) is, str_e ctx e]
 	| Case (e, return, rules, _) => sprintf "(case $ $of $)" [str_e ctx e, str_return skctx return, join " | " (map (str_rule ctx) rules)]

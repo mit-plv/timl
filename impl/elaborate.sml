@@ -24,45 +24,33 @@ local
 		FalseI r
 	    else
 		VarI (x, r)
-	  | Tint (n, r) =>
-            if n = 0 then
-                T0 r
-            else if n = 1 then
-                T1 r
-            else
-	        Tconst (n, r)
-	  | S.Tadd (i1, i2, _) =>
-	    Tadd (elab_i i1, elab_i i2)
-	  | S.Tminus (i1, i2, _) =>
-	    Tminus (elab_i i1, elab_i i2)
-	  | S.Tmult (i1, i2, _) =>
-	    Tmult (elab_i i1, elab_i i2)
-	  | S.Tmax (i1, i2, _) =>
-	    Tmax (elab_i i1, elab_i i2)
-	  | S.Tmin (i1, i2, _) =>
-	    Tmin (elab_i i1, elab_i i2)
+	  | S.ConstIN n =>
+	    ConstIN n
+	  | S.ConstIT x =>
+	    ConstIT x
+          | S.ToReal (i, r) => ToReal (elab_i i, r)
+	  | S.BinOpI (opr, i1, i2, _) =>
+	    BinOpI (opr, elab_i i1, elab_i i2)
 	  | S.TTI r =>
 	    TTI r
 
     fun elab_p p =
 	case p of
-	    Pconst (name, r) =>
+	    ConstP (name, r) =>
 	    if name = "True" then
 		True r
 	    else if name = "False" then
 		False r
 	    else raise Error (r, sprintf "Unrecognized proposition: $" [name])
           | S.Not (p, r) => Not (elab_p p, r)
-	  | S.And (p1, p2, _) => And (elab_p p1, elab_p p2)
-	  | S.Or (p1, p2, _) => Or (elab_p p1, elab_p p2)
-	  | S.Imply (p1, p2, _) => Imply (elab_p p1, elab_p p2)
-	  | S.Iff (p1, p2, _) => Iff (elab_p p1, elab_p p2)
-	  | S.Eq (i1, i2, _) => Eq (elab_i i1, elab_i i2)
-	  | S.TimeLe (i1, i2, _) => TimeLe (elab_i i1, elab_i i2)
+	  | S.BinConn (opr, p1, p2, _) => BinConn (opr, elab_p p1, elab_p p2)
+	  | S.BinPred (opr, i1, i2, _) => BinPred (opr, elab_i i1, elab_i i2)
 
     fun elab_b (name, r) =
-	if name = "Nat" then
+	if name = "Time" then
 	    (Time, r)
+	else if name = "Nat" then
+	    (Nat, r)
 	else if name = "Bool" then
 	    (Bool, r)
 	else if name = "Unit" then
@@ -266,6 +254,7 @@ local
 	  | S.Let (decs, e, r) =>
             Let (map elab_decl decs, elab e, r)
 	  | S.Const n => Const n
+          | S.BinOp (opr, e1, e2, _) => BinOp (opr, elab e1, elab e2)
 
     and elab_decl decl =
         case decl of

@@ -50,8 +50,7 @@ fun smt_solver filename vcs =
         val resp_filename = filename ^ ".lisp"
         val () = write_file (smt2_filename, smt2)
         val _ = system (sprintf "z3 $ > $" [smt2_filename, resp_filename])
-        val resp = read_file resp_filename
-        val () = println resp
+        (* val () = println $ read_file resp_filename *)
         val resps = SExpParserString.parse_file resp_filename
         (* val () = println $ str_int $ length resps *)
         val () = if length resps = 2 * length vcs then ()

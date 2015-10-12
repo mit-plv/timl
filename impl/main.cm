@@ -2,6 +2,7 @@ Group is
       util.sml
       debug.sml
       region.sml
+      operators.sml
       front-end/ast.sml
       front-end/timl.grm
       front-end/timl.lex
@@ -11,6 +12,7 @@ Group is
       expr-region.sml
       name-resolve.sml
       subst.sml
+      equal.sml
       trivial-solver.sml
       vc.sml
       typecheck.sml

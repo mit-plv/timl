@@ -38,7 +38,7 @@ fun is_value (e : expr) : bool =
       | Let _ => false
       | Ascription _ => false
       | AscriptionTime _ => false
-      | Plus _ => false
+      | BinOp _ => false
       | Const _ => true
       | AppConstr (_, _, _, e) => is_value e
       | Case _ => false
@@ -256,7 +256,7 @@ local
 	    
     fun is_eq (ctx : scontext, i : idx, i' : idx, r) = 
         let val (bctx, ps) = collect ctx in
-	    tell (bctx, ps, Eq (i, i'), r)
+	    tell (bctx, ps, BinPred (EqP, i, i'), r)
         end
 
     fun is_eqs (ctx, is, is', r) =
@@ -276,6 +276,7 @@ local
     fun is_eqvbsort_b s s' =
         case (s, s') of
 	    (Time, Time) => true
+	  | (Nat, Nat) => true
 	  | (Bool, Bool) => true
 	  | (BSUnit, BSUnit) => true
 	  | _ => false
@@ -318,22 +319,19 @@ local
 	  | False _ => ()
           | Not (p, _) => 
             is_wfprop (ctx, p)
-	  | And (p1, p2) =>
+	  | BinConn (_, p1, p2) =>
 	    (is_wfprop (ctx, p1);
 	     is_wfprop (ctx, p2))
-	  | Or (p1, p2) =>
-	    (is_wfprop (ctx, p1);
-	     is_wfprop (ctx, p2))
-	  | Imply (p1, p2) =>
-	    (is_wfprop (ctx, p1);
-	     is_wfprop (ctx, p2))
-	  | Iff (p1, p2) =>
-	    (is_wfprop (ctx, p1);
-	     is_wfprop (ctx, p2))
-	  | TimeLe (d1, d2) =>
-	    (check_sort (ctx, d1, STime);
-	     check_sort (ctx, d2, STime))
-	  | Eq (i1, i2) =>
+	  | BinPred (LeP, i1, i2) =>
+	    let val s1 = get_bsort (ctx, i1)
+		val s2 = get_bsort (ctx, i2)
+	    in
+                case (s1, s2) of
+                      (Nat, Nat) => ()
+                    | (Time, Time) => ()
+                    | _ => raise Error (get_region_p p, "Sorts of operands of <= can only be both Nat or Time:" :: indent ["left: " ^ str_b s1, "right: " ^ str_b s2])
+	    end
+	  | BinPred (EqP, i1, i2) =>
 	    let val s1 = get_bsort (ctx, i1)
 		val s2 = get_bsort (ctx, i2)
 	    in
@@ -344,59 +342,52 @@ local
 
     and check_sort (ctx, i, s) : unit =
 	let val s' = get_bsort (ctx, i)
-            val s' = (s', get_region_i i)
+            val s'' = (s', get_region_i i)
         in
-	    case s of
-		Subset (s1, _, p) =>
-		(is_eqvbsort (s', s1);
-		 is_true (ctx, subst_i_p i p, get_region_i i))
-	      | Basic s1 => 
-		is_eqvbsort (s', s1)
+	    (case s of
+		 Subset (s1, _, p) =>
+		 (is_eqvbsort (s'', s1);
+		  is_true (ctx, subst_i_p i p, get_region_i i))
+	       | Basic s1 => 
+		 is_eqvbsort (s'', s1))
+            handle Error (_, msg) => 
+                   let val ctxn = sctx_names ctx in
+                       raise Error (get_region_i i, 
+                                    sprintf "index $ (of base sort $) is not of sort $" [str_i ctxn i, str_b s', str_s ctxn s] :: 
+                                    "Cause:" :: 
+                                    indent msg)
+                   end
 	end
-        handle Error (_, msg) => 
-               let val ctxn = sctx_names ctx in
-                   raise Error (get_region_i i, 
-                                sprintf "index $ is not of sort $" [str_i ctxn i, str_s ctxn s] :: 
-                                "Cause:" :: 
-                                indent msg)
-               end
 
+    (* binary operations on idx are overloaded for Nat and Time *)
     and get_bsort (ctx, i) =
 	case i of
 	    VarI (x, r) =>
 	    (case lookup_sort x ctx of
       		 SOME s => get_base s
       	       | NONE => raise Error (r, ["Unbound index variable: " ^ str_v (sctx_names ctx) x]))
-      	  | T0 _ => Time
-	  | T1 _ => Time
-	  | Tadd (d1, d2) => 
-	    (check_bsort (ctx, d1, Time);
-	     check_bsort (ctx, d2, Time);
-	     Time)
-	  | Tminus (d1, d2) => 
-	    (check_bsort (ctx, d1, Time);
-	     check_bsort (ctx, d2, Time);
-	     Time)
-	  | Tmult (d1, d2) => 
-	    (check_bsort (ctx, d1, Time);
-	     check_bsort (ctx, d2, Time);
-	     Time)
-	  | Tmax (d1, d2) => 
-	    (check_bsort (ctx, d1, Time);
-	     check_bsort (ctx, d2, Time);
-	     Time)
-	  | Tmin (d1, d2) => 
-	    (check_bsort (ctx, d1, Time);
-	     check_bsort (ctx, d2, Time);
-	     Time)
+	  | BinOpI (opr, i1, i2) =>
+            let val s1 = get_bsort (ctx, i1)
+                val s2 = get_bsort (ctx, i2)
+            in
+                case (s1, s2) of
+                    (Nat, Nat) => Nat
+                  | (Time, Time) => Time
+                  | _ => raise Error (get_region_i i, sprintf "Sorts of operands of $ don't match:" [str_idx_bin_op opr] :: indent ["left: " ^ str_b s1, "right: " ^ str_b s2])
+            end
+	  | ConstIT (x, _) => 
+	    Time
+	  | ConstIN (n, r) => 
+	    if n >= 0 then
+		Nat
+	    else
+		raise Error (r, ["Natural number constant must be non-negative"])
+          | ToReal (i, _) =>
+            (check_bsort (ctx, i, Nat);
+             Time)
 	  | TrueI _ => Bool
 	  | FalseI _ => Bool
 	  | TTI _ => BSUnit
-	  | Tconst (n, r) => 
-	    if n >= 0 then
-		Time
-	    else
-		raise Error (r, ["Time constant must be non-negative"])
 
     and check_bsort (ctx, i, s) : unit =
 	is_eqvbsort ((get_bsort (ctx, i), get_region_i i), (s, dummy))
@@ -509,11 +500,15 @@ local
     fun no_join ctx c c' = "Cannot find a join (minimal supertype) of " ^ str_t ctx c ^ " and " ^ str_t ctx c'
     fun no_meet ctx c c' = "Cannot find a meet (maximal subtype) of " ^ str_t ctx c ^ " and " ^ str_t ctx c'
 
+    open IdxEqual
+             
     fun smart_max a b =
-        case (a, b) of
-            (T0 _, b) => b
-          | (a, T0 _) => a
-          | _ => Tmax (a, b)
+      if eq_i a (T0 dummy) then
+          b
+      else if eq_i b (T0 dummy) then
+          a
+      else
+          BinOpI (MaxI, a, b)
 
     (* c and c' are already checked for wellformedness *)
     fun join_type (ctx as (sctx : scontext, kctx : kcontext), c : ty, c' : ty, r) : ty = 
@@ -570,7 +565,7 @@ local
 	    case (c, c') of
 		(Arrow (c1, d, c2), Arrow (c1', d', c2')) => 
 		let val c1'' = join_type (ctx, c1, c1', r) 
-		    val d'' = Tmin (d, d')
+		    val d'' = BinOpI (MinI, d, d')
 		    val c2'' = meet (ctx, c2, c2', r) in
 		    Arrow (c1'', d'', c2'')
 		end
@@ -839,7 +834,7 @@ local
                              if length inames = length name_sorts then
 		                 let val t1 = subst_ts_t ts t1
 			             val is = map (shiftx_i_i 0 (length name_sorts)) is
-			             val ps = map Eq (ListPair.zip (is', is))
+			             val ps = map (fn (a, b) => BinPred (EqP, a, b)) (ListPair.zip (is', is))
                                      val ctxd = ((rev (ListPair.zip (inames, snd (ListPair.unzip name_sorts))), ps), [], [], [])
                                      val ctx = add_ctx_skc ctxd ctx
                                      val (cover, ctxd') = match_ptrn (ctx, default (TTP dummy) pn, t1)
@@ -1130,7 +1125,7 @@ local
                     in
 		        (t, d)
 		    end
-		  | Plus (e1, e2) =>
+		  | BinOp (Add, e1, e2) =>
 		    let val d1 = check_type (ctx, e1, Int dummy)
 		        val d2 = check_type (ctx, e2, Int dummy) in
 		        (Int dummy, d1 %+ d2 %+ T1 dummy)

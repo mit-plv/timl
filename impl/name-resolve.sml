@@ -25,29 +25,21 @@ local
     fun on_idx ctx i =
       case i of
 	  T.VarI x => VarI (on_var ctx x)
-	| T.T0 r => T0 r
-	| T.T1 r => T1 r
-	| T.Tadd (i1, i2) => Tadd (on_idx ctx i1, on_idx ctx i2)
-	| T.Tminus (i1, i2) => Tminus (on_idx ctx i1, on_idx ctx i2)
-	| T.Tmult (i1, i2) => Tmult (on_idx ctx i1, on_idx ctx i2)
-	| T.Tmax (i1, i2) => Tmax (on_idx ctx i1, on_idx ctx i2)
-	| T.Tmin (i1, i2) => Tmin (on_idx ctx i1, on_idx ctx i2)
+	| T.ConstIN n => ConstIN n
+	| T.ConstIT x => ConstIT x
+        | T.ToReal (i, r) => ToReal (on_idx ctx i, r)
+	| T.BinOpI (opr, i1, i2) => BinOpI (opr, on_idx ctx i1, on_idx ctx i2)
 	| T.TrueI r => TrueI r
 	| T.FalseI r => FalseI r
 	| T.TTI r => TTI r
-	| T.Tconst n => Tconst n
 
     fun on_prop ctx p =
       case p of
 	  T.True r => True r
 	| T.False r => False r
         | T.Not (p, r) => Not (on_prop ctx p, r)
-	| T.And (p1, p2) => And (on_prop ctx p1, on_prop ctx p2)
-	| T.Or (p1, p2) => Or (on_prop ctx p1, on_prop ctx p2)
-	| T.Imply (p1, p2) => Imply (on_prop ctx p1, on_prop ctx p2)
-	| T.Iff (p1, p2) => Iff (on_prop ctx p1, on_prop ctx p2)
-	| T.TimeLe (i1, i2) => TimeLe (on_idx ctx i1, on_idx ctx i2)
-	| T.Eq (i1, i2) => Eq (on_idx ctx i1, on_idx ctx i2)
+	| T.BinConn (opr, p1, p2) => BinConn (opr, on_prop ctx p1, on_prop ctx p2)
+	| T.BinPred (opr, i1, i2) => BinPred (opr, on_idx ctx i1, on_idx ctx i2)
 
     fun on_sort ctx s =
       case s of
@@ -203,7 +195,7 @@ local
 	    | E.Ascription (e, t) => Ascription (on_expr ctx e, on_type skctx t)
 	    | E.AscriptionTime (e, d) => AscriptionTime (on_expr ctx e, on_idx sctx d)
 	    | E.Const n => Const n
-	    | E.Plus (e1, e2) => Plus (on_expr ctx e1, on_expr ctx e2)
+	    | E.BinOp (opr, e1, e2) => BinOp (opr, on_expr ctx e1, on_expr ctx e2)
 	    | E.AppConstr (x, ts, is, e) => AppConstr (on_var cctx x, map (on_type skctx) ts, map (on_idx sctx) is, on_expr ctx e)
 	    | E.Case (e, return, rules, r) =>
               Case (on_expr ctx e, on_return skctx return, map (on_rule ctx) rules, r)

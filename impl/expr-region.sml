@@ -6,29 +6,21 @@ open Expr
 fun get_region_i i =
     case i of
         VarI (_, r) => r
-      | Tconst (_, r) => r
-      | T0 r => r
-      | T1 r => r
+      | ConstIN (_, r) => r
+      | ConstIT (_, r) => r
+      | ToReal (_, r) => r
+      | BinOpI (_, i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
       | TrueI r => r
       | FalseI r => r
       | TTI r => r
-      | Tadd (i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
-      | Tminus (i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
-      | Tmult (i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
-      | Tmax (i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
-      | Tmin (i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
 
 fun get_region_p p = 
     case p of
         True r => r
       | False r => r
       | Not (_, r) => r
-      | And (p1, p2) => combine_region (get_region_p p1) (get_region_p p2)
-      | Or (p1, p2) => combine_region (get_region_p p1) (get_region_p p2)
-      | Imply (p1, p2) => combine_region (get_region_p p1) (get_region_p p2)
-      | Iff (p1, p2) => combine_region (get_region_p p1) (get_region_p p2)
-      | Eq (i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
-      | TimeLe (i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
+      | BinConn (_, p1, p2) => combine_region (get_region_p p1) (get_region_p p2)
+      | BinPred (_, i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
 
 fun get_region_s s = 
     case s of
@@ -76,7 +68,7 @@ fun get_region_e e =
       | Unpack (e1, _, _, _, e2) => combine_region (get_region_e e1) (get_region_e e2)
       | Fold (t, e) => combine_region (get_region_t t) (get_region_e e)
       | Unfold e => get_region_e e
-      | Plus (e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
+      | BinOp (_, e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
       | Const (_, r) => r
       | AppConstr ((_, r), _, _, e) => combine_region r (get_region_e e)
       | Case (_, _, _, r) => r

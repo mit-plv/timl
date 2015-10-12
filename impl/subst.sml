@@ -9,17 +9,13 @@ fun on_i_i on_v x n b =
       fun f x n b =
 	case b of
 	    VarI (y, r) => VarI (on_v x n y, r)
-	  | T0 r => T0 r
-	  | T1 r => T1 r
-	  | Tadd (d1, d2) => Tadd (f x n d1, f x n d2)
-	  | Tminus (d1, d2) => Tminus (f x n d1, f x n d2)
-	  | Tmult (d1, d2) => Tmult (f x n d1, f x n d2)
-	  | Tmax (d1, d2) => Tmax (f x n d1, f x n d2)
-	  | Tmin (d1, d2) => Tmin (f x n d1, f x n d2)
+	  | ConstIN n => ConstIN n
+	  | ConstIT x => ConstIT x
+          | ToReal (i, r) => ToReal (f x n i, r)
+	  | BinOpI (opr, d1, d2) => BinOpI (opr, f x n d1, f x n d2)
 	  | TTI r => TTI r
 	  | TrueI r => TrueI r
 	  | FalseI r => FalseI r
-	  | Tconst n => Tconst n
   in
       f x n b
   end
@@ -31,12 +27,8 @@ fun on_i_p on_i_i x n b =
 	    True r => True r
 	  | False r => False r
           | Not (p, r) => Not (f x n p, r)
-	  | And (p1, p2) => And (f x n p1, f x n p2)
-	  | Or (p1, p2) => Or (f x n p1, f x n p2)
-	  | Imply (p1, p2) => Imply (f x n p1, f x n p2)
-	  | Iff (p1, p2) => Iff (f x n p1, f x n p2)
-	  | TimeLe (d1, d2) => TimeLe (on_i_i x n d1, on_i_i x n d2)
-	  | Eq (i1, i2) => Eq (on_i_i x n i1, on_i_i x n i2)
+	  | BinConn (opr, p1, p2) => BinConn (opr, f x n p1, f x n p2)
+	  | BinPred (opr, d1, d2) => BinPred (opr, on_i_i x n d1, on_i_i x n d2)
   in
       f x n b
   end
@@ -151,7 +143,7 @@ local
 	  | Ascription (e, t) => Ascription (f x n e, t)
 	  | AscriptionTime (e, d) => AscriptionTime (f x n e, d)
 	  | Const n => Const n
-	  | Plus (e1, e2) => Plus (f x n e1, f x n e2)
+	  | BinOp (opr, e1, e2) => BinOp (opr, f x n e1, f x n e2)
 	  | AppConstr (cx, ts, is, e) => AppConstr (cx, ts, is, f x n e)
 	  | Case (e, return, rules, r) => Case (f x n e, return, map (f_rule x n) rules, r)
 	  | Never t => Never t
@@ -204,17 +196,13 @@ local
 		VarI (y - 1, r)
 	    else
 		VarI (y, r)
-	  | Tadd (d1, d2) => Tadd (f x v d1, f x v d2)
-	  | Tminus (d1, d2) => Tminus (f x v d1, f x v d2)
-	  | Tmult (d1, d2) => Tmult (f x v d1, f x v d2)
-	  | Tmax (d1, d2) => Tmax (f x v d1, f x v d2)
-	  | Tmin (d1, d2) => Tmin (f x v d1, f x v d2)
-	  | T0 r => T0 r
-	  | T1 r => T1 r
+	  | ConstIN n => ConstIN n
+	  | ConstIT x => ConstIT x
+          | ToReal (i, r) => ToReal (f x v i, r)
+	  | BinOpI (opr, d1, d2) => BinOpI (opr, f x v d1, f x v d2)
 	  | TrueI r => TrueI r
 	  | FalseI r => FalseI r
 	  | TTI r => TTI r
-	  | Tconst n => Tconst n
 in
 fun substx_i_i x (v : idx) (b : idx) : idx = f x v b
 fun subst_i_i v b = substx_i_i 0 v b
@@ -226,12 +214,8 @@ local
 	    True r => True r
 	  | False r => False r
           | Not (p, r) => Not (f x v p, r)
-	  | And (p1, p2) => And (f x v p1, f x v p2)
-	  | Or (p1, p2) => Or (f x v p1, f x v p2)
-	  | Imply (p1, p2) => Imply (f x v p1, f x v p2)
-	  | Iff (p1, p2) => Iff (f x v p1, f x v p2)
-	  | TimeLe (d1, d2) => TimeLe (substx_i_i x v d1, substx_i_i x v d2)
-	  | Eq (i1, i2) => Eq (substx_i_i x v i1, substx_i_i x v i2)
+	  | BinConn (opr,p1, p2) => BinConn (opr, f x v p1, f x v p2)
+	  | BinPred (opr, d1, d2) => BinPred (opr, substx_i_i x v d1, substx_i_i x v d2)
 in
 fun substx_i_p x (v : idx) b = f x v b
 fun subst_i_p (v : idx) (b : prop) : prop = substx_i_p 0 v b

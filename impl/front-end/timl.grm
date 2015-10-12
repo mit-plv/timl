@@ -34,6 +34,7 @@ open Ast
     | MINUS
     | MU
     | INT of int
+    | NNREAL of string
     | BAR
     | NOT
     | AND
@@ -51,6 +52,7 @@ open Ast
     | MIN
     | BOGUS of string
     | AS
+    | DOLLAR
 
 %nonterm start of decl list
        | exp of exp
@@ -112,6 +114,7 @@ open Ast
 %nonassoc EQ LE
 %left PLUS MINUS
 %left MULT MAX MIN
+%nonassoc DOLLAR
 %right APPR
 
 %eop EOF
@@ -134,6 +137,7 @@ exp : aexp (aexp)
     | exp LCUR idx RCUR (AppI (exp, idx, (expleft, idxright)))
     | exp COLON ty (Ascription (exp, ty, (expleft, tyright)))
     | exp RTRI idx (AscriptionTime (exp, idx, (expleft, idxright)))
+    | exp PLUS exp (BinOp (Add, exp1, exp2, (exp1left, exp2right)))
 
 aexp : id (Var id)
      | LPAREN exp_comma_star RPAREN (Tuple (exp_comma_star, (LPARENleft, RPARENright)))
@@ -156,12 +160,14 @@ ty : ty ty %prec APPR (AppTT (ty2, ty1, (ty1left, ty2right)))
                               | LPAREN ty RPAREN (ty)
 
 idx : id (VarI id)
-    | INT (Tint (INT, (INTleft, INTright)))
-    | idx PLUS idx (Tadd (idx1, idx2, (idx1left, idx2right)))
-    | idx MINUS idx (Tminus (idx1, idx2, (idx1left, idx2right)))
-    | idx MULT idx (Tmult (idx1, idx2, (idx1left, idx2right)))
-    | idx MAX idx (Tmax (idx1, idx2, (idx1left, idx2right)))
-    | idx MIN idx (Tmin (idx1, idx2, (idx1left, idx2right)))
+    | INT (ConstIN (INT, (INTleft, INTright)))
+    | NNREAL (ConstIT (NNREAL, (NNREALleft, NNREALright)))
+    | idx PLUS idx (BinOpI (AddI, idx1, idx2, (idx1left, idx2right)))
+    | idx MINUS idx (BinOpI (MinusI, idx1, idx2, (idx1left, idx2right)))
+    | idx MULT idx (BinOpI (MultI, idx1, idx2, (idx1left, idx2right)))
+    | idx MAX idx (BinOpI (MaxI, idx1, idx2, (idx1left, idx2right)))
+    | idx MIN idx (BinOpI (MinI, idx1, idx2, (idx1left, idx2right)))
+    | DOLLAR idx (ToReal (idx, (DOLLARleft, idxright)))
     | LPAREN RPAREN (TTI (LPARENleft, RPARENright))
     | LPAREN idx RPAREN (idx)
 
@@ -170,14 +176,14 @@ sort : bsort (Basic bsort)
 
 bsort : id (id)
 
-prop : id (Pconst id)
+prop : id (ConstP id)
      | NOT prop (Not (prop, (NOTleft, propright)))
-     | prop AND prop (And (prop1, prop2, (prop1left, prop2right)))
-     | prop OR prop (Or (prop1, prop2, (prop1left, prop2right)))
-     | prop ARROW prop (Imply (prop1, prop2, (prop1left, prop2right)))
-     | prop IFF prop (Iff (prop1, prop2, (prop1left, prop2right)))
-     | idx EQ idx (Eq (idx1, idx2, (idx1left, idx2right)))
-     | idx LE idx (TimeLe (idx1, idx2, (idx1left, idx2right)))
+     | prop AND prop (BinConn (And, prop1, prop2, (prop1left, prop2right)))
+     | prop OR prop (BinConn (Or, prop1, prop2, (prop1left, prop2right)))
+     | prop ARROW prop (BinConn (Imply, prop1, prop2, (prop1left, prop2right)))
+     | prop IFF prop (BinConn (Iff, prop1, prop2, (prop1left, prop2right)))
+     | idx EQ idx (BinPred (EqP, idx1, idx2, (idx1left, idx2right)))
+     | idx LE idx (BinPred (LeP, idx1, idx2, (idx1left, idx2right)))
 
 id : ID ((ID, (IDleft, IDright)))
 

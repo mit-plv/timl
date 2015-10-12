@@ -3,9 +3,9 @@ datatype {Nat} 'a tree =
          | Node of {n1 : Nat} {n2 : Nat} 'a * {n1} 'a tree * {n2} 'a tree -> {n1 + 1 + n2} 'a tree
 
 val map_tree =
- fn ['a] ['b] {m : Nat} (f : 'a -- m --> 'b) =>
-    fix map {n : Nat} (tr : {n} 'a tree) : {n} 'b tree |> (m + 3) * n =>
+ fn ['a] ['b] {m : Time} (f : 'a -- m --> 'b) =>
+    fix map {n : Nat} (tr : {n} 'a tree) : {n} 'b tree |> (m + 3.0) * $n =>
     case tr return {n} 'b tree of
         Leaf => Leaf ['b]
-      | Node {n1 n2} (x, tr1, tr2) => Node ['b] {n1} {n2} (f x, map {n1} tr1, map {n2} tr2) |> (m + 3) * n
+      | Node {n1 n2} (x, tr1, tr2) => Node ['b] {n1} {n2} (f x, map {n1} tr1, map {n2} tr2) |> (m + 3.0) * $n
 
