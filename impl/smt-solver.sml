@@ -24,23 +24,26 @@ exception SMTError of string
 
 fun get_model model =
   let
-      val err = SMTError "Wrong model format"
+      val prefix = "Wrong model format"
       fun on_def def =
         case def of
-            List [Atom header, Atom name, List [], _, value] =>
-            if header = "define-fun" then
-                (name, str_sexp value)
+            List [Atom header, Atom name, List args, _, value] =>
+            if length args = 0 then
+                if header = "define-fun" then
+                    SOME (name, str_sexp value)
+                else
+                    raise SMTError $ prefix ^ ": expect define-fun"
             else
-                raise err
-          | _ => raise err
+                NONE (* this is for some uninterpreted function *)
+          | _ => raise SMTError $ prefix ^ ": expect (define-fun _ () _ _)"
   in
       case model of
           List (Atom header :: defs) =>
           if header = "model" then
-              map on_def defs
+              List.mapPartial on_def defs
           else
-              raise err
-        | _ => raise err
+              raise SMTError $ prefix ^ ": expect model"
+        | _ => raise SMTError $ prefix ^ ": (model ...)"
   end
                           
 fun smt_solver filename vcs = 
@@ -50,7 +53,7 @@ fun smt_solver filename vcs =
         val resp_filename = filename ^ ".lisp"
         val () = write_file (smt2_filename, smt2)
         val _ = system (sprintf "z3 $ > $" [smt2_filename, resp_filename])
-        (* val () = println $ read_file resp_filename *)
+        val () = println $ read_file resp_filename
         val resps = SExpParserString.parse_file resp_filename
         (* val () = println $ str_int $ length resps *)
         val () = if length resps = 2 * length vcs then ()

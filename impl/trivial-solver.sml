@@ -63,10 +63,10 @@ local
 		    val (b2, i2) = passi i2 in
 		    (b1 orelse b2, BinOpI (MultI, i1, i2))
 		end
-          | ToReal (i, r) =>
+          | UnOpI (opr, i, r) =>
             let val (b, i) = passi i
             in
-                (b, ToReal (i, r))
+                (b, UnOpI (opr, i, r))
             end
 	  | _ => (false, i)
 		     

@@ -8,6 +8,16 @@ infixr 0 $
 val prelude = [
     (* "(set-option :produce-proofs true)", *)
     "(declare-datatypes () ((Unit TT)))",
+    "(declare-fun log2 (Real) Real)",
+    "(assert (forall ((x Real) (y Real))",
+    "  (! (=> (and (< 0 x) (< 0 y)) (= (log2 (* x y)) (+ (log2 x) (log2 y))))",
+    "    :pattern ((log2 (* x y))))))",
+    "(assert (forall ((x Real) (y Real))",
+    "  (! (=> (and (< 0 x) (< 0 y)) (= (log2 (/ x y)) (- (log2 x) (log2 y))))",
+    "    :pattern ((log2 (/ x y))))))",
+    "(assert (= (log2 1) 0))",
+    "(assert (= (log2 2) 1))",
+    "(assert (forall ((x Real) (y Real)) (=> (and (< 0 x) (< 0 y)) (=> (< x y) (< (log2 x) (log2 y))))))",
     ""
 ]
 
@@ -44,7 +54,8 @@ fun print_i ctx i =
       ((print_escaped o fst o List.nth) (ctx, n) handle Subscript => "unbound_" ^ str_int n)
     | ConstIN (n, _) => str_int n
     | ConstIT (x, _) => x
-    | ToReal (i, _) => sprintf "(to_real $)" [print_i ctx i]
+    | UnOpI (ToReal, i, _) => sprintf "(to_real $)" [print_i ctx i]
+    | UnOpI (Log2, i, _) => sprintf "(log2 $)" [print_i ctx i]
     | BinOpI (AddI, i1, i2) => sprintf "(+ $ $)" [print_i ctx i1, print_i ctx i2]
     | BinOpI (MinusI, i1, i2) =>
       let fun proper_sub a b =

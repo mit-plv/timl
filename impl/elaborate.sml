@@ -28,7 +28,7 @@ local
 	    ConstIN n
 	  | S.ConstIT x =>
 	    ConstIT x
-          | S.ToReal (i, r) => ToReal (elab_i i, r)
+          | S.UnOpI (opr, i, r) => UnOpI (opr, elab_i i, r)
 	  | S.BinOpI (opr, i1, i2, _) =>
 	    BinOpI (opr, elab_i i1, elab_i i2)
 	  | S.TTI r =>

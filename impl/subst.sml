@@ -11,7 +11,7 @@ fun on_i_i on_v x n b =
 	    VarI (y, r) => VarI (on_v x n y, r)
 	  | ConstIN n => ConstIN n
 	  | ConstIT x => ConstIT x
-          | ToReal (i, r) => ToReal (f x n i, r)
+          | UnOpI (opr, i, r) => UnOpI (opr, f x n i, r)
 	  | BinOpI (opr, d1, d2) => BinOpI (opr, f x n d1, f x n d2)
 	  | TTI r => TTI r
 	  | TrueI r => TrueI r
@@ -198,7 +198,7 @@ local
 		VarI (y, r)
 	  | ConstIN n => ConstIN n
 	  | ConstIT x => ConstIT x
-          | ToReal (i, r) => ToReal (f x v i, r)
+          | UnOpI (opr, i, r) => UnOpI (opr, f x v i, r)
 	  | BinOpI (opr, d1, d2) => BinOpI (opr, f x v d1, f x v d2)
 	  | TrueI r => TrueI r
 	  | FalseI r => FalseI r

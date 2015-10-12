@@ -27,7 +27,7 @@ local
 	  T.VarI x => VarI (on_var ctx x)
 	| T.ConstIN n => ConstIN n
 	| T.ConstIT x => ConstIT x
-        | T.ToReal (i, r) => ToReal (on_idx ctx i, r)
+        | T.UnOpI (opr, i, r) => UnOpI (opr, on_idx ctx i, r)
 	| T.BinOpI (opr, i1, i2) => BinOpI (opr, on_idx ctx i1, on_idx ctx i2)
 	| T.TrueI r => TrueI r
 	| T.FalseI r => FalseI r

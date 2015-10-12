@@ -40,7 +40,7 @@ datatype idx =
 	 VarI of var * other
 	 | ConstIT of string * other
 	 | ConstIN of int * other
-         | ToReal of idx * other
+         | UnOpI of idx_un_op * idx * other
          | BinOpI of idx_bin_op * idx * idx
 	 | TrueI of other
 	 | FalseI of other
@@ -105,7 +105,7 @@ fun str_i ctx (i : idx) : string =
       VarI (x, _) => str_v ctx x
     | ConstIN (n, _) => str_int n
     | ConstIT (x, _) => x
-    | ToReal (i, _) => surround "($ " ")" (str_i ctx i)
+    | UnOpI (opr, i, _) => sprintf "($ $)" [str_idx_un_op opr, str_i ctx i]
     | BinOpI (opr, i1, i2) => sprintf "($ $ $)" [str_i ctx i1, str_idx_bin_op opr, str_i ctx i2]
     | TTI _ => "()"
     | TrueI _ => "true"

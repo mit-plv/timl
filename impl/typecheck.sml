@@ -366,6 +366,12 @@ local
 	    (case lookup_sort x ctx of
       		 SOME s => get_base s
       	       | NONE => raise Error (r, ["Unbound index variable: " ^ str_v (sctx_names ctx) x]))
+          | UnOpI (ToReal, i, _) =>
+            (check_bsort (ctx, i, Nat);
+             Time)
+          | UnOpI (Log2, i, _) =>
+            (check_bsort (ctx, i, Time);
+             Time)
 	  | BinOpI (opr, i1, i2) =>
             let val s1 = get_bsort (ctx, i1)
                 val s2 = get_bsort (ctx, i2)
@@ -382,9 +388,6 @@ local
 		Nat
 	    else
 		raise Error (r, ["Natural number constant must be non-negative"])
-          | ToReal (i, _) =>
-            (check_bsort (ctx, i, Nat);
-             Time)
 	  | TrueI _ => Bool
 	  | FalseI _ => Bool
 	  | TTI _ => BSUnit

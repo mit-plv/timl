@@ -54,9 +54,9 @@ fun typecheck_file (filename, ctx) =
         (case counter of
              SOME assigns =>
              ["Counter example:"] @
-             map (fn (name, value) => sprintf "$ = $" [name, value]) assigns @
-             [""]
-           | NONE => ["Can't prove and can't find counter example"]) 
+             map (fn (name, value) => sprintf "$ = $" [name, value]) assigns
+           | NONE => ["Can't prove and can't find counter example"]) @
+        [""]        
       val () =
           if length (snd result) <> 0 then
               (println (sprintf "Can't prove the following $ condition(s):\n" [str_int $ length unsats]);

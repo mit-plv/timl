@@ -6,7 +6,7 @@ fun eq_i i i' =
       (VarI (x, _), VarI (x', _)) => x = x'
     | (ConstIN (n, _), ConstIN (n', _)) => n = n'
     | (ConstIT (x, _), ConstIT (x', _)) => x = x'
-    | (ToReal (i, _), ToReal (i', _)) => eq_i i i'
+    | (UnOpI (opr, i, _), UnOpI (opr', i', _)) => opr = opr' andalso eq_i i i'
     | (BinOpI (opr, i1, i2), BinOpI (opr', i1', i2')) => opr = opr' andalso eq_i i1 i1' andalso eq_i i2 i2'
     | (TrueI _, TrueI _) => true
     | (FalseI _, FalseI _) => true
