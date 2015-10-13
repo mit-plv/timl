@@ -52,3 +52,24 @@ val msort =
         case split ['a] {n} xs return {n} 'a ilist |> 4.0 * (m + 3.0) * $n * log2 $n - $(1 + n) of
             Even {n1} {n2} (xs1, xs2) => merge ['a] {m} le {n1} {n2} (sort {n1} xs1, sort {n2} xs2)
 
+(* package to big-O spec *)
+val merge_sort =
+ fn ['a] {m : Time} (le : 'a * 'a -- m --> bool) =>
+    pack [exists {c : {c : Time | c > 0.0}}, forall {n : Nat}, {n} 'a ilist -- c * $n * log2 $n --> {n} 'a ilist] {4.0 * (m + 3.0)} (msort ['a] {m} le)
+
+(*
+
+exists {c : Time} {ub : Time}, forall {n : Nat}, {n} 'a list -- max ub (c * $n * log2 $n) --> {n} 'a list
+
+exists {c : BigOConsts}, forall {n : Nat}, {n} 'a list -- O c ($n * log2 $n) --> {n} 'a list
+
+exists {g : O (n => $n * log2 $n)}, forall {n : Nat}, {n} 'a list -- g n --> {n} 'a list
+
+==========================
+O (ub1,c1) (n * log n) + O (ub2,c2) n <= O ((ub1+ub2)/c2+1.73,c1+1.0) (n * log n)
+
+==========================
+exists c, O c1 (n * log n) + O c2 n <= O c (n * log n)
+
+*)
+         

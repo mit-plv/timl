@@ -54,6 +54,7 @@ open Ast
     | AS
     | DOLLAR
     | LOG2
+    | GT
 
 %nonterm start of decl list
        | exp of exp
@@ -112,7 +113,7 @@ open Ast
 %right OR
 %right AND
 %nonassoc NOT
-%nonassoc EQ LE
+%nonassoc EQ LE GT
 %left PLUS MINUS
 %left MULT MAX MIN
 %nonassoc DOLLAR
@@ -186,6 +187,7 @@ prop : id (ConstP id)
      | prop IFF prop (BinConn (Iff, prop1, prop2, (prop1left, prop2right)))
      | idx EQ idx (BinPred (EqP, idx1, idx2, (idx1left, idx2right)))
      | idx LE idx (BinPred (LeP, idx1, idx2, (idx1left, idx2right)))
+     | idx GT idx (BinPred (GtP, idx1, idx2, (idx1left, idx2right)))
 
 id : ID ((ID, (IDleft, IDright)))
 

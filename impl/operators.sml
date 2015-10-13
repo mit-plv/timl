@@ -22,6 +22,7 @@ datatype bin_conn =
 datatype bin_pred =
          LeP
          | EqP
+         | GtP
                
 datatype bin_op =
          Add
@@ -50,6 +51,7 @@ fun str_bin_pred opr =
   case opr of
       EqP => "="
     | LeP => "<="
+    | GtP => ">"
 
 fun str_bin_op opr =
   case opr of

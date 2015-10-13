@@ -322,21 +322,21 @@ local
 	  | BinConn (_, p1, p2) =>
 	    (is_wfprop (ctx, p1);
 	     is_wfprop (ctx, p2))
-	  | BinPred (LeP, i1, i2) =>
-	    let val s1 = get_bsort (ctx, i1)
-		val s2 = get_bsort (ctx, i2)
-	    in
-                case (s1, s2) of
-                      (Nat, Nat) => ()
-                    | (Time, Time) => ()
-                    | _ => raise Error (get_region_p p, "Sorts of operands of <= can only be both Nat or Time:" :: indent ["left: " ^ str_b s1, "right: " ^ str_b s2])
-	    end
 	  | BinPred (EqP, i1, i2) =>
 	    let val s1 = get_bsort (ctx, i1)
 		val s2 = get_bsort (ctx, i2)
 	    in
 		if s1 = s2 then ()
 		else raise Error (get_region_p p, [sprintf "Base-sorts not equal: $ and $" [str_b s1, str_b s2]])
+	    end
+	  | BinPred (opr, i1, i2) =>
+	    let val s1 = get_bsort (ctx, i1)
+		val s2 = get_bsort (ctx, i2)
+	    in
+                case (s1, s2) of
+                      (Nat, Nat) => ()
+                    | (Time, Time) => ()
+                    | _ => raise Error (get_region_p p, sprintf "Sorts of operands of $ can only be both Nat or Time:" [str_bin_pred opr] :: indent ["left: " ^ str_b s1, "right: " ^ str_b s2])
 	    end
 
 

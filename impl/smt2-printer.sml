@@ -7,17 +7,17 @@ infixr 0 $
 
 val prelude = [
     (* "(set-option :produce-proofs true)", *)
-    "(declare-datatypes () ((Unit TT)))",
     "(declare-fun log2 (Real) Real)",
-    "(assert (forall ((x Real) (y Real))",
-    "  (! (=> (and (< 0 x) (< 0 y)) (= (log2 (* x y)) (+ (log2 x) (log2 y))))",
-    "    :pattern ((log2 (* x y))))))",
-    "(assert (forall ((x Real) (y Real))",
-    "  (! (=> (and (< 0 x) (< 0 y)) (= (log2 (/ x y)) (- (log2 x) (log2 y))))",
-    "    :pattern ((log2 (/ x y))))))",
-    "(assert (= (log2 1) 0))",
-    "(assert (= (log2 2) 1))",
-    "(assert (forall ((x Real) (y Real)) (=> (and (< 0 x) (< 0 y)) (=> (< x y) (< (log2 x) (log2 y))))))",
+    (* "(assert (forall ((x Real) (y Real))", *)
+    (* "  (! (=> (and (< 0 x) (< 0 y)) (= (log2 ( * x y)) (+ (log2 x) (log2 y))))", *)
+    (* "    :pattern ((log2 ( * x y))))))", *)
+    (* "(assert (forall ((x Real) (y Real))", *)
+    (* "  (! (=> (and (< 0 x) (< 0 y)) (= (log2 (/ x y)) (- (log2 x) (log2 y))))", *)
+    (* "    :pattern ((log2 (/ x y))))))", *)
+    (* "(assert (= (log2 1) 0))", *)
+    (* "(assert (= (log2 2) 1))", *)
+    (* "(assert (forall ((x Real) (y Real)) (=> (and (< 0 x) (< 0 y)) (=> (< x y) (< (log2 x) (log2 y))))))", *)
+    "(declare-datatypes () ((Unit TT)))",
     ""
 ]
 
@@ -92,6 +92,7 @@ fun print_p ctx p =
         case opr of
             EqP => "="
           | LeP => "<="
+          | GtP => ">"
       fun f p =
         case p of
             True _ => "true"
