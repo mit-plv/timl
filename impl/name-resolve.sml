@@ -1,7 +1,5 @@
 structure NameResolve = struct
-structure T = NamefulType
 structure E = NamefulExpr
-open Type
 open Expr
 
 open Region
@@ -24,40 +22,40 @@ local
 
     fun on_idx ctx i =
       case i of
-	  T.VarI x => VarI (on_var ctx x)
-	| T.ConstIN n => ConstIN n
-	| T.ConstIT x => ConstIT x
-        | T.UnOpI (opr, i, r) => UnOpI (opr, on_idx ctx i, r)
-	| T.BinOpI (opr, i1, i2) => BinOpI (opr, on_idx ctx i1, on_idx ctx i2)
-	| T.TrueI r => TrueI r
-	| T.FalseI r => FalseI r
-	| T.TTI r => TTI r
+	  E.VarI x => VarI (on_var ctx x)
+	| E.ConstIN n => ConstIN n
+	| E.ConstIT x => ConstIT x
+        | E.UnOpI (opr, i, r) => UnOpI (opr, on_idx ctx i, r)
+	| E.BinOpI (opr, i1, i2) => BinOpI (opr, on_idx ctx i1, on_idx ctx i2)
+	| E.TrueI r => TrueI r
+	| E.FalseI r => FalseI r
+	| E.TTI r => TTI r
 
     fun on_prop ctx p =
       case p of
-	  T.True r => True r
-	| T.False r => False r
-        | T.Not (p, r) => Not (on_prop ctx p, r)
-	| T.BinConn (opr, p1, p2) => BinConn (opr, on_prop ctx p1, on_prop ctx p2)
-	| T.BinPred (opr, i1, i2) => BinPred (opr, on_idx ctx i1, on_idx ctx i2)
+	  E.True r => True r
+	| E.False r => False r
+        | E.Not (p, r) => Not (on_prop ctx p, r)
+	| E.BinConn (opr, p1, p2) => BinConn (opr, on_prop ctx p1, on_prop ctx p2)
+	| E.BinPred (opr, i1, i2) => BinPred (opr, on_idx ctx i1, on_idx ctx i2)
 
     fun on_sort ctx s =
       case s of
-	  T.Basic s => Basic s
-	| T.Subset (s, (name, r), p) => Subset (s, (name, r), on_prop (name :: ctx) p)
+	  E.Basic s => Basic s
+	| E.Subset (s, (name, r), p) => Subset (s, (name, r), on_prop (name :: ctx) p)
 
     fun on_type (ctx as (sctx, kctx)) t =
       case t of
-	  T.Arrow (t1, d, t2) => Arrow (on_type ctx t1, on_idx sctx d, on_type ctx t2)
-	| T.Prod (t1, t2) => Prod (on_type ctx t1, on_type ctx t2)
-	| T.Sum (t1, t2) => Sum (on_type ctx t1, on_type ctx t2)
-	| T.Unit r => Unit r
-	| T.Uni ((name, r), t) => Uni ((name, r), on_type (sctx, name :: kctx) t)
-	| T.UniI (s, (name, r), t) => UniI (on_sort sctx s, (name, r), on_type (name :: sctx, kctx) t)
-	| T.ExI (s, (name, r), t) => ExI (on_sort sctx s, (name, r), on_type (name :: sctx, kctx) t)
-	| T.AppRecur (name, name_sorts, t, is, r) => AppRecur (name, map (mapSnd (on_sort sctx)) name_sorts, on_type (rev (map #1 name_sorts) @ sctx, name :: kctx) t, map (on_idx sctx) is, r)
-	| T.AppV (x, ts, is, r) => AppV (on_var kctx x, map (on_type ctx) ts, map (on_idx sctx) is, r)
-	| T.Int r => Int r
+	  E.Arrow (t1, d, t2) => Arrow (on_type ctx t1, on_idx sctx d, on_type ctx t2)
+	| E.Prod (t1, t2) => Prod (on_type ctx t1, on_type ctx t2)
+	| E.Sum (t1, t2) => Sum (on_type ctx t1, on_type ctx t2)
+	| E.Unit r => Unit r
+	| E.Uni ((name, r), t) => Uni ((name, r), on_type (sctx, name :: kctx) t)
+	| E.UniI (s, (name, r), t) => UniI (on_sort sctx s, (name, r), on_type (name :: sctx, kctx) t)
+	| E.ExI (s, (name, r), t) => ExI (on_sort sctx s, (name, r), on_type (name :: sctx, kctx) t)
+	| E.AppRecur (name, name_sorts, t, is, r) => AppRecur (name, map (mapSnd (on_sort sctx)) name_sorts, on_type (rev (map #1 name_sorts) @ sctx, name :: kctx) t, map (on_idx sctx) is, r)
+	| E.AppV (x, ts, is, r) => AppV (on_var kctx x, map (on_type ctx) ts, map (on_idx sctx) is, r)
+	| E.Int r => Int r
 
     fun on_ptrn cctx pn =
       case pn of
@@ -244,7 +242,7 @@ local
 
     fun on_kind ctx k =
       case k of
-	  T.ArrowK (is_datatype, n, sorts) => ArrowK (is_datatype, n, map (on_sort ctx) sorts)
+	  E.ArrowK (is_datatype, n, sorts) => ArrowK (is_datatype, n, map (on_sort ctx) sorts)
 
 in
 val resolve_type = on_type

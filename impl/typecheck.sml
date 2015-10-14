@@ -1,7 +1,6 @@
 structure TypeCheck = struct
 open ExprRegion
 open Region
-open Type
 open Expr
 open VC
 

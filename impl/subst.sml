@@ -1,5 +1,4 @@
 structure Subst = struct
-open Type
 open Expr
 
 (* generic traversers for both 'shift' and 'forget' *)

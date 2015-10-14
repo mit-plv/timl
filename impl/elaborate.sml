@@ -1,9 +1,7 @@
 structure Elaborate = struct
 structure S = Ast
-structure T = NamefulType
 structure E = NamefulExpr
 open S
-open T
 open E
 
 exception Error of region * string

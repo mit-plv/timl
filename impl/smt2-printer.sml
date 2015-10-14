@@ -1,7 +1,6 @@
 structure SMT2Printer = struct
 open Util
 open VC
-open Type
 
 infixr 0 $
 

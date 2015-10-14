@@ -1,5 +1,4 @@
 structure TrivialSolver = struct
-open Type
 open Expr
 open IdxEqual
          

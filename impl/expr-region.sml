@@ -1,6 +1,5 @@
 structure ExprRegion = struct
 open Region
-open Type
 open Expr
 
 fun get_region_i i =

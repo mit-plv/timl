@@ -1,5 +1,5 @@
 structure IdxEqual = struct
-open Type
+open Expr
          
 fun eq_i i i' =
   case (i, i') of

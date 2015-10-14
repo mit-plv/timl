@@ -1,7 +1,7 @@
 structure VC = struct
 open Util
 open Region
-open Type
+open Expr
 
 type bscontext = (string * bsort) list
 

@@ -1,7 +1,5 @@
 structure TiML = struct
-structure T = NamefulType
 structure E = NamefulExpr
-open Type
 open Expr
 open Util
 open Parser
