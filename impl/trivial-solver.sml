@@ -20,81 +20,80 @@ fun solve_vc (ctx, ps, p, _) = solve (ctx, ps, p)
 fun filter_solve vcs = List.filter (fn vc => solve_vc vc = false) vcs
 
 local
+    val changed = ref false
+    fun unset () = changed := false
+    fun set () = changed := true
     fun passi i =
 	case i of
 	    BinOpI (MaxI, i1, i2) =>
 	    if eq_i i1 i2 then
-		(true, i1)
+		(set ();
+                 i1)
 	    else
-		let val (b1, i1) = passi i1
-		    val (b2, i2) = passi i2 in
-		    (b1 orelse b2, BinOpI (MaxI, i1, i2))
-		end
+		BinOpI (MaxI, passi i1, passi i2)
 	  | BinOpI (MinI, i1, i2) =>
 	    if eq_i i1 i2 then
-		(true, i1)
+		(set ();
+                 i1)
 	    else
-		let val (b1, i1) = passi i1
-		    val (b2, i2) = passi i2 in
-		    (b1 orelse b2, BinOpI (MinI, i1, i2))
-		end
+		BinOpI (MinI, passi i1, passi i2)
 	  | BinOpI (AddI, i1, i2) => 
-	    if eq_i i1 (T0 dummy) then (true, i2)
-	    else if eq_i i2 (T0 dummy) then (true, i1)
+	    if eq_i i1 (T0 dummy) then
+                (set ();
+                 i2)
+	    else if eq_i i2 (T0 dummy) then
+                (set ();
+                 i1)
 	    else
-		let val (b1, i1) = passi i1
-		    val (b2, i2) = passi i2 in
-		    (b1 orelse b2, BinOpI (AddI, i1, i2))
-		end
+		BinOpI (AddI, passi i1, passi i2)
 	  | BinOpI (MinusI, i1, i2) => 
-	    if eq_i i2 (T0 dummy) then (true, i1)
+	    if eq_i i2 (T0 dummy) then
+                (set ();
+                 i1)
 	    else
-		let val (b1, i1) = passi i1
-		    val (b2, i2) = passi i2 in
-		    (b1 orelse b2, BinOpI (MinusI, i1, i2))
-		end
+		BinOpI (MinusI, passi i1, passi i2)
 	  | BinOpI (MultI, i1, i2) => 
-	    if eq_i i1 (T0 dummy) then (true, (T0 dummy))
-	    else if eq_i i2 (T0 dummy) then (true, (T0 dummy))
-	    else if eq_i i1 (T1 dummy) then (true, i2)
-	    else if eq_i i2 (T1 dummy) then (true, i1)
+	    if eq_i i1 (T0 dummy) then
+                (set ();
+                 (T0 dummy))
+	    else if eq_i i2 (T0 dummy) then
+                (set ();
+                 (T0 dummy))
+	    else if eq_i i1 (T1 dummy) then
+                (set ();
+                 i2)
+	    else if eq_i i2 (T1 dummy) then
+                (set ();
+                 i1)
 	    else
-		let val (b1, i1) = passi i1
-		    val (b2, i2) = passi i2 in
-		    (b1 orelse b2, BinOpI (MultI, i1, i2))
-		end
+		BinOpI (MultI, passi i1, passi i2)
           | UnOpI (opr, i, r) =>
-            let val (b, i) = passi i
-            in
-                (b, UnOpI (opr, i, r))
-            end
-	  | _ => (false, i)
-		     
+            UnOpI (opr, passi i, r)
+	  | _ => i
+
     fun passp p = 
 	case p of
 	    BinConn (opr, p1, p2) => 
-	    let val (b1, p1) = passp p1
-		val (b2, p2) = passp p2 in
-		(b1 orelse b2, BinConn (opr, p1, p2))
-	    end
+	    BinConn (opr, passp p1, passp p2)
 	  | BinPred (opr, i1, i2) => 
-	    let val (b1, i1) = passi i1
-		val (b2, i2) = passi i2 in
-		(b1 orelse b2, BinPred (opr, i1, i2))
-	    end
-	  | _ => (false, p)
+	    BinPred (opr, passi i1, passi i2)
+	  | _ => p
                      
     fun until_unchanged f a = 
 	let fun loop a =
-		let val (changed, a') = f a in
-		    if changed then loop a'
-		    else a
-		end in
+	      let
+                  val _ = unset ()
+                  val a = f a
+              in
+		  if !changed then loop a
+		  else a
+	      end
+        in
 	    loop a
 	end
 in
-val simp_p = until_unchanged passp
 val simp_i = until_unchanged passi
+val simp_p = until_unchanged passp
 fun simp_vc (ctx, ps, p, r) = (ctx, map simp_p ps, simp_p p, r)
 end
 

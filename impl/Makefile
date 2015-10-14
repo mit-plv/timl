@@ -10,11 +10,13 @@ FILES = \
 	util.sml \
 	debug.sml \
 	region.sml \
+	operators.sml \
 	front-end/ast.sml \
 	front-end/timl.grm \
 	front-end/timl.lex \
 	front-end/parser.sml \
 	expr.sml \
+	equal.sml \
 	elaborate.sml \
 	expr-region.sml \
 	name-resolve.sml \
