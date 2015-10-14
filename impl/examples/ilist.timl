@@ -44,18 +44,18 @@ val merge =
 
 val msort =
  fn ['a] {m : Time} (le : 'a * 'a -- m --> bool) =>
-    fix sort {n : Nat} (xs : {n} 'a ilist) : {n} 'a ilist |> 4.0 * (m + 3.0) * $n * log2 $n =>
+    fix sort {n : Nat} (xs : {n} 'a ilist) : {n} 'a ilist |> (m + 3.0) * 4.0 * $n * log2 $n =>
     case xs return {n} 'a ilist of
         NilI => xs
       | (ConsI {_} (_, NilI)) => xs
       | (ConsI {_} (_, ConsI {_} (_, _))) =>
-        case split ['a] {n} xs return {n} 'a ilist |> 4.0 * (m + 3.0) * $n * log2 $n - $(1 + n) of
+        case split ['a] {n} xs return {n} 'a ilist |> (m + 3.0) * 4.0 * $n * log2 $n - $(1 + n) of
             Even {n1} {n2} (xs1, xs2) => merge ['a] {m} le {n1} {n2} (sort {n1} xs1, sort {n2} xs2)
 
 (* package to big-O spec *)
 val merge_sort =
  fn ['a] {m : Time} (le : 'a * 'a -- m --> bool) =>
-    pack [exists {c : {c : Time | c > 0.0}}, forall {n : Nat}, {n} 'a ilist -- c * $n * log2 $n --> {n} 'a ilist] {4.0 * (m + 3.0)} (msort ['a] {m} le)
+    pack [exists {c : {c : Time | c > 0.0}}, forall 'a {m : Time}, ('a * 'a -- m --> bool) -- 0.0 --> forall {n : Nat}, {n} 'a ilist -- (m + 3.0) * c * $n * log2 $n --> {n} 'a ilist] {4.0} msort
 
 (*
 
