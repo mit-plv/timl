@@ -284,7 +284,7 @@ local
                         end
                       val () = app f (zip (ts, tnames))
                   in
-                      (cname, (binds, elab_t t1, map elab_i is), r)
+                      (cname, fold_ibinds (binds, (elab_t t1, map elab_i is)), r)
                   end
             in
                 Datatype (name, tnames, map elab_s sorts, map elab_constr constrs, r)

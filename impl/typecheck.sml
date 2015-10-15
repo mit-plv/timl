@@ -612,8 +612,9 @@ local
 	    SOME (name, c) => (name, c)
 	  | NONE => raise Error (r, [sprintf "Unbound constructor: $" [str_v (names ctx) x]])
 
-    fun constr_type ((family, tnames, (ns, t, is)) : constr) = 
-        let val ts = (map (fn x => VarT (x, dummy)) o rev o range o length) tnames
+    fun constr_type ((family, tnames, ibinds) : constr) = 
+        let val (ns, (t, is)) = unfold_ibinds ibinds
+            val ts = (map (fn x => VarT (x, dummy)) o rev o range o length) tnames
 	    val t2 = AppV ((shiftx_v 0 (length tnames) family, dummy), ts, is, dummy)
 	    val t = Arrow (t, T0 dummy, t2)
 	    val t = foldr (fn ((name, s), t) => UniI (s, BindI ((name, dummy), t))) t ns
@@ -700,7 +701,8 @@ local
 	                 AppV ((family, _), ts, _, _) =>
 	                 let val all = get_family_members cctx family
 		             val others = diff op= all [x]
-                             val (_, (_, _, (_, t', _))) = fetch_constr (cctx, (x, dummy))
+                             val (_, (_, _, ibinds)) = fetch_constr (cctx, (x, dummy))
+                             val (_, (t', _)) = unfold_ibinds ibinds
 		             val t' = subst_ts_t ts t'
                              val covers = ConstrC (x, cover_neg cctx t' c) :: map (fn y => ConstrC (y, TrueC)) others
 	                 in
@@ -771,7 +773,8 @@ local
                                 in
                                     case allSome g cs of
                                         OK cs' =>
-                                        let val (_, (_, _, (_, t', _))) = fetch_constr (cctx, (x, dummy))
+                                        let val (_, (_, _, ibinds)) = fetch_constr (cctx, (x, dummy))
+                                            val (_, (t', _)) = unfold_ibinds ibinds
 		                            val t' = subst_ts_t ts t'
                                             val () = Debug.println (sprintf "All are $, now try to satisfy $" [str_v (names cctx) x, (join ", " o map (str_cover (names cctx))) (c' :: cs')])
                                             val c' = f t' (c' :: cs')
@@ -830,7 +833,8 @@ local
 	        ConstrP ((cx, cr), inames, pn, r) =>
                 (case t of
                      AppV ((family, _), ts, is, _) =>
- 	             let val (_, c as (family', tnames, (name_sorts, t1, is'))) = fetch_constr (cctx, (cx, cr))
+ 	             let val (_, c as (family', tnames, ibinds)) = fetch_constr (cctx, (cx, cr))
+                         val (name_sorts, (t1, is')) = unfold_ibinds ibinds
                      in
 		         if family' = family andalso length tnames = length ts andalso length is' = length is then
                              if length inames = length name_sorts then
@@ -1269,8 +1273,8 @@ local
 	    let val () = is_wfsorts (sctx, sorts)
 		val nk = (name, ArrowK (true, length tnames, sorts))
 		val ctx as (sctx, kctx, _, _) = add_kinding_skct nk ctx
-		fun make_constr ((name, (name_sorts, t, ids), r) : constr_decl) =
-		    let val c = (0, tnames, (name_sorts, t, ids))
+		fun make_constr ((name, ibinds, r) : constr_decl) =
+		    let val c = (0, tnames, ibinds)
 		        val t = constr_type c
 		        val () = is_wftype ((sctx, kctx), t)
 			         handle Error (_, msg) =>

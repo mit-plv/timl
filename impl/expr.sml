@@ -202,13 +202,24 @@ functor ExprFun (structure Var : VAR structure Other : DEBUG) = struct
             case k of
                 ArrowK (_, n, sorts) => sprintf "($$Type)" [if n = 0 then "" else join " * " (repeat n "Type") ^ " => ", if null sorts then "" else join " * " (map (str_s ctx) sorts) ^ " => "]
 
+        (* for a series of sorting binds ({name1 : anno1} {name2 : anno2} {name3 : anno3}, inner) *)
         datatype ('anno, 'name, 'inner) ibinds =
                  NilIB of 'inner
                | ConsIB of 'anno * ('name * ('anno, 'name, 'inner) ibinds) ibind
 
-        (* type constr_core = (sort, string, ty * idx list) ibinds *)
+        fun unfold_ibinds ibinds =
+            case ibinds of
+                NilIB inner => ([], inner)
+              | ConsIB (anno, BindI (name, ibinds)) =>
+                let val (name_annos, inner) = unfold_ibinds ibinds
+                in
+                    ((name, anno) :: name_annos, inner)
+                end
 
-        type constr_core = (string * sort) list * ty * idx list
+        fun fold_ibinds (binds, inner) =
+            foldr (fn ((name, anno), ibinds) => ConsIB (anno, BindI (name, ibinds))) (NilIB inner) binds
+
+        type constr_core = (sort, string, ty * idx list) ibinds
         type constr_decl = string * constr_core * other
         type constr = var * string list * constr_core
 
@@ -369,8 +380,10 @@ functor ExprFun (structure Var : VAR structure Other : DEBUG) = struct
                 end
               | Datatype (name, tnames, sorts, constrs, _) =>
                 let val str_tnames = (join_prefix " " o rev) tnames
-                    fun str_constr_decl (cname, (name_sorts, t, idxs), _) =
-                        let val (name_sorts, sctx') = str_sortings sctx name_sorts
+                    fun str_constr_decl (cname, ibinds, _) =
+                        let 
+                            val (name_sorts, (t, idxs)) = unfold_ibinds ibinds
+                            val (name_sorts, sctx') = str_sortings sctx name_sorts
                             val name_sorts = map (fn (nm, s) => sprintf "$ : $" [nm, s]) name_sorts
                         in
                             sprintf "$ of$ $ ->$$ $" [cname, (join_prefix " " o map (surround "{" "}")) name_sorts, str_t (sctx', rev tnames @ name :: kctx) t, (join_prefix " " o map (surround "{" "}" o str_i sctx') o rev) idxs, str_tnames, name]

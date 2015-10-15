@@ -95,20 +95,14 @@ local
 	  end
 	| _ => (e, [])
 
-    fun on_sortings sctx name_sorts =
-      let fun f ((name, s), (acc, sctx)) =
-            ((name, on_sort sctx s) :: acc, name :: sctx)
-      in
-	  (mapFst rev o foldl f ([], sctx)) name_sorts
-      end
-          
-    fun on_constr_core (ctx as (sctx, kctx)) tnames ((name_sorts, t, is) : E.constr_core) : constr_core =
-      let val (name_sorts, sctx) = on_sortings sctx name_sorts
-      in
-	  (name_sorts,
-	   on_type (sctx, rev tnames @ kctx) t,
-	   map (on_idx sctx) is)
-      end
+    fun on_ibinds on_anno on_inner ctx ibinds =
+        case ibinds of
+            E.NilIB inner => NilIB (on_inner ctx inner)
+          | E.ConsIB (anno, E.BindI (name, ibinds)) =>
+            ConsIB (on_anno ctx anno, BindI (name, on_ibinds on_anno on_inner (name :: ctx) ibinds))
+
+    fun on_constr_core (ctx as (sctx, kctx)) tnames (ibinds : E.constr_core) : constr_core =
+        on_ibinds on_sort (fn sctx => fn (t, is) => (on_type (sctx, rev tnames @ kctx) t, map (on_idx sctx) is)) sctx ibinds
 
     fun on_constr (ctx as (sctx, kctx)) ((family, tnames, core) : E.constr) : constr =
       (#1 (on_var kctx (family, dummy_region)),

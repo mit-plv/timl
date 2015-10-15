@@ -36,6 +36,10 @@ fun on_i_ibind f x n bind =
     case bind of
         BindI (name, inner) => BindI (name, f (x + 1) n inner)
 
+fun on_t_ibind f x n bind =
+    case bind of
+        BindI (name, inner) => BindI (name, f x n inner)
+
 fun on_i_s on_i_p x n b =
   let
       fun f x n b =
@@ -234,11 +238,11 @@ type 'a shiftable = {
     shift_t : int -> 'a -> 'a
 }
 
-fun ignore_fst n v = v
+fun shift_id n v = v
 
 val idx_shiftable : idx shiftable = {
     shift_i = shiftx_i_i 0,
-    shift_t = ignore_fst
+    shift_t = shift_id
 }
 
 fun substx_i_ibind f x (s : 'a shiftable) v bind =
@@ -341,20 +345,36 @@ fun unroll (name, ns, t, i, _) =
     subst_is_t i (f 0 (shift_i (length ns) (Recur (name, ns, t))) t)
 end
 
-fun shiftx_i_c x n ((family, tnames, (name_sorts, t, is)) : constr) : constr =
-  let val m = length name_sorts 
-  in
-      (family,
-       tnames, 
-       (#1 (foldr (fn ((name, s), (acc, m)) => ((name, shiftx_i_s (x + m) n s) :: acc, m - 1)) ([], m - 1) name_sorts), 
-	shiftx_i_t (x + m) n t, 
-	map (shiftx_i_i (x + m) n) is))
-  end
+fun on_i_ibinds on_anno on_inner x n ibinds =
+    case ibinds of
+        NilIB inner => 
+        NilIB (on_inner x n inner)
+      | ConsIB (anno, bind) =>
+        ConsIB (on_anno x n anno, on_i_ibind (on_i_ibinds on_anno on_inner) x n bind)
+
+fun on_t_ibinds on_anno on_inner x n ibinds =
+    case ibinds of
+        NilIB inner => 
+        NilIB (on_inner x n inner)
+      | ConsIB (anno, bind) =>
+        ConsIB (on_anno x n anno, on_t_ibind (on_t_ibinds on_anno on_inner) x n bind)
+
+fun shiftx_pair (f, g) x n (a, b) = (f x n a, g x n b)
+fun shiftx_list f x n ls = map (f x n) ls
+
+fun shiftx_i_c x n ((family, tnames, ibinds) : constr) : constr =
+    (family,
+     tnames, 
+     on_i_ibinds shiftx_i_s (shiftx_pair (shiftx_i_t, shiftx_list shiftx_i_i)) x n ibinds)
 
 fun shift_i_c b = shiftx_i_c 0 1 b
 
-fun shiftx_t_c x n ((family, tnames, (name_sorts, t, is)) : constr) : constr =
-    (shiftx_v x n family, tnames, (name_sorts, shiftx_t_t (x + length tnames) n t, is))
+fun shiftx_id x n b = b
+
+fun shiftx_t_c x n ((family, tnames, ibinds) : constr) : constr =
+    (shiftx_v x n family, 
+     tnames, 
+     on_t_ibinds shiftx_id (shiftx_pair (shiftx_t_t, shiftx_id)) (x + length tnames) n ibinds)
 fun shift_t_c b = shiftx_t_c 0 1 b
 
 local
