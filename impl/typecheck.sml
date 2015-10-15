@@ -201,13 +201,13 @@ fun shift_ctx_t (sctx, kctx, _, _) t =
 fun get_base s =
     case s of
         Basic (s, _) => s
-      | Subset ((s, _), _, _) => s
+      | Subset ((s, _), _) => s
 
 fun collect (pairs, ps) : bscontext * prop list = 
     let fun get_p s n ps =
 	    case s of
 	        Basic _ => ps
-	      | Subset (_, _, p) => shiftx_i_p 0 n p :: ps
+	      | Subset (_, BindI (_, p)) => shiftx_i_p 0 n p :: ps
         val bctx = map (mapSnd get_base) pairs
         val (ps', _) = foldl (fn ((name, s), (ps, n)) => (get_p s n ps, n + 1)) ([], 0) pairs
     in
@@ -290,13 +290,13 @@ local
         case (s, s') of
 	    (Basic s1, Basic s1') =>
 	    is_eqvbsort (s1, s1')
-	  | (Subset (s1, (name, _), p), Subset (s1', _, p')) =>
+	  | (Subset (s1, BindI ((name, _), p)), Subset (s1', BindI (_, p'))) =>
 	    (is_eqvbsort (s1, s1');
 	     is_iff (add_sorting (name, Basic s1) ctx, p, p'))
-	  | (Subset (s1, (name, _), p), Basic s1') =>
+	  | (Subset (s1, BindI ((name, _), p)), Basic s1') =>
 	    (is_eqvbsort (s1, s1');
 	     is_true (add_sorting (name, Basic s1) ctx, p, get_region_p p))
-	  | (Basic s1, Subset (s1', (name, _), p)) =>
+	  | (Basic s1, Subset (s1', BindI ((name, _), p))) =>
 	    (is_eqvbsort (s1, s1');
 	     is_true (add_sorting (name, Basic s1) ctx, p, get_region_p p))
 
@@ -309,7 +309,7 @@ local
     fun is_wfsort (ctx : scontext, s : sort) =
         case s of
 	    Basic _ => ()
-	  | Subset (s, (name, _), p) =>
+	  | Subset (s, BindI ((name, _), p)) =>
 	    is_wfprop (add_sorting (name, Basic s) ctx, p)
 
     and is_wfprop (ctx : scontext, p : prop) =
@@ -344,7 +344,7 @@ local
             val s'' = (s', get_region_i i)
         in
 	    (case s of
-		 Subset (s1, _, p) =>
+		 Subset (s1, BindI (_, p)) =>
 		 (is_eqvbsort (s'', s1);
 		  is_true (ctx, subst_i_p i p, get_region_i i))
 	       | Basic s1 => 
@@ -428,10 +428,10 @@ local
 	         is_wftype (ctx, c2))
 	      | Uni ((name, _), c) => 
 	        is_wftype (add_kinding_sk (name, Type) ctx, c)
-	      | UniI (s, (name, _), c) => 
+	      | UniI (s, BindI ((name, _), c)) => 
 	        (is_wfsort (sctx, s);
 	         is_wftype (add_sorting_sk (name, s) ctx, c))
-	      | ExI (s, (name, _), c) => 
+	      | ExI (s, BindI ((name, _), c)) => 
 	        (is_wfsort (sctx, s);
 	         is_wftype (add_sorting_sk (name, s) ctx, c))
 	      | AppRecur (nameself, ns, t, is, r) =>
@@ -470,10 +470,10 @@ local
 	         is_subtype (ctx, c2, c2', r))
 	      | (Uni ((name, _), c), Uni (_, c')) => 
 	        is_subtype (add_kinding_sk (name, Type) ctx, c, c', r)
-	      | (UniI (s, (name, _), c), UniI (s', _, c')) => 
+	      | (UniI (s, BindI ((name, _), c)), UniI (s', BindI (_, c'))) => 
 	        (is_eqvsort (sctx, s, s');
 	         is_subtype (add_sorting_sk (name, s) ctx, c, c', r))
-	      | (ExI (s, (name, _), c), ExI (s', _, c')) => 
+	      | (ExI (s, BindI ((name, _), c)), ExI (s', BindI (_, c'))) => 
 	        (is_eqvsort (sctx, s, s');
 	         is_subtype (add_sorting_sk (name, s) ctx, c, c', r))
 	      (* currently don't support subtyping for recursive types, so they must be equivalent *)
@@ -540,15 +540,15 @@ local
 	        let val t'' = join_type (add_kinding_sk (name, Type) ctx, t, t', r) in
 		    Uni ((name, r0), t'')
 	        end
-	      | (UniI (s, (name, r0), t), UniI (s', _, t')) => 
+	      | (UniI (s, BindI ((name, r0), t)), UniI (s', BindI (_, t'))) => 
 	        let val () = is_eqvsort (sctx, s, s')
 		    val t'' = join_type (add_sorting_sk (name, s) ctx, t, t', r) in
-		    UniI (s, (name, r0), t'')
+		    UniI (s, BindI ((name, r0), t''))
 	        end
-	      | (ExI (s, (name, r0), t), ExI (s', _, t')) => 
+	      | (ExI (s, BindI ((name, r0), t)), ExI (s', BindI (_, t'))) => 
 	        let val () = is_eqvsort (#1 ctx, s, s')
 		    val t'' = join_type (add_sorting_sk (name, s) ctx, t, t', r) in
-		    ExI (s, (name, r0), t'')
+		    ExI (s, BindI ((name, r0), t''))
 	        end
 	      (* currently don't support join for recursive types, so they must be equivalent *)
 	      | (AppRecur _, AppRecur _) => 
@@ -586,15 +586,15 @@ local
 		let val t'' = meet (add_kinding_sk (name, Type) ctx, t, t', r) in
 		    Uni ((name, r0), t'')
 		end
-	      | (UniI (s, (name, r0), t), UniI (s', _, t')) => 
+	      | (UniI (s, BindI ((name, r0), t)), UniI (s', BindI (_, t'))) => 
 		let val () = is_eqvsort (sctx, s, s')
 		    val t'' = meet (add_sorting_sk (name, s) ctx, t, t', r) in
-		    UniI (s, (name, r0), t'')
+		    UniI (s, BindI ((name, r0), t''))
 		end
-	      | (ExI (s, (name, r0), t), ExI (s', _, t')) => 
+	      | (ExI (s, BindI ((name, r0), t)), ExI (s', BindI (_, t'))) => 
 		let val () = is_eqvsort (#1 ctx, s, s')
 		    val t'' = meet (add_sorting_sk (name, s) ctx, t, t', r) in
-		    ExI (s, (name, r0), t'')
+		    ExI (s, BindI ((name, r0), t''))
 		end
 	      (* currently don't support meet for recursive types, so they must be equivalent *)
 	      | (AppRecur _, AppRecur _) => 
@@ -616,7 +616,7 @@ local
         let val ts = (map (fn x => VarT (x, dummy)) o rev o range o length) tnames
 	    val t2 = AppV ((shiftx_v 0 (length tnames) family, dummy), ts, is, dummy)
 	    val t = Arrow (t, T0 dummy, t2)
-	    val t = foldr (fn ((name, s), t) => UniI (s, (name, dummy), t)) t ns
+	    val t = foldr (fn ((name, s), t) => UniI (s, BindI ((name, dummy), t))) t ns
 	    val t = foldr (fn (name, t) => Uni ((name, dummy), t)) t tnames
         in
 	    t
@@ -1025,14 +1025,14 @@ local
 		    if is_value e orelse is_fixpoint e then
 		        let val () = is_wfsort (sctx, s)
 			    val (t, _) = get_type ((add_sorting_skct (name, s) ctx), e) in
-			    (UniI (s, (name, dummy), t), T0 dummy)
+			    (UniI (s, BindI ((name, dummy), t)), T0 dummy)
 		        end 
 		    else
 		        raise Error (get_region_e e, ["The body of a universal abstraction must be a value"])
 		  | AppI (e, i) =>
 		    let val (t, d) = get_type (ctx, e) in
 		        case t of
-			    UniI (s, _, t1) => 
+			    UniI (s, BindI(_, t1)) => 
 			    let val () = check_sort (sctx, i, s) in
 			        (subst_i_t i t1, d)
 			    end
@@ -1056,7 +1056,7 @@ local
 		    end
 		  | Pack (t, i, e) =>
 		    (case t of
-		         ExI (s, _, t1) =>
+		         ExI (s, BindI (_, t1)) =>
 		         let val () = is_wftype (skctx, t)
 			     val () = check_sort (sctx, i, s)
 			     val d = check_type (ctx, e, (subst_i_t i t1))
@@ -1068,7 +1068,7 @@ local
                     let val (t1, d1) = get_type (ctx, e1)
                         val (t, d) =
                             case t1 of
-			        ExI (s, _, t1') =>
+			        ExI (s, BindI (_, t1')) =>
                                 let val ctx' = add_sorting_skct (idx_var, s) ctx
 		                    val ctx' = add_typing_skct (expr_var, t1') ctx'
                                     val sctxn' = idx_var :: sctxn

@@ -58,7 +58,7 @@ local
     fun elab_s s =
 	case s of
 	    S.Basic b => Basic (elab_b b)
-	  | S.Subset (b, name, p, _) => Subset (elab_b b, name, elab_p p)
+	  | S.Subset (b, name, p, _) => Subset (elab_b b, BindI (name, elab_p p))
 
     fun get_is t =
 	case t of 
@@ -116,8 +116,8 @@ local
 			       | Exists => raise Error (r, "Doesn't support existential quantification over types"))
 			  | Sorting (x, s, _) =>
 			    (case quan of
-				 Forall => UniI (elab_s s, x, t)
-			       | Exists => ExI (elab_s s, x, t))
+				 Forall => UniI (elab_s s, BindI (x, t))
+			       | Exists => ExI (elab_s s, BindI (x, t)))
 		in
 		    foldr f (elab_t t) binds
 		end
@@ -180,7 +180,7 @@ local
                   case b of
 		      Typing (pn, t, r) => Arrow (elab_t t, T0 r, t0)
 		    | Kinding x => Uni (x, t0)
-		    | Sorting (x, s, _) => UniI (elab_s s, x, t0)
+		    | Sorting (x, s, _) => UniI (elab_s s, BindI (x, t0))
                 val t =
                     case rev binds of
                         Typing (pn, t1, _) :: binds => foldl on_bind (Arrow (elab_t t1, elab_i d, elab_t t)) binds

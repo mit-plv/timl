@@ -54,10 +54,12 @@ functor ExprFun (structure Var : VAR structure Other : DEBUG) = struct
                  | Not of prop * other
 	         | BinPred of bin_pred * idx * idx
 
+        datatype 'a ibind = BindI of 'a
+
         (* index sort *)
         datatype sort =
 	         Basic of bsort * other
-	         | Subset of (bsort * other) * name * prop
+	         | Subset of (bsort * other) * (name * prop) ibind
 						          
         val STime = Basic (Time, dummy)
         val SBool = Basic (Bool, dummy)
@@ -69,8 +71,8 @@ functor ExprFun (structure Var : VAR structure Other : DEBUG) = struct
 	         | Sum of ty * ty
 	         | Unit of other
 	         | Uni of name * ty
-	         | UniI of sort * name * ty
-	         | ExI of sort * name * ty
+	         | UniI of sort * (name * ty) ibind
+	         | ExI of sort * (name * ty) ibind
 	         (* the kind of Recur is sort => Type, to allow for change of index *)
 	         | AppRecur of string * (string * sort) list * ty * idx list * other
 	         (* the first operant of App can only be a type variable. The degenerated case of no-arguments is also included *)
@@ -120,7 +122,7 @@ functor ExprFun (structure Var : VAR structure Other : DEBUG) = struct
         fun str_s ctx (s : sort) : string = 
             case s of
                 Basic (s, _) => str_b s
-              | Subset ((s, _), (name, _), p) => sprintf "{ $ :: $ | $ }" [name, str_b s, str_p (name :: ctx) p]
+              | Subset ((s, _), (BindI ((name, _), p))) => sprintf "{ $ :: $ | $ }" [name, str_b s, str_p (name :: ctx) p]
 
         datatype 'a bind = 
                  KindingT of string
@@ -133,7 +135,7 @@ functor ExprFun (structure Var : VAR structure Other : DEBUG) = struct
                 in
                     (KindingT name :: names, t)
                 end
-              | UniI (s, (name, _), t) =>
+              | UniI (s, BindI ((name, _), t)) =>
                 let val (names, t) = collect_Uni_UniI t
                 in
                     (SortingT (name, s) :: names, t)
@@ -181,7 +183,7 @@ functor ExprFun (structure Var : VAR structure Other : DEBUG) = struct
 	          | Sum (t1, t2) => sprintf "($ + $)" [str_t ctx t1, str_t ctx t2]
 	          | Uni _ => str_uni ctx c
 	          | UniI _ => str_uni ctx c
-	          | ExI (s, (name, _), t) => sprintf "(exists {$ : $}, $)" [name, str_s sctx s, str_t (name :: sctx, kctx) t]
+	          | ExI (s, BindI ((name, _), t)) => sprintf "(exists {$ : $}, $)" [name, str_s sctx s, str_t (name :: sctx, kctx) t]
 	          | AppRecur (name, ns, t, i, _) => 
 	            sprintf "((rec $ $, $) $)" 
 		            [name, 
@@ -199,6 +201,12 @@ functor ExprFun (structure Var : VAR structure Other : DEBUG) = struct
         fun str_k ctx (k : kind) : string = 
             case k of
                 ArrowK (_, n, sorts) => sprintf "($$Type)" [if n = 0 then "" else join " * " (repeat n "Type") ^ " => ", if null sorts then "" else join " * " (map (str_s ctx) sorts) ^ " => "]
+
+        datatype ('anno, 'name, 'inner) ibinds =
+                 NilIB of 'inner
+               | ConsIB of 'anno * ('name * ('anno, 'name, 'inner) ibinds) ibind
+
+        (* type constr_core = (sort, string, ty * idx list) ibinds *)
 
         type constr_core = (string * sort) list * ty * idx list
         type constr_decl = string * constr_core * other

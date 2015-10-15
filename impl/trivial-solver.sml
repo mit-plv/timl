@@ -96,10 +96,12 @@ val simp_p = until_unchanged passp
 fun simp_vc (ctx, ps, p, r) = (ctx, map simp_p ps, simp_p p, r)
 end
 
+fun simp_ibind f (BindI (name, inner)) = BindI (name, f inner)
+
 fun simp_s s =
     case s of
 	Basic b => Basic b
-      | Subset (b, name, p) => Subset (b, name, simp_p p)
+      | Subset (b, bind) => Subset (b, simp_ibind simp_p bind)
 
 local
     fun f t =
@@ -111,8 +113,8 @@ local
 	  | AppRecur (name, ns, t, is, r) => AppRecur (name, map (mapSnd simp_s) ns, f t, map simp_i is, r)
 	  | AppV (x, ts, is, r) => AppV (x, map f ts, map simp_i is, r)
 	  | Uni (name, t) => Uni (name, f t)
-	  | UniI (s, name, t) => UniI (simp_s s, name, f t)
-	  | ExI (s, name, t) => ExI (simp_s s, name, f t)
+	  | UniI (s, bind) => UniI (simp_s s, simp_ibind f bind)
+	  | ExI (s, bind) => ExI (simp_s s, simp_ibind f bind)
 	  | Int r => Int r
 
 in

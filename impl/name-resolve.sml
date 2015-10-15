@@ -39,10 +39,12 @@ local
 	| E.BinConn (opr, p1, p2) => BinConn (opr, on_prop ctx p1, on_prop ctx p2)
 	| E.BinPred (opr, i1, i2) => BinPred (opr, on_idx ctx i1, on_idx ctx i2)
 
+    fun on_ibind f ctx (E.BindI ((name, r), inner)) = BindI ((name, r), f (name :: ctx) inner)
+
     fun on_sort ctx s =
       case s of
 	  E.Basic s => Basic s
-	| E.Subset (s, (name, r), p) => Subset (s, (name, r), on_prop (name :: ctx) p)
+	| E.Subset (s, E.BindI ((name, r), p)) => Subset (s, BindI ((name, r), on_prop (name :: ctx) p))
 
     fun on_type (ctx as (sctx, kctx)) t =
       case t of
@@ -51,8 +53,8 @@ local
 	| E.Sum (t1, t2) => Sum (on_type ctx t1, on_type ctx t2)
 	| E.Unit r => Unit r
 	| E.Uni ((name, r), t) => Uni ((name, r), on_type (sctx, name :: kctx) t)
-	| E.UniI (s, (name, r), t) => UniI (on_sort sctx s, (name, r), on_type (name :: sctx, kctx) t)
-	| E.ExI (s, (name, r), t) => ExI (on_sort sctx s, (name, r), on_type (name :: sctx, kctx) t)
+	| E.UniI (s, E.BindI ((name, r), t)) => UniI (on_sort sctx s, BindI ((name, r), on_type (name :: sctx, kctx) t))
+	| E.ExI (s, E.BindI ((name, r), t)) => ExI (on_sort sctx s, BindI ((name, r), on_type (name :: sctx, kctx) t))
 	| E.AppRecur (name, name_sorts, t, is, r) => AppRecur (name, map (mapSnd (on_sort sctx)) name_sorts, on_type (rev (map #1 name_sorts) @ sctx, name :: kctx) t, map (on_idx sctx) is, r)
 	| E.AppV (x, ts, is, r) => AppV (on_var kctx x, map (on_type ctx) ts, map (on_idx sctx) is, r)
 	| E.Int r => Int r

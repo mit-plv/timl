@@ -32,12 +32,16 @@ fun on_i_p on_i_i x n b =
       f x n b
   end
 
+fun on_i_ibind f x n bind =
+    case bind of
+        BindI (name, inner) => BindI (name, f (x + 1) n inner)
+
 fun on_i_s on_i_p x n b =
   let
       fun f x n b =
 	case b of
 	    Basic s => Basic s
-	  | Subset (s, name, p) => Subset (s, name, on_i_p (x + 1) n p)
+	  | Subset (s, bind) => Subset (s, on_i_ibind on_i_p x n bind)
   in
       f x n b
   end
@@ -51,14 +55,18 @@ fun on_i_t on_i_i on_i_s x n b =
 	  | Prod (t1, t2) => Prod (f x n t1, f x n t2)
 	  | Sum (t1, t2) => Sum (f x n t1, f x n t2)
 	  | Uni (name, t) => Uni (name, f x n t)
-	  | UniI (s, name, t) => UniI (on_i_s x n s, name, f (x + 1) n t)
-	  | ExI (s, name, t) => ExI (on_i_s x n s, name, f (x + 1) n t)
+	  | UniI (s, bind) => UniI (on_i_s x n s, on_i_ibind f x n bind)
+	  | ExI (s, bind) => ExI (on_i_s x n s, on_i_ibind f x n bind)
 	  | AppRecur (name, ns, t, i, r) => AppRecur (name, map (mapSnd (on_i_s x n)) ns, f (x + length ns) n t, map (on_i_i x n) i, r)
 	  | AppV (y, ts, is, r) => AppV (y, map (f x n) ts, map (on_i_i x n) is, r)
 	  | Int r => Int r
   in
       f x n b
   end
+
+fun on_t_ibind f x n bind =
+    case bind of
+        BindI (name, inner) => BindI (name, f x n inner)
 
 fun on_t_t on_v x n b =
   let
@@ -69,8 +77,8 @@ fun on_t_t on_v x n b =
 	  | Prod (t1, t2) => Prod (f x n t1, f x n t2)
 	  | Sum (t1, t2) => Sum (f x n t1, f x n t2)
 	  | Uni (name, t) => Uni (name, f (x + 1) n t)
-	  | UniI (s, name, t) => UniI (s, name, f x n t)
-	  | ExI (s, name, t) => ExI (s, name, f x n t)
+	  | UniI (s, bind) => UniI (s, on_t_ibind f x n bind)
+	  | ExI (s, bind) => ExI (s, on_t_ibind f x n bind)
 	  | AppRecur (name, ns, t, i, r) => AppRecur (name, ns, f (x + 1) n t, i, r)
 	  | AppV ((y, r1), ts, is, r) => AppV ((on_v x n y, r1), map (f x n) ts, is, r)
 	  | Int r => Int r
@@ -220,11 +228,32 @@ fun substx_i_p x (v : idx) b = f x v b
 fun subst_i_p (v : idx) (b : prop) : prop = substx_i_p 0 v b
 end
 
+(* mimic type class *)
+type 'a shiftable = {
+    shift_i : int -> 'a -> 'a,
+    shift_t : int -> 'a -> 'a
+}
+
+fun ignore_fst n v = v
+
+val idx_shiftable : idx shiftable = {
+    shift_i = shiftx_i_i 0,
+    shift_t = ignore_fst
+}
+
+fun substx_i_ibind f x (s : 'a shiftable) v bind =
+    case bind of
+        BindI (name, inner) => BindI (name, f (x + 1) (#shift_i s 1 v) inner)
+
+fun substx_t_ibind f x (s : 'a shiftable) v bind =
+    case bind of
+        BindI (name, inner) => BindI (name, f x (#shift_i s 1 v) inner)
+
 local
     fun f x v b =
 	case b of
 	    Basic s => Basic s
-	  | Subset (s, name, p) => Subset (s, name, substx_i_p (x + 1) (shift_i_i v) p)
+	  | Subset (s, bind) => Subset (s, substx_i_ibind substx_i_p x idx_shiftable v bind)
 in
 fun substx_i_s x (v : idx) (b : sort) : sort = f x v b
 fun subst_i_s (v : idx) (b : sort) : sort = substx_i_s 0 v b
@@ -238,8 +267,8 @@ local
 	  | Prod (t1, t2) => Prod (f x v t1, f x v t2)
 	  | Sum (t1, t2) => Sum (f x v t1, f x v t2)
 	  | Uni (name, t) => Uni (name, f x v t)
-	  | UniI (s, name, t) => UniI (substx_i_s x v s, name, f (x + 1) (shift_i_i v) t)
-	  | ExI (s, name, t) => ExI (substx_i_s x v s, name, f (x + 1) (shift_i_i v) t)
+	  | UniI (s, bind) => UniI (substx_i_s x v s, substx_i_ibind f x idx_shiftable v bind)
+	  | ExI (s, bind) => ExI (substx_i_s x v s, substx_i_ibind f x idx_shiftable v bind)
 	  | AppRecur (name, ns, t, i, r) =>
 	    let val n = length ns in
 		AppRecur (name, map (mapSnd (substx_i_s x v)) ns, f (x + n) (shiftx_i_i 0 n v) t, map (substx_i_i x v) i, r)
@@ -256,16 +285,31 @@ local
     datatype value = 
 	     Type of ty
 	     | Recur of string * (string * sort) list * ty
+
+    fun shift_i n v =
+	case v of
+	    Type t => Type (shiftx_i_t 0 n t)
+	  | Recur (name, ns, t) => Recur (name, map (mapSnd (shiftx_i_s 0 n)) ns, shiftx_i_t (length ns) n t)
+    fun shift_t n v =
+	case v of
+	    Type t => Type (shiftx_t_t 0 n t)
+	  | Recur (name, ns, t) => Recur (name, ns, shiftx_t_t 1 n t)
+
+    val value_shiftable : value shiftable = {
+        shift_i = shift_i,
+        shift_t = shift_t
+    }
+
     fun f x v (b : ty) : ty =
 	case b of
 	    Arrow (t1, d, t2) => Arrow (f x v t1, d, f x v t2)
 	  | Unit r => Unit r
 	  | Prod (t1, t2) => Prod (f x v t1, f x v t2)
 	  | Sum (t1, t2) => Sum (f x v t1, f x v t2)
-	  | Uni (name, t) => Uni (name, f (x + 1) (shift_t v) t)
-	  | UniI (s, name, t) => UniI (s, name, f x (shift_i 1 v) t)
-	  | ExI (s, name, t) => ExI (s, name, f x (shift_i 1 v) t)
-	  | AppRecur (name, ns, t, i, r) => AppRecur (name, ns, f (x + 1) (shift_i (length ns) (shift_t v)) t, i, r)
+	  | Uni (name, t) => Uni (name, f (x + 1) (shift_t 1 v) t)
+	  | UniI (s, bind) => UniI (s, substx_t_ibind f x value_shiftable v bind)
+	  | ExI (s, bind) => ExI (s, substx_t_ibind f x value_shiftable v bind)
+	  | AppRecur (name, ns, t, i, r) => AppRecur (name, ns, f (x + 1) (shift_i (length ns) (shift_t 1 v)) t, i, r)
 	  | AppV ((y, r), ts, is, r2) => 
 	    if y = x then
 		case v of
@@ -285,14 +329,6 @@ local
 		AppV ((y, r), map (f x v) ts, is, r2)
 	  | Int r => Int r
 
-    and shift_i n v =
-	case v of
-	    Type t => Type (shiftx_i_t 0 n t)
-	  | Recur (name, ns, t) => Recur (name, map (mapSnd (shiftx_i_s 0 n)) ns, shiftx_i_t (length ns) n t)
-    and shift_t v =
-	case v of
-	    Type t => Type (shiftx_t_t 1 1 t)
-	  | Recur (name, ns, t) => Recur (name, ns, shiftx_t_t 1 1 t)
 in
 
 fun substx_t_t x (v : ty) (b : ty) : ty = f x (Type v) b

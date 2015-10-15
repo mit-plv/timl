@@ -21,10 +21,12 @@ fun get_region_p p =
       | BinConn (_, p1, p2) => combine_region (get_region_p p1) (get_region_p p2)
       | BinPred (_, i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
 
+fun get_region_ibind f (BindI ((_, r), inner)) = combine_region r (f inner)
+
 fun get_region_s s = 
     case s of
         Basic (_, r) => r
-      | Subset (_, (_, r), p) => combine_region r (get_region_p p)
+      | Subset (_, bind) => get_region_ibind get_region_p bind
 
 fun get_region_t t = 
     case t of
@@ -33,8 +35,8 @@ fun get_region_t t =
       | Sum (t1, t2) => combine_region (get_region_t t1) (get_region_t t2)
       | Unit r => r
       | Uni ((_, r), t) => combine_region r (get_region_t t)
-      | UniI (_, (_, r), t) => combine_region r (get_region_t t)
-      | ExI (_, (_, r), t) => combine_region r (get_region_t t)
+      | UniI (_, bind) => get_region_ibind get_region_t bind
+      | ExI (_, bind) => get_region_ibind get_region_t bind
       | AppRecur (_, _, t, _, r) => r
       | AppV (_, _, _, r) => r
       | Int r => r
