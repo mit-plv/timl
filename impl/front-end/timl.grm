@@ -276,6 +276,7 @@ bar_constr_star : BAR constr bar_constr_star (constr :: bar_constr_star)
 	        | ([])
 
 sorting : LCUR id COLON sort RCUR (Sorting (id, sort, (LCURleft, RCURright)))
+        | LCUR id COLON bsort BAR prop RCUR (Sorting(id, Subset (bsort, id, prop, (LCURleft, RCURright)), (LCURleft, RCURright)))
 
 sorting_star : sorting sorting_star (sorting :: sorting_star)
 	   | ([])
