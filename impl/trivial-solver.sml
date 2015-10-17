@@ -112,11 +112,18 @@ local
 	  | Unit r => Unit r
 	  | AppRecur (name, ns, t, is, r) => AppRecur (name, map (mapSnd simp_s) ns, f t, map simp_i is, r)
 	  | AppV (x, ts, is, r) => AppV (x, map f ts, map simp_i is, r)
-	  | Uni (name, t) => Uni (name, f t)
 	  | UniI (s, bind) => UniI (simp_s s, simp_ibind f bind)
 	  | ExI (s, bind) => ExI (simp_s s, simp_ibind f bind)
 	  | Int r => Int r
+in
+val simp_mt = f
+end
 
+local
+    fun f t =
+	case t of
+	    Mono t => Mono (simp_mt t)
+	  | Uni (name, t) => Uni (name, f t)
 in
 val simp_t = f
 end

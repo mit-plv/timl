@@ -54,7 +54,8 @@ val msort =
 
 (* package to big-O spec *)
 val merge_sort =
-    pack [exists {c : {c : Time | c > 0.0}}, forall 'a {m : Time}, ('a * 'a -- m --> bool) -- 0.0 --> forall {n : Nat}, {n} 'a ilist -- (m + 3.0) * c * $n * log2 $n --> {n} 'a ilist] {4.0} msort
+ fn ['a] =>
+    pack [exists {c : {c : Time | c > 0.0}}, forall {m : Time}, ('a * 'a -- m --> bool) -- 0.0 --> forall {n : Nat}, {n} 'a ilist -- (m + 3.0) * c * $n * log2 $n --> {n} 'a ilist] {4.0} (msort ['a])
 
 (*
 

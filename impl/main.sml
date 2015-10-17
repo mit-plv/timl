@@ -24,7 +24,7 @@ fun print_result show_region filename (((ctxd, ds, ctx), vcs) : tc_result) =
       val vc_lines =
           sprintf "Verification Conditions: [count=$]" [str_int (length vcs)] ::
           "" ::
-	  concatMap (str_vc show_region filename) vcs
+	  concatMap (fn vc => str_vc show_region filename vc @ [""]) vcs
       val s = join_lines (type_lines @ time_lines @ vc_lines)
   in
       s

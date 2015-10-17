@@ -83,7 +83,7 @@ local
 	      | _ => NONE
 	end
 
-    fun elab_t t =
+    fun elab_mt t =
 	let 
 	    fun make_AppRecur (name, binds, t, is, r) =
 		let fun f b =
@@ -92,7 +92,7 @@ local
 			  | Kinding (_, r) => raise Error (r, "Can't have kinding bind in a recursive type")
 			  | Sorting ((x, _), s, _) => (x, elab_s s)
 		in
-		    AppRecur (name, map f binds, elab_t t, map elab_i is, r)
+		    AppRecur (name, map f binds, elab_mt t, map elab_i is, r)
 		end
 	in
 	    case t of
@@ -103,29 +103,26 @@ local
                     Int r
                 else
                     AppV ((x, r), [], [], r)
-	      | S.Arrow (t1, d, t2, _) => Arrow (elab_t t1, elab_i d, elab_t t2)
-	      | S.Prod (t1, t2, _) => Prod (elab_t t1, elab_t t2)
-	      | S.Sum (t1, t2, _) => Sum (elab_t t1, elab_t t2)
+	      | S.Arrow (t1, d, t2, _) => Arrow (elab_mt t1, elab_i d, elab_mt t2)
+	      | S.Prod (t1, t2, _) => Prod (elab_mt t1, elab_mt t2)
+	      | S.Sum (t1, t2, _) => Sum (elab_mt t1, elab_mt t2)
 	      | S.Quan (quan, binds, t, _) =>
 		let fun f (b, t) =
 			case b of
 			    Typing (_, _, r) => raise Error (r, "Can't have typing bind in a quantification")
-			  | Kinding (x, r) =>
-			    (case quan of
-				 Forall => Uni ((x, r), t)
-			       | Exists => raise Error (r, "Doesn't support existential quantification over types"))
+			  | Kinding (x, r) => raise Error (r, "Can't have kinding bind in a monotype")
 			  | Sorting (x, s, _) =>
 			    (case quan of
 				 Forall => UniI (elab_s s, BindI (x, t))
 			       | Exists => ExI (elab_s s, BindI (x, t)))
 		in
-		    foldr f (elab_t t) binds
+		    foldr f (elab_mt t) binds
 		end
 	      | S.Recur (name, binds, t, r) => 
 		make_AppRecur (name, binds, t, [], r)
 	      | S.AppTT (t1, t2, r) =>
 		(case is_var_app_ts t1 of
-		     SOME (x, ts) => AppV (x, map elab_t (ts @ [t2]), [], r)
+		     SOME (x, ts) => AppV (x, map elab_mt (ts @ [t2]), [], r)
 		   | NONE => raise Error (r, "Head of type-type application must be a variable"))
 	      | S.AppTI (t, i, r) =>
 		let val (t, is) = get_is t 
@@ -135,12 +132,20 @@ local
 			S.Recur (name, binds, t, _) => make_AppRecur (name, binds, t, is, r)
 		      | _ =>
 			(case is_var_app_ts t of
-			     SOME (x, ts) => AppV (x, map elab_t ts, map elab_i is, r)
+			     SOME (x, ts) => AppV (x, map elab_mt ts, map elab_i is, r)
 			   | NONE => raise Error (r, "The form of type-index application can only be (recursive-type indices) or (variable types indices)"))
 		end
 	end
 
-    fun elab_return return = mapPair (Option.map elab_t, Option.map elab_i) return
+    fun elab_t t =
+      case t of
+	  S.Quan (quan, Kinding name :: binds, t, r) =>
+	  (case quan of
+	       Forall => Uni (name, elab_t (S.Quan (quan, binds, t, r)))
+	     | Exists => raise Error (snd name, "Doesn't support existential quantification over types"))
+	| _ => Mono (elab_mt t)
+
+    fun elab_return return = mapPair (Option.map elab_mt, Option.map elab_i) return
                                         
     fun elab_pn pn =
       case pn of
@@ -164,12 +169,12 @@ local
 	    (case abs of
 		 S.Rec => 
 		 (case binds of
-		      Typing ((S.ConstrP (x, [], NONE, _)), t, _) :: binds => Fix (elab_t t, x, elab (S.Abs (Fn, binds, e, r)))
-		    | _ => raise Error (r, "recursion must have a single-variable typing bind as the first bind"))
+		      Typing ((S.ConstrP (x, [], NONE, _)), t, _) :: binds => Fix (elab_mt t, x, elab (S.Abs (Fn, binds, e, r)))
+		    | _ => raise Error (r, "Recursion must have a single-variable typing bind as the first bind"))
 	       | Fn =>
 		 let fun f (b, e) =
 			 case b of
-			     Typing (pn, t, _) => Abs (elab_t t, elab_pn pn, e)
+			     Typing (pn, t, _) => Abs (elab_mt t, elab_pn pn, e)
 			   | Kinding x => AbsT (x, e)
 			   | Sorting (x, s, _) => AbsI (elab_s s, x, e)
 		 in
@@ -178,12 +183,12 @@ local
 	  | S.Fix (name, binds, t, d, e, r) =>
             let fun on_bind (b, t0) =
                   case b of
-		      Typing (pn, t, r) => Arrow (elab_t t, T0 r, t0)
-		    | Kinding x => Uni (x, t0)
+		      Typing (pn, t, r) => Arrow (elab_mt t, T0 r, t0)
+		    | Kinding x => raise Error (r, "Fixpoint can't have kinding bind")
 		    | Sorting (x, s, _) => UniI (elab_s s, BindI (x, t0))
                 val t =
                     case rev binds of
-                        Typing (pn, t1, _) :: binds => foldl on_bind (Arrow (elab_t t1, elab_i d, elab_t t)) binds
+                        Typing (pn, t1, _) :: binds => foldl on_bind (Arrow (elab_mt t1, elab_i d, elab_mt t)) binds
                       | _ => raise Error (r, "Fixpoint must have a typing bind as the last bind")
             in
 	        Fix (t, name, elab (S.Abs (Fn, binds, e, r)))
@@ -199,17 +204,17 @@ local
 		    else if x = "unfold" then Unfold (elab e2)
 		    else default ()
 		  | S.AppT (S.Var (x, _), t, _) =>
-		    if x = "inl" then Inl (elab_t t, elab e2)
-		    else if x = "inr" then Inr (elab_t t, elab e2)
-		    else if x = "fold" then Fold (elab_t t, elab e2)
+		    if x = "inl" then Inl (elab_mt t, elab e2)
+		    else if x = "inr" then Inr (elab_mt t, elab e2)
+		    else if x = "fold" then Fold (elab_mt t, elab e2)
 		    else default ()
 		  | S.AppI (S.AppT (S.Var (x, _), t, _), i, _) =>
-		    if x = "pack" then Pack (elab_t t, elab_i i, elab e2)
+		    if x = "pack" then Pack (elab_mt t, elab_i i, elab e2)
 		    else default ()
 		  | _ => default ()
 	    end
 	  | S.AppT (e, t, _) =>
-	    AppT (elab e, elab_t t)
+	    AppT (elab e, elab_mt t)
 	  | S.AppI (e, i, _) =>
 	    AppI (elab e, elab_i i)
 	  | S.Case (HSumCase, e, return, rules, r) =>
@@ -284,7 +289,7 @@ local
                         end
                       val () = app f (zip (ts, tnames))
                   in
-                      (cname, fold_ibinds (binds, (elab_t t1, map elab_i is)), r)
+                      (cname, fold_ibinds (binds, (elab_mt t1, map elab_i is)), r)
                   end
             in
                 Datatype (name, tnames, map elab_s sorts, map elab_constr constrs, r)

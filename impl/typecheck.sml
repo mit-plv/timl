@@ -28,7 +28,7 @@ fun is_value (e : expr) : bool =
       | Fold (_, e) => is_value e
       | Unfold _ => false
       | AbsT _ => true
-      | AppT _ => false
+      | AppT _ => true
       | AbsI _ => true
       | AppI _ => false
       | Pack (_, _, e) => is_value e
@@ -195,8 +195,8 @@ fun add_ctx_skc ctx (sctx, kctx, cctx) =
 fun shift_ctx_i (sctx, _, _, _) i =
     shiftx_i_i 0 (sctx_length sctx) i
 
-fun shift_ctx_t (sctx, kctx, _, _) t =
-    (shiftx_t_t 0 (length kctx) o shiftx_i_t 0 (sctx_length sctx)) t
+fun shift_ctx_mt (sctx, kctx, _, _) t =
+    (shiftx_t_mt 0 (length kctx) o shiftx_i_mt 0 (sctx_length sctx)) t
 
 fun get_base s =
     case s of
@@ -410,34 +410,32 @@ local
       	    SOME k => k
       	  | NONE => raise Error (r, ["Unbound type variable: " ^ str_v (names kctx) a])
 
-    fun is_wftype (ctx as (sctx : scontext, kctx : kcontext), c : ty) : unit = 
+    fun is_wf_mty (ctx as (sctx : scontext, kctx : kcontext), c : mty) : unit = 
         let val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
 	(* val () = print (sprintf "Type wellformedness checking: $\n" [str_t ctxn c]) *)
         in
 	    case c of
 	        Arrow (c1, d, c2) => 
-	        (is_wftype (ctx, c1);
+	        (is_wf_mty (ctx, c1);
 	         check_sort (sctx, d, STime);
-	         is_wftype (ctx, c2))
+	         is_wf_mty (ctx, c2))
 	      | Unit _ => ()
 	      | Prod (c1, c2) => 
-	        (is_wftype (ctx, c1);
-	         is_wftype (ctx, c2))
+	        (is_wf_mty (ctx, c1);
+	         is_wf_mty (ctx, c2))
 	      | Sum (c1, c2) => 
-	        (is_wftype (ctx, c1);
-	         is_wftype (ctx, c2))
-	      | Uni ((name, _), c) => 
-	        is_wftype (add_kinding_sk (name, Type) ctx, c)
+	        (is_wf_mty (ctx, c1);
+	         is_wf_mty (ctx, c2))
 	      | UniI (s, BindI ((name, _), c)) => 
 	        (is_wfsort (sctx, s);
-	         is_wftype (add_sorting_sk (name, s) ctx, c))
+	         is_wf_mty (add_sorting_sk (name, s) ctx, c))
 	      | ExI (s, BindI ((name, _), c)) => 
 	        (is_wfsort (sctx, s);
-	         is_wftype (add_sorting_sk (name, s) ctx, c))
+	         is_wf_mty (add_sorting_sk (name, s) ctx, c))
 	      | AppRecur (nameself, ns, t, is, r) =>
 	        let val sorts = List.map #2 ns in
 		    is_wfsorts (sctx, sorts);
-		    is_wftype (add_nondep_sortings_sk (rev ns) (add_kinding_sk (nameself, recur_kind sorts) ctx), t);
+		    is_wf_mty (add_nondep_sortings_sk (rev ns) (add_kinding_sk (nameself, recur_kind sorts) ctx), t);
 		    check_sorts (sctx, is, sorts, r)
 	        end
 	      | AppV (x, ts, is, r) => 
@@ -448,34 +446,43 @@ local
 	      | Int _ => ()
         end
 
+    fun is_wftype (ctx as (sctx : scontext, kctx : kcontext), c : ty) : unit = 
+        let val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
+	(* val () = print (sprintf "Type wellformedness checking: $\n" [str_t ctxn c]) *)
+        in
+	    case c of
+                Mono t =>
+                is_wf_mty (ctx, t)
+	      | Uni ((name, _), c) => 
+	        is_wftype (add_kinding_sk (name, Type) ctx, c)
+        end
+
     fun not_subtype ctx c c' = str_t ctx c ^ " is not subtype of " ^ str_t ctx c'
 
-    (* is_subtype assumes that the types are already checked against the given kind, so it doesn't need to worry about their well-formedness *)
-    fun is_subtype (ctx as (sctx : scontext, kctx : kcontext), c : ty, c' : ty, r) =
+    (* is_submtype assumes that the types are already checked against the given kind, so it doesn't need to worry about their well-formedness *)
+    fun is_submtype (ctx as (sctx : scontext, kctx : kcontext), c : mty, c' : mty, r) =
         let val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
 	    (* val () = print (sprintf "Subtyping checking: \n$\n<:\n$\n" [str_t ctxn c, str_t ctxn c']) *)
             (* val () = println $ str_region "" "ilist.timl" r *)
         in
 	    case (c, c') of
 	        (Arrow (c1, d, c2), Arrow (c1', d', c2')) =>
-	        (is_subtype (ctx, c1', c1, r);
+	        (is_submtype (ctx, c1', c1, r);
 	         is_le (sctx, d, d', r);
-	         is_subtype (ctx, c2, c2', r))
+	         is_submtype (ctx, c2, c2', r))
 	      | (Unit _, Unit _) => ()
 	      | (Prod (c1, c2), Prod (c1', c2')) =>
-	        (is_subtype (ctx, c1, c1', r);
-	         is_subtype (ctx, c2, c2', r))
+	        (is_submtype (ctx, c1, c1', r);
+	         is_submtype (ctx, c2, c2', r))
 	      | (Sum (c1, c2), Sum (c1', c2')) => 
-	        (is_subtype (ctx, c1, c1', r);
-	         is_subtype (ctx, c2, c2', r))
-	      | (Uni ((name, _), c), Uni (_, c')) => 
-	        is_subtype (add_kinding_sk (name, Type) ctx, c, c', r)
+	        (is_submtype (ctx, c1, c1', r);
+	         is_submtype (ctx, c2, c2', r))
 	      | (UniI (s, BindI ((name, _), c)), UniI (s', BindI (_, c'))) => 
 	        (is_eqvsort (sctx, s, s');
-	         is_subtype (add_sorting_sk (name, s) ctx, c, c', r))
+	         is_submtype (add_sorting_sk (name, s) ctx, c, c', r))
 	      | (ExI (s, BindI ((name, _), c)), ExI (s', BindI (_, c'))) => 
 	        (is_eqvsort (sctx, s, s');
-	         is_subtype (add_sorting_sk (name, s) ctx, c, c', r))
+	         is_submtype (add_sorting_sk (name, s) ctx, c, c', r))
 	      (* currently don't support subtyping for recursive types, so they must be equivalent *)
 	      | (AppRecur (nameself, ns, t, is, _), AppRecur (_, ns', t', is', _)) => 
 	        let val sorts = List.map #2 ns
@@ -483,15 +490,32 @@ local
 		    val () = is_eqvsorts (sctx, sorts, sorts', r)
 		    val () = is_eqs (sctx, is, is', r)
 		    val ctx' = add_nondep_sortings_sk (rev ns) (add_kinding_sk (nameself, recur_kind sorts) ctx) in
-		    is_eqvtype (ctx', t, t', r)
+		    is_eqvmtype (ctx', t, t', r)
 	        end
 	      | (AppV ((a, _), ts, is, _), AppV ((a', _), ts', is', _)) => 
 	        if a = a' then
-		    (app (fn (t, t') => is_eqvtype (ctx, t, t', r)) (ListPair.zip (ts, ts'));
+		    (app (fn (t, t') => is_eqvmtype (ctx, t, t', r)) (ListPair.zip (ts, ts'));
 		     is_eqs (sctx, is, is', r))
 	        else
-		    raise Error (get_region_t c, [not_subtype ctxn c c'])
+		    raise Error (get_region_mt c, [not_subtype ctxn (Mono c) (Mono c')])
 	      | (Int _, Int _) => ()
+	      | _ => raise Error (get_region_mt c, [not_subtype ctxn (Mono c) (Mono c')])
+        end
+
+    and is_eqvmtype (kctx, c, c', r) =
+	(is_submtype (kctx, c, c', r);
+	 is_submtype (kctx, c', c, r))
+
+    fun is_subtype (ctx as (sctx : scontext, kctx : kcontext), c : ty, c' : ty, r) =
+        let val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
+	    (* val () = print (sprintf "Subtyping checking: \n$\n<:\n$\n" [str_t ctxn c, str_t ctxn c']) *)
+            (* val () = println $ str_region "" "ilist.timl" r *)
+        in
+	    case (c, c') of
+	        (Mono t, Mono t') =>
+	        is_submtype (ctx, t', t, r)
+	      | (Uni ((name, _), c), Uni (_, c')) => 
+	        is_subtype (add_kinding_sk (name, Type) ctx, c, c', r)
 	      | _ => raise Error (get_region_t c, [not_subtype ctxn c c'])
         end
 
@@ -499,8 +523,8 @@ local
 	(is_subtype (kctx, c, c', r);
 	 is_subtype (kctx, c', c, r))
 
-    fun no_join ctx c c' = "Cannot find a join (minimal supertype) of " ^ str_t ctx c ^ " and " ^ str_t ctx c'
-    fun no_meet ctx c c' = "Cannot find a meet (maximal subtype) of " ^ str_t ctx c ^ " and " ^ str_t ctx c'
+    fun no_join ctx c c' = "Cannot find a join (minimal supertype) of " ^ str_mt ctx c ^ " and " ^ str_mt ctx c'
+    fun no_meet ctx c c' = "Cannot find a meet (maximal subtype) of " ^ str_mt ctx c ^ " and " ^ str_mt ctx c'
 
     open IdxEqual
              
@@ -513,7 +537,7 @@ local
           BinOpI (MaxI, a, b)
 
     (* c and c' are already checked for wellformedness *)
-    fun join_type (ctx as (sctx : scontext, kctx : kcontext), c : ty, c' : ty, r) : ty = 
+    fun join_type (ctx as (sctx : scontext, kctx : kcontext), c : mty, c' : mty, r) : mty = 
         let val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
 	    (* val () = print (sprintf "Joining $ and $\n" [str_t ctxn c, str_t ctxn c']) *)
             (* val () = println $ str_region "" "ilist.timl" r *)
@@ -536,10 +560,6 @@ local
 		    val c2'' = join_type (ctx, c2, c2', r) in
 		    Sum (c1'', c2'')
 	        end
-	      | (Uni ((name, r0), t), Uni (_, t')) => 
-	        let val t'' = join_type (add_kinding_sk (name, Type) ctx, t, t', r) in
-		    Uni ((name, r0), t'')
-	        end
 	      | (UniI (s, BindI ((name, r0), t)), UniI (s', BindI (_, t'))) => 
 	        let val () = is_eqvsort (sctx, s, s')
 		    val t'' = join_type (add_sorting_sk (name, s) ctx, t, t', r) in
@@ -552,16 +572,16 @@ local
 	        end
 	      (* currently don't support join for recursive types, so they must be equivalent *)
 	      | (AppRecur _, AppRecur _) => 
-	        (is_eqvtype (ctx, c, c', r);
+	        (is_eqvmtype (ctx, c, c', r);
 	         c)
 	      | (AppV _, AppV _) => 
-	        (is_eqvtype (ctx, c, c', r);
+	        (is_eqvmtype (ctx, c, c', r);
 	         c)
 	      | (Int r0, Int _) => Int r0
-	      | _ => raise Error (get_region_t c, [no_join ctxn c c'])
+	      | _ => raise Error (get_region_mt c, [no_join ctxn c c'])
         end
 
-    and meet (ctx as (sctx : scontext, kctx : kcontext), c : ty, c' : ty, r) : ty = 
+    and meet (ctx as (sctx : scontext, kctx : kcontext), c : mty, c' : mty, r) : mty = 
 	let val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
 	in
 	    case (c, c') of
@@ -582,10 +602,6 @@ local
 		    val c2'' = meet (ctx, c2, c2', r) in
 		    Sum (c1'', c2'')
 		end
-	      | (Uni ((name, r0), t), Uni (_, t')) => 
-		let val t'' = meet (add_kinding_sk (name, Type) ctx, t, t', r) in
-		    Uni ((name, r0), t'')
-		end
 	      | (UniI (s, BindI ((name, r0), t)), UniI (s', BindI (_, t'))) => 
 		let val () = is_eqvsort (sctx, s, s')
 		    val t'' = meet (add_sorting_sk (name, s) ctx, t, t', r) in
@@ -598,13 +614,13 @@ local
 		end
 	      (* currently don't support meet for recursive types, so they must be equivalent *)
 	      | (AppRecur _, AppRecur _) => 
-		(is_eqvtype (ctx, c, c', r);
+		(is_eqvmtype (ctx, c, c', r);
 		 c)
 	      | (AppV _, AppV _) => 
-		(is_eqvtype (ctx, c, c', r);
+		(is_eqvmtype (ctx, c, c', r);
 		 c)
 	      | (Int r0, Int _) => Int r0
-	      | _ => raise Error (get_region_t c, [no_meet ctxn c c'])
+	      | _ => raise Error (get_region_mt c, [no_meet ctxn c c'])
 	end
 
     fun fetch_constr (ctx, (x, r)) =
@@ -618,6 +634,7 @@ local
 	    val t2 = AppV ((shiftx_v 0 (length tnames) family, dummy), ts, is, dummy)
 	    val t = Arrow (t, T0 dummy, t2)
 	    val t = foldr (fn ((name, s), t) => UniI (s, BindI ((name, dummy), t))) t ns
+            val t = Mono t
 	    val t = foldr (fn (name, t) => Uni ((name, dummy), t)) t tnames
         in
 	    t
@@ -679,7 +696,7 @@ local
         fun get_family_members cctx x =
             (rev o List.mapPartial (fn (n, (_, c)) => if get_family c = x then SOME n else NONE) o add_idx) cctx
 
-        fun cover_neg cctx t c =
+        fun cover_neg cctx (t : ty) c =
             let fun neg c = cover_neg cctx t c
                 fun neg' t c = cover_neg cctx t c
             in
@@ -691,20 +708,20 @@ local
                   | TTC => FalseC
                   | PairC (c1, c2) =>
                     (case t of
-                         Prod (t1, t2) =>
-                         PairC (neg' t1 c1, c2) \/
-                         PairC (c1, neg' t2 c2) \/
-                         PairC (neg' t1 c1, neg' t2 c2)
+                         Mono (Prod (t1, t2)) =>
+                         PairC (neg' (Mono t1) c1, c2) \/
+                         PairC (c1, neg' (Mono t2) c2) \/
+                         PairC (neg' (Mono t1) c1, neg' (Mono t2) c2)
                        | _ => raise impossible)
                   | ConstrC (x, c) =>
 	            (case t of
-	                 AppV ((family, _), ts, _, _) =>
+	                 Mono (AppV ((family, _), ts, _, _)) =>
 	                 let val all = get_family_members cctx family
 		             val others = diff op= all [x]
                              val (_, (_, _, ibinds)) = fetch_constr (cctx, (x, dummy))
                              val (_, (t', _)) = unfold_ibinds ibinds
-		             val t' = subst_ts_t ts t'
-                             val covers = ConstrC (x, cover_neg cctx t' c) :: map (fn y => ConstrC (y, TrueC)) others
+		             val t' = subst_ts_mt ts t'
+                             val covers = ConstrC (x, cover_neg cctx (Mono t') c) :: map (fn y => ConstrC (y, TrueC)) others
 	                 in
                              combine_covers covers
 	                 end
@@ -712,17 +729,17 @@ local
             end
 
                 
-        fun find_inhabitant (ctx as (sctx, kctx, cctx)) t cs =
+        fun find_inhabitant (ctx as (sctx, kctx, cctx)) (t : ty) cs =
             let (* use exception to mimic Error monad *)
                 exception Incon of string
-                fun f t cs : inhab =
+                fun f (t : ty) cs : inhab =
                     case cs of
                         [] =>
                         let
                             val () = Debug.println (sprintf "Empty constraints now. Now try to find any inhabitant of type $" [str_t (sctx_names sctx, names kctx) t])
                         in
                             case t of
-                                AppV (tx as (family, _), ts, _, _) =>
+                                Mono (AppV (tx as (family, _), ts, _, _)) =>
                                 (case fetch_kind (kctx, tx) of
                                      ArrowK (true, _, _) =>
 	                             let val all = get_family_members cctx family
@@ -731,8 +748,8 @@ local
                                      end
                                    | _ => TrueH (* an abstract type is treated as an inhabited type *)
                                 )
-                              | Unit _ => TTH
-                              | Prod (t1, t2) => PairH (f t1 [], f t2 [])
+                              | Mono (Unit _) => TTH
+                              | Mono (Prod (t1, t2)) => PairH (f (Mono t1) [], f (Mono t2) [])
                               | _ => TrueH
                         end
                       | c :: cs =>
@@ -745,23 +762,23 @@ local
                               | (AndC (c1, c2), _) => f t (c1 :: c2 :: cs)
                               | (OrC (c1, c2), _) =>
                                 (f t (c1 :: cs) handle Incon _ => f t (c2 :: cs))
-                              | (TTC, Unit _) =>
+                              | (TTC, Mono (Unit _)) =>
                                 (case allSome (fn c => case c of TTC => SOME () | _ => NONE) cs of
                                      OK _ => TTH
                                    | Failed i => f t (to_hd i cs @ [c])
                                 )
-                              | (PairC (c1, c2), Prod (t1, t2)) =>
+                              | (PairC (c1, c2), Mono (Prod (t1, t2))) =>
                                 (case allSome (fn c => case c of PairC p => SOME p | _ => NONE ) cs of
                                      OK cs =>
                                      let val (cs1, cs2) = unzip cs
-                                         val c1 = f t1 (c1 :: cs1)
-                                         val c2 = f t2 (c2 :: cs2)
+                                         val c1 = f (Mono t1) (c1 :: cs1)
+                                         val c2 = f (Mono t2) (c2 :: cs2)
                                      in
                                          PairH (c1, c2)
                                      end
                                    | Failed i => f t (to_hd i cs @ [c])
                                 )
-                              | (ConstrC (x, c'), AppV ((family, _), ts, _, _)) =>
+                              | (ConstrC (x, c'), Mono (AppV ((family, _), ts, _, _))) =>
                                 let fun g c =
                                         case c of
                                             ConstrC (y, c) =>
@@ -775,9 +792,9 @@ local
                                         OK cs' =>
                                         let val (_, (_, _, ibinds)) = fetch_constr (cctx, (x, dummy))
                                             val (_, (t', _)) = unfold_ibinds ibinds
-		                            val t' = subst_ts_t ts t'
+		                            val t' = subst_ts_mt ts t'
                                             val () = Debug.println (sprintf "All are $, now try to satisfy $" [str_v (names cctx) x, (join ", " o map (str_cover (names cctx))) (c' :: cs')])
-                                            val c' = f t' (c' :: cs')
+                                            val c' = f (Mono t') (c' :: cs')
                                             val () = Debug.println (sprintf "Plugging $ into $" [str_inhab (names cctx) c', str_v (names cctx) x])
                                         in
                                             ConstrH (x, c')
@@ -812,7 +829,7 @@ local
 	    else raise Error (r, sprintf "Redundant rule: $" [str_cover (names cctx) this] :: indent [sprintf "Has already been covered by previous rules: $" [(join ", " o map (str_cover (names cctx))) prevs]])
         end
             
-    fun check_exhaustive (ctx as (_, _, cctx), t, covers, r) =
+    fun check_exhaustive (ctx as (_, _, cctx), t : ty, covers, r) =
         let val cover = combine_covers covers
             val () = Debug.println (str_cover (names cctx) cover)
         in
@@ -825,25 +842,25 @@ local
     end
 
     (* t is already checked for wellformedness *)
-    fun match_ptrn (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext), pn : ptrn, t) : cover * context =
+    fun match_ptrn (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext), pn : ptrn, t : ty) : cover * context =
         let val skctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
             fun match_error () = raise Error (get_region_pn pn, [sprintf "Pattern $ doesn't match type $" [str_pn (names cctx) pn, str_t skctxn t]])
         in
 	    case pn of
 	        ConstrP ((cx, cr), inames, pn, r) =>
                 (case t of
-                     AppV ((family, _), ts, is, _) =>
+                     Mono (AppV ((family, _), ts, is, _)) =>
  	             let val (_, c as (family', tnames, ibinds)) = fetch_constr (cctx, (cx, cr))
                          val (name_sorts, (t1, is')) = unfold_ibinds ibinds
                      in
 		         if family' = family andalso length tnames = length ts andalso length is' = length is then
                              if length inames = length name_sorts then
-		                 let val t1 = subst_ts_t ts t1
+		                 let val t1 = subst_ts_mt ts t1
 			             val is = map (shiftx_i_i 0 (length name_sorts)) is
 			             val ps = map (fn (a, b) => BinPred (EqP, a, b)) (ListPair.zip (is', is))
                                      val ctxd = ((rev (ListPair.zip (inames, snd (ListPair.unzip name_sorts))), ps), [], [], [])
                                      val ctx = add_ctx_skc ctxd ctx
-                                     val (cover, ctxd') = match_ptrn (ctx, default (TTP dummy) pn, t1)
+                                     val (cover, ctxd') = match_ptrn (ctx, default (TTP dummy) pn, Mono t1)
                                      val ctxd = add_ctx ctxd' ctxd
                                      val cover = ConstrC (cx, cover)
 		                 in
@@ -862,11 +879,11 @@ local
                 (TrueC, (([], []), [], [], [(name, t)]))
               | PairP (pn1, pn2) =>
                 (case t of
-                     Prod (t1, t2) =>                          
+                     Mono (Prod (t1, t2)) =>                          
                      let
-                         val (cover1, ctxd) = match_ptrn (ctx, pn1, t1)
+                         val (cover1, ctxd) = match_ptrn (ctx, pn1, Mono t1)
                          val ctx = add_ctx_skc ctxd ctx
-                         val (cover2, ctxd') = match_ptrn (ctx, pn2, shift_ctx_t ctxd t2)
+                         val (cover2, ctxd') = match_ptrn (ctx, pn2, Mono (shift_ctx_mt ctxd t2))
                          val ctxd = add_ctx ctxd' ctxd
                      in
                          (PairC (cover1, cover2), ctxd)
@@ -874,7 +891,7 @@ local
                    | _ => match_error ())
               | TTP _ =>
                 (case t of
-                     Unit _ =>
+                     Mono (Unit _) =>
                      (TTC, (([], []), [], [], []))
                    | _ => match_error ())
               | AliasP ((pname, _), pn, _) =>
@@ -891,6 +908,22 @@ local
     fun escapes nametype name domaintype domain =
         [sprintf "$ $ escapes local scope in $ $" [nametype, name, domaintype, domain]]
 	    
+    fun forget_mt r (skctxn as (sctxn, kctxn)) (sctxl, kctxl) t = 
+        let val t = forget_t_mt 0 kctxl t
+		    handle ForgetError x => raise Error (r, escapes "type variable" (str_v kctxn x) "type" (str_mt skctxn t))
+	    val t = forget_i_mt 0 sctxl t
+		    handle ForgetError x => raise Error (r, escapes "index variable" (str_v sctxn x) "type" (str_mt skctxn t))
+        in
+	    t
+        end
+
+    fun forget_ctx_mt r (sctx, kctx, _, _) (sctxd, kctxd, _, _) t =
+        let val (sctxn, kctxn) = (sctx_names sctx, names kctx)
+            val sctxl = sctx_length sctxd
+        in
+            forget_mt r (sctxn, kctxn) (sctxl, length kctxd) t
+        end
+            
     fun forget_t r (skctxn as (sctxn, kctxn)) (sctxl, kctxl) t = 
         let val t = forget_t_t 0 kctxl t
 		    handle ForgetError x => raise Error (r, escapes "type variable" (str_v kctxn x) "type" (str_t skctxn t))
@@ -900,10 +933,6 @@ local
 	    t
         end
 
-    fun forget_d r sctxn sctxl d =
-        forget_i_i 0 sctxl d
-        handle ForgetError x => raise Error (r, escapes "index variable" (str_v sctxn x) "time" (str_i sctxn d))
-
     fun forget_ctx_t r (sctx, kctx, _, _) (sctxd, kctxd, _, _) t =
         let val (sctxn, kctxn) = (sctx_names sctx, names kctx)
             val sctxl = sctx_length sctxd
@@ -911,6 +940,10 @@ local
             forget_t r (sctxn, kctxn) (sctxl, length kctxd) t
         end
             
+    fun forget_d r sctxn sctxl d =
+        forget_i_i 0 sctxl d
+        handle ForgetError x => raise Error (r, escapes "index variable" (str_v sctxn x) "time" (str_i sctxn d))
+
     fun forget_ctx_d r (sctx, _, _, _) (sctxd, _, _, _) d =
         let val sctxn = sctx_names sctx
             val sctxl = sctx_length sctxd
@@ -937,6 +970,17 @@ local
     	  | Abs _ => ()
     	  | _ => raise Error (get_region_e e, ["The body of fixpoint must have the form ({_ : _} ... {_ : _} (_ : _) => _)"])
 
+    fun is_wf_return (skctx as (sctx, _), return) =
+      case return of
+          (SOME t, SOME d) =>
+	  (is_wf_mty (skctx, t);
+	   check_sort (sctx, d, STime))
+        | (SOME t, NONE) =>
+	  is_wf_mty (skctx, t)
+        | (NONE, SOME d) =>
+	  check_sort (sctx, d, STime)
+	| (NONE, NONE) => ()
+
     fun get_type (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, tctx : tcontext), e : expr) : ty * idx =
         let val skctx = (sctx, kctx) 
 	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
@@ -949,65 +993,65 @@ local
       		         SOME t => (t, T0 dummy)
       		       | NONE => raise Error (r, ["Unbound variable: " ^ str_v tctxn x]))
 		  | App (e1, e2) =>
-		    let val (t1, d1) = get_type (ctx, e1) in
+		    let val (t1, d1) = get_mtype (ctx, e1) in
     		        case t1 of
     			    Arrow (t2, d, t) =>
-    			    let val d2 = check_type (ctx, e2, t2) 
+    			    let val d2 = check_type (ctx, e2, Mono t2) 
                             in
-    			        (t, d1 %+ d2 %+ T1 dummy %+ d) 
+    			        (Mono t, d1 %+ d2 %+ T1 dummy %+ d) 
 			    end
-    			  | t1' =>  raise Error (mismatch ctxn e1 "(_ -- _ -> _)" t1')
+    			  | t1' =>  raise Error (mismatch ctxn e1 "(_ -- _ -> _)" (Mono t1'))
 		    end
 		  | Abs (t, pn, e) => 
-		    let val () = is_wftype (skctx, t)
+		    let val () = is_wf_mty (skctx, t)
                         val skcctx = (sctx, kctx, cctx) 
-                        val (cover, ctxd) = match_ptrn (skcctx, pn, t)
-	                val () = check_exhaustive (skcctx, t, [cover], get_region_pn pn)
+                        val (cover, ctxd) = match_ptrn (skcctx, pn, Mono t)
+	                val () = check_exhaustive (skcctx, Mono t, [cover], get_region_pn pn)
                         val ctx = add_ctx ctxd ctx
-		        val (t1, d) = get_type (ctx, e)
-		        val t1 = forget_ctx_t (get_region_e e) ctx ctxd t1 
+		        val (t1, d) = get_mtype (ctx, e)
+		        val t1 = forget_ctx_mt (get_region_e e) ctx ctxd t1 
                         val d = forget_ctx_d (get_region_e e) ctx ctxd d
                     in
-		        (Arrow (t, d, t1), T0 dummy)
+		        (Mono (Arrow (t, d, t1)), T0 dummy)
 		    end
-		  | TT _ => (Unit dummy, T0 dummy)
+		  | TT _ => (Mono (Unit dummy), T0 dummy)
 		  | Pair (e1, e2) => 
-		    let val (t1, d1) = get_type (ctx, e1) 
-		        val (t2, d2) = get_type (ctx, e2) in
-		        (Prod (t1, t2), d1 %+ d2)
+		    let val (t1, d1) = get_mtype (ctx, e1) 
+		        val (t2, d2) = get_mtype (ctx, e2) in
+		        (Mono (Prod (t1, t2)), d1 %+ d2)
 		    end
 		  | Fst e => 
-		    let val (t, d) = get_type (ctx, e) in 
+		    let val (t, d) = get_mtype (ctx, e) in 
 		        case t of
-			    Prod (t1, t2) => (t1, d)
-			  | t' => raise Error (mismatch ctxn e "(_ * _)" t')
+			    Prod (t1, t2) => (Mono t1, d)
+			  | t' => raise Error (mismatch ctxn e "(_ * _)" (Mono t'))
 		    end
 		  | Snd e => 
-		    let val (t, d) = get_type (ctx, e) in 
+		    let val (t, d) = get_mtype (ctx, e) in 
 		        case t of
-			    Prod (t1, t2) => (t2, d)
-			  | t' => raise Error (mismatch ctxn e "(_ * _)" t')
+			    Prod (t1, t2) => (Mono t2, d)
+			  | t' => raise Error (mismatch ctxn e "(_ * _)" (Mono t'))
 		    end
 		  | Inl (t2, e) => 
-		    let val (t1, d) = get_type (ctx, e)
-		        val () = is_wftype (skctx, t2) in
-		        (Sum (t1, t2), d)
+		    let val (t1, d) = get_mtype (ctx, e)
+		        val () = is_wf_mty (skctx, t2) in
+		        (Mono (Sum (t1, t2)), d)
 		    end
 		  | Inr (t1, e) => 
-		    let val (t2, d) = get_type (ctx, e)
-		        val () = is_wftype (skctx, t1) in
-		        (Sum (t1, t2), d)
+		    let val (t2, d) = get_mtype (ctx, e)
+		        val () = is_wf_mty (skctx, t1) in
+		        (Mono (Sum (t1, t2)), d)
 		    end
-		  | e_all as SumCase (e, name1, e1, name2, e2) => 
-		    let val (t, d) = get_type (ctx, e) in
+		  | SumCase (e0, name1, e1, name2, e2) => 
+		    let val (t, d) = get_mtype (ctx, e0) in
 		        case t of
 			    Sum (t1, t2) => 
-			    let val (tr1, d1) = get_type (add_typing_skct (name1, t1) ctx, e1)
-			        val (tr2, d2) = get_type (add_typing_skct (name2, t2) ctx, e2)
-			        val tr = join_type (skctx, tr1, tr2, get_region_e e_all) in
-			        (tr, d %+ smart_max d1 d2)
+			    let val (tr1, d1) = get_mtype (add_typing_skct (name1, Mono t1) ctx, e1)
+			        val (tr2, d2) = get_mtype (add_typing_skct (name2, Mono t2) ctx, e2)
+			        val tr = join_type (skctx, tr1, tr2, get_region_e e) in
+			        (Mono tr, d %+ smart_max d1 d2)
 			    end
-			  | t' => raise Error (mismatch ctxn e "(_ + _)" t')
+			  | t' => raise Error (mismatch ctxn e0 "(_ + _)" (Mono t'))
 		    end
 		  | AbsT ((name, _), e) => 
 		    if is_value e orelse is_fixpoint e then
@@ -1020,7 +1064,7 @@ local
 		    let val (t, d) = get_type (ctx, e) in
 		        case t of
 			    Uni (_, t1) => 
-			    let val () = is_wftype (skctx, c) in
+			    let val () = is_wf_mty (skctx, c) in
 			        (subst_t_t c t1, d)
 			    end
 			  | t' => raise Error (mismatch ctxn e "(forall _, _)" t')
@@ -1028,96 +1072,98 @@ local
 		  | AbsI (s, (name, r), e) => 
 		    if is_value e orelse is_fixpoint e then
 		        let val () = is_wfsort (sctx, s)
-			    val (t, _) = get_type ((add_sorting_skct (name, s) ctx), e) in
-			    (UniI (s, BindI ((name, dummy), t)), T0 dummy)
+			    val (t, _) = get_mtype ((add_sorting_skct (name, s) ctx), e) in
+			    (Mono (UniI (s, BindI ((name, dummy), t))), T0 dummy)
 		        end 
 		    else
 		        raise Error (get_region_e e, ["The body of a universal abstraction must be a value"])
 		  | AppI (e, i) =>
-		    let val (t, d) = get_type (ctx, e) in
+		    let val (t, d) = get_mtype (ctx, e) in
 		        case t of
 			    UniI (s, BindI(_, t1)) => 
 			    let val () = check_sort (sctx, i, s) in
-			        (subst_i_t i t1, d)
+			        (Mono (subst_i_mt i t1), d)
 			    end
-			  | t' => raise Error (mismatch ctxn e "(forall {_ : _}, _)" t')
+			  | t' => raise Error (mismatch ctxn e "(forall {_ : _}, _)" (Mono t'))
 		    end
 		  | Fold (t, e) => 
 		    (case t of
 		         AppRecur t1 =>
-		         let val () = is_wftype (skctx, t)
-			     val d = check_type (ctx, e, unroll t1)
+		         let val () = is_wf_mty (skctx, t)
+			     val d = check_type (ctx, e, Mono (unroll t1))
                          in
-			     (t, d)
+			     (Mono t, d)
 		         end
-		       | t' => raise Error (mismatch_anno skctxn "((recur (_ :: _) (_ : _), _) _)" t'))
+		       | t' => raise Error (mismatch_anno skctxn "((recur (_ :: _) (_ : _), _) _)" (Mono t')))
 		  | Unfold e =>
-		    let val (t, d) = get_type (ctx, e) in
+		    let val (t, d) = get_mtype (ctx, e) in
 		        case t of
 	      		    AppRecur t1 =>
-			    (unroll t1, d)
-			  | t' => raise Error (mismatch ctxn e "((recur (_ :: _) (_ : _), _) _)" t')
+			    (Mono (unroll t1), d)
+			  | t' => raise Error (mismatch ctxn e "((recur (_ :: _) (_ : _), _) _)" (Mono t'))
 		    end
 		  | Pack (t, i, e) =>
 		    (case t of
 		         ExI (s, BindI (_, t1)) =>
-		         let val () = is_wftype (skctx, t)
+		         let val () = is_wf_mty (skctx, t)
 			     val () = check_sort (sctx, i, s)
-			     val d = check_type (ctx, e, (subst_i_t i t1))
+			     val d = check_type (ctx, e, Mono (subst_i_mt i t1))
                          in
-			     (t, d)
+			     (Mono t, d)
 		         end
-		       | t' => raise Error (mismatch_anno skctxn "(ex _ : _, _)" t'))
+		       | t' => raise Error (mismatch_anno skctxn "(ex _ : _, _)" (Mono t')))
 		  | Unpack (e1, return, idx_var, expr_var, e2) =>
-                    let val (t1, d1) = get_type (ctx, e1)
+                    let val (t1, d1) = get_mtype (ctx, e1)
                         val (t, d) =
                             case t1 of
 			        ExI (s, BindI (_, t1')) =>
                                 let val ctx' = add_sorting_skct (idx_var, s) ctx
-		                    val ctx' = add_typing_skct (expr_var, t1') ctx'
+		                    val ctx' = add_typing_skct (expr_var, Mono t1') ctx'
                                     val sctxn' = idx_var :: sctxn
                                     val skctxn' = (sctxn', kctxn)
+                                    val () = is_wf_return (skctx, return)
+                                    val (t, d) =
+                                        case return of
+                                            (SOME t, SOME d) =>
+		                            let
+                                                val () = check_type_time (ctx', e2, Mono (shift_i_mt t), shift_i_i d)
+			                    in
+				                (t, d)
+			                    end
+                                          | (SOME t, NONE) =>
+		                            let 
+				                val d = check_type (ctx', e2, Mono (shift_i_mt t))
+                                                val d = forget_d (get_region_e e2) sctxn' 1 d
+			                    in
+				                (t, d)
+			                    end
+                                          | (NONE, SOME d) =>
+		                            let 
+				                val t = check_time_return_mty (ctx', e2, shift_i_i d)
+                                                val t = forget_mt (get_region_e e2) skctxn' (1, 0) t
+			                    in
+				                (t, d)
+			                    end
+		                          | (NONE, NONE) =>
+		                            let val (t, d) = get_mtype (ctx', e2)
+                                                val t = forget_mt (get_region_e e2) skctxn' (1, 0) t
+                                                val d = forget_d (get_region_e e2) sctxn' 1 d
+			                    in
+				                (t, d)
+			                    end
                                 in
-                                    case return of
-                                        (SOME t, SOME d) =>
-		                        let val () = is_wftype (skctx, t)
-			                    val () = check_sort (sctx, d, STime)
-				            val () = check_type_time (ctx', e2, shift_i_t t, shift_i_i d)
-			                in
-				            (t, d)
-			                end
-                                      | (SOME t, NONE) =>
-		                        let val () = is_wftype (skctx, t)
-				            val d = check_type (ctx', e2, shift_i_t t)
-                                            val d = forget_d (get_region_e e2) sctxn' 1 d
-			                in
-				            (t, d)
-			                end
-                                      | (NONE, SOME d) =>
-		                        let val () = check_sort (sctx, d, STime)
-				            val t = check_time (ctx', e2, shift_i_i d)
-                                            val t = forget_t (get_region_e e2) skctxn' (1, 0) t
-			                in
-				            (t, d)
-			                end
-		                      | (NONE, NONE) =>
-		                        let val (t, d) = get_type (ctx', e2)
-                                            val t = forget_t (get_region_e e2) skctxn' (1, 0) t
-                                            val d = forget_d (get_region_e e2) sctxn' 1 d
-			                in
-				            (t, d)
-			                end
+                                    (Mono t, d)
                                 end
-		              | t1' => raise Error (mismatch ctxn e1 "(ex _ : _, _)" t1')
+		              | t1' => raise Error (mismatch ctxn e1 "(ex _ : _, _)" (Mono t1'))
                     in
 		        (t, d1 %+ d)
                     end
 		  | Fix (t, (name, r), e) => 
 		    let val () = check_fix_body e
-		        val () = is_wftype (skctx, t)
-		        val _ = check_type (add_typing_skct (name, t) ctx, e, t)
+		        val () = is_wf_mty (skctx, t)
+		        val _ = check_type (add_typing_skct (name, Mono t) ctx, e, Mono t)
                     in
-		        (t, T0 dummy)
+		        (Mono t, T0 dummy)
 		    end
 		  | Ascription (e, t) => 
 		    let val () = is_wftype (skctx, t)
@@ -1132,12 +1178,12 @@ local
 		        (t, d)
 		    end
 		  | BinOp (Add, e1, e2) =>
-		    let val d1 = check_type (ctx, e1, Int dummy)
-		        val d2 = check_type (ctx, e2, Int dummy) in
-		        (Int dummy, d1 %+ d2 %+ T1 dummy)
+		    let val d1 = check_type (ctx, e1, Mono (Int dummy))
+		        val d2 = check_type (ctx, e2, Mono (Int dummy)) in
+		        (Mono (Int dummy), d1 %+ d2 %+ T1 dummy)
 		    end
 		  | Const _ => 
-		    (Int dummy, T0 dummy)
+		    (Mono (Int dummy), T0 dummy)
 		  | AppConstr (cx as (_, rc), ts, is, e) => 
 		    let val (cname, tc) = fetch_constr_type (cctx, cx)
 		        val () = is_wftype (skctx, tc)
@@ -1153,24 +1199,24 @@ local
 		        (t, d)
 		    end
 		  | Case (e, return, rules, r) => 
-		    let val (t1, d1) = get_type (ctx, e)
+		    let val (t1, d1) = get_mtype (ctx, e)
+                        val () = is_wf_return (skctx, return)
                         val (t, d) =
                             case return of
                                 (SOME t, SOME d) =>
-                                let val () = is_wftype (skctx, t)
-		                    val () = check_sort (sctx, d, STime)
+                                let 
                                     val _ = check_rules (ctx, rules, (t1, return), r)
 		                in
 		                    (t, d)
 		                end
                               | (SOME t, NONE) =>
-                                let val () = is_wftype (skctx, t)
+                                let 
                                     val tds = check_rules (ctx, rules, (t1, return), r)
                                 in
                                     (t, (foldl' (fn (d, ds) => smart_max ds d) (T0 dummy) o map snd) tds)
                                 end
                               | (NONE, SOME d) =>
-                                let val () = check_sort (sctx, d, STime)
+                                let 
                                     val tds = check_rules (ctx, rules, (t1, return), r)
                                 in
                                     case map fst tds of
@@ -1187,7 +1233,7 @@ local
                                         foldl (fn ((t, d), (ts, ds)) => (join_type (skctx, ts, t, r), smart_max ds d)) td tds
                                 end
                     in
-		        (t, d1 %+ d)
+		        (Mono t, d1 %+ d)
                     end
 		  | Never t => 
 		    (is_wftype (skctx, t);
@@ -1208,6 +1254,16 @@ local
 	    (t, d)
         end
 
+    and get_mtype (ctx, e) =
+        let 
+	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
+            val (t, d) = get_type (ctx, e)
+        in
+            case t of
+                Mono t => (t, d)
+              | t => raise Error (mismatch ctxn e "monotype" t)
+        end
+            
     and check_type (ctx as (sctx, kctx, cctx, tctx), e, t) =
 	let 
 	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
@@ -1224,12 +1280,20 @@ local
             d'
 	end
 
-    and check_time (ctx as (sctx, kctx, cctx, tctx), e, d) =
+    and check_time (ctx as (sctx, kctx, cctx, tctx), e, d) : ty =
 	let 
 	    val (t', d') = get_type (ctx, e)
             val () = is_le (sctx, d', d, get_region_e e)
             (* val () = println "check time" *)
             (* val () = println $ str_region "" "ilist.timl" $ get_region_e e *)
+	in
+            t'
+	end
+
+    and check_time_return_mty (ctx as (sctx, kctx, cctx, tctx), e, d) : mty =
+	let 
+	    val (t', d') = get_mtype (ctx, e)
+            val () = is_le (sctx, d', d, get_region_e e)
 	in
             t'
 	end
@@ -1294,39 +1358,39 @@ local
 	let val skcctx = (sctx, kctx, cctx) 
 	    fun f (rule, acc) =
 	        let val ans as (td, cover) = check_rule (ctx, rule, t)
-		    val () = check_redundancy (skcctx, t1, (rev o map snd) acc, cover, get_region_rule rule)
+		    val () = check_redundancy (skcctx, Mono t1, (rev o map snd) acc, cover, get_region_rule rule)
 	        in
 		    (ans :: acc)
 	        end 
 	    val ans as (tds, covers) = (unzip o rev o foldl f []) rules
 	in
-	    check_exhaustive (skcctx, t1, covers, r);
+	    check_exhaustive (skcctx, Mono t1, covers, r);
             tds
 	end
 
     and check_rule (ctx as (sctx, kctx, cctx, tctx), (pn, e), t as (t1, return)) =
 	let val skcctx = (sctx, kctx, cctx) 
-	    val (cover, ctxd as (sctxd, kctxd, _, _)) = match_ptrn (skcctx, pn, t1)
+	    val (cover, ctxd as (sctxd, kctxd, _, _)) = match_ptrn (skcctx, pn, Mono t1)
 	    val ctx = add_ctx ctxd ctx
             val td = case return of
                          (SOME t, SOME d) =>
-	                 (check_type_time (ctx, e, shift_ctx_t ctxd t, shift_ctx_i ctxd d);
+	                 (check_type_time (ctx, e, Mono (shift_ctx_mt ctxd t), shift_ctx_i ctxd d);
                           (t, d))
                        | (SOME t, NONE) =>
-                         let val d = check_type (ctx, e, shift_ctx_t ctxd t)
+                         let val d = check_type (ctx, e, Mono (shift_ctx_mt ctxd t))
 			     val d = forget_ctx_d (get_region_e e) ctx ctxd d
                          in
                              (t, d)
                          end
                        | (NONE, SOME d) =>
-                         let val t = check_time (ctx, e, shift_ctx_i ctxd d)
-			     val t = forget_ctx_t (get_region_e e) ctx ctxd t 
+                         let val t = check_time_return_mty (ctx, e, shift_ctx_i ctxd d)
+			     val t = forget_ctx_mt (get_region_e e) ctx ctxd t 
                          in
                              (t, d)
                          end
                        | (NONE, NONE) =>
-                         let val (t, d) = get_type (ctx, e)
-			     val t = forget_ctx_t (get_region_e e) ctx ctxd t 
+                         let val (t, d) = get_mtype (ctx, e)
+			     val t = forget_ctx_mt (get_region_e e) ctx ctxd t 
 			     val d = forget_ctx_d (get_region_e e) ctx ctxd d
                          in
                              (t, d)

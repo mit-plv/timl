@@ -28,18 +28,22 @@ fun get_region_s s =
         Basic (_, r) => r
       | Subset (_, bind) => get_region_ibind get_region_p bind
 
-fun get_region_t t = 
+fun get_region_mt t = 
     case t of
-        Arrow (t1, d, t2) => combine_region (get_region_t t1) (get_region_t t2)
-      | Prod (t1, t2) => combine_region (get_region_t t1) (get_region_t t2)
-      | Sum (t1, t2) => combine_region (get_region_t t1) (get_region_t t2)
+        Arrow (t1, d, t2) => combine_region (get_region_mt t1) (get_region_mt t2)
+      | Prod (t1, t2) => combine_region (get_region_mt t1) (get_region_mt t2)
+      | Sum (t1, t2) => combine_region (get_region_mt t1) (get_region_mt t2)
       | Unit r => r
-      | Uni ((_, r), t) => combine_region r (get_region_t t)
-      | UniI (_, bind) => get_region_ibind get_region_t bind
-      | ExI (_, bind) => get_region_ibind get_region_t bind
+      | UniI (_, bind) => get_region_ibind get_region_mt bind
+      | ExI (_, bind) => get_region_ibind get_region_mt bind
       | AppRecur (_, _, t, _, r) => r
       | AppV (_, _, _, r) => r
       | Int r => r
+
+fun get_region_t t = 
+    case t of
+        Mono t => get_region_mt t
+      | Uni ((_, r), t) => combine_region r (get_region_t t)
 
 fun get_region_pn pn = 
     case pn of
@@ -58,16 +62,16 @@ fun get_region_e e =
       | Pair (e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
       | Fst e => get_region_e e
       | Snd e => get_region_e e
-      | Inl (t, e) => combine_region (get_region_t t) (get_region_e e)
-      | Inr (t, e) => combine_region (get_region_t t) (get_region_e e)
+      | Inl (t, e) => combine_region (get_region_mt t) (get_region_e e)
+      | Inr (t, e) => combine_region (get_region_mt t) (get_region_e e)
       | SumCase (e, _, _, _, e2) => combine_region (get_region_e e) (get_region_e e2)
       | AbsT ((_, r), e) => combine_region r (get_region_e e)
-      | AppT (e, t) => combine_region (get_region_e e) (get_region_t t)
+      | AppT (e, t) => combine_region (get_region_e e) (get_region_mt t)
       | AbsI (_, (_, r), e) => combine_region r (get_region_e e)
       | AppI (e, i) => combine_region (get_region_e e) (get_region_i i)
-      | Pack (t, _, e) => combine_region (get_region_t t) (get_region_e e)
+      | Pack (t, _, e) => combine_region (get_region_mt t) (get_region_e e)
       | Unpack (e1, _, _, _, e2) => combine_region (get_region_e e1) (get_region_e e2)
-      | Fold (t, e) => combine_region (get_region_t t) (get_region_e e)
+      | Fold (t, e) => combine_region (get_region_mt t) (get_region_e e)
       | Unfold e => get_region_e e
       | BinOp (_, e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
       | Const (_, r) => r

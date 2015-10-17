@@ -50,7 +50,7 @@ fun on_i_s on_i_p x n b =
       f x n b
   end
 
-fun on_i_t on_i_i on_i_s x n b =
+fun on_i_mt on_i_i on_i_s x n b =
   let
       fun f x n b =
 	case b of
@@ -58,7 +58,6 @@ fun on_i_t on_i_i on_i_s x n b =
 	  | Unit r => Unit r
 	  | Prod (t1, t2) => Prod (f x n t1, f x n t2)
 	  | Sum (t1, t2) => Sum (f x n t1, f x n t2)
-	  | Uni (name, t) => Uni (name, f x n t)
 	  | UniI (s, bind) => UniI (on_i_s x n s, on_i_ibind f x n bind)
 	  | ExI (s, bind) => ExI (on_i_s x n s, on_i_ibind f x n bind)
 	  | AppRecur (name, ns, t, i, r) => AppRecur (name, map (mapSnd (on_i_s x n)) ns, f (x + length ns) n t, map (on_i_i x n) i, r)
@@ -68,11 +67,21 @@ fun on_i_t on_i_i on_i_s x n b =
       f x n b
   end
 
+fun on_i_t on_i_mt x n b =
+  let
+      fun f x n b =
+	case b of
+	    Mono t => Mono (on_i_mt x n t)
+	  | Uni (name, t) => Uni (name, f x n t)
+  in
+      f x n b
+  end
+
 fun on_t_ibind f x n bind =
     case bind of
         BindI (name, inner) => BindI (name, f x n inner)
 
-fun on_t_t on_v x n b =
+fun on_t_mt on_v x n b =
   let
       fun f x n b =
 	case b of
@@ -80,13 +89,22 @@ fun on_t_t on_v x n b =
 	  | Unit r => Unit r
 	  | Prod (t1, t2) => Prod (f x n t1, f x n t2)
 	  | Sum (t1, t2) => Sum (f x n t1, f x n t2)
-	  | Uni (name, t) => Uni (name, f (x + 1) n t)
 	  | UniI (s, bind) => UniI (s, on_t_ibind f x n bind)
 	  | ExI (s, bind) => ExI (s, on_t_ibind f x n bind)
 	  | AppRecur (name, ns, t, i, r) => AppRecur (name, ns, f (x + 1) n t, i, r)
 	  | AppV ((y, r1), ts, is, r) => AppV ((on_v x n y, r1), map (f x n) ts, is, r)
 	  | Int r => Int r
 
+  in
+      f x n b
+  end
+
+fun on_t_t on_t_mt x n b =
+  let
+      fun f x n b =
+	case b of
+	    Mono t => Mono (on_t_mt x n t)
+	  | Uni (name, t) => Uni (name, f (x + 1) n t)
   in
       f x n b
   end
@@ -108,10 +126,16 @@ fun shift_i_p b = shiftx_i_p 0 1 b
 fun shiftx_i_s x n b = on_i_s shiftx_i_p x n b
 fun shift_i_s b = shiftx_i_s 0 1 b
 
-fun shiftx_i_t x n b = on_i_t shiftx_i_i shiftx_i_s x n b
+fun shiftx_i_mt x n b = on_i_mt shiftx_i_i shiftx_i_s x n b
+fun shift_i_mt b = shiftx_i_mt 0 1 b
+
+fun shiftx_i_t x n b = on_i_t shiftx_i_mt x n b
 fun shift_i_t b = shiftx_i_t 0 1 b
 
-fun shiftx_t_t x n b = on_t_t shiftx_v x n b
+fun shiftx_t_mt x n b = on_t_mt shiftx_v x n b
+fun shift_t_mt b = shiftx_t_mt 0 1 b
+
+fun shiftx_t_t x n b = on_t_t shiftx_t_mt x n b
 fun shift_t_t b = shiftx_t_t 0 1 b
 
 local
@@ -190,8 +214,10 @@ fun forget_v x n y =
 fun forget_i_i x n b = on_i_i forget_v x n b
 fun forget_i_p x n b = on_i_p forget_i_i x n b
 fun forget_i_s x n b = on_i_s forget_i_p x n b
-fun forget_i_t x n b = on_i_t forget_i_i forget_i_s x n b
-fun forget_t_t x n b = on_t_t forget_v x n b
+fun forget_i_mt x n b = on_i_mt forget_i_i forget_i_s x n b
+fun forget_i_t x n b = on_i_t forget_i_mt x n b
+fun forget_t_mt x n b = on_t_mt forget_v x n b
+fun forget_t_t x n b = on_t_t forget_t_mt x n b
 
 (* subst *)
 
@@ -270,7 +296,6 @@ local
 	  | Unit r => Unit r
 	  | Prod (t1, t2) => Prod (f x v t1, f x v t2)
 	  | Sum (t1, t2) => Sum (f x v t1, f x v t2)
-	  | Uni (name, t) => Uni (name, f x v t)
 	  | UniI (s, bind) => UniI (substx_i_s x v s, substx_i_ibind f x idx_shiftable v bind)
 	  | ExI (s, bind) => ExI (substx_i_s x v s, substx_i_ibind f x idx_shiftable v bind)
 	  | AppRecur (name, ns, t, i, r) =>
@@ -280,6 +305,16 @@ local
 	  | AppV (y, ts, is, r) => AppV (y, map (f x v) ts, map (substx_i_i x v) is, r)
 	  | Int r => Int r
 in
+fun substx_i_mt x (v : idx) (b : mty) : mty = f x v b
+fun subst_i_mt (v : idx) (b : mty) : mty = substx_i_mt 0 v b
+end
+
+local
+    fun f x v b =
+	case b of
+	    Mono t => Mono (substx_i_mt x v t)
+	  | Uni (name, t) => Uni (name, f x v t)
+in
 fun substx_i_t x (v : idx) (b : ty) : ty = f x v b
 fun subst_i_t (v : idx) (b : ty) : ty = substx_i_t 0 v b
 end
@@ -287,30 +322,30 @@ end
 local
     (* the substitute can be a type or a recursive type definition *)
     datatype value = 
-	     Type of ty
-	     | Recur of string * (string * sort) list * ty
+	     Type of mty
+	     | Recur of string * (string * sort) list * mty
 
     fun shift_i n v =
 	case v of
-	    Type t => Type (shiftx_i_t 0 n t)
-	  | Recur (name, ns, t) => Recur (name, map (mapSnd (shiftx_i_s 0 n)) ns, shiftx_i_t (length ns) n t)
+	    Type t => Type (shiftx_i_mt 0 n t)
+	  | Recur (name, ns, t) => Recur (name, map (mapSnd (shiftx_i_s 0 n)) ns, shiftx_i_mt (length ns) n t)
+
     fun shift_t n v =
 	case v of
-	    Type t => Type (shiftx_t_t 0 n t)
-	  | Recur (name, ns, t) => Recur (name, ns, shiftx_t_t 1 n t)
+	    Type t => Type (shiftx_t_mt 0 n t)
+	  | Recur (name, ns, t) => Recur (name, ns, shiftx_t_mt 1 n t)
 
     val value_shiftable : value shiftable = {
         shift_i = shift_i,
         shift_t = shift_t
     }
 
-    fun f x v (b : ty) : ty =
+    fun f x v (b : mty) : mty =
 	case b of
 	    Arrow (t1, d, t2) => Arrow (f x v t1, d, f x v t2)
 	  | Unit r => Unit r
 	  | Prod (t1, t2) => Prod (f x v t1, f x v t2)
 	  | Sum (t1, t2) => Sum (f x v t1, f x v t2)
-	  | Uni (name, t) => Uni (name, f (x + 1) (shift_t 1 v) t)
 	  | UniI (s, bind) => UniI (s, substx_t_ibind f x value_shiftable v bind)
 	  | ExI (s, bind) => ExI (s, substx_t_ibind f x value_shiftable v bind)
 	  | AppRecur (name, ns, t, i, r) => AppRecur (name, ns, f (x + 1) (shift_i (length ns) (shift_t 1 v)) t, i, r)
@@ -335,15 +370,22 @@ local
 
 in
 
-fun substx_t_t x (v : ty) (b : ty) : ty = f x (Type v) b
-fun subst_t_t (v : ty) (b : ty) : ty = substx_t_t 0 v b
-fun subst_is_t is t = 
-    #1 (foldl (fn (i, (t, x)) => (substx_i_t x (shiftx_i_i 0 x i) t, x - 1)) (t, length is - 1) is)
-fun subst_ts_t vs b = 
-    #1 (foldl (fn (v, (b, x)) => (substx_t_t x (shiftx_t_t 0 x v) b, x - 1)) (b, length vs - 1) vs)
+fun substx_t_mt x (v : mty) (b : mty) : mty = f x (Type v) b
+fun subst_t_mt (v : mty) (b : mty) : mty = substx_t_mt 0 v b
+fun subst_is_mt is t = 
+    #1 (foldl (fn (i, (t, x)) => (substx_i_mt x (shiftx_i_i 0 x i) t, x - 1)) (t, length is - 1) is)
+fun subst_ts_mt vs b = 
+    #1 (foldl (fn (v, (b, x)) => (substx_t_mt x (shiftx_t_mt 0 x v) b, x - 1)) (b, length vs - 1) vs)
 fun unroll (name, ns, t, i, _) =
-    subst_is_t i (f 0 (shift_i (length ns) (Recur (name, ns, t))) t)
+    subst_is_mt i (f 0 (shift_i (length ns) (Recur (name, ns, t))) t)
 end
+
+fun substx_t_t x (v : mty) (b : ty) : ty =
+  case b of
+      Mono t => Mono (substx_t_mt x v t)
+    | Uni (name, t) => Uni (name, substx_t_t (x + 1) (shift_t_mt v) t)
+fun subst_t_t v b =
+  substx_t_t 0 v b
 
 fun on_i_ibinds on_anno on_inner x n ibinds =
     case ibinds of
@@ -365,7 +407,7 @@ fun shiftx_list f x n ls = map (f x n) ls
 fun shiftx_i_c x n ((family, tnames, ibinds) : constr) : constr =
     (family,
      tnames, 
-     on_i_ibinds shiftx_i_s (shiftx_pair (shiftx_i_t, shiftx_list shiftx_i_i)) x n ibinds)
+     on_i_ibinds shiftx_i_s (shiftx_pair (shiftx_i_mt, shiftx_list shiftx_i_i)) x n ibinds)
 
 fun shift_i_c b = shiftx_i_c 0 1 b
 
@@ -374,7 +416,7 @@ fun shiftx_id x n b = b
 fun shiftx_t_c x n ((family, tnames, ibinds) : constr) : constr =
     (shiftx_v x n family, 
      tnames, 
-     on_t_ibinds shiftx_id (shiftx_pair (shiftx_t_t, shiftx_id)) (x + length tnames) n ibinds)
+     on_t_ibinds shiftx_id (shiftx_pair (shiftx_t_mt, shiftx_id)) (x + length tnames) n ibinds)
 fun shift_t_c b = shiftx_t_c 0 1 b
 
 local
