@@ -255,6 +255,7 @@ datatype ptrn =
          | PairP of ptrn * ptrn
          | TTP of other
          | AliasP of name * ptrn * other
+         | AnnoP of ptrn * ty
 
 datatype expr =
 	 Var of var * other

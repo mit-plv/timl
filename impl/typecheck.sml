@@ -842,7 +842,7 @@ local
     end
 
     (* t is already checked for wellformedness *)
-    fun match_ptrn (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext), pn : ptrn, t : ty) : cover * context =
+    fun match_ptrn (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext), pn : ptrn, t : mty) : cover * context =
         let val skctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
             fun match_error () = raise Error (get_region_pn pn, [sprintf "Pattern $ doesn't match type $" [str_pn (names cctx) pn, str_t skctxn t]])
         in
@@ -981,99 +981,144 @@ local
 	  check_sort (sctx, d, STime)
 	| (NONE, NONE) => ()
 
-    fun get_type (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, tctx : tcontext), e : expr) : ty * idx =
+    fun fetch_var (tctx, (x, r)) =
+	case lookup x tctx of
+      	    SOME t => t
+      	  | NONE => raise Error (r, ["Unbound variable: " ^ str_v (names tctx) x])
+
+    fun insert t =
+        case t of
+            Base t => t
+          | Uni (_, t) => insert (subst_t_t (fresh_t ()) t)
+
+    fun get_mtype (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, tctx : tcontext), e : expr) : ty * idx =
         let val skctx = (sctx, kctx) 
 	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
 	    val skctxn = (sctxn, kctxn)
 	    (* val () = print (sprintf "Typing $\n" [str_e ctxn e]) *)
 	    val (t, d) =
 	        case e of
-		    Var (x, r) =>
-		    (case lookup x tctx of
-      		         SOME t => (t, T0 dummy)
-      		       | NONE => raise Error (r, ["Unbound variable: " ^ str_v tctxn x]))
+		    Var x =>
+                    (empty_assign, insert (fetch_var (tctx, x)), T0 dummy)
 		  | App (e1, e2) =>
-		    let val (t1, d1) = get_mtype (ctx, e1) in
-    		        case t1 of
-    			    Arrow (t2, d, t) =>
-    			    let val d2 = check_type (ctx, e2, Mono t2) 
-                            in
-    			        (Mono t, d1 %+ d2 %+ T1 dummy %+ d) 
-			    end
-    			  | t1' =>  raise Error (mismatch ctxn e1 "(_ -- _ -> _)" (Mono t1'))
+		    let 
+                        val (assign', t1, d1) = get_mtype (ctx, e1) 
+                        val ctx = assign_ctx assign' ctx
+                        val assign = assign'
+                        val (assign', t2, d2) = get_mtype (ctx, e2) 
+                        val t1 = assign_mt assign' t1
+                        val assign = assign_assign assign' assign
+                        val d = fresh_i ()
+                        val t = fresh_t ()
+                        val assign' = unify (t1, Arrow (t2, d, t))
+                        val t = assign_mt assign' t
+                        val assign = assign_assign assign' assign
+                    in
+                        (assign, t, d1 %+ d2 %+ T1 dummy %+ d) 
 		    end
-		  | Abs (t, pn, e) => 
-		    let val () = is_wf_mty (skctx, t)
+		  | Abs (pn, e) => 
+		    let val t = fresh_t ()
                         val skcctx = (sctx, kctx, cctx) 
-                        val (cover, ctxd) = match_ptrn (skcctx, pn, Mono t)
+                        val (assign', cover, ctxd) = match_ptrn (skcctx, pn, Mono t)
+                        val t = assign_mt assign' t
+                        val assign = assign'
 	                val () = check_exhaustive (skcctx, Mono t, [cover], get_region_pn pn)
+                        val ctx = assign_ctx assign ctx
                         val ctx = add_ctx ctxd ctx
-		        val (t1, d) = get_mtype (ctx, e)
+		        val (assign', t1, d) = get_mtype (ctx, e)
+                        val t = assign_mt assign' t
+                        val assign = assign_assign assign' assign
 		        val t1 = forget_ctx_mt (get_region_e e) ctx ctxd t1 
                         val d = forget_ctx_d (get_region_e e) ctx ctxd d
                     in
-		        (Mono (Arrow (t, d, t1)), T0 dummy)
+		        (assign, Arrow (t, d, t1), T0 dummy)
 		    end
-		  | TT _ => (Mono (Unit dummy), T0 dummy)
+		  | TT _ => 
+                    (empty_assign, Unit dummy, T0 dummy)
 		  | Pair (e1, e2) => 
-		    let val (t1, d1) = get_mtype (ctx, e1) 
-		        val (t2, d2) = get_mtype (ctx, e2) in
-		        (Mono (Prod (t1, t2)), d1 %+ d2)
+		    let 
+                        val (assign', t1, d1) = get_mtype (ctx, e1) 
+                        val ctx = assign_ctx assign' ctx
+                        val assign = assign'
+		        val (t2, d2) = get_mtype (ctx, e2) 
+                        val t1 = assign_mt assign' t1
+                        val assign = assign_assign assign' assign
+                    in
+		        (assign, Prod (t1, t2), d1 %+ d2)
 		    end
 		  | Fst e => 
-		    let val (t, d) = get_mtype (ctx, e) in 
-		        case t of
-			    Prod (t1, t2) => (Mono t1, d)
-			  | t' => raise Error (mismatch ctxn e "(_ * _)" (Mono t'))
+		    let 
+                        val (assign', t, d) = get_mtype (ctx, e) 
+                        val ctx = assign_ctx assign' ctx
+                        val assign = assign'
+                        val t1 = fresh_t ()
+                        val t2 = fresh_t ()
+                        val assign' = unify (t1, Prod (t1, t2))
+                        val t1 = assign_mt assign' t1
+                        val assign = assign_assign assign' assign
+                    in 
+                        (assign, t1, d)
 		    end
 		  | Snd e => 
-		    let val (t, d) = get_mtype (ctx, e) in 
-		        case t of
-			    Prod (t1, t2) => (Mono t2, d)
-			  | t' => raise Error (mismatch ctxn e "(_ * _)" (Mono t'))
+		    let 
+                        val (assign', t, d) = get_mtype (ctx, e) 
+                        val ctx = assign_ctx assign' ctx
+                        val assign = assign'
+                        val t1 = fresh_t ()
+                        val t2 = fresh_t ()
+                        val assign' = unify (t1, Prod (t1, t2))
+                        val t2 = assign_mt assign' t2
+                        val assign = assign_assign assign' assign
+                    in 
+                        (assign, t2, d)
 		    end
 		  | Inl (t2, e) => 
-		    let val (t1, d) = get_mtype (ctx, e)
-		        val () = is_wf_mty (skctx, t2) in
-		        (Mono (Sum (t1, t2)), d)
+		    let 
+		        val () = is_wf_mty (skctx, t2) 
+                        val (assign, t1, d) = get_mtype (ctx, e)
+                    in
+		        (assign, Sum (t1, t2), d)
 		    end
 		  | Inr (t1, e) => 
-		    let val (t2, d) = get_mtype (ctx, e)
-		        val () = is_wf_mty (skctx, t1) in
-		        (Mono (Sum (t1, t2)), d)
+		    let 
+		        val () = is_wf_mty (skctx, t1) 
+                        val (assign, t2, d) = get_mtype (ctx, e)
+                    in
+		        (assign, Sum (t1, t2), d)
 		    end
 		  | SumCase (e0, name1, e1, name2, e2) => 
-		    let val (t, d) = get_mtype (ctx, e0) in
-		        case t of
-			    Sum (t1, t2) => 
-			    let val (tr1, d1) = get_mtype (add_typing_skct (name1, Mono t1) ctx, e1)
-			        val (tr2, d2) = get_mtype (add_typing_skct (name2, Mono t2) ctx, e2)
-			        val tr = join_type (skctx, tr1, tr2, get_region_e e) in
-			        (Mono tr, d %+ smart_max d1 d2)
-			    end
-			  | t' => raise Error (mismatch ctxn e0 "(_ + _)" (Mono t'))
-		    end
-		  | AbsT ((name, _), e) => 
-		    if is_value e orelse is_fixpoint e then
-		        let val (t, _) = get_type (add_kinding_skct (name, Type) ctx, e) in
-			    (Uni ((name, dummy), t), T0 dummy)
-		        end 
-		    else
-		        raise Error (get_region_e e, ["The body of a universal abstraction must be a value"])
-		  | AppT (e, c) =>
-		    let val (t, d) = get_type (ctx, e) in
-		        case t of
-			    Uni (_, t1) => 
-			    let val () = is_wf_mty (skctx, c) in
-			        (subst_t_t c t1, d)
-			    end
-			  | t' => raise Error (mismatch ctxn e "(forall _, _)" t')
+		    let 
+                        val (assign', t, d) = get_mtype (ctx, e0) 
+                        val ctx = assign_ctx assign' ctx
+                        val assign = assign'
+                        val t1 = fresh_t ()
+                        val t2 = fresh_t ()
+                        val assign' = unify (t1, Prod (t1, t2))
+                        val ctx = assign_ctx assign' ctx
+                        val t1 = assign_mt assign' t1
+                        val t2 = assign_mt assign' t2
+                        val assign = assign_assign assign' assign
+                        val (assign', t1', d1) = get_mtype (add_typing_skct (name1, Mono t1) ctx, e1)
+                        val ctx = assign_ctx assign' ctx
+                        val t2 = assign_mt assign' t2
+                        val assign = assign_assign assign' assign
+			val (t2', d2) = get_mtype (add_typing_skct (name2, Mono t2) ctx, e2)
+                        val ctx = assign_ctx assign' ctx
+                        val t1' = assign_mt assign' t1'
+                        val assign = assign_assign assign' assign
+                        val assign' = unify (t1', t2')
+                        val t1' = assign_mt assign' t1'
+                        val assign = assign_assign assign' assign
+                        val d = d %+ smart_max d1 d2
+                    in
+			(assign, t1', d)
 		    end
 		  | AbsI (s, (name, r), e) => 
-		    if is_value e orelse is_fixpoint e then
+		    if is_value e then
 		        let val () = is_wfsort (sctx, s)
-			    val (t, _) = get_mtype ((add_sorting_skct (name, s) ctx), e) in
-			    (Mono (UniI (s, BindI ((name, dummy), t))), T0 dummy)
+			    val (assign, t, _) = get_mtype ((add_sorting_skct (name, s) ctx), e) 
+                        in
+			    (assign, UniI (s, BindI ((name, dummy), t)), T0 dummy)
 		        end 
 		    else
 		        raise Error (get_region_e e, ["The body of a universal abstraction must be a value"])
@@ -1158,13 +1203,6 @@ local
                     in
 		        (t, d1 %+ d)
                     end
-		  | Fix (t, (name, r), e) => 
-		    let val () = check_fix_body e
-		        val () = is_wf_mty (skctx, t)
-		        val _ = check_type (add_typing_skct (name, Mono t) ctx, e, Mono t)
-                    in
-		        (Mono t, T0 dummy)
-		    end
 		  | Ascription (e, t) => 
 		    let val () = is_wftype (skctx, t)
 		        val d = check_type (ctx, e, t)
@@ -1184,16 +1222,15 @@ local
 		    end
 		  | Const _ => 
 		    (Mono (Int dummy), T0 dummy)
-		  | AppConstr (cx as (_, rc), ts, is, e) => 
+		  | AppConstr (cx as (_, rc), is, e) => 
 		    let val (cname, tc) = fetch_constr_type (cctx, cx)
 		        val () = is_wftype (skctx, tc)
-		        val (_, d) = get_type (ctx, e)
+		        val (_, d) = get_mtype (ctx, e)
 		        (* delegate to checking e' *)
 		        val f = Var (0, rc)
-		        val f = foldl (fn (t, e) => AppT (e, t)) f ts
 		        val f = foldl (fn (i, e) => AppI (e, i)) f is
 		        val e' = App (f, shift_e_e e)
-		        val (t, _) = get_type (add_typing_skct (cname, tc) ctx, e') 
+		        val (t, _) = get_mtype (add_typing_skct (cname, tc) ctx, e') 
 		    in
 		        (* constructor application doesn't incur count *)
 		        (t, d)
@@ -1240,14 +1277,17 @@ local
 		     is_true (sctx, False dummy, get_region_e e);
 		     (t, T0 dummy))
 		  | Let (decls, e, r) => 
-		    let val (ctxd as (sctxd, kctxd, _, _), ds, ctx) = check_decls (ctx, decls)
-		        val (t, d) = get_type (ctx, e)
+		    let val (assign, ctxd as (sctxd, kctxd, _, _), ds, ctx) = check_decls (ctx, decls)
+		        val (assign', t, d) = get_type (ctx, e)
+                        val ctxd = assign_ctx assign' ctxd
+                        val ctx = assign_ctx assign' ctx
+                        val assign = assign_assign assign' assign
                         val ds = rev (d :: ds)
 		        val t = forget_ctx_t r ctx ctxd t 
                         val ds = map (forget_ctx_d r ctx ctxd) ds
                         val d = foldl' (fn (d, acc) => acc %+ d) (T0 dummy) ds
                     in
-		        (t, d)
+		        (assign, t, d)
 		    end
 	(* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_t skctxn t, str_e ctxn e, str_i sctxn d]) *)
         in
@@ -1310,29 +1350,64 @@ local
 	end
 
     and check_decls (ctx, decls) : context * idx list * context = 
-        let fun f (decl, (ctxd, ds, ctx)) =
-                let val (ctxd', ds') = check_decl (ctx, decl)
+        let fun f (decl, (assign, ctxd, ds, ctx)) =
+                let val (assign', ctxd', ds') = check_decl (ctx, decl)
+                    val ctxd = assign_ctx assign' ctxd
+                    val ctx = assign_ctx assign' ctx
+                    val assign = assign_assign assign' assign
                     val ctxd = add_ctx ctxd' ctxd
                     val ds = ds' @ map (shift_ctx_i ctxd') ds
                     val ctx = add_ctx ctxd' ctx
                 in
-                    (ctxd, ds, ctx)
+                    (assign, ctxd, ds, ctx)
                 end
         in
-            foldl f ((([], []), [], [], []), [], ctx) decls
+            foldl f (empty_assign, (([], []), [], [], []), [], ctx) decls
         end
 
     and check_decl (ctx as (sctx, kctx, cctx, _), decl) =
         case decl of
-            Val (pn, e) =>
-            let val (t, d) = get_type (ctx, e)
+            Val (VarP (x, _), e) =>
+            let 
                 val skcctx = (sctx, kctx, cctx) 
-                val (cover, ctxd) = match_ptrn (skcctx, pn, t)
+                val (assign', t, d) = get_mtype (ctx, e)
+                val ctx = assign_ctx assign' ctx
+                val assign = assign_assign assign' assign
+                val t = generalize (ctx, t, is_value e)
+            in
+                (assign, (([], []), [], [], [(x, t)]), [d])
+            end
+          | Val (pn, e) =>
+            let 
+                val skcctx = (sctx, kctx, cctx) 
+                val (assign', t, d) = get_mtype (ctx, e)
+                val ctx = assign_ctx assign' ctx
+                val assign = assign_assign assign' assign
+                val (assign', cover, ctxd) = match_ptrn (skcctx, pn, t)
+                val t = assign_t assing' t
+                val ctxd = assign_ctx assign' ctxd
+                val ctx = assign_ctx assign' ctx
+                val assign = assign_assign assign' assign
                 val d = shift_ctx_i ctxd d
 	        val () = check_exhaustive (skcctx, t, [cover], get_region_pn pn)
             in
-                (ctxd, [d])
+                (assign, ctxd, [d])
             end
+	  | Rec (t, (name, r), e) => 
+	    let 
+		val () = is_wf_mty (skctx, t)
+                val () = check_fix_body e
+		val (assign', t1, _) = get_mtype (add_typing_skct (name, Mono t) ctx, e)
+                val t = assign_mt assign' t
+                val assign = assign'
+                val assign' = unify (t1, t)
+                val t = assign_mt assign' t
+                val assign = assign_assign assign' assign
+                val t = generalize (ctx, t, true)
+                val d = T0 dummy
+            in
+                (assign, (([], []), [], [], [(x, t)]), [d])
+	    end
 	  | Datatype (name, tnames, sorts, constr_decls, _) =>
 	    let val () = is_wfsorts (sctx, sorts)
 		val nk = (name, ArrowK (true, length tnames, sorts))
@@ -1351,7 +1426,7 @@ local
 		    end
 		val constrs = map make_constr constr_decls
 	    in
-		((([], []), [nk], rev constrs, []), [])
+		(empty_assign, (([], []), [nk], rev constrs, []), [])
 	    end
 
     and check_rules (ctx as (sctx, kctx, cctx, tctx), rules, t as (t1, return), r) =
