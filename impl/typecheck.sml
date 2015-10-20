@@ -1002,19 +1002,23 @@ local
                     (empty_assign, insert (fetch_var (tctx, x)), T0 dummy)
 		  | App (e1, e2) =>
 		    let 
-                        val (assign', t1, d1) = get_mtype (ctx, e1) 
-                        val ctx = assign_ctx assign' ctx
-                        val assign = assign'
-                        val (assign', t2, d2) = get_mtype (ctx, e2) 
+                        val (assign, uni_idxs, vc, t1, d1) = get_mtype (ctx, e1) 
+                        val ctx = assign_ctx assign ctx
+                        val ctx = add_uni_idxs uni_idxs ctx
+                        val (assign', uni_idxs', vc', t2, d2) = get_mtype (ctx, e2) 
                         val t1 = assign_mt assign' t1
                         val assign = assign_assign assign' assign
+                        val uni_idxs = uni_idxs' @ uni_idxs
+                        val vc = vc_and vc vc'
                         val d = fresh_i ()
+                        val uni_idxs = d :: uni_idxs
                         val t = fresh_t ()
-                        val assign' = unify (t1, Arrow (t2, d, t))
+                        val (assign', vc') = unify (t1, Arrow (t2, d, t))
                         val t = assign_mt assign' t
                         val assign = assign_assign assign' assign
+                        val vc = vc_and vc vc'
                     in
-                        (assign, t, d1 %+ d2 %+ T1 dummy %+ d) 
+                        (assign, uni_idxs, vc, t, d1 %+ d2 %+ T1 dummy %+ d) 
 		    end
 		  | Abs (pn, e) => 
 		    let val t = fresh_t ()
@@ -1116,18 +1120,25 @@ local
 		  | AbsI (s, (name, r), e) => 
 		    if is_value e then
 		        let val () = is_wfsort (sctx, s)
+                            val () = push_forall (name, s)
 			    val (assign, t, _) = get_mtype ((add_sorting_skct (name, s) ctx), e) 
+                            val () = pop_forall ()
                         in
 			    (assign, UniI (s, BindI ((name, dummy), t)), T0 dummy)
 		        end 
 		    else
 		        raise Error (get_region_e e, ["The body of a universal abstraction must be a value"])
 		  | AppI (e, i) =>
-		    let val (t, d) = get_mtype (ctx, e) in
+		    let 
+                        val (assign, t, d) = get_mtype (ctx, e) 
+                    (* t must have enough information. We don't attempt to guess t *)
+                    in
 		        case t of
 			    UniI (s, BindI(_, t1)) => 
 			    let val () = check_sort (sctx, i, s) in
-			        (Mono (subst_i_mt i t1), d)
+			        (assign, subst_i_mt i t1, d)
+                                handle SubstUniVar x =>
+                                       raise Error (get_region_e e, [sprintf "Can't infer the unification variable $ in type $ of expression $" [str_uni x, str_t skctxn t, str_e ctxn e]])
 			    end
 			  | t' => raise Error (mismatch ctxn e "(forall {_ : _}, _)" (Mono t'))
 		    end
