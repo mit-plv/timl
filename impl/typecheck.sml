@@ -1002,12 +1002,11 @@ local
                     (empty_assign, insert (fetch_var (tctx, x)), T0 dummy)
 		  | App (e1, e2) =>
 		    let 
-                        val (assign, uni_idxs, vc, t1, d1) = get_mtype (ctx, e1) 
+                        val (uvars, assign, vc, t1, d1) = get_mtype (ctx, uvars, e1) 
                         val ctx = assign_ctx assign ctx
-                        val ctx = add_uni_idxs uni_idxs ctx
                         val (assign', uni_idxs', vc', t2, d2) = get_mtype (ctx, e2) 
                         val t1 = assign_mt assign' t1
-                        val assign = assign_assign assign' assign
+                        val assign = assign' %o assign
                         val uni_idxs = uni_idxs' @ uni_idxs
                         val vc = vc_and vc vc'
                         val d = fresh_i ()
@@ -1015,6 +1014,7 @@ local
                         val t = fresh_t ()
                         val (assign', vc') = unify (t1, Arrow (t2, d, t))
                         val t = assign_mt assign' t
+                        val d = assign_idx assign' d
                         val assign = assign_assign assign' assign
                         val vc = vc_and vc vc'
                     in
@@ -1023,13 +1023,12 @@ local
 		  | Abs (pn, e) => 
 		    let val t = fresh_t ()
                         val skcctx = (sctx, kctx, cctx) 
-                        val (assign', cover, ctxd) = match_ptrn (skcctx, pn, Mono t)
-                        val t = assign_mt assign' t
-                        val assign = assign'
-	                val () = check_exhaustive (skcctx, Mono t, [cover], get_region_pn pn)
+                        val (assign, cover, ctxd) = match_ptrn (skcctx, pn, t)
+                        val t = assign_mt assign t
                         val ctx = assign_ctx assign ctx
+	                val () = check_exhaustive (skcctx, t, [cover], get_region_pn pn)
                         val ctx = add_ctx ctxd ctx
-		        val (assign', t1, d) = get_mtype (ctx, e)
+		        val (assign', uni_idxs, vc, t1, d) = get_mtype (ctx, e)
                         val t = assign_mt assign' t
                         val assign = assign_assign assign' assign
 		        val t1 = forget_ctx_mt (get_region_e e) ctx ctxd t1 
