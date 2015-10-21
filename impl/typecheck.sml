@@ -991,7 +991,7 @@ local
             Base t => t
           | Uni (_, t) => insert (subst_t_t (fresh_t ()) t)
 
-    fun get_mtype (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, tctx : tcontext), e : expr) : ty * idx =
+    fun get_mtype (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, tctx : tcontext), e : expr) : mty * idx =
         let val skctx = (sctx, kctx) 
 	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
 	    val skctxn = (sctxn, kctxn)
@@ -999,155 +999,158 @@ local
 	    val (t, d) =
 	        case e of
 		    Var x =>
-                    (empty_assign, insert (fetch_var (tctx, x)), T0 dummy)
+                    (insert (fetch_var (tctx, x)), T0 dummy)
 		  | App (e1, e2) =>
 		    let 
-                        val (uvars, assign, vc, t1, d1) = get_mtype (ctx, uvars, e1) 
-                        val ctx = assign_ctx assign ctx
-                        val (uvars, assign', vc', t2, d2) = get_mtype (ctx, uvars, e2) 
-                        val t1 = assign_mt assign' t1
-                        val vc = vc_and (assign_vc assign' vc) vc'
-                        val assign = assign' %o assign
-                        val d = fresh_i ()
+                        val (t1, d1) = get_mtype (ctx, e1) 
+                        val ctx = refine_ctx ctx
+                        val (t2, d2) = get_mtype (ctx, e2) 
+                        val t1 = refine_mt assign' t1
+                        val d = fresh_i (SOME Time)
                         val t = fresh_t ()
-                        val uvars = d :: t :: uvars
-                        val (uvars, assign', vc') = unify (ctx, uvars, t1, Arrow (t2, d, t))
-                        val t = assign_mt assign' t
-                        val d = assign_idx assign' d
-                        val vc = vc_and (assign_vc assign' vc) vc'
-                        val assign = assign' %o assign
+                        val () = unify (t1, Arrow (t2, d, t))
+                        val t = refine_mt t
+                        val d = refine_idx d
                     in
-                        (uvars, assign, vc, t, d1 %+ d2 %+ T1 dummy %+ d) 
+                        (t, d1 %+ d2 %+ T1 dummy %+ d) 
 		    end
 		  | Abs (pn, e) => 
 		    let val t = fresh_t ()
-                        val uvars = t :: uvars
                         val skcctx = (sctx, kctx, cctx) 
-                        val (uvars, assign, cover, ctxd) = match_ptrn (skcctx, uvars, pn, t)
-                        val t = assign_mt assign t
-                        val ctx = assign_ctx assign ctx
+                        val (cover, ctxd) = match_ptrn (skcctx, pn, t)
+                        val t = refine_mt t
+                        val ctx = refine_ctx ctx
 	                val () = check_exhaustive (skcctx, t, [cover], get_region_pn pn)
                         val ctx = add_ctx ctxd ctx
-		        val (uvars, assign', vc, t1, d) = get_mtype (ctx, uvars, e)
-                        val t = assign_mt assign' t
-                        val assign = assign' %o assign
-		        val t1 = forget_ctx_mt (get_region_e e) ctx uvars ctxd t1 
-                        val d = forget_ctx_d (get_region_e e) ctx uvars ctxd d
-                        val uvars = forget_uvars ctx uvars ctxd uvars
-                        val vc = quantify_vc ctx uvars ctxd vc
+		        val (t1, d) = get_mtype (ctx, e)
+                        val t = refine_mt t
+		        val t1 = forget_ctx_mt (get_region_e e) ctx ctxd t1 
+                        val d = forget_ctx_d (get_region_e e) ctx ctxd d
+                        val () = close_vc ctxd
                     in
-		        (uvars, assign, vc, Arrow (t, d, t1), T0 dummy)
+		        (Arrow (t, d, t1), T0 dummy)
+		    end
+		  | Let (decls, e, r) => 
+		    let 
+                        val (ctxd as (sctxd, kctxd, _, _), ds, ctx) = check_decls (ctx, decls)
+		        val (t, d) = get_type (ctx, e)
+                        val ctxd = refine_ctx ctxd
+                        val ctx = refine_ctx ctx
+                        val ds = rev (d :: ds)
+		        val t = forget_ctx_t r ctx ctxd t 
+                        val ds = map (forget_ctx_d r ctx ctxd) ds
+                        val () = close_vc ctxd
+                        val d = foldl' (fn (d, acc) => acc %+ d) (T0 dummy) ds
+                    in
+		        (t, d)
 		    end
 		  | AbsI (s, (name, r), e) => 
 		    if is_value e then
 		        let 
-                            val () = is_wfsort (sctx, s)
-                            val ctxd = (([(name, s)], []), [], [], [])
+                            val () = is_wf_sort (sctx, s)
+                            val s = refine_sort s
+                            val ctx = refine_ctx ctx
+                            val ctxd = make_ctx_from_sorting (name, s)
                             val ctx = add_ctx ctxd ctx
-			    val (uvars, assign, vc, t, _) = get_mtype (ctx, uvars, e) 
-                            val s = assign_sort assign s
-                            (* t is not allowed to contain any uvars who can mention variables in ctxd, because those uvars is going to be discarded *)
-                            val () = check_no_uvars_t ctx uvars ctxd t
-                            val uvars = forget_uvars ctx uvars ctxd uvars
-                            val vc = quantify_vc ctx uvars ctxd vc
+                            val () = open_vc ctxd
+			    val (t, _) = get_mtype (ctx, e) 
+                            val s = refine_sort s
+                            val () = close_vc ctxd
                         in
-			    (uvars, assign, vc, UniI (s, BindI ((name, r), t)), T0 dummy)
+			    (UniI (s, BindI ((name, r), t)), T0 dummy)
 		        end 
 		    else
 		        raise Error (get_region_e e, ["The body of a universal abstraction must be a value"])
 		  | AppI (e, i) =>
 		    let 
-                        val (uvars, assign, vc, t, d) = get_mtype (ctx, uvars, e) 
-                    (* t must have enough information. We don't attempt to guess t *)
+                        val (t, d) = get_mtype (ctx, e) 
+                        val s = fresh_sort ()
+                        val t1 = fresh_t ()
+                        val () = unify (t, UniI (s, BindI (("dummy", dummy), t1)))
+                        val t = refine_mt t
+                        val t1 = refine_mt t1
+                        val s = refine_sort s
+                        val () = check_sort (sctx, i, s) 
+                        val t = refine_mt t
+                        val t1 = refine_mt t1
+                        val s = refine_sort s
                     in
-		        case t of
-			    UniI (s, BindI(_, t1)) => 
-			    let val () = check_sort (sctx, i, s) in
-			        (assign, subst_i_mt i t1, d)
-                                handle SubstUniVar x =>
-                                       raise Error (get_region_e e, [sprintf "Can't infer the unification variable $ in type $ of expression $" [str_uni x, str_t skctxn t, str_e ctxn e]])
-			    end
-			  | t' => raise Error (mismatch ctxn e "(forall {_ : _}, _)" (Mono t'))
+			(subst_i_mt i t1, d)
+                        handle 
+                        SubstUniVar x => raise Error (get_region_e e, [sprintf "Can't substitute $ in unification variable $ in type $" [str_i sctxn i, str_uni x, str_t skctxn t]])
 		    end
 		  | TT _ => 
-                    (empty_assign, Unit dummy, T0 dummy)
+                    (Unit dummy, T0 dummy)
 		  | Pair (e1, e2) => 
 		    let 
-                        val (assign', t1, d1) = get_mtype (ctx, e1) 
-                        val ctx = assign_ctx assign' ctx
-                        val assign = assign'
+                        val (t1, d1) = get_mtype (ctx, e1) 
+                        val ctx = refine_ctx ctx
 		        val (t2, d2) = get_mtype (ctx, e2) 
-                        val t1 = assign_mt assign' t1
-                        val assign = assign_assign assign' assign
+                        val t1 = refine_mt t1
                     in
-		        (assign, Prod (t1, t2), d1 %+ d2)
+		        (Prod (t1, t2), d1 %+ d2)
 		    end
 		  | Fst e => 
 		    let 
-                        val (assign', t, d) = get_mtype (ctx, e) 
-                        val ctx = assign_ctx assign' ctx
-                        val assign = assign'
+                        val (t, d) = get_mtype (ctx, e) 
+                        val ctx = refine_ctx ctx
                         val t1 = fresh_t ()
                         val t2 = fresh_t ()
-                        val assign' = unify (t1, Prod (t1, t2))
-                        val t1 = assign_mt assign' t1
-                        val assign = assign_assign assign' assign
+                        val () = unify (t1, Prod (t1, t2))
+                        val t1 = refine_mt t1
                     in 
-                        (assign, t1, d)
+                        (t1, d)
 		    end
 		  | Snd e => 
 		    let 
-                        val (assign', t, d) = get_mtype (ctx, e) 
-                        val ctx = assign_ctx assign' ctx
-                        val assign = assign'
+                        val (t, d) = get_mtype (ctx, e) 
+                        val ctx = refine_ctx ctx
                         val t1 = fresh_t ()
                         val t2 = fresh_t ()
-                        val assign' = unify (t1, Prod (t1, t2))
-                        val t2 = assign_mt assign' t2
-                        val assign = assign_assign assign' assign
+                        val () = unify (t1, Prod (t1, t2))
+                        val t2 = refine_mt t2
                     in 
-                        (assign, t2, d)
+                        (t2, d)
 		    end
 		  | Inl (t2, e) => 
 		    let 
 		        val () = is_wf_mty (skctx, t2) 
-                        val (assign, t1, d) = get_mtype (ctx, e)
+                        val t2 = refine_mt t2
+                        val (t1, d) = get_mtype (ctx, e)
+                        val t2 = refine_mt t2
                     in
-		        (assign, Sum (t1, t2), d)
+		        (Sum (t1, t2), d)
 		    end
 		  | Inr (t1, e) => 
 		    let 
 		        val () = is_wf_mty (skctx, t1) 
-                        val (assign, t2, d) = get_mtype (ctx, e)
+                        val t1 = refine_mt t1
+                        val (t2, d) = get_mtype (ctx, e)
+                        val t1 = refine_mt t1
                     in
-		        (assign, Sum (t1, t2), d)
+		        (Sum (t1, t2), d)
 		    end
 		  | SumCase (e0, name1, e1, name2, e2) => 
 		    let 
-                        val (assign', t, d) = get_mtype (ctx, e0) 
-                        val ctx = assign_ctx assign' ctx
-                        val assign = assign'
+                        val (t, d) = get_mtype (ctx, e0) 
+                        val ctx = refine_ctx ctx
                         val t1 = fresh_t ()
                         val t2 = fresh_t ()
-                        val assign' = unify (t1, Prod (t1, t2))
-                        val ctx = assign_ctx assign' ctx
-                        val t1 = assign_mt assign' t1
-                        val t2 = assign_mt assign' t2
-                        val assign = assign_assign assign' assign
-                        val (assign', t1', d1) = get_mtype (add_typing_skct (name1, Mono t1) ctx, e1)
-                        val ctx = assign_ctx assign' ctx
-                        val t2 = assign_mt assign' t2
-                        val assign = assign_assign assign' assign
+                        val () = unify (t1, Prod (t1, t2))
+                        val ctx = refine_ctx ctx
+                        val t1 = refine_mt t1
+                        val t2 = refine_mt t2
+                        val (t1', d1) = get_mtype (add_typing_skct (name1, Mono t1) ctx, e1)
+                        val ctx = refine_ctx ctx
+                        val t2 = refine_mt t2
 			val (t2', d2) = get_mtype (add_typing_skct (name2, Mono t2) ctx, e2)
-                        val ctx = assign_ctx assign' ctx
-                        val t1' = assign_mt assign' t1'
-                        val assign = assign_assign assign' assign
-                        val assign' = unify (t1', t2')
-                        val t1' = assign_mt assign' t1'
-                        val assign = assign_assign assign' assign
+                        val ctx = refine_ctx ctx
+                        val t1' = refine_mt t1'
+                        val () = unify (t1', t2')
+                        val t1' = refine_mt t1'
                         val d = d %+ smart_max d1 d2
                     in
-			(assign, t1', d)
+			(t1', d)
 		    end
 		  | Fold (t, e) => 
 		    (case t of
@@ -1294,19 +1297,6 @@ local
 		    (is_wftype (skctx, t);
 		     is_true (sctx, False dummy, get_region_e e);
 		     (t, T0 dummy))
-		  | Let (decls, e, r) => 
-		    let val (assign, ctxd as (sctxd, kctxd, _, _), ds, ctx) = check_decls (ctx, decls)
-		        val (assign', t, d) = get_type (ctx, e)
-                        val ctxd = assign_ctx assign' ctxd
-                        val ctx = assign_ctx assign' ctx
-                        val assign = assign_assign assign' assign
-                        val ds = rev (d :: ds)
-		        val t = forget_ctx_t r ctx ctxd t 
-                        val ds = map (forget_ctx_d r ctx ctxd) ds
-                        val d = foldl' (fn (d, acc) => acc %+ d) (T0 dummy) ds
-                    in
-		        (assign, t, d)
-		    end
 	(* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_t skctxn t, str_e ctxn e, str_i sctxn d]) *)
         in
 	    (t, d)
@@ -1368,19 +1358,19 @@ local
 	end
 
     and check_decls (ctx, decls) : context * idx list * context = 
-        let fun f (decl, (assign, ctxd, ds, ctx)) =
-                let val (assign', ctxd', ds') = check_decl (ctx, decl)
-                    val ctxd = assign_ctx assign' ctxd
-                    val ctx = assign_ctx assign' ctx
-                    val assign = assign_assign assign' assign
+        let fun f (decl, (ctxd, ds, ctx)) =
+                let val (ctxd', ds') = check_decl (ctx, decl)
+                    val ctxd = refine_ctx ctxd
+                    val ds = map (refine_i) ds
+                    val ctx = refine_ctx ctx
                     val ctxd = add_ctx ctxd' ctxd
                     val ds = ds' @ map (shift_ctx_i ctxd') ds
                     val ctx = add_ctx ctxd' ctx
                 in
-                    (assign, ctxd, ds, ctx)
+                    (ctxd, ds, ctx)
                 end
         in
-            foldl f (empty_assign, (([], []), [], [], []), [], ctx) decls
+            foldl f (empty_ctx, [], ctx) decls
         end
 
     and check_decl (ctx as (sctx, kctx, cctx, _), decl) =
@@ -1388,52 +1378,53 @@ local
             Val (VarP (x, _), e) =>
             let 
                 val skcctx = (sctx, kctx, cctx) 
-                val (assign', t, d) = get_mtype (ctx, e)
-                val ctx = assign_ctx assign' ctx
-                val assign = assign_assign assign' assign
+                val (t, d) = get_mtype (ctx, e)
+                val ctx = refine_ctx ctx
                 val t = generalize (ctx, t, is_value e)
             in
-                (assign, (([], []), [], [], [(x, t)]), [d])
+                (make_ctx_from_typing (x, t), [d])
             end
           | Val (pn, e) =>
             let 
                 val skcctx = (sctx, kctx, cctx) 
-                val (assign', t, d) = get_mtype (ctx, e)
-                val ctx = assign_ctx assign' ctx
-                val assign = assign_assign assign' assign
-                val (assign', cover, ctxd) = match_ptrn (skcctx, pn, t)
-                val t = assign_t assing' t
-                val ctxd = assign_ctx assign' ctxd
-                val ctx = assign_ctx assign' ctx
-                val assign = assign_assign assign' assign
+                val (t, d) = get_mtype (ctx, e)
+                val ctx = refine_ctx ctx
+                val (cover, ctxd) = match_ptrn (skcctx, pn, t)
+                val t = refine_mt t
+                val d = refine_i d
+                val ctx = refine_ctx ctx
                 val d = shift_ctx_i ctxd d
 	        val () = check_exhaustive (skcctx, t, [cover], get_region_pn pn)
             in
-                (assign, ctxd, [d])
+                (ctxd, [d])
             end
 	  | Rec (t, (name, r), e) => 
 	    let 
 		val () = is_wf_mty (skctx, t)
+                val t = refine_mt t
+                val ctx = refine_ctx ctx
                 val () = check_fix_body e
-		val (assign', t1, _) = get_mtype (add_typing_skct (name, Mono t) ctx, e)
-                val t = assign_mt assign' t
-                val assign = assign'
-                val assign' = unify (t1, t)
-                val t = assign_mt assign' t
-                val assign = assign_assign assign' assign
+		val (t1, _) = get_mtype (add_typing_skct (name, Mono t) ctx, e)
+                val t = refine_mt t
+                val () = unify (t1, t)
+                val t = refine_mt t
                 val t = generalize (ctx, t, true)
                 val d = T0 dummy
             in
-                (assign, (([], []), [], [], [(x, t)]), [d])
+                (make_ctx_from_typing (x, t), [d])
 	    end
 	  | Datatype (name, tnames, sorts, constr_decls, _) =>
-	    let val () = is_wfsorts (sctx, sorts)
+	    let 
+                val sorts = is_wf_sorts (sctx, sorts)
+                val ctx = refine_ctx ctx
+                val constr_decls = map refine_constr_decl constr_decls
 		val nk = (name, ArrowK (true, length tnames, sorts))
 		val ctx as (sctx, kctx, _, _) = add_kinding_skct nk ctx
 		fun make_constr ((name, ibinds, r) : constr_decl) =
-		    let val c = (0, tnames, ibinds)
+		    let 
+                        val c = (0, tnames, ibinds)
 		        val t = constr_type c
-		        val () = is_wftype ((sctx, kctx), t)
+		        val () = is_wf_type ((sctx, kctx), t)
 			         handle Error (_, msg) =>
 				        raise Error (r, 
 						     "Constructor is ill-formed" :: 
