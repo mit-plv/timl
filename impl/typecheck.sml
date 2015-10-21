@@ -1004,37 +1004,70 @@ local
 		    let 
                         val (uvars, assign, vc, t1, d1) = get_mtype (ctx, uvars, e1) 
                         val ctx = assign_ctx assign ctx
-                        val (assign', uni_idxs', vc', t2, d2) = get_mtype (ctx, e2) 
+                        val (uvars, assign', vc', t2, d2) = get_mtype (ctx, uvars, e2) 
                         val t1 = assign_mt assign' t1
+                        val vc = vc_and (assign_vc assign' vc) vc'
                         val assign = assign' %o assign
-                        val uni_idxs = uni_idxs' @ uni_idxs
-                        val vc = vc_and vc vc'
                         val d = fresh_i ()
-                        val uni_idxs = d :: uni_idxs
                         val t = fresh_t ()
-                        val (assign', vc') = unify (t1, Arrow (t2, d, t))
+                        val uvars = d :: t :: uvars
+                        val (uvars, assign', vc') = unify (ctx, uvars, t1, Arrow (t2, d, t))
                         val t = assign_mt assign' t
                         val d = assign_idx assign' d
-                        val assign = assign_assign assign' assign
-                        val vc = vc_and vc vc'
+                        val vc = vc_and (assign_vc assign' vc) vc'
+                        val assign = assign' %o assign
                     in
-                        (assign, uni_idxs, vc, t, d1 %+ d2 %+ T1 dummy %+ d) 
+                        (uvars, assign, vc, t, d1 %+ d2 %+ T1 dummy %+ d) 
 		    end
 		  | Abs (pn, e) => 
 		    let val t = fresh_t ()
+                        val uvars = t :: uvars
                         val skcctx = (sctx, kctx, cctx) 
-                        val (assign, cover, ctxd) = match_ptrn (skcctx, pn, t)
+                        val (uvars, assign, cover, ctxd) = match_ptrn (skcctx, uvars, pn, t)
                         val t = assign_mt assign t
                         val ctx = assign_ctx assign ctx
 	                val () = check_exhaustive (skcctx, t, [cover], get_region_pn pn)
                         val ctx = add_ctx ctxd ctx
-		        val (assign', uni_idxs, vc, t1, d) = get_mtype (ctx, e)
+		        val (uvars, assign', vc, t1, d) = get_mtype (ctx, uvars, e)
                         val t = assign_mt assign' t
-                        val assign = assign_assign assign' assign
-		        val t1 = forget_ctx_mt (get_region_e e) ctx ctxd t1 
-                        val d = forget_ctx_d (get_region_e e) ctx ctxd d
+                        val assign = assign' %o assign
+		        val t1 = forget_ctx_mt (get_region_e e) ctx uvars ctxd t1 
+                        val d = forget_ctx_d (get_region_e e) ctx uvars ctxd d
+                        val uvars = forget_uvars ctx uvars ctxd uvars
+                        val vc = quantify_vc ctx uvars ctxd vc
                     in
-		        (assign, Arrow (t, d, t1), T0 dummy)
+		        (uvars, assign, vc, Arrow (t, d, t1), T0 dummy)
+		    end
+		  | AbsI (s, (name, r), e) => 
+		    if is_value e then
+		        let 
+                            val () = is_wfsort (sctx, s)
+                            val ctxd = (([(name, s)], []), [], [], [])
+                            val ctx = add_ctx ctxd ctx
+			    val (uvars, assign, vc, t, _) = get_mtype (ctx, uvars, e) 
+                            val s = assign_sort assign s
+                            (* t is not allowed to contain any uvars who can mention variables in ctxd, because those uvars is going to be discarded *)
+                            val () = check_no_uvars_t ctx uvars ctxd t
+                            val uvars = forget_uvars ctx uvars ctxd uvars
+                            val vc = quantify_vc ctx uvars ctxd vc
+                        in
+			    (uvars, assign, vc, UniI (s, BindI ((name, r), t)), T0 dummy)
+		        end 
+		    else
+		        raise Error (get_region_e e, ["The body of a universal abstraction must be a value"])
+		  | AppI (e, i) =>
+		    let 
+                        val (uvars, assign, vc, t, d) = get_mtype (ctx, uvars, e) 
+                    (* t must have enough information. We don't attempt to guess t *)
+                    in
+		        case t of
+			    UniI (s, BindI(_, t1)) => 
+			    let val () = check_sort (sctx, i, s) in
+			        (assign, subst_i_mt i t1, d)
+                                handle SubstUniVar x =>
+                                       raise Error (get_region_e e, [sprintf "Can't infer the unification variable $ in type $ of expression $" [str_uni x, str_t skctxn t, str_e ctxn e]])
+			    end
+			  | t' => raise Error (mismatch ctxn e "(forall {_ : _}, _)" (Mono t'))
 		    end
 		  | TT _ => 
                     (empty_assign, Unit dummy, T0 dummy)
@@ -1115,31 +1148,6 @@ local
                         val d = d %+ smart_max d1 d2
                     in
 			(assign, t1', d)
-		    end
-		  | AbsI (s, (name, r), e) => 
-		    if is_value e then
-		        let val () = is_wfsort (sctx, s)
-                            val () = push_forall (name, s)
-			    val (assign, t, _) = get_mtype ((add_sorting_skct (name, s) ctx), e) 
-                            val () = pop_forall ()
-                        in
-			    (assign, UniI (s, BindI ((name, dummy), t)), T0 dummy)
-		        end 
-		    else
-		        raise Error (get_region_e e, ["The body of a universal abstraction must be a value"])
-		  | AppI (e, i) =>
-		    let 
-                        val (assign, t, d) = get_mtype (ctx, e) 
-                    (* t must have enough information. We don't attempt to guess t *)
-                    in
-		        case t of
-			    UniI (s, BindI(_, t1)) => 
-			    let val () = check_sort (sctx, i, s) in
-			        (assign, subst_i_mt i t1, d)
-                                handle SubstUniVar x =>
-                                       raise Error (get_region_e e, [sprintf "Can't infer the unification variable $ in type $ of expression $" [str_uni x, str_t skctxn t, str_e ctxn e]])
-			    end
-			  | t' => raise Error (mismatch ctxn e "(forall {_ : _}, _)" (Mono t'))
 		    end
 		  | Fold (t, e) => 
 		    (case t of
