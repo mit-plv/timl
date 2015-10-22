@@ -13,6 +13,11 @@ fun sprintf s ls =
 fun println s = print (s ^ "\n")
 
 fun default v opt = getOpt (opt, v)
+fun lazy_default v opt = 
+    case opt of
+        SOME a => a
+      | NONE => v ()
+
 fun str_opt f opt = (default "" o Option.map f) opt
 fun isNull opt = not (isSome opt)
 
