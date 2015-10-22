@@ -1,6 +1,28 @@
 structure Subst = struct
 open Expr
 
+fun refine_i i =
+    case i of
+        UVarI (n, x) => 
+        (case !x of
+             Refined i => 
+             let 
+                 val i = refine_i i
+                 val () = x := Refined i
+             in
+                 i
+             end
+           | Fresh _ => i
+        )
+      | UnOpI (opr, i, r) => UnOpI (opr, refine_i, r)
+      | BinOpI (opr, i1, i2) => BinOpI (opr, refine_i i1, refine_i i2)
+      | VarI _ => i
+      | ConstIN _ => i
+      | ConstIT _ => i
+      | TTI _ => i
+      | TrueI _ => i
+      | FalseI _ => i
+
 (* generic traversers for both 'shift' and 'forget' *)
          
 fun on_i_i on_v x n b =
@@ -11,10 +33,25 @@ fun on_i_i on_v x n b =
 	  | ConstIN n => ConstIN n
 	  | ConstIT x => ConstIT x
           | UnOpI (opr, i, r) => UnOpI (opr, f x n i, r)
-	  | BinOpI (opr, d1, d2) => BinOpI (opr, f x n d1, f x n d2)
+	  | BinOpI (opr, i1, i2) => BinOpI (opr, f x n i1, f x n i2)
 	  | TTI r => TTI r
 	  | TrueI r => TrueI r
 	  | FalseI r => FalseI r
+          | UVarI (y, uvar) =>
+            (case !uvar of
+                 Refined i => 
+                 if y >= x then
+                     f 0 (n + y) i (* same as (f x (n + y) i) *)
+                 else
+                     (f 0 y o f (x - y) n) i
+               | Fresh _ => 
+                 let 
+                     val y = 
+                         if y >= x then
+                 in
+                     UVarI (y, uvar)
+                 end
+            )
   in
       f x n b
   end
@@ -94,7 +131,17 @@ fun on_t_mt on_v x n b =
 	  | AppRecur (name, ns, t, i, r) => AppRecur (name, ns, f (x + 1) n t, i, r)
 	  | AppV ((y, r1), ts, is, r) => AppV ((on_v x n y, r1), map (f x n) ts, is, r)
 	  | Int r => Int r
-
+          | UVar x =>
+            (case !x of
+                 Refined t => 
+                 let 
+                     val i = f x n t
+                     val () = x := Refined t
+                 in
+                     t
+                 end
+               | Fresh (y, name) => Fresh (on_v x n y, name)
+            )
   in
       f x n b
   end
