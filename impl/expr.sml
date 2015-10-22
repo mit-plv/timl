@@ -80,10 +80,10 @@ functor ExprFun (structure Var : VAR structure Other : DEBUG) = struct
 	         | Unit of other
 	         | UniI of sort uvar_ref * (name * mtype) ibind
 	         | ExI of sort uvar_ref * (name * mtype) ibind
-	         (* the kind of Recur is sort => Type, to allow for change of index *)
-	         | AppRecur of string * (string * sort) list * mtype * idx list * other
 	         (* the first operant of App can only be a type variable. The degenerated case of no-arguments is also included *)
 	         | AppV of id * mtype list * idx list * other
+	         (* the kind of Recur is sort => Type, to allow for change of index *)
+	         | AppRecur of string * (string * sort) list * mtype * idx list * other
 	                 | Int of other
                                 | UVar of mtype uvar_ref
 
