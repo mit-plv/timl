@@ -1252,61 +1252,6 @@ local
 	    (t, d)
         end
 
-    and get_mtype (ctx, e) =
-        let 
-	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
-            val (t, d) = get_type (ctx, e)
-        in
-            case t of
-                Mono t => (t, d)
-              | t => raise Error (mismatch ctxn e "monotype" t)
-        end
-            
-    and check_mtype (ctx as (sctx, kctx, cctx, tctx), e, t) =
-	let 
-	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
-	    val (t', d') = get_type (ctx, e)
-            val () = unify (t', t)
-                     handle Error (_, msg) =>
-                            raise Error (get_region_e e, 
-                                         #2 (mismatch ctxn e (str_t (sctxn, kctxn) t) t') @
-                                         "Cause:" ::
-                                         indent msg)
-            (* val () = println "check type" *)
-            (* val () = println $ str_region "" "ilist.timl" $ get_region_e e *)
-	in
-            (t', d')
-	end
-
-    and check_time (ctx as (sctx, kctx, cctx, tctx), e, d) : ty =
-	let 
-	    val (t', d') = get_type (ctx, e)
-            val () = is_le (sctx, d', d, get_region_e e)
-            (* val () = println "check time" *)
-            (* val () = println $ str_region "" "ilist.timl" $ get_region_e e *)
-	in
-            t'
-	end
-
-    and check_time_return_mtype (ctx as (sctx, kctx, cctx, tctx), e, d) : mtype =
-	let 
-	    val (t', d') = get_mtype (ctx, e)
-            val () = is_le (sctx, d', d, get_region_e e)
-	in
-            t'
-	end
-
-    and check_mtype_time (ctx as (sctx, kctx, cctx, tctx), e, t, d) =
-	let 
-	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
-	    (* val () = print (sprintf "Type checking $ against $ and $\n" [str_e ctxn e, str_t (sctxn, kctxn) t, str_i sctxn d]) *)
-	    val d' = check_mtype (ctx, e, t)
-            (* val () = println "check type & time" *)
-            (* val () = println $ str_region "" "ilist.timl" $ get_region_e e *)
-	in
-	    is_le (sctx, d', d, get_region_e e)
-	end
-
     and check_decls (ctx, decls) : context * idx list * context = 
         let fun f (decl, (ctxd, ds, ctx)) =
                 let val (ctxd', ds') = check_decl (ctx, decl)
@@ -1416,6 +1361,51 @@ local
             val () = close_vc ctxd
 	in
 	    (td, cover)
+	end
+
+    and check_mtype (ctx as (sctx, kctx, cctx, tctx), e, t) =
+	let 
+	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
+	    val (t', d') = get_type (ctx, e)
+            val () = unify (t', t)
+                     handle Error (_, msg) =>
+                            raise Error (get_region_e e, 
+                                         #2 (mismatch ctxn e (str_t (sctxn, kctxn) t) t') @
+                                         "Cause:" ::
+                                         indent msg)
+            (* val () = println "check type" *)
+            (* val () = println $ str_region "" "ilist.timl" $ get_region_e e *)
+	in
+            (t', d')
+	end
+
+    and check_time (ctx as (sctx, kctx, cctx, tctx), e, d) : ty =
+	let 
+	    val (t', d') = get_type (ctx, e)
+            val () = is_le (sctx, d', d, get_region_e e)
+            (* val () = println "check time" *)
+            (* val () = println $ str_region "" "ilist.timl" $ get_region_e e *)
+	in
+            t'
+	end
+
+    and check_time_return_mtype (ctx as (sctx, kctx, cctx, tctx), e, d) : mtype =
+	let 
+	    val (t', d') = get_mtype (ctx, e)
+            val () = is_le (sctx, d', d, get_region_e e)
+	in
+            t'
+	end
+
+    and check_mtype_time (ctx as (sctx, kctx, cctx, tctx), e, t, d) =
+	let 
+	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
+	    (* val () = print (sprintf "Type checking $ against $ and $\n" [str_e ctxn e, str_t (sctxn, kctxn) t, str_i sctxn d]) *)
+	    val d' = check_mtype (ctx, e, t)
+            (* val () = println "check type & time" *)
+            (* val () = println $ str_region "" "ilist.timl" $ get_region_e e *)
+	in
+	    is_le (sctx, d', d, get_region_e e)
 	end
 
 in								     
