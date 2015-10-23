@@ -1,21 +1,21 @@
 structure Subst = struct
 open Expr
 
-fun refine_i i =
+fun update_i i =
     case i of
         UVarI (n, x) => 
         (case !x of
              Refined i => 
              let 
-                 val i = refine_i i
+                 val i = update_i i
                  val () = x := Refined i
              in
                  i
              end
            | Fresh _ => i
         )
-      | UnOpI (opr, i, r) => UnOpI (opr, refine_i, r)
-      | BinOpI (opr, i1, i2) => BinOpI (opr, refine_i i1, refine_i i2)
+      | UnOpI (opr, i, r) => UnOpI (opr, update_i, r)
+      | BinOpI (opr, i1, i2) => BinOpI (opr, update_i i1, update_i i2)
       | VarI _ => i
       | ConstIN _ => i
       | ConstIT _ => i

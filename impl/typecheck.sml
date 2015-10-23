@@ -814,8 +814,8 @@ local
         let
             fun loop (t, t') =
                 let 
-                    val i = refine_i i
-                    val i' = refine_i i'
+                    val i = update_i i
+                    val i' = update_i i'
                 in
                     case (i, i') of
                         (UVarI x, UVarI x') => unify_fresh_uvars (x, x')
@@ -845,8 +845,8 @@ local
         let
             fun loop (t, t') =
                 let 
-                    val t = refine_mt t
-                    val t' = refine_mt t'
+                    val t = update_mt t
+                    val t' = update_mt t'
                 in
                     (* UVar can only be fresh *)
                     case (t, t') of
@@ -901,7 +901,7 @@ local
                      UVar x' => raise Impossible "unify_uvar shouldn't be called with the second argument being fresh"
                    | Arrow (t1', d', t2') =>
                      let
-                         val t = Arrow (fresh_t (), fresh_d (), fresh_t ())
+                         val t = Arrow (fresh_t (), fresh_i (), fresh_t ())
                          val t = shift_i_t n t
                          val () = x := Refined t
                      in
@@ -967,7 +967,7 @@ local
 	    case pn of
 	        ConstrP ((cx, cr), inames, pn, r) =>
                 let
-                    val t = refine_mt t
+                    val t = update_mt t
                 in
                     case t of
                         AppV ((family, _), ts, is, _) =>
@@ -1206,7 +1206,7 @@ local
 		    end
 		  | Fold (t, e) => 
                     let 
-                        val t = refine_mt t
+                        val t = update_mt t
                     in
 		        case t of
 		            AppRecur t1 =>
@@ -1220,7 +1220,7 @@ local
 		  | Unfold e =>
 		    let 
                         val (t, d) = get_mtype (ctx, e) 
-                        val t = refine_mt t
+                        val t = update_mt t
                     in
 		        case t of
 	      		    AppRecur t1 =>
