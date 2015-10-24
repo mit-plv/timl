@@ -51,7 +51,7 @@ fun typecheck_file (filename, ctx) =
         [""] @
         (case counter of
              SOME assigns =>
-             ["Counter example:"] @
+             ["Counter-example:"] @
              map (fn (name, value) => sprintf "$ = $" [name, value]) assigns
            | NONE => ["Can't prove and can't find counter example"]) @
         [""]        

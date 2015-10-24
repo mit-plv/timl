@@ -34,11 +34,23 @@ functor ExprFun (structure Var : VAR structure Other : DEBUG) = struct
         type id = var * other
         type name = string * other
 
-        type uvar_name = int * other
-        datatype type 't uvar = 
-                      Refined of 't
-                      | Fresh of uvar_name
-        type 't uvar_ref = int * ('t uvar) ref
+        datatype ('a, 'b) uvar = 
+                 Fresh of 'a
+                 | Refined of 'b
+
+        datatype uvar_name =
+                 NonIdx of uvar_name_core
+                 | Idx of uvar_name_core * bsort option
+                 | Gone
+
+             and uvar_name_core = int * other * anchor ref * int (* order *)
+                     
+             and anchor = (uvar_name ref) list
+
+        (* invisible segments *)
+        type invisibles = (int * int) list
+                                   
+        type 't uvar_ref = invisibles * ((uvar_name ref, 't) uvar) ref
 
         datatype idx =
 	         VarI of var * other
@@ -49,7 +61,7 @@ functor ExprFun (structure Var : VAR structure Other : DEBUG) = struct
 	         | TrueI of other
 	         | FalseI of other
 	         | TTI of other
-                 | UVarI of ((idx, uvar_name * bsort) sum) uvar_ref
+                 | UVarI of idx uvar_ref
 
         fun T0 r = ConstIT ("0.0", r)
         fun T1 r = ConstIT ("1.0", r)
@@ -84,8 +96,8 @@ functor ExprFun (structure Var : VAR structure Other : DEBUG) = struct
 	         | AppV of id * mtype list * idx list * other
 	         (* the kind of Recur is sort => Type, to allow for change of index *)
 	         | AppRecur of string * (string * sort) list * mtype * idx list * other
-	                 | Int of other
-                                | UVar of mtype uvar_ref
+	         | Int of other
+                 | UVar of mtype uvar_ref
 
         datatype ty = 
 	         Mono of mtype

@@ -776,39 +776,18 @@ local
       	    SOME t => t
       	  | NONE => raise Error (r, ["Unbound variable: " ^ str_v (names tctx) x])
 
-    fun insert t =
+    fun insert anchor t =
         case t of
             Base t => t
-          | Uni (_, t) => insert (subst_t_t (fresh_t ()) t)
+          | Uni (_, t) => insert (subst_t_t (fresh anchor 0) t)
 
     (* assumes arguments are already checked for well-formedness *)
 
-    fun unify_fresh_uvars x x' =
-        case (!x, !x') of
-            (Fresh (n, name), Fresh (n', name')) =>
-            if n <= n' then
-                x := Fresh (n' - n, name')
-            else 
-                x' := Fresh (n - n', name)
-          | _ => raise Impossible "Shouldn't call unify_fresh_uvars with refined uvar(s)"
-
-    fun unify_i_uvar r (x, i') =
-        case !x of
-            Fresh (n, name) =>
-            if n = 0 then
-              x := Refined i'
-            else
-                (case i' of
-                     UVarI x' => raise Impossible "unify_i_uvar shouldn't be called with the second argument being fresh"
-                   | _ =>
-                     let
-                         val i' = forget_i_i n i'
-		                  handle ForgetError _ => raise UnifyError (UEI (UVarI x, i'))
-                     in
-                         x := Refined i'
-                     end
-                )
-          | Refined i => raise Impossible "unify_i_uvar shouldn't be called with the first argument being refined"
+    fun unify_fresh_uvars (invis, x) (invis', x') =
+      if n <= n' then
+          x := Fresh (n' - n, name')
+      else 
+          x' := Fresh (n - n', name)
 
     fun unify_i r =
         let
@@ -818,26 +797,26 @@ local
                     val i' = update_i i'
                 in
                     case (i, i') of
-                        (UVarI x, UVarI x') => unify_fresh_uvars (x, x')
-                      | (UVarI x, i) => unify_i_uvar r (x, i)
-                      | (i, UVarI x) => unify_i_uvar r (x, i)
+                        (UVarI uvar, UVarI uvar') =>
+                        unify_fresh_uvars (uvar, uvar')
+                      | (UVarI (invis, x), _) =>
+                        (refine x (shrink_i invis i')
+		         handle ForgetError _ => raise UnifyError (UET (t, t')))
+                      | (_, UVarI _) =>
+                        loop (i', i)
 	              | _ => write_and (BinPred (EqP, i, i'), r)
                 end
         in
             loop
         end
 
-    fun unify_s r (x, x') =
+    fun unify_s r (s as (invis, x), s' as (_, x')) =
         case (!x, !x') of
-            (Fresh _, Fresh _) => unify_fresh_uvars (x, x')
-          | (Fresh (n, _), Refined s') =>
-            let
-                val s' = forget_i_s n s'
-		         handle ForgetError _ => raise UnifyError (UES (x, x'))
-            in
-                x := Refined s'
-            end
-          | (Refined _, Fresh _) => unify_s r (x', x)
+            (Fresh _, Fresh _) => unify_fresh_uvars (s, s')
+          | (Fresh _, Refined s') =>
+            (refine x (shrink_s invis s')
+	     handle ForgetError _ => raise UnifyError (UET (t, t')))
+          | (Refined _, Fresh _) => unify_s r (s', s)
           | (Refined s, Refined s') =>
             is_eqv_sort r (s, s')
 
@@ -850,9 +829,12 @@ local
                 in
                     (* UVar can only be fresh *)
                     case (t, t') of
-                        (UVar x, UVar x') => unify_fresh_uvars (x, x')
-                      | (UVar x, t) => unify_uvar r (x, t)
-                      | (t, UVar x) => unify_uvar r (x, t)
+                        (UVar uvar, UVar uvar') =>
+                        unify_fresh_uvars (uvar, uvar')
+                      | (UVar (invis, x), _) =>
+                        (refine x (shrink_t invis t')
+		         handle ForgetError _ => raise UnifyError (UET (t, t')))
+                      | (_, UVar _) => loop (t', t)
                       | (Arrow (t1, d, t2), Arrow (t1', d', t2')) =>
                         (loop (t1, t1');
                          unify_i r (d, d');
@@ -864,12 +846,16 @@ local
                         (loop (t1, t1');
                          loop (t2, t2'))
                       | (Unit _, Unit _) => ()
-                      | (UniI (s, BindI (_, t1)), UniI (s', BindI (_, t1'))) =>
+                      | (UniI (s, BindI ((name, _), t1)), UniI (s', BindI (_, t1'))) =>
                         (unify_s r (s, s');
-                         loop (t1, t1'))
+                         open_vc_by_sort_ref (name, s);
+                         loop (t1, t1');
+                         close_vc_by_sort_ref (name, s))
                       | (ExI (s, BindI (_, t1)), ExI (s', BindI (_, t1'))) =>
                         (unify_s r (s, s');
-                         loop (t1, t1'))
+                         open_vc_by_sort_ref (name, s);
+                         loop (t1, t1');
+                         close_vc_by_sort_ref (name, s))
 	              | (Int _, Int _) => ()
 	              | (AppV ((a, _), ts, is, _), AppV ((a', _), ts', is', _)) => 
 	                if a = a' then
@@ -890,68 +876,6 @@ local
         in
             loop
         end
-
-    and unify_uvar r (x, t') =
-        case !x of
-            Fresh (n, name) =>
-            if n = 0 then
-              x := Refined t'
-            else
-                (case t' of
-                     UVar x' => raise Impossible "unify_uvar shouldn't be called with the second argument being fresh"
-                   | Arrow (t1', d', t2') =>
-                     let
-                         val t = Arrow (fresh_t (), fresh_i (), fresh_t ())
-                         val t = shift_i_t n t
-                         val () = x := Refined t
-                     in
-                         unify (t, t')
-                     end
-                   | Prod (t1', t2') =>
-                     let
-                         val t = Prod (fresh_t (), fresh_t ())
-                         val t = shift_i_t n t
-                         val () = x := Refined t
-                     in
-                         unify (t, t')
-                     end
-                   | Sum (t1', t2') =>
-                     let
-                         val t = Sum (fresh_t (), fresh_t ())
-                         val t = shift_i_t n t
-                         val () = x := Refined t
-                     in
-                         unify (t, t')
-                     end
-                   | Unit _ =>
-                     x := Refined t'
-                   | Int _ =>
-                     x := Refined t'
-                   | UniI (s', BindI (_, t1')) =>
-                     let
-                         val t = UniI (fresh (), BindI (_, fresh_t ()))
-                         val t = shift_i_t n t
-                         val () = x := Refined t
-                     in
-                         unify (t, t')
-                     end
-                   | ExI (s', BindI (_, t1')) =>
-                     let
-                         val t = ExI (fresh (), BindI (_, fresh_t ()))
-                         val t = shift_i_t n t
-                         val () = x := Refined t
-                     in
-                         unify (t, t')
-                     end
-                   | _ =>
-                     let
-                         val t' = forget_i_t n t'
-		                  handle ForgetError _ => raise UnifyError (UET (UVar x, t'))
-                     in
-                         x := Refined t'
-                     end
-                )
-          | Refined t => raise Impossible "unify_uvar shouldn't be called with the first argument being refined"
 
     fun handle_ue ctx e =             
         raise Error (get_region_e e, 
@@ -1003,8 +927,9 @@ local
                 (TrueC, make_ctx_from_typing (name, Mono t), 0)
               | PairP (pn1, pn2) =>
                 let 
-                    val t1 = fresh_t ()
-                    val t2 = fresh_t ()
+                    val anchor = make_anchor ()
+                    val t1 = fresh anchor 0
+                    val t2 = fresh anchor 0
                     val () = unify (t, Prod (t1, t2))
                     val (cover1, ctxd) = match_ptrn (ctx, pn1, t1)
                     val ctx = add_ctx_skc ctxd ctx
@@ -1040,15 +965,18 @@ local
                     (insert (fetch_var (tctx, x)), T0 dummy)
 		  | App (e1, e2) =>
 		    let 
-                        val (t2, d2) = get_mtype (ctx, e2) 
-                        val d = fresh_i (SOME Time)
-                        val t = fresh_t ()
+                        val (t2, d2) = get_mtype (ctx, e2)
+                        val anchor = make_anchor ()
+                        val d = fresh_i anchor 0 (SOME Time)
+                        val t = fresh anchor 0
                         val (_, d1) = check_mtype (ctx, e1, Arrow (t2, d, t)) 
                     in
                         (t, d1 %+ d2 %+ T1 dummy %+ d) 
 		    end
 		  | Abs (pn, e) => 
-		    let val t = fresh_t ()
+		    let
+                        val anchor = make_anchor ()
+                        val t = fresh anchor 0
                         val skcctx = (sctx, kctx, cctx) 
                         val (cover, nps, ctxd) = match_ptrn (skcctx, pn, t)
 	                val () = check_exhaustive (skcctx, t, [cover], get_region_pn pn)
@@ -1090,8 +1018,9 @@ local
 		        raise Error (get_region_e e, ["The body of a universal abstraction must be a value"])
 		  | AppI (e, i) =>
 		    let 
-                        val s = fresh ()
-                        val t1 = fresh_t ()
+                        val anchor = make_anchor ()
+                        val s = fresh anchor 0
+                        val t1 = fresh anchor 1
                         val (t, d) = check_mtype (ctx, e, UniI (s, BindI (("dummy", dummy), t1))) 
                         val () = check_sort_ref (sctx, i, s) 
                     in
@@ -1101,8 +1030,9 @@ local
 		  | Pack (t, i, e) =>
                     let
                         val () = is_wf_mtype (skctx, t)
-                        val s = fresh ()
-                        val t1 = fresh_t ()
+                        val anchor = make_anchor ()
+                        val s = fresh anchor 0
+                        val t1 = fresh anchor 1
                         val () = unify (t, ExI (s, BindI (("dummy", dummy), t1)))
                                  handle UnifyError ue => handle_ue ctxn ue
 			val () = check_sort_ref (sctx, i, s)
@@ -1114,8 +1044,9 @@ local
 		    end
 		  | Unpack (e1, return, idx_var, expr_var, e2) =>
                     let 
-                        val s = fresh ()
-                        val t1' = fresh_t ()
+                        val anchor = make_anchor ()
+                        val s = fresh anchor 0
+                        val t1' = fresh anchor 1
                         val (_, d1) = check_mtype (ctx, e1, ExI (s, BindI (("dummy", dummy), t1')))
                         val ctx' = add_sorting_skct (idx_var, s) ctx
 		        val ctx' = add_typing_skct (expr_var, Mono t1') ctx'
@@ -1165,16 +1096,18 @@ local
 		    end
 		  | Fst e => 
 		    let 
-                        val t1 = fresh_t ()
-                        val t2 = fresh_t ()
+                        val anchor = make_anchor ()
+                        val t1 = fresh anchor 0
+                        val t2 = fresh anchor 0
                         val (_, d) = check_mtype (ctx, e, Prod (t1, t2)) 
                     in 
                         (t1, d)
 		    end
 		  | Snd e => 
 		    let 
-                        val t1 = fresh_t ()
-                        val t2 = fresh_t ()
+                        val anchor = make_anchor ()
+                        val t1 = fresh anchor 0
+                        val t2 = fresh anchor 0
                         val (_, d) = check_mtype (ctx, e, Prod (t1, t2)) 
                     in 
                         (t2, d)
@@ -1195,8 +1128,9 @@ local
 		    end
 		  | SumCase (e0, name1, e1, name2, e2) => 
 		    let 
-                        val t1 = fresh_t ()
-                        val t2 = fresh_t ()
+                        val anchor = make_anchor ()
+                        val t1 = fresh anchor 0
+                        val t2 = fresh anchor 0
                         val (_, d) = check_mtype (ctx, e0, Prod (t1, t2)) 
                         val (t1', d1) = get_mtype (add_typing_skct (name1, Mono t1) ctx, e1)
 			val (_, d2) = check_mtype (add_typing_skct (name2, Mono t2) ctx, e2, t1')
