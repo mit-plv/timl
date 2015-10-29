@@ -81,6 +81,10 @@ fun mem eq x ls = List.exists (fn y => eq (y, x)) ls
 fun subset eq a b =
   List.all (fn x => mem eq x b) a
 fun diff eq a b = List.filter (fn x => not (mem eq x b)) a
+fun dedup eq xs =
+    case xs of
+        [] => []
+      | x :: xs => x :: dedup eq (diff eq xs [x])
 
 fun foldl' f init xs =
     case xs of
@@ -111,5 +115,11 @@ fun concatMap f ls = (List.concat o map f) ls
 
 fun inc r = r := !r + 1
 fun dec r = r := !r - 1
-  
+
+fun for start len f init =
+    if len <= 0 then
+        init
+    else
+        for (start + 1) (len - 1) f (f (init, start))
+
 end

@@ -50,7 +50,14 @@ functor ExprFun (structure Var : VAR structure Other : DEBUG) = struct
         (* invisible segments *)
         type invisibles = (int * int) list
                                    
-        type 't uvar_ref = invisibles * ((uvar_name ref, 't) uvar) ref
+        type 't uvar_ref = ((uvar_name ref, 't) uvar) ref
+
+        fun refine (x : 't uvar_ref) (v : 't) = 
+            case !x of
+                Refined _ => raise Impossible "refine(): should only refine Fresh uvar"
+              | Fresh name =>
+                (name := Gone;
+                 x := Refined v)
 
         datatype idx =
 	         VarI of var * other
@@ -61,7 +68,8 @@ functor ExprFun (structure Var : VAR structure Other : DEBUG) = struct
 	         | TrueI of other
 	         | FalseI of other
 	         | TTI of other
-                 | UVarI of idx uvar_ref
+                 | UVarI of invisibles * idx uvar_ref
+                 | UnderscoreI 
 
         fun T0 r = ConstIT ("0.0", r)
         fun T1 r = ConstIT ("1.0", r)
@@ -79,6 +87,8 @@ functor ExprFun (structure Var : VAR structure Other : DEBUG) = struct
         datatype sort =
 	         Basic of bsort * other
 	         | Subset of (bsort * other) * (name * prop) ibind
+                 | UVarS of invisibles * bsort uvar_ref
+                 | UnderscoreS
 					 
         val STime = Basic (Time, dummy)
         val SBool = Basic (Bool, dummy)
@@ -90,14 +100,13 @@ functor ExprFun (structure Var : VAR structure Other : DEBUG) = struct
 	         | Prod of mtype * mtype
 	         | Sum of mtype * mtype
 	         | Unit of other
-	         | UniI of sort uvar_ref * (name * mtype) ibind
-	         | ExI of sort uvar_ref * (name * mtype) ibind
+	         | UniI of sort * (name * mtype) ibind
+	         | ExI of sort * (name * mtype) ibind
 	         (* the first operant of App can only be a type variable. The degenerated case of no-arguments is also included *)
 	         | AppV of id * mtype list * idx list * other
-	         (* the kind of Recur is sort => Type, to allow for change of index *)
-	         | AppRecur of string * (string * sort) list * mtype * idx list * other
 	         | Int of other
-                 | UVar of mtype uvar_ref
+                 | UVar of (invisibles (* sortings *) * invisibles (* kindings *)) * mtype uvar_ref
+                         | Underscore
 
         datatype ty = 
 	         Mono of mtype
@@ -300,9 +309,7 @@ functor ExprFun (structure Var : VAR structure Other : DEBUG) = struct
 	         (* existential index *)
 	         | Pack of mtype * idx * expr
 	         | Unpack of expr * return * string * string * expr
-	         (* recursive type *)
-	         | Fold of mtype * expr
-	         | Unfold of expr
+                 (* other *)
 	         | BinOp of bin_op * expr * expr
 	         | Const of int * other
 	         | AppConstr of id * mtype list * idx list * expr

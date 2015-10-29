@@ -340,11 +340,11 @@ local
 	    end
 
     (* binary operations on idx are overloaded for Nat and Time *)
-    and get_bsort (ctx, i) =
+    and get_bsort order (ctx, i) =
 	case i of
 	    VarI (x, r) =>
 	    (case lookup_sort x ctx of
-      		 SOME s => get_base s
+      		 SOME s => (i, get_base s)
       	       | NONE => raise Error (r, ["Unbound index variable: " ^ str_v (sctx_names ctx) x]))
           | UnOpI (ToReal, i, _) =>
             (check_bsort (ctx, i, Nat);
@@ -371,40 +371,51 @@ local
 	  | TrueI _ => Bool
 	  | FalseI _ => Bool
 	  | TTI _ => BSUnit
+          | Underscore _ =>
+            (fresh_i (make_anchor ()) order NONE,
+             ?)
+
 
     and check_bsort (ctx, i, s) : unit =
 	is_eqv_bsort (get_region_i i) (get_bsort (ctx, i), s)
 
     fun is_wf_sorts (ctx, s) = List.app (fn s => is_wf_sort (ctx, s)) s
 
-    fun check_sort (ctx, i, s) : unit =
-	let val s' = get_bsort (ctx, i)
+    fun check_sort order (ctx, i, s) : unit =
+	let 
+            val (i, s') = get_bsort order (ctx, i)
             val r = get_region_i i
+            val s = update_s s
+            val () =
+	        (case s of
+		     Subset ((s1, _), BindI (_, p)) =>
+		     (is_eqv_bsort r (s', s1);
+		      write_and (subst_i_p i p, get_region_i i))
+	           | Basic (s1, _) => 
+		     is_eqv_bsort r (s', s1)
+                   | UVarS (invis, x) =>
+                     (case !x of
+                          Refined _ => raise Impossible "check_sort (): Refined"
+                        | Fresh _ => 
+                          refine x (Basic (s', dummy))
+                      end
+                     )
+                   | UnderscoreS => raise Impossible "check_sort (): UnderscoreS"
+                )
+                handle Error (_, msg) => 
+                       let val ctxn = sctx_names ctx in
+                           raise Error (r, 
+                                        sprintf "index $ (of base sort $) is not of sort $" [str_i ctxn i, str_b s', str_s ctxn s] :: 
+                                        "Cause:" :: 
+                                        indent msg)
+                       end
         in
-	    (case s of
-		 Subset ((s1, _), BindI (_, p)) =>
-		 (is_eqv_bsort r (s', s1);
-		  write_and (subst_i_p i p, get_region_i i))
-	       | Basic (s1, _) => 
-		 is_eqv_bsort r (s', s1))
-            handle Error (_, msg) => 
-                   let val ctxn = sctx_names ctx in
-                       raise Error (r, 
-                                    sprintf "index $ (of base sort $) is not of sort $" [str_i ctxn i, str_b s', str_s ctxn s] :: 
-                                    "Cause:" :: 
-                                    indent msg)
-                   end
+            i
 	end
 
-    fun check_sorts (ctx, is, sorts, r) =
+    fun check_sorts order (ctx, is, sorts, r) =
         (check_length r (is, sorts);
-         ListPair.app (fn (i, s) => check_sort (ctx, i, s)) (is, sorts))
-
-    fun check_sort_ref (ctx, i, s) : unit =
-        case !s of
-            Refined s => check_sort (ctx, i, s)
-          | Fresh _ => 
-            s := Refined (Basic (get_bsort (ctx, i), dummy))
+         ListPair.map (fn (i, s) => check_sort order (ctx, i, s)) (is, sorts))
 
     (* k => Type *)
     fun recur_kind k = ArrowK (false, 0, k)
@@ -416,51 +427,52 @@ local
       	    SOME k => k
       	  | NONE => raise Error (r, ["Unbound type variable: " ^ str_v (names kctx) a])
 
-    fun is_wf_mtype (ctx as (sctx : scontext, kctx : kcontext), c : mtype) : unit = 
+    fun is_wf_mtype order (ctx as (sctx : scontext, kctx : kcontext), c : mtype) : unit = 
         let val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
 	(* val () = print (sprintf "Type wellformedness checking: $\n" [str_t ctxn c]) *)
         in
 	    case c of
 	        Arrow (c1, d, c2) => 
-	        (is_wf_mtype (ctx, c1);
-	         check_sort (sctx, d, STime);
-	         is_wf_mtype (ctx, c2))
-	      | Unit _ => ()
+	        Arrow (is_wf_mtype order (ctx, c1),
+	               check_sort order (sctx, d, STime),
+	               is_wf_mtype order (ctx, c2))
+	      | Unit r => Unit r
 	      | Prod (c1, c2) => 
-	        (is_wf_mtype (ctx, c1);
-	         is_wf_mtype (ctx, c2))
+	        Prod (is_wf_mtype order (ctx, c1),
+	              is_wf_mtype order (ctx, c2))
 	      | Sum (c1, c2) => 
-	        (is_wf_mtype (ctx, c1);
-	         is_wf_mtype (ctx, c2))
-	      | UniI (s, BindI ((name, _), c)) => 
-	        (is_wf_sort (sctx, s);
-	         is_wf_mtype (add_sorting_sk (name, s) ctx, c))
+	        sum (is_wf_mtype order (ctx, c1),
+	             is_wf_mtype order (ctx, c2))
+	      | UniI (s, BindI ((name, r), c)) => 
+	        UniI (is_wf_sort order (sctx, s),
+	              BindI ((name, r), 
+                             is_wf_mtype (order + 1) (add_sorting_sk (name, s) ctx, c)))
 	      | ExI (s, BindI ((name, _), c)) => 
-	        (is_wf_sort (sctx, s);
-	         is_wf_mtype (add_sorting_sk (name, s) ctx, c))
-	      | AppRecur (nameself, ns, t, is, r) =>
-	        let val sorts = List.map #2 ns in
-		    is_wf_sorts (sctx, sorts);
-		    is_wf_mtype (add_nondep_sortings_sk (rev ns) (add_kinding_sk (nameself, recur_kind sorts) ctx), t);
-		    check_sorts (sctx, is, sorts, r)
-	        end
+	        ExI (is_wf_sort order (sctx, s),
+	              BindI ((name, r), 
+                             is_wf_mtype (order + 1) (add_sorting_sk (name, s) ctx, c)))
 	      | AppV (x, ts, is, r) => 
 	        (case fetch_kind (kctx, x) of
 		     ArrowK (_, n, sorts) => 
 		     (check_length_n r (ts, n);
-		      check_sorts (sctx, is, sorts, r)))
+		      AppV (x, 
+                            map (fn t => is_wf_mtype order (ctx, t)) ts, 
+                            check_sorts order (sctx, is, sorts, r), 
+                            r))
 	      | Int _ => ()
+              | Underscore => fresh (make_anchor ()) order
+              | UVar _ => raise Impossible "is_wf_mtime (): UVar"
         end
 
-    fun is_wf_type (ctx as (sctx : scontext, kctx : kcontext), c : ty) : unit = 
+    fun is_wf_type (ctx as (sctx : scontext, kctx : kcontext), c : ty) : ty = 
         let val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
 	(* val () = print (sprintf "Type wellformedness checking: $\n" [str_t ctxn c]) *)
         in
 	    case c of
                 Mono t =>
-                is_wf_mtype (ctx, t)
-	      | Uni ((name, _), c) => 
-	        is_wf_type (add_kinding_sk (name, Type) ctx, c)
+                Mono (is_wf_mtype (ctx, t))
+	      | Uni ((name, r), c) => 
+	        Uni ((name, r), is_wf_type (add_kinding_sk (name, Type) ctx, c))
         end
 
     open IdxEqual
@@ -781,13 +793,57 @@ local
             Base t => t
           | Uni (_, t) => insert (subst_t_t (fresh anchor 0) t)
 
-    (* assumes arguments are already checked for well-formedness *)
+    fun update_i i =
+        case i of
+            UVarI (invis, x) => 
+            (case !x of
+                 Refined i => 
+                 let 
+                     val i = update_i i
+                     val () = x := Refined i
+                 in
+                     expand_i invis i
+                 end
+               | Fresh _ => i
+            )
+          | UnOpI (opr, i, r) => UnOpI (opr, update_i, r)
+          | BinOpI (opr, i1, i2) => BinOpI (opr, update_i i1, update_i i2)
+          | VarI _ => i
+          | ConstIN _ => i
+          | ConstIT _ => i
+          | TTI _ => i
+          | TrueI _ => i
+          | FalseI _ => i
 
-    fun unify_fresh_uvars (invis, x) (invis', x') =
-      if n <= n' then
-          x := Fresh (n' - n, name')
-      else 
-          x' := Fresh (n - n', name)
+    fun update_s (s as (invis, x)) =
+        case !x of
+            Refined s => 
+            expand_s invis s
+          | Fresh _ => s
+
+    fun update_mt b =
+        case b of
+            UVarI (invis, x) => 
+            (case !x of
+                 Refined t => 
+                 let 
+                     val t = update_mt t
+                     val () = x := Refined t
+                 in
+                     expand_mt invis t
+                 end
+               | Fresh _ => i
+            )
+          | Arrow (t1, d, t2) => Arrow (update_mt t1, update_i d, update_mt t2)
+          | Unit r => Unit r
+          | Prod (t1, t2) => Prod (update_mt t1, update_mt t2)
+          | Sum (t1, t2) => Sum (update_mt t1, update_mt t2)
+          | UniI (s, BindI (name, t1)) => UniI (update_s s, BindI (name, update_mt t1))
+          | ExI (s, BindI (name, t1)) => ExI (update_s s, BindI (name, update_mt t1))
+          | AppV (y, ts, is, r) => AppV (y, map update_mt ts, map update_i is, r)
+          | Int r => Int r
+
+    (* assumes arguments are already checked for well-formedness *)
 
     fun unify_i r =
         let
@@ -797,11 +853,17 @@ local
                     val i' = update_i i'
                 in
                     case (i, i') of
-                        (UVarI uvar, UVarI uvar') =>
-                        unify_fresh_uvars (uvar, uvar')
+                        (UVarI (invis, x), UVarI (invis', x')) =>
+                        if x = x' then ()
+                        else
+                            (refine x (shrink_i invis i')
+		             handle 
+                             ForgetError _ => 
+                             refine x' (shrink_i invis' i)
+                             handle ForgetError _ => raise UnifyError (UEI (i, i')))
                       | (UVarI (invis, x), _) =>
                         (refine x (shrink_i invis i')
-		         handle ForgetError _ => raise UnifyError (UET (t, t')))
+		         handle ForgetError _ => raise UnifyError (UEI (i, i')))
                       | (_, UVarI _) =>
                         loop (i', i)
 	              | _ => write_and (BinPred (EqP, i, i'), r)
@@ -829,10 +891,16 @@ local
                 in
                     (* UVar can only be fresh *)
                     case (t, t') of
-                        (UVar uvar, UVar uvar') =>
-                        unify_fresh_uvars (uvar, uvar')
+                        (UVar (invis, x), UVar (invis', x')) =>
+                        if x = x' then ()
+                        else
+                            (refine x (shrink_mt invis t')
+		             handle 
+                             ForgetError _ => 
+                             refine x' (shrink_mt invis' t)
+                             handle ForgetError _ => raise UnifyError (UET (t, t')))
                       | (UVar (invis, x), _) =>
-                        (refine x (shrink_t invis t')
+                        (refine x (shrink_mt invis t')
 		         handle ForgetError _ => raise UnifyError (UET (t, t')))
                       | (_, UVar _) => loop (t', t)
                       | (Arrow (t1, d, t2), Arrow (t1', d', t2')) =>
@@ -1220,7 +1288,8 @@ local
 
     and check_decls (ctx, decls) : context * idx list * context = 
         let fun f (decl, (ctxd, nps, ds, ctx)) =
-                let val (ctxd', nps', ds') = check_decl (ctx, decl)
+                let 
+                    val (ctxd', nps', ds') = check_decl (ctx, decl)
                     val ctxd = add_ctx ctxd' ctxd
                     val nps = nps + nps'
                     val ds = ds' @ map (shift_ctx_i ctxd') ds
@@ -1233,56 +1302,117 @@ local
         end
 
     and check_decl (ctx as (sctx, kctx, cctx, _), decl) =
-        case decl of
-            Val (VarP (x, _), e) =>
-            let 
-                val skcctx = (sctx, kctx, cctx) 
-                val (t, d) = get_mtype (ctx, e)
-                val t = generalize (ctx, t, is_value e)
-            in
-                (make_ctx_from_typing (x, t), 0, [d])
-            end
-          | Val (pn, e) =>
-            let 
-                val skcctx = (sctx, kctx, cctx) 
-                val (t, d) = get_mtype (ctx, e)
-                val (cover, ctxd, nps) = match_ptrn (skcctx, pn, t)
-                val d = shift_ctx_i ctxd d
-	        val () = check_exhaustive (skcctx, t, [cover], get_region_pn pn)
-            in
-                (ctxd, nps, [d])
-            end
-	  | Rec (t, (name, r), e) => 
-	    let 
-		val () = is_wf_mtype (skctx, t)
-                val () = check_fix_body e
-		val (_, _) = check_mtype (add_typing_skct (name, Mono t) ctx, e, t)
-                val t = generalize (ctx, t, true)
-            in
-                (make_ctx_from_typing (x, Mono t), 0, [T0 dummy])
-	    end
-	  | Datatype (name, tnames, sorts, constr_decls, _) =>
-	    let 
-                val () = is_wf_sorts (sctx, sorts)
-		val nk = (name, ArrowK (true, length tnames, sorts))
-		val ctx as (sctx, kctx, _, _) = add_kinding_skct nk ctx
-		fun make_constr ((name, ibinds, r) : constr_decl) =
-		    let 
-                        val c = (0, tnames, ibinds)
-		        val t = constr_type c
-		        val () = is_wf_type ((sctx, kctx), t)
-			         handle Error (_, msg) =>
-				        raise Error (r, 
-						     "Constructor is ill-formed" :: 
-						     "Cause:" :: 
-						     indent msg)
-		    in
-		        (name, c)
-		    end
-		val constrs = map make_constr constr_decls
-	    in
-		((([], []), [nk], rev constrs, []), 0, [])
-	    end
+        let
+            fun fv_mt t =
+	        case b of
+                    UVar (_, uvar) =>
+                    (case !uvar of
+                         Refined t => fv_mt t
+                       | Fresh y => [y]
+                    )
+	          | Arrow (t1, _, t2) => fv_mt t1 @ fv_mt t2
+	          | Unit r => []
+	          | Prod (t1, t2) => fv_mt t1 @ fv_mt t2
+	          | Sum (t1, t2) => fv_mt t1 @ fv_mt t2
+	          | UniI (s, BindI (name, t1)) => fv_mt t1
+	          | ExI (s, BindI (name, t1)) => fv_mt t1
+	          | Int r => []
+	          | AppV (y, ts, is, r) => concatMap fv_mt ts
+            fun fv_t t =
+                case t of
+                    Mono t => fv_mt t
+                  | Uni _ => [] (* fresh uvars in Uni should either have been generalized or in previous ctx *)
+            fun generalize t = 
+                let
+                    fun fv_ctx (_, _, _, tctx) = concatMap (mapSnd fv_t) tctx (* cctx can't contain uvars *)
+                    fun subst x v (b : mty) : mty =
+	                case b of
+                            UVar (_, uvar) =>
+                            (case !uvar of
+                                 Refined _ => b
+                               | Fresh y => if y = x then
+                                                AppV ((v, dummy), [], [], dummy)
+                                            else 
+                                                b
+                            )
+	                  | Arrow (t1, d, t2) => Arrow (subst x v t1, d, subst x v t2)
+	                  | Unit r => Unit r
+	                  | Prod (t1, t2) => Prod (subst x v t1, subst x v t2)
+	                  | Sum (t1, t2) => Sum (subst x v t1, subst x v t2)
+	                  | UniI (s, BindI (name, t1)) => UniI (s, BindI (name, subst x (v + 1) t1))
+	                  | ExI (s, BindI (name, t1)) => ExI (s, BindI (name, subst x (v + 1) t1))
+	                  | Int r => Int r
+	                  | AppV (y, ts, is, r) => 
+		            AppV (y, map (subst x v) ts, is, r)
+                    fun uvar_t_name n =
+                        if n < 26 then
+                            "'" ^ chr (ord "a" + n)
+                        else
+                            "'" ^ str_int n
+                    val fv = dedup op= $ diff op= (fv_mt t) (fv_ctx ctx)
+                    val t = shiftx_t_t 0 (length fv) t
+                    val t = (fst o foldl (fn (uname, (t, v)) => (subst uname v t, v + 1)) (t, 0)) fv
+                    val t = for 0 (length fv) (fn (t, i) => (Uni ((uvar_t_name i, dummy), t))) (Mono t)
+                in
+                    t
+                end
+        in
+            case decl of
+                Val (VarP (x, _), e) =>
+                let 
+                    val skcctx = (sctx, kctx, cctx) 
+                    val (t, d) = get_mtype (ctx, e)
+                    val t = if is_value e then 
+                                generalize t
+                            else 
+                                Mono t
+                in
+                    (make_ctx_from_typing (x, t), 0, [d])
+                end
+              | Val (pn, e) =>
+                let 
+                    val skcctx = (sctx, kctx, cctx) 
+                    val (t, d) = get_mtype (ctx, e)
+                    val (cover, ctxd, nps) = match_ptrn (skcctx, pn, t)
+                    val d = shift_ctx_i ctxd d
+	            val () = check_exhaustive (skcctx, t, [cover], get_region_pn pn)
+                in
+                    (ctxd, nps, [d])
+                end
+	      | Rec (t, (name, r), e) => 
+	        let 
+		    val () = is_wf_mtype (skctx, t)
+                    val () = check_fix_body e
+		    val (_, _) = check_mtype (add_typing_skct (name, Mono t) ctx, e, t)
+                    val t = generalize t
+                in
+                    (make_ctx_from_typing (x, t), 0, [T0 dummy])
+	        end
+	      | Datatype (name, tnames, sorts, constr_decls, _) =>
+	        let 
+                    val () = is_wf_sorts (sctx, sorts)
+		    val nk = (name, ArrowK (true, length tnames, sorts))
+		    val ctx as (sctx, kctx, _, _) = add_kinding_skct nk ctx
+		    fun make_constr ((name, ibinds, r) : constr_decl) =
+		        let 
+                            val c = (0, tnames, ibinds)
+		            val t = constr_type c
+		            val () = is_wf_type ((sctx, kctx), t)
+			             handle Error (_, msg) =>
+				            raise Error (r, 
+						         "Constructor is ill-formed" :: 
+						         "Cause:" :: 
+						         indent msg)
+                            val () = if length (fv_t t) > 0 then
+                                         raise Error (r, ["Constructor has unresolved unification type variable(s)"])
+		        in
+		            (name, c)
+		        end
+		    val constrs = map make_constr constr_decls
+	        in
+		    ((([], []), [nk], rev constrs, []), 0, [])
+	        end
+        end
 
     and check_rules (ctx as (sctx, kctx, cctx, tctx), rules, t as (t1, return), r) =
 	let val skcctx = (sctx, kctx, cctx) 

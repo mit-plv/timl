@@ -1,31 +1,9 @@
 structure Subst = struct
 open Expr
 
-fun update_i i =
-    case i of
-        UVarI (n, x) => 
-        (case !x of
-             Refined i => 
-             let 
-                 val i = update_i i
-                 val () = x := Refined i
-             in
-                 i
-             end
-           | Fresh _ => i
-        )
-      | UnOpI (opr, i, r) => UnOpI (opr, update_i, r)
-      | BinOpI (opr, i1, i2) => BinOpI (opr, update_i i1, update_i i2)
-      | VarI _ => i
-      | ConstIN _ => i
-      | ConstIT _ => i
-      | TTI _ => i
-      | TrueI _ => i
-      | FalseI _ => i
-
 (* generic traversers for both 'shift' and 'forget' *)
          
-fun on_i_i on_v x n b =
+fun on_i_i on_v on_invis expand_i x n b =
   let
       fun f x n b =
 	case b of
@@ -37,20 +15,12 @@ fun on_i_i on_v x n b =
 	  | TTI r => TTI r
 	  | TrueI r => TrueI r
 	  | FalseI r => FalseI r
-          | UVarI (y, uvar) =>
+          | UVarI (invis, uvar) =>
             (case !uvar of
                  Refined i => 
-                 if y >= x then
-                     f 0 (n + y) i (* same as (f x (n + y) i) *)
-                 else
-                     (f 0 y o f (x - y) n) i
+                 f x n (expand_i invis i)
                | Fresh _ => 
-                 let 
-                     val y = 
-                         if y >= x then
-                 in
-                     UVarI (y, uvar)
-                 end
+                 UVarI (on_invis x n invis, uvar)
             )
   in
       f x n b
@@ -87,7 +57,14 @@ fun on_i_s on_i_p x n b =
       f x n b
   end
 
-fun on_i_mt on_i_i on_i_s x n b =
+fun on_i_s_ref on_invis expand_s x n (invis, uvar) =
+    case !uvar of
+        Refined i => 
+        f x n (expand_s invis i)
+      | Fresh _ => 
+        UVarI (on_invis x n invis, uvar)
+
+fun on_i_mt on_i_i on_i_s on_i_s_ref on_invis expand_mt x n b =
   let
       fun f x n b =
 	case b of
@@ -95,11 +72,17 @@ fun on_i_mt on_i_i on_i_s x n b =
 	  | Unit r => Unit r
 	  | Prod (t1, t2) => Prod (f x n t1, f x n t2)
 	  | Sum (t1, t2) => Sum (f x n t1, f x n t2)
-	  | UniI (s, bind) => UniI (on_i_s x n s, on_i_ibind f x n bind)
-	  | ExI (s, bind) => ExI (on_i_s x n s, on_i_ibind f x n bind)
-	  | AppRecur (name, ns, t, i, r) => AppRecur (name, map (mapSnd (on_i_s x n)) ns, f (x + length ns) n t, map (on_i_i x n) i, r)
+	  | UniI (s, bind) => UniI (on_i_s_ref x n s, on_i_ibind f x n bind)
+	  | ExI (s, bind) => ExI (on_i_s_ref x n s, on_i_ibind f x n bind)
 	  | AppV (y, ts, is, r) => AppV (y, map (f x n) ts, map (on_i_i x n) is, r)
 	  | Int r => Int r
+          | UVar (invis as (invisi invist), uvar) =>
+            (case !uvar of
+                 Refined t => 
+                 f x n (expand_mt invis t)
+               | Fresh _ => 
+                 UVar ((on_invis x n invisi, invist), uvar)
+            )
   in
       f x n b
   end
@@ -131,16 +114,12 @@ fun on_t_mt on_v x n b =
 	  | AppRecur (name, ns, t, i, r) => AppRecur (name, ns, f (x + 1) n t, i, r)
 	  | AppV ((y, r1), ts, is, r) => AppV ((on_v x n y, r1), map (f x n) ts, is, r)
 	  | Int r => Int r
-          | UVar x =>
-            (case !x of
+          | UVar (invis as (invisi invist), uvar) =>
+            (case !uvar of
                  Refined t => 
-                 let 
-                     val i = f x n t
-                     val () = x := Refined t
-                 in
-                     t
-                 end
-               | Fresh (y, name) => Fresh (on_v x n y, name)
+                 f x n (expand_mt invis t)
+               | Fresh _ => 
+                 UVar ((invisi, on_invis x n invist), uvar)
             )
   in
       f x n b
@@ -164,7 +143,25 @@ fun shiftx_v x n y =
     else
 	y
 
-fun shiftx_i_i x n b = on_i_i shiftx_v x n b
+fun shiftx_invis x n invis = 
+    let 
+        fun f ((off, len), (acc, (x, n))) => 
+            if n = 0 then
+                ((off, len) :: acc, (0, 0))
+            else if x < off then
+                ((off - x, len) :: (x, n) :: acc, (0, 0))
+            else if x <= off + len then
+                ((off, len + n) :: acc, (0, 0))
+            else 
+                ((off, len) :: acc, (x - off - len, n))
+    in
+        (rev o fst o fold f ([], (x, n))) invis
+    end
+
+fun expand shift invis b = (fst o foldl (fn ((off, len), (b, base)) => (shift (base + off) len b, base + off + len)) (b, 0)) invis
+
+fun expand_i invis b = expand shiftx_i_i invis b
+and shiftx_i_i x n b = on_i_i shiftx_v shiftx_invis expand_i x n b
 fun shift_i_i b = shiftx_i_i 0 1 b
 
 fun shiftx_i_p x n b = on_i_p shiftx_i_i x n b
@@ -173,17 +170,68 @@ fun shift_i_p b = shiftx_i_p 0 1 b
 fun shiftx_i_s x n b = on_i_s shiftx_i_p x n b
 fun shift_i_s b = shiftx_i_s 0 1 b
 
-fun shiftx_i_mt x n b = on_i_mt shiftx_i_i shiftx_i_s x n b
+fun expand_s invis b = expand shiftx_i_s invis b
+and shiftx_i_s_ref x n b = on_i_s_ref shiftx_invis expand_s x n b
+
+fun expand_mt (invisi, invist) b = (expand shiftx_i_mt invisi o expand shiftx_t_mt invist) b
+and shiftx_i_mt x n b = on_i_mt shiftx_i_i shiftx_i_s shiftx_i_s_ref shiftx_invis expand_mt x n b
+and shiftx_t_mt x n b = on_t_mt shiftx_v shiftx_invis expand_mt x n b
 fun shift_i_mt b = shiftx_i_mt 0 1 b
+fun shift_t_mt b = shiftx_t_mt 0 1 b
 
 fun shiftx_i_t x n b = on_i_t shiftx_i_mt x n b
 fun shift_i_t b = shiftx_i_t 0 1 b
 
-fun shiftx_t_mt x n b = on_t_mt shiftx_v x n b
-fun shift_t_mt b = shiftx_t_mt 0 1 b
-
 fun shiftx_t_t x n b = on_t_t shiftx_t_mt x n b
 fun shift_t_t b = shiftx_t_t 0 1 b
+
+(* forget *)
+
+exception ForgetError of var
+(* exception Unimpl *)
+
+fun forget_v x n y = 
+    if y >= x + n then
+	y - n
+    else if y < x then
+	y
+    else
+        raise ForgetError y
+
+fun forget_invis x n invis = 
+    let 
+        fun f ((off, len), (acc, (x, n))) => 
+            if n = 0 then
+                ((off, len) :: acc, (0, 0))
+            else if x < off then
+                raise ForgetError x
+            else if x <= off + len then
+                if x + n <= off + len then
+                    ((off, len - n) :: acc, (0, 0))
+                else
+                    raise ForgetError (off + len)
+            else 
+                ((off, len) :: acc, (x - off - len, n))
+    in
+        (rev o fst o fold f ([], (x, n))) invis
+    end
+
+fun forget_i_i x n b = on_i_i forget_v forget_invis expand_i x n b
+fun forget_i_p x n b = on_i_p forget_i_i x n b
+fun forget_i_s x n b = on_i_s forget_i_p x n b
+and forget_i_s_ref x n b = on_i_s_ref forget_invis expand_s x n b
+fun forget_i_mt x n b = on_i_mt forget_i_i forget_i_s forget_i_s_ref forget_invis expand_mt x n b
+fun forget_t_mt x n b = on_t_mt forget_v forget_invis expand_mt x n b
+fun forget_i_t x n b = on_i_t forget_i_mt x n b
+fun forget_t_t x n b = on_t_t forget_t_mt x n b
+
+fun shrink forget invis b = (fst o foldl (fn ((off, len), (b, base)) => (forget (base + off) len b, base + off)) (b, 0)) invis
+
+fun shrink_i invis b = shrink forget_i_i invis b
+fun shrink_s invis b = shrink forget_i_s invis b
+fun shrink_mt (invisi, invist) b = (shrink forget_i_mt invisi o shrink forget_t_mt invist) b
+
+(* shift_e_e *)
 
 local
     fun f x n b =
@@ -244,27 +292,6 @@ in
 fun shiftx_e_e x n b = f x n b
 fun shift_e_e b = shiftx_e_e 0 1 b
 end
-
-(* forget *)
-
-exception ForgetError of var
-(* exception Unimpl *)
-
-fun forget_v x n y = 
-    if y >= x + n then
-	y - n
-    else if y < x then
-	y
-    else
-        raise ForgetError y
-
-fun forget_i_i x n b = on_i_i forget_v x n b
-fun forget_i_p x n b = on_i_p forget_i_i x n b
-fun forget_i_s x n b = on_i_s forget_i_p x n b
-fun forget_i_mt x n b = on_i_mt forget_i_i forget_i_s x n b
-fun forget_i_t x n b = on_i_t forget_i_mt x n b
-fun forget_t_mt x n b = on_t_mt forget_v x n b
-fun forget_t_t x n b = on_t_t forget_t_mt x n b
 
 (* subst *)
 
