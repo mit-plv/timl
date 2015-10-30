@@ -9,6 +9,7 @@ type region = pos * pos
 
 val dummy_pos : pos = {abs = 0, line = 0, col = 0}
 val dummy_region = (dummy_pos, dummy_pos)
+val dummy = dummy_region
 
 (* default style *)
 fun str_region header filename ((left, right) : region) = sprintf "$: $ $.$.\n" [header, filename, str_int (#line left), str_int (#col left)]

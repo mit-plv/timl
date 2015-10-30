@@ -1,6 +1,7 @@
 structure TypeCheck = struct
 open ExprRegion
 open Region
+structure U = UnderscoredExpr
 open Expr
 open VC
 
@@ -251,49 +252,167 @@ local
         else
 	    raise Error (r, ["List length mismatch"])
 
-    fun is_eqv_bsort_b s s' =
-        case (s, s') of
-	    (Time, Time) => true
-	  | (Nat, Nat) => true
-	  | (Bool, Bool) => true
-	  | (BSUnit, BSUnit) => true
-	  | _ => false
+    fun update_i i =
+        case i of
+            UVarI (invis, x) => 
+            (case !x of
+                 Refined i => 
+                 let 
+                     val i = update_i i
+                     val () = x := Refined i
+                 in
+                     expand_i invis i
+                 end
+               | Fresh _ => i
+            )
+          | UnOpI (opr, i, r) => UnOpI (opr, update_i, r)
+          | BinOpI (opr, i1, i2) => BinOpI (opr, update_i i1, update_i i2)
+          | VarI _ => i
+          | ConstIN _ => i
+          | ConstIT _ => i
+          | TTI _ => i
+          | TrueI _ => i
+          | FalseI _ => i
 
-    fun is_eqv_bsort r (s, s') =
-        if is_eqv_bsort_b s s' then
-	    ()
-        else
-	    raise Error (r, [sprintf "Basic sort mismatch: $ and $" [str_b s, str_b s']])
-    fun is_eqv_bsort' r ((s, _), (s', _)) =
+    fun update_bs bs =
+        case bs of
+            UVarBS x =>
+            (case !x of
+                 Refined bs => 
+                 let 
+                     val bs = update_bs bs
+                     val () = x := Refined bs
+                 in
+                     bs
+                 end
+               | Fresh _ => bs
+            )
+          | Base _ => bs
+
+    fun update_s s =
+        case s of
+            UVarS (invis, x) =>
+            (case !x of
+                 Refined s => 
+                 let 
+                     val s = update_s s
+                     val () = x := Refined s
+                 in
+                     expand_s invis s
+                 end
+               | Fresh _ => s
+            )
+          | Basic _ => s
+          | Subset _ => s
+
+    fun update_mt b =
+        case b of
+            UVarI (invis, x) => 
+            (case !x of
+                 Refined t => 
+                 let 
+                     val t = update_mt t
+                     val () = x := Refined t
+                 in
+                     expand_mt invis t
+                 end
+               | Fresh _ => i
+            )
+          | Arrow (t1, d, t2) => Arrow (update_mt t1, update_i d, update_mt t2)
+          | Unit r => Unit r
+          | Prod (t1, t2) => Prod (update_mt t1, update_mt t2)
+          | Sum (t1, t2) => Sum (update_mt t1, update_mt t2)
+          | UniI (s, BindI (name, t1)) => UniI (update_s s, BindI (name, update_mt t1))
+          | ExI (s, BindI (name, t1)) => ExI (update_s s, BindI (name, update_mt t1))
+          | AppV (y, ts, is, r) => AppV (y, map update_mt ts, map update_i is, r)
+          | Int r => Int r
+
+    (* assumes arguments are already checked for well-formedness *)
+
+    fun unify_i r =
+        let
+            fun loop (t, t') =
+                let 
+                    val i = update_i i
+                    val i' = update_i i'
+                in
+                    case (i, i') of
+                        (UVarI (invis, x), UVarI (invis', x')) =>
+                        if x = x' then ()
+                        else
+                            (refine x (shrink_i invis i')
+		             handle 
+                             ForgetError _ => 
+                             refine x' (shrink_i invis' i)
+                             handle ForgetError _ => raise UnifyError (UEI (i, i')))
+                      | (UVarI (invis, x), _) =>
+                        (refine x (shrink_i invis i')
+		         handle ForgetError _ => raise UnifyError (UEI (i, i')))
+                      | (_, UVarI _) =>
+                        loop (i', i)
+	              | _ => write_and (BinPred (EqP, i, i'), r)
+                end
+        in
+            loop
+        end
+
+    fun unify_bs r (bs, bs') =
+        case (bs, bs') of
+            (UVarBS x, _) =>
+            refine x bs'
+          | (_, UVarBS _) =>
+            unify_bs r (bs', bs)
+          | (Base bs, Base bs') =>
+            if s = s' then
+	        ()
+            else
+	        raise Error (r, [sprintf "Base sort mismatch: $ and $" [str_b s, str_b s']])
 		  
-    fun is_eqv_sort r (s, s') =
-        case (s, s') of
-	    (Basic s1, Basic s1') =>
-	    is_eqv_bsort' r (s1, s1')
-	  | (Subset (s1, BindI ((name, _), p)), Subset (s1', BindI (_, p'))) =>
+    fun unify_s r (s, s') =
+        let 
+            val s = update_s s
+            val s' = update_s s'
+        in
+            (* UVarS can only be fresh *)
+            case (s, s') of
+                (UVarS (invis, x), UVarS (invis', x')) =>
+                if x = x' then ()
+                else
+                    (refine x (shrink_s invis s')
+		     handle 
+                     ForgetError _ => 
+                     refine x' (shrink_s invis' s)
+                     handle ForgetError _ => raise UnifyError (UES (s, s')))
+          | (UVarS (invis, x), _) =>
+            (refine x (shrink_s invis s')
+	     handle ForgetError _ => raise UnifyError (UES (s, s')))
+          | (_, UVarS _) => unify_s r (s', s)
+	  | (Basic (bs, _), Basic (bs', _)) =>
+	    unify_bs r (bs, bs')
+	  | (Subset ((bs, r1), BindI ((name, _), p)), Subset ((bs', _), BindI (_, p'))) =>
             let
-	        val () = is_eqv_bsort' r (s1, s1')
-                val ctxd = make_ctx_from_sorting (name, Basic s1)
+	        val () = unify_bs r (bs, bs')
+                val ctxd = make_ctx_from_sorting (name, Basic (bs, r1))
                 val () = open_vc ctxd
 	        val () = write_and (p <-> p', r)
                 val () = close_vc ctxd
             in
                 ()
             end
-	  | (Subset (s1, BindI ((name, _), p)), Basic s1') =>
+	  | (Subset ((bs, r1), BindI ((name, _), p)), Basic bs') =>
             let
-	        val () = is_eqv_bsort' r (s1, s1')
-                val ctxd = make_ctx_from_sorting (name, Basic s1)
+	        val () = unify_bs r (bs, bs')
+                val ctxd = make_ctx_from_sorting (name, Basic (bs, r1))
                 val () = open_vc ctxd
 	        val () = write_and (p, r)
                 val () = close_vc ctxd
             in
                 ()
             end
-	  | (Basic s1, Subset (s1', BindI ((name, _), p))) =>
+	  | (Basic (bs, r1), Subset ((bs', _), BindI ((name, _), p))) =>
             let
-	        val () = is_eqv_bsort' r (s1, s1')
-                val ctxd = make_ctx_from_sorting (name, Basic s1)
+	        val () = unify_bs r (bs, bs')
+                val ctxd = make_ctx_from_sorting (name, Basic (bs, r1))
                 val () = open_vc ctxd
 	        val () = write_and (p, r)
                 val () = close_vc ctxd
@@ -301,87 +420,188 @@ local
                 ()
             end
 
-    fun is_eqv_sorts r (sorts, sorts') =
+    fun unify_sorts r (sorts, sorts') =
         (check_length r (sorts, sorts');
-         ListPair.app (is_eqv_sort r) (sorts, sorts'))
-	    
+         ListPair.app (unify_s r) (sorts, sorts'))
+
+    fun unify r =
+        let
+            fun loop (t, t') =
+                let 
+                    val t = update_mt t
+                    val t' = update_mt t'
+                in
+                    (* UVar can only be fresh *)
+                    case (t, t') of
+                        (UVar (invis, x), UVar (invis', x')) =>
+                        if x = x' then ()
+                        else
+                            (refine x (shrink_mt invis t')
+		             handle 
+                             ForgetError _ => 
+                             refine x' (shrink_mt invis' t)
+                             handle ForgetError _ => raise UnifyError (UET (t, t')))
+                      | (UVar (invis, x), _) =>
+                        (refine x (shrink_mt invis t')
+		         handle ForgetError _ => raise UnifyError (UET (t, t')))
+                      | (_, UVar _) => loop (t', t)
+                      | (Arrow (t1, d, t2), Arrow (t1', d', t2')) =>
+                        (loop (t1, t1');
+                         unify_i r (d, d');
+                         loop (t2, t2'))
+                      | (Prod (t1, t2), Prod (t1', t2')) =>
+                        (loop (t1, t1');
+                         loop (t2, t2'))
+                      | (Sum (t1, t2), Sum (t1', t2')) =>
+                        (loop (t1, t1');
+                         loop (t2, t2'))
+                      | (Unit _, Unit _) => ()
+                      | (UniI (s, BindI ((name, _), t1)), UniI (s', BindI (_, t1'))) =>
+                        (unify_s r (s, s');
+                         open_vc_by_sort_ref (name, s);
+                         loop (t1, t1');
+                         close_vc_by_sort_ref (name, s))
+                      | (ExI (s, BindI (_, t1)), ExI (s', BindI (_, t1'))) =>
+                        (unify_s r (s, s');
+                         open_vc_by_sort_ref (name, s);
+                         loop (t1, t1');
+                         close_vc_by_sort_ref (name, s))
+	              | (Int _, Int _) => ()
+	              | (AppV ((a, _), ts, is, _), AppV ((a', _), ts', is', _)) => 
+	                if a = a' then
+		            (ListPair.app loop (ts, ts');
+                             ListPair.app (unify_i r) (is, is'))
+	                else
+		            raise UnifyError (UETV (a, a'))
+	              | (AppRecur (_, ns, t, is, _), AppRecur (_, ns', t', is', r')) => 
+	                let 
+		            val () = is_eqv_sorts (map snd ns, map snd ns', r')
+                            val () = loop (t, t')
+		            val () = ListPair.app (unify_i r) (is, is')
+                        in
+		            ()
+	                end
+	              | _ => raise UnifyError (UET (t, t'))
+                end
+        in
+            loop
+        end
+
     fun sort_mismatch ctx i expect have =  "Sort mismatch for " ^ str_i ctx i ^ ": expect " ^ expect ^ " have " ^ str_s ctx have
 
-    fun is_wf_sort (ctx : scontext, s : sort) =
-        case s of
-	    Basic _ => ()
-	  | Subset (s, BindI ((name, _), p)) =>
-	    is_wf_prop (add_sorting (name, Basic s) ctx, p)
+    fun is_wf_bsort (bs : U.bsort) : bsort =
+        case bs of
+            U.Base bs => Base bs
+          | U.UVarBS () => fresh_bsort ()
 
-    and is_wf_prop (ctx : scontext, p : prop) =
+    fun is_wf_sort order (ctx : scontext, s : U.sort) : sort =
+        case s of
+	    U.Basic (bs, r) => Basic (is_wf_bsort bs, r)
+	  | U.Subset ((bs, r), BindI ((name, r2), p)) =>
+            let 
+                val bs = is_wf_bsort bs
+            in
+                Subset ((bs, r),
+                        BindI (name, r2), is_wf_prop (order + 1) (add_sorting (name, Basic (bs, r)) ctx, p))
+            end
+
+    and is_wf_prop order (ctx : scontext, p : U.prop) : prop =
 	case p of
-	    True _ => ()
-	  | False _ => ()
-          | Not (p, _) => 
-            is_wf_prop (ctx, p)
-	  | BinConn (_, p1, p2) =>
-	    (is_wf_prop (ctx, p1);
-	     is_wf_prop (ctx, p2))
-	  | BinPred (EqP, i1, i2) =>
-	    let val s1 = get_bsort (ctx, i1)
-		val s2 = get_bsort (ctx, i2)
+	    U.True r => True r
+	  | U.False r => False r
+          | U.Not (p, r) => 
+            Not (is_wf_prop order (ctx, p), r)
+	  | U.BinConn (opr, p1, p2) =>
+	    BinConn (opr,
+                     is_wf_prop order (ctx, p1),
+	             is_wf_prop order (ctx, p2))
+	  | U.BinPred (EqP, i1, i2) =>
+	    let 
+                val (bs1, i1) = get_bsort order (ctx, i1)
+		val (bs2, i2) = get_bsort order (ctx, i2)
+                val () = unify_bs (U.get_region_p p) (bs1, bs2)
 	    in
-		if s1 = s2 then ()
-		else raise Error (get_region_p p, [sprintf "Base-sorts not equal: $ and $" [str_b s1, str_b s2]])
+                BinPred (EqP, i1, i2)
 	    end
-	  | BinPred (opr, i1, i2) =>
-	    let val s1 = get_bsort (ctx, i1)
-		val s2 = get_bsort (ctx, i2)
+	  | U.BinPred (opr, i1, i2) =>
+	    let 
+                val (bs1, i1) = get_bsort order (ctx, i1)
+		val (bs2, i2) = get_bsort order (ctx, i2)
+                val () = unify_bs (U.get_region_p p) (bs1, bs2)
+                val bs = update bs1
+                val () =
+                    case bs of
+                        Base Nat => ()
+                      | Base Time => ()
+                      | _ => raise Error (get_region_p p, sprintf "Sorts of operands of $ must be both Nat or Time:" [str_bin_pred opr] :: indent ["left: " ^ str_b s1, "right: " ^ str_b s2])
 	    in
-                case (s1, s2) of
-                      (Nat, Nat) => ()
-                    | (Time, Time) => ()
-                    | _ => raise Error (get_region_p p, sprintf "Sorts of operands of $ can only be both Nat or Time:" [str_bin_pred opr] :: indent ["left: " ^ str_b s1, "right: " ^ str_b s2])
+                BinPred (opr, i1, i2)
 	    end
 
     (* binary operations on idx are overloaded for Nat and Time *)
-    and get_bsort order (ctx, i) =
+    and get_bsort order (ctx, i : U.idx) : idx * bsort =
 	case i of
-	    VarI (x, r) =>
+	    U.VarI (x, r) =>
 	    (case lookup_sort x ctx of
-      		 SOME s => (i, get_base s)
+      		 SOME s => (VarI (x, r), get_base s)
       	       | NONE => raise Error (r, ["Unbound index variable: " ^ str_v (sctx_names ctx) x]))
-          | UnOpI (ToReal, i, _) =>
-            (check_bsort (ctx, i, Nat);
-             Time)
-          | UnOpI (Log2, i, _) =>
-            (check_bsort (ctx, i, Time);
-             Time)
-	  | BinOpI (opr, i1, i2) =>
-            let val s1 = get_bsort (ctx, i1)
-                val s2 = get_bsort (ctx, i2)
+          | U.UnOpI (ToReal, i, r) =>
+            (UnOpI (ToReal,
+                    check_bsort order (ctx, i, Base Nat),
+                    r),
+             Base Time)
+          | U.UnOpI (Log2, i, r) =>
+            (UnOpI (Log2,
+                    check_bsort order (ctx, i, Base Time),
+                    r),
+             Base Time)
+	  | U.BinOpI (opr, i1, i2) =>
+            let 
+                val (i1, bs1) = get_bsort order (ctx, i1)
+                val (i2, bs2) = get_bsort order (ctx, i2)
+                val () = unify_bs (U.get_region_i i) (bs1, bs2)
+                val bs = update_bs bs1
+                val () =
+                    case bs of
+                        Base Nat => ()
+                      | Base Time => ()
+                      | _ => raise Error (get_region_i i, sprintf "Sorts of operands of $ must be both Nat or Time:" [str_idx_bin_op opr] :: indent ["left: " ^ str_b s1, "right: " ^ str_b s2])
             in
-                case (s1, s2) of
-                    (Nat, Nat) => Nat
-                  | (Time, Time) => Time
-                  | _ => raise Error (get_region_i i, sprintf "Sorts of operands of $ don't match:" [str_idx_bin_op opr] :: indent ["left: " ^ str_b s1, "right: " ^ str_b s2])
+                (BinOpI (opr, i1, i2), bs)
             end
-	  | ConstIT (x, _) => 
-	    Time
-	  | ConstIN (n, r) => 
+	  | U.ConstIT (x, r) => 
+	    (ConstIT (x, r), Base Time)
+	  | U.ConstIN (n, r) => 
 	    if n >= 0 then
-		Nat
+		(ConstIN (n, r), Base Nat)
 	    else
 		raise Error (r, ["Natural number constant must be non-negative"])
-	  | TrueI _ => Bool
-	  | FalseI _ => Bool
-	  | TTI _ => BSUnit
-          | Underscore _ =>
-            (fresh_i (make_anchor ()) order NONE,
-             ?)
+	  | U.TrueI r => 
+            (TrueI r, Base Bool)
+	  | U.FalseI r => 
+            (FalseI r, Base Bool)
+	  | U.TTI r => 
+            (TTI r, Base BSUnit)
+          | U.UVarI ((), r) =>
+            let
+                val bs = fresh_bsort ()
+            in
+                (fresh_i (make_anchor ()) order bs r, bs)
+            end
 
 
-    and check_bsort (ctx, i, s) : unit =
-	is_eqv_bsort (get_region_i i) (get_bsort (ctx, i), s)
+    and check_bsort order (ctx, i : U.idx, bs : bsort) : idx =
+        let 
+            val (i, bs') = get_bsort order (ctx, i)
+	    val () = unify_bsort (get_region_i i) (bs', bs)
+        in
+            i
+        end
 
-    fun is_wf_sorts (ctx, s) = List.app (fn s => is_wf_sort (ctx, s)) s
+    fun is_wf_sorts order (ctx, sorts : U.sort list) : sort list = 
+        map (fn s => is_wf_sort order (ctx, s)) sorts
 
-    fun check_sort order (ctx, i, s) : unit =
+    fun check_sort order (ctx, i : U.idx, s : sort) : idx =
 	let 
             val (i, s') = get_bsort order (ctx, i)
             val r = get_region_i i
@@ -389,18 +609,17 @@ local
             val () =
 	        (case s of
 		     Subset ((s1, _), BindI (_, p)) =>
-		     (is_eqv_bsort r (s', s1);
+		     (unify_bsort r (s', s1);
 		      write_and (subst_i_p i p, get_region_i i))
 	           | Basic (s1, _) => 
-		     is_eqv_bsort r (s', s1)
-                   | UVarS (invis, x) =>
+		     unify_bsort r (s', s1)
+                   | UVarS (_, x) =>
                      (case !x of
-                          Refined _ => raise Impossible "check_sort (): Refined"
+                          Refined _ => raise Impossible "check_sort (): s should be Fresh"
                         | Fresh _ => 
                           refine x (Basic (s', dummy))
                       end
                      )
-                   | UnderscoreS => raise Impossible "check_sort (): UnderscoreS"
                 )
                 handle Error (_, msg) => 
                        let val ctxn = sctx_names ctx in
@@ -413,7 +632,7 @@ local
             i
 	end
 
-    fun check_sorts order (ctx, is, sorts, r) =
+    fun check_sorts order (ctx, is : U.idx list, sorts, r) : idx list =
         (check_length r (is, sorts);
          ListPair.map (fn (i, s) => check_sort order (ctx, i, s)) (is, sorts))
 
@@ -427,52 +646,55 @@ local
       	    SOME k => k
       	  | NONE => raise Error (r, ["Unbound type variable: " ^ str_v (names kctx) a])
 
-    fun is_wf_mtype order (ctx as (sctx : scontext, kctx : kcontext), c : mtype) : unit = 
-        let val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
+    fun is_wf_mtype order (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype) : mtype = 
+        let 
+            val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
 	(* val () = print (sprintf "Type wellformedness checking: $\n" [str_t ctxn c]) *)
         in
 	    case c of
-	        Arrow (c1, d, c2) => 
+	        U.Arrow (c1, d, c2) => 
 	        Arrow (is_wf_mtype order (ctx, c1),
-	               check_sort order (sctx, d, STime),
+	               check_bsort order (sctx, d, Base Time),
 	               is_wf_mtype order (ctx, c2))
-	      | Unit r => Unit r
-	      | Prod (c1, c2) => 
+	      | U.Unit r => Unit r
+	      | U.Prod (c1, c2) => 
 	        Prod (is_wf_mtype order (ctx, c1),
 	              is_wf_mtype order (ctx, c2))
-	      | Sum (c1, c2) => 
+	      | U.Sum (c1, c2) => 
 	        sum (is_wf_mtype order (ctx, c1),
 	             is_wf_mtype order (ctx, c2))
-	      | UniI (s, BindI ((name, r), c)) => 
+	      | U.UniI (s, BindI ((name, r), c)) => 
 	        UniI (is_wf_sort order (sctx, s),
 	              BindI ((name, r), 
                              is_wf_mtype (order + 1) (add_sorting_sk (name, s) ctx, c)))
-	      | ExI (s, BindI ((name, _), c)) => 
+	      | U.ExI (s, BindI ((name, r), c)) => 
 	        ExI (is_wf_sort order (sctx, s),
 	              BindI ((name, r), 
                              is_wf_mtype (order + 1) (add_sorting_sk (name, s) ctx, c)))
-	      | AppV (x, ts, is, r) => 
-	        (case fetch_kind (kctx, x) of
-		     ArrowK (_, n, sorts) => 
-		     (check_length_n r (ts, n);
-		      AppV (x, 
-                            map (fn t => is_wf_mtype order (ctx, t)) ts, 
-                            check_sorts order (sctx, is, sorts, r), 
-                            r))
-	      | Int _ => ()
-              | Underscore => fresh (make_anchor ()) order
-              | UVar _ => raise Impossible "is_wf_mtime (): UVar"
+	      | U.AppV (x, ts, is, r) => 
+                let
+                    val ArrowK (_, n, sorts) = fetch_kind (kctx, x)
+		    val () = check_length_n r (ts, n)
+                in
+		    AppV (x, 
+                          map (fn t => is_wf_mtype order (ctx, t)) ts, 
+                          check_sorts order (sctx, is, sorts, r), 
+                          r)
+                end
+	      | U.Int r => Int r
+              | U.UVar ((), r) => fresh_t (make_anchor ()) order r
         end
 
-    fun is_wf_type (ctx as (sctx : scontext, kctx : kcontext), c : ty) : ty = 
-        let val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
+    fun is_wf_type order (ctx as (sctx : scontext, kctx : kcontext), c : U.ty) : ty = 
+        let 
+            val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
 	(* val () = print (sprintf "Type wellformedness checking: $\n" [str_t ctxn c]) *)
         in
 	    case c of
-                Mono t =>
-                Mono (is_wf_mtype (ctx, t))
-	      | Uni ((name, r), c) => 
-	        Uni ((name, r), is_wf_type (add_kinding_sk (name, Type) ctx, c))
+                U.Mono t =>
+                Mono (is_wf_mtype order (ctx, t))
+	      | U.Uni ((name, r), c) => 
+	        Uni ((name, r), is_wf_type order (add_kinding_sk (name, Type) ctx, c))
         end
 
     open IdxEqual
@@ -775,13 +997,15 @@ local
     fun is_wf_return (skctx as (sctx, _), return) =
       case return of
           (SOME t, SOME d) =>
-	  (is_wf_mtype (skctx, t);
-	   check_sort (sctx, d, STime))
+	  (SOME (is_wf_mtype 0 (skctx, t)),
+	   SOME (check_bsort 0 (sctx, d, Base Time)))
         | (SOME t, NONE) =>
-	  is_wf_mtype (skctx, t)
+	  (SOME (is_wf_mtype 0 (skctx, t)),
+           NONE)
         | (NONE, SOME d) =>
-	  check_sort (sctx, d, STime)
-	| (NONE, NONE) => ()
+	  (NONE,
+           SOME (check_bsort 0 (sctx, d, Base Time)))
+	| (NONE, NONE) => (NONE, NONE)
 
     fun fetch_var (tctx, (x, r)) =
 	case lookup x tctx of
@@ -793,158 +1017,6 @@ local
             Base t => t
           | Uni (_, t) => insert (subst_t_t (fresh anchor 0) t)
 
-    fun update_i i =
-        case i of
-            UVarI (invis, x) => 
-            (case !x of
-                 Refined i => 
-                 let 
-                     val i = update_i i
-                     val () = x := Refined i
-                 in
-                     expand_i invis i
-                 end
-               | Fresh _ => i
-            )
-          | UnOpI (opr, i, r) => UnOpI (opr, update_i, r)
-          | BinOpI (opr, i1, i2) => BinOpI (opr, update_i i1, update_i i2)
-          | VarI _ => i
-          | ConstIN _ => i
-          | ConstIT _ => i
-          | TTI _ => i
-          | TrueI _ => i
-          | FalseI _ => i
-
-    fun update_s (s as (invis, x)) =
-        case !x of
-            Refined s => 
-            expand_s invis s
-          | Fresh _ => s
-
-    fun update_mt b =
-        case b of
-            UVarI (invis, x) => 
-            (case !x of
-                 Refined t => 
-                 let 
-                     val t = update_mt t
-                     val () = x := Refined t
-                 in
-                     expand_mt invis t
-                 end
-               | Fresh _ => i
-            )
-          | Arrow (t1, d, t2) => Arrow (update_mt t1, update_i d, update_mt t2)
-          | Unit r => Unit r
-          | Prod (t1, t2) => Prod (update_mt t1, update_mt t2)
-          | Sum (t1, t2) => Sum (update_mt t1, update_mt t2)
-          | UniI (s, BindI (name, t1)) => UniI (update_s s, BindI (name, update_mt t1))
-          | ExI (s, BindI (name, t1)) => ExI (update_s s, BindI (name, update_mt t1))
-          | AppV (y, ts, is, r) => AppV (y, map update_mt ts, map update_i is, r)
-          | Int r => Int r
-
-    (* assumes arguments are already checked for well-formedness *)
-
-    fun unify_i r =
-        let
-            fun loop (t, t') =
-                let 
-                    val i = update_i i
-                    val i' = update_i i'
-                in
-                    case (i, i') of
-                        (UVarI (invis, x), UVarI (invis', x')) =>
-                        if x = x' then ()
-                        else
-                            (refine x (shrink_i invis i')
-		             handle 
-                             ForgetError _ => 
-                             refine x' (shrink_i invis' i)
-                             handle ForgetError _ => raise UnifyError (UEI (i, i')))
-                      | (UVarI (invis, x), _) =>
-                        (refine x (shrink_i invis i')
-		         handle ForgetError _ => raise UnifyError (UEI (i, i')))
-                      | (_, UVarI _) =>
-                        loop (i', i)
-	              | _ => write_and (BinPred (EqP, i, i'), r)
-                end
-        in
-            loop
-        end
-
-    fun unify_s r (s as (invis, x), s' as (_, x')) =
-        case (!x, !x') of
-            (Fresh _, Fresh _) => unify_fresh_uvars (s, s')
-          | (Fresh _, Refined s') =>
-            (refine x (shrink_s invis s')
-	     handle ForgetError _ => raise UnifyError (UET (t, t')))
-          | (Refined _, Fresh _) => unify_s r (s', s)
-          | (Refined s, Refined s') =>
-            is_eqv_sort r (s, s')
-
-    fun unify r =
-        let
-            fun loop (t, t') =
-                let 
-                    val t = update_mt t
-                    val t' = update_mt t'
-                in
-                    (* UVar can only be fresh *)
-                    case (t, t') of
-                        (UVar (invis, x), UVar (invis', x')) =>
-                        if x = x' then ()
-                        else
-                            (refine x (shrink_mt invis t')
-		             handle 
-                             ForgetError _ => 
-                             refine x' (shrink_mt invis' t)
-                             handle ForgetError _ => raise UnifyError (UET (t, t')))
-                      | (UVar (invis, x), _) =>
-                        (refine x (shrink_mt invis t')
-		         handle ForgetError _ => raise UnifyError (UET (t, t')))
-                      | (_, UVar _) => loop (t', t)
-                      | (Arrow (t1, d, t2), Arrow (t1', d', t2')) =>
-                        (loop (t1, t1');
-                         unify_i r (d, d');
-                         loop (t2, t2'))
-                      | (Prod (t1, t2), Prod (t1', t2')) =>
-                        (loop (t1, t1');
-                         loop (t2, t2'))
-                      | (Sum (t1, t2), Sum (t1', t2')) =>
-                        (loop (t1, t1');
-                         loop (t2, t2'))
-                      | (Unit _, Unit _) => ()
-                      | (UniI (s, BindI ((name, _), t1)), UniI (s', BindI (_, t1'))) =>
-                        (unify_s r (s, s');
-                         open_vc_by_sort_ref (name, s);
-                         loop (t1, t1');
-                         close_vc_by_sort_ref (name, s))
-                      | (ExI (s, BindI (_, t1)), ExI (s', BindI (_, t1'))) =>
-                        (unify_s r (s, s');
-                         open_vc_by_sort_ref (name, s);
-                         loop (t1, t1');
-                         close_vc_by_sort_ref (name, s))
-	              | (Int _, Int _) => ()
-	              | (AppV ((a, _), ts, is, _), AppV ((a', _), ts', is', _)) => 
-	                if a = a' then
-		            (ListPair.app loop (ts, ts');
-                             ListPair.app (unify_i r) (is, is'))
-	                else
-		            raise UnifyError (UETV (a, a'))
-	              | (AppRecur (_, ns, t, is, _), AppRecur (_, ns', t', is', r')) => 
-	                let 
-		            val () = is_eqv_sorts (map snd ns, map snd ns', r')
-                            val () = loop (t, t')
-		            val () = ListPair.app (unify_i r) (is, is')
-                        in
-		            ()
-	                end
-	              | _ => raise UnifyError (UET (t, t'))
-                end
-        in
-            loop
-        end
-
     fun handle_ue ctx e =             
         raise Error (get_region_e e, 
                      #2 (mismatch ctxn e (str_t (sctxn, kctxn) t) t') @
@@ -952,7 +1024,7 @@ local
                      indent msg)
 
     (* t is already checked for wellformedness *)
-    fun match_ptrn (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext), pn : ptrn, t : mtype) : cover * context * int =
+    fun match_ptrn (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext), pn : U.ptrn, t : mtype) : ptrn * cover * context * int =
         let 
             val skctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
         in
@@ -1021,46 +1093,46 @@ local
                 end
         end
 
-    fun get_mtype (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, tctx : tcontext), e : expr) : mtype * idx =
+    fun get_mtype (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, tctx : tcontext), e : U.expr) : expr * mtype * idx =
         let val skctx = (sctx, kctx) 
 	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
 	    val skctxn = (sctxn, kctxn)
 	    (* val () = print (sprintf "Typing $\n" [str_e ctxn e]) *)
             fun subst_uvar_error e t i x = Error (get_region_e e, [sprintf "Can't substitute $ in unification variable $ in type $" [str_i sctxn i, str_uvar x, str_t skctxn t]])
-	    val (t, d) =
+	    val (e, t, d) =
 	        case e of
-		    Var x =>
-                    (insert (fetch_var (tctx, x)), T0 dummy)
-		  | App (e1, e2) =>
+		    U.Var x =>
+                    (Var x, insert (fetch_var (tctx, x)), T0 dummy)
+		  | U.App (e1, e2) =>
 		    let 
-                        val (t2, d2) = get_mtype (ctx, e2)
+                        val (e2, t2, d2) = get_mtype (ctx, e2)
                         val anchor = make_anchor ()
                         val d = fresh_i anchor 0 (SOME Time)
                         val t = fresh anchor 0
-                        val (_, d1) = check_mtype (ctx, e1, Arrow (t2, d, t)) 
+                        val (e1, _, d1) = check_mtype (ctx, e1, Arrow (t2, d, t)) 
                     in
-                        (t, d1 %+ d2 %+ T1 dummy %+ d) 
+                        (App (e1, e2), t, d1 %+ d2 %+ T1 dummy %+ d) 
 		    end
-		  | Abs (pn, e) => 
+		  | U.Abs (pn, e) => 
 		    let
                         val anchor = make_anchor ()
                         val t = fresh anchor 0
                         val skcctx = (sctx, kctx, cctx) 
-                        val (cover, nps, ctxd) = match_ptrn (skcctx, pn, t)
+                        val (pn, cover, nps, ctxd) = match_ptrn (skcctx, pn, t)
 	                val () = check_exhaustive (skcctx, t, [cover], get_region_pn pn)
                         val ctx = add_ctx ctxd ctx
-		        val (t1, d) = get_mtype (ctx, e)
+		        val (e, t1, d) = get_mtype (ctx, e)
 		        val t1 = forget_ctx_mt (get_region_e e) ctx ctxd t1 
                         val d = forget_ctx_d (get_region_e e) ctx ctxd d
                         val () = close_premises nps
                         val () = close_vc ctxd
                     in
-		        (Arrow (t, d, t1), T0 dummy)
+		        (Abs (pn, e), Arrow (t, d, t1), T0 dummy)
 		    end
-		  | Let (decls, e, r) => 
+		  | U.Let (decls, e, r) => 
 		    let 
-                        val (ctxd as (sctxd, kctxd, _, _), nps, ds, ctx) = check_decls (ctx, decls)
-		        val (t, d) = get_type (ctx, e)
+                        val (decls, ctxd as (sctxd, kctxd, _, _), nps, ds, ctx) = check_decls (ctx, decls)
+		        val (e, t, d) = get_type (ctx, e)
                         val ds = rev (d :: ds)
 		        val t = forget_ctx_t r ctx ctxd t 
                         val ds = map (forget_ctx_d r ctx ctxd) ds
@@ -1068,202 +1140,166 @@ local
                         val () = close_vc ctxd
                         val d = foldl' (fn (d, acc) => acc %+ d) (T0 dummy) ds
                     in
-		        (t, d)
+		        (Let (decls, e, r), t, d)
 		    end
-		  | AbsI (s, (name, r), e) => 
+		  | U.AbsI (s, (name, r), e) => 
 		    if is_value e then
 		        let 
-                            val () = is_wf_sort (sctx, s)
+                            val s = is_wf_sort (sctx, s)
                             val ctxd = make_ctx_from_sorting (name, s)
                             val ctx = add_ctx ctxd ctx
                             val () = open_vc ctxd
-			    val (t, _) = get_mtype (ctx, e) 
+			    val (e, t, _) = get_mtype (ctx, e) 
                             val () = close_vc ctxd
                         in
-			    (UniI (s, BindI ((name, r), t)), T0 dummy)
+			    (AbsI (s, (name, r), e), UniI (s, BindI ((name, r), t)), T0 dummy)
 		        end 
 		    else
 		        raise Error (get_region_e e, ["The body of a universal abstraction must be a value"])
-		  | AppI (e, i) =>
+		  | U.AppI (e, i) =>
 		    let 
                         val anchor = make_anchor ()
-                        val s = fresh anchor 0
-                        val t1 = fresh anchor 1
-                        val (t, d) = check_mtype (ctx, e, UniI (s, BindI (("dummy", dummy), t1))) 
-                        val () = check_sort_ref (sctx, i, s) 
+                        val r = U.get_region_e e
+                        val s = fresh_sort anchor 0 r
+                        val t1 = fresh_t anchor 1 r
+                        val (e, t, d) = check_mtype (ctx, e, UniI (s, BindI (("uvar", r), t1))) 
+                        val i = check_sort (sctx, i, s) 
                     in
-			(subst_i_mt i t1, d)
+			(AppI (e, i), subst_i_mt i t1, d)
                         handle SubstUVar x => raise subst_uvar_error e t i x
 		    end
-		  | Pack (t, i, e) =>
+		  | U.Pack (t, i, e) =>
                     let
-                        val () = is_wf_mtype (skctx, t)
+                        val t = is_wf_mtype (skctx, t)
                         val anchor = make_anchor ()
-                        val s = fresh anchor 0
-                        val t1 = fresh anchor 1
-                        val () = unify (t, ExI (s, BindI (("dummy", dummy), t1)))
+                        val r = get_region_r r
+                        val s = fresh_sort anchor 0 r
+                        val t1 = fresh_t anchor 1 r
+                        val () = unify (t, ExI (s, BindI (("uvar", r), t1)))
                                  handle UnifyError ue => handle_ue ctxn ue
-			val () = check_sort_ref (sctx, i, s)
+			val i = check_sort (sctx, i, s)
                         val t1 = subst_i_mt i t1
                                  handle SubstUVar x => raise subst_uvar_error e t i x
-			val (_, d) = check_mtype (ctx, e, t1)
+			val (e, _, d) = check_mtype (ctx, e, t1)
                     in
-			(t, d)
+			(Pack (t, i, e), t, d)
 		    end
-		  | Unpack (e1, return, idx_var, expr_var, e2) =>
+		  | U.Unpack (e1, return, idx_var, expr_var, e2) =>
                     let 
                         val anchor = make_anchor ()
-                        val s = fresh anchor 0
-                        val t1' = fresh anchor 1
-                        val (_, d1) = check_mtype (ctx, e1, ExI (s, BindI (("dummy", dummy), t1')))
+                        val r = U.get_region_e e
+                        val s = fresh_sort anchor 0 r
+                        val t1' = fresh anchor 1 r
+                        val (e1, _, d1) = check_mtype (ctx, e1, ExI (s, BindI (("uvar", r), t1')))
                         val ctx' = add_sorting_skct (idx_var, s) ctx
 		        val ctx' = add_typing_skct (expr_var, Mono t1') ctx'
                         val sctxn' = idx_var :: sctxn
                         val skctxn' = (sctxn', kctxn)
-                        val () = is_wf_return (skctx, return)
-                        val (t, d) =
+                        val return = is_wf_return (skctx, return)
+                        val (e2, t, d) =
                             case return of
                                 (SOME t, SOME d) =>
 		                let
-                                    val () = check_mtype_time (ctx', e2, shift_i_mt t, shift_i_i d)
+                                    val e2 = check_mtype_time (ctx', e2, shift_i_mt t, shift_i_i d)
 			        in
-				    (t, d)
+				    (e2, t, d)
 			        end
                               | (SOME t, NONE) =>
 		                let 
-				    val d = check_mtype (ctx', e2, shift_i_mt t)
+				    val (e2, d) = check_mtype (ctx', e2, shift_i_mt t)
                                     val d = forget_d (get_region_e e2) sctxn' 1 d
 			        in
-				    (t, d)
+				    (e2, t, d)
 			        end
                               | (NONE, SOME d) =>
 		                let 
-				    val t = check_time_return_mtype (ctx', e2, shift_i_i d)
+				    val (e2, t) = check_time_return_mtype (ctx', e2, shift_i_i d)
                                     val t = forget_mt (get_region_e e2) skctxn' (1, 0) t
 			        in
-				    (t, d)
+				    (e2, t, d)
 			        end
 		              | (NONE, NONE) =>
-		                let val (t, d) = get_mtype (ctx', e2)
+		                let val (e2, t, d) = get_mtype (ctx', e2)
                                     val t = forget_mt (get_region_e e2) skctxn' (1, 0) t
                                     val d = forget_d (get_region_e e2) sctxn' 1 d
 			        in
-				    (t, d)
+				    (e2, t, d)
 			        end
                     in
-                        (t, d1 %+ d)
+                        (Unpack (e1, return, idx_var, expr_var, e2), t, d1 %+ d)
                     end
-		  | TT _ => 
-                    (Unit dummy, T0 dummy)
-		  | Pair (e1, e2) => 
+		  | U.TT r => 
+                    (TT r, Unit dummy, T0 dummy)
+		  | U.Pair (e1, e2) => 
 		    let 
-                        val (t1, d1) = get_mtype (ctx, e1) 
-		        val (t2, d2) = get_mtype (ctx, e2) 
+                        val (e1, t1, d1) = get_mtype (ctx, e1) 
+		        val (e2, t2, d2) = get_mtype (ctx, e2) 
                     in
-		        (Prod (t1, t2), d1 %+ d2)
+		        (Pair (e1, e2), Prod (t1, t2), d1 %+ d2)
 		    end
-		  | Fst e => 
+		  | U.Fst e => 
 		    let 
                         val anchor = make_anchor ()
-                        val t1 = fresh anchor 0
-                        val t2 = fresh anchor 0
+                        val r = U.get_region_e e
+                        val t1 = fresh_t anchor 0 r
+                        val t2 = fresh_t anchor 0 r
+                        val (e, _, d) = check_mtype (ctx, e, Prod (t1, t2)) 
+                    in 
+                        (Fst e, t1, d)
+		    end
+		  | U.Snd e => 
+		    let 
+                        val anchor = make_anchor ()
+                        val r = U.get_region_e e
+                        val t1 = fresh_t anchor 0 r
+                        val t2 = fresh_t anchor 0 r
                         val (_, d) = check_mtype (ctx, e, Prod (t1, t2)) 
                     in 
-                        (t1, d)
+                        (Snd e, t2, d)
 		    end
-		  | Snd e => 
+		  | U.Ascription (e, t) => 
+		    let val t = is_wf_mtype 0 (skctx, t)
+		        val (e, _, d) = check_mtype (ctx, e, t)
+                    in
+		        (Ascription (e, t), t, d)
+		    end
+		  | U.AscriptionTime (e, d) => 
+		    let val d = check_bsort (sctx, d, Base Time)
+		        val (e, t) = check_time (ctx, e, d)
+                    in
+		        (AscriptionTime (e, d), t, d)
+		    end
+		  | U.BinOp (Add, e1, e2) =>
+		    let val (e1, _, d1) = check_mtype (ctx, e1, Int dummy)
+		        val (e2, _, d2) = check_mtype (ctx, e2, Int dummy) in
+		        (BinOp (Add, e1, e2), Int dummy, d1 %+ d2 %+ T1 dummy)
+		    end
+		  | U.Const n => 
+		    (Const n, Int dummy, T0 dummy)
+		  | U.AppConstr (cx as (_, rc), is, e) => 
 		    let 
-                        val anchor = make_anchor ()
-                        val t1 = fresh anchor 0
-                        val t2 = fresh anchor 0
-                        val (_, d) = check_mtype (ctx, e, Prod (t1, t2)) 
-                    in 
-                        (t2, d)
-		    end
-		  | Inl (t2, e) => 
-		    let 
-		        val () = is_wf_mtype (skctx, t2) 
-                        val (t1, d) = get_mtype (ctx, e)
-                    in
-		        (Sum (t1, t2), d)
-		    end
-		  | Inr (t1, e) => 
-		    let 
-		        val () = is_wf_mtype (skctx, t1) 
-                        val (t2, d) = get_mtype (ctx, e)
-                    in
-		        (Sum (t1, t2), d)
-		    end
-		  | SumCase (e0, name1, e1, name2, e2) => 
-		    let 
-                        val anchor = make_anchor ()
-                        val t1 = fresh anchor 0
-                        val t2 = fresh anchor 0
-                        val (_, d) = check_mtype (ctx, e0, Prod (t1, t2)) 
-                        val (t1', d1) = get_mtype (add_typing_skct (name1, Mono t1) ctx, e1)
-			val (_, d2) = check_mtype (add_typing_skct (name2, Mono t2) ctx, e2, t1')
-                        val d = d %+ smart_max d1 d2
-                    in
-			(t1', d)
-		    end
-		  | Fold (t, e) => 
-                    let 
-                        val t = update_mt t
-                    in
-		        case t of
-		            AppRecur t1 =>
-		            let val () = is_wf_mtype (skctx, t)
-			        val d = check_type (ctx, e, Mono (unroll t1))
-                            in
-			        (t, d)
-		            end
-		          | t' => raise Error (mismatch_anno skctxn "((recur (_ :: _) (_ : _), _) _)" (Mono t'))
-                    end
-		  | Unfold e =>
-		    let 
-                        val (t, d) = get_mtype (ctx, e) 
-                        val t = update_mt t
-                    in
-		        case t of
-	      		    AppRecur t1 =>
-			    (unroll t1, d)
-			  | t' => raise Error (mismatch ctxn e "((recur (_ :: _) (_ : _), _) _)" (Mono t'))
-		    end
-		  | Ascription (e, t) => 
-		    let val () = is_wf_mtype (skctx, t)
-		        val (_, d) = check_mtype (ctx, e, t)
-                    in
-		        (t, d)
-		    end
-		  | AscriptionTime (e, d) => 
-		    let val () = check_sort (sctx, d, STime)
-		        val t = check_time (ctx, e, d)
-                    in
-		        (t, d)
-		    end
-		  | BinOp (Add, e1, e2) =>
-		    let val (_, d1) = check_mtype (ctx, e1, Int dummy)
-		        val (_, d2) = check_mtype (ctx, e2, Int dummy) in
-		        (Int dummy, d1 %+ d2 %+ T1 dummy)
-		    end
-		  | Const _ => 
-		    (Int dummy, T0 dummy)
-		  | AppConstr (cx as (_, rc), is, e) => 
-		    let val (cname, tc) = fetch_constr_type (cctx, cx)
-		        val (_, d) = get_mtype (ctx, e)
-		        (* delegate to checking e' which is (cx {is} e) *)
-		        val f = Var (0, rc)
-		        val f = foldl (fn (i, e) => AppI (e, i)) f is
-		        val e' = App (f, shift_e_e e)
-		        val (t, _) = get_mtype (add_typing_skct (cname, tc) ctx, e') 
+                        val (cname, tc) = fetch_constr_type (cctx, cx)
+		        (* delegate to checking (cx {is} e) *)
+		        val f = U.Var (0, rc)
+		        val f = foldl (fn (i, e) => U.AppI (e, i)) f is
+		        val e = U.App (f, shift_e_e e)
+		        val (e, t, d) = get_mtype (add_typing_skct (cname, tc) ctx, e) 
+                        val (e, d) =
+                            case (e, simp_i d) of
+		                (* constructor application doesn't incur count *)
+                                (App (f, e), (BinOpI (Add, d, T1))) =>
+                                let
+                                    val (_, is) = peel_AppI f
+                                in
+                                    (AppConstr (cx, is, e), d)
+                                end
 		    in
-		        (* constructor application doesn't incur count *)
-		        (t, d)
+		        (e, t, d)
 		    end
-		  | Case (e, return, rules, r) => 
-		    let val (t1, d1) = get_mtype (ctx, e)
-                        val () = is_wf_return (skctx, return)
-                        val tds = check_rules (ctx, rules, (t1, return), r)
+		  | U.Case (e, return, rules, r) => 
+		    let val (e, t1, d1) = get_mtype (ctx, e)
+                        val return = is_wf_return (skctx, return)
+                        val (rules, tds) = check_rules (ctx, rules, (t1, return), r)
                         fun computed_t () =
                             case map fst tds of
                                 [] => raise Error (r, ["Empty case-matching must have a return type clause"])
@@ -1275,15 +1311,18 @@ local
                             (smart_max_list o map snd) tds
                         val (t, d) = mapPair (lazy_default computed_t, lazy_default computed_d) return
                     in
-		        (t, d1 %+ d)
+		        (Case (e, return, rules, r), t, d1 %+ d)
                     end
-		  | Never t => 
-		    (is_wf_mtype (skctx, t);
-		     write_and (False dummy, get_region_e e);
-		     (t, T0 dummy))
+		  | U.Never t => 
+                    let
+		        val t = is_wf_mtype (skctx, t)
+		        val () = write_and (False dummy, get_region_e e)
+                    in
+		        (Never t, t, T0 dummy)
+                    end
 	(* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_t skctxn t, str_e ctxn e, str_i sctxn d]) *)
         in
-	    (t, d)
+	    (e, t, d)
         end
 
     and check_decls (ctx, decls) : context * idx list * context = 

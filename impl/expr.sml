@@ -1,12 +1,12 @@
 structure BasicSorts = struct
 (* basic index sort *)
-datatype bsort =
+datatype base_sort =
 	 Time
          | Nat
 	 | Bool
 	 | BSUnit
 
-fun str_b (s : bsort) : string = 
+fun str_b (s : base_sort) : string = 
     case s of
         Time => "Time"
       | Nat => "Nat"
@@ -19,76 +19,56 @@ signature VAR = sig
     val str_v : string list -> var -> string
 end
 
-signature DEBUG = sig
-    type t
-    val dummy : t
+signature UVAR = sig
+    type 't uvar_i
+    type 't uvar_bs
+    type 't uvar_s
+    type 't uvar_mt
 end
 
-functor ExprFun (structure Var : VAR structure Other : DEBUG) = struct
+functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         open Var
         open BasicSorts
         open Util
         open Operators
-        type other = Other.t
-        val dummy = Other.dummy
-        type id = var * other
-        type name = string * other
+        open UVar
+        open Region
 
-        datatype ('a, 'b) uvar = 
-                 Fresh of 'a
-                 | Refined of 'b
-
-        datatype uvar_name =
-                 NonIdx of uvar_name_core
-                 | Idx of uvar_name_core * bsort option
-                 | Gone
-
-             and uvar_name_core = int * other * anchor ref * int (* order *)
-                     
-             and anchor = (uvar_name ref) list
-
-        (* invisible segments *)
-        type invisibles = (int * int) list
-                                   
-        type 't uvar_ref = ((uvar_name ref, 't) uvar) ref
-
-        fun refine (x : 't uvar_ref) (v : 't) = 
-            case !x of
-                Refined _ => raise Impossible "refine(): should only refine Fresh uvar"
-              | Fresh name =>
-                (name := Gone;
-                 x := Refined v)
+        type id = var * region
+        type name = string * region
 
         datatype idx =
-	         VarI of var * other
-	         | ConstIT of string * other
-	         | ConstIN of int * other
-                 | UnOpI of idx_un_op * idx * other
+	         VarI of var * region
+	         | ConstIT of string * region
+	         | ConstIN of int * region
+                 | UnOpI of idx_un_op * idx * region
                  | BinOpI of idx_bin_op * idx * idx
-	         | TrueI of other
-	         | FalseI of other
-	         | TTI of other
-                 | UVarI of invisibles * idx uvar_ref
-                 | UnderscoreI 
+	         | TrueI of region
+	         | FalseI of region
+	         | TTI of region
+                 | UVarI of idx uvar_i * region
 
         fun T0 r = ConstIT ("0.0", r)
         fun T1 r = ConstIT ("1.0", r)
 
         datatype prop =
-	         True of other
-	         | False of other
+	         True of region
+	         | False of region
                  | BinConn of bin_conn * prop * prop
-                 | Not of prop * other
+                 | Not of prop * region
 	         | BinPred of bin_pred * idx * idx
 
         datatype 'a ibind = BindI of 'a
 
+        datatype bsort = 
+                 Base of base_sort
+                 | UVarBS of bsort uvar_bs
+
         (* index sort *)
         datatype sort =
-	         Basic of bsort * other
-	         | Subset of (bsort * other) * (name * prop) ibind
-                 | UVarS of invisibles * bsort uvar_ref
-                 | UnderscoreS
+	         Basic of bsort * region
+	         | Subset of (bsort * region) * (name * prop) ibind
+                 | UVarS of sort uvar_s * region
 					 
         val STime = Basic (Time, dummy)
         val SBool = Basic (Bool, dummy)
@@ -98,15 +78,13 @@ functor ExprFun (structure Var : VAR structure Other : DEBUG) = struct
         datatype mtype = 
 	         Arrow of mtype * idx * mtype
 	         | Prod of mtype * mtype
-	         | Sum of mtype * mtype
-	         | Unit of other
+	         | Unit of region
 	         | UniI of sort * (name * mtype) ibind
 	         | ExI of sort * (name * mtype) ibind
 	         (* the first operant of App can only be a type variable. The degenerated case of no-arguments is also included *)
-	         | AppV of id * mtype list * idx list * other
-	         | Int of other
-                 | UVar of (invisibles (* sortings *) * invisibles (* kindings *)) * mtype uvar_ref
-                         | Underscore
+	         | AppV of id * mtype list * idx list * region
+	         | Int of region
+                 | UVar of mtype uvar_mt * region
 
         datatype ty = 
 	         Mono of mtype
@@ -120,6 +98,71 @@ functor ExprFun (structure Var : VAR structure Other : DEBUG) = struct
 
         val Type = ArrowK (false, 0, [])
 
+        (* for a series of sorting binds ({name1 : anno1} {name2 : anno2} {name3 : anno3}, inner) *)
+        datatype ('anno, 'name, 'inner) ibinds =
+                 NilIB of 'inner
+                 | ConsIB of 'anno * ('name * ('anno, 'name, 'inner) ibinds) ibind
+
+        fun unfold_ibinds ibinds =
+            case ibinds of
+                NilIB inner => ([], inner)
+              | ConsIB (anno, BindI (name, ibinds)) =>
+                let val (name_annos, inner) = unfold_ibinds ibinds
+                in
+                    ((name, anno) :: name_annos, inner)
+                end
+
+        fun fold_ibinds (binds, inner) =
+            foldr (fn ((name, anno), ibinds) => ConsIB (anno, BindI (name, ibinds))) (NilIB inner) binds
+
+        type constr_core = (sort, string, mtype * idx list) ibinds
+        type constr_decl = string * constr_core * region
+        type constr = var * string list * constr_core
+
+        type return = mtype option * idx option
+                                       
+        datatype ptrn =
+	         ConstrP of id * string list * ptrn option * region
+                 | VarP of name
+                 | PairP of ptrn * ptrn
+                 | TTP of region
+                 | AliasP of name * ptrn * region
+                 | AnnoP of ptrn * ty
+
+        datatype expr =
+	         Var of var * region
+	         | App of expr * expr
+	         | Abs of mtype * ptrn * expr 
+	         (* unit type *)
+	         | TT of region
+	         (* product type *)
+	         | Pair of expr * expr
+	         | Fst of expr
+	         | Snd of expr
+	         (* universal *)
+	         | AbsT of name * expr
+	         | AppT of expr * mtype
+	         (* universal index *)
+	         | AbsI of sort * name * expr
+	         | AppI of expr * idx
+	         (* existential index *)
+	         | Pack of mtype * idx * expr
+	         | Unpack of expr * return * string * string * expr
+                 (* region *)
+	         | BinOp of bin_op * expr * expr
+	         | Const of int * region
+	         | AppConstr of id * mtype list * idx list * expr
+	         | Case of expr * return * (ptrn * expr) list * region
+	         | Never of mty
+	         | Let of decl list * expr * region
+	         | Fix of mtype * name * expr
+	         | Ascription of expr * mtype
+	         | AscriptionTime of expr * idx
+
+             and decl =
+                 Val of ptrn * expr
+	         | Datatype of string * string list * sort list * constr_decl list * region
+
         infix 6 %+ 
         fun a %+ b = BinOpI (AddI, a, b)
         infix 6 %*
@@ -132,6 +175,8 @@ functor ExprFun (structure Var : VAR structure Other : DEBUG) = struct
         fun a --> b = BinConn (Imply, a, b)
         infix 1 <->
         fun a <-> b = BinConn (Iff, a, b)
+
+        (* pretty-printers *)
 
         fun str_i ctx (i : idx) : string = 
             case i of
@@ -254,75 +299,6 @@ functor ExprFun (structure Var : VAR structure Other : DEBUG) = struct
         fun str_k ctx (k : kind) : string = 
             case k of
                 ArrowK (_, n, sorts) => sprintf "($$Type)" [if n = 0 then "" else join " * " (repeat n "Type") ^ " => ", if null sorts then "" else join " * " (map (str_s ctx) sorts) ^ " => "]
-
-        (* for a series of sorting binds ({name1 : anno1} {name2 : anno2} {name3 : anno3}, inner) *)
-        datatype ('anno, 'name, 'inner) ibinds =
-                 NilIB of 'inner
-                 | ConsIB of 'anno * ('name * ('anno, 'name, 'inner) ibinds) ibind
-
-        fun unfold_ibinds ibinds =
-            case ibinds of
-                NilIB inner => ([], inner)
-              | ConsIB (anno, BindI (name, ibinds)) =>
-                let val (name_annos, inner) = unfold_ibinds ibinds
-                in
-                    ((name, anno) :: name_annos, inner)
-                end
-
-        fun fold_ibinds (binds, inner) =
-            foldr (fn ((name, anno), ibinds) => ConsIB (anno, BindI (name, ibinds))) (NilIB inner) binds
-
-        type constr_core = (sort, string, mtype * idx list) ibinds
-        type constr_decl = string * constr_core * other
-        type constr = var * string list * constr_core
-
-        type return = mtype option * idx option
-                                       
-        datatype ptrn =
-	         ConstrP of id * string list * ptrn option * other
-                 | VarP of name
-                 | PairP of ptrn * ptrn
-                 | TTP of other
-                 | AliasP of name * ptrn * other
-                 | AnnoP of ptrn * ty
-
-        datatype expr =
-	         Var of var * other
-	         | App of expr * expr
-	         | Abs of mtype * ptrn * expr 
-	         (* unit type *)
-	         | TT of other
-	         (* product type *)
-	         | Pair of expr * expr
-	         | Fst of expr
-	         | Snd of expr
-	         (* sum type *)
-	         | Inl of mtype * expr
-	         | Inr of mtype * expr
-	         | SumCase of expr * string * expr * string * expr
-	         (* universal *)
-	         | AbsT of name * expr
-	         | AppT of expr * mtype
-	         (* universal index *)
-	         | AbsI of sort * name * expr
-	         | AppI of expr * idx
-	         (* existential index *)
-	         | Pack of mtype * idx * expr
-	         | Unpack of expr * return * string * string * expr
-                 (* other *)
-	         | BinOp of bin_op * expr * expr
-	         | Const of int * other
-	         | AppConstr of id * mtype list * idx list * expr
-	         | Case of expr * return * (ptrn * expr) list * other
-	         | Never of mty
-	         | Let of decl list * expr * other
-	         | Fix of mtype * name * expr
-	         | Ascription of expr * mtype
-	         | AscriptionTime of expr * idx
-
-             and decl =
-                 Val of ptrn * expr
-	         | Datatype of string * string list * sort list * constr_decl list * other
 
         fun ptrn_names pn : string list * string list =
             case pn of
@@ -454,6 +430,96 @@ functor ExprFun (structure Var : VAR structure Other : DEBUG) = struct
 	        sprintf "$ => $" [str_pn cctx pn, str_e ctx' e]
             end
 
+        (* region calculations *)
+
+        fun get_region_i i =
+            case i of
+                VarI (_, r) => r
+              | ConstIN (_, r) => r
+              | ConstIT (_, r) => r
+              | UnOpI (_, _, r) => r
+              | BinOpI (_, i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
+              | TrueI r => r
+              | FalseI r => r
+              | TTI r => r
+
+        fun get_region_p p = 
+            case p of
+                True r => r
+              | False r => r
+              | Not (_, r) => r
+              | BinConn (_, p1, p2) => combine_region (get_region_p p1) (get_region_p p2)
+              | BinPred (_, i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
+
+        fun get_region_ibind f (BindI ((_, r), inner)) = combine_region r (f inner)
+
+        fun get_region_s s = 
+            case s of
+                Basic (_, r) => r
+              | Subset (_, bind) => get_region_ibind get_region_p bind
+
+        fun get_region_mt t = 
+            case t of
+                Arrow (t1, d, t2) => combine_region (get_region_mt t1) (get_region_mt t2)
+              | Prod (t1, t2) => combine_region (get_region_mt t1) (get_region_mt t2)
+              | Sum (t1, t2) => combine_region (get_region_mt t1) (get_region_mt t2)
+              | Unit r => r
+              | UniI (_, bind) => get_region_ibind get_region_mt bind
+              | ExI (_, bind) => get_region_ibind get_region_mt bind
+              | AppRecur (_, _, t, _, r) => r
+              | AppV (_, _, _, r) => r
+              | Int r => r
+
+        fun get_region_t t = 
+            case t of
+                Mono t => get_region_mt t
+              | Uni ((_, r), t) => combine_region r (get_region_t t)
+
+        fun get_region_pn pn = 
+            case pn of
+                ConstrP (_, _, _, r) => r
+              | VarP (_, r) => r
+              | PairP (pn1, pn2) => combine_region (get_region_pn pn1) (get_region_pn pn2)
+              | TTP r => r
+              | AliasP (_, _, r) => r
+
+        fun get_region_e e = 
+            case e of
+                Var (_, r) => r
+              | Abs (_, pn, e) => combine_region (get_region_pn pn) (get_region_e e)
+              | App (e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
+              | TT r => r
+              | Pair (e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
+              | Fst e => get_region_e e
+              | Snd e => get_region_e e
+              | Inl (t, e) => combine_region (get_region_mt t) (get_region_e e)
+              | Inr (t, e) => combine_region (get_region_mt t) (get_region_e e)
+              | SumCase (e, _, _, _, e2) => combine_region (get_region_e e) (get_region_e e2)
+              | AbsT ((_, r), e) => combine_region r (get_region_e e)
+              | AppT (e, t) => combine_region (get_region_e e) (get_region_mt t)
+              | AbsI (_, (_, r), e) => combine_region r (get_region_e e)
+              | AppI (e, i) => combine_region (get_region_e e) (get_region_i i)
+              | Pack (t, _, e) => combine_region (get_region_mt t) (get_region_e e)
+              | Unpack (e1, _, _, _, e2) => combine_region (get_region_e e1) (get_region_e e2)
+              | Fold (t, e) => combine_region (get_region_mt t) (get_region_e e)
+              | Unfold e => get_region_e e
+              | BinOp (_, e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
+              | Const (_, r) => r
+              | AppConstr ((_, r), _, _, e) => combine_region r (get_region_e e)
+              | Case (_, _, _, r) => r
+              | Never t => get_region_t t
+              | Let (_, _, r) => r
+              | Fix (_, (_, r), e) => combine_region r (get_region_e e)
+              | Ascription (e, t) => combine_region (get_region_e e) (get_region_t t)
+              | AscriptionTime (e, i) => combine_region (get_region_e e) (get_region_i i)
+                                                        
+        fun get_region_rule (pn, e) = combine_region (get_region_pn pn) (get_region_e e)
+
+        fun get_region_dec dec =
+            case dec of
+                Val (pn, e) => combine_region (get_region_pn pn) (get_region_e e)
+              | Datatype (_, _, _, _, r) => r
+
         end
                                                                     
 structure StringVar = struct
@@ -471,12 +537,12 @@ fun str_v ctx x : string =
       | NONE => "unbound_" ^ str_int x
 end
 
-structure R = struct
-open Region
-type t = region
-val dummy = dummy_region
+structure Underscore = struct
+type 't uvar_i = unit
+type 't uvar_bs = unit
+type 't uvar_s = unit
+type 't uvar_mt = unit
 end
 
-structure NamefulExpr = ExprFun (structure Var = StringVar structure Other = R)
-structure Expr = ExprFun (structure Var = IntVar structure Other = R)
-
+structure NamefulExpr = ExprFun (structure Var = StringVar structure UVar = Underscore)
+structure UnderscoredExpr = ExprFun (structure Var = IntVar structure UVar = Underscore)

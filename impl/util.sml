@@ -122,4 +122,7 @@ fun for start len f init =
     else
         for (start + 1) (len - 1) f (f (init, start))
 
+(* uninhabited *)
+datatype empty = Empty of empty
+
 end
