@@ -14,6 +14,29 @@ fun str_b (s : base_sort) : string =
       | BSUnit => "Unit"
 end
 
+structure ExprUtil = struct
+
+datatype 'a ibind = BindI of 'a
+
+(* for a series of sorting binds ({name1 : anno1} {name2 : anno2} {name3 : anno3}, inner) *)
+datatype ('anno, 'name, 'inner) ibinds =
+         NilIB of 'inner
+         | ConsIB of 'anno * ('name * ('anno, 'name, 'inner) ibinds) ibind
+
+fun unfold_ibinds ibinds =
+    case ibinds of
+        NilIB inner => ([], inner)
+      | ConsIB (anno, BindI (name, ibinds)) =>
+        let val (name_annos, inner) = unfold_ibinds ibinds
+        in
+            ((name, anno) :: name_annos, inner)
+        end
+
+fun fold_ibinds (binds, inner) =
+    foldr (fn ((name, anno), ibinds) => ConsIB (anno, BindI (name, ibinds))) (NilIB inner) binds
+
+end
+
 signature VAR = sig
     type var
     val str_v : string list -> var -> string
@@ -58,8 +81,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  | Not of prop * region
 	         | BinPred of bin_pred * idx * idx
 
-        datatype 'a ibind = BindI of 'a
-
         datatype bsort = 
                  Base of base_sort
                  | UVarBS of bsort uvar_bs
@@ -98,26 +119,34 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         val Type = ArrowK (false, 0, [])
 
-        (* for a series of sorting binds ({name1 : anno1} {name2 : anno2} {name3 : anno3}, inner) *)
-        datatype ('anno, 'name, 'inner) ibinds =
-                 NilIB of 'inner
-                 | ConsIB of 'anno * ('name * ('anno, 'name, 'inner) ibinds) ibind
-
-        fun unfold_ibinds ibinds =
-            case ibinds of
-                NilIB inner => ([], inner)
-              | ConsIB (anno, BindI (name, ibinds)) =>
-                let val (name_annos, inner) = unfold_ibinds ibinds
-                in
-                    ((name, anno) :: name_annos, inner)
-                end
-
-        fun fold_ibinds (binds, inner) =
-            foldr (fn ((name, anno), ibinds) => ConsIB (anno, BindI (name, ibinds))) (NilIB inner) binds
-
         type constr_core = (sort, string, mtype * idx list) ibinds
         type constr_decl = string * constr_core * region
         type constr = var * string list * constr_core
+
+        fun constr_type shiftx_v ((family, tnames, ibinds) : constr) = 
+            let 
+                val (ns, (t, is)) = unfold_ibinds ibinds
+                val ts = (map (fn x => VarT (x, dummy)) o rev o range o length) tnames
+	        val t2 = AppV ((shiftx_v 0 (length tnames) family, dummy), ts, is, dummy)
+	        val t = Arrow (t, T0 dummy, t2)
+	        val t = foldr (fn ((name, s), t) => UniI (s, BindI ((name, dummy), t))) t ns
+                val t = Mono t
+	        val t = foldr (fn (name, t) => Uni ((name, dummy), t)) t tnames
+            in
+	        t
+            end
+
+        fun constr_from_type t =
+            let
+                val (tnames, t) = peel_Uni t
+                val tnames = map fst tnames
+                val (ns, t) = peel_UniI t
+                val (t = case t of
+                            Arrow (t, _, t2) => t
+                          | _ => raise Impossible "constr_from_type (): not Arrow"
+            in
+                (tnames, fold_ibinds (ns, (t, is)))
+            end
 
         type return = mtype option * idx option
                                        

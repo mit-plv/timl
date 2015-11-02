@@ -714,21 +714,9 @@ local
 	    SOME (name, c) => (name, c)
 	  | NONE => raise Error (r, [sprintf "Unbound constructor: $" [str_v (names ctx) x]])
 
-    fun constr_type ((family, tnames, ibinds) : constr) = 
-        let val (ns, (t, is)) = unfold_ibinds ibinds
-            val ts = (map (fn x => VarT (x, dummy)) o rev o range o length) tnames
-	    val t2 = AppV ((shiftx_v 0 (length tnames) family, dummy), ts, is, dummy)
-	    val t = Arrow (t, T0 dummy, t2)
-	    val t = foldr (fn ((name, s), t) => UniI (s, BindI ((name, dummy), t))) t ns
-            val t = Mono t
-	    val t = foldr (fn (name, t) => Uni ((name, dummy), t)) t tnames
-        in
-	    t
-        end
-
     fun fetch_constr_type (ctx : ccontext, cx) =
         let val (cname, c) = fetch_constr (ctx, cx)
-	    val t = constr_type c
+	    val t = constr_type shiftx_v c
         in
 	    (cname, t)
         end
@@ -1029,7 +1017,7 @@ local
             val skctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
         in
 	    case pn of
-	        ConstrP ((cx, cr), inames, pn, r) =>
+	        P.ConstrP ((cx, cr), inames, pn, r) =>
                 let
                     val t = update_mt t
                 in
@@ -1047,11 +1035,11 @@ local
                                         val () = open_vc ctxd
                                         val () = open_premises ps
                                         val ctx = add_ctx_skc ctxd ctx
-                                        val (cover, ctxd') = match_ptrn (ctx, default (TTP dummy) pn, t1)
+                                        val (pn, cover, ctxd') = match_ptrn (ctx, default (TTP dummy) pn, t1)
                                         val ctxd = add_ctx ctxd' ctxd
                                         val cover = ConstrC (cx, cover)
 		                    in
-			                (cover, ctxd, length ps)
+			                (ConstrP ((cx, cr), inames, pn, r), cover, ctxd, length ps)
 		                    end
                                 else
                                     raise Error (r, [sprintf "This constructor requires $ index argument(s), not $" [str_int (length name_sorts), str_int (length inames)]])
@@ -1063,33 +1051,33 @@ local
                         end
                       | _ => raise Error (get_region_pn pn, [sprintf "Pattern $ doesn't match type $" [str_pn (names cctx) pn, str_t skctxn t]])
                 end
-              | VarP (name, _) =>
-                (TrueC, make_ctx_from_typing (name, Mono t), 0)
-              | PairP (pn1, pn2) =>
+              | U.VarP (name, r) =>
+                (VarP (name, r), TrueC, make_ctx_from_typing (name, Mono t), 0)
+              | U.PairP (pn1, pn2) =>
                 let 
                     val anchor = make_anchor ()
                     val t1 = fresh anchor 0
                     val t2 = fresh anchor 0
                     val () = unify (t, Prod (t1, t2))
-                    val (cover1, ctxd) = match_ptrn (ctx, pn1, t1)
+                    val (pn1, cover1, ctxd) = match_ptrn (ctx, pn1, t1)
                     val ctx = add_ctx_skc ctxd ctx
-                    val (cover2, ctxd') = match_ptrn (ctx, pn2, shift_ctx_mt ctxd t2)
+                    val (pn2, cover2, ctxd') = match_ptrn (ctx, pn2, shift_ctx_mt ctxd t2)
                     val ctxd = add_ctx ctxd' ctxd
                 in
-                    (PairC (cover1, cover2), ctxd, 0)
+                    (PairP (pn1, pn2), PairC (cover1, cover2), ctxd, 0)
                 end
-              | TTP _ =>
+              | U.TTP r =>
                 let
                     val () = unify (t, Unit dummy)
                 in
-                    (TTC, empty_ctx, 0)
+                    (TTP r, TTC, empty_ctx, 0)
                 end
-              | AliasP ((pname, _), pn, _) =>
+              | U.AliasP ((pname, r1), pn, r) =>
                 let val ctxd = make_ctx_from_typing (pname, t)
-                    val (cover, ctxd') = match_ptrn (ctx, pn, t)
+                    val (pn, cover, ctxd') = match_ptrn (ctx, pn, t)
                     val ctxd = add_ctx ctxd' ctxd
                 in
-                    (cover, ctxd, 0)
+                    (AliasP ((pname, r1), pn, r), cover, ctxd, 0)
                 end
         end
 
@@ -1284,6 +1272,15 @@ local
 		        val f = foldl (fn (i, e) => U.AppI (e, i)) f is
 		        val e = U.App (f, shift_e_e e)
 		        val (e, t, d) = get_mtype (add_typing_skct (cname, tc) ctx, e) 
+                        fun peel_AppI e =
+                            case e of
+                                AppI (e, i) =>
+                                let 
+                                    val (e, is) = peel_AppI e
+                                in
+                                    (e, is @ [i])
+                                end
+                              | _ => (e, [])
                         val (e, d) =
                             case (e, simp_i d) of
 		                (* constructor application doesn't incur count *)
@@ -1325,19 +1322,23 @@ local
 	    (e, t, d)
         end
 
-    and check_decls (ctx, decls) : context * idx list * context = 
-        let fun f (decl, (ctxd, nps, ds, ctx)) =
+    and check_decls (ctx, decls) : U.decl list * context * int * idx list * context = 
+        let 
+            fun f (decl, (decls, ctxd, nps, ds, ctx)) =
                 let 
-                    val (ctxd', nps', ds') = check_decl (ctx, decl)
+                    val (decl, ctxd', nps', ds') = check_decl (ctx, decl)
+                    val decls = decl :: decls
                     val ctxd = add_ctx ctxd' ctxd
                     val nps = nps + nps'
                     val ds = ds' @ map (shift_ctx_i ctxd') ds
                     val ctx = add_ctx ctxd' ctx
                 in
-                    (ctxd, nps, ds, ctx)
+                    (decls, ctxd, nps, ds, ctx)
                 end
+            val (decls, ctxd, nps, ds, ctx) = foldl f ([], empty_ctx, 0, [], ctx) decls
+            val decls = rev decls
         in
-            foldl f (empty_ctx, 0, [], ctx) decls
+            (decls, ctxd, nps, ds, ctx)
         end
 
     and check_decl (ctx as (sctx, kctx, cctx, _), decl) =
@@ -1397,46 +1398,51 @@ local
                 end
         in
             case decl of
-                Val (VarP (x, _), e) =>
+                U.Val (U.VarP (x, r), e) =>
                 let 
                     val skcctx = (sctx, kctx, cctx) 
-                    val (t, d) = get_mtype (ctx, e)
+                    val (e, t, d) = get_mtype (ctx, e)
                     val t = if is_value e then 
                                 generalize t
                             else 
                                 Mono t
                 in
-                    (make_ctx_from_typing (x, t), 0, [d])
+                    (Val (VarP (x, r), e), make_ctx_from_typing (x, t), 0, [d])
                 end
-              | Val (pn, e) =>
+              | U.Val (pn, e) =>
                 let 
                     val skcctx = (sctx, kctx, cctx) 
-                    val (t, d) = get_mtype (ctx, e)
-                    val (cover, ctxd, nps) = match_ptrn (skcctx, pn, t)
+                    val (e, t, d) = get_mtype (ctx, e)
+                    val (pn, cover, ctxd, nps) = match_ptrn (skcctx, pn, t)
                     val d = shift_ctx_i ctxd d
 	            val () = check_exhaustive (skcctx, t, [cover], get_region_pn pn)
                 in
-                    (ctxd, nps, [d])
+                    (Val (pn, e), ctxd, nps, [d])
                 end
-	      | Rec (t, (name, r), e) => 
+	      | U.Rec (t, (name, r), e) => 
 	        let 
-		    val () = is_wf_mtype (skctx, t)
+		    val t = is_wf_mtype (skctx, t)
                     val () = check_fix_body e
-		    val (_, _) = check_mtype (add_typing_skct (name, Mono t) ctx, e, t)
-                    val t = generalize t
+		    val (e, _, _) = check_mtype (add_typing_skct (name, Mono t) ctx, e, t)
+                    val gt = generalize t
                 in
-                    (make_ctx_from_typing (x, t), 0, [T0 dummy])
+                    (Rec (t, (name, r), e), make_ctx_from_typing (x, gt), 0, [T0 dummy])
 	        end
-	      | Datatype (name, tnames, sorts, constr_decls, _) =>
+	      | U.Datatype (name, tnames, sorts, constr_decls, _) =>
 	        let 
-                    val () = is_wf_sorts (sctx, sorts)
+                    val sorts = is_wf_sorts (sctx, sorts)
 		    val nk = (name, ArrowK (true, length tnames, sorts))
 		    val ctx as (sctx, kctx, _, _) = add_kinding_skct nk ctx
-		    fun make_constr ((name, ibinds, r) : constr_decl) =
+		    fun make_constr ((name, ibinds, r) : U.constr_decl) =
 		        let 
+                            (* fun check_no_uvar_ibinds ibinds = *)
+                            (*     case ibinds of *)
+                            (*         NilIB t => NilIB (check_no_uvar_mt t) *)
+                            (*       | ConsIB (sort, BindI (name, ibinds)) => ConstIB (check_no_uvar_sort sort, BindI (name, check_no_uvar_ibinds ibinds)) *)
+                            (* val ibinds = check_no_uvar_ibinds ibinds *)
                             val c = (0, tnames, ibinds)
-		            val t = constr_type c
-		            val () = is_wf_type ((sctx, kctx), t)
+		            val t = U.constr_type shiftx_v c
+		            val _ = is_wf_type ((sctx, kctx), t)
 			             handle Error (_, msg) =>
 				            raise Error (r, 
 						         "Constructor is ill-formed" :: 
@@ -1444,12 +1450,16 @@ local
 						         indent msg)
                             val () = if length (fv_t t) > 0 then
                                          raise Error (r, ["Constructor has unresolved unification type variable(s)"])
+                                     else ()
+                            val c as (_, _, ibinds) = constr_from_type t
 		        in
-		            (name, c)
+		            ((name, ibinds, r), (name, c))
 		        end
-		    val constrs = map make_constr constr_decls
+		    val (constr_decls, constrs) = map make_constr constr_decls
+                    val constr_decls = rev constr_decls
+                    val constrs = rev constrs
 	        in
-		    ((([], []), [nk], rev constrs, []), 0, [])
+		    (constr_decls(([], []), [nk], constrs, []), 0, [])
 	        end
         end
 
