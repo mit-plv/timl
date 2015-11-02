@@ -145,7 +145,7 @@ fun shiftx_v x n y =
 
 fun shiftx_invis x n invis = 
     let 
-        fun f ((off, len), (acc, (x, n))) => 
+        fun f ((off, len), (acc, (x, n))) =
             if n = 0 then
                 ((off, len) :: acc, (0, 0))
             else if x < off then
@@ -200,7 +200,7 @@ fun forget_v x n y =
 
 fun forget_invis x n invis = 
     let 
-        fun f ((off, len), (acc, (x, n))) => 
+        fun f ((off, len), (acc, (x, n))) =
             if n = 0 then
                 ((off, len) :: acc, (0, 0))
             else if x < off then

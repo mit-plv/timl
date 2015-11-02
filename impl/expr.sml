@@ -119,6 +119,24 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         val Type = ArrowK (false, 0, [])
 
+        fun peel_UniI t =
+            case t of
+                UniI (s, BindI ((name, _), t)) =>
+                let val (binds, t) = peel_UniI t
+                in
+                    ((name, s) :: binds, t)
+                end
+              | _ => ([], t)
+
+        fun peel_Uni t =
+            case t of
+                Uni ((name, _), t) =>
+                let val (names, t) = peel_Uni t
+                in
+                    (name :: names, t)
+                end
+              | Mono t => ([], t)
+
         type constr_core = (sort, string, mtype * idx list) ibinds
         type constr_decl = string * constr_core * region
         type constr = var * string list * constr_core
@@ -141,8 +159,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 val (tnames, t) = peel_Uni t
                 val tnames = map fst tnames
                 val (ns, t) = peel_UniI t
-                val (t = case t of
-                            Arrow (t, _, t2) => t
+                val t = case t of
+                            Arrow (t, _, _) => t
                           | _ => raise Impossible "constr_from_type (): not Arrow"
             in
                 (tnames, fold_ibinds (ns, (t, is)))
@@ -168,9 +186,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         | Pair of expr * expr
 	         | Fst of expr
 	         | Snd of expr
-	         (* universal *)
-	         | AbsT of name * expr
-	         | AppT of expr * mtype
 	         (* universal index *)
 	         | AbsI of sort * name * expr
 	         | AppI of expr * idx
@@ -191,6 +206,16 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
              and decl =
                  Val of ptrn * expr
 	         | Datatype of string * string list * sort list * constr_decl list * region
+
+        fun peel_AppI e =
+            case e of
+                AppI (e, i) =>
+                let 
+                    val (e, is) = peel_AppI e
+                in
+                    (e, is @ [i])
+                end
+              | _ => (e, [])
 
         infix 6 %+ 
         fun a %+ b = BinOpI (AddI, a, b)
@@ -235,28 +260,10 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  KindingT of string
                  | SortingT of string * 'a
 
-        fun collect_UniI t =
-            case t of
-                UniI (s, BindI ((name, _), t)) =>
-                let val (binds, t) = collect_UniI t
-                in
-                    ((name, s) :: binds, t)
-                end
-              | _ => ([], t)
-
-        fun collect_Uni t =
-            case t of
-                Uni ((name, _), t) =>
-                let val (names, t) = collect_Uni t
-                in
-                    (name :: names, t)
-                end
-              | Mono t => ([], t)
-
-        fun collect_Uni_UniI t =
+        fun peel_Uni_UniI t =
             let
-                val (tnames, t) = collect_Uni t
-                val (binds, t) = collect_UniI t
+                val (tnames, t) = peel_Uni t
+                val (binds, t) = peel_UniI t
             in
                 (map KindingT tnames @ map SortingT binds, t)
             end
@@ -289,7 +296,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | Sum (t1, t2) => sprintf "($ + $)" [str_mt ctx t1, str_mt ctx t2]
               | UniI _ =>
                 let
-                    val (binds, t) = collect_UniI t
+                    val (binds, t) = peel_UniI t
                 in
                     str_uni ctx (map SortingT binds, t)
                 end
@@ -323,7 +330,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         fun str_t (ctx as (sctx, kctx)) (t : ty) : string =
             case t of
                 Mono t => str_mt ctx t
-              | Uni _ => str_uni ctx (collect_Uni_UniI t)
+              | Uni _ => str_uni ctx (peel_Uni_UniI t)
 
         fun str_k ctx (k : kind) : string = 
             case k of

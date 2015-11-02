@@ -116,13 +116,29 @@ fun concatMap f ls = (List.concat o map f) ls
 fun inc r = r := !r + 1
 fun dec r = r := !r - 1
 
-fun for start len f init =
+structure Range = struct
+
+type range = int * int
+
+fun zero_to length = (0, length)
+
+fun foldl f init (start, len) =
     if len <= 0 then
         init
     else
-        for (start + 1) (len - 1) f (f (init, start))
+        foldl f (f (start, init)) (start + 1, len - 1)
+
+fun for f init range = foldl f init range
+
+fun app f range = foldl (fn (i, ()) => (f i; ())) () range
+
+end
 
 (* uninhabited *)
 datatype empty = Empty of empty
+
+fun push xs x = x :: xs
+fun binop_ref f r x = r := f !r x
+fun push_ref r x = binop_ref push r x
 
 end

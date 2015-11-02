@@ -83,22 +83,6 @@ local
         | E.AliasP (name, pn, r) =>
           AliasP (name, on_ptrn cctx pn, r)
 
-    fun get_is e =
-      case e of 
-	  E.AppI (e, i) =>
-	  let val (e, is) = get_is e in
-	      (e, is @ [i])
-	  end
-	| _ => (e, [])
-
-    fun get_ts e =
-      case e of 
-	  E.AppT (e, t) =>
-	  let val (e, ts) = get_ts e in
-	      (e, ts @ [t])
-	  end
-	| _ => (e, [])
-
     fun on_ibinds on_anno on_inner ctx ibinds =
         case ibinds of
             E.NilIB inner => NilIB (on_inner ctx inner)
@@ -134,7 +118,7 @@ local
 	      let val e2 = on_expr ctx e2
 		  fun default () = 
                       App (on_expr ctx e1, e2)
-		  val (e1, is) = get_is e1 
+		  val (e1, is) = peel_AppI e1 
 		  val (e1, ts) = get_ts e1
 	      in
 		  case e1 of
@@ -171,7 +155,7 @@ local
 	    | E.AppI (e, i) => 
 	      let fun default () = 
                       AppI (on_expr ctx e, on_idx sctx i)
-		  val (e, is) = get_is e
+		  val (e, is) = peel_AppI e
                   val is = is @ [i]
 		  val (e, ts) = get_ts e
 	      in
