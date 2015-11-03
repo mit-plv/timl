@@ -184,7 +184,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         datatype expr =
 	         Var of var * region
 	         | App of expr * expr
-	         | Abs of mtype * ptrn * expr 
+	         | Abs of ptrn * expr 
 	         (* unit type *)
 	         | TT of region
 	         (* product type *)
@@ -204,12 +204,12 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         | Case of expr * return * (ptrn * expr) list * region
 	         | Never of mtype
 	         | Let of decl list * expr * region
-	         | Fix of mtype * name * expr
 	         | Ascription of expr * mtype
 	         | AscriptionTime of expr * idx
 
              and decl =
                  Val of ptrn * expr
+                 | Rec of mtype * name * expr * region
 	         | Datatype of string * string list * sort list * constr_decl list * region
 
         fun peel_AppI e =
@@ -388,14 +388,14 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
             in
                 case e of
 	            Var (x, _) => str_v tctx x
-	          | Abs (t, pn, e) => 
-                    let val t = str_mt skctx t
+	          | Abs (pn, e) => 
+                    let 
                         val (inames, enames) = ptrn_names pn
                         val pn = str_pn cctx pn
                         val ctx = (inames @ sctx, kctx, cctx, enames @ tctx)
 	                val e = str_e ctx e
                     in
-                        sprintf "(fn ($ : $) => $)" [pn, t, e]
+                        sprintf "(fn $ => $)" [pn, e]
                     end
 	          | App (e1, e2) => sprintf "($ $)" [str_e ctx e1, str_e ctx e2]
 	          | TT _ => "()"
@@ -406,7 +406,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	          | AppI (e, i) => sprintf "($ [$])" [str_e ctx e, str_i sctx i]
 	          | Pack (t, i, e) => sprintf "(pack $ ($, $))" [str_mt skctx t, str_i sctx i, str_e ctx e]
 	          | Unpack (e1, return, iname, ename, e2) => sprintf "unpack $ $as ($, $) in $ end" [str_e ctx e1, str_return skctx return, iname, ename, str_e (iname :: sctx, kctx, cctx, ename :: tctx) e2]
-	          | Fix (t, (name, _), e) => sprintf "(fix ($ : $) => $)" [name, str_mt skctx t, str_e (add_t name ctx) e]
 	          | Let (decls, e, _) => 
                     let val (decls, ctx) = str_decls ctx decls
                     in
@@ -442,6 +441,14 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	            val ctx = (inames @ sctx, kctx, cctx, enames @ tctx)
                 in
                     (sprintf "val $ = $" [pn, e], ctx)
+                end
+              | Rec (t, (name, _), e, _) =>
+                let 
+                    val t = str_mt (sctx, kctx) t
+	            val ctx = (sctx, kctx, cctx, name :: tctx)
+                    val e = str_e ctx e
+                in
+                    (sprintf "rec $ : $ = $" [name, t, e], ctx)
                 end
               | Datatype (name, tnames, sorts, constrs, _) =>
                 let val str_tnames = (join_prefix " " o rev) tnames
@@ -525,7 +532,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         fun get_region_e e = 
             case e of
                 Var (_, r) => r
-              | Abs (_, pn, e) => combine_region (get_region_pn pn) (get_region_e e)
+              | Abs (pn, e) => combine_region (get_region_pn pn) (get_region_e e)
               | App (e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
               | TT r => r
               | Pair (e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
@@ -541,7 +548,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | Case (_, _, _, r) => r
               | Never t => get_region_mt t
               | Let (_, _, r) => r
-              | Fix (_, (_, r), e) => combine_region r (get_region_e e)
               | Ascription (e, t) => combine_region (get_region_e e) (get_region_mt t)
               | AscriptionTime (e, i) => combine_region (get_region_e e) (get_region_i i)
                                                         
@@ -550,6 +556,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         fun get_region_dec dec =
             case dec of
                 Val (pn, e) => combine_region (get_region_pn pn) (get_region_e e)
+              | Rec (_, _, _, r) => r
               | Datatype (_, _, _, _, r) => r
 
         fun eq_i eq_var i i' =
@@ -581,6 +588,28 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
             in
                 loop p p'
             end
+
+        fun is_value (e : expr) : bool =
+            case e of
+                Var _ => true
+              | App _ => false
+              | Abs _ => true
+              | TT _ => true
+              | Pair (e1, e2) => is_value e1 andalso is_value e2
+              | Fst _ => false
+              | Snd _ => false
+              | AbsI _ => true
+              | AppI _ => false
+              | Pack (_, _, e) => is_value e
+              | Unpack _ => false
+              | Let _ => false
+              | Ascription _ => false
+              | AscriptionTime _ => false
+              | BinOp _ => false
+              | Const _ => true
+              | AppConstr (_, _, e) => is_value e
+              | Case _ => false
+              | Never _ => false
 
         end
                                                                     

@@ -228,7 +228,7 @@ local
     fun f x n b =
 	case b of
 	    Var (y, r) => Var (shiftx_v x n y, r)
-	  | Abs (t, name, e) => Abs (t, name, f (x + 1) n e)
+	  | Abs (pn, e) => Abs (pn, f (x + 1) n e)
 	  | App (e1, e2) => App (f x n e1, f x n e2)
 	  | TT r => TT r
 	  | Pair (e1, e2) => Pair (f x n e1, f x n e2)
@@ -239,8 +239,6 @@ local
 	  | Pack (t, i, e) => Pack (t, i, f x n e)
 	  | Unpack (e1, return, iname, ename, e2) => 
 	    Unpack (f x n e1, return, iname, ename, f (x + 1) n e2)
-	  | Fix (t, name, e) => 
-	    Fix (t, name, f (x + 1) n e)
 	  | Let (decs, e, r) =>
 	    let fun g (dec, (acc, m)) =
 		  let
@@ -263,11 +261,19 @@ local
 
     and f_dec x n dec =
 	case dec of
-	    Val (name, e) => (Val (name, f x n e), 1)
+	    Val (pn, e) => 
+	    let 
+                val (_, enames) = ptrn_names pn 
+	    in
+                (Val (pn, f x n e), length enames)
+            end
+          | Rec (t, name, e, r) => 
+            (Rec (t, name, f (x + 1) n e, r), 1)
           | Datatype a => (Datatype a, 0)
 
     and f_rule x n (pn, e) =
-	let val (_, enames) = ptrn_names pn 
+	let 
+            val (_, enames) = ptrn_names pn 
 	in
 	    (pn, f (x + length enames) n e)
 	end

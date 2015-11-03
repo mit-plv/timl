@@ -31,14 +31,19 @@ fun refine (x : ('bsort, 't) uvar_ref) (v : 't) =
         (name := Gone;
          x := Refined v)
 
+fun str_uvar n = "?" ^ str_int n
+fun str_uname uname =
+    case uname of
+        Idx (n, _, _, _) => str_uvar n
+      | NonIdx (n, _, _) => str_uvar n
+      | BSort n => str_uvar n
+      | None => raise Impossible "str_uname (): shouldn't be None" 
+
 type ('bsort, 'idx) uvar_i = invisibles * ('bsort, 'idx) uvar_ref
 fun str_uvar_i str_i ctx ((invis, u) : ('bsort, 'idx) uvar_i) =
     case !u of
         Refined i => str_i (shrink_ctx invis ctx) i
-      | Fresh name_ref => 
-        case !name_ref of
-            Idx (n, _, _, _) => "?" ^ str_int n
-          | _ => raise Impossible "str_uvar_i (): name should be Idx"
+      | Fresh name_ref => str_uname (!name_ref)
 
 end
         
@@ -50,10 +55,7 @@ type ('bsort, 'mtype) uvar_mt = (invisibles (* sortings *) * invisibles (* kindi
 fun str_uvar_bs str_bs (u : 'bsort uvar_bs) =
     case !u of
         Refined bs => str_bs bs
-      | Fresh name_ref => 
-        case !name_ref of
-            BSort n => "?" ^ str_int n
-          | _ => raise Impossible "str_uvar_bs (): name should be BSort"
+      | Fresh name_ref => str_uname (!name_ref)
 end
 
 structure OnlyIdxUVar = struct

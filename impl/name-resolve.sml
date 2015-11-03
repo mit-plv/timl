@@ -113,14 +113,14 @@ local
       in
 	  case e of
 	      E.Var x => Var (on_var tctx x)
-	    | E.Abs (t, pn, e) => 
-              let val t = on_mtype skctx t
+	    | E.Abs (pn, e) => 
+              let 
                   val pn = on_ptrn (sctx, kctx, cctx) pn
                   val (inames, enames) = ptrn_names pn
                   val ctx = (inames @ sctx, kctx, cctx, enames @ tctx)
                   val e = on_expr ctx e
               in
-                  Abs (t, pn, e)
+                  Abs (pn, e)
               end
 	    | E.App (e1, e2) => 
 	      let
@@ -157,7 +157,6 @@ local
 	      end
 	    | E.Pack (t, i, e) => Pack (on_mtype skctx t, on_idx sctx i, on_expr ctx e)
 	    | E.Unpack (e1, return, iname, ename, e2) => Unpack (on_expr ctx e1, on_return skctx return, iname, ename, on_expr (iname :: sctx, kctx, cctx, ename :: tctx) e2)
-	    | E.Fix (t, (name, r), e) => Fix (on_mtype skctx t, (name, r), on_expr (add_t name ctx) e)
 	    | E.Let (decls, e, r) =>
               let val (decls, ctx) = on_decls ctx decls
               in
@@ -194,6 +193,14 @@ local
                 val ctx = (inames @ sctx, kctx, cctx, enames @ tctx)
             in
                 (Val (pn, e), ctx)
+            end
+          | E.Rec (t, (name, r1), e, r) =>
+            let 
+                val t = on_mtype (sctx, kctx) t
+	        val ctx = (sctx, kctx, cctx, name :: tctx)
+                val e = on_expr ctx e
+            in
+                (Rec (t, (name, r1), e, r), ctx)
             end
           | E.Datatype (name, tnames, sorts, constr_decls, r) =>
             let fun on_constr_decl (cname, core, r) =
