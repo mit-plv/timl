@@ -1,4 +1,5 @@
 structure Subst = struct
+open UVarUtil
 open Expr
 
 (* generic traversers for both 'shift' and 'forget' *)
@@ -15,12 +16,12 @@ fun on_i_i on_v on_invis expand_i x n b =
 	  | TTI r => TTI r
 	  | TrueI r => TrueI r
 	  | FalseI r => FalseI r
-          | UVarI (invis, uvar) =>
+          | UVarI ((invis, uvar), r) =>
             (case !uvar of
                  Refined i => 
                  f x n (expand_i invis i)
                | Fresh _ => 
-                 UVarI (on_invis x n invis, uvar)
+                 UVarI ((on_invis x n invis, uvar), r)
             )
   in
       f x n b
@@ -47,41 +48,40 @@ fun on_t_ibind f x n bind =
     case bind of
         BindI (name, inner) => BindI (name, f x n inner)
 
-fun on_i_s on_i_p x n b =
+fun on_i_s on_i_p on_invis expand_s x n b =
   let
       fun f x n b =
 	case b of
 	    Basic s => Basic s
 	  | Subset (s, bind) => Subset (s, on_i_ibind on_i_p x n bind)
+          | UVarS ((invis, uvar), r) =>
+            (case !uvar of
+                 Refined i => 
+                 f x n (expand_s invis i)
+               | Fresh _ => 
+                 UVarS ((on_invis x n invis, uvar), r)
+            )
   in
       f x n b
   end
 
-fun on_i_s_ref on_invis expand_s x n (invis, uvar) =
-    case !uvar of
-        Refined i => 
-        f x n (expand_s invis i)
-      | Fresh _ => 
-        UVarI (on_invis x n invis, uvar)
-
-fun on_i_mt on_i_i on_i_s on_i_s_ref on_invis expand_mt x n b =
+fun on_i_mt on_i_i on_i_s on_invis expand_mt x n b =
   let
       fun f x n b =
 	case b of
 	    Arrow (t1, d, t2) => Arrow (f x n t1, on_i_i x n d, f x n t2)
 	  | Unit r => Unit r
 	  | Prod (t1, t2) => Prod (f x n t1, f x n t2)
-	  | Sum (t1, t2) => Sum (f x n t1, f x n t2)
-	  | UniI (s, bind) => UniI (on_i_s_ref x n s, on_i_ibind f x n bind)
-	  | ExI (s, bind) => ExI (on_i_s_ref x n s, on_i_ibind f x n bind)
+	  | UniI (s, bind) => UniI (on_i_s x n s, on_i_ibind f x n bind)
+	  | ExI (s, bind) => ExI (on_i_s x n s, on_i_ibind f x n bind)
 	  | AppV (y, ts, is, r) => AppV (y, map (f x n) ts, map (on_i_i x n) is, r)
 	  | Int r => Int r
-          | UVar (invis as (invisi invist), uvar) =>
+          | UVar ((invis as (invisi, invist), uvar), r) =>
             (case !uvar of
                  Refined t => 
                  f x n (expand_mt invis t)
                | Fresh _ => 
-                 UVar ((on_invis x n invisi, invist), uvar)
+                 UVar (((on_invis x n invisi, invist), uvar), r)
             )
   in
       f x n b
@@ -101,25 +101,23 @@ fun on_t_ibind f x n bind =
     case bind of
         BindI (name, inner) => BindI (name, f x n inner)
 
-fun on_t_mt on_v x n b =
+fun on_t_mt on_v on_invis expand_mt x n b =
   let
       fun f x n b =
 	case b of
 	    Arrow (t1, d, t2) => Arrow (f x n t1, d, f x n t2)
 	  | Unit r => Unit r
 	  | Prod (t1, t2) => Prod (f x n t1, f x n t2)
-	  | Sum (t1, t2) => Sum (f x n t1, f x n t2)
 	  | UniI (s, bind) => UniI (s, on_t_ibind f x n bind)
 	  | ExI (s, bind) => ExI (s, on_t_ibind f x n bind)
-	  | AppRecur (name, ns, t, i, r) => AppRecur (name, ns, f (x + 1) n t, i, r)
 	  | AppV ((y, r1), ts, is, r) => AppV ((on_v x n y, r1), map (f x n) ts, is, r)
 	  | Int r => Int r
-          | UVar (invis as (invisi invist), uvar) =>
+          | UVar ((invis as (invisi, invist), uvar), r) =>
             (case !uvar of
                  Refined t => 
                  f x n (expand_mt invis t)
                | Fresh _ => 
-                 UVar ((invisi, on_invis x n invist), uvar)
+                 UVar (((invisi, on_invis x n invist), uvar), r)
             )
   in
       f x n b

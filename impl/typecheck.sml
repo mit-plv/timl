@@ -227,14 +227,14 @@ fun runError m _ =
 (* use cell to mimic the Writer monad *)
 local								    
 
-    datatype vc =
+    datatype vc_entry =
              ForallVC of string * sort
              | ImplyVC of prop
              | AndVC of prop * region
              | AnchorVC of anchor ref
              | CloseVC
 
-    val acc = ref ([] : vc list)
+    val acc = ref ([] : vc_entry list)
 
     fun runWriter m _ =
         (acc := []; let val r = m () in (r, rev (!acc)) end)

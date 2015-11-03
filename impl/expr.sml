@@ -1,4 +1,5 @@
 structure BasicSorts = struct
+
 (* basic index sort *)
 datatype base_sort =
 	 Time
@@ -12,6 +13,7 @@ fun str_b (s : base_sort) : string =
       | Nat => "Nat"
       | Bool => "Bool"
       | BSUnit => "Unit"
+
 end
 
 structure ExprUtil = struct
@@ -43,10 +45,10 @@ signature VAR = sig
 end
 
 signature UVAR = sig
-    type 't uvar_i
-    type 't uvar_bs
-    type 't uvar_s
-    type 't uvar_mt
+    type 'a uvar_bs
+    type ('a, 'b) uvar_i
+    type ('a, 'b) uvar_s
+    type ('a, 'b) uvar_mt
 end
 
 functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
@@ -56,9 +58,14 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         open Operators
         open UVar
         open Region
+        open ExprUtil
 
         type id = var * region
         type name = string * region
+
+        datatype bsort = 
+                 Base of base_sort
+                 | UVarBS of bsort uvar_bs
 
         datatype idx =
 	         VarI of var * region
@@ -69,7 +76,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         | TrueI of region
 	         | FalseI of region
 	         | TTI of region
-                 | UVarI of idx uvar_i * region
+                 | UVarI of (bsort, idx) uvar_i * region
 
         fun T0 r = ConstIT ("0.0", r)
         fun T1 r = ConstIT ("1.0", r)
@@ -81,19 +88,15 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  | Not of prop * region
 	         | BinPred of bin_pred * idx * idx
 
-        datatype bsort = 
-                 Base of base_sort
-                 | UVarBS of bsort uvar_bs
-
         (* index sort *)
         datatype sort =
 	         Basic of bsort * region
 	         | Subset of (bsort * region) * (name * prop) ibind
-                 | UVarS of sort uvar_s * region
+                 | UVarS of (bsort, sort) uvar_s * region
 					 
-        val STime = Basic (Time, dummy)
-        val SBool = Basic (Bool, dummy)
-        val SUnit = Basic (BSUnit, dummy)
+        val STime = Basic (Base Time, dummy)
+        val SBool = Basic (Base Bool, dummy)
+        val SUnit = Basic (Base BSUnit, dummy)
 
         (* monotypes *)
         datatype mtype = 
@@ -105,7 +108,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         (* the first operant of App can only be a type variable. The degenerated case of no-arguments is also included *)
 	         | AppV of id * mtype list * idx list * region
 	         | Int of region
-                 | UVar of mtype uvar_mt * region
+                 | UVar of (bsort, mtype) uvar_mt * region
 
         datatype ty = 
 	         Mono of mtype
@@ -130,7 +133,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         fun peel_Uni t =
             case t of
-                Uni ((name, _), t) =>
+                Uni (name, t) =>
                 let val (names, t) = peel_Uni t
                 in
                     (name :: names, t)
@@ -141,7 +144,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         type constr_decl = string * constr_core * region
         type constr = var * string list * constr_core
 
-        fun constr_type shiftx_v ((family, tnames, ibinds) : constr) = 
+        fun constr_type VarT shiftx_v ((family, tnames, ibinds) : constr) = 
             let 
                 val (ns, (t, is)) = unfold_ibinds ibinds
                 val ts = (map (fn x => VarT (x, dummy)) o rev o range o length) tnames
@@ -159,9 +162,9 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 val (tnames, t) = peel_Uni t
                 val tnames = map fst tnames
                 val (ns, t) = peel_UniI t
-                val t = case t of
-                            Arrow (t, _, _) => t
-                          | _ => raise Impossible "constr_from_type (): not Arrow"
+                val (t, is) = case t of
+                            Arrow (t, _, AppV (_, _, is, _)) => (t, is)
+                          | _ => raise Impossible "constr_from_type (): t not the right form"
             in
                 (tnames, fold_ibinds (ns, (t, is)))
             end
@@ -174,7 +177,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  | PairP of ptrn * ptrn
                  | TTP of region
                  | AliasP of name * ptrn * region
-                 | AnnoP of ptrn * ty
+                 | AnnoP of ptrn * mtype
 
         datatype expr =
 	         Var of var * region
@@ -195,9 +198,9 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  (* region *)
 	         | BinOp of bin_op * expr * expr
 	         | Const of int * region
-	         | AppConstr of id * mtype list * idx list * expr
+	         | AppConstr of id * idx list * expr
 	         | Case of expr * return * (ptrn * expr) list * region
-	         | Never of mty
+	         | Never of mtype
 	         | Let of decl list * expr * region
 	         | Fix of mtype * name * expr
 	         | Ascription of expr * mtype
@@ -242,6 +245,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | TTI _ => "()"
               | TrueI _ => "true"
               | FalseI _ => "false"
+              | UVarI _ => "_"
 
         fun str_p ctx p = 
             case p of
@@ -251,10 +255,16 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | BinConn (opr, p1, p2) => sprintf "($ $ $)" [str_p ctx p1, str_bin_conn opr, str_p ctx p2]
               | BinPred (opr, i1, i2) => sprintf "($ $ $)" [str_i ctx i1, str_bin_pred opr, str_i ctx i2]
 
+        fun str_bs (s : bsort) =
+          case s of
+              Base s => str_b s
+            | UVarBS _ => "_"
+                            
         fun str_s ctx (s : sort) : string = 
             case s of
-                Basic (s, _) => str_b s
-              | Subset ((s, _), (BindI ((name, _), p))) => sprintf "{ $ :: $ | $ }" [name, str_b s, str_p (name :: ctx) p]
+                Basic (s, _) => str_bs s
+              | Subset ((s, _), (BindI ((name, _), p))) => sprintf "{ $ :: $ | $ }" [name, str_bs s, str_p (name :: ctx) p]
+              | UVarS _ => "_"                                               
 
         datatype 'a bind = 
                  KindingT of string
@@ -263,6 +273,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         fun peel_Uni_UniI t =
             let
                 val (tnames, t) = peel_Uni t
+                val tnames = map fst tnames
                 val (binds, t) = peel_UniI t
             in
                 (map KindingT tnames @ map SortingT binds, t)
@@ -293,7 +304,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 Arrow (t1, d, t2) => sprintf "($ -- $ -> $)" [str_mt ctx t1, str_i sctx d, str_mt ctx t2]
               | Unit _ => "unit"
               | Prod (t1, t2) => sprintf "($ * $)" [str_mt ctx t1, str_mt ctx t2]
-              | Sum (t1, t2) => sprintf "($ + $)" [str_mt ctx t1, str_mt ctx t2]
               | UniI _ =>
                 let
                     val (binds, t) = peel_UniI t
@@ -301,19 +311,13 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                     str_uni ctx (map SortingT binds, t)
                 end
               | ExI (s, BindI ((name, _), t)) => sprintf "(exists {$ : $}, $)" [name, str_s sctx s, str_mt (name :: sctx, kctx) t]
-              | AppRecur (name, ns, t, i, _) => 
-                sprintf "((rec $ $, $) $)" 
-	                [name, 
-	                 join " " (map (fn (name, s) => sprintf "($ :: $)" [name, str_s sctx s]) ns),
-	                 str_mt (rev (map #1 ns) @ sctx, name :: kctx) t,
-	                 join " " (map (str_i sctx) i)]
               | AppV ((x, _), ts, is, _) => 
                 if null ts andalso null is then
 	            str_v kctx x
-
                 else
 	            sprintf "($$$)" [(join "" o map (suffix " ") o map (surround "{" "}") o map (str_i sctx) o rev) is, (join "" o map (suffix " ") o map (str_mt ctx) o rev) ts, str_v kctx x]
               | Int _ => "int"
+              | UVar _ => "_"
 
         and str_uni ctx (binds, t) =
             let 
@@ -358,6 +362,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 in
                     (inames, enames @ [name])
                 end
+              | AnnoP (pn, t) => ptrn_names pn
 
         fun str_pn cctx pn = 
             case pn of
@@ -366,6 +371,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | PairP (pn1, pn2) => sprintf "($, $)" [str_pn cctx pn1, str_pn cctx pn2]
               | TTP _ => "()"
               | AliasP ((name, _), pn, _) => sprintf "$ as $" [name, str_pn cctx pn]
+              | AnnoP _ => "_"
 
         fun str_return (skctx as (sctx, _)) return =
             case return of
@@ -394,13 +400,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	          | Pair (e1, e2) => sprintf "($, $)" [str_e ctx e1, str_e ctx e2]
 	          | Fst e => sprintf "(fst $)" [str_e ctx e]
 	          | Snd e => sprintf "(snd $)" [str_e ctx e]
-	          | Inl (t, e) => sprintf "(inl [$] $)" [str_mt skctx t, str_e ctx e]
-	          | Inr (t, e) => sprintf "(inr [$] $)" [str_mt skctx t, str_e ctx e]
-	          | SumCase (e, name1, e1, name2, e2) => sprintf "(sumcase $ of inl $ => $ | inr $  => $)" [str_e ctx e, name1, str_e (add_t name1 ctx) e1, name2, str_e (add_t name2 ctx) e2]
-	          | Fold (t, e) => sprintf "(fold [$] $)" [str_mt skctx t, str_e ctx e]
-	          | Unfold e => sprintf "(unfold $)" [str_e ctx e]
-	          | AbsT ((name, _), e) => sprintf "(fn $ => $)" [name, str_e (sctx, name :: kctx, cctx, tctx) e]
-	          | AppT (e, t) => sprintf "($ [$])" [str_e ctx e, str_mt skctx t]
 	          | AbsI (s, (name, _), e) => sprintf "(fn $ :: $ => $)" [name, str_s sctx s, str_e (name :: sctx, kctx, cctx, tctx) e]
 	          | AppI (e, i) => sprintf "($ [$])" [str_e ctx e, str_i sctx i]
 	          | Pack (t, i, e) => sprintf "(pack $ ($, $))" [str_mt skctx t, str_i sctx i, str_e ctx e]
@@ -411,13 +410,13 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                     in
                         sprintf "let$ in $ end" [join_prefix " " decls, str_e ctx e]
                     end
-	          | Ascription (e, t) => sprintf "($ : $)" [str_e ctx e, str_t skctx t]
+	          | Ascription (e, t) => sprintf "($ : $)" [str_e ctx e, str_mt skctx t]
 	          | AscriptionTime (e, d) => sprintf "($ |> $)" [str_e ctx e, str_i sctx d]
 	          | BinOp (opr, e1, e2) => sprintf "($ $ $)" [str_e ctx e1, str_bin_op opr, str_e ctx e2]
 	          | Const (n, _) => str_int n
-	          | AppConstr ((x, _), ts, is, e) => sprintf "($$$ $)" [str_v cctx x, (join "" o map (prefix " ") o map (fn t => sprintf "[$]" [str_mt skctx t])) ts, (join "" o map (prefix " ") o map (fn i => sprintf "[$]" [str_i sctx i])) is, str_e ctx e]
+	          | AppConstr ((x, _), is, e) => sprintf "($$ $)" [str_v cctx x, (join "" o map (prefix " ") o map (fn i => sprintf "[$]" [str_i sctx i])) is, str_e ctx e]
 	          | Case (e, return, rules, _) => sprintf "(case $ $of $)" [str_e ctx e, str_return skctx return, join " | " (map (str_rule ctx) rules)]
-	          | Never t => sprintf "(never [$])" [str_t skctx t]
+	          | Never t => sprintf "(never [$])" [str_mt skctx t]
             end
 
         and str_decls (ctx as (sctx, kctx, cctx, tctx)) decls =
@@ -478,6 +477,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | TrueI r => r
               | FalseI r => r
               | TTI r => r
+              | UVarI (_, r) => r
 
         fun get_region_p p = 
             case p of
@@ -493,18 +493,18 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
             case s of
                 Basic (_, r) => r
               | Subset (_, bind) => get_region_ibind get_region_p bind
+              | UVarS (_, r) => r
 
         fun get_region_mt t = 
             case t of
                 Arrow (t1, d, t2) => combine_region (get_region_mt t1) (get_region_mt t2)
               | Prod (t1, t2) => combine_region (get_region_mt t1) (get_region_mt t2)
-              | Sum (t1, t2) => combine_region (get_region_mt t1) (get_region_mt t2)
               | Unit r => r
               | UniI (_, bind) => get_region_ibind get_region_mt bind
               | ExI (_, bind) => get_region_ibind get_region_mt bind
-              | AppRecur (_, _, t, _, r) => r
               | AppV (_, _, _, r) => r
               | Int r => r
+              | UVar (_, r) => r
 
         fun get_region_t t = 
             case t of
@@ -518,6 +518,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | PairP (pn1, pn2) => combine_region (get_region_pn pn1) (get_region_pn pn2)
               | TTP r => r
               | AliasP (_, _, r) => r
+              | AnnoP (pn, t) => combine_region (get_region_pn pn) (get_region_mt t)
 
         fun get_region_e e = 
             case e of
@@ -528,25 +529,18 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | Pair (e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
               | Fst e => get_region_e e
               | Snd e => get_region_e e
-              | Inl (t, e) => combine_region (get_region_mt t) (get_region_e e)
-              | Inr (t, e) => combine_region (get_region_mt t) (get_region_e e)
-              | SumCase (e, _, _, _, e2) => combine_region (get_region_e e) (get_region_e e2)
-              | AbsT ((_, r), e) => combine_region r (get_region_e e)
-              | AppT (e, t) => combine_region (get_region_e e) (get_region_mt t)
               | AbsI (_, (_, r), e) => combine_region r (get_region_e e)
               | AppI (e, i) => combine_region (get_region_e e) (get_region_i i)
               | Pack (t, _, e) => combine_region (get_region_mt t) (get_region_e e)
               | Unpack (e1, _, _, _, e2) => combine_region (get_region_e e1) (get_region_e e2)
-              | Fold (t, e) => combine_region (get_region_mt t) (get_region_e e)
-              | Unfold e => get_region_e e
               | BinOp (_, e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
               | Const (_, r) => r
-              | AppConstr ((_, r), _, _, e) => combine_region r (get_region_e e)
+              | AppConstr ((_, r), _, e) => combine_region r (get_region_e e)
               | Case (_, _, _, r) => r
-              | Never t => get_region_t t
+              | Never t => get_region_mt t
               | Let (_, _, r) => r
               | Fix (_, (_, r), e) => combine_region r (get_region_e e)
-              | Ascription (e, t) => combine_region (get_region_e e) (get_region_t t)
+              | Ascription (e, t) => combine_region (get_region_e e) (get_region_mt t)
               | AscriptionTime (e, i) => combine_region (get_region_e e) (get_region_i i)
                                                         
         fun get_region_rule (pn, e) = combine_region (get_region_pn pn) (get_region_e e)
@@ -574,10 +568,10 @@ fun str_v ctx x : string =
 end
 
 structure Underscore = struct
-type 't uvar_i = unit
-type 't uvar_bs = unit
-type 't uvar_s = unit
-type 't uvar_mt = unit
+type 'a uvar_bs = unit
+type ('a, 'b) uvar_i = unit
+type ('a, 'b) uvar_s = unit
+type ('a, 'b) uvar_mt = unit
 end
 
 structure NamefulExpr = ExprFun (structure Var = StringVar structure UVar = Underscore)

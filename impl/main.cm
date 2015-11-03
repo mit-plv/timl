@@ -8,8 +8,8 @@ Group is
       front-end/timl.lex
       front-end/parser.sml
       expr.sml
+      uvar-expr.sml
       elaborate.sml
-      expr-region.sml
       name-resolve.sml
       subst.sml
       equal.sml

@@ -138,7 +138,7 @@ end
 datatype empty = Empty of empty
 
 fun push xs x = x :: xs
-fun binop_ref f r x = r := f !r x
+fun binop_ref f r x = r := f (!r) x
 fun push_ref r x = binop_ref push r x
 
 end

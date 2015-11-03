@@ -29,7 +29,7 @@ fun str_vc show_region filename (ctx : bscontext, ps, p, r : region) =
         val ctxn = map #1 ctx
     in
         (if show_region then [str_region "" filename r] else []) @
-        map (fn (name, s) => sprintf "$ : $" [name, str_b s]) (rev ctx) @
+        map (fn (name, s) => sprintf "$ : $" [name, str_bs s]) (rev ctx) @
         map (str_p ctxn) ps @
         ["==============="] @
         [str_p ctxn p]
