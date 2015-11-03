@@ -589,6 +589,118 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 loop p p'
             end
 
+        local
+            val changed = ref false
+            fun unset () = changed := false
+            fun set () = changed := true
+            fun passi eq_var =
+                let
+                    fun loop i =
+	                case i of
+	                    BinOpI (MaxI, i1, i2) =>
+	                    if eq_i eq_var i1 i2 then
+		                (set ();
+                                 i1)
+	                    else
+		                BinOpI (MaxI, loop i1, loop i2)
+	                  | BinOpI (MinI, i1, i2) =>
+	                    if eq_i eq_var i1 i2 then
+		                (set ();
+                                 i1)
+	                    else
+		                BinOpI (MinI, loop i1, loop i2)
+	                  | BinOpI (AddI, i1, i2) => 
+	                    if eq_i eq_var i1 (T0 dummy) then
+                                (set ();
+                                 i2)
+	                    else if eq_i eq_var i2 (T0 dummy) then
+                                (set ();
+                                 i1)
+	                    else
+		                BinOpI (AddI, loop i1, loop i2)
+	                  | BinOpI (MinusI, i1, i2) => 
+	                    if eq_i eq_var i2 (T0 dummy) then
+                                (set ();
+                                 i1)
+	                    else
+		                BinOpI (MinusI, loop i1, loop i2)
+	                  | BinOpI (MultI, i1, i2) => 
+	                    if eq_i eq_var i1 (T0 dummy) then
+                                (set ();
+                                 (T0 dummy))
+	                    else if eq_i eq_var i2 (T0 dummy) then
+                                (set ();
+                                 (T0 dummy))
+	                    else if eq_i eq_var i1 (T1 dummy) then
+                                (set ();
+                                 i2)
+	                    else if eq_i eq_var i2 (T1 dummy) then
+                                (set ();
+                                 i1)
+	                    else
+		                BinOpI (MultI, loop i1, loop i2)
+                          | UnOpI (opr, i, r) =>
+                            UnOpI (opr, loop i, r)
+	                  | _ => i
+                in
+                    loop
+                end
+
+            fun passp eq_var p = 
+	        case p of
+	            BinConn (opr, p1, p2) => 
+	            BinConn (opr, passp eq_var p1, passp eq_var p2)
+	          | BinPred (opr, i1, i2) => 
+	            BinPred (opr, passi eq_var i1, passi eq_var i2)
+	          | _ => p
+                             
+            fun until_unchanged f a = 
+	        let fun loop a =
+	                let
+                            val _ = unset ()
+                            val a = f a
+                        in
+		            if !changed then loop a
+		            else a
+	                end
+                in
+	            loop a
+	        end
+        in
+        fun simp_i eq_var = until_unchanged (passi eq_var)
+        fun simp_p eq_var = until_unchanged (passp eq_var)
+        fun simp_vc eq_var (ctx, ps, p, r) = (ctx, map (simp_p eq_var) ps, simp_p eq_var p, r)
+        end
+
+        fun simp_ibind f (BindI (name, inner)) = BindI (name, f inner)
+
+        fun simp_s eq_var s =
+            case s of
+	        Basic b => Basic b
+              | Subset (b, bind) => Subset (b, simp_ibind (simp_p eq_var) bind)
+              | UVarS u => UVarS u
+
+        fun simp_mt eq_var =
+            let
+                fun f t =
+	            case t of
+	                Arrow (t1, d, t2) => Arrow (f t1, simp_i eq_var d, f t2)
+	              | Prod (t1, t2) => Prod (f t1, f t2)
+	              | Unit r => Unit r
+	              | AppV (x, ts, is, r) => AppV (x, map f ts, map (simp_i eq_var) is, r)
+	              | UniI (s, bind) => UniI (simp_s eq_var s, simp_ibind f bind)
+	              | ExI (s, bind) => ExI (simp_s eq_var s, simp_ibind f bind)
+	              | Int r => Int r
+                      | UVar u => UVar u
+            in
+                f
+            end
+
+        fun simp_t eq_var t =
+	    case t of
+	        Mono t => Mono (simp_mt eq_var t)
+	      | Uni (name, t) => Uni (name, simp_t eq_var t)
+
         fun is_value (e : expr) : bool =
             case e of
                 Var _ => true

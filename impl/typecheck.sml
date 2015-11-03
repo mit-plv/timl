@@ -168,13 +168,6 @@ fun make_ctx_from_sorting pair : context = ([pair], [], [], [])
 fun make_ctx_from_sortings pairs : context = (pairs, [], [], [])
 fun make_ctx_from_typing pair : context = ([], [], [], [pair])
 
-fun get_base s =
-    case s of
-        Basic (s, _) => s
-      | Subset ((s, _), _) => s
-
-(* exception Unimpl *)
-
 exception Error of region * string list
 
 fun runError m _ =
@@ -182,15 +175,15 @@ fun runError m _ =
     handle
     Error e => Failed e
 
+datatype vc_entry =
+         ForallVC of string * sort
+         | ImplyVC of prop
+         | AndVC of prop * region
+         | AnchorVC of bsort anchor ref
+         | CloseVC
+
 (* use cell to mimic the Writer monad *)
 local								    
-
-    datatype vc_entry =
-             ForallVC of string * sort
-             | ImplyVC of prop
-             | AndVC of prop * region
-             | AnchorVC of bsort anchor ref
-             | CloseVC
 
     val acc = ref ([] : vc_entry list)
 
@@ -532,6 +525,7 @@ local
                         BindI ((name, r2), 
                                is_wf_prop (order + 1) (add_sorting (name, Basic (bs, r)) ctx, p)))
             end
+          | U.UVarS ((), r) => fresh_sort (make_anchor ()) order r
 
     and is_wf_prop order (ctx : scontext, p : U.prop) : prop =
 	case p of
@@ -570,9 +564,17 @@ local
     and get_bsort order (ctx : scontext, i : U.idx) : idx * bsort =
 	case i of
 	    U.VarI (x, r) =>
-	    (case lookup_sort x ctx of
-      		 SOME s => (VarI (x, r), get_base s)
-      	       | NONE => raise Error (r, ["Unbound index variable: " ^ str_v (sctx_names ctx) x]))
+            let
+                fun get_base r ctx s =
+                    case update_s s of
+                        Basic (s, _) => s
+                      | Subset ((s, _), _) => s
+                      | UVarS _ => raise Error (r, [sprintf "Can't figure out base sort of $" [str_s ctx s]])
+            in
+	        case lookup_sort x ctx of
+      		    SOME s => (VarI (x, r), get_base r (sctx_names ctx) s)
+      	          | NONE => raise Error (r, ["Unbound index variable: " ^ str_v (sctx_names ctx) x])
+            end
           | U.UnOpI (ToReal, i, r) =>
             (UnOpI (ToReal,
                     check_bsort order (ctx, i, Base Nat),
@@ -1008,12 +1010,6 @@ local
          indent ["expect: " ^ expect,
                  "got: " ^ str_t ctx got])
 
-    fun check_fix_body e =
-        case e of
-    	    AbsI (_, _, e') => check_fix_body e'
-    	  | Abs _ => ()
-    	  | _ => raise Error (get_region_e e, ["The body of fixpoint must have the form ({_ : _} ... {_ : _} (_ : _) => _)"])
-
     fun is_wf_return (skctx as (sctx, _), return) =
         case return of
             (SOME t, SOME d) =>
@@ -1113,17 +1109,17 @@ local
                 end
         end
 
-    fun get_mtype (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, tctx : tcontext), e : U.expr) : expr * mtype * idx =
+    fun get_mtype (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, tctx : tcontext), e_all : U.expr) : expr * mtype * idx =
         let val skctx = (sctx, kctx) 
 	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
 	    val skctxn = (sctxn, kctxn)
 	    (* val () = print (sprintf "Typing $\n" [str_e ctxn e]) *)
-            fun subst_uvar_error e t i uname = Error (get_region_e e, [sprintf "Can't substitute $ in unification variable $ in type $" [str_i sctxn i, str_uname uname, str_t skctxn t]])
+            fun subst_uvar_error r t i uname = Error (r, [sprintf "Can't substitute $ in unification variable $ in type $" [str_i sctxn i, str_uname uname, str_mt skctxn t]])
 	    val (e, t, d) =
-	        case e of
+	        case e_all of
 		    U.Var x =>
                     let
-                        val r = U.get_region_e e
+                        val r = U.get_region_e e_all
                         fun insert t =
                             case t of
                                 Mono t => t
@@ -1193,10 +1189,10 @@ local
                         val s = fresh_sort anchor 0 r
                         val t1 = fresh_t anchor 1 r
                         val (e, t, d) = check_mtype (ctx, e, UniI (s, BindI (("uvar", r), t1))) 
-                        val i = check_sort (sctx, i, s) 
+                        val i = check_sort 0 (sctx, i, s) 
                     in
 			(AppI (e, i), subst_i_mt i t1, d)
-                        handle SubstUVar x => raise subst_uvar_error e t i x
+                        handle SubstUVar x => raise subst_uvar_error (U.get_region_e e_all) t i x
 		    end
 		  | U.Pack (t, i, e) =>
                     let
@@ -1205,10 +1201,10 @@ local
                         val r = get_region_mt t
                         val s = fresh_sort anchor 0 r
                         val t1 = fresh_t anchor 1 r
-                        val () = unify (t, ExI (s, BindI (("uvar", r), t1)))
-			val i = check_sort (sctx, i, s)
+                        val () = unify r skctxn (t, ExI (s, BindI (("uvar", r), t1)))
+			val i = check_sort 0 (sctx, i, s)
                         val t1 = subst_i_mt i t1
-                                 handle SubstUVar x => raise subst_uvar_error e t i x
+                                 handle SubstUVar x => raise subst_uvar_error (U.get_region_e e_all) t i x
 			val (e, _, d) = check_mtype (ctx, e, t1)
                     in
 			(Pack (t, i, e), t, d)
@@ -1216,7 +1212,7 @@ local
 		  | U.Unpack (e1, return, idx_var, expr_var, e2) =>
                     let 
                         val anchor = make_anchor ()
-                        val r = U.get_region_e e
+                        val r = U.get_region_e e1
                         val s = fresh_sort anchor 0 r
                         val t1' = fresh_t anchor 1 r
                         val (e1, _, d1) = check_mtype (ctx, e1, ExI (s, BindI (("uvar", r), t1')))
@@ -1235,7 +1231,7 @@ local
 			        end
                               | (SOME t, NONE) =>
 		                let 
-				    val (e2, d) = check_mtype (ctx', e2, shift_i_mt t)
+				    val (e2, _, d) = check_mtype (ctx', e2, shift_i_mt t)
                                     val d = forget_d (get_region_e e2) sctxn' 1 d
 			        in
 				    (e2, t, d)
@@ -1282,7 +1278,7 @@ local
                         val r = U.get_region_e e
                         val t1 = fresh_t anchor 0 r
                         val t2 = fresh_t anchor 0 r
-                        val (_, d) = check_mtype (ctx, e, Prod (t1, t2)) 
+                        val (e, _, d) = check_mtype (ctx, e, Prod (t1, t2)) 
                     in 
                         (Snd e, t2, d)
 		    end
@@ -1293,7 +1289,7 @@ local
 		        (Ascription (e, t), t, d)
 		    end
 		  | U.AscriptionTime (e, d) => 
-		    let val d = check_bsort (sctx, d, Base Time)
+		    let val d = check_bsort 0 (sctx, d, Base Time)
 		        val (e, t) = check_time (ctx, e, d)
                     in
 		        (AscriptionTime (e, d), t, d)
@@ -1314,14 +1310,15 @@ local
 		        val e = U.App (f, shift_e_e e)
 		        val (e, t, d) = get_mtype (add_typing_skct (cname, tc) ctx, e) 
                         val (e, d) =
-                            case (e, TrivialSolver.simp_i d) of
+                            case (e, simp_i op= d) of
 		                (* constructor application doesn't incur count *)
-                                (App (f, e), (BinOpI (Add, d, T1))) =>
+                                (App (f, e), (BinOpI (AddI, d, T1))) =>
                                 let
                                     val (_, is) = peel_AppI f
                                 in
                                     (AppConstr (cx, is, e), d)
                                 end
+                              | _ => raise Impossible "get_mtype (): U.AppConstr: (e, d) in wrong form"
 		    in
 		        (e, t, d)
 		    end
@@ -1329,11 +1326,11 @@ local
 		    let val (e, t1, d1) = get_mtype (ctx, e)
                         val return = is_wf_return (skctx, return)
                         val (rules, tds) = check_rules (ctx, rules, (t1, return), r)
-                        fun computed_t () =
+                        fun computed_t () : mtype =
                             case map fst tds of
                                 [] => raise Error (r, ["Empty case-matching must have a return type clause"])
                               | t :: ts => 
-                                (map (curry unify t) ts; 
+                                (map (fn t' => unify r skctxn (t, t')) ts; 
                                  t)
                         fun computed_d () =
                             (smart_max_list o map snd) tds
@@ -1344,7 +1341,7 @@ local
 		  | U.Never t => 
                     let
 		        val t = is_wf_mtype (skctx, t)
-		        val () = write_and (False dummy, get_region_e e)
+		        val () = write_and (False dummy, U.get_region_e e_all)
                     in
 		        (Never t, t, T0 dummy)
                     end
@@ -1376,7 +1373,7 @@ local
         let
             fun fv_mt t =
 	        case t of
-                    UVar (_, uvar) =>
+                    UVar ((_, uvar), _) =>
                     (case !uvar of
                          Refined t => fv_mt t
                        | Fresh y => [y]
@@ -1394,10 +1391,10 @@ local
                   | Uni _ => [] (* fresh uvars in Uni should either have been generalized or in previous ctx *)
             fun generalize t = 
                 let
-                    fun fv_ctx (_, _, _, tctx) = concatMap (mapSnd fv_t) tctx (* cctx can't contain uvars *)
+                    fun fv_ctx (_, _, _, tctx) = (concatMap fv_t o map snd) tctx (* cctx can't contain uvars *)
                     fun subst x v (b : mtype) : mtype =
 	                case b of
-                            UVar (_, uvar) =>
+                            UVar ((_, uvar), _) =>
                             (case !uvar of
                                  Refined _ => b
                                | Fresh y => if y = x then
@@ -1415,13 +1412,13 @@ local
 		            AppV (y, map (subst x v) ts, is, r)
                     fun uvar_t_name n =
                         if n < 26 then
-                            "'" ^ chr (ord "a" + n)
+                            "'" ^ (str o chr) (ord #"a" + n)
                         else
                             "'" ^ str_int n
                     val fv = dedup op= $ diff op= (fv_mt t) (fv_ctx ctx)
-                    val t = shiftx_t_t 0 (length fv) t
+                    val t = shiftx_t_mt 0 (length fv) t
                     val t = (fst o foldl (fn (uname, (t, v)) => (subst uname v t, v + 1)) (t, 0)) fv
-                    val t = Range.for (fn (t, i) => (Uni ((uvar_t_name i, dummy), t))) (Mono t) (0, (length fv))
+                    val t = Range.for (fn (i, t) => (Uni ((uvar_t_name i, dummy), t))) (Mono t) (0, (length fv))
                 in
                     t
                 end
@@ -1450,6 +1447,11 @@ local
                 end
 	      | U.Rec (t, (name, r1), e, r) => 
 	        let 
+                    fun check_fix_body e =
+                        case e of
+    	                    U.AbsI (_, _, e) => check_fix_body e
+    	                  | U.Abs _ => ()
+    	                  | _ => raise Error (U.get_region_e e, ["The body of fixpoint must have the form ({_ : _} ... {_ : _} (_ : _) => _)"])
 		    val t = is_wf_mtype ((sctx, kctx), t)
                     val () = check_fix_body e
 		    val (e, _, _) = check_mtype (add_typing_skct (name, Mono t) ctx, e, t)
@@ -1457,16 +1459,16 @@ local
                 in
                     (Rec (t, (name, r1), e, r), make_ctx_from_typing (name, gt), 0, [T0 dummy])
 	        end
-	      | U.Datatype (name, tnames, sorts, constr_decls, _) =>
+	      | U.Datatype (name, tnames, sorts, constr_decls, r) =>
 	        let 
-                    val sorts = is_wf_sorts (sctx, sorts)
+                    val sorts = is_wf_sorts 0 (sctx, sorts)
 		    val nk = (name, ArrowK (true, length tnames, sorts))
 		    val ctx as (sctx, kctx, _, _) = add_kinding_skct nk ctx
 		    fun make_constr ((name, ibinds, r) : U.constr_decl) =
 		        let 
                             val c = (0, tnames, ibinds)
-		            val t = U.constr_type shiftx_v c
-		            val _ = is_wf_type ((sctx, kctx), t)
+		            val t = U.constr_type U.VarT shiftx_v c
+		            val t = is_wf_type ((sctx, kctx), t)
 			            handle Error (_, msg) =>
 				           raise Error (r, 
 						        "Constructor is ill-formed" :: 
@@ -1479,9 +1481,9 @@ local
 		        in
 		            ((name, ibinds, r), (name, (0, tnames, ibinds)))
 		        end
-		    val (constr_decls, constrs) = map make_constr constr_decls
+		    val (constr_decls, constrs) = (unzip o map make_constr) constr_decls
 	        in
-		    (constr_decls, (([], []), [nk], rev constrs, []), 0, [])
+		    (Datatype (name, tnames, sorts, constr_decls, r), ([], [nk], rev constrs, []), 0, [])
 	        end
         end
 
@@ -1491,32 +1493,33 @@ local
 	    fun f (rule, acc) =
 	        let 
                     val ans as (rule, (td, cover)) = check_rule (ctx, rule, t)
-		    val () = check_redundancy (skcctx, Mono t1, (rev o map snd) acc, cover, get_region_rule rule)
+                    val covers = (rev o map (snd o snd)) acc
+		    val () = check_redundancy (skcctx, t1, covers, cover, get_region_rule rule)
 	        in
-		    (ans :: acc)
+		    ans :: acc
 	        end 
 	    val (rules, (tds, covers)) = (mapSnd unzip o unzip o rev o foldl f []) rules
 	in
-	    check_exhaustive (skcctx, Mono t1, covers, r);
+	    check_exhaustive (skcctx, t1, covers, r);
             (rules, tds)
 	end
 
     and check_rule (ctx as (sctx, kctx, cctx, tctx), (pn, e), t as (t1, return)) =
 	let 
             val skcctx = (sctx, kctx, cctx) 
-	    val (pn, cover, ctxd as (sctxd, kctxd, _, _), nps) = match_ptrn (skcctx, pn, Mono t1)
+	    val (pn, cover, ctxd as (sctxd, kctxd, _, _), nps) = match_ptrn (skcctx, pn, t1)
 	    val ctx = add_ctx ctxd ctx
             val (e, t, d) = 
                 case return of
                     (SOME t, SOME d) =>
                     let
-	                val e = check_mtype_time (ctx, e, Mono (shift_ctx_mt ctxd t), shift_ctx_i ctxd d)
+	                val e = check_mtype_time (ctx, e, shift_ctx_mt ctxd t, shift_ctx_i ctxd d)
                     in
                         (e, t, d)
                     end
                   | (SOME t, NONE) =>
                     let 
-                        val (e, d) = check_mtype (ctx, e, Mono (shift_ctx_mt ctxd t))
+                        val (e, _, d) = check_mtype (ctx, e, shift_ctx_mt ctxd t)
 			val d = forget_ctx_d (get_region_e e) ctx ctxd d
                     in
                         (e, t, d)
@@ -1539,21 +1542,21 @@ local
             val () = close_premises nps
             val () = close_vc ctxd
 	in
-	    (e, ((t, d), cover))
+	    ((pn, e), ((t, d), cover))
 	end
 
     and check_mtype (ctx as (sctx, kctx, cctx, tctx), e, t) =
 	let 
 	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
 	    val (e, t', d) = get_mtype (ctx, e)
-            val () = unify (U.get_region_e e) (sctxn, kctxn) (t', t)
+            val () = unify (get_region_e e) (sctxn, kctxn) (t', t)
         (* val () = println "check type" *)
         (* val () = println $ str_region "" "ilist.timl" $ get_region_e e *)
 	in
             (e, t', d)
 	end
 
-    and check_time (ctx as (sctx, kctx, cctx, tctx), e, d) : mtype =
+    and check_time (ctx as (sctx, kctx, cctx, tctx), e, d) : expr * mtype =
 	let 
 	    val (e, t, d') = get_mtype (ctx, e)
             val () = write_le (d', d, get_region_e e)
@@ -1575,46 +1578,64 @@ local
 
 in								     
 
-fun vcgen_expr ctx e : (ty * idx) * vc list =
-    runWriter (fn () => get_type (ctx, e)) ()
+fun vcgen_expr ctx e =
+    runWriter (fn () => get_mtype (ctx, e)) ()
 	      
 fun vcgen_expr_opt ctx e =
     runError (fn () => vcgen_expr ctx e) ()
 	     
 fun vcgen_decls ctx decls =
-    runWriter (fn () => check_decls (ctx, decls)) ()
+    let
+        fun m () =
+            let
+                val (decls, ctxd, nps, ds, ctx) = check_decls (ctx, decls)
+                val () = close_premises nps
+            in
+                (decls, ctxd, ds, ctx)
+            end
+    in
+        runWriter m ()
+    end
 	      
 fun vcgen_expr_opt ctx decls =
     runError (fn () => vcgen_decls ctx decls) ()
 	     
 end
 
-fun typecheck_expr (ctx as (sctx, kctx, cctx, tctx) : context) e : (ty * idx) * vc list =
+open TrivialSolver
+
+exception Unimpl
+
+fun to_vcs vces = raise Unimpl
+
+fun typecheck_expr (ctx as (sctx, kctx, cctx, tctx) : context) e : (expr * mtype * idx) * vc list =
     let 
-        val ((t, d), vcs) = vcgen_expr ctx e
-        val t = simp_t t
-        val d = simp_i d
+        val ((e, t, d), vces) = vcgen_expr ctx e
+        val t = simp_mt op= t
+        val d = simp_i op= d
+        val vcs = to_vcs vces
         val vcs = map (uniquefy_names) vcs
         val vcs = simp_and_solve_vcs vcs
     in
-        ((t, d), vcs)
+        ((e, t, d), vcs)
     end
 
 fun typecheck_expr_opt ctx e =
     runError (fn () => typecheck_expr ctx e) ()
 
-type tc_result = (context * idx list * context) * vc list
+type tc_result = (decl list * context * idx list * context) * vc list
 
 fun typecheck_decls (ctx as (sctx, kctx, cctx, tctx) : context) decls : tc_result =
     let 
-        val ((ctxd, ds, ctx), vcs) = vcgen_decls ctx decls
-        val ctxd = (upd4 o map o mapSnd) simp_t ctxd
+        val ((decls, ctxd, ds, ctx), vces) = vcgen_decls ctx decls
+        val ctxd = (upd4 o map o mapSnd) (simp_t op=) ctxd
         val ds = rev ds
-        val ds = map simp_i ds
+        val ds = map (simp_i op=) ds
+        val vcs = to_vcs vces
         val vcs = map (uniquefy_names) vcs
         val vcs = simp_and_solve_vcs vcs
     in
-        ((ctxd, ds, ctx), vcs)
+        ((decls, ctxd, ds, ctx), vcs)
     end
 
 fun typecheck_decls_opt ctx e =

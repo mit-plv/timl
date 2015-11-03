@@ -222,66 +222,6 @@ fun shrink_i invis b = shrink forget_i_i invis b
 fun shrink_s invis b = shrink forget_i_s invis b
 fun shrink_mt (invisi, invist) b = (shrink forget_i_mt invisi o shrink forget_t_mt invist) b
 
-(* shift_e_e *)
-
-local
-    fun f x n b =
-	case b of
-	    Var (y, r) => Var (shiftx_v x n y, r)
-	  | Abs (pn, e) => Abs (pn, f (x + 1) n e)
-	  | App (e1, e2) => App (f x n e1, f x n e2)
-	  | TT r => TT r
-	  | Pair (e1, e2) => Pair (f x n e1, f x n e2)
-	  | Fst e => Fst (f x n e)
-	  | Snd e => Snd (f x n e)
-	  | AbsI (s, name, e) => AbsI (s, name, f x n e)
-	  | AppI (e, i) => AppI (f x n e, i)
-	  | Pack (t, i, e) => Pack (t, i, f x n e)
-	  | Unpack (e1, return, iname, ename, e2) => 
-	    Unpack (f x n e1, return, iname, ename, f (x + 1) n e2)
-	  | Let (decs, e, r) =>
-	    let fun g (dec, (acc, m)) =
-		  let
-		      val (dec, m') = f_dec (x + m) n dec
-		  in
-		      (dec :: acc, m' + m)
-		  end
-		val (decs, m) = foldl g ([], 0) decs
-		val decs = rev decs
-	    in
-		Let (decs, f (x + m) n e, r)
-	    end
-	  | Ascription (e, t) => Ascription (f x n e, t)
-	  | AscriptionTime (e, d) => AscriptionTime (f x n e, d)
-	  | Const n => Const n
-	  | BinOp (opr, e1, e2) => BinOp (opr, f x n e1, f x n e2)
-	  | AppConstr (cx, is, e) => AppConstr (cx, is, f x n e)
-	  | Case (e, return, rules, r) => Case (f x n e, return, map (f_rule x n) rules, r)
-	  | Never t => Never t
-
-    and f_dec x n dec =
-	case dec of
-	    Val (pn, e) => 
-	    let 
-                val (_, enames) = ptrn_names pn 
-	    in
-                (Val (pn, f x n e), length enames)
-            end
-          | Rec (t, name, e, r) => 
-            (Rec (t, name, f (x + 1) n e, r), 1)
-          | Datatype a => (Datatype a, 0)
-
-    and f_rule x n (pn, e) =
-	let 
-            val (_, enames) = ptrn_names pn 
-	in
-	    (pn, f (x + length enames) n e)
-	end
-in
-fun shiftx_e_e x n b = f x n b
-fun shift_e_e b = shiftx_e_e 0 1 b
-end
-
 (* subst *)
 
 exception Error of string
@@ -498,6 +438,67 @@ local
 in
 fun shiftx_i_k x n b = f x n b
 fun shift_i_k b = shiftx_i_k 0 1 b
+end
+
+(* shift_e_e *)
+
+local
+    open UnderscoredExpr
+    fun f x n b =
+	case b of
+	    Var (y, r) => Var (shiftx_v x n y, r)
+	  | Abs (pn, e) => Abs (pn, f (x + 1) n e)
+	  | App (e1, e2) => App (f x n e1, f x n e2)
+	  | TT r => TT r
+	  | Pair (e1, e2) => Pair (f x n e1, f x n e2)
+	  | Fst e => Fst (f x n e)
+	  | Snd e => Snd (f x n e)
+	  | AbsI (s, name, e) => AbsI (s, name, f x n e)
+	  | AppI (e, i) => AppI (f x n e, i)
+	  | Pack (t, i, e) => Pack (t, i, f x n e)
+	  | Unpack (e1, return, iname, ename, e2) => 
+	    Unpack (f x n e1, return, iname, ename, f (x + 1) n e2)
+	  | Let (decs, e, r) =>
+	    let fun g (dec, (acc, m)) =
+		  let
+		      val (dec, m') = f_dec (x + m) n dec
+		  in
+		      (dec :: acc, m' + m)
+		  end
+		val (decs, m) = foldl g ([], 0) decs
+		val decs = rev decs
+	    in
+		Let (decs, f (x + m) n e, r)
+	    end
+	  | Ascription (e, t) => Ascription (f x n e, t)
+	  | AscriptionTime (e, d) => AscriptionTime (f x n e, d)
+	  | Const n => Const n
+	  | BinOp (opr, e1, e2) => BinOp (opr, f x n e1, f x n e2)
+	  | AppConstr (cx, is, e) => AppConstr (cx, is, f x n e)
+	  | Case (e, return, rules, r) => Case (f x n e, return, map (f_rule x n) rules, r)
+	  | Never t => Never t
+
+    and f_dec x n dec =
+	case dec of
+	    Val (pn, e) => 
+	    let 
+                val (_, enames) = ptrn_names pn 
+	    in
+                (Val (pn, f x n e), length enames)
+            end
+          | Rec (t, name, e, r) => 
+            (Rec (t, name, f (x + 1) n e, r), 1)
+          | Datatype a => (Datatype a, 0)
+
+    and f_rule x n (pn, e) =
+	let 
+            val (_, enames) = ptrn_names pn 
+	in
+	    (pn, f (x + length enames) n e)
+	end
+in
+fun shiftx_e_e x n b = f x n b
+fun shift_e_e b = shiftx_e_e 0 1 b
 end
 
 end
