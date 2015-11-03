@@ -156,8 +156,6 @@ fun shiftx_invis x n invis =
         (rev o fst o foldl f ([], (x, n))) invis
     end
 
-fun expand shift invis b = (fst o foldl (fn ((off, len), (b, base)) => (shift (base + off) len b, base + off + len)) (b, 0)) invis
-
 fun expand_i invis b = expand shiftx_i_i invis b
 and shiftx_i_i x n b = on_i_i shiftx_v shiftx_invis expand_i x n b
 fun shift_i_i b = shiftx_i_i 0 1 b
@@ -220,8 +218,6 @@ fun forget_t_mt x n b = on_t_mt forget_v forget_invis expand_mt x n b
 fun forget_i_t x n b = on_i_t forget_i_mt x n b
 fun forget_t_t x n b = on_t_t forget_t_mt x n b
 
-fun shrink forget invis b = (fst o foldl (fn ((off, len), (b, base)) => (forget (base + off) len b, base + off)) (b, 0)) invis
-
 fun shrink_i invis b = shrink forget_i_i invis b
 fun shrink_s invis b = shrink forget_i_s invis b
 fun shrink_mt (invisi, invist) b = (shrink forget_i_mt invisi o shrink forget_t_mt invist) b
@@ -283,6 +279,28 @@ end
 (* subst *)
 
 exception Error of string
+exception SubstUVar of bsort uvar_name
+
+fun substx_invis uname x invis =
+    let 
+        fun f ((off, len), (acc, (x, done))) =
+            if done then
+                ((off, len) :: acc, (x, done))
+            else if x < off then
+                raise SubstUVar uname
+            else if x < off + len then
+                if len <= 1 then
+                    (acc, (x, true))
+                else
+                    ((off, len - 1) :: acc, (x, true))
+            else 
+                ((off, len) :: acc, (x - off - len, done))
+        val (invis, (_, done)) = foldl f ([], (x, false)) invis
+        val () = if not done then raise SubstUVar uname else ()
+        val invis = rev invis
+    in
+        invis
+    end
 
 local
     fun f x v b =
@@ -301,6 +319,11 @@ local
 	  | TrueI r => TrueI r
 	  | FalseI r => FalseI r
 	  | TTI r => TTI r
+          | UVarI ((invis, uvar), r) =>
+            case !uvar of
+                Refined i => f x v (expand_i invis i)
+              | Fresh name_ref => 
+                UVarI ((substx_invis (!name_ref) x invis, uvar), r)
 in
 fun substx_i_i x (v : idx) (b : idx) : idx = f x v b
 fun subst_i_i v b = substx_i_i 0 v b
@@ -345,6 +368,11 @@ local
 	case b of
 	    Basic s => Basic s
 	  | Subset (s, bind) => Subset (s, substx_i_ibind substx_i_p x idx_shiftable v bind)
+          | UVarS ((invis, uvar), r) =>
+            case !uvar of
+                Refined s => f x v (expand_s invis s)
+              | Fresh name_ref => 
+                UVarS ((substx_invis (!name_ref) x invis, uvar), r)
 in
 fun substx_i_s x (v : idx) (b : sort) : sort = f x v b
 fun subst_i_s (v : idx) (b : sort) : sort = substx_i_s 0 v b
@@ -360,6 +388,11 @@ local
 	  | ExI (s, bind) => ExI (substx_i_s x v s, substx_i_ibind f x idx_shiftable v bind)
 	  | AppV (y, ts, is, r) => AppV (y, map (f x v) ts, map (substx_i_i x v) is, r)
 	  | Int r => Int r
+          | UVar ((invis as (invisi, invist), uvar), r) =>
+            case !uvar of
+                Refined t => f x v (expand_mt invis t)
+              | Fresh name_ref => 
+                UVar (((substx_invis (!name_ref) x invisi, invist), uvar), r)
 in
 fun substx_i_mt x (v : idx) (b : mtype) : mtype = f x v b
 fun subst_i_mt (v : idx) (b : mtype) : mtype = substx_i_mt 0 v b
@@ -399,14 +432,18 @@ local
 	    else
 		AppV ((y, r), map (f x v) ts, is, r2)
 	  | Int r => Int r
-
+          | UVar ((invis as (invisi, invist), uvar), r) =>
+            case !uvar of
+                Refined t => f x v (expand_mt invis t)
+              | Fresh name_ref => 
+                UVar (((invisi, substx_invis (!name_ref) x invist), uvar), r)
 in
 fun substx_t_mt x (v : mtype) (b : mtype) : mtype = f x v b
 fun subst_t_mt (v : mtype) (b : mtype) : mtype = substx_t_mt 0 v b
-(* fun subst_is_mt is t =  *)
-(*     #1 (foldl (fn (i, (t, x)) => (substx_i_mt x (shiftx_i_i 0 x i) t, x - 1)) (t, length is - 1) is) *)
-(* fun subst_ts_mt vs b =  *)
-(*     #1 (foldl (fn (v, (b, x)) => (substx_t_mt x (shiftx_t_mt 0 x v) b, x - 1)) (b, length vs - 1) vs) *)
+fun subst_is_mt is t =
+    fst (foldl (fn (i, (t, x)) => (substx_i_mt x (shiftx_i_i 0 x i) t, x - 1)) (t, length is - 1) is)
+fun subst_ts_mt vs b =
+    fst (foldl (fn (v, (b, x)) => (substx_t_mt x (shiftx_t_mt 0 x v) b, x - 1)) (b, length vs - 1) vs)
 end
 
 fun substx_t_t x (v : mtype) (b : ty) : ty =

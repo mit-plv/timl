@@ -49,6 +49,8 @@ signature UVAR = sig
     type ('a, 'b) uvar_i
     type ('a, 'b) uvar_s
     type ('a, 'b) uvar_mt
+    val str_uvar_bs : ('a -> string) -> 'a uvar_bs -> string
+    val str_uvar_i : (string list -> 'idx -> string) -> string list -> ('bsort, 'idx) uvar_i -> string
 end
 
 functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
@@ -235,6 +237,11 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         (* pretty-printers *)
 
+        fun str_bs (s : bsort) =
+          case s of
+              Base s => str_b s
+            | UVarBS u => str_uvar_bs str_bs u
+                            
         fun str_i ctx (i : idx) : string = 
             case i of
                 VarI (x, _) => str_v ctx x
@@ -245,7 +252,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | TTI _ => "()"
               | TrueI _ => "true"
               | FalseI _ => "false"
-              | UVarI _ => "_"
+              | UVarI (u, _) => str_uvar_i str_i ctx u
 
         fun str_p ctx p = 
             case p of
@@ -255,11 +262,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | BinConn (opr, p1, p2) => sprintf "($ $ $)" [str_p ctx p1, str_bin_conn opr, str_p ctx p2]
               | BinPred (opr, i1, i2) => sprintf "($ $ $)" [str_i ctx i1, str_bin_pred opr, str_i ctx i2]
 
-        fun str_bs (s : bsort) =
-          case s of
-              Base s => str_b s
-            | UVarBS _ => "_"
-                            
         fun str_s ctx (s : sort) : string = 
             case s of
                 Basic (s, _) => str_bs s
@@ -550,6 +552,36 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 Val (pn, e) => combine_region (get_region_pn pn) (get_region_e e)
               | Datatype (_, _, _, _, r) => r
 
+        fun eq_i eq_var i i' =
+            let
+                fun loop i i' =
+                    case (i, i') of
+                        (VarI (x, _), VarI (x', _)) => eq_var (x, x')
+                      | (ConstIN (n, _), ConstIN (n', _)) => n = n'
+                      | (ConstIT (x, _), ConstIT (x', _)) => x = x'
+                      | (UnOpI (opr, i, _), UnOpI (opr', i', _)) => opr = opr' andalso loop i i'
+                      | (BinOpI (opr, i1, i2), BinOpI (opr', i1', i2')) => opr = opr' andalso loop i1 i1' andalso loop i2 i2'
+                      | (TrueI _, TrueI _) => true
+                      | (FalseI _, FalseI _) => true
+                      | (TTI _, TTI _) => true
+                      | _ => false
+            in
+                loop i i'
+            end
+
+        fun eq_p eq_var p p' =
+            let 
+                fun loop p p' =
+                    case (p, p') of
+                        (True _ , True _) => true
+                      | (False _, False _) => true
+                      | (BinConn (opr, p1, p2), BinConn (opr', p1', p2')) => opr = opr' andalso loop p1 p1' andalso loop p2 p2'
+                      | (BinPred (opr, i1, i2), BinPred (opr', i1', i2')) => opr = opr' andalso eq_i eq_var i1 i1' andalso eq_i eq_var i2 i2'
+                      | _ => false
+            in
+                loop p p'
+            end
+
         end
                                                                     
 structure StringVar = struct
@@ -572,6 +604,8 @@ type 'a uvar_bs = unit
 type ('a, 'b) uvar_i = unit
 type ('a, 'b) uvar_s = unit
 type ('a, 'b) uvar_mt = unit
+fun str_uvar_bs (_ : 'a -> string) (_ : 'a uvar_bs) = "_"
+fun str_uvar_i (_ : string list -> 'a -> string) (_ : string list) (_ : 'a uvar_bs) = "_"
 end
 
 structure NamefulExpr = ExprFun (structure Var = StringVar structure UVar = Underscore)

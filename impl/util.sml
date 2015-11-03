@@ -7,6 +7,7 @@ fun interleave xs ys =
     case xs of
 	x :: xs' => x :: interleave ys xs'
       | nil => ys
+fun skip start len ls = List.take (ls, start) @ List.drop (ls, start + len)
 
 fun sprintf s ls =
     String.concat (interleave (String.fields (fn c => c = #"$") s) ls)
@@ -136,6 +137,7 @@ end
 
 (* uninhabited *)
 datatype empty = Empty of empty
+fun exfalso (x : empty) = raise Impossible "type empty shouldn't have inhabitant"
 
 fun push xs x = x :: xs
 fun binop_ref f r x = r := f (!r) x

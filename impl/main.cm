@@ -12,7 +12,6 @@ Group is
       elaborate.sml
       name-resolve.sml
       subst.sml
-      equal.sml
       trivial-solver.sml
       vc.sml
       typecheck.sml
