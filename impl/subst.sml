@@ -153,7 +153,7 @@ fun shiftx_invis x n invis =
             else 
                 ((off, len) :: acc, (x - off - len, n))
     in
-        (rev o fst o fold f ([], (x, n))) invis
+        (rev o fst o foldl f ([], (x, n))) invis
     end
 
 fun expand shift invis b = (fst o foldl (fn ((off, len), (b, base)) => (shift (base + off) len b, base + off + len)) (b, 0)) invis
@@ -165,14 +165,12 @@ fun shift_i_i b = shiftx_i_i 0 1 b
 fun shiftx_i_p x n b = on_i_p shiftx_i_i x n b
 fun shift_i_p b = shiftx_i_p 0 1 b
 
-fun shiftx_i_s x n b = on_i_s shiftx_i_p x n b
+fun expand_s invis b = expand shiftx_i_s invis b
+and shiftx_i_s x n b = on_i_s shiftx_i_p shiftx_invis expand_s x n b
 fun shift_i_s b = shiftx_i_s 0 1 b
 
-fun expand_s invis b = expand shiftx_i_s invis b
-and shiftx_i_s_ref x n b = on_i_s_ref shiftx_invis expand_s x n b
-
 fun expand_mt (invisi, invist) b = (expand shiftx_i_mt invisi o expand shiftx_t_mt invist) b
-and shiftx_i_mt x n b = on_i_mt shiftx_i_i shiftx_i_s shiftx_i_s_ref shiftx_invis expand_mt x n b
+and shiftx_i_mt x n b = on_i_mt shiftx_i_i shiftx_i_s shiftx_invis expand_mt x n b
 and shiftx_t_mt x n b = on_t_mt shiftx_v shiftx_invis expand_mt x n b
 fun shift_i_mt b = shiftx_i_mt 0 1 b
 fun shift_t_mt b = shiftx_t_mt 0 1 b
@@ -211,14 +209,13 @@ fun forget_invis x n invis =
             else 
                 ((off, len) :: acc, (x - off - len, n))
     in
-        (rev o fst o fold f ([], (x, n))) invis
+        (rev o fst o foldl f ([], (x, n))) invis
     end
 
 fun forget_i_i x n b = on_i_i forget_v forget_invis expand_i x n b
 fun forget_i_p x n b = on_i_p forget_i_i x n b
-fun forget_i_s x n b = on_i_s forget_i_p x n b
-and forget_i_s_ref x n b = on_i_s_ref forget_invis expand_s x n b
-fun forget_i_mt x n b = on_i_mt forget_i_i forget_i_s forget_i_s_ref forget_invis expand_mt x n b
+fun forget_i_s x n b = on_i_s forget_i_p forget_invis expand_s x n b
+fun forget_i_mt x n b = on_i_mt forget_i_i forget_i_s forget_invis expand_mt x n b
 fun forget_t_mt x n b = on_t_mt forget_v forget_invis expand_mt x n b
 fun forget_i_t x n b = on_i_t forget_i_mt x n b
 fun forget_t_t x n b = on_t_t forget_t_mt x n b
@@ -241,14 +238,6 @@ local
 	  | Pair (e1, e2) => Pair (f x n e1, f x n e2)
 	  | Fst e => Fst (f x n e)
 	  | Snd e => Snd (f x n e)
-	  | Inl (t, e) => Inl (t, f x n e)
-	  | Inr (t, e) => Inr (t, f x n e)
-	  | SumCase (e, name1, e1, name2, e2) => 
-	    SumCase (f x n e, name1, f (x + 1) n e1, name2, f (x + 1) n e2)
-	  | Fold (t, e) => Fold (t, f x n e)
-	  | Unfold e => Unfold (f x n e)
-	  | AbsT (name, e) => AbsT (name, f x n e)
-	  | AppT (e, t) => AppT (f x n e, t)
 	  | AbsI (s, name, e) => AbsI (s, name, f x n e)
 	  | AppI (e, i) => AppI (f x n e, i)
 	  | Pack (t, i, e) => Pack (t, i, f x n e)
@@ -272,7 +261,7 @@ local
 	  | AscriptionTime (e, d) => AscriptionTime (f x n e, d)
 	  | Const n => Const n
 	  | BinOp (opr, e1, e2) => BinOp (opr, f x n e1, f x n e2)
-	  | AppConstr (cx, ts, is, e) => AppConstr (cx, ts, is, f x n e)
+	  | AppConstr (cx, is, e) => AppConstr (cx, is, f x n e)
 	  | Case (e, return, rules, r) => Case (f x n e, return, map (f_rule x n) rules, r)
 	  | Never t => Never t
 
@@ -367,18 +356,13 @@ local
 	    Arrow (t1, d, t2) => Arrow (f x v t1, substx_i_i x v d, f x v t2)
 	  | Unit r => Unit r
 	  | Prod (t1, t2) => Prod (f x v t1, f x v t2)
-	  | Sum (t1, t2) => Sum (f x v t1, f x v t2)
 	  | UniI (s, bind) => UniI (substx_i_s x v s, substx_i_ibind f x idx_shiftable v bind)
 	  | ExI (s, bind) => ExI (substx_i_s x v s, substx_i_ibind f x idx_shiftable v bind)
-	  | AppRecur (name, ns, t, i, r) =>
-	    let val n = length ns in
-		AppRecur (name, map (mapSnd (substx_i_s x v)) ns, f (x + n) (shiftx_i_i 0 n v) t, map (substx_i_i x v) i, r)
-	    end
 	  | AppV (y, ts, is, r) => AppV (y, map (f x v) ts, map (substx_i_i x v) is, r)
 	  | Int r => Int r
 in
-fun substx_i_mt x (v : idx) (b : mty) : mty = f x v b
-fun subst_i_mt (v : idx) (b : mty) : mty = substx_i_mt 0 v b
+fun substx_i_mt x (v : idx) (b : mtype) : mtype = f x v b
+fun subst_i_mt (v : idx) (b : mtype) : mtype = substx_i_mt 0 v b
 end
 
 local
@@ -392,48 +376,24 @@ fun subst_i_t (v : idx) (b : ty) : ty = substx_i_t 0 v b
 end
 
 local
-    (* the substitute can be a type or a recursive type definition *)
-    datatype value = 
-	     Type of mty
-	     | Recur of string * (string * sort) list * mty
-
-    fun shift_i n v =
-	case v of
-	    Type t => Type (shiftx_i_mt 0 n t)
-	  | Recur (name, ns, t) => Recur (name, map (mapSnd (shiftx_i_s 0 n)) ns, shiftx_i_mt (length ns) n t)
-
-    fun shift_t n v =
-	case v of
-	    Type t => Type (shiftx_t_mt 0 n t)
-	  | Recur (name, ns, t) => Recur (name, ns, shiftx_t_mt 1 n t)
-
-    val value_shiftable : value shiftable = {
-        shift_i = shift_i,
-        shift_t = shift_t
+    val value_shiftable : mtype shiftable = {
+        shift_i = shiftx_i_mt 0,
+        shift_t = shiftx_t_mt 0
     }
 
-    fun f x v (b : mty) : mty =
+    fun f x v (b : mtype) : mtype =
 	case b of
 	    Arrow (t1, d, t2) => Arrow (f x v t1, d, f x v t2)
 	  | Unit r => Unit r
 	  | Prod (t1, t2) => Prod (f x v t1, f x v t2)
-	  | Sum (t1, t2) => Sum (f x v t1, f x v t2)
 	  | UniI (s, bind) => UniI (s, substx_t_ibind f x value_shiftable v bind)
 	  | ExI (s, bind) => ExI (s, substx_t_ibind f x value_shiftable v bind)
-	  | AppRecur (name, ns, t, i, r) => AppRecur (name, ns, f (x + 1) (shift_i (length ns) (shift_t 1 v)) t, i, r)
 	  | AppV ((y, r), ts, is, r2) => 
 	    if y = x then
-		case v of
-		    Type t =>
-		    if null ts andalso null is then
-			t
-		    else
-			raise Error "can't be substituted type for this higher-kind type variable"
-		  | Recur (name, ns, t) =>
-		    if null ts then
-			AppRecur (name, ns, t, is, r2)
-		    else
-			raise Error "can't substitute recursive type definition for this type variable because this application has type arguments"
+		if null ts andalso null is then
+		    v
+		else
+		    raise Error "can't be substituted type for this higher-kind type variable"
 	    else if y > x then
 		AppV ((y - 1, r), map (f x v) ts, is, r2)
 	    else
@@ -441,18 +401,15 @@ local
 	  | Int r => Int r
 
 in
-
-fun substx_t_mt x (v : mty) (b : mty) : mty = f x (Type v) b
-fun subst_t_mt (v : mty) (b : mty) : mty = substx_t_mt 0 v b
-fun subst_is_mt is t = 
-    #1 (foldl (fn (i, (t, x)) => (substx_i_mt x (shiftx_i_i 0 x i) t, x - 1)) (t, length is - 1) is)
-fun subst_ts_mt vs b = 
-    #1 (foldl (fn (v, (b, x)) => (substx_t_mt x (shiftx_t_mt 0 x v) b, x - 1)) (b, length vs - 1) vs)
-fun unroll (name, ns, t, i, _) =
-    subst_is_mt i (f 0 (shift_i (length ns) (Recur (name, ns, t))) t)
+fun substx_t_mt x (v : mtype) (b : mtype) : mtype = f x v b
+fun subst_t_mt (v : mtype) (b : mtype) : mtype = substx_t_mt 0 v b
+(* fun subst_is_mt is t =  *)
+(*     #1 (foldl (fn (i, (t, x)) => (substx_i_mt x (shiftx_i_i 0 x i) t, x - 1)) (t, length is - 1) is) *)
+(* fun subst_ts_mt vs b =  *)
+(*     #1 (foldl (fn (v, (b, x)) => (substx_t_mt x (shiftx_t_mt 0 x v) b, x - 1)) (b, length vs - 1) vs) *)
 end
 
-fun substx_t_t x (v : mty) (b : ty) : ty =
+fun substx_t_t x (v : mtype) (b : ty) : ty =
   case b of
       Mono t => Mono (substx_t_mt x v t)
     | Uni (name, t) => Uni (name, substx_t_t (x + 1) (shift_t_mt v) t)
