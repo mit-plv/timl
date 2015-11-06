@@ -1604,9 +1604,9 @@ end
 
 open TrivialSolver
 
-exception Unimpl
+(* exception Unimpl *)
 
-fun to_vcs vces = raise Unimpl
+fun to_vcs vces = []
 
 fun typecheck_expr (ctx as (sctx, kctx, cctx, tctx) : context) e : (expr * mtype * idx) * vc list =
     let 

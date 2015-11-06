@@ -78,6 +78,7 @@ fun print_i ctx i =
     | TrueI _ => "true"
     | FalseI _ => "false"
     | TTI _ => "TT"
+    | UVarI _ => "?"
 
 fun print_p ctx p =
   let
@@ -108,16 +109,17 @@ fun assert_p ctx p =
 
 fun print_bind (name, bsort) =
   case bsort of
-      BSUnit =>
+      Base BSUnit =>
       declare_const name "Unit"
-    | Bool =>
+    | Base Bool =>
       declare_const name "Bool"
-    | Time =>
+    | Base Time =>
       declare_const name "Real" @
       assert (sprintf "(<= 0 $)" [print_escaped name])
-    | Nat =>
+    | Base Nat =>
       declare_const name "Int" @
       assert (sprintf "(<= 0 $)" [print_escaped name])
+    | UVarBS _ => ["?"]
 
 fun print_vc ((ctx, ps, goal, _) : vc) =
   let

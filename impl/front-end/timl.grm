@@ -10,12 +10,10 @@ open Ast
     | DARROW
     | FN
     | REC
-    | FIX
     | LSQ
     | RSQ
     | LCUR
     | RCUR
-    | SUMCASE
     | UNPACK
     | CASE
     | OF
@@ -32,7 +30,6 @@ open Ast
     | MULT
     | PLUS
     | MINUS
-    | MU
     | INT of int
     | NNREAL of string
     | BAR
@@ -68,13 +65,12 @@ open Ast
        | id of id
        | exp_comma_star of exp list
        | comma_exp_star of exp list
-       | abs of abs
        | bind_plus of bind list
        | bind_star of bind list
        | bind of bind
-       | tbind_plus of bind list
-       | tbind_star of bind list
-       | tbind of bind
+       | tbind_plus of tbind list
+       | tbind_star of tbind list
+       | tbind of tbind
        | case_type of case_type
        | return of ty option * idx option
        | rule_bar_star of (ptrn * exp) list
@@ -97,11 +93,11 @@ open Ast
        | constr of constr_decl
        | constr_core_opt of constr_core option
        | constr_result_opt of ty option
-       | sorting_star of bind list
-       | sorting of bind
+       | sorting_star of tbind list
+       | sorting of tbind
        | idx_un_op of idx_un_op
 
-%keyword FN FIX CASE SUMCASE UNPACK OF LET IN END RETURN VAL DATATYPE AS
+%keyword FN CASE UNPACK OF LET IN END RETURN VAL DATATYPE AS
 
 %pos pos
 
@@ -131,6 +127,7 @@ open Ast
 start : decl_star (decl_star)
 
 decl : VAL ptrn EQ exp (Val (ptrn, exp, (VALleft, expright)))
+     | REC id bind_star return DARROW exp (Rec (id, bind_star, return, exp, (RECleft, expright)))
     | DATATYPE cur_sort_star id_plus EQ constr_bar_star (case (map fst o rev) id_plus of id :: id_star => Datatype (id, id_star, rev cur_sort_star, constr_bar_star, (DATATYPEleft, constr_bar_starright)) | [] => raise Impossible "id_plus can't be empty")
 
 exp : aexp (aexp)
@@ -144,8 +141,7 @@ exp : aexp (aexp)
 aexp : id (Var id)
      | LPAREN exp_comma_star RPAREN (Tuple (exp_comma_star, (LPARENleft, RPARENright)))
                 (* | LPAREN exp RPAREN (exp) *) (* already covered by previous one *)
-     | abs bind_plus DARROW exp (Abs (abs, bind_plus, exp, (absleft, expright)))
-     | FIX id bind_star COLON ty RTRI idx DARROW exp (Fix (id, bind_star, ty, idx, exp, (FIXleft, expright)))
+     | FN bind_plus DARROW exp (Abs (bind_plus, exp, (FNleft, expright)))
      | case_type exp return OF rule_bar_star (Case (case_type, exp, return, rule_bar_star, (case_typeleft, rule_bar_starright)))
      | LET decl_star IN exp END (Let (decl_star, exp, (LETleft, ENDright)))
      | INT (Const (INT, (INTleft, INTright)))
@@ -154,11 +150,9 @@ ty : ty ty %prec APPR (AppTT (ty2, ty1, (ty1left, ty2right)))
            | LCUR idx RCUR ty %prec APPR (AppTI (ty, idx, (LCURleft, tyright)))
                               | ty DDASH idx LARROW ty (Arrow (ty1, idx, ty2, (ty1left, ty2right)))
                               | ty MULT ty (Prod (ty1, ty2, (ty1left, ty2right)))
-                              | ty PLUS ty (Sum (ty1, ty2, (ty1left, ty2right)))
                 (* aty : *)
                               | id (VarT id)
                               | quan tbind_plus COMMA ty (Quan (quan, tbind_plus, ty, (quanleft, tyright)))
-                              | MU ID tbind_star COMMA ty (Recur (ID, tbind_star, ty, (MUleft, tyright)))
                               | LPAREN ty RPAREN (ty)
 
 idx : id (VarI id)
@@ -197,16 +191,13 @@ exp_comma_star : exp comma_exp_star (exp :: comma_exp_star)
 comma_exp_star : COMMA exp comma_exp_star (exp :: comma_exp_star)
 	       | ([])
 
-abs : FN (Fn)
-    | REC (Rec)
-
 bind_star : bind bind_star (bind :: bind_star)
 	  | ([])
 bind_plus : bind bind_star (bind :: bind_star)
 
-bind : ptrn COLON ty (Typing (ptrn, ty, (ptrnleft, tyright)))
-     | LSQ id RSQ (Kinding id)
-     | LCUR id COLON sort RCUR (Sorting (id, sort, (LCURleft, RCURright)))
+bind : ptrn (Typing (ptrn))
+     | LSQ id RSQ (TBind (Kinding id))
+     | LCUR id COLON sort RCUR (TBind (Sorting (id, sort, (LCURleft, RCURright))))
      | LPAREN bind RPAREN (bind)
 
 tbind_star : tbind tbind_star (tbind :: tbind_star)
@@ -217,8 +208,7 @@ tbind : id (Kinding id)
       | LCUR id COLON sort RCUR (Sorting (id, sort, (LCURleft, RCURright)))
       | LPAREN tbind RPAREN (tbind)
 
-case_type : SUMCASE (HSumCase)
-          | UNPACK (HUnpack)
+case_type : UNPACK (HUnpack)
           | CASE (HCase)
                  
 return : RETURN ty RTRI idx ((SOME ty, SOME idx))
@@ -237,6 +227,7 @@ rule : ptrn DARROW exp ((ptrn, exp))
 ptrn : id idx_ids ptrn_opt (ConstrP (id, map fst idx_ids, ptrn_opt, (idleft, ptrn_optright)))
      | LPAREN ptrn_comma_star RPAREN (TupleP (ptrn_comma_star, (LPARENleft, RPARENright)))
      | id AS ptrn (AliasP (id, ptrn, (idleft, ptrnright)))
+     | ptrn COLON ty (AnnoP (ptrn, ty, (ptrnleft, tyright)))
 
 ptrn_opt : ptrn (SOME ptrn)
          | (NONE)
@@ -276,7 +267,7 @@ bar_constr_star : BAR constr bar_constr_star (constr :: bar_constr_star)
 	        | ([])
 
 sorting : LCUR id COLON sort RCUR (Sorting (id, sort, (LCURleft, RCURright)))
-        | LCUR id COLON bsort BAR prop RCUR (Sorting(id, Subset (bsort, id, prop, (LCURleft, RCURright)), (LCURleft, RCURright)))
+        | LCUR id COLON bsort BAR prop RCUR (Sorting (id, Subset (bsort, id, prop, (LCURleft, RCURright)), (LCURleft, RCURright)))
 
 sorting_star : sorting sorting_star (sorting :: sorting_star)
 	   | ([])

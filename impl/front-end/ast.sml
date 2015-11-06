@@ -32,50 +32,55 @@ datatype abs =
 	 Fn
 	 | Rec
 
-datatype ptrn =
-	 ConstrP of id * string list * ptrn option * region
-         | TupleP of ptrn list * region
-         | AliasP of id * ptrn * region
+and tbind =
+    Kinding of id
+    | Sorting of id * sort * region
 
 datatype ty =
 	 VarT of string * region
 	 | Arrow of ty * idx * ty * region
 	 | Prod of ty * ty * region
-	 | Sum of ty * ty * region
-	 | Quan of quan * bind list * ty * region
-	 | Recur of string * bind list * ty * region
+	 | Quan of quan * tbind list * ty * region
 	 | AppTT of ty * ty * region
 	 | AppTI of ty * idx * region
-
-and bind =
-	 Typing of ptrn * ty * region
-	 | Kinding of id
-	 | Sorting of id * sort * region
 
 fun get_region_t t =
   case t of
       VarT (_, r) => r
     | Arrow (_, _, _, r) => r
     | Prod (_, _, r) => r
-    | Sum (_, _, r) => r
     | Quan (_, _, _, r) => r
-    | Recur (_, _, _, r) => r
     | AppTT (_, _, r) => r
     | AppTI (_, _, r) => r
 
-type constr_core = bind list * ty * ty option
+type constr_core = tbind list * ty * ty option
 type constr_decl = id * constr_core option * region
 
+datatype ptrn =
+	 ConstrP of id * string list * ptrn option * region
+         | TupleP of ptrn list * region
+         | AliasP of id * ptrn * region
+         | AnnoP of ptrn * ty * region
+
+fun get_region_pn pn =
+  case pn of
+      ConstrP (_, _, _, r) => r
+    | TupleP (_, r) => r
+    | AliasP (_, _, r) => r
+    | AnnoP (_, _, r) => r
+
+datatype bind =
+	 Typing of ptrn
+	 | TBind of tbind
+
 datatype case_type =
-         HSumCase
+         HCase
        | HUnpack
-       | HCase
              
 datatype exp = 
 	 Var of string * region
        | Tuple of exp list * region
-       | Abs of abs * bind list * exp * region
-       | Fix of id * bind list * ty * idx * exp * region
+       | Abs of bind list * exp * region
        | App of exp * exp * region
        | AppT of exp * ty * region
        | AppI of exp * idx * region
@@ -88,7 +93,8 @@ datatype exp =
 
 and decl =
     Val of ptrn * exp * region
-  | Datatype of string * string list * sort list * constr_decl list * region
+    | Rec of id * bind list * (ty option * idx option) * exp * region
+    | Datatype of string * string list * sort list * constr_decl list * region
 
 type reporter = string * pos * pos -> unit
 
