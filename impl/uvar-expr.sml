@@ -56,6 +56,10 @@ fun str_uvar_bs str_bs (u : 'bsort uvar_bs) =
     case !u of
         Refined bs => str_bs bs
       | Fresh name_ref => str_uname (!name_ref)
+fun str_uvar_mt str_mt (ctx as (sctx, kctx)) ((invis as (invisi, invist), u) : ('bsort, 'mtype) uvar_mt) =
+    case !u of
+        Refined t => str_mt (shrink_ctx invisi sctx, shrink_ctx invist kctx) t
+      | Fresh name_ref => str_uname (!name_ref)
 end
 
 structure OnlyIdxUVar = struct
@@ -64,6 +68,7 @@ type 'a uvar_bs = empty
 type ('a, 'b) uvar_s = empty
 type ('a, 'b) uvar_mt = empty
 fun str_uvar_bs (_ : 'a -> string) (u : 'a uvar_bs) = exfalso u
+fun str_uvar_mt (_ : string list * string list -> 'mtype -> string) (_ : string list * string list) (u : ('bsort, 'mtype) uvar_mt) = exfalso u
 end
 
 structure Expr = ExprFun (structure Var = IntVar structure UVar = UVar)

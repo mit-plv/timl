@@ -5,6 +5,8 @@ open UnderscoredExpr
 open Region
 exception Error of region * string
 
+infixr 0 $
+
 local
 
     fun runError m _ =
@@ -18,7 +20,7 @@ local
     fun on_var ctx (x, r) =
       case find_idx x ctx of
 	  SOME i => (i, r)
-	| NONE => raise Error (r, "Unbound variable " ^ x)
+	| NONE => raise Error (r, "Unbound variable " ^ x ^ sprintf " in context: $" [join " " ctx])
 
     fun on_idx ctx i =
       case i of
@@ -108,11 +110,17 @@ local
     fun on_return (ctx as (sctx, _)) return = mapPair (Option.map (on_mtype ctx), Option.map (on_idx sctx)) return
 
     fun on_expr (ctx as (sctx, kctx, cctx, tctx)) e =
-      let fun add_t name (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx)
+      let 
+          (* val () = println $ sprintf "on_expr $ in context $" [E.str_e ctx e, join " " tctx] *)
+          fun add_t name (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx)
 	  val skctx = (sctx, kctx)
       in
 	  case e of
-	      E.Var x => Var (on_var tctx x)
+	      E.Var (x, r) => 
+	      (case find_idx x cctx of
+		   SOME i => AppConstr ((i, r), [], TT r)
+		 | NONE => Var (on_var tctx (x, r))
+              )
 	    | E.Abs (pn, e) => 
               let 
                   val pn = on_ptrn (sctx, kctx, cctx) pn
@@ -213,8 +221,11 @@ local
             end
 
     and on_rule (ctx as (sctx, kctx, cctx, tctx)) (pn, e) =
-        let val pn = on_ptrn (sctx, kctx, cctx) pn
+        let 
+            (* val () = println $ sprintf "on_rule $ in context $" [E.str_rule ctx (pn, e), join " " tctx] *)
+            val pn = on_ptrn (sctx, kctx, cctx) pn
             val (inames, enames) = ptrn_names pn
+            (* val () = println $ sprintf "enames of $: $" [E.str_pn (sctx, kctx, cctx) pn, join " " enames] *)
             val ctx' = (inames @ sctx, kctx, cctx, enames @ tctx)
         in
             (pn, on_expr ctx' e)

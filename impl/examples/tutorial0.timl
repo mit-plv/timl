@@ -3,8 +3,12 @@ datatype {Nat} 'a list =
          | cons of {n : Nat} 'a * {n} 'a list -> {n + 1} 'a list
 
 val map = fn {m : Time} (f : 'a -- m --> 'b) =>
-             fix map {n : Nat} (xs : {n} 'a list) |> (m + 2.0) * $n =>
-             case xs return {n} 'b list of
-                 nil => nil
-               | cons {n'} (x, xs) => cons {n'} (f x, map {n'} xs) |> (m + 2.0) * $n
+             let 
+                 rec map {n : Nat} (xs : {n} 'a list) |> (m + 2.0) * $n =
+                 case xs return {n} 'b list of
+                     nil => nil
+                   | cons {n'} (x, xs) => cons {n'} (f x, map {n'} xs) |> (m + 2.0) * $n
+             in
+                 map
+             end
 

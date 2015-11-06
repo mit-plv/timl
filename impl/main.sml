@@ -11,7 +11,7 @@ open SMTSolver
 
 infixr 0 $
 
-fun print_result show_region filename (((ctxd, ds, ctx), vcs) : tc_result) =
+fun print_result show_region filename (((decls, ctxd, ds, ctx), vcs) : tc_result) =
   let 
       val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
       val type_lines =
@@ -40,7 +40,7 @@ fun typecheck_file (filename, ctx) =
       (* val () = (print o join_lines o map (suffix "\n") o fst o E.str_decls ctxn) decls *)
       val decls = resolve_decls ctxn decls
       (* val () = (print o join_lines o map (suffix "\n") o fst o str_decls ctxn) decls *)
-      val result as ((ctxd, ds, ctx), vcs) = typecheck_decls ctx decls
+      val result as ((decls, ctxd, ds, ctx), vcs) = typecheck_decls ctx decls
       (* val smt2 = to_smt2 vcs *)
       (* val () = write_file (filename ^ ".smt2", smt2) *)
       val () = println $ print_result false filename result
@@ -75,7 +75,6 @@ fun typecheck_file (filename, ctx) =
                                                          
 fun main filenames =
   let
-      val empty_ctx = (([], []), [], [], [])
       val ctx = foldl typecheck_file empty_ctx filenames
   in
       ctx

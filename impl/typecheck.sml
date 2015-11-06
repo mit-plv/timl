@@ -1068,7 +1068,7 @@ local
                                           indent ["expect: " ^ str_v kctxn family, 
                                                   "got: " ^ str_v kctxn family'])
                         end
-                      | _ => raise Error (r, [sprintf "Pattern $ doesn't match type $" [U.str_pn (names cctx) pn, str_mt skctxn t]])
+                      | _ => raise Error (r, [sprintf "Pattern $ doesn't match type $" [U.str_pn (sctx_names sctx, names kctx, names cctx) pn, str_mt skctxn t]])
                 end
               | U.VarP (name, r) =>
                 (VarP (name, r), TrueC, make_ctx_from_typing (name, Mono t), 0)
@@ -1114,7 +1114,8 @@ local
 	    val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
 	    val skctxn = (sctxn, kctxn)
 	    (* val () = print (sprintf "Typing $\n" [str_e ctxn e]) *)
-            fun subst_uvar_error r t i uname = Error (r, [sprintf "Can't substitute $ in unification variable $ in type $" [str_i sctxn i, str_uname uname, str_mt skctxn t]])
+            fun print_ctx (ctx as (sctx, kctx, _, tctx)) = app (fn (nm, t) => println $ sprintf "$: $" [nm, str_t (sctx_names sctx, names kctx) t]) tctx
+            fun subst_uvar_error r t i uname = Error (r, [sprintf "Can't substitute in unification variable $ in type $" [str_uname uname, str_mt skctxn t]])
 	    val (e, t, d) =
 	        case e_all of
 		    U.Var x =>
@@ -1192,7 +1193,9 @@ local
                         val i = check_sort 0 (sctx, i, s) 
                     in
 			(AppI (e, i), subst_i_mt i t1, d)
-                        handle SubstUVar x => raise subst_uvar_error (U.get_region_e e_all) t i x
+                        handle SubstUVar x => 
+                               (print_ctx ctx;
+                                raise subst_uvar_error (U.get_region_e e_all) t i x)
 		    end
 		  | U.Pack (t, i, e) =>
                     let

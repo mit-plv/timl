@@ -73,6 +73,7 @@ open Ast
        | tbind of tbind
        | case_type of case_type
        | return of ty option * idx option
+       | rec_return of ty option * idx option
        | rule_bar_star of (ptrn * exp) list
        | bar_rule_star of (ptrn * exp) list
        | rule of ptrn * exp
@@ -127,7 +128,7 @@ open Ast
 start : decl_star (decl_star)
 
 decl : VAL ptrn EQ exp (Val (ptrn, exp, (VALleft, expright)))
-     | REC id bind_star return DARROW exp (Rec (id, bind_star, return, exp, (RECleft, expright)))
+     | REC id bind_star rec_return EQ exp (Rec (id, bind_star, rec_return, exp, (RECleft, expright)))
     | DATATYPE cur_sort_star id_plus EQ constr_bar_star (case (map fst o rev) id_plus of id :: id_star => Datatype (id, id_star, rev cur_sort_star, constr_bar_star, (DATATYPEleft, constr_bar_starright)) | [] => raise Impossible "id_plus can't be empty")
 
 exp : aexp (aexp)
@@ -214,6 +215,11 @@ case_type : UNPACK (HUnpack)
 return : RETURN ty RTRI idx ((SOME ty, SOME idx))
        | RETURN ty ((SOME ty, NONE))
        | RETURN RTRI idx ((NONE, SOME idx))
+       | ((NONE, NONE))
+
+rec_return : COLON ty RTRI idx ((SOME ty, SOME idx))
+       | COLON ty ((SOME ty, NONE))
+       | RTRI idx ((NONE, SOME idx))
        | ((NONE, NONE))
 
 rule_bar_star : rule bar_rule_star (rule :: bar_rule_star)

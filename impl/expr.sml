@@ -51,6 +51,7 @@ signature UVAR = sig
     type ('a, 'b) uvar_mt
     val str_uvar_bs : ('a -> string) -> 'a uvar_bs -> string
     val str_uvar_i : (string list -> 'idx -> string) -> string list -> ('bsort, 'idx) uvar_i -> string
+    val str_uvar_mt : (string list * string list -> 'mtype -> string) -> string list * string list -> ('bsort, 'mtype) uvar_mt -> string
 end
 
 functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
@@ -61,6 +62,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         open UVar
         open Region
         open ExprUtil
+
+        infixr 0 $
 
         type id = var * region
         type name = string * region
@@ -319,7 +322,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 else
 	            sprintf "($$$)" [(join "" o map (suffix " ") o map (surround "{" "}") o map (str_i sctx) o rev) is, (join "" o map (suffix " ") o map (str_mt ctx) o rev) ts, str_v kctx x]
               | Int _ => "int"
-              | UVar _ => "_"
+              | UVar (u, _) => str_uvar_mt str_mt ctx u
 
         and str_uni ctx (binds, t) =
             let 
@@ -345,12 +348,18 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         fun ptrn_names pn : string list * string list =
             case pn of
                 ConstrP (_, inames, pn, _) =>
-                let val (inames', enames) = ptrn_names (default (TTP dummy) pn)
+                let 
+                    (* val () = println "ConstrP" *)
+                    val (inames', enames) = ptrn_names (default (TTP dummy) pn)
                 in
                     (inames' @ rev inames, enames)
                 end
               | VarP (name, _) =>
-                ([], [name])
+                let
+                    (* val () = println $ sprintf "VarP: $" [name] *)
+                in
+                    ([], [name])
+                end
               | PairP (pn1, pn2) =>
                 let val (inames1, enames1) = ptrn_names pn1
                     val (inames2, enames2) = ptrn_names pn2
@@ -366,14 +375,14 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 end
               | AnnoP (pn, t) => ptrn_names pn
 
-        fun str_pn cctx pn = 
+        fun str_pn (ctx as (sctx, kctx, cctx)) pn = 
             case pn of
-                ConstrP ((x, _), inames, pn, _) => sprintf "$ $$" [str_v cctx x, join " " inames, str_opt (str_pn cctx) pn]
+                ConstrP ((x, _), inames, pn, _) => sprintf "$ $$" [str_v cctx x, join " " inames, str_opt (str_pn ctx) pn]
               | VarP (name, _) => name
-              | PairP (pn1, pn2) => sprintf "($, $)" [str_pn cctx pn1, str_pn cctx pn2]
+              | PairP (pn1, pn2) => sprintf "($, $)" [str_pn ctx pn1, str_pn ctx pn2]
               | TTP _ => "()"
-              | AliasP ((name, _), pn, _) => sprintf "$ as $" [name, str_pn cctx pn]
-              | AnnoP _ => "_"
+              | AliasP ((name, _), pn, _) => sprintf "$ as $" [name, str_pn ctx pn]
+              | AnnoP (pn, t) => sprintf "($ : $)" [str_pn ctx pn, str_mt (sctx, kctx) t]
 
         fun str_return (skctx as (sctx, _)) return =
             case return of
@@ -391,7 +400,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	          | Abs (pn, e) => 
                     let 
                         val (inames, enames) = ptrn_names pn
-                        val pn = str_pn cctx pn
+                        val pn = str_pn (sctx, kctx, cctx) pn
                         val ctx = (inames @ sctx, kctx, cctx, enames @ tctx)
 	                val e = str_e ctx e
                     in
@@ -437,7 +446,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 Val (pn, e) =>
                 let val e = str_e ctx e
                     val (inames, enames) = ptrn_names pn
-                    val pn = str_pn cctx pn
+                    val pn = str_pn (sctx, kctx, cctx) pn
 	            val ctx = (inames @ sctx, kctx, cctx, enames @ tctx)
                 in
                     (sprintf "val $ = $" [pn, e], ctx)
@@ -471,7 +480,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
             let val (inames, enames) = ptrn_names pn
 	        val ctx' = (inames @ sctx, kctx, cctx, enames @ tctx)
             in
-	        sprintf "$ => $" [str_pn cctx pn, str_e ctx' e]
+	        sprintf "$ => $" [str_pn (sctx, kctx, cctx) pn, str_e ctx' e]
             end
 
         (* region calculations *)
@@ -746,7 +755,8 @@ type ('a, 'b) uvar_i = unit
 type ('a, 'b) uvar_s = unit
 type ('a, 'b) uvar_mt = unit
 fun str_uvar_bs (_ : 'a -> string) (_ : 'a uvar_bs) = "_"
-fun str_uvar_i (_ : string list -> 'a -> string) (_ : string list) (_ : 'a uvar_bs) = "_"
+fun str_uvar_i (_ : string list -> 'idx -> string) (_ : string list) (_ : ('bsort, 'idx) uvar_i) = "_"
+fun str_uvar_mt (_ : string list * string list -> 'mtype -> string) (_ : string list * string list) (_ : ('bsort, 'mtype) uvar_mt) = "_"
 end
 
 structure NamefulExpr = ExprFun (structure Var = StringVar structure UVar = Underscore)
