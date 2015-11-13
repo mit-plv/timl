@@ -18,8 +18,6 @@ fun lazy_default v opt =
     case opt of
         SOME a => a
       | NONE => v ()
-
-fun str_opt f opt = (default "" o Option.map f) opt
 fun isNull opt = not (isSome opt)
 
 val join = String.concatWith
@@ -27,11 +25,15 @@ fun prefix fix s = fix ^ s
 fun suffix fix s = s ^ fix
 fun surround pre post s = pre ^ s ^ post
 fun indent msg = map (fn s => "  " ^ s) msg
-val str_int = Int.toString
-fun str_bool b = if b then "true" else "false"
 fun join_lines ls = (join "" o map (suffix "\n")) ls
 fun join_prefix pre ls = (join "" o map (prefix pre)) ls
                                                                 
+fun str_ls f ls = (surround "[" "]" o join ", " o map f) ls
+fun str_pair (f, g) (a, b) = sprintf "($, $)" [f a, g b]
+fun str_opt f opt = (default "" o Option.map f) opt
+val str_int = Int.toString
+fun str_bool b = if b then "true" else "false"
+
 fun id x = x
 fun const a _ = a
 fun range n = List.tabulate (n, id)

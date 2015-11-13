@@ -480,24 +480,24 @@ local
 
     fun fresh_bsort () = UVarBS (ref (Fresh (ref (BSort (inc ())))))
 
-    fun fresh_i anchor order bsort r = 
+    fun fresh_i anchor order names bsort r = 
         let
-            val name_ref = ref (Idx (inc (), anchor, order, bsort))
+            val name_ref = ref (Idx ((inc (), anchor, order, names), bsort))
             val () = push_ref anchor name_ref
         in
             UVarI (([], ref (Fresh name_ref)), r)
         end
 
-    fun fresh_nonidx f empty_invis anchor order r = 
+    fun fresh_nonidx f empty_invis anchor order names r = 
         let
-            val name_ref = ref (NonIdx (inc (), anchor, order))
+            val name_ref = ref (NonIdx (inc (), anchor, order, names))
             val () = push_ref anchor name_ref
         in
             f ((empty_invis, ref (Fresh name_ref)), r)
         end
 
-    fun fresh_sort anchor order r : sort = fresh_nonidx UVarS [] anchor order r
-    fun fresh_t anchor order r : mtype = fresh_nonidx UVar ([], []) anchor order r
+    fun fresh_sort anchor order names r : sort = fresh_nonidx UVarS [] anchor order names r
+    fun fresh_t anchor order names r : mtype = fresh_nonidx UVar ([], []) anchor order names r
 
     fun make_anchor () = 
         let 
@@ -525,7 +525,7 @@ local
                         BindI ((name, r2), 
                                is_wf_prop (order + 1) (add_sorting (name, Basic (bs, r)) ctx, p)))
             end
-          | U.UVarS ((), r) => fresh_sort (make_anchor ()) order r
+          | U.UVarS ((), r) => fresh_sort (make_anchor ()) order (map fst ctx) r
 
     and is_wf_prop order (ctx : scontext, p : U.prop) : prop =
 	case p of
@@ -616,7 +616,7 @@ local
             let
                 val bs = fresh_bsort ()
             in
-                (fresh_i (make_anchor ()) order bs r, bs)
+                (fresh_i (make_anchor ()) order (map fst ctx) bs r, bs)
             end
 
 
@@ -716,7 +716,7 @@ local
                           r)
                 end
 	      | U.Int r => Int r
-              | U.UVar ((), r) => fresh_t (make_anchor ()) order r
+              | U.UVar ((), r) => fresh_t (make_anchor ()) order (kctxn @ sctxn) r
         end
 
     val is_wf_mtype = is_wf_mtype 0
@@ -1076,8 +1076,8 @@ local
                 let 
                     val anchor = make_anchor ()
                     val r = U.get_region_pn pn
-                    val t1 = fresh_t anchor 0 r
-                    val t2 = fresh_t anchor 0 r
+                    val t1 = fresh_t anchor 0 (kctxn @ sctxn) r
+                    val t2 = fresh_t anchor 0 (kctxn @ sctxn) r
                     val () = unify r skctxn (t, Prod (t1, t2))
                     val (pn1, cover1, ctxd, nps1) = match_ptrn (ctx, pn1, t1)
                     val ctx = add_ctx_skc ctxd ctx
@@ -1115,7 +1115,12 @@ local
 	    val skctxn = (sctxn, kctxn)
 	    (* val () = print (sprintf "Typing $\n" [str_e ctxn e]) *)
             fun print_ctx (ctx as (sctx, kctx, _, tctx)) = app (fn (nm, t) => println $ sprintf "$: $" [nm, str_t (sctx_names sctx, names kctx) t]) tctx
-            fun subst_uvar_error r t i uname = Error (r, [sprintf "Can't substitute in unification variable $ in type $" [str_uname uname, str_mt skctxn t]])
+            fun get_uname_ctx u =
+                case u of
+                    Idx ((_, _, _, names), _) => names
+                  | NonIdx (_, _, _, names) => names
+                  | _ => []
+            fun subst_uvar_error r t i uname = Error (r, sprintf "Can't substitute in unification variable $ in type $" [str_uname uname, str_mt skctxn t] :: indent [sprintf "context of $: $" [str_uname uname, (join ", " o rev o get_uname_ctx) uname]])
 	    val (e, t, d) =
 	        case e_all of
 		    U.Var x =>
@@ -1124,7 +1129,7 @@ local
                         fun insert t =
                             case t of
                                 Mono t => t
-                              | Uni (_, t) => insert (subst_t_t (fresh_t (make_anchor ()) 0 r) t)
+                              | Uni (_, t) => insert (subst_t_t (fresh_t (make_anchor ()) 0 (kctxn @ sctxn) r) t)
                     in
                         (Var x, insert (fetch_var (tctx, x)), T0 dummy)
                     end
@@ -1133,8 +1138,8 @@ local
                         val (e2, t2, d2) = get_mtype (ctx, e2)
                         val anchor = make_anchor ()
                         val r = U.get_region_e e1
-                        val d = fresh_i anchor 0 (Base Time) r
-                        val t = fresh_t anchor 0 r
+                        val d = fresh_i anchor 0 sctxn (Base Time) r
+                        val t = fresh_t anchor 0 (kctxn @ sctxn) r
                         val (e1, _, d1) = check_mtype (ctx, e1, Arrow (t2, d, t)) 
                     in
                         (App (e1, e2), t, d1 %+ d2 %+ T1 dummy %+ d) 
@@ -1143,7 +1148,7 @@ local
 		    let
                         val anchor = make_anchor ()
                         val r = U.get_region_pn pn
-                        val t = fresh_t anchor 0 r
+                        val t = fresh_t anchor 0 (kctxn @ sctxn) r
                         val skcctx = (sctx, kctx, cctx) 
                         val (pn, cover, ctxd, nps (* number of premises *)) = match_ptrn (skcctx, pn, t)
 	                val () = check_exhaustive (skcctx, t, [cover], get_region_pn pn)
@@ -1187,8 +1192,8 @@ local
 		    let 
                         val anchor = make_anchor ()
                         val r = U.get_region_e e
-                        val s = fresh_sort anchor 0 r
-                        val t1 = fresh_t anchor 1 r
+                        val s = fresh_sort anchor 0 sctxn r
+                        val t1 = fresh_t anchor 1 (kctxn @ sctxn) r
                         val (e, t, d) = check_mtype (ctx, e, UniI (s, BindI (("uvar", r), t1))) 
                         val i = check_sort 0 (sctx, i, s) 
                     in
@@ -1202,8 +1207,8 @@ local
                         val t = is_wf_mtype (skctx, t)
                         val anchor = make_anchor ()
                         val r = get_region_mt t
-                        val s = fresh_sort anchor 0 r
-                        val t1 = fresh_t anchor 1 r
+                        val s = fresh_sort anchor 0 sctxn r
+                        val t1 = fresh_t anchor 1 (kctxn @ sctxn) r
                         val () = unify r skctxn (t, ExI (s, BindI (("uvar", r), t1)))
 			val i = check_sort 0 (sctx, i, s)
                         val t1 = subst_i_mt i t1
@@ -1216,8 +1221,8 @@ local
                     let 
                         val anchor = make_anchor ()
                         val r = U.get_region_e e1
-                        val s = fresh_sort anchor 0 r
-                        val t1' = fresh_t anchor 1 r
+                        val s = fresh_sort anchor 0 sctxn r
+                        val t1' = fresh_t anchor 1 (kctxn @ sctxn) r
                         val (e1, _, d1) = check_mtype (ctx, e1, ExI (s, BindI (("uvar", r), t1')))
                         val ctx' = add_sorting_skct (idx_var, s) ctx
 		        val ctx' = add_typing_skct (expr_var, Mono t1') ctx'
@@ -1269,8 +1274,8 @@ local
 		    let 
                         val anchor = make_anchor ()
                         val r = U.get_region_e e
-                        val t1 = fresh_t anchor 0 r
-                        val t2 = fresh_t anchor 0 r
+                        val t1 = fresh_t anchor 0 (kctxn @ sctxn) r
+                        val t2 = fresh_t anchor 0 (kctxn @ sctxn) r
                         val (e, _, d) = check_mtype (ctx, e, Prod (t1, t2)) 
                     in 
                         (Fst e, t1, d)
@@ -1279,8 +1284,8 @@ local
 		    let 
                         val anchor = make_anchor ()
                         val r = U.get_region_e e
-                        val t1 = fresh_t anchor 0 r
-                        val t2 = fresh_t anchor 0 r
+                        val t1 = fresh_t anchor 0 (kctxn @ sctxn) r
+                        val t2 = fresh_t anchor 0 (kctxn @ sctxn) r
                         val (e, _, d) = check_mtype (ctx, e, Prod (t1, t2)) 
                     in 
                         (Snd e, t2, d)
@@ -1429,7 +1434,7 @@ local
             case decl of
                 U.Val (tnames, U.VarP (x, r1), e, r) =>
                 let 
-                    val (e, t, d) = get_mtype (add_kindings_skct (zip (map fst tnames, repeat (length tnames) Type)) ctx, e)
+                    val (e, t, d) = get_mtype (add_kindings_skct (zip ((rev o map fst) tnames, repeat (length tnames) Type)) ctx, e)
                     val t = if is_value e then 
                                 let
                                     val t = generalize t
@@ -1463,7 +1468,7 @@ local
     	                    U.AbsI (_, _, e) => check_fix_body e
     	                  | U.Abs _ => ()
     	                  | _ => raise Error (U.get_region_e e, ["The body of fixpoint must have the form ({_ : _} ... {_ : _} (_ : _) => _)"])
-                    val ctx as (sctx, kctx, _, _) = add_kindings_skct (zip (map fst tnames, repeat (length tnames) Type)) ctx
+                    val ctx as (sctx, kctx, _, _) = add_kindings_skct (zip ((rev o map fst) tnames, repeat (length tnames) Type)) ctx
 		    val t = is_wf_mtype ((sctx, kctx), t)
                     val () = check_fix_body e
 		    val (e, _, _) = check_mtype (add_typing_skct (name, Mono t) ctx, e, t)

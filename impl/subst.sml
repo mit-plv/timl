@@ -152,8 +152,12 @@ fun shiftx_invis x n invis =
                 ((off, len + n) :: acc, (0, 0))
             else 
                 ((off, len) :: acc, (x - off - len, n))
+        val (invis, (x, n)) = foldl f ([], (x, n)) invis
+        val residue = if n = 0 then [] else [(x, n)]
+        val invis = residue @ invis
+        val invis = rev invis
     in
-        (rev o fst o foldl f ([], (x, n))) invis
+        invis
     end
 
 fun expand_i invis b = expand shiftx_i_i invis b
