@@ -97,6 +97,8 @@ open Ast
        | sorting_star of tbind list
        | sorting of tbind
        | idx_un_op of idx_un_op
+       | tname of id
+       | tname_star of id list
 
 %keyword FN CASE UNPACK OF LET IN END RETURN VAL DATATYPE AS
 
@@ -127,8 +129,8 @@ open Ast
 
 start : decl_star (decl_star)
 
-decl : VAL ptrn EQ exp (Val (ptrn, exp, (VALleft, expright)))
-     | REC id bind_star rec_return EQ exp (Rec (id, bind_star, rec_return, exp, (RECleft, expright)))
+decl : VAL tname_star ptrn EQ exp (Val (tname_star, ptrn, exp, (VALleft, expright)))
+     | REC tname_star id bind_star rec_return EQ exp (Rec (tname_star, id, bind_star, rec_return, exp, (RECleft, expright)))
     | DATATYPE cur_sort_star id_plus EQ constr_bar_star (case (map fst o rev) id_plus of id :: id_star => Datatype (id, id_star, rev cur_sort_star, constr_bar_star, (DATATYPEleft, constr_bar_starright)) | [] => raise Impossible "id_plus can't be empty")
 
 exp : aexp (aexp)
@@ -197,7 +199,6 @@ bind_star : bind bind_star (bind :: bind_star)
 bind_plus : bind bind_star (bind :: bind_star)
 
 bind : ptrn (Typing (ptrn))
-     | LSQ id RSQ (TBind (Kinding id))
      | LCUR id COLON sort RCUR (TBind (Sorting (id, sort, (LCURleft, RCURright))))
      | LPAREN bind RPAREN (bind)
 
@@ -205,8 +206,7 @@ tbind_star : tbind tbind_star (tbind :: tbind_star)
 	   | ([])
 tbind_plus : tbind tbind_star (tbind :: tbind_star)
 
-tbind : id (Kinding id)
-      | LCUR id COLON sort RCUR (Sorting (id, sort, (LCURleft, RCURright)))
+tbind : LCUR id COLON sort RCUR (Sorting (id, sort, (LCURleft, RCURright)))
       | LPAREN tbind RPAREN (tbind)
 
 case_type : UNPACK (HUnpack)
@@ -279,3 +279,7 @@ sorting_star : sorting sorting_star (sorting :: sorting_star)
 	   | ([])
 
 idx_un_op : LOG2 (Log2)
+
+tname : LSQ id RSQ (id)
+tname_star : tname tname_star (tname :: tname_star)
+	 | ([])

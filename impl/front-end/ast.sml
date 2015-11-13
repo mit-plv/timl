@@ -33,8 +33,7 @@ datatype abs =
 	 | Rec
 
 and tbind =
-    Kinding of id
-    | Sorting of id * sort * region
+    Sorting of id * sort * region
 
 datatype ty =
 	 VarT of string * region
@@ -92,8 +91,8 @@ datatype exp =
        | BinOp of bin_op * exp * exp * region
 
 and decl =
-    Val of ptrn * exp * region
-    | Rec of id * bind list * (ty option * idx option) * exp * region
+    Val of id list * ptrn * exp * region
+    | Rec of id list * id * bind list * (ty option * idx option) * exp * region
     | Datatype of string * string list * sort list * constr_decl list * region
 
 type reporter = string * pos * pos -> unit

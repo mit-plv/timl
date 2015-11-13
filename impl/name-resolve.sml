@@ -194,21 +194,25 @@ local
 
     and on_decl (ctx as (sctx, kctx, cctx, tctx)) decl =
         case decl of
-            E.Val (pn, e) =>
-            let val e = on_expr ctx e
-                val pn = on_ptrn (sctx, kctx, cctx) pn
+            E.Val (tnames, pn, e, r) =>
+            let 
+                val ctx' as (sctx', kctx', cctx', _) = (sctx, (rev o map fst) tnames @ kctx, cctx, tctx)
+                val pn = on_ptrn (sctx', kctx', cctx') pn
+                val e = on_expr ctx' e
                 val (inames, enames) = ptrn_names pn
                 val ctx = (inames @ sctx, kctx, cctx, enames @ tctx)
             in
-                (Val (pn, e), ctx)
+                (Val (tnames, pn, e, r), ctx)
             end
-          | E.Rec (t, (name, r1), e, r) =>
+          | E.Rec (tnames, t, (name, r1), e, r) =>
             let 
-                val t = on_mtype (sctx, kctx) t
+                val ctx' as (sctx', kctx', cctx', tctx') = (sctx, (rev o map fst) tnames @ kctx, cctx, tctx)
+                val t = on_mtype (sctx', kctx') t
+	        val ctx' = (sctx', kctx', cctx', name :: tctx')
+                val e = on_expr ctx' e
 	        val ctx = (sctx, kctx, cctx, name :: tctx)
-                val e = on_expr ctx e
             in
-                (Rec (t, (name, r1), e, r), ctx)
+                (Rec (tnames, t, (name, r1), e, r), ctx)
             end
           | E.Datatype (name, tnames, sorts, constr_decls, r) =>
             let fun on_constr_decl (cname, core, r) =

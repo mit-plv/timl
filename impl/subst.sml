@@ -480,14 +480,14 @@ local
 
     and f_dec x n dec =
 	case dec of
-	    Val (pn, e) => 
+	    Val (tnames, pn, e, r) => 
 	    let 
                 val (_, enames) = ptrn_names pn 
 	    in
-                (Val (pn, f x n e), length enames)
+                (Val (tnames, pn, f x n e, r), length enames)
             end
-          | Rec (t, name, e, r) => 
-            (Rec (t, name, f (x + 1) n e, r), 1)
+          | Rec (tnames, t, name, e, r) => 
+            (Rec (tnames, t, name, f (x + 1) n e, r), 1)
           | Datatype a => (Datatype a, 0)
 
     and f_rule x n (pn, e) =

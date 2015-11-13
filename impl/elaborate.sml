@@ -107,8 +107,7 @@ local
 	| S.Quan (quan, binds, t, _) =>
 	  let fun f (b, t) =
 		case b of
-		    Kinding (x, r) => raise Error (r, "Can't have kinding bind in a monotype")
-		  | Sorting (x, s, _) =>
+		    Sorting (x, s, _) =>
 		    (case quan of
 			 Forall => UniI (elab_s s, BindI (x, t))
 		       | Exists => ExI (elab_s s, BindI (x, t)))
@@ -127,14 +126,6 @@ local
 		  SOME (x, ts) => AppV (x, map elab_mt ts, map elab_i is, r)
 		| NONE => raise Error (r, "The form of type-index application can only be (recursive-type indices) or (variable types indices)")
 	  end
-
-    fun elab_t t =
-      case t of
-	  S.Quan (quan, Kinding name :: binds, t, r) =>
-	  (case quan of
-	       Forall => Uni (name, elab_t (S.Quan (quan, binds, t, r)))
-	     | Exists => raise Error (snd name, "Doesn't support existential quantification over types"))
-	| _ => Mono (elab_mt t)
 
     fun elab_return return = mapPair (Option.map elab_mt, Option.map elab_i) return
                                         
@@ -162,7 +153,6 @@ local
 	    let fun f (b, e) =
 		  case b of
 		      Typing pn => Abs (elab_pn pn, e)
-		    | TBind (Kinding _) => raise Error (r, "Don't support explict type argument")
 		    | TBind (Sorting (x, s, _)) => AbsI (elab_s s, x, e)
 	    in
 		foldr f (elab e) binds
@@ -212,9 +202,9 @@ local
 
     and elab_decl decl =
         case decl of
-	    S.Val (pn, e, _) =>
-            Val (elab_pn pn, elab e)
-	  | S.Rec (name, binds, (t, d), e, r) =>
+	    S.Val (tnames, pn, e, r) =>
+            Val (tnames, elab_pn pn, elab e, r)
+	  | S.Rec (tnames, name, binds, (t, d), e, r) =>
             let
                 fun mt_from_pn pn =
                   case pn of
@@ -223,7 +213,6 @@ local
                 fun on_bind (b, t0) =
                   case b of
 		      Typing pn => Arrow (mt_from_pn pn, T0 r, t0)
-		    | TBind (Kinding _) => raise Error (r, "Recursion can't have kinding bind")
 		    | TBind (Sorting (x, s, _)) => UniI (elab_s s, BindI (x, t0))
                 val t = default (UVar ((), r)) (Option.map elab_mt t)
                 val d = default (UVarI ((), r)) (Option.map elab_i d)
@@ -232,7 +221,7 @@ local
                         Typing pn :: binds => foldl on_bind (Arrow (mt_from_pn pn, d, t)) binds
                       | _ => raise Error (r, "Recursion must have a typing bind as the last bind")
             in
-	        Rec (t, name, elab (S.Abs (binds, e, r)), r)
+	        Rec (tnames, t, name, elab (S.Abs (binds, e, r)), r)
             end
           | S.Datatype (name, tnames, sorts, constrs, r) =>
             let fun default_t2 r = foldl (fn (arg, f) => S.AppTT (f, S.VarT (arg, r), r)) (S.VarT (name, r)) tnames
@@ -242,7 +231,6 @@ local
                       fun f bind =
                         case bind of
                             Sorting ((name, _), sort, r) => (name, elab_s sort)
-                          | _ => raise Error (r, "Constructors can only have sorting binds")
                       val binds = map f binds
                       val t2_orig = t2
                       val (t2, is) = get_is t2

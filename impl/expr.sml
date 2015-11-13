@@ -211,8 +211,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         | AscriptionTime of expr * idx
 
              and decl =
-                 Val of ptrn * expr
-                 | Rec of mtype * name * expr * region
+                 Val of name list * ptrn * expr * region
+                 | Rec of name list * mtype * name * expr * region
 	         | Datatype of string * string list * sort list * constr_decl list * region
 
         fun peel_AppI e =
@@ -443,21 +443,27 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 
         and str_decl (ctx as (sctx, kctx, cctx, tctx)) decl =
             case decl of
-                Val (pn, e) =>
-                let val e = str_e ctx e
+                Val (tnames, pn, e, _) =>
+                let 
+                    val ctx' as (sctx', kctx', cctx', _) = (sctx, (rev o map fst) tnames @ kctx, cctx, tctx)
+                    val tnames = (join "" o map (fn nm => sprintf " [$]" [nm]) o map fst) tnames
                     val (inames, enames) = ptrn_names pn
-                    val pn = str_pn (sctx, kctx, cctx) pn
+                    val pn = str_pn (sctx', kctx', cctx') pn
+                    val e = str_e ctx' e
 	            val ctx = (inames @ sctx, kctx, cctx, enames @ tctx)
                 in
-                    (sprintf "val $ = $" [pn, e], ctx)
+                    (sprintf "val$ $ = $" [tnames, pn, e], ctx)
                 end
-              | Rec (t, (name, _), e, _) =>
+              | Rec (tnames, t, (name, _), e, _) =>
                 let 
-                    val t = str_mt (sctx, kctx) t
+                    val ctx' as (sctx', kctx', cctx', tctx') = (sctx, (rev o map fst) tnames @ kctx, cctx, tctx)
+                    val tnames = (join "" o map (fn nm => sprintf " [$]" [nm]) o map fst) tnames
+                    val t = str_mt (sctx', kctx') t
+	            val ctx' = (sctx', kctx', cctx', name :: tctx')
+                    val e = str_e ctx' e
 	            val ctx = (sctx, kctx, cctx, name :: tctx)
-                    val e = str_e ctx e
                 in
-                    (sprintf "rec $ : $ = $" [name, t, e], ctx)
+                    (sprintf "rec$ $ : $ = $" [tnames, name, t, e], ctx)
                 end
               | Datatype (name, tnames, sorts, constrs, _) =>
                 let val str_tnames = (join_prefix " " o rev) tnames
@@ -564,8 +570,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         fun get_region_dec dec =
             case dec of
-                Val (pn, e) => combine_region (get_region_pn pn) (get_region_e e)
-              | Rec (_, _, _, r) => r
+                Val (_, _, _, r) => r
+              | Rec (_, _, _, _, r) => r
               | Datatype (_, _, _, _, r) => r
 
         fun eq_i eq_var i i' =

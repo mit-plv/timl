@@ -1415,7 +1415,7 @@ local
 		            AppV (y, map (subst x v) ts, is, r)
                     fun uvar_t_name n =
                         if n < 26 then
-                            "'" ^ (str o chr) (ord #"a" + n)
+                            "'" ^ (str o chr) (ord #"A" + n)
                         else
                             "'" ^ str_int n
                     val fv = dedup op= $ diff op= (fv_mt t) (fv_ctx ctx)
@@ -1427,40 +1427,50 @@ local
                 end
         in
             case decl of
-                U.Val (U.VarP (x, r), e) =>
+                U.Val (tnames, U.VarP (x, r1), e, r) =>
                 let 
-                    val skcctx = (sctx, kctx, cctx) 
-                    val (e, t, d) = get_mtype (ctx, e)
+                    val (e, t, d) = get_mtype (add_kindings_skct (zip (map fst tnames, repeat (length tnames) Type)) ctx, e)
                     val t = if is_value e then 
-                                generalize t
-                            else 
+                                let
+                                    val t = generalize t
+                                    val t = foldr (fn (nm, t) => Uni (nm, t)) t tnames
+                                in
+                                    t
+                                end
+                            else if length tnames = 0 then
                                 Mono t
+                            else
+                                raise Error (r, ["explicit type variable cannot be generalized because of value restriction"])
                 in
-                    (Val (VarP (x, r), e), make_ctx_from_typing (x, t), 0, [d])
+                    (Val (tnames, VarP (x, r1), e, r), make_ctx_from_typing (x, t), 0, [d])
                 end
-              | U.Val (pn, e) =>
+              | U.Val (tnames, pn, e, r) =>
                 let 
+                    val () = if length tnames = 0 then ()
+                             else raise Error (r, ["compound pattern can't be generalized, so can't have explicit type variables"])
                     val skcctx = (sctx, kctx, cctx) 
                     val (e, t, d) = get_mtype (ctx, e)
                     val (pn, cover, ctxd, nps) = match_ptrn (skcctx, pn, t)
                     val d = shift_ctx_i ctxd d
 	            val () = check_exhaustive (skcctx, t, [cover], get_region_pn pn)
                 in
-                    (Val (pn, e), ctxd, nps, [d])
+                    (Val (tnames, pn, e, r), ctxd, nps, [d])
                 end
-	      | U.Rec (t, (name, r1), e, r) => 
+	      | U.Rec (tnames, t, (name, r1), e, r) => 
 	        let 
                     fun check_fix_body e =
                         case e of
     	                    U.AbsI (_, _, e) => check_fix_body e
     	                  | U.Abs _ => ()
     	                  | _ => raise Error (U.get_region_e e, ["The body of fixpoint must have the form ({_ : _} ... {_ : _} (_ : _) => _)"])
+                    val ctx as (sctx, kctx, _, _) = add_kindings_skct (zip (map fst tnames, repeat (length tnames) Type)) ctx
 		    val t = is_wf_mtype ((sctx, kctx), t)
                     val () = check_fix_body e
 		    val (e, _, _) = check_mtype (add_typing_skct (name, Mono t) ctx, e, t)
                     val gt = generalize t
+                    val gt = foldr (fn (nm, t) => Uni (nm, t)) gt tnames
                 in
-                    (Rec (t, (name, r1), e, r), make_ctx_from_typing (name, gt), 0, [T0 dummy])
+                    (Rec (tnames, t, (name, r1), e, r), make_ctx_from_typing (name, gt), 0, [T0 dummy])
 	        end
 	      | U.Datatype (name, tnames, sorts, constr_decls, r) =>
 	        let 
