@@ -145,4 +145,8 @@ fun push xs x = x :: xs
 fun binop_ref f r x = r := f (!r) x
 fun push_ref r x = binop_ref push r x
 
+datatype ('a, 'b) sum = 
+         inl of 'a
+         | inr of 'b
+
 end

@@ -490,8 +490,22 @@ local
 	    in
                 (Val (tnames, pn, f x n e, r), length enames)
             end
-          | Rec (tnames, t, name, e, r) => 
-            (Rec (tnames, t, name, f (x + 1) n e, r), 1)
+          | Rec (tnames, name, (binds, ((t, d), e)), r) => 
+            let
+                fun g (bind, m) =
+                    case bind of
+                        SortingST _ => m
+                      | TypingST pn =>
+	                let 
+                            val (_, enames) = ptrn_names pn 
+	                in
+                            m + length enames
+                        end
+                val m = foldl g 0 binds
+                val e = f (x + 1 + m) n e
+            in
+                (Rec (tnames, name, (binds, ((t, d), e)), r), 1)
+            end
           | Datatype a => (Datatype a, 0)
 
     and f_rule x n (pn, e) =

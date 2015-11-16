@@ -206,22 +206,16 @@ local
             Val (tnames, elab_pn pn, elab e, r)
 	  | S.Rec (tnames, name, binds, (t, d), e, r) =>
             let
-                fun mt_from_pn pn =
-                  case pn of
-                      S.AnnoP (_, t, _) => elab_mt t
-                    | _ => UVar ((), S.get_region_pn pn)
-                fun on_bind (b, t0) =
-                  case b of
-		      Typing pn => Arrow (mt_from_pn pn, T0 r, t0)
-		    | TBind (Sorting (x, s, _)) => UniI (elab_s s, BindI (x, t0))
+                fun f bind =
+                    case bind of
+		        Typing pn => TypingST (elab_pn pn)
+		      | TBind (Sorting (nm, s, _)) => SortingST (nm, elab_s s)
+                val binds = map f binds
                 val t = default (UVar ((), r)) (Option.map elab_mt t)
                 val d = default (UVarI ((), r)) (Option.map elab_i d)
-                val t =
-                    case rev binds of
-                        Typing pn :: binds => foldl on_bind (Arrow (mt_from_pn pn, d, t)) binds
-                      | _ => raise Error (r, "Recursion must have a typing bind as the last bind")
+                val e = elab e
             in
-	        Rec (tnames, t, name, elab (S.Abs (binds, e, r)), r)
+	        Rec (tnames, name, (binds, ((t, d), e)), r)
             end
           | S.Datatype (name, tnames, sorts, constrs, r) =>
             let fun default_t2 r = foldl (fn (arg, f) => S.AppTT (f, S.VarT (arg, r), r)) (S.VarT (name, r)) tnames

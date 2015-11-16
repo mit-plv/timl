@@ -20,7 +20,7 @@ local
     fun on_var ctx (x, r) =
       case find_idx x ctx of
 	  SOME i => (i, r)
-	| NONE => raise Error (r, "Unbound variable " ^ x ^ sprintf " in context: $" [join " " ctx])
+	| NONE => raise Error (r, "Unbound variable " ^ x ^ sprintf " in context: $" [join " " $ rev ctx])
 
     fun on_idx ctx i =
       case i of
@@ -204,15 +204,29 @@ local
             in
                 (Val (tnames, pn, e, r), ctx)
             end
-          | E.Rec (tnames, t, (name, r1), e, r) =>
+          | E.Rec (tnames, (name, r1), (binds, ((t, d), e)), r) =>
             let 
-                val ctx' as (sctx', kctx', cctx', tctx') = (sctx, (rev o map fst) tnames @ kctx, cctx, tctx)
-                val t = on_mtype (sctx', kctx') t
-	        val ctx' = (sctx', kctx', cctx', name :: tctx')
-                val e = on_expr ctx' e
-	        val ctx = (sctx, kctx, cctx, name :: tctx)
+	        val ctx as (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx)
+                val ctx_ret = ctx
+                val ctx as (sctx, kctx, cctx, tctx) = (sctx, (rev o map fst) tnames @ kctx, cctx, tctx)
+                fun f (bind, (binds, ctx as (sctx, kctx, cctx, tctx))) =
+                    case bind of
+                        E.SortingST ((name, r), s) => 
+                        (SortingST ((name, r), on_sort sctx s) :: binds, (name :: sctx, kctx, cctx, tctx))
+                      | E.TypingST pn =>
+                        let
+                            val pn = on_ptrn (sctx, kctx, cctx) pn
+                            val (inames, enames) = ptrn_names pn
+                        in
+                            (TypingST pn :: binds, (inames @ sctx, kctx, cctx, enames @ tctx))
+                        end
+                val (binds, ctx as (sctx, kctx, cctx, tctx)) = foldl f ([], ctx) binds
+                val binds = rev binds
+                val t = on_mtype (sctx, kctx) t
+                val d = on_idx sctx d
+                val e = on_expr ctx e
             in
-                (Rec (tnames, t, (name, r1), e, r), ctx)
+                (Rec (tnames, (name, r1), (binds, ((t, d), e)), r), ctx_ret)
             end
           | E.Datatype (name, tnames, sorts, constr_decls, r) =>
             let fun on_constr_decl (cname, core, r) =

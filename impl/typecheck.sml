@@ -1082,9 +1082,9 @@ local
                     val r = U.get_region_pn pn
                     val t1 = fresh_t anchor 0 (kctxn @ sctxn) r
                     val t2 = fresh_t anchor 0 (kctxn @ sctxn) r
-                    val () = println $ sprintf "before: $ : $" [U.str_pn (sctxn, kctxn, names cctx) pn, str_mt skctxn t]
+                    (* val () = println $ sprintf "before: $ : $" [U.str_pn (sctxn, kctxn, names cctx) pn, str_mt skctxn t] *)
                     val () = unify r skctxn (t, Prod (t1, t2))
-                    val () = println "after"
+                    (* val () = println "after" *)
                     val (pn1, cover1, ctxd, nps1) = match_ptrn (ctx, pn1, t1)
                     val ctx = add_ctx_skc ctxd ctx
                     val (pn2, cover2, ctxd', nps2) = match_ptrn (ctx, pn2, shift_ctx_mt ctxd t2)
@@ -1181,8 +1181,9 @@ local
 		        (Let (decls, e, r), t, d)
 		    end
 		  | U.AbsI (s, (name, r), e) => 
-		    if U.is_value e then
 		        let 
+		            val () = if U.is_value e then ()
+		                     else raise Error (U.get_region_e e, ["The body of a universal abstraction must be a value"])
                             val s = is_wf_sort 0 (sctx, s)
                             val ctxd = make_ctx_from_sorting (name, s)
                             val ctx = add_ctx ctxd ctx
@@ -1192,8 +1193,6 @@ local
                         in
 			    (AbsI (s, (name, r), e), UniI (s, BindI ((name, r), t)), T0 dummy)
 		        end 
-		    else
-		        raise Error (U.get_region_e e, ["The body of a universal abstraction must be a value"])
 		  | U.AppI (e, i) =>
 		    let 
                         val anchor = make_anchor ()
@@ -1467,21 +1466,63 @@ local
                 in
                     (Val (tnames, pn, e, r), ctxd, nps, [d])
                 end
-	      | U.Rec (tnames, t, (name, r1), e, r) => 
+	      | U.Rec (tnames, (name, r1), (binds, ((t, d), e)), r) => 
 	        let 
-                    fun check_fix_body e =
-                        case e of
-    	                    U.AbsI (_, _, e) => check_fix_body e
-    	                  | U.Abs _ => ()
-    	                  | _ => raise Error (U.get_region_e e, ["The body of fixpoint must have the form ({_ : _} ... {_ : _} (_ : _) => _)"])
-                    val ctx as (sctx, kctx, _, _) = add_kindings_skct (zip ((rev o map fst) tnames, repeat (length tnames) Type)) ctx
+                    val ctx = add_kindings_skct (zip ((rev o map fst) tnames, repeat (length tnames) Type)) ctx
+                    fun f (bind, (binds, ctxd, nps)) =
+                        case bind of
+                            U.SortingST (name, s) => 
+                            let 
+                                val ctx = add_ctx ctxd ctx
+                                val s = is_wf_sort 0 (#1 ctx, s)
+                                val ctxd' = make_ctx_from_sorting (fst name, s)
+                                val () = open_vc ctxd'
+                                val ctxd = add_ctx ctxd' ctxd
+                            in
+                                (inl (name, s) :: binds, ctxd, nps)
+                            end
+                          | U.TypingST pn =>
+                            let
+                                val ctx as (sctx, kctx, _, _) = add_ctx ctxd ctx
+                                val anchor = make_anchor ()
+                                val r = U.get_region_pn pn
+                                val t = fresh_t anchor 0 (names kctx @ names sctx) r
+                                val skcctx = (sctx, kctx, cctx) 
+                                val (pn, cover, ctxd', nps') = match_ptrn (skcctx, pn, t)
+	                        val () = check_exhaustive (skcctx, t, [cover], get_region_pn pn)
+                                val ctxd = add_ctx ctxd' ctxd
+                                val nps = nps' + nps
+                            in
+                                (inr (pn, t) :: binds, ctxd, nps)
+                            end
+                    val (binds, ctxd, nps) = foldl f ([], empty_ctx, 0) binds
+                    val binds = rev binds
+                    val (sctx, kctx, _, _) = add_ctx ctxd ctx
 		    val t = is_wf_mtype ((sctx, kctx), t)
-                    val () = check_fix_body e
-		    val (e, _, _) = check_mtype (add_typing_skct (name, Mono t) ctx, e, t)
-                    val gt = generalize t
-                    val gt = foldr (fn (nm, t) => Uni (nm, t)) gt tnames
+		    val d = check_bsort 0 (sctx, d, Base Time)
+                    fun g (bind, t) =
+                        case bind of
+		            inl (name, s) => UniI (s, BindI (name, t))
+		          | inr (_, t1) => Arrow (t1, T0 dummy, t)
+                    val te = 
+                        case rev binds of
+                            inr (_, t1) :: binds =>
+                            foldl g (Arrow (t1, d, t)) binds
+                          | _ => raise Error (r, ["Recursion must have a typing bind as the last bind"])
+                    val ctx = add_typing_skct (name, Mono te) ctx
+                    val ctx = add_ctx ctxd ctx
+		    val e = check_mtype_time (ctx, e, t, d)
+                    val () = close_premises nps
+                    val () = close_vc ctxd
+                    val te = generalize te
+                    val te = foldr (fn (nm, t) => Uni (nm, t)) te tnames
+                    fun h bind =
+                        case bind of
+                            inl a => SortingST a
+                          | inr (pn, _) => TypingST pn
+                    val binds = map h binds
                 in
-                    (Rec (tnames, t, (name, r1), e, r), make_ctx_from_typing (name, gt), 0, [T0 dummy])
+                    (Rec (tnames, (name, r1), (binds, ((t, d), e)), r), make_ctx_from_typing (name, te), 0, [T0 dummy])
 	        end
 	      | U.Datatype (name, tnames, sorts, constr_decls, r) =>
 	        let 
