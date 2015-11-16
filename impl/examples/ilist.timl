@@ -2,20 +2,29 @@ datatype {Nat} 'a ilist =
          NilI of unit -> {0} 'a ilist
          | ConsI of {n' : Nat} 'a * {n'} 'a ilist -> {n' + 1} 'a ilist
 
-val map = 
- fn ['a] ['b] {m : Time} (f : 'a -- m --> 'b) =>
-    fix map {n : Nat} (ls : {n} 'a ilist) : {n} 'b ilist |> (m + 2.0) * $n =>
-    case ls return {n} 'b ilist of
-        NilI => NilI ['b]
-      | ConsI {n'} (x, xs) => ConsI ['b] {n'} (f x, map {n'} xs) |> (m + 2.0) * $n
+val ['a] ['b] map = 
+ fn {m : Time} (f : 'a -- m --> 'b) =>
+    let
+        rec map {n : Nat} (ls : {n} 'a ilist) return {n} 'b ilist |> (m + 2.0) * $n =
+        case ls return {n} 'b ilist of
+            NilI => NilI
+          | ConsI {n'} (x, xs) => ConsI {n'} (f x, map {n'} xs) |> (m + 2.0) * $n
+    in
+        map
+    end
 
-val foldl =
- fn ['a] ['b] {m : Time} (f : 'a * 'b -- m --> 'b) =>
-    fix loop {n : Nat} ((y, xs) : 'b * {n} 'a ilist) : 'b |> (m + 2.0) * $n =>
-    case xs of
-        NilI => y
-      | ConsI {n'} (x, xs) => loop {n'} (f (x, y), xs) |> (m + 2.0) * $n
+val ['a] ['b] foldl =
+ fn {m : Time} (f : 'a * 'b -- m --> 'b) =>
+    let
+        rec loop {n : Nat} (y : 'b, xs : {n} 'a ilist) return 'b |> (m + 2.0) * $n =
+        case xs of
+            NilI => y
+          | ConsI {n'} (x, xs) => loop {n'} (f (x, y), xs) |> (m + 2.0) * $n
+    in
+        loop
+    end
 
+        (*
 datatype {Nat} 'a even_split =
          Even of {n1 : Nat} {n2 : Nat | n2 <= n1 /\ n1 <= n2 + 1} ({n1} 'a ilist * {n2} 'a ilist) -> {n1 + n2} 'a even_split
 
@@ -57,7 +66,7 @@ val merge_sort =
  fn ['a] =>
     pack [exists {c : {c : Time | c > 0.0}}, forall {m : Time}, ('a * 'a -- m --> bool) -- 0.0 --> forall {n : Nat}, {n} 'a ilist -- (m + 3.0) * c * $n * log2 $n --> {n} 'a ilist] {4.0} (msort ['a])
 
-(*
+        (*
 
 exists {c : Time} {ub : Time}, forall {n : Nat}, {n} 'a list -- max ub (c * $n * log2 $n) --> {n} 'a list
 
@@ -84,5 +93,6 @@ merge_sort : forall 'a {m : Time}, ('a * 'a -- m --> bool) -- 0.0 --> forall {n 
 ==========================
 exists c, O c1 n + O c2 n + O c3 1 <= O c n
 
-*)
-         
+        *)
+        
+        *)

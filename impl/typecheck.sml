@@ -798,7 +798,7 @@ local
 
         fun combine_covers covers = foldl' (swap OrC) FalseC covers
 
-        val impossible = Impossible "cover has the wrong type"
+        fun impossible s = Impossible $ "cover has the wrong type: " ^ s
 
         fun get_family (x : constr) = #1 x
         fun get_family_members cctx x =
@@ -820,7 +820,7 @@ local
                          PairC (neg' t1 c1, c2) \/
                          PairC (c1, neg' t2 c2) \/
                          PairC (neg' t1 c1, neg' t2 c2)
-                       | _ => raise impossible)
+                       | _ => raise impossible "cover_neg()/PairC")
                   | ConstrC (x, c) =>
 	            (case t of
 	                 AppV ((family, _), ts, _, _) =>
@@ -833,7 +833,7 @@ local
 	                 in
                              combine_covers covers
 	                 end
-	               | _ => raise impossible)
+	               | _ => raise impossible "cover_neg()/ConstrC")
             end
 
                 
@@ -847,7 +847,7 @@ local
                             val () = Debug.println (sprintf "Empty constraints now. Now try to find any inhabitant of type $" [str_mt (sctx_names sctx, names kctx) t])
                         in
                             case t of
-                                AppV (tx as (family, _), ts, _, _) =>
+                                AppV (tx as (family, _), _, _, _) =>
                                 (case fetch_kind (kctx, tx) of
                                      ArrowK (true, _, _) =>
 	                             let val all = get_family_members cctx family
@@ -909,7 +909,7 @@ local
                                         end
                                       | Failed i => f t (to_hd i cs @ [c])
                                 end
-                              | _ => raise impossible
+                              | _ => raise impossible "find_inhabitant()"
                         end
             in
                 SOME (f t cs) handle Incon debug => NONE
@@ -931,21 +931,25 @@ local
     in              
 
     fun check_redundancy (ctx as (_, _, cctx), t, prevs, this, r) =
-        let val prev = combine_covers prevs
-        in
-	    if not (is_covered ctx t this prev) then ()
-	    else raise Error (r, sprintf "Redundant rule: $" [str_cover (names cctx) this] :: indent [sprintf "Has already been covered by previous rules: $" [(join ", " o map (str_cover (names cctx))) prevs]])
-        end
-            
+      let
+          val t = update_mt t
+          val prev = combine_covers prevs
+      in
+	  if not (is_covered ctx t this prev) then ()
+	  else raise Error (r, sprintf "Redundant rule: $" [str_cover (names cctx) this] :: indent [sprintf "Has already been covered by previous rules: $" [(join ", " o map (str_cover (names cctx))) prevs]])
+      end
+          
     fun check_exhaustive (ctx as (_, _, cctx), t : mtype, covers, r) =
-        let val cover = combine_covers covers
-            val () = Debug.println (str_cover (names cctx) cover)
-        in
-            case any_missing ctx t cover of
-                NONE => ()
-              | SOME missed =>
-	        raise Error (r, [sprintf "Not exhaustive, at least missing this case: $" [str_inhab (names cctx) missed]])
-        end
+      let
+          val t = update_mt t
+          val cover = combine_covers covers
+          val () = Debug.println (str_cover (names cctx) cover)
+      in
+          case any_missing ctx t cover of
+              NONE => ()
+            | SOME missed =>
+	      raise Error (r, [sprintf "Not exhaustive, at least missing this case: $" [str_inhab (names cctx) missed]])
+      end
 
     end
 
@@ -1078,7 +1082,9 @@ local
                     val r = U.get_region_pn pn
                     val t1 = fresh_t anchor 0 (kctxn @ sctxn) r
                     val t2 = fresh_t anchor 0 (kctxn @ sctxn) r
+                    val () = println $ sprintf "before: $ : $" [U.str_pn (sctxn, kctxn, names cctx) pn, str_mt skctxn t]
                     val () = unify r skctxn (t, Prod (t1, t2))
+                    val () = println "after"
                     val (pn1, cover1, ctxd, nps1) = match_ptrn (ctx, pn1, t1)
                     val ctx = add_ctx_skc ctxd ctx
                     val (pn2, cover2, ctxd', nps2) = match_ptrn (ctx, pn2, shift_ctx_mt ctxd t2)

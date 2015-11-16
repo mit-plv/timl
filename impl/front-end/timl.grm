@@ -130,7 +130,7 @@ open Ast
 start : decl_star (decl_star)
 
 decl : VAL tname_star ptrn EQ exp (Val (tname_star, ptrn, exp, (VALleft, expright)))
-     | REC tname_star id bind_star rec_return EQ exp (Rec (tname_star, id, bind_star, rec_return, exp, (RECleft, expright)))
+     | REC tname_star id bind_star return EQ exp (Rec (tname_star, id, bind_star, return, exp, (RECleft, expright)))
     | DATATYPE cur_sort_star id_plus EQ constr_bar_star (case (map fst o rev) id_plus of id :: id_star => Datatype (id, id_star, rev cur_sort_star, constr_bar_star, (DATATYPEleft, constr_bar_starright)) | [] => raise Impossible "id_plus can't be empty")
 
 exp : aexp (aexp)

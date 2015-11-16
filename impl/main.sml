@@ -98,6 +98,7 @@ fun main (prog_name, args : string list) : int =
   end
   handle 
   TiML.Error msg => (println msg; 1)
+  | Impossible msg => (println ("Impossible: " ^ msg); 1)
 
 end
 
