@@ -1325,10 +1325,10 @@ local
 		      val f = foldl (fn (i, e) => U.AppI (e, i)) f is
 		      val e = U.App (f, shift_e_e e)
 		      val (e, t, d) = get_mtype (add_typing_skct (cname, tc) ctx, e) 
-                      val () = println $ str_i sctxn d
+                      (* val () = println $ str_i sctxn d *)
                       val d = update_i d
                       val d = simp_i d
-                      val () = println $ str_i sctxn d
+                      (* val () = println $ str_i sctxn d *)
                       val wrong_d = Impossible "get_mtype (): U.AppConstr: d in wrong form"
 		      (* constructor application doesn't incur count *)
                       val d =
@@ -1591,6 +1591,7 @@ local
 	let 
             val skcctx = (sctx, kctx, cctx) 
 	    val (pn, cover, ctxd as (sctxd, kctxd, _, _), nps) = match_ptrn (skcctx, pn, t1)
+            val ctx0 = ctx
 	    val ctx = add_ctx ctxd ctx
             val (e, t, d) = 
                 case return of
@@ -1603,7 +1604,9 @@ local
                   | (SOME t, NONE) =>
                     let 
                         val (e, _, d) = check_mtype (ctx, e, shift_ctx_mt ctxd t)
+                        val () = println $ str_i (names (#1 ctx)) d
 			val d = forget_ctx_d (get_region_e e) ctx ctxd d
+                        val () = println $ str_i (names (#1 ctx0)) d
                     in
                         (e, t, d)
                     end

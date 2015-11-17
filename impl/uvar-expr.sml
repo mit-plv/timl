@@ -37,9 +37,13 @@ fun str_uname uname =
   case uname of
       NONE => "NONE"
     | SOME uname =>
+      (* case uname of *)
+      (*     Idx ((n, _, _, _), _) => str_uvar n *)
+      (*   | NonIdx (n, _, _, _) => str_uvar n *)
+      (*   | BSort n => str_uvar n *)
       case uname of
-          Idx ((n, _, _, _), _) => str_uvar n
-        | NonIdx (n, _, _, _) => str_uvar n
+          Idx ((n, _, _, ctx), _) => sprintf "$ $" [str_uvar n, str_ls id (rev ctx)]
+        | NonIdx (n, _, _, ctx) => sprintf "$ $" [str_uvar n, str_ls id (rev ctx)]
         | BSort n => str_uvar n
 
 type ('bsort, 'idx) uvar_i = invisibles * ('bsort, 'idx) uvar_ref

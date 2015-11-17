@@ -198,20 +198,23 @@ fun forget_v x n y =
 
 fun forget_invis x n invis = 
     let 
-        fun f ((off, len), (acc, (x, n))) =
+        fun f ((off, len), (acc, (x, n), base)) =
             if n = 0 then
-                ((off, len) :: acc, (0, 0))
+                ((off, len) :: acc, (0, 0), 0)
             else if x < off then
-                raise ForgetError x
+                raise ForgetError (base + x)
             else if x <= off + len then
                 if x + n <= off + len then
-                    ((off, len - n) :: acc, (0, 0))
+                    ((off, len - n) :: acc, (0, 0), 0)
                 else
-                    raise ForgetError (off + len)
+                    raise ForgetError (base + off + len)
             else 
-                ((off, len) :: acc, (x - off - len, n))
+                ((off, len) :: acc, (x - off - len, n), base + off + len)
+        val (invis, (x, n), base) = foldl f ([], (x, n), 0) invis
+        val () = if n = 0 then () else raise ForgetError (base + x)
+        val invis = rev invis
     in
-        (rev o fst o foldl f ([], (x, n))) invis
+        invis
     end
 
 fun forget_i_i x n b = on_i_i forget_v forget_invis expand_i x n b
