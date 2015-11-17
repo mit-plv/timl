@@ -175,20 +175,17 @@ fun runError m _ =
   handle
   Error e => Failed e
 
-datatype vc_entry =
-         ForallVC of string * sort
-         | ImplyVC of prop
-         | AndVC of prop * region
-         | AnchorVC of bsort anchor ref
-         | CloseVC
-
 (* use cell to mimic the Writer monad *)
 local								    
 
-    val acc = ref ([] : vc_entry list)
+    datatype vc_entry =
+             ForallVC of string * sort
+             | ImplyVC of prop
+             | AndVC of prop * region
+             | AnchorVC of bsort anchor ref
+             | CloseVC
 
-    fun runWriter m _ =
-      (acc := []; let val r = m () in (r, rev (!acc)) end)
+    val acc = ref ([] : vc_entry list)
 
     fun write x = push_ref acc x
 
@@ -223,6 +220,21 @@ local
       else
 	  raise Error (r, ["List length mismatch"])
 
+    fun update_bs bs =
+        case bs of
+            UVarBS x =>
+            (case !x of
+                 Refined bs => 
+                 let 
+                     val bs = update_bs bs
+                     val () = x := Refined bs
+                 in
+                     bs
+                 end
+               | Fresh _ => bs
+            )
+          | Base _ => bs
+
     fun update_i i =
       case i of
           UVarI ((invis, x), r) => 
@@ -244,21 +256,6 @@ local
         | TTI _ => i
         | TrueI _ => i
         | FalseI _ => i
-
-    fun update_bs bs =
-      case bs of
-          UVarBS x =>
-          (case !x of
-               Refined bs => 
-               let 
-                   val bs = update_bs bs
-                   val () = x := Refined bs
-               in
-                   bs
-               end
-             | Fresh _ => bs
-          )
-        | Base _ => bs
 
     fun update_s s =
       case s of
@@ -1641,6 +1638,161 @@ local
 	    e
 	end
 
+    fun str_vce vce =
+        case vce of
+            ForallVC (name, _) => sprintf "forall $ ("  [name]
+          | ImplyVC p => "imply p ("
+          | AndVC _ => "and q"
+          | AnchorVC _ => "anchor"
+          | CloseVC => ")"
+
+    structure N = NoUVarExpr
+
+    exception ErrorEmpty
+    exception ErrorClose of vc_entry list
+
+    datatype formula =
+             ForallF of string * base_sort * formula list
+             | ImplyF of N.prop * formula list
+             | AnchorF of bsort anchor ref
+             | PropF of N.prop * region
+
+    fun str_f ctx f =
+        case f of
+            ForallF (name, bsort, fs) =>
+            sprintf "(forall ($ : $) ($))" [name, str_b bsort, str_fs (name :: ctx) fs]
+          | ImplyF (p, fs) =>
+            sprintf "($ => ($))" [N.str_p ctx p, str_fs ctx fs]
+          | AnchorF anchor => sprintf "(anchor ($))" [join " " $ map (fn x => str_uname (!x)) (!anchor)]
+          | PropF (p, _) => N.str_p ctx p
+
+    fun get_base bs =
+        case update_bs bs of
+            Base b => b
+          | UVarBS _ => raise Impossible "get_base ()"
+
+    fun no_uvar_i i =
+        let
+            val i = update_i i
+            fun f i =
+                case i of
+                    VarI x => N.VarI x
+                  | ConstIT c => N.ConstIT c
+                  | ConstIN c => N.ConstIN c
+                  | UnOpI (opr, i, r) => N.UnOpI (opr, f i, r)
+                  | BinOpI (opr, i1, i2) => N.BinOpI (opr, f i1, f i2)
+                  | TrueI r => N.TrueI r
+                  | FalseI r => N.FalseI r
+                  | TTI r => N.TTI r
+                  | UVar (uref, r) =>
+                    case !uref of
+                        Refined _ => raise Impossible "no_uvar_i (): shouldn't be Refined after update_i"
+                      | Fresh (_, nmref) =>
+                        case !nmref of
+                            SOME (Idx ((n, _, _, _), _)) => N.UVar (n, r)
+                          | _ => raise Impossible "no_uvar_i (): uname should only be Idx"
+        in
+            f i
+        end
+
+    fun no_uvar_p p =
+        case p of
+            True r => N.True r
+          | Fase r => N.False r
+          | BinConn (opr, p1, p2) => N.BinConn (opr, no_uvar_p p1, no_uvar_p p2)
+          | BinPred (opr, i1, i2) => N.BinPred (opr, no_uvar_i i1, no_uvar_i i2)
+          | Not (p, r) => N.Not (no_uvar_p p, r)
+
+    fun consume_close (s : vc_entry list) : vc_entry list =
+        case s of
+            CloseVC :: s => s
+          | _ => raise Impossible "consume_close ()"
+
+    fun get_formula s =
+        case s of
+            [] => raise ErrorEmpty
+          | vce :: s =>
+            case vce of
+                ForallVC (name, sort) =>
+                let
+                    val (fs, s) = get_formulas s
+                    val s = consume_close s
+                    val f = 
+                        case sort of
+                            Basic (bsort, _) =>
+                            ForallF (name, get_base bsort, fs)
+                          | Subset ((bsort, _), BindI (_, p)) =>
+                            ForallF (name, get_base bsort, [ImplyF (no_uvar_p p, fs)])
+                          | UVarS _ => raise Impossible "get_formula (): sort in ForallVC shouldn't be UVarS"
+                in
+                    (f, s)
+                end
+              | ImplyVC p =>
+                let
+                    val (fs, s) = get_formulas s
+                    val s = consume_close s
+                in
+                    (ImplyF (no_uvar_p p, fs), s)
+                end
+              | AnchorVC anchor => (AnchorF anchor, s)
+              | AndVC p => (PropF (no_uvar_p p), s)
+              | CloseVC => raise ErrorClose s
+
+    and get_formulas (s : vc_entry list) =
+        let
+            val (f, s) = get_formula s
+            val (fs, s) = get_formulas s
+        in
+            (f :: fs, s)
+        end
+        handle ErrorEmpty => ([], [])
+             | ErrorClose s => ([], CloseVC :: s)
+                                   
+    fun to_vc_formulas (fs : formula list) : VC.formula list =
+        case fs of
+            [] => []
+          | f :: fs =>
+            case f of
+                AnchorF anchor =>
+                let
+                    val xs = List.mapPartial (fn x => !x) (!anchor)
+                    val fs = to_vc_formulas fs
+                    fun to_exists (uname, fs) =
+                        case uname of
+                            Idx ((n, _, _, _), bsort) => [VC.ExistsF (evar_name n, get_base bsort, fs)]
+                          | _ => raise Impossible "to_vc_formulas(): uname should be Idx"
+                    val fs = foldl to_exists fs xs
+                in
+                    fs
+                end
+              | _ => to_vc_formula f :: to_vc_formulas fs
+
+    and to_vc_formula f =
+        case f of
+            ForallF (name, bs, fs) => VC.ForallF (name, bs, to_vc_formulas fs)
+                                    | 
+                                           
+    fun to_vcs vces =
+        let
+            (* val () = println $ join " " $ map str_vce vces *)
+            val (fs, vces) = get_formulas vces
+            val () = case vces of
+                         [] => ()
+                       | _ => raise Impossible "to_vcs (): remaining after get_formulas"
+            val () = app println $ map (str_f []) fs
+        in
+            []
+        end
+
+    fun runWriter m _ =
+        let 
+            val () = acc := []
+            val r = m () 
+            val vces = rev (!acc)
+            val vcs = to_vcs vces
+        in 
+            (r, vcs) 
+        end
 in								     
 
 fun vcgen_expr ctx e =
@@ -1671,88 +1823,11 @@ open TrivialSolver
 
 (* exception Unimpl *)
 
-fun str_vce vce =
-  case vce of
-      ForallVC (name, _) => sprintf "forall $ ("  [name]
-    | ImplyVC p => "imply p ("
-    | AndVC _ => "and q"
-    | AnchorVC _ => "anchor"
-    | CloseVC => ")"
-
-datatype formula =
-         ForallF of string * sort * formula list
-         | ImplyF of prop * formula list
-         | AnchorF of bsort anchor ref
-         | PropF of prop * region
-
-fun str_f ctx f =
-  case f of
-      ForallF (name, sort, fs) =>
-      sprintf "(forall ($ : $) ($))" [name, str_s ctx sort, join " " $ map (str_f (name :: ctx)) fs]
-    | ImplyF (p, fs) =>
-      sprintf "($ => ($))" [str_p ctx p, join " " $ map (str_f ctx) fs]
-    | AnchorF anchor => sprintf "(anchor ($))" [join " " $ map (fn x => str_uname (!x)) (!anchor)]
-    | PropF (p, _) => str_p ctx p
-
-exception ErrorEmpty
-exception ErrorClose of vc_entry list
-
-fun consume_close (s : vc_entry list) : vc_entry list =
-  case s of
-      CloseVC :: s => s
-    | _ => raise Impossible "consume_close ()"
-                 
-fun get_formula s =
-  case s of
-      [] => raise ErrorEmpty
-    | vce :: s =>
-      case vce of
-          ForallVC (name, sort) =>
-          let
-              val (fs, s) = get_formulas s
-              val s = consume_close s
-          in
-              (ForallF (name, sort, fs), s)
-          end
-        | ImplyVC p =>
-          let
-              val (fs, s) = get_formulas s
-              val s = consume_close s
-          in
-              (ImplyF (p, fs), s)
-          end
-        | AnchorVC anchor => (AnchorF anchor, s)
-        | AndVC p => (PropF p, s)
-        | CloseVC => raise ErrorClose s
-
-and get_formulas (s : vc_entry list) =
-    let
-        val (f, s) = get_formula s
-        val (fs, s) = get_formulas s
-    in
-        (f :: fs, s)
-    end
-    handle ErrorEmpty => ([], [])
-         | ErrorClose s => ([], CloseVC :: s)
-                               
-fun to_vcs vces =
-  let
-      val () = println $ join " " $ map str_vce vces
-      val (fs, vces) = get_formulas vces
-      val () = case vces of
-                   [] => ()
-                 | _ => raise Impossible "to_vcs (): remaining after get_formulas"
-      val () = app println $ map (str_f []) fs
-  in
-      []
-  end
-
 fun typecheck_expr (ctx as (sctx, kctx, cctx, tctx) : context) e : (expr * mtype * idx) * vc list =
   let 
       val ((e, t, d), vces) = vcgen_expr ctx e
       val t = simp_mt op= t
       val d = simp_i op= d
-      val vcs = to_vcs vces
       val vcs = map (uniquefy_names) vcs
       val vcs = simp_and_solve_vcs vcs
   in
