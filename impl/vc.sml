@@ -39,13 +39,29 @@ and str_fs ctx fs = (join " " o map (str_f ctx)) fs
 fun simp_f f =
     case f of
         ForallF (name, bsort, fs) =>
-        ForallF (name, bsort, map simp_f fs)
+        (case simp_fs fs of 
+             [] => PropF (True dummy, dummy)
+           | fs => ForallF (name, bsort, fs))
       | ImplyF (p, fs) =>
-        ImplyF (simp_p p, map simp_f fs)
+        (case simp_fs fs of 
+             [] => PropF (True dummy, dummy)
+           | fs => ImplyF (simp_p p, map simp_f fs))
       | PropF (p, r) => 
         PropF (simp_p p, r)
       | ExistsF (name, bsort, fs) =>
-        ExistsF (name, bsort, map simp_f fs)
+        ExistsF (name, bsort, simp_fs fs)
+
+and simp_fs fs =
+    let
+        val fs = map simp_f fs
+        fun g f =
+            case f of
+                PropF (True _, _) => false
+              | _ => true
+        val fs = List.filter g fs
+    in
+        fs
+    end
 
 local
     fun find_unique ls name =

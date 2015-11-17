@@ -259,7 +259,7 @@ local
     datatype vc_entry =
              ForallVC of string * sort
              | ImplyVC of prop
-             | AndVC of prop * region
+             | PropVC of prop * region
              | AnchorVC of bsort anchor ref
              | CloseVC
 
@@ -281,7 +281,7 @@ local
 
     fun write_anchor anchor = write (AnchorVC anchor)
 
-    fun write_and (p, r) = write (AndVC (p, r))
+    fun write_and (p, r) = write (PropVC (p, r))
 
     fun write_le (d : idx, d' : idx, r) =
       write_and (d %<= d', r)
@@ -350,7 +350,9 @@ local
               )
             | (_, UVarI _) =>
               unify_i r ctx (i', i)
-	    | _ => write_and (BinPred (EqP, i, i'), r)
+	    | _ => 
+              if eq_i i i' then ()
+              else write_and (BinPred (EqP, i, i'), r)
       end
 
     fun unify_s r ctx (s, s') =
@@ -1661,7 +1663,7 @@ local
         case vce of
             ForallVC (name, _) => sprintf "forall $ ("  [name]
           | ImplyVC p => "imply p ("
-          | AndVC _ => "and q"
+          | PropVC _ => "and q"
           | AnchorVC _ => "anchor"
           | CloseVC => ")"
 
@@ -1756,7 +1758,7 @@ local
                     (ImplyF (no_uvar_p p, fs), s)
                 end
               | AnchorVC anchor => (AnchorF anchor, s)
-              | AndVC (p, r) => (PropF (no_uvar_p p, r), s)
+              | PropVC (p, r) => (PropF (no_uvar_p p, r), s)
               | CloseVC => raise ErrorClose s
 
     and get_formulas (s : vc_entry list) =
