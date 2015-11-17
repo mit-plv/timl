@@ -42,8 +42,8 @@ fun str_uname uname =
       (*   | NonIdx (n, _, _, _) => str_uvar n *)
       (*   | BSort n => str_uvar n *)
       case uname of
-          Idx ((n, _, _, ctx), _) => sprintf "$ $" [str_uvar n, str_ls id (rev ctx)]
-        | NonIdx (n, _, _, ctx) => sprintf "$ $" [str_uvar n, str_ls id (rev ctx)]
+          Idx ((n, _, _, ctx), _) => sprintf "($ $)" [str_uvar n, str_ls id (rev ctx)]
+        | NonIdx (n, _, _, ctx) => sprintf "($ $)" [str_uvar n, str_ls id (rev ctx)]
         | BSort n => str_uvar n
 
 type ('bsort, 'idx) uvar_i = invisibles * ('bsort, 'idx) uvar_ref
@@ -69,6 +69,7 @@ fun str_uvar_mt str_mt (ctx as (sctx, kctx)) ((invis as (invisi, invist), u) : (
         Refined t => str_mt (shrink_ctx invisi sctx, shrink_ctx invist kctx) t
       (* | Fresh name_ref => sprintf "$" [str_uname (!name_ref)] *)
       | Fresh name_ref => sprintf "($ $ $)" [str_uname (!name_ref), str_ls (str_pair (str_int, str_int)) invisi, str_ls (str_pair (str_int, str_int)) invist]
+fun eq_uvar_i ((_, u) : ('bsort, 'idx) uvar_i, (_, u') : ('bsort, 'idx) uvar_i) = u = u'
 end
 
 structure Expr = ExprFun (structure Var = IntVar structure UVar = UVar)

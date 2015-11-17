@@ -8,7 +8,7 @@ val ['a] ['b] map =
         val rec map {n : Nat} (xs : {n} 'a list) return {n} 'b list |> (m + 2.0) * $n =
             case xs return {n} 'b list of
                 nil => nil
-              | cons {n'} (x, xs) => cons {n'} (f x, map {n'} xs) |> (m + _) * $n
+              | cons {n'} (x, xs) => cons {n'} (f x, map {n'} xs) |> (m + 2.0) * $n
     in
         map
     end

@@ -8,6 +8,7 @@ fun str_uvar_bs (_ : 'a -> string) (u : 'a uvar_bs) = exfalso u
 fun str_uvar_mt (_ : string list * string list -> 'mtype -> string) (_ : string list * string list) (u : ('bsort, 'mtype) uvar_mt) = exfalso u
 fun evar_name n = "?" ^ str_int n
 fun str_uvar_i (_ : string list -> 'idx -> string) (_ : string list) n = evar_name n
+fun eq_uvar_i (u : ('bsort, 'idx) uvar_i, u' : ('bsort, 'idx) uvar_i) = u = u'
 end
 
 structure NoUVarExpr = ExprFun (structure Var = IntVar structure UVar = NoUVar)

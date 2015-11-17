@@ -53,6 +53,7 @@ signature UVAR = sig
     val str_uvar_bs : ('a -> string) -> 'a uvar_bs -> string
     val str_uvar_i : (string list -> 'idx -> string) -> string list -> ('bsort, 'idx) uvar_i -> string
     val str_uvar_mt : (string list * string list -> 'mtype -> string) -> string list * string list -> ('bsort, 'mtype) uvar_mt -> string
+    val eq_uvar_i : ('bsort, 'idx) uvar_i * ('bsort, 'idx) uvar_i -> bool
 end
 
 functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
@@ -99,7 +100,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         Basic of bsort * region
 	         | Subset of (bsort * region) * (name * prop) ibind
                  | UVarS of (bsort, sort) uvar_s * region
-					 
+					               
         val STime = Basic (Base Time, dummy)
         val SBool = Basic (Base Bool, dummy)
         val SUnit = Basic (Base BSUnit, dummy)
@@ -113,8 +114,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         | ExI of sort * (name * mtype) ibind
 	         (* the first operant of App can only be a type variable. The degenerated case of no-arguments is also included *)
 	         | AppV of id * mtype list * idx list * region
-	         | Int of region
-                 | UVar of (bsort, mtype) uvar_mt * region
+	                 | Int of region
+                                | UVar of (bsort, mtype) uvar_mt * region
 
         datatype ty = 
 	         Mono of mtype
@@ -169,14 +170,14 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 val tnames = map fst tnames
                 val (ns, t) = peel_UniI t
                 val (t, is) = case t of
-                            Arrow (t, _, AppV (_, _, is, _)) => (t, is)
-                          | _ => raise Impossible "constr_from_type (): t not the right form"
+                                  Arrow (t, _, AppV (_, _, is, _)) => (t, is)
+                                | _ => raise Impossible "constr_from_type (): t not the right form"
             in
                 (tnames, fold_ibinds (ns, (t, is)))
             end
 
         type return = mtype option * idx option
-                                       
+                                         
         datatype ptrn =
 	         ConstrP of id * string list * ptrn option * region
                  | VarP of name
@@ -246,10 +247,10 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         (* pretty-printers *)
 
         fun str_bs (s : bsort) =
-          case s of
-              Base s => str_b s
-            | UVarBS u => str_uvar_bs str_bs u
-                            
+            case s of
+                Base s => str_b s
+              | UVarBS u => str_uvar_bs str_bs u
+                                        
         fun str_i ctx (i : idx) : string = 
             case i of
                 VarI (x, _) => str_v ctx x
@@ -361,7 +362,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 end
               | VarP (name, _) =>
                 let
-                    (* val () = println $ sprintf "VarP: $" [name] *)
+                (* val () = println $ sprintf "VarP: $" [name] *)
                 in
                     ([], [name])
                 end
@@ -605,6 +606,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                       | (TrueI _, TrueI _) => true
                       | (FalseI _, FalseI _) => true
                       | (TTI _, TTI _) => true
+                      | (UVarI (u, _), UVarI (u', _)) => eq_uvar_i (u, u')
                       | _ => false
             in
                 loop i i'
@@ -624,48 +626,51 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
             fun set () = changed := true
             fun passi i =
 	        case i of
-	            BinOpI (MaxI, i1, i2) =>
-	            if eq_i i1 i2 then
-		        (set ();
-                         i1)
-	            else
-		        BinOpI (MaxI, passi i1, passi i2)
-	          | BinOpI (MinI, i1, i2) =>
-	            if eq_i i1 i2 then
-		        (set ();
-                         i1)
-	            else
-		        BinOpI (MinI, passi i1, passi i2)
-	          | BinOpI (AddI, i1, i2) => 
-	            if eq_i i1 (T0 dummy) then
-                        (set ();
-                         i2)
-	            else if eq_i i2 (T0 dummy) then
-                        (set ();
-                         i1)
-	            else
-		        BinOpI (AddI, passi i1, passi i2)
-	          | BinOpI (MinusI, i1, i2) => 
-	            if eq_i i2 (T0 dummy) then
-                        (set ();
-                         i1)
-	            else
-		        BinOpI (MinusI, passi i1, passi i2)
-	          | BinOpI (MultI, i1, i2) => 
-	            if eq_i i1 (T0 dummy) then
-                        (set ();
-                         (T0 dummy))
-	            else if eq_i i2 (T0 dummy) then
-                        (set ();
-                         (T0 dummy))
-	            else if eq_i i1 (T1 dummy) then
-                        (set ();
-                         i2)
-	            else if eq_i i2 (T1 dummy) then
-                        (set ();
-                         i1)
-	            else
-		        BinOpI (MultI, passi i1, passi i2)
+	            BinOpI (opr, i1, i2) =>
+                    (case opr of
+	                 MaxI =>
+	                 if eq_i i1 i2 then
+		             (set ();
+                              i1)
+	                 else
+		             BinOpI (opr, passi i1, passi i2)
+	               | MinI =>
+	                 if eq_i i1 i2 then
+		             (set ();
+                              i1)
+	                 else
+		             BinOpI (opr, passi i1, passi i2)
+	               | AddI => 
+	                 if eq_i i1 (T0 dummy) then
+                             (set ();
+                              i2)
+	                 else if eq_i i2 (T0 dummy) then
+                             (set ();
+                              i1)
+	                 else
+		             BinOpI (opr, passi i1, passi i2)
+	               | MinusI => 
+	                 if eq_i i2 (T0 dummy) then
+                             (set ();
+                              i1)
+	                 else
+		             BinOpI (opr, passi i1, passi i2)
+	               | MultI => 
+	                 if eq_i i1 (T0 dummy) then
+                             (set ();
+                              (T0 dummy))
+	                 else if eq_i i2 (T0 dummy) then
+                             (set ();
+                              (T0 dummy))
+	                 else if eq_i i1 (T1 dummy) then
+                             (set ();
+                              i2)
+	                 else if eq_i i2 (T1 dummy) then
+                             (set ();
+                              i1)
+	                 else
+		             BinOpI (opr, passi i1, passi i2)
+                    )
                   | UnOpI (opr, i, r) =>
                     UnOpI (opr, passi i, r)
 	          | _ => i
@@ -673,7 +678,28 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
             fun passp p = 
 	        case p of
 	            BinConn (opr, p1, p2) => 
-	            BinConn (opr, passp p1, passp p2)
+                    (case opr of
+                         And =>
+	                 if eq_p p1 (True dummy) then
+                             (set ();
+                              p2)
+	                 else if eq_p p2 (True dummy) then
+                             (set ();
+                              p1)
+	                 else
+	                     BinConn (opr, passp p1, passp p2)
+                       | Or =>
+	                 if eq_p p1 (False dummy) then
+                             (set ();
+                              p2)
+	                 else if eq_p p2 (False dummy) then
+                             (set ();
+                              p1)
+	                 else
+	                     BinConn (opr, passp p1, passp p2)
+                       | _ =>
+	                 BinConn (opr, passp p1, passp p2)
+                    )
 	          | BinPred (opr, i1, i2) => 
 	            BinPred (opr, passi i1, passi i2)
 	          | _ => p
@@ -743,7 +769,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | Never _ => false
 
         end
-                                                                    
+                                                                  
 structure StringVar = struct
 type var = string
 fun str_v ctx x : string = x
@@ -769,6 +795,7 @@ type ('a, 'b) uvar_mt = unit
 fun str_uvar_bs (_ : 'a -> string) (_ : 'a uvar_bs) = "_"
 fun str_uvar_i (_ : string list -> 'idx -> string) (_ : string list) (_ : ('bsort, 'idx) uvar_i) = "_"
 fun str_uvar_mt (_ : string list * string list -> 'mtype -> string) (_ : string list * string list) (_ : ('bsort, 'mtype) uvar_mt) = "_"
+fun eq_uvar_i (_, _) = false
 end
 
 structure NamefulExpr = ExprFun (structure Var = StringVar structure UVar = Underscore)
