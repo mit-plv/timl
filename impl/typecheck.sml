@@ -1749,29 +1749,33 @@ local
              | ErrorClose s => ([], CloseVC :: s)
                                    
     fun to_vc_formulas (fs : formula list) : VC.formula list =
-        case fs of
-            [] => []
-          | f :: fs =>
-            case f of
-                AnchorF anchor =>
-                let
-                    val xs = List.mapPartial (fn x => !x) (!anchor)
-                    val fs = to_vc_formulas fs
-                    fun to_exists (uname, fs) =
-                        case uname of
-                            Idx ((n, _, _, _), bsort) => [VC.ExistsF (evar_name n, get_base bsort, fs)]
-                          | _ => raise Impossible "to_vc_formulas(): uname should be Idx"
-                    val fs = foldl to_exists fs xs
-                in
-                    fs
-                end
-              | _ => to_vc_formula f :: to_vc_formulas fs
+        let
+            fun to_vc_formula f =
+                case f of
+                    ForallF (name, bs, fs) => VC.ForallF (name, bs, to_vc_formulas fs)
+                  | ImplyF (p, fs) => VC.ImplyF (p, to_vc_formulas fs)
+                  | PropF p => VC.PropF p
+                  | AnchorF _ => raise Impossible "to_vc_formula (): shouldn't be AnchorF"
+        in
+            case fs of
+                [] => []
+              | f :: fs =>
+                case f of
+                    AnchorF anchor =>
+                    let
+                        val xs = List.mapPartial (fn x => !x) (!anchor)
+                        val fs = to_vc_formulas fs
+                        fun to_exists (uname, fs) =
+                            case uname of
+                                Idx ((n, _, _, _), bsort) => [VC.ExistsF (evar_name n, get_base bsort, fs)]
+                              | _ => raise Impossible "to_vc_formulas(): uname should be Idx"
+                        val fs = foldl to_exists fs xs
+                    in
+                        fs
+                    end
+                  | _ => to_vc_formula f :: to_vc_formulas fs
+        end
 
-    and to_vc_formula f =
-        case f of
-            ForallF (name, bs, fs) => VC.ForallF (name, bs, to_vc_formulas fs)
-                                    | 
-                                           
     fun to_vcs vces =
         let
             (* val () = println $ join " " $ map str_vce vces *)
@@ -1780,6 +1784,8 @@ local
                          [] => ()
                        | _ => raise Impossible "to_vcs (): remaining after get_formulas"
             val () = app println $ map (str_f []) fs
+            val fs = to_vc_formulas fs
+            val () = app println $ map (VC.str_f []) fs
         in
             []
         end
