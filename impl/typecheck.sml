@@ -1604,9 +1604,9 @@ local
                   | (SOME t, NONE) =>
                     let 
                         val (e, _, d) = check_mtype (ctx, e, shift_ctx_mt ctxd t)
-                        val () = println $ str_i (names (#1 ctx)) d
+                        (* val () = println $ str_i (names (#1 ctx)) d *)
 			val d = forget_ctx_d (get_region_e e) ctx ctxd d
-                        val () = println $ str_i (names (#1 ctx0)) d
+                        (* val () = println $ str_i (names (#1 ctx0)) d *)
                     in
                         (e, t, d)
                     end
