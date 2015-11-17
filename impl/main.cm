@@ -12,15 +12,19 @@ Group is
       elaborate.sml
       name-resolve.sml
       subst.sml
+(*
       trivial-solver.sml
+*)
       vc.sml
       typecheck.sml
       sexp/sexp.sml
       sexp/sexp.grm
       sexp/sexp.lex
       sexp/parser.sml
+(*
       smt2-printer.sml
       smt-solver.sml
+*)
       main.sml
 
       $/basis.cm

@@ -2,7 +2,6 @@ structure TypeCheck = struct
 open Region
 structure U = UnderscoredExpr
 open Expr
-open VC
 
 infixr 0 $
 
@@ -1666,6 +1665,8 @@ local
           | AnchorF anchor => sprintf "(anchor ($))" [join " " $ map (fn x => str_uname (!x)) (!anchor)]
           | PropF (p, _) => N.str_p ctx p
 
+    and str_fs ctx fs = (join " " o map (str_f ctx)) fs
+
     fun get_base bs =
         case update_bs bs of
             Base b => b
@@ -1684,12 +1685,12 @@ local
                   | TrueI r => N.TrueI r
                   | FalseI r => N.FalseI r
                   | TTI r => N.TTI r
-                  | UVar (uref, r) =>
+                  | UVarI ((_, uref), r) =>
                     case !uref of
                         Refined _ => raise Impossible "no_uvar_i (): shouldn't be Refined after update_i"
-                      | Fresh (_, nmref) =>
+                      | Fresh nmref =>
                         case !nmref of
-                            SOME (Idx ((n, _, _, _), _)) => N.UVar (n, r)
+                            SOME (Idx ((n, _, _, _), _)) => N.UVarI (n, r)
                           | _ => raise Impossible "no_uvar_i (): uname should only be Idx"
         in
             f i
@@ -1698,7 +1699,7 @@ local
     fun no_uvar_p p =
         case p of
             True r => N.True r
-          | Fase r => N.False r
+          | False r => N.False r
           | BinConn (opr, p1, p2) => N.BinConn (opr, no_uvar_p p1, no_uvar_p p2)
           | BinPred (opr, i1, i2) => N.BinPred (opr, no_uvar_i i1, no_uvar_i i2)
           | Not (p, r) => N.Not (no_uvar_p p, r)
@@ -1735,7 +1736,7 @@ local
                     (ImplyF (no_uvar_p p, fs), s)
                 end
               | AnchorVC anchor => (AnchorF anchor, s)
-              | AndVC p => (PropF (no_uvar_p p), s)
+              | AndVC (p, r) => (PropF (no_uvar_p p, r), s)
               | CloseVC => raise ErrorClose s
 
     and get_formulas (s : vc_entry list) =
@@ -1767,7 +1768,7 @@ local
                         val fs = to_vc_formulas fs
                         fun to_exists (uname, fs) =
                             case uname of
-                                Idx ((n, _, _, _), bsort) => [VC.ExistsF (evar_name n, get_base bsort, fs)]
+                                Idx ((n, _, _, _), bsort) => [VC.ExistsF (n, get_base bsort, fs)]
                               | _ => raise Impossible "to_vc_formulas(): uname should be Idx"
                         val fs = foldl to_exists fs xs
                     in
@@ -1776,18 +1777,22 @@ local
                   | _ => to_vc_formula f :: to_vc_formulas fs
         end
 
-    fun to_vcs vces =
+    open VC
+
+    fun vces_to_vcs vces =
         let
             (* val () = println $ join " " $ map str_vce vces *)
             val (fs, vces) = get_formulas vces
             val () = case vces of
                          [] => ()
                        | _ => raise Impossible "to_vcs (): remaining after get_formulas"
-            val () = app println $ map (str_f []) fs
+            (* val () = app println $ map (str_f []) fs *)
             val fs = to_vc_formulas fs
-            val () = app println $ map (VC.str_f []) fs
+            val fs = map (uniquefy []) fs
+            (* val () = app println $ map (str_f []) fs *)
+            val vcs = split_formulas fs
         in
-            []
+            vcs
         end
 
     fun runWriter m _ =
@@ -1795,7 +1800,7 @@ local
             val () = acc := []
             val r = m () 
             val vces = rev (!acc)
-            val vcs = to_vcs vces
+            val vcs = vces_to_vcs vces
         in 
             (r, vcs) 
         end
@@ -1825,17 +1830,16 @@ fun vcgen_expr_opt ctx decls =
 	   
 end
 
-open TrivialSolver
+(* open TrivialSolver *)
 
 (* exception Unimpl *)
 
-fun typecheck_expr (ctx as (sctx, kctx, cctx, tctx) : context) e : (expr * mtype * idx) * vc list =
+fun typecheck_expr (ctx as (sctx, kctx, cctx, tctx) : context) e : (expr * mtype * idx) * VC.vc list =
   let 
-      val ((e, t, d), vces) = vcgen_expr ctx e
+      val ((e, t, d), vcs) = vcgen_expr ctx e
       val t = simp_mt op= t
       val d = simp_i op= d
-      val vcs = map (uniquefy_names) vcs
-      val vcs = simp_and_solve_vcs vcs
+      (* val vcs = simp_and_solve_vcs vcs *)
   in
       ((e, t, d), vcs)
   end
@@ -1843,17 +1847,15 @@ fun typecheck_expr (ctx as (sctx, kctx, cctx, tctx) : context) e : (expr * mtype
 fun typecheck_expr_opt ctx e =
   runError (fn () => typecheck_expr ctx e) ()
 
-type tc_result = (decl list * context * idx list * context) * vc list
+type tc_result = (decl list * context * idx list * context) * VC.vc list
 
 fun typecheck_decls (ctx as (sctx, kctx, cctx, tctx) : context) decls : tc_result =
   let 
-      val ((decls, ctxd, ds, ctx), vces) = vcgen_decls ctx decls
+      val ((decls, ctxd, ds, ctx), vcs) = vcgen_decls ctx decls
       val ctxd = (upd4 o map o mapSnd) (simp_t op=) ctxd
       val ds = rev ds
       val ds = map (simp_i op=) ds
-      val vcs = to_vcs vces
-      val vcs = map (uniquefy_names) vcs
-      val vcs = simp_and_solve_vcs vcs
+      (* val vcs = simp_and_solve_vcs vcs *)
   in
       ((decls, ctxd, ds, ctx), vcs)
   end
