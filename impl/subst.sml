@@ -229,7 +229,7 @@ fun shrink_mt (invisi, invist) b = (shrink forget_i_mt invisi o shrink forget_t_
 (* subst *)
 
 exception Error of string
-exception SubstUVar of bsort uvar_name
+exception SubstUVar of (bsort uvar_name) option
 
 fun substx_invis uname x invis =
     let 

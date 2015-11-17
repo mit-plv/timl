@@ -9,9 +9,8 @@ datatype 'bsort uvar_name =
          NonIdx of 'bsort uvar_name_core
          | Idx of 'bsort uvar_name_core * 'bsort
          | BSort of int
-         | Gone
 
-withtype 'bsort anchor = (('bsort uvar_name) ref) list
+withtype 'bsort anchor = ((('bsort uvar_name) option) ref) list
 
 and 'bsort uvar_name_core = int * ('bsort anchor) ref * int (* order *) * string list
 
@@ -24,22 +23,24 @@ fun shrink forget invis b =
     (fst o foldl (fn ((off, len), (b, base)) => (forget (base + off) len b, base + off)) (b, 0)) invis
 fun shrink_ctx invis ctx = shrink skip invis ctx
 
-type ('bsort, 't) uvar_ref = ((('bsort uvar_name) ref, 't) uvar) ref
+type ('bsort, 't) uvar_ref = (((('bsort uvar_name) option) ref, 't) uvar) ref
 
 fun refine (x : ('bsort, 't) uvar_ref) (v : 't) = 
     case !x of
         Refined _ => raise Impossible "refine(): should only refine Fresh uvar"
       | Fresh name =>
-        (name := Gone;
+        (name := NONE;
          x := Refined v)
 
 fun str_uvar n = "?" ^ str_int n
 fun str_uname uname =
-    case uname of
-        Idx ((n, _, _, _), _) => str_uvar n
-      | NonIdx (n, _, _, _) => str_uvar n
-      | BSort n => str_uvar n
-      | None => raise Impossible "str_uname (): shouldn't be None" 
+  case uname of
+      NONE => "NONE"
+    | SOME uname =>
+      case uname of
+          Idx ((n, _, _, _), _) => str_uvar n
+        | NonIdx (n, _, _, _) => str_uvar n
+        | BSort n => str_uvar n
 
 type ('bsort, 'idx) uvar_i = invisibles * ('bsort, 'idx) uvar_ref
 fun str_uvar_i str_i ctx ((invis, u) : ('bsort, 'idx) uvar_i) =
