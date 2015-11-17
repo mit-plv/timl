@@ -42,6 +42,7 @@ end
 signature VAR = sig
     type var
     val str_v : string list -> var -> string
+    val eq_v : var * var -> bool
 end
 
 signature UVAR = sig
@@ -592,11 +593,11 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | Rec (_, _, _, r) => r
               | Datatype (_, _, _, _, r) => r
 
-        fun eq_i eq_var i i' =
+        fun eq_i i i' =
             let
                 fun loop i i' =
                     case (i, i') of
-                        (VarI (x, _), VarI (x', _)) => eq_var (x, x')
+                        (VarI (x, _), VarI (x', _)) => eq_v (x, x')
                       | (ConstIN (n, _), ConstIN (n', _)) => n = n'
                       | (ConstIT (x, _), ConstIT (x', _)) => x = x'
                       | (UnOpI (opr, i, _), UnOpI (opr', i', _)) => opr = opr' andalso loop i i'
@@ -609,82 +610,72 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 loop i i'
             end
 
-        fun eq_p eq_var p p' =
-            let 
-                fun loop p p' =
-                    case (p, p') of
-                        (True _ , True _) => true
-                      | (False _, False _) => true
-                      | (BinConn (opr, p1, p2), BinConn (opr', p1', p2')) => opr = opr' andalso loop p1 p1' andalso loop p2 p2'
-                      | (BinPred (opr, i1, i2), BinPred (opr', i1', i2')) => opr = opr' andalso eq_i eq_var i1 i1' andalso eq_i eq_var i2 i2'
-                      | _ => false
-            in
-                loop p p'
-            end
+        fun eq_p p p' =
+            case (p, p') of
+                (True _ , True _) => true
+              | (False _, False _) => true
+              | (BinConn (opr, p1, p2), BinConn (opr', p1', p2')) => opr = opr' andalso eq_p p1 p1' andalso eq_p p2 p2'
+              | (BinPred (opr, i1, i2), BinPred (opr', i1', i2')) => opr = opr' andalso eq_i i1 i1' andalso eq_i i2 i2'
+              | _ => false
 
         local
             val changed = ref false
             fun unset () = changed := false
             fun set () = changed := true
-            fun passi eq_var =
-                let
-                    fun loop i =
-	                case i of
-	                    BinOpI (MaxI, i1, i2) =>
-	                    if eq_i eq_var i1 i2 then
-		                (set ();
-                                 i1)
-	                    else
-		                BinOpI (MaxI, loop i1, loop i2)
-	                  | BinOpI (MinI, i1, i2) =>
-	                    if eq_i eq_var i1 i2 then
-		                (set ();
-                                 i1)
-	                    else
-		                BinOpI (MinI, loop i1, loop i2)
-	                  | BinOpI (AddI, i1, i2) => 
-	                    if eq_i eq_var i1 (T0 dummy) then
-                                (set ();
-                                 i2)
-	                    else if eq_i eq_var i2 (T0 dummy) then
-                                (set ();
-                                 i1)
-	                    else
-		                BinOpI (AddI, loop i1, loop i2)
-	                  | BinOpI (MinusI, i1, i2) => 
-	                    if eq_i eq_var i2 (T0 dummy) then
-                                (set ();
-                                 i1)
-	                    else
-		                BinOpI (MinusI, loop i1, loop i2)
-	                  | BinOpI (MultI, i1, i2) => 
-	                    if eq_i eq_var i1 (T0 dummy) then
-                                (set ();
-                                 (T0 dummy))
-	                    else if eq_i eq_var i2 (T0 dummy) then
-                                (set ();
-                                 (T0 dummy))
-	                    else if eq_i eq_var i1 (T1 dummy) then
-                                (set ();
-                                 i2)
-	                    else if eq_i eq_var i2 (T1 dummy) then
-                                (set ();
-                                 i1)
-	                    else
-		                BinOpI (MultI, loop i1, loop i2)
-                          | UnOpI (opr, i, r) =>
-                            UnOpI (opr, loop i, r)
-	                  | _ => i
-                in
-                    loop
-                end
+            fun passi i =
+	        case i of
+	            BinOpI (MaxI, i1, i2) =>
+	            if eq_i i1 i2 then
+		        (set ();
+                         i1)
+	            else
+		        BinOpI (MaxI, passi i1, passi i2)
+	          | BinOpI (MinI, i1, i2) =>
+	            if eq_i i1 i2 then
+		        (set ();
+                         i1)
+	            else
+		        BinOpI (MinI, passi i1, passi i2)
+	          | BinOpI (AddI, i1, i2) => 
+	            if eq_i i1 (T0 dummy) then
+                        (set ();
+                         i2)
+	            else if eq_i i2 (T0 dummy) then
+                        (set ();
+                         i1)
+	            else
+		        BinOpI (AddI, passi i1, passi i2)
+	          | BinOpI (MinusI, i1, i2) => 
+	            if eq_i i2 (T0 dummy) then
+                        (set ();
+                         i1)
+	            else
+		        BinOpI (MinusI, passi i1, passi i2)
+	          | BinOpI (MultI, i1, i2) => 
+	            if eq_i i1 (T0 dummy) then
+                        (set ();
+                         (T0 dummy))
+	            else if eq_i i2 (T0 dummy) then
+                        (set ();
+                         (T0 dummy))
+	            else if eq_i i1 (T1 dummy) then
+                        (set ();
+                         i2)
+	            else if eq_i i2 (T1 dummy) then
+                        (set ();
+                         i1)
+	            else
+		        BinOpI (MultI, passi i1, passi i2)
+                  | UnOpI (opr, i, r) =>
+                    UnOpI (opr, passi i, r)
+	          | _ => i
 
-            fun passp eq_var p = 
+            fun passp p = 
 	        case p of
 	            BinConn (opr, p1, p2) => 
-	            BinConn (opr, passp eq_var p1, passp eq_var p2)
+	            BinConn (opr, passp p1, passp p2)
 	          | BinPred (opr, i1, i2) => 
-	            BinPred (opr, passi eq_var i1, passi eq_var i2)
+	            BinPred (opr, passi i1, passi i2)
 	          | _ => p
                              
             fun until_unchanged f a = 
@@ -700,39 +691,34 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	            loop a
 	        end
         in
-        fun simp_i eq_var = until_unchanged (passi eq_var)
-        fun simp_p eq_var = until_unchanged (passp eq_var)
-        fun simp_vc eq_var (ctx, ps, p, r) = (ctx, map (simp_p eq_var) ps, simp_p eq_var p, r)
+        val simp_i = until_unchanged passi
+        val simp_p = until_unchanged passp
+        fun simp_vc (ctx, ps, p, r) = (ctx, map simp_p ps, simp_p p, r)
         end
 
         fun simp_ibind f (BindI (name, inner)) = BindI (name, f inner)
 
-        fun simp_s eq_var s =
+        fun simp_s s =
             case s of
 	        Basic b => Basic b
-              | Subset (b, bind) => Subset (b, simp_ibind (simp_p eq_var) bind)
+              | Subset (b, bind) => Subset (b, simp_ibind simp_p bind)
               | UVarS u => UVarS u
 
-        fun simp_mt eq_var =
-            let
-                fun f t =
-	            case t of
-	                Arrow (t1, d, t2) => Arrow (f t1, simp_i eq_var d, f t2)
-	              | Prod (t1, t2) => Prod (f t1, f t2)
-	              | Unit r => Unit r
-	              | AppV (x, ts, is, r) => AppV (x, map f ts, map (simp_i eq_var) is, r)
-	              | UniI (s, bind) => UniI (simp_s eq_var s, simp_ibind f bind)
-	              | ExI (s, bind) => ExI (simp_s eq_var s, simp_ibind f bind)
-	              | Int r => Int r
-                      | UVar u => UVar u
-            in
-                f
-            end
-
-        fun simp_t eq_var t =
+        fun simp_mt t =
 	    case t of
-	        Mono t => Mono (simp_mt eq_var t)
-	      | Uni (name, t) => Uni (name, simp_t eq_var t)
+	        Arrow (t1, d, t2) => Arrow (simp_mt t1, simp_i d, simp_mt t2)
+	      | Prod (t1, t2) => Prod (simp_mt t1, simp_mt t2)
+	      | Unit r => Unit r
+	      | AppV (x, ts, is, r) => AppV (x, map simp_mt ts, map simp_i is, r)
+	      | UniI (s, bind) => UniI (simp_s s, simp_ibind simp_mt bind)
+	      | ExI (s, bind) => ExI (simp_s s, simp_ibind simp_mt bind)
+	      | Int r => Int r
+              | UVar u => UVar u
+
+        fun simp_t t =
+	    case t of
+	        Mono t => Mono (simp_mt t)
+	      | Uni (name, t) => Uni (name, simp_t t)
 
         fun is_value (e : expr) : bool =
             case e of
@@ -761,6 +747,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 structure StringVar = struct
 type var = string
 fun str_v ctx x : string = x
+fun eq_v (x : var, y) = x = y
 end
 
 structure IntVar = struct
@@ -771,6 +758,7 @@ fun str_v ctx x : string =
     case nth_error ctx x of
         SOME name => name
       | NONE => "unbound_" ^ str_int x
+fun eq_v (x : var, y) = x = y
 end
 
 structure Underscore = struct

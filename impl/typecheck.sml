@@ -730,9 +730,9 @@ local
       end
 
     fun smart_max a b =
-      if eq_i op= a (T0 dummy) then
+      if eq_i a (T0 dummy) then
           b
-      else if eq_i op= b (T0 dummy) then
+      else if eq_i b (T0 dummy) then
           a
       else
           BinOpI (MaxI, a, b)
@@ -1319,7 +1319,7 @@ local
 		      val e = U.App (f, shift_e_e e)
 		      val (e, t, d) = get_mtype (add_typing_skct (cname, tc) ctx, e) 
                       val (e, d) =
-                          case (e, simp_i op= d) of
+                          case (e, simp_i d) of
 		              (* constructor application doesn't incur count *)
                               (App (f, e), (BinOpI (AddI, d, T1))) =>
                               let
@@ -1830,16 +1830,17 @@ fun vcgen_expr_opt ctx decls =
 	   
 end
 
-(* open TrivialSolver *)
+structure S = TrivialSolver
 
 (* exception Unimpl *)
 
 fun typecheck_expr (ctx as (sctx, kctx, cctx, tctx) : context) e : (expr * mtype * idx) * VC.vc list =
   let 
       val ((e, t, d), vcs) = vcgen_expr ctx e
-      val t = simp_mt op= t
-      val d = simp_i op= d
-      (* val vcs = simp_and_solve_vcs vcs *)
+      val t = simp_mt t
+      val d = simp_i d
+      val vcs = map VC.simp_vc vcs
+      val vcs = S.simp_and_solve_vcs vcs
   in
       ((e, t, d), vcs)
   end
@@ -1852,10 +1853,11 @@ type tc_result = (decl list * context * idx list * context) * VC.vc list
 fun typecheck_decls (ctx as (sctx, kctx, cctx, tctx) : context) decls : tc_result =
   let 
       val ((decls, ctxd, ds, ctx), vcs) = vcgen_decls ctx decls
-      val ctxd = (upd4 o map o mapSnd) (simp_t op=) ctxd
+      val ctxd = (upd4 o map o mapSnd) simp_t ctxd
       val ds = rev ds
-      val ds = map (simp_i op=) ds
-      (* val vcs = simp_and_solve_vcs vcs *)
+      val ds = map simp_i ds
+      val vcs = map VC.simp_vc vcs
+      val vcs = S.simp_and_solve_vcs vcs
   in
       ((decls, ctxd, ds, ctx), vcs)
   end

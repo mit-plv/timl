@@ -36,6 +36,17 @@ fun str_f ctx f =
 
 and str_fs ctx fs = (join " " o map (str_f ctx)) fs
 
+fun simp_f f =
+    case f of
+        ForallF (name, bsort, fs) =>
+        ForallF (name, bsort, map simp_f fs)
+      | ImplyF (p, fs) =>
+        ImplyF (simp_p p, map simp_f fs)
+      | PropF (p, r) => 
+        PropF (simp_p p, r)
+      | ExistsF (name, bsort, fs) =>
+        ExistsF (name, bsort, map simp_f fs)
+
 local
     fun find_unique ls name =
         if not (mem op= name ls) then
@@ -79,9 +90,38 @@ datatype hyp =
 
 type vc = hyp list * formula
 
+fun str_vc show_region filename ((hyps, f) : vc) =
+    let 
+        val region = if show_region then 
+                         case f of
+                             PropF (_, r) =>
+                             [str_region "" filename r] 
+                           | _ => []
+                     else []
+        fun g (h, (hyps, ctx)) =
+            case h of
+                VarH (name, bs) => (sprintf "$ : $" [name, str_b bs] :: hyps, name :: ctx)
+              | PropH p => (str_p ctx p :: hyps, ctx)
+        val (hyps, ctx) = foldr g ([], []) hyps
+        val hyps = rev hyps
+        val f = str_f ctx f
+    in
+        region @
+        hyps @
+        ["==============="] @
+        [f]
+    end 
+
+fun simp_hyp h =
+    case h of
+        VarH a => VarH a
+      | PropH p => PropH (simp_p p)
+
+fun simp_vc ((hyps, f) : vc) : vc = (map simp_hyp hyps, simp_f f)
+
 fun split_formula f =
     let
-        fun add_hyp h vc = mapFst (fn hyps => h :: hyps) vc
+        fun add_hyp h vc = mapFst (fn hyps => hyps @ [h]) vc
     in
         case f of
             ForallF (name, bs, fs) =>
@@ -102,27 +142,5 @@ fun split_formula f =
     end
 
 and split_formulas fs = concatMap split_formula fs
-
-fun str_vc show_region filename ((hyps, f) : vc) =
-    let 
-        val region = if show_region then 
-                         case f of
-                             PropF (_, r) =>
-                             [str_region "" filename r] 
-                           | _ => []
-                     else []
-        fun g (h, (hyps, ctx)) =
-            case h of
-                VarH (name, bs) => (sprintf "$ : $" [name, str_b bs] :: hyps, name :: ctx)
-              | PropH p => (str_p ctx p :: hyps, ctx)
-        val (hyps, ctx) = foldl g ([], []) hyps
-        val hyps = rev hyps
-        val f = str_f ctx f
-    in
-        region @
-        hyps @
-        ["==============="] @
-        [f]
-    end 
 
 end
