@@ -167,6 +167,85 @@ fun make_ctx_from_sorting pair : context = ([pair], [], [], [])
 fun make_ctx_from_sortings pairs : context = (pairs, [], [], [])
 fun make_ctx_from_typing pair : context = ([], [], [], [pair])
 
+fun update_bs bs =
+    case bs of
+        UVarBS x =>
+        (case !x of
+             Refined bs => 
+             let 
+                 val bs = update_bs bs
+                 val () = x := Refined bs
+             in
+                 bs
+             end
+           | Fresh _ => bs
+        )
+      | Base _ => bs
+
+fun update_i i =
+    case i of
+        UVarI ((invis, x), r) => 
+        (case !x of
+             Refined i => 
+             let 
+                 val i = update_i i
+                 val () = x := Refined i
+             in
+                 expand_i invis i
+             end
+           | Fresh _ => i
+        )
+      | UnOpI (opr, i, r) => UnOpI (opr, update_i i, r)
+      | BinOpI (opr, i1, i2) => BinOpI (opr, update_i i1, update_i i2)
+      | VarI _ => i
+      | ConstIN _ => i
+      | ConstIT _ => i
+      | TTI _ => i
+      | TrueI _ => i
+      | FalseI _ => i
+
+fun update_s s =
+    case s of
+        UVarS ((invis, x), r) =>
+        (case !x of
+             Refined s => 
+             let 
+                 val s = update_s s
+                 val () = x := Refined s
+             in
+                 expand_s invis s
+             end
+           | Fresh _ => s
+        )
+      | Basic _ => s
+      | Subset _ => s
+
+fun update_mt t =
+    case t of
+        UVar ((invis, x), r) => 
+        (case !x of
+             Refined t => 
+             let 
+                 val t = update_mt t
+                 val () = x := Refined t
+             in
+                 expand_mt invis t
+             end
+           | Fresh _ => t
+        )
+      | Arrow (t1, d, t2) => Arrow (update_mt t1, update_i d, update_mt t2)
+      | Unit r => Unit r
+      | Prod (t1, t2) => Prod (update_mt t1, update_mt t2)
+      | UniI (s, BindI (name, t1)) => UniI (update_s s, BindI (name, update_mt t1))
+      | ExI (s, BindI (name, t1)) => ExI (update_s s, BindI (name, update_mt t1))
+      | AppV (y, ts, is, r) => AppV (y, map update_mt ts, map update_i is, r)
+      | Int r => Int r
+
+fun update_t t =
+    case t of
+        Mono t => Mono (update_mt t)
+      | Uni (name, t) => Uni (name, update_t t)
+
 exception Error of region * string list
 
 fun runError m _ =
@@ -218,80 +297,6 @@ local
 	  ()
       else
 	  raise Error (r, ["List length mismatch"])
-
-    fun update_bs bs =
-        case bs of
-            UVarBS x =>
-            (case !x of
-                 Refined bs => 
-                 let 
-                     val bs = update_bs bs
-                     val () = x := Refined bs
-                 in
-                     bs
-                 end
-               | Fresh _ => bs
-            )
-          | Base _ => bs
-
-    fun update_i i =
-      case i of
-          UVarI ((invis, x), r) => 
-          (case !x of
-               Refined i => 
-               let 
-                   val i = update_i i
-                   val () = x := Refined i
-               in
-                   expand_i invis i
-               end
-             | Fresh _ => i
-          )
-        | UnOpI (opr, i, r) => UnOpI (opr, update_i i, r)
-        | BinOpI (opr, i1, i2) => BinOpI (opr, update_i i1, update_i i2)
-        | VarI _ => i
-        | ConstIN _ => i
-        | ConstIT _ => i
-        | TTI _ => i
-        | TrueI _ => i
-        | FalseI _ => i
-
-    fun update_s s =
-      case s of
-          UVarS ((invis, x), r) =>
-          (case !x of
-               Refined s => 
-               let 
-                   val s = update_s s
-                   val () = x := Refined s
-               in
-                   expand_s invis s
-               end
-             | Fresh _ => s
-          )
-        | Basic _ => s
-        | Subset _ => s
-
-    fun update_mt t =
-      case t of
-          UVar ((invis, x), r) => 
-          (case !x of
-               Refined t => 
-               let 
-                   val t = update_mt t
-                   val () = x := Refined t
-               in
-                   expand_mt invis t
-               end
-             | Fresh _ => t
-          )
-        | Arrow (t1, d, t2) => Arrow (update_mt t1, update_i d, update_mt t2)
-        | Unit r => Unit r
-        | Prod (t1, t2) => Prod (update_mt t1, update_mt t2)
-        | UniI (s, BindI (name, t1)) => UniI (update_s s, BindI (name, update_mt t1))
-        | ExI (s, BindI (name, t1)) => ExI (update_s s, BindI (name, update_mt t1))
-        | AppV (y, ts, is, r) => AppV (y, map update_mt ts, map update_i is, r)
-        | Int r => Int r
 
     fun unify_error r (s, s') =             
       Error (r, [sprintf "Can't unify $ and $" [s, s']])
@@ -1318,16 +1323,31 @@ local
 		      val f = foldl (fn (i, e) => U.AppI (e, i)) f is
 		      val e = U.App (f, shift_e_e e)
 		      val (e, t, d) = get_mtype (add_typing_skct (cname, tc) ctx, e) 
-                      val (e, d) =
-                          case (e, simp_i d) of
-		              (* constructor application doesn't incur count *)
-                              (App (f, e), (BinOpI (AddI, d, T1))) =>
+                      val () = println $ str_i sctxn d
+                      val d = update_i d
+                      val d = simp_i d
+                      val () = println $ str_i sctxn d
+                      val wrong_d = Impossible "get_mtype (): U.AppConstr: d in wrong form"
+		      (* constructor application doesn't incur count *)
+                      val d =
+                          case d of
+                              ConstIT (_, r) => 
+                              if eq_i d (T1 r) then T0 r 
+                              else raise wrong_d
+                            | (BinOpI (AddI, d1, d2)) => 
+                              if eq_i d1 (T1 dummy) then d2
+                              else if eq_i d2 (T1 dummy) then d1
+                              else raise wrong_d
+                            | _ => raise wrong_d
+                      val e =
+                          case e of
+                              App (f, e) =>
                               let
                                   val (_, is) = peel_AppI f
                               in
-                                  (AppConstr (cx, is, e), d)
+                                  AppConstr (cx, is, e)
                               end
-                            | _ => raise Impossible "get_mtype (): U.AppConstr: (e, d) in wrong form"
+                            | _ => raise Impossible "get_mtype (): U.AppConstr: e in wrong form"
 		  in
 		      (e, t, d)
 		  end
@@ -1837,7 +1857,9 @@ structure S = TrivialSolver
 fun typecheck_expr (ctx as (sctx, kctx, cctx, tctx) : context) e : (expr * mtype * idx) * VC.vc list =
   let 
       val ((e, t, d), vcs) = vcgen_expr ctx e
+      val t = update_mt t
       val t = simp_mt t
+      val d = update_i d
       val d = simp_i d
       val vcs = map VC.simp_vc vcs
       val vcs = S.simp_and_solve_vcs vcs
@@ -1853,8 +1875,9 @@ type tc_result = (decl list * context * idx list * context) * VC.vc list
 fun typecheck_decls (ctx as (sctx, kctx, cctx, tctx) : context) decls : tc_result =
   let 
       val ((decls, ctxd, ds, ctx), vcs) = vcgen_decls ctx decls
-      val ctxd = (upd4 o map o mapSnd) simp_t ctxd
+      val ctxd = (upd4 o map o mapSnd) (simp_t o update_t) ctxd
       val ds = rev ds
+      val ds = map update_i ds
       val ds = map simp_i ds
       val vcs = map VC.simp_vc vcs
       val vcs = S.simp_and_solve_vcs vcs
