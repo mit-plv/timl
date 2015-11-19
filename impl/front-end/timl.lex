@@ -39,7 +39,7 @@ fun eof reporter =
 
 val keywords = [
     ("fn", T.FN),
-    ("rec", T.REC),
+    ("fun", T.FUN),
     ("case", T.CASE),
     ("unpack", T.UNPACK),
     ("of", T.OF),
