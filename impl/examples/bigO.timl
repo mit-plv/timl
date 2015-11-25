@@ -2,35 +2,27 @@ datatype {Nat} 'a list =
          nil of unit -> {0} 'a list
          | cons of {n : Nat} 'a * {n} 'a list -> {n + 1} 'a list
 
-val ['a] ['b] map = 
- fn {m : Time} (f : _ -- m --> _) =>
-    let 
-        fun map {n : Nat} (xs : {n} 'a list) return {n} 'b list |> (m + 2.0) * $n =
-            case xs return {n} 'b list of
-                nil => nil
-              | cons {_} (x, xs) => cons {_} (f x, map {_} xs) |> (m + 2.0) * $n
-    in
-        map
-    end
-
-val idx c1 : Profile = _
-
 val g =
- fn {n : Nat} (xs : {n} int list) |> O c1 $n => xs
+ fn {n : Nat} (xs : {n} int list) return |> 0.0 => xs
 
-val idx c2 : Profile = _
+(* val idx c1 : Profile = _ *)
 
-val h =
- fn {n : Nat} (xs : {n} int list) |> O c2 $1 => xs
+(* val g = *)
+(*  fn {n : Nat} (xs : {n} int list) |> O c1 $n => xs *)
 
-val idx c3 : Profile = _
+(* val idx c2 : Profile = _ *)
 
-val f =
- fn {n : Nat} (xs : {n} int list) |> O c3 $n =>
-    let
-        val xs = g _ xs
-        val xs = h _ xs
-    in
-        xs
-    end
+(* val h = *)
+(*  fn {n : Nat} (xs : {n} int list) |> O c2 $1 => xs *)
+
+(* val idx c3 : Profile = _ *)
+
+(* val f = *)
+(*  fn {n : Nat} (xs : {n} int list) |> O c3 $n => *)
+(*     let *)
+(*         val xs = g _ xs *)
+(*         val xs = h _ xs *)
+(*     in *)
+(*         xs *)
+(*     end *)
 

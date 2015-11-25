@@ -75,15 +75,17 @@ datatype bind =
 datatype case_type =
          HCase
        | HUnpack
+
+type return = ty option * idx option
              
 datatype exp = 
 	 Var of string * region
        | Tuple of exp list * region
-       | Abs of bind list * exp * region
+       | Abs of bind list * return * exp * region
        | App of exp * exp * region
        | AppT of exp * ty * region
        | AppI of exp * idx * region
-       | Case of case_type * exp * (ty option * idx option) * (ptrn * exp) list * region
+       | Case of case_type * exp * return * (ptrn * exp) list * region
        | Ascription of exp * ty * region
        | AscriptionTime of exp * idx * region
        | Let of decl list * exp * region
@@ -92,7 +94,7 @@ datatype exp =
 
 and decl =
     Val of id list * ptrn * exp * region
-    | Rec of id list * id * bind list * (ty option * idx option) * exp * region
+    | Rec of id list * id * bind list * return * exp * region
     | Datatype of string * string list * sort list * constr_decl list * region
 
 type reporter = string * pos * pos -> unit

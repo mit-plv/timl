@@ -149,13 +149,17 @@ local
 	    (case es of
 		 [] => TT r
 	       | e :: es => foldl (fn (e2, e1) => Pair (e1, elab e2)) (elab e) es)
-	  | S.Abs (binds, e, r) =>
-	    let fun f (b, e) =
+	  | S.Abs (binds, (t, d), e, r) =>
+	    let 
+                fun f (b, e) =
 		  case b of
 		      Typing pn => Abs (elab_pn pn, e)
 		    | TBind (Sorting (x, s, _)) => AbsI (elab_s s, x, e)
+                val e = elab e
+                val e = case d of SOME d => AscriptionTime (e, elab_i d) | _ => e
+                val e = case t of SOME t => Ascription (e, elab_mt t) | _ => e
 	    in
-		foldr f (elab e) binds
+		foldr f e binds
 	    end
 	  | S.App (e1, e2, _) =>
 	    let 
