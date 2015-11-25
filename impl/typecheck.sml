@@ -578,30 +578,43 @@ local
       		    SOME s => (VarI (x, r), get_base r (sctx_names ctx) s)
       	          | NONE => raise Error (r, ["Unbound index variable: " ^ str_v (sctx_names ctx) x])
             end
-          | U.UnOpI (ToReal, i, r) =>
-            (UnOpI (ToReal,
-                    check_bsort order (ctx, i, Base Nat),
-                    r),
-             Base Time)
-          | U.UnOpI (Log2, i, r) =>
-            (UnOpI (Log2,
-                    check_bsort order (ctx, i, Base Time),
-                    r),
-             Base Time)
+          | U.UnOpI (opr, i, r) =>
+            (case opr of
+                 ToReal =>
+                 (UnOpI (ToReal,
+                         check_bsort order (ctx, i, Base Nat),
+                         r),
+                  Base Time)
+               | Log2 =>
+                 (UnOpI (Log2,
+                         check_bsort order (ctx, i, Base Time),
+                         r),
+                  Base Time)
+            )
 	  | U.BinOpI (opr, i1, i2) =>
-            let 
-                val (i1, bs1) = get_bsort order (ctx, i1)
-                val (i2, bs2) = get_bsort order (ctx, i2)
-                val () = unify_bs (U.get_region_i i) (bs1, bs2)
-                val bs = update_bs bs1
-                val () =
-                    case bs of
-                        Base Nat => ()
-                      | Base Time => ()
-                      | _ => raise Error (U.get_region_i i, sprintf "Sorts of operands of $ must be both Nat or Time:" [str_idx_bin_op opr] :: indent ["left: " ^ str_bs bs1, "right: " ^ str_bs bs2])
-            in
-                (BinOpI (opr, i1, i2), bs)
-            end
+            (case opr of
+                 BigO => 
+                 let 
+                     val i1 = check_bsort order (ctx, i1, Base Profile)
+                     val i2 = check_bsort order (ctx, i2, Base Time)
+                 in
+                     (BinOpI (BigO, i1, i2), Base Time)
+                 end
+               | _ =>
+                 let 
+                     val (i1, bs1) = get_bsort order (ctx, i1)
+                     val (i2, bs2) = get_bsort order (ctx, i2)
+                     val () = unify_bs (U.get_region_i i) (bs1, bs2)
+                     val bs = update_bs bs1
+                     val () =
+                         case bs of
+                             Base Nat => ()
+                           | Base Time => ()
+                           | _ => raise Error (U.get_region_i i, sprintf "Sorts of operands of $ must be both Nat or Time:" [str_idx_bin_op opr] :: indent ["left: " ^ str_bs bs1, "right: " ^ str_bs bs2])
+                 in
+                     (BinOpI (opr, i1, i2), bs)
+                 end
+            )
 	  | U.ConstIT (x, r) => 
 	    (ConstIT (x, r), Base Time)
 	  | U.ConstIN (n, r) => 

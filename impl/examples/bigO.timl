@@ -2,13 +2,13 @@ datatype {Nat} 'a list =
          nil of unit -> {0} 'a list
          | cons of {n : Nat} 'a * {n} 'a list -> {n + 1} 'a list
 
-val g =
- fn {n : Nat} (xs : {n} int list) return |> 0.0 => xs
+(* val g = *)
+(*  fn {n : Nat} (xs : {n} int list) return |> 0.0 => xs *)
 
 (* val idx c1 : Profile = _ *)
 
-(* val g = *)
-(*  fn {n : Nat} (xs : {n} int list) |> O c1 $n => xs *)
+val g =
+ fn {n : Nat} (xs : {n} int list) return |> O _ $n => xs
 
 (* val idx c2 : Profile = _ *)
 
@@ -25,4 +25,33 @@ val g =
 (*     in *)
 (*         xs *)
 (*     end *)
+
+        (*
+
+exists {c : Time} {ub : Time}, forall {n : Nat}, {n} 'a list -- max ub (c * $n * log2 $n) --> {n} 'a list
+
+exists {c : BigOConsts}, forall {n : Nat}, {n} 'a list -- O c ($n * log2 $n) --> {n} 'a list
+
+exists {g : O (n => $n * log2 $n)}, forall {n : Nat}, {n} 'a list -- g n --> {n} 'a list
+
+==========================
+O (ub1,c1) (n * log n) + O (ub2,c2) n <= O ((ub1+ub2)/c2+1.73,c1+1.0) (n * log n)
+
+==========================
+exists c, O c1 (n * log n) + O c2 n <= O c (n * log n)
+
+idx c1
+
+idx c2
+
+merge_sort : forall 'a {m : Time}, ('a * 'a -- m --> bool) -- 0.0 --> forall {n : Nat}, {n} 'a list -- O c1 m * O c2 ($n * log2 $n) --> {n} 'a list
+
+<->
+
+merge_sort : forall 'a {m : Time}, ('a * 'a -- m --> bool) -- 0.0 --> forall {n : Nat}, {n} 'a list -- O m * O ($n * log2 $n) --> {n} 'a list
+
+==========================
+exists c, O c1 n + O c2 n + O c3 1 <= O c n
+
+        *)
 

@@ -6,6 +6,7 @@ datatype base_sort =
          | Nat
 	 | Bool
 	 | BSUnit
+         | Profile
 
 fun str_b (s : base_sort) : string = 
     case s of
@@ -13,6 +14,7 @@ fun str_b (s : base_sort) : string =
       | Nat => "Nat"
       | Bool => "Bool"
       | BSUnit => "Unit"
+      | Profile => "Profile"
 
 end
 
@@ -670,6 +672,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                               i1)
 	                 else
 		             BinOpI (opr, passi i1, passi i2)
+                       | BigO =>
+		         BinOpI (opr, passi i1, passi i2)
                     )
                   | UnOpI (opr, i, r) =>
                     UnOpI (opr, passi i, r)

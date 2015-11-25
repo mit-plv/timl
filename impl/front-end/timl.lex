@@ -54,6 +54,7 @@ val keywords = [
     ("max", T.MAX),
     ("min", T.MIN),
     ("log2", T.LOG2),
+    ("O", T.BIG_O),
     ("as", T.AS)
 ]
  

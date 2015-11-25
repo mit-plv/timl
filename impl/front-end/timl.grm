@@ -52,6 +52,7 @@ open Ast
     | DOLLAR
     | LOG2
     | GT
+    | BIG_O
 
 %nonterm start of decl list
        | exp of exp
@@ -166,6 +167,7 @@ idx : id (VarI id)
     | idx MULT idx (BinOpI (MultI, idx1, idx2, (idx1left, idx2right)))
     | idx MAX idx (BinOpI (MaxI, idx1, idx2, (idx1left, idx2right)))
     | idx MIN idx (BinOpI (MinI, idx1, idx2, (idx1left, idx2right)))
+    | BIG_O idx idx (BinOpI (BigO, idx1, idx2, (BIG_Oleft, idx2right)))
     | DOLLAR idx (UnOpI (ToReal, idx, (DOLLARleft, idxright)))
     | idx_un_op idx %prec DOLLAR (UnOpI (idx_un_op, idx, (idx_un_opleft, idxright)))
     | LPAREN RPAREN (TTI (LPARENleft, RPARENright))

@@ -70,31 +70,3 @@ val ['a] msort =
 val ['a] merge_sort =
     pack [exists {c : {c : Time | c > 0.0}}, forall {m : Time}, ('a * 'a -- m --> bool) -- 0.0 --> forall {n : Nat}, {n} 'a list -- (m + 3.0) * c * $n * log2 $n --> {n} 'a list] {4.0} msort
 
-         (*
-
-exists {c : Time} {ub : Time}, forall {n : Nat}, {n} 'a list -- max ub (c * $n * log2 $n) --> {n} 'a list
-
-exists {c : BigOConsts}, forall {n : Nat}, {n} 'a list -- O c ($n * log2 $n) --> {n} 'a list
-
-exists {g : O (n => $n * log2 $n)}, forall {n : Nat}, {n} 'a list -- g n --> {n} 'a list
-
-==========================
-O (ub1,c1) (n * log n) + O (ub2,c2) n <= O ((ub1+ub2)/c2+1.73,c1+1.0) (n * log n)
-
-==========================
-exists c, O c1 (n * log n) + O c2 n <= O c (n * log n)
-
-idx c1
-
-idx c2
-
-merge_sort : forall 'a {m : Time}, ('a * 'a -- m --> bool) -- 0.0 --> forall {n : Nat}, {n} 'a list -- O c1 m * O c2 ($n * log2 $n) --> {n} 'a list
-
-<->
-
-merge_sort : forall 'a {m : Time}, ('a * 'a -- m --> bool) -- 0.0 --> forall {n : Nat}, {n} 'a list -- O m * O ($n * log2 $n) --> {n} 'a list
-
-==========================
-exists c, O c1 n + O c2 n + O c3 1 <= O c n
-
-         *)
