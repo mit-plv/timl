@@ -1,63 +1,65 @@
+Set Maximal Implicit Insertion.
+Set Implicit Arguments.
+
+Require Import List.
 Require Import Util.
 Require Import Complexity.
 
 Export Complexity.
 
-Inductive type :=
-| Tarrow (t1 : type) (time_cost : cexpr) (result_size : size) (t2 : type)
+Inductive type ctx : Type :=
+| Tarrow : type ctx -> cexpr (CEexpr :: ctx) -> size (CEexpr :: ctx) ->  type (CEexpr :: ctx) -> type ctx
 (* polymorphism *)           
-| Tvar (x : var)
-| Tuniversal (time_cost : cexpr) (result_size : size) (t : type)
-(* higher-order operators *)
-| Tabs (t : type)
-| Tapp (a b : type)
+| Tvar : var CEtype ctx -> type ctx
+| Tuniversal : cexpr ctx -> size ctx -> type (CEtype :: ctx) -> type ctx
 (* recursive types *)         
-| Trecur (t : type)
+| Trecur : type (CEtype :: ctx) -> type ctx
 (* to deal with statistics s2 and s3 *)
-| Thide (_ : type)
+| Thide : type ctx -> type ctx
 (* basic types *)
-| Tunit
-| Tprod (_ _ : type)
-| Tsum (_ _ : type)
+| Tunit : type ctx
+| Tprod : type ctx -> type ctx -> type ctx
+| Tsum : type ctx -> type ctx -> type ctx
 .
+
+Arguments Tunit {ctx} .
+
+Infix "*" := Tprod : ty.
+Infix "+" := Tsum : ty.
+Delimit Scope ty with ty.
+Bind Scope ty with type.
 
 Coercion Tvar : var >-> type.
 
-Inductive expr :=
-  | Evar (x : var)
-  | Eapp (f : expr) (arg : expr)
-  | Eabs (t : type) (body : expr)
-  | Elet (def : expr) (main : expr)
-  | Etapp (e : expr) (t : type)
-  | Etabs (body : expr)
-  | Efold (_ : type) (_ : expr)
-  | Eunfold (_ : expr)
-  | Ehide (_ : expr)
-  | Eunhide (_ : expr)
-  | Ett
-  | Epair (_ _ : expr)
-  | Einl (_ : type) (_ : expr)
-  | Einr (_ : type) (_ : expr)
-  | Ematch_pair (target : expr) (handler : expr)
-  (* left and right can access #0 representing the corresponding payload *)
-  | Ematch_sum (target : expr) (left right : expr)
-  (* | Eabs_notype (e : expr) (* a version of Eabs used in match handlers, where type annotation is not needed *) *)
+Inductive expr ctx : Type :=
+| Evar : var CEexpr ctx -> expr ctx
+| Eapp : expr ctx -> expr ctx -> expr ctx
+| Eabs : type ctx -> expr (CEexpr :: ctx) -> expr ctx
+| Etapp : expr ctx -> type ctx -> expr ctx
+| Etabs : expr (CEtype :: ctx) -> expr ctx
+| Efold : type ctx -> expr ctx -> expr ctx
+| Eunfold : expr ctx -> expr ctx
+| Ehide : expr ctx -> expr ctx
+| Eunhide : expr ctx -> expr ctx
+| Ett : expr ctx
+| Epair : expr ctx -> expr ctx -> expr ctx
+| Einl : type ctx -> expr ctx -> expr ctx
+| Einr : type ctx -> expr ctx -> expr ctx
+| Efst : expr ctx -> expr ctx
+| Esnd : expr ctx -> expr ctx
+| Ematch : expr ctx -> type ctx -> size ctx -> expr (CEexpr :: ctx) -> expr (CEexpr :: ctx) -> expr ctx
 .
+
+Arguments Ett {ctx} .
 
 Coercion Evar : var >-> expr.
 
-Instance Apply_type_type_type : Apply type type type :=
-  {
-    apply := Tapp
-  }.
-
-Instance Apply_expr_expr_expr : Apply expr expr expr :=
+Global Instance Apply_expr_expr_expr ctx : Apply (expr ctx) (expr ctx) (expr ctx) :=
   {
     apply := Eapp
   }.
 
-Instance Apply_expr_type_expr : Apply expr type expr :=
+Global Instance Apply_expr_type_expr ctx : Apply (expr ctx) (type ctx) (expr ctx) :=
   {
     apply := Etapp
   }.
-

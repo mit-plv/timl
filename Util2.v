@@ -47,10 +47,5 @@ Local Open Scope prog_scope.
 
 Definition map_option {A B} (f : A -> option B) := cat_options << map f.
 
-Fixpoint repeat A (a : A) n :=
-  match n with
-    | O => nil
-    | S n => a :: repeat a n
-  end.
+Definition add_snd {A B} (b : B) (a : A) := (a, b).
 
-Definition removen A n ls := @firstn A n ls ++ skipn (S n) ls.

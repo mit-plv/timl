@@ -1,5 +1,5 @@
 Require Import Omega.
-Require Import Bedrock.Platform.Cito.GeneralTactics4.
+Require Import GeneralTactics4.
 Require Import Syntax Util.
 Require Import Subst.
 Export Subst.

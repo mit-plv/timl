@@ -1,0 +1,285 @@
+open Ast
+
+%%
+
+%name TiML
+
+%term ID of string
+    | LPAREN
+    | RPAREN
+    | DARROW
+    | FN
+    | FUN
+    | LSQ
+    | RSQ
+    | LCUR
+    | RCUR
+    | UNPACK
+    | CASE
+    | OF
+    | COLON
+    | RTRI
+    | LET
+    | IN
+    | END
+    | COMMA
+    | RETURN
+    | ARROW
+    | LARROW
+    | DDASH
+    | MULT
+    | PLUS
+    | MINUS
+    | INT of int
+    | NNREAL of string
+    | BAR
+    | NOT
+    | AND
+    | OR
+    | IFF
+    | EQ
+    | LE
+    | VAL
+    | DATATYPE
+    | EOF
+    | FORALL
+    | EXISTS
+    | APPR (* dummy terminal for precedence *)
+    | MAX
+    | MIN
+    | BOGUS of string
+    | AS
+    | DOLLAR
+    | LOG2
+    | GT
+
+%nonterm start of decl list
+       | exp of exp
+       | aexp of exp
+       | ty of ty
+         (* | aty of ty *)
+       | idx of idx
+       | sort of sort
+       | bsort of bsort
+       | prop of prop
+       | id of id
+       | exp_comma_star of exp list
+       | comma_exp_star of exp list
+       | bind_plus of bind list
+       | bind_star of bind list
+       | bind of bind
+       | tbind_plus of tbind list
+       | tbind_star of tbind list
+       | tbind of tbind
+       | case_type of case_type
+       | return of ty option * idx option
+       | rec_return of ty option * idx option
+       | rule_bar_star of (ptrn * exp) list
+       | bar_rule_star of (ptrn * exp) list
+       | rule of ptrn * exp
+       | ptrn of ptrn
+       | ptrn_opt of ptrn option
+       | ptrn_comma_star of ptrn list
+       | comma_ptrn_star of ptrn list
+       | idx_ids of id list
+       | id_plus of id list
+       | id_star of id list
+       | decl_star of decl list
+       | decl of decl
+       | quan of quan
+       | cur_sort_star of sort list
+       (* | sort_plus of sort list *)
+       | constr_bar_star of constr_decl list
+       | bar_constr_star of constr_decl list
+       | constr of constr_decl
+       | constr_core_opt of constr_core option
+       | constr_result_opt of ty option
+       | sorting_star of tbind list
+       | sorting of tbind
+       | idx_un_op of idx_un_op
+       | tname of id
+       | tname_star of id list
+
+%keyword FN CASE UNPACK OF LET IN END RETURN VAL DATATYPE AS
+
+%pos pos
+
+		(* %nonassoc LET *)
+		(* %nonassoc RTRI *)
+%left COMMA
+%nonassoc IFF
+%right DDASH LARROW ARROW
+%right OR
+%right AND
+%nonassoc NOT
+%nonassoc EQ LE GT
+%left PLUS MINUS
+%left MULT MAX MIN
+%nonassoc DOLLAR
+%right APPR
+
+%eop EOF
+%noshift EOF
+%nodefault
+%verbose
+
+%arg (reporter) : reporter
+
+%%
+
+start : decl_star (decl_star)
+
+decl : VAL tname_star ptrn EQ exp (Val (tname_star, ptrn, exp, (VALleft, expright)))
+     | FUN tname_star id bind_star return EQ exp (Rec (tname_star, id, bind_star, return, exp, (FUNleft, expright)))
+    | DATATYPE cur_sort_star id_plus EQ constr_bar_star (case (map fst o rev) id_plus of id :: id_star => Datatype (id, id_star, rev cur_sort_star, constr_bar_star, (DATATYPEleft, constr_bar_starright)) | [] => raise Impossible "id_plus can't be empty")
+
+exp : aexp (aexp)
+    | exp aexp (App (exp, aexp, (expleft, aexpright)))
+    | exp LSQ ty RSQ (AppT (exp, ty, (expleft, tyright)))
+    | exp LCUR idx RCUR (AppI (exp, idx, (expleft, idxright)))
+    | exp COLON ty (Ascription (exp, ty, (expleft, tyright)))
+    | exp RTRI idx (AscriptionTime (exp, idx, (expleft, idxright)))
+    | exp PLUS exp (BinOp (Add, exp1, exp2, (exp1left, exp2right)))
+
+aexp : id (Var id)
+     | LPAREN exp_comma_star RPAREN (Tuple (exp_comma_star, (LPARENleft, RPARENright)))
+                (* | LPAREN exp RPAREN (exp) *) (* already covered by previous one *)
+     | FN bind_plus return DARROW exp (Abs (bind_plus, return, exp, (FNleft, expright)))
+     | case_type exp return OF rule_bar_star (Case (case_type, exp, return, rule_bar_star, (case_typeleft, rule_bar_starright)))
+     | LET decl_star IN exp END (Let (decl_star, exp, (LETleft, ENDright)))
+     | INT (Const (INT, (INTleft, INTright)))
+
+ty : ty ty %prec APPR (AppTT (ty2, ty1, (ty1left, ty2right)))
+           | LCUR idx RCUR ty %prec APPR (AppTI (ty, idx, (LCURleft, tyright)))
+                              | ty DDASH idx LARROW ty (Arrow (ty1, idx, ty2, (ty1left, ty2right)))
+                              | ty MULT ty (Prod (ty1, ty2, (ty1left, ty2right)))
+                (* aty : *)
+                              | id (VarT id)
+                              | quan tbind_plus COMMA ty (Quan (quan, tbind_plus, ty, (quanleft, tyright)))
+                              | LPAREN ty RPAREN (ty)
+
+idx : id (VarI id)
+    | INT (ConstIN (INT, (INTleft, INTright)))
+    | NNREAL (ConstIT (NNREAL, (NNREALleft, NNREALright)))
+    | idx PLUS idx (BinOpI (AddI, idx1, idx2, (idx1left, idx2right)))
+    | idx MINUS idx (BinOpI (MinusI, idx1, idx2, (idx1left, idx2right)))
+    | idx MULT idx (BinOpI (MultI, idx1, idx2, (idx1left, idx2right)))
+    | idx MAX idx (BinOpI (MaxI, idx1, idx2, (idx1left, idx2right)))
+    | idx MIN idx (BinOpI (MinI, idx1, idx2, (idx1left, idx2right)))
+    | DOLLAR idx (UnOpI (ToReal, idx, (DOLLARleft, idxright)))
+    | idx_un_op idx %prec DOLLAR (UnOpI (idx_un_op, idx, (idx_un_opleft, idxright)))
+    | LPAREN RPAREN (TTI (LPARENleft, RPARENright))
+    | LPAREN idx RPAREN (idx)
+
+sort : bsort (Basic bsort)
+     | LCUR id COLON bsort BAR prop RCUR (Subset (bsort, id, prop, (LCURleft, RCURright)))
+
+bsort : id (id)
+
+prop : id (ConstP id)
+     | NOT prop (Not (prop, (NOTleft, propright)))
+     | prop AND prop (BinConn (And, prop1, prop2, (prop1left, prop2right)))
+     | prop OR prop (BinConn (Or, prop1, prop2, (prop1left, prop2right)))
+     | prop ARROW prop (BinConn (Imply, prop1, prop2, (prop1left, prop2right)))
+     | prop IFF prop (BinConn (Iff, prop1, prop2, (prop1left, prop2right)))
+     | idx EQ idx (BinPred (EqP, idx1, idx2, (idx1left, idx2right)))
+     | idx LE idx (BinPred (LeP, idx1, idx2, (idx1left, idx2right)))
+     | idx GT idx (BinPred (GtP, idx1, idx2, (idx1left, idx2right)))
+
+id : ID ((ID, (IDleft, IDright)))
+
+exp_comma_star : exp comma_exp_star (exp :: comma_exp_star)
+	       | ([])
+
+comma_exp_star : COMMA exp comma_exp_star (exp :: comma_exp_star)
+	       | ([])
+
+bind_star : bind bind_star (bind :: bind_star)
+	  | ([])
+bind_plus : bind bind_star (bind :: bind_star)
+
+bind : ptrn (Typing (ptrn))
+     | LCUR id COLON sort RCUR (TBind (Sorting (id, sort, (LCURleft, RCURright))))
+     | LPAREN bind RPAREN (bind)
+
+tbind_star : tbind tbind_star (tbind :: tbind_star)
+	   | ([])
+tbind_plus : tbind tbind_star (tbind :: tbind_star)
+
+tbind : LCUR id COLON sort RCUR (Sorting (id, sort, (LCURleft, RCURright)))
+      | LPAREN tbind RPAREN (tbind)
+
+case_type : UNPACK (HUnpack)
+          | CASE (HCase)
+                 
+return : RETURN ty RTRI idx ((SOME ty, SOME idx))
+       | RETURN ty ((SOME ty, NONE))
+       | RETURN RTRI idx ((NONE, SOME idx))
+       | ((NONE, NONE))
+
+rec_return : COLON ty RTRI idx ((SOME ty, SOME idx))
+       | COLON ty ((SOME ty, NONE))
+       | RTRI idx ((NONE, SOME idx))
+       | ((NONE, NONE))
+
+rule_bar_star : rule bar_rule_star (rule :: bar_rule_star)
+	      | ([])
+
+bar_rule_star : BAR rule bar_rule_star (rule :: bar_rule_star)
+	      | ([])
+
+rule : ptrn DARROW exp ((ptrn, exp))
+
+ptrn : id idx_ids ptrn_opt (ConstrP (id, map fst idx_ids, ptrn_opt, (idleft, ptrn_optright)))
+     | LPAREN ptrn_comma_star RPAREN (TupleP (ptrn_comma_star, (LPARENleft, RPARENright)))
+     | id AS ptrn (AliasP (id, ptrn, (idleft, ptrnright)))
+     | ptrn COLON ty (AnnoP (ptrn, ty, (ptrnleft, tyright)))
+
+ptrn_opt : ptrn (SOME ptrn)
+         | (NONE)
+               
+ptrn_comma_star : ptrn comma_ptrn_star (ptrn :: comma_ptrn_star)
+	       | ([])
+comma_ptrn_star : COMMA ptrn comma_ptrn_star (ptrn :: comma_ptrn_star)
+	        | ([])
+
+idx_ids : LCUR id_plus RCUR idx_ids (id_plus @ idx_ids)
+	| ([])
+
+id_star : id id_star (id :: id_star)
+	| ([])
+id_plus : id id_star (id :: id_star)
+
+quan : FORALL (Forall)
+     | EXISTS (Exists)
+
+decl_star : decl decl_star (decl :: decl_star)
+	 | ([])
+
+constr : id constr_core_opt ((id, constr_core_opt, (idleft, constr_core_optright)))
+constr_core_opt : OF sorting_star ty constr_result_opt (SOME (sorting_star, ty, constr_result_opt))
+                | (NONE)
+constr_result_opt : ARROW ty (SOME (ty))
+                  | (NONE)
+
+cur_sort_star : LCUR sort RCUR cur_sort_star (sort :: cur_sort_star)
+	  | ([])
+(* sort_plus : sort cur_sort_star (sort :: cur_sort_star) *)
+
+constr_bar_star : constr bar_constr_star (constr :: bar_constr_star)
+	        | ([])
+
+bar_constr_star : BAR constr bar_constr_star (constr :: bar_constr_star)
+	        | ([])
+
+sorting : LCUR id COLON sort RCUR (Sorting (id, sort, (LCURleft, RCURright)))
+        | LCUR id COLON bsort BAR prop RCUR (Sorting (id, Subset (bsort, id, prop, (LCURleft, RCURright)), (LCURleft, RCURright)))
+
+sorting_star : sorting sorting_star (sorting :: sorting_star)
+	   | ([])
+
+idx_un_op : LOG2 (Log2)
+
+tname : LSQ id RSQ (id)
+tname_star : tname tname_star (tname :: tname_star)
+	 | ([])

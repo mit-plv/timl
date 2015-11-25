@@ -1,3 +1,6 @@
+Set Maximal Implicit Insertion.
+Set Implicit Arguments.
+
 Require Import List.
 Require Import Util.
 Require Import Syntax.
@@ -9,78 +12,85 @@ Import ListNotations.
 Local Open Scope list_scope.
 Local Open Scope prog_scope.
 
-Inductive IsValue : expr -> Prop :=
+Inductive IsValue {ctx} : expr ctx -> Prop :=
 | Vvar x : IsValue (Evar x)
 | Vabs t e : IsValue (Eabs t e)
 | Vtabs e : IsValue (Etabs e)
 | Vfold t v : IsValue v -> IsValue (Efold t v)
+| Vhide v : IsValue v -> IsValue (Ehide v)
 | Vtt : IsValue Ett
 | Vpair a b : IsValue a -> IsValue b -> IsValue (Epair a b)
 | Vinl t v : IsValue v -> IsValue (Einl t v)
 | Vinr t v : IsValue v -> IsValue (Einr t v)
 .
 
-(* evaluation context *)
-Inductive econtext :=
-| ECempty
-| ECapp1 (f : econtext) (arg : expr)
-| ECapp2 (f : expr) (arg : econtext) : IsValue f -> econtext
-| EClet (def : econtext) (main : expr)
-| ECtapp (f : econtext) (t : type)
-| ECfold (t : type) (_ : econtext)
-| ECunfold (_ : econtext)
-| EChide (_ : econtext)
-| ECunhide (_ : econtext)
-| ECpair1 (a : econtext) (b : expr)
-| ECpair2 (a : expr) (b : econtext) : IsValue a -> econtext
-| ECinl (_ : type) (_ : econtext)
-| ECinr (_ : type) (_ : econtext)
-| ECmatch_pair (target : econtext) (_ : expr)
-| ECmatch_sum (target : econtext) (a b : expr)
-.
-
-Inductive plug : econtext -> expr -> expr -> Prop :=
-| Pempty e : plug ECempty e e
-| Papp1 E e f arg : plug E e f -> plug (ECapp1 E arg) e (Eapp f arg)
-| Papp2 E e arg f h : plug E e arg -> plug (ECapp2 f E h) e (Eapp f arg)
-| Plet E e def main : plug E e def -> plug (EClet E main) e (Elet def main)
-| Ptapp E e f t : plug E e f -> plug (ECtapp E t) e (Etapp f t)
-| Pfold E e e' t : plug E e e' -> plug (ECfold t E) e (Efold t e')
-| Punfold E e e' : plug E e e' -> plug (ECunfold E) e (Eunfold e')
-| Phide E e e' : plug E e e' -> plug (EChide E) e (Ehide e')
-| Punhide E e e' : plug E e e' -> plug (ECunhide E) e (Eunhide e')
-| Ppair1 E e a b : plug E e a -> plug (ECpair1 E b) e (Epair a b)
-| Ppair2 E e b a h : plug E e b -> plug (ECpair2 a E h) e (Epair a b)
-| Pinl E e e' t : plug E e e' -> plug (ECinl t E) e (Einl t e')
-| Pinr E e e' t : plug E e e' -> plug (ECinr t E) e (Einr t e')
-| Pmatch_pair E e target k : plug E e target -> plug (ECmatch_pair E k) e (Ematch_pair target k)
-| Pmatch_sum E e target k1 k2 : plug E e target -> plug (ECmatch_sum E k1 k2) e (Ematch_sum target k1 k2)
-.
-
-Inductive step : expr -> expr -> Prop :=
-| STecontext E e1 e2 e1' e2' : 
-    step e1 e2 -> 
-    plug E e1 e1' -> 
-    plug E e2 e2' -> 
-    step e1' e2'
-| STapp t body arg : IsValue arg -> step (Eapp (Eabs t body) arg) (subst arg body)
-| STlet v main : IsValue v -> step (Elet v main) (subst v main)
-| STmatch_pair t1 t2 v1 v2 k : 
+(* (n, e) ~> (n', e'), n is the "fuel" *)
+Inductive step : nat -> expr [] -> nat -> expr [] -> Prop :=
+| STapp n t body arg : IsValue arg -> step (1 + n) (Eapp (Eabs t body) arg) n (subst arg body)
+| STfst n v1 v2 :
     IsValue v1 ->
     IsValue v2 ->
-    step (Ematch_pair (Epair $$ t1 $$ t2 $$ v1 $$ v2) k) (subst_list [v1; v2] k)
-| STmatch_inl t1 t2 v k1 k2 : 
+    step (1 + n) (Efst (Epair v1 v2)) n v1
+| STsnd n v1 v2 :
+    IsValue v1 ->
+    IsValue v2 ->
+    step (1 + n) (Esnd (Epair v1 v2)) n v2
+| STmatch_inl n t' v t s k1 k2 : 
     IsValue v ->
-    step (Ematch_sum (Einl $$ t1 $$ t2 $$ v) k1 k2) (subst v k1)
-| STmatch_inr t1 t2 v k1 k2 : 
+    step (1 + n) (Ematch (Einl t' v) t s k1 k2) n (subst v k1)
+| STmatch_inr n t' v t s k1 k2 : 
     IsValue v ->
-    step (Ematch_sum (Einr $$ t1 $$ t2 $$ v) k1 k2) (subst v k2)
-| STtapp body t : step (Etapp (Etabs body) t) (subst t body)
-| STunfold_fold v t1 : 
+    step (1 + n) (Ematch (Einr t' v) t s k1 k2) n (subst v k2)
+| STtapp n body t : step (1 + n) (Etapp (Etabs body) t) n (subst t body)
+| STunfold_fold n v t1 : 
     IsValue v ->
-    step (Eunfold (Efold t1 v)) v
-| STunhide_hide v :
+    step (1 + n) (Eunfold (Efold t1 v)) n v
+| STunhide_hide n v :
     IsValue v ->
-    step (Eunhide (Ehide v)) v
+    step (1 + n) (Eunhide (Ehide v)) n v
+(* contextual cases *)
+| STcapp1 n e1 n' e1' e2 :
+    step n e1 n' e1' ->
+    step n (Eapp e1 e2) n' (Eapp e1' e2)
+| STcapp2 v n e n' e':
+    IsValue v ->
+    step n e n' e' ->
+    step n (Eapp v e) n' (Eapp v e')
+| STctapp n e n' e' t :
+    step n e n' e' ->
+    step n (Etapp e t) n' (Etapp e' t)
+| STcfold n e n' e' t :
+    step n e n' e' ->
+    step n (Efold t e) n' (Efold t e')
+| STcunfold n e n' e' :
+    step n e n' e' ->
+    step n (Eunfold e) n' (Eunfold e')
+| STchide n e n' e' :
+    step n e n' e' ->
+    step n (Ehide e) n' (Ehide e')
+| STcunhide n e n' e' :
+    step n e n' e' ->
+    step n (Eunhide e) n' (Eunhide e')
+| STcpair1 n e1 n' e1' e2 :
+    step n e1 n' e1' ->
+    step n (Epair e1 e2) n' (Epair e1' e2)
+| STcpair2 v n e n' e' :
+    IsValue v ->
+    step n e n' e' ->
+    step n (Epair v e) n' (Epair v e')
+| STcinl n e n' e' t :
+    step n e n' e' ->
+    step n (Einl t e) n' (Einl t e')
+| STcinr n e n' e' t :
+    step n e n' e' ->
+    step n (Einr t e) n' (Einr t e')
+| STcfst n e n' e' :
+    step n e n' e' ->
+    step n (Efst e) n' (Efst e')
+| STcsnd n e n' e' :
+    step n e n' e' ->
+    step n (Esnd e) n' (Esnd e')
+| STcmatch n e n' e' t s e1 e2 :
+    step n e n' e' ->
+    step n (Ematch e t s e1 e2) n' (Ematch e' t s e1 e2)
 .
-

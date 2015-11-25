@@ -1,0 +1,9 @@
+Done. 1. Remove bsort from Eq 
+Done. 2. 'msg' in 'str_error' should be of (string list)
+Done. 3. split 'case' syntax into 'case', 'sumcase' and 'unpack'
+Done. 4. 'case' and 'unpack' should allow omitting return-clause and try to forget unescapable variables (like what 'let' does)
+Done. 5. Distill the 'bind' pattern
+Done. 6. Disallow impredicative universal types
+7. Type inference
+8. Idx inference
+9. make bsort omittable, not sort

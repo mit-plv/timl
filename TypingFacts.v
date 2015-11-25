@@ -1,7 +1,7 @@
 Require Import List.
-Require Import Bedrock.Platform.Cito.GeneralTactics3.
-Require Import Bedrock.Platform.Cito.GeneralTactics4.
-Require Import Bedrock.Platform.Cito.ListFacts4.
+Require Import GeneralTactics3.
+Require Import GeneralTactics4.
+Require Import ListFacts4.
 Require Import Util.
 Require Import Typing.
 

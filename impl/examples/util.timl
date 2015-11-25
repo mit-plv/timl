@@ -1,0 +1,4 @@
+val compose = 
+ fn ['a] ['b] ['c] {m : Time} (f : 'b -- m --> 'c) {n : Time} (g : 'a -- n --> 'b) (x : 'a) =>
+    f (g x)
+

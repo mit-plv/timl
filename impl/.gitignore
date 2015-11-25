@@ -1,0 +1,15 @@
+typecheck
+learn-sml/io
+learn-sml/regexp
+main-image*
+main
+*.x86-linux
+*.s
+*.o
+*.asm
+.cm
+*.cmi
+*.cmo
+*.grm.*
+*.lex.*
+*.model

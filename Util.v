@@ -13,8 +13,8 @@ Class Apply a b c :=
 
 Infix "$" := apply (at level 85, right associativity) : prog_scope.
 Infix "$$" := apply (at level 15, left associativity) : prog_scope.
-Infix "<<" := compose (at level 40) : prog_scope.
-Infix ">>" := (flip compose) (at level 40) : prog_scope.
+Infix "<<" := compose (at level 40, left associativity) : prog_scope.
+Infix ">>" := (flip compose) (at level 35, right associativity) : prog_scope.
 
 Definition apply_arrow {A B} (f : A -> B) x := f x.
 

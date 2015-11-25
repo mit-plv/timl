@@ -1,0 +1,6 @@
+datatype {Nat} {Bool} 'a rbt =
+         Leaf of unit -> {0} {true} 'a rbt
+         | Black of {lc : Bool} {rc : Bool} {bh : Nat}
+                                'a * {bh} {lc} 'a rbt * {bh} {rc} 'a rbt -> {bh + 1} {true} 'a rbt
+         | Red of {bh : Nat}
+                      'a * {bh} {true} 'a rbt * {bh} {true} 'a rbt -> {bh} {false} 'a rbt

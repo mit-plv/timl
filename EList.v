@@ -1,5 +1,5 @@
 Require Import List.
-Require Import Bedrock.Platform.Cito.GeneralTactics4.
+Require Import GeneralTactics4.
 Require Import Util.
 Require Import TypingFacts.
 
