@@ -53,6 +53,7 @@ open Ast
     | LOG2
     | GT
     | BIG_O
+    | IDX
 
 %nonterm start of decl list
        | exp of exp
@@ -100,6 +101,7 @@ open Ast
        | idx_un_op of idx_un_op
        | tname of id
        | tname_star of id list
+       | optional_colon_sort of sort option
 
 %keyword FN CASE UNPACK OF LET IN END RETURN VAL DATATYPE AS
 
@@ -133,6 +135,7 @@ start : decl_star (decl_star)
 decl : VAL tname_star ptrn EQ exp (Val (tname_star, ptrn, exp, (VALleft, expright)))
      | FUN tname_star id bind_star return EQ exp (Rec (tname_star, id, bind_star, return, exp, (FUNleft, expright)))
     | DATATYPE cur_sort_star id_plus EQ constr_bar_star (case (map fst o rev) id_plus of id :: id_star => Datatype (id, id_star, rev cur_sort_star, constr_bar_star, (DATATYPEleft, constr_bar_starright)) | [] => raise Impossible "id_plus can't be empty")
+    | VAL IDX id optional_colon_sort EQ idx (IdxDef (id, optional_colon_sort, idx))
 
 exp : aexp (aexp)
     | exp aexp (App (exp, aexp, (expleft, aexpright)))
@@ -285,3 +288,6 @@ idx_un_op : LOG2 (Log2)
 tname : LSQ id RSQ (id)
 tname_star : tname tname_star (tname :: tname_star)
 	 | ([])
+
+optional_colon_sort : COLON sort (SOME sort)
+                    | (NONE)

@@ -222,6 +222,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  Val of name list * ptrn * expr * region
                  | Rec of name list * name * (stbind list * ((mtype * idx) * expr)) * region
 	         | Datatype of string * string list * sort list * constr_decl list * region
+                 | IdxDef of name * sort * idx
 
         fun peel_AppI e =
             case e of
@@ -503,6 +504,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 in
                     (s, ctx)
                 end
+              | IdxDef ((name, r), s, i) =>
+                (sprintf "val idx $ : $ = $" [name, str_s sctx s, str_i sctx i], (name :: sctx, kctx, cctx, tctx))
 
         and str_rule (ctx as (sctx, kctx, cctx, tctx)) (pn, e) =
             let val (inames, enames) = ptrn_names pn
@@ -595,6 +598,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 Val (_, _, _, r) => r
               | Rec (_, _, _, r) => r
               | Datatype (_, _, _, _, r) => r
+              | IdxDef ((_, r), _, i) => combine_region r (get_region_i i)
 
         fun eq_i i i' =
             let

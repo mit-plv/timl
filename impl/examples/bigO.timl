@@ -5,26 +5,29 @@ datatype {Nat} 'a list =
 (* val g = *)
 (*  fn {n : Nat} (xs : {n} int list) return |> 0.0 => xs *)
 
-(* val idx c1 : Profile = _ *)
+(* val g = *)
+(*  fn {n : Nat} (xs : {n} int list) return |> O _ $n => xs *)
+
+val idx c1 : Profile = _
 
 val g =
- fn {n : Nat} (xs : {n} int list) return |> O _ $n => xs
+ fn {n : Nat} (xs : {n} int list) return |> O c1 $n => xs
 
-(* val idx c2 : Profile = _ *)
+val idx c2 : Profile = _
 
-(* val h = *)
-(*  fn {n : Nat} (xs : {n} int list) |> O c2 $1 => xs *)
+val h =
+ fn {n : Nat} (xs : {n} int list) return |> O c2 $1 => xs
 
-(* val idx c3 : Profile = _ *)
+val idx c3 : Profile = _
 
-(* val f = *)
-(*  fn {n : Nat} (xs : {n} int list) |> O c3 $n => *)
-(*     let *)
-(*         val xs = g _ xs *)
-(*         val xs = h _ xs *)
-(*     in *)
-(*         xs *)
-(*     end *)
+val f =
+ fn {n : Nat} (xs : {n} int list) return |> O c3 $n =>
+    let
+        val xs = g {_} xs
+        val xs = h {_} xs
+    in
+        xs
+    end
 
         (*
 

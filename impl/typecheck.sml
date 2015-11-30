@@ -163,9 +163,9 @@ fun shift_ctx_mt (sctx, kctx, _, _) t =
   (shiftx_t_mt 0 (length kctx) o shiftx_i_mt 0 (sctx_length sctx)) t
 
 val empty_ctx = ([], [], [], [])
-fun make_ctx_from_sorting pair : context = ([pair], [], [], [])
-fun make_ctx_from_sortings pairs : context = (pairs, [], [], [])
-fun make_ctx_from_typing pair : context = ([], [], [], [pair])
+fun ctx_from_sorting pair : context = ([pair], [], [], [])
+fun ctx_from_sortings pairs : context = (pairs, [], [], [])
+fun ctx_from_typing pair : context = ([], [], [], [pair])
 
 fun update_bs bs =
     case bs of
@@ -281,10 +281,10 @@ local
 
     fun write_anchor anchor = write (AnchorVC anchor)
 
-    fun write_and (p, r) = write (PropVC (p, r))
+    fun write_prop (p, r) = write (PropVC (p, r))
 
     fun write_le (d : idx, d' : idx, r) =
-      write_and (d %<= d', r)
+      write_prop (d %<= d', r)
 	        
     fun check_length_n r (ls, n) =
       if length ls = n then
@@ -352,7 +352,7 @@ local
               unify_i r ctx (i', i)
 	    | _ => 
               if eq_i i i' then ()
-              else write_and (BinPred (EqP, i, i'), r)
+              else write_prop (BinPred (EqP, i, i'), r)
       end
 
     fun unify_s r ctx (s, s') =
@@ -383,9 +383,9 @@ local
 	    | (Subset ((bs, r1), BindI ((name, _), p)), Subset ((bs', _), BindI (_, p'))) =>
               let
 	          val () = unify_bs r (bs, bs')
-                  val ctxd = make_ctx_from_sorting (name, Basic (bs, r1))
+                  val ctxd = ctx_from_sorting (name, Basic (bs, r1))
                   val () = open_vc ctxd
-	          val () = write_and (p <-> p', r)
+	          val () = write_prop (p <-> p', r)
                   val () = close_vc ctxd
               in
                   ()
@@ -393,9 +393,9 @@ local
 	    | (Subset ((bs, r1), BindI ((name, _), p)), Basic (bs', _)) =>
               let
 	          val () = unify_bs r (bs, bs')
-                  val ctxd = make_ctx_from_sorting (name, Basic (bs, r1))
+                  val ctxd = ctx_from_sorting (name, Basic (bs, r1))
                   val () = open_vc ctxd
-	          val () = write_and (p, r)
+	          val () = write_prop (p, r)
                   val () = close_vc ctxd
               in
                   ()
@@ -403,9 +403,9 @@ local
 	    | (Basic (bs, r1), Subset ((bs', _), BindI ((name, _), p))) =>
               let
 	          val () = unify_bs r (bs, bs')
-                  val ctxd = make_ctx_from_sorting (name, Basic (bs, r1))
+                  val ctxd = ctx_from_sorting (name, Basic (bs, r1))
                   val () = open_vc ctxd
-	          val () = write_and (p, r)
+	          val () = write_prop (p, r)
                   val () = close_vc ctxd
               in
                   ()
@@ -656,7 +656,7 @@ local
 	      (case s of
 		   Subset ((bs, _), BindI (_, p)) =>
 		   (unify_bs r (bs', bs);
-		    write_and (subst_i_p i p, get_region_i i))
+		    write_prop (subst_i_p i p, get_region_i i))
 	         | Basic (bs, _) => 
 		   unify_bs r (bs', bs)
                  | UVarS ((_, x), _) =>
@@ -1069,7 +1069,7 @@ local
 		                  let val t1 = subst_ts_mt ts t1
 			              val is = map (shiftx_i_i 0 (length name_sorts)) is
 			              val ps = ListPair.map (fn (a, b) => BinPred (EqP, a, b)) (is', is)
-                                      val ctxd = (make_ctx_from_sortings o rev o ListPair.zip) (inames, snd (ListPair.unzip name_sorts))
+                                      val ctxd = (ctx_from_sortings o rev o ListPair.zip) (inames, snd (ListPair.unzip name_sorts))
                                       val () = open_vc ctxd
                                       val () = open_premises ps
                                       val ctx = add_ctx_skc ctxd ctx
@@ -1091,7 +1091,7 @@ local
                     | _ => raise Error (r, [sprintf "Pattern $ doesn't match type $" [U.str_pn (sctx_names sctx, names kctx, names cctx) pn, str_mt skctxn t]])
               end
             | U.VarP (name, r) =>
-              (VarP (name, r), TrueC, make_ctx_from_typing (name, Mono t), 0)
+              (VarP (name, r), TrueC, ctx_from_typing (name, Mono t), 0)
             | U.PairP (pn1, pn2) =>
               let 
                   val anchor = make_anchor ()
@@ -1115,7 +1115,7 @@ local
                   (TTP r, TTC, empty_ctx, 0)
               end
             | U.AliasP ((pname, r1), pn, r) =>
-              let val ctxd = make_ctx_from_typing (pname, Mono t)
+              let val ctxd = ctx_from_typing (pname, Mono t)
                   val (pn, cover, ctxd', nps) = match_ptrn (ctx, pn, t)
                   val ctxd = add_ctx ctxd' ctxd
               in
@@ -1201,7 +1201,7 @@ local
 		      val () = if U.is_value e then ()
 		               else raise Error (U.get_region_e e, ["The body of a universal abstraction must be a value"])
                       val s = is_wf_sort 0 (sctx, s)
-                      val ctxd = make_ctx_from_sorting (name, s)
+                      val ctxd = ctx_from_sorting (name, s)
                       val ctx = add_ctx ctxd ctx
                       val () = open_vc ctxd
 		      val (e, t, _) = get_mtype (ctx, e) 
@@ -1385,7 +1385,7 @@ local
 		| U.Never t => 
                   let
 		      val t = is_wf_mtype (skctx, t)
-		      val () = write_and (False dummy, U.get_region_e e_all)
+		      val () = write_prop (False dummy, U.get_region_e e_all)
                   in
 		      (Never t, t, T0 dummy)
                   end
@@ -1483,7 +1483,7 @@ local
                             else
                                 raise Error (r, ["explicit type variable cannot be generalized because of value restriction"])
                 in
-                    (Val (tnames, VarP (x, r1), e, r), make_ctx_from_typing (x, t), 0, [d])
+                    (Val (tnames, VarP (x, r1), e, r), ctx_from_typing (x, t), 0, [d])
                 end
               | U.Val (tnames, pn, e, r) =>
                 let 
@@ -1506,7 +1506,7 @@ local
                           let 
                               val ctx = add_ctx ctxd ctx
                               val s = is_wf_sort 0 (#1 ctx, s)
-                              val ctxd' = make_ctx_from_sorting (fst name, s)
+                              val ctxd' = ctx_from_sorting (fst name, s)
                               val () = open_vc ctxd'
                               val ctxd = add_ctx ctxd' ctxd
                           in
@@ -1553,7 +1553,7 @@ local
                         | inr (pn, _) => TypingST pn
                     val binds = map h binds
                 in
-                    (Rec (tnames, (name, r1), (binds, ((t, d), e)), r), make_ctx_from_typing (name, te), 0, [T0 dummy])
+                    (Rec (tnames, (name, r1), (binds, ((t, d), e)), r), ctx_from_typing (name, te), 0, [T0 dummy])
 	        end
 	      | U.Datatype (name, tnames, sorts, constr_decls, r) =>
 	        let 
@@ -1581,6 +1581,17 @@ local
 	        in
 		    (Datatype (name, tnames, sorts, constr_decls, r), ([], [nk], rev constrs, []), 0, [])
 	        end
+              | U.IdxDef ((name, r), s, i) =>
+                let
+                    val s = is_wf_sort 0 (sctx, s)
+                    val i = check_sort 0 (sctx, i, s)
+                    val ctxd = ctx_from_sorting (name, s)
+                    val () = open_vc ctxd
+                    val ps = [BinPred (EqP, VarI (0, r), shift_ctx_i ctxd i)]
+                    val () = open_premises ps
+                in
+                    (IdxDef ((name, r), s, i), ctxd, length ps, [])
+                end
         end
 
     and check_rules (ctx as (sctx, kctx, cctx, tctx), rules, t as (t1, return), r) =
@@ -1856,6 +1867,7 @@ fun vcgen_decls ctx decls =
         let
             val (decls, ctxd, nps, ds, ctx) = check_decls (ctx, decls)
             val () = close_premises nps
+            val () = close_vc ctxd
         in
             (decls, ctxd, ds, ctx)
         end

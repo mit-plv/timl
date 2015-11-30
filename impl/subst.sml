@@ -510,6 +510,7 @@ local
                 (Rec (tnames, name, (binds, ((t, d), e)), r), 1)
             end
           | Datatype a => (Datatype a, 0)
+          | IdxDef a => (IdxDef a, 0)
 
     and f_rule x n (pn, e) =
 	let 

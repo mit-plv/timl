@@ -237,6 +237,8 @@ local
             in
                 (decl, ctx)
             end
+          | E.IdxDef ((name, r), s, i) =>
+            (IdxDef ((name, r), on_sort sctx s, on_idx sctx i), (name :: sctx, kctx, cctx, tctx))
 
     and on_rule (ctx as (sctx, kctx, cctx, tctx)) (pn, e) =
         let 

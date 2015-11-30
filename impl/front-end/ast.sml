@@ -92,10 +92,11 @@ datatype exp =
        | Const of int * region
        | BinOp of bin_op * exp * exp * region
 
-and decl =
-    Val of id list * ptrn * exp * region
-    | Rec of id list * id * bind list * return * exp * region
-    | Datatype of string * string list * sort list * constr_decl list * region
+     and decl =
+         Val of id list * ptrn * exp * region
+         | Rec of id list * id * bind list * return * exp * region
+         | Datatype of string * string list * sort list * constr_decl list * region
+         | IdxDef of id * sort option * idx
 
 type reporter = string * pos * pos -> unit
 

@@ -55,6 +55,8 @@ local
 	    (Base Bool, r)
 	else if name = "Unit" then
 	    (Base BSUnit, r)
+	else if name = "Profile" then
+	    (Base Profile, r)
         else if name = "_" then
             (UVarBS (), r)
 	else raise Error (r, sprintf "Unrecognized base sort: $" [name])
@@ -250,6 +252,12 @@ local
                   end
             in
                 Datatype (name, tnames, map elab_s sorts, map elab_constr constrs, r)
+            end
+          | S.IdxDef ((name, r), s, i) =>
+            let
+                val s = case s of SOME s => elab_s s | NONE => UVarS ((), r)
+            in
+                IdxDef ((name, r), s, elab_i i)
             end
 
 in
