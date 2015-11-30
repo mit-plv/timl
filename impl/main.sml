@@ -15,6 +15,8 @@ fun print_result show_region filename (((decls, ctxd, ds, ctx), vcs) : tc_result
       val header =
           sprintf "Typechecked $" [filename] ::
           [""]
+      val idx_lines =
+          (List.concat o map (fn (name, s) => [sprintf "$ : $" [name, str_s sctxn s], ""]) o rev o #1) ctxd
       val type_lines =
           (List.concat o map (fn (name, t) => [sprintf "$ : $" [name, str_t (sctxn, kctxn) t], ""]) o rev o #4) ctxd
       val time_lines =
@@ -27,6 +29,7 @@ fun print_result show_region filename (((decls, ctxd, ds, ctx), vcs) : tc_result
       val s = join_lines 
                   (
                     header
+                    @ idx_lines 
                     @ type_lines 
                     @ time_lines 
                   (* @ vc_lines *)
