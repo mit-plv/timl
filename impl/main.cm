@@ -19,8 +19,8 @@ Group is
       sexp/sexp.grm
       sexp/sexp.lex
       sexp/parser.sml
-(*
       smt2-printer.sml
+(*
       smt-solver.sml
 *)
       main.sml

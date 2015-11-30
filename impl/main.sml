@@ -34,7 +34,7 @@ fun print_result show_region filename (((decls, ctxd, ds, ctx), vcs) : tc_result
 
 exception Error of string
                        
-(* open SMT2Printer *)
+open SMT2Printer
 (* open SMTSolver *)
 
 fun typecheck_file (filename, ctx) =
@@ -46,8 +46,8 @@ fun typecheck_file (filename, ctx) =
       val decls = resolve_decls ctxn decls
       (* val () = (print o join_lines o map (suffix "\n") o fst o str_decls ctxn) decls *)
       val result as ((decls, ctxd, ds, ctx), vcs) = typecheck_decls ctx decls
-      (* val smt2 = to_smt2 vcs *)
-      (* val () = write_file (filename ^ ".smt2", smt2) *)
+      val smt2 = to_smt2 vcs
+      val () = write_file (filename ^ ".smt2", smt2)
       val () = println $ print_result false filename result
       (* val () = println "Solving by Z3 SMT solver ..." *)
       (* val (_, unsats) = mapSnd (smt_solver filename) result *)
