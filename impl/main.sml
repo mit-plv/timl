@@ -12,9 +12,10 @@ infixr 0 $
 fun print_result show_region filename (((decls, ctxd, ds, ctx), vcs) : tc_result) =
   let 
       val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
-      val type_lines =
+      val header =
           sprintf "Typechecked $" [filename] ::
-          "" ::
+          [""]
+      val type_lines =
           (List.concat o map (fn (name, t) => [sprintf "$ : $" [name, str_t (sctxn, kctxn) t], ""]) o rev o #4) ctxd
       val time_lines =
           "Times:" :: "" ::
@@ -24,9 +25,11 @@ fun print_result show_region filename (((decls, ctxd, ds, ctx), vcs) : tc_result
           "" ::
 	  concatMap (fn vc => VC.str_vc show_region filename vc @ [""]) vcs
       val s = join_lines 
-                  (type_lines 
-                   @ time_lines 
-                   (* @ vc_lines *)
+                  (
+                    header
+                    @ type_lines 
+                    @ time_lines 
+                  (* @ vc_lines *)
                   )
   in
       s
@@ -35,7 +38,7 @@ fun print_result show_region filename (((decls, ctxd, ds, ctx), vcs) : tc_result
 exception Error of string
                        
 open SMT2Printer
-(* open SMTSolver *)
+open SMTSolver
 
 fun typecheck_file (filename, ctx) =
   let
@@ -46,12 +49,11 @@ fun typecheck_file (filename, ctx) =
       val decls = resolve_decls ctxn decls
       (* val () = (print o join_lines o map (suffix "\n") o fst o str_decls ctxn) decls *)
       val result as ((decls, ctxd, ds, ctx), vcs) = typecheck_decls ctx decls
-      val smt2 = to_smt2 vcs
-      val () = write_file (filename ^ ".smt2", smt2)
+      (* val () = write_file (filename ^ ".smt2", to_smt2 vcs) *)
       val () = println $ print_result false filename result
-      (* val () = println "Solving by Z3 SMT solver ..." *)
-      (* val (_, unsats) = mapSnd (smt_solver filename) result *)
-      val unsats = map (fn vc => (vc, NONE)) vcs
+      val () = println $ sprintf "Generated $ proof obligations." [str_int $ length vcs]
+      val (_, unsats) = mapSnd (smt_solver filename) result
+      (* val unsats = map (fn vc => (vc, NONE)) vcs *)
       fun print_unsat filename (vc, counter) =
         VC.str_vc true filename vc @
         [""] @
@@ -63,7 +65,7 @@ fun typecheck_file (filename, ctx) =
         [""]        
       val () =
           if length unsats <> 0 then
-              (println (sprintf "Can't prove the following $ condition(s):\n" [str_int $ length unsats]);
+              (println (sprintf "Can't prove the following $ proof obligations:\n" [str_int $ length unsats]);
                (app println o concatMap (print_unsat filename)) unsats)
           else
               println "All conditions proved."
@@ -75,7 +77,7 @@ fun typecheck_file (filename, ctx) =
   | NameResolve.Error (r, msg) => raise Error $ str_error "Error" filename r ["Resolve error: " ^ msg]
   | TypeCheck.Error (r, msg) => raise Error $ str_error "Error" filename r ((* "Type error: " :: *) msg)
   | Parser.Error => raise Error "Unknown parse error"
-  (* | SMTError msg => raise Error $ "SMT error: " ^ msg *)
+  | SMTError msg => raise Error $ "SMT error: " ^ msg
   | IO.Io e => raise Error $ sprintf "IO error in function $ on file $" [#function e, #name e]
   | OS.SysErr (msg, err) => raise Error $ sprintf "System error$: $" [(default "" o Option.map (prefix " " o OS.errorName)) err, msg]
                                                          

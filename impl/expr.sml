@@ -260,6 +260,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | ConstIN (n, _) => str_int n
               | ConstIT (x, _) => x
               | UnOpI (opr, i, _) => sprintf "($ $)" [str_idx_un_op opr, str_i ctx i]
+              | BinOpI (BigO, i1, i2) => sprintf "($ $ $)" [str_idx_bin_op BigO, str_i ctx i1, str_i ctx i2]
               | BinOpI (opr, i1, i2) => sprintf "($ $ $)" [str_i ctx i1, str_idx_bin_op opr, str_i ctx i2]
               | TTI _ => "()"
               | TrueI _ => "true"

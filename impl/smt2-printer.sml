@@ -119,7 +119,8 @@ fun print_hyp ctx h =
 
 val prelude = [
     (* "(set-option :produce-proofs true)", *)
-    "(declare-datatypes () ((Unit TT Profile)))",
+    "(declare-datatypes () ((Unit TT)))",
+    "(declare-datatypes () ((Profile Profile1)))",
     "(declare-fun log2 (Real) Real)",
     "(declare-fun bigO (Profile Real) Real)",
     (* "(assert (forall ((x Real) (y Real))", *)
