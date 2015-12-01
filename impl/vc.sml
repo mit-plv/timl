@@ -40,9 +40,15 @@ and str_fs ctx fs = (join " " o map (str_f ctx)) fs
 fun simp_f f =
     case f of
         ForallF (name, bsort, fs) =>
-        (case simp_fs fs of 
-             [] => PropF (True dummy, dummy)
-           | fs => ForallF (name, bsort, fs))
+        let 
+        in
+            case simp_fs fs of 
+                [] => PropF (True dummy, dummy)
+              (* | [ImplyF (BinPred (EqP, VarI (x, _), i), fs)] => *)
+              (*   if x = 0 then *)
+              (*   else *)
+              | fs => ForallF (name, bsort, fs)
+        end
       | ImplyF (p, fs) =>
         (case simp_fs fs of 
              [] => PropF (True dummy, dummy)

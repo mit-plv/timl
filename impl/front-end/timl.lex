@@ -56,6 +56,7 @@ val keywords = [
     ("log2", T.LOG2),
     ("O", T.BIG_O),
     ("idx", T.IDX),
+    ("type", T.TYPE),
     ("as", T.AS)
 ]
  
