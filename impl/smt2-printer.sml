@@ -93,6 +93,7 @@ fun print_f ctx f =
     case f of
         PropF (p, _) => print_p ctx p
       | ImplyF (p, fs) => sprintf "(=> $ $)" [print_p ctx p, print_fs ctx fs]
+      | AndF fs => print_fs ctx fs
       | ForallF (name, bs, fs) => sprintf "(forall (($ $)) $)" [name, print_base_sort bs, print_fs (name :: ctx) fs]
       | ExistsF (name, bs, fs) => sprintf "(exists (($ $)) $)" [evar_name name, print_base_sort bs, print_fs ctx fs]
 
@@ -179,6 +180,7 @@ fun conv_f f =
         case f of
             PropF _ => f
           | ImplyF (p, fs) => ImplyF (p, map conv_f fs)
+          | AndF fs => AndF (map conv_f fs)
           | ForallF (name, bs, fs) => 
             let 
                 val (bs, fs) = conv_quan (bs, fs)

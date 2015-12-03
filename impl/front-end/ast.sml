@@ -97,6 +97,7 @@ datatype exp =
          | Rec of id list * id * bind list * return * exp * region
          | Datatype of string * string list * sort list * constr_decl list * region
          | IdxDef of id * sort option * idx
+         | AbsIdx of id * sort option * idx * decl list * region
 
 type reporter = string * pos * pos -> unit
 

@@ -22,6 +22,7 @@ open NoUVarExpr
 datatype formula =
          ForallF of string * base_sort * formula list
          | ImplyF of prop * formula list
+         | AndF of formula list
          | PropF of prop * region
          | ExistsF of int * base_sort * formula list
 
@@ -31,6 +32,8 @@ fun str_f ctx f =
         sprintf "(forall ($ : $) ($))" [name, str_b bsort, str_fs (name :: ctx) fs]
       | ImplyF (p, fs) =>
         sprintf "($ => ($))" [str_p ctx p, str_fs ctx fs]
+      | AndF fs =>
+        sprintf "($)" [str_fs ctx fs]
       | PropF (p, _) => str_p ctx p
       | ExistsF (name, bsort, fs) =>
         sprintf "(exists ($ : $) ($))" [evar_name name, str_b bsort, str_fs ctx fs]
@@ -53,6 +56,10 @@ fun simp_f f =
         (case simp_fs fs of 
              [] => PropF (True dummy, dummy)
            | fs => ImplyF (simp_p p, map simp_f fs))
+      | AndF fs =>
+        (case simp_fs fs of 
+             [] => PropF (True dummy, dummy)
+           | fs => AndF (map simp_f fs))
       | PropF (p, r) => 
         PropF (simp_p p, r)
       | ExistsF (name, bsort, fs) =>
@@ -92,6 +99,7 @@ fun uniquefy ctx f =
             ForallF (name, bs, map (uniquefy (name :: ctx)) fs)
         end
       | ImplyF (p, fs) => ImplyF (p, map (uniquefy ctx) fs)
+      | AndF fs => AndF (map (uniquefy ctx) fs)
       | PropF p => PropF p
       | ExistsF (n, bs, fs) => ExistsF (n, bs, map (uniquefy ctx) fs)
 end
@@ -158,6 +166,12 @@ fun split_formula f =
             let
                 val vcs = split_formulas fs
                 val vcs = map (add_hyp (PropH p)) vcs
+            in
+                vcs
+            end
+          | AndF fs =>
+            let
+                val vcs = split_formulas fs
             in
                 vcs
             end

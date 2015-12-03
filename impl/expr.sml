@@ -223,6 +223,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  | Rec of name list * name * (stbind list * ((mtype * idx) * expr)) * region
 	         | Datatype of string * string list * sort list * constr_decl list * region
                  | IdxDef of name * sort * idx
+                 | AbsIdx of (name * sort * idx) * decl list * region
 
         fun peel_AppI e =
             case e of
@@ -506,7 +507,14 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                     (s, ctx)
                 end
               | IdxDef ((name, r), s, i) =>
-                (sprintf "val idx $ : $ = $" [name, str_s sctx s, str_i sctx i], (name :: sctx, kctx, cctx, tctx))
+                (sprintf "type idx $ : $ = $" [name, str_s sctx s, str_i sctx i], (name :: sctx, kctx, cctx, tctx))
+              | AbsIdx (((name, r1), s, i), decls, _) =>
+                let
+                    val ctx' = (name :: sctx, kctx, cctx, tctx)
+                    val (decls, ctx') = str_decls ctx' decls
+                in
+                    (sprintf "abstype idx $ : $ = $ with$ end" [name, str_s sctx s, str_i sctx i, join_prefix " " decls], ctx')
+                end
 
         and str_rule (ctx as (sctx, kctx, cctx, tctx)) (pn, e) =
             let val (inames, enames) = ptrn_names pn
@@ -600,6 +608,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | Rec (_, _, _, r) => r
               | Datatype (_, _, _, _, r) => r
               | IdxDef ((_, r), _, i) => combine_region r (get_region_i i)
+              | AbsIdx (_, _, r) => r
 
         fun eq_i i i' =
             let

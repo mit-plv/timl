@@ -261,23 +261,26 @@ local
              | ImplyVC of prop
              | PropVC of prop * region
              | AnchorVC of bsort anchor ref
+             | OpenVC
              | CloseVC
 
     val acc = ref ([] : vc_entry list)
 
     fun write x = push_ref acc x
 
-    fun open_vc (ctx as (sctx, _, _, _)) = (app write o map ForallVC o rev) sctx
+    fun open_ctx (ctx as (sctx, _, _, _)) = (app write o map ForallVC o rev) sctx
 
-    fun close_vc (ctx as (sctx, _, _, _)) = app (fn _ => write CloseVC) sctx
+    fun close_ctx (ctx as (sctx, _, _, _)) = app (fn _ => write CloseVC) sctx
 
-    fun open_vc_by_sorting ns = (write o ForallVC) ns
-
-    fun close_vc_by_sorting _ = write CloseVC
+    fun open_sorting ns = (write o ForallVC) ns
 
     fun open_premises ps = (app write o map ImplyVC) ps
 
-    fun close_premises nps = Range.app (fn _ => write CloseVC) (Range.zero_to nps)
+    fun open_vc () = write OpenVC
+
+    fun close_vc () = write CloseVC
+
+    fun close_vcs n = repeat_app close_vc n
 
     fun write_anchor anchor = write (AnchorVC anchor)
 
@@ -384,9 +387,9 @@ local
               let
 	          val () = unify_bs r (bs, bs')
                   val ctxd = ctx_from_sorting (name, Basic (bs, r1))
-                  val () = open_vc ctxd
+                  val () = open_ctx ctxd
 	          val () = write_prop (p <-> p', r)
-                  val () = close_vc ctxd
+                  val () = close_ctx ctxd
               in
                   ()
               end
@@ -394,9 +397,9 @@ local
               let
 	          val () = unify_bs r (bs, bs')
                   val ctxd = ctx_from_sorting (name, Basic (bs, r1))
-                  val () = open_vc ctxd
+                  val () = open_ctx ctxd
 	          val () = write_prop (p, r)
-                  val () = close_vc ctxd
+                  val () = close_ctx ctxd
               in
                   ()
               end
@@ -404,9 +407,9 @@ local
               let
 	          val () = unify_bs r (bs, bs')
                   val ctxd = ctx_from_sorting (name, Basic (bs, r1))
-                  val () = open_vc ctxd
+                  val () = open_ctx ctxd
 	          val () = write_prop (p, r)
-                  val () = close_vc ctxd
+                  val () = close_ctx ctxd
               in
                   ()
               end
@@ -450,14 +453,14 @@ local
                   | (Unit _, Unit _) => ()
                   | (UniI (s, BindI ((name, _), t1)), UniI (s', BindI (_, t1'))) =>
                     (unify_s r sctx (s, s');
-                     open_vc_by_sorting (name, s);
+                     open_sorting (name, s);
                      loop (name :: sctx, kctx) (t1, t1');
-                     close_vc_by_sorting (name, s))
+                     close_vc ())
                   | (ExI (s, BindI ((name, _), t1)), ExI (s', BindI (_, t1'))) =>
                     (unify_s r sctx (s, s');
-                     open_vc_by_sorting (name, s);
+                     open_sorting (name, s);
                      loop (name :: sctx, kctx) (t1, t1');
-                     close_vc_by_sorting (name, s))
+                     close_vc ())
 	          | (Int _, Int _) => ()
 	          | (AppV ((a, _), ts, is, _), AppV ((a', _), ts', is', _)) => 
 	            if a = a' then
@@ -1070,7 +1073,7 @@ local
 			              val is = map (shiftx_i_i 0 (length name_sorts)) is
 			              val ps = ListPair.map (fn (a, b) => BinPred (EqP, a, b)) (is', is)
                                       val ctxd = (ctx_from_sortings o rev o ListPair.zip) (inames, snd (ListPair.unzip name_sorts))
-                                      val () = open_vc ctxd
+                                      val () = open_ctx ctxd
                                       val () = open_premises ps
                                       val ctx = add_ctx_skc ctxd ctx
                                       val pn1 = default (U.TTP dummy) opn
@@ -1178,8 +1181,8 @@ local
 		      val (e, t1, d) = get_mtype (ctx, e)
 		      val t1 = forget_ctx_mt (get_region_e e) ctx ctxd t1 
                       val d = forget_ctx_d (get_region_e e) ctx ctxd d
-                      val () = close_premises nps
-                      val () = close_vc ctxd
+                      val () = close_vcs nps
+                      val () = close_ctx ctxd
                   in
 		      (Abs (pn, e), Arrow (t, d, t1), T0 dummy)
 		  end
@@ -1190,8 +1193,8 @@ local
                       val ds = rev (d :: ds)
 		      val t = forget_ctx_mt r ctx ctxd t 
                       val ds = map (forget_ctx_d r ctx ctxd) ds
-                      val () = close_premises nps
-                      val () = close_vc ctxd
+                      val () = close_vcs nps
+                      val () = close_ctx ctxd
                       val d = foldl' (fn (d, acc) => acc %+ d) (T0 dummy) ds
                   in
 		      (Let (decls, e, r), t, d)
@@ -1203,9 +1206,9 @@ local
                       val s = is_wf_sort 0 (sctx, s)
                       val ctxd = ctx_from_sorting (name, s)
                       val ctx = add_ctx ctxd ctx
-                      val () = open_vc ctxd
+                      val () = open_ctx ctxd
 		      val (e, t, _) = get_mtype (ctx, e) 
-                      val () = close_vc ctxd
+                      val () = close_ctx ctxd
                   in
 		      (AbsI (s, (name, r), e), UniI (s, BindI ((name, r), t)), T0 dummy)
 		  end 
@@ -1507,7 +1510,7 @@ local
                               val ctx = add_ctx ctxd ctx
                               val s = is_wf_sort 0 (#1 ctx, s)
                               val ctxd' = ctx_from_sorting (fst name, s)
-                              val () = open_vc ctxd'
+                              val () = open_ctx ctxd'
                               val ctxd = add_ctx ctxd' ctxd
                           in
                               (inl (name, s) :: binds, ctxd, nps)
@@ -1543,8 +1546,8 @@ local
                     val ctx = add_typing_skct (name, Mono te) ctx
                     val ctx = add_ctx ctxd ctx
 		    val e = check_mtype_time (ctx, e, t, d)
-                    val () = close_premises nps
-                    val () = close_vc ctxd
+                    val () = close_vcs nps
+                    val () = close_ctx ctxd
                     val te = generalize te
                     val te = foldr (fn (nm, t) => Uni (nm, t)) te tnames
                     fun h bind =
@@ -1586,11 +1589,34 @@ local
                     val s = is_wf_sort 0 (sctx, s)
                     val i = check_sort 0 (sctx, i, s)
                     val ctxd = ctx_from_sorting (name, s)
-                    val () = open_vc ctxd
+                    val () = open_ctx ctxd
                     val ps = [BinPred (EqP, VarI (0, r), shift_ctx_i ctxd i)]
                     val () = open_premises ps
                 in
                     (IdxDef ((name, r), s, i), ctxd, length ps, [])
+                end
+              | U.AbsIdx (((name, r1), s, i), decls, r) =>
+                let
+                    (* localized the scope the evars introduced in type-checking absidx's definition *)
+                    val () = open_vc ()
+                    val s = is_wf_sort 0 (sctx, s)
+                    val i = check_sort 0 (sctx, i, s)
+                    val ctxd = ctx_from_sorting (name, s)
+                    val () = open_ctx ctxd
+                    val ps = [BinPred (EqP, VarI (0, r), shift_ctx_i ctxd i)]
+                    val () = open_premises ps
+                    val (decls, ctxd2, nps, ds, _) = check_decls (add_ctx ctxd ctx, decls)
+                    val () = if nps = 0 then ()
+                             else raise Error (r, ["Can't have premise-generating pattern in abstype"])
+                    (* close and reopen *)
+                    val () = close_ctx ctxd2
+                    val () = close_vcs (length ps)
+                    val () = close_ctx ctxd
+                    val () = close_vc ()
+                    val ctxd = add_ctx ctxd2 ctxd
+                    val () = open_ctx ctxd
+                in
+                    (AbsIdx (((name, r1), s, i), decls, r), ctxd, 0, ds)
                 end
         end
 
@@ -1649,8 +1675,8 @@ local
                     in
                         (e, t, d)
                     end
-            val () = close_premises nps
-            val () = close_vc ctxd
+            val () = close_vcs nps
+            val () = close_ctx ctxd
 	in
 	    ((pn, e), ((t, d), cover))
 	end
@@ -1692,6 +1718,7 @@ local
           | ImplyVC p => "imply p ("
           | PropVC _ => "and q"
           | AnchorVC _ => "anchor"
+          | OpenVC => "("
           | CloseVC => ")"
 
     structure N = NoUVarExpr
@@ -1702,6 +1729,7 @@ local
     datatype formula =
              ForallF of string * base_sort * formula list
              | ImplyF of N.prop * formula list
+             | AndF of formula list
              | AnchorF of bsort anchor ref
              | PropF of N.prop * region
 
@@ -1711,6 +1739,8 @@ local
             sprintf "(forall ($ : $) ($))" [name, str_b bsort, str_fs (name :: ctx) fs]
           | ImplyF (p, fs) =>
             sprintf "($ => ($))" [N.str_p ctx p, str_fs ctx fs]
+          | AndF fs =>
+            sprintf "($)" [str_fs ctx fs]
           | AnchorF anchor => sprintf "(anchor ($))" [join " " $ map (fn x => str_uname (!x)) (!anchor)]
           | PropF (p, _) => N.str_p ctx p
 
@@ -1784,6 +1814,13 @@ local
                 in
                     (ImplyF (no_uvar_p p, fs), s)
                 end
+              | OpenVC =>
+                let
+                    val (fs, s) = get_formulas s
+                    val s = consume_close s
+                in
+                    (AndF fs, s)
+                end
               | AnchorVC anchor => (AnchorF anchor, s)
               | PropVC (p, r) => (PropF (no_uvar_p p, r), s)
               | CloseVC => raise ErrorClose s
@@ -1804,6 +1841,7 @@ local
                 case f of
                     ForallF (name, bs, fs) => VC.ForallF (name, bs, to_vc_formulas fs)
                   | ImplyF (p, fs) => VC.ImplyF (p, to_vc_formulas fs)
+                  | AndF fs => VC.AndF (to_vc_formulas fs)
                   | PropF p => VC.PropF p
                   | AnchorF _ => raise Impossible "to_vc_formula (): shouldn't be AnchorF"
         in
@@ -1866,8 +1904,8 @@ fun vcgen_decls ctx decls =
       fun m () =
         let
             val (decls, ctxd, nps, ds, ctx) = check_decls (ctx, decls)
-            val () = close_premises nps
-            val () = close_vc ctxd
+            val () = close_vcs nps
+            val () = close_ctx ctxd
         in
             (decls, ctxd, ds, ctx)
         end

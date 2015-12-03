@@ -4,6 +4,8 @@ structure E = NamefulExpr
 open S
 open E
 
+infixr 0 $
+
 exception Error of region * string
 
 local
@@ -255,9 +257,15 @@ local
             end
           | S.IdxDef ((name, r), s, i) =>
             let
-                val s = case s of SOME s => elab_s s | NONE => UVarS ((), r)
+                val s = default (UVarS ((), r)) $ Option.map elab_s s
             in
                 IdxDef ((name, r), s, elab_i i)
+            end
+          | S.AbsIdx ((name, r1), s, i, decls, r) =>
+            let
+                val s = default (UVarS ((), r1)) $ Option.map elab_s s
+            in
+                AbsIdx (((name, r1), s, elab_i i), map elab_decl decls, r)
             end
 
 in

@@ -166,7 +166,8 @@ local
 	    | E.Pack (t, i, e) => Pack (on_mtype skctx t, on_idx sctx i, on_expr ctx e)
 	    | E.Unpack (e1, return, iname, ename, e2) => Unpack (on_expr ctx e1, on_return skctx return, iname, ename, on_expr (iname :: sctx, kctx, cctx, ename :: tctx) e2)
 	    | E.Let (decls, e, r) =>
-              let val (decls, ctx) = on_decls ctx decls
+              let 
+                  val (decls, ctx) = on_decls ctx decls
               in
                   Let (decls, on_expr ctx e, r)
               end
@@ -239,6 +240,13 @@ local
             end
           | E.IdxDef ((name, r), s, i) =>
             (IdxDef ((name, r), on_sort sctx s, on_idx sctx i), (name :: sctx, kctx, cctx, tctx))
+          | E.AbsIdx (((name, r1), s, i), decls, r) =>
+            let
+                val ctx' = (name :: sctx, kctx, cctx, tctx)
+                val (decls, ctx') = on_decls ctx' decls
+            in
+                (AbsIdx (((name, r1), on_sort sctx s, on_idx sctx i), decls, r), ctx')
+            end
 
     and on_rule (ctx as (sctx, kctx, cctx, tctx)) (pn, e) =
         let 

@@ -466,14 +466,8 @@ local
 	  | Unpack (e1, return, iname, ename, e2) => 
 	    Unpack (f x n e1, return, iname, ename, f (x + 1) n e2)
 	  | Let (decs, e, r) =>
-	    let fun g (dec, (acc, m)) =
-		  let
-		      val (dec, m') = f_dec (x + m) n dec
-		  in
-		      (dec :: acc, m' + m)
-		  end
-		val (decs, m) = foldl g ([], 0) decs
-		val decs = rev decs
+	    let 
+		val (decs, m) = f_decls x n decs
 	    in
 		Let (decs, f (x + m) n e, r)
 	    end
@@ -484,6 +478,20 @@ local
 	  | AppConstr (cx, is, e) => AppConstr (cx, is, f x n e)
 	  | Case (e, return, rules, r) => Case (f x n e, return, map (f_rule x n) rules, r)
 	  | Never t => Never t
+
+    and f_decls x n decs =
+	let 
+            fun g (dec, (acc, m)) =
+		let
+		    val (dec, m') = f_dec (x + m) n dec
+		in
+		    (dec :: acc, m' + m)
+		end
+	    val (decs, m) = foldl g ([], 0) decs
+	    val decs = rev decs
+	in
+            (decs, m)
+        end
 
     and f_dec x n dec =
 	case dec of
@@ -511,6 +519,12 @@ local
             end
           | Datatype a => (Datatype a, 0)
           | IdxDef a => (IdxDef a, 0)
+          | AbsIdx (a, decls, r) => 
+            let
+                val (decls, m) = f_decls x n decls
+            in
+                (AbsIdx (a, decls, r), m)
+            end
 
     and f_rule x n (pn, e) =
 	let 

@@ -55,6 +55,8 @@ open Ast
     | BIG_O
     | IDX
     | TYPE
+    | ABSTYPE
+    | WITH
 
 %nonterm start of decl list
        | exp of exp
@@ -137,6 +139,7 @@ decl : VAL tname_star ptrn EQ exp (Val (tname_star, ptrn, exp, (VALleft, exprigh
      | FUN tname_star id bind_star return EQ exp (Rec (tname_star, id, bind_star, return, exp, (FUNleft, expright)))
     | DATATYPE cur_sort_star id_plus EQ constr_bar_star (case (map fst o rev) id_plus of id :: id_star => Datatype (id, id_star, rev cur_sort_star, constr_bar_star, (DATATYPEleft, constr_bar_starright)) | [] => raise Impossible "id_plus can't be empty")
     | TYPE IDX id optional_colon_sort EQ idx (IdxDef (id, optional_colon_sort, idx))
+    | ABSTYPE IDX id optional_colon_sort EQ idx WITH decl_star END (AbsIdx (id, optional_colon_sort, idx, decl_star, (ABSTYPEleft, ENDright)))
 
 exp : aexp (aexp)
     | exp aexp (App (exp, aexp, (expleft, aexpright)))

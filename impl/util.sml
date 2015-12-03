@@ -137,6 +137,8 @@ fun app f range = foldl (fn (i, ()) => (f i; ())) () range
 
 end
 
+fun repeat_app f n = Range.app (fn _ => f ()) (Range.zero_to n)
+
 (* uninhabited *)
 datatype empty = Empty of empty
 fun exfalso (x : empty) = raise Impossible "type empty shouldn't have inhabitant"

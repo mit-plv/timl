@@ -57,6 +57,8 @@ val keywords = [
     ("O", T.BIG_O),
     ("idx", T.IDX),
     ("type", T.TYPE),
+    ("abstype", T.ABSTYPE),
+    ("with", T.WITH),
     ("as", T.AS)
 ]
  
