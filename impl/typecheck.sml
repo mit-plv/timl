@@ -204,6 +204,16 @@ fun update_i i =
       | TrueI _ => i
       | FalseI _ => i
 
+fun update_p p =
+    case p of
+        Quan (q, bs, name, p) => Quan (q, update_bs bs, name, update_p p)
+      | BinConn (opr, p1, p2) => BinConn (opr, update_p p1, update_p p2)
+      | BinPred (opr, i1, i2) => BinPred (opr, update_i i1, update_i i2)
+      | Not (p, r) => Not (update_p p, r)
+      | RegionP (p, r) => RegionP (update_p p, r)
+      | True _ => p
+      | False _ => p
+
 fun update_s s =
     case s of
         UVarS ((invis, x), r) =>
@@ -539,6 +549,8 @@ local
 	  | U.False r => False r
           | U.Not (p, r) => 
             Not (is_wf_prop order (ctx, p), r)
+          | U.RegionP (p, r) => 
+            RegionP (is_wf_prop order (ctx, p), r)
 	  | U.BinConn (opr, p1, p2) =>
 	    BinConn (opr,
                      is_wf_prop order (ctx, p1),
@@ -565,6 +577,13 @@ local
 	    in
                 BinPred (opr, i1, i2)
 	    end
+            | U.Quan (q, bs, (name, r), p) =>
+              let
+                  val bs = is_wf_bsort bs
+                  val p = is_wf_prop (order + 1) (add_sorting (name, Basic (bs, r)) ctx, p)
+              in
+                  Quan (q, bs, (name, r), p)
+              end
 
     (* binary operations on idx are overloaded for Nat and Time *)
     and get_bsort order (ctx : scontext, i : U.idx) : idx * bsort =
@@ -1464,7 +1483,7 @@ local
                         "'" ^ str_int n
                   val fv = dedup op= $ diff op= (fv_mt t) (fv_ctx ctx)
                   val t = shiftx_t_mt 0 (length fv) t
-                  val t = (fst o foldl (fn (uname, (t, v)) => (subst uname v t, v + 1)) (t, 0)) fv
+                  val (t, _) = foldl (fn (uname, (t, v)) => (subst uname v t, v + 1)) (t, 0) fv
                   val t = Range.for (fn (i, t) => (Uni ((uvar_t_name i, dummy), t))) (Mono t) (0, (length fv))
               in
                   t
@@ -1727,61 +1746,24 @@ local
     exception ErrorClose of vc_entry list
 
     datatype formula =
-             ForallF of string * base_sort * formula list
-             | ImplyF of N.prop * formula list
+             ForallF of string * bsort * formula list
+             | ImplyF of prop * formula list
              | AndF of formula list
              | AnchorF of bsort anchor ref
-             | PropF of N.prop * region
+             | PropF of prop * region
 
     fun str_f ctx f =
         case f of
             ForallF (name, bsort, fs) =>
-            sprintf "(forall ($ : $) ($))" [name, str_b bsort, str_fs (name :: ctx) fs]
+            sprintf "(forall ($ : $) ($))" [name, str_bs bsort, str_fs (name :: ctx) fs]
           | ImplyF (p, fs) =>
-            sprintf "($ => ($))" [N.str_p ctx p, str_fs ctx fs]
+            sprintf "($ => ($))" [str_p ctx p, str_fs ctx fs]
           | AndF fs =>
             sprintf "($)" [str_fs ctx fs]
           | AnchorF anchor => sprintf "(anchor ($))" [join " " $ map (fn x => str_uname (!x)) (!anchor)]
-          | PropF (p, _) => N.str_p ctx p
+          | PropF (p, _) => str_p ctx p
 
     and str_fs ctx fs = (join " " o map (str_f ctx)) fs
-
-    fun get_base bs =
-        case update_bs bs of
-            Base b => b
-          | UVarBS _ => raise Impossible "get_base ()"
-
-    fun no_uvar_i i =
-        let
-            val i = update_i i
-            fun f i =
-                case i of
-                    VarI x => N.VarI x
-                  | ConstIT c => N.ConstIT c
-                  | ConstIN c => N.ConstIN c
-                  | UnOpI (opr, i, r) => N.UnOpI (opr, f i, r)
-                  | BinOpI (opr, i1, i2) => N.BinOpI (opr, f i1, f i2)
-                  | TrueI r => N.TrueI r
-                  | FalseI r => N.FalseI r
-                  | TTI r => N.TTI r
-                  | UVarI ((_, uref), r) =>
-                    case !uref of
-                        Refined _ => raise Impossible "no_uvar_i (): shouldn't be Refined after update_i"
-                      | Fresh nmref =>
-                        case !nmref of
-                            SOME (Idx ((n, _, _, _), _)) => N.UVarI (n, r)
-                          | _ => raise Impossible "no_uvar_i (): uname should only be Idx"
-        in
-            f i
-        end
-
-    fun no_uvar_p p =
-        case p of
-            True r => N.True r
-          | False r => N.False r
-          | BinConn (opr, p1, p2) => N.BinConn (opr, no_uvar_p p1, no_uvar_p p2)
-          | BinPred (opr, i1, i2) => N.BinPred (opr, no_uvar_i i1, no_uvar_i i2)
-          | Not (p, r) => N.Not (no_uvar_p p, r)
 
     fun consume_close (s : vc_entry list) : vc_entry list =
         case s of
@@ -1800,9 +1782,9 @@ local
                     val f = 
                         case sort of
                             Basic (bsort, _) =>
-                            ForallF (name, get_base bsort, fs)
+                            ForallF (name, bsort, fs)
                           | Subset ((bsort, _), BindI (_, p)) =>
-                            ForallF (name, get_base bsort, [ImplyF (no_uvar_p p, fs)])
+                            ForallF (name, bsort, [ImplyF (p, fs)])
                           | UVarS _ => raise Impossible "get_formula (): sort in ForallVC shouldn't be UVarS"
                 in
                     (f, s)
@@ -1812,7 +1794,7 @@ local
                     val (fs, s) = get_formulas s
                     val s = consume_close s
                 in
-                    (ImplyF (no_uvar_p p, fs), s)
+                    (ImplyF (p, fs), s)
                 end
               | OpenVC =>
                 let
@@ -1822,7 +1804,7 @@ local
                     (AndF fs, s)
                 end
               | AnchorVC anchor => (AnchorF anchor, s)
-              | PropVC (p, r) => (PropF (no_uvar_p p, r), s)
+              | PropVC (p, r) => (PropF (p, r), s)
               | CloseVC => raise ErrorClose s
 
     and get_formulas (s : vc_entry list) =
@@ -1835,34 +1817,102 @@ local
         handle ErrorEmpty => ([], [])
              | ErrorClose s => ([], CloseVC :: s)
                                    
-    fun to_vc_formulas (fs : formula list) : VC.formula list =
+    fun formulas_to_prop (fs : formula list) : prop =
         let
-            fun to_vc_formula f =
+            fun and_all ps = foldl' (fn (p, acc) => acc /\ p) (True dummy) ps
+            fun formula_to_prop f : prop =
                 case f of
-                    ForallF (name, bs, fs) => VC.ForallF (name, bs, to_vc_formulas fs)
-                  | ImplyF (p, fs) => VC.ImplyF (p, to_vc_formulas fs)
-                  | AndF fs => VC.AndF (to_vc_formulas fs)
-                  | PropF p => VC.PropF p
-                  | AnchorF _ => raise Impossible "to_vc_formula (): shouldn't be AnchorF"
+                    ForallF (name, bs, fs) => Quan (Forall, bs, (name, dummy), formulas_to_prop fs)
+                  | ImplyF (p, fs) => p --> formulas_to_prop fs
+                  | AndF fs => formulas_to_prop fs
+                  | PropF (p, r) => RegionP (p, r)
+                  | AnchorF _ => raise Impossible "formula_to_prop (): shouldn't be AnchorF"
         in
             case fs of
-                [] => []
+                [] => True dummy
               | f :: fs =>
                 case f of
                     AnchorF anchor =>
                     let
-                        val xs = List.mapPartial (fn x => !x) (!anchor)
-                        val fs = to_vc_formulas fs
-                        fun to_exists (uname, fs) =
-                            case uname of
-                                Idx ((n, _, _, _), bsort) => [VC.ExistsF (n, get_base bsort, fs)]
-                              | _ => raise Impossible "to_vc_formulas(): uname should be Idx"
-                        val fs = foldl to_exists fs xs
+                        val xs = List.mapPartial (fn x => case !x of SOME _ => SOME x | _ => NONE) (!anchor)
+                        (* val xs = !anchor *)
+                        val p = formulas_to_prop fs
+                        fun to_exists (uname, p) =
+                            case !uname of
+                                SOME (Idx ((n, _, _, _), bsort)) =>
+                                let
+                                    fun substu_i x v (b : idx) : idx =
+	                                case b of
+                                            UVarI ((_, uvar), _) =>
+                                            (case !uvar of
+                                                 Refined _ => b
+                                               | Fresh y => if y = x then
+                                                                VarI (v, dummy)
+                                                            else 
+                                                                b
+                                            )
+	                                  | VarI a => VarI a
+	                                  | ConstIN n => ConstIN n
+	                                  | ConstIT x => ConstIT x
+                                          | UnOpI (opr, i, r) => UnOpI (opr, substu_i x v i, r)
+	                                  | BinOpI (opr, i1, i2) => BinOpI (opr, substu_i x v i1, substu_i x v i2)
+	                                  | TrueI r => TrueI r
+	                                  | FalseI r => FalseI r
+	                                  | TTI r => TTI r
+                                    fun substu_p x v b =
+	                                case b of
+	                                    True r => True r
+	                                  | False r => False r
+                                          | Not (p, r) => Not (substu_p x v p, r)
+                                          | RegionP (p, r) => RegionP (substu_p x v p, r)
+	                                  | BinConn (opr,p1, p2) => BinConn (opr, substu_p x v p1, substu_p x v p2)
+	                                  | BinPred (opr, i1, i2) => BinPred (opr, substu_i x v i1, substu_i x v i2)
+                                          | Quan (q, bs, (name, r), p) => Quan (q, bs, (name, r), substu_p x (v + 1) p)
+                                    fun evar_name n = "?" ^ str_int n
+                                in
+                                    Quan (Exists, bsort, (evar_name n, dummy), substu_p uname 0 $ shift_i_p $ update_p p)
+                                end
+                              | _ => raise Impossible "formulas_to_prop (): uname should be Idx"
+                        val p = foldl to_exists p xs
                     in
-                        fs
+                        p
                     end
-                  | _ => to_vc_formula f :: to_vc_formulas fs
+                  | _ => formula_to_prop f /\ formulas_to_prop fs
         end
+
+    fun no_uvar_i i =
+        let
+            val i = update_i i
+            fun f i =
+                case i of
+                    VarI x => N.VarI x
+                  | ConstIT c => N.ConstIT c
+                  | ConstIN c => N.ConstIN c
+                  | UnOpI (opr, i, r) => N.UnOpI (opr, f i, r)
+                  | BinOpI (opr, i1, i2) => N.BinOpI (opr, f i1, f i2)
+                  | TrueI r => N.TrueI r
+                  | FalseI r => N.FalseI r
+                  | TTI r => N.TTI r
+                  | UVarI _ =>
+                    raise Impossible "no_uvar_i (): shouldn't be UVarI"
+        in
+            f i
+        end
+
+    fun no_uvar_bsort bs =
+        case update_bs bs of
+            Base b => N.Base b
+          | UVarBS _ => raise Impossible "no_uvar_bsort ()"
+
+    fun no_uvar_p p =
+        case p of
+            True r => N.True r
+          | False r => N.False r
+          | BinConn (opr, p1, p2) => N.BinConn (opr, no_uvar_p p1, no_uvar_p p2)
+          | BinPred (opr, i1, i2) => N.BinPred (opr, no_uvar_i i1, no_uvar_i i2)
+          | Not (p, r) => N.Not (no_uvar_p p, r)
+          | RegionP (p, r) => N.RegionP (no_uvar_p p, r)
+          | Quan (q, bs, name, p) => N.Quan (q, no_uvar_bsort bs, name, no_uvar_p p)
 
     open VC
 
@@ -1874,10 +1924,14 @@ local
                          [] => ()
                        | _ => raise Impossible "to_vcs (): remaining after get_formulas"
             (* val () = app println $ map (str_f []) fs *)
-            val fs = to_vc_formulas fs
-            val fs = map (uniquefy []) fs
-            (* val () = app println $ map (str_f []) fs *)
-            val vcs = split_formulas fs
+            val p = formulas_to_prop fs
+            (* val () = println $ Expr.str_p [] p *)
+            val p = no_uvar_p p
+            (* val () = println $ str_p [] p *)
+            val p = simp_p p
+            val p = uniquefy [] p
+            val vcs = split_prop p
+            (* val () = app println $ map (str_vc []) vcs *)
         in
             vcs
         end

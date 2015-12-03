@@ -5,6 +5,8 @@ open NoUVarExpr
 
 infixr 0 $
 
+infix 1 -->
+
 fun escape s = String.map (fn c => if c = #"'" then #"!" else c) s
 fun evar_name n = "!!" ^ str_int n
 
@@ -48,9 +50,22 @@ fun print_i ctx i =
     | TrueI _ => "true"
     | FalseI _ => "false"
     | TTI _ => "TT"
-    | UVarI (u, _) => evar_name u
+    | UVarI (u, _) => exfalso u
 
 fun negate s = sprintf "(not $)" [s]
+
+fun print_base_sort b =
+  case b of
+      BSUnit => "Unit"
+    | Bool => "Bool"
+    | Time => "Real"
+    | Nat => "Int"
+    | Profile => "Profile"
+
+fun print_bsort bsort =
+  case bsort of
+      Base b => print_base_sort b
+    | UVarBS u => exfalso u
 
 fun print_p ctx p =
   let
@@ -70,37 +85,13 @@ fun print_p ctx p =
             True _ => "true"
           | False _ => "false"
           | Not (p, _) => negate (f p)
+          | RegionP (p, _) => f p
           | BinConn (opr, p1, p2) => sprintf "($ $ $)" [str_conn opr, f p1, f p2]
           | BinPred (opr, i1, i2) => sprintf "($ $ $)" [str_pred opr, print_i ctx i1, print_i ctx i2]
+          | Quan (q, bs, (name, _), p) => sprintf "($ (($ $)) $)" [str_quan q, name, print_bsort bs, print_p (name :: ctx) p]
   in
       f p
   end
-
-fun print_base_sort b =
-  case b of
-      BSUnit => "Unit"
-    | Bool => "Bool"
-    | Time => "Real"
-    | Nat => "Int"
-    | Profile => "Profile"
-
-fun print_bsort bsort =
-  case bsort of
-      Base b => print_base_sort b
-    | UVarBS u => exfalso u
-
-fun print_f ctx f =
-    case f of
-        PropF (p, _) => print_p ctx p
-      | ImplyF (p, fs) => sprintf "(=> $ $)" [print_p ctx p, print_fs ctx fs]
-      | AndF fs => print_fs ctx fs
-      | ForallF (name, bs, fs) => sprintf "(forall (($ $)) $)" [name, print_base_sort bs, print_fs (name :: ctx) fs]
-      | ExistsF (name, bs, fs) => sprintf "(exists (($ $)) $)" [evar_name name, print_base_sort bs, print_fs ctx fs]
-
-and print_fs ctx fs =
-    case map (print_f ctx) fs of
-        [] => "true"
-      | f :: fs => foldl (fn (f, acc) => sprintf "(and $ $)" [acc, f]) f fs
 
 fun declare_const x sort = 
     sprintf "(declare-const $ $)" [x, sort]
@@ -121,7 +112,7 @@ fun print_hyp ctx h =
 val prelude = [
     (* "(set-option :produce-proofs true)", *)
     "(declare-datatypes () ((Unit TT)))",
-    "(declare-datatypes () ((Profile Profile1)))",
+    "(declare-datatypes () ((Profile Profile-dummy-constr)))",
     "(declare-fun log2 (Real) Real)",
     "(declare-fun bigO (Profile Real) Real)",
     (* "(assert (forall ((x Real) (y Real))", *)
@@ -151,6 +142,7 @@ val check = [
     "(get-model)"
 ]
 
+(* convert to Z3's types and naming conventions *)
 fun conv_base_sort b =
       case b of
           BSUnit => (BSUnit, NONE)
@@ -159,41 +151,29 @@ fun conv_base_sort b =
         | Nat => (Nat, SOME (BinPred (LeP, ConstIN (0, dummy), VarI (0, dummy))))
         | Profile => (Profile, NONE)
 
-fun conv_bs bsort =
+fun conv_bsort bsort =
   case bsort of
       UVarBS u => exfalso u
-    | Base b => conv_base_sort b
+    | Base b => let val (b, p) = conv_base_sort b in (Base b, p) end
 
-fun conv_f f =
-    let
-        fun conv_quan (bs, fs) =
-            let
-                val (bs, p) = conv_base_sort bs
-                val fs = map conv_f fs
-                val fs = case p of
-                             NONE => fs
-                           | SOME p => [ImplyF (p, fs)] 
-            in 
-                (bs, fs)
-            end
-    in
-        case f of
-            PropF _ => f
-          | ImplyF (p, fs) => ImplyF (p, map conv_f fs)
-          | AndF fs => AndF (map conv_f fs)
-          | ForallF (name, bs, fs) => 
-            let 
-                val (bs, fs) = conv_quan (bs, fs)
-            in
-                ForallF (escape name, bs, fs)
-            end
-          | ExistsF (name, bs, fs) => 
-            let 
-                val (bs, fs) = conv_quan (bs, fs)
-            in
-                ExistsF (name, bs, fs)
-            end
-    end
+fun conv_p p =
+    case p of
+        Quan (q, bs, (name, r), p) => 
+        let 
+            val (bs, p1) = conv_bsort bs
+            val p = conv_p p
+            val p = case p1 of
+                        NONE => p
+                      | SOME p1 => (p1 --> p)
+        in
+            Quan (q, bs, (escape name, r), p)
+        end
+      | Not (p, r) => Not (conv_p p, r)
+      | RegionP (p, r) => RegionP (conv_p p, r)
+      | BinConn (opr, p1, p2) => BinConn (opr, conv_p p1, conv_p p2)
+      | BinPred _ => p
+      | True _ => p
+      | False _ => p
 
 fun conv_hyp h =
     case h of
@@ -211,12 +191,12 @@ fun print_vc ((hyps, goal) : vc) =
   let
       val hyps = rev hyps
       val hyps = concatMap conv_hyp hyps
-      val goal = conv_f goal
+      val goal = conv_p goal
       val lines = push
       val (hyps, ctx) = foldl (fn (h, (hs, ctx)) => let val (h, ctx) = print_hyp ctx h in (h :: hs, ctx) end) ([], []) hyps
       val hyps = rev hyps
       val lines = lines @ hyps
-      val lines = lines @ [assert (negate (print_f ctx goal))]
+      val lines = lines @ [assert (negate (print_p ctx goal))]
       val lines = lines @ check
       val lines = lines @ pop
       val lines = lines @ [""]

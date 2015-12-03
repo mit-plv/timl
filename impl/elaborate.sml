@@ -113,8 +113,8 @@ local
 		case b of
 		    Sorting (x, s, _) =>
 		    (case quan of
-			 Forall => UniI (elab_s s, BindI (x, t))
-		       | Exists => ExI (elab_s s, BindI (x, t)))
+			 S.Forall => UniI (elab_s s, BindI (x, t))
+		       | S.Exists => ExI (elab_s s, BindI (x, t)))
 	  in
 	      foldr f (elab_mt t) binds
 	  end

@@ -28,6 +28,10 @@ datatype bin_pred =
 datatype bin_op =
          Add
 
+datatype quan =
+         Forall
+         | Exists
+
 fun str_idx_un_op opr =
   case opr of
       ToReal => "$"
@@ -58,5 +62,10 @@ fun str_bin_pred opr =
 fun str_bin_op opr =
   case opr of
       Add => "+"
+
+fun str_quan q =
+    case q of
+        Forall => "forall"
+      | Exists => "exists"
 
 end

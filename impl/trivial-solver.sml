@@ -15,12 +15,7 @@ fun solve (hyps, p) =
     | BinPred (LeP, i1, i2) => eq_i i1 i2
     | _ => false
 
-fun solve_vc ((hyps, f) : vc) = 
-    case f of
-        PropF (p, _) => solve (hyps, p)
-      | _ => false
-
-fun filter_solve vcs = List.filter (fn vc => solve_vc vc = false) vcs
+fun filter_solve vcs = List.filter (fn vc => solve vc = false) vcs
 
 fun simp_and_solve_vcs (vcs : vc list) : vc list =
     let 

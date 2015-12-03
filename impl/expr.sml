@@ -96,6 +96,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  | BinConn of bin_conn * prop * prop
                  | Not of prop * region
 	         | BinPred of bin_pred * idx * idx
+                 | Quan of quan * bsort * name * prop
+                 | RegionP of prop * region
 
         (* index sort *)
         datatype sort =
@@ -275,6 +277,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | Not (p, _) => sprintf "(~ $)" [str_p ctx p]
               | BinConn (opr, p1, p2) => sprintf "($ $ $)" [str_p ctx p1, str_bin_conn opr, str_p ctx p2]
               | BinPred (opr, i1, i2) => sprintf "($ $ $)" [str_i ctx i1, str_bin_pred opr, str_i ctx i2]
+              | Quan (q, bs, (name, _), p) => sprintf "($ ($ : $) $)" [str_quan q, name, str_bs bs, str_p (name :: ctx) p]
+              | RegionP (p, _) => str_p ctx p
 
         fun str_s ctx (s : sort) : string = 
             case s of
@@ -544,6 +548,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | Not (_, r) => r
               | BinConn (_, p1, p2) => combine_region (get_region_p p1) (get_region_p p2)
               | BinPred (_, i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
+              | Quan (_, _, (_, r), p) => combine_region r (get_region_p p)
+              | RegionP (_, r) => r
 
         fun get_region_ibind f (BindI ((_, r), inner)) = combine_region r (f inner)
 
@@ -720,7 +726,20 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                     )
 	          | BinPred (opr, i1, i2) => 
 	            BinPred (opr, passi i1, passi i2)
-	          | _ => p
+                  | Not (p, r) => Not (passp p, r)
+                  | RegionP (p, r) => RegionP (passp p, r)
+                  | Quan (q, bs, name, p) => 
+                    (case q of
+                         Forall =>
+	                 if eq_p p (True dummy) then
+                             p
+                         else
+                             Quan (q, bs, name, passp p)
+                       | Exists =>
+                         Quan (q, bs, name, passp p)
+                    )
+	          | True _ => p
+	          | False _ => p
                              
             fun until_unchanged f a = 
 	        let fun loop a =
