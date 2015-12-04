@@ -44,6 +44,7 @@ open Ast
     | EOF
     | FORALL
     | EXISTS
+    | APP (* dummy terminal for precedence *)
     | APPR (* dummy terminal for precedence *)
     | MAX
     | MIN
@@ -111,7 +112,8 @@ open Ast
 %pos pos
 
 		(* %nonassoc LET *)
-		(* %nonassoc RTRI *)
+%left RTRI COLON
+%nonassoc LSQ LCUR
 %left COMMA
 %nonassoc IFF
 %right DDASH LARROW ARROW
@@ -122,6 +124,7 @@ open Ast
 %left PLUS MINUS
 %left MULT MAX MIN
 %nonassoc DOLLAR
+%left APP
 %right APPR
 
 %eop EOF
@@ -135,12 +138,13 @@ open Ast
 
 start : decl_star (decl_star)
 
-decl : VAL tname_star ptrn EQ exp (Val (tname_star, ptrn, exp, (VALleft, expright)))
-     | FUN tname_star id bind_star return EQ exp (Rec (tname_star, id, bind_star, return, exp, (FUNleft, expright)))
-    | DATATYPE cur_sort_star id_plus EQ constr_bar_star (case (map fst o rev) id_plus of id :: id_star => Datatype (id, id_star, rev cur_sort_star, constr_bar_star, (DATATYPEleft, constr_bar_starright)) | [] => raise Impossible "id_plus can't be empty")
-    | TYPE IDX id optional_colon_sort EQ idx (IdxDef (id, optional_colon_sort, idx))
-    | ABSTYPE IDX id optional_colon_sort EQ idx WITH decl_star END (AbsIdx (id, optional_colon_sort, idx, decl_star, (ABSTYPEleft, ENDright)))
-
+(*
+aexp : id (Var id)
+     | LPAREN exp_comma_star RPAREN (Tuple (exp_comma_star, (LPARENleft, RPARENright)))
+     | FN bind_plus return DARROW exp (Abs (bind_plus, return, exp, (FNleft, expright)))
+     | case_type exp return OF rule_bar_star (Case (case_type, exp, return, rule_bar_star, (case_typeleft, rule_bar_starright)))
+     | LET decl_star IN exp END (Let (decl_star, exp, (LETleft, ENDright)))
+     | INT (Const (INT, (INTleft, INTright)))
 exp : aexp (aexp)
     | exp aexp (App (exp, aexp, (expleft, aexpright)))
     | exp LSQ ty RSQ (AppT (exp, ty, (expleft, tyright)))
@@ -148,23 +152,41 @@ exp : aexp (aexp)
     | exp COLON ty (Ascription (exp, ty, (expleft, tyright)))
     | exp RTRI idx (AscriptionTime (exp, idx, (expleft, idxright)))
     | exp PLUS exp (BinOp (Add, exp1, exp2, (exp1left, exp2right)))
+*)
 
-aexp : id (Var id)
+exp : id (Var id)
      | LPAREN exp_comma_star RPAREN (Tuple (exp_comma_star, (LPARENleft, RPARENright)))
-                (* | LPAREN exp RPAREN (exp) *) (* already covered by previous one *)
      | FN bind_plus return DARROW exp (Abs (bind_plus, return, exp, (FNleft, expright)))
      | case_type exp return OF rule_bar_star (Case (case_type, exp, return, rule_bar_star, (case_typeleft, rule_bar_starright)))
      | LET decl_star IN exp END (Let (decl_star, exp, (LETleft, ENDright)))
      | INT (Const (INT, (INTleft, INTright)))
+     | exp PLUS exp (BinOp (Add, exp1, exp2, (exp1left, exp2right)))
+     | exp COLON ty (Ascription (exp, ty, (expleft, tyright)))
+     | exp RTRI idx (AscriptionTime (exp, idx, (expleft, idxright)))
+     | exp LSQ ty RSQ (AppT (exp, ty, (expleft, tyright)))
+     | exp LCUR idx RCUR (AppI (exp, idx, (expleft, idxright)))
+     | exp exp %prec APP (App (exp1, exp2, (exp1left, exp2right)))
 
-ty : ty ty %prec APPR (AppTT (ty2, ty1, (ty1left, ty2right)))
-           | LCUR idx RCUR ty %prec APPR (AppTI (ty, idx, (LCURleft, tyright)))
-                              | ty DDASH idx LARROW ty (Arrow (ty1, idx, ty2, (ty1left, ty2right)))
-                              | ty MULT ty (Prod (ty1, ty2, (ty1left, ty2right)))
-                (* aty : *)
-                              | id (VarT id)
-                              | quan tbind_plus COMMA ty (Quan (quan, tbind_plus, ty, (quanleft, tyright)))
-                              | LPAREN ty RPAREN (ty)
+
+
+ty : ty DDASH idx LARROW ty (Arrow (ty1, idx, ty2, (ty1left, ty2right)))
+   | ty MULT ty (Prod (ty1, ty2, (ty1left, ty2right)))
+   | id (VarT id)
+   | quan tbind_plus COMMA ty (Quan (quan, tbind_plus, ty, (quanleft, tyright)))
+   | LPAREN ty RPAREN (ty)
+   | LCUR idx RCUR ty %prec APPR (AppTI (ty, idx, (LCURleft, tyright)))
+   | ty ty %prec APPR (AppTT (ty2, ty1, (ty1left, ty2right)))
+
+
+
+
+
+
+decl : VAL tname_star ptrn EQ exp (Val (tname_star, ptrn, exp, (VALleft, expright)))
+     | FUN tname_star id bind_star return EQ exp (Rec (tname_star, id, bind_star, return, exp, (FUNleft, expright)))
+    | DATATYPE cur_sort_star id_plus EQ constr_bar_star (case (map fst o rev) id_plus of id :: id_star => Datatype (id, id_star, rev cur_sort_star, constr_bar_star, (DATATYPEleft, constr_bar_starright)) | [] => raise Impossible "id_plus can't be empty")
+    | TYPE IDX id optional_colon_sort EQ idx (IdxDef (id, optional_colon_sort, idx))
+    | ABSTYPE IDX id optional_colon_sort EQ idx WITH decl_star END (AbsIdx (id, optional_colon_sort, idx, decl_star, (ABSTYPEleft, ENDright)))
 
 idx : id (VarI id)
     | INT (ConstIN (INT, (INTleft, INTright)))

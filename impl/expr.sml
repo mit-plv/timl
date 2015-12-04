@@ -425,7 +425,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	          | Fst e => sprintf "(fst $)" [str_e ctx e]
 	          | Snd e => sprintf "(snd $)" [str_e ctx e]
 	          | AbsI (s, (name, _), e) => sprintf "(fn $ :: $ => $)" [name, str_s sctx s, str_e (name :: sctx, kctx, cctx, tctx) e]
-	          | AppI (e, i) => sprintf "($ [$])" [str_e ctx e, str_i sctx i]
+	          | AppI (e, i) => sprintf "($ {$})" [str_e ctx e, str_i sctx i]
 	          | Pack (t, i, e) => sprintf "(pack $ ($, $))" [str_mt skctx t, str_i sctx i, str_e ctx e]
 	          | Unpack (e1, return, iname, ename, e2) => sprintf "unpack $ $as ($, $) in $ end" [str_e ctx e1, str_return skctx return, iname, ename, str_e (iname :: sctx, kctx, cctx, ename :: tctx) e2]
 	          | Let (decls, e, _) => 

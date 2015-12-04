@@ -37,21 +37,21 @@ fun str_uname uname =
   case uname of
       NONE => "NONE"
     | SOME uname =>
-      (* case uname of *)
-      (*     Idx ((n, _, _, _), _) => str_uvar n *)
-      (*   | NonIdx (n, _, _, _) => str_uvar n *)
-      (*   | BSort n => str_uvar n *)
       case uname of
-          Idx ((n, _, order, ctx), _) => sprintf "($ $ $)" [str_uvar n, str_ls id (rev ctx), str_int order]
-        | NonIdx (n, _, order, ctx) => sprintf "($ $ $)" [str_uvar n, str_ls id (rev ctx), str_int order]
+          Idx ((n, _, _, _), _) => str_uvar n
+        | NonIdx (n, _, _, _) => str_uvar n
         | BSort n => str_uvar n
+      (* case uname of *)
+      (*     Idx ((n, _, order, ctx), _) => sprintf "($ $ $)" [str_uvar n, str_ls id (rev ctx), str_int order] *)
+      (*   | NonIdx (n, _, order, ctx) => sprintf "($ $ $)" [str_uvar n, str_ls id (rev ctx), str_int order] *)
+      (*   | BSort n => str_uvar n *)
 
 type ('bsort, 'idx) uvar_i = invisibles * ('bsort, 'idx) uvar_ref
 fun str_uvar_i str_i ctx ((invis, u) : ('bsort, 'idx) uvar_i) =
     case !u of
         Refined i => str_i (shrink_ctx invis ctx) i
-      (* | Fresh name_ref => sprintf "$" [str_uname (!name_ref)] *)
-      | Fresh name_ref => sprintf "($ $)" [str_uname (!name_ref), str_ls (str_pair (str_int, str_int)) invis]
+      | Fresh name_ref => sprintf "$" [str_uname (!name_ref)]
+      (* | Fresh name_ref => sprintf "($ $)" [str_uname (!name_ref), str_ls (str_pair (str_int, str_int)) invis] *)
 
 end
         
@@ -67,8 +67,8 @@ fun str_uvar_bs str_bs (u : 'bsort uvar_bs) =
 fun str_uvar_mt str_mt (ctx as (sctx, kctx)) ((invis as (invisi, invist), u) : ('bsort, 'mtype) uvar_mt) =
     case !u of
         Refined t => str_mt (shrink_ctx invisi sctx, shrink_ctx invist kctx) t
-      (* | Fresh name_ref => sprintf "$" [str_uname (!name_ref)] *)
-      | Fresh name_ref => sprintf "($ $ $)" [str_uname (!name_ref), str_ls (str_pair (str_int, str_int)) invisi, str_ls (str_pair (str_int, str_int)) invist]
+      | Fresh name_ref => sprintf "$" [str_uname (!name_ref)]
+      (* | Fresh name_ref => sprintf "($ $ $)" [str_uname (!name_ref), str_ls (str_pair (str_int, str_int)) invisi, str_ls (str_pair (str_int, str_int)) invist] *)
 fun eq_uvar_i ((_, u) : ('bsort, 'idx) uvar_i, (_, u') : ('bsort, 'idx) uvar_i) = u = u'
 end
 

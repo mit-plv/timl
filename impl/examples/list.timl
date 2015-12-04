@@ -51,7 +51,7 @@ val ['a] merge =
     in
         merge
     end
-
+(*
 val ['a] msort =
  fn {m : Time} (le : 'a * 'a -- m --> bool) =>
     let
@@ -69,4 +69,20 @@ val ['a] msort =
 (* package to big-O spec *)
 val ['a] merge_sort =
     pack [exists {c : {c : Time | c > 0.0}}, forall {m : Time}, ('a * 'a -- m --> bool) -- 0.0 --> forall {n : Nat}, {n} 'a list -- (m + 3.0) * c * $n * log2 $n --> {n} 'a list] {4.0} msort
+*)
 
+abstype idx c : Profile = _ with
+val ['a] msort =
+ fn {m : Time} (le : 'a * 'a -- m --> bool) =>
+    let
+        fun sort {n : Nat} (xs : {n} 'a list) return {n} 'a list |> O c (m * $n * log2 $n) =
+            case xs return {n} 'a list of
+                NilI => xs
+              | (ConsI {_} (_, NilI)) => xs
+              | (ConsI {_} (_, ConsI {_} (_, _))) =>
+                case split {n} xs return {n} 'a list |> O c (m * (0.5 * $n) * log2 (0.5 * $n)) of
+                    Even {n1} {n2} (xs1, xs2) => merge {_} le {_} {_} (sort {_} xs1, sort {_} xs2)
+    in
+        sort
+    end
+end
