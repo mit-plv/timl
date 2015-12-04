@@ -29,6 +29,30 @@ val f =
     end
 end
 
+val ['a] ['b] map = 
+ fn {m : Time} (f : 'a -- m --> 'b) =>
+    let
+        fun map {n : Nat} (ls : {n} 'a list) return {n} 'b list |> (m + 2.0) * $n =
+            case ls return {n} 'b list of
+                nil => nil
+              | cons {n'} (x, xs) => cons {_} (f x, map {_} xs) |> (m + 2.0) * $n
+    in
+        map
+    end
+
+abstype idx c : Profile = _ with
+val ['a] ['b] map = 
+ fn {m : Time} (f : 'a -- m --> 'b) =>
+    let
+        fun map {n : Nat} (ls : {n} 'a list) return {n} 'b list |> O c (m * $n) =
+            case ls return {n} 'b list of
+                nil => nil
+              | cons {n'} (x, xs) => cons {_} (f x, map {_} xs) |> O c (m * $n)
+    in
+        map
+    end
+end
+
 (* val g =  *)
 (*     let *)
 (*         type idx c1 : Profile = _ *)

@@ -37,7 +37,6 @@ fun on_i_p on_i_i x n b =
 	  | BinConn (opr, p1, p2) => BinConn (opr, f x n p1, f x n p2)
 	  | BinPred (opr, d1, d2) => BinPred (opr, on_i_i x n d1, on_i_i x n d2)
           | Quan (q, bs, name, p) => Quan (q, bs, name, f (x + 1) n p)
-          | RegionP (p, r) => RegionP (f x n p, r)
   in
       f x n b
   end
@@ -293,7 +292,6 @@ local
 	  | BinConn (opr,p1, p2) => BinConn (opr, f x v p1, f x v p2)
 	  | BinPred (opr, d1, d2) => BinPred (opr, substx_i_i x v d1, substx_i_i x v d2)
           | Quan (q, bs, name, p) => Quan (q, bs, name, f (x + 1) (shiftx_i_i 0 1 v) p)
-          | RegionP (p, r) => RegionP (f x v p, r)
 in
 fun substx_i_p x (v : idx) b = f x v b
 fun subst_i_p (v : idx) (b : prop) : prop = substx_i_p 0 v b

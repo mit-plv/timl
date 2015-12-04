@@ -210,7 +210,6 @@ fun update_p p =
       | BinConn (opr, p1, p2) => BinConn (opr, update_p p1, update_p p2)
       | BinPred (opr, i1, i2) => BinPred (opr, update_i i1, update_i i2)
       | Not (p, r) => Not (update_p p, r)
-      | RegionP (p, r) => RegionP (update_p p, r)
       | True _ => p
       | False _ => p
 
@@ -549,8 +548,6 @@ local
 	  | U.False r => False r
           | U.Not (p, r) => 
             Not (is_wf_prop order (ctx, p), r)
-          | U.RegionP (p, r) => 
-            RegionP (is_wf_prop order (ctx, p), r)
 	  | U.BinConn (opr, p1, p2) =>
 	    BinConn (opr,
                      is_wf_prop order (ctx, p1),
@@ -1825,7 +1822,7 @@ local
                     ForallF (name, bs, fs) => Quan (Forall, bs, (name, dummy), formulas_to_prop fs)
                   | ImplyF (p, fs) => p --> formulas_to_prop fs
                   | AndF fs => formulas_to_prop fs
-                  | PropF (p, r) => RegionP (p, r)
+                  | PropF (p, r) => set_region_p p r
                   | AnchorF _ => raise Impossible "formula_to_prop (): shouldn't be AnchorF"
         in
             case fs of
@@ -1864,7 +1861,6 @@ local
 	                                    True r => True r
 	                                  | False r => False r
                                           | Not (p, r) => Not (substu_p x v p, r)
-                                          | RegionP (p, r) => RegionP (substu_p x v p, r)
 	                                  | BinConn (opr,p1, p2) => BinConn (opr, substu_p x v p1, substu_p x v p2)
 	                                  | BinPred (opr, i1, i2) => BinPred (opr, substu_i x v i1, substu_i x v i2)
                                           | Quan (q, bs, (name, r), p) => Quan (q, bs, (name, r), substu_p x (v + 1) p)
@@ -1874,8 +1870,11 @@ local
                                             "" ^ (str o chr) (ord #"a" + n)
                                         else
                                             "_" ^ str_int n
+                                    val r = get_region_p p
+                                    val p = Quan (Exists, bsort, (evar_name n, dummy), substu_p uname 0 $ shift_i_p $ update_p p)
+                                    val p = set_region_p p r
                                 in
-                                    Quan (Exists, bsort, (evar_name n, dummy), substu_p uname 0 $ shift_i_p $ update_p p)
+                                    p
                                 end
                               | _ => raise Impossible "formulas_to_prop (): uname should be Idx"
                         val p = foldl to_exists p xs
@@ -1916,7 +1915,6 @@ local
           | BinConn (opr, p1, p2) => N.BinConn (opr, no_uvar_p p1, no_uvar_p p2)
           | BinPred (opr, i1, i2) => N.BinPred (opr, no_uvar_i i1, no_uvar_i i2)
           | Not (p, r) => N.Not (no_uvar_p p, r)
-          | RegionP (p, r) => N.RegionP (no_uvar_p p, r)
           | Quan (q, bs, name, p) => N.Quan (q, no_uvar_bsort bs, name, no_uvar_p p)
 
     open VC

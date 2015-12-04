@@ -97,7 +97,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  | Not of prop * region
 	         | BinPred of bin_pred * idx * idx
                  | Quan of quan * bsort * name * prop
-                 | RegionP of prop * region
 
         (* index sort *)
         datatype sort =
@@ -278,7 +277,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | BinConn (opr, p1, p2) => sprintf "($ $ $)" [str_p ctx p1, str_bin_conn opr, str_p ctx p2]
               | BinPred (opr, i1, i2) => sprintf "($ $ $)" [str_i ctx i1, str_bin_pred opr, str_i ctx i2]
               | Quan (q, bs, (name, _), p) => sprintf "($ ($ : $) $)" [str_quan q, name, str_bs bs, str_p (name :: ctx) p]
-              | RegionP (p, _) => str_p ctx p
 
         fun str_s ctx (s : sort) : string = 
             case s of
@@ -541,6 +539,18 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | TTI r => r
               | UVarI (_, r) => r
 
+        fun set_region_i i r =
+            case i of
+                VarI (a, _) => VarI (a, r)
+              | ConstIN (a, _) => ConstIN (a, r)
+              | ConstIT (a, _) => ConstIT (a, r)
+              | UnOpI (opr, i, _) => UnOpI (opr, i, r)
+              | BinOpI (opr, i1, i2) => BinOpI (opr, set_region_i i1 r, set_region_i i2 r)
+              | TrueI _ => TrueI r
+              | FalseI _ => FalseI r
+              | TTI _ => TTI r
+              | UVarI (a, _) => UVarI (a, r)
+
         fun get_region_p p = 
             case p of
                 True r => r
@@ -549,7 +559,15 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | BinConn (_, p1, p2) => combine_region (get_region_p p1) (get_region_p p2)
               | BinPred (_, i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
               | Quan (_, _, (_, r), p) => combine_region r (get_region_p p)
-              | RegionP (_, r) => r
+
+        fun set_region_p p r = 
+            case p of
+                True _ => True r
+              | False _ => False r
+              | Not (p, _) => Not (p, r)
+              | BinConn (opr, p1, p2) => BinConn (opr, set_region_p p1 r, set_region_p p2 r)
+              | BinPred (opr, i1, i2) => BinPred (opr, set_region_i i1 r, set_region_i i2 r)
+              | Quan (q, bs, (name, _), p) => Quan (q, bs, (name, r), set_region_p p r)
 
         fun get_region_ibind f (BindI ((_, r), inner)) = combine_region r (f inner)
 
@@ -727,7 +745,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	          | BinPred (opr, i1, i2) => 
 	            BinPred (opr, passi i1, passi i2)
                   | Not (p, r) => Not (passp p, r)
-                  | RegionP (p, r) => RegionP (passp p, r)
                   | Quan (q, bs, name, p) => 
                     (case q of
                          Forall =>

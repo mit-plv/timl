@@ -26,7 +26,6 @@ fun uniquefy ctx p =
             Quan (q, bs, (name, r), uniquefy (name :: ctx) p)
         end
       | Not (p, r) => Not (uniquefy ctx p, r)
-      | RegionP (p, r) => RegionP (uniquefy ctx p, r)
       | BinConn (opr, p1, p2) => BinConn (opr, uniquefy ctx p1, uniquefy ctx p2)
       | BinPred _ => p
       | True _ => p

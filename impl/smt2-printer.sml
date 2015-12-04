@@ -85,7 +85,6 @@ fun print_p ctx p =
             True _ => "true"
           | False _ => "false"
           | Not (p, _) => negate (f p)
-          | RegionP (p, _) => f p
           | BinConn (opr, p1, p2) => sprintf "($ $ $)" [str_conn opr, f p1, f p2]
           | BinPred (opr, i1, i2) => sprintf "($ $ $)" [str_pred opr, print_i ctx i1, print_i ctx i2]
           | Quan (q, bs, (name, _), p) => sprintf "($ (($ $)) $)" [str_quan q, name, print_bsort bs, print_p (name :: ctx) p]
@@ -169,7 +168,6 @@ fun conv_p p =
             Quan (q, bs, (escape name, r), p)
         end
       | Not (p, r) => Not (conv_p p, r)
-      | RegionP (p, r) => RegionP (conv_p p, r)
       | BinConn (opr, p1, p2) => BinConn (opr, conv_p p1, conv_p p2)
       | BinPred _ => p
       | True _ => p
