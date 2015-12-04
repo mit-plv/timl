@@ -1476,7 +1476,7 @@ local
 	              | Int r => Int r
 	              | AppV (y, ts, is, r) => 
 		        AppV (y, map (subst x v) ts, is, r)
-                  fun uvar_t_name n =
+                  fun evar_name n =
                     if n < 26 then
                         "'" ^ (str o chr) (ord #"A" + n)
                     else
@@ -1484,7 +1484,7 @@ local
                   val fv = dedup op= $ diff op= (fv_mt t) (fv_ctx ctx)
                   val t = shiftx_t_mt 0 (length fv) t
                   val (t, _) = foldl (fn (uname, (t, v)) => (subst uname v t, v + 1)) (t, 0) fv
-                  val t = Range.for (fn (i, t) => (Uni ((uvar_t_name i, dummy), t))) (Mono t) (0, (length fv))
+                  val t = Range.for (fn (i, t) => (Uni ((evar_name i, dummy), t))) (Mono t) (0, (length fv))
               in
                   t
               end
@@ -1868,7 +1868,12 @@ local
 	                                  | BinConn (opr,p1, p2) => BinConn (opr, substu_p x v p1, substu_p x v p2)
 	                                  | BinPred (opr, i1, i2) => BinPred (opr, substu_i x v i1, substu_i x v i2)
                                           | Quan (q, bs, (name, r), p) => Quan (q, bs, (name, r), substu_p x (v + 1) p)
-                                    fun evar_name n = "?" ^ str_int n
+                                    (* fun evar_name n = "?" ^ str_int n *)
+                                    fun evar_name n =
+                                        if n < 26 then
+                                            "" ^ (str o chr) (ord #"a" + n)
+                                        else
+                                            "_" ^ str_int n
                                 in
                                     Quan (Exists, bsort, (evar_name n, dummy), substu_p uname 0 $ shift_i_p $ update_p p)
                                 end
@@ -1928,7 +1933,8 @@ local
             (* val () = println $ Expr.str_p [] p *)
             val p = no_uvar_p p
             (* val () = println $ str_p [] p *)
-            val p = simp_p p
+            val p = NoUVarSubst.simp_p p
+            (* val () = println $ str_p [] p *)
             val p = uniquefy [] p
             val vcs = split_prop p
             (* val () = app println $ map (str_vc []) vcs *)

@@ -13,6 +13,7 @@ Group is
       name-resolve.sml
       subst.sml
       trivial-solver.sml
+      nouvar-expr.sml
       vc.sml
       typecheck.sml
       sexp/sexp.sml

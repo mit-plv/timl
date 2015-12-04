@@ -1,17 +1,3 @@
-structure NoUVar = struct
-open Util
-type 'a uvar_bs = empty
-type ('a, 'b) uvar_s = empty
-type ('a, 'b) uvar_mt = empty
-type ('a, 'b) uvar_i = empty
-fun str_uvar_bs (_ : 'a -> string) (u : 'a uvar_bs) = exfalso u
-fun str_uvar_mt (_ : string list * string list -> 'mtype -> string) (_ : string list * string list) (u : ('bsort, 'mtype) uvar_mt) = exfalso u
-fun str_uvar_i (_ : string list -> 'idx -> string) (_ : string list) (u : ('bsort, 'idx) uvar_i) = exfalso u
-fun eq_uvar_i (u : ('bsort, 'idx) uvar_i, u' : ('bsort, 'idx) uvar_i) = exfalso u
-end
-
-structure NoUVarExpr = ExprFun (structure Var = IntVar structure UVar = NoUVar)
-
 structure VC = struct
 open Util
 open Region
