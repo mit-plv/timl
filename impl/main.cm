@@ -15,6 +15,7 @@ Group is
       trivial-solver.sml
       nouvar-expr.sml
       vc.sml
+      bigO-solver.sml
       typecheck.sml
       sexp/sexp.sml
       sexp/sexp.grm

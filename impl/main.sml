@@ -58,18 +58,37 @@ fun typecheck_file (filename, ctx) =
       val (_, unsats) = mapSnd (smt_solver filename) result
       (* val unsats = map (fn vc => (vc, NONE)) vcs *)
       fun print_unsat filename (vc, counter) =
-        VC.str_vc true filename vc @
+        VC.str_vc false filename vc @
         [""] @
         (case counter of
              SOME assigns =>
-             ["Counter-example:"] @
-             map (fn (name, value) => sprintf "$ = $" [name, value]) assigns
-           | NONE => ["Can't prove and can't find counter example"]) @
-        [""]        
+             if length assigns > 0 then
+                 ["Counter-example:"] @
+                 map (fn (name, value) => sprintf "$ = $" [name, value]) assigns @
+                 [""]        
+             else []
+           | NONE => ["SMT solver reported 'unknown': can't prove and can't find counter example\n"]
+        ) 
       val () =
-          if length unsats <> 0 then
-              (println (sprintf "Can't prove the following $ proof obligations:\n" [str_int $ length unsats]);
-               (app println o concatMap (print_unsat filename)) unsats)
+          if length unsats > 0 then
+              let
+                  val () = println (sprintf "SMT solver can't prove the following $ proof obligations:\n" [str_int $ length unsats])
+                  val () = (app println o concatMap (print_unsat filename)) unsats
+                  val () = println "Applying BigO solver ..."
+                  val vcs = BigOSolver.solve_vcs $ map fst unsats
+                  val () = 
+                      if length vcs > 0 then
+                          let
+                              val () = println $ sprintf "BigO solver can't prove the following $ proof obligations:\n" [str_int $ length vcs]
+                              val () = app println $ concatMap (fn vc => VC.str_vc true filename vc @ [""]) vcs
+                          in
+                              ()
+                          end
+                      else
+                          println "All conditions proved."
+              in
+                  ()
+              end
           else
               println "All conditions proved."
   in

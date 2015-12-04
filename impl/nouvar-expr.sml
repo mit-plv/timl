@@ -178,7 +178,9 @@ local
 	  | BinPred (opr, i1, i2) => 
 	    BinPred (opr, passi i1, passi i2)
           | Not (p, r) => Not (passp p, r)
-          | RegionP (p, r) => RegionP (passp p, r)
+          | RegionP (p, r) => 
+            (* RegionP (passp p, r) *)
+            (set (); p)
           | Quan (q, bs, name, p) => 
             (case q of
                  Forall =>
