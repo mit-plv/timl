@@ -2,10 +2,15 @@ structure BigOSolver = struct
 open UVarUtil
 open NoUVarExpr
 open VC
+open NoUVarSubst
          
-fun solve (hyps, p) =
-  case p of
-      Quan (Exists, Base Profile, _, (Quan (Forall, Base Nat, _, BinPred (LeP, i1, i2)))) =>
+infixr 0 $
+infix 3 /\
+infix 1 -->
+
+fun solve_one vc =
+  case vc of
+      ([VarH (_, Nat)], BinPred (LeP, i1, i2)) =>
       let
           fun is_le i1 i2 =
               case (i1, i2) of
@@ -40,7 +45,50 @@ fun solve (hyps, p) =
       end
     | _ => false
 
-fun filter_solve vcs = List.filter (fn vc => solve vc = false) vcs
+fun partitionOption f xs =
+    case xs of
+        [] => ([], [])
+      | x :: xs =>
+        let
+            val (ys, zs) = partitionOption f xs
+        in
+            case f x of
+                SOME y => (y :: ys, zs)
+              | _ => (ys, x :: zs)
+        end
+
+fun forget_i_vc x n (hs, p) = 
+    let
+        fun f (h, (hs, x)) = 
+            case h of 
+                VarH _ => (h :: hs, x + 1) 
+              | PropH p => (PropH (forget_i_p x 1 p) :: hs, x)
+        val (hs, x) = foldr f ([], 0) hs
+    in
+        (hs, forget_i_p x 1 p)
+    end
+
+fun and_all ps = foldl' (fn (p, acc) => acc /\ p) (True dummy) ps
+
+fun vc2prop (hs, p) =
+    foldl (fn (h, p) => case h of VarH (name, b) => Quan (Forall, Base b, (name, dummy), p) | PropH p1 => p1 --> p) p hs
+
+fun solve vc =
+  case vc of
+      (hs, Quan (Exists, Base Profile, name, p)) =>
+      let
+          val vcs = split_prop p
+          val (rest, vcs) = partitionOption (fn vc => SOME (forget_i_vc 0 1 vc) handle ForgetError _ => NONE) vcs
+          val done = List.all id $ map solve_one vcs
+          (* val done = true *)
+      in
+          map (fn (hs', p) => (hs' @ hs, p)) rest @
+          (if done then []
+           else [(hs, Quan (Exists, Base Profile, name, and_all (map vc2prop vcs)))])
+      end
+    | _ => [vc]
+
+fun filter_solve vcs = concatMap solve vcs
 
 fun solve_vcs (vcs : vc list) : vc list =
     let 

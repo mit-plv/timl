@@ -8,26 +8,26 @@ datatype {Nat} 'a list =
 (* val g = *)
 (*  fn {n : Nat} (xs : {n} int list) return |> O _ $n => xs *)
 
-abstype idx c1 : Profile = _ with
-val g =
- fn {n : Nat} (xs : {n} int list) return |> O c1 $n => xs
-end
+(* abstype idx c1 : Profile = _ with *)
+(* val g = *)
+(*  fn {n : Nat} (xs : {n} int list) return |> O c1 $n => xs *)
+(* end *)
 
-abstype idx c2 : Profile = _ with
-val h =
- fn {n : Nat} (xs : {n} int list) return |> O c2 $1 => xs
-end
+(* abstype idx c2 : Profile = _ with *)
+(* val h = *)
+(*  fn {n : Nat} (xs : {n} int list) return |> O c2 $1 => xs *)
+(* end *)
 
-abstype idx c3 : Profile = _ with
-val f =
- fn {n : Nat} (xs : {n} int list) return |> O c3 $n =>
-    let
-        val xs = g {_} xs
-        val xs = h {_} xs
-    in
-        xs
-    end
-end
+(* abstype idx c3 : Profile = _ with *)
+(* val f = *)
+(*  fn {n : Nat} (xs : {n} int list) return |> O c3 $n => *)
+(*     let *)
+(*         val xs = g {_} xs *)
+(*         val xs = h {_} xs *)
+(*     in *)
+(*         xs *)
+(*     end *)
+(* end *)
 
 (*
 val ['a] ['b] map = 

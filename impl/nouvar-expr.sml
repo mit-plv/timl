@@ -33,6 +33,20 @@ fun on_i_i on_v x n b =
       f x n b
   end
 
+fun on_i_p on_i_i x n b =
+  let
+      fun f x n b =
+        case b of
+	    True r => True r
+	  | False r => False r
+          | Not (p, r) => Not (f x n p, r)
+	  | BinConn (opr, p1, p2) => BinConn (opr, f x n p1, f x n p2)
+	  | BinPred (opr, d1, d2) => BinPred (opr, on_i_i x n d1, on_i_i x n d2)
+          | Quan (q, bs, name, p) => Quan (q, bs, name, f (x + 1) n p)
+  in
+      f x n b
+  end
+
 fun shiftx_v x n y = 
     if y >= x then
 	y + n
@@ -91,6 +105,7 @@ fun forget_v x n y =
         raise ForgetError y
 
 fun forget_i_i x n b = on_i_i forget_v x n b
+fun forget_i_p x n b = on_i_p forget_i_i x n b
                               
 local
     val changed = ref false
