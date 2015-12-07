@@ -55,10 +55,8 @@ fun typecheck_file (filename, ctx) =
       (* val () = write_file (filename ^ ".smt2", to_smt2 vcs) *)
       val () = println $ print_result false filename result
       val () = println $ sprintf "Generated $ proof obligations." [str_int $ length vcs]
-      val (_, unsats) = mapSnd (smt_solver filename) result
-      (* val unsats = map (fn vc => (vc, NONE)) vcs *)
-      fun print_unsat filename (vc, counter) =
-        VC.str_vc false filename vc @
+      fun print_unsat show_region filename (vc, counter) =
+        VC.str_vc show_region filename vc @
         [""] @
         (case counter of
              SOME assigns =>
@@ -69,28 +67,33 @@ fun typecheck_file (filename, ctx) =
              else []
            | NONE => ["SMT solver reported 'unknown': can't prove and can't find counter example\n"]
         ) 
-      val () =
+      fun print_unsats solver_name show_region filename unsats =
           if length unsats > 0 then
-              let
-                  val () = println (sprintf "SMT solver can't prove the following $ proof obligations:\n" [str_int $ length unsats])
-                  val () = (app println o concatMap (print_unsat filename)) unsats
-                  val () = println "Applying BigO solver ..."
-                  val vcs = BigOSolver.solve_vcs $ map fst unsats
-                  val () = 
-                      if length vcs > 0 then
-                          let
-                              val () = println $ sprintf "BigO solver can't prove the following $ proof obligations:\n" [str_int $ length vcs]
-                              val () = app println $ concatMap (fn vc => VC.str_vc true filename vc @ [""]) vcs
-                          in
-                              ()
-                          end
-                      else
-                          println "All conditions proved."
-              in
-                  ()
-              end
+              (println (sprintf "$ can't prove the following $ proof obligations:\n" [solver_name, str_int $ length unsats]);
+               app println $ concatMap (print_unsat show_region filename) unsats
+              )
           else
               println "All conditions proved."
+      fun smt_solver vcs =
+          if length vcs = 0 then vcs
+          else
+              let
+                  val unsats = SMTSolver.smt_solver filename vcs
+                  val () = print_unsats "SMT solver" false filename unsats
+              in
+                  map fst unsats
+              end
+      fun bigO_solver vcs =
+          if length vcs = 0 then vcs
+          else
+              let
+                  val () = println "Applying BigO solver ..."
+                  val vcs = BigOSolver.solve_vcs vcs
+                  val () = print_unsats "BigO solver" false filename $ map (fn vc => (vc, SOME [])) vcs
+              in
+                  vcs
+              end
+      val vcs = (smt_solver o bigO_solver) vcs
   in
       ctx
   end
