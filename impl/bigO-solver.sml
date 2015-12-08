@@ -14,8 +14,12 @@ fun solve_one vc =
       let
           fun is_le i1 i2 =
               case (i1, i2) of
-                  (BinOpI (AddI, i1a, i1b), _) => is_le i1a i2 andalso is_le i1b i2
-                | (_, BinOpI (AddI, i2a, i2b)) => is_le i1 i2a orelse is_le i1 i2b
+                  (BinOpI (AddI, i1a, i1b), BinOpI (BigO, VarI (c, _), _)) => 
+                  (case try_forget (forget_i_i c 1) i1 of
+                       SOME _ => is_le i1a i2 andalso is_le i1b i2
+                     | _ => false
+                  )
+                (* | (_, BinOpI (AddI, i2a, i2b)) => is_le i1 i2a orelse is_le i1 i2b *)
                 | (ConstIT _, BinOpI (BigO, VarI (c, _), i2)) =>
                   if c = 1 then
                       case i2 of
@@ -41,7 +45,7 @@ fun solve_one vc =
                       false
                 | _ => false
       in
-          is_le i1 i2
+          eq_i i1 i2 orelse is_le i1 i2
       end
     | _ => false
 
@@ -71,14 +75,14 @@ fun forget_i_vc x n (hs, p) =
 fun and_all ps = foldl' (fn (p, acc) => acc /\ p) (True dummy) ps
 
 fun vc2prop (hs, p) =
-    foldl (fn (h, p) => case h of VarH (name, b) => Quan (Forall, Base b, (name, dummy), p) | PropH p1 => p1 --> p) p hs
+    simp_p $ foldl (fn (h, p) => case h of VarH (name, b) => Quan (Forall, Base b, (name, dummy), p) | PropH p1 => p1 --> p) p hs
 
 fun solve vc =
   case vc of
       (hs, Quan (Exists, Base Profile, name, p)) =>
       let
           val vcs = split_prop p
-          val (rest, vcs) = partitionOption (fn vc => SOME (forget_i_vc 0 1 vc) handle ForgetError _ => NONE) vcs
+          val (rest, vcs) = partitionOption (fn vc => try_forget (forget_i_vc 0 1) vc) vcs
           val done = List.all id $ map solve_one vcs
           (* val done = true *)
       in

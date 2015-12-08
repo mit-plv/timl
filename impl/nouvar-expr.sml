@@ -56,6 +56,9 @@ fun shiftx_v x n y =
 and shiftx_i_i x n b = on_i_i shiftx_v x n b
 fun shift_i_i b = shiftx_i_i 0 1 b
 
+fun shiftx_i_p x n b = on_i_p shiftx_i_i x n b
+fun shift_i_p b = shiftx_i_p 0 1 b
+
 local
     fun f x v b =
 	case b of
@@ -107,6 +110,9 @@ fun forget_v x n y =
 fun forget_i_i x n b = on_i_i forget_v x n b
 fun forget_i_p x n b = on_i_p forget_i_i x n b
                               
+fun try_forget f a =
+    SOME (f a) handle ForgetError _ => NONE
+
 local
     val changed = ref false
     fun unset () = changed := false
@@ -186,6 +192,23 @@ local
                       p1)
 	         else
 	             BinConn (opr, passp p1, passp p2)
+               | Imply =>
+                 let
+                     fun forget x i =
+                         SOME (x, forget_i_i x 1 i) handle ForgetError _ => NONE
+                     fun f i1 i2 =
+                         case (i1, i2) of
+                             (VarI (x, _), _) => forget x i2
+                           | (_, VarI (x, _)) => forget x i1
+                           | _ => NONE
+                     val s = case p1 of
+                                 BinPred (EpP, i1, i2) => f i1 i2
+                               | _ => NONE
+                 in
+                     case s of
+                         SOME (x, i) => (set (); shiftx_i_p x 1 (substx_i_p x i p2))
+                       | _ => BinConn (opr, passp p1, passp p2)
+                 end
                | _ =>
 	         BinConn (opr, passp p1, passp p2)
             )
@@ -195,26 +218,28 @@ local
           | Quan (q, bs, name, p) => 
             (case q of
                  Forall =>
-                 (case p of
-	              True _ => p
-                    | BinConn (Imply, p1, p2) =>
-                      let
-                          fun forget i =
-                              SOME (forget_i_i 0 1 i) handle ForgetError _ => NONE
-                          fun f i1 i2 =
-                              if eq_i i1 (VarI (0, dummy)) then forget i2
-                              else if eq_i i2 (VarI (0, dummy)) then forget i1
-                              else NONE
-                          val i = case p1 of
-                                      BinPred (EpP, i1, i2) => f i1 i2
-                                    | _ => NONE
-                      in
-                          case i of
-                              SOME i => subst_i_p i p2
-                            | _ => Quan (q, bs, name, passp p)
-                      end
+                 (case try_forget (forget_i_p 0 1) p of
+                      SOME p => (set (); p)
                     | _ =>
-                     Quan (q, bs, name, passp p)
+                      (case p of
+                           BinConn (Imply, p1, p2) =>
+                           let
+                               fun forget i = try_forget (forget_i_i 0 1) i
+                               fun f i1 i2 =
+                                   if eq_i i1 (VarI (0, dummy)) then forget i2
+                                   else if eq_i i2 (VarI (0, dummy)) then forget i1
+                                   else NONE
+                               val i = case p1 of
+                                           BinPred (EpP, i1, i2) => f i1 i2
+                                         | _ => NONE
+                           in
+                               case i of
+                                   SOME i => (set (); subst_i_p i p2)
+                                 | _ => Quan (q, bs, name, passp p)
+                           end
+                         | _ =>
+                           Quan (q, bs, name, passp p)
+                      )
                  )
                | Exists =>
                  Quan (q, bs, name, passp p)
