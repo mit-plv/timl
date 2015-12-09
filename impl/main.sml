@@ -55,6 +55,7 @@ fun typecheck_file (filename, ctx) =
       (* val () = write_file (filename ^ ".smt2", to_smt2 vcs) *)
       val () = println $ print_result false filename result
       val () = println $ sprintf "Generated $ proof obligations." [str_int $ length vcs]
+      (* val () = app println $ concatMap (VC.str_vc false filename) vcs *)
       fun print_unsat show_region filename (vc, counter) =
         VC.str_vc show_region filename vc @
         [""] @
@@ -67,11 +68,9 @@ fun typecheck_file (filename, ctx) =
              else []
            | NONE => ["SMT solver reported 'unknown': can't prove and can't find counter example\n"]
         ) 
-      fun print_unsats solver_name show_region filename unsats =
+      fun print_unsats show_region filename unsats =
           if length unsats > 0 then
-              (println (sprintf "$ generated or left the following $ proof obligations unproved:\n" [solver_name, str_int $ length unsats]);
                app println $ concatMap (print_unsat show_region filename) unsats
-              )
           else
               println "All conditions proved."
       fun bigO_solver vcs =
@@ -81,7 +80,9 @@ fun typecheck_file (filename, ctx) =
                   val () = println "-------------------------------------------"
                   val () = println "Applying BigO solver ..."
                   val vcs = BigOSolver.solve_vcs vcs
-                  val () = print_unsats "BigO solver" false filename $ map (fn vc => (vc, SOME [])) vcs
+                  val () = println (sprintf "BigO solver generated or left $ proof obligations unproved." [str_int $ length vcs])
+                  (* val () = println "" *)
+                  (* val () = print_unsats false filename $ map (fn vc => (vc, SOME [])) vcs *)
               in
                   vcs
               end
@@ -91,7 +92,9 @@ fun typecheck_file (filename, ctx) =
               let
                   val () = println "-------------------------------------------"
                   val unsats = SMTSolver.smt_solver filename vcs
-                  val () = print_unsats "SMT solver" false filename unsats
+                  val () = println (sprintf "SMT solver generated or left $ proof obligations unproved." [str_int $ length unsats])
+                  val () = println ""
+                  val () = print_unsats false filename unsats
               in
                   map fst unsats
               end

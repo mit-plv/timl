@@ -213,7 +213,13 @@ local
 	         BinConn (opr, passp p1, passp p2)
             )
 	  | BinPred (opr, i1, i2) => 
-	    BinPred (opr, passi i1, passi i2)
+            (case opr of 
+                 EqP => if eq_i i1 i2 then (set (); True (get_region_p p))
+                        else BinPred (opr, passi i1, passi i2)
+               | LeP => if eq_i i1 i2 then (set (); True (get_region_p p))
+                        else BinPred (opr, passi i1, passi i2)
+               | _ => BinPred (opr, passi i1, passi i2)
+            )
           | Not (p, r) => Not (passp p, r)
           | Quan (q, bs, name, p) => 
             (case q of

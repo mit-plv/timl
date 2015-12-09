@@ -6,4 +6,4 @@ Done. 5. Distill the 'bind' pattern
 Done. 6. Disallow impredicative universal types
 Done. 7. Type inference
 Done. 8. Idx inference
-9. Fix ForgetError bug
+
