@@ -114,7 +114,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         | Prod of mtype * mtype
 	         | Unit of region
 	         | UniI of sort * (name * mtype) ibind
-	         | ExI of sort * (name * mtype) ibind
 	         (* the first operant of App can only be a type variable. The degenerated case of no-arguments is also included *)
 	         | AppV of id * mtype list * idx list * region
 	                 | Int of region
@@ -325,7 +324,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 in
                     str_uni ctx (map SortingT binds, t)
                 end
-              | ExI (s, BindI ((name, _), t)) => sprintf "(exists {$ : $}, $)" [name, str_s sctx s, str_mt (name :: sctx, kctx) t]
               | AppV ((x, _), ts, is, _) => 
                 if null ts andalso null is then
 	            str_v kctx x
@@ -578,7 +576,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | Prod (t1, t2) => combine_region (get_region_mt t1) (get_region_mt t2)
               | Unit r => r
               | UniI (_, bind) => get_region_ibind get_region_mt bind
-              | ExI (_, bind) => get_region_ibind get_region_mt bind
               | AppV (_, _, _, r) => r
               | Int r => r
               | UVar (_, r) => r
@@ -784,7 +781,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	      | Unit r => Unit r
 	      | AppV (x, ts, is, r) => AppV (x, map simp_mt ts, map simp_i is, r)
 	      | UniI (s, bind) => UniI (simp_s s, simp_ibind simp_mt bind)
-	      | ExI (s, bind) => ExI (simp_s s, simp_ibind simp_mt bind)
 	      | Int r => Int r
               | UVar u => UVar u
 

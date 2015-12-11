@@ -114,7 +114,7 @@ local
 		    Sorting (x, s, _) =>
 		    (case quan of
 			 S.Forall => UniI (elab_s s, BindI (x, t))
-		       | S.Exists => ExI (elab_s s, BindI (x, t)))
+                    )
 	  in
 	      foldr f (elab_mt t) binds
 	  end

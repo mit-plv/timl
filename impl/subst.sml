@@ -74,7 +74,6 @@ fun on_i_mt on_i_i on_i_s on_invis expand_mt x n b =
 	  | Unit r => Unit r
 	  | Prod (t1, t2) => Prod (f x n t1, f x n t2)
 	  | UniI (s, bind) => UniI (on_i_s x n s, on_i_ibind f x n bind)
-	  | ExI (s, bind) => ExI (on_i_s x n s, on_i_ibind f x n bind)
 	  | AppV (y, ts, is, r) => AppV (y, map (f x n) ts, map (on_i_i x n) is, r)
 	  | Int r => Int r
           | UVar ((invis as (invisi, invist), uvar), r) =>
@@ -110,7 +109,6 @@ fun on_t_mt on_v on_invis expand_mt x n b =
 	  | Unit r => Unit r
 	  | Prod (t1, t2) => Prod (f x n t1, f x n t2)
 	  | UniI (s, bind) => UniI (s, on_t_ibind f x n bind)
-	  | ExI (s, bind) => ExI (s, on_t_ibind f x n bind)
 	  | AppV ((y, r1), ts, is, r) => AppV ((on_v x n y, r1), map (f x n) ts, is, r)
 	  | Int r => Int r
           | UVar ((invis as (invisi, invist), uvar), r) =>
@@ -340,7 +338,6 @@ local
 	  | Unit r => Unit r
 	  | Prod (t1, t2) => Prod (f x v t1, f x v t2)
 	  | UniI (s, bind) => UniI (substx_i_s x v s, substx_i_ibind f x idx_shiftable v bind)
-	  | ExI (s, bind) => ExI (substx_i_s x v s, substx_i_ibind f x idx_shiftable v bind)
 	  | AppV (y, ts, is, r) => AppV (y, map (f x v) ts, map (substx_i_i x v) is, r)
 	  | Int r => Int r
           | UVar ((invis as (invisi, invist), uvar), r) =>
@@ -375,7 +372,6 @@ local
 	  | Unit r => Unit r
 	  | Prod (t1, t2) => Prod (f x v t1, f x v t2)
 	  | UniI (s, bind) => UniI (s, substx_t_ibind f x value_shiftable v bind)
-	  | ExI (s, bind) => ExI (s, substx_t_ibind f x value_shiftable v bind)
 	  | AppV ((y, r), ts, is, r2) => 
 	    if y = x then
 		if null ts andalso null is then

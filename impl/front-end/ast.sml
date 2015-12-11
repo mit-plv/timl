@@ -26,7 +26,6 @@ datatype sort =
 
 datatype quan =
 	 Forall
-	 | Exists
 
 datatype abs = 
 	 Fn

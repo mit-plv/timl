@@ -246,7 +246,6 @@ fun update_mt t =
       | Unit r => Unit r
       | Prod (t1, t2) => Prod (update_mt t1, update_mt t2)
       | UniI (s, BindI (name, t1)) => UniI (update_s s, BindI (name, update_mt t1))
-      | ExI (s, BindI (name, t1)) => ExI (update_s s, BindI (name, update_mt t1))
       | AppV (y, ts, is, r) => AppV (y, map update_mt ts, map update_i is, r)
       | Int r => Int r
 
@@ -461,11 +460,6 @@ local
                      loop ctx (t2, t2'))
                   | (Unit _, Unit _) => ()
                   | (UniI (s, BindI ((name, _), t1)), UniI (s', BindI (_, t1'))) =>
-                    (unify_s r sctx (s, s');
-                     open_sorting (name, s);
-                     loop (name :: sctx, kctx) (t1, t1');
-                     close_vc ())
-                  | (ExI (s, BindI ((name, _), t1)), ExI (s', BindI (_, t1'))) =>
                     (unify_s r sctx (s, s');
                      open_sorting (name, s);
                      loop (name :: sctx, kctx) (t1, t1');
@@ -731,14 +725,6 @@ local
 	          UniI (s,
 	                BindI ((name, r), 
                                is_wf_mtype (order + 1) (add_sorting_sk (name, s) ctx, c)))
-              end
-	    | U.ExI (s, BindI ((name, r), c)) => 
-              let
-                  val s = is_wf_sort order (sctx, s)
-              in
-	          ExI (s,
-	               BindI ((name, r), 
-                              is_wf_mtype (order + 1) (add_sorting_sk (name, s) ctx, c)))
               end
 	    | U.AppV (x, ts, is, r) => 
               let
@@ -1386,7 +1372,6 @@ local
 	        | Unit r => []
 	        | Prod (t1, t2) => fv_mt t1 @ fv_mt t2
 	        | UniI (s, BindI (name, t1)) => fv_mt t1
-	        | ExI (s, BindI (name, t1)) => fv_mt t1
 	        | Int r => []
 	        | AppV (y, ts, is, r) => concatMap fv_mt ts
             fun fv_t t =
@@ -1410,7 +1395,6 @@ local
 	              | Unit r => Unit r
 	              | Prod (t1, t2) => Prod (subst x v t1, subst x v t2)
 	              | UniI (s, BindI (name, t1)) => UniI (s, BindI (name, subst x (v + 1) t1))
-	              | ExI (s, BindI (name, t1)) => ExI (s, BindI (name, subst x (v + 1) t1))
 	              | Int r => Int r
 	              | AppV (y, ts, is, r) => 
 		        AppV (y, map (subst x v) ts, is, r)

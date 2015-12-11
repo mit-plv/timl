@@ -62,7 +62,6 @@ local
 	| E.Prod (t1, t2) => Prod (on_mtype ctx t1, on_mtype ctx t2)
 	| E.Unit r => Unit r
 	| E.UniI (s, E.BindI ((name, r), t)) => UniI (on_sort sctx s, BindI ((name, r), on_mtype (name :: sctx, kctx) t))
-	| E.ExI (s, E.BindI ((name, r), t)) => ExI (on_sort sctx s, BindI ((name, r), on_mtype (name :: sctx, kctx) t))
 	| E.AppV (x, ts, is, r) => AppV (on_var kctx x, map (on_mtype ctx) ts, map (on_idx sctx) is, r)
 	| E.Int r => Int r
         | E.UVar u => UVar u

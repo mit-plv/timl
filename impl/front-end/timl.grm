@@ -277,7 +277,6 @@ id_star : id id_star (id :: id_star)
 id_plus : id id_star (id :: id_star)
 
 quan : FORALL (Forall)
-     | EXISTS (Exists)
 
 decl_star : decl decl_star (decl :: decl_star)
 	 | ([])
