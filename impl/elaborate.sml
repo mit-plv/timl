@@ -174,27 +174,11 @@ local
 		    if x = "fst" then Fst (elab e2)
 		    else if x = "snd" then Snd (elab e2)
 		    else default ()
-		  | S.AppI (S.AppT (S.Var (x, _), t, _), i, _) =>
-		    if x = "pack" then Pack (elab_mt t, elab_i i, elab e2)
-		    else default ()
 		  | _ => default ()
 	    end
 	  | S.AppI (e, i, _) =>
 	    AppI (elab e, elab_i i)
-	  | S.AppT (e, t, r) =>
-	    raise Error (r, "Don't support explicit type arguments")
-	  | S.Case (HUnpack, e, return, rules, r) =>
-	    let
-	    in
-		case rules of
-		    [(S.ConstrP ((c, r), [iname], SOME (S.ConstrP ((ename, _), [], NONE, _)), _), e1)] =>
-		    if c = "pack" then
-			Unpack (elab e, elab_return return, iname, ename, elab e1)
-		    else
-			raise Error (r, "Constructor name must be pack")
-		  | _ => raise Error (r, "Pattern can only be (pack {idx} x => ...)")
-	    end
-	  | S.Case (HCase, e, return, rules, r) =>
+	  | S.Case (e, return, rules, r) =>
 	    let 
 	    in
 		Case (elab e, elab_return return, map (fn (pn, e) => (elab_pn pn, elab e)) rules, r)

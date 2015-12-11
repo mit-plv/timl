@@ -164,8 +164,6 @@ local
 			 | NONE => default ())
 		    | _ => default ()
 	      end
-	    | E.Pack (t, i, e) => Pack (on_mtype skctx t, on_idx sctx i, on_expr ctx e)
-	    | E.Unpack (e1, return, iname, ename, e2) => Unpack (on_expr ctx e1, on_return skctx return, iname, ename, on_expr (iname :: sctx, kctx, cctx, ename :: tctx) e2)
 	    | E.Let (decls, e, r) =>
               let 
                   val (decls, ctx) = on_decls ctx decls

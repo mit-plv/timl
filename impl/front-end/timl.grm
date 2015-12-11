@@ -77,7 +77,6 @@ open Ast
        | tbind_plus of tbind list
        | tbind_star of tbind list
        | tbind of tbind
-       | case_type of case_type
        | return of ty option * idx option
        | rec_return of ty option * idx option
        | rule_bar_star of (ptrn * exp) list
@@ -157,13 +156,12 @@ exp : aexp (aexp)
 exp : id (Var id)
      | LPAREN exp_comma_star RPAREN (Tuple (exp_comma_star, (LPARENleft, RPARENright)))
      | FN bind_plus return DARROW exp (Abs (bind_plus, return, exp, (FNleft, expright)))
-     | case_type exp return OF rule_bar_star (Case (case_type, exp, return, rule_bar_star, (case_typeleft, rule_bar_starright)))
+     | CASE exp return OF rule_bar_star (Case (exp, return, rule_bar_star, (CASEleft, rule_bar_starright)))
      | LET decl_star IN exp END (Let (decl_star, exp, (LETleft, ENDright)))
      | INT (Const (INT, (INTleft, INTright)))
      | exp PLUS exp (BinOp (Add, exp1, exp2, (exp1left, exp2right)))
      | exp COLON ty (Ascription (exp, ty, (expleft, tyright)))
      | exp RTRI idx (AscriptionTime (exp, idx, (expleft, idxright)))
-     | exp LSQ ty RSQ (AppT (exp, ty, (expleft, tyright)))
      | exp LCUR idx RCUR (AppI (exp, idx, (expleft, idxright)))
      | exp exp %prec APP (App (exp1, exp2, (exp1left, exp2right)))
 
@@ -240,9 +238,6 @@ tbind_plus : tbind tbind_star (tbind :: tbind_star)
 tbind : LCUR id COLON sort RCUR (Sorting (id, sort, (LCURleft, RCURright)))
       | LPAREN tbind RPAREN (tbind)
 
-case_type : UNPACK (HUnpack)
-          | CASE (HCase)
-                 
 return : RETURN ty RTRI idx ((SOME ty, SOME idx))
        | RETURN ty ((SOME ty, NONE))
        | RETURN RTRI idx ((NONE, SOME idx))

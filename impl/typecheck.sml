@@ -1242,65 +1242,6 @@ local
                              (print_ctx ctx;
                               raise subst_uvar_error (U.get_region_e e_all) t i x)
 		  end
-		| U.Pack (t, i, e) =>
-                  let
-                      val t = is_wf_mtype (skctx, t)
-                      val anchor = make_anchor ()
-                      val r = get_region_mt t
-                      val s = fresh_sort anchor 0 sctxn r
-                      val t1 = fresh_t anchor 1 (kctxn @ sctxn) r
-                      val () = unify r skctxn (t, ExI (s, BindI (("uvar", r), t1)))
-		      val i = check_sort 0 (sctx, i, s)
-                      val t1 = subst_i_mt i t1
-                               handle SubstUVar x => raise subst_uvar_error (U.get_region_e e_all) t i x
-		      val (e, _, d) = check_mtype (ctx, e, t1)
-                  in
-		      (Pack (t, i, e), t, d)
-		  end
-		| U.Unpack (e1, return, idx_var, expr_var, e2) =>
-                  let 
-                      val anchor = make_anchor ()
-                      val r = U.get_region_e e1
-                      val s = fresh_sort anchor 0 sctxn r
-                      val t1' = fresh_t anchor 1 (kctxn @ sctxn) r
-                      val (e1, _, d1) = check_mtype (ctx, e1, ExI (s, BindI (("uvar", r), t1')))
-                      val ctx' = add_sorting_skct (idx_var, s) ctx
-		      val ctx' = add_typing_skct (expr_var, Mono t1') ctx'
-                      val sctxn' = idx_var :: sctxn
-                      val skctxn' = (sctxn', kctxn)
-                      val return = is_wf_return (skctx, return)
-                      val (e2, t, d) =
-                          case return of
-                              (SOME t, SOME d) =>
-		              let
-                                  val e2 = check_mtype_time (ctx', e2, shift_i_mt t, shift_i_i d)
-			      in
-				  (e2, t, d)
-			      end
-                            | (SOME t, NONE) =>
-		              let 
-				  val (e2, _, d) = check_mtype (ctx', e2, shift_i_mt t)
-                                  val d = forget_d (get_region_e e2) sctxn' 1 d
-			      in
-				  (e2, t, d)
-			      end
-                            | (NONE, SOME d) =>
-		              let 
-				  val (e2, t) = check_time (ctx', e2, shift_i_i d)
-                                  val t = forget_mt (get_region_e e2) skctxn' (1, 0) t
-			      in
-				  (e2, t, d)
-			      end
-		            | (NONE, NONE) =>
-		              let val (e2, t, d) = get_mtype (ctx', e2)
-                                  val t = forget_mt (get_region_e e2) skctxn' (1, 0) t
-                                  val d = forget_d (get_region_e e2) sctxn' 1 d
-			      in
-				  (e2, t, d)
-			      end
-                  in
-                      (Unpack (e1, return, idx_var, expr_var, e2), t, d1 %+ d)
-                  end
 		| U.TT r => 
                   (TT r, Unit dummy, T0 dummy)
 		| U.Pair (e1, e2) => 

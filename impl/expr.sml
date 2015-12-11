@@ -206,9 +206,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         (* universal index *)
 	         | AbsI of sort * name * expr
 	         | AppI of expr * idx
-	         (* existential index *)
-	         | Pack of mtype * idx * expr
-	         | Unpack of expr * return * string * string * expr
                  (* region *)
 	         | BinOp of bin_op * expr * expr
 	         | Const of int * region
@@ -426,8 +423,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	          | Snd e => sprintf "(snd $)" [str_e ctx e]
 	          | AbsI (s, (name, _), e) => sprintf "(fn $ :: $ => $)" [name, str_s sctx s, str_e (name :: sctx, kctx, cctx, tctx) e]
 	          | AppI (e, i) => sprintf "($ {$})" [str_e ctx e, str_i sctx i]
-	          | Pack (t, i, e) => sprintf "(pack $ ($, $))" [str_mt skctx t, str_i sctx i, str_e ctx e]
-	          | Unpack (e1, return, iname, ename, e2) => sprintf "unpack $ $as ($, $) in $ end" [str_e ctx e1, str_return skctx return, iname, ename, str_e (iname :: sctx, kctx, cctx, ename :: tctx) e2]
 	          | Let (decls, e, _) => 
                     let val (decls, ctx) = str_decls ctx decls
                     in
@@ -613,8 +608,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | Snd e => get_region_e e
               | AbsI (_, (_, r), e) => combine_region r (get_region_e e)
               | AppI (e, i) => combine_region (get_region_e e) (get_region_i i)
-              | Pack (t, _, e) => combine_region (get_region_mt t) (get_region_e e)
-              | Unpack (e1, _, _, _, e2) => combine_region (get_region_e e1) (get_region_e e2)
               | BinOp (_, e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
               | Const (_, r) => r
               | AppConstr ((_, r), _, e) => combine_region r (get_region_e e)
@@ -811,8 +804,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | Snd _ => false
               | AbsI _ => true
               | AppI _ => false
-              | Pack (_, _, e) => is_value e
-              | Unpack _ => false
               | Let _ => false
               | Ascription _ => false
               | AscriptionTime _ => false

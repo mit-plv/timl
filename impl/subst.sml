@@ -464,9 +464,6 @@ local
 	  | Snd e => Snd (f x n e)
 	  | AbsI (s, name, e) => AbsI (s, name, f x n e)
 	  | AppI (e, i) => AppI (f x n e, i)
-	  | Pack (t, i, e) => Pack (t, i, f x n e)
-	  | Unpack (e1, return, iname, ename, e2) => 
-	    Unpack (f x n e1, return, iname, ename, f (x + 1) n e2)
 	  | Let (decs, e, r) =>
 	    let 
 		val (decs, m) = f_decls x n decs

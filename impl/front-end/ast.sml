@@ -72,10 +72,6 @@ datatype bind =
 	 Typing of ptrn
 	 | TBind of tbind
 
-datatype case_type =
-         HCase
-       | HUnpack
-
 type return = ty option * idx option
              
 datatype exp = 
@@ -83,9 +79,8 @@ datatype exp =
        | Tuple of exp list * region
        | Abs of bind list * return * exp * region
        | App of exp * exp * region
-       | AppT of exp * ty * region
        | AppI of exp * idx * region
-       | Case of case_type * exp * return * (ptrn * exp) list * region
+       | Case of exp * return * (ptrn * exp) list * region
        | Ascription of exp * ty * region
        | AscriptionTime of exp * idx * region
        | Let of decl list * exp * region
