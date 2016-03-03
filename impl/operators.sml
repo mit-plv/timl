@@ -6,7 +6,6 @@ datatype idx_un_op =
                
 datatype idx_bin_op =
 	 AddI
-	 | MinusI
 	 | MultI
 	 | MaxI
 	 | MinI
@@ -40,7 +39,6 @@ fun str_idx_un_op opr =
 fun str_idx_bin_op opr =
   case opr of
       AddI => "+"
-    | MinusI => "-"
     | MultI => "*"
     | MaxI => "max"
     | MinI => "min"
