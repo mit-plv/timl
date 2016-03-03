@@ -77,7 +77,7 @@ val ['a] msort =
                 NilI => xs
               | (ConsI {_} (_, NilI)) => xs
               | (ConsI {_} (_, ConsI {_} (_, _))) =>
-                case split {n} xs return {n} 'a list |> O c (m * (0.5 * $n) * log2 (0.5 * $n)) of
+                case split {n} xs return {n} 'a list |> 2.0 * O c (m * (0.5 * $n) * log2 (0.5 * $n)) of
                     Even {n1} {n2} (xs1, xs2) => merge {_} le {_} {_} (sort {_} xs1, sort {_} xs2)
     in
         sort
@@ -86,10 +86,10 @@ end
 
 (* Proof obligations:
 
-exists c, s.t.
+exists c, forall m n n1 n2,
 
-(1) n = n1 + n2 /\ n2 <= n1 /\ n1 <= n2 + 1 -> 1 + 1 + O c (m * n1 * log2 n1) + 1 + O c (m * n2 * log n2) + 1 + m + 2 + n1 + n2 <= O c (m * n/2 * log2 (n/2))
+(1) n = n1 + n2 /\ n2 <= n1 /\ n1 <= n2 + 1 -> 1 + 1 + O c (m * n1 * log2 n1) + 1 + O c (m * n2 * log n2) + 1 + m + 2 + n <= 2 * O c (m * n/2 * log2 (n/2))
 
-(2) 1 + n + O c (m * n/2 * log2 (n/2)) <= O c (m * n * lgo2 n)
+(2) 1 + n + 2 * O c (m * n/2 * log2 (n/2)) <= O c (m * n * log2 n)
 
 *)
