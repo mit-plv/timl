@@ -1,0 +1,126 @@
+#!/usr/bin/env perl
+
+# Usage: prettyprint [files]
+#
+# Quick and dirty prettyprinter for LISP-like expressions.
+# Prettyprints all the input, except lines that start with # (i.e., comments).
+# No assumption about input whitespace except that it separates sister atoms.
+#
+#
+# TO DO: Perhaps when the indent level is 0, we should preserve whitespace
+#        (or perhaps even all lines that don't start with \s\*\(, even if
+#        they contain parens).
+
+use warnings;
+use IO::Handle
+STDOUT->autoflush();   # ensure that output reaches the user immediately
+
+sub pp;
+sub peektoken;
+sub gettoken;
+sub getcomments;
+sub myeof;
+
+pp(0);         # prettyprint tokens at indent level 0
+die "$0: Unexpected right parenthesis; didn't finish printing\n" if defined peektoken;
+
+######################################################################
+
+
+sub pp {    # prettyprints expressions from @tokens,
+            # at the indent level given by the argument,
+            # until it runs out of input or runs into an extra right paren.
+
+  # Note that there's some special handling at indentation level 0.
+  # This was added ONLY to improve our printing of comment lines.
+  #
+  #    At level 0, we want to pass comment lines through immediately rather
+  #    than waiting for the next newline.  This enables us to print comments
+  #    before the first expression (i.e., before the first newline).  It
+  #    also lets us print comments "hot" as they arrive between expressions 
+  #    1 and 2, rather than waiting till expression 2 actually arrives.
+  # 
+  #    To make this work, we must print "\n" AFTER each level-0
+  #    expression.  I used to treat level 0 in exactly the same way as
+  #    the other levels (print "\n" BEFORE each expression other than
+  #    the first, which required the main routine to print a final
+  #    "\n" before quitting).  But I've modified the code so that we
+  #    suppress "\n" before level-0 expressions and add it after them.
+
+  my($indent) = @_;
+  my $i=0;
+  while (defined peektoken($indent) && peektoken ne ")") {
+    print "\n", getcomments, " " x $indent if $i++ && $indent!=0;  # newline before any expr but 1st
+    print my($token) = &gettoken;                # print word or (
+    if ($token eq "(") {                         # if ( then
+      my $LHS = peektoken;
+      die "\n$0: Unexpected EOF\n" unless defined $LHS;
+      if ($LHS eq ")") {                         #    no subitems, so nothing to do
+	;
+      } elsif ($LHS eq "(") {                    #    first item is a subexpression
+	&pp($indent+length("("));                #      print all items including it in an aligned column just to the right of the previously printed "("
+      } else {                                   #    first subitem is a simple word
+	&gettoken;                               #       consume it
+	print "$LHS ";                           #       print it (plus " " even if no more subitems)
+	&pp($indent+length("($LHS "));           #       print all remaining items in an aligned column just to its right
+      }
+      my $closeparen = &gettoken;
+      die "\n$0: Unexpected EOF\n" unless defined $closeparen;
+      die "\n$0: internal error" unless $closeparen eq ")";
+      print $closeparen;                         #    print )
+    }
+    print "\n" if $indent==0;                    # special handling
+  }
+}
+
+######################################################################
+# Manages the stream of tokens.
+######################################################################
+
+BEGIN {
+  my @tokens = ();       # buffer of remaining tokens from most recently read input line
+  my $comments = "";     # block of saved up comments
+  my $firsttime = 1;     # this is to fix the problem with Perl versions < 5.6,
+                         # where eof() returns 1 when called before <> has been read.
+
+  sub peektoken {   # returns undef if no more tokens
+                    # if optional argument is 0, comments are printed "hot"
+    while ($firsttime || @tokens==0 && !myeof) {
+      $_ = <>; $firsttime=0;
+      last if !defined $_;  # in case we tried to read because it was firsttime, but shouldn't have because input was empty
+      if (/^#|^\s*$/) {     # comment or blank line
+	if (defined $_[0] && $_[0]==0) {
+	  print $_;         # print comment "hot"
+	} else {
+	  $comments .= $_;  # buffer comment till next newline
+	}
+	redo;
+      }
+      s/[()]/ $& /g;  # put space around parens so they get treated as tokens
+      @tokens=split;  # tokenize input by splitting at spaces
+    }
+    $tokens[0];
+  }
+
+  sub gettoken {       # remove and return next token
+    my $t = peektoken;
+    shift(@tokens) if defined $t;
+    $t;
+  }
+
+  sub getcomments {    # remove and return current block of saved up comments; should print this after any newline
+    my $t = $comments;
+    $comments = "";
+    $t;
+  }
+}
+
+# Version of eof() that is careful to keep returning 1 once it has reached eof.
+
+BEGIN {
+  my $myeof = 0;
+
+  sub myeof { 
+    $myeof || ($myeof = eof());
+  }
+}
