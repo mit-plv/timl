@@ -83,3 +83,13 @@ val ['a] msort =
         sort
     end
 end
+
+(* Proof obligations:
+
+exists c, s.t.
+
+(1) n = n1 + n2 /\ n2 <= n1 /\ n1 <= n2 + 1 -> 1 + 1 + O c (m * n1 * log2 n1) + 1 + O c (m * n2 * log n2) + 1 + m + 2 + n1 + n2 <= O c (m * n/2 * log2 (n/2))
+
+(2) 1 + n + O c (m * n/2 * log2 (n/2)) <= O c (m * n * lgo2 n)
+
+*)
