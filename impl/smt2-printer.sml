@@ -24,12 +24,6 @@ fun print_i ctx i =
     | BinOpI (opr, i1, i2) => 
       (case opr of
            AddI => sprintf "(+ $ $)" [print_i ctx i1, print_i ctx i2]
-         | MinusI =>
-           let fun proper_sub a b =
-                   sprintf "(ite (>= $ $) (- $ $) 0)" [a, b, a, b]
-           in
-               proper_sub (print_i ctx i1) (print_i ctx i2)
-           end
          | MultI => 
            sprintf "($ $ $)" ["*", print_i ctx i1, print_i ctx i2]
          | MaxI =>

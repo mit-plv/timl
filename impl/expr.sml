@@ -679,12 +679,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                               i1)
 	                 else
 		             BinOpI (opr, passi i1, passi i2)
-	               | MinusI => 
-	                 if eq_i i2 (T0 dummy) then
-                             (set ();
-                              i1)
-	                 else
-		             BinOpI (opr, passi i1, passi i2)
 	               | MultI => 
 	                 if eq_i i1 (T0 dummy) then
                              (set ();
