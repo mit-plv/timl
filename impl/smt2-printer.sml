@@ -38,12 +38,13 @@ fun print_i ctx i =
            in
                min (print_i ctx i1) (print_i ctx i2)
            end
-         | BigO =>
-           sprintf "($ $ $)" ["bigO", print_i ctx i1, print_i ctx i2]
+         | App1 =>
+           sprintf "(app1 $ $)" [print_i ctx i1, print_i ctx i2]
       )
     | TrueI _ => "true"
     | FalseI _ => "false"
     | TTI _ => "TT"
+    | Abs1 ((name, _), i, _) => "fn1"
     | UVarI (u, _) => exfalso u
 
 fun negate s = sprintf "(not $)" [s]
@@ -54,7 +55,7 @@ fun print_base_sort b =
     | Bool => "Bool"
     | Time => "Real"
     | Nat => "Int"
-    | Profile => "Profile"
+    | Fun1 => "Fun1"
 
 fun print_bsort bsort =
   case bsort of
@@ -74,12 +75,14 @@ fun print_p ctx p =
             EqP => "="
           | LeP => "<="
           | GtP => ">"
+          | BigO => ""
       fun f p =
         case p of
             True _ => "true"
           | False _ => "false"
           | Not (p, _) => negate (f p)
           | BinConn (opr, p1, p2) => sprintf "($ $ $)" [str_conn opr, f p1, f p2]
+          | BinPred (BigO, i1, i2) => sprintf "(bigO $ $)" [print_i ctx i1, print_i ctx i2]
           | BinPred (opr, i1, i2) => sprintf "($ $ $)" [str_pred opr, print_i ctx i1, print_i ctx i2]
           | Quan (q, bs, (name, _), p) => sprintf "($ (($ $)) $)" [str_quan q, name, print_bsort bs, print_p (name :: ctx) p]
   in
@@ -105,9 +108,10 @@ fun print_hyp ctx h =
 val prelude = [
     (* "(set-option :produce-proofs true)", *)
     "(declare-datatypes () ((Unit TT)))",
-    "(declare-datatypes () ((Profile Profile-dummy-constr)))",
+    "(declare-datatypes () ((Fun1 Fun1-dummy-constr)))",
     "(declare-fun log2 (Real) Real)",
-    "(declare-fun bigO (Profile Real) Real)",
+    "(declare-fun bigO (Fun1 Fun1) Bool)",
+    "(declare-fun app1 (Fun1 Int) Real)",
     (* "(assert (forall ((x Real) (y Real))", *)
     (* "  (! (=> (and (< 0 x) (< 0 y)) (= (log2 ( * x y)) (+ (log2 x) (log2 y))))", *)
     (* "    :pattern ((log2 ( * x y))))))", *)

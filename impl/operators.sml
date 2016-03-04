@@ -9,7 +9,7 @@ datatype idx_bin_op =
 	 | MultI
 	 | MaxI
 	 | MinI
-         | BigO
+         | App1
 
 (* binary logical connectives *)
 datatype bin_conn =
@@ -23,6 +23,7 @@ datatype bin_pred =
          LeP
          | EqP
          | GtP
+         | BigO
                
 datatype bin_op =
          Add
@@ -42,7 +43,7 @@ fun str_idx_bin_op opr =
     | MultI => "*"
     | MaxI => "max"
     | MinI => "min"
-    | BigO => "O"
+    | App1 => ""
 
 fun str_bin_conn opr =
   case opr of
@@ -56,6 +57,7 @@ fun str_bin_pred opr =
       EqP => "="
     | LeP => "<="
     | GtP => ">"
+    | BigO => "O"
 
 fun str_bin_op opr =
   case opr of

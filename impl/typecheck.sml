@@ -203,6 +203,7 @@ fun update_i i =
       | TTI _ => i
       | TrueI _ => i
       | FalseI _ => i
+      | Abs1 (name, i, r) => Abs1 (name, update_i i, r)
 
 fun update_p p =
     case p of
@@ -560,11 +561,20 @@ local
 		val (i2, bs2) = get_bsort order (ctx, i2)
                 val () = unify_bs (U.get_region_p p) (bs1, bs2)
                 val bs = update_bs bs1
+                fun error expected = Error (U.get_region_p p, sprintf "Sorts of operands of $ must be both $:" [str_bin_pred opr, expected] :: indent ["left: " ^ str_bs bs1, "right: " ^ str_bs bs2])
                 val () =
-                    case bs of
-                        Base Nat => ()
-                      | Base Time => ()
-                      | _ => raise Error (U.get_region_p p, sprintf "Sorts of operands of $ must be both Nat or Time:" [str_bin_pred opr] :: indent ["left: " ^ str_bs bs1, "right: " ^ str_bs bs2])
+                    case opr of
+                        BigO => 
+                        (case bs of
+                             Base Fun1 => ()
+                           | _ => raise error "Fun1"
+                        )
+                      | _ =>
+                        (case bs of
+                             Base Nat => ()
+                           | Base Time => ()
+                           | _ => raise error "Nat or Time"
+                        )
 	    in
                 BinPred (opr, i1, i2)
 	    end
@@ -606,12 +616,12 @@ local
             )
 	  | U.BinOpI (opr, i1, i2) =>
             (case opr of
-                 BigO => 
+                 App1 => 
                  let 
-                     val i1 = check_bsort order (ctx, i1, Base Profile)
-                     val i2 = check_bsort order (ctx, i2, Base Time)
+                     val i1 = check_bsort order (ctx, i1, Base Fun1)
+                     val i2 = check_bsort order (ctx, i2, Base Nat)
                  in
-                     (BinOpI (BigO, i1, i2), Base Time)
+                     (BinOpI (opr, i1, i2), Base Time)
                  end
                | _ =>
                  let 
@@ -641,6 +651,12 @@ local
             (FalseI r, Base Bool)
 	  | U.TTI r => 
             (TTI r, Base BSUnit)
+          | U.Abs1 ((name, r1), i, r) =>
+            let 
+                val i = check_bsort (order + 1) (add_sorting (name, Basic (Base Nat, r1)) ctx, i, Base Time)
+            in
+                (Abs1 ((name, r1), i, r), Base Fun1)
+            end
           | U.UVarI ((), r) =>
             let
                 val bs = fresh_bsort ()
@@ -1780,6 +1796,7 @@ local
 	                                  | BinOpI (opr, i1, i2) => BinOpI (opr, substu_i x v i1, substu_i x v i2)
 	                                  | TrueI r => TrueI r
 	                                  | FalseI r => FalseI r
+                                          | Abs1 (name, i, r) => Abs1 (name, substu_i x (v + 1) i, r)
 	                                  | TTI r => TTI r
                                     fun substu_p x v b =
 	                                case b of
@@ -1822,6 +1839,7 @@ local
                   | TrueI r => N.TrueI r
                   | FalseI r => N.FalseI r
                   | TTI r => N.TTI r
+                  | Abs1 (name, i, r) => N.Abs1 (name, f i, r)
                   | UVarI _ =>
                     raise Impossible "no_uvar_i (): shouldn't be UVarI"
         in

@@ -57,8 +57,8 @@ local
 	    (Base Bool, r)
 	else if name = "Unit" then
 	    (Base BSUnit, r)
-	else if name = "Profile" then
-	    (Base Profile, r)
+	else if name = "Fun1" then
+	    (Base Fun1, r)
         else if name = "_" then
             (UVarBS (), r)
 	else raise Error (r, sprintf "Unrecognized base sort: $" [name])

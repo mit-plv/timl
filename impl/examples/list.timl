@@ -52,7 +52,7 @@ val ['a] merge =
         merge
     end
         
-abstype idx g : O (fn n => $n * log2 $n) = _ with
+abstype idx {g : Fun1 | O g (fn n => $n * log2 $n)} = _ with
 val ['a] msort =
  fn {m : Time} (le : 'a * 'a -- m --> bool) =>
     let
@@ -70,8 +70,8 @@ end
 
 (* Proof obligations:
 
-exists g : O (fn n => n * log2 n), 
-(* or exists (f : Fun1) (g : O f), *)
+exists g : Fun1, O g (fn n => n * log2 n) ->
+(* or exists (f : Fun1) (g : Fun1), O g f -> *)
   forall m n,
     1 + 1 + m * g (ceil (n/2) * log2 (ceil (n/2))) + 1 + m * g (floor (n/2) * log2 (floor (n/2))) + 1 + m + 2 + n + 1 + n <= m * g (n * log2 n)
 

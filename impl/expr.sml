@@ -6,7 +6,7 @@ datatype base_sort =
          | Nat
 	 | Bool
 	 | BSUnit
-         | Profile
+         | Fun1
 
 fun str_b (s : base_sort) : string = 
     case s of
@@ -14,7 +14,7 @@ fun str_b (s : base_sort) : string =
       | Nat => "Nat"
       | Bool => "Bool"
       | BSUnit => "Unit"
-      | Profile => "Profile"
+      | Fun1 => "Fun1"
 
 end
 
@@ -85,6 +85,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         | TrueI of region
 	         | FalseI of region
 	         | TTI of region
+                 | Abs1 of name * idx * region
                  | UVarI of (bsort, idx) uvar_i * region
 
         fun T0 r = ConstIT ("0.0", r)
@@ -258,11 +259,12 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | ConstIN (n, _) => str_int n
               | ConstIT (x, _) => x
               | UnOpI (opr, i, _) => sprintf "($ $)" [str_idx_un_op opr, str_i ctx i]
-              | BinOpI (BigO, i1, i2) => sprintf "($ $ $)" [str_idx_bin_op BigO, str_i ctx i1, str_i ctx i2]
+              | BinOpI (App1, i1, i2) => sprintf "($ $)" [str_i ctx i1, str_i ctx i2]
               | BinOpI (opr, i1, i2) => sprintf "($ $ $)" [str_i ctx i1, str_idx_bin_op opr, str_i ctx i2]
               | TTI _ => "()"
               | TrueI _ => "true"
               | FalseI _ => "false"
+              | Abs1 ((name, _), i, _) => sprintf "(fn1 $ => $)" [name, str_i (name :: ctx) i]
               | UVarI (u, _) => str_uvar_i str_i ctx u
 
         fun str_p ctx p = 
@@ -271,6 +273,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | False _ => "False"
               | Not (p, _) => sprintf "(~ $)" [str_p ctx p]
               | BinConn (opr, p1, p2) => sprintf "($ $ $)" [str_p ctx p1, str_bin_conn opr, str_p ctx p2]
+              | BinPred (BigO, i1, i2) => sprintf "($ $ $)" [str_bin_pred BigO, str_i ctx i1, str_i ctx i2]
               | BinPred (opr, i1, i2) => sprintf "($ $ $)" [str_i ctx i1, str_bin_pred opr, str_i ctx i2]
               | Quan (q, bs, (name, _), p) => sprintf "($ ($ : $) $)" [str_quan q, name, str_bs bs, str_p (name :: ctx) p]
 
@@ -530,6 +533,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | TrueI r => r
               | FalseI r => r
               | TTI r => r
+              | Abs1 (_, _, r) => r
               | UVarI (_, r) => r
 
         fun set_region_i i r =
@@ -542,6 +546,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | TrueI _ => TrueI r
               | FalseI _ => FalseI r
               | TTI _ => TTI r
+              | Abs1 (name, i, _) => Abs1 (name, i, r)
               | UVarI (a, _) => UVarI (a, r)
 
         fun get_region_p p = 
@@ -694,11 +699,13 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                               i1)
 	                 else
 		             BinOpI (opr, passi i1, passi i2)
-                       | BigO =>
+                       | App1 =>
 		         BinOpI (opr, passi i1, passi i2)
                     )
                   | UnOpI (opr, i, r) =>
                     UnOpI (opr, passi i, r)
+                  | Abs1 ((name, r1), i, r) =>
+                    Abs1 ((name, r1), passi i, r)
 	          | _ => i
 
             fun passp p = 

@@ -16,6 +16,7 @@ fun on_i_i on_v on_invis expand_i x n b =
 	  | TTI r => TTI r
 	  | TrueI r => TrueI r
 	  | FalseI r => FalseI r
+          | Abs1 (name, i, r) => Abs1 (name, f (x + 1) n i, r)
           | UVarI ((invis, uvar), r) =>
             (case !uvar of
                  Refined i => 
@@ -271,6 +272,7 @@ local
 	  | TrueI r => TrueI r
 	  | FalseI r => FalseI r
 	  | TTI r => TTI r
+          | Abs1 (name, i, r) => Abs1 (name, f (x + 1) (shiftx_i_i 0 1 v) i, r)
           | UVarI ((invis, uvar), r) =>
             case !uvar of
                 Refined i => f x v (expand_i invis i)

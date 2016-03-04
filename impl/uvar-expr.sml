@@ -12,7 +12,7 @@ datatype 'bsort uvar_name =
 
 withtype 'bsort anchor = ((('bsort uvar_name) option) ref) list
 
-and 'bsort uvar_name_core = int * ('bsort anchor) ref * int (* order *) * string list
+and 'bsort uvar_name_core = int * ('bsort anchor) ref * int (* order: number of idx quantifications from the nearest type constructor *) * string list
 
 (* invisible segments *)
 type invisibles = (int * int) list

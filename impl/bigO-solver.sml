@@ -9,6 +9,8 @@ infix 3 /\
 infix 1 -->
 
 fun solve_one (hs, p) =
+    false
+        (*
     let
         val nx = length $ List.filter (fn h => case h of VarH _ => true | _ => false) hs
     in
@@ -61,7 +63,8 @@ fun solve_one (hs, p) =
             end
           | _ => false
     end
-
+        *)
+        
 fun partitionOption f xs =
     case xs of
         [] => ([], [])
