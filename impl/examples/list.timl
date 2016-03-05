@@ -25,7 +25,7 @@ val ['a] ['b] foldl =
     end
 
 datatype {Nat} 'a even_split =
-         Even of {n : Nat} ({ceil (n/2)} 'a list * {floor (n/2)} 'a list) -> n 'a even_split
+         Even of {n : Nat} ({ceil (0.5 * $n)} 'a list * {floor (0.5 * $n)} 'a list) -> n 'a even_split
 
 fun ['a] split {n : Nat} (xs : {n} 'a list) return n 'a even_split |> $n =
     case xs return {n} 'a even_split |> $n of
@@ -52,7 +52,7 @@ val ['a] merge =
         merge
     end
         
-abstype idx {g : Fun1 | O g (fn n => $n * log2 $n)} = _ with
+abstype idx g : {g : Fun1 | O g _} = _ with
 val ['a] msort =
  fn {m : Time} (le : 'a * 'a -- m --> bool) =>
     let
@@ -73,6 +73,6 @@ end
 exists g : Fun1, O g (fn n => n * log2 n) ->
 (* or exists (f : Fun1) (g : Fun1), O g f -> *)
   forall m n,
-    1 + 1 + m * g (ceil (n/2) * log2 (ceil (n/2))) + 1 + m * g (floor (n/2) * log2 (floor (n/2))) + 1 + m + 2 + n + 1 + n <= m * g (n * log2 n)
+    1 + 1 + m * g (ceil (0.5 * $n) * log2 (ceil (0.5 * $n))) + 1 + m * g (floor (0.5 * $n) * log2 (floor (0.5 * $n))) + 1 + m + 2 + n + 1 + n <= m * g (n * log2 n)
 
 *)
