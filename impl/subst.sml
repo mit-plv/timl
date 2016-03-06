@@ -271,6 +271,48 @@ fun substx_invis uname_ref x invis =
       invis
   end
 
+(* This is a version that allows substition for visible variable *)
+fun substx_invis uname_ref x invis =
+  let
+      fun remove_ctx x =
+        let
+            fun doit (n, anchor, order, ctx) = (n, anchor, order - 1, remove x ctx)
+            val new = case !uname_ref of
+                          SOME (Idx (core, other)) => SOME (Idx (doit core, other))
+                        | SOME (NonIdx core) => SOME (NonIdx (doit core))
+                        | other => other
+        in
+            uname_ref := new
+        end            
+      fun f ((off, len), (acc, (x, done, offsum))) =
+        let
+            val (acc_new, (x, done)) =
+                if done then
+                    ([(off, len)], (x, true))
+                else if x < off then
+                    (remove_ctx (offsum + x);
+                     ([(off - 1, len)], (x, true)))
+                    (* raise SubstUVar (uname, offsum + x) *)
+                else if x < off + len then
+                    if len <= 1 then
+                        ([], (x, true))
+                    else
+                        ([(off, len - 1)], (x, true))
+                else 
+                    ([(off, len)], (x - off - len, false))
+        in
+            (acc_new @ acc, (x, done, offsum + off))
+        end
+      val (invis, (x, done, offsum)) = foldl f ([], (x, false, 0)) invis
+      val () = if not done then
+                   remove_ctx (offsum + x)
+                   (* raise SubstUVar (uname, offsum + x) *)
+               else ()
+      val invis = rev invis
+  in
+      invis
+  end
+
 local
     fun f x v b =
 	case b of

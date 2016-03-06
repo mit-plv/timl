@@ -8,6 +8,7 @@ fun interleave xs ys =
 	x :: xs' => x :: interleave ys xs'
       | nil => ys
 fun skip start len ls = List.take (ls, start) @ List.drop (ls, start + len)
+fun remove n ls = skip n 1 ls
 
 fun sprintf s ls =
     String.concat (interleave (String.fields (fn c => c = #"$") s) ls)
