@@ -239,36 +239,37 @@ exception Error of string
 exception SubstUVar of (bsort uvar_name) option * int
 
 (* Substitute for [x] in (uname, invis). [x] must be invisible to [uname]. Will adjust [invis] accordingly. If we find that [x] is visible to [uname], throw [SubstUVar] with information of where [x] is in [uname]'s context *)
-fun substx_invis uname x invis =
-    let 
-        fun f ((off, len), (acc, (x, done, offsum))) =
-          let
-              val (acc_new, (x, done)) =
-                  if done then
-                      ([(off, len)], (x, true))
-                  else if x < off then
-                      raise SubstUVar (uname, offsum + x)
-                  else if x < off + len then
-                      if len <= 1 then
-                          ([], (x, true))
-                      else
-                          ([(off, len - 1)], (x, true))
-                  else 
-                      ([(off, len)], (x - off - len, false))
-          in
-              (acc_new @ acc, (x, done, offsum + off))
-          end
-        val (invis, (x, done, offsum)) = foldl f ([], (x, false, 0)) invis
-        val () = if not done then raise
-                                      let
-                                          val () = println $ sprintf "$\n$\n$" [str_int x, str_ls (str_pair (str_int, str_int)) invis, str_uname uname]
-                                      in
-                                          SubstUVar (uname, offsum + x)
-                                      end else ()
-        val invis = rev invis
-    in
-        invis
-    end
+fun substx_invis uname_ref x invis =
+  let
+      val uname = !uname_ref
+      fun f ((off, len), (acc, (x, done, offsum))) =
+        let
+            val (acc_new, (x, done)) =
+                if done then
+                    ([(off, len)], (x, true))
+                else if x < off then
+                    raise SubstUVar (uname, offsum + x)
+                else if x < off + len then
+                    if len <= 1 then
+                        ([], (x, true))
+                    else
+                        ([(off, len - 1)], (x, true))
+                else 
+                    ([(off, len)], (x - off - len, false))
+        in
+            (acc_new @ acc, (x, done, offsum + off))
+        end
+      val (invis, (x, done, offsum)) = foldl f ([], (x, false, 0)) invis
+      val () = if not done then raise
+                                    let
+                                        val () = println $ sprintf "$\n$\n$" [str_int x, str_ls (str_pair (str_int, str_int)) invis, str_uname uname]
+                                    in
+                                        SubstUVar (uname, offsum + x)
+                                    end else ()
+      val invis = rev invis
+  in
+      invis
+  end
 
 local
     fun f x v b =
@@ -292,7 +293,7 @@ local
             case !uvar of
                 Refined i => f x v (expand_i invis i)
               | Fresh name_ref => 
-                UVarI ((substx_invis (!name_ref) x invis, uvar), r)
+                UVarI ((substx_invis name_ref x invis, uvar), r)
 in
 fun substx_i_i x (v : idx) (b : idx) : idx = f x v b
 fun subst_i_i v b = substx_i_i 0 v b
@@ -342,7 +343,7 @@ local
             case !uvar of
                 Refined s => f x v (expand_s invis s)
               | Fresh name_ref => 
-                UVarS ((substx_invis (!name_ref) x invis, uvar), r)
+                UVarS ((substx_invis name_ref x invis, uvar), r)
 in
 fun substx_i_s x (v : idx) (b : sort) : sort = f x v b
 fun subst_i_s (v : idx) (b : sort) : sort = substx_i_s 0 v b
@@ -361,7 +362,7 @@ local
             case !uvar of
                 Refined t => f x v (expand_mt invis t)
               | Fresh name_ref => 
-                UVar (((substx_invis (!name_ref) x invisi, invist), uvar), r)
+                UVar (((substx_invis name_ref x invisi, invist), uvar), r)
 in
 fun substx_i_mt x (v : idx) (b : mtype) : mtype = f x v b
 fun subst_i_mt (v : idx) (b : mtype) : mtype = substx_i_mt 0 v b
@@ -404,7 +405,7 @@ local
             case !uvar of
                 Refined t => f x v (expand_mt invis t)
               | Fresh name_ref => 
-                UVar (((invisi, substx_invis (!name_ref) x invist), uvar), r)
+                UVar (((invisi, substx_invis name_ref x invist), uvar), r)
 in
 fun substx_t_mt x (v : mtype) (b : mtype) : mtype = f x v b
 fun subst_t_mt (v : mtype) (b : mtype) : mtype = substx_t_mt 0 v b
