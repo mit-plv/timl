@@ -12,8 +12,10 @@ datatype 'bsort uvar_name =
 
 withtype 'bsort anchor = ((('bsort uvar_name) option) ref) list
 
-(* order: when we convert leftover fresh idx variables to existentially quantified variables, because the quantification point is the variable's [anchor], which is not necessarily the point where the fresh variable was first introduced, there could be an implicit Skolemization involved. [order] indicates the degree of Skolemization. For example, if [order = 1], this fresh idx variable should (in principle) be converted into an existentially quantified variable of type [idx -> idx], not just [idx]. Considering the capability of the solver used to find this existential variable, we might choose to let its type be just [idx], which corresponds to giving up the flexibility of changing the existential variable's value according to some variables introduced after it. *)
-and 'bsort uvar_name_core = int * ('bsort anchor) ref * int (*order*) * string list
+(* order: when we convert leftover fresh idx variables to existentially quantified variables, because the quantification point is the variable's [anchor], which is not necessarily the point where the fresh variable was first introduced, there could be an implicit Skolemization involved. [order] indicates the degree of Skolemization. For example, if [order = 1], this fresh idx variable should (in principle) be converted into an existentially quantified variable of type [idx -> idx], not just [idx]. Considering the capability of the solver used to find this existential variable, we might choose to let its type be just [idx], which corresponds to giving up the flexibility of changing the existential variable's value according to some variables introduced after it. 
+An invariant: length ctx = order
+*)
+and 'bsort uvar_name_core = int * ('bsort anchor) ref * int (*order*) * string list (*ctx*)
 
 (* invisible segments *)
 type invisibles = (int * int) list

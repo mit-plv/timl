@@ -236,28 +236,34 @@ fun shrink_mt (invisi, invist) b = (shrink forget_i_mt invisi o shrink forget_t_
 
 exception Error of string
                        
-exception SubstUVar of (bsort uvar_name) option
+exception SubstUVar of (bsort uvar_name) option * int
 
+(* Substitute for [x] in (uname, invis). [x] must be invisible to [uname]. Will adjust [invis] accordingly. If we find that [x] is visible to [uname], throw [SubstUVar] with information of where [x] is in [uname]'s context *)
 fun substx_invis uname x invis =
     let 
-        fun f ((off, len), (acc, (x, done))) =
-            if done then
-                ((off, len) :: acc, (x, true))
-            else if x < off then
-                raise SubstUVar uname
-            else if x < off + len then
-                if len <= 1 then
-                    (acc, (x, true))
-                else
-                    ((off, len - 1) :: acc, (x, true))
-            else 
-                ((off, len) :: acc, (x - off - len, false))
-        val (invis, (_, done)) = foldl f ([], (x, false)) invis
+        fun f ((off, len), (acc, (x, done, offsum))) =
+          let
+              val (acc_new, (x, done)) =
+                  if done then
+                      ([(off, len)], (x, true))
+                  else if x < off then
+                      raise SubstUVar (uname, offsum + x)
+                  else if x < off + len then
+                      if len <= 1 then
+                          ([], (x, true))
+                      else
+                          ([(off, len - 1)], (x, true))
+                  else 
+                      ([(off, len)], (x - off - len, false))
+          in
+              (acc_new @ acc, (x, done, offsum + off))
+          end
+        val (invis, (x, done, offsum)) = foldl f ([], (x, false, 0)) invis
         val () = if not done then raise
                                       let
                                           val () = println $ sprintf "$\n$\n$" [str_int x, str_ls (str_pair (str_int, str_int)) invis, str_uname uname]
                                       in
-                                          SubstUVar uname
+                                          SubstUVar (uname, offsum + x)
                                       end else ()
         val invis = rev invis
     in

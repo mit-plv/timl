@@ -679,6 +679,14 @@ local
     fun is_wf_sorts order (ctx, sorts : U.sort list) : sort list = 
       map (fn s => is_wf_sort order (ctx, s)) sorts
 
+    fun get_uname_ctx u =
+      case u of
+          SOME (Idx ((_, _, _, names), _)) => names
+        | SOME (NonIdx (_, _, _, names)) => names
+        | _ => []
+                   
+    fun subst_uvar_error r body i (uname, x) = Error (r, sprintf "Can't substitute for $ in unification variable $ in $" [str_v (get_uname_ctx uname) x, str_uname uname, body] :: indent [sprintf "because the context of $ is [$] which contains $" [str_uname uname, (join ", " o rev o get_uname_ctx) uname, str_v (get_uname_ctx uname) x]])
+                                                                                            
     fun check_sort order (ctx, i : U.idx, s : sort) : idx =
       let 
           val (i, bs') = get_bsort order (ctx, i)
@@ -695,17 +703,8 @@ local
                                in
                                    p
                                end
-                                handle SubstUVar x =>
-                                       let
-                                           fun get_uname_ctx u =
-                                             case u of
-                                                 SOME (Idx ((_, _, _, names), _)) => names
-                                               | SOME (NonIdx (_, _, _, names)) => names
-                                               | _ => []
-                                           fun subst_uvar_error r p i uname = Error (r, sprintf "Can't substitute in unification variable $ in proposition $" [str_uname uname, str_p (name :: sctx_names ctx) p] :: indent [sprintf "context of $: $" [str_uname uname, (join ", " o rev o get_uname_ctx) uname]])
-                                       in
-                                           raise subst_uvar_error (get_region_p p) p i x
-                                       end
+                                handle SubstUVar info =>
+                                       raise subst_uvar_error (get_region_p p) ("proposition " ^ str_p (name :: sctx_names ctx) p) i info
                                , get_region_i i))
 	         | Basic (bs, _) => 
 		   unify_bs r (bs', bs)
@@ -1257,18 +1256,8 @@ local
                       val i = check_sort 0 (sctx, i, s) 
                   in
 		      (AppI (e, i), subst_i_mt i t1, d)
-                      handle SubstUVar x =>
-                             let
-                                 fun get_uname_ctx u =
-                                   case u of
-                                       SOME (Idx ((_, _, _, names), _)) => names
-                                     | SOME (NonIdx (_, _, _, names)) => names
-                                     | _ => []
-                                 fun subst_uvar_error r t i uname = Error (r, sprintf "Can't substitute in unification variable $ in type $" [str_uname uname, str_mt skctxn t] :: indent [sprintf "context of $: $" [str_uname uname, (join ", " o rev o get_uname_ctx) uname]])
-                                 val () = print_ctx ctx
-                             in
-                                 raise subst_uvar_error (U.get_region_e e_all) t i x
-                             end
+                      handle SubstUVar info =>
+                             raise subst_uvar_error (U.get_region_e e_all) ("type " ^ str_mt skctxn t) i info
 		  end
 		| U.TT r => 
                   (TT r, Unit dummy, T0 dummy)
