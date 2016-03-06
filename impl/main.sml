@@ -102,7 +102,7 @@ fun typecheck_file (filename, ctx) =
   in
       ctx
   end
-  handle 
+  handle
   Elaborate.Error (r, msg) => raise Error $ str_error "Error" filename r ["Elaborate error: " ^ msg]
   | NameResolve.Error (r, msg) => raise Error $ str_error "Error" filename r ["Resolve error: " ^ msg]
   | TypeCheck.Error (r, msg) => raise Error $ str_error "Error" filename r ((* "Type error: " :: *) msg)
@@ -134,7 +134,7 @@ fun main (prog_name, args : string list) : int =
   in	
       0
   end
-  handle 
+  handle
   TiML.Error msg => (println msg; 1)
   | Impossible msg => (println ("Impossible: " ^ msg); 1)
 

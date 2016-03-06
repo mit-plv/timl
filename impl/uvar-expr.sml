@@ -12,7 +12,8 @@ datatype 'bsort uvar_name =
 
 withtype 'bsort anchor = ((('bsort uvar_name) option) ref) list
 
-and 'bsort uvar_name_core = int * ('bsort anchor) ref * int (* order: number of idx quantifications from the nearest type constructor *) * string list
+(* order: when we convert leftover fresh idx variables to existentially quantified variables, because the quantification point is the variable's [anchor], which is not necessarily the point where the fresh variable was first introduced, there could be an implicit Skolemization involved. [order] indicates the degree of Skolemization. For example, if [order = 1], this fresh idx variable should (in principle) be converted into an existentially quantified variable of type [idx -> idx], not just [idx]. Considering the capability of the solver used to find this existential variable, we might choose to let its type be just [idx], which corresponds to giving up the flexibility of changing the existential variable's value according to some variables introduced after it. *)
+and 'bsort uvar_name_core = int * ('bsort anchor) ref * int (*order*) * string list
 
 (* invisible segments *)
 type invisibles = (int * int) list
@@ -37,14 +38,14 @@ fun str_uname uname =
   case uname of
       NONE => "NONE"
     | SOME uname =>
-      case uname of
-          Idx ((n, _, _, _), _) => str_uvar n
-        | NonIdx (n, _, _, _) => str_uvar n
-        | BSort n => str_uvar n
       (* case uname of *)
-      (*     Idx ((n, _, order, ctx), _) => sprintf "($ $ $)" [str_uvar n, str_ls id (rev ctx), str_int order] *)
-      (*   | NonIdx (n, _, order, ctx) => sprintf "($ $ $)" [str_uvar n, str_ls id (rev ctx), str_int order] *)
+      (*     Idx ((n, _, _, _), _) => str_uvar n *)
+      (*   | NonIdx (n, _, _, _) => str_uvar n *)
       (*   | BSort n => str_uvar n *)
+      case uname of
+          Idx ((n, _, order, ctx), _) => sprintf "($ $ $)" [str_uvar n, str_ls id (rev ctx), str_int order]
+        | NonIdx (n, _, order, ctx) => sprintf "($ $ $)" [str_uvar n, str_ls id (rev ctx), str_int order]
+        | BSort n => str_uvar n
 
 type ('bsort, 'idx) uvar_i = invisibles * ('bsort, 'idx) uvar_ref
 fun str_uvar_i str_i ctx ((invis, u) : ('bsort, 'idx) uvar_i) =

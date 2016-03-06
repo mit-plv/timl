@@ -686,9 +686,27 @@ local
           val s = update_s s
           val () =
 	      (case s of
-		   Subset ((bs, _), BindI (_, p)) =>
+		   Subset ((bs, _), BindI ((name, _), p)) =>
 		   (unify_bs r (bs', bs);
-		    write_prop (subst_i_p i p, get_region_i i))
+		    write_prop (let
+                                   val () = println "before"
+                                   val p = subst_i_p i p
+                                   val () = println "after"
+                               in
+                                   p
+                               end
+                                handle SubstUVar x =>
+                                       let
+                                           fun get_uname_ctx u =
+                                             case u of
+                                                 SOME (Idx ((_, _, _, names), _)) => names
+                                               | SOME (NonIdx (_, _, _, names)) => names
+                                               | _ => []
+                                           fun subst_uvar_error r p i uname = Error (r, sprintf "Can't substitute in unification variable $ in proposition $" [str_uname uname, str_p (name :: sctx_names ctx) p] :: indent [sprintf "context of $: $" [str_uname uname, (join ", " o rev o get_uname_ctx) uname]])
+                                       in
+                                           raise subst_uvar_error (get_region_p p) p i x
+                                       end
+                               , get_region_i i))
 	         | Basic (bs, _) => 
 		   unify_bs r (bs', bs)
                  | UVarS ((_, x), _) =>
@@ -698,11 +716,13 @@ local
                         refine x (Basic (bs', dummy))
                    )
               )
-              handle Error (_, msg) => 
-                     let val ctxn = sctx_names ctx in
-                         raise Error (r, 
-                                      sprintf "index $ (of base sort $) is not of sort $" [str_i ctxn i, str_bs bs', str_s ctxn s] :: 
-                                      "Cause:" :: 
+              handle Error (_, msg) =>
+                     let
+                         val ctxn = sctx_names ctx
+                     in
+                         raise Error (r,
+                                      sprintf "index $ (of base sort $) is not of sort $" [str_i ctxn i, str_bs bs', str_s ctxn s] ::
+                                      "Cause:" ::
                                       indent msg)
                      end
       in
@@ -1161,12 +1181,6 @@ local
 	  val skctxn = (sctxn, kctxn)
 	  (* val () = print (sprintf "Typing $\n" [str_e ctxn e]) *)
           fun print_ctx (ctx as (sctx, kctx, _, tctx)) = app (fn (nm, t) => println $ sprintf "$: $" [nm, str_t (sctx_names sctx, names kctx) t]) tctx
-          fun get_uname_ctx u =
-            case u of
-                SOME (Idx ((_, _, _, names), _)) => names
-              | SOME (NonIdx (_, _, _, names)) => names
-              | _ => []
-          fun subst_uvar_error r t i uname = Error (r, sprintf "Can't substitute in unification variable $ in type $" [str_uname uname, str_mt skctxn t] :: indent [sprintf "context of $: $" [str_uname uname, (join ", " o rev o get_uname_ctx) uname]])
 	  val (e, t, d) =
 	      case e_all of
 		  U.Var x =>
@@ -1243,9 +1257,18 @@ local
                       val i = check_sort 0 (sctx, i, s) 
                   in
 		      (AppI (e, i), subst_i_mt i t1, d)
-                      handle SubstUVar x => 
-                             (print_ctx ctx;
-                              raise subst_uvar_error (U.get_region_e e_all) t i x)
+                      handle SubstUVar x =>
+                             let
+                                 fun get_uname_ctx u =
+                                   case u of
+                                       SOME (Idx ((_, _, _, names), _)) => names
+                                     | SOME (NonIdx (_, _, _, names)) => names
+                                     | _ => []
+                                 fun subst_uvar_error r t i uname = Error (r, sprintf "Can't substitute in unification variable $ in type $" [str_uname uname, str_mt skctxn t] :: indent [sprintf "context of $: $" [str_uname uname, (join ", " o rev o get_uname_ctx) uname]])
+                                 val () = print_ctx ctx
+                             in
+                                 raise subst_uvar_error (U.get_region_e e_all) t i x
+                             end
 		  end
 		| U.TT r => 
                   (TT r, Unit dummy, T0 dummy)
@@ -1780,7 +1803,7 @@ local
                         val p = formulas_to_prop fs
                         fun to_exists (uname, p) =
                             case !uname of
-                                SOME (Idx ((n, _, _, _), bsort)) =>
+                                SOME (Idx ((n, _, order, _), bsort)) =>
                                 let
                                     fun substu_i x v (b : idx) : idx =
 	                                case b of
@@ -1810,13 +1833,23 @@ local
 	                                  | BinPred (opr, i1, i2) => BinPred (opr, substu_i x v i1, substu_i x v i2)
                                           | Quan (q, bs, (name, r), p) => Quan (q, bs, (name, r), substu_p x (v + 1) p)
                                     (* fun evar_name n = "?" ^ str_int n *)
-                                    fun evar_name n =
-                                        if n < 26 then
-                                            "" ^ (str o chr) (ord #"a" + n)
-                                        else
-                                            "_" ^ str_int n
+                                    fun evar_name n order =
+                                      let
+                                          val main =
+                                              if n < 26 then
+                                                  "" ^ (str o chr) (ord #"a" + n)
+                                              else
+                                                  "_" ^ str_int n
+                                          val order =
+                                              if order = 0 then
+                                                  ""
+                                              else
+                                                  "_" ^ str_int order
+                                      in
+                                          main ^ order
+                                      end
                                     val r = get_region_p p
-                                    val p = Quan (Exists, bsort, (evar_name n, dummy), substu_p uname 0 $ shift_i_p $ update_p p)
+                                    val p = Quan (Exists, bsort, (evar_name n order, dummy), substu_p uname 0 $ shift_i_p $ update_p p)
                                     val p = set_region_p p r
                                 in
                                     p

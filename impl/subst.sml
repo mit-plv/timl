@@ -1,6 +1,9 @@
 structure Subst = struct
 open UVarUtil
 open Expr
+open Util
+         
+infixr 0 $
 
 (* generic traversers for both 'shift' and 'forget' *)
          
@@ -232,13 +235,14 @@ fun shrink_mt (invisi, invist) b = (shrink forget_i_mt invisi o shrink forget_t_
 (* subst *)
 
 exception Error of string
+                       
 exception SubstUVar of (bsort uvar_name) option
 
 fun substx_invis uname x invis =
     let 
         fun f ((off, len), (acc, (x, done))) =
             if done then
-                ((off, len) :: acc, (x, done))
+                ((off, len) :: acc, (x, true))
             else if x < off then
                 raise SubstUVar uname
             else if x < off + len then
@@ -247,9 +251,14 @@ fun substx_invis uname x invis =
                 else
                     ((off, len - 1) :: acc, (x, true))
             else 
-                ((off, len) :: acc, (x - off - len, done))
+                ((off, len) :: acc, (x - off - len, false))
         val (invis, (_, done)) = foldl f ([], (x, false)) invis
-        val () = if not done then raise SubstUVar uname else ()
+        val () = if not done then raise
+                                      let
+                                          val () = println $ sprintf "$\n$\n$" [str_int x, str_ls (str_pair (str_int, str_int)) invis, str_uname uname]
+                                      in
+                                          SubstUVar uname
+                                      end else ()
         val invis = rev invis
     in
         invis

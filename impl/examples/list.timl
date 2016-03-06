@@ -52,9 +52,9 @@ val ['a] merge =
         merge
     end
         
-abstype idx f : Fun1 = _ with
-abstype idx g : {g : Fun1 | g O f} = _ with
-(* abstype idx g : {g : Fun1 | g O _} = _ with *)
+(* abstype idx f : Fun1 = _ with *)
+(* abstype idx g : {g : Fun1 | g O f} = _ with *)
+abstype idx g : {g : Fun1 | g O _} = _ with
 val ['a] msort =
  fn {m : Time} (le : 'a * 'a -- m --> bool) =>
     let
@@ -69,7 +69,7 @@ val ['a] msort =
         sort
     end
 end
-end
+(* end *)
 
 (* Proof obligations:
 
