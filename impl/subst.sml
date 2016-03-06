@@ -276,7 +276,7 @@ fun substx_invis uname_ref x invis =
   let
       fun remove_ctx x =
         let
-            fun doit (n, anchor, order, ctx) = (n, anchor, order - 1, remove x ctx)
+            fun doit (n, anchor, order, ctx) = (n, anchor, if x < order then order - 1 else order, remove x ctx)
             val new = case !uname_ref of
                           SOME (Idx (core, other)) => SOME (Idx (doit core, other))
                         | SOME (NonIdx core) => SOME (NonIdx (doit core))
