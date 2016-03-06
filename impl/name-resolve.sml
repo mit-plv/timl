@@ -14,8 +14,7 @@ local
       handle
       Error e => Failed e
 
-    fun find_idx (x : string) ctx =
-      Option.map #1 (List.find (fn (_, y) => y = x) (add_idx ctx))
+    fun find_idx (x : string) ctx = find_by_snd_eq op= x (add_idx ctx)
 
     fun on_var ctx (x, r) =
       case find_idx x ctx of

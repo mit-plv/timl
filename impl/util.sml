@@ -151,4 +151,9 @@ datatype ('a, 'b) sum =
          inl of 'a
          | inr of 'b
 
+fun find_by_snd p ls =
+  Option.map fst (List.find (fn (_, y) => p y) ls)
+fun find_by_snd_eq eq x ls = find_by_snd (curry eq x) ls
+                     
 end
+

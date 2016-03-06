@@ -3,6 +3,8 @@ structure Operators = struct
 datatype idx_un_op =
          ToReal
          | Log2
+         | Ceil
+         | Floor
                
 datatype idx_bin_op =
 	 AddI
@@ -36,6 +38,8 @@ fun str_idx_un_op opr =
   case opr of
       ToReal => "$"
     | Log2 => "log2"
+    | Ceil => "ceil"
+    | Floor => "floor"
 
 fun str_idx_bin_op opr =
   case opr of

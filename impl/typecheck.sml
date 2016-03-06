@@ -14,6 +14,13 @@ infix 1 <->
 
 open Subst
 
+fun idx_un_op_type opr =
+  case opr of
+      ToReal => (Nat, Time)
+    | Log2 => (Time, Time)
+    | Ceil => (Time, Nat)
+    | Floor => (Time, Nat)
+            
 (* sorting context *)
 type scontext = (string * sort) list
 (* kinding context *)
@@ -311,7 +318,7 @@ local
 	  raise Error (r, ["List length mismatch"])
 
     fun unify_error r (s, s') =             
-      Error (r, [sprintf "Can't unify $ and $" [s, s']])
+      Error (r, ["Can't unify"] @ indent [s] @ ["and"] @ indent [s'])
 
     (* fun handle_ue ctx e =              *)
     (*     raise Error (get_region_e e,  *)
@@ -602,18 +609,14 @@ local
       	          | NONE => raise Error (r, ["Unbound index variable: " ^ str_v (sctx_names ctx) x])
             end
           | U.UnOpI (opr, i, r) =>
-            (case opr of
-                 ToReal =>
-                 (UnOpI (ToReal,
-                         check_bsort order (ctx, i, Base Nat),
-                         r),
-                  Base Time)
-               | Log2 =>
-                 (UnOpI (Log2,
-                         check_bsort order (ctx, i, Base Time),
-                         r),
-                  Base Time)
-            )
+            let
+                val (atype, rettype) = idx_un_op_type opr
+            in
+                (UnOpI (opr,
+                        check_bsort order (ctx, i, Base atype),
+                        r),
+                 Base rettype)
+            end
 	  | U.BinOpI (opr, i1, i2) =>
             (case opr of
                  App1 => 

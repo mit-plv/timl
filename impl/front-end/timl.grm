@@ -101,7 +101,7 @@ open Ast
        | constr_result_opt of ty option
        | sorting_star of tbind list
        | sorting of tbind
-       | idx_un_op of idx_un_op
+       (* | idx_un_op of idx_un_op *)
        | tname of id
        | tname_star of id list
        | optional_colon_sort of sort option
@@ -193,9 +193,9 @@ idx : id (VarI id)
     | idx MULT idx (BinOpI (MultI, idx1, idx2, (idx1left, idx2right)))
     | idx MAX idx (BinOpI (MaxI, idx1, idx2, (idx1left, idx2right)))
     | idx MIN idx (BinOpI (MinI, idx1, idx2, (idx1left, idx2right)))
-    | idx idx %prec APP (BinOpI (App1, idx1, idx2, (idx1left, idx2right)))
-    | DOLLAR idx (UnOpI (ToReal, idx, (DOLLARleft, idxright)))
-    | idx_un_op idx %prec DOLLAR (UnOpI (idx_un_op, idx, (idx_un_opleft, idxright)))
+    | id idx %prec APP (BinOpI (App1, VarI id, idx, (idleft, idxright)))
+    | DOLLAR idx (BinOpI (App1, VarI (str_idx_un_op ToReal, (DOLLARleft, DOLLARright)), idx, (DOLLARleft, idxright)))
+    (* | idx_un_op idx %prec DOLLAR (UnOpI (idx_un_op, idx, (idx_un_opleft, idxright))) *)
     | LPAREN RPAREN (TTI (LPARENleft, RPARENright))
     | LPAREN idx RPAREN (idx)
 
@@ -213,7 +213,7 @@ prop : id (ConstP id)
      | idx EQ idx (BinPred (EqP, idx1, idx2, (idx1left, idx2right)))
      | idx LE idx (BinPred (LeP, idx1, idx2, (idx1left, idx2right)))
      | idx GT idx (BinPred (GtP, idx1, idx2, (idx1left, idx2right)))
-     | BIG_O idx idx (BinPred (BigO, idx1, idx2, (BIG_Oleft, idx2right)))
+     | idx BIG_O idx (BinPred (BigO, idx1, idx2, (idx1left, idx2right)))
 
 id : ID ((ID, (IDleft, IDright)))
 
@@ -303,7 +303,7 @@ sorting : LCUR id COLON sort RCUR (Sorting (id, sort, (LCURleft, RCURright)))
 sorting_star : sorting sorting_star (sorting :: sorting_star)
 	   | ([])
 
-idx_un_op : LOG2 (Log2)
+(* idx_un_op : LOG2 (Log2) *)
 
 tname : LSQ id RSQ (id)
 tname_star : tname tname_star (tname :: tname_star)

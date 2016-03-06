@@ -15,6 +15,13 @@ local
 	handle
 	Error e => Failed e
 
+    val un_ops = [ToReal, Log2, Ceil, Floor]
+    val un_op_names = zip (un_ops, map str_idx_un_op un_ops)
+    fun is_un_op (opr, i1) =
+      case (opr, i1) of
+          (App1, S.VarI (x, r1)) => find_by_snd_eq op= x un_op_names
+        | _ => NONE
+                          
     fun elab_i i =
 	case i of
 	    S.VarI (x, r) =>
@@ -30,9 +37,13 @@ local
 	    ConstIN n
 	  | S.ConstIT x =>
 	    ConstIT x
-          | S.UnOpI (opr, i, r) => UnOpI (opr, elab_i i, r)
-	  | S.BinOpI (opr, i1, i2, _) =>
-	    BinOpI (opr, elab_i i1, elab_i i2)
+          (* | S.UnOpI (opr, i, r) => UnOpI (opr, elab_i i, r) *)
+	  | S.BinOpI (opr, i1, i2, r) =>
+            (case is_un_op (opr, i1) of
+                 SOME opr => UnOpI (opr, elab_i i2, r)
+               | _ =>
+	         BinOpI (opr, elab_i i1, elab_i i2)
+            )
 	  | S.TTI r =>
 	    TTI r
 

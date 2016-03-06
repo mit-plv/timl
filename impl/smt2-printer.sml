@@ -20,6 +20,8 @@ fun print_i ctx i =
       (case opr of
            ToReal => sprintf "(to_real $)" [print_i ctx i]
          | Log2 => sprintf "(log2 $)" [print_i ctx i]
+         | Ceil => sprintf "(ceil $)" [print_i ctx i]
+         | Floor => sprintf "(floor $)" [print_i ctx i]
       )
     | BinOpI (opr, i1, i2) => 
       (case opr of
@@ -112,6 +114,10 @@ val prelude = [
     "(declare-fun log2 (Real) Real)",
     "(declare-fun bigO (Fun1 Fun1) Bool)",
     "(declare-fun app1 (Fun1 Int) Real)",
+    "(define-fun floor ((x Real)) Int",
+    "(to_int x))",
+    "(define-fun ceil ((x Real)) Int",
+    "(to_int (+ x 0.5)))",
     (* "(assert (forall ((x Real) (y Real))", *)
     (* "  (! (=> (and (< 0 x) (< 0 y)) (= (log2 ( * x y)) (+ (log2 x) (log2 y))))", *)
     (* "    :pattern ((log2 ( * x y))))))", *)

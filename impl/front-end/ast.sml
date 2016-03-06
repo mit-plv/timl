@@ -8,7 +8,7 @@ datatype idx =
 	 VarI of string * region
 	 | ConstIN of int * region
 	 | ConstIT of string * region
-         | UnOpI of idx_un_op * idx * region
+         (* | UnOpI of idx_un_op * idx * region *)
 	 | BinOpI of idx_bin_op * idx * idx * region
 	 | TTI of region
 
