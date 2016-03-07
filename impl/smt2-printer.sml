@@ -152,7 +152,7 @@ fun conv_base_sort b =
         | Bool => (Bool, NONE)
         | Time => (Time, SOME (BinPred (LeP, ConstIT ("0.0", dummy), VarI (0, dummy))))
         | Nat => (Nat, SOME (BinPred (LeP, ConstIN (0, dummy), VarI (0, dummy))))
-        | Profile => (Profile, NONE)
+        | Fun1 => (Fun1, NONE)
 
 fun conv_bsort bsort =
   case bsort of

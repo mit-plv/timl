@@ -21,16 +21,16 @@ fun solve_one (hs, p) =
     (*                 case idx2 of *)
     (*                     BinOpI (BigO, VarI (c2, _), i2) => *)
     (*                     (case try_forget (forget_i_i c2 1) idx1 of *)
-    (*                          SOME _ =>  *)
+    (*                          SOME _ => *)
     (*                          (* non-recursive cases *) *)
     (*                          (case idx1 of *)
-    (*                               BinOpI (AddI, i1a, i1b) =>  *)
+    (*                               BinOpI (AddI, i1a, i1b) => *)
     (*                               is_le i1a idx2 andalso is_le i1b idx2 *)
     (*                             (* | (_, BinOpI (AddI, i2a, i2b)) => is_le i1 i2a orelse is_le i1 i2b *) *)
     (*                             | ConstIT _ => *)
     (*                               if c2 = nx then *)
     (*                                   case i2 of *)
-    (*                                       ConstIT (s, _) =>  *)
+    (*                                       ConstIT (s, _) => *)
     (*                                       (case Real.fromString s of *)
     (*                                            SOME r => r > 0.0 *)
     (*                                          | _ => false *)
@@ -52,7 +52,7 @@ fun solve_one (hs, p) =
     (*                                   false *)
     (*                             | _ => false *)
     (*                          ) *)
-    (*                        | NONE =>  *)
+    (*                        | NONE => *)
     (*                          (* recursive cases *) *)
     (*                          false *)
     (*                          (* (println "hit"; true) *) *)
@@ -112,7 +112,7 @@ fun filter_solve vcs = concatMap solve vcs
 
 fun solve_vcs (vcs : vc list) : vc list =
     let 
-	(* val () = print "Simplifying and applying trivial solver ...\n" *)
+	(* val () = print "Applying Big-O solver ...\n" *)
 	val vcs = filter_solve vcs
     in
         vcs
