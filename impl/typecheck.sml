@@ -696,13 +696,7 @@ local
 	      (case s of
 		   Subset ((bs, _), BindI ((name, _), p)) =>
 		   (unify_bs r (bs', bs);
-		    write_prop (let
-                                   val () = println "before"
-                                   val p = subst_i_p i p
-                                   val () = println "after"
-                               in
-                                   p
-                               end
+		    write_prop (subst_i_p i p
                                 handle SubstUVar info =>
                                        raise subst_uvar_error (get_region_p p) ("proposition " ^ str_p (name :: sctx_names ctx) p) i info
                                , get_region_i i))
@@ -1569,9 +1563,9 @@ local
                 end
               | U.AbsIdx (((name, r1), s, i), decls, r) =>
                 let
+                    val s = is_wf_sort 0 (sctx, s)
                     (* localized the scope the evars introduced in type-checking absidx's definition *)
                     val () = open_vc ()
-                    val s = is_wf_sort 0 (sctx, s)
                     val i = check_sort 0 (sctx, i, s)
                     val ctxd = ctx_from_sorting (name, s)
                     val () = open_ctx ctxd
@@ -1686,9 +1680,9 @@ local
 
     fun str_vce vce =
         case vce of
-            ForallVC (name, _) => sprintf "forall $ ("  [name]
-          | ImplyVC p => "imply p ("
-          | PropVC _ => "and q"
+            ForallVC (name, _) => sprintf "(forall $ "  [name]
+          | ImplyVC p => "(imply prop "
+          | PropVC _ => "prop"
           | AnchorVC _ => "anchor"
           | OpenVC => "("
           | CloseVC => ")"
@@ -1894,8 +1888,10 @@ local
             val () = case vces of
                          [] => ()
                        | _ => raise Impossible "to_vcs (): remaining after get_formulas"
+            (* val () = println "" *)
             (* val () = app println $ map (str_f []) fs *)
             val p = formulas_to_prop fs
+            (* val () = println "" *)
             (* val () = println $ Expr.str_p [] p *)
             val p = no_uvar_p p
             (* val () = println $ str_p [] p *)
