@@ -1564,7 +1564,7 @@ local
               | U.AbsIdx (((name, r1), s, i), decls, r) =>
                 let
                     val s = is_wf_sort 0 (sctx, s)
-                    (* localized the scope the evars introduced in type-checking absidx's definition *)
+                    (* localized the scope of the evars introduced in type-checking absidx's definition *)
                     val () = open_vc ()
                     val i = check_sort 0 (sctx, i, s)
                     val ctxd = ctx_from_sorting (name, s)

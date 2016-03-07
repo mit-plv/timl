@@ -238,79 +238,54 @@ exception Error of string
                        
 exception SubstUVar of (bsort uvar_name) option * int
 
-(* Substitute for [x] in (uname, invis). [x] must be invisible to [uname]. Will adjust [invis] accordingly. If we find that [x] is visible to [uname], throw [SubstUVar] with information of where [x] is in [uname]'s context *)
-fun substx_invis uname_ref x invis =
+(* Adjust a fresh unification variable [u]'s invisible sections when substitute for [x] in [u]. If [x] is invisible to [u] (i.e. [x] is in [u]'s invisible sections), we only needs to shrink the relevant invisible section accordingly; if [x] is invisible to [u], this generic implementation allows [on_visible] to deal with the situation given [x]'s position in [u]'s visible context. *)
+fun substx_invis_generic on_visible x invis =
   let
-      val uname = !uname_ref
       fun f ((off, len), (acc, (x, done, offsum))) =
-        let
-            val (acc_new, (x, done)) =
-                if done then
-                    ([(off, len)], (x, true))
-                else if x < off then
-                    raise SubstUVar (uname, offsum + x)
-                else if x < off + len then
-                    if len <= 1 then
-                        ([], (x, true))
-                    else
-                        ([(off, len - 1)], (x, true))
-                else 
-                    ([(off, len)], (x - off - len, false))
-        in
-            (acc_new @ acc, (x, done, offsum + off))
-        end
+          let
+              val (acc_new, (x, done)) =
+                  if done then
+                      ([(off, len)], (x, true))
+                  else if x < off then
+                      (on_visible (offsum + x);
+                       ([(off - 1, len)], (x, true)))
+                  else if x < off + len then
+                      if len <= 1 then
+                          ([], (x, true))
+                      else
+                          ([(off, len - 1)], (x, true))
+                  else 
+                      ([(off, len)], (x - off - len, false))
+          in
+              (acc_new @ acc, (x, done, offsum + off))
+          end
       val (invis, (x, done, offsum)) = foldl f ([], (x, false, 0)) invis
-      val () = if not done then raise
-                                    let
-                                        val () = println $ sprintf "$\n$\n$" [str_int x, str_ls (str_pair (str_int, str_int)) invis, str_uname uname]
-                                    in
-                                        SubstUVar (uname, offsum + x)
-                                    end else ()
+      val () = if not done then
+                   on_visible (offsum + x)
+               else ()
       val invis = rev invis
   in
       invis
   end
 
-(* This is a version that allows substition for visible variable *)
-fun substx_invis uname_ref x invis =
+(* This is a version where [x] must be invisible to [uname_ref]. If [x] is visible, throw [SubstUVar]. *)
+fun substx_invis uname_ref = substx_invis_generic (fn x => raise SubstUVar (!uname_ref, x))
+      
+(* This is a version that allows substition for [x] that is visible to [uname_ref]. When this happens, remove [x] from [uname_ref]'s visible context. *)
+fun substx_invis uname_ref =
   let
       fun remove_ctx x =
-        let
-            fun doit (n, anchor, order, ctx) = (n, anchor, if x < order then order - 1 else order, remove x ctx)
-            val new = case !uname_ref of
-                          SOME (Idx (core, other)) => SOME (Idx (doit core, other))
-                        | SOME (NonIdx core) => SOME (NonIdx (doit core))
-                        | other => other
-        in
-            uname_ref := new
-        end            
-      fun f ((off, len), (acc, (x, done, offsum))) =
-        let
-            val (acc_new, (x, done)) =
-                if done then
-                    ([(off, len)], (x, true))
-                else if x < off then
-                    (remove_ctx (offsum + x);
-                     ([(off - 1, len)], (x, true)))
-                    (* raise SubstUVar (uname, offsum + x) *)
-                else if x < off + len then
-                    if len <= 1 then
-                        ([], (x, true))
-                    else
-                        ([(off, len - 1)], (x, true))
-                else 
-                    ([(off, len)], (x - off - len, false))
-        in
-            (acc_new @ acc, (x, done, offsum + off))
-        end
-      val (invis, (x, done, offsum)) = foldl f ([], (x, false, 0)) invis
-      val () = if not done then
-                   remove_ctx (offsum + x)
-                   (* raise SubstUVar (uname, offsum + x) *)
-               else ()
-      val invis = rev invis
+          uname_ref := 
+          let
+              fun doit (n, anchor, order, ctx) = (n, anchor, if x < order then order - 1 else order, remove x ctx)
+          in
+              case !uname_ref of
+                  SOME (Idx (core, other)) => SOME (Idx (doit core, other))
+                | SOME (NonIdx core) => SOME (NonIdx (doit core))
+                | other => other
+          end            
   in
-      invis
+      substx_invis_generic remove_ctx
   end
 
 local

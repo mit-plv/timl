@@ -10,60 +10,59 @@ infix 1 -->
 
 fun solve_one (hs, p) =
     false
-        (*
-    let
-        val nx = length $ List.filter (fn h => case h of VarH _ => true | _ => false) hs
-    in
-        case p of
-            BinPred (LeP, i1, i2) =>
-            let
-                fun is_le idx1 idx2 =
-                    case idx2 of
-                        BinOpI (BigO, VarI (c2, _), i2) =>
-                        (case try_forget (forget_i_i c2 1) idx1 of
-                             SOME _ => 
-                             (* non-recursive cases *)
-                             (case idx1 of
-                                  BinOpI (AddI, i1a, i1b) => 
-                                  is_le i1a idx2 andalso is_le i1b idx2
-                                (* | (_, BinOpI (AddI, i2a, i2b)) => is_le i1 i2a orelse is_le i1 i2b *)
-                                | ConstIT _ =>
-                                  if c2 = nx then
-                                      case i2 of
-                                          ConstIT (s, _) => 
-                                          (case Real.fromString s of
-                                               SOME r => r > 0.0
-                                             | _ => false
-                                          )
-                                        | UnOpI (ToReal, ConstIN (n, _), _) => n > 0
-                                        | UnOpI (ToReal, VarI (x, _), _) => x < nx
-                                        | _ => false
-                                  else
-                                      false
-                                | BinOpI (BigO, c1, i1) =>
-                                  if c2 = nx andalso not (eq_i c1 (VarI (1, dummy))) then
-                                      case (i1, i2) of
-                                          (UnOpI (ToReal, ConstIN (n, _), _), UnOpI (ToReal, VarI (x2, _), _)) =>
-                                          x2 < nx
-                                        | (UnOpI (ToReal, VarI (x1, _), _), UnOpI (ToReal, VarI (x2, _), _)) =>
-                                          x1 = x2 andalso x1 < nx
-                                        | _ => false
-                                  else
-                                      false
-                                | _ => false
-                             )
-                           | NONE => 
-                             (* recursive cases *)
-                             false
-                             (* (println "hit"; true) *)
-                        )
-                      | _ => false
-            in
-                eq_i i1 i2 orelse is_le i1 i2
-            end
-          | _ => false
-    end
-        *)
+    (* let *)
+    (*     (* number of variables in context *) *)
+    (*     val nx = length $ List.filter (fn h => case h of VarH _ => true | _ => false) hs *)
+    (* in *)
+    (*     case p of *)
+    (*         BinPred (LeP, i1, i2) => *)
+    (*         let *)
+    (*             fun is_le idx1 idx2 = *)
+    (*                 case idx2 of *)
+    (*                     BinOpI (BigO, VarI (c2, _), i2) => *)
+    (*                     (case try_forget (forget_i_i c2 1) idx1 of *)
+    (*                          SOME _ =>  *)
+    (*                          (* non-recursive cases *) *)
+    (*                          (case idx1 of *)
+    (*                               BinOpI (AddI, i1a, i1b) =>  *)
+    (*                               is_le i1a idx2 andalso is_le i1b idx2 *)
+    (*                             (* | (_, BinOpI (AddI, i2a, i2b)) => is_le i1 i2a orelse is_le i1 i2b *) *)
+    (*                             | ConstIT _ => *)
+    (*                               if c2 = nx then *)
+    (*                                   case i2 of *)
+    (*                                       ConstIT (s, _) =>  *)
+    (*                                       (case Real.fromString s of *)
+    (*                                            SOME r => r > 0.0 *)
+    (*                                          | _ => false *)
+    (*                                       ) *)
+    (*                                     | UnOpI (ToReal, ConstIN (n, _), _) => n > 0 *)
+    (*                                     | UnOpI (ToReal, VarI (x, _), _) => x < nx *)
+    (*                                     | _ => false *)
+    (*                               else *)
+    (*                                   false *)
+    (*                             | BinOpI (BigO, c1, i1) => *)
+    (*                               if c2 = nx andalso not (eq_i c1 (VarI (1, dummy))) then *)
+    (*                                   case (i1, i2) of *)
+    (*                                       (UnOpI (ToReal, ConstIN (n, _), _), UnOpI (ToReal, VarI (x2, _), _)) => *)
+    (*                                       x2 < nx *)
+    (*                                     | (UnOpI (ToReal, VarI (x1, _), _), UnOpI (ToReal, VarI (x2, _), _)) => *)
+    (*                                       x1 = x2 andalso x1 < nx *)
+    (*                                     | _ => false *)
+    (*                               else *)
+    (*                                   false *)
+    (*                             | _ => false *)
+    (*                          ) *)
+    (*                        | NONE =>  *)
+    (*                          (* recursive cases *) *)
+    (*                          false *)
+    (*                          (* (println "hit"; true) *) *)
+    (*                     ) *)
+    (*                   | _ => false *)
+    (*         in *)
+    (*             eq_i i1 i2 orelse is_le i1 i2 *)
+    (*         end *)
+    (*       | _ => false *)
+    (* end *)
         
 fun partitionOption f xs =
     case xs of
