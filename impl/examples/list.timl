@@ -5,8 +5,8 @@ datatype {Nat} 'a list =
 val ['a] ['b] map = 
  fn {m : Time} (f : 'a -- m --> 'b) =>
     let
-        fun map {n : Nat} (ls : {n} 'a list) return {n} 'b list |> (m + 2.0) * $n =
-            case ls return {n} 'b list of
+        fun map {n : Nat} (ls : {n} _ list) return {n} _ list |> (m + 2.0) * $n =
+            case ls return {n} _ list of
                 NilI => NilI
               | ConsI {n'} (x, xs) => ConsI {_} (f x, map {_} xs) |> (m + 2.0) * $n
     in
@@ -16,7 +16,7 @@ val ['a] ['b] map =
 val ['a] ['b] foldl =
  fn {m : Time} (f : 'a * 'b -- m --> 'b) =>
     let
-        fun loop {n : Nat} (y : 'b, xs : {n} 'a list) return 'b |> (m + 2.0) * $n =
+        fun loop {n : Nat} (y : _, xs : {n} _ list) return _ |> (m + 2.0) * $n =
             case xs of
                 NilI => y
               | ConsI {n'} (x, xs) => loop {_} (f (x, y), xs) |> (m + 2.0) * $n
@@ -27,12 +27,12 @@ val ['a] ['b] foldl =
 (* datatype {Nat} 'a even_split = *)
 (*          Even of {n : Nat} ({ceil (0.5 * $n)} 'a list * {floor (0.5 * $n)} 'a list) -> {n} 'a even_split *)
 
-fun ['a] split {n : Nat} (xs : {n} 'a list) return {ceil (0.5 * $n)} 'a list * {floor (0.5 * $n)} 'a list |> $n =
-    case xs return {ceil (0.5 * $n)} 'a list * {floor (0.5 * $n)} 'a list |> $n of
+fun ['a] split {n : Nat} (xs : {n} 'a list) return {ceil (0.5 * $n)} _ list * {floor (0.5 * $n)} _ list |> $n =
+    case xs return {ceil (0.5 * $n)} _ list * {floor (0.5 * $n)} _ list |> $n of
         NilI => (NilI, NilI)
       | ConsI {_} (x, NilI) => (xs, NilI)
       | ConsI {_} (x1, (ConsI {n'} (x2, xs))) =>
-        case split {n'} xs return {ceil (0.5 * $n)} 'a list * {floor (0.5 * $n)} 'a list of
+        case split {n'} xs return {ceil (0.5 * $n)} _ list * {floor (0.5 * $n)} _ list of
             (xs1, xs2) => (ConsI {_} (x1, xs1), ConsI {_} (x2, xs2))
                               
 datatype bool = true | false
@@ -40,8 +40,8 @@ datatype bool = true | false
 val ['a] merge =
  fn {m : Time} (le : 'a * 'a -- m --> bool) =>
     let
-        fun merge {n1 : Nat} {n2 : Nat} ((xs, ys) : {n1} 'a list * {n2} 'a list) return {n1 + n2} 'a list |> (m + 2.0) * $(n1 + n2) =
-            case (xs, ys) return {n1 + n2} 'a list |> (m + 2.0) * $(n1 + n2) of
+        fun merge {n1 : Nat} {n2 : Nat} ((xs, ys) : {n1} _ list * {n2} _ list) return {n1 + n2} _ list |> (m + 2.0) * $(n1 + n2) =
+            case (xs, ys) return {n1 + n2} _ list |> (m + 2.0) * $(n1 + n2) of
                 (NilI, _) => ys
               | (_, NilI) => xs
               | (ConsI {n1'} (x, xs'), ConsI {n2'} (y, ys')) =>
@@ -52,14 +52,12 @@ val ['a] merge =
         merge
     end
         
-(* abstype idx f : Fun1 = _ with *)
-(* abstype idx g : {g : Fun1 | g O f} = _ with *)
 abstype idx g : {g : Fun1 | g O _} = _ with
 val ['a] msort =
  fn {m : Time} (le : 'a * 'a -- m --> bool) =>
     let
-        fun sort {n : Nat} (xs : {n} 'a list) return {n} 'a list |> m * g n =
-          case xs return {n} 'a list of
+        fun sort {n : Nat} (xs : {n} _ list) return {n} _ list |> m * g n =
+          case xs return {n} _ list of
               NilI => xs
             | (ConsI {_} (_, NilI)) => xs
             | (ConsI {_} (_, ConsI {_} (_, _))) =>
@@ -69,7 +67,6 @@ val ['a] msort =
         sort
     end
 end
-(* end *)
 
 (* Proof obligations:
 

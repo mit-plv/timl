@@ -93,20 +93,25 @@ fun vc2prop (hs, p) =
     foldl (fn (h, p) => case h of VarH (name, b) => Quan (Forall, Base b, (name, dummy), p) | PropH p1 => p1 --> p) p hs
 
 fun solve vc =
-  case vc of
-      (hs, Quan (Exists, Base Profile, name, p)) =>
-      let
-          val vcs = split_prop p
-          val (rest, vcs) = partitionOption (fn vc => try_forget (forget_i_vc 0 1) vc) vcs
-          val vcs = concatMap split_prop $ map (simp_p o vc2prop) vcs
-          val done = List.all id $ map solve_one vcs
-          (* val done = true *)
-      in
-          map (fn (hs', p) => (hs' @ hs, p)) rest @
-          (if done then []
-           else [(hs, Quan (Exists, Base Profile, name, and_all (map vc2prop vcs)))])
-      end
-    | _ => [vc]
+    case vc of
+        (* test for opportunity to apply the Master Theorem *)
+        (hs, Quan (Exists, Base Fun1, name1, Quan (Exists, Base Fun1, name2, BinConn (And, BinPred (BigO, VarI (n2, r2), VarI (n1, r1)), p)))) =>
+        if n2 = 0 andalso n1 = 1 then
+            let
+                (* hoist the conjuncts that don't involve the time functions *)
+                val vcs = split_prop p
+                val (rest, vcs) = partitionOption (Option.composePartial (try_forget (forget_i_vc 0 1), try_forget (forget_i_vc 0 1))) vcs
+                val vcs = concatMap split_prop $ map (simp_p o vc2prop) vcs
+                val done = List.all id $ map solve_one vcs
+                (* val done = true *)
+            in
+                map (fn (hs', p) => (hs' @ hs, p)) rest @
+                (if done then []
+                 else [
+                     (hs, Quan (Exists, Base Fun1, name1, Quan (Exists, Base Fun1, name2, BinConn (And, BinPred (BigO, VarI (n2, r2), VarI (n1, r1)), and_all (map vc2prop vcs)))))])
+            end
+        else [vc]
+      | _ => [vc]
 
 fun filter_solve vcs = concatMap solve vcs
 

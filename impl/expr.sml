@@ -280,7 +280,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         fun str_s ctx (s : sort) : string = 
             case s of
                 Basic (s, _) => str_bs s
-              | Subset ((s, _), (BindI ((name, _), p))) => sprintf "{ $ :: $ | $ }" [name, str_bs s, str_p (name :: ctx) p]
+              | Subset ((s, _), (BindI ((name, _), p))) => sprintf "{ $ : $ | $ }" [name, str_bs s, str_p (name :: ctx) p]
               | UVarS _ => "_"                                               
 
         datatype 'a bind = 
