@@ -32,6 +32,7 @@ local
 	| E.FalseI r => FalseI r
 	| E.TTI r => TTI r
         | E.Abs1 ((name, r1), i, r) => Abs1 ((name, r1), on_idx (name :: ctx) i, r)
+        | E.DivI (i1, n2) => DivI (on_idx ctx i1, n2)
         | E.UVarI u => UVarI u
 
     fun on_bsort bs =

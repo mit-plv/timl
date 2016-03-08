@@ -12,6 +12,7 @@ datatype idx =
 	 | BinOpI of idx_bin_op * idx * idx * region
 	 | TTI of region
          | Abs1 of id * idx * region
+         | DivI of idx * (int * region) * region
 
 datatype prop =
 	 ConstP of string * region

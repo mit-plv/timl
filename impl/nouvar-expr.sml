@@ -29,6 +29,7 @@ fun on_i_i on_v x n b =
 	  | TrueI r => TrueI r
 	  | FalseI r => FalseI r
           | Abs1 (name, i, r) => Abs1 (name, f (x + 1) n i, r)
+          | DivI (i1, n2) => DivI (f x n i1, n2)
           | UVarI (u, _) => exfalso u
   in
       f x n b
@@ -78,6 +79,7 @@ local
 	  | FalseI r => FalseI r
 	  | TTI r => TTI r
           | Abs1 (name, i, r) => Abs1 (name, f (x + 1) (shiftx_i_i 0 1 v) i, r)
+          | DivI (i1, n2) => DivI (f x v i1, n2)
           | UVarI (u, _) => exfalso u
 in
 fun substx_i_i x (v : idx) (b : idx) : idx = f x v b
@@ -164,6 +166,9 @@ local
             )
           | UnOpI (opr, i, r) =>
             UnOpI (opr, passi i, r)
+          | Abs1 ((name, r1), i, r) =>
+            Abs1 ((name, r1), passi i, r)
+          | DivI (i1, n2) => DivI (passi i1, n2)
 	  | _ => i
 
     fun passp p = 

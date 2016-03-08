@@ -38,6 +38,7 @@ local
 	  | S.ConstIT x =>
 	    ConstIT x
           (* | S.UnOpI (opr, i, r) => UnOpI (opr, elab_i i, r) *)
+          | S.DivI (i1, n2, _) => DivI (elab_i i1, n2)
 	  | S.BinOpI (opr, i1, i2, r) =>
             (case is_un_op (opr, i1) of
                  SOME opr => UnOpI (opr, elab_i i2, r)

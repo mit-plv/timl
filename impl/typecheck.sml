@@ -203,6 +203,7 @@ fun update_i i =
            | Fresh _ => i
         )
       | UnOpI (opr, i, r) => UnOpI (opr, update_i i, r)
+      | DivI (i1, n2) => DivI (update_i i1, n2)
       | BinOpI (opr, i1, i2) => BinOpI (opr, update_i i1, update_i i2)
       | VarI _ => i
       | ConstIN _ => i
@@ -616,6 +617,14 @@ local
                         check_bsort order (ctx, i, Base atype),
                         r),
                  Base rettype)
+            end
+          | U.DivI (i1, (n2, r2)) =>
+            let 
+                val i1 = check_bsort order (ctx, i1, Base Time)
+	        val () = if n2 > 0 then ()
+	                 else raise Error (r2, ["Can only divide by positive integer"])
+            in
+                (DivI (i1, (n2, r2)), Base Time)
             end
 	  | U.BinOpI (opr, i1, i2) =>
             (case opr of
@@ -1806,6 +1815,7 @@ local
 	                                  | TrueI r => TrueI r
 	                                  | FalseI r => FalseI r
                                           | Abs1 (name, i, r) => Abs1 (name, substu_i x (v + 1) i, r)
+                                          | DivI (i1, n2) => DivI (substu_i x v i1, n2)
 	                                  | TTI r => TTI r
                                     fun substu_p x v b =
 	                                case b of
@@ -1859,6 +1869,7 @@ local
                   | FalseI r => N.FalseI r
                   | TTI r => N.TTI r
                   | Abs1 (name, i, r) => N.Abs1 (name, f i, r)
+                  | DivI (i1, n2) => N.DivI (f i1, n2)
                   | UVarI _ =>
                     raise Impossible "no_uvar_i (): shouldn't be UVarI"
         in

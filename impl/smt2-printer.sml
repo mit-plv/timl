@@ -16,6 +16,7 @@ fun print_i ctx i =
       (List.nth (ctx, n) handle Subscript => "unbound_" ^ str_int n)
     | ConstIN (n, _) => str_int n
     | ConstIT (x, _) => x
+    | DivI (i1, (n2, _)) => sprintf "(/ $ $)" [print_i ctx i1, str_int n2]
     | UnOpI (opr, i, _) => 
       (case opr of
            ToReal => sprintf "(to_real $)" [print_i ctx i]

@@ -28,6 +28,7 @@ open Ast
     | LARROW
     | DDASH
     | MULT
+    | DIV
     | PLUS
     | MINUS
     | INT of int
@@ -121,7 +122,7 @@ open Ast
 %nonassoc NOT
 %nonassoc EQ LE GT
 %left PLUS MINUS
-%left MULT MAX MIN
+%left MULT DIV MAX MIN
 %nonassoc DOLLAR
 %left APP
 %right APPR
@@ -162,6 +163,7 @@ idx : id (VarI id)
     | NNREAL (ConstIT (NNREAL, (NNREALleft, NNREALright)))
     | idx PLUS idx (BinOpI (AddI, idx1, idx2, (idx1left, idx2right)))
     | idx MULT idx (BinOpI (MultI, idx1, idx2, (idx1left, idx2right)))
+    | idx DIV INT (DivI (idx, (INT, (INTleft, INTright)), (idxleft, INTright)))
     | idx MAX idx (BinOpI (MaxI, idx1, idx2, (idx1left, idx2right)))
     | idx MIN idx (BinOpI (MinI, idx1, idx2, (idx1left, idx2right)))
     | id idx %prec APP (BinOpI (App1, VarI id, idx, (idleft, idxright)))

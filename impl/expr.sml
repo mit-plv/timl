@@ -86,6 +86,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         | FalseI of region
 	         | TTI of region
                  | Abs1 of name * idx * region
+                 | DivI of idx * (int * region)
                  | UVarI of (bsort, idx) uvar_i * region
 
         fun T0 r = ConstIT ("0.0", r)
@@ -265,6 +266,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | TrueI _ => "true"
               | FalseI _ => "false"
               | Abs1 ((name, _), i, _) => sprintf "(fn $ => $)" [name, str_i (name :: ctx) i]
+              | DivI (i1, (n2, _)) => sprintf "($ / $)" [str_i ctx i1, str_int n2]
               | UVarI (u, _) => str_uvar_i str_i ctx u
 
         fun str_p ctx p = 
@@ -534,6 +536,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | FalseI r => r
               | TTI r => r
               | Abs1 (_, _, r) => r
+              | DivI (i1, (_, r2)) => combine_region (get_region_i i1) r2
               | UVarI (_, r) => r
 
         fun set_region_i i r =
@@ -547,6 +550,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | FalseI _ => FalseI r
               | TTI _ => TTI r
               | Abs1 (name, i, _) => Abs1 (name, i, r)
+              | DivI (i1, (n2, _)) => DivI (set_region_i i1 r, (n2, r))
               | UVarI (a, _) => UVarI (a, r)
 
         fun get_region_p p = 
@@ -641,6 +645,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                       | (TrueI _, TrueI _) => true
                       | (FalseI _, FalseI _) => true
                       | (TTI _, TTI _) => true
+                      | (DivI (i1, (n2, _)), DivI (i1', (n2', _))) => loop i1 i1' andalso n2 = n2'
+                      | (Abs1 (_, i, _), Abs1 (_, i', _)) => loop i i'
                       | (UVarI (u, _), UVarI (u', _)) => eq_uvar_i (u, u')
                       | _ => false
             in
@@ -706,6 +712,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                     UnOpI (opr, passi i, r)
                   | Abs1 ((name, r1), i, r) =>
                     Abs1 ((name, r1), passi i, r)
+                  | DivI (i1, n2) => DivI (passi i1, n2)
 	          | _ => i
 
             fun passp p = 

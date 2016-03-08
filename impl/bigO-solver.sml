@@ -93,8 +93,9 @@ fun solve_one (hs, p) =
     end
         *)
 
-fun by_master_theorem vc as (hs, p) =
-(* [vc] *)
+fun by_master_theorem (vc as (hs, p)) =
+    [vc] 
+(* 
     let
         (* number of variables in context *)
         val nx = length $ List.filter (fn h => case h of VarH _ => true | _ => false) hs
@@ -103,13 +104,18 @@ fun by_master_theorem vc as (hs, p) =
             BinPred (LeP, i1, BinOpI (MultI, VarI (m, _), BinOpI (App1, VarI (g, _), VarI (n, _)))) =>
             if g = nx andalso n < nx andalso m < nx andalso m <> n then
                 let
-                    val addends = 
+                    fun collect_addends i =
+                        case i of
+                            BinOpI (AddI, i1, i2) => collect_addends i1 @ collect_addends i2
+                          | _ => [i]
+                    val addends = collect_addends i1
                 in
                 end
             else [vc]
           | _ =>
             [vc]
     end
+*)
             
 fun solve vc =
     case vc of

@@ -9,6 +9,7 @@ datatype idx_un_op =
 datatype idx_bin_op =
 	 AddI
 	 | MultI
+         (* | DivI *)
 	 | MaxI
 	 | MinI
          | App1
