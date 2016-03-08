@@ -95,8 +95,8 @@ fun vc2prop (hs, p) =
 fun solve vc =
     case vc of
         (* test for opportunity to apply the Master Theorem *)
-        (hs, Quan (Exists, Base Fun1, name1, Quan (Exists, Base Fun1, name2, BinConn (And, BinPred (BigO, VarI (n2, r2), VarI (n1, r1)), p)))) =>
-        if n2 = 0 andalso n1 = 1 then
+        (hs, Quan (Exists, Base Fun1, name1, Quan (Exists, Base Fun1, name2, BinConn (And, bigO as BinPred (BigO, VarI (n0, _), VarI (n1, _)), BinConn (Imply, bigO', p))))) =>
+        if n0 = 0 andalso n1 = 1 andalso eq_p bigO bigO' then
             let
                 (* hoist the conjuncts that don't involve the time functions *)
                 val vcs = split_prop p
@@ -108,7 +108,7 @@ fun solve vc =
                 map (fn (hs', p) => (hs' @ hs, p)) rest @
                 (if done then []
                  else [
-                     (hs, Quan (Exists, Base Fun1, name1, Quan (Exists, Base Fun1, name2, BinConn (And, BinPred (BigO, VarI (n2, r2), VarI (n1, r1)), and_all (map vc2prop vcs)))))])
+                     (hs, Quan (Exists, Base Fun1, name1, Quan (Exists, Base Fun1, name2, BinConn (And, bigO, BinConn (Imply, bigO', and_all (map vc2prop vcs))))))])
             end
         else [vc]
       | _ => [vc]
