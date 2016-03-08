@@ -24,12 +24,13 @@ fun on_i_i on_v x n b =
 	  | ConstIN n => ConstIN n
 	  | ConstIT x => ConstIT x
           | UnOpI (opr, i, r) => UnOpI (opr, f x n i, r)
+          | DivI (i1, n2) => DivI (f x n i1, n2)
+          | ExpI (i1, n2) => ExpI (f x n i1, n2)
 	  | BinOpI (opr, i1, i2) => BinOpI (opr, f x n i1, f x n i2)
 	  | TTI r => TTI r
 	  | TrueI r => TrueI r
 	  | FalseI r => FalseI r
           | Abs1 (name, i, r) => Abs1 (name, f (x + 1) n i, r)
-          | DivI (i1, n2) => DivI (f x n i1, n2)
           | UVarI (u, _) => exfalso u
   in
       f x n b
@@ -74,12 +75,13 @@ local
 	  | ConstIN n => ConstIN n
 	  | ConstIT x => ConstIT x
           | UnOpI (opr, i, r) => UnOpI (opr, f x v i, r)
+          | DivI (i1, n2) => DivI (f x v i1, n2)
+          | ExpI (i1, n2) => ExpI (f x v i1, n2)
 	  | BinOpI (opr, d1, d2) => BinOpI (opr, f x v d1, f x v d2)
 	  | TrueI r => TrueI r
 	  | FalseI r => FalseI r
 	  | TTI r => TTI r
           | Abs1 (name, i, r) => Abs1 (name, f (x + 1) (shiftx_i_i 0 1 v) i, r)
-          | DivI (i1, n2) => DivI (f x v i1, n2)
           | UVarI (u, _) => exfalso u
 in
 fun substx_i_i x (v : idx) (b : idx) : idx = f x v b
@@ -123,7 +125,9 @@ local
     fun set () = changed := true
     fun passi i =
 	case i of
-	    BinOpI (opr, i1, i2) =>
+            DivI (i1, n2) => DivI (passi i1, n2)
+          | ExpI (i1, n2) => ExpI (passi i1, n2)
+	  | BinOpI (opr, i1, i2) =>
             (case opr of
 	         MaxI =>
 	         if eq_i i1 i2 then
@@ -168,8 +172,13 @@ local
             UnOpI (opr, passi i, r)
           | Abs1 ((name, r1), i, r) =>
             Abs1 ((name, r1), passi i, r)
-          | DivI (i1, n2) => DivI (passi i1, n2)
-	  | _ => i
+	  | TrueI _ => i
+	  | FalseI _ => i
+	  | TTI _ => i
+          | ConstIN _ => i
+          | ConstIT _ => i
+          | VarI _ => i
+          | UVarI _ => i
 
     fun passp p = 
 	case p of

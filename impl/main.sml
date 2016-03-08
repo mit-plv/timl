@@ -81,8 +81,8 @@ fun typecheck_file (filename, ctx) =
                   val () = println "Applying BigO solver ..."
                   val vcs = BigOSolver.solve_vcs vcs
                   val () = println (sprintf "BigO solver generated or left $ proof obligations unproved." [str_int $ length vcs])
-                  val () = println ""
-                  val () = print_unsats false filename $ map (fn vc => (vc, SOME [])) vcs
+                  (* val () = println "" *)
+                  (* val () = print_unsats false filename $ map (fn vc => (vc, SOME [])) vcs *)
               in
                   vcs
               end

@@ -109,6 +109,14 @@ fun by_master_theorem (vc as (hs, p)) =
                             BinOpI (AddI, i1, i2) => collect_addends i1 @ collect_addends i2
                           | _ => [i]
                     val addends = collect_addends i1
+                    val (a, b, f) = get_params addends
+                    open Real
+                    val T = 
+                        case compare_params (a, b, f) of
+                            AB_Dom => SOME (ExpI (VarI (0, dummy), Math.ln (fromInt a) / Math.ln (fromInt b)))
+                          | Both_Dom => NONE
+                          | F_Dom => NONE
+                          | NotSure => NONE
                 in
                 end
             else [vc]

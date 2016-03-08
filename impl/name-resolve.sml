@@ -27,12 +27,13 @@ local
 	| E.ConstIN n => ConstIN n
 	| E.ConstIT x => ConstIT x
         | E.UnOpI (opr, i, r) => UnOpI (opr, on_idx ctx i, r)
+        | E.DivI (i1, n2) => DivI (on_idx ctx i1, n2)
+        | E.ExpI (i1, n2) => ExpI (on_idx ctx i1, n2)
 	| E.BinOpI (opr, i1, i2) => BinOpI (opr, on_idx ctx i1, on_idx ctx i2)
 	| E.TrueI r => TrueI r
 	| E.FalseI r => FalseI r
 	| E.TTI r => TTI r
         | E.Abs1 ((name, r1), i, r) => Abs1 ((name, r1), on_idx (name :: ctx) i, r)
-        | E.DivI (i1, n2) => DivI (on_idx ctx i1, n2)
         | E.UVarI u => UVarI u
 
     fun on_bsort bs =

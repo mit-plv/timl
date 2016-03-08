@@ -15,12 +15,13 @@ fun on_i_i on_v on_invis expand_i x n b =
 	  | ConstIN n => ConstIN n
 	  | ConstIT x => ConstIT x
           | UnOpI (opr, i, r) => UnOpI (opr, f x n i, r)
+          | DivI (i1, n2) => DivI (f x n i1, n2)
+          | ExpI (i1, n2) => ExpI (f x n i1, n2)
 	  | BinOpI (opr, i1, i2) => BinOpI (opr, f x n i1, f x n i2)
 	  | TTI r => TTI r
 	  | TrueI r => TrueI r
 	  | FalseI r => FalseI r
           | Abs1 (name, i, r) => Abs1 (name, f (x + 1) n i, r)
-          | DivI (i1, n2) => DivI (f x n i1, n2)
           | UVarI ((invis, uvar), r) =>
             (case !uvar of
                  Refined i => 
@@ -302,12 +303,13 @@ local
 	  | ConstIN n => ConstIN n
 	  | ConstIT x => ConstIT x
           | UnOpI (opr, i, r) => UnOpI (opr, f x v i, r)
+          | DivI (i1, n2) => DivI (f x v i1, n2)
+          | ExpI (i1, n2) => ExpI (f x v i1, n2)
 	  | BinOpI (opr, d1, d2) => BinOpI (opr, f x v d1, f x v d2)
 	  | TrueI r => TrueI r
 	  | FalseI r => FalseI r
 	  | TTI r => TTI r
           | Abs1 (name, i, r) => Abs1 (name, f (x + 1) (shiftx_i_i 0 1 v) i, r)
-          | DivI (i1, n2) => DivI (f x v i1, n2)
           | UVarI ((invis, uvar), r) =>
             case !uvar of
                 Refined i => f x v (expand_i invis i)

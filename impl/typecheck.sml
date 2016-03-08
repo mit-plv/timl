@@ -204,6 +204,7 @@ fun update_i i =
         )
       | UnOpI (opr, i, r) => UnOpI (opr, update_i i, r)
       | DivI (i1, n2) => DivI (update_i i1, n2)
+      | ExpI (i1, n2) => ExpI (update_i i1, n2)
       | BinOpI (opr, i1, i2) => BinOpI (opr, update_i i1, update_i i2)
       | VarI _ => i
       | ConstIN _ => i
@@ -625,6 +626,12 @@ local
 	                 else raise Error (r2, ["Can only divide by positive integer"])
             in
                 (DivI (i1, (n2, r2)), Base Time)
+            end
+          | U.ExpI (i1, (n2, r2)) =>
+            let 
+                val i1 = check_bsort order (ctx, i1, Base Time)
+            in
+                (ExpI (i1, (n2, r2)), Base Time)
             end
 	  | U.BinOpI (opr, i1, i2) =>
             (case opr of
@@ -1811,11 +1818,12 @@ local
 	                                  | ConstIN n => ConstIN n
 	                                  | ConstIT x => ConstIT x
                                           | UnOpI (opr, i, r) => UnOpI (opr, substu_i x v i, r)
+                                          | DivI (i1, n2) => DivI (substu_i x v i1, n2)
+                                          | ExpI (i1, n2) => ExpI (substu_i x v i1, n2)
 	                                  | BinOpI (opr, i1, i2) => BinOpI (opr, substu_i x v i1, substu_i x v i2)
 	                                  | TrueI r => TrueI r
 	                                  | FalseI r => FalseI r
                                           | Abs1 (name, i, r) => Abs1 (name, substu_i x (v + 1) i, r)
-                                          | DivI (i1, n2) => DivI (substu_i x v i1, n2)
 	                                  | TTI r => TTI r
                                     fun substu_p x v b =
 	                                case b of
@@ -1864,12 +1872,13 @@ local
                   | ConstIT c => N.ConstIT c
                   | ConstIN c => N.ConstIN c
                   | UnOpI (opr, i, r) => N.UnOpI (opr, f i, r)
+                  | DivI (i1, n2) => N.DivI (f i1, n2)
+                  | ExpI (i1, n2) => N.ExpI (f i1, n2)
                   | BinOpI (opr, i1, i2) => N.BinOpI (opr, f i1, f i2)
                   | TrueI r => N.TrueI r
                   | FalseI r => N.FalseI r
                   | TTI r => N.TTI r
                   | Abs1 (name, i, r) => N.Abs1 (name, f i, r)
-                  | DivI (i1, n2) => N.DivI (f i1, n2)
                   | UVarI _ =>
                     raise Impossible "no_uvar_i (): shouldn't be UVarI"
         in

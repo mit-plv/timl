@@ -17,6 +17,7 @@ fun print_i ctx i =
     | ConstIN (n, _) => str_int n
     | ConstIT (x, _) => x
     | DivI (i1, (n2, _)) => sprintf "(/ $ $)" [print_i ctx i1, str_int n2]
+    | ExpI (i1, (n2, _)) => sprintf "(^ $ $)" [print_i ctx i1, n2]
     | UnOpI (opr, i, _) => 
       (case opr of
            ToReal => sprintf "(to_real $)" [print_i ctx i]

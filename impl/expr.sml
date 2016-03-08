@@ -81,12 +81,13 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         | ConstIT of string * region
 	         | ConstIN of int * region
                  | UnOpI of idx_un_op * idx * region
+                 | DivI of idx * (int * region)
+                 | ExpI of idx * (string * region)
                  | BinOpI of idx_bin_op * idx * idx
 	         | TrueI of region
 	         | FalseI of region
 	         | TTI of region
                  | Abs1 of name * idx * region
-                 | DivI of idx * (int * region)
                  | UVarI of (bsort, idx) uvar_i * region
 
         fun T0 r = ConstIT ("0.0", r)
@@ -260,13 +261,14 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | ConstIN (n, _) => str_int n
               | ConstIT (x, _) => x
               | UnOpI (opr, i, _) => sprintf "($ $)" [str_idx_un_op opr, str_i ctx i]
+              | DivI (i1, (n2, _)) => sprintf "($ / $)" [str_i ctx i1, str_int n2]
+              | ExpI (i1, (n2, _)) => sprintf "($ ^ $)" [str_i ctx i1, n2]
               | BinOpI (App1, i1, i2) => sprintf "($ $)" [str_i ctx i1, str_i ctx i2]
               | BinOpI (opr, i1, i2) => sprintf "($ $ $)" [str_i ctx i1, str_idx_bin_op opr, str_i ctx i2]
               | TTI _ => "()"
               | TrueI _ => "true"
               | FalseI _ => "false"
               | Abs1 ((name, _), i, _) => sprintf "(fn $ => $)" [name, str_i (name :: ctx) i]
-              | DivI (i1, (n2, _)) => sprintf "($ / $)" [str_i ctx i1, str_int n2]
               | UVarI (u, _) => str_uvar_i str_i ctx u
 
         fun str_p ctx p = 
@@ -531,12 +533,13 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | ConstIN (_, r) => r
               | ConstIT (_, r) => r
               | UnOpI (_, _, r) => r
+              | DivI (i1, (_, r2)) => combine_region (get_region_i i1) r2
+              | ExpI (i1, (_, r2)) => combine_region (get_region_i i1) r2
               | BinOpI (_, i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
               | TrueI r => r
               | FalseI r => r
               | TTI r => r
               | Abs1 (_, _, r) => r
-              | DivI (i1, (_, r2)) => combine_region (get_region_i i1) r2
               | UVarI (_, r) => r
 
         fun set_region_i i r =
@@ -545,12 +548,13 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | ConstIN (a, _) => ConstIN (a, r)
               | ConstIT (a, _) => ConstIT (a, r)
               | UnOpI (opr, i, _) => UnOpI (opr, i, r)
+              | DivI (i1, (n2, _)) => DivI (set_region_i i1 r, (n2, r))
+              | ExpI (i1, (n2, _)) => ExpI (set_region_i i1 r, (n2, r))
               | BinOpI (opr, i1, i2) => BinOpI (opr, set_region_i i1 r, set_region_i i2 r)
               | TrueI _ => TrueI r
               | FalseI _ => FalseI r
               | TTI _ => TTI r
               | Abs1 (name, i, _) => Abs1 (name, i, r)
-              | DivI (i1, (n2, _)) => DivI (set_region_i i1 r, (n2, r))
               | UVarI (a, _) => UVarI (a, r)
 
         fun get_region_p p = 
@@ -636,30 +640,36 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         fun eq_i i i' =
             let
                 fun loop i i' =
-                    case (i, i') of
-                        (VarI (x, _), VarI (x', _)) => eq_v (x, x')
-                      | (ConstIN (n, _), ConstIN (n', _)) => n = n'
-                      | (ConstIT (x, _), ConstIT (x', _)) => x = x'
-                      | (UnOpI (opr, i, _), UnOpI (opr', i', _)) => opr = opr' andalso loop i i'
-                      | (BinOpI (opr, i1, i2), BinOpI (opr', i1', i2')) => opr = opr' andalso loop i1 i1' andalso loop i2 i2'
-                      | (TrueI _, TrueI _) => true
-                      | (FalseI _, FalseI _) => true
-                      | (TTI _, TTI _) => true
-                      | (DivI (i1, (n2, _)), DivI (i1', (n2', _))) => loop i1 i1' andalso n2 = n2'
-                      | (Abs1 (_, i, _), Abs1 (_, i', _)) => loop i i'
-                      | (UVarI (u, _), UVarI (u', _)) => eq_uvar_i (u, u')
-                      | _ => false
+                    case i of
+                        VarI (x, _) => (case i' of VarI (x', _) => eq_v (x, x') | _ => false)
+                      | ConstIN (n, _) => (case i' of ConstIN (n', _) => n = n' | _ => false)
+                      | ConstIT (x, _) => (case i' of ConstIT (x', _) => x = x' | _ => false)
+                      | UnOpI (opr, i, _) => (case i' of UnOpI (opr', i', _) => opr = opr' andalso loop i i' | _ => false)
+                      | DivI (i1, (n2, _)) => (case i' of DivI (i1', (n2', _)) => loop i1 i1' andalso n2 = n2' | _ => false)
+                      | ExpI (i1, (n2, _)) => (case i' of ExpI (i1', (n2', _)) => loop i1 i1' andalso n2 = n2' | _ => false)
+                      | BinOpI (opr, i1, i2) => (case i' of BinOpI (opr', i1', i2') => opr = opr' andalso loop i1 i1' andalso loop i2 i2' | _ => false)
+                      | TrueI _ => (case i' of TrueI _ => true | _ => false)
+                      | FalseI _ => (case i' of FalseI _ => true | _ => false)
+                      | TTI _ => (case i' of TTI _ => true | _ => false)
+                      | Abs1 (_, i, _) => (case i' of Abs1 (_, i', _) => loop i i' | _ => false)
+                      | UVarI (u, _) => (case i' of UVarI (u', _) => eq_uvar_i (u, u') | _ => false)
             in
                 loop i i'
             end
 
+        fun eq_bs bs bs' =
+            case bs of
+                Base b => (case bs' of Base b' => b = b | _ => false)
+              | UVarBS _ => false
+                
         fun eq_p p p' =
-            case (p, p') of
-                (True _ , True _) => true
-              | (False _, False _) => true
-              | (BinConn (opr, p1, p2), BinConn (opr', p1', p2')) => opr = opr' andalso eq_p p1 p1' andalso eq_p p2 p2'
-              | (BinPred (opr, i1, i2), BinPred (opr', i1', i2')) => opr = opr' andalso eq_i i1 i1' andalso eq_i i2 i2'
-              | _ => false
+            case p of
+                True _ => (case p' of True _ => true | _ => false)
+              | False _ => (case p' of False _ => true | _ => false)
+              | BinConn (opr, p1, p2) => (case p' of BinConn (opr', p1', p2') => opr = opr' andalso eq_p p1 p1' andalso eq_p p2 p2' | _ => false)
+              | BinPred (opr, i1, i2) => (case p' of BinPred (opr', i1', i2') => opr = opr' andalso eq_i i1 i1' andalso eq_i i2 i2' | _ => false)
+              | Not (p, _) => (case p' of Not (p', _) => eq_p p p' | _ => false)
+              | Quan (q, bs, _, p) => (case p' of Quan (q', bs', _, p') => q = q' andalso eq_bs bs bs' andalso eq_p p p' | _ => false)
 
         local
             val changed = ref false
@@ -667,7 +677,9 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
             fun set () = changed := true
             fun passi i =
 	        case i of
-	            BinOpI (opr, i1, i2) =>
+                    DivI (i1, n2) => DivI (passi i1, n2)
+                  | ExpI (i1, n2) => ExpI (passi i1, n2)
+	          | BinOpI (opr, i1, i2) =>
                     (case opr of
 	                 MaxI =>
 	                 if eq_i i1 i2 then
@@ -712,8 +724,13 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                     UnOpI (opr, passi i, r)
                   | Abs1 ((name, r1), i, r) =>
                     Abs1 ((name, r1), passi i, r)
-                  | DivI (i1, n2) => DivI (passi i1, n2)
-	          | _ => i
+	          | TrueI _ => i
+	          | FalseI _ => i
+	          | TTI _ => i
+                  | ConstIN _ => i
+                  | ConstIT _ => i
+                  | VarI _ => i
+                  | UVarI _ => i
 
             fun passp p = 
 	        case p of
