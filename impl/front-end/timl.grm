@@ -169,6 +169,7 @@ idx : id (VarI id)
     (* | idx_un_op idx %prec DOLLAR (UnOpI (idx_un_op, idx, (idx_un_opleft, idxright))) *)
     | LPAREN RPAREN (TTI (LPARENleft, RPARENright))
     | LPAREN idx RPAREN (idx)
+    | FN id DARROW idx (Abs1 (id, idx, (FNleft, idxright)))
 
 prop : id (ConstP id)
      | NOT prop (Not (prop, (NOTleft, propright)))

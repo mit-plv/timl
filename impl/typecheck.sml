@@ -1894,8 +1894,10 @@ local
             (* val () = println "" *)
             (* val () = println $ Expr.str_p [] p *)
             val p = no_uvar_p p
+            (* val () = println "" *)
             (* val () = println $ str_p [] p *)
             val p = NoUVarSubst.simp_p p
+            (* val () = println "" *)
             (* val () = println $ str_p [] p *)
             val p = uniquefy [] p
             val vcs = split_prop p

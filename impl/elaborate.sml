@@ -46,6 +46,7 @@ local
             )
 	  | S.TTI r =>
 	    TTI r
+          | S.Abs1 (name, i, r) => Abs1 (name, elab_i i, r)
 
     fun elab_p p =
 	case p of

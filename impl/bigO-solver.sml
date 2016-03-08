@@ -64,6 +64,17 @@ fun solve_one (hs, p) =
     (*       | _ => false *)
     (* end *)
         
+fun forget_i_vc x n (hs, p) = 
+    let
+        fun f (h, (hs, x)) = 
+            case h of 
+                VarH _ => (h :: hs, x + 1) 
+              | PropH p => (PropH (forget_i_p x 1 p) :: hs, x) handle ForgetError _ => (hs, x) (* just give up hypothesis if it involves [x] *)
+        val (hs, x) = foldr f ([], 0) hs
+    in
+        (hs, forget_i_p x 1 p)
+    end
+
 fun partitionOption f xs =
     case xs of
         [] => ([], [])
@@ -75,17 +86,6 @@ fun partitionOption f xs =
                 SOME y => (y :: ys, zs)
               | _ => (ys, x :: zs)
         end
-
-fun forget_i_vc x n (hs, p) = 
-    let
-        fun f (h, (hs, x)) = 
-            case h of 
-                VarH _ => (h :: hs, x + 1) 
-              | PropH p => (PropH (forget_i_p x 1 p) :: hs, x)
-        val (hs, x) = foldr f ([], 0) hs
-    in
-        (hs, forget_i_p x 1 p)
-    end
 
 fun and_all ps = foldl' (fn (p, acc) => acc /\ p) (True dummy) ps
 

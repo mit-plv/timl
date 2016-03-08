@@ -264,7 +264,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | TTI _ => "()"
               | TrueI _ => "true"
               | FalseI _ => "false"
-              | Abs1 ((name, _), i, _) => sprintf "(fn1 $ => $)" [name, str_i (name :: ctx) i]
+              | Abs1 ((name, _), i, _) => sprintf "(fn $ => $)" [name, str_i (name :: ctx) i]
               | UVarI (u, _) => str_uvar_i str_i ctx u
 
         fun str_p ctx p = 

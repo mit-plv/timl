@@ -8,19 +8,19 @@ datatype {Nat} 'a list =
 (* val g = *)
 (*  fn {n : Nat} (xs : {n} int list) return |> O _ $n => xs *)
 
-abstype idx c1 : Profile = _ with
+abstype idx gg : {gg : Fun1 | gg O (fn n => $n)} = _ with
 val g =
- fn {n : Nat} (xs : {n} int list) return |> O c1 $n => xs
+ fn {n : Nat} (xs : {n} int list) return |> gg n => xs
 end
 
-abstype idx c2 : Profile = _ with
+abstype idx hh : {hh : Fun1 | hh O (fn n => 1.0)} = _ with
 val h =
- fn {n : Nat} (xs : {n} int list) return |> O c2 $1 => xs
+ fn {n : Nat} (xs : {n} int list) return |> hh n => xs
 end
 
-abstype idx c3 : Profile = _ with
+abstype idx ff : {ff : Fun1 | ff O (fn n => $n)} = _ with
 val f =
- fn {n : Nat} (xs : {n} int list) return |> O c3 $n =>
+ fn {n : Nat} (xs : {n} int list) return |> ff n =>
     let
         val xs = g {_} xs
         val xs = h {_} xs
@@ -42,14 +42,14 @@ val ['a] ['b] map =
     end
 *)
 
-abstype idx c : Profile = _ with
+abstype idx g : {g : Fun1 | g O (fn n => $n)} = _ with
 val ['a] ['b] map = 
  fn {m : Time} (f : 'a -- m --> 'b) =>
     let
-        fun map {n : Nat} (ls : {n} 'a list) return {n} 'b list |> O c (m * $n) =
-            case ls return {n} 'b list of
+        fun map {n : Nat} (ls : {n} 'a list) return {n} 'b list |> m * g n =
+            case ls return {n} 'b list |> m * g n of
                 nil => nil
-              | cons {n'} (x, xs) => cons {_} (f x, map {_} xs) |> O c (m * $n)
+              | cons {n'} (x, xs) => cons {_} (f x, map {_} xs)
     in
         map
     end

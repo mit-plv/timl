@@ -46,7 +46,7 @@ fun print_i ctx i =
     | TrueI _ => "true"
     | FalseI _ => "false"
     | TTI _ => "TT"
-    | Abs1 ((name, _), i, _) => "fn1"
+    | Abs1 ((name, _), i, _) => "fn"
     | UVarI (u, _) => exfalso u
 
 fun negate s = sprintf "(not $)" [s]
@@ -110,7 +110,7 @@ fun print_hyp ctx h =
 val prelude = [
     (* "(set-option :produce-proofs true)", *)
     "(declare-datatypes () ((Unit TT)))",
-    "(declare-datatypes () ((Fun1 Fun1-dummy-constr)))",
+    "(declare-datatypes () ((Fun1 fn)))",
     "(declare-fun log2 (Real) Real)",
     "(declare-fun bigO (Fun1 Fun1) Bool)",
     "(declare-fun app1 (Fun1 Int) Real)",
