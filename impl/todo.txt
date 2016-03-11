@@ -7,3 +7,4 @@ Done. 6. Disallow impredicative universal types
 Done. 7. Type inference
 Done. 8. Idx inference
 9. Allow [datatype] to have idx arguments that don't change.
+10. Multi-argument idx functions.

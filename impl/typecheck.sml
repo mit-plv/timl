@@ -575,7 +575,7 @@ local
                     case opr of
                         BigO => 
                         (case bs of
-                             Base Fun1 => ()
+                             Base (Fun1 _) => ()
                            | _ => raise error "Fun1"
                         )
                       | _ =>

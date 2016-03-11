@@ -1,20 +1,21 @@
 structure BasicSorts = struct
+open Util
 
 (* basic index sort *)
 datatype base_sort =
-	 Time
+         Fun1 of int (* number of arguments *)
          | Nat
 	 | Bool
 	 | BSUnit
-         | Fun1
+
+val Time = Fun1 0
 
 fun str_b (s : base_sort) : string = 
     case s of
-        Time => "Time"
+        Fun1 n => if n = 0 then "Time" else sprintf "Fun1-$" [str_int n]
       | Nat => "Nat"
       | Bool => "Bool"
       | BSUnit => "Unit"
-      | Fun1 => "Fun1"
 
 end
 
@@ -426,7 +427,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	          | Pair (e1, e2) => sprintf "($, $)" [str_e ctx e1, str_e ctx e2]
 	          | Fst e => sprintf "(fst $)" [str_e ctx e]
 	          | Snd e => sprintf "(snd $)" [str_e ctx e]
-	          | AbsI (s, (name, _), e) => sprintf "(fn $ :: $ => $)" [name, str_s sctx s, str_e (name :: sctx, kctx, cctx, tctx) e]
+	          | AbsI (s, (name, _), e) => sprintf "(fn {$ : $} => $)" [name, str_s sctx s, str_e (name :: sctx, kctx, cctx, tctx) e]
 	          | AppI (e, i) => sprintf "($ {$})" [str_e ctx e, str_i sctx i]
 	          | Let (decls, e, _) => 
                     let val (decls, ctx) = str_decls ctx decls

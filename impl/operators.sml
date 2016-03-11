@@ -12,7 +12,7 @@ datatype idx_bin_op =
          (* | DivI *)
 	 | MaxI
 	 | MinI
-         | App1
+         | App1 (* TF: Time Function *)
 
 (* binary logical connectives *)
 datatype bin_conn =
