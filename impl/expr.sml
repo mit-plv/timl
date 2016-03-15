@@ -12,7 +12,7 @@ val Time = Fun1 0
 
 fun str_b (s : base_sort) : string = 
     case s of
-        Fun1 n => if n = 0 then "Time" else sprintf "Fun1-$" [str_int n]
+        Fun1 n => if n = 0 then "Time" else sprintf "Fun1 $" [str_int n]
       | Nat => "Nat"
       | Bool => "Bool"
       | BSUnit => "Unit"

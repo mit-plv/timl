@@ -31,19 +31,29 @@ fun print_i ctx i =
          | MultI => 
            sprintf "($ $ $)" ["*", print_i ctx i1, print_i ctx i2]
          | MaxI =>
-           let fun max a b =
+           let
+               fun max a b =
                    sprintf "(ite (>= $ $) $ $)" [a, b, a, b]
            in
                max (print_i ctx i1) (print_i ctx i2)
            end
          | MinI =>
-           let fun min a b =
+           let
+               fun min a b =
                    sprintf "(ite (<= $ $) $ $)" [a, b, a, b]
            in
                min (print_i ctx i1) (print_i ctx i2)
            end
          | App1 =>
-           sprintf "(app1 $ $)" [print_i ctx i1, print_i ctx i2]
+           let
+               fun collect_app i =
+                   case i of
+                       BinOpI (App1, i1, i2) => i1 :: collect_app i2
+                     | _ => [i]
+               val is = i1 :: collect_app i2
+           in
+               sprintf "(app$$)" [str_int (length is - 1), join_prefix " " $ map (print_i ctx) is]
+           end
       )
     | TrueI _ => "true"
     | FalseI _ => "false"
@@ -57,9 +67,12 @@ fun print_base_sort b =
   case b of
       BSUnit => "Unit"
     | Bool => "Bool"
-    | Time => "Real"
     | Nat => "Int"
-    | Fun1 => "Fun1"
+    | Fun1 n =>
+      if n = 0 then
+          "Real"
+      else
+          "Fun" ^ str_int n
 
 fun print_bsort bsort =
   case bsort of
@@ -112,10 +125,12 @@ fun print_hyp ctx h =
 val prelude = [
     (* "(set-option :produce-proofs true)", *)
     "(declare-datatypes () ((Unit TT)))",
-    "(declare-datatypes () ((Fun1 fn)))",
+    "(declare-datatypes () ((Fun1 fn1)))",
+    "(declare-datatypes () ((Fun2 fn2)))",
     "(declare-fun log2 (Real) Real)",
     "(declare-fun bigO (Fun1 Fun1) Bool)",
     "(declare-fun app1 (Fun1 Int) Real)",
+    "(declare-fun app2 (Fun2 Int Int) Real)",
     "(define-fun floor ((x Real)) Int",
     "(to_int x))",
     "(define-fun ceil ((x Real)) Int",
@@ -152,9 +167,12 @@ fun conv_base_sort b =
       case b of
           BSUnit => (BSUnit, NONE)
         | Bool => (Bool, NONE)
-        | Time => (Time, SOME (BinPred (LeP, ConstIT ("0.0", dummy), VarI (0, dummy))))
         | Nat => (Nat, SOME (BinPred (LeP, ConstIN (0, dummy), VarI (0, dummy))))
-        | Fun1 => (Fun1, NONE)
+        | Fun1 n =>
+          if n = 0 then
+              (Time, SOME (BinPred (LeP, ConstIT ("0.0", dummy), VarI (0, dummy))))
+          else
+              (Fun1 n, NONE)
 
 fun conv_bsort bsort =
   case bsort of

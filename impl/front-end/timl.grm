@@ -193,7 +193,8 @@ decl : VAL tname_star ptrn EQ exp (Val (tname_star, ptrn, exp, (VALleft, exprigh
 sort : bsort (Basic bsort)
      | LCUR id COLON bsort BAR prop RCUR (Subset (bsort, id, prop, (LCURleft, RCURright)))
 
-bsort : id (id)
+bsort : id (Base id)
+      | ID INT (TimeFun (ID, INT, (IDleft, INTright)))
 
 id : ID ((ID, (IDleft, IDright)))
 

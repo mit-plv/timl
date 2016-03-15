@@ -635,13 +635,19 @@ local
             end
 	  | U.BinOpI (opr, i1, i2) =>
             (case opr of
-                 App1 => 
-                 let 
-                     val i1 = check_bsort order (ctx, i1, Base Fun1)
-                     val i2 = check_bsort order (ctx, i2, Base Nat)
-                 in
-                     (BinOpI (opr, i1, i2), Base Time)
-                 end
+                 App1 =>
+                 (case get_bsort order (ctx, i1) of
+                      (i1, Base (Fun1 arity)) =>
+                      if arity > 0 then
+                          let 
+                              val i2 = check_bsort order (ctx, i2, Base Nat)
+                          in
+                              (BinOpI (opr, i1, i2), Base (Fun1 (arity - 1)))
+                          end
+                      else
+                          raise Error (get_region_i i1, "Arity of time function must be larger than 0" :: indent ["got arity: " ^ str_int arity])
+                    | (_, bs1) => raise Error (U.get_region_i i1, "Sort of first operand of time function application must be time function" :: indent ["want: time function", "got: " ^ str_bs bs1])
+                 )
                | _ =>
                  let 
                      val (i1, bs1) = get_bsort order (ctx, i1)
@@ -671,11 +677,11 @@ local
 	  | U.TTI r => 
             (TTI r, Base BSUnit)
           | U.Abs1 ((name, r1), i, r) =>
-            let 
-                val i = check_bsort (order + 1) (add_sorting (name, Basic (Base Nat, r1)) ctx, i, Base Time)
-            in
-                (Abs1 ((name, r1), i, r), Base Fun1)
-            end
+            (case get_bsort (order + 1) (add_sorting (name, Basic (Base Nat, r1)) ctx, i) of
+                 (i, Base (Fun1 arity)) =>
+                 (Abs1 ((name, r1), i, r), Base (Fun1 (arity + 1)))
+               | (_, bs) => raise Error (U.get_region_i i, "Sort of time funtion body should be time function" :: indent ["want: time function", "got: " ^ str_bs bs])
+            )
           | U.UVarI ((), r) =>
             let
                 val bs = fresh_bsort ()

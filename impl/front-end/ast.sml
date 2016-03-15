@@ -20,7 +20,9 @@ datatype prop =
 	 | BinConn of bin_conn * prop * prop * region
 	 | BinPred of bin_pred * idx * idx * region
 
-type bsort = id
+datatype bsort =
+         Base of id
+         | TimeFun of string * int * region
 
 datatype sort =
 	 Basic of bsort

@@ -52,7 +52,7 @@ val ['a] merge =
         merge
     end
         
-abstype idx g : {g : Fun1 | g O _} = _ with
+abstype idx g : {g : Fun 1 | g O _} = _ with
 val ['a] msort =
  fn {m : Time} (le : 'a * 'a -- m --> bool) =>
     let

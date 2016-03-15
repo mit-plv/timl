@@ -61,20 +61,24 @@ local
 	  | S.BinConn (opr, p1, p2, _) => BinConn (opr, elab_p p1, elab_p p2)
 	  | S.BinPred (opr, i1, i2, _) => BinPred (opr, elab_i i1, elab_i i2)
 
-    fun elab_b (name, r) =
-	if name = "Time" then
-	    (Base Time, r)
-	else if name = "Nat" then
-	    (Base Nat, r)
-	else if name = "Bool" then
-	    (Base Bool, r)
-	else if name = "Unit" then
-	    (Base BSUnit, r)
-	else if name = "Fun1" then
-	    (Base Fun1, r)
-        else if name = "_" then
-            (UVarBS (), r)
-	else raise Error (r, sprintf "Unrecognized base sort: $" [name])
+    fun elab_b b =
+        case b of
+            S.Base (name, r) =>
+	    if name = "Time" then
+	        (Base Time, r)
+	    else if name = "Nat" then
+	        (Base Nat, r)
+	    else if name = "Bool" then
+	        (Base Bool, r)
+	    else if name = "Unit" then
+	        (Base BSUnit, r)
+            else if name = "_" then
+                (UVarBS (), r)
+	    else raise Error (r, sprintf "Unrecognized base sort: $" [name])
+          | S.TimeFun (name, n, r) =>
+            if name = "Fun" then
+                (Base (Fun1 n), r)
+            else raise Error (r, sprintf "Unrecognized base sort: $ $" [name, str_int n])
 
     fun elab_s s =
 	case s of
