@@ -142,10 +142,10 @@ local
 	         else
 		     BinOpI (opr, passi i1, passi i2)
 	       | AddI => 
-	         if eq_i i1 (T0 dummy) then
+	         if eq_i i1 (T0 dummy) orelse eq_i i1 (ConstIN (0, dummy)) then
                      (set ();
                       i2)
-	         else if eq_i i2 (T0 dummy) then
+	         else if eq_i i2 (T0 dummy) orelse eq_i i2 (ConstIN (0, dummy)) then
                      (set ();
                       i1)
 	         else
