@@ -54,7 +54,7 @@ fun print_i ctx i =
     | TrueI _ => "true"
     | FalseI _ => "false"
     | TTI _ => "TT"
-    | TimeAbs ((name, _), i, _) => "fn"
+    | TimeAbs ((name, _), i, _) => "fn2"
     | UVarI (u, _) => exfalso u
 
 fun negate s = sprintf "(not $)" [s]

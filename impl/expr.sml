@@ -261,6 +261,11 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 BinOpI (TimeApp, i1, i2) => collect_TimeApp i1 @ [i2]
               | _ => [i]
                          
+        fun collect_AddI i =
+            case i of
+                BinOpI (AddI, i1, i2) => collect_AddI i1 @ collect_AddI i2
+              | _ => [i]
+                         
         fun str_i ctx (i : idx) : string = 
             case i of
                 VarI (x, _) => str_v ctx x
@@ -271,9 +276,15 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | ExpI (i1, (n2, _)) => sprintf "($ ^ $)" [str_i ctx i1, n2]
               | BinOpI (TimeApp, i1, i2) =>
                 let
-                    val is = collect_TimeApp i1 @ [i2]
+                    val is = collect_TimeApp i
                 in
                     sprintf "($)" [join " " $ map (str_i ctx) is]
+                end
+              | BinOpI (AddI, i1, i2) =>
+                let
+                    val is = collect_AddI i
+                in
+                    sprintf "($)" [join " + " $ map (str_i ctx) is]
                 end
               | BinOpI (opr, i1, i2) => sprintf "($ $ $)" [str_i ctx i1, str_idx_bin_op opr, str_i ctx i2]
               | TTI _ => "()"

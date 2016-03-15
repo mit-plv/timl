@@ -104,11 +104,7 @@ fun by_master_theorem (vc as (hs, p)) =
             BinPred (LeP, i1, BinOpI (MultI, VarI (m, _), BinOpI (TimeApp, VarI (g, _), VarI (n, _)))) =>
             if g = nx andalso n < nx andalso m < nx andalso m <> n then
                 let
-                    fun collect_addends i =
-                        case i of
-                            BinOpI (AddI, i1, i2) => collect_addends i1 @ collect_addends i2
-                          | _ => [i]
-                    val addends = collect_addends i1
+                    val addends = collect_AddI i1
                     fun get_params is =
                         case is of
                             [] => NONE
@@ -149,8 +145,8 @@ fun solve vc =
                     [vc] =>
                     let
                         val vcs = by_master_theorem vc
-                    in
                         (* val vcs = [] *)
+                    in
                         map (fn (hs', p) => (hs' @ hs, p)) rest @
                         (case vcs of
                              [] => []
