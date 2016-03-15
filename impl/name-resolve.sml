@@ -33,7 +33,7 @@ local
 	| E.TrueI r => TrueI r
 	| E.FalseI r => FalseI r
 	| E.TTI r => TTI r
-        | E.Abs1 ((name, r1), i, r) => Abs1 ((name, r1), on_idx (name :: ctx) i, r)
+        | E.TimeAbs ((name, r1), i, r) => TimeAbs ((name, r1), on_idx (name :: ctx) i, r)
         | E.UVarI u => UVarI u
 
     fun on_bsort bs =

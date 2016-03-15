@@ -212,7 +212,7 @@ fun update_i i =
       | TTI _ => i
       | TrueI _ => i
       | FalseI _ => i
-      | Abs1 (name, i, r) => Abs1 (name, update_i i, r)
+      | TimeAbs (name, i, r) => TimeAbs (name, update_i i, r)
 
 fun update_p p =
     case p of
@@ -635,7 +635,7 @@ local
             end
 	  | U.BinOpI (opr, i1, i2) =>
             (case opr of
-                 App1 =>
+                 TimeApp =>
                  (case get_bsort order (ctx, i1) of
                       (i1, Base (TimeFun arity)) =>
                       if arity > 0 then
@@ -676,10 +676,10 @@ local
             (FalseI r, Base Bool)
 	  | U.TTI r => 
             (TTI r, Base BSUnit)
-          | U.Abs1 ((name, r1), i, r) =>
+          | U.TimeAbs ((name, r1), i, r) =>
             (case get_bsort (order + 1) (add_sorting (name, Basic (Base Nat, r1)) ctx, i) of
                  (i, Base (TimeFun arity)) =>
-                 (Abs1 ((name, r1), i, r), Base (TimeFun (arity + 1)))
+                 (TimeAbs ((name, r1), i, r), Base (TimeFun (arity + 1)))
                | (_, bs) => raise Error (U.get_region_i i, "Sort of time funtion body should be time function" :: indent ["want: time function", "got: " ^ str_bs bs])
             )
           | U.UVarI ((), r) =>
@@ -1829,7 +1829,7 @@ local
 	                                  | BinOpI (opr, i1, i2) => BinOpI (opr, substu_i x v i1, substu_i x v i2)
 	                                  | TrueI r => TrueI r
 	                                  | FalseI r => FalseI r
-                                          | Abs1 (name, i, r) => Abs1 (name, substu_i x (v + 1) i, r)
+                                          | TimeAbs (name, i, r) => TimeAbs (name, substu_i x (v + 1) i, r)
 	                                  | TTI r => TTI r
                                     fun substu_p x v b =
 	                                case b of
@@ -1884,7 +1884,7 @@ local
                   | TrueI r => N.TrueI r
                   | FalseI r => N.FalseI r
                   | TTI r => N.TTI r
-                  | Abs1 (name, i, r) => N.Abs1 (name, f i, r)
+                  | TimeAbs (name, i, r) => N.TimeAbs (name, f i, r)
                   | UVarI _ =>
                     raise Impossible "no_uvar_i (): shouldn't be UVarI"
         in

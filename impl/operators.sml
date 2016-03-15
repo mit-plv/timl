@@ -12,7 +12,7 @@ datatype idx_bin_op =
          (* | DivI *)
 	 | MaxI
 	 | MinI
-         | App1 (* TF: Time Function *)
+         | TimeApp (* TF: Time Function *)
 
 (* binary logical connectives *)
 datatype bin_conn =
@@ -48,7 +48,7 @@ fun str_idx_bin_op opr =
     | MultI => "*"
     | MaxI => "max"
     | MinI => "min"
-    | App1 => ""
+    | TimeApp => ""
 
 fun str_bin_conn opr =
   case opr of

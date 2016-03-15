@@ -44,11 +44,11 @@ fun print_i ctx i =
            in
                min (print_i ctx i1) (print_i ctx i2)
            end
-         | App1 =>
+         | TimeApp =>
            let
                fun collect_app i =
                    case i of
-                       BinOpI (App1, i1, i2) => i1 :: collect_app i2
+                       BinOpI (TimeApp, i1, i2) => i1 :: collect_app i2
                      | _ => [i]
                val is = i1 :: collect_app i2
            in
@@ -58,7 +58,7 @@ fun print_i ctx i =
     | TrueI _ => "true"
     | FalseI _ => "false"
     | TTI _ => "TT"
-    | Abs1 ((name, _), i, _) => "fn"
+    | TimeAbs ((name, _), i, _) => "fn"
     | UVarI (u, _) => exfalso u
 
 fun negate s = sprintf "(not $)" [s]

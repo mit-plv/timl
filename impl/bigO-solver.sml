@@ -101,7 +101,7 @@ fun by_master_theorem (vc as (hs, p)) =
         val nx = length $ List.filter (fn h => case h of VarH _ => true | _ => false) hs
     in
         case p of
-            BinPred (LeP, i1, BinOpI (MultI, VarI (m, _), BinOpI (App1, VarI (g, _), VarI (n, _)))) =>
+            BinPred (LeP, i1, BinOpI (MultI, VarI (m, _), BinOpI (TimeApp, VarI (g, _), VarI (n, _)))) =>
             if g = nx andalso n < nx andalso m < nx andalso m <> n then
                 let
                     fun collect_addends i =

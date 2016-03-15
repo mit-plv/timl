@@ -12,7 +12,7 @@ val Time = TimeFun 0
 
 fun str_b (s : base_sort) : string = 
     case s of
-        TimeFun n => if n = 0 then "Time" else sprintf "TimeFun $" [str_int n]
+        TimeFun n => if n = 0 then "Time" else sprintf "Fun $" [str_int n]
       | Nat => "Nat"
       | Bool => "Bool"
       | BSUnit => "Unit"
@@ -88,7 +88,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         | TrueI of region
 	         | FalseI of region
 	         | TTI of region
-                 | Abs1 of name * idx * region
+                 | TimeAbs of name * idx * region
                  | UVarI of (bsort, idx) uvar_i * region
 
         fun T0 r = ConstIT ("0.0", r)
@@ -264,12 +264,12 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | UnOpI (opr, i, _) => sprintf "($ $)" [str_idx_un_op opr, str_i ctx i]
               | DivI (i1, (n2, _)) => sprintf "($ / $)" [str_i ctx i1, str_int n2]
               | ExpI (i1, (n2, _)) => sprintf "($ ^ $)" [str_i ctx i1, n2]
-              | BinOpI (App1, i1, i2) => sprintf "($ $)" [str_i ctx i1, str_i ctx i2]
+              | BinOpI (TimeApp, i1, i2) => sprintf "($ $)" [str_i ctx i1, str_i ctx i2]
               | BinOpI (opr, i1, i2) => sprintf "($ $ $)" [str_i ctx i1, str_idx_bin_op opr, str_i ctx i2]
               | TTI _ => "()"
               | TrueI _ => "true"
               | FalseI _ => "false"
-              | Abs1 ((name, _), i, _) => sprintf "(fn $ => $)" [name, str_i (name :: ctx) i]
+              | TimeAbs ((name, _), i, _) => sprintf "(fn $ => $)" [name, str_i (name :: ctx) i]
               | UVarI (u, _) => str_uvar_i str_i ctx u
 
         fun str_p ctx p = 
@@ -540,7 +540,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | TrueI r => r
               | FalseI r => r
               | TTI r => r
-              | Abs1 (_, _, r) => r
+              | TimeAbs (_, _, r) => r
               | UVarI (_, r) => r
 
         fun set_region_i i r =
@@ -555,7 +555,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | TrueI _ => TrueI r
               | FalseI _ => FalseI r
               | TTI _ => TTI r
-              | Abs1 (name, i, _) => Abs1 (name, i, r)
+              | TimeAbs (name, i, _) => TimeAbs (name, i, r)
               | UVarI (a, _) => UVarI (a, r)
 
         fun get_region_p p = 
@@ -652,7 +652,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                       | TrueI _ => (case i' of TrueI _ => true | _ => false)
                       | FalseI _ => (case i' of FalseI _ => true | _ => false)
                       | TTI _ => (case i' of TTI _ => true | _ => false)
-                      | Abs1 (_, i, _) => (case i' of Abs1 (_, i', _) => loop i i' | _ => false)
+                      | TimeAbs (_, i, _) => (case i' of TimeAbs (_, i', _) => loop i i' | _ => false)
                       | UVarI (u, _) => (case i' of UVarI (u', _) => eq_uvar_i (u, u') | _ => false)
             in
                 loop i i'
@@ -718,13 +718,13 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                               i1)
 	                 else
 		             BinOpI (opr, passi i1, passi i2)
-                       | App1 =>
+                       | TimeApp =>
 		         BinOpI (opr, passi i1, passi i2)
                     )
                   | UnOpI (opr, i, r) =>
                     UnOpI (opr, passi i, r)
-                  | Abs1 ((name, r1), i, r) =>
-                    Abs1 ((name, r1), passi i, r)
+                  | TimeAbs ((name, r1), i, r) =>
+                    TimeAbs ((name, r1), passi i, r)
 	          | TrueI _ => i
 	          | FalseI _ => i
 	          | TTI _ => i

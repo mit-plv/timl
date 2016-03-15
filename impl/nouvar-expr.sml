@@ -30,7 +30,7 @@ fun on_i_i on_v x n b =
 	  | TTI r => TTI r
 	  | TrueI r => TrueI r
 	  | FalseI r => FalseI r
-          | Abs1 (name, i, r) => Abs1 (name, f (x + 1) n i, r)
+          | TimeAbs (name, i, r) => TimeAbs (name, f (x + 1) n i, r)
           | UVarI (u, _) => exfalso u
   in
       f x n b
@@ -81,7 +81,7 @@ local
 	  | TrueI r => TrueI r
 	  | FalseI r => FalseI r
 	  | TTI r => TTI r
-          | Abs1 (name, i, r) => Abs1 (name, f (x + 1) (shiftx_i_i 0 1 v) i, r)
+          | TimeAbs (name, i, r) => TimeAbs (name, f (x + 1) (shiftx_i_i 0 1 v) i, r)
           | UVarI (u, _) => exfalso u
 in
 fun substx_i_i x (v : idx) (b : idx) : idx = f x v b
@@ -165,13 +165,13 @@ local
                       i1)
 	         else
 		     BinOpI (opr, passi i1, passi i2)
-               | App1 =>
+               | TimeApp =>
 		 BinOpI (opr, passi i1, passi i2)
             )
           | UnOpI (opr, i, r) =>
             UnOpI (opr, passi i, r)
-          | Abs1 ((name, r1), i, r) =>
-            Abs1 ((name, r1), passi i, r)
+          | TimeAbs ((name, r1), i, r) =>
+            TimeAbs ((name, r1), passi i, r)
 	  | TrueI _ => i
 	  | FalseI _ => i
 	  | TTI _ => i

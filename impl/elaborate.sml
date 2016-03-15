@@ -19,7 +19,7 @@ local
     val un_op_names = zip (un_ops, map str_idx_un_op un_ops)
     fun is_un_op (opr, i1) =
       case (opr, i1) of
-          (App1, S.VarI (x, r1)) => find_by_snd_eq op= x un_op_names
+          (TimeApp, S.VarI (x, r1)) => find_by_snd_eq op= x un_op_names
         | _ => NONE
                           
     fun elab_i i =
@@ -47,7 +47,7 @@ local
             )
 	  | S.TTI r =>
 	    TTI r
-          | S.Abs1 (name, i, r) => Abs1 (name, elab_i i, r)
+          | S.TimeAbs (name, i, r) => TimeAbs (name, elab_i i, r)
 
     fun elab_p p =
 	case p of
