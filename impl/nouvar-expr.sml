@@ -230,7 +230,7 @@ local
             (case opr of 
                  EqP => if eq_i i1 i2 then (set (); True (get_region_p p))
                         else BinPred (opr, passi i1, passi i2)
-               | LeP => if eq_i i1 i2 then (set (); True (get_region_p p))
+               | LeP => if eq_i i1 i2 orelse eq_i i1 (T0 dummy) then (set (); True (get_region_p p))
                         else BinPred (opr, passi i1, passi i2)
                | _ => BinPred (opr, passi i1, passi i2)
             )

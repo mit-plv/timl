@@ -93,42 +93,103 @@ fun solve_one (hs, p) =
     end
         *)
 
-fun by_master_theorem (vc as (hs, p)) =
-    [vc]
-(* 
+fun by_master_theorem hs (name1, arity1) (name0, arity0) (vc as (hs', p)) =
     let
-        (* number of variables in context *)
-        val nx = length $ List.filter (fn h => case h of VarH _ => true | _ => false) hs
+        (* (* number of variables in context *) *)
+        (* val nx = length $ List.filter (fn h => case h of VarH _ => true | _ => false) hs *)
+        val () = println "by_master_theorem to solve this: "
+        val () = app println $ str_vc false "" (hs' @ [VarH (name0, TimeFun arity0), VarH (name1, TimeFun arity1)] @ hs, p)
+        val () = println ""
     in
-        case p of
-            BinPred (LeP, i1, BinOpI (MultI, VarI (m, _), BinOpI (TimeApp, VarI (g, _), VarI (n, _)))) =>
-            if g = nx andalso n < nx andalso m < nx andalso m <> n then
-                let
-                    val addends = collect_AddI i1
-                    fun get_params is =
-                        case is of
-                            [] => NONE
-                          | i :: is =>
-                            
-                    open Real
-                    val T =
-                        case get_params addends of
-                            NONE => NONE
-                          | SOME (a, b, f) =>
-                            case compare_params (a, b, f) of
-                                AB_Dom => SOME (ExpI (VarI (0, dummy), Math.ln (fromInt a) / Math.ln (fromInt b)))
-                              | Both_Dom => NONE
-                              | F_Dom => NONE
-                              | NotSure => NONE
-                in
-                    SOME T
-                end
-            else NONE
-          | _ =>
-            NONE
+        (* NONE *)
+        SOME (TimeAbs (("", dummy), TimeAbs (("", dummy), T0 dummy, dummy), dummy), [])
+        (*
+        BinPred (LeP, i1, BinOpI (MultI, VarI (m, _), BinOpI (TimeApp, VarI (g, _), VarI (n, _)))) =>
+        if g = nx andalso n < nx andalso m < nx andalso m <> n then
+            let
+                val addends = collect_AddI i1
+                fun get_params is =
+                    case is of
+                        [] => NONE
+                      | i :: is =>
+                        
+                open Real
+                val T =
+                    case get_params addends of
+                        NONE => NONE
+                      | SOME (a, b, f) =>
+                        case compare_params (a, b, f) of
+                            AB_Dom => SOME (ExpI (VarI (0, dummy), Math.ln (fromInt a) / Math.ln (fromInt b)))
+                          | Both_Dom => NONE
+                          | F_Dom => NONE
+                          | NotSure => NONE
+            in
+                SOME T
+            end
+        else NONE
+      | _ =>
+        NONE
+        *)
     end
-*)
             
+fun infer_exists hs name1 p =
+    case p of
+        Quan (Exists, Base (TimeFun arity0), (name0, _), BinConn (And, bigO as BinPred (BigO, VarI (n0, _), VarI (n1, _)), BinConn (Imply, bigO', p))) =>
+        if n0 = 0 andalso n1 = 1 andalso eq_p bigO bigO' then
+            (* opportunity to apply the Master Theorem *)
+            let
+                (* val () = println "hit2" *)
+                (* hoist the conjuncts that don't involve the time functions *)
+                val vcs = split_prop p
+                val (rest, vcs) = partitionOption (Option.composePartial (try_forget (forget_i_vc 0 1), try_forget (forget_i_vc 0 1))) vcs
+                val vcs = concatMap split_prop $ map (simp_p o vc2prop) vcs
+            in
+                case vcs of
+                    (* only allow one conjunct left *)
+                    [vc] =>
+                    let
+                        val ret = by_master_theorem hs name1 (name0, arity0) vc
+                    in
+                        case ret of
+                            SOME (i, vcs) => SOME (i, append_hyps hs rest @ vcs)
+                          | NONE => NONE
+                    end
+                  | _ => NONE
+            end
+        else NONE
+      | _ => NONE
+                 
+fun solve_exists (vc as (hs, p)) =
+    case p of
+        Quan (Exists, Base (TimeFun arity), (name, _), p) =>
+        let
+            (* val () = println "hit1" *)
+            fun test_ptrn p =
+                case p of
+                    BinConn (And, p1, p2) => SOME (p1, p2)
+                  | _ => SOME (p, True dummy)
+        in
+            case test_ptrn p of
+                SOME (p1, p2) =>
+                (case infer_exists hs (name, arity) p1 of
+                     SOME (i, vcs1) =>
+                     let
+                         (* ToDo: update the link in [Quan] with [i] *)
+                         val p2 = subst_i_p i p2
+                         val vcs = split_prop p2
+                         val vcs = append_hyps hs vcs
+                         val vcs = concatMap solve_exists vcs
+                         val vcs = vcs1 @ vcs
+                     in
+                         vcs
+                     end
+                   | NONE => [vc]
+                )
+              | NONE => [vc]
+        end
+      | _ => [vc]
+                 
+(*                
 fun solve vc =
     case vc of
         (* test for opportunity to apply the Master Theorem *)
@@ -157,8 +218,9 @@ fun solve vc =
             end
         else [vc]
       | _ => [vc]
-
-fun filter_solve vcs = concatMap solve vcs
+*)
+            
+fun filter_solve vcs = concatMap solve_exists vcs
 
 fun solve_vcs (vcs : vc list) : vc list =
     let 

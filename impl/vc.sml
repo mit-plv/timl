@@ -69,22 +69,24 @@ fun get_base bs =
         Base b => b
       | UVarBS u => exfalso u
 
+fun append_hyps hs vcs = map (mapFst (fn hs' => hs' @ hs)) vcs
+fun add_hyp h vcs = append_hyps [h] vcs
+                                      
 fun split_prop p =
     let
-        fun add_hyp h vc = mapFst (fn hyps => hyps @ [h]) vc
     in
         case p of
             Quan (Forall, bs, (name, r), p) =>
             let
                 val ps = split_prop p
-                val ps = map (add_hyp (VarH (name, get_base bs))) ps
+                val ps = add_hyp (VarH (name, get_base bs)) ps
             in
                 ps
             end
           | BinConn (Imply, p1, p) =>
             let
                 val ps = split_prop p
-                val ps = map (add_hyp (PropH p1)) ps
+                val ps = add_hyp (PropH p1) ps
             in
                 ps
             end

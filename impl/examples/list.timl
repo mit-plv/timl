@@ -37,6 +37,7 @@ fun ['a] split {n : Nat} (xs : {n} 'a list) return {ceil ($n/2)} _ list * {floor
                               
 datatype bool = true | false
 
+                           (*
 abstype idx f : {f : Fun 2 | f O _} = _ with
 val ['a] merge =
  fn {m : Nat} (le : 'a * 'a -- $m --> bool) =>
@@ -53,7 +54,23 @@ val ['a] merge =
         merge
     end
 end
-
+                           *)
+                           
+val ['a] merge =
+ fn {m : Time} (le : 'a * 'a -- m --> bool) =>
+    let
+        fun merge {n1 : Nat} {n2 : Nat} ((xs, ys) : {n1} _ list * {n2} _ list) return {n1 + n2} _ list |> (m + 2.0) * $(n1 + n2) =
+            case (xs, ys) return {n1 + n2} _ list |> (m + 2.0) * $(n1 + n2) of
+                (NilI, _) => ys
+              | (_, NilI) => xs
+              | (ConsI {n1'} (x, xs'), ConsI {n2'} (y, ys')) =>
+                case le (x, y) of
+                    true => ConsI {_} (x, merge {_} {_} (xs', ys))
+                  | false => ConsI {_} (y, merge {_} {_} (xs, ys'))
+    in
+        merge
+    end
+        
 abstype idx g : {g : Fun 2 | g O _} = _ with
 val ['a] msort =
  fn {m : Nat} (le : 'a * 'a -- $m --> bool) =>
@@ -64,7 +81,7 @@ val ['a] msort =
             | (ConsI {_} (_, NilI)) => xs
             | (ConsI {_} (_, ConsI {_} (_, _))) =>
               case split {n} xs of
-                  (xs1, xs2) => merge {m} le {_} {_} (sort {_} xs1, sort {_} xs2)
+                  (xs1, xs2) => merge {_} le {_} {_} (sort {_} xs1, sort {_} xs2)
     in
         sort
     end

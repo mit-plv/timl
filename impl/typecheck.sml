@@ -1809,8 +1809,8 @@ local
                         val xs = List.mapPartial (fn x => case !x of SOME _ => SOME x | _ => NONE) (!anchor)
                         (* val xs = !anchor *)
                         val p = formulas_to_prop fs
-                        fun to_exists (uname, p) =
-                            case !uname of
+                        fun to_exists (uname_ref, p) =
+                            case !uname_ref of
                                 SOME (Idx ((n, _, order, _), bsort)) =>
                                 let
                                     fun substu_i x v (b : idx) : idx =
@@ -1859,7 +1859,7 @@ local
                                           main ^ order
                                       end
                                     val r = get_region_p p
-                                    val p = Quan (Exists, bsort, (evar_name n order, dummy), substu_p uname 0 $ shift_i_p $ update_p p)
+                                    val p = Quan (Exists, bsort, (evar_name n order, dummy), substu_p uname_ref 0 $ shift_i_p $ update_p p)
                                     val p = set_region_p p r
                                 in
                                     p
