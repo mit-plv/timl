@@ -636,7 +636,7 @@ local
             (case opr of
                  TimeApp =>
                  let
-                     val () = println $ U.str_i (names ctx) i
+                     (* val () = println $ U.str_i (names ctx) i *)
                  in
                      case get_bsort order (ctx, i1) of
                          (i1, Base (TimeFun arity)) =>
@@ -1197,7 +1197,7 @@ local
       let val skctx = (sctx, kctx) 
 	  val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
 	  val skctxn = (sctxn, kctxn)
-	  val () = print (sprintf "Typing $\n" [U.str_e ctxn e_all])
+	  (* val () = print (sprintf "Typing $\n" [U.str_e ctxn e_all]) *)
           fun print_ctx (ctx as (sctx, kctx, _, tctx)) = app (fn (nm, t) => println $ sprintf "$: $" [nm, str_t (sctx_names sctx, names kctx) t]) tctx
 	  val (e, t, d) =
 	      case e_all of
