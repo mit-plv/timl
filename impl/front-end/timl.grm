@@ -123,9 +123,9 @@ open Ast
 %nonassoc EQ LE GT
 %left PLUS MINUS
 %left MULT DIV MAX MIN
-%nonassoc DOLLAR
 %left APP
 %right APPR
+%nonassoc DOLLAR
 
 %eop EOF
 %noshift EOF
@@ -137,6 +137,14 @@ open Ast
 %%
 
 start : decl_star (decl_star)
+
+ty : ty DDASH idx LARROW ty (Arrow (ty1, idx, ty2, (ty1left, ty2right)))
+   | ty MULT ty (Prod (ty1, ty2, (ty1left, ty2right)))
+   | id (VarT id)
+   | quan tbind_plus COMMA ty (Quan (quan, tbind_plus, ty, (quanleft, tyright)))
+   | LPAREN ty RPAREN (ty)
+   | LCUR idx RCUR ty %prec APPR (AppTI (ty, idx, (LCURleft, tyright)))
+   | ty ty %prec APPR (AppTT (ty2, ty1, (ty1left, ty2right)))
 
 exp : id (Var id)
      | LPAREN exp_comma_star RPAREN (Tuple (exp_comma_star, (LPARENleft, RPARENright)))
@@ -150,14 +158,6 @@ exp : id (Var id)
      | exp LCUR idx RCUR (AppI (exp, idx, (expleft, idxright)))
      | exp exp %prec APP (App (exp1, exp2, (exp1left, exp2right)))
 
-ty : ty DDASH idx LARROW ty (Arrow (ty1, idx, ty2, (ty1left, ty2right)))
-   | ty MULT ty (Prod (ty1, ty2, (ty1left, ty2right)))
-   | id (VarT id)
-   | quan tbind_plus COMMA ty (Quan (quan, tbind_plus, ty, (quanleft, tyright)))
-   | LPAREN ty RPAREN (ty)
-   | LCUR idx RCUR ty %prec APPR (AppTI (ty, idx, (LCURleft, tyright)))
-   | ty ty %prec APPR (AppTT (ty2, ty1, (ty1left, ty2right)))
-
 idx : id (VarI id)
     | INT (ConstIN (INT, (INTleft, INTright)))
     | NNREAL (ConstIT (NNREAL, (NNREALleft, NNREALright)))
@@ -166,7 +166,7 @@ idx : id (VarI id)
     | idx DIV INT (DivI (idx, (INT, (INTleft, INTright)), (idxleft, INTright)))
     | idx MAX idx (BinOpI (MaxI, idx1, idx2, (idx1left, idx2right)))
     | idx MIN idx (BinOpI (MinI, idx1, idx2, (idx1left, idx2right)))
-    | id idx %prec APP (BinOpI (TimeApp, VarI id, idx, (idleft, idxright)))
+    | idx idx %prec APP (BinOpI (TimeApp, idx1, idx2, (idx1left, idx2right)))
     | DOLLAR idx (BinOpI (TimeApp, VarI (str_idx_un_op ToReal, (DOLLARleft, DOLLARright)), idx, (DOLLARleft, idxright)))
     (* | idx_un_op idx %prec DOLLAR (UnOpI (idx_un_op, idx, (idx_un_opleft, idxright))) *)
     | LPAREN RPAREN (TTI (LPARENleft, RPARENright))

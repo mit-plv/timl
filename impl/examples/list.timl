@@ -1,3 +1,6 @@
+fun ['a] ['b] ['c] foo {m : Time} (f : 'a -- m --> 'b -- m --> 'c) (a : 'a) (b : 'b) = f a b
+                                                                                     
+(*
 datatype {Nat} 'a list =
          NilI of unit -> {0} 'a list
          | ConsI of {n' : Nat} 'a * {n'} 'a list -> {n' + 1} 'a list
@@ -52,11 +55,11 @@ val ['a] merge =
         merge
     end
         
-abstype idx g : {g : Fun 1 | g O _} = _ with
+abstype idx g : {g : Fun 2 | g O _} = _ with
 val ['a] msort =
- fn {m : Time} (le : 'a * 'a -- m --> bool) =>
+ fn {m : Nat} (le : 'a * 'a -- $m --> bool) =>
     let
-        fun sort {n : Nat} (xs : {n} _ list) return {n} _ list |> m * g n =
+        fun sort {n : Nat} (xs : {n} _ list) return {n} _ list |> g m n =
           case xs return {n} _ list of
               NilI => xs
             | (ConsI {_} (_, NilI)) => xs
@@ -75,4 +78,5 @@ exists g : Fun1, O g (fn n => n * log2 n) ->
   forall m n,
     1 + 1 + m * g (ceil ($n/2) * log2 (ceil ($n/2))) + 1 + m * g (floor ($n/2) * log2 (floor ($n/2))) + 1 + m + 2 + n + 1 + n <= m * g (n * log2 n)
 
+*)
 *)

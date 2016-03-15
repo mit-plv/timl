@@ -595,7 +595,6 @@ local
                   Quan (q, bs, (name, r), p)
               end
 
-    (* binary operations on idx are overloaded for Nat and Time *)
     and get_bsort order (ctx : scontext, i : U.idx) : idx * bsort =
 	case i of
 	    U.VarI (x, r) =>
@@ -636,19 +635,23 @@ local
 	  | U.BinOpI (opr, i1, i2) =>
             (case opr of
                  TimeApp =>
-                 (case get_bsort order (ctx, i1) of
-                      (i1, Base (TimeFun arity)) =>
-                      if arity > 0 then
-                          let 
-                              val i2 = check_bsort order (ctx, i2, Base Nat)
-                          in
-                              (BinOpI (opr, i1, i2), Base (TimeFun (arity - 1)))
-                          end
-                      else
-                          raise Error (get_region_i i1, "Arity of time function must be larger than 0" :: indent ["got arity: " ^ str_int arity])
-                    | (_, bs1) => raise Error (U.get_region_i i1, "Sort of first operand of time function application must be time function" :: indent ["want: time function", "got: " ^ str_bs bs1])
-                 )
+                 let
+                     val () = println $ U.str_i (names ctx) i
+                 in
+                     case get_bsort order (ctx, i1) of
+                         (i1, Base (TimeFun arity)) =>
+                         if arity > 0 then
+                             let 
+                                 val i2 = check_bsort order (ctx, i2, Base Nat)
+                             in
+                                 (BinOpI (opr, i1, i2), Base (TimeFun (arity - 1)))
+                             end
+                         else
+                             raise Error (get_region_i i1, "Arity of time function must be larger than 0" :: indent ["got arity: " ^ str_int arity, "in: " ^ str_i (names ctx) i1])
+                       | (i1, bs1) => raise Error (get_region_i i1, "Sort of first operand of time function application must be time function" :: indent ["want: time function", "got: " ^ str_bs bs1, "in: " ^ str_i (names ctx) i1])
+                 end
                | _ =>
+                 (* binary operations on idx are overloaded for Nat and Time *)
                  let 
                      val (i1, bs1) = get_bsort order (ctx, i1)
                      val (i2, bs2) = get_bsort order (ctx, i2)
@@ -1194,7 +1197,7 @@ local
       let val skctx = (sctx, kctx) 
 	  val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
 	  val skctxn = (sctxn, kctxn)
-	  (* val () = print (sprintf "Typing $\n" [str_e ctxn e]) *)
+	  val () = print (sprintf "Typing $\n" [U.str_e ctxn e_all])
           fun print_ctx (ctx as (sctx, kctx, _, tctx)) = app (fn (nm, t) => println $ sprintf "$: $" [nm, str_t (sctx_names sctx, names kctx) t]) tctx
 	  val (e, t, d) =
 	      case e_all of

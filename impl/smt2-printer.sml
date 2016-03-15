@@ -48,9 +48,9 @@ fun print_i ctx i =
            let
                fun collect_app i =
                    case i of
-                       BinOpI (TimeApp, i1, i2) => i1 :: collect_app i2
+                       BinOpI (TimeApp, i1, i2) => collect_app i1 @ [i2]
                      | _ => [i]
-               val is = i1 :: collect_app i2
+               val is = collect_app i1 @ [i2]
            in
                sprintf "(app_$$)" [str_int (length is - 1), join_prefix " " $ map (print_i ctx) is]
            end
@@ -128,7 +128,7 @@ val prelude = [
     "(declare-datatypes () ((Fun_1 fn1)))",
     "(declare-datatypes () ((Fun_2 fn2)))",
     "(declare-fun log2 (Real) Real)",
-    "(declare-fun bigO (Fun_1 Fun_1) Bool)",
+    "(declare-fun bigO (Fun_2 Fun_2) Bool)",
     "(declare-fun app_1 (Fun_1 Int) Real)",
     "(declare-fun app_2 (Fun_2 Int Int) Real)",
     "(define-fun floor ((x Real)) Int",
