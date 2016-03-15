@@ -52,7 +52,7 @@ fun print_i ctx i =
                      | _ => [i]
                val is = i1 :: collect_app i2
            in
-               sprintf "(app$$)" [str_int (length is - 1), join_prefix " " $ map (print_i ctx) is]
+               sprintf "(app_$$)" [str_int (length is - 1), join_prefix " " $ map (print_i ctx) is]
            end
       )
     | TrueI _ => "true"
@@ -68,11 +68,11 @@ fun print_base_sort b =
       BSUnit => "Unit"
     | Bool => "Bool"
     | Nat => "Int"
-    | Fun1 n =>
+    | TimeFun n =>
       if n = 0 then
           "Real"
       else
-          "Fun" ^ str_int n
+          "Fun_" ^ str_int n
 
 fun print_bsort bsort =
   case bsort of
@@ -125,12 +125,12 @@ fun print_hyp ctx h =
 val prelude = [
     (* "(set-option :produce-proofs true)", *)
     "(declare-datatypes () ((Unit TT)))",
-    "(declare-datatypes () ((Fun1 fn1)))",
-    "(declare-datatypes () ((Fun2 fn2)))",
+    "(declare-datatypes () ((Fun_1 fn1)))",
+    "(declare-datatypes () ((Fun_2 fn2)))",
     "(declare-fun log2 (Real) Real)",
-    "(declare-fun bigO (Fun1 Fun1) Bool)",
-    "(declare-fun app1 (Fun1 Int) Real)",
-    "(declare-fun app2 (Fun2 Int Int) Real)",
+    "(declare-fun bigO (Fun_1 Fun_1) Bool)",
+    "(declare-fun app_1 (Fun_1 Int) Real)",
+    "(declare-fun app_2 (Fun_2 Int Int) Real)",
     "(define-fun floor ((x Real)) Int",
     "(to_int x))",
     "(define-fun ceil ((x Real)) Int",
@@ -168,11 +168,11 @@ fun conv_base_sort b =
           BSUnit => (BSUnit, NONE)
         | Bool => (Bool, NONE)
         | Nat => (Nat, SOME (BinPred (LeP, ConstIN (0, dummy), VarI (0, dummy))))
-        | Fun1 n =>
+        | TimeFun n =>
           if n = 0 then
               (Time, SOME (BinPred (LeP, ConstIT ("0.0", dummy), VarI (0, dummy))))
           else
-              (Fun1 n, NONE)
+              (TimeFun n, NONE)
 
 fun conv_bsort bsort =
   case bsort of

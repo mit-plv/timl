@@ -575,8 +575,8 @@ local
                     case opr of
                         BigO => 
                         (case bs of
-                             Base (Fun1 _) => ()
-                           | _ => raise error "Fun1"
+                             Base (TimeFun _) => ()
+                           | _ => raise error "TimeFun"
                         )
                       | _ =>
                         (case bs of
@@ -637,12 +637,12 @@ local
             (case opr of
                  App1 =>
                  (case get_bsort order (ctx, i1) of
-                      (i1, Base (Fun1 arity)) =>
+                      (i1, Base (TimeFun arity)) =>
                       if arity > 0 then
                           let 
                               val i2 = check_bsort order (ctx, i2, Base Nat)
                           in
-                              (BinOpI (opr, i1, i2), Base (Fun1 (arity - 1)))
+                              (BinOpI (opr, i1, i2), Base (TimeFun (arity - 1)))
                           end
                       else
                           raise Error (get_region_i i1, "Arity of time function must be larger than 0" :: indent ["got arity: " ^ str_int arity])
@@ -678,8 +678,8 @@ local
             (TTI r, Base BSUnit)
           | U.Abs1 ((name, r1), i, r) =>
             (case get_bsort (order + 1) (add_sorting (name, Basic (Base Nat, r1)) ctx, i) of
-                 (i, Base (Fun1 arity)) =>
-                 (Abs1 ((name, r1), i, r), Base (Fun1 (arity + 1)))
+                 (i, Base (TimeFun arity)) =>
+                 (Abs1 ((name, r1), i, r), Base (TimeFun (arity + 1)))
                | (_, bs) => raise Error (U.get_region_i i, "Sort of time funtion body should be time function" :: indent ["want: time function", "got: " ^ str_bs bs])
             )
           | U.UVarI ((), r) =>

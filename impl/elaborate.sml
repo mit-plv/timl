@@ -77,7 +77,7 @@ local
 	    else raise Error (r, sprintf "Unrecognized base sort: $" [name])
           | S.TimeFun (name, n, r) =>
             if name = "Fun" then
-                (Base (Fun1 n), r)
+                (Base (TimeFun n), r)
             else raise Error (r, sprintf "Unrecognized base sort: $ $" [name, str_int n])
 
     fun elab_s s =

@@ -3,16 +3,16 @@ open Util
 
 (* basic index sort *)
 datatype base_sort =
-         Fun1 of int (* number of arguments *)
+         TimeFun of int (* number of arguments *)
          | Nat
 	 | Bool
 	 | BSUnit
 
-val Time = Fun1 0
+val Time = TimeFun 0
 
 fun str_b (s : base_sort) : string = 
     case s of
-        Fun1 n => if n = 0 then "Time" else sprintf "Fun1 $" [str_int n]
+        TimeFun n => if n = 0 then "Time" else sprintf "TimeFun $" [str_int n]
       | Nat => "Nat"
       | Bool => "Bool"
       | BSUnit => "Unit"

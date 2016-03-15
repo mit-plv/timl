@@ -136,7 +136,7 @@ fun by_master_theorem (vc as (hs, p)) =
 fun solve vc =
     case vc of
         (* test for opportunity to apply the Master Theorem *)
-        (hs, Quan (Exists, Base (Fun1 arity1), name1, Quan (Exists, Base (Fun1 arity2), name2, BinConn (And, bigO as BinPred (BigO, VarI (n0, _), VarI (n1, _)), BinConn (Imply, bigO', p))))) =>
+        (hs, Quan (Exists, Base (TimeFun arity1), name1, Quan (Exists, Base (TimeFun arity2), name2, BinConn (And, bigO as BinPred (BigO, VarI (n0, _), VarI (n1, _)), BinConn (Imply, bigO', p))))) =>
         if n0 = 0 andalso n1 = 1 andalso eq_p bigO bigO' then
             let
                 (* hoist the conjuncts that don't involve the time functions *)
@@ -154,7 +154,7 @@ fun solve vc =
                         map (fn (hs', p) => (hs' @ hs, p)) rest @
                         (case vcs of
                              [] => []
-                           | _ => [(hs, Quan (Exists, Base (Fun1 arity1), name1, Quan (Exists, Base (Fun1 arity2), name2, BinConn (And, bigO, BinConn (Imply, bigO', and_all (map vc2prop vcs))))))]
+                           | _ => [(hs, Quan (Exists, Base (TimeFun arity1), name1, Quan (Exists, Base (TimeFun arity2), name2, BinConn (And, bigO, BinConn (Imply, bigO', and_all (map vc2prop vcs))))))]
                         )
                     end
                   | _ => [vc]
