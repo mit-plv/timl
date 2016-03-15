@@ -1849,7 +1849,7 @@ local
                                               if n < 26 then
                                                   "" ^ (str o chr) (ord #"a" + n)
                                               else
-                                                  "_" ^ str_int n
+                                                  "_x" ^ str_int n
                                           val order =
                                               if order = 0 then
                                                   ""

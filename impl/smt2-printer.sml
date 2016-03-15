@@ -46,11 +46,7 @@ fun print_i ctx i =
            end
          | TimeApp =>
            let
-               fun collect_app i =
-                   case i of
-                       BinOpI (TimeApp, i1, i2) => collect_app i1 @ [i2]
-                     | _ => [i]
-               val is = collect_app i1 @ [i2]
+               val is = collect_TimeApp i1 @ [i2]
            in
                sprintf "(app_$$)" [str_int (length is - 1), join_prefix " " $ map (print_i ctx) is]
            end
