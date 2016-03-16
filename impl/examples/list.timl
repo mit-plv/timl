@@ -37,7 +37,6 @@ fun ['a] split {n : Nat} (xs : {n} 'a list) return {ceil ($n/2)} _ list * {floor
                               
 datatype bool = true | false
 
-                           (*
 abstype idx f : {f : Fun 2 | f O _} = _ with
 val ['a] merge =
  fn {m : Nat} (le : 'a * 'a -- $m --> bool) =>
@@ -54,7 +53,7 @@ val ['a] merge =
         merge
     end
 end
-                           *)
+                           (*
                            
 val ['a] merge =
  fn {m : Time} (le : 'a * 'a -- m --> bool) =>
@@ -70,6 +69,8 @@ val ['a] merge =
     in
         merge
     end
+
+                           *)
         
 abstype idx g : {g : Fun 2 | g O _} = _ with
 val ['a] msort =
@@ -79,7 +80,7 @@ val ['a] msort =
           case xs return {n} _ list of
               NilI => xs
             | (ConsI {_} (_, NilI)) => xs
-            | (ConsI {_} (_, ConsI {_} (_, _))) =>
+            | (ConsI {n1} (_, ConsI {n2} (_, _))) =>
               case split {n} xs of
                   (xs1, xs2) => merge {_} le {_} {_} (sort {_} xs1, sort {_} xs2)
     in

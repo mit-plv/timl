@@ -201,27 +201,53 @@ fun forget_v x n y =
     else
         raise ForgetError y
 
+(* fun forget_invis x n invis =  *)
+(*     let  *)
+(*         fun f ((off, len), (acc, (x, n), base)) = *)
+(*             if n = 0 then *)
+(*                 ((off, len) :: acc, (0, 0), 0) *)
+(*             else if x < off then *)
+(*                 raise ForgetError (base + x) *)
+(*             else if x <= off + len then *)
+(*                 if x + n <= off + len then *)
+(*                     ((off, len - n) :: acc, (0, 0), 0) *)
+(*                 else *)
+(*                     raise ForgetError (base + off + len) *)
+(*             else  *)
+(*                 ((off, len) :: acc, (x - off - len, n), base + off + len) *)
+(*         val (invis, (x, n), base) = foldl f ([], (x, n), 0) invis *)
+(*         val () = if n = 0 then () else raise ForgetError (base + x) *)
+(*         val invis = rev invis *)
+(*     in *)
+(*         invis *)
+(*     end *)
+
 fun forget_invis x n invis = 
     let 
-        fun f ((off, len), (acc, (x, n), base)) =
-            if n = 0 then
-                ((off, len) :: acc, (0, 0), 0)
-            else if x < off then
-                raise ForgetError (base + x)
-            else if x <= off + len then
-                if x + n <= off + len then
-                    ((off, len - n) :: acc, (0, 0), 0)
-                else
-                    raise ForgetError (base + off + len)
-            else 
-                ((off, len) :: acc, (x - off - len, n), base + off + len)
-        val (invis, (x, n), base) = foldl f ([], (x, n), 0) invis
-        val () = if n = 0 then () else raise ForgetError (base + x)
+        fun f ((off, len), (acc, (x, n, offlensum))) =
+            let
+                val (acc_new, (x, n)) =
+                    if n = 0 then
+                        ([(off, len)], (x, 0))
+                    else if x < off then
+                        raise ForgetError (offlensum + x)
+                    else if x <= off + len then
+                        if x + n <= off + len then
+                            ([(off, len - n)], (x, 0))
+                        else
+                            raise ForgetError (offlensum + off + len)
+                    else 
+                        ([(off, len)], (x - off - len, n))
+            in
+                (acc_new @ acc, (x, n, offlensum + off + len))
+            end
+        val (invis, (x, n, offlensum)) = foldl f ([], (x, n, 0)) invis
+        val () = if n = 0 then () else raise ForgetError (offlensum + x)
         val invis = rev invis
     in
         invis
     end
-
+        
 fun forget_i_i x n b = on_i_i forget_v forget_invis expand_i x n b
 fun forget_i_p x n b = on_i_p forget_i_i x n b
 fun forget_i_s x n b = on_i_s forget_i_p forget_invis expand_s x n b
@@ -269,6 +295,45 @@ fun substx_invis_generic on_visible x invis =
   in
       invis
   end
+
+(* a version where it's allowed to forget a visible variable *)
+fun forget_invis on_visible x n invis = 
+    let 
+        fun f ((off, len), (acc, (x, n, offlensum))) =
+            let
+                val (acc_new, (x, n)) =
+                    if n = 0 then
+                        ([(off, len)], (0, 0))
+                    else if x < off then
+                        if x + n <= off then
+                            (on_visible (offsum + x, offlensum + x, n);
+                             ([(off - n, len)], (0, 0)))
+                        else 
+                            (on_visible (offsum + x, offlensum + x, off - x);
+                             (if x + n <= off + len then
+                                 ([(x, len - (x + n - off))], (0, 0))
+                              else
+                                  (*here*)
+                                 (on_visible (offsum + x, offlensum + x, off - x);
+                                  ([(x, len - (x + n - off))], (0, 0)))
+                            )                            
+                    else if x <= off + len then
+                        if x + n <= off + len then
+                            ([(off, len - n)], (x, 0))
+                        else
+                            raise ForgetError (offlensum + off + len)
+                    else 
+                        ([(off, len)], (x - off - len, n))
+                    val acc_new = filter (fn (_, len) => len > 0) acc_new
+            in
+                (acc_new @ acc, (x, n, offlensum + off + len))
+            end
+        val (invis, (x, n, offlensum)) = foldl f ([], (x, n, 0)) invis
+        val () = if n = 0 then () else raise ForgetError (offlensum + x)
+        val invis = rev invis
+    in
+        invis
+    end
 
 (* This is a version where [x] must be invisible to [uname_ref]. If [x] is visible, throw [SubstUVar]. *)
 fun substx_invis uname_ref = substx_invis_generic (fn x => raise SubstUVar (!uname_ref, x))
