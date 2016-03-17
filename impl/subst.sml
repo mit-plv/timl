@@ -190,7 +190,7 @@ fun shift_t_t b = shiftx_t_t 0 1 b
 
 (* forget *)
 
-exception ForgetError of var
+exception ForgetError of var * string
 (* exception Unimpl *)
 
 fun forget_v x n y = 
@@ -199,7 +199,7 @@ fun forget_v x n y =
     else if y < x then
 	y
     else
-        raise ForgetError y
+        raise ForgetError (y, "")
 
 (* Adjust a fresh unification variable [u]'s invisible sections when removing [x, x+1, ..., x+n-1] in [u]. If [x+i] is invisible to [u] (i.e. [x+i] is in [u]'s invisible sections), we only needs to shrink the relevant invisible section accordingly; if [x+i] is invisible to [u], this generic implementation allows [on_visible] to deal with the situation given [x+i]'s position in [u]'s visible context and [u]'s total context. *)
 fun forget_invis_generic on_visible x n invis = 
@@ -236,11 +236,10 @@ fun forget_invis_generic on_visible x n invis =
   in
       invis
   end
+(*
+fun forget_invis uname_ref = forget_invis_generic (fn (_, x, _) => raise ForgetError (x, str_uname (!uname_ref)))
+*)                                                
 
-      (*
-fun forget_invis x = forget_invis_generic (fn (_, x, _) => raise ForgetError x) x
-      *)
-      
 fun forget_invis uname_ref =
   let
       fun remove_ctx (x, _, n) =

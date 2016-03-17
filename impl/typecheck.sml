@@ -1036,14 +1036,14 @@ local
 
     fun get_ds (_, _, _, tctxd) = map (snd o snd) tctxd
 
-    fun escapes nametype name domaintype domain =
-      [sprintf "$ $ escapes local scope in $ $" [nametype, name, domaintype, domain]]
+    fun escapes nametype name domaintype domain cause =
+      [sprintf "$ $ escapes local scope in $ $" [nametype, name, domaintype, domain]] @ indent (if cause = "" then [] else ["cause: " ^ cause])
 	  
     fun forget_mt r (skctxn as (sctxn, kctxn)) (sctxl, kctxl) t = 
       let val t = forget_t_mt 0 kctxl t
-		  handle ForgetError x => raise Error (r, escapes "type variable" (str_v kctxn x) "type" (str_mt skctxn t))
+		  handle ForgetError (x, cause) => raise Error (r, escapes "type variable" (str_v kctxn x) "type" (str_mt skctxn t) cause)
 	  val t = forget_i_mt 0 sctxl t
-		  handle ForgetError x => raise Error (r, escapes "index variable" (str_v sctxn x) "type" (str_mt skctxn t))
+		  handle ForgetError (x, cause) => raise Error (r, escapes "index variable" (str_v sctxn x) "type" (str_mt skctxn t) cause)
       in
 	  t
       end
@@ -1057,9 +1057,9 @@ local
           
     fun forget_t r (skctxn as (sctxn, kctxn)) (sctxl, kctxl) t = 
       let val t = forget_t_t 0 kctxl t
-		  handle ForgetError x => raise Error (r, escapes "type variable" (str_v kctxn x) "type" (str_t skctxn t))
+		  handle ForgetError (x, cause) => raise Error (r, escapes "type variable" (str_v kctxn x) "type" (str_t skctxn t) cause)
 	  val t = forget_i_t 0 sctxl t
-		  handle ForgetError x => raise Error (r, escapes "index variable" (str_v sctxn x) "type" (str_t skctxn t))
+		  handle ForgetError (x, cause) => raise Error (r, escapes "index variable" (str_v sctxn x) "type" (str_t skctxn t) cause)
       in
 	  t
       end
@@ -1073,7 +1073,7 @@ local
           
     fun forget_d r sctxn sctxl d =
       forget_i_i 0 sctxl d
-      handle ForgetError x => raise Error (r, escapes "index variable" (str_v sctxn x) "time" (str_i sctxn d))
+      handle ForgetError (x, cause) => raise Error (r, escapes "index variable" (str_v sctxn x) "time" (str_i sctxn d) cause)
 
     fun forget_ctx_d r (sctx, _, _, _) (sctxd, _, _, _) d =
       let val sctxn = sctx_names sctx
