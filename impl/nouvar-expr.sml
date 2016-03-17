@@ -281,16 +281,6 @@ local
                                       BinPred (EqP, i1, i2) => f i1 i2
                                     | _ => NONE
                               end
-                          fun partitionOptionFirst f xs =
-                              case xs of
-                                  [] => NONE
-                                | x :: xs =>
-                                  case f x of
-                                      SOME y => SOME (y, xs)
-                                    | _ =>
-                                      case partitionOptionFirst f xs of
-                                          SOME (a, rest) => SOME (a, x :: rest)
-                                        | NONE => NONE
                       in
                           case partitionOptionFirst is_v0_equals hyps of
                               SOME (i, rest) => (set (); subst_i_p i (combine_implies rest conclu))

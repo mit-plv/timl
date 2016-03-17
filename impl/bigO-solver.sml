@@ -19,84 +19,13 @@ fun forget_i_vc x n (hs, p) =
         (hs, forget_i_p x 1 p)
     end
 
-fun partitionOption f xs =
-    case xs of
-        [] => ([], [])
-      | x :: xs =>
-        let
-            val (ys, zs) = partitionOption f xs
-        in
-            case f x of
-                SOME y => (y :: ys, zs)
-              | _ => (ys, x :: zs)
-        end
-
 fun and_all ps = foldl' (fn (p, acc) => acc /\ p) (True dummy) ps
 
 fun vc2prop (hs, p) =
     foldl (fn (h, p) => case h of VarH (name, b) => Quan (Forall, Base b, (name, dummy), p) | PropH p1 => p1 --> p) p hs
 
-        (*
-fun solve_one (hs, p) =
-    let
-        (* number of variables in context *)
-        val nx = length $ List.filter (fn h => case h of VarH _ => true | _ => false) hs
-    in
-        case p of
-            BinPred (LeP, i1, i2) =>
-            let
-                fun is_le idx1 idx2 =
-                    case idx2 of
-                        BinOpI (BigO, VarI (c2, _), i2) =>
-                        (case try_forget (forget_i_i c2 1) idx1 of
-                             SOME _ =>
-                             (* non-recursive cases *)
-                             (case idx1 of
-                                  BinOpI (AddI, i1a, i1b) =>
-                                  is_le i1a idx2 andalso is_le i1b idx2
-                                (* | (_, BinOpI (AddI, i2a, i2b)) => is_le i1 i2a orelse is_le i1 i2b *)
-                                | ConstIT _ =>
-                                  if c2 = nx then
-                                      case i2 of
-                                          ConstIT (s, _) =>
-                                          (case Real.fromString s of
-                                               SOME r => r > 0.0
-                                             | _ => false
-                                          )
-                                        | UnOpI (ToReal, ConstIN (n, _), _) => n > 0
-                                        | UnOpI (ToReal, VarI (x, _), _) => x < nx
-                                        | _ => false
-                                  else
-                                      false
-                                | BinOpI (BigO, c1, i1) =>
-                                  if c2 = nx andalso not (eq_i c1 (VarI (1, dummy))) then
-                                      case (i1, i2) of
-                                          (UnOpI (ToReal, ConstIN (n, _), _), UnOpI (ToReal, VarI (x2, _), _)) =>
-                                          x2 < nx
-                                        | (UnOpI (ToReal, VarI (x1, _), _), UnOpI (ToReal, VarI (x2, _), _)) =>
-                                          x1 = x2 andalso x1 < nx
-                                        | _ => false
-                                  else
-                                      false
-                                | _ => false
-                             )
-                           | NONE =>
-                             (* recursive cases *)
-                             false
-                             (* (println "hit"; true) *)
-                        )
-                      | _ => false
-            in
-                eq_i i1 i2 orelse is_le i1 i2
-            end
-          | _ => false
-    end
-        *)
-
 fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
     let
-        (* (* number of variables in context *) *)
-        val nx = length $ List.filter (fn h => case h of VarH _ => true | _ => false) hs
         val vcs' = append_hyps ([VarH (name0, TimeFun arity0), VarH (name1, TimeFun arity1)] @ hs) vcs
         (* val () = app println $ concatMap (fn vc => str_vc false "" vc @ [""]) vcs' *)
         val () = println "by_master_theorem to apply SMT solver to discharge some VCs: "
@@ -104,35 +33,63 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
         val () = println "by_master_theorem to solve this myself: "
         val () = app println $ concatMap (fn vc => str_vc false "" vc @ [""]) vcs'
     in
-        (* NONE *)
-        SOME (TimeAbs (("", dummy), TimeAbs (("", dummy), T0 dummy, dummy), dummy), [])
-             (*
-        BinPred (LeP, i1, BinOpI (MultI, VarI (m, _), BinOpI (TimeApp, VarI (g, _), VarI (n, _)))) =>
-        if g = nx andalso n < nx andalso m < nx andalso m <> n then
+        case vcs of
+            [vc as (hs', p)] =>
             let
-                val addends = collect_AddI i1
-                fun get_params is =
-                    case is of
-                        [] => NONE
-                      | i :: is =>
-                        
-                open Real
-                val T =
-                    case get_params addends of
-                        NONE => NONE
-                      | SOME (a, b, f) =>
-                        case compare_params (a, b, f) of
-                            AB_Dom => SOME (ExpI (VarI (0, dummy), Math.ln (fromInt a) / Math.ln (fromInt b)))
-                          | Both_Dom => NONE
-                          | F_Dom => NONE
-                          | NotSure => NONE
+                (* (* number of variables in context *) *)
+                val nx = length $ List.filter (fn h => case h of VarH _ => true | _ => false) hs'
             in
-                SOME T
+                case p of
+                    BinPred (LeP, i1, BinOpI (TimeApp, BinOpI (TimeApp, VarI (g, _), VarI (m, _)), i2)) =>
+                    if g = nx andalso m < nx then
+                        case i2 of
+                            VarI (n, _) =>
+                            if n < nx andalso m <> n then
+                                let
+                                    (* val addends = collect_AddI i1 *)
+                                    (* fun get_params is = *)
+                                    (*     case is of *)
+                                    (*         [] => NONE *)
+                                    (*       | i :: is => *)
+                                    
+                                    (* open Real *)
+                                    (* val T = *)
+                                    (*     case get_params addends of *)
+                                    (*         NONE => NONE *)
+                                    (*       | SOME (a, b, f) => *)
+                                    (*         case compare_params (a, b, f) of *)
+                                    (*             AB_Dom => SOME (ExpI (VarI (0, dummy), Math.ln (fromInt a) / Math.ln (fromInt b))) *)
+                                    (*           | Both_Dom => NONE *)
+                                    (*           | F_Dom => NONE *)
+                                    (*           | NotSure => NONE *)
+                                in
+                                    (* NONE *)
+                                    SOME (TimeAbs (("", dummy), TimeAbs (("", dummy), T0 dummy, dummy), dummy), [])
+                                         (* SOME T *)
+                                end
+                            else
+                                NONE
+                          | _ =>
+                            let
+                                val is = collect_AddI i1
+                                fun test i =
+                                    case i of
+                                        BinOpI (TimeApp, BinOpI (TimeApp, VarI (g', _), VarI (m', _)), i2') =>
+                                        if g' = g andalso m' = m then
+                                            SOME i2'
+                                        else NONE
+                                      | _ => NONE
+                                val (focus, rest) = partitionOption test is
+                            in
+                                (* NONE *)
+                                SOME (TimeAbs (("", dummy), TimeAbs (("", dummy), T0 dummy, dummy), dummy), [])
+                                     (* SOME T *)
+                            end
+                    else NONE
+                  | _ =>
+                    NONE
             end
-        else NONE
-      | _ =>
-        NONE
-*)
+          | _ => NONE
     end
             
 fun infer_exists hs name1 p =
@@ -185,37 +142,6 @@ fun solve_exists (vc as (hs, p)) =
         end
       | _ => [vc]
                  
-(*                
-fun solve vc =
-    case vc of
-        (* test for opportunity to apply the Master Theorem *)
-        (hs, Quan (Exists, Base (TimeFun arity1), name1, Quan (Exists, Base (TimeFun arity2), name2, BinConn (And, bigO as BinPred (BigO, VarI (n0, _), VarI (n1, _)), BinConn (Imply, bigO', p))))) =>
-        if n0 = 0 andalso n1 = 1 andalso eq_p bigO bigO' then
-            let
-                (* hoist the conjuncts that don't involve the time functions *)
-                val vcs = split_prop p
-                val (rest, vcs) = partitionOption (Option.composePartial (try_forget (forget_i_vc 0 1), try_forget (forget_i_vc 0 1))) vcs
-                val vcs = concatMap split_prop $ map (simp_p o vc2prop) vcs
-            in
-                case vcs of
-                    (* only allow one conjunct *)
-                    [vc] =>
-                    let
-                        val vcs = by_master_theorem vc
-                        (* val vcs = [] *)
-                    in
-                        map (fn (hs', p) => (hs' @ hs, p)) rest @
-                        (case vcs of
-                             [] => []
-                           | _ => [(hs, Quan (Exists, Base (TimeFun arity1), name1, Quan (Exists, Base (TimeFun arity2), name2, BinConn (And, bigO, BinConn (Imply, bigO', and_all (map vc2prop vcs))))))]
-                        )
-                    end
-                  | _ => [vc]
-            end
-        else [vc]
-      | _ => [vc]
-*)
-            
 fun filter_solve vcs = concatMap solve_exists vcs
 
 fun solve_vcs (vcs : vc list) : vc list =

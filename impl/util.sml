@@ -156,5 +156,28 @@ fun find_by_snd p ls =
   Option.map fst (List.find (fn (_, y) => p y) ls)
 fun find_by_snd_eq eq x ls = find_by_snd (curry eq x) ls
                      
+fun partitionOption f xs =
+    case xs of
+        [] => ([], [])
+      | x :: xs =>
+        let
+            val (ys, zs) = partitionOption f xs
+        in
+            case f x of
+                SOME y => (y :: ys, zs)
+              | _ => (ys, x :: zs)
+        end
+
+fun partitionOptionFirst f xs =
+    case xs of
+        [] => NONE
+      | x :: xs =>
+        case f x of
+            SOME y => SOME (y, xs)
+          | _ =>
+            case partitionOptionFirst f xs of
+                SOME (a, rest) => SOME (a, x :: rest)
+              | NONE => NONE
+                            
 end
 
