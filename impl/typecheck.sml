@@ -371,6 +371,9 @@ local
               )
             | (_, UVarI _) =>
               unify_i r ctx (i', i)
+            (* ToReal is injective *)
+            | (UnOpI (ToReal, i, _), UnOpI (ToReal, i', _)) =>
+              unify_i r ctx (i', i)
 	    | _ => 
               if eq_i i i' then ()
               else write_prop (BinPred (EqP, i, i'), r)
@@ -1875,6 +1878,7 @@ local
     fun no_uvar_i i =
         let
             val i = update_i i
+            fun error i' = Impossible $ sprintf "no_uvar_i (): $ shouldn't be UVarI in $" [str_i [] i', str_i [] i]
             fun f i =
                 case i of
                     VarI x => N.VarI x
@@ -1889,7 +1893,7 @@ local
                   | TTI r => N.TTI r
                   | TimeAbs (name, i, r) => N.TimeAbs (name, f i, r)
                   | UVarI _ =>
-                    raise Impossible "no_uvar_i (): shouldn't be UVarI"
+                    raise error i
         in
             f i
         end
