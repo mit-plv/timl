@@ -92,7 +92,8 @@ fun smt_solver filename vcs =
                     )
                   | _ => raise Impossible "number of responses should have been checked "
             end
-        val vcs = List.mapPartial on_resp (zip (vcs, resps))
+        val vcs = map on_resp (zip (vcs, resps))
+        (* val vcs = List.mapPartial on_resp (zip (vcs, resps)) *)
                       
         (* val proc = execute ("z3", ["-in"]) *)
         (* val (ins, outs) = (textInstreamOf proc, textOutstreamOf proc) *)

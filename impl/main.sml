@@ -91,7 +91,7 @@ fun typecheck_file (filename, ctx) =
           else
               let
                   val () = println "-------------------------------------------"
-                  val unsats = SMTSolver.smt_solver filename vcs
+                  val unsats = List.mapPartial id $ SMTSolver.smt_solver filename vcs
                   val () = println (sprintf "SMT solver generated or left $ proof obligations unproved." [str_int $ length unsats])
                   val () = println ""
                   val () = print_unsats false filename unsats

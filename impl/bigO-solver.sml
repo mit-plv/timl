@@ -100,10 +100,9 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
         val vcs' = append_hyps ([VarH (name0, TimeFun arity0), VarH (name1, TimeFun arity1)] @ hs) vcs
         (* val () = app println $ concatMap (fn vc => str_vc false "" vc @ [""]) vcs' *)
         val () = println "by_master_theorem to apply SMT solver to discharge some VCs: "
-        val vcs' = map fst $ SMTSolver.smt_solver "" vcs'
+        val (vcs, vcs') = unzip $ List.mapPartial (fn (vc, out) => case out of SOME (vc', _) => SOME (vc, vc') | NONE => NONE) $ zip (vcs, SMTSolver.smt_solver "" vcs')
         val () = println "by_master_theorem to solve this myself: "
         val () = app println $ concatMap (fn vc => str_vc false "" vc @ [""]) vcs'
-        (* val () = app println $ concatMap (fn (hs', p) => str_vc false "" (hs' @ [VarH (name0^"=?", TimeFun arity0), VarH (name1^"=?", TimeFun arity1)] @ hs, p) @ [""]) vcs *)
     in
         (* NONE *)
         SOME (TimeAbs (("", dummy), TimeAbs (("", dummy), T0 dummy, dummy), dummy), [])
