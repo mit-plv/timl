@@ -98,7 +98,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) (vc as (hs', p)) =
         (* (* number of variables in context *) *)
         (* val nx = length $ List.filter (fn h => case h of VarH _ => true | _ => false) hs *)
         val () = println "by_master_theorem to solve this: "
-        val () = app println $ str_vc false "" (hs' @ [VarH (name0, TimeFun arity0), VarH (name1, TimeFun arity1)] @ hs, p)
+        val () = app println $ str_vc false "" (hs' @ [VarH (name0^"=?", TimeFun arity0), VarH (name1^"=?", TimeFun arity1)] @ hs, p)
         val () = println ""
     in
         (* NONE *)
