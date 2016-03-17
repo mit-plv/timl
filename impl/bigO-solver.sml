@@ -93,17 +93,21 @@ fun solve_one (hs, p) =
     end
         *)
 
-fun by_master_theorem hs (name1, arity1) (name0, arity0) (vc as (hs', p)) =
+fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
     let
         (* (* number of variables in context *) *)
-        (* val nx = length $ List.filter (fn h => case h of VarH _ => true | _ => false) hs *)
-        val () = println "by_master_theorem to solve this: "
-        val () = app println $ str_vc false "" (hs' @ [VarH (name0^"=?", TimeFun arity0), VarH (name1^"=?", TimeFun arity1)] @ hs, p)
-        val () = println ""
+        val nx = length $ List.filter (fn h => case h of VarH _ => true | _ => false) hs
+        val vcs' = append_hyps ([VarH (name0, TimeFun arity0), VarH (name1, TimeFun arity1)] @ hs) vcs
+        (* val () = app println $ concatMap (fn vc => str_vc false "" vc @ [""]) vcs' *)
+        val () = println "by_master_theorem to apply SMT solver to discharge some VCs: "
+        val vcs' = map fst $ SMTSolver.smt_solver "" vcs'
+        val () = println "by_master_theorem to solve this myself: "
+        val () = app println $ concatMap (fn vc => str_vc false "" vc @ [""]) vcs'
+        (* val () = app println $ concatMap (fn (hs', p) => str_vc false "" (hs' @ [VarH (name0^"=?", TimeFun arity0), VarH (name1^"=?", TimeFun arity1)] @ hs, p) @ [""]) vcs *)
     in
         (* NONE *)
         SOME (TimeAbs (("", dummy), TimeAbs (("", dummy), T0 dummy, dummy), dummy), [])
-        (*
+             (*
         BinPred (LeP, i1, BinOpI (MultI, VarI (m, _), BinOpI (TimeApp, VarI (g, _), VarI (n, _)))) =>
         if g = nx andalso n < nx andalso m < nx andalso m <> n then
             let
@@ -129,7 +133,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) (vc as (hs', p)) =
         else NONE
       | _ =>
         NONE
-        *)
+*)
     end
             
 fun infer_exists hs name1 p =
@@ -143,18 +147,11 @@ fun infer_exists hs name1 p =
                 val vcs = split_prop p
                 val (rest, vcs) = partitionOption (Option.composePartial (try_forget (forget_i_vc 0 1), try_forget (forget_i_vc 0 1))) vcs
                 val vcs = concatMap split_prop $ map (simp_p o vc2prop) vcs
+                val ret = by_master_theorem hs name1 (name0, arity0) vcs
             in
-                case vcs of
-                    (* only allow one conjunct left *)
-                    [vc] =>
-                    let
-                        val ret = by_master_theorem hs name1 (name0, arity0) vc
-                    in
-                        case ret of
-                            SOME (i, vcs) => SOME (i, append_hyps hs rest @ vcs)
-                          | NONE => NONE
-                    end
-                  | _ => NONE
+                case ret of
+                    SOME (i, vcs) => SOME (i, append_hyps hs rest @ vcs)
+                  | NONE => NONE
             end
         else NONE
       | _ => NONE

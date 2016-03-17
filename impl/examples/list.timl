@@ -46,7 +46,7 @@ val ['a] merge =
                 (NilI, _) => ys
               | (_, NilI) => xs
               | (ConsI {n1'} (x, xs'), ConsI {n2'} (y, ys')) =>
-                case le (x, y) of
+                case le (x, y) return |> 1.0 + f m (n1' + n2' + 1) of
                     true => ConsI {_} (x, merge {_} {_} (xs', ys))
                   | false => ConsI {_} (y, merge {_} {_} (xs, ys'))
     in

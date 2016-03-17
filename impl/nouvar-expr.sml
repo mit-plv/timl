@@ -1,5 +1,6 @@
 structure NoUVar = struct
 open Util
+         
 type 'a uvar_bs = empty
 type ('a, 'b) uvar_s = empty
 type ('a, 'b) uvar_mt = empty
@@ -15,6 +16,7 @@ structure NoUVarExpr = ExprFun (structure Var = IntVar structure UVar = NoUVar)
 structure NoUVarSubst = struct
 open Util
 open NoUVarExpr
+infixr 0 $
          
 fun on_i_i on_v x n b =
   let
@@ -149,7 +151,16 @@ local
                      (set ();
                       i1)
 	         else
-		     BinOpI (opr, passi i1, passi i2)
+                     let
+                         fun combine_AddI is = foldl' (fn (i, acc) => BinOpI (AddI, acc, i)) (T0 dummy) is
+                         val i' = combine_AddI $ collect_AddI i
+                     in
+		         if eq_i i' i then
+                             BinOpI (opr, passi i1, passi i2)
+                         else
+                             (set ();
+                              i')
+                     end
 	       | MultI => 
 	         if eq_i i1 (T0 dummy) then
                      (set ();

@@ -48,7 +48,8 @@ fun print_i ctx i =
            let
                val is = collect_TimeApp i1 @ [i2]
            in
-               sprintf "(app_$$)" [str_int (length is - 1), join_prefix " " $ map (print_i ctx) is]
+               (* sprintf "(app_$$)" [str_int (length is - 1), join_prefix " " $ map (print_i ctx) is] *)
+               sprintf "($)" [join " " $ map (print_i ctx) is]
            end
       )
     | TrueI _ => "true"
@@ -95,7 +96,8 @@ fun print_p ctx p =
           | False _ => "false"
           | Not (p, _) => negate (f p)
           | BinConn (opr, p1, p2) => sprintf "($ $ $)" [str_conn opr, f p1, f p2]
-          | BinPred (BigO, i1, i2) => sprintf "(bigO $ $)" [print_i ctx i1, print_i ctx i2]
+          (* | BinPred (BigO, i1, i2) => sprintf "(bigO $ $)" [print_i ctx i1, print_i ctx i2] *)
+          | BinPred (BigO, i1, i2) => "true"
           | BinPred (opr, i1, i2) => sprintf "($ $ $)" [str_pred opr, print_i ctx i1, print_i ctx i2]
           | Quan (q, bs, (name, _), p) => sprintf "($ (($ $)) $)" [str_quan q, name, print_bsort bs, print_p (name :: ctx) p]
   in
@@ -103,7 +105,8 @@ fun print_p ctx p =
   end
 
 fun declare_const x sort = 
-    sprintf "(declare-const $ $)" [x, sort]
+    (* sprintf "(declare-const $ $)" [x, sort] *)
+    sprintf "(declare-fun $ () $)" [x, sort]
 
 fun assert s = 
     sprintf "(assert $)" [s]
@@ -114,23 +117,23 @@ fun assert_p ctx p =
 fun print_hyp ctx h =
     case h of
         VarH (name, bsort) =>
-        (declare_const name (print_base_sort bsort), name :: ctx)
+        (case bsort of
+             TimeFun n =>
+             (sprintf "(declare-fun $ ($) Real)" [name, join " " $ repeat n "Int"], name :: ctx)
+           | _ =>
+             (declare_const name (print_base_sort bsort), name :: ctx)
+        )
       | PropH p =>
         (assert (print_p ctx p), ctx)
 
 val prelude = [
+    "(set-logic ALL_SUPPORTED)",
+    "(set-option :produce-models true)",
     (* "(set-option :produce-proofs true)", *)
-    "(declare-datatypes () ((Unit TT)))",
-    "(declare-datatypes () ((Fun_1 fn1)))",
-    "(declare-datatypes () ((Fun_2 fn2)))",
-    "(declare-fun log2 (Real) Real)",
-    "(declare-fun bigO (Fun_2 Fun_2) Bool)",
-    "(declare-fun app_1 (Fun_1 Int) Real)",
-    "(declare-fun app_2 (Fun_2 Int Int) Real)",
-    "(define-fun floor ((x Real)) Int",
-    "(to_int x))",
-    "(define-fun ceil ((x Real)) Int",
-    "(to_int (+ x 0.5)))",
+
+    (* "(declare-datatypes () ((Unit TT)))", *)
+
+    (* "(declare-fun log2 (Real) Real)", *)
     (* "(assert (forall ((x Real) (y Real))", *)
     (* "  (! (=> (and (< 0 x) (< 0 y)) (= (log2 ( * x y)) (+ (log2 x) (log2 y))))", *)
     (* "    :pattern ((log2 ( * x y))))))", *)
@@ -140,22 +143,34 @@ val prelude = [
     (* "(assert (= (log2 1) 0))", *)
     (* "(assert (= (log2 2) 1))", *)
     (* "(assert (forall ((x Real) (y Real)) (=> (and (< 0 x) (< 0 y)) (=> (< x y) (< (log2 x) (log2 y))))))", *)
+    
+    "(define-fun floor ((x Real)) Int",
+    "(to_int x))",
+    "(define-fun ceil ((x Real)) Int",
+    "(to_int (+ x 0.5)))",
+    
+    (* "(declare-datatypes () ((Fun_1 fn1)))", *)
+    (* "(declare-datatypes () ((Fun_2 fn2)))", *)
+    (* "(declare-fun app_1 (Fun_1 Int) Real)", *)
+    (* "(declare-fun app_2 (Fun_2 Int Int) Real)", *)
+    (* "(declare-fun bigO (Fun_2 Fun_2) Bool)", *)
+    
     ""
 ]
 
 val push = [
-    "(push)"
+    "(push 1)"
 ]
 
 val pop = [
-    "(pop)"
+    "(pop 1)"
 ]
 
 val check = [
-    "(check-sat)",
-    (* "(get-proof)", *)
+    "(check-sat)"
+    (* "(get-model)" *)
+    (* "(get-proof)" *)
     (* "(get-value (n))", *)
-    "(get-model)"
 ]
 
 (* convert to Z3's types and naming conventions *)

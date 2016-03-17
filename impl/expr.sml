@@ -266,6 +266,11 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 BinOpI (AddI, i1, i2) => collect_AddI i1 @ collect_AddI i2
               | _ => [i]
                          
+        fun collect_AddI_left i =
+            case i of
+                BinOpI (AddI, i1, i2) => collect_AddI i1 @ [i2]
+              | _ => [i]
+                         
         fun str_i ctx (i : idx) : string = 
             case i of
                 VarI (x, _) => str_v ctx x
@@ -282,7 +287,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 end
               | BinOpI (AddI, i1, i2) =>
                 let
-                    val is = collect_AddI i
+                    val is = collect_AddI_left i
                 in
                     sprintf "($)" [join " + " $ map (str_i ctx) is]
                 end

@@ -53,26 +53,37 @@ fun smt_solver filename vcs =
         val smt2_filename = filename ^ ".smt2"
         val resp_filename = filename ^ ".lisp"
         val () = write_file (smt2_filename, smt2)
-        val () = println "Solving by Z3 SMT solver ..."
-        val _ = system (sprintf "z3 $ > $" [smt2_filename, resp_filename])
+        val smt_cmd = "z3"
+        val smt_cmd = "cvc4 --incremental"
+        val () = print $ sprintf "Solving by SMT solver \"$\" ... " [smt_cmd]
+        val _ = system (sprintf "$ $ > $" [smt_cmd, smt2_filename, resp_filename])
         val () = println "Finished SMT solving."
         (* val () = println $ read_file resp_filename *)
         val resps = SExpParserString.parse_file resp_filename
         (* val () = println $ str_int $ length resps *)
-        val () = if length resps = 2 * length vcs then ()
+        val group_size = 1
+        val () = if length resps = group_size * length vcs then ()
                  else raise SMTError "Wrong number of responses"
-        val resps = group 2 resps
+        val resps = group group_size resps
         fun on_resp (vc, resp) =
             let val error_msg = "Wrong response format: first answer should be (sat), (unsat) or (unknown)"
             in
                 case resp of
-                    [is_sat, model] =>
+                    is_sat :: rest =>
                     (case is_sat of
                          Atom is_sat =>
                          if is_sat = "unsat" then
                              NONE
                          else if is_sat = "sat" then
-                             SOME (vc, SOME (get_model model))
+                             let
+                                 val model =
+                                     if length rest > 0 then
+                                         SOME (get_model (hd rest))
+                                     else
+                                         NONE
+                             in
+                                 SOME (vc, model)
+                             end
                          else if is_sat = "unknown" then
                              SOME (vc, NONE)
                          else

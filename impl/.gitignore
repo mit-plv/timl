@@ -13,3 +13,5 @@ main
 *.grm.*
 *.lex.*
 *.model
+*.lisp
+*.smt2
