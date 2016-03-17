@@ -34,15 +34,26 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
     let
         val vcs' = append_hyps ([VarH (name0, TimeFun arity0), VarH (name1, TimeFun arity1)] @ hs) vcs
         (* val () = app println $ concatMap (fn vc => str_vc false "" vc @ [""]) vcs' *)
-        val () = println "by_master_theorem to apply SMT solver to discharge some VCs: "
+        (* val () = println "Master-Theorem-solver to apply SMT solver to discharge some VCs. " *)
         val (vcs, vcs') = unzip $ List.mapPartial (fn (vc, out) => case out of SOME (vc', _) => SOME (vc, vc') | NONE => NONE) $ zip (vcs, SMTSolver.smt_solver "" vcs')
-        val () = println "by_master_theorem to solve this myself: "
+        val () = println "Master-Theorem-solver to solve this: "
         val () = app println $ concatMap (fn vc => str_vc false "" vc @ [""]) vcs'
         exception Error
         fun runError m _ =
-            SOME (m ())
+            let
+                val ret as (f, _) = m ()
+                val ctx = List.mapPartial (fn h => case h of VarH (name, _) => SOME name | _ => NONE) hs
+                val () = println $ sprintf "Yes! I solved this: $" [str_i ctx f]
+            in
+                SOME ret
+            end
             handle
-            Error => NONE
+            Error =>
+            let
+                val () = println "Oh no! I can't solve this."
+            in
+                NONE
+            end
         fun main () =
             case vcs of
                 [vc as (hs', p)] =>
@@ -76,7 +87,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                     (*           | F_Dom => NONE *)
                                     (*           | NotSure => NONE *)
                                     val () = if n < nx andalso m <> n then () else raise Error
-                                    (* val () = raise Error *)
+                                    val () = raise Error
                                 in
                                     (TimeAbs (("", dummy), TimeAbs (("", dummy), T0 dummy, dummy), dummy), [])
                                 end
