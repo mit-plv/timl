@@ -5,8 +5,14 @@ open VC
 open NoUVarSubst
          
 infixr 0 $
+
+infix 6 %+
+infix 6 %*
+infix 4 %<=
+infix 4 %=
 infix 3 /\
 infix 1 -->
+infix 1 <->
 
 fun forget_i_vc x n (hs, p) = 
     let
@@ -32,19 +38,26 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
         val (vcs, vcs') = unzip $ List.mapPartial (fn (vc, out) => case out of SOME (vc', _) => SOME (vc, vc') | NONE => NONE) $ zip (vcs, SMTSolver.smt_solver "" vcs')
         val () = println "by_master_theorem to solve this myself: "
         val () = app println $ concatMap (fn vc => str_vc false "" vc @ [""]) vcs'
-    in
-        case vcs of
-            [vc as (hs', p)] =>
-            let
-                (* (* number of variables in context *) *)
-                val nx = length $ List.filter (fn h => case h of VarH _ => true | _ => false) hs'
-            in
-                case p of
-                    BinPred (LeP, i1, BinOpI (TimeApp, BinOpI (TimeApp, VarI (g, _), VarI (m, _)), i2)) =>
-                    if g = nx andalso m < nx then
-                        case i2 of
-                            VarI (n, _) =>
-                            if n < nx andalso m <> n then
+        exception Error
+        fun runError m _ =
+            SOME (m ())
+            handle
+            Error => NONE
+        fun main () =
+            case vcs of
+                [vc as (hs', p)] =>
+                let
+                    (* (* number of variables in context *) *)
+                    val nx = length $ List.filter (fn h => case h of VarH _ => true | _ => false) hs'
+                    val vc' as (hyps, _) = hd vcs'
+                in
+                    case p of
+                        BinPred (LeP, i1, BinOpI (TimeApp, BinOpI (TimeApp, VarI (g, _), VarI (m, _)), i2)) =>
+                        let
+                            val () = if g = nx andalso m < nx then () else raise Error
+                        in
+                            case i2 of
+                                VarI (n, _) =>
                                 let
                                     (* val addends = collect_AddI i1 *)
                                     (* fun get_params is = *)
@@ -62,34 +75,50 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                     (*           | Both_Dom => NONE *)
                                     (*           | F_Dom => NONE *)
                                     (*           | NotSure => NONE *)
+                                    val () = if n < nx andalso m <> n then () else raise Error
+                                    (* val () = raise Error *)
                                 in
-                                    (* NONE *)
-                                    SOME (TimeAbs (("", dummy), TimeAbs (("", dummy), T0 dummy, dummy), dummy), [])
-                                         (* SOME T *)
+                                    (TimeAbs (("", dummy), TimeAbs (("", dummy), T0 dummy, dummy), dummy), [])
                                 end
-                            else
-                                NONE
-                          | _ =>
-                            let
-                                val is = collect_AddI i1
-                                fun test i =
-                                    case i of
-                                        BinOpI (TimeApp, BinOpI (TimeApp, VarI (g', _), VarI (m', _)), i2') =>
-                                        if g' = g andalso m' = m then
-                                            SOME i2'
-                                        else NONE
-                                      | _ => NONE
-                                val (focus, rest) = partitionOption test is
-                            in
-                                (* NONE *)
-                                SOME (TimeAbs (("", dummy), TimeAbs (("", dummy), T0 dummy, dummy), dummy), [])
-                                     (* SOME T *)
-                            end
-                    else NONE
-                  | _ =>
-                    NONE
-            end
-          | _ => NONE
+                              | _ =>
+                                (* test the case: C + m + g m n <= g m (n + 1)  *)
+                                let
+                                    val is = collect_AddI i1
+                                    fun test i =
+                                        case i of
+                                            BinOpI (TimeApp, BinOpI (TimeApp, VarI (g', _), VarI (m', _)), i2') =>
+                                            if g' = g andalso m' = m then
+                                                SOME i2'
+                                            else NONE
+                                          | _ => NONE
+                                    val (focus, rest) = partitionOption test is
+                                    val i2' = if length focus > 0 then hd focus else raise Error
+                                    fun is_true vc =
+                                        null $ List.mapPartial id $ SMTSolver.smt_solver "" [vc]
+                                    val N1 = ConstIN (1, dummy)
+                                    fun V n = VarI (n, dummy)
+                                    val () = if is_true (hyps, i2' %+ N1 %= i2) then () else raise Error
+                                    fun only_const_or_m i =
+                                        case i of
+                                            ConstIT _ => ()
+                                          | UnOpI (ToReal, i, _) =>
+                                            (case i of
+                                                 ConstIN _ => ()
+                                               | VarI (m', _) => if m' = m then () else raise Error
+                                               | _ => raise Error
+                                            )
+                                          | _ => raise Error
+                                    val () = app only_const_or_m rest
+                                    val ret = (TimeAbs (("m", dummy), TimeAbs (("n", dummy), V 1 %* V 0, dummy), dummy), [])
+                                in
+                                    ret
+                                end
+                        end
+                      | _ => raise Error
+                end
+              | _ => raise Error
+    in
+        runError main ()
     end
             
 fun infer_exists hs name1 p =
