@@ -150,8 +150,9 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                                                  SOME (g, _) => g
                                                                | NONE => raise Error
                                                      in
-                                                         call $ do_summarize $ simp_i (g %@ m_ %@ n_)
+                                                         return $ call $ do_summarize $ simp_i (g %@ m_ %@ n_)
                                                      end
+                                                   | _ => ()
                                              (* test for [ ... * m * ... ] *)
                                              val () =
                                                  case i of
@@ -163,6 +164,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                                              SOME (_, rest) => return $ summarize_n $ combine_MultI rest
                                                            | NONE => ()
                                                      end
+                                                   | _ => ()
                                              val () = if ask_smt (i %<= m_) then return $ Theta_c_k (0, 0) else ()
                                          in
                                              summarize_n i
