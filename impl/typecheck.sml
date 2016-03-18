@@ -5,8 +5,8 @@ open Expr
 
 infixr 0 $
 
+infix 7 %*
 infix 6 %+
-infix 6 %*
 infix 4 %<=
 infix 3 /\
 infix 1 -->

@@ -236,10 +236,12 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 end
               | _ => (e, [])
 
+        infix 9 %@
+        fun a %@ b = BinOpI (TimeApp, a, b)
+        infix 7 %*
+        fun a %* b = BinOpI (MultI, a, b)
         infix 6 %+ 
         fun a %+ b = BinOpI (AddI, a, b)
-        infix 6 %*
-        fun a %* b = BinOpI (MultI, a, b)
         infix 4 %<=
         fun a %<= b = BinPred (LeP, a, b)
         infix 4 %=

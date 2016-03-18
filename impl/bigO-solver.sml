@@ -6,8 +6,9 @@ open NoUVarSubst
          
 infixr 0 $
 
+infix 9 %@
+infix 7 %*
 infix 6 %+
-infix 6 %*
 infix 4 %<=
 infix 4 %=
 infix 3 /\
@@ -63,7 +64,6 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                          val () = if g = nx andalso m < nx then () else raise Error
                          (* ToDo: check that [n_i] are well-scoped in [hs'] *)
                          (* ToDo: check that [m] doesn't appear in [n_i] *)
-                         val () = if n < nx andalso m <> n then () else raise Error
                          val vc' as (hyps, _) = hd vcs'
                          fun ask_smt_vc vc =
                              null $ List.mapPartial id $ SMTSolver.smt_solver "" [vc]
@@ -80,21 +80,32 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                              val is = collect_AddI i1
                              fun get_params is =
                                  let
-                                     fun par i =
+                                     (* find terms of the form [T m (ceil (n/b))] (or respectively for [floor]) *)
+                                     fun is_sub_problem i =
                                          case i of
-                                             BinOpI (TimeApp, BinOpI (TimeApp, VarI (g', _), VarI (m', _)), UnOpI (opr, DivI (n', (b, _)))) =>
-                                             if g' = g andalso m' = m andalso (opr = Ceil orelse opr = Floor) andalso ask_smt (n' %= to_real i2) then
+                                             BinOpI (TimeApp, BinOpI (TimeApp, VarI (g', _), VarI (m', _)), UnOpI (opr, DivI (n', (b, _)), _)) =>
+                                             if g' = g andalso m' = m andalso (opr = Ceil orelse opr = Floor) andalso ask_smt (n' %= n_) then
                                                  SOME b
                                              else NONE
                                            | _ => NONE
-                                     val (bs, f) = partitionOption par is
-                                     val b = if null bs then raise Error else hd bs
+                                     val (bs, f) = partitionOption is_sub_problem is
                                      val a = length bs
-                                     val () = if ask_smt (combine_And $ map (fn b' => b' %= b) (tl bs)) then () else raise Error
+                                     val b = if null bs then raise Error else hd bs
+                                     val () = if List.all (curry op= b) (tl bs) then () else raise Error
+                                     (* val () = if ask_smt (combine_And $ map (fn b' => b' %= b) (tl bs)) then () else raise Error *)
+                                     (* fun i_to_int i = *)
+                                     (*     case simp_i i of *)
+                                     (*         ConstIN (n, _) => SOME n *)
+                                     (*       | _ => NONE *)
+                                     (* val b = case findOption i_to_int bs of SOME b => b | NONE => raise Error *)
                                  in
                                      (a, b, f)
                                  end
                              val (a, b, f) = get_params is
+                             datatype cmp_case =
+                                      AB_Dom 
+                                      | Both_Dom of int
+                                      | F_Dom 
                              fun compare_params (a, b, f) =
                                  let
                                      (* try to describe each term in one of the following three cases *)
@@ -120,13 +131,13 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                          in
                                              raise Error
                                          end
-                                     val summarize_n = callfun do_summrize_n
+                                     val summarize_n = callfun do_summarize_n
                                      fun do_summarize i return =
                                          let
                                              (* test for [f m n] where [f]'s bigO class is known *)
                                              val () =
                                                  case i of
-                                                     BinOpI (TimeApp, BinOpI (TimeApp, VarI (f, _), m'), n') =>
+                                                     BinOpI (TimeApp, BinOpI (TimeApp, f_i as VarI (f, _), m'), n') =>
                                                      let
                                                          val () = if ask_smt (m' %= m_ /\ n' %= n_) then () else raise Error
                                                          fun match_bigO f hyps hyp =
@@ -135,9 +146,9 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                                                  if eq_i f' f then SOME g else NONE
                                                                | _ => NONE
                                                          val g =
-                                                             case find_hyp (forget_i_i 0 1) shift_i_i match_bigO f hyps of
+                                                             case find_hyp (forget_i_i 0 1) shift_i_i match_bigO f_i hyps of
                                                                  SOME (g, _) => g
-                                                               | NONE =>raise Error
+                                                               | NONE => raise Error
                                                      in
                                                          call $ do_summarize $ simp_i (g %@ m_ %@ n_)
                                                      end
@@ -156,14 +167,15 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                          in
                                              summarize_n i
                                          end
-                                     val summarize = callfun do_summrize
+                                     val summarize = callfun do_summarize
                                      val f = map summarize f
-                                     open Real
                                  in
+                                     raise Error
                                  end
+                             open Real
                              val T = 
                                  case compare_params (a, b, f) of
-                                     AB_Dom => (ExpI (VarI (0, dummy), Math.ln (fromInt a) / Math.ln (fromInt b)))
+                                     AB_Dom => (ExpI (V 0, (toString (Math.ln (fromInt a) / Math.ln (fromInt b)), dummy)))
                                    | Both_Dom k => raise Error
                                    | F_Dom => raise Error
                              val ret = (T, [])

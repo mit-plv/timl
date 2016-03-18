@@ -3,7 +3,8 @@ open Util
 open Region
 open NoUVar
 open NoUVarExpr
-
+open NoUVarSubst
+         
 local
     fun find_unique ls name =
         if not (mem op= name ls) then
@@ -109,10 +110,10 @@ fun shiftx_hyps x n hyps =
                         VarH _ => 1
                       | PropH _ => 0
         in
-            shiftx_hyp x n hyp :: shiftx_hyp (x + d) n hyps
+            shiftx_hyp x n hyp :: shiftx_hyps (x + d) n hyps
         end
             
-fun find_hyps forget shift pred x hyps =
+fun find_hyp forget shift pred x hyps =
     let
         exception Error
         fun runError m _ =
@@ -126,7 +127,7 @@ fun find_hyps forget shift pred x hyps =
               | PropH _ => x
         fun do_shift hyp (p as (y, hyps)) =
             case hyp of
-                VarH _ => (shift y, shift_hyps hyps)
+                VarH _ => (shift y, shiftx_hyps 0 1 hyps)
               | PropH _ => p
         fun loop x hyps () =
             let
