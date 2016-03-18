@@ -34,7 +34,7 @@ end
 
 datatype hyp = 
          VarH of string * base_sort
-       | PropH of  prop 
+       | PropH of prop 
 
 type vc = hyp list * prop
 
@@ -95,4 +95,50 @@ fun split_prop p =
           | _ => [([], p)]
     end
 
+fun shiftx_hyp x n hyp =
+    case hyp of
+        VarH _ => hyp
+      | PropH p => PropH (shiftx_i_p x n p)
+                         
+fun shiftx_hyps x n hyps =
+    case hyps of
+        [] => hyps
+      | hyp :: hyps =>
+        let
+            val d = case hyp of
+                        VarH _ => 1
+                      | PropH _ => 0
+        in
+            shiftx_hyp x n hyp :: shiftx_hyp (x + d) n hyps
+        end
+            
+fun find_hyps forget shift pred x hyps =
+    let
+        exception Error
+        fun runError m _ =
+            SOME (m ())
+            handle
+            Error => NONE
+            | ForgetError _ => NONE
+        fun do_forget hyp x =
+            case hyp of
+                VarH _ => forget x
+              | PropH _ => x
+        fun do_shift hyp (p as (y, hyps)) =
+            case hyp of
+                VarH _ => (shift y, shift_hyps hyps)
+              | PropH _ => p
+        fun loop x hyps () =
+            let
+                val (hyp, hyps) = case hyps of hyp :: hyps => (hyp, hyps) | [] => raise Error
+                val x = do_forget hyp x
+            in
+                case pred x hyps hyp of
+                    SOME y => do_shift hyp (y, hyps)
+                  | NONE => do_shift hyp (loop x hyps ())
+            end
+    in
+        runError (loop x hyps) ()
+    end
+        
 end

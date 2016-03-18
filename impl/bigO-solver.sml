@@ -55,129 +55,161 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
         fun main () =
             case vcs of
                 [vc as (hs', p)] =>
-                let
-                    (* (* number of variables in context *) *)
-                    val nx = length $ List.filter (fn h => case h of VarH _ => true | _ => false) hs'
-                    val vc' as (hyps, _) = hd vcs'
-                in
-                    case p of
-                        BinPred (LeP, i1, BinOpI (TimeApp, BinOpI (TimeApp, VarI (g, _), VarI (m, _)), i2)) =>
-                        let
-                            val () = if g = nx andalso m < nx then () else raise Error
-                            fun ask_smt_vc vc =
-                                null $ List.mapPartial id $ SMTSolver.smt_solver "" [vc]
-                            fun ask_smt p = ask_smt_vc (hyps, p)
-                            val N1 = ConstIN (1, dummy)
-                            fun V n = VarI (n, dummy)
-                            fun to_real i = UnOpI (ToReal, i, dummy)
-                            open Cont
-                        in
-                            case i2 of
-                                VarI (n, _) =>
-                                let
-                                    val () = if n < nx andalso m <> n then () else raise Error
-(*                                                                                         
-                                    val is = collect_AddI i1
-                                    fun get_params is =
-                                        let
-                                            fun par i =
-                                                case i of
-                                                    BinOpI (TimeApp, BinOpI (TimeApp, VarI (g', _), VarI (m', _)), UnOpI (opr, DivI (n', (b, _)))) =>
-                                                    if g' = g andalso m' = m andalso (opr = Ceil orelse opr = Floor) andalso ask_smt (n' %= to_real i2) then
-                                                        SOME b
-                                                    else NONE
-                                                  | _ => NONE
-                                            val (bs, f) = partitionOption par is
-                                            val b = if null bs then raise Error else hd bs
-                                            val a = length bs
-                                            val () = if ask_smt (combine_And $ map (fn b' => b' %= b) (tl bs)) then () else raise Error
-                                        in
-                                            (a, b, f)
-                                        end
-                                    val (a, b, f) = get_params is
-                                    open Real
-                                    fun compare_params (a, b, f) =
-                                        let
-                                            (* try to describe each term in one of the following three cases *)
-                                            datatype class =
-                                                     O_c of int (* O (n^c) *)
-                                                     | Theta_c_k of int * int (* \Theta (n^c * (lg n)^k) *)
-                                                     | Omega_c of int (* \Omega (n^c) *)
-                                            val m_ = to_real (V m)
-                                            val n_ = to_real (V n)
-                                            fun summarize_n i =
-                                                case i of
-                                                    ConstIT _ => Theta_c_k (0, 0)
-                                                  | UnOpI (ToReal, ConstIN _, _) => Theta_c_k (0, 0)
-                                                  | _ => if ask_smt (i %= n_) then
-                                                             Theta_c_k (1, 0)
-                                                         else raise Error
-                                            fun summarize i =
-                                                case i of
-                                                    BinOpI (TimeApp, BinOpI (TimeApp, VarI (f, _), m'), n') =>
-                                                    let
-                                                        val () = if ask_smt (m' %= m_ /\ n' %= n_) then () else raise Error
-                                                    in
-                                                    end
-                                                  | BinOpI (MultI, i1, i2) =>
-                                                    if ask_smt (i1 %= m_) then summarize_n i2
-                                                    else if ask_smt (i2 %= m_) then summarize_n i1
-                                                    else summarize_n i
-                                                  | _ => if ask_smt (i %<= m_) then
-                                                             Theta_c_k (0, 0)
-                                                         else summarize_n i 
-                                            val f = map summarize f
-                                        in
-                                        end
-                                    val T = 
-                                        case compare_params (a, b, f) of
-                                            AB_Dom => (ExpI (VarI (0, dummy), Math.ln (fromInt a) / Math.ln (fromInt b)))
-                                          | Both_Dom k => raise Error
-                                          | F_Dom => raise Error
-                                    val ret = (T, [])
-*)
-                                    val ret = (TimeAbs (("", dummy), TimeAbs (("", dummy), T0 dummy, dummy), dummy), [])
-                                    val () = raise Error
-                                in
-                                    ret
-                                end
-                              | _ =>
-                                (* test the case: C + m + g m n <= g m (n + 1)  *)
-                                let
-                                    val is = collect_AddI i1
-                                    fun par i =
-                                        case i of
-                                            BinOpI (TimeApp, BinOpI (TimeApp, VarI (g', _), VarI (m', _)), i2') =>
-                                            if g' = g andalso m' = m then
-                                                SOME i2'
-                                            else NONE
-                                          | _ => NONE
-                                    val (focus, rest) = partitionOption par is
-                                    val i2' = if length focus > 0 then hd focus else raise Error
-                                    val () = if ask_smt (i2' %+ N1 %= i2) then () else raise Error
-                                    fun only_const_or_m i =
-                                        case i of
-                                            ConstIT _ => ()
-                                          | UnOpI (ToReal, i, _) =>
-                                            (case i of
-                                                 ConstIN _ => ()
-                                               | VarI (m', _) => if m' = m then () else raise Error
-                                               | _ => raise Error
-                                            )
-                                          | _ => raise Error
-                                    val () = app only_const_or_m rest
-                                    val ret = (TimeAbs (("m", dummy), TimeAbs (("n", dummy), V 1 %* V 0, dummy), dummy), [])
-                                in
-                                    ret
-                                end
-                        end
-                      | _ => raise Error
-                end
+                (case p of
+                     BinPred (LeP, i1, BinOpI (TimeApp, BinOpI (TimeApp, VarI (g, _), VarI (m, _)), n_i)) =>
+                     let
+                         (* number of variables in context *)
+                         val nx = length $ List.filter (fn h => case h of VarH _ => true | _ => false) hs'
+                         val () = if g = nx andalso m < nx then () else raise Error
+                         (* ToDo: check that [n_i] are well-scoped in [hs'] *)
+                         (* ToDo: check that [m] doesn't appear in [n_i] *)
+                         val () = if n < nx andalso m <> n then () else raise Error
+                         val vc' as (hyps, _) = hd vcs'
+                         fun ask_smt_vc vc =
+                             null $ List.mapPartial id $ SMTSolver.smt_solver "" [vc]
+                         fun ask_smt p = ask_smt_vc (hyps, p)
+                         val N1 = ConstIN (1, dummy)
+                         fun V n = VarI (n, dummy)
+                         fun to_real i = UnOpI (ToReal, i, dummy)
+                         val m_i = V m
+                         val m_ = to_real m_i
+                         val n_ = to_real n_i
+                     in
+                         (* test the case: a * T m (n/b) + f m n <= T m n  *)
+                         let
+                             val is = collect_AddI i1
+                             fun get_params is =
+                                 let
+                                     fun par i =
+                                         case i of
+                                             BinOpI (TimeApp, BinOpI (TimeApp, VarI (g', _), VarI (m', _)), UnOpI (opr, DivI (n', (b, _)))) =>
+                                             if g' = g andalso m' = m andalso (opr = Ceil orelse opr = Floor) andalso ask_smt (n' %= to_real i2) then
+                                                 SOME b
+                                             else NONE
+                                           | _ => NONE
+                                     val (bs, f) = partitionOption par is
+                                     val b = if null bs then raise Error else hd bs
+                                     val a = length bs
+                                     val () = if ask_smt (combine_And $ map (fn b' => b' %= b) (tl bs)) then () else raise Error
+                                 in
+                                     (a, b, f)
+                                 end
+                             val (a, b, f) = get_params is
+                             fun compare_params (a, b, f) =
+                                 let
+                                     (* try to describe each term in one of the following three cases *)
+                                     datatype asym_case =
+                                              (* O (n^c) *)
+                                              O_c of int
+                                              (* \Theta (n^c * (lg n)^k) *)
+                                              | Theta_c_k of int * int
+                                              (* \Omega (n^c) *)
+                                              | Omega_c of int 
+                                     local
+                                         open Cont
+                                     in
+                                     fun call f = callcc (fn k => f (fn v => throw k v))
+                                     fun callfun f = call o f
+                                     end
+                                     fun do_summarize_n i return =
+                                         let
+                                             val () = case i of ConstIT _ => return $ Theta_c_k (0, 0) | _ => () 
+                                             val () = case i of UnOpI (ToReal, ConstIN _, _) => return $ Theta_c_k (0, 0) | _ => () 
+                                             val () = if ask_smt (i %= n_) then return $ Theta_c_k (1, 0) else ()
+                                             val () = if ask_smt (i %= m_) then raise Error else ()
+                                         in
+                                             raise Error
+                                         end
+                                     val summarize_n = callfun do_summrize_n
+                                     fun do_summarize i return =
+                                         let
+                                             (* test for [f m n] where [f]'s bigO class is known *)
+                                             val () =
+                                                 case i of
+                                                     BinOpI (TimeApp, BinOpI (TimeApp, VarI (f, _), m'), n') =>
+                                                     let
+                                                         val () = if ask_smt (m' %= m_ /\ n' %= n_) then () else raise Error
+                                                         fun match_bigO f hyps hyp =
+                                                             case hyp of
+                                                                 PropH (BinPred (BigO, f', g)) =>
+                                                                 if eq_i f' f then SOME g else NONE
+                                                               | _ => NONE
+                                                         val g =
+                                                             case find_hyp (forget_i_i 0 1) shift_i_i match_bigO f hyps of
+                                                                 SOME (g, _) => g
+                                                               | NONE =>raise Error
+                                                     in
+                                                         call $ do_summarize $ simp_i (g %@ m_ %@ n_)
+                                                     end
+                                             (* test for [ ... * m * ... ] *)
+                                             val () =
+                                                 case i of
+                                                     BinOpI (MultI, i1, i2) =>
+                                                     let
+                                                         val is = collect_MultI i
+                                                     in
+                                                         case partitionOptionFirst (fn i => b2o $ ask_smt (i %= m_)) is of
+                                                             SOME (_, rest) => return $ summarize_n $ combine_MultI rest
+                                                           | NONE => ()
+                                                     end
+                                             val () = if ask_smt (i %<= m_) then return $ Theta_c_k (0, 0) else ()
+                                         in
+                                             summarize_n i
+                                         end
+                                     val summarize = callfun do_summrize
+                                     val f = map summarize f
+                                     open Real
+                                 in
+                                 end
+                             val T = 
+                                 case compare_params (a, b, f) of
+                                     AB_Dom => (ExpI (VarI (0, dummy), Math.ln (fromInt a) / Math.ln (fromInt b)))
+                                   | Both_Dom k => raise Error
+                                   | F_Dom => raise Error
+                             val ret = (T, [])
+                             val ret = (TimeAbs (("", dummy), TimeAbs (("", dummy), T0 dummy, dummy), dummy), [])
+                             val () = raise Error
+                         in
+                             ret
+                         end
+                         handle
+                         Error =>
+                         (* test the case: T m n + m + C <= T m (n + 1) *)
+                         let
+                             val is = collect_AddI i1
+                             fun par i =
+                                 case i of
+                                     BinOpI (TimeApp, BinOpI (TimeApp, VarI (g', _), VarI (m', _)), n') =>
+                                     if g' = g andalso m' = m then
+                                         SOME n'
+                                     else NONE
+                                   | _ => NONE
+                             val (focus, rest) = partitionOption par is
+                             val n' = if length focus > 0 then hd focus else raise Error
+                             val () = if ask_smt (n' %+ N1 %= n_i) then () else raise Error
+                             fun only_const_or_m i =
+                                 case i of
+                                     ConstIT _ => ()
+                                   | UnOpI (ToReal, i, _) =>
+                                     (case i of
+                                          ConstIN _ => ()
+                                        | VarI (m', _) => if m' = m then () else raise Error
+                                        | _ => raise Error
+                                     )
+                                   | _ => raise Error
+                             val () = app only_const_or_m rest
+                             val ret = (TimeAbs (("m", dummy), TimeAbs (("n", dummy), V 1 %* V 0, dummy), dummy), [])
+                         in
+                             ret
+                         end
+                     end
+                   | _ => raise Error
+                )
               | _ => raise Error
     in
         runError main ()
     end
-            
+        
 fun infer_exists hs name1 p =
     case p of
         Quan (Exists, Base (TimeFun arity0), (name0, _), BinConn (And, bigO as BinPred (BigO, VarI (n0, _), VarI (n1, _)), BinConn (Imply, bigO', p))) =>

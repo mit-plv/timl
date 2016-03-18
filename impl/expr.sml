@@ -258,23 +258,31 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 Base s => str_b s
               | UVarBS u => str_uvar_bs str_bs u
                                         
-        fun collect_TimeApp i =
+        fun collect_BinOpI_left opr i =
             case i of
-                BinOpI (TimeApp, i1, i2) => collect_TimeApp i1 @ [i2]
+                BinOpI (opr', i1, i2) =>
+                if opr' = opr then
+                    collect_BinOpI_left opr i1 @ [i2]
+                else [i]
               | _ => [i]
                          
-        fun collect_AddI i =
+        fun collect_BinOpI opr i =
             case i of
-                BinOpI (AddI, i1, i2) => collect_AddI i1 @ collect_AddI i2
+                BinOpI (opr', i1, i2) =>
+                if opr' = opr then
+                    collect_BinOpI opr i1 @ collect_BinOpI opr i2
+                else [i]
               | _ => [i]
                          
-        fun collect_AddI_left i =
-            case i of
-                BinOpI (AddI, i1, i2) => collect_AddI i1 @ [i2]
-              | _ => [i]
+        val collect_TimeApp = collect_BinOpI_left TimeApp
+        val collect_AddI_left = collect_BinOpI_left AddI
                          
-        fun combine_AddI is = foldl' (fn (i, acc) => acc %+ i) (T0 dummy) is
+        val collect_AddI = collect_BinOpI AddI
+        val collect_MultI = collect_BinOpI MultI
+                         
         fun combine_And ps = foldl' (fn (p, acc) => acc /\ p) (True dummy) ps
+        fun combine_AddI is = foldl' (fn (i, acc) => acc %+ i) (T0 dummy) is
+        fun combine_MultI is = foldl' (fn (i, acc) => acc %* i) (T1 dummy) is
                                      
         fun str_i ctx (i : idx) : string = 
             case i of

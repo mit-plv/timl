@@ -176,7 +176,12 @@ local
 	         else
 		     BinOpI (opr, passi i1, passi i2)
                | TimeApp =>
-		 BinOpI (opr, passi i1, passi i2)
+                 (case i1 of
+                      TimeAbs (_, body, _) =>
+                      (set ();
+                       subst_i_i (passi i2) body)
+		    | _ => BinOpI (opr, passi i1, passi i2)
+                 )
             )
           | UnOpI (opr, i, r) =>
             UnOpI (opr, passi i, r)

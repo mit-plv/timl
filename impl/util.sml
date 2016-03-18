@@ -178,6 +178,8 @@ fun partitionOptionFirst f xs =
             case partitionOptionFirst f xs of
                 SOME (a, rest) => SOME (a, x :: rest)
               | NONE => NONE
+
+fun b2o b = if b then SOME () else NONE
                             
 end
 
