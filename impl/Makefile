@@ -7,6 +7,7 @@ all: smlnj mlton
 mlton: main
 
 FILES = \
+cont-mlton.sml \
 util.sml \
 debug.sml \
 region.sml \

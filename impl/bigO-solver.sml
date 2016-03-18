@@ -70,6 +70,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                             val N1 = ConstIN (1, dummy)
                             fun V n = VarI (n, dummy)
                             fun to_real i = UnOpI (ToReal, i, dummy)
+                            open Cont
                         in
                             case i2 of
                                 VarI (n, _) =>
