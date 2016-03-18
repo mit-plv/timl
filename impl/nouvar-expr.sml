@@ -152,7 +152,6 @@ local
                       i1)
 	         else
                      let
-                         fun combine_AddI is = foldl' (fn (i, acc) => BinOpI (AddI, acc, i)) (T0 dummy) is
                          val i' = combine_AddI $ collect_AddI i
                      in
 		         if eq_i i' i then

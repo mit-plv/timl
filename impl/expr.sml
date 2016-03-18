@@ -273,6 +273,9 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 BinOpI (AddI, i1, i2) => collect_AddI i1 @ [i2]
               | _ => [i]
                          
+        fun combine_AddI is = foldl' (fn (i, acc) => acc %+ i) (T0 dummy) is
+        fun combine_And ps = foldl' (fn (p, acc) => acc /\ p) (True dummy) ps
+                                     
         fun str_i ctx (i : idx) : string = 
             case i of
                 VarI (x, _) => str_v ctx x
