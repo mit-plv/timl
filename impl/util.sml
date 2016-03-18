@@ -12,6 +12,7 @@ fun remove n ls = skip n 1 ls
 
 fun sprintf s ls =
     String.concat (interleave (String.fields (fn c => c = #"$") s) ls)
+fun printf s ls = print $ sprintf s ls
 fun println s = print (s ^ "\n")
 
 fun default v opt = getOpt (opt, v)

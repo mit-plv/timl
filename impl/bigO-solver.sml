@@ -37,7 +37,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
         val (vcs, vcs') = unzip $ List.mapPartial (fn (vc, out) => case out of SOME (vc', _) => SOME (vc, vc') | NONE => NONE) $ zip (vcs, SMTSolver.smt_solver "" vcs')
         val () = println "Master-Theorem-solver to solve this: "
         val () = app println $ concatMap (fn vc => str_vc false "" vc @ [""]) vcs'
-        exception Error
+        exception Error of string
         fun runError m _ =
             let
                 val ret as (f, _) = m ()
@@ -47,9 +47,9 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                 SOME ret
             end
             handle
-            Error =>
+            Error msg =>
             let
-                val () = println "Oh no! I can't solve this."
+                val () = printf "Oh no! I can't solve this because: $\n" [msg]
             in
                 NONE
             end
@@ -61,7 +61,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                      let
                          (* number of variables in context *)
                          val nx = length $ List.filter (fn h => case h of VarH _ => true | _ => false) hs'
-                         val () = if g = nx andalso m < nx then () else raise Error
+                         val () = if g = nx andalso m < nx then () else raise Error "g = nx andalso m < nx"
                          (* ToDo: check that [n_i] are well-scoped in [hs'] *)
                          (* ToDo: check that [m] doesn't appear in [n_i] *)
                          val vc' as (hyps, _) = hd vcs'
@@ -90,8 +90,8 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                            | _ => NONE
                                      val (bs, f) = partitionOption is_sub_problem is
                                      val a = length bs
-                                     val b = if null bs then raise Error else hd bs
-                                     val () = if List.all (curry op= b) (tl bs) then () else raise Error
+                                     val b = if null bs then raise Error "null bs" else hd bs
+                                     val () = if List.all (curry op= b) (tl bs) then () else raise Error "all bs eq"
                                      (* val () = if ask_smt (combine_And $ map (fn b' => b' %= b) (tl bs)) then () else raise Error *)
                                      (* fun i_to_int i = *)
                                      (*     case simp_i i of *)
@@ -127,9 +127,9 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                              val () = case i of ConstIT _ => return $ Theta_c_k (0, 0) | _ => () 
                                              val () = case i of UnOpI (ToReal, ConstIN _, _) => return $ Theta_c_k (0, 0) | _ => () 
                                              val () = if ask_smt (i %= n_) then return $ Theta_c_k (1, 0) else ()
-                                             val () = if ask_smt (i %= m_) then raise Error else ()
+                                             val () = if ask_smt (i %= m_) then raise Error "m in summarize_n" else ()
                                          in
-                                             raise Error
+                                             raise Error "summarize_n fails"
                                          end
                                      val summarize_n = callfun do_summarize_n
                                      fun do_summarize i return =
@@ -139,7 +139,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                                  case i of
                                                      BinOpI (TimeApp, BinOpI (TimeApp, f_i as VarI (f, _), m'), n') =>
                                                      let
-                                                         val () = if ask_smt (m' %= m_ /\ n' %= n_) then () else raise Error
+                                                         val () = if ask_smt (m' %= m_ /\ n' %= n_) then () else raise Error "[m' = m_ /\\ n' = n_] in summarize()"
                                                          fun match_bigO f hyps hyp =
                                                              case hyp of
                                                                  PropH (BinPred (BigO, f', g)) =>
@@ -148,7 +148,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                                          val g =
                                                              case find_hyp (forget_i_i 0 1) shift_i_i match_bigO f_i hyps of
                                                                  SOME (g, _) => g
-                                                               | NONE => raise Error
+                                                               | NONE => raise Error "find_hyp fails"
                                                      in
                                                          return $ call $ do_summarize $ simp_i (g %@ m_ %@ n_)
                                                      end
@@ -172,24 +172,25 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                      val summarize = callfun do_summarize
                                      val f = map summarize f
                                  in
-                                     raise Error
+                                     raise Error "compare_params unimplemented"
                                  end
                              open Real
                              val T = 
                                  case compare_params (a, b, f) of
                                      AB_Dom => (ExpI (V 0, (toString (Math.ln (fromInt a) / Math.ln (fromInt b)), dummy)))
-                                   | Both_Dom k => raise Error
-                                   | F_Dom => raise Error
+                                   | Both_Dom k => raise Error "Both_Dom unimplemented"
+                                   | F_Dom => raise Error "F_Dom unimplemented"
                              val ret = (T, [])
-                             val ret = (TimeAbs (("", dummy), TimeAbs (("", dummy), T0 dummy, dummy), dummy), [])
-                             val () = raise Error
+                             (* val ret = (TimeAbs (("", dummy), TimeAbs (("", dummy), T0 dummy, dummy), dummy), []) *)
+                             (* val () = raise Error *)
                          in
                              ret
                          end
                          handle
-                         Error =>
+                         Error msg =>
                          (* test the case: T m n + m + C <= T m (n + 1) *)
                          let
+                             val () = printf "Failed the 1st case because: $\nTry 2nd case ...\n" [msg]
                              val is = collect_AddI i1
                              fun par i =
                                  case i of
@@ -199,27 +200,27 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                      else NONE
                                    | _ => NONE
                              val (focus, rest) = partitionOption par is
-                             val n' = if length focus > 0 then hd focus else raise Error
-                             val () = if ask_smt (n' %+ N1 %= n_i) then () else raise Error
+                             val n' = if length focus > 0 then hd focus else raise Error "null focus"
+                             val () = if ask_smt (n' %+ N1 %= n_i) then () else raise Error "n' %+ N1 %= n_i"
                              fun only_const_or_m i =
                                  case i of
                                      ConstIT _ => ()
                                    | UnOpI (ToReal, i, _) =>
                                      (case i of
                                           ConstIN _ => ()
-                                        | VarI (m', _) => if m' = m then () else raise Error
-                                        | _ => raise Error
+                                        | VarI (m', _) => if m' = m then () else raise Error "m' = m in only_const_or_m()"
+                                        | _ => raise Error "to_real in only_const_or_m()"
                                      )
-                                   | _ => raise Error
+                                   | _ => raise Error "only_const_or_m fails"
                              val () = app only_const_or_m rest
                              val ret = (TimeAbs (("m", dummy), TimeAbs (("n", dummy), V 1 %* V 0, dummy), dummy), [])
                          in
                              ret
                          end
                      end
-                   | _ => raise Error
+                   | _ => raise Error "wrong pattern for by_master_theorem"
                 )
-              | _ => raise Error
+              | _ => raise Error "by_master_theorem allows only 1 conjunct left"
     in
         runError main ()
     end
