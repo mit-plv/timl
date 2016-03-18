@@ -11,14 +11,12 @@ front-end/timl.grm.sml
 front-end/timl.lex.sml
 front-end/parser.sml
 expr.sml
-equal.sml
+uvar-expr.sml
 elaborate.sml
-expr-region.sml
 name-resolve.sml
 subst.sml
-trivial-solver.sml
+nouvar-expr.sml
 vc.sml
-typecheck.sml
 sexp/sexp.sml
 sexp/sexp.grm.sig
 sexp/sexp.grm.sml
@@ -26,5 +24,9 @@ sexp/sexp.lex.sml
 sexp/parser.sml
 smt2-printer.sml
 smt-solver.sml
+trivial-solver.sml
+bigO-solver.sml
+typecheck.sml
 main.sml
+
 mlton-main.sml

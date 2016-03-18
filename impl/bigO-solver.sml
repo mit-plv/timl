@@ -67,7 +67,6 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                             fun ask_smt_vc vc =
                                 null $ List.mapPartial id $ SMTSolver.smt_solver "" [vc]
                             fun ask_smt p = ask_smt_vc (hyps, p)
-                                null $ List.mapPartial id $ SMTSolver.smt_solver "" [vc]
                             val N1 = ConstIN (1, dummy)
                             fun V n = VarI (n, dummy)
                             fun to_real i = UnOpI (ToReal, i, dummy)
@@ -76,6 +75,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                 VarI (n, _) =>
                                 let
                                     val () = if n < nx andalso m <> n then () else raise Error
+(*                                                                                         
                                     val is = collect_AddI i1
                                     fun get_params is =
                                         let
@@ -134,6 +134,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                           | Both_Dom k => raise Error
                                           | F_Dom => raise Error
                                     val ret = (T, [])
+*)
                                     val ret = (TimeAbs (("", dummy), TimeAbs (("", dummy), T0 dummy, dummy), dummy), [])
                                     val () = raise Error
                                 in
