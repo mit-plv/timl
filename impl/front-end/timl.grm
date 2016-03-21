@@ -86,6 +86,7 @@ open Ast
        | bar_rule_star of (ptrn * exp) list
        | rule of ptrn * exp
        | ptrn of ptrn
+       | aptrn of ptrn
        | ptrn_opt of ptrn option
        | ptrn_comma_star of ptrn list
        | comma_ptrn_star of ptrn list
@@ -217,7 +218,7 @@ bind_star : bind bind_star (bind :: bind_star)
 	  | ([])
 bind_plus : bind bind_star (bind :: bind_star)
 
-bind : ptrn (Typing (ptrn))
+bind : aptrn (Typing (aptrn))
      | LCUR id COLON sort RCUR (TBind (Sorting (id, sort, (LCURleft, RCURright))))
      | LPAREN bind RPAREN (bind)
 
@@ -247,9 +248,12 @@ bar_rule_star : BAR rule bar_rule_star (rule :: bar_rule_star)
 rule : ptrn DARROW exp ((ptrn, exp))
 
 ptrn : id idx_ids ptrn_opt (ConstrP (id, map fst idx_ids, ptrn_opt, (idleft, ptrn_optright)))
-     | LPAREN ptrn_comma_star RPAREN (TupleP (ptrn_comma_star, (LPARENleft, RPARENright)))
      | id AS ptrn (AliasP (id, ptrn, (idleft, ptrnright)))
      | ptrn COLON ty (AnnoP (ptrn, ty, (ptrnleft, tyright)))
+     | aptrn (aptrn)
+
+aptrn : LPAREN ptrn_comma_star RPAREN (TupleP (ptrn_comma_star, (LPARENleft, RPARENright)))
+      | id (ConstrP (id, [], NONE, (idleft, idright)))
 
 ptrn_opt : ptrn (SOME ptrn)
          | (NONE)
