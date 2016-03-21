@@ -48,7 +48,7 @@ local
         | E.Not (p, r) => Not (on_prop ctx p, r)
 	| E.BinConn (opr, p1, p2) => BinConn (opr, on_prop ctx p1, on_prop ctx p2)
 	| E.BinPred (opr, i1, i2) => BinPred (opr, on_idx ctx i1, on_idx ctx i2)
-        | E.Quan (q, bs, (name, r), p) => Quan (q, on_bsort bs, (name, r), on_prop (name :: ctx) p)
+        | E.Quan (q, bs, ins, (name, r), p) => Quan (q, on_bsort bs, NONE, (name, r), on_prop (name :: ctx) p)
 
     fun on_ibind f ctx (E.BindI ((name, r), inner)) = BindI ((name, r), f (name :: ctx) inner)
 

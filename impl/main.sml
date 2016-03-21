@@ -99,6 +99,7 @@ fun typecheck_file (filename, ctx) =
                   map fst unsats
               end
       val vcs = (smt_solver o bigO_solver) vcs
+      val () = println $ print_result false filename result
   in
       ctx
   end

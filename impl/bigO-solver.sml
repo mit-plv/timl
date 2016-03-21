@@ -29,7 +29,9 @@ fun forget_i_vc x n (hs, p) =
   end
 
 fun vc2prop (hs, p) =
-  foldl (fn (h, p) => case h of VarH (name, b) => Quan (Forall, Base b, (name, dummy), p) | PropH p1 => p1 --> p) p hs
+  foldl (fn (h, p) => case h of VarH (name, b) => Quan (Forall, Base b, NONE, (name, dummy), p) | PropH p1 => p1 --> p) p hs
+        
+fun hyps2ctx hs = List.mapPartial (fn h => case h of VarH (name, _) => SOME name | _ => NONE) hs
 
 fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
   let
@@ -251,7 +253,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
       
 fun infer_exists hs name1 p =
   case p of
-      Quan (Exists, Base (TimeFun arity0), (name0, _), BinConn (And, bigO as BinPred (BigO, VarI (n0, _), VarI (n1, _)), BinConn (Imply, bigO', p))) =>
+      Quan (Exists, Base (TimeFun arity0), _, (name0, _), BinConn (And, bigO as BinPred (BigO, VarI (n0, _), VarI (n1, _)), BinConn (Imply, bigO', p))) =>
       if n0 = 0 andalso n1 = 1 andalso eq_p bigO bigO' then
         (* opportunity to apply the Master Theorem *)
         let
@@ -271,7 +273,7 @@ fun infer_exists hs name1 p =
                
 fun solve_exists (vc as (hs, p)) =
   case p of
-      Quan (Exists, Base (TimeFun arity), (name, _), p) =>
+      Quan (Exists, Base (TimeFun arity), ins, (name, _), p) =>
       let
         (* val () = println "hit1" *)
         fun test_ptrn p =
@@ -285,6 +287,9 @@ fun solve_exists (vc as (hs, p)) =
                  SOME (i, vcs1) =>
                  let
                    (* ToDo: update the link in [Quan] with [i] *)
+                   val () = case ins of
+                                SOME ins => ins i
+                              | NONE => ()
                    val p2 = subst_i_p i p2
                    val vcs = split_prop p2
                    val vcs = append_hyps hs vcs

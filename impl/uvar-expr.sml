@@ -45,7 +45,7 @@ fun refine (x : ('bsort, 't) uvar_ref) (v : 't) =
 fun str_uvar n = "?" ^ str_int n
 fun str_uname uname =
   case uname of
-      NONE => "NONE"
+      NONE => "NONE_uname"
     | SOME uname =>
       (* case uname of *)
       (*     Idx ((n, _, _, _), _) => str_uvar n *)
@@ -53,7 +53,11 @@ fun str_uname uname =
       (*   | BSort n => str_uvar n *)
       case uname of
           Idx ((n, _, order, ctx), _) => sprintf "($ $ $)" [str_uvar n, str_ls id (rev ctx), str_int order]
-        | NonIdx (n, _, order, ctx) => sprintf "($ $ $)" [str_uvar n, str_ls id (rev ctx), str_int order]
+        | NonIdx (n, _, order, ctx) =>
+          if n < 0 then
+            hd ctx
+          else
+            sprintf "($ $ $)" [str_uvar n, str_ls id (rev ctx), str_int order]
         | BSort n => str_uvar n
 
 type ('bsort, 'idx) uvar_i = invisibles * ('bsort, 'idx) uvar_ref

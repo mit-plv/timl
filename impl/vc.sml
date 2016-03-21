@@ -20,11 +20,11 @@ in
 fun uniquefy_ls names = foldr (fn (name, acc) => find_unique acc name :: acc) [] names
 fun uniquefy ctx p =
     case p of
-        Quan (q, bs, (name, r), p) =>
+        Quan (q, bs, ins, (name, r), p) =>
         let
             val name = find_unique ctx name
         in
-            Quan (q, bs, (name, r), uniquefy (name :: ctx) p)
+            Quan (q, bs, ins, (name, r), uniquefy (name :: ctx) p)
         end
       | Not (p, r) => Not (uniquefy ctx p, r)
       | BinConn (opr, p1, p2) => BinConn (opr, uniquefy ctx p1, uniquefy ctx p2)
@@ -77,7 +77,7 @@ fun split_prop p =
     let
     in
         case p of
-            Quan (Forall, bs, (name, r), p) =>
+            Quan (Forall, bs, _, (name, r), p) =>
             let
                 val ps = split_prop p
                 val ps = add_hyp (VarH (name, get_base bs)) ps
