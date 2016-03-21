@@ -208,7 +208,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs = let
               Error msg =>
               (* test the case: T m n + m + C <= T m (n + 1) *)
               let
-                (* val () = printf "Failed the 1st case because: $\nTry 2nd case ...\n" [msg] *)
+                val () = printf "Failed the 1st case because: $\nTry 2nd case ...\n" [msg]
                 val is = collect_AddI i1
                 fun par i =
                     case i of
@@ -257,7 +257,7 @@ fun infer_exists hs (name1 as (_, arity1)) p =
           if n0 = 0 andalso n1 = 1 andalso eq_p bigO bigO' then
             (* opportunity to apply the Master Theorem *)
             let
-              (* val () = println "hit2" *)
+              val () = println "hit2"
               (* hoist the conjuncts that don't involve the time functions *)
               val vcs = split_prop p
               val (rest, vcs) = partitionOption (Option.composePartial (try_forget (forget_i_vc 0 1), try_forget (forget_i_vc 0 1))) vcs
@@ -275,7 +275,7 @@ fun solve_exists (vc as (hs, p)) =
     case p of
         Quan (Exists, Base (TimeFun arity), ins, (name, _), p) =>
         let
-          (* val () = println "hit1" *)
+          val () = println "hit1"
           fun test_ptrn p =
               case p of
                   BinConn (And, p1, p2) => SOME (p1, p2)

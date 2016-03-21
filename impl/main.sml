@@ -31,7 +31,7 @@ fun print_result show_region filename (((decls, ctxd, ds, ctx), vcs) : tc_result
                     header
                     @ idx_lines 
                     @ type_lines 
-                    @ time_lines 
+                    (* @ time_lines  *)
                   (* @ vc_lines *)
                   )
   in

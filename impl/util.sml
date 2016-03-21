@@ -7,7 +7,9 @@ fun interleave xs ys =
     case xs of
 	x :: xs' => x :: interleave ys xs'
       | nil => ys
-fun skip start len ls = List.take (ls, start) @ List.drop (ls, start + len)
+fun take n ls = if n < 0 then [] else if n > length ls then ls else List.take (ls, n)
+fun drop n ls = if n < 0 then ls else if n > length ls then [] else List.drop (ls, n)
+fun skip start len ls = take start ls @ drop (start + len) ls
 fun remove n ls = skip n 1 ls
 
 fun sprintf s ls =
@@ -78,7 +80,7 @@ fun allSome f xs =
          | NONE => Failed 0
       )
 
-fun to_hd i l = List.nth (l, i) :: List.take (l, i) @ List.drop (l, i + 1)
+fun to_hd i l = List.nth (l, i) :: take i l @ drop (i + 1) l
 
 exception Impossible of string
                 
