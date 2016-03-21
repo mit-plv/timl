@@ -37,7 +37,7 @@ fun ['a] split {n : Nat} (xs : {n} 'a list) return {ceil ($n/2)} _ list * {floor
                               
 datatype bool = true | false
 
-abstype idx f : {f : Fun 2 | f O _} = _ with
+absidx f : {f : Fun 2 | f O _} = _ with
 val ['a] merge =
  fn {m : Nat} (le : 'a * 'a -- $m --> bool) =>
     let
@@ -72,7 +72,7 @@ val ['a] merge =
 
                            *)
         
-abstype idx g : {g : Fun 2 | g O _} with
+absidx g : {g : Fun 2 | g O _} with
 val ['a] msort =
  fn {m : Nat} (le : 'a * 'a -- $m --> bool) =>
     let

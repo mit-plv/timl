@@ -18,7 +18,7 @@ val h =
  fn {n : Nat} (xs : {n} int list) return |> hh n => xs
 end
 
-abstype idx ff : {ff : Fun 1 | ff O (fn n => $n)} = _ with
+abstype idx ff : {ff : Fun 1 | ff O _} with
 val f =
  fn {n : Nat} (xs : {n} int list) return |> ff n =>
     let
