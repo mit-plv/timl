@@ -8,17 +8,17 @@ datatype {Nat} 'a list =
 (* val g = *)
 (*  fn {n : Nat} (xs : {n} int list) return |> O _ $n => xs *)
 
-abstype idx gg : {gg : Fun1 | gg O (fn n => $n)} = _ with
+abstype idx gg : {gg : Fun 1 | gg O (fn n => $n)} = _ with
 val g =
  fn {n : Nat} (xs : {n} int list) return |> gg n => xs
 end
 
-abstype idx hh : {hh : Fun1 | hh O (fn n => 1.0)} = _ with
+abstype idx hh : {hh : Fun 1 | hh O (fn n => 1.0)} = _ with
 val h =
  fn {n : Nat} (xs : {n} int list) return |> hh n => xs
 end
 
-abstype idx ff : {ff : Fun1 | ff O (fn n => $n)} = _ with
+abstype idx ff : {ff : Fun 1 | ff O (fn n => $n)} = _ with
 val f =
  fn {n : Nat} (xs : {n} int list) return |> ff n =>
     let
@@ -42,7 +42,7 @@ val ['a] ['b] map =
     end
 *)
 
-abstype idx g : {g : Fun1 | g O (fn n => $n)} = _ with
+abstype idx g : {g : Fun 1 | g O (fn n => $n)} = _ with
 val ['a] ['b] map = 
  fn {m : Time} (f : 'a -- m --> 'b) =>
     let

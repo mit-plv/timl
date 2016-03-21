@@ -72,7 +72,7 @@ val ['a] merge =
 
                            *)
         
-abstype idx g : {g : Fun 2 | g O _} = _ with
+abstype idx g : {g : Fun 2 | g O _} with
 val ['a] msort =
  fn {m : Nat} (le : 'a * 'a -- $m --> bool) =>
     let

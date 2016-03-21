@@ -11,7 +11,7 @@ datatype idx =
          (* | UnOpI of idx_un_op * idx * region *)
 	 | BinOpI of idx_bin_op * idx * idx * region
 	 | TTI of region
-         | TimeAbs of id * idx * region
+         | TimeAbs of id list * idx * region
          | DivI of idx * (int * region) * region
 
 datatype prop =
@@ -95,7 +95,7 @@ datatype exp =
          | Rec of id list * id * bind list * return * exp * region
          | Datatype of string * string list * sort list * constr_decl list * region
          | IdxDef of id * sort option * idx
-         | AbsIdx of id * sort option * idx * decl list * region
+         | AbsIdx of id * sort option * idx option * decl list * region
 
 type reporter = string * pos * pos -> unit
 

@@ -47,7 +47,8 @@ local
             )
 	  | S.TTI r =>
 	    TTI r
-          | S.TimeAbs (name, i, r) => TimeAbs (name, elab_i i, r)
+          | S.TimeAbs (names, i, r) =>
+            foldr (fn (name, i) => TimeAbs (name, i, r)) (elab_i i) names
 
     fun elab_p p =
 	case p of
@@ -264,9 +265,12 @@ local
             end
           | S.AbsIdx ((name, r1), s, i, decls, r) =>
             let
-                val s = default (UVarS ((), r1)) $ Option.map elab_s s
+              val s = default (UVarS ((), r1)) $ Option.map elab_s s
+              val i = case i of
+                          SOME i => elab_i i
+                        | NONE => UVarI ((), r1)
             in
-                AbsIdx (((name, r1), s, elab_i i), map elab_decl decls, r)
+                AbsIdx (((name, r1), s, i), map elab_decl decls, r)
             end
 
 in
