@@ -379,7 +379,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         fun str_mt (ctx as (sctx, kctx)) (t : mtype) : string =
             case t of
-                Arrow (t1, d, t2) => sprintf "($ -- $ -> $)" [str_mt ctx t1, str_i sctx d, str_mt ctx t2]
+                Arrow (t1, d, t2) => sprintf "($ -- $ --> $)" [str_mt ctx t1, str_i sctx d, str_mt ctx t2]
               | Unit _ => "unit"
               | Prod (t1, t2) => sprintf "($ * $)" [str_mt ctx t1, str_mt ctx t2]
               | UniI _ =>
