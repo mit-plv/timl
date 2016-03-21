@@ -5,7 +5,7 @@ val add : int -- 0.0 --> int -- 1.0 --> int = fn (a : int) (b : int) => a + b
 fun add (a : int) (b : int) return using 1.0 = a + b
 
 fun add (a : int) (b : int) = a + b using 1.0
-                                                     
+                                    
 (* datatype 'a list = *)
 (*          Nil *)
 (*        | Cons of 'a * 'a list *)
@@ -13,7 +13,7 @@ fun add (a : int) (b : int) = a + b using 1.0
 datatype {Nat} 'a list =
          Nil of unit -> {0} 'a list
        | Cons {n : Nat} of 'a * {n} 'a list -> {n + 1} 'a list
-                          
+                                                       
 (* fun map f xs = *)
 (*     case xs of *)
 (*         Nil => Nil *)
@@ -85,14 +85,14 @@ fun ['a] ['b] map {m : Time} (f : 'a -- m --> 'b) =
 
 absidx {T : Fun 2 | T O _} with
 fun ['a] ['b] map {m : Nat} (f : 'a -- $m --> 'b) =
-   let
-     fun map {n : Nat} (xs : {n} _ list) return {n} _ list using T m n =
-         case xs return {n} _ list using T m n of
-             Nil => Nil
-           | Cons {_} (x, xs) => Cons {_} (f x, map {_} xs)
-   in
-     map
-   end
+    let
+      fun map {n : Nat} (xs : {n} _ list) return {n} _ list using T m n =
+          case xs return {n} _ list using T m n of
+              Nil => Nil
+            | Cons {_} (x, xs) => Cons {_} (f x, map {_} xs)
+    in
+      map
+    end
 end
 
 fun ['a] split {n : Nat} (xs : {n} 'a list) return {ceil ($n/2)} _ list * {floor ($n/2)} _ list using $n =
