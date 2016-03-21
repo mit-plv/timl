@@ -1,15 +1,159 @@
 datatype {Nat} 'a list =
-         NilI of unit -> {0} 'a list
-         | ConsI of {n' : Nat} 'a * {n'} 'a list -> {n' + 1} 'a list
+         Nil of unit -> {0} 'a list
+         | Cons {n' : Nat} of 'a * {n'} 'a list -> {n' + 1} 'a list
 
-val ['a] ['b] map = 
- fn {m : Time} (f : 'a -- m --> 'b) =>
+val ['a] ['b] map =
+ fn {m : Nat} (f : 'a -- $m --> 'b) =>
     let
-        fun map {n : Nat} (ls : {n} _ list) return {n} _ list |> (m + 2.0) * $n =
-            case ls return {n} _ list of
-                NilI => NilI
-              | ConsI {n'} (x, xs) => ConsI {_} (f x, map {_} xs) |> (m + 2.0) * $n
+        fun map {n : Nat} (ls : {n} _ list) return {n} _ list using $(m + 2) * $n =
+            case ls return {n} _ list |> $(m + 2) * $n of
+                Nil => Nil
+              | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
     in
         map
     end
+
+(*      
+idx g : Fun 2 = fn m n => $(m + 2) * $n
+val ['a] ['b] map =
+ fn {m : Nat} (f : 'a -- $m --> 'b) =>
+    let
+        fun map {n : Nat} (ls : {n} _ list) return {n} _ list |> g m n =
+            case ls return {n} _ list |> g m n of
+                Nil => Nil
+              | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
+    in
+        map
+    end
+
+idx g : {g : Fun 2 | g O (fn m n => $m * $n)} = fn m n => $(m + 2) * $n
+val ['a] ['b] map =
+ fn {m : Nat} (f : 'a -- $m --> 'b) =>
+    let
+        fun map {n : Nat} (ls : {n} _ list) return {n} _ list |> g m n =
+            case ls return {n} _ list |> g m n of
+                Nil => Nil
+              | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
+    in
+        map
+    end
+      
+idx g : {g : Fun 2 | g O (fn m n => $m * $n)} = _
+val ['a] ['b] map =
+ fn {m : Nat} (f : 'a -- $m --> 'b) =>
+    let
+        fun map {n : Nat} (ls : {n} _ list) return {n} _ list |> g m n =
+            case ls return {n} _ list |> g m n of
+                Nil => Nil
+              | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
+    in
+        map
+    end
+      
+absidx g : {g : Fun 2 | g O (fn m n => $m * $n)} = _ with
+val ['a] ['b] map =
+ fn {m : Nat} (f : 'a -- $m --> 'b) =>
+    let
+        fun map {n : Nat} (ls : {n} _ list) return {n} _ list |> g m n =
+            case ls return {n} _ list |> g m n of
+                Nil => Nil
+              | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
+    in
+        map
+    end
+end
+
+absidx g : {g : Fun 2 | g O _} = _ with
+val ['a] ['b] map =
+ fn {m : Nat} (f : 'a -- $m --> 'b) =>
+    let
+        fun map {n : Nat} (ls : {n} _ list) return {n} _ list |> g m n =
+            case ls return {n} _ list |> g m n of
+                Nil => Nil
+              | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
+    in
+        map
+    end
+end
+*)
+
+absidx g : {g : Fun 2 | g O _} with
+val ['a] ['b] map =
+ fn {m : Nat} (f : 'a -- $m --> 'b) =>
+    let
+        fun map {n : Nat} (ls : {n} _ list) return {n} _ list |> g m n =
+            case ls return {n} _ list |> g m n of
+                Nil => Nil
+              | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
+    in
+        map
+    end
+end
+      
+val ['a] ['b] foldl =
+ fn {m : Nat} (f : 'a * 'b -- $m --> 'b) =>
+    let
+        fun foldl {n : Nat} (y : _, xs : {n} _ list) return _ |> $(m + 2) * $n =
+            case xs return |> $(m + 2) * $n of
+                Nil => y
+              | Cons {n'} (x, xs) => foldl {_} (f (x, y), xs)
+    in
+        foldl
+    end
+
+absidx h : {h : Fun 2 | h O _} with
+val ['a] ['b] foldl =
+ fn {m : Nat} (f : 'a * 'b -- $m --> 'b) =>
+    let
+        fun foldl {n : Nat} (y : _, xs : {n} _ list) return _ |> h m n =
+            case xs return |> h m n of
+                Nil => y
+              | Cons {n'} (x, xs) => foldl {_} (f (x, y), xs)
+    in
+        foldl
+    end
+end
+
+fun ['a] split {n : Nat} (xs : {n} 'a list) return {ceil ($n/2)} _ list * {floor ($n/2)} _ list |> $n =
+    case xs return {ceil ($n/2)} _ list * {floor ($n/2)} _ list |> $n of
+        Nil => (Nil, Nil)
+      | Cons {_} (x, Nil) => (xs, Nil)
+      | Cons {_} (x1, (Cons {n'} (x2, xs))) =>
+        case split {n'} xs return {ceil ($n/2)} _ list * {floor ($n/2)} _ list of
+            (xs1, xs2) => (Cons {_} (x1, xs1), Cons {_} (x2, xs2))
+                              
+datatype bool = true | false
+
+absidx f : {f : Fun 2 | f O _} with
+val ['a] merge =
+ fn {m : Nat} (le : 'a * 'a -- $m --> bool) =>
+    let
+        fun merge {n1 : Nat} {n2 : Nat} ((xs, ys) : {n1} _ list * {n2} _ list) return {n1 + n2} _ list |> f m (n1 + n2) =
+            case (xs, ys) return {n1 + n2} _ list |> f m (n1 + n2) of
+                (Nil, _) => ys
+              | (_, Nil) => xs
+              | (Cons {n1'} (x, xs'), Cons {n2'} (y, ys')) =>
+                case le (x, y) return |> 1.0 + f m (n1' + n2' + 1) of
+                    true => Cons {_} (x, merge {_} {_} (xs', ys))
+                  | false => Cons {_} (y, merge {_} {_} (xs, ys'))
+    in
+        merge
+    end
+end
+
+absidx g : {g : Fun 2 | g O _} with
+val ['a] msort =
+ fn {m : Nat} (le : 'a * 'a -- $m --> bool) =>
+    let
+        fun sort {n : Nat} (xs : {n} _ list) return {n} _ list |> g m n =
+          case xs return {n} _ list of
+              Nil => xs
+            | (Cons {_} (_, Nil)) => xs
+            | (Cons {n1} (_, Cons {n2} (_, _))) =>
+              case split {n} xs of
+                  (xs1, xs2) => merge {_} le {_} {_} (sort {_} xs1, sort {_} xs2)
+    in
+        sort
+    end
+end
 

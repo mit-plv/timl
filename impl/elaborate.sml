@@ -229,8 +229,8 @@ local
             end
           | S.Datatype (name, tnames, sorts, constrs, r) =>
             let fun default_t2 r = foldl (fn (arg, f) => S.AppTT (f, S.VarT (arg, r), r)) (S.VarT (name, r)) tnames
-                fun elab_constr (((cname, _), core, r) : S.constr_decl) : constr_decl =
-                  let val (binds, t1, t2) = default ([], S.VarT ("unit", r), SOME (default_t2 r)) core
+                fun elab_constr (((cname, _), binds, core, r) : S.constr_decl) : constr_decl =
+                  let val (t1, t2) = default (S.VarT ("unit", r), SOME (default_t2 r)) core
                       val t2 = default (default_t2 r) t2
                       fun f bind =
                         case bind of

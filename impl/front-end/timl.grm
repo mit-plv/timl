@@ -194,6 +194,7 @@ decl : VAL tname_star ptrn EQ exp (Val (tname_star, ptrn, exp, (VALleft, exprigh
     | DATATYPE cur_sort_star id_plus EQ constr_bar_star (case (map fst o rev) id_plus of id :: id_star => Datatype (id, id_star, rev cur_sort_star, constr_bar_star, (DATATYPEleft, constr_bar_starright)) | [] => raise Impossible "id_plus can't be empty")
     | TYPE IDX id optional_colon_sort EQ idx (IdxDef (id, optional_colon_sort, idx))
     | ABSIDX id optional_colon_sort optional_eq_idx WITH decl_star END (AbsIdx (id, optional_colon_sort, optional_eq_idx, decl_star, (ABSIDXleft, ENDright)))
+    | ABSIDX LCUR id COLON bsort BAR prop RCUR optional_eq_idx WITH decl_star END (AbsIdx (id, SOME (Subset (bsort, id, prop, (LCURleft, RCURright))), optional_eq_idx, decl_star, (ABSIDXleft, ENDright)))
 
 optional_eq_idx : EQ idx (SOME idx)
                 | (NONE)
@@ -270,8 +271,8 @@ quan : FORALL (Forall)
 decl_star : decl decl_star (decl :: decl_star)
 	 | ([])
 
-constr : id constr_core_opt ((id, constr_core_opt, (idleft, constr_core_optright)))
-constr_core_opt : OF sorting_star ty constr_result_opt (SOME (sorting_star, ty, constr_result_opt))
+constr : id sorting_star constr_core_opt ((id, sorting_star, constr_core_opt, (idleft, constr_core_optright)))
+constr_core_opt : OF ty constr_result_opt (SOME (ty, constr_result_opt))
                 | (NONE)
 constr_result_opt : ARROW ty (SOME (ty))
                   | (NONE)

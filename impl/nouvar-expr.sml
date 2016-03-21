@@ -313,7 +313,16 @@ local
                           *)
                  )
                | Exists =>
-                 Quan (q, bs, ins, name, passp p)
+                 let
+                   val p = passp p
+                 in
+                   case (eq_bs bs (Base Time), try_forget (forget_i_p 0 1) p) of
+                       (true, SOME p) =>
+                       (set ();
+                        (case ins of SOME f => f (T0 dummy) | NONE => ());
+                        p)
+                      | _ => Quan (q, bs, ins, name, p)
+                 end
             )
 	  | True _ => p
 	  | False _ => p

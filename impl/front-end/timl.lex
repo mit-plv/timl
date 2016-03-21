@@ -60,6 +60,7 @@ val keywords = [
     ("abstype", T.ABSTYPE),
     ("absidx", T.ABSIDX),
     ("with", T.WITH),
+    ("using", T.RTRI),
     ("as", T.AS)
 ]
  

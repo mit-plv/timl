@@ -1,0 +1,95 @@
+(* fun add (a : int) (b : int) = a + b *)
+
+val add : int -- 0.0 --> int -- 1.0 --> int = fn (a : int) (b : int) => a + b
+
+fun add (a : int) (b : int) return using 1.0 = a + b
+
+(* datatype 'a list = *)
+(*          Nil *)
+(*        | Cons of 'a * 'a list *)
+
+datatype {Nat} 'a list =
+         Nil of unit -> {0} 'a list
+       | Cons {n : Nat} of 'a * {n} 'a list -> {n + 1} 'a list
+                          
+(* fun map f xs = *)
+(*     case xs of *)
+(*         Nil => Nil *)
+(*       | Cons (x, xs) => Cons (f x, map f xs) *)
+
+(* fun map f = *)
+(*     let *)
+(*       fun map xs = *)
+(*           case xs of *)
+(*               Nil => Nil *)
+(*             | Cons (x, xs) => Cons (f x, map xs) *)
+(*     in *)
+(*       map *)
+(*     end *)
+
+fun ['a] ['b] map {m : Time} (f : 'a -- m --> 'b) =
+    let
+      fun map {n : Nat} (xs : {n} 'a list) return {n} 'b list using (m + 2.0) * $n =
+          case xs return {n} 'b list using (m + 2.0) * $n of
+              Nil => Nil
+            | Cons {n'} (x, xs) => Cons {n'} (f x, map {n'} xs)
+    in
+      map
+    end
+      
+fun ['a] ['b] map {m : Time} (f : 'a -- m --> 'b) =
+    let
+      fun map {n : Nat} (xs : {n} _ list) return {n} _ list using (m + 2.0) * $n =
+          case xs return {n} _ list using (m + 2.0) * $n of
+              Nil => Nil
+            | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
+    in
+      map
+    end
+
+(* idx T : Fun 2 = fn m n => ($m + 2.0) * $n *)
+(* fun ['a] ['b] map {m : Nat} (f : 'a -- $m --> 'b) = *)
+(*     let *)
+(*       fun map {n : Nat} (xs : {n} _ list) return {n} _ list using T m n = *)
+(*           case xs return {n} _ list using T m n of *)
+(*               Nil => Nil *)
+(*             | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs) *)
+(*     in *)
+(*       map *)
+(*     end *)
+      
+(* idx T : {T : Fun 2 | T O (fn m n => $m * $n)} = fn m n => ($m + 2.0) * $n *)
+(* fun ['a] ['b] map {m : Nat} (f : 'a -- $m --> 'b) = *)
+(*     let *)
+(*       fun map {n : Nat} (xs : {n} _ list) return {n} _ list using T m n = *)
+(*           case xs return {n} _ list using T m n of *)
+(*               Nil => Nil *)
+(*             | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs) *)
+(*     in *)
+(*       map *)
+(*     end *)
+      
+(* absidx T : {T : Fun 2 | T O (fn m n => $m * $n)} = fn m n => ($m + 2.0) * $n with *)
+(* fun ['a] ['b] map {m : Nat} (f : 'a -- $m --> 'b) = *)
+(*     let *)
+(*       fun map {n : Nat} (xs : {n} _ list) return {n} _ list using T m n = *)
+(*           case xs return {n} _ list using T m n of *)
+(*               Nil => Nil *)
+(*             | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs) *)
+(*     in *)
+(*       map *)
+(*     end *)
+(* end *)
+
+absidx {T : Fun 2 | T O _} with
+fun ['a] ['b] map {m : Nat} (f : 'a -- $m --> 'b) =
+   let
+     fun map {n : Nat} (xs : {n} _ list) return {n} _ list using T m n =
+         case xs return {n} _ list using T m n of
+             Nil => Nil
+           | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
+   in
+     map
+   end
+end
+

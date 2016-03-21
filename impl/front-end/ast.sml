@@ -55,8 +55,8 @@ fun get_region_t t =
     | AppTT (_, _, r) => r
     | AppTI (_, _, r) => r
 
-type constr_core = tbind list * ty * ty option
-type constr_decl = id * constr_core option * region
+type constr_core = ty * ty option
+type constr_decl = id * tbind list * constr_core option * region
 
 datatype ptrn =
 	 ConstrP of id * string list * ptrn option * region
