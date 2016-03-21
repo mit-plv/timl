@@ -243,25 +243,33 @@ in
   runError main ()
 end
                                                                  
-fun infer_exists hs name1 p =
-    case p of
-        Quan (Exists, Base (TimeFun arity0), _, (name0, _), BinConn (And, bigO as BinPred (BigO, VarI (n0, _), VarI (n1, _)), BinConn (Imply, bigO', p))) =>
-        if n0 = 0 andalso n1 = 1 andalso eq_p bigO bigO' then
-          (* opportunity to apply the Master Theorem *)
-          let
-            (* val () = println "hit2" *)
-            (* hoist the conjuncts that don't involve the time functions *)
-            val vcs = split_prop p
-            val (rest, vcs) = partitionOption (Option.composePartial (try_forget (forget_i_vc 0 1), try_forget (forget_i_vc 0 1))) vcs
-            val vcs = concatMap split_prop $ map (simp_p o vc2prop) vcs
-            val ret = by_master_theorem hs name1 (name0, arity0) vcs
-          in
-            case ret of
-                SOME (i, vcs) => SOME (i, append_hyps hs rest @ vcs)
-              | NONE => NONE
-          end
-        else NONE
-      | _ => NONE
+fun infer_exists hs (name1 as (_, arity1)) p =
+    if arity1 = 0 then
+      (* just to infer a Time *)
+      (case p of
+           BinPred (Le, i1 as (ConstIT _), VarI (x, _)) =>
+           if x = 0 then SOME (i1, []) else NONE
+         | _ => NONE
+      )
+    else
+      case p of
+          Quan (Exists, Base (TimeFun arity0), _, (name0, _), BinConn (And, bigO as BinPred (BigO, VarI (n0, _), VarI (n1, _)), BinConn (Imply, bigO', p))) =>
+          if n0 = 0 andalso n1 = 1 andalso eq_p bigO bigO' then
+            (* opportunity to apply the Master Theorem *)
+            let
+              (* val () = println "hit2" *)
+              (* hoist the conjuncts that don't involve the time functions *)
+              val vcs = split_prop p
+              val (rest, vcs) = partitionOption (Option.composePartial (try_forget (forget_i_vc 0 1), try_forget (forget_i_vc 0 1))) vcs
+              val vcs = concatMap split_prop $ map (simp_p o vc2prop) vcs
+              val ret = by_master_theorem hs name1 (name0, arity0) vcs
+            in
+              case ret of
+                  SOME (i, vcs) => SOME (i, append_hyps hs rest @ vcs)
+                | NONE => NONE
+            end
+          else NONE
+        | _ => NONE
                
 fun solve_exists (vc as (hs, p)) =
     case p of

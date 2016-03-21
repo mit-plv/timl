@@ -1,9 +1,11 @@
-(* fun add (a : int) (b : int) = a + b *)
+fun add (a : int) (b : int) = a + b
 
 val add : int -- 0.0 --> int -- 1.0 --> int = fn (a : int) (b : int) => a + b
 
 fun add (a : int) (b : int) return using 1.0 = a + b
 
+fun add (a : int) (b : int) = a + b using 1.0
+                                                     
 (* datatype 'a list = *)
 (*          Nil *)
 (*        | Cons of 'a * 'a list *)
