@@ -223,6 +223,8 @@ local
                 val binds = map f binds
                 val t = default (UVar ((), r)) (Option.map elab_mt t)
                 val d = default (UVarI ((), r)) (Option.map elab_i d)
+                (* (* ToDo: not sure this is a good idea *) *)
+                (* val d = default (T0 r) (Option.map elab_i d) *)
                 val e = elab e
             in
 	        Rec (tnames, name, (binds, ((t, d), e)), r)

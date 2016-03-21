@@ -100,6 +100,7 @@ fun typecheck_file (filename, ctx) =
               end
       val vcs = (smt_solver o bigO_solver) vcs
       val () = println $ print_result false filename result
+      val () = if null vcs then () else raise Error $ str_error "Error" filename dummy ["Undischarged proof obligations"]                       
   in
       ctx
   end

@@ -1900,7 +1900,8 @@ local
                 (* ToDo: possibly unsound *)
                 (unify_i r [] (i, T0 dummy);
                  N.ConstIT ("0.0", r))
-                handle _ => raise error i
+                handle _ =>
+                       raise error i
       in
         f i
       end

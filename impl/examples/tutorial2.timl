@@ -126,7 +126,7 @@ fun ['a] msort {m : Nat} (lt : 'a * 'a -- $m --> bool) =
     let
       fun msort {n : Nat} (xs : {n} 'a list) return {n} _ list using T3 m n =
           case xs of
-              Nil => Nil
+              Nil => xs
             | Cons {_} _ =>
               case split {_} xs of
                   (xs1, xs2) => merge {_} lt {_} {_} (msort {_} xs1) (msort {_} xs2)
