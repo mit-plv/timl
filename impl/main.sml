@@ -13,7 +13,8 @@ fun print_result show_region filename (((decls, ctxd, ds, ctx), vcs) : tc_result
   let 
       val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
       val header =
-          sprintf "Typechecked $" [filename] ::
+          (* sprintf "Typechecked $" [filename] :: *)
+          sprintf "Typechecking results for $:" [filename] ::
           [""]
       val idx_lines =
           (List.concat o map (fn (name, s) => [sprintf "$ : $" [name, str_s sctxn s], ""]) o rev o #1) ctxd
@@ -54,7 +55,7 @@ fun typecheck_file (filename, ctx) =
       val result as ((decls, ctxd, ds, ctx), vcs) = typecheck_decls ctx decls
       (* val () = write_file (filename ^ ".smt2", to_smt2 vcs) *)
       (* val () = println $ print_result false filename result *)
-      val () = println $ sprintf "Generated $ proof obligations." [str_int $ length vcs]
+      val () = println $ sprintf "Type checker generated $ proof obligations." [str_int $ length vcs]
       val () = app println $ concatMap (fn vc => VC.str_vc false filename vc @ [""]) vcs
       fun print_unsat show_region filename (vc, counter) =
         VC.str_vc show_region filename vc @
@@ -82,8 +83,8 @@ fun typecheck_file (filename, ctx) =
                   val () = println "Applying BigO solver ..."
                   val vcs = BigOSolver.solve_vcs vcs
                   val () = println (sprintf "BigO solver generated or left $ proof obligations unproved." [str_int $ length vcs])
-                  (* val () = println "" *)
-                  (* val () = print_unsats false filename $ map (fn vc => (vc, SOME [])) vcs *)
+                  val () = println ""
+                  val () = print_unsats false filename $ map (fn vc => (vc, SOME [])) vcs
               in
                   vcs
               end
@@ -100,8 +101,11 @@ fun typecheck_file (filename, ctx) =
                   map fst unsats
               end
       val vcs = (smt_solver o bigO_solver) vcs
-      val () = println $ print_result false filename result
-      val () = if null vcs then () else raise Error $ str_error "Error" filename dummy ["Unproved obligations"]                       
+      val () = print $ print_result false filename result
+      val () = if null vcs then
+                 println $ "Typechecked."
+               else
+                 raise Error $ (* str_error "Error" filename dummy *) join_lines $ (["Typecheck Error: Unproved obligations:", ""] @ concatMap (fn vc => str_vc true filename vc @ [""]) vcs)
   in
       ctx
   end
