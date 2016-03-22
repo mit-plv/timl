@@ -53,7 +53,7 @@ fun typecheck_file (filename, ctx) =
       (* val () = (app println o map (suffix "\n") o fst o UnderscoredExpr.str_decls ctxn) decls *)
       val result as ((decls, ctxd, ds, ctx), vcs) = typecheck_decls ctx decls
       (* val () = write_file (filename ^ ".smt2", to_smt2 vcs) *)
-      val () = println $ print_result false filename result
+      (* val () = println $ print_result false filename result *)
       val () = println $ sprintf "Generated $ proof obligations." [str_int $ length vcs]
       val () = app println $ concatMap (fn vc => VC.str_vc false filename vc @ [""]) vcs
       fun print_unsat show_region filename (vc, counter) =
@@ -66,7 +66,8 @@ fun typecheck_file (filename, ctx) =
                  map (fn (name, value) => sprintf "$ = $" [name, value]) assigns @
                  [""]        
              else []
-           | NONE => ["SMT solver reported 'unknown': can't prove and can't find counter example\n"]
+           (* | NONE => ["SMT solver reported 'unknown': can't prove and can't find counter example\n"] *)
+           | NONE => []
         ) 
       fun print_unsats show_region filename unsats =
           if length unsats > 0 then
@@ -100,7 +101,7 @@ fun typecheck_file (filename, ctx) =
               end
       val vcs = (smt_solver o bigO_solver) vcs
       val () = println $ print_result false filename result
-      val () = if null vcs then () else raise Error $ str_error "Error" filename dummy ["Undischarged proof obligations"]                       
+      val () = if null vcs then () else raise Error $ str_error "Error" filename dummy ["Unproved obligations"]                       
   in
       ctx
   end
@@ -139,6 +140,7 @@ fun main (prog_name, args : string list) : int =
   handle
   TiML.Error msg => (println msg; 1)
   | Impossible msg => (println ("Impossible: " ^ msg); 1)
+  | _ => (println ("Internal error"); 1)
 
 end
 
