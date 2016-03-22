@@ -1,6 +1,6 @@
 datatype {Nat} 'a list =
-         Nil of unit -> {0} 'a list
-         | Cons {n' : Nat} of 'a * {n'} 'a list -> {n' + 1} 'a list
+         Nil of unit --> {0} 'a list
+         | Cons {n' : Nat} of 'a * {n'} 'a list --> {n' + 1} 'a list
 
 val ['a] ['b] map =
  fn {m : Nat} (f : 'a -- $m --> 'b) =>

@@ -1686,10 +1686,25 @@ local
         (e, t', d)
       end
 
+  and smart_write_le ctx (i1, i2, r) =
+      let
+        fun is_fresh_i i =
+            case i of
+                UVarI ((_, x), _) =>
+                (case !x of
+                     Fresh _ => true
+                   | Refined _ => false
+                )
+              | _ => false
+      in
+        if is_fresh_i i1 orelse is_fresh_i i2 then unify_i r ctx (i1, i2)
+        else write_le (i1, i2, r)
+      end
+        
   and check_time (ctx as (sctx, kctx, cctx, tctx), e, d) : expr * mtype =
       let 
 	val (e, t, d') = get_mtype (ctx, e)
-        val () = write_le (d', d, get_region_e e)
+        val () = smart_write_le (names sctx) (d', d, get_region_e e)
       in
         (e, t)
       end
@@ -1701,7 +1716,7 @@ local
 	val (e, _, d') = check_mtype (ctx, e, t)
         (* val () = println "check type & time" *)
         (* val () = println $ str_region "" "ilist.timl" $ get_region_e e *)
-        val () = write_le (d', d, get_region_e e)
+        val () = smart_write_le (names sctx) (d', d, get_region_e e)
       in
 	e
       end
@@ -1897,10 +1912,10 @@ local
               | TTI r => N.TTI r
               | TimeAbs (name, i, r) => N.TimeAbs (name, f i, r)
               | UVarI (_, r) =>
-                (* ToDo: possibly unsound *)
-                (unify_i r [] (i, T0 dummy);
-                 N.ConstIT ("0.0", r))
-                handle _ =>
+                (* (* ToDo: possibly unsound *) *)
+                (* (unify_i r [] (i, T0 dummy); *)
+                (*  N.ConstIT ("0.0", r)) *)
+                (* handle _ => *)
                        raise error i
       in
         f i

@@ -2,9 +2,15 @@ fun add a b = a + b
                        
 fun add (a, b) = a + b
 
+val add : int * int -- 1.0 --> int = fn (a, b) => a + b
+
+val add : int * int -> int = fn (a, b) => a + b
+
 val add : int -- 0.0 --> int -- 1.0 --> int = fn a b => a + b
 
-val add : int * int -- 1.0 --> int = fn (a, b) => a + b
+val add : int -- _ --> int -- _ --> int = fn a b => a + b
+
+val add : int -> int -> int = fn a b => a + b
 
 fun add a b return using 1.0 = a + b
 
@@ -15,8 +21,8 @@ fun add a b = a + b using 1.0
 (*        | Cons of 'a * 'a list *)
 
 datatype {Nat} 'a list =
-         Nil of unit -> {0} 'a list
-       | Cons {n : Nat} of 'a * {n} 'a list -> {n + 1} 'a list
+         Nil of {0} 'a list
+       | Cons {n : Nat} of 'a * {n} 'a list --> {n + 1} 'a list
                                                        
 (* fun map f xs = *)
 (*     case xs of *)

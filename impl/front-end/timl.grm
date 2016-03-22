@@ -142,6 +142,7 @@ open Ast
 start : decl_star (decl_star)
 
 ty : ty DDASH idx LARROW ty (Arrow (ty1, idx, ty2, (ty1left, ty2right)))
+   | ty ARROW ty (Arrow (ty1, VarI ("_", (ty1left, ty2right)), ty2, (ty1left, ty2right)))
    | ty MULT ty (Prod (ty1, ty2, (ty1left, ty2right)))
    | id (VarT id)
    | quan tbind_plus COMMA ty (Quan (quan, tbind_plus, ty, (quanleft, tyright)))
@@ -278,7 +279,8 @@ decl_star : decl decl_star (decl :: decl_star)
 constr : id sorting_star constr_core_opt ((id, sorting_star, constr_core_opt, (idleft, constr_core_optright)))
 constr_core_opt : OF ty constr_result_opt (SOME (ty, constr_result_opt))
                 | (NONE)
-constr_result_opt : ARROW ty (SOME (ty))
+constr_result_opt : LARROW ty (SOME (ty))
+(* constr_result_opt : ARROW ty (SOME (ty)) *)
                   | (NONE)
 
 cur_sort_star : LCUR sort RCUR cur_sort_star (sort :: cur_sort_star)
