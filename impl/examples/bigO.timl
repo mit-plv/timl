@@ -1,6 +1,6 @@
 datatype {Nat} 'a list =
-         nil of unit -> {0} 'a list
-         | cons of {n : Nat} 'a * {n} 'a list -> {n + 1} 'a list
+         nil of {0} 'a list
+         | cons {n : Nat} of 'a * {n} 'a list --> {n + 1} 'a list
 
 (* val g = *)
 (*  fn {n : Nat} (xs : {n} int list) return |> 0.0 => xs *)
@@ -8,17 +8,17 @@ datatype {Nat} 'a list =
 (* val g = *)
 (*  fn {n : Nat} (xs : {n} int list) return |> O _ $n => xs *)
 
-abstype idx gg : {gg : Fun 1 | gg O (fn n => $n)} = _ with
+absidx gg : {gg : Fun 1 | gg O (fn n => $n)} with
 val g =
  fn {n : Nat} (xs : {n} int list) return |> gg n => xs
 end
 
-abstype idx hh : {hh : Fun 1 | hh O (fn n => 1.0)} = _ with
+absidx hh : {hh : Fun 1 | hh O (fn n => 1.0)} with
 val h =
  fn {n : Nat} (xs : {n} int list) return |> hh n => xs
 end
 
-abstype idx ff : {ff : Fun 1 | ff O _} with
+absidx ff : {ff : Fun 1 | ff O _} with
 val f =
  fn {n : Nat} (xs : {n} int list) return |> ff n =>
     let
@@ -40,9 +40,8 @@ val ['a] ['b] map =
     in
         map
     end
-*)
 
-abstype idx g : {g : Fun 1 | g O (fn n => $n)} = _ with
+absidx g : {g : Fun 1 | g O (fn n => $n)} = _ with
 val ['a] ['b] map = 
  fn {m : Time} (f : 'a -- m --> 'b) =>
     let
@@ -54,6 +53,7 @@ val ['a] ['b] map =
         map
     end
 end
+*)
 
 (* val g =  *)
 (*     let *)
