@@ -8,4 +8,6 @@ Done. 7. Type inference
 Done. 8. Idx inference
 9. Allow [datatype] to have idx arguments that don't change.
 Done. 10. Multi-argument idx functions.
-11. Add an optional idx to [Quan], to link the remaining unification variables in types and the witnesses found by the Master Theorem solver.
+Done. 11. Add an optional idx to [Quan], to link the remaining unification variables in types and the witnesses found by the Master Theorem solver.
+12. Infer by Master Theorem then check.
+13. Single variable Master Theorem case.
