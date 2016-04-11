@@ -68,223 +68,185 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
       fun main () =
           case vcs of
               [vc as (hs', p)] =>
-              (case p of
-                   BinPred (LeP, i1, BinOpI (TimeApp, BinOpI (TimeApp, VarI (g, _), VarI (m, _)), n_i)) =>
-                   let
-                     (* number of variables in context *)
-                     val nx = length $ List.filter (fn h => case h of VarH _ => true | _ => false) hs'
-                     val () = if g = nx andalso m < nx then () else raise Error "g = nx andalso m < nx fails"
-                     (* ToDo: check that [n_i] are well-scoped in [hs'] *)
-                     (* ToDo: check that [m] doesn't appear in [n_i] *)
-                     val vc' as (hyps, _) = hd vcs'
-                     fun ask_smt_vc vc =
-                         null $ List.mapPartial id $ SMTSolver.smt_solver "" [vc]
-                     fun ask_smt p = ask_smt_vc (hyps, p)
-                     val N1 = ConstIN (1, dummy)
-                     fun V n = VarI (n, dummy)
-                     fun to_real i = UnOpI (ToReal, i, dummy)
-                     val m_i = V m
-                     val m_ = to_real m_i
-                     val n_ = to_real n_i
-                   in
-                     (* test the case: a * T m (n/b) + f m n <= T m n  *)
-                     let
-                       val is = collect_AddI i1
-                       fun get_params is =
-                           let
-                             (* find terms of the form [T m (ceil (n/b))] (or respectively for [floor]) *)
-                             fun is_sub_problem i =
-                                 case i of
-                                     BinOpI (TimeApp, BinOpI (TimeApp, VarI (g', _), VarI (m', _)), UnOpI (opr, DivI (n', (b, _)), _)) =>
-                                     if g' = g andalso m' = m andalso (opr = Ceil orelse opr = Floor) andalso ask_smt (n' %= n_) then
-                                       SOME b
-                                     else NONE
-                                   | _ => NONE
-                             val (bs, f) = partitionOption is_sub_problem is
-                             val a = length bs
-                             val b = if null bs then raise Error "null bs" else hd bs
-                             (* val () = if ask_smt (combine_And $ map (fn b' => b' %= b) (tl bs)) then () else raise Error *)
-                             (* fun i_to_int i = *)
-                             (*     case simp_i i of *)
-                             (*         ConstIN (n, _) => SOME n *)
-                             (*       | _ => NONE *)
-                             (* val b = case findOption i_to_int bs of SOME b => b | NONE => raise Error *)
-                             val () = if List.all (curry op= b) (tl bs) then () else raise Error "all bs eq"
-                           in
-                             (a, b, f)
-                           end
-                       val (a, b, fs) = get_params is
-                       (* try to describe each term in one of the following three cases *)
-                       datatype asym_case =
-                                (* O (n^c) *)
-                                O_c of int
-                                (* \Theta (n^c * (lg n)^k) *)
-                                | Theta_c_k of int * int
-                                (* \Omega (n^c) *)
-                                | Omega_c of int 
-                       local
-                         open Cont
-                       in
-                       fun call f = callcc (fn k => f (fn v => throw k v))
-                       fun callfun f = call o f
-                       end
-                       (* summarize into asym class, where [n_] is the only variable *)
-                       fun do_summarize_n i return =
-                           let
-                             val () = case i of ConstIT _ => return $ Theta_c_k (0, 0) | _ => () 
-                             val () = case i of UnOpI (ToReal, ConstIN _, _) => return $ Theta_c_k (0, 0) | _ => () 
-                             val () = if ask_smt (i %= n_) then return $ Theta_c_k (1, 0) else ()
-                             val () = if ask_smt (i %= m_) then raise Error "m in summarize_n" else ()
-                           in
-                             raise Error "summarize_n fails"
-                           end
-                       val summarize_n = callfun do_summarize_n
-                       (* summarize into asym class, where [n_] and [m_] are variables *)
-                       fun do_summarize i return =
-                           let
-                             (* test for [f m n] where [f]'s bigO class is known *)
-                             val () =
-                                 case i of
-                                     BinOpI (TimeApp, BinOpI (TimeApp, f_i as VarI (f, _), m'), n') =>
-                                     let
-                                       val () = if ask_smt (m' %= m_ /\ n' %= n_) then () else raise Error "[m' = m_ /\\ n' = n_] in summarize()"
-                                       val g =
-                                           case find_bigO_hyp f_i hyps of
-                                               SOME (g, _) => g
-                                             | NONE => raise Error "find_hyp fails"
-                                     in
-                                       return $ call $ do_summarize $ simp_i (g %@ m_ %@ n_)
-                                     end
-                                   | _ => ()
-                             (* test for [ ... * m * ... ] *)
-                             val () =
-                                 case i of
-                                     BinOpI (MultI, i1, i2) =>
-                                     let
-                                       val is = collect_MultI i
-                                     in
-                                       case partitionOptionFirst (fn i => b2o $ ask_smt (i %= m_)) is of
-                                           SOME (_, rest) => return $ summarize_n $ combine_MultI rest
-                                         | NONE => ()
-                                     end
-                                   | _ => ()
-                             val () = if ask_smt (i %<= m_) then return $ Theta_c_k (0, 0) else ()
-                           in
-                             summarize_n i
-                           end
-                       val summarize = callfun do_summarize
-                       val classes = map summarize fs
-                       fun max_class (a, b) =
-                           case a of
-                               O_c c1 =>
-                               (case b of
-                                    O_c c2 => O_c (max c1 c2)
-                                  | Theta_c_k (c2, _) => if c1 <= c2 then b else O_c c1
-                                  | Omega_c c2 => if c1 = c2 then Theta_c_k (c1, 0) else Omega_c c2
-                               )
-                             | Theta_c_k (c1, k1) =>
-                               (case b of
-                                    O_c c2 => max_class (b, a)
-                                  | Theta_c_k (c2, k2) => if c1 = c2 then Theta_c_k (c1, max k1 k2) else if c1 > c2 then a else b
-                                  | Omega_c c2 => Omega_c (max c1 c2)
-                               )
-                             | Omega_c _ => max_class (b, a)
-                       val cls = foldl' max_class (Theta_c_k (0, 0)) classes
-                       fun exp n i = combine_MultI (repeat n i)
-                       val int_add = op+
-                       open Real
-                       val log_b_a = Math.ln (fromInt a) / Math.ln (fromInt b)
-                       val T =
-                           case cls of
-                               O_c c =>
-                               if fromInt c < log_b_a then
-                                 ExpI (to_real (V 0), (toString log_b_a, dummy))
-                               else raise Error "O(n^c), c >= log_b a"
-                             | Theta_c_k (c, k) =>
-                               if fromInt c == log_b_a then
-                                 exp c (to_real (V 0)) %* exp (int_add (k, 1)) (UnOpI (Log2, to_real (V 0), dummy))
-                               else raise Error "Theta(n^c * log^k (n)), c = log_b a"
-                             | Omega_c c =>
-                               if fromInt c > log_b_a then
-                                 if eq_i n_i (V 0) then
-                                   combine_MultI fs
-                                 else raise Error "Omega(n^c), c = log_b a, n_i not (V 0)"
-                               else raise Error "Omega(n^c), c <= log_b a"
-                       val T = TimeAbs (("m", dummy), TimeAbs (("n", dummy), simp_i (to_real (V 1) %* T), dummy), dummy)
-                       (* val ret = (TimeAbs (("", dummy), TimeAbs (("", dummy), T0 dummy, dummy), dummy), []) *)
-                       (* val () = raise Error *)
-                       val ret = (T, [])
-                     in
-                       ret
-                     end
-                     handle
-                     Error msg =>
-                     (* test the case: T m n + m + C <= T m (n + 1) *)
-                     let
-                       val () = printf "Failed the 1st case because: $\nTry 2nd case ...\n" [msg]
-                       val is = collect_AddI i1
-                       fun par i =
-                           case i of
-                               BinOpI (TimeApp, BinOpI (TimeApp, VarI (g', _), VarI (m', _)), n') =>
-                               if g' = g andalso m' = m then
-                                 SOME n'
-                               else NONE
-                             | _ => NONE
-                       val (focus, rest) = partitionOption par is
-                       val n' = if length focus > 0 then hd focus else raise Error "null focus"
-                       val () = if ask_smt (n' %+ N1 %= n_i) then () else raise Error "n' %+ N1 %= n_i"
-                       fun only_const_or_m i =
-                           case i of
-                               ConstIT _ => ()
-                             | UnOpI (ToReal, i, _) =>
-                               (case i of
-                                    ConstIN _ => ()
-                                  | VarI (m', _) => if m' = m then () else raise Error "m' = m in only_const_or_m()"
-                                  | _ => raise Error "to_real in only_const_or_m()"
-                               )
-                             | _ => raise Error "only_const_or_m fails"
-                       val () = app only_const_or_m rest
-                       val ret = (TimeAbs (("m", dummy), TimeAbs (("n", dummy), to_real (V 1) %* to_real (V 0), dummy), dummy), [])
-                     in
-                       ret
-                     end
-                   end
-                     (*
-                 | BinPred (LeP, i1, BinOpI (TimeApp, VarI (g, _), VarI (n, _))) =>
-                   if isSome $ try_forget (forget_i_i g 1) i1 then
-                     let
-                       val nx = length $ List.filter (fn h => case h of VarH _ => true | _ => false) hs'
-                       val () = if g = nx then () else raise Error "g = nx fails"
-                       val (hyps, _) = hd vcs'
-                       fun use_bigO_hyp i =
-                           case i of
-                               BinOpI (TimeApp, VarI (f, _), VarI (n', _)) =>
-                               if f > nx andalso n' = n then
-                                 case find_bigO_hyp f hyps of
-                                     SOME (f', _) => simp_i $ f' %@ V n
-                                   | NONE => i
-                               else i
-                       fun term_le a b =
-                       fun term_max a b =
-                           if term_le a b then b
-                           else if term_le b a then a
-                           else raise Error "can't compare terms"
-                       fun get_highest_term i =
-                           let
-                             val is = collect_AddI i
-                             val is = map use_bigO_hyp is
-                           in
-                             foldl term_max T1 is
-                           end
-                       val T = get_highest_term i1
-                     in
-                       (T, [])
-                     end
-                   else
-                     raise Error "wrong pattern for by_master_theorem 1"
-*)
-                 | _ => raise Error "wrong pattern for by_master_theorem"
-              )
+              let
+                (* number of variables in context *)
+                val nx = length $ List.filter (fn h => case h of VarH _ => true | _ => false) hs'
+                val vc' as (hyps, _) = hd vcs'
+                fun ask_smt_vc vc =
+                    null $ List.mapPartial id $ SMTSolver.smt_solver "" [vc]
+                fun ask_smt p = ask_smt_vc (hyps, p)
+                val N1 = ConstIN (1, dummy)
+                fun V n = VarI (n, dummy)
+                fun to_real i = UnOpI (ToReal, i, dummy)
+                local
+                  open Cont
+                in
+                fun call f = callcc (fn k => f (fn v => throw k v))
+                end
+                (* summarize [i] in the form n^c*(log n)^k, and (c, k) will be the [i]'s "asymptotic class". [n] is the only variable. *)
+                fun do_summarize_n n i return =
+                    let
+                      val () = case i of ConstIT _ => return $ (0, 0) | _ => () 
+                      val () = case i of UnOpI (ToReal, ConstIN _, _) => return $ (0, 0) | _ => () 
+                      val () = if ask_smt (i %= n) then return $ (1, 0) else ()
+                    in
+                      raise Error "summarize_n fails"
+                    end
+                fun summarize_n n i = call (do_summarize_n n i)
+                fun join_class (a as (c1, k1), b as (c2, k2)) =
+                    if c1 = c2 then (c1, max k1 k2) else if c1 > c2 then a else b
+                fun exp n i = combine_MultI (repeat n i)
+                fun class2term (c, k) n =
+                    exp c n %* exp k (UnOpI (Log2, n, dummy))
+              in
+                case p of
+                    BinPred (LeP, i1, BinOpI (TimeApp, BinOpI (TimeApp, VarI (g, _), VarI (m, _)), n_i)) =>
+                    let
+                      val () = if g = nx then () else raise Error "g = nx fails"
+                      val () = if m < nx then () else raise Error "m < nx fails"
+                      (* ToDo: check that [n_i] are well-scoped in [hs'] *)
+                      (* ToDo: check that [m] doesn't appear in [n_i] *)
+                      val m_i = V m
+                      val m_ = to_real m_i
+                      val n_ = to_real n_i
+                    in
+                      (* test the case: a * T m (n/b) + f m n <= T m n  *)
+                      let
+                        val is = collect_AddI i1
+                        fun get_params is =
+                            let
+                              (* find terms of the form [T m (ceil (n/b))] (or respectively for [floor]) *)
+                              fun is_sub_problem i =
+                                  case i of
+                                      BinOpI (TimeApp, BinOpI (TimeApp, VarI (g', _), VarI (m', _)), UnOpI (opr, DivI (n', (b, _)), _)) =>
+                                      if g' = g andalso m' = m andalso (opr = Ceil orelse opr = Floor) andalso ask_smt (n' %= n_) then
+                                        SOME b
+                                      else NONE
+                                    | _ => NONE
+                              val (bs, f) = partitionOption is_sub_problem is
+                              val a = length bs
+                              val b = if null bs then raise Error "null bs" else hd bs
+                              (* val () = if ask_smt (combine_And $ map (fn b' => b' %= b) (tl bs)) then () else raise Error *)
+                              (* fun i_to_int i = *)
+                              (*     case simp_i i of *)
+                              (*         ConstIN (n, _) => SOME n *)
+                              (*       | _ => NONE *)
+                              (* val b = case findOption i_to_int bs of SOME b => b | NONE => raise Error *)
+                              val () = if List.all (curry op= b) (tl bs) then () else raise Error "all bs eq"
+                            in
+                              (a, b, f)
+                            end
+                        val (a, b, fs) = get_params is
+                        (* if [i] is [f m n] where [f]'s bigO spec is known, replace [f] with its bigO spec *)
+                        fun use_bigO_hyp i =
+                            case i of
+                                BinOpI (TimeApp, BinOpI (TimeApp, f_i as VarI (f, _), m'), n') =>
+                                if f > nx andalso ask_smt (m' %= m_ /\ n' %= n_) then
+                                  case find_bigO_hyp f_i hyps of
+                                      SOME (g, _) => simp_i (g %@ m_ %@ n_)
+                                    | NONE => i
+                                else i
+                              | _ => i
+                        val fs = map use_bigO_hyp fs
+                        (* summarize into asym class, where [n_] and [m_] are variables *)
+                        fun do_summarize i return =
+                            let
+                              (* test for [ ... * m * ... ] *)
+                              val () =
+                                  case i of
+                                      BinOpI (MultI, i1, i2) =>
+                                      let
+                                        val is = collect_MultI i
+                                      in
+                                        case partitionOptionFirst (fn i => b2o $ ask_smt (i %= m_)) is of
+                                            SOME (_, rest) => return $ summarize_n n_ $ combine_MultI rest
+                                          | NONE => ()
+                                      end
+                                    | _ => ()
+                              val () = if ask_smt (i %<= m_) then return $ (0, 0) else ()
+                            in
+                              summarize_n n_ i
+                            end
+                        fun callfun f = call o f
+                        val summarize = callfun do_summarize
+                        val classes = map summarize fs
+                        val (c, k) = foldl' join_class ((0, 0)) classes
+                        val int_add = op+
+                        open Real
+                        val log_b_a = Math.ln (fromInt a) / Math.ln (fromInt b)
+                        val T =
+                            if fromInt c < log_b_a then
+                              ExpI (to_real (V 0), (toString log_b_a, dummy))
+                            else if fromInt c == log_b_a then
+                              class2term (c, int_add (k, 1)) (to_real (V 0))
+                            else if fromInt c > log_b_a then
+                              class2term (c, k) (to_real (V 0))
+                            else raise Error "can't compare c and (log_b a)"
+                        val T = TimeAbs (("m", dummy), TimeAbs (("n", dummy), simp_i (to_real (V 1) %* T), dummy), dummy)
+                        (* val ret = (TimeAbs (("", dummy), TimeAbs (("", dummy), T0 dummy, dummy), dummy), []) *)
+                        (* val () = raise Error *)
+                        val ret = (T, [])
+                      in
+                        ret
+                      end
+                      handle
+                      Error msg =>
+                      (* test the case: T m n + m + C <= T m (n + 1) *)
+                      let
+                        val () = printf "Failed the 1st case because: $\nTry 2nd case ...\n" [msg]
+                        val is = collect_AddI i1
+                        fun par i =
+                            case i of
+                                BinOpI (TimeApp, BinOpI (TimeApp, VarI (g', _), VarI (m', _)), n') =>
+                                if g' = g andalso m' = m then
+                                  SOME n'
+                                else NONE
+                              | _ => NONE
+                        val (focus, rest) = partitionOption par is
+                        val n' = if length focus > 0 then hd focus else raise Error "null focus"
+                        val () = if ask_smt (n' %+ N1 %= n_i) then () else raise Error "n' %+ N1 %= n_i"
+                        fun only_const_or_m i =
+                            case i of
+                                ConstIT _ => ()
+                              | UnOpI (ToReal, i, _) =>
+                                (case i of
+                                     ConstIN _ => ()
+                                   | VarI (m', _) => if m' = m then () else raise Error "m' = m in only_const_or_m()"
+                                   | _ => raise Error "to_real in only_const_or_m()"
+                                )
+                              | _ => raise Error "only_const_or_m fails"
+                        val () = app only_const_or_m rest
+                        val ret = (TimeAbs (("m", dummy), TimeAbs (("n", dummy), to_real (V 1) %* to_real (V 0), dummy), dummy), [])
+                      in
+                        ret
+                      end
+                    end
+                  | BinPred (LeP, i1, BinOpI (TimeApp, VarI (g, _), n_i)) =>
+                    if isSome $ try_forget (forget_i_i g 1) i1 then
+                      let
+                        val () = if g = nx then () else raise Error "g = nx fails"
+                        val n_ = to_real n_i
+                        fun use_bigO_hyp i =
+                            case i of
+                                BinOpI (TimeApp, f_i as VarI (f, _), n') =>
+                                if f > nx andalso ask_smt (n' %= n_) then
+                                  case find_bigO_hyp f_i hyps of
+                                      SOME (f', _) => simp_i $ f' %@ n_
+                                    | NONE => i
+                                else i
+                              | _ => i
+                        val is = collect_AddI i1
+                        val is = map use_bigO_hyp is
+                        val classes = map (summarize_n n_) is
+                        val cls = foldl join_class (0, 0) classes
+                        val T = TimeAbs (("n", dummy), simp_i $ class2term cls (to_real (V 0)), dummy)
+                      in
+                        (T, [])
+                      end
+                    else
+                      raise Error "wrong pattern for by_master_theorem 1"
+                  | _ => raise Error "wrong pattern for by_master_theorem"
+              end
             | _ => raise Error "by_master_theorem allows only 1 conjunct left"
     in
       runError main ()
