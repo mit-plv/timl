@@ -314,13 +314,28 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
     in
       runError main ()
     end
-      
+
+fun use_master_theorem hs name_arity1 (name0, arity0) p =
+    (* opportunity to apply the Master Theorem to infer the bigO class *)
+    let
+      val () = println "use_master_theorem ()"
+      (* hoist the conjuncts that don't involve the time functions *)
+      val vcs = split_prop p
+      val (rest, vcs) = partitionOption (Option.composePartial (try_forget (forget_i_vc 0 1), try_forget (forget_i_vc 0 1))) vcs
+      val vcs = concatMap split_prop $ map (simp_p o vc2prop) vcs
+      val ret = by_master_theorem hs name_arity1 (name0, arity0) vcs
+    in
+      case ret of
+          SOME (i, vcs) => SOME (i, append_hyps hs rest @ vcs)
+        | NONE => NONE
+    end
+    
 fun split_and p =
     case p of
         BinConn (And, p1, p2) => (p1, p2)
       | _ => (p, True dummy)
                
-fun infer_exists hs (name1 as (_, arity1)) p =
+fun infer_exists hs (name_arity1 as (_, arity1)) p =
     if arity1 = 0 then
       (* just to infer a Time *)
       (case p of
@@ -332,19 +347,7 @@ fun infer_exists hs (name1 as (_, arity1)) p =
       case p of
           Quan (Exists, Base (TimeFun arity0), _, (name0, _), BinConn (And, bigO as BinPred (BigO, VarI (n0, _), VarI (n1, _)), BinConn (Imply, bigO', p))) =>
           if n0 = 0 andalso n1 = 1 andalso eq_p bigO bigO' then
-            (* opportunity to apply the Master Theorem to infer the bigO class *)
-            let
-              val () = println "hit2"
-              (* hoist the conjuncts that don't involve the time functions *)
-              val vcs = split_prop p
-              val (rest, vcs) = partitionOption (Option.composePartial (try_forget (forget_i_vc 0 1), try_forget (forget_i_vc 0 1))) vcs
-              val vcs = concatMap split_prop $ map (simp_p o vc2prop) vcs
-              val ret = by_master_theorem hs name1 (name0, arity0) vcs
-            in
-              case ret of
-                  SOME (i, vcs) => SOME (i, append_hyps hs rest @ vcs)
-                | NONE => NONE
-            end
+            use_master_theorem hs name_arity1 (name0, arity0) p
           else NONE
         | BinPred (BigO, VarI (x, _), f) =>
           if x = 0 then
@@ -356,34 +359,54 @@ fun infer_exists hs (name1 as (_, arity1)) p =
 fun solve_exists (vc as (hs, p)) =
     case p of
         Quan (Exists, Base (TimeFun arity), ins, (name, _), p) =>
-        (* (case p of *)
-        (*      BinConn (And, bigO as BinPred (BigO, VarI (n0, _), spec), BinConn (Imply, bigO', p)) => *)
-        (*      if n0 = 0 andalso eq_p bigO bigO' then *)
-        (*        (* infer and then check *) *)
-        (*      else *)
-          
+        
         let
-          (* val () = println "hit1" *)
-          val () = println "Exists-solver to solve this: "
-          val () = app println $ (str_vc false "" vc @ [""])
-          val (p1, p2) = split_and p
+          val ret =
+              case p of
+                  BinConn (And, bigO as BinPred (BigO, VarI (n0, _), spec), BinConn (Imply, bigO', p)) =>
+                  if n0 = 0 andalso eq_p bigO bigO' then
+                    (* infer and then check *)
+                    case use_master_theorem hs (name, arity) ("inferred", arity) (shiftx_i_p 1 1 p) of
+                        SOME (inferred, vcs) =>
+                        (let
+                          val inferred = forget_i_i 1 1 inferred
+                          val vcs = map (forget_i_vc 1 1) vcs
+                                        (* ToDo : compare inferred and spec *)
+                        in
+                          SOME vcs
+                        end handle ForgetError _ => NONE)
+                      | NONE => NONE
+                  else NONE
+                | _ => NONE
         in
-          case infer_exists hs (name, arity) p1 of
-              SOME (i, vcs1) =>
+          case ret of
+              SOME vcs => vcs
+            | NONE =>
+              
               let
-                (* ToDo: update the link in [Quan] with [i] *)
-                val () = case ins of
-                             SOME ins => ins i
-                           | NONE => ()
-                val p2 = subst_i_p i p2
-                val vcs = split_prop p2
-                val vcs = append_hyps hs vcs
-                val vcs = concatMap solve_exists vcs
-                val vcs = vcs1 @ vcs
+                (* val () = println "hit1" *)
+                val () = println "Exists-solver to solve this: "
+                val () = app println $ (str_vc false "" vc @ [""])
+                val (p1, p2) = split_and p
               in
-                vcs
+                case infer_exists hs (name, arity) p1 of
+                    SOME (i, vcs1) =>
+                    let
+                      (* ToDo: update the link in [Quan] with [i] *)
+                      val () = case ins of
+                                   SOME ins => ins i
+                                 | NONE => ()
+                      val p2 = subst_i_p i p2
+                      val vcs = split_prop p2
+                      val vcs = append_hyps hs vcs
+                      val vcs = concatMap solve_exists vcs
+                      val vcs = vcs1 @ vcs
+                    in
+                      vcs
+                    end
+                  | NONE => [vc]
               end
-            | NONE => [vc]
+
         end
       | _ => [vc]
                
