@@ -40,6 +40,8 @@ fun match_bigO f hyps hyp =
                
 fun find_bigO_hyp f_i hyps =
     find_hyp (forget_i_i 0 1) shift_i_i match_bigO f_i hyps
+
+fun contains big small = not $ isSome $ try_forget (forget_i_i small 1) big
              
 fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
     let
@@ -222,7 +224,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                       end
                     end
                   | BinPred (LeP, i1, BinOpI (TimeApp, VarI (g, _), n_i)) =>
-                    if isSome $ try_forget (forget_i_i g 1) i1 then
+                    if not $ contains i1 g then
                       let
                         val () = if g = nx then () else raise Error "g = nx fails"
                         val n_ = to_real n_i

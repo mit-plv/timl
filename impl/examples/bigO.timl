@@ -1,6 +1,6 @@
 datatype {Nat} 'a list =
-         nil of {0} 'a list
-         | cons {n : Nat} of 'a * {n} 'a list --> {n + 1} 'a list
+         Nil of {0} 'a list
+         | Cons {n : Nat} of 'a * {n} 'a list --> {n + 1} 'a list
 
 (* val g = *)
 (*  fn {n : Nat} (xs : {n} int list) return |> 0.0 => xs *)
@@ -28,6 +28,19 @@ val f =
         xs
     end
 end
+
+absidx {T : Fun 1 | T O _} with
+fun ['a] ['b] map (f : 'a -- 5.0 --> 'b) =
+    let
+      fun map {n : Nat} (xs : {n} 'a list) return using T n =
+          case xs return {n} _ list using T n of
+              Nil => Nil
+            | Cons {_} (x, xs) =>
+              Cons {_} (f x, map {_} xs)
+    in
+      map
+    end
+end      
 
 (*
 val ['a] ['b] map = 
