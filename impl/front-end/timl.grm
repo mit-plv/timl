@@ -52,7 +52,6 @@ open Ast
     | BOGUS of string
     | AS
     | DOLLAR
-    | LOG2
     | GT
     | BIG_O
     | IDX

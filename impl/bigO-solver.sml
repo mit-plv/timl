@@ -356,8 +356,16 @@ fun infer_exists hs (name1 as (_, arity1)) p =
 fun solve_exists (vc as (hs, p)) =
     case p of
         Quan (Exists, Base (TimeFun arity), ins, (name, _), p) =>
+        (* (case p of *)
+        (*      BinConn (And, bigO as BinPred (BigO, VarI (n0, _), spec), BinConn (Imply, bigO', p)) => *)
+        (*      if n0 = 0 andalso eq_p bigO bigO' then *)
+        (*        (* infer and then check *) *)
+        (*      else *)
+          
         let
-          val () = println "hit1"
+          (* val () = println "hit1" *)
+          val () = println "Exists-solver to solve this: "
+          val () = app println $ (str_vc false "" vc @ [""])
           val (p1, p2) = split_and p
         in
           case infer_exists hs (name, arity) p1 of
