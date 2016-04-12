@@ -42,7 +42,7 @@ fun find_bigO_hyp f_i hyps =
     find_hyp (forget_i_i 0 1) shift_i_i match_bigO f_i hyps
 
 fun contains big small = not $ isSome $ try_forget (forget_i_i small 1) big
-             
+                             
 fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
     let
       val vcs' = append_hyps ([VarH (name0, TimeFun arity0), VarH (name1, TimeFun arity1)] @ hs) vcs
@@ -100,6 +100,33 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                 fun exp n i = combine_MultI (repeat n i)
                 fun class2term (c, k) n =
                     exp c n %* exp k (UnOpI (Log2, n, dummy))
+                fun master_theorem n (a, b) (c, k) =
+                    let
+                      val int_add = op+
+                      open Real
+                      val log_b_a = Math.ln (fromInt a) / Math.ln (fromInt b)
+                      val T =
+                          if fromInt c < log_b_a then
+                            ExpI (n, (toString log_b_a, dummy))
+                          else if fromInt c == log_b_a then
+                            class2term (c, int_add (k, 1)) n
+                          else if fromInt c > log_b_a then
+                            class2term (c, k) n
+                          else raise Error "can't compare c and (log_b a)"
+                    in
+                      T
+                    end
+                fun get_params is_sub_problem is =
+                    let
+                      (* find terms of the form [T m (ceil (n/b))] (or respectively for [floor]) *)
+                      val (bs, others) = partitionOption is_sub_problem is
+                      val a = length bs
+                      val b = if null bs then raise Error "null bs" else hd bs
+                      val () = if List.all (curry op= (b : int)) (tl bs) then () else raise Error "all bs eq"
+                    in
+                      (a, b, others)
+                    end
+                fun join_classes classes = foldl' join_class ((0, 0)) classes
               in
                 case p of
                     BinPred (LeP, i1, BinOpI (TimeApp, BinOpI (TimeApp, VarI (g, _), VarI (m, _)), n_i)) =>
@@ -115,30 +142,14 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                       (* test the case: a * T m (n/b) + f m n <= T m n  *)
                       let
                         val is = collect_AddI i1
-                        fun get_params is =
-                            let
-                              (* find terms of the form [T m (ceil (n/b))] (or respectively for [floor]) *)
-                              fun is_sub_problem i =
-                                  case i of
-                                      BinOpI (TimeApp, BinOpI (TimeApp, VarI (g', _), VarI (m', _)), UnOpI (opr, DivI (n', (b, _)), _)) =>
-                                      if g' = g andalso m' = m andalso (opr = Ceil orelse opr = Floor) andalso ask_smt (n' %= n_) then
-                                        SOME b
-                                      else NONE
-                                    | _ => NONE
-                              val (bs, f) = partitionOption is_sub_problem is
-                              val a = length bs
-                              val b = if null bs then raise Error "null bs" else hd bs
-                              (* val () = if ask_smt (combine_And $ map (fn b' => b' %= b) (tl bs)) then () else raise Error *)
-                              (* fun i_to_int i = *)
-                              (*     case simp_i i of *)
-                              (*         ConstIN (n, _) => SOME n *)
-                              (*       | _ => NONE *)
-                              (* val b = case findOption i_to_int bs of SOME b => b | NONE => raise Error *)
-                              val () = if List.all (curry op= b) (tl bs) then () else raise Error "all bs eq"
-                            in
-                              (a, b, f)
-                            end
-                        val (a, b, fs) = get_params is
+                        fun is_sub_problem i =
+                            case i of
+                                BinOpI (TimeApp, BinOpI (TimeApp, VarI (g', _), VarI (m', _)), UnOpI (opr, DivI (n', (b, _)), _)) =>
+                                if g' = g andalso m' = m andalso (opr = Ceil orelse opr = Floor) andalso ask_smt (n' %= n_) then
+                                  SOME b
+                                else NONE
+                              | _ => NONE
+                        val (a, b, others) = get_params is_sub_problem is
                         (* if [i] is [f m n] where [f]'s bigO spec is known, replace [f] with its bigO spec *)
                         fun use_bigO_hyp i =
                             case i of
@@ -149,7 +160,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                     | NONE => i
                                 else i
                               | _ => i
-                        val fs = map use_bigO_hyp fs
+                        val others = map use_bigO_hyp others
                         (* summarize into asym class, where [n_] and [m_] are variables *)
                         fun do_summarize i return =
                             let
@@ -169,24 +180,11 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                             in
                               summarize_n n_ i
                             end
-                        fun callfun f = call o f
-                        val summarize = callfun do_summarize
-                        val classes = map summarize fs
-                        val (c, k) = foldl' join_class ((0, 0)) classes
-                        val int_add = op+
-                        open Real
-                        val log_b_a = Math.ln (fromInt a) / Math.ln (fromInt b)
-                        val T =
-                            if fromInt c < log_b_a then
-                              ExpI (to_real (V 0), (toString log_b_a, dummy))
-                            else if fromInt c == log_b_a then
-                              class2term (c, int_add (k, 1)) (to_real (V 0))
-                            else if fromInt c > log_b_a then
-                              class2term (c, k) (to_real (V 0))
-                            else raise Error "can't compare c and (log_b a)"
+                        val summarize = call o do_summarize
+                        val classes = map summarize others
+                        val (c, k) = join_classes classes
+                        val T = master_theorem (to_real (V 0)) (a, b) (c, k)
                         val T = TimeAbs (("m", dummy), TimeAbs (("n", dummy), simp_i (to_real (V 1) %* T), dummy), dummy)
-                        (* val ret = (TimeAbs (("", dummy), TimeAbs (("", dummy), T0 dummy, dummy), dummy), []) *)
-                        (* val () = raise Error *)
                         val ret = (T, [])
                       in
                         ret
@@ -204,8 +202,9 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                   SOME n'
                                 else NONE
                               | _ => NONE
-                        val (focus, rest) = partitionOption par is
-                        val n' = if length focus > 0 then hd focus else raise Error "null focus"
+                        val (n', rest) = case partitionOptionFirst par is of
+                                             SOME a => a
+                                           | NONE => raise Error "par() found nothing"
                         val () = if ask_smt (n' %+ N1 %= n_i) then () else raise Error "n' %+ N1 %= n_i"
                         fun only_const_or_m i =
                             case i of
@@ -240,7 +239,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                         val is = collect_AddI i1
                         val is = map use_bigO_hyp is
                         val classes = map (summarize_n n_) is
-                        val cls = foldl join_class (0, 0) classes
+                        val cls = join_classes classes
                         val T = TimeAbs (("n", dummy), simp_i $ class2term cls (to_real (V 0)), dummy)
                       in
                         (T, [])

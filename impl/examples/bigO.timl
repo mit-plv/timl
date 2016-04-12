@@ -29,18 +29,18 @@ val f =
     end
 end
 
-absidx {T : Fun 1 | T O _} with
-fun ['a] ['b] map (f : 'a -- 5.0 --> 'b) =
-    let
-      fun map {n : Nat} (xs : {n} 'a list) return using T n =
-          case xs return {n} _ list using T n of
-              Nil => Nil
-            | Cons {_} (x, xs) =>
-              Cons {_} (f x, map {_} xs)
-    in
-      map
-    end
-end      
+(* absidx {T : Fun 1 | T O _} with *)
+(* fun ['a] ['b] map (f : 'a -- 5.0 --> 'b) = *)
+(*     let *)
+(*       fun map {n : Nat} (xs : {n} 'a list) return using T n = *)
+(*           case xs return {n} _ list using T n of *)
+(*               Nil => Nil *)
+(*             | Cons {_} (x, xs) => *)
+(*               Cons {_} (f x, map {_} xs) *)
+(*     in *)
+(*       map *)
+(*     end *)
+(* end       *)
 
 (*
 val ['a] ['b] map = 
