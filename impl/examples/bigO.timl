@@ -2,12 +2,6 @@ datatype {Nat} 'a list =
          Nil of {0} 'a list
          | Cons {n : Nat} of 'a * {n} 'a list --> {n + 1} 'a list
 
-(* val g = *)
-(*  fn {n : Nat} (xs : {n} int list) return |> 0.0 => xs *)
-
-(* val g = *)
-(*  fn {n : Nat} (xs : {n} int list) return |> O _ $n => xs *)
-
 absidx gg : {gg : Fun 1 | gg O (fn n => $n)} with
 val g =
  fn {n : Nat} (xs : {n} int list) return |> gg n => xs
@@ -29,109 +23,55 @@ val f =
     end
 end
 
-(* absidx {T : Fun 1 | T O _} with *)
-(* fun ['a] ['b] map (f : 'a -- 5.0 --> 'b) = *)
-(*     let *)
-(*       fun map {n : Nat} (xs : {n} 'a list) return using T n = *)
-(*           case xs return {n} _ list using T n of *)
-(*               Nil => Nil *)
-(*             | Cons {_} (x, xs) => *)
-(*               Cons {_} (f x, map {_} xs) *)
-(*     in *)
-(*       map *)
-(*     end *)
-(* end       *)
-
-(*
-val ['a] ['b] map = 
- fn {m : Time} (f : 'a -- m --> 'b) =>
+absidx {T : Fun 1 | T O _} with
+fun ['a] ['b] map (f : 'a -- 5.0 --> 'b) =
     let
-        fun map {n : Nat} (ls : {n} 'a list) return {n} 'b list |> (m + 2.0) * $n =
-            case ls return {n} 'b list of
-                nil => nil
-              | cons {n'} (x, xs) => cons {_} (f x, map {_} xs) |> (m + 2.0) * $n
+      fun map {n : Nat} (xs : {n} 'a list) return using T n =
+          case xs return {n} _ list using T n of
+              Nil => Nil
+            | Cons {_} (x, xs) =>
+              Cons {_} (f x, map {_} xs)
     in
-        map
+      map
     end
+end      
 
-absidx g : {g : Fun 1 | g O (fn n => $n)} = _ with
-val ['a] ['b] map = 
- fn {m : Time} (f : 'a -- m --> 'b) =>
+fun ['a] split {n : Nat} (xs : {n} 'a list) return {ceil ($n/2)} _ list * {floor ($n/2)} _ list using $n =
+    case xs return {ceil ($n/2)} _ list * {floor ($n/2)} _ list using $n of
+        Nil => (Nil, Nil)
+      | Cons {_} (x, Nil) => (xs, Nil)
+      | Cons {_} (x1, Cons {_} (x2, xs)) =>
+        case split {_} xs of
+            (xs1, xs2) => (Cons {_} (x1, xs1), Cons {_} (x2, xs2))
+
+datatype bool = true | false
+
+absidx {T2 : Fun 1 | T2 O _} with
+fun ['a] merge (lt : 'a * 'a -- 8.0 --> bool) =
     let
-        fun map {n : Nat} (ls : {n} 'a list) return {n} 'b list |> m * g n =
-            case ls return {n} 'b list |> m * g n of
-                nil => nil
-              | cons {n'} (x, xs) => cons {_} (f x, map {_} xs)
+      fun merge {n1 : Nat} {n2 : Nat} (xs : {n1} _ list) (ys : {n2} _ list) return {n1 + n2} _ list using T2 (n1 + n2) =
+          case (xs, ys) return {n1 + n2} _ list using T2 (n1 + n2) of
+              (Nil, _) => ys
+            | (_, Nil) => xs
+            | (Cons {n1'} (x, xs'), Cons {n2'} (y, ys')) =>
+              case lt (x, y) return using 2.0 + T2 (n1' + n2' + 1) of
+                  true => Cons {_} (x, merge {_} {_} xs' ys)
+                | false => Cons {_} (y, merge {_} {_} xs ys')
     in
-        map
+      merge
     end
 end
-*)
 
-(* val g =  *)
-(*     let *)
-(*         type idx c1 : Profile = _ *)
-(*     in *)
-(*         fn {n : Nat} (xs : {n} int list) return |> O c1 $n => xs *)
-(*     end *)
-
-(* local *)
-(*     type idx c1 : Profile = _ *)
-(* in *)
-(* type idx c1 : Profile = c1 *)
-(* val g = fn {n : Nat} (xs : {n} int list) return |> O c1 $n => xs *)
-(* end *)
-
-(* local *)
-(*     type idx c1 : Profile = _ *)
-(* in *)
-(* val g = fn {n : Nat} (xs : {n} int list) return |> O c1 $n => xs *)
-(* end *)
-
-(* type idx c1 : Profile = _ *)
-(* val g = *)
-(*  fn {n : Nat} (xs : {n} int list) return |> O c1 $n => xs *)
-
-(* type idx c2 : Profile = _ *)
-(* val h = *)
-(*  fn {n : Nat} (xs : {n} int list) return |> O c2 $1 => xs *)
-
-(* type idx c3 : Profile = _ *)
-(* val f = *)
-(*  fn {n : Nat} (xs : {n} int list) return |> O c3 $n => *)
-(*     let *)
-(*         val xs = g {_} xs *)
-(*         val xs = h {_} xs *)
-(*     in *)
-(*         xs *)
-(*     end *)
-
-        (*
-
-exists {c : Time} {ub : Time}, forall {n : Nat}, {n} 'a list -- max ub (c * $n * log2 $n) --> {n} 'a list
-
-exists {c : BigOConsts}, forall {n : Nat}, {n} 'a list -- O c ($n * log2 $n) --> {n} 'a list
-
-exists {g : O (n => $n * log2 $n)}, forall {n : Nat}, {n} 'a list -- g n --> {n} 'a list
-
-==========================
-O (ub1,c1) (n * log n) + O (ub2,c2) n <= O ((ub1+ub2)/c2+1.73,c1+1.0) (n * log n)
-
-==========================
-exists c, O c1 (n * log n) + O c2 n <= O c (n * log n)
-
-idx c1
-
-idx c2
-
-merge_sort : forall 'a {m : Time}, ('a * 'a -- m --> bool) -- 0.0 --> forall {n : Nat}, {n} 'a list -- O c1 m * O c2 ($n * log2 $n) --> {n} 'a list
-
-<->
-
-merge_sort : forall 'a {m : Time}, ('a * 'a -- m --> bool) -- 0.0 --> forall {n : Nat}, {n} 'a list -- O m * O ($n * log2 $n) --> {n} 'a list
-
-==========================
-exists c, O c1 n + O c2 n + O c3 1 <= O c n
-
-        *)
-
+absidx {T3 : Fun 1 | T3 O _} with
+fun ['a] msort (lt : 'a * 'a -- _ --> bool) =
+    let
+      fun msort {n : Nat} (xs : {n} 'a list) return {n} _ list using T3 n =
+          case xs of
+              Nil => xs
+            | Cons {_} _ =>
+              case split {_} xs of
+                  (xs1, xs2) => merge lt {_} {_} (msort {_} xs1) (msort {_} xs2)
+    in
+      msort
+    end
+end

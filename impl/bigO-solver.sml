@@ -193,7 +193,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                       Error msg =>
                       (* test the case: T m n + m + C <= T m (n + 1) *)
                       let
-                        val () = printf "Failed the 1st case because: $\nTry 2nd case ...\n" [msg]
+                        val () = printf "Failed the [T m (n/b)] case because: $\nTry [T m (n-1)] case ...\n" [msg]
                         val is = collect_AddI i1
                         fun par i =
                             case i of
@@ -245,7 +245,69 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                         (T, [])
                       end
                     else
-                      raise Error "wrong pattern for by_master_theorem 1"
+                      let
+                        val () = if g = nx then () else raise Error "g = nx fails"
+                        (* ToDo: check that [n_i] are well-scoped in [hs'] *)
+                        val n_ = to_real n_i
+                      in
+                        (* test the case: a * T (n/b) + f n <= T n  *)
+                        let
+                          val is = collect_AddI i1
+                          fun is_sub_problem i =
+                              case i of
+                                  BinOpI (TimeApp, VarI (g', _), UnOpI (opr, DivI (n', (b, _)), _)) =>
+                                  if g' = g andalso (opr = Ceil orelse opr = Floor) andalso ask_smt (n' %= n_) then
+                                    SOME b
+                                  else NONE
+                                | _ => NONE
+                          val (a, b, others) = get_params is_sub_problem is
+                          (* if [i] is [f n] where [f]'s bigO spec is known, replace [f] with its bigO spec *)
+                          fun use_bigO_hyp i =
+                              case i of
+                                  BinOpI (TimeApp, f_i as VarI (f, _), n') =>
+                                  if f > nx andalso ask_smt (n' %= n_) then
+                                    case find_bigO_hyp f_i hyps of
+                                        SOME (g, _) => simp_i (g %@ n_)
+                                      | NONE => i
+                                  else i
+                                | _ => i
+                          val others = map use_bigO_hyp others
+                          val classes = map (summarize_n n_) others
+                          val (c, k) = join_classes classes
+                          val T = master_theorem (to_real (V 0)) (a, b) (c, k)
+                          val T = TimeAbs (("n", dummy), simp_i T, dummy)
+                          val ret = (T, [])
+                        in
+                          ret
+                        end
+                        handle
+                        Error msg =>
+                        (* test the case: T n + C <= T (n + 1) *)
+                        let
+                          val () = printf "Failed the [T (n/b)] case because: $\nTry [T (n-1)] case ...\n" [msg]
+                          val is = collect_AddI i1
+                          fun par i =
+                              case i of
+                                  BinOpI (TimeApp, VarI (g', _), n') =>
+                                  if g' = g then
+                                    SOME n'
+                                  else NONE
+                                | _ => NONE
+                          val (n', rest) = case partitionOptionFirst par is of
+                                               SOME a => a
+                                             | NONE => raise Error "par() found nothing"
+                          val () = if ask_smt (n' %+ N1 %= n_i) then () else raise Error "n' %+ N1 %= n_i"
+                          fun only_const i =
+                              case i of
+                                  ConstIT _ => ()
+                                | UnOpI (ToReal, ConstIN _, _) => ()
+                                | _ => raise Error "only_const fails"
+                          val () = app only_const rest
+                          val ret = (TimeAbs (("n", dummy), to_real (V 0), dummy), [])
+                        in
+                          ret
+                        end
+                      end
                   | _ => raise Error "wrong pattern for by_master_theorem"
               end
             | _ => raise Error "by_master_theorem allows only 1 conjunct left"
