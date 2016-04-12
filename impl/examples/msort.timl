@@ -14,6 +14,8 @@ val ['a] ['b] map =
     end
 
 (*      
+  The following is the thought process of evoluting [map] from using precise time spec to using big-O time spec
+
 idx g : Fun 2 = fn m n => $(m + 2) * $n
 val ['a] ['b] map =
  fn {m : Nat} (f : 'a -- $m --> 'b) =>
