@@ -355,7 +355,11 @@ fun infer_exists hs (name_arity1 as (_, arity1)) p =
             SOME (f, [])
           else NONE
         | _ => NONE
-                 
+
+fun timefun_le arity a b =
+    case (arity, a, b) of
+        () (*here*)
+    
 fun solve_exists (vc as (hs, p)) =
     case p of
         Quan (Exists, Base (TimeFun arity), ins, (name, _), p) =>
@@ -371,9 +375,11 @@ fun solve_exists (vc as (hs, p)) =
                         (let
                           val inferred = forget_i_i 1 1 inferred
                           val vcs = map (forget_i_vc 1 1) vcs
-                                        (* ToDo : compare inferred and spec *)
                         in
-                          SOME vcs
+                          if timefun_le arity inferred spec then
+                            SOME vcs
+                          else
+                            NONE
                         end handle ForgetError _ => NONE)
                       | NONE => NONE
                   else NONE
