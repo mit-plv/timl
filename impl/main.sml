@@ -113,6 +113,7 @@ fun typecheck_file (filename, ctx) =
   Elaborate.Error (r, msg) => raise Error $ str_error "Error" filename r ["Elaborate error: " ^ msg]
   | NameResolve.Error (r, msg) => raise Error $ str_error "Error" filename r ["Resolve error: " ^ msg]
   | TypeCheck.Error (r, msg) => raise Error $ str_error "Error" filename r ((* "Type error: " :: *) msg)
+  | BigOSolver.MasterTheoremCheckFail (r, msg) => raise Error $ str_error "Error" filename r ((* "Type error: " :: *) msg)
   | Parser.Error => raise Error "Unknown parse error"
   | SMTError msg => raise Error $ "SMT error: " ^ msg
   | IO.Io e => raise Error $ sprintf "IO error in function $ on file $" [#function e, #name e]

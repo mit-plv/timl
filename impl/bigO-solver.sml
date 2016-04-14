@@ -30,8 +30,6 @@ end
 fun vc2prop (hs, p) =
     foldl (fn (h, p) => case h of VarH (name, b) => Quan (Forall, Base b, NONE, (name, dummy), p) | PropH p1 => p1 --> p) p hs
           
-fun hyps2ctx hs = List.mapPartial (fn h => case h of VarH (name, _) => SOME name | _ => NONE) hs
-
 fun match_bigO f hyps hyp =
     case hyp of
         PropH (BinPred (BigO, f', g)) =>
@@ -42,6 +40,60 @@ fun find_bigO_hyp f_i hyps =
     find_hyp (forget_i_i 0 1) shift_i_i match_bigO f_i hyps
 
 fun contains big small = not $ isSome $ try_forget (forget_i_i small 1) big
+                             
+fun ask_smt_vc vc =
+    (null $ List.mapPartial id $ SMTSolver.smt_solver "" [vc])
+    handle SMTSolver.SMTError _ => false
+         
+local
+  open Cont
+in
+fun call f = callcc (fn k => f (fn v => throw k v))
+end
+
+fun combine_class ((c1, k1), (c2, k2)) = (c1 + c2, k1 + k2)
+                                        
+fun join_class (a as (c1, k1), b as (c2, k2)) =
+    if c1 = c2 then (c1, max k1 k2) else if c1 > c2 then a else b
+
+(* summarize [i] in the form n^c*(log n)^k, and (c, k) will be the [i]'s "asymptotic class". [n] is the only variable. *)
+fun summarize_n (args as (ask_smt, on_error, n)) i =
+    case i of
+        ConstIT _ =>
+        (0, 0)
+      | UnOpI (ToReal, ConstIN _, _) =>
+        (0, 0)
+      | DivI (i, _) =>
+        summarize_n args i
+      | UnOpI (Log2, i, _) =>
+        let
+          val (c, k) = summarize_n args i
+        in
+          if k = 0 then
+            (0, c)
+          else
+            (0, c + 1) (* approximate [log (log^k n)] by [log n] *)
+        end
+      | BinOpI (MultI, a, b) =>
+        combine_class (summarize_n args a, summarize_n args b)
+      | BinOpI (AddI, a, b) =>
+        join_class (summarize_n args a, summarize_n args b)
+      | _ =>
+        if ask_smt (i %= n) then
+          (1, 0)
+        else
+          on_error "summarize_n fails"
+                           
+(* summarize into asym class, where [n_] and [m_] are variables *)
+fun summarize (ask_smt, on_error, m_, n_) i =
+    let
+      (* test for [ ... * m * ... ] *)
+      val is = collect_MultI i
+    in
+      case partitionOptionFirst (fn i => b2o $ ask_smt (i %= m_)) is of
+          SOME (_, rest) => (1, summarize_n (ask_smt, on_error, n_) (combine_MultI rest))
+        | NONE => (0, summarize_n (ask_smt, on_error, n_) i)
+    end
                              
 fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
     let
@@ -74,29 +126,10 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                 (* number of variables in context *)
                 val nx = length $ List.filter (fn h => case h of VarH _ => true | _ => false) hs'
                 val vc' as (hyps, _) = hd vcs'
-                fun ask_smt_vc vc =
-                    null $ List.mapPartial id $ SMTSolver.smt_solver "" [vc]
                 fun ask_smt p = ask_smt_vc (hyps, p)
                 val N1 = ConstIN (1, dummy)
                 fun V n = VarI (n, dummy)
                 fun to_real i = UnOpI (ToReal, i, dummy)
-                local
-                  open Cont
-                in
-                fun call f = callcc (fn k => f (fn v => throw k v))
-                end
-                (* summarize [i] in the form n^c*(log n)^k, and (c, k) will be the [i]'s "asymptotic class". [n] is the only variable. *)
-                fun do_summarize_n n i return =
-                    let
-                      val () = case i of ConstIT _ => return $ (0, 0) | _ => () 
-                      val () = case i of UnOpI (ToReal, ConstIN _, _) => return $ (0, 0) | _ => () 
-                      val () = if ask_smt (i %= n) then return $ (1, 0) else ()
-                    in
-                      raise Error "summarize_n fails"
-                    end
-                fun summarize_n n i = call (do_summarize_n n i)
-                fun join_class (a as (c1, k1), b as (c2, k2)) =
-                    if c1 = c2 then (c1, max k1 k2) else if c1 > c2 then a else b
                 fun exp n i = combine_MultI (repeat n i)
                 fun class2term (c, k) n =
                     exp c n %* exp k (UnOpI (Log2, n, dummy))
@@ -161,27 +194,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                 else i
                               | _ => i
                         val others = map use_bigO_hyp others
-                        (* summarize into asym class, where [n_] and [m_] are variables *)
-                        fun do_summarize i return =
-                            let
-                              (* test for [ ... * m * ... ] *)
-                              val () =
-                                  case i of
-                                      BinOpI (MultI, i1, i2) =>
-                                      let
-                                        val is = collect_MultI i
-                                      in
-                                        case partitionOptionFirst (fn i => b2o $ ask_smt (i %= m_)) is of
-                                            SOME (_, rest) => return $ summarize_n n_ $ combine_MultI rest
-                                          | NONE => ()
-                                      end
-                                    | _ => ()
-                              val () = if ask_smt (i %<= m_) then return $ (0, 0) else ()
-                            in
-                              summarize_n n_ i
-                            end
-                        val summarize = call o do_summarize
-                        val classes = map summarize others
+                        val classes = map (snd o summarize (ask_smt, fn s => raise Error s, m_, n_)) others
                         val (c, k) = join_classes classes
                         val T = master_theorem (to_real (V 0)) (a, b) (c, k)
                         val T = TimeAbs (("m", dummy), TimeAbs (("n", dummy), simp_i (to_real (V 1) %* T), dummy), dummy)
@@ -238,7 +251,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                               | _ => i
                         val is = collect_AddI i1
                         val is = map use_bigO_hyp is
-                        val classes = map (summarize_n n_) is
+                        val classes = map (summarize_n (ask_smt, fn s => raise Error s, n_)) is
                         val cls = join_classes classes
                         val T = TimeAbs (("n", dummy), simp_i $ class2term cls (to_real (V 0)), dummy)
                       in
@@ -272,7 +285,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                   else i
                                 | _ => i
                           val others = map use_bigO_hyp others
-                          val classes = map (summarize_n n_) others
+                          val classes = map (summarize_n (ask_smt, fn s => raise Error s, n_)) others
                           val (c, k) = join_classes classes
                           val T = master_theorem (to_real (V 0)) (a, b) (c, k)
                           val T = TimeAbs (("n", dummy), simp_i T, dummy)
@@ -356,10 +369,40 @@ fun infer_exists hs (name_arity1 as (_, arity1)) p =
           else NONE
         | _ => NONE
 
-fun timefun_le arity a b =
-    case (arity, a, b) of
-        () (*here*)
-    
+fun class_le ((c, k), (c', k')) =
+    if c < c' then
+      true
+    else if c = c' then k <= k'
+    else false
+           
+fun timefun_le hs arity a b =
+    let
+      exception Error of string
+      fun V n = VarI (n, dummy)
+      fun to_real i = UnOpI (ToReal, i, dummy)
+      fun ask_smt hs' p = ask_smt_vc (map (fn name => VarH (name, Nat)) hs' @ hs, p)
+      val summarize_n = summarize_n (ask_smt ["n"], fn s => raise Error s, to_real (V 0))
+      val summarize = summarize (ask_smt ["n", "m"], fn s => raise Error s, to_real (V 1), to_real (V 0))
+      fun ret () =
+          case (arity, a, b) of
+              (1, TimeAbs (_, a, _), TimeAbs (_, b, _)) =>
+              class_le (summarize_n a, summarize_n b)
+            | (2, TimeAbs (_, TimeAbs (_, a, _), _), TimeAbs (_, TimeAbs (_, b, _), _)) =>
+              let
+                val (m1, cls1) = summarize a
+                val (m2, cls2) = summarize b
+              in
+                m1 <= m2 andalso class_le (cls1, cls2)
+              end
+            | _ => false 
+    in
+      ret () handle Error _ => false
+    end
+      
+fun hyps2ctx hs = List.mapPartial (fn h => case h of VarH (name, _) => SOME name | _ => NONE) hs
+
+exception MasterTheoremCheckFail of region * string list
+                                      
 fun solve_exists (vc as (hs, p)) =
     case p of
         Quan (Exists, Base (TimeFun arity), ins, (name, _), p) =>
@@ -375,11 +418,13 @@ fun solve_exists (vc as (hs, p)) =
                         (let
                           val inferred = forget_i_i 1 1 inferred
                           val vcs = map (forget_i_vc 1 1) vcs
+                          val inferred = forget_i_i 0 1 inferred
+                          val spec = forget_i_i 0 1 spec
                         in
-                          if timefun_le arity inferred spec then
+                          if timefun_le hs arity inferred spec then
                             SOME vcs
                           else
-                            NONE
+                            raise curry MasterTheoremCheckFail (get_region_i spec) $ [sprintf "Can't prove that the inferred big-O class $ is bounded by the given big-O class $" [str_i (hyps2ctx hs) inferred, str_i (hyps2ctx hs) spec]]
                         end handle ForgetError _ => NONE)
                       | NONE => NONE
                   else NONE
