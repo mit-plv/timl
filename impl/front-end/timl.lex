@@ -10,9 +10,12 @@ type lexresult = (svalue, pos) token
 type lexarg = reporter
 type arg = lexarg
 
-val line = ref 1
-val linestart = ref 1
-val comment_level = ref 0
+val LINE = 1
+val LINE_START = 1
+val COMMENT_LEVEL = 0
+val line = ref LINE
+val linestart = ref LINE_START
+val comment_level = ref COMMENT_LEVEL
   
 (* debug toggle *)
 val print = fn s => ()
@@ -23,6 +26,11 @@ fun make_region (abs, size) : region =
     (make_pos abs, 
      make_pos (abs + size))
 fun update_line yypos = (inc line; linestart := yypos)
+fun reset_line () =
+    (line := LINE;
+     linestart := LINE_START;
+     comment_level := COMMENT_LEVEL
+    )
 
 fun flat (a, (b, c)) = (a, b, c)
 

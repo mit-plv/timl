@@ -40,6 +40,7 @@ fun parse_file filename =
 	else TextIO.inputN (inStream,n);
 
       fun on_error (msg, left, right) = print (str_error "Error" filename (left, right) [msg])
+      val () = TiMLLex.UserDeclarations.reset_line ()
       val s = parse (input, on_error, on_error)
       val _ = TextIO.closeIn inStream
   in
