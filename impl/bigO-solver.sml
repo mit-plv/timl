@@ -48,7 +48,7 @@ fun ask_smt_vc vc =
 local
   open Cont
 in
-fun call f = callcc (fn k => f (fn v => throw k v))
+fun callck f = callcc (fn k => f (fn v => throw k v))
 end
 
 fun combine_class ((c1, k1), (c2, k2)) = (c1 + c2, k1 + k2)
