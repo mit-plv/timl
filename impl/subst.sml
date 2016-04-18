@@ -5,6 +5,12 @@ open Util
          
 infixr 0 $
 
+datatype fresh_uvar_ref =
+         FrIdx of (bsort, idx) uvar_ref_i * bsort uname_i
+         | FrBsort of bsort uvar_bs * uname_bs
+         | FrSort of sort uvar_ref_nonidx * uname_nonidx
+         | FrMtype of mtype uvar_ref_nonidx * uname_nonidx
+
 (* generic traversers for both 'shift' and 'forget' *)
          
 fun on_i_i on_v on_invis expand_i x n b =
@@ -22,12 +28,12 @@ fun on_i_i on_v on_invis expand_i x n b =
 	  | TrueI r => TrueI r
 	  | FalseI r => FalseI r
           | TimeAbs (name, i, r) => TimeAbs (name, f (x + 1) n i, r)
-          | UVarI ((invis, uvar), r) =>
-            (case !uvar of
+          | UVarI ((invis, uvar_ref), r) =>
+            (case !uvar_ref of
                  Refined i => 
                  f x n (expand_i invis i)
-               | Fresh uname_ref => 
-                 UVarI ((on_invis uname_ref x n invis, uvar), r)
+               | Fresh uname => 
+                 UVarI ((on_invis (FrIdx (uvar_ref, uname)) x n invis, uvar_ref), r)
             )
   in
       f x n b
@@ -61,12 +67,12 @@ fun on_i_s on_i_p on_invis expand_s x n b =
 	case b of
 	    Basic s => Basic s
 	  | Subset (s, bind) => Subset (s, on_i_ibind on_i_p x n bind)
-          | UVarS ((invis, uvar), r) =>
-            (case !uvar of
+          | UVarS ((invis, uvar_ref), r) =>
+            (case !uvar_ref of
                  Refined i => 
                  f x n (expand_s invis i)
-               | Fresh uname_ref => 
-                 UVarS ((on_invis uname_ref x n invis, uvar), r)
+               | Fresh uname => 
+                 UVarS ((on_invis (FrSort (uvar_ref, uname)) x n invis, uvar_ref), r)
             )
   in
       f x n b
@@ -82,12 +88,12 @@ fun on_i_mt on_i_i on_i_s on_invis expand_mt x n b =
 	  | UniI (s, bind) => UniI (on_i_s x n s, on_i_ibind f x n bind)
 	  | AppV (y, ts, is, r) => AppV (y, map (f x n) ts, map (on_i_i x n) is, r)
 	  | Int r => Int r
-          | UVar ((invis as (invisi, invist), uvar), r) =>
-            (case !uvar of
+          | UVar ((invis as (invisi, invist), uvar_ref), r) =>
+            (case !uvar_ref of
                  Refined t => 
                  f x n (expand_mt invis t)
-               | Fresh uname_ref => 
-                 UVar (((on_invis uname_ref x n invisi, invist), uvar), r)
+               | Fresh uname => 
+                 UVar (((on_invis (FrMtype (uvar_ref, uname)) x n invisi, invist), uvar_ref), r)
             )
   in
       f x n b
@@ -117,12 +123,12 @@ fun on_t_mt on_v on_invis expand_mt x n b =
 	  | UniI (s, bind) => UniI (s, on_t_ibind f x n bind)
 	  | AppV ((y, r1), ts, is, r) => AppV ((on_v x n y, r1), map (f x n) ts, is, r)
 	  | Int r => Int r
-          | UVar ((invis as (invisi, invist), uvar), r) =>
-            (case !uvar of
+          | UVar ((invis as (invisi, invist), uvar_ref), r) =>
+            (case !uvar_ref of
                  Refined t => 
                  f x n (expand_mt invis t)
-               | Fresh uname_ref => 
-                 UVar (((invisi, on_invis uname_ref x n invist), uvar), r)
+               | Fresh uname => 
+                 UVar (((invisi, on_invis (FrMtype (uvar_ref, uname)) x n invist), uvar_ref), r)
             )
   in
       f x n b
@@ -237,31 +243,39 @@ fun forget_invis_generic on_visible x n invis =
       invis
   end
 
-(* This is a version where [x+i] must be invisible to [uname_ref]. If [x+i] is visible, throw [ForgetError]. *)
-fun forget_invis uname_ref = forget_invis_generic (fn (_, x, _) => raise ForgetError (x, str_uname (!uname_ref)))
+fun str_fresh_uvar_ref fresh =
+    case fresh of
+          FrIdx (_, uname) =>
+          str_uname_i uname
+        | FrBsort (_, uname) =>
+          str_uname_bs uname
+        | FrSort (_, uname) =>
+          str_uname_nonidx uname
+        | FrMtype (_, uname) =>
+          str_uname_nonidx uname
 
-(* This is a version that allows substition for [x+i] that is visible to [uname_ref]. When this happens, remove [x+i] from [uname_ref]'s visible context. *)
-fun forget_invis uname_ref =
-  let
-      fun remove_ctx (x, _, n) =
-          uname_ref := 
-          let
-              fun doit (m, anchor, order, ctx) =
-                let
-                    val ctx = skip x n ctx
-                    val order = length ctx
-                in
-                    (m, anchor, order, ctx)
-                end
-          in
-              case !uname_ref of
-                  SOME (Idx (core, other)) => SOME (Idx (doit core, other))
-                | SOME (NonIdx core) => SOME (NonIdx (doit core))
-                | other => other
-          end            
-  in
-      forget_invis_generic remove_ctx
-  end
+fun remove_fresh_uvar_ctx fresh_uvar x n =
+    let
+      fun do_it ctx = skip x n ctx
+    in
+      case fresh_uvar of
+          FrIdx (r, (n, ctx, bs)) =>
+          r := Fresh (n, do_it ctx, bs)
+        | FrBsort _ =>
+          ()
+        | FrSort (r, (n, ctx)) =>
+          r := Fresh (n, do_it ctx)
+        | FrMtype (r, (n, ctx)) =>
+          r := Fresh (n, do_it ctx)
+    end
+      
+(* This is a version where [x+i] must be invisible to [fresh_uvar]. If [x+i] is visible, throw [ForgetError]. *)
+fun forget_invis fresh_uvar =
+    forget_invis_generic (fn (_, pos_total, _) => raise ForgetError (pos_total, str_fresh_uvar_ref fresh_uvar))
+
+(* This is a version that allows substition for [x+i] that is visible to [fresh_uvar]. When this happens, remove [x+i] from [fresh_uvar]'s visible context. *)
+fun forget_invis fresh_uvar =
+    forget_invis_generic (fn (pos_visible, _, n) => remove_fresh_uvar_ctx fresh_uvar pos_visible n)
 
 fun forget_i_i x n b = on_i_i forget_v forget_invis expand_i x n b
 fun forget_i_p x n b = on_i_p forget_i_i x n b
@@ -279,35 +293,17 @@ fun shrink_mt (invisi, invist) b = (shrink forget_i_mt invisi o shrink forget_t_
 
 exception Error of string
                        
-exception SubstUVar of (bsort uvar_name) option * int
+exception SubstUVar of fresh_uvar_ref * int
 
-fun substx_invis_generic on_visible x = forget_invis_generic (fn (offsum, _, _) => on_visible offsum) x 1
+fun substx_invis_generic on_visible x = forget_invis_generic (fn (pos_visible, _, _) => on_visible pos_visible) x 1
 
-(* This is a version where [x] must be invisible to [uname_ref]. If [x] is visible, throw [SubstUVar]. *)
-fun substx_invis uname_ref = substx_invis_generic (fn x => raise SubstUVar (!uname_ref, x))
+(* This is a version where [x] must be invisible to [fresh_uvar]. If [x] is visible, throw [SubstUVar]. *)
+fun substx_invis fresh_uvar =
+    substx_invis_generic (fn x => raise SubstUVar (fresh_uvar, x))
       
-(* This is a version that allows substition for [x] that is visible to [uname_ref]. When this happens, remove [x] from [uname_ref]'s visible context. *)
-fun substx_invis uname_ref =
-  let
-      fun remove_ctx x =
-          uname_ref := 
-          let
-              fun doit (m, anchor, order, ctx) =
-                let
-                    val ctx = remove x ctx
-                    val order = length ctx
-                in
-                    (m, anchor, order, ctx)
-                end
-          in
-              case !uname_ref of
-                  SOME (Idx (core, other)) => SOME (Idx (doit core, other))
-                | SOME (NonIdx core) => SOME (NonIdx (doit core))
-                | other => other
-          end            
-  in
-      substx_invis_generic remove_ctx
-  end
+(* This is a version that allows substition for [x] that is visible to [fresh_uvar]. When this happens, remove [x] from [fresh_uvar]'s visible context. *)
+fun substx_invis fresh_uvar =
+    substx_invis_generic (fn x => remove_fresh_uvar_ctx fresh_uvar x 1)
 
 local
     fun f x v b =
@@ -329,11 +325,11 @@ local
 	  | FalseI r => FalseI r
 	  | TTI r => TTI r
           | TimeAbs (name, i, r) => TimeAbs (name, f (x + 1) (shiftx_i_i 0 1 v) i, r)
-          | UVarI ((invis, uvar), r) =>
-            case !uvar of
+          | UVarI ((invis, uvar_ref), r) =>
+            case !uvar_ref of
                 Refined i => f x v (expand_i invis i)
-              | Fresh name_ref => 
-                UVarI ((substx_invis name_ref x invis, uvar), r)
+              | Fresh uname => 
+                UVarI ((substx_invis (FrIdx (uvar_ref, uname)) x invis, uvar_ref), r)
 in
 fun substx_i_i x (v : idx) (b : idx) : idx = f x v b
 fun subst_i_i v b = substx_i_i 0 v b
@@ -379,11 +375,11 @@ local
 	case b of
 	    Basic s => Basic s
 	  | Subset (s, bind) => Subset (s, substx_i_ibind substx_i_p x idx_shiftable v bind)
-          | UVarS ((invis, uvar), r) =>
-            case !uvar of
+          | UVarS ((invis, uvar_ref), r) =>
+            case !uvar_ref of
                 Refined s => f x v (expand_s invis s)
-              | Fresh name_ref => 
-                UVarS ((substx_invis name_ref x invis, uvar), r)
+              | Fresh uname => 
+                UVarS ((substx_invis (FrSort (uvar_ref, uname)) x invis, uvar_ref), r)
 in
 fun substx_i_s x (v : idx) (b : sort) : sort = f x v b
 fun subst_i_s (v : idx) (b : sort) : sort = substx_i_s 0 v b
@@ -398,11 +394,11 @@ local
 	  | UniI (s, bind) => UniI (substx_i_s x v s, substx_i_ibind f x idx_shiftable v bind)
 	  | AppV (y, ts, is, r) => AppV (y, map (f x v) ts, map (substx_i_i x v) is, r)
 	  | Int r => Int r
-          | UVar ((invis as (invisi, invist), uvar), r) =>
-            case !uvar of
+          | UVar ((invis as (invisi, invist), uvar_ref), r) =>
+            case !uvar_ref of
                 Refined t => f x v (expand_mt invis t)
-              | Fresh name_ref => 
-                UVar (((substx_invis name_ref x invisi, invist), uvar), r)
+              | Fresh uname => 
+                UVar (((substx_invis (FrMtype (uvar_ref, uname)) x invisi, invist), uvar_ref), r)
 in
 fun substx_i_mt x (v : idx) (b : mtype) : mtype = f x v b
 fun subst_i_mt (v : idx) (b : mtype) : mtype = substx_i_mt 0 v b
@@ -441,11 +437,11 @@ local
 	    else
 		AppV ((y, r), map (f x v) ts, is, r2)
 	  | Int r => Int r
-          | UVar ((invis as (invisi, invist), uvar), r) =>
-            case !uvar of
+          | UVar ((invis as (invisi, invist), uvar_ref), r) =>
+            case !uvar_ref of
                 Refined t => f x v (expand_mt invis t)
-              | Fresh name_ref => 
-                UVar (((invisi, substx_invis name_ref x invist), uvar), r)
+              | Fresh uname => 
+                UVar (((invisi, substx_invis (FrMtype (uvar_ref, uname)) x invist), uvar_ref), r)
 in
 fun substx_t_mt x (v : mtype) (b : mtype) : mtype = f x v b
 fun subst_t_mt (v : mtype) (b : mtype) : mtype = substx_t_mt 0 v b

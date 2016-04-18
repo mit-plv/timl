@@ -443,7 +443,6 @@ fun solve_exists (vc as (hs, p)) =
                 case infer_exists hs (name, arity) p1 of
                     SOME (i, vcs1) =>
                     let
-                      (* ToDo: update the link in [Quan] with [i] *)
                       val () = case ins of
                                    SOME ins => ins i
                                  | NONE => ()

@@ -243,7 +243,7 @@ notion of \"the end of an outline\".")
    "A `|' corresponds to one of these.")
 
 (defconst sml-keywords-regexp
-  (sml-syms-re '("abstraction" "abstype" "absidx" "return" "using" "idx" "and" "andalso" "as" "before" "case"
+  (sml-syms-re '("abstraction" "abstype" "absidx" "return" "using" "and" "andalso" "as" "before" "case"
                  "datatype" "else" "end" "eqtype" "exception" "do" "fn"
                  "fun" "functor" "handle" "if" "in" "include" "infix"
                  "infixr" "let" "local" "nonfix" "o" "of" "op" "open" "orelse"

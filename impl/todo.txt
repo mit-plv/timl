@@ -12,5 +12,5 @@ Done. 11. Add an optional idx to [Quan], to link the remaining unification varia
 Done. 12. Infer by Master Theorem then check.
 Done. 13. Single variable Master Theorem case.
 Done. 14. Error line number on multiple files.
-15. Make linking between inferred existential variable values and types better.
+Done. 15. Make linking between inferred existential variable values and types better.
 Done. 16. Copy function signature annotation to case annotation

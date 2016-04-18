@@ -49,13 +49,13 @@ signature VAR = sig
 end
 
 signature UVAR = sig
-    type 'a uvar_bs
-    type ('a, 'b) uvar_i
-    type ('a, 'b) uvar_s
-    type ('a, 'b) uvar_mt
+    type 'bsort uvar_bs
+    type ('bsort, 'idx) uvar_i
+    type 'sort uvar_s
+    type 'mtype uvar_mt
     val str_uvar_bs : ('a -> string) -> 'a uvar_bs -> string
     val str_uvar_i : (string list -> 'idx -> string) -> string list -> ('bsort, 'idx) uvar_i -> string
-    val str_uvar_mt : (string list * string list -> 'mtype -> string) -> string list * string list -> ('bsort, 'mtype) uvar_mt -> string
+    val str_uvar_mt : (string list * string list -> 'mtype -> string) -> string list * string list -> 'mtype uvar_mt -> string
     val eq_uvar_i : ('bsort, 'idx) uvar_i * ('bsort, 'idx) uvar_i -> bool
 end
 
@@ -106,7 +106,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         datatype sort =
 	         Basic of bsort * region
 	         | Subset of (bsort * region) * (name * prop) ibind
-                 | UVarS of (bsort, sort) uvar_s * region
+                 | UVarS of sort uvar_s * region
 					               
         val STime = Basic (Base Time, dummy)
         val SBool = Basic (Base Bool, dummy)
@@ -121,7 +121,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         (* the first operant of App can only be a type variable. The degenerated case of no-arguments is also included *)
 	         | AppV of id * mtype list * idx list * region
 	                 | Int of region
-                                | UVar of (bsort, mtype) uvar_mt * region
+                                | UVar of mtype uvar_mt * region
 
         datatype ty = 
 	         Mono of mtype
@@ -911,13 +911,13 @@ fun eq_v (x : var, y) = x = y
 end
 
 structure Underscore = struct
-type 'a uvar_bs = unit
-type ('a, 'b) uvar_i = unit
-type ('a, 'b) uvar_s = unit
-type ('a, 'b) uvar_mt = unit
+type 'bsort uvar_bs = unit
+type ('bsort, 'idx) uvar_i = unit
+type 'sort uvar_s = unit
+type 'mtype uvar_mt = unit
 fun str_uvar_bs (_ : 'a -> string) (_ : 'a uvar_bs) = "_"
 fun str_uvar_i (_ : string list -> 'idx -> string) (_ : string list) (_ : ('bsort, 'idx) uvar_i) = "_"
-fun str_uvar_mt (_ : string list * string list -> 'mtype -> string) (_ : string list * string list) (_ : ('bsort, 'mtype) uvar_mt) = "_"
+fun str_uvar_mt (_ : string list * string list -> 'mtype -> string) (_ : string list * string list) (_ : 'mtype uvar_mt) = "_"
 fun eq_uvar_i (_, _) = false
 end
 

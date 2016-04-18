@@ -274,11 +274,14 @@ fun runError m _ =
 (* use cell to mimic the Writer monad *)
 local								    
 
+  (* order: when we convert leftover fresh idx variables to existentially quantified variables, because the quantification point is the variable's [anchor], which is not necessarily the point where the fresh variable was first used, there could be an implicit Skolemization involved. [order] indicates the degree of Skolemization. For example, if [order = 1], this fresh idx variable should (in principle) be converted into an existentially quantified variable of type [idx -> idx], not just [idx]. Considering the capability of the solver used to find this existential variable, we might choose to let its type be just [idx], which corresponds to giving up the flexibility of changing the existential variable's value according to some variables introduced after it. *)
+  type anchor = ((bsort, idx) uvar_ref_i * int (*order*)) list
+                                                                           
   datatype vc_entry =
            ForallVC of string * sort
            | ImplyVC of prop
            | PropVC of prop * region
-           | AnchorVC of bsort anchor ref
+           | AnchorVC of anchor ref
            | OpenVC
            | CloseVC
 
@@ -500,28 +503,23 @@ local
         n
       end
 
-  fun fresh_bsort () = UVarBS (ref (Fresh (ref (SOME (BSort (inc ()))))))
+  fun fresh_bsort () = UVarBS (ref (Fresh (inc ())))
 
   fun fresh_i anchor order names bsort r = 
       let
-        val name_ref = ref (SOME (Idx ((inc (), anchor, order, names), bsort)))
-        val () = push_ref anchor name_ref
+        val uvar_ref = ref (Fresh (inc (), names, bsort))
+        val () = push_ref anchor (uvar_ref, order)
       in
-        UVarI (([], ref (Fresh name_ref)), r)
+        UVarI (([], uvar_ref), r)
       end
 
-  fun fresh_nonidx f empty_invis anchor order names r = 
-      let
-        val name_ref = ref (SOME (NonIdx (inc (), anchor, order, names)))
-        val () = push_ref anchor name_ref
-      in
-        f ((empty_invis, ref (Fresh name_ref)), r)
-      end
+  fun fresh_nonidx f empty_invis names r = 
+      f ((empty_invis, ref (Fresh (inc (), names))), r)
 
-  fun fresh_sort anchor order names r : sort = fresh_nonidx UVarS [] anchor order names r
-  fun fresh_t anchor order names r : mtype = fresh_nonidx UVar ([], []) anchor order names r
+  fun fresh_sort _ _ names r : sort = fresh_nonidx UVarS [] names r
+  fun fresh_mt _ _ names r : mtype = fresh_nonidx UVar ([], []) names r
 
-  fun make_anchor () = 
+  fun make_anchor () : anchor ref = 
       let 
         val anchor = ref []
         val () = write_anchor anchor
@@ -707,13 +705,19 @@ local
   fun is_wf_sorts order (ctx, sorts : U.sort list) : sort list = 
       map (fn s => is_wf_sort order (ctx, s)) sorts
 
-  fun get_uname_ctx u =
-      case u of
-          SOME (Idx ((_, _, _, names), _)) => names
-        | SOME (NonIdx (_, _, _, names)) => names
-        | _ => []
+  fun get_fresh_uvar_ref_ctx fresh =
+      case fresh of
+          FrIdx (_, (_, ctx, _)) => ctx
+        | FrBsort _ => []
+        | FrSort (_, (_, ctx)) => ctx
+        | FrMtype (_, (_, ctx)) => ctx
                  
-  fun subst_uvar_error r body i (uname, x) = Error (r, sprintf "Can't substitute for $ in unification variable $ in $" [str_v (get_uname_ctx uname) x, str_uname uname, body] :: indent [sprintf "because the context of $ is [$] which contains $" [str_uname uname, (join ", " o rev o get_uname_ctx) uname, str_v (get_uname_ctx uname) x]])
+  fun subst_uvar_error r body i (fresh, x) =
+      Error (r,
+             sprintf "Can't substitute for $ in unification variable $ in $" [str_v (get_fresh_uvar_ref_ctx fresh) x, str_fresh_uvar_ref fresh, body] ::
+             indent [
+               sprintf "because the context of $ is [$] which contains $" [str_fresh_uvar_ref fresh, (join ", " o rev o get_fresh_uvar_ref_ctx) fresh, str_v (get_fresh_uvar_ref_ctx fresh) x]
+             ])
                                                    
   fun check_sort order (ctx, i : U.idx, s : sort) : idx =
       let 
@@ -797,7 +801,7 @@ local
                     r)
             end
 	  | U.Int r => Int r
-          | U.UVar ((), r) => fresh_t (make_anchor ()) order (kctxn @ sctxn) r
+          | U.UVar ((), r) => fresh_mt (make_anchor ()) order (kctxn @ sctxn) r
       end
 
   val is_wf_mtype = is_wf_mtype 0
@@ -1161,8 +1165,8 @@ local
             let 
               val anchor = make_anchor ()
               val r = U.get_region_pn pn
-              val t1 = fresh_t anchor 0 (kctxn @ sctxn) r
-              val t2 = fresh_t anchor 0 (kctxn @ sctxn) r
+              val t1 = fresh_mt anchor 0 (kctxn @ sctxn) r
+              val t2 = fresh_mt anchor 0 (kctxn @ sctxn) r
               (* val () = println $ sprintf "before: $ : $" [U.str_pn (sctxn, kctxn, names cctx) pn, str_mt skctxn t] *)
               val () = unify r skctxn (t, Prod (t1, t2))
               (* val () = println "after" *)
@@ -1210,7 +1214,7 @@ local
                     fun insert t =
                         case t of
                             Mono t => t
-                          | Uni (_, t) => insert (subst_t_t (fresh_t (make_anchor ()) 0 (kctxn @ sctxn) r) t)
+                          | Uni (_, t) => insert (subst_t_t (fresh_mt (make_anchor ()) 0 (kctxn @ sctxn) r) t)
                   in
                     (Var x, insert (fetch_var (tctx, x)), T0 dummy)
                   end
@@ -1220,7 +1224,7 @@ local
                     val anchor = make_anchor ()
                     val r = U.get_region_e e1
                     val d = fresh_i anchor 0 sctxn (Base Time) r
-                    val t = fresh_t anchor 0 (kctxn @ sctxn) r
+                    val t = fresh_mt anchor 0 (kctxn @ sctxn) r
                     val (e1, _, d1) = check_mtype (ctx, e1, Arrow (t2, d, t)) 
                   in
                     (App (e1, e2), t, d1 %+ d2 %+ T1 dummy %+ d) 
@@ -1229,7 +1233,7 @@ local
 		  let
                     val anchor = make_anchor ()
                     val r = U.get_region_pn pn
-                    val t = fresh_t anchor 0 (kctxn @ sctxn) r
+                    val t = fresh_mt anchor 0 (kctxn @ sctxn) r
                     val skcctx = (sctx, kctx, cctx) 
                     val (pn, cover, ctxd, nps (* number of premises *)) = match_ptrn (skcctx, pn, t)
 	            val () = check_exhaustive (skcctx, t, [cover], get_region_pn pn)
@@ -1273,7 +1277,7 @@ local
                     val anchor = make_anchor ()
                     val r = U.get_region_e e
                     val s = fresh_sort anchor 0 sctxn r
-                    val t1 = fresh_t anchor 1 (kctxn @ sctxn) r
+                    val t1 = fresh_mt anchor 1 (kctxn @ sctxn) r
                     val (e, t, d) = check_mtype (ctx, e, UniI (s, BindI (("uvar", r), t1))) 
                     val i = check_sort 0 (sctx, i, s) 
                   in
@@ -1294,8 +1298,8 @@ local
 		  let 
                     val anchor = make_anchor ()
                     val r = U.get_region_e e
-                    val t1 = fresh_t anchor 0 (kctxn @ sctxn) r
-                    val t2 = fresh_t anchor 0 (kctxn @ sctxn) r
+                    val t1 = fresh_mt anchor 0 (kctxn @ sctxn) r
+                    val t2 = fresh_mt anchor 0 (kctxn @ sctxn) r
                     val (e, _, d) = check_mtype (ctx, e, Prod (t1, t2)) 
                   in 
                     (Fst e, t1, d)
@@ -1304,8 +1308,8 @@ local
 		  let 
                     val anchor = make_anchor ()
                     val r = U.get_region_e e
-                    val t1 = fresh_t anchor 0 (kctxn @ sctxn) r
-                    val t2 = fresh_t anchor 0 (kctxn @ sctxn) r
+                    val t1 = fresh_mt anchor 0 (kctxn @ sctxn) r
+                    val t2 = fresh_mt anchor 0 (kctxn @ sctxn) r
                     val (e, _, d) = check_mtype (ctx, e, Prod (t1, t2)) 
                   in 
                     (Snd e, t2, d)
@@ -1514,7 +1518,7 @@ local
                         val ctx as (sctx, kctx, _, _) = add_ctx ctxd ctx
                         val anchor = make_anchor ()
                         val r = U.get_region_pn pn
-                        val t = fresh_t anchor 0 (names kctx @ names sctx) r
+                        val t = fresh_mt anchor 0 (names kctx @ names sctx) r
                         val skcctx = (sctx, kctx, cctx) 
                         val (pn, cover, ctxd', nps') = match_ptrn (skcctx, pn, t)
 	                val () = check_exhaustive (skcctx, t, [cover], get_region_pn pn)
@@ -1739,9 +1743,11 @@ local
            ForallF of string * bsort * formula list
            | ImplyF of prop * formula list
            | AndF of formula list
-           | AnchorF of bsort anchor ref
+           | AnchorF of anchor ref
            | PropF of prop * region
 
+  fun filter_anchor xs= List.mapPartial (fn (r, order) => case !r of Fresh uname => SOME (r, uname, order) | _ => NONE) xs
+                           
   fun str_f ctx f =
       case f of
           ForallF (name, bsort, fs) =>
@@ -1750,7 +1756,7 @@ local
           sprintf "($ => ($))" [str_p ctx p, str_fs ctx fs]
         | AndF fs =>
           sprintf "($)" [str_fs ctx fs]
-        | AnchorF anchor => sprintf "(anchor ($))" [join " " $ map (fn x => str_uname (!x)) (!anchor)]
+        | AnchorF anchor => sprintf "(anchor ($))" [join " " $ map (fn (_, uname, order) => sprintf "($, $)" [str_uname_i uname, str_int order]) $ filter_anchor (!anchor)]
         | PropF (p, _) => str_p ctx p
 
   and str_fs ctx fs = (join " " o map (str_f ctx)) fs
@@ -1824,72 +1830,61 @@ local
             case f of
                 AnchorF anchor =>
                 let
-                  val xs = List.mapPartial (fn x => case !x of SOME _ => SOME x | _ => NONE) (!anchor)
-                  (* val xs = !anchor *)
+                  fun to_exists ((uvar_ref, (n, ctx, bsort), order), p) =
+                      let
+                        fun substu_i x v (b : idx) : idx =
+	                    case b of
+                                UVarI ((_, y), _) =>
+                                if y = x then
+                                  VarI (v, dummy)
+                                else 
+                                  b
+	                      | VarI a => VarI a
+	                      | ConstIN n => ConstIN n
+	                      | ConstIT x => ConstIT x
+                              | UnOpI (opr, i, r) => UnOpI (opr, substu_i x v i, r)
+                              | DivI (i1, n2) => DivI (substu_i x v i1, n2)
+                              | ExpI (i1, n2) => ExpI (substu_i x v i1, n2)
+	                      | BinOpI (opr, i1, i2) => BinOpI (opr, substu_i x v i1, substu_i x v i2)
+	                      | TrueI r => TrueI r
+	                      | FalseI r => FalseI r
+                              | TimeAbs (name, i, r) => TimeAbs (name, substu_i x (v + 1) i, r)
+	                      | TTI r => TTI r
+                        fun substu_p x v b =
+	                    case b of
+	                        True r => True r
+	                      | False r => False r
+                              | Not (p, r) => Not (substu_p x v p, r)
+	                      | BinConn (opr,p1, p2) => BinConn (opr, substu_p x v p1, substu_p x v p2)
+	                      | BinPred (opr, i1, i2) => BinPred (opr, substu_i x v i1, substu_i x v i2)
+                              | Quan (q, bs, ins, (name, r), p) => Quan (q, bs, ins, (name, r), substu_p x (v + 1) p)
+                        (* fun evar_name n = "?" ^ str_int n *)
+                        fun evar_name n order =
+                            let
+                              val main =
+                                  if n < 26 then
+                                    "" ^ (str o chr) (ord #"a" + n)
+                                  else
+                                    "_x" ^ str_int n
+                              val order =
+                                  if order = 0 then
+                                    ""
+                                  else
+                                    "_" ^ str_int order
+                            in
+                              main ^ order
+                            end
+                        val r = get_region_p p
+                        val p =
+                            Quan (Exists, bsort,
+                                  SOME (fn i => unify_i dummy [] (UVarI (([], uvar_ref), dummy), i)),
+                                  (evar_name n order, dummy), substu_p uvar_ref 0 $ shift_i_p $ update_p p)
+                        val p = set_region_p p r
+                      in
+                        p
+                      end
+                  val xs = filter_anchor (!anchor)
                   val p = formulas_to_prop fs
-                  fun to_exists (uname_ref, p) =
-                      case !uname_ref of
-                          SOME (Idx ((n, _, order, ctx), bsort)) =>
-                          let
-                            fun substu_i x v (b : idx) : idx =
-	                        case b of
-                                    UVarI ((_, uvar), _) =>
-                                    (case !uvar of
-                                         Refined _ => b
-                                       | Fresh y => if y = x then
-                                                      VarI (v, dummy)
-                                                    else 
-                                                      b
-                                    )
-	                          | VarI a => VarI a
-	                          | ConstIN n => ConstIN n
-	                          | ConstIT x => ConstIT x
-                                  | UnOpI (opr, i, r) => UnOpI (opr, substu_i x v i, r)
-                                  | DivI (i1, n2) => DivI (substu_i x v i1, n2)
-                                  | ExpI (i1, n2) => ExpI (substu_i x v i1, n2)
-	                          | BinOpI (opr, i1, i2) => BinOpI (opr, substu_i x v i1, substu_i x v i2)
-	                          | TrueI r => TrueI r
-	                          | FalseI r => FalseI r
-                                  | TimeAbs (name, i, r) => TimeAbs (name, substu_i x (v + 1) i, r)
-	                          | TTI r => TTI r
-                            fun substu_p x v b =
-	                        case b of
-	                            True r => True r
-	                          | False r => False r
-                                  | Not (p, r) => Not (substu_p x v p, r)
-	                          | BinConn (opr,p1, p2) => BinConn (opr, substu_p x v p1, substu_p x v p2)
-	                          | BinPred (opr, i1, i2) => BinPred (opr, substu_i x v i1, substu_i x v i2)
-                                  | Quan (q, bs, ins, (name, r), p) => Quan (q, bs, ins, (name, r), substu_p x (v + 1) p)
-                            (* fun evar_name n = "?" ^ str_int n *)
-                            fun evar_name n order =
-                                let
-                                  val main =
-                                      if n < 26 then
-                                        "" ^ (str o chr) (ord #"a" + n)
-                                      else
-                                        "_x" ^ str_int n
-                                  val order =
-                                      if order = 0 then
-                                        ""
-                                      else
-                                        "_" ^ str_int order
-                                in
-                                  main ^ order
-                                end
-                            val r = get_region_p p
-                            val p =
-                                Quan (Exists, bsort,
-                                      
-                                      SOME (fn i => unify_i dummy [] (UVarI (([], ref (Fresh uname_ref)), dummy), i)),
-                                      (* ToDo: just a dirty hack here *)
-                                      (* SOME (fn i => uname_ref := SOME (NonIdx (~1, anchor, 0, str_i ctx i :: ctx))), *)
-                                      
-                                      (evar_name n order, dummy), substu_p uname_ref 0 $ shift_i_p $ update_p p)
-                            val p = set_region_p p r
-                          in
-                            p
-                          end
-                        | _ => raise Impossible $ "formulas_to_prop (): uname should be Idx: " ^ str_uname (!uname_ref)
                   val p = foldl to_exists p xs
                 in
                   p
