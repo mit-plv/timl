@@ -1877,11 +1877,14 @@ local
                                   main ^ order
                                 end
                             val r = get_region_p p
-                            val p = Quan (Exists, bsort,
-                                          (* SOME (fn i => unify_i dummy [] (UVarI (([], ref (Fresh uname_ref)), dummy), i)), *)
-                                          (* ToDo: just a dirty hack here *)
-                                          SOME (fn i => uname_ref := SOME (NonIdx (~1, anchor, 0, str_i ctx i :: ctx))),
-                                          (evar_name n order, dummy), substu_p uname_ref 0 $ shift_i_p $ update_p p)
+                            val p =
+                                Quan (Exists, bsort,
+                                      
+                                      SOME (fn i => unify_i dummy [] (UVarI (([], ref (Fresh uname_ref)), dummy), i)),
+                                      (* ToDo: just a dirty hack here *)
+                                      (* SOME (fn i => uname_ref := SOME (NonIdx (~1, anchor, 0, str_i ctx i :: ctx))), *)
+                                      
+                                      (evar_name n order, dummy), substu_p uname_ref 0 $ shift_i_p $ update_p p)
                             val p = set_region_p p r
                           in
                             p
@@ -1912,11 +1915,7 @@ local
               | TTI r => N.TTI r
               | TimeAbs (name, i, r) => N.TimeAbs (name, f i, r)
               | UVarI (_, r) =>
-                (* (* ToDo: possibly unsound *) *)
-                (* (unify_i r [] (i, T0 dummy); *)
-                (*  N.ConstIT ("0.0", r)) *)
-                (* handle _ => *)
-                       raise error i
+                raise error i
       in
         f i
       end
