@@ -221,10 +221,15 @@ local
 		        Typing pn => TypingST (elab_pn pn)
 		      | TBind (Sorting (nm, s, _)) => SortingST (nm, elab_s s)
                 val binds = map f binds
+                (* if return annotations are provided in function signature and the function body is a case without annotations, copy the former to the latter *)
+                fun copy_annotations e (t, d) =
+                    case (e, t, d) of
+                        (S.Case (e, (NONE, NONE), es, r), SOME t, SOME d) =>
+                        S.Case (e, (SOME t, SOME d), es, r)
+                      | _ => e
+                val e = copy_annotations e (t, d)
                 val t = default (UVar ((), r)) (Option.map elab_mt t)
                 val d = default (UVarI ((), r)) (Option.map elab_i d)
-                (* (* ToDo: not sure this is a good idea *) *)
-                (* val d = default (T0 r) (Option.map elab_i d) *)
                 val e = elab e
             in
 	        Rec (tnames, name, (binds, ((t, d), e)), r)

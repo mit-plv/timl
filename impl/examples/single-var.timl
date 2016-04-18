@@ -4,17 +4,17 @@ datatype {Nat} 'a list =
 
 absidx gg : {gg : Fun 1 | gg O (fn n => $n)} with
 val g =
- fn {n : Nat} (xs : {n} int list) return |> gg n => xs
+ fn {n : Nat} (xs : {n} int list) return using gg n => xs
 end
 
 absidx hh : {hh : Fun 1 | hh O (fn n => 1.0)} with
 val h =
- fn {n : Nat} (xs : {n} int list) return |> hh n => xs
+ fn {n : Nat} (xs : {n} int list) return using hh n => xs
 end
 
 absidx ff : {ff : Fun 1 | ff O _} with
 val f =
- fn {n : Nat} (xs : {n} int list) return |> ff n =>
+ fn {n : Nat} (xs : {n} int list) return using ff n =>
     let
         val xs = g {_} xs
         val xs = h {_} xs
@@ -26,8 +26,8 @@ end
 absidx {T : Fun 1 | T O _} with
 fun ['a] ['b] map (f : 'a -- 5.0 --> 'b) =
     let
-      fun map {n : Nat} (xs : {n} 'a list) return using T n =
-          case xs return {n} _ list using T n of
+      fun map {n : Nat} (xs : {n} 'a list) return {n} _ list using T n =
+          case xs of
               Nil => Nil
             | Cons {_} (x, xs) =>
               Cons {_} (f x, map {_} xs)
@@ -37,7 +37,7 @@ fun ['a] ['b] map (f : 'a -- 5.0 --> 'b) =
 end      
 
 fun ['a] split {n : Nat} (xs : {n} 'a list) return {ceil ($n/2)} _ list * {floor ($n/2)} _ list using $n =
-    case xs return {ceil ($n/2)} _ list * {floor ($n/2)} _ list using $n of
+    case xs of
         Nil => (Nil, Nil)
       | Cons {_} (x, Nil) => (xs, Nil)
       | Cons {_} (x1, Cons {_} (x2, xs)) =>
@@ -50,7 +50,7 @@ absidx {T2 : Fun 1 | T2 O _} with
 fun ['a] merge (lt : 'a * 'a -- 8.0 --> bool) =
     let
       fun merge {n1 : Nat} {n2 : Nat} (xs : {n1} _ list) (ys : {n2} _ list) return {n1 + n2} _ list using T2 (n1 + n2) =
-          case (xs, ys) return {n1 + n2} _ list using T2 (n1 + n2) of
+          case (xs, ys) of
               (Nil, _) => ys
             | (_, Nil) => xs
             | (Cons {n1'} (x, xs'), Cons {n2'} (y, ys')) =>
