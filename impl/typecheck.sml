@@ -1420,10 +1420,10 @@ local
       let
         fun fv_mt t =
 	    case t of
-                UVar ((_, uvar), _) =>
-                (case !uvar of
+                UVar ((_, uvar_ref), _) =>
+                (case !uvar_ref of
                      Refined t => fv_mt t
-                   | Fresh y => [y]
+                   | Fresh y => [uvar_ref]
                 )
 	      | Arrow (t1, _, t2) => fv_mt t1 @ fv_mt t2
 	      | Unit r => []
@@ -1438,23 +1438,20 @@ local
         fun generalize t = 
             let
               fun fv_ctx (_, _, _, tctx) = (concatMap fv_t o map snd) tctx (* cctx can't contain uvars *)
-              fun subst x v (b : mtype) : mtype =
+              fun substu x v (b : mtype) : mtype =
 	          case b of
-                      UVar ((_, uvar), _) =>
-                      (case !uvar of
-                           Refined _ => b
-                         | Fresh y => if y = x then
-                                        AppV ((v, dummy), [], [], dummy)
-                                      else 
-                                        b
-                      )
-	            | Arrow (t1, d, t2) => Arrow (subst x v t1, d, subst x v t2)
+                      UVar ((_, y), _) =>
+                      if y = x then
+                        AppV ((v, dummy), [], [], dummy)
+                      else 
+                        b
+	            | Arrow (t1, d, t2) => Arrow (substu x v t1, d, substu x v t2)
 	            | Unit r => Unit r
-	            | Prod (t1, t2) => Prod (subst x v t1, subst x v t2)
-	            | UniI (s, BindI (name, t1)) => UniI (s, BindI (name, subst x (v + 1) t1))
+	            | Prod (t1, t2) => Prod (substu x v t1, substu x v t2)
+	            | UniI (s, BindI (name, t1)) => UniI (s, BindI (name, substu x (v + 1) t1))
 	            | Int r => Int r
 	            | AppV (y, ts, is, r) => 
-		      AppV (y, map (subst x v) ts, is, r)
+		      AppV (y, map (substu x v) ts, is, r)
               fun evar_name n =
                   if n < 26 then
                     "'" ^ (str o chr) (ord #"A" + n)
@@ -1462,7 +1459,7 @@ local
                     "'" ^ str_int n
               val fv = dedup op= $ diff op= (fv_mt t) (fv_ctx ctx)
               val t = shiftx_t_mt 0 (length fv) t
-              val (t, _) = foldl (fn (uname, (t, v)) => (subst uname v t, v + 1)) (t, 0) fv
+              val (t, _) = foldl (fn (uvar_ref, (t, v)) => (substu uvar_ref v t, v + 1)) (t, 0) fv
               val t = Range.for (fn (i, t) => (Uni ((evar_name i, dummy), t))) (Mono t) (0, (length fv))
             in
               t
