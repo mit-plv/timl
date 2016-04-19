@@ -50,6 +50,38 @@ fun combine_class ((c1, k1), (c2, k2)) = (c1 + c2, k1 + k2)
 fun join_class (a as (c1, k1), b as (c2, k2)) =
     if c1 = c2 then (c1, max k1 k2) else if c1 > c2 then a else b
 
+structure M = IntBinaryMap
+                                                                         
+(* summarize [i] in the form n_1^c_1 * (log n_1)^k_1 * ... * n_s^c_s * (log n_s)^k_s, and [n_1 => (c_1, k_1), ..., n_s => (c_s, k_s)] will be the [i]'s "asymptotic class". [n_1, ..., n_s] are the variable. *)
+fun summarize (args as (ask_smt, on_error)) i =
+    case i of
+        ConstIT _ =>
+        M.empty
+      | UnOpI (ToReal, ConstIN _, _) =>
+        M.empty
+      | DivI (i, _) =>
+        summarize args i
+      | UnOpI (Log2, i, _) =>
+        let
+          val m = summarize args i
+          fun f (c, k) =
+              if k = 0 then
+                (0, c)
+              else
+                (0, c + 1) (* approximate [log (log^k n)] by [log n] *)
+          val m = M.map f m
+        in
+        end
+      | BinOpI (MultI, a, b) =>
+        combine_class (summarize args a, summarize args b)
+      | BinOpI (AddI, a, b) =>
+        join_class (summarize args a, summarize args b)
+      | _ =>
+        if ask_smt (i %<= n) then
+          (1, 0)
+        else
+          on_error "summarize fails"
+                           
 (* summarize [i] in the form n^c*(log n)^k, and (c, k) will be the [i]'s "asymptotic class". [n] is the only variable. *)
 fun summarize_1 (args as (ask_smt, on_error, n)) i =
     case i of

@@ -28,4 +28,5 @@ Group is
       main.sml
 
       $/basis.cm
+      $/smlnj-lib.cm
       $/ml-yacc-lib.cm
