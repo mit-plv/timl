@@ -70,9 +70,9 @@ local
 	    else if name = "Nat" then
 	        (Base Nat, r)
 	    else if name = "Bool" then
-	        (Base Bool, r)
+	        (Base BoolSort, r)
 	    else if name = "Unit" then
-	        (Base BSUnit, r)
+	        (Base UnitSort, r)
             else if name = "_" then
                 (UVarBS (), r)
 	    else raise Error (r, sprintf "Unrecognized base sort: $" [name])

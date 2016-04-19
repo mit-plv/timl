@@ -62,8 +62,8 @@ fun negate s = sprintf "(not $)" [s]
 
 fun print_base_sort b =
   case b of
-      BSUnit => "Unit"
-    | Bool => "Bool"
+      UnitSort => "Unit"
+    | BoolSort => "Bool"
     | Nat => "Int"
     | TimeFun n =>
       if n = 0 then
@@ -176,8 +176,8 @@ val check = [
 (* convert to Z3's types and naming conventions *)
 fun conv_base_sort b =
       case b of
-          BSUnit => (BSUnit, NONE)
-        | Bool => (Bool, NONE)
+          UnitSort => (UnitSort, NONE)
+        | BoolSort => (BoolSort, NONE)
         | Nat => (Nat, SOME (BinPred (LeP, ConstIN (0, dummy), VarI (0, dummy))))
         | TimeFun n =>
           if n = 0 then

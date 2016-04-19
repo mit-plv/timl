@@ -675,11 +675,11 @@ local
 	  else
 	    raise Error (r, ["Natural number constant must be non-negative"])
 	| U.TrueI r => 
-          (TrueI r, Base Bool)
+          (TrueI r, Base BoolSort)
 	| U.FalseI r => 
-          (FalseI r, Base Bool)
+          (FalseI r, Base BoolSort)
 	| U.TTI r => 
-          (TTI r, Base BSUnit)
+          (TTI r, Base UnitSort)
         | U.TimeAbs ((name, r1), i, r) =>
           (case get_bsort (order + 1) (add_sorting (name, Basic (Base Nat, r1)) ctx, i) of
                (i, Base (TimeFun arity)) =>

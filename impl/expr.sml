@@ -5,8 +5,8 @@ open Util
 datatype base_sort =
          TimeFun of int (* number of arguments *)
          | Nat
-	 | Bool
-	 | BSUnit
+	 | BoolSort
+	 | UnitSort
 
 val Time = TimeFun 0
 
@@ -14,8 +14,8 @@ fun str_b (s : base_sort) : string =
     case s of
         TimeFun n => if n = 0 then "Time" else sprintf "Fun $" [str_int n]
       | Nat => "Nat"
-      | Bool => "Bool"
-      | BSUnit => "Unit"
+      | BoolSort => "Bool"
+      | UnitSort => "Unit"
 
 end
 
@@ -109,8 +109,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  | UVarS of sort uvar_s * region
 					               
         val STime = Basic (Base Time, dummy)
-        val SBool = Basic (Base Bool, dummy)
-        val SUnit = Basic (Base BSUnit, dummy)
+        val SBool = Basic (Base BoolSort, dummy)
+        val SUnit = Basic (Base UnitSort, dummy)
 
         (* monotypes *)
         datatype mtype = 
