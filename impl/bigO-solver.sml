@@ -45,11 +45,19 @@ fun ask_smt_vc vc =
     (null $ List.mapPartial id $ SMTSolver.smt_solver "" [vc])
     handle SMTSolver.SMTError _ => false
          
-fun combine_class ((c1, k1), (c2, k2)) = (c1 + c2, k1 + k2)
+fun do_mult_class ((c1, k1), (c2, k2)) = (c1 + c2, k1 + k2)
                                         
-fun join_class (a as (c1, k1), b as (c2, k2)) =
+fun do_add_class (a as (c1, k1), b as (c2, k2)) =
     if c1 = c2 then (c1, max k1 k2) else if c1 > c2 then a else b
 
+val mult_class = M.unionWith do_mult_class
+                                
+val add_class = M.unionWith do_add_class
+                                
+val mult_classes = foldl' mult_class M.empty
+                         
+val add_classes = foldl' add_class M.empty
+                                 
 structure M = IntBinaryMap
                                                                          
 (* summarize [i] in the form n_1^c_1 * (log n_1)^k_1 * ... * n_s^c_s * (log n_s)^k_s, and [n_1 => (c_1, k_1), ..., n_s => (c_s, k_s)] will be the [i]'s "asymptotic class". [n_1, ..., n_s] are the variable. *)
@@ -57,30 +65,33 @@ fun summarize (args as (ask_smt, on_error)) i =
     case i of
         ConstIT _ =>
         M.empty
-      | UnOpI (ToReal, ConstIN _, _) =>
-        M.empty
+      | UnOpI (ToReal, i, _) =>
+        summarize args i
+      | UnOpI (Ceil, i, _) =>
+        summarize args i
+      | UnOpI (Floor, i, _) =>
+        summarize args i
       | DivI (i, _) =>
         summarize args i
       | UnOpI (Log2, i, _) =>
         let
-          val m = summarize args i
+          val is = collect_MultI i
+          val classes = map (summarize args) is
+          val cls = add_classes classes
           fun f (c, k) =
-              if k = 0 then
-                (0, c)
-              else
-                (0, c + 1) (* approximate [log (log^k n)] by [log n] *)
-          val m = M.map f m
+              (0, if c = 0 then
+                    if k = 0 then 0 else 1
+                  else 1) (* approximate [log (log n)] by [log n] *)
+          val cls = M.map f cls
+          val cls = M.filter (fn (c, k) => c = 0 andalso k = 0) cls
         in
+          cls
         end
       | BinOpI (MultI, a, b) =>
-        combine_class (summarize args a, summarize args b)
+        mult_class (summarize args a, summarize args b)
       | BinOpI (AddI, a, b) =>
-        join_class (summarize args a, summarize args b)
-      | _ =>
-        if ask_smt (i %<= n) then
-          (1, 0)
-        else
-          on_error "summarize fails"
+        add_class (summarize args a, summarize args b)
+      | _ => on_error "summarize fails"
                            
 (* summarize [i] in the form n^c*(log n)^k, and (c, k) will be the [i]'s "asymptotic class". [n] is the only variable. *)
 fun summarize_1 (args as (ask_smt, on_error, n)) i =
@@ -101,9 +112,9 @@ fun summarize_1 (args as (ask_smt, on_error, n)) i =
             (0, c + 1) (* approximate [log (log^k n)] by [log n] *)
         end
       | BinOpI (MultI, a, b) =>
-        combine_class (summarize_1 args a, summarize_1 args b)
+        mult_class (summarize_1 args a, summarize_1 args b)
       | BinOpI (AddI, a, b) =>
-        join_class (summarize_1 args a, summarize_1 args b)
+        add_class (summarize_1 args a, summarize_1 args b)
       | _ =>
         if ask_smt (i %<= n) then
           (1, 0)
@@ -185,7 +196,6 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                     in
                       (a, b, others)
                     end
-                fun join_classes classes = foldl' join_class ((0, 0)) classes
               in
                 case p of
                     BinPred (LeP, i1, BinOpI (TimeApp, BinOpI (TimeApp, VarI (g, _), VarI (m, _)), n_i)) =>
@@ -221,7 +231,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                               | _ => i
                         val others = map use_bigO_hyp others
                         val classes = map (snd o summarize_2 (ask_smt, fn s => raise Error s, m_, n_)) others
-                        val (c, k) = join_classes classes
+                        val (c, k) = add_classes classes
                         val T = master_theorem (to_real (V 0)) (a, b) (c, k)
                         val T = TimeAbs (("m", dummy), TimeAbs (("n", dummy), simp_i (to_real (V 1) %* T), dummy), dummy)
                         val ret = (T, [])
@@ -278,7 +288,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                         val is = collect_AddI i1
                         val is = map use_bigO_hyp is
                         val classes = map (summarize_1 (ask_smt, fn s => raise Error s, n_)) is
-                        val cls = join_classes classes
+                        val cls = add_classes classes
                         val T = TimeAbs (("n", dummy), simp_i $ class2term cls (to_real (V 0)), dummy)
                       in
                         (T, [])
@@ -312,7 +322,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                 | _ => i
                           val others = map use_bigO_hyp others
                           val classes = map (summarize_1 (ask_smt, fn s => raise Error s, n_)) others
-                          val (c, k) = join_classes classes
+                          val (c, k) = add_classes classes
                           val T = master_theorem (to_real (V 0)) (a, b) (c, k)
                           val T = TimeAbs (("n", dummy), simp_i T, dummy)
                           val ret = (T, [])
