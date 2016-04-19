@@ -28,7 +28,7 @@ in
 end
 
 fun vc2prop (hs, p) =
-    foldl (fn (h, p) => case h of VarH (name, b) => Quan (Forall, Base b, NONE, (name, dummy), p) | PropH p1 => p1 --> p) p hs
+    foldl (fn (h, p) => case h of VarH (name, b) => Quan (Forall, Base b, (name, dummy), p) | PropH p1 => p1 --> p) p hs
           
 fun match_bigO f hyps hyp =
     case hyp of
@@ -358,7 +358,7 @@ fun infer_exists hs (name_arity1 as (_, arity1)) p =
       )
     else
       case p of
-          Quan (Exists, Base (TimeFun arity0), _, (name0, _), BinConn (And, bigO as BinPred (BigO, VarI (n0, _), VarI (n1, _)), BinConn (Imply, bigO', p))) =>
+          Quan (Exists _, Base (TimeFun arity0), (name0, _), BinConn (And, bigO as BinPred (BigO, VarI (n0, _), VarI (n1, _)), BinConn (Imply, bigO', p))) =>
           if n0 = 0 andalso n1 = 1 andalso eq_p bigO bigO' then
             use_master_theorem hs name_arity1 (name0, arity0) p
           else NONE
@@ -405,7 +405,7 @@ exception MasterTheoremCheckFail of region * string list
                                       
 fun solve_exists (vc as (hs, p)) =
     case p of
-        Quan (Exists, Base (TimeFun arity), ins, (name, _), p) =>
+        Quan (Exists ins, Base (TimeFun arity), (name, _), p) =>
         
         let
           val ret =

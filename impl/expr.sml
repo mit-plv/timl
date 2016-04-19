@@ -104,7 +104,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  | BinConn of bin_conn * prop * prop
                  | Not of prop * region
 	         | BinPred of bin_pred * idx * idx
-                 | Quan of quan * bsort * (idx -> unit) option (*for linking idx inferer with types*) * name * prop
+                 | Quan of (idx -> unit) option (*for linking idx inferer with types*) quan * bsort * name * prop
 
         (* index sort *)
         datatype sort =
@@ -338,7 +338,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | BinConn (opr, p1, p2) => sprintf "($ $ $)" [str_p ctx p1, str_bin_conn opr, str_p ctx p2]
               (* | BinPred (BigO, i1, i2) => sprintf "($ $ $)" [str_bin_pred BigO, str_i ctx i1, str_i ctx i2] *)
               | BinPred (opr, i1, i2) => sprintf "($ $ $)" [str_i ctx i1, str_bin_pred opr, str_i ctx i2]
-              | Quan (q, bs, _, (name, _), p) => sprintf "($ ($ : $) $)" [str_quan q, name, str_bs bs, str_p (name :: ctx) p]
+              | Quan (q, bs, (name, _), p) => sprintf "($ ($ : $) $)" [str_quan q, name, str_bs bs, str_p (name :: ctx) p]
 
         fun str_s ctx (s : sort) : string = 
             case s of
@@ -627,7 +627,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | Not (_, r) => r
               | BinConn (_, p1, p2) => combine_region (get_region_p p1) (get_region_p p2)
               | BinPred (_, i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
-              | Quan (_, _, _, (_, r), p) => combine_region r (get_region_p p)
+              | Quan (_, _, (_, r), p) => combine_region r (get_region_p p)
 
         fun set_region_p p r = 
             case p of
@@ -636,7 +636,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | Not (p, _) => Not (p, r)
               | BinConn (opr, p1, p2) => BinConn (opr, set_region_p p1 r, set_region_p p2 r)
               | BinPred (opr, i1, i2) => BinPred (opr, set_region_i i1 r, set_region_i i2 r)
-              | Quan (q, bs, ins, (name, _), p) => Quan (q, bs, ins, (name, r), set_region_p p r)
+              | Quan (q, bs, (name, _), p) => Quan (q, bs, (name, r), set_region_p p r)
 
         fun get_region_ibind f (BindI ((_, r), inner)) = combine_region r (f inner)
 
@@ -723,7 +723,12 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
             case bs of
                 Base b => (case bs' of Base b' => b = b | _ => false)
               | UVarBS _ => false
-                
+
+        fun eq_quan q q' =
+          case q of
+              Forall => (case q' of Forall => true | Exists _ => false)
+            | Exists _ => (case q' of Forall => false | Exists _ => true)
+                            
         fun eq_p p p' =
             case p of
                 True _ => (case p' of True _ => true | _ => false)
@@ -731,7 +736,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | BinConn (opr, p1, p2) => (case p' of BinConn (opr', p1', p2') => opr = opr' andalso eq_p p1 p1' andalso eq_p p2 p2' | _ => false)
               | BinPred (opr, i1, i2) => (case p' of BinPred (opr', i1', i2') => opr = opr' andalso eq_i i1 i1' andalso eq_i i2 i2' | _ => false)
               | Not (p, _) => (case p' of Not (p', _) => eq_p p p' | _ => false)
-              | Quan (q, bs, _, _, p) => (case p' of Quan (q', bs', _, _, p') => q = q' andalso eq_bs bs bs' andalso eq_p p p' | _ => false)
+              | Quan (q, bs, _, p) => (case p' of Quan (q', bs', _, p') => eq_quan q q' andalso eq_bs bs bs' andalso eq_p p p' | _ => false)
 
         local
             val changed = ref false
@@ -822,15 +827,15 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	          | BinPred (opr, i1, i2) => 
 	            BinPred (opr, passi i1, passi i2)
                   | Not (p, r) => Not (passp p, r)
-                  | Quan (q, bs, ins, name, p) => 
+                  | Quan (q, bs, name, p) => 
                     (case q of
                          Forall =>
 	                 if eq_p p (True dummy) then
                              p
                          else
-                             Quan (q, bs, ins, name, passp p)
-                       | Exists =>
-                         Quan (q, bs, ins, name, passp p)
+                             Quan (q, bs, name, passp p)
+                       | Exists _ =>
+                         Quan (q, bs, name, passp p)
                     )
 	          | True _ => p
 	          | False _ => p

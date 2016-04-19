@@ -216,7 +216,7 @@ fun update_i i =
 
 fun update_p p =
     case p of
-        Quan (q, bs, ins, name, p) => Quan (q, update_bs bs, ins, name, update_p p)
+        Quan (q, bs, name, p) => Quan (q, update_bs bs, name, update_p p)
       | BinConn (opr, p1, p2) => BinConn (opr, update_p p1, update_p p2)
       | BinPred (opr, i1, i2) => BinPred (opr, update_i i1, update_i i2)
       | Not (p, r) => Not (update_p p, r)
@@ -587,12 +587,15 @@ local
 	  in
             BinPred (opr, i1, i2)
 	  end
-        | U.Quan (q, bs, ins, (name, r), p) =>
+        | U.Quan (q, bs, (name, r), p) =>
           let
+            val q = case q of
+                        Forall => Forall
+                      | Exists _ => Exists NONE
             val bs = is_wf_bsort bs
             val p = is_wf_prop (order + 1) (add_sorting (name, Basic (bs, r)) ctx, p)
           in
-            Quan (q, bs, NONE, (name, r), p)
+            Quan (q, bs, (name, r), p)
           end
 
   and get_bsort order (ctx : scontext, i : U.idx) : idx * bsort =
@@ -1811,7 +1814,7 @@ local
         fun and_all ps = foldl' (fn (p, acc) => acc /\ p) (True dummy) ps
         fun formula_to_prop f : prop =
             case f of
-                ForallF (name, bs, fs) => Quan (Forall, bs, NONE, (name, dummy), formulas_to_prop fs)
+                ForallF (name, bs, fs) => Quan (Forall, bs, (name, dummy), formulas_to_prop fs)
               | ImplyF (p, fs) => p --> formulas_to_prop fs
               | AndF fs => formulas_to_prop fs
               | PropF (p, r) => set_region_p p r
@@ -1850,7 +1853,7 @@ local
                               | Not (p, r) => Not (substu_p x v p, r)
 	                      | BinConn (opr,p1, p2) => BinConn (opr, substu_p x v p1, substu_p x v p2)
 	                      | BinPred (opr, i1, i2) => BinPred (opr, substu_i x v i1, substu_i x v i2)
-                              | Quan (q, bs, ins, (name, r), p) => Quan (q, bs, ins, (name, r), substu_p x (v + 1) p)
+                              | Quan (q, bs, (name, r), p) => Quan (q, bs, (name, r), substu_p x (v + 1) p)
                         (* fun evar_name n = "?" ^ str_int n *)
                         fun evar_name n order =
                             let
@@ -1869,8 +1872,8 @@ local
                             end
                         val r = get_region_p p
                         val p =
-                            Quan (Exists, bsort,
-                                  SOME (fn i => unify_i dummy [] (UVarI (([], uvar_ref), dummy), i)),
+                            Quan (Exists (SOME (fn i => unify_i dummy [] (UVarI (([], uvar_ref), dummy), i))),
+                                  bsort,
                                   (evar_name n order, dummy), substu_p uvar_ref 0 $ shift_i_p $ update_p p)
                         val p = set_region_p p r
                       in
@@ -1933,6 +1936,11 @@ local
           Base b => N.Base b
         | UVarBS _ => raise Impossible "no_uvar_bsort ()"
 
+  fun no_uvar_quan q =
+    case q of
+        Forall => Forall
+      | Exists ins => Exists (Option.map (fn ins => fn i => ins $ nouvar2uvar_i i) ins)
+                             
   fun no_uvar_p p =
       case p of
           True r => N.True r
@@ -1940,7 +1948,7 @@ local
         | BinConn (opr, p1, p2) => N.BinConn (opr, no_uvar_p p1, no_uvar_p p2)
         | BinPred (opr, i1, i2) => N.BinPred (opr, no_uvar_i i1, no_uvar_i i2)
         | Not (p, r) => N.Not (no_uvar_p p, r)
-        | Quan (q, bs, ins, name, p) => N.Quan (q, no_uvar_bsort bs, Option.map (fn ins => fn i => ins $ nouvar2uvar_i i) ins, name, no_uvar_p p)
+        | Quan (q, bs, name, p) => N.Quan (no_uvar_quan q, no_uvar_bsort bs, name, no_uvar_p p)
 
   open VC
 

@@ -31,9 +31,10 @@ datatype bin_pred =
 datatype bin_op =
          Add
 
-datatype quan =
+(* existential quantifier might carry other information such as a unification variable to update when this existential quantifier gets instantiated *)
+datatype 'a quan =
          Forall
-         | Exists
+         | Exists of 'a
 
 fun str_idx_un_op opr =
   case opr of
@@ -71,6 +72,6 @@ fun str_bin_op opr =
 fun str_quan q =
     case q of
         Forall => "forall"
-      | Exists => "exists"
+      | Exists _ => "exists"
 
 end
