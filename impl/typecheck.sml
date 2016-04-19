@@ -1450,7 +1450,7 @@ local
 		      AppV (y, map (substu x v) ts, is, r)
               fun evar_name n =
                   if n < 26 then
-                    "'" ^ (str o chr) (ord #"A" + n)
+                    "'" ^ (str o chr) (ord #"a" + n)
                   else
                     "'" ^ str_int n
               val fv = dedup op= $ diff op= (fv_mt t) (fv_ctx ctx)
