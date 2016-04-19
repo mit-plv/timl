@@ -273,14 +273,14 @@ fun runError m _ =
 (* use cell to mimic the Writer monad *)
 local								    
 
-  (* order: when we convert leftover fresh idx variables to existentially quantified variables, because the quantification point is the variable's [anchor], which is not necessarily the point where the fresh variable was first used (which determines the variable's visible context), there could be an implicit Skolemization involved. [order] indicates the degree of Skolemization. For example, if [order = 1], this fresh idx variable should (in principle) be converted into an existentially quantified variable of type [idx -> idx], not just [idx]. Considering the capability of the solver used to find this existential variable, we might choose to let its type be just [idx], which corresponds to giving up the flexibility of changing the existential variable's value according to some variables introduced after it. *)
-  type anchor = ((bsort, idx) uvar_ref_i * int (*order*)) list
-                                                                           
+  type anchor = (bsort, idx) uvar_ref_i
+                             
   datatype vc_entry =
            ForallVC of string * sort
            | ImplyVC of prop
            | PropVC of prop * region
-           | AnchorVC of anchor ref
+           (* remember where unification index variable is introduced, since those left over will be converted into existential variables in VC formulas *)
+           | AnchorVC of anchor
            | OpenVC
            | CloseVC
 
@@ -504,10 +504,10 @@ local
 
   fun fresh_bsort () = UVarBS (ref (Fresh (inc ())))
 
-  fun fresh_i anchor order names bsort r = 
+  fun fresh_i names bsort r = 
       let
         val uvar_ref = ref (Fresh (inc (), names, bsort))
-        val () = push_ref anchor (uvar_ref, order)
+        val () = write_anchor uvar_ref
       in
         UVarI (([], uvar_ref), r)
       end
@@ -518,14 +518,6 @@ local
   fun fresh_sort names r : sort = fresh_nonidx UVarS [] names r
   fun fresh_mt names r : mtype = fresh_nonidx UVar ([], []) names r
 
-  fun make_anchor () : anchor ref = 
-      let 
-        val anchor = ref []
-        val () = write_anchor anchor
-      in
-        anchor
-      end
-
   fun sort_mismatch ctx i expect have =  "Sort mismatch for " ^ str_i ctx i ^ ": expect " ^ expect ^ " have " ^ str_s ctx have
 
   fun is_wf_bsort (bs : U.bsort) : bsort =
@@ -533,7 +525,7 @@ local
           U.Base bs => Base bs
         | U.UVarBS () => fresh_bsort ()
 
-  fun is_wf_sort order (ctx : scontext, s : U.sort) : sort =
+  fun is_wf_sort (ctx : scontext, s : U.sort) : sort =
       case s of
 	  U.Basic (bs, r) => Basic (is_wf_bsort bs, r)
         | U.Subset ((bs, r), BindI ((name, r2), p)) =>
@@ -542,32 +534,32 @@ local
           in
             Subset ((bs, r),
                     BindI ((name, r2), 
-                           is_wf_prop (order + 1) (add_sorting (name, Basic (bs, r)) ctx, p)))
+                           is_wf_prop (add_sorting (name, Basic (bs, r)) ctx, p)))
           end
         | U.UVarS ((), r) => fresh_sort (map fst ctx) r
 
-  and is_wf_prop order (ctx : scontext, p : U.prop) : prop =
+  and is_wf_prop (ctx : scontext, p : U.prop) : prop =
       case p of
 	  U.True r => True r
 	| U.False r => False r
         | U.Not (p, r) => 
-          Not (is_wf_prop order (ctx, p), r)
+          Not (is_wf_prop (ctx, p), r)
 	| U.BinConn (opr, p1, p2) =>
 	  BinConn (opr,
-                   is_wf_prop order (ctx, p1),
-	           is_wf_prop order (ctx, p2))
+                   is_wf_prop (ctx, p1),
+	           is_wf_prop (ctx, p2))
 	| U.BinPred (EqP, i1, i2) =>
 	  let 
-            val (i1, bs1) = get_bsort order (ctx, i1)
-	    val (i2, bs2) = get_bsort order (ctx, i2)
+            val (i1, bs1) = get_bsort (ctx, i1)
+	    val (i2, bs2) = get_bsort (ctx, i2)
             val () = unify_bs (U.get_region_p p) (bs1, bs2)
 	  in
             BinPred (EqP, i1, i2)
 	  end
 	| U.BinPred (opr, i1, i2) =>
 	  let 
-            val (i1, bs1) = get_bsort order (ctx, i1)
-	    val (i2, bs2) = get_bsort order (ctx, i2)
+            val (i1, bs1) = get_bsort (ctx, i1)
+	    val (i2, bs2) = get_bsort (ctx, i2)
             val () = unify_bs (U.get_region_p p) (bs1, bs2)
             val bs = update_bs bs1
             fun error expected = Error (U.get_region_p p, sprintf "Sorts of operands of $ must be both $:" [str_bin_pred opr, expected] :: indent ["left: " ^ str_bs bs1, "right: " ^ str_bs bs2])
@@ -593,12 +585,12 @@ local
                         Forall => Forall
                       | Exists _ => Exists NONE
             val bs = is_wf_bsort bs
-            val p = is_wf_prop (order + 1) (add_sorting (name, Basic (bs, r)) ctx, p)
+            val p = is_wf_prop (add_sorting (name, Basic (bs, r)) ctx, p)
           in
             Quan (q, bs, (name, r), p)
           end
 
-  and get_bsort order (ctx : scontext, i : U.idx) : idx * bsort =
+  and get_bsort (ctx : scontext, i : U.idx) : idx * bsort =
       case i of
 	  U.VarI (x, r) =>
           let
@@ -617,13 +609,13 @@ local
             val (atype, rettype) = idx_un_op_type opr
           in
             (UnOpI (opr,
-                    check_bsort order (ctx, i, Base atype),
+                    check_bsort (ctx, i, Base atype),
                     r),
              Base rettype)
           end
         | U.DivI (i1, (n2, r2)) =>
           let 
-            val i1 = check_bsort order (ctx, i1, Base Time)
+            val i1 = check_bsort (ctx, i1, Base Time)
 	    val () = if n2 > 0 then ()
 	             else raise Error (r2, ["Can only divide by positive integer"])
           in
@@ -631,7 +623,7 @@ local
           end
         | U.ExpI (i1, (n2, r2)) =>
           let 
-            val i1 = check_bsort order (ctx, i1, Base Time)
+            val i1 = check_bsort (ctx, i1, Base Time)
           in
             (ExpI (i1, (n2, r2)), Base Time)
           end
@@ -641,11 +633,11 @@ local
                let
                  (* val () = println $ U.str_i (names ctx) i *)
                in
-                 case get_bsort order (ctx, i1) of
+                 case get_bsort (ctx, i1) of
                      (i1, Base (TimeFun arity)) =>
                      if arity > 0 then
                        let 
-                         val i2 = check_bsort order (ctx, i2, Base Nat)
+                         val i2 = check_bsort (ctx, i2, Base Nat)
                        in
                          (BinOpI (opr, i1, i2), Base (TimeFun (arity - 1)))
                        end
@@ -656,8 +648,8 @@ local
              | _ =>
                (* binary operations on idx are overloaded for Nat and Time *)
                let 
-                 val (i1, bs1) = get_bsort order (ctx, i1)
-                 val (i2, bs2) = get_bsort order (ctx, i2)
+                 val (i1, bs1) = get_bsort (ctx, i1)
+                 val (i2, bs2) = get_bsort (ctx, i2)
                  val () = unify_bs (U.get_region_i i) (bs1, bs2)
                  val bs = update_bs bs1
                  val () =
@@ -683,7 +675,7 @@ local
 	| U.TTI r => 
           (TTI r, Base UnitSort)
         | U.TimeAbs ((name, r1), i, r) =>
-          (case get_bsort (order + 1) (add_sorting (name, Basic (Base Nat, r1)) ctx, i) of
+          (case get_bsort (add_sorting (name, Basic (Base Nat, r1)) ctx, i) of
                (i, Base (TimeFun arity)) =>
                (TimeAbs ((name, r1), i, r), Base (TimeFun (arity + 1)))
              | (_, bs) => raise Error (U.get_region_i i, "Sort of time funtion body should be time function" :: indent ["want: time function", "got: " ^ str_bs bs])
@@ -692,38 +684,40 @@ local
           let
             val bs = fresh_bsort ()
           in
-            (fresh_i (make_anchor ()) order (map fst ctx) bs r, bs)
+            (fresh_i (map fst ctx) bs r, bs)
           end
 
 
-  and check_bsort order (ctx, i : U.idx, bs : bsort) : idx =
+  and check_bsort (ctx, i : U.idx, bs : bsort) : idx =
       let 
-        val (i, bs') = get_bsort order (ctx, i)
+        val (i, bs') = get_bsort (ctx, i)
 	val () = unify_bs (get_region_i i) (bs', bs)
       in
         i
       end
 
-  fun is_wf_sorts order (ctx, sorts : U.sort list) : sort list = 
-      map (fn s => is_wf_sort order (ctx, s)) sorts
-
-  fun get_fresh_uvar_ref_ctx fresh =
-      case fresh of
-          FrIdx (_, (_, ctx, _)) => ctx
-        | FrBsort _ => []
-        | FrSort (_, (_, ctx)) => ctx
-        | FrMtype (_, (_, ctx)) => ctx
+  fun is_wf_sorts (ctx, sorts : U.sort list) : sort list = 
+      map (fn s => is_wf_sort (ctx, s)) sorts
                  
   fun subst_uvar_error r body i (fresh, x) =
-      Error (r,
-             sprintf "Can't substitute for $ in unification variable $ in $" [str_v (get_fresh_uvar_ref_ctx fresh) x, str_fresh_uvar_ref fresh, body] ::
-             indent [
-               sprintf "because the context of $ is [$] which contains $" [str_fresh_uvar_ref fresh, (join ", " o rev o get_fresh_uvar_ref_ctx) fresh, str_v (get_fresh_uvar_ref_ctx fresh) x]
-             ])
-                                                   
-  fun check_sort order (ctx, i : U.idx, s : sort) : idx =
+      let
+        fun get_fresh_uvar_ref_ctx fresh =
+            case fresh of
+                FrIdx (_, (_, ctx, _)) => ctx
+              | FrBsort _ => []
+              | FrSort (_, (_, ctx)) => ctx
+              | FrMtype (_, (_, ctx)) => ctx
+      in
+        Error (r,
+               sprintf "Can't substitute for $ in unification variable $ in $" [str_v (get_fresh_uvar_ref_ctx fresh) x, str_fresh_uvar_ref fresh, body] ::
+               indent [
+                 sprintf "because the context of $ is [$] which contains $" [str_fresh_uvar_ref fresh, (join ", " o rev o get_fresh_uvar_ref_ctx) fresh, str_v (get_fresh_uvar_ref_ctx fresh) x]
+               ])
+      end
+        
+  fun check_sort (ctx, i : U.idx, s : sort) : idx =
       let 
-        val (i, bs') = get_bsort order (ctx, i)
+        val (i, bs') = get_bsort (ctx, i)
         val r = get_region_i i
         val s = update_s s
         val () =
@@ -756,9 +750,9 @@ local
         i
       end
 
-  fun check_sorts order (ctx, is : U.idx list, sorts, r) : idx list =
+  fun check_sorts (ctx, is : U.idx list, sorts, r) : idx list =
       (check_length r (is, sorts);
-       ListPair.map (fn (i, s) => check_sort order (ctx, i, s)) (is, sorts))
+       ListPair.map (fn (i, s) => check_sort (ctx, i, s)) (is, sorts))
 
   (* k => Type *)
   fun recur_kind k = ArrowK (false, 0, k)
@@ -770,26 +764,26 @@ local
       	  SOME k => k
         | NONE => raise Error (r, ["Unbound type variable: " ^ str_v (names kctx) a])
 
-  fun is_wf_mtype order (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype) : mtype = 
+  fun is_wf_mtype (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype) : mtype = 
       let 
         val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
 	                               (* val () = print (sprintf "Type wellformedness checking: $\n" [str_t ctxn c]) *)
       in
         case c of
 	    U.Arrow (c1, d, c2) => 
-	    Arrow (is_wf_mtype order (ctx, c1),
-	           check_bsort order (sctx, d, Base Time),
-	           is_wf_mtype order (ctx, c2))
+	    Arrow (is_wf_mtype (ctx, c1),
+	           check_bsort (sctx, d, Base Time),
+	           is_wf_mtype (ctx, c2))
 	  | U.Prod (c1, c2) => 
-	    Prod (is_wf_mtype order (ctx, c1),
-	          is_wf_mtype order (ctx, c2))
+	    Prod (is_wf_mtype (ctx, c1),
+	          is_wf_mtype (ctx, c2))
 	  | U.UniI (s, BindI ((name, r), c)) => 
             let
-              val s = is_wf_sort order (sctx, s)
+              val s = is_wf_sort (sctx, s)
             in
 	      UniI (s,
 	            BindI ((name, r), 
-                           is_wf_mtype (order + 1) (add_sorting_sk (name, s) ctx, c)))
+                           is_wf_mtype (add_sorting_sk (name, s) ctx, c)))
             end
 	  | U.AppV (x, ts, is, r) => 
             let
@@ -797,15 +791,13 @@ local
 	      val () = check_length_n r (ts, n)
             in
 	      AppV (x, 
-                    map (fn t => is_wf_mtype order (ctx, t)) ts, 
-                    check_sorts order (sctx, is, sorts, r), 
+                    map (fn t => is_wf_mtype (ctx, t)) ts, 
+                    check_sorts (sctx, is, sorts, r), 
                     r)
             end
 	  | U.BaseType a => BaseType a
           | U.UVar ((), r) => fresh_mt (kctxn @ sctxn) r
       end
-
-  val is_wf_mtype = is_wf_mtype 0
 
   fun is_wf_type (ctx as (sctx : scontext, kctx : kcontext), c : U.ty) : ty = 
       let 
@@ -1104,13 +1096,13 @@ local
       case return of
           (SOME t, SOME d) =>
 	  (SOME (is_wf_mtype (skctx, t)),
-	   SOME (check_bsort 0 (sctx, d, Base Time)))
+	   SOME (check_bsort (sctx, d, Base Time)))
         | (SOME t, NONE) =>
 	  (SOME (is_wf_mtype (skctx, t)),
            NONE)
         | (NONE, SOME d) =>
 	  (NONE,
-           SOME (check_bsort 0 (sctx, d, Base Time)))
+           SOME (check_bsort (sctx, d, Base Time)))
         | (NONE, NONE) => (NONE, NONE)
 
   fun fetch_var (tctx, (x, r)) =
@@ -1222,7 +1214,7 @@ local
 		  let 
                     val (e2, t2, d2) = get_mtype (ctx, e2)
                     val r = U.get_region_e e1
-                    val d = fresh_i (make_anchor ()) 0 sctxn (Base Time) r
+                    val d = fresh_i sctxn (Base Time) r
                     val t = fresh_mt (kctxn @ sctxn) r
                     val (e1, _, d1) = check_mtype (ctx, e1, Arrow (t2, d, t)) 
                   in
@@ -1261,7 +1253,7 @@ local
 		  let 
 		    val () = if U.is_value e then ()
 		             else raise Error (U.get_region_e e, ["The body of a universal abstraction must be a value"])
-                    val s = is_wf_sort 0 (sctx, s)
+                    val s = is_wf_sort (sctx, s)
                     val ctxd = ctx_from_sorting (name, s)
                     val ctx = add_ctx ctxd ctx
                     val () = open_ctx ctxd
@@ -1276,7 +1268,7 @@ local
                     val s = fresh_sort sctxn r
                     val t1 = fresh_mt (kctxn @ sctxn) r
                     val (e, t, d) = check_mtype (ctx, e, UniI (s, BindI (("uvar", r), t1))) 
-                    val i = check_sort 0 (sctx, i, s) 
+                    val i = check_sort (sctx, i, s) 
                   in
 		    (AppI (e, i), subst_i_mt i t1, d)
                     handle SubstUVar info =>
@@ -1316,7 +1308,7 @@ local
 		    (Ascription (e, t), t, d)
 		  end
 	        | U.AscriptionTime (e, d) => 
-		  let val d = check_bsort 0 (sctx, d, Base Time)
+		  let val d = check_bsort (sctx, d, Base Time)
 		      val (e, t) = check_time (ctx, e, d)
                   in
 		    (AscriptionTime (e, d), t, d)
@@ -1496,7 +1488,7 @@ local
                       U.SortingST (name, s) => 
                       let 
                         val ctx = add_ctx ctxd ctx
-                        val s = is_wf_sort 0 (#1 ctx, s)
+                        val s = is_wf_sort (#1 ctx, s)
                         val ctxd' = ctx_from_sorting (fst name, s)
                         val () = open_ctx ctxd'
                         val ctxd = add_ctx ctxd' ctxd
@@ -1520,7 +1512,7 @@ local
               val binds = rev binds
               val (sctx, kctx, _, _) = add_ctx ctxd ctx
 	      val t = is_wf_mtype ((sctx, kctx), t)
-	      val d = check_bsort 0 (sctx, d, Base Time)
+	      val d = check_bsort (sctx, d, Base Time)
               fun g (bind, t) =
                   case bind of
 		      inl (name, s) => UniI (s, BindI (name, t))
@@ -1547,7 +1539,7 @@ local
 	    end
 	  | U.Datatype (name, tnames, sorts, constr_decls, r) =>
 	    let 
-              val sorts = is_wf_sorts 0 (sctx, sorts)
+              val sorts = is_wf_sorts (sctx, sorts)
 	      val nk = (name, ArrowK (true, length tnames, sorts))
 	      val ctx as (sctx, kctx, _, _) = add_kinding_skct nk ctx
 	      fun make_constr ((name, ibinds, r) : U.constr_decl) =
@@ -1573,8 +1565,8 @@ local
 	    end
           | U.IdxDef ((name, r), s, i) =>
             let
-              val s = is_wf_sort 0 (sctx, s)
-              val i = check_sort 0 (sctx, i, s)
+              val s = is_wf_sort (sctx, s)
+              val i = check_sort (sctx, i, s)
               val ctxd = ctx_from_sorting (name, s)
               val () = open_ctx ctxd
               val ps = [BinPred (EqP, VarI (0, r), shift_ctx_i ctxd i)]
@@ -1584,10 +1576,10 @@ local
             end
           | U.AbsIdx (((name, r1), s, i), decls, r) =>
             let
-              val s = is_wf_sort 0 (sctx, s)
+              val s = is_wf_sort (sctx, s)
               (* localized the scope of the evars introduced in type-checking absidx's definition *)
               val () = open_vc ()
-              val i = check_sort 0 (sctx, i, s)
+              val i = check_sort (sctx, i, s)
               val ctxd = ctx_from_sorting (name, s)
               val () = open_ctx ctxd
               val ps = [BinPred (EqP, VarI (0, r), shift_ctx_i ctxd i)]
@@ -1732,11 +1724,9 @@ local
            ForallF of string * bsort * formula list
            | ImplyF of prop * formula list
            | AndF of formula list
-           | AnchorF of anchor ref
+           | AnchorF of anchor
            | PropF of prop * region
 
-  fun filter_anchor xs= List.mapPartial (fn (r, order) => case !r of Fresh uname => SOME (r, uname, order) | _ => NONE) xs
-                           
   fun str_f ctx f =
       case f of
           ForallF (name, bsort, fs) =>
@@ -1745,7 +1735,12 @@ local
           sprintf "($ => ($))" [str_p ctx p, str_fs ctx fs]
         | AndF fs =>
           sprintf "($)" [str_fs ctx fs]
-        | AnchorF anchor => sprintf "(anchor ($))" [join " " $ map (fn (_, uname, order) => sprintf "($, $)" [str_uname_i uname, str_int order]) $ filter_anchor (!anchor)]
+        | AnchorF anchor =>
+          (case !anchor of
+               Fresh uname =>
+               sprintf "(anchor $)" [str_uname_i uname]
+             | Refined _ => ""
+          )
         | PropF (p, _) => str_p ctx p
 
   and str_fs ctx fs = (join " " o map (str_f ctx)) fs
@@ -1819,7 +1814,7 @@ local
             case f of
                 AnchorF anchor =>
                 let
-                  fun to_exists ((uvar_ref, (n, ctx, bsort), order), p) =
+                  fun to_exists (uvar_ref, (n, ctx, bsort), p) =
                       let
                         fun substu_i x v (b : idx) : idx =
 	                    case b of
@@ -1848,35 +1843,24 @@ local
 	                      | BinPred (opr, i1, i2) => BinPred (opr, substu_i x v i1, substu_i x v i2)
                               | Quan (q, bs, (name, r), p) => Quan (q, bs, (name, r), substu_p x (v + 1) p)
                         (* fun evar_name n = "?" ^ str_int n *)
-                        fun evar_name n order =
-                            let
-                              val main =
-                                  if n < 26 then
-                                    "" ^ (str o chr) (ord #"a" + n)
-                                  else
-                                    "_x" ^ str_int n
-                              val order =
-                                  if order = 0 then
-                                    ""
-                                  else
-                                    "_" ^ str_int order
-                            in
-                              main ^ order
-                            end
+                        fun evar_name n =
+                            if n < 26 then
+                              "" ^ (str o chr) (ord #"a" + n)
+                            else
+                              "_x" ^ str_int n
                         val r = get_region_p p
                         val p =
-                            Quan (Exists (SOME (fn i => unify_i dummy [] (UVarI (([], uvar_ref), dummy), (* shiftx_i_i 0 order *) i))),
+                            Quan (Exists (SOME (fn i => unify_i dummy [] (UVarI (([], uvar_ref), dummy), i))),
                                   bsort,
-                                  (evar_name n order, dummy), substu_p uvar_ref 0 $ shift_i_p $ update_p p)
+                                  (evar_name n, dummy), substu_p uvar_ref 0 $ shift_i_p $ update_p p)
                         val p = set_region_p p r
                       in
                         p
                       end
-                  val xs = filter_anchor (!anchor)
-                  val p = formulas_to_prop fs
-                  val p = foldl to_exists p xs
                 in
-                  p
+                  case !anchor of
+                      Fresh uname => to_exists (anchor, uname, formulas_to_prop fs)
+                    | Refined _ => formulas_to_prop fs
                 end
               | _ => formula_to_prop f /\ formulas_to_prop fs
       end

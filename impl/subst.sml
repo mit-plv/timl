@@ -5,6 +5,7 @@ open Util
          
 infixr 0 $
 
+(* for reporting error *)
 datatype fresh_uvar_ref =
          FrIdx of (bsort, idx) uvar_ref_i * bsort uname_i
          | FrBsort of bsort uvar_bs * uname_bs
