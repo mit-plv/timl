@@ -516,8 +516,8 @@ local
   fun fresh_nonidx f empty_invis names r = 
       f ((empty_invis, ref (Fresh (inc (), names))), r)
 
-  fun fresh_sort _ _ names r : sort = fresh_nonidx UVarS [] names r
-  fun fresh_mt _ _ names r : mtype = fresh_nonidx UVar ([], []) names r
+  fun fresh_sort names r : sort = fresh_nonidx UVarS [] names r
+  fun fresh_mt names r : mtype = fresh_nonidx UVar ([], []) names r
 
   fun make_anchor () : anchor ref = 
       let 
@@ -545,7 +545,7 @@ local
                     BindI ((name, r2), 
                            is_wf_prop (order + 1) (add_sorting (name, Basic (bs, r)) ctx, p)))
           end
-        | U.UVarS ((), r) => fresh_sort (make_anchor ()) order (map fst ctx) r
+        | U.UVarS ((), r) => fresh_sort (map fst ctx) r
 
   and is_wf_prop order (ctx : scontext, p : U.prop) : prop =
       case p of
@@ -801,7 +801,7 @@ local
                     r)
             end
 	  | U.Int r => Int r
-          | U.UVar ((), r) => fresh_mt (make_anchor ()) order (kctxn @ sctxn) r
+          | U.UVar ((), r) => fresh_mt (kctxn @ sctxn) r
       end
 
   val is_wf_mtype = is_wf_mtype 0
@@ -1165,8 +1165,8 @@ local
             let 
               val anchor = make_anchor ()
               val r = U.get_region_pn pn
-              val t1 = fresh_mt anchor 0 (kctxn @ sctxn) r
-              val t2 = fresh_mt anchor 0 (kctxn @ sctxn) r
+              val t1 = fresh_mt (kctxn @ sctxn) r
+              val t2 = fresh_mt (kctxn @ sctxn) r
               (* val () = println $ sprintf "before: $ : $" [U.str_pn (sctxn, kctxn, names cctx) pn, str_mt skctxn t] *)
               val () = unify r skctxn (t, Prod (t1, t2))
               (* val () = println "after" *)
@@ -1214,7 +1214,7 @@ local
                     fun insert t =
                         case t of
                             Mono t => t
-                          | Uni (_, t) => insert (subst_t_t (fresh_mt (make_anchor ()) 0 (kctxn @ sctxn) r) t)
+                          | Uni (_, t) => insert (subst_t_t (fresh_mt (kctxn @ sctxn) r) t)
                   in
                     (Var x, insert (fetch_var (tctx, x)), T0 dummy)
                   end
@@ -1224,7 +1224,7 @@ local
                     val anchor = make_anchor ()
                     val r = U.get_region_e e1
                     val d = fresh_i anchor 0 sctxn (Base Time) r
-                    val t = fresh_mt anchor 0 (kctxn @ sctxn) r
+                    val t = fresh_mt (kctxn @ sctxn) r
                     val (e1, _, d1) = check_mtype (ctx, e1, Arrow (t2, d, t)) 
                   in
                     (App (e1, e2), t, d1 %+ d2 %+ T1 dummy %+ d) 
@@ -1233,7 +1233,7 @@ local
 		  let
                     val anchor = make_anchor ()
                     val r = U.get_region_pn pn
-                    val t = fresh_mt anchor 0 (kctxn @ sctxn) r
+                    val t = fresh_mt (kctxn @ sctxn) r
                     val skcctx = (sctx, kctx, cctx) 
                     val (pn, cover, ctxd, nps (* number of premises *)) = match_ptrn (skcctx, pn, t)
 	            val () = check_exhaustive (skcctx, t, [cover], get_region_pn pn)
@@ -1276,8 +1276,8 @@ local
 		  let 
                     val anchor = make_anchor ()
                     val r = U.get_region_e e
-                    val s = fresh_sort anchor 0 sctxn r
-                    val t1 = fresh_mt anchor 1 (kctxn @ sctxn) r
+                    val s = fresh_sort sctxn r
+                    val t1 = fresh_mt (kctxn @ sctxn) r
                     val (e, t, d) = check_mtype (ctx, e, UniI (s, BindI (("uvar", r), t1))) 
                     val i = check_sort 0 (sctx, i, s) 
                   in
@@ -1298,8 +1298,8 @@ local
 		  let 
                     val anchor = make_anchor ()
                     val r = U.get_region_e e
-                    val t1 = fresh_mt anchor 0 (kctxn @ sctxn) r
-                    val t2 = fresh_mt anchor 0 (kctxn @ sctxn) r
+                    val t1 = fresh_mt (kctxn @ sctxn) r
+                    val t2 = fresh_mt (kctxn @ sctxn) r
                     val (e, _, d) = check_mtype (ctx, e, Prod (t1, t2)) 
                   in 
                     (Fst e, t1, d)
@@ -1308,8 +1308,8 @@ local
 		  let 
                     val anchor = make_anchor ()
                     val r = U.get_region_e e
-                    val t1 = fresh_mt anchor 0 (kctxn @ sctxn) r
-                    val t2 = fresh_mt anchor 0 (kctxn @ sctxn) r
+                    val t1 = fresh_mt (kctxn @ sctxn) r
+                    val t2 = fresh_mt (kctxn @ sctxn) r
                     val (e, _, d) = check_mtype (ctx, e, Prod (t1, t2)) 
                   in 
                     (Snd e, t2, d)
@@ -1515,7 +1515,7 @@ local
                         val ctx as (sctx, kctx, _, _) = add_ctx ctxd ctx
                         val anchor = make_anchor ()
                         val r = U.get_region_pn pn
-                        val t = fresh_mt anchor 0 (names kctx @ names sctx) r
+                        val t = fresh_mt (names kctx @ names sctx) r
                         val skcctx = (sctx, kctx, cctx) 
                         val (pn, cover, ctxd', nps') = match_ptrn (skcctx, pn, t)
 	                val () = check_exhaustive (skcctx, t, [cover], get_region_pn pn)
