@@ -45,12 +45,6 @@ fun ask_smt_vc vc =
     (null $ List.mapPartial id $ SMTSolver.smt_solver "" [vc])
     handle SMTSolver.SMTError _ => false
          
-local
-  open Cont
-in
-fun callck f = callcc (fn k => f (fn v => throw k v))
-end
-
 fun combine_class ((c1, k1), (c2, k2)) = (c1 + c2, k1 + k2)
                                         
 fun join_class (a as (c1, k1), b as (c2, k2)) =
