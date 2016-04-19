@@ -273,7 +273,7 @@ fun runError m _ =
 (* use cell to mimic the Writer monad *)
 local								    
 
-  (* order: when we convert leftover fresh idx variables to existentially quantified variables, because the quantification point is the variable's [anchor], which is not necessarily the point where the fresh variable was first used, there could be an implicit Skolemization involved. [order] indicates the degree of Skolemization. For example, if [order = 1], this fresh idx variable should (in principle) be converted into an existentially quantified variable of type [idx -> idx], not just [idx]. Considering the capability of the solver used to find this existential variable, we might choose to let its type be just [idx], which corresponds to giving up the flexibility of changing the existential variable's value according to some variables introduced after it. *)
+  (* order: when we convert leftover fresh idx variables to existentially quantified variables, because the quantification point is the variable's [anchor], which is not necessarily the point where the fresh variable was first used (which determines the variable's visible context), there could be an implicit Skolemization involved. [order] indicates the degree of Skolemization. For example, if [order = 1], this fresh idx variable should (in principle) be converted into an existentially quantified variable of type [idx -> idx], not just [idx]. Considering the capability of the solver used to find this existential variable, we might choose to let its type be just [idx], which corresponds to giving up the flexibility of changing the existential variable's value according to some variables introduced after it. *)
   type anchor = ((bsort, idx) uvar_ref_i * int (*order*)) list
                                                                            
   datatype vc_entry =
@@ -1164,7 +1164,6 @@ local
             (VarP (name, r), TrueC, ctx_from_typing (name, Mono t), 0)
           | U.PairP (pn1, pn2) =>
             let 
-              val anchor = make_anchor ()
               val r = U.get_region_pn pn
               val t1 = fresh_mt (kctxn @ sctxn) r
               val t2 = fresh_mt (kctxn @ sctxn) r
@@ -1222,9 +1221,8 @@ local
 	        | U.App (e1, e2) =>
 		  let 
                     val (e2, t2, d2) = get_mtype (ctx, e2)
-                    val anchor = make_anchor ()
                     val r = U.get_region_e e1
-                    val d = fresh_i anchor 0 sctxn (Base Time) r
+                    val d = fresh_i (make_anchor ()) 0 sctxn (Base Time) r
                     val t = fresh_mt (kctxn @ sctxn) r
                     val (e1, _, d1) = check_mtype (ctx, e1, Arrow (t2, d, t)) 
                   in
@@ -1232,7 +1230,6 @@ local
 		  end
 	        | U.Abs (pn, e) => 
 		  let
-                    val anchor = make_anchor ()
                     val r = U.get_region_pn pn
                     val t = fresh_mt (kctxn @ sctxn) r
                     val skcctx = (sctx, kctx, cctx) 
@@ -1275,7 +1272,6 @@ local
 		  end 
 	        | U.AppI (e, i) =>
 		  let 
-                    val anchor = make_anchor ()
                     val r = U.get_region_e e
                     val s = fresh_sort sctxn r
                     val t1 = fresh_mt (kctxn @ sctxn) r
@@ -1297,7 +1293,6 @@ local
 		  end
 	        | U.Fst e => 
 		  let 
-                    val anchor = make_anchor ()
                     val r = U.get_region_e e
                     val t1 = fresh_mt (kctxn @ sctxn) r
                     val t2 = fresh_mt (kctxn @ sctxn) r
@@ -1307,7 +1302,6 @@ local
 		  end
 	        | U.Snd e => 
 		  let 
-                    val anchor = make_anchor ()
                     val r = U.get_region_e e
                     val t1 = fresh_mt (kctxn @ sctxn) r
                     val t2 = fresh_mt (kctxn @ sctxn) r
@@ -1512,7 +1506,6 @@ local
                     | U.TypingST pn =>
                       let
                         val ctx as (sctx, kctx, _, _) = add_ctx ctxd ctx
-                        val anchor = make_anchor ()
                         val r = U.get_region_pn pn
                         val t = fresh_mt (names kctx @ names sctx) r
                         val skcctx = (sctx, kctx, cctx) 
@@ -1872,7 +1865,7 @@ local
                             end
                         val r = get_region_p p
                         val p =
-                            Quan (Exists (SOME (fn i => unify_i dummy [] (UVarI (([], uvar_ref), dummy), i))),
+                            Quan (Exists (SOME (fn i => unify_i dummy [] (UVarI (([], uvar_ref), dummy), (* shiftx_i_i 0 order *) i))),
                                   bsort,
                                   (evar_name n order, dummy), substu_p uvar_ref 0 $ shift_i_p $ update_p p)
                         val p = set_region_p p r
