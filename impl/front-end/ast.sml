@@ -27,6 +27,7 @@ datatype bsort =
 datatype sort =
 	 Basic of bsort
 	 | Subset of bsort * id * prop * region
+         | BigOSort of string * int * idx * region
 
 datatype quan =
 	 Forall

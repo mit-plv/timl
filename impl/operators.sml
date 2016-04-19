@@ -63,7 +63,7 @@ fun str_bin_pred opr =
       EqP => "="
     | LeP => "<="
     | GtP => ">"
-    | BigO => "O"
+    | BigO => "<=="
 
 fun str_bin_op opr =
   case opr of

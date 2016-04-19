@@ -453,13 +453,33 @@ fun solve_exists (vc as (hs, p)) =
 
         end
       | _ => [vc]
-               
-fun filter_solve vcs = concatMap solve_exists vcs
 
+fun solve_bigO_compare (vc as (hs, p)) =
+    case p of
+        BinPred (BigO, i1, i2) =>
+        let
+          val () = println "BigO-compare-solver to solve this: "
+          val () = app println $ str_vc false "" vc @ [""]
+          fun get_arity i =
+              case i of
+                  TimeAbs (_, i, _) => 1 + get_arity i
+                | _ => 0
+          val arity = get_arity i1
+          val result = timefun_le hs arity i1 i2
+          val () = println $ str_bool result
+        in
+          if result then
+            []
+          else
+            [vc]
+        end
+      | _ => [vc]
+    
 fun solve_vcs (vcs : vc list) : vc list =
     let 
       (* val () = print "Applying Big-O solver ...\n" *)
-      val vcs = filter_solve vcs
+      val vcs = concatMap solve_exists vcs
+      val vcs = concatMap solve_bigO_compare vcs
     in
       vcs
     end

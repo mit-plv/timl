@@ -15,31 +15,36 @@ val ['a] ['b] map =
 
 (*      
   The following is the thought process of evoluting [map] from using precise time spec to using big-O time spec
-
-idx g : Fun 2 = fn m n => $(m + 2) * $n
-val ['a] ['b] map =
- fn {m : Nat} (f : 'a -- $m --> 'b) =>
-    let
-        fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
-            case ls return {n} _ list using g m n of
-                Nil => Nil
-              | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
-    in
-        map
-    end
-
-idx g : {g : Fun 2 | g O (fn m n => $m * $n)} = fn m n => $(m + 2) * $n
-val ['a] ['b] map =
- fn {m : Nat} (f : 'a -- $m --> 'b) =>
-    let
-        fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
-            case ls return {n} _ list using g m n of
-                Nil => Nil
-              | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
-    in
-        map
-    end
+  *)
       
+absidx g : Fun 2 = fn m n => $(m + 2) * $n with
+val ['a] ['b] map =
+ fn {m : Nat} (f : 'a -- $m --> 'b) =>
+    let
+        fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
+            case ls of
+                Nil => Nil
+              | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
+    in
+        map
+    end
+end
+
+absidx g : {g : Fun 2 | g O (fn m n => $m * $n)} = fn m n => $(m + 2) * $n with
+val ['a] ['b] map =
+ fn {m : Nat} (f : 'a -- $m --> 'b) =>
+    let
+        fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
+            case ls of
+                Nil => Nil
+              | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
+    in
+        map
+    end
+end
+      
+(*
+
 idx g : {g : Fun 2 | g O (fn m n => $m * $n)} = _
 val ['a] ['b] map =
  fn {m : Nat} (f : 'a -- $m --> 'b) =>
@@ -51,13 +56,14 @@ val ['a] ['b] map =
     in
         map
     end
+  *)
       
 absidx g : {g : Fun 2 | g O (fn m n => $m * $n)} = _ with
 val ['a] ['b] map =
  fn {m : Nat} (f : 'a -- $m --> 'b) =>
     let
         fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
-            case ls return {n} _ list using g m n of
+            case ls of
                 Nil => Nil
               | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
     in
@@ -65,21 +71,33 @@ val ['a] ['b] map =
     end
 end
 
-absidx g : {g : Fun 2 | g O _} = _ with
+absidx g : BigO 2 (fn m n => $m * $n) = _ with
 val ['a] ['b] map =
  fn {m : Nat} (f : 'a -- $m --> 'b) =>
     let
         fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
-            case ls return {n} _ list using g m n of
+            case ls of
                 Nil => Nil
               | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
     in
         map
     end
 end
-*)
 
-absidx g : {g : Fun 2 | g O _} with
+absidx g : BigO 2 (fn m n => $m * $n) with
+val ['a] ['b] map =
+ fn {m : Nat} (f : 'a -- $m --> 'b) =>
+    let
+        fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
+            case ls of
+                Nil => Nil
+              | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
+    in
+        map
+    end
+end
+
+absidx g : BigO 2 _ with
 val ['a] ['b] map =
  fn {m : Nat} (f : 'a -- $m --> 'b) =>
     let

@@ -342,8 +342,19 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         fun str_s ctx (s : sort) : string = 
             case s of
-                Basic (s, _) => str_bs s
-              | Subset ((s, _), (BindI ((name, _), p))) => sprintf "{ $ : $ | $ }" [name, str_bs s, str_p (name :: ctx) p]
+                Basic (bs, _) => str_bs bs
+              | Subset ((bs, _), (BindI ((name, _), p))) =>
+                let
+                  fun default () = sprintf "{ $ : $ | $ }" [name, str_bs bs, str_p (name :: ctx) p]
+                in
+                  case (bs, p) of
+                      (Base (TimeFun arity), BinPred (BigO, VarI (x, _), i2)) =>
+                      if str_v (name :: ctx) x = name then
+                        sprintf "BigO $ $" [str_int arity, str_i (name :: ctx) i2]
+                      else
+                        default ()
+                    | _ => default ()
+                end
               | UVarS _ => "_"                                               
 
         datatype 'a bind = 

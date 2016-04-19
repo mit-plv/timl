@@ -76,10 +76,10 @@ local
             else if name = "_" then
                 (UVarBS (), r)
 	    else raise Error (r, sprintf "Unrecognized base sort: $" [name])
-          | S.TimeFun (name, n, r) =>
+          | S.TimeFun (name, arity, r) =>
             if name = "Fun" then
-                (Base (TimeFun n), r)
-            else raise Error (r, sprintf "Unrecognized base sort: $ $" [name, str_int n])
+                (Base (TimeFun arity), r)
+            else raise Error (r, sprintf "Unrecognized base sort: $ $" [name, str_int arity])
 
     fun elab_s s =
 	case s of
@@ -89,6 +89,15 @@ local
                | b => Basic b
             )
 	  | S.Subset (b, name, p, _) => Subset (elab_b b, BindI (name, elab_p p))
+          | S.BigOSort (name, arity, i, r) =>
+            if name = "BigO" then
+              let
+                val temp_name = "@BigOSort"
+              in
+                Subset ((Base (TimeFun arity), r), BindI ((temp_name, r), BinPred (BigO, VarI (temp_name, r), elab_i i)))
+              end
+            else
+              raise Error (r, sprintf "Unrecognized sort: $" [name])
 
     fun get_is t =
 	case t of 

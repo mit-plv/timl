@@ -183,6 +183,12 @@ local
 		    | _ => BinOpI (opr, passi i1, passi i2)
                  )
             )
+          | UnOpI (ToReal, BinOpI (AddI, i1, i2), r) =>
+            (set ();
+             BinOpI (AddI, UnOpI (ToReal, i1, r), UnOpI (ToReal, i2, r)))
+          | UnOpI (ToReal, BinOpI (MultI, i1, i2), r) =>
+            (set ();
+             BinOpI (MultI, UnOpI (ToReal, i1, r), UnOpI (ToReal, i2, r)))
           | UnOpI (opr, i, r) =>
             UnOpI (opr, passi i, r)
           | TimeAbs ((name, r1), i, r) =>

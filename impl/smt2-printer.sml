@@ -89,7 +89,7 @@ fun print_p ctx p =
             EqP => "="
           | LeP => "<="
           | GtP => ">"
-          | BigO => ""
+          | BigO => "<=="
       fun f p =
         case p of
             True _ => "true"
@@ -97,7 +97,7 @@ fun print_p ctx p =
           | Not (p, _) => negate (f p)
           | BinConn (opr, p1, p2) => sprintf "($ $ $)" [str_conn opr, f p1, f p2]
           (* | BinPred (BigO, i1, i2) => sprintf "(bigO $ $)" [print_i ctx i1, print_i ctx i2] *)
-          | BinPred (BigO, i1, i2) => "true"
+          (* | BinPred (BigO, i1, i2) => "true" *)
           | BinPred (opr, i1, i2) => sprintf "($ $ $)" [str_pred opr, print_i ctx i1, print_i ctx i2]
           | Quan (q, bs, (name, _), p) => sprintf "($ (($ $)) $)" [str_quan q, name, print_bsort bs, print_p (name :: ctx) p]
   in
@@ -124,7 +124,9 @@ fun print_hyp ctx h =
              (declare_const name (print_base_sort bsort), name :: ctx)
         )
       | PropH p =>
-        (assert (print_p ctx p), ctx)
+        case p of
+            BinPred (BigO, _, _) => ("", ctx)
+          | _ => (assert (print_p ctx p), ctx)
 
 val prelude = [
     "(set-logic ALL_SUPPORTED)",

@@ -61,7 +61,7 @@ val keywords = [
     ("exists", T.EXISTS),
     ("max", T.MAX),
     ("min", T.MIN),
-    ("O", T.BIG_O),
+    ("O", T.BIG_O_INFIX),
     ("idx", T.IDX),
     ("type", T.TYPE),
     ("abstype", T.ABSTYPE),
@@ -120,6 +120,7 @@ id_init = ({alpha}|[_']);
 <INITIAL>"*" => (T.MULT (make_region (yypos, size yytext)));
 <INITIAL>"/" => (T.DIV (make_region (yypos, size yytext)));
 <INITIAL>"$" => (T.DOLLAR (make_region (yypos, size yytext)));
+<INITIAL>"<==" => (T.BIG_O_INFIX (make_region (yypos, size yytext)));
 
 <INITIAL>{digit}+\.{digit}+ => ((T.NNREAL o flat)
                  (yytext, make_region (yypos, size yytext)));
