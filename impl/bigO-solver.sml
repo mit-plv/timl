@@ -51,17 +51,17 @@ fun join_class (a as (c1, k1), b as (c2, k2)) =
     if c1 = c2 then (c1, max k1 k2) else if c1 > c2 then a else b
 
 (* summarize [i] in the form n^c*(log n)^k, and (c, k) will be the [i]'s "asymptotic class". [n] is the only variable. *)
-fun summarize_n (args as (ask_smt, on_error, n)) i =
+fun summarize_1 (args as (ask_smt, on_error, n)) i =
     case i of
         ConstIT _ =>
         (0, 0)
       | UnOpI (ToReal, ConstIN _, _) =>
         (0, 0)
       | DivI (i, _) =>
-        summarize_n args i
+        summarize_1 args i
       | UnOpI (Log2, i, _) =>
         let
-          val (c, k) = summarize_n args i
+          val (c, k) = summarize_1 args i
         in
           if k = 0 then
             (0, c)
@@ -69,24 +69,24 @@ fun summarize_n (args as (ask_smt, on_error, n)) i =
             (0, c + 1) (* approximate [log (log^k n)] by [log n] *)
         end
       | BinOpI (MultI, a, b) =>
-        combine_class (summarize_n args a, summarize_n args b)
+        combine_class (summarize_1 args a, summarize_1 args b)
       | BinOpI (AddI, a, b) =>
-        join_class (summarize_n args a, summarize_n args b)
+        join_class (summarize_1 args a, summarize_1 args b)
       | _ =>
-        if ask_smt (i %= n) then
+        if ask_smt (i %<= n) then
           (1, 0)
         else
-          on_error "summarize_n fails"
+          on_error "summarize_1 fails"
                            
-(* summarize into asym class, where [n_] and [m_] are variables *)
-fun summarize (ask_smt, on_error, m_, n_) i =
+(* summarize_2 into asym class, where [n_] and [m_] are variables *)
+fun summarize_2 (ask_smt, on_error, m_, n_) i =
     let
       (* test for [ ... * m * ... ] *)
       val is = collect_MultI i
     in
       case partitionOptionFirst (fn i => b2o $ ask_smt (i %= m_)) is of
-          SOME (_, rest) => (1, summarize_n (ask_smt, on_error, n_) (combine_MultI rest))
-        | NONE => (0, summarize_n (ask_smt, on_error, n_) i)
+          SOME (_, rest) => (1, summarize_1 (ask_smt, on_error, n_) (combine_MultI rest))
+        | NONE => (0, summarize_1 (ask_smt, on_error, n_) i)
     end
                              
 fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
@@ -188,7 +188,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                 else i
                               | _ => i
                         val others = map use_bigO_hyp others
-                        val classes = map (snd o summarize (ask_smt, fn s => raise Error s, m_, n_)) others
+                        val classes = map (snd o summarize_2 (ask_smt, fn s => raise Error s, m_, n_)) others
                         val (c, k) = join_classes classes
                         val T = master_theorem (to_real (V 0)) (a, b) (c, k)
                         val T = TimeAbs (("m", dummy), TimeAbs (("n", dummy), simp_i (to_real (V 1) %* T), dummy), dummy)
@@ -245,7 +245,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                               | _ => i
                         val is = collect_AddI i1
                         val is = map use_bigO_hyp is
-                        val classes = map (summarize_n (ask_smt, fn s => raise Error s, n_)) is
+                        val classes = map (summarize_1 (ask_smt, fn s => raise Error s, n_)) is
                         val cls = join_classes classes
                         val T = TimeAbs (("n", dummy), simp_i $ class2term cls (to_real (V 0)), dummy)
                       in
@@ -279,7 +279,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                   else i
                                 | _ => i
                           val others = map use_bigO_hyp others
-                          val classes = map (summarize_n (ask_smt, fn s => raise Error s, n_)) others
+                          val classes = map (summarize_1 (ask_smt, fn s => raise Error s, n_)) others
                           val (c, k) = join_classes classes
                           val T = master_theorem (to_real (V 0)) (a, b) (c, k)
                           val T = TimeAbs (("n", dummy), simp_i T, dummy)
@@ -375,16 +375,16 @@ fun timefun_le hs arity a b =
       fun V n = VarI (n, dummy)
       fun to_real i = UnOpI (ToReal, i, dummy)
       fun ask_smt hs' p = ask_smt_vc (map (fn name => VarH (name, Nat)) hs' @ hs, p)
-      val summarize_n = summarize_n (ask_smt ["n"], fn s => raise Error s, to_real (V 0))
-      val summarize = summarize (ask_smt ["n", "m"], fn s => raise Error s, to_real (V 1), to_real (V 0))
+      val summarize_1 = summarize_1 (ask_smt ["n"], fn s => raise Error s, to_real (V 0))
+      val summarize_2 = summarize_2 (ask_smt ["n", "m"], fn s => raise Error s, to_real (V 1), to_real (V 0))
       fun ret () =
           case (arity, a, b) of
               (1, TimeAbs (_, a, _), TimeAbs (_, b, _)) =>
-              class_le (summarize_n a, summarize_n b)
+              class_le (summarize_1 a, summarize_1 b)
             | (2, TimeAbs (_, TimeAbs (_, a, _), _), TimeAbs (_, TimeAbs (_, b, _), _)) =>
               let
-                val (m1, cls1) = summarize a
-                val (m2, cls2) = summarize b
+                val (m1, cls1) = summarize_2 a
+                val (m2, cls2) = summarize_2 b
               in
                 m1 <= m2 andalso class_le (cls1, cls2)
               end
