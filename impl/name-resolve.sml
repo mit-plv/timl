@@ -62,10 +62,9 @@ local
       case t of
 	  E.Arrow (t1, d, t2) => Arrow (on_mtype ctx t1, on_idx sctx d, on_mtype ctx t2)
 	| E.Prod (t1, t2) => Prod (on_mtype ctx t1, on_mtype ctx t2)
-	| E.Unit r => Unit r
 	| E.UniI (s, E.BindI ((name, r), t)) => UniI (on_sort sctx s, BindI ((name, r), on_mtype (name :: sctx, kctx) t))
 	| E.AppV (x, ts, is, r) => AppV (on_var kctx x, map (on_mtype ctx) ts, map (on_idx sctx) is, r)
-	| E.Int r => Int r
+	| E.BaseType (bt, r) => BaseType (bt, r)
         | E.UVar u => UVar u
 
     fun on_type (ctx as (sctx, kctx)) t =
@@ -173,7 +172,7 @@ local
               end
 	    | E.Ascription (e, t) => Ascription (on_expr ctx e, on_mtype skctx t)
 	    | E.AscriptionTime (e, d) => AscriptionTime (on_expr ctx e, on_idx sctx d)
-	    | E.Const n => Const n
+	    | E.ConstInt n => ConstInt n
 	    | E.BinOp (opr, e1, e2) => BinOp (opr, on_expr ctx e1, on_expr ctx e2)
 	    | E.AppConstr (x, is, e) => AppConstr (on_var cctx x, map (on_idx sctx) is, on_expr ctx e)
 	    | E.Case (e, return, rules, r) =>

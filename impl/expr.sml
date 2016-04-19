@@ -40,6 +40,10 @@ fun unfold_ibinds ibinds =
 fun fold_ibinds (binds, inner) =
     foldr (fn ((name, anno), ibinds) => ConsIB (anno, BindI (name, ibinds))) (NilIB inner) binds
 
+datatype base_type =
+         Unit
+         | Int
+                     
 end
 
 signature VAR = sig
@@ -116,12 +120,11 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         datatype mtype = 
 	         Arrow of mtype * idx * mtype
 	         | Prod of mtype * mtype
-	         | Unit of region
 	         | UniI of sort * (name * mtype) ibind
 	         (* the first operant of App can only be a type variable. The degenerated case of no-arguments is also included *)
 	         | AppV of id * mtype list * idx list * region
-	                 | Int of region
-                                | UVar of mtype uvar_mt * region
+	         | BaseType of base_type * region
+                 | UVar of mtype uvar_mt * region
 
         datatype ty = 
 	         Mono of mtype
@@ -200,8 +203,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         Var of var * region
 	         | App of expr * expr
 	         | Abs of ptrn * expr 
-	         (* unit type *)
-	         | TT of region
 	         (* product type *)
 	         | Pair of expr * expr
 	         | Fst of expr
@@ -209,9 +210,10 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         (* universal index *)
 	         | AbsI of sort * name * expr
 	         | AppI of expr * idx
-                 (* region *)
+                 (* other *)
 	         | BinOp of bin_op * expr * expr
-	         | Const of int * region
+	         | ConstInt of int * region
+	         | TT of region
 	         | AppConstr of id * idx list * expr
 	         | Case of expr * return * (ptrn * expr) list * region
 	         | Never of mtype
@@ -377,10 +379,14 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 (binds, fst ctx)
             end
 
+        fun str_bt bt =
+          case bt of
+              Unit => "unit"
+            | Int => "int"
+              
         fun str_mt (ctx as (sctx, kctx)) (t : mtype) : string =
             case t of
                 Arrow (t1, d, t2) => sprintf "($ -- $ --> $)" [str_mt ctx t1, str_i sctx d, str_mt ctx t2]
-              | Unit _ => "unit"
               | Prod (t1, t2) => sprintf "($ * $)" [str_mt ctx t1, str_mt ctx t2]
               | UniI _ =>
                 let
@@ -392,8 +398,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 if null ts andalso null is then
 	            str_v kctx x
                 else
-	            sprintf "($$$)" [(join "" o map (suffix " ") o map (surround "{" "}") o map (str_i sctx) o rev) is, (join "" o map (suffix " ") o map (str_mt ctx) o rev) ts, str_v kctx x]
-              | Int _ => "int"
+	          sprintf "($$$)" [(join "" o map (suffix " ") o map (surround "{" "}") o map (str_i sctx) o rev) is, (join "" o map (suffix " ") o map (str_mt ctx) o rev) ts, str_v kctx x]
+              | BaseType (bt, _) => str_bt bt
               | UVar (u, _) => str_uvar_mt str_mt ctx u
 
         and str_uni ctx (binds, t) =
@@ -493,7 +499,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	          | Ascription (e, t) => sprintf "($ : $)" [str_e ctx e, str_mt skctx t]
 	          | AscriptionTime (e, d) => sprintf "($ |> $)" [str_e ctx e, str_i sctx d]
 	          | BinOp (opr, e1, e2) => sprintf "($ $ $)" [str_e ctx e1, str_bin_op opr, str_e ctx e2]
-	          | Const (n, _) => str_int n
+	          | ConstInt (n, _) => str_int n
 	          | AppConstr ((x, _), is, e) => sprintf "($$ $)" [str_v cctx x, (join "" o map (prefix " ") o map (fn i => sprintf "[$]" [str_i sctx i])) is, str_e ctx e]
 	          | Case (e, return, rules, _) => sprintf "(case $ $of $)" [str_e ctx e, str_return skctx return, join " | " (map (str_rule ctx) rules)]
 	          | Never t => sprintf "(never [$])" [str_mt skctx t]
@@ -644,10 +650,9 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
             case t of
                 Arrow (t1, d, t2) => combine_region (get_region_mt t1) (get_region_mt t2)
               | Prod (t1, t2) => combine_region (get_region_mt t1) (get_region_mt t2)
-              | Unit r => r
               | UniI (_, bind) => get_region_ibind get_region_mt bind
               | AppV (_, _, _, r) => r
-              | Int r => r
+              | BaseType (_, r) => r
               | UVar (_, r) => r
 
         fun get_region_t t = 
@@ -676,7 +681,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | AbsI (_, (_, r), e) => combine_region r (get_region_e e)
               | AppI (e, i) => combine_region (get_region_e e) (get_region_i i)
               | BinOp (_, e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
-              | Const (_, r) => r
+              | ConstInt (_, r) => r
               | AppConstr ((_, r), _, e) => combine_region r (get_region_e e)
               | Case (_, _, _, r) => r
               | Never t => get_region_mt t
@@ -860,10 +865,9 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	    case t of
 	        Arrow (t1, d, t2) => Arrow (simp_mt t1, simp_i d, simp_mt t2)
 	      | Prod (t1, t2) => Prod (simp_mt t1, simp_mt t2)
-	      | Unit r => Unit r
 	      | AppV (x, ts, is, r) => AppV (x, map simp_mt ts, map simp_i is, r)
 	      | UniI (s, bind) => UniI (simp_s s, simp_ibind simp_mt bind)
-	      | Int r => Int r
+	      | BaseType a => BaseType a
               | UVar u => UVar u
 
         fun simp_t t =
@@ -886,7 +890,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | Ascription _ => false
               | AscriptionTime _ => false
               | BinOp _ => false
-              | Const _ => true
+              | ConstInt _ => true
               | AppConstr (_, _, e) => is_value e
               | Case _ => false
               | Never _ => false

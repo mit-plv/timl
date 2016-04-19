@@ -117,9 +117,9 @@ local
       case t of
 	  S.VarT (x, r) =>
           if x = "unit" then
-              Unit r
+              BaseType (Unit, r)
           else if x = "int" then
-              Int r
+              BaseType (Int, r)
           else if x = "_" then
               UVar ((), r)
           else
@@ -207,7 +207,7 @@ local
 	    AscriptionTime (elab e, elab_i i)
 	  | S.Let (decs, e, r) =>
             Let (map elab_decl decs, elab e, r)
-	  | S.Const n => Const n
+	  | S.Const n => ConstInt n
           | S.BinOp (opr, e1, e2, _) => BinOp (opr, elab e1, elab e2)
 
     and elab_decl decl =
