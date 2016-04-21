@@ -45,93 +45,121 @@ fun ask_smt_vc vc =
     (null $ List.mapPartial id $ SMTSolver.smt_solver "" [vc])
     handle SMTSolver.SMTError _ => false
          
-fun do_mult_class ((c1, k1), (c2, k2)) = (c1 + c2, k1 + k2)
+fun mult_class_entry ((c1, k1), (c2, k2)) = (c1 + c2, k1 + k2)
                                         
-fun do_add_class (a as (c1, k1), b as (c2, k2)) =
+fun add_class_entry (a as (c1, k1), b as (c2, k2)) =
     if c1 = c2 then (c1, max k1 k2) else if c1 > c2 then a else b
 
-val mult_class = M.unionWith do_mult_class
+val mult_class_entries = foldl' mult_class_entry (0, 0)
+                         
+val add_class_entries = foldl' add_class_entry (0, 0)
+
+structure M = IntBinaryMap
+                                                                         
+val mult_class = M.unionWith mult_class_entry
                                 
-val add_class = M.unionWith do_add_class
+val add_class = M.unionWith add_class_entry
                                 
 val mult_classes = foldl' mult_class M.empty
                          
 val add_classes = foldl' add_class M.empty
-                                 
-structure M = IntBinaryMap
-                                                                         
+
+fun trim_class cls = M.filter (fn (c, k) => not $ c = 0 andalso k = 0) cls
+                              
 (* summarize [i] in the form n_1^c_1 * (log n_1)^k_1 * ... * n_s^c_s * (log n_s)^k_s, and [n_1 => (c_1, k_1), ..., n_s => (c_s, k_s)] will be the [i]'s "asymptotic class". [n_1, ..., n_s] are the variable. *)
-fun summarize (args as (ask_smt, on_error)) i =
+fun summarize on_error i =
     case i of
         ConstIT _ =>
         M.empty
+      | ConstIN _ =>
+        M.empty
+      | VarI (x, _) =>
+        M.insert (M.empty, x, (1, 0))
       | UnOpI (ToReal, i, _) =>
-        summarize args i
+        summarize on_error i
       | UnOpI (Ceil, i, _) =>
-        summarize args i
+        summarize on_error i
       | UnOpI (Floor, i, _) =>
-        summarize args i
+        summarize on_error i
       | DivI (i, _) =>
-        summarize args i
+        summarize on_error i
       | UnOpI (Log2, i, _) =>
         let
           val is = collect_MultI i
-          val classes = map (summarize args) is
+          val classes = map (summarize on_error) is
           val cls = add_classes classes
-          fun f (c, k) =
-              (0, if c = 0 then
-                    if k = 0 then 0 else 1
-                  else 1) (* approximate [log (log n)] by [log n] *)
-          val cls = M.map f cls
-          val cls = M.filter (fn (c, k) => c = 0 andalso k = 0) cls
+          (* (0, 0) should never enter a class, so the following precaution shouldn't be necessary *)
+          fun log_class (c, k) =
+              (* approximate [log (log n)] by [log n] *)
+              (0, if c = 0 andalso k = 0 then 0 else 1) 
+          val cls = M.map log_class cls
+          val cls = trim_class cls
         in
           cls
         end
       | BinOpI (MultI, a, b) =>
-        mult_class (summarize args a, summarize args b)
+        mult_class (summarize on_error a, summarize on_error b)
       | BinOpI (AddI, a, b) =>
-        add_class (summarize args a, summarize args b)
-      | _ => on_error "summarize fails"
-                           
-(* summarize [i] in the form n^c*(log n)^k, and (c, k) will be the [i]'s "asymptotic class". [n] is the only variable. *)
-fun summarize_1 (args as (ask_smt, on_error, n)) i =
-    case i of
-        ConstIT _ =>
-        (0, 0)
-      | UnOpI (ToReal, ConstIN _, _) =>
-        (0, 0)
-      | DivI (i, _) =>
-        summarize_1 args i
-      | UnOpI (Log2, i, _) =>
-        let
-          val (c, k) = summarize_1 args i
-        in
-          if k = 0 then
-            (0, c)
-          else
-            (0, c + 1) (* approximate [log (log^k n)] by [log n] *)
-        end
-      | BinOpI (MultI, a, b) =>
-        mult_class (summarize_1 args a, summarize_1 args b)
-      | BinOpI (AddI, a, b) =>
-        add_class (summarize_1 args a, summarize_1 args b)
-      | _ =>
-        if ask_smt (i %<= n) then
-          (1, 0)
-        else
-          on_error "summarize_1 fails"
-                           
-(* summarize_2 into asym class, where [n_] and [m_] are variables *)
-fun summarize_2 (ask_smt, on_error, m_, n_) i =
+        add_class (summarize on_error a, summarize on_error b)
+      | _ => on_error $ "summarize fails with " ^ str_i [] i
+
+fun extract_only_variable error cls =
     let
-      (* test for [ ... * m * ... ] *)
-      val is = collect_MultI i
+      val cls = M.listItemsi $ trim_class cls
+      val () = println $ str_ls (fn (x, (c, k)) => sprintf "$=>($,$)" [str_int x, str_int c, str_int k]) $ cls
+      val x = if length cls <> 1 orelse snd (hd cls) <> (1, 0) then raise error
+              else fst (hd cls)
     in
-      case partitionOptionFirst (fn i => b2o $ ask_smt (i %= m_)) is of
-          SOME (_, rest) => (1, summarize_1 (ask_smt, on_error, n_) (combine_MultI rest))
-        | NONE => (0, summarize_1 (ask_smt, on_error, n_) i)
+      x
     end
-                             
+      
+(* a version of [summarize] where n = O(x) is linear with the only variable x. *)
+fun summarize_1 error n i =
+    let
+      fun on_error s = raise error s
+      val cls_n = summarize on_error n
+      val x = extract_only_variable (error "summarize_1: class of n must be (1, 0) for only one variable") cls_n
+      val cls_i = M.listItemsi $ trim_class $ summarize on_error i
+      val () = if length cls_i <> 1 orelse fst (hd cls_i) <> x then on_error "summarize_1: class of i must only contain n's variable"
+               else ()
+    in
+      snd (hd cls_i)
+    end
+                           
+(* a version of [summarize] where n = O(x) and m = O(y), x <> y, and i = y * f(x) or f(x) *)
+fun summarize_2 error m n i =
+    let
+      fun on_error s = raise error s
+      val cls_n = summarize on_error n
+      val x = extract_only_variable (error $ "summarize_2: class of n must be (1, 0) for only one variable " ^ str_i [] n) cls_n
+      val cls_m = summarize on_error m
+      val y = extract_only_variable (error "summarize_2: class of n must be (1, 0) for only one variable") cls_m
+      val () = if x = y then on_error "summarize_2: x = y" else ()
+      val cls_i = M.listItemsi $ trim_class $ summarize on_error i
+      fun err () = on_error $ "summarize_2: i should be y*f(x) or f(x) " ^ str_i [] i
+      val ret = if length cls_i = 0 then
+                  (0, 0)
+                else if length cls_i = 1 then
+                 if fst (hd cls_i) <> x then err ()
+                 else snd (hd cls_i)
+                else if length cls_i = 2 then
+                  let
+                    val ((v1, c1), (v2, c2)) =
+                        case cls_i of
+                            a :: b :: _ => (a, b)
+                          | _ => raise Impossible "length cls_i = 2"
+                    val (cx, cy) = if v1 = x andalso v2 = y then (c1, c2)
+                                   else if v2 = x andalso v1 = y then (c2, c1)
+                                   else err ()
+                    val () = if cy = (1, 0) then () else err ()
+                  in
+                    cx
+                  end
+                else err ()
+    in
+      ret
+    end
+                           
 fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
     let
       val vcs' = append_hyps ([VarH (name0, TimeFun arity0), VarH (name1, TimeFun arity1)] @ hs) vcs
@@ -230,8 +258,8 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                 else i
                               | _ => i
                         val others = map use_bigO_hyp others
-                        val classes = map (snd o summarize_2 (ask_smt, fn s => raise Error s, m_, n_)) others
-                        val (c, k) = add_classes classes
+                        val classes = map (summarize_2 Error m_ n_) others
+                        val (c, k) = add_class_entries classes
                         val T = master_theorem (to_real (V 0)) (a, b) (c, k)
                         val T = TimeAbs (("m", dummy), TimeAbs (("n", dummy), simp_i (to_real (V 1) %* T), dummy), dummy)
                         val ret = (T, [])
@@ -287,8 +315,8 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                               | _ => i
                         val is = collect_AddI i1
                         val is = map use_bigO_hyp is
-                        val classes = map (summarize_1 (ask_smt, fn s => raise Error s, n_)) is
-                        val cls = add_classes classes
+                        val classes = map (summarize_1 Error n_) is
+                        val cls = add_class_entries classes
                         val T = TimeAbs (("n", dummy), simp_i $ class2term cls (to_real (V 0)), dummy)
                       in
                         (T, [])
@@ -321,8 +349,8 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                   else i
                                 | _ => i
                           val others = map use_bigO_hyp others
-                          val classes = map (summarize_1 (ask_smt, fn s => raise Error s, n_)) others
-                          val (c, k) = add_classes classes
+                          val classes = map (summarize_1 Error n_) others
+                          val (c, k) = add_class_entries classes
                           val T = master_theorem (to_real (V 0)) (a, b) (c, k)
                           val T = TimeAbs (("n", dummy), simp_i T, dummy)
                           val ret = (T, [])
@@ -405,34 +433,41 @@ fun infer_exists hs (name_arity1 as (_, arity1)) p =
           else NONE
         | _ => NONE
 
-fun class_le ((c, k), (c', k')) =
+fun class_entry_le ((c, k), (c', k')) =
     if c < c' then
       true
     else if c = c' then k <= k'
     else false
-           
+
+fun class_le (m1, m2) =
+    let
+      fun f (k1, v1, still_ok) =
+          if still_ok then
+            let
+              val v2 = default (0, 0) $ M.find (m2, k1)
+            in
+              class_entry_le (v1, v2)
+            end
+          else
+            false
+    in
+      M.foldli f true m1
+    end
+      
 fun timefun_le hs arity a b =
     let
       exception Error of string
-      fun V n = VarI (n, dummy)
-      fun to_real i = UnOpI (ToReal, i, dummy)
-      fun ask_smt hs' p = ask_smt_vc (map (fn name => VarH (name, Nat)) hs' @ hs, p)
-      val summarize_1 = summarize_1 (ask_smt ["n"], fn s => raise Error s, to_real (V 0))
-      val summarize_2 = summarize_2 (ask_smt ["n", "m"], fn s => raise Error s, to_real (V 1), to_real (V 0))
-      fun ret () =
-          case (arity, a, b) of
-              (1, TimeAbs (_, a, _), TimeAbs (_, b, _)) =>
-              class_le (summarize_1 a, summarize_1 b)
-            | (2, TimeAbs (_, TimeAbs (_, a, _), _), TimeAbs (_, TimeAbs (_, b, _), _)) =>
-              let
-                val (m1, cls1) = summarize_2 a
-                val (m2, cls2) = summarize_2 b
-              in
-                m1 <= m2 andalso class_le (cls1, cls2)
-              end
-            | _ => false 
+      val summarize = summarize (fn s => raise Error s)
+      fun main () =
+          let
+            val (names1, i1) = collect_TimeAbs a
+            val (names2, i2) = collect_TimeAbs a
+            val () = if length names1 = length names2 then () else raise Error "timefun_le: arity must equal"
+          in
+            class_le (summarize i1, summarize i2)
+          end
     in
-      ret () handle Error _ => false
+      main () handle Error _ => false
     end
       
 fun hyps2ctx hs = List.mapPartial (fn h => case h of VarH (name, _) => SOME name | _ => NONE) hs
@@ -502,10 +537,7 @@ fun solve_bigO_compare (vc as (hs, p)) =
         let
           val () = println "BigO-compare-solver to solve this: "
           val () = app println $ str_vc false "" vc @ [""]
-          fun get_arity i =
-              case i of
-                  TimeAbs (_, i, _) => 1 + get_arity i
-                | _ => 0
+          fun get_arity i = length $ fst $ collect_TimeAbs i
           val arity = get_arity i1
           val result = timefun_le hs arity i1 i2
           val () = println $ str_bool result

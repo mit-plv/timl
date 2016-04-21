@@ -288,6 +288,16 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         fun combine_AddI is = foldl' (fn (i, acc) => acc %+ i) (T0 dummy) is
         fun combine_MultI is = foldl' (fn (i, acc) => acc %* i) (T1 dummy) is
                                      
+        fun collect_TimeAbs i =
+            case i of
+                TimeAbs ((name, _), i, _) =>
+                let
+                  val (names, i) = collect_TimeAbs i
+                in
+                  (name :: names, i)
+                end
+              | _ => ([], i)
+                       
         fun str_i ctx (i : idx) : string = 
             case i of
                 VarI (x, _) => str_v ctx x
@@ -314,15 +324,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | FalseI _ => "false"
               | TimeAbs _ =>
                 let
-                  fun collect_TimeAbs i =
-                    case i of
-                        TimeAbs ((name, _), i, _) =>
-                        let
-                          val (names, i) = collect_TimeAbs i
-                        in
-                          (name :: names, i)
-                        end
-                      | _ => ([], i)
                   val (names, i) = collect_TimeAbs i
                 in
                   sprintf "(fn $ => $)" [join " " names, str_i (rev names @ ctx) i]
