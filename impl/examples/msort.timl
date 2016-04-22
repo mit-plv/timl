@@ -30,18 +30,18 @@ val ['a] ['b] map =
     end
 end
 
-(* absidx g : {g : Fun 2 | g O (fn m n => $m * $n)} = fn m n => $(m + 2) * $n with *)
-(* val ['a] ['b] map = *)
-(*  fn {m : Nat} (f : 'a -- $m --> 'b) => *)
-(*     let *)
-(*         fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n = *)
-(*             case ls of *)
-(*                 Nil => Nil *)
-(*               | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs) *)
-(*     in *)
-(*         map *)
-(*     end *)
-(* end *)
+absidx g : {g : Fun 2 | g O (fn m n => $m * $n)} = fn m n => $(m + 2) * $n with
+val ['a] ['b] map =
+ fn {m : Nat} (f : 'a -- $m --> 'b) =>
+    let
+        fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
+            case ls of
+                Nil => Nil
+              | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
+    in
+        map
+    end
+end
       
 (*
 

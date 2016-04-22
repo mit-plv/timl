@@ -115,17 +115,21 @@ fun extract_only_variable error cls =
       
 (* a version of [summarize] where n = O(x) is linear with the only variable x. *)
 fun summarize_1 error n i =
-    let
-      fun on_error s = raise error s
-      val cls_n = summarize on_error n
-      val x = extract_only_variable (error "summarize_1: class of n must be (1, 0) for only one variable") cls_n
-      val cls_i = M.listItemsi $ trim_class $ summarize on_error i
-      val () = if length cls_i <> 1 orelse fst (hd cls_i) <> x then on_error "summarize_1: class of i must only contain n's variable"
-               else ()
-    in
-      snd (hd cls_i)
-    end
-                           
+  let
+    fun on_error s = raise error s
+    val cls_n = summarize on_error n
+    val x = extract_only_variable (error "summarize_1: class of n must be (1, 0) for only one variable") cls_n
+    val cls_i = M.listItemsi $ trim_class $ summarize on_error i
+    val ret = if length cls_i = 0 then
+                (0, 0)
+              else if length cls_i = 1 andalso fst (hd cls_i) = x then
+                snd (hd cls_i)
+              else
+                on_error "summarize_1: class of i must only contain n's variable"
+  in
+    ret
+  end
+    
 (* a version of [summarize] where n = O(x) and m = O(y), x <> y, and i = y * f(x) or f(x) *)
 fun summarize_2 error m n i =
     let
