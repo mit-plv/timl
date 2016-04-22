@@ -1,1 +1,1 @@
-set -o pipefail && make -C . && xargs -a examples/suite.txt -I {} ./main.sh examples/{}
+set -o pipefail && make && cat examples/suite.txt | xargs -I {} ./main.sh examples/{}
