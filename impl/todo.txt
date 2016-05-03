@@ -26,3 +26,4 @@ Done. 16. Copy function signature annotation to case annotation
 26. Change syntax order of function name and [t] declares.
 27. Figure out how to infer [tree_map] and [tree_foldl].
 28. Have module system.
+29. Bug of type inference in tree_append_rlm.

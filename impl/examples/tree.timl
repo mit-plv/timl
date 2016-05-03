@@ -89,3 +89,21 @@ fun ['a] ['b] tree_foldrlm {m : Nat} (f : 'a * 'b -- $m --> 'b) =
     end
 end
 
+absidx g : BigO 1 (fn n => $n) = fn n => $(4 * n) with
+fun tree_append_rlm {n : Nat} (tr : {n} _ tree) {n2 : Nat} (ls : {n2} _ list) return {n + n2} _ list using g n =
+    case tr of
+        Leaf => ls
+      | Node {n1 n2} (x, tr1, tr2) =>
+        let
+          val ls = tree_append_rlm {_} tr2 {_} ls
+          val ls = tree_append_rlm {_} tr1 {_} ls
+          val ls = Cons {_} (x, ls)
+        in
+          ls
+        end
+end
+
+absidx g : BigO 1 (fn n => $n) with
+fun ['a] tree_flatten_mlr {n : Nat} (tr : {n} _ tree) return {n} _ list using g n =
+    tree_append_rlm {_} tr {_} Nil
+end
