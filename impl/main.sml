@@ -196,7 +196,7 @@ fun main (prog_name, args : string list) : int =
     handle
     TiML.Error msg => (println msg; 1)
     | Impossible msg => (println ("Impossible: " ^ msg); 1)
-    | IO.Io e => (println ("IO Error on " ^ #name e); 1)
+    | IO.Io e => (println (sprintf "IO Error doing $ on $" [#function e, #name e]); 1)
     | _ => (println ("Internal error"); 1)
 
 end
