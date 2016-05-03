@@ -14,3 +14,15 @@ Done. 13. Single variable Master Theorem case.
 Done. 14. Error line number on multiple files.
 Done. 15. Make linking between inferred existential variable values and types better.
 Done. 16. Copy function signature annotation to case annotation
+16. Have module system.
+17. Remove unit and product types from the language, and have standard library.
+18. Example: Tree flatten.
+19. Example: Insertion sort.
+20. Have reference and arrays.
+21. RB-tree insertion.
+22. RB-tree search.
+23. Braun tree.
+24. A bug of position reporting when I change bigO spec of msort in msort.timl from [$m * $n * log2 $n] to [$n * log2 $n].
+25. 'return _ using' works but 'return using' doesn't in msort.timl and tree.timl.
+26. Change syntax order of function name and [t] declares.
+27. Figure out how to infer [tree_map] and [tree_foldl].

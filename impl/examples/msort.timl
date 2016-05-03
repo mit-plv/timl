@@ -1,5 +1,5 @@
 datatype {Nat} 'a list =
-         Nil of unit --> {0} 'a list
+         Nil of {0} 'a list
          | Cons {n' : Nat} of 'a * {n'} 'a list --> {n' + 1} 'a list
 
 val ['a] ['b] map =
@@ -124,6 +124,19 @@ val ['a] ['b] foldl =
     end
 end
 
+absidx h : BigO 2 _ with
+val ['a] ['b] foldl =
+ fn {m : Nat} (f : 'a * 'b -- $m --> 'b) =>
+    let
+        fun foldl {n : Nat} y (xs : {n} _ list) return _ using h m n =
+            case xs of
+                Nil => y
+              | Cons {n'} (x, xs) => foldl {_} (f (x, y)) xs
+    in
+        foldl
+    end
+end
+
 fun ['a] split {n : Nat} (xs : {n} 'a list) return {ceil ($n/2)} _ list * {floor ($n/2)} _ list using $n =
     case xs of
         Nil => (Nil, Nil)
@@ -180,3 +193,13 @@ fun ['a] msort {m : Nat} (le : 'a * 'a -- $m --> bool) =
     end
 end
 
+absidx g : BigO 1 (fn n => $n) = fn n => 2.0 * $n with
+fun ['a] revAppend {n1 : Nat} (xs : {n1} 'a list) {n2 : Nat} (ys : {n2} 'a list) return {n1 + n2} _ list using g n1 =
+    case xs of
+        Nil => ys
+      | Cons {_} (x, xs) => revAppend {_} xs {_} (Cons {_} (x, ys))
+end
+
+absidx g : BigO 1 (fn n => $n) with
+fun ['a] rev {n : Nat} (xs : {n} 'a list) return {n} _ list using g n = revAppend {_} xs {_} Nil
+end

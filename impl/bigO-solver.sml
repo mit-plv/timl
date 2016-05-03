@@ -106,7 +106,7 @@ fun summarize on_error i =
 fun extract_only_variable error cls =
     let
       val cls = M.listItemsi $ trim_class cls
-      val () = println $ str_ls (fn (x, (c, k)) => sprintf "$=>($,$)" [str_int x, str_int c, str_int k]) $ cls
+      (* val () = println $ str_ls (fn (x, (c, k)) => sprintf "$=>($,$)" [str_int x, str_int c, str_int k]) $ cls *)
       val x = if length cls <> 1 orelse snd (hd cls) <> (1, 0) then raise error
               else fst (hd cls)
     in

@@ -1,11 +1,91 @@
 datatype {Nat} 'a tree =
-         Leaf of unit -> {0} 'a tree
-         | Node of {n1 : Nat} {n2 : Nat} 'a * {n1} 'a tree * {n2} 'a tree -> {n1 + 1 + n2} 'a tree
+         Leaf of {0} 'a tree
+       | Node {n1 : Nat} {n2 : Nat} of 'a * {n1} 'a tree * {n2} 'a tree --> {n1 + 1 + n2} 'a tree
 
-val map_tree =
- fn ['a] ['b] {m : Time} (f : 'a -- m --> 'b) =>
-    fix map {n : Nat} (tr : {n} 'a tree) : {n} 'b tree |> (m + 3.0) * $n =>
-    case tr return {n} 'b tree of
-        Leaf => Leaf ['b]
-      | Node {n1 n2} (x, tr1, tr2) => Node ['b] {n1} {n2} (f x, map {n1} tr1, map {n2} tr2) |> (m + 3.0) * $n
+fun ['a] ['b] map_tree {m : Time} (f : 'a -- m --> 'b) =
+    let
+      fun map {n : Nat} (tr : {n} _ tree) return {n} _ tree using (m + 3.0) * $n =
+          case tr of
+              Leaf => Leaf
+            | Node {n1 n2} (x, tr1, tr2) => Node {_} {_} (f x, map {_} tr1, map {_} tr2)
+    in
+      map
+    end
+
+absidx g : Fun 2 = fn m n => $(m + 3) * $n with
+fun ['a] ['b] map_tree {m : Nat} (f : 'a -- $m --> 'b) =
+    let
+      fun map {n : Nat} (tr : {n} _ tree) return {n} _ tree using g m n =
+          case tr of
+              Leaf => Leaf
+            | Node {n1 n2} (x, tr1, tr2) => Node {_} {_} (f x, map {_} tr1, map {_} tr2)
+    in
+      map
+    end
+end
+
+absidx g : BigO 2 (fn m n => $m * $n) = fn m n => $(m + 3) * $n with
+fun ['a] ['b] map_tree {m : Nat} (f : 'a -- $m --> 'b) =
+    let
+      fun map {n : Nat} (tr : {n} _ tree) return {n} _ tree using g m n =
+          case tr of
+              Leaf => Leaf
+            | Node {n1 n2} (x, tr1, tr2) => Node {_} {_} (f x, map {_} tr1, map {_} tr2)
+    in
+      map
+    end
+end
+
+(* can't infer this yet *)
+(*
+absidx g : BigO 2 (fn m n => $m * $n) with
+fun ['a] ['b] map_tree {m : Nat} (f : 'a -- $m --> 'b) =
+    let
+      fun map {n : Nat} (tr : {n} _ tree) return {n} _ tree using g m n =
+          case tr of
+              Leaf => Leaf
+            | Node {n1 n2} (x, tr1, tr2) => Node {_} {_} (f x, map {_} tr1, map {_} tr2)
+    in
+      map
+    end
+end
+*)
+
+absidx g : BigO 2 (fn m n => $m * $n) = fn m n => $(m + 5) * $n with
+fun ['a] ['b] tree_foldmlr {m : Nat} (f : 'a * 'b -- $m --> 'b) =
+    let
+      fun fold {n : Nat} acc (tr : {n} _ tree) return _ using g m n =
+          case tr of
+              Leaf => acc
+            | Node {n1 n2} (x, tr1, tr2) =>
+              let
+                val acc = f (x, acc)
+                val acc = fold {_} acc tr1
+                val acc = fold {_} acc tr2
+              in
+                acc
+              end
+    in
+      fold
+    end
+end
+
+absidx g : BigO 2 (fn m n => $m * $n) = fn m n => $(m + 5) * $n with
+fun ['a] ['b] tree_foldrlm {m : Nat} (f : 'a * 'b -- $m --> 'b) =
+    let
+      fun fold {n : Nat} acc (tr : {n} _ tree) return _ using g m n =
+          case tr of
+              Leaf => acc
+            | Node {n1 n2} (x, tr1, tr2) =>
+              let
+                val acc = fold {_} acc tr2
+                val acc = fold {_} acc tr1
+                val acc = f (x, acc)
+              in
+                acc
+              end
+    in
+      fold
+    end
+end
 

@@ -255,13 +255,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         infix 1 <->
         fun a <-> b = BinConn (Iff, a, b)
 
-        (* pretty-printers *)
-
-        fun str_bs (s : bsort) =
-            case s of
-                Base s => str_b s
-              | UVarBS u => str_uvar_bs str_bs u
-                                        
         fun collect_BinOpI_left opr i =
             case i of
                 BinOpI (opr', i1, i2) =>
@@ -298,6 +291,52 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 end
               | _ => ([], i)
                        
+        fun eq_i i i' =
+            let
+                fun loop i i' =
+                    case i of
+                        VarI (x, _) => (case i' of VarI (x', _) => eq_v (x, x') | _ => false)
+                      | ConstIN (n, _) => (case i' of ConstIN (n', _) => n = n' | _ => false)
+                      | ConstIT (x, _) => (case i' of ConstIT (x', _) => x = x' | _ => false)
+                      | UnOpI (opr, i, _) => (case i' of UnOpI (opr', i', _) => opr = opr' andalso loop i i' | _ => false)
+                      | DivI (i1, (n2, _)) => (case i' of DivI (i1', (n2', _)) => loop i1 i1' andalso n2 = n2' | _ => false)
+                      | ExpI (i1, (n2, _)) => (case i' of ExpI (i1', (n2', _)) => loop i1 i1' andalso n2 = n2' | _ => false)
+                      | BinOpI (opr, i1, i2) => (case i' of BinOpI (opr', i1', i2') => opr = opr' andalso loop i1 i1' andalso loop i2 i2' | _ => false)
+                      | TrueI _ => (case i' of TrueI _ => true | _ => false)
+                      | FalseI _ => (case i' of FalseI _ => true | _ => false)
+                      | TTI _ => (case i' of TTI _ => true | _ => false)
+                      | TimeAbs (_, i, _) => (case i' of TimeAbs (_, i', _) => loop i i' | _ => false)
+                      | UVarI (u, _) => (case i' of UVarI (u', _) => eq_uvar_i (u, u') | _ => false)
+            in
+                loop i i'
+            end
+
+        fun eq_bs bs bs' =
+            case bs of
+                Base b => (case bs' of Base b' => b = b | _ => false)
+              | UVarBS _ => false
+
+        fun eq_quan q q' =
+          case q of
+              Forall => (case q' of Forall => true | Exists _ => false)
+            | Exists _ => (case q' of Forall => false | Exists _ => true)
+                            
+        fun eq_p p p' =
+            case p of
+                True _ => (case p' of True _ => true | _ => false)
+              | False _ => (case p' of False _ => true | _ => false)
+              | BinConn (opr, p1, p2) => (case p' of BinConn (opr', p1', p2') => opr = opr' andalso eq_p p1 p1' andalso eq_p p2 p2' | _ => false)
+              | BinPred (opr, i1, i2) => (case p' of BinPred (opr', i1', i2') => opr = opr' andalso eq_i i1 i1' andalso eq_i i2 i2' | _ => false)
+              | Not (p, _) => (case p' of Not (p', _) => eq_p p p' | _ => false)
+              | Quan (q, bs, _, p) => (case p' of Quan (q', bs', _, p') => eq_quan q q' andalso eq_bs bs bs' andalso eq_p p p' | _ => false)
+
+        (* pretty-printers *)
+
+        fun str_bs (s : bsort) =
+            case s of
+                Base s => str_b s
+              | UVarBS u => str_uvar_bs str_bs u
+                                        
         fun str_i ctx (i : idx) : string = 
             case i of
                 VarI (x, _) => str_v ctx x
@@ -398,7 +437,11 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               
         fun str_mt (ctx as (sctx, kctx)) (t : mtype) : string =
             case t of
-                Arrow (t1, d, t2) => sprintf "($ -- $ --> $)" [str_mt ctx t1, str_i sctx d, str_mt ctx t2]
+                Arrow (t1, d, t2) =>
+                if eq_i d (T0 dummy) then
+                  sprintf "($ -> $)" [str_mt ctx t1, str_mt ctx t2]
+                else
+                  sprintf "($ -- $ --> $)" [str_mt ctx t1, str_i sctx d, str_mt ctx t2]
               | Prod (t1, t2) => sprintf "($ * $)" [str_mt ctx t1, str_mt ctx t2]
               | UniI _ =>
                 let
@@ -710,45 +753,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | Datatype (_, _, _, _, r) => r
               | IdxDef ((_, r), _, i) => combine_region r (get_region_i i)
               | AbsIdx (_, _, r) => r
-
-        fun eq_i i i' =
-            let
-                fun loop i i' =
-                    case i of
-                        VarI (x, _) => (case i' of VarI (x', _) => eq_v (x, x') | _ => false)
-                      | ConstIN (n, _) => (case i' of ConstIN (n', _) => n = n' | _ => false)
-                      | ConstIT (x, _) => (case i' of ConstIT (x', _) => x = x' | _ => false)
-                      | UnOpI (opr, i, _) => (case i' of UnOpI (opr', i', _) => opr = opr' andalso loop i i' | _ => false)
-                      | DivI (i1, (n2, _)) => (case i' of DivI (i1', (n2', _)) => loop i1 i1' andalso n2 = n2' | _ => false)
-                      | ExpI (i1, (n2, _)) => (case i' of ExpI (i1', (n2', _)) => loop i1 i1' andalso n2 = n2' | _ => false)
-                      | BinOpI (opr, i1, i2) => (case i' of BinOpI (opr', i1', i2') => opr = opr' andalso loop i1 i1' andalso loop i2 i2' | _ => false)
-                      | TrueI _ => (case i' of TrueI _ => true | _ => false)
-                      | FalseI _ => (case i' of FalseI _ => true | _ => false)
-                      | TTI _ => (case i' of TTI _ => true | _ => false)
-                      | TimeAbs (_, i, _) => (case i' of TimeAbs (_, i', _) => loop i i' | _ => false)
-                      | UVarI (u, _) => (case i' of UVarI (u', _) => eq_uvar_i (u, u') | _ => false)
-            in
-                loop i i'
-            end
-
-        fun eq_bs bs bs' =
-            case bs of
-                Base b => (case bs' of Base b' => b = b | _ => false)
-              | UVarBS _ => false
-
-        fun eq_quan q q' =
-          case q of
-              Forall => (case q' of Forall => true | Exists _ => false)
-            | Exists _ => (case q' of Forall => false | Exists _ => true)
-                            
-        fun eq_p p p' =
-            case p of
-                True _ => (case p' of True _ => true | _ => false)
-              | False _ => (case p' of False _ => true | _ => false)
-              | BinConn (opr, p1, p2) => (case p' of BinConn (opr', p1', p2') => opr = opr' andalso eq_p p1 p1' andalso eq_p p2 p2' | _ => false)
-              | BinPred (opr, i1, i2) => (case p' of BinPred (opr', i1', i2') => opr = opr' andalso eq_i i1 i1' andalso eq_i i2 i2' | _ => false)
-              | Not (p, _) => (case p' of Not (p', _) => eq_p p p' | _ => false)
-              | Quan (q, bs, _, p) => (case p' of Quan (q', bs', _, p') => eq_quan q q' andalso eq_bs bs bs' andalso eq_p p p' | _ => false)
 
         local
             val changed = ref false
