@@ -122,10 +122,56 @@ fun typecheck_file (filename, ctx) =
     | IO.Io e => raise Error $ sprintf "IO error in function $ on file $" [#function e, #name e]
     | OS.SysErr (msg, err) => raise Error $ sprintf "System error$: $" [(default "" o Option.map (prefix " " o OS.errorName)) err, msg]
                                     
+fun process_file (filename, ctx) =
+    let
+      open OS.Path
+      val typecheck_files = foldl typecheck_file
+      fun splitDirFileExt filename =
+          let
+            val dir_file = splitDirFile filename
+            val base_ext = splitBaseExt (#file dir_file)
+          in
+            (#dir dir_file, #base base_ext, #ext base_ext)
+          end
+      fun joinDirFileCurried dir file = joinDirFile {dir = dir, file = file}
+      val (dir, _, ext) = splitDirFileExt filename
+      val ctx =
+          if ext = SOME "pkg" then
+            let
+              val split_lines = String.tokens (fn c => c = #"\n")
+              val read_lines = split_lines o read_file
+              fun read_lines filename =
+                  let
+                    open TextIO
+                    val ins = openIn filename
+                    fun loop lines =
+                        case inputLine ins of
+                            SOME ln => loop (ln :: lines)
+                          | NONE => lines
+                    val lines = rev $ loop []
+                    val () = closeIn ins
+                  in
+                    lines
+                  end
+              val filenames = read_lines filename
+              val filenames = map (joinDirFileCurried dir) filenames
+              val ctx = process_files ctx filenames
+            in
+              ctx
+            end
+          else if ext = SOME "timl" then
+            typecheck_file (filename, ctx)
+          else raise Error $ "Unknown filename extension in " ^ filename
+    in
+      ctx
+    end
+      
+and process_files ctx filenames = foldl process_file ctx filenames
+          
 fun main filenames =
     let
       val () = app println $ ["Input file(s):"] @ indent filenames
-      val ctx = foldl typecheck_file empty_ctx filenames
+      val ctx = process_files empty_ctx filenames
     in
       ctx
     end
@@ -149,6 +195,7 @@ fun main (prog_name, args : string list) : int =
     handle
     TiML.Error msg => (println msg; 1)
     | Impossible msg => (println ("Impossible: " ^ msg); 1)
+    | IO.Io e => (println ("IO Error on " ^ #name e); 1)
     | _ => (println ("Internal error"); 1)
 
 end
