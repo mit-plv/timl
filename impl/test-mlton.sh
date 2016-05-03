@@ -1,1 +1,1 @@
-set -o pipefail && make mlton && cat examples/suite.txt | xargs -I {} ./main examples/{}
+set -o pipefail && make mlton && ./main examples/stdlib.pkg examples/suite.pkg

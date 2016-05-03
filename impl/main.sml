@@ -146,7 +146,7 @@ fun process_file (filename, ctx) =
                     val ins = openIn filename
                     fun loop lines =
                         case inputLine ins of
-                            SOME ln => loop (ln :: lines)
+                            SOME ln => loop (String.substring (ln, 0, String.size ln - 1) :: lines)
                           | NONE => lines
                     val lines = rev $ loop []
                     val () = closeIn ins
@@ -154,6 +154,7 @@ fun process_file (filename, ctx) =
                     lines
                   end
               val filenames = read_lines filename
+              val filenames = List.filter (fn s => s <> "") filenames
               val filenames = map (joinDirFileCurried dir) filenames
               val ctx = process_files ctx filenames
             in
@@ -161,7 +162,7 @@ fun process_file (filename, ctx) =
             end
           else if ext = SOME "timl" then
             typecheck_file (filename, ctx)
-          else raise Error $ "Unknown filename extension in " ^ filename
+          else raise Error $ sprintf "Unknown filename extension $ of $" [default "<EMPTY>" ext, filename]
     in
       ctx
     end

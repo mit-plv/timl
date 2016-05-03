@@ -1,1 +1,1 @@
-set -o pipefail && make -C .. && cat suite.txt | xargs ../main.sh
+set -o pipefail && make -C .. && ../main.sh stdlib.pkg suite.pkg
