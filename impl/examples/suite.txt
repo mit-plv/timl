@@ -1,4 +1,9 @@
-trivial.timl
-single-var.timl
-msort.timl
+bool.timl
+list.timl
 tree.timl
+
+trivial.timl
+msort.timl
+bigO-evolve.timl
+fold-evolve.timl
+single-var.timl

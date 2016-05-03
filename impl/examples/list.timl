@@ -1,98 +1,30 @@
 datatype {Nat} 'a list =
-         NilI of {0} 'a list
-         | ConsI {n' : Nat} of 'a * {n'} 'a list --> {n' + 1} 'a list
+         Nil of {0} 'a list
+         | Cons {n' : Nat} of 'a * {n'} 'a list --> {n' + 1} 'a list
 
-val ['a] ['b] map = 
- fn {m : Time} (f : 'a -- m --> 'b) =>
+absidx g : BigO 2 (fn m n => $m * $n) with
+val ['a] ['b] map =
+ fn {m : Nat} (f : 'a -- $m --> 'b) =>
     let
-        fun map {n : Nat} (ls : {n} _ list) return {n} _ list |> (m + 2.0) * $n =
-            case ls return {n} _ list of
-                NilI => NilI
-              | ConsI {n'} (x, xs) => ConsI {_} (f x, map {_} xs) |> (m + 2.0) * $n
+        fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
+            case ls of
+                Nil => Nil
+              | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
     in
         map
     end
-
+end
+      
+absidx h : BigO 2 (fn m n => $m * $n) with
 val ['a] ['b] foldl =
- fn {m : Time} (f : 'a * 'b -- m --> 'b) =>
+ fn {m : Nat} (f : 'a * 'b -- $m --> 'b) =>
     let
-        fun loop {n : Nat} (y : _, xs : {n} _ list) return _ |> (m + 2.0) * $n =
+        fun foldl {n : Nat} y (xs : {n} _ list) return _ using h m n =
             case xs of
-                NilI => y
-              | ConsI {n'} (x, xs) => loop {_} (f (x, y), xs) |> (m + 2.0) * $n
+                Nil => y
+              | Cons {n'} (x, xs) => foldl {_} (f (x, y)) xs
     in
-        loop
-    end
-
-(* datatype {Nat} 'a even_split = *)
-(*          Even of {n : Nat} ({ceil ($n/2)} 'a list * {floor ($n/2)} 'a list) -> {n} 'a even_split *)
-
-fun ['a] split {n : Nat} (xs : {n} 'a list) return {ceil ($n/2)} _ list * {floor ($n/2)} _ list |> $n =
-    case xs return {ceil ($n/2)} _ list * {floor ($n/2)} _ list |> $n of
-        NilI => (NilI, NilI)
-      | ConsI {_} (x, NilI) => (xs, NilI)
-      | ConsI {_} (x1, (ConsI {n'} (x2, xs))) =>
-        case split {n'} xs return {ceil ($n/2)} _ list * {floor ($n/2)} _ list of
-            (xs1, xs2) => (ConsI {_} (x1, xs1), ConsI {_} (x2, xs2))
-                              
-datatype bool = true | false
-
-absidx f : {f : Fun 2 | f O _} = _ with
-val ['a] merge =
- fn {m : Nat} (le : 'a * 'a -- $m --> bool) =>
-    let
-        fun merge {n1 : Nat} {n2 : Nat} ((xs, ys) : {n1} _ list * {n2} _ list) return {n1 + n2} _ list |> f m (n1 + n2) =
-            case (xs, ys) return {n1 + n2} _ list |> f m (n1 + n2) of
-                (NilI, _) => ys
-              | (_, NilI) => xs
-              | (ConsI {n1'} (x, xs'), ConsI {n2'} (y, ys')) =>
-                case le (x, y) return |> 1.0 + f m (n1' + n2' + 1) of
-                    true => ConsI {_} (x, merge {_} {_} (xs', ys))
-                  | false => ConsI {_} (y, merge {_} {_} (xs, ys'))
-    in
-        merge
-    end
-end
-                           (*
-                           
-val ['a] merge =
- fn {m : Time} (le : 'a * 'a -- m --> bool) =>
-    let
-        fun merge {n1 : Nat} {n2 : Nat} ((xs, ys) : {n1} _ list * {n2} _ list) return {n1 + n2} _ list |> (m + 2.0) * $(n1 + n2) =
-            case (xs, ys) return {n1 + n2} _ list |> (m + 2.0) * $(n1 + n2) of
-                (NilI, _) => ys
-              | (_, NilI) => xs
-              | (ConsI {n1'} (x, xs'), ConsI {n2'} (y, ys')) =>
-                case le (x, y) of
-                    true => ConsI {_} (x, merge {_} {_} (xs', ys))
-                  | false => ConsI {_} (y, merge {_} {_} (xs, ys'))
-    in
-        merge
-    end
-
-                           *)
-        
-absidx g : {g : Fun 2 | g O _} with
-val ['a] msort =
- fn {m : Nat} (le : 'a * 'a -- $m --> bool) =>
-    let
-        fun sort {n : Nat} (xs : {n} _ list) return {n} _ list |> g m n =
-          case xs return {n} _ list of
-              NilI => xs
-            | (ConsI {_} (_, NilI)) => xs
-            | (ConsI {n1} (_, ConsI {n2} (_, _))) =>
-              case split {n} xs of
-                  (xs1, xs2) => merge {_} le {_} {_} (sort {_} xs1, sort {_} xs2)
-    in
-        sort
+        foldl
     end
 end
 
-(* Proof obligations:
-
-exists g : Fun1, O g (fn n => n * log2 n) ->
-(* or exists (f : Fun1) (g : Fun1), O g f -> *)
-  forall m n,
-    1 + 1 + m * g (ceil ($n/2) * log2 (ceil ($n/2))) + 1 + m * g (floor ($n/2) * log2 (floor ($n/2))) + 1 + m + 2 + n + 1 + n <= m * g (n * log2 n)
-
-*)

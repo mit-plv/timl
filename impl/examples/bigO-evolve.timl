@@ -1,0 +1,99 @@
+(* The following is the thought process of evoluting [map] from using precise time spec to using big-O time spec.
+*)
+
+(* original version *)
+val ['a] ['b] map =
+ fn {m : Nat} (f : 'a -- $m --> 'b) =>
+    let
+        fun map {n : Nat} (ls : {n} _ list) return {n} _ list using $(m + 2) * $n =
+            case ls of
+                Nil => Nil
+              | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
+    in
+        map
+    end
+
+(* rewrite the time spec equivalently using a function-sort index [g] introduced by [absidx] *)
+absidx g : Fun 2 = fn m n => $(m + 2) * $n with
+val ['a] ['b] map =
+ fn {m : Nat} (f : 'a -- $m --> 'b) =>
+    let
+        fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
+            case ls of
+                Nil => Nil
+              | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
+    in
+        map
+    end
+end
+
+(* refine [g]'s sort from [Fun 2] to [{g : Fun 2 | g O (fn m n => $m * $n)}], specifying that [g] must be of Big-O class O(m*n)  *)
+absidx g : {g : Fun 2 | g O (fn m n => $m * $n)} = fn m n => $(m + 2) * $n with
+val ['a] ['b] map =
+ fn {m : Nat} (f : 'a -- $m --> 'b) =>
+    let
+        fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
+            case ls of
+                Nil => Nil
+              | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
+    in
+        map
+    end
+end
+      
+(* sort [{g : Fun 2 | g O (fn m n => $m * $n)}] can be written as [BigO 2 (fn m n => $m * $n)] as a syntax sugar *)
+absidx g : BigO 2 (fn m n => $m * $n) = fn m n => $(m + 2) * $n with
+val ['a] ['b] map =
+ fn {m : Nat} (f : 'a -- $m --> 'b) =>
+    let
+        fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
+            case ls of
+                Nil => Nil
+              | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
+    in
+        map
+    end
+end
+
+(* now the magic: [g]'s definition can be inferred! *)
+absidx g : BigO 2 (fn m n => $m * $n) = _ with
+val ['a] ['b] map =
+ fn {m : Nat} (f : 'a -- $m --> 'b) =>
+    let
+        fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
+            case ls of
+                Nil => Nil
+              | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
+    in
+        map
+    end
+end
+
+(* [= _] in [absidx] can be omitted as a syntax sugar *)
+absidx g : BigO 2 (fn m n => $m * $n) with
+val ['a] ['b] map =
+ fn {m : Nat} (f : 'a -- $m --> 'b) =>
+    let
+        fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
+            case ls of
+                Nil => Nil
+              | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
+    in
+        map
+    end
+end
+
+(* the magic goes further: even [g]'s BigO class can be inferred! *)
+absidx g : BigO 2 _ with
+val ['a] ['b] map =
+ fn {m : Nat} (f : 'a -- $m --> 'b) =>
+    let
+        fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
+            case ls of
+                Nil => Nil
+              | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
+    in
+        map
+    end
+end
+      

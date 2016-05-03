@@ -1,0 +1,37 @@
+val ['a] ['b] foldl =
+ fn {m : Nat} (f : 'a * 'b -- $m --> 'b) =>
+    let
+        fun foldl {n : Nat} (y : _, xs : {n} _ list) return _ using $(m + 2) * $n =
+            case xs of
+                Nil => y
+              | Cons {n'} (x, xs) => foldl {_} (f (x, y), xs)
+    in
+        foldl
+    end
+
+absidx h : BigO 2 _ with
+val ['a] ['b] foldl =
+ fn {m : Nat} (f : 'a * 'b -- $m --> 'b) =>
+    let
+        fun foldl {n : Nat} (y : _, xs : {n} _ list) return _ using h m n =
+            case xs of
+                Nil => y
+              | Cons {n'} (x, xs) => foldl {_} (f (x, y), xs)
+    in
+        foldl
+    end
+end
+
+absidx h : BigO 2 _ with
+val ['a] ['b] foldl =
+ fn {m : Nat} (f : 'a * 'b -- $m --> 'b) =>
+    let
+        fun foldl {n : Nat} y (xs : {n} _ list) return _ using h m n =
+            case xs of
+                Nil => y
+              | Cons {n'} (x, xs) => foldl {_} (f (x, y)) xs
+    in
+        foldl
+    end
+end
+
