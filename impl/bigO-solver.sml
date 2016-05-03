@@ -170,8 +170,8 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
       (* val () = app println $ concatMap (fn vc => str_vc false "" vc @ [""]) vcs' *)
       (* val () = println "Master-Theorem-solver to apply SMT solver to discharge some VCs. " *)
       val (vcs, vcs') = unzip $ List.mapPartial (fn (vc, out) => case out of SOME (vc', _) => SOME (vc, vc') | NONE => NONE) $ zip (vcs, SMTSolver.smt_solver "" vcs')
-      val () = println "Master-Theorem-solver to solve this: "
-      val () = app println $ concatMap (fn vc => str_vc false "" vc @ [""]) vcs'
+      (* val () = println "Master-Theorem-solver to solve this: " *)
+      (* val () = app println $ concatMap (fn vc => str_vc false "" vc @ [""]) vcs' *)
       exception Error of string
       fun runError m _ =
           let
@@ -511,8 +511,8 @@ fun solve_exists (vc as (hs, p)) =
               
               let
                 (* val () = println "hit1" *)
-                val () = println "Exists-solver to solve this: "
-                val () = app println $ (str_vc false "" vc @ [""])
+                (* val () = println "Exists-solver to solve this: " *)
+                (* val () = app println $ (str_vc false "" vc @ [""]) *)
                 val (p1, p2) = split_and p
               in
                 case infer_exists hs (name, arity) p1 of
@@ -539,12 +539,12 @@ fun solve_bigO_compare (vc as (hs, p)) =
     case p of
         BinPred (BigO, i1, i2) =>
         let
-          val () = println "BigO-compare-solver to solve this: "
-          val () = app println $ str_vc false "" vc @ [""]
+          (* val () = println "BigO-compare-solver to solve this: " *)
+          (* val () = app println $ str_vc false "" vc @ [""] *)
           fun get_arity i = length $ fst $ collect_TimeAbs i
           val arity = get_arity i1
           val result = timefun_le hs arity i1 i2
-          val () = println $ str_bool result
+          (* val () = println $ str_bool result *)
         in
           if result then
             []

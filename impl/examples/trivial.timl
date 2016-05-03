@@ -29,8 +29,6 @@ fun add a =
 
 fun id x = x
 
-datatype bool = true | false
-
 val x = id 1
 
 val x = id true
