@@ -66,6 +66,7 @@ local
     fun on_mtype (ctx as (sctx, kctx)) t =
       case t of
 	  E.Arrow (t1, d, t2) => Arrow (on_mtype ctx t1, on_idx sctx d, on_mtype ctx t2)
+        | E.Unit r => Unit r
 	| E.Prod (t1, t2) => Prod (on_mtype ctx t1, on_mtype ctx t2)
 	| E.UniI (s, E.BindI ((name, r), t)) => UniI (on_sort sctx s, BindI ((name, r), on_mtype (name :: sctx, kctx) t))
 	| E.AppV (x, ts, is, r) => AppV (on_var kctx x, map (on_mtype ctx) ts, map (on_idx sctx) is, r)

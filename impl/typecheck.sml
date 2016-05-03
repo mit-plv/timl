@@ -252,6 +252,7 @@ fun update_mt t =
              end
            | Fresh _ => t
         )
+      | Unit r => Unit r
       | Arrow (t1, d, t2) => Arrow (update_mt t1, update_i d, update_mt t2)
       | Prod (t1, t2) => Prod (update_mt t1, update_mt t2)
       | UniI (s, BindI (name, t1)) => UniI (update_s s, BindI (name, update_mt t1))
@@ -478,7 +479,7 @@ local
                    open_sorting (name, s);
                    loop (name :: sctx, kctx) (t1, t1');
                    close_vc ())
-                | (BaseType (Unit, _), BaseType (Unit, _)) => ()
+                | (Unit _, Unit _) => ()
 	        | (BaseType (Int, _), BaseType (Int, _)) => ()
 	        | (AppV ((a, _), ts, is, _), AppV ((a', _), ts', is', _)) => 
 	          if a = a' then
@@ -774,6 +775,7 @@ local
 	    Arrow (is_wf_mtype (ctx, c1),
 	           check_bsort (sctx, d, Base Time),
 	           is_wf_mtype (ctx, c2))
+          | U.Unit r => Unit r
 	  | U.Prod (c1, c2) => 
 	    Prod (is_wf_mtype (ctx, c1),
 	          is_wf_mtype (ctx, c2))
@@ -934,7 +936,7 @@ local
                              end
                            | _ => TrueH (* an abstract type is treated as an inhabited type *)
                         )
-                      | BaseType (Unit, _) => TTH
+                      | Unit _ => TTH
                       | Prod (t1, t2) => PairH (f t1 [], f t2 [])
                       | _ => TrueH
                   end
@@ -948,7 +950,7 @@ local
                       | (AndC (c1, c2), _) => f t (c1 :: c2 :: cs)
                       | (OrC (c1, c2), _) =>
                         (f t (c1 :: cs) handle Incon _ => f t (c2 :: cs))
-                      | (TTC, BaseType (Unit, _)) =>
+                      | (TTC, Unit _) =>
                         (case allSome (fn c => case c of TTC => SOME () | _ => NONE) cs of
                              OK _ => TTH
                            | Failed i => f t (to_hd i cs @ [c])
@@ -1171,7 +1173,7 @@ local
             end
           | U.TTP r =>
             let
-              val () = unify r skctxn (t, BaseType (Unit, dummy))
+              val () = unify r skctxn (t, Unit dummy)
             in
               (TTP r, TTC, empty_ctx, 0)
             end
@@ -1275,7 +1277,7 @@ local
                            raise subst_uvar_error (U.get_region_e e_all) ("type " ^ str_mt skctxn t) i info
 		  end
 	        | U.TT r => 
-                  (TT r, BaseType (Unit, dummy), T0 dummy)
+                  (TT r, Unit dummy, T0 dummy)
 	        | U.Pair (e1, e2) => 
 		  let 
                     val (e1, t1, d1) = get_mtype (ctx, e1) 
@@ -1412,6 +1414,7 @@ local
                      Refined t => fv_mt t
                    | Fresh y => [uvar_ref]
                 )
+              | Unit _ => []
 	      | Arrow (t1, _, t2) => fv_mt t1 @ fv_mt t2
 	      | Prod (t1, t2) => fv_mt t1 @ fv_mt t2
 	      | UniI (s, BindI (name, t1)) => fv_mt t1
@@ -1431,6 +1434,7 @@ local
                         AppV ((v, dummy), [], [], dummy)
                       else 
                         b
+                    | Unit r => Unit r
 	            | Arrow (t1, d, t2) => Arrow (substu x v t1, d, substu x v t2)
 	            | Prod (t1, t2) => Prod (substu x v t1, substu x v t2)
 	            | UniI (s, BindI (name, t1)) => UniI (s, BindI (name, substu x (v + 1) t1))

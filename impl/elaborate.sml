@@ -126,7 +126,7 @@ local
       case t of
 	  S.VarT (x, r) =>
           if x = "unit" then
-              BaseType (Unit, r)
+              Unit r
           else if x = "int" then
               BaseType (Int, r)
           else if x = "_" then

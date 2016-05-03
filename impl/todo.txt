@@ -27,4 +27,4 @@ Done. 18. Example: Tree flatten.
 27. Figure out how to infer [tree_map] and [tree_foldl].
 28. Have module system.
 29. Bug of type inference in tree_append_rlm. The inferred type has [{n} tree tree] and [{n} list list].
-30. Put [Unit] back to mtype from [base_type] because [Unit] is not a base type like [Int] but a structural building block.
+Done. 30. Put [Unit] back to mtype from [base_type] because [Unit] is not a base type like [Int] but a structural building block.

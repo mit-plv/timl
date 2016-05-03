@@ -41,8 +41,7 @@ fun fold_ibinds (binds, inner) =
     foldr (fn ((name, anno), ibinds) => ConsIB (anno, BindI (name, ibinds))) (NilIB inner) binds
 
 datatype base_type =
-         Unit
-         | Int
+         Int
                      
 end
 
@@ -119,6 +118,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         (* monotypes *)
         datatype mtype = 
 	         Arrow of mtype * idx * mtype
+                 | Unit of region
 	         | Prod of mtype * mtype
 	         | UniI of sort * (name * mtype) ibind
 	         (* the first operant of App can only be a type variable. The degenerated case of no-arguments is also included *)
@@ -202,7 +202,9 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         datatype expr =
 	         Var of var * region
 	         | App of expr * expr
-	         | Abs of ptrn * expr 
+	         | Abs of ptrn * expr
+                 (* unit type *)
+	         | TT of region
 	         (* product type *)
 	         | Pair of expr * expr
 	         | Fst of expr
@@ -213,7 +215,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  (* other *)
 	         | BinOp of bin_op * expr * expr
 	         | ConstInt of int * region
-	         | TT of region
 	         | AppConstr of id * idx list * expr
 	         | Case of expr * return * (ptrn * expr) list * region
 	         | Never of mtype
@@ -432,8 +433,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         fun str_bt bt =
           case bt of
-              Unit => "unit"
-            | Int => "int"
+              Int => "int"
               
         fun str_mt (ctx as (sctx, kctx)) (t : mtype) : string =
             case t of
@@ -442,6 +442,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                   sprintf "($ -> $)" [str_mt ctx t1, str_mt ctx t2]
                 else
                   sprintf "($ -- $ --> $)" [str_mt ctx t1, str_i sctx d, str_mt ctx t2]
+              | Unit _ => "unit"
               | Prod (t1, t2) => sprintf "($ * $)" [str_mt ctx t1, str_mt ctx t2]
               | UniI _ =>
                 let
@@ -704,6 +705,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         fun get_region_mt t = 
             case t of
                 Arrow (t1, d, t2) => combine_region (get_region_mt t1) (get_region_mt t2)
+              | Unit r => r
               | Prod (t1, t2) => combine_region (get_region_mt t1) (get_region_mt t2)
               | UniI (_, bind) => get_region_ibind get_region_mt bind
               | AppV (_, _, _, r) => r
@@ -885,6 +887,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         fun simp_mt t =
 	    case t of
 	        Arrow (t1, d, t2) => Arrow (simp_mt t1, simp_i d, simp_mt t2)
+              | Unit r => Unit r
 	      | Prod (t1, t2) => Prod (simp_mt t1, simp_mt t2)
 	      | AppV (x, ts, is, r) => AppV (x, map simp_mt ts, map simp_i is, r)
 	      | UniI (s, bind) => UniI (simp_s s, simp_ibind simp_mt bind)
