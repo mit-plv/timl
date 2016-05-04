@@ -71,3 +71,30 @@ fun ['a] msort (lt : 'a * 'a -- _ --> bool) =
       msort
     end
 end
+
+absidx g : BigO 1 (fn n => $n) with
+fun ['a] insert (le : 'a * 'a -- 7.0 --> bool) x =
+    let
+      fun insert {n : Nat} (xs : {n} _ list) return {n + 1} _ list using g n =
+          case xs of
+              Nil => Cons {_} (x, Nil)
+            | Cons {n'} (x', xs') =>
+              case le (x, x') return {n + 1} _ list using 1.0 + g n' of
+                  true => Cons {_} (x, xs)
+                | false => Cons {_} (x', insert {_} xs')
+    in
+      insert
+    end
+end
+
+absidx g : BigO 1 (fn n => $n * $n) with
+fun ['a] insertion_sort (le : 'a * 'a -- _ --> bool) =
+    let
+      fun sort {n : Nat} (xs : {n} _ list) return {n} _ list using g n =
+          case xs of
+              Nil => Nil
+            | Cons {_} (x, xs) => insert le x {_} (sort {_} xs)
+    in
+      sort
+    end
+end

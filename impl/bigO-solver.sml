@@ -182,14 +182,19 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                       val error = Error
                       fun on_error s = raise error s
                       val cls_n = summarize on_error n
-                      val x = extract_only_variable (error "summarize_1: class of n must be (1, 0) for only one variable") cls_n
                       val cls_i = M.listItemsi $ trim_class $ summarize on_error i
+                      fun get_x () = extract_only_variable (error "summarize_1: class of n must be (1, 0) for only one variable") cls_n
+                      fun err () = on_error "summarize_1: class of i must only contain n's variable"
                       val ret = if length cls_i = 0 then
                                   (0, 0)
-                                else if length cls_i = 1 andalso fst (hd cls_i) = x then
-                                  snd (hd cls_i)
-                                else
-                                  on_error "summarize_1: class of i must only contain n's variable"
+                                else if length cls_i = 1 then
+                                  let
+                                    val x = get_x ()
+                                  in
+                                    if fst (hd cls_i) = x then snd (hd cls_i)
+                                    else err ()
+                                  end
+                                else err ()
                     in
                       ret
                     end
@@ -242,14 +247,24 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                       ret
                     end
                 (* if [i] is [f m n] where [f]'s bigO spec is known, replace [f] with its bigO spec *)
-                fun use_bigO_hyp m_ i =
+                fun use_bigO_hyp i =
                     case i of
-                        BinOpI (TimeApp, BinOpI (TimeApp, f_i as VarI (f, _), m'), n') =>
-                        if f > nx andalso ask_smt (m' %= m_) then
-                          case find_bigO_hyp f_i hyps of
-                              SOME (g, _) => simp_i (g %@ m_ %@ n')
-                            | NONE => i
-                        else i
+                        BinOpI (TimeApp, f_i, n') =>
+                        (case f_i of
+                             VarI (f, _) =>
+                             if f > nx then
+                               case find_bigO_hyp f_i hyps of
+                                   SOME (g, _) => simp_i (g %@ n')
+                                 | NONE => i
+                             else i
+                           | BinOpI (TimeApp, f_i as VarI (f, _), m') =>
+                             if f > nx then
+                               case find_bigO_hyp f_i hyps of
+                                   SOME (g, _) => simp_i (g %@ m' %@ n')
+                                 | NONE => i
+                             else i
+                           | _ => i
+                        )
                       | _ => i
               in
                 case p of
@@ -275,7 +290,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                               | _ => NONE
                         val (a, b, others) = get_params is_sub_problem is
                         val () = if b > 1 then () else raise Error "b > 1"
-                        val others = map (use_bigO_hyp m_) others
+                        val others = map use_bigO_hyp others
                         val classes = map (summarize_2 m_ n_) others
                         val (c, k) = add_class_entries classes
                         val T = master_theorem (to_real (V 0)) (a, b) (c, k)
@@ -300,8 +315,10 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                         val (n's, rest) = partitionOption par is
                         val n' = combine_AddI n's
                         val () = if ask_smt (n' %+ N1 %= n_i) then () else raise Error "n' %+ N1 %= n_i"
-                        val (c, k) = add_class_entries $ map (summarize_2 m_ n_ o use_bigO_hyp m_) rest
-                        val ret = (TimeAbs (("m", dummy), TimeAbs (("n", dummy), simp_i (to_real (V 1) %* class2term (c+1, k) (to_real (V 0))), dummy), dummy), [])
+                        val (c, k) =
+                            add_class_entries $ map (summarize_2 m_ n_ o use_bigO_hyp) rest
+                        val Tn = class2term (c + 1, k) (to_real (V 0))
+                        val ret = (TimeAbs (("m", dummy), TimeAbs (("n", dummy), simp_i (to_real (V 1) %* Tn), dummy), dummy), [])
                       in
                         ret
                       end
@@ -311,15 +328,6 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                       let
                         val () = if g = nx then () else raise Error "g = nx fails"
                         val n_ = to_real n_i
-                        fun use_bigO_hyp i =
-                            case i of
-                                BinOpI (TimeApp, f_i as VarI (f, _), n') =>
-                                if f > nx andalso ask_smt (n' %= n_) then
-                                  case find_bigO_hyp f_i hyps of
-                                      SOME (f', _) => simp_i $ f' %@ n_
-                                    | NONE => i
-                                else i
-                              | _ => i
                         val is = collect_AddI i1
                         val is = map use_bigO_hyp is
                         val classes = map (summarize_1 n_) is
@@ -347,15 +355,6 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                           val (a, b, others) = get_params is_sub_problem is
                           val () = if b > 1 then () else raise Error "b > 1"
                           (* if [i] is [f n] where [f]'s bigO spec is known, replace [f] with its bigO spec *)
-                          fun use_bigO_hyp i =
-                              case i of
-                                  BinOpI (TimeApp, f_i as VarI (f, _), n') =>
-                                  if f > nx andalso ask_smt (n' %= n_) then
-                                    case find_bigO_hyp f_i hyps of
-                                        SOME (g, _) => simp_i (g %@ n_)
-                                      | NONE => i
-                                  else i
-                                | _ => i
                           val others = map use_bigO_hyp others
                           val classes = map (summarize_1 n_) others
                           val (c, k) = add_class_entries classes
@@ -381,13 +380,10 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                           val (n's, rest) = partitionOption par is
                           val n' = combine_AddI n's
                           val () = if ask_smt (n' %+ N1 %= n_i) then () else raise Error "n' %+ N1 %= n_i"
-                          fun only_const i =
-                              case i of
-                                  ConstIT _ => ()
-                                | UnOpI (ToReal, ConstIN _, _) => ()
-                                | _ => raise Error "only_const fails"
-                          val () = app only_const rest
-                          val ret = (TimeAbs (("n", dummy), to_real (V 0), dummy), [])
+                          val (c, k) =
+                              add_class_entries $ map (summarize_1 n_ o use_bigO_hyp) rest
+                          val Tn = class2term (c + 1, k) (to_real (V 0))
+                          val ret = (TimeAbs (("n", dummy), simp_i Tn, dummy), [])
                         in
                           ret
                         end
