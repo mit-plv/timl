@@ -12,6 +12,7 @@ infix 6 %+
 infix 4 %<=
 infix 4 %=
 infix 3 /\
+infix 2 \/
 infix 1 -->
 infix 1 <->
 
@@ -284,7 +285,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                         fun is_sub_problem i =
                             case i of
                                 BinOpI (TimeApp, BinOpI (TimeApp, VarI (g', _), VarI (m', _)), UnOpI (opr, DivI (n', (b, _)), _)) =>
-                                if g' = g andalso m' = m andalso (opr = Ceil orelse opr = Floor) andalso ask_smt (n' %= n_) then
+                                if g' = g andalso m' = m andalso (opr = Ceil orelse opr = Floor) andalso ask_smt (n' %= n_ \/ n' %+ T1 dummy %= n_) then
                                   SOME b
                                 else NONE
                               | _ => NONE
@@ -348,7 +349,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                           fun is_sub_problem i =
                               case i of
                                   BinOpI (TimeApp, VarI (g', _), UnOpI (opr, DivI (n', (b, _)), _)) =>
-                                  if g' = g andalso (opr = Ceil orelse opr = Floor) andalso ask_smt (n' %= n_) then
+                                  if g' = g andalso (opr = Ceil orelse opr = Floor) andalso ask_smt (n' %= n_ \/ n' %+ T1 dummy %= n_) then
                                     SOME b
                                   else NONE
                                 | _ => NONE
