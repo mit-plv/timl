@@ -2,7 +2,7 @@
 *)
 
 (* original version *)
-val ['a] ['b] map =
+val ['a 'b] map =
  fn {m : Nat} (f : 'a -- $m --> 'b) =>
     let
         fun map {n : Nat} (ls : {n} _ list) return {n} _ list using $(m + 2) * $n =
@@ -15,7 +15,7 @@ val ['a] ['b] map =
 
 (* rewrite the time spec equivalently using a function-sort index [g] introduced by [absidx] *)
 absidx g : Fun 2 = fn m n => $(m + 2) * $n with
-val ['a] ['b] map =
+val ['a 'b] map =
  fn {m : Nat} (f : 'a -- $m --> 'b) =>
     let
         fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
@@ -29,7 +29,7 @@ end
 
 (* refine [g]'s sort from [Fun 2] to [{g : Fun 2 | g O (fn m n => $m * $n)}], specifying that [g] must be of Big-O class O(m*n)  *)
 absidx g : {g : Fun 2 | g O (fn m n => $m * $n)} = fn m n => $(m + 2) * $n with
-val ['a] ['b] map =
+val ['a 'b] map =
  fn {m : Nat} (f : 'a -- $m --> 'b) =>
     let
         fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
@@ -43,7 +43,7 @@ end
       
 (* sort [{g : Fun 2 | g O (fn m n => $m * $n)}] can be written as [BigO 2 (fn m n => $m * $n)] as a syntax sugar *)
 absidx g : BigO 2 (fn m n => $m * $n) = fn m n => $(m + 2) * $n with
-val ['a] ['b] map =
+val ['a 'b] map =
  fn {m : Nat} (f : 'a -- $m --> 'b) =>
     let
         fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
@@ -57,7 +57,7 @@ end
 
 (* now the magic: [g]'s definition can be inferred! *)
 absidx g : BigO 2 (fn m n => $m * $n) = _ with
-val ['a] ['b] map =
+val ['a 'b] map =
  fn {m : Nat} (f : 'a -- $m --> 'b) =>
     let
         fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
@@ -71,7 +71,7 @@ end
 
 (* [= _] in [absidx] can be omitted as a syntax sugar *)
 absidx g : BigO 2 (fn m n => $m * $n) with
-val ['a] ['b] map =
+val ['a 'b] map =
  fn {m : Nat} (f : 'a -- $m --> 'b) =>
     let
         fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
@@ -85,7 +85,7 @@ end
 
 (* the magic goes further: even [g]'s BigO class can be inferred! *)
 absidx g : BigO 2 _ with
-val ['a] ['b] map =
+val ['a 'b] map =
  fn {m : Nat} (f : 'a -- $m --> 'b) =>
     let
         fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =

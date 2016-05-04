@@ -106,7 +106,7 @@ open Ast
        | sorting of tbind
        (* | idx_un_op of idx_un_op *)
        | tname of id
-       | tname_star of id list
+       | tnames of id list
        | optional_colon_sort of sort option
        | optional_eq_idx of idx option
 
@@ -190,8 +190,8 @@ prop : id (ConstP id)
      | idx GT idx (BinPred (GtP, idx1, idx2, (idx1left, idx2right)))
      | idx BIG_O_INFIX idx (BinPred (BigO, idx1, idx2, (idx1left, idx2right)))
 
-decl : VAL tname_star ptrn EQ exp (Val (tname_star, ptrn, exp, (VALleft, expright)))
-     | FUN tname_star id bind_star return EQ exp (Rec (tname_star, id, bind_star, return, exp, (FUNleft, expright)))
+decl : VAL tnames ptrn EQ exp (Val (tnames, ptrn, exp, (VALleft, expright)))
+     | FUN id tnames bind_star return EQ exp (Rec (tnames, id, bind_star, return, exp, (FUNleft, expright)))
     | DATATYPE cur_sort_star id_plus EQ constr_bar_star (case (map fst o rev) id_plus of id :: id_star => Datatype (id, id_star, rev cur_sort_star, constr_bar_star, (DATATYPEleft, constr_bar_starright)) | [] => raise Impossible "id_plus can't be empty")
     | TYPE IDX id optional_colon_sort EQ idx (IdxDef (id, optional_colon_sort, idx))
     | ABSIDX id optional_colon_sort optional_eq_idx WITH decl_star END (AbsIdx (id, optional_colon_sort, optional_eq_idx, decl_star, (ABSIDXleft, ENDright)))
@@ -301,9 +301,8 @@ sorting_star : sorting sorting_star (sorting :: sorting_star)
 
 (* idx_un_op : LOG2 (Log2) *)
 
-tname : LSQ id RSQ (id)
-tname_star : tname tname_star (tname :: tname_star)
-	 | ([])
+tnames : LSQ id_star RSQ (id_star)
+       | ([])
 
 optional_colon_sort : COLON sort (SOME sort)
                     | (NONE)

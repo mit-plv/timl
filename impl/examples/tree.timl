@@ -2,7 +2,7 @@ datatype {Nat} 'a tree =
          Leaf of {0} 'a tree
        | Node {n1 : Nat} {n2 : Nat} of 'a * {n1} 'a tree * {n2} 'a tree --> {n1 + 1 + n2} 'a tree
 
-fun ['a] ['b] map_tree {m : Time} (f : 'a -- m --> 'b) =
+fun map_tree ['a 'b] {m : Time} (f : 'a -- m --> 'b) =
     let
       fun map {n : Nat} (tr : {n} _ tree) return {n} _ tree using (m + 3.0) * $n =
           case tr of
@@ -13,7 +13,7 @@ fun ['a] ['b] map_tree {m : Time} (f : 'a -- m --> 'b) =
     end
 
 absidx g : Fun 2 = fn m n => $(m + 3) * $n with
-fun ['a] ['b] map_tree {m : Nat} (f : 'a -- $m --> 'b) =
+fun map_tree ['a 'b] {m : Nat} (f : 'a -- $m --> 'b) =
     let
       fun map {n : Nat} (tr : {n} _ tree) return {n} _ tree using g m n =
           case tr of
@@ -25,7 +25,7 @@ fun ['a] ['b] map_tree {m : Nat} (f : 'a -- $m --> 'b) =
 end
 
 absidx g : BigO 2 (fn m n => $m * $n) = fn m n => $(m + 3) * $n with
-fun ['a] ['b] map_tree {m : Nat} (f : 'a -- $m --> 'b) =
+fun map_tree ['a 'b] {m : Nat} (f : 'a -- $m --> 'b) =
     let
       fun map {n : Nat} (tr : {n} _ tree) return {n} _ tree using g m n =
           case tr of
@@ -37,7 +37,7 @@ fun ['a] ['b] map_tree {m : Nat} (f : 'a -- $m --> 'b) =
 end
 
 absidx g : BigO 2 (fn m n => $m * $n) with
-fun ['a] ['b] map_tree {m : Nat} (f : 'a -- $m --> 'b) =
+fun map_tree ['a 'b] {m : Nat} (f : 'a -- $m --> 'b) =
     let
       fun map {n : Nat} (tr : {n} _ tree) return {n} _ tree using g m n =
           case tr of
@@ -49,7 +49,7 @@ fun ['a] ['b] map_tree {m : Nat} (f : 'a -- $m --> 'b) =
 end
 
 absidx g : BigO 2 (fn m n => $m * $n) with
-fun ['a] ['b] tree_foldmlr {m : Nat} (f : 'a * 'b -- $m --> 'b) =
+fun tree_foldmlr ['a 'b] {m : Nat} (f : 'a * 'b -- $m --> 'b) =
     let
       fun fold {n : Nat} acc (tr : {n} _ tree) return _ using g m n =
           case tr of
@@ -68,7 +68,7 @@ fun ['a] ['b] tree_foldmlr {m : Nat} (f : 'a * 'b -- $m --> 'b) =
 end
 
 absidx g : BigO 2 (fn m n => $m * $n) with
-fun ['a] ['b] tree_foldrlm {m : Nat} (f : 'a * 'b -- $m --> 'b) =
+fun tree_foldrlm ['a 'b] {m : Nat} (f : 'a * 'b -- $m --> 'b) =
     let
       fun fold {n : Nat} acc (tr : {n} _ tree) return _ using g m n =
           case tr of
@@ -101,7 +101,7 @@ fun tree_append_rlm {n : Nat} (tr : {n} _ tree) {n2 : Nat} (ls : {n2} _ list) re
 end
 
 absidx g : BigO 1 (fn n => $n) with
-fun ['a] tree_flatten_mlr {n : Nat} (tr : {n} _ tree) return {n} _ list using g n =
+fun tree_flatten_mlr ['a] {n : Nat} (tr : {n} _ tree) return {n} _ list using g n =
     tree_append_rlm {_} tr {_} Nil
 end
 
@@ -115,7 +115,7 @@ datatype {Nat} 'a braun_tree =
        | BraunNode {n : Nat} of 'a * {ceil ($n/2)} 'a braun_tree * {floor ($n/2)} 'a braun_tree --> {n+1} 'a braun_tree
 
 absidx g : BigO 1 (fn n => log2 $n) with
-fun ['a] braun_insert x {n : Nat} (tr : {n} 'a braun_tree) return {n + 1} 'a braun_tree using g n =
+fun braun_insert ['a] x {n : Nat} (tr : {n} 'a braun_tree) return {n + 1} 'a braun_tree using g n =
     case tr of
         BraunLeaf => BraunNode {0} (x, BraunLeaf, BraunLeaf)
       | BraunNode {n'} (y, l, r) => BraunNode {n' + 1} (x, braun_insert y {_} r, l)

@@ -1,4 +1,4 @@
-fun ['a] split {n : Nat} (xs : {n} 'a list) return {ceil ($n/2)} _ list * {floor ($n/2)} _ list using $n =
+fun split ['a] {n : Nat} (xs : {n} 'a list) return {ceil ($n/2)} _ list * {floor ($n/2)} _ list using $n =
     case xs of
         Nil => (Nil, Nil)
       | Cons {_} (x, Nil) => (xs, Nil)
@@ -7,7 +7,7 @@ fun ['a] split {n : Nat} (xs : {n} 'a list) return {ceil ($n/2)} _ list * {floor
             (xs1, xs2) => (Cons {_} (x1, xs1), Cons {_} (x2, xs2))
                               
 absidx f : {f : Fun 2 | f O _} with
-fun ['a] merge {m : Nat} (le : 'a * 'a -- $m --> bool) return using 0.0 =
+fun merge ['a] {m : Nat} (le : 'a * 'a -- $m --> bool) return using 0.0 =
     let
       fun merge {n1 : Nat} {n2 : Nat} ((xs, ys) : {n1} _ list * {n2} _ list) return {n1 + n2} _ list using f m (n1 + n2) =
           case (xs, ys) of
@@ -23,7 +23,7 @@ fun ['a] merge {m : Nat} (le : 'a * 'a -- $m --> bool) return using 0.0 =
 end
 
 absidx {T : Fun 2 | T O _} with
-fun ['a] msort {m : Nat} (le : 'a * 'a -- $m --> bool) =
+fun msort ['a] {m : Nat} (le : 'a * 'a -- $m --> bool) =
     let
       fun sort {n : Nat} (xs : {n} _ list) return {n} _ list using T m n =
           case xs of
@@ -38,7 +38,7 @@ fun ['a] msort {m : Nat} (le : 'a * 'a -- $m --> bool) =
 end
 
 absidx {T : Fun 2 | T O (fn m n => $m * $n * log2 $n)} with
-fun ['a] msort {m : Nat} (le : 'a * 'a -- $m --> bool) =
+fun msort ['a] {m : Nat} (le : 'a * 'a -- $m --> bool) =
     let
       fun sort {n : Nat} (xs : {n} _ list) return {n} _ list using T m n =
           case xs of
@@ -53,12 +53,12 @@ fun ['a] msort {m : Nat} (le : 'a * 'a -- $m --> bool) =
 end
 
 absidx g : BigO 1 (fn n => $n) = fn n => 2.0 * $n with
-fun ['a] revAppend {n1 : Nat} (xs : {n1} 'a list) {n2 : Nat} (ys : {n2} 'a list) return {n1 + n2} _ list using g n1 =
+fun revAppend ['a] {n1 : Nat} (xs : {n1} 'a list) {n2 : Nat} (ys : {n2} 'a list) return {n1 + n2} _ list using g n1 =
     case xs of
         Nil => ys
       | Cons {_} (x, xs) => revAppend {_} xs {_} (Cons {_} (x, ys))
 end
 
 absidx g : BigO 1 (fn n => $n) with
-fun ['a] rev {n : Nat} (xs : {n} 'a list) return {n} _ list using g n = revAppend {_} xs {_} Nil
+fun rev ['a] {n : Nat} (xs : {n} 'a list) return {n} _ list using g n = revAppend {_} xs {_} Nil
 end
