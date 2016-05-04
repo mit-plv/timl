@@ -456,9 +456,10 @@ local
                   (UVar ((invis, x), _), UVar ((invis', x'), _)) =>
                   if x = x' then ()
                   else
+                    (* ToDo: potentially dangerous because [shrink_mt invis t'] may not be transactional so may not be safe to roll back *)
                     (refine x (shrink_mt invis t')
-		     handle 
-                     ForgetError _ => 
+		     handle
+                     ForgetError _ =>
                      refine x' (shrink_mt invis' t)
                      handle ForgetError _ => raise error ctx (t, t')
                     )
@@ -1381,6 +1382,7 @@ local
                   in
 		    (Never t, t, T0 dummy)
                   end
+	  (* val () = print (sprintf "  Type : $: \n         $\n" [str_e ctxn e, str_mt skctxn t]) *)
 	  (* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_mt skctxn t, str_e ctxn e, str_i sctxn d]) *)
       in
         (e, t, d)
@@ -1437,15 +1439,15 @@ local
                     | Unit r => Unit r
 	            | Arrow (t1, d, t2) => Arrow (substu x v t1, d, substu x v t2)
 	            | Prod (t1, t2) => Prod (substu x v t1, substu x v t2)
-	            | UniI (s, BindI (name, t1)) => UniI (s, BindI (name, substu x (v + 1) t1))
+	            | UniI (s, BindI (name, t1)) => UniI (s, BindI (name, substu x v t1))
 	            | BaseType a => BaseType a
 	            | AppV (y, ts, is, r) => 
 		      AppV (y, map (substu x v) ts, is, r)
               fun evar_name n =
-                  (* if n < 26 then *)
-                  (*   "'" ^ (str o chr) (ord #"a" + n) *)
-                  (* else *)
-                    "'" ^ str_int n
+                  if n < 26 then
+                    "'_" ^ (str o chr) (ord #"a" + n)
+                  else
+                    "'_" ^ str_int n
               val fv = dedup op= $ diff op= (fv_mt t) (fv_ctx ctx)
               val t = shiftx_t_mt 0 (length fv) t
               val (t, _) = foldl (fn (uvar_ref, (t, v)) => (substu uvar_ref v t, v + 1)) (t, 0) fv
