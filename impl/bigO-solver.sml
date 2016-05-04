@@ -170,8 +170,8 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
       (* val () = app println $ concatMap (fn vc => str_vc false "" vc @ [""]) vcs' *)
       (* val () = println "Master-Theorem-solver to apply SMT solver to discharge some VCs. " *)
       val (vcs, vcs') = unzip $ List.mapPartial (fn (vc, out) => case out of SOME (vc', _) => SOME (vc, vc') | NONE => NONE) $ zip (vcs, SMTSolver.smt_solver "" vcs')
-      (* val () = println "Master-Theorem-solver to solve this: " *)
-      (* val () = app println $ concatMap (fn vc => str_vc false "" vc @ [""]) vcs' *)
+      val () = println "Master-Theorem-solver to solve this: "
+      val () = app println $ concatMap (fn vc => str_vc false "" vc @ [""]) vcs'
       exception Error of string
       fun runError m _ =
           let
