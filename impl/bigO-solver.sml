@@ -202,17 +202,20 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                       val cls_m = summarize on_error m
                       val cls_i = M.listItemsi $ trim_class $ summarize on_error i
                       fun err () = on_error $ "summarize_2: i should be y*f(x) or f(x) " ^ str_i [] i
+                      fun get_y () = extract_only_variable (error "summarize_2: class of n must be (1, 0) for only one variable") cls_m
+                      fun get_x () = extract_only_variable (Error $ "summarize_2: class of n must be (1, 0) for only one variable " ^ str_i [] n) cls_n
+                      fun check_x_neq_y (x : int) y = if x = y then on_error "summarize_2: x = y" else ()
                       val ret = if length cls_i = 0 then
                                   (0, 0)
                                 else if length cls_i = 1 then
                                   let
-                                    val y = extract_only_variable (error "summarize_2: class of n must be (1, 0) for only one variable") cls_m
+                                    val y = get_y ()
                                   in
                                     if fst (hd cls_i) = y then (0, 0)
                                     else
                                       let
-                                        val x = extract_only_variable (Error $ "summarize_2: class of n must be (1, 0) for only one variable " ^ str_i [] n) cls_n
-                                        val () = if x = y then on_error "summarize_2: x = y" else ()
+                                        val x = get_x ()
+                                        val () = check_x_neq_y x y
                                       in
                                         if fst (hd cls_i) = x then snd (hd cls_i)
                                         else err ()
@@ -220,9 +223,9 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                   end
                                 else if length cls_i = 2 then
                                   let
-                                    val y = extract_only_variable (error "summarize_2: class of n must be (1, 0) for only one variable") cls_m
-                                    val x = extract_only_variable (Error $ "summarize_2: class of n must be (1, 0) for only one variable " ^ str_i [] n) cls_n
-                                    val () = if x = y then on_error "summarize_2: x = y" else ()
+                                    val y = get_y ()
+                                    val x = get_x ()
+                                    val () = check_x_neq_y x y
                                     val ((v1, c1), (v2, c2)) =
                                         case cls_i of
                                             a :: b :: _ => (a, b)
@@ -294,9 +297,8 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                   SOME n'
                                 else NONE
                               | _ => NONE
-                        val (n', rest) = case partitionOptionFirst par is of
-                                             SOME a => a
-                                           | NONE => raise Error "par() found nothing"
+                        val (n's, rest) = partitionOption par is
+                        val n' = combine_AddI n's
                         val () = if ask_smt (n' %+ N1 %= n_i) then () else raise Error "n' %+ N1 %= n_i"
                         val (c, k) = add_class_entries $ map (summarize_2 m_ n_ o use_bigO_hyp m_) rest
                         val ret = (TimeAbs (("m", dummy), TimeAbs (("n", dummy), simp_i (to_real (V 1) %* class2term (c+1, k) (to_real (V 0))), dummy), dummy), [])

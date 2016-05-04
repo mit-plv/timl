@@ -36,8 +36,6 @@ fun ['a] ['b] map_tree {m : Nat} (f : 'a -- $m --> 'b) =
     end
 end
 
-(* can't infer this yet *)
-(*
 absidx g : BigO 2 (fn m n => $m * $n) with
 fun ['a] ['b] map_tree {m : Nat} (f : 'a -- $m --> 'b) =
     let
@@ -49,9 +47,8 @@ fun ['a] ['b] map_tree {m : Nat} (f : 'a -- $m --> 'b) =
       map
     end
 end
-*)
 
-absidx g : BigO 2 (fn m n => $m * $n) = fn m n => $(m + 5) * $n with
+absidx g : BigO 2 (fn m n => $m * $n) with
 fun ['a] ['b] tree_foldmlr {m : Nat} (f : 'a * 'b -- $m --> 'b) =
     let
       fun fold {n : Nat} acc (tr : {n} _ tree) return _ using g m n =
@@ -70,7 +67,7 @@ fun ['a] ['b] tree_foldmlr {m : Nat} (f : 'a * 'b -- $m --> 'b) =
     end
 end
 
-absidx g : BigO 2 (fn m n => $m * $n) = fn m n => $(m + 5) * $n with
+absidx g : BigO 2 (fn m n => $m * $n) with
 fun ['a] ['b] tree_foldrlm {m : Nat} (f : 'a * 'b -- $m --> 'b) =
     let
       fun fold {n : Nat} acc (tr : {n} _ tree) return _ using g m n =
