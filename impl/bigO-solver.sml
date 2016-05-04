@@ -44,24 +44,24 @@ fun contains big small = not $ isSome $ try_forget (forget_i_i small 1) big
 fun ask_smt_vc vc =
     (null $ List.mapPartial id $ SMTSolver.smt_solver "" [vc])
     handle SMTSolver.SMTError _ => false
-         
+                                     
 fun mult_class_entry ((c1, k1), (c2, k2)) = (c1 + c2, k1 + k2)
-                                        
+                                              
 fun add_class_entry (a as (c1, k1), b as (c2, k2)) =
     if c1 = c2 then (c1, max k1 k2) else if c1 > c2 then a else b
 
 val mult_class_entries = foldl' mult_class_entry (0, 0)
-                         
+                                
 val add_class_entries = foldl' add_class_entry (0, 0)
 
 structure M = IntBinaryMap
-                                                                         
+                
 val mult_class = M.unionWith mult_class_entry
-                                
+                             
 val add_class = M.unionWith add_class_entry
-                                
+                            
 val mult_classes = foldl' mult_class M.empty
-                         
+                          
 val add_classes = foldl' add_class M.empty
 
 fun trim_class cls = M.filter (fn (c, k) => not $ c = 0 andalso k = 0) cls
@@ -103,67 +103,6 @@ fun summarize on_error i =
         add_class (summarize on_error a, summarize on_error b)
       | _ => on_error $ "summarize fails with " ^ str_i [] i
 
-fun extract_only_variable error cls =
-    let
-      val cls = M.listItemsi $ trim_class cls
-      (* val () = println $ str_ls (fn (x, (c, k)) => sprintf "$=>($,$)" [str_int x, str_int c, str_int k]) $ cls *)
-      val x = if length cls <> 1 orelse snd (hd cls) <> (1, 0) then raise error
-              else fst (hd cls)
-    in
-      x
-    end
-      
-(* a version of [summarize] where n = O(x) is linear with the only variable x. *)
-fun summarize_1 error n i =
-  let
-    fun on_error s = raise error s
-    val cls_n = summarize on_error n
-    val x = extract_only_variable (error "summarize_1: class of n must be (1, 0) for only one variable") cls_n
-    val cls_i = M.listItemsi $ trim_class $ summarize on_error i
-    val ret = if length cls_i = 0 then
-                (0, 0)
-              else if length cls_i = 1 andalso fst (hd cls_i) = x then
-                snd (hd cls_i)
-              else
-                on_error "summarize_1: class of i must only contain n's variable"
-  in
-    ret
-  end
-    
-(* a version of [summarize] where n = O(x) and m = O(y), x <> y, and i = y * f(x) or f(x) *)
-fun summarize_2 error m n i =
-    let
-      fun on_error s = raise error s
-      val cls_n = summarize on_error n
-      val x = extract_only_variable (error $ "summarize_2: class of n must be (1, 0) for only one variable " ^ str_i [] n) cls_n
-      val cls_m = summarize on_error m
-      val y = extract_only_variable (error "summarize_2: class of n must be (1, 0) for only one variable") cls_m
-      val () = if x = y then on_error "summarize_2: x = y" else ()
-      val cls_i = M.listItemsi $ trim_class $ summarize on_error i
-      fun err () = on_error $ "summarize_2: i should be y*f(x) or f(x) " ^ str_i [] i
-      val ret = if length cls_i = 0 then
-                  (0, 0)
-                else if length cls_i = 1 then
-                 if fst (hd cls_i) <> x then err ()
-                 else snd (hd cls_i)
-                else if length cls_i = 2 then
-                  let
-                    val ((v1, c1), (v2, c2)) =
-                        case cls_i of
-                            a :: b :: _ => (a, b)
-                          | _ => raise Impossible "length cls_i = 2"
-                    val (cx, cy) = if v1 = x andalso v2 = y then (c1, c2)
-                                   else if v2 = x andalso v1 = y then (c2, c1)
-                                   else err ()
-                    val () = if cy = (1, 0) then () else err ()
-                  in
-                    cx
-                  end
-                else err ()
-    in
-      ret
-    end
-                           
 fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
     let
       val vcs' = append_hyps ([VarH (name0, TimeFun arity0), VarH (name1, TimeFun arity1)] @ hs) vcs
@@ -228,6 +167,66 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                     in
                       (a, b, others)
                     end
+                fun extract_only_variable error cls =
+                    let
+                      val cls = M.listItemsi $ trim_class cls
+                      (* val () = println $ str_ls (fn (x, (c, k)) => sprintf "$=>($,$)" [str_int x, str_int c, str_int k]) $ cls *)
+                      val x = if length cls <> 1 orelse snd (hd cls) <> (1, 0) then raise error
+                              else fst (hd cls)
+                    in
+                      x
+                    end
+                (* a version of [summarize] where n = O(x) is linear with the only variable x. *)
+                fun summarize_1 n i =
+                    let
+                      val error = Error
+                      fun on_error s = raise error s
+                      val cls_n = summarize on_error n
+                      val x = extract_only_variable (error "summarize_1: class of n must be (1, 0) for only one variable") cls_n
+                      val cls_i = M.listItemsi $ trim_class $ summarize on_error i
+                      val ret = if length cls_i = 0 then
+                                  (0, 0)
+                                else if length cls_i = 1 andalso fst (hd cls_i) = x then
+                                  snd (hd cls_i)
+                                else
+                                  on_error "summarize_1: class of i must only contain n's variable"
+                    in
+                      ret
+                    end
+                (* a version of [summarize] where n = O(x) and m = O(y), x <> y, and i = y * f(x) or f(x) *)
+                fun summarize_2 m n i =
+                    let
+                      val error = Error
+                      fun on_error s = raise error s
+                      val cls_n = summarize on_error n
+                      val x = extract_only_variable (Error $ "summarize_2: class of n must be (1, 0) for only one variable " ^ str_i [] n) cls_n
+                      val cls_m = summarize on_error m
+                      val y = extract_only_variable (error "summarize_2: class of n must be (1, 0) for only one variable") cls_m
+                      val () = if x = y then on_error "summarize_2: x = y" else ()
+                      val cls_i = M.listItemsi $ trim_class $ summarize on_error i
+                      fun err () = on_error $ "summarize_2: i should be y*f(x) or f(x) " ^ str_i [] i
+                      val ret = if length cls_i = 0 then
+                                  (0, 0)
+                                else if length cls_i = 1 then
+                                  if fst (hd cls_i) <> x then err ()
+                                  else snd (hd cls_i)
+                                else if length cls_i = 2 then
+                                  let
+                                    val ((v1, c1), (v2, c2)) =
+                                        case cls_i of
+                                            a :: b :: _ => (a, b)
+                                          | _ => raise Impossible "length cls_i = 2"
+                                    val (cx, cy) = if v1 = x andalso v2 = y then (c1, c2)
+                                                   else if v2 = x andalso v1 = y then (c2, c1)
+                                                   else err ()
+                                    val () = if cy = (1, 0) then () else err ()
+                                  in
+                                    cx
+                                  end
+                                else err ()
+                    in
+                      ret
+                    end
               in
                 case p of
                     BinPred (LeP, i1, BinOpI (TimeApp, BinOpI (TimeApp, VarI (g, _), VarI (m, _)), n_i)) =>
@@ -251,6 +250,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                 else NONE
                               | _ => NONE
                         val (a, b, others) = get_params is_sub_problem is
+                        val () = if b > 1 then () else raise Error "b > 1"
                         (* if [i] is [f m n] where [f]'s bigO spec is known, replace [f] with its bigO spec *)
                         fun use_bigO_hyp i =
                             case i of
@@ -262,7 +262,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                 else i
                               | _ => i
                         val others = map use_bigO_hyp others
-                        val classes = map (summarize_2 Error m_ n_) others
+                        val classes = map (summarize_2 m_ n_) others
                         val (c, k) = add_class_entries classes
                         val T = master_theorem (to_real (V 0)) (a, b) (c, k)
                         val T = TimeAbs (("m", dummy), TimeAbs (("n", dummy), simp_i (to_real (V 1) %* T), dummy), dummy)
@@ -319,7 +319,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                               | _ => i
                         val is = collect_AddI i1
                         val is = map use_bigO_hyp is
-                        val classes = map (summarize_1 Error n_) is
+                        val classes = map (summarize_1 n_) is
                         val cls = add_class_entries classes
                         val T = TimeAbs (("n", dummy), simp_i $ class2term cls (to_real (V 0)), dummy)
                       in
@@ -342,6 +342,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                   else NONE
                                 | _ => NONE
                           val (a, b, others) = get_params is_sub_problem is
+                          val () = if b > 1 then () else raise Error "b > 1"
                           (* if [i] is [f n] where [f]'s bigO spec is known, replace [f] with its bigO spec *)
                           fun use_bigO_hyp i =
                               case i of
@@ -353,7 +354,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                   else i
                                 | _ => i
                           val others = map use_bigO_hyp others
-                          val classes = map (summarize_1 Error n_) others
+                          val classes = map (summarize_1 n_) others
                           val (c, k) = add_class_entries classes
                           val T = master_theorem (to_real (V 0)) (a, b) (c, k)
                           val T = TimeAbs (("n", dummy), simp_i T, dummy)
@@ -410,7 +411,7 @@ fun use_master_theorem hs name_arity1 (name0, arity0) p =
           SOME (i, vcs) => SOME (i, append_hyps hs rest @ vcs)
         | NONE => NONE
     end
-    
+      
 fun split_and p =
     case p of
         BinConn (And, p1, p2) => (p1, p2)
@@ -477,7 +478,7 @@ fun timefun_le hs arity a b =
 fun hyps2ctx hs = List.mapPartial (fn h => case h of VarH (name, _) => SOME name | _ => NONE) hs
 
 exception MasterTheoremCheckFail of region * string list
-                                      
+                                                    
 fun solve_exists (vc as (hs, p)) =
     case p of
         Quan (Exists ins, Base (TimeFun arity), (name, _), p) =>
@@ -544,7 +545,7 @@ fun solve_bigO_compare (vc as (hs, p)) =
           fun get_arity i = length $ fst $ collect_TimeAbs i
           val arity = get_arity i1
           val result = timefun_le hs arity i1 i2
-          (* val () = println $ str_bool result *)
+                                  (* val () = println $ str_bool result *)
         in
           if result then
             []
@@ -552,7 +553,7 @@ fun solve_bigO_compare (vc as (hs, p)) =
             [vc]
         end
       | _ => [vc]
-    
+               
 fun solve_vcs (vcs : vc list) : vc list =
     let 
       (* val () = print "Applying Big-O solver ...\n" *)
