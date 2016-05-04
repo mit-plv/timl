@@ -86,7 +86,7 @@ fun ['a] ['b] tree_foldrlm {m : Nat} (f : 'a * 'b -- $m --> 'b) =
     end
 end
 
-absidx g : BigO 1 (fn n => $n) = fn n => $(4 * n) with
+absidx g : BigO 1 (fn n => $n) (* = fn n => $(4 * n) *) with
 fun tree_append_rlm {n : Nat} (tr : {n} _ tree) {n2 : Nat} (ls : {n2} _ list) return {n + n2} _ list using g n =
     case tr of
         Leaf => ls

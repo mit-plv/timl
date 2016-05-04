@@ -378,9 +378,8 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                     SOME n'
                                   else NONE
                                 | _ => NONE
-                          val (n', rest) = case partitionOptionFirst par is of
-                                               SOME a => a
-                                             | NONE => raise Error "par() found nothing"
+                          val (n's, rest) = partitionOption par is
+                          val n' = combine_AddI n's
                           val () = if ask_smt (n' %+ N1 %= n_i) then () else raise Error "n' %+ N1 %= n_i"
                           fun only_const i =
                               case i of
