@@ -199,19 +199,30 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                       val error = Error
                       fun on_error s = raise error s
                       val cls_n = summarize on_error n
-                      val x = extract_only_variable (Error $ "summarize_2: class of n must be (1, 0) for only one variable " ^ str_i [] n) cls_n
                       val cls_m = summarize on_error m
-                      val y = extract_only_variable (error "summarize_2: class of n must be (1, 0) for only one variable") cls_m
-                      val () = if x = y then on_error "summarize_2: x = y" else ()
                       val cls_i = M.listItemsi $ trim_class $ summarize on_error i
                       fun err () = on_error $ "summarize_2: i should be y*f(x) or f(x) " ^ str_i [] i
                       val ret = if length cls_i = 0 then
                                   (0, 0)
                                 else if length cls_i = 1 then
-                                  if fst (hd cls_i) <> x then err ()
-                                  else snd (hd cls_i)
+                                  let
+                                    val y = extract_only_variable (error "summarize_2: class of n must be (1, 0) for only one variable") cls_m
+                                  in
+                                    if fst (hd cls_i) = y then (0, 0)
+                                    else
+                                      let
+                                        val x = extract_only_variable (Error $ "summarize_2: class of n must be (1, 0) for only one variable " ^ str_i [] n) cls_n
+                                        val () = if x = y then on_error "summarize_2: x = y" else ()
+                                      in
+                                        if fst (hd cls_i) = x then snd (hd cls_i)
+                                        else err ()
+                                      end
+                                  end
                                 else if length cls_i = 2 then
                                   let
+                                    val y = extract_only_variable (error "summarize_2: class of n must be (1, 0) for only one variable") cls_m
+                                    val x = extract_only_variable (Error $ "summarize_2: class of n must be (1, 0) for only one variable " ^ str_i [] n) cls_n
+                                    val () = if x = y then on_error "summarize_2: x = y" else ()
                                     val ((v1, c1), (v2, c2)) =
                                         case cls_i of
                                             a :: b :: _ => (a, b)
@@ -227,6 +238,16 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                     in
                       ret
                     end
+                (* if [i] is [f m n] where [f]'s bigO spec is known, replace [f] with its bigO spec *)
+                fun use_bigO_hyp m_ i =
+                    case i of
+                        BinOpI (TimeApp, BinOpI (TimeApp, f_i as VarI (f, _), m'), n') =>
+                        if f > nx andalso ask_smt (m' %= m_) then
+                          case find_bigO_hyp f_i hyps of
+                              SOME (g, _) => simp_i (g %@ m_ %@ n')
+                            | NONE => i
+                        else i
+                      | _ => i
               in
                 case p of
                     BinPred (LeP, i1, BinOpI (TimeApp, BinOpI (TimeApp, VarI (g, _), VarI (m, _)), n_i)) =>
@@ -251,17 +272,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                               | _ => NONE
                         val (a, b, others) = get_params is_sub_problem is
                         val () = if b > 1 then () else raise Error "b > 1"
-                        (* if [i] is [f m n] where [f]'s bigO spec is known, replace [f] with its bigO spec *)
-                        fun use_bigO_hyp i =
-                            case i of
-                                BinOpI (TimeApp, BinOpI (TimeApp, f_i as VarI (f, _), m'), n') =>
-                                if f > nx andalso ask_smt (m' %= m_ /\ n' %= n_) then
-                                  case find_bigO_hyp f_i hyps of
-                                      SOME (g, _) => simp_i (g %@ m_ %@ n_)
-                                    | NONE => i
-                                else i
-                              | _ => i
-                        val others = map use_bigO_hyp others
+                        val others = map (use_bigO_hyp m_) others
                         val classes = map (summarize_2 m_ n_) others
                         val (c, k) = add_class_entries classes
                         val T = master_theorem (to_real (V 0)) (a, b) (c, k)
@@ -287,18 +298,8 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                                              SOME a => a
                                            | NONE => raise Error "par() found nothing"
                         val () = if ask_smt (n' %+ N1 %= n_i) then () else raise Error "n' %+ N1 %= n_i"
-                        fun only_const_or_m i =
-                            case i of
-                                ConstIT _ => ()
-                              | UnOpI (ToReal, i, _) =>
-                                (case i of
-                                     ConstIN _ => ()
-                                   | VarI (m', _) => if m' = m then () else raise Error "m' = m in only_const_or_m()"
-                                   | _ => raise Error "to_real in only_const_or_m()"
-                                )
-                              | _ => raise Error "only_const_or_m fails"
-                        val () = app only_const_or_m rest
-                        val ret = (TimeAbs (("m", dummy), TimeAbs (("n", dummy), to_real (V 1) %* to_real (V 0), dummy), dummy), [])
+                        val (c, k) = add_class_entries $ map (summarize_2 m_ n_ o use_bigO_hyp m_) rest
+                        val ret = (TimeAbs (("m", dummy), TimeAbs (("n", dummy), simp_i (to_real (V 1) %* class2term (c+1, k) (to_real (V 0))), dummy), dummy), [])
                       in
                         ret
                       end
