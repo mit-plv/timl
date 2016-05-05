@@ -105,11 +105,6 @@ fun tree_flatten_mlr (* ['a] *) {n : Nat} (tr : {n} _ tree) return {n} _ list us
     tree_append_rlm {_} tr {_} Nil
 end
 
-datatype {Nat} {Bool} 'a rbt =
-         Leaf of {0} {true} 'a rbt
-       | Black {lc : Bool} {rc : Bool} {bh : Nat} of 'a * {bh} {lc} 'a rbt * {bh} {rc} 'a rbt --> {bh + 1} {true} 'a rbt
-       | Red {bh : Nat} of 'a * {bh} {true} 'a rbt * {bh} {true} 'a rbt --> {bh} {false} 'a rbt
-
 datatype {Nat} 'a braun_tree =
          BraunLeaf of {0} 'a braun_tree
        | BraunNode {n : Nat} of 'a * {ceil ($n/2)} 'a braun_tree * {floor ($n/2)} 'a braun_tree --> {n+1} 'a braun_tree

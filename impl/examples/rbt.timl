@@ -1,6 +1,85 @@
+(* color: true=Black | false=Red *)
 datatype {Nat} {Bool} 'a rbt =
-         Leaf of unit -> {0} {true} 'a rbt
-         | Black of {lc : Bool} {rc : Bool} {bh : Nat}
-                                'a * {bh} {lc} 'a rbt * {bh} {rc} 'a rbt -> {bh + 1} {true} 'a rbt
-         | Red of {bh : Nat}
-                      'a * {bh} {true} 'a rbt * {bh} {true} 'a rbt -> {bh} {false} 'a rbt
+         Leaf of {1} {true} 'a rbt
+       | Black {lc : Bool} {rc : Bool} {bh : Nat} of {bh} {lc} 'a rbt * 'a * {bh} {rc} 'a rbt --> {bh + 1} {true} 'a rbt
+       | Red {bh : Nat} of {bh} {true} 'a rbt * 'a * {bh} {true} 'a rbt --> {bh} {false} 'a rbt
+
+datatype {Nat} 'a violation =
+         ViolateLeft {rc : Bool} {bh : Nat} of {bh} {false} 'a rbt * 'a * {bh} {rc} 'a rbt --> {bh} 'a violation
+       | ViolateRight {lc : Bool} {bh : Nat} of {bh} {lc} 'a rbt * 'a * {bh} {false} 'a rbt --> {bh} 'a violation
+                                                                             
+(* datatype {Nat} 'a rbt_unknown_color = *)
+(*          RbtUnknownColor {color : Bool} {bh : Nat} of {bh} {color} 'a rbt --> {bh} 'a rbt_unknown_color *)
+                                                           
+fun balance_left ['a] {bh : Nat} {rc : Bool} (left : {bh} 'a violation) (z as center) (d as right : {bh} {rc} 'a rbt) return {bh} {false} 'a rbt =
+    case left of
+        ViolateLeft {_} {_} (Red {_} (a, x, b), y, c) =>
+        Red {_} (Black {_} {_} {_} (a, x, b), y, Black {_} {_} {_} (c, z, d))
+      | ViolateRight {_} {_} (a, x, Red {_} (b, y, c)) =>
+        Red {_} (Black {_} {_} {_} (a, x, b), y, Black {_} {_} {_} (c, z, d))
+      | _ => absurd
+
+               (*
+datatype {Bool} ibool =
+         itrue of {true} ibool
+         | ifalse of {false} ibool
+
+(* arbt: 'almost' red black tree, except that wellredness may be violated between root and one of its children *)
+datatype {Nat} {Bool (*color*)} {Bool (*is already good?*)} 'a arbt =
+         Good {color : Bool} {bh : Nat} of {color} ibool * {bh} {color} 'a rbt --> {bh} {color} {true} 'a arbt
+       | Bad {bh : Nat} of {bh} 'a violation --> {bh} {false} {false} 'a arbt
+
+datatype {Nat} {Bool} 'a ins_result =
+         InsResult {input_color : Bool} {bh : Nat} {output_color : Bool} {is_good : Bool} {_ : Unit | input_color = true -> is_good = true} of {bh} {output_color} {is_good} 'a arbt --> {bh} {input_color} 'a ins_result
+
+datatype cmp_result = Equal | Less | Greater
+                                       
+fun ins ['a] (cmp : 'a * 'a -- $7.0 --> cmp_result) =
+    let
+      fun ins {input_color : Bool} {bh : Nat} (tr : {bh} {input_color} 'a rbt) (new : 'a) return {bh} {input_color} 'a ins_result =
+          case tr of
+              Leaf =>
+              let
+                val tr = Red {_} (Leaf, new, Leaf)
+                val tr = Good {_} {_} (ifalse, tr)
+                val tr = InsResult {_} {_} {_} {_} {_} tr
+              in
+                tr
+              end
+            | Red {lc} {rc} {bh} (left, center, right) =>
+              (case cmp (new, center) of
+                   Equal => InsResult {_} {_} {_} {_} {_} (Good {_} {_} (ifalse, Red {_} (left, new, right)))
+                 | Less =>
+                   let
+                     val (InsResult {input_color} {bh} {output_color} {is_good} {_} left') = ins {_} {_} left new
+                   in
+                     case left' of
+                         Good {_} {_} (color, left') =>
+                         (case color of
+                              ifalse =>
+                              InsResult {_} {_} {_} {_} {_} (Bad {_} (ViolateLeft {_} {_} (left', center, right)))
+                            | itrue =>
+                              InsResult {_} {_} {_} {_} {_} (Good {_} {_} (ifalse, Red {_} (left', new, right)))
+                         )
+                       | _ => absurd
+                   end
+              )
+            | Black {bh'} (left, center, right) =>
+              (case cmp (new, center) of
+                   Equal =>
+                   InsResult {_} {_} {_} {_} {_} (Good {_} {_} (itrue, Black {_} {_} {_} (left, new, right)))
+                 | Less => 
+                   let
+                     val (InsResult {input_color} {bh'} {output_color} {is_good} {_} left') = ins {_} {_} left new
+                   in
+                     case left' of
+                         GoodRed {_} {_} (_, left') =>
+                         InsResult {_} {_} {_} {_} {_} (Good {_} {_} (itrue, Black {_} (left', center, right)))
+                       | Bad {_} left' =>
+                         balance_left {_} {_} {_} {_} left' center right
+                   end
+              )
+    in
+      ins
+    end
+*)
