@@ -173,6 +173,24 @@ local
         | S.AnnoP (pn, t, r) =>
           AnnoP (elab_pn pn, elab_mt t)
                                                               
+    and copy_annotations (t, d) =
+        let
+          fun loop e =
+              case e of
+                  S.Case (e, (t', d'), es, r) =>
+                  let
+                    fun copy a b = case a of
+                                       NONE => b
+                                     | SOME _ => a
+                  in
+                    S.Case (e, (copy t' t, copy d' d), es, r)
+                  end
+                | S.Let (decls, e, r) => S.Let (decls, loop e, r)
+                | _ => e
+        in
+          loop
+        end
+                
     fun elab e =
 	case e of
 	    S.Var (x, r) =>
@@ -210,7 +228,8 @@ local
 	  | S.AppI (e, i, _) =>
 	    AppI (elab e, elab_i i)
 	  | S.Case (e, return, rules, r) =>
-	    let 
+	    let
+              val rules = map (mapSnd (copy_annotations return)) rules
 	    in
 		Case (elab e, elab_return return, map (fn (pn, e) => (elab_pn pn, elab e)) rules, r)
 	    end
@@ -229,23 +248,18 @@ local
             Val (tnames, elab_pn pn, elab e, r)
 	  | S.Rec (tnames, name, binds, (t, d), e, r) =>
             let
-                fun f bind =
-                    case bind of
-		        Typing pn => TypingST (elab_pn pn)
-		      | TBind (Sorting (nm, s, _)) => SortingST (nm, elab_s s)
-                val binds = map f binds
-                (* if return annotations are provided in function signature and the function body is a case without annotations, copy the former to the latter *)
-                fun copy_annotations e (t, d) =
-                    case (e, t, d) of
-                        (S.Case (e, (NONE, NONE), es, r), SOME t, SOME d) =>
-                        S.Case (e, (SOME t, SOME d), es, r)
-                      | _ => e
-                val e = copy_annotations e (t, d)
-                val t = default (UVar ((), r)) (Option.map elab_mt t)
-                val d = default (UVarI ((), r)) (Option.map elab_i d)
-                val e = elab e
+              fun f bind =
+                  case bind of
+		      Typing pn => TypingST (elab_pn pn)
+		    | TBind (Sorting (nm, s, _)) => SortingST (nm, elab_s s)
+              val binds = map f binds
+              (* if the function body is a [case] without annotations, copy the return clause from the function signature to the [case] *)
+              val e = copy_annotations (t, d) e
+              val t = default (UVar ((), r)) (Option.map elab_mt t)
+              val d = default (UVarI ((), r)) (Option.map elab_i d)
+              val e = elab e
             in
-	        Rec (tnames, name, (binds, ((t, d), e)), r)
+	      Rec (tnames, name, (binds, ((t, d), e)), r)
             end
           | S.Datatype (name, tnames, sorts, constrs, r) =>
             let fun default_t2 r = foldl (fn (arg, f) => S.AppTT (f, S.VarT (arg, r), r)) (S.VarT (name, r)) tnames
@@ -259,35 +273,35 @@ local
                             | SOME (t1, NONE) => (S.VarT ("unit", r), t1)
                             | SOME (t1, SOME t2) => (t1, t2)
                       fun f bind =
-                        case bind of
-                            Sorting ((name, _), sort, r) => (name, elab_s sort)
+                          case bind of
+                              Sorting ((name, _), sort, r) => (name, elab_s sort)
                       val binds = map f binds
                       val t2_orig = t2
                       val (t2, is) = get_is t2
                       val (t2, ts) = get_ts t2
                       val () = if case t2 of S.VarT (x, _) => x = name | _ => false then
-                                   ()
+                                 ()
                                else
-                                   raise Error (S.get_region_t t2, "Result type of constructor must be " ^ name)
+                                 raise Error (S.get_region_t t2, "Result type of constructor must be " ^ name)
                       val () = if length ts = length tnames then () else raise Error (S.get_region_t t2_orig, "Must have type arguments " ^ join " " tnames)
                       fun f (t, tname) =
-                        let val targ_mismatch = "This type argument must be " ^ tname in
+                          let val targ_mismatch = "This type argument must be " ^ tname in
                             case t of
                                 S.VarT (x, r) => if x = tname then () else raise Error (r, targ_mismatch)
                               | _ => raise Error (S.get_region_t t, targ_mismatch)
-                        end
+                          end
                       val () = app f (zip (ts, tnames))
-                  in
+                    in
                       (cname, fold_ibinds (binds, (elab_mt t1, map elab_i is)), r)
-                  end
+                    end
             in
-                Datatype (name, tnames, map elab_s sorts, map elab_constr constrs, r)
+              Datatype (name, tnames, map elab_s sorts, map elab_constr constrs, r)
             end
           | S.IdxDef ((name, r), s, i) =>
             let
-                val s = default (UVarS ((), r)) $ Option.map elab_s s
+              val s = default (UVarS ((), r)) $ Option.map elab_s s
             in
-                IdxDef ((name, r), s, elab_i i)
+              IdxDef ((name, r), s, elab_i i)
             end
           | S.AbsIdx ((name, r1), s, i, decls, r) =>
             let
@@ -296,7 +310,7 @@ local
                           SOME i => elab_i i
                         | NONE => UVarI ((), r1)
             in
-                AbsIdx (((name, r1), s, i), map elab_decl decls, r)
+              AbsIdx (((name, r1), s, i), map elab_decl decls, r)
             end
 
 in

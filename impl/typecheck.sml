@@ -1390,7 +1390,7 @@ local
 		    (Never t, t, T0 dummy)
                   end
           (* val () = println $ str_ls id $ #4 ctxn *)
-	  val () = print (sprintf "  Typed : $: \n          $\n" [str_e ((* upd4 (const [])  *)ctxn) e, str_mt skctxn t])
+	  (* val () = print (sprintf "  Typed : $: \n          $\n" [str_e ((* upd4 (const [])  *)ctxn) e, str_mt skctxn t]) *)
 	                 (* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_mt skctxn t, str_e ctxn e, str_i sctxn d]) *)
       in
         (e, t, d)

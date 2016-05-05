@@ -8,10 +8,7 @@ datatype {Nat} 'a violation =
          ViolateLeft {rc : Bool} {bh : Nat} of {bh} {false} 'a rbt * 'a * {bh} {rc} 'a rbt --> {bh} 'a violation
        | ViolateRight {lc : Bool} {bh : Nat} of {bh} {lc} 'a rbt * 'a * {bh} {false} 'a rbt --> {bh} 'a violation
                                                                              
-(* datatype {Nat} 'a rbt_unknown_color = *)
-(*          RbtUnknownColor {color : Bool} {bh : Nat} of {bh} {color} 'a rbt --> {bh} 'a rbt_unknown_color *)
-                                                           
-fun balance_left ['a] {bh : Nat} {rc : Bool} (left : {bh} 'a violation) ((* center as *) z) ((* right as *) d : {bh} {rc} 'a rbt) return {bh + 1} {false} 'a rbt using 10.0 =
+fun balance_left ['a] {bh : Nat} {rc : Bool} (left : {bh} 'a violation) (center as z) (right as d : {bh} {rc} 'a rbt) return {bh + 1} {false} 'a rbt =
     case left of
         ViolateLeft {_} {_} (Red {_} (a, x, b), y, c) =>
         Red {_} (Black {_} {_} {_} (a, x, b), y, Black {_} {_} {_} (c, z, d))
@@ -23,7 +20,19 @@ fun balance_left ['a] {bh : Nat} {rc : Bool} (left : {bh} 'a violation) ((* cent
       | ViolateRight {_} {_} (_, _, Leaf) => never
       | ViolateRight {_} {_} (_, _, Black {_} {_} {_} _) => never
                                                               
-(*
+fun balance_right ['a] {bh : Nat} {lc : Bool} (left as a : {bh} {lc} 'a rbt) (center as x) (right : {bh} 'a violation) return {bh + 1} {false} 'a rbt =
+    case right of
+        ViolateLeft {_} {_} (Red {_} (b, y, c), z, d) =>
+        Red {_} (Black {_} {_} {_} (a, x, b), y, Black {_} {_} {_} (c, z, d))
+      | ViolateRight {_} {_} (b, y, Red {_} (c, z, d)) =>
+        Red {_} (Black {_} {_} {_} (a, x, b), y, Black {_} {_} {_} (c, z, d))
+      (* the following will be combined into [_ => never] in the future *)
+      | ViolateLeft {_} {_} (Leaf, _, _) => never
+      | ViolateLeft {_} {_} (Black {_} {_} {_} _, _, _) => never
+      | ViolateRight {_} {_} (_, _, Leaf) => never
+      | ViolateRight {_} {_} (_, _, Black {_} {_} {_} _) => never
+                                                              
+
 datatype {Bool} ibool =
          itrue of {true} ibool
          | ifalse of {false} ibool
@@ -38,7 +47,7 @@ datatype {Nat} {Bool} 'a ins_result =
 
 datatype cmp_result = Equal | Less | Greater
                                        
-fun ins ['a] (cmp : 'a * 'a -- $7.0 --> cmp_result) =
+fun ins ['a] (cmp : 'a * 'a -- 7.0 --> cmp_result) =
     let
       fun ins {input_color : Bool} {bh : Nat} (tr : {bh} {input_color} 'a rbt) (new : 'a) return {bh} {input_color} 'a ins_result =
           case tr of
@@ -50,7 +59,7 @@ fun ins ['a] (cmp : 'a * 'a -- $7.0 --> cmp_result) =
               in
                 tr
               end
-            | Red {lc} {rc} {bh} (left, center, right) =>
+            | Red {bh} (left, center, right) =>
               (case cmp (new, center) of
                    Equal => InsResult {_} {_} {_} {_} {_} (Good {_} {_} (ifalse, Red {_} (left, new, right)))
                  | Less =>
@@ -68,7 +77,7 @@ fun ins ['a] (cmp : 'a * 'a -- $7.0 --> cmp_result) =
                        | _ => never
                    end
               )
-            | Black {bh'} (left, center, right) =>
+            | Black {lc} {rc} {bh'} (left, center, right) =>
               (case cmp (new, center) of
                    Equal =>
                    InsResult {_} {_} {_} {_} {_} (Good {_} {_} (itrue, Black {_} {_} {_} (left, new, right)))
@@ -77,7 +86,7 @@ fun ins ['a] (cmp : 'a * 'a -- $7.0 --> cmp_result) =
                      val (InsResult {input_color} {bh'} {output_color} {is_good} {_} left') = ins {_} {_} left new
                    in
                      case left' of
-                         GoodRed {_} {_} (_, left') =>
+                         Good {_} {_} (_, left') =>
                          InsResult {_} {_} {_} {_} {_} (Good {_} {_} (itrue, Black {_} (left', center, right)))
                        | Bad {_} left' =>
                          balance_left {_} {_} {_} {_} left' center right
@@ -95,10 +104,10 @@ fun blacken_root ['a] {bh : Nat} (tr : {bh} {false} 'a rbt) return {bh + 1} {tru
 (* final packaging: root must be black *)
 datatype {Nat} 'a rb_tree =
          RBTree {bh : Nat} of {bh} {true} 'a rbt --> {bh} 'a rb_tree
-                                         
+                                   
 datatype {Nat} 'a rbt_may_grow_one =
          RbtMayGrowOne {bh : Nat} {bh' : Nat | bh' = bh \/ bh' = bh + 1} of {bh} 'a rb_tree --> {bh'} 'a rbt_may_grow_one
-                                                                                
+                                                                                 
 fun insert ['a] {bh : Nat} (tr : {bh} 'a rb_tree) new return {bh} 'a rbt_may_grow_one =
     let
       val RBTree {_} tr = tr
@@ -111,4 +120,4 @@ fun insert ['a] {bh : Nat} (tr : {bh} 'a rb_tree) new return {bh} 'a rbt_may_gro
           )
         | Bad {_} _ => never
     end
-*)
+
