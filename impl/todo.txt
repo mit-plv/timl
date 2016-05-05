@@ -32,3 +32,6 @@ Done. 30. Put [Unit] back to mtype from [base_type] because [Unit] is not a base
 Done. 32. Be able to infer for [insertion_sort].
 33. [unify]'s [(UVar, UVar)] case could be dangerous.
 Done. 34. Have a standard library.
+35. Automatically generate premises in [VarP] case of [match_ptrn], from complement cover of previous rules.
+36. [case] should also copy [fun]'s [return] clause even without [using].
+37. [as] pattern may have a problem in [balance_left].

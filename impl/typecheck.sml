@@ -1199,7 +1199,7 @@ local
       let val skctx = (sctx, kctx) 
 	  val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
 	  val skctxn = (sctxn, kctxn)
-	  (* val () = print (sprintf "Typing $\n" [U.str_e ctxn e_all]) *)
+	  val () = print (sprintf "Typing $\n" [U.str_e ctxn e_all])
           fun print_ctx (ctx as (sctx, kctx, _, tctx)) = app (fn (nm, t) => println $ sprintf "$: $" [nm, str_t (sctx_names sctx, names kctx) t]) tctx
 	  val (e, t, d) =
 	      case e_all of
@@ -1382,7 +1382,7 @@ local
                   in
 		    (Never t, t, T0 dummy)
                   end
-	  (* val () = print (sprintf "  Type : $: \n         $\n" [str_e ctxn e, str_mt skctxn t]) *)
+	  val () = print (sprintf "  Typed : $: \n          $\n" [str_e ctxn e, str_mt skctxn t])
 	  (* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_mt skctxn t, str_e ctxn e, str_i sctxn d]) *)
       in
         (e, t, d)

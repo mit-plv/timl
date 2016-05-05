@@ -175,7 +175,11 @@ local
                                                               
     fun elab e =
 	case e of
-	    S.Var x => Var x
+	    S.Var (x, r) =>
+            if x = "never" then
+              Never (elab_mt (S.VarT ("_", r)))
+            else
+              Var (x, r)
 	  | S.Tuple (es, r) =>
 	    (case es of
 		 [] => TT r
