@@ -519,7 +519,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         fun str_pn (ctx as (sctx, kctx, cctx)) pn = 
             case pn of
-                ConstrP ((x, _), inames, pn, _) => sprintf "$$$" [str_v cctx x, join_prefix " " inames, str_opt (fn pn => " " ^ str_pn ctx pn) pn]
+                ConstrP ((x, _), inames, pn, _) => sprintf "$$$" [str_v cctx x, join_prefix " " $ map (surround "{" "}") inames, str_opt (fn pn => " " ^ str_pn ctx pn) pn]
               | VarP (name, _) => name
               | PairP (pn1, pn2) => sprintf "($, $)" [str_pn ctx pn1, str_pn ctx pn2]
               | TTP _ => "()"
@@ -530,8 +530,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
             case return of
                 (NONE, NONE) => ""
               | (SOME t, NONE) => sprintf "return $ " [str_mt skctx t]
-              | (NONE, SOME d) => sprintf "return |> $ " [str_i sctx d]
-              | (SOME t, SOME d) => sprintf "return $ |> $ " [str_mt skctx t, str_i sctx d]
+              | (NONE, SOME d) => sprintf "return using $ " [str_i sctx d]
+              | (SOME t, SOME d) => sprintf "return $ using $ " [str_mt skctx t, str_i sctx d]
                                             
         fun str_e (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
             let fun add_t name (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx) 
