@@ -587,4 +587,89 @@ fun shiftx_e_e x n b = f x n b
 fun shift_e_e b = shiftx_e_e 0 1 b
 end
 
+(* forget_e_e *)
+
+local
+    fun f x n b =
+	case b of
+	    Var (y, r) => Var (forget_v x n y, r)
+	  | Abs (pn, e) => Abs (pn, f (x + 1) n e)
+	  | App (e1, e2) => App (f x n e1, f x n e2)
+	  | TT r => TT r
+	  | Pair (e1, e2) => Pair (f x n e1, f x n e2)
+	  | Fst e => Fst (f x n e)
+	  | Snd e => Snd (f x n e)
+	  | AbsI (s, name, e) => AbsI (s, name, f x n e)
+	  | AppI (e, i) => AppI (f x n e, i)
+	  | Let (decs, e, r) =>
+	    let 
+		val (decs, m) = f_decls x n decs
+	    in
+		Let (decs, f (x + m) n e, r)
+	    end
+	  | Ascription (e, t) => Ascription (f x n e, t)
+	  | AscriptionTime (e, d) => AscriptionTime (f x n e, d)
+	  | ConstInt n => ConstInt n
+	  | BinOp (opr, e1, e2) => BinOp (opr, f x n e1, f x n e2)
+	  | AppConstr (cx, is, e) => AppConstr (cx, is, f x n e)
+	  | Case (e, return, rules, r) => Case (f x n e, return, map (f_rule x n) rules, r)
+	  | Never t => Never t
+
+    and f_decls x n decs =
+	let 
+            fun g (dec, (acc, m)) =
+		let
+		    val (dec, m') = f_dec (x + m) n dec
+		in
+		    (dec :: acc, m' + m)
+		end
+	    val (decs, m) = foldl g ([], 0) decs
+	    val decs = rev decs
+	in
+            (decs, m)
+        end
+
+    and f_dec x n dec =
+	case dec of
+	    Val (tnames, pn, e, r) => 
+	    let 
+                val (_, enames) = ptrn_names pn 
+	    in
+                (Val (tnames, pn, f x n e, r), length enames)
+            end
+          | Rec (tnames, name, (binds, ((t, d), e)), r) => 
+            let
+                fun g (bind, m) =
+                    case bind of
+                        SortingST _ => m
+                      | TypingST pn =>
+	                let 
+                            val (_, enames) = ptrn_names pn 
+	                in
+                            m + length enames
+                        end
+                val m = foldl g 0 binds
+                val e = f (x + 1 + m) n e
+            in
+                (Rec (tnames, name, (binds, ((t, d), e)), r), 1)
+            end
+          | Datatype a => (Datatype a, 0)
+          | IdxDef a => (IdxDef a, 0)
+          | AbsIdx (a, decls, r) => 
+            let
+                val (decls, m) = f_decls x n decls
+            in
+                (AbsIdx (a, decls, r), m)
+            end
+
+    and f_rule x n (pn, e) =
+	let 
+            val (_, enames) = ptrn_names pn 
+	in
+	    (pn, f (x + length enames) n e)
+	end
+in
+fun forget_e_e x n b = f x n b
+end
+
 end

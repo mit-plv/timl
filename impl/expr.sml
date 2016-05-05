@@ -266,6 +266,12 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 else [i]
               | _ => [i]
                          
+        fun collect_Pair e =
+            case e of
+                Pair (e1, e2) =>
+                collect_Pair e1 @ [e2]
+              | _ => [e]
+                         
         fun collect_BinOpI opr i =
             case i of
                 BinOpI (opr', i1, i2) =>
@@ -544,7 +550,12 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                     end
 	          | App (e1, e2) => sprintf "($ $)" [str_e ctx e1, str_e ctx e2]
 	          | TT _ => "()"
-	          | Pair (e1, e2) => sprintf "($, $)" [str_e ctx e1, str_e ctx e2]
+	          | Pair _ =>
+                    let
+                      val es = collect_Pair e
+                    in
+                      sprintf "($)" [join ", " $ map (str_e ctx) es]
+                    end
 	          | Fst e => sprintf "(fst $)" [str_e ctx e]
 	          | Snd e => sprintf "(snd $)" [str_e ctx e]
 	          | AbsI (s, (name, _), e) => sprintf "(fn {$ : $} => $)" [name, str_s sctx s, str_e (name :: sctx, kctx, cctx, tctx) e]
@@ -558,7 +569,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	          | AscriptionTime (e, d) => sprintf "($ |> $)" [str_e ctx e, str_i sctx d]
 	          | BinOp (opr, e1, e2) => sprintf "($ $ $)" [str_e ctx e1, str_bin_op opr, str_e ctx e2]
 	          | ConstInt (n, _) => str_int n
-	          | AppConstr ((x, _), is, e) => sprintf "($$ $)" [str_v cctx x, (join "" o map (prefix " ") o map (fn i => sprintf "[$]" [str_i sctx i])) is, str_e ctx e]
+	          | AppConstr ((x, _), is, e) => sprintf "($$ $)" [str_v cctx x, (join "" o map (prefix " ") o map (fn i => sprintf "{$}" [str_i sctx i])) is, str_e ctx e]
 	          | Case (e, return, rules, _) => sprintf "(case $ $of $)" [str_e ctx e, str_return skctx return, join " | " (map (str_rule ctx) rules)]
 	          | Never t => sprintf "(never [$])" [str_mt skctx t]
             end

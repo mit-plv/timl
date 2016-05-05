@@ -1199,7 +1199,7 @@ local
       let val skctx = (sctx, kctx) 
 	  val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
 	  val skctxn = (sctxn, kctxn)
-	  val () = print (sprintf "Typing $\n" [U.str_e ctxn e_all])
+	  val () = print (sprintf "Typing $\n" [U.str_e ((* upd4 (const [])  *)ctxn) e_all])
           fun print_ctx (ctx as (sctx, kctx, _, tctx)) = app (fn (nm, t) => println $ sprintf "$: $" [nm, str_t (sctx_names sctx, names kctx) t]) tctx
 	  val (e, t, d) =
 	      case e_all of
@@ -1326,7 +1326,7 @@ local
 	        | U.AppConstr (cx as (_, rc), is, e) => 
 		  let 
                     val (cname, tc) = fetch_constr_type (cctx, cx)
-		    (* delegate to checking (cx {is} e) *)
+		    (* delegate to checking [cx {is} e] *)
 		    val f = U.Var (0, rc)
 		    val f = foldl (fn (i, e) => U.AppI (e, i)) f is
 		    val e = U.App (f, shift_e_e e)
@@ -1352,6 +1352,7 @@ local
                             App (f, e) =>
                             let
                               val (_, is) = peel_AppI f
+                              val e = forget_e_e 0 1 e
                             in
                               AppConstr (cx, is, e)
                             end
@@ -1382,7 +1383,8 @@ local
                   in
 		    (Never t, t, T0 dummy)
                   end
-	  val () = print (sprintf "  Typed : $: \n          $\n" [str_e ctxn e, str_mt skctxn t])
+          (* val () = println $ str_ls id $ #4 ctxn *)
+	  val () = print (sprintf "  Typed : $: \n          $\n" [str_e ((* upd4 (const [])  *)ctxn) e, str_mt skctxn t])
 	  (* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_mt skctxn t, str_e ctxn e, str_i sctxn d]) *)
       in
         (e, t, d)
