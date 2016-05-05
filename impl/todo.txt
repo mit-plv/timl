@@ -35,3 +35,4 @@ Done. 34. Have a standard library.
 35. Automatically generate premises in [VarP] case of [match_ptrn], from complement cover of previous rules.
 36. [case] should also copy [fun]'s [return] clause even without [using].
 37. [as] pattern may have a problem in [balance_left].
+38. Redundancy checker runs forever on [balance_left].

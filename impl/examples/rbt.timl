@@ -11,7 +11,7 @@ datatype {Nat} 'a violation =
 (* datatype {Nat} 'a rbt_unknown_color = *)
 (*          RbtUnknownColor {color : Bool} {bh : Nat} of {bh} {color} 'a rbt --> {bh} 'a rbt_unknown_color *)
                                                            
-fun balance_left ['a] {bh : Nat} {rc : Bool} (left : {bh} 'a violation) ((* center as *) z) ((* right as *) d : {bh} {rc} 'a rbt) return {bh} {false} 'a rbt using 10.0 =
+fun balance_left ['a] {bh : Nat} {rc : Bool} (left : {bh} 'a violation) ((* center as *) z) ((* right as *) d : {bh} {rc} 'a rbt) return {bh + 1} {false} 'a rbt using 10.0 =
     case left of
         ViolateLeft {_} {_} (Red {_} (a, x, b), y, c) =>
         Red {_} (Black {_} {_} {_} (a, x, b), y, Black {_} {_} {_} (c, z, d))

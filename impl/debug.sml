@@ -3,6 +3,7 @@ structure Debug = struct
 local
 
     val debug = false
+    (* val debug = true *)
 
 in
 

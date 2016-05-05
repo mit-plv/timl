@@ -700,7 +700,7 @@ local
 
   fun is_wf_sorts (ctx, sorts : U.sort list) : sort list = 
       map (fn s => is_wf_sort (ctx, s)) sorts
-                 
+          
   fun subst_uvar_error r body i (fresh, x) =
       let
         fun get_fresh_uvar_ref_ctx fresh =
@@ -1000,14 +1000,17 @@ local
         cover_neg cctx t a \/ b
                                 
     fun any_missing ctx t c =
-        let val nc = cover_neg (#3 ctx) t c
-            val () = Debug.println (str_cover (names (#3 ctx)) nc)
+        let
+          val nc = cover_neg (#3 ctx) t c
+          val () = Debug.println (str_cover (names (#3 ctx)) nc)
         in
           find_inhabitant ctx t [nc]
         end
 
+    fun trace s a = (println s; a)
+                      
     fun is_covered ctx t small big =
-        (isNull o any_missing ctx t o cover_imply (#3 ctx) t) (small, big)
+        (isNull o (trace "after any_missing()") o any_missing ctx t o (trace "after cover_imply()") o cover_imply (#3 ctx) t) (small, big)
 
   in              
 
@@ -1015,8 +1018,11 @@ local
       let
         val t = update_mt t
         val prev = combine_covers prevs
+        val () = println "after combine_covers()"
+        val something_new = not (is_covered ctx t this prev)
+        val () = println "after is_covered()"
       in
-        if not (is_covered ctx t this prev) then ()
+        if something_new then ()
         else raise Error (r, sprintf "Redundant rule: $" [str_cover (names cctx) this] :: indent [sprintf "Has already been covered by previous rules: $" [(join ", " o map (str_cover (names cctx))) prevs]])
       end
         
@@ -1385,7 +1391,7 @@ local
                   end
           (* val () = println $ str_ls id $ #4 ctxn *)
 	  val () = print (sprintf "  Typed : $: \n          $\n" [str_e ((* upd4 (const [])  *)ctxn) e, str_mt skctxn t])
-	  (* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_mt skctxn t, str_e ctxn e, str_i sctxn d]) *)
+	                 (* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_mt skctxn t, str_e ctxn e, str_i sctxn d]) *)
       in
         (e, t, d)
       end
@@ -1614,7 +1620,9 @@ local
 	    let 
               val ans as (rule, (td, cover)) = check_rule (ctx, rule, t)
               val covers = (rev o map (snd o snd)) acc
-	      val () = check_redundancy (skcctx, t1, covers, cover, get_region_rule rule)
+              val () = println "before check_redundancy()"
+	      (* val () = check_redundancy (skcctx, t1, covers, cover, get_region_rule rule) *)
+              val () = println "after check_redundancy()"
 	    in
 	      ans :: acc
 	    end 
@@ -1922,10 +1930,10 @@ local
         | UVarBS _ => raise Impossible "no_uvar_bsort ()"
 
   fun no_uvar_quan q =
-    case q of
-        Forall => Forall
-      | Exists ins => Exists (Option.map (fn ins => fn i => ins $ nouvar2uvar_i i) ins)
-                             
+      case q of
+          Forall => Forall
+        | Exists ins => Exists (Option.map (fn ins => fn i => ins $ nouvar2uvar_i i) ins)
+                               
   fun no_uvar_p p =
       case p of
           True r => N.True r
