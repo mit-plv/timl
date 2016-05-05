@@ -22,8 +22,8 @@ fun balance_left ['a] {bh : Nat} {rc : Bool} (left : {bh} 'a violation) ((* cent
       | ViolateLeft {_} {_} (Black {_} {_} {_} _, _, _) => never
       | ViolateRight {_} {_} (_, _, Leaf) => never
       | ViolateRight {_} {_} (_, _, Black {_} {_} {_} _) => never
-
-               (*
+                                                              
+(*
 datatype {Bool} ibool =
          itrue of {true} ibool
          | ifalse of {false} ibool
@@ -85,5 +85,30 @@ fun ins ['a] (cmp : 'a * 'a -- $7.0 --> cmp_result) =
               )
     in
       ins
+    end
+
+fun blacken_root ['a] {bh : Nat} (tr : {bh} {false} 'a rbt) return {bh + 1} {true} 'a rbt =
+    case tr of
+        Red {_} (l, c, r) => Black {_} {_} {_} (l, c, r)
+      | _ => never
+
+(* final packaging: root must be black *)
+datatype {Nat} 'a rb_tree =
+         RBTree {bh : Nat} of {bh} {true} 'a rbt --> {bh} 'a rb_tree
+                                         
+datatype {Nat} 'a rbt_may_grow_one =
+         RbtMayGrowOne {bh : Nat} {bh' : Nat | bh' = bh \/ bh' = bh + 1} of {bh} 'a rb_tree --> {bh'} 'a rbt_may_grow_one
+                                                                                
+fun insert ['a] {bh : Nat} (tr : {bh} 'a rb_tree) new return {bh} 'a rbt_may_grow_one =
+    let
+      val RBTree {_} tr = tr
+    in
+      case ins {_} {_} tr new of
+          Good {_} {_} (color, tr) =>
+          (case color of
+               itrue => RbtMayGrowOne {_} {bh} (RBTree {_} tr)
+             | ifalse => RbtMayGrowOne {_} {bh + 1} (RBTree {_} (blacken_root {_} tr))
+          )
+        | Bad {_} _ => never
     end
 *)
