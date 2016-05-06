@@ -1390,7 +1390,7 @@ local
 		    (Never t, t, T0 dummy)
                   end
           (* val () = println $ str_ls id $ #4 ctxn *)
-	  (* val () = print (sprintf "  Typed : $: \n          $\n" [str_e ((* upd4 (const [])  *)ctxn) e, str_mt skctxn t]) *)
+	  val () = print (sprintf "  Typed : $: \n          $\n" [str_e ((* upd4 (const [])  *)ctxn) e, str_mt skctxn t])
 	                 (* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_mt skctxn t, str_e ctxn e, str_i sctxn d]) *)
       in
         (e, t, d)
@@ -1884,7 +1884,7 @@ local
   fun no_uvar_i i =
       let
         val i = update_i i
-        fun error i' = Impossible $ sprintf "no_uvar_i (): $ shouldn't be UVarI in $" [str_i [] i', str_i [] i]
+        fun error i' = Impossible $ sprintf "\n$\nno_uvar_i (): $ shouldn't be UVarI in $" [str_region "" "examples/rbt.timl" (get_region_i i'), str_i [] i', str_i [] i]
         fun f i =
             case i of
                 VarI x => N.VarI x

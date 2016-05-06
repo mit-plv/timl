@@ -128,11 +128,18 @@ local
       case e of
           Case (e, (t', d'), es, r) =>
           let
+            fun is_tuple_value e =
+                case e of
+                    Var _ => true
+                  | Pair (e1, e2) => is_tuple_value e1 andalso is_tuple_value e2
+                  | _ => false
+            (* if e is tuple value, we are sure it doesn't cost time, so we can copy time annotation *)
+            val d = if is_tuple_value e then d else NONE
             fun copy a b = case a of
                                NONE => b
                              | SOME _ => a
             val (t, d) = (copy t' t, copy d' d)
-            val es = map (copy_anno_rule (t, NONE)) es
+            val es = map (copy_anno_rule (t, d)) es
           in
             Case (e, (t, d), es, r)
           end

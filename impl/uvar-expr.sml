@@ -40,10 +40,10 @@ fun str_uname_i (n, ctx, _) = str_uvar n
 fun str_uname_bs n = str_uvar n
 fun str_uname_nonidx (n, ctx) = str_uvar n
                                    
-(* fun str_uname_i (n, ctx, _) = sprintf "($ $)" [str_uvar n, str_ls id (rev ctx)] *)
-fun str_uname_i (n, ctx, _) = str_uvar n
 fun str_uname_bs n = str_uvar n
+(* fun str_uname_i (n, ctx, _) = sprintf "($ $)" [str_uvar n, str_ls id (rev ctx)] *)
 (* fun str_uname_nonidx (n, ctx) = sprintf "($ $)" [str_uvar n, str_ls id (rev ctx)] *)
+fun str_uname_i (n, ctx, _) = str_uvar n
 fun str_uname_nonidx (n, ctx) = str_uvar n
                                    
 fun str_uvar_i str_i ctx ((invis, u) : ('bsort, 'idx) uvar_i) =

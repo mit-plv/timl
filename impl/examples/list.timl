@@ -17,7 +17,7 @@ end
 absidx h : BigO 2 (fn m n => $m * $n) with
 fun foldl ['a 'b] {m : Nat} (f : 'a * 'b -- $m --> 'b) =
     let
-      fun foldl {n : Nat} y (xs : {n} _ list) return _ using h m n =
+      fun foldl {n : Nat} y (xs : {n} _ list) return using h m n =
           case xs of
               Nil => y
             | Cons {n'} (x, xs) => foldl {_} (f (x, y)) xs

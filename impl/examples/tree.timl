@@ -51,7 +51,7 @@ end
 absidx g : BigO 2 (fn m n => $m * $n) with
 fun tree_foldmlr ['a 'b] {m : Nat} (f : 'a * 'b -- $m --> 'b) =
     let
-      fun fold {n : Nat} acc (tr : {n} _ tree) return _ using g m n =
+      fun fold {n : Nat} acc (tr : {n} _ tree) return using g m n =
           case tr of
               Leaf => acc
             | Node {n1 n2} (x, tr1, tr2) =>
@@ -70,7 +70,7 @@ end
 absidx g : BigO 2 (fn m n => $m * $n) with
 fun tree_foldrlm ['a 'b] {m : Nat} (f : 'a * 'b -- $m --> 'b) =
     let
-      fun fold {n : Nat} acc (tr : {n} _ tree) return _ using g m n =
+      fun fold {n : Nat} acc (tr : {n} _ tree) return using g m n =
           case tr of
               Leaf => acc
             | Node {n1 n2} (x, tr1, tr2) =>
