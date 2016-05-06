@@ -15,7 +15,7 @@ local
 	handle
 	Error e => Failed e
 
-    val un_ops = [ToReal, Log2, Ceil, Floor]
+    val un_ops = [ToReal, Log2, Ceil, Floor, B2n, Neg]
     val un_op_names = zip (un_ops, map str_idx_un_op un_ops)
     fun is_un_op (opr, i1) =
       case (opr, i1) of

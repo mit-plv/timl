@@ -274,9 +274,9 @@ fun remove_fresh_uvar_ctx fresh_uvar x n =
 fun forget_invis fresh_uvar =
     forget_invis_generic (fn (_, pos_total, _) => raise ForgetError (pos_total, str_fresh_uvar_ref fresh_uvar))
 
-(* This is a version that allows substition for [x+i] that is visible to [fresh_uvar]. When this happens, remove [x+i] from [fresh_uvar]'s visible context. *)
-fun forget_invis fresh_uvar =
-    forget_invis_generic (fn (pos_visible, _, n) => remove_fresh_uvar_ctx fresh_uvar pos_visible n)
+(* This is a version that allows forgetting for [x+i] that is visible to [fresh_uvar]. When this happens, remove [x+i] from [fresh_uvar]'s visible context. *)
+(* fun forget_invis fresh_uvar = *)
+(*     forget_invis_generic (fn (pos_visible, _, n) => remove_fresh_uvar_ctx fresh_uvar pos_visible n) *)
 
 fun forget_i_i x n b = on_i_i forget_v forget_invis expand_i x n b
 fun forget_i_p x n b = on_i_p forget_i_i x n b

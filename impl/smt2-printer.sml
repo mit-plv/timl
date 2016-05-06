@@ -24,6 +24,8 @@ fun print_i ctx i =
          | Log2 => sprintf "(log2 $)" [print_i ctx i]
          | Ceil => sprintf "(ceil $)" [print_i ctx i]
          | Floor => sprintf "(floor $)" [print_i ctx i]
+         | B2n => sprintf "(b2i $)" [print_i ctx i]
+         | Neg => sprintf "(not $)" [print_i ctx i]
       )
     | BinOpI (opr, i1, i2) => 
       (case opr of
@@ -150,6 +152,9 @@ val prelude = [
     "(to_int x))",
     "(define-fun ceil ((x Real)) Int",
     "(to_int (+ x 0.5)))",
+    "(define-fun b2i ((b Bool)) Int",
+    "(ite b 1 0))",
+
     
     (* "(declare-datatypes () ((Fun_1 fn1)))", *)
     (* "(declare-datatypes () ((Fun_2 fn2)))", *)

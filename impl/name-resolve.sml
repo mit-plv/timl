@@ -147,8 +147,13 @@ local
           let
             val (_, (sctx, kctx, _, _)) = str_decls ([], [], [], []) decls
             val (sctxn, kctxn) = (length sctx, length kctx)
+            fun is_match_var decl =
+                case decl of
+                    Val (_, _, Var _, _) => true
+                  | _ => false
+            val d = if List.all is_match_var decls then d else NONE
           in
-            Let (decls, copy_anno (shift_return (sctxn, kctxn) (t, NONE)) e, r)
+            Let (decls, copy_anno (shift_return (sctxn, kctxn) (t, d)) e, r)
           end
         | _ => e
                 

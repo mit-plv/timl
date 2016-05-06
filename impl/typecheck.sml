@@ -20,6 +20,8 @@ fun idx_un_op_type opr =
       | Log2 => (Time, Time)
       | Ceil => (Time, Nat)
       | Floor => (Time, Nat)
+      | B2n => (BoolSort, Nat)
+      | Neg => (BoolSort, BoolSort)
                    
 (* sorting context *)
 type scontext = (string * sort) list
@@ -1205,7 +1207,7 @@ local
       let val skctx = (sctx, kctx) 
 	  val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
 	  val skctxn = (sctxn, kctxn)
-	  val () = print (sprintf "Typing $\n" [U.str_e ((* upd4 (const [])  *)ctxn) e_all])
+	  (* val () = print (sprintf "Typing $\n" [U.str_e ((* upd4 (const [])  *)ctxn) e_all]) *)
           fun print_ctx (ctx as (sctx, kctx, _, tctx)) = app (fn (nm, t) => println $ sprintf "$: $" [nm, str_t (sctx_names sctx, names kctx) t]) tctx
 	  val (e, t, d) =
 	      case e_all of
@@ -1390,9 +1392,9 @@ local
 		    (Never t, t, T0 dummy)
                   end
           (* val () = println $ str_ls id $ #4 ctxn *)
-	  val () = print (sprintf "  Typed : $: \n          $\n" [str_e ((* upd4 (const [])  *)ctxn) e, str_mt skctxn t])
-	  val () = print (sprintf "   Time : $: \n" [str_i sctxn d])
-	                 (* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_mt skctxn t, str_e ctxn e, str_i sctxn d]) *)
+	  (* val () = print (sprintf "  Typed : $: \n          $\n" [str_e ((* upd4 (const [])  *)ctxn) e, str_mt skctxn t]) *)
+	  (* val () = print (sprintf "   Time : $: \n" [str_i sctxn d]) *)
+	  (* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_mt skctxn t, str_e ctxn e, str_i sctxn d]) *)
       in
         (e, t, d)
       end
@@ -1464,7 +1466,7 @@ local
             in
               t
             end
-	val () = println $ sprintf "Typing $" [fst $ U.str_decl (ctx_names ctx) decl]
+	(* val () = println $ sprintf "Typing $" [fst $ U.str_decl (ctx_names ctx) decl] *)
         val ret as (decl, ctxd, nps, ds) = 
             case decl of
                 U.Val (tnames, U.VarP (x, r1), e, r) =>
@@ -1613,7 +1615,7 @@ local
                 in
                   (AbsIdx (((name, r1), s, i), decls, r), ctxd, 0, ds)
                 end
-	val () = println $ sprintf "  Typed : $ " [fst $ str_decl (ctx_names ctx) decl]
+	(* val () = println $ sprintf "  Typed : $ " [fst $ str_decl (ctx_names ctx) decl] *)
 	(* val () = print $ sprintf "   Time : $: \n" [str_i sctxn d] *)
       in
         ret

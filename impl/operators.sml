@@ -5,6 +5,8 @@ datatype idx_un_op =
          | Log2
          | Ceil
          | Floor
+         | B2n
+         | Neg
                
 datatype idx_bin_op =
 	 AddI
@@ -42,6 +44,8 @@ fun str_idx_un_op opr =
     | Log2 => "log2"
     | Ceil => "ceil"
     | Floor => "floor"
+    | B2n => "b2n"
+    | Neg => "not"
 
 fun str_idx_bin_op opr =
   case opr of
