@@ -852,12 +852,37 @@ local
 
   local
     
-    datatype inhab =
+    datatype habitant =
              TrueH
-             | ConstrH of var * inhab
-             | PairH of inhab * inhab
+             | ConstrH of var * habitant
+             | PairH of habitant * habitant
              | TTH
 
+    fun habitant_to_ptrn cctx t hab =
+        let
+          exception Error of string
+          fun runError m () =
+              SOME (m ()) handle Error _ => NONE
+          fun loop t hab =
+              case (hab, t) of
+                  (ConstrH (x, h'), AppV ((family, _), ts, _, _)) =>
+                  let
+                    val (_, (_, _, ibinds)) = fetch_constr (cctx, (x, dummy))
+                    val (name_sorts, (t', _)) = unfold_ibinds ibinds
+	            val t' = subst_ts_mt ts t'
+                    val pn' = loop t' h'
+                  in
+                    ConstrP ((x, dummy), repeat (length name_sorts) "_", SOME pn', dummy)
+                  end
+                | (TTH, Unit _) =>
+                  TTP dummy
+                | (PairH (h1, h2), Prod (t1, t2)) =>
+                  PairP (loop t1 h1, loop t2 h2)
+                | _ => raise Error "habitant_to_ptrn"
+        in
+          runError (fn () => loop t hab) ()
+        end
+                            
     fun cover_size c =
         case c of
             TrueC => 1
@@ -881,15 +906,15 @@ local
           | PairC (c1, c2) => sprintf "($, $)" [str_cover cctx c1, str_cover cctx c2]
           | TTC => "()"
 
-    fun str_inhab cctx c =
+    fun str_habitant cctx c =
         case c of
             TrueH => "_"
-          | ConstrH (x, c) => sprintf "($ $)" [str_v cctx x, str_inhab cctx c]
-          | PairH (c1, c2) => sprintf "($, $)" [str_inhab cctx c1, str_inhab cctx c2]
+          | ConstrH (x, c) => sprintf "($ $)" [str_v cctx x, str_habitant cctx c]
+          | PairH (c1, c2) => sprintf "($, $)" [str_habitant cctx c1, str_habitant cctx c2]
           | TTH => "()"
 
     infix 2 \/
-    val op/\ = AndC
+pp    val op/\ = AndC
     val op\/ = OrC
 
     fun combine_covers covers = foldl' (swap OrC) FalseC covers
@@ -933,11 +958,11 @@ local
         end
 
           
-    fun find_inhabitant (ctx as (sctx, kctx, cctx)) (t : mtype) cs =
+    fun find_habitant (ctx as (sctx, kctx, cctx)) (t : mtype) cs =
         let
           (* use exception to mimic Error monad *)
           exception Incon of string
-          fun loop (t : mtype) cs_all : inhab =
+          fun loop (t : mtype) cs_all : habitant =
               let
                 fun collect_AndC c =
                     case c of
@@ -1050,7 +1075,7 @@ local
 		                    val t' = subst_ts_mt ts t'
                                     (* val () = (* Debug. *)println (sprintf "All are $, now try to satisfy $" [str_v (names cctx) x, (join ", " o map (str_cover (names cctx))) (c' :: cs')]) *)
                                     val c' = loop t' (c' :: cs')
-                                    val () = Debug.println (sprintf "Plugging $ into $" [str_inhab (names cctx) c', str_v (names cctx) x])
+                                    val () = Debug.println (sprintf "Plugging $ into $" [str_habitant (names cctx) c', str_v (names cctx) x])
                                 in
                                   ConstrH (x, c')
                                 end
@@ -1060,7 +1085,7 @@ local
                                 else
                                   loop t (to_hd i cs @ [c])
                           end
-                        | _ => raise impossible "find_inhabitant()"
+                        | _ => raise impossible "find_habitant()"
                     end
               end
         in
@@ -1075,8 +1100,8 @@ local
           val nc = cover_neg (#3 ctx) t c
           val () = println "after cover_neg()"
           (* val () = (* Debug. *)println (str_cover (names (#3 ctx)) nc) *)
-          val ret = find_inhabitant ctx t [nc]
-          val () = println "after find_inhabitant()"
+          val ret = find_habitant ctx t [nc]
+          val () = println "after find_habitant()"
         in
           ret
         end
@@ -1109,7 +1134,7 @@ local
         case any_missing ctx t cover of
             NONE => ()
           | SOME missed =>
-	    raise Error (r, [sprintf "Not exhaustive, at least missing this case: $" [str_inhab (names cctx) missed]])
+	    raise Error (r, [sprintf "Not exhaustive, at least missing this case: $" [str_habitant (names cctx) missed]])
       end
 
   end
@@ -1194,7 +1219,7 @@ local
         | NONE => raise Error (r, ["Unbound variable: " ^ str_v (names tctx) x])
 
   (* t is already checked for wellformedness *)
-  fun match_ptrn (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext), pn : U.ptrn, t : mtype) : ptrn * cover * context * int =
+  fun match_ptrn (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext), (* pcovers, *) pn : U.ptrn, t : mtype) : ptrn * cover * context * int =
       let 
         val skctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
       in
@@ -1236,6 +1261,11 @@ local
                 | _ => raise Error (r, [sprintf "Pattern $ doesn't match type $" [U.str_pn (sctx_names sctx, names kctx, names cctx) pn, str_mt skctxn t]])
             end
           | U.VarP (name, r) =>
+            (* let *)
+            (*   val pcover = combine_covers pcovers *)
+            (*   val cover = cover_neg cctx t pcover *)
+            (* in *)
+            (* end *)
             (VarP (name, r), TrueC, ctx_from_typing (name, Mono t), 0)
           | U.PairP (pn1, pn2) =>
             let 
@@ -1693,12 +1723,44 @@ local
         ret
       end
 
+  and expand_rules (skcctx as (sctx, kctx, cctx), rules, t) =
+      let
+        fun expand (rule as (pn, e), (pcover, rules)) =
+            let
+              val cover = ptrn_to_cover pn
+              val () = check_redundancy (skcctx, t, [pcover], cover, get_region_rule rule)
+              val rules' =
+                  case rule of
+                      (VarP, Never _) =>
+                      let
+                        fun loop pcover =
+                            case find_habitant cctx t [cover_neg cctx t pcover] of
+                                SOME hab =>
+                                (case habitant_to_ptrn cctx t hab of
+                                     SOME pn => [(pn, e)] @ loop (OrC (pcover, ptrn_to_cover pn))
+                                )
+                      in
+                      end
+              val ans as (rule, (td, cover)) = check_rule (ctx, (* previous_covers, *) rule, t)
+              val covers = (rev o map (snd o snd)) acc
+              val () = println "before check_redundancy()"
+              val () = println "after check_redundancy()"
+            in
+              ans :: acc
+            end
+        val (rules, (tds, covers)) = mapSnd unzip o unzip o rev o foldl expand [] $ rules
+      in
+        (* check_exhaustive (skcctx, t1, covers, r); *)
+        (rules, tds)
+      end
+
   and check_rules (ctx as (sctx, kctx, cctx, tctx), rules, t as (t1, return), r) =
       let 
         val skcctx = (sctx, kctx, cctx) 
 	fun f (rule, acc) =
-	    let 
-              val ans as (rule, (td, cover)) = check_rule (ctx, rule, t)
+	    let
+              (* val previous_covers = map (snd o snd) $ rev acc *)
+              val ans as (rule, (td, cover)) = check_rule (ctx, (* previous_covers, *) rule, t)
               val covers = (rev o map (snd o snd)) acc
               val () = println "before check_redundancy()"
 	      val () = check_redundancy (skcctx, t1, covers, cover, get_region_rule rule)
@@ -1708,14 +1770,14 @@ local
 	    end 
 	val (rules, (tds, covers)) = (mapSnd unzip o unzip o rev o foldl f []) rules
       in
-	check_exhaustive (skcctx, t1, covers, r);
+	(* check_exhaustive (skcctx, t1, covers, r); *)
         (rules, tds)
       end
 
-  and check_rule (ctx as (sctx, kctx, cctx, tctx), (pn, e), t as (t1, return)) =
+  and check_rule (ctx as (sctx, kctx, cctx, tctx), (* pcovers, *) (pn, e), t as (t1, return)) =
       let 
         val skcctx = (sctx, kctx, cctx) 
-	val (pn, cover, ctxd as (sctxd, kctxd, _, _), nps) = match_ptrn (skcctx, pn, t1)
+	val (pn, cover, ctxd as (sctxd, kctxd, _, _), nps) = match_ptrn (skcctx, (* pcovers, *) pn, t1)
         val ctx0 = ctx
 	val ctx = add_ctx ctxd ctx
         val (e, t, d) = 
