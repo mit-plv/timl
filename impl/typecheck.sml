@@ -1020,7 +1020,7 @@ local
         val prev = combine_covers prevs
         (* val () = println "after combine_covers()" *)
         val something_new = not (is_covered ctx t this prev)
-        (* val () = println "after is_covered()" *)
+                                (* val () = println "after is_covered()" *)
       in
         if something_new then ()
         else raise Error (r, sprintf "Redundant rule: $" [str_cover (names cctx) this] :: indent [sprintf "Has already been covered by previous rules: $" [(join ", " o map (str_cover (names cctx))) prevs]])
@@ -1464,154 +1464,159 @@ local
             in
               t
             end
+	val () = println $ sprintf "Typing $" [fst $ U.str_decl (ctx_names ctx) decl]
+        val ret as (decl, ctxd, nps, ds) = 
+            case decl of
+                U.Val (tnames, U.VarP (x, r1), e, r) =>
+                let 
+                  val (e, t, d) = get_mtype (add_kindings_skct (zip ((rev o map fst) tnames, repeat (length tnames) Type)) ctx, e)
+                  val t = if is_value e then 
+                            let
+                              val t = generalize t
+                              val t = foldr (fn (nm, t) => Uni (nm, t)) t tnames
+                            in
+                              t
+                            end
+                          else if length tnames = 0 then
+                            Mono t
+                          else
+                            raise Error (r, ["explicit type variable cannot be generalized because of value restriction"])
+                in
+                  (Val (tnames, VarP (x, r1), e, r), ctx_from_typing (x, t), 0, [d])
+                end
+              | U.Val (tnames, pn, e, r) =>
+                let 
+                  val () = if length tnames = 0 then ()
+                           else raise Error (r, ["compound pattern can't be generalized, so can't have explicit type variables"])
+                  val skcctx = (sctx, kctx, cctx) 
+                  val (e, t, d) = get_mtype (ctx, e)
+                  val (pn, cover, ctxd, nps) = match_ptrn (skcctx, pn, t)
+                  val d = shift_ctx_i ctxd d
+	          val () = check_exhaustive (skcctx, t, [cover], get_region_pn pn)
+                in
+                  (Val (tnames, pn, e, r), ctxd, nps, [d])
+                end
+	      | U.Rec (tnames, (name, r1), (binds, ((t, d), e)), r) => 
+	        let 
+                  val ctx = add_kindings_skct (zip ((rev o map fst) tnames, repeat (length tnames) Type)) ctx
+                  fun f (bind, (binds, ctxd, nps)) =
+                      case bind of
+                          U.SortingST (name, s) => 
+                          let 
+                            val ctx = add_ctx ctxd ctx
+                            val s = is_wf_sort (#1 ctx, s)
+                            val ctxd' = ctx_from_sorting (fst name, s)
+                            val () = open_ctx ctxd'
+                            val ctxd = add_ctx ctxd' ctxd
+                          in
+                            (inl (name, s) :: binds, ctxd, nps)
+                          end
+                        | U.TypingST pn =>
+                          let
+                            val ctx as (sctx, kctx, _, _) = add_ctx ctxd ctx
+                            val r = U.get_region_pn pn
+                            val t = fresh_mt (names kctx @ names sctx) r
+                            val skcctx = (sctx, kctx, cctx) 
+                            val (pn, cover, ctxd', nps') = match_ptrn (skcctx, pn, t)
+	                    val () = check_exhaustive (skcctx, t, [cover], get_region_pn pn)
+                            val ctxd = add_ctx ctxd' ctxd
+                            val nps = nps' + nps
+                          in
+                            (inr (pn, t) :: binds, ctxd, nps)
+                          end
+                  val (binds, ctxd, nps) = foldl f ([], empty_ctx, 0) binds
+                  val binds = rev binds
+                  val (sctx, kctx, _, _) = add_ctx ctxd ctx
+	          val t = is_wf_mtype ((sctx, kctx), t)
+	          val d = check_bsort (sctx, d, Base Time)
+                  fun g (bind, t) =
+                      case bind of
+		          inl (name, s) => UniI (s, BindI (name, t))
+		        | inr (_, t1) => Arrow (t1, T0 dummy, t)
+                  val te = 
+                      case rev binds of
+                          inr (_, t1) :: binds =>
+                          foldl g (Arrow (t1, d, t)) binds
+                        | _ => raise Error (r, ["Recursion must have a typing bind as the last bind"])
+                  val ctx = add_typing_skct (name, Mono te) ctx
+                  val ctx = add_ctx ctxd ctx
+	          val e = check_mtype_time (ctx, e, t, d)
+                  val () = close_vcs nps
+                  val () = close_ctx ctxd
+                  val te = generalize te
+                  val te = foldr (fn (nm, t) => Uni (nm, t)) te tnames
+                  fun h bind =
+                      case bind of
+                          inl a => SortingST a
+                        | inr (pn, _) => TypingST pn
+                  val binds = map h binds
+                in
+                  (Rec (tnames, (name, r1), (binds, ((t, d), e)), r), ctx_from_typing (name, te), 0, [T0 dummy])
+	        end
+	      | U.Datatype (name, tnames, sorts, constr_decls, r) =>
+	        let 
+                  val sorts = is_wf_sorts (sctx, sorts)
+	          val nk = (name, ArrowK (true, length tnames, sorts))
+	          val ctx as (sctx, kctx, _, _) = add_kinding_skct nk ctx
+	          fun make_constr ((name, ibinds, r) : U.constr_decl) =
+		      let 
+                        val c = (0, tnames, ibinds)
+		        val t = U.constr_type U.VarT shiftx_v c
+		        val t = is_wf_type ((sctx, kctx), t)
+			        handle Error (_, msg) =>
+				       raise Error (r, 
+					            "Constructor is ill-formed" :: 
+					            "Cause:" :: 
+					            indent msg)
+                        val () = if length (fv_t t) > 0 then
+                                   raise Error (r, ["Constructor has unresolved unification type variable(s)"])
+                                 else ()
+                        val (_, ibinds) = constr_from_type t
+		      in
+		        ((name, ibinds, r), (name, (0, tnames, ibinds)))
+		      end
+	          val (constr_decls, constrs) = (unzip o map make_constr) constr_decls
+	        in
+	          (Datatype (name, tnames, sorts, constr_decls, r), ([], [nk], rev constrs, []), 0, [])
+	        end
+              | U.IdxDef ((name, r), s, i) =>
+                let
+                  val s = is_wf_sort (sctx, s)
+                  val i = check_sort (sctx, i, s)
+                  val ctxd = ctx_from_sorting (name, s)
+                  val () = open_ctx ctxd
+                  val ps = [BinPred (EqP, VarI (0, r), shift_ctx_i ctxd i)]
+                  val () = open_premises ps
+                in
+                  (IdxDef ((name, r), s, i), ctxd, length ps, [])
+                end
+              | U.AbsIdx (((name, r1), s, i), decls, r) =>
+                let
+                  val s = is_wf_sort (sctx, s)
+                  (* localized the scope of the evars introduced in type-checking absidx's definition *)
+                  val () = open_vc ()
+                  val i = check_sort (sctx, i, s)
+                  val ctxd = ctx_from_sorting (name, s)
+                  val () = open_ctx ctxd
+                  val ps = [BinPred (EqP, VarI (0, r), shift_ctx_i ctxd i)]
+                  val () = open_premises ps
+                  val (decls, ctxd2, nps, ds, _) = check_decls (add_ctx ctxd ctx, decls)
+                  val () = if nps = 0 then ()
+                           else raise Error (r, ["Can't have premise-generating pattern in abstype"])
+                  (* close and reopen *)
+                  val () = close_ctx ctxd2
+                  val () = close_vcs (length ps)
+                  val () = close_ctx ctxd
+                  val () = close_vc ()
+                  val ctxd = add_ctx ctxd2 ctxd
+                  val () = open_ctx ctxd
+                in
+                  (AbsIdx (((name, r1), s, i), decls, r), ctxd, 0, ds)
+                end
+	val () = println $ sprintf "  Typed : $ " [fst $ str_decl (ctx_names ctx) decl]
+	(* val () = print $ sprintf "   Time : $: \n" [str_i sctxn d] *)
       in
-        case decl of
-            U.Val (tnames, U.VarP (x, r1), e, r) =>
-            let 
-              val (e, t, d) = get_mtype (add_kindings_skct (zip ((rev o map fst) tnames, repeat (length tnames) Type)) ctx, e)
-              val t = if is_value e then 
-                        let
-                          val t = generalize t
-                          val t = foldr (fn (nm, t) => Uni (nm, t)) t tnames
-                        in
-                          t
-                        end
-                      else if length tnames = 0 then
-                        Mono t
-                      else
-                        raise Error (r, ["explicit type variable cannot be generalized because of value restriction"])
-            in
-              (Val (tnames, VarP (x, r1), e, r), ctx_from_typing (x, t), 0, [d])
-            end
-          | U.Val (tnames, pn, e, r) =>
-            let 
-              val () = if length tnames = 0 then ()
-                       else raise Error (r, ["compound pattern can't be generalized, so can't have explicit type variables"])
-              val skcctx = (sctx, kctx, cctx) 
-              val (e, t, d) = get_mtype (ctx, e)
-              val (pn, cover, ctxd, nps) = match_ptrn (skcctx, pn, t)
-              val d = shift_ctx_i ctxd d
-	      val () = check_exhaustive (skcctx, t, [cover], get_region_pn pn)
-            in
-              (Val (tnames, pn, e, r), ctxd, nps, [d])
-            end
-	  | U.Rec (tnames, (name, r1), (binds, ((t, d), e)), r) => 
-	    let 
-              val ctx = add_kindings_skct (zip ((rev o map fst) tnames, repeat (length tnames) Type)) ctx
-              fun f (bind, (binds, ctxd, nps)) =
-                  case bind of
-                      U.SortingST (name, s) => 
-                      let 
-                        val ctx = add_ctx ctxd ctx
-                        val s = is_wf_sort (#1 ctx, s)
-                        val ctxd' = ctx_from_sorting (fst name, s)
-                        val () = open_ctx ctxd'
-                        val ctxd = add_ctx ctxd' ctxd
-                      in
-                        (inl (name, s) :: binds, ctxd, nps)
-                      end
-                    | U.TypingST pn =>
-                      let
-                        val ctx as (sctx, kctx, _, _) = add_ctx ctxd ctx
-                        val r = U.get_region_pn pn
-                        val t = fresh_mt (names kctx @ names sctx) r
-                        val skcctx = (sctx, kctx, cctx) 
-                        val (pn, cover, ctxd', nps') = match_ptrn (skcctx, pn, t)
-	                val () = check_exhaustive (skcctx, t, [cover], get_region_pn pn)
-                        val ctxd = add_ctx ctxd' ctxd
-                        val nps = nps' + nps
-                      in
-                        (inr (pn, t) :: binds, ctxd, nps)
-                      end
-              val (binds, ctxd, nps) = foldl f ([], empty_ctx, 0) binds
-              val binds = rev binds
-              val (sctx, kctx, _, _) = add_ctx ctxd ctx
-	      val t = is_wf_mtype ((sctx, kctx), t)
-	      val d = check_bsort (sctx, d, Base Time)
-              fun g (bind, t) =
-                  case bind of
-		      inl (name, s) => UniI (s, BindI (name, t))
-		    | inr (_, t1) => Arrow (t1, T0 dummy, t)
-              val te = 
-                  case rev binds of
-                      inr (_, t1) :: binds =>
-                      foldl g (Arrow (t1, d, t)) binds
-                    | _ => raise Error (r, ["Recursion must have a typing bind as the last bind"])
-              val ctx = add_typing_skct (name, Mono te) ctx
-              val ctx = add_ctx ctxd ctx
-	      val e = check_mtype_time (ctx, e, t, d)
-              val () = close_vcs nps
-              val () = close_ctx ctxd
-              val te = generalize te
-              val te = foldr (fn (nm, t) => Uni (nm, t)) te tnames
-              fun h bind =
-                  case bind of
-                      inl a => SortingST a
-                    | inr (pn, _) => TypingST pn
-              val binds = map h binds
-            in
-              (Rec (tnames, (name, r1), (binds, ((t, d), e)), r), ctx_from_typing (name, te), 0, [T0 dummy])
-	    end
-	  | U.Datatype (name, tnames, sorts, constr_decls, r) =>
-	    let 
-              val sorts = is_wf_sorts (sctx, sorts)
-	      val nk = (name, ArrowK (true, length tnames, sorts))
-	      val ctx as (sctx, kctx, _, _) = add_kinding_skct nk ctx
-	      fun make_constr ((name, ibinds, r) : U.constr_decl) =
-		  let 
-                    val c = (0, tnames, ibinds)
-		    val t = U.constr_type U.VarT shiftx_v c
-		    val t = is_wf_type ((sctx, kctx), t)
-			    handle Error (_, msg) =>
-				   raise Error (r, 
-					        "Constructor is ill-formed" :: 
-					        "Cause:" :: 
-					        indent msg)
-                    val () = if length (fv_t t) > 0 then
-                               raise Error (r, ["Constructor has unresolved unification type variable(s)"])
-                             else ()
-                    val (_, ibinds) = constr_from_type t
-		  in
-		    ((name, ibinds, r), (name, (0, tnames, ibinds)))
-		  end
-	      val (constr_decls, constrs) = (unzip o map make_constr) constr_decls
-	    in
-	      (Datatype (name, tnames, sorts, constr_decls, r), ([], [nk], rev constrs, []), 0, [])
-	    end
-          | U.IdxDef ((name, r), s, i) =>
-            let
-              val s = is_wf_sort (sctx, s)
-              val i = check_sort (sctx, i, s)
-              val ctxd = ctx_from_sorting (name, s)
-              val () = open_ctx ctxd
-              val ps = [BinPred (EqP, VarI (0, r), shift_ctx_i ctxd i)]
-              val () = open_premises ps
-            in
-              (IdxDef ((name, r), s, i), ctxd, length ps, [])
-            end
-          | U.AbsIdx (((name, r1), s, i), decls, r) =>
-            let
-              val s = is_wf_sort (sctx, s)
-              (* localized the scope of the evars introduced in type-checking absidx's definition *)
-              val () = open_vc ()
-              val i = check_sort (sctx, i, s)
-              val ctxd = ctx_from_sorting (name, s)
-              val () = open_ctx ctxd
-              val ps = [BinPred (EqP, VarI (0, r), shift_ctx_i ctxd i)]
-              val () = open_premises ps
-              val (decls, ctxd2, nps, ds, _) = check_decls (add_ctx ctxd ctx, decls)
-              val () = if nps = 0 then ()
-                       else raise Error (r, ["Can't have premise-generating pattern in abstype"])
-              (* close and reopen *)
-              val () = close_ctx ctxd2
-              val () = close_vcs (length ps)
-              val () = close_ctx ctxd
-              val () = close_vc ()
-              val ctxd = add_ctx ctxd2 ctxd
-              val () = open_ctx ctxd
-            in
-              (AbsIdx (((name, r1), s, i), decls, r), ctxd, 0, ds)
-            end
+        ret
       end
 
   and check_rules (ctx as (sctx, kctx, cctx, tctx), rules, t as (t1, return), r) =
@@ -1621,9 +1626,9 @@ local
 	    let 
               val ans as (rule, (td, cover)) = check_rule (ctx, rule, t)
               val covers = (rev o map (snd o snd)) acc
-              (* val () = println "before check_redundancy()" *)
-	      (* val () = check_redundancy (skcctx, t1, covers, cover, get_region_rule rule) *)
-              (* val () = println "after check_redundancy()" *)
+                                                   (* val () = println "before check_redundancy()" *)
+	                                           (* val () = check_redundancy (skcctx, t1, covers, cover, get_region_rule rule) *)
+                                                   (* val () = println "after check_redundancy()" *)
 	    in
 	      ans :: acc
 	    end 
@@ -1690,7 +1695,7 @@ local
 
   and smart_write_le ctx (i1, i2, r) =
       let
-        val () = println $ sprintf "$ <= $" [str_i ctx i1, str_i ctx i2]
+        val () = println $ sprintf "Check Le : $ <= $" [str_i ctx i1, str_i ctx i2]
         fun is_fresh_i i =
             case i of
                 UVarI ((_, x), _) =>
@@ -1945,29 +1950,29 @@ local
         | Not (p, r) => N.Not (no_uvar_p p, r)
         | Quan (q, bs, name, p) => N.Quan (no_uvar_quan q, no_uvar_bsort bs, name, no_uvar_p p)
 
-  open VC
-
   fun vces_to_vcs vces =
       let
-        (* val () = println $ join " " $ map str_vce vces *)
+        open VC
+        val () = println "VCEs: "
+        val () = println $ join " " $ map str_vce vces
         val (fs, vces) = get_formulas vces
         val () = case vces of
                      [] => ()
                    | _ => raise Impossible "to_vcs (): remaining after get_formulas"
-        (* val () = println "" *)
-        (* val () = app println $ map (str_f []) fs *)
+        val () = println "Formulas: "
+        val () = app println $ map (str_f []) fs
         val p = formulas_to_prop fs
-        (* val () = println "" *)
-        (* val () = println $ Expr.str_p [] p *)
+        val () = println "Props: "
+        val () = println $ Expr.str_p [] p
         val p = no_uvar_p p
-        (* val () = println "" *)
-        (* val () = println $ str_p [] p *)
+        val () = println "NoUVar Props: "
+        val () = println $ str_p [] p
         val p = NoUVarSubst.simp_p p
         (* val () = println "" *)
         (* val () = println $ str_p [] p *)
         val p = uniquefy [] p
         val vcs = split_prop p
-                             (* val () = app println $ map (str_vc []) vcs *)
+        (* val () = app println $ concatMap (str_vc false "") vcs *)
       in
         vcs
       end
@@ -1989,6 +1994,31 @@ fun vcgen_expr ctx e =
 fun vcgen_expr_opt ctx e =
     runError (fn () => vcgen_expr ctx e) ()
 	     
+type typing_info = decl list * context * idx list * context
+
+fun str_typing_info ((decls, ctxd, ds, ctx) : typing_info) =
+    let
+      val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
+      val idx_lines =
+          (concatMap (fn (name, s) => [sprintf "$ : $" [name, str_s sctxn s], ""]) o rev o #1) ctxd
+      val type_lines =
+          (concatMap (fn (name, k) => [sprintf "$ :: $" [name, str_k sctxn k], ""]) o rev o #2) ctxd
+      val expr_lines =
+          (concatMap (fn (name, t) => [sprintf "$ : $" [name, str_t (sctxn, kctxn) t], ""]) o rev o #4) ctxd
+      val time_lines =
+          "Times:" :: "" ::
+          (concatMap (fn d => [sprintf "|> $" [str_i sctxn d], ""])) ds
+      val s = join_lines
+                (
+                  idx_lines
+                  @ type_lines
+                  @ expr_lines
+                (* @ time_lines  *)
+                )
+    in
+      s
+    end
+      
 fun vcgen_decls ctx decls =
     let
       fun m () =
@@ -1996,8 +2026,10 @@ fun vcgen_decls ctx decls =
             val (decls, ctxd, nps, ds, ctx) = check_decls (ctx, decls)
             val () = close_vcs nps
             val () = close_ctx ctxd
+            val ret = (decls, ctxd, ds, ctx)
+            val () = print $ str_typing_info ret
           in
-            (decls, ctxd, ds, ctx)
+            ret
           end
     in
       runWriter m ()
@@ -2028,7 +2060,7 @@ fun typecheck_expr (ctx as (sctx, kctx, cctx, tctx) : context) e : (expr * mtype
 fun typecheck_expr_opt ctx e =
     runError (fn () => typecheck_expr ctx e) ()
 
-type tc_result = (decl list * context * idx list * context) * VC.vc list
+type tc_result = typing_info * VC.vc list
 
 fun typecheck_decls (ctx as (sctx, kctx, cctx, tctx) : context) decls : tc_result =
     let 

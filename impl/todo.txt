@@ -30,7 +30,7 @@ Done. 29. Bug of type inference in tree_append_rlm. The inferred type has [{n} t
 Done. 30. Put [Unit] back to mtype from [base_type] because [Unit] is not a base type like [Int] but a structural building block.
 31. Have a good error message when insertion_sort.timl/[insert] doesn't have the needed return-annotation on [case].
 Done. 32. Be able to infer for [insertion_sort].
-33. [unify]'s [(UVar, UVar)] case could be dangerous.
+33. [unify]'s [(UVar, UVar)] case could be dangerous: shift_invis may not be transactional, and there is no circularity check.
 Done. 34. Have a standard library.
 35. Automatically generate premises in [VarP] case of [match_ptrn], from complement cover of previous rules.
 36. [case] should also copy [fun]'s [return] clause even without [using].

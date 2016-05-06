@@ -9,22 +9,13 @@ open TypeCheck
 
 infixr 0 $
 
-fun print_result show_region filename (((decls, ctxd, ds, ctx), vcs) : tc_result) =
+fun print_result show_region filename ((typing, vcs) : tc_result) =
     let 
-      val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
       val header =
           (* sprintf "Typechecked $" [filename] :: *)
           sprintf "Typechecking results for $:" [filename] ::
           [""]
-      val idx_lines =
-          (List.concat o map (fn (name, s) => [sprintf "$ : $" [name, str_s sctxn s], ""]) o rev o #1) ctxd
-      val type_lines =
-          (List.concat o map (fn (name, k) => [sprintf "$ :: $" [name, str_k sctxn k], ""]) o rev o #2) ctxd
-      val expr_lines =
-          (List.concat o map (fn (name, t) => [sprintf "$ : $" [name, str_t (sctxn, kctxn) t], ""]) o rev o #4) ctxd
-      val time_lines =
-          "Times:" :: "" ::
-          (List.concat o map (fn d => [sprintf "|> $" [str_i sctxn d], ""])) ds
+      val typing_lines = [str_typing_info typing]
       val vc_lines =
           sprintf "Verification Conditions: [count=$]" [str_int (length vcs)] ::
           "" ::
@@ -32,10 +23,7 @@ fun print_result show_region filename (((decls, ctxd, ds, ctx), vcs) : tc_result
       val s = join_lines 
                 (
                   header
-                  @ idx_lines 
-                  @ type_lines 
-                  @ expr_lines 
-                (* @ time_lines  *)
+                  @ typing_lines 
                 (* @ vc_lines *)
                 )
     in
