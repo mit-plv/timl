@@ -116,6 +116,43 @@ local
 
     fun on_return (ctx as (sctx, _)) return = mapPair (Option.map (on_mtype ctx), Option.map (on_idx sctx)) return
 
+    fun shift_return (sctxn, kctxn) (t, d) =
+      let
+        open UnderscoredSubst
+      in
+        (Option.map (fn t => shiftx_t_mt 0 kctxn $ shiftx_i_mt 0 sctxn t) t,
+         Option.map (fn d => shiftx_i_i 0 sctxn d) d)
+      end
+        
+    fun copy_anno (t, d) e =
+      case e of
+          Case (e, (t', d'), es, r) =>
+          let
+            fun copy a b = case a of
+                               NONE => b
+                             | SOME _ => a
+            val (t, d) = (copy t' t, copy d' d)
+            val es = map (copy_anno_rule (t, NONE)) es
+          in
+            Case (e, (t, d), es, r)
+          end
+        | Let (decls, e, r) =>
+          let
+            val (_, (sctx, kctx, _, _)) = str_decls ([], [], [], []) decls
+            val (sctxn, kctxn) = (length sctx, length kctx)
+          in
+            Let (decls, copy_anno (shift_return (sctxn, kctxn) (t, NONE)) e, r)
+          end
+        | _ => e
+                
+    and copy_anno_rule return (pn, e) =
+      let
+        val (sctx, _) = ptrn_names pn
+        val offset = (length sctx, 0)
+      in
+        (pn, copy_anno (shift_return offset return) e)
+      end
+        
     fun on_expr (ctx as (sctx, kctx, cctx, tctx)) e =
       let 
           (* val () = println $ sprintf "on_expr $ in context $" [E.str_e ctx e, join " " tctx] *)
@@ -182,7 +219,13 @@ local
 	    | E.BinOp (opr, e1, e2) => BinOp (opr, on_expr ctx e1, on_expr ctx e2)
 	    | E.AppConstr (x, is, e) => AppConstr (on_var cctx x, map (on_idx sctx) is, on_expr ctx e)
 	    | E.Case (e, return, rules, r) =>
-              Case (on_expr ctx e, on_return skctx return, map (on_rule ctx) rules, r)
+              let
+                val return = on_return skctx return
+                val rules = map (on_rule ctx) rules
+                val rules = map (copy_anno_rule return) rules
+              in
+                Case (on_expr ctx e, return, rules, r)
+              end
 	    | E.Never t => Never (on_mtype skctx t)
       end
 
@@ -231,6 +274,7 @@ local
                 val t = on_mtype (sctx, kctx) t
                 val d = on_idx sctx d
                 val e = on_expr ctx e
+                val e = copy_anno (SOME t, SOME d) e
             in
                 (Rec (tnames, (name, r1), (binds, ((t, d), e)), r), ctx_ret)
             end

@@ -1010,7 +1010,7 @@ local
     fun trace s a = (println s; a)
                       
     fun is_covered ctx t small big =
-        (isNull o (trace "after any_missing()") o any_missing ctx t o (trace "after cover_imply()") o cover_imply (#3 ctx) t) (small, big)
+        (isNull o (* (trace "after any_missing()") o  *)any_missing ctx t o (* (trace "after cover_imply()") o  *)cover_imply (#3 ctx) t) (small, big)
 
   in              
 
@@ -1018,9 +1018,9 @@ local
       let
         val t = update_mt t
         val prev = combine_covers prevs
-        val () = println "after combine_covers()"
+        (* val () = println "after combine_covers()" *)
         val something_new = not (is_covered ctx t this prev)
-        val () = println "after is_covered()"
+        (* val () = println "after is_covered()" *)
       in
         if something_new then ()
         else raise Error (r, sprintf "Redundant rule: $" [str_cover (names cctx) this] :: indent [sprintf "Has already been covered by previous rules: $" [(join ", " o map (str_cover (names cctx))) prevs]])
@@ -1620,15 +1620,15 @@ local
 	    let 
               val ans as (rule, (td, cover)) = check_rule (ctx, rule, t)
               val covers = (rev o map (snd o snd)) acc
-              val () = println "before check_redundancy()"
+              (* val () = println "before check_redundancy()" *)
 	      (* val () = check_redundancy (skcctx, t1, covers, cover, get_region_rule rule) *)
-              val () = println "after check_redundancy()"
+              (* val () = println "after check_redundancy()" *)
 	    in
 	      ans :: acc
 	    end 
 	val (rules, (tds, covers)) = (mapSnd unzip o unzip o rev o foldl f []) rules
       in
-	check_exhaustive (skcctx, t1, covers, r);
+	(* check_exhaustive (skcctx, t1, covers, r); *)
         (rules, tds)
       end
 

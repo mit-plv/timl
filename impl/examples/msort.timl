@@ -5,7 +5,7 @@ fun split ['a] {n : Nat} (xs : {n} 'a list) return {ceil ($n/2)} _ list * {floor
       | Cons {_} (x1, Cons {_} (x2, xs)) =>
         case split {_} xs of
             (xs1, xs2) => (Cons {_} (x1, xs1), Cons {_} (x2, xs2))
-                              
+
 absidx f : {f : Fun 2 | f O _} with
 fun merge ['a] {m : Nat} (le : 'a * 'a -- $m --> bool) return using 0.0 =
     let

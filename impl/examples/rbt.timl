@@ -46,55 +46,52 @@ datatype {Nat} {Bool} 'a ins_result =
          InsResult {input_color : Bool} {bh : Nat} {output_color : Bool} {is_good : Bool} {_ : Unit | input_color = true -> is_good = true} of {bh} {output_color} {is_good} 'a arbt --> {bh} {input_color} 'a ins_result
 
 datatype cmp_result = Equal | Less | Greater
-                                       
-fun ins ['a] (cmp : 'a * 'a -- 7.0 --> cmp_result) =
-    let
-      fun ins {input_color : Bool} {bh : Nat} (tr : {bh} {input_color} 'a rbt) (new : 'a) return {bh} {input_color} 'a ins_result =
-          case tr of
-              Leaf =>
-              let
-                val tr = Red {_} (Leaf, new, Leaf)
-                val tr = Good {_} {_} (ifalse, tr)
-                val tr = InsResult {_} {_} {_} {_} {_} tr
-              in
-                tr
-              end
-            | Red {bh} (left, center, right) =>
-              (case cmp (new, center) of
-                   Equal => InsResult {_} {_} {_} {_} {_} (Good {_} {_} (ifalse, Red {_} (left, new, right)))
-                 | Less =>
-                   let
-                     val (InsResult {input_color} {bh} {output_color} {is_good} {_} left') = ins {_} {_} left new
-                   in
-                     case left' of
-                         Good {_} {_} (color, left') =>
-                         (case color of
-                              ifalse =>
-                              InsResult {_} {_} {_} {_} {_} (Bad {_} (ViolateLeft {_} {_} (left', center, right)))
-                            | itrue =>
-                              InsResult {_} {_} {_} {_} {_} (Good {_} {_} (ifalse, Red {_} (left', new, right)))
-                         )
-                       | _ => never
-                   end
-              )
-            | Black {lc} {rc} {bh'} (left, center, right) =>
-              (case cmp (new, center) of
-                   Equal =>
-                   InsResult {_} {_} {_} {_} {_} (Good {_} {_} (itrue, Black {_} {_} {_} (left, new, right)))
-                 | Less => 
-                   let
-                     val (InsResult {input_color} {bh'} {output_color} {is_good} {_} left') = ins {_} {_} left new
-                   in
-                     case left' of
-                         Good {_} {_} (_, left') =>
-                         InsResult {_} {_} {_} {_} {_} (Good {_} {_} (itrue, Black {_} (left', center, right)))
-                       | Bad {_} left' =>
-                         balance_left {_} {_} {_} {_} left' center right
-                   end
-              )
-    in
-      ins
-    end
+
+fun cmp ['a] (x : 'a, y : 'a) = Equal
+                                  
+fun ins ['a] {input_color : Bool} {bh : Nat} (tr : {bh} {input_color} 'a rbt) (new : 'a) return {bh} {input_color} 'a ins_result =
+  case tr of
+      Leaf =>
+      let
+        val tr = Red {_} (Leaf, new, Leaf)
+        val tr = Good {_} {_} (ifalse, tr)
+        val tr = InsResult {_} {_} {_} {_} {_} tr
+      in
+        tr
+      end
+    | Red {bh} (left, center, right) =>
+      (case cmp (new, center) of
+           Equal => InsResult {_} {_} {_} {_} {_} (Good {_} {_} (ifalse, Red {_} (left, new, right)))
+         | Less =>
+           let
+             val (InsResult {input_color} {bh} {output_color} {is_good} {_} left') = ins {_} {_} left new
+           in
+             case left' of
+                 Good {_} {_} (color, left') =>
+                 (case color of
+                      ifalse =>
+                      InsResult {_} {_} {_} {_} {_} (Bad {_} (ViolateLeft {_} {_} (left', center, right)))
+                    | itrue =>
+                      InsResult {_} {_} {_} {_} {_} (Good {_} {_} (ifalse, Red {_} (left', new, right)))
+                 )
+               | _ => never
+           end
+      )
+    | Black {lc} {rc} {bh'} (left, center, right) =>
+      (case cmp (new, center) of
+           Equal =>
+           InsResult {_} {_} {_} {_} {_} (Good {_} {_} (itrue, Black {_} {_} {_} (left, new, right)))
+         | Less => 
+           let
+             val (InsResult {input_color} {bh'} {output_color} {is_good} {_} left') = ins {_} {_} left new
+           in
+             case left' of
+                 Good {_} {_} (_, left') =>
+                 InsResult {_} {_} {_} {_} {_} (Good {_} {_} (itrue, Black {_} {_} {_} (left', center, right)))
+               | Bad {_} left' =>
+                 InsResult {_} {_} {_} {_} {_} (Good {_} {_} (ifalse, balance_left {_} {_} left' center right))
+           end
+      )
 
 fun blacken_root ['a] {bh : Nat} (tr : {bh} {false} 'a rbt) return {bh + 1} {true} 'a rbt =
     case tr of
@@ -113,11 +110,11 @@ fun insert ['a] {bh : Nat} (tr : {bh} 'a rb_tree) new return {bh} 'a rbt_may_gro
       val RBTree {_} tr = tr
     in
       case ins {_} {_} tr new of
-          Good {_} {_} (color, tr) =>
+          InsResult {_} {_} {_} {_} {_} (Good {_} {_} (color, tr)) =>
           (case color of
                itrue => RbtMayGrowOne {_} {bh} (RBTree {_} tr)
              | ifalse => RbtMayGrowOne {_} {bh + 1} (RBTree {_} (blacken_root {_} tr))
           )
-        | Bad {_} _ => never
+        | _ => never
     end
 

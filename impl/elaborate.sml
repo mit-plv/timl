@@ -172,8 +172,8 @@ local
           AliasP (name, elab_pn pn, r)
         | S.AnnoP (pn, t, r) =>
           AnnoP (elab_pn pn, elab_mt t)
-                                                              
-    and copy_annotations (t, d) =
+(*                                                              
+    and copy_anno (t, d) =
         let
           fun loop e =
               case e of
@@ -190,7 +190,7 @@ local
         in
           loop
         end
-                
+  *)              
     fun elab e =
 	case e of
 	    S.Var (x, r) =>
@@ -229,7 +229,7 @@ local
 	    AppI (elab e, elab_i i)
 	  | S.Case (e, return, rules, r) =>
 	    let
-              val rules = map (mapSnd (copy_annotations return)) rules
+              (* val rules = map (mapSnd (copy_anno return)) rules *)
 	    in
 		Case (elab e, elab_return return, map (fn (pn, e) => (elab_pn pn, elab e)) rules, r)
 	    end
@@ -254,7 +254,7 @@ local
 		    | TBind (Sorting (nm, s, _)) => SortingST (nm, elab_s s)
               val binds = map f binds
               (* if the function body is a [case] without annotations, copy the return clause from the function signature to the [case] *)
-              val e = copy_annotations (t, d) e
+              (* val e = copy_anno (t, d) e *)
               val t = default (UVar ((), r)) (Option.map elab_mt t)
               val d = default (UVarI ((), r)) (Option.map elab_i d)
               val e = elab e

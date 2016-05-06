@@ -50,7 +50,7 @@ fun get_model model =
 fun smt_solver filename vcs = 
     let
       val smt2 = to_smt2 vcs
-      val () = println smt2
+      (* val () = println smt2 *)
       val smt2_filename = filename ^ ".smt2"
       val resp_filename = filename ^ ".lisp"
       val () = write_file (smt2_filename, smt2)
@@ -112,5 +112,13 @@ fun smt_solver filename vcs =
     in
       vcs
     end
-      
+    handle
+    SMTError msg =>
+    let
+      val () = println $ "SMT error: " ^ msg
+      val vcs = map (fn vc => SOME (vc, NONE)) vcs
+    in
+      vcs
+    end
+    
 end
