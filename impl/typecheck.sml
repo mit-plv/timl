@@ -1391,6 +1391,7 @@ local
                   end
           (* val () = println $ str_ls id $ #4 ctxn *)
 	  val () = print (sprintf "  Typed : $: \n          $\n" [str_e ((* upd4 (const [])  *)ctxn) e, str_mt skctxn t])
+	  val () = print (sprintf "   Time : $: \n" [str_i sctxn d])
 	                 (* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_mt skctxn t, str_e ctxn e, str_i sctxn d]) *)
       in
         (e, t, d)
@@ -1689,6 +1690,7 @@ local
 
   and smart_write_le ctx (i1, i2, r) =
       let
+        val () = println $ sprintf "$ <= $" [str_i ctx i1, str_i ctx i2]
         fun is_fresh_i i =
             case i of
                 UVarI ((_, x), _) =>
@@ -1713,7 +1715,7 @@ local
   and check_mtype_time (ctx as (sctx, kctx, cctx, tctx), e, t, d) =
       let 
 	val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
-	(* val () = print (sprintf "Type checking $ against $ and $\n" [str_e ctxn e, str_t (sctxn, kctxn) t, str_i sctxn d]) *)
+	val () = print (sprintf "Type checking $ against $ and $\n" [U.str_e ctxn e, str_mt (sctxn, kctxn) t, str_i sctxn d])
 	val (e, _, d') = check_mtype (ctx, e, t)
         (* val () = println "check type & time" *)
         (* val () = println $ str_region "" "ilist.timl" $ get_region_e e *)
