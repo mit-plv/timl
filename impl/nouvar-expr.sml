@@ -189,6 +189,18 @@ local
           | UnOpI (ToReal, BinOpI (MultI, i1, i2), r) =>
             (set ();
              BinOpI (MultI, UnOpI (ToReal, i1, r), UnOpI (ToReal, i2, r)))
+          | UnOpI (Neg, TrueI _, r) =>
+            (set ();
+             FalseI r)
+          | UnOpI (Neg, FalseI _, r) =>
+            (set ();
+             TrueI r)
+          | UnOpI (B2n, TrueI _, r) =>
+            (set ();
+             ConstIN (1, r))
+          | UnOpI (B2n, FalseI _, r) =>
+            (set ();
+             ConstIN (0, r))
           | UnOpI (opr, i, r) =>
             UnOpI (opr, passi i, r)
           | TimeAbs ((name, r1), i, r) =>

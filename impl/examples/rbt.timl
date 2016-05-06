@@ -48,8 +48,9 @@ datatype {Nat} {Bool} 'a ins_result =
 datatype cmp_result = Equal | Less | Greater
 
 fun cmp ['a] (x : 'a, y : 'a) = Equal
-                                  
-fun ins ['a] {input_color : Bool} {bh : Nat} (tr : {bh} {input_color} 'a rbt) (new : 'a) return {bh} {input_color} 'a ins_result using 6.0 * $(2 * bh + b2n (not input_color)) =
+
+absidx g : BigO 1 (fn n => $n) (* = fn n => 6.0 * $n *) with                                   
+fun ins ['a] {input_color : Bool} {bh : Nat} (tr : {bh} {input_color} 'a rbt) (new : 'a) return {bh} {input_color} 'a ins_result using (* 6.0 * $ *)g (2 * bh + b2n (not input_color)) =
     case tr of
         Leaf =>
         let
@@ -92,6 +93,7 @@ fun ins ['a] {input_color : Bool} {bh : Nat} (tr : {bh} {input_color} 'a rbt) (n
                    InsResult {_} {_} {_} {_} {_} (Good {_} {_} (ifalse, balance_left {_} {_} left' center right))
              end
         )
+end
 
 fun blacken_root ['a] {bh : Nat} (tr : {bh} {false} 'a rbt) return {bh + 1} {true} 'a rbt =
     case tr of
@@ -104,8 +106,9 @@ datatype {Nat} 'a rb_tree =
                                    
 datatype {Nat} 'a rbt_may_grow_one =
          RbtMayGrowOne {bh : Nat} {bh' : Nat | bh' = bh \/ bh' = bh + 1} of {bh'} 'a rb_tree --> {bh} 'a rbt_may_grow_one
-                                                                                  
-fun insert ['a] {bh : Nat} (tr : {bh} 'a rb_tree) new return {bh} 'a rbt_may_grow_one using 3.0 + 12.0 * $bh =
+
+absidx g : BigO 1 (fn n => $n) with
+fun insert ['a] {bh : Nat} (tr : {bh} 'a rb_tree) new return {bh} 'a rbt_may_grow_one using g bh =
     case tr of
         RBTree {bh'} tr =>
         case ins {_} {_} tr new of
@@ -115,4 +118,4 @@ fun insert ['a] {bh : Nat} (tr : {bh} 'a rb_tree) new return {bh} 'a rbt_may_gro
                | ifalse => RbtMayGrowOne {_} {_} (RBTree {_} (blacken_root {_} tr))
             )
               (* | _ => never *)
-
+end

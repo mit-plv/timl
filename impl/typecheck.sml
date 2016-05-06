@@ -1697,7 +1697,7 @@ local
 
   and smart_write_le ctx (i1, i2, r) =
       let
-        val () = println $ sprintf "Check Le : $ <= $" [str_i ctx i1, str_i ctx i2]
+        (* val () = println $ sprintf "Check Le : $ <= $" [str_i ctx i1, str_i ctx i2] *)
         fun is_fresh_i i =
             case i of
                 UVarI ((_, x), _) =>
@@ -1722,7 +1722,7 @@ local
   and check_mtype_time (ctx as (sctx, kctx, cctx, tctx), e, t, d) =
       let 
 	val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
-	val () = print (sprintf "Type checking $ against $ and $\n" [U.str_e ctxn e, str_mt (sctxn, kctxn) t, str_i sctxn d])
+	(* val () = print (sprintf "Type checking $ against $ and $\n" [U.str_e ctxn e, str_mt (sctxn, kctxn) t, str_i sctxn d]) *)
 	val (e, _, d') = check_mtype (ctx, e, t)
         (* val () = println "check type & time" *)
         (* val () = println $ str_region "" "ilist.timl" $ get_region_e e *)
@@ -1955,20 +1955,20 @@ local
   fun vces_to_vcs vces =
       let
         open VC
-        val () = println "VCEs: "
-        val () = println $ join " " $ map str_vce vces
+        (* val () = println "VCEs: " *)
+        (* val () = println $ join " " $ map str_vce vces *)
         val (fs, vces) = get_formulas vces
         val () = case vces of
                      [] => ()
                    | _ => raise Impossible "to_vcs (): remaining after get_formulas"
-        val () = println "Formulas: "
-        val () = app println $ map (str_f []) fs
+        (* val () = println "Formulas: " *)
+        (* val () = app println $ map (str_f []) fs *)
         val p = formulas_to_prop fs
-        val () = println "Props: "
-        val () = println $ Expr.str_p [] p
+        (* val () = println "Props: " *)
+        (* val () = println $ Expr.str_p [] p *)
         val p = no_uvar_p p
-        val () = println "NoUVar Props: "
-        val () = println $ str_p [] p
+        (* val () = println "NoUVar Props: " *)
+        (* val () = println $ str_p [] p *)
         val p = NoUVarSubst.simp_p p
         (* val () = println "" *)
         (* val () = println $ str_p [] p *)
@@ -2029,7 +2029,7 @@ fun vcgen_decls ctx decls =
             val () = close_vcs nps
             val () = close_ctx ctxd
             val ret = (decls, ctxd, ds, ctx)
-            val () = print $ str_typing_info ret
+            (* val () = print $ str_typing_info ret *)
           in
             ret
           end
