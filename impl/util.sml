@@ -75,9 +75,9 @@ fun allSome f xs =
            SOME x =>
            (case allSome f xs of
                 OK xs => OK (x :: xs)
-              | Failed i => Failed (i + 1)
+              | Failed (i, x) => Failed (i + 1, x)
            )
-         | NONE => Failed 0
+         | NONE => Failed (0, x)
       )
 
 fun to_hd i l = List.nth (l, i) :: take i l @ drop (i + 1) l

@@ -31,7 +31,6 @@ fun balance_right ['a] {bh : Nat} {lc : Bool} (left as a : {bh} {lc} 'a rbt) (ce
       | ViolateLeft {_} {_} (Black {_} {_} {_} _, _, _) => never
       | ViolateRight {_} {_} (_, _, Leaf) => never
       | ViolateRight {_} {_} (_, _, Black {_} {_} {_} _) => never
-                                                              
 
 datatype {Bool} ibool =
          itrue of {true} ibool
