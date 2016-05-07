@@ -19,6 +19,7 @@ front-end/parser.sml \
 expr.sml \
 uvar-expr.sml \
 elaborate.sml \
+underscored-subst.sml \
 name-resolve.sml \
 subst.sml \
 trivial-solver.sml \
