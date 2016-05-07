@@ -1801,9 +1801,12 @@ local
 
   and expand_rules (ctx as (sctx, kctx, cctx), rules, t, r) =
       let
-        fun expand (rule as (pn, e), (pcovers, rules)) =
+        fun expand_rule (rule as (pn, e), (pcovers, rules)) =
           let
-            val cover = ptrn_to_cover pn
+	    val (_, cover, ctxd, nps) = match_ptrn (ctx, (* pcovers, *) pn, t)
+            val () = close_vcs nps
+            val () = close_ctx ctxd
+            (* val cover = ptrn_to_cover pn *)
             val () = println "before check_redundancy()"
             val () = check_redundancy (ctx, t, pcovers, cover, U.get_region_rule rule)
             val () = println "after check_redundancy()"
@@ -1830,7 +1833,7 @@ local
           in
             (pcovers, rules @ new_rules)
           end
-        val (pcovers, rules) = foldl expand ([], []) $ rules
+        val (pcovers, rules) = foldl expand_rule ([], []) $ rules
 	(* val () = check_exhaustion (ctx, t, pcovers, r); *)
       in
         rules
