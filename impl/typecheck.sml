@@ -937,19 +937,54 @@ local
 
     fun cover_imply cctx t (a, b) : cover =
       cover_neg cctx t a \/ b
-                              
+
+    fun simp_cover cover =
+      let
+        exception IsFalse
+        fun runUntilFalse m () =
+          m () handle IsFalse => FalseC
+        fun loop c =
+          case c of
+              AndC (c1, c2) =>
+              (case (loop c1, loop c2) of
+                   (TrueC, c) => c
+                 | (c, TrueC) => c
+                 | (c1, c2) => AndC (c1, c2)
+              )
+            | OrC (c1, c2) =>
+              (case (runUntilFalse (fn () => loop c1) (), runUntilFalse (fn () => loop c2) ()) of
+                   (FalseC, FalseC) => raise IsFalse
+                 | (FalseC, c) => c
+                 | (c, FalseC) => c
+                 | (c1, c2) => OrC (c1, c2)
+              )
+            | TTC => TTC
+            | PairC (c1, c2) => PairC (loop c1, loop c2)
+            | ConstrC (x, c) => ConstrC (x, loop c)
+            | TrueC => TrueC
+            | FalseC => raise IsFalse
+      in
+        runUntilFalse (fn () => loop cover) ()
+      end
+        
     fun find_habitant (ctx as (sctx, kctx, cctx)) (t : mtype) cs =
       let
+        fun collect_AndC c =
+          case c of
+              AndC (c1, c2) => collect_AndC c1 @ collect_AndC c2
+            | TrueC => []
+            | _ => [c]
+        fun combine_AndC cs = foldl' AndC TrueC cs
+        val cs = combine_AndC cs
+        val () = println $ "before simp_cover(): size=" ^ (str_int $ cover_size cs)
+        val cs = simp_cover cs
+        val () = println $ "after simp_cover(): size=" ^ (str_int $ cover_size cs)
+        val cs = collect_AndC cs
         (* use exception to mimic Error monad *)
         exception Incon of string
         fun loop (t : mtype) cs_all : habitant =
           let
             val t = update_mt t
-            fun collect_AndC c =
-              case c of
-                  AndC (c1, c2) => collect_AndC c1 @ collect_AndC c2
-                | _ => [c]
-            val cs_all = concatMap collect_AndC cs_all
           in
             case cs_all of
                 [] =>
@@ -996,16 +1031,16 @@ local
                       | _ => false
                   fun conflict a b = conflict_half a b orelse conflict_half b a
                   val () = app (fn c' => if conflict c c' then ((* println "conflict";  *)raise Incon "conflict") else ()) cs
-                  fun has_false c =
-                    case c of
-                        FalseC => true
-                      | TrueC => false
-                      | TTC => false
-                      | PairC (c1, c2) => has_false c1 orelse has_false c2
-                      | AndC (c1, c2) => has_false c1 orelse has_false c2
-                      | OrC (c1, c2) => has_false c1 andalso has_false c2
-                      | ConstrC (_, c) => has_false c
-                  val () = app (fn c' => if has_false c' then ((* println "conflict";  *)raise Incon "has false") else ()) cs_all
+                  (* fun has_false c = *)
+                  (*   case c of *)
+                  (*       FalseC => true *)
+                  (*     | TrueC => false *)
+                  (*     | TTC => false *)
+                  (*     | PairC (c1, c2) => has_false c1 orelse has_false c2 *)
+                  (*     | AndC (c1, c2) => has_false c1 orelse has_false c2 *)
+                  (*     | OrC (c1, c2) => has_false c1 andalso has_false c2 *)
+                  (*     | ConstrC (_, c) => has_false c *)
+                  (* val () = app (fn c' => if has_false c' then ((* println "has false";  *)raise Incon "has false") else ()) cs_all *)
                 in
                   case (c, t) of
                       (TrueC, _) => loop t cs
