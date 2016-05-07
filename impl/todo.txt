@@ -18,7 +18,7 @@ Abondoned. Unit and product types are required to define datatypes. 17. Remove u
 Done. 18. Example: Tree flatten.
 Done. 19. Example: Insertion sort.
 20. Have reference and arrays.
-21. RB-tree insertion.
+Done. 21. RB-tree insertion.
 22. RB-tree search.
 Done. 23. Braun tree insertion.
 24. A bug of position reporting when I change bigO spec of msort in msort.timl from [$m * $n * log2 $n] to [$n * log2 $n].
@@ -32,9 +32,10 @@ Done. 30. Put [Unit] back to mtype from [base_type] because [Unit] is not a base
 Done. 32. Be able to infer for [insertion_sort].
 33. [unify]'s [(UVar, UVar)] case could be dangerous: shift_invis may not be transactional, and there is no circularity check.
 Done. 34. Have a standard library.
-35. Automatically generate premises in [VarP] case of [match_ptrn], from complement cover of previous rules.
-36. [case] should also copy [fun]'s [return] clause even without [using].
+Done. 35. Automatically generate premises in [(VarP, Never)] case of [match_ptrn], from complement cover of previous rules.
+Done. 36. [case] should also copy [fun]'s [return] clause even without [using].
 Abondoned. No problem. 37. [as] pattern may have a problem in [balance_left].
-38. Redundancy checker runs forever on [balance_left].
+Done. 38. Bug: redundancy checker runs forever on [balance_left].
 39. rbt.timl typecheckes when using ForgetError-less [subst] and ForgetError-full [forget]. Investigate why.
-40. [find_habitant] can further simplify covers and speed up.
+Done. 40. [find_habitant] can further simplify covers and speed up.
+41. Have [type =] type aliasing.
