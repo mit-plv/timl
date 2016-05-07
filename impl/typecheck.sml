@@ -1803,16 +1803,16 @@ local
       let
         fun expand_rule (rule as (pn, e), (pcovers, rules)) =
           let
-	    val (_, cover, ctxd, nps) = match_ptrn (ctx, (* pcovers, *) pn, t)
+	    val (pn, cover, ctxd, nps) = match_ptrn (ctx, (* pcovers, *) pn, t)
             val () = close_vcs nps
             val () = close_ctx ctxd
             (* val cover = ptrn_to_cover pn *)
             val () = println "before check_redundancy()"
-            val () = check_redundancy (ctx, t, pcovers, cover, U.get_region_rule rule)
+            val () = check_redundancy (ctx, t, pcovers, cover, get_region_pn pn)
             val () = println "after check_redundancy()"
             val (pcovers, new_rules) =
-                case rule of
-                    (U.VarP _, U.Never (U.UVar _)) =>
+                case (pn, e) of
+                    (VarP _, U.Never (U.UVar _)) =>
                     let
                       fun loop pcovers =
                         case any_missing ctx t $ combine_covers pcovers of
@@ -1834,7 +1834,7 @@ local
             (pcovers, rules @ new_rules)
           end
         val (pcovers, rules) = foldl expand_rule ([], []) $ rules
-	(* val () = check_exhaustion (ctx, t, pcovers, r); *)
+	val () = check_exhaustion (ctx, t, pcovers, r);
       in
         rules
       end
