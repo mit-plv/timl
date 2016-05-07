@@ -37,3 +37,4 @@ Done. 34. Have a standard library.
 Abondoned. No problem. 37. [as] pattern may have a problem in [balance_left].
 38. Redundancy checker runs forever on [balance_left].
 39. rbt.timl typecheckes when using ForgetError-less [subst] and ForgetError-full [forget]. Investigate why.
+40. [find_habitant] can further simplify covers and speed up.
