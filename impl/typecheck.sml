@@ -941,7 +941,7 @@ local
     fun simp_cover cover =
       let
         exception IsFalse
-        fun runUntilFalse m () =
+        fun runUntilFalse m =
           m () handle IsFalse => FalseC
         fun loop c =
           case c of
@@ -952,7 +952,7 @@ local
                  | (c1, c2) => AndC (c1, c2)
               )
             | OrC (c1, c2) =>
-              (case (runUntilFalse (fn () => loop c1) (), runUntilFalse (fn () => loop c2) ()) of
+              (case (runUntilFalse (fn () => loop c1), runUntilFalse (fn () => loop c2)) of
                    (FalseC, FalseC) => raise IsFalse
                  | (FalseC, c) => c
                  | (c, FalseC) => c
@@ -964,7 +964,7 @@ local
             | TrueC => TrueC
             | FalseC => raise IsFalse
       in
-        runUntilFalse (fn () => loop cover) ()
+        runUntilFalse (fn () => loop cover)
       end
         
     fun find_habitant (ctx as (sctx, kctx, cctx)) (t : mtype) cs =
@@ -972,11 +972,11 @@ local
         (* fun split3 i l = (List.nth (l, i), take i l, drop (i + 1) l) *)
         fun i_tl_to_hd c i cs = to_hd (i + 1) (c :: cs)
         fun combine_AndC cs = foldl' AndC TrueC cs
-        fun collect_AndC c =
-          case c of
-              AndC (c1, c2) => collect_AndC c1 @ collect_AndC c2
-            | TrueC => []
-            | _ => [c]
+        (* fun collect_AndC c = *)
+        (*   case c of *)
+        (*       AndC (c1, c2) => collect_AndC c1 @ collect_AndC c2 *)
+        (*     | TrueC => [] *)
+        (*     | _ => [c] *)
         (* a faster version *)
         fun collect_AndC acc c =
           case c of
@@ -1101,12 +1101,13 @@ local
                       in
                         case allSome same_constr cs of
                             OK cs' =>
-                            let val (_, (_, _, ibinds)) = fetch_constr (cctx, (x, dummy))
-                                val (_, (t', _)) = unfold_ibinds ibinds
-		                val t' = subst_ts_mt ts t'
-                                (* val () = (* Debug. *)println (sprintf "All are $, now try to satisfy $" [str_v (names cctx) x, (join ", " o map (str_cover (names cctx))) (c' :: cs')]) *)
-                                val c' = loop t' (c' :: cs')
-                                val () = Debug.println (sprintf "Plugging $ into $" [str_habitant (names cctx) c', str_v (names cctx) x])
+                            let
+                              val (_, (_, _, ibinds)) = fetch_constr (cctx, (x, dummy))
+                              val (_, (t', _)) = unfold_ibinds ibinds
+		              val t' = subst_ts_mt ts t'
+                              (* val () = (* Debug. *)println (sprintf "All are $, now try to satisfy $" [str_v (names cctx) x, (join ", " o map (str_cover (names cctx))) (c' :: cs')]) *)
+                              val c' = loop t' (c' :: cs')
+                              val () = Debug.println (sprintf "Plugging $ into $" [str_habitant (names cctx) c', str_v (names cctx) x])
                             in
                               ConstrH (x, c')
                             end
