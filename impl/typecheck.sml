@@ -969,16 +969,31 @@ local
         
     fun find_habitant (ctx as (sctx, kctx, cctx)) (t : mtype) cs =
       let
+        (* fun split3 i l = (List.nth (l, i), take i l, drop (i + 1) l) *)
+        fun i_tl_to_hd c i cs = to_hd (i + 1) (c :: cs)
+        fun combine_AndC cs = foldl' AndC TrueC cs
         fun collect_AndC c =
           case c of
               AndC (c1, c2) => collect_AndC c1 @ collect_AndC c2
             | TrueC => []
             | _ => [c]
-        fun combine_AndC cs = foldl' AndC TrueC cs
+        (* a faster version *)
+        fun collect_AndC acc c =
+          case c of
+              AndC (c1, c2) =>
+              let
+                val acc = collect_AndC acc c1
+                val acc = collect_AndC acc c2
+              in
+                acc
+              end
+            | TrueC => acc
+            | _ => c :: acc
+        val collect_AndC = fn c => collect_AndC [] c
         val cs = combine_AndC cs
-        val () = println $ "before simp_cover(): size=" ^ (str_int $ cover_size cs)
+        (* val () = println $ "before simp_cover(): size=" ^ (str_int $ cover_size cs) *)
         val cs = simp_cover cs
-        val () = println $ "after simp_cover(): size=" ^ (str_int $ cover_size cs)
+        (* val () = println $ "after simp_cover(): size=" ^ (str_int $ cover_size cs) *)
         val cs = collect_AndC cs
         (* use exception to mimic Error monad *)
         exception Incon of string
@@ -1055,7 +1070,7 @@ local
                            if concrete dissident then
                              raise Incon "conflicts on tt"
                            else
-                             loop t (to_hd i cs @ [c])
+                             loop t (i_tl_to_hd c i cs)
                       )
                     | (PairC (c1, c2), Prod (t1, t2)) =>
                       (case allSome (fn c => case c of PairC p => SOME p | _ => NONE ) cs of
@@ -1071,7 +1086,7 @@ local
                            if concrete dissident then
                              raise Incon "conflicts on pair"
                            else
-                             loop t (to_hd i cs @ [c])
+                             loop t (i_tl_to_hd c i cs)
                       )
                     | (ConstrC (x, c'), AppV ((family, _), ts, _, _)) =>
                       let
@@ -1099,7 +1114,7 @@ local
                             if concrete dissident then
                               raise Incon $ "conflicts on constructor " ^ str_int x
                             else
-                              loop t (to_hd i cs @ [c])
+                              loop t (i_tl_to_hd c i cs)
                       end
                     | _ => raise impossible "find_habitant()"
                 end
@@ -1116,6 +1131,7 @@ local
       val nc = cover_neg ctx t c
       val () = println "after cover_neg()"
       (* val () = (* Debug. *)println (str_cover (names (#3 ctx)) nc) *)
+      val () = println "before find_habitant()"
       val ret = find_habitant ctx t [nc]
       val () = println "after find_habitant()"
     in
@@ -1834,7 +1850,7 @@ local
             (pcovers, rules @ new_rules)
           end
         val (pcovers, rules) = foldl expand_rule ([], []) $ rules
-	val () = check_exhaustion (ctx, t, pcovers, r);
+	(* val () = check_exhaustion (ctx, t, pcovers, r); *)
       in
         rules
       end
