@@ -41,7 +41,10 @@ main: main.mlb $(FILES)
 	mllex front-end/timl.lex
 	mlyacc sexp/sexp.grm
 	mllex sexp/sexp.lex
-	mlton main.mlb
+	mlton -profile time main.mlb
+
+profile:
+	mlprof main mlmon.out
 
 smlnj: main.cm
 	./format.rb ml-build -Ccompiler-mc.error-non-exhaustive-match=true -Ccompiler-mc.error-non-exhaustive-bind=true main.cm Main.main main-image

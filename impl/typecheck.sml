@@ -1130,7 +1130,7 @@ local
     let
       val t = update_mt t
       val nc = cover_neg ctx t c
-      val () = println "after cover_neg()"
+      (* val () = println "after cover_neg()" *)
       (* val () = (* Debug. *)println (str_cover (names (#3 ctx)) nc) *)
       val () = println "before find_habitant()"
       val ret = find_habitant ctx t [nc]
@@ -1142,15 +1142,15 @@ local
   fun trace s a = (println s; a)
                     
   fun is_covered ctx t small big =
-    (isNull o (trace "after any_missing()") o any_missing ctx t o (trace "after cover_imply()") o cover_imply ctx t) (small, big)
+    (isNull o (* (trace "after any_missing()") o *) any_missing ctx t o (* (trace "after cover_imply()") o *) cover_imply ctx t) (small, big)
 
   fun is_redundant (ctx, t, prevs, this) =
     let
       val t = update_mt t
       val prev = combine_covers prevs
-      val () = println "after combine_covers()"
+      (* val () = println "after combine_covers()" *)
       val something_new = not (is_covered ctx t this prev)
-      val () = println "after is_covered()"
+      (* val () = println "after is_covered()" *)
     in
       something_new
     end
@@ -1401,7 +1401,7 @@ local
     let val skctx = (sctx, kctx) 
 	val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
 	val skctxn = (sctxn, kctxn)
-	val () = print (sprintf "Typing $\n" [U.str_e ((* upd4 (const [])  *)ctxn) e_all])
+	(* val () = print (sprintf "Typing $\n" [U.str_e ((* upd4 (const [])  *)ctxn) e_all]) *)
         fun print_ctx (ctx as (sctx, kctx, _, tctx)) = app (fn (nm, t) => println $ sprintf "$: $" [nm, str_t (sctx_names sctx, names kctx) t]) tctx
 	val (e, t, d) =
 	    case e_all of
@@ -1824,9 +1824,9 @@ local
             val () = close_vcs nps
             val () = close_ctx ctxd
             (* val cover = ptrn_to_cover pn *)
-            val () = println "before check_redundancy()"
+            (* val () = println "before check_redundancy()" *)
             val () = check_redundancy (ctx, t, pcovers, cover, get_region_pn pn)
-            val () = println "after check_redundancy()"
+            (* val () = println "after check_redundancy()" *)
             val (pcovers, new_rules) =
                 case (pn, e) of
                     (VarP _, U.Never (U.UVar _)) =>
