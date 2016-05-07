@@ -900,9 +900,11 @@ local
     fun get_family_members cctx x =
       (rev o List.mapPartial (fn (n, (_, c)) => if get_family c = x then SOME n else NONE) o add_idx) cctx
 
-    fun cover_neg cctx (t : mtype) c =
-      let fun neg c = cover_neg cctx t c
-          fun neg' t c = cover_neg cctx t c
+    fun cover_neg (ctx as (_, kctx, cctx)) (t : mtype) c =
+      let
+        fun neg c = cover_neg ctx t c
+        fun neg' t c = cover_neg ctx t c
+        val t = update_mt t
       in
         case c of
             TrueC => FalseC
@@ -920,16 +922,17 @@ local
           | c_all as ConstrC (x, c) =>
 	    (case t of
 	         AppV ((family, _), ts, _, _) =>
-	         let val all = get_family_members cctx family
-		     val others = diff op= all [x]
-                     val (_, (_, _, ibinds)) = fetch_constr (cctx, (x, dummy))
-                     val (_, (t', _)) = unfold_ibinds ibinds
-		     val t' = subst_ts_mt ts t'
-                     val covers = ConstrC (x, cover_neg cctx t' c) :: map (fn y => ConstrC (y, TrueC)) others
+	         let
+                   val all = get_family_members cctx family
+		   val others = diff op= all [x]
+                   val (_, (_, _, ibinds)) = fetch_constr (cctx, (x, dummy))
+                   val (_, (t', _)) = unfold_ibinds ibinds
+		   val t' = subst_ts_mt ts t'
+                   val covers = ConstrC (x, cover_neg ctx t' c) :: map (fn y => ConstrC (y, TrueC)) others
 	         in
                    combine_covers covers
 	         end
-	       | _ => raise impossible $ sprintf "cover_neg()/ConstrC:  cover is $ but type is " [str_cover (names cctx) c_all, str_mt ([], []) t])
+	       | _ => raise impossible $ sprintf "cover_neg()/ConstrC:  cover is $ but type is " [str_cover (names cctx) c_all, str_mt ([], names kctx) t])
       end
 
     fun cover_imply cctx t (a, b) : cover =
@@ -941,6 +944,7 @@ local
         exception Incon of string
         fun loop (t : mtype) cs_all : habitant =
           let
+            val t = update_mt t
             fun collect_AndC c =
               case c of
                   AndC (c1, c2) => collect_AndC c1 @ collect_AndC c2
@@ -1073,7 +1077,8 @@ local
 
   fun any_missing ctx t c =
     let
-      val nc = cover_neg (#3 ctx) t c
+      val t = update_mt t
+      val nc = cover_neg ctx t c
       val () = println "after cover_neg()"
       (* val () = (* Debug. *)println (str_cover (names (#3 ctx)) nc) *)
       val ret = find_habitant ctx t [nc]
@@ -1085,7 +1090,7 @@ local
   fun trace s a = (println s; a)
                     
   fun is_covered ctx t small big =
-    (isNull o (trace "after any_missing()") o any_missing ctx t o (trace "after cover_imply()") o cover_imply (#3 ctx) t) (small, big)
+    (isNull o (trace "after any_missing()") o any_missing ctx t o (trace "after cover_imply()") o cover_imply ctx t) (small, big)
 
   fun is_redundant (ctx, t, prevs, this) =
     let
@@ -1130,6 +1135,7 @@ local
       (* exception Error of string *)
       (* fun runError m () = *)
       (*   SOME (m ()) handle Error _ => NONE *)
+      val t = update_mt t
       fun loop cutoff t hab =
         case (hab, t) of
             (ConstrH (x, h'), AppV ((family, _), ts, _, _)) =>

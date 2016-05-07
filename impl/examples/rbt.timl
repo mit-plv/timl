@@ -14,11 +14,6 @@ fun balance_left ['a] {bh : Nat} {rc : Bool} (left : {bh} 'a violation) (center 
       Red {_} (Black {_} {_} {_} (a, x, b), y, Black {_} {_} {_} (c, z, d))
     | ViolateRight {_} {_} (a, x, Red {_} (b, y, c)) =>
       Red {_} (Black {_} {_} {_} (a, x, b), y, Black {_} {_} {_} (c, z, d))
-    (* the following will be combined into [_ => never] in the future *)
-    (* | ViolateLeft {_} {_} (Leaf, _, _) => never *)
-    (* | ViolateLeft {_} {_} (Black {_} {_} {_} _, _, _) => never *)
-    (* | ViolateRight {_} {_} (_, _, Leaf) => never *)
-    (* | ViolateRight {_} {_} (_, _, Black {_} {_} {_} _) => never *)
     | _ => never
              
 fun balance_right ['a] {bh : Nat} {lc : Bool} (left as a : {bh} {lc} 'a rbt) (center as x) (right : {bh} 'a violation) return {bh + 1} {false} 'a rbt =
@@ -27,11 +22,6 @@ fun balance_right ['a] {bh : Nat} {lc : Bool} (left as a : {bh} {lc} 'a rbt) (ce
       Red {_} (Black {_} {_} {_} (a, x, b), y, Black {_} {_} {_} (c, z, d))
     | ViolateRight {_} {_} (b, y, Red {_} (c, z, d)) =>
       Red {_} (Black {_} {_} {_} (a, x, b), y, Black {_} {_} {_} (c, z, d))
-    (* the following will be combined into [_ => never] in the future *)
-    (* | ViolateLeft {_} {_} (Leaf, _, _) => never *)
-    (* | ViolateLeft {_} {_} (Black {_} {_} {_} _, _, _) => never *)
-    (* | ViolateRight {_} {_} (_, _, Leaf) => never *)
-    (* | ViolateRight {_} {_} (_, _, Black {_} {_} {_} _) => never *)
     | _ => never
 
 datatype {Bool} ibool =
