@@ -1850,7 +1850,7 @@ local
             (pcovers, rules @ new_rules)
           end
         val (pcovers, rules) = foldl expand_rule ([], []) $ rules
-	(* val () = check_exhaustion (ctx, t, pcovers, r); *)
+	val () = check_exhaustion (ctx, t, pcovers, r);
       in
         rules
       end

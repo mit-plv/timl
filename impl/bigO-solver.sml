@@ -102,6 +102,8 @@ fun summarize on_error i =
         mult_class (summarize on_error a, summarize on_error b)
       | BinOpI (AddI, a, b) =>
         add_class (summarize on_error a, summarize on_error b)
+      | BinOpI (MaxI, a, b) =>
+        add_class (summarize on_error a, summarize on_error b)
       | _ => on_error $ "summarize fails with " ^ str_i [] i
 
 fun class_entry_le ((c, k), (c', k')) =
@@ -406,6 +408,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                     (* test the case: T n + C <= T (n + 1) *)
                     let
                       val () = printf "Failed the [T (n/b)] case because: $\nTry [T (n-1)] case ...\n" [msg]
+                      (* val i1 = simp_i i1 *)
                       val is = collect_AddI i1
                       fun par i =
                           case i of

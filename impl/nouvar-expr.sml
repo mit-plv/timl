@@ -125,6 +125,7 @@ local
     val changed = ref false
     fun unset () = changed := false
     fun set () = changed := true
+    fun mark a = (set (); a)
     fun passi i =
 	case i of
             DivI (i1, n2) => DivI (passi i1, n2)
@@ -136,7 +137,26 @@ local
 		     (set ();
                       i1)
 	         else
-		     BinOpI (opr, passi i1, passi i2)
+                   let
+                     fun default () = BinOpI (opr, passi i1, passi i2)
+                   in
+                     case (i1, i2) of
+                         (BinOpI (opr, i1, i2), BinOpI (opr', i1', i2')) =>
+                         if opr = opr' then
+                           if opr = AddI orelse opr = MultI then
+                             if eq_i i1 i1' then
+                               mark $ BinOpI (opr, i1, BinOpI (MaxI, i2, i2'))
+                             else if eq_i i2 i2' then
+                               mark $ BinOpI (opr, BinOpI (MaxI, i1, i1'), i2)
+                             else default ()
+                           else if opr = TimeApp then
+                             if eq_i i1 i1' then
+                               mark $ BinOpI (opr, i1, BinOpI (MaxI, i2, i2'))
+                             else default ()
+                           else default ()
+                         else default ()
+                       | _ => default ()
+                   end
 	       | MinI =>
 	         if eq_i i1 i2 then
 		     (set ();
