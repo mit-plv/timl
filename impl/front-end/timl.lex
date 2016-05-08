@@ -120,6 +120,7 @@ id_init = ({alpha}|[_']);
 <INITIAL>"*" => (T.MULT (make_region (yypos, size yytext)));
 <INITIAL>"/" => (T.DIV (make_region (yypos, size yytext)));
 <INITIAL>"$" => (T.DOLLAR (make_region (yypos, size yytext)));
+<INITIAL>"@" => (T.AT (make_region (yypos, size yytext)));
 <INITIAL>"<==" => (T.BIG_O_INFIX (make_region (yypos, size yytext)));
 
 <INITIAL>{digit}+\.{digit}+ => ((T.NNREAL o flat)

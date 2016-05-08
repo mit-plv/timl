@@ -544,6 +544,12 @@ local
         U.Base bs => Base bs
       | U.UVarBS () => fresh_bsort ()
 
+  fun get_base r ctx s =
+      case update_s s of
+          Basic (s, _) => s
+        | Subset ((s, _), _) => s
+        | UVarS _ => raise Error (r, [sprintf "Can't figure out base sort of $" [str_s ctx s]])
+                           
   fun is_wf_sort (ctx : scontext, s : U.sort) : sort =
     case s of
 	U.Basic (bs, r) => Basic (is_wf_bsort bs, r)
@@ -613,11 +619,6 @@ local
       case i of
 	  U.VarI (x, r) =>
           let
-            fun get_base r ctx s =
-              case update_s s of
-                  Basic (s, _) => s
-                | Subset ((s, _), _) => s
-                | UVarS _ => raise Error (r, [sprintf "Can't figure out base sort of $" [str_s ctx s]])
           in
 	    case lookup_sort x ctx of
       		SOME s => (VarI (x, r), get_base r (sctx_names ctx) s)
@@ -1440,17 +1441,31 @@ local
 	val skctxn = (sctxn, kctxn)
 	(* val () = print (sprintf "Typing $\n" [U.str_e ((* upd4 (const [])  *)ctxn) e_all]) *)
         fun print_ctx (ctx as (sctx, kctx, _, tctx)) = app (fn (nm, t) => println $ sprintf "$: $" [nm, str_t (sctx_names sctx, names kctx) t]) tctx
-	val (e, t, d) =
+	fun main () =
 	    case e_all of
-		U.Var x =>
+		U.Var (info as ((x, r), is_explicit_idx_args)) =>
                 let
-                  val r = U.get_region_e e_all
-                  fun insert t =
+                  fun insert_type_args t =
                     case t of
                         Mono t => t
-                      | Uni (_, t) => insert (subst_t_t (fresh_mt (kctxn @ sctxn) r) t)
+                      | Uni (_, t) => insert_type_args (subst_t_t (fresh_mt (kctxn @ sctxn) r) t)
+                  val t = insert_type_args (fetch_var (tctx, (x, r)))
+                  fun insert_idx_args (sctxn, t) =
+                      case t of
+                          UniI (s, BindI ((name, _), t)) =>
+                          let
+                            (* val bs = fresh_bsort () *)
+                            val bs =  get_base r sctxn s
+                          in
+                            insert_idx_args (name :: sctxn, subst_i_mt (fresh_i sctxn bs r) t)
+                          end
+                        | _ => t
+                  val t = if not is_explicit_idx_args then
+                            insert_idx_args (sctxn, t)
+                          else
+                            t
                 in
-                  (Var x, insert (fetch_var (tctx, x)), T0 dummy)
+                  (Var info, t, T0 dummy)
                 end
 	      | U.App (e1, e2) =>
 		let 
@@ -1509,7 +1524,7 @@ local
                   val r = U.get_region_e e
                   val s = fresh_sort sctxn r
                   val t1 = fresh_mt (kctxn @ sctxn) r
-                  val (e, t, d) = check_mtype (ctx, e, UniI (s, BindI (("uvar", r), t1))) 
+                  val (e, t, d) = check_mtype (ctx, e, UniI (s, BindI (("_", r), t1))) 
                   val i = check_sort (sctx, i, s) 
                 in
 		  (AppI (e, i), subst_i_mt i t1, d)
@@ -1562,11 +1577,11 @@ local
 		end
 	      | U.ConstInt n => 
 		(ConstInt n, BaseType (Int, dummy), T0 dummy)
-	      | U.AppConstr (cx as (_, rc), is, e) => 
+	      | U.AppConstr ((cx as (_, rc), eia), is, e) => 
 		let 
                   val (cname, tc) = fetch_constr_type (cctx, cx)
 		  (* delegate to checking [cx {is} e] *)
-		  val f = U.Var (0, rc)
+		  val f = U.Var ((0, rc), eia)
 		  val f = foldl (fn (i, e) => U.AppI (e, i)) f is
 		  val e = U.App (f, shift_e_e e)
 		  val (e, t, d) = get_mtype (add_typing_skct (cname, tc) ctx, e) 
@@ -1593,7 +1608,7 @@ local
                             val (_, is) = peel_AppI f
                             val e = forget_e_e 0 1 e
                           in
-                            AppConstr (cx, is, e)
+                            AppConstr ((cx, eia), is, e)
                           end
                         | _ => raise Impossible "get_mtype (): U.AppConstr: e in wrong form"
 		in
@@ -1623,10 +1638,13 @@ local
                 in
 		  (Never t, t, T0 dummy)
                 end
-                  (* val () = println $ str_ls id $ #4 ctxn *)
-	          (* val () = print (sprintf "  Typed : $: \n          $\n" [str_e ((* upd4 (const [])  *)ctxn) e, str_mt skctxn t]) *)
-	          (* val () = print (sprintf "   Time : $: \n" [str_i sctxn d]) *)
-	          (* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_mt skctxn t, str_e ctxn e, str_i sctxn d]) *)
+	val (e, t, d) = main ()
+                        handle
+                        Error (r, msg) => raise Error (r, msg @ ["when typechecking"] @ indent [U.str_e ctxn e_all])
+        (* val () = println $ str_ls id $ #4 ctxn *)
+	(* val () = print (sprintf "  Typed : $: \n          $\n" [str_e ((* upd4 (const [])  *)ctxn) e, str_mt skctxn t]) *)
+	(* val () = print (sprintf "   Time : $: \n" [str_i sctxn d]) *)
+	(* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_mt skctxn t, str_e ctxn e, str_i sctxn d]) *)
     in
       (e, t, d)
     end

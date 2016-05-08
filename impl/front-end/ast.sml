@@ -79,7 +79,7 @@ datatype bind =
 type return = ty option * idx option
              
 datatype exp = 
-	 Var of string * region
+	 Var of (string * region) * bool
        | Tuple of exp list * region
        | Abs of bind list * return * exp * region
        | App of exp * exp * region

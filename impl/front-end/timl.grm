@@ -52,6 +52,7 @@ open Ast
     | BOGUS of string
     | AS
     | DOLLAR
+    | AT
     | GT
     | BIG_O_INFIX
     | IDX
@@ -156,7 +157,8 @@ exp : aexp (aexp)
      | exp LCUR idx RCUR (AppI (exp, idx, (expleft, idxright)))
      | exp aexp (App (exp, aexp, (expleft, aexpright)))
 
-aexp : id (Var id)
+aexp : id (Var (id, false))
+     | AT id (Var (id, true))          
      | LPAREN exp_comma_star RPAREN (Tuple (exp_comma_star, (LPARENleft, RPARENright)))
      | FN bind_plus return DARROW exp (Abs (bind_plus, return, exp, (FNleft, expright)))
      | CASE exp return OF rule_bar_star (Case (exp, return, rule_bar_star, (CASEleft, rule_bar_starright)))

@@ -11,17 +11,17 @@ datatype {Nat} 'a violation =
 fun balance_left ['a] {bh : Nat} {rc : Bool} (left : {bh} 'a violation) (center as z) (right as d : {bh} {rc} 'a rbt) return {bh + 1} {false} 'a rbt =
     case left of
         ViolateLeft {_} {_} (Red {_} (a, x, b), y, c) =>
-        Red {_} (Black {_} {_} {_} (a, x, b), y, Black {_} {_} {_} (c, z, d))
+        Red (Black (a, x, b), y, Black (c, z, d))
       | ViolateRight {_} {_} (a, x, Red {_} (b, y, c)) =>
-        Red {_} (Black {_} {_} {_} (a, x, b), y, Black {_} {_} {_} (c, z, d))
+        Red (Black (a, x, b), y, Black (c, z, d))
       | _ => never
                
 fun balance_right ['a] {bh : Nat} {lc : Bool} (left as a : {bh} {lc} 'a rbt) (center as x) (right : {bh} 'a violation) return {bh + 1} {false} 'a rbt =
     case right of
         ViolateLeft {_} {_} (Red {_} (b, y, c), z, d) =>
-        Red {_} (Black {_} {_} {_} (a, x, b), y, Black {_} {_} {_} (c, z, d))
+        Red (Black (a, x, b), y, Black (c, z, d))
       | ViolateRight {_} {_} (b, y, Red {_} (c, z, d)) =>
-        Red {_} (Black {_} {_} {_} (a, x, b), y, Black {_} {_} {_} (c, z, d))
+        Red (Black (a, x, b), y, Black (c, z, d))
       | _ => never
 
 datatype {Bool} ibool =
@@ -45,40 +45,40 @@ fun ins ['a] {input_color : Bool} {bh : Nat} (tr : {bh} {input_color} 'a rbt) (n
     case tr of
         Leaf =>
         let
-          val tr = Red {_} (Leaf, new, Leaf)
-          val tr = Good {_} {_} (ifalse, tr)
-          val tr = InsResult {_} {_} {_} {_} {_} tr
+          val tr = Red (Leaf, new, Leaf)
+          val tr = Good (ifalse, tr)
+          val tr = InsResult tr
         in
           tr
         end
       | Red {bh} (left, center, right) =>
         (case cmp (new, center) of
-             Equal => InsResult {_} {_} {_} {_} {_} (Good {_} {_} (ifalse, Red {_} (left, new, right)))
+             Equal => InsResult (Good (ifalse, Red (left, new, right)))
            | Less =>
              let
-               val (InsResult {_} {_} {_} {_} {_} left) = ins {_} {_} left new
+               val (InsResult {_} {_} {_} {_} {_} left) = ins left new
              in
                case left of
                    Good {_} {_} (color, left) =>
                    (case color of
                         ifalse =>
-                        InsResult {_} {_} {_} {_} {_} (Bad {_} (ViolateLeft {_} {_} (left, center, right)))
+                        InsResult (Bad (ViolateLeft (left, center, right)))
                       | itrue =>
-                        InsResult {_} {_} {_} {_} {_} (Good {_} {_} (ifalse, Red {_} (left, new, right)))
+                        InsResult (Good (ifalse, Red (left, new, right)))
                    )
                  | _ => never
              end
            | Greater =>
              let
-               val (InsResult {_} {_} {_} {_} {_} right) = ins {_} {_} right new
+               val (InsResult {_} {_} {_} {_} {_} right) = ins right new
              in
                case right of
                    Good {_} {_} (color, right) =>
                    (case color of
                         ifalse =>
-                        InsResult {_} {_} {_} {_} {_} (Bad {_} (ViolateRight {_} {_} (left, center, right)))
+                        InsResult (Bad (ViolateRight (left, center, right)))
                       | itrue =>
-                        InsResult {_} {_} {_} {_} {_} (Good {_} {_} (ifalse, Red {_} (left, new, right)))
+                        InsResult (Good (ifalse, Red (left, new, right)))
                    )
                  | _ => never
              end
@@ -86,33 +86,33 @@ fun ins ['a] {input_color : Bool} {bh : Nat} (tr : {bh} {input_color} 'a rbt) (n
       | Black {lc} {rc} {bh'} (left, center, right) =>
         (case cmp (new, center) of
              Equal =>
-             InsResult {_} {_} {_} {_} {_} (Good {_} {_} (itrue, Black {_} {_} {_} (left, new, right)))
+             InsResult (Good (itrue, Black (left, new, right)))
            | Less => 
              let
-               val (InsResult {_} {_} {_} {_} {_} left) = ins {_} {_} left new
+               val (InsResult {_} {_} {_} {_} {_} left) = ins left new
              in
                case left of
                    Good {_} {_} (_, left) =>
-                   InsResult {_} {_} {_} {_} {_} (Good {_} {_} (itrue, Black {_} {_} {_} (left, center, right)))
+                   InsResult (Good (itrue, Black (left, center, right)))
                  | Bad {_} left =>
-                   InsResult {_} {_} {_} {_} {_} (Good {_} {_} (ifalse, balance_left {_} {_} left center right))
+                   InsResult (Good (ifalse, balance_left left center right))
              end
            | Greater => 
              let
-               val (InsResult {_} {_} {_} {_} {_} right) = ins {_} {_} right new
+               val (InsResult {_} {_} {_} {_} {_} right) = ins right new
              in
                case right of
                    Good {_} {_} (_, right) =>
-                   InsResult {_} {_} {_} {_} {_} (Good {_} {_} (itrue, Black {_} {_} {_} (left, center, right)))
+                   InsResult (Good (itrue, Black (left, center, right)))
                  | Bad {_} right =>
-                   InsResult {_} {_} {_} {_} {_} (Good {_} {_} (ifalse, balance_right {_} {_} left center right))
+                   InsResult (Good (ifalse, balance_right left center right))
              end
         )
 end
 
 fun blacken_root ['a] {bh : Nat} (tr : {bh} {false} 'a rbt) return {bh + 1} {true} 'a rbt =
     case tr of
-        Red {_} (l, c, r) => Black {_} {_} {_} (l, c, r)
+        Red {_} (l, c, r) => Black (l, c, r)
       | _ => never
 
 (* final packaging: root must be black *)
@@ -126,11 +126,11 @@ absidx g : BigO 1 (fn n => $n) with
 fun insert ['a] {bh : Nat} (tr : {bh} 'a rb_tree) new return {bh} 'a rbt_may_grow_one using g bh =
     case tr of
         RBTree {bh'} tr =>
-        case ins {_} {_} tr new of
+        case ins tr new of
             InsResult {_} {_} {_} {_} {_} (Good {_} {_} (color, tr)) =>
             (case color of
-                 itrue => RbtMayGrowOne {_} {_} (RBTree {_} tr)
-               | ifalse => RbtMayGrowOne {_} {_} (RBTree {_} (blacken_root {_} tr))
+                 itrue => RbtMayGrowOne (RBTree tr)
+               | ifalse => RbtMayGrowOne (RBTree (blacken_root tr))
             )
           | _ => never
 end
@@ -146,19 +146,19 @@ fun search ['a 'b] {color : Bool} {bh : Nat} (tr : {bh} {color} ('a * 'b) rbt) k
       | Red {_} (left, (k', v), right) =>
         (case cmp (k, k') of
              Equal => SOME v
-           | Less => search {_} {_} left k
-           | Greater => search {_} {_} right k
+           | Less => search left k
+           | Greater => search right k
         )
       | Black {_} {_} {_} (left, (k', v), right) =>
         (case cmp (k, k') of
              Equal => SOME v
-           | Less => search {_} {_} left k
-           | Greater => search {_} {_} right k
+           | Less => search left k
+           | Greater => search right k
         )
 end
 
 absidx g : BigO 1 (fn n => $n) with
 fun lookup ['a 'b] {bh : Nat} (tr : {bh} ('a * 'b) rb_tree) k return 'b option using g bh =
     case tr of
-        RBTree {_} tr => search {_} {_} tr k
+        RBTree {_} tr => search tr k
 end

@@ -3,8 +3,8 @@ fun split ['a] {n : Nat} (xs : {n} 'a list) return {ceil ($n/2)} _ list * {floor
         Nil => (Nil, Nil)
       | Cons {_} (x, Nil) => (xs, Nil)
       | Cons {_} (x1, Cons {_} (x2, xs)) =>
-        case split {_} xs of
-            (xs1, xs2) => (Cons {_} (x1, xs1), Cons {_} (x2, xs2))
+        case split xs of
+            (xs1, xs2) => (Cons (x1, xs1), Cons (x2, xs2))
 
 absidx f : {f : Fun 2 | f O _} with
 fun merge ['a] {m : Nat} (le : 'a * 'a -- $m --> bool) return using 0.0 =
@@ -15,10 +15,10 @@ fun merge ['a] {m : Nat} (le : 'a * 'a -- $m --> bool) return using 0.0 =
             | (_, Nil) => xs
             | (Cons {n1'} (x, xs'), Cons {n2'} (y, ys')) =>
               case le (x, y) (* return using 1.0 + f m (n1' + n2' + 1) *) of
-                  true => Cons {_} (x, merge {_} {_} (xs', ys))
-                | false => Cons {_} (y, merge {_} {_} (xs, ys'))
+                  true => Cons (x, merge (xs', ys))
+                | false => Cons (y, merge (xs, ys'))
     in
-      merge
+      @merge
     end
 end
 
@@ -30,8 +30,8 @@ fun msort ['a] {m : Nat} (le : 'a * 'a -- $m --> bool) =
               Nil => xs
             | (Cons {_} (_, Nil)) => xs
             | (Cons {n1} (_, Cons {n2} (_, _))) =>
-              case split {n} xs of
-                  (xs1, xs2) => merge {_} le {_} {_} (sort {_} xs1, sort {_} xs2)
+              case split xs of
+                  (xs1, xs2) => merge le {_} {_} (sort xs1, sort xs2)
     in
       sort
     end
@@ -45,10 +45,10 @@ fun msort ['a] {m : Nat} (le : 'a * 'a -- $m --> bool) =
               Nil => xs
             | (Cons {_} (_, Nil)) => xs
             | (Cons {n1} (_, Cons {n2} (_, _))) =>
-              case split {n} xs of
-                  (xs1, xs2) => merge {_} le {_} {_} (sort {_} xs1, sort {_} xs2)
+              case split xs of
+                  (xs1, xs2) => merge le {_} {_} (sort xs1, sort xs2)
     in
-      sort
+      @sort
     end
 end
 
@@ -56,10 +56,10 @@ absidx g : BigO 1 (fn n => $n) = fn n => 2.0 * $n with
 fun revAppend ['a] {n1 : Nat} (xs : {n1} 'a list) {n2 : Nat} (ys : {n2} 'a list) return {n1 + n2} _ list using g n1 =
     case xs of
         Nil => ys
-      | Cons {_} (x, xs) => revAppend {_} xs {_} (Cons {_} (x, ys))
+      | Cons {_} (x, xs) => revAppend xs {_} (Cons (x, ys))
 end
 
 absidx g : BigO 1 (fn n => $n) with
-fun rev ['a] {n : Nat} (xs : {n} 'a list) return {n} _ list using g n = revAppend {_} xs {_} Nil
+fun rev ['a] {n : Nat} (xs : {n} 'a list) return {n} _ list using g n = revAppend xs {_} Nil
 end
 

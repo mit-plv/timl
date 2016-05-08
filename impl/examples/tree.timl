@@ -7,7 +7,7 @@ fun map_tree ['a 'b] {m : Time} (f : 'a -- m --> 'b) =
       fun map {n : Nat} (tr : {n} _ tree) return {n} _ tree using (m + 3.0) * $n =
           case tr of
               Leaf => Leaf
-            | Node {n1 n2} (x, tr1, tr2) => Node {_} {_} (f x, map {_} tr1, map {_} tr2)
+            | Node {n1 n2} (x, tr1, tr2) => Node (f x, map tr1, map tr2)
     in
       map
     end
@@ -18,7 +18,7 @@ fun map_tree ['a 'b] {m : Nat} (f : 'a -- $m --> 'b) =
       fun map {n : Nat} (tr : {n} _ tree) return {n} _ tree using g m n =
           case tr of
               Leaf => Leaf
-            | Node {n1 n2} (x, tr1, tr2) => Node {_} {_} (f x, map {_} tr1, map {_} tr2)
+            | Node {n1 n2} (x, tr1, tr2) => Node (f x, map tr1, map tr2)
     in
       map
     end
@@ -30,7 +30,7 @@ fun map_tree ['a 'b] {m : Nat} (f : 'a -- $m --> 'b) =
       fun map {n : Nat} (tr : {n} _ tree) return {n} _ tree using g m n =
           case tr of
               Leaf => Leaf
-            | Node {n1 n2} (x, tr1, tr2) => Node {_} {_} (f x, map {_} tr1, map {_} tr2)
+            | Node {n1 n2} (x, tr1, tr2) => Node (f x, map tr1, map tr2)
     in
       map
     end
@@ -42,7 +42,7 @@ fun map_tree ['a 'b] {m : Nat} (f : 'a -- $m --> 'b) =
       fun map {n : Nat} (tr : {n} _ tree) return {n} _ tree using g m n =
           case tr of
               Leaf => Leaf
-            | Node {n1 n2} (x, tr1, tr2) => Node {_} {_} (f x, map {_} tr1, map {_} tr2)
+            | Node {n1 n2} (x, tr1, tr2) => Node (f x, map tr1, map tr2)
     in
       map
     end
@@ -57,8 +57,8 @@ fun tree_foldmlr ['a 'b] {m : Nat} (f : 'a * 'b -- $m --> 'b) =
             | Node {n1 n2} (x, tr1, tr2) =>
               let
                 val acc = f (x, acc)
-                val acc = fold {_} acc tr1
-                val acc = fold {_} acc tr2
+                val acc = fold acc tr1
+                val acc = fold acc tr2
               in
                 acc
               end
@@ -75,8 +75,8 @@ fun tree_foldrlm ['a 'b] {m : Nat} (f : 'a * 'b -- $m --> 'b) =
               Leaf => acc
             | Node {n1 n2} (x, tr1, tr2) =>
               let
-                val acc = fold {_} acc tr2
-                val acc = fold {_} acc tr1
+                val acc = fold acc tr2
+                val acc = fold acc tr1
                 val acc = f (x, acc)
               in
                 acc
@@ -92,9 +92,9 @@ fun tree_append_rlm (* ['a]  *){n : Nat} (tr : {n} (* 'a *)_ tree) {n2 : Nat} (l
         Leaf => ls
       | Node {n1 n2} (x (* : 'a *), tr1, tr2) =>
         let
-          val ls = tree_append_rlm {_} tr2 {_} ls
-          val ls = tree_append_rlm {_} tr1 {_} ls
-          val ls = Cons {_} (x, ls)
+          val ls = tree_append_rlm tr2 {_} ls
+          val ls = tree_append_rlm tr1 {_} ls
+          val ls = Cons (x, ls)
         in
           ls
         end
@@ -102,7 +102,7 @@ end
 
 absidx g : BigO 1 (fn n => $n) with
 fun tree_flatten_mlr (* ['a] *) {n : Nat} (tr : {n} _ tree) return {n} _ list using g n =
-    tree_append_rlm {_} tr {_} Nil
+    tree_append_rlm tr {_} Nil
 end
 
 datatype {Nat} 'a braun_tree =
@@ -112,6 +112,6 @@ datatype {Nat} 'a braun_tree =
 absidx g : BigO 1 (fn n => log2 $n) with
 fun braun_insert ['a] x {n : Nat} (tr : {n} 'a braun_tree) return {n + 1} 'a braun_tree using g n =
     case tr of
-        BraunLeaf => BraunNode {0} (x, BraunLeaf, BraunLeaf)
-      | BraunNode {n'} (y, l, r) => BraunNode {n' + 1} (x, braun_insert y {_} r, l)
+        BraunLeaf => BraunNode (x, BraunLeaf, BraunLeaf)
+      | BraunNode {n'} (y, l, r) => @BraunNode {n' + 1} (x, braun_insert y {_} r, l)
 end

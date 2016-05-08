@@ -39,4 +39,5 @@ Done. 38. Bug: redundancy checker runs forever on [balance_left].
 39. rbt.timl typecheckes when using ForgetError-less [subst] and ForgetError-full [forget]. Investigate why.
 Done. 40. [find_habitant] can further simplify covers and speed up.
 41. Have [type =] type aliasing.
-42. Maximally insertion of index arguments.
+Done. 42. Maximally insertion of index arguments.
+43. Maximally insertion of index arguments in patterns.

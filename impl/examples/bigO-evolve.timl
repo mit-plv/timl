@@ -8,7 +8,7 @@ val ['a 'b] map =
         fun map {n : Nat} (ls : {n} _ list) return {n} _ list using $(m + 2) * $n =
             case ls of
                 Nil => Nil
-              | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
+              | Cons {n'} (x, xs) => Cons (f x, map xs)
     in
         map
     end
@@ -21,7 +21,7 @@ val ['a 'b] map =
         fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
             case ls of
                 Nil => Nil
-              | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
+              | Cons {n'} (x, xs) => Cons (f x, map xs)
     in
         map
     end
@@ -35,7 +35,7 @@ val ['a 'b] map =
         fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
             case ls of
                 Nil => Nil
-              | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
+              | Cons {n'} (x, xs) => Cons (f x, map xs)
     in
         map
     end
@@ -49,7 +49,7 @@ val ['a 'b] map =
         fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
             case ls of
                 Nil => Nil
-              | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
+              | Cons {n'} (x, xs) => Cons (f x, map xs)
     in
         map
     end
@@ -63,7 +63,7 @@ val ['a 'b] map =
         fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
             case ls of
                 Nil => Nil
-              | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
+              | Cons {n'} (x, xs) => Cons (f x, map xs)
     in
         map
     end
@@ -77,7 +77,7 @@ val ['a 'b] map =
         fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
             case ls of
                 Nil => Nil
-              | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
+              | Cons {n'} (x, xs) => Cons (f x, map xs)
     in
         map
     end
@@ -91,7 +91,7 @@ val ['a 'b] map =
         fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
             case ls of
                 Nil => Nil
-              | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
+              | Cons {n'} (x, xs) => Cons (f x, map xs)
     in
         map
     end

@@ -8,7 +8,7 @@ fun map ['a 'b] {m : Nat} (f : 'a -- $m --> 'b) =
       fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
           case ls of
               Nil => Nil
-            | Cons {_} (x, xs) => Cons {_} (f x, map {_} xs)
+            | Cons {_} (x, xs) => Cons (f x, map xs)
     in
       map
     end
@@ -20,7 +20,7 @@ fun foldl ['a 'b] {m : Nat} (f : 'a * 'b -- $m --> 'b) =
       fun foldl {n : Nat} y (xs : {n} _ list) return using h m n =
           case xs of
               Nil => y
-            | Cons {_} (x, xs) => foldl {_} (f (x, y)) xs
+            | Cons {_} (x, xs) => foldl (f (x, y)) xs
     in
       foldl
     end

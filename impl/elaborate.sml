@@ -193,11 +193,11 @@ local
   *)              
     fun elab e =
 	case e of
-	    S.Var (x, r) =>
-            if x = "never" then
+	    S.Var ((x, r), eia) =>
+            if x = "never" andalso eia = false then
               Never (elab_mt (S.VarT ("_", r)))
             else
-              Var (x, r)
+              Var ((x, r), eia)
 	  | S.Tuple (es, r) =>
 	    (case es of
 		 [] => TT r
@@ -219,7 +219,7 @@ local
 		fun default () = App (elab e1, elab e2)
 	    in
 		case e1 of
-		    S.Var (x, _) => 
+		    S.Var ((x, _), false) => 
 		    if x = "fst" then Fst (elab e2)
 		    else if x = "snd" then Snd (elab e2)
 		    else default ()

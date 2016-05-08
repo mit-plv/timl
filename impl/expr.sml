@@ -200,7 +200,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  | TypingST of ptrn
 
         datatype expr =
-	         Var of var * region
+	         Var of (var * region) * bool(* is explicit index arguments ('eia') ? *)
 	         | App of expr * expr
 	         | Abs of ptrn * expr
                  (* unit type *)
@@ -215,7 +215,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  (* other *)
 	         | BinOp of bin_op * expr * expr
 	         | ConstInt of int * region
-	         | AppConstr of id * idx list * expr
+	         | AppConstr of (id * bool) * idx list * expr
 	         | Case of expr * return * (ptrn * expr) list * region
 	         | Never of mtype
 	         | Let of decl list * expr * region
@@ -532,13 +532,15 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | (SOME t, NONE) => sprintf "return $ " [str_mt skctx t]
               | (NONE, SOME d) => sprintf "return using $ " [str_i sctx d]
               | (SOME t, SOME d) => sprintf "return $ using $ " [str_mt skctx t, str_i sctx d]
-                                            
+
+        fun decorate_var eia s = if eia then "@" else "" ^ s
+                                                            
         fun str_e (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
             let fun add_t name (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx) 
                 val skctx = (sctx, kctx) 
             in
                 case e of
-	            Var (x, _) => str_v tctx x
+	            Var ((x, _), b) => decorate_var b $ str_v tctx x
 	          | Abs (pn, e) => 
                     let 
                         val (inames, enames) = ptrn_names pn
@@ -569,7 +571,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	          | AscriptionTime (e, d) => sprintf "($ |> $)" [str_e ctx e, str_i sctx d]
 	          | BinOp (opr, e1, e2) => sprintf "($ $ $)" [str_e ctx e1, str_bin_op opr, str_e ctx e2]
 	          | ConstInt (n, _) => str_int n
-	          | AppConstr ((x, _), is, e) => sprintf "($$ $)" [str_v cctx x, (join "" o map (prefix " ") o map (fn i => sprintf "{$}" [str_i sctx i])) is, str_e ctx e]
+	          | AppConstr (((x, _), b), is, e) => sprintf "($$ $)" [decorate_var b $ str_v cctx x, (join "" o map (prefix " ") o map (fn i => sprintf "{$}" [str_i sctx i])) is, str_e ctx e]
 	          | Case (e, return, rules, _) => sprintf "(case $ $of $)" [str_e ctx e, str_return skctx return, join " | " (map (str_rule ctx) rules)]
 	          | Never t => sprintf "(never [$])" [str_mt skctx t]
             end
@@ -741,7 +743,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         fun get_region_e e = 
             case e of
-                Var (_, r) => r
+                Var ((_, r), _) => r
               | Abs (pn, e) => combine_region (get_region_pn pn) (get_region_e e)
               | App (e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
               | TT r => r
@@ -752,7 +754,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | AppI (e, i) => combine_region (get_region_e e) (get_region_i i)
               | BinOp (_, e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
               | ConstInt (_, r) => r
-              | AppConstr ((_, r), _, e) => combine_region r (get_region_e e)
+              | AppConstr (((_, r), _), _, e) => combine_region r (get_region_e e)
               | Case (_, _, _, r) => r
               | Never t => get_region_mt t
               | Let (_, _, r) => r

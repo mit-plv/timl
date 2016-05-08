@@ -187,10 +187,10 @@ local
 	  val skctx = (sctx, kctx)
       in
 	  case e of
-	      E.Var (x, r) => 
+	      E.Var ((x, r), b) => 
 	      (case find_idx x cctx of
-		   SOME i => AppConstr ((i, r), [], TT r)
-		 | NONE => Var (on_var tctx (x, r))
+		   SOME i => AppConstr (((i, r), b), [], TT r)
+		 | NONE => Var ((on_var tctx (x, r)), b)
               )
 	    | E.Abs (pn, e) => 
               let 
@@ -209,9 +209,9 @@ local
 		  val (e1, is) = E.peel_AppI e1 
 	      in
 		  case e1 of
-		      E.Var (x, r) =>
+		      E.Var ((x, r), b) =>
 		      (case find_idx x cctx of
-			   SOME i => AppConstr ((i, r), map (on_idx sctx) is, e2)
+			   SOME i => AppConstr (((i, r), b), map (on_idx sctx) is, e2)
 			 | NONE => default ())
 		    | _ => default ()
 	      end
@@ -228,9 +228,9 @@ local
                   val is = is @ [i]
 	      in
 		  case e of
-		      E.Var (x, r) =>
+		      E.Var ((x, r), b) =>
 		      (case find_idx x cctx of
-			   SOME n => AppConstr ((n, r), map (on_idx sctx) is, TT (E.get_region_i i))
+			   SOME n => AppConstr (((n, r), b), map (on_idx sctx) is, TT (E.get_region_i i))
 			 | NONE => default ())
 		    | _ => default ()
 	      end
@@ -244,7 +244,7 @@ local
 	    | E.AscriptionTime (e, d) => AscriptionTime (on_expr ctx e, on_idx sctx d)
 	    | E.ConstInt n => ConstInt n
 	    | E.BinOp (opr, e1, e2) => BinOp (opr, on_expr ctx e1, on_expr ctx e2)
-	    | E.AppConstr (x, is, e) => AppConstr (on_var cctx x, map (on_idx sctx) is, on_expr ctx e)
+	    | E.AppConstr ((x, b), is, e) => AppConstr ((on_var cctx x, b), map (on_idx sctx) is, on_expr ctx e)
 	    | E.Case (e, return, rules, r) =>
               let
                 val return = on_return skctx return
