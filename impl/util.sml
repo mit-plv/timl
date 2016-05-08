@@ -67,18 +67,35 @@ datatype ('a, 'b) result =
 val zip = ListPair.zip
 val unzip = ListPair.unzip
 
-fun allSome f xs =
-  case xs of
-      [] => OK []
-    | x :: xs =>
-      (case f x of
-           SOME x =>
-           (case allSome f xs of
-                OK xs => OK (x :: xs)
-              | Failed (i, x) => Failed (i + 1, x)
-           )
-         | NONE => Failed (0, x)
-      )
+(* fun allSome f xs = *)
+(*   case xs of *)
+(*       [] => OK [] *)
+(*     | x :: xs => *)
+(*       (case f x of *)
+(*            SOME x => *)
+(*            (case allSome f xs of *)
+(*                 OK xs => OK (x :: xs) *)
+(*               | Failed (i, x) => Failed (i + 1, x) *)
+(*            ) *)
+(*          | NONE => Failed (0, x) *)
+(*       ) *)
+fun allSome f (xs : 'a list) =
+  let
+    exception Error of int * 'a
+    fun iter (x, (n, acc)) =
+      let
+        val acc =
+            case f x of
+                SOME y => y :: acc
+              | NONE => raise Error (n, x)
+      in
+        (n + 1, acc)
+      end
+    val ret = OK $ rev $ snd $ foldl iter (0, []) xs
+              handle Error e => Failed e
+  in
+    ret
+  end
 
 fun to_hd i l = List.nth (l, i) :: take i l @ drop (i + 1) l
 

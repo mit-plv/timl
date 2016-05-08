@@ -33,7 +33,7 @@ type ccontext = (string * constr) list
 type tcontext = (string * ty) list
 type context = scontext * kcontext * ccontext * tcontext
 
-fun names (ctx : ('a * 'b) list) = map #1 ctx
+fun names ctx = map fst ctx
 
 fun shiftx_i_ps n ps = 
   map (shiftx_i_p 0 n) ps
@@ -260,6 +260,21 @@ fun update_mt t =
     | UniI (s, BindI (name, t1)) => UniI (update_s s, BindI (name, update_mt t1))
     | AppV (y, ts, is, r) => AppV (y, map update_mt ts, map update_i is, r)
     | BaseType a => BaseType a
+
+fun hnf_mt t =
+  case t of
+      UVar ((invis, x), r) => 
+      (case !x of
+           Refined t => 
+           let 
+             val t = hnf_mt t
+             val () = x := Refined t
+           in
+             expand_mt invis t
+           end
+         | Fresh _ => t
+      )
+    | _ => t
 
 fun update_t t =
   case t of
@@ -922,7 +937,8 @@ local
       let
         fun neg c = cover_neg ctx t c
         fun neg' t c = cover_neg ctx t c
-        val t = update_mt t
+        (* val t = update_mt t *)
+        val t = hnf_mt t
       in
         case c of
             TrueC => FalseC
@@ -1017,7 +1033,8 @@ local
         exception Incon of string
         fun loop (t : mtype) cs_all : habitant =
           let
-            val t = update_mt t
+            (* val t = update_mt t *)
+            val t = hnf_mt t
           in
             case cs_all of
                 [] =>
@@ -1058,9 +1075,9 @@ local
                     end
                   fun conflict_half a b =
                     case (a, b) of
-                        (TTC, PairC _) => true
-                      | (TTC, ConstrC _) => true
-                      | (PairC _, ConstrC _) => true
+                        (PairC _, ConstrC _) => true
+                      | (PairC _, TTC) => true
+                      | (ConstrC _, TTC) => true
                       | _ => false
                   fun conflict a b = conflict_half a b orelse conflict_half b a
                   val () = app (fn c' => if conflict c c' then ((* println "conflict";  *)raise Incon "conflict") else ()) cs
@@ -1207,7 +1224,8 @@ local
       (*   SOME (m ()) handle Error _ => NONE *)
       fun loop cutoff t hab =
         let
-          val t = update_mt t
+          (* val t = update_mt t *)
+          val t = hnf_mt t
         in
           case (hab, t) of
               (ConstrH (x, h'), AppV ((family, _), ts, _, _)) =>
