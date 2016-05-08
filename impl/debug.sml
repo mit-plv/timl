@@ -1,4 +1,4 @@
-structure Debug = struct
+structure DebugDeprecated = struct
 
 local
 

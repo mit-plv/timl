@@ -42,7 +42,7 @@ fun id x = x
 fun const a _ = a
 fun range n = List.tabulate (n, id)
 fun repeat n a = List.tabulate (n, const a)
-fun add_idx ls = ListPair.zip (range (length ls), ls)
+(* fun add_idx ls = ListPair.zip (range (length ls), ls) *)
 
 fun nth_error ls n =
     if n < 0 orelse n >= length ls then

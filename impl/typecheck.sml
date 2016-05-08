@@ -897,8 +897,26 @@ local
     fun impossible s = Impossible $ "cover has the wrong type: " ^ s
 
     fun get_family (x : constr) = #1 x
+
+    fun mapPartialWithIdx f xs =
+      let
+        fun iter (x, (n, acc)) =
+          let
+            val acc =
+                case f (n, x) of
+                    SOME b => (n, b) :: acc
+                  | NONE => acc
+          in
+            (n + 1, acc)
+          end
+      in
+        rev $ snd $ foldl iter (0, []) xs
+      end
+                                     
+    (* fun get_family_members cctx x = *)
+    (*   (rev o List.mapPartial (fn (n, (_, c)) => if get_family c = x then SOME n else NONE) o add_idx) cctx *)
     fun get_family_members cctx x =
-      (rev o List.mapPartial (fn (n, (_, c)) => if get_family c = x then SOME n else NONE) o add_idx) cctx
+      (rev o map fst o mapPartialWithIdx (fn (n, (_, c)) => if get_family c = x then SOME () else NONE)) cctx
 
     fun cover_neg (ctx as (_, kctx, cctx)) (t : mtype) c =
       let
@@ -1004,7 +1022,7 @@ local
             case cs_all of
                 [] =>
                 let
-                  val () = Debug.println (sprintf "Empty constraints now. Now try to find any inhabitant of type $" [str_mt (sctx_names sctx, names kctx) t])
+                  (* val () = Debug.println (sprintf "Empty constraints now. Now try to find any inhabitant of type $" [str_mt (sctx_names sctx, names kctx) t]) *)
                 in
                   case t of
                       AppV (tx as (family, _), _, _, _) =>
@@ -1023,7 +1041,7 @@ local
                 end
               | c :: cs =>
                 let
-                  val () = Debug.println (sprintf "try to satisfy $" [(join ", " o map (str_cover (names cctx))) (c :: cs)])
+                  (* val () = Debug.println (sprintf "try to satisfy $" [(join ", " o map (str_cover (names cctx))) (c :: cs)]) *)
                   (* val () = println $ sprintf "try to satisfy $" [str_cover (names cctx) c] *)
                   (* val () = print $ sprintf "$\t\t$\n" [str_int $ covers_size cs_all, str_int $ length cs_all] *)
                   fun concrete c =
@@ -1107,7 +1125,7 @@ local
 		              val t' = subst_ts_mt ts t'
                               (* val () = (* Debug. *)println (sprintf "All are $, now try to satisfy $" [str_v (names cctx) x, (join ", " o map (str_cover (names cctx))) (c' :: cs')]) *)
                               val c' = loop t' (c' :: cs')
-                              val () = Debug.println (sprintf "Plugging $ into $" [str_habitant (names cctx) c', str_v (names cctx) x])
+                              (* val () = Debug.println (sprintf "Plugging $ into $" [str_habitant (names cctx) c', str_v (names cctx) x]) *)
                             in
                               ConstrH (x, c')
                             end
@@ -1128,13 +1146,13 @@ local
 
   fun any_missing ctx t c =
     let
-      val t = update_mt t
+      (* val t = update_mt t *)
       val nc = cover_neg ctx t c
       (* val () = println "after cover_neg()" *)
       (* val () = (* Debug. *)println (str_cover (names (#3 ctx)) nc) *)
-      val () = println "before find_habitant()"
+      (* val () = println "before find_habitant()" *)
       val ret = find_habitant ctx t [nc]
-      val () = println "after find_habitant()"
+      (* val () = println "after find_habitant()" *)
     in
       ret
     end
@@ -1146,7 +1164,7 @@ local
 
   fun is_redundant (ctx, t, prevs, this) =
     let
-      val t = update_mt t
+      (* val t = update_mt t *)
       val prev = combine_covers prevs
       (* val () = println "after combine_covers()" *)
       val something_new = not (is_covered ctx t this prev)
@@ -1165,9 +1183,9 @@ local
       
   fun is_exhaustive (ctx as (_, _, cctx), t : mtype, covers) =
     let
-      val t = update_mt t
+      (* val t = update_mt t *)
       val cover = combine_covers covers
-      val () = Debug.println (str_cover (names cctx) cover)
+      (* val () = Debug.println (str_cover (names cctx) cover) *)
     in
       any_missing ctx t cover
     end
@@ -1187,28 +1205,31 @@ local
       (* exception Error of string *)
       (* fun runError m () = *)
       (*   SOME (m ()) handle Error _ => NONE *)
-      val t = update_mt t
       fun loop cutoff t hab =
-        case (hab, t) of
-            (ConstrH (x, h'), AppV ((family, _), ts, _, _)) =>
-            let
-              val (_, (_, _, ibinds)) = fetch_constr (cctx, (x, dummy))
-              val (name_sorts, (t', _)) = unfold_ibinds ibinds
-	      val t' = subst_ts_mt ts t'
-              (* cut-off so that [expand_rules] won't try deeper and deeper proposals *) 
-              val pn' = if cutoff > 0 then
-                          loop (cutoff - 1) t' h'
-                        else
-                          U.VarP ("_", dummy)
-            in
-              U.ConstrP ((x, dummy), repeat (length name_sorts) "_", SOME pn', dummy)
-            end
-          | (TTH, Unit _) =>
-            U.TTP dummy
-          | (PairH (h1, h2), Prod (t1, t2)) =>
-            U.PairP (loop cutoff t1 h1, loop cutoff t2 h2)
-          | (TrueH, _) => U.VarP ("_", dummy)
-          | _ => raise Impossible "hab_to_ptrn"
+        let
+          val t = update_mt t
+        in
+          case (hab, t) of
+              (ConstrH (x, h'), AppV ((family, _), ts, _, _)) =>
+              let
+                val (_, (_, _, ibinds)) = fetch_constr (cctx, (x, dummy))
+                val (name_sorts, (t', _)) = unfold_ibinds ibinds
+	        val t' = subst_ts_mt ts t'
+                (* cut-off so that [expand_rules] won't try deeper and deeper proposals *) 
+                val pn' = if cutoff > 0 then
+                            loop (cutoff - 1) t' h'
+                          else
+                            U.VarP ("_", dummy)
+              in
+                U.ConstrP ((x, dummy), repeat (length name_sorts) "_", SOME pn', dummy)
+              end
+            | (TTH, Unit _) =>
+              U.TTP dummy
+            | (PairH (h1, h2), Prod (t1, t2)) =>
+              U.PairP (loop cutoff t1 h1, loop cutoff t2 h2)
+            | (TrueH, _) => U.VarP ("_", dummy)
+            | _ => raise Impossible "hab_to_ptrn"
+        end
     in
       (* runError (fn () => loop t hab) () *)
       loop cutoff t hab
@@ -1314,44 +1335,42 @@ local
   fun match_ptrn (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext), (* pcovers, *) pn : U.ptrn, t : mtype) : ptrn * cover * context * int =
     let 
       val skctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
+      val t = update_mt t
     in
       case pn of
 	  U.ConstrP ((cx, cr), inames, opn, r) =>
-          let
-            val t = update_mt t
-          in
-            case t of
-                AppV ((family, _), ts, is, _) =>
- 	        let 
-                  val (_, c as (family', tnames, ibinds)) = fetch_constr (cctx, (cx, cr))
-                  val (name_sorts, (t1, is')) = unfold_ibinds ibinds
-                in
-		  if family' = family andalso length tnames = length ts andalso length is' = length is then
-                    if length inames = length name_sorts then
-		      let val t1 = subst_ts_mt ts t1
-			  val is = map (shiftx_i_i 0 (length name_sorts)) is
-			  val ps = ListPair.map (fn (a, b) => BinPred (EqP, a, b)) (is', is)
-                          val ctxd = (ctx_from_sortings o rev o ListPair.zip) (inames, snd (ListPair.unzip name_sorts))
-                          val () = open_ctx ctxd
-                          val () = open_premises ps
-                          val ctx = add_ctx_skc ctxd ctx
-                          val pn1 = default (U.TTP dummy) opn
-                          val (pn1, cover, ctxd', nps) = match_ptrn (ctx, pn1, t1)
-                          val ctxd = add_ctx ctxd' ctxd
-                          val cover = ConstrC (cx, cover)
-		      in
-			(ConstrP ((cx, cr), inames, SOME pn1, r), cover, ctxd, length ps + nps)
-		      end
-                    else
-                      raise Error (r, [sprintf "This constructor requires $ index argument(s), not $" [str_int (length name_sorts), str_int (length inames)]])
-		  else
-		    raise Error 
-                          (r, sprintf "Type of constructor $ doesn't match datatype " [str_v (names cctx) cx] :: 
-                              indent ["expect: " ^ str_v kctxn family, 
-                                      "got: " ^ str_v kctxn family'])
-                end
-              | _ => raise Error (r, [sprintf "Pattern $ doesn't match type $" [U.str_pn (sctx_names sctx, names kctx, names cctx) pn, str_mt skctxn t]])
-          end
+          (case t of
+               AppV ((family, _), ts, is, _) =>
+ 	       let 
+                 val (_, c as (family', tnames, ibinds)) = fetch_constr (cctx, (cx, cr))
+                 val (name_sorts, (t1, is')) = unfold_ibinds ibinds
+               in
+		 if family' = family andalso length tnames = length ts andalso length is' = length is then
+                   if length inames = length name_sorts then
+		     let val t1 = subst_ts_mt ts t1
+			 val is = map (shiftx_i_i 0 (length name_sorts)) is
+			 val ps = ListPair.map (fn (a, b) => BinPred (EqP, a, b)) (is', is)
+                         val ctxd = (ctx_from_sortings o rev o ListPair.zip) (inames, snd (ListPair.unzip name_sorts))
+                         val () = open_ctx ctxd
+                         val () = open_premises ps
+                         val ctx = add_ctx_skc ctxd ctx
+                         val pn1 = default (U.TTP dummy) opn
+                         val (pn1, cover, ctxd', nps) = match_ptrn (ctx, pn1, t1)
+                         val ctxd = add_ctx ctxd' ctxd
+                         val cover = ConstrC (cx, cover)
+		     in
+		       (ConstrP ((cx, cr), inames, SOME pn1, r), cover, ctxd, length ps + nps)
+		     end
+                   else
+                     raise Error (r, [sprintf "This constructor requires $ index argument(s), not $" [str_int (length name_sorts), str_int (length inames)]])
+		 else
+		   raise Error 
+                         (r, sprintf "Type of constructor $ doesn't match datatype " [str_v (names cctx) cx] :: 
+                             indent ["expect: " ^ str_v kctxn family, 
+                                     "got: " ^ str_v kctxn family'])
+               end
+             | _ => raise Error (r, [sprintf "Pattern $ doesn't match type $" [U.str_pn (sctx_names sctx, names kctx, names cctx) pn, str_mt skctxn t]])
+          )
         | U.VarP (name, r) =>
           (* let *)
           (*   val pcover = combine_covers pcovers *)
@@ -1836,7 +1855,7 @@ local
                             SOME hab =>
                             let
                               val pn = hab_to_ptrn cctx 1 t hab
-                              val () = println $ sprintf "New pattern: $" [U.str_pn (names sctx, names kctx, names cctx) pn]
+                              (* val () = println $ sprintf "New pattern: $" [U.str_pn (names sctx, names kctx, names cctx) pn] *)
                               val (pcovers, rules) = loop $ pcovers @ [ptrn_to_cover pn]
                             in
                               (pcovers, [(pn, e)] @ rules)
