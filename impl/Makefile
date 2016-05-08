@@ -9,7 +9,6 @@ mlton: main
 FILES = \
 cont-mlton.sml \
 util.sml \
-debug.sml \
 region.sml \
 operators.sml \
 front-end/ast.sml \

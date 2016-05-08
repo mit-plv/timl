@@ -2,7 +2,6 @@ Group is
       cont-smlnj.sml
       
       util.sml
-      debug.sml
       region.sml
       operators.sml
       front-end/ast.sml

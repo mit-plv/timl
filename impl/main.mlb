@@ -6,7 +6,6 @@ $(SML_LIB)/basis/build/sources.mlb
 cont-mlton.sml
 
 util.sml
-debug.sml
 region.sml
 operators.sml
 front-end/ast.sml
