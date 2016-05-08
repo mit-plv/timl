@@ -5,7 +5,7 @@ fun insert ['a] {m : Nat} (le : 'a * 'a -- $m --> bool) x =
           case xs of
               Nil => Cons {_} (x, Nil)
             | Cons {n'} (x', xs') =>
-              case le (x, x') return {n + 1} _ list using 1.0 + g m n' of
+              case le (x, x') (* return {n + 1} _ list using 1.0 + g m n' *) of
                   true => Cons {_} (x, xs)
                 | false => Cons {_} (x', insert {_} xs')
     in

@@ -50,7 +50,7 @@ fun merge ['a] (lt : 'a * 'a -- 8.0 --> bool) =
               (Nil, _) => ys
             | (_, Nil) => xs
             | (Cons {n1'} (x, xs'), Cons {n2'} (y, ys')) =>
-              case lt (x, y) return using 2.0 + T2 (n1' + n2' + 1) of
+              case lt (x, y) (* return using 2.0 + T2 (n1' + n2' + 1) *) of
                   true => Cons {_} (x, merge {_} {_} xs' ys)
                 | false => Cons {_} (y, merge {_} {_} xs ys')
     in

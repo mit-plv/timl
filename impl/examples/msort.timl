@@ -14,7 +14,7 @@ fun merge ['a] {m : Nat} (le : 'a * 'a -- $m --> bool) return using 0.0 =
               (Nil, _) => ys
             | (_, Nil) => xs
             | (Cons {n1'} (x, xs'), Cons {n2'} (y, ys')) =>
-              case le (x, y) return using 1.0 + f m (n1' + n2' + 1) of
+              case le (x, y) (* return using 1.0 + f m (n1' + n2' + 1) *) of
                   true => Cons {_} (x, merge {_} {_} (xs', ys))
                 | false => Cons {_} (y, merge {_} {_} (xs, ys'))
     in

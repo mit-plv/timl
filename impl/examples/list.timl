@@ -2,13 +2,13 @@ datatype {Nat} 'a list =
          Nil of {0} 'a list
        | Cons {n' : Nat} of 'a * {n'} 'a list --> {n' + 1} 'a list
 
-                                      absidx g : BigO 2 (fn m n => $m * $n) with
+absidx g : BigO 2 (fn m n => $m * $n) with
 fun map ['a 'b] {m : Nat} (f : 'a -- $m --> 'b) =
     let
       fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
           case ls of
               Nil => Nil
-            | Cons {n'} (x, xs) => Cons {_} (f x, map {_} xs)
+            | Cons {_} (x, xs) => Cons {_} (f x, map {_} xs)
     in
       map
     end
@@ -20,7 +20,7 @@ fun foldl ['a 'b] {m : Nat} (f : 'a * 'b -- $m --> 'b) =
       fun foldl {n : Nat} y (xs : {n} _ list) return using h m n =
           case xs of
               Nil => y
-            | Cons {n'} (x, xs) => foldl {_} (f (x, y)) xs
+            | Cons {_} (x, xs) => foldl {_} (f (x, y)) xs
     in
       foldl
     end
