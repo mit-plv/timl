@@ -7,49 +7,34 @@ fun split ['a] {n : Nat} (xs : {n} 'a list) return {ceil ($n/2)} _ list * {floor
             (xs1, xs2) => (Cons (x1, xs1), Cons (x2, xs2))
 
 absidx f : {f : Fun 2 | f O _} with
-fun merge ['a] {m : Nat} (le : 'a * 'a -- $m --> bool) return using 0.0 =
-    let
-      fun merge {n1 : Nat} {n2 : Nat} ((xs, ys) : {n1} _ list * {n2} _ list) return {n1 + n2} _ list using f m (n1 + n2) =
-          case (xs, ys) of
-              (Nil, _) => ys
-            | (_, Nil) => xs
-            | (Cons {n1'} (x, xs'), Cons {n2'} (y, ys')) =>
-              case le (x, y) (* return using 1.0 + f m (n1' + n2' + 1) *) of
-                  true => Cons (x, merge (xs', ys))
-                | false => Cons (y, merge (xs, ys'))
-    in
-      @merge
-    end
+fun merge ['a] {m : Nat} {n1 : Nat} {n2 : Nat} (le : 'a * 'a -- $m --> bool) (xs : {n1} _ list, ys : {n2} _ list) return {n1 + n2} _ list using f m (n1 + n2) =
+    case (xs, ys) of
+        (Nil, _) => ys
+      | (_, Nil) => xs
+      | (Cons {n1'} (x, xs'), Cons {n2'} (y, ys')) =>
+        case le (x, y) (* return using 1.0 + f m (n1' + n2' + 1) *) of
+            true => Cons (x, merge le (xs', ys))
+          | false => Cons (y, merge le (xs, ys'))
 end
 
 absidx {T : Fun 2 | T O _} with
-fun msort ['a] {m : Nat} (le : 'a * 'a -- $m --> bool) =
-    let
-      fun sort {n : Nat} (xs : {n} _ list) return {n} _ list using T m n =
-          case xs of
-              Nil => xs
-            | (Cons {_} (_, Nil)) => xs
-            | (Cons {n1} (_, Cons {n2} (_, _))) =>
-              case split xs of
-                  (xs1, xs2) => merge le {_} {_} (sort xs1, sort xs2)
-    in
-      sort
-    end
+fun msort ['a] {m : Nat} {n : Nat} (le : 'a * 'a -- $m --> bool) (xs : {n} _ list) return {n} _ list using T m n =
+    case xs of
+        Nil => xs
+      | (Cons {_} (_, Nil)) => xs
+      | (Cons {n1} (_, Cons {n2} (_, _))) =>
+        case split xs of
+            (xs1, xs2) => merge le (msort le xs1, msort le xs2)
 end
 
 absidx {T : Fun 2 | T O (fn m n => $m * $n * log2 $n)} with
-fun msort ['a] {m : Nat} (le : 'a * 'a -- $m --> bool) =
-    let
-      fun sort {n : Nat} (xs : {n} _ list) return {n} _ list using T m n =
-          case xs of
-              Nil => xs
-            | (Cons {_} (_, Nil)) => xs
-            | (Cons {n1} (_, Cons {n2} (_, _))) =>
-              case split xs of
-                  (xs1, xs2) => merge le {_} {_} (sort xs1, sort xs2)
-    in
-      @sort
-    end
+fun msort ['a] {m : Nat} {n : Nat} (le : 'a * 'a -- $m --> bool) (xs : {n} _ list) return {n} _ list using T m n =
+    case xs of
+        Nil => xs
+      | (Cons {_} (_, Nil)) => xs
+      | (Cons {n1} (_, Cons {n2} (_, _))) =>
+        case split xs of
+            (xs1, xs2) => merge le (msort le xs1, msort le xs2)
 end
 
 absidx g : BigO 1 (fn n => $n) = fn n => 2.0 * $n with
