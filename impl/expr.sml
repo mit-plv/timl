@@ -258,7 +258,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         fun a /\ b = BinConn (And, a, b)
         infix 2 \/
         fun a \/ b = BinConn (Or, a, b)
-        infix 1 -->
+        infixr 1 -->
         fun a --> b = BinConn (Imply, a, b)
         infix 1 <->
         fun a <-> b = BinConn (Iff, a, b)
@@ -285,12 +285,22 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 else [i]
               | _ => [i]
                          
+        fun collect_BinConn opr i =
+            case i of
+                BinConn (opr', i1, i2) =>
+                if opr' = opr then
+                    collect_BinConn opr i1 @ collect_BinConn opr i2
+                else [i]
+              | _ => [i]
+                         
         val collect_TimeApp = collect_BinOpI_left TimeApp
         val collect_AddI_left = collect_BinOpI_left AddI
                          
         val collect_AddI = collect_BinOpI AddI
         val collect_MultI = collect_BinOpI MultI
                          
+        val collect_And = collect_BinConn And
+                                          
         fun combine_And ps = foldl' (fn (p, acc) => acc /\ p) (True dummy) ps
         fun combine_AddI is = foldl' (fn (i, acc) => acc %+ i) (T0 dummy) is
         fun combine_MultI is = foldl' (fn (i, acc) => acc %* i) (T1 dummy) is

@@ -1185,7 +1185,7 @@ local
         val prev = combine_covers prevs
         (* val () = println "after combine_covers()" *)
                                   (* val something_new = not (is_covered ctx t this prev) *)
-        val something_new = isSome $ find_hab true ctx t $ [this, cover_neg ctx t prev]                                  
+        val something_new = isSome $ find_hab true(*treat empty datatype as uninhabited*) ctx t $ [this, cover_neg ctx t prev]                                  
                                 (* val () = println "after is_covered()" *)
       in
         something_new

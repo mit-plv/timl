@@ -17,6 +17,7 @@ structure NoUVarSubst = struct
 open Util
 open NoUVarExpr
 infixr 0 $
+infixr 1 -->
          
 fun on_i_i on_v x n b =
   let
@@ -259,23 +260,28 @@ local
                  if eq_p p2 (True dummy) then
                      (set (); True (get_region_p p))
                  else
-                     (* try subst if there is a equality premise *)
-                     let
-                         fun forget x i =
-                             SOME (x, forget_i_i x 1 i) handle ForgetError _ => NONE
-                         fun f i1 i2 =
-                             case (i1, i2) of
-                                 (VarI (x, _), _) => forget x i2
-                               | (_, VarI (x, _)) => forget x i1
-                               | _ => NONE
-                         val s = case p1 of
-                                     BinPred (EqP, i1, i2) => f i1 i2
-                                   | _ => NONE
-                     in
-                         case s of
-                             SOME (x, i) => (set (); shiftx_i_p x 1 (substx_i_p x i p2))
-                           | _ => BinConn (opr, passp p1, passp p2)
-                     end
+                   (case p1 of
+                        BinConn (And, p1a, p1b) =>
+                        mark $ (p1a --> p1b --> p2)
+                      | _ =>
+                        (* try subst if there is a equality premise *)
+                        let
+                          fun forget x i =
+                              SOME (x, forget_i_i x 1 i) handle ForgetError _ => NONE
+                          fun f i1 i2 =
+                              case (i1, i2) of
+                                  (VarI (x, _), _) => forget x i2
+                                | (_, VarI (x, _)) => forget x i1
+                                | _ => NONE
+                          val s = case p1 of
+                                      BinPred (EqP, i1, i2) => f i1 i2
+                                    | _ => NONE
+                        in
+                          case s of
+                              SOME (x, i) => (set (); shiftx_i_p x 1 (substx_i_p x i p2))
+                            | _ => BinConn (opr, passp p1, passp p2)
+                        end
+                   )
                | _ =>
 	         BinConn (opr, passp p1, passp p2)
             )
@@ -302,7 +308,7 @@ local
                                   let
                                       val (hyps, conclu) = collect_implies p2
                                   in
-                                      (p1 :: hyps, conclu)
+                                      (collect_And p1 @ hyps, conclu)
                                   end
                                 | _ => ([], p)
                           fun combine_implies hyps conclu =
