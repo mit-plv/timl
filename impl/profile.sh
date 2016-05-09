@@ -1,1 +1,1 @@
-make mlton && ./main examples/bool.timl $(seq -f examples/rbt.timl 50) && make profile
+make mlton && ./main examples/bool.timl $(for i in {1..50}; do echo -n "examples/rbt.timl "; done) && make profile

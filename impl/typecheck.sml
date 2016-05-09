@@ -944,7 +944,9 @@ local
     fun cover_imply cctx t (a, b) : cover =
         cover_neg cctx t a \/ b
 
-    fun find_habitant (ctx as (sctx, kctx, cctx)) (t : mtype) cs =
+    (* find habitant
+       deep: when turned on, [find_hab] try to find a [ConstrH] for a datatype when constraints are empty (treat empty datatype as uninhabited); otherwise only return [TrueH] in such case (treat empty datatype as inhabited) *)
+    fun find_hab deep (ctx as (sctx, kctx, cctx)) (t : mtype) cs =
         let
           (* fun sum ls = foldl' op+ 0 ls *)
           (* fun cover_size c = *)
@@ -1051,24 +1053,27 @@ local
               in
                 case cs_all of
                     [] =>
-                    let
-                      (* val () = Debug.println (sprintf "Empty constraints now. Now try to find any inhabitant of type $" [str_mt (sctx_names sctx, names kctx) t]) *)
-                    in
-                      case t of
-                          AppV (tx as (family, _), _, _, _) =>
-                          (case fetch_kind (kctx, tx) of
-                               ArrowK (true, _, _) =>
-	                       let
-                                 val all = get_family_members cctx family
-                               in
-                                 case all of x :: _ => ConstrH (x, TrueH) | [] => raise Incon "empty datatype"
-                               end
-                             | _ => TrueH (* an abstract type is treated as an inhabited type *)
-                          )
-                        | Unit _ => TTH
-                        | Prod (t1, t2) => PairH (loop $ check_size (t1, []), loop $ check_size (t2, []))
-                        | _ => TrueH
-                    end
+                    if not deep then
+                      TrueH
+                    else
+                      let
+                        (* val () = Debug.println (sprintf "Empty constraints now. Now try to find any inhabitant of type $" [str_mt (sctx_names sctx, names kctx) t]) *)
+                      in
+                        case t of
+                            AppV (tx as (family, _), _, _, _) =>
+                            (case fetch_kind (kctx, tx) of
+                                 ArrowK (true, _, _) =>
+	                         let
+                                   val all = get_family_members cctx family
+                                 in
+                                   case all of x :: _ => ConstrH (x, TrueH) | [] => raise Incon "empty datatype"
+                                 end
+                               | _ => TrueH (* an abstract type is treated as an inhabited type *)
+                            )
+                          | Unit _ => TTH
+                          | Prod (t1, t2) => PairH (loop $ check_size (t1, []), loop $ check_size (t2, []))
+                          | _ => TrueH
+                      end
                   | c :: cs =>
                     let
                       (* val () = Debug.println (sprintf "try to satisfy $" [(join ", " o map (str_cover (names cctx))) (c :: cs)]) *)
@@ -1149,7 +1154,7 @@ local
                             | (AndC (c1, c2), _) => loop $ check_size (t, c1 :: c2 :: cs)
                             | (OrC (c1, c2), _) =>
                               (loop $ check_size (t, c1 :: cs) handle Incon _ => loop $ check_size (t, c2 :: cs))
-                            | _ => raise impossible "find_habitant()"
+                            | _ => raise impossible "find_hab()"
                     end
               end
         in
@@ -1158,15 +1163,15 @@ local
 
   in              
 
-  fun any_missing ctx t c =
+  fun any_missing deep ctx t c =
       let
         (* val t = update_mt t *)
         val nc = cover_neg ctx t c
         (* val () = println "after cover_neg()" *)
         (* val () = (* Debug. *)println (str_cover (names (#3 ctx)) nc) *)
-        (* val () = println "before find_habitant()" *)
-        val ret = find_habitant ctx t [nc]
-                                (* val () = println "after find_habitant()" *)
+        (* val () = println "before find_hab()" *)
+        val ret = find_hab deep ctx t [nc]
+                                (* val () = println "after find_hab()" *)
       in
         ret
       end
@@ -1174,7 +1179,7 @@ local
   fun is_redundant (ctx, t, prevs, this) =
       let
         fun is_covered ctx t small big =
-            (isNull o (* (trace "after any_missing()") o *) any_missing ctx t o (* (trace "after cover_imply()") o *) cover_imply ctx t) (small, big)
+            (isNull o (* (trace "after any_missing()") o *) any_missing true(*treat empty datatype as uninhabited*) ctx t o (* (trace "after cover_imply()") o *) cover_imply ctx t) (small, big)
         (* val t = update_mt t *)
         val prev = combine_covers prevs
         (* val () = println "after combine_covers()" *)
@@ -1198,7 +1203,7 @@ local
         val cover = combine_covers covers
                                    (* val () = Debug.println (str_cover (names cctx) cover) *)
       in
-        any_missing ctx t cover
+        any_missing true(*treat empty datatype as uninhabited*) ctx t cover
       end
         
   fun check_exhaustion (ctx as (_, _, cctx), t : mtype, covers, r) =
@@ -1827,13 +1832,13 @@ local
                   case (pn, e) of
                       (VarP _, U.Never (U.UVar _)) =>
                       let
-                        fun hab_to_ptrn cctx cutoff t hab =
+                        fun hab_to_ptrn cctx (* cutoff *) t hab =
                             let
                               (* open UnderscoredExpr *)
                               (* exception Error of string *)
                               (* fun runError m () = *)
                               (*   SOME (m ()) handle Error _ => NONE *)
-                              fun loop cutoff t hab =
+                              fun loop (* cutoff *) t hab =
                                   let
                                     (* val t = update_mt t *)
                                     val t = hnf_mt t
@@ -1845,23 +1850,25 @@ local
                                           val (name_sorts, (t', _)) = unfold_ibinds ibinds
 	                                  val t' = subst_ts_mt ts t'
                                           (* cut-off so that [expand_rules] won't try deeper and deeper proposals *) 
-                                          val pn' = if cutoff > 0 then
-                                                      loop (cutoff - 1) t' h'
-                                                    else
-                                                      VarP ("_", dummy)
+                                          val pn' =
+                                              loop (* (cutoff - 1) *) t' h'
+                                              (* if cutoff > 0 then *)
+                                              (*   loop (cutoff - 1) t' h' *)
+                                              (* else *)
+                                              (*   VarP ("_", dummy) *)
                                         in
                                           ConstrP ((x, dummy), repeat (length name_sorts) "_", SOME pn', dummy)
                                         end
                                       | (TTH, Unit _) =>
                                         TTP dummy
                                       | (PairH (h1, h2), Prod (t1, t2)) =>
-                                        PairP (loop cutoff t1 h1, loop cutoff t2 h2)
+                                        PairP (loop (* cutoff *) t1 h1, loop (* cutoff *) t2 h2)
                                       | (TrueH, _) => VarP ("_", dummy)
                                       | _ => raise Impossible "hab_to_ptrn"
                                   end
                             in
                               (* runError (fn () => loop t hab) () *)
-                              loop cutoff t hab
+                              loop (* cutoff *) t hab
                             end
                         fun ptrn_to_cover pn =
                             let
@@ -1884,11 +1891,11 @@ local
                               | AliasP (name, pn, r) => U.AliasP (name, convert_pn pn, r)
                               | AnnoP _ => raise Impossible "convert_pn can't convert AnnoP"
                         fun loop pcovers =
-                            case any_missing ctx t $ combine_covers pcovers of
+                            case any_missing false(*treat empty datatype as inhabited, so as to get a shorter proposal*) ctx t $ combine_covers pcovers of
                                 SOME hab =>
                                 let
-                                  val pn = hab_to_ptrn cctx 1 t hab
-                                  (* val () = println $ sprintf "New pattern: $" [U.str_pn (names sctx, names kctx, names cctx) pn] *)
+                                  val pn = hab_to_ptrn cctx (* 10 *) t hab
+                                  (* val () = println $ sprintf "New pattern: $" [str_pn (names sctx, names kctx, names cctx) pn] *)
                                   val (pcovers, rules) = loop $ pcovers @ [ptrn_to_cover pn]
                                 in
                                   (pcovers, [(convert_pn pn, e)] @ rules)
