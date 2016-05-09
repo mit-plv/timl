@@ -874,19 +874,6 @@ local
              | PairH of habitant * habitant
              | TTH
 
-    fun cover_size c =
-      case c of
-          TrueC => 1
-        | FalseC => 1
-        | AndC (c1, c2) => cover_size c1 + 1 + cover_size c2
-        | OrC (c1, c2) => cover_size c1 + 1 + cover_size c2
-        | ConstrC (x, c) => 1 + cover_size c
-        | PairC (c1, c2) => cover_size c1 + 1 + cover_size c2
-        | TTC => 1
-
-    fun sum ls = foldl' op+ 0 ls
-    fun covers_size cs = sum $ map cover_size cs
-
     fun str_cover cctx c =
       case c of
           TrueC => "true"
@@ -936,23 +923,22 @@ local
 
     fun cover_neg (ctx as (_, kctx, cctx)) (t : mtype) c =
       let
-        fun neg c = cover_neg ctx t c
-        fun neg' t c = cover_neg ctx t c
+        fun neg t c = cover_neg ctx t c
         (* val t = update_mt t *)
         val t = hnf_mt t
       in
         case c of
             TrueC => FalseC
           | FalseC => TrueC
-          | AndC (a, b) => neg a \/ neg b
-          | OrC (a, b) => neg a /\ neg b
+          | AndC (a, b) => neg t a \/ neg t b
+          | OrC (a, b) => neg t a /\ neg t b
           | TTC => FalseC
           | PairC (c1, c2) =>
             (case t of
                  Prod (t1, t2) =>
-                 PairC (neg' t1 c1, c2) \/
-                 PairC (c1, neg' t2 c2) \/
-                 PairC (neg' t1 c1, neg' t2 c2)
+                 PairC (neg t1 c1, c2) \/
+                 PairC (c1, neg t2 c2) \/
+                 PairC (neg t1 c1, neg t2 c2)
                | _ => raise impossible "cover_neg()/PairC")
           | c_all as ConstrC (x, c) =>
 	    (case t of
@@ -963,7 +949,7 @@ local
                    val (_, (_, _, ibinds)) = fetch_constr (cctx, (x, dummy))
                    val (_, (t', _)) = unfold_ibinds ibinds
 		   val t' = subst_ts_mt ts t'
-                   val covers = ConstrC (x, cover_neg ctx t' c) :: map (fn y => ConstrC (y, TrueC)) others
+                   val covers = ConstrC (x, neg t' c) :: map (fn y => ConstrC (y, TrueC)) others
 	         in
                    combine_covers covers
 	         end
@@ -973,46 +959,23 @@ local
     fun cover_imply cctx t (a, b) : cover =
       cover_neg cctx t a \/ b
 
-    fun simp_cover cover =
-      let
-        exception IsFalse
-        fun runUntilFalse m =
-          m () handle IsFalse => FalseC
-        fun loop c =
-          case c of
-              AndC (c1, c2) =>
-              (case (loop c1, loop c2) of
-                   (TrueC, c) => c
-                 | (c, TrueC) => c
-                 | (c1, c2) => AndC (c1, c2)
-              )
-            | OrC (c1, c2) =>
-              (case (runUntilFalse (fn () => loop c1), runUntilFalse (fn () => loop c2)) of
-                   (FalseC, FalseC) => raise IsFalse
-                 | (FalseC, c) => c
-                 | (c, FalseC) => c
-                 | (c1, c2) => OrC (c1, c2)
-              )
-            | TTC => TTC
-            | PairC (c1, c2) => PairC (loop c1, loop c2)
-            | ConstrC (x, c) => ConstrC (x, loop c)
-            | TrueC => TrueC
-            | FalseC => raise IsFalse
-      in
-        runUntilFalse (fn () => loop cover)
-      end
-        
     fun find_habitant (ctx as (sctx, kctx, cctx)) (t : mtype) cs =
       let
-        (* fun split3 i l = (List.nth (l, i), take i l, drop (i + 1) l) *)
-        fun i_tl_to_hd c i cs = to_hd (i + 1) (c :: cs)
-        fun combine_AndC cs = foldl' AndC TrueC cs
-        (* fun collect_AndC c = *)
-        (*   case c of *)
-        (*       AndC (c1, c2) => collect_AndC c1 @ collect_AndC c2 *)
-        (*     | TrueC => [] *)
-        (*     | _ => [c] *)
-        (* a faster version *)
+        (* fun sum ls = foldl' op+ 0 ls *)
+        (* fun cover_size c = *)
+        (*     case c of *)
+        (*         TrueC => 1 *)
+        (*       | FalseC => 1 *)
+        (*       | AndC (c1, c2) => cover_size c1 + 1 + cover_size c2 *)
+        (*       | OrC (c1, c2) => cover_size c1 + 1 + cover_size c2 *)
+        (*       | ConstrC (x, c) => 1 + cover_size c *)
+        (*       | PairC (c1, c2) => cover_size c1 + 1 + cover_size c2 *)
+        (*       | TTC => 1 *)
+        (* fun covers_size cs = sum $ map cover_size cs *)
+        (* fun mt_size t = *)
+        (*     case hnf_mt t of *)
+        (*         Prod (t1, t2) => mt_size t1 + 1 + mt_size t2 *)
+        (*       | _ => 1 *)
         fun collect_AndC acc c =
           case c of
               AndC (c1, c2) =>
@@ -1025,17 +988,93 @@ local
             | TrueC => acc
             | _ => c :: acc
         val collect_AndC = fn c => collect_AndC [] c
-        val cs = combine_AndC cs
+        (* fun combine_AndC cs = foldl' AndC TrueC cs *)
+        local
+          exception IsFalse
+          fun runUntilFalse m =
+              m () handle IsFalse => FalseC
+          fun simp c =
+              case c of
+                  AndC (c1, c2) =>
+                  (case (simp c1, simp c2) of
+                       (TrueC, c) => c
+                     | (c, TrueC) => c
+                     | (c1, c2) => AndC (c1, c2)
+                  )
+                | OrC (c1, c2) =>
+                  (case (runUntilFalse (fn () => simp c1), runUntilFalse (fn () => simp c2)) of
+                       (FalseC, FalseC) => raise IsFalse
+                     | (FalseC, c) => c
+                     | (c, FalseC) => c
+                     | (c1, c2) => OrC (c1, c2)
+                  )
+                | TTC => TTC
+                | PairC (c1, c2) => PairC (simp c1, simp c2)
+                | ConstrC (x, c) => ConstrC (x, simp c)
+                | TrueC => TrueC
+                | FalseC => raise IsFalse
+        in
+        fun simp_cover cover =
+            runUntilFalse (fn () => simp cover)
+        fun simp_covers cs =
+            let
+              fun main () = List.filter (fn c => case c of TrueC => false | _ => true) $ map simp cs
+            in
+              main () handle IsFalse => [FalseC]
+            end
+        end              
         (* val () = println $ "before simp_cover(): size=" ^ (str_int $ cover_size cs) *)
-        val cs = simp_cover cs
+        
+        (* val c = combine_AndC cs *)
+        (* val c = simp_cover c *)
+        (* val cs = collect_AndC c *)
+        
+        val cs = concatMap collect_AndC $ simp_covers $ cs
+                             
         (* val () = println $ "after simp_cover(): size=" ^ (str_int $ cover_size cs) *)
-        val cs = collect_AndC cs
-        (* use exception to mimic Error monad *)
+                             
         exception Incon of string
-        fun loop (t : mtype) cs_all : habitant =
+        (* the last argument is for checking that recursive calls to [loop] are always on smaller arguments, to ensure termination *)
+        fun loop (t : mtype, cs_all, ()) : habitant =
           let
             (* val t = update_mt t *)
             val t = hnf_mt t
+            (* val size = covers_size cs_all *)
+            (* fun check_size (t', cs) = *)
+            (*     let *)
+            (*       val smaller = covers_size cs *)
+            (*       val () = if smaller < size orelse smaller = size andalso mt_size t' < mt_size t then () *)
+            (*                else raise Impossible "not smaller size" *)
+            (*     in *)
+            (*       (t', cs, ()) *)
+            (*     end *)
+            fun check_size (t', cs) = (t', cs, ())
+            (* val cs_all = simp_covers $ concatMap collect_AndC cs_all *)
+            (* val () = print $ sprintf "$\t\t$\n" [str_int $ covers_size cs_all, str_int $ length cs_all] *)
+            (* fun concrete c = *)
+            (*     let *)
+            (*       val ret =  *)
+            (*           case c of *)
+            (*               TTC => true *)
+            (*             | PairC _ => true *)
+            (*             | ConstrC _ => true *)
+            (*             | _ => false *)
+            (*                      (* val () = println $ (if ret then "concrete" else "not concrete: " ^ str_cover (names cctx) c) *) *)
+            (*     in *)
+            (*       ret *)
+            (*     end *)
+            (* fun has_false c = *)
+            (*     case c of *)
+            (*         FalseC => true *)
+            (*       | TrueC => false *)
+            (*       | TTC => false *)
+            (*       | PairC (c1, c2) => has_false c1 orelse has_false c2 *)
+            (*       | AndC (c1, c2) => has_false c1 orelse has_false c2 *)
+            (*       | OrC (c1, c2) => has_false c1 andalso has_false c2 *)
+            (*       | ConstrC (_, c) => has_false c *)
+            (* val () = app (fn c' => if has_false c' then ((* println "has false";  *)raise Incon "has false") else ()) cs_all *)
+            (* fun split3 i l = (List.nth (l, i), take i l, drop (i + 1) l) *)
+            (* fun i_tl_to_hd c i cs = to_hd (i + 1) (c :: cs) *)
           in
             case cs_all of
                 [] =>
@@ -1054,110 +1093,94 @@ local
                          | _ => TrueH (* an abstract type is treated as an inhabited type *)
                       )
                     | Unit _ => TTH
-                    | Prod (t1, t2) => PairH (loop t1 [], loop t2 [])
+                    | Prod (t1, t2) => PairH (loop $ check_size (t1, []), loop $ check_size (t2, []))
                     | _ => TrueH
                 end
               | c :: cs =>
                 let
                   (* val () = Debug.println (sprintf "try to satisfy $" [(join ", " o map (str_cover (names cctx))) (c :: cs)]) *)
                   (* val () = println $ sprintf "try to satisfy $" [str_cover (names cctx) c] *)
-                  (* val () = print $ sprintf "$\t\t$\n" [str_int $ covers_size cs_all, str_int $ length cs_all] *)
-                  fun concrete c =
-                    let
-                      val ret = 
-                          case c of
-                              TTC => true
-                            | PairC _ => true
-                            | ConstrC _ => true
-                            | _ => false
-                                     (* val () = println $ (if ret then "concrete" else "not concrete: " ^ str_cover (names cctx) c) *)
-                    in
-                      ret
-                    end
+                  (* firstly try to test for concrete cases *)
                   fun conflict_half a b =
-                    case (a, b) of
-                        (PairC _, ConstrC _) => true
-                      | (PairC _, TTC) => true
-                      | (ConstrC _, TTC) => true
-                      | _ => false
+                      case (a, b) of
+                          (PairC _, ConstrC _) => true
+                        | (PairC _, TTC) => true
+                        | (ConstrC _, TTC) => true
+                        | _ => false
                   fun conflict a b = conflict_half a b orelse conflict_half b a
                   val () = app (fn c' => if conflict c c' then ((* println "conflict";  *)raise Incon "conflict") else ()) cs
-                  (* fun has_false c = *)
-                  (*   case c of *)
-                  (*       FalseC => true *)
-                  (*     | TrueC => false *)
-                  (*     | TTC => false *)
-                  (*     | PairC (c1, c2) => has_false c1 orelse has_false c2 *)
-                  (*     | AndC (c1, c2) => has_false c1 orelse has_false c2 *)
-                  (*     | OrC (c1, c2) => has_false c1 andalso has_false c2 *)
-                  (*     | ConstrC (_, c) => has_false c *)
-                  (* val () = app (fn c' => if has_false c' then ((* println "has false";  *)raise Incon "has false") else ()) cs_all *)
+                  val result =
+                      case (c, t) of
+                          (TTC, Unit _) =>
+                          (case allSome (fn c => case c of TTC => SOME () | _ => NONE) cs of
+                               OK _ => inl TTH
+                             | Failed (i, dissident) =>
+                               if conflict c dissident then
+                                 raise Incon "conflicts on tt"
+                               else
+                                 inr (dissident, c :: remove i cs, t)
+                          )
+                        | (PairC (c1, c2), Prod (t1, t2)) =>
+                          (case allSome (fn c => case c of PairC p => SOME p | _ => NONE ) cs of
+                               OK cs =>
+                               let
+                                 val (cs1, cs2) = unzip cs
+                                 val c1 = loop $ check_size (t1, c1 :: cs1)
+                                 val c2 = loop $ check_size (t2, c2 :: cs2)
+                               in
+                                 inl $ PairH (c1, c2)
+                               end
+                             | Failed (i, dissident) =>
+                               if conflict c dissident then
+                                 raise Incon "conflicts on pair"
+                               else
+                                 inr (dissident, c :: remove i cs, t)
+                          )
+                        | (ConstrC (x, c'), AppV ((family, _), ts, _, _)) =>
+                          let
+                            fun same_constr c =
+                                case c of
+                                    ConstrC (y, c) =>
+                                    if y = x then
+                                      SOME c
+                                    else
+                                      raise Incon "diff-constr"
+                                  | _ => NONE
+                          in
+                            case allSome same_constr cs of
+                                OK cs' =>
+                                let
+                                  val (_, (_, _, ibinds)) = fetch_constr (cctx, (x, dummy))
+                                  val (_, (t', _)) = unfold_ibinds ibinds
+		                  val t' = subst_ts_mt ts t'
+                                  (* val () = (* Debug. *)println (sprintf "All are $, now try to satisfy $" [str_v (names cctx) x, (join ", " o map (str_cover (names cctx))) (c' :: cs')]) *)
+                                  val c' = loop $ check_size (t', c' :: cs')
+                                                (* val () = Debug.println (sprintf "Plugging $ into $" [str_habitant (names cctx) c', str_v (names cctx) x]) *)
+                                in
+                                  inl $ ConstrH (x, c')
+                                end
+                              | Failed (i, dissident) =>
+                                if conflict c dissident then
+                                  raise Incon $ "conflicts on constructor " ^ str_int x
+                                else
+                                  inr (dissident, c :: remove i cs, t)
+                          end
+                        | _ => inr (c, cs, t)
                 in
-                  case (c, t) of
-                      (TrueC, _) => loop t cs
-                    | (FalseC, _) => raise Incon "false"
-                    | (AndC (c1, c2), _) => loop t (c1 :: c2 :: cs)
-                    | (OrC (c1, c2), _) =>
-                      (loop t (c1 :: cs) handle Incon _ => loop t (c2 :: cs))
-                    | (TTC, Unit _) =>
-                      (case allSome (fn c => case c of TTC => SOME () | _ => NONE) cs of
-                           OK _ => TTH
-                         | Failed (i, dissident) =>
-                           if concrete dissident then
-                             raise Incon "conflicts on tt"
-                           else
-                             loop t (i_tl_to_hd c i cs)
-                      )
-                    | (PairC (c1, c2), Prod (t1, t2)) =>
-                      (case allSome (fn c => case c of PairC p => SOME p | _ => NONE ) cs of
-                           OK cs =>
-                           let
-                             val (cs1, cs2) = unzip cs
-                             val c1 = loop t1 (c1 :: cs1)
-                             val c2 = loop t2 (c2 :: cs2)
-                           in
-                             PairH (c1, c2)
-                           end
-                         | Failed (i, dissident) =>
-                           if concrete dissident then
-                             raise Incon "conflicts on pair"
-                           else
-                             loop t (i_tl_to_hd c i cs)
-                      )
-                    | (ConstrC (x, c'), AppV ((family, _), ts, _, _)) =>
-                      let
-                        fun same_constr c =
-                          case c of
-                              ConstrC (y, c) =>
-                              if y = x then
-                                SOME c
-                              else
-                                raise Incon "diff-constr"
-                            | _ => NONE
-                      in
-                        case allSome same_constr cs of
-                            OK cs' =>
-                            let
-                              val (_, (_, _, ibinds)) = fetch_constr (cctx, (x, dummy))
-                              val (_, (t', _)) = unfold_ibinds ibinds
-		              val t' = subst_ts_mt ts t'
-                              (* val () = (* Debug. *)println (sprintf "All are $, now try to satisfy $" [str_v (names cctx) x, (join ", " o map (str_cover (names cctx))) (c' :: cs')]) *)
-                              val c' = loop t' (c' :: cs')
-                              (* val () = Debug.println (sprintf "Plugging $ into $" [str_habitant (names cctx) c', str_v (names cctx) x]) *)
-                            in
-                              ConstrH (x, c')
-                            end
-                          | Failed (i, dissident) =>
-                            if concrete dissident then
-                              raise Incon $ "conflicts on constructor " ^ str_int x
-                            else
-                              loop t (i_tl_to_hd c i cs)
-                      end
-                    | _ => raise impossible "find_habitant()"
+                  case result of
+                      inl hab => hab
+                    | inr (c, cs, t) =>
+                      case (c, t) of
+                          (TrueC, _) => loop $ check_size (t, cs)
+                        | (FalseC, _) => raise Incon "false"
+                        | (AndC (c1, c2), _) => loop $ check_size (t, c1 :: c2 :: cs)
+                        | (OrC (c1, c2), _) =>
+                          (loop $ check_size (t, c1 :: cs) handle Incon _ => loop $ check_size (t, c2 :: cs))
+                        | _ => raise impossible "find_habitant()"
                 end
           end
       in
-        SOME (loop t cs) handle Incon debug => NONE
+        SOME (loop (t, cs, ())) handle Incon debug => NONE
       end
 
   in              
@@ -1238,15 +1261,15 @@ local
                 val pn' = if cutoff > 0 then
                             loop (cutoff - 1) t' h'
                           else
-                            U.VarP ("_", dummy)
+                            VarP ("_", dummy)
               in
-                U.ConstrP ((x, dummy), repeat (length name_sorts) "_", SOME pn', dummy)
+                ConstrP ((x, dummy), repeat (length name_sorts) "_", SOME pn', dummy)
               end
             | (TTH, Unit _) =>
-              U.TTP dummy
+              TTP dummy
             | (PairH (h1, h2), Prod (t1, t2)) =>
-              U.PairP (loop cutoff t1 h1, loop cutoff t2 h2)
-            | (TrueH, _) => U.VarP ("_", dummy)
+              PairP (loop cutoff t1 h1, loop cutoff t2 h2)
+            | (TrueH, _) => VarP ("_", dummy)
             | _ => raise Impossible "hab_to_ptrn"
         end
     in
@@ -1259,14 +1282,14 @@ local
       (* open UnderscoredExpr *)
     in
       case pn of
-          U.ConstrP ((x, _), _, pn, _) => ConstrC (x, default TrueC $ Option.map ptrn_to_cover pn)
-        | U.VarP _ => TrueC
-        | U.PairP (pn1, pn2) => PairC (ptrn_to_cover pn1, ptrn_to_cover pn2)
-        | U.TTP _ => TTC
-        | U.AliasP (_, pn, _) => ptrn_to_cover pn
-        | U.AnnoP (pn, _) => ptrn_to_cover pn
+          ConstrP ((x, _), _, pn, _) => ConstrC (x, default TrueC $ Option.map ptrn_to_cover pn)
+        | VarP _ => TrueC
+        | PairP (pn1, pn2) => PairC (ptrn_to_cover pn1, ptrn_to_cover pn2)
+        | TTP _ => TTC
+        | AliasP (_, pn, _) => ptrn_to_cover pn
+        | AnnoP (pn, _) => ptrn_to_cover pn
     end
-                                       
+
   val combine_covers = combine_covers
                          
   end
@@ -1886,6 +1909,14 @@ local
                 case (pn, e) of
                     (VarP _, U.Never (U.UVar _)) =>
                     let
+                      fun convert_pn pn =
+                          case pn of
+                              TTP a => U.TTP a
+                            | PairP (pn1, pn2) => U.PairP (convert_pn pn1, convert_pn pn2)
+                            | ConstrP (x, inames, opn, r) => U.ConstrP (x, inames, Option.map convert_pn opn, r) 
+                            | VarP a => U.VarP a
+                            | AliasP (name, pn, r) => U.AliasP (name, convert_pn pn, r)
+                            | AnnoP _ => raise Impossible "convert_pn can't convert AnnoP"
                       fun loop pcovers =
                         case any_missing ctx t $ combine_covers pcovers of
                             SOME hab =>
@@ -1894,7 +1925,7 @@ local
                               (* val () = println $ sprintf "New pattern: $" [U.str_pn (names sctx, names kctx, names cctx) pn] *)
                               val (pcovers, rules) = loop $ pcovers @ [ptrn_to_cover pn]
                             in
-                              (pcovers, [(pn, e)] @ rules)
+                              (pcovers, [(convert_pn pn, e)] @ rules)
                             end
                           | NONE => (pcovers, [])
                       val (pcovers, rules) = loop pcovers

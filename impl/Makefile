@@ -43,7 +43,7 @@ main: main.mlb $(FILES)
 	mlton -profile time main.mlb
 
 profile:
-	mlprof main mlmon.out
+	mlprof -show-line true -raw true main mlmon.out
 
 smlnj: main.cm
 	./format.rb ml-build -Ccompiler-mc.error-non-exhaustive-match=true -Ccompiler-mc.error-non-exhaustive-bind=true main.cm Main.main main-image
