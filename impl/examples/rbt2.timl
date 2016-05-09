@@ -5,7 +5,7 @@ datatype {Bool} color =
 
 datatype {Nat} {Bool} 'a rbt =
          Leaf of {1} {true} 'a rbt
-       | Node {bh : Nat} {lcolor : Bool} {rcolor : Bool} {color : Bool} {_ : Unit | color = false -> lcolor = true /\ rcolor = true } of {color} color * {bh} {lcolor} 'a rbt * 'a * {bh} {rcolor} 'a rbt --> {bh + b2n color} {color} 'a rbt
+       | Node {color : Bool} {bh : Nat} {lcolor : Bool} {rcolor : Bool} {color = false -> lcolor = true /\ rcolor = true } of {color} color * {bh} {lcolor} 'a rbt * 'a * {bh} {rcolor} 'a rbt --> {bh + b2n color} {color} 'a rbt
 
 datatype {Nat} 'a violation =
          ViolateLeft {rc : Bool} {bh : Nat} of {bh} {false} 'a rbt * 'a * {bh} {rc} 'a rbt --> {bh} 'a violation
@@ -33,7 +33,7 @@ datatype {Nat} {Bool (*color*)} {Bool (*is already good?*)} 'a arbt =
        | Bad {bh : Nat} of {bh} 'a violation --> {bh} {false} {false} 'a arbt
 
 datatype {Nat} {Bool} 'a ins_result =
-         InsResult {input_color : Bool} {bh : Nat} {output_color : Bool} {is_good : Bool} {_ : Unit | input_color = true -> is_good = true} of {bh} {output_color} {is_good} 'a arbt --> {bh} {input_color} 'a ins_result
+         InsResult {input_color : Bool} {bh : Nat} {output_color : Bool} {is_good : Bool} {input_color = true -> is_good = true} of {bh} {output_color} {is_good} 'a arbt --> {bh} {input_color} 'a ins_result
 
 datatype cmp_result = Equal | Less | Greater
 

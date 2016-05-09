@@ -300,6 +300,15 @@ bar_constr_star : BAR constr bar_constr_star (constr :: bar_constr_star)
 
 sorting : LCUR id COLON sort RCUR (Sorting (id, sort, (LCURleft, RCURright)))
         | LCUR id COLON bsort BAR prop RCUR (Sorting (id, Subset (bsort, id, prop, (LCURleft, RCURright)), (LCURleft, RCURright)))
+        | LCUR prop RCUR (
+            let
+              val r = (LCURleft, RCURright)
+              val id = ("_", r)
+              val bsort = Base ("Unit", r)
+            in
+              Sorting (id, Subset (bsort, id, prop, r), r)
+            end
+          )
 
 sorting_star : sorting sorting_star (sorting :: sorting_star)
 	   | ([])
