@@ -896,8 +896,9 @@ local
           | PairH (c1, c2) => sprintf "($, $)" [str_habitant cctx c1, str_habitant cctx c2]
           | TTH => "()"
 
+    infix 3 /\
     infix 2 \/
-          pp    val op/\ = AndC
+    val op/\ = AndC
     val op\/ = OrC
 
     fun impossible s = Impossible $ "cover has the wrong type: " ^ s
@@ -944,8 +945,8 @@ local
 	         | _ => raise impossible $ sprintf "cover_neg()/ConstrC:  cover is $ but type is " [str_cover (names cctx) c_all, str_mt ([], names kctx) t])
         end
 
-    fun cover_imply cctx t (a, b) : cover =
-        cover_neg cctx t a \/ b
+    (* fun cover_imply cctx t (a, b) : cover = *)
+    (*     cover_neg cctx t a \/ b *)
 
     (* find habitant
        deep: when turned on, [find_hab] try to find a [ConstrH] for a datatype when constraints are empty (treat empty datatype as uninhabited); otherwise only return [TrueH] in such case (treat empty datatype as inhabited) *)
@@ -1013,15 +1014,12 @@ local
                 main () handle IsFalse => [FalseC]
               end
           end              
-          (* val () = println $ "before simp_cover(): size=" ^ (str_int $ cover_size cs) *)
-          
+          (* val () = println $ "before simp_cover(): size=" ^ (str_int $ covers_size cs) *)
           (* val c = combine_AndC cs *)
           (* val c = simp_cover c *)
           (* val cs = collect_AndC c *)
-          
           val cs = concatMap collect_AndC $ simp_covers $ cs
-                             
-          (* val () = println $ "after simp_cover(): size=" ^ (str_int $ cover_size cs) *)
+          (* val () = println $ "after simp_cover(): size=" ^ (str_int $ covers_size cs) *)
                              
           exception Incon of string
           (* the last argument is for checking that recursive calls to [loop] are always on smaller arguments, to ensure termination *)
@@ -1174,19 +1172,20 @@ local
         (* val () = (* Debug. *)println (str_cover (names (#3 ctx)) nc) *)
         (* val () = println "before find_hab()" *)
         val ret = find_hab deep ctx t [nc]
-                                (* val () = println "after find_hab()" *)
+        (* val () = println "after find_hab()" *)
       in
         ret
       end
 
   fun is_redundant (ctx, t, prevs, this) =
       let
-        fun is_covered ctx t small big =
-            (isNull o (* (trace "after any_missing()") o *) any_missing true(*treat empty datatype as uninhabited*) ctx t o (* (trace "after cover_imply()") o *) cover_imply ctx t) (small, big)
+        (* fun is_covered ctx t small big = *)
+        (*     (isNull o (* (trace "after any_missing()") o *) any_missing true(*treat empty datatype as uninhabited*) ctx t o (* (trace "after cover_imply()") o *) cover_imply ctx t) (small, big) *)
         (* val t = update_mt t *)
         val prev = combine_covers prevs
         (* val () = println "after combine_covers()" *)
-        val something_new = not (is_covered ctx t this prev)
+                                  (* val something_new = not (is_covered ctx t this prev) *)
+        val something_new = isSome $ find_hab true ctx t $ [this, cover_neg ctx t prev]                                  
                                 (* val () = println "after is_covered()" *)
       in
         something_new
