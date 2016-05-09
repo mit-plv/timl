@@ -104,14 +104,3 @@ absidx g : BigO 1 (fn n => $n) with
 fun tree_flatten_mlr (* ['a] *) {n : Nat} (tr : {n} _ tree) return {n} _ list using g n =
     tree_append_rlm tr {_} Nil
 end
-
-datatype {Nat} 'a braun_tree =
-         BraunLeaf of {0} 'a braun_tree
-       | BraunNode {n : Nat} of 'a * {ceil ($n/2)} 'a braun_tree * {floor ($n/2)} 'a braun_tree --> {n+1} 'a braun_tree
-
-absidx g : BigO 1 (fn n => log2 $n) with
-fun braun_insert ['a] x {n : Nat} (tr : {n} 'a braun_tree) return {n + 1} 'a braun_tree using g n =
-    case tr of
-        BraunLeaf => BraunNode (x, BraunLeaf, BraunLeaf)
-      | @BraunNode {n'} (y, l, r) => @BraunNode {n' + 1} (x, braun_insert y {_} r, l)
-end
