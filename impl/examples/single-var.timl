@@ -43,58 +43,38 @@ fun split ['a] {n : Nat} (xs : {n} 'a list) return {ceil ($n/2)} _ list * {floor
 datatype bool = true | false
 
 absidx {T2 : Fun 1 | T2 O _} with
-fun merge ['a] (lt : 'a * 'a -- 8.0 --> bool) =
-    let
-      fun merge {n1 : Nat} {n2 : Nat} (xs : {n1} _ list) (ys : {n2} _ list) return {n1 + n2} _ list using T2 (n1 + n2) =
-          case (xs, ys) of
-              (Nil, _) => ys
-            | (_, Nil) => xs
-            | (Cons (x, xs'), Cons (y, ys')) =>
-              case lt (x, y) (* return using 2.0 + T2 (n1' + n2' + 1) *) of
-                  true => Cons (x, merge xs' ys)
-                | false => Cons (y, merge xs ys')
-    in
-      @merge
-    end
+fun merge ['a] {n1 : Nat} {n2 : Nat} (lt : 'a * 'a -- 8.0 --> bool) (xs : {n1} _ list) (ys : {n2} _ list) return {n1 + n2} _ list using T2 (n1 + n2) =
+    case (xs, ys) of
+        (Nil, _) => ys
+      | (_, Nil) => xs
+      | (Cons (x, xs'), Cons (y, ys')) =>
+        case lt (x, y) (* return using 2.0 + T2 (n1' + n2' + 1) *) of
+            true => Cons (x, merge lt xs' ys)
+          | false => Cons (y, merge lt xs ys')
 end
 
 absidx {T3 : Fun 1 | T3 O _} with
-fun msort ['a] (lt : 'a * 'a -- _ --> bool) =
-    let
-      fun msort {n : Nat} (xs : {n} 'a list) return {n} _ list using T3 n =
-          case xs of
-              Nil => xs
-            | Cons _ =>
-              case split xs of
-                  (xs1, xs2) => merge lt {_} {_} (msort xs1) (msort xs2)
-    in
-      msort
-    end
+fun msort ['a] {n : Nat} (lt : 'a * 'a -- _ --> bool) (xs : {n} 'a list) return {n} _ list using T3 n =
+    case xs of
+        Nil => xs
+      | Cons _ =>
+        case split xs of
+            (xs1, xs2) => merge lt (msort lt xs1) (msort lt xs2)
 end
 
 absidx g : BigO 1 (fn n => $n) with
-fun insert ['a] (le : 'a * 'a -- 7.0 --> bool) x =
-    let
-      fun insert {n : Nat} (xs : {n} _ list) return {n + 1} _ list using g n =
-          case xs of
-              Nil => Cons (x, Nil)
-            | @Cons {n'} (x', xs') =>
-              case le (x, x') return {n + 1} _ list using 1.0 + g n' of
-                  true => Cons (x, xs)
-                | false => Cons (x', insert xs')
-    in
-      @insert
-    end
+fun insert ['a] {n : Nat} (le : 'a * 'a -- 7.0 --> bool) (xs : {n} _ list) x return {n + 1} _ list using g n =
+    case xs of
+        Nil => Cons (x, Nil)
+      | Cons (x', xs') =>
+        case le (x, x') (* return {n + 1} _ list using 1.0 + g n' *) of
+            true => Cons (x, xs)
+          | false => Cons (x', insert le xs' x)
 end
 
 absidx g : BigO 1 (fn n => $n * $n) with
-fun insertion_sort ['a] (le : 'a * 'a -- _ --> bool) =
-    let
-      fun sort {n : Nat} (xs : {n} _ list) return {n} _ list using g n =
-          case xs of
-              Nil => Nil
-            | Cons (x, xs) => insert le x {_} (sort xs)
-    in
-      @sort
-    end
+fun isort ['a] {n : Nat} (le : 'a * 'a -- _ --> bool) (xs : {n} _ list) return {n} _ list using g n =
+    case xs of
+        Nil => Nil
+      | Cons (x, xs) => insert le (isort le xs) x
 end
