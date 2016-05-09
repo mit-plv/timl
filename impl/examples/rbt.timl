@@ -38,7 +38,7 @@ datatype {Nat} {Bool} 'a ins_result =
 
 datatype cmp_result = Equal | Less | Greater
 
-fun cmp ['a] (x : 'a, y : 'a) = Equal
+fun cmp ['a] (x : 'a, y : 'a) = Equal using 7.0
 
 absidx g : BigO 1 (fn n => $n) (* = fn n => 6.0 * $n *) with                                   
 fun ins ['a] {input_color : Bool} {bh : Nat} (tr : {bh} {input_color} 'a rbt) (new : 'a) return {bh} {input_color} 'a ins_result using (* 6.0 * $ *)g (2 * bh + b2n (not input_color)) =
@@ -134,10 +134,6 @@ fun insert ['a] {bh : Nat} (tr : {bh} 'a rb_tree) new return {bh} 'a rbt_may_gro
             )
           | _ => never
 end
-
-datatype 'a option =
-         NONE
-         | SOME of 'a --> 'a option
 
 absidx g : BigO 1 (fn n => $n) with
 fun search ['a 'b] {color : Bool} {bh : Nat} (tr : {bh} {color} ('a * 'b) rbt) k return 'b option using g (2 * bh + b2n (not color)) =

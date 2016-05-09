@@ -4,6 +4,6 @@ bigO-evolve.timl
 fold-evolve.timl
 single-var.timl
 insertion-sort.timl
-braun-tree.timl
 rbt.timl
 rbt2.timl
+braun-tree.timl
