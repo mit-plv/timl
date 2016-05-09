@@ -76,6 +76,8 @@ fun summarize on_error i =
         M.empty
       | VarI (x, _) =>
         M.insert (M.empty, x, (1, 0))
+      | UnOpI (B2n, i, _) =>
+        M.empty
       | UnOpI (ToReal, i, _) =>
         summarize on_error i
       | UnOpI (Ceil, i, _) =>

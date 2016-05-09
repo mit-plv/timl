@@ -142,18 +142,11 @@ absidx g : BigO 1 (fn n => $n) with
 fun search ['a 'b] {color : Bool} {bh : Nat} (tr : {bh} {color} ('a * 'b) rbt) k return 'b option using g (2 * bh + b2n (not color)) =
     case tr of
         Leaf => NONE
-      | Node (Red, left, (k', v), right) =>
-        (case cmp (k, k') of
-             Equal => SOME v
-           | Less => search left k
-           | Greater => search right k
-        )
-      | Node (Black, left, (k', v), right) =>
-        (case cmp (k, k') of
-             Equal => SOME v
-           | Less => search left k
-           | Greater => search right k
-        )
+      | Node (_, left, (k', v), right) =>
+        case cmp (k, k') of
+            Equal => SOME v
+          | Less => search left k
+          | Greater => search right k
 end
 
 absidx g : BigO 1 (fn n => $n) with
