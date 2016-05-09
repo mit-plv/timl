@@ -137,7 +137,7 @@ end
 datatype 'a option =
          NONE
          | SOME of 'a --> 'a option
-(*
+
 absidx g : BigO 1 (fn n => $n) with
 fun search ['a 'b] {color : Bool} {bh : Nat} (tr : {bh} {color} ('a * 'b) rbt) k return 'b option using g (2 * bh + b2n (not color)) =
     case tr of
@@ -161,4 +161,4 @@ fun lookup ['a 'b] {bh : Nat} (tr : {bh} ('a * 'b) rb_tree) k return 'b option u
     case tr of
         RBTree tr => search tr k
 end
-*)
+
