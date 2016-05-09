@@ -5,7 +5,7 @@ open NoUVarExpr
 
 infixr 0 $
 
-infix 1 -->
+infixr 1 -->
 
 fun escape s = if s = "_" then "__" else String.map (fn c => if c = #"'" then #"!" else c) s
 fun evar_name n = "!!" ^ str_int n

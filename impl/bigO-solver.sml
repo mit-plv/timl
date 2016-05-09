@@ -13,7 +13,7 @@ infix 4 %<=
 infix 4 %=
 infix 3 /\
 infix 2 \/
-infix 1 -->
+infixr 1 -->
 infix 1 <->
 
 infix 4 ==

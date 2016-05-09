@@ -9,7 +9,7 @@ infix 7 %*
 infix 6 %+
 infix 4 %<=
 infix 3 /\
-infix 1 -->
+infixr 1 -->
 infix 1 <->
 
 open Subst

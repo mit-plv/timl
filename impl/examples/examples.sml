@@ -17,7 +17,7 @@ infix 6 %+
 infix 6 %*
 infix 4 %<=
 infix 3 /\
-infix 1 -->
+infixr 1 -->
 infix 1 <->
 
 val dummy = dummy_region
@@ -74,7 +74,7 @@ infix 6 %+
 infix 6 %*
 infix 4 %<=
 infix 3 /\
-infix 1 -->
+infixr 1 -->
 infix 1 <->
 
 val dummy = dummy_region
@@ -127,7 +127,7 @@ infix 6 %+
 infix 6 %*
 infix 4 %<=
 infix 3 /\
-infix 1 -->
+infixr 1 -->
 infix 1 <->
 
 (*
