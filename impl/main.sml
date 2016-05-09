@@ -37,7 +37,13 @@ open SMTSolver
 
 fun typecheck_file (filename, ctx) =
     let
-      val ctxn = ctx_names ctx
+      val ctxn =
+          let
+            val (sctx, kctx, cctx, tctx) = ctx
+            val cctx = map (fn (name, (_, _, core)) => (name, ibinds_length core)) cctx
+          in
+            (sctx_names sctx, names kctx, cctx, names tctx)
+          end
       val decls = parse_file filename
       val decls = map elaborate_decl decls
       (* val () = (app println o map (suffix "\n") o fst o E.str_decls ctxn) decls *)

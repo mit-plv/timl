@@ -25,7 +25,7 @@ fun map ['a 'b] (f : 'a -- 5.0 --> 'b) =
       fun map {n : Nat} (xs : {n} 'a list) return {n} _ list using T n =
           case xs of
               Nil => Nil
-            | Cons {_} (x, xs) =>
+            | Cons (x, xs) =>
               Cons (f x, map xs)
     in
       map
@@ -35,8 +35,8 @@ end
 fun split ['a] {n : Nat} (xs : {n} 'a list) return {ceil ($n/2)} _ list * {floor ($n/2)} _ list using $n =
     case xs of
         Nil => (Nil, Nil)
-      | Cons {_} (x, Nil) => (xs, Nil)
-      | Cons {_} (x1, Cons {_} (x2, xs)) =>
+      | Cons (x, Nil) => (xs, Nil)
+      | Cons (x1, Cons (x2, xs)) =>
         case split xs of
             (xs1, xs2) => (Cons (x1, xs1), Cons (x2, xs2))
 
@@ -49,7 +49,7 @@ fun merge ['a] (lt : 'a * 'a -- 8.0 --> bool) =
           case (xs, ys) of
               (Nil, _) => ys
             | (_, Nil) => xs
-            | (Cons {n1'} (x, xs'), Cons {n2'} (y, ys')) =>
+            | (Cons (x, xs'), Cons (y, ys')) =>
               case lt (x, y) (* return using 2.0 + T2 (n1' + n2' + 1) *) of
                   true => Cons (x, merge xs' ys)
                 | false => Cons (y, merge xs ys')
@@ -64,7 +64,7 @@ fun msort ['a] (lt : 'a * 'a -- _ --> bool) =
       fun msort {n : Nat} (xs : {n} 'a list) return {n} _ list using T3 n =
           case xs of
               Nil => xs
-            | Cons {_} _ =>
+            | Cons _ =>
               case split xs of
                   (xs1, xs2) => merge lt {_} {_} (msort xs1) (msort xs2)
     in
@@ -78,7 +78,7 @@ fun insert ['a] (le : 'a * 'a -- 7.0 --> bool) x =
       fun insert {n : Nat} (xs : {n} _ list) return {n + 1} _ list using g n =
           case xs of
               Nil => Cons (x, Nil)
-            | Cons {n'} (x', xs') =>
+            | @Cons {n'} (x', xs') =>
               case le (x, x') return {n + 1} _ list using 1.0 + g n' of
                   true => Cons (x, xs)
                 | false => Cons (x', insert xs')
@@ -93,7 +93,7 @@ fun insertion_sort ['a] (le : 'a * 'a -- _ --> bool) =
       fun sort {n : Nat} (xs : {n} _ list) return {n} _ list using g n =
           case xs of
               Nil => Nil
-            | Cons {_} (x, xs) => insert le x {_} (sort xs)
+            | Cons (x, xs) => insert le x {_} (sort xs)
     in
       @sort
     end

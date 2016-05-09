@@ -16,6 +16,7 @@ local
 
     (* fun find_idx (x : string) ctx = find_by_snd_eq op= x (add_idx ctx) *)
     fun find_idx (x : string) ctx = Option.map fst $ findWithIdx (fn (_, y) => y = x) ctx
+    fun find_idx_value (x : string) ctx = Option.map (fn (i, (_, v)) => (i, v)) $ findWithIdx (fn (_, (y, _)) => y = x) ctx
 
     fun on_var ctx (x, r) =
       case find_idx x ctx of
@@ -81,13 +82,22 @@ local
 
     fun on_ptrn (ctx as (sctx, kctx, cctx)) pn =
       case pn of
-	  E.ConstrP ((x, xr), inames, pn, r) =>
-          (case find_idx x cctx of
-	       SOME i => 
-               ConstrP ((i, xr), inames, Option.map (on_ptrn ctx) pn, r)
+	  E.ConstrP (((x, xr), eia), inames, pn, r) =>
+          (case find_idx_value x cctx of
+	       SOME (i, inames_len) =>
+               let
+                 val inames =
+                     if eia then
+                       inames
+                     else
+                       if length inames = 0 then repeat inames_len "_"
+                       else raise Error (r, "Constructor pattern can't have explicit index pattern arguments. Use [@constructor_name] if you want to write explict index pattern arguments.")
+               in
+                 ConstrP (((i, xr), true), inames, Option.map (on_ptrn ctx) pn, r)
+               end
 	     | NONE =>
-               (case (inames, pn) of
-                    ([], NONE) => VarP (x, r)
+               (case (eia, inames, pn) of
+                    (false, [], NONE) => VarP (x, r)
                   | _ =>
                     raise Error (r, "Unknown constructor " ^ x)))
         | E.VarP name =>
@@ -166,7 +176,7 @@ local
         (pn, copy_anno (shift_return offset return) e)
       end
         
-    fun on_expr (ctx as (sctx, kctx, cctx, tctx)) e =
+    fun on_expr (ctx as (sctx, kctx, cctx : (string * int) list, tctx)) e =
       let 
           (* val () = println $ sprintf "on_expr $ in context $" [E.str_e ctx e, join " " tctx] *)
           fun add_t name (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx)
@@ -174,8 +184,8 @@ local
       in
 	  case e of
 	      E.Var ((x, r), b) => 
-	      (case find_idx x cctx of
-		   SOME i => AppConstr (((i, r), b), [], TT r)
+	      (case find_idx_value x cctx of
+		   SOME (i, _) => AppConstr (((i, r), b), [], TT r)
 		 | NONE => Var ((on_var tctx (x, r)), b)
               )
 	    | E.Abs (pn, e) => 
@@ -196,8 +206,8 @@ local
 	      in
 		  case e1 of
 		      E.Var ((x, r), b) =>
-		      (case find_idx x cctx of
-			   SOME i => AppConstr (((i, r), b), map (on_idx sctx) is, e2)
+		      (case find_idx_value x cctx of
+			   SOME (i, _) => AppConstr (((i, r), b), map (on_idx sctx) is, e2)
 			 | NONE => default ())
 		    | _ => default ()
 	      end
@@ -215,8 +225,8 @@ local
 	      in
 		  case e of
 		      E.Var ((x, r), b) =>
-		      (case find_idx x cctx of
-			   SOME n => AppConstr (((n, r), b), map (on_idx sctx) is, TT (E.get_region_i i))
+		      (case find_idx_value x cctx of
+			   SOME (n, _) => AppConstr (((n, r), b), map (on_idx sctx) is, TT (E.get_region_i i))
 			 | NONE => default ())
 		    | _ => default ()
 	      end
@@ -230,7 +240,7 @@ local
 	    | E.AscriptionTime (e, d) => AscriptionTime (on_expr ctx e, on_idx sctx d)
 	    | E.ConstInt n => ConstInt n
 	    | E.BinOp (opr, e1, e2) => BinOp (opr, on_expr ctx e1, on_expr ctx e2)
-	    | E.AppConstr ((x, b), is, e) => AppConstr ((on_var cctx x, b), map (on_idx sctx) is, on_expr ctx e)
+	    | E.AppConstr ((x, b), is, e) => AppConstr ((on_var (map fst cctx) x, b), map (on_idx sctx) is, on_expr ctx e)
 	    | E.Case (e, return, rules, r) =>
               let
                 val return = on_return skctx return
@@ -292,11 +302,12 @@ local
                 (Rec (tnames, (name, r1), (binds, ((t, d), e)), r), ctx_ret)
             end
           | E.Datatype (name, tnames, sorts, constr_decls, r) =>
-            let fun on_constr_decl (cname, core, r) =
+            let
+              fun on_constr_decl (cname, core, r) =
                   (cname, on_constr_core (sctx, name :: kctx) tnames core, r)
-                val decl = Datatype (name, tnames, map (on_sort sctx) sorts, map on_constr_decl constr_decls, r)
-                val cnames = map #1 constr_decls
-                val ctx = (sctx, name :: kctx, rev cnames @ cctx, tctx)
+              val decl = Datatype (name, tnames, map (on_sort sctx) sorts, map on_constr_decl constr_decls, r)
+              val cnames = map (fn (name, core, _) => (name, ibinds_length core)) constr_decls
+              val ctx = (sctx, name :: kctx, rev cnames @ cctx, tctx)
             in
                 (decl, ctx)
             end

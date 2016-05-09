@@ -60,7 +60,7 @@ type constr_core = ty * ty option
 type constr_decl = id * tbind list * constr_core option * region
 
 datatype ptrn =
-	 ConstrP of id * string list * ptrn option * region
+	 ConstrP of (id * bool) * string list * ptrn option * region
          | TupleP of ptrn list * region
          | AliasP of id * ptrn * region
          | AnnoP of ptrn * ty * region

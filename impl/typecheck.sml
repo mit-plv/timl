@@ -22,9 +22,9 @@ fun idx_un_op_type opr =
       | Floor => (Time, Nat)
       | B2n => (BoolSort, Nat)
       | Neg => (BoolSort, BoolSort)
-                 
+
 (* sorting context *)
-type scontext = (string * sort) list
+type scontext = (string (* option *) * sort) list
 (* kinding context *)
 type kcontext = (string * kind) list 
 (* constructor context *)
@@ -48,7 +48,7 @@ fun shiftx_i_ts n ctx =
 fun shiftx_t_ts n ctx = 
     map (mapSnd (shiftx_t_t 0 n)) ctx
 
-fun add_sorting pair pairs = pair :: pairs
+fun add_sorting (name, s) pairs = ((* SOME  *)name, s) :: pairs
 fun add_sorting_sk pair (sctx, kctx) = 
     (add_sorting pair sctx, 
      shiftx_i_ks 1 kctx)
@@ -65,11 +65,12 @@ fun add_sorting_skct pair (sctx, kctx, cctx, tctx) =
 fun add_sortings_skct pairs' (pairs, kctx, cctx, tctx) : context = 
     let val n = length pairs' 
     in
-      (pairs' @ pairs, 
+      ((* map (mapFst SOME) *) pairs' @ pairs, 
        shiftx_i_ks n kctx, 
        shiftx_i_cs n cctx, 
        shiftx_i_ts n tctx)
     end
+(*      
 (* Within 'pairs', sort doesn't depend on previous sort. All of them point to 'sctx'. So the front elements of 'pairs' must be shifted to skip 'pairs' and point to 'sctx' *)
 fun add_nondep_sortings pairs sctx = 
     #1 (foldr (fn ((name, s), (ctx, n)) => (add_sorting (name, (shiftx_i_s 0 n s)) ctx, n + 1)) (sctx, 0) pairs)
@@ -86,12 +87,13 @@ fun add_nondep_sortings_skc pairs (sctx, kctx, cctx) =
        shiftx_i_ks n kctx,
        shiftx_i_ks n cctx)
     end
+*)
+fun sctx_names (ctx : scontext) = (* List.mapPartial id $ *) map fst ctx
+fun sctx_length (ctx : scontext) = length $ sctx_names ctx
 
-fun sctx_length (pairs : scontext) = length pairs
-fun sctx_names (pairs : scontext) = map fst pairs
-
-fun lookup_sort (n : int) (pairs : scontext) : sort option = 
-    case nth_error pairs n of
+(* fun is_named (name, s) = case name of SOME name => SOME (name, s) | NONE => NONE *)
+fun lookup_sort (n : int) (ctx : scontext) : sort option =
+    case nth_error ((* List.mapPartial is_named *) ctx) n of
         NONE => NONE
       | SOME (_, s) => 
         SOME (shiftx_i_s 0 (n + 1) s)
@@ -172,8 +174,9 @@ fun shift_ctx_mt (sctx, kctx, _, _) t =
     (shiftx_t_mt 0 (length kctx) o shiftx_i_mt 0 (sctx_length sctx)) t
 
 val empty_ctx = ([], [], [], [])
-fun ctx_from_sorting pair : context = ([pair], [], [], [])
-fun ctx_from_sortings pairs : context = (pairs, [], [], [])
+fun ctx_from_sorting pair : context = (add_sorting pair [], [], [], [])
+fun ctx_from_sortings pairs : context = add_sortings_skct pairs empty_ctx
+fun ctx_from_full_sortings pairs : context = (pairs, [], [], [])
 fun ctx_from_typing pair : context = ([], [], [], [pair])
 
 fun update_bs bs =
@@ -294,7 +297,7 @@ local
   type anchor = (bsort, idx) uvar_ref_i
                              
   datatype vc_entry =
-           ForallVC of string * sort
+           ForallVC of string (* option  *)* sort
            | ImplyVC of prop
            | PropVC of prop * region
            (* remember where unification index variable is introduced, since those left over will be converted into existential variables in VC formulas *)
@@ -310,7 +313,7 @@ local
 
   fun close_ctx (ctx as (sctx, _, _, _)) = app (fn _ => write CloseVC) sctx
 
-  fun open_sorting ns = (write o ForallVC) ns
+  fun open_sorting ns = write o ForallVC $ (* mapFst SOME *) ns
 
   fun open_premises ps = (app write o map ImplyVC) ps
 
@@ -561,7 +564,7 @@ local
                     BindI ((name, r2), 
                            is_wf_prop (add_sorting (name, Basic (bs, r)) ctx, p)))
           end
-        | U.UVarS ((), r) => fresh_sort (map fst ctx) r
+        | U.UVarS ((), r) => fresh_sort (sctx_names ctx) r
 
   and is_wf_prop (ctx : scontext, p : U.prop) : prop =
       case p of
@@ -662,8 +665,8 @@ local
                          (BinOpI (opr, i1, i2), Base (TimeFun (arity - 1)))
                        end
                      else
-                       raise Error (get_region_i i1, "Arity of time function must be larger than 0" :: indent ["got arity: " ^ str_int arity, "in: " ^ str_i (names ctx) i1])
-                   | (i1, bs1) => raise Error (get_region_i i1, "Sort of first operand of time function application must be time function" :: indent ["want: time function", "got: " ^ str_bs bs1, "in: " ^ str_i (names ctx) i1])
+                       raise Error (get_region_i i1, "Arity of time function must be larger than 0" :: indent ["got arity: " ^ str_int arity, "in: " ^ str_i (sctx_names ctx) i1])
+                   | (i1, bs1) => raise Error (get_region_i i1, "Sort of first operand of time function application must be time function" :: indent ["want: time function", "got: " ^ str_bs bs1, "in: " ^ str_i (sctx_names ctx) i1])
                end
              | _ =>
                (* binary operations on idx are overloaded for Nat and Time *)
@@ -704,7 +707,7 @@ local
           let
             val bs = fresh_bsort ()
           in
-            (fresh_i (map fst ctx) bs r, bs)
+            (fresh_i (sctx_names ctx) bs r, bs)
           end
 
 
@@ -1303,37 +1306,36 @@ local
         val t = update_mt t
       in
         case pn of
-	    U.ConstrP ((cx, cr), inames, opn, r) =>
+	    U.ConstrP (((cx, cr), eia), inames, opn, r) =>
             (case t of
                  AppV ((family, _), ts, is, _) =>
  	         let 
                    val (_, c as (family', tnames, ibinds)) = fetch_constr (cctx, (cx, cr))
                    val (name_sorts, (t1, is')) = unfold_ibinds ibinds
+                   val () = if eia then () else raise Impossible "eia shouldn't be false"
+		   val () =
+                       if family' = family andalso length tnames = length ts andalso length is' = length is then ()
+                       else raise Error 
+                                  (r, sprintf "Type of constructor $ doesn't match datatype " [str_v (names cctx) cx] :: 
+                                      indent ["expect: " ^ str_v kctxn family, 
+                                              "got: " ^ str_v kctxn family'])
+                   val () =
+                       if length inames = length name_sorts then ()
+                       else raise Error (r, [sprintf "This constructor requires $ index argument(s), not $" [str_int (length name_sorts), str_int (length inames)]])
+		   val t1 = subst_ts_mt ts t1
+		   val is = map (shiftx_i_i 0 (length name_sorts)) is
+		   val ps = ListPair.map (fn (a, b) => BinPred (EqP, a, b)) (is', is)
+                   val ctxd = ctx_from_full_sortings o rev o ListPair.zip $ (inames, snd (ListPair.unzip name_sorts))
+                   val () = open_ctx ctxd
+                   val () = open_premises ps
+                   val ctx = add_ctx_skc ctxd ctx
+                   val pn1 = default (U.TTP dummy) opn
+                   val (pn1, cover, ctxd', nps) = match_ptrn (ctx, pn1, t1)
+                   val ctxd = add_ctx ctxd' ctxd
+                   val cover = ConstrC (cx, cover)
                  in
-		   if family' = family andalso length tnames = length ts andalso length is' = length is then
-                     if length inames = length name_sorts then
-		       let val t1 = subst_ts_mt ts t1
-			   val is = map (shiftx_i_i 0 (length name_sorts)) is
-			   val ps = ListPair.map (fn (a, b) => BinPred (EqP, a, b)) (is', is)
-                           val ctxd = (ctx_from_sortings o rev o ListPair.zip) (inames, snd (ListPair.unzip name_sorts))
-                           val () = open_ctx ctxd
-                           val () = open_premises ps
-                           val ctx = add_ctx_skc ctxd ctx
-                           val pn1 = default (U.TTP dummy) opn
-                           val (pn1, cover, ctxd', nps) = match_ptrn (ctx, pn1, t1)
-                           val ctxd = add_ctx ctxd' ctxd
-                           val cover = ConstrC (cx, cover)
-		       in
-		         (ConstrP ((cx, cr), inames, SOME pn1, r), cover, ctxd, length ps + nps)
-		       end
-                     else
-                       raise Error (r, [sprintf "This constructor requires $ index argument(s), not $" [str_int (length name_sorts), str_int (length inames)]])
-		   else
-		     raise Error 
-                           (r, sprintf "Type of constructor $ doesn't match datatype " [str_v (names cctx) cx] :: 
-                               indent ["expect: " ^ str_v kctxn family, 
-                                       "got: " ^ str_v kctxn family'])
-                 end
+		   (ConstrP (((cx, cr), eia), inames, SOME pn1, r), cover, ctxd, length ps + nps)
+		 end
                | _ => raise Error (r, [sprintf "Pattern $ doesn't match type $" [U.str_pn (sctx_names sctx, names kctx, names cctx) pn, str_mt skctxn t]])
             )
           | U.VarP (name, r) =>
@@ -1857,7 +1859,7 @@ local
                                               (* else *)
                                               (*   VarP ("_", dummy) *)
                                         in
-                                          ConstrP ((x, dummy), repeat (length name_sorts) "_", SOME pn', dummy)
+                                          ConstrP (((x, dummy), true), repeat (length name_sorts) "_", SOME pn', dummy)
                                         end
                                       | (TTH, Unit _) =>
                                         TTP dummy
@@ -1875,7 +1877,7 @@ local
                               (* open UnderscoredExpr *)
                             in
                               case pn of
-                                  ConstrP ((x, _), _, pn, _) => ConstrC (x, default TrueC $ Option.map ptrn_to_cover pn)
+                                  ConstrP (((x, _), _), _, pn, _) => ConstrC (x, default TrueC $ Option.map ptrn_to_cover pn)
                                 | VarP _ => TrueC
                                 | PairP (pn1, pn2) => PairC (ptrn_to_cover pn1, ptrn_to_cover pn2)
                                 | TTP _ => TTC

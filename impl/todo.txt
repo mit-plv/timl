@@ -40,4 +40,4 @@ Done. 38. Bug: redundancy checker runs forever on [balance_left].
 Done. 40. [find_habitant] can further simplify covers and speed up.
 41. Have [type =] type aliasing.
 Done. 42. Maximally insertion of index arguments.
-43. Maximally insertion of index arguments in patterns.
+Done. 43. Maximally insertion of index arguments in patterns.

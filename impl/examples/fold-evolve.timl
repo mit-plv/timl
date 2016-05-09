@@ -4,7 +4,7 @@ val ['a 'b] foldl =
         fun foldl {n : Nat} (y : _, xs : {n} _ list) return _ using $(m + 2) * $n =
             case xs of
                 Nil => y
-              | Cons {n'} (x, xs) => foldl (f (x, y), xs)
+              | Cons (x, xs) => foldl (f (x, y), xs)
     in
         foldl
     end
@@ -16,7 +16,7 @@ val ['a 'b] foldl =
         fun foldl {n : Nat} (y : _, xs : {n} _ list) return _ using h m n =
             case xs of
                 Nil => y
-              | Cons {n'} (x, xs) => foldl (f (x, y), xs)
+              | Cons (x, xs) => foldl (f (x, y), xs)
     in
         foldl
     end
@@ -29,7 +29,7 @@ val ['a 'b] foldl =
         fun foldl {n : Nat} y (xs : {n} _ list) return _ using h m n =
             case xs of
                 Nil => y
-              | Cons {n'} (x, xs) => foldl (f (x, y)) xs
+              | Cons (x, xs) => foldl (f (x, y)) xs
     in
         foldl
     end

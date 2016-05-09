@@ -110,6 +110,7 @@ open Ast
        | tnames of id list
        | optional_colon_sort of sort option
        | optional_eq_idx of idx option
+       | decorated_id of id * bool
 
 %keyword FN CASE UNPACK OF LET IN END RETURN VAL DATATYPE AS
 
@@ -157,8 +158,10 @@ exp : aexp (aexp)
      | exp LCUR idx RCUR (AppI (exp, idx, (expleft, idxright)))
      | exp aexp (App (exp, aexp, (expleft, aexpright)))
 
-aexp : id (Var (id, false))
-     | AT id (Var (id, true))          
+decorated_id : id ((id, false))
+             | AT id ((id, true))          
+           
+aexp : decorated_id (Var decorated_id)
      | LPAREN exp_comma_star RPAREN (Tuple (exp_comma_star, (LPARENleft, RPARENright)))
      | FN bind_plus return DARROW exp (Abs (bind_plus, return, exp, (FNleft, expright)))
      | CASE exp return OF rule_bar_star (Case (exp, return, rule_bar_star, (CASEleft, rule_bar_starright)))
@@ -250,13 +253,13 @@ bar_rule_star : BAR rule bar_rule_star (rule :: bar_rule_star)
 
 rule : ptrn DARROW exp ((ptrn, exp))
 
-ptrn : id idx_ids ptrn_opt (ConstrP (id, map fst idx_ids, ptrn_opt, (idleft, ptrn_optright)))
+ptrn : decorated_id idx_ids ptrn_opt (ConstrP (decorated_id, map fst idx_ids, ptrn_opt, (decorated_idleft, ptrn_optright)))
      | id AS ptrn (AliasP (id, ptrn, (idleft, ptrnright)))
      | ptrn COLON ty (AnnoP (ptrn, ty, (ptrnleft, tyright)))
      | aptrn (aptrn)
 
 aptrn : LPAREN ptrn_comma_star RPAREN (TupleP (ptrn_comma_star, (LPARENleft, RPARENright)))
-      | id (ConstrP (id, [], NONE, (idleft, idright)))
+      | decorated_id (ConstrP (decorated_id, [], NONE, (decorated_idleft, decorated_idright)))
 
 ptrn_opt : ptrn (SOME ptrn)
          | (NONE)

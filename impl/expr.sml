@@ -20,6 +20,8 @@ fun str_b (s : base_sort) : string =
 end
 
 structure ExprUtil = struct
+open Util
+infixr 0 $
 
 datatype 'a ibind = BindI of 'a
 
@@ -40,6 +42,8 @@ fun unfold_ibinds ibinds =
 fun fold_ibinds (binds, inner) =
     foldr (fn ((name, anno), ibinds) => ConsIB (anno, BindI (name, ibinds))) (NilIB inner) binds
 
+fun ibinds_length ibinds = length $ fst $ unfold_ibinds ibinds
+                                  
 datatype base_type =
          Int
                      
@@ -158,7 +162,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         type constr_core = (sort, string, mtype * idx list) ibinds
         type constr_decl = string * constr_core * region
-        type constr = var * string list * constr_core
+        type constr = var * string list(*type argument names*) * constr_core
 
         fun constr_type VarT shiftx_v ((family, tnames, ibinds) : constr) = 
             let 
@@ -186,9 +190,10 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
             end
 
         type return = mtype option * idx option
-                                         
+
+        (* eia : is explicit index arguments? *)                                         
         datatype ptrn =
-	         ConstrP of id * string list * ptrn option * region
+	         ConstrP of (id * bool(*eia*)) * string list * ptrn option * region
                  | VarP of name
                  | PairP of ptrn * ptrn
                  | TTP of region
@@ -200,7 +205,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  | TypingST of ptrn
 
         datatype expr =
-	         Var of (var * region) * bool(* is explicit index arguments ('eia') ? *)
+	         Var of (var * region) * bool(*eia*)
 	         | App of expr * expr
 	         | Abs of ptrn * expr
                  (* unit type *)
@@ -517,9 +522,11 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 end
               | AnnoP (pn, t) => ptrn_names pn
 
+        fun decorate_var eia s = if eia then "@" else "" ^ s
+                                                            
         fun str_pn (ctx as (sctx, kctx, cctx)) pn = 
             case pn of
-                ConstrP ((x, _), inames, pn, _) => sprintf "$$$" [str_v cctx x, join_prefix " " $ map (surround "{" "}") inames, str_opt (fn pn => " " ^ str_pn ctx pn) pn]
+                ConstrP (((x, _), eia), inames, pn, _) => sprintf "$$$" [decorate_var eia $ str_v cctx x, join_prefix " " $ map (surround "{" "}") inames, str_opt (fn pn => " " ^ str_pn ctx pn) pn]
               | VarP (name, _) => name
               | PairP (pn1, pn2) => sprintf "($, $)" [str_pn ctx pn1, str_pn ctx pn2]
               | TTP _ => "()"
@@ -533,8 +540,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | (NONE, SOME d) => sprintf "return using $ " [str_i sctx d]
               | (SOME t, SOME d) => sprintf "return $ using $ " [str_mt skctx t, str_i sctx d]
 
-        fun decorate_var eia s = if eia then "@" else "" ^ s
-                                                            
         fun str_e (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
             let fun add_t name (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx) 
                 val skctx = (sctx, kctx) 
