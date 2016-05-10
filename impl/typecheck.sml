@@ -2118,74 +2118,97 @@ local
       handle ErrorEmpty => ([], [])
            | ErrorClose s => ([], CloseVC :: s)
                                
-  fun formulas_to_prop (fs : formula list) : prop =
+  fun to_exists (uvar_ref, (n, ctx, bsort), p) =
       let
-        fun and_all ps = foldl' (fn (p, acc) => acc /\ p) (True dummy) ps
-        fun formula_to_prop f : prop =
-            case f of
-                ForallF (name, bs, fs) => Quan (Forall, bs, (name, dummy), formulas_to_prop fs)
-              | ImplyF (p, fs) => p --> formulas_to_prop fs
-              | AndF fs => formulas_to_prop fs
-              | PropF (p, r) => set_region_p p r
-              | AnchorF _ => raise Impossible "formula_to_prop (): shouldn't be AnchorF"
+        fun substu_i x v (b : idx) : idx =
+	    case b of
+                UVarI ((_, y), _) =>
+                if y = x then
+                  VarI (v, dummy)
+                else 
+                  b
+	      | VarI a => VarI a
+	      | ConstIN n => ConstIN n
+	      | ConstIT x => ConstIT x
+              | UnOpI (opr, i, r) => UnOpI (opr, substu_i x v i, r)
+              | DivI (i1, n2) => DivI (substu_i x v i1, n2)
+              | ExpI (i1, n2) => ExpI (substu_i x v i1, n2)
+	      | BinOpI (opr, i1, i2) => BinOpI (opr, substu_i x v i1, substu_i x v i2)
+	      | TrueI r => TrueI r
+	      | FalseI r => FalseI r
+              | TimeAbs (name, i, r) => TimeAbs (name, substu_i x (v + 1) i, r)
+	      | TTI r => TTI r
+        fun substu_p x v b =
+	    case b of
+	        True r => True r
+	      | False r => False r
+              | Not (p, r) => Not (substu_p x v p, r)
+	      | BinConn (opr,p1, p2) => BinConn (opr, substu_p x v p1, substu_p x v p2)
+	      | BinPred (opr, i1, i2) => BinPred (opr, substu_i x v i1, substu_i x v i2)
+              | Quan (q, bs, (name, r), p) => Quan (q, bs, (name, r), substu_p x (v + 1) p)
+        (* fun evar_name n = "?" ^ str_int n *)
+        fun evar_name n =
+            if n < 26 then
+              "" ^ (str o chr) (ord #"a" + n)
+            else
+              "_x" ^ str_int n
+        val r = get_region_p p
+        val p =
+            Quan (Exists (SOME (fn i => unify_i dummy [] (UVarI (([], uvar_ref), dummy), i))),
+                  bsort,
+                  (evar_name n, dummy), substu_p uvar_ref 0 $ shift_i_p $ update_p p)
+        val p = set_region_p p r
       in
-        case fs of
-            [] => True dummy
-          | f :: fs =>
-            case f of
-                AnchorF anchor =>
-                let
-                  fun to_exists (uvar_ref, (n, ctx, bsort), p) =
-                      let
-                        fun substu_i x v (b : idx) : idx =
-	                    case b of
-                                UVarI ((_, y), _) =>
-                                if y = x then
-                                  VarI (v, dummy)
-                                else 
-                                  b
-	                      | VarI a => VarI a
-	                      | ConstIN n => ConstIN n
-	                      | ConstIT x => ConstIT x
-                              | UnOpI (opr, i, r) => UnOpI (opr, substu_i x v i, r)
-                              | DivI (i1, n2) => DivI (substu_i x v i1, n2)
-                              | ExpI (i1, n2) => ExpI (substu_i x v i1, n2)
-	                      | BinOpI (opr, i1, i2) => BinOpI (opr, substu_i x v i1, substu_i x v i2)
-	                      | TrueI r => TrueI r
-	                      | FalseI r => FalseI r
-                              | TimeAbs (name, i, r) => TimeAbs (name, substu_i x (v + 1) i, r)
-	                      | TTI r => TTI r
-                        fun substu_p x v b =
-	                    case b of
-	                        True r => True r
-	                      | False r => False r
-                              | Not (p, r) => Not (substu_p x v p, r)
-	                      | BinConn (opr,p1, p2) => BinConn (opr, substu_p x v p1, substu_p x v p2)
-	                      | BinPred (opr, i1, i2) => BinPred (opr, substu_i x v i1, substu_i x v i2)
-                              | Quan (q, bs, (name, r), p) => Quan (q, bs, (name, r), substu_p x (v + 1) p)
-                        (* fun evar_name n = "?" ^ str_int n *)
-                        fun evar_name n =
-                            if n < 26 then
-                              "" ^ (str o chr) (ord #"a" + n)
-                            else
-                              "_x" ^ str_int n
-                        val r = get_region_p p
-                        val p =
-                            Quan (Exists (SOME (fn i => unify_i dummy [] (UVarI (([], uvar_ref), dummy), i))),
-                                  bsort,
-                                  (evar_name n, dummy), substu_p uvar_ref 0 $ shift_i_p $ update_p p)
-                        val p = set_region_p p r
-                      in
-                        p
-                      end
-                in
-                  case !anchor of
-                      Fresh uname => to_exists (anchor, uname, formulas_to_prop fs)
-                    | Refined _ => formulas_to_prop fs
-                end
-              | _ => formula_to_prop f /\ formulas_to_prop fs
+        p
       end
+                        
+  fun formulas_to_prop (fs : formula list) : prop =
+      case fs of
+          [] => True dummy
+        | f :: fs =>
+          case f of
+              AnchorF anchor =>
+              (case !anchor of
+                   Fresh uname => to_exists (anchor, uname, formulas_to_prop fs)
+                 | Refined _ => formulas_to_prop fs
+              )
+            | _ => formula_to_prop f /\ formulas_to_prop fs
 
+  and formula_to_prop f : prop =
+      case f of
+          ForallF (name, bs, fs) => Quan (Forall, bs, (name, dummy), formulas_to_prop fs)
+        | ImplyF (p, fs) => p --> formulas_to_prop fs
+        | AndF fs => formulas_to_prop fs
+        | PropF (p, r) => set_region_p p r
+        | AnchorF _ => raise Impossible "formula_to_prop (): shouldn't be AnchorF"
+
+  fun bring_forward_anchor f =
+      ForallF (name, bs, fs) => ForallF (name, bs, bring_forward_anchor_fs fs)
+    | ImplyF (p, fs) => ImplyF (p, formulas_to_prop fs)
+    | AndF fs => AndF (bring_forward_anchor fs)
+    | PropF (p, r) => PropF (p, r)
+    | AnchorF an => AnchorF an
+
+  and bring_forward_anchor_fs fs =
+      case fs of
+          [] => []
+        | f :: fs =>
+          let
+            fun fv_p p =
+                case update_p p of
+                    
+            fun dangling_uvars f =
+                ForallF (name, bs, fs) => []
+              | ImplyF (p, fs) => fv_p p
+              | AndF fs => []
+              | PropF (p, r) => fv_p p
+              | AnchorF an => AnchorF an
+            val uvar_refs = dangling_uvars f
+          in
+            map Anchor uvar_refs @ f :: bring_forward_anchor_fs fs
+          end
+
+                             
   fun nouvar2uvar_i i =
       let
         fun f i =
