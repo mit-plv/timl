@@ -538,7 +538,7 @@ fun solve_exists (vc as (hs, p)) =
                   BinConn (And, bigO_pred as BinPred (BigO, VarI (n0, _), spec), BinConn (Imply, bigO_pred', p)) =>
                   if n0 = 0 andalso eq_p bigO_pred bigO_pred' then
                     (* infer and then check *)
-                    case use_master_theorem hs (name, arity) ("inferred", arity) (shiftx_i_p 1 1 p) of
+                    case trace "infer and check" $ use_master_theorem hs (name, arity) ("inferred", arity) (shiftx_i_p 1 1 p) of
                         SOME (inferred, vcs) =>
                         (let
                           val inferred = forget_i_i 1 1 inferred
@@ -564,7 +564,7 @@ fun solve_exists (vc as (hs, p)) =
                     (* val () = app println $ (str_vc false "" vc @ [""]) *)
                     val (p1, p2) = split_and p
                   in
-                    case infer_exists hs (name, arity) p1 of
+                    case trace "infer_exists ()" $ infer_exists hs (name, arity) p1 of
                         SOME (i, vcs1) =>
                         let
                           val () = case ins of

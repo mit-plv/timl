@@ -12,7 +12,7 @@ fun decide ['a] {m : Time} (lt : 'a * 'a -- m --> bool) (x, y) =
 absidx Tinsert : BigO 1 (fn n => log2 $n) with
 fun insert ['a] {n : Nat} (tr : {n} 'a braun_tree) x return {n + 1} 'a braun_tree using Tinsert n =
     case tr of
-        Leaf => @Node {0} (x, Leaf, Leaf)
+        Leaf => @Node {_} (x, Leaf, Leaf)
       | @Node {n'} (y, l, r) =>
         let
           val (smaller, bigger) = decide lt (x, y)
