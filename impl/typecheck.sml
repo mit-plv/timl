@@ -2186,29 +2186,6 @@ local
               | _ => formula_to_prop f /\ formulas_to_prop fs
       end
 
-  fun no_uvar_i i =
-      let
-        val i = update_i i
-        fun error i' = Impossible $ sprintf "\n$\nno_uvar_i (): $ shouldn't be UVarI in $" [str_region "" "examples/rbt.timl" (get_region_i i'), str_i [] i', str_i [] i]
-        fun f i =
-            case i of
-                VarI x => N.VarI x
-              | ConstIT c => N.ConstIT c
-              | ConstIN c => N.ConstIN c
-              | UnOpI (opr, i, r) => N.UnOpI (opr, f i, r)
-              | DivI (i1, n2) => N.DivI (f i1, n2)
-              | ExpI (i1, n2) => N.ExpI (f i1, n2)
-              | BinOpI (opr, i1, i2) => N.BinOpI (opr, f i1, f i2)
-              | TrueI r => N.TrueI r
-              | FalseI r => N.FalseI r
-              | TTI r => N.TTI r
-              | TimeAbs (name, i, r) => N.TimeAbs (name, f i, r)
-              | UVarI (_, r) =>
-                raise error i
-      in
-        f i
-      end
-
   fun nouvar2uvar_i i =
       let
         fun f i =
@@ -2229,10 +2206,35 @@ local
         f i
       end
 
+  fun no_uvar_i i =
+      let
+        val i = update_i i
+        fun error i' = Impossible $ sprintf "\n$\nno_uvar_i (): $ shouldn't be UVarI in $" [str_region "" (* "examples/rbt.timl" *)"" (get_region_i i'), str_i [] i', str_i [] i]
+        fun f i =
+            case i of
+                VarI x => N.VarI x
+              | ConstIT c => N.ConstIT c
+              | ConstIN c => N.ConstIN c
+              | UnOpI (opr, i, r) => N.UnOpI (opr, f i, r)
+              | DivI (i1, n2) => N.DivI (f i1, n2)
+              | ExpI (i1, n2) => N.ExpI (f i1, n2)
+              | BinOpI (opr, i1, i2) => N.BinOpI (opr, f i1, f i2)
+              | TrueI r => N.TrueI r
+              | FalseI r => N.FalseI r
+              | TTI r => N.TTI r
+              | TimeAbs (name, i, r) => N.TimeAbs (name, f i, r)
+              | UVarI (_, r) =>
+                raise error i
+      in
+        f i
+      end
+
   fun no_uvar_bsort bs =
       case update_bs bs of
           Base b => N.Base b
-        | UVarBS _ => raise Impossible "no_uvar_bsort ()"
+        | UVarBS uvar_ref =>
+          (unify_bs dummy (bs, Base UnitSort);
+           N.Base N.UnitSort)
 
   fun no_uvar_quan q =
       case q of
@@ -2257,14 +2259,14 @@ local
         val () = case vces of
                      [] => ()
                    | _ => raise Impossible "to_vcs (): remaining after get_formulas"
-        (* val () = println "Formulas: " *)
-        (* val () = app println $ map (str_f []) fs *)
+        val () = println "Formulas: "
+        val () = app println $ map (str_f []) fs
         val p = formulas_to_prop fs
-        (* val () = println "Props: " *)
-        (* val () = println $ Expr.str_p [] p *)
+        val () = println "Props: "
+        val () = println $ Expr.str_p [] p
         val p = no_uvar_p p
-        (* val () = println "NoUVar Props: " *)
-        (* val () = println $ str_p [] p *)
+        val () = println "NoUVar Props: "
+        val () = println $ str_p [] p
         val p = NoUVarSubst.simp_p p
         (* val () = println "" *)
         (* val () = println $ str_p [] p *)
@@ -2325,7 +2327,7 @@ fun vcgen_decls ctx decls =
             val () = close_vcs nps
             val () = close_ctx ctxd
             val ret = (decls, ctxd, ds, ctx)
-                        (* val () = print $ str_typing_info ret *)
+            val () = print $ str_typing_info ret
           in
             ret
           end
