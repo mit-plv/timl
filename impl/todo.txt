@@ -36,8 +36,9 @@ Done. 35. Automatically generate premises in [(VarP, Never)] case of [match_ptrn
 Done. 36. [case] should also copy [fun]'s [return] clause even without [using].
 Abondoned. No problem. 37. [as] pattern may have a problem in [balance_left].
 Done. 38. Bug: redundancy checker runs forever on [balance_left].
-KIND OF UNDERSTOOD. 39. rbt.timl typecheckes when using ForgetError-less [subst] and ForgetError-full [forget]. Investigate why.
+39. rbt.timl typecheckes when using ForgetError-less [subst] and ForgetError-full [forget]. Investigate why.
 Done. 40. [find_habitant] can further simplify covers and speed up.
 41. Have [type =] type aliasing.
 Done. 42. Maximally insertion of index arguments.
-Done. 43. Maximally insertion of index arguments in patterns.
+Done. 43. Maximally insertion of index arguments in patterns
+44. Steps to solve [pop]'s [no_uvar_i] problem: (1) [to_exist] immediately under [ForallF]; (2) [forget] and [exist] can't go under [Quan (Exists ...)]; (3) both [forget] and [subst] should be ForgetError-full; (4) in [get_mtype/AbsIdx], the trick to localize index's definition is to universally introduce a dummy variable (the [open_vc/close_vc] trick is not enough because evars can freely move on the same scope, disrespecting vce's parantheses).
