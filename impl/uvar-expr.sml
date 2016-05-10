@@ -49,8 +49,8 @@ fun str_uname_nonidx (n, ctx) = str_uvar n
 fun str_uvar_i str_i ctx ((invis, u) : ('bsort, 'idx) uvar_i) =
     case !u of
         Refined i => str_i (shrink_ctx invis ctx) i
-      | Fresh name => str_uname_i name
-(* | Fresh name_ref => sprintf "($ $)" [str_uname (!name_ref), str_ls (str_pair (str_int, str_int)) invis] *)
+      (* | Fresh name => str_uname_i name *)
+      | Fresh name => sprintf "($ $)" [str_uname_i name, str_ls (str_pair (str_int, str_int)) invis]
 
 fun str_uvar_bs str_bs (u : 'bsort uvar_bs) =
     case !u of
@@ -60,8 +60,8 @@ fun str_uvar_bs str_bs (u : 'bsort uvar_bs) =
 fun str_uvar_mt str_mt (ctx as (sctx, kctx)) ((invis as (invisi, invist), u) : 'mtype uvar_mt) =
     case !u of
         Refined t => str_mt (shrink_ctx invisi sctx, shrink_ctx invist kctx) t
-      | Fresh name => str_uname_nonidx name
-(* | Fresh name_ref => sprintf "($ $ $)" [str_uname (!name_ref), str_ls (str_pair (str_int, str_int)) invisi, str_ls (str_pair (str_int, str_int)) invist] *)
+      (* | Fresh name => str_uname_nonidx name *)
+      | Fresh name => sprintf "($ $ $)" [str_uname_nonidx name, str_ls (str_pair (str_int, str_int)) invisi, str_ls (str_pair (str_int, str_int)) invist]
                                   
 fun eq_uvar_i ((_, u) : ('bsort, 'idx) uvar_i, (_, u') : ('bsort, 'idx) uvar_i) = u = u'
                                                                                         

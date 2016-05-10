@@ -303,8 +303,8 @@ fun substx_invis fresh_uvar =
     substx_invis_generic (fn x => raise SubstUVar (fresh_uvar, x))
       
 (* This is a version that allows substition for [x] that is visible to [fresh_uvar]. When this happens, remove [x] from [fresh_uvar]'s visible context. *)
-fun substx_invis fresh_uvar =
-    substx_invis_generic (fn x => remove_fresh_uvar_ctx fresh_uvar x 1)
+(* fun substx_invis fresh_uvar = *)
+(*     substx_invis_generic (fn x => remove_fresh_uvar_ctx fresh_uvar x 1) *)
 
 local
     fun f x v b =
