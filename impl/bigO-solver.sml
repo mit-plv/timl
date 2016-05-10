@@ -499,6 +499,8 @@ fun eq_hyp (a, b) =
     case (a, b) of
         (VarH _, VarH _) => true
       | (PropH p, PropH p') => eq_p p p'
+      | _ => false
+                                
                                     
 fun list_eq eq a b = length a = length b andalso List.all eq $ zip (a, b)
                                                           
@@ -506,51 +508,52 @@ fun solve_exists (vc as (hs, p)) =
     case p of
         Quan (Exists ins, Base (TimeFun arity), (name, _), p) =>
         let
-          val () = println "hit1"
-          val vcs = split_prop p
-          val ret =
-              case vcs of
-                  (hs1, bigO_pred as BinPred (BigO, VarI (n0, _), spec)) :: (bigO_pred' :: hs2, p) :: rest =>
-                  if n0 = length hs1 andalso eq_p bigO_pred bigO_pred' andalso list_eq eq_hyp hs1 hs2 then
-                    (* infer and then check *)
-                    case use_master_theorem hs ("inferred", arity) (name, arity) (shiftx_i_p 1 1 p) of
-                        SOME (inferred, vcs) =>
-                        (let
-                          val gap = length hs1
-                          val inferred = forget_i_i 1 1 inferred
-                          val vcs = map (forget_i_vc 1 1) vcs
-                          val inferred = forget_i_i 0 1 inferred
-                          val spec = forget_i_i 0 1 spec
-                        in
-                          if timefun_le hs arity inferred spec then
-                            SOME (vcs @ (concatMap solve_exists $ append_hyps hs $ concatMap split_prop $ map (forget_i_p 0 1) $ rest))
-                          else
-                            raise curry MasterTheoremCheckFail (get_region_i spec) $ [sprintf "Can't prove that the inferred big-O class $ is bounded by the given big-O class $" [str_i (hyps2ctx hs) inferred, str_i (hyps2ctx hs) spec]]
-                        end handle ForgetError _ => NONE)
-                      | NONE => NONE
-                  else NONE
-                | _ => NONE
+          (* val () = println "hit1" *)
+          (* val vcs = split_prop p *)
           (* val ret = *)
-          (*     case p of *)
-          (*         BinConn (And, bigO_pred as BinPred (BigO, VarI (n0, _), spec), BinConn (Imply, bigO_pred', p)) => *)
-          (*         if n0 = 0 andalso eq_p bigO_pred bigO_pred' then *)
+          (*     case vcs of *)
+          (*         (hs1, bigO_pred as BinPred (BigO, VarI (n0, _), spec)) :: (bigO_pred' :: hs2, p) :: rest => *)
+          (*         if n0 = length hs1 andalso eq_p bigO_pred bigO_pred' andalso list_eq eq_hyp hs1 hs2 then *)
           (*           (* infer and then check *) *)
-          (*           case use_master_theorem hs (name, arity) ("inferred", arity) (shiftx_i_p 1 1 p) of *)
+          (*           case use_master_theorem hs ("inferred", arity) (name, arity) (shiftx_i_p 1 1 p) of *)
           (*               SOME (inferred, vcs) => *)
           (*               (let *)
+          (*                 val gap = length hs1 *)
           (*                 val inferred = forget_i_i 1 1 inferred *)
           (*                 val vcs = map (forget_i_vc 1 1) vcs *)
           (*                 val inferred = forget_i_i 0 1 inferred *)
           (*                 val spec = forget_i_i 0 1 spec *)
           (*               in *)
           (*                 if timefun_le hs arity inferred spec then *)
-          (*                   SOME vcs *)
+          (*                   SOME (vcs @ (concatMap solve_exists $ append_hyps hs $ concatMap split_prop $ map (forget_i_p 0 1) $ rest)) *)
           (*                 else *)
           (*                   raise curry MasterTheoremCheckFail (get_region_i spec) $ [sprintf "Can't prove that the inferred big-O class $ is bounded by the given big-O class $" [str_i (hyps2ctx hs) inferred, str_i (hyps2ctx hs) spec]] *)
           (*               end handle ForgetError _ => NONE) *)
           (*             | NONE => NONE *)
           (*         else NONE *)
           (*       | _ => NONE *)
+          
+          val ret =
+              case p of
+                  BinConn (And, bigO_pred as BinPred (BigO, VarI (n0, _), spec), BinConn (Imply, bigO_pred', p)) =>
+                  if n0 = 0 andalso eq_p bigO_pred bigO_pred' then
+                    (* infer and then check *)
+                    case use_master_theorem hs (name, arity) ("inferred", arity) (shiftx_i_p 1 1 p) of
+                        SOME (inferred, vcs) =>
+                        (let
+                          val inferred = forget_i_i 1 1 inferred
+                          val vcs = map (forget_i_vc 1 1) vcs
+                          val inferred = forget_i_i 0 1 inferred
+                          val spec = forget_i_i 0 1 spec
+                        in
+                          if timefun_le hs arity inferred spec then
+                            SOME vcs
+                          else
+                            raise curry MasterTheoremCheckFail (get_region_i spec) $ [sprintf "Can't prove that the inferred big-O class $ is bounded by the given big-O class $" [str_i (hyps2ctx hs) inferred, str_i (hyps2ctx hs) spec]]
+                        end handle ForgetError _ => NONE)
+                      | NONE => NONE
+                  else NONE
+                | _ => NONE
           val ret =
               case ret of
                   SOME vcs => vcs

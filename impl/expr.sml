@@ -301,6 +301,21 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                          
         val collect_And = collect_BinConn And
                                           
+        fun collect_Imply p =
+            case p of
+                BinConn (Imply, p1, p2) =>
+                let
+                  val (hyps, conclu) = collect_Imply p2
+                in
+                  (collect_And p1 @ hyps, conclu)
+                end
+              | _ => ([], p)
+                       
+        fun combine_Imply hyps conclu =
+            case hyps of
+                h :: hyps => BinConn (Imply, h, combine_Imply hyps conclu)
+              | [] => conclu
+                                          
         fun combine_And ps = foldl' (fn (p, acc) => acc /\ p) (True dummy) ps
         fun combine_AddI is = foldl' (fn (i, acc) => acc %+ i) (T0 dummy) is
         fun combine_MultI is = foldl' (fn (i, acc) => acc %* i) (T1 dummy) is

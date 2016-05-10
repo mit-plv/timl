@@ -236,55 +236,60 @@ local
 
     fun passp p = 
 	case p of
-	    BinConn (opr, p1, p2) => 
-            (case opr of
-                 And =>
-	         if eq_p p1 (True dummy) then
-                     (set ();
-                      p2)
-	         else if eq_p p2 (True dummy) then
-                     (set ();
-                      p1)
-	         else
-	             BinConn (opr, passp p1, passp p2)
-               | Or =>
-	         if eq_p p1 (False dummy) then
-                     (set ();
-                      p2)
-	         else if eq_p p2 (False dummy) then
-                     (set ();
-                      p1)
-	         else
-	             BinConn (opr, passp p1, passp p2)
-               | Imply =>
-                 if eq_p p2 (True dummy) then
-                     (set (); True (get_region_p p))
-                 else
-                   (case p1 of
-                        BinConn (And, p1a, p1b) =>
-                        mark $ (p1a --> p1b --> p2)
-                      | _ =>
-                        (* try subst if there is a equality premise *)
-                        let
-                          fun forget x i =
-                              SOME (x, forget_i_i x 1 i) handle ForgetError _ => NONE
-                          fun f i1 i2 =
-                              case (i1, i2) of
-                                  (VarI (x, _), _) => forget x i2
-                                | (_, VarI (x, _)) => forget x i1
-                                | _ => NONE
-                          val s = case p1 of
-                                      BinPred (EqP, i1, i2) => f i1 i2
-                                    | _ => NONE
-                        in
-                          case s of
-                              SOME (x, i) => (set (); shiftx_i_p x 1 (substx_i_p x i p2))
-                            | _ => BinConn (opr, passp p1, passp p2)
-                        end
-                   )
-               | _ =>
-	         BinConn (opr, passp p1, passp p2)
-            )
+	    BinConn (opr, p1, p2) =>
+            let
+              fun def () = BinConn (opr, passp p1, passp p2)
+            in
+              case opr of
+                  And =>
+	          if eq_p p1 (True dummy) then
+                    (set ();
+                     p2)
+	          else if eq_p p2 (True dummy) then
+                    (set ();
+                     p1)
+	          else
+	            def ()
+                | Or =>
+	          if eq_p p1 (False dummy) then
+                    (set ();
+                     p2)
+	          else if eq_p p2 (False dummy) then
+                    (set ();
+                     p1)
+	          else
+	            def ()
+                | Imply =>
+                  if eq_p p2 (True dummy) then
+                    (set (); True (get_region_p p))
+                  else
+                    (case p1 of
+                         BinConn (And, p1a, p1b) =>
+                         mark $ (p1a --> p1b --> p2)
+                       | _ =>
+                         (* try subst if there is a equality premise *)
+                         let
+                           fun forget x i =
+                               SOME (x, forget_i_i x 1 i) handle ForgetError _ => NONE
+                           fun f i1 i2 =
+                               case (i1, i2) of
+                                   (VarI (x, _), _) => forget x i2
+                                 | (_, VarI (x, _)) => forget x i1
+                                 | _ => NONE
+                           val s = case p1 of
+                                       BinPred (EqP, i1, i2) => f i1 i2
+                                     | _ => NONE
+                         in
+
+                           case s of
+                               SOME (x, i) =>
+                               (mark $ shiftx_i_p x 1 (substx_i_p x i p2) handle _ => def ())
+                             | _ => def ()
+                         end
+                    )
+                | _ =>
+	          def ()
+            end
 	  | BinPred (opr, i1, i2) => 
             (case opr of 
                  EqP => if eq_i i1 i2 then (set (); True (get_region_p p))
@@ -300,40 +305,29 @@ local
                  (case try_forget (forget_i_p 0 1) p of
                       SOME p => (set (); p)
                     | _ =>
-                      (* try subst if there is a equality premise *)
-                      let
-                          fun collect_implies p =
-                              case p of
-                                  BinConn (Imply, p1, p2) =>
-                                  let
-                                      val (hyps, conclu) = collect_implies p2
-                                  in
-                                      (collect_And p1 @ hyps, conclu)
-                                  end
-                                | _ => ([], p)
-                          fun combine_implies hyps conclu =
-                              case hyps of
-                                  h :: hyps => BinConn (Imply, h, combine_implies hyps conclu)
-                                | [] => conclu
-                          val (hyps, conclu) = collect_implies p
-                          (* test whether [p] is [VarI 0 = _] or [_ = VarI 0] *)
-                          fun is_v0_equals p =
-                              let
-                                  fun forget i = try_forget (forget_i_i 0 1) i
-                                  fun f i1 i2 =
-                                      if eq_i i1 (VarI (0, dummy)) then forget i2
-                                      else if eq_i i2 (VarI (0, dummy)) then forget i1
-                                      else NONE
-                              in
-                                  case p of
-                                      BinPred (EqP, i1, i2) => f i1 i2
-                                    | _ => NONE
-                              end
-                      in
-                          case partitionOptionFirst is_v0_equals hyps of
-                              SOME (i, rest) => (set (); subst_i_p i (combine_implies rest conclu))
-                            | NONE => Quan (q, bs, name, passp p)
-                      end
+                      Quan (q, bs, name, passp p)                      
+                      (* (* try subst if there is a equality premise *) *)
+                      (* let *)
+                      (*     val (hyps, conclu) = collect_Imply p *)
+                      (*     (* test whether [p] is [VarI 0 = _] or [_ = VarI 0] *) *)
+                      (*     fun is_v0_equals p = *)
+                      (*         let *)
+                      (*             fun forget i = try_forget (forget_i_i 0 1) i *)
+                      (*             fun f i1 i2 = *)
+                      (*                 if eq_i i1 (VarI (0, dummy)) then forget i2 *)
+                      (*                 else if eq_i i2 (VarI (0, dummy)) then forget i1 *)
+                      (*                 else NONE *)
+                      (*         in *)
+                      (*             case p of *)
+                      (*                 BinPred (EqP, i1, i2) => f i1 i2 *)
+                      (*               | _ => NONE *)
+                      (*         end *)
+                      (* in *)
+                      (*     case partitionOptionFirst is_v0_equals hyps of *)
+                      (*         SOME (i, rest) => (set (); subst_i_p i (combine_Imply rest conclu)) *)
+                      (*       | NONE => Quan (q, bs, name, passp p) *)
+                 (* end *)
+                           
                           (*
                       (case p of
                            BinConn (Imply, p1, p2) =>
