@@ -66,9 +66,9 @@ fun add_sortings_skct pairs' (pairs, kctx, cctx, tctx) : context =
     let val n = length pairs' 
     in
       ((* map (mapFst SOME) *) pairs' @ pairs, 
-       shiftx_i_ks n kctx, 
-       shiftx_i_cs n cctx, 
-       shiftx_i_ts n tctx)
+                               shiftx_i_ks n kctx, 
+                               shiftx_i_cs n cctx, 
+                               shiftx_i_ts n tctx)
     end
 (*      
 (* Within 'pairs', sort doesn't depend on previous sort. All of them point to 'sctx'. So the front elements of 'pairs' must be shifted to skip 'pairs' and point to 'sctx' *)
@@ -952,7 +952,6 @@ local
        deep: when turned on, [find_hab] try to find a [ConstrH] for a datatype when constraints are empty (treat empty datatype as uninhabited); otherwise only return [TrueH] in such case (treat empty datatype as inhabited) *)
     fun find_hab deep (ctx as (sctx, kctx, cctx)) (t : mtype) cs =
         let
-          (* fun sum ls = foldl' op+ 0 ls *)
           (* fun cover_size c = *)
           (*     case c of *)
           (*         TrueC => 1 *)
@@ -1172,7 +1171,7 @@ local
         (* val () = (* Debug. *)println (str_cover (names (#3 ctx)) nc) *)
         (* val () = println "before find_hab()" *)
         val ret = find_hab deep ctx t [nc]
-        (* val () = println "after find_hab()" *)
+                           (* val () = println "after find_hab()" *)
       in
         ret
       end
@@ -1184,9 +1183,9 @@ local
         (* val t = update_mt t *)
         val prev = combine_covers prevs
         (* val () = println "after combine_covers()" *)
-                                  (* val something_new = not (is_covered ctx t this prev) *)
+        (* val something_new = not (is_covered ctx t this prev) *)
         val something_new = isSome $ find_hab true(*treat empty datatype as uninhabited*) ctx t $ [this, cover_neg ctx t prev]                                  
-                                (* val () = println "after is_covered()" *)
+                                   (* val () = println "after is_covered()" *)
       in
         something_new
       end
@@ -1853,10 +1852,10 @@ local
                                           (* cut-off so that [expand_rules] won't try deeper and deeper proposals *) 
                                           val pn' =
                                               loop (* (cutoff - 1) *) t' h'
-                                              (* if cutoff > 0 then *)
-                                              (*   loop (cutoff - 1) t' h' *)
-                                              (* else *)
-                                              (*   VarP ("_", dummy) *)
+                                                                      (* if cutoff > 0 then *)
+                                                                      (*   loop (cutoff - 1) t' h' *)
+                                                                      (* else *)
+                                                                      (*   VarP ("_", dummy) *)
                                         in
                                           ConstrP (((x, dummy), true), repeat (length name_sorts) "_", SOME pn', dummy)
                                         end
@@ -1893,16 +1892,16 @@ local
                               | AnnoP _ => raise Impossible "convert_pn can't convert AnnoP"
                         fun loop pcovers =
                             case any_missing false(*treat empty datatype as inhabited, so as to get a shorter proposal*) ctx t $ combine_covers pcovers of
-                                SOME hab =>
-                                let
-                                  val pn = hab_to_ptrn cctx (* 10 *) t hab
-                                  (* val () = println $ sprintf "New pattern: $" [str_pn (names sctx, names kctx, names cctx) pn] *)
-                                  val (pcovers, rules) = loop $ pcovers @ [ptrn_to_cover pn]
-                                in
-                                  (pcovers, [(convert_pn pn, e)] @ rules)
-                                end
-                              | NONE => (pcovers, [])
-                        val (pcovers, rules) = loop pcovers
+                                 SOME hab =>
+                                 let
+                                   val pn = hab_to_ptrn cctx (* 10 *) t hab
+                                   (* val () = println $ sprintf "New pattern: $" [str_pn (names sctx, names kctx, names cctx) pn] *)
+                                   val (pcovers, rules) = loop $ pcovers @ [ptrn_to_cover pn]
+                                 in
+                                   (pcovers, [(convert_pn pn, e)] @ rules)
+                                 end
+                               | NONE => (pcovers, [])
+                                 val (pcovers, rules) = loop pcovers
                       in
                         (pcovers, rules)
                       end
@@ -2118,74 +2117,87 @@ local
       handle ErrorEmpty => ([], [])
            | ErrorClose s => ([], CloseVC :: s)
                                
-  fun formulas_to_prop (fs : formula list) : prop =
+  fun to_exists ((uvar_ref, (n, ctx, bsort)), p) =
       let
-        fun and_all ps = foldl' (fn (p, acc) => acc /\ p) (True dummy) ps
-        fun formula_to_prop f : prop =
-            case f of
-                ForallF (name, bs, fs) => Quan (Forall, bs, (name, dummy), formulas_to_prop fs)
-              | ImplyF (p, fs) => p --> formulas_to_prop fs
-              | AndF fs => formulas_to_prop fs
-              | PropF (p, r) => set_region_p p r
-              | AnchorF _ => raise Impossible "formula_to_prop (): shouldn't be AnchorF"
+        fun substu_i x v (b : idx) : idx =
+	    case b of
+                UVarI ((_, y), _) =>
+                if y = x then
+                  VarI (v, dummy)
+                else 
+                  b
+	      | VarI a => VarI a
+	      | ConstIN n => ConstIN n
+	      | ConstIT x => ConstIT x
+              | UnOpI (opr, i, r) => UnOpI (opr, substu_i x v i, r)
+              | DivI (i1, n2) => DivI (substu_i x v i1, n2)
+              | ExpI (i1, n2) => ExpI (substu_i x v i1, n2)
+	      | BinOpI (opr, i1, i2) => BinOpI (opr, substu_i x v i1, substu_i x v i2)
+	      | TrueI r => TrueI r
+	      | FalseI r => FalseI r
+              | TimeAbs (name, i, r) => TimeAbs (name, substu_i x (v + 1) i, r)
+	      | TTI r => TTI r
+        fun substu_p x v b =
+	    case b of
+	        True r => True r
+	      | False r => False r
+              | Not (p, r) => Not (substu_p x v p, r)
+	      | BinConn (opr,p1, p2) => BinConn (opr, substu_p x v p1, substu_p x v p2)
+	      | BinPred (opr, i1, i2) => BinPred (opr, substu_i x v i1, substu_i x v i2)
+              | Quan (q, bs, (name, r), p) => Quan (q, bs, (name, r), substu_p x (v + 1) p)
+        (* fun evar_name n = "?" ^ str_int n *)
+        fun evar_name n =
+            (* if n < 26 then *)
+            (*   "" ^ (str o chr) (ord #"a" + n) *)
+            (* else *)
+              "_x" ^ str_int n
+        val r = get_region_p p
+        val p =
+            Quan (Exists (SOME (fn i => unify_i dummy [] (UVarI (([], uvar_ref), dummy), i))),
+                  bsort,
+                  (evar_name n, dummy), substu_p uvar_ref 0 $ shift_i_p $ update_p p)
+        val p = set_region_p p r
       in
-        case fs of
-            [] => True dummy
-          | f :: fs =>
-            case f of
-                AnchorF anchor =>
-                let
-                  fun to_exists (uvar_ref, (n, ctx, bsort), p) =
-                      let
-                        fun substu_i x v (b : idx) : idx =
-	                    case b of
-                                UVarI ((_, y), _) =>
-                                if y = x then
-                                  VarI (v, dummy)
-                                else 
-                                  b
-	                      | VarI a => VarI a
-	                      | ConstIN n => ConstIN n
-	                      | ConstIT x => ConstIT x
-                              | UnOpI (opr, i, r) => UnOpI (opr, substu_i x v i, r)
-                              | DivI (i1, n2) => DivI (substu_i x v i1, n2)
-                              | ExpI (i1, n2) => ExpI (substu_i x v i1, n2)
-	                      | BinOpI (opr, i1, i2) => BinOpI (opr, substu_i x v i1, substu_i x v i2)
-	                      | TrueI r => TrueI r
-	                      | FalseI r => FalseI r
-                              | TimeAbs (name, i, r) => TimeAbs (name, substu_i x (v + 1) i, r)
-	                      | TTI r => TTI r
-                        fun substu_p x v b =
-	                    case b of
-	                        True r => True r
-	                      | False r => False r
-                              | Not (p, r) => Not (substu_p x v p, r)
-	                      | BinConn (opr,p1, p2) => BinConn (opr, substu_p x v p1, substu_p x v p2)
-	                      | BinPred (opr, i1, i2) => BinPred (opr, substu_i x v i1, substu_i x v i2)
-                              | Quan (q, bs, (name, r), p) => Quan (q, bs, (name, r), substu_p x (v + 1) p)
-                        (* fun evar_name n = "?" ^ str_int n *)
-                        fun evar_name n =
-                            if n < 26 then
-                              "" ^ (str o chr) (ord #"a" + n)
-                            else
-                              "_x" ^ str_int n
-                        val r = get_region_p p
-                        val p =
-                            Quan (Exists (SOME (fn i => unify_i dummy [] (UVarI (([], uvar_ref), dummy), i))),
-                                  bsort,
-                                  (evar_name n, dummy), substu_p uvar_ref 0 $ shift_i_p $ update_p p)
-                        val p = set_region_p p r
-                      in
-                        p
-                      end
-                in
-                  case !anchor of
-                      Fresh uname => to_exists (anchor, uname, formulas_to_prop fs)
-                    | Refined _ => formulas_to_prop fs
-                end
-              | _ => formula_to_prop f /\ formulas_to_prop fs
+        p
       end
-
+        
+  fun formula_to_prop f : prop =
+      case f of
+          ForallF (name, bs, fs) => Quan (Forall, bs, (name, dummy), generalize_formulas_to_prop fs)
+        | ImplyF (p, fs) => p --> (* generalize_ *)formulas_to_prop fs
+        | AndF fs => (* generalize_ *)formulas_to_prop fs
+        | PropF (p, r) => set_region_p p r
+        | AnchorF _ => True dummy
+                             
+  and formulas_to_prop (fs : formula list) : prop =
+      let
+      in
+        combine_And $ List.filter (fn p => case p of True _ => false | _ => true) $ map formula_to_prop fs
+      end
+        
+  and generalize_formulas_to_prop fs =
+      let
+        fun collect_anchors f =
+            case f of
+                AnchorF anchor => [anchor]
+              (* | _ => [] *)
+              | ForallF _ => []
+              | AndF fs => collect_anchors_fs fs
+              | ImplyF (p, fs) => collect_anchors_fs fs
+              | PropF (p, r) => []
+        and collect_anchors_fs fs = concatMap collect_anchors fs
+        fun is_fresh anchor =
+            case !anchor of
+                Fresh uname => SOME (anchor, uname)
+              | Refined _ => NONE
+        val anchors = collect_anchors_fs fs
+        val anchors = List.mapPartial is_fresh anchors
+        val p = formulas_to_prop fs
+        val p = foldl to_exists p anchors
+      in
+        p
+      end
+                  
   fun nouvar2uvar_i i =
       let
         fun f i =
@@ -2261,12 +2273,12 @@ local
                    | _ => raise Impossible "to_vcs (): remaining after get_formulas"
         val () = println "Formulas: "
         val () = app println $ map (str_f []) fs
-        val p = formulas_to_prop fs
+        val p = generalize_formulas_to_prop fs
         val () = println "Props: "
         val () = println $ Expr.str_p [] p
         val p = no_uvar_p p
-        val () = println "NoUVar Props: "
-        val () = println $ str_p [] p
+        (* val () = println "NoUVar Props: " *)
+        (* val () = println $ str_p [] p *)
         val p = NoUVarSubst.simp_p p
         (* val () = println "" *)
         (* val () = println $ str_p [] p *)

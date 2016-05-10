@@ -453,7 +453,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
 fun use_master_theorem hs name_arity1 (name0, arity0) p =
     (* opportunity to apply the Master Theorem to infer the bigO class *)
     let
-      (* val () = println "use_master_theorem ()" *)
+      val () = println "use_master_theorem ()"
       (* hoist the conjuncts that don't involve the time functions *)
       val vcs = split_prop p
       val (rest, vcs) = partitionOption (Option.composePartial (try_forget (forget_i_vc 0 1), try_forget (forget_i_vc 0 1))) vcs
@@ -494,61 +494,91 @@ fun infer_exists hs (name_arity1 as (_, arity1)) p =
 fun hyps2ctx hs = List.mapPartial (fn h => case h of VarH (name, _) => SOME name | _ => NONE) hs
 
 exception MasterTheoremCheckFail of region * string list
-                                                    
+
+fun eq_hyp (a, b) =
+    case (a, b) of
+        (VarH _, VarH _) => true
+      | (PropH p, PropH p') => eq_p p p'
+                                    
+fun list_eq eq a b = length a = length b andalso List.all eq $ zip (a, b)
+                                                          
 fun solve_exists (vc as (hs, p)) =
     case p of
         Quan (Exists ins, Base (TimeFun arity), (name, _), p) =>
-        
         let
+          val () = println "hit1"
+          val vcs = split_prop p
           val ret =
-              case p of
-                  BinConn (And, bigO as BinPred (BigO, VarI (n0, _), spec), BinConn (Imply, bigO', p)) =>
-                  if n0 = 0 andalso eq_p bigO bigO' then
+              case vcs of
+                  (hs1, bigO_pred as BinPred (BigO, VarI (n0, _), spec)) :: (bigO_pred' :: hs2, p) :: rest =>
+                  if n0 = length hs1 andalso eq_p bigO_pred bigO_pred' andalso list_eq eq_hyp hs1 hs2 then
                     (* infer and then check *)
-                    case use_master_theorem hs (name, arity) ("inferred", arity) (shiftx_i_p 1 1 p) of
+                    case use_master_theorem hs ("inferred", arity) (name, arity) (shiftx_i_p 1 1 p) of
                         SOME (inferred, vcs) =>
                         (let
+                          val gap = length hs1
                           val inferred = forget_i_i 1 1 inferred
                           val vcs = map (forget_i_vc 1 1) vcs
                           val inferred = forget_i_i 0 1 inferred
                           val spec = forget_i_i 0 1 spec
                         in
                           if timefun_le hs arity inferred spec then
-                            SOME vcs
+                            SOME (vcs @ (concatMap solve_exists $ append_hyps hs $ concatMap split_prop $ map (forget_i_p 0 1) $ rest))
                           else
                             raise curry MasterTheoremCheckFail (get_region_i spec) $ [sprintf "Can't prove that the inferred big-O class $ is bounded by the given big-O class $" [str_i (hyps2ctx hs) inferred, str_i (hyps2ctx hs) spec]]
                         end handle ForgetError _ => NONE)
                       | NONE => NONE
                   else NONE
                 | _ => NONE
+          (* val ret = *)
+          (*     case p of *)
+          (*         BinConn (And, bigO_pred as BinPred (BigO, VarI (n0, _), spec), BinConn (Imply, bigO_pred', p)) => *)
+          (*         if n0 = 0 andalso eq_p bigO_pred bigO_pred' then *)
+          (*           (* infer and then check *) *)
+          (*           case use_master_theorem hs (name, arity) ("inferred", arity) (shiftx_i_p 1 1 p) of *)
+          (*               SOME (inferred, vcs) => *)
+          (*               (let *)
+          (*                 val inferred = forget_i_i 1 1 inferred *)
+          (*                 val vcs = map (forget_i_vc 1 1) vcs *)
+          (*                 val inferred = forget_i_i 0 1 inferred *)
+          (*                 val spec = forget_i_i 0 1 spec *)
+          (*               in *)
+          (*                 if timefun_le hs arity inferred spec then *)
+          (*                   SOME vcs *)
+          (*                 else *)
+          (*                   raise curry MasterTheoremCheckFail (get_region_i spec) $ [sprintf "Can't prove that the inferred big-O class $ is bounded by the given big-O class $" [str_i (hyps2ctx hs) inferred, str_i (hyps2ctx hs) spec]] *)
+          (*               end handle ForgetError _ => NONE) *)
+          (*             | NONE => NONE *)
+          (*         else NONE *)
+          (*       | _ => NONE *)
+          val ret =
+              case ret of
+                  SOME vcs => vcs
+                | NONE =>
+                  
+                  let
+                    (* val () = println "Exists-solver to solve this: " *)
+                    (* val () = app println $ (str_vc false "" vc @ [""]) *)
+                    val (p1, p2) = split_and p
+                  in
+                    case infer_exists hs (name, arity) p1 of
+                        SOME (i, vcs1) =>
+                        let
+                          val () = case ins of
+                                       SOME ins => ins i
+                                     | NONE => ()
+                          val p2 = subst_i_p i p2
+                          val vcs = split_prop p2
+                          val vcs = append_hyps hs vcs
+                          val vcs = concatMap solve_exists vcs
+                          val vcs = vcs1 @ vcs
+                        in
+                          vcs
+                        end
+                      | NONE => [vc]
+                  end
         in
-          case ret of
-              SOME vcs => vcs
-            | NONE =>
-              
-              let
-                (* val () = println "hit1" *)
-                (* val () = println "Exists-solver to solve this: " *)
-                (* val () = app println $ (str_vc false "" vc @ [""]) *)
-                val (p1, p2) = split_and p
-              in
-                case infer_exists hs (name, arity) p1 of
-                    SOME (i, vcs1) =>
-                    let
-                      val () = case ins of
-                                   SOME ins => ins i
-                                 | NONE => ()
-                      val p2 = subst_i_p i p2
-                      val vcs = split_prop p2
-                      val vcs = append_hyps hs vcs
-                      val vcs = concatMap solve_exists vcs
-                      val vcs = vcs1 @ vcs
-                    in
-                      vcs
-                    end
-                  | NONE => [vc]
-              end
-
+          ret
         end
       | _ => [vc]
 
