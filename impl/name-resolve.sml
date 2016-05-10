@@ -315,10 +315,15 @@ local
             (IdxDef ((name, r), on_sort sctx s, on_idx sctx i), (name :: sctx, kctx, cctx, tctx))
           | E.AbsIdx (((name, r1), s, i), decls, r) =>
             let
-                val ctx' = (name :: sctx, kctx, cctx, tctx)
-                val (decls, ctx') = on_decls ctx' decls
+              fun add_sorting name (sctx, kctx, cctx, tctx) = (name :: sctx, kctx, cctx, tctx)
+              val ctx = add_sorting "__dummy1" ctx
+              val s = on_sort (#1 ctx) s
+              val ctx = add_sorting "__dummy2" ctx
+              val i = on_idx (#1 ctx) i
+              val ctx = add_sorting name ctx
+              val (decls, ctx) = on_decls ctx decls
             in
-                (AbsIdx (((name, r1), on_sort sctx s, on_idx sctx i), decls, r), ctx')
+                (AbsIdx (((name, r1), s, i), decls, r), ctx)
             end
 
     and on_rule (ctx as (sctx, kctx, cctx, tctx)) (pn, e) =

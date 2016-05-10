@@ -28,7 +28,7 @@ fun map ['a 'b] (f : 'a -- 5.0 --> 'b) =
             | Cons (x, xs) =>
               Cons (f x, map xs)
     in
-      map
+      @map
     end
 end      
 

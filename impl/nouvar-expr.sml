@@ -262,6 +262,8 @@ local
                 | Imply =>
                   if eq_p p2 (True dummy) then
                     (set (); True (get_region_p p))
+                  else if eq_p p1 (True dummy) then
+                    (set (); p2)
                   else
                     (case p1 of
                          BinConn (And, p1a, p1b) =>
@@ -269,23 +271,54 @@ local
                        | _ =>
                          (* try subst if there is a equality premise *)
                          let
-                           fun forget x i =
-                               SOME (x, forget_i_i x 1 i) handle ForgetError _ => NONE
-                           fun f i1 i2 =
-                               case (i1, i2) of
-                                   (VarI (x, _), _) => forget x i2
-                                 | (_, VarI (x, _)) => forget x i1
-                                 | _ => NONE
-                           val s = case p1 of
-                                       BinPred (EqP, i1, i2) => f i1 i2
-                                     | _ => NONE
+                           val (hyps, conclu) = collect_Imply p
+                           (* test whether [p] is [VarI x = _] or [_ = VarI x] *)
+                           fun is_x_equals p =
+                               let
+                                 fun forget x i =
+                                     SOME (x, forget_i_i x 1 i) handle ForgetError _ => NONE
+                                 fun f i1 i2 =
+                                     case (i1, i2) of
+                                         (VarI (x, _), _) => forget x i2
+                                       | (_, VarI (x, _)) => forget x i1
+                                       | _ => NONE
+                               in
+                                 case p of
+                                     BinPred (EqP, i1, i2) => f i1 i2
+                                   | _ => NONE
+                               end
                          in
-
-                           case s of
-                               SOME (x, i) =>
-                               (mark $ shiftx_i_p x 1 (substx_i_p x i p2) handle _ => def ())
-                             | _ => def ()
+                           case partitionOptionFirst is_x_equals hyps of
+                               SOME ((x, i), rest) =>
+                               let
+                                 val old = p
+                                 val new = shiftx_i_p x 1 $ substx_i_p x i $ combine_Imply rest conclu
+                                 val () = println $ sprintf "Simp: $, $" [str_p [] old, str_p [] new]
+                               in
+                                 mark new 
+                               end
+                             | NONE => def ()
                          end
+                           
+                         (* let *)
+                         (*   fun forget x i = *)
+                         (*       SOME (x, forget_i_i x 1 i) handle ForgetError _ => NONE *)
+                         (*   fun f i1 i2 = *)
+                         (*       case (i1, i2) of *)
+                         (*           (VarI (x, _), _) => forget x i2 *)
+                         (*         | (_, VarI (x, _)) => forget x i1 *)
+                         (*         | _ => NONE *)
+                         (*   val s = case p1 of *)
+                         (*               BinPred (EqP, i1, i2) => f i1 i2 *)
+                         (*             | _ => NONE *)
+                         (* in *)
+
+                         (*   case s of *)
+                         (*       SOME (x, i) => *)
+                         (*       shiftx_i_p x 1 (substx_i_p x i p2) *)
+                         (*       (* ((mark $ shiftx_i_p x 1 (substx_i_p x i p2)) handle _ => def ()) *) *)
+                         (*     | _ => def () *)
+                         (* end *)
                     )
                 | _ =>
 	          def ()
@@ -305,28 +338,28 @@ local
                  (case try_forget (forget_i_p 0 1) p of
                       SOME p => (set (); p)
                     | _ =>
-                      Quan (q, bs, name, passp p)                      
-                      (* (* try subst if there is a equality premise *) *)
-                      (* let *)
-                      (*     val (hyps, conclu) = collect_Imply p *)
-                      (*     (* test whether [p] is [VarI 0 = _] or [_ = VarI 0] *) *)
-                      (*     fun is_v0_equals p = *)
-                      (*         let *)
-                      (*             fun forget i = try_forget (forget_i_i 0 1) i *)
-                      (*             fun f i1 i2 = *)
-                      (*                 if eq_i i1 (VarI (0, dummy)) then forget i2 *)
-                      (*                 else if eq_i i2 (VarI (0, dummy)) then forget i1 *)
-                      (*                 else NONE *)
-                      (*         in *)
-                      (*             case p of *)
-                      (*                 BinPred (EqP, i1, i2) => f i1 i2 *)
-                      (*               | _ => NONE *)
-                      (*         end *)
-                      (* in *)
-                      (*     case partitionOptionFirst is_v0_equals hyps of *)
-                      (*         SOME (i, rest) => (set (); subst_i_p i (combine_Imply rest conclu)) *)
-                      (*       | NONE => Quan (q, bs, name, passp p) *)
-                 (* end *)
+                      (* Quan (q, bs, name, passp p)                       *)
+                      (* try subst if there is a equality premise *)
+                      let
+                        val (hyps, conclu) = collect_Imply p
+                        (* test whether [p] is [VarI 0 = _] or [_ = VarI 0] *)
+                        fun is_v0_equals p =
+                            let
+                              fun forget i = try_forget (forget_i_i 0 1) i
+                              fun f i1 i2 =
+                                  if eq_i i1 (VarI (0, dummy)) then forget i2
+                                  else if eq_i i2 (VarI (0, dummy)) then forget i1
+                                  else NONE
+                            in
+                              case p of
+                                  BinPred (EqP, i1, i2) => f i1 i2
+                                | _ => NONE
+                            end
+                      in
+                        case partitionOptionFirst is_v0_equals hyps of
+                            SOME (i, rest) => (set (); subst_i_p i (combine_Imply rest conclu))
+                          | NONE => Quan (q, bs, name, passp p)
+                      end
                            
                           (*
                       (case p of

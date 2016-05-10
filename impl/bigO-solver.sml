@@ -508,7 +508,7 @@ fun solve_exists (vc as (hs, p)) =
     case p of
         Quan (Exists ins, Base (TimeFun arity), (name, _), p) =>
         let
-          (* val () = println "hit1" *)
+          val () = println "hit1"
           (* val vcs = split_prop p *)
           (* val ret = *)
           (*     case vcs of *)

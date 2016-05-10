@@ -53,7 +53,7 @@ fun typecheck_file (filename, ctx) =
       (* val () = write_file (filename ^ ".smt2", to_smt2 vcs) *)
       (* val () = println $ print_result false filename result *)
       val () = println $ sprintf "Type checker generated $ proof obligations." [str_int $ length vcs]
-      (* val () = app println $ concatMap (fn vc => VC.str_vc false filename vc @ [""]) vcs *)
+      val () = app println $ concatMap (fn vc => VC.str_vc false filename vc @ [""]) vcs
       fun print_unsat show_region filename (vc, counter) =
           VC.str_vc show_region filename vc @
           [""] @
@@ -80,8 +80,8 @@ fun typecheck_file (filename, ctx) =
               val () = println "Applying BigO solver ..."
               val vcs = BigOSolver.solve_vcs vcs
               val () = println (sprintf "BigO solver generated or left $ proof obligations unproved." [str_int $ length vcs])
-                               (* val () = println "" *)
-                               (* val () = print_unsats false filename $ map (fn vc => (vc, SOME [])) vcs *)
+              val () = println ""
+              val () = print_unsats false filename $ map (fn vc => (vc, SOME [])) vcs
             in
               vcs
             end

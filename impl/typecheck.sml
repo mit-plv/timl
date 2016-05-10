@@ -1790,10 +1790,22 @@ local
                 end
               | U.AbsIdx (((name, r1), s, i), decls, r) =>
                 let
-                  val s = is_wf_sort (sctx, s)
                   (* localized the scope of the evars introduced in type-checking absidx's definition *)
-                  val () = open_vc ()
-                  val i = check_sort (sctx, i, s)
+                  (* val () = open_vc () *)
+                  fun add_sorting_skct_and_open pair ctx =
+                      let
+                        val ctx = add_sorting_skct pair ctx
+                        val () = open_sorting pair
+                      in
+                        ctx
+                      end
+                  val dummy1 = ("__dummy1", Basic (Base BoolSort, dummy))
+                  val ctx = add_sorting_skct_and_open dummy1 ctx
+                  val s = is_wf_sort (#1 ctx, s)
+                  val dummy2 = ("__dummy2", Basic (Base BoolSort, dummy))
+                  val ctx = add_sorting_skct_and_open dummy2 ctx
+                  val s = shift_i_s s
+                  val i = check_sort (#1 ctx, i, s)
                   val ctxd = ctx_from_sorting (name, s)
                   val () = open_ctx ctxd
                   val ps = [BinPred (EqP, VarI (0, r), shift_ctx_i ctxd i)]
@@ -1806,8 +1818,10 @@ local
                   val () = close_vcs (length ps)
                   val () = close_ctx ctxd
                   val () = close_vc ()
+                  val () = open_sorting dummy2
                   val ctxd = add_ctx ctxd2 ctxd
                   val () = open_ctx ctxd
+                  val ctxd = add_ctx ctxd $ add_sorting_skct dummy2 $ ctx_from_sorting dummy1
                 in
                   (AbsIdx (((name, r1), s, i), decls, r), ctxd, 0, ds)
                 end
