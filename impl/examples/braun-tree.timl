@@ -12,7 +12,7 @@ fun decide ['a] {m : Time} (lt : 'a * 'a -- m --> bool) (x, y) =
 absidx Tinsert : BigO 1 (fn n => log2 $n) with
 fun insert ['a] {n : Nat} (tr : {n} 'a braun_tree) x return {n + 1} 'a braun_tree using Tinsert n =
     case tr of
-        Leaf => Node (x, Leaf, Leaf)
+        Leaf => @Node {0} (x, Leaf, Leaf)
       | @Node {n'} (y, l, r) =>
         let
           val (smaller, bigger) = decide lt (x, y)
@@ -34,7 +34,7 @@ fun peek_option ['a] {n : Nat} (tr : {n} 'a braun_tree) return 'a option using T
         Leaf => NONE
       | Node (x, _, _) => SOME x
 end
-
+(*
 absidx Tpop : BigO 1 (* (fn m n => $m * log2 $n) *) _ with
 fun pop ['a] {n : Nat} (tr : {n + 1} 'a braun_tree) return 'a * {n} 'a braun_tree using Tpop n =
     case tr of
@@ -71,3 +71,4 @@ fun pop ['a] {n : Nat} (tr : {n + 1} 'a braun_tree) return 'a * {n} 'a braun_tre
         )
       | Leaf => never
 end
+*)

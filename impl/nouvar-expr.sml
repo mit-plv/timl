@@ -270,6 +270,7 @@ local
                          mark $ (p1a --> p1b --> p2)
                        | _ =>
                          (* try subst if there is a equality premise *)
+                         if false then
                          let
                            val (hyps, conclu) = collect_Imply p
                            (* test whether [p] is [VarI x = _] or [_ = VarI x] *)
@@ -284,41 +285,42 @@ local
                                        | _ => NONE
                                in
                                  case p of
-                                     BinPred (EqP, i1, i2) => f i1 i2
+                                     BinPred (EqP, i1, i2) => Option.map (fn a => (a, p)) $ f i1 i2
                                    | _ => NONE
                                end
                          in
                            case partitionOptionFirst is_x_equals hyps of
-                               SOME ((x, i), rest) =>
+                               SOME (((x, i), pred), rest) =>
                                let
                                  val old = p
-                                 val new = shiftx_i_p x 1 $ substx_i_p x i $ combine_Imply rest conclu
-                                 val () = println $ sprintf "Simp: $, $" [str_p [] old, str_p [] new]
+                                 val new = pred --> (shiftx_i_p x 1 $ substx_i_p x i $ combine_Imply rest conclu)
+                                 (* val () = println $ sprintf "Simp: $, $" [str_p [] old, str_p [] new] *)
+                                 val new = if eq_p old new then def () else mark new
                                in
-                                 mark new 
+                                 new 
                                end
                              | NONE => def ()
                          end
-                           
-                         (* let *)
-                         (*   fun forget x i = *)
-                         (*       SOME (x, forget_i_i x 1 i) handle ForgetError _ => NONE *)
-                         (*   fun f i1 i2 = *)
-                         (*       case (i1, i2) of *)
-                         (*           (VarI (x, _), _) => forget x i2 *)
-                         (*         | (_, VarI (x, _)) => forget x i1 *)
-                         (*         | _ => NONE *)
-                         (*   val s = case p1 of *)
-                         (*               BinPred (EqP, i1, i2) => f i1 i2 *)
-                         (*             | _ => NONE *)
-                         (* in *)
+                         else
+                         let
+                           fun forget x i =
+                               SOME (x, forget_i_i x 1 i) handle ForgetError _ => NONE
+                           fun f i1 i2 =
+                               case (i1, i2) of
+                                   (VarI (x, _), _) => forget x i2
+                                 | (_, VarI (x, _)) => forget x i1
+                                 | _ => NONE
+                           val s = case p1 of
+                                       BinPred (EqP, i1, i2) => f i1 i2
+                                     | _ => NONE
+                         in
 
-                         (*   case s of *)
-                         (*       SOME (x, i) => *)
-                         (*       shiftx_i_p x 1 (substx_i_p x i p2) *)
-                         (*       (* ((mark $ shiftx_i_p x 1 (substx_i_p x i p2)) handle _ => def ()) *) *)
-                         (*     | _ => def () *)
-                         (* end *)
+                           case s of
+                               SOME (x, i) =>
+                               shiftx_i_p x 1 (substx_i_p x i p2)
+                               (* ((mark $ shiftx_i_p x 1 (substx_i_p x i p2)) handle _ => def ()) *)
+                             | _ => def ()
+                         end
                     )
                 | _ =>
 	          def ()
