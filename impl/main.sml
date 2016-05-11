@@ -53,7 +53,7 @@ fun typecheck_file (filename, ctx) =
       (* val () = write_file (filename ^ ".smt2", to_smt2 vcs) *)
       (* val () = println $ print_result false filename result *)
       val () = println $ sprintf "Type checker generated $ proof obligations." [str_int $ length vcs]
-      (* val () = app println $ concatMap (fn vc => VC.str_vc false filename vc @ [""]) vcs *)
+      val () = app println $ concatMap (fn vc => VC.str_vc false filename vc @ [""]) vcs
       fun print_unsat show_region filename (vc, counter) =
           VC.str_vc show_region filename vc @
           [""] @

@@ -264,6 +264,8 @@ local
                         BinConn (And, p1a, p1b) =>
                         mark $ (p1a --> p1b --> p2)
                       | _ =>
+                        (* BinConn (opr, passp p1, passp p2) *)
+                        (* ToDo: not sound, possibly losing information *)
                         (* try subst if there is a equality premise *)
                         let
                           fun forget x i =

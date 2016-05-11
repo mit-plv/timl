@@ -71,3 +71,4 @@ fun pop ['a] {n : Nat} (tr : {n + 1} 'a braun_tree) return 'a * {n} 'a braun_tre
         )
       | Leaf => never
 end
+
