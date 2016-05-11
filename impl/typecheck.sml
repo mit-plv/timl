@@ -2222,7 +2222,7 @@ local
           end
         | ForallF2 (name, bs, f) =>
           let
-            val (fv, f) = bring_forward_anchor f
+            val (f, fv) = bring_forward_anchor f
           in
             (ForallF2 (name, bs, f), fv) 
           end
@@ -2421,7 +2421,7 @@ local
         val f = fs_to_f2 fs
         val () = println "Formula2: "
         val () = println $ str_f2 [] f
-        val f = snd $ bring_forward_anchor f
+        val f = fst $ bring_forward_anchor f
         val () = println "Formula2 after bring_forward_anchor (): "
         val () = println $ str_f2 [] f
         val f = trim_anchors [] f
