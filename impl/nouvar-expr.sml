@@ -137,6 +137,12 @@ local
 	         if eq_i i1 i2 then
 		     (set ();
                       i1)
+	         else if eq_i i1 (T0 dummy) orelse eq_i i1 (ConstIN (0, dummy)) then
+                     (set ();
+                      i2)
+	         else if eq_i i2 (T0 dummy) orelse eq_i i2 (ConstIN (0, dummy)) then
+                     (set ();
+                      i1)
 	         else
                    let
                      fun default () = BinOpI (opr, passi i1, passi i2)
@@ -359,6 +365,7 @@ local
                           *)
                  )
                | Exists ins =>
+                 (* for unconstrained Time evar, infer it to be 0 *)
                  let
                    val p = passp p
                  in
@@ -367,7 +374,15 @@ local
                        (set ();
                         (case ins of SOME f => f (T0 dummy) | NONE => ());
                         p)
-                      | _ => Quan (q, bs, name, p)
+                     | _ =>
+                       let
+                         val ps = collect_And p
+                         val (irrelevant, relevant) = partitionOption (try_forget (forget_i_p 0 1)) ps
+                       in
+                         case relevant of
+                             [] => Quan (q, bs, name, p)
+                           | _ => combine_And $ Quan (q, bs, name, combine_And relevant) :: irrelevant
+                       end
                  end
             )
 	  | True _ => p

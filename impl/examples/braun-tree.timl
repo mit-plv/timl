@@ -21,12 +21,10 @@ fun insert ['a] {n : Nat} (tr : {n} 'a braun_tree) x return {n + 1} 'a braun_tre
         end
 end
 
-absidx T : Time with
-fun peek ['a] {n : Nat} (tr : {n + 1} 'a braun_tree) return using T =
+fun peek ['a] {n : Nat} (tr : {n + 1} 'a braun_tree) =
     case tr of
         Node (x, _, _) => x
       | Leaf => never
-end
 
 absidx T : Time with
 fun peek_option ['a] {n : Nat} (tr : {n} 'a braun_tree) return 'a option using T =
@@ -41,30 +39,21 @@ fun pop ['a] {n : Nat} (tr : {n + 1} 'a braun_tree) return 'a * {n} 'a braun_tre
         Node (x, l, r) =>
         (case (l, r) of
              (Leaf, Leaf) => (x, Leaf)
-           | (Node _, Leaf) =>
+           | (Node (y, _, _), Leaf) =>
+             (x, @Node {0} (y, Leaf, Leaf))
+           | (@Node {nl'} _, @Node {nr'} _) =>
              let
-               val (y, l) = pop l
-             in
-               (x, Node (y, r, l))
-             end
-           | (Node _, Node _) =>
-             let
-               val lx = peek l
+               val (lx, l) = @pop {nl'} l
                val rx = peek r
              in
                case lt (lx, rx) of
                    true =>
-                   let
-                     val (_, l) = pop l
-                   in
-                     (x, Node (lx, r, l))
-                   end
+                   (x, @Node {nl'+1+nr'} (lx, r, l))
                  | false =>
                    let
-                     val (_, l) = pop l
-                     val (_, r) = pop r
+                     val (_, r) = @pop {nr'} r
                    in
-                     (x, Node (rx, insert r lx, l))
+                     (x, @Node {nl'+1+nr'} (rx, insert r lx, l))
                    end
              end
            | _ => never

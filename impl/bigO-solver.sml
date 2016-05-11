@@ -65,8 +65,10 @@ val mult_classes = foldl' mult_class M.empty
                           
 val add_classes = foldl' add_class M.empty
 
-fun trim_class cls = M.filter (fn (c, k) => not $ c = 0 andalso k = 0) cls
+fun trim_class cls = M.filter (fn (c, k) => not (c = 0 andalso k = 0)) cls
                               
+fun str_cls cls = str_ls (fn (x, (c, k)) => sprintf "$=>($,$)" [str_int x, str_int c, str_int k]) $ M.listItemsi $ cls
+                     
 (* summarize [i] in the form n_1^c_1 * (log n_1)^k_1 * ... * n_s^c_s * (log n_s)^k_s, and [n_1 => (c_1, k_1), ..., n_s => (c_s, k_s)] will be the [i]'s "asymptotic class". [n_1, ..., n_s] are the variable. *)
 fun summarize on_error i =
     case i of
@@ -88,15 +90,18 @@ fun summarize on_error i =
         summarize on_error i
       | UnOpI (Log2, i, _) =>
         let
+          (* val () = println "summarize/Log2" *)
           val is = collect_MultI i
           val classes = map (summarize on_error) is
           val cls = add_classes classes
+          (* val () = println $ str_cls cls *)
           (* (0, 0) should never enter a class, so the following precaution shouldn't be necessary *)
           fun log_class (c, k) =
               (* approximate [log (log n)] by [log n] *)
               (0, if c = 0 andalso k = 0 then 0 else 1) 
           val cls = M.map log_class cls
           val cls = trim_class cls
+          (* val () = println $ str_cls cls *)
         in
           cls
         end
@@ -232,8 +237,13 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                               let
                                 val x = get_x ()
                               in
-                                if fst (hd cls_i) = x then snd (hd cls_i)
-                                else err ()
+                                if fst (hd cls_i) = x then
+                                  snd (hd cls_i)
+                                else
+                                  if ask_smt (V x %<= n) then
+                                    snd (hd cls_i)
+                                  else
+                                    err ()
                               end
                             else err ()
                 in
@@ -388,6 +398,20 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                       val is = collect_AddI i1
                       fun is_sub_problem i =
                           case i of
+                              (* BinOpI (TimeApp, VarI (g', _), n') => *)
+                              (* let *)
+                              (*   exception InferError *)
+                              (*   fun infer_b i = *)
+                              (*       case i of *)
+                              (*           UnOpI (opr, DivI (_, (b, _)), _) => b *)
+                              (*         | _ => raise InferError *)
+                              (*   val doit () =  *)
+                              (*       if g' = g andalso (opr = Ceil orelse opr = Floor) andalso ask_smt (n' %<= UnOpI (Ceil, DivI (n_, (b, dummy)), dummy) ) then *)
+                              (*         SOME b *)
+                              (*       else NONE *)
+                              (* in *)
+                              (*   doit () handle InferError => NONE *)
+                              (* end *)
                               BinOpI (TimeApp, VarI (g', _), UnOpI (opr, DivI (n', (b, _)), _)) =>
                               if g' = g andalso (opr = Ceil orelse opr = Floor) andalso ask_smt (n' %= n_ \/ n' %+ T1 dummy %= n_) then
                                 SOME b
