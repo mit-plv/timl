@@ -2123,7 +2123,7 @@ local
            | PropF2 of prop * region
 
   fun str_f2 ctx f =
-      case f2 of
+      case f of
           ForallF2 (name, bsort, f) =>
           sprintf "(forall ($ : $) ($))" [name, str_bs bsort, str_f2 (name :: ctx) f]
         | BinConnF2 (opr, f1, f2) =>
@@ -2150,10 +2150,17 @@ local
 
   and fs_to_f2 fs =
       case fs of
-          [] => PropF2 (True, dummy)
+          [] => PropF2 (True dummy, dummy)
         | f :: fs =>
           case f of
-              AnchorF anchor => AnchorF2 (anchor, fs_to_f2 fs)
+              AnchorF anchor =>
+              let
+                val f = fs_to_f2 fs
+              in
+                case !anchor of
+                    Fresh _ => AnchorF2 (anchor, f)
+                  | Refined _ => f
+              end
             | _ => BinConnF2 (And, f_to_f2 f, fs_to_f2 fs)
 
   (* The movement of uvars is constrained only by scope (not by [vce]'s parantheses, so some times a uvar can appear before its anchor (but won't go so far as to up one scope layer). We need to bring some anchors forward to cover their uvars.) *)
@@ -2180,7 +2187,7 @@ local
         | BinConn (_, p1, p2) => fv_p p1 @ fv_p p2
         | Not (p, _) => fv_p p
         | BinPred (_, i1, i2) => fv_i i1 @ fv_i i2
-        | Quan (_, _, _, p) => fv_p p (* shouldn't need to [forget] because uvars under [Quan] should have been shifted so [forget] them should lead to just the original uvar *)
+        | Quan (_, _, _, p) => fv_p p 
                                           
   fun fv_f2 f =
       case f of
@@ -2189,25 +2196,58 @@ local
         | PropF2 (p, r) => fv_p p
         | AnchorF2 (uref, f) => uref :: fv_f2 f
 
+  fun intersection eq a b = List.filter (fn x => mem eq x b) a
+                                
   fun add_anchors urefs f =
-      S.foldl AnchorF2 f urefs
+      foldl AnchorF2 f $ dedup op= urefs
 
   fun bring_forward_anchor f =
       case f of
-          ForallF2 (name, bs, f) =>
-          ForallF (name, bs, bring_forward_anchor f) (* uvars under ForallF2 won't bubble up here *)
-        | BinConnF2 (opr, f1, f2) =>
+          BinConnF2 (opr, f1, f2) =>
           let
             val (f1, fv1) = bring_forward_anchor f1
             val (f2, fv2) = bring_forward_anchor f2
             val f = BinConnF2 (opr, f1, f2)
-            val f = add_anchors (S.intersection (fv1, fv2)) f
+            val f = add_anchors (intersection op= fv1 fv2) f
           in
-            (f, S.union (fv1, fv2))
+            (f, fv1 @ fv2)
           end
-        | PropF (p, r) => PropF (p, r)
-        | AnchorF an => AnchorF an
+        | AnchorF2 (uref, f) =>
+          (* AnchorF2 is also seen as an appearance of a uvar *)
+          let
+            val fv = fv_f2 f
+            val f = add_anchors fv f
+          in
+            (AnchorF2 (uref, f), uref :: fv)
+          end
+        | ForallF2 (name, bs, f) =>
+          let
+            val (fv, f) = bring_forward_anchor f
+          in
+            (ForallF2 (name, bs, f), fv) 
+          end
+        | PropF2 (p, r) =>
+          let
+            val fv = fv_p p
+          in
+            (add_anchors fv $ PropF2 (p, r), fv)
+          end
 
+  fun trim_anchors covered f =
+      case f of
+          AnchorF2 (uref, f) =>
+          if mem op= uref covered then
+            trim_anchors covered f
+          else
+            AnchorF2 (uref, trim_anchors (uref :: covered) f)
+        | BinConnF2 (opr, f1, f2) =>
+          BinConnF2 (opr, trim_anchors covered f1, trim_anchors covered f2)
+        | ForallF2 (name, bs, f) =>
+          ForallF2 (name, bs, trim_anchors covered f)
+        | PropF2 (p, r) =>
+          PropF2 (p, r)
+
+            (*
   and bring_forward_anchor_fs fs =
       let
         val fs = map bring_forward_anchor fs
@@ -2243,7 +2283,8 @@ local
       in
         fs
       end
-                             
+            *)
+            
   fun to_exists (uvar_ref, (n, ctx, bsort), p) =
       let
         fun substu_i x v (b : idx) : idx =
@@ -2377,10 +2418,16 @@ local
                    | _ => raise Impossible "to_vcs (): remaining after get_formulas"
         val () = println "Formulas: "
         val () = app println $ map (str_f []) fs
-        val fs = bring_forward_anchor_fs fs
-        val () = println "Formulas after bring_forward_anchor_fs (): "
-        val () = app println $ map (str_f []) fs
-        val p = formulas_to_prop fs
+        val f = fs_to_f2 fs
+        val () = println "Formula2: "
+        val () = println $ str_f2 [] f
+        val f = snd $ bring_forward_anchor f
+        val () = println "Formula2 after bring_forward_anchor (): "
+        val () = println $ str_f2 [] f
+        val f = trim_anchors [] f
+        val () = println "Formulas after trim_anchors (): "
+        val () = println $ str_f2 [] f
+        val p = f2_to_prop f
         (* val () = println "Props: " *)
         (* val () = println $ Expr.str_p [] p *)
         val p = no_uvar_p p
