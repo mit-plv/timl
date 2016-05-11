@@ -254,9 +254,9 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         fun a %<= b = BinPred (LeP, a, b)
         infix 4 %=
         fun a %= b = BinPred (EqP, a, b)
-        infix 3 /\
+        infixr 3 /\
         fun a /\ b = BinConn (And, a, b)
-        infix 2 \/
+        infixr 2 \/
         fun a \/ b = BinConn (Or, a, b)
         infixr 1 -->
         fun a --> b = BinConn (Imply, a, b)

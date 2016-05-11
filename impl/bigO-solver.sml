@@ -11,8 +11,8 @@ infix 7 %*
 infix 6 %+
 infix 4 %<=
 infix 4 %=
-infix 3 /\
-infix 2 \/
+infixr 3 /\
+infixr 2 \/
 infixr 1 -->
 infix 1 <->
 

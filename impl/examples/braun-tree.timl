@@ -34,7 +34,7 @@ fun peek_option ['a] {n : Nat} (tr : {n} 'a braun_tree) return 'a option using T
         Leaf => NONE
       | Node (x, _, _) => SOME x
 end
-
+(*
 absidx Tpop : BigO 1 (* (fn m n => $m * log2 $n) *) _ with
 fun pop ['a] {n : Nat} (tr : {n + 1} 'a braun_tree) return 'a * {n} 'a braun_tree using Tpop n =
     case tr of
@@ -71,4 +71,4 @@ fun pop ['a] {n : Nat} (tr : {n + 1} 'a braun_tree) return 'a * {n} 'a braun_tre
         )
       | Leaf => never
 end
-
+*)

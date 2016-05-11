@@ -8,7 +8,8 @@ infixr 0 $
 infix 7 %*
 infix 6 %+
 infix 4 %<=
-infix 3 /\
+infixr 3 /\
+infixr 2 \/
 infixr 1 -->
 infix 1 <->
 
@@ -896,8 +897,8 @@ local
           | PairH (c1, c2) => sprintf "($, $)" [str_habitant cctx c1, str_habitant cctx c2]
           | TTH => "()"
 
-    infix 3 /\
-    infix 2 \/
+    infixr 3 /\
+    infixr 2 \/
     val op/\ = AndC
     val op\/ = OrC
 
@@ -2113,7 +2114,136 @@ local
       end
       handle ErrorEmpty => ([], [])
            | ErrorClose s => ([], CloseVC :: s)
-                               
+
+  (* another formulation of formulas that won't talk about lists *)
+  datatype formula2 =
+           ForallF2 of string * bsort * formula2
+           | BinConnF2 of bin_conn * formula2 * formula2
+           | AnchorF2 of anchor * formula2
+           | PropF2 of prop * region
+
+  fun str_f2 ctx f =
+      case f2 of
+          ForallF2 (name, bsort, f) =>
+          sprintf "(forall ($ : $) ($))" [name, str_bs bsort, str_f2 (name :: ctx) f]
+        | BinConnF2 (opr, f1, f2) =>
+          sprintf "($ $ $)" [str_f2 ctx f1, str_bin_conn opr, str_f2 ctx f2]
+        | AnchorF2 (anchor, f) =>
+          let
+            val f = str_f2 ctx f
+          in
+            case !anchor of
+                Fresh uname =>
+                sprintf "(anchor $ $)" [str_uname_i uname, f]
+              | Refined _ => f
+          end
+        | PropF2 (p, _) => str_p ctx p
+
+  fun f_to_f2 f =
+      case f of
+          ForallF (name, bs, fs) => ForallF2 (name, bs, fs_to_f2 fs)
+        | ImplyF (p, fs) => BinConnF2 (Imply, PropF2 (p, get_region_p p), fs_to_f2 fs)
+        | AndF fs => fs_to_f2 fs
+        | PropF p => PropF2 p
+        (* | AnchorF anchor => AnchorF2 anchor *)
+        | AnchorF _ => raise Impossible "f_to_f2 (): shouldn't be AnchorF"
+
+  and fs_to_f2 fs =
+      case fs of
+          [] => PropF2 (True, dummy)
+        | f :: fs =>
+          case f of
+              AnchorF anchor => AnchorF2 (anchor, fs_to_f2 fs)
+            | _ => BinConnF2 (And, f_to_f2 f, fs_to_f2 fs)
+
+  (* The movement of uvars is constrained only by scope (not by [vce]'s parantheses, so some times a uvar can appear before its anchor (but won't go so far as to up one scope layer). We need to bring some anchors forward to cover their uvars.) *)
+                             
+  fun fv_i i =
+      case update_i i of
+          VarI _ => []
+        | ConstIT _ => []
+        | ConstIN _ => []
+        | UnOpI (_, i, _) => fv_i i
+        | DivI (i, _) => fv_i i
+        | ExpI (i, _) => fv_i i
+        | BinOpI (_, i1, i2) => fv_i i1 @ fv_i i2
+        | TrueI _ => []
+        | FalseI _ => []
+        | TTI _ => []
+        | TimeAbs (_, i, _) => fv_i i
+        | UVarI ((_, uref), _) => [uref]
+                                    
+  fun fv_p p =
+      case p of
+          True _ => []
+        | False _ => []
+        | BinConn (_, p1, p2) => fv_p p1 @ fv_p p2
+        | Not (p, _) => fv_p p
+        | BinPred (_, i1, i2) => fv_i i1 @ fv_i i2
+        | Quan (_, _, _, p) => fv_p p (* shouldn't need to [forget] because uvars under [Quan] should have been shifted so [forget] them should lead to just the original uvar *)
+                                          
+  fun fv_f2 f =
+      case f of
+          ForallF2 (name, bs, f) => fv_f2 f
+        | BinConnF2 (_, f1, f2) => fv_f2 f1 @ fv_f2 f2
+        | PropF2 (p, r) => fv_p p
+        | AnchorF2 (uref, f) => uref :: fv_f2 f
+
+  fun add_anchors urefs f =
+      S.foldl AnchorF2 f urefs
+
+  fun bring_forward_anchor f =
+      case f of
+          ForallF2 (name, bs, f) =>
+          ForallF (name, bs, bring_forward_anchor f) (* uvars under ForallF2 won't bubble up here *)
+        | BinConnF2 (opr, f1, f2) =>
+          let
+            val (f1, fv1) = bring_forward_anchor f1
+            val (f2, fv2) = bring_forward_anchor f2
+            val f = BinConnF2 (opr, f1, f2)
+            val f = add_anchors (S.intersection (fv1, fv2)) f
+          in
+            (f, S.union (fv1, fv2))
+          end
+        | PropF (p, r) => PropF (p, r)
+        | AnchorF an => AnchorF an
+
+  and bring_forward_anchor_fs fs =
+      let
+        val fs = map bring_forward_anchor fs
+        fun iter (f, (acc, anchors)) =
+            case f of
+                AnchorF uref =>
+                if mem op= uref anchors then
+                  (acc, anchors)
+                else
+                  (f :: acc, uref :: anchors)
+              | _ =>
+                let
+                  val fvs = dangling_uvars f
+                  val fvs = diff op= fvs anchors
+                  val fvs = dedup op= fvs
+                  val fvs = rev fvs
+                in
+                  (map AnchorF fvs @ (f :: acc), fvs @ anchors)
+                end
+        val fs = rev $ fst $ foldl iter ([], []) fs
+                                
+        (* val urefs = dangling_uvars f *)
+        (* val urefs = dedup op= urefs *)
+        (* val f = bring_forward_anchor f *)
+        (* fun hit f = *)
+        (*     case f of *)
+        (*         AnchorF uref => mem op= uref urefs *)
+        (*       | _ => false *)
+        (* val fs = bring_forward_anchor_fs fs *)
+        (* val fs = f :: fs *)
+        (* val fs = List.filter (fn f => not $ hit f) fs *)
+        (* val fs = map AnchorF urefs @ fs *)
+      in
+        fs
+      end
+                             
   fun to_exists (uvar_ref, (n, ctx, bsort), p) =
       let
         fun substu_i x v (b : idx) : idx =
@@ -2158,99 +2288,20 @@ local
         p
       end
                         
-  fun formulas_to_prop (fs : formula list) : prop =
-      case fs of
-          [] => True dummy
-        | f :: fs =>
-          case f of
-              AnchorF anchor =>
-              (case !anchor of
-                   Fresh uname => to_exists (anchor, uname, formulas_to_prop fs)
-                 | Refined _ => formulas_to_prop fs
-              )
-            | _ => formula_to_prop f /\ formulas_to_prop fs
-
-  and formula_to_prop f : prop =
+  fun f2_to_prop f : prop =
       case f of
-          ForallF (name, bs, fs) => Quan (Forall, bs, (name, dummy), formulas_to_prop fs)
-        | ImplyF (p, fs) => p --> formulas_to_prop fs
-        | AndF fs => formulas_to_prop fs
-        | PropF (p, r) => set_region_p p r
-        | AnchorF _ => raise Impossible "formula_to_prop (): shouldn't be AnchorF"
+          ForallF2 (name, bs, f) => Quan (Forall, bs, (name, dummy), f2_to_prop f)
+        | BinConnF2 (opr, f1, f2) => BinConn(opr, f2_to_prop f1, f2_to_prop f2)
+        | PropF2 (p, r) => set_region_p p r
+        | AnchorF2 (anchor, f) =>
+          let
+            val p = f2_to_prop f
+          in
+            case !anchor of
+                Fresh uname => to_exists (anchor, uname, p)
+              | Refined _ => p
+          end
 
-  fun bring_forward_anchor f =
-      case f of
-          ForallF (name, bs, fs) => ForallF (name, bs, bring_forward_anchor_fs fs)
-        | ImplyF (p, fs) => ImplyF (p, bring_forward_anchor_fs fs)
-        | AndF fs => AndF (bring_forward_anchor_fs fs)
-        | PropF (p, r) => PropF (p, r)
-        | AnchorF an => AnchorF an
-
-  and bring_forward_anchor_fs fs =
-      let
-        fun fv_i i =
-            case update_i i of
-                VarI _ => []
-              | ConstIT _ => []
-              | ConstIN _ => []
-              | UnOpI (_, i, _) => fv_i i
-              | DivI (i, _) => fv_i i
-              | ExpI (i, _) => fv_i i
-              | BinOpI (_, i1, i2) => fv_i i1 @ fv_i i2
-              | TrueI _ => []
-              | FalseI _ => []
-              | TTI _ => []
-              | TimeAbs (_, i, _) => fv_i i
-              | UVarI ((_, uref), _) => [uref]
-        fun fv_p p =
-            case p of
-                True _ => []
-              | False _ => []
-              | BinConn (_, p1, p2) => fv_p p1 @ fv_p p2
-              | Not (p, _) => fv_p p
-              | BinPred (_, i1, i2) => fv_i i1 @ fv_i i2
-              | Quan (_, _, _, p) => fv_p p (* shouldn't need to [forget] because uvars under [Quan] should have been shifted so [forget] them should lead to just the original uvar *)
-        fun dangling_uvars f =
-            case f of
-                ForallF (name, bs, fs) => []
-              | ImplyF (p, fs) => fv_p p
-              | AndF fs => []
-              | PropF (p, r) => fv_p p
-              | AnchorF an => []
-        val fs = map bring_forward_anchor fs
-        fun iter (f, (acc, anchors)) =
-            case f of
-                AnchorF uref =>
-                if mem op= uref anchors then
-                  (acc, anchors)
-                else
-                  (f :: acc, uref :: anchors)
-              | _ =>
-                let
-                  val fvs = dangling_uvars f
-                  val fvs = diff op= fvs anchors
-                  val fvs = dedup op= fvs
-                  val fvs = rev fvs
-                in
-                  (map AnchorF fvs @ (f :: acc), fvs @ anchors)
-                end
-        val fs = rev $ fst $ foldl iter ([], []) fs
-                                
-        (* val urefs = dangling_uvars f *)
-        (* val urefs = dedup op= urefs *)
-        (* val f = bring_forward_anchor f *)
-        (* fun hit f = *)
-        (*     case f of *)
-        (*         AnchorF uref => mem op= uref urefs *)
-        (*       | _ => false *)
-        (* val fs = bring_forward_anchor_fs fs *)
-        (* val fs = f :: fs *)
-        (* val fs = List.filter (fn f => not $ hit f) fs *)
-        (* val fs = map AnchorF urefs @ fs *)
-      in
-        fs
-      end
-                             
   fun nouvar2uvar_i i =
       let
         fun f i =
