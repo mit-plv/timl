@@ -53,7 +53,7 @@ fun typecheck_file (filename, ctx) =
       (* val () = write_file (filename ^ ".smt2", to_smt2 vcs) *)
       (* val () = println $ print_result false filename result *)
       val () = println $ sprintf "Type checker generated $ proof obligations." [str_int $ length vcs]
-      val () = app println $ concatMap (fn vc => VC.str_vc false filename vc @ [""]) vcs
+      (* val () = app println $ concatMap (fn vc => VC.str_vc false filename vc @ [""]) vcs *)
       fun print_unsat show_region filename (vc, counter) =
           VC.str_vc show_region filename vc @
           [""] @
@@ -92,8 +92,8 @@ fun typecheck_file (filename, ctx) =
               val () = println "-------------------------------------------"
               val unsats = List.mapPartial id $ SMTSolver.smt_solver filename vcs
               val () = println (sprintf "SMT solver generated or left $ proof obligations unproved." [str_int $ length unsats])
-              val () = println ""
-              val () = print_unsats false filename unsats
+              (* val () = println "" *)
+              (* val () = print_unsats false filename unsats *)
             in
               map fst unsats
             end

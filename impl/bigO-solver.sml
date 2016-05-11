@@ -160,7 +160,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
           let
             val ret as (f, _) = m ()
             val ctx = List.mapPartial (fn h => case h of VarH (name, _) => SOME name | _ => NONE) hs
-            val () = println $ sprintf "Yes! I solved this: $" [str_i ctx f]
+            val () = println $ sprintf "Yes! I solved this: $\n" [str_i ctx f]
           in
             SOME ret
           end

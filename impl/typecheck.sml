@@ -2215,8 +2215,7 @@ local
         | AnchorF2 (uref, f) =>
           (* AnchorF2 is also seen as an appearance of a uvar *)
           let
-            val fv = fv_f2 f
-            val f = add_anchors fv f
+            val (f, fv) =  bring_forward_anchor f
           in
             (AnchorF2 (uref, f), uref :: fv)
           end
@@ -2416,17 +2415,17 @@ local
         val () = case vces of
                      [] => ()
                    | _ => raise Impossible "to_vcs (): remaining after get_formulas"
-        val () = println "Formulas: "
-        val () = app println $ map (str_f []) fs
+        (* val () = println "Formulas: " *)
+        (* val () = app println $ map (str_f []) fs *)
         val f = fs_to_f2 fs
-        val () = println "Formula2: "
-        val () = println $ str_f2 [] f
+        (* val () = println "Formula2: " *)
+        (* val () = println $ str_f2 [] f *)
         val f = fst $ bring_forward_anchor f
-        val () = println "Formula2 after bring_forward_anchor (): "
-        val () = println $ str_f2 [] f
+        (* val () = println "Formula2 after bring_forward_anchor (): " *)
+        (* val () = println $ str_f2 [] f *)
         val f = trim_anchors [] f
-        val () = println "Formulas after trim_anchors (): "
-        val () = println $ str_f2 [] f
+        (* val () = println "Formulas after trim_anchors (): " *)
+        (* val () = println $ str_f2 [] f *)
         val p = f2_to_prop f
         (* val () = println "Props: " *)
         (* val () = println $ Expr.str_p [] p *)
@@ -2493,7 +2492,7 @@ fun vcgen_decls ctx decls =
             val () = close_vcs nps
             val () = close_ctx ctxd
             val ret = (decls, ctxd, ds, ctx)
-            val () = print $ str_typing_info ret
+            (* val () = print $ str_typing_info ret *)
           in
             ret
           end
