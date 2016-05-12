@@ -735,7 +735,7 @@ local
         Error (r,
                sprintf "Can't substitute for $ in unification variable $ in $" [str_v (get_fresh_uvar_ref_ctx fresh) x, str_fresh_uvar_ref fresh, body] ::
                indent [
-                 sprintf "because the context of $ is [$] which contains $" [str_fresh_uvar_ref fresh, (join ", " o rev o get_fresh_uvar_ref_ctx) fresh, str_v (get_fresh_uvar_ref_ctx fresh) x]
+                 sprintf "because the context of $ is [$] which contains $" [str_fresh_uvar_ref fresh, (join ", " o get_fresh_uvar_ref_ctx) fresh, str_v (get_fresh_uvar_ref_ctx fresh) x]
                ])
       end
         
@@ -821,7 +821,7 @@ local
                     r)
             end
 	  | U.BaseType a => BaseType a
-          | U.UVar ((), r) => fresh_mt (kctxn @ sctxn) r
+          | U.UVar ((), r) => fresh_mt (sctxn @ kctxn) r
       end
 
   fun is_wf_type (ctx as (sctx : scontext, kctx : kcontext), c : U.ty) : ty = 
@@ -1398,16 +1398,19 @@ local
                             Mono t => t
                           | Uni (_, t) => insert_type_args (subst_t_t (fresh_mt (kctxn @ sctxn) r) t)
                     val t = insert_type_args (fetch_var (tctx, (x, r)))
-                    fun insert_idx_args (sctxn, t) =
-                        case t of
+                    fun insert_idx_args (sctxn, t_all) =
+                        case t_all of
                             UniI (s, BindI ((name, _), t)) =>
                             let
                               (* val bs = fresh_bsort () *)
                               val bs =  get_base r sctxn s
+                              val i = fresh_i sctxn bs r
                             in
-                              insert_idx_args (name :: sctxn, subst_i_mt (fresh_i sctxn bs r) t)
+                              insert_idx_args (name :: sctxn, subst_i_mt i t)
+                              handle SubstUVar info =>
+                                     raise subst_uvar_error (U.get_region_e e_all) ("type " ^ str_mt skctxn t_all) i info
                             end
-                          | _ => t
+                          | _ => t_all
                     val t = if not is_explicit_idx_args then
                               insert_idx_args (sctxn, t)
                             else
@@ -1587,8 +1590,8 @@ local
 		    (Never t, t, T0 dummy)
                   end
 	  val (e, t, d) = main ()
-                          handle
-                          Error (r, msg) => raise Error (r, msg @ ["when typechecking"] @ indent [U.str_e ctxn e_all])
+                          (* handle *)
+                          (* Error (r, msg) => raise Error (r, msg @ ["when typechecking"] @ indent [U.str_e ctxn e_all]) *)
                                                   (* val () = println $ str_ls id $ #4 ctxn *)
 	                                          (* val () = print (sprintf "  Typed : $: \n          $\n" [str_e ((* upd4 (const [])  *)ctxn) e, str_mt skctxn t]) *)
 	                                          (* val () = print (sprintf "   Time : $: \n" [str_i sctxn d]) *)
