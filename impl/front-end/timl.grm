@@ -196,6 +196,8 @@ prop : id (ConstP id)
      | idx LT idx (BinPred (LtP, idx1, idx2, (idx1left, idx2right)))
      | idx GT idx (BinPred (GtP, idx1, idx2, (idx1left, idx2right)))
      | idx BIG_O_INFIX idx (BinPred (BigO, idx1, idx2, (idx1left, idx2right)))
+     | LPAREN prop RPAREN (prop)
+
 
 decl : VAL tnames ptrn EQ exp (Val (tnames, ptrn, exp, (VALleft, expright)))
      | FUN id tnames bind_star return EQ exp (Rec (tnames, id, bind_star, return, exp, (FUNleft, expright)))

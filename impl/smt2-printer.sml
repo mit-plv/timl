@@ -7,7 +7,7 @@ infixr 0 $
 
 infixr 1 -->
 
-fun escape s = if s = "_" then "__" else String.map (fn c => if c = #"'" then #"!" else c) s
+fun escape s = if s = "_" then "_x" else String.map (fn c => if c = #"'" then #"!" else c) s
 fun evar_name n = "!!" ^ str_int n
 
 fun print_i ctx i =
@@ -175,8 +175,8 @@ val pop = [
 ]
 
 val check = [
-    "(check-sat)"
-    (* "(get-model)" *)
+    "(check-sat)",
+    "(get-model)"
     (* "(get-proof)" *)
     (* "(get-value (n))", *)
 ]

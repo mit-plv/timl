@@ -13,10 +13,10 @@ local
 	    name
         else
 	    let fun loop n =
-		    let val name' = name ^ str_int n in
+		    let val name' = name ^ "x" ^ str_int n in
 		        if not (mem op= name' ls) then name' else loop (n + 1)
 		    end in
-	        loop 0
+	        loop 2
 	    end
 in
 fun uniquefy_ls names = foldr (fn (name, acc) => find_unique acc name :: acc) [] names

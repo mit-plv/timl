@@ -87,23 +87,28 @@ fun typecheck_file (filename, ctx) =
             end
       fun smt_solver vcs =
           if length vcs = 0 then
-            vcs
+            (* vcs *)
+            map (fn vc => (vc, NONE)) vcs
           else
             let
               val () = println "-------------------------------------------"
               val unsats = List.mapPartial id $ map (SMTSolver.smt_solver_single filename) vcs
               val () = println (sprintf "SMT solver generated or left $ proof obligations unproved." [str_int $ length unsats])
-              (* val () = println "" *)
+              val () = println ""
               (* val () = print_unsats false filename unsats *)
             in
-              map fst unsats
+              (* map fst unsats *)
+              unsats
             end
       val vcs = (smt_solver o bigO_solver) vcs
       val () = print $ print_result false filename result
       val () = if null vcs then
                  println $ "Typechecked."
                else
-                 raise Error $ (* str_error "Error" filename dummy *) join_lines $ ([sprintf "Typecheck Error: $ Unproved obligations:" [str_int $ length vcs], ""] @ concatMap (fn vc => str_vc true filename vc @ [""]) vcs)
+                 raise Error $ (* str_error "Error" filename dummy *) join_lines $ [sprintf "Typecheck Error: $ Unproved obligations:" [str_int $ length vcs], ""] @ (
+                 (* concatMap (fn vc => str_vc true filename vc @ [""]) $ map fst vcs *)
+                 concatMap (print_unsat true filename) vcs
+               )
     in
       ctx
     end

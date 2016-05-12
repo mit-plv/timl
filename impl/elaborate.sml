@@ -284,7 +284,7 @@ local
                       val () = if case t2 of S.VarT (x, _) => x = name | _ => false then
                                  ()
                                else
-                                 raise Error (S.get_region_t t2, "Result type of constructor must be " ^ name)
+                                 raise Error (S.get_region_t t2, sprintf "Result type of constructor must be $ (did you use -> when you should you --> ?)" [name])
                       val () = if length ts = length tnames then () else raise Error (S.get_region_t t2_orig, "Must have type arguments " ^ join " " tnames)
                       fun f (t, tname) =
                           let val targ_mismatch = "This type argument must be " ^ tname in

@@ -793,37 +793,43 @@ local
       let 
         val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
 	                               (* val () = print (sprintf "Type wellformedness checking: $\n" [str_t ctxn c]) *)
+        fun main () =
+            case c of
+	        U.Arrow (c1, d, c2) => 
+	        Arrow (is_wf_mtype (ctx, c1),
+	               check_bsort (sctx, d, Base Time),
+	               is_wf_mtype (ctx, c2))
+              | U.Unit r => Unit r
+	      | U.Prod (c1, c2) => 
+	        Prod (is_wf_mtype (ctx, c1),
+	              is_wf_mtype (ctx, c2))
+	      | U.UniI (s, BindI ((name, r), c)) => 
+                let
+                  val s = is_wf_sort (sctx, s)
+                in
+                  (* ToDo: need to [open_sorting] *)
+	          UniI (s,
+	                BindI ((name, r), 
+                               is_wf_mtype (add_sorting_sk (name, s) ctx, c)))
+                end
+	      | U.AppV (x, ts, is, r) => 
+                let
+                  val ArrowK (_, n, sorts) = fetch_kind (kctx, x)
+	          val () = check_length_n r (ts, n)
+                in
+	          AppV (x, 
+                        map (fn t => is_wf_mtype (ctx, t)) ts, 
+                        check_sorts (sctx, is, sorts, r), 
+                        r)
+                end
+	      | U.BaseType a => BaseType a
+              | U.UVar ((), r) => fresh_mt (sctxn @ kctxn) r
+        val ret =
+            main ()
+            handle
+            Error (r, msg) => raise Error (r, msg @ ["when checking well-formed-ness of type "] @ indent [U.str_mt ctxn c])
       in
-        case c of
-	    U.Arrow (c1, d, c2) => 
-	    Arrow (is_wf_mtype (ctx, c1),
-	           check_bsort (sctx, d, Base Time),
-	           is_wf_mtype (ctx, c2))
-          | U.Unit r => Unit r
-	  | U.Prod (c1, c2) => 
-	    Prod (is_wf_mtype (ctx, c1),
-	          is_wf_mtype (ctx, c2))
-	  | U.UniI (s, BindI ((name, r), c)) => 
-            let
-              val s = is_wf_sort (sctx, s)
-            in
-              (* ToDo: need to [open_sorting] *)
-	      UniI (s,
-	            BindI ((name, r), 
-                           is_wf_mtype (add_sorting_sk (name, s) ctx, c)))
-            end
-	  | U.AppV (x, ts, is, r) => 
-            let
-              val ArrowK (_, n, sorts) = fetch_kind (kctx, x)
-	      val () = check_length_n r (ts, n)
-            in
-	      AppV (x, 
-                    map (fn t => is_wf_mtype (ctx, t)) ts, 
-                    check_sorts (sctx, is, sorts, r), 
-                    r)
-            end
-	  | U.BaseType a => BaseType a
-          | U.UVar ((), r) => fresh_mt (sctxn @ kctxn) r
+        ret
       end
 
   fun is_wf_type (ctx as (sctx : scontext, kctx : kcontext), c : U.ty) : ty = 
@@ -1613,7 +1619,7 @@ local
                   end
 	  val (e, t, d) = main ()
                           handle
-                          Error (r, msg) => raise Error (r, msg @ ["when typechecking"] @ indent [U.str_e ctxn e_all])
+                          Error (r, msg) => raise Error (r, msg @ ["when type-checking"] @ indent [U.str_e ctxn e_all])
                                                   (* val () = println $ str_ls id $ #4 ctxn *)
 	                                          (* val () = print (sprintf "  Typed : $: \n          $\n" [str_e ((* upd4 (const [])  *)ctxn) e, str_mt skctxn t]) *)
 	                                          (* val () = print (sprintf "   Time : $: \n" [str_i sctxn d]) *)
@@ -1686,7 +1692,7 @@ local
               t
             end
 	(* val () = println $ sprintf "Typing $" [fst $ U.str_decl (ctx_names ctx) decl] *)
-        val ret as (decl, ctxd, nps, ds) = 
+        fun main () = 
             case decl of
                 U.Val (tnames, U.VarP (x, r1), e, r) =>
                 let 
@@ -1834,6 +1840,10 @@ local
                 in
                   (AbsIdx (((name, r1), s, i), decls, r), ctxd, 0, ds)
                 end
+        val ret as (decl, ctxd, nps, ds) =
+            main ()
+            handle
+            Error (r, msg) => raise Error (r, msg @ ["when type-checking declaration "] @ indent [fst $ U.str_decl (ctx_names ctx) decl])
 	          (* val () = println $ sprintf "  Typed : $ " [fst $ str_decl (ctx_names ctx) decl] *)
 	          (* val () = print $ sprintf "   Time : $: \n" [str_i sctxn d] *)
       in

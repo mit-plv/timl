@@ -54,7 +54,7 @@ fun smt_solver filename vcs =
       val smt2_filename = filename ^ ".smt2"
       val resp_filename = filename ^ ".lisp"
       val () = write_file (smt2_filename, smt2)
-      val smt_cmd = "z3"
+      (* val smt_cmd = "z3" *)
       val smt_cmd = "cvc4 --incremental"
       (* val () = print $ sprintf "Solving by SMT solver \"$\" ... " [smt_cmd] *)
       val _ = system (sprintf "$ $ > $" [smt_cmd, smt2_filename, resp_filename])
@@ -62,7 +62,7 @@ fun smt_solver filename vcs =
       (* val () = println $ read_file resp_filename *)
       val resps = SExpParserString.parse_file resp_filename
       (* val () = println $ str_int $ length resps *)
-      val group_size = 1
+      val group_size = 2
       val () = if length resps = group_size * length vcs then ()
                else raise SMTError "Wrong number of responses"
       val resps = group group_size resps
