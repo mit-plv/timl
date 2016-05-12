@@ -5,7 +5,7 @@
 val ['a 'b] map =
  fn {m : Nat} (f : 'a -- $m --> 'b) =>
     let
-        fun map {n : Nat} (ls : {n} _ list) return {n} _ list using $(m + 2) * $n =
+        fun map {n : Nat} (ls : {n} (* _ *)'a list) return {n} (* _ *)'b list using $(m + 2) * $n =
             case ls of
                 Nil => Nil
               | Cons (x, xs) => Cons (f x, map xs)
@@ -18,7 +18,7 @@ absidx g : Fun 2 = fn m n => $(m + 2) * $n with
 val ['a 'b] map =
  fn {m : Nat} (f : 'a -- $m --> 'b) =>
     let
-        fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
+        fun map {n : Nat} (ls : {n} (* _ *)'a list) return {n} (* _ *)'b list using g m n =
             case ls of
                 Nil => Nil
               | Cons (x, xs) => Cons (f x, map xs)
@@ -32,7 +32,7 @@ absidx g : {g : Fun 2 | g O (fn m n => $m * $n)} = fn m n => $(m + 2) * $n with
 val ['a 'b] map =
  fn {m : Nat} (f : 'a -- $m --> 'b) =>
     let
-        fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
+      fun map {n : Nat} (ls : {n} (* _ *)'a list) return {n} (* _ *)'b list using g m n =
             case ls of
                 Nil => Nil
               | Cons (x, xs) => Cons (f x, map xs)
@@ -46,7 +46,7 @@ absidx g : BigO 2 (fn m n => $m * $n) = fn m n => $(m + 2) * $n with
 val ['a 'b] map =
  fn {m : Nat} (f : 'a -- $m --> 'b) =>
     let
-        fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
+      fun map {n : Nat} (ls : {n} (* _ *)'a list) return {n} (* _ *)'b list using g m n =
             case ls of
                 Nil => Nil
               | Cons (x, xs) => Cons (f x, map xs)
@@ -60,7 +60,7 @@ absidx g : BigO 2 (fn m n => $m * $n) = _ with
 val ['a 'b] map =
  fn {m : Nat} (f : 'a -- $m --> 'b) =>
     let
-        fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
+      fun map {n : Nat} (ls : {n} (* _ *)'a list) return {n} (* _ *)'b list using g m n =
             case ls of
                 Nil => Nil
               | Cons (x, xs) => Cons (f x, map xs)
@@ -74,7 +74,7 @@ absidx g : BigO 2 (fn m n => $m * $n) with
 val ['a 'b] map =
  fn {m : Nat} (f : 'a -- $m --> 'b) =>
     let
-        fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
+        fun map {n : Nat} (ls : {n} (* _ *)'a list) return {n} (* _ *)'b list using g m n =
             case ls of
                 Nil => Nil
               | Cons (x, xs) => Cons (f x, map xs)
@@ -88,7 +88,7 @@ absidx g : BigO 2 (fn m n => $m * $n)(* _ *) with
 val ['a 'b] map =
  fn {m : Nat} (f : 'a -- $m --> 'b) =>
     let
-        fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
+      fun map {n : Nat} (ls : {n} (* _ *)'a list) return {n} (* _ *)'b list using g m n =
             case ls of
                 Nil => Nil
               | Cons (x, xs) => Cons (f x, map xs)

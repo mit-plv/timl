@@ -5,7 +5,7 @@ datatype {Nat} 'a list =
 absidx g : BigO 2 (fn m n => $m * $n) with
 fun map ['a 'b] {m : Nat} (f : 'a -- $m --> 'b) =
     let
-      fun map {n : Nat} (ls : {n} _ list) return {n} _ list using g m n =
+      fun map {n : Nat} (ls : {n} 'a(* _ *) list) return {n} 'b(* _ *) list using g m n =
           case ls of
               Nil => Nil
             | Cons (x, xs) => Cons (f x, map xs)
@@ -17,7 +17,7 @@ end
 absidx h : BigO 2 (fn m n => $m * $n) with
 fun foldl ['a 'b] {m : Nat} (f : 'a * 'b -- $m --> 'b) =
     let
-      fun foldl {n : Nat} y (xs : {n} _ list) return using h m n =
+      fun foldl {n : Nat} y (xs : {n} 'a(* _ *) list) return 'b(* _ *) using h m n =
           case xs of
               Nil => y
             | Cons (x, xs) => foldl (f (x, y)) xs

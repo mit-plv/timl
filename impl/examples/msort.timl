@@ -1,4 +1,4 @@
-fun split ['a] {n : Nat} (xs : {n} 'a list) return {ceil ($n/2)} _ list * {floor ($n/2)} _ list using $n =
+fun split ['a] {n : Nat} (xs : {n} 'a list) return {ceil ($n/2)} (* _ *)'a list * {floor ($n/2)} (* _ *)'a list using $n =
     case xs of
         Nil => (Nil, Nil)
       | Cons (x, Nil) => (xs, Nil)
@@ -7,7 +7,7 @@ fun split ['a] {n : Nat} (xs : {n} 'a list) return {ceil ($n/2)} _ list * {floor
             (xs1, xs2) => (Cons (x1, xs1), Cons (x2, xs2))
 
 absidx f : {f : Fun 2 | f O (fn m n => $m * $n)(* _ *)} with
-fun merge ['a] {m : Nat} {n1 : Nat} {n2 : Nat} (le : 'a * 'a -- $m --> bool) (xs : {n1} _ list, ys : {n2} _ list) return {n1 + n2} _ list using f m (n1 + n2) =
+fun merge ['a] {m : Nat} {n1 : Nat} {n2 : Nat} (le : 'a * 'a -- $m --> bool) (xs : {n1} (* _ *)'a list, ys : {n2} (* _ *)'a list) return {n1 + n2} (* _ *)'a list using f m (n1 + n2) =
     case (xs, ys) of
         (Nil, _) => ys
       | (_, Nil) => xs
@@ -18,7 +18,7 @@ fun merge ['a] {m : Nat} {n1 : Nat} {n2 : Nat} (le : 'a * 'a -- $m --> bool) (xs
 end
 
 absidx {T : Fun 2 | T O (fn m n => $m * $n * log2 $n)(* _ *)} with
-fun msort ['a] {m : Nat} {n : Nat} (le : 'a * 'a -- $m --> bool) (xs : {n} _ list) return {n} _ list using T m n =
+fun msort ['a] {m : Nat} {n : Nat} (le : 'a * 'a -- $m --> bool) (xs : {n} (* _ *)'a list) return {n} (* _ *)'a list using T m n =
     case xs of
         Nil => xs
       | (Cons (_, Nil)) => xs
@@ -28,7 +28,7 @@ fun msort ['a] {m : Nat} {n : Nat} (le : 'a * 'a -- $m --> bool) (xs : {n} _ lis
 end
 
 absidx {T : Fun 2 | T O (fn m n => $m * $n * log2 $n)} with
-fun msort ['a] {m : Nat} {n : Nat} (le : 'a * 'a -- $m --> bool) (xs : {n} _ list) return {n} _ list using T m n =
+fun msort ['a] {m : Nat} {n : Nat} (le : 'a * 'a -- $m --> bool) (xs : {n} (* _ *)'a list) return {n} (* _ *)'a list using T m n =
     case xs of
         Nil => xs
       | (Cons (_, Nil)) => xs
@@ -38,7 +38,7 @@ fun msort ['a] {m : Nat} {n : Nat} (le : 'a * 'a -- $m --> bool) (xs : {n} _ lis
 end
 
 absidx g : BigO 1 (fn n => $n) = fn n => 2.0 * $n with
-fun revAppend ['a] {n1 : Nat} (xs : {n1} 'a list) {n2 : Nat} (ys : {n2} 'a list) return {n1 + n2} _ list using g n1 =
+fun revAppend ['a] {n1 : Nat} (xs : {n1} 'a list) {n2 : Nat} (ys : {n2} 'a list) return {n1 + n2} (* _ *)'a list using g n1 =
     case xs of
         Nil => ys
       | Cons (x, xs) => revAppend xs {_} (Cons (x, ys))

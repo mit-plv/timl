@@ -1,5 +1,5 @@
 absidx g : BigO 2 (fn m n => $m * $n) with
-fun insert ['a] {m : Nat} {n : Nat} (le : 'a * 'a -- $m --> bool) (xs : {n} _ list) x return {n + 1} _ list using g m n =
+fun insert ['a] {m : Nat} {n : Nat} (le : 'a * 'a -- $m --> bool) (xs : {n} (* _ *)'a list) x return {n + 1} (* _ *)'a list using g m n =
     case xs of
         Nil => Cons (x, Nil)
       | Cons (x', xs') =>
@@ -9,7 +9,7 @@ fun insert ['a] {m : Nat} {n : Nat} (le : 'a * 'a -- $m --> bool) (xs : {n} _ li
 end
 
 absidx g : BigO 2 (fn m n => $m * $n * $n) with
-fun isort ['a] {m : Nat} {n : Nat} (le : 'a * 'a -- $m --> bool) (xs : {n} _ list) return {n} _ list using g m n =
+fun isort ['a] {m : Nat} {n : Nat} (le : 'a * 'a -- $m --> bool) (xs : {n} (* _ *)'a list) return {n} (* _ *)'a list using g m n =
     case xs of
         Nil => Nil
       | Cons (x, xs) => insert le (isort le xs) x

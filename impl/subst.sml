@@ -275,7 +275,7 @@ fun forget_invis fresh_uvar =
     forget_invis_generic (fn (_, pos_total, _) => raise ForgetError (pos_total, str_fresh_uvar_ref fresh_uvar))
 
 (* This is a version that allows forgetting for [x+i] that is visible to [fresh_uvar]. When this happens, remove [x+i] from [fresh_uvar]'s visible context. *)
-(* fun forget_invis fresh_uvar = *)
+(* fun forget_invis_no_throw fresh_uvar = *)
 (*     forget_invis_generic (fn (pos_visible, _, n) => remove_fresh_uvar_ctx fresh_uvar pos_visible n) *)
 
 fun forget_i_i x n b = on_i_i forget_v forget_invis expand_i x n b
@@ -303,8 +303,8 @@ fun substx_invis fresh_uvar =
     substx_invis_generic (fn x => raise SubstUVar (fresh_uvar, x))
       
 (* This is a version that allows substition for [x] that is visible to [fresh_uvar]. When this happens, remove [x] from [fresh_uvar]'s visible context. *)
-fun substx_invis_no_throw fresh_uvar =
-    substx_invis_generic (fn x => remove_fresh_uvar_ctx fresh_uvar x 1)
+(* fun substx_invis_no_throw fresh_uvar = *)
+(*     substx_invis_generic (fn x => remove_fresh_uvar_ctx fresh_uvar x 1) *)
 
 local
     fun f x v b =
@@ -399,7 +399,7 @@ local
             case !uvar_ref of
                 Refined t => f x v (expand_mt invis t)
               | Fresh uname => 
-                UVar (((substx_invis_no_throw (FrMtype (uvar_ref, uname)) x invisi, invist), uvar_ref), r)
+                UVar (((substx_invis(* _no_throw *) (FrMtype (uvar_ref, uname)) x invisi, invist), uvar_ref), r)
 in
 fun substx_i_mt x (v : idx) (b : mtype) : mtype = f x v b
 fun subst_i_mt (v : idx) (b : mtype) : mtype = substx_i_mt 0 v b
