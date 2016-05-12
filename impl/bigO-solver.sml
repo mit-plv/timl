@@ -43,8 +43,7 @@ fun find_bigO_hyp f_i hyps =
 fun contains big small = not $ isSome $ try_forget (forget_i_i small 1) big
                              
 fun ask_smt_vc vc =
-    (null $ List.mapPartial id $ SMTSolver.smt_solver "" [vc])
-    handle SMTSolver.SMTError _ => false
+    not $ isSome $ SMTSolver.smt_solver_single "" vc
                                      
 fun mult_class_entry ((c1, k1), (c2, k2)) = (c1 + c2, k1 + k2)
                                               
@@ -477,7 +476,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
 fun use_master_theorem hs name_arity1 (name0, arity0) p =
     (* opportunity to apply the Master Theorem to infer the bigO class *)
     let
-      (* val () = println "use_master_theorem ()" *)
+      val () = println "use_master_theorem ()"
       (* hoist the conjuncts that don't involve the time functions *)
       val vcs = split_prop p
       val (rest, vcs) = partitionOption (Option.composePartial (try_forget (forget_i_vc 0 1), try_forget (forget_i_vc 0 1))) vcs

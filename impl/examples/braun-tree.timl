@@ -34,27 +34,28 @@ fun peek_option ['a] {n : Nat} (tr : {n} 'a braun_tree) return 'a option using T
 end
 
 absidx Tsift : BigO 1 _ with
-fun sift ['a] {n : Nat} (x, l : {ceil ($n/2)} 'a braun_tree, r : {floor ($n/2)} 'a braun_tree) return {n} 'a braun_tree =
+fun sift ['a] {n : Nat} (x, l : {ceil ($n/2)} 'a braun_tree, r : {floor ($n/2)} 'a braun_tree) return {n+1} 'a braun_tree using Tsift n =
     case (l, r) of
-        (Leaf, Leaf) => Node (x, Leaf, Leaf)
+        (Leaf, Leaf) =>
+        Node (x, Leaf, Leaf)
       | (Node (y, _, _), Leaf) =>
         let
           val (smaller, bigger) = min_max le (x, y)
         in
-          Node (smaller, @Node {0} (bigger, Leaf, Leaf), Leaf)
+          @Node {1} (smaller, Node (bigger, Leaf, Leaf), Leaf)
         end
       | (@Node {nl'} (lx, l1, l2), @Node {nr'} (rx, r1, r2)) =>
         (case (le (x, lx), le (x, rx), le (lx, rx)) of
              (true, true, _) =>
              Node (x, l, r)
            | (_, _, true) =>
-             Node (lx, sift (x, l1, l2), r)
+             Node (lx, @sift {nl'} (x, l1, l2), r)
            | (_, _, _) =>
-             Node (rx, l, sift (x, r1, r2))
+             Node (rx, l, @sift {nr'} (x, r1, r2))
         )
       | _ => never
 end
-                    
+
 absidx Tpop : BigO 1 _ with
 fun pop ['a] {n : Nat} (tr : {n + 1} 'a braun_tree) return 'a * {n} 'a braun_tree using Tpop n =
     case tr of
@@ -71,7 +72,7 @@ fun pop ['a] {n : Nat} (tr : {n + 1} 'a braun_tree) return 'a * {n} 'a braun_tre
                    true =>
                    (x, @Node {nl'+1+nr'} (lx, r, l))
                  | false =>
-                   (x, @Node {nl'+1+nr'} (rx, sift (lx, r1, r2), l))
+                   (x, @Node {nl'+1+nr'} (rx, @sift {nr'} (lx, r1, r2), l))
              end
            | _ => never
         )

@@ -121,4 +121,12 @@ fun smt_solver filename vcs =
       vcs
     end
     
+fun smt_solver_single filename vc =
+    let
+      val ret = (hd $ smt_solver filename [vc]) 
+                handle SMTError _ => SOME (vc, NONE)
+    in
+      ret
+    end
+      
 end
