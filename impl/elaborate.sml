@@ -196,6 +196,8 @@ local
 	    S.Var ((x, r), eia) =>
             if x = "never" andalso eia = false then
               Never (elab_mt (S.VarT ("_", r)))
+            else if x = "admit" andalso eia = false then
+              Admit (elab_mt (S.VarT ("_", r)))
             else
               Var ((x, r), eia)
 	  | S.Tuple (es, r) =>

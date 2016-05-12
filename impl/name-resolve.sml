@@ -250,6 +250,7 @@ local
                 Case (on_expr ctx e, return, rules, r)
               end
 	    | E.Never t => Never (on_mtype skctx t)
+	    | E.Admit t => Admit (on_mtype skctx t)
       end
 
     and on_decls (ctx as (sctx, kctx, cctx, tctx)) decls =

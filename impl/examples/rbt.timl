@@ -34,7 +34,7 @@ datatype {Nat} {Bool (*color*)} {Bool (*is already good?*)} 'a arbt =
        | Bad {bh : Nat} of {bh} 'a violation --> {bh} {false} {false} 'a arbt
 
 datatype {Nat} {Bool} 'a ins_result =
-         InsResult {input_color : Bool} {bh : Nat} {output_color : Bool} {is_good : Bool} {input_color = true -> is_good = true} of {bh} {output_color} {is_good} 'a arbt --> {bh} {input_color} 'a ins_result
+         InsResult {input_color : Bool} {bh : Nat} {output_color : Bool} {is_good : Bool} { input_color = true -> is_good = true} of {bh} {output_color} {is_good} 'a arbt --> {bh} {input_color} 'a ins_result
 
 datatype cmp_result = Equal | Less | Greater
 

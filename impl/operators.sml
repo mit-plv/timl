@@ -27,6 +27,7 @@ datatype bin_conn =
 datatype bin_pred =
          LeP
          | EqP
+         | LtP
          | GtP
          | BigO
                
@@ -66,6 +67,7 @@ fun str_bin_pred opr =
   case opr of
       EqP => "="
     | LeP => "<="
+    | LtP => "<"
     | GtP => ">"
     | BigO => "<=="
 

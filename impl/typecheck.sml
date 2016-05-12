@@ -1605,6 +1605,12 @@ local
                   in
 		    (Never t, t, T0 dummy)
                   end
+	        | U.Admit t => 
+                  let
+		    val t = is_wf_mtype (skctx, t)
+                  in
+		    (Admit t, t, T0 dummy)
+                  end
 	  val (e, t, d) = main ()
                           handle
                           Error (r, msg) => raise Error (r, msg @ ["when typechecking"] @ indent [U.str_e ctxn e_all])

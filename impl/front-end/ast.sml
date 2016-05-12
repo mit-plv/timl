@@ -39,6 +39,8 @@ datatype abs =
 and tbind =
     Sorting of id * sort * region
 
+fun sortings (ids, s, r) = map (fn id => Sorting (id, s, r)) ids
+    
 datatype ty =
 	 VarT of string * region
 	 | Arrow of ty * idx * ty * region

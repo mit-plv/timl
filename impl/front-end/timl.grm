@@ -53,6 +53,7 @@ open Ast
     | AS
     | DOLLAR
     | AT
+    | LT
     | GT
     | BIG_O_INFIX
     | IDX
@@ -76,7 +77,7 @@ open Ast
        | comma_exp_star of exp list
        | bind_plus of bind list
        | bind_star of bind list
-       | bind of bind
+       | bind of bind list
        | tbind_plus of tbind list
        | tbind_star of tbind list
        | tbind of tbind
@@ -104,7 +105,7 @@ open Ast
        | constr_core_opt of constr_core option
        | constr_result_opt of ty option
        | sorting_star of tbind list
-       | sorting of tbind
+       | sorting of tbind list
        (* | idx_un_op of idx_un_op *)
        | tname of id
        | tnames of id list
@@ -192,6 +193,7 @@ prop : id (ConstP id)
      | prop IFF prop (BinConn (Iff, prop1, prop2, (prop1left, prop2right)))
      | idx EQ idx (BinPred (EqP, idx1, idx2, (idx1left, idx2right)))
      | idx LE idx (BinPred (LeP, idx1, idx2, (idx1left, idx2right)))
+     | idx LT idx (BinPred (LtP, idx1, idx2, (idx1left, idx2right)))
      | idx GT idx (BinPred (GtP, idx1, idx2, (idx1left, idx2right)))
      | idx BIG_O_INFIX idx (BinPred (BigO, idx1, idx2, (idx1left, idx2right)))
 
@@ -220,12 +222,12 @@ exp_comma_star : exp comma_exp_star (exp :: comma_exp_star)
 comma_exp_star : COMMA exp comma_exp_star (exp :: comma_exp_star)
 	       | ([])
 
-bind_star : bind bind_star (bind :: bind_star)
+bind_star : bind bind_star (bind @ bind_star)
 	  | ([])
-bind_plus : bind bind_star (bind :: bind_star)
+bind_plus : bind bind_star (bind @ bind_star)
 
-bind : aptrn (Typing (aptrn))
-     | LCUR id COLON sort RCUR (TBind (Sorting (id, sort, (LCURleft, RCURright))))
+bind : aptrn ([Typing (aptrn)])
+     | sorting (map TBind sorting)
      | LPAREN bind RPAREN (bind)
 
 tbind_star : tbind tbind_star (tbind :: tbind_star)
@@ -298,19 +300,20 @@ constr_bar_star : constr bar_constr_star (constr :: bar_constr_star)
 bar_constr_star : BAR constr bar_constr_star (constr :: bar_constr_star)
 	        | ([])
 
-sorting : LCUR id COLON sort RCUR (Sorting (id, sort, (LCURleft, RCURright)))
-        | LCUR id COLON bsort BAR prop RCUR (Sorting (id, Subset (bsort, id, prop, (LCURleft, RCURright)), (LCURleft, RCURright)))
+sorting : LCUR id_plus COLON sort RCUR (sortings (id_plus, sort, (LCURleft, RCURright)))
+        | LCUR id COLON sort RCUR ([Sorting (id, sort, (LCURleft, RCURright))])
+        | LCUR id COLON bsort BAR prop RCUR ([Sorting (id, Subset (bsort, id, prop, (LCURleft, RCURright)), (LCURleft, RCURright))])
         | LCUR prop RCUR (
             let
               val r = (LCURleft, RCURright)
               val id = ("_", r)
               val bsort = Base ("Unit", r)
             in
-              Sorting (id, Subset (bsort, id, prop, r), r)
+              [Sorting (id, Subset (bsort, id, prop, r), r)]
             end
           )
 
-sorting_star : sorting sorting_star (sorting :: sorting_star)
+sorting_star : sorting sorting_star (sorting @ sorting_star)
 	   | ([])
 
 (* idx_un_op : LOG2 (Log2) *)

@@ -528,6 +528,7 @@ local
 	  | AppConstr (cx, is, e) => AppConstr (cx, is, f x n e)
 	  | Case (e, return, rules, r) => Case (f x n e, return, map (f_rule x n) rules, r)
 	  | Never t => Never t
+	  | Admit t => Admit t
 
     and f_decls x n decs =
 	let 
@@ -614,6 +615,7 @@ local
 	  | AppConstr (cx, is, e) => AppConstr (cx, is, f x n e)
 	  | Case (e, return, rules, r) => Case (f x n e, return, map (f_rule x n) rules, r)
 	  | Never t => Never t
+	  | Admit t => Admit t
 
     and f_decls x n decs =
 	let 

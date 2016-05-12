@@ -222,10 +222,11 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         | ConstInt of int * region
 	         | AppConstr of (id * bool) * idx list * expr
 	         | Case of expr * return * (ptrn * expr) list * region
-	         | Never of mtype
 	         | Let of decl list * expr * region
 	         | Ascription of expr * mtype
 	         | AscriptionTime of expr * idx
+	         | Never of mtype
+                 | Admit of mtype
 
              and decl =
                  Val of name list * ptrn * expr * region
@@ -589,6 +590,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	          | AppConstr (((x, _), b), is, e) => sprintf "($$ $)" [decorate_var b $ str_v cctx x, (join "" o map (prefix " ") o map (fn i => sprintf "{$}" [str_i sctx i])) is, str_e ctx e]
 	          | Case (e, return, rules, _) => sprintf "(case $ $of $)" [str_e ctx e, str_return skctx return, join " | " (map (str_rule ctx) rules)]
 	          | Never t => sprintf "(never [$])" [str_mt skctx t]
+	          | Admit t => sprintf "(admit [$])" [str_mt skctx t]
             end
 
         and str_decls (ctx as (sctx, kctx, cctx, tctx)) decls =
@@ -772,6 +774,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | AppConstr (((_, r), _), _, e) => combine_region r (get_region_e e)
               | Case (_, _, _, r) => r
               | Never t => get_region_mt t
+              | Admit t => get_region_mt t
               | Let (_, _, r) => r
               | Ascription (e, t) => combine_region (get_region_e e) (get_region_mt t)
               | AscriptionTime (e, i) => combine_region (get_region_e e) (get_region_i i)
@@ -948,6 +951,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | AppConstr (_, _, e) => is_value e
               | Case _ => false
               | Never _ => false
+              | Admit _ => false
 
         end
                                                                   

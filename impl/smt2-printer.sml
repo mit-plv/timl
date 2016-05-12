@@ -90,6 +90,7 @@ fun print_p ctx p =
         case opr of
             EqP => "="
           | LeP => "<="
+          | LtP => "<"
           | GtP => ">"
           | BigO => "<=="
       fun f p =
