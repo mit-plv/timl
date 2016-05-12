@@ -28,9 +28,6 @@ in
   (hs, forget_i_p x 1 p)
 end
 
-fun vc2prop (hs, p) =
-    foldl (fn (h, p) => case h of VarH (name, b) => Quan (Forall, Base b, (name, dummy), p) | PropH p1 => p1 --> p) p hs
-          
 fun match_bigO f hyps hyp =
     case hyp of
         PropH (BinPred (BigO, f', g)) =>
@@ -332,7 +329,6 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                           PropH p => infer_b_p p
                         | VarH _ => []
                   val bs = infer_b_i n' @ concatMap infer_b_hyp hyps
-                  fun firstSuccess f xs = foldl (fn (x, acc) => case acc of SOME _ => acc | NONE => f x) NONE xs
                   fun good_b b =
                       if ask_smt (n' %<= UnOpI (Ceil, DivI (n_, (b, dummy)), dummy)) then
                         SOME b
@@ -493,9 +489,9 @@ fun use_master_theorem hs name_arity1 (name0, arity0) p =
     let
       val () = println "use_master_theorem ()"
       (* hoist the conjuncts that don't involve the time functions *)
-      val vcs = split_prop p
+      val vcs = prop2vcs p
       val (rest, vcs) = partitionOption (Option.composePartial (try_forget (forget_i_vc 0 1), try_forget (forget_i_vc 0 1))) vcs
-      val vcs = concatMap split_prop $ map (simp_p o vc2prop) vcs
+      val vcs = concatMap prop2vcs $ map (simp_p o vc2prop) vcs
       val ret = by_master_theorem hs name_arity1 (name0, arity0) vcs
     in
       case ret of
@@ -577,7 +573,7 @@ fun solve_exists (vc as (hs, p)) =
                                    SOME ins => ins i
                                  | NONE => ()
                       val p2 = subst_i_p i p2
-                      val vcs = split_prop p2
+                      val vcs = prop2vcs p2
                       val vcs = append_hyps hs vcs
                       val vcs = concatMap solve_exists vcs
                       val vcs = vcs1 @ vcs

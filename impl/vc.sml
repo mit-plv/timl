@@ -4,6 +4,8 @@ open Region
 open NoUVar
 open NoUVarExpr
 open NoUVarSubst
+infixr 1 -->
+infixr 0 $
          
 local
     fun find_unique ls name =
@@ -73,29 +75,34 @@ fun get_base bs =
 fun append_hyps hs vcs = map (mapFst (fn hs' => hs' @ hs)) vcs
 fun add_hyp h vcs = append_hyps [h] vcs
                                       
-fun split_prop p =
+fun prop2vcs p =
     let
     in
         case p of
             Quan (Forall, bs, (name, r), p) =>
             let
-                val ps = split_prop p
+                val ps = prop2vcs p
                 val ps = add_hyp (VarH (name, get_base bs)) ps
             in
                 ps
             end
           | BinConn (Imply, p1, p) =>
             let
-                val ps = split_prop p
+                val ps = prop2vcs p
                 val ps = add_hyp (PropH p1) ps
             in
                 ps
             end
           | BinConn (And, p1, p2) =>
-            split_prop p1 @ split_prop p2
+            prop2vcs p1 @ prop2vcs p2
           | _ => [([], p)]
     end
 
+fun vc2prop (hs, p) =
+    foldl (fn (h, p) => case h of VarH (name, b) => Quan (Forall, Base b, (name, dummy), p) | PropH p1 => p1 --> p) p hs
+
+fun simp_vc_vcs vc = prop2vcs $ simp_p $ vc2prop $ vc
+          
 fun shiftx_hyp x n hyp =
     case hyp of
         VarH _ => hyp

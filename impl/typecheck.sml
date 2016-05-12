@@ -561,6 +561,7 @@ local
           let 
             val bs = is_wf_bsort bs
           in
+            (* ToDo: need to [open_sorting] *)
             Subset ((bs, r),
                     BindI ((name, r2), 
                            is_wf_prop (add_sorting (name, Basic (bs, r)) ctx, p)))
@@ -806,6 +807,7 @@ local
             let
               val s = is_wf_sort (sctx, s)
             in
+              (* ToDo: need to [open_sorting] *)
 	      UniI (s,
 	            BindI ((name, r), 
                            is_wf_mtype (add_sorting_sk (name, s) ctx, c)))
@@ -2337,6 +2339,7 @@ local
               "_x" ^ str_int n
         val r = get_region_p p
         val p =
+            (* ToDo: need to shift [i] *)
             Quan (Exists (SOME (fn i => unify_i dummy [] (UVarI (([], uvar_ref), dummy), i))),
                   bsort,
                   (evar_name n, dummy), substu_p uvar_ref 0 $ shift_i_p $ update_p p)
@@ -2450,11 +2453,12 @@ local
         (* val () = println "NoUVar Props: " *)
         (* val () = println $ str_p [] p *)
         val p = NoUVarSubst.simp_p p
-        (* val () = println "" *)
+        (* val () = println "NoUVar Props after simp_p(): " *)
         (* val () = println $ str_p [] p *)
         val p = uniquefy [] p
-        val vcs = split_prop p
-                             (* val () = app println $ concatMap (str_vc false "") vcs *)
+        val vcs = prop2vcs p
+        val vcs = concatMap simp_vc_vcs vcs
+                           (* val () = app println $ concatMap (str_vc false "") vcs *)
       in
         vcs
       end

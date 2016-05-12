@@ -226,6 +226,8 @@ fun partitionOptionFirst f xs =
                 SOME (a, rest) => SOME (a, x :: rest)
               | NONE => NONE
 
+fun firstSuccess f xs = foldl (fn (x, acc) => case acc of SOME _ => acc | NONE => f x) NONE xs
+                              
 fun b2o b = if b then SOME () else NONE
                                      
 end
