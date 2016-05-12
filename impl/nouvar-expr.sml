@@ -48,7 +48,7 @@ fun on_i_p on_i_i x n b =
             | Not (p, r) => Not (f x n p, r)
 	    | BinConn (opr, p1, p2) => BinConn (opr, f x n p1, f x n p2)
 	    | BinPred (opr, d1, d2) => BinPred (opr, on_i_i x n d1, on_i_i x n d2)
-            | Quan (q, bs, name, p) => Quan (q, bs, name, f (x + 1) n p)
+            | Quan (q, bs, name, p, r) => Quan (q, bs, name, f (x + 1) n p, r)
     in
       f x n b
     end
@@ -99,7 +99,7 @@ local
         | Not (p, r) => Not (f x v p, r)
 	| BinConn (opr,p1, p2) => BinConn (opr, f x v p1, f x v p2)
 	| BinPred (opr, d1, d2) => BinPred (opr, substx_i_i x v d1, substx_i_i x v d2)
-        | Quan (q, bs, name, p) => Quan (q, bs, name, f (x + 1) (shiftx_i_i 0 1 v) p)
+        | Quan (q, bs, name, p, r) => Quan (q, bs, name, f (x + 1) (shiftx_i_i 0 1 v) p, r)
 in
 fun substx_i_p x (v : idx) b = f x v b
 fun subst_i_p (v : idx) (b : prop) : prop = substx_i_p 0 v b
@@ -274,9 +274,9 @@ local
               | _ => def ()
           end
         | Not (p, r) => Not (passp p, r)
-        | p_all as Quan (q, bs, name, p) =>
+        | p_all as Quan (q, bs, name, p, r_all) =>
           let
-            fun def () = Quan (q, bs, name, passp p)
+            fun def () = Quan (q, bs, name, passp p, r_all)
           in
             case q of
                 Forall =>
@@ -301,18 +301,18 @@ local
                              | [] => conclu
                        fun collect_Forall p =
                            case p of
-                               Quan (Forall, bs, name, p) =>
+                               Quan (Forall, bs, name, p, r) =>
                                let
                                  val (binds, p) = collect_Forall p
                                in
-                                 ((name, bs) :: binds, p)
+                                 ((name, bs, r) :: binds, p)
                                end
                              | _ => ([], p)
                        fun combine_Forall binds p =
                            case binds of
                                [] => p
-                             | (name, bs) :: binds =>
-                               Quan (Forall, bs, name, combine_Forall binds p)
+                             | (name, bs, r) :: binds =>
+                               Quan (Forall, bs, name, combine_Forall binds p, r)
                        val (binds, p) = collect_Forall p_all
                        val (hyps, conclu) = collect_Imply p
                        val binds_len = length binds
@@ -383,7 +383,7 @@ local
                       in
                         case relevant of
                             [] => def ()
-                          | _ => combine_And $ Quan (q, bs, name, combine_And relevant) :: irrelevant
+                          | _ => combine_And $ Quan (q, bs, name, combine_And relevant, r_all) :: irrelevant
                       end
                 end
           end

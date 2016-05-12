@@ -88,13 +88,13 @@ local
                  (UVarBS (), r) => UVarS ((), r)
                | b => Basic b
             )
-	  | S.Subset (b, name, p, _) => Subset (elab_b b, BindI (name, elab_p p))
+	  | S.Subset (b, name, p, r) => Subset (elab_b b, BindI (name, elab_p p), r)
           | S.BigOSort (name, arity, i, r) =>
             if name = "BigO" then
               let
                 val temp_name = "@BigOSort"
               in
-                Subset ((Base (TimeFun arity), r), BindI ((temp_name, r), BinPred (BigO, VarI (temp_name, r), elab_i i)))
+                Subset ((Base (TimeFun arity), r), BindI ((temp_name, r), BinPred (BigO, VarI (temp_name, r), elab_i i)), r)
               end
             else
               raise Error (r, sprintf "Unrecognized sort: $" [name])
@@ -135,12 +135,12 @@ local
               AppV ((x, r), [], [], r)
 	| S.Arrow (t1, d, t2, _) => Arrow (elab_mt t1, elab_i d, elab_mt t2)
 	| S.Prod (t1, t2, _) => Prod (elab_mt t1, elab_mt t2)
-	| S.Quan (quan, binds, t, _) =>
+	| S.Quan (quan, binds, t, r) =>
 	  let fun f (b, t) =
 		case b of
 		    Sorting (x, s, _) =>
 		    (case quan of
-			 S.Forall => UniI (elab_s s, BindI (x, t))
+			 S.Forall => UniI (elab_s s, BindI (x, t), r)
                     )
 	  in
 	      foldr f (elab_mt t) binds
@@ -195,9 +195,9 @@ local
 	case e of
 	    S.Var ((x, r), eia) =>
             if x = "never" andalso eia = false then
-              Never (elab_mt (S.VarT ("_", r)))
+              Never (elab_mt (S.VarT ("_", r)), r)
             else if x = "admit" andalso eia = false then
-              Admit (elab_mt (S.VarT ("_", r)))
+              Admit (elab_mt (S.VarT ("_", r)), r)
             else
               Var ((x, r), eia)
 	  | S.Tuple (es, r) =>
@@ -209,7 +209,7 @@ local
                 fun f (b, e) =
 		  case b of
 		      Typing pn => Abs (elab_pn pn, e)
-		    | TBind (Sorting (x, s, _)) => AbsI (elab_s s, x, e)
+		    | TBind (Sorting (x, s, _)) => AbsI (elab_s s, x, e, r)
                 val e = elab e
                 val e = case d of SOME d => AscriptionTime (e, elab_i d) | _ => e
                 val e = case t of SOME t => Ascription (e, elab_mt t) | _ => e

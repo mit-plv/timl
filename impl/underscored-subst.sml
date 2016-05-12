@@ -32,7 +32,7 @@ fun on_i_p on_i_i x n b =
           | Not (p, r) => Not (f x n p, r)
 	  | BinConn (opr, p1, p2) => BinConn (opr, f x n p1, f x n p2)
 	  | BinPred (opr, d1, d2) => BinPred (opr, on_i_i x n d1, on_i_i x n d2)
-          | Quan (q, bs, name, p) => Quan (q, bs, name, f (x + 1) n p)
+          | Quan (q, bs, name, p, r) => Quan (q, bs, name, f (x + 1) n p, r)
   in
       f x n b
   end
@@ -50,7 +50,7 @@ fun on_i_s on_i_p on_invis x n b =
       fun f x n b =
 	case b of
 	    Basic s => Basic s
-	  | Subset (s, bind) => Subset (s, on_i_ibind on_i_p x n bind)
+	  | Subset (s, bind, r) => Subset (s, on_i_ibind on_i_p x n bind, r)
           | UVarS a => UVarS a
   in
       f x n b
@@ -63,7 +63,7 @@ fun on_i_mt on_i_i on_i_s on_invis x n b =
 	    Arrow (t1, d, t2) => Arrow (f x n t1, on_i_i x n d, f x n t2)
           | Unit r => Unit r
 	  | Prod (t1, t2) => Prod (f x n t1, f x n t2)
-	  | UniI (s, bind) => UniI (on_i_s x n s, on_i_ibind f x n bind)
+	  | UniI (s, bind, r) => UniI (on_i_s x n s, on_i_ibind f x n bind, r)
 	  | AppV (y, ts, is, r) => AppV (y, map (f x n) ts, map (on_i_i x n) is, r)
 	  | BaseType a => BaseType a
           | UVar a => UVar a
@@ -92,7 +92,7 @@ fun on_t_mt on_v on_invis x n b =
 	    Arrow (t1, d, t2) => Arrow (f x n t1, d, f x n t2)
           | Unit r => Unit r
 	  | Prod (t1, t2) => Prod (f x n t1, f x n t2)
-	  | UniI (s, bind) => UniI (s, on_t_ibind f x n bind)
+	  | UniI (s, bind, r) => UniI (s, on_t_ibind f x n bind, r)
 	  | AppV ((y, r1), ts, is, r) => AppV ((on_v x n y, r1), map (f x n) ts, is, r)
 	  | BaseType a => BaseType a
           | UVar a => UVar a

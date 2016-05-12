@@ -102,7 +102,7 @@ fun print_p ctx p =
           (* | BinPred (BigO, i1, i2) => sprintf "(bigO $ $)" [print_i ctx i1, print_i ctx i2] *)
           (* | BinPred (BigO, i1, i2) => "true" *)
           | BinPred (opr, i1, i2) => sprintf "($ $ $)" [str_pred opr, print_i ctx i1, print_i ctx i2]
-          | Quan (q, bs, (name, _), p) => sprintf "($ (($ $)) $)" [str_quan q, name, print_bsort bs, print_p (name :: ctx) p]
+          | Quan (q, bs, (name, _), p, _) => sprintf "($ (($ $)) $)" [str_quan q, name, print_bsort bs, print_p (name :: ctx) p]
   in
       f p
   end
@@ -200,7 +200,7 @@ fun conv_bsort bsort =
 
 fun conv_p p =
     case p of
-        Quan (q, bs, (name, r), p) => 
+        Quan (q, bs, (name, r), p, r_all) => 
         let 
             val (bs, p1) = conv_bsort bs
             val p = conv_p p
@@ -208,7 +208,7 @@ fun conv_p p =
                         NONE => p
                       | SOME p1 => (p1 --> p)
         in
-            Quan (q, bs, (escape name, r), p)
+            Quan (q, bs, (escape name, r), p, r_all)
         end
       | Not (p, r) => Not (conv_p p, r)
       | BinConn (opr, p1, p2) => BinConn (opr, conv_p p1, conv_p p2)

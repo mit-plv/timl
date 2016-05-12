@@ -55,14 +55,14 @@ local
         | E.Not (p, r) => Not (on_prop ctx p, r)
 	| E.BinConn (opr, p1, p2) => BinConn (opr, on_prop ctx p1, on_prop ctx p2)
 	| E.BinPred (opr, i1, i2) => BinPred (opr, on_idx ctx i1, on_idx ctx i2)
-        | E.Quan (q, bs, (name, r), p) => Quan (on_quan q, on_bsort bs, (name, r), on_prop (name :: ctx) p)
+        | E.Quan (q, bs, (name, r), p, r_all) => Quan (on_quan q, on_bsort bs, (name, r), on_prop (name :: ctx) p, r_all)
 
     fun on_ibind f ctx (E.BindI ((name, r), inner)) = BindI ((name, r), f (name :: ctx) inner)
 
     fun on_sort ctx s =
       case s of
 	  E.Basic (s, r) => Basic (on_bsort s, r)
-	| E.Subset ((s, r1), E.BindI ((name, r), p)) => Subset ((on_bsort s, r1), BindI ((name, r), on_prop (name :: ctx) p))
+	| E.Subset ((s, r1), E.BindI ((name, r), p), r_all) => Subset ((on_bsort s, r1), BindI ((name, r), on_prop (name :: ctx) p), r_all)
         | E.UVarS u => UVarS u
 
     fun on_mtype (ctx as (sctx, kctx)) t =
@@ -70,7 +70,7 @@ local
 	  E.Arrow (t1, d, t2) => Arrow (on_mtype ctx t1, on_idx sctx d, on_mtype ctx t2)
         | E.Unit r => Unit r
 	| E.Prod (t1, t2) => Prod (on_mtype ctx t1, on_mtype ctx t2)
-	| E.UniI (s, E.BindI ((name, r), t)) => UniI (on_sort sctx s, BindI ((name, r), on_mtype (name :: sctx, kctx) t))
+	| E.UniI (s, E.BindI ((name, r), t), r_all) => UniI (on_sort sctx s, BindI ((name, r), on_mtype (name :: sctx, kctx) t), r_all)
 	| E.AppV (x, ts, is, r) => AppV (on_var kctx x, map (on_mtype ctx) ts, map (on_idx sctx) is, r)
 	| E.BaseType (bt, r) => BaseType (bt, r)
         | E.UVar u => UVar u
@@ -215,7 +215,7 @@ local
 	    | E.Pair (e1, e2) => Pair (on_expr ctx e1, on_expr ctx e2)
 	    | E.Fst e => Fst (on_expr ctx e)
 	    | E.Snd e => Snd (on_expr ctx e)
-	    | E.AbsI (s, (name, r), e) => AbsI (on_sort sctx s, (name, r), on_expr (name :: sctx, kctx, cctx, tctx) e)
+	    | E.AbsI (s, (name, r), e, r_all) => AbsI (on_sort sctx s, (name, r), on_expr (name :: sctx, kctx, cctx, tctx) e, r_all)
 	    | E.AppI (e, i) => 
 	      let
                   fun default () = 
@@ -249,8 +249,8 @@ local
               in
                 Case (on_expr ctx e, return, rules, r)
               end
-	    | E.Never t => Never (on_mtype skctx t)
-	    | E.Admit t => Admit (on_mtype skctx t)
+	    | E.Never (t, r) => Never (on_mtype skctx t, r)
+	    | E.Admit (t, r) => Admit (on_mtype skctx t, r)
       end
 
     and on_decls (ctx as (sctx, kctx, cctx, tctx)) decls =

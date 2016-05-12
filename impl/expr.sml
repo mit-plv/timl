@@ -107,12 +107,12 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  | BinConn of bin_conn * prop * prop
                  | Not of prop * region
 	         | BinPred of bin_pred * idx * idx
-                 | Quan of (idx -> unit) option (*for linking idx inferer with types*) quan * bsort * name * prop
+                 | Quan of (idx -> unit) option (*for linking idx inferer with types*) quan * bsort * name * prop * region
 
         (* index sort *)
         datatype sort =
 	         Basic of bsort * region
-	         | Subset of (bsort * region) * (name * prop) ibind
+	         | Subset of (bsort * region) * (name * prop) ibind * region
                  | UVarS of sort uvar_s * region
 					               
         val STime = Basic (Base Time, dummy)
@@ -124,7 +124,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         Arrow of mtype * idx * mtype
                  | Unit of region
 	         | Prod of mtype * mtype
-	         | UniI of sort * (name * mtype) ibind
+	         | UniI of sort * (name * mtype) ibind * region
 	         (* the first operant of App can only be a type variable. The degenerated case of no-arguments is also included *)
 	         | AppV of id * mtype list * idx list * region
 	         | BaseType of base_type * region
@@ -144,7 +144,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         fun peel_UniI t =
             case t of
-                UniI (s, BindI ((name, _), t)) =>
+                UniI (s, BindI ((name, _), t), _) =>
                 let val (binds, t) = peel_UniI t
                 in
                     ((name, s) :: binds, t)
@@ -170,7 +170,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 val ts = (map (fn x => VarT (x, dummy)) o rev o range o length) tnames
 	        val t2 = AppV ((shiftx_v 0 (length tnames) family, dummy), ts, is, dummy)
 	        val t = Arrow (t, T0 dummy, t2)
-	        val t = foldr (fn ((name, s), t) => UniI (s, BindI ((name, dummy), t))) t ns
+	        val t = foldr (fn ((name, s), t) => UniI (s, BindI ((name, dummy), t), dummy)) t ns
                 val t = Mono t
 	        val t = foldr (fn (name, t) => Uni ((name, dummy), t)) t tnames
             in
@@ -215,7 +215,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         | Fst of expr
 	         | Snd of expr
 	         (* universal index *)
-	         | AbsI of sort * name * expr
+	         | AbsI of sort * name * expr * region
 	         | AppI of expr * idx
                  (* other *)
 	         | BinOp of bin_op * expr * expr
@@ -225,8 +225,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         | Let of decl list * expr * region
 	         | Ascription of expr * mtype
 	         | AscriptionTime of expr * idx
-	         | Never of mtype
-                 | Admit of mtype
+	         | Never of mtype * region
+                 | Admit of mtype * region
 
              and decl =
                  Val of name list * ptrn * expr * region
@@ -353,7 +353,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | BinConn (opr, p1, p2) => (case p' of BinConn (opr', p1', p2') => opr = opr' andalso eq_p p1 p1' andalso eq_p p2 p2' | _ => false)
               | BinPred (opr, i1, i2) => (case p' of BinPred (opr', i1', i2') => opr = opr' andalso eq_i i1 i1' andalso eq_i i2 i2' | _ => false)
               | Not (p, _) => (case p' of Not (p', _) => eq_p p p' | _ => false)
-              | Quan (q, bs, _, p) => (case p' of Quan (q', bs', _, p') => eq_quan q q' andalso eq_bs bs bs' andalso eq_p p p' | _ => false)
+              | Quan (q, bs, _, p, _) => (case p' of Quan (q', bs', _, p', _) => eq_quan q q' andalso eq_bs bs bs' andalso eq_p p p' | _ => false)
 
         (* pretty-printers *)
 
@@ -403,12 +403,12 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | BinConn (opr, p1, p2) => sprintf "($ $ $)" [str_p ctx p1, str_bin_conn opr, str_p ctx p2]
               (* | BinPred (BigO, i1, i2) => sprintf "($ $ $)" [str_bin_pred BigO, str_i ctx i1, str_i ctx i2] *)
               | BinPred (opr, i1, i2) => sprintf "($ $ $)" [str_i ctx i1, str_bin_pred opr, str_i ctx i2]
-              | Quan (q, bs, (name, _), p) => sprintf "($ ($ : $) $)" [str_quan q, name, str_bs bs, str_p (name :: ctx) p]
+              | Quan (q, bs, (name, _), p, _) => sprintf "($ ($ : $) $)" [str_quan q, name, str_bs bs, str_p (name :: ctx) p]
 
         fun str_s ctx (s : sort) : string = 
             case s of
                 Basic (bs, _) => str_bs bs
-              | Subset ((bs, _), (BindI ((name, _), p))) =>
+              | Subset ((bs, _), (BindI ((name, _), p)), _) =>
                 let
                   fun default () = sprintf "{ $ : $ | $ }" [name, str_bs bs, str_p (name :: ctx) p]
                 in
@@ -576,7 +576,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                     end
 	          | Fst e => sprintf "(fst $)" [str_e ctx e]
 	          | Snd e => sprintf "(snd $)" [str_e ctx e]
-	          | AbsI (s, (name, _), e) => sprintf "(fn {$ : $} => $)" [name, str_s sctx s, str_e (name :: sctx, kctx, cctx, tctx) e]
+	          | AbsI (s, (name, _), e, _) => sprintf "(fn {$ : $} => $)" [name, str_s sctx s, str_e (name :: sctx, kctx, cctx, tctx) e]
 	          | AppI (e, i) => sprintf "($ {$})" [str_e ctx e, str_i sctx i]
 	          | Let (decls, e, _) => 
                     let val (decls, ctx) = str_decls ctx decls
@@ -589,8 +589,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	          | ConstInt (n, _) => str_int n
 	          | AppConstr (((x, _), b), is, e) => sprintf "($$ $)" [decorate_var b $ str_v cctx x, (join "" o map (prefix " ") o map (fn i => sprintf "{$}" [str_i sctx i])) is, str_e ctx e]
 	          | Case (e, return, rules, _) => sprintf "(case $ $of $)" [str_e ctx e, str_return skctx return, join " | " (map (str_rule ctx) rules)]
-	          | Never t => sprintf "(never [$])" [str_mt skctx t]
-	          | Admit t => sprintf "(admit [$])" [str_mt skctx t]
+	          | Never (t, _) => sprintf "(never [$])" [str_mt skctx t]
+	          | Admit (t, _) => sprintf "(admit [$])" [str_mt skctx t]
             end
 
         and str_decls (ctx as (sctx, kctx, cctx, tctx)) decls =
@@ -715,7 +715,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | Not (_, r) => r
               | BinConn (_, p1, p2) => combine_region (get_region_p p1) (get_region_p p2)
               | BinPred (_, i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
-              | Quan (_, _, (_, r), p) => combine_region r (get_region_p p)
+              | Quan (_, _, _, _, r) => r
 
         fun set_region_p p r = 
             case p of
@@ -724,14 +724,14 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | Not (p, _) => Not (p, r)
               | BinConn (opr, p1, p2) => BinConn (opr, set_region_p p1 r, set_region_p p2 r)
               | BinPred (opr, i1, i2) => BinPred (opr, set_region_i i1 r, set_region_i i2 r)
-              | Quan (q, bs, (name, _), p) => Quan (q, bs, (name, r), set_region_p p r)
+              | Quan (q, bs, name, p, _) => Quan (q, bs, name, p, r)
 
         fun get_region_ibind f (BindI ((_, r), inner)) = combine_region r (f inner)
 
         fun get_region_s s = 
             case s of
                 Basic (_, r) => r
-              | Subset (_, bind) => get_region_ibind get_region_p bind
+              | Subset (_, _, r) => r
               | UVarS (_, r) => r
 
         fun get_region_mt t = 
@@ -739,7 +739,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 Arrow (t1, d, t2) => combine_region (get_region_mt t1) (get_region_mt t2)
               | Unit r => r
               | Prod (t1, t2) => combine_region (get_region_mt t1) (get_region_mt t2)
-              | UniI (_, bind) => get_region_ibind get_region_mt bind
+              | UniI (_, _, r) => r
               | AppV (_, _, _, r) => r
               | BaseType (_, r) => r
               | UVar (_, r) => r
@@ -767,14 +767,14 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | Pair (e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
               | Fst e => get_region_e e
               | Snd e => get_region_e e
-              | AbsI (_, (_, r), e) => combine_region r (get_region_e e)
+              | AbsI (_, _, _, r) => r
               | AppI (e, i) => combine_region (get_region_e e) (get_region_i i)
               | BinOp (_, e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
               | ConstInt (_, r) => r
               | AppConstr (((_, r), _), _, e) => combine_region r (get_region_e e)
               | Case (_, _, _, r) => r
-              | Never t => get_region_mt t
-              | Admit t => get_region_mt t
+              | Never (_, r) => r
+              | Admit (_, r) => r
               | Let (_, _, r) => r
               | Ascription (e, t) => combine_region (get_region_e e) (get_region_mt t)
               | AscriptionTime (e, i) => combine_region (get_region_e e) (get_region_i i)
@@ -878,15 +878,15 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	          | BinPred (opr, i1, i2) => 
 	            BinPred (opr, passi i1, passi i2)
                   | Not (p, r) => Not (passp p, r)
-                  | Quan (q, bs, name, p) => 
+                  | Quan (q, bs, name, p, r) => 
                     (case q of
                          Forall =>
 	                 if eq_p p (True dummy) then
                              p
                          else
-                             Quan (q, bs, name, passp p)
+                             Quan (q, bs, name, passp p, r)
                        | Exists _ =>
-                         Quan (q, bs, name, passp p)
+                         Quan (q, bs, name, passp p, r)
                     )
 	          | True _ => p
 	          | False _ => p
@@ -914,7 +914,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         fun simp_s s =
             case s of
 	        Basic b => Basic b
-              | Subset (b, bind) => Subset (b, simp_ibind simp_p bind)
+              | Subset (b, bind, r) => Subset (b, simp_ibind simp_p bind, r)
               | UVarS u => UVarS u
 
         fun simp_mt t =
@@ -923,7 +923,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | Unit r => Unit r
 	      | Prod (t1, t2) => Prod (simp_mt t1, simp_mt t2)
 	      | AppV (x, ts, is, r) => AppV (x, map simp_mt ts, map simp_i is, r)
-	      | UniI (s, bind) => UniI (simp_s s, simp_ibind simp_mt bind)
+	      | UniI (s, bind, r) => UniI (simp_s s, simp_ibind simp_mt bind, r)
 	      | BaseType a => BaseType a
               | UVar u => UVar u
 

@@ -222,7 +222,7 @@ fun update_i i =
 
 fun update_p p =
     case p of
-        Quan (q, bs, name, p) => Quan (q, update_bs bs, name, update_p p)
+        Quan (q, bs, name, p, r) => Quan (q, update_bs bs, name, update_p p, r)
       | BinConn (opr, p1, p2) => BinConn (opr, update_p p1, update_p p2)
       | BinPred (opr, i1, i2) => BinPred (opr, update_i i1, update_i i2)
       | Not (p, r) => Not (update_p p, r)
@@ -261,7 +261,7 @@ fun update_mt t =
       | Unit r => Unit r
       | Arrow (t1, d, t2) => Arrow (update_mt t1, update_i d, update_mt t2)
       | Prod (t1, t2) => Prod (update_mt t1, update_mt t2)
-      | UniI (s, BindI (name, t1)) => UniI (update_s s, BindI (name, update_mt t1))
+      | UniI (s, BindI (name, t1), r) => UniI (update_s s, BindI (name, update_mt t1), r)
       | AppV (y, ts, is, r) => AppV (y, map update_mt ts, map update_i is, r)
       | BaseType a => BaseType a
 
@@ -428,7 +428,7 @@ local
             unify_s r ctx (s', s)
 	  | (Basic (bs, _), Basic (bs', _)) =>
 	    unify_bs r (bs, bs')
-	  | (Subset ((bs, r1), BindI ((name, _), p)), Subset ((bs', _), BindI (_, p'))) =>
+	  | (Subset ((bs, r1), BindI ((name, _), p), _), Subset ((bs', _), BindI (_, p'), _)) =>
             let
 	      val () = unify_bs r (bs, bs')
               val ctxd = ctx_from_sorting (name, Basic (bs, r1))
@@ -438,7 +438,7 @@ local
             in
               ()
             end
-	  | (Subset ((bs, r1), BindI ((name, _), p)), Basic (bs', _)) =>
+	  | (Subset ((bs, r1), BindI ((name, _), p), _), Basic (bs', _)) =>
             let
 	      val () = unify_bs r (bs, bs')
               val ctxd = ctx_from_sorting (name, Basic (bs, r1))
@@ -448,7 +448,7 @@ local
             in
               ()
             end
-	  | (Basic (bs, r1), Subset ((bs', _), BindI ((name, _), p))) =>
+	  | (Basic (bs, r1), Subset ((bs', _), BindI ((name, _), p), _)) =>
             let
 	      val () = unify_bs r (bs, bs')
               val ctxd = ctx_from_sorting (name, Basic (bs, r1))
@@ -496,7 +496,7 @@ local
                 | (Prod (t1, t2), Prod (t1', t2')) =>
                   (loop ctx (t1, t1');
                    loop ctx (t2, t2'))
-                | (UniI (s, BindI ((name, _), t1)), UniI (s', BindI (_, t1'))) =>
+                | (UniI (s, BindI ((name, _), t1), _), UniI (s', BindI (_, t1'), _)) =>
                   (unify_s r sctx (s, s');
                    open_sorting (name, s);
                    loop (name :: sctx, kctx) (t1, t1');
@@ -551,20 +551,20 @@ local
   fun get_base r ctx s =
       case update_s s of
           Basic (s, _) => s
-        | Subset ((s, _), _) => s
+        | Subset ((s, _), _, _) => s
         | UVarS _ => raise Error (r, [sprintf "Can't figure out base sort of $" [str_s ctx s]])
                            
   fun is_wf_sort (ctx : scontext, s : U.sort) : sort =
       case s of
 	  U.Basic (bs, r) => Basic (is_wf_bsort bs, r)
-        | U.Subset ((bs, r), BindI ((name, r2), p)) =>
+        | U.Subset ((bs, r), BindI ((name, r2), p), r_all) =>
           let 
             val bs = is_wf_bsort bs
           in
             (* ToDo: need to [open_sorting] *)
             Subset ((bs, r),
                     BindI ((name, r2), 
-                           is_wf_prop (add_sorting (name, Basic (bs, r)) ctx, p)))
+                           is_wf_prop (add_sorting (name, Basic (bs, r)) ctx, p)), r_all)
           end
         | U.UVarS ((), r) => fresh_sort (sctx_names ctx) r
 
@@ -609,7 +609,7 @@ local
 	  in
             BinPred (opr, i1, i2)
 	  end
-        | U.Quan (q, bs, (name, r), p) =>
+        | U.Quan (q, bs, (name, r), p, r_all) =>
           let
             val q = case q of
                         Forall => Forall
@@ -617,7 +617,7 @@ local
             val bs = is_wf_bsort bs
             val p = is_wf_prop (add_sorting (name, Basic (bs, r)) ctx, p)
           in
-            Quan (q, bs, (name, r), p)
+            Quan (q, bs, (name, r), p, r_all)
           end
 
   and get_bsort (ctx : scontext, i : U.idx) : idx * bsort =
@@ -747,7 +747,7 @@ local
         val s = update_s s
         val () =
 	    (case s of
-	         Subset ((bs, _), BindI ((name, _), p)) =>
+	         Subset ((bs, _), BindI ((name, _), p), _) =>
 	         (unify_bs r (bs', bs);
 		  write_prop (subst_i_p i p
                               handle SubstUVar info =>
@@ -803,14 +803,14 @@ local
 	      | U.Prod (c1, c2) => 
 	        Prod (is_wf_mtype (ctx, c1),
 	              is_wf_mtype (ctx, c2))
-	      | U.UniI (s, BindI ((name, r), c)) => 
+	      | U.UniI (s, BindI ((name, r), c), r_all) => 
                 let
                   val s = is_wf_sort (sctx, s)
                 in
                   (* ToDo: need to [open_sorting] *)
 	          UniI (s,
 	                BindI ((name, r), 
-                               is_wf_mtype (add_sorting_sk (name, s) ctx, c)))
+                               is_wf_mtype (add_sorting_sk (name, s) ctx, c)), r_all)
                 end
 	      | U.AppV (x, ts, is, r) => 
                 let
@@ -1420,7 +1420,7 @@ local
                     (* val () = println $ str_mt skctxn t *)
                     fun insert_idx_args (sctxn, t_all) =
                         case t_all of
-                            UniI (s, BindI ((name, _), t)) =>
+                            UniI (s, BindI ((name, _), t), _) =>
                             let
                               (* val bs = fresh_bsort () *)
                               val bs =  get_base r sctxn s
@@ -1479,7 +1479,7 @@ local
                   in
 		    (Let (decls, e, r), t, d)
 		  end
-	        | U.AbsI (s, (name, r), e) => 
+	        | U.AbsI (s, (name, r), e, r_all) => 
 		  let 
 		    val () = if U.is_value e then ()
 		             else raise Error (U.get_region_e e, ["The body of a universal abstraction must be a value"])
@@ -1490,14 +1490,14 @@ local
 		    val (e, t, _) = get_mtype (ctx, e) 
                     val () = close_ctx ctxd
                   in
-		    (AbsI (s, (name, r), e), UniI (s, BindI ((name, r), t)), T0 dummy)
+		    (AbsI (s, (name, r), e, r_all), UniI (s, BindI ((name, r), t), r_all), T0 r_all)
 		  end 
 	        | U.AppI (e, i) =>
 		  let 
                     val r = U.get_region_e e
                     val s = fresh_sort sctxn r
                     val t1 = fresh_mt (kctxn @ sctxn) r
-                    val (e, t, d) = check_mtype (ctx, e, UniI (s, BindI (("_", r), t1))) 
+                    val (e, t, d) = check_mtype (ctx, e, UniI (s, BindI (("_", r), t1), r)) 
                     val i = check_sort (sctx, i, s) 
                   in
 		    (AppI (e, i), subst_i_mt i t1, d)
@@ -1604,18 +1604,18 @@ local
                   in
 		    (Case (e, return, rules, r), t, d1 %+ d)
                   end
-	        | U.Never t => 
+	        | U.Never (t, r) => 
                   let
 		    val t = is_wf_mtype (skctx, t)
 		    val () = write_prop (False dummy, U.get_region_e e_all)
                   in
-		    (Never t, t, T0 dummy)
+		    (Never (t, r), t, T0 r)
                   end
-	        | U.Admit t => 
+	        | U.Admit (t, r) => 
                   let
 		    val t = is_wf_mtype (skctx, t)
                   in
-		    (Admit t, t, T0 dummy)
+		    (Admit (t, r), t, T0 r)
                   end
 	  val (e, t, d) = main ()
                           handle
@@ -1655,7 +1655,7 @@ local
               | Unit _ => []
 	      | Arrow (t1, _, t2) => fv_mt t1 @ fv_mt t2
 	      | Prod (t1, t2) => fv_mt t1 @ fv_mt t2
-	      | UniI (s, BindI (name, t1)) => fv_mt t1
+	      | UniI (s, BindI (name, t1), _) => fv_mt t1
 	      | BaseType _ => []
 	      | AppV (y, ts, is, r) => concatMap fv_mt ts
         fun fv_t t =
@@ -1675,7 +1675,7 @@ local
                     | Unit r => Unit r
 	            | Arrow (t1, d, t2) => Arrow (substu x v t1, d, substu x v t2)
 	            | Prod (t1, t2) => Prod (substu x v t1, substu x v t2)
-	            | UniI (s, BindI (name, t1)) => UniI (s, BindI (name, substu x v t1))
+	            | UniI (s, BindI (name, t1), r) => UniI (s, BindI (name, substu x v t1), r)
 	            | BaseType a => BaseType a
 	            | AppV (y, ts, is, r) => 
 		      AppV (y, map (substu x v) ts, is, r)
@@ -1758,7 +1758,7 @@ local
 	          val d = check_bsort (sctx, d, Base Time)
                   fun g (bind, t) =
                       case bind of
-		          inl (name, s) => UniI (s, BindI (name, t))
+		          inl (name, s) => UniI (s, BindI (name, t), get_region_mt t)
 		        | inr (_, t1) => Arrow (t1, T0 dummy, t)
                   val te = 
                       case rev binds of
@@ -1863,7 +1863,7 @@ local
               (* val () = println "after check_redundancy()" *)
               val (pcovers, new_rules) =
                   case (pn, e) of
-                      (VarP _, U.Never (U.UVar _)) =>
+                      (VarP _, U.Never (U.UVar _, _)) =>
                       let
                         fun hab_to_ptrn cctx (* cutoff *) t hab =
                             let
@@ -2116,7 +2116,7 @@ local
                     case sort of
                         Basic (bsort, _) =>
                         ForallF (name, bsort, fs)
-                      | Subset ((bsort, _), BindI (_, p)) =>
+                      | Subset ((bsort, _), BindI (_, p), _) =>
                         ForallF (name, bsort, [ImplyF (p, fs)])
                       | UVarS _ => raise Impossible "get_formula (): sort in ForallVC shouldn't be UVarS"
               in
@@ -2222,7 +2222,7 @@ local
         | BinConn (_, p1, p2) => fv_p p1 @ fv_p p2
         | Not (p, _) => fv_p p
         | BinPred (_, i1, i2) => fv_i i1 @ fv_i i2
-        | Quan (_, _, _, p) => fv_p p 
+        | Quan (_, _, _, p, _) => fv_p p 
                                           
   fun fv_f2 f =
       case f of
@@ -2346,7 +2346,7 @@ local
               | Not (p, r) => Not (substu_p x v p, r)
 	      | BinConn (opr,p1, p2) => BinConn (opr, substu_p x v p1, substu_p x v p2)
 	      | BinPred (opr, i1, i2) => BinPred (opr, substu_i x v i1, substu_i x v i2)
-              | Quan (q, bs, (name, r), p) => Quan (q, bs, (name, r), substu_p x (v + 1) p)
+              | Quan (q, bs, (name, r), p, r_all) => Quan (q, bs, (name, r), substu_p x (v + 1) p, r_all)
         (* fun evar_name n = "?" ^ str_int n *)
         fun evar_name n =
             (* if n < 26 then *)
@@ -2358,7 +2358,7 @@ local
             (* ToDo: need to shift [i] *)
             Quan (Exists (SOME (fn i => unify_i dummy [] (UVarI (([], uvar_ref), dummy), i))),
                   bsort,
-                  (evar_name n, dummy), substu_p uvar_ref 0 $ shift_i_p $ update_p p)
+                  (evar_name n, dummy), substu_p uvar_ref 0 $ shift_i_p $ update_p p, r)
         val p = set_region_p p r
       in
         p
@@ -2366,7 +2366,12 @@ local
                         
   fun f2_to_prop f : prop =
       case f of
-          ForallF2 (name, bs, f) => Quan (Forall, bs, (name, dummy), f2_to_prop f)
+          ForallF2 (name, bs, f) =>
+          let
+            val p = f2_to_prop f
+          in
+            Quan (Forall, bs, (name, dummy), p, get_region_p p)
+          end
         | BinConnF2 (opr, f1, f2) => BinConn(opr, f2_to_prop f1, f2_to_prop f2)
         | PropF2 (p, r) => set_region_p p r
         | AnchorF2 (anchor, f) =>
@@ -2440,7 +2445,7 @@ local
         | BinConn (opr, p1, p2) => N.BinConn (opr, no_uvar_p p1, no_uvar_p p2)
         | BinPred (opr, i1, i2) => N.BinPred (opr, no_uvar_i i1, no_uvar_i i2)
         | Not (p, r) => N.Not (no_uvar_p p, r)
-        | Quan (q, bs, name, p) => N.Quan (no_uvar_quan q, no_uvar_bsort bs, name, no_uvar_p p)
+        | Quan (q, bs, name, p, r) => N.Quan (no_uvar_quan q, no_uvar_bsort bs, name, no_uvar_p p, r)
 
   fun vces_to_vcs vces =
       let

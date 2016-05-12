@@ -49,7 +49,7 @@ fun on_i_p on_i_i x n b =
           | Not (p, r) => Not (f x n p, r)
 	  | BinConn (opr, p1, p2) => BinConn (opr, f x n p1, f x n p2)
 	  | BinPred (opr, d1, d2) => BinPred (opr, on_i_i x n d1, on_i_i x n d2)
-          | Quan (q, bs, name, p) => Quan (q, bs, name, f (x + 1) n p)
+          | Quan (q, bs, name, p, r) => Quan (q, bs, name, f (x + 1) n p, r)
   in
       f x n b
   end
@@ -67,7 +67,7 @@ fun on_i_s on_i_p on_invis expand_s x n b =
       fun f x n b =
 	case b of
 	    Basic s => Basic s
-	  | Subset (s, bind) => Subset (s, on_i_ibind on_i_p x n bind)
+	  | Subset (s, bind, r) => Subset (s, on_i_ibind on_i_p x n bind, r)
           | UVarS ((invis, uvar_ref), r) =>
             (case !uvar_ref of
                  Refined i => 
@@ -86,7 +86,7 @@ fun on_i_mt on_i_i on_i_s on_invis expand_mt x n b =
 	    Arrow (t1, d, t2) => Arrow (f x n t1, on_i_i x n d, f x n t2)
           | Unit r => Unit r
 	  | Prod (t1, t2) => Prod (f x n t1, f x n t2)
-	  | UniI (s, bind) => UniI (on_i_s x n s, on_i_ibind f x n bind)
+	  | UniI (s, bind, r) => UniI (on_i_s x n s, on_i_ibind f x n bind, r)
 	  | AppV (y, ts, is, r) => AppV (y, map (f x n) ts, map (on_i_i x n) is, r)
 	  | BaseType a => BaseType a
           | UVar ((invis as (invisi, invist), uvar_ref), r) =>
@@ -121,7 +121,7 @@ fun on_t_mt on_v on_invis expand_mt x n b =
 	    Arrow (t1, d, t2) => Arrow (f x n t1, d, f x n t2)
           | Unit r => Unit r
 	  | Prod (t1, t2) => Prod (f x n t1, f x n t2)
-	  | UniI (s, bind) => UniI (s, on_t_ibind f x n bind)
+	  | UniI (s, bind, r) => UniI (s, on_t_ibind f x n bind, r)
 	  | AppV ((y, r1), ts, is, r) => AppV ((on_v x n y, r1), map (f x n) ts, is, r)
 	  | BaseType a => BaseType a
           | UVar ((invis as (invisi, invist), uvar_ref), r) =>
@@ -344,7 +344,7 @@ local
           | Not (p, r) => Not (f x v p, r)
 	  | BinConn (opr,p1, p2) => BinConn (opr, f x v p1, f x v p2)
 	  | BinPred (opr, d1, d2) => BinPred (opr, substx_i_i x v d1, substx_i_i x v d2)
-          | Quan (q, bs, name, p) => Quan (q, bs, name, f (x + 1) (shiftx_i_i 0 1 v) p)
+          | Quan (q, bs, name, p, r) => Quan (q, bs, name, f (x + 1) (shiftx_i_i 0 1 v) p, r)
 in
 fun substx_i_p x (v : idx) b = f x v b
 fun subst_i_p (v : idx) (b : prop) : prop = substx_i_p 0 v b
@@ -375,7 +375,7 @@ local
     fun f x v b =
 	case b of
 	    Basic s => Basic s
-	  | Subset (s, bind) => Subset (s, substx_i_ibind substx_i_p x idx_shiftable v bind)
+	  | Subset (s, bind, r) => Subset (s, substx_i_ibind substx_i_p x idx_shiftable v bind, r)
           | UVarS ((invis, uvar_ref), r) =>
             case !uvar_ref of
                 Refined s => f x v (expand_s invis s)
@@ -392,7 +392,7 @@ local
 	    Arrow (t1, d, t2) => Arrow (f x v t1, substx_i_i x v d, f x v t2)
           | Unit r => Unit r
 	  | Prod (t1, t2) => Prod (f x v t1, f x v t2)
-	  | UniI (s, bind) => UniI (substx_i_s x v s, substx_i_ibind f x idx_shiftable v bind)
+	  | UniI (s, bind, r) => UniI (substx_i_s x v s, substx_i_ibind f x idx_shiftable v bind, r)
 	  | AppV (y, ts, is, r) => AppV (y, map (f x v) ts, map (substx_i_i x v) is, r)
 	  | BaseType a => BaseType a
           | UVar ((invis as (invisi, invist), uvar_ref), r) =>
@@ -426,7 +426,7 @@ local
 	    Arrow (t1, d, t2) => Arrow (f x v t1, d, f x v t2)
           | Unit r => Unit r
 	  | Prod (t1, t2) => Prod (f x v t1, f x v t2)
-	  | UniI (s, bind) => UniI (s, substx_t_ibind f x value_shiftable v bind)
+	  | UniI (s, bind, r) => UniI (s, substx_t_ibind f x value_shiftable v bind, r)
 	  | AppV ((y, r), ts, is, r2) => 
 	    if y = x then
 		if null ts andalso null is then
@@ -513,7 +513,7 @@ local
 	  | Pair (e1, e2) => Pair (f x n e1, f x n e2)
 	  | Fst e => Fst (f x n e)
 	  | Snd e => Snd (f x n e)
-	  | AbsI (s, name, e) => AbsI (s, name, f x n e)
+	  | AbsI (s, name, e, r) => AbsI (s, name, f x n e, r)
 	  | AppI (e, i) => AppI (f x n e, i)
 	  | Let (decs, e, r) =>
 	    let 
@@ -600,7 +600,7 @@ local
 	  | Pair (e1, e2) => Pair (f x n e1, f x n e2)
 	  | Fst e => Fst (f x n e)
 	  | Snd e => Snd (f x n e)
-	  | AbsI (s, name, e) => AbsI (s, name, f x n e)
+	  | AbsI (s, name, e, r) => AbsI (s, name, f x n e, r)
 	  | AppI (e, i) => AppI (f x n e, i)
 	  | Let (decs, e, r) =>
 	    let 
