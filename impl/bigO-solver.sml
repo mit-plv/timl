@@ -316,6 +316,30 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                        | _ => i
                     )
                   | _ => i
+            fun infer_b n_ n' =
+                let
+                  fun infer_b_i i =
+                      case i of
+                          UnOpI (_, i, _) => infer_b_i i 
+                        | DivI (_, (b, _)) => [b]
+                        | _ => []
+                  fun infer_b_p p =
+                      case p of
+                          BinPred (EqP, i1, i2) => infer_b_i i1 @ infer_b_i i2
+                        | _ => []
+                  fun infer_b_hyp h =
+                      case h of
+                          PropH p => infer_b_p p
+                        | VarH _ => []
+                  val bs = infer_b_i n' @ concatMap infer_b_hyp hyps
+                  fun firstSuccess f xs = foldl (fn (x, acc) => case acc of SOME _ => acc | NONE => f x) NONE xs
+                  fun good_b b =
+                      if ask_smt (n' %<= UnOpI (Ceil, DivI (n_, (b, dummy)), dummy)) then
+                        SOME b
+                      else NONE
+                in
+                  firstSuccess good_b bs
+                end
           in
             case p of
                 BinPred (LeP, i1, BinOpI (TimeApp, BinOpI (TimeApp, VarI (g, _), VarI (m, _)), n_i)) =>
@@ -333,9 +357,9 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                     val is = collect_AddI i1
                     fun is_sub_problem i =
                         case i of
-                            BinOpI (TimeApp, BinOpI (TimeApp, VarI (g', _), VarI (m', _)), UnOpI (opr, DivI (n', (b, _)), _)) =>
-                            if g' = g andalso m' = m andalso (opr = Ceil orelse opr = Floor) andalso ask_smt (n' %= n_ \/ n' %+ T1 dummy %= n_) then
-                              SOME b
+                            BinOpI (TimeApp, BinOpI (TimeApp, VarI (g', _), VarI (m', _)), n') =>
+                            if g' = g andalso m' = m then
+                              infer_b n_ n'
                             else NONE
                           | _ => NONE
                     val (a, b, others) = get_params is_sub_problem is
@@ -397,24 +421,15 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                       val is = collect_AddI i1
                       fun is_sub_problem i =
                           case i of
-                              (* BinOpI (TimeApp, VarI (g', _), n') => *)
-                              (* let *)
-                              (*   exception InferError *)
-                              (*   fun infer_b i = *)
-                              (*       case i of *)
-                              (*           UnOpI (opr, DivI (_, (b, _)), _) => b *)
-                              (*         | _ => raise InferError *)
-                              (*   val doit () =  *)
-                              (*       if g' = g andalso (opr = Ceil orelse opr = Floor) andalso ask_smt (n' %<= UnOpI (Ceil, DivI (n_, (b, dummy)), dummy) ) then *)
-                              (*         SOME b *)
-                              (*       else NONE *)
-                              (* in *)
-                              (*   doit () handle InferError => NONE *)
-                              (* end *)
-                              BinOpI (TimeApp, VarI (g', _), UnOpI (opr, DivI (n', (b, _)), _)) =>
-                              if g' = g andalso (opr = Ceil orelse opr = Floor) andalso ask_smt (n' %= n_ \/ n' %+ T1 dummy %= n_) then
-                                SOME b
-                              else NONE
+                              BinOpI (TimeApp, VarI (g', _), n') =>
+                              if g' = g then
+                                infer_b n_ n'
+                              else
+                                NONE
+                              (* BinOpI (TimeApp, VarI (g', _), UnOpI (opr, DivI (n', (b, _)), _)) => *)
+                              (* if g' = g andalso (opr = Ceil orelse opr = Floor) andalso ask_smt (n' %= n_ \/ n' %+ T1 dummy %= n_) then *)
+                              (*   SOME b *)
+                              (* else NONE *)
                             | _ => NONE
                       val (a, b, others) = get_params is_sub_problem is
                       val () = if b > 1 then () else raise Error "b > 1"
