@@ -84,7 +84,7 @@ val ['a 'b] map =
 end
 
 (* the magic goes further: even [g]'s BigO class can be inferred! *)
-absidx g : BigO 2 _ with
+absidx g : BigO 2 (fn m n => $m * $n)(* _ *) with
 val ['a 'b] map =
  fn {m : Nat} (f : 'a -- $m --> 'b) =>
     let

@@ -1396,8 +1396,20 @@ local
                     fun insert_type_args t =
                         case t of
                             Mono t => t
-                          | Uni (_, t) => insert_type_args (subst_t_t (fresh_mt (kctxn @ sctxn) r) t)
-                    val t = insert_type_args (fetch_var (tctx, (x, r)))
+                          | Uni (_, t) =>
+                            let
+                              val ut = fresh_mt (kctxn @ sctxn) r
+                              (* val () = println $ str_mt skctxn ut *)
+                              val t = subst_t_t ut t
+                              (* val () = println $ str_t skctxn t *)
+                              val t = insert_type_args t
+                            in
+                              t
+                            end
+                    val t = fetch_var (tctx, (x, r))
+                    (* val () = println $ str_t skctxn t *)
+                    val t = insert_type_args t
+                    (* val () = println $ str_mt skctxn t *)
                     fun insert_idx_args (sctxn, t_all) =
                         case t_all of
                             UniI (s, BindI ((name, _), t)) =>
@@ -1405,10 +1417,12 @@ local
                               (* val bs = fresh_bsort () *)
                               val bs =  get_base r sctxn s
                               val i = fresh_i sctxn bs r
+                              val t = subst_i_mt i t
+                                      handle
+                                      SubstUVar info =>
+                                      raise subst_uvar_error (U.get_region_e e_all) ("type " ^ str_mt skctxn t_all) i info
                             in
-                              insert_idx_args (name :: sctxn, subst_i_mt i t)
-                              handle SubstUVar info =>
-                                     raise subst_uvar_error (U.get_region_e e_all) ("type " ^ str_mt skctxn t_all) i info
+                              insert_idx_args (name :: sctxn, t)
                             end
                           | _ => t_all
                     val t = if not is_explicit_idx_args then
@@ -1590,8 +1604,8 @@ local
 		    (Never t, t, T0 dummy)
                   end
 	  val (e, t, d) = main ()
-                          (* handle *)
-                          (* Error (r, msg) => raise Error (r, msg @ ["when typechecking"] @ indent [U.str_e ctxn e_all]) *)
+                          handle
+                          Error (r, msg) => raise Error (r, msg @ ["when typechecking"] @ indent [U.str_e ctxn e_all])
                                                   (* val () = println $ str_ls id $ #4 ctxn *)
 	                                          (* val () = print (sprintf "  Typed : $: \n          $\n" [str_e ((* upd4 (const [])  *)ctxn) e, str_mt skctxn t]) *)
 	                                          (* val () = print (sprintf "   Time : $: \n" [str_i sctxn d]) *)

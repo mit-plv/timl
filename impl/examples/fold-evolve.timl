@@ -9,7 +9,7 @@ val ['a 'b] foldl =
         foldl
     end
 
-absidx h : BigO 2 _ with
+absidx h : BigO 2 (fn m n => $m * $n)(* _ *) with
 val ['a 'b] foldl =
  fn {m : Nat} (f : 'a * 'b -- $m --> 'b) =>
     let
@@ -22,7 +22,7 @@ val ['a 'b] foldl =
     end
 end
 
-absidx h : BigO 2 _ with
+absidx h : BigO 2 (fn m n => $m * $n)(* _ *) with
 val ['a 'b] foldl =
  fn {m : Nat} (f : 'a * 'b -- $m --> 'b) =>
     let

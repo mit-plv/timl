@@ -33,7 +33,7 @@ fun peek_option ['a] {n : Nat} (tr : {n} 'a braun_tree) return 'a option using T
       | Node (x, _, _) => SOME x
 end
 
-absidx Tsift : BigO 1 _ with
+absidx Tsift : BigO 1 (fn n => log2 $n)(* _ *) with
 fun sift ['a] {n : Nat} (x, l : {ceil ($n/2)} 'a braun_tree, r : {floor ($n/2)} 'a braun_tree) return {n+1} 'a braun_tree using Tsift n =
     case (l, r) of
         (Leaf, Leaf) =>
@@ -56,7 +56,7 @@ fun sift ['a] {n : Nat} (x, l : {ceil ($n/2)} 'a braun_tree, r : {floor ($n/2)} 
       | _ => never
 end
 
-absidx Tpop : BigO 1 _ with
+absidx Tpop : BigO 1 (fn n => log2 $n * log2 $n)(* _ *) with
 fun pop ['a] {n : Nat} (tr : {n + 1} 'a braun_tree) return 'a * {n} 'a braun_tree using Tpop n =
     case tr of
         Node (x, l, r) =>

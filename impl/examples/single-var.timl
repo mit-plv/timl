@@ -8,7 +8,7 @@ val h =
  fn {n : Nat} (xs : {n} int list) return using hh n => xs
 end
 
-absidx ff : {ff : Fun 1 | ff O _} with
+absidx ff : {ff : Fun 1 | ff O (fn n => $n)(* _ *)} with
 val f =
  fn {n : Nat} (xs : {n} int list) return using ff n =>
     let
@@ -19,7 +19,7 @@ val f =
     end
 end
 
-absidx {T : Fun 1 | T O _} with
+absidx {T : Fun 1 | T O (fn n => $n)(* _ *)} with
 fun map ['a 'b] (f : 'a -- 5.0 --> 'b) =
     let
       fun map {n : Nat} (xs : {n} 'a list) return {n} _ list using T n =
@@ -42,7 +42,7 @@ fun split ['a] {n : Nat} (xs : {n} 'a list) return {ceil ($n/2)} _ list * {floor
 
 datatype bool = true | false
 
-absidx {T2 : Fun 1 | T2 O _} with
+absidx {T2 : Fun 1 | T2 O (fn n => $n * log2 $n)(* _ *)} with
 fun merge ['a] {n1 : Nat} {n2 : Nat} (lt : 'a * 'a -- 8.0 --> bool) (xs : {n1} _ list) (ys : {n2} _ list) return {n1 + n2} _ list using T2 (n1 + n2) =
     case (xs, ys) of
         (Nil, _) => ys
@@ -53,8 +53,8 @@ fun merge ['a] {n1 : Nat} {n2 : Nat} (lt : 'a * 'a -- 8.0 --> bool) (xs : {n1} _
           | false => Cons (y, merge lt xs ys')
 end
 
-absidx {T3 : Fun 1 | T3 O _} with
-fun msort ['a] {n : Nat} (lt : 'a * 'a -- _ --> bool) (xs : {n} 'a list) return {n} _ list using T3 n =
+absidx {T3 : Fun 1 | T3 O (fn n => $n * log2 $n)(* _ *)} with
+fun msort ['a] {n : Nat} (lt : 'a * 'a -- 8.0 --> bool) (xs : {n} 'a list) return {n} _ list using T3 n =
     case xs of
         Nil => xs
       | Cons _ =>
@@ -73,7 +73,7 @@ fun insert ['a] {n : Nat} (le : 'a * 'a -- 7.0 --> bool) (xs : {n} _ list) x ret
 end
 
 absidx g : BigO 1 (fn n => $n * $n) with
-fun isort ['a] {n : Nat} (le : 'a * 'a -- _ --> bool) (xs : {n} _ list) return {n} _ list using g n =
+fun isort ['a] {n : Nat} (le : 'a * 'a -- 7.0 --> bool) (xs : {n} _ list) return {n} _ list using g n =
     case xs of
         Nil => Nil
       | Cons (x, xs) => insert le (isort le xs) x

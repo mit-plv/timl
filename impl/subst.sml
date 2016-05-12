@@ -303,8 +303,8 @@ fun substx_invis fresh_uvar =
     substx_invis_generic (fn x => raise SubstUVar (fresh_uvar, x))
       
 (* This is a version that allows substition for [x] that is visible to [fresh_uvar]. When this happens, remove [x] from [fresh_uvar]'s visible context. *)
-(* fun substx_invis fresh_uvar = *)
-(*     substx_invis_generic (fn x => remove_fresh_uvar_ctx fresh_uvar x 1) *)
+fun substx_invis_no_throw fresh_uvar =
+    substx_invis_generic (fn x => remove_fresh_uvar_ctx fresh_uvar x 1)
 
 local
     fun f x v b =
@@ -399,7 +399,7 @@ local
             case !uvar_ref of
                 Refined t => f x v (expand_mt invis t)
               | Fresh uname => 
-                UVar (((substx_invis (FrMtype (uvar_ref, uname)) x invisi, invist), uvar_ref), r)
+                UVar (((substx_invis_no_throw (FrMtype (uvar_ref, uname)) x invisi, invist), uvar_ref), r)
 in
 fun substx_i_mt x (v : idx) (b : mtype) : mtype = f x v b
 fun subst_i_mt (v : idx) (b : mtype) : mtype = substx_i_mt 0 v b
