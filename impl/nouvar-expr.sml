@@ -270,25 +270,25 @@ local
                         BinConn (And, p1a, p1b) =>
                         mark $ (p1a --> p1b --> p2)
                       | _ =>
-                        (* BinConn (opr, passp p1, passp p2) *)
-                        (* ToDo: not sound, possibly losing information *)
-                        (* try subst if there is a equality premise *)
-                        let
-                          fun forget x i =
-                              SOME (x, forget_i_i x 1 i) handle ForgetError _ => NONE
-                          fun f i1 i2 =
-                              case (i1, i2) of
-                                  (VarI (x, _), _) => forget x i2
-                                | (_, VarI (x, _)) => forget x i1
-                                | _ => NONE
-                          val s = case p1 of
-                                      BinPred (EqP, i1, i2) => f i1 i2
-                                    | _ => NONE
-                        in
-                          case s of
-                              SOME (x, i) => (set (); shiftx_i_p x 1 (substx_i_p x i p2))
-                            | _ => BinConn (opr, passp p1, passp p2)
-                        end
+                        BinConn (opr, passp p1, passp p2)
+                        (* (* ToDo: not sound, possibly losing information *) *)
+                        (* (* try subst if there is a equality premise *) *)
+                        (* let *)
+                        (*   fun forget x i = *)
+                        (*       SOME (x, forget_i_i x 1 i) handle ForgetError _ => NONE *)
+                        (*   fun f i1 i2 = *)
+                        (*       case (i1, i2) of *)
+                        (*           (VarI (x, _), _) => forget x i2 *)
+                        (*         | (_, VarI (x, _)) => forget x i1 *)
+                        (*         | _ => NONE *)
+                        (*   val s = case p1 of *)
+                        (*               BinPred (EqP, i1, i2) => f i1 i2 *)
+                        (*             | _ => NONE *)
+                        (* in *)
+                        (*   case s of *)
+                        (*       SOME (x, i) => (set (); shiftx_i_p x 1 (substx_i_p x i p2)) *)
+                        (*     | _ => BinConn (opr, passp p1, passp p2) *)
+                        (* end *)
                    )
                | _ =>
 	         BinConn (opr, passp p1, passp p2)

@@ -42,3 +42,5 @@ Done. 40. [find_habitant] can further simplify covers and speed up.
 Done. 42. Maximally insertion of index arguments.
 Done. 43. Maximally insertion of index arguments in patterns.
 44. nouvar-expr/passp/Imply/_ is not sound, possibly losing information.
+45. [subst_invis_no_throw] should be implemented in a safe way where uvars that can see the target variable are unified with shifted uvars that can't see it.
+Dono. 46. Braun tree extraction.

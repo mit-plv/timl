@@ -45,7 +45,8 @@ eol = (\013\010|\010|\013);
 
 %%
 
-{eol} => (print "matched eol\n"; YYBEGIN INITIAL; update_line yypos; continue());
+<INITIAL>{eol} => (print "matched eol\n"; update_line yypos; continue());
+<STRING>{eol} => (print "matched eol\n"; update_line yypos; (T.STRING o flat) (yytext, make_region (yypos, size yytext)));
 
 <INITIAL>{ws}+ => (continue ());
 <INITIAL>"(" => (print "matched (\n"; T.LPAREN (make_region (yypos, size yytext)));
