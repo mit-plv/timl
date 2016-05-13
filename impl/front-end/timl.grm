@@ -28,6 +28,7 @@ open Ast
     | LARROW
     | DDASH
     | MULT
+    | EXP
     | DIV
     | PLUS
     | MINUS
@@ -177,10 +178,11 @@ aexp : decorated_id (Var decorated_id)
 
 idx : aidx (aidx)
     | idx PLUS idx (BinOpI (AddI, idx1, idx2, (idx1left, idx2right)))
-    | idx MULT idx (BinOpI (MultI, idx1, idx2, (idx1left, idx2right)))
-    | idx DIV INT (DivI (idx, (INT, (INTleft, INTright)), (idxleft, INTright)))
     | idx MAX idx (BinOpI (MaxI, idx1, idx2, (idx1left, idx2right)))
     | idx MIN idx (BinOpI (MinI, idx1, idx2, (idx1left, idx2right)))
+    | idx MULT idx (BinOpI (MultI, idx1, idx2, (idx1left, idx2right)))
+    | idx DIV INT (DivI (idx, (INT, (INTleft, INTright)), (idxleft, INTright)))
+    | idx EXP idx (BinOpI (ExpNI, idx1, idx2, (idx1left, idx2right)))
     | idx DOUBLE_EQ idx (BinOpI (EqI, idx1, idx2, (idx1left, idx2right)))
     | idx DOUBLE_POND idx (BinOpI (AndI, idx1, idx2, (idx1left, idx2right)))
     | idx aidx (BinOpI (TimeApp, idx, aidx, (idxleft, aidxright)))

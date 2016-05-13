@@ -16,6 +16,7 @@ fun print_idx_bin_op opr =
       | MultI => "*"
       | EqI => "="
       | AndI => "and"
+      | ExpNI => "exp_i_i"
       | _ => raise Impossible "print_idx_bin_op ()"
         
 fun print_i ctx i =
@@ -58,6 +59,7 @@ fun print_i ctx i =
                (* sprintf "(app_$$)" [str_int (length is - 1), join_prefix " " $ map (print_i ctx) is] *)
                sprintf "($)" [join " " $ map (print_i ctx) is]
            end
+         (* | ExpNI => sprintf "($ $)" [print_idx_bin_op opr, print_i ctx i2] *)
          | _ => 
            sprintf "($ $ $)" [print_idx_bin_op opr, print_i ctx i1, print_i ctx i2]
              
@@ -148,6 +150,9 @@ fun prelude get_ce = [
 
     (* "(declare-datatypes () ((Unit TT)))", *)
 
+    "(declare-fun exp_i_i (Int Int) Int)",
+    (* "(declare-fun exp_i_i (Int) Int)", *)
+    
     (* "(declare-fun log2 (Real) Real)", *)
     (* "(assert (forall ((x Real) (y Real))", *)
     (* "  (! (=> (and (< 0 x) (< 0 y)) (= (log2 ( * x y)) (+ (log2 x) (log2 y))))", *)

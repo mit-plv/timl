@@ -44,6 +44,5 @@ Done. 43. Maximally insertion of index arguments in patterns.
 Done. 44. nouvar-expr/passp/Imply/_ is not sound, possibly losing information.
 45. [subst_invis_no_throw] should be implemented in a safe way where uvars that can see the target variable are unified with a new shifted uvars that can't see it, and [bring_forward_anchor] needs to be more sophisticated to only put new anchor when there is no shift (and the notifier in [Exists] needs to do some shift) because now not every uvar has an anchor.
 Dono. 46. Braun tree extraction.
-
-
-rename "peel_" to "collect_"
+47. rename "peel_" to "collect_".
+48. Register admitted things.

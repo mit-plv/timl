@@ -16,8 +16,17 @@ structure NoUVarExpr = ExprFun (structure Var = IntVar structure UVar = NoUVar)
 structure NoUVarSubst = struct
 open Util
 open NoUVarExpr
-infixr 0 $
+infix 9 %@
+infix 8 %^
+infix 7 %*
+infix 6 %+ 
+infix 4 %<=
+infix 4 %=
+infixr 3 /\
+infixr 2 \/
 infixr 1 -->
+infix 1 <->
+infixr 0 $
          
 fun on_i_i on_v x n b =
     let
@@ -124,135 +133,197 @@ fun forget_i_p x n b = on_i_p forget_i_i x n b
 fun try_forget f a =
     SOME (f a) handle ForgetError _ => NONE
 
+(* val passi_debug = ref false *)
+                      
 local
   val changed = ref false
   fun unset () = changed := false
   fun set () = changed := true
   fun mark a = (set (); a)
   fun passi i =
-      case i of
-          DivI (i1, n2) => DivI (passi i1, n2)
-        | ExpI (i1, n2) => ExpI (passi i1, n2)
-	| BinOpI (opr, i1, i2) =>
-          let
-            fun def () = BinOpI (opr, passi i1, passi i2)
-          in
-            case opr of
-	        MaxI =>
-	        if eq_i i1 i2 then
-                  mark i1
-	        else if eq_i i1 (T0 dummy) orelse eq_i i1 (ConstIN (0, dummy)) then
-                  mark i2
-	        else if eq_i i2 (T0 dummy) orelse eq_i i2 (ConstIN (0, dummy)) then
-                  mark i1
-	        else
-                  (case (i1, i2) of
-                       (BinOpI (opr, i1, i2), BinOpI (opr', i1', i2')) =>
-                       if opr = opr' then
-                         if opr = AddI orelse opr = MultI then
-                           if eq_i i1 i1' then
-                             mark $ BinOpI (opr, i1, BinOpI (MaxI, i2, i2'))
-                           else if eq_i i2 i2' then
-                             mark $ BinOpI (opr, BinOpI (MaxI, i1, i1'), i2)
-                           else def ()
-                         else if opr = TimeApp then
-                           if eq_i i1 i1' then
-                             mark $ BinOpI (opr, i1, BinOpI (MaxI, i2, i2'))
+      let
+        (* val () = if !passi_debug then (fn () => println $ str_i [] i) () else () *)
+        fun r () = get_region_i i
+      in
+        case i of
+            DivI (i1, n2) => DivI (passi i1, n2)
+          | ExpI (i1, n2) => ExpI (passi i1, n2)
+	  | BinOpI (opr, i1, i2) =>
+            let
+              fun def () = BinOpI (opr, passi i1, passi i2)
+            in
+              case opr of
+	          MaxI =>
+	          if eq_i i1 i2 then
+                    mark i1
+	          else if eq_i i1 (T0 dummy) orelse eq_i i1 (ConstIN (0, dummy)) then
+                    mark i2
+	          else if eq_i i2 (T0 dummy) orelse eq_i i2 (ConstIN (0, dummy)) then
+                    mark i1
+	          else
+                    (case (i1, i2) of
+                         (BinOpI (opr, i1, i2), BinOpI (opr', i1', i2')) =>
+                         if opr = opr' then
+                           if opr = AddI orelse opr = MultI then
+                             if eq_i i1 i1' then
+                               mark $ BinOpI (opr, i1, BinOpI (MaxI, i2, i2'))
+                             else if eq_i i2 i2' then
+                               mark $ BinOpI (opr, BinOpI (MaxI, i1, i1'), i2)
+                             else def ()
+                           else if opr = TimeApp then
+                             if eq_i i1 i1' then
+                               mark $ BinOpI (opr, i1, BinOpI (MaxI, i2, i2'))
+                             else def ()
                            else def ()
                          else def ()
-                       else def ()
-                     | _ => def ()
+                       | _ => def ()
+                    )
+	        | MinI =>
+	          if eq_i i1 i2 then
+                    mark i1
+	          else
+		    def ()
+	        | AddI => 
+	          if eq_i i1 (T0 dummy) orelse eq_i i1 (ConstIN (0, dummy)) then
+                    mark i2
+	          else if eq_i i2 (T0 dummy) orelse eq_i i2 (ConstIN (0, dummy)) then
+                    mark i1
+	          else
+                    let
+                      val is = collect_AddI i
+                      val (i', is) = case is of
+                                         i :: is => (i, is)
+                                       | [] => raise Impossible "passi/AddI"
+                      val i' = combine_AddI_nonempty i' is
+                    in
+		      if eq_i i' i then
+                        def ()
+                      else
+                        mark i'
+                    end
+	        | MultI => 
+	          if eq_i i1 (T0 dummy) then
+                    mark $ T0 $ r ()
+	          else if eq_i i2 (T0 dummy) then
+                    mark $ T0 $ r ()
+	          else if eq_i i1 (T1 dummy) then
+                    mark i2
+	          else if eq_i i2 (T1 dummy) then
+                    mark i1
+	          else
+                    (case (i1, i2) of
+                        (ConstIN (n1, _), ConstIN (n2, _)) =>
+                        mark $ ConstIN (n1 * n2, r ())
+                      | _ =>
+                    let
+                      val i2s = collect_AddI i2
+                      fun pred i =
+                          case i of
+                              ConstIN _ => SOME i
+                            | UnOpI (B2n, _, _) => SOME i
+                            | _ => NONE
+                    in
+                      case partitionOptionFirst pred i2s of
+                          SOME (i2, rest) =>
+                          let
+                            val ret = i1 %* i2
+                            val ret =
+                                case rest of
+                                    [] => ret
+                                  | hd :: rest => ret %+ i1 %* combine_AddI_nonempty hd rest
+                          in
+                            if eq_i ret i then
+                              def ()
+                            else
+                              mark ret
+                          end
+                        | NONE => def ()
+                    end
+                    )
+                | TimeApp =>
+                  (case i1 of
+                       TimeAbs (_, body, _) =>
+                       mark $ subst_i_i (passi i2) body
+		     | _ => def ()
                   )
-	      | MinI =>
-	        if eq_i i1 i2 then
-                  mark i1
-	        else
-		  def ()
-	      | AddI => 
-	        if eq_i i1 (T0 dummy) orelse eq_i i1 (ConstIN (0, dummy)) then
-                  mark i2
-	        else if eq_i i2 (T0 dummy) orelse eq_i i2 (ConstIN (0, dummy)) then
-                  mark i1
-	        else
+                | EqI =>
+                  if eq_i i1 i2 then
+                    mark $ TrueI $ r ()
+                  else def ()
+                | AndI =>
+                  if eq_i i1 (TrueI dummy) then
+                    mark i2
+                  else if eq_i i2 (TrueI dummy) then
+                    mark i1
+                  else if eq_i i1 (FalseI dummy) then
+                    mark $ FalseI $ r ()
+                  else if eq_i i2 (FalseI dummy) then
+                    mark $ FalseI $ r ()
+                  else
+                    def ()
+                | ExpNI =>
                   let
-                    val i' = combine_AddI $ collect_AddI i
+                    val r = r ()
+                    fun exp i n =
+                        if n > 1 then
+                          exp i (n-1) %* i
+                        else
+                          N1 r
                   in
-		    if eq_i i' i then
-                      def ()
-                    else
-                      mark i'
+                    case i2 of
+                        ConstIN (n, _) => exp i1 n
+                      | UnOpI (B2n, i, _) => Ite (i, i1, N1 r, r)
+                      | _ =>
+                        let
+                          val i2s = collect_AddI i2
+                          fun pred i =
+                              case i of
+                                  ConstIN _ => SOME i
+                                | UnOpI (B2n, _, _) => SOME i
+                                | _ => NONE
+                        in
+                          case partitionOptionFirst pred i2s of
+                              SOME (i2, rest) => mark $ i1 %^ i2 %* i1 %^ combine_AddI_Nat rest
+                            | NONE => def ()
+                        end
                   end
-	      | MultI => 
-	        if eq_i i1 (T0 dummy) then
-                  mark $ T0 dummy
-	        else if eq_i i2 (T0 dummy) then
-                  mark $ T0 dummy
-	        else if eq_i i1 (T1 dummy) then
-                  mark i2
-	        else if eq_i i2 (T1 dummy) then
-                  mark i1
-	        else
-		  def ()
-              | TimeApp =>
-                (case i1 of
-                     TimeAbs (_, body, _) =>
-                     mark $ subst_i_i (passi i2) body
-		   | _ => def ()
-                )
-              | EqI =>
-                if eq_i i1 i2 then
-                  mark $ TrueI $ get_region_i i
-                else def ()
-              | AndI =>
-                if eq_i i1 (TrueI dummy) then
-                  mark i2
-                else if eq_i i2 (TrueI dummy) then
-                  mark i1
-                else if eq_i i1 (FalseI dummy) then
-                  mark $ FalseI $ get_region_i i
-                else if eq_i i2 (FalseI dummy) then
-                  mark $ FalseI $ get_region_i i
-                else
-                  def ()
-          end
-        | Ite (i, i1, i2, r) =>
-          if eq_i i (TrueI dummy) then
-            mark i1
-          else if eq_i i (FalseI dummy) then
-            mark i2
-          else
-            Ite (passi i, passi i1, passi i2, r)
-        | UnOpI (ToReal, BinOpI (AddI, i1, i2), r) =>
-          (set ();
-           BinOpI (AddI, UnOpI (ToReal, i1, r), UnOpI (ToReal, i2, r)))
-        | UnOpI (ToReal, BinOpI (MultI, i1, i2), r) =>
-          (set ();
-           BinOpI (MultI, UnOpI (ToReal, i1, r), UnOpI (ToReal, i2, r)))
-        | UnOpI (Neg, TrueI _, r) =>
-          (set ();
-           FalseI r)
-        | UnOpI (Neg, FalseI _, r) =>
-          (set ();
-           TrueI r)
-        | UnOpI (B2n, TrueI _, r) =>
-          (set ();
-           ConstIN (1, r))
-        | UnOpI (B2n, FalseI _, r) =>
-          (set ();
-           ConstIN (0, r))
-        | UnOpI (opr, i, r) =>
-          UnOpI (opr, passi i, r)
-        | TimeAbs ((name, r1), i, r) =>
-          TimeAbs ((name, r1), passi i, r)
-	| TrueI _ => i
-	| FalseI _ => i
-	| TTI _ => i
-        | ConstIN _ => i
-        | ConstIT _ => i
-        | VarI _ => i
-        | UVarI _ => i
-
-  fun passp p = 
+            end
+          | Ite (i, i1, i2, r) =>
+            if eq_i i (TrueI dummy) then
+              mark i1
+            else if eq_i i (FalseI dummy) then
+              mark i2
+            else
+              Ite (passi i, passi i1, passi i2, r)
+          | UnOpI (ToReal, BinOpI (AddI, i1, i2), r) =>
+            mark $ BinOpI (AddI, UnOpI (ToReal, i1, r), UnOpI (ToReal, i2, r))
+          | UnOpI (ToReal, BinOpI (MultI, i1, i2), r) =>
+            mark $ BinOpI (MultI, UnOpI (ToReal, i1, r), UnOpI (ToReal, i2, r))
+          | UnOpI (Neg, TrueI _, r) =>
+            mark $ FalseI r
+          | UnOpI (Neg, FalseI _, r) =>
+            mark $ TrueI r
+          | UnOpI (B2n, TrueI _, r) =>
+            mark $ N1 r
+          | UnOpI (B2n, FalseI _, r) =>
+            mark $ N0 r
+          | UnOpI (opr, i, r) =>
+            UnOpI (opr, passi i, r)
+          | TimeAbs ((name, r1), i, r) =>
+            TimeAbs ((name, r1), passi i, r)
+	  | TrueI _ => i
+	  | FalseI _ => i
+	  | TTI _ => i
+          | ConstIN _ => i
+          | ConstIT _ => i
+          | VarI _ => i
+          | UVarI _ => i
+      end
+        
+  fun passp p =
+      let
+        fun r () = get_region_p p
+      in
       case p of
 	  BinConn (opr, p1, p2) =>
           let
@@ -275,7 +346,7 @@ local
 	          def ()
               | Imply =>
                 if eq_p p2 (True dummy) then
-                  mark $ True (get_region_p p)
+                  mark $ True $ r ()
                 else
                   (case p1 of
                        BinConn (And, p1a, p1b) =>
@@ -290,10 +361,10 @@ local
           in
             case opr of 
                 EqP => if eq_i i1 i2 then
-                         mark $ True (get_region_p p)
+                         mark $ True $ r ()
                        else def ()
               | LeP => if eq_i i1 i2 orelse eq_i i1 (T0 dummy) then
-                         mark $ True (get_region_p p)
+                         mark $ True $ r ()
                        else def ()
               | _ => def ()
           end
@@ -413,12 +484,15 @@ local
           end
 	| True _ => p
 	| False _ => p
+      end
                        
   fun until_unchanged f a = 
       let fun loop a =
 	      let
                 val _ = unset ()
+                (* val () = println "before f()" *)
                 val a = f a
+                          (* val () = println "after f()" *)
               in
 		if !changed then loop a
 		else a

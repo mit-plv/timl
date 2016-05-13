@@ -101,6 +101,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         fun T0 r = ConstIT ("0.0", r)
         fun T1 r = ConstIT ("1.0", r)
+        fun N0 r = ConstIN (0, r)
+        fun N1 r = ConstIN (1, r)
 
         datatype prop =
 	         True of region
@@ -248,6 +250,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         infix 9 %@
         fun a %@ b = BinOpI (TimeApp, a, b)
+        infix 8 %^
+        fun a %^ b = BinOpI (ExpNI, a, b)
         infix 7 %*
         fun a %* b = BinOpI (MultI, a, b)
         infix 6 %+ 
@@ -304,7 +308,10 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         val collect_And = collect_BinConn And
                                           
         fun combine_And ps = foldl' (fn (p, acc) => acc /\ p) (True dummy) ps
-        fun combine_AddI is = foldl' (fn (i, acc) => acc %+ i) (T0 dummy) is
+        fun combine_AddI zero is = foldl' (fn (i, acc) => acc %+ i) zero is
+        fun combine_AddI_Time is = combine_AddI (T0 dummy) is
+        fun combine_AddI_Nat is = combine_AddI (N0 dummy) is
+        fun combine_AddI_nonempty i is = combine_AddI_Time (i :: is)
         fun combine_MultI is = foldl' (fn (i, acc) => acc %* i) (T1 dummy) is
                                      
         fun collect_TimeAbs i =
@@ -859,6 +866,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                            mark $ FalseI $ get_region_i i
                          else
                            def ()
+                       | ExpNI =>
+                         def ()
                     end
                   | Ite (i, i1, i2, r) =>
                     if eq_i i (TrueI dummy) then

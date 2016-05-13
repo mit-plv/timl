@@ -93,9 +93,10 @@ fun typecheck_file (filename, ctx) =
             let
               val () = println "-------------------------------------------"
               val () = println "Applying SMT solver ..."
-              val unsats = List.mapPartial id $ SMTSolver.smt_solver filename false vcs
+              val unsats = List.mapPartial id $ SMTSolver.smt_solver filename false (SOME CVC4) vcs
               (* re-check individually to get counter-example *)
-              val unsats = List.mapPartial id $ map (SMTSolver.smt_solver_single filename true) $ map fst $ unsats
+              val unsats = List.mapPartial id $ map (SMTSolver.smt_solver_single filename true (SOME CVC4)) $ map fst $ unsats
+              val unsats = List.mapPartial id $ map (SMTSolver.smt_solver_single filename true (SOME Z3)) $ map fst $ unsats
               val () = println (sprintf "SMT solver generated or left $ proof obligations unproved." [str_int $ length unsats])
               val () = println ""
               (* val () = print_unsats false filename unsats *)
@@ -104,6 +105,7 @@ fun typecheck_file (filename, ctx) =
               unsats
             end
       val vcs = (smt_solver o bigO_solver) vcs
+      val vcs = map (mapFst VC.simp_vc) vcs
       val () = print $ print_result false filename result
       val () = if null vcs then
                  println $ "Typechecked."

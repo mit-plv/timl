@@ -40,7 +40,7 @@ fun find_bigO_hyp f_i hyps =
 fun contains big small = not $ isSome $ try_forget (forget_i_i small 1) big
                              
 fun ask_smt_vc vc =
-    not $ isSome $ SMTSolver.smt_solver_single "" false vc
+    not $ isSome $ SMTSolver.smt_solver_single "" false NONE vc
                                      
 fun mult_class_entry ((c1, k1), (c2, k2)) = (c1 + c2, k1 + k2)
                                               
@@ -150,10 +150,11 @@ fun timefun_eq hs arity a b = timefun_le hs arity a b andalso timefun_le hs arit
       
 fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
     let
+      val () = println "by_master_theorem ()"
       val vcs' = append_hyps ([VarH (name0, TimeFun arity0), VarH (name1, TimeFun arity1)] @ hs) vcs
       (* val () = app println $ concatMap (fn vc => str_vc false "" vc @ [""]) vcs' *)
       (* val () = println "Master-Theorem-solver to apply SMT solver to discharge some VCs. " *)
-      val vcs_vcs' = List.mapPartial (fn (vc, out) => case out of SOME (vc', _) => SOME (vc, vc') | NONE => NONE) $ zip (vcs, SMTSolver.smt_solver "" false vcs')
+      val vcs_vcs' = List.mapPartial (fn (vc, out) => case out of SOME (vc', _) => SOME (vc, vc') | NONE => NONE) $ zip (vcs, SMTSolver.smt_solver "" false NONE vcs')
       val () = println "Master-Theorem-solver to solve this: "
       val () = app println $ concatMap (fn vc => str_vc false "" vc @ [""]) $ map snd $ vcs_vcs'
       exception Error of string
@@ -383,7 +384,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                             else NONE
                           | _ => NONE
                     val (n's, rest) = partitionOption par is
-                    val n' = combine_AddI n's
+                    val n' = combine_AddI_Nat n's
                     val () = if ask_smt (n' %+ N1 %<= n_i) then () else raise Error "n' %+ N1 %<= n_i"
                     val (c, k) =
                         add_class_entries $ map (summarize_2 m_ n_ o use_bigO_hyp) rest
@@ -454,7 +455,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                               else NONE
                             | _ => NONE
                       val (n's, rest) = partitionOption par is
-                      val n' = combine_AddI n's
+                      val n' = combine_AddI_Nat n's
                       val () = if ask_smt (n' %+ N1 %<= n_i) then () else raise Error "n' %+ N1 %<= n_i"
                       val (c, k) =
                           add_class_entries $ map (summarize_1 n_ o use_bigO_hyp) rest
@@ -487,11 +488,14 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
 fun use_master_theorem hs name_arity1 (name0, arity0) p =
     (* opportunity to apply the Master Theorem to infer the bigO class *)
     let
-      (* val () = println "use_master_theorem ()" *)
+      val () = println "use_master_theorem ()"
       (* hoist the conjuncts that don't involve the time functions *)
       val vcs = prop2vcs p
+      (* val () = println "after prop2vcs()" *)
       val (rest, vcs) = partitionOption (Option.composePartial (try_forget (forget_i_vc 0 1), try_forget (forget_i_vc 0 1))) vcs
+      (* val () = println "after partitionOption()" *)
       val vcs = concatMap prop2vcs $ map (simp_p o vc2prop) vcs
+      (* val () = println "after concatMap prop2vcs ()" *)
       val ret = by_master_theorem hs name_arity1 (name0, arity0) vcs
     in
       case ret of
@@ -524,8 +528,6 @@ fun infer_exists hs (name_arity1 as (_, arity1)) p =
             SOME (f, [])
           else NONE
         | _ => NONE
-
-fun hyps2ctx hs = List.mapPartial (fn h => case h of VarH (name, _) => SOME name | _ => NONE) hs
 
 exception MasterTheoremCheckFail of region * string list
                                                     
@@ -606,7 +608,7 @@ fun solve_bigO_compare (vc as (hs, p)) =
                
 fun solve_vcs (vcs : vc list) : vc list =
     let 
-      (* val () = print "Applying Big-O solver ...\n" *)
+      val () = println "solve_vcs ()"
       val vcs = concatMap solve_exists vcs
       val vcs = concatMap solve_bigO_compare vcs
     in

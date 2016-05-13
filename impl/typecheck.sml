@@ -27,6 +27,7 @@ fun idx_un_op_type opr =
 fun idx_bin_op_type opr =
     case opr of
         AndI => (BoolSort, BoolSort, BoolSort)
+      | ExpNI => (Nat, Nat, Nat)
       | _ => raise Impossible "idx_bin_op_type ()"
 
 (* sorting context *)

@@ -63,7 +63,7 @@ fun ins ['a] {input_color : Bool} {bh : Nat} (tr : {bh} {input_color} 'a rbt) (n
                         Red =>
                         InsResult (Bad (ViolateLeft (left, center, right)))
                       | Black =>
-                        InsResult (Good (Red, Node (Red, left, new, right)))
+                        InsResult (Good (Red, Node (Red, left, center, right)))
                    )
                  | _ => never
              end
@@ -77,7 +77,7 @@ fun ins ['a] {input_color : Bool} {bh : Nat} (tr : {bh} {input_color} 'a rbt) (n
                         Red =>
                         InsResult (Bad (ViolateRight (left, center, right)))
                       | Black =>
-                        InsResult (Good (Red, Node (Red, left, new, right)))
+                        InsResult (Good (Red, Node (Red, left, center, right)))
                    )
                  | _ => never
              end

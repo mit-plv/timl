@@ -13,7 +13,7 @@ local
 	    name
         else
 	    let fun loop n =
-		    let val name' = name ^ "x" ^ str_int n in
+		    let val name' = name ^ "_x" ^ str_int n in
 		        if not (mem op= name' ls) then name' else loop (n + 1)
 		    end in
 	        loop 2
@@ -65,7 +65,17 @@ fun simp_hyp h =
         VarH a => VarH a
       | PropH p => PropH (simp_p p)
 
-fun simp_vc ((hyps, p) : vc) : vc = (map simp_hyp hyps, simp_p p)
+fun hyps2ctx hs = List.mapPartial (fn h => case h of VarH (name, _) => SOME name | _ => NONE) hs
+
+fun simp_vc ((hyps, p) : vc) : vc =
+    let
+      val hyps = map simp_hyp hyps
+      (* val () = println $ "Before: " ^ str_p (hyps2ctx hyps) p *)
+      val p = simp_p p
+      (* val () = println $ "After:  " ^ str_p (hyps2ctx hyps) p *)
+    in
+      (hyps, p)
+    end
 
 fun get_base bs =
     case bs of
