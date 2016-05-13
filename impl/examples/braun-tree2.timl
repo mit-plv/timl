@@ -1,0 +1,100 @@
+(* Braun tree with invariant for balance and sortedness. Key type is indexed unsigned fixed-width integers *)
+
+datatype {Nat(*size*)} {Nat(*min element*)} braun_tree =
+         Leaf of {0} {0} braun_tree
+       | Node {n lk rk k : Nat} {(n >= 1 -> k <= lk) /\ (n >= 2 -> k <= rk)} of {k} uint * {ceil ($n/2)} {lk} braun_tree * {floor ($n/2)} {rk} braun_tree --> {n+1} {k} braun_tree
+
+absidx Tinsert : BigO 1 (fn n => log2 $n) with
+fun insert {n k x : Nat} (tr : {n} {k} braun_tree) (x : {x} uint) return {n + 1} {ite (n == 0) x (x min k)} braun_tree using Tinsert n =
+    case tr of
+        Leaf => Node (x, Leaf, Leaf)
+      | @Node {n' _ _ _ _} (y, l, r) =>
+        let
+          val MinMaxResult (smaller, bigger) = min_max le (x, y)
+        in
+          @Node {n' + 1} {_} {_} {_} {_} (smaller, insert r bigger, l)
+        end
+end
+
+fun peek {n k : Nat} (tr : {n + 1} {k} braun_tree) return {k} uint =
+    case tr of
+        Node (x, _, _) => x
+      | Leaf => never
+
+absidx T : Time with
+fun peek_option {n k : Nat} (tr : {n} {k} braun_tree) return ({k} uint) option using T =
+    case tr of
+        Leaf => NONE
+      | Node (x, _, _) => SOME x
+end
+
+datatype {Nat} {Nat} peek_option_result =
+         PeekSOME {n k : Nat} {n > 0} of {k} uint --> {n} {k} peek_option_result
+       | PeekNONE {n k : Nat} {n = 0} of {n} {k} peek_option_result
+
+absidx T : Time with
+fun peek_option {n k : Nat} (tr : {n} {k} braun_tree) return {n} {k} peek_option_result using T =
+    case tr of
+        Leaf => PeekNONE
+      | Node (x, _, _) => PeekSOME x
+end
+
+datatype {Nat} {Nat} {Nat} {Nat} le_le =
+         LeLe {a b a' b' : Nat} {a <= b /\ a' <= b'} of {b'} {a'} {b} {a} le_le
+       | NotLeLe {a b a' b' : Nat} {~ (a <= b /\ a' <= b')} of {b'} {a'} {b} {a} le_le
+
+fun le_le {m : Time} {a b a' b' : Nat} (le : forall {x y : Nat}, {x} uint * {y} uint -- m --> {y} {x} le_result) (a : {a} uint, b : {b} uint) (a' : {a'} uint, b' : {b'} uint) return {b'} {a'} {b} {a} le_le =
+    case (le (a, b), le (a', b')) of
+        (Le, Le) => LeLe
+      | (Le, Gt) => NotLeLe
+      | (Gt, Le) => NotLeLe
+      | (Gt, Gt) => NotLeLe
+
+absidx Tsift : BigO 1 (fn n => log2 $n)(* _ *) with
+fun sift {n lk rk x : Nat} (x : {x} uint, l : {ceil ($n/2)} {lk} braun_tree, r : {floor ($n/2)} {rk} braun_tree) return {n+1} {ite (n == 0) x (ite (n == 1) (x min lk) (x min lk min rk))} braun_tree using Tsift n =
+    case (l, r) of
+        (Leaf, Leaf) =>
+        Node (x, Leaf, Leaf)
+      | (Node (y, _, _), Leaf) =>
+        let
+          val MinMaxResult (smaller, bigger) = min_max le (x, y)
+        in
+          @Node {1} {_} {_} {_} {_} (smaller, Node (bigger, Leaf, Leaf), Leaf)
+        end
+      | (@Node {nl' _ _ _ _} (lx, l1, l2), @Node {nr' _ _ _ _} (rx, r1, r2)) =>
+        (case (le_le @le (x, lx) (x, rx), le (lx, rx)) of
+             (LeLe, _) =>
+             Node (x, l, r)
+           | (NotLeLe, Le) =>
+             Node (lx, @sift {nl'} {_} {_} {_} (x, l1, l2), r)
+           | (NotLeLe, Gt) =>
+             Node (rx, l, @sift {nr'} {_} {_} {_} (x, r1, r2))
+        )
+      | _ => never
+end
+
+datatype {Nat} {Nat} pop =
+         Pop {n k k' : Nat} {n > 0 -> k <= k'} of {k} uint * {n} {k'} braun_tree --> {n} {k} pop
+                                                 
+absidx Tpop : BigO 1 (fn n => log2 $n * log2 $n)(* _ *) with
+fun pop {n k : Nat} (tr : {n + 1} {k} braun_tree) return {n} {k} pop using Tpop n =
+    case tr of
+        Node (x, l, r) =>
+        (case (l, r) of
+             (Leaf, Leaf) => Pop (x, Leaf)
+           | (Node (y, _, _), Leaf) =>
+             Pop (x, @Node {0} {} {} {} {} (y, Leaf, Leaf))
+           | (@Node {nl' _ _ _ _} (lx, _, _), @Node {nr' _ _ _ _} (rx, r1, r2)) =>
+             let
+               val Pop (_, l) = @pop {nl'} {} l
+             in
+               case le (lx, rx) of
+                   Le =>
+                   Pop (x, @Node {nl'+1+nr'} {} {} {} {} (lx(* rx *), r, l))
+                 | Gt =>
+                   Pop (x, @Node {nl'+1+nr'} {} {} {} {} (rx(* lx *), @sift {nr'} {} {} {} (lx, r1, r2), l))
+             end
+           | _ => never
+        )
+      | Leaf => never
+end

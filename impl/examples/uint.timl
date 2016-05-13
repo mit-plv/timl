@@ -1,0 +1,29 @@
+(* some placeholders for indexed unsigned fixed-width integers (they should be provided natively by the language, to support O(1) operations) *)
+datatype {Nat} uint =
+         (* constructors are just placeholders *)
+         Zero of {0} uint
+       | Succ {n : Nat} of {n} uint --> {n + 1} uint
+                              
+datatype {Nat} {Nat} cmp_result =
+         Equal {a b : Nat} {a = b} of {b} {a} cmp_result
+         | Less {a b : Nat} {a < b} of {b} {a} cmp_result
+         | Greater {a b : Nat} {a > b} of {b} {a} cmp_result
+
+fun cmp {x : Nat} {y : Nat} (x : {x} uint, y : {y} uint) return {y} {x} cmp_result using 7.0 =
+    admit
+
+datatype {Nat} {Nat} le_result =
+         Le {a b : Nat} {a <= b} of {b} {a} le_result
+       | Gt {a b : Nat} {a > b} of {b} {a} le_result
+
+fun le {x : Nat} {y : Nat} (x : {x} uint, y : {y} uint) return {y} {x} le_result using 7.0 =
+    admit
+
+datatype {Nat} {Nat} min_max_result =
+         MinMaxResult {a b a' b' : Nat} {(a <= b -> a' = a /\ b' = b) /\ (a > b -> a' = b /\ b' = a)} of {a'} uint * {b'} uint --> {b} {a} min_max_result
+
+fun min_max {m : Time} {x : Nat} {y : Nat} (le : {x} uint * {y} uint -- m --> {y} {x} le_result) (x : {x} uint, y : {y} uint) return {y} {x} min_max_result =
+    case le (x, y) of
+        Le => MinMaxResult (x, y)
+      | Gt => MinMaxResult (y, x)
+

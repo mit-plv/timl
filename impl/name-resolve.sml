@@ -167,7 +167,12 @@ local
           in
             Let (decls, copy_anno (shift_return (sctxn, kctxn) (t, d)) e, r)
           end
-        | _ => e
+        | Never _ => e
+        | Admit _ => e
+        | _ =>
+          case t of
+              SOME t => Ascription (e, t)
+            | NONE => e
                 
     and copy_anno_rule return (pn, e) =
       let

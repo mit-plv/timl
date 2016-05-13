@@ -83,7 +83,7 @@ open Ast
        | bind of bind list
        | tbind_plus of tbind list
        | tbind_star of tbind list
-       | tbind of tbind
+       | tbind of tbind list
        | return of ty option * idx option
        | rec_return of ty option * idx option
        | rule_bar_star of (ptrn * exp) list
@@ -162,6 +162,7 @@ exp : aexp (aexp)
      | exp COLON ty (Ascription (exp, ty, (expleft, tyright)))
      | exp RTRI idx (AscriptionTime (exp, idx, (expleft, idxright)))
      | exp LCUR idx RCUR (AppI (exp, idx, (expleft, idxright)))
+     | exp LCUR RCUR (AppI (exp, VarI ("_", (LCURleft, RCURright)), (expleft, RCURright)))
      | exp aexp (App (exp, aexp, (expleft, aexpright)))
 
 decorated_id : id ((id, false))
@@ -240,11 +241,11 @@ bind : aptrn ([Typing (aptrn)])
      | sorting (map TBind sorting)
      | LPAREN bind RPAREN (bind)
 
-tbind_star : tbind tbind_star (tbind :: tbind_star)
+tbind_star : tbind tbind_star (tbind @ tbind_star)
 	   | ([])
-tbind_plus : tbind tbind_star (tbind :: tbind_star)
+tbind_plus : tbind tbind_star (tbind @ tbind_star)
 
-tbind : LCUR id COLON sort RCUR (Sorting (id, sort, (LCURleft, RCURright)))
+tbind : sorting (sorting)
       | LPAREN tbind RPAREN (tbind)
 
 return : RETURN ty RTRI idx ((SOME ty, SOME idx))

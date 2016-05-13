@@ -1,19 +1,5 @@
 (* Red-black tree with invariant for well-red-ness, black-height-blance and sorted-ness. Key type is indexed unsigned fixed-width integers *)
 
-(* some placeholders for indexed unsigned fixed-width integers (they should be provided natively by the language, to support O(1) operations) *)
-datatype {Nat} uint =
-         (* constructors are just placeholders *)
-         Zero of {0} uint
-       | Succ {n : Nat} of {n} uint --> {n + 1} uint
-                              
-datatype {Nat} {Nat} cmp_result =
-         Equal {a b : Nat} {a = b} of {b} {a} cmp_result
-         | Less {a b : Nat} {a < b} of {b} {a} cmp_result
-         | Greater {a b : Nat} {a > b} of {b} {a} cmp_result
-
-fun cmp {x : Nat} {y : Nat} (x : {x} uint, y : {y} uint) return {y} {x} cmp_result using 7.0 =
-    admit
-
 datatype {Bool} color =
          Black of {true} color
          | Red of {false} color
