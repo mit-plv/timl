@@ -49,7 +49,7 @@ datatype {Nat} {Nat} {Nat} {Bool} {Bool (*is already good?*)} 'a arbt =
        | Bad {bh kmin kmax : Nat} of {kmax} {kmin} {bh} 'a violation --> {kmax} {kmin} {bh} {false} {false} 'a arbt
 
 datatype {Nat} {Nat} {Nat} {Bool} 'a ins_result =
-         InsResult {input_color output_color is_good : Bool} {bh kmin kmax : Nat} {input_color = true -> is_good = true} {output_color = true -> bh > 1} of {kmax} {kmin} {bh} {output_color} {is_good} 'a arbt --> {kmax} {kmin} {bh} {input_color} 'a ins_result
+         InsResult {input_color output_color is_good : Bool} {bh kmin kmax : Nat} {input_color = true -> is_good = true} {~ (output_color = true /\ bh = 1)}(*result can't be a leaf*) of {kmax} {kmin} {bh} {output_color} {is_good} 'a arbt --> {kmax} {kmin} {bh} {input_color} 'a ins_result
 
 absidx g : BigO 1 (fn n => $n) (* = fn n => 6.0 * $n *) with                                   
 fun ins ['a] {input_color : Bool} {bh kmin kmax k : Nat} (tr : {kmax} {kmin} {bh} {input_color} 'a rbt) (new as (k : {k} uint, _)) return {ite (bh == 1 && input_color) k (k max kmax)} {ite (bh == 1 && input_color) k (k min kmin)} {bh} {input_color} 'a ins_result using (* 6.0 * $ *)g (2 * bh + b2n (not input_color)) =
@@ -77,6 +77,7 @@ fun ins ['a] {input_color : Bool} {bh kmin kmax k : Nat} (tr : {kmax} {kmin} {bh
                       | Black =>
                         (* never *)
                         InsResult (Good (Red, Node (Red, left, center(* new *)(* (Zero, v) *), right)))
+                        (* InsResult (Good (Red, Node (Red, left, new, right))) *)
                    )
                  | _ => never
              end
@@ -121,21 +122,22 @@ fun ins ['a] {input_color : Bool} {bh kmin kmax k : Nat} (tr : {kmax} {kmin} {bh
              end
         )
 end
-(*
-fun blacken_root ['a] {bh : Nat} (tr : {bh} {false} 'a rbt) return {bh + 1} {true} 'a rbt =
+
+fun blacken_root ['a] {bh kmin kmax : Nat} (tr : {kmax} {kmin} {bh} {false} 'a rbt) return {kmax} {kmin} {bh + 1} {true} 'a rbt =
     case tr of
         Node (Red, l, c, r) => Node (Black, l, c, r)
       | _ => never
 
 (* final packaging: root must be black *)
 datatype {Nat} 'a rb_tree =
-         RBTree {bh : Nat} of {bh} {true} 'a rbt --> {bh} 'a rb_tree
-                                   
+         RBTree {bh kmin kmax : Nat} of {kmax} {kmin} {bh} {true} 'a rbt --> {bh} 'a rb_tree
+
+
 datatype {Nat} 'a rbt_may_grow_one =
          RbtMayGrowOne {bh : Nat} {bh' : Nat | bh' = bh \/ bh' = bh + 1} of {bh'} 'a rb_tree --> {bh} 'a rbt_may_grow_one
 
-absidx g : BigO 1 (fn n => $n) with
-fun insert ['a] {bh : Nat} (tr : {bh} 'a rb_tree) new return {bh} 'a rbt_may_grow_one using g bh =
+absidx Tinsert : BigO 1 (fn n => $n) with
+fun insert ['a] {bh k : Nat} (tr : {bh} 'a rb_tree) (new : {k} uint * 'a) return {bh} 'a rbt_may_grow_one using Tinsert bh =
     case tr of
         RBTree tr =>
         case ins tr new of
@@ -148,19 +150,18 @@ fun insert ['a] {bh : Nat} (tr : {bh} 'a rb_tree) new return {bh} 'a rbt_may_gro
 end
 
 absidx g : BigO 1 (fn n => $n) with
-fun search ['a] {color : Bool} {bh : Nat} (tr : {bh} {color} 'a rbt) k return 'a option using g (2 * bh + b2n (not color)) =
+fun lookup' ['a] {color : Bool} {bh kmin kmax k : Nat} (tr : {kmax} {kmin} {bh} {color} 'a rbt) (k : {k} uint) return 'a option using g (2 * bh + b2n (not color)) =
     case tr of
         Leaf => NONE
       | Node (_, left, (k', v), right) =>
         case cmp (k, k') of
             Equal => SOME v
-          | Less => search left k
-          | Greater => search right k
+          | Less => lookup' left k
+          | Greater => lookup' right k
 end
 
-absidx g : BigO 1 (fn n => $n) with
-fun lookup ['a] {bh : Nat} (tr : {bh} 'a rb_tree) k return 'a option using g bh =
+absidx Tlookup : BigO 1 (fn n => $n) with
+fun lookup ['a] {bh k : Nat} (tr : {bh} 'a rb_tree) (k : {k} uint) return 'a option using Tlookup bh =
     case tr of
-        RBTree tr => search tr k
+        RBTree tr => lookup' tr k
 end
-*)
