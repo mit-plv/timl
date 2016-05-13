@@ -30,6 +30,7 @@ fun on_i_i on_v x n b =
             | DivI (i1, n2) => DivI (f x n i1, n2)
             | ExpI (i1, n2) => ExpI (f x n i1, n2)
 	    | BinOpI (opr, i1, i2) => BinOpI (opr, f x n i1, f x n i2)
+            | Ite (i1, i2, i3, r) => Ite (f x n i1, f x n i2, f x n i3, r)
 	    | TTI r => TTI r
 	    | TrueI r => TrueI r
 	    | FalseI r => FalseI r
@@ -81,6 +82,7 @@ local
         | DivI (i1, n2) => DivI (f x v i1, n2)
         | ExpI (i1, n2) => ExpI (f x v i1, n2)
 	| BinOpI (opr, d1, d2) => BinOpI (opr, f x v d1, f x v d2)
+        | Ite (i1, i2, i3, r) => Ite (f x v i1, f x v i2, f x v i3, r)
 	| TrueI r => TrueI r
 	| FalseI r => FalseI r
 	| TTI r => TTI r
@@ -197,7 +199,29 @@ local
                      mark $ subst_i_i (passi i2) body
 		   | _ => def ()
                 )
+              | EqI =>
+                if eq_i i1 i2 then
+                  mark $ TrueI $ get_region_i i
+                else def ()
+              | AndI =>
+                if eq_i i1 (TrueI dummy) then
+                  mark i2
+                else if eq_i i2 (TrueI dummy) then
+                  mark i1
+                else if eq_i i1 (FalseI dummy) then
+                  mark $ FalseI $ get_region_i i
+                else if eq_i i2 (FalseI dummy) then
+                  mark $ FalseI $ get_region_i i
+                else
+                  def ()
           end
+        | Ite (i, i1, i2, r) =>
+          if eq_i i (TrueI dummy) then
+            mark i1
+          else if eq_i i (FalseI dummy) then
+            mark i2
+          else
+            Ite (passi i, passi i1, passi i2, r)
         | UnOpI (ToReal, BinOpI (AddI, i1, i2), r) =>
           (set ();
            BinOpI (AddI, UnOpI (ToReal, i1, r), UnOpI (ToReal, i2, r)))

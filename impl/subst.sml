@@ -25,6 +25,7 @@ fun on_i_i on_v on_invis expand_i x n b =
           | DivI (i1, n2) => DivI (f x n i1, n2)
           | ExpI (i1, n2) => ExpI (f x n i1, n2)
 	  | BinOpI (opr, i1, i2) => BinOpI (opr, f x n i1, f x n i2)
+          | Ite (i1, i2, i3, r) => Ite (f x n i1, f x n i2, f x n i3, r)
 	  | TTI r => TTI r
 	  | TrueI r => TrueI r
 	  | FalseI r => FalseI r
@@ -286,6 +287,12 @@ fun forget_t_mt x n b = on_t_mt forget_v forget_invis expand_mt x n b
 fun forget_i_t x n b = on_i_t forget_i_mt x n b
 fun forget_t_t x n b = on_t_t forget_t_mt x n b
 
+fun try_forget f a =
+    SOME (f a) handle ForgetError _ => NONE
+
+(* ToDo: just a hack now *)
+fun forget_above_i_i x b = forget_i_i x 100000000 b
+
 fun shrink_i invis b = shrink forget_i_i invis b
 fun shrink_s invis b = shrink forget_i_s invis b
 fun shrink_mt (invisi, invist) b = (shrink forget_i_mt invisi o shrink forget_t_mt invist) b
@@ -322,6 +329,7 @@ local
           | DivI (i1, n2) => DivI (f x v i1, n2)
           | ExpI (i1, n2) => ExpI (f x v i1, n2)
 	  | BinOpI (opr, d1, d2) => BinOpI (opr, f x v d1, f x v d2)
+          | Ite (i1, i2, i3, r) => Ite (f x v i1, f x v i2, f x v i3, r)
 	  | TrueI r => TrueI r
 	  | FalseI r => FalseI r
 	  | TTI r => TTI r

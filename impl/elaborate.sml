@@ -21,6 +21,13 @@ local
       case (opr, i1) of
           (TimeApp, S.VarI (x, r1)) => find_by_snd_eq op= x un_op_names
         | _ => NONE
+
+    fun is_ite i =
+        case i of
+            S.BinOpI (TimeApp, S.BinOpI (TimeApp, S.BinOpI (TimeApp, S.VarI (x, _), i1, _), i2, _), i3, _) =>
+            if x = "ite" then SOME (i1, i2, i3)
+            else NONE
+          | _ => NONE
                           
     fun elab_i i =
 	case i of
@@ -42,8 +49,10 @@ local
 	  | S.BinOpI (opr, i1, i2, r) =>
             (case is_un_op (opr, i1) of
                  SOME opr => UnOpI (opr, elab_i i2, r)
-               | _ =>
-	         BinOpI (opr, elab_i i1, elab_i i2)
+               | NONE =>
+                 case is_ite i of
+                     SOME (i1, i2, i3) => Ite (elab_i i1, elab_i i2, elab_i i3, r)
+	           | NONE =>BinOpI (opr, elab_i i1, elab_i i2)
             )
 	  | S.TTI r =>
 	    TTI r

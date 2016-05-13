@@ -39,7 +39,8 @@ open Ast
     | OR
     | IFF
     | EQ
-    | LE
+    | DOUBLE_EQ
+    | DOUBLE_POND
     | VAL
     | DATATYPE
     | EOF
@@ -53,7 +54,9 @@ open Ast
     | AS
     | DOLLAR
     | AT
+    | LE
     | LT
+    | GE
     | GT
     | BIG_O_INFIX
     | IDX
@@ -126,7 +129,9 @@ open Ast
 %right OR
 %right AND
 %nonassoc NOT
-%nonassoc EQ LE GT
+%nonassoc EQ LE LT GE GT 
+%left DOUBLE_POND
+%left DOUBLE_EQ
 %left PLUS MINUS
 %left MULT DIV MAX MIN
 (* %left APP *)
@@ -175,6 +180,8 @@ idx : aidx (aidx)
     | idx DIV INT (DivI (idx, (INT, (INTleft, INTright)), (idxleft, INTright)))
     | idx MAX idx (BinOpI (MaxI, idx1, idx2, (idx1left, idx2right)))
     | idx MIN idx (BinOpI (MinI, idx1, idx2, (idx1left, idx2right)))
+    | idx DOUBLE_EQ idx (BinOpI (EqI, idx1, idx2, (idx1left, idx2right)))
+    | idx DOUBLE_POND idx (BinOpI (AndI, idx1, idx2, (idx1left, idx2right)))
     | idx aidx (BinOpI (TimeApp, idx, aidx, (idxleft, aidxright)))
 
 aidx : id (VarI id)
@@ -194,6 +201,7 @@ prop : id (ConstP id)
      | idx EQ idx (BinPred (EqP, idx1, idx2, (idx1left, idx2right)))
      | idx LE idx (BinPred (LeP, idx1, idx2, (idx1left, idx2right)))
      | idx LT idx (BinPred (LtP, idx1, idx2, (idx1left, idx2right)))
+     | idx GE idx (BinPred (GeP, idx1, idx2, (idx1left, idx2right)))
      | idx GT idx (BinPred (GtP, idx1, idx2, (idx1left, idx2right)))
      | idx BIG_O_INFIX idx (BinPred (BigO, idx1, idx2, (idx1left, idx2right)))
      | LPAREN prop RPAREN (prop)

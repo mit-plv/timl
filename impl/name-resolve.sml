@@ -32,6 +32,7 @@ local
         | E.DivI (i1, n2) => DivI (on_idx ctx i1, n2)
         | E.ExpI (i1, n2) => ExpI (on_idx ctx i1, n2)
 	| E.BinOpI (opr, i1, i2) => BinOpI (opr, on_idx ctx i1, on_idx ctx i2)
+        | E.Ite (i1, i2, i3, r) => Ite (on_idx ctx i1, on_idx ctx i2, on_idx ctx i3, r)
 	| E.TrueI r => TrueI r
 	| E.FalseI r => FalseI r
 	| E.TTI r => TTI r
@@ -84,13 +85,13 @@ local
       case pn of
 	  E.ConstrP (((x, xr), eia), inames, pn, r) =>
           (case find_idx_value x cctx of
-	       SOME (i, inames_len) =>
+	       SOME (i, c_inames) =>
                let
                  val inames =
                      if eia then
                        inames
                      else
-                       if length inames = 0 then repeat inames_len "_"
+                       if length inames = 0 then map (prefix "__") c_inames
                        else raise Error (r, "Constructor pattern can't have explicit index pattern arguments. Use [@constructor_name] if you want to write explict index pattern arguments.")
                in
                  ConstrP (((i, xr), true), inames, Option.map (on_ptrn ctx) pn, r)
@@ -176,7 +177,9 @@ local
         (pn, copy_anno (shift_return offset return) e)
       end
         
-    fun on_expr (ctx as (sctx, kctx, cctx : (string * int) list, tctx)) e =
+    fun get_constr_inames core = map fst $ fst $ unfold_ibinds core
+                                     
+    fun on_expr (ctx as (sctx, kctx, cctx, tctx)) e =
       let 
           (* val () = println $ sprintf "on_expr $ in context $" [E.str_e ctx e, join " " tctx] *)
           fun add_t name (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx)
@@ -307,7 +310,7 @@ local
               fun on_constr_decl (cname, core, r) =
                   (cname, on_constr_core (sctx, name :: kctx) tnames core, r)
               val decl = Datatype (name, tnames, map (on_sort sctx) sorts, map on_constr_decl constr_decls, r)
-              val cnames = map (fn (name, core, _) => (name, ibinds_length core)) constr_decls
+              val cnames = map (fn (name, core, _) => (name, get_constr_inames core)) constr_decls
               val ctx = (sctx, name :: kctx, rev cnames @ cctx, tctx)
             in
                 (decl, ctx)
@@ -350,6 +353,8 @@ fun resolve_expr_opt ctx e = runError (fn () => on_expr ctx e) ()
 
 fun resolve_constr_opt ctx e = runError (fn () => on_constr ctx e) ()
 fun resolve_kind_opt ctx e = runError (fn () => on_kind ctx e) ()
+
+val get_constr_inames = get_constr_inames
 end
 
 end

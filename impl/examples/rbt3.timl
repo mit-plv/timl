@@ -20,14 +20,14 @@ datatype {Bool} color =
 
 datatype {Nat(*max*)} {Nat(*min*)} {Nat(*black height*)} {Bool} 'a rbt =
          Leaf of {0} {0} {1} {true} 'a rbt
-       | Node {lcolor color rcolor : Bool} {bh lmin lmax k rmin rmax : Nat} {color = false -> lcolor = true /\ rcolor = true } {lmin <= lmax /\ (lmax < k \/ bh = 1 /\ lcolor = true) /\ (k < rmin \/ bh = 1 /\ rcolor = true) /\ rmin <= rmax} of
-         {color} color * {lmax} {lmin} {bh} {lcolor} 'a rbt * ({k} uint * 'a) * {rmax} {rmin} {bh} {rcolor} 'a rbt --> {k max rmax} {k min lmin} {bh + b2n color} {color} 'a rbt
+       | Node {lcolor color rcolor : Bool} {bh lmin lmax k rmin rmax : Nat} {color = false -> lcolor = true /\ rcolor = true } {lmin <= lmax /\ (lmax < k \/ bh = 1 /\ lcolor = true) /\ (k < rmin \/ bh = 1 /\ rcolor = true) /\ rmin <= rmax} {bh >= 1} of
+         {color} color * {lmax} {lmin} {bh} {lcolor} 'a rbt * ({k} uint * 'a) * {rmax} {rmin} {bh} {rcolor} 'a rbt --> {ite (bh == 1 && rcolor) k rmax} {ite (bh == 1 && lcolor) k lmin} {bh + b2n color} {color} 'a rbt
 
 datatype {Nat} {Nat} {Nat} 'a violation =
-         ViolateLeft {rcolor : Bool} {bh lmin lmax k rmin rmax : Nat} {lmin <= lmax /\ lmax < k /\ (k < rmin \/ bh = 1 /\ rcolor = true) /\ rmin <= rmax} of {lmax} {lmin} {bh} {false} 'a rbt * ({k} uint * 'a) * {rmax} {rmin} {bh} {rcolor} 'a rbt --> {k max rmax} {k min lmin} {bh} 'a violation
-       | ViolateRight {lcolor : Bool} {bh lmin lmax k rmin rmax : Nat} {lmin <= lmax /\ (lmax < k \/ bh = 1 /\ lcolor = true) /\ k < rmin /\ rmin <= rmax} of {lmax} {lmin} {bh} {lcolor} 'a rbt * ({k} uint * 'a) * {rmax} {rmin} {bh} {false} 'a rbt --> {k max rmax} {k min lmin} {bh} 'a violation
+         ViolateLeft {rcolor : Bool} {bh lmin lmax k rmin rmax : Nat} {lmin <= lmax /\ lmax < k /\ (k < rmin \/ bh = 1 /\ rcolor = true) /\ rmin <= rmax} of {lmax} {lmin} {bh} {false} 'a rbt * ({k} uint * 'a) * {rmax} {rmin} {bh} {rcolor} 'a rbt --> {ite (bh == 1 && rcolor) k rmax} {lmin} {bh} 'a violation
+       | ViolateRight {lcolor : Bool} {bh lmin lmax k rmin rmax : Nat} {lmin <= lmax /\ (lmax < k \/ bh = 1 /\ lcolor = true) /\ k < rmin /\ rmin <= rmax} of {lmax} {lmin} {bh} {lcolor} 'a rbt * ({k} uint * 'a) * {rmax} {rmin} {bh} {false} 'a rbt --> {rmax} {ite (bh == 1 && lcolor) k lmin} {bh} 'a violation
                                                                              
-fun balance_left ['a] {rcolor : Bool} {bh lmin lmax k rmin rmax : Nat} {lmin <= lmax /\ lmax < k /\ (k < rmin \/ bh = 1 /\ rcolor = true) /\ rmin <= rmax} (left : {lmax} {lmin} {bh} 'a violation) (center as z : {k} uint * 'a) (right as d : {rmax} {rmin} {bh} {rcolor} 'a rbt) return {k max rmax} {k min lmin} {bh + 1} {false} 'a rbt =
+fun balance_left ['a] {rcolor : Bool} {bh lmin lmax k rmin rmax : Nat} {lmin <= lmax /\ lmax < k /\ (k < rmin \/ bh = 1 /\ rcolor = true) /\ rmin <= rmax} (left : {lmax} {lmin} {bh} 'a violation) (center as z : {k} uint * 'a) (right as d : {rmax} {rmin} {bh} {rcolor} 'a rbt) return {ite (bh == 1 && rcolor) k rmax} {lmin} {bh + 1} {false} 'a rbt =
     case left of
         ViolateLeft (Node (Red, a, x, b), y, c) =>
         Node (Red, Node (Black, a, x, b), y, Node (Black, c, z, d))
@@ -35,7 +35,7 @@ fun balance_left ['a] {rcolor : Bool} {bh lmin lmax k rmin rmax : Nat} {lmin <= 
         Node (Red, Node (Black, a, x, b), y, Node (Black, c, z, d))
       | _ => never
 
-fun balance_right ['a] {lcolor : Bool} {bh lmin lmax k rmin rmax : Nat} {lmin <= lmax /\ (lmax < k \/ bh = 1 /\ lcolor = true) /\ k < rmin /\ rmin <= rmax} (left as a : {lmax} {lmin} {bh} {lcolor} 'a rbt) (center as x : {k} uint * 'a) (right : {rmax} {rmin} {bh} 'a violation) return {k max rmax} {k min lmin} {bh + 1} {false} 'a rbt =
+fun balance_right ['a] {lcolor : Bool} {bh lmin lmax k rmin rmax : Nat} {lmin <= lmax /\ (lmax < k \/ bh = 1 /\ lcolor = true) /\ k < rmin /\ rmin <= rmax} (left as a : {lmax} {lmin} {bh} {lcolor} 'a rbt) (center as x : {k} uint * 'a) (right : {rmax} {rmin} {bh} 'a violation) return {rmax} {ite (bh == 1 && lcolor) k lmin} {bh + 1} {false} 'a rbt =
     case right of
         ViolateLeft (Node (Red, b, y, c), z, d) =>
         Node (Red, Node (Black, a, x, b), y, Node (Black, c, z, d))
@@ -49,10 +49,10 @@ datatype {Nat} {Nat} {Nat} {Bool} {Bool (*is already good?*)} 'a arbt =
        | Bad {bh kmin kmax : Nat} of {kmax} {kmin} {bh} 'a violation --> {kmax} {kmin} {bh} {false} {false} 'a arbt
 
 datatype {Nat} {Nat} {Nat} {Bool} 'a ins_result =
-         InsResult {input_color output_color is_good : Bool} {bh kmin kmax : Nat} {input_color = true -> is_good = true} of {kmax} {kmin} {bh} {output_color} {is_good} 'a arbt --> {kmax} {kmin} {bh} {input_color} 'a ins_result
+         InsResult {input_color output_color is_good : Bool} {bh kmin kmax : Nat} {input_color = true -> is_good = true} {output_color = true -> bh > 1} of {kmax} {kmin} {bh} {output_color} {is_good} 'a arbt --> {kmax} {kmin} {bh} {input_color} 'a ins_result
 
 absidx g : BigO 1 (fn n => $n) (* = fn n => 6.0 * $n *) with                                   
-fun ins ['a] {input_color : Bool} {bh kmin kmax k : Nat} (tr : {kmax} {kmin} {bh} {input_color} 'a rbt) (new as (k : {k} uint, _)) return {k max kmax} {k min kmin} {bh} {input_color} 'a ins_result using (* 6.0 * $ *)g (2 * bh + b2n (not input_color)) =
+fun ins ['a] {input_color : Bool} {bh kmin kmax k : Nat} (tr : {kmax} {kmin} {bh} {input_color} 'a rbt) (new as (k : {k} uint, _)) return {ite (bh == 1 && input_color) k (k max kmax)} {ite (bh == 1 && input_color) k (k min kmin)} {bh} {input_color} 'a ins_result using (* 6.0 * $ *)g (2 * bh + b2n (not input_color)) =
     case tr of
         Leaf =>
         let
@@ -62,7 +62,7 @@ fun ins ['a] {input_color : Bool} {bh kmin kmax k : Nat} (tr : {kmax} {kmin} {bh
         in
           tr
         end
-      | Node (Red, left, center as (k', _), right) =>
+      | Node (Red, left, center as (k', v), right) =>
         (case cmp (k, k') of
              Equal => InsResult (Good (Red, Node (Red, left, new, right)))
            | Less =>
@@ -75,7 +75,8 @@ fun ins ['a] {input_color : Bool} {bh kmin kmax k : Nat} (tr : {kmax} {kmin} {bh
                         Red =>
                         InsResult (Bad (ViolateLeft (left, center, right)))
                       | Black =>
-                        InsResult (Good (Red, Node (Red, left, new, right)))
+                        (* never *)
+                        InsResult (Good (Red, Node (Red, left, (* center *)(* new *)(Zero, v), right)))
                    )
                  | _ => never
              end
@@ -89,7 +90,7 @@ fun ins ['a] {input_color : Bool} {bh kmin kmax k : Nat} (tr : {kmax} {kmin} {bh
                         Red =>
                         InsResult (Bad (ViolateRight (left, center, right)))
                       | Black =>
-                        InsResult (Good (Red, Node (Red, left, new, right)))
+                        InsResult (Good (Red, Node (Red, left, center, right)))
                    )
                  | _ => never
              end

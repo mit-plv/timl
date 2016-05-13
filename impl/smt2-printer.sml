@@ -10,6 +10,14 @@ infixr 1 -->
 fun escape s = if s = "_" then "_x" else String.map (fn c => if c = #"'" then #"!" else c) s
 fun evar_name n = "!!" ^ str_int n
 
+fun print_idx_bin_op opr =
+    case opr of
+        AddI => "+"
+      | MultI => "*"
+      | EqI => "="
+      | AndI => "and"
+      | _ => raise Impossible "print_idx_bin_op ()"
+        
 fun print_i ctx i =
   case i of
       VarI (n, _) =>
@@ -29,10 +37,7 @@ fun print_i ctx i =
       )
     | BinOpI (opr, i1, i2) => 
       (case opr of
-           AddI => sprintf "(+ $ $)" [print_i ctx i1, print_i ctx i2]
-         | MultI => 
-           sprintf "($ $ $)" ["*", print_i ctx i1, print_i ctx i2]
-         | MaxI =>
+           MaxI =>
            let
                fun max a b =
                    sprintf "(ite (>= $ $) $ $)" [a, b, a, b]
@@ -53,7 +58,11 @@ fun print_i ctx i =
                (* sprintf "(app_$$)" [str_int (length is - 1), join_prefix " " $ map (print_i ctx) is] *)
                sprintf "($)" [join " " $ map (print_i ctx) is]
            end
+         | _ => 
+           sprintf "($ $ $)" [print_idx_bin_op opr, print_i ctx i1, print_i ctx i2]
+             
       )
+    | Ite (i1, i2, i3, _) => sprintf "(ite $ $ $)" [print_i ctx i1, print_i ctx i2, print_i ctx i3]
     | TrueI _ => "true"
     | FalseI _ => "false"
     | TTI _ => "TT"
@@ -91,6 +100,7 @@ fun print_p ctx p =
             EqP => "="
           | LeP => "<="
           | LtP => "<"
+          | GeP => ">="
           | GtP => ">"
           | BigO => "<=="
       fun f p =

@@ -15,6 +15,8 @@ datatype idx_bin_op =
 	 | MaxI
 	 | MinI
          | TimeApp (* TF: Time Function *)
+         | EqI
+         | AndI
 
 (* binary logical connectives *)
 datatype bin_conn =
@@ -25,9 +27,10 @@ datatype bin_conn =
 
 (* binary predicates on indices *)
 datatype bin_pred =
-         LeP
-         | EqP
+         EqP
+         | LeP
          | LtP
+         | GeP
          | GtP
          | BigO
                
@@ -55,6 +58,8 @@ fun str_idx_bin_op opr =
     | MaxI => "max"
     | MinI => "min"
     | TimeApp => ""
+    | EqI => "=="
+    | AndI => "&&"
 
 fun str_bin_conn opr =
   case opr of
@@ -68,6 +73,7 @@ fun str_bin_pred opr =
       EqP => "="
     | LeP => "<="
     | LtP => "<"
+    | GeP => ">="
     | GtP => ">"
     | BigO => "<=="
 

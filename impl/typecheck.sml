@@ -24,6 +24,11 @@ fun idx_un_op_type opr =
       | B2n => (BoolSort, Nat)
       | Neg => (BoolSort, BoolSort)
 
+fun idx_bin_op_type opr =
+    case opr of
+        AndI => (BoolSort, BoolSort, BoolSort)
+      | _ => raise Impossible "idx_bin_op_type ()"
+
 (* sorting context *)
 type scontext = (string (* option *) * sort) list
 (* kinding context *)
@@ -212,6 +217,7 @@ fun update_i i =
       | DivI (i1, n2) => DivI (update_i i1, n2)
       | ExpI (i1, n2) => ExpI (update_i i1, n2)
       | BinOpI (opr, i1, i2) => BinOpI (opr, update_i i1, update_i i2)
+      | Ite (i1, i2, i3, r) => Ite (update_i i1, update_i i2, update_i i3, r)
       | VarI _ => i
       | ConstIN _ => i
       | ConstIT _ => i
@@ -621,96 +627,134 @@ local
           end
 
   and get_bsort (ctx : scontext, i : U.idx) : idx * bsort =
-      case i of
-	  U.VarI (x, r) =>
-          let
-          in
-	    case lookup_sort x ctx of
-      		SOME s => (VarI (x, r), get_base r (sctx_names ctx) s)
-      	      | NONE => raise Error (r, ["Unbound index variable: " ^ str_v (sctx_names ctx) x])
-          end
-        | U.UnOpI (opr, i, r) =>
-          let
-            val (atype, rettype) = idx_un_op_type opr
-          in
-            (UnOpI (opr,
-                    check_bsort (ctx, i, Base atype),
-                    r),
-             Base rettype)
-          end
-        | U.DivI (i1, (n2, r2)) =>
-          let 
-            val i1 = check_bsort (ctx, i1, Base Time)
-	    val () = if n2 > 0 then ()
-	             else raise Error (r2, ["Can only divide by positive integer"])
-          in
-            (DivI (i1, (n2, r2)), Base Time)
-          end
-        | U.ExpI (i1, (n2, r2)) =>
-          let 
-            val i1 = check_bsort (ctx, i1, Base Time)
-          in
-            (ExpI (i1, (n2, r2)), Base Time)
-          end
-	| U.BinOpI (opr, i1, i2) =>
-          (case opr of
-               TimeApp =>
-               let
-                 (* val () = println $ U.str_i (names ctx) i *)
-               in
-                 case get_bsort (ctx, i1) of
-                     (i1, Base (TimeFun arity)) =>
-                     if arity > 0 then
-                       let 
-                         val i2 = check_bsort (ctx, i2, Base Nat)
-                       in
-                         (BinOpI (opr, i1, i2), Base (TimeFun (arity - 1)))
-                       end
-                     else
-                       raise Error (get_region_i i1, "Arity of time function must be larger than 0" :: indent ["got arity: " ^ str_int arity, "in: " ^ str_i (sctx_names ctx) i1])
-                   | (i1, bs1) => raise Error (get_region_i i1, "Sort of first operand of time function application must be time function" :: indent ["want: time function", "got: " ^ str_bs bs1, "in: " ^ str_i (sctx_names ctx) i1])
-               end
-             | _ =>
-               (* binary operations on idx are overloaded for Nat and Time *)
-               let 
-                 val (i1, bs1) = get_bsort (ctx, i1)
-                 val (i2, bs2) = get_bsort (ctx, i2)
-                 val () = unify_bs (U.get_region_i i) (bs1, bs2)
-                 val bs = update_bs bs1
-                 val () =
-                     case bs of
-                         Base Nat => ()
-                       | Base Time => ()
-                       | _ => raise Error (U.get_region_i i, sprintf "Sorts of operands of $ must be both Nat or Time:" [str_idx_bin_op opr] :: indent ["left: " ^ str_bs bs1, "right: " ^ str_bs bs2])
-               in
-                 (BinOpI (opr, i1, i2), bs)
-               end
-          )
-	| U.ConstIT (x, r) => 
-	  (ConstIT (x, r), Base Time)
-	| U.ConstIN (n, r) => 
-	  if n >= 0 then
-	    (ConstIN (n, r), Base Nat)
-	  else
-	    raise Error (r, ["Natural number constant must be non-negative"])
-	| U.TrueI r => 
-          (TrueI r, Base BoolSort)
-	| U.FalseI r => 
-          (FalseI r, Base BoolSort)
-	| U.TTI r => 
-          (TTI r, Base UnitSort)
-        | U.TimeAbs ((name, r1), i, r) =>
-          (case get_bsort (add_sorting (name, Basic (Base Nat, r1)) ctx, i) of
-               (i, Base (TimeFun arity)) =>
-               (TimeAbs ((name, r1), i, r), Base (TimeFun (arity + 1)))
-             | (_, bs) => raise Error (U.get_region_i i, "Sort of time funtion body should be time function" :: indent ["want: time function", "got: " ^ str_bs bs])
-          )
-        | U.UVarI ((), r) =>
-          let
-            val bs = fresh_bsort ()
-          in
-            (fresh_i (sctx_names ctx) bs r, bs)
-          end
+      let
+        fun main () =
+            case i of
+	        U.VarI (x, r) =>
+                let
+                in
+	          case lookup_sort x ctx of
+      		      SOME s => (VarI (x, r), get_base r (sctx_names ctx) s)
+      	            | NONE => raise Error (r, ["Unbound index variable: " ^ str_v (sctx_names ctx) x])
+                end
+              | U.UnOpI (opr, i, r) =>
+                let
+                  val (atype, rettype) = idx_un_op_type opr
+                in
+                  (UnOpI (opr,
+                          check_bsort (ctx, i, Base atype),
+                          r),
+                   Base rettype)
+                end
+              | U.DivI (i1, (n2, r2)) =>
+                let 
+                  val i1 = check_bsort (ctx, i1, Base Time)
+	          val () = if n2 > 0 then ()
+	                   else raise Error (r2, ["Can only divide by positive integer"])
+                in
+                  (DivI (i1, (n2, r2)), Base Time)
+                end
+              | U.ExpI (i1, (n2, r2)) =>
+                let 
+                  val i1 = check_bsort (ctx, i1, Base Time)
+                in
+                  (ExpI (i1, (n2, r2)), Base Time)
+                end
+	      | U.BinOpI (opr, i1, i2) =>
+                let
+                  (* overloaded binary operations *)
+                  fun overloaded bases rettype =
+                      let 
+                        val (i1, bs1) = get_bsort (ctx, i1)
+                        val (i2, bs2) = get_bsort (ctx, i2)
+                        val () = unify_bs (U.get_region_i i) (bs1, bs2)
+                        val bs = update_bs bs1
+                        fun error () = Error (U.get_region_i i, sprintf "Sorts of operands of $ must be the same and from $:" [str_idx_bin_op opr, str_ls str_b bases] :: indent ["left: " ^ str_bs bs1, "right: " ^ str_bs bs2])
+                        val rettype =
+                            case bs of
+                                Base b =>
+                                if mem op= b bases then
+                                  case rettype of
+                                      SOME b => Base b
+                                    | NONE => bs
+                                else raise error ()
+                              | _ => raise error ()
+                      in
+                        (BinOpI (opr, i1, i2), rettype)
+                      end
+                in
+                  case opr of
+                      TimeApp =>
+                      let
+                        (* val () = println $ U.str_i (names ctx) i *)
+                      in
+                        case get_bsort (ctx, i1) of
+                            (i1, Base (TimeFun arity)) =>
+                            if arity > 0 then
+                              let 
+                                val i2 = check_bsort (ctx, i2, Base Nat)
+                              in
+                                (BinOpI (opr, i1, i2), Base (TimeFun (arity - 1)))
+                              end
+                            else
+                              raise Error (get_region_i i1, "Arity of time function must be larger than 0" :: indent ["got arity: " ^ str_int arity, "in: " ^ str_i (sctx_names ctx) i1])
+                          | (i1, bs1) => raise Error (get_region_i i1, "Sort of first operand of time function application must be time function" :: indent ["want: time function", "got: " ^ str_bs bs1, "in: " ^ str_i (sctx_names ctx) i1])
+                      end
+                    | AddI => overloaded [Nat, Time] NONE
+                    | MultI => overloaded [Nat, Time] NONE
+                    | MaxI => overloaded [Nat, Time] NONE
+                    | MinI => overloaded [Nat, Time] NONE
+                    | EqI => overloaded [Nat, BoolSort, UnitSort] (SOME BoolSort)
+                    | _ =>
+                      let
+                        val (arg1type, arg2type, rettype) = idx_bin_op_type opr
+                      in
+                        (BinOpI (opr,
+                                 check_bsort (ctx, i1, Base arg1type),
+                                 check_bsort (ctx, i2, Base arg2type)),
+                         Base rettype)
+                      end
+                end
+              | i_all as U.Ite (i, i1, i2, r) =>
+                let
+                  val i = check_bsort (ctx, i, Base BoolSort)
+                  val (i1, bs1) = get_bsort (ctx, i1)
+                  val (i2, bs2) = get_bsort (ctx, i2)
+                  val () = unify_bs (U.get_region_i i_all) (bs1, bs2)
+                in
+                  (Ite (i, i1, i2, r), bs1)
+                end
+	      | U.ConstIT (x, r) => 
+	        (ConstIT (x, r), Base Time)
+	      | U.ConstIN (n, r) => 
+	        if n >= 0 then
+	          (ConstIN (n, r), Base Nat)
+	        else
+	          raise Error (r, ["Natural number constant must be non-negative"])
+	      | U.TrueI r => 
+                (TrueI r, Base BoolSort)
+	      | U.FalseI r => 
+                (FalseI r, Base BoolSort)
+	      | U.TTI r => 
+                (TTI r, Base UnitSort)
+              | U.TimeAbs ((name, r1), i, r) =>
+                (case get_bsort (add_sorting (name, Basic (Base Nat, r1)) ctx, i) of
+                     (i, Base (TimeFun arity)) =>
+                     (TimeAbs ((name, r1), i, r), Base (TimeFun (arity + 1)))
+                   | (_, bs) => raise Error (U.get_region_i i, "Sort of time funtion body should be time function" :: indent ["want: time function", "got: " ^ str_bs bs])
+                )
+              | U.UVarI ((), r) =>
+                let
+                  val bs = fresh_bsort ()
+                in
+                  (fresh_i (sctx_names ctx) bs r, bs)
+                end
+        val ret = main ()
+                  handle
+                  Error (r, msg) => raise Error (r, msg @ ["when sort-checking index "] @ indent [U.str_i (sctx_names ctx) i])
+      in
+        ret
+      end
 
 
   and check_bsort (ctx, i : U.idx, bs : bsort) : idx =
@@ -2209,6 +2253,7 @@ local
         | DivI (i, _) => fv_i i
         | ExpI (i, _) => fv_i i
         | BinOpI (_, i1, i2) => fv_i i1 @ fv_i i2
+        | Ite (i1, i2, i3, _) => fv_i i1 @ fv_i i2 @ fv_i i3
         | TrueI _ => []
         | FalseI _ => []
         | TTI _ => []
@@ -2335,6 +2380,7 @@ local
               | DivI (i1, n2) => DivI (substu_i x v i1, n2)
               | ExpI (i1, n2) => ExpI (substu_i x v i1, n2)
 	      | BinOpI (opr, i1, i2) => BinOpI (opr, substu_i x v i1, substu_i x v i2)
+              | Ite (i1, i2, i3, r) => Ite (substu_i x v i1, substu_i x v i2, substu_i x v i3, r)
 	      | TrueI r => TrueI r
 	      | FalseI r => FalseI r
               | TimeAbs (name, i, r) => TimeAbs (name, substu_i x (v + 1) i, r)
@@ -2354,9 +2400,14 @@ local
             (* else *)
               "_x" ^ str_int n
         val r = get_region_p p
+        fun notifier i =
+            case try_forget (forget_above_i_i 0) i of
+                SOME _ =>
+                unify_i dummy [] (UVarI (([], uvar_ref), dummy), i)
+              | NONE => raise Error (r, ["Inferred existential index can only be closed index"])
         val p =
             (* ToDo: need to shift [i] *)
-            Quan (Exists (SOME (fn i => unify_i dummy [] (UVarI (([], uvar_ref), dummy), i))),
+            Quan (Exists (SOME notifier),
                   bsort,
                   (evar_name n, dummy), substu_p uvar_ref 0 $ shift_i_p $ update_p p, r)
         val p = set_region_p p r
@@ -2394,6 +2445,7 @@ local
               | N.DivI (i1, n2) => DivI (f i1, n2)
               | N.ExpI (i1, n2) => ExpI (f i1, n2)
               | N.BinOpI (opr, i1, i2) => BinOpI (opr, f i1, f i2)
+              | N.Ite (i1, i2, i3, r) => Ite (f i1, f i2, f i3, r)
               | N.TrueI r => TrueI r
               | N.FalseI r => FalseI r
               | N.TTI r => TTI r
@@ -2416,6 +2468,7 @@ local
               | DivI (i1, n2) => N.DivI (f i1, n2)
               | ExpI (i1, n2) => N.ExpI (f i1, n2)
               | BinOpI (opr, i1, i2) => N.BinOpI (opr, f i1, f i2)
+              | Ite (i1, i2, i3, r) => N.Ite (f i1, f i2, f i3, r)
               | TrueI r => N.TrueI r
               | FalseI r => N.FalseI r
               | TTI r => N.TTI r
@@ -2456,8 +2509,8 @@ local
         val () = case vces of
                      [] => ()
                    | _ => raise Impossible "to_vcs (): remaining after get_formulas"
-        (* val () = println "Formulas: " *)
-        (* val () = app println $ map (str_f []) fs *)
+        val () = println "Formulas: "
+        val () = app println $ map (str_f []) fs
         val f = fs_to_f2 fs
         (* val () = println "Formula2: " *)
         (* val () = println $ str_f2 [] f *)

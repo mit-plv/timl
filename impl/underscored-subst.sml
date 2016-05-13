@@ -14,6 +14,7 @@ fun on_i_i on_v on_invis x n b =
           | DivI (i1, n2) => DivI (f x n i1, n2)
           | ExpI (i1, n2) => ExpI (f x n i1, n2)
 	  | BinOpI (opr, i1, i2) => BinOpI (opr, f x n i1, f x n i2)
+          | Ite (i1, i2, i3, r) => Ite (f x n i1, f x n i2, f x n i3, r)
 	  | TTI r => TTI r
 	  | TrueI r => TrueI r
 	  | FalseI r => FalseI r

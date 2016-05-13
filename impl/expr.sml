@@ -92,6 +92,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  | DivI of idx * (int * region)
                  | ExpI of idx * (string * region)
                  | BinOpI of idx_bin_op * idx * idx
+                 | Ite of idx * idx * idx * region
 	         | TrueI of region
 	         | FalseI of region
 	         | TTI of region
@@ -327,6 +328,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                       | DivI (i1, (n2, _)) => (case i' of DivI (i1', (n2', _)) => loop i1 i1' andalso n2 = n2' | _ => false)
                       | ExpI (i1, (n2, _)) => (case i' of ExpI (i1', (n2', _)) => loop i1 i1' andalso n2 = n2' | _ => false)
                       | BinOpI (opr, i1, i2) => (case i' of BinOpI (opr', i1', i2') => opr = opr' andalso loop i1 i1' andalso loop i2 i2' | _ => false)
+                      | Ite (i1, i2, i3, _) => (case i' of Ite (i1', i2', i3', _) => loop i1 i1' andalso loop i2 i2' andalso loop i3 i3' | _ => false)
                       | TrueI _ => (case i' of TrueI _ => true | _ => false)
                       | FalseI _ => (case i' of FalseI _ => true | _ => false)
                       | TTI _ => (case i' of TTI _ => true | _ => false)
@@ -383,6 +385,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                     sprintf "($)" [join " + " $ map (str_i ctx) is]
                 end
               | BinOpI (opr, i1, i2) => sprintf "($ $ $)" [str_i ctx i1, str_idx_bin_op opr, str_i ctx i2]
+              | Ite (i1, i2, i3, _) => sprintf "(ite $ $ $)" [str_i ctx i1, str_i ctx i2, str_i ctx i3]
               | TTI _ => "()"
               | TrueI _ => "true"
               | FalseI _ => "false"
@@ -687,6 +690,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | DivI (i1, (_, r2)) => combine_region (get_region_i i1) r2
               | ExpI (i1, (_, r2)) => combine_region (get_region_i i1) r2
               | BinOpI (_, i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
+              | Ite (_, _, _, r) => r
               | TrueI r => r
               | FalseI r => r
               | TTI r => r
@@ -702,6 +706,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | DivI (i1, (n2, _)) => DivI (set_region_i i1 r, (n2, r))
               | ExpI (i1, (n2, _)) => ExpI (set_region_i i1 r, (n2, r))
               | BinOpI (opr, i1, i2) => BinOpI (opr, set_region_i i1 r, set_region_i i2 r)
+              | Ite (i1, i2, i3, _) => Ite (i1, i2, i3, r)
               | TrueI _ => TrueI r
               | FalseI _ => FalseI r
               | TTI _ => TTI r
@@ -793,12 +798,16 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
             val changed = ref false
             fun unset () = changed := false
             fun set () = changed := true
+            fun mark a = (set (); a)
             fun passi i =
 	        case i of
                     DivI (i1, n2) => DivI (passi i1, n2)
                   | ExpI (i1, n2) => ExpI (passi i1, n2)
 	          | BinOpI (opr, i1, i2) =>
-                    (case opr of
+                    let
+                      fun def () = BinOpI (opr, passi i1, passi i2)
+                    in
+                    case opr of
 	                 MaxI =>
 	                 if eq_i i1 i2 then
 		             (set ();
@@ -837,7 +846,29 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 		             BinOpI (opr, passi i1, passi i2)
                        | TimeApp =>
 		         BinOpI (opr, passi i1, passi i2)
-                    )
+                       | EqI =>
+                         if eq_i i1 i2 then
+                           mark $ TrueI $ get_region_i i
+                         else def ()
+                       | AndI =>
+                         if eq_i i1 (TrueI dummy) then
+                           mark i2
+                         else if eq_i i2 (TrueI dummy) then
+                           mark i1
+                         else if eq_i i1 (FalseI dummy) then
+                           mark $ FalseI $ get_region_i i
+                         else if eq_i i2 (FalseI dummy) then
+                           mark $ FalseI $ get_region_i i
+                         else
+                           def ()
+                    end
+                  | Ite (i, i1, i2, r) =>
+                    if eq_i i (TrueI dummy) then
+                      mark i1
+                    else if eq_i i (FalseI dummy) then
+                      mark i2
+                    else
+                      Ite (passi i, passi i1, passi i2, r)
                   | UnOpI (opr, i, r) =>
                     UnOpI (opr, passi i, r)
                   | TimeAbs ((name, r1), i, r) =>

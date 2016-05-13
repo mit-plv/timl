@@ -40,7 +40,7 @@ fun typecheck_file (filename, ctx) =
       val ctxn =
           let
             val (sctx, kctx, cctx, tctx) = ctx
-            val cctx = map (fn (name, (_, _, core)) => (name, ibinds_length core)) cctx
+            val cctx = map (fn (name, (_, _, core)) => (name, get_constr_inames core)) cctx
           in
             (sctx_names sctx, names kctx, cctx, names tctx)
           end
