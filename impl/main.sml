@@ -93,8 +93,9 @@ fun typecheck_file (filename, ctx) =
             let
               val () = println "-------------------------------------------"
               val () = println "Applying SMT solver ..."
-              (* val unsats = List.mapPartial id $ map (SMTSolver.smt_solver_single filename) vcs *)
-              val unsats = List.mapPartial id $ SMTSolver.smt_solver filename vcs
+              val unsats = List.mapPartial id $ SMTSolver.smt_solver filename false vcs
+              (* re-check individually to get counter-example *)
+              val unsats = List.mapPartial id $ map (SMTSolver.smt_solver_single filename true) $ map fst $ unsats
               val () = println (sprintf "SMT solver generated or left $ proof obligations unproved." [str_int $ length unsats])
               val () = println ""
               (* val () = print_unsats false filename unsats *)

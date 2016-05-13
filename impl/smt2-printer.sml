@@ -141,9 +141,9 @@ fun print_hyp ctx h =
             BinPred (BigO, _, _) => ("", ctx)
           | _ => (assert (print_p ctx p), ctx)
 
-val prelude = [
+fun prelude get_ce = [
     "(set-logic ALL_SUPPORTED)",
-    "(set-option :produce-models true)",
+    if get_ce then "(set-option :produce-models true)" else "",
     (* "(set-option :produce-proofs true)", *)
 
     (* "(declare-datatypes () ((Unit TT)))", *)
@@ -184,9 +184,9 @@ val pop = [
     "(pop 1)"
 ]
 
-val check = [
-    "(check-sat)"
-    (* ,"(get-model)" *)
+fun check get_ce = [
+    "(check-sat)",
+    if get_ce then "(get-model)" else ""
     (* "(get-proof)" *)
     (* "(get-value (n))", *)
 ]
@@ -238,7 +238,7 @@ fun conv_hyp h =
             hs
         end
 
-fun print_vc ((hyps, goal) : vc) =
+fun print_vc get_ce ((hyps, goal) : vc) =
   let
       val hyps = rev hyps
       val hyps = concatMap conv_hyp hyps
@@ -248,18 +248,18 @@ fun print_vc ((hyps, goal) : vc) =
       val hyps = rev hyps
       val lines = lines @ hyps
       val lines = lines @ [assert (negate (print_p ctx goal))]
-      val lines = lines @ check
+      val lines = lines @ check get_ce
       val lines = lines @ pop
       val lines = lines @ [""]
   in
       lines
   end
 
-fun to_smt2 vcs = 
+fun to_smt2 get_ce vcs = 
   let
       val lines =
-	  concatMap print_vc vcs
-      val lines = prelude @ lines
+	  concatMap (print_vc get_ce) vcs
+      val lines = prelude get_ce @ lines
       val s = join_lines lines
   in
       s

@@ -47,22 +47,23 @@ fun get_model model =
         | _ => raise SMTError $ prefix ^ ": (model ...)"
     end
       
-fun smt_solver filename vcs = 
+fun smt_solver filename get_ce vcs = 
     let
-      val smt2 = to_smt2 vcs
+      val get_cs = if length vcs = 1 then get_ce else false
+      val smt2 = to_smt2 get_ce vcs
       (* val () = println smt2 *)
       val smt2_filename = filename ^ ".smt2"
       val resp_filename = filename ^ ".lisp"
       val () = write_file (smt2_filename, smt2)
       (* val smt_cmd = "z3" *)
       val smt_cmd = "cvc4 --incremental"
-      val () = print $ sprintf "Solving by SMT solver \"$\" ... " [smt_cmd]
+      (* val () = print $ sprintf "Solving by SMT solver \"$\" ... " [smt_cmd] *)
       val _ = system (sprintf "$ $ > $" [smt_cmd, smt2_filename, resp_filename])
-      val () = println "Finished SMT solving."
+      (* val () = println "Finished SMT solving." *)
       (* val () = println $ read_file resp_filename *)
       val resps = SExpParserString.parse_file resp_filename
       (* val () = println $ str_int $ length resps *)
-      val group_size = 1
+      val group_size = if get_ce then 2 else 1
       val () = if length resps = group_size * length vcs then ()
                else raise SMTError "Wrong number of responses"
       val resps = group group_size resps
@@ -115,15 +116,15 @@ fun smt_solver filename vcs =
     handle
     SMTError msg =>
     let
-      val () = println $ "SMT error: " ^ msg
+      (* val () = println $ "SMT error: " ^ msg *)
       val vcs = map (fn vc => SOME (vc, NONE)) vcs
     in
       vcs
     end
     
-fun smt_solver_single filename vc =
+fun smt_solver_single filename get_ce vc =
     let
-      val ret = (hd $ smt_solver filename [vc]) 
+      val ret = (hd $ smt_solver filename get_ce [vc]) 
                 handle SMTError _ => SOME (vc, NONE)
     in
       ret

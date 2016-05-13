@@ -40,7 +40,7 @@ fun find_bigO_hyp f_i hyps =
 fun contains big small = not $ isSome $ try_forget (forget_i_i small 1) big
                              
 fun ask_smt_vc vc =
-    not $ isSome $ SMTSolver.smt_solver_single "" vc
+    not $ isSome $ SMTSolver.smt_solver_single "" false vc
                                      
 fun mult_class_entry ((c1, k1), (c2, k2)) = (c1 + c2, k1 + k2)
                                               
@@ -153,7 +153,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
       val vcs' = append_hyps ([VarH (name0, TimeFun arity0), VarH (name1, TimeFun arity1)] @ hs) vcs
       (* val () = app println $ concatMap (fn vc => str_vc false "" vc @ [""]) vcs' *)
       (* val () = println "Master-Theorem-solver to apply SMT solver to discharge some VCs. " *)
-      val vcs_vcs' = List.mapPartial (fn (vc, out) => case out of SOME (vc', _) => SOME (vc, vc') | NONE => NONE) $ zip (vcs, SMTSolver.smt_solver "" vcs')
+      val vcs_vcs' = List.mapPartial (fn (vc, out) => case out of SOME (vc', _) => SOME (vc, vc') | NONE => NONE) $ zip (vcs, SMTSolver.smt_solver "" false vcs')
       val () = println "Master-Theorem-solver to solve this: "
       val () = app println $ concatMap (fn vc => str_vc false "" vc @ [""]) $ map snd $ vcs_vcs'
       exception Error of string
@@ -487,7 +487,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
 fun use_master_theorem hs name_arity1 (name0, arity0) p =
     (* opportunity to apply the Master Theorem to infer the bigO class *)
     let
-      val () = println "use_master_theorem ()"
+      (* val () = println "use_master_theorem ()" *)
       (* hoist the conjuncts that don't involve the time functions *)
       val vcs = prop2vcs p
       val (rest, vcs) = partitionOption (Option.composePartial (try_forget (forget_i_vc 0 1), try_forget (forget_i_vc 0 1))) vcs
