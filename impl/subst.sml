@@ -106,7 +106,7 @@ fun on_i_t on_i_mt x n b =
       fun f x n b =
 	case b of
 	    Mono t => Mono (on_i_mt x n t)
-	  | Uni (name, t) => Uni (name, f x n t)
+	  | Uni (name, t, r) => Uni (name, f x n t, r)
   in
       f x n b
   end
@@ -141,7 +141,7 @@ fun on_t_t on_t_mt x n b =
       fun f x n b =
 	case b of
 	    Mono t => Mono (on_t_mt x n t)
-	  | Uni (name, t) => Uni (name, f (x + 1) n t)
+	  | Uni (name, t, r) => Uni (name, f (x + 1) n t, r)
   in
       f x n b
   end
@@ -417,7 +417,7 @@ local
     fun f x v b =
 	case b of
 	    Mono t => Mono (substx_i_mt x v t)
-	  | Uni (name, t) => Uni (name, f x v t)
+	  | Uni (name, t, r) => Uni (name, f x v t, r)
 in
 fun substx_i_t x (v : idx) (b : ty) : ty = f x v b
 fun subst_i_t (v : idx) (b : ty) : ty = substx_i_t 0 v b
@@ -463,7 +463,7 @@ end
 fun substx_t_t x (v : mtype) (b : ty) : ty =
   case b of
       Mono t => Mono (substx_t_mt x v t)
-    | Uni (name, t) => Uni (name, substx_t_t (x + 1) (shift_t_mt v) t)
+    | Uni (name, t, r) => Uni (name, substx_t_t (x + 1) (shift_t_mt v) t, r)
 fun subst_t_t v b =
   substx_t_t 0 v b
 

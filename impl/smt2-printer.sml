@@ -185,8 +185,8 @@ val pop = [
 ]
 
 val check = [
-    "(check-sat)",
-    "(get-model)"
+    "(check-sat)"
+    (* ,"(get-model)" *)
     (* "(get-proof)" *)
     (* "(get-value (n))", *)
 ]

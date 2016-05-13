@@ -76,7 +76,7 @@ fun ins ['a] {input_color : Bool} {bh kmin kmax k : Nat} (tr : {kmax} {kmin} {bh
                         InsResult (Bad (ViolateLeft (left, center, right)))
                       | Black =>
                         (* never *)
-                        InsResult (Good (Red, Node (Red, left, (* center *)(* new *)(Zero, v), right)))
+                        InsResult (Good (Red, Node (Red, left, center(* new *)(* (Zero, v) *), right)))
                    )
                  | _ => never
              end

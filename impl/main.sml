@@ -92,7 +92,9 @@ fun typecheck_file (filename, ctx) =
           else
             let
               val () = println "-------------------------------------------"
-              val unsats = List.mapPartial id $ map (SMTSolver.smt_solver_single filename) vcs
+              val () = println "Applying SMT solver ..."
+              (* val unsats = List.mapPartial id $ map (SMTSolver.smt_solver_single filename) vcs *)
+              val unsats = List.mapPartial id $ SMTSolver.smt_solver filename vcs
               val () = println (sprintf "SMT solver generated or left $ proof obligations unproved." [str_int $ length unsats])
               val () = println ""
               (* val () = print_unsats false filename unsats *)
@@ -153,7 +155,52 @@ fun process_file (filename, ctx) =
                   in
                     lines
                   end
+              fun trim s =
+                  let
+                    fun first_non_space s =
+                        let
+                          val len = String.size s
+                          fun loop n =
+                              if n >= len then
+                                NONE
+                              else
+                                if Char.isSpace $ String.sub (s, n)  then
+                                  loop (n + 1)
+                                else
+                                  SOME n
+                        in
+                          loop 0
+                        end
+                    fun last_non_space s =
+                        let
+                          val len = String.size s
+                          fun loop n =
+                              if n < 0 then
+                                NONE
+                              else
+                                if Char.isSpace $ String.sub (s, n)  then
+                                  loop (n - 1)
+                                else
+                                  SOME n
+                        in
+                          loop (len - 1)
+                        end
+                    val first = first_non_space s
+                    val last = last_non_space s
+                  in
+                    case (first, last) of
+                        (SOME first, SOME last) =>
+                        if first <= last then
+                          String.substring (s, first, last - first + 1)
+                        else
+                          ""
+                      | _ => ""
+                  end
               val filenames = read_lines filename
+              val filenames = map trim filenames
+              (* val () = app println filenames *)
+              val filenames = List.filter (fn s => not (String.isPrefix "(*" s andalso String.isSuffix "*)" s)) filenames
+              (* val () = app println filenames *)
               val filenames = List.filter (fn s => s <> "") filenames
               val filenames = map (joinDirFileCurried dir) filenames
               val ctx = process_files ctx filenames

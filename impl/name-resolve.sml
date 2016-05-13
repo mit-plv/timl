@@ -79,7 +79,7 @@ local
     fun on_type (ctx as (sctx, kctx)) t =
       case t of
 	  E.Mono t => Mono (on_mtype ctx t)
-	| E.Uni ((name, r), t) => Uni ((name, r), on_type (sctx, name :: kctx) t)
+	| E.Uni ((name, r), t, r_all) => Uni ((name, r), on_type (sctx, name :: kctx) t, r_all)
 
     fun on_ptrn (ctx as (sctx, kctx, cctx)) pn =
       case pn of

@@ -289,7 +289,7 @@ fun hnf_mt t =
 fun update_t t =
     case t of
         Mono t => Mono (update_mt t)
-      | Uni (name, t) => Uni (name, update_t t)
+      | Uni (name, t, r) => Uni (name, update_t t, r)
 
 exception Error of region * string list
 
@@ -792,11 +792,18 @@ local
         val () =
 	    (case s of
 	         Subset ((bs, _), BindI ((name, _), p), _) =>
-	         (unify_bs r (bs', bs);
-		  write_prop (subst_i_p i p
-                              handle SubstUVar info =>
-                                     raise subst_uvar_error (get_region_p p) ("proposition " ^ str_p (name :: sctx_names ctx) p) i info
-                             , get_region_i i))
+                 let
+	           val () = unify_bs r (bs', bs)
+                   val p = subst_i_p i p
+                           handle
+                           SubstUVar info =>
+                           raise subst_uvar_error (get_region_p p) ("proposition " ^ str_p (name :: sctx_names ctx) p) i info
+                   val r = get_region_i i
+                   (* val () = println $ sprintf "Writing prop $ $" [str_p (sctx_names ctx) p, str_region "" "" r] *)
+		   val () = write_prop (p, r)
+                 in
+                   ()
+                 end
 	       | Basic (bs, _) => 
 	         unify_bs r (bs', bs)
                | UVarS ((_, x), _) =>
@@ -884,8 +891,8 @@ local
         case c of
             U.Mono t =>
             Mono (is_wf_mtype (ctx, t))
-	  | U.Uni ((name, r), c) => 
-	    Uni ((name, r), is_wf_type (add_kinding_sk (name, Type) ctx, c))
+	  | U.Uni ((name, r), c, r_all) => 
+	    Uni ((name, r), is_wf_type (add_kinding_sk (name, Type) ctx, c), r_all)
       end
 
   fun smart_max a b =
@@ -1448,11 +1455,13 @@ local
                     fun insert_type_args t =
                         case t of
                             Mono t => t
-                          | Uni (_, t) =>
+                          | Uni (_, t, _) =>
                             let
-                              val ut = fresh_mt (kctxn @ sctxn) r
-                              (* val () = println $ str_mt skctxn ut *)
-                              val t = subst_t_t ut t
+                              (* val t_arg = fresh_mt (kctxn @ sctxn) r *)
+                              (* val () = println $ str_mt skctxn t_arg *)
+                              val t_arg = U.UVar ((), r)
+                              val t_arg = is_wf_mtype (skctx, t_arg)
+                              val t = subst_t_t t_arg t
                               (* val () = println $ str_t skctxn t *)
                               val t = insert_type_args t
                             in
@@ -1462,23 +1471,25 @@ local
                     (* val () = println $ str_t skctxn t *)
                     val t = insert_type_args t
                     (* val () = println $ str_mt skctxn t *)
-                    fun insert_idx_args (sctxn, t_all) =
+                    fun insert_idx_args t_all =
                         case t_all of
                             UniI (s, BindI ((name, _), t), _) =>
                             let
                               (* val bs = fresh_bsort () *)
-                              val bs =  get_base r sctxn s
-                              val i = fresh_i sctxn bs r
+                              (* val i = fresh_i sctxn bs r *)
+                              (* val bs =  get_base r sctxn s *)
+                              val i = U.UVarI ((), r)
+                              val i = check_sort (sctx, i, s)
                               val t = subst_i_mt i t
                                       handle
                                       SubstUVar info =>
                                       raise subst_uvar_error (U.get_region_e e_all) ("type " ^ str_mt skctxn t_all) i info
                             in
-                              insert_idx_args (name :: sctxn, t)
+                              insert_idx_args t
                             end
                           | _ => t_all
                     val t = if not is_explicit_idx_args then
-                              insert_idx_args (sctxn, t)
+                              insert_idx_args t
                             else
                               t
                   in
@@ -1731,7 +1742,7 @@ local
               val fv = dedup op= $ diff op= (fv_mt t) (fv_ctx ctx)
               val t = shiftx_t_mt 0 (length fv) t
               val (t, _) = foldl (fn (uvar_ref, (t, v)) => (substu uvar_ref v t, v + 1)) (t, 0) fv
-              val t = Range.for (fn (i, t) => (Uni ((evar_name i, dummy), t))) (Mono t) (0, (length fv))
+              val t = Range.for (fn (i, t) => (Uni ((evar_name i, dummy), t, dummy))) (Mono t) (0, (length fv))
             in
               t
             end
@@ -1744,7 +1755,7 @@ local
                   val t = if is_value e then 
                             let
                               val t = generalize t
-                              val t = foldr (fn (nm, t) => Uni (nm, t)) t tnames
+                              val t = foldr (fn (nm, t) => Uni (nm, t, r)) t tnames
                             in
                               t
                             end
@@ -1815,7 +1826,7 @@ local
                   val () = close_vcs nps
                   val () = close_ctx ctxd
                   val te = generalize te
-                  val te = foldr (fn (nm, t) => Uni (nm, t)) te tnames
+                  val te = foldr (fn (nm, t) => Uni (nm, t, r)) te tnames
                   fun h bind =
                       case bind of
                           inl a => SortingST a
@@ -2509,8 +2520,8 @@ local
         val () = case vces of
                      [] => ()
                    | _ => raise Impossible "to_vcs (): remaining after get_formulas"
-        val () = println "Formulas: "
-        val () = app println $ map (str_f []) fs
+        (* val () = println "Formulas: " *)
+        (* val () = app println $ map (str_f []) fs *)
         val f = fs_to_f2 fs
         (* val () = println "Formula2: " *)
         (* val () = println $ str_f2 [] f *)

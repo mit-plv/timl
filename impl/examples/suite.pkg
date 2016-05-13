@@ -1,10 +1,10 @@
-trivial.timl
-msort.timl
-bigO-evolve.timl
-fold-evolve.timl
-single-var.timl
-insertion-sort.timl
-rbt.timl
-rbt2.timl
-braun-tree.timl
+(* trivial.timl *)
+(* msort.timl *)
+(* bigO-evolve.timl *)
+(* fold-evolve.timl *)
+(* single-var.timl *)
+(* insertion-sort.timl *)
+(* rbt.timl *)
+(* rbt2.timl *)
+(* braun-tree.timl *)
 rbt3.timl

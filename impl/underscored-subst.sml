@@ -77,7 +77,7 @@ fun on_i_t on_i_mt x n b =
       fun f x n b =
 	case b of
 	    Mono t => Mono (on_i_mt x n t)
-	  | Uni (name, t) => Uni (name, f x n t)
+	  | Uni (name, t, r) => Uni (name, f x n t, r)
   in
       f x n b
   end
@@ -106,7 +106,7 @@ fun on_t_t on_t_mt x n b =
       fun f x n b =
 	case b of
 	    Mono t => Mono (on_t_mt x n t)
-	  | Uni (name, t) => Uni (name, f (x + 1) n t)
+	  | Uni (name, t, r) => Uni (name, f (x + 1) n t, r)
   in
       f x n b
   end

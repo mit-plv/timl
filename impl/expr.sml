@@ -133,7 +133,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         datatype ty = 
 	         Mono of mtype
-	         | Uni of name * ty
+	         | Uni of name * ty * region
 
         fun VarT x = AppV (x, [], [], dummy)
         fun AppVar (x, is) = AppV (x, [], is, dummy)
@@ -154,7 +154,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         fun peel_Uni t =
             case t of
-                Uni (name, t) =>
+                Uni (name, t, _) =>
                 let val (names, t) = peel_Uni t
                 in
                     (name :: names, t)
@@ -173,7 +173,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	        val t = Arrow (t, T0 dummy, t2)
 	        val t = foldr (fn ((name, s), t) => UniI (s, BindI ((name, dummy), t), dummy)) t ns
                 val t = Mono t
-	        val t = foldr (fn (name, t) => Uni ((name, dummy), t)) t tnames
+	        val t = foldr (fn (name, t) => Uni ((name, dummy), t, dummy)) t tnames
             in
 	        t
             end
@@ -731,8 +731,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | BinPred (opr, i1, i2) => BinPred (opr, set_region_i i1 r, set_region_i i2 r)
               | Quan (q, bs, name, p, _) => Quan (q, bs, name, p, r)
 
-        fun get_region_ibind f (BindI ((_, r), inner)) = combine_region r (f inner)
-
         fun get_region_s s = 
             case s of
                 Basic (_, r) => r
@@ -752,7 +750,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         fun get_region_t t = 
             case t of
                 Mono t => get_region_mt t
-              | Uni ((_, r), t) => combine_region r (get_region_t t)
+              | Uni (_, _, r) => r
 
         fun get_region_pn pn = 
             case pn of
@@ -961,7 +959,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         fun simp_t t =
 	    case t of
 	        Mono t => Mono (simp_mt t)
-	      | Uni (name, t) => Uni (name, simp_t t)
+	      | Uni (name, t, r) => Uni (name, simp_t t, r)
 
         fun is_value (e : expr) : bool =
             case e of
