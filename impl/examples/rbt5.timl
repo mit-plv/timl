@@ -220,7 +220,6 @@ fun insert_rbt ['a] {color : Bool} {size bh kmin kmax k : Nat}
     end
 end
 
-(*
 fun blacken_root ['a] {size bh kmin kmax : Nat} (tr : {kmax} {kmin} {bh} {false} {size} 'a rbt) return {kmax} {kmin} {bh + 1} {true} {size} 'a rbt =
     case tr of
         Node (Red, l, c, r) => Node (Black, l, c, r)
@@ -234,8 +233,8 @@ datatype {Nat} 'a rb_tree =
 datatype {Nat} 'a rbt_may_grow_one =
          RbtMayGrowOne {size : Nat} {size' : Nat | size' = size \/ size' = size + 1} of {size'} 'a rb_tree --> {size} 'a rbt_may_grow_one
 
-absidx Tinsert : BigO 1 (fn n => $n) with
-fun insert ['a] {bh k : Nat} (tr : {bh} 'a rb_tree) (new : {k} uint * 'a) return {bh} 'a rbt_may_grow_one using Tinsert bh =
+absidx T_insert : BigO 1 (fn n => log2 $n) with
+fun insert ['a] {size k : Nat} (tr : {size} 'a rb_tree) (new : {k} uint * 'a) return {size} 'a rbt_may_grow_one using T_insert size =
     case tr of
         RBTree tr =>
         case insert_rbt tr new of
@@ -247,22 +246,34 @@ fun insert ['a] {bh k : Nat} (tr : {bh} 'a rb_tree) (new : {k} uint * 'a) return
           | _ => never
 end
 
-absidx g : BigO 1 (fn n => $n) with
-fun lookup' ['a] {color : Bool} {bh kmin kmax k : Nat} (tr : {kmax} {kmin} {bh} {color} 'a rbt) (k : {k} uint) return 'a option using g (2 * bh + b2n (not color)) =
+absidx T_lookup_rbt' : BigO 1 (fn n => $n) with
+fun lookup_rbt' ['a] {color : Bool} {size bh kmin kmax k : Nat} (tr : {kmax} {kmin} {bh} {color} {size} 'a rbt) (k : {k} uint) return 'a option using T_lookup_rbt' (2 * bh + b2n (not color)) =
     case tr of
         Leaf => NONE
       | Node (_, left, (k', v), right) =>
         case cmp (k, k') of
             Equal => SOME v
-          | Less => lookup' left k
-          | Greater => lookup' right k
+          | Less => lookup_rbt' left k
+          | Greater => lookup_rbt' right k
 end
 
-absidx Tlookup : BigO 1 (fn n => $n) with
-fun lookup ['a] {bh k : Nat} (tr : {bh} 'a rb_tree) (k : {k} uint) return 'a option using Tlookup bh =
+(* simplify time complexity *)
+absidx T_lookup_rbt : BigO 1 (fn n => $n) with                                   
+fun lookup_rbt ['a] {color : Bool} {size bh kmin kmax k : Nat}
+        (tr : {kmax} {kmin} {bh} {color} {size} 'a rbt)
+        (k : {k} uint)
+        return using T_lookup_rbt bh =
+    lookup_rbt' tr k
+end
+
+absidx T_lookup : BigO 1 (fn n => log2 $n) with
+fun lookup ['a] {size k : Nat} (tr : {size} 'a rb_tree) (k : {k} uint) return 'a option using T_lookup size =
     case tr of
-        RBTree tr => lookup' tr k
+        @RBTree {_ bh _ _} tr =>
+        let
+          val SizeGood _ = rbt_size_good tr
+          val Lemma1 _ = @lemma1 {bh} {size} ()
+        in
+          lookup_rbt tr k using 2.0 + T_lookup_rbt (ceil (log2 $(size + 1)))
+        end
 end
-
-
-*)
