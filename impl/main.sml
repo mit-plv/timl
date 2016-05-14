@@ -104,8 +104,10 @@ fun typecheck_file (filename, ctx) =
               (* map fst unsats *)
               unsats
             end
-      val vcs = (smt_solver o bigO_solver) vcs
-      val vcs = map (mapFst VC.simp_vc) vcs
+      val vcs = bigO_solver vcs
+      val vcs = concatMap VC.simp_vc_vcs vcs
+      val vcs = smt_solver vcs
+      (* val vcs = map (mapFst VC.simp_vc) vcs *)
       val () = print $ print_result false filename result
       val () = if null vcs then
                  println $ "Typechecked."

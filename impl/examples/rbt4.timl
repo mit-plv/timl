@@ -15,18 +15,16 @@ datatype {Nat(*max*)} {Nat(*min*)} {Nat(*black height*)} {Bool} {Nat(*size*)} 'a
          of {color} color * {lmax} {lmin} {bh} {lcolor} {lsize} 'a rbt * ({k} uint * 'a) * {rmax} {rmin} {bh} {rcolor} {rsize} 'a rbt --> {ite (bh == 0 && rcolor) k rmax} {ite (bh == 0 && lcolor) k lmin} {bh + b2n color} {color} {lsize + 1 + rsize} 'a rbt
 
 datatype {Nat} {Nat} {Nat} {Nat} 'a violation =
-         ViolateLeft {rcolor : Bool}
-                     {lsize rsize bh lmin lmax k rmin rmax : Nat}
-                     {lmin <= lmax /\ lmax < k /\ (k < rmin \/ bh = 0 /\ rcolor = true) /\ rmin <= rmax}
+         ViolateLeft {lsize rsize bh lmin lmax k rmin rmax : Nat}
+                     {lmin <= lmax /\ lmax < k /\ (k < rmin \/ bh = 0) /\ rmin <= rmax}
                      {2 ^ (bh + 1 + 1) <= 2 * (lsize + 1) /\ 2 * (lsize + 1) <= 2 ^ (2 * bh + 1 + 1)}
-                     {2 ^ (bh + b2n (not rcolor) + 1) <= 2 * (rsize + 1) /\ 2 * (rsize + 1) <= 2 ^ (2 * bh + b2n (not rcolor) + 1)}
-         of {lmax} {lmin} {bh} {false} {lsize} 'a rbt * ({k} uint * 'a) * {rmax} {rmin} {bh} {rcolor} {rsize} 'a rbt --> {ite (bh == 0 && rcolor) k rmax} {lmin} {bh} {lsize + 1 + rsize} 'a violation
-       | ViolateRight {lcolor : Bool}
-                      {lsize rsize bh lmin lmax k rmin rmax : Nat}
-                      {lmin <= lmax /\ (lmax < k \/ bh = 0 /\ lcolor = true) /\ k < rmin /\ rmin <= rmax}
-                      {2 ^ (bh + b2n (not lcolor) + 1) <= 2 * (lsize + 1) /\ 2 * (lsize + 1) <= 2 ^ (2 * bh + b2n (not lcolor) + 1)}
+                     {2 ^ (bh + 1) <= 2 * (rsize + 1) /\ 2 * (rsize + 1) <= 2 ^ (2 * bh + 1)}
+         of {lmax} {lmin} {bh} {false} {lsize} 'a rbt * ({k} uint * 'a) * {rmax} {rmin} {bh} {true} {rsize} 'a rbt --> {ite (bh == 0) k rmax} {lmin} {bh} {lsize + 1 + rsize} 'a violation
+       | ViolateRight {lsize rsize bh lmin lmax k rmin rmax : Nat}
+                      {lmin <= lmax /\ (lmax < k \/ bh = 0) /\ k < rmin /\ rmin <= rmax}
+                      {2 ^ (bh + 1) <= 2 * (lsize + 1) /\ 2 * (lsize + 1) <= 2 ^ (2 * bh + 1)}
                       {2 ^ (bh + 1 + 1) <= 2 * (rsize + 1) /\ 2 * (rsize + 1) <= 2 ^ (2 * bh + 1 + 1)}
-         of {lmax} {lmin} {bh} {lcolor} {lsize} 'a rbt * ({k} uint * 'a) * {rmax} {rmin} {bh} {false} {rsize} 'a rbt --> {rmax} {ite (bh == 0 && lcolor) k lmin} {bh} {lsize + 1 + rsize} 'a violation
+         of {lmax} {lmin} {bh} {true} {lsize} 'a rbt * ({k} uint * 'a) * {rmax} {rmin} {bh} {false} {rsize} 'a rbt --> {rmax} {ite (bh == 0) k lmin} {bh} {lsize + 1 + rsize} 'a violation
                                                                              
 fun balance_left ['a] {rcolor : Bool} {lsize rsize bh lmin lmax k rmin rmax : Nat}
                  {lmin <= lmax /\ lmax < k /\ (k < rmin \/ bh = 0 /\ rcolor = true) /\ rmin <= rmax}
@@ -39,15 +37,19 @@ fun balance_left ['a] {rcolor : Bool} {lsize rsize bh lmin lmax k rmin rmax : Na
       | ViolateRight (a, x, Node (Red, b, y, c)) =>
         Node (Red, Node (Black, a, x, b), y, Node (Black, c, z, d))
       | _ => never
-(*
-fun balance_right ['a] {lcolor : Bool} {bh lmin lmax k rmin rmax : Nat} {lmin <= lmax /\ (lmax < k \/ bh = 0 /\ lcolor = true) /\ k < rmin /\ rmin <= rmax} (left as a : {lmax} {lmin} {bh} {lcolor} 'a rbt) (center as x : {k} uint * 'a) (right : {rmax} {rmin} {bh} 'a violation) return {rmax} {ite (bh == 0 && lcolor) k lmin} {bh + 1} {false} 'a rbt =
+
+fun balance_right ['a] {lcolor : Bool} {lsize rsize bh lmin lmax k rmin rmax : Nat}
+                  {lmin <= lmax /\ (lmax < k \/ bh = 0 /\ lcolor = true) /\ k < rmin /\ rmin <= rmax}
+                  {2 ^ (bh + b2n (not lcolor) + 1) <= 2 * (lsize + 1) /\ 2 * (lsize + 1) <= 2 ^ (2 * bh + b2n (not lcolor) + 1)}
+                  {2 ^ (bh + 1 + 1) <= 2 * (rsize + 1) /\ 2 * (rsize + 1) <= 2 ^ (2 * bh + 1 + 1)}
+                  (left as a : {lmax} {lmin} {bh} {lcolor} {lsize} 'a rbt) (center as x : {k} uint * 'a) (right : {rmax} {rmin} {bh} {rsize} 'a violation) return {rmax} {ite (bh == 0 && lcolor) k lmin} {bh + 1} {false} {lsize + 1 + rsize} 'a rbt =
     case right of
         ViolateLeft (Node (Red, b, y, c), z, d) =>
         Node (Red, Node (Black, a, x, b), y, Node (Black, c, z, d))
       | ViolateRight (b, y, Node (Red, c, z, d)) =>
         Node (Red, Node (Black, a, x, b), y, Node (Black, c, z, d))
       | _ => never
-
+(*
 (* arbt: 'almost' red black tree, except that wellredness may be violated between root and one of its children *)
 datatype {Nat} {Nat} {Nat} {Bool} {Bool (*is already good?*)} 'a arbt =
          Good {color : Bool} {bh kmin kmax : Nat} of {color} color * {kmax} {kmin} {bh} {color} 'a rbt --> {kmax} {kmin} {bh} {color} {true} 'a arbt

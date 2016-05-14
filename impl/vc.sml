@@ -35,11 +35,13 @@ fun uniquefy ctx p =
       | False _ => p
 end
 
-datatype hyp = 
-         VarH of string * base_sort
-       | PropH of prop 
+(* datatype hyp =  *)
+(*          VarH of string * base_sort *)
+(*        | PropH of prop  *)
 
-type vc = hyp list * prop
+(* type vc = hyp list * prop *)
+
+type vc = (string * base_sort, prop) hyp list * prop
 
 fun str_vc show_region filename ((hyps, p) : vc) =
     let 
@@ -64,8 +66,6 @@ fun simp_hyp h =
     case h of
         VarH a => VarH a
       | PropH p => PropH (simp_p p)
-
-fun hyps2ctx hs = List.mapPartial (fn h => case h of VarH (name, _) => SOME name | _ => NONE) hs
 
 fun simp_vc ((hyps, p) : vc) : vc =
     let
@@ -113,50 +113,4 @@ fun vc2prop (hs, p) =
 
 fun simp_vc_vcs vc = prop2vcs $ simp_p $ vc2prop $ vc
           
-fun shiftx_hyp x n hyp =
-    case hyp of
-        VarH _ => hyp
-      | PropH p => PropH (shiftx_i_p x n p)
-                         
-fun shiftx_hyps x n hyps =
-    case hyps of
-        [] => hyps
-      | hyp :: hyps =>
-        let
-            val d = case hyp of
-                        VarH _ => 1
-                      | PropH _ => 0
-        in
-            shiftx_hyp x n hyp :: shiftx_hyps (x + d) n hyps
-        end
-            
-fun find_hyp forget shift pred x hyps =
-    let
-        exception Error
-        fun runError m _ =
-            SOME (m ())
-            handle
-            Error => NONE
-            | ForgetError _ => NONE
-        fun do_forget hyp x =
-            case hyp of
-                VarH _ => forget x
-              | PropH _ => x
-        fun do_shift hyp (p as (y, hyps)) =
-            case hyp of
-                VarH _ => (shift y, shiftx_hyps 0 1 hyps)
-              | PropH _ => p
-        fun loop x hyps () =
-            let
-                val (hyp, hyps) = case hyps of hyp :: hyps => (hyp, hyps) | [] => raise Error
-                val x = do_forget hyp x
-            in
-                case pred x hyps hyp of
-                    SOME y => do_shift hyp (y, hyps)
-                  | NONE => do_shift hyp (loop x hyps ())
-            end
-    in
-        runError (loop x hyps) ()
-    end
-        
 end

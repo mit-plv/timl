@@ -1,1 +1,1 @@
-make mlton && ./main examples/bool.timl $(for i in {1..50}; do echo -n "examples/rbt.timl "; done) && make profile
+make mlton && ./main examples/stdlib.pkg $(for i in {1..5}; do echo -n "examples/suite.pkg "; done) && make profile

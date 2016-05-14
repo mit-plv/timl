@@ -37,7 +37,8 @@ fun match_bigO f hyps hyp =
 fun find_bigO_hyp f_i hyps =
     find_hyp (forget_i_i 0 1) shift_i_i match_bigO f_i hyps
 
-fun contains big small = not $ isSome $ try_forget (forget_i_i small 1) big
+fun appears forget x big = not $ isSome $ try_forget (forget x 1) big
+fun contains big small = appears forget_i_i small big
                              
 fun ask_smt_vc vc =
     not $ isSome $ SMTSolver.smt_solver_single "" false NONE vc
@@ -155,8 +156,8 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
       (* val () = app println $ concatMap (fn vc => str_vc false "" vc @ [""]) vcs' *)
       (* val () = println "Master-Theorem-solver to apply SMT solver to discharge some VCs. " *)
       val vcs_vcs' = List.mapPartial (fn (vc, out) => case out of SOME (vc', _) => SOME (vc, vc') | NONE => NONE) $ zip (vcs, SMTSolver.smt_solver "" false NONE vcs')
-      val () = println "Master-Theorem-solver to solve this: "
-      val () = app println $ concatMap (fn vc => str_vc false "" vc @ [""]) $ map snd $ vcs_vcs'
+      (* val () = println "Master-Theorem-solver to solve this: " *)
+      (* val () = app println $ concatMap (fn vc => str_vc false "" vc @ [""]) $ map snd $ vcs_vcs' *)
       exception Error of string
       fun runError m _ =
           let
@@ -539,8 +540,15 @@ fun solve_exists (vc as (hs, p)) =
           val ret =
               case p of
                   BinConn (And, bigO as BinPred (BigO, VarI (n0, _), spec), BinConn (Imply, bigO', p)) =>
-                  if n0 = 0 andalso eq_p bigO bigO' then
+                  let
+                    (* val ctxn = name :: hyps2ctx hs *)
+                    (* val () = println $ sprintf "$\n$" [str_p ctxn bigO, str_p ctxn bigO'] *)
+                  in
+                   if n0 = 0 andalso eq_p bigO bigO' then
                     (* infer and then check *)
+                    let
+                      val () = println "Infer and check ..."
+                    in
                     case use_master_theorem hs (name, arity) ("inferred", arity) (shiftx_i_p 1 1 p) of
                         SOME (inferred, vcs) =>
                         (let
@@ -555,7 +563,9 @@ fun solve_exists (vc as (hs, p)) =
                             raise curry MasterTheoremCheckFail (get_region_i spec) $ [sprintf "Can't prove that the inferred big-O class $ is bounded by the given big-O class $" [str_i (hyps2ctx hs) inferred, str_i (hyps2ctx hs) spec]]
                         end handle ForgetError _ => NONE)
                       | NONE => NONE
-                  else NONE
+                    end
+                   else NONE
+                  end
                 | _ => NONE
         in
           case ret of
@@ -563,7 +573,6 @@ fun solve_exists (vc as (hs, p)) =
             | NONE =>
               
               let
-                (* val () = println "hit1" *)
                 (* val () = println "Exists-solver to solve this: " *)
                 (* val () = app println $ (str_vc false "" vc @ [""]) *)
                 val (p1, p2) = split_and p

@@ -8,8 +8,8 @@ datatype {Nat} {Bool} 'a rbt =
        | Node {color : Bool} {bh : Nat} {lcolor : Bool} {rcolor : Bool} { color = false -> lcolor = true /\ rcolor = true } of {color} color * {bh} {lcolor} 'a rbt * 'a * {bh} {rcolor} 'a rbt --> {bh + b2n color} {color} 'a rbt
 
 datatype {Nat} 'a violation =
-         ViolateLeft {rc : Bool} {bh : Nat} of {bh} {false} 'a rbt * 'a * {bh} {rc} 'a rbt --> {bh} 'a violation
-       | ViolateRight {lc : Bool} {bh : Nat} of {bh} {lc} 'a rbt * 'a * {bh} {false} 'a rbt --> {bh} 'a violation
+         ViolateLeft {bh : Nat} of {bh} {false} 'a rbt * 'a * {bh} {true} 'a rbt --> {bh} 'a violation
+       | ViolateRight {bh : Nat} of {bh} {true} 'a rbt * 'a * {bh} {false} 'a rbt --> {bh} 'a violation
                                                                              
 fun balance_left ['a] {bh : Nat} {rc : Bool} (left : {bh} 'a violation) (center as z) (right as d : {bh} {rc} 'a rbt) return {bh + 1} {false} 'a rbt =
     case left of
