@@ -7,7 +7,7 @@ datatype {Nat(*size*)} {Nat(*min element*)} braun_tree =
 absidx Tinsert : BigO 1 (fn n => log2 $n) with
 fun insert {n k x : Nat} (tr : {n} {k} braun_tree) (x : {x} uint) return {n + 1} {ite (n == 0) x (x min k)} braun_tree using Tinsert n =
     case tr of
-        Leaf => Node (x, Leaf, Leaf)
+        Leaf => @Node {0} {} {} {} {} (x, Leaf, Leaf)
       | @Node {n' _ _ _ _} (y, l, r) =>
         let
           val MinMaxResult (smaller, bigger) = min_max le (x, y)

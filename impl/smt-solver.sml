@@ -47,7 +47,9 @@ fun get_model model =
         | _ => raise SMTError $ prefix ^ ": (model ...)"
     end
 
-datatype solver = Z3 | CVC4
+datatype solver =
+         Z3
+         (* | CVC4 *)
                          
 fun smt_solver filename get_ce solver vcs = 
     let
@@ -57,11 +59,12 @@ fun smt_solver filename get_ce solver vcs =
       val smt2_filename = filename ^ ".smt2"
       val resp_filename = filename ^ ".lisp"
       val () = write_file (smt2_filename, smt2)
-      val solver = default CVC4 solver
+      (* val solver = default CVC4 solver *)
+      val solver = default Z3 solver
       val smt_cmd =
           case solver of
               Z3 => "z3"
-            | Cvc4 => "cvc4 --incremental"
+            (* | Cvc4 => "cvc4 --incremental" *)
       (* val () = print $ sprintf "Solving by SMT solver \"$\" ... " [smt_cmd] *)
       val _ = system (sprintf "$ $ > $" [smt_cmd, smt2_filename, resp_filename])
       (* val () = println "Finished SMT solving." *)

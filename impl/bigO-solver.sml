@@ -151,17 +151,10 @@ fun timefun_eq hs arity a b = timefun_le hs arity a b andalso timefun_le hs arit
       
 fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
     let
-      val () = println "by_master_theorem ()"
-      val vcs' = append_hyps ([VarH (name0, TimeFun arity0), VarH (name1, TimeFun arity1)] @ hs) vcs
-      (* val () = app println $ concatMap (fn vc => str_vc false "" vc @ [""]) vcs' *)
-      (* val () = println "Master-Theorem-solver to apply SMT solver to discharge some VCs. " *)
-      val vcs_vcs' = List.mapPartial (fn (vc, out) => case out of SOME (vc', _) => SOME (vc, vc') | NONE => NONE) $ zip (vcs, SMTSolver.smt_solver "" false NONE vcs')
-      (* val () = println "Master-Theorem-solver to solve this: " *)
-      (* val () = app println $ concatMap (fn vc => str_vc false "" vc @ [""]) $ map snd $ vcs_vcs' *)
       exception Error of string
       fun runError m _ =
           let
-            val ret as (f, _) = m ()
+            val ret as f = m ()
             val ctx = List.mapPartial (fn h => case h of VarH (name, _) => SOME name | _ => NONE) hs
             val () = println $ sprintf "Yes! I solved this: $\n" [str_i ctx f]
           in
@@ -174,11 +167,11 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
           in
             NONE
           end
-      fun infer_vc (vc as (hs', p), vc' as (hyps, _)) =
+      fun infer_vc (vc as (short_hyps, p), long_hyps) =
           let
             (* number of variables in context *)
-            val nx = length $ List.filter (fn h => case h of VarH _ => true | _ => false) hs'
-            fun ask_smt p = ask_smt_vc (hyps, p)
+            val nx = length $ List.filter (fn h => case h of VarH _ => true | _ => false) short_hyps
+            fun ask_smt p = ask_smt_vc (long_hyps, p)
             val N1 = ConstIN (1, dummy)
             fun V n = VarI (n, dummy)
             fun to_real i = UnOpI (ToReal, i, dummy)
@@ -302,13 +295,13 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                     (case f_i of
                          VarI (f, _) =>
                          if f > nx then
-                           case find_bigO_hyp f_i hyps of
+                           case find_bigO_hyp f_i long_hyps of
                                SOME (g, _) => simp_i (g %@ n')
                              | NONE => i
                          else i
                        | BinOpI (TimeApp, f_i as VarI (f, _), m') =>
                          if f > nx then
-                           case find_bigO_hyp f_i hyps of
+                           case find_bigO_hyp f_i long_hyps of
                                SOME (g, _) => simp_i (g %@ m' %@ n')
                              | NONE => i
                          else i
@@ -330,7 +323,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                       case h of
                           PropH p => infer_b_p p
                         | VarH _ => []
-                  val bs = infer_b_i n' @ concatMap infer_b_hyp hyps
+                  val bs = infer_b_i n' @ concatMap infer_b_hyp long_hyps
                   fun good_b b =
                       if ask_smt (n' %<= UnOpI (Ceil, DivI (n_, (b, dummy)), dummy)) then
                         SOME b
@@ -367,7 +360,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                     val (c, k) = add_class_entries classes
                     val T = master_theorem (to_real (V 0)) (a, b) (c, k)
                     val T = TimeAbs (("m", dummy), TimeAbs (("n", dummy), simp_i (to_real (V 1) %* T), dummy), dummy)
-                    val ret = (T, [])
+                    val ret = T
                   in
                     ret
                   end
@@ -390,7 +383,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                     val (c, k) =
                         add_class_entries $ map (summarize_2 m_ n_ o use_bigO_hyp) rest
                     val Tn = class2term (c + 1, k) (to_real (V 0))
-                    val ret = (TimeAbs (("m", dummy), TimeAbs (("n", dummy), simp_i (to_real (V 1) %* Tn), dummy), dummy), [])
+                    val ret = TimeAbs (("m", dummy), TimeAbs (("n", dummy), simp_i (to_real (V 1) %* Tn), dummy), dummy)
                   in
                     ret
                   end
@@ -406,7 +399,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                     val cls = add_class_entries classes
                     val T = TimeAbs (("n", dummy), simp_i $ class2term cls (to_real (V 0)), dummy)
                   in
-                    (T, [])
+                    T
                   end
                 else
                   let
@@ -437,7 +430,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                       val (c, k) = add_class_entries classes
                       val T = master_theorem (to_real (V 0)) (a, b) (c, k)
                       val T = TimeAbs (("n", dummy), simp_i T, dummy)
-                      val ret = (T, [])
+                      val ret = T
                     in
                       ret
                     end
@@ -461,7 +454,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                       val (c, k) =
                           add_class_entries $ map (summarize_1 n_ o use_bigO_hyp) rest
                       val Tn = class2term (c + 1, k) (to_real (V 0))
-                      val ret = (TimeAbs (("n", dummy), simp_i Tn, dummy), [])
+                      val ret = TimeAbs (("n", dummy), simp_i Tn, dummy)
                     in
                       ret
                     end
@@ -470,8 +463,13 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
           end
       fun main () =
           let
-            val (fs, vcs) = unzip $ map infer_vc vcs_vcs'
-            val vcs = List.concat vcs
+            val () = println "by_master_theorem ()"
+            fun extend_vcs_with_long_hyps vcs = append_hyps ([VarH (name0, TimeFun arity0), VarH (name1, TimeFun arity1)] @ hs) vcs
+            val vcs_with_long_hyps = extend_vcs_with_long_hyps vcs
+            val vcs_and_long_hyps = map (fn (vc, (long_hyps, _)) => (vc, long_hyps)) $ zip (vcs, vcs_with_long_hyps)
+            val () = println "Master-Theorem-solver to solve this: "
+            val () = app println $ concatMap (fn ((_, p), long_hyps) => str_vc false "" (long_hyps, p) @ [""]) $ vcs_and_long_hyps
+            val fs = map infer_vc vcs_and_long_hyps
             val (f, fs) = case fs of
                               [] => raise Error "by_master_theorem: no VCs"
                             | f :: fs => (f, fs)
@@ -480,7 +478,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                 else raise Error "by_master_theorem: inferred results don't agree"
             val f = foldl' combine f fs
           in
-            (f, vcs)
+            f
           end
     in
       runError main ()
@@ -500,7 +498,7 @@ fun use_master_theorem hs name_arity1 (name0, arity0) p =
       val ret = by_master_theorem hs name_arity1 (name0, arity0) vcs
     in
       case ret of
-          SOME (i, vcs) => SOME (i, append_hyps hs rest @ vcs)
+          SOME i => SOME (i, append_hyps hs rest)
         | NONE => NONE
     end
       
@@ -525,8 +523,11 @@ fun infer_exists hs (name_arity1 as (_, arity1)) p =
           else NONE
         | BinPred (BigO, VarI (x, _), f) =>
           if x = 0 then
-            (* no other constraint *)
-            SOME (f, [])
+            let
+              val () = println "No other constraint on function"
+            in
+              SOME (f, [])
+            end
           else NONE
         | _ => NONE
 
@@ -552,6 +553,7 @@ fun solve_exists (vc as (hs, p)) =
                     case use_master_theorem hs (name, arity) ("inferred", arity) (shiftx_i_p 1 1 p) of
                         SOME (inferred, vcs) =>
                         (let
+                          val () = println "Inferred!"
                           val inferred = forget_i_i 1 1 inferred
                           val vcs = map (forget_i_vc 1 1) vcs
                           val inferred = forget_i_i 0 1 inferred
@@ -573,13 +575,17 @@ fun solve_exists (vc as (hs, p)) =
             | NONE =>
               
               let
+                (* ToDo: get rid of [p2] *)
+                (* val (p1, p2) = split_and p *)
+                val (p1, p2) = (p, True dummy)
                 (* val () = println "Exists-solver to solve this: " *)
                 (* val () = app println $ (str_vc false "" vc @ [""]) *)
-                val (p1, p2) = split_and p
+                (* val () = app println $ (str_vc false "" (VarH (name, TimeFun arity) :: hs, p1) @ [""]) *)
               in
                 case infer_exists hs (name, arity) p1 of
                     SOME (i, vcs1) =>
                     let
+                      val () = println "Inferrred by infer_exists() !"
                       val () = case ins of
                                    SOME ins => ins i
                                  | NONE => ()

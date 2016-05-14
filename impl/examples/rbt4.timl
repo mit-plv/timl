@@ -25,12 +25,15 @@ datatype {Nat} {Nat} {Nat} {Nat} 'a violation =
                       {2 ^ (bh + 1) <= 2 * (lsize + 1) /\ 2 * (lsize + 1) <= 2 ^ (2 * bh + 1)}
                       {2 ^ (bh + 1 + 1) <= 2 * (rsize + 1) /\ 2 * (rsize + 1) <= 2 ^ (2 * bh + 1 + 1)}
          of {lmax} {lmin} {bh} {true} {lsize} 'a rbt * ({k} uint * 'a) * {rmax} {rmin} {bh} {false} {rsize} 'a rbt --> {rmax} {ite (bh == 0) k lmin} {bh} {lsize + 1 + rsize} 'a violation
-                                                                             
+
 fun balance_left ['a] {rcolor : Bool} {lsize rsize bh lmin lmax k rmin rmax : Nat}
                  {lmin <= lmax /\ lmax < k /\ (k < rmin \/ bh = 0 /\ rcolor = true) /\ rmin <= rmax}
-                 {2 ^ (bh + 1 + 1) <= 2 * (lsize + 1) /\ 2 * (lsize + 1) <= 2 ^ (2 * bh + 1 + 1)}
+                 (* {2 ^ (bh + 1 + 1) <= 2 * (lsize + 1) /\ 2 * (lsize + 1) <= 2 ^ (2 * bh + 1 + 1)} *)
                  {2 ^ (bh + b2n (not rcolor) + 1) <= 2 * (rsize + 1) /\ 2 * (rsize + 1) <= 2 ^ (2 * bh + b2n (not rcolor) + 1)}
-                 (left : {lmax} {lmin} {bh} {lsize} 'a violation) (center as z : {k} uint * 'a) (right as d : {rmax} {rmin} {bh} {rcolor} {rsize} 'a rbt) return {ite (bh == 0 && rcolor) k rmax} {lmin} {bh + 1} {false} {lsize + 1 + rsize} 'a rbt =
+                 (left : {lmax} {lmin} {bh} {lsize} 'a violation)
+                 (center as z : {k} uint * 'a)
+                 (right as d : {rmax} {rmin} {bh} {rcolor} {rsize} 'a rbt)
+                 return {ite (bh == 0 && rcolor) k rmax} {lmin} {bh + 1} {false} {lsize + 1 + rsize} 'a rbt =
     case left of
         ViolateLeft (Node (Red, a, x, b), y, c) =>
         Node (Red, Node (Black, a, x, b), y, Node (Black, c, z, d))
@@ -41,25 +44,37 @@ fun balance_left ['a] {rcolor : Bool} {lsize rsize bh lmin lmax k rmin rmax : Na
 fun balance_right ['a] {lcolor : Bool} {lsize rsize bh lmin lmax k rmin rmax : Nat}
                   {lmin <= lmax /\ (lmax < k \/ bh = 0 /\ lcolor = true) /\ k < rmin /\ rmin <= rmax}
                   {2 ^ (bh + b2n (not lcolor) + 1) <= 2 * (lsize + 1) /\ 2 * (lsize + 1) <= 2 ^ (2 * bh + b2n (not lcolor) + 1)}
-                  {2 ^ (bh + 1 + 1) <= 2 * (rsize + 1) /\ 2 * (rsize + 1) <= 2 ^ (2 * bh + 1 + 1)}
-                  (left as a : {lmax} {lmin} {bh} {lcolor} {lsize} 'a rbt) (center as x : {k} uint * 'a) (right : {rmax} {rmin} {bh} {rsize} 'a violation) return {rmax} {ite (bh == 0 && lcolor) k lmin} {bh + 1} {false} {lsize + 1 + rsize} 'a rbt =
+                  (* {2 ^ (bh + 1 + 1) <= 2 * (rsize + 1) /\ 2 * (rsize + 1) <= 2 ^ (2 * bh + 1 + 1)} *)
+                  (left as a : {lmax} {lmin} {bh} {lcolor} {lsize} 'a rbt)
+                  (center as x : {k} uint * 'a)
+                  (right : {rmax} {rmin} {bh} {rsize} 'a violation)
+                  return {rmax} {ite (bh == 0 && lcolor) k lmin} {bh + 1} {false} {lsize + 1 + rsize} 'a rbt =
     case right of
         ViolateLeft (Node (Red, b, y, c), z, d) =>
         Node (Red, Node (Black, a, x, b), y, Node (Black, c, z, d))
       | ViolateRight (b, y, Node (Red, c, z, d)) =>
         Node (Red, Node (Black, a, x, b), y, Node (Black, c, z, d))
       | _ => never
-(*
+               
 (* arbt: 'almost' red black tree, except that wellredness may be violated between root and one of its children *)
-datatype {Nat} {Nat} {Nat} {Bool} {Bool (*is already good?*)} 'a arbt =
-         Good {color : Bool} {bh kmin kmax : Nat} of {color} color * {kmax} {kmin} {bh} {color} 'a rbt --> {kmax} {kmin} {bh} {color} {true} 'a arbt
-       | Bad {bh kmin kmax : Nat} of {kmax} {kmin} {bh} 'a violation --> {kmax} {kmin} {bh} {false} {false} 'a arbt
+datatype {Nat} {Nat} {Nat} {Bool} {Bool (*is already good?*)} {Nat} 'a arbt =
+         Good {color : Bool} {size bh kmin kmax : Nat}
+              {2 ^ (bh + b2n (not color) + 1) <= 2 * (size + 1) /\ 2 * (size + 1) <= 2 ^ (2 * bh + b2n (not color) + 1)}
+         of {color} color * {kmax} {kmin} {bh} {color} {size} 'a rbt --> {kmax} {kmin} {bh} {color} {true} {size} 'a arbt
+       | Bad {size bh kmin kmax : Nat}
+         of {kmax} {kmin} {bh} {size} 'a violation --> {kmax} {kmin} {bh} {false} {false} {size} 'a arbt
 
-datatype {Nat} {Nat} {Nat} {Bool} 'a ins_result =
-         InsResult {input_color output_color is_good : Bool} {bh kmin kmax : Nat} {input_color = true -> is_good = true} {~ (output_color = true /\ bh = 0)}(*result can't be a leaf*) of {kmax} {kmin} {bh} {output_color} {is_good} 'a arbt --> {kmax} {kmin} {bh} {input_color} 'a ins_result
+datatype {Nat} {Nat} {Nat} {Bool} {Nat} 'a ins_result =
+         InsResult {input_color output_color is_good : Bool}
+                   {input_size output_size bh kmin kmax : Nat}
+                   {input_color = true -> is_good = true}
+                   {~ (output_color = true /\ bh = 0)}(*result can't be a leaf*)
+                   (* {output_size > 0} *)
+                   {output_size = input_size \/ output_size = input_size + 1}
+         of {kmax} {kmin} {bh} {output_color} {is_good} {output_size} 'a arbt --> {kmax} {kmin} {bh} {input_color} {input_size} 'a ins_result
 
 absidx g : BigO 1 (fn n => $n) (* = fn n => 6.0 * $n *) with                                   
-fun ins ['a] {input_color : Bool} {bh kmin kmax k : Nat} (tr : {kmax} {kmin} {bh} {input_color} 'a rbt) (new as (k : {k} uint, _)) return {ite (bh == 0 && input_color) k (k max kmax)} {ite (bh == 0 && input_color) k (k min kmin)} {bh} {input_color} 'a ins_result using (* 6.0 * $ *)g (2 * bh + b2n (not input_color)) =
+fun ins ['a] {input_color : Bool} {input_size bh kmin kmax k : Nat} (tr : {kmax} {kmin} {bh} {input_color} {input_size} 'a rbt) (new as (k : {k} uint, _)) return {ite (bh == 0 && input_color) k (k max kmax)} {ite (bh == 0 && input_color) k (k min kmin)} {bh} {input_color} {input_size} 'a ins_result using (* 6.0 * $ *)g (2 * bh + b2n (not input_color)) =
     case tr of
         Leaf =>
         let
@@ -129,6 +144,8 @@ fun ins ['a] {input_color : Bool} {bh kmin kmax k : Nat} (tr : {kmax} {kmin} {bh
              end
         )
 end
+
+(*
 
 fun blacken_root ['a] {bh kmin kmax : Nat} (tr : {kmax} {kmin} {bh} {false} 'a rbt) return {kmax} {kmin} {bh + 1} {true} 'a rbt =
     case tr of
