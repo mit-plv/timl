@@ -36,6 +36,8 @@ local
 		TrueI r
 	    else if x = "false" then
 		FalseI r
+            else if x = "admit" then
+              AdmitI r
             else if x = "_" then
                 UVarI ((), r)
 	    else
@@ -205,8 +207,6 @@ local
 	    S.Var ((x, r), eia) =>
             if x = "never" andalso eia = false then
               Never (elab_mt (S.VarT ("_", r)), r)
-            else if x = "admit" andalso eia = false then
-              Admit (elab_mt (S.VarT ("_", r)), r)
             else
               Var ((x, r), eia)
 	  | S.Tuple (es, r) =>

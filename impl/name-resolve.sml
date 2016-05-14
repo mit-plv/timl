@@ -37,6 +37,7 @@ local
 	| E.FalseI r => FalseI r
 	| E.TTI r => TTI r
         | E.TimeAbs ((name, r1), i, r) => TimeAbs ((name, r1), on_idx (name :: ctx) i, r)
+        | E.AdmitI r => AdmitI r
         | E.UVarI u => UVarI u
 
     fun on_bsort bs =
@@ -168,7 +169,6 @@ local
             Let (decls, copy_anno (shift_return (sctxn, kctxn) (t, d)) e, r)
           end
         | Never _ => e
-        | Admit _ => e
         | _ =>
           case t of
               SOME t => Ascription (e, t)
@@ -258,7 +258,6 @@ local
                 Case (on_expr ctx e, return, rules, r)
               end
 	    | E.Never (t, r) => Never (on_mtype skctx t, r)
-	    | E.Admit (t, r) => Admit (on_mtype skctx t, r)
       end
 
     and on_decls (ctx as (sctx, kctx, cctx, tctx)) decls =

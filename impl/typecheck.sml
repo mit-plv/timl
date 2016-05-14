@@ -225,6 +225,7 @@ fun update_i i =
       | TTI _ => i
       | TrueI _ => i
       | FalseI _ => i
+      | AdmitI _ => i
       | TimeAbs (name, i, r) => TimeAbs (name, update_i i, r)
 
 fun update_p p =
@@ -334,6 +335,11 @@ local
   fun write_anchor anchor = write (AnchorVC anchor)
 
   fun write_prop (p, r) = write (PropVC (p, r))
+
+  (* ToDo: register admits *)
+  fun write_admit (p, r) =
+      ()
+      (* write (PropVC (p, r)) *)
 
   fun write_le (d : idx, d' : idx, r) =
       write_prop (d %<= d', r)
@@ -744,6 +750,8 @@ local
                      (TimeAbs ((name, r1), i, r), Base (TimeFun (arity + 1)))
                    | (_, bs) => raise Error (U.get_region_i i, "Sort of time funtion body should be time function" :: indent ["want: time function", "got: " ^ str_bs bs])
                 )
+	      | U.AdmitI r => 
+                (AdmitI r, Base UnitSort)
               | U.UVarI ((), r) =>
                 let
                   val bs = fresh_bsort ()
@@ -795,13 +803,20 @@ local
 	         Subset ((bs, _), BindI ((name, _), p), _) =>
                  let
 	           val () = unify_bs r (bs', bs)
+                   val r = get_region_i i
+                   val (i, is_admit) = case i of
+                                           AdmitI r => (TTI r, true)
+                                         | _ => (i, false)
                    val p = subst_i_p i p
                            handle
                            SubstUVar info =>
                            raise subst_uvar_error (get_region_p p) ("proposition " ^ str_p (name :: sctx_names ctx) p) i info
-                   val r = get_region_i i
                    (* val () = println $ sprintf "Writing prop $ $" [str_p (sctx_names ctx) p, str_region "" "" r] *)
-		   val () = write_prop (p, r)
+		   val () =
+                       if is_admit then
+                         write_admit (p, r)
+                       else
+                         write_prop (p, r)
                  in
                    ()
                  end
@@ -1667,12 +1682,6 @@ local
                   in
 		    (Never (t, r), t, T0 r)
                   end
-	        | U.Admit (t, r) => 
-                  let
-		    val t = is_wf_mtype (skctx, t)
-                  in
-		    (Admit (t, r), t, T0 r)
-                  end
 	  val (e, t, d) = main ()
                           handle
                           Error (r, msg) => raise Error (r, msg @ ["when type-checking"] @ indent [U.str_e ctxn e_all])
@@ -2270,6 +2279,7 @@ local
         | FalseI _ => []
         | TTI _ => []
         | TimeAbs (_, i, _) => fv_i i
+        | AdmitI _ => []
         | UVarI ((_, uref), _) => [uref]
                                     
   fun fv_p p =
@@ -2396,6 +2406,7 @@ local
 	      | TrueI r => TrueI r
 	      | FalseI r => FalseI r
               | TimeAbs (name, i, r) => TimeAbs (name, substu_i x (v + 1) i, r)
+              | AdmitI r => AdmitI r
 	      | TTI r => TTI r
         fun substu_p x v b =
 	    case b of
@@ -2462,6 +2473,7 @@ local
               | N.FalseI r => FalseI r
               | N.TTI r => TTI r
               | N.TimeAbs (name, i, r) => TimeAbs (name, f i, r)
+              | N.AdmitI r => AdmitI r
               | N.UVarI (u, _) => exfalso u
       in
         f i
@@ -2470,7 +2482,7 @@ local
   fun no_uvar_i i =
       let
         val i = update_i i
-        fun error i' = Impossible $ sprintf "\n$\nno_uvar_i (): $ shouldn't be UVarI in $" [str_region "" (* "examples/rbt.timl" *)"" (get_region_i i'), str_i [] i', str_i [] i]
+        fun impossible i' = Impossible $ sprintf "\n$\nno_uvar_i (): $ shouldn't be UVarI in $" [str_region "" (* "examples/rbt.timl" *)"" (get_region_i i'), str_i [] i', str_i [] i]
         fun f i =
             case i of
                 VarI x => N.VarI x
@@ -2484,9 +2496,12 @@ local
               | TrueI r => N.TrueI r
               | FalseI r => N.FalseI r
               | TTI r => N.TTI r
-              | TimeAbs (name, i, r) => N.TimeAbs (name, f i, r)
+              | TimeAbs (name, i, r) =>
+                N.TimeAbs (name, f i, r)
+              | AdmitI r =>
+                raise Impossible "no_uvar_i () : shouldn't be AdmitI"
               | UVarI (_, r) =>
-                raise error i
+                raise impossible i
       in
         f i
       end

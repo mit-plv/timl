@@ -19,6 +19,7 @@ fun on_i_i on_v on_invis x n b =
 	  | TrueI r => TrueI r
 	  | FalseI r => FalseI r
           | TimeAbs (name, i, r) => TimeAbs (name, f (x + 1) n i, r)
+          | AdmitI r => AdmitI r
           | UVarI a => UVarI a
   in
       f x n b

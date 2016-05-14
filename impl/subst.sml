@@ -30,6 +30,7 @@ fun on_i_i on_v on_invis expand_i x n b =
 	  | TrueI r => TrueI r
 	  | FalseI r => FalseI r
           | TimeAbs (name, i, r) => TimeAbs (name, f (x + 1) n i, r)
+          | AdmitI r => AdmitI r
           | UVarI ((invis, uvar_ref), r) =>
             (case !uvar_ref of
                  Refined i => 
@@ -334,6 +335,7 @@ local
 	  | FalseI r => FalseI r
 	  | TTI r => TTI r
           | TimeAbs (name, i, r) => TimeAbs (name, f (x + 1) (shiftx_i_i 0 1 v) i, r)
+          | AdmitI r => AdmitI r
           | UVarI ((invis, uvar_ref), r) =>
             case !uvar_ref of
                 Refined i => f x v (expand_i invis i)
@@ -536,7 +538,6 @@ local
 	  | AppConstr (cx, is, e) => AppConstr (cx, is, f x n e)
 	  | Case (e, return, rules, r) => Case (f x n e, return, map (f_rule x n) rules, r)
 	  | Never t => Never t
-	  | Admit t => Admit t
 
     and f_decls x n decs =
 	let 
@@ -623,7 +624,6 @@ local
 	  | AppConstr (cx, is, e) => AppConstr (cx, is, f x n e)
 	  | Case (e, return, rules, r) => Case (f x n e, return, map (f_rule x n) rules, r)
 	  | Never t => Never t
-	  | Admit t => Admit t
 
     and f_decls x n decs =
 	let 

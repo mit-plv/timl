@@ -44,6 +44,7 @@ fun on_i_i on_v x n b =
 	    | TrueI r => TrueI r
 	    | FalseI r => FalseI r
             | TimeAbs (name, i, r) => TimeAbs (name, f (x + 1) n i, r)
+            | AdmitI r => AdmitI r
             | UVarI (u, _) => exfalso u
     in
       f x n b
@@ -96,6 +97,7 @@ local
 	| FalseI r => FalseI r
 	| TTI r => TTI r
         | TimeAbs (name, i, r) => TimeAbs (name, f (x + 1) (shiftx_i_i 0 1 v) i, r)
+        | AdmitI r => AdmitI r
         | UVarI (u, _) => exfalso u
 in
 fun substx_i_i x (v : idx) (b : idx) : idx = f x v b
@@ -385,6 +387,7 @@ local
           | ConstIN _ => i
           | ConstIT _ => i
           | VarI _ => i
+          | AdmitI _ => i
           | UVarI _ => i
       end
         

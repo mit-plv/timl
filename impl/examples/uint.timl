@@ -10,14 +10,14 @@ datatype {Nat} {Nat} cmp_result =
          | Greater {a b : Nat} {a > b} of {b} {a} cmp_result
 
 fun cmp {x : Nat} {y : Nat} (x : {x} uint, y : {y} uint) return {y} {x} cmp_result using 7.0 =
-    admit
+    @Equal {x} {y} {admit}
 
 datatype {Nat} {Nat} le_result =
          Le {a b : Nat} {a <= b} of {b} {a} le_result
        | Gt {a b : Nat} {a > b} of {b} {a} le_result
 
 fun le {x : Nat} {y : Nat} (x : {x} uint, y : {y} uint) return {y} {x} le_result using 7.0 =
-    admit
+    @Le {x} {y} {admit}
 
 datatype {Nat} {Nat} min_max_result =
          MinMaxResult {a b a' b' : Nat} {(a <= b -> a' = a /\ b' = b) /\ (a > b -> a' = b /\ b' = a)} of {a'} uint * {b'} uint --> {b} {a} min_max_result

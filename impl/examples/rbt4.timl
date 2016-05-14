@@ -205,7 +205,7 @@ datatype {Nat} {Nat} lemma1 =
          Lemma1 {a b : Nat} {2 ^ a <= b + 1 -> a <= ceil (log2 $(b + 1))} of {b} {a} lemma1
 
 fun lemma1 {a b : Nat} () return {b} {a} lemma1 =
-    admit
+    @Lemma1 {a} {b} {admit}
       
 absidx T_insert_rbt : BigO 1 (fn n => log2 $n) with                                   
 fun insert_rbt ['a] {color : Bool} {size bh kmin kmax k : Nat}

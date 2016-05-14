@@ -364,6 +364,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                         | ConstIN _ => i
                         | ConstIT _ => i
                         | VarI _ => i
+                        | AdmitI _ => i
                         | UVarI _ => i
                 in
                   loop i

@@ -97,6 +97,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         | FalseI of region
 	         | TTI of region
                  | TimeAbs of name * idx * region
+                 | AdmitI of region
                  | UVarI of (bsort, idx) uvar_i * region
 
         fun T0 r = ConstIT ("0.0", r)
@@ -229,7 +230,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         | Ascription of expr * mtype
 	         | AscriptionTime of expr * idx
 	         | Never of mtype * region
-                 | Admit of mtype * region
 
              and decl =
                  Val of name list * ptrn * expr * region
@@ -342,6 +342,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                       | FalseI _ => (case i' of FalseI _ => true | _ => false)
                       | TTI _ => (case i' of TTI _ => true | _ => false)
                       | TimeAbs (_, i, _) => (case i' of TimeAbs (_, i', _) => loop i i' | _ => false)
+                      | AdmitI _ => (case i' of AdmitI _ => true | _ => false)
                       | UVarI (u, _) => (case i' of UVarI (u', _) => eq_uvar_i (u, u') | _ => false)
             in
                 loop i i'
@@ -405,6 +406,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                   sprintf "(fn $ => $)" [join " " names, str_i (rev names @ ctx) i]
                 end
               (* | TimeAbs ((name, _), i, _) => sprintf "(fn $ => $)" [name, str_i (name :: ctx) i] *)
+	      | AdmitI _ => "admit" 
               | UVarI (u, _) => str_uvar_i str_i ctx u
 
         fun str_p ctx p = 
@@ -602,7 +604,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	          | AppConstr (((x, _), b), is, e) => sprintf "($$ $)" [decorate_var b $ str_v cctx x, (join "" o map (prefix " ") o map (fn i => sprintf "{$}" [str_i sctx i])) is, str_e ctx e]
 	          | Case (e, return, rules, _) => sprintf "(case $ $of $)" [str_e ctx e, str_return skctx return, join " | " (map (str_rule ctx) rules)]
 	          | Never (t, _) => sprintf "(never [$])" [str_mt skctx t]
-	          | Admit (t, _) => sprintf "(admit [$])" [str_mt skctx t]
             end
 
         and str_decls (ctx as (sctx, kctx, cctx, tctx)) decls =
@@ -704,6 +705,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | FalseI r => r
               | TTI r => r
               | TimeAbs (_, _, r) => r
+              | AdmitI r => r
               | UVarI (_, r) => r
 
         fun set_region_i i r =
@@ -720,6 +722,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | FalseI _ => FalseI r
               | TTI _ => TTI r
               | TimeAbs (name, i, _) => TimeAbs (name, i, r)
+              | AdmitI _ => AdmitI r
               | UVarI (a, _) => UVarI (a, r)
 
         fun get_region_p p = 
@@ -786,7 +789,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | AppConstr (((_, r), _), _, e) => combine_region r (get_region_e e)
               | Case (_, _, _, r) => r
               | Never (_, r) => r
-              | Admit (_, r) => r
               | Let (_, _, r) => r
               | Ascription (e, t) => combine_region (get_region_e e) (get_region_mt t)
               | AscriptionTime (e, i) => combine_region (get_region_e e) (get_region_i i)
@@ -888,6 +890,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                   | ConstIN _ => i
                   | ConstIT _ => i
                   | VarI _ => i
+                  | AdmitI _ => i
                   | UVarI _ => i
 
             fun passp p = 
@@ -990,8 +993,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | ConstInt _ => true
               | AppConstr (_, _, e) => is_value e
               | Case _ => false
-              | Never _ => false
-              | Admit _ => false
+              | Never _ => true
 
         end
                                                                   
