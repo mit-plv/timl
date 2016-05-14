@@ -10,6 +10,7 @@ infix 9 %@
 infix 7 %*
 infix 6 %+
 infix 4 %<=
+infix 4 %>=
 infix 4 %=
 infixr 3 /\
 infixr 2 \/
@@ -331,6 +332,53 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                 in
                   firstSuccess good_b bs
                 end
+            fun simp_i_max set i =
+                let
+                  fun mark a = (set (); a)
+                  fun loop i =
+                      case i of
+                          BinOpI (opr, i1, i2) =>
+                          let
+                            fun def () = BinOpI (opr, loop i1, loop i2)
+                          in
+                            case opr of
+                                MaxI =>
+                                if ask_smt (i1 %>= i2) then
+                                  mark i1
+                                else if ask_smt (i1 %<= i2) then
+                                  mark i2
+                                else def ()
+                              | _ => def ()
+                          end
+                        | UnOpI (opr, i, r) => UnOpI (opr, loop i, r)
+                        | DivI (i, b) => DivI (loop i, b)
+                        | ExpI (i, e) => ExpI (loop i, e)
+                        | Ite (i1, i2, i3, r) => Ite (loop i1, loop i2, loop i3, r)
+                        | TimeAbs _ => i
+	                | TrueI _ => i
+	                | FalseI _ => i
+	                | TTI _ => i
+                        | ConstIN _ => i
+                        | ConstIT _ => i
+                        | VarI _ => i
+                        | UVarI _ => i
+                in
+                  loop i
+                end
+            fun simp_p_max set p =
+                let
+                  fun loop p =
+                      case p of
+                          BinPred (opr, i1, i2) => BinPred (opr, simp_i_max set i1, simp_i_max set i2)
+                        | BinConn (opr, p1, p2) => BinConn (opr, loop p1, loop p2)
+                        | Not (p, r) => Not (loop p, r)
+                        | True _ => p
+                        | False _ => p
+                        | Quan _ => p
+                in
+                  loop p
+                end
+            val p = simp_p_with_plugin simp_p_max p
           in
             case p of
                 BinPred (LeP, i1, BinOpI (TimeApp, BinOpI (TimeApp, VarI (g, _), VarI (m, _)), n_i)) =>

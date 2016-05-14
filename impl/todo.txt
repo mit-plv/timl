@@ -47,4 +47,4 @@ Dono. 46. Braun tree extraction.
 47. rename "peel_" to "collect_".
 48. Register admitted things.
 49. Make SMT batch response parsing smarter (don't check response length beforehand)
-50. Simplify MaxI using SMT solver.
+Done. 50. Simplify MaxI using SMT solver.

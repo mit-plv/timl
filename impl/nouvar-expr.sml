@@ -685,6 +685,20 @@ fun simp_p p =
     in
       p      
     end
+fun simp_p_with_plugin plugin p =
+    let
+      fun iter p =
+          let
+            val p = plugin set p
+            val p = passp p
+          in
+            p
+          end
+      val p = until_unchanged iter p
+    in
+      p      
+    end
+      
 end
 
 end

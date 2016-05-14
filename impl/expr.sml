@@ -258,6 +258,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         fun a %+ b = BinOpI (AddI, a, b)
         infix 4 %<=
         fun a %<= b = BinPred (LeP, a, b)
+        infix 4 %>=
+        fun a %>= b = BinPred (GeP, a, b)
         infix 4 %=
         fun a %= b = BinPred (EqP, a, b)
         infixr 3 /\

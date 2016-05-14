@@ -124,9 +124,14 @@ fun ins ['a] {input_color : Bool} {input_size bh kmin kmax k : Nat}
                         Red =>
                         InsResult (Bad (ViolateLeft (left, center, right)))
                       | Black =>
-                        (* never *)
-                        InsResult (Good (Red, Node (Red, left, center(* new *)(* (Zero, v) *), right)))
-                        (* InsResult (Good (Red, Node (Red, left, new, right))) *)
+                        let
+                          val SizeGood _ = rbt_size_good left
+                          val SizeGood _ = rbt_size_good right
+                        in
+                          (* never *)
+                          InsResult (Good (Red, Node (Red, left, center(* new *)(* (Zero, v) *), right)))
+                                    (* InsResult (Good (Red, Node (Red, left, new, right))) *)
+                        end
                    )
                  | _ => never
              end
@@ -160,7 +165,12 @@ fun ins ['a] {input_color : Bool} {input_size bh kmin kmax k : Nat}
              in
                case left of
                    Good (_, left) =>
-                   InsResult (Good (Black, Node (Black, left, center, right)))
+                   let
+                     val SizeGood _ = rbt_size_good left
+                     val SizeGood _ = rbt_size_good right
+                   in
+                     InsResult (Good (Black, Node (Black, left, center, right)))
+                   end
                  | Bad left =>
                    InsResult (Good (Red, balance_left left center right))
              end
@@ -170,7 +180,12 @@ fun ins ['a] {input_color : Bool} {input_size bh kmin kmax k : Nat}
              in
                case right of
                    Good (_, right) =>
-                   InsResult (Good (Black, Node (Black, left, center, right)))
+                   let
+                     val SizeGood _ = rbt_size_good left
+                     val SizeGood _ = rbt_size_good right
+                   in
+                     InsResult (Good (Black, Node (Black, left, center, right)))
+                   end
                  | Bad right =>
                    InsResult (Good (Red, balance_right left center right))
              end
