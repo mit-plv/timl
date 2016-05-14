@@ -1,5 +1,11 @@
 (* Red-black tree with invariant for well-red-ness, black-height-blance and sorted-ness. Size-height-ratio can be derived from well-red-ness and black-height-blance. Key type is indexed unsigned fixed-width integers *)
 
+datatype {Nat} {Nat} lemma1 =
+         Lemma1 {a b : Nat} {2 ^ a <= b + 1 -> a <= ceil (log2 $(b + 1))} of {b} {a} lemma1
+
+fun lemma1 {a b : Nat} () return {b} {a} lemma1 =
+    @Lemma1 {a} {b} {admit}
+      
 datatype {Bool} color =
          Black of {true} color
          | Red of {false} color
@@ -201,12 +207,6 @@ fun insert_rbt' ['a] {color : Bool} {size bh kmin kmax k : Nat}
     ins tr new
 end
 
-datatype {Nat} {Nat} lemma1 =
-         Lemma1 {a b : Nat} {2 ^ a <= b + 1 -> a <= ceil (log2 $(b + 1))} of {b} {a} lemma1
-
-fun lemma1 {a b : Nat} () return {b} {a} lemma1 =
-    @Lemma1 {a} {b} {admit}
-      
 absidx T_insert_rbt : BigO 1 (fn n => log2 $n) with                                   
 fun insert_rbt ['a] {color : Bool} {size bh kmin kmax k : Nat}
         (tr : {kmax} {kmin} {bh} {color} {size} 'a rbt)

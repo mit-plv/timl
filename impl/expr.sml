@@ -995,6 +995,36 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | Case _ => false
               | Never _ => true
 
+        datatype ('var, 'prop) hyp = 
+                 VarH of 'var
+                 | PropH of 'prop
+                              
+        fun append_hyps_vc hs vc = mapFst (fn hs' => hs' @ hs) vc
+        fun add_hyp_vc h vc = append_hyps_vc [h] vc
+        fun append_hyps hs vcs = map (append_hyps_vc hs) vcs
+        fun add_hyp h vcs = append_hyps [h] vcs
+                                        
+        fun prop2vc p =
+            let
+            in
+              case p of
+                  Quan (Forall, bs, (name, r), p, r_all) =>
+                  let
+                    val vc = prop2vc p
+                    val vc = add_hyp_vc (VarH (name, (bs, r_all))) vc
+                  in
+                    vc
+                  end
+                | BinConn (Imply, p1, p) =>
+                  let
+                    val vc = prop2vc p
+                    val vc = add_hyp_vc (PropH p1) vc
+                  in
+                    vc
+                  end
+                | _ => ([], p)
+            end
+
         end
                                                                   
 structure StringVar = struct

@@ -16,10 +16,10 @@ fun print_result show_region filename ((typing, vcs) : tc_result) =
           sprintf "Typechecking results for $:" [filename] ::
           [""]
       val typing_lines = [str_typing_info typing]
-      val vc_lines =
-          sprintf "Verification Conditions: [count=$]" [str_int (length vcs)] ::
-          "" ::
-	  concatMap (fn vc => VC.str_vc show_region filename vc @ [""]) vcs
+      (* val vc_lines = *)
+      (*     sprintf "Verification Conditions: [count=$]" [str_int (length vcs)] :: *)
+      (*     "" :: *)
+      (*     concatMap (fn vc => VC.str_vc show_region filename vc @ [""]) vcs *)
       val s = join_lines 
                 (
                   header
@@ -49,7 +49,7 @@ fun typecheck_file (filename, ctx) =
       (* val () = (app println o map (suffix "\n") o fst o E.str_decls ctxn) decls *)
       val decls = resolve_decls ctxn decls
       (* val () = (app println o map (suffix "\n") o fst o UnderscoredExpr.str_decls ctxn) decls *)
-      val result as ((decls, ctxd, ds, ctx), vcs) = typecheck_decls ctx decls
+      val result as ((decls, ctxd, ds, ctx), (vcs, admits)) = typecheck_decls ctx decls
       (* val () = write_file (filename ^ ".smt2", to_smt2 vcs) *)
       (* val () = println $ print_result false filename result *)
       val () = println $ sprintf "Type checker generated $ proof obligations." [str_int $ length vcs]
@@ -115,6 +115,24 @@ fun typecheck_file (filename, ctx) =
       val vcs = smt_solver vcs
       (* val vcs = map (mapFst VC.simp_vc) vcs *)
       val () = print $ print_result false filename result
+      fun str_admit show_region p =
+          let
+            open Expr
+            val vc = prop2vc p
+            (* val r = get_region_p p *)
+            val r = get_region_p $ snd vc
+            val region_lines = if show_region then
+                                 [str_region "" filename r]
+                               else []
+          in
+            region_lines @ 
+            [str_p (#1 ctxn) p]
+          end
+      val () =
+          if null admits then
+            ()
+          else
+            app println $ "Admitted axioms: \n" :: concatMap (str_admit true) admits
       val () = if null vcs then
                  println $ "Typechecked."
                else

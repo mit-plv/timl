@@ -82,9 +82,6 @@ fun get_base bs =
         Base b => b
       | UVarBS u => exfalso u
 
-fun append_hyps hs vcs = map (mapFst (fn hs' => hs' @ hs)) vcs
-fun add_hyp h vcs = append_hyps [h] vcs
-                                      
 fun prop2vcs p =
     let
     in

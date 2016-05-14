@@ -309,6 +309,7 @@ local
            ForallVC of string (* option  *)* sort
            | ImplyVC of prop
            | PropVC of prop * region
+           | AdmitVC of prop * region
            (* remember where unification index variable is introduced, since those left over will be converted into existential variables in VC formulas *)
            | AnchorVC of anchor
            | OpenVC
@@ -336,10 +337,8 @@ local
 
   fun write_prop (p, r) = write (PropVC (p, r))
 
-  (* ToDo: register admits *)
   fun write_admit (p, r) =
-      ()
-      (* write (PropVC (p, r)) *)
+      write (AdmitVC (p, r))
 
   fun write_le (d : idx, d' : idx, r) =
       write_prop (d %<= d', r)
@@ -2129,6 +2128,7 @@ local
           ForallVC (name, _) => sprintf "(forall $ "  [name]
         | ImplyVC p => "(imply prop "
         | PropVC _ => "prop"
+        | AdmitVC _ => "admit"
         | AnchorVC _ => "anchor"
         | OpenVC => "("
         | CloseVC => ")"
@@ -2144,6 +2144,7 @@ local
            | AndF of formula list
            | AnchorF of anchor
            | PropF of prop * region
+           | AdmitF of prop * region
 
   fun str_f ctx f =
       case f of
@@ -2160,6 +2161,7 @@ local
              | Refined _ => ""
           )
         | PropF (p, _) => str_p ctx p
+        | AdmitF (p, _) => sprintf "(admit $)" [str_p ctx p]
 
   and str_fs ctx fs = (join " " o map (str_f ctx)) fs
 
@@ -2203,6 +2205,7 @@ local
               end
             | AnchorVC anchor => (AnchorF anchor, s)
             | PropVC (p, r) => (PropF (p, r), s)
+            | AdmitVC (p, r) => (AdmitF (p, r), s)
             | CloseVC => raise ErrorClose s
 
   and get_formulas (s : vc_entry list) =
@@ -2214,6 +2217,36 @@ local
       end
       handle ErrorEmpty => ([], [])
            | ErrorClose s => ([], CloseVC :: s)
+
+  fun get_admits f =
+      case f of
+          AdmitF (_, r) => ([f], PropF (True r, r))
+        | PropF _ => ([], f)
+        | AnchorF _ => ([], f) (* drop anchors in admits *)
+        | AndF fs => mapSnd AndF $ get_admits_fs fs
+        | ImplyF (p, fs) =>
+          let
+            fun wrap fs = ImplyF (p, fs)
+          in
+            mapPair (map (wrap o singleton), wrap) $ get_admits_fs fs
+          end
+        | ForallF (name, bs, fs) =>
+          let
+            fun wrap fs = ForallF (name, bs, fs)
+          in
+            mapPair (map (wrap o singleton), wrap) $ get_admits_fs fs
+          end
+          
+  and get_admits_fs fs =
+      case fs of
+          [] => ([], [])
+        | f :: fs =>
+          let
+            val (admits1, f) = get_admits f
+            val (admits2, fs) = get_admits_fs fs
+          in
+            (admits1 @ admits2, f :: fs)
+          end
 
   (* another formulation of formulas that won't talk about lists *)
   datatype formula2 =
@@ -2245,6 +2278,7 @@ local
         | ImplyF (p, fs) => BinConnF2 (Imply, PropF2 (p, get_region_p p), fs_to_f2 fs)
         | AndF fs => fs_to_f2 fs
         | PropF p => PropF2 p
+        | AdmitF p => PropF2 p (* drop admit info *)
         (* | AnchorF anchor => AnchorF2 anchor *)
         | AnchorF _ => raise Impossible "f_to_f2 (): shouldn't be AnchorF"
 
@@ -2536,20 +2570,28 @@ local
         val () = case vces of
                      [] => ()
                    | _ => raise Impossible "to_vcs (): remaining after get_formulas"
-        (* val () = println "Formulas: " *)
-        (* val () = app println $ map (str_f []) fs *)
-        val f = fs_to_f2 fs
-        (* val () = println "Formula2: " *)
-        (* val () = println $ str_f2 [] f *)
-        val f = fst $ bring_forward_anchor f
-        (* val () = println "Formula2 after bring_forward_anchor (): " *)
-        (* val () = println $ str_f2 [] f *)
-        val f = trim_anchors [] f
-        (* val () = println "Formulas after trim_anchors (): " *)
-        (* val () = println $ str_f2 [] f *)
-        val p = f2_to_prop f
-        (* val () = println "Props: " *)
-        (* val () = println $ Expr.str_p [] p *)
+        val (admits, fs) = get_admits_fs fs
+        fun fs_to_prop fs =
+            let
+              (* val () = println "Formulas: " *)
+              (* val () = app println $ map (str_f []) fs *)
+              val f = fs_to_f2 fs
+              (* val () = println "Formula2: " *)
+              (* val () = println $ str_f2 [] f *)
+              val f = fst $ bring_forward_anchor f
+              (* val () = println "Formula2 after bring_forward_anchor (): " *)
+              (* val () = println $ str_f2 [] f *)
+              val f = trim_anchors [] f
+              (* val () = println "Formulas after trim_anchors (): " *)
+              (* val () = println $ str_f2 [] f *)
+              val p = f2_to_prop f
+              (* val () = println "Props: " *)
+                                 (* val () = println $ Expr.str_p [] p *)
+              val p = Expr.simp_p p
+            in
+              p
+            end
+        val p = fs_to_prop fs
         val p = no_uvar_p p
         (* val () = println "NoUVar Props: " *)
         (* val () = println $ str_p [] p *)
@@ -2557,11 +2599,13 @@ local
         (* val () = println "NoUVar Props after simp_p(): " *)
         (* val () = println $ str_p [] p *)
         val p = uniquefy [] p
+        val admits = map (fs_to_prop o singleton) admits
         val vcs = prop2vcs p
         val vcs = concatMap simp_vc_vcs vcs
-                           (* val () = app println $ concatMap (str_vc false "") vcs *)
+        (* val () = app println $ concatMap (str_vc false "") vcs *)
+        val vcs = map VC.simp_vc vcs
       in
-        vcs
+        (vcs, admits)
       end
 
   fun runWriter m _ =
@@ -2569,18 +2613,12 @@ local
         val () = acc := []
         val r = m () 
         val vces = rev (!acc)
-        val vcs = vces_to_vcs vces
+        val vcs_admits = vces_to_vcs vces
       in 
-        (r, vcs) 
+        (r, vcs_admits) 
       end
 in								     
 
-fun vcgen_expr ctx e =
-    runWriter (fn () => get_mtype (ctx, e)) ()
-	      
-fun vcgen_expr_opt ctx e =
-    runError (fn () => vcgen_expr ctx e) ()
-	     
 type typing_info = decl list * context * idx list * context
 
 fun str_typing_info ((decls, ctxd, ds, ctx) : typing_info) =
@@ -2606,6 +2644,12 @@ fun str_typing_info ((decls, ctxd, ds, ctx) : typing_info) =
       s
     end
       
+fun vcgen_expr ctx e =
+    runWriter (fn () => get_mtype (ctx, e)) ()
+	      
+fun vcgen_expr_opt ctx e =
+    runError (fn () => vcgen_expr ctx e) ()
+	     
 fun vcgen_decls ctx decls =
     let
       fun m () =
@@ -2631,35 +2675,33 @@ structure S = TrivialSolver
 
 (* exception Unimpl *)
 
-fun typecheck_expr (ctx as (sctx, kctx, cctx, tctx) : context) e : (expr * mtype * idx) * VC.vc list =
+fun typecheck_expr (ctx as (sctx, kctx, cctx, tctx) : context) e =
     let 
-      val ((e, t, d), vcs) = vcgen_expr ctx e
+      val ((e, t, d), (vcs, admits)) = vcgen_expr ctx e
       val t = update_mt t
       val t = simp_mt t
       val d = update_i d
       val d = simp_i d
-      val vcs = map VC.simp_vc vcs
       val vcs = S.simp_and_solve_vcs vcs
     in
-      ((e, t, d), vcs)
+      ((e, t, d), (vcs, admits))
     end
 
 fun typecheck_expr_opt ctx e =
     runError (fn () => typecheck_expr ctx e) ()
 
-type tc_result = typing_info * VC.vc list
+type tc_result = typing_info * (VC.vc list * prop list)
 
-fun typecheck_decls (ctx as (sctx, kctx, cctx, tctx) : context) decls : tc_result =
+fun typecheck_decls (ctx as (sctx, kctx, cctx, tctx) : context) decls =
     let 
-      val ((decls, ctxd, ds, ctx), vcs) = vcgen_decls ctx decls
+      val ((decls, ctxd, ds, ctx), (vcs, admits)) = vcgen_decls ctx decls
       val ctxd = (upd4 o map o mapSnd) (simp_t o update_t) ctxd
       val ds = rev ds
       val ds = map update_i ds
       val ds = map simp_i ds
-      val vcs = map VC.simp_vc vcs
       val vcs = S.simp_and_solve_vcs vcs
     in
-      ((decls, ctxd, ds, ctx), vcs)
+      ((decls, ctxd, ds, ctx), (vcs, admits))
     end
 
 fun typecheck_decls_opt ctx e =

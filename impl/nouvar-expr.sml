@@ -137,10 +137,6 @@ fun try_forget f a =
 
 (* val passi_debug = ref false *)
 
-datatype ('var, 'prop) hyp = 
-         VarH of 'var
-         | PropH of 'prop
-                      
 fun hyps2ctx hs = List.mapPartial (fn h => case h of VarH (name, _) => SOME name | _ => NONE) hs
 
 fun str_hyps_conclu (hyps, p) =
