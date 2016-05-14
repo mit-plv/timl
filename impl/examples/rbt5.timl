@@ -97,11 +97,11 @@ datatype {Nat} {Nat} {Nat} {Bool} {Nat} 'a ins_result =
                    {output_size = input_size \/ output_size = input_size + 1}
          of {kmax} {kmin} {bh} {output_color} {is_good} {output_size} 'a arbt --> {kmax} {kmin} {bh} {input_color} {input_size} 'a ins_result
 
-absidx g : BigO 1 (fn n => $n) (* = fn n => 6.0 * $n *) with                                   
+absidx T_ins : BigO 1 (fn n => $n) (* = fn n => 6.0 * $n *) with                                   
 fun ins ['a] {input_color : Bool} {input_size bh kmin kmax k : Nat}
         (tr : {kmax} {kmin} {bh} {input_color} {input_size} 'a rbt)
         (new as (k : {k} uint, _))
-        return {ite (bh == 0 && input_color) k (k max kmax)} {ite (bh == 0 && input_color) k (k min kmin)} {bh} {input_color} {input_size} 'a ins_result using (* 6.0 * $ *)g (2 * bh + b2n (not input_color)) =
+        return {ite (bh == 0 && input_color) k (k max kmax)} {ite (bh == 0 && input_color) k (k min kmin)} {bh} {input_color} {input_size} 'a ins_result using (* 6.0 * $ *)T_ins (2 * bh + b2n (not input_color)) =
     case tr of
         Leaf =>
         let
@@ -192,26 +192,53 @@ fun ins ['a] {input_color : Bool} {input_size bh kmin kmax k : Nat}
         )
 end
 
-(*
+(* simplify time complexity *)
+absidx T_insert_rbt' : BigO 1 (fn n => $n) with                                   
+fun insert_rbt' ['a] {color : Bool} {size bh kmin kmax k : Nat}
+        (tr : {kmax} {kmin} {bh} {color} {size} 'a rbt)
+        (new as (k : {k} uint, _))
+        return using T_insert_rbt' bh =
+    ins tr new
+end
 
-fun blacken_root ['a] {bh kmin kmax : Nat} (tr : {kmax} {kmin} {bh} {false} 'a rbt) return {kmax} {kmin} {bh + 1} {true} 'a rbt =
+datatype {Nat} {Nat} lemma1 =
+         Lemma1 {a b : Nat} {2 ^ a <= b + 1 -> a <= ceil (log2 $(b + 1))} of {b} {a} lemma1
+
+fun lemma1 {a b : Nat} () return {b} {a} lemma1 =
+    admit
+      
+absidx T_insert_rbt : BigO 1 (fn n => log2 $n) with                                   
+fun insert_rbt ['a] {color : Bool} {size bh kmin kmax k : Nat}
+        (tr : {kmax} {kmin} {bh} {color} {size} 'a rbt)
+        (new as (k : {k} uint, _))
+        return using T_insert_rbt size =
+    let
+      val SizeGood _ = rbt_size_good tr
+      val Lemma1 _ = @lemma1 {bh} {size} ()
+    in
+      insert_rbt' tr new using 2.0 + T_insert_rbt' (ceil (log2 $(size + 1)))
+    end
+end
+
+(*
+fun blacken_root ['a] {size bh kmin kmax : Nat} (tr : {kmax} {kmin} {bh} {false} {size} 'a rbt) return {kmax} {kmin} {bh + 1} {true} {size} 'a rbt =
     case tr of
         Node (Red, l, c, r) => Node (Black, l, c, r)
       | _ => never
 
 (* final packaging: root must be black *)
 datatype {Nat} 'a rb_tree =
-         RBTree {bh kmin kmax : Nat} of {kmax} {kmin} {bh} {true} 'a rbt --> {bh} 'a rb_tree
+         RBTree {size bh kmin kmax : Nat} of {kmax} {kmin} {bh} {true} {size} 'a rbt --> {size} 'a rb_tree
 
 
 datatype {Nat} 'a rbt_may_grow_one =
-         RbtMayGrowOne {bh : Nat} {bh' : Nat | bh' = bh \/ bh' = bh + 1} of {bh'} 'a rb_tree --> {bh} 'a rbt_may_grow_one
+         RbtMayGrowOne {size : Nat} {size' : Nat | size' = size \/ size' = size + 1} of {size'} 'a rb_tree --> {size} 'a rbt_may_grow_one
 
 absidx Tinsert : BigO 1 (fn n => $n) with
 fun insert ['a] {bh k : Nat} (tr : {bh} 'a rb_tree) (new : {k} uint * 'a) return {bh} 'a rbt_may_grow_one using Tinsert bh =
     case tr of
         RBTree tr =>
-        case ins tr new of
+        case insert_rbt tr new of
             InsResult (Good (color, tr)) =>
             (case color of
                  Black => RbtMayGrowOne (RBTree tr)
@@ -236,4 +263,6 @@ fun lookup ['a] {bh k : Nat} (tr : {bh} 'a rb_tree) (k : {k} uint) return 'a opt
     case tr of
         RBTree tr => lookup' tr k
 end
+
+
 *)

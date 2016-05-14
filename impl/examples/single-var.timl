@@ -42,7 +42,7 @@ fun split ['a] {n : Nat} (xs : {n} 'a list) return {ceil ($n/2)} (* _ *)'a list 
 
 datatype bool = true | false
 
-absidx {T2 : Fun 1 | T2 O (fn n => $n * log2 $n)(* _ *)} with
+absidx {T2 : Fun 1 | T2 O (fn n => $n)(* _ *)} with
 fun merge ['a] {n1 : Nat} {n2 : Nat} (lt : 'a * 'a -- 8.0 --> bool) (xs : {n1} (* _ *)'a list) (ys : {n2} (* _ *)'a list) return {n1 + n2} (* _ *)'a list using T2 (n1 + n2) =
     case (xs, ys) of
         (Nil, _) => ys

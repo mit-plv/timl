@@ -139,10 +139,13 @@ fun timefun_le hs arity a b =
       fun main () =
           let
             val (names1, i1) = collect_TimeAbs a
-            val (names2, i2) = collect_TimeAbs a
+            val (names2, i2) = collect_TimeAbs b
             val () = if length names1 = length names2 then () else raise Error "timefun_le: arity must equal"
+            val cls1 = summarize i1
+            val cls2 = summarize i2
+            (* val () = println $ sprintf "$ <=? $" [str_cls cls1, str_cls cls2] *)
           in
-            class_le (summarize i1, summarize i2)
+            class_le (cls1, cls2)
           end
     in
       main () handle Error _ => false
@@ -601,17 +604,29 @@ fun solve_exists (vc as (hs, p)) =
                     case use_master_theorem hs (name, arity) ("inferred", arity) (shiftx_i_p 1 1 p) of
                         SOME (inferred, vcs) =>
                         (let
-                          val () = println "Inferred!"
                           val inferred = forget_i_i 1 1 inferred
                           val vcs = map (forget_i_vc 1 1) vcs
                           val inferred = forget_i_i 0 1 inferred
                           val spec = forget_i_i 0 1 spec
+                          val ctxn = hyps2ctx hs
+                          val () = println $ sprintf "Inferred! Now check inferred complexity $ against specified complexity $"
+                                           [str_i ctxn inferred, str_i ctxn spec]
+                          val ret = 
+                              if timefun_le hs arity inferred spec then
+                                SOME vcs
+                              else
+                                raise curry MasterTheoremCheckFail (get_region_i spec) $ [sprintf "Can't prove that the inferred big-O class $ is bounded by the given big-O class $" [str_i (hyps2ctx hs) inferred, str_i (hyps2ctx hs) spec]]
+                          val () = println "Complexity check OK!"
                         in
-                          if timefun_le hs arity inferred spec then
-                            SOME vcs
-                          else
-                            raise curry MasterTheoremCheckFail (get_region_i spec) $ [sprintf "Can't prove that the inferred big-O class $ is bounded by the given big-O class $" [str_i (hyps2ctx hs) inferred, str_i (hyps2ctx hs) spec]]
-                        end handle ForgetError _ => NONE)
+                          ret
+                        end
+                         handle
+                         ForgetError _ =>
+                         let
+                           val () = println "Complexity check Failed!"
+                         in
+                           NONE
+                         end)
                       | NONE => NONE
                     end
                    else NONE
@@ -669,11 +684,42 @@ fun solve_bigO_compare (vc as (hs, p)) =
         end
       | _ => [vc]
                
+fun solve_fun_compare (vc as (hs, p)) =
+    case p of
+        BinPred (Le, i1, i2) =>
+        let
+          fun find_apps i =
+              let
+                val is = collect_AddI i
+                fun par i =
+                    case i of
+                        BinOpI (TimeApp, VarI (f, _), n) =>
+                        SOME (f, n)
+                      | _ => NONE
+                val (apps, rest) = partitionOption par is
+                val rest = combine_AddI_Time rest
+              in
+                (apps, rest)
+              end
+          val (apps1, rest1) = find_apps i1
+          val (apps2, rest2) = find_apps i2
+        in
+          case (apps1, apps2) of
+              ([(f1, n1)], [(f2, n2)]) =>
+              if f1 = f2 then
+                [(hs, n1 %<= n2), (hs, rest1 %<= rest2)]
+              else
+                [vc]
+            | _ => [vc]
+        end
+      | _ => [vc]
+               
 fun solve_vcs (vcs : vc list) : vc list =
     let 
       val () = println "solve_vcs ()"
       val vcs = concatMap solve_exists vcs
       val vcs = concatMap solve_bigO_compare vcs
+      val vcs = concatMap solve_fun_compare vcs
     in
       vcs
     end

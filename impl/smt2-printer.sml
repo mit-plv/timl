@@ -82,7 +82,8 @@ fun print_base_sort b =
       if n = 0 then
           "Real"
       else
-          "Fun_" ^ str_int n
+        (* "Unit" *)
+        "Fun_" ^ str_int n
 
 fun print_bsort bsort =
   case bsort of
@@ -153,7 +154,7 @@ fun prelude get_ce = [
     "(declare-fun exp_i_i (Int Int) Int)",
     (* "(declare-fun exp_i_i (Int) Int)", *)
     
-    (* "(declare-fun log2 (Real) Real)", *)
+    "(declare-fun log2 (Real) Real)",
     (* "(assert (forall ((x Real) (y Real))", *)
     (* "  (! (=> (and (< 0 x) (< 0 y)) (= (log2 ( * x y)) (+ (log2 x) (log2 y))))", *)
     (* "    :pattern ((log2 ( * x y))))))", *)
