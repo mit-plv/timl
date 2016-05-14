@@ -514,21 +514,36 @@ else
                        *)
                        let
                          (* val () = println $ "Try subst eq premise" *)
+                         (* fun collect_Imply_Forall p = *)
+                         (*     case p of *)
+                         (*         BinConn (Imply, p1, p2) => *)
+                         (*         let *)
+                         (*           val (hyps, conclu) = collect_Imply_Forall p2 *)
+                         (*         in *)
+                         (*           (map PropH (collect_And p1)(* [PropH p1] *) @ hyps, conclu) *)
+                         (*         end *)
+                         (*       | Quan (Forall, bs, name, p, r) => *)
+                         (*         let *)
+                         (*           val (hyps, p) = collect_Imply_Forall p *)
+                         (*         in *)
+                         (*           (VarH (name, (bs, r)) :: hyps, p) *)
+                         (*         end *)
+                         (*       | _ => ([], p) *)
+                         (* a faster version *)
                          fun collect_Imply_Forall p =
-                             case p of
-                                 BinConn (Imply, p1, p2) =>
-                                 let
-                                   val (hyps, conclu) = collect_Imply_Forall p2
-                                 in
-                                   (map PropH (collect_And p1)(* [PropH p1] *) @ hyps, conclu)
-                                 end
-                               | Quan (Forall, bs, name, p, r) =>
-                                 let
-                                   val (hyps, p) = collect_Imply_Forall p
-                                 in
-                                   (VarH (name, (bs, r)) :: hyps, p)
-                                 end
-                               | _ => ([], p)
+                             let
+                               fun loop (acc, p) =
+                                   case p of
+                                       BinConn (Imply, p1, p2) =>
+                                       loop (map PropH (rev $ collect_And p1) @ acc, p2)
+                                     | Quan (Forall, bs, name, p, r) =>
+                                       loop (VarH (name, (bs, r)) :: acc, p)
+                                     | _ => (acc, p)
+                               val (hyps, conclu) = loop ([], p)
+                               val hyps = rev hyps
+                             in
+                               (hyps, conclu)
+                             end
                          fun combine_Imply_Forall hyps conclu =
                              let
                                fun iter (h, conclu) =
