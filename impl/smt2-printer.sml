@@ -144,7 +144,7 @@ fun print_hyp ctx h =
           | _ => (assert (print_p ctx p), ctx)
 
 fun prelude get_ce = [
-    "(set-logic ALL_SUPPORTED)",
+    (* "(set-logic ALL_SUPPORTED)", *)
     if get_ce then "(set-option :produce-models true)" else "",
     (* "(set-option :produce-proofs true)", *)
 

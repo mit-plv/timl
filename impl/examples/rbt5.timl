@@ -14,52 +14,76 @@ datatype {Nat(*max*)} {Nat(*min*)} {Nat(*black height*)} {Bool} {Nat(*size*)} 'a
               {2 ^ (bh + b2n (not rcolor) + 1) <= 2 * (rsize + 1) /\ 2 * (rsize + 1) <= 2 ^ (2 * bh + b2n (not rcolor) + 1)}
          of {color} color * {lmax} {lmin} {bh} {lcolor} {lsize} 'a rbt * ({k} uint * 'a) * {rmax} {rmin} {bh} {rcolor} {rsize} 'a rbt --> {ite (bh == 0 && rcolor) k rmax} {ite (bh == 0 && lcolor) k lmin} {bh + b2n color} {color} {lsize + 1 + rsize} 'a rbt
 
+datatype {Nat} {Bool} {Nat} size_good =
+         SizeGood {color : Bool} {size bh : Nat}
+                  {2 ^ (bh + b2n (not color) + 1) <= 2 * (size + 1) /\ 2 * (size + 1) <= 2 ^ (2 * bh + b2n (not color) + 1)}
+         of {bh} {color} {size} size_good
+                 
+fun rbt_size_good ['a] {color : Bool} {size bh kmin kmax k : Nat} (tr : {kmax} {kmin} {bh} {color} {size} 'a rbt) return {bh} {color} {size} size_good =
+    case tr of
+        Leaf => SizeGood
+      | Node (color, _, _, _) =>
+        case color of
+            Black => SizeGood
+          | Red => SizeGood
+                  
 datatype {Nat} {Nat} {Nat} {Nat} 'a violation =
          ViolateLeft {lsize rsize bh lmin lmax k rmin rmax : Nat}
                      {lmin <= lmax /\ lmax < k /\ (k < rmin \/ bh = 0) /\ rmin <= rmax}
-                     {2 ^ (bh + 1 + 1) <= 2 * (lsize + 1) /\ 2 * (lsize + 1) <= 2 ^ (2 * bh + 1 + 1)}
-                     {2 ^ (bh + 1) <= 2 * (rsize + 1) /\ 2 * (rsize + 1) <= 2 ^ (2 * bh + 1)}
          of {lmax} {lmin} {bh} {false} {lsize} 'a rbt * ({k} uint * 'a) * {rmax} {rmin} {bh} {true} {rsize} 'a rbt --> {ite (bh == 0) k rmax} {lmin} {bh} {lsize + 1 + rsize} 'a violation
        | ViolateRight {lsize rsize bh lmin lmax k rmin rmax : Nat}
                       {lmin <= lmax /\ (lmax < k \/ bh = 0) /\ k < rmin /\ rmin <= rmax}
-                      {2 ^ (bh + 1) <= 2 * (lsize + 1) /\ 2 * (lsize + 1) <= 2 ^ (2 * bh + 1)}
-                      {2 ^ (bh + 1 + 1) <= 2 * (rsize + 1) /\ 2 * (rsize + 1) <= 2 ^ (2 * bh + 1 + 1)}
          of {lmax} {lmin} {bh} {true} {lsize} 'a rbt * ({k} uint * 'a) * {rmax} {rmin} {bh} {false} {rsize} 'a rbt --> {rmax} {ite (bh == 0) k lmin} {bh} {lsize + 1 + rsize} 'a violation
 
 fun balance_left ['a] {rcolor : Bool} {lsize rsize bh lmin lmax k rmin rmax : Nat}
                  {lmin <= lmax /\ lmax < k /\ (k < rmin \/ bh = 0 /\ rcolor = true) /\ rmin <= rmax}
-                 (* {2 ^ (bh + 1 + 1) <= 2 * (lsize + 1) /\ 2 * (lsize + 1) <= 2 ^ (2 * bh + 1 + 1)} *)
-                 {2 ^ (bh + b2n (not rcolor) + 1) <= 2 * (rsize + 1) /\ 2 * (rsize + 1) <= 2 ^ (2 * bh + b2n (not rcolor) + 1)}
                  (left : {lmax} {lmin} {bh} {lsize} 'a violation)
                  (center as z : {k} uint * 'a)
                  (right as d : {rmax} {rmin} {bh} {rcolor} {rsize} 'a rbt)
                  return {ite (bh == 0 && rcolor) k rmax} {lmin} {bh + 1} {false} {lsize + 1 + rsize} 'a rbt =
     case left of
         ViolateLeft (Node (Red, a, x, b), y, c) =>
-        Node (Red, Node (Black, a, x, b), y, Node (Black, c, z, d))
+        let
+          val SizeGood _ = rbt_size_good c
+          val SizeGood _ = rbt_size_good d
+        in
+          Node (Red, Node (Black, a, x, b), y, Node (Black, c, z, d))
+        end
       | ViolateRight (a, x, Node (Red, b, y, c)) =>
-        Node (Red, Node (Black, a, x, b), y, Node (Black, c, z, d))
+        let
+          val SizeGood _ = rbt_size_good a
+          val SizeGood _ = rbt_size_good d
+        in
+          Node (Red, Node (Black, a, x, b), y, Node (Black, c, z, d))
+        end
       | _ => never
 
 fun balance_right ['a] {lcolor : Bool} {lsize rsize bh lmin lmax k rmin rmax : Nat}
                   {lmin <= lmax /\ (lmax < k \/ bh = 0 /\ lcolor = true) /\ k < rmin /\ rmin <= rmax}
-                  {2 ^ (bh + b2n (not lcolor) + 1) <= 2 * (lsize + 1) /\ 2 * (lsize + 1) <= 2 ^ (2 * bh + b2n (not lcolor) + 1)}
-                  (* {2 ^ (bh + 1 + 1) <= 2 * (rsize + 1) /\ 2 * (rsize + 1) <= 2 ^ (2 * bh + 1 + 1)} *)
                   (left as a : {lmax} {lmin} {bh} {lcolor} {lsize} 'a rbt)
                   (center as x : {k} uint * 'a)
                   (right : {rmax} {rmin} {bh} {rsize} 'a violation)
                   return {rmax} {ite (bh == 0 && lcolor) k lmin} {bh + 1} {false} {lsize + 1 + rsize} 'a rbt =
     case right of
         ViolateLeft (Node (Red, b, y, c), z, d) =>
-        Node (Red, Node (Black, a, x, b), y, Node (Black, c, z, d))
+        let
+          val SizeGood _ = rbt_size_good a
+          val SizeGood _ = rbt_size_good d
+        in
+          Node (Red, Node (Black, a, x, b), y, Node (Black, c, z, d))
+        end
       | ViolateRight (b, y, Node (Red, c, z, d)) =>
-        Node (Red, Node (Black, a, x, b), y, Node (Black, c, z, d))
+        let
+          val SizeGood _ = rbt_size_good a
+          val SizeGood _ = rbt_size_good b
+        in
+          Node (Red, Node (Black, a, x, b), y, Node (Black, c, z, d))
+        end
       | _ => never
                
 (* arbt: 'almost' red black tree, except that wellredness may be violated between root and one of its children *)
 datatype {Nat} {Nat} {Nat} {Bool} {Bool (*is already good?*)} {Nat} 'a arbt =
          Good {color : Bool} {size bh kmin kmax : Nat}
-              {2 ^ (bh + b2n (not color) + 1) <= 2 * (size + 1) /\ 2 * (size + 1) <= 2 ^ (2 * bh + b2n (not color) + 1)}
          of {color} color * {kmax} {kmin} {bh} {color} {size} 'a rbt --> {kmax} {kmin} {bh} {color} {true} {size} 'a arbt
        | Bad {size bh kmin kmax : Nat}
          of {kmax} {kmin} {bh} {size} 'a violation --> {kmax} {kmin} {bh} {false} {false} {size} 'a arbt
@@ -74,7 +98,10 @@ datatype {Nat} {Nat} {Nat} {Bool} {Nat} 'a ins_result =
          of {kmax} {kmin} {bh} {output_color} {is_good} {output_size} 'a arbt --> {kmax} {kmin} {bh} {input_color} {input_size} 'a ins_result
 
 absidx g : BigO 1 (fn n => $n) (* = fn n => 6.0 * $n *) with                                   
-fun ins ['a] {input_color : Bool} {input_size bh kmin kmax k : Nat} (tr : {kmax} {kmin} {bh} {input_color} {input_size} 'a rbt) (new as (k : {k} uint, _)) return {ite (bh == 0 && input_color) k (k max kmax)} {ite (bh == 0 && input_color) k (k min kmin)} {bh} {input_color} {input_size} 'a ins_result using (* 6.0 * $ *)g (2 * bh + b2n (not input_color)) =
+fun ins ['a] {input_color : Bool} {input_size bh kmin kmax k : Nat}
+        (tr : {kmax} {kmin} {bh} {input_color} {input_size} 'a rbt)
+        (new as (k : {k} uint, _))
+        return {ite (bh == 0 && input_color) k (k max kmax)} {ite (bh == 0 && input_color) k (k min kmin)} {bh} {input_color} {input_size} 'a ins_result using (* 6.0 * $ *)g (2 * bh + b2n (not input_color)) =
     case tr of
         Leaf =>
         let
@@ -113,7 +140,12 @@ fun ins ['a] {input_color : Bool} {input_size bh kmin kmax k : Nat} (tr : {kmax}
                         Red =>
                         InsResult (Bad (ViolateRight (left, center, right)))
                       | Black =>
-                        InsResult (Good (Red, Node (Red, left, center, right)))
+                        let
+                          val SizeGood _ = rbt_size_good left
+                          val SizeGood _ = rbt_size_good right
+                        in
+                          InsResult (Good (Red, Node (Red, left, center, right)))
+                        end
                    )
                  | _ => never
              end
