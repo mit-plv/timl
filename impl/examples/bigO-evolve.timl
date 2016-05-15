@@ -1,6 +1,6 @@
 (* The following is the thought process of evoluting [map] from using precise time spec to using big-O time spec.
 *)
-
+(*
 (* original version *)
 val ['a 'b] map =
  fn {m : Nat} (f : 'a -- $m --> 'b) =>
@@ -82,9 +82,10 @@ val ['a 'b] map =
         map
     end
 end
-
+*)
 (* the magic goes further: even [g]'s BigO class can be inferred! *)
-absidx g : BigO 2 (fn m n => $m * $n)(* _ *) with
+idx g_spec : Fun 2 = _
+absidx g : BigO 2 (* (fn m n => $m * $n) *)(* _ *) g_spec with
 val ['a 'b] map =
  fn {m : Nat} (f : 'a -- $m --> 'b) =>
     let

@@ -218,7 +218,7 @@ notion of \"the end of an outline\".")
 
 
 (defconst sml-=-starter-syms
-  (list* "|" "val" "fun" "and" "datatype" "type" "abstype" "absidx" "eqtype"
+  (list* "|" "val" "fun" "and" "datatype" "type" "idx" "abstype" "absidx" "eqtype"
 	 sml-module-head-syms)
   "Symbols that can be followed by a `='.")
 (defconst sml-=-starter-re
@@ -233,7 +233,7 @@ notion of \"the end of an outline\".")
   (append sml-module-head-syms
 	  '("abstype" "absidx" "datatype" "exception" "fun"
 	    "local" "infix" "infixr" "sharing" "nonfix"
-	    "open" "type" "val" "and"
+	    "open" "type" "idx" "val" "and"
 	    "withtype" "with"))
   "The starters of new expressions.")
 
@@ -248,7 +248,7 @@ notion of \"the end of an outline\".")
                  "fun" "functor" "handle" "if" "in" "include" "infix"
                  "infixr" "let" "local" "nonfix" "o" "of" "op" "open" "orelse"
                  "overload" "raise" "rec" "sharing" "sig" "signature"
-                 "struct" "structure" "then" "type" "val" "where" "while"
+                 "struct" "structure" "then" "type" "idx" "val" "where" "while"
                  "with" "withtype"))
   "A regexp that matches any and all keywords of SML.")
 
@@ -439,6 +439,7 @@ Regexp match data 0 points to the chars."
               (decls "signature" decls)
               (decls "structure" decls)
               (decls "type" decls)
+              (decls "idx" decls)
               (decls "open" decls)
               (decls "and" decls)
               (decls "infix" decls)
@@ -465,7 +466,7 @@ Regexp match data 0 points to the chars."
      '((nonassoc "of") (assoc "|"))     ; "case a of b => case c of d => e | f"
      '((nonassoc "handle") (assoc "|")) ; Idem for "handle".
      '((assoc "->") (assoc "*"))
-     '((assoc "val" "fun" "type" "datatype" "abstype" "absidx" "open" "infix" "infixr"
+     '((assoc "val" "fun" "type" "idx" "datatype" "abstype" "absidx" "open" "infix" "infixr"
               "nonfix" "functor" "signature" "structure" "exception"
               ;; "local"
               )
@@ -660,7 +661,7 @@ Assumes point is right before the | symbol."
 (defconst sml-imenu-regexp
   (concat "^[ \t]*\\(let[ \t]+\\)?"
 	  (regexp-opt (append sml-module-head-syms
-			      '("and" "fun" "datatype" "abstype" "absidx" "type")) t)
+			      '("and" "fun" "datatype" "abstype" "absidx" "type" "idx")) t)
 	  "\\_>"))
 
 (defun sml-imenu-create-index ()

@@ -2467,7 +2467,6 @@ local
             Quan (Exists (SOME notifier),
                   bsort,
                   (evar_name n, dummy), substu_p uvar_ref 0 $ shift_i_p $ update_p p, r)
-        val p = set_region_p p r
       in
         p
       end
@@ -2621,11 +2620,12 @@ in
 
 type typing_info = decl list * context * idx list * context
 
-fun str_typing_info ((decls, ctxd, ds, ctx) : typing_info) =
+fun str_typing_info ctx_old ((decls, ctxd, ds, ctx) : typing_info) =
     let
-      val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
+      val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx_old
       val idx_lines =
-          (concatMap (fn (name, s) => [sprintf "$ : $" [name, str_s sctxn s], ""]) o rev o #1) ctxd
+          List.concat $ rev $ fst $ foldr (fn ((name, s), (acc, sctxn)) => ([sprintf "$ : $" [name, str_s sctxn s], ""] :: acc, name :: sctxn)) ([], sctxn) $ #1 $ ctxd
+      val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
       val type_lines =
           (concatMap (fn (name, k) => [sprintf "$ :: $" [name, str_k sctxn k], ""]) o rev o #2) ctxd
       val expr_lines =
@@ -2654,11 +2654,12 @@ fun vcgen_decls ctx decls =
     let
       fun m () =
           let
+            val ctx_old = ctx
             val (decls, ctxd, nps, ds, ctx) = check_decls (ctx, decls)
             val () = close_vcs nps
             val () = close_ctx ctxd
             val ret = (decls, ctxd, ds, ctx)
-            (* val () = print $ str_typing_info ret *)
+            val () = print $ str_typing_info ctx_old ret
           in
             ret
           end

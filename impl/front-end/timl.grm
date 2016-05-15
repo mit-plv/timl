@@ -213,7 +213,7 @@ prop : id (ConstP id)
 decl : VAL tnames ptrn EQ exp (Val (tnames, ptrn, exp, (VALleft, expright)))
      | FUN id tnames bind_star return EQ exp (Rec (tnames, id, bind_star, return, exp, (FUNleft, expright)))
     | DATATYPE cur_sort_star id_plus EQ constr_bar_star (case (map fst o rev) id_plus of id :: id_star => Datatype (id, id_star, rev cur_sort_star, constr_bar_star, (DATATYPEleft, constr_bar_starright)) | [] => raise Impossible "id_plus can't be empty")
-    | TYPE IDX id optional_colon_sort EQ idx (IdxDef (id, optional_colon_sort, idx))
+    | IDX id optional_colon_sort EQ idx (IdxDef (id, optional_colon_sort, idx))
     | ABSIDX id optional_colon_sort optional_eq_idx WITH decl_star END (AbsIdx (id, optional_colon_sort, optional_eq_idx, decl_star, (ABSIDXleft, ENDright)))
     | ABSIDX LCUR id COLON bsort BAR prop RCUR optional_eq_idx WITH decl_star END (AbsIdx (id, SOME (Subset (bsort, id, prop, (LCURleft, RCURright))), optional_eq_idx, decl_star, (ABSIDXleft, ENDright)))
 
@@ -319,7 +319,7 @@ sorting : LCUR id_plus COLON sort RCUR (sortings (id_plus, sort, (LCURleft, RCUR
         | LCUR prop RCUR (
             let
               val r = (LCURleft, RCURright)
-              val id = ("_", r)
+              val id = ("__omitted_subset_id_name", r)
               val bsort = Base ("Unit", r)
             in
               [Sorting (id, Subset (bsort, id, prop, r), r)]

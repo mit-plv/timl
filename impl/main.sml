@@ -9,13 +9,91 @@ open TypeCheck
 
 infixr 0 $
 
-fun print_result show_region filename ((typing, vcs) : tc_result) =
+fun print_result show_region filename old_ctx decls ((typing, vcs) : tc_result) =
     let 
       val header =
           (* sprintf "Typechecked $" [filename] :: *)
           sprintf "Typechecking results for $:" [filename] ::
           [""]
-      val typing_lines = [str_typing_info typing]
+      open Expr
+        fun str_decls (ctx as (sctx, kctx, cctx, tctx)) decls =
+            let fun f (decl, (acc, ctx)) =
+                    let val (s, ctx) = str_decl ctx decl
+                    in
+                        (s :: acc, ctx)
+                    end
+                val (decls, ctx) = foldl f ([], ctx) decls
+                val decls = rev decls
+            in
+                (decls, ctx)
+            end
+                
+        and str_decl (ctx as (sctx, kctx, cctx, tctx)) decl =
+            case decl of
+                Val (tnames, pn, e, _) =>
+                let 
+                    val ctx' as (sctx', kctx', cctx', _) = (sctx, (rev o map fst) tnames @ kctx, cctx, tctx)
+                    val tnames = (join "" o map (fn nm => sprintf " [$]" [nm]) o map fst) tnames
+                    val (inames, enames) = ptrn_names pn
+                    val pn = str_pn (sctx', kctx', cctx') pn
+                    val e = str_e ctx' e
+	            val ctx = (inames @ sctx, kctx, cctx, enames @ tctx)
+                in
+                    ("", ctx)
+                end
+              | Rec (tnames, (name, _), (binds, ((t, d), e)), _) =>
+                let 
+	            val ctx as (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx)
+                    val ctx_ret = ctx
+                    val ctx as (sctx, kctx, cctx, tctx) = (sctx, (rev o map fst) tnames @ kctx, cctx, tctx)
+                    val tnames = (join "" o map (fn nm => sprintf " [$]" [nm]) o map fst) tnames
+                    fun f (bind, (binds, ctx as (sctx, kctx, cctx, tctx))) =
+                        case bind of
+                            SortingST ((name, _), s) => 
+                            (sprintf "{$ : $}" [name, str_s sctx s] :: binds, (name :: sctx, kctx, cctx, tctx))
+                          | TypingST pn =>
+                            let
+                                val (inames, enames) = ptrn_names pn
+                            in
+                                (str_pn (sctx, kctx, cctx) pn :: binds, (inames @ sctx, kctx, cctx, enames @ tctx))
+                            end
+                    val (binds, ctx as (sctx, kctx, cctx, tctx)) = foldl f ([], ctx) binds
+                    val binds = rev binds
+                    val binds = (join "" o map (prefix " ")) binds
+                    val t = str_mt (sctx, kctx) t
+                    val d = str_i sctx d
+                    val e = str_e ctx e
+                in
+                    ("", ctx_ret)
+                end
+              | Datatype (name, tnames, sorts, constrs, _) =>
+                let val str_tnames = (join_prefix " " o rev) tnames
+                    fun str_constr_decl (cname, ibinds, _) =
+                        let 
+                            val (name_sorts, (t, idxs)) = unfold_ibinds ibinds
+                            val (name_sorts, sctx') = str_sortings sctx name_sorts
+                            val name_sorts = map (fn (nm, s) => sprintf "$ : $" [nm, s]) name_sorts
+                        in
+                            sprintf "$ of$ $ ->$$ $" [cname, (join_prefix " " o map (surround "{" "}")) name_sorts, str_mt (sctx', rev tnames @ name :: kctx) t, (join_prefix " " o map (surround "{" "}" o str_i sctx') o rev) idxs, str_tnames, name]
+                        end
+                    val s = sprintf "datatype$$ $ = $" [(join_prefix " " o map (surround "{" "}" o str_s sctx) o rev) sorts, str_tnames, name, join " | " (map str_constr_decl constrs)]
+                    val cnames = map #1 constrs
+                    val ctx = (sctx, name :: kctx, rev cnames @ cctx, tctx)
+                in
+                    (* (s, ctx) *)
+                    ("", ctx)
+                end
+              | IdxDef ((name, r), s, i) =>
+                (sprintf "$ : $ = $" [name, str_s sctx s, str_i sctx i], (name :: sctx, kctx, cctx, tctx))
+              | AbsIdx (((name, r1), s, i), decls, _) =>
+                let
+                    val ctx' = (name :: sctx, kctx, cctx, tctx)
+                    val (decls, ctx') = str_decls ctx' decls
+                in
+                    ("", ctx')
+                end
+      val decl_lines = map (suffix "\n") $ List.filter (fn s => s <> "") $ fst $ str_decls (ctx_names old_ctx) decls
+      val typing_lines = [str_typing_info old_ctx typing]
       (* val vc_lines = *)
       (*     sprintf "Verification Conditions: [count=$]" [str_int (length vcs)] :: *)
       (*     "" :: *)
@@ -23,6 +101,9 @@ fun print_result show_region filename ((typing, vcs) : tc_result) =
       val s = join_lines 
                 (
                   header
+                  @ ["Definitions: ", ""]
+                  @ decl_lines
+                  @ ["Types: ", ""]
                   @ typing_lines 
                 (* @ vc_lines *)
                 )
@@ -44,11 +125,13 @@ fun typecheck_file (filename, ctx) =
           in
             (sctx_names sctx, names kctx, cctx, names tctx)
           end
+      val () = println $ sprintf "Typechecking file $ ..." [filename]
       val decls = parse_file filename
       val decls = map elaborate_decl decls
       (* val () = (app println o map (suffix "\n") o fst o E.str_decls ctxn) decls *)
       val decls = resolve_decls ctxn decls
       (* val () = (app println o map (suffix "\n") o fst o UnderscoredExpr.str_decls ctxn) decls *)
+      val old_ctx = ctx
       val result as ((decls, ctxd, ds, ctx), (vcs, admits)) = typecheck_decls ctx decls
       (* val () = write_file (filename ^ ".smt2", to_smt2 vcs) *)
       (* val () = println $ print_result false filename result *)
@@ -114,7 +197,7 @@ fun typecheck_file (filename, ctx) =
       val vcs = concatMap VC.simp_vc_vcs vcs
       val vcs = smt_solver vcs
       (* val vcs = map (mapFst VC.simp_vc) vcs *)
-      val () = print $ print_result false filename result
+      val () = print $ print_result false filename old_ctx decls result
       fun str_admit show_region p =
           let
             open Expr
@@ -126,15 +209,15 @@ fun typecheck_file (filename, ctx) =
                                else []
           in
             region_lines @ 
-            [str_p (#1 ctxn) p]
+            [str_p (#1 ctxn) p] @ [""]
           end
       val () =
           if null admits then
             ()
           else
-            app println $ "Admitted axioms: \n" :: concatMap (str_admit true) admits
+            app println $ "Admitted axioms: \n" :: concatMap (str_admit (* true *)false) admits
       val () = if null vcs then
-                 println $ "Typechecked."
+                 println $ "Typechecked.\n"
                else
                  raise Error $ (* str_error "Error" filename dummy *) join_lines $ [sprintf "Typecheck Error: $ Unproved obligations:" [str_int $ length vcs], ""] @ (
                  (* concatMap (fn vc => str_vc true filename vc @ [""]) $ map fst vcs *)

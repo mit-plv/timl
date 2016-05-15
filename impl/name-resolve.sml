@@ -184,6 +184,8 @@ local
         
     fun get_constr_inames core = map fst $ fst $ unfold_ibinds core
                                      
+    fun add_sorting name (sctx, kctx, cctx, tctx) = (name :: sctx, kctx, cctx, tctx)
+                                                      
     fun on_expr (ctx as (sctx, kctx, cctx, tctx)) e =
       let 
           (* val () = println $ sprintf "on_expr $ in context $" [E.str_e ctx e, join " " tctx] *)
@@ -223,7 +225,7 @@ local
 	    | E.Pair (e1, e2) => Pair (on_expr ctx e1, on_expr ctx e2)
 	    | E.Fst e => Fst (on_expr ctx e)
 	    | E.Snd e => Snd (on_expr ctx e)
-	    | E.AbsI (s, (name, r), e, r_all) => AbsI (on_sort sctx s, (name, r), on_expr (name :: sctx, kctx, cctx, tctx) e, r_all)
+	    | E.AbsI (s, (name, r), e, r_all) => AbsI (on_sort sctx s, (name, r), on_expr (add_sorting name ctx) e, r_all)
 	    | E.AppI (e, i) => 
 	      let
                   fun default () = 
@@ -292,7 +294,7 @@ local
                 fun f (bind, (binds, ctx as (sctx, kctx, cctx, tctx))) =
                     case bind of
                         E.SortingST ((name, r), s) => 
-                        (SortingST ((name, r), on_sort sctx s) :: binds, (name :: sctx, kctx, cctx, tctx))
+                        (SortingST ((name, r), on_sort sctx s) :: binds, add_sorting name ctx)
                       | E.TypingST pn =>
                         let
                             val pn = on_ptrn (sctx, kctx, cctx) pn
@@ -320,13 +322,15 @@ local
                 (decl, ctx)
             end
           | E.IdxDef ((name, r), s, i) =>
-            (IdxDef ((name, r), on_sort sctx s, on_idx sctx i), (name :: sctx, kctx, cctx, tctx))
+            (IdxDef ((name, r), on_sort sctx s, on_idx sctx i), add_sorting name ctx)
           | E.AbsIdx (((name, r1), s, i), decls, r) =>
             let
-                val ctx' = (name :: sctx, kctx, cctx, tctx)
-                val (decls, ctx') = on_decls ctx' decls
+              val s = on_sort sctx s
+              val i = on_idx sctx i
+              val ctx = add_sorting name ctx
+              val (decls, ctx) = on_decls ctx decls
             in
-                (AbsIdx (((name, r1), on_sort sctx s, on_idx sctx i), decls, r), ctx')
+                (AbsIdx (((name, r1), s, i), decls, r), ctx)
             end
 
     and on_rule (ctx as (sctx, kctx, cctx, tctx)) (pn, e) =
