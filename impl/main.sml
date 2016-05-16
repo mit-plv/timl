@@ -68,15 +68,6 @@ fun print_result show_region filename old_ctx decls ((typing, vcs) : tc_result) 
                 end
               | Datatype (name, tnames, sorts, constrs, _) =>
                 let val str_tnames = (join_prefix " " o rev) tnames
-                    fun str_constr_decl (cname, ibinds, _) =
-                        let 
-                            val (name_sorts, (t, idxs)) = unfold_ibinds ibinds
-                            val (name_sorts, sctx') = str_sortings sctx name_sorts
-                            val name_sorts = map (fn (nm, s) => sprintf "$ : $" [nm, s]) name_sorts
-                        in
-                            sprintf "$ of$ $ ->$$ $" [cname, (join_prefix " " o map (surround "{" "}")) name_sorts, str_mt (sctx', rev tnames @ name :: kctx) t, (join_prefix " " o map (surround "{" "}" o str_i sctx') o rev) idxs, str_tnames, name]
-                        end
-                    val s = sprintf "datatype$$ $ = $" [(join_prefix " " o map (surround "{" "}" o str_s sctx) o rev) sorts, str_tnames, name, join " | " (map str_constr_decl constrs)]
                     val cnames = map #1 constrs
                     val ctx = (sctx, name :: kctx, rev cnames @ cctx, tctx)
                 in
@@ -198,24 +189,6 @@ fun typecheck_file (filename, ctx) =
       val vcs = smt_solver vcs
       (* val vcs = map (mapFst VC.simp_vc) vcs *)
       val () = print $ print_result false filename old_ctx decls result
-      fun str_admit show_region p =
-          let
-            open Expr
-            val vc = prop2vc p
-            (* val r = get_region_p p *)
-            val r = get_region_p $ snd vc
-            val region_lines = if show_region then
-                                 [str_region "" filename r]
-                               else []
-          in
-            region_lines @ 
-            [str_p (#1 ctxn) p] @ [""]
-          end
-      val () =
-          if null admits then
-            ()
-          else
-            app println $ "Admitted axioms: \n" :: concatMap (str_admit (* true *)false) admits
       val () = if null vcs then
                  println $ "Typechecked.\n"
                else
@@ -223,8 +196,9 @@ fun typecheck_file (filename, ctx) =
                  (* concatMap (fn vc => str_vc true filename vc @ [""]) $ map fst vcs *)
                  concatMap (print_unsat true filename) vcs
                )
+      val admits = map (fn admit => (filename, #1 ctxn, admit)) admits
     in
-      ctx
+      (ctx, admits)
     end
     handle
     Elaborate.Error (r, msg) => raise Error $ str_error "Error" filename r ["Elaborate error: " ^ msg]
@@ -239,7 +213,6 @@ fun typecheck_file (filename, ctx) =
 fun process_file (filename, ctx) =
     let
       open OS.Path
-      val typecheck_files = foldl typecheck_file
       fun splitDirFileExt filename =
           let
             val dir_file = splitDirFile filename
@@ -254,60 +227,6 @@ fun process_file (filename, ctx) =
             let
               val split_lines = String.tokens (fn c => c = #"\n")
               val read_lines = split_lines o read_file
-              fun read_lines filename =
-                  let
-                    open TextIO
-                    val ins = openIn filename
-                    fun loop lines =
-                        case inputLine ins of
-                            SOME ln => loop (String.substring (ln, 0, String.size ln - 1) :: lines)
-                          | NONE => lines
-                    val lines = rev $ loop []
-                    val () = closeIn ins
-                  in
-                    lines
-                  end
-              fun trim s =
-                  let
-                    fun first_non_space s =
-                        let
-                          val len = String.size s
-                          fun loop n =
-                              if n >= len then
-                                NONE
-                              else
-                                if Char.isSpace $ String.sub (s, n)  then
-                                  loop (n + 1)
-                                else
-                                  SOME n
-                        in
-                          loop 0
-                        end
-                    fun last_non_space s =
-                        let
-                          val len = String.size s
-                          fun loop n =
-                              if n < 0 then
-                                NONE
-                              else
-                                if Char.isSpace $ String.sub (s, n)  then
-                                  loop (n - 1)
-                                else
-                                  SOME n
-                        in
-                          loop (len - 1)
-                        end
-                    val first = first_non_space s
-                    val last = last_non_space s
-                  in
-                    case (first, last) of
-                        (SOME first, SOME last) =>
-                        if first <= last then
-                          String.substring (s, first, last - first + 1)
-                        else
-                          ""
-                      | _ => ""
-                  end
               val filenames = read_lines filename
               val filenames = map trim filenames
               (* val () = app println filenames *)
@@ -326,12 +245,41 @@ fun process_file (filename, ctx) =
       ctx
     end
       
-and process_files ctx filenames = foldl process_file ctx filenames
+and process_files ctx filenames =
+    let
+      fun iter (filename, (ctx, acc)) =
+          let
+            val (ctx, admits) = process_file (filename, ctx)
+          in
+            (ctx, acc @ admits)
+          end
+    in
+      foldl iter (ctx, []) filenames
+    end
           
 fun main filenames =
     let
       val () = app println $ ["Input file(s):"] @ indent filenames
-      val ctx = process_files empty_ctx filenames
+      val (ctx, admits) = process_files empty_ctx filenames
+      fun str_admit show_region (filename, sctxn, p) =
+          let
+            open Expr
+            val vc = prop2vc p
+            (* val r = get_region_p p *)
+            val r = get_region_p $ snd vc
+            val region_lines = if show_region then
+                                 [str_region "" filename r]
+                               else []
+          in
+            region_lines @ 
+            [str_p sctxn p] @ [""]
+          end
+      val () =
+          if null admits then
+            ()
+          else
+            (* app println $ "Admitted axioms: \n" :: concatMap (str_admit true) admits *)
+            app println $ "Admitted axioms: \n" :: (concatMap (str_admit false) $ dedup (fn ((_, _, p), (_, _, p')) => Expr.eq_p p p') admits)
     in
       ctx
     end

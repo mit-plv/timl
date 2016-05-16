@@ -43,7 +43,7 @@ fun id x = x
 fun const a _ = a
 fun range n = List.tabulate (n, id)
 fun repeat n a = List.tabulate (n, const a)
-      
+                               
 fun nth_error ls n =
     if n < 0 orelse n >= length ls then
       NONE
@@ -153,6 +153,62 @@ fun read_file filename =
       val _ = TextIO.closeIn ins
     in
       s
+    end
+      
+fun read_lines filename =
+    let
+      open TextIO
+      val ins = openIn filename
+      fun loop lines =
+          case inputLine ins of
+              SOME ln => loop (String.substring (ln, 0, String.size ln - 1) :: lines)
+            | NONE => lines
+      val lines = rev $ loop []
+      val () = closeIn ins
+    in
+      lines
+    end
+      
+fun trim s =
+    let
+      fun first_non_space s =
+          let
+            val len = String.size s
+            fun loop n =
+                if n >= len then
+                  NONE
+                else
+                  if Char.isSpace $ String.sub (s, n)  then
+                    loop (n + 1)
+                  else
+                    SOME n
+          in
+            loop 0
+          end
+      fun last_non_space s =
+          let
+            val len = String.size s
+            fun loop n =
+                if n < 0 then
+                  NONE
+                else
+                  if Char.isSpace $ String.sub (s, n)  then
+                    loop (n - 1)
+                  else
+                    SOME n
+          in
+            loop (len - 1)
+          end
+      val first = first_non_space s
+      val last = last_non_space s
+    in
+      case (first, last) of
+          (SOME first, SOME last) =>
+          if first <= last then
+            String.substring (s, first, last - first + 1)
+          else
+            ""
+        | _ => ""
     end
       
 fun concatMap f ls = (List.concat o map f) ls
