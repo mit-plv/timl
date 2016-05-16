@@ -100,7 +100,7 @@ datatype cmp_result = Equal | Less | Greater
 
 absidx m : Time with
 (* idx m : Time = _ *)
-fun cmp ['v] (x : 'v, y : 'v) = Equal using m
+fun cmp ['v] (x : 'v, y : 'v) return using m = Equal using 7.0
 end
 
 absidx T_ins : BigO 1 (fn n => $n) (* = fn n => 6.0 * $n *) with                                   

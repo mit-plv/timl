@@ -649,37 +649,56 @@ fun solve_exists (vc as (hs, p)) =
                    else NONE
                   end
                 | _ => NONE
+          val ret = 
+              case ret of
+                  SOME vcs => SOME vcs
+                | NONE =>
+                  let
+                  in
+                    case infer_exists hs (name, arity) p of
+                        SOME (i, vcs) =>
+                        let
+                          val () = println "Inferrred by infer_exists() !"
+                          val () = case ins of
+                                       SOME ins => ins i
+                                     | NONE => ()
+                        in
+                          SOME vcs
+                        end
+                      | NONE => NONE
+                  end
+          val ret = 
+              case ret of
+                  SOME vcs => SOME vcs
+                | NONE =>
+                  let
+                    (* ToDo: a bit unsound inference strategy: infer [i] from [p1] and substitute for [i] in [p2] (assuming that [p2] doesn't contribute to inferring [i]) *)
+                    val (p1, p2) = split_and p
+                                     (* val () = println "Exists-solver to solve this: " *)
+                                     (* val () = app println $ (str_vc false "" vc @ [""]) *)
+                                     (* val () = app println $ (str_vc false "" (VarH (name, TimeFun arity) :: hs, p1) @ [""]) *)
+                  in
+                    case infer_exists hs (name, arity) p1 of
+                        SOME (i, vcs1) =>
+                        let
+                          val () = println "Inferrred by infer_exists() !"
+                          val () = case ins of
+                                       SOME ins => ins i
+                                     | NONE => ()
+                          val p2 = subst_i_p i p2
+                          val vcs = prop2vcs p2
+                          val vcs = append_hyps hs vcs
+                          val vcs = concatMap solve_exists vcs
+                          val vcs = vcs1 @ vcs
+                        in
+                          SOME vcs
+                        end
+                      | NONE => NONE
+                  end
         in
           case ret of
               SOME vcs => vcs
-            | NONE =>
-              
-              let
-                (* ToDo: get rid of [p2] *)
-                (* val (p1, p2) = split_and p *)
-                val (p1, p2) = (p, True dummy)
-                (* val () = println "Exists-solver to solve this: " *)
-                (* val () = app println $ (str_vc false "" vc @ [""]) *)
-                (* val () = app println $ (str_vc false "" (VarH (name, TimeFun arity) :: hs, p1) @ [""]) *)
-              in
-                case infer_exists hs (name, arity) p1 of
-                    SOME (i, vcs1) =>
-                    let
-                      val () = println "Inferrred by infer_exists() !"
-                      val () = case ins of
-                                   SOME ins => ins i
-                                 | NONE => ()
-                      val p2 = subst_i_p i p2
-                      val vcs = prop2vcs p2
-                      val vcs = append_hyps hs vcs
-                      val vcs = concatMap solve_exists vcs
-                      val vcs = vcs1 @ vcs
-                    in
-                      vcs
-                    end
-                  | NONE => [vc]
-              end
-
+            | NONE => [vc]
         end
       | _ => [vc]
 
