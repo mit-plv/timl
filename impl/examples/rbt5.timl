@@ -98,12 +98,15 @@ datatype {Nat} {Bool} {Nat} 'a ins_result =
 
 datatype cmp_result = Equal | Less | Greater
 
-fun cmp ['a] (x : 'a, y : 'a) = Equal using 7.0
+absidx m : Time with
+(* idx m : Time = _ *)
+fun cmp ['v] (x : 'v, y : 'v) = Equal using m
+end
 
 absidx T_ins : BigO 1 (fn n => $n) (* = fn n => 6.0 * $n *) with                                   
-fun ins ['a] {input_color : Bool} {input_size bh : Nat}
-        (tr : {bh} {input_color} {input_size} 'a rbt) new
-        return {bh} {input_color} {input_size} 'a ins_result using (* 6.0 * $ *)T_ins (2 * bh + b2n (not input_color)) =
+fun ins ['k 'v] {input_color : Bool} {input_size bh : Nat}
+        (tr : {bh} {input_color} {input_size} ('k * 'v) rbt) (new as (k, _))
+        return {bh} {input_color} {input_size} ('k * 'v) ins_result using (* 6.0 * $ *)T_ins (2 * bh + b2n (not input_color)) =
     case tr of
         Leaf =>
         let
@@ -113,8 +116,8 @@ fun ins ['a] {input_color : Bool} {input_size bh : Nat}
         in
           tr
         end
-      | Node (Red, left, center, right) =>
-        (case cmp (new, center) of
+      | Node (Red, left, center as (k', _), right) =>
+        (case cmp (k, k') of
              Equal => InsResult (Good (Red, Node (Red, left, new, right)))
            | Less =>
              let
@@ -157,8 +160,8 @@ fun ins ['a] {input_color : Bool} {input_size bh : Nat}
                  | _ => never
              end
         )
-      | Node (Black, left, center, right) =>
-        (case cmp (new, center) of
+      | Node (Black, left, center as (k', _), right) =>
+        (case cmp (k, k') of
              Equal =>
              InsResult (Good (Black, Node (Black, left, new, right)))
            | Less => 
@@ -196,15 +199,15 @@ end
 
 (* simplify time complexity *)
 absidx T_insert_rbt' : BigO 1 (fn n => $n) with                                   
-fun insert_rbt' ['a] {color : Bool} {size bh : Nat}
-        (tr : {bh} {color} {size} 'a rbt) new
+fun insert_rbt' ['k 'v] {color : Bool} {size bh : Nat}
+        (tr : {bh} {color} {size} ('k * 'v) rbt) new
         return using T_insert_rbt' bh =
     ins tr new
 end
 
 absidx T_insert_rbt : BigO 1 (fn n => log2 $n) with                                   
-fun insert_rbt ['a] {color : Bool} {size bh : Nat}
-        (tr : {bh} {color} {size} 'a rbt) new
+fun insert_rbt ['k 'v] {color : Bool} {size bh : Nat}
+        (tr : {bh} {color} {size} ('k * 'v) rbt) new
         return using T_insert_rbt size =
     let
       val SizeGood _ = rbt_size_good tr
@@ -223,12 +226,11 @@ fun blacken_root ['a] {size bh : Nat} (tr : {bh} {false} {size} 'a rbt) return {
 datatype {Nat} 'a rb_tree =
          RBTree {size bh : Nat} of {bh} {true} {size} 'a rbt --> {size} 'a rb_tree
 
-
 datatype {Nat} 'a rbt_may_grow_one =
          RbtMayGrowOne {size : Nat} {size' : Nat | size' = size \/ size' = size + 1} of {size'} 'a rb_tree --> {size} 'a rbt_may_grow_one
 
 absidx T_insert : BigO 1 (fn n => log2 $n) with
-fun insert ['a] {size : Nat} (tr : {size} 'a rb_tree) new return {size} 'a rbt_may_grow_one using T_insert size =
+fun insert ['k 'v] {size : Nat} (tr : {size} ('k * 'v) rb_tree) new return {size} ('k * 'v) rbt_may_grow_one using T_insert size =
     case tr of
         RBTree tr =>
         case insert_rbt tr new of

@@ -68,48 +68,56 @@ fun trim_class cls = M.filter (fn (c, k) => not (c = 0 andalso k = 0)) cls
 fun str_cls cls = str_ls (fn (x, (c, k)) => sprintf "$=>($,$)" [str_int x, str_int c, str_int k]) $ M.listItemsi $ cls
                      
 (* summarize [i] in the form n_1^c_1 * (log n_1)^k_1 * ... * n_s^c_s * (log n_s)^k_s, and [n_1 => (c_1, k_1), ..., n_s => (c_s, k_s)] will be the [i]'s "asymptotic class". [n_1, ..., n_s] are the variable. *)
-fun summarize on_error i =
-    case i of
-        ConstIT _ =>
-        M.empty
-      | ConstIN _ =>
-        M.empty
-      | VarI (x, _) =>
-        M.insert (M.empty, x, (1, 0))
-      | UnOpI (B2n, i, _) =>
-        M.empty
-      | UnOpI (ToReal, i, _) =>
-        summarize on_error i
-      | UnOpI (Ceil, i, _) =>
-        summarize on_error i
-      | UnOpI (Floor, i, _) =>
-        summarize on_error i
-      | DivI (i, _) =>
-        summarize on_error i
-      | UnOpI (Log2, i, _) =>
-        let
-          (* val () = println "summarize/Log2" *)
-          val is = collect_MultI i
-          val classes = map (summarize on_error) is
-          val cls = add_classes classes
-          (* val () = println $ str_cls cls *)
-          (* (0, 0) should never enter a class, so the following precaution shouldn't be necessary *)
-          fun log_class (c, k) =
-              (* approximate [log (log n)] by [log n] *)
-              (0, if c = 0 andalso k = 0 then 0 else 1) 
-          val cls = M.map log_class cls
-          val cls = trim_class cls
-          (* val () = println $ str_cls cls *)
-        in
-          cls
-        end
-      | BinOpI (MultI, a, b) =>
-        mult_class (summarize on_error a, summarize on_error b)
-      | BinOpI (AddI, a, b) =>
-        add_class (summarize on_error a, summarize on_error b)
-      | BinOpI (MaxI, a, b) =>
-        add_class (summarize on_error a, summarize on_error b)
-      | _ => on_error $ "summarize fails with " ^ str_i [] i
+fun summarize (is_outer, on_error) i =
+    let
+      fun loop i = 
+          case i of
+              ConstIT _ =>
+              M.empty
+            | ConstIN _ =>
+              M.empty
+            | VarI (x, _) =>
+              if is_outer x then
+                M.empty
+              else
+                M.insert (M.empty, x, (1, 0))
+            | UnOpI (B2n, i, _) =>
+              M.empty
+            | UnOpI (ToReal, i, _) =>
+              loop i
+            | UnOpI (Ceil, i, _) =>
+              loop i
+            | UnOpI (Floor, i, _) =>
+              loop i
+            | DivI (i, _) =>
+              loop i
+            | UnOpI (Log2, i, _) =>
+              let
+                (* val () = println "summarize/Log2" *)
+                val is = collect_MultI i
+                val classes = map loop is
+                val cls = add_classes classes
+                (* val () = println $ str_cls cls *)
+                (* (0, 0) should never enter a class, so the following precaution shouldn't be necessary *)
+                fun log_class (c, k) =
+                    (* approximate [log (log n)] by [log n] *)
+                    (0, if c = 0 andalso k = 0 then 0 else 1) 
+                val cls = M.map log_class cls
+                val cls = trim_class cls
+                                     (* val () = println $ str_cls cls *)
+              in
+                cls
+              end
+            | BinOpI (MultI, a, b) =>
+              mult_class (loop a, loop b)
+            | BinOpI (AddI, a, b) =>
+              add_class (loop a, loop b)
+            | BinOpI (MaxI, a, b) =>
+              add_class (loop a, loop b)
+            | _ => on_error $ "summarize fails with " ^ str_i [] i
+    in
+      loop i
+    end
 
 fun class_entry_le ((c, k), (c', k')) =
     if c < c' then
@@ -135,12 +143,12 @@ fun class_le (m1, m2) =
 fun timefun_le hs arity a b =
     let
       exception Error of string
-      val summarize = summarize (fn s => raise Error s)
       fun main () =
           let
             val (names1, i1) = collect_TimeAbs a
             val (names2, i2) = collect_TimeAbs b
             val () = if length names1 = length names2 then () else raise Error "timefun_le: arity must equal"
+            val summarize = summarize (fn x => x >= length names1, fn s => raise Error s)
             val cls1 = summarize i1
             val cls2 = summarize i2
             (* val () = println $ sprintf "$ <=? $" [str_cls cls1, str_cls cls2] *)
@@ -173,8 +181,10 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
           end
       fun infer_vc (vc as (short_hyps, p), long_hyps) =
           let
-            (* number of variables in context *)
-            val nx = length $ List.filter (fn h => case h of VarH _ => true | _ => false) short_hyps
+            (* VarI (main_fun, _) is the time function of interest in the Master Theorem *)
+            val main_fun = length $ hyps2ctx short_hyps
+            (* variables satisfy [is_outer] is considered constants in the outer environment *)
+            fun is_outer x = x >= main_fun + 2
             fun ask_smt p = ask_smt_vc (long_hyps, p)
             val N1 = ConstIN (1, dummy)
             fun V n = VarI (n, dummy)
@@ -222,8 +232,9 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                 let
                   val error = Error
                   fun on_error s = raise error s
-                  val cls_n = summarize on_error n
-                  val cls_i = M.listItemsi $ trim_class $ summarize on_error i
+                  val summarize = summarize (is_outer, on_error)
+                  val cls_n = summarize n
+                  val cls_i = M.listItemsi $ trim_class $ summarize i
                   fun get_x () = extract_only_variable (error "summarize_1: class of n must be (1, 0) for only one variable") cls_n
                   fun err () = on_error "summarize_1: class of i must only contain n's variable"
                   val ret = if length cls_i = 0 then
@@ -231,12 +242,14 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                             else if length cls_i = 1 then
                               let
                                 val x = get_x ()
+                                val x' = fst (hd cls_i)
+                                val cls = snd (hd cls_i)
                               in
-                                if fst (hd cls_i) = x then
-                                  snd (hd cls_i)
+                                if x' = x then
+                                  cls
                                 else
-                                  if ask_smt (V x %<= n) then
-                                    snd (hd cls_i)
+                                  if ask_smt $ (* trace ("V x' %<= n ?") $  *)(V x' %<= n) then
+                                    cls
                                   else
                                     err ()
                               end
@@ -249,9 +262,10 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                 let
                   val error = Error
                   fun on_error s = raise error s
-                  val cls_n = summarize on_error n
-                  val cls_m = summarize on_error m
-                  val cls_i = M.listItemsi $ trim_class $ summarize on_error i
+                  val summarize = summarize (is_outer, on_error)
+                  val cls_n = summarize n
+                  val cls_m = summarize m
+                  val cls_i = M.listItemsi $ trim_class $ summarize i
                   fun err () = on_error $ "summarize_2: i should be y*f(x) or f(x) " ^ str_i [] i
                   fun get_y () = extract_only_variable (error "summarize_2: class of n must be (1, 0) for only one variable") cls_m
                   fun get_x () = extract_only_variable (Error $ "summarize_2: class of n must be (1, 0) for only one variable " ^ str_i [] n) cls_n
@@ -298,13 +312,13 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                     BinOpI (TimeApp, f_i, n') =>
                     (case f_i of
                          VarI (f, _) =>
-                         if f > nx then
+                         if is_outer f then
                            case find_bigO_hyp f_i long_hyps of
                                SOME (g, _) => simp_i (g %@ n')
                              | NONE => i
                          else i
                        | BinOpI (TimeApp, f_i as VarI (f, _), m') =>
-                         if f > nx then
+                         if is_outer f  then
                            case find_bigO_hyp f_i long_hyps of
                                SOME (g, _) => simp_i (g %@ m' %@ n')
                              | NONE => i
@@ -387,8 +401,8 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
             case p of
                 BinPred (LeP, i1, BinOpI (TimeApp, BinOpI (TimeApp, VarI (g, _), VarI (m, _)), n_i)) =>
                 let
-                  val () = if g = nx then () else raise Error "g = nx fails"
-                  val () = if m < nx then () else raise Error "m < nx fails"
+                  val () = if g = main_fun then () else raise Error "g = main_fun fails"
+                  val () = if m < main_fun then () else raise Error "m < main_fun fails"
                   (* ToDo: check that [n_i] are well-scoped in [hs'] *)
                   (* ToDo: check that [m] doesn't appear in [n_i] *)
                   val m_i = V m
@@ -443,7 +457,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
               | BinPred (LeP, i1, BinOpI (TimeApp, VarI (g, _), n_i)) =>
                 if not $ contains i1 g then
                   let
-                    val () = if g = nx then () else raise Error "g = nx fails"
+                    val () = if g = main_fun then () else raise Error "g = main_fun fails"
                     val n_ = to_real n_i
                     val is = collect_AddI i1
                     val is = map use_bigO_hyp is
@@ -455,7 +469,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                   end
                 else
                   let
-                    val () = if g = nx then () else raise Error "g = nx fails"
+                    val () = if g = main_fun then () else raise Error "g = main_fun fails"
                     (* ToDo: check that [n_i] are well-scoped in [hs'] *)
                     val n_ = to_real n_i
                   in
@@ -503,8 +517,10 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                       val (n's, rest) = partitionOption par is
                       val n' = combine_AddI_Nat n's
                       val () = if ask_smt (n' %+ N1 %<= n_i) then () else raise Error "n' %+ N1 %<= n_i"
+                      val rest = map use_bigO_hyp rest
+                      val () = println $ str_i (hyps2ctx long_hyps) $ combine_AddI_Time rest
                       val (c, k) =
-                          add_class_entries $ map (summarize_1 n_ o use_bigO_hyp) rest
+                          add_class_entries $ map (summarize_1 n_) rest
                       val Tn = class2term (c + 1, k) (to_real (V 0))
                       val ret = TimeAbs (("n", dummy), simp_i Tn, dummy)
                     in
@@ -602,7 +618,7 @@ fun solve_exists (vc as (hs, p)) =
                     let
                       val () = println "Infer and check ..."
                     in
-                    case use_master_theorem hs (name, arity) ("inferred", arity) (shiftx_i_p 1 1 p) of
+                    case use_master_theorem hs ("inferred", arity) (name, arity) (shiftx_i_p 1 1 p) of
                         SOME (inferred, vcs) =>
                         (let
                           val inferred = forget_i_i 1 1 inferred
