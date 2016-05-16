@@ -1648,7 +1648,7 @@ local
                         case e of
                             App (f, e) =>
                             let
-                              val (_, is) = peel_AppI f
+                              val (_, is) = collect_AppI f
                               val e = forget_e_e 0 1 e
                             in
                               AppConstr ((cx, eia), is, e)

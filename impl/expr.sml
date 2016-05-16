@@ -146,19 +146,19 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         val Type = ArrowK (false, 0, [])
 
-        fun peel_UniI t =
+        fun collect_UniI t =
             case t of
                 UniI (s, BindI ((name, _), t), _) =>
-                let val (binds, t) = peel_UniI t
+                let val (binds, t) = collect_UniI t
                 in
                     ((name, s) :: binds, t)
                 end
               | _ => ([], t)
 
-        fun peel_Uni t =
+        fun collect_Uni t =
             case t of
                 Uni (name, t, _) =>
-                let val (names, t) = peel_Uni t
+                let val (names, t) = collect_Uni t
                 in
                     (name :: names, t)
                 end
@@ -183,9 +183,9 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         fun constr_from_type t =
             let
-                val (tnames, t) = peel_Uni t
+                val (tnames, t) = collect_Uni t
                 val tnames = map fst tnames
-                val (ns, t) = peel_UniI t
+                val (ns, t) = collect_UniI t
                 val (t, is) = case t of
                                   Arrow (t, _, AppV (_, _, is, _)) => (t, is)
                                 | _ => raise Impossible "constr_from_type (): t not the right form"
@@ -238,11 +238,11 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  | IdxDef of name * sort * idx
                  | AbsIdx of (name * sort * idx) * decl list * region
 
-        fun peel_AppI e =
+        fun collect_AppI e =
             case e of
                 AppI (e, i) =>
                 let 
-                    val (e, is) = peel_AppI e
+                    val (e, is) = collect_AppI e
                 in
                     (e, is @ [i])
                 end
@@ -440,11 +440,11 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  KindingT of string
                  | SortingT of string * 'a
 
-        fun peel_Uni_UniI t =
+        fun collect_Uni_UniI t =
             let
-                val (tnames, t) = peel_Uni t
+                val (tnames, t) = collect_Uni t
                 val tnames = map fst tnames
-                val (binds, t) = peel_UniI t
+                val (binds, t) = collect_UniI t
             in
                 (map KindingT tnames @ map SortingT binds, t)
             end
@@ -484,7 +484,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | Prod (t1, t2) => sprintf "($ * $)" [str_mt ctx t1, str_mt ctx t2]
               | UniI _ =>
                 let
-                    val (binds, t) = peel_UniI t
+                    val (binds, t) = collect_UniI t
                 in
                     str_uni ctx (map SortingT binds, t)
                 end
@@ -511,7 +511,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         fun str_t (ctx as (sctx, kctx)) (t : ty) : string =
             case t of
                 Mono t => str_mt ctx t
-              | Uni _ => str_uni ctx (peel_Uni_UniI t)
+              | Uni _ => str_uni ctx (collect_Uni_UniI t)
 
         fun str_k ctx (k : kind) : string = 
             case k of

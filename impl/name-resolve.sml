@@ -212,7 +212,7 @@ local
                   val e2 = on_expr ctx e2
 		  fun default () = 
                       App (on_expr ctx e1, e2)
-		  val (e1, is) = E.peel_AppI e1 
+		  val (e1, is) = E.collect_AppI e1 
 	      in
 		  case e1 of
 		      E.Var ((x, r), b) =>
@@ -230,7 +230,7 @@ local
 	      let
                   fun default () = 
                       AppI (on_expr ctx e, on_idx sctx i)
-		  val (e, is) = E.peel_AppI e
+		  val (e, is) = E.collect_AppI e
                   val is = is @ [i]
 	      in
 		  case e of

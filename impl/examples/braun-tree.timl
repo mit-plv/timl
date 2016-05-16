@@ -1,6 +1,6 @@
 datatype {Nat} 'a braun_tree =
          Leaf of {0} 'a braun_tree
-       | Node {n : Nat} of 'a * {ceil ($n/2)} 'a braun_tree * {floor ($n/2)} 'a braun_tree --> {n+1} 'a braun_tree
+       | Node {size : Nat} of 'a * {ceil ($size/2)} 'a braun_tree * {floor ($size/2)} 'a braun_tree --> {size+1} 'a braun_tree
 
 fun le ['a] (x : 'a, y : 'a) = false using 7.0
 
@@ -10,31 +10,31 @@ fun min_max ['a] {m : Time} (le : 'a * 'a -- m --> bool) (x, y) =
       | false => (y, x)
 
 absidx Tinsert : BigO 1 (fn n => log2 $n) with
-fun insert ['a] {n : Nat} (tr : {n} 'a braun_tree) x return {n + 1} 'a braun_tree using Tinsert n =
+fun insert ['a] {size : Nat} (tr : {size} 'a braun_tree) x return {size + 1} 'a braun_tree using Tinsert size =
     case tr of
         Leaf => @Node {0} (x, Leaf, Leaf)
-      | @Node {n'} (y, l, r) =>
+      | @Node {size'} (y, l, r) =>
         let
           val (smaller, bigger) = min_max le (x, y)
         in
-          @Node {n' + 1} (smaller, insert r bigger, l)
+          @Node {size' + 1} (smaller, insert r bigger, l)
         end
 end
 
-fun peek ['a] {n : Nat} (tr : {n + 1} 'a braun_tree) =
+fun peek ['a] {size : Nat} (tr : {size + 1} 'a braun_tree) =
     case tr of
         Node (x, _, _) => x
       | Leaf => never
 
 absidx T : Time with
-fun peek_option ['a] {n : Nat} (tr : {n} 'a braun_tree) return 'a option using T =
+fun peek_option ['a] {size : Nat} (tr : {size} 'a braun_tree) return 'a option using T =
     case tr of
         Leaf => NONE
       | Node (x, _, _) => SOME x
 end
 
 absidx Tsift : BigO 1 (fn n => log2 $n)(* _ *) with
-fun sift ['a] {n : Nat} (x, l : {ceil ($n/2)} 'a braun_tree, r : {floor ($n/2)} 'a braun_tree) return {n+1} 'a braun_tree using Tsift n =
+fun sift ['a] {size : Nat} (x, l : {ceil ($size/2)} 'a braun_tree, r : {floor ($size/2)} 'a braun_tree) return {size+1} 'a braun_tree using Tsift size =
     case (l, r) of
         (Leaf, Leaf) =>
         Node (x, Leaf, Leaf)
@@ -57,7 +57,7 @@ fun sift ['a] {n : Nat} (x, l : {ceil ($n/2)} 'a braun_tree, r : {floor ($n/2)} 
 end
 
 absidx Tpop : BigO 1 (fn n => log2 $n * log2 $n)(* _ *) with
-fun pop ['a] {n : Nat} (tr : {n + 1} 'a braun_tree) return 'a * {n} 'a braun_tree using Tpop n =
+fun pop ['a] {size : Nat} (tr : {size + 1} 'a braun_tree) return 'a * {size} 'a braun_tree using Tpop size =
     case tr of
         Node (x, l, r) =>
         (case (l, r) of
