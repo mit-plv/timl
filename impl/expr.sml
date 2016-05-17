@@ -148,8 +148,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  ModVar of id
                  | ModSel of mod_projectible * name
                                                 
-        type 'body tbind = (mtype, 'body) Bind.bind
-
         (* monotypes *)
         datatype mtype = 
 	         Arrow of mtype * idx * mtype
@@ -158,14 +156,16 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  | Unit of region
 	         | Prod of mtype * mtype
 	         | UniI of sort * (name * mtype) ibind * region
+	         | AppV of id * mtype list * idx list * region (* the first operant of App can only be a type variable. The degenerated case of no-arguments is also included *)
                  | MtVar of id
                  | MtSel of mod_projectible * name
                  | MtApp of mtype * mtype
                  | MtAbs of (name * mtype) tbind * region
                  | MtAppI of mtype * idx
                  | MtAbsI of sort * (name * mtype) ibind * region
-	         | AppV of id * mtype list * idx list * region (* the first operant of App can only be a type variable. The degenerated case of no-arguments is also included *)
                                                           
+        withtype 'body tbind = (mtype, 'body) Bind.bind
+
         datatype ty = 
 	         Mono of mtype
 	         | Uni of name * ty * region
@@ -179,6 +179,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         datatype ptrn =
                  (* eia : is explicit index arguments? *)                                         
 	         ConstrP of (id * bool(*eia*)) * string list * ptrn option * region
+	         | PtrnConstrSel of ((mod_projectible * name) * bool) * string list * ptrn option * region
                  | VarP of name
                  | PairP of ptrn * ptrn
                  | TTP of region
@@ -192,13 +193,14 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         type type_bind = name * mtype
                                                 
         datatype expr =
-	         Var of (var * region) * bool(*eia*)
+	         Var of id * bool(*eia*)
+                 | TermSel of (mod_projectible * name) * bool
 	         | App of expr * expr
 	         | Abs of ptrn * expr
                  (* unit type *)
 	         | TT of region
 	         (* product type *)
-p	         | Pair of expr * expr
+	         | Pair of expr * expr
 	         | Fst of expr
 	         | Snd of expr
 	         (* universal index *)
@@ -213,7 +215,6 @@ p	         | Pair of expr * expr
 	         | Ascription of expr * mtype
 	         | AscriptionTime of expr * idx
 	         | Never of mtype * region
-                 | TermSel of mod_projectible * name
 
 
              and decl =
