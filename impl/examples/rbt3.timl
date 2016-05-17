@@ -1,5 +1,7 @@
 (* Red-black tree with invariant for well-red-ness, black-height-blance and sorted-ness. Key type is indexed unsigned fixed-width integers *)
 
+open Uint
+       
 datatype {Bool} color =
          Black of {true} color
          | Red of {false} color

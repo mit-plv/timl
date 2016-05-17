@@ -33,12 +33,17 @@ fun idx_bin_op_type opr =
 (* sorting context *)
 type scontext = (string (* option *) * sort) list
 (* kinding context *)
-type kcontext = (string * kind) list 
+type kcontext = (string * kind * ty option) list 
 (* constructor context *)
 type ccontext = (string * constr) list
 (* typing context *)
 type tcontext = (string * ty) list
 type context = scontext * kcontext * ccontext * tcontext
+
+(* signature aliases *)
+type sigs = sgn list
+(* signaturing context *)
+type sigcontext (string * sgn) list
 
 fun names ctx = map fst ctx
 
@@ -1368,10 +1373,15 @@ local
            SOME (check_bsort (sctx, d, Base Time)))
         | (NONE, NONE) => (NONE, NONE)
 
-  fun fetch_var (tctx, (x, r)) =
+  fun fetch_var_from_ctx (tctx, (x, r)) =
       case lookup x tctx of
       	  SOME t => t
         | NONE => raise Error (r, ["Unbound variable: " ^ str_v (names tctx) x])
+
+  fun fetch_var ggctx (tctx, (m, x)) =
+      case m of
+          SOME m => fetch_var_from_module ggctx (m, x)
+        | NONE => fetch_var_from_ctx (tctx, x)
 
   (* t is already checked for wellformedness *)
   fun match_ptrn (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext), (* pcovers, *) pn : U.ptrn, t : mtype) : ptrn * cover * context * int =
@@ -1457,8 +1467,10 @@ local
             end
       end
 
-  fun get_mtype (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, tctx : tcontext), e_all : U.expr) : expr * mtype * idx =
-      let val skctx = (sctx, kctx) 
+  fun get_mtype ggctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, tctx : tcontext), e_all : U.expr) : expr * mtype * idx =
+      let
+        val get_mtype = get_mtype ggctx
+        val skctx = (sctx, kctx) 
 	  val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
 	  val skctxn = (sctxn, kctxn)
 	  (* val () = print (sprintf "Typing $\n" [U.str_e ((* upd4 (const [])  *)ctxn) e_all]) *)
@@ -1482,7 +1494,7 @@ local
                             in
                               t
                             end
-                    val t = fetch_var (tctx, (x, r))
+                    val t = fetch_var ggctx (tctx, (x, r))
                     (* val () = println $ str_t skctxn t *)
                     val t = insert_type_args t
                     (* val () = println $ str_mt skctxn t *)

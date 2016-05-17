@@ -1,5 +1,7 @@
 (* Red-black tree with invariant for well-red-ness, black-height-blance and sorted-ness. Size-height-ratio can be derived from well-red-ness and black-height-blance. Key type is indexed unsigned fixed-width integers *)
 
+open Uint
+       
 datatype {Nat} {Nat} lemma1 =
          Lemma1 {a b : Nat} {2 ^ a <= b + 1 -> a <= ceil (log2 $(b + 1))} of {b} {a} lemma1
 

@@ -1,5 +1,7 @@
 (* Braun tree with invariant for balance and sortedness. Key type is indexed unsigned fixed-width integers *)
 
+open Uint
+       
 datatype {Nat(*size*)} {Nat(*min element*)} braun_tree =
          Leaf of {0} {0} braun_tree
        | Node {size lk rk k : Nat} {(size >= 1 -> k <= lk) /\ (size >= 2 -> k <= rk)} of {k} uint * {ceil ($size/2)} {lk} braun_tree * {floor ($size/2)} {rk} braun_tree --> {size+1} {k} braun_tree

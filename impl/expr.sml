@@ -146,7 +146,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         (* Curve out a fragment of module expression that is not a full component list ('struct' in ML) that involves types and terms, to avoid making everything mutually dependent. (This means I can't do module substitution because the result may not be expressible.) It coincides with the concept 'projectible' or 'determinate'. *)
         datatype mod_projectible =
                  ModVar of id
-                 | ModSel of mod_projectible * name
+                 | ModSel of mod_projectible * id
                                                 
         (* monotypes *)
         datatype mtype = 
@@ -158,7 +158,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         | UniI of sort * (name * mtype) ibind * region
 	         | AppV of id * mtype list * idx list * region (* the first operant of App can only be a type variable. The degenerated case of no-arguments is also included *)
                  | MtVar of id
-                 | MtSel of mod_projectible * name
+                 | MtSel of mod_projectible * id
                  | MtApp of mtype * mtype
                  | MtAbs of (name * mtype) tbind * region
                  | MtAppI of mtype * idx
@@ -179,7 +179,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         datatype ptrn =
                  (* eia : is explicit index arguments? *)                                         
 	         ConstrP of (id * bool(*eia*)) * string list * ptrn option * region
-	         | PtrnConstrSel of ((mod_projectible * name) * bool) * string list * ptrn option * region
+	         | PtrnConstrSel of ((mod_projectible * id) * bool) * string list * ptrn option * region
                  | VarP of name
                  | PairP of ptrn * ptrn
                  | TTP of region
@@ -191,10 +191,11 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  | TypingST of ptrn
 
         type type_bind = name * mtype
-                                                
+
+        type long_id = mod_projectible option * id
+                                                         
         datatype expr =
-	         Var of id * bool(*eia*)
-                 | TermSel of (mod_projectible * name) * bool
+	         Var of long_id * bool(*eia*)
 	         | App of expr * expr
 	         | Abs of ptrn * expr
                  (* unit type *)
@@ -242,9 +243,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
              and sig_comp =
                  ScSpec of name * spec * region
-                 | ScSigBind of sig_bind
-
-                              withtype sig_bind = name * sgn
+                 | ScModSpec of name * sgn
+                 (* | Include of sgn *)
 
         datatype mod =
                  ModProjectible of mod_projectible
@@ -259,11 +259,10 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
                                   withtype mod_bind = name * mod
 
-        type functor_bind = name * sig_bind list * mod * region
-
         datatype top_bind =
-                 TopSigBind of sig_bind
+                 TopSigBind of name * sgn
                  | TopModBind of mod_bind
+                 | TopFunctorBind of name * sig_bind list * mod
 
         type prog = top_bind list
 
