@@ -63,7 +63,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         (* Curve out a fragment of module expression that is not a full component list ('struct' in ML) that involves types and terms, to avoid making everything mutually dependent. (This means I can't do module substitution because the result may not be expressible.) It coincides with the concept 'projectible' or 'determinate'. *)
         datatype mod_projectible =
                  ModVar of id
-                 | ModSel of mod_projectible * id
+                 (* | ModSel of mod_projectible * id *)
                                                 
         type long_id = mod_projectible option * id
                                                          
@@ -109,8 +109,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         | Prod of mtype * mtype
 	         | UniI of sort * (name * mtype) ibind * region
 	         | AppV of id * mtype list * idx list * region (* the first operant of App can only be a type variable. The degenerated case of no-arguments is also included *)
-                 | MtVar of id
-                 | MtSel of mod_projectible * id
+                 | MtVar of long_id
                  | MtApp of mtype * mtype
                  | MtAbs of (name * mtype) tbind * region
                  | MtAppI of mtype * idx
@@ -130,8 +129,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         datatype ptrn =
                  (* eia : is explicit index arguments? *)                                         
-	         ConstrP of (id * bool(*eia*)) * string list * ptrn option * region
-	         | PtrnConstrSel of ((mod_projectible * id) * bool) * string list * ptrn option * region
+	         ConstrP of (long_id * bool(*eia*)) * string list * ptrn option * region
                  | VarP of name
                  | PairP of ptrn * ptrn
                  | TTP of region
@@ -187,32 +185,31 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  | SpecTypeDef of name * ty
                                  
         datatype sgn =
-                 SigVar of id
-                 | SigFullList of sig_comp list * region
-                 | SigWhere of sgn * type_bind
+                 SigFullList of sig_comp list * region
+                 (* | SigVar of id *)
+                 (* | SigWhere of sgn * (id * mtype) *)
 
              and sig_comp =
                  ScSpec of name * spec * region
-                 | ScModSpec of name * sgn
-                 | Include of sgn
+                 (* | ScModSpec of name * sgn *)
+                 (* | Include of sgn *)
 
         datatype mod =
-                 ModProjectible of mod_projectible
-                 | ModComponents of mod_comp list * region
+                 ModComponents of mod_comp list * region
+                 (* | ModProjectible of mod_projectible *)
                  | ModSeal of mod * sgn
                  | ModTransparentAscription of mod * sgn
                  | ModFunctorApp of id * mod list
                                                 
              and mod_comp =
                  McDecl of decl
-                 | McModBind of mod_bind
-
-                                  withtype mod_bind = name * mod
+                 (* | McModBind of name * mod *)
 
         datatype top_bind =
-                 TopSigBind of name * sgn
-                 | TopModBind of mod_bind
-                 | TopFunctorBind of name * sig_bind list * mod
+                 TopModBind of name * mod
+                 (* | TopSigBind of name * sgn *)
+                 | TopModSpec of name * sgn
+                 | TopFunctorBind of name * (name * sgn) list * mod
 
         type prog = top_bind list
 

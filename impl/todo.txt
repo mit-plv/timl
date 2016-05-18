@@ -26,6 +26,14 @@ Done. 25. 'return _ using' works but 'return using' doesn't in msort.timl and tr
 Done. 26. Change syntax order of function name and [t] declares.
 Done. 27. Be able to infer for [tree_map] and [tree_foldl].
 28. Have module system.
+    Road map to add module system:
+    (1) Have a barebone module system with only modules, signatures, sealing, functors and 'open'. No hierarchy (embeded modules), module alias, signature alias, 'where'/'sharing', 'include'.
+    (2) Combine name-resolve and typecheck.
+    (3) Combine cctx and tctx into tctx.
+    (4) Combine idx and type into constructors, sort and kind into kind, Combine sctx and kctx into kctx.
+    (5) Add record types.
+    (6) Add singleton kinds, dependent record kinds, dependent arrow kinds.
+    (7) Elaborate modules and signatures into core language.
 Done. 29. Bug of type inference in tree_append_rlm. The inferred type has [{n} tree tree] and [{n} list list].
 Done. 30. Put [Unit] back to mtype from [base_type] because [Unit] is not a base type like [Int] but a structural building block.
 31. Have a good error message when insertion_sort.timl/[insert] doesn't have the needed return-annotation on [case].
@@ -57,3 +65,4 @@ Done. 50. Simplify MaxI using SMT solver.
 57. Infer [BigO] arity.
 58. Have built-in indexed [uint].
 59. Pretty-print to SML.
+60. Combine cctx and tctx.

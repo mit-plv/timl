@@ -33,7 +33,10 @@ fun idx_bin_op_type opr =
 (* sorting context *)
 type scontext = (string (* option *) * sort) list
 (* kinding context *)
-type kcontext = (string * kind * ty option) list 
+datatype kinding =
+         KKind of kind
+       | KTypeEq of ty
+type kcontext = (string * kinding) list 
 (* constructor context *)
 type ccontext = (string * constr) list
 (* typing context *)
@@ -47,14 +50,16 @@ end
 structure StringBinaryMap = BinaryMapFn (structure Key = StringOrdKey)
 structure M = StringBinaryMap
                 
-(* another representation of signature, as contexts*)
+(* another representation of signature, as contexts *)
 datatype sgntr =
+         (* module signaturing *)
          Sig of sigcontext * context
+         (* signature aliases *)
+         (* | SigBind of string * sgntr *)
+         | FactorBind of (string * sgntr) list * sgntr
 (* signaturing context *)
-         withtype sigcontext (string * sgntr) list
-
-(* signature aliases *)
-type sigs = (string * sgntr) list
+         (* withtype sigcontext = (string * sgntr) list *)
+         withtype sigcontext = ()
 
 fun names ctx = map fst ctx
 
@@ -590,7 +595,7 @@ local
                 NONE => do_fetch (ctx, x)
               | SOME m => fetch_from_module gctx (m, x)
         val ((m, r), x) = get_outmost_module (m, x)
-        val Sig (gctx, ctx) = case nth_error gctx m of
+        val Sig (gctx, ctx) = case lookup_module gctx m of
                                   SOME sg => sg
                                 | NONE => raise Error (r, ["Unbounded module"])
         val v = fetch_from_ctx gctx ctx x
@@ -2174,7 +2179,7 @@ local
 	e
       end
 
-  fun is_sub_sig sigs gctx_base (Sig (gctx, ctx)) (Sig (gctx', ctx')) =
+  fun is_sub_sig sigs gctx_base (gctx, ctx) (gctx', ctx') =
       let
         val len_gctx = length gctx
         val len_gctx' = length gctx'
@@ -2183,7 +2188,7 @@ local
             let
               val sg = fetch_sig_by_name gctx name
               val sg = shiftx_m_sig 0 n sg
-              val sg' = is_sub_sig sigs gctx_base sg sg'
+              val sg' = is_sub_sig_pack sigs gctx_base sg sg'
             in
               (sg' :: gctx_base, sg' :: gctx')
             end
@@ -2202,7 +2207,9 @@ local
               val x = x + n
               val () = unify_s s s'
               val r = get_region_s s
-              val s' = add_prop s' (VarI (0, r) %= VarI (x + 1, r))
+              fun add_idx_eq s' i =
+                  add_prop s' (VarI (0, r) %= shift_i_i i)
+              val s' = add_idx_eq s' (VarI (x, r))
               val () = open_sorting (name, s')
             in
               (name, s') :: sctx'
@@ -2220,7 +2227,7 @@ local
               val (k, x) = fetch_kind_by_name kctx name
               val k = shfitx_t_k 0 n k
               val x = x + n
-              val () = unify_k k k'
+              val () = unify_kind sigs gctx_base (sctx', kctx') k k'
               val r = get_region_k k
               val k' = add_type_eq k' (MtVar (x, r))
             in
@@ -2251,10 +2258,77 @@ local
         val () = appWithIdx match_type tctx'
         val () = close_premises (len_sctx + len_sctx')
       in
-        Sig (gctx', (sctx', kctx', cctx', tctx'))
+        (gctx', (sctx', kctx', cctx', tctx'))
       end
-        
 
+  and is_sub_sig_pack sigs gctx_base sg sg' =
+      case (sg, sg') of
+          (Sig sg, Sig sg') => Sig $ is_sub_sig sigs gctx_base sg sg'
+        | _ => raise Impossible "is_sub_sig_pack (): only Sig should appear here"
+
+  fun is_wf_sig gctx sg =
+      case sg of
+          U.SigFullList (comps, r) =>
+        (* | U.SigVar (x, r) => *)
+        (*   (case lookup_sig gctx x of *)
+        (*        SOME sg => sg *)
+        (*      | NONE => raise Error (r, ["Unbound signature"]) *)
+        (*   ) *)
+        (* | U.SigWhere (sg, ((x, r), t)) => *)
+        (*   let *)
+        (*     val sg = is_wf_sig gctx sg *)
+        (*     val k =  *)
+        (*   in *)
+        (*   end *)
+      
+  fun get_sig gctx m = ()
+
+  fun check_top_bind gctx bind = 
+      case bind of
+          TopBindSig ((name, _), sg) =>
+          let
+            val sg = is_wf_sig gctx sg
+          in
+            (name, SigBind sg)
+          end
+        | TopModBind ((name, _), m) =>
+          let
+            val sg = get_sig gctx m
+            val () = open_module sg
+          in
+            (name, Sig sg)
+          end
+        | TopModSpec ((name, _), sg) =>
+          let
+            val sg = is_wf_sig gctx sg
+            val () = open_module sg
+          in
+            (name, Sig sg)
+          end
+        | TopFunctorBind ((name, _), args, m) =>
+          (* functor applications will be implemented fiberedly instead of parametrizedly *)
+          let
+            val (args, gctx') = check_top_binds gctx $ map TopModSpec args
+            val sg = get_sig gctx' m
+            val () = close_premises $ length args
+          in
+            (name, FactorBind (args, sg))
+          end
+          
+  fun check_top_binds gctx binds =
+      let
+        fun iter (bind, (acc, gctx)) =
+            let
+              val sg = check_top_bind gctx bind
+            in
+              (sg :: acc, sg :: gctx)
+            end
+      in
+        mapFst rev $ foldl iter ([], gctx) binds
+      end
+
+
+                               
   fun str_vce vce =
       case vce of
           ForallVC (name, _) => sprintf "(forall $ "  [name]
@@ -2701,6 +2775,7 @@ local
         val () = case vces of
                      [] => ()
                    | _ => raise Impossible "to_vcs (): remaining after get_formulas"
+        val fs = unpackage_fs fs
         val (admits, fs) = get_admits_fs fs
         fun fs_to_prop fs =
             let
