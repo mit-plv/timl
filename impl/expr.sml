@@ -194,7 +194,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
              and sig_comp =
                  ScSpec of name * spec * region
                  | ScModSpec of name * sgn
-                 (* | Include of sgn *)
+                 | Include of sgn
 
         datatype mod =
                  ModProjectible of mod_projectible
