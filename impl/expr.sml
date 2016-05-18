@@ -1,4 +1,4 @@
-structure BasicSorts = struct
+structure BaseSorts = struct
 open Util
 
 (* basic index sort *)
@@ -19,64 +19,13 @@ fun str_b (s : base_sort) : string =
 
 end
 
-structure Bind = struct
-open Util
-infixr 0 $
+structure BaseTypes = struct
 
-(* a series of dependent binds ({name1 : classifier1} {name2 : classifier2} {name3 : classifier3}, inner) *)
-         
-datatype ('classifier, 'body) bind = Bind of 'body
-
-datatype ('classifier, 'name, 'inner) binds =
-         BindNil of 'inner
-         | BindCons of 'classifier * ('classifier, 'name * ('classifier, 'name, 'inner) binds) bind
-
-fun unfold_binds binds =
-    case binds of
-        BindNil inner => ([], inner)
-      | BindCons (classifier, Bind (name, binds)) =>
-        let val (name_classifiers, inner) = unfold_binds binds
-        in
-          ((name, classifier) :: name_classifiers, inner)
-        end
-
-fun fold_binds (binds, inner) =
-    foldr (fn ((name, classifier), binds) => BindCons (classifier, Bind (name, binds))) (BindNil inner) binds
-
-fun binds_length binds = length $ fst $ unfold_binds binds
-                                  
-end
-
-structure ExprUtil = struct
-open Util
-infixr 0 $
-
-datatype 'a ibind = BindI of 'a
-
-(* for a series of sorting binds ({name1 : anno1} {name2 : anno2} {name3 : anno3}, inner) *)
-datatype ('anno, 'name, 'inner) ibinds =
-         NilIB of 'inner
-         | ConsIB of 'anno * ('name * ('anno, 'name, 'inner) ibinds) ibind
-
-fun unfold_ibinds ibinds =
-    case ibinds of
-        NilIB inner => ([], inner)
-      | ConsIB (anno, BindI (name, ibinds)) =>
-        let val (name_annos, inner) = unfold_ibinds ibinds
-        in
-          ((name, anno) :: name_annos, inner)
-        end
-
-fun fold_ibinds (binds, inner) =
-    foldr (fn ((name, anno), ibinds) => ConsIB (anno, BindI (name, ibinds))) (NilIB inner) binds
-
-fun ibinds_length ibinds = length $ fst $ unfold_ibinds ibinds
-                                  
 datatype base_type =
          Int
            
 end
-
+                        
 signature VAR = sig
   type var
   val str_v : string list -> var -> string
@@ -96,7 +45,8 @@ end
 
 functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         open Var
-        open BasicSorts
+        open BaseSorts
+        open BaseTypes
         open Util
         open Operators
         open UVar
@@ -110,8 +60,15 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  Base of base_sort
                  | UVarBS of bsort uvar_bs
 
+        (* Curve out a fragment of module expression that is not a full component list ('struct' in ML) that involves types and terms, to avoid making everything mutually dependent. (This means I can't do module substitution because the result may not be expressible.) It coincides with the concept 'projectible' or 'determinate'. *)
+        datatype mod_projectible =
+                 ModVar of id
+                 | ModSel of mod_projectible * id
+                                                
+        type long_id = mod_projectible option * id
+                                                         
         datatype idx =
-	         VarI of var * region
+	         VarI of long_id
 	         | ConstIT of string * region
 	         | ConstIN of int * region
                  | UnOpI of idx_un_op * idx * region
@@ -143,11 +100,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         datatype kind = 
 	         ArrowK of bool (* is datatype *) * int * sort list
 
-        (* Curve out a fragment of module expression that is not a full component list ('struct' in ML) that involves types and terms, to avoid making everything mutually dependent. (This means I can't do module substitution because the result may not be expressible.) It coincides with the concept 'projectible' or 'determinate'. *)
-        datatype mod_projectible =
-                 ModVar of id
-                 | ModSel of mod_projectible * id
-                                                
         (* monotypes *)
         datatype mtype = 
 	         Arrow of mtype * idx * mtype
@@ -192,8 +144,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         type type_bind = name * mtype
 
-        type long_id = mod_projectible option * id
-                                                         
         datatype expr =
 	         Var of long_id * bool(*eia*)
 	         | App of expr * expr
@@ -237,7 +187,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  | SpecTypeDef of name * ty
                                  
         datatype sgn =
-                 SigVar of id
+                 SigVar of name
                  | SigFullList of sig_comp list * region
                  | SigWhere of sgn * type_bind
 

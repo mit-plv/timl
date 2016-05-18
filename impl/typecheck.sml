@@ -40,10 +40,21 @@ type ccontext = (string * constr) list
 type tcontext = (string * ty) list
 type context = scontext * kcontext * ccontext * tcontext
 
-(* signature aliases *)
-type sigs = sgn list
+structure StringOrdKey = struct
+type ord_key = string
+val compare = String.compare
+end
+structure StringBinaryMap = BinaryMapFn (structure Key = StringOrdKey)
+structure M = StringBinaryMap
+                
+(* another representation of signature, as contexts*)
+datatype sgntr =
+         Sig of sigcontext * context
 (* signaturing context *)
-type sigcontext (string * sgn) list
+         withtype sigcontext (string * sgntr) list
+
+(* signature aliases *)
+type sigs = sgntr M.map
 
 fun names ctx = map fst ctx
 
@@ -157,7 +168,7 @@ fun add_typings_skct pairs (sctx, kctx, cctx, tctx) =
      cctx,
      pairs @ tctx)
 
-fun lookup (n : int) (ctx : tcontext) : ty option = 
+fun lookup_type (n : int) (ctx : tcontext) : ty option = 
     case nth_error ctx n of
         NONE => NONE
       | SOME (_, t) => SOME t
@@ -571,6 +582,35 @@ local
         | Subset ((s, _), _, _) => s
         | UVarS _ => raise Error (r, [sprintf "Can't figure out base sort of $" [str_s ctx s]])
                            
+  fun fetch_from_module (params as (shift, do_fetch)) sigs gctx (m, x) =
+      let
+        val fetch_from_module = fetch_from_module params sigs
+        fun fetch_from_ctx gctx ctx (m, x) =
+            case m of
+                NONE => do_fetch (ctx, x)
+              | SOME m => fetch_from_module gctx (m, x)
+        val ((m, r), x) = get_outmost_module (m, x)
+        val Sig (gctx, ctx) = case nth_error x gctx of
+                                  SOME sg => sg
+                                | NONE => raise Error (r, ["Unbounded module"])
+        val v = fetch_from_ctx gctx ctx x
+        val v = shift 0 (m + 1) v
+      in
+        v
+      end
+        
+  fun generic_fetch shift do_fetch sel (ggctx as (sigs, gctx)) (fctx, (m, x)) =
+      case m of
+          NONE => do_fetch (fctx, x)
+        | SOME m => fetch_from_module (shiftx_m_k 0, do_fetch o mapFst sel) sigs gctx (m, x)
+
+  fun do_fetch_sort (ctx, (x, r)) =
+      case lookup_sort x ctx of
+      	  SOME s => s
+      	| NONE => raise Error (r, ["Unbound index variable: " ^ str_v (sctx_names ctx) x])
+
+  val fetch_sort = generic_fetch shift_m_i do_fetch_sort #1
+                        
   fun is_wf_sort (ctx : scontext, s : U.sort) : sort =
       case s of
 	  U.Basic (bs, r) => Basic (is_wf_bsort bs, r)
@@ -641,12 +681,11 @@ local
       let
         fun main () =
             case i of
-	        U.VarI (x, r) =>
+	        U.VarI x =>
                 let
+                  val s = fetch_sort (ctx, x)
                 in
-	          case lookup_sort x ctx of
-      		      SOME s => (VarI (x, r), get_base r (sctx_names ctx) s)
-      	            | NONE => raise Error (r, ["Unbound index variable: " ^ str_v (sctx_names ctx) x])
+                  (VarI x, get_base (U.get_region_i i) (sctx_names ctx) s)
                 end
               | U.UnOpI (opr, i, r) =>
                 let
@@ -855,10 +894,12 @@ local
 
   fun kind_mismatch (ctx as (sctx, kctx)) c expect have =  "Kind mismatch for " ^ str_t ctx c ^ ": expect " ^ expect ^ " have " ^ str_k sctx have
 
-  fun fetch_kind (kctx, (a, r)) =
+  fun do_fetch_kind (kctx, (a, r)) =
       case lookup_kind a kctx of
       	  SOME k => k
         | NONE => raise Error (r, ["Unbound type variable: " ^ str_v (names kctx) a])
+
+  fun fetch_kind ggctx (kctx, (m, x)) = generic_fetch shiftx_m_k do_fetch_kind #2
 
   fun is_wf_mtype (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype) : mtype = 
       let 
@@ -1373,15 +1414,12 @@ local
            SOME (check_bsort (sctx, d, Base Time)))
         | (NONE, NONE) => (NONE, NONE)
 
-  fun fetch_var_from_ctx (tctx, (x, r)) =
-      case lookup x tctx of
+  fun do_fetch_type (tctx, (x, r)) =
+      case lookup_type x tctx of
       	  SOME t => t
         | NONE => raise Error (r, ["Unbound variable: " ^ str_v (names tctx) x])
 
-  fun fetch_var ggctx (tctx, (m, x)) =
-      case m of
-          SOME m => fetch_var_from_module ggctx (m, x)
-        | NONE => fetch_var_from_ctx (tctx, x)
+  val fetch_type = generic_fetch shiftx_m_t do_fetch_type #4
 
   (* t is already checked for wellformedness *)
   fun match_ptrn (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext), (* pcovers, *) pn : U.ptrn, t : mtype) : ptrn * cover * context * int =
@@ -1494,7 +1532,7 @@ local
                             in
                               t
                             end
-                    val t = fetch_var ggctx (tctx, (x, r))
+                    val t = fetch_type ggctx (tctx, (x, r))
                     (* val () = println $ str_t skctxn t *)
                     val t = insert_type_args t
                     (* val () = println $ str_mt skctxn t *)
