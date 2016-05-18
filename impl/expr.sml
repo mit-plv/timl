@@ -187,7 +187,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  | SpecTypeDef of name * ty
                                  
         datatype sgn =
-                 SigVar of name
+                 SigVar of id
                  | SigFullList of sig_comp list * region
                  | SigWhere of sgn * type_bind
 

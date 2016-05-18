@@ -54,7 +54,7 @@ datatype sgntr =
          withtype sigcontext (string * sgntr) list
 
 (* signature aliases *)
-type sigs = sgntr M.map
+type sigs = (string * sgntr) list
 
 fun names ctx = map fst ctx
 
@@ -590,10 +590,11 @@ local
                 NONE => do_fetch (ctx, x)
               | SOME m => fetch_from_module gctx (m, x)
         val ((m, r), x) = get_outmost_module (m, x)
-        val Sig (gctx, ctx) = case nth_error x gctx of
+        val Sig (gctx, ctx) = case nth_error gctx m of
                                   SOME sg => sg
                                 | NONE => raise Error (r, ["Unbounded module"])
         val v = fetch_from_ctx gctx ctx x
+        val v = package 0 (length gctx) v
         val v = shift 0 (m + 1) v
       in
         v
@@ -2172,6 +2173,87 @@ local
       in
 	e
       end
+
+  fun is_sub_sig sigs gctx_base (Sig (gctx, ctx)) (Sig (gctx', ctx')) =
+      let
+        val len_gctx = length gctx
+        val len_gctx' = length gctx'
+        val gctx' = shiftx_m_gctx 0 len_gctx gctx'
+        fun match_sig ((name, sg'), (gctx_base, gctx'), n) =
+            let
+              val sg = fetch_sig_by_name gctx name
+              val sg = shiftx_m_sig 0 n sg
+              val sg' = is_sub_sig sigs gctx_base sg sg'
+            in
+              (sg' :: gctx_base, sg' :: gctx')
+            end
+        val (gctx_base, gctx') = foldlWithIdx match_sig (gctx @ gctx_base, gctx) gctx'
+        val ctx = shiftx_m_ctx 0 len_gctx' ctx
+        val ctx' = shiftx_m_ctx len_gctx' len_gctx ctx'
+        val sctx = #1 ctx
+        val sctx' = #1 ctx'
+        val len_sctx = length sctx
+        val len_sctx' = length sctx'
+        val sctx' = shift_m_sctx 0 (len_sctx) sctx'
+        fun match_sort ((name, s'), sctx', n) =
+            let
+              val (s, x) = fetch_sort_by_name sctx name
+              val s = shfitx_i_s 0 n s
+              val x = x + n
+              val () = unify_s s s'
+              val r = get_region_s s
+              val s' = add_prop s' (VarI (0, r) %= VarI (x + 1, r))
+              val () = open_sorting (name, s')
+            in
+              (name, s') :: sctx'
+            end
+        val () = open_sortings sctx
+        val sctx' = foldlWithIdx match_sort sctx sctx'
+        val kctx = #2 ctx
+        val len_kctx = length kctx
+        val len_kctx' = length kctx'
+        val kctx = shiftx_i_kctx 0 len_sctx' kctx
+        val kctx' = #2 ctx'
+        val kctx' = shiftx_t_kctx 0 len_kctx kctx'
+        fun match_kind ((name, k'), kctx', n) =
+            let
+              val (k, x) = fetch_kind_by_name kctx name
+              val k = shfitx_t_k 0 n k
+              val x = x + n
+              val () = unify_k k k'
+              val r = get_region_k k
+              val k' = add_type_eq k' (MtVar (x, r))
+            in
+              (name, k') :: kctx'
+            end
+        val kctx' = foldlWithIdx match_kind kctx kctx'
+        val cctx = #4 ctx
+        val cctx = shiftx_i_cctx 0 len_sctx' cctx
+        val cctx = shiftx_t_cctx 0 len_kctx' cctx
+        val cctx' = #4 ctx'
+        fun match_kind ((name, t'), n) =
+            let
+              val (t, x) = fetch_constr_type_by_name cctx name
+            in
+              unify_t sigs gctx_base (sctx', kctx') t t'
+            end
+        val () = appWithIdx match_type cctx'
+        val tctx = #4 ctx
+        val tctx = shiftx_i_tctx 0 len_sctx' tctx
+        val tctx = shiftx_t_tctx 0 len_kctx' tctx
+        val tctx' = #4 ctx'
+        fun match_kind ((name, t'), n) =
+            let
+              val (t, x) = fetch_type_by_name tctx name
+            in
+              unify_t sigs gctx_base (sctx', kctx') t t'
+            end
+        val () = appWithIdx match_type tctx'
+        val () = close_premises (len_sctx + len_sctx')
+      in
+        Sig (gctx', (sctx', kctx', cctx', tctx'))
+      end
+        
 
   fun str_vce vce =
       case vce of
