@@ -19,7 +19,11 @@ fun print_idx_bin_op opr =
       | EqI => "="
       | AndI => "and"
       | ExpNI => "exp_i_i"
-      | _ => raise Impossible "print_idx_bin_op ()"
+      | LtI => "<"
+      | GeI => ">="
+      | MaxI => raise Impossible "print_idx_bin_op ()"
+      | MinI => raise Impossible "print_idx_bin_op ()"
+      | TimeApp => raise Impossible "print_idx_bin_op ()"
         
 fun print_i ctx i =
   case i of

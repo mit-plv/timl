@@ -18,6 +18,8 @@ datatype idx_bin_op =
          | EqI
          | AndI
          | ExpNI
+         | LtI
+         | GeI
 
 (* binary logical connectives *)
 datatype bin_conn =
@@ -62,6 +64,8 @@ fun str_idx_bin_op opr =
     | EqI => "=="
     | AndI => "&&"
     | ExpNI => "^"
+    | LtI => "<"
+    | GeI => ">="
 
 fun str_bin_conn opr =
   case opr of

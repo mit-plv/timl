@@ -28,7 +28,14 @@ fun idx_bin_op_type opr =
     case opr of
         AndI => (BoolSort, BoolSort, BoolSort)
       | ExpNI => (Nat, Nat, Nat)
-      | _ => raise Impossible "idx_bin_op_type ()"
+      | MaxI => raise Impossible "idx_bin_op_type ()"
+      | MinI => raise Impossible "idx_bin_op_type ()"
+      | TimeApp => raise Impossible "idx_bin_op_type ()"
+      | EqI => raise Impossible "idx_bin_op_type ()"
+      | LtI => raise Impossible "idx_bin_op_type ()"
+      | GeI => raise Impossible "idx_bin_op_type ()"
+      | AddI => raise Impossible "idx_bin_op_type ()"
+      | MultI => raise Impossible "idx_bin_op_type ()"
 
 (* sorting context *)
 type scontext = (string (* option *) * sort) list
@@ -716,6 +723,8 @@ local
                     | MaxI => overloaded [Nat, Time] NONE
                     | MinI => overloaded [Nat, Time] NONE
                     | EqI => overloaded [Nat, BoolSort, UnitSort] (SOME BoolSort)
+                    | LtI => overloaded [Nat, Time, BoolSort, UnitSort] (SOME BoolSort)
+                    | GeI => overloaded [Nat, Time, BoolSort, UnitSort] (SOME BoolSort)
                     | _ =>
                       let
                         val (arg1type, arg2type, rettype) = idx_bin_op_type opr
@@ -1302,7 +1311,7 @@ local
   fun get_ds (_, _, _, tctxd) = map (snd o snd) tctxd
 
   fun escapes nametype name domaintype domain cause =
-      [sprintf "$ $ escapes local scope in $ $" [nametype, name, domaintype, domain]] @ indent (if cause = "" then [] else ["cause: " ^ cause])
+      [sprintf "$ $ escapes local scope in $ $" [nametype, name, domaintype, domain]] @ indent (if cause = "" then [] else ["cause: it is (potentially) used by " ^ cause])
 	                                                                                       
   fun forget_mt r (skctxn as (sctxn, kctxn)) (sctxl, kctxl) t = 
       let val t = forget_t_mt 0 kctxl t
@@ -1652,16 +1661,17 @@ local
                             else if eq_i d2 (T1 dummy) then d1
                             else raise wrong_d
                           | _ => raise wrong_d
-                    val e =
+                    val (is, e) =
                         case e of
                             App (f, e) =>
                             let
                               val (_, is) = collect_AppI f
-                              val e = forget_e_e 0 1 e
                             in
-                              AppConstr ((cx, eia), is, e)
+                              (is, e)
                             end
                           | _ => raise Impossible "get_mtype (): U.AppConstr: e in wrong form"
+                    val e = forget_e_e 0 1 e
+                    val e = AppConstr ((cx, eia), is, e)
 		  in
 		    (e, t, d)
 		  end

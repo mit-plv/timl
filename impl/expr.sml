@@ -547,7 +547,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 end
               | AnnoP (pn, t) => ptrn_names pn
 
-        fun decorate_var eia s = if eia then "@" else "" ^ s
+        fun decorate_var eia s = (if eia then "@" else "") ^ s
                                                             
         fun str_pn (ctx as (sctx, kctx, cctx)) pn = 
             case pn of
@@ -873,6 +873,10 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                          else
                            def ()
                        | ExpNI =>
+                         def ()
+                       | LtI =>
+                         def ()
+                       | GeI =>
                          def ()
                     end
                   | Ite (i, i1, i2, r) =>

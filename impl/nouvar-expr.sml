@@ -353,6 +353,10 @@ local
                             | NONE => def ()
                         end
                   end
+                | LtI =>
+                  def ()
+                | GeI =>
+                  def ()
             end
           | Ite (i, i1, i2, r) =>
             if eq_i i (TrueI dummy) then

@@ -60,3 +60,5 @@ Done. 50. Simplify MaxI using SMT solver.
 
 Add <> notation.
 Let return clause in [Case] to mean the time including the matchee.
+Amortized complexity of queue implementation by two stacks.
+Infer type according to pattern.

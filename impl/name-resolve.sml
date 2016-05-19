@@ -171,6 +171,20 @@ local
             in
               Let ((t, d), decls, copy_anno (shift_return (sctxn, kctxn) (t, d')) e, r)
             end
+          | Ascription (e, t') =>
+            let
+              val t = SOME t'
+              val e = copy_anno (t, d) e
+            in
+              Ascription (e, t')
+            end
+          | AscriptionTime (e, d') =>
+            let
+              val d = SOME d'
+              val e = copy_anno (t, d) e
+            in
+              AscriptionTime (e, d')
+            end
           | Never _ => e
           | _ =>
             case t of
@@ -251,8 +265,22 @@ local
             in
               Let (return, decls, on_expr ctx e, r)
             end
-	  | E.Ascription (e, t) => Ascription (on_expr ctx e, on_mtype skctx t)
-	  | E.AscriptionTime (e, d) => AscriptionTime (on_expr ctx e, on_idx sctx d)
+	  | E.Ascription (e, t) =>
+            let
+              val t = on_mtype skctx t
+              val e = on_expr ctx e
+              val e = copy_anno (SOME t, NONE) e
+            in
+              Ascription (e, t)
+            end
+	  | E.AscriptionTime (e, d) =>
+            let
+              val d = on_idx sctx d
+              val e = on_expr ctx e
+              val e = copy_anno (NONE, SOME d) e
+            in
+              AscriptionTime (e, d)
+            end
 	  | E.ConstInt n => ConstInt n
 	  | E.BinOp (opr, e1, e2) => BinOp (opr, on_expr ctx e1, on_expr ctx e2)
 	  | E.AppConstr ((x, b), is, e) => AppConstr ((on_var (map fst cctx) x, b), map (on_idx sctx) is, on_expr ctx e)

@@ -517,7 +517,8 @@ local
     fun f x n b =
 	case b of
 	    Var ((y, r), b) => Var ((shiftx_v x n y, r), b)
-	  | Abs (pn, e) => Abs (pn, f (x + 1) n e)
+	  | Abs (pn, e) =>
+            Abs (pn, f (x + (length $ snd $ ptrn_names pn)) n e)
 	  | App (e1, e2) => App (f x n e1, f x n e2)
 	  | TT r => TT r
 	  | Pair (e1, e2) => Pair (f x n e1, f x n e2)
@@ -603,7 +604,8 @@ local
     fun f x n b =
 	case b of
 	    Var ((y, r), b) => Var ((forget_v x n y, r), b)
-	  | Abs (pn, e) => Abs (pn, f (x + 1) n e)
+	  | Abs (pn, e) =>
+            Abs (pn, f (x + (length $ snd $ ptrn_names pn)) n e)
 	  | App (e1, e2) => App (f x n e1, f x n e2)
 	  | TT r => TT r
 	  | Pair (e1, e2) => Pair (f x n e1, f x n e2)
