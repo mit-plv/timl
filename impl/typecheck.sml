@@ -1541,18 +1541,21 @@ local
                   in
 		    (Abs (pn, e), Arrow (t, d, t1), T0 dummy)
 		  end
-	        | U.Let (decls, e, r) => 
-		  let 
+	        | U.Let (return, decls, e, r) => 
+		  let
+                    val return = is_wf_return (skctx, return)
                     val (decls, ctxd as (sctxd, kctxd, _, _), nps, ds, ctx) = check_decls (ctx, decls)
 		    val (e, t, d) = get_mtype (ctx, e)
                     val ds = rev (d :: ds)
-		    val t = forget_ctx_mt r ctx ctxd t 
-                    val ds = map (forget_ctx_d r ctx ctxd) ds
+                    val d = combine_AddI_Time ds
+                    (* val d = foldl' (fn (d, acc) => acc %+ d) (T0 dummy) ds *)
+		    (* val t = forget_ctx_mt r ctx ctxd t  *)
+                    (* val ds = map (forget_ctx_d r ctx ctxd) ds *)
+	            val (t, d) = forget_or_check_return (get_region_e e) ctx ctxd (t, d) return 
                     val () = close_vcs nps
                     val () = close_ctx ctxd
-                    val d = foldl' (fn (d, acc) => acc %+ d) (T0 dummy) ds
                   in
-		    (Let (decls, e, r), t, d)
+		    (Let (return, decls, e, r), t, d)
 		  end
 	        | U.AbsI (s, (name, r), e, r_all) => 
 		  let 
@@ -2043,6 +2046,9 @@ local
 	val (pn, cover, ctxd as (sctxd, kctxd, _, _), nps) = match_ptrn (skcctx, (* pcovers, *) pn, t1)
         val ctx0 = ctx
 	val ctx = add_ctx ctxd ctx
+        val (e, t, d) = get_mtype (ctx, e)
+	val (t, d) = forget_or_check_return (get_region_e e) ctx ctxd (t, d) return 
+                  (*
         val (e, t, d) = 
             case return of
                 (SOME t, SOME d) =>
@@ -2075,10 +2081,46 @@ local
                 in
                   (e, t, d)
                 end
+                  *)
         val () = close_vcs nps
         val () = close_ctx ctxd
       in
 	((pn, e), ((t, d), cover))
+      end
+
+  and forget_or_check_return r ctx ctxd (t', d') (t, d) =
+      let
+        val (sctxn, kctxn, _, _) = ctx_names ctx
+        val t =
+            case t of
+                SOME t =>
+                let
+                  val () = unify r (sctxn, kctxn) (t', shift_ctx_mt ctxd t)
+                in
+                  t
+                end
+              | NONE =>
+                let
+	          val t' = forget_ctx_mt r ctx ctxd t' 
+                in
+                  t'
+                end
+        val d = 
+            case d of
+                SOME d =>
+                let
+                  val () = smart_write_le sctxn (d', shift_ctx_i ctxd d, r)
+                in
+                  d
+                end
+              | NONE =>
+                let 
+	          val d' = forget_ctx_d r ctx ctxd d'
+                in
+                  d'
+                end
+      in
+        (t, d)
       end
 
   and check_mtype (ctx as (sctx, kctx, cctx, tctx), e, t) =

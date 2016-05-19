@@ -248,8 +248,8 @@ local
 	    Ascription (elab e, elab_mt t)
 	  | S.AscriptionTime (e, i, _) =>
 	    AscriptionTime (elab e, elab_i i)
-	  | S.Let (decs, e, r) =>
-            Let (map elab_decl decs, elab e, r)
+	  | S.Let (return, decs, e, r) =>
+            Let (elab_return return, map elab_decl decs, elab e, r)
 	  | S.Const n => ConstInt n
           | S.BinOp (opr, e1, e2, _) => BinOp (opr, elab e1, elab e2)
 

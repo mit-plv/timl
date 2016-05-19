@@ -91,13 +91,14 @@ fun insert_seq' ['a] {n size num : Nat} (xs : {n} 'a list) return {23.0} {n} {nu
 datatype 'a some_good_table =
          SomeGoodTable {size num : Nat} of {num} {size} 'a good_table --> 'a some_good_table
 
-fun insert_seq ['a] {n size num : Nat} {2 * num <= n + size} (xs : {n} 'a list) (table : {num} {size} 'a good_table) return 'a some_good_table using 40.0 * $n =
-    let
-      val GoodTable _ = table
-      val Amortized insert_seq' = @insert_seq' {} {size} {num} xs
-      val table = insert_seq' table
-      val GoodTable _ = table
+absidx T_insert_seq : BigO 1 (fn n => $n) with
+fun insert_seq ['a] {n size num : Nat} {2 * num <= n + size} (xs : {n} 'a list) (table : {num} {size} 'a good_table) return 'a some_good_table using T_insert_seq n =
+    let return using 100.0 + 40.0 * $n 
+        val GoodTable _ = table
+        val Amortized insert_seq' = @insert_seq' {} {size} {num} xs
+        val table = insert_seq' table
+        val GoodTable _ = table
     in
       SomeGoodTable table
     end
-          
+end

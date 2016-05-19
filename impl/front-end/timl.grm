@@ -173,7 +173,7 @@ aexp : decorated_id (Var decorated_id)
      | LPAREN exp_comma_star RPAREN (Tuple (exp_comma_star, (LPARENleft, RPARENright)))
      | FN bind_plus return DARROW exp (Abs (bind_plus, return, exp, (FNleft, expright)))
      | CASE exp return OF rule_bar_star (Case (exp, return, rule_bar_star, (CASEleft, rule_bar_starright)))
-     | LET decl_star IN exp END (Let (decl_star, exp, (LETleft, ENDright)))
+     | LET return decl_star IN exp END (Let (return, decl_star, exp, (LETleft, ENDright)))
      | INT (Const (INT, (INTleft, INTright)))
 
 idx : aidx (aidx)

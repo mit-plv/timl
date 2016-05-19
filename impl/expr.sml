@@ -226,7 +226,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         | ConstInt of int * region
 	         | AppConstr of (id * bool) * idx list * expr
 	         | Case of expr * return * (ptrn * expr) list * region
-	         | Let of decl list * expr * region
+	         | Let of return * decl list * expr * region
 	         | Ascription of expr * mtype
 	         | AscriptionTime of expr * idx
 	         | Never of mtype * region
@@ -592,10 +592,12 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	          | Snd e => sprintf "(snd $)" [str_e ctx e]
 	          | AbsI (s, (name, _), e, _) => sprintf "(fn {$ : $} => $)" [name, str_s sctx s, str_e (name :: sctx, kctx, cctx, tctx) e]
 	          | AppI (e, i) => sprintf "($ {$})" [str_e ctx e, str_i sctx i]
-	          | Let (decls, e, _) => 
-                    let val (decls, ctx) = str_decls ctx decls
+	          | Let (return, decls, e, _) => 
+                    let
+                      val return = str_return (sctx, kctx) return
+                      val (decls, ctx) = str_decls ctx decls
                     in
-                        sprintf "let$ in $ end" [join_prefix " " decls, str_e ctx e]
+                        sprintf "let $$ in $ end" [return, join_prefix " " decls, str_e ctx e]
                     end
 	          | Ascription (e, t) => sprintf "($ : $)" [str_e ctx e, str_mt skctx t]
 	          | AscriptionTime (e, d) => sprintf "($ |> $)" [str_e ctx e, str_i sctx d]
@@ -789,7 +791,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | AppConstr (((_, r), _), _, e) => combine_region r (get_region_e e)
               | Case (_, _, _, r) => r
               | Never (_, r) => r
-              | Let (_, _, r) => r
+              | Let (_, _, _, r) => r
               | Ascription (e, t) => combine_region (get_region_e e) (get_region_mt t)
               | AscriptionTime (e, i) => combine_region (get_region_e e) (get_region_i i)
                                                         

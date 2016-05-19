@@ -525,11 +525,11 @@ local
 	  | Snd e => Snd (f x n e)
 	  | AbsI (s, name, e, r) => AbsI (s, name, f x n e, r)
 	  | AppI (e, i) => AppI (f x n e, i)
-	  | Let (decs, e, r) =>
+	  | Let (return, decs, e, r) =>
 	    let 
 		val (decs, m) = f_decls x n decs
 	    in
-		Let (decs, f (x + m) n e, r)
+		Let (return, decs, f (x + m) n e, r)
 	    end
 	  | Ascription (e, t) => Ascription (f x n e, t)
 	  | AscriptionTime (e, d) => AscriptionTime (f x n e, d)
@@ -611,11 +611,11 @@ local
 	  | Snd e => Snd (f x n e)
 	  | AbsI (s, name, e, r) => AbsI (s, name, f x n e, r)
 	  | AppI (e, i) => AppI (f x n e, i)
-	  | Let (decs, e, r) =>
+	  | Let (return, decs, e, r) =>
 	    let 
 		val (decs, m) = f_decls x n decs
 	    in
-		Let (decs, f (x + m) n e, r)
+		Let (return, decs, f (x + m) n e, r)
 	    end
 	  | Ascription (e, t) => Ascription (f x n e, t)
 	  | AscriptionTime (e, d) => AscriptionTime (f x n e, d)
