@@ -335,7 +335,12 @@ local
 
   fun write_anchor anchor = write (AnchorVC anchor)
 
-  fun write_prop (p, r) = write (PropVC (p, r))
+  fun write_prop (p, r) =
+      let
+        (* val () = println $ "Writing Prop: " ^ str_p [] p *)
+      in
+        write (PropVC (p, r))
+      end
 
   fun write_admit (p, r) =
       write (AdmitVC (p, r))

@@ -7,6 +7,8 @@ infixr 0 $
 
 infixr 1 -->
 
+exception SMTError of string
+
 fun escape s = if s = "_" then "__!escaped_from_underscore_for_smt" else String.map (fn c => if c = #"'" then #"!" else c) s
 fun evar_name n = "!!" ^ str_int n
 
@@ -116,6 +118,7 @@ fun print_p ctx p =
           (* | BinPred (BigO, i1, i2) => sprintf "(bigO $ $)" [print_i ctx i1, print_i ctx i2] *)
           (* | BinPred (BigO, i1, i2) => "true" *)
           | BinPred (opr, i1, i2) => sprintf "($ $ $)" [str_pred opr, print_i ctx i1, print_i ctx i2]
+          | Quan (Exists _, bs, (name, _), p, _) => raise SMTError "Don't trust SMT solver to solve existentials"
           | Quan (q, bs, (name, _), p, _) => sprintf "($ (($ $)) $)" [str_quan q, name, print_bsort bs, print_p (name :: ctx) p]
   in
       f p

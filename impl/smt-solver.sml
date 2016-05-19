@@ -20,8 +20,6 @@ fun group n ls =
     else
       List.take (ls, n) :: group n (List.drop (ls, n))
                                  
-exception SMTError of string
-
 fun get_model model =
     let
       val prefix = "Wrong model format"
