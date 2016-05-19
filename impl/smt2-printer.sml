@@ -15,6 +15,7 @@ fun evar_name n = "!!" ^ str_int n
 fun print_idx_bin_op opr =
     case opr of
         AddI => "+"
+      | BoundedMinusI => "-"
       | MultI => "*"
       | EqI => "="
       | AndI => "and"
@@ -58,6 +59,13 @@ fun print_i ctx i =
            in
                min (print_i ctx i1) (print_i ctx i2)
            end
+         | BoundedMinusI =>
+           let
+             fun bounded_minus a b =
+                 sprintf "(ite (< $ $) 0 (- $ $))" [a, b, a, b]
+           in
+             bounded_minus (print_i ctx i1) (print_i ctx i2)
+           end
          | TimeApp =>
            let
                val is = collect_TimeApp i1 @ [i2]
@@ -68,7 +76,6 @@ fun print_i ctx i =
          (* | ExpNI => sprintf "($ $)" [print_idx_bin_op opr, print_i ctx i2] *)
          | _ => 
            sprintf "($ $ $)" [print_idx_bin_op opr, print_i ctx i1, print_i ctx i2]
-             
       )
     | Ite (i1, i2, i3, _) => sprintf "(ite $ $ $)" [print_i ctx i1, print_i ctx i2, print_i ctx i3]
     | TrueI _ => "true"

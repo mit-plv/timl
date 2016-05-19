@@ -179,6 +179,7 @@ aexp : decorated_id (Var decorated_id)
 
 idx : aidx (aidx)
     | idx PLUS idx (BinOpI (AddI, idx1, idx2, (idx1left, idx2right)))
+    | idx MINUS idx (BinOpI (BoundedMinusI, idx1, idx2, (idx1left, idx2right)))
     | idx MAX idx (BinOpI (MaxI, idx1, idx2, (idx1left, idx2right)))
     | idx MIN idx (BinOpI (MinI, idx1, idx2, (idx1left, idx2right)))
     | idx MULT idx (BinOpI (MultI, idx1, idx2, (idx1left, idx2right)))

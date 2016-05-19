@@ -36,6 +36,7 @@ fun idx_bin_op_type opr =
       | GeI => raise Impossible "idx_bin_op_type ()"
       | AddI => raise Impossible "idx_bin_op_type ()"
       | MultI => raise Impossible "idx_bin_op_type ()"
+      | BoundedMinusI => raise Impossible "idx_bin_op_type ()"
 
 (* sorting context *)
 type scontext = (string (* option *) * sort) list
@@ -719,6 +720,7 @@ local
                           | (i1, bs1) => raise Error (get_region_i i1, "Sort of first operand of time function application must be time function" :: indent ["want: time function", "got: " ^ str_bs bs1, "in: " ^ str_i (sctx_names ctx) i1])
                       end
                     | AddI => overloaded [Nat, Time] NONE
+                    | BoundedMinusI => overloaded [Nat, Time] NONE
                     | MultI => overloaded [Nat, Time] NONE
                     | MaxI => overloaded [Nat, Time] NONE
                     | MinI => overloaded [Nat, Time] NONE

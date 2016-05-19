@@ -357,6 +357,8 @@ local
                   def ()
                 | GeI =>
                   def ()
+                | BoundedMinusI =>
+                  def ()
             end
           | Ite (i, i1, i2, r) =>
             if eq_i i (TrueI dummy) then

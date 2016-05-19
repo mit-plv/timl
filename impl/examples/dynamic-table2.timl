@@ -157,41 +157,27 @@ fun id x = x
 fun compose ['a 'b 'c] {T_g T_f : Time} (g : 'b -- T_g --> 'c) (f : 'a -- T_f --> 'b) x =
     g (f x)
     
-fun insert_delete_seq' ['a] {n size num : Nat} (xs : {n} (bool * 'a) list) (table : {num} {size} 'a good_table) return {25.0} {n} {num} {size} 'a amortized_fun using 5.0 * $n =
-    case xs of
-        Nil =>
-        AmortizedFun
-          (fn () =>
-              AmortizedOutput table
-          )
-      | Cons (x, xs) =>
-        let
-          val AmortizedFun f = insert_or_delete x table
-        in
-          AmortizedFun
-            (fn () =>
-                let
-                  val AmortizedOutput table = f ()
-                  val AmortizedFun f = insert_delete_seq' xs table
-                  val AmortizedOutput table = f ()
-                in
-                  AmortizedOutput table
-                end
-            )
-        end
-(*                                             
 datatype 'a some_good_table =
          SomeGoodTable {size num : Nat} of {num} {size} 'a good_table --> 'a some_good_table
 
-absidx T_insert_seq : BigO 1 (fn n => $n) with
-fun insert_seq ['a] {n size num : Nat} {2 * num <= n + size} (xs : {n} 'a list) (table : {num} {size} 'a good_table) return 'a some_good_table using T_insert_seq n =
-    let return using 100.0 + 40.0 * $n 
-        val GoodTable _ = table
-        val Amortized insert_seq' = @insert_seq' {} {size} {num} xs
-        val table = insert_seq' table
-        val GoodTable _ = table
-    in
-      SomeGoodTable table
-    end
+fun insert_delete_seq ['a] {n size num : Nat} (xs : {n} (bool * 'a) list) (table : {num} {size} 'a good_table) return 'a some_good_table using 48.0 * $n + ite (2 * num >= size) ($(2 * num - size)) ($size / 2 - $num) =
+    case xs of
+        Nil => SomeGoodTable table
+      | Cons (x, xs) =>
+        let
+          val AmortizedFun f = insert_or_delete x table
+          val AmortizedOutput table = f ()
+          val table = insert_delete_seq xs table
+        in
+          table
+        end
+          
+absidx T_insert_delete_seq_1 : BigO 1 (fn n => $n) with
+fun insert_delete_seq_1 ['a] {n size num : Nat} {ite (2 * num >= size) ($(2 * num - size)) ($size / 2 - $num) <= $n} (xs : {n} (bool * 'a) list) (table : {num} {size} 'a good_table) return 'a some_good_table using T_insert_delete_seq_1 n =
+    insert_delete_seq xs table using 2.0 + 49.0 * $n
 end
-*)
+          
+absidx T_insert_delete_seq_0 : BigO 1 (fn n => $n) with
+fun insert_delete_seq_0 ['a] {n : Nat} (xs : {n} (bool * 'a) list) (table : {0} {0} 'a good_table) return 'a some_good_table using T_insert_delete_seq_0 n =
+    insert_delete_seq xs table using 2.0 + 48.0 * $n
+end

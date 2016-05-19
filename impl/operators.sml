@@ -20,6 +20,7 @@ datatype idx_bin_op =
          | ExpNI
          | LtI
          | GeI
+         | BoundedMinusI
 
 (* binary logical connectives *)
 datatype bin_conn =
@@ -66,6 +67,7 @@ fun str_idx_bin_op opr =
     | ExpNI => "^"
     | LtI => "<"
     | GeI => ">="
+    | BoundedMinusI => "-"
 
 fun str_bin_conn opr =
   case opr of
