@@ -152,11 +152,6 @@ fun insert_or_delete ['a] {size num : Nat} (is_insert : bool, x : 'a) (table : {
       | false => delete x table
       
 
-fun id x = x
-
-fun compose ['a 'b 'c] {T_g T_f : Time} (g : 'b -- T_g --> 'c) (f : 'a -- T_f --> 'b) x =
-    g (f x)
-    
 datatype 'a some_good_table =
          SomeGoodTable {size num : Nat} of {num} {size} 'a good_table --> 'a some_good_table
 

@@ -1947,7 +1947,7 @@ local
               (* val () = println "after check_redundancy()" *)
               val (pcovers, new_rules) =
                   case (pn, e) of
-                      (VarP _, U.Never (U.UVar _, _)) =>
+                      (VarP _, U.Never (U.UVar ((), _), _)) =>
                       let
                         fun hab_to_ptrn cctx (* cutoff *) t hab =
                             let
