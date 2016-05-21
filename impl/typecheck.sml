@@ -28,14 +28,23 @@ fun idx_bin_op_type opr =
     case opr of
         AndI => (BoolSort, BoolSort, BoolSort)
       | ExpNI => (Nat, Nat, Nat)
-      | _ => raise Impossible "idx_bin_op_type ()"
+      | MaxI => raise Impossible "idx_bin_op_type ()"
+      | MinI => raise Impossible "idx_bin_op_type ()"
+      | TimeApp => raise Impossible "idx_bin_op_type ()"
+      | EqI => raise Impossible "idx_bin_op_type ()"
+      | LtI => raise Impossible "idx_bin_op_type ()"
+      | GeI => raise Impossible "idx_bin_op_type ()"
+      | AddI => raise Impossible "idx_bin_op_type ()"
+      | MultI => raise Impossible "idx_bin_op_type ()"
+      | BoundedMinusI => raise Impossible "idx_bin_op_type ()"
 
 (* sorting context *)
 type scontext = (string (* option *) * sort) list
 (* kinding context *)
-datatype kinding =
-         KKind of kind
-       | KTypeEq of ty
+(* datatype kinding = *)
+(*          KKind of kind *)
+(*        | KTypeEq of ty *)
+type kinding = kind
 type kcontext = (string * kinding) list 
 (* constructor context *)
 type ccontext = (string * constr) list
@@ -43,12 +52,12 @@ type ccontext = (string * constr) list
 type tcontext = (string * ty) list
 type context = scontext * kcontext * ccontext * tcontext
 
-structure StringOrdKey = struct
-type ord_key = string
-val compare = String.compare
-end
-structure StringBinaryMap = BinaryMapFn (structure Key = StringOrdKey)
-structure M = StringBinaryMap
+(* structure StringOrdKey = struct *)
+(* type ord_key = string *)
+(* val compare = String.compare *)
+(* end *)
+(* structure StringBinaryMap = BinaryMapFn (structure Key = StringOrdKey) *)
+(* structure M = StringBinaryMap *)
                 
 (* another representation of signature, as contexts *)
 datatype sgntr =
@@ -59,7 +68,7 @@ datatype sgntr =
          | FactorBind of (string * sgntr) list * sgntr
 (* signaturing context *)
          (* withtype sigcontext = (string * sgntr) list *)
-         withtype sigcontext = ()
+                                                   withtype sigcontext = unit
 
 fun names ctx = map fst ctx
 
@@ -356,7 +365,12 @@ local
 
   fun write_anchor anchor = write (AnchorVC anchor)
 
-  fun write_prop (p, r) = write (PropVC (p, r))
+  fun write_prop (p, r) =
+      let
+        (* val () = println $ "Writing Prop: " ^ str_p [] p *)
+      in
+        write (PropVC (p, r))
+      end
 
   fun write_admit (p, r) =
       write (AdmitVC (p, r))
@@ -586,8 +600,8 @@ local
           Basic (s, _) => s
         | Subset ((s, _), _, _) => s
         | UVarS _ => raise Error (r, [sprintf "Can't figure out base sort of $" [str_s ctx s]])
-                           
-  fun fetch_from_module (params as (shift, do_fetch)) sigs gctx (m, x) =
+(*                           
+  fun fetch_from_module (params as (shift, do_fetch)) (* sigs *) gctx (m, x) =
       let
         val fetch_from_module = fetch_from_module params sigs
         fun fetch_from_ctx gctx ctx (m, x) =
@@ -609,13 +623,13 @@ local
       case m of
           NONE => do_fetch (fctx, x)
         | SOME m => fetch_from_module (shiftx_m_k 0, do_fetch o mapFst sel) sigs gctx (m, x)
-
-  fun do_fetch_sort (ctx, (x, r)) =
+*)
+  fun (* do_ *)fetch_sort (ctx, (x, r)) =
       case lookup_sort x ctx of
       	  SOME s => s
       	| NONE => raise Error (r, ["Unbound index variable: " ^ str_v (sctx_names ctx) x])
 
-  val fetch_sort = generic_fetch shift_m_i do_fetch_sort #1
+  (* val fetch_sort = generic_fetch shift_m_i do_fetch_sort #1 *)
                         
   fun is_wf_sort (ctx : scontext, s : U.sort) : sort =
       case s of
@@ -757,10 +771,13 @@ local
                           | (i1, bs1) => raise Error (get_region_i i1, "Sort of first operand of time function application must be time function" :: indent ["want: time function", "got: " ^ str_bs bs1, "in: " ^ str_i (sctx_names ctx) i1])
                       end
                     | AddI => overloaded [Nat, Time] NONE
+                    | BoundedMinusI => overloaded [Nat, Time] NONE
                     | MultI => overloaded [Nat, Time] NONE
                     | MaxI => overloaded [Nat, Time] NONE
                     | MinI => overloaded [Nat, Time] NONE
                     | EqI => overloaded [Nat, BoolSort, UnitSort] (SOME BoolSort)
+                    | LtI => overloaded [Nat, Time, BoolSort, UnitSort] (SOME BoolSort)
+                    | GeI => overloaded [Nat, Time, BoolSort, UnitSort] (SOME BoolSort)
                     | _ =>
                       let
                         val (arg1type, arg2type, rettype) = idx_bin_op_type opr
@@ -900,12 +917,12 @@ local
 
   fun kind_mismatch (ctx as (sctx, kctx)) c expect have =  "Kind mismatch for " ^ str_t ctx c ^ ": expect " ^ expect ^ " have " ^ str_k sctx have
 
-  fun do_fetch_kind (kctx, (a, r)) =
+  fun (* do_ *)fetch_kind (kctx, (a, r)) =
       case lookup_kind a kctx of
       	  SOME k => k
         | NONE => raise Error (r, ["Unbound type variable: " ^ str_v (names kctx) a])
 
-  fun fetch_kind ggctx (kctx, (m, x)) = generic_fetch shiftx_m_k do_fetch_kind #2
+  (* fun fetch_kind ggctx (kctx, (m, x)) = generic_fetch shiftx_m_k do_fetch_kind #2 *)
 
   fun is_wf_mtype (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype) : mtype = 
       let 
@@ -1349,7 +1366,7 @@ local
   fun get_ds (_, _, _, tctxd) = map (snd o snd) tctxd
 
   fun escapes nametype name domaintype domain cause =
-      [sprintf "$ $ escapes local scope in $ $" [nametype, name, domaintype, domain]] @ indent (if cause = "" then [] else ["cause: " ^ cause])
+      [sprintf "$ $ escapes local scope in $ $" [nametype, name, domaintype, domain]] @ indent (if cause = "" then [] else ["cause: it is (potentially) used by " ^ cause])
 	                                                                                       
   fun forget_mt r (skctxn as (sctxn, kctxn)) (sctxl, kctxl) t = 
       let val t = forget_t_mt 0 kctxl t
@@ -1420,12 +1437,12 @@ local
            SOME (check_bsort (sctx, d, Base Time)))
         | (NONE, NONE) => (NONE, NONE)
 
-  fun do_fetch_type (tctx, (x, r)) =
+  fun (* do_ *)fetch_type (tctx, (x, r)) =
       case lookup_type x tctx of
       	  SOME t => t
         | NONE => raise Error (r, ["Unbound variable: " ^ str_v (names tctx) x])
 
-  val fetch_type = generic_fetch shiftx_m_t do_fetch_type #4
+  (* val fetch_type = generic_fetch shiftx_m_t do_fetch_type #4 *)
 
   (* t is already checked for wellformedness *)
   fun match_ptrn (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext), (* pcovers, *) pn : U.ptrn, t : mtype) : ptrn * cover * context * int =
@@ -1511,9 +1528,9 @@ local
             end
       end
 
-  fun get_mtype ggctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, tctx : tcontext), e_all : U.expr) : expr * mtype * idx =
+  fun get_mtype (* ggctx *) (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, tctx : tcontext), e_all : U.expr) : expr * mtype * idx =
       let
-        val get_mtype = get_mtype ggctx
+        (* val get_mtype = get_mtype ggctx *)
         val skctx = (sctx, kctx) 
 	  val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
 	  val skctxn = (sctxn, kctxn)
@@ -1538,7 +1555,7 @@ local
                             in
                               t
                             end
-                    val t = fetch_type ggctx (tctx, (x, r))
+                    val t = fetch_type (* ggctx  *)(tctx, (x, r))
                     (* val () = println $ str_t skctxn t *)
                     val t = insert_type_args t
                     (* val () = println $ str_mt skctxn t *)
@@ -1592,18 +1609,21 @@ local
                   in
 		    (Abs (pn, e), Arrow (t, d, t1), T0 dummy)
 		  end
-	        | U.Let (decls, e, r) => 
-		  let 
+	        | U.Let (return, decls, e, r) => 
+		  let
+                    val return = is_wf_return (skctx, return)
                     val (decls, ctxd as (sctxd, kctxd, _, _), nps, ds, ctx) = check_decls (ctx, decls)
 		    val (e, t, d) = get_mtype (ctx, e)
                     val ds = rev (d :: ds)
-		    val t = forget_ctx_mt r ctx ctxd t 
-                    val ds = map (forget_ctx_d r ctx ctxd) ds
+                    val d = combine_AddI_Time ds
+                    (* val d = foldl' (fn (d, acc) => acc %+ d) (T0 dummy) ds *)
+		    (* val t = forget_ctx_mt r ctx ctxd t  *)
+                    (* val ds = map (forget_ctx_d r ctx ctxd) ds *)
+	            val (t, d) = forget_or_check_return (get_region_e e) ctx ctxd (t, d) return 
                     val () = close_vcs nps
                     val () = close_ctx ctxd
-                    val d = foldl' (fn (d, acc) => acc %+ d) (T0 dummy) ds
                   in
-		    (Let (decls, e, r), t, d)
+		    (Let (return, decls, e, r), t, d)
 		  end
 	        | U.AbsI (s, (name, r), e, r_all) => 
 		  let 
@@ -1700,16 +1720,17 @@ local
                             else if eq_i d2 (T1 dummy) then d1
                             else raise wrong_d
                           | _ => raise wrong_d
-                    val e =
+                    val (is, e) =
                         case e of
                             App (f, e) =>
                             let
                               val (_, is) = collect_AppI f
-                              val e = forget_e_e 0 1 e
                             in
-                              AppConstr ((cx, eia), is, e)
+                              (is, e)
                             end
                           | _ => raise Impossible "get_mtype (): U.AppConstr: e in wrong form"
+                    val e = forget_e_e 0 1 e
+                    val e = AppConstr ((cx, eia), is, e)
 		  in
 		    (e, t, d)
 		  end
@@ -1983,7 +2004,7 @@ local
               (* val () = println "after check_redundancy()" *)
               val (pcovers, new_rules) =
                   case (pn, e) of
-                      (VarP _, U.Never (U.UVar _, _)) =>
+                      (VarP _, U.Never (U.UVar ((), _), _)) =>
                       let
                         fun hab_to_ptrn cctx (* cutoff *) t hab =
                             let
@@ -2094,6 +2115,9 @@ local
 	val (pn, cover, ctxd as (sctxd, kctxd, _, _), nps) = match_ptrn (skcctx, (* pcovers, *) pn, t1)
         val ctx0 = ctx
 	val ctx = add_ctx ctxd ctx
+        val (e, t, d) = get_mtype (ctx, e)
+	val (t, d) = forget_or_check_return (get_region_e e) ctx ctxd (t, d) return 
+                  (*
         val (e, t, d) = 
             case return of
                 (SOME t, SOME d) =>
@@ -2126,10 +2150,46 @@ local
                 in
                   (e, t, d)
                 end
+                  *)
         val () = close_vcs nps
         val () = close_ctx ctxd
       in
 	((pn, e), ((t, d), cover))
+      end
+
+  and forget_or_check_return r ctx ctxd (t', d') (t, d) =
+      let
+        val (sctxn, kctxn, _, _) = ctx_names ctx
+        val t =
+            case t of
+                SOME t =>
+                let
+                  val () = unify r (sctxn, kctxn) (t', shift_ctx_mt ctxd t)
+                in
+                  t
+                end
+              | NONE =>
+                let
+	          val t' = forget_ctx_mt r ctx ctxd t' 
+                in
+                  t'
+                end
+        val d = 
+            case d of
+                SOME d =>
+                let
+                  val () = smart_write_le sctxn (d', shift_ctx_i ctxd d, r)
+                in
+                  d
+                end
+              | NONE =>
+                let 
+	          val d' = forget_ctx_d r ctx ctxd d'
+                in
+                  d'
+                end
+      in
+        (t, d)
       end
 
   and check_mtype (ctx as (sctx, kctx, cctx, tctx), e, t) =
@@ -2178,7 +2238,7 @@ local
       in
 	e
       end
-
+(*
   fun is_sub_sig sigs gctx_base (gctx, ctx) (gctx', ctx') =
       let
         val len_gctx = length gctx
@@ -2326,7 +2386,7 @@ local
       in
         mapFst rev $ foldl iter ([], gctx) binds
       end
-
+*)
 
                                
   fun str_vce vce =
@@ -2775,7 +2835,7 @@ local
         val () = case vces of
                      [] => ()
                    | _ => raise Impossible "to_vcs (): remaining after get_formulas"
-        val fs = unpackage_fs fs
+        (* val fs = unpackage_fs fs *)
         val (admits, fs) = get_admits_fs fs
         fun fs_to_prop fs =
             let

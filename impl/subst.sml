@@ -517,7 +517,8 @@ local
     fun f x n b =
 	case b of
 	    Var ((y, r), b) => Var ((shiftx_v x n y, r), b)
-	  | Abs (pn, e) => Abs (pn, f (x + 1) n e)
+	  | Abs (pn, e) =>
+            Abs (pn, f (x + (length $ snd $ ptrn_names pn)) n e)
 	  | App (e1, e2) => App (f x n e1, f x n e2)
 	  | TT r => TT r
 	  | Pair (e1, e2) => Pair (f x n e1, f x n e2)
@@ -525,11 +526,11 @@ local
 	  | Snd e => Snd (f x n e)
 	  | AbsI (s, name, e, r) => AbsI (s, name, f x n e, r)
 	  | AppI (e, i) => AppI (f x n e, i)
-	  | Let (decs, e, r) =>
+	  | Let (return, decs, e, r) =>
 	    let 
 		val (decs, m) = f_decls x n decs
 	    in
-		Let (decs, f (x + m) n e, r)
+		Let (return, decs, f (x + m) n e, r)
 	    end
 	  | Ascription (e, t) => Ascription (f x n e, t)
 	  | AscriptionTime (e, d) => AscriptionTime (f x n e, d)
@@ -603,7 +604,8 @@ local
     fun f x n b =
 	case b of
 	    Var ((y, r), b) => Var ((forget_v x n y, r), b)
-	  | Abs (pn, e) => Abs (pn, f (x + 1) n e)
+	  | Abs (pn, e) =>
+            Abs (pn, f (x + (length $ snd $ ptrn_names pn)) n e)
 	  | App (e1, e2) => App (f x n e1, f x n e2)
 	  | TT r => TT r
 	  | Pair (e1, e2) => Pair (f x n e1, f x n e2)
@@ -611,11 +613,11 @@ local
 	  | Snd e => Snd (f x n e)
 	  | AbsI (s, name, e, r) => AbsI (s, name, f x n e, r)
 	  | AppI (e, i) => AppI (f x n e, i)
-	  | Let (decs, e, r) =>
+	  | Let (return, decs, e, r) =>
 	    let 
 		val (decs, m) = f_decls x n decs
 	    in
-		Let (decs, f (x + m) n e, r)
+		Let (return, decs, f (x + m) n e, r)
 	    end
 	  | Ascription (e, t) => Ascription (f x n e, t)
 	  | AscriptionTime (e, d) => AscriptionTime (f x n e, d)

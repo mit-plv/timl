@@ -60,9 +60,15 @@ Done. 50. Simplify MaxI using SMT solver.
 52. Have binary heap with arrays.
 53. Have in-place merge sort with arrays.
 54. Have k-median search with arrays.
-55. Investigate amortized complexity analysis.
+Done. 55. Investigate amortized complexity analysis.
 56. Prove in Coq.
 57. Infer [BigO] arity.
 58. Have built-in indexed [uint].
 59. Pretty-print to SML.
 60. Combine cctx and tctx.
+61. Add <> notation.
+62. Let return clause in [Case] to mean the time including the matchee.
+63. Amortized complexity of queue implementation by two stacks.
+64. Infer type according to pattern.
+65. Wrongly inferred [T_insert_delete_seq_0] to be (fn n => $n) without the [2.0 + 48.0 * $n] annotation.
+66. Have some Nat/Time inference.

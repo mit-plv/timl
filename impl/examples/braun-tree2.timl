@@ -1,6 +1,6 @@
 (* Braun tree with invariant for balance and sortedness. Key type is indexed unsigned fixed-width integers *)
 
-open Uint
+(* open Uint *)
        
 datatype {Nat(*size*)} {Nat(*min element*)} braun_tree =
          Leaf of {0} {0} braun_tree
@@ -56,21 +56,21 @@ absidx Tsift : BigO 1 (fn n => log2 $n)(* _ *) with
 fun sift {size lk rk x : Nat} (x : {x} uint, l : {ceil ($size/2)} {lk} braun_tree, r : {floor ($size/2)} {rk} braun_tree) return {size+1} {ite (size == 0) x (ite (size == 1) (x min lk) (x min lk min rk))} braun_tree using Tsift size =
     case (l, r) of
         (Leaf, Leaf) =>
-        Node (x, Leaf, Leaf)
+        @Node {0} {} {} {} {} (x, Leaf, Leaf)
       | (Node (y, _, _), Leaf) =>
         let
           val MinMaxResult (smaller, bigger) = min_max le (x, y)
         in
-          @Node {1} {_} {_} {_} {_} (smaller, Node (bigger, Leaf, Leaf), Leaf)
+          @Node {1} {_} {_} {_} {_} (smaller, @Node {0} {} {} {} {} (bigger, Leaf, Leaf), Leaf)
         end
       | (@Node {nl' _ _ _ _} (lx, l1, l2), @Node {nr' _ _ _ _} (rx, r1, r2)) =>
         (case (le_le @le (x, lx) (x, rx), le (lx, rx)) of
              (LeLe, _) =>
-             Node (x, l, r)
+             @Node {size} {} {} {} {} (x, l, r)
            | (NotLeLe, Le) =>
-             Node (lx, @sift {nl'} {_} {_} {_} (x, l1, l2), r)
+             @Node {size} {} {} {} {} (lx, @sift {nl'} {_} {_} {_} (x, l1, l2), r)
            | (NotLeLe, Gt) =>
-             Node (rx, l, @sift {nr'} {_} {_} {_} (x, r1, r2))
+             @Node {size} {} {} {} {} (rx, l, @sift {nr'} {_} {_} {_} (x, r1, r2))
         )
       | _ => never
 end

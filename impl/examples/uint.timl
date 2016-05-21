@@ -1,8 +1,9 @@
 (* some placeholders for indexed unsigned fixed-width integers (they should be provided natively by the language, to support O(1) operations) *)
 datatype {Nat} uint =
          (* constructors are just placeholders *)
-         Zero of {0} uint
-       | Succ {n : Nat} of {n} uint --> {n + 1} uint
+       (*   Zero of {0} uint *)
+(* | Succ {n : Nat} of {n} uint --> {n + 1} uint *)
+         UintDummy {n : Nat} of {n} uint
                               
 datatype {Nat} {Nat} cmp_result =
          Equal {a b : Nat} {a = b} of {b} {a} cmp_result

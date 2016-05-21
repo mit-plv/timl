@@ -65,7 +65,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  ModVar of id
                  (* | ModSel of mod_projectible * id *)
                                                 
-        type long_id = mod_projectible option * id
+        type long_id = (* mod_projectible option *  *)id
                                                          
         datatype idx =
 	         VarI of long_id
@@ -109,11 +109,11 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         | Prod of mtype * mtype
 	         | UniI of sort * (name * mtype) ibind * region
 	         | AppV of id * mtype list * idx list * region (* the first operant of App can only be a type variable. The degenerated case of no-arguments is also included *)
-                 | MtVar of long_id
-                 | MtApp of mtype * mtype
-                 | MtAbs of (name * mtype) tbind * region
-                 | MtAppI of mtype * idx
-                 | MtAbsI of sort * (name * mtype) ibind * region
+                 (* | MtVar of long_id *)
+                 (* | MtApp of mtype * mtype *)
+                 (* | MtAbs of (name * mtype) tbind * region *)
+                 (* | MtAppI of mtype * idx *)
+                 (* | MtAbsI of sort * (name * mtype) ibind * region *)
                                                           
         withtype 'body tbind = (mtype, 'body) Bind.bind
 
@@ -160,7 +160,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         | ConstInt of int * region
 	         | AppConstr of (id * bool) * idx list * expr
 	         | Case of expr * return * (ptrn * expr) list * region
-	         | Let of decl list * expr * region
+	         | Let of return * decl list * expr * region
 	         | Ascription of expr * mtype
 	         | AscriptionTime of expr * idx
 	         | Never of mtype * region
@@ -172,8 +172,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         | Datatype of datatype_def
                  | IdxDef of name * sort * idx
                  | AbsIdx of (name * sort * idx) * decl list * region
-                 | TypeDef of type_bind
-                 | Open of mod_projectible
+                 (* | TypeDef of type_bind *)
+                 (* | Open of mod_projectible *)
                              
                              withtype datatype_def = string * string list * sort list * constr_decl list * region
 
@@ -587,8 +587,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 end
               | AnnoP (pn, t) => ptrn_names pn
 
-        fun decorate_var eia s = if eia then "@" else "" ^ s
-                                                             
+        fun decorate_var eia s = (if eia then "@" else "") ^ s
+                                                            
         fun str_pn (ctx as (sctx, kctx, cctx)) pn = 
             case pn of
                 ConstrP (((x, _), eia), inames, pn, _) => sprintf "$$$" [decorate_var eia $ str_v cctx x, join_prefix " " $ map (surround "{" "}") inames, str_opt (fn pn => " " ^ str_pn ctx pn) pn]
@@ -609,41 +609,43 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
             let fun add_t name (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx) 
                 val skctx = (sctx, kctx) 
             in
-              case e of
-	          Var ((x, _), b) => decorate_var b $ str_v tctx x
-	        | Abs (pn, e) => 
-                  let 
-                    val (inames, enames) = ptrn_names pn
-                    val pn = str_pn (sctx, kctx, cctx) pn
-                    val ctx = (inames @ sctx, kctx, cctx, enames @ tctx)
-	            val e = str_e ctx e
-                  in
-                    sprintf "(fn $ => $)" [pn, e]
-                  end
-	        | App (e1, e2) => sprintf "($ $)" [str_e ctx e1, str_e ctx e2]
-	        | TT _ => "()"
-	        | Pair _ =>
-                  let
-                    val es = collect_Pair e
-                  in
-                    sprintf "($)" [join ", " $ map (str_e ctx) es]
-                  end
-	        | Fst e => sprintf "(fst $)" [str_e ctx e]
-	        | Snd e => sprintf "(snd $)" [str_e ctx e]
-	        | AbsI (s, (name, _), e, _) => sprintf "(fn {$ : $} => $)" [name, str_s sctx s, str_e (name :: sctx, kctx, cctx, tctx) e]
-	        | AppI (e, i) => sprintf "($ {$})" [str_e ctx e, str_i sctx i]
-	        | Let (decls, e, _) => 
-                  let val (decls, ctx) = str_decls ctx decls
-                  in
-                    sprintf "let$ in $ end" [join_prefix " " decls, str_e ctx e]
-                  end
-	        | Ascription (e, t) => sprintf "($ : $)" [str_e ctx e, str_mt skctx t]
-	        | AscriptionTime (e, d) => sprintf "($ |> $)" [str_e ctx e, str_i sctx d]
-	        | BinOp (opr, e1, e2) => sprintf "($ $ $)" [str_e ctx e1, str_bin_op opr, str_e ctx e2]
-	        | ConstInt (n, _) => str_int n
-	        | AppConstr (((x, _), b), is, e) => sprintf "($$ $)" [decorate_var b $ str_v cctx x, (join "" o map (prefix " ") o map (fn i => sprintf "{$}" [str_i sctx i])) is, str_e ctx e]
-	        | Case (e, return, rules, _) => sprintf "(case $ $of $)" [str_e ctx e, str_return skctx return, join " | " (map (str_rule ctx) rules)]
-	        | Never (t, _) => sprintf "(never [$])" [str_mt skctx t]
+                case e of
+	            Var ((x, _), b) => decorate_var b $ str_v tctx x
+	          | Abs (pn, e) => 
+                    let 
+                        val (inames, enames) = ptrn_names pn
+                        val pn = str_pn (sctx, kctx, cctx) pn
+                        val ctx = (inames @ sctx, kctx, cctx, enames @ tctx)
+	                val e = str_e ctx e
+                    in
+                        sprintf "(fn $ => $)" [pn, e]
+                    end
+	          | App (e1, e2) => sprintf "($ $)" [str_e ctx e1, str_e ctx e2]
+	          | TT _ => "()"
+	          | Pair _ =>
+                    let
+                      val es = collect_Pair e
+                    in
+                      sprintf "($)" [join ", " $ map (str_e ctx) es]
+                    end
+	          | Fst e => sprintf "(fst $)" [str_e ctx e]
+	          | Snd e => sprintf "(snd $)" [str_e ctx e]
+	          | AbsI (s, (name, _), e, _) => sprintf "(fn {$ : $} => $)" [name, str_s sctx s, str_e (name :: sctx, kctx, cctx, tctx) e]
+	          | AppI (e, i) => sprintf "($ {$})" [str_e ctx e, str_i sctx i]
+	          | Let (return, decls, e, _) => 
+                    let
+                      val return = str_return (sctx, kctx) return
+                      val (decls, ctx) = str_decls ctx decls
+                    in
+                        sprintf "let $$ in $ end" [return, join_prefix " " decls, str_e ctx e]
+                    end
+	          | Ascription (e, t) => sprintf "($ : $)" [str_e ctx e, str_mt skctx t]
+	          | AscriptionTime (e, d) => sprintf "($ |> $)" [str_e ctx e, str_i sctx d]
+	          | BinOp (opr, e1, e2) => sprintf "($ $ $)" [str_e ctx e1, str_bin_op opr, str_e ctx e2]
+	          | ConstInt (n, _) => str_int n
+	          | AppConstr (((x, _), b), is, e) => sprintf "($$ $)" [decorate_var b $ str_v cctx x, (join "" o map (prefix " ") o map (fn i => sprintf "{$}" [str_i sctx i])) is, str_e ctx e]
+	          | Case (e, return, rules, _) => sprintf "(case $ $of $)" [str_e ctx e, str_return skctx return, join " | " (map (str_rule ctx) rules)]
+	          | Never (t, _) => sprintf "(never [$])" [str_mt skctx t]
             end
 
         and str_decls (ctx as (sctx, kctx, cctx, tctx)) decls =
@@ -829,7 +831,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | AppConstr (((_, r), _), _, e) => combine_region r (get_region_e e)
               | Case (_, _, _, r) => r
               | Never (_, r) => r
-              | Let (_, _, r) => r
+              | Let (_, _, _, r) => r
               | Ascription (e, t) => combine_region (get_region_e e) (get_region_mt t)
               | AscriptionTime (e, i) => combine_region (get_region_e e) (get_region_i i)
                                                         
@@ -857,106 +859,112 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                     fun def () = BinOpI (opr, passi i1, passi i2)
                   in
                     case opr of
-	                MaxI =>
-	                if eq_i i1 i2 then
-		          (set ();
-                           i1)
-	                else
-		          BinOpI (opr, passi i1, passi i2)
-	              | MinI =>
-	                if eq_i i1 i2 then
-		          (set ();
-                           i1)
-	                else
-		          BinOpI (opr, passi i1, passi i2)
-	              | AddI => 
-	                if eq_i i1 (T0 dummy) then
-                          (set ();
-                           i2)
-	                else if eq_i i2 (T0 dummy) then
-                          (set ();
-                           i1)
-	                else
-		          BinOpI (opr, passi i1, passi i2)
-	              | MultI => 
-	                if eq_i i1 (T0 dummy) then
-                          (set ();
-                           (T0 dummy))
-	                else if eq_i i2 (T0 dummy) then
-                          (set ();
-                           (T0 dummy))
-	                else if eq_i i1 (T1 dummy) then
-                          (set ();
-                           i2)
-	                else if eq_i i2 (T1 dummy) then
-                          (set ();
-                           i1)
-	                else
-		          BinOpI (opr, passi i1, passi i2)
-                      | TimeApp =>
-		        BinOpI (opr, passi i1, passi i2)
-                      | EqI =>
-                        if eq_i i1 i2 then
-                          mark $ TrueI $ get_region_i i
-                        else def ()
-                      | AndI =>
-                        if eq_i i1 (TrueI dummy) then
-                          mark i2
-                        else if eq_i i2 (TrueI dummy) then
-                          mark i1
-                        else if eq_i i1 (FalseI dummy) then
-                          mark $ FalseI $ get_region_i i
-                        else if eq_i i2 (FalseI dummy) then
-                          mark $ FalseI $ get_region_i i
-                        else
-                          def ()
-                      | ExpNI =>
-                        def ()
-                  end
-                | Ite (i, i1, i2, r) =>
-                  if eq_i i (TrueI dummy) then
-                    mark i1
-                  else if eq_i i (FalseI dummy) then
-                    mark i2
-                  else
-                    Ite (passi i, passi i1, passi i2, r)
-                | UnOpI (opr, i, r) =>
-                  UnOpI (opr, passi i, r)
-                | TimeAbs ((name, r1), i, r) =>
-                  TimeAbs ((name, r1), passi i, r)
-	        | TrueI _ => i
-	        | FalseI _ => i
-	        | TTI _ => i
-                | ConstIN _ => i
-                | ConstIT _ => i
-                | VarI _ => i
-                | AdmitI _ => i
-                | UVarI _ => i
+	                 MaxI =>
+	                 if eq_i i1 i2 then
+		             (set ();
+                              i1)
+	                 else
+		             BinOpI (opr, passi i1, passi i2)
+	               | MinI =>
+	                 if eq_i i1 i2 then
+		             (set ();
+                              i1)
+	                 else
+		             BinOpI (opr, passi i1, passi i2)
+	               | AddI => 
+	                 if eq_i i1 (T0 dummy) then
+                             (set ();
+                              i2)
+	                 else if eq_i i2 (T0 dummy) then
+                             (set ();
+                              i1)
+	                 else
+		             BinOpI (opr, passi i1, passi i2)
+	               | MultI => 
+	                 if eq_i i1 (T0 dummy) then
+                             (set ();
+                              (T0 dummy))
+	                 else if eq_i i2 (T0 dummy) then
+                             (set ();
+                              (T0 dummy))
+	                 else if eq_i i1 (T1 dummy) then
+                             (set ();
+                              i2)
+	                 else if eq_i i2 (T1 dummy) then
+                             (set ();
+                              i1)
+	                 else
+		             BinOpI (opr, passi i1, passi i2)
+                       | TimeApp =>
+		         BinOpI (opr, passi i1, passi i2)
+                       | EqI =>
+                         if eq_i i1 i2 then
+                           mark $ TrueI $ get_region_i i
+                         else def ()
+                       | AndI =>
+                         if eq_i i1 (TrueI dummy) then
+                           mark i2
+                         else if eq_i i2 (TrueI dummy) then
+                           mark i1
+                         else if eq_i i1 (FalseI dummy) then
+                           mark $ FalseI $ get_region_i i
+                         else if eq_i i2 (FalseI dummy) then
+                           mark $ FalseI $ get_region_i i
+                         else
+                           def ()
+                       | ExpNI =>
+                         def ()
+                       | LtI =>
+                         def ()
+                       | GeI =>
+                         def ()
+                       | BoundedMinusI =>
+                         def ()
+                    end
+                  | Ite (i, i1, i2, r) =>
+                    if eq_i i (TrueI dummy) then
+                      mark i1
+                    else if eq_i i (FalseI dummy) then
+                      mark i2
+                    else
+                      Ite (passi i, passi i1, passi i2, r)
+                  | UnOpI (opr, i, r) =>
+                    UnOpI (opr, passi i, r)
+                  | TimeAbs ((name, r1), i, r) =>
+                    TimeAbs ((name, r1), passi i, r)
+	          | TrueI _ => i
+	          | FalseI _ => i
+	          | TTI _ => i
+                  | ConstIN _ => i
+                  | ConstIT _ => i
+                  | VarI _ => i
+                  | AdmitI _ => i
+                  | UVarI _ => i
 
-          fun passp p = 
-	      case p of
-	          BinConn (opr, p1, p2) => 
-                  (case opr of
-                       And =>
-	               if eq_p p1 (True dummy) then
-                         (set ();
-                          p2)
-	               else if eq_p p2 (True dummy) then
-                         (set ();
-                          p1)
-	               else
+            fun passp p = 
+	        case p of
+	            BinConn (opr, p1, p2) => 
+                    (case opr of
+                         And =>
+	                 if eq_p p1 (True dummy) then
+                             (set ();
+                              p2)
+	                 else if eq_p p2 (True dummy) then
+                             (set ();
+                              p1)
+	                 else
+	                     BinConn (opr, passp p1, passp p2)
+                       | Or =>
+	                 if eq_p p1 (False dummy) then
+                             (set ();
+                              p2)
+	                 else if eq_p p2 (False dummy) then
+                             (set ();
+                              p1)
+	                 else
+	                     BinConn (opr, passp p1, passp p2)
+                       | _ =>
 	                 BinConn (opr, passp p1, passp p2)
-                     | Or =>
-	               if eq_p p1 (False dummy) then
-                         (set ();
-                          p2)
-	               else if eq_p p2 (False dummy) then
-                         (set ();
-                          p1)
-	               else
-	                 BinConn (opr, passp p1, passp p2)
-                     | _ =>
-	               BinConn (opr, passp p1, passp p2)
                   )
 	        | BinPred (opr, i1, i2) => 
 	          BinPred (opr, passi i1, passi i2)

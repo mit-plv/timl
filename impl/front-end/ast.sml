@@ -89,7 +89,7 @@ datatype exp =
        | Case of exp * return * (ptrn * exp) list * region
        | Ascription of exp * ty * region
        | AscriptionTime of exp * idx * region
-       | Let of decl list * exp * region
+       | Let of return * decl list * exp * region
        | Const of int * region
        | BinOp of bin_op * exp * exp * region
 
