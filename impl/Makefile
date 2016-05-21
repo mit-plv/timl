@@ -15,12 +15,11 @@ front-end/ast.sml \
 front-end/timl.grm \
 front-end/timl.lex \
 front-end/parser.sml \
+bind.sml \
 expr.sml \
 uvar-expr.sml \
 elaborate.sml \
-underscored-subst.sml \
 name-resolve.sml \
-subst.sml \
 trivial-solver.sml \
 nouvar-expr.sml \
 vc.sml \

@@ -13,12 +13,11 @@ front-end/timl.grm.sig
 front-end/timl.grm.sml
 front-end/timl.lex.sml
 front-end/parser.sml
+bind.sml
 expr.sml
 uvar-expr.sml
 elaborate.sml
-underscored-subst.sml
 name-resolve.sml
-subst.sml
 nouvar-expr.sml
 vc.sml
 sexp/sexp.sml

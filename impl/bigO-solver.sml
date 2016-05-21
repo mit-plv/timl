@@ -1,8 +1,9 @@
 structure BigOSolver = struct
 open UVarUtil
-open NoUVarExpr
 open VC
-open NoUVarSubst
+open NoUVarExpr
+open Subst
+open NoUVarUtil
        
 infixr 0 $
 

@@ -2,7 +2,8 @@ structure TypeCheck = struct
 open Region
 structure U = UnderscoredExpr
 open Expr
-
+open Simp
+       
 infixr 0 $
 
 infix 7 %*
@@ -216,6 +217,11 @@ fun ctx_from_sortings pairs : context = add_sortings_skct pairs empty_ctx
 fun ctx_from_full_sortings pairs : context = (pairs, [], [], [])
 fun ctx_from_typing pair : context = ([], [], [], [pair])
 
+open UVar
+val expand_i = expand_i shiftx_i_i
+val expand_s = expand_s shiftx_i_s
+val expand_mt = expand_mt shiftx_i_mt shiftx_t_mt
+       
 fun update_bs bs =
     case bs of
         UVarBS x =>
@@ -420,6 +426,10 @@ local
           else
 	    raise Error (r, [sprintf "Base sort mismatch: $ and $" [str_b b, str_b b']])
 		  
+  fun shrink_i invis b = shrink forget_i_i invis b
+  fun shrink_s invis b = shrink forget_i_s invis b
+  fun shrink_mt (invisi, invist) b = (shrink forget_i_mt invisi o shrink forget_t_mt invist) b
+
   fun unify_i r ctx (i, i') =
       let
         fun error (i, i') = unify_error r (str_i ctx i, str_i ctx i')
@@ -843,21 +853,12 @@ local
   fun is_wf_sorts (ctx, sorts : U.sort list) : sort list = 
       map (fn s => is_wf_sort (ctx, s)) sorts
           
-  fun subst_uvar_error r body i (fresh, x) =
-      let
-        fun get_fresh_uvar_ref_ctx fresh =
-            case fresh of
-                FrIdx (_, (_, ctx, _)) => ctx
-              | FrBsort _ => []
-              | FrSort (_, (_, ctx)) => ctx
-              | FrMtype (_, (_, ctx)) => ctx
-      in
-        Error (r,
-               sprintf "Can't substitute for $ in unification variable $ in $" [str_v (get_fresh_uvar_ref_ctx fresh) x, str_fresh_uvar_ref fresh, body] ::
-               indent [
-                 sprintf "because the context of $ is [$] which contains $" [str_fresh_uvar_ref fresh, (join ", " o get_fresh_uvar_ref_ctx) fresh, str_v (get_fresh_uvar_ref_ctx fresh) x]
-               ])
-      end
+  fun subst_uvar_error r body i ((fresh, fresh_ctx), x) =
+      Error (r,
+             sprintf "Can't substitute for $ in unification variable $ in $" [str_v fresh_ctx x, fresh, body] ::
+             indent [
+               sprintf "because the context of $ is [$] which contains $" [fresh, join ", " $ fresh_ctx, str_v fresh_ctx x]
+             ])
         
   fun check_sort (ctx, i : U.idx, s : sort) : idx =
       let 
@@ -1702,7 +1703,7 @@ local
 		    (* delegate to checking [cx {is} e] *)
 		    val f = U.Var ((0, rc), eia)
 		    val f = foldl (fn (i, e) => U.AppI (e, i)) f is
-		    val e = U.App (f, shift_e_e e)
+		    val e = U.App (f, U.Subst.shift_e_e e)
 		    val (e, t, d) = get_mtype (add_typing_skct (cname, tc) ctx, e) 
                     (* val () = println $ str_i sctxn d *)
                     val d = update_i d
@@ -2853,7 +2854,7 @@ local
               val p = f2_to_prop f
               (* val () = println "Props: " *)
                                  (* val () = println $ Expr.str_p [] p *)
-              val p = Expr.simp_p p
+              val p = Expr.Simp.simp_p p
             in
               p
             end
@@ -2861,7 +2862,7 @@ local
         val p = no_uvar_p p
         (* val () = println "NoUVar Props: " *)
         (* val () = println $ str_p [] p *)
-        val p = NoUVarSubst.simp_p p
+        val p = NoUVarUtil.simp_p p
         (* val () = println "NoUVar Props after simp_p(): " *)
         (* val () = println $ str_p [] p *)
         val p = uniquefy [] p

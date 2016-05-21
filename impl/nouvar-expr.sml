@@ -9,13 +9,31 @@ fun str_uvar_bs (_ : 'a -> string) (u : 'a uvar_bs) = exfalso u
 fun str_uvar_mt (_ : string list * string list -> 'mtype -> string) (_ : string list * string list) (u : 'mtype uvar_mt) = exfalso u
 fun str_uvar_i (_ : string list -> 'idx -> string) (_ : string list) (u : ('bsort, 'idx) uvar_i) = exfalso u
 fun eq_uvar_i (u : ('bsort, 'idx) uvar_i, u' : ('bsort, 'idx) uvar_i) = exfalso u
+
+fun shiftx_i_UVarI UVarI _ _ _ (u, _) = exfalso u
+fun shiftx_i_UVarS UVarS _ _ _ (u, _) = exfalso u
+fun shiftx_i_UVar _ UVar _ _ _ (u, _) = exfalso u
+fun shiftx_t_UVar _ UVar _ _ _ (u, _) = exfalso u
+                         
+fun forget_i_UVarI _ _ UVarI _ _ _ (u, _) = exfalso u
+fun forget_i_UVarS _ _ UVarS _ _ _ (u, _) = exfalso u
+fun forget_i_UVar _ _ _ UVar _ _ _ (u, _) = exfalso u
+fun forget_t_UVar _ _ _ UVar _ _ _ (u, _) = exfalso u
+                         
+fun substx_i_UVarI _ UVarI _ _ _ (u, _) = exfalso u
+fun substx_i_UVarS _ UVarS _ _ _ (u, _) = exfalso u
+fun substx_i_UVar _ _ UVar _ _ _ (u, _) = exfalso u
+fun substx_t_UVar _ _ UVar _ _ _ (u, _) = exfalso u
+                         
 end
 
 structure NoUVarExpr = ExprFun (structure Var = IntVar structure UVar = NoUVar)
 
-structure NoUVarSubst = struct
+structure NoUVarUtil = struct
 open Util
 open NoUVarExpr
+open Subst
+       
 infix 9 %@
 infix 8 %^
 infix 7 %*
@@ -27,116 +45,9 @@ infixr 2 \/
 infixr 1 -->
 infix 1 <->
 infixr 0 $
-         
-fun on_i_i on_v x n b =
-    let
-      fun f x n b =
-	  case b of
-	      VarI (y, r) => VarI (on_v x n y, r)
-	    | ConstIN n => ConstIN n
-	    | ConstIT x => ConstIT x
-            | UnOpI (opr, i, r) => UnOpI (opr, f x n i, r)
-            | DivI (i1, n2) => DivI (f x n i1, n2)
-            | ExpI (i1, n2) => ExpI (f x n i1, n2)
-	    | BinOpI (opr, i1, i2) => BinOpI (opr, f x n i1, f x n i2)
-            | Ite (i1, i2, i3, r) => Ite (f x n i1, f x n i2, f x n i3, r)
-	    | TTI r => TTI r
-	    | TrueI r => TrueI r
-	    | FalseI r => FalseI r
-            | TimeAbs (name, i, r) => TimeAbs (name, f (x + 1) n i, r)
-            | AdmitI r => AdmitI r
-            | UVarI (u, _) => exfalso u
-    in
-      f x n b
-    end
 
-fun on_i_p on_i_i x n b =
-    let
-      fun f x n b =
-          case b of
-	      True r => True r
-	    | False r => False r
-            | Not (p, r) => Not (f x n p, r)
-	    | BinConn (opr, p1, p2) => BinConn (opr, f x n p1, f x n p2)
-	    | BinPred (opr, d1, d2) => BinPred (opr, on_i_i x n d1, on_i_i x n d2)
-            | Quan (q, bs, name, p, r) => Quan (q, bs, name, f (x + 1) n p, r)
-    in
-      f x n b
-    end
-
-fun shiftx_v x n y = 
-    if y >= x then
-      y + n
-    else
-      y
-
-and shiftx_i_i x n b = on_i_i shiftx_v x n b
-fun shift_i_i b = shiftx_i_i 0 1 b
-
-fun shiftx_i_p x n b = on_i_p shiftx_i_i x n b
-fun shift_i_p b = shiftx_i_p 0 1 b
-
-local
-  fun f x v b =
-      case b of
-	  VarI (y, r) =>
-	  if y = x then
-	    v
-	  else if y > x then
-	    VarI (y - 1, r)
-	  else
-	    VarI (y, r)
-	| ConstIN n => ConstIN n
-	| ConstIT x => ConstIT x
-        | UnOpI (opr, i, r) => UnOpI (opr, f x v i, r)
-        | DivI (i1, n2) => DivI (f x v i1, n2)
-        | ExpI (i1, n2) => ExpI (f x v i1, n2)
-	| BinOpI (opr, d1, d2) => BinOpI (opr, f x v d1, f x v d2)
-        | Ite (i1, i2, i3, r) => Ite (f x v i1, f x v i2, f x v i3, r)
-	| TrueI r => TrueI r
-	| FalseI r => FalseI r
-	| TTI r => TTI r
-        | TimeAbs (name, i, r) => TimeAbs (name, f (x + 1) (shiftx_i_i 0 1 v) i, r)
-        | AdmitI r => AdmitI r
-        | UVarI (u, _) => exfalso u
-in
-fun substx_i_i x (v : idx) (b : idx) : idx = f x v b
-fun subst_i_i v b = substx_i_i 0 v b
-end
-
-local
-  fun f x v b =
-      case b of
-	  True r => True r
-	| False r => False r
-        | Not (p, r) => Not (f x v p, r)
-	| BinConn (opr,p1, p2) => BinConn (opr, f x v p1, f x v p2)
-	| BinPred (opr, d1, d2) => BinPred (opr, substx_i_i x v d1, substx_i_i x v d2)
-        | Quan (q, bs, name, p, r) => Quan (q, bs, name, f (x + 1) (shiftx_i_i 0 1 v) p, r)
-in
-fun substx_i_p x (v : idx) b = f x v b
-fun subst_i_p (v : idx) (b : prop) : prop = substx_i_p 0 v b
-end
-
-exception ForgetError of var
-(* exception Unimpl *)
-
-fun forget_v x n y = 
-    if y >= x + n then
-      y - n
-    else if y < x then
-      y
-    else
-      raise ForgetError y
-
-fun forget_i_i x n b = on_i_i forget_v x n b
-fun forget_i_p x n b = on_i_p forget_i_i x n b
-                              
-fun try_forget f a =
-    SOME (f a) handle ForgetError _ => NONE
-
-(* val passi_debug = ref false *)
-
+val forget_v = forget_v ForgetError
+                        
 fun hyps2ctx hs = List.mapPartial (fn h => case h of VarH (name, _) => SOME name | _ => NONE) hs
 
 fun str_hyps_conclu (hyps, p) =

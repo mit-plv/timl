@@ -131,7 +131,7 @@ local
 
   fun shift_return (sctxn, kctxn) (t, d) =
       let
-        open UnderscoredSubst
+        open Subst
       in
         (Option.map (fn t => shiftx_t_mt 0 kctxn $ shiftx_i_mt 0 sctxn t) t,
          Option.map (fn d => shiftx_i_i 0 sctxn d) d)

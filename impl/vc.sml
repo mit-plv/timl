@@ -3,7 +3,8 @@ open Util
 open Region
 open NoUVar
 open NoUVarExpr
-open NoUVarSubst
+open Subst
+open NoUVarUtil
 infixr 1 -->
 infixr 0 $
          
