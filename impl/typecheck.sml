@@ -2862,7 +2862,7 @@ local
         val p = no_uvar_p p
         (* val () = println "NoUVar Props: " *)
         (* val () = println $ str_p [] p *)
-        val p = NoUVarUtil.simp_p p
+        val p = simp_p p
         (* val () = println "NoUVar Props after simp_p(): " *)
         (* val () = println $ str_p [] p *)
         val p = uniquefy [] p

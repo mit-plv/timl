@@ -4,7 +4,7 @@ open Region
 open NoUVar
 open NoUVarExpr
 open Subst
-open NoUVarUtil
+open Simp
 infixr 1 -->
 infixr 0 $
          

@@ -3,7 +3,7 @@ open UVarUtil
 open VC
 open NoUVarExpr
 open Subst
-open NoUVarUtil
+open Simp
        
 infixr 0 $
 
