@@ -1,31 +1,3 @@
-structure BaseSorts = struct
-open Util
-
-(* basic index sort *)
-datatype base_sort =
-         TimeFun of int (* number of arguments *)
-         | Nat
-	 | BoolSort
-	 | UnitSort
-
-val Time = TimeFun 0
-
-fun str_b (s : base_sort) : string = 
-    case s of
-        TimeFun n => if n = 0 then "Time" else sprintf "Fun $" [str_int n]
-      | Nat => "Nat"
-      | BoolSort => "Bool"
-      | UnitSort => "Unit"
-
-end
-
-structure BaseTypes = struct
-
-datatype base_type =
-         Int
-           
-end
-                        
 signature VAR = sig
   type var
   val str_v : string list -> var -> string
@@ -67,9 +39,32 @@ signature UVAR = sig
   val substx_i_UVarS : (int -> int -> 'sort -> 'sort) -> ('sort uvar_s * Region.region -> 'sort) -> (int -> 'idx -> 'sort -> 'sort) -> int -> 'idx -> 'sort uvar_s * Region.region -> 'sort
   val substx_i_UVar : (int -> int -> 'mtype -> 'mtype) -> (int -> int -> 'mtype -> 'mtype) -> ('mtype uvar_mt * Region.region -> 'mtype) -> (int -> 'idx -> 'mtype -> 'mtype) -> int -> 'idx -> 'mtype uvar_mt * Region.region -> 'mtype
   val substx_t_UVar : (int -> int -> 'mtype -> 'mtype) -> (int -> int -> 'mtype -> 'mtype) -> ('mtype uvar_mt * Region.region -> 'mtype) -> (int -> 'mtype -> 'mtype -> 'mtype) -> int -> 'mtype -> 'mtype uvar_mt * Region.region -> 'mtype
-                                                                                                                                                                                                                                        
 end
 
+structure BaseSorts = struct
+open Util
+(* basic index sort *)
+datatype base_sort =
+         TimeFun of int (* number of arguments *)
+         | Nat
+	 | BoolSort
+	 | UnitSort
+
+val Time = TimeFun 0
+
+fun str_b (s : base_sort) : string = 
+    case s of
+        TimeFun n => if n = 0 then "Time" else sprintf "Fun $" [str_int n]
+      | Nat => "Nat"
+      | BoolSort => "Bool"
+      | UnitSort => "Unit"
+end
+
+structure BaseTypes = struct
+datatype base_type =
+         Int
+end
+                        
 functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         open Var
         open BaseSorts
@@ -88,11 +83,12 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  | UVarBS of bsort uvar_bs
 
         (* Curve out a fragment of module expression that is not a full component list ('struct' in ML) that involves types and terms, to avoid making everything mutually dependent. (This means I can't do module substitution because the result may not be expressible.) It coincides with the concept 'projectible' or 'determinate'. *)
-        datatype mod_projectible =
-                 ModVar of id
+        (* datatype mod_projectible = *)
+        (*          ModVar of id *)
         (* | ModSel of mod_projectible * id *)
+        type mod_projectible = id
                              
-        type long_id = (* mod_projectible option *  *)id
+        type long_id = mod_projectible option * id
                                                         
         datatype idx =
 	         VarI of long_id
@@ -135,14 +131,14 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  | Unit of region
 	         | Prod of mtype * mtype
 	         | UniI of sort * (name * mtype) ibind * region
-	         | AppV of id * mtype list * idx list * region (* the first operant of App can only be a type variable. The degenerated case of no-arguments is also included *)
-                                                          (* | MtVar of long_id *)
-                                                          (* | MtApp of mtype * mtype *)
-                                                          (* | MtAbs of (name * mtype) tbind * region *)
-                                                          (* | MtAppI of mtype * idx *)
-                                                          (* | MtAbsI of sort * (name * mtype) ibind * region *)
-                                                          
-                                                          withtype 'body tbind = (mtype, 'body) Bind.bind
+                 | MtVar of long_id
+                 | MtApp of mtype * mtype
+                 | MtAbs of (name * mtype) tbind * region
+                 | MtAppI of mtype * idx
+                 | MtAbsI of sort * (name * mtype) ibind * region
+                                                             
+                 | AppV of id * mtype list * idx list * region (* the first operant of App can only be a type variable. The degenerated case of no-arguments is also included *)
+             withtype 'body tbind = (mtype, 'body) Bind.bind
 
         datatype ty = 
 	         Mono of mtype
@@ -155,8 +151,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         type return = mtype option * idx option
 
         datatype ptrn =
-                 (* eia : is explicit index arguments? *)                                         
-	         ConstrP of (long_id * bool(*eia*)) * string list * ptrn option * region
+	         ConstrP of (long_id * bool(*eia*)) * string list * ptrn option * region (* eia : is explicit index arguments? *)                                         
                  | VarP of name
                  | PairP of ptrn * ptrn
                  | TTP of region
@@ -166,8 +161,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         datatype stbind = 
                  SortingST of name * sort
                  | TypingST of ptrn
-
-        type type_bind = name * mtype
 
         datatype expr =
 	         Var of long_id * bool(*eia*)
@@ -199,20 +192,19 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         | Datatype of datatype_def
                  | IdxDef of name * sort * idx
                  | AbsIdx of (name * sort * idx) * decl list * region
-                                                                 (* | TypeDef of type_bind *)
-                                                                 (* | Open of mod_projectible *)
-                                                                 
-                                                                 withtype datatype_def = string * string list * sort list * constr_decl list * region
+                 | TypeDef of name * mtype
+                 | Open of mod_projectible
+                             withtype datatype_def = string * string list * sort list * constr_decl list * region
 
         datatype spec =
-                 SpecVal of name * ty * region
+                 SpecVal of name * ty
                  | SpecDatatype of datatype_def
                  | SpecIdx of name * sort
                  | SpecType of name * kind
                  | SpecTypeDef of name * ty
                                            
         datatype sgn =
-                 SigFullList of sig_comp list * region
+                 SigComponents of sig_comp list * region
              (* | SigVar of id *)
              (* | SigWhere of sgn * (id * mtype) *)
 
@@ -222,21 +214,22 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         (* | Include of sgn *)
 
         datatype mod =
-                 ModComponents of mod_comp list * region
+                 ModComponents of (* mod_comp *)decl list * region
                  (* | ModProjectible of mod_projectible *)
                  | ModSeal of mod * sgn
                  | ModTransparentAscription of mod * sgn
-                 | ModFunctorApp of id * mod list
+                 (* | ModFunctorApp of id * mod (* list *) *)
                                                
-             and mod_comp =
-                 McDecl of decl
+             (* and mod_comp = *)
+             (*     McDecl of decl *)
         (* | McModBind of name * mod *)
 
         datatype top_bind =
                  TopModBind of name * mod
                  (* | TopSigBind of name * sgn *)
                  | TopModSpec of name * sgn
-                 | TopFunctorBind of name * (name * sgn) list * mod
+                 | TopFunctorBind of name * (name * sgn) (* list *) * mod
+                 | TopFunctorApp of name * id * mod (* list *)
 
         type prog = top_bind list
 
@@ -392,12 +385,23 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                   (name :: names, i)
                 end
               | _ => ([], i)
-                       
+
+        fun eq_option eq (a, a') =
+            case (a, a') of
+                (SOME v, SOME v') => eq (v, v')
+              | _ => false
+
+        fun eq_id ((x, _), (x', _)) =
+            eq_v (x, x')
+                 
+        fun eq_long_id ((m, x), (m', x')) =
+            eq_option eq_id (m, m') andalso eq_id (x, x')
+            
         fun eq_i i i' =
             let
               fun loop i i' =
                   case i of
-                      VarI (x, _) => (case i' of VarI (x', _) => eq_v (x, x') | _ => false)
+                      VarI x => (case i' of VarI x' => eq_long_id (x, x') | _ => false)
                     | ConstIN (n, _) => (case i' of ConstIN (n', _) => n = n' | _ => false)
                     | ConstIT (x, _) => (case i' of ConstIT (x', _) => x = x' | _ => false)
                     | UnOpI (opr, i, _) => (case i' of UnOpI (opr', i', _) => opr = opr' andalso loop i i' | _ => false)
@@ -440,10 +444,24 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
             case s of
                 Base s => str_b s
               | UVarBS u => str_uvar_bs str_bs u
-                                        
-        fun str_i ctx (i : idx) : string = 
+
+        fun str_id ctx (x, _) =
+            str_v ctx x
+                  
+        fun str_long_id gctx ctx (m, x) =
+            let
+              val m = default "" $ Option.map (fn x => str_id gctx x ^ ".") m
+              val x = str_id ctx x
+            in
+              m ^ x
+            end
+                                                             
+        fun str_i gctx ctx (i : idx) : string =
+            let
+              val str_i = str_i gctx
+            in
             case i of
-                VarI (x, _) => str_v ctx x
+                VarI x => str_long_id gctx ctx x
               | ConstIN (n, _) => str_int n
               | ConstIT (x, _) => x
               | UnOpI (opr, i, _) => sprintf "($ $)" [str_idx_un_op opr, str_i ctx i]
@@ -475,16 +493,21 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               (* | TimeAbs ((name, _), i, _) => sprintf "(fn $ => $)" [name, str_i (name :: ctx) i] *)
 	      | AdmitI _ => "admit" 
               | UVarI (u, _) => str_uvar_i str_i ctx u
+            end
 
-        fun str_p ctx p = 
+        fun str_p gctx ctx p =
+            let
+              val str_p = str_p gctx
+            in
             case p of
                 True _ => "True"
               | False _ => "False"
               | Not (p, _) => sprintf "(~ $)" [str_p ctx p]
               | BinConn (opr, p1, p2) => sprintf "($ $ $)" [str_p ctx p1, str_bin_conn opr, str_p ctx p2]
               (* | BinPred (BigO, i1, i2) => sprintf "($ $ $)" [str_bin_pred BigO, str_i ctx i1, str_i ctx i2] *)
-              | BinPred (opr, i1, i2) => sprintf "($ $ $)" [str_i ctx i1, str_bin_pred opr, str_i ctx i2]
+              | BinPred (opr, i1, i2) => sprintf "($ $ $)" [str_i gctx ctx i1, str_bin_pred opr, str_i gctx ctx i2]
               | Quan (q, bs, (name, _), p, _) => sprintf "($ ($ : $) $)" [str_quan q, name, str_bs bs, str_p (name :: ctx) p]
+            end
 
         fun str_s ctx (s : sort) : string = 
             case s of
