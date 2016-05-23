@@ -137,7 +137,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  | MtAppI of mtype * idx
                  | MtAbsI of sort * (name * mtype) ibind * region
                                                              
-                 | AppV of id * mtype list * idx list * region (* the first operant of App can only be a type variable. The degenerated case of no-arguments is also included *)
+                 | AppV of long_id * mtype list * idx list * region (* the first operant of App can only be a type variable. The degenerated case of no-arguments is also included *)
              withtype 'body tbind = (mtype, 'body) Bind.bind
 
         datatype ty = 
@@ -178,7 +178,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  (* other *)
 	         | BinOp of bin_op * expr * expr
 	         | ConstInt of int * region
-	         | AppConstr of (id * bool) * idx list * expr
+	         | AppConstr of (long_id * bool) * idx list * expr
 	         | Case of expr * return * (ptrn * expr) list * region
 	         | Let of return * decl list * expr * region
 	         | Ascription of expr * mtype
@@ -296,11 +296,11 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 end
               | Mono t => ([], t)
 
-        fun constr_type VarT shiftx_v ((family, tnames, ibinds) : constr) = 
+        fun constr_type VarT shiftx_v m ((family, tnames, ibinds) : constr) = 
             let 
               val (ns, (t, is)) = unfold_ibinds ibinds
               val ts = (map (fn x => VarT (x, dummy)) o rev o range o length) tnames
-	      val t2 = AppV ((shiftx_v 0 (length tnames) family, dummy), ts, is, dummy)
+	      val t2 = AppV ((m, (shiftx_v 0 (length tnames) family, dummy)), ts, is, dummy)
 	      val t = Arrow (t, T0 dummy, t2)
 	      val t = foldr (fn ((name, s), t) => UniI (s, BindI ((name, dummy), t), dummy)) t ns
               val t = Mono t
@@ -509,22 +509,26 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | Quan (q, bs, (name, _), p, _) => sprintf "($ ($ : $) $)" [str_quan q, name, str_bs bs, str_p (name :: ctx) p]
             end
 
-        fun str_s ctx (s : sort) : string = 
+        fun str_s gctx ctx (s : sort) : string =
+            let
+              val str_s = str_s gctx
+            in
             case s of
                 Basic (bs, _) => str_bs bs
               | Subset ((bs, _), (BindI ((name, _), p)), _) =>
                 let
-                  fun default () = sprintf "{ $ : $ | $ }" [name, str_bs bs, str_p (name :: ctx) p]
+                  fun default () = sprintf "{ $ : $ | $ }" [name, str_bs bs, str_p gctx (name :: ctx) p]
                 in
                   case (bs, p) of
-                      (Base (TimeFun arity), BinPred (BigO, VarI (x, _), i2)) =>
-                      if str_v (name :: ctx) x = name then
-                        sprintf "BigO $ $" [str_int arity, str_i (name :: ctx) i2]
+                      (Base (TimeFun arity), BinPred (BigO, VarI x, i2)) =>
+                      if str_long_id gctx (name :: ctx) x = name then
+                        sprintf "BigO $ $" [str_int arity, str_i gctx (name :: ctx) i2]
                       else
                         default ()
                     | _ => default ()
                 end
-              | UVarS _ => "_"                                               
+              | UVarS _ => "_"
+            end
 
         datatype 'a bind = 
                  KindingT of string
@@ -539,20 +543,20 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               (map KindingT tnames @ map SortingT binds, t)
             end
 
-        fun str_tbinds ctx binds =
+        fun str_tbinds gctx ctx binds =
             let
               fun f (bind, (acc, (sctx, kctx))) =
                   case bind of
                       KindingT name => (KindingT name :: acc, (sctx, name :: kctx))
-                    | SortingT (name, s) => (SortingT (name, str_s sctx s) :: acc, (name :: sctx, kctx))
+                    | SortingT (name, s) => (SortingT (name, str_s gctx sctx s) :: acc, (name :: sctx, kctx))
               val (binds, ctx) = foldl f ([], ctx) binds
               val binds = rev binds
             in
               (binds, ctx)
             end
               
-        fun str_sortings ctx binds =
-            let val (binds, ctx) = str_tbinds (ctx, []) (map SortingT binds)
+        fun str_sortings gctx ctx binds =
+            let val (binds, ctx) = str_tbinds gctx (ctx, []) (map SortingT binds)
                 fun f bind = case bind of SortingT p => p | _ => raise Impossible "str_tbinds shouldn't return Kinding"
                 val binds = map f binds
             in
@@ -563,49 +567,53 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
             case bt of
                 Int => "int"
                          
-        fun str_mt (ctx as (sctx, kctx)) (t : mtype) : string =
+        fun str_mt gctx (ctx as (sctx, kctx)) (t : mtype) : string =
+            let
+              val str_mt = str_mt gctx
+            in
             case t of
                 Arrow (t1, d, t2) =>
                 if eq_i d (T0 dummy) then
                   sprintf "($ -> $)" [str_mt ctx t1, str_mt ctx t2]
                 else
-                  sprintf "($ -- $ --> $)" [str_mt ctx t1, str_i sctx d, str_mt ctx t2]
+                  sprintf "($ -- $ --> $)" [str_mt ctx t1, str_i gctx sctx d, str_mt ctx t2]
               | Unit _ => "unit"
               | Prod (t1, t2) => sprintf "($ * $)" [str_mt ctx t1, str_mt ctx t2]
               | UniI _ =>
                 let
                   val (binds, t) = collect_UniI t
                 in
-                  str_uni ctx (map SortingT binds, t)
+                  str_uni gctx ctx (map SortingT binds, t)
                 end
-              | AppV ((x, _), ts, is, _) => 
+              | AppV (x, ts, is, _) => 
                 if null ts andalso null is then
-	          str_v kctx x
+	          str_long_id gctx kctx x
                 else
-	          sprintf "($$$)" [(join "" o map (suffix " ") o map (surround "{" "}") o map (str_i sctx) o rev) is, (join "" o map (suffix " ") o map (str_mt ctx) o rev) ts, str_v kctx x]
+	          sprintf "($$$)" [(join "" o map (suffix " ") o map (surround "{" "}") o map (str_i gctx sctx) o rev) is, (join "" o map (suffix " ") o map (str_mt ctx) o rev) ts, str_long_id gctx kctx x]
               | BaseType (bt, _) => str_bt bt
               | UVar (u, _) => str_uvar_mt str_mt ctx u
+            end
 
-        and str_uni ctx (binds, t) =
+        and str_uni gctx ctx (binds, t) =
             let 
-              val (binds, ctx) = str_tbinds ctx binds
+              val (binds, ctx) = str_tbinds gctx ctx binds
               fun f bind =
                   case bind of
                       KindingT name => name
                     | SortingT (name, s) => sprintf "{$ : $}" [name, s]
               val binds = map f binds
             in
-              sprintf "(forall$, $)" [join_prefix " " binds, str_mt ctx t]
+              sprintf "(forall$, $)" [join_prefix " " binds, str_mt gctx ctx t]
             end
               
-        fun str_t (ctx as (sctx, kctx)) (t : ty) : string =
+        fun str_t gctx (ctx as (sctx, kctx)) (t : ty) : string =
             case t of
-                Mono t => str_mt ctx t
-              | Uni _ => str_uni ctx (collect_Uni_UniI t)
+                Mono t => str_mt gctx ctx t
+              | Uni _ => str_uni gctx ctx (collect_Uni_UniI t)
 
-        fun str_k ctx (k : kind) : string = 
+        fun str_k gctx ctx (k : kind) : string = 
             case k of
-                ArrowK (_, n, sorts) => sprintf "($$Type)" [if n = 0 then "" else join " * " (repeat n "Type") ^ " => ", if null sorts then "" else join " * " (map (str_s ctx) sorts) ^ " => "]
+                ArrowK (_, n, sorts) => sprintf "($$Type)" [if n = 0 then "" else join " * " (repeat n "Type") ^ " => ", if null sorts then "" else join " * " (map (str_s gctx ctx) sorts) ^ " => "]
 
         fun ptrn_names pn : string list * string list =
             case pn of
@@ -639,14 +647,18 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         fun decorate_var eia s = (if eia then "@" else "") ^ s
                                                                
-        fun str_pn (ctx as (sctx, kctx, cctx)) pn = 
+        fun str_pn gctx (ctx as (sctx, kctx, cctx)) pn =
+            let
+              val str_pn = str_pn gctx
+            in
             case pn of
-                ConstrP (((x, _), eia), inames, pn, _) => sprintf "$$$" [decorate_var eia $ str_v cctx x, join_prefix " " $ map (surround "{" "}") inames, str_opt (fn pn => " " ^ str_pn ctx pn) pn]
+                ConstrP ((x, eia), inames, pn, _) => sprintf "$$$" [decorate_var eia $ str_long_id gctx cctx x, join_prefix " " $ map (surround "{" "}") inames, str_opt (fn pn => " " ^ str_pn ctx pn) pn]
               | VarP (name, _) => name
               | PairP (pn1, pn2) => sprintf "($, $)" [str_pn ctx pn1, str_pn ctx pn2]
               | TTP _ => "()"
               | AliasP ((name, _), pn, _) => sprintf "$ as $" [name, str_pn ctx pn]
-              | AnnoP (pn, t) => sprintf "($ : $)" [str_pn ctx pn, str_mt (sctx, kctx) t]
+              | AnnoP (pn, t) => sprintf "($ : $)" [str_pn ctx pn, str_mt gctx (sctx, kctx) t]
+            end
 
         fun str_return (skctx as (sctx, _)) return =
             case return of
