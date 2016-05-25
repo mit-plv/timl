@@ -87,9 +87,9 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         (*          ModVar of id *)
         (* | ModSel of mod_projectible * id *)
         type mod_projectible = id
-                             
+                                 
         type long_id = mod_projectible option * id
-                                                        
+                                                  
         datatype idx =
 	         VarI of long_id
 	         | ConstIT of string * region
@@ -136,9 +136,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  | MtAbs of (name * mtype) tbind * region
                  | MtAppI of mtype * idx
                  | MtAbsI of sort * (name * mtype) ibind * region
-                                                             
                  | AppV of long_id * mtype list * idx list * region (* the first operant of App can only be a type variable. The degenerated case of no-arguments is also included *)
-             withtype 'body tbind = (mtype, 'body) Bind.bind
+                                                               withtype 'body tbind = (mtype, 'body) Bind.bind
 
         datatype ty = 
 	         Mono of mtype
@@ -218,10 +217,10 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  (* | ModProjectible of mod_projectible *)
                  | ModSeal of mod * sgn
                  | ModTransparentAscription of mod * sgn
-                 (* | ModFunctorApp of id * mod (* list *) *)
-                                               
-             (* and mod_comp = *)
-             (*     McDecl of decl *)
+        (* | ModFunctorApp of id * mod (* list *) *)
+                                                       
+        (* and mod_comp = *)
+        (*     McDecl of decl *)
         (* | McModBind of name * mod *)
 
         datatype top_bind =
@@ -396,7 +395,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  
         fun eq_long_id ((m, x), (m', x')) =
             eq_option eq_id (m, m') andalso eq_id (x, x')
-            
+                                                  
         fun eq_i i i' =
             let
               fun loop i i' =
@@ -455,79 +454,79 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
             in
               m ^ x
             end
-                                                             
+              
         fun str_i gctx ctx (i : idx) : string =
             let
               val str_i = str_i gctx
             in
-            case i of
-                VarI x => str_long_id gctx ctx x
-              | ConstIN (n, _) => str_int n
-              | ConstIT (x, _) => x
-              | UnOpI (opr, i, _) => sprintf "($ $)" [str_idx_un_op opr, str_i ctx i]
-              | DivI (i1, (n2, _)) => sprintf "($ / $)" [str_i ctx i1, str_int n2]
-              | ExpI (i1, (n2, _)) => sprintf "($ ^ $)" [str_i ctx i1, n2]
-              | BinOpI (TimeApp, i1, i2) =>
-                let
-                  val is = collect_TimeApp i
-                in
-                  sprintf "($)" [join " " $ map (str_i ctx) is]
-                end
-              | BinOpI (AddI, i1, i2) =>
-                let
-                  val is = collect_AddI_left i
-                in
-                  sprintf "($)" [join " + " $ map (str_i ctx) is]
-                end
-              | BinOpI (opr, i1, i2) => sprintf "($ $ $)" [str_i ctx i1, str_idx_bin_op opr, str_i ctx i2]
-              | Ite (i1, i2, i3, _) => sprintf "(ite $ $ $)" [str_i ctx i1, str_i ctx i2, str_i ctx i3]
-              | TTI _ => "()"
-              | TrueI _ => "true"
-              | FalseI _ => "false"
-              | TimeAbs _ =>
-                let
-                  val (names, i) = collect_TimeAbs i
-                in
-                  sprintf "(fn $ => $)" [join " " names, str_i (rev names @ ctx) i]
-                end
-              (* | TimeAbs ((name, _), i, _) => sprintf "(fn $ => $)" [name, str_i (name :: ctx) i] *)
-	      | AdmitI _ => "admit" 
-              | UVarI (u, _) => str_uvar_i str_i ctx u
+              case i of
+                  VarI x => str_long_id gctx ctx x
+                | ConstIN (n, _) => str_int n
+                | ConstIT (x, _) => x
+                | UnOpI (opr, i, _) => sprintf "($ $)" [str_idx_un_op opr, str_i ctx i]
+                | DivI (i1, (n2, _)) => sprintf "($ / $)" [str_i ctx i1, str_int n2]
+                | ExpI (i1, (n2, _)) => sprintf "($ ^ $)" [str_i ctx i1, n2]
+                | BinOpI (TimeApp, i1, i2) =>
+                  let
+                    val is = collect_TimeApp i
+                  in
+                    sprintf "($)" [join " " $ map (str_i ctx) is]
+                  end
+                | BinOpI (AddI, i1, i2) =>
+                  let
+                    val is = collect_AddI_left i
+                  in
+                    sprintf "($)" [join " + " $ map (str_i ctx) is]
+                  end
+                | BinOpI (opr, i1, i2) => sprintf "($ $ $)" [str_i ctx i1, str_idx_bin_op opr, str_i ctx i2]
+                | Ite (i1, i2, i3, _) => sprintf "(ite $ $ $)" [str_i ctx i1, str_i ctx i2, str_i ctx i3]
+                | TTI _ => "()"
+                | TrueI _ => "true"
+                | FalseI _ => "false"
+                | TimeAbs _ =>
+                  let
+                    val (names, i) = collect_TimeAbs i
+                  in
+                    sprintf "(fn $ => $)" [join " " names, str_i (rev names @ ctx) i]
+                  end
+                (* | TimeAbs ((name, _), i, _) => sprintf "(fn $ => $)" [name, str_i (name :: ctx) i] *)
+	        | AdmitI _ => "admit" 
+                | UVarI (u, _) => str_uvar_i str_i ctx u
             end
 
         fun str_p gctx ctx p =
             let
               val str_p = str_p gctx
             in
-            case p of
-                True _ => "True"
-              | False _ => "False"
-              | Not (p, _) => sprintf "(~ $)" [str_p ctx p]
-              | BinConn (opr, p1, p2) => sprintf "($ $ $)" [str_p ctx p1, str_bin_conn opr, str_p ctx p2]
-              (* | BinPred (BigO, i1, i2) => sprintf "($ $ $)" [str_bin_pred BigO, str_i ctx i1, str_i ctx i2] *)
-              | BinPred (opr, i1, i2) => sprintf "($ $ $)" [str_i gctx ctx i1, str_bin_pred opr, str_i gctx ctx i2]
-              | Quan (q, bs, (name, _), p, _) => sprintf "($ ($ : $) $)" [str_quan q, name, str_bs bs, str_p (name :: ctx) p]
+              case p of
+                  True _ => "True"
+                | False _ => "False"
+                | Not (p, _) => sprintf "(~ $)" [str_p ctx p]
+                | BinConn (opr, p1, p2) => sprintf "($ $ $)" [str_p ctx p1, str_bin_conn opr, str_p ctx p2]
+                (* | BinPred (BigO, i1, i2) => sprintf "($ $ $)" [str_bin_pred BigO, str_i ctx i1, str_i ctx i2] *)
+                | BinPred (opr, i1, i2) => sprintf "($ $ $)" [str_i gctx ctx i1, str_bin_pred opr, str_i gctx ctx i2]
+                | Quan (q, bs, (name, _), p, _) => sprintf "($ ($ : $) $)" [str_quan q, name, str_bs bs, str_p (name :: ctx) p]
             end
 
         fun str_s gctx ctx (s : sort) : string =
             let
               val str_s = str_s gctx
             in
-            case s of
-                Basic (bs, _) => str_bs bs
-              | Subset ((bs, _), (BindI ((name, _), p)), _) =>
-                let
-                  fun default () = sprintf "{ $ : $ | $ }" [name, str_bs bs, str_p gctx (name :: ctx) p]
-                in
-                  case (bs, p) of
-                      (Base (TimeFun arity), BinPred (BigO, VarI x, i2)) =>
-                      if str_long_id gctx (name :: ctx) x = name then
-                        sprintf "BigO $ $" [str_int arity, str_i gctx (name :: ctx) i2]
-                      else
-                        default ()
-                    | _ => default ()
-                end
-              | UVarS _ => "_"
+              case s of
+                  Basic (bs, _) => str_bs bs
+                | Subset ((bs, _), (BindI ((name, _), p)), _) =>
+                  let
+                    fun default () = sprintf "{ $ : $ | $ }" [name, str_bs bs, str_p gctx (name :: ctx) p]
+                  in
+                    case (bs, p) of
+                        (Base (TimeFun arity), BinPred (BigO, VarI x, i2)) =>
+                        if str_long_id gctx (name :: ctx) x = name then
+                          sprintf "BigO $ $" [str_int arity, str_i gctx (name :: ctx) i2]
+                        else
+                          default ()
+                      | _ => default ()
+                  end
+                | UVarS _ => "_"
             end
 
         datatype 'a bind = 
@@ -571,27 +570,27 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
             let
               val str_mt = str_mt gctx
             in
-            case t of
-                Arrow (t1, d, t2) =>
-                if eq_i d (T0 dummy) then
-                  sprintf "($ -> $)" [str_mt ctx t1, str_mt ctx t2]
-                else
-                  sprintf "($ -- $ --> $)" [str_mt ctx t1, str_i gctx sctx d, str_mt ctx t2]
-              | Unit _ => "unit"
-              | Prod (t1, t2) => sprintf "($ * $)" [str_mt ctx t1, str_mt ctx t2]
-              | UniI _ =>
-                let
-                  val (binds, t) = collect_UniI t
-                in
-                  str_uni gctx ctx (map SortingT binds, t)
-                end
-              | AppV (x, ts, is, _) => 
-                if null ts andalso null is then
-	          str_long_id gctx kctx x
-                else
-	          sprintf "($$$)" [(join "" o map (suffix " ") o map (surround "{" "}") o map (str_i gctx sctx) o rev) is, (join "" o map (suffix " ") o map (str_mt ctx) o rev) ts, str_long_id gctx kctx x]
-              | BaseType (bt, _) => str_bt bt
-              | UVar (u, _) => str_uvar_mt str_mt ctx u
+              case t of
+                  Arrow (t1, d, t2) =>
+                  if eq_i d (T0 dummy) then
+                    sprintf "($ -> $)" [str_mt ctx t1, str_mt ctx t2]
+                  else
+                    sprintf "($ -- $ --> $)" [str_mt ctx t1, str_i gctx sctx d, str_mt ctx t2]
+                | Unit _ => "unit"
+                | Prod (t1, t2) => sprintf "($ * $)" [str_mt ctx t1, str_mt ctx t2]
+                | UniI _ =>
+                  let
+                    val (binds, t) = collect_UniI t
+                  in
+                    str_uni gctx ctx (map SortingT binds, t)
+                  end
+                | AppV (x, ts, is, _) => 
+                  if null ts andalso null is then
+	            str_long_id gctx kctx x
+                  else
+	            sprintf "($$$)" [(join "" o map (suffix " ") o map (surround "{" "}") o map (str_i gctx sctx) o rev) is, (join "" o map (suffix " ") o map (str_mt ctx) o rev) ts, str_long_id gctx kctx x]
+                | BaseType (bt, _) => str_bt bt
+                | UVar (u, _) => str_uvar_mt str_mt ctx u
             end
 
         and str_uni gctx ctx (binds, t) =
@@ -651,32 +650,34 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
             let
               val str_pn = str_pn gctx
             in
-            case pn of
-                ConstrP ((x, eia), inames, pn, _) => sprintf "$$$" [decorate_var eia $ str_long_id gctx cctx x, join_prefix " " $ map (surround "{" "}") inames, str_opt (fn pn => " " ^ str_pn ctx pn) pn]
-              | VarP (name, _) => name
-              | PairP (pn1, pn2) => sprintf "($, $)" [str_pn ctx pn1, str_pn ctx pn2]
-              | TTP _ => "()"
-              | AliasP ((name, _), pn, _) => sprintf "$ as $" [name, str_pn ctx pn]
-              | AnnoP (pn, t) => sprintf "($ : $)" [str_pn ctx pn, str_mt gctx (sctx, kctx) t]
+              case pn of
+                  ConstrP ((x, eia), inames, pn, _) => sprintf "$$$" [decorate_var eia $ str_long_id gctx cctx x, join_prefix " " $ map (surround "{" "}") inames, str_opt (fn pn => " " ^ str_pn ctx pn) pn]
+                | VarP (name, _) => name
+                | PairP (pn1, pn2) => sprintf "($, $)" [str_pn ctx pn1, str_pn ctx pn2]
+                | TTP _ => "()"
+                | AliasP ((name, _), pn, _) => sprintf "$ as $" [name, str_pn ctx pn]
+                | AnnoP (pn, t) => sprintf "($ : $)" [str_pn ctx pn, str_mt gctx (sctx, kctx) t]
             end
 
-        fun str_return (skctx as (sctx, _)) return =
+        fun str_return gctx (skctx as (sctx, _)) return =
             case return of
                 (NONE, NONE) => ""
-              | (SOME t, NONE) => sprintf "return $ " [str_mt skctx t]
-              | (NONE, SOME d) => sprintf "return using $ " [str_i sctx d]
-              | (SOME t, SOME d) => sprintf "return $ using $ " [str_mt skctx t, str_i sctx d]
+              | (SOME t, NONE) => sprintf "return $ " [str_mt gctx skctx t]
+              | (NONE, SOME d) => sprintf "return using $ " [str_i gctx sctx d]
+              | (SOME t, SOME d) => sprintf "return $ using $ " [str_mt gctx skctx t, str_i gctx sctx d]
 
-        fun str_e (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
-            let fun add_t name (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx) 
-                val skctx = (sctx, kctx) 
+        fun str_e gctx (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
+            let
+              val str_e = str_e gctx
+              fun add_t name (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx) 
+              val skctx = (sctx, kctx) 
             in
               case e of
-	          Var ((x, _), b) => decorate_var b $ str_v tctx x
+	          Var (x, b) => decorate_var b $ str_long_id gctx tctx x
 	        | Abs (pn, e) => 
                   let 
                     val (inames, enames) = ptrn_names pn
-                    val pn = str_pn (sctx, kctx, cctx) pn
+                    val pn = str_pn gctx (sctx, kctx, cctx) pn
                     val ctx = (inames @ sctx, kctx, cctx, enames @ tctx)
 	            val e = str_e ctx e
                   in
@@ -692,112 +693,117 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                   end
 	        | Fst e => sprintf "(fst $)" [str_e ctx e]
 	        | Snd e => sprintf "(snd $)" [str_e ctx e]
-	        | AbsI (s, (name, _), e, _) => sprintf "(fn {$ : $} => $)" [name, str_s sctx s, str_e (name :: sctx, kctx, cctx, tctx) e]
-	        | AppI (e, i) => sprintf "($ {$})" [str_e ctx e, str_i sctx i]
+	        | AbsI (s, (name, _), e, _) => sprintf "(fn {$ : $} => $)" [name, str_s gctx sctx s, str_e (name :: sctx, kctx, cctx, tctx) e]
+	        | AppI (e, i) => sprintf "($ {$})" [str_e ctx e, str_i gctx sctx i]
 	        | Let (return, decls, e, _) => 
                   let
-                    val return = str_return (sctx, kctx) return
-                    val (decls, ctx) = str_decls ctx decls
+                    val return = str_return gctx (sctx, kctx) return
+                    val (decls, ctx) = str_decls gctx ctx decls
                   in
                     sprintf "let $$ in $ end" [return, join_prefix " " decls, str_e ctx e]
                   end
-	        | Ascription (e, t) => sprintf "($ : $)" [str_e ctx e, str_mt skctx t]
-	        | AscriptionTime (e, d) => sprintf "($ |> $)" [str_e ctx e, str_i sctx d]
+	        | Ascription (e, t) => sprintf "($ : $)" [str_e ctx e, str_mt gctx skctx t]
+	        | AscriptionTime (e, d) => sprintf "($ |> $)" [str_e ctx e, str_i gctx sctx d]
 	        | BinOp (opr, e1, e2) => sprintf "($ $ $)" [str_e ctx e1, str_bin_op opr, str_e ctx e2]
 	        | ConstInt (n, _) => str_int n
-	        | AppConstr (((x, _), b), is, e) => sprintf "($$ $)" [decorate_var b $ str_v cctx x, (join "" o map (prefix " ") o map (fn i => sprintf "{$}" [str_i sctx i])) is, str_e ctx e]
-	        | Case (e, return, rules, _) => sprintf "(case $ $of $)" [str_e ctx e, str_return skctx return, join " | " (map (str_rule ctx) rules)]
-	        | Never (t, _) => sprintf "(never [$])" [str_mt skctx t]
+	        | AppConstr ((x, b), is, e) => sprintf "($$ $)" [decorate_var b $ str_long_id gctx cctx x, (join "" o map (prefix " ") o map (fn i => sprintf "{$}" [str_i gctx sctx i])) is, str_e ctx e]
+	        | Case (e, return, rules, _) => sprintf "(case $ $of $)" [str_e ctx e, str_return gctx skctx return, join " | " (map (str_rule gctx ctx) rules)]
+	        | Never (t, _) => sprintf "(never [$])" [str_mt gctx skctx t]
             end
 
-        and str_decls (ctx as (sctx, kctx, cctx, tctx)) decls =
-            let fun f (decl, (acc, ctx)) =
-                    let val (s, ctx) = str_decl ctx decl
-                    in
-                      (s :: acc, ctx)
-                    end
-                val (decls, ctx) = foldl f ([], ctx) decls
-                val decls = rev decls
+        and str_decls gctx (ctx as (sctx, kctx, cctx, tctx)) decls =
+            let
+              fun f (decl, (acc, ctx)) =
+                  let val (s, ctx) = str_decl gctx ctx decl
+                  in
+                    (s :: acc, ctx)
+                  end
+              val (decls, ctx) = foldl f ([], ctx) decls
+              val decls = rev decls
             in
               (decls, ctx)
             end
               
-        and str_decl (ctx as (sctx, kctx, cctx, tctx)) decl =
-            case decl of
-                Val (tnames, pn, e, _) =>
-                let 
-                  val ctx' as (sctx', kctx', cctx', _) = (sctx, (rev o map fst) tnames @ kctx, cctx, tctx)
-                  val tnames = (join "" o map (fn nm => sprintf " [$]" [nm]) o map fst) tnames
-                  val (inames, enames) = ptrn_names pn
-                  val pn = str_pn (sctx', kctx', cctx') pn
-                  val e = str_e ctx' e
-	          val ctx = (inames @ sctx, kctx, cctx, enames @ tctx)
-                in
-                  (sprintf "val$ $ = $" [tnames, pn, e], ctx)
-                end
-              | Rec (tnames, (name, _), (binds, ((t, d), e)), _) =>
-                let 
-	          val ctx as (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx)
-                  val ctx_ret = ctx
-                  val ctx as (sctx, kctx, cctx, tctx) = (sctx, (rev o map fst) tnames @ kctx, cctx, tctx)
-                  val tnames = (join "" o map (fn nm => sprintf " [$]" [nm]) o map fst) tnames
-                  fun f (bind, (binds, ctx as (sctx, kctx, cctx, tctx))) =
-                      case bind of
-                          SortingST ((name, _), s) => 
-                          (sprintf "{$ : $}" [name, str_s sctx s] :: binds, (name :: sctx, kctx, cctx, tctx))
-                        | TypingST pn =>
-                          let
-                            val (inames, enames) = ptrn_names pn
+        and str_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
+            let
+              val str_decl = str_decl gctx
+            in
+              case decl of
+                  Val (tnames, pn, e, _) =>
+                  let 
+                    val ctx' as (sctx', kctx', cctx', _) = (sctx, (rev o map fst) tnames @ kctx, cctx, tctx)
+                    val tnames = (join "" o map (fn nm => sprintf " [$]" [nm]) o map fst) tnames
+                    val (inames, enames) = ptrn_names pn
+                    val pn = str_pn gctx (sctx', kctx', cctx') pn
+                    val e = str_e gctx ctx' e
+	            val ctx = (inames @ sctx, kctx, cctx, enames @ tctx)
+                  in
+                    (sprintf "val$ $ = $" [tnames, pn, e], ctx)
+                  end
+                | Rec (tnames, (name, _), (binds, ((t, d), e)), _) =>
+                  let 
+	            val ctx as (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx)
+                    val ctx_ret = ctx
+                    val ctx as (sctx, kctx, cctx, tctx) = (sctx, (rev o map fst) tnames @ kctx, cctx, tctx)
+                    val tnames = (join "" o map (fn nm => sprintf " [$]" [nm]) o map fst) tnames
+                    fun f (bind, (binds, ctx as (sctx, kctx, cctx, tctx))) =
+                        case bind of
+                            SortingST ((name, _), s) => 
+                            (sprintf "{$ : $}" [name, str_s gctx sctx s] :: binds, (name :: sctx, kctx, cctx, tctx))
+                          | TypingST pn =>
+                            let
+                              val (inames, enames) = ptrn_names pn
+                            in
+                              (str_pn gctx (sctx, kctx, cctx) pn :: binds, (inames @ sctx, kctx, cctx, enames @ tctx))
+                            end
+                    val (binds, ctx as (sctx, kctx, cctx, tctx)) = foldl f ([], ctx) binds
+                    val binds = rev binds
+                    val binds = (join "" o map (prefix " ")) binds
+                    val t = str_mt gctx (sctx, kctx) t
+                    val d = str_i gctx sctx d
+                    val e = str_e gctx ctx e
+                  in
+                    (sprintf "rec$ $$ : $ |> $ = $" [tnames, name, binds, t, d, e], ctx_ret)
+                  end
+                | Datatype (name, tnames, sorts, constrs, _) =>
+                  let val str_tnames = (join_prefix " " o rev) tnames
+                      fun str_constr_decl (cname, ibinds, _) =
+                          let 
+                            val (name_sorts, (t, idxs)) = unfold_ibinds ibinds
+                            val (name_sorts, sctx') = str_sortings gctx sctx name_sorts
+                            val name_sorts = map (fn (nm, s) => sprintf "$ : $" [nm, s]) name_sorts
                           in
-                            (str_pn (sctx, kctx, cctx) pn :: binds, (inames @ sctx, kctx, cctx, enames @ tctx))
+                            sprintf "$ of$ $ ->$$ $" [cname, (join_prefix " " o map (surround "{" "}")) name_sorts, str_mt gctx (sctx', rev tnames @ name :: kctx) t, (join_prefix " " o map (surround "{" "}" o str_i gctx sctx') o rev) idxs, str_tnames, name]
                           end
-                  val (binds, ctx as (sctx, kctx, cctx, tctx)) = foldl f ([], ctx) binds
-                  val binds = rev binds
-                  val binds = (join "" o map (prefix " ")) binds
-                  val t = str_mt (sctx, kctx) t
-                  val d = str_i sctx d
-                  val e = str_e ctx e
-                in
-                  (sprintf "rec$ $$ : $ |> $ = $" [tnames, name, binds, t, d, e], ctx_ret)
-                end
-              | Datatype (name, tnames, sorts, constrs, _) =>
-                let val str_tnames = (join_prefix " " o rev) tnames
-                    fun str_constr_decl (cname, ibinds, _) =
-                        let 
-                          val (name_sorts, (t, idxs)) = unfold_ibinds ibinds
-                          val (name_sorts, sctx') = str_sortings sctx name_sorts
-                          val name_sorts = map (fn (nm, s) => sprintf "$ : $" [nm, s]) name_sorts
-                        in
-                          sprintf "$ of$ $ ->$$ $" [cname, (join_prefix " " o map (surround "{" "}")) name_sorts, str_mt (sctx', rev tnames @ name :: kctx) t, (join_prefix " " o map (surround "{" "}" o str_i sctx') o rev) idxs, str_tnames, name]
-                        end
-                    val s = sprintf "datatype$$ $ = $" [(join_prefix " " o map (surround "{" "}" o str_s sctx) o rev) sorts, str_tnames, name, join " | " (map str_constr_decl constrs)]
-                    val cnames = map #1 constrs
-                    val ctx = (sctx, name :: kctx, rev cnames @ cctx, tctx)
-                in
-                  (s, ctx)
-                end
-              | IdxDef ((name, r), s, i) =>
-                (sprintf "type idx $ : $ = $" [name, str_s sctx s, str_i sctx i], (name :: sctx, kctx, cctx, tctx))
-              | AbsIdx (((name, r1), s, i), decls, _) =>
-                let
-                  val ctx' = (name :: sctx, kctx, cctx, tctx)
-                  val (decls, ctx') = str_decls ctx' decls
-                in
-                  (sprintf "abstype idx $ : $ = $ with$ end" [name, str_s sctx s, str_i sctx i, join_prefix " " decls], ctx')
-                end
-
-        and str_rule (ctx as (sctx, kctx, cctx, tctx)) (pn, e) =
+                      val s = sprintf "datatype$$ $ = $" [(join_prefix " " o map (surround "{" "}" o str_s gctx sctx) o rev) sorts, str_tnames, name, join " | " (map str_constr_decl constrs)]
+                      val cnames = map #1 constrs
+                      val ctx = (sctx, name :: kctx, rev cnames @ cctx, tctx)
+                  in
+                    (s, ctx)
+                  end
+                | IdxDef ((name, r), s, i) =>
+                  (sprintf "type idx $ : $ = $" [name, str_s gctx sctx s, str_i gctx sctx i], (name :: sctx, kctx, cctx, tctx))
+                | AbsIdx (((name, r1), s, i), decls, _) =>
+                  let
+                    val ctx' = (name :: sctx, kctx, cctx, tctx)
+                    val (decls, ctx') = str_decls gctx ctx' decls
+                  in
+                    (sprintf "abstype idx $ : $ = $ with$ end" [name, str_s gctx sctx s, str_i gctx sctx i, join_prefix " " decls], ctx')
+                  end
+            end
+              
+        and str_rule gctx (ctx as (sctx, kctx, cctx, tctx)) (pn, e) =
             let val (inames, enames) = ptrn_names pn
 	        val ctx' = (inames @ sctx, kctx, cctx, enames @ tctx)
             in
-	      sprintf "$ => $" [str_pn (sctx, kctx, cctx) pn, str_e ctx' e]
+	      sprintf "$ => $" [str_pn gctx (sctx, kctx, cctx) pn, str_e gctx ctx' e]
             end
 
         (* region calculations *)
 
         fun get_region_i i =
             case i of
-                VarI (_, r) => r
+                VarI (_, (_, r)) => r
               | ConstIN (_, r) => r
               | ConstIT (_, r) => r
               | UnOpI (_, _, r) => r
@@ -814,7 +820,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         fun set_region_i i r =
             case i of
-                VarI (a, _) => VarI (a, r)
+                VarI (m, (x, _)) => VarI (m, (x, r))
               | ConstIN (a, _) => ConstIN (a, r)
               | ConstIT (a, _) => ConstIT (a, r)
               | UnOpI (opr, i, _) => UnOpI (opr, i, r)
@@ -879,7 +885,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         fun get_region_e e = 
             case e of
-                Var ((_, r), _) => r
+                Var ((_, (_, r)), _) => r
               | Abs (pn, e) => combine_region (get_region_pn pn) (get_region_e e)
               | App (e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
               | TT r => r
@@ -890,7 +896,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | AppI (e, i) => combine_region (get_region_e e) (get_region_i i)
               | BinOp (_, e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
               | ConstInt (_, r) => r
-              | AppConstr (((_, r), _), _, e) => combine_region r (get_region_e e)
+              | AppConstr (((_, (_, r)), _), _, e) => combine_region r (get_region_e e)
               | Case (_, _, _, r) => r
               | Never (_, r) => r
               | Let (_, _, _, r) => r
@@ -968,7 +974,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
             let
               fun f x n b =
 	          case b of
-	              VarI (y, r) => VarI (on_v x n y, r)
+	              VarI (m, (y, r)) => VarI (m, (on_v x n y, r))
 	            | ConstIN n => ConstIN n
 	            | ConstIT x => ConstIT x
                     | UnOpI (opr, i, r) => UnOpI (opr, f x n i, r)
@@ -1056,7 +1062,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                     | Unit r => Unit r
 	            | Prod (t1, t2) => Prod (f x n t1, f x n t2)
 	            | UniI (s, bind, r) => UniI (s, on_t_ibind f x n bind, r)
-	            | AppV ((y, r1), ts, is, r) => AppV ((on_v x n y, r1), map (f x n) ts, is, r)
+	            | AppV ((m, (y, r1)), ts, is, r) => AppV ((m, (on_v x n y, r1)), map (f x n) ts, is, r)
 	            | BaseType a => BaseType a
                     | UVar a => on_t_UVar UVar f x n a
             in
@@ -1074,7 +1080,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
             end
 
         (* shift *)
-	      
+
         fun shiftx_i_i x n b = on_i_i shiftx_v shiftx_i_UVarI x n b
         fun shift_i_i b = shiftx_i_i 0 1 b
 
@@ -1121,7 +1127,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         local
           fun f x v b =
 	      case b of
-	          VarI (y, r) => substx_v (fn x => VarI (x, r)) x (const v) y
+	          VarI (m, (y, r)) => substx_v (fn x => VarI (m, (x, r))) x (const v) y
 	        | ConstIN n => ConstIN n
 	        | ConstIT x => ConstIT x
                 | UnOpI (opr, i, r) => UnOpI (opr, f x v i, r)
@@ -1223,7 +1229,12 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 | Unit r => Unit r
 	        | Prod (t1, t2) => Prod (f x v t1, f x v t2)
 	        | UniI (s, bind, r) => UniI (s, substx_t_ibind f x value_shiftable v bind, r)
-	        | AppV ((y, r), ts, is, r2) =>
+                 | MtVar of long_id
+                 | MtApp of mtype * mtype
+                 | MtAbs of (name * mtype) tbind * region
+                 | MtAppI of mtype * idx
+                 | MtAbsI of sort * (name * mtype) ibind * region
+	        | AppV ((m, (y, r)), ts, is, r2) =>
                   let
                     fun get_v () =
 		        if null ts andalso null is then
@@ -1231,7 +1242,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 		        else
 		          raise Error "can't be substituted type for this higher-kind type variable"
                     fun make_AppV y =
-                        AppV ((y, r), map (f x v) ts, is, r2)
+                        AppV ((m, (y, r)), map (f x v) ts, is, r2)
                   in
                     substx_v make_AppV x get_v y
                   end
@@ -1294,13 +1305,11 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         fun shift_i_k b = shiftx_i_k 0 1 b
         end
 
-        (* shift_e_e *)
-
-        local
-          (* open UnderscoredExpr *)
+        fun on_e_e on_v =
+            let
           fun f x n b =
 	      case b of
-	          Var ((y, r), b) => Var ((shiftx_v x n y, r), b)
+	          Var ((m, (y, r)), b) => Var ((m, (on_v x n y, r)), b)
 	        | Abs (pn, e) =>
                   Abs (pn, f (x + (length $ snd $ ptrn_names pn)) n e)
 	        | App (e1, e2) => App (f x n e1, f x n e2)
@@ -1370,6 +1379,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                   in
                     (AbsIdx (a, decls, r), m)
                   end
+                | TypeDef (name, t) => (TypeDef (name, t), 0)
+                | Open m => (Open m, 0)
 
           and f_rule x n (pn, e) =
 	      let 
@@ -1378,421 +1389,341 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	        (pn, f (x + length enames) n e)
 	      end
         in
-        fun shiftx_e_e x n b = f x n b
+          f
+        end
+
+        (* shift_e_e *)
+        fun shiftx_e_e x n b = on_e_e shiftx_v x n b
         fun shift_e_e b = shiftx_e_e 0 1 b
-        end
 
+        val forget_v = forget_v ForgetError
+                                
         (* forget_e_e *)
+        fun forget_e_e x n b = on_e_e forget_v x n b
+                                     
+        fun hyps2ctx hs = List.mapPartial (fn h => case h of VarH (name, _) => SOME name | _ => NONE) hs
 
-        local
-          fun f (x : int) n b =
-	      case b of
-	          Var ((y, r), b) => Var ((forget_v ForgetError x n y, r), b)
-	        | Abs (pn, e) =>
-                  Abs (pn, f (x + (length $ snd $ ptrn_names pn)) n e)
-	        | App (e1, e2) => App (f x n e1, f x n e2)
-	        | TT r => TT r
-	        | Pair (e1, e2) => Pair (f x n e1, f x n e2)
-	        | Fst e => Fst (f x n e)
-	        | Snd e => Snd (f x n e)
-	        | AbsI (s, name, e, r) => AbsI (s, name, f x n e, r)
-	        | AppI (e, i) => AppI (f x n e, i)
-	        | Let (return, decs, e, r) =>
-	          let 
-		    val (decs, m) = f_decls x n decs
-	          in
-		    Let (return, decs, f (x + m) n e, r)
-	          end
-	        | Ascription (e, t) => Ascription (f x n e, t)
-	        | AscriptionTime (e, d) => AscriptionTime (f x n e, d)
-	        | ConstInt n => ConstInt n
-	        | BinOp (opr, e1, e2) => BinOp (opr, f x n e1, f x n e2)
-	        | AppConstr (cx, is, e) => AppConstr (cx, is, f x n e)
-	        | Case (e, return, rules, r) => Case (f x n e, return, map (f_rule x n) rules, r)
-	        | Never t => Never t
+        fun str_hyps_conclu gctx (hyps, p) =
+            let 
+              fun g (h, (hyps, ctx)) =
+                  case h of
+                      VarH ((name, _), (bs, _)) => (sprintf "$ : $" [name, str_bs bs] :: hyps, name :: ctx)
+                    | PropH p => (str_p gctx ctx p :: hyps, ctx)
+              val (hyps, ctx) = foldr g ([], []) hyps
+              val hyps = rev hyps
+              val p = str_p gctx ctx p
+            in
+              hyps @
+              ["==============="] @
+              [p]
+            end 
 
-          and f_decls x n decs =
-	      let 
-                fun g (dec, (acc, m)) =
-		    let
-		      val (dec, m') = f_dec (x + m) n dec
-		    in
-		      (dec :: acc, m' + m)
-		    end
-	        val (decs, m) = foldl g ([], 0) decs
-	        val decs = rev decs
-	      in
-                (decs, m)
-              end
+        fun shiftx_hyp x n hyp =
+            case hyp of
+                VarH _ => hyp
+              | PropH p => PropH (shiftx_i_p x n p)
+                                 
+        fun shiftx_hyps x n hyps =
+            case hyps of
+                [] => hyps
+              | hyp :: hyps =>
+                let
+                  val d = case hyp of
+                              VarH _ => 1
+                            | PropH _ => 0
+                in
+                  shiftx_hyp x n hyp :: shiftx_hyps (x + d) n hyps
+                end
 
-          and f_dec x n dec =
-	      case dec of
-	          Val (tnames, pn, e, r) => 
-	          let 
-                    val (_, enames) = ptrn_names pn 
-	          in
-                    (Val (tnames, pn, f x n e, r), length enames)
-                  end
-                | Rec (tnames, name, (binds, ((t, d), e)), r) => 
+        (* find something about [x] in [hyps]. [x] is expressed as being in the innermost of [hyps] (so [x] can see all variables in [hyps]). *)
+        fun find_hyp forget shift pred x hyps =
+            let
+              exception Error
+              fun runError m _ =
+                  SOME (m ())
+                  handle
+                  Error => NONE
+                  | ForgetError _ => NONE
+              fun do_forget hyp x =
+                  case hyp of
+                      VarH _ => forget x
+                    | PropH _ => x
+              fun do_shift hyp (p as (y, hyps)) =
+                  case hyp of
+                      VarH _ => (shift y, shiftx_hyps 0 1 hyps)
+                    | PropH _ => p
+              fun loop x hyps () =
                   let
-                    fun g (bind, m) =
-                        case bind of
-                            SortingST _ => m
-                          | TypingST pn =>
-	                    let 
-                              val (_, enames) = ptrn_names pn 
-	                    in
-                              m + length enames
-                            end
-                    val m = foldl g 0 binds
-                    val e = f (x + 1 + m) n e
+                    val (hyp, hyps) = case hyps of hyp :: hyps => (hyp, hyps) | [] => raise Error
+                    val x = do_forget hyp x
                   in
-                    (Rec (tnames, name, (binds, ((t, d), e)), r), 1)
+                    case pred x hyps hyp of
+                        SOME y => do_shift hyp (y, hyps)
+                      | NONE => do_shift hyp (loop x hyps ())
                   end
-                | Datatype a => (Datatype a, 0)
-                | IdxDef a => (IdxDef a, 0)
-                | AbsIdx (a, decls, r) => 
-                  let
-                    val (decls, m) = f_decls x n decls
-                  in
-                    (AbsIdx (a, decls, r), m)
-                  end
-
-          and f_rule x n (pn, e) =
-	      let 
-                val (_, enames) = ptrn_names pn 
-	      in
-	        (pn, f (x + length enames) n e)
-	      end
-        in
-        fun forget_e_e x n b = f x n b
-        end
-
-val forget_v = forget_v ForgetError
-                        
-fun hyps2ctx hs = List.mapPartial (fn h => case h of VarH (name, _) => SOME name | _ => NONE) hs
-
-fun str_hyps_conclu (hyps, p) =
-    let 
-      fun g (h, (hyps, ctx)) =
-          case h of
-              VarH ((name, _), (bs, _)) => (sprintf "$ : $" [name, str_bs bs] :: hyps, name :: ctx)
-            | PropH p => (str_p ctx p :: hyps, ctx)
-      val (hyps, ctx) = foldr g ([], []) hyps
-      val hyps = rev hyps
-      val p = str_p ctx p
-    in
-      hyps @
-      ["==============="] @
-      [p]
-    end 
-
-fun shiftx_hyp x n hyp =
-    case hyp of
-        VarH _ => hyp
-      | PropH p => PropH (shiftx_i_p x n p)
-                         
-fun shiftx_hyps x n hyps =
-    case hyps of
-        [] => hyps
-      | hyp :: hyps =>
-        let
-          val d = case hyp of
-                      VarH _ => 1
-                    | PropH _ => 0
-        in
-          shiftx_hyp x n hyp :: shiftx_hyps (x + d) n hyps
-        end
-
-(* find something about [x] in [hyps]. [x] is expressed as being in the innermost of [hyps] (so [x] can see all variables in [hyps]). *)
-fun find_hyp forget shift pred x hyps =
-    let
-      exception Error
-      fun runError m _ =
-          SOME (m ())
-          handle
-          Error => NONE
-          | ForgetError _ => NONE
-      fun do_forget hyp x =
-          case hyp of
-              VarH _ => forget x
-            | PropH _ => x
-      fun do_shift hyp (p as (y, hyps)) =
-          case hyp of
-              VarH _ => (shift y, shiftx_hyps 0 1 hyps)
-            | PropH _ => p
-      fun loop x hyps () =
-          let
-            val (hyp, hyps) = case hyps of hyp :: hyps => (hyp, hyps) | [] => raise Error
-            val x = do_forget hyp x
-          in
-            case pred x hyps hyp of
-                SOME y => do_shift hyp (y, hyps)
-              | NONE => do_shift hyp (loop x hyps ())
-          end
-    in
-      runError (loop x hyps) ()
-    end
-      
+            in
+              runError (loop x hyps) ()
+            end
+              
         end
                             
         structure Simp = struct
         
         local
           open Subst
-  val changed = ref false
-  fun unset () = changed := false
-  fun set () = changed := true
-  fun mark a = (set (); a)
-  fun passi i =
-      let
-        (* val () = if !passi_debug then (fn () => println $ str_i [] i) () else () *)
-        fun r () = get_region_i i
-      in
-        case i of
-            DivI (i1, n2) => DivI (passi i1, n2)
-          | ExpI (i1, n2) => ExpI (passi i1, n2)
-	  | BinOpI (opr, i1, i2) =>
-            let
-              fun def () = BinOpI (opr, passi i1, passi i2)
-            in
-              case opr of
-	          MaxI =>
-	          if eq_i i1 i2 then
-                    mark i1
-	          else if eq_i i1 (T0 dummy) orelse eq_i i1 (ConstIN (0, dummy)) then
-                    mark i2
-	          else if eq_i i2 (T0 dummy) orelse eq_i i2 (ConstIN (0, dummy)) then
-                    mark i1
-	          else
-                    (case (i1, i2) of
-                         (BinOpI (opr, i1, i2), BinOpI (opr', i1', i2')) =>
-                         if opr = opr' then
-                           if opr = AddI orelse opr = MultI then
-                             if eq_i i1 i1' then
-                               mark $ BinOpI (opr, i1, BinOpI (MaxI, i2, i2'))
-                             else if eq_i i2 i2' then
-                               mark $ BinOpI (opr, BinOpI (MaxI, i1, i1'), i2)
-                             else def ()
-                           else if opr = TimeApp then
-                             if eq_i i1 i1' then
-                               mark $ BinOpI (opr, i1, BinOpI (MaxI, i2, i2'))
-                             else def ()
-                           else def ()
-                         else def ()
-                       | _ => def ()
-                    )
-	        | MinI =>
-	          if eq_i i1 i2 then
-                    mark i1
-	          else
-		    def ()
-	        | AddI => 
-	          if eq_i i1 (T0 dummy) orelse eq_i i1 (ConstIN (0, dummy)) then
-                    mark i2
-	          else if eq_i i2 (T0 dummy) orelse eq_i i2 (ConstIN (0, dummy)) then
-                    mark i1
-	          else
+          val changed = ref false
+          fun unset () = changed := false
+          fun set () = changed := true
+          fun mark a = (set (); a)
+          fun passi i =
+              let
+                (* val () = if !passi_debug then (fn () => println $ str_i [] i) () else () *)
+                fun r () = get_region_i i
+              in
+                case i of
+                    DivI (i1, n2) => DivI (passi i1, n2)
+                  | ExpI (i1, n2) => ExpI (passi i1, n2)
+	          | BinOpI (opr, i1, i2) =>
                     let
-                      val is = collect_AddI i
-                      val (i', is) = case is of
-                                         i :: is => (i, is)
-                                       | [] => raise Impossible "passi/AddI"
-                      val i' = combine_AddI_nonempty i' is
+                      fun def () = BinOpI (opr, passi i1, passi i2)
                     in
-		      if eq_i i' i then
-                        def ()
-                      else
-                        mark i'
+                      case opr of
+	                  MaxI =>
+	                  if eq_i i1 i2 then
+                            mark i1
+	                  else if eq_i i1 (T0 dummy) orelse eq_i i1 (ConstIN (0, dummy)) then
+                            mark i2
+	                  else if eq_i i2 (T0 dummy) orelse eq_i i2 (ConstIN (0, dummy)) then
+                            mark i1
+	                  else
+                            (case (i1, i2) of
+                                 (BinOpI (opr, i1, i2), BinOpI (opr', i1', i2')) =>
+                                 if opr = opr' then
+                                   if opr = AddI orelse opr = MultI then
+                                     if eq_i i1 i1' then
+                                       mark $ BinOpI (opr, i1, BinOpI (MaxI, i2, i2'))
+                                     else if eq_i i2 i2' then
+                                       mark $ BinOpI (opr, BinOpI (MaxI, i1, i1'), i2)
+                                     else def ()
+                                   else if opr = TimeApp then
+                                     if eq_i i1 i1' then
+                                       mark $ BinOpI (opr, i1, BinOpI (MaxI, i2, i2'))
+                                     else def ()
+                                   else def ()
+                                 else def ()
+                               | _ => def ()
+                            )
+	                | MinI =>
+	                  if eq_i i1 i2 then
+                            mark i1
+	                  else
+		            def ()
+	                | AddI => 
+	                  if eq_i i1 (T0 dummy) orelse eq_i i1 (ConstIN (0, dummy)) then
+                            mark i2
+	                  else if eq_i i2 (T0 dummy) orelse eq_i i2 (ConstIN (0, dummy)) then
+                            mark i1
+	                  else
+                            let
+                              val is = collect_AddI i
+                              val (i', is) = case is of
+                                                 i :: is => (i, is)
+                                               | [] => raise Impossible "passi/AddI"
+                              val i' = combine_AddI_nonempty i' is
+                            in
+		              if eq_i i' i then
+                                def ()
+                              else
+                                mark i'
+                            end
+	                | MultI => 
+	                  if eq_i i1 (T0 dummy) then
+                            mark $ T0 $ r ()
+	                  else if eq_i i2 (T0 dummy) then
+                            mark $ T0 $ r ()
+	                  else if eq_i i1 (T1 dummy) then
+                            mark i2
+	                  else if eq_i i2 (T1 dummy) then
+                            mark i1
+	                  else
+                            (case (i1, i2) of
+                                 (ConstIN (n1, _), ConstIN (n2, _)) =>
+                                 mark $ ConstIN (n1 * n2, r ())
+                               | _ =>
+                                 let
+                                   val i2s = collect_AddI i2
+                                   fun pred i =
+                                       case i of
+                                           ConstIN _ => SOME i
+                                         | UnOpI (B2n, _, _) => SOME i
+                                         | _ => NONE
+                                 in
+                                   case partitionOptionFirst pred i2s of
+                                       SOME (i2, rest) =>
+                                       let
+                                         val ret = i1 %* i2
+                                         val ret =
+                                             case rest of
+                                                 [] => ret
+                                               | hd :: rest => ret %+ i1 %* combine_AddI_nonempty hd rest
+                                       in
+                                         if eq_i ret i then
+                                           def ()
+                                         else
+                                           mark ret
+                                       end
+                                     | NONE => def ()
+                                 end
+                            )
+                        | TimeApp =>
+                          (case i1 of
+                               TimeAbs (_, body, _) =>
+                               mark $ subst_i_i (passi i2) body
+		             | _ => def ()
+                          )
+                        | EqI =>
+                          if eq_i i1 i2 then
+                            mark $ TrueI $ r ()
+                          else def ()
+                        | AndI =>
+                          if eq_i i1 (TrueI dummy) then
+                            mark i2
+                          else if eq_i i2 (TrueI dummy) then
+                            mark i1
+                          else if eq_i i1 (FalseI dummy) then
+                            mark $ FalseI $ r ()
+                          else if eq_i i2 (FalseI dummy) then
+                            mark $ FalseI $ r ()
+                          else
+                            def ()
+                        | ExpNI =>
+                          let
+                            val r = r ()
+                            fun exp i n =
+                                if n > 0 then
+                                  exp i (n-1) %* i
+                                else
+                                  N1 r
+                          in
+                            case i2 of
+                                ConstIN (n, _) => exp i1 n
+                              | UnOpI (B2n, i, _) => Ite (i, i1, N1 r, r)
+                              | _ =>
+                                let
+                                  val i2s = collect_AddI i2
+                                  fun pred i =
+                                      case i of
+                                          ConstIN _ => SOME i
+                                        | UnOpI (B2n, _, _) => SOME i
+                                        | _ => NONE
+                                in
+                                  case partitionOptionFirst pred i2s of
+                                      SOME (i2, rest) => mark $ i1 %^ i2 %* i1 %^ combine_AddI_Nat rest
+                                    | NONE => def ()
+                                end
+                          end
+                        | LtI =>
+                          def ()
+                        | GeI =>
+                          def ()
+                        | BoundedMinusI =>
+                          def ()
                     end
-	        | MultI => 
-	          if eq_i i1 (T0 dummy) then
-                    mark $ T0 $ r ()
-	          else if eq_i i2 (T0 dummy) then
-                    mark $ T0 $ r ()
-	          else if eq_i i1 (T1 dummy) then
-                    mark i2
-	          else if eq_i i2 (T1 dummy) then
-                    mark i1
-	          else
-                    (case (i1, i2) of
-                         (ConstIN (n1, _), ConstIN (n2, _)) =>
-                         mark $ ConstIN (n1 * n2, r ())
-                       | _ =>
-                         let
-                           val i2s = collect_AddI i2
-                           fun pred i =
-                               case i of
-                                   ConstIN _ => SOME i
-                                 | UnOpI (B2n, _, _) => SOME i
-                                 | _ => NONE
-                         in
-                           case partitionOptionFirst pred i2s of
-                               SOME (i2, rest) =>
-                               let
-                                 val ret = i1 %* i2
-                                 val ret =
-                                     case rest of
-                                         [] => ret
-                                       | hd :: rest => ret %+ i1 %* combine_AddI_nonempty hd rest
-                               in
-                                 if eq_i ret i then
-                                   def ()
-                                 else
-                                   mark ret
-                               end
-                             | NONE => def ()
-                         end
-                    )
-                | TimeApp =>
-                  (case i1 of
-                       TimeAbs (_, body, _) =>
-                       mark $ subst_i_i (passi i2) body
-		     | _ => def ()
-                  )
-                | EqI =>
-                  if eq_i i1 i2 then
-                    mark $ TrueI $ r ()
-                  else def ()
-                | AndI =>
-                  if eq_i i1 (TrueI dummy) then
-                    mark i2
-                  else if eq_i i2 (TrueI dummy) then
-                    mark i1
-                  else if eq_i i1 (FalseI dummy) then
-                    mark $ FalseI $ r ()
-                  else if eq_i i2 (FalseI dummy) then
-                    mark $ FalseI $ r ()
-                  else
-                    def ()
-                | ExpNI =>
-                  let
-                    val r = r ()
-                    fun exp i n =
-                        if n > 0 then
-                          exp i (n-1) %* i
-                        else
-                          N1 r
-                  in
-                    case i2 of
-                        ConstIN (n, _) => exp i1 n
-                      | UnOpI (B2n, i, _) => Ite (i, i1, N1 r, r)
-                      | _ =>
-                        let
-                          val i2s = collect_AddI i2
-                          fun pred i =
-                              case i of
-                                  ConstIN _ => SOME i
-                                | UnOpI (B2n, _, _) => SOME i
-                                | _ => NONE
-                        in
-                          case partitionOptionFirst pred i2s of
-                              SOME (i2, rest) => mark $ i1 %^ i2 %* i1 %^ combine_AddI_Nat rest
-                            | NONE => def ()
-                        end
-                  end
-                | LtI =>
-                  def ()
-                | GeI =>
-                  def ()
-                | BoundedMinusI =>
-                  def ()
-            end
-          | Ite (i, i1, i2, r) =>
-            if eq_i i (TrueI dummy) then
-              mark i1
-            else if eq_i i (FalseI dummy) then
-              mark i2
-            else
-              Ite (passi i, passi i1, passi i2, r)
-          | UnOpI (ToReal, BinOpI (AddI, i1, i2), r) =>
-            mark $ BinOpI (AddI, UnOpI (ToReal, i1, r), UnOpI (ToReal, i2, r))
-          | UnOpI (ToReal, BinOpI (MultI, i1, i2), r) =>
-            mark $ BinOpI (MultI, UnOpI (ToReal, i1, r), UnOpI (ToReal, i2, r))
-          | UnOpI (Neg, TrueI _, r) =>
-            mark $ FalseI r
-          | UnOpI (Neg, FalseI _, r) =>
-            mark $ TrueI r
-          | UnOpI (B2n, TrueI _, r) =>
-            mark $ N1 r
-          | UnOpI (B2n, FalseI _, r) =>
-            mark $ N0 r
-          | UnOpI (opr, i, r) =>
-            UnOpI (opr, passi i, r)
-          | TimeAbs ((name, r1), i, r) =>
-            TimeAbs ((name, r1), passi i, r)
-	  | TrueI _ => i
-	  | FalseI _ => i
-	  | TTI _ => i
-          | ConstIN _ => i
-          | ConstIT _ => i
-          | VarI _ => i
-          | AdmitI _ => i
-          | UVarI _ => i
-      end
-        
-  fun passp p =
-      let
-        fun r () = get_region_p p
-      in
-        case p of
-	    BinConn (opr, p1, p2) =>
-            let
-              fun def () = BinConn (opr, passp p1, passp p2) 
-            in
-              case opr of
-                  And =>
-	          if eq_p p1 (True dummy) then
-                    mark p2
-	          else if eq_p p2 (True dummy) then
-                    mark p1
-	          else
-	            def ()
-                | Or =>
-	          if eq_p p1 (False dummy) then
-                    mark p2
-	          else if eq_p p2 (False dummy) then
-                    mark p1
-	          else
-	            def ()
-                | Imply =>
-	          if eq_p p1 (True dummy) then
-                    mark p2
-                  else if eq_p p2 (True dummy) then
-                    mark $ True $ r ()
-                  else
-                    (case p1 of
-                         BinConn (And, p1a, p1b) =>
-                         mark $ (p1a --> p1b --> p2)
-                       | _ => def ()
-                    )
-                | _ => def ()
-            end
-	  | BinPred (opr, i1, i2) =>
-            let
-              fun def () = BinPred (opr, passi i1, passi i2)
-            in
-              case opr of 
-                  EqP => if eq_i i1 i2 then
-                           mark $ True $ r ()
-                         else def ()
-                | LeP => if eq_i i1 i2 orelse eq_i i1 (T0 dummy) then
-                           mark $ True $ r ()
-                         else def ()
-                | _ => def ()
-            end
-          | Not (p, r) => Not (passp p, r)
-          | p_all as Quan (q, bs, name, p, r_all) =>
-            let
-              fun def () = Quan (q, bs, name, passp p, r_all)
-            in
-              case q of
-                  Forall =>
-                  (case try_forget (forget_i_p 0 1) p of
-                       SOME p => (set (); p)
-                     | _ =>
-                       (* try subst if there is a equality premise *)
-                       (*
+                  | Ite (i, i1, i2, r) =>
+                    if eq_i i (TrueI dummy) then
+                      mark i1
+                    else if eq_i i (FalseI dummy) then
+                      mark i2
+                    else
+                      Ite (passi i, passi i1, passi i2, r)
+                  | UnOpI (ToReal, BinOpI (AddI, i1, i2), r) =>
+                    mark $ BinOpI (AddI, UnOpI (ToReal, i1, r), UnOpI (ToReal, i2, r))
+                  | UnOpI (ToReal, BinOpI (MultI, i1, i2), r) =>
+                    mark $ BinOpI (MultI, UnOpI (ToReal, i1, r), UnOpI (ToReal, i2, r))
+                  | UnOpI (Neg, TrueI _, r) =>
+                    mark $ FalseI r
+                  | UnOpI (Neg, FalseI _, r) =>
+                    mark $ TrueI r
+                  | UnOpI (B2n, TrueI _, r) =>
+                    mark $ N1 r
+                  | UnOpI (B2n, FalseI _, r) =>
+                    mark $ N0 r
+                  | UnOpI (opr, i, r) =>
+                    UnOpI (opr, passi i, r)
+                  | TimeAbs ((name, r1), i, r) =>
+                    TimeAbs ((name, r1), passi i, r)
+	          | TrueI _ => i
+	          | FalseI _ => i
+	          | TTI _ => i
+                  | ConstIN _ => i
+                  | ConstIT _ => i
+                  | VarI _ => i
+                  | AdmitI _ => i
+                  | UVarI _ => i
+              end
+                
+          fun passp p =
+              let
+                fun r () = get_region_p p
+              in
+                case p of
+	            BinConn (opr, p1, p2) =>
+                    let
+                      fun def () = BinConn (opr, passp p1, passp p2) 
+                    in
+                      case opr of
+                          And =>
+	                  if eq_p p1 (True dummy) then
+                            mark p2
+	                  else if eq_p p2 (True dummy) then
+                            mark p1
+	                  else
+	                    def ()
+                        | Or =>
+	                  if eq_p p1 (False dummy) then
+                            mark p2
+	                  else if eq_p p2 (False dummy) then
+                            mark p1
+	                  else
+	                    def ()
+                        | Imply =>
+	                  if eq_p p1 (True dummy) then
+                            mark p2
+                          else if eq_p p2 (True dummy) then
+                            mark $ True $ r ()
+                          else
+                            (case p1 of
+                                 BinConn (And, p1a, p1b) =>
+                                 mark $ (p1a --> p1b --> p2)
+                               | _ => def ()
+                            )
+                        | _ => def ()
+                    end
+	          | BinPred (opr, i1, i2) =>
+                    let
+                      fun def () = BinPred (opr, passi i1, passi i2)
+                    in
+                      case opr of 
+                          EqP => if eq_i i1 i2 then
+                                   mark $ True $ r ()
+                                 else def ()
+                        | LeP => if eq_i i1 i2 orelse eq_i i1 (T0 dummy) then
+                                   mark $ True $ r ()
+                                 else def ()
+                        | _ => def ()
+                    end
+                  | Not (p, r) => Not (passp p, r)
+                  | p_all as Quan (q, bs, name, p, r_all) =>
+                    let
+                      fun def () = Quan (q, bs, name, passp p, r_all)
+                    in
+                      case q of
+                          Forall =>
+                          (case try_forget (forget_i_p 0 1) p of
+                               SOME p => (set (); p)
+                             | _ =>
+                               (* try subst if there is a equality premise *)
+                               (*
 if false then
                      let
                        (* val () = println $ "Try subst eq premise" *)
@@ -1855,123 +1786,123 @@ if false then
                          | NONE => def ()
                      end
 else
-                       *)
-                       let
-                         (* val () = println $ "Try subst eq premise" *)
-                         (* fun collect_Imply_Forall p = *)
-                         (*     case p of *)
-                         (*         BinConn (Imply, p1, p2) => *)
-                         (*         let *)
-                         (*           val (hyps, conclu) = collect_Imply_Forall p2 *)
-                         (*         in *)
-                         (*           (map PropH (collect_And p1)(* [PropH p1] *) @ hyps, conclu) *)
-                         (*         end *)
-                         (*       | Quan (Forall, bs, name, p, r) => *)
-                         (*         let *)
-                         (*           val (hyps, p) = collect_Imply_Forall p *)
-                         (*         in *)
-                         (*           (VarH (name, (bs, r)) :: hyps, p) *)
-                         (*         end *)
-                         (*       | _ => ([], p) *)
-                         (* a faster version *)
-                         fun collect_Imply_Forall p =
-                             let
-                               fun loop (acc, p) =
-                                   case p of
-                                       BinConn (Imply, p1, p2) =>
-                                       loop (map PropH (rev $ collect_And p1) @ acc, p2)
-                                     | Quan (Forall, bs, name, p, r) =>
-                                       loop (VarH (name, (bs, r)) :: acc, p)
-                                     | _ => (acc, p)
-                               val (hyps, conclu) = loop ([], p)
-                               val hyps = rev hyps
-                             in
-                               (hyps, conclu)
-                             end
-                         fun combine_Imply_Forall hyps conclu =
-                             let
-                               fun iter (h, conclu) =
-                                   case h of
-                                       PropH p =>
-                                       p --> conclu
-                                     | VarH (name, (bs, r))  =>
-                                       Quan (Forall, bs, name, conclu, r)
-                             in
-                               foldr iter conclu hyps
-                             end
-                         val (hyps, conclu) = collect_Imply_Forall p
-                         val hyps = rev hyps
-                         val binds_len = length $ hyps2ctx hyps
-                         (* test whether [p] is [VarI x = _] or [_ = VarI x] *)
-                         fun is_var_equals x p =
-                             let
-                               fun find_var (i1, i2) =
-                                   if eq_i i1 (VarI (int2var x, dummy)) then
-                                     SOME (forget_i_i x 1 i2) handle ForgetError _ => NONE
-                                   else NONE
-                             in
-                               case p of
-                                   BinPred (EqP, i1, i2) => firstSuccess find_var [(i1, i2), (i2, i1)]
-                                 | _ => NONE
-                             end
-                         fun foldr_hyps shift1 shift2 f init hyps =
-                             let
-                               fun iter (h, (x, acc)) =
-                                   case h of
-                                       VarH _ => (shift1 x, Option.map shift2 acc)
-                                     | PropH p =>
-                                       case acc of
-                                           SOME _ => (x, acc)
-                                         | NONE => (x, f x p)
-                             in
-                               snd $ foldr iter (init, NONE) hyps
-                             end
-                       in
-                         case foldr_hyps (fn x => var2int (shiftx_v 0 1 (int2var x))) shift_i_i is_var_equals 0 hyps of
-                             SOME i =>
-                             (let
-                               val x = binds_len
-                               val ctxn = map fst $ hyps2ctx hyps
-                               (* val () = println $ sprintf "Substing for $ with $" [str_v (ctxn @ [fst name]) x, str_i ctxn i] *)
-                               (* val () = app println $ str_hyps_conclu (hyps @ [VarH (name, (bs, r_all))], conclu) @ [""]  *)
-                               val conclu = substx_i_p x i conclu
-                               fun subst_hyp n p =
-                                   let
-                                     val x = var2int $ forget_v 0 n (int2var x)
-                                     val p =
-                                         case try_forget (forget_i_p x 1) p of
-                                             NONE =>
-                                             let
-                                               val i = forget_i_i 0 n i
-                                             in
-                                               substx_i_p x i p
-                                             end
-                                           | SOME p => p
-                                   in
-                                     p
-                                   end
-                               fun foldl_hyps f hyps =
-                                   let
-                                     fun iter (h, (n, acc)) =
-                                         case h of
-                                             VarH _ => (n + 1, h :: acc)
-                                           | PropH p => (n, PropH (f n p) :: acc)
-                                   in
-                                     rev $ snd $ foldl iter (0, []) hyps
-                                   end
-                               val hyps = foldl_hyps subst_hyp hyps
-                               (* val () = app println $ str_hyps_conclu (hyps, conclu) @ [""]  *)
-                               val ret = combine_Imply_Forall (rev hyps) conclu
-                             in
-                               mark ret
-                             end
-                              handle ForgetError _ => def ()
-                             )
-                           | NONE => def ()
-                       end
+                               *)
+                               let
+                                 (* val () = println $ "Try subst eq premise" *)
+                                 (* fun collect_Imply_Forall p = *)
+                                 (*     case p of *)
+                                 (*         BinConn (Imply, p1, p2) => *)
+                                 (*         let *)
+                                 (*           val (hyps, conclu) = collect_Imply_Forall p2 *)
+                                 (*         in *)
+                                 (*           (map PropH (collect_And p1)(* [PropH p1] *) @ hyps, conclu) *)
+                                 (*         end *)
+                                 (*       | Quan (Forall, bs, name, p, r) => *)
+                                 (*         let *)
+                                 (*           val (hyps, p) = collect_Imply_Forall p *)
+                                 (*         in *)
+                                 (*           (VarH (name, (bs, r)) :: hyps, p) *)
+                                 (*         end *)
+                                 (*       | _ => ([], p) *)
+                                 (* a faster version *)
+                                 fun collect_Imply_Forall p =
+                                     let
+                                       fun loop (acc, p) =
+                                           case p of
+                                               BinConn (Imply, p1, p2) =>
+                                               loop (map PropH (rev $ collect_And p1) @ acc, p2)
+                                             | Quan (Forall, bs, name, p, r) =>
+                                               loop (VarH (name, (bs, r)) :: acc, p)
+                                             | _ => (acc, p)
+                                       val (hyps, conclu) = loop ([], p)
+                                       val hyps = rev hyps
+                                     in
+                                       (hyps, conclu)
+                                     end
+                                 fun combine_Imply_Forall hyps conclu =
+                                     let
+                                       fun iter (h, conclu) =
+                                           case h of
+                                               PropH p =>
+                                               p --> conclu
+                                             | VarH (name, (bs, r))  =>
+                                               Quan (Forall, bs, name, conclu, r)
+                                     in
+                                       foldr iter conclu hyps
+                                     end
+                                 val (hyps, conclu) = collect_Imply_Forall p
+                                 val hyps = rev hyps
+                                 val binds_len = length $ hyps2ctx hyps
+                                 (* test whether [p] is [VarI x = _] or [_ = VarI x] *)
+                                 fun is_var_equals x p =
+                                     let
+                                       fun find_var (i1, i2) =
+                                           if eq_i i1 (VarI (NONE, (int2var x, dummy))) then
+                                             SOME (forget_i_i x 1 i2) handle ForgetError _ => NONE
+                                           else NONE
+                                     in
+                                       case p of
+                                           BinPred (EqP, i1, i2) => firstSuccess find_var [(i1, i2), (i2, i1)]
+                                         | _ => NONE
+                                     end
+                                 fun foldr_hyps shift1 shift2 f init hyps =
+                                     let
+                                       fun iter (h, (x, acc)) =
+                                           case h of
+                                               VarH _ => (shift1 x, Option.map shift2 acc)
+                                             | PropH p =>
+                                               case acc of
+                                                   SOME _ => (x, acc)
+                                                 | NONE => (x, f x p)
+                                     in
+                                       snd $ foldr iter (init, NONE) hyps
+                                     end
+                               in
+                                 case foldr_hyps (fn x => var2int (shiftx_v 0 1 (int2var x))) shift_i_i is_var_equals 0 hyps of
+                                     SOME i =>
+                                     (let
+                                       val x = binds_len
+                                       val ctxn = map fst $ hyps2ctx hyps
+                                       (* val () = println $ sprintf "Substing for $ with $" [str_v (ctxn @ [fst name]) x, str_i ctxn i] *)
+                                       (* val () = app println $ str_hyps_conclu (hyps @ [VarH (name, (bs, r_all))], conclu) @ [""]  *)
+                                       val conclu = substx_i_p x i conclu
+                                       fun subst_hyp n p =
+                                           let
+                                             val x = var2int $ forget_v 0 n (int2var x)
+                                             val p =
+                                                 case try_forget (forget_i_p x 1) p of
+                                                     NONE =>
+                                                     let
+                                                       val i = forget_i_i 0 n i
+                                                     in
+                                                       substx_i_p x i p
+                                                     end
+                                                   | SOME p => p
+                                           in
+                                             p
+                                           end
+                                       fun foldl_hyps f hyps =
+                                           let
+                                             fun iter (h, (n, acc)) =
+                                                 case h of
+                                                     VarH _ => (n + 1, h :: acc)
+                                                   | PropH p => (n, PropH (f n p) :: acc)
+                                           in
+                                             rev $ snd $ foldl iter (0, []) hyps
+                                           end
+                                       val hyps = foldl_hyps subst_hyp hyps
+                                       (* val () = app println $ str_hyps_conclu (hyps, conclu) @ [""]  *)
+                                       val ret = combine_Imply_Forall (rev hyps) conclu
+                                     in
+                                       mark ret
+                                     end
+                                      handle ForgetError _ => def ()
+                                     )
+                                   | NONE => def ()
+                               end
 
-                         
-                  (*
+                                 
+                          (*
                       (case p of
                            BinConn (Imply, p1, p2) =>
                            let
@@ -1991,77 +1922,78 @@ else
                          | _ =>
                            Quan (q, bs, name, passp p)
                       )
-                  *)
-                  )
-                | Exists ins =>
-                  (* for unconstrained Time evar, infer it to be 0 *)
+                          *)
+                          )
+                        | Exists ins =>
+                          (* for unconstrained Time evar, infer it to be 0 *)
+                          let
+                            val p = passp p
+                          in
+                            case (eq_bs bs (Base Time), try_forget (forget_i_p 0 1) p) of
+                                (true, SOME p) =>
+                                (set ();
+                                 (case ins of SOME f => f (T0 dummy) | NONE => ());
+                                 p)
+                              | _ =>
+                                let
+                                  val ps = collect_And p
+                                  val (irrelevant, relevant) = partitionOption (try_forget (forget_i_p 0 1)) ps
+                                in
+                                  case relevant of
+                                      [] => def ()
+                                    | _ => combine_And $ Quan (q, bs, name, combine_And relevant, r_all) :: irrelevant
+                                end
+                          end
+                    end
+	          | True _ => p
+	          | False _ => p
+              end
+                
+          fun until_unchanged f a = 
+              let fun loop a =
+	              let
+                        val _ = unset ()
+                        (* val () = println "before f()" *)
+                        val a = f a
+                                  (* val () = println "after f()" *)
+                      in
+		        if !changed then loop a
+		        else a
+	              end
+              in
+	        loop a
+              end
+        in
+        val simp_i = until_unchanged passi
+        fun simp_p p =
+            let
+              (* val () = println $ "Before simp_p: " ^ str_p [] p *)
+              val p = until_unchanged passp p
+                                      (* val () = println $ "After simp_p:  " ^ str_p [] p *)
+                                      (* val () = println "" *)
+            in
+              p      
+            end
+        fun simp_p_with_plugin plugin p =
+            let
+              fun iter p =
                   let
+                    val p = plugin set p
                     val p = passp p
                   in
-                    case (eq_bs bs (Base Time), try_forget (forget_i_p 0 1) p) of
-                        (true, SOME p) =>
-                        (set ();
-                         (case ins of SOME f => f (T0 dummy) | NONE => ());
-                         p)
-                      | _ =>
-                        let
-                          val ps = collect_And p
-                          val (irrelevant, relevant) = partitionOption (try_forget (forget_i_p 0 1)) ps
-                        in
-                          case relevant of
-                              [] => def ()
-                            | _ => combine_And $ Quan (q, bs, name, combine_And relevant, r_all) :: irrelevant
-                        end
+                    p
                   end
+              val p = until_unchanged iter p
+            in
+              p      
             end
-	  | True _ => p
-	  | False _ => p
-      end
-        
-  fun until_unchanged f a = 
-      let fun loop a =
-	      let
-                val _ = unset ()
-                (* val () = println "before f()" *)
-                val a = f a
-                          (* val () = println "after f()" *)
-              in
-		if !changed then loop a
-		else a
-	      end
-      in
-	loop a
-      end
-in
-val simp_i = until_unchanged passi
-fun simp_p p =
-    let
-      (* val () = println $ "Before simp_p: " ^ str_p [] p *)
-      val p = until_unchanged passp p
-                              (* val () = println $ "After simp_p:  " ^ str_p [] p *)
-                              (* val () = println "" *)
-    in
-      p      
-    end
-fun simp_p_with_plugin plugin p =
-    let
-      fun iter p =
-          let
-            val p = plugin set p
-            val p = passp p
-          in
-            p
-          end
-      val p = until_unchanged iter p
-    in
-      p      
-    end
-      
-end
+              
+        end
 
         fun simp_vc (ctx, ps, p, r) = (ctx, map simp_p ps, simp_p p, r)
 
         fun simp_ibind f (BindI (name, inner)) = BindI (name, f inner)
+        fun simp_tbind f (Bind.Bind (name, inner)) = Bind.Bind (name, f inner)
 
         fun simp_s s =
             case s of
@@ -2075,6 +2007,11 @@ end
               | Unit r => Unit r
 	      | Prod (t1, t2) => Prod (simp_mt t1, simp_mt t2)
 	      | AppV (x, ts, is, r) => AppV (x, map simp_mt ts, map simp_i is, r)
+              | MtVar x => MtVar x
+              | MtApp (t1, t2) => MtApp (simp_mt t1, simp_mt t2)
+              | MtAbs (bind, r) => MtAbs (simp_tbind simp_mt bind, r)
+              | MtAppI (t, i) => MtAppI (simp_mt t, simp_i i)
+              | MtAbsI (s, bind, r) => MtAbsI (simp_s s, simp_ibind simp_mt bind, r)
 	      | UniI (s, bind, r) => UniI (simp_s s, simp_ibind simp_mt bind, r)
 	      | BaseType a => BaseType a
               | UVar u => UVar u
@@ -2136,7 +2073,7 @@ fun substx_v Var x v y =
 
 fun int2var x = x
 fun var2int x = x
-          
+                  
 end
 
 structure Underscore = struct
