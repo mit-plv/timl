@@ -18,16 +18,21 @@ local
   fun find_idx (x : string) ctx = Option.map fst $ findWithIdx (fn (_, y) => y = x) ctx
   fun find_idx_value (x : string) ctx = Option.map (fn (i, (_, v)) => (i, v)) $ findWithIdx (fn (_, (y, _)) => y = x) ctx
 
-  fun on_var ctx (x, r) =
+  fun on_id ctx (x, r) =
       case find_idx x ctx of
 	  SOME i => (i, r)
 	| NONE => raise Error (r, "Unbound variable " ^ x ^ sprintf " in context: $" [join " " $ rev ctx])
 
-  fun on_idx ctx i =
+  fun on_long_id gctx ctx (m, x) = (Option.map (on_id gctx) m, on_id ctx x)
+                                     
+  fun on_idx gctx ctx i =
+      let
+        val on_idx = on_idx gctx
+      in
       case i of
-	  E.VarI x => VarI (on_var ctx x)
+	  E.VarI x => VarI (on_long_id gctx ctx x)
 	| E.ConstIN n => ConstIN n
-	| E.ConstIT x => ConstIT x
+	| E.ConstIT c => ConstIT c
         | E.UnOpI (opr, i, r) => UnOpI (opr, on_idx ctx i, r)
         | E.DivI (i1, n2) => DivI (on_idx ctx i1, n2)
         | E.ExpI (i1, n2) => ExpI (on_idx ctx i1, n2)
@@ -39,7 +44,8 @@ local
         | E.TimeAbs ((name, r1), i, r) => TimeAbs ((name, r1), on_idx (name :: ctx) i, r)
         | E.AdmitI r => AdmitI r
         | E.UVarI u => UVarI u
-
+      end
+        
   fun on_bsort bs =
       case bs of
           E.Base b => Base b
@@ -50,14 +56,18 @@ local
           Forall => Forall
         | Exists _ => Exists NONE
                              
-  fun on_prop ctx p =
+  fun on_prop gctx ctx p =
+      let
+        val on_prop = on_prop gctx
+      in
       case p of
 	  E.True r => True r
 	| E.False r => False r
         | E.Not (p, r) => Not (on_prop ctx p, r)
 	| E.BinConn (opr, p1, p2) => BinConn (opr, on_prop ctx p1, on_prop ctx p2)
-	| E.BinPred (opr, i1, i2) => BinPred (opr, on_idx ctx i1, on_idx ctx i2)
+	| E.BinPred (opr, i1, i2) => BinPred (opr, on_idx gctx ctx i1, on_idx gctx ctx i2)
         | E.Quan (q, bs, (name, r), p, r_all) => Quan (on_quan q, on_bsort bs, (name, r), on_prop (name :: ctx) p, r_all)
+      end
 
   fun on_ibind f ctx (E.BindI ((name, r), inner)) = BindI ((name, r), f (name :: ctx) inner)
 
@@ -73,7 +83,7 @@ local
         | E.Unit r => Unit r
 	| E.Prod (t1, t2) => Prod (on_mtype ctx t1, on_mtype ctx t2)
 	| E.UniI (s, E.BindI ((name, r), t), r_all) => UniI (on_sort sctx s, BindI ((name, r), on_mtype (name :: sctx, kctx) t), r_all)
-	| E.AppV (x, ts, is, r) => AppV (on_var kctx x, map (on_mtype ctx) ts, map (on_idx sctx) is, r)
+	| E.AppV (x, ts, is, r) => AppV (on_id kctx x, map (on_mtype ctx) ts, map (on_idx sctx) is, r)
 	| E.BaseType (bt, r) => BaseType (bt, r)
         | E.UVar u => UVar u
 
@@ -123,7 +133,7 @@ local
       on_ibinds on_sort (fn sctx => fn (t, is) => (on_mtype (sctx, rev tnames @ kctx) t, map (on_idx sctx) is)) sctx ibinds
 
   fun on_constr (ctx as (sctx, kctx)) ((family, tnames, core) : E.constr) : constr =
-      (#1 (on_var kctx (family, dummy_region)),
+      (#1 (on_id kctx (family, dummy_region)),
        tnames, 
        on_constr_core ctx tnames core)
 
@@ -214,7 +224,7 @@ local
 	    E.Var ((x, r), b) => 
 	    (case find_idx_value x cctx of
 		 SOME (i, _) => AppConstr (((i, r), b), [], TT r)
-	       | NONE => Var ((on_var tctx (x, r)), b)
+	       | NONE => Var ((on_id tctx (x, r)), b)
             )
 	  | E.Abs (pn, e) => 
             let 
@@ -283,7 +293,7 @@ local
             end
 	  | E.ConstInt n => ConstInt n
 	  | E.BinOp (opr, e1, e2) => BinOp (opr, on_expr ctx e1, on_expr ctx e2)
-	  | E.AppConstr ((x, b), is, e) => AppConstr ((on_var (map fst cctx) x, b), map (on_idx sctx) is, on_expr ctx e)
+	  | E.AppConstr ((x, b), is, e) => AppConstr ((on_id (map fst cctx) x, b), map (on_idx sctx) is, on_expr ctx e)
 	  | E.Case (e, return, rules, r) =>
             let
               val return = on_return skctx return

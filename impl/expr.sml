@@ -584,6 +584,11 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                   in
                     str_uni gctx ctx (map SortingT binds, t)
                   end
+                | MtVar x => str_long_id gctx kctx x
+                | MtApp (t1, t2) => sprintf "($ $)" [str_mt ctx t1, str_mt ctx t2]
+                | MtAbs (Bind.Bind ((name, _), t), _) => sprintf "(fn [$] => $)" [name, str_mt (sctx, name :: kctx) t]
+                | MtAppI (t, i) => sprintf "($ $)" [str_mt ctx t, str_i gctx sctx i]
+                | MtAbsI (s, BindI ((name, _), t), _) => sprintf "(fn {$ : $} => $)" [name, str_s gctx sctx s, str_mt (name :: sctx, kctx) t]
                 | AppV (x, ts, is, _) => 
                   if null ts andalso null is then
 	            str_long_id gctx kctx x
@@ -666,6 +671,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | (NONE, SOME d) => sprintf "return using $ " [str_i gctx sctx d]
               | (SOME t, SOME d) => sprintf "return $ using $ " [str_mt gctx skctx t, str_i gctx sctx d]
 
+        fun add_kinding name (sctx, kctx, cctx, tctx) = (sctx, name :: kctx, cctx, tctx)
+                                                          
         fun str_e gctx (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
             let
               val str_e = str_e gctx
@@ -790,6 +797,10 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                   in
                     (sprintf "abstype idx $ : $ = $ with$ end" [name, str_s gctx sctx s, str_i gctx sctx i, join_prefix " " decls], ctx')
                   end
+                | TypeDef ((name, _), t) =>
+                  (sprintf "type $ = $" [name, str_mt gctx (sctx, kctx) t], add_kinding name ctx)
+                | Open (m, _) =>
+                  (sprintf "open $" [str_v gctx m], ctx)
             end
               
         and str_rule gctx (ctx as (sctx, kctx, cctx, tctx)) (pn, e) =
@@ -801,9 +812,13 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         (* region calculations *)
 
+        fun get_region_long_id (_, (_, r)) = r
+
+        fun set_region_long_id (m, (x, _)) r = (m, (x, r))
+                                  
         fun get_region_i i =
             case i of
-                VarI (_, (_, r)) => r
+                VarI x => get_region_long_id x
               | ConstIN (_, r) => r
               | ConstIT (_, r) => r
               | UnOpI (_, _, r) => r
@@ -820,7 +835,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         fun set_region_i i r =
             case i of
-                VarI (m, (x, _)) => VarI (m, (x, r))
+                VarI x => VarI $ set_region_long_id x r
               | ConstIN (a, _) => ConstIN (a, r)
               | ConstIT (a, _) => ConstIT (a, r)
               | UnOpI (opr, i, _) => UnOpI (opr, i, r)
@@ -865,6 +880,11 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | Unit r => r
               | Prod (t1, t2) => combine_region (get_region_mt t1) (get_region_mt t2)
               | UniI (_, _, r) => r
+              | MtVar y => get_region_long_id y
+              | MtApp (t1, t2) => combine_region (get_region_mt t1) (get_region_mt t2)
+              | MtAbs (_, r) => r
+              | MtAppI (t, i) => combine_region (get_region_mt t) (get_region_i i)
+              | MtAbsI (_, _, r) => r
               | AppV (_, _, _, r) => r
               | BaseType (_, r) => r
               | UVar (_, r) => r
@@ -885,7 +905,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         fun get_region_e e = 
             case e of
-                Var ((_, (_, r)), _) => r
+                Var (x, _) => get_region_long_id x
               | Abs (pn, e) => combine_region (get_region_pn pn) (get_region_e e)
               | App (e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
               | TT r => r
@@ -896,7 +916,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | AppI (e, i) => combine_region (get_region_e e) (get_region_i i)
               | BinOp (_, e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
               | ConstInt (_, r) => r
-              | AppConstr (((_, (_, r)), _), _, e) => combine_region r (get_region_e e)
+              | AppConstr ((x, _), _, e) => combine_region (get_region_long_id x) (get_region_e e)
               | Case (_, _, _, r) => r
               | Never (_, r) => r
               | Let (_, _, _, r) => r
@@ -912,6 +932,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | Datatype (_, _, _, _, r) => r
               | IdxDef ((_, r), _, i) => combine_region r (get_region_i i)
               | AbsIdx (_, _, r) => r
+              | TypeDef ((_, r), t) => combine_region r $ get_region_mt t
+              | Open (_, r) => r
 
         fun is_value (e : expr) : bool =
             case e of
@@ -1014,6 +1036,14 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
             case bind of
                 BindI (name, inner) => BindI (name, f x n inner)
 
+        fun on_i_tbind f x n bind =
+            case bind of
+                Bind.Bind (name, inner) => Bind.Bind (name, f x n inner)
+
+        fun on_t_tbind f x n bind =
+            case bind of
+                Bind.Bind (name, inner) => Bind.Bind (name, f (x + 1) n inner)
+
         fun on_i_s on_i_p on_UVarS x n b =
             let
               fun f x n b =
@@ -1033,6 +1063,11 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                     | Unit r => Unit r
 	            | Prod (t1, t2) => Prod (f x n t1, f x n t2)
 	            | UniI (s, bind, r) => UniI (on_i_s x n s, on_i_ibind f x n bind, r)
+                    | MtVar y => MtVar y
+                    | MtApp (t1, t2) => MtApp (f x n t1, f x n t2)
+                    | MtAbs (bind, r) => MtAbs (on_i_tbind f x n bind, r)
+                    | MtAppI (t, i) => MtAppI (f x n t, on_i_i x n i)
+                    | MtAbsI (s, bind, r) => MtAbsI (on_i_s x n s, on_i_ibind f x n bind, r)
 	            | AppV (y, ts, is, r) => AppV (y, map (f x n) ts, map (on_i_i x n) is, r)
 	            | BaseType a => BaseType a
                     | UVar a => on_i_UVar UVar f x n a
@@ -1050,10 +1085,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               f x n b
             end
 
-        fun on_t_ibind f x n bind =
-            case bind of
-                BindI (name, inner) => BindI (name, f x n inner)
-
         fun on_t_mt on_v on_t_UVar x n b =
             let
               fun f x n b =
@@ -1062,6 +1093,11 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                     | Unit r => Unit r
 	            | Prod (t1, t2) => Prod (f x n t1, f x n t2)
 	            | UniI (s, bind, r) => UniI (s, on_t_ibind f x n bind, r)
+                    | MtVar (m, (y, r)) => MtVar (m, (on_v x n y, r))
+                    | MtApp (t1, t2) => MtApp (f x n t1, f x n t2)
+                    | MtAbs (bind, r) => MtAbs (on_t_tbind f x n bind, r)
+                    | MtAppI (t, i) => MtAppI (f x n t, i)
+                    | MtAbsI (s, bind, r) => MtAbsI (s, on_t_ibind f x n bind, r)
 	            | AppV ((m, (y, r1)), ts, is, r) => AppV ((m, (on_v x n y, r1)), map (f x n) ts, is, r)
 	            | BaseType a => BaseType a
                     | UVar a => on_t_UVar UVar f x n a
@@ -1181,6 +1217,14 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
             case bind of
                 BindI (name, inner) => BindI (name, f x (#shift_i s 1 v) inner)
 
+        fun substx_i_tbind f x (s : 'a shiftable) v bind =
+            case bind of
+                Bind.Bind (name, inner) => Bind.Bind (name, f x (#shift_t s 1 v) inner)
+
+        fun substx_t_tbind f x (s : 'a shiftable) v bind =
+            case bind of
+                Bind.Bind (name, inner) => Bind.Bind (name, f (x + 1) (#shift_t s 1 v) inner)
+
         local
           fun f x v b =
 	      case b of
@@ -1199,6 +1243,11 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 | Unit r => Unit r
 	        | Prod (t1, t2) => Prod (f x v t1, f x v t2)
 	        | UniI (s, bind, r) => UniI (substx_i_s x v s, substx_i_ibind f x idx_shiftable v bind, r)
+                | MtVar y => MtVar y
+                | MtApp (t1, t2) => MtApp (f x v t1, f x v t2)
+                | MtAbs (bind, r) => MtAbs (substx_i_tbind f x idx_shiftable v bind, r)
+                | MtAppI (t, i) => MtAppI (f x v t, substx_i_i x v i)
+                | MtAbsI (s, bind, r) => MtAbsI (substx_i_s x v s, substx_i_ibind f x idx_shiftable v bind, r)
 	        | AppV (y, ts, is, r) => AppV (y, map (f x v) ts, map (substx_i_i x v) is, r)
 	        | BaseType a => BaseType a
                 | UVar a => substx_i_UVar shiftx_i_mt shiftx_t_mt UVar f x v a
@@ -1218,7 +1267,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         end
 
         local
-          val value_shiftable : mtype shiftable = {
+          val mtype_shiftable : mtype shiftable = {
             shift_i = shiftx_i_mt 0,
             shift_t = shiftx_t_mt 0
           }
@@ -1228,12 +1277,19 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	          Arrow (t1, d, t2) => Arrow (f x v t1, d, f x v t2)
                 | Unit r => Unit r
 	        | Prod (t1, t2) => Prod (f x v t1, f x v t2)
-	        | UniI (s, bind, r) => UniI (s, substx_t_ibind f x value_shiftable v bind, r)
-                 | MtVar of long_id
-                 | MtApp of mtype * mtype
-                 | MtAbs of (name * mtype) tbind * region
-                 | MtAppI of mtype * idx
-                 | MtAbsI of sort * (name * mtype) ibind * region
+	        | UniI (s, bind, r) => UniI (s, substx_t_ibind f x mtype_shiftable v bind, r)
+                | MtVar (m, (y, r)) =>
+                  let
+                    fun make y =
+                        MtVar (m, (y, r))
+                  in
+                    substx_v make x (const v) y
+                  end
+                  
+                | MtApp (t1, t2) => MtApp (f x v t1, f x v t2)
+                | MtAbs (bind, r) => MtAbs (substx_t_tbind f x mtype_shiftable v bind, r)
+                | MtAppI (t, i) => MtAppI (f x v t, i)
+                | MtAbsI (s, bind, r) => MtAbsI (s, substx_t_ibind f x mtype_shiftable v bind, r)
 	        | AppV ((m, (y, r)), ts, is, r2) =>
                   let
                     fun get_v () =
