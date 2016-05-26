@@ -58,6 +58,7 @@ fun mapPair (fa, fb) (a, b) = (fa a, fb b)
 fun curry f a b = f (a, b)
 fun uncurry f (a, b) = f a b
 fun swap f (a, b) = f (b, a)
+fun flip f a b = f b a
 fun upd4 f (a, b, c, d) = (a, b, c, f d)
 
 (* fun add_idx ls = ListPair.zip (range (length ls), ls) *)
@@ -72,6 +73,21 @@ fun findWithIdx f xs =
                 SOME (base, x)
               else
                 loop (base + 1) xs
+    in
+      loop 0 xs
+    end
+      
+fun findOptionWithIdx f xs =
+    let
+      fun loop base xs =
+          case xs of
+              [] => NONE
+            | x :: xs =>
+              case f (base, x) of
+                  SOME a =>
+                  SOME a
+                | NONE =>
+                  loop (base + 1) xs
     in
       loop 0 xs
     end

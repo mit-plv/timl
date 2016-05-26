@@ -7,6 +7,18 @@ exception Error of region * string
 
 infixr 0 $
 
+(* sorting context *)
+type scontext = string list
+(* kinding context *)
+(* type kinding = kind *)
+type kcontext = string list 
+(* constructor context *)
+type ccontext = (string * string list) list
+(* typing context *)
+type tcontext = string list
+type context = scontext * kcontext * ccontext * tcontext
+type sigcontext = (string * context) list
+                                                  
 local
 
   fun runError m _ =
@@ -15,22 +27,48 @@ local
       Error e => Failed e
 
   (* fun find_idx (x : string) ctx = find_by_snd_eq op= x (add_idx ctx) *)
-  fun find_idx (x : string) ctx = Option.map fst $ findWithIdx (fn (_, y) => y = x) ctx
-  fun find_idx_value (x : string) ctx = Option.map (fn (i, (_, v)) => (i, v)) $ findWithIdx (fn (_, (y, _)) => y = x) ctx
+  fun is_eq_snd x (i, y) = if y = x then SOME i else NONE
+  fun find_idx (x : string) ctx = findOptionWithIdx (is_eq_snd x) ctx
+  fun is_eq_fst_snd x (i, (y, v)) = if y = x then SOME (i, v) else NONE
+  fun find_idx_value (x : string) ctx = findOptionWithIdx (is_eq_fst_snd x) ctx
 
   fun on_id ctx (x, r) =
       case find_idx x ctx of
 	  SOME i => (i, r)
 	| NONE => raise Error (r, "Unbound variable " ^ x ^ sprintf " in context: $" [join " " $ rev ctx])
 
-  fun on_long_id gctx ctx (m, x) = (Option.map (on_id gctx) m, on_id ctx x)
-                                     
-  fun on_idx gctx ctx i =
+  fun opt_bind a b =
+      case a of
+          NONE => NONE
+        | SOME a => b a
+  fun opt_return a = SOME a
+                      
+  fun find_long_id gctx sel eq ctx (m, (x, xr)) =
+      case m of
+          NONE =>
+          opt_bind (findOptionWithIdx (eq x) ctx)
+                      (fn x => opt_return (NONE, (x, xr)))
+        | SOME (m, mr) =>
+          opt_bind (find_idx_value m gctx)
+                      (fn (m, sg) =>
+                          opt_bind (findOptionWithIdx (eq x) $ sel sg)
+                                      (fn x => opt_return (SOME (m, mr), (x, xr))))
+      
+  fun on_long_id gctx sel ctx x =
+      case find_long_id gctx sel is_eq_snd ctx x of
+          SOME x => x
+	| NONE => raise Error (E.get_region_long_id x, sprintf "Unbound variable $ in context: $" [E.str_long_id [] [] x, join " " $ rev $ ctx @ map fst gctx])
+                        
+  fun find_constr (gctx : sigcontext) ctx x =
+      flip Option.map (find_long_id gctx #3 is_eq_fst_snd ctx x)
+           (fn (m, ((i, inames), xr)) => ((m, (i, xr)), inames))
+      
+  fun on_idx (gctx : sigcontext) ctx i =
       let
         val on_idx = on_idx gctx
       in
       case i of
-	  E.VarI x => VarI (on_long_id gctx ctx x)
+	  E.VarI x => VarI (on_long_id gctx #1 ctx x)
 	| E.ConstIN n => ConstIN n
 	| E.ConstIT c => ConstIT c
         | E.UnOpI (opr, i, r) => UnOpI (opr, on_idx ctx i, r)
@@ -86,7 +124,7 @@ local
         | E.Unit r => Unit r
 	| E.Prod (t1, t2) => Prod (on_mtype ctx t1, on_mtype ctx t2)
 	| E.UniI (s, E.Bind ((name, r), t), r_all) => UniI (on_sort gctx sctx s, Bind ((name, r), on_mtype (name :: sctx, kctx) t), r_all)
-	| E.AppV (x, ts, is, r) => AppV (on_long_id gctx kctx x, map (on_mtype ctx) ts, map (on_idx gctx sctx) is, r)
+	| E.AppV (x, ts, is, r) => AppV (on_long_id gctx #2 kctx x, map (on_mtype ctx) ts, map (on_idx gctx sctx) is, r)
 	| E.BaseType (bt, r) => BaseType (bt, r)
         | E.UVar u => UVar u
       end
@@ -105,9 +143,9 @@ local
         val on_ptrn = on_ptrn gctx
       in
       case pn of
-	  E.ConstrP (((x, xr), eia), inames, pn, r) =>
-          (case find_idx_value x cctx of
-	       SOME (i, c_inames) =>
+	  E.ConstrP ((x, eia), inames, pn, r) =>
+          (case find_constr gctx cctx x of
+	       SOME (x, c_inames) =>
                let
                  val inames =
                      if eia then
@@ -116,13 +154,15 @@ local
                        if length inames = 0 then map (prefix "__") c_inames
                        else raise Error (r, "Constructor pattern can't have explicit index pattern arguments. Use [@constructor_name] if you want to write explict index pattern arguments.")
                in
-                 ConstrP (((i, xr), true), inames, Option.map (on_ptrn ctx) pn, r)
+                 ConstrP ((x, true), inames, Option.map (on_ptrn ctx) pn, r)
                end
 	     | NONE =>
-               (case (eia, inames, pn) of
-                    (false, [], NONE) => VarP (x, r)
+               (case (fst x, eia, inames, pn) of
+                    (NONE, false, [], NONE) => VarP $ snd x
                   | _ =>
-                    raise Error (r, "Unknown constructor " ^ x)))
+                    raise Error (E.get_region_long_id x, "Unknown constructor " ^ E.str_long_id [] [] x)
+               )
+          )
         | E.VarP name =>
           VarP name
         | E.PairP (pn1, pn2) =>
@@ -132,17 +172,17 @@ local
         | E.AliasP (name, pn, r) =>
           AliasP (name, on_ptrn ctx pn, r)
         | E.AnnoP (pn, t) =>
-          AnnoP (on_ptrn ctx pn, on_mtype (sctx, kctx) t)
+          AnnoP (on_ptrn ctx pn, on_mtype gctx (sctx, kctx) t)
       end
 
   fun on_ibinds on_anno on_inner ctx ibinds =
       case ibinds of
-          E.BindNil inner => BindNil (on_inner ctx inner)
-        | E.BindCons (anno, E.Bind (name, ibinds)) =>
+          BindNil inner => BindNil (on_inner ctx inner)
+        | BindCons (anno, E.Bind (name, ibinds)) =>
           BindCons (on_anno ctx anno, Bind (name, on_ibinds on_anno on_inner (name :: ctx) ibinds))
 
-  fun on_constr_core (ctx as (sctx, kctx)) tnames (ibinds : E.constr_core) : constr_core =
-      on_ibinds on_sort (fn sctx => fn (t, is) => (on_mtype (sctx, rev tnames @ kctx) t, map (on_idx sctx) is)) sctx ibinds
+  fun on_constr_core gctx (ctx as (sctx, kctx)) tnames (ibinds : E.constr_core) : constr_core =
+      on_ibinds (on_sort gctx) (fn sctx => fn (t, is) => (on_mtype gctx (sctx, rev tnames @ kctx) t, map (on_idx gctx sctx) is)) sctx ibinds
 
   fun on_constr (ctx as (sctx, kctx)) ((family, tnames, core) : E.constr) : constr =
       (#1 (on_id kctx (family, dummy_region)),
