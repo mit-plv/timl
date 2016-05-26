@@ -69,30 +69,41 @@ local
         | E.Quan (q, bs, (name, r), p, r_all) => Quan (on_quan q, on_bsort bs, (name, r), on_prop (name :: ctx) p, r_all)
       end
 
-  fun on_ibind f ctx (E.BindI ((name, r), inner)) = BindI ((name, r), f (name :: ctx) inner)
+  fun on_ibind f ctx (E.Bind ((name, r), inner)) = Bind ((name, r), f (name :: ctx) inner)
 
-  fun on_sort ctx s =
+  fun on_sort gctx ctx s =
       case s of
 	  E.Basic (s, r) => Basic (on_bsort s, r)
-	| E.Subset ((s, r1), E.BindI ((name, r), p), r_all) => Subset ((on_bsort s, r1), BindI ((name, r), on_prop (name :: ctx) p), r_all)
+	| E.Subset ((s, r1), Bind ((name, r), p), r_all) => Subset ((on_bsort s, r1), Bind ((name, r), on_prop gctx (name :: ctx) p), r_all)
         | E.UVarS u => UVarS u
 
-  fun on_mtype (ctx as (sctx, kctx)) t =
+  fun on_mtype gctx (ctx as (sctx, kctx)) t =
+      let
+        val on_mtype = on_mtype gctx
+      in
       case t of
-	  E.Arrow (t1, d, t2) => Arrow (on_mtype ctx t1, on_idx sctx d, on_mtype ctx t2)
+	  E.Arrow (t1, d, t2) => Arrow (on_mtype ctx t1, on_idx gctx sctx d, on_mtype ctx t2)
         | E.Unit r => Unit r
 	| E.Prod (t1, t2) => Prod (on_mtype ctx t1, on_mtype ctx t2)
-	| E.UniI (s, E.BindI ((name, r), t), r_all) => UniI (on_sort sctx s, BindI ((name, r), on_mtype (name :: sctx, kctx) t), r_all)
-	| E.AppV (x, ts, is, r) => AppV (on_id kctx x, map (on_mtype ctx) ts, map (on_idx sctx) is, r)
+	| E.UniI (s, E.Bind ((name, r), t), r_all) => UniI (on_sort gctx sctx s, Bind ((name, r), on_mtype (name :: sctx, kctx) t), r_all)
+	| E.AppV (x, ts, is, r) => AppV (on_long_id gctx kctx x, map (on_mtype ctx) ts, map (on_idx gctx sctx) is, r)
 	| E.BaseType (bt, r) => BaseType (bt, r)
         | E.UVar u => UVar u
+      end
 
-  fun on_type (ctx as (sctx, kctx)) t =
+  fun on_type gctx (ctx as (sctx, kctx)) t =
+      let
+        val on_type = on_type gctx
+      in
       case t of
-	  E.Mono t => Mono (on_mtype ctx t)
-	| E.Uni ((name, r), t, r_all) => Uni ((name, r), on_type (sctx, name :: kctx) t, r_all)
-
-  fun on_ptrn (ctx as (sctx, kctx, cctx)) pn =
+	  E.Mono t => Mono (on_mtype gctx ctx t)
+	| E.Uni (Bind ((name, r), t), r_all) => Uni (Bind ((name, r), on_type (sctx, name :: kctx) t), r_all)
+      end
+        
+  fun on_ptrn gctx (ctx as (sctx, kctx, cctx)) pn =
+      let
+        val on_ptrn = on_ptrn gctx
+      in
       case pn of
 	  E.ConstrP (((x, xr), eia), inames, pn, r) =>
           (case find_idx_value x cctx of
@@ -122,12 +133,13 @@ local
           AliasP (name, on_ptrn ctx pn, r)
         | E.AnnoP (pn, t) =>
           AnnoP (on_ptrn ctx pn, on_mtype (sctx, kctx) t)
+      end
 
   fun on_ibinds on_anno on_inner ctx ibinds =
       case ibinds of
-          E.NilIB inner => NilIB (on_inner ctx inner)
-        | E.ConsIB (anno, E.BindI (name, ibinds)) =>
-          ConsIB (on_anno ctx anno, BindI (name, on_ibinds on_anno on_inner (name :: ctx) ibinds))
+          E.BindNil inner => BindNil (on_inner ctx inner)
+        | E.BindCons (anno, E.Bind (name, ibinds)) =>
+          BindCons (on_anno ctx anno, Bind (name, on_ibinds on_anno on_inner (name :: ctx) ibinds))
 
   fun on_constr_core (ctx as (sctx, kctx)) tnames (ibinds : E.constr_core) : constr_core =
       on_ibinds on_sort (fn sctx => fn (t, is) => (on_mtype (sctx, rev tnames @ kctx) t, map (on_idx sctx) is)) sctx ibinds

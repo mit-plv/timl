@@ -73,7 +73,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         open Operators
         open UVar
         open Region
-        open ExprUtil
+        (* open ExprUtil *)
+        open Bind
 
         type id = var * region
         type name = string * region
@@ -90,6 +91,13 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                                  
         type long_id = mod_projectible option * id
                                                   
+        type 'body ibind = 'body bind
+        type 'body tbind = 'body bind
+        type ('classifier, 'name, 'inner) ibinds = ('classifier, 'name, 'inner) binds
+        type ('classifier, 'name, 'inner) tbinds = ('classifier, 'name, 'inner) binds
+        val unfold_ibinds = unfold_binds
+        val fold_ibinds = fold_binds
+                              
         datatype idx =
 	         VarI of long_id
 	         | ConstIT of string * region
@@ -137,11 +145,10 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  | MtAppI of mtype * idx
                  | MtAbsI of sort * (name * mtype) ibind * region
                  | AppV of long_id * mtype list * idx list * region (* the first operant of App can only be a type variable. The degenerated case of no-arguments is also included *)
-                                                               withtype 'body tbind = (mtype, 'body) Bind.bind
 
         datatype ty = 
 	         Mono of mtype
-	         | Uni of name * ty * region
+	         | Uni of (name * ty) tbind * region
 
         type constr_core = (sort, string, mtype * idx list) ibinds
         type constr_decl = string * constr_core * region
@@ -279,7 +286,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                               
         fun collect_UniI t =
             case t of
-                UniI (s, BindI ((name, _), t), _) =>
+                UniI (s, Bind ((name, _), t), _) =>
                 let val (binds, t) = collect_UniI t
                 in
                   ((name, s) :: binds, t)
@@ -288,7 +295,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         fun collect_Uni t =
             case t of
-                Uni (name, t, _) =>
+                Uni (Bind (name, t), _) =>
                 let val (names, t) = collect_Uni t
                 in
                   (name :: names, t)
@@ -301,9 +308,9 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               val ts = (map (fn x => VarT (x, dummy)) o rev o range o length) tnames
 	      val t2 = AppV ((m, (shiftx_v 0 (length tnames) family, dummy)), ts, is, dummy)
 	      val t = Arrow (t, T0 dummy, t2)
-	      val t = foldr (fn ((name, s), t) => UniI (s, BindI ((name, dummy), t), dummy)) t ns
+	      val t = foldr (fn ((name, s), t) => UniI (s, Bind ((name, dummy), t), dummy)) t ns
               val t = Mono t
-	      val t = foldr (fn (name, t) => Uni ((name, dummy), t, dummy)) t tnames
+	      val t = foldr (fn (name, t) => Uni (Bind ((name, dummy), t), dummy)) t tnames
             in
 	      t
             end
@@ -514,7 +521,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
             in
               case s of
                   Basic (bs, _) => str_bs bs
-                | Subset ((bs, _), (BindI ((name, _), p)), _) =>
+                | Subset ((bs, _), (Bind ((name, _), p)), _) =>
                   let
                     fun default () = sprintf "{ $ : $ | $ }" [name, str_bs bs, str_p gctx (name :: ctx) p]
                   in
@@ -586,9 +593,9 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                   end
                 | MtVar x => str_long_id gctx kctx x
                 | MtApp (t1, t2) => sprintf "($ $)" [str_mt ctx t1, str_mt ctx t2]
-                | MtAbs (Bind.Bind ((name, _), t), _) => sprintf "(fn [$] => $)" [name, str_mt (sctx, name :: kctx) t]
+                | MtAbs (Bind ((name, _), t), _) => sprintf "(fn [$] => $)" [name, str_mt (sctx, name :: kctx) t]
                 | MtAppI (t, i) => sprintf "($ $)" [str_mt ctx t, str_i gctx sctx i]
-                | MtAbsI (s, BindI ((name, _), t), _) => sprintf "(fn {$ : $} => $)" [name, str_s gctx sctx s, str_mt (name :: sctx, kctx) t]
+                | MtAbsI (s, Bind ((name, _), t), _) => sprintf "(fn {$ : $} => $)" [name, str_s gctx sctx s, str_mt (name :: sctx, kctx) t]
                 | AppV (x, ts, is, _) => 
                   if null ts andalso null is then
 	            str_long_id gctx kctx x
@@ -892,7 +899,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         fun get_region_t t = 
             case t of
                 Mono t => get_region_mt t
-              | Uni (_, _, r) => r
+              | Uni (_, r) => r
 
         fun get_region_pn pn = 
             case pn of
@@ -1030,19 +1037,19 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         fun on_i_ibind f x n bind =
             case bind of
-                BindI (name, inner) => BindI (name, f (x + 1) n inner)
+                Bind (name, inner) => Bind (name, f (x + 1) n inner)
 
         fun on_t_ibind f x n bind =
             case bind of
-                BindI (name, inner) => BindI (name, f x n inner)
+                Bind (name, inner) => Bind (name, f x n inner)
 
         fun on_i_tbind f x n bind =
             case bind of
-                Bind.Bind (name, inner) => Bind.Bind (name, f x n inner)
+                Bind (name, inner) => Bind (name, f x n inner)
 
         fun on_t_tbind f x n bind =
             case bind of
-                Bind.Bind (name, inner) => Bind.Bind (name, f (x + 1) n inner)
+                Bind (name, inner) => Bind (name, f (x + 1) n inner)
 
         fun on_i_s on_i_p on_UVarS x n b =
             let
@@ -1080,7 +1087,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               fun f x n b =
 	          case b of
 	              Mono t => Mono (on_i_mt x n t)
-	            | Uni (name, t, r) => Uni (name, f x n t, r)
+	            | Uni (bind, r) => Uni (on_i_tbind f x n bind, r)
             in
               f x n b
             end
@@ -1110,7 +1117,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               fun f x n b =
 	          case b of
 	              Mono t => Mono (on_t_mt x n t)
-	            | Uni (name, t, r) => Uni (name, f (x + 1) n t, r)
+	            | Uni (bind, r) => Uni (on_t_tbind f x n bind, r)
             in
               f x n b
             end
@@ -1209,21 +1216,26 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
           shift_t = shift_id
         }
 
+        val mtype_shiftable : mtype shiftable = {
+          shift_i = shiftx_i_mt 0,
+          shift_t = shiftx_t_mt 0
+        }
+
         fun substx_i_ibind f x (s : 'a shiftable) v bind =
             case bind of
-                BindI (name, inner) => BindI (name, f (x + 1) (#shift_i s 1 v) inner)
+                Bind (name, inner) => Bind (name, f (x + 1) (#shift_i s 1 v) inner)
 
         fun substx_t_ibind f x (s : 'a shiftable) v bind =
             case bind of
-                BindI (name, inner) => BindI (name, f x (#shift_i s 1 v) inner)
+                Bind (name, inner) => Bind (name, f x (#shift_i s 1 v) inner)
 
         fun substx_i_tbind f x (s : 'a shiftable) v bind =
             case bind of
-                Bind.Bind (name, inner) => Bind.Bind (name, f x (#shift_t s 1 v) inner)
+                Bind (name, inner) => Bind (name, f x (#shift_t s 1 v) inner)
 
         fun substx_t_tbind f x (s : 'a shiftable) v bind =
             case bind of
-                Bind.Bind (name, inner) => Bind.Bind (name, f (x + 1) (#shift_t s 1 v) inner)
+                Bind (name, inner) => Bind (name, f (x + 1) (#shift_t s 1 v) inner)
 
         local
           fun f x v b =
@@ -1260,18 +1272,13 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
           fun f x v b =
 	      case b of
 	          Mono t => Mono (substx_i_mt x v t)
-	        | Uni (name, t, r) => Uni (name, f x v t, r)
+	        | Uni (bind, r) => Uni (substx_i_tbind f x idx_shiftable v bind, r)
         in
         fun substx_i_t x (v : idx) (b : ty) : ty = f x v b
         fun subst_i_t (v : idx) (b : ty) : ty = substx_i_t 0 v b
         end
 
         local
-          val mtype_shiftable : mtype shiftable = {
-            shift_i = shiftx_i_mt 0,
-            shift_t = shiftx_t_mt 0
-          }
-
           fun f x v (b : mtype) : mtype =
 	      case b of
 	          Arrow (t1, d, t2) => Arrow (f x v t1, d, f x v t2)
@@ -1316,23 +1323,23 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         fun substx_t_t x (v : mtype) (b : ty) : ty =
             case b of
                 Mono t => Mono (substx_t_mt x v t)
-              | Uni (name, t, r) => Uni (name, substx_t_t (x + 1) (shift_t_mt v) t, r)
+              | Uni (bind, r) => Uni (substx_t_tbind substx_t_t x mtype_shiftable v bind, r)
         fun subst_t_t v b =
             substx_t_t 0 v b
 
         fun on_i_ibinds on_anno on_inner x n ibinds =
             case ibinds of
-                NilIB inner => 
-                NilIB (on_inner x n inner)
-              | ConsIB (anno, bind) =>
-                ConsIB (on_anno x n anno, on_i_ibind (on_i_ibinds on_anno on_inner) x n bind)
+                BindNil inner => 
+                BindNil (on_inner x n inner)
+              | BindCons (anno, bind) =>
+                BindCons (on_anno x n anno, on_i_ibind (on_i_ibinds on_anno on_inner) x n bind)
 
         fun on_t_ibinds on_anno on_inner x n ibinds =
             case ibinds of
-                NilIB inner => 
-                NilIB (on_inner x n inner)
-              | ConsIB (anno, bind) =>
-                ConsIB (on_anno x n anno, on_t_ibind (on_t_ibinds on_anno on_inner) x n bind)
+                BindNil inner => 
+                BindNil (on_inner x n inner)
+              | BindCons (anno, bind) =>
+                BindCons (on_anno x n anno, on_t_ibind (on_t_ibinds on_anno on_inner) x n bind)
 
         fun shiftx_pair (f, g) x n (a, b) = (f x n a, g x n b)
         fun shiftx_list f x n ls = map (f x n) ls
@@ -2048,8 +2055,8 @@ else
 
         fun simp_vc (ctx, ps, p, r) = (ctx, map simp_p ps, simp_p p, r)
 
-        fun simp_ibind f (BindI (name, inner)) = BindI (name, f inner)
-        fun simp_tbind f (Bind.Bind (name, inner)) = Bind.Bind (name, f inner)
+        fun simp_ibind f (Bind (name, inner)) = Bind (name, f inner)
+        fun simp_tbind f (Bind (name, inner)) = Bind (name, f inner)
 
         fun simp_s s =
             case s of
@@ -2075,7 +2082,7 @@ else
         fun simp_t t =
 	    case t of
 	        Mono t => Mono (simp_mt t)
-	      | Uni (name, t, r) => Uni (name, simp_t t, r)
+	      | Uni (Bind (name, t), r) => Uni (Bind (name, simp_t t), r)
 
         end
 

@@ -4,11 +4,11 @@ infixr 0 $
 
 (* a series of dependent binds ({name1 : classifier1} {name2 : classifier2} {name3 : classifier3}, inner) *)
          
-datatype ('classifier, 'body) bind = Bind of 'body
+datatype 'body bind = Bind of 'body
 
 datatype ('classifier, 'name, 'inner) binds =
          BindNil of 'inner
-         | BindCons of 'classifier * ('classifier, 'name * ('classifier, 'name, 'inner) binds) bind
+         | BindCons of 'classifier * ('name * ('classifier, 'name, 'inner) binds) bind
 
 fun unfold_binds binds =
     case binds of
@@ -25,7 +25,7 @@ fun fold_binds (binds, inner) =
 fun binds_length binds = length $ fst $ unfold_binds binds
                                   
 end
-
+(*
 structure ExprUtil = struct
 open Util
 infixr 0 $
@@ -53,3 +53,4 @@ fun ibinds_length ibinds = length $ fst $ unfold_ibinds ibinds
                                   
 end
 
+*)
