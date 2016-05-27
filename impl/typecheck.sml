@@ -642,7 +642,7 @@ val get_outmost_module = id
 
 fun lookup_module gctx m = nth_error (List.mapPartial (fn (_, sg) => case sg of Sig sg => SOME sg | _ => NONE) gctx) m
                                      
-fun fetch_from_module (params as (shift, do_fetch)) (* sigs *) gctx ((m, mr), x) =
+fun fetch_from_module (params as (shift, package, do_fetch)) (* sigs *) gctx ((m, mr), x) =
     let
       (* val fetch_from_module = fetch_from_module params (* sigs *) *)
       (* fun fetch_from_module_or_ctx gctx ctx (m, x) = *)
@@ -657,21 +657,22 @@ fun fetch_from_module (params as (shift, do_fetch)) (* sigs *) gctx ((m, mr), x)
       val v = do_fetch (ctx, x)
       (* val v = package 0 (length gctx) v *)
       val v = shift 0 (m + 1) v
+      val v = package (m, mr) v
     in
       v
     end
       
-fun generic_fetch shift do_fetch sel (ggctx as ((* sigs,  *)gctx)) (fctx, (m, x)) =
+fun generic_fetch shift package do_fetch sel (ggctx as ((* sigs,  *)gctx)) (fctx, (m, x)) =
     case m of
         NONE => do_fetch (fctx, x)
-      | SOME m => fetch_from_module (shift, do_fetch o mapFst sel) (* sigs *) gctx (m, x)
+      | SOME m => fetch_from_module (shift, package, do_fetch o mapFst sel) (* sigs *) gctx (m, x)
 
 fun do_fetch_sort (ctx, (x, r)) =
     case lookup_sort x ctx of
       	SOME s => s
       | NONE => raise Error (r, ["Unbound index variable: " ^ str_v (sctx_names ctx) x])
 
-fun fetch_sort a = generic_fetch shiftx_m_s do_fetch_sort #1 a
+fun fetch_sort a = generic_fetch shiftx_m_s package_s do_fetch_sort #1 a
                                
 fun is_wf_sort gctx (ctx : scontext, s : U.sort) : sort =
     let
@@ -973,7 +974,7 @@ fun do_fetch_kind (kctx, (a, r)) =
       	SOME k => k
       | NONE => raise Error (r, ["Unbound type variable: " ^ str_v (names kctx) a])
 
-fun fetch_kind a = generic_fetch shiftx_m_k do_fetch_kind #2 a
+fun fetch_kind a = generic_fetch shiftx_m_k package_kind do_fetch_kind #2 a
 
 (* could also be named 'check_kind_Type' *)
 fun is_wf_mtype gctx (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype) : mtype = 
@@ -1043,16 +1044,18 @@ fun smart_max a b =
 
 fun smart_max_list ds = foldl' (fn (d, ds) => smart_max ds d) (T0 dummy) ds
 
-fun fetch_constr (ctx, (x, r)) =
+fun do_fetch_constr (ctx, (x, r)) =
     case nth_error ctx x of
-	SOME (name, c) => (name, c)
+	SOME (_, c) => c
       | NONE => raise Error (r, [sprintf "Unbound constructor: $" [str_v (names ctx) x]])
 
-fun fetch_constr_type (ctx : ccontext, cx) =
-    let val (cname, c) = fetch_constr (ctx, cx)
+fun fetch_constr a = generic_fetch shiftx_m_c package_c do_fetch_constr #3 a
+                      
+fun fetch_constr_type gctx (ctx : ccontext, x) =
+    let val c = fetch_constr gctx (ctx, x)
 	val t = constr_type VarT shiftx_v c
     in
-      (cname, t)
+      t
     end
 
 (* redundancy and exhaustiveness checking *)
@@ -1101,16 +1104,26 @@ local
 
   fun impossible s = Impossible $ "cover has the wrong type: " ^ s
 
-  fun get_family (x : constr) = #1 x
-
   (* fun get_family_members cctx x = *)
   (*   (rev o List.mapPartial (fn (n, (_, c)) => if get_family c = x then SOME n else NONE) o add_idx) cctx *)
-  fun get_family_members cctx x =
-      (rev o map fst o mapPartialWithIdx (fn (n, (_, c)) => if get_family c = x then SOME () else NONE)) cctx
-
-  fun cover_neg (ctx as (_, kctx, cctx)) (t : mtype) c =
+  fun get_family_members gctx cctx (m, (x, _)) =
       let
-        fun neg t c = cover_neg ctx t c
+        fun get_family (c : constr) =
+            case #1 c of
+                (_, (x, _)) => x
+        val cctx = case m of
+                       NONE => cctx
+                     | SOME (m, mr) =>
+                       case lookup_module gctx m of
+                           SOME ctx => #3 ctx
+                         | NONE => raise Impossible "get_family_member ()"
+      in
+        (rev o map fst o mapPartialWithIdx (fn (n, (_, c)) => if get_family c = x then SOME () else NONE)) cctx
+      end
+
+  fun cover_neg gctx (ctx as (sctx, kctx, cctx)) (t : mtype) c =
+      let
+        val neg = cover_neg gctx ctx
         (* val t = update_mt t *)
         val t = hnf_mt t
       in
@@ -1129,18 +1142,18 @@ local
                | _ => raise impossible "cover_neg()/PairC")
           | c_all as ConstrC (x, c) =>
 	    (case t of
-	         AppV ((family, _), ts, _, _) =>
+	         AppV (family as (m, _), ts, _, _) =>
 	         let
-                   val all = get_family_members cctx family
+                   val all = get_family_members gctx cctx family
 		   val others = diff op= all [x]
-                   val (_, (_, _, ibinds)) = fetch_constr (cctx, (x, dummy))
+                   val (_, _, ibinds) = fetch_constr gctx (cctx, (m, (x, dummy)))
                    val (_, (t', _)) = unfold_ibinds ibinds
 		   val t' = subst_ts_mt ts t'
                    val covers = ConstrC (x, neg t' c) :: map (fn y => ConstrC (y, TrueC)) others
 	         in
                    combine_covers covers
 	         end
-	       | _ => raise impossible $ sprintf "cover_neg()/ConstrC:  cover is $ but type is " [str_cover (names cctx) c_all, str_mt ([], names kctx) t])
+	       | _ => raise impossible $ sprintf "cover_neg()/ConstrC:  cover is $ but type is " [str_cover (names cctx) c_all, str_mt (names gctx) (sctx_names sctx, names kctx) t])
       end
 
   (* fun cover_imply cctx t (a, b) : cover = *)
@@ -1148,7 +1161,7 @@ local
 
   (* find habitant
        deep: when turned on, [find_hab] try to find a [ConstrH] for a datatype when constraints are empty (treat empty datatype as uninhabited); otherwise only return [TrueH] in such case (treat empty datatype as inhabited) *)
-  fun find_hab deep (ctx as (sctx, kctx, cctx)) (t : mtype) cs =
+  fun find_hab deep gctx (ctx as (sctx, kctx, cctx)) (t : mtype) cs =
       let
         (* fun sum ls = foldl' op+ 0 ls *)
         (* fun cover_size c = *)
@@ -1259,11 +1272,11 @@ local
                       (* val () = Debug.println (sprintf "Empty constraints now. Now try to find any inhabitant of type $" [str_mt (sctx_names sctx, names kctx) t]) *)
                     in
                       case t of
-                          AppV (tx as (family, _), _, _, _) =>
-                          (case fetch_kind (kctx, tx) of
+                          AppV (family, _, _, _) =>
+                          (case fetch_kind gctx (kctx, family) of
                                ArrowK (true, _, _) =>
 	                       let
-                                 val all = get_family_members cctx family
+                                 val all = get_family_members gctx cctx family
                                in
                                  case all of x :: _ => ConstrH (x, TrueH) | [] => raise Incon "empty datatype"
                                end
@@ -1313,7 +1326,7 @@ local
                                  else
                                    inr (dissident, c :: remove i cs, t)
                             )
-                          | (ConstrC (x, c'), AppV ((family, _), ts, _, _)) =>
+                          | (ConstrC (x, c'), AppV ((m, _), ts, _, _)) =>
                             let
                               fun same_constr c =
                                   case c of
@@ -1327,7 +1340,7 @@ local
                               case allSome same_constr cs of
                                   OK cs' =>
                                   let
-                                    val (_, (_, _, ibinds)) = fetch_constr (cctx, (x, dummy))
+                                    val (_, _, ibinds) = fetch_constr gctx (cctx, (m, (x, dummy)))
                                     val (_, (t', _)) = unfold_ibinds ibinds
 		                    val t' = subst_ts_mt ts t'
                                     (* val () = (* Debug. *)println (sprintf "All are $, now try to satisfy $" [str_v (names cctx) x, (join ", " o map (str_cover (names cctx))) (c' :: cs')]) *)
@@ -1362,20 +1375,20 @@ local
 
 in              
 
-fun any_missing deep ctx t c =
+fun any_missing deep gctx ctx t c =
     let
       (* val t = update_mt t *)
-      val nc = cover_neg ctx t c
+      val nc = cover_neg gctx ctx t c
       (* val () = println "after cover_neg()" *)
       (* val () = (* Debug. *)println (str_cover (names (#3 ctx)) nc) *)
       (* val () = println "before find_hab()" *)
-      val ret = find_hab deep ctx t [nc]
+      val ret = find_hab deep gctx ctx t [nc]
                          (* val () = println "after find_hab()" *)
     in
       ret
     end
 
-fun is_redundant (ctx, t, prevs, this) =
+fun is_redundant gctx (ctx, t, prevs, this) =
     let
       (* fun is_covered ctx t small big = *)
       (*     (isNull o (* (trace "after any_missing()") o *) any_missing true(*treat empty datatype as uninhabited*) ctx t o (* (trace "after cover_imply()") o *) cover_imply ctx t) (small, big) *)
@@ -1383,7 +1396,7 @@ fun is_redundant (ctx, t, prevs, this) =
       val prev = combine_covers prevs
       (* val () = println "after combine_covers()" *)
       (* val something_new = not (is_covered ctx t this prev) *)
-      val something_new = isSome $ find_hab true(*treat empty datatype as uninhabited*) ctx t $ [this, cover_neg ctx t prev]                                  
+      val something_new = isSome $ find_hab true(*treat empty datatype as uninhabited*) gctx ctx t $ [this, cover_neg gctx ctx t prev]                                  
                                  (* val () = println "after is_covered()" *)
     in
       something_new
@@ -1750,14 +1763,14 @@ fun get_mtype (* ggctx *) (ctx as (sctx : scontext, kctx : kcontext, cctx : ccon
 	      end
 	    | U.ConstInt n => 
 	      (ConstInt n, BaseType (Int, dummy), T0 dummy)
-	    | U.AppConstr ((cx as (_, rc), eia), is, e) => 
+	    | U.AppConstr ((x, eia), is, e) => 
 	      let 
-                val (cname, tc) = fetch_constr_type (cctx, cx)
+                val tc = fetch_constr_type gctx (cctx, x)
 		(* delegate to checking [cx {is} e] *)
 		val f = U.Var ((0, rc), eia)
 		val f = foldl (fn (i, e) => U.AppI (e, i)) f is
 		val e = U.App (f, U.Subst.shift_e_e e)
-		val (e, t, d) = get_mtype (add_typing_skct (cname, tc) ctx, e) 
+		val (e, t, d) = get_mtype (add_typing_skct ("__synthesized_constructor", tc) ctx, e) 
                 (* val () = println $ str_i sctxn d *)
                 val d = update_i d
                 val d = simp_i d

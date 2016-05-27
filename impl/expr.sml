@@ -152,7 +152,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         type constr_core = (sort, string, mtype * idx list) ibinds
         type constr_decl = string * constr_core * region
-        type constr = var * string list(*type argument names*) * constr_core
+        type constr = long_id(*family*) * string list(*type argument names*) * constr_core
 
         type return = mtype option * idx option
 
@@ -302,11 +302,11 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 end
               | Mono t => ([], t)
 
-        fun constr_type VarT shiftx_v m ((family, tnames, ibinds) : constr) = 
+        fun constr_type VarT shiftx_v (((m, (family, family_r)), tnames, ibinds) : constr) = 
             let 
               val (ns, (t, is)) = unfold_ibinds ibinds
-              val ts = (map (fn x => VarT (x, dummy)) o rev o range o length) tnames
-	      val t2 = AppV ((m, (shiftx_v 0 (length tnames) family, dummy)), ts, is, dummy)
+              val ts = (map (fn x => VarT (NONE, (x, dummy))) o rev o range o length) tnames
+	      val t2 = AppV ((m, (shiftx_v 0 (length tnames) family, family_r)), ts, is, dummy)
 	      val t = Arrow (t, T0 dummy, t2)
 	      val t = foldr (fn ((name, s), t) => UniI (s, Bind ((name, dummy), t), dummy)) t ns
               val t = Mono t
@@ -994,6 +994,112 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 | _ => ([], p)
             end
 
+        exception ModuleUVar
+
+        fun package_long_id m (m', x) =
+            (SOME $ default m m', x)
+              
+        fun package_i m b =
+            let
+              fun f b =
+	          case b of
+	              VarI x => VarI $ package_long_id m x
+	            | ConstIN n => ConstIN n
+	            | ConstIT x => ConstIT x
+                    | UnOpI (opr, i, r) => UnOpI (opr, f i, r)
+                    | DivI (i1, n2) => DivI (f i1, n2)
+                    | ExpI (i1, n2) => ExpI (f i1, n2)
+	            | BinOpI (opr, i1, i2) => BinOpI (opr, f i1, f i2)
+                    | Ite (i1, i2, i3, r) => Ite (f i1, f i2, f i3, r)
+	            | TTI r => TTI r
+	            | TrueI r => TrueI r
+	            | FalseI r => FalseI r
+                    | TimeAbs (name, i, r) => TimeAbs (name, f i, r)
+                    | AdmitI r => AdmitI r
+                    | UVarI a => raise ModuleUVar
+            in
+              f b
+            end
+
+        fun package_ibind f m bind =
+            case bind of
+                Bind (name, inner) => Bind (name, f m inner)
+
+        fun package_tbind f m bind =
+            case bind of
+                Bind (name, inner) => Bind (name, f m inner)
+
+        fun package_p m b =
+            let
+              fun f m b =
+                  case b of
+	              True r => True r
+	            | False r => False r
+                    | Not (p, r) => Not (f m p, r)
+	            | BinConn (opr, p1, p2) => BinConn (opr, f m p1, f m p2)
+	            | BinPred (opr, d1, d2) => BinPred (opr, package_i m d1, package_i m d2)
+                    | Quan (q, bs, bind, r) => Quan (q, bs, package_ibind f m bind, r)
+            in
+              f m b
+            end
+
+        fun package_s m b =
+            let
+              fun f m b =
+	          case b of
+	              Basic s => Basic s
+	            | Subset (s, bind, r) => Subset (s, package_ibind package_p m bind, r)
+                    | UVarS a => raise ModuleUVar
+            in
+              f m b
+            end
+
+        fun package_mt m b =
+            let
+              fun f m b =
+	          case b of
+	              Arrow (t1, d, t2) => Arrow (f m t1, package_i m d, f m t2)
+                    | Unit r => Unit r
+	            | Prod (t1, t2) => Prod (f m t1, f m t2)
+	            | UniI (s, bind, r) => UniI (package_s m s, package_ibind f m bind, r)
+                    | MtVar x => MtVar $ package_long_id m x
+                    | MtApp (t1, t2) => MtApp (f m t1, f m t2)
+                    | MtAbs (bind, r) => MtAbs (package_tbind f m bind, r)
+                    | MtAppI (t, i) => MtAppI (f m t, package_i m i)
+                    | MtAbsI (s, bind, r) => MtAbsI (package_s m s, package_ibind f m bind, r)
+	            | AppV (x, ts, is, r) => AppV (package_long_id m x, map (f m) ts, map (package_i m) is, r)
+	            | BaseType a => BaseType a
+                    | UVar a => raise ModuleUVar
+            in
+              f m b
+            end
+
+        fun package_t m b =
+            let
+              fun f m b =
+	          case b of
+	              Mono t => Mono (package_mt m t)
+	            | Uni (bind, r) => Uni (package_tbind f m bind, r)
+            in
+              f m b
+            end
+
+        fun package_kind m b =
+	    case b of
+	        ArrowK (is_datatype, n, sorts) => ArrowK (is_datatype, n, map (package_s m) sorts)
+
+        fun package_c m (family, tnames, core) =
+            let
+              val family = package_long_id m family
+              val (name_sorts, (t, is)) = unfold_binds core
+              val t = package_mt m t
+              val is = map (package_i m) is
+              val name_sorts = map (mapSnd $ package_s m) name_sorts
+              val core = fold_binds (name_sorts, (t, is))
+            in
+              (family, tnames, core)
+            end
+        
         structure Subst = struct
         open Util
                
@@ -1128,13 +1234,14 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               f x n b
             end
 
-        exception ModuleUVar
-                                  
+        fun on_m_long_id on_v x n (m, y) =
+            (Option.map (fn (m, r) => (on_v x n m, r)) m, y)
+              
         fun on_m_i on_v x n b =
             let
               fun f x n b =
 	          case b of
-	              VarI (m, y) => VarI (Option.map (fn (m, r) => (on_v x n m, r)) m, y)
+	              VarI y => VarI $ on_m_long_id on_v x n y
 	            | ConstIN n => ConstIN n
 	            | ConstIT x => ConstIT x
                     | UnOpI (opr, i, r) => UnOpI (opr, f x n i, r)
@@ -1193,12 +1300,12 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                     | Unit r => Unit r
 	            | Prod (t1, t2) => Prod (f x n t1, f x n t2)
 	            | UniI (s, bind, r) => UniI (on_m_s x n s, on_m_ibind f x n bind, r)
-                    | MtVar (m, y) => MtVar (Option.map (fn (m, r) => (on_v x n m, r)) m, y)
+                    | MtVar y => MtVar $ on_m_long_id on_v x n y
                     | MtApp (t1, t2) => MtApp (f x n t1, f x n t2)
                     | MtAbs (bind, r) => MtAbs (on_m_tbind f x n bind, r)
                     | MtAppI (t, i) => MtAppI (f x n t, on_m_i x n i)
                     | MtAbsI (s, bind, r) => MtAbsI (on_m_s x n s, on_m_ibind f x n bind, r)
-	            | AppV ((m, y), ts, is, r) => AppV ((Option.map (fn (m, r) => (on_v x n m, r)) m, y), map (f x n) ts, map (on_m_i x n) is, r)
+	            | AppV (y, ts, is, r) => AppV (on_m_long_id on_v x n y, map (f x n) ts, map (on_m_i x n) is, r)
 	            | BaseType a => BaseType a
                     | UVar a => raise ModuleUVar
             in
@@ -1321,11 +1428,11 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
           shift_t : int -> 'a -> 'a
         }
 
-        fun shift_id n v = v
+        fun shift_noop n v = v
 
         val idx_shiftable : idx shiftable = {
           shift_i = shiftx_i_i 0,
-          shift_t = shift_id
+          shift_t = shift_noop
         }
 
         fun substx_i_ibind f x (s : 'a shiftable) v bind =
@@ -1477,13 +1584,28 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         fun shift_i_c b = shiftx_i_c 0 1 b
 
-        fun shiftx_id x n b = b
+        fun shiftx_noop x n b = b
 
-        fun shiftx_t_c x n ((family, tnames, ibinds) : constr) : constr =
-            (shiftx_v x n family, 
+        fun shiftx_id x n (y, r) = (shiftx_v x n y, r)
+                                      
+        fun shiftx_t_c x n (((m, family), tnames, ibinds) : constr) : constr =
+            ((m, shiftx_id x n family), 
              tnames, 
-             on_t_ibinds shiftx_id (shiftx_pair (shiftx_t_mt, shiftx_id)) (x + length tnames) n ibinds)
+             on_t_ibinds shiftx_noop (shiftx_pair (shiftx_t_mt, shiftx_noop)) (x + length tnames) n ibinds)
         fun shift_t_c b = shiftx_t_c 0 1 b
+
+        fun on_m_ibinds on_anno on_inner x n ibinds =
+            case ibinds of
+                BindNil inner => 
+                BindNil (on_inner x n inner)
+              | BindCons (anno, bind) =>
+                BindCons (on_anno x n anno, on_m_ibind (on_m_ibinds on_anno on_inner) x n bind)
+
+        fun shiftx_m_c x n ((family, tnames, ibinds) : constr) : constr =
+            (on_m_long_id shiftx_v x n family,
+             tnames, 
+             on_m_ibinds shiftx_m_s (shiftx_pair (shiftx_m_mt, shiftx_list shiftx_m_i)) (x + length tnames) n ibinds)
+        fun shift_m_c b = shiftx_m_c 0 1 b
 
         fun on_e_e on_v =
             let

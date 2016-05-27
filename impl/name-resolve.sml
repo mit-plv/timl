@@ -190,7 +190,7 @@ local
       on_ibinds (on_sort gctx) (fn sctx => fn (t, is) => (on_mtype gctx (sctx, rev tnames @ kctx) t, map (on_idx gctx sctx) is)) sctx ibinds
 
   fun on_constr gctx (ctx as (sctx, kctx)) ((family, tnames, core) : E.constr) : constr =
-      (#1 (on_id kctx (family, dummy_region)),
+      (on_long_id gctx #2 kctx family,
        tnames, 
        on_constr_core gctx ctx tnames core)
 
