@@ -678,7 +678,9 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | (NONE, SOME d) => sprintf "return using $ " [str_i gctx sctx d]
               | (SOME t, SOME d) => sprintf "return $ using $ " [str_mt gctx skctx t, str_i gctx sctx d]
 
+        fun add_sorting name (sctx, kctx, cctx, tctx) = (name :: sctx, kctx, cctx, tctx)
         fun add_kinding name (sctx, kctx, cctx, tctx) = (sctx, name :: kctx, cctx, tctx)
+        fun add_typing name (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx)
                                                           
         fun str_e gctx (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
             let

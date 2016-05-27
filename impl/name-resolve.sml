@@ -184,12 +184,12 @@ local
   fun on_constr_core gctx (ctx as (sctx, kctx)) tnames (ibinds : E.constr_core) : constr_core =
       on_ibinds (on_sort gctx) (fn sctx => fn (t, is) => (on_mtype gctx (sctx, rev tnames @ kctx) t, map (on_idx gctx sctx) is)) sctx ibinds
 
-  fun on_constr (ctx as (sctx, kctx)) ((family, tnames, core) : E.constr) : constr =
+  fun on_constr gctx (ctx as (sctx, kctx)) ((family, tnames, core) : E.constr) : constr =
       (#1 (on_id kctx (family, dummy_region)),
        tnames, 
-       on_constr_core ctx tnames core)
+       on_constr_core gctx ctx tnames core)
 
-  fun on_return (ctx as (sctx, _)) return = mapPair (Option.map (on_mtype ctx), Option.map (on_idx sctx)) return
+  fun on_return gctx (ctx as (sctx, _)) return = mapPair (Option.map (on_mtype gctx ctx), Option.map (on_idx gctx sctx)) return
 
   fun shift_return (sctxn, kctxn) (t, d) =
       let
@@ -223,7 +223,7 @@ local
           | Let ((t', d'), decls, e, r) =>
             let
               val (t, d) = (copy t' t, copy d' d)
-              val (_, (sctx, kctx, _, _)) = str_decls ([], [], [], []) decls
+              val (_, (sctx, kctx, _, _)) = str_decls [] ([], [], [], []) decls
               val (sctxn, kctxn) = (length sctx, length kctx)
               fun is_match_var decl =
                   case decl of
@@ -265,22 +265,24 @@ local
   fun get_constr_inames core = map fst $ fst $ unfold_ibinds core
                                    
   fun add_sorting name (sctx, kctx, cctx, tctx) = (name :: sctx, kctx, cctx, tctx)
-                                                    
-  fun on_expr (ctx as (sctx, kctx, cctx, tctx)) e =
-      let 
+  fun add_kinding name (sctx, kctx, cctx, tctx) = (sctx, name :: kctx, cctx, tctx)
+  fun add_typing name (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx)
+                                                   
+  fun on_expr gctx (ctx as (sctx, kctx, cctx, tctx)) e =
+      let
+        val on_expr = on_expr gctx
         (* val () = println $ sprintf "on_expr $ in context $" [E.str_e ctx e, join " " tctx] *)
-        fun add_t name (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx)
 	val skctx = (sctx, kctx)
       in
 	case e of
-	    E.Var ((x, r), b) => 
-	    (case find_idx_value x cctx of
-		 SOME (i, _) => AppConstr (((i, r), b), [], TT r)
-	       | NONE => Var ((on_id tctx (x, r)), b)
+	    E.Var (x, b) => 
+	    (case find_constr gctx cctx x of
+		 SOME (x, _) => AppConstr ((x, b), [], TT $ get_region_long_id x)
+	       | NONE => Var ((on_long_id gctx #4 tctx x), b)
             )
 	  | E.Abs (pn, e) => 
             let 
-              val pn = on_ptrn (sctx, kctx, cctx) pn
+              val pn = on_ptrn gctx (sctx, kctx, cctx) pn
               val (inames, enames) = ptrn_names pn
               val ctx = (inames @ sctx, kctx, cctx, enames @ tctx)
               val e = on_expr ctx e
@@ -295,9 +297,9 @@ local
 	      val (e1, is) = E.collect_AppI e1 
 	    in
 	      case e1 of
-		  E.Var ((x, r), b) =>
-		  (case find_idx_value x cctx of
-		       SOME (i, _) => AppConstr (((i, r), b), map (on_idx sctx) is, e2)
+		  E.Var (x, b) =>
+		  (case find_constr gctx cctx x of
+		       SOME (x, _) => AppConstr ((x, b), map (on_idx gctx sctx) is, e2)
 		     | NONE => default ())
 		| _ => default ()
 	    end
@@ -305,18 +307,18 @@ local
 	  | E.Pair (e1, e2) => Pair (on_expr ctx e1, on_expr ctx e2)
 	  | E.Fst e => Fst (on_expr ctx e)
 	  | E.Snd e => Snd (on_expr ctx e)
-	  | E.AbsI (s, (name, r), e, r_all) => AbsI (on_sort sctx s, (name, r), on_expr (add_sorting name ctx) e, r_all)
+	  | E.AbsI (s, (name, r), e, r_all) => AbsI (on_sort gctx sctx s, (name, r), on_expr (add_sorting name ctx) e, r_all)
 	  | E.AppI (e, i) => 
 	    let
               fun default () = 
-                  AppI (on_expr ctx e, on_idx sctx i)
+                  AppI (on_expr ctx e, on_idx gctx sctx i)
 	      val (e, is) = E.collect_AppI e
               val is = is @ [i]
 	    in
 	      case e of
 		  E.Var ((x, r), b) =>
-		  (case find_idx_value x cctx of
-		       SOME (n, _) => AppConstr (((n, r), b), map (on_idx sctx) is, TT (E.get_region_i i))
+		  (case find_constr gctx cctx x of
+		       SOME (x, _) => AppConstr ((x, b), map (on_idx gctx sctx) is, TT (E.get_region_i i))
 		     | NONE => default ())
 		| _ => default ()
 	    end
