@@ -120,7 +120,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  | BinConn of bin_conn * prop * prop
                  | Not of prop * region
 	         | BinPred of bin_pred * idx * idx
-                 | Quan of (idx -> unit) option (*for linking idx inferer with types*) quan * bsort * name * prop * region
+                 | Quan of (idx -> unit) option (*for linking idx inferer with types*) quan * bsort * (name * prop) ibind * region
 
         (* index sort *)
         datatype sort =
@@ -442,7 +442,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | BinConn (opr, p1, p2) => (case p' of BinConn (opr', p1', p2') => opr = opr' andalso eq_p p1 p1' andalso eq_p p2 p2' | _ => false)
               | BinPred (opr, i1, i2) => (case p' of BinPred (opr', i1', i2') => opr = opr' andalso eq_i i1 i1' andalso eq_i i2 i2' | _ => false)
               | Not (p, _) => (case p' of Not (p', _) => eq_p p p' | _ => false)
-              | Quan (q, bs, _, p, _) => (case p' of Quan (q', bs', _, p', _) => eq_quan q q' andalso eq_bs bs bs' andalso eq_p p p' | _ => false)
+              | Quan (q, bs, Bind (_, p), _) => (case p' of Quan (q', bs', Bind (_, p'), _) => eq_quan q q' andalso eq_bs bs bs' andalso eq_p p p' | _ => false)
 
         (* pretty-printers *)
 
@@ -512,7 +512,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 | BinConn (opr, p1, p2) => sprintf "($ $ $)" [str_p ctx p1, str_bin_conn opr, str_p ctx p2]
                 (* | BinPred (BigO, i1, i2) => sprintf "($ $ $)" [str_bin_pred BigO, str_i ctx i1, str_i ctx i2] *)
                 | BinPred (opr, i1, i2) => sprintf "($ $ $)" [str_i gctx ctx i1, str_bin_pred opr, str_i gctx ctx i2]
-                | Quan (q, bs, (name, _), p, _) => sprintf "($ ($ : $) $)" [str_quan q, name, str_bs bs, str_p (name :: ctx) p]
+                | Quan (q, bs, Bind ((name, _), p), _) => sprintf "($ ($ : $) $)" [str_quan q, name, str_bs bs, str_p (name :: ctx) p]
             end
 
         fun str_s gctx ctx (s : sort) : string =
@@ -866,7 +866,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | Not (_, r) => r
               | BinConn (_, p1, p2) => combine_region (get_region_p p1) (get_region_p p2)
               | BinPred (_, i1, i2) => combine_region (get_region_i i1) (get_region_i i2)
-              | Quan (_, _, _, _, r) => r
+              | Quan (_, _, _, r) => r
 
         fun set_region_p p r = 
             case p of
@@ -875,7 +875,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | Not (p, _) => Not (p, r)
               | BinConn (opr, p1, p2) => BinConn (opr, set_region_p p1 r, set_region_p p2 r)
               | BinPred (opr, i1, i2) => BinPred (opr, set_region_i i1 r, set_region_i i2 r)
-              | Quan (q, bs, name, p, _) => Quan (q, bs, name, p, r)
+              | Quan (q, bs, bind, _) => Quan (q, bs, bind, r)
 
         fun get_region_s s = 
             case s of
@@ -977,7 +977,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
             let
             in
               case p of
-                  Quan (Forall, bs, (name, r), p, r_all) =>
+                  Quan (Forall, bs, Bind ((name, r), p), r_all) =>
                   let
                     val vc = prop2vc p
                     val vc = add_hyp_vc (VarH (name, (bs, r_all))) vc
@@ -1023,6 +1023,14 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               f x n b
             end
 
+        fun on_i_ibind f x n bind =
+            case bind of
+                Bind (name, inner) => Bind (name, f (x + 1) n inner)
+
+        fun on_i_tbind f x n bind =
+            case bind of
+                Bind (name, inner) => Bind (name, f x n inner)
+
         fun on_i_p on_i_i x n b =
             let
               fun f x n b =
@@ -1032,26 +1040,10 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                     | Not (p, r) => Not (f x n p, r)
 	            | BinConn (opr, p1, p2) => BinConn (opr, f x n p1, f x n p2)
 	            | BinPred (opr, d1, d2) => BinPred (opr, on_i_i x n d1, on_i_i x n d2)
-                    | Quan (q, bs, name, p, r) => Quan (q, bs, name, f (x + 1) n p, r)
+                    | Quan (q, bs, bind, r) => Quan (q, bs, on_i_ibind f x n bind, r)
             in
               f x n b
             end
-
-        fun on_i_ibind f x n bind =
-            case bind of
-                Bind (name, inner) => Bind (name, f (x + 1) n inner)
-
-        fun on_t_ibind f x n bind =
-            case bind of
-                Bind (name, inner) => Bind (name, f x n inner)
-
-        fun on_i_tbind f x n bind =
-            case bind of
-                Bind (name, inner) => Bind (name, f x n inner)
-
-        fun on_t_tbind f x n bind =
-            case bind of
-                Bind (name, inner) => Bind (name, f (x + 1) n inner)
 
         fun on_i_s on_i_p on_UVarS x n b =
             let
@@ -1094,6 +1086,18 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               f x n b
             end
 
+        fun on_i_kind on_i_s x n b =
+	    case b of
+	        ArrowK (is_datatype, n, sorts) => ArrowK (is_datatype, n, map (on_i_s x n) sorts)
+        
+        fun on_t_ibind f x n bind =
+            case bind of
+                Bind (name, inner) => Bind (name, f x n inner)
+
+        fun on_t_tbind f x n bind =
+            case bind of
+                Bind (name, inner) => Bind (name, f (x + 1) n inner)
+
         fun on_t_mt on_v on_t_UVar x n b =
             let
               fun f x n b =
@@ -1124,6 +1128,97 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               f x n b
             end
 
+        exception ModuleUVar
+                                  
+        fun on_m_i on_v x n b =
+            let
+              fun f x n b =
+	          case b of
+	              VarI (m, y) => VarI (Option.map (fn (m, r) => (on_v x n m, r)) m, y)
+	            | ConstIN n => ConstIN n
+	            | ConstIT x => ConstIT x
+                    | UnOpI (opr, i, r) => UnOpI (opr, f x n i, r)
+                    | DivI (i1, n2) => DivI (f x n i1, n2)
+                    | ExpI (i1, n2) => ExpI (f x n i1, n2)
+	            | BinOpI (opr, i1, i2) => BinOpI (opr, f x n i1, f x n i2)
+                    | Ite (i1, i2, i3, r) => Ite (f x n i1, f x n i2, f x n i3, r)
+	            | TTI r => TTI r
+	            | TrueI r => TrueI r
+	            | FalseI r => FalseI r
+                    | TimeAbs (name, i, r) => TimeAbs (name, f (x + 1) n i, r)
+                    | AdmitI r => AdmitI r
+                    | UVarI a => raise ModuleUVar
+            in
+              f x n b
+            end
+
+        fun on_m_ibind f x n bind =
+            case bind of
+                Bind (name, inner) => Bind (name, f x n inner)
+
+        fun on_m_tbind f x n bind =
+            case bind of
+                Bind (name, inner) => Bind (name, f x n inner)
+
+        fun on_m_p on_m_i x n b =
+            let
+              fun f x n b =
+                  case b of
+	              True r => True r
+	            | False r => False r
+                    | Not (p, r) => Not (f x n p, r)
+	            | BinConn (opr, p1, p2) => BinConn (opr, f x n p1, f x n p2)
+	            | BinPred (opr, d1, d2) => BinPred (opr, on_m_i x n d1, on_m_i x n d2)
+                    | Quan (q, bs, bind, r) => Quan (q, bs, on_m_ibind f x n bind, r)
+            in
+              f x n b
+            end
+
+        fun on_m_s on_m_p x n b =
+            let
+              fun f x n b =
+	          case b of
+	              Basic s => Basic s
+	            | Subset (s, bind, r) => Subset (s, on_m_ibind on_m_p x n bind, r)
+                    | UVarS a => raise ModuleUVar
+            in
+              f x n b
+            end
+
+        fun on_m_mt on_v on_m_i on_m_s x n b =
+            let
+              fun f x n b =
+	          case b of
+	              Arrow (t1, d, t2) => Arrow (f x n t1, on_m_i x n d, f x n t2)
+                    | Unit r => Unit r
+	            | Prod (t1, t2) => Prod (f x n t1, f x n t2)
+	            | UniI (s, bind, r) => UniI (on_m_s x n s, on_m_ibind f x n bind, r)
+                    | MtVar (m, y) => MtVar (Option.map (fn (m, r) => (on_v x n m, r)) m, y)
+                    | MtApp (t1, t2) => MtApp (f x n t1, f x n t2)
+                    | MtAbs (bind, r) => MtAbs (on_m_tbind f x n bind, r)
+                    | MtAppI (t, i) => MtAppI (f x n t, on_m_i x n i)
+                    | MtAbsI (s, bind, r) => MtAbsI (on_m_s x n s, on_m_ibind f x n bind, r)
+	            | AppV ((m, y), ts, is, r) => AppV ((Option.map (fn (m, r) => (on_v x n m, r)) m, y), map (f x n) ts, map (on_m_i x n) is, r)
+	            | BaseType a => BaseType a
+                    | UVar a => raise ModuleUVar
+            in
+              f x n b
+            end
+
+        fun on_m_t on_m_mt x n b =
+            let
+              fun f x n b =
+	          case b of
+	              Mono t => Mono (on_m_mt x n t)
+	            | Uni (bind, r) => Uni (on_m_tbind f x n bind, r)
+            in
+              f x n b
+            end
+
+        fun on_m_kind on_m_s x n b =
+	    case b of
+	        ArrowK (is_datatype, n, sorts) => ArrowK (is_datatype, n, map (on_m_s x n) sorts)
+        
         (* shift *)
 
         fun shiftx_i_i x n b = on_i_i shiftx_v shiftx_i_UVarI x n b
@@ -1143,21 +1238,50 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         fun shiftx_i_t x n b = on_i_t shiftx_i_mt x n b
         fun shift_i_t b = shiftx_i_t 0 1 b
 
+        fun shiftx_i_k x n b = on_i_kind shiftx_i_s x n b
+        fun shift_i_k b = shiftx_i_k 0 1 b
+
         fun shiftx_t_t x n b = on_t_t shiftx_t_mt x n b
         fun shift_t_t b = shiftx_t_t 0 1 b
+
+        fun shiftx_m_i x n b = on_m_i shiftx_v x n b
+        fun shift_m_i b = shiftx_m_i 0 1 b
+
+        fun shiftx_m_p x n b = on_m_p shiftx_m_i x n b
+        fun shift_m_p b = shiftx_m_p 0 1 b
+
+        fun shiftx_m_s x n b = on_m_s shiftx_m_p x n b
+        fun shift_m_s b = shiftx_m_s 0 1 b
+
+        fun shiftx_m_mt x n b = on_m_mt shiftx_v shiftx_m_i shiftx_m_s x n b
+        fun shift_m_mt b = shiftx_m_mt 0 1 b
+                                       
+        fun shiftx_m_t x n b = on_m_t shiftx_m_mt x n b
+        fun shift_m_t b = shiftx_m_t 0 1 b
+
+        fun shiftx_m_k x n b = on_m_kind shiftx_m_s x n b
+        fun shift_m_k b = shiftx_m_k 0 1 b
 
         (* forget *)
 
         exception ForgetError of int * string
         (* exception Unimpl *)
 
-        fun forget_i_i x n b = on_i_i (forget_v ForgetError) (forget_i_UVarI shiftx_i_i ForgetError) x n b
+        val forget_v = forget_v ForgetError
+                                
+        fun forget_i_i x n b = on_i_i forget_v (forget_i_UVarI shiftx_i_i ForgetError) x n b
         fun forget_i_p x n b = on_i_p forget_i_i x n b
         fun forget_i_s x n b = on_i_s forget_i_p (forget_i_UVarS shiftx_i_s ForgetError) x n b
         fun forget_i_mt x n b = on_i_mt forget_i_i forget_i_s (forget_i_UVar shiftx_i_mt shiftx_t_mt ForgetError) x n b
-        fun forget_t_mt x n b = on_t_mt (forget_v ForgetError) (forget_t_UVar shiftx_i_mt shiftx_t_mt ForgetError) x n b
+        fun forget_t_mt x n b = on_t_mt forget_v (forget_t_UVar shiftx_i_mt shiftx_t_mt ForgetError) x n b
         fun forget_i_t x n b = on_i_t forget_i_mt x n b
         fun forget_t_t x n b = on_t_t forget_t_mt x n b
+
+        fun forget_m_i x n b = on_m_i forget_v x n b
+        fun forget_m_p x n b = on_m_p forget_m_i x n b
+        fun forget_m_s x n b = on_m_s forget_m_p x n b
+        fun forget_m_mt x n b = on_m_mt forget_v forget_m_i forget_m_s x n b
+        fun forget_m_t x n b = on_m_t forget_m_mt x n b
 
         fun try_forget f a =
             SOME (f a) handle ForgetError _ => NONE
@@ -1191,20 +1315,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         fun subst_i_i v b = substx_i_i 0 v b
         end
 
-        local
-          fun f x v b =
-	      case b of
-	          True r => True r
-	        | False r => False r
-                | Not (p, r) => Not (f x v p, r)
-	        | BinConn (opr,p1, p2) => BinConn (opr, f x v p1, f x v p2)
-	        | BinPred (opr, d1, d2) => BinPred (opr, substx_i_i x v d1, substx_i_i x v d2)
-                | Quan (q, bs, name, p, r) => Quan (q, bs, name, f (x + 1) (shiftx_i_i 0 1 v) p, r)
-        in
-        fun substx_i_p x (v : idx) b = f x v b
-        fun subst_i_p (v : idx) (b : prop) : prop = substx_i_p 0 v b
-        end
-
         (* mimic type class *)
         type 'a shiftable = {
           shift_i : int -> 'a -> 'a,
@@ -1216,11 +1326,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         val idx_shiftable : idx shiftable = {
           shift_i = shiftx_i_i 0,
           shift_t = shift_id
-        }
-
-        val mtype_shiftable : mtype shiftable = {
-          shift_i = shiftx_i_mt 0,
-          shift_t = shiftx_t_mt 0
         }
 
         fun substx_i_ibind f x (s : 'a shiftable) v bind =
@@ -1238,6 +1343,20 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         fun substx_t_tbind f x (s : 'a shiftable) v bind =
             case bind of
                 Bind (name, inner) => Bind (name, f (x + 1) (#shift_t s 1 v) inner)
+
+        local
+          fun f x v b =
+	      case b of
+	          True r => True r
+	        | False r => False r
+                | Not (p, r) => Not (f x v p, r)
+	        | BinConn (opr,p1, p2) => BinConn (opr, f x v p1, f x v p2)
+	        | BinPred (opr, d1, d2) => BinPred (opr, substx_i_i x v d1, substx_i_i x v d2)
+                | Quan (q, bs, bind, r) => Quan (q, bs, substx_i_ibind f x idx_shiftable v bind, r)
+        in
+        fun substx_i_p x (v : idx) b = f x v b
+        fun subst_i_p (v : idx) (b : prop) : prop = substx_i_p 0 v b
+        end
 
         local
           fun f x v b =
@@ -1279,6 +1398,11 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         fun substx_i_t x (v : idx) (b : ty) : ty = f x v b
         fun subst_i_t (v : idx) (b : ty) : ty = substx_i_t 0 v b
         end
+
+        val mtype_shiftable : mtype shiftable = {
+          shift_i = shiftx_i_mt 0,
+          shift_t = shiftx_t_mt 0
+        }
 
         local
           fun f x v (b : mtype) : mtype =
@@ -1360,15 +1484,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
              tnames, 
              on_t_ibinds shiftx_id (shiftx_pair (shiftx_t_mt, shiftx_id)) (x + length tnames) n ibinds)
         fun shift_t_c b = shiftx_t_c 0 1 b
-
-        local
-          fun f x n b =
-	      case b of
-	          ArrowK (is_datatype, n, sorts) => ArrowK (is_datatype, n, map (shiftx_i_s x n) sorts)
-        in
-        fun shiftx_i_k x n b = f x n b
-        fun shift_i_k b = shiftx_i_k 0 1 b
-        end
 
         fun on_e_e on_v =
             let
@@ -1461,8 +1576,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         fun shiftx_e_e x n b = on_e_e shiftx_v x n b
         fun shift_e_e b = shiftx_e_e 0 1 b
 
-        val forget_v = forget_v ForgetError
-                                
         (* forget_e_e *)
         fun forget_e_e x n b = on_e_e forget_v x n b
                                      
@@ -1778,9 +1891,9 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                         | _ => def ()
                     end
                   | Not (p, r) => Not (passp p, r)
-                  | p_all as Quan (q, bs, name, p, r_all) =>
+                  | p_all as Quan (q, bs, Bind (name, p), r_all) =>
                     let
-                      fun def () = Quan (q, bs, name, passp p, r_all)
+                      fun def () = Quan (q, bs, Bind (name, passp p), r_all)
                     in
                       case q of
                           Forall =>
@@ -1876,7 +1989,7 @@ else
                                            case p of
                                                BinConn (Imply, p1, p2) =>
                                                loop (map PropH (rev $ collect_And p1) @ acc, p2)
-                                             | Quan (Forall, bs, name, p, r) =>
+                                             | Quan (Forall, bs, Bind (name, p), r) =>
                                                loop (VarH (name, (bs, r)) :: acc, p)
                                              | _ => (acc, p)
                                        val (hyps, conclu) = loop ([], p)
@@ -1891,7 +2004,7 @@ else
                                                PropH p =>
                                                p --> conclu
                                              | VarH (name, (bs, r))  =>
-                                               Quan (Forall, bs, name, conclu, r)
+                                               Quan (Forall, bs, Bind (name, conclu), r)
                                      in
                                        foldr iter conclu hyps
                                      end
@@ -2006,7 +2119,7 @@ else
                                 in
                                   case relevant of
                                       [] => def ()
-                                    | _ => combine_And $ Quan (q, bs, name, combine_And relevant, r_all) :: irrelevant
+                                    | _ => combine_And $ Quan (q, bs, Bind (name, combine_And relevant), r_all) :: irrelevant
                                 end
                           end
                     end

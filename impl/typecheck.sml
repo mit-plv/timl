@@ -42,11 +42,11 @@ fun idx_bin_op_type opr =
 (* sorting context *)
 type scontext = (string (* option *) * sort) list
 (* kinding context *)
-datatype kinding =
-         KKind of kind
-         | KTypeEq of ty
+datatype kind_ext =
+         KeKind of kind
+         | KeTypeEq of kind * ty
 (* type kinding = kind *)
-type kcontext = (string * kinding) list 
+type kcontext = (string * kind_ext) list 
 (* constructor context *)
 type ccontext = (string * constr) list
 (* typing context *)
@@ -71,12 +71,29 @@ datatype sgntr =
                                                    (* withtype sigcontext = (string * sgntr) list *)
                                                    (* withtype sigcontext = unit *)
 
+type sigcontext = (string * sgntr) list
+                                   
 fun names ctx = map fst ctx
 
+fun shiftx_i_ke x n k =
+    case k of
+        KeKind k => KeKind $ shiftx_i_k x n k
+      | KeTypeEq (k, t) => KeTypeEq (shiftx_i_k x n k, shiftx_i_t x n t)
+                    
+fun shiftx_t_ke x n k =
+    case k of
+        KeKind k => KeKind k
+      | KeTypeEq (k, t) => KeTypeEq (k, shiftx_t_t x n t)
+                    
+fun shiftx_m_ke x n k =
+    case k of
+        KeKind k => KeKind $ shiftx_m_k x n k
+      | KeTypeEq (k, t) => KeTypeEq (shiftx_m_k x n k, shiftx_m_t x n t)
+                    
 fun shiftx_i_ps n ps = 
     map (shiftx_i_p 0 n) ps
 fun shiftx_i_ks n ctx = 
-    map (mapSnd (shiftx_i_k 0 n)) ctx
+    map (mapSnd (shiftx_i_ke 0 n)) ctx
 fun shiftx_i_cs n ctx = 
     map (mapSnd (shiftx_i_c 0 n)) ctx
 fun shiftx_t_cs n ctx = 
@@ -101,7 +118,8 @@ fun add_sorting_skct pair (sctx, kctx, cctx, tctx) =
      shiftx_i_ts 1 tctx)
 (* Within 'pairs', sort depends on previous sort *)
 fun add_sortings_skct pairs' (pairs, kctx, cctx, tctx) : context = 
-    let val n = length pairs' 
+    let
+      val n = length pairs' 
     in
       ((* map (mapFst SOME) *) pairs' @ pairs, 
                                shiftx_i_ks n kctx, 
@@ -136,7 +154,22 @@ fun lookup_sort (n : int) (ctx : scontext) : sort option =
       | SOME (_, s) => 
         SOME (shiftx_i_s 0 (n + 1) s)
 
-fun add_kinding pair (kctx : kcontext) = pair :: kctx
+fun lookup_kind_ext (n : int) kctx = 
+    case nth_error kctx n of
+        NONE => NONE
+      | SOME (_, k) => SOME $ shiftx_t_ke 0 (n + 1) k
+
+fun get_ke_kind k =
+    case k of
+        KeKind k => k
+      | KeTypeEq (k, _) => k
+                             
+fun lookup_kind (n : int) kctx = 
+    case nth_error kctx n of
+        NONE => NONE
+      | SOME (_, k) => SOME $ get_ke_kind k
+
+fun add_kinding pair (kctx : kcontext) = mapSnd KeKind pair :: kctx
 fun add_kinding_kc pair (kctx, cctx) = 
     (add_kinding pair kctx, 
      shiftx_t_cs 1 cctx)
@@ -159,11 +192,6 @@ fun add_kindings_skct pairs (sctx, kctx, cctx, tctx) =
        shiftx_t_cs n cctx,
        shiftx_t_ts n tctx)
     end
-
-fun lookup_kind (n : int) kctx : kind option = 
-    case nth_error kctx n of
-        NONE => NONE
-      | SOME (_, k) => SOME k
 
 fun add_constrs_skct pairs (sctx, kctx, cctx, tctx) = 
     (sctx, 
@@ -266,7 +294,7 @@ fun update_i i =
 
 fun update_p p =
     case p of
-        Quan (q, bs, name, p, r) => Quan (q, update_bs bs, name, update_p p, r)
+        Quan (q, bs, Bind (name, p), r) => Quan (q, update_bs bs, Bind (name, update_p p), r)
       | BinConn (opr, p1, p2) => BinConn (opr, update_p p1, update_p p2)
       | BinPred (opr, i1, i2) => BinPred (opr, update_i i1, update_i i2)
       | Not (p, r) => Not (update_p p, r)
@@ -305,7 +333,7 @@ fun update_mt t =
       | Unit r => Unit r
       | Arrow (t1, d, t2) => Arrow (update_mt t1, update_i d, update_mt t2)
       | Prod (t1, t2) => Prod (update_mt t1, update_mt t2)
-      | UniI (s, BindI (name, t1), r) => UniI (update_s s, BindI (name, update_mt t1), r)
+      | UniI (s, Bind (name, t1), r) => UniI (update_s s, Bind (name, update_mt t1), r)
       | AppV (y, ts, is, r) => AppV (y, map update_mt ts, map update_i is, r)
       | BaseType a => BaseType a
 
@@ -327,7 +355,7 @@ fun hnf_mt t =
 fun update_t t =
     case t of
         Mono t => Mono (update_mt t)
-      | Uni (name, t, r) => Uni (name, update_t t, r)
+      | Uni (Bind (name, t), r) => Uni (Bind (name, update_t t), r)
 
 exception Error of region * string list
 
@@ -427,9 +455,10 @@ fun shrink_i invis b = shrink forget_i_i invis b
 fun shrink_s invis b = shrink forget_i_s invis b
 fun shrink_mt (invisi, invist) b = (shrink forget_i_mt invisi o shrink forget_t_mt invist) b
 
-fun unify_i r ctx (i, i') =
+fun unify_i r gctx ctx (i, i') =
     let
-      fun error (i, i') = unify_error r (str_i ctx i, str_i ctx i')
+      val unify_i = unify_i r gctx
+      fun error (i, i') = unify_error r (str_i gctx ctx i, str_i gctx ctx i')
       val i = update_i i
       val i' = update_i i'
     in
@@ -448,18 +477,19 @@ fun unify_i r ctx (i, i') =
 	   handle ForgetError _ => raise error (i, i')
           )
         | (_, UVarI _) =>
-          unify_i r ctx (i', i)
+          unify_i ctx (i', i)
         (* ToReal is injective *)
         | (UnOpI (ToReal, i, _), UnOpI (ToReal, i', _)) =>
-          unify_i r ctx (i', i)
+          unify_i ctx (i', i)
 	| _ => 
           if eq_i i i' then ()
           else write_prop (BinPred (EqP, i, i'), r)
     end
 
-fun unify_s r ctx (s, s') =
-    let 
-      fun error (s, s') = unify_error r (str_s ctx s, str_s ctx s')
+fun unify_s r gctx ctx (s, s') =
+    let
+      val unify_s = unify_s r gctx
+      fun error (s, s') = unify_error r (str_s gctx ctx s, str_s gctx ctx s')
       val s = update_s s
       val s' = update_s s'
     in
@@ -479,10 +509,10 @@ fun unify_s r ctx (s, s') =
 	   handle ForgetError _ => raise error (s, s')
           )
         | (_, UVarS _) => 
-          unify_s r ctx (s', s)
+          unify_s ctx (s', s)
 	| (Basic (bs, _), Basic (bs', _)) =>
 	  unify_bs r (bs, bs')
-	| (Subset ((bs, r1), BindI ((name, _), p), _), Subset ((bs', _), BindI (_, p'), _)) =>
+	| (Subset ((bs, r1), Bind ((name, _), p), _), Subset ((bs', _), Bind (_, p'), _)) =>
           let
 	    val () = unify_bs r (bs, bs')
             val ctxd = ctx_from_sorting (name, Basic (bs, r1))
@@ -492,7 +522,7 @@ fun unify_s r ctx (s, s') =
           in
             ()
           end
-	| (Subset ((bs, r1), BindI ((name, _), p), _), Basic (bs', _)) =>
+	| (Subset ((bs, r1), Bind ((name, _), p), _), Basic (bs', _)) =>
           let
 	    val () = unify_bs r (bs, bs')
             val ctxd = ctx_from_sorting (name, Basic (bs, r1))
@@ -502,7 +532,7 @@ fun unify_s r ctx (s, s') =
           in
             ()
           end
-	| (Basic (bs, r1), Subset ((bs', _), BindI ((name, _), p), _)) =>
+	| (Basic (bs, r1), Subset ((bs', _), Bind ((name, _), p), _)) =>
           let
 	    val () = unify_bs r (bs, bs')
             val ctxd = ctx_from_sorting (name, Basic (bs, r1))
@@ -514,13 +544,13 @@ fun unify_s r ctx (s, s') =
           end
     end
 
-fun unify_sorts r ctx (sorts, sorts') =
+fun unify_sorts r gctx ctx (sorts, sorts') =
     (check_length r (sorts, sorts');
-     ListPair.app (unify_s r ctx) (sorts, sorts'))
+     ListPair.app (unify_s r gctx ctx) (sorts, sorts'))
 
-fun unify r =
+fun unify r gctx =
     let
-      fun error ctx (t, t') = unify_error r (str_mt ctx t, str_mt ctx t')
+      fun error ctx (t, t') = unify_error r (str_mt gctx ctx t, str_mt gctx ctx t')
       fun loop (ctx as (sctx, kctx)) (t, t') =
           let 
             val t = update_mt t
@@ -545,13 +575,13 @@ fun unify r =
               | (_, UVar _) => loop ctx (t', t)
               | (Arrow (t1, d, t2), Arrow (t1', d', t2')) =>
                 (loop ctx (t1, t1');
-                 unify_i r sctx (d, d');
+                 unify_i r gctx sctx (d, d');
                  loop ctx (t2, t2'))
               | (Prod (t1, t2), Prod (t1', t2')) =>
                 (loop ctx (t1, t1');
                  loop ctx (t2, t2'))
-              | (UniI (s, BindI ((name, _), t1), _), UniI (s', BindI (_, t1'), _)) =>
-                (unify_s r sctx (s, s');
+              | (UniI (s, Bind ((name, _), t1), _), UniI (s', Bind (_, t1'), _)) =>
+                (unify_s r gctx sctx (s, s');
                  open_sorting (name, s);
                  loop (name :: sctx, kctx) (t1, t1');
                  close_vc ())
@@ -560,7 +590,7 @@ fun unify r =
 	      | (AppV ((a, _), ts, is, _), AppV ((a', _), ts', is', _)) => 
 	        if a = a' then
 		  (ListPair.app (loop ctx) (ts, ts');
-                   ListPair.app (unify_i r sctx) (is, is'))
+                   ListPair.app (unify_i r gctx sctx) (is, is'))
 	        else
 		  raise error ctx (t, t')
 	      | _ => raise error ctx (t, t')
@@ -595,32 +625,37 @@ fun fresh_nonidx f empty_invis names r =
 fun fresh_sort names r : sort = fresh_nonidx UVarS [] names r
 fun fresh_mt names r : mtype = fresh_nonidx UVar ([], []) names r
 
-fun sort_mismatch ctx i expect have =  "Sort mismatch for " ^ str_i ctx i ^ ": expect " ^ expect ^ " have " ^ str_s ctx have
+fun sort_mismatch gctx ctx i expect have =  "Sort mismatch for " ^ str_i gctx ctx i ^ ": expect " ^ expect ^ " have " ^ str_s gctx ctx have
 
 fun is_wf_bsort (bs : U.bsort) : bsort =
     case bs of
         U.Base bs => Base bs
       | U.UVarBS () => fresh_bsort ()
 
-fun get_base r ctx s =
+fun get_base r gctx ctx s =
     case update_s s of
         Basic (s, _) => s
       | Subset ((s, _), _, _) => s
-      | UVarS _ => raise Error (r, [sprintf "Can't figure out base sort of $" [str_s ctx s]])
+      | UVarS _ => raise Error (r, [sprintf "Can't figure out base sort of $" [str_s gctx ctx s]])
 
-fun fetch_from_module (params as (shift, do_fetch)) (* sigs *) gctx (m, x) =
+val get_outmost_module = id
+
+fun lookup_module gctx m = nth_error (List.mapPartial (fn (_, sg) => case sg of Sig sg => SOME sg | _ => NONE) gctx) m
+                                     
+fun fetch_from_module (params as (shift, do_fetch)) (* sigs *) gctx ((m, mr), x) =
     let
-      val fetch_from_module = fetch_from_module params sigs
-      fun fetch_from_ctx gctx ctx (m, x) =
-          case m of
-              NONE => do_fetch (ctx, x)
-            | SOME m => fetch_from_module gctx (m, x)
-      val ((m, r), x) = get_outmost_module (m, x)
-      val Sig (gctx, ctx) = case lookup_module gctx m of
+      (* val fetch_from_module = fetch_from_module params (* sigs *) *)
+      (* fun fetch_from_module_or_ctx gctx ctx (m, x) = *)
+      (*     case m of *)
+      (*         NONE => do_fetch (ctx, x) *)
+      (*       | SOME m => fetch_from_module gctx (m, x) *)
+      (* val ((m, r), x) = get_outmost_module (m, x) *)
+      val ((* gctx,  *)ctx) = case lookup_module gctx m of
                                 SOME sg => sg
-                              | NONE => raise Error (r, ["Unbounded module"])
-      val v = fetch_from_ctx gctx ctx x
-      val v = package 0 (length gctx) v
+                              | NONE => raise Error (mr, ["Unbounded module"])
+      (* val v = fetch_from_module_or_ctx gctx ctx x *)
+      val v = do_fetch (ctx, x)
+      (* val v = package 0 (length gctx) v *)
       val v = shift 0 (m + 1) v
     in
       v
@@ -629,30 +664,43 @@ fun fetch_from_module (params as (shift, do_fetch)) (* sigs *) gctx (m, x) =
 fun generic_fetch shift do_fetch sel (ggctx as ((* sigs,  *)gctx)) (fctx, (m, x)) =
     case m of
         NONE => do_fetch (fctx, x)
-      | SOME m => fetch_from_module (shiftx_m_k 0, do_fetch o mapFst sel) sigs gctx (m, x)
+      | SOME m => fetch_from_module (shift, do_fetch o mapFst sel) (* sigs *) gctx (m, x)
 
 fun do_fetch_sort (ctx, (x, r)) =
     case lookup_sort x ctx of
       	SOME s => s
       | NONE => raise Error (r, ["Unbound index variable: " ^ str_v (sctx_names ctx) x])
 
-val fetch_sort = generic_fetch shift_m_i do_fetch_sort #1
+fun fetch_sort a = generic_fetch shiftx_m_s do_fetch_sort #1 a
                                
-fun is_wf_sort (ctx : scontext, s : U.sort) : sort =
+fun is_wf_sort gctx (ctx : scontext, s : U.sort) : sort =
+    let
+      val is_wf_sort = is_wf_sort gctx
+      val is_wf_prop = is_wf_prop gctx
+      val get_bsort = get_bsort gctx
+      val check_bsort = check_bsort gctx
+    in
     case s of
 	U.Basic (bs, r) => Basic (is_wf_bsort bs, r)
-      | U.Subset ((bs, r), BindI ((name, r2), p), r_all) =>
+      | U.Subset ((bs, r), Bind ((name, r2), p), r_all) =>
         let 
           val bs = is_wf_bsort bs
         in
           (* ToDo: need to [open_sorting] *)
           Subset ((bs, r),
-                  BindI ((name, r2), 
+                  Bind ((name, r2), 
                          is_wf_prop (add_sorting (name, Basic (bs, r)) ctx, p)), r_all)
         end
       | U.UVarS ((), r) => fresh_sort (sctx_names ctx) r
+    end
 
-and is_wf_prop (ctx : scontext, p : U.prop) : prop =
+and is_wf_prop gctx (ctx : scontext, p : U.prop) : prop =
+    let
+      val is_wf_sort = is_wf_sort gctx
+      val is_wf_prop = is_wf_prop gctx
+      val get_bsort = get_bsort gctx
+      val check_bsort = check_bsort gctx
+    in
     case p of
 	U.True r => True r
       | U.False r => False r
@@ -693,7 +741,7 @@ and is_wf_prop (ctx : scontext, p : U.prop) : prop =
 	in
           BinPred (opr, i1, i2)
 	end
-      | U.Quan (q, bs, (name, r), p, r_all) =>
+      | U.Quan (q, bs, Bind ((name, r), p), r_all) =>
         let
           val q = case q of
                       Forall => Forall
@@ -701,18 +749,23 @@ and is_wf_prop (ctx : scontext, p : U.prop) : prop =
           val bs = is_wf_bsort bs
           val p = is_wf_prop (add_sorting (name, Basic (bs, r)) ctx, p)
         in
-          Quan (q, bs, (name, r), p, r_all)
+          Quan (q, bs, Bind ((name, r), p), r_all)
         end
-
-and get_bsort (ctx : scontext, i : U.idx) : idx * bsort =
+    end
+      
+and get_bsort (gctx : sigcontext) (ctx : scontext, i : U.idx) : idx * bsort =
     let
+      val is_wf_sort = is_wf_sort gctx
+      val is_wf_prop = is_wf_prop gctx
+      val get_bsort = get_bsort gctx
+      val check_bsort = check_bsort gctx
       fun main () =
           case i of
 	      U.VarI x =>
               let
-                val s = fetch_sort (ctx, x)
+                val s = fetch_sort gctx (ctx, x)
               in
-                (VarI x, get_base (U.get_region_i i) (sctx_names ctx) s)
+                (VarI x, get_base (U.get_region_i i) (names gctx) (sctx_names ctx) s)
               end
             | U.UnOpI (opr, i, r) =>
               let
@@ -774,8 +827,8 @@ and get_bsort (ctx : scontext, i : U.idx) : idx * bsort =
                               (BinOpI (opr, i1, i2), Base (TimeFun (arity - 1)))
                             end
                           else
-                            raise Error (get_region_i i1, "Arity of time function must be larger than 0" :: indent ["got arity: " ^ str_int arity, "in: " ^ str_i (sctx_names ctx) i1])
-                        | (i1, bs1) => raise Error (get_region_i i1, "Sort of first operand of time function application must be time function" :: indent ["want: time function", "got: " ^ str_bs bs1, "in: " ^ str_i (sctx_names ctx) i1])
+                            raise Error (get_region_i i1, "Arity of time function must be larger than 0" :: indent ["got arity: " ^ str_int arity, "in: " ^ str_i (names gctx) (sctx_names ctx) i1])
+                        | (i1, bs1) => raise Error (get_region_i i1, "Sort of first operand of time function application must be time function" :: indent ["want: time function", "got: " ^ str_bs bs1, "in: " ^ str_i (names gctx) (sctx_names ctx) i1])
                     end
                   | AddI => overloaded [Nat, Time] NONE
                   | BoundedMinusI => overloaded [Nat, Time] NONE
@@ -833,22 +886,21 @@ and get_bsort (ctx : scontext, i : U.idx) : idx * bsort =
               end
       val ret = main ()
                 handle
-                Error (r, msg) => raise Error (r, msg @ ["when sort-checking index "] @ indent [U.str_i (sctx_names ctx) i])
+                Error (r, msg) => raise Error (r, msg @ ["when sort-checking index "] @ indent [U.str_i (names gctx) (sctx_names ctx) i])
     in
       ret
     end
 
-
-and check_bsort (ctx, i : U.idx, bs : bsort) : idx =
+and check_bsort gctx (ctx, i : U.idx, bs : bsort) : idx =
     let 
-      val (i, bs') = get_bsort (ctx, i)
+      val (i, bs') = get_bsort gctx (ctx, i)
       val () = unify_bs (get_region_i i) (bs', bs)
     in
       i
     end
 
-fun is_wf_sorts (ctx, sorts : U.sort list) : sort list = 
-    map (fn s => is_wf_sort (ctx, s)) sorts
+fun is_wf_sorts gctx (ctx, sorts : U.sort list) : sort list = 
+    map (fn s => is_wf_sort gctx (ctx, s)) sorts
         
 fun subst_uvar_error r body i ((fresh, fresh_ctx), x) =
     Error (r,
@@ -857,14 +909,14 @@ fun subst_uvar_error r body i ((fresh, fresh_ctx), x) =
              sprintf "because the context of $ is [$] which contains $" [fresh, join ", " $ fresh_ctx, str_v fresh_ctx x]
            ])
           
-fun check_sort (ctx, i : U.idx, s : sort) : idx =
+fun check_sort gctx (ctx, i : U.idx, s : sort) : idx =
     let 
-      val (i, bs') = get_bsort (ctx, i)
+      val (i, bs') = get_bsort gctx (ctx, i)
       val r = get_region_i i
       val s = update_s s
       val () =
 	  (case s of
-	       Subset ((bs, _), BindI ((name, _), p), _) =>
+	       Subset ((bs, _), Bind ((name, _), p), _) =>
                let
 	         val () = unify_bs r (bs', bs)
                  val r = get_region_i i
@@ -874,7 +926,7 @@ fun check_sort (ctx, i : U.idx, s : sort) : idx =
                  val p = subst_i_p i p
                          handle
                          SubstUVar info =>
-                         raise subst_uvar_error (get_region_p p) ("proposition " ^ str_p (name :: sctx_names ctx) p) i info
+                         raise subst_uvar_error (get_region_p p) ("proposition " ^ str_p (names gctx) (name :: sctx_names ctx) p) i info
                  (* val () = println $ sprintf "Writing prop $ $" [str_p (sctx_names ctx) p, str_region "" "" r] *)
 		 val () =
                      if is_admit then
@@ -896,9 +948,10 @@ fun check_sort (ctx, i : U.idx, s : sort) : idx =
           handle Error (_, msg) =>
                  let
                    val ctxn = sctx_names ctx
+                   val gctxn = names gctx
                  in
                    raise Error (r,
-                                sprintf "index $ (of base sort $) is not of sort $" [str_i ctxn i, str_bs bs', str_s ctxn s] ::
+                                sprintf "index $ (of base sort $) is not of sort $" [str_i gctxn ctxn i, str_bs bs', str_s gctxn ctxn s] ::
                                 "Cause:" ::
                                 indent msg)
                  end
@@ -906,54 +959,56 @@ fun check_sort (ctx, i : U.idx, s : sort) : idx =
       i
     end
 
-fun check_sorts (ctx, is : U.idx list, sorts, r) : idx list =
+fun check_sorts gctx (ctx, is : U.idx list, sorts, r) : idx list =
     (check_length r (is, sorts);
-     ListPair.map (fn (i, s) => check_sort (ctx, i, s)) (is, sorts))
+     ListPair.map (fn (i, s) => check_sort gctx (ctx, i, s)) (is, sorts))
 
 (* k => Type *)
 fun recur_kind k = ArrowK (false, 0, k)
 
-fun kind_mismatch (ctx as (sctx, kctx)) c expect have =  "Kind mismatch for " ^ str_t ctx c ^ ": expect " ^ expect ^ " have " ^ str_k sctx have
+fun kind_mismatch gctx (ctx as (sctx, kctx)) c expect have = "Kind mismatch for " ^ str_t gctx ctx c ^ ": expect " ^ expect ^ " have " ^ str_k gctx sctx have
 
 fun do_fetch_kind (kctx, (a, r)) =
     case lookup_kind a kctx of
       	SOME k => k
       | NONE => raise Error (r, ["Unbound type variable: " ^ str_v (names kctx) a])
 
-fun fetch_kind ggctx (kctx, (m, x)) = generic_fetch shiftx_m_k do_fetch_kind #2
+fun fetch_kind a = generic_fetch shiftx_m_k do_fetch_kind #2 a
 
 (* could also be named 'check_kind_Type' *)
-fun is_wf_mtype (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype) : mtype = 
-    let 
+fun is_wf_mtype gctx (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype) : mtype = 
+    let
+      val is_wf_mtype = is_wf_mtype gctx
+      val gctxn = names gctx
       val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
       (* val () = print (sprintf "Type wellformedness checking: $\n" [str_t ctxn c]) *)
       fun main () =
           case c of
 	      U.Arrow (c1, d, c2) => 
 	      Arrow (is_wf_mtype (ctx, c1),
-	             check_bsort (sctx, d, Base Time),
+	             check_bsort gctx (sctx, d, Base Time),
 	             is_wf_mtype (ctx, c2))
             | U.Unit r => Unit r
 	    | U.Prod (c1, c2) => 
 	      Prod (is_wf_mtype (ctx, c1),
 	            is_wf_mtype (ctx, c2))
-	    | U.UniI (s, BindI ((name, r), c), r_all) => 
+	    | U.UniI (s, Bind ((name, r), c), r_all) => 
               let
-                val s = is_wf_sort (sctx, s)
+                val s = is_wf_sort gctx (sctx, s)
               in
                 (* ToDo: need to [open_sorting] *)
 	        UniI (s,
-	              BindI ((name, r), 
+	              Bind ((name, r), 
                              is_wf_mtype (add_sorting_sk (name, s) ctx, c)), r_all)
               end
 	    | U.AppV (x, ts, is, r) => 
               let
-                val ArrowK (_, n, sorts) = fetch_kind (kctx, x)
+                val ArrowK (_, n, sorts) = fetch_kind gctx (kctx, x)
 	        val () = check_length_n r (ts, n)
               in
 	        AppV (x, 
                       map (fn t => is_wf_mtype (ctx, t)) ts, 
-                      check_sorts (sctx, is, sorts, r), 
+                      check_sorts gctx (sctx, is, sorts, r), 
                       r)
               end
 	    | U.BaseType a => BaseType a
@@ -961,21 +1016,21 @@ fun is_wf_mtype (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype) : mtype
       val ret =
           main ()
           handle
-          Error (r, msg) => raise Error (r, msg @ ["when checking well-formed-ness of type "] @ indent [U.str_mt ctxn c])
+          Error (r, msg) => raise Error (r, msg @ ["when checking well-formed-ness of type "] @ indent [U.str_mt gctxn ctxn c])
     in
       ret
     end
 
-fun is_wf_type (ctx as (sctx : scontext, kctx : kcontext), c : U.ty) : ty = 
+fun is_wf_type gctx (ctx as (sctx : scontext, kctx : kcontext), c : U.ty) : ty = 
     let 
       val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
 	                             (* val () = print (sprintf "Type wellformedness checking: $\n" [str_t ctxn c]) *)
     in
       case c of
           U.Mono t =>
-          Mono (is_wf_mtype (ctx, t))
-	| U.Uni ((name, r), c, r_all) => 
-	  Uni ((name, r), is_wf_type (add_kinding_sk (name, Type) ctx, c), r_all)
+          Mono (is_wf_mtype gctx (ctx, t))
+	| U.Uni (Bind ((name, r), c), r_all) => 
+	  Uni (Bind ((name, r), is_wf_type gctx (add_kinding_sk (name, Type) ctx, c)), r_all)
     end
 
 fun smart_max a b =
@@ -1560,7 +1615,7 @@ fun get_mtype (* ggctx *) (ctx as (sctx : scontext, kctx : kcontext, cctx : ccon
                 (* val () = println $ str_mt skctxn t *)
                 fun insert_idx_args t_all =
                     case t_all of
-                        UniI (s, BindI ((name, _), t), _) =>
+                        UniI (s, Bind ((name, _), t), _) =>
                         let
                           (* val bs = fresh_bsort () *)
                           (* val i = fresh_i sctxn bs r *)
@@ -1635,14 +1690,14 @@ fun get_mtype (* ggctx *) (ctx as (sctx : scontext, kctx : kcontext, cctx : ccon
 		val (e, t, _) = get_mtype (ctx, e) 
                 val () = close_ctx ctxd
               in
-		(AbsI (s, (name, r), e, r_all), UniI (s, BindI ((name, r), t), r_all), T0 r_all)
+		(AbsI (s, (name, r), e, r_all), UniI (s, Bind ((name, r), t), r_all), T0 r_all)
 	      end 
 	    | U.AppI (e, i) =>
 	      let 
                 val r = U.get_region_e e
                 val s = fresh_sort sctxn r
                 val t1 = fresh_mt (kctxn @ sctxn) r
-                val (e, t, d) = check_mtype (ctx, e, UniI (s, BindI (("_", r), t1), r)) 
+                val (e, t, d) = check_mtype (ctx, e, UniI (s, Bind (("_", r), t1), r)) 
                 val i = check_sort (sctx, i, s) 
               in
 		(AppI (e, i), subst_i_mt i t1, d)
@@ -1795,7 +1850,7 @@ and check_decl (ctx as (sctx, kctx, cctx, _), decl) =
             | Unit _ => []
 	    | Arrow (t1, _, t2) => fv_mt t1 @ fv_mt t2
 	    | Prod (t1, t2) => fv_mt t1 @ fv_mt t2
-	    | UniI (s, BindI (name, t1), _) => fv_mt t1
+	    | UniI (s, Bind (name, t1), _) => fv_mt t1
 	    | BaseType _ => []
 	    | AppV (y, ts, is, r) => concatMap fv_mt ts
       fun fv_t t =
@@ -1815,7 +1870,7 @@ and check_decl (ctx as (sctx, kctx, cctx, _), decl) =
                   | Unit r => Unit r
 	          | Arrow (t1, d, t2) => Arrow (substu x v t1, d, substu x v t2)
 	          | Prod (t1, t2) => Prod (substu x v t1, substu x v t2)
-	          | UniI (s, BindI (name, t1), r) => UniI (s, BindI (name, substu x v t1), r)
+	          | UniI (s, Bind (name, t1), r) => UniI (s, Bind (name, substu x v t1), r)
 	          | BaseType a => BaseType a
 	          | AppV (y, ts, is, r) => 
 		    AppV (y, map (substu x v) ts, is, r)
@@ -1898,7 +1953,7 @@ and check_decl (ctx as (sctx, kctx, cctx, _), decl) =
 	        val d = check_bsort (sctx, d, Base Time)
                 fun g (bind, t) =
                     case bind of
-		        inl (name, s) => UniI (s, BindI (name, t), get_region_mt t)
+		        inl (name, s) => UniI (s, Bind (name, t), get_region_mt t)
 		      | inr (_, t1) => Arrow (t1, T0 dummy, t)
                 val te = 
                     case rev binds of

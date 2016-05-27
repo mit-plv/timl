@@ -27,10 +27,10 @@ local
       Error e => Failed e
 
   (* fun find_idx (x : string) ctx = find_by_snd_eq op= x (add_idx ctx) *)
-  fun is_eq_snd x (i, y) = if y = x then SOME i else NONE
-  fun find_idx (x : string) ctx = findOptionWithIdx (is_eq_snd x) ctx
-  fun is_eq_fst_snd x (i, (y, v)) = if y = x then SOME (i, v) else NONE
-  fun find_idx_value (x : string) ctx = findOptionWithIdx (is_eq_fst_snd x) ctx
+  fun is_eq_snd (x : string) (i, y) = if y = x then SOME i else NONE
+  fun find_idx x ctx = findOptionWithIdx (is_eq_snd x) ctx
+  fun is_eq_fst_snd (x : string) (i, (y, v)) = if y = x then SOME (i, v) else NONE
+  fun find_idx_value x ctx = findOptionWithIdx (is_eq_fst_snd x) ctx
 
   fun on_id ctx (x, r) =
       case find_idx x ctx of
@@ -94,6 +94,8 @@ local
           Forall => Forall
         | Exists _ => Exists NONE
                              
+  fun on_ibind f ctx (E.Bind ((name, r), inner)) = Bind ((name, r), f (name :: ctx) inner)
+
   fun on_prop gctx ctx p =
       let
         val on_prop = on_prop gctx
@@ -104,15 +106,13 @@ local
         | E.Not (p, r) => Not (on_prop ctx p, r)
 	| E.BinConn (opr, p1, p2) => BinConn (opr, on_prop ctx p1, on_prop ctx p2)
 	| E.BinPred (opr, i1, i2) => BinPred (opr, on_idx gctx ctx i1, on_idx gctx ctx i2)
-        | E.Quan (q, bs, (name, r), p, r_all) => Quan (on_quan q, on_bsort bs, (name, r), on_prop (name :: ctx) p, r_all)
+        | E.Quan (q, bs, bind, r_all) => Quan (on_quan q, on_bsort bs, on_ibind on_prop ctx bind, r_all)
       end
-
-  fun on_ibind f ctx (E.Bind ((name, r), inner)) = Bind ((name, r), f (name :: ctx) inner)
 
   fun on_sort gctx ctx s =
       case s of
 	  E.Basic (s, r) => Basic (on_bsort s, r)
-	| E.Subset ((s, r1), Bind ((name, r), p), r_all) => Subset ((on_bsort s, r1), Bind ((name, r), on_prop gctx (name :: ctx) p), r_all)
+	| E.Subset ((s, r1), bind, r_all) => Subset ((on_bsort s, r1), on_ibind (on_prop gctx) ctx bind, r_all)
         | E.UVarS u => UVarS u
 
   fun on_mtype gctx (ctx as (sctx, kctx)) t =
@@ -124,7 +124,12 @@ local
         | E.Unit r => Unit r
 	| E.Prod (t1, t2) => Prod (on_mtype ctx t1, on_mtype ctx t2)
 	| E.UniI (s, E.Bind ((name, r), t), r_all) => UniI (on_sort gctx sctx s, Bind ((name, r), on_mtype (name :: sctx, kctx) t), r_all)
-	| E.AppV (x, ts, is, r) => AppV (on_long_id gctx #2 kctx x, map (on_mtype ctx) ts, map (on_idx gctx sctx) is, r)
+        | E.MtVar x => MtVar $ on_long_id gctx #2 kctx x
+        | E.MtApp (t1, t2) => MtApp (on_mtype ctx t1, on_mtype ctx t2)
+        | E.MtAbs (Bind ((name, r), t), r_all) => MtAbs (Bind ((name, r), on_mtype (sctx, name :: kctx) t), r_all)
+        | E.MtAppI (t, i) => MtAppI (on_mtype ctx t, on_idx gctx sctx i)
+        | E.MtAbsI (s, Bind ((name, r), t), r_all) => MtAbsI (on_sort gctx sctx s, Bind ((name, r), on_mtype (name :: sctx, kctx) t), r_all)
+        | E.AppV (x, ts, is, r) => AppV (on_long_id gctx #2 kctx x, map (on_mtype ctx) ts, map (on_idx gctx sctx) is, r)
 	| E.BaseType (bt, r) => BaseType (bt, r)
         | E.UVar u => UVar u
       end
@@ -316,7 +321,7 @@ local
               val is = is @ [i]
 	    in
 	      case e of
-		  E.Var ((x, r), b) =>
+		  E.Var (x, b) =>
 		  (case find_constr gctx cctx x of
 		       SOME (x, _) => AppConstr ((x, b), map (on_idx gctx sctx) is, TT (E.get_region_i i))
 		     | NONE => default ())
@@ -324,14 +329,14 @@ local
 	    end
 	  | E.Let (return, decls, e, r) =>
             let 
-              val return = on_return skctx return
-              val (decls, ctx) = on_decls ctx decls
+              val return = on_return gctx skctx return
+              val (decls, ctx) = on_decls gctx ctx decls
             in
               Let (return, decls, on_expr ctx e, r)
             end
 	  | E.Ascription (e, t) =>
             let
-              val t = on_mtype skctx t
+              val t = on_mtype gctx skctx t
               val e = on_expr ctx e
               val e = copy_anno (SOME t, NONE) e
             in
@@ -339,7 +344,7 @@ local
             end
 	  | E.AscriptionTime (e, d) =>
             let
-              val d = on_idx sctx d
+              val d = on_idx gctx sctx d
               val e = on_expr ctx e
               val e = copy_anno (NONE, SOME d) e
             in
@@ -347,37 +352,41 @@ local
             end
 	  | E.ConstInt n => ConstInt n
 	  | E.BinOp (opr, e1, e2) => BinOp (opr, on_expr ctx e1, on_expr ctx e2)
-	  | E.AppConstr ((x, b), is, e) => AppConstr ((on_id (map fst cctx) x, b), map (on_idx sctx) is, on_expr ctx e)
+	  | E.AppConstr ((x, b), is, e) => AppConstr ((on_long_id gctx (map fst o #3) (map fst cctx) x, b), map (on_idx gctx sctx) is, on_expr ctx e)
 	  | E.Case (e, return, rules, r) =>
             let
-              val return = on_return skctx return
-              val rules = map (on_rule ctx) rules
+              val return = on_return gctx skctx return
+              val rules = map (on_rule gctx ctx) rules
               val rules = map (copy_anno_rule return) rules
             in
               Case (on_expr ctx e, return, rules, r)
             end
-	  | E.Never (t, r) => Never (on_mtype skctx t, r)
+	  | E.Never (t, r) => Never (on_mtype gctx skctx t, r)
       end
 
-  and on_decls (ctx as (sctx, kctx, cctx, tctx)) decls =
-      let fun f (decl, (acc, ctx)) =
-              let val (decl, ctx) = on_decl ctx decl
-              in
-                (decl :: acc, ctx)
-              end
-          val (decls, ctx) = foldl f ([], ctx) decls
-          val decls = rev decls
+  and on_decls gctx (ctx as (sctx, kctx, cctx, tctx)) decls =
+      let
+        fun f (decl, (acc, ctx)) =
+            let val (decl, ctx) = on_decl gctx ctx decl
+            in
+              (decl :: acc, ctx)
+            end
+        val (decls, ctx) = foldl f ([], ctx) decls
+        val decls = rev decls
       in
         (decls, ctx)
       end
 
-  and on_decl (ctx as (sctx, kctx, cctx, tctx)) decl =
+  and on_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
+      let
+        val on_decl = on_decl gctx
+      in
       case decl of
           E.Val (tnames, pn, e, r) =>
           let 
             val ctx' as (sctx', kctx', cctx', _) = (sctx, (rev o map fst) tnames @ kctx, cctx, tctx)
-            val pn = on_ptrn (sctx', kctx', cctx') pn
-            val e = on_expr ctx' e
+            val pn = on_ptrn gctx (sctx', kctx', cctx') pn
+            val e = on_expr gctx ctx' e
             val (inames, enames) = ptrn_names pn
             val ctx = (inames @ sctx, kctx, cctx, enames @ tctx)
           in
@@ -391,19 +400,19 @@ local
             fun f (bind, (binds, ctx as (sctx, kctx, cctx, tctx))) =
                 case bind of
                     E.SortingST ((name, r), s) => 
-                    (SortingST ((name, r), on_sort sctx s) :: binds, add_sorting name ctx)
+                    (SortingST ((name, r), on_sort gctx sctx s) :: binds, add_sorting name ctx)
                   | E.TypingST pn =>
                     let
-                      val pn = on_ptrn (sctx, kctx, cctx) pn
+                      val pn = on_ptrn gctx (sctx, kctx, cctx) pn
                       val (inames, enames) = ptrn_names pn
                     in
                       (TypingST pn :: binds, (inames @ sctx, kctx, cctx, enames @ tctx))
                     end
             val (binds, ctx as (sctx, kctx, cctx, tctx)) = foldl f ([], ctx) binds
             val binds = rev binds
-            val t = on_mtype (sctx, kctx) t
-            val d = on_idx sctx d
-            val e = on_expr ctx e
+            val t = on_mtype gctx (sctx, kctx) t
+            val d = on_idx gctx sctx d
+            val e = on_expr gctx ctx e
             val e = copy_anno (SOME t, SOME d) e
           in
             (Rec (tnames, (name, r1), (binds, ((t, d), e)), r), ctx_ret)
@@ -411,44 +420,53 @@ local
         | E.Datatype (name, tnames, sorts, constr_decls, r) =>
           let
             fun on_constr_decl (cname, core, r) =
-                (cname, on_constr_core (sctx, name :: kctx) tnames core, r)
-            val decl = Datatype (name, tnames, map (on_sort sctx) sorts, map on_constr_decl constr_decls, r)
+                (cname, on_constr_core gctx (sctx, name :: kctx) tnames core, r)
+            val decl = Datatype (name, tnames, map (on_sort gctx sctx) sorts, map on_constr_decl constr_decls, r)
             val cnames = map (fn (name, core, _) => (name, get_constr_inames core)) constr_decls
             val ctx = (sctx, name :: kctx, rev cnames @ cctx, tctx)
           in
             (decl, ctx)
           end
         | E.IdxDef ((name, r), s, i) =>
-          (IdxDef ((name, r), on_sort sctx s, on_idx sctx i), add_sorting name ctx)
+          (IdxDef ((name, r), on_sort gctx sctx s, on_idx gctx sctx i), add_sorting name ctx)
         | E.AbsIdx (((name, r1), s, i), decls, r) =>
           let
-            val s = on_sort sctx s
-            val i = on_idx sctx i
+            val s = on_sort gctx sctx s
+            val i = on_idx gctx sctx i
             val ctx = add_sorting name ctx
-            val (decls, ctx) = on_decls ctx decls
+            val (decls, ctx) = on_decls gctx ctx decls
           in
             (AbsIdx (((name, r1), s, i), decls, r), ctx)
           end
+        | E.TypeDef ((name, r), t) =>
+          let
+            val t = on_mtype gctx (sctx, kctx) t
+          in
+            (TypeDef ((name, r), t), add_kinding name ctx)
+          end
+        | E.Open m =>
+          (Open (on_id (map fst gctx) m), ctx)
+      end
 
-  and on_rule (ctx as (sctx, kctx, cctx, tctx)) (pn, e) =
+  and on_rule gctx (ctx as (sctx, kctx, cctx, tctx)) (pn, e) =
       let 
         (* val () = println $ sprintf "on_rule $ in context $" [E.str_rule ctx (pn, e), join " " tctx] *)
-        val pn = on_ptrn (sctx, kctx, cctx) pn
+        val pn = on_ptrn gctx (sctx, kctx, cctx) pn
         val (inames, enames) = ptrn_names pn
         (* val () = println $ sprintf "enames of $: $" [E.str_pn (sctx, kctx, cctx) pn, join " " enames] *)
         val ctx' = (inames @ sctx, kctx, cctx, enames @ tctx)
       in
-        (pn, on_expr ctx' e)
+        (pn, on_expr gctx ctx' e)
       end
 
-  fun on_kind ctx k =
+  fun on_kind gctx ctx k =
       case k of
-	  E.ArrowK (is_datatype, n, sorts) => ArrowK (is_datatype, n, map (on_sort ctx) sorts)
+	  E.ArrowK (is_datatype, n, sorts) => ArrowK (is_datatype, n, map (on_sort gctx ctx) sorts)
 
 in
 val resolve_type = on_type
 val resolve_expr = on_expr
-fun resolve_decls ctx decls = fst (on_decls ctx decls)
+fun resolve_decls gctx ctx decls = fst (on_decls gctx ctx decls)
 
 val resolve_constr = on_constr
 val resolve_kind = on_kind
