@@ -113,7 +113,7 @@ fun shiftx_i_ts n ctx =
 fun shiftx_t_ts n ctx = 
     map (mapSnd (shiftx_t_t 0 n)) ctx
 
-fun add_sorting (name, s) pairs = ((* SOME  *)name, s) :: pairs
+fun add_sorting (name, s) pairs = (name, s) :: pairs
 fun add_sorting_sk pair (sctx, kctx) = 
     (add_sorting pair sctx, 
      shiftx_i_kctx 1 kctx)
@@ -159,6 +159,7 @@ fun sctx_length (ctx : scontext) = length $ sctx_names ctx
 
 fun add_kindingext pair (kctx : kcontext) = pair :: kctx
 fun add_kinding pair = add_kindingext $ mapSnd KeKind pair
+fun add_type_eq pair = add_kindingext $ mapSnd KeTypeEq pair
 fun add_kinding_kc pair (kctx, cctx) = 
     (add_kinding pair kctx, 
      shiftx_t_cs 1 cctx)
@@ -204,6 +205,8 @@ fun add_typings_skct pairs (sctx, kctx, cctx, tctx) =
      cctx,
      pairs @ tctx)
 
+fun add_sigging (name, s) pairs = (name, s) :: pairs
+                                                 
 fun ctx_names (sctx, kctx, cctx, tctx) =
     (sctx_names sctx, names kctx, names cctx, names tctx) 
 
@@ -540,17 +543,19 @@ fun normalize_t gctx kctx t =
         Mono t => Mono (normalize_mt gctx kctx t)
       | Uni (Bind (name, t), r) => Uni (Bind (name, normalize_t gctx (add_kinding (fst name, Type) kctx) t), r)
 
+(* verification conditions written incrementally during typechecking *)
+                                       
 type anchor = (bsort, idx) uvar_ref_i
                            
 datatype vc_entry =
-         ForallVC of string (* option  *)* sort
+         VcSorting of string (* option  *)* sort
          | ImplyVC of prop
          | PropVC of prop * region
          | AdmitVC of prop * region
          (* remember where unification index variable is introduced, since those left over will be converted into existential variables in VC formulas *)
          | AnchorVC of anchor
-         | OpenVC
-         | CloseVC
+         | OpenParen
+         | CloseParen
          | VcModule of string * context
          | VcKinding of string * kind_ext
 
@@ -558,22 +563,24 @@ val acc = ref ([] : vc_entry list)
 
 fun write x = push_ref acc x
 
-fun open_vc () = write OpenVC
-
-fun open_sorting ns = write o ForallVC $ (* mapFst SOME *) ns
-
-fun open_module ctx = ()
+fun open_paren () = write OpenParen
+fun open_sorting ns = write $ VcSorting ns
+fun open_kinding nk = write $ VcKinding nk
+fun open_module ctx = write $ VcModule ctx
                        
-fun close_vc () = write CloseVC
-
-fun close_n n = repeat_app close_vc n
-
-fun open_ctx (ctx as (sctx, _, _, _)) = (app write o map ForallVC o rev) sctx
-fun close_ctx (ctx as (sctx, _, _, _)) = app (fn _ => write CloseVC) sctx
-
-fun open_sortings sortings = app open_sorting sortings
-
-fun open_premises ps = (app write o map ImplyVC) ps
+fun close_paren () = write CloseParen
+fun close_n n = repeat_app close_paren n
+fun open_premises ps = app write $ map ImplyVC ps
+fun open_sortings sortings = app open_sorting $ rev sortings
+fun open_kindings kindings = app open_kinding $ rev kindings
+fun open_ctx (ctx as (sctx, kctx, _, _)) =
+    let
+      val () = open_sortings sctx
+      val () = open_kindings kctx
+    in
+      ()
+    end
+fun close_ctx (ctx as (sctx, kctx, _, _)) = close_n $ length sctx + length kctx
 
 fun write_anchor anchor = write (AnchorVC anchor)
 
@@ -773,7 +780,7 @@ fun unify_mt r gctx ctx (t, t') =
                 (unify_s r gctxn sctxn (s, s');
                  open_sorting (name, s);
                  loop (add_sorting_sk (name, s) ctx) (t1, t1');
-                 close_vc ())
+                 close_paren ())
               | (Unit _, Unit _) => ()
 	      | (BaseType (Int, _), BaseType (Int, _)) => ()
 	      | (AppV ((a, _), ts, is, _), AppV ((a', _), ts', is', _)) => 
@@ -1201,6 +1208,22 @@ fun is_wf_mtype gctx (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype) : 
       ret
     end
 
+fun check_kind gctx (ctx, t, k) =
+    case k of
+        ArrowK ()
+    
+fun is_wf_kindext gctx (ctx, k) =
+    case k of
+        U.KeKind k =
+        KeKind $ is_wf_kind gctx (ctx, k)
+      | U.KeTypeEq (k, t) =
+        let
+          val k = is_wf_kind gctx (ctx, k)
+          val t = check_kind gctx (ctx, t, k)
+        in
+          KeTypeEq (k, t)
+        end
+        
 fun is_wf_type gctx (ctx as (sctx : scontext, kctx : kcontext), c : U.ty) : ty = 
     let 
       val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
@@ -2357,7 +2380,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
               let
                 val s = is_wf_sort gctx (sctx, s)
                 (* localized the scope of the evars introduced in type-checking absidx's definition *)
-                val () = open_vc ()
+                val () = open_paren ()
                 val i = check_sort gctx (sctx, i, s)
                 val ctxd = ctx_from_sorting (name, s)
                 val () = open_ctx ctxd
@@ -2370,7 +2393,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
                 val () = close_ctx ctxd2
                 val () = close_n (length ps)
                 val () = close_ctx ctxd
-                val () = close_vc ()
+                val () = close_paren ()
                 val ctxd = add_ctx ctxd2 ctxd
                 val () = open_ctx ctxd
               in
@@ -2515,9 +2538,10 @@ and check_mtype_time gctx (ctx as (sctx, kctx, cctx, tctx), e, t, d) =
 
 fun link_sig r gctx ctx (ctx' as (sctx', kctx', cctx', tctx')) =
     let
-      val gctx = ("__link_sig_module", Sig ctx) :: gctx
+      val mod_name = "__link_sig_module" 
+      val gctx = add_sigging (mod_name, Sig ctx) gctx
+      val () = open_module (mod_name, ctx)
       val gctxn = names gctx
-      val () = open_module ctx
       fun match_sort ((name, s'), sctx') =
           let
             val (x, s) = fetch_sort_by_name gctx [] (SOME (0, r), (name, r))
@@ -2549,7 +2573,7 @@ fun link_sig r gctx ctx (ctx' as (sctx', kctx', cctx', tctx')) =
                       k
                     end
             val k' = kind_add_type_eq k' (MtVar x)
-            val () = open_kinding (name, s')
+            val () = open_kinding (name, k')
           in
             add_kindingext (name, k') kctx'
           end
@@ -2612,9 +2636,9 @@ fun is_wf_sig gctx sg =
                   end
                 | U.SpecTypeDef ((name, r), t) =>
                   let
-                    val t = is_wf_type (#1 ctx, #2 ctx) t
+                    val t = is_wf_mtype (#1 ctx, #2 ctx) t
                   in
-                    (SpecTypeDef ((name, r), t), add_type_eq (name, t) ctx)
+                    (SpecTypeDef ((name, r), t), add_type_eq (name, (Type, t)) ctx)
                   end
                 | U.SpecDatatype a =>
                   let
@@ -2694,10 +2718,11 @@ fun check_top_bind gctx bind =
       (*   in *)
       (*     (name, SigBind sg) *)
       (*   end *)
-      | TopFunctorBind ((name, _), args, m) =>
+      | TopFunctorBind ((name, _), arg, m) =>
         (* functor applications will be implemented fiberedly instead of parametrizedly *)
         let
-          val (args, gctx') = check_top_binds gctx $ map TopModSpec [args]
+          val args = [arg]
+          val (args, gctx') = check_top_binds gctx $ map TopModSpec args
           val sg = get_sig gctx' m
           val () = close_n $ length args
         in
@@ -2705,13 +2730,16 @@ fun check_top_bind gctx bind =
         end
       | U.TopFunctorApp ((name, _), f, m) =>
         let
-          val (arg, body) = fetch_functor gctx f
-          val sg = get_sig gctx m
-          val arg = link_sig gctx sg arg
-          val gctxd = [("__formal_mod_arg", Sig arg), ("__actual_mod_arg", Sig sg)]
+          val (formal_arg, body) = fetch_functor gctx f
+          val actual_arg = get_sig gctx m
+          val formal_arg = link_sig gctx actual_arg formal_arg
+          val gctxd = [("__formal_mod_arg", Sig formal_arg), ("__actual_mod_arg", Sig actual_arg)]
+          val () = open_module actual_arg
+          val () = open_module formal_arg
           val gctx = gctxd @ gctx
           val body = shiftx_m_m 1 1 body
           val body_sig = get_sig gctx body
+          val () = open_module body_sig
         in
           (name, Sig body_sig) :: gctxd
         end
