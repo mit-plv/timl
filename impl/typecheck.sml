@@ -92,7 +92,7 @@ fun shiftx_m_ke x n k =
                     
 fun shiftx_i_ps n ps = 
     map (shiftx_i_p 0 n) ps
-fun shiftx_i_ks n ctx = 
+fun shiftx_i_kctx n ctx = 
     map (mapSnd (shiftx_i_ke 0 n)) ctx
 fun shiftx_i_cs n ctx = 
     map (mapSnd (shiftx_i_c 0 n)) ctx
@@ -100,20 +100,21 @@ fun shiftx_t_cs n ctx =
     map (mapSnd (shiftx_t_c 0 n)) ctx
 fun shiftx_i_ts n ctx = 
     map (mapSnd (shiftx_i_t 0 n)) ctx
+        
 fun shiftx_t_ts n ctx = 
     map (mapSnd (shiftx_t_t 0 n)) ctx
 
 fun add_sorting (name, s) pairs = ((* SOME  *)name, s) :: pairs
 fun add_sorting_sk pair (sctx, kctx) = 
     (add_sorting pair sctx, 
-     shiftx_i_ks 1 kctx)
+     shiftx_i_kctx 1 kctx)
 fun add_sorting_skc pair (sctx, kctx, cctx) = 
     (add_sorting pair sctx, 
-     shiftx_i_ks 1 kctx,
+     shiftx_i_kctx 1 kctx,
      shiftx_i_cs 1 cctx)
 fun add_sorting_skct pair (sctx, kctx, cctx, tctx) = 
     (add_sorting pair sctx, 
-     shiftx_i_ks 1 kctx, 
+     shiftx_i_kctx 1 kctx, 
      shiftx_i_cs 1 cctx, 
      shiftx_i_ts 1 tctx)
 (* Within 'pairs', sort depends on previous sort *)
@@ -122,7 +123,7 @@ fun add_sortings_skct pairs' (pairs, kctx, cctx, tctx) : context =
       val n = length pairs' 
     in
       ((* map (mapFst SOME) *) pairs' @ pairs, 
-                               shiftx_i_ks n kctx, 
+                               shiftx_i_kctx n kctx, 
                                shiftx_i_cs n cctx, 
                                shiftx_i_ts n tctx)
     end
@@ -134,14 +135,14 @@ fun add_nondep_sortings_sk pairs (sctx, kctx) =
     let val n = length pairs
     in
       (add_nondep_sortings pairs sctx,
-       shiftx_i_ks n kctx)
+       shiftx_i_kctx n kctx)
     end
 fun add_nondep_sortings_skc pairs (sctx, kctx, cctx) = 
     let val n = length pairs
     in
       (add_nondep_sortings pairs sctx,
-       shiftx_i_ks n kctx,
-       shiftx_i_ks n cctx)
+       shiftx_i_kctx n kctx,
+       shiftx_i_kctx n cctx)
     end
 *)
 fun sctx_names (ctx : scontext) = (* List.mapPartial id $ *) map fst ctx
@@ -154,10 +155,21 @@ fun lookup_sort (n : int) (ctx : scontext) : sort option =
       | SOME (_, s) => 
         SOME (shiftx_i_s 0 (n + 1) s)
 
-fun lookup_kind_ext (n : int) kctx = 
+fun lookup_sort_by_name (ctx : scontext) (name : string) : sort option =
+    case find_idx_value name ctx of
+        NONE => NONE
+      | SOME (n, s) => 
+        SOME (shiftx_i_s 0 (n + 1) s)
+
+fun lookup_kindext (n : int) kctx = 
     case nth_error kctx n of
         NONE => NONE
       | SOME (_, k) => SOME $ shiftx_t_ke 0 (n + 1) k
+
+fun lookup_kindext_by_name kctx name = 
+    case find_idx_value name kctx of
+        NONE => NONE
+      | SOME (n, k) => SOME $ shiftx_t_ke 0 (n + 1) k
 
 fun get_ke_kind k =
     case k of
@@ -169,7 +181,8 @@ fun lookup_kind (n : int) kctx =
         NONE => NONE
       | SOME (_, k) => SOME $ get_ke_kind k
 
-fun add_kinding pair (kctx : kcontext) = mapSnd KeKind pair :: kctx
+fun add_kindingext pair (kctx : kcontext) = pair :: kctx
+fun add_kinding pair = add_kindingext $ mapSnd KeKind pair
 fun add_kinding_kc pair (kctx, cctx) = 
     (add_kinding pair kctx, 
      shiftx_t_cs 1 cctx)
@@ -177,11 +190,12 @@ fun add_kinding_kct pair (kctx, cctx, tctx) =
     (add_kinding pair kctx,
      shiftx_t_cs 1 cctx,
      shiftx_t_ts 1 tctx)
-fun add_kinding_skct pair (sctx, kctx, cctx, tctx) = 
+fun add_kindingext_skct pair (sctx, kctx, cctx, tctx) = 
     (sctx,
-     add_kinding pair kctx,
+     add_kindingext pair kctx,
      shiftx_t_cs 1 cctx,
      shiftx_t_ts 1 tctx)
+fun add_kinding_skct pair = add_kindingext_skct $ mapSnd KeKind pair
 fun add_kinding_sk pair (sctx, kctx) = 
     (sctx, 
      add_kinding pair kctx)
@@ -246,6 +260,7 @@ val empty_ctx = ([], [], [], [])
 fun ctx_from_sorting pair : context = (add_sorting pair [], [], [], [])
 fun ctx_from_sortings pairs : context = add_sortings_skct pairs empty_ctx
 fun ctx_from_full_sortings pairs : context = (pairs, [], [], [])
+fun ctx_from_kinding pair : context = add_kinding_skct pair empty_ctx
 fun ctx_from_typing pair : context = ([], [], [], [pair])
 
 open UVar
@@ -388,6 +403,7 @@ fun open_ctx (ctx as (sctx, _, _, _)) = (app write o map ForallVC o rev) sctx
 fun close_ctx (ctx as (sctx, _, _, _)) = app (fn _ => write CloseVC) sctx
 
 fun open_sorting ns = write o ForallVC $ (* mapFst SOME *) ns
+fun open_sortings sortings = app open_sorting sortings
 
 fun open_premises ps = (app write o map ImplyVC) ps
 
@@ -674,6 +690,11 @@ fun do_fetch_sort (ctx, (x, r)) =
     case lookup_sort x ctx of
       	SOME s => s
       | NONE => raise Error (r, ["Unbound index variable: " ^ str_v (sctx_names ctx) x])
+
+fun fetch_sort_by_name ctx name r =
+    case lookup_sort_by_name ctx name of
+        SOME s => s
+      | NONE => raise Error (r, ["Can't find index variable: " ^ name])
 
 fun fetch_sort a = generic_fetch shiftx_m_s package_s do_fetch_sort #1 a
                                
@@ -976,6 +997,11 @@ fun do_fetch_kind (kctx, (a, r)) =
     case lookup_kind a kctx of
       	SOME k => k
       | NONE => raise Error (r, ["Unbound type variable: " ^ str_v (names kctx) a])
+
+fun fetch_kindext_by_name kctx name r =
+    case lookup_kindext_by_name kctx name of
+      	SOME k => k
+      | NONE => raise Error (r, ["Can't find type variable: " ^ name])
 
 fun fetch_kind a = generic_fetch shiftx_m_k package_kind do_fetch_kind #2 a
 
@@ -1615,11 +1641,166 @@ fun fv_t t =
         Mono t => fv_mt t
       | Uni _ => [] (* fresh uvars in Uni should either have been generalized or in previous ctx *)
                    
+fun smart_write_le gctx ctx (i1, i2, r) =
+    let
+      (* val () = println $ sprintf "Check Le : $ <= $" [str_i ctx i1, str_i ctx i2] *)
+      fun is_fresh_i i =
+          case i of
+              UVarI ((_, x), _) =>
+              (case !x of
+                   Fresh _ => true
+                 | Refined _ => false
+              )
+            | _ => false
+    in
+      if is_fresh_i i1 orelse is_fresh_i i2 then unify_i r gctx ctx (i1, i2)
+      else write_le (i1, i2, r)
+    end
+      
+fun expand_rules gctx (ctx as (sctx, kctx, cctx), rules, t, r) =
+    let
+      fun expand_rule (rule as (pn, e), (pcovers, rules)) =
+          let
+	    val (pn, cover, ctxd, nps) = match_ptrn gctx (ctx, (* pcovers, *) pn, t)
+            val () = close_vcs nps
+            val () = close_ctx ctxd
+            (* val cover = ptrn_to_cover pn *)
+            (* val () = println "before check_redundancy()" *)
+            val () = check_redundancy gctx (ctx, t, pcovers, cover, get_region_pn pn)
+            (* val () = println "after check_redundancy()" *)
+            val (pcovers, new_rules) =
+                case (pn, e) of
+                    (VarP _, U.Never (U.UVar ((), _), _)) =>
+                    let
+                      fun hab_to_ptrn cctx (* cutoff *) t hab =
+                          let
+                            (* open UnderscoredExpr *)
+                            (* exception Error of string *)
+                            (* fun runError m () = *)
+                            (*   SOME (m ()) handle Error _ => NONE *)
+                            fun loop (* cutoff *) t hab =
+                                let
+                                  (* val t = update_mt t *)
+                                  val t = hnf_mt t
+                                in
+                                  case (hab, t) of
+                                      (ConstrH (x, h'), AppV (family as (m, _), ts, _, _)) =>
+                                      let
+                                        val (_, _, ibinds) = fetch_constr gctx (cctx, (m, (x, dummy)))
+                                        val (name_sorts, (t', _)) = unfold_ibinds ibinds
+	                                val t' = subst_ts_mt ts t'
+                                        (* cut-off so that [expand_rules] won't try deeper and deeper proposals *) 
+                                        val pn' =
+                                            loop (* (cutoff - 1) *) t' h'
+                                                                    (* if cutoff > 0 then *)
+                                                                    (*   loop (cutoff - 1) t' h' *)
+                                                                    (* else *)
+                                                                    (*   VarP ("_", dummy) *)
+                                      in
+                                        ConstrP (((m, (x, dummy)), true), repeat (length name_sorts) "_", SOME pn', dummy)
+                                      end
+                                    | (TTH, Unit _) =>
+                                      TTP dummy
+                                    | (PairH (h1, h2), Prod (t1, t2)) =>
+                                      PairP (loop (* cutoff *) t1 h1, loop (* cutoff *) t2 h2)
+                                    | (TrueH, _) => VarP ("_", dummy)
+                                    | _ => raise Impossible "hab_to_ptrn"
+                                end
+                          in
+                            (* runError (fn () => loop t hab) () *)
+                            loop (* cutoff *) t hab
+                          end
+                      fun ptrn_to_cover pn =
+                          let
+                            (* open UnderscoredExpr *)
+                          in
+                            case pn of
+                                ConstrP (((_, (x, _)), _), _, pn, _) => ConstrC (x, default TrueC $ Option.map ptrn_to_cover pn)
+                              | VarP _ => TrueC
+                              | PairP (pn1, pn2) => PairC (ptrn_to_cover pn1, ptrn_to_cover pn2)
+                              | TTP _ => TTC
+                              | AliasP (_, pn, _) => ptrn_to_cover pn
+                              | AnnoP (pn, _) => ptrn_to_cover pn
+                          end
+                      fun convert_pn pn =
+                          case pn of
+                              TTP a => U.TTP a
+                            | PairP (pn1, pn2) => U.PairP (convert_pn pn1, convert_pn pn2)
+                            | ConstrP (x, inames, opn, r) => U.ConstrP (x, inames, Option.map convert_pn opn, r) 
+                            | VarP a => U.VarP a
+                            | AliasP (name, pn, r) => U.AliasP (name, convert_pn pn, r)
+                            | AnnoP _ => raise Impossible "convert_pn can't convert AnnoP"
+                      fun loop pcovers =
+                          case any_missing false(*treat empty datatype as inhabited, so as to get a shorter proposal*) gctx ctx t $ combine_covers pcovers of
+                               SOME hab =>
+                               let
+                                 val pn = hab_to_ptrn cctx (* 10 *) t hab
+                                 (* val () = println $ sprintf "New pattern: $" [str_pn (names sctx, names kctx, names cctx) pn] *)
+                                 val (pcovers, rules) = loop $ pcovers @ [ptrn_to_cover pn]
+                               in
+                                 (pcovers, [(convert_pn pn, e)] @ rules)
+                               end
+                             | NONE => (pcovers, [])
+                               val (pcovers, rules) = loop pcovers
+                    in
+                      (pcovers, rules)
+                    end
+                  | _ => (pcovers @ [cover], [rule])
+          in
+            (pcovers, rules @ new_rules)
+          end
+      val (pcovers, rules) = foldl expand_rule ([], []) $ rules
+      val () = check_exhaustion gctx (ctx, t, pcovers, r);
+    in
+      rules
+    end
+
+fun forget_or_check_return r gctx ctx ctxd (t', d') (t, d) =
+    let
+      val gctxn = names gctx
+      val (sctxn, kctxn, _, _) = ctx_names ctx
+      val t =
+          case t of
+              SOME t =>
+              let
+                val () = unify r gctxn (sctxn, kctxn) (t', shift_ctx_mt ctxd t)
+              in
+                t
+              end
+            | NONE =>
+              let
+	        val t' = forget_ctx_mt r gctx ctx ctxd t' 
+              in
+                t'
+              end
+      val d = 
+          case d of
+              SOME d =>
+              let
+                val () = smart_write_le gctxn sctxn (d', shift_ctx_i ctxd d, r)
+              in
+                d
+              end
+            | NONE =>
+              let 
+	        val d' = forget_ctx_d r gctx ctx ctxd d'
+              in
+                d'
+              end
+    in
+      (t, d)
+    end
+
 fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, tctx : tcontext), e_all : U.expr) : expr * mtype * idx =
     let
       val get_mtype = get_mtype gctx
+      val check_mtype = check_mtype gctx
+      val check_time = check_time gctx
+      val check_mtype_time = check_mtype_time gctx
       val check_decl = check_decl gctx
       val check_decls = check_decls gctx
+      val check_rule = check_rule gctx
+      val check_rules = check_rules gctx
       val skctx = (sctx, kctx)
       val gctxn = names gctx
       val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
@@ -1710,7 +1891,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                 (* val d = foldl' (fn (d, acc) => acc %+ d) (T0 dummy) ds *)
 		(* val t = forget_ctx_mt r ctx ctxd t  *)
                 (* val ds = map (forget_ctx_d r ctx ctxd) ds *)
-	        val (t, d) = forget_or_check_return (get_region_e e) ctx ctxd (t, d) return 
+	        val (t, d) = forget_or_check_return (get_region_e e) gctx ctx ctxd (t, d) return 
                 val () = close_vcs nps
                 val () = close_ctx ctxd
               in
@@ -1828,7 +2009,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	    | U.Case (e, return, rules, r) => 
 	      let val (e, t1, d1) = get_mtype (ctx, e)
                   val return = is_wf_return gctx (skctx, return)
-                  val rules = expand_rules ((sctx, kctx, cctx), rules, t1, r)
+                  val rules = expand_rules gctx ((sctx, kctx, cctx), rules, t1, r)
                   val (rules, tds) = check_rules (ctx, rules, (t1, return), r)
                   fun computed_t () : mtype =
                       case map fst tds of
@@ -1884,6 +2065,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
       val check_decl = check_decl gctx
       val check_decls = check_decls gctx
       val get_mtype = get_mtype gctx
+      val check_mtype_time = check_mtype_time gctx
       fun generalize t = 
           let
             fun fv_ctx (_, _, _, tctx) = (concatMap fv_t o map snd) tctx (* cctx can't contain uvars *)
@@ -2004,7 +2186,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
 	      end
 	    | U.Datatype a =>
               let
-                val (a, ctxd) = is_wf_datatype ctx a
+                val (a, ctxd) = is_wf_datatype gctx ctx a
               in
                 (Datatype a, ctxd, 0, [])
               end
@@ -2052,16 +2234,17 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
       ret
     end
 
-and is_wf_datatype gctx ctx (name, tnames, sorts, constr_decls, r) =
+and is_wf_datatype gctx ctx (name, tnames, sorts, constr_decls, r) : datatype_def * context =
     let 
       val sorts = is_wf_sorts gctx (#1 ctx, sorts)
-      val nk = (name, ArrowK (true, length tnames, sorts))
-      val ctx as (sctx, kctx, _, _) = add_kinding_skct nk ctx
-      fun make_constr ((name, ibinds, r) : U.constr_decl) =
-	  let 
-            val c = (0, tnames, ibinds)
+      val nk = (name, KeKind $ ArrowK (true, length tnames, sorts))
+      val ctx as (sctx, kctx, _, _) = add_kindingext_skct nk ctx
+      fun make_constr ((name, ibinds, r) : U.constr_decl) : constr_decl * (string * constr) =
+	  let
+            val family = (NONE, (0, r))
+            val c = (family, tnames, ibinds)
 	    val t = U.constr_type U.VarT shiftx_v c
-	    val t = is_wf_type ((sctx, kctx), t)
+	    val t = is_wf_type gctx ((sctx, kctx), t)
 		    handle Error (_, msg) =>
 			   raise Error (r, 
 					"Constructor is ill-formed" :: 
@@ -2072,118 +2255,20 @@ and is_wf_datatype gctx ctx (name, tnames, sorts, constr_decls, r) =
                      else ()
             val (_, ibinds) = constr_from_type t
 	  in
-	    ((name, ibinds, r), (name, (0, tnames, ibinds)))
+	    ((name, ibinds, r), (name, (family, tnames, ibinds)))
 	  end
       val (constr_decls, constrs) = (unzip o map make_constr) constr_decls
     in
       ((name, tnames, sorts, constr_decls, r), ([], [nk], rev constrs, []))
     end
       
-and expand_rules (ctx as (sctx, kctx, cctx), rules, t, r) =
-    let
-      fun expand_rule (rule as (pn, e), (pcovers, rules)) =
-          let
-	    val (pn, cover, ctxd, nps) = match_ptrn (ctx, (* pcovers, *) pn, t)
-            val () = close_vcs nps
-            val () = close_ctx ctxd
-            (* val cover = ptrn_to_cover pn *)
-            (* val () = println "before check_redundancy()" *)
-            val () = check_redundancy (ctx, t, pcovers, cover, get_region_pn pn)
-            (* val () = println "after check_redundancy()" *)
-            val (pcovers, new_rules) =
-                case (pn, e) of
-                    (VarP _, U.Never (U.UVar ((), _), _)) =>
-                    let
-                      fun hab_to_ptrn cctx (* cutoff *) t hab =
-                          let
-                            (* open UnderscoredExpr *)
-                            (* exception Error of string *)
-                            (* fun runError m () = *)
-                            (*   SOME (m ()) handle Error _ => NONE *)
-                            fun loop (* cutoff *) t hab =
-                                let
-                                  (* val t = update_mt t *)
-                                  val t = hnf_mt t
-                                in
-                                  case (hab, t) of
-                                      (ConstrH (x, h'), AppV ((family, _), ts, _, _)) =>
-                                      let
-                                        val (_, (_, _, ibinds)) = fetch_constr (cctx, (x, dummy))
-                                        val (name_sorts, (t', _)) = unfold_ibinds ibinds
-	                                val t' = subst_ts_mt ts t'
-                                        (* cut-off so that [expand_rules] won't try deeper and deeper proposals *) 
-                                        val pn' =
-                                            loop (* (cutoff - 1) *) t' h'
-                                                                    (* if cutoff > 0 then *)
-                                                                    (*   loop (cutoff - 1) t' h' *)
-                                                                    (* else *)
-                                                                    (*   VarP ("_", dummy) *)
-                                      in
-                                        ConstrP (((x, dummy), true), repeat (length name_sorts) "_", SOME pn', dummy)
-                                      end
-                                    | (TTH, Unit _) =>
-                                      TTP dummy
-                                    | (PairH (h1, h2), Prod (t1, t2)) =>
-                                      PairP (loop (* cutoff *) t1 h1, loop (* cutoff *) t2 h2)
-                                    | (TrueH, _) => VarP ("_", dummy)
-                                    | _ => raise Impossible "hab_to_ptrn"
-                                end
-                          in
-                            (* runError (fn () => loop t hab) () *)
-                            loop (* cutoff *) t hab
-                          end
-                      fun ptrn_to_cover pn =
-                          let
-                            (* open UnderscoredExpr *)
-                          in
-                            case pn of
-                                ConstrP (((x, _), _), _, pn, _) => ConstrC (x, default TrueC $ Option.map ptrn_to_cover pn)
-                              | VarP _ => TrueC
-                              | PairP (pn1, pn2) => PairC (ptrn_to_cover pn1, ptrn_to_cover pn2)
-                              | TTP _ => TTC
-                              | AliasP (_, pn, _) => ptrn_to_cover pn
-                              | AnnoP (pn, _) => ptrn_to_cover pn
-                          end
-                      fun convert_pn pn =
-                          case pn of
-                              TTP a => U.TTP a
-                            | PairP (pn1, pn2) => U.PairP (convert_pn pn1, convert_pn pn2)
-                            | ConstrP (x, inames, opn, r) => U.ConstrP (x, inames, Option.map convert_pn opn, r) 
-                            | VarP a => U.VarP a
-                            | AliasP (name, pn, r) => U.AliasP (name, convert_pn pn, r)
-                            | AnnoP _ => raise Impossible "convert_pn can't convert AnnoP"
-                      fun loop pcovers =
-                          case any_missing false(*treat empty datatype as inhabited, so as to get a shorter proposal*) ctx t $ combine_covers pcovers of
-                               SOME hab =>
-                               let
-                                 val pn = hab_to_ptrn cctx (* 10 *) t hab
-                                 (* val () = println $ sprintf "New pattern: $" [str_pn (names sctx, names kctx, names cctx) pn] *)
-                                 val (pcovers, rules) = loop $ pcovers @ [ptrn_to_cover pn]
-                               in
-                                 (pcovers, [(convert_pn pn, e)] @ rules)
-                               end
-                             | NONE => (pcovers, [])
-                               val (pcovers, rules) = loop pcovers
-                    in
-                      (pcovers, rules)
-                    end
-                  | _ => (pcovers @ [cover], [rule])
-          in
-            (pcovers, rules @ new_rules)
-          end
-      val (pcovers, rules) = foldl expand_rule ([], []) $ rules
-      val () = check_exhaustion (ctx, t, pcovers, r);
-    in
-      rules
-    end
-
-and check_rules (ctx as (sctx, kctx, cctx, tctx), rules, t as (t1, return), r) =
+and check_rules gctx (ctx as (sctx, kctx, cctx, tctx), rules, t as (t1, return), r) =
     let 
       val skcctx = (sctx, kctx, cctx) 
       fun f (rule, acc) =
 	  let
             (* val previous_covers = map (snd o snd) $ rev acc *)
-            val ans as (rule, (td, cover)) = check_rule (ctx, (* previous_covers, *) rule, t)
+            val ans as (rule, (td, cover)) = check_rule gctx (ctx, (* previous_covers, *) rule, t)
             val covers = (rev o map (snd o snd)) acc
                                                  (* val () = println "before check_redundancy()" *)
 	                                         (* val () = check_redundancy (skcctx, t1, covers, cover, get_region_rule rule) *)
@@ -2197,14 +2282,14 @@ and check_rules (ctx as (sctx, kctx, cctx, tctx), rules, t as (t1, return), r) =
       (rules, tds)
     end
 
-and check_rule (ctx as (sctx, kctx, cctx, tctx), (* pcovers, *) (pn, e), t as (t1, return)) =
+and check_rule gctx (ctx as (sctx, kctx, cctx, tctx), (* pcovers, *) (pn, e), t as (t1, return)) =
     let 
       val skcctx = (sctx, kctx, cctx) 
-      val (pn, cover, ctxd as (sctxd, kctxd, _, _), nps) = match_ptrn (skcctx, (* pcovers, *) pn, t1)
+      val (pn, cover, ctxd as (sctxd, kctxd, _, _), nps) = match_ptrn gctx (skcctx, (* pcovers, *) pn, t1)
       val ctx0 = ctx
       val ctx = add_ctx ctxd ctx
-      val (e, t, d) = get_mtype (ctx, e)
-      val (t, d) = forget_or_check_return (get_region_e e) ctx ctxd (t, d) return 
+      val (e, t, d) = get_mtype gctx (ctx, e)
+      val (t, d) = forget_or_check_return (get_region_e e) gctx ctx ctxd (t, d) return 
       (*
         val (e, t, d) = 
             case return of
@@ -2245,84 +2330,33 @@ and check_rule (ctx as (sctx, kctx, cctx, tctx), (* pcovers, *) (pn, e), t as (t
       ((pn, e), ((t, d), cover))
     end
 
-and forget_or_check_return r ctx ctxd (t', d') (t, d) =
+and check_mtype gctx (ctx as (sctx, kctx, cctx, tctx), e, t) =
     let
-      val (sctxn, kctxn, _, _) = ctx_names ctx
-      val t =
-          case t of
-              SOME t =>
-              let
-                val () = unify r (sctxn, kctxn) (t', shift_ctx_mt ctxd t)
-              in
-                t
-              end
-            | NONE =>
-              let
-	        val t' = forget_ctx_mt r ctx ctxd t' 
-              in
-                t'
-              end
-      val d = 
-          case d of
-              SOME d =>
-              let
-                val () = smart_write_le sctxn (d', shift_ctx_i ctxd d, r)
-              in
-                d
-              end
-            | NONE =>
-              let 
-	        val d' = forget_ctx_d r ctx ctxd d'
-              in
-                d'
-              end
-    in
-      (t, d)
-    end
-
-and check_mtype (ctx as (sctx, kctx, cctx, tctx), e, t) =
-    let 
       val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
-      val (e, t', d) = get_mtype (ctx, e)
-      val () = unify (get_region_e e) (sctxn, kctxn) (t', t)
+      val (e, t', d) = get_mtype gctx (ctx, e)
+      val () = unify (get_region_e e) (names gctx) (sctxn, kctxn) (t', t)
                      (* val () = println "check type" *)
                      (* val () = println $ str_region "" "ilist.timl" $ get_region_e e *)
     in
       (e, t', d)
     end
 
-and smart_write_le ctx (i1, i2, r) =
-    let
-      (* val () = println $ sprintf "Check Le : $ <= $" [str_i ctx i1, str_i ctx i2] *)
-      fun is_fresh_i i =
-          case i of
-              UVarI ((_, x), _) =>
-              (case !x of
-                   Fresh _ => true
-                 | Refined _ => false
-              )
-            | _ => false
-    in
-      if is_fresh_i i1 orelse is_fresh_i i2 then unify_i r ctx (i1, i2)
-      else write_le (i1, i2, r)
-    end
-      
-and check_time (ctx as (sctx, kctx, cctx, tctx), e, d) : expr * mtype =
+and check_time gctx (ctx as (sctx, kctx, cctx, tctx), e, d) : expr * mtype =
     let 
-      val (e, t, d') = get_mtype (ctx, e)
-      val () = smart_write_le (names sctx) (d', d, get_region_e e)
+      val (e, t, d') = get_mtype gctx (ctx, e)
+      val () = smart_write_le (names gctx) (names sctx) (d', d, get_region_e e)
     in
       (e, t)
     end
 
-and check_mtype_time (ctx as (sctx, kctx, cctx, tctx), e, t, d) =
+and check_mtype_time gctx (ctx as (sctx, kctx, cctx, tctx), e, t, d) =
     let 
       val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
       (* val () = print (sprintf "Type checking $ against $ and $\n" [U.str_e ctxn e, str_mt (sctxn, kctxn) t, str_i sctxn d]) *)
-      val (e, _, d') = check_mtype (ctx, e, t)
+      val (e, _, d') = check_mtype gctx (ctx, e, t)
       (* val () = println "check type & time" *)
       (* val () = println $ str_region "" "ilist.timl" $ get_region_e e *)
-      val () = smart_write_le (names sctx) (d', d, get_region_e e)
+      val () = smart_write_le (names gctx) (names sctx) (d', d, get_region_e e)
     in
       e
     end
@@ -2349,11 +2383,15 @@ fun link_sig (* sigs  *)gctx_base ((* gctx,  *)ctx as (sctx, kctx, cctx, tctx)) 
       val () = open_sortings sctx
       fun match_sort ((name, s'), sctx', n) =
           let
-            val (s, x) = fetch_sort_by_name sctx name
-            val s = shfitx_i_s 0 n s
+            val (s, x) = fetch_sort_by_name sctx name (get_region_s s')
+            val s = shiftx_i_s 0 n s
             val x = x + n
             val () = unify_s s s'
             val r = get_region_s s
+            fun add_prop s p =
+                case update_s s of
+                    Basic (bs as (_, r)) => Subset (bs, Bind (("__added_prop", r), p), r)
+                  | Subset (bs, Bind (name, p'), r) => Subset (bs, Bind (name, p' /\ p), r)
             fun sort_add_idx_eq s' i =
                 add_prop s' (VarI (0, r) %= shift_i_i i)
             val s' = sort_add_idx_eq s' (VarI (x, r))
@@ -2362,6 +2400,7 @@ fun link_sig (* sigs  *)gctx_base ((* gctx,  *)ctx as (sctx, kctx, cctx, tctx)) 
           in
             sctx'
           end
+      fun foldlWithIdx f init xs = fst $ foldl (fn (x, (acc, n)) => (f (x, acc, n), n + 1)) (init, 0) xs
       val sctx' = foldlWithIdx match_sort sctx sctx'
       val len_kctx = length kctx
       val len_kctx' = length kctx'
@@ -2369,8 +2408,8 @@ fun link_sig (* sigs  *)gctx_base ((* gctx,  *)ctx as (sctx, kctx, cctx, tctx)) 
       (* val kctx' = shiftx_t_kctx 0 len_kctx kctx' *)
       fun match_kind ((name, k'), kctx', n) =
           let
-            val (k, x) = fetch_kind_by_name kctx name
-            val k = shfitx_t_k 0 n k
+            val (k, x) = fetch_kindext_by_name kctx name
+            val k = shiftx_t_ke 0 n k
             val x = x + n
             val () = unify_kind (* sigs *) gctx_base (sctx', kctx') k k'
             val r = get_region_k k
@@ -2446,7 +2485,7 @@ fun is_wf_sig gctx sg =
                   end
                 | U.SpecDatatype a =>
                   let
-                    val (a, ctxd) = is_wf_datatype ctx a
+                    val (a, ctxd) = is_wf_datatype gctx ctx a
                   in
                     (SpecDatatype a, add_ctx ctxd ctx)
                   end

@@ -9,6 +9,7 @@ Group is
       front-end/timl.lex
       front-end/parser.sml
       bind.sml
+      var-uvar.sml
       expr.sml
       uvar-expr.sml
       elaborate.sml

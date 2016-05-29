@@ -26,12 +26,6 @@ local
       handle
       Error e => Failed e
 
-  (* fun find_idx (x : string) ctx = find_by_snd_eq op= x (add_idx ctx) *)
-  fun is_eq_snd (x : string) (i, y) = if y = x then SOME i else NONE
-  fun find_idx x ctx = findOptionWithIdx (is_eq_snd x) ctx
-  fun is_eq_fst_snd (x : string) (i, (y, v)) = if y = x then SOME (i, v) else NONE
-  fun find_idx_value x ctx = findOptionWithIdx (is_eq_fst_snd x) ctx
-
   fun on_id ctx (x, r) =
       case find_idx x ctx of
 	  SOME i => (i, r)
