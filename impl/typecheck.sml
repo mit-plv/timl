@@ -551,25 +551,29 @@ datatype vc_entry =
          | AnchorVC of anchor
          | OpenVC
          | CloseVC
+         | VcModule of string * context
+         | VcKinding of string * kind_ext
 
 val acc = ref ([] : vc_entry list)
 
 fun write x = push_ref acc x
 
-fun open_ctx (ctx as (sctx, _, _, _)) = (app write o map ForallVC o rev) sctx
-
-fun close_ctx (ctx as (sctx, _, _, _)) = app (fn _ => write CloseVC) sctx
+fun open_vc () = write OpenVC
 
 fun open_sorting ns = write o ForallVC $ (* mapFst SOME *) ns
+
+fun open_module ctx = ()
+                       
+fun close_vc () = write CloseVC
+
+fun close_n n = repeat_app close_vc n
+
+fun open_ctx (ctx as (sctx, _, _, _)) = (app write o map ForallVC o rev) sctx
+fun close_ctx (ctx as (sctx, _, _, _)) = app (fn _ => write CloseVC) sctx
+
 fun open_sortings sortings = app open_sorting sortings
 
 fun open_premises ps = (app write o map ImplyVC) ps
-
-fun open_vc () = write OpenVC
-
-fun close_vc () = write CloseVC
-
-fun close_vcs n = repeat_app close_vc n
 
 fun write_anchor anchor = write (AnchorVC anchor)
 
@@ -785,6 +789,9 @@ fun unify_mt r gctx ctx (t, t') =
     end
 
 fun unify_t r gctx ctx (t, t') =
+    case (t, t') of
+        (Mono t, Mono t') => unify_mt r gctx ctx (t, t')
+      | (Uni (Bind ((name, _), t), _), Uni (Bind (_, t'), _)) => unify_t r gctx (add_kinding_sk (name, Type) ctx) (t, t')
       
 fun kind_mismatch gctx sctx expect have = sprintf "Kind mismatch: expect $ have $" [expect, str_k gctx sctx have]
 
@@ -1806,7 +1813,7 @@ fun expand_rules gctx (ctx as (sctx, kctx, cctx), rules, t, r) =
       fun expand_rule (rule as (pn, e), (pcovers, rules)) =
           let
 	    val (pn, cover, ctxd, nps) = match_ptrn gctx (ctx, (* pcovers, *) pn, t)
-            val () = close_vcs nps
+            val () = close_n nps
             val () = close_ctx ctxd
             (* val cover = ptrn_to_cover pn *)
             (* val () = println "before check_redundancy()" *)
@@ -2021,7 +2028,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 		val (e, t1, d) = get_mtype (ctx, e)
 		val t1 = forget_ctx_mt (get_region_e e) gctx ctx ctxd t1 
                 val d = forget_ctx_d (get_region_e e) gctx ctx ctxd d
-                val () = close_vcs nps
+                val () = close_n nps
                 val () = close_ctx ctxd
               in
 		(Abs (pn, e), Arrow (t, d, t1), T0 dummy)
@@ -2037,7 +2044,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 		(* val t = forget_ctx_mt r ctx ctxd t  *)
                 (* val ds = map (forget_ctx_d r ctx ctxd) ds *)
 	        val (t, d) = forget_or_check_return (get_region_e e) gctx ctx ctxd (t, d) return 
-                val () = close_vcs nps
+                val () = close_n nps
                 val () = close_ctx ctxd
               in
 		(Let (return, decls, e, r), t, d)
@@ -2317,7 +2324,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
                 val ctx = add_typing_skct (name, Mono te) ctx
                 val ctx = add_ctx ctxd ctx
 	        val e = check_mtype_time (ctx, e, t, d)
-                val () = close_vcs nps
+                val () = close_n nps
                 val () = close_ctx ctxd
                 val te = generalize te
                 val te = foldr (fn (nm, t) => Uni (Bind (nm, t), r)) te tnames
@@ -2361,7 +2368,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
                          else raise Error (r, ["Can't have premise-generating pattern in abstype"])
                 (* close and reopen *)
                 val () = close_ctx ctxd2
-                val () = close_vcs (length ps)
+                val () = close_n (length ps)
                 val () = close_ctx ctxd
                 val () = close_vc ()
                 val ctxd = add_ctx ctxd2 ctxd
@@ -2469,7 +2476,7 @@ and check_rule gctx (ctx as (sctx, kctx, cctx, tctx), (* pcovers, *) (pn, e), t 
                   (e, t, d)
                 end
       *)
-      val () = close_vcs nps
+      val () = close_n nps
       val () = close_ctx ctxd
     in
       ((pn, e), ((t, d), cover))
@@ -2506,9 +2513,6 @@ and check_mtype_time gctx (ctx as (sctx, kctx, cctx, tctx), e, t, d) =
       e
     end
 
-(* ToDo: impl *)
-fun open_module ctx = ()
-                        
 fun link_sig r gctx ctx (ctx' as (sctx', kctx', cctx', tctx')) =
     let
       val gctx = ("__link_sig_module", Sig ctx) :: gctx
@@ -2545,6 +2549,7 @@ fun link_sig r gctx ctx (ctx' as (sctx', kctx', cctx', tctx')) =
                       k
                     end
             val k' = kind_add_type_eq k' (MtVar x)
+            val () = open_kinding (name, s')
           in
             add_kindingext (name, k') kctx'
           end
@@ -2560,9 +2565,11 @@ fun link_sig r gctx ctx (ctx' as (sctx', kctx', cctx', tctx')) =
           let
             val (_, t) = fetch_type_by_name gctx [] (SOME (0, r), (name, r))
           in
-            unify_mt gctx (sctx', kctx') (t, t')
+            unify_t r gctx (sctx', kctx') (t, t')
           end
       val () = app match_type tctx'
+      val () = close_ctx ctx'
+      val () = close_n 1
     in
       (sctx', kctx', cctx', tctx')
     end
@@ -2575,7 +2582,6 @@ fun link_sig r gctx ctx (ctx' as (sctx', kctx', cctx', tctx')) =
 fun is_sub_sig gctx ctx ctx' =
     let
       val _ = link_sig gctx ctx ctx'
-      val () = close_premises (length (#1 ctx) + length (#1 ctx'))
     in
       ()
     end
@@ -2644,7 +2650,7 @@ fun get_sig gctx m =
         U.ModComponents (comps, r) =>
         let
           val (_, ctxd, nps, ds, _) = check_decls ([], comps)
-          val () = close_vcs nps
+          val () = close_n nps
           val () = close_ctx ctxd
         in
           ctxd
@@ -2693,7 +2699,7 @@ fun check_top_bind gctx bind =
         let
           val (args, gctx') = check_top_binds gctx $ map TopModSpec [args]
           val sg = get_sig gctx' m
-          val () = close_premises $ length args
+          val () = close_n $ length args
         in
           [(name, FactorBind (args, sg))]
         end
