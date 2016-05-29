@@ -6,14 +6,18 @@ open Simp
        
 infixr 0 $
 
+infix 9 %@
+infix 8 %^
 infix 7 %*
-infix 6 %+
+infix 6 %+ 
 infix 4 %<=
+infix 4 %>=
+infix 4 %=
 infixr 3 /\
 infixr 2 \/
 infixr 1 -->
 infix 1 <->
-
+                              
 open Subst
 
 fun idx_un_op_type opr =
@@ -153,39 +157,6 @@ fun add_nondep_sortings_skc pairs (sctx, kctx, cctx) =
 fun sctx_names (ctx : scontext) = (* List.mapPartial id $ *) map fst ctx
 fun sctx_length (ctx : scontext) = length $ sctx_names ctx
 
-(* fun is_named (name, s) = case name of SOME name => SOME (name, s) | NONE => NONE *)
-fun lookup_sort (n : int) (ctx : scontext) : sort option =
-    case nth_error ((* List.mapPartial is_named *) ctx) n of
-        NONE => NONE
-      | SOME (_, s) => 
-        SOME (shiftx_i_s 0 (n + 1) s)
-
-fun lookup_sort_by_name (ctx : scontext) (name : string) : sort option =
-    case find_idx_value name ctx of
-        NONE => NONE
-      | SOME (n, s) => 
-        SOME (shiftx_i_s 0 (n + 1) s)
-
-fun lookup_kindext (n : int) kctx = 
-    case nth_error kctx n of
-        NONE => NONE
-      | SOME (_, k) => SOME $ shiftx_t_ke 0 (n + 1) k
-
-fun lookup_kindext_by_name kctx name = 
-    case find_idx_value name kctx of
-        NONE => NONE
-      | SOME (n, k) => SOME (n, shiftx_t_ke 0 (n + 1) k)
-
-fun get_ke_kind k =
-    case k of
-        KeKind k => k
-      | KeTypeEq (k, _) => k
-                             
-fun lookup_kind (n : int) kctx = 
-    case nth_error kctx n of
-        NONE => NONE
-      | SOME (_, k) => SOME $ get_ke_kind k
-
 fun add_kindingext pair (kctx : kcontext) = pair :: kctx
 fun add_kinding pair = add_kindingext $ mapSnd KeKind pair
 fun add_kinding_kc pair (kctx, cctx) = 
@@ -232,11 +203,6 @@ fun add_typings_skct pairs (sctx, kctx, cctx, tctx) =
      kctx, 
      cctx,
      pairs @ tctx)
-
-fun lookup_type (n : int) (ctx : tcontext) : ty option = 
-    case nth_error ctx n of
-        NONE => NONE
-      | SOME (_, t) => SOME t
 
 fun ctx_names (sctx, kctx, cctx, tctx) =
     (sctx_names sctx, names kctx, names cctx, names tctx) 
@@ -347,6 +313,46 @@ fun runError m _ =
     handle
     Error e => Failed e
 
+(* fetching from context *)
+                      
+fun lookup_sort (n : int) (ctx : scontext) : sort option =
+    case nth_error ctx n of
+        NONE => NONE
+      | SOME (_, s) => 
+        SOME (shiftx_i_s 0 (n + 1) s)
+
+fun lookup_sort_by_name (ctx : scontext) (name : string) =
+    case find_idx_value name ctx of
+        NONE => NONE
+      | SOME (n, s) => 
+        SOME (n, shiftx_i_s 0 (n + 1) s)
+
+fun lookup_kindext (n : int) kctx = 
+    case nth_error kctx n of
+        NONE => NONE
+      | SOME (_, k) => SOME $ shiftx_t_ke 0 (n + 1) k
+
+fun lookup_kindext_by_name kctx name = 
+    case find_idx_value name kctx of
+        NONE => NONE
+      | SOME (n, k) => SOME (n, shiftx_t_ke 0 (n + 1) k)
+
+fun get_ke_kind k =
+    case k of
+        KeKind k => k
+      | KeTypeEq (k, _) => k
+                             
+fun lookup_kind (n : int) kctx = 
+    case nth_error kctx n of
+        NONE => NONE
+      | SOME (_, k) => SOME $ get_ke_kind k
+                            
+fun lookup_snd n ctx =
+    Option.map snd $ nth_error ctx n
+               
+val lookup_constr = lookup_snd
+val lookup_type = lookup_snd
+
 val get_outmost_module = id
 
 fun lookup_module gctx m = nth_error (List.mapPartial (fn (_, sg) => case sg of Sig sg => SOME sg | _ => NONE) gctx) m
@@ -376,17 +382,34 @@ fun generic_fetch shift package do_fetch sel (ggctx as ((* sigs,  *)gctx)) (fctx
         NONE => do_fetch (fctx, x)
       | SOME m => fetch_from_module (shift, package, do_fetch o mapFst sel) (* sigs *) gctx (m, x)
 
+fun do_fetch_sort (ctx, (x, r)) =
+    case lookup_sort x ctx of
+      	SOME s => s
+      | NONE => raise Error (r, ["Unbound index variable: " ^ str_v (sctx_names ctx) x])
+
+fun fetch_sort a = generic_fetch shiftx_m_s package_s do_fetch_sort #1 a
+                               
+fun do_fetch_sort_by_name (ctx, (name, r)) =
+    case lookup_sort_by_name ctx name of
+        SOME (i, s) => ((i, r), s)
+      | NONE => raise Error (r, ["Can't find index variable: " ^ name])
+
+fun shiftx_snd f x n (a, b) = (a, f x n b)
+fun package_snd f m (a, b) = (a, f m b)
+                                
+fun fetch_sort_by_name gctx ctx (m, name) =
+    let
+      val (x, s) = generic_fetch (shiftx_snd shiftx_m_s) (package_snd package_s) do_fetch_sort_by_name #1 gctx (ctx, (m, name))
+    in
+      ((m, x), s)
+    end
+                                 
 fun do_fetch_kind (kctx, (a, r)) =
     case lookup_kind a kctx of
       	SOME k => k
       | NONE => raise Error (r, ["Unbound type variable: " ^ str_v (names kctx) a])
 
 fun fetch_kind a = generic_fetch shiftx_m_k package_kind do_fetch_kind #2 a
-
-fun fetch_kindext_by_name kctx name r =
-    case lookup_kindext_by_name kctx name of
-      	SOME a => a
-      | NONE => raise Error (r, ["Can't find type variable: " ^ name])
 
 fun do_fetch_kindext (kctx, (a, r)) =
     case lookup_kindext a kctx of
@@ -395,6 +418,62 @@ fun do_fetch_kindext (kctx, (a, r)) =
 
 fun fetch_kindext a = generic_fetch shiftx_m_ke package_ke do_fetch_kindext #2 a
 
+fun do_fetch_kindext_by_name (kctx, (name, r)) =
+    case lookup_kindext_by_name kctx name of
+      	SOME (i, k) => ((i, r), k)
+      | NONE => raise Error (r, ["Can't find type variable: " ^ name])
+
+fun fetch_kindext_by_name gctx ctx (m, name) =
+    let
+      val (x, k) = generic_fetch (shiftx_snd shiftx_m_ke) (package_snd package_ke) do_fetch_kindext_by_name #2 gctx (ctx, (m, name))
+    in
+      ((m, x), k)
+    end
+                                 
+fun do_fetch_constr (ctx, (x, r)) =
+    case lookup_constr x ctx of
+	SOME c => c
+      | NONE => raise Error (r, [sprintf "Unbound constructor: $" [str_v (names ctx) x]])
+
+fun fetch_constr a = generic_fetch shiftx_m_c package_c do_fetch_constr #3 a
+                      
+fun fetch_constr_type gctx (ctx : ccontext, x) =
+    constr_type VarT shiftx_v $ fetch_constr gctx (ctx, x)
+
+fun do_fetch_constr_by_name (ctx, (name, r)) =
+    case find_idx_value name ctx of
+      	SOME (i, c) => ((i, r), c)
+      | NONE => raise Error (r, ["Can't find constructor: " ^ name])
+
+fun fetch_constr_by_name gctx ctx (m, name) =
+    let
+      val (x, c) = generic_fetch (shiftx_snd shiftx_m_c) (package_snd package_c) do_fetch_constr_by_name #3 gctx (ctx, (m, name))
+    in
+      ((m, x), c)
+    end
+                                 
+fun fetch_constr_type_by_name gctx ctx name =
+    mapSnd (constr_type VarT shiftx_v) $ fetch_constr_by_name gctx ctx name
+
+fun do_fetch_type (tctx, (x, r)) =
+    case lookup_type x tctx of
+      	SOME t => t
+      | NONE => raise Error (r, ["Unbound variable: " ^ str_v (names tctx) x])
+
+fun fetch_type a = generic_fetch shiftx_m_t package_t do_fetch_type #4 a
+
+fun do_fetch_type_by_name (ctx, (name, r)) =
+    case find_idx_value name ctx of
+      	SOME (i, t) => ((i, r), t)
+      | NONE => raise Error (r, ["Can't find variable: " ^ name])
+
+fun fetch_type_by_name gctx ctx (m, name) =
+    let
+      val (x, t) = generic_fetch (shiftx_snd shiftx_m_t) (package_snd package_t) do_fetch_type_by_name #4 gctx (ctx, (m, name))
+    in
+      ((m, x), t)
+    end
+                                 
 fun try_retrieve_UVar f (a as ((invis, x), r)) =
         case !x of
              Refined t =>
@@ -459,7 +538,7 @@ fun normalize_mt gctx kctx t =
 fun normalize_t gctx kctx t =
     case t of
         Mono t => Mono (normalize_mt gctx kctx t)
-      | Uni (Bind (name, t), r) => Uni (Bind (name, normalize_t gctx ((fst name, KeKind $ Type) :: kctx) t), r)
+      | Uni (Bind (name, t), r) => Uni (Bind (name, normalize_t gctx (add_kinding (fst name, Type) kctx) t), r)
 
 type anchor = (bsort, idx) uvar_ref_i
                            
@@ -705,6 +784,8 @@ fun unify_mt r gctx ctx (t, t') =
       loop ctx (t, t')
     end
 
+fun unify_t r gctx ctx (t, t') =
+      
 fun kind_mismatch gctx sctx expect have = sprintf "Kind mismatch: expect $ have $" [expect, str_k gctx sctx have]
 
 fun unify_kind r gctxn sctxn (k, k') =
@@ -774,18 +855,6 @@ fun get_base r gctx ctx s =
       | Subset ((s, _), _, _) => s
       | UVarS _ => raise Error (r, [sprintf "Can't figure out base sort of $" [str_s gctx ctx s]])
 
-fun do_fetch_sort (ctx, (x, r)) =
-    case lookup_sort x ctx of
-      	SOME s => s
-      | NONE => raise Error (r, ["Unbound index variable: " ^ str_v (sctx_names ctx) x])
-
-fun fetch_sort_by_name ctx name r =
-    case lookup_sort_by_name ctx name of
-        SOME s => s
-      | NONE => raise Error (r, ["Can't find index variable: " ^ name])
-
-fun fetch_sort a = generic_fetch shiftx_m_s package_s do_fetch_sort #1 a
-                               
 fun is_wf_sort gctx (ctx : scontext, s : U.sort) : sort =
     let
       val is_wf_sort = is_wf_sort gctx
@@ -1146,20 +1215,6 @@ fun smart_max a b =
       BinOpI (MaxI, a, b)
 
 fun smart_max_list ds = foldl' (fn (d, ds) => smart_max ds d) (T0 dummy) ds
-
-fun do_fetch_constr (ctx, (x, r)) =
-    case nth_error ctx x of
-	SOME (_, c) => c
-      | NONE => raise Error (r, [sprintf "Unbound constructor: $" [str_v (names ctx) x]])
-
-fun fetch_constr a = generic_fetch shiftx_m_c package_c do_fetch_constr #3 a
-                      
-fun fetch_constr_type gctx (ctx : ccontext, x) =
-    let val c = fetch_constr gctx (ctx, x)
-	val t = constr_type VarT shiftx_v c
-    in
-      t
-    end
 
 (* redundancy and exhaustiveness checking *)
 (* all the following cover operations assume that the cover has type t *)
@@ -1606,13 +1661,6 @@ fun is_wf_return gctx (skctx as (sctx, _), return) =
 	(NONE,
          SOME (check_bsort gctx (sctx, d, Base Time)))
       | (NONE, NONE) => (NONE, NONE)
-
-fun do_fetch_type (tctx, (x, r)) =
-    case lookup_type x tctx of
-      	SOME t => t
-      | NONE => raise Error (r, ["Unbound variable: " ^ str_v (names tctx) x])
-
-fun fetch_type a = generic_fetch shiftx_m_t package_t do_fetch_type #4 a
 
 (* t is already checked for wellformedness *)
 fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext), (* pcovers, *) pn : U.ptrn, t : mtype) : ptrn * cover * context * int =
@@ -2334,8 +2382,8 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
 and is_wf_datatype gctx ctx (name, tnames, sorts, constr_decls, r) : datatype_def * context =
     let 
       val sorts = is_wf_sorts gctx (#1 ctx, sorts)
-      val nk = (name, KeKind $ ArrowK (true, length tnames, sorts))
-      val ctx as (sctx, kctx, _, _) = add_kindingext_skct nk ctx
+      val nk = (name, ArrowK (true, length tnames, sorts))
+      val ctx as (sctx, kctx, _, _) = add_kinding_skct nk ctx
       fun make_constr ((name, ibinds, r) : U.constr_decl) : constr_decl * (string * constr) =
 	  let
             val family = (NONE, (0, r))
@@ -2356,7 +2404,7 @@ and is_wf_datatype gctx ctx (name, tnames, sorts, constr_decls, r) : datatype_de
 	  end
       val (constr_decls, constrs) = (unzip o map make_constr) constr_decls
     in
-      ((name, tnames, sorts, constr_decls, r), ([], [nk], rev constrs, []))
+      ((name, tnames, sorts, constr_decls, r), ([], add_kinding nk [], rev constrs, []))
     end
       
 and check_rules gctx (ctx as (sctx, kctx, cctx, tctx), rules, t as (t1, return), r) =
@@ -2458,82 +2506,65 @@ and check_mtype_time gctx (ctx as (sctx, kctx, cctx, tctx), e, t, d) =
       e
     end
 
-fun link_sig (* sigs  *)gctx_base ((* gctx,  *)ctx as (sctx, kctx, cctx, tctx)) ((* gctx',  *)ctx' as (sctx', kctx', cctx', tctx')) =
+(* ToDo: impl *)
+fun open_module ctx = ()
+                        
+fun link_sig r gctx ctx (ctx' as (sctx', kctx', cctx', tctx')) =
     let
-      (* val len_gctx = length gctx *)
-      (* val len_gctx' = length gctx' *)
-      (* val gctx' = shiftx_m_gctx 0 len_gctx gctx' *)
-      (* fun match_sig ((name, sg'), (gctx_base, gctx'), n) = *)
-      (*     let *)
-      (*       val sg = fetch_sig_by_name gctx name *)
-      (*       val sg = shiftx_m_sig 0 n sg *)
-      (*       val sg' = link_sig_pack (* sigs *) gctx_base sg sg' *)
-      (*     in *)
-      (*       (sg' :: gctx_base, sg' :: gctx') *)
-      (*     end *)
-      (* val (gctx_base, gctx') = foldlWithIdx match_sig (gctx @ gctx_base, gctx) gctx' *)
-      (* val ctx = shiftx_m_ctx 0 len_gctx' ctx *)
-      (* val ctx' = shiftx_m_ctx len_gctx' len_gctx ctx' *)
-      val len_sctx = length sctx
-      val len_sctx' = length sctx'
-      (* val sctx' = shiftx_i_sctx 0 (len_sctx) sctx' *)
-      val () = open_sortings sctx
-      fun match_sort ((name, s'), sctx', n) =
+      val gctx = ("__link_sig_module", Sig ctx) :: gctx
+      val gctxn = names gctx
+      val () = open_module ctx
+      fun match_sort ((name, s'), sctx') =
           let
-            val (s, x) = fetch_sort_by_name sctx name (get_region_s s')
-            val s = shiftx_i_s 0 n s
-            val x = x + n
-            val () = unify_s s s'
-            val r = get_region_s s
+            val (x, s) = fetch_sort_by_name gctx [] (SOME (0, r), (name, r))
+            val () = unify_s r gctxn (sctx_names sctx') (s, s')
             fun add_prop s p =
                 case update_s s of
                     Basic (bs as (_, r)) => Subset (bs, Bind (("__added_prop", r), p), r)
                   | Subset (bs, Bind (name, p'), r) => Subset (bs, Bind (name, p' /\ p), r)
             fun sort_add_idx_eq s' i =
-                add_prop s' (VarI (0, r) %= shift_i_i i)
-            val s' = sort_add_idx_eq s' (VarI (x, r))
+                add_prop s' (VarI (NONE, (0, r)) %= shift_i_i i)
+            val s' = sort_add_idx_eq s' (VarI x)
             val sctx' = add_sorting (name, s') sctx'
             val () = open_sorting (name, s')
           in
             sctx'
           end
-      fun foldlWithIdx f init xs = fst $ foldl (fn (x, (acc, n)) => (f (x, acc, n), n + 1)) (init, 0) xs
-      val sctx' = foldlWithIdx match_sort sctx sctx'
-      val len_kctx = length kctx
-      val len_kctx' = length kctx'
-      val kctx = shiftx_i_kctx 0 len_sctx' kctx
-      (* val kctx' = shiftx_t_kctx 0 len_kctx kctx' *)
-      fun match_kind ((name, k'), kctx', n) =
+      val sctx' = foldr match_sort [] sctx'
+      fun match_kind ((name, k'), kctx') =
           let
-            val (x, k) = fetch_kindext_by_name kctx name
-            val k = shiftx_t_ke 0 n k
-            val x = x + n
-            val () = unify_kindext (* sigs *) gctx_base (sctx', kctx') k k'
-            val k' = kind_add_type_eq k' (MtVar (x, dummy))
+            val (x, k) = fetch_kindext_by_name gctx [] (SOME (0, r), (name, r))
+            val () = unify_kindext r gctx (sctx', kctx') (k, k')
+            fun kind_add_type_eq k t =
+                case k of
+                    KeKind k => KeTypeEq (k, t)
+                 |  KeTypeEq (_, t') =>
+                    let
+                      val () = unify_mt r gctx (sctx', kctx') (t', t)
+                    in
+                      k
+                    end
+            val k' = kind_add_type_eq k' (MtVar x)
           in
-            add_kinding (name, k') kctx'
+            add_kindingext (name, k') kctx'
           end
-      val kctx' = foldlWithIdx match_kind kctx kctx'
-      val cctx = shiftx_i_cctx 0 len_sctx' cctx
-      val cctx = shiftx_t_cctx 0 len_kctx' cctx
-      fun match_constr_type ((name, t'), n) =
+      val kctx' = foldr match_kind [] kctx'
+      fun match_constr_type (name, t') =
           let
-            val (t, x) = fetch_constr_type_by_name cctx name
+            val (_, t) = fetch_constr_type_by_name gctx [] (SOME (0, r), (name, r))
           in
-            unify_mt (* sigs *) gctx_base (sctx', kctx') t t'
+            unify_t r gctx (sctx', kctx') (t, t')
           end
-      val () = appWithIdx match_type cctx'
-      val tctx = shiftx_i_tctx 0 len_sctx' tctx
-      val tctx = shiftx_t_tctx 0 len_kctx' tctx
-      fun match_type ((name, t'), n) =
+      val () = app match_constr_type cctx'
+      fun match_type (name, t') =
           let
-            val (t, x) = fetch_type_by_name tctx name
+            val (_, t) = fetch_type_by_name gctx [] (SOME (0, r), (name, r))
           in
-            unify_mt (* sigs *) gctx_base (sctx', kctx') t t'
+            unify_mt gctx (sctx', kctx') (t, t')
           end
-      val () = appWithIdx match_type tctx'
+      val () = app match_type tctx'
     in
-      ((* gctx',  *)(sctx', kctx', cctx', tctx'))
+      (sctx', kctx', cctx', tctx')
     end
 
 (* and link_sig_pack (* sigs *) gctx_base sg sg' = *)
@@ -2671,7 +2702,7 @@ fun check_top_bind gctx bind =
           val (arg, body) = fetch_functor gctx f
           val sg = get_sig gctx m
           val arg = link_sig gctx sg arg
-          val gctxd = [("__actual_mod_arg", Sig sg), ("__formal_mod_arg", Sig arg)]
+          val gctxd = [("__formal_mod_arg", Sig arg), ("__actual_mod_arg", Sig sg)]
           val gctx = gctxd @ gctx
           val body = shiftx_m_m 1 1 body
           val body_sig = get_sig gctx body

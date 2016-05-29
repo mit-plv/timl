@@ -1063,12 +1063,23 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         infixr 0 $
 
         (* generic traversers for both 'shift' and 'forget' *)
-                 
+
+        (* if it has module reference, don't shift/forget *)
+        fun on_v_long_id on_v x n (m, (y, r)) =
+            let
+              val y =
+                  case m of
+                      NONE => on_v x n y
+                    | SOME _ => y
+            in
+              (m, (y, r))
+            end
+              
         fun on_i_i on_v on_UVarI x n b =
             let
               fun f x n b =
 	          case b of
-	              VarI (m, (y, r)) => VarI (m, (on_v x n y, r))
+	              VarI y => VarI $ on_v_long_id on_v x n y
 	            | ConstIN n => ConstIN n
 	            | ConstIT x => ConstIT x
                     | UnOpI (opr, i, r) => UnOpI (opr, f x n i, r)
@@ -1169,7 +1180,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                     | Unit r => Unit r
 	            | Prod (t1, t2) => Prod (f x n t1, f x n t2)
 	            | UniI (s, bind, r) => UniI (s, on_t_ibind f x n bind, r)
-                    | MtVar (m, (y, r)) => MtVar (m, (on_v x n y, r))
+                    | MtVar y => MtVar $ on_v_long_id on_v x n y
                     | MtApp (t1, t2) => MtApp (f x n t1, f x n t2)
                     | MtAbs (bind, r) => MtAbs (on_t_tbind f x n bind, r)
                     | MtAppI (t, i) => MtAppI (f x n t, i)
@@ -1356,11 +1367,17 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         (* subst *)
 
         exception Error of string
-                             
+
+        (* if it has module reference, don't substitute *)
+        fun substx_long_id (constr : long_id -> 'a) x (get_v : unit -> 'a) (long_id as (m, (y, r))) =
+            case m of
+                NONE => substx_v (fn x => constr (NONE, (x, r))) x get_v y
+              | SOME _ => constr long_id
+                     
         local
           fun f x v b =
 	      case b of
-	          VarI (m, (y, r)) => substx_v (fn x => VarI (m, (x, r))) x (const v) y
+	          VarI y => substx_long_id VarI x (const v) y
 	        | ConstIN n => ConstIN n
 	        | ConstIT x => ConstIT x
                 | UnOpI (opr, i, r) => UnOpI (opr, f x v i, r)
@@ -1475,29 +1492,21 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 | Unit r => Unit r
 	        | Prod (t1, t2) => Prod (f x v t1, f x v t2)
 	        | UniI (s, bind, r) => UniI (s, substx_t_ibind f x mtype_shiftable v bind, r)
-                | MtVar (m, (y, r)) =>
-                  let
-                    fun make y =
-                        MtVar (m, (y, r))
-                  in
-                    substx_v make x (const v) y
-                  end
-                  
+                | MtVar y => substx_long_id MtVar x (const v) y
                 | MtApp (t1, t2) => MtApp (f x v t1, f x v t2)
                 | MtAbs (bind, r) => MtAbs (substx_t_tbind f x mtype_shiftable v bind, r)
                 | MtAppI (t, i) => MtAppI (f x v t, i)
                 | MtAbsI (s, bind, r) => MtAbsI (s, substx_t_ibind f x mtype_shiftable v bind, r)
-	        | AppV ((m, (y, r)), ts, is, r2) =>
+	        | AppV (y, ts, is, r2) =>
                   let
                     fun get_v () =
 		        if null ts andalso null is then
 		          v
 		        else
 		          raise Error "can't be substituted type for this higher-kind type variable"
-                    fun make_AppV y =
-                        AppV ((m, (y, r)), map (f x v) ts, is, r2)
+                    fun constr y = AppV (y, map (f x v) ts, is, r2)
                   in
-                    substx_v make_AppV x get_v y
+                    substx_long_id constr x get_v y
                   end
 	        | BaseType a => BaseType a
                 | UVar a => substx_t_UVar shiftx_i_mt shiftx_t_mt UVar f x v a
@@ -1568,7 +1577,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
             let
           fun f x n b =
 	      case b of
-	          Var ((m, (y, r)), b) => Var ((m, (on_v x n y, r)), b)
+	          Var (y, b) => Var (on_v_long_id on_v x n y, b)
 	        | Abs (pn, e) =>
                   Abs (pn, f (x + (length $ snd $ ptrn_names pn)) n e)
 	        | App (e1, e2) => App (f x n e1, f x n e2)

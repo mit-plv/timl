@@ -107,6 +107,8 @@ fun mapPartialWithIdx f xs =
       rev $ snd $ foldl iter (0, []) xs
     end
       
+fun foldlWithIdx f init xs = fst $ foldl (fn (x, (acc, n)) => (f (x, acc, n), n + 1)) (init, 0) xs
+                                 
 (* fun find_idx (x : string) ctx = find_by_snd_eq op= x (add_idx ctx) *)
 fun is_eq_snd (x : string) (i, y) = if y = x then SOME i else NONE
 fun find_idx x ctx = findOptionWithIdx (is_eq_snd x) ctx
