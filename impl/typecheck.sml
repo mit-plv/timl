@@ -89,7 +89,7 @@ datatype sgntr =
          Sig of (* sigcontext *  *)context
          (* signature aliases *)
          (* | SigBind of string * sgntr *)
-         | FunctorBind of (string * context) list * context
+         | FunctorBind of (string * context) (* list *) * context
                                                    (* signaturing context *)
                                                    (* withtype sigcontext = (string * sgntr) list *)
                                                    (* withtype sigcontext = unit *)
@@ -219,7 +219,7 @@ fun add_typings_skct pairs (sctx, kctx, cctx, tctx) =
      cctx,
      pairs @ tctx)
 
-fun add_sigging (name, s) pairs = (name, s) :: pairs
+fun add_sigging (name, s) pairs = (name, Sig s) :: pairs
                                                  
 fun ctx_names (sctx, kctx, cctx, tctx) =
     (sctx_names sctx, names kctx, names cctx, names tctx) 
@@ -395,7 +395,7 @@ fun lookup_functor gctx m =
       fun find_first m = is_ShortCircuit $ foldlM_Error iter (0, m) gctx
     in
       case find_first m of
-          SOME (n, name, (args, body : context)) => SOME (name, (shiftx_m_sigs 0 n args, shiftx_m_ctx (length args) n body))
+          SOME (n, name, (arg, body : context)) => SOME (name, (shiftx_snd shiftx_m_ctx 0 n arg, shiftx_m_ctx 1 n body))
         | NONE => NONE
     end
 
@@ -2593,7 +2593,7 @@ and check_mtype_time gctx (ctx as (sctx, kctx, cctx, tctx), e, t, d) =
 fun link_sig r gctx (ctx : context) (ctx' as (sctx', kctx', cctx', tctx') : context) =
     let
       val mod_name = "__link_sig_module" 
-      val gctx = add_sigging (mod_name, Sig ctx) gctx
+      val gctx = add_sigging (mod_name, ctx) gctx
       val () = open_module (mod_name, ctx)
       val gctxn = names gctx
       fun match_sort ((name, s'), sctx') =
@@ -2773,30 +2773,32 @@ fun check_top_bind gctx bind =
       (*   in *)
       (*     (name, SigBind sg) *)
       (*   end *)
-      | U.TopFunctorBind ((name, _), arg, m) =>
+      | U.TopFunctorBind ((name, _), ((arg_name, _), arg), m) =>
         (* functor applications will be implemented fiberedly instead of parametrizedly *)
         let
-          val args = [arg]
-          val (args, gctx') = check_top_binds gctx $ map U.TopModSpec args
-          val sg = get_sig gctx' m
-          val () = close_n $ length args
+          val arg = is_wf_sig gctx arg
+          val gctx = add_sigging (arg_name, arg) gctx
+          val () = open_module (arg_name, arg)
+          val sg = get_sig gctx m
+          val () = close_n 1
         in
-          [(name, FunctorBind (args, sg))]
+          [(name, FunctorBind ((arg_name, arg), sg))]
         end
       | U.TopFunctorApp ((name, _), f, m) =>
         let
-          val (_, (formal_arg, body)) = fetch_functor gctx f
+          val (_, ((_, formal_arg), body)) = fetch_functor gctx f
           val actual_arg = get_sig gctx m
           val formal_arg = link_sig (U.get_region_m m) gctx actual_arg formal_arg
-          val gctxd = [("__formal_mod_arg", Sig formal_arg), ("__actual_mod_arg", Sig actual_arg)]
-          val () = open_module actual_arg
-          val () = open_module formal_arg
+          val actual_arg_name = "__actual_mod_arg"
+          val formal_arg_name = "__formal_mod_arg"
+          val gctxd = [(formal_arg_name, Sig formal_arg), (actual_arg_name, Sig actual_arg)]
           val gctx = gctxd @ gctx
+          val () = open_module (actual_arg_name, actual_arg)
+          val () = open_module (formal_arg_name, formal_arg)
           val body = shiftx_m_ctx 1 1 body
-          val body_sig = get_sig gctx body
-          val () = open_module body_sig
+          val () = open_module (name, body)
         in
-          (name, Sig body_sig) :: gctxd
+          (name, Sig body) :: gctxd
         end
           
 and check_top_binds gctx binds =
