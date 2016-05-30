@@ -108,6 +108,7 @@ fun mapPartialWithIdx f xs =
     end
       
 fun foldlWithIdx f init xs = fst $ foldl (fn (x, (acc, n)) => (f (x, acc, n), n + 1)) (init, 0) xs
+fun foldrWithIdx start f init xs = fst $ foldl (fn (x, (acc, n)) => (f (x, acc, n), n + 1)) (init, start) xs
                                  
 (* fun find_idx (x : string) ctx = find_by_snd_eq op= x (add_idx ctx) *)
 fun is_eq_snd (x : string) (i, y) = if y = x then SOME i else NONE
@@ -158,6 +159,30 @@ fun foldl' f init xs =
     case xs of
         [] => init
       | x :: xs => foldl f x xs
+
+fun foldlM (bind, return) f init xs =
+    let
+      fun loop init xs =
+          case xs of
+              [] => return init
+            | x :: xs => bind (f (x, init)) (fn y => loop y xs)
+    in
+      loop init xs
+    end
+
+fun opt_bind a b =
+    case a of
+        NONE => NONE
+      | SOME a => b a
+fun opt_return a = SOME a
+                        
+fun error_bind a b =
+    case a of
+        Failed _ => a
+      | OK a => b a
+fun error_return v = OK v
+
+fun foldlM_Error f = foldlM (error_bind, error_return) f
 
 fun max a b = if a < b then b else a
 

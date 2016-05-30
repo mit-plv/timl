@@ -31,12 +31,6 @@ local
 	  SOME i => (i, r)
 	| NONE => raise Error (r, "Unbound variable " ^ x ^ sprintf " in context: $" [join " " $ rev ctx])
 
-  fun opt_bind a b =
-      case a of
-          NONE => NONE
-        | SOME a => b a
-  fun opt_return a = SOME a
-                      
   fun find_long_id gctx sel eq ctx (m, (x, xr)) =
       case m of
           NONE =>

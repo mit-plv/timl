@@ -164,15 +164,15 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  | SpecDatatype of datatype_def
                  | SpecIdx of name * sort
                  | SpecType of name * kind
-                 | SpecTypeDef of name * ty
+                 | SpecTypeDef of name * mtype
                                            
         datatype sgn =
-                 SigComponents of sig_comp list * region
+                 SigComponents of spec list * region
              (* | SigVar of id *)
              (* | SigWhere of sgn * (id * mtype) *)
 
-             and sig_comp =
-                 ScSpec of name * spec * region
+             (* and sig_comp = *)
+             (*     ScSpec of name * spec * region *)
         (* | ScModSpec of name * sgn *)
         (* | Include of sgn *)
 
@@ -900,6 +900,16 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | AbsIdx (_, _, r) => r
               | TypeDef ((_, r), t) => combine_region r $ get_region_mt t
               | Open (_, r) => r
+
+        fun get_region_sig sg =
+            case sg of
+                SigComponents (_, r) => r
+
+        fun get_region_m m =
+            case m of
+                ModComponents (_, r) => r
+              | ModSeal (m, sg) => combine_region (get_region_m m) (get_region_sig sg)
+              | ModTransparentAscription (m, sg) => combine_region (get_region_m m) (get_region_sig sg)
 
         fun is_value (e : expr) : bool =
             case e of
