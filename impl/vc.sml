@@ -23,11 +23,11 @@ in
 fun uniquefy_ls names = foldr (fn (name, acc) => find_unique acc name :: acc) [] names
 fun uniquefy ctx p =
     case p of
-        Quan (q, bs, (name, r), p, r_all) =>
+        Quan (q, bs, Bind ((name, r), p), r_all) =>
         let
             val name = find_unique ctx name
         in
-            Quan (q, bs, (name, r), uniquefy (name :: ctx) p, r_all)
+            Quan (q, bs, Bind ((name, r), uniquefy (name :: ctx) p), r_all)
         end
       | Not (p, r) => Not (uniquefy ctx p, r)
       | BinConn (opr, p1, p2) => BinConn (opr, uniquefy ctx p1, uniquefy ctx p2)

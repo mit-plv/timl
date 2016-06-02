@@ -44,7 +44,7 @@ Done. 35. Automatically generate premises in [(VarP, Never)] case of [match_ptrn
 Done. 36. [case] should also copy [fun]'s [return] clause even without [using].
 Abondoned. No problem. 37. [as] pattern may have a problem in [balance_left].
 Done. 38. Bug: redundancy checker runs forever on [balance_left].
-KIND OF UNDERSTOOD. 39. rbt.timl typecheckes when using ForgetError-less [subst] and ForgetError-full [forget]. Investigate why.
+Done.. 39. rbt.timl typecheckes when using ForgetError-less [subst] and ForgetError-full [forget]. Investigate why.
 Done. 40. [find_habitant] can further simplify covers and speed up.
 41. Have [type =] type aliasing.
 Done. 42. Maximally insertion of index arguments.

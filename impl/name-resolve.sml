@@ -113,10 +113,10 @@ local
 	| E.Prod (t1, t2) => Prod (on_mtype ctx t1, on_mtype ctx t2)
 	| E.UniI (s, E.Bind ((name, r), t), r_all) => UniI (on_sort gctx sctx s, Bind ((name, r), on_mtype (name :: sctx, kctx) t), r_all)
         | E.MtVar x => MtVar $ on_long_id gctx #2 kctx x
-        | E.MtApp (t1, t2) => MtApp (on_mtype ctx t1, on_mtype ctx t2)
-        | E.MtAbs (Bind ((name, r), t), r_all) => MtAbs (Bind ((name, r), on_mtype (sctx, name :: kctx) t), r_all)
-        | E.MtAppI (t, i) => MtAppI (on_mtype ctx t, on_idx gctx sctx i)
-        | E.MtAbsI (s, Bind ((name, r), t), r_all) => MtAbsI (on_sort gctx sctx s, Bind ((name, r), on_mtype (name :: sctx, kctx) t), r_all)
+        (* | E.MtApp (t1, t2) => MtApp (on_mtype ctx t1, on_mtype ctx t2) *)
+        (* | E.MtAbs (Bind ((name, r), t), r_all) => MtAbs (Bind ((name, r), on_mtype (sctx, name :: kctx) t), r_all) *)
+        (* | E.MtAppI (t, i) => MtAppI (on_mtype ctx t, on_idx gctx sctx i) *)
+        (* | E.MtAbsI (s, Bind ((name, r), t), r_all) => MtAbsI (on_sort gctx sctx s, Bind ((name, r), on_mtype (name :: sctx, kctx) t), r_all) *)
         | E.AppV (x, ts, is, r) => AppV (on_long_id gctx #2 kctx x, map (on_mtype ctx) ts, map (on_idx gctx sctx) is, r)
 	| E.BaseType (bt, r) => BaseType (bt, r)
         | E.UVar u => UVar u
