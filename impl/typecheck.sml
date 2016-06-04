@@ -594,9 +594,14 @@ fun normalize_t gctx kctx t =
 (* verification conditions written incrementally during typechecking *)
                                        
 type anchor = (bsort, idx) uvar_ref_i
-                           
+
+datatype 'sort forall_type =
+         FtSorting of 'sort
+         | FtKinding of kind_ext
+         | FtModule of context
+                         
 datatype vc_entry =
-         VcSorting of string (* option  *)* sort
+         VcForall of string * sort forall_type
          | ImplyVC of prop
          | PropVC of prop * region
          | AdmitVC of prop * region
@@ -604,9 +609,11 @@ datatype vc_entry =
          | AnchorVC of anchor
          | OpenParen
          | CloseParen
-         | VcModule of string * context
-         | VcKinding of string * kind_ext
 
+fun VcSorting (name, s) = VcForall (name, FtSorting s)
+fun VcKinding (name, k) = VcForall (name, FtKinding k)
+fun VcModule (name, m) = VcForall (name, FtModule m)
+             
 val acc = ref ([] : vc_entry list)
 
 fun write x = push_ref acc x
@@ -2330,6 +2337,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
 	          | Arrow (t1, d, t2) => Arrow (substu x v t1, d, substu x v t2)
 	          | Prod (t1, t2) => Prod (substu x v t1, substu x v t2)
 	          | UniI (s, Bind (name, t1), r) => UniI (s, Bind (name, substu x v t1), r)
+                  (* don't need to consult type variable's definition *)
                   | MtVar x => MtVar x
 	          | AppV (y, ts, is, r) => 
 		    AppV (y, map (substu x v) ts, is, r)

@@ -19,29 +19,33 @@ local
     val un_op_names = zip (un_ops, map str_idx_un_op un_ops)
     fun is_un_op (opr, i1) =
       case (opr, i1) of
-          (TimeApp, S.VarI (x, r1)) => find_by_snd_eq op= x un_op_names
+          (TimeApp, S.VarI (NONE, (x, r1))) => find_by_snd_eq op= x un_op_names
         | _ => NONE
 
     fun is_ite i =
         case i of
-            S.BinOpI (TimeApp, S.BinOpI (TimeApp, S.BinOpI (TimeApp, S.VarI (x, _), i1, _), i2, _), i3, _) =>
+            S.BinOpI (TimeApp, S.BinOpI (TimeApp, S.BinOpI (TimeApp, S.VarI (NONE, (x, _)), i1, _), i2, _), i3, _) =>
             if x = "ite" then SOME (i1, i2, i3)
             else NONE
           | _ => NONE
                           
     fun elab_i i =
 	case i of
-	    S.VarI (x, r) =>
-	    if x = "true" then
-		TrueI r
-	    else if x = "false" then
-		FalseI r
-            else if x = "admit" then
-              AdmitI r
-            else if x = "_" then
-                UVarI ((), r)
-	    else
-		VarI (x, r)
+	    S.VarI (id as (m, (x, r))) =>
+            (case m of
+                 NONE =>
+	         if x = "true" then
+		   TrueI r
+	         else if x = "false" then
+		   FalseI r
+                 else if x = "admit" then
+                   AdmitI r
+                 else if x = "_" then
+                   UVarI ((), r)
+	         else
+		   VarI id
+               | SOME _ => VarI id
+            )
 	  | S.ConstIN n =>
 	    ConstIN n
 	  | S.ConstIT x =>
@@ -99,13 +103,13 @@ local
                  (UVarBS (), r) => UVarS ((), r)
                | b => Basic b
             )
-	  | S.Subset (b, name, p, r) => Subset (elab_b b, BindI (name, elab_p p), r)
+	  | S.Subset (b, name, p, r) => Subset (elab_b b, Bind (name, elab_p p), r)
           | S.BigOSort (name, arity, i, r) =>
             if name = "BigO" then
               let
-                val temp_name = "@BigOSort"
+                val temp_name = "__BigOSort"
               in
-                Subset ((Base (TimeFun arity), r), BindI ((temp_name, r), BinPred (BigO, VarI (temp_name, r), elab_i i)), r)
+                Subset ((Base (TimeFun arity), r), Bind ((temp_name, r), BinPred (BigO, VarI (NONE, (temp_name, r)), elab_i i)), r)
               end
             else
               raise Error (r, sprintf "Unrecognized sort: $" [name])
@@ -135,15 +139,22 @@ local
 
     fun elab_mt t =
       case t of
-	  S.VarT (x, r) =>
-          if x = "unit" then
-              Unit r
-          else if x = "int" then
-              BaseType (Int, r)
-          else if x = "_" then
-              UVar ((), r)
-          else
-              AppV ((x, r), [], [], r)
+	  S.VarT (id as (m, (x, r))) =>
+          let
+            fun def () = AppV (id, [], [], r)
+          in
+            case m of
+                NONE =>
+                if x = "unit" then
+                  Unit r
+                else if x = "int" then
+                  BaseType (Int, r)
+                else if x = "_" then
+                  UVar ((), r)
+                else
+                  def ()
+              | SOME _ => def ()
+          end
 	| S.Arrow (t1, d, t2, _) => Arrow (elab_mt t1, elab_i d, elab_mt t2)
 	| S.Prod (t1, t2, _) => Prod (elab_mt t1, elab_mt t2)
 	| S.Quan (quan, binds, t, r) =>
@@ -151,7 +162,7 @@ local
 		case b of
 		    Sorting (x, s, _) =>
 		    (case quan of
-			 S.Forall => UniI (elab_s s, BindI (x, t), r)
+			 S.Forall => UniI (elab_s s, Bind (x, t), r)
                     )
 	  in
 	      foldr f (elab_mt t) binds
@@ -204,11 +215,18 @@ local
   *)              
     fun elab e =
 	case e of
-	    S.Var ((x, r), eia) =>
-            if x = "never" andalso eia = false then
-              Never (elab_mt (S.VarT ("_", r)), r)
-            else
-              Var ((x, r), eia)
+	    S.Var (id as (m, (x, r)), eia) =>
+            let
+              fun def () = Var (id, eia)
+            in
+              case m of
+                  NONE =>
+                  if x = "never" andalso eia = false then
+                    Never (elab_mt (S.VarT (NONE, ("_", r))), r)
+                  else
+                    def ()
+                | SOME _ => def ()
+            end
 	  | S.Tuple (es, r) =>
 	    (case es of
 		 [] => TT r
@@ -230,10 +248,14 @@ local
 		fun default () = App (elab e1, elab e2)
 	    in
 		case e1 of
-		    S.Var ((x, _), false) => 
-		    if x = "fst" then Fst (elab e2)
-		    else if x = "snd" then Snd (elab e2)
-		    else default ()
+		    S.Var ((m, (x, _)), false) =>
+                    (case m of
+                         NONE =>
+		         if x = "fst" then Fst (elab e2)
+		         else if x = "snd" then Snd (elab e2)
+		         else default ()
+                       | SOME _ => default ()
+                    )
 		  | _ => default ()
 	    end
 	  | S.AppI (e, i, _) =>
@@ -273,15 +295,15 @@ local
 	      Rec (tnames, name, (binds, ((t, d), e)), r)
             end
           | S.Datatype (name, tnames, sorts, constrs, r) =>
-            let fun default_t2 r = foldl (fn (arg, f) => S.AppTT (f, S.VarT (arg, r), r)) (S.VarT (name, r)) tnames
+            let fun default_t2 r = foldl (fn (arg, f) => S.AppTT (f, S.VarT (NONE, (arg, r)), r)) (S.VarT (NONE, (name, r))) tnames
                 fun elab_constr (((cname, _), binds, core, r) : S.constr_decl) : constr_decl =
                     let
                       (* val (t1, t2) = default (S.VarT ("unit", r), SOME (default_t2 r)) core *)
                       (* val t2 = default (default_t2 r) t2 *)
                       val (t1, t2) =
                           case core of
-                              NONE => (S.VarT ("unit", r), default_t2 r)
-                            | SOME (t1, NONE) => (S.VarT ("unit", r), t1)
+                              NONE => (S.VarT (NONE, ("unit", r)), default_t2 r)
+                            | SOME (t1, NONE) => (S.VarT (NONE, ("unit", r)), t1)
                             | SOME (t1, SOME t2) => (t1, t2)
                       fun f bind =
                           case bind of
@@ -290,15 +312,17 @@ local
                       val t2_orig = t2
                       val (t2, is) = get_is t2
                       val (t2, ts) = get_ts t2
-                      val () = if case t2 of S.VarT (x, _) => x = name | _ => false then
+                      val () = if case t2 of S.VarT (NONE, (x, _)) => x = name | _ => false then
                                  ()
                                else
                                  raise Error (S.get_region_t t2, sprintf "Result type of constructor must be $ (did you use -> when you should you --> ?)" [name])
                       val () = if length ts = length tnames then () else raise Error (S.get_region_t t2_orig, "Must have type arguments " ^ join " " tnames)
                       fun f (t, tname) =
-                          let val targ_mismatch = "This type argument must be " ^ tname in
+                          let
+                            val targ_mismatch = "This type argument must be " ^ tname
+                          in
                             case t of
-                                S.VarT (x, r) => if x = tname then () else raise Error (r, targ_mismatch)
+                                S.VarT (NONE, (x, r)) => if x = tname then () else raise Error (r, targ_mismatch)
                               | _ => raise Error (S.get_region_t t, targ_mismatch)
                           end
                       val () = app f (zip (ts, tnames))

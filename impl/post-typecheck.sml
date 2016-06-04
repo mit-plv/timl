@@ -1,15 +1,25 @@
 structure PostTypeCheck = struct
 open PreTypeCheck
        
+infixr 0 $
+       
 fun str_vce vce =
     case vce of
-        ForallVC (name, _) => sprintf "(forall $ "  [name]
+        VcForall (name, ft) =>
+        let
+          val ft = case ft of
+                       FtSorting _ => "s"
+                     | FtKinding _ => "k"
+                     | FtModule _ => "m"
+        in
+          sprintf "(forall_$ $ "  [ft, name]
+        end
       | ImplyVC p => "(imply prop "
       | PropVC _ => "prop"
       | AdmitVC _ => "admit"
       | AnchorVC _ => "anchor"
-      | OpenVC => "("
-      | CloseVC => ")"
+      | OpenParen => "("
+      | CloseParen => ")"
 
 structure N = NoUVarExpr
 
@@ -17,13 +27,20 @@ exception ErrorEmpty
 exception ErrorClose of vc_entry list
 
 datatype formula =
-         ForallF of string * bsort * formula list
+         ForallF of string * bsort forall_type * formula list
          | ImplyF of prop * formula list
          | AndF of formula list
          | AnchorF of anchor
          | PropF of prop * region
          | AdmitF of prop * region
 
+val str_i = str_i []
+val str_p = str_p []
+
+fun str_ft ctx ft =
+    case ft of
+        FtSorting bs => str_bs bs
+                      | Ft
 fun str_f ctx f =
     case f of
         ForallF (name, bsort, fs) =>
@@ -45,7 +62,7 @@ and str_fs ctx fs = (join " " o map (str_f ctx)) fs
 
 fun consume_close (s : vc_entry list) : vc_entry list =
     case s of
-        CloseVC :: s => s
+        CloseParen :: s => s
       | _ => raise Impossible "consume_close ()"
 
 fun get_formula s =
@@ -53,19 +70,23 @@ fun get_formula s =
         [] => raise ErrorEmpty
       | vce :: s =>
         case vce of
-            ForallVC (name, sort) =>
+            VcForall (name, ft) =>
             let
               val (fs, s) = get_formulas s
               val s = consume_close s
-              val f = 
-                  case sort of
-                      Basic (bsort, _) =>
-                      ForallF (name, bsort, fs)
-                    | Subset ((bsort, _), BindI (_, p), _) =>
-                      ForallF (name, bsort, [ImplyF (p, fs)])
-                    | UVarS _ => raise Impossible "get_formula (): sort in ForallVC shouldn't be UVarS"
+              val (ft, fs) = 
+                  case ft of
+                      FtKinding k => FtKinding k
+                    | FtModule m => FtModule m
+                    | FtSorting s =>
+                      case s of
+                          Subset ((bsort, _), Bind (_, p), _) =>
+                          (FtSorting bsort, [ImplyF (p, fs)])
+                        | Basic (bsort, _) =>
+                          (FtSorting bsort, fs)
+                        | UVarS _ => raise Impossible "get_formula (): sort in VcForall shouldn't be UVarS"
             in
-              (f, s)
+              (ForallF (name, ft, fs), s)
             end
           | ImplyVC p =>
             let
@@ -74,17 +95,17 @@ fun get_formula s =
             in
               (ImplyF (p, fs), s)
             end
-          | OpenVC =>
+          | OpenParen =>
             let
               val (fs, s) = get_formulas s
               val s = consume_close s
             in
               (AndF fs, s)
             end
+          | CloseParen => raise ErrorClose s
           | AnchorVC anchor => (AnchorF anchor, s)
           | PropVC (p, r) => (PropF (p, r), s)
           | AdmitVC (p, r) => (AdmitF (p, r), s)
-          | CloseVC => raise ErrorClose s
 
 and get_formulas (s : vc_entry list) =
     let
@@ -94,7 +115,7 @@ and get_formulas (s : vc_entry list) =
       (f :: fs, s)
     end
     handle ErrorEmpty => ([], [])
-         | ErrorClose s => ([], CloseVC :: s)
+         | ErrorClose s => ([], CloseParen :: s)
 
 fun get_admits f =
     case f of
@@ -201,7 +222,7 @@ fun fv_p p =
       | BinConn (_, p1, p2) => fv_p p1 @ fv_p p2
       | Not (p, _) => fv_p p
       | BinPred (_, i1, i2) => fv_i i1 @ fv_i i2
-      | Quan (_, _, _, p, _) => fv_p p 
+      | Quan (_, _, Bind (_, p), _) => fv_p p 
                                      
 fun fv_f2 f =
     case f of

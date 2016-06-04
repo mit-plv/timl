@@ -778,9 +778,12 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         (* region calculations *)
 
-        fun get_region_long_id (_, (_, r)) = r
+        fun get_region_long_id (m, (_, r)) =
+            case m of
+                NONE => r
+              | SOME (_, r1) => combine_region r1 r
 
-        fun set_region_long_id (m, (x, _)) r = (m, (x, r))
+        fun set_region_long_id (m, (x, _)) r = (Option.map (fn (m, _) => (m, r)) m, (x, r))
                                   
         fun get_region_i i =
             case i of

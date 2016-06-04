@@ -52,10 +52,10 @@ fun str_vc show_region filename ((hyps, p) : vc) =
         fun g (h, (hyps, ctx)) =
             case h of
                 VarH (name, bs) => (sprintf "$ : $" [name, str_b bs] :: hyps, name :: ctx)
-              | PropH p => (str_p ctx p :: hyps, ctx)
+              | PropH p => (str_p [] ctx p :: hyps, ctx)
         val (hyps, ctx) = foldr g ([], []) hyps
         val hyps = rev hyps
-        val p = str_p ctx p
+        val p = str_p [] ctx p
     in
         region @
         hyps @
@@ -87,7 +87,7 @@ fun prop2vcs p =
     let
     in
         case p of
-            Quan (Forall, bs, (name, r), p, r_all) =>
+            Quan (Forall, bs, Bind ((name, r), p), r_all) =>
             let
                 val ps = prop2vcs p
                 val ps = add_hyp (VarH (name, get_base bs)) ps
@@ -107,7 +107,7 @@ fun prop2vcs p =
     end
 
 fun vc2prop (hs, p) =
-    foldl (fn (h, p) => case h of VarH (name, b) => Quan (Forall, Base b, (name, dummy), p, get_region_p p) | PropH p1 => p1 --> p) p hs
+    foldl (fn (h, p) => case h of VarH (name, b) => Quan (Forall, Base b, Bind ((name, dummy), p), get_region_p p) | PropH p1 => p1 --> p) p hs
 
 fun simp_vc_vcs vc = prop2vcs $ simp_p $ vc2prop $ vc
           

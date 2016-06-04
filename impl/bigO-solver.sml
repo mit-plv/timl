@@ -77,7 +77,7 @@ fun summarize (is_outer, on_error) i =
               M.empty
             | ConstIN _ =>
               M.empty
-            | VarI (x, _) =>
+            | VarI (_, (x, _)) =>
               if is_outer x then
                 M.empty
               else
@@ -115,7 +115,7 @@ fun summarize (is_outer, on_error) i =
               add_class (loop a, loop b)
             | BinOpI (MaxI, a, b) =>
               add_class (loop a, loop b)
-            | _ => on_error $ "summarize fails with " ^ str_i [] i
+            | _ => on_error $ "summarize fails with " ^ str_i [] [] i
     in
       loop i
     end
@@ -169,7 +169,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
           let
             val ret as f = m ()
             val ctx = List.mapPartial (fn h => case h of VarH (name, _) => SOME name | _ => NONE) hs
-            val () = println $ sprintf "Yes! I solved this: $\n" [str_i ctx f]
+            val () = println $ sprintf "Yes! I solved this: $\n" [str_i [] ctx f]
           in
             SOME ret
           end
@@ -188,7 +188,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
             fun is_outer x = x >= main_fun + 2
             fun ask_smt p = ask_smt_vc (long_hyps, p)
             val N1 = ConstIN (1, dummy)
-            fun V n = VarI (n, dummy)
+            fun V n = VarI (NONE, (n, dummy))
             fun to_real i = UnOpI (ToReal, i, dummy)
             fun exp n i = combine_MultI (repeat n i)
             fun class2term (c, k) n =
@@ -267,9 +267,9 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                   val cls_n = summarize n
                   val cls_m = summarize m
                   val cls_i = M.listItemsi $ trim_class $ summarize i
-                  fun err () = on_error $ "summarize_2: i should be y*f(x) or f(x) " ^ str_i [] i
+                  fun err () = on_error $ "summarize_2: i should be y*f(x) or f(x) " ^ str_i [] [] i
                   fun get_y () = extract_only_variable (error "summarize_2: class of n must be (1, 0) for only one variable") cls_m
-                  fun get_x () = extract_only_variable (Error $ "summarize_2: class of n must be (1, 0) for only one variable " ^ str_i [] n) cls_n
+                  fun get_x () = extract_only_variable (Error $ "summarize_2: class of n must be (1, 0) for only one variable " ^ str_i [] [] n) cls_n
                   fun check_x_neq_y (x : int) y = if x = y then on_error "summarize_2: x = y" else ()
                   val ret = if length cls_i = 0 then
                               (0, 0)
@@ -312,13 +312,13 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                 case i of
                     BinOpI (TimeApp, f_i, n') =>
                     (case f_i of
-                         VarI (f, _) =>
+                         VarI (_, (f, _)) =>
                          if is_outer f then
                            case find_bigO_hyp f_i long_hyps of
                                SOME (g, _) => simp_i (g %@ n')
                              | NONE => i
                          else i
-                       | BinOpI (TimeApp, f_i as VarI (f, _), m') =>
+                       | BinOpI (TimeApp, f_i as VarI (_, (f, _)), m') =>
                          if is_outer f  then
                            case find_bigO_hyp f_i long_hyps of
                                SOME (g, _) => simp_i (g %@ m' %@ n')
@@ -400,7 +400,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
             val p = simp_p_with_plugin simp_p_max p
           in
             case p of
-                BinPred (LeP, i1, BinOpI (TimeApp, BinOpI (TimeApp, VarI (g, _), VarI (m, _)), n_i)) =>
+                BinPred (LeP, i1, BinOpI (TimeApp, BinOpI (TimeApp, VarI (_, (g, _)), VarI (_, (m, _))), n_i)) =>
                 let
                   val () = if g = main_fun then () else raise Error "g = main_fun fails"
                   val () = if m < main_fun then () else raise Error "m < main_fun fails"
@@ -415,7 +415,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                     val is = collect_AddI i1
                     fun is_sub_problem i =
                         case i of
-                            BinOpI (TimeApp, BinOpI (TimeApp, VarI (g', _), VarI (m', _)), n') =>
+                            BinOpI (TimeApp, BinOpI (TimeApp, VarI (NONE, (g', _)), VarI (_, (m', _))), n') =>
                             if g' = g andalso m' = m then
                               infer_b n_ n'
                             else NONE
@@ -439,7 +439,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                     val is = collect_AddI i1
                     fun par i =
                         case i of
-                            BinOpI (TimeApp, BinOpI (TimeApp, VarI (g', _), VarI (m', _)), n') =>
+                            BinOpI (TimeApp, BinOpI (TimeApp, VarI (_, (g', _)), VarI (_, (m', _))), n') =>
                             if g' = g andalso m' = m then
                               SOME n'
                             else NONE
@@ -455,7 +455,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                     ret
                   end
                 end
-              | BinPred (LeP, i1, BinOpI (TimeApp, VarI (g, _), n_i)) =>
+              | BinPred (LeP, i1, BinOpI (TimeApp, VarI (_, (g, _)), n_i)) =>
                 if not $ contains i1 g then
                   let
                     val () = if g = main_fun then () else raise Error "g = main_fun fails"
@@ -479,7 +479,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                       val is = collect_AddI i1
                       fun is_sub_problem i =
                           case i of
-                              BinOpI (TimeApp, VarI (g', _), n') =>
+                              BinOpI (TimeApp, VarI (_, (g', _)), n') =>
                               if g' = g then
                                 infer_b n_ n'
                               else
@@ -510,7 +510,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                       val is = collect_AddI i1
                       fun par i =
                           case i of
-                              BinOpI (TimeApp, VarI (g', _), n') =>
+                              BinOpI (TimeApp, VarI (_, (g', _)), n') =>
                               if g' = g then
                                 SOME n'
                               else NONE
@@ -519,7 +519,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                       val n' = combine_AddI_Nat n's
                       val () = if ask_smt (n' %+ N1 %<= n_i) then () else raise Error "n' %+ N1 %<= n_i"
                       val rest = map use_bigO_hyp rest
-                      val () = println $ str_i (hyps2ctx long_hyps) $ combine_AddI_Time rest
+                      val () = println $ str_i [] (hyps2ctx long_hyps) $ combine_AddI_Time rest
                       val (c, k) =
                           add_class_entries $ map (summarize_1 n_) rest
                       val Tn = class2term (c + 1, k) (to_real (V 0))
@@ -580,17 +580,17 @@ fun infer_exists hs (name_arity1 as (_, arity1)) p =
     if arity1 = 0 then
       (* just to infer a Time *)
       (case p of
-           BinPred (Le, i1 as (ConstIT _), VarI (x, _)) =>
+           BinPred (Le, i1 as (ConstIT _), VarI (_, (x, _))) =>
            if x = 0 then SOME (i1, []) else NONE
          | _ => NONE
       )
     else
       case p of
-          Quan (Exists _, Base (TimeFun arity0), (name0, _), BinConn (And, bigO as BinPred (BigO, VarI (n0, _), VarI (n1, _)), BinConn (Imply, bigO', p)), _) =>
+          Quan (Exists _, Base (TimeFun arity0), Bind ((name0, _), BinConn (And, bigO as BinPred (BigO, VarI (_, (n0, _)), VarI (_, (n1, _))), BinConn (Imply, bigO', p))), _) =>
           if n0 = 0 andalso n1 = 1 andalso eq_p bigO bigO' then
             use_master_theorem hs name_arity1 (name0, arity0) p
           else NONE
-        | BinPred (BigO, VarI (x, _), f) =>
+        | BinPred (BigO, VarI (_, (x, _)), f) =>
           if x = 0 then
             let
               val () = println "No other constraint on function"
@@ -604,12 +604,12 @@ exception MasterTheoremCheckFail of region * string list
                                                     
 fun solve_exists (vc as (hs, p)) =
     case p of
-        Quan (Exists ins, Base (TimeFun arity), (name, _), p, _) =>
+        Quan (Exists ins, Base (TimeFun arity), Bind ((name, _), p), _) =>
         
         let
           val ret =
               case p of
-                  BinConn (And, bigO as BinPred (BigO, VarI (n0, _), spec), BinConn (Imply, bigO', p)) =>
+                  BinConn (And, bigO as BinPred (BigO, VarI (_, (n0, _)), spec), BinConn (Imply, bigO', p)) =>
                   let
                     (* val ctxn = name :: hyps2ctx hs *)
                     (* val () = println $ sprintf "$\n$" [str_p ctxn bigO, str_p ctxn bigO'] *)
@@ -628,12 +628,12 @@ fun solve_exists (vc as (hs, p)) =
                           val spec = forget_i_i 0 1 spec
                           val ctxn = hyps2ctx hs
                           val () = println $ sprintf "Inferred! Now check inferred complexity $ against specified complexity $"
-                                           [str_i ctxn inferred, str_i ctxn spec]
+                                           [str_i [] ctxn inferred, str_i [] ctxn spec]
                           val ret = 
                               if timefun_le hs arity inferred spec then
                                 SOME vcs
                               else
-                                raise curry MasterTheoremCheckFail (get_region_i spec) $ [sprintf "Can't prove that the inferred big-O class $ is bounded by the given big-O class $" [str_i (hyps2ctx hs) inferred, str_i (hyps2ctx hs) spec]]
+                                raise curry MasterTheoremCheckFail (get_region_i spec) $ [sprintf "Can't prove that the inferred big-O class $ is bounded by the given big-O class $" [str_i [] (hyps2ctx hs) inferred, str_i [] (hyps2ctx hs) spec]]
                           val () = println "Complexity check OK!"
                         in
                           ret

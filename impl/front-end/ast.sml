@@ -4,8 +4,10 @@ open Operators
          
 type id = string * region
 
+type long_id = id option * id
+                                            
 datatype idx = 
-	 VarI of string * region
+	 VarI of long_id
 	 | ConstIN of int * region
 	 | ConstIT of string * region
          (* | UnOpI of idx_un_op * idx * region *)
@@ -42,16 +44,21 @@ and tbind =
 fun sortings (ids, s, r) = map (fn id => Sorting (id, s, r)) ids
     
 datatype ty =
-	 VarT of string * region
+	 VarT of long_id
 	 | Arrow of ty * idx * ty * region
 	 | Prod of ty * ty * region
 	 | Quan of quan * tbind list * ty * region
 	 | AppTT of ty * ty * region
 	 | AppTI of ty * idx * region
 
+fun get_region_long_id (m, (_, r)) =
+    case m of
+        NONE => r
+      | SOME (_, r1) => combine_region r1 r
+
 fun get_region_t t =
   case t of
-      VarT (_, r) => r
+      VarT x => get_region_long_id x
     | Arrow (_, _, _, r) => r
     | Prod (_, _, r) => r
     | Quan (_, _, _, r) => r
@@ -62,7 +69,7 @@ type constr_core = ty * ty option
 type constr_decl = id * tbind list * constr_core option * region
 
 datatype ptrn =
-	 ConstrP of (id * bool) * string list * ptrn option * region
+	 ConstrP of (long_id * bool) * string list * ptrn option * region
          | TupleP of ptrn list * region
          | AliasP of id * ptrn * region
          | AnnoP of ptrn * ty * region
@@ -79,9 +86,9 @@ datatype bind =
 	 | TBind of tbind
 
 type return = ty option * idx option
-             
+
 datatype exp = 
-	 Var of (string * region) * bool
+	 Var of long_id * bool
        | Tuple of exp list * region
        | Abs of bind list * return * exp * region
        | App of exp * exp * region
@@ -101,6 +108,8 @@ datatype exp =
          | AbsIdx of id * sort option * idx option * decl list * region
 
 type reporter = string * pos * pos -> unit
+
+fun underscore r = (NONE, ("_", r))
 
 end
 
