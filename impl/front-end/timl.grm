@@ -65,6 +65,7 @@ open Ast
     | ABSTYPE
     | ABSIDX
     | WITH
+    | DOT
 
 %nonterm start of decl list
        | exp of exp
@@ -168,7 +169,8 @@ exp : aexp (aexp)
      | exp LCUR RCUR (AppI (exp, VarI (underscore (LCURleft, RCURright)), (expleft, RCURright)))
      | exp aexp (App (exp, aexp, (expleft, aexpright)))
 
-long_id : id ((NONE, id))           
+long_id : id ((NONE, id))
+        | id DOT id (SOME id1, id2)
            
 decorated_id : long_id ((long_id, false))
              | AT long_id ((long_id, true))          

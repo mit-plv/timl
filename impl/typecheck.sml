@@ -128,6 +128,16 @@ fun shiftx_m_ctx x n (sctx, kctx, cctx, tctx) : context =
      shiftx_list_snd shiftx_m_c x n cctx,
      shiftx_list_snd shiftx_m_t x n tctx
     )
+
+fun package_ctx m (sctx, kctx, cctx, tctx) =
+    let
+      val sctx = map (package_snd package_s m) sctx
+      val kctx = map (package_snd package_ke m) kctx
+      val cctx = map (package_snd package_c m) cctx
+      val tctx = map (package_snd package_t m) tctx
+    in
+      (sctx, kctx, cctx, tctx)
+    end
       
 fun shiftx_m_sigs x n sigs =
     foldrWithIdx x (fn (sg, acc, x) => shiftx_snd shiftx_m_ctx x n sg :: acc) [] sigs
@@ -410,6 +420,11 @@ fun fetch_functor gctx (m, r) =
     case lookup_functor gctx m of
         SOME a => a
       | NONE => raise Error (r, ["Unbound functor " ^ str_v [] m])
+
+fun fetch_module gctx (m, r) =
+    case lookup_module gctx m of
+        SOME sg => sg
+      | NONE => raise Error (r, ["Unbounded module"])
                       
 fun fetch_from_module (params as (shift, package, do_fetch)) (* sigs *) gctx ((m, mr), x) =
     let
@@ -419,9 +434,7 @@ fun fetch_from_module (params as (shift, package, do_fetch)) (* sigs *) gctx ((m
       (*         NONE => do_fetch (ctx, x) *)
       (*       | SOME m => fetch_from_module gctx (m, x) *)
       (* val ((m, r), x) = get_outmost_module (m, x) *)
-      val ((* gctx,  *)ctx) = case lookup_module gctx m of
-                                  SOME sg => sg
-                                | NONE => raise Error (mr, ["Unbounded module"])
+      val ((* gctx,  *)ctx) = fetch_module gctx (m, mr)
       (* val v = fetch_from_module_or_ctx gctx ctx x *)
       val v = do_fetch (ctx, x)
       (* val v = package 0 (length gctx) v *)
@@ -597,7 +610,6 @@ type anchor = (bsort, idx) uvar_ref_i
 
 datatype 'sort forall_type =
          FtSorting of 'sort
-         | FtKinding of kind_ext
          | FtModule of context
                          
 datatype vc_entry =
@@ -611,7 +623,6 @@ datatype vc_entry =
          | CloseParen
 
 fun VcSorting (name, s) = VcForall (name, FtSorting s)
-fun VcKinding (name, k) = VcForall (name, FtKinding k)
 fun VcModule (name, m) = VcForall (name, FtModule m)
              
 val acc = ref ([] : vc_entry list)
@@ -620,18 +631,15 @@ fun write x = push_ref acc x
 
 fun open_paren () = write OpenParen
 fun open_sorting ns = write $ VcSorting ns
-fun open_kinding nk = write $ VcKinding nk
 fun open_module ctx = write $ VcModule ctx
                             
 fun close_paren () = write CloseParen
 fun close_n n = repeat_app close_paren n
 fun open_premises ps = app write $ map ImplyVC ps
 fun open_sortings sortings = app open_sorting $ rev sortings
-fun open_kindings kindings = app open_kinding $ rev kindings
 fun open_ctx (ctx as (sctx, kctx, _, _)) =
     let
       val () = open_sortings sctx
-      val () = open_kindings kctx
     in
       ()
     end
@@ -1381,10 +1389,8 @@ local
                 (_, (x, _)) => x
         val cctx = case m of
                        NONE => cctx
-                     | SOME (m, mr) =>
-                       case lookup_module gctx m of
-                           SOME ctx => #3 ctx
-                         | NONE => raise Impossible "get_family_member ()"
+                     | SOME m =>
+                       #3 $ fetch_module gctx m
       in
         (rev o map fst o mapPartialWithIdx (fn (n, (_, c)) => if get_family c = x then SOME () else NONE)) cctx
       end
@@ -1857,31 +1863,37 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
           end
     end
 
+(* don't need to normalize t since KeTypeEq shouldn't have any UVar *)
+fun update_uvar_mt t =
+    case t of
+        UVar ((invis, x), r) => 
+        (case !x of
+             Refined t => 
+             let 
+               val t = update_uvar_mt t
+               val () = x := Refined t
+             in
+               expand_mt invis t
+             end
+           | Fresh _ => t
+        )
+      | Unit r => Unit r
+      | Arrow (t1, d, t2) => Arrow (update_uvar_mt t1, update_i d, update_uvar_mt t2)
+      | Prod (t1, t2) => Prod (update_uvar_mt t1, update_uvar_mt t2)
+      | UniI (s, Bind (name, t1), r) => UniI (update_s s, Bind (name, update_uvar_mt t1), r)
+      | MtVar x => MtVar x
+      | AppV (y, ts, is, r) => AppV (y, map update_uvar_mt ts, map update_i is, r)
+      | BaseType a => BaseType a
+
+fun update_uvar_t t =
+    case t of
+        Mono t => Mono (update_uvar_mt t)
+      | Uni (Bind (name, t), r) => Uni (Bind (name, update_uvar_t t), r)
+
 fun fv_mt t =
     let
-      (* don't need to normalize t since KeTypeEq shouldn't have any UVar *)
-      fun update_mt t =
-          case t of
-              UVar ((invis, x), r) => 
-              (case !x of
-                   Refined t => 
-                   let 
-                     val t = update_mt t
-                     val () = x := Refined t
-                   in
-                     expand_mt invis t
-                   end
-                 | Fresh _ => t
-              )
-            | Unit r => Unit r
-            | Arrow (t1, d, t2) => Arrow (update_mt t1, update_i d, update_mt t2)
-            | Prod (t1, t2) => Prod (update_mt t1, update_mt t2)
-            | UniI (s, Bind (name, t1), r) => UniI (update_s s, Bind (name, update_mt t1), r)
-            | MtVar x => MtVar x
-            | AppV (y, ts, is, r) => AppV (y, map update_mt ts, map update_i is, r)
-            | BaseType a => BaseType a
     in      
-      case update_mt t of
+      case update_uvar_mt t of
           UVar ((_, uvar_ref), _) => [uvar_ref]
         | Unit _ => []
         | Arrow (t1, _, t2) => fv_mt t1 @ fv_mt t2
@@ -2464,7 +2476,6 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
               let
                 val (t, k) = get_kind gctx ((sctx, kctx), t)
                 val kinding = (name, KeTypeEq (k, t))
-                val () = open_kinding kinding
               in
                 (TypeDef ((name, r), t), ctx_from_kindingext kinding, 1, [])
               end
@@ -2492,8 +2503,31 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
                 (AbsIdx (((name, r1), s, i), decls, r), ctxd, 0, ds)
               end
             | U.Open (m, r) =>
-              (*ToDo: impl*)
-              (Open (m, r), empty_ctx, 0, [])
+              let
+                val ctxd = fetch_module gctx m
+                val ctxd = shiftx_m_ctx 0 (m + 1) ctxd
+                val ctxd = package_ctx (m, r) ctxd 
+                fun clone (sctx, kctx, cctx, tctx) =
+                    let
+                      fun set_prop s p =
+                          case update_s s of
+                              Basic (bs as (_, r)) => Subset (bs, Bind (("__set_prop", r), p), r)
+                            | Subset (bs, Bind (name, _), r) => Subset (bs, Bind (name, p), r)
+                            | UVarS _ => raise Error (r, ["unsolved unification variable in module"])
+                      fun sort_set_idx_eq s' i =
+                          set_prop s' (VarI (NONE, (0, r)) %= shift_i_i i)
+                      val sctx = mapWithIdx (fn (i, (name, s)) => (name, sort_set_idx_eq s $ VarI (SOME (m, r), (i, r)))) sctx
+                      fun kind_set_type_eq k t =
+                          case k of
+                              KeKind k => KeTypeEq (k, t)
+                           |  KeTypeEq (k, _) => KeTypeEq (k, t)
+                      val kctx = mapWithIdx (fn (i, (name, k)) => (name, kind_set_type_eq k $ MtVar (SOME (m, r), (i, r)))) kctx
+                    in
+                      (sctx, kctx, cctx, tctx)
+                    end
+              in
+                (Open (m, r), ctxd, 0, [])
+              end
       val ret as (decl, ctxd, nps, ds) =
           main ()
           handle
@@ -2669,7 +2703,6 @@ fun link_sig r gctx (ctx : context) (ctx' as (sctx', kctx', cctx', tctx') : cont
                       k
                     end
             val k' = kind_add_type_eq k' (MtVar x)
-            val () = open_kinding (name, k')
           in
             add_kindingext (name, k') kctx'
           end
