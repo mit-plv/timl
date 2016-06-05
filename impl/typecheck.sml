@@ -389,37 +389,10 @@ val lookup_type = lookup_snd
 
 val get_outmost_module = id
 
-fun lookup_module gctx m = nth_error (List.mapPartial (fn (_, sg) => case sg of Sig sg => SOME sg | _ => NONE) gctx) m
-
-val Continue = OK
-val ShortCircuit = Failed
-                     
-fun is_ShortCircuit a =
-    case a of
-        OK _ => NONE
-      | Failed a => SOME a
-                         
-fun lookup_functor gctx m =
-    let
-      fun iter ((name, sg), (nsig, target)) =
-          case sg of
-              Sig _ => Continue (nsig + 1, target)
-            | FunctorBind a =>
-              if target <= 0 then
-                ShortCircuit (nsig, name, a)
-              else
-                Continue (nsig, target - 1)
-      fun find_first m = is_ShortCircuit $ foldlM_Error iter (0, m) gctx
-    in
-      case find_first m of
-          SOME (n, name, (arg, body : context)) => SOME (name, (shiftx_snd shiftx_m_ctx 0 n arg, shiftx_m_ctx 1 n body))
-        | NONE => NONE
-    end
-
-fun fetch_functor gctx (m, r) =
-    case lookup_functor gctx m of
-        SOME a => a
-      | NONE => raise Error (r, ["Unbound functor " ^ str_v [] m])
+fun filter_module gctx = List.mapPartial (fn (name, sg) => case sg of Sig sg => SOME (name, sg) | _ => NONE) gctx
+                                         
+fun lookup_module gctx m =
+    Option.map snd $ nth_error (filter_module gctx) m
 
 fun fetch_module gctx (m, r) =
     case lookup_module gctx m of
@@ -444,7 +417,7 @@ fun fetch_from_module (params as (shift, package, do_fetch)) (* sigs *) gctx ((m
       v
     end
       
-fun generic_fetch shift package do_fetch sel (ggctx as ((* sigs,  *)gctx)) (fctx, (m, x)) =
+fun generic_fetch shift package do_fetch sel (ggctx as ((* sigs,  *)gctx : sigcontext)) (fctx, (m, x)) =
     case m of
         NONE => do_fetch (fctx, x)
       | SOME m => fetch_from_module (shift, package, do_fetch o mapFst sel) (* sigs *) gctx (m, x)
@@ -2504,10 +2477,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
               end
             | U.Open (m, r) =>
               let
-                val ctxd = fetch_module gctx m
-                val ctxd = shiftx_m_ctx 0 (m + 1) ctxd
-                val ctxd = package_ctx (m, r) ctxd 
-                fun clone (sctx, kctx, cctx, tctx) =
+                fun link_module (m, r) (sctx, kctx, cctx, tctx) =
                     let
                       fun set_prop s p =
                           case update_s s of
@@ -2525,6 +2495,15 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
                     in
                       (sctx, kctx, cctx, tctx)
                     end
+                fun clone_module gctx (m, r) =
+                    let
+                      val ctx = shiftx_m_ctx 0 (m + 1) $ fetch_module gctx (m, r)
+                      (* val ctxd = package_ctx (m, r) ctxd  *)
+                      val ctx = link_module (m, r) ctx
+                    in
+                      ctx
+                    end
+                val ctxd = clone_module gctx (m, r)
               in
                 (Open (m, r), ctxd, 0, [])
               end
@@ -2665,15 +2644,12 @@ and check_mtype_time gctx (ctx as (sctx, kctx, cctx, tctx), e, t, d) =
       e
     end
 
-fun link_sig r gctx (ctx : context) (ctx' as (sctx', kctx', cctx', tctx') : context) =
+fun link_sig r gctx m (ctx' as (sctx', kctx', cctx', tctx') : context) =
     let
-      val mod_name = "__link_sig_module" 
-      val gctx = add_sigging (mod_name, ctx) gctx
-      val () = open_module (mod_name, ctx)
       val gctxn = names gctx
       fun match_sort ((name, s'), sctx') =
           let
-            val (x, s) = fetch_sort_by_name gctx [] (SOME (0, r), (name, r))
+            val (x, s) = fetch_sort_by_name gctx [] (SOME m, (name, r))
             val () = unify_s r gctxn (sctx_names sctx') (s, s')
             fun add_prop s p =
                 case update_s s of
@@ -2691,7 +2667,7 @@ fun link_sig r gctx (ctx : context) (ctx' as (sctx', kctx', cctx', tctx') : cont
       val sctx' = foldr match_sort [] sctx'
       fun match_kind ((name, k'), kctx') =
           let
-            val (x, k) = fetch_kindext_by_name gctx [] (SOME (0, r), (name, r))
+            val (x, k) = fetch_kindext_by_name gctx [] (SOME m, (name, r))
             val () = is_sub_kindext r gctx (sctx', kctx') (k, k')
             fun kind_add_type_eq k t =
                 case k of
@@ -2709,7 +2685,7 @@ fun link_sig r gctx (ctx : context) (ctx' as (sctx', kctx', cctx', tctx') : cont
       val kctx' = foldr match_kind [] kctx'
       fun match_constr_type (name, c) =
           let
-            val (_, t) = fetch_constr_type_by_name gctx [] (SOME (0, r), (name, r))
+            val (_, t) = fetch_constr_type_by_name gctx [] (SOME m, (name, r))
             val t' = constr_type VarT shiftx_v c
           in
             unify_t r gctx (sctx', kctx') (t', t)
@@ -2717,13 +2693,12 @@ fun link_sig r gctx (ctx : context) (ctx' as (sctx', kctx', cctx', tctx') : cont
       val () = app match_constr_type cctx'
       fun match_type (name, t') =
           let
-            val (_, t) = fetch_type_by_name gctx [] (SOME (0, r), (name, r))
+            val (_, t) = fetch_type_by_name gctx [] (SOME m, (name, r))
           in
             unify_t r gctx (sctx', kctx') (t, t')
           end
       val () = app match_type tctx'
       val () = close_ctx ctx'
-      val () = close_n 1
     in
       (sctx', kctx', cctx', tctx')
     end
@@ -2735,7 +2710,11 @@ fun link_sig r gctx (ctx : context) (ctx' as (sctx', kctx', cctx', tctx') : cont
 
 fun is_sub_sig r gctx ctx ctx' =
     let
-      val _ = link_sig r gctx ctx ctx'
+      val mod_name = "__link_sig_module" 
+      val gctx = add_sigging (mod_name, ctx) gctx
+      val () = open_module (mod_name, ctx)
+      val _ = link_sig r gctx (0, r) ctx'
+      val () = close_n 1
     in
       ()
     end
@@ -2831,17 +2810,16 @@ fun check_top_bind gctx bind =
         U.TopModBind ((name, _), m) =>
         let
           val sg = get_sig gctx m
-          val () = open_module (name, sg)
         in
           [(name, Sig sg)]
         end
-      | U.TopModSpec ((name, _), sg) =>
-        let
-          val sg = is_wf_sig gctx sg
-          val () = open_module (name, sg)
-        in
-          [(name, Sig sg)]
-        end
+      (* | U.TopModSpec ((name, _), sg) => *)
+      (*   let *)
+      (*     val sg = is_wf_sig gctx sg *)
+      (*     val () = open_module (name, sg) *)
+      (*   in *)
+      (*     [(name, Sig sg)] *)
+      (*   end *)
       (* | TopBindSig ((name, _), sg) => *)
       (*   let *)
       (*     val sg = is_wf_sig gctx sg *)
@@ -2861,17 +2839,30 @@ fun check_top_bind gctx bind =
         end
       | U.TopFunctorApp ((name, _), f, m) =>
         let
+          fun lookup_functor gctx m =
+              let
+                fun iter ((name, sg), (nsig, target)) =
+                    case sg of
+                        Sig _ => Continue (nsig + 1, target)
+                      | FunctorBind a =>
+                        if target <= 0 then
+                          ShortCircuit (nsig, name, a)
+                        else
+                          Continue (nsig, target - 1)
+                fun find_first m = is_ShortCircuit $ foldlM_Error iter (0, m) gctx
+              in
+                case find_first m of
+                    SOME (n, name, (arg, body : context)) => SOME (name, (shiftx_snd shiftx_m_ctx 0 n arg, shiftx_m_ctx 1 n body))
+                  | NONE => NONE
+              end
+          fun fetch_functor gctx (m, r) =
+              case lookup_functor gctx m of
+                  SOME a => a
+                | NONE => raise Error (r, ["Unbound functor " ^ str_v [] m])
           val (_, ((_, formal_arg), body)) = fetch_functor gctx f
-          val actual_arg = get_sig gctx m
-          val formal_arg = link_sig (U.get_region_m m) gctx actual_arg formal_arg
-          val actual_arg_name = "__actual_mod_arg"
+          val formal_arg = link_sig (snd m) gctx m formal_arg
           val formal_arg_name = "__formal_mod_arg"
-          val gctxd = [(formal_arg_name, Sig formal_arg), (actual_arg_name, Sig actual_arg)]
-          val gctx = gctxd @ gctx
-          val () = open_module (actual_arg_name, actual_arg)
-          val () = open_module (formal_arg_name, formal_arg)
-          val body = shiftx_m_ctx 1 1 body
-          val () = open_module (name, body)
+          val gctxd = [(formal_arg_name, Sig formal_arg)]
         in
           (name, Sig body) :: gctxd
         end
@@ -2880,9 +2871,10 @@ and check_top_binds gctx binds =
     let
       fun iter (bind, (acc, gctx)) =
           let
-            val sgs = check_top_bind gctx bind
+            val gctxd = check_top_bind gctx bind
+            val () = app open_module $ rev $ filter_module gctxd
           in
-            (sgs @ acc, sgs @ gctx)
+            (gctxd @ acc, gctxd @ gctx)
           end
     in
       foldl iter ([], gctx) binds

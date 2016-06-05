@@ -109,6 +109,7 @@ fun mapPartialWithIdx f xs =
       
 fun foldlWithIdx f init xs = fst $ foldl (fn (x, (acc, n)) => (f (x, acc, n), n + 1)) (init, 0) xs
 fun foldrWithIdx start f init xs = fst $ foldl (fn (x, (acc, n)) => (f (x, acc, n), n + 1)) (init, start) xs
+fun mapWithIdx f ls = rev $ foldlWithIdx (fn (x, acc, n) => f (n, x) :: acc) [] ls
                                  
 (* fun find_idx (x : string) ctx = find_by_snd_eq op= x (add_idx ctx) *)
 fun is_eq_snd (x : string) (i, y) = if y = x then SOME i else NONE
@@ -119,6 +120,12 @@ fun find_idx_value x ctx = findOptionWithIdx (is_eq_fst_snd x) ctx
 datatype ('a, 'b) result =
 	 OK of 'a
 	 | Failed of 'b
+val Continue = OK
+val ShortCircuit = Failed
+fun is_ShortCircuit a =
+    case a of
+        OK _ => NONE
+      | Failed a => SOME a
 
 val zip = ListPair.zip
 val unzip = ListPair.unzip

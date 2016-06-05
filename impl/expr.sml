@@ -190,9 +190,9 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         datatype top_bind =
                  TopModBind of name * mod
                  (* | TopSigBind of name * sgn *)
-                 | TopModSpec of name * sgn
+                 (* | TopModSpec of name * sgn *)
                  | TopFunctorBind of name * (name * sgn) (* list *) * mod
-                 | TopFunctorApp of name * id * mod (* list *)
+                 | TopFunctorApp of name * id * id (* list *)
 
         type prog = top_bind list
 
