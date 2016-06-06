@@ -391,6 +391,8 @@ val get_outmost_module = id
 
 fun filter_module gctx = List.mapPartial (fn (name, sg) => case sg of Sig sg => SOME (name, sg) | _ => NONE) gctx
                                          
+fun gctx_names (gctx : sigcontext) = names $ filter_module gctx
+                                         
 fun lookup_module gctx m =
     Option.map snd $ nth_error (filter_module gctx) m
 
@@ -780,7 +782,7 @@ fun unify_sorts r gctx ctx (sorts, sorts') =
 
 fun unify_mt r gctx ctx (t, t') =
     let
-      val gctxn = names gctx
+      val gctxn = gctx_names gctx
       fun error ctxn (t, t') = unify_error r (str_mt gctxn ctxn t, str_mt gctxn ctxn t')
       fun loop (ctx as (sctx, kctx)) (t, t') =
           let 
@@ -837,7 +839,7 @@ fun unify_t r gctx ctx (t, t') =
       | (Uni (Bind ((name, _), t), _), Uni (Bind (_, t'), _)) => unify_t r gctx (add_kinding_sk (name, Type) ctx) (t, t')
       | _ =>
         let
-          val gctxn = names gctx
+          val gctxn = gctx_names gctx
           val ctxn = (sctx_names $ #1 ctx, names $ #2 ctx)
         in
           raise unify_error r (str_t gctxn ctxn t, str_t gctxn ctxn t')
@@ -859,7 +861,7 @@ fun unify_kind r gctxn sctxn (k, k') =
                                 
 fun is_sub_kindext r gctx ctx (k, k') =
     let
-      val gctxn = names gctx
+      val gctxn = gctx_names gctx
       val sctxn = sctx_names $ #1 ctx
       val kctxn = names $ #2 ctx
     in
@@ -1009,7 +1011,7 @@ and get_bsort (gctx : sigcontext) (ctx : scontext, i : U.idx) : idx * bsort =
               let
                 val s = fetch_sort gctx (ctx, x)
               in
-                (VarI x, get_base (U.get_region_i i) (names gctx) (sctx_names ctx) s)
+                (VarI x, get_base (U.get_region_i i) (gctx_names gctx) (sctx_names ctx) s)
               end
             | U.UnOpI (opr, i, r) =>
               let
@@ -1071,8 +1073,8 @@ and get_bsort (gctx : sigcontext) (ctx : scontext, i : U.idx) : idx * bsort =
                               (BinOpI (opr, i1, i2), Base (TimeFun (arity - 1)))
                             end
                           else
-                            raise Error (get_region_i i1, "Arity of time function must be larger than 0" :: indent ["got arity: " ^ str_int arity, "in: " ^ str_i (names gctx) (sctx_names ctx) i1])
-                        | (i1, bs1) => raise Error (get_region_i i1, "Sort of first operand of time function application must be time function" :: indent ["want: time function", "got: " ^ str_bs bs1, "in: " ^ str_i (names gctx) (sctx_names ctx) i1])
+                            raise Error (get_region_i i1, "Arity of time function must be larger than 0" :: indent ["got arity: " ^ str_int arity, "in: " ^ str_i (gctx_names gctx) (sctx_names ctx) i1])
+                        | (i1, bs1) => raise Error (get_region_i i1, "Sort of first operand of time function application must be time function" :: indent ["want: time function", "got: " ^ str_bs bs1, "in: " ^ str_i (gctx_names gctx) (sctx_names ctx) i1])
                     end
                   | AddI => overloaded [Nat, Time] NONE
                   | BoundedMinusI => overloaded [Nat, Time] NONE
@@ -1130,7 +1132,7 @@ and get_bsort (gctx : sigcontext) (ctx : scontext, i : U.idx) : idx * bsort =
               end
       val ret = main ()
                 handle
-                Error (r, msg) => raise Error (r, msg @ ["when sort-checking index "] @ indent [U.str_i (names gctx) (sctx_names ctx) i])
+                Error (r, msg) => raise Error (r, msg @ ["when sort-checking index "] @ indent [U.str_i (gctx_names gctx) (sctx_names ctx) i])
     in
       ret
     end
@@ -1170,7 +1172,7 @@ fun check_sort gctx (ctx, i : U.idx, s : sort) : idx =
                  val p = subst_i_p i p
                          handle
                          SubstUVar info =>
-                         raise subst_uvar_error (get_region_p p) ("proposition " ^ str_p (names gctx) (name :: sctx_names ctx) p) i info
+                         raise subst_uvar_error (get_region_p p) ("proposition " ^ str_p (gctx_names gctx) (name :: sctx_names ctx) p) i info
                  (* val () = println $ sprintf "Writing prop $ $" [str_p (sctx_names ctx) p, str_region "" "" r] *)
 		 val () =
                      if is_admit then
@@ -1192,7 +1194,7 @@ fun check_sort gctx (ctx, i : U.idx, s : sort) : idx =
           handle Error (_, msg) =>
                  let
                    val ctxn = sctx_names ctx
-                   val gctxn = names gctx
+                   val gctxn = gctx_names gctx
                  in
                    raise Error (r,
                                 sprintf "index $ (of base sort $) is not of sort $" [str_i gctxn ctxn i, str_bs bs', str_s gctxn ctxn s] ::
@@ -1215,7 +1217,7 @@ fun get_kind gctx (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype) : mty
       val get_kind = get_kind gctx
       val check_kind = check_kind gctx
       val check_kind_Type = check_kind_Type gctx
-      val gctxn = names gctx
+      val gctxn = gctx_names gctx
       val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
       (* val () = print (sprintf "Type wellformedness checking: $\n" [str_t ctxn c]) *)
       fun main () =
@@ -1268,7 +1270,7 @@ fun get_kind gctx (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype) : mty
 and check_kind gctx (ctx, t, k) =
     let
       val (t, k') = get_kind gctx (ctx, t)
-      val () = unify_kind (get_region_mt t) (names gctx) (sctx_names $ #1 ctx) (k', k)
+      val () = unify_kind (get_region_mt t) (gctx_names gctx) (sctx_names $ #1 ctx) (k', k)
     in
       t
     end
@@ -1400,7 +1402,7 @@ local
 	         in
                    combine_covers covers
 	         end
-	       | _ => raise impossible $ sprintf "cover_neg()/ConstrC:  cover is $ but type is " [str_cover (names cctx) c_all, str_mt (names gctx) (sctx_names sctx, names kctx) t])
+	       | _ => raise impossible $ sprintf "cover_neg()/ConstrC:  cover is $ but type is " [str_cover (names cctx) c_all, str_mt (gctx_names gctx) (sctx_names sctx, names kctx) t])
       end
 
   (* fun cover_imply cctx t (a, b) : cover = *)
@@ -1695,7 +1697,7 @@ fun forget_ctx_mt r gctx (sctx, kctx, _, _) (sctxd, kctxd, _, _) t =
     let val (sctxn, kctxn) = (sctx_names sctx, names kctx)
         val sctxl = sctx_length sctxd
     in
-      forget_mt r (names gctx) (sctxn, kctxn) (sctxl, length kctxd) t
+      forget_mt r (gctx_names gctx) (sctxn, kctxn) (sctxl, length kctxd) t
     end
       
 fun forget_t r gctxn (skctxn as (sctxn, kctxn)) (sctxl, kctxl) t = 
@@ -1711,7 +1713,7 @@ fun forget_ctx_t r gctx (sctx, kctx, _, _) (sctxd, kctxd, _, _) t =
     let val (sctxn, kctxn) = (sctx_names sctx, names kctx)
         val sctxl = sctx_length sctxd
     in
-      forget_t r (names gctx) (sctxn, kctxn) (sctxl, length kctxd) t
+      forget_t r (gctx_names gctx) (sctxn, kctxn) (sctxl, length kctxd) t
     end
       
 fun forget_d r gctxn sctxn sctxl d =
@@ -1722,7 +1724,7 @@ fun forget_ctx_d r gctx (sctx, _, _, _) (sctxd, _, _, _) d =
     let val sctxn = sctx_names sctx
         val sctxl = sctx_length sctxd
     in
-      forget_d r (names gctx) sctxn sctxl d
+      forget_d r (gctx_names gctx) sctxn sctxl d
     end
 
 fun mismatch gctx (ctx as (sctx, kctx, _, _)) e expect got =  
@@ -1755,7 +1757,7 @@ fun is_wf_return gctx (skctx as (sctx, _), return) =
 fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext), (* pcovers, *) pn : U.ptrn, t : mtype) : ptrn * cover * context * int =
     let
       val match_ptrn = match_ptrn gctx
-      val gctxn = names gctx
+      val gctxn = gctx_names gctx
       val skctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
     in
       case pn of
@@ -1998,7 +2000,7 @@ fun expand_rules gctx (ctx as (sctx, kctx, cctx), rules, t, r) =
 
 fun forget_or_check_return r gctx ctx ctxd (t', d') (t, d) =
     let
-      val gctxn = names gctx
+      val gctxn = gctx_names gctx
       val (sctx, kctx, _, _) = ctx
       val (sctxn, kctxn, _, _) = ctx_names ctx
       val t =
@@ -2033,6 +2035,15 @@ fun forget_or_check_return r gctx ctx ctxd (t', d') (t, d) =
       (t, d)
     end
 
+fun add_prop r s p =
+    case update_s s of
+        Basic (bs as (_, r)) => Subset (bs, Bind (("__added_prop", r), p), r)
+      | Subset (bs, Bind (name, p'), r) => Subset (bs, Bind (name, p' /\ p), r)
+      | UVarS _ => raise Error (r, ["unsolved unification variable in module"])
+                         
+fun sort_add_idx_eq r s' i =
+    add_prop r s' (VarI (NONE, (0, r)) %= shift_i_i i)
+             
 fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, tctx : tcontext), e_all : U.expr) : expr * mtype * idx =
     let
       val get_mtype = get_mtype gctx
@@ -2044,11 +2055,11 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
       val check_rule = check_rule gctx
       val check_rules = check_rules gctx
       val skctx = (sctx, kctx)
-      val gctxn = names gctx
+      val gctxn = gctx_names gctx
       val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
       val skctxn = (sctxn, kctxn)
       (* val () = print (sprintf "Typing $\n" [U.str_e ((* upd4 (const [])  *)ctxn) e_all]) *)
-      fun print_ctx gctx (ctx as (sctx, kctx, _, tctx)) = app (fn (nm, t) => println $ sprintf "$: $" [nm, str_t (names gctx) (sctx_names sctx, names kctx) t]) tctx
+      fun print_ctx gctx (ctx as (sctx, kctx, _, tctx)) = app (fn (nm, t) => println $ sprintf "$: $" [nm, str_t (gctx_names gctx) (sctx_names sctx, names kctx) t]) tctx
       fun main () =
 	  case e_all of
 	      U.Var (info as (x, eia)) =>
@@ -2275,10 +2286,12 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
       val (e, t, d) = main ()
                       handle
                       Error (r, msg) => raise Error (r, msg @ ["when type-checking"] @ indent [U.str_e gctxn ctxn e_all])
-                                              (* val () = println $ str_ls id $ #4 ctxn *)
-	                                      (* val () = print (sprintf "  Typed : $: \n          $\n" [str_e ((* upd4 (const [])  *)ctxn) e, str_mt skctxn t]) *)
-	                                      (* val () = print (sprintf "   Time : $: \n" [str_i sctxn d]) *)
-	                                      (* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_mt skctxn t, str_e ctxn e, str_i sctxn d]) *)
+      val t = simp_mt $ update_uvar_mt t
+      val d = simp_i $ update_i d
+      (* val () = println $ str_ls id $ #4 ctxn *)
+      (* val () = print (sprintf "  Typed : $: \n          $\n" [str_e ((* upd4 (const [])  *)ctxn) e, str_mt skctxn t]) *)
+      (* val () = print (sprintf "   Time : $: \n" [str_i sctxn d]) *)
+      (* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_mt skctxn t, str_e ctxn e, str_i sctxn d]) *)
     in
       (e, t, d)
     end
@@ -2298,6 +2311,8 @@ and check_decls gctx (ctx, decls) : decl list * context * int * idx list * conte
           end
       val (decls, ctxd, nps, ds, ctx) = foldl f ([], empty_ctx, 0, [], ctx) decls
       val decls = rev decls
+      val ctxd = (upd4 o map o mapSnd) (simp_t o update_uvar_t) ctxd
+      val ds = map simp_i $ map update_i $ rev ds
     in
       (decls, ctxd, nps, ds, ctx)
     end
@@ -2438,12 +2453,13 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
               let
                 val s = is_wf_sort gctx (sctx, s)
                 val i = check_sort gctx (sctx, i, s)
+                val s = sort_add_idx_eq r s i
                 val ctxd = ctx_from_sorting (name, s)
                 val () = open_ctx ctxd
-                val ps = [BinPred (EqP, VarI (NONE, (0, r)), shift_ctx_i ctxd i)]
-                val () = open_premises ps
+                (* val ps = [BinPred (EqP, VarI (NONE, (0, r)), shift_ctx_i ctxd i)] *)
+                (* val () = open_premises ps *)
               in
-                (IdxDef ((name, r), s, i), ctxd, length ps, [])
+                (IdxDef ((name, r), s, i), ctxd, 0, [])
               end
             | U.TypeDef ((name, r), t) =>
               let
@@ -2510,7 +2526,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
       val ret as (decl, ctxd, nps, ds) =
           main ()
           handle
-          Error (r, msg) => raise Error (r, msg @ ["when type-checking declaration "] @ indent [fst $ U.str_decl (names gctx) (ctx_names ctx) decl])
+          Error (r, msg) => raise Error (r, msg @ ["when type-checking declaration "] @ indent [fst $ U.str_decl (gctx_names gctx) (ctx_names ctx) decl])
 	                          (* val () = println $ sprintf "  Typed : $ " [fst $ str_decl (ctx_names ctx) decl] *)
 	                          (* val () = print $ sprintf "   Time : $: \n" [str_i sctxn d] *)
     in
@@ -2627,7 +2643,7 @@ and check_mtype gctx (ctx as (sctx, kctx, cctx, tctx), e, t) =
 and check_time gctx (ctx as (sctx, kctx, cctx, tctx), e, d) : expr * mtype =
     let 
       val (e, t, d') = get_mtype gctx (ctx, e)
-      val () = smart_write_le (names gctx) (names sctx) (d', d, get_region_e e)
+      val () = smart_write_le (gctx_names gctx) (names sctx) (d', d, get_region_e e)
     in
       (e, t)
     end
@@ -2639,26 +2655,19 @@ and check_mtype_time gctx (ctx as (sctx, kctx, cctx, tctx), e, t, d) =
       val (e, _, d') = check_mtype gctx (ctx, e, t)
       (* val () = println "check type & time" *)
       (* val () = println $ str_region "" "ilist.timl" $ get_region_e e *)
-      val () = smart_write_le (names gctx) (names sctx) (d', d, get_region_e e)
+      val () = smart_write_le (gctx_names gctx) (names sctx) (d', d, get_region_e e)
     in
       e
     end
 
 fun link_sig r gctx m (ctx' as (sctx', kctx', cctx', tctx') : context) =
     let
-      val gctxn = names gctx
+      val gctxn = gctx_names gctx
       fun match_sort ((name, s'), sctx') =
           let
             val (x, s) = fetch_sort_by_name gctx [] (SOME m, (name, r))
             val () = unify_s r gctxn (sctx_names sctx') (s, s')
-            fun add_prop s p =
-                case update_s s of
-                    Basic (bs as (_, r)) => Subset (bs, Bind (("__added_prop", r), p), r)
-                  | Subset (bs, Bind (name, p'), r) => Subset (bs, Bind (name, p' /\ p), r)
-                  | UVarS _ => raise Error (r, ["unsolved unification variable in module"])
-            fun sort_add_idx_eq s' i =
-                add_prop s' (VarI (NONE, (0, r)) %= shift_i_i i)
-            val s' = sort_add_idx_eq s' (VarI x)
+            val s' = sort_add_idx_eq r s' (VarI x)
             val sctx' = add_sorting (name, s') sctx'
             val () = open_sorting (name, s')
           in
@@ -2867,7 +2876,7 @@ fun check_top_bind gctx bind =
           (name, Sig body) :: gctxd
         end
           
-and check_top_binds gctx binds =
+and check_prog gctx binds =
     let
       fun iter (bind, (acc, gctx)) =
           let

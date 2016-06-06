@@ -587,7 +587,7 @@ fun on_top_bind gctx bind =
           (TopFunctorApp ((name, r), (f, f_r), m), (name, Sig body) :: gctxd)
         end
           
-and on_top_binds gctx binds =
+and on_prog gctx binds =
     let
       fun iter (bind, (binds, acc, gctx)) =
           let
@@ -604,6 +604,7 @@ and on_top_binds gctx binds =
 val resolve_type = on_type
 val resolve_expr = on_expr
 fun resolve_decls gctx ctx decls = fst (on_decls gctx ctx decls)
+val resolve_prog = on_prog
 
 val resolve_constr = on_constr
 val resolve_kind = on_kind

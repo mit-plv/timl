@@ -613,6 +613,7 @@ fun vces_to_vcs vces =
       val vcs = concatMap simp_vc_vcs vcs
       (* val () = app println $ concatMap (str_vc false "") vcs *)
       val vcs = map VC.simp_vc vcs
+      val vcs = TrivialSolver.simp_and_solve_vcs vcs
     in
       (vcs, admits)
     end
@@ -629,50 +630,43 @@ fun runWriter m _ =
 
 type typing_info = decl list * context * idx list * context
 
-fun str_typing_info ctx_old gctxn ((decls, ctxd, ds, ctx) : typing_info) =
+fun str_typing_info gctxn (sctxn, kctxn) (ctxd : context, ds) =
     let
-      val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx_old
       fun on_ns ((name, s), (acc, sctxn)) =
           ([sprintf "$ : $" [name, str_s gctxn sctxn s], ""] :: acc, name :: sctxn)
-      val idx_lines =
-          List.concat $ rev $ fst $ foldr on_ns ([], sctxn) $ #1 $ ctxd
-      val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
+      val (idx_lines, sctxn) = foldr on_ns ([], sctxn) $ #1 $ ctxd
+      val idx_lines = List.concat $ rev idx_lines
       fun on_nk ((name, k), (acc, kctxn)) =
           ([sprintf "$ :: $" [name, str_ke gctxn (sctxn, kctxn) k], ""] :: acc, name :: kctxn)
-      val type_lines =
-          List.concat $ rev $ fst $ foldr on_nk ([], kctxn) $ #2 $ ctxd
+      val (type_lines, kctxn) = foldr on_nk ([], kctxn) $ #2 $ ctxd
+      val type_lines = List.concat $ rev type_lines
       val expr_lines =
           (concatMap (fn (name, t) => [sprintf "$ : $" [name, str_t gctxn (sctxn, kctxn) t], ""]) o rev o #4) ctxd
       val time_lines =
           "Times:" :: "" ::
           (concatMap (fn d => [sprintf "|> $" [str_i gctxn sctxn d], ""])) ds
-      val s = join_lines
-                (
-                  idx_lines
-                  @ type_lines
-                  @ expr_lines
-                (* @ time_lines  *)
-                )
+      val lines = 
+          idx_lines
+          @ type_lines
+          @ expr_lines
+      (* @ time_lines  *)
     in
-      s
+      lines
     end
       
-fun vcgen_expr gctx ctx e =
+fun typecheck_expr gctx ctx e =
     runWriter (fn () => get_mtype gctx (ctx, e)) ()
 	      
-fun vcgen_expr_opt ctx e =
-    runError (fn () => vcgen_expr ctx e) ()
-	     
-fun vcgen_decls gctx ctx decls =
+fun typecheck_decls gctx ctx decls =
     let
       fun m () =
           let
-            val ctx_old = ctx
+            val skctxn_old = (sctx_names $ #1 ctx, names $ #2 ctx)
             val (decls, ctxd, nps, ds, ctx) = check_decls gctx (ctx, decls)
             val () = close_n nps
             val () = close_ctx ctxd
             val ret = (decls, ctxd, ds, ctx)
-            val () = print $ str_typing_info ctx_old (names gctx) ret
+            val () = app println $ str_typing_info (gctx_names gctx) skctxn_old (ctxd, ds)
           in
             ret
           end
@@ -680,44 +674,17 @@ fun vcgen_decls gctx ctx decls =
       runWriter m ()
     end
       
-fun vcgen_expr_opt ctx decls =
-    runError (fn () => vcgen_decls ctx decls) ()
+fun typecheck_prog gctx prog =
+    runWriter (fn () => check_prog gctx prog) ()
+      
+(* fun typecheck_expr_opt ctx e = *)
+(*     runError (fn () => typecheck_expr ctx e) () *)
 	     
-structure S = TrivialSolver
-
-(* exception Unimpl *)
-
-fun typecheck_expr gctx (ctx as (sctx, kctx, cctx, tctx) : context) e =
-    let 
-      val ((e, t, d), (vcs, admits)) = vcgen_expr gctx ctx e
-      val t = update_uvar_mt t
-      val t = simp_mt t
-      val d = update_i d
-      val d = simp_i d
-      val vcs = S.simp_and_solve_vcs vcs
-    in
-      ((e, t, d), (vcs, admits))
-    end
-
-fun typecheck_expr_opt ctx e =
-    runError (fn () => typecheck_expr ctx e) ()
-
+(* fun typecheck_decls_opt ctx decls = *)
+(*     runError (fn () => typecheck_decls ctx decls) () *)
+	     
 type tc_result = typing_info * (VC.vc list * prop list)
-
-fun typecheck_decls gctx (ctx as (sctx, kctx, cctx, tctx) : context) decls =
-    let 
-      val ((decls, ctxd, ds, ctx), (vcs, admits)) = vcgen_decls gctx ctx decls
-      val ctxd = (upd4 o map o mapSnd) (simp_t o update_uvar_t) ctxd
-      val ds = rev ds
-      val ds = map update_i ds
-      val ds = map simp_i ds
-      val vcs = S.simp_and_solve_vcs vcs
-    in
-      ((decls, ctxd, ds, ctx), (vcs, admits))
-    end
-
-fun typecheck_decls_opt ctx e =
-    runError (fn () => typecheck_decls ctx e) ()
+(* exception Unimpl *)
 
 end
 	                    
