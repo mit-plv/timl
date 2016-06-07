@@ -290,7 +290,7 @@ fun unpackage_f2 f =
                     in
                       ForallF2 (mod_name ^ "_" ^ name, FtSorting bs, f)
                     end
-                val f = foldl iter f $ #1 m
+                val f = foldl iter f m
               in
                 f
               end
@@ -572,8 +572,8 @@ fun no_uvar_p p =
 fun vces_to_vcs vces =
     let
       open VC
-      (* val () = println "VCEs: " *)
-      (* val () = println $ join " " $ map str_vce vces *)
+      val () = println "VCEs: "
+      val () = println $ join " " $ map str_vce vces
       val (fs, vces) = get_formulas vces
       val () = case vces of
                    [] => ()
@@ -633,18 +633,18 @@ type typing_info = decl list * context * idx list * context
 fun str_typing_info gctxn (sctxn, kctxn) (ctxd : context, ds) =
     let
       fun on_ns ((name, s), (acc, sctxn)) =
-          ([sprintf "$ : $" [name, str_s gctxn sctxn s], ""] :: acc, name :: sctxn)
+          ([sprintf "$ : $" [name, str_s gctxn sctxn s](* , "" *)] :: acc, name :: sctxn)
       val (idx_lines, sctxn) = foldr on_ns ([], sctxn) $ #1 $ ctxd
       val idx_lines = List.concat $ rev idx_lines
       fun on_nk ((name, k), (acc, kctxn)) =
-          ([sprintf "$ :: $" [name, str_ke gctxn (sctxn, kctxn) k], ""] :: acc, name :: kctxn)
+          ([sprintf "$ :: $" [name, str_ke gctxn (sctxn, kctxn) k](* , "" *)] :: acc, name :: kctxn)
       val (type_lines, kctxn) = foldr on_nk ([], kctxn) $ #2 $ ctxd
       val type_lines = List.concat $ rev type_lines
       val expr_lines =
-          (concatMap (fn (name, t) => [sprintf "$ : $" [name, str_t gctxn (sctxn, kctxn) t], ""]) o rev o #4) ctxd
+          (concatMap (fn (name, t) => [sprintf "$ : $" [name, str_t gctxn (sctxn, kctxn) t](* , "" *)]) o rev o #4) ctxd
       val time_lines =
           "Times:" :: "" ::
-          (concatMap (fn d => [sprintf "|> $" [str_i gctxn sctxn d], ""])) ds
+          (concatMap (fn d => [sprintf "|> $" [str_i gctxn sctxn d](* , "" *)])) ds
       val lines = 
           idx_lines
           @ type_lines
@@ -677,6 +677,11 @@ fun typecheck_decls gctx ctx decls =
 fun typecheck_prog gctx prog =
     runWriter (fn () => check_prog gctx prog) ()
       
+(* fun runError m _ = *)
+(*     OK (m ()) *)
+(*     handle *)
+(*     Error e => Failed e *)
+
 (* fun typecheck_expr_opt ctx e = *)
 (*     runError (fn () => typecheck_expr ctx e) () *)
 	     

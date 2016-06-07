@@ -1,3 +1,5 @@
+structure List = struct
+
 datatype {Nat} 'a list =
          Nil of {0} 'a list
        | Cons {n' : Nat} of 'a * {n'} 'a list --> {n' + 1} 'a list
@@ -26,3 +28,4 @@ fun foldl ['a 'b] {m : Nat} (f : 'a * 'b -- $m --> 'b) =
     end
 end
 
+end

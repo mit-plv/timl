@@ -342,11 +342,6 @@ fun update_s s =
 
 exception Error of region * string list
 
-fun runError m _ =
-    OK (m ())
-    handle
-    Error e => Failed e
-
 (* fetching from context *)
                       
 fun lookup_sort (n : int) (ctx : scontext) : sort option =
@@ -585,7 +580,7 @@ type anchor = (bsort, idx) uvar_ref_i
 
 datatype 'sort forall_type =
          FtSorting of 'sort
-         | FtModule of context
+         | FtModule of scontext
                          
 datatype vc_entry =
          VcForall of string * sort forall_type
@@ -606,7 +601,7 @@ fun write x = push_ref acc x
 
 fun open_paren () = write OpenParen
 fun open_sorting ns = write $ VcSorting ns
-fun open_module ctx = write $ VcModule ctx
+fun open_module (name, ctx : context) = write $ VcModule (name, #1 ctx)
                             
 fun close_paren () = write CloseParen
 fun close_n n = repeat_app close_paren n
@@ -618,7 +613,7 @@ fun open_ctx (ctx as (sctx, kctx, _, _)) =
     in
       ()
     end
-fun close_ctx (ctx as (sctx, kctx, _, _)) = close_n $ length sctx + length kctx
+fun close_ctx (ctx as (sctx, _, _, _)) = close_n $ length sctx
 
 fun write_anchor anchor = write (AnchorVC anchor)
 
@@ -653,6 +648,24 @@ fun check_eq r eq (a, b) =
     else
       raise Error (r, ["Check equality fails"])
 
+fun open_and add ns ctx =
+    let
+      val () = open_sorting ns
+    in
+      add ns ctx
+    end
+
+fun open_close add ns ctx f =
+    let
+      val ctx = open_and add ns ctx
+      val ret = f ctx
+      val () = close_n 1
+    in
+      ret
+    end
+
+(* unification *)
+            
 fun unify_error r (s, s') =             
     Error (r, ["Can't unify"] @ indent [s] @ ["and"] @ indent [s'])
 
@@ -816,9 +829,8 @@ fun unify_mt r gctx ctx (t, t') =
                  loop ctx (t2, t2'))
               | (UniI (s, Bind ((name, _), t1), _), UniI (s', Bind (_, t1'), _)) =>
                 (unify_s r gctxn sctxn (s, s');
-                 open_sorting (name, s);
-                 loop (add_sorting_sk (name, s) ctx) (t1, t1');
-                 close_paren ())
+                 open_close add_sorting_sk (name, s) ctx (fn ctx => loop ctx (t1, t1'))
+                )
               | (Unit _, Unit _) => ()
 	      | (BaseType (Int, _), BaseType (Int, _)) => ()
 	      | (AppV ((a, _), ts, is, _), AppV ((a', _), ts', is', _)) => 
@@ -931,11 +943,9 @@ fun is_wf_sort gctx (ctx : scontext, s : U.sort) : sort =
         | U.Subset ((bs, r), Bind ((name, r2), p), r_all) =>
           let 
             val bs = is_wf_bsort bs
+            val p = open_close add_sorting (name, Basic (bs, r)) ctx (fn ctx => is_wf_prop (ctx, p))
           in
-            (* ToDo: need to [open_sorting] *)
-            Subset ((bs, r),
-                    Bind ((name, r2), 
-                          is_wf_prop (add_sorting (name, Basic (bs, r)) ctx, p)), r_all)
+            Subset ((bs, r), Bind ((name, r2), p), r_all)
           end
         | U.UVarS ((), r) => fresh_sort (sctx_names ctx) r
     end
@@ -993,7 +1003,7 @@ and is_wf_prop gctx (ctx : scontext, p : U.prop) : prop =
                         Forall => Forall
                       | Exists _ => Exists NONE
             val bs = is_wf_bsort bs
-            val p = is_wf_prop (add_sorting (name, Basic (bs, r)) ctx, p)
+            val p = open_close add_sorting (name, Basic (bs, r)) ctx (fn ctx => is_wf_prop (ctx, p))
           in
             Quan (q, bs, Bind ((name, r), p), r_all)
           end
@@ -1117,11 +1127,14 @@ and get_bsort (gctx : sigcontext) (ctx : scontext, i : U.idx) : idx * bsort =
 	    | U.TTI r => 
               (TTI r, Base UnitSort)
             | U.TimeAbs ((name, r1), i, r) =>
-              (case get_bsort (add_sorting (name, Basic (Base Nat, r1)) ctx, i) of
-                   (i, Base (TimeFun arity)) =>
-                   (TimeAbs ((name, r1), i, r), Base (TimeFun (arity + 1)))
-                 | (_, bs) => raise Error (U.get_region_i i, "Sort of time funtion body should be time function" :: indent ["want: time function", "got: " ^ str_bs bs])
-              )
+              let
+                val (i, bs) = open_close add_sorting (name, Basic (Base Nat, r1)) ctx (fn ctx => get_bsort (ctx, i))
+              in
+                case bs of
+                    Base (TimeFun arity) =>
+                    (TimeAbs ((name, r1), i, r), Base (TimeFun (arity + 1)))
+                  | _ => raise Error (get_region_i i, "Sort of time funtion body should be time function" :: indent ["want: time function", "got: " ^ str_bs bs])
+              end
 	    | U.AdmitI r => 
               (AdmitI r, Base UnitSort)
             | U.UVarI ((), r) =>
@@ -1235,11 +1248,9 @@ fun get_kind gctx (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype) : mty
 	    | U.UniI (s, Bind ((name, r), c), r_all) => 
               let
                 val s = is_wf_sort gctx (sctx, s)
+                val c = open_close add_sorting_sk (name, s) ctx (fn ctx => check_kind_Type (ctx, c))
               in
-                (* ToDo: need to [open_sorting] *)
-	        (UniI (s,
-	               Bind ((name, r), 
-                             check_kind_Type (add_sorting_sk (name, s) ctx, c)), r_all),
+	        (UniI (s, Bind ((name, r), c), r_all),
                  Type)
               end
 	    | U.AppV (x, ts, is, r) => 
@@ -2668,8 +2679,7 @@ fun link_sig r gctx m (ctx' as (sctx', kctx', cctx', tctx') : context) =
             val (x, s) = fetch_sort_by_name gctx [] (SOME m, (name, r))
             val () = unify_s r gctxn (sctx_names sctx') (s, s')
             val s' = sort_add_idx_eq r s' (VarI x)
-            val sctx' = add_sorting (name, s') sctx'
-            val () = open_sorting (name, s')
+            val sctx' = open_and add_sorting (name, s') sctx'
           in
             sctx'
           end
@@ -2744,7 +2754,7 @@ fun is_wf_sig gctx sg =
                   let
                     val s = is_wf_sort gctx (sctx, s)
                   in
-                    (SpecIdx ((name, r), s), add_sorting_skct (name, s) ctx)
+                    (SpecIdx ((name, r), s), open_and add_sorting_skct (name, s) ctx)
                   end
                 | U.SpecType ((name, r), k) =>
                   let
@@ -2822,19 +2832,6 @@ fun check_top_bind gctx bind =
         in
           [(name, Sig sg)]
         end
-      (* | U.TopModSpec ((name, _), sg) => *)
-      (*   let *)
-      (*     val sg = is_wf_sig gctx sg *)
-      (*     val () = open_module (name, sg) *)
-      (*   in *)
-      (*     [(name, Sig sg)] *)
-      (*   end *)
-      (* | TopBindSig ((name, _), sg) => *)
-      (*   let *)
-      (*     val sg = is_wf_sig gctx sg *)
-      (*   in *)
-      (*     (name, SigBind sg) *)
-      (*   end *)
       | U.TopFunctorBind ((name, _), ((arg_name, _), arg), m) =>
         (* functor applications will be implemented fiberedly instead of parametrizedly *)
         let
@@ -2878,15 +2875,22 @@ fun check_top_bind gctx bind =
           
 and check_prog gctx binds =
     let
+      fun open_gctx gctx =
+          app open_module $ rev $ filter_module gctx
+      fun close_gctx gctx =
+          close_n $ length $ filter_module gctx
+      val () = open_gctx gctx
       fun iter (bind, (acc, gctx)) =
           let
             val gctxd = check_top_bind gctx bind
-            val () = app open_module $ rev $ filter_module gctxd
+            val () = open_gctx gctxd
           in
             (gctxd @ acc, gctxd @ gctx)
           end
+      val ret as (gctxd, gctx) = foldl iter ([], gctx) binds
+      val () = close_gctx gctx
     in
-      foldl iter ([], gctx) binds
+      ret
     end
 
 end

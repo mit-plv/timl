@@ -21,19 +21,19 @@ fun print_result show_region filename old_gctxn gctx =
           let
             fun str_sig gctxn ctx =
                 ["sig"] @
-                str_typing_info gctxn ([], []) (ctx, []) @
+                indent (str_typing_info gctxn ([], []) (ctx, [])) @
                 ["end"]
             val (ls, gctxnd) =
                 case sg of
                     Sig ctx =>
                     ([sprintf "structure $ : " [name] ] @
-                     str_sig gctxn ctx,
+                     indent (str_sig gctxn ctx),
                      [name])
                   | FunctorBind ((arg_name, arg), body) =>
                     ([sprintf "functor $ (structure $ : " [name, arg_name] ] @
-                     str_sig gctxn arg @
+                     indent (str_sig gctxn arg) @
                      [") : "] @
-                     str_sig (arg_name :: gctxn) body,
+                     indent (str_sig (arg_name :: gctxn) body),
                      [])
           in
             (ls :: acc, gctxnd @ gctxn)
