@@ -66,8 +66,14 @@ open Ast
     | ABSIDX
     | WITH
     | DOT
+    | STRUCTURE
+    | STRUCT
+    | FUNCTOR
+    | SIG
+    | OPEN
+    | COLON_GT
 
-%nonterm start of decl list
+%nonterm start of prog
        | exp of exp
        | aexp of exp
        | ty of ty
@@ -118,13 +124,20 @@ open Ast
        | optional_eq_idx of idx option
        | decorated_id of long_id * bool
        | long_id of long_id
+       | prog of prog
+       | top_bind of top_bind
+       | module of mod
+       | sgn of sgn
+       | spec of spec
+       | specs of spec list
+       | datatype_def of datatype_def
 
-%keyword FN CASE UNPACK OF LET IN END RETURN VAL DATATYPE AS
+%keyword FN CASE UNPACK OF LET IN END RETURN VAL DATATYPE AS TYPE STRUCTURE STRUCT FUNCTOR SIG OPEN
 
 %pos pos
 
 		(* %nonassoc LET *)
-%left RTRI COLON
+%left RTRI COLON COLON_GT
 %nonassoc LSQ LCUR
 %left COMMA
 %nonassoc IFF
@@ -149,8 +162,41 @@ open Ast
 
 %%
 
-start : decl_star (decl_star)
+start : prog (prog)
 
+prog : top_bind prog (top_bind :: prog)
+     | ([])
+
+top_bind : STRUCTURE id EQ module (TopModBind (id, module))
+         | FUNCTOR id LPAREN STRUCTURE id COLON sgn RPAREN EQ module (TopFunctorBind (id1, (id2, sgn), module))
+         | STRUCTURE id EQ id LPAREN id RPAREN (TopFunctorApp (id1, id2, id3))
+
+module : STRUCT decl_star END (ModComponents (decl_star, (decl_starleft, decl_starright)))
+    | module COLON_GT sgn (ModSeal (module, sgn))
+                     | module COLON sgn (ModTransparentAscription (module, sgn))
+
+sgn : specs (SigComponents (specs, (specsleft, specsright)))
+
+specs : spec specs (spec :: specs)
+  | ([])
+
+spec : VAL id tnames COLON ty (SpecVal (id, tnames, ty, (VALleft, tyright)))
+  | datatype_def (SpecDatatype datatype_def)
+  | IDX id COLON sort (SpecIdx (id, sort))
+  | TYPE cur_sort_star id_plus (SpecType (rev id_plus, rev cur_sort_star, (TYPEleft, id_plusright)))
+  | TYPE id EQ ty (SpecTypeDef (id, ty))
+
+decl : VAL tnames ptrn EQ exp (Val (tnames, ptrn, exp, (VALleft, expright)))
+     | FUN id tnames bind_star return EQ exp (Rec (tnames, id, bind_star, return, exp, (FUNleft, expright)))
+    | datatype_def (Datatype datatype_def)
+    | IDX id optional_colon_sort EQ idx (IdxDef (id, optional_colon_sort, idx))
+    | ABSIDX id optional_colon_sort optional_eq_idx WITH decl_star END (AbsIdx (id, optional_colon_sort, optional_eq_idx, decl_star, (ABSIDXleft, ENDright)))
+    | ABSIDX LCUR id COLON bsort BAR prop RCUR optional_eq_idx WITH decl_star END (AbsIdx (id, SOME (Subset (bsort, id, prop, (LCURleft, RCURright))), optional_eq_idx, decl_star, (ABSIDXleft, ENDright)))
+    | TYPE id EQ ty (TypeDef (id, ty))
+    | OPEN id (Open id)
+
+datatype_def : DATATYPE cur_sort_star id_plus EQ constr_bar_star (case (map fst o rev) id_plus of id :: id_star => (id, id_star, rev cur_sort_star, constr_bar_star, (DATATYPEleft, constr_bar_starright)) | [] => raise Impossible "id_plus can't be empty")
+                    
 ty : ty DDASH idx LARROW ty (Arrow (ty1, idx, ty2, (ty1left, ty2right)))
    | ty ARROW ty (Arrow (ty1, VarI (underscore (ty1left, ty2right)), ty2, (ty1left, ty2right)))
    | ty MULT ty (Prod (ty1, ty2, (ty1left, ty2right)))
@@ -217,14 +263,6 @@ prop : id (ConstP id)
      | idx GT idx (BinPred (GtP, idx1, idx2, (idx1left, idx2right)))
      | idx BIG_O_INFIX idx (BinPred (BigO, idx1, idx2, (idx1left, idx2right)))
      | LPAREN prop RPAREN (prop)
-
-
-decl : VAL tnames ptrn EQ exp (Val (tnames, ptrn, exp, (VALleft, expright)))
-     | FUN id tnames bind_star return EQ exp (Rec (tnames, id, bind_star, return, exp, (FUNleft, expright)))
-    | DATATYPE cur_sort_star id_plus EQ constr_bar_star (case (map fst o rev) id_plus of id :: id_star => Datatype (id, id_star, rev cur_sort_star, constr_bar_star, (DATATYPEleft, constr_bar_starright)) | [] => raise Impossible "id_plus can't be empty")
-    | IDX id optional_colon_sort EQ idx (IdxDef (id, optional_colon_sort, idx))
-    | ABSIDX id optional_colon_sort optional_eq_idx WITH decl_star END (AbsIdx (id, optional_colon_sort, optional_eq_idx, decl_star, (ABSIDXleft, ENDright)))
-    | ABSIDX LCUR id COLON bsort BAR prop RCUR optional_eq_idx WITH decl_star END (AbsIdx (id, SOME (Subset (bsort, id, prop, (LCURleft, RCURright))), optional_eq_idx, decl_star, (ABSIDXleft, ENDright)))
 
 optional_eq_idx : EQ idx (SOME idx)
                 | (NONE)

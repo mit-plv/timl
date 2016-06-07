@@ -112,6 +112,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         type constr = long_id(*family*) * string list(*type argument names*) * constr_core
 
         type return = mtype option * idx option
+        type datatype_def = string * string list * sort list * constr_decl list * region
 
         datatype ptrn =
 	         ConstrP of (long_id * bool(*eia*)) * string list * ptrn option * region (* eia : is explicit index arguments? *)                                         
@@ -157,7 +158,6 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  | AbsIdx of (name * sort * idx) * decl list * region
                  | TypeDef of name * mtype
                  | Open of mod_projectible
-                             withtype datatype_def = string * string list * sort list * constr_decl list * region
 
         datatype spec =
                  SpecVal of name * ty

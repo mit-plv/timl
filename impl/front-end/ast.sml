@@ -1,11 +1,11 @@
 structure Ast = struct
 open Region
 open Operators
-         
+       
 type id = string * region
 
 type long_id = id option * id
-                                            
+                             
 datatype idx = 
 	 VarI of long_id
 	 | ConstIN of int * region
@@ -38,11 +38,11 @@ datatype abs =
 	 Fn
 	 | Rec
 
-and tbind =
-    Sorting of id * sort * region
+     and tbind =
+         Sorting of id * sort * region
 
 fun sortings (ids, s, r) = map (fn id => Sorting (id, s, r)) ids
-    
+                               
 datatype ty =
 	 VarT of long_id
 	 | Arrow of ty * idx * ty * region
@@ -57,13 +57,13 @@ fun get_region_long_id (m, (_, r)) =
       | SOME (_, r1) => combine_region r1 r
 
 fun get_region_t t =
-  case t of
-      VarT x => get_region_long_id x
-    | Arrow (_, _, _, r) => r
-    | Prod (_, _, r) => r
-    | Quan (_, _, _, r) => r
-    | AppTT (_, _, r) => r
-    | AppTI (_, _, r) => r
+    case t of
+        VarT x => get_region_long_id x
+      | Arrow (_, _, _, r) => r
+      | Prod (_, _, r) => r
+      | Quan (_, _, _, r) => r
+      | AppTT (_, _, r) => r
+      | AppTI (_, _, r) => r
 
 type constr_core = ty * ty option
 type constr_decl = id * tbind list * constr_core option * region
@@ -75,37 +75,64 @@ datatype ptrn =
          | AnnoP of ptrn * ty * region
 
 fun get_region_pn pn =
-  case pn of
-      ConstrP (_, _, _, r) => r
-    | TupleP (_, r) => r
-    | AliasP (_, _, r) => r
-    | AnnoP (_, _, r) => r
+    case pn of
+        ConstrP (_, _, _, r) => r
+      | TupleP (_, r) => r
+      | AliasP (_, _, r) => r
+      | AnnoP (_, _, r) => r
 
 datatype bind =
 	 Typing of ptrn
 	 | TBind of tbind
 
 type return = ty option * idx option
-
+type datatype_def = string * string list * sort list * constr_decl list * region
+              
 datatype exp = 
 	 Var of long_id * bool
-       | Tuple of exp list * region
-       | Abs of bind list * return * exp * region
-       | App of exp * exp * region
-       | AppI of exp * idx * region
-       | Case of exp * return * (ptrn * exp) list * region
-       | Ascription of exp * ty * region
-       | AscriptionTime of exp * idx * region
-       | Let of return * decl list * exp * region
-       | Const of int * region
-       | BinOp of bin_op * exp * exp * region
+         | Tuple of exp list * region
+         | Abs of bind list * return * exp * region
+         | App of exp * exp * region
+         | AppI of exp * idx * region
+         | Case of exp * return * (ptrn * exp) list * region
+         | Ascription of exp * ty * region
+         | AscriptionTime of exp * idx * region
+         | Let of return * decl list * exp * region
+         | Const of int * region
+         | BinOp of bin_op * exp * exp * region
 
      and decl =
          Val of id list * ptrn * exp * region
          | Rec of id list * id * bind list * return * exp * region
-         | Datatype of string * string list * sort list * constr_decl list * region
+         | Datatype of datatype_def
          | IdxDef of id * sort option * idx
          | AbsIdx of id * sort option * idx option * decl list * region
+         | TypeDef of id * ty
+       | Open of id
+
+type name = id
+              
+datatype spec =
+         SpecVal of name * name list * ty * region
+         | SpecDatatype of datatype_def
+         | SpecIdx of name * sort
+         | SpecType of name list * sort list * region
+         | SpecTypeDef of name * ty
+                                   
+datatype sgn =
+         SigComponents of spec list * region
+
+datatype mod =
+         ModComponents of decl list * region
+         | ModSeal of mod * sgn
+         | ModTransparentAscription of mod * sgn
+                                               
+datatype top_bind =
+         TopModBind of name * mod
+         | TopFunctorBind of name * (name * sgn) * mod
+         | TopFunctorApp of name * id * id
+
+type prog = top_bind list
 
 type reporter = string * pos * pos -> unit
 
