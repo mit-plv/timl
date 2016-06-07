@@ -70,10 +70,10 @@ fun typecheck_file gctx filename =
       val prog = parse_file filename
       val prog = elaborate_prog prog
       (* val () = (app println o map (suffix "\n") o fst o E.str_decls ctxn) decls *)
-      val prog = resolve_prog (TCgctx2NRgctx gctx) prog
+      val (prog, _, _) = resolve_prog (TCgctx2NRgctx gctx) prog
       (* val () = (app println o map (suffix "\n") o fst o UnderscoredExpr.str_decls ctxn) decls *)
       val old_gctx = gctx
-      val result as ((prog, gctxd, gctx), (vcs, admits)) = typecheck_prog gctx prog
+      val result as ((gctxd, gctx), (vcs, admits)) = typecheck_prog gctx prog
       (* val () = write_file (filename ^ ".smt2", to_smt2 vcs) *)
       val () = app println $ print_result false filename (gctx_names old_gctx) gctxd
       val () = println $ sprintf "Type checker generated $ proof obligations." [str_int $ length vcs]
@@ -146,9 +146,9 @@ fun typecheck_file gctx filename =
                  (* concatMap (fn vc => str_vc true filename vc @ [""]) $ map fst vcs *)
                  concatMap (print_unsat true filename) vcs
                )
-      val admits = map (fn admit => (filename, #1 ctxn, admit)) admits
+      val admits = map (fn admit => (filename, admit)) admits
     in
-      (ctx, admits)
+      (gctx, admits)
     end
     handle
     Elaborate.Error (r, msg) => raise Error $ str_error "Error" filename r ["Elaborate error: " ^ msg]
@@ -160,7 +160,7 @@ fun typecheck_file gctx filename =
     | IO.Io e => raise Error $ sprintf "IO error in function $ on file $" [#function e, #name e]
     | OS.SysErr (msg, err) => raise Error $ sprintf "System error$: $" [(default "" o Option.map (prefix " " o OS.errorName)) err, msg]
                                     
-fun process_file (filename, ctx) =
+fun process_file (filename, gctx) =
     let
       open OS.Path
       fun splitDirFileExt filename =
@@ -172,7 +172,7 @@ fun process_file (filename, ctx) =
           end
       fun joinDirFileCurried dir file = joinDirFile {dir = dir, file = file}
       val (dir, _, ext) = splitDirFileExt filename
-      val ctx =
+      val gctx =
           if ext = SOME "pkg" then
             let
               val split_lines = String.tokens (fn c => c = #"\n")
@@ -184,34 +184,34 @@ fun process_file (filename, ctx) =
               (* val () = app println filenames *)
               val filenames = List.filter (fn s => s <> "") filenames
               val filenames = map (joinDirFileCurried dir) filenames
-              val ctx = process_files ctx filenames
+              val gctx = process_files gctx filenames
             in
-              ctx
+              gctx
             end
           else if ext = SOME "timl" then
-            typecheck_file (filename, ctx)
+            typecheck_file gctx filename
           else raise Error $ sprintf "Unknown filename extension $ of $" [default "<EMPTY>" ext, filename]
     in
-      ctx
+      gctx
     end
       
-and process_files ctx filenames =
+and process_files gctx filenames =
     let
-      fun iter (filename, (ctx, acc)) =
+      fun iter (filename, (gctx, acc)) =
           let
-            val (ctx, admits) = process_file (filename, ctx)
+            val (gctx, admits) = process_file (filename, gctx)
           in
-            (ctx, acc @ admits)
+            (gctx, acc @ admits)
           end
     in
-      foldl iter (ctx, []) filenames
+      foldl iter (gctx, []) filenames
     end
           
 fun main filenames =
     let
       val () = app println $ ["Input file(s):"] @ indent filenames
-      val (ctx, admits) = process_files empty_ctx filenames
-      fun str_admit show_region (filename, sctxn, p) =
+      val (gctx, admits) = process_files [] filenames
+      fun str_admit show_region (filename, p) =
           let
             open Expr
             val vc = prop2vc p
@@ -222,16 +222,16 @@ fun main filenames =
                                else []
           in
             region_lines @ 
-            [str_p sctxn p] @ [""]
+            [str_p [] [] p] @ [""]
           end
       val () =
           if null admits then
             ()
           else
             (* app println $ "Admitted axioms: \n" :: concatMap (str_admit true) admits *)
-            app println $ "Admitted axioms: \n" :: (concatMap (str_admit false) $ dedup (fn ((_, _, p), (_, _, p')) => Expr.eq_p p p') admits)
+            app println $ "Admitted axioms: \n" :: (concatMap (str_admit false) $ dedup (fn ((_, p), (_, p')) => Expr.eq_p p p') admits)
     in
-      ctx
+      gctx
     end
       
 end

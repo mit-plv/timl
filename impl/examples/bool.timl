@@ -1,6 +1,9 @@
+structure Bool = struct
+
 datatype bool = true | false
 
 datatype 'a option =
          NONE
          | SOME of 'a --> 'a option
 
+end
