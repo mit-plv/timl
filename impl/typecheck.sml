@@ -797,7 +797,9 @@ fun unify_sorts r gctx ctx (sorts, sorts') =
 fun unify_mt r gctx ctx (t, t') =
     let
       val gctxn = gctx_names gctx
+      val ctxn = (sctx_names $ #1 ctx, names $ #2 ctx)
       fun error ctxn (t, t') = unify_error r (str_mt gctxn ctxn t, str_mt gctxn ctxn t')
+      val () = println $ sprintf "Unifying types $ and $" [str_mt gctxn ctxn t, str_mt gctxn ctxn t']
       fun loop (ctx as (sctx, kctx)) (t, t') =
           let 
             val t = whnf_mt gctx kctx t
@@ -2952,6 +2954,7 @@ fun check_top_bind gctx bind =
               in
                 (name, Sig body) :: gctxd
               end
+      val () = println "Typechecked program:"
       val () = app println $ str_gctx (gctx_names gctx) gctxd
     in
       gctxd

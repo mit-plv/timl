@@ -385,7 +385,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         fun eq_bs bs bs' =
             case bs of
-                Base b => (case bs' of Base b' => b = b | _ => false)
+                Base b => (case bs' of Base b' => b = b' | _ => false)
               | UVarBS _ => false
 
         fun eq_quan q q' =
@@ -1757,7 +1757,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
           fun mark a = (set (); a)
           fun passi i =
               let
-                (* val () = if !passi_debug then (fn () => println $ str_i [] i) () else () *)
+                (* val () = println $ str_i [] [] i *)
                 fun r () = get_region_i i
               in
                 case i of
@@ -1945,6 +1945,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
           fun passp p =
               let
                 fun r () = get_region_p p
+                (* val () = println $ str_p [] [] p *)
               in
                 case p of
 	            BinConn (opr, p1, p2) =>
@@ -2003,88 +2004,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                                SOME p => (set (); p)
                              | _ =>
                                (* try subst if there is a equality premise *)
-                               (*
-if false then
-                     let
-                       (* val () = println $ "Try subst eq premise" *)
-                       fun collect_Imply p =
-                           case p of
-                               BinConn (Imply, p1, p2) =>
                                let
-                                 val (hyps, conclu) = collect_Imply p2
-                               in
-                                 (collect_And p1 @ hyps, conclu)
-                               end
-                             | _ => ([], p)
-                       fun combine_Imply hyps conclu =
-                           case hyps of
-                               h :: hyps => h --> combine_Imply hyps conclu
-                             | [] => conclu
-                       fun collect_Forall p =
-                           case p of
-                               Quan (Forall, bs, name, p, r) =>
-                               let
-                                 val (binds, p) = collect_Forall p
-                               in
-                                 ((name, bs, r) :: binds, p)
-                               end
-                             | _ => ([], p)
-                       fun combine_Forall binds p =
-                           case binds of
-                               [] => p
-                             | (name, bs, r) :: binds =>
-                               Quan (Forall, bs, name, combine_Forall binds p, r)
-                       val (binds, p) = collect_Forall p_all
-                       val (hyps, conclu) = collect_Imply p
-                       val binds_len = length binds
-                       (* test whether [p] is [VarI x = _] or [_ = VarI x] *)
-                       fun is_var_equals p =
-                           let
-                             fun find_var (i1, i2) =
-                                 case i1 of
-                                     VarI (x, _) =>
-                                     (if 0 <= x andalso x < binds_len then
-                                        SOME (x, forget_i_i x 1 i2) handle ForgetError _ => NONE
-                                      else NONE
-                                     )
-                                   | _ => NONE
-                           in
-                             case p of
-                                 BinPred (EqP, i1, i2) => firstSuccess find_var [(i1, i2), (i2, i1)]
-                               | _ => NONE
-                           end
-                     in
-                       case partitionOptionFirst is_var_equals hyps of
-                           SOME ((x, i), rest) =>
-                           let
-                             (* val () = println $ "Substing " ^ str_v (rev $ map (fst o fst) binds) x *)
-                             val () = set ()
-                             val ret = combine_Forall (remove (binds_len - 1 - x) binds) $ substx_i_p x i $ combine_Imply rest conclu
-                           in
-                             ret
-                           end
-                         | NONE => def ()
-                     end
-else
-                               *)
-                               let
-                                 (* val () = println $ "Try subst eq premise" *)
-                                 (* fun collect_Imply_Forall p = *)
-                                 (*     case p of *)
-                                 (*         BinConn (Imply, p1, p2) => *)
-                                 (*         let *)
-                                 (*           val (hyps, conclu) = collect_Imply_Forall p2 *)
-                                 (*         in *)
-                                 (*           (map PropH (collect_And p1)(* [PropH p1] *) @ hyps, conclu) *)
-                                 (*         end *)
-                                 (*       | Quan (Forall, bs, name, p, r) => *)
-                                 (*         let *)
-                                 (*           val (hyps, p) = collect_Imply_Forall p *)
-                                 (*         in *)
-                                 (*           (VarH (name, (bs, r)) :: hyps, p) *)
-                                 (*         end *)
-                                 (*       | _ => ([], p) *)
-                                 (* a faster version *)
                                  fun collect_Imply_Forall p =
                                      let
                                        fun loop (acc, p) =
@@ -2180,40 +2100,36 @@ else
                                      )
                                    | NONE => def ()
                                end
-
-                                 
-                          (*
-                      (case p of
-                           BinConn (Imply, p1, p2) =>
-                           let
-                               fun forget i = try_forget (forget_i_i 0 1) i
-                               fun f i1 i2 =
-                                   if eq_i i1 (VarI (0, dummy)) then forget i2
-                                   else if eq_i i2 (VarI (0, dummy)) then forget i1
-                                   else NONE
-                               val i = case p1 of
-                                           BinPred (EqP, i1, i2) => f i1 i2
-                                         | _ => NONE
-                           in
-                               case i of
-                                   SOME i => (set (); subst_i_p i p2)
-                                 | _ => Quan (q, bs, name, passp p)
-                           end
-                         | _ =>
-                           Quan (q, bs, name, passp p)
-                      )
-                          *)
                           )
                         | Exists ins =>
                           (* for unconstrained Time evar, infer it to be 0 *)
                           let
+                            (* val () = println $ str_p [] [] p_all *)
                             val p = passp p
+                            (* val () = println $ str_bs bs *)
+                            val inferred =
+                                case try_forget (forget_i_p 0 1) p of
+                                    SOME p =>
+                                       if eq_bs bs (Base Time) then
+                                         SOME (p, T0 dummy)
+                                       else if eq_bs bs (Base Nat) then
+                                         SOME (p, N0 dummy)
+                                       else
+                                         NONE
+                                  | NONE => NONE
                           in
-                            case (eq_bs bs (Base Time), try_forget (forget_i_p 0 1) p) of
-                                (true, SOME p) =>
-                                (set ();
-                                 (case ins of SOME f => f (T0 dummy) | NONE => ());
-                                 p)
+                            case inferred of
+                                SOME (p, v) =>
+                                let
+                                  val () = set ()
+                                  (* val () = println "before" *)
+                                  val () = case ins of
+                                               SOME f => f v
+                                             | NONE => ()
+                                  (* val () = println "after" *)
+                                in
+                                  p
+                                end
                               | _ =>
                                 let
                                   val ps = collect_And p

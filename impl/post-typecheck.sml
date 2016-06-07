@@ -596,16 +596,19 @@ fun vces_to_vcs vces =
             (* val () = println "Formulas after trim_anchors (): " *)
             (* val () = println $ str_f2 [] f *)
             val p = f2_to_prop f
-            (* val () = println "Props: " *)
-            (* val () = println $ Expr.str_p [] p *)
+            val () = println "Props: "
+            val () = println $ Expr.str_p [] [] p
+            val () = println "Simplifying ... "
             val p = Expr.Simp.simp_p p
+            val () = println "Simplified"
           in
             p
           end
       val p = fs_to_prop fs
+      val () = println "Checking no-uvar ... "
       val p = no_uvar_p p
-      (* val () = println "NoUVar Props: " *)
-      (* val () = println $ str_p [] p *)
+      val () = println "NoUVar Props: "
+      val () = println $ str_p [] [] p
       val p = simp_p p
       (* val () = println "NoUVar Props after simp_p(): " *)
       (* val () = println $ str_p [] [] p *)
