@@ -700,12 +700,13 @@ fun shrink_i invis b = shrink forget_i_i invis b
 fun shrink_s invis b = shrink forget_i_s invis b
 fun shrink_mt (invisi, invist) b = (shrink forget_i_mt invisi o shrink forget_t_mt invist) b
 
-fun unify_i r gctx ctx (i, i') =
+fun unify_i r gctxn ctxn (i, i') =
     let
-      val unify_i = unify_i r gctx
-      fun error (i, i') = unify_error r (str_i gctx ctx i, str_i gctx ctx i')
+      val unify_i = unify_i r gctxn
+      fun error (i, i') = unify_error r (str_i gctxn ctxn i, str_i gctxn ctxn i')
       val i = update_i i
       val i' = update_i i'
+      val () = println $ sprintf "Unifying indices $ and $" [str_i gctxn ctxn i, str_i gctxn ctxn i']
     in
       case (i, i') of
           (UVarI ((invis, x), _), UVarI ((invis', x'), _)) =>
@@ -722,10 +723,10 @@ fun unify_i r gctx ctx (i, i') =
 	   handle ForgetError _ => raise error (i, i')
           )
         | (_, UVarI _) =>
-          unify_i ctx (i', i)
+          unify_i ctxn (i', i)
         (* ToReal is injective *)
         | (UnOpI (ToReal, i, _), UnOpI (ToReal, i', _)) =>
-          unify_i ctx (i', i)
+          unify_i ctxn (i', i)
 	| _ => 
           if eq_i i i' then ()
           else write_prop (BinPred (EqP, i, i'), r)
@@ -2098,6 +2099,38 @@ fun str_typing_info gctxn (sctxn, kctxn) (ctxd : context, ds) =
       lines
     end
       
+fun str_sig gctxn ctx =
+    ["sig"] @
+    indent (str_typing_info gctxn ([], []) (ctx, [])) @
+    ["end"]
+                  
+fun str_gctx old_gctxn gctx =
+    let 
+      fun str_sigging ((name, sg), (acc, gctxn)) =
+          let
+            val (ls, gctxnd) =
+                case sg of
+                    Sig ctx =>
+                    ([sprintf "structure $ : " [name] ] @
+                     indent (str_sig gctxn ctx),
+                     [name])
+                  | FunctorBind ((arg_name, arg), body) =>
+                    ([sprintf "functor $ (structure $ : " [name, arg_name] ] @
+                     indent (str_sig gctxn arg) @
+                     [") : "] @
+                     indent (str_sig (arg_name :: gctxn) body),
+                     [])
+          in
+            (ls :: acc, gctxnd @ gctxn)
+          end
+      val typing_lines = List.concat $ rev $ fst $ foldr str_sigging ([], old_gctxn) gctx
+      val lines = 
+          typing_lines @
+          [""]
+    in
+      lines
+    end
+
 fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, tctx : tcontext), e_all : U.expr) : expr * mtype * idx =
     let
       val get_mtype = get_mtype gctx
@@ -2568,6 +2601,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
 
 and check_decls gctx (ctx, decls) : decl list * context * int * idx list * context = 
     let 
+      val skctxn_old = (sctx_names $ #1 ctx, names $ #2 ctx)
       fun f (decl, (decls, ctxd, nps, ds, ctx)) =
           let 
             val (decl, ctxd', nps', ds') = check_decl gctx (ctx, decl)
@@ -2583,7 +2617,6 @@ and check_decls gctx (ctx, decls) : decl list * context * int * idx list * conte
       val decls = rev decls
       val ctxd = (upd4 o map o mapSnd) (simp_t o update_uvar_t) ctxd
       val ds = map simp_i $ map update_i $ rev ds
-      (* val skctxn_old = (sctx_names $ #1 ctx, names $ #2 ctx) *)
       (* val () = app println $ str_typing_info (gctx_names gctx) skctxn_old (ctxd, ds) *)
     in
       (decls, ctxd, nps, ds, ctx)
@@ -2869,54 +2902,60 @@ fun get_sig gctx m : context =
           sg'
         end
 
-fun check_top_bind gctx bind = 
-    case bind of
-        U.TopModBind ((name, _), m) =>
-        let
-          val sg = get_sig gctx m
-        in
-          [(name, Sig sg)]
-        end
-      | U.TopFunctorBind ((name, _), ((arg_name, _), arg), m) =>
-        (* functor applications will be implemented fiberedly instead of parametrizedly *)
-        let
-          val arg = is_wf_sig gctx arg
-          val gctx = add_sigging (arg_name, arg) gctx
-          val () = open_module (arg_name, arg)
-          val sg = get_sig gctx m
-          val () = close_n 1
-        in
-          [(name, FunctorBind ((arg_name, arg), sg))]
-        end
-      | U.TopFunctorApp ((name, _), f, m) =>
-        let
-          fun lookup_functor gctx m =
+fun check_top_bind gctx bind =
+    let
+      val gctxd = 
+          case bind of
+              U.TopModBind ((name, _), m) =>
               let
-                fun iter ((name, sg), (nsig, target)) =
-                    case sg of
-                        Sig _ => Continue (nsig + 1, target)
-                      | FunctorBind a =>
-                        if target <= 0 then
-                          ShortCircuit (nsig, name, a)
-                        else
-                          Continue (nsig, target - 1)
-                fun find_first m = is_ShortCircuit $ foldlM_Error iter (0, m) gctx
+                val sg = get_sig gctx m
               in
-                case find_first m of
-                    SOME (n, name, (arg, body : context)) => SOME (name, (shiftx_snd shiftx_m_ctx 0 n arg, shiftx_m_ctx 1 n body))
-                  | NONE => NONE
+                [(name, Sig sg)]
               end
-          fun fetch_functor gctx (m, r) =
-              case lookup_functor gctx m of
-                  SOME a => a
-                | NONE => raise Error (r, ["Unbound functor " ^ str_v [] m])
-          val (_, ((_, formal_arg), body)) = fetch_functor gctx f
-          val formal_arg = link_sig (snd m) gctx m formal_arg
-          val formal_arg_name = "__formal_mod_arg"
-          val gctxd = [(formal_arg_name, Sig formal_arg)]
-        in
-          (name, Sig body) :: gctxd
-        end
+            | U.TopFunctorBind ((name, _), ((arg_name, _), arg), m) =>
+              (* functor applications will be implemented fiberedly instead of parametrizedly *)
+              let
+                val arg = is_wf_sig gctx arg
+                val gctx = add_sigging (arg_name, arg) gctx
+                val () = open_module (arg_name, arg)
+                val sg = get_sig gctx m
+                val () = close_n 1
+              in
+                [(name, FunctorBind ((arg_name, arg), sg))]
+              end
+            | U.TopFunctorApp ((name, _), f, m) =>
+              let
+                fun lookup_functor gctx m =
+                    let
+                      fun iter ((name, sg), (nsig, target)) =
+                          case sg of
+                              Sig _ => Continue (nsig + 1, target)
+                            | FunctorBind a =>
+                              if target <= 0 then
+                                ShortCircuit (nsig, name, a)
+                              else
+                                Continue (nsig, target - 1)
+                      fun find_first m = is_ShortCircuit $ foldlM_Error iter (0, m) gctx
+                    in
+                      case find_first m of
+                          SOME (n, name, (arg, body : context)) => SOME (name, (shiftx_snd shiftx_m_ctx 0 n arg, shiftx_m_ctx 1 n body))
+                        | NONE => NONE
+                    end
+                fun fetch_functor gctx (m, r) =
+                    case lookup_functor gctx m of
+                        SOME a => a
+                      | NONE => raise Error (r, ["Unbound functor " ^ str_v [] m])
+                val (_, ((_, formal_arg), body)) = fetch_functor gctx f
+                val formal_arg = link_sig (snd m) gctx m formal_arg
+                val formal_arg_name = "__formal_mod_arg"
+                val gctxd = [(formal_arg_name, Sig formal_arg)]
+              in
+                (name, Sig body) :: gctxd
+              end
+      val () = app println $ str_gctx (gctx_names gctx) gctxd
+    in
+      gctxd
+    end
           
 and check_prog gctx binds =
     let

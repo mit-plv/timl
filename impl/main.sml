@@ -11,46 +11,26 @@ open TC
 
 infixr 0 $
 
+exception Error of string
+                     
+open SMT2Printer
+open SMTSolver
+
 fun print_result show_region filename old_gctxn gctx =
     let 
       val header =
           (* sprintf "Typechecked $" [filename] :: *)
           sprintf "Typechecking results for $:" [filename] ::
           [""]
-      fun str_sgntr ((name, sg), (acc, gctxn)) =
-          let
-            fun str_sig gctxn ctx =
-                ["sig"] @
-                indent (str_typing_info gctxn ([], []) (ctx, [])) @
-                ["end"]
-            val (ls, gctxnd) =
-                case sg of
-                    Sig ctx =>
-                    ([sprintf "structure $ : " [name] ] @
-                     indent (str_sig gctxn ctx),
-                     [name])
-                  | FunctorBind ((arg_name, arg), body) =>
-                    ([sprintf "functor $ (structure $ : " [name, arg_name] ] @
-                     indent (str_sig gctxn arg) @
-                     [") : "] @
-                     indent (str_sig (arg_name :: gctxn) body),
-                     [])
-          in
-            (ls :: acc, gctxnd @ gctxn)
-          end
-      val typing_lines = List.concat $ rev $ fst $ foldr str_sgntr ([], old_gctxn) gctx
+      val typing_lines = str_gctx old_gctxn gctx
       val lines = 
-          header
-          @ ["Types: ", ""]
-          @ typing_lines 
+          header @
+          ["Types: ", ""] @
+          typing_lines @
+          [""]
     in
       lines
     end
-
-exception Error of string
-                     
-open SMT2Printer
-open SMTSolver
 
 fun typecheck_file gctx filename =
     let

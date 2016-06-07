@@ -637,11 +637,11 @@ fun typecheck_decls gctx ctx decls =
     let
       fun m () =
           let
+            val skctxn_old = (sctx_names $ #1 ctx, names $ #2 ctx)
             val (decls, ctxd, nps, ds, ctx) = check_decls gctx (ctx, decls)
             val () = close_n nps
             val () = close_ctx ctxd
-            val skctxn_old = (sctx_names $ #1 ctx, names $ #2 ctx)
-            val () = app println $ str_typing_info (gctx_names gctx) skctxn_old (ctxd, ds)
+            (* val () = app println $ str_typing_info (gctx_names gctx) skctxn_old (ctxd, ds) *)
           in
             (decls, ctxd, ds, ctx)
           end
