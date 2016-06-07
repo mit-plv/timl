@@ -1779,12 +1779,29 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
                  val c as (family', tnames, ibinds) = fetch_constr gctx (cctx, cx)
                  val (name_sorts, (t1, is')) = unfold_ibinds ibinds
                  val () = if eia then () else raise Impossible "eia shouldn't be false"
-		 val () =
-                     if family' = family andalso length tnames = length ts andalso length is' = length is then ()
-                     else raise Error 
-                                (r, sprintf "Type of constructor $ doesn't match datatype " [str_long_id gctxn (names cctx) cx] :: 
-                                    indent ["expect: " ^ str_long_id gctxn kctxn family, 
-                                            "got: " ^ str_long_id gctxn kctxn family'])
+		 val () = if eq_long_id (family', family) then ()
+                          else
+                            let
+                              val expect = str_long_id gctxn kctxn family
+                              val got = str_long_id gctxn kctxn family'
+                            in
+                              raise Error 
+                                    (r, sprintf "Type of constructor $ doesn't match datatype " [str_long_id gctxn (names cctx) cx] :: 
+                                        indent ["expect: " ^ expect, 
+                                                "got: " ^ got])
+                            end
+		 val () = if length tnames = length ts then ()
+                          else
+                            raise Error 
+                                  (r, sprintf "Type of constructor $ doesn't match datatype " [str_long_id gctxn (names cctx) cx] :: 
+                                      indent ["expect number of type arguments: " ^ (str_int $ length ts),
+                                              "got: " ^ (str_int $ length tnames)])
+		 val () = if length is' = length is then ()
+                          else
+                            raise Error 
+                                  (r, sprintf "Type of constructor $ doesn't match datatype " [str_long_id gctxn (names cctx) cx] :: 
+                                      indent ["expect number of index arguments: " ^ (str_int $ length is),
+                                              "got: " ^ (str_int $ length is')])
                  val () =
                      if length inames = length name_sorts then ()
                      else raise Error (r, [sprintf "This constructor requires $ index argument(s), not $" [str_int (length name_sorts), str_int (length inames)]])
@@ -2055,6 +2072,32 @@ fun add_prop r s p =
 fun sort_add_idx_eq r s' i =
     add_prop r s' (VarI (NONE, (0, r)) %= shift_i_i i)
              
+type typing_info = decl list * context * idx list * context
+
+fun str_typing_info gctxn (sctxn, kctxn) (ctxd : context, ds) =
+    let
+      fun on_ns ((name, s), (acc, sctxn)) =
+          ([sprintf "$ ::: $" [name, str_s gctxn sctxn s](* , "" *)] :: acc, name :: sctxn)
+      val (idx_lines, sctxn) = foldr on_ns ([], sctxn) $ #1 $ ctxd
+      val idx_lines = List.concat $ rev idx_lines
+      fun on_nk ((name, k), (acc, kctxn)) =
+          ([sprintf "$ :: $" [name, str_ke gctxn (sctxn, kctxn) k](* , "" *)] :: acc, name :: kctxn)
+      val (type_lines, kctxn) = foldr on_nk ([], kctxn) $ #2 $ ctxd
+      val type_lines = List.concat $ rev type_lines
+      val expr_lines =
+          (concatMap (fn (name, t) => [sprintf "$ : $" [name, str_t gctxn (sctxn, kctxn) t](* , "" *)]) o rev o #4) ctxd
+      val time_lines =
+          "Times:" :: "" ::
+          (concatMap (fn d => [sprintf "|> $" [str_i gctxn sctxn d](* , "" *)])) ds
+      val lines = 
+          idx_lines
+          @ type_lines
+          @ expr_lines
+      (* @ time_lines  *)
+    in
+      lines
+    end
+      
 fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, tctx : tcontext), e_all : U.expr) : expr * mtype * idx =
     let
       val get_mtype = get_mtype gctx
@@ -2069,7 +2112,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
       val gctxn = gctx_names gctx
       val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
       val skctxn = (sctxn, kctxn)
-      (* val () = print (sprintf "Typing $\n" [U.str_e ((* upd4 (const [])  *)ctxn) e_all]) *)
+      val () = print (sprintf "Typing $\n" [U.str_e gctxn ctxn e_all])
       fun print_ctx gctx (ctx as (sctx, kctx, _, tctx)) = app (fn (nm, t) => println $ sprintf "$: $" [nm, str_t (gctx_names gctx) (sctx_names sctx, names kctx) t]) tctx
       fun main () =
 	  case e_all of
@@ -2307,27 +2350,6 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
       (e, t, d)
     end
 
-and check_decls gctx (ctx, decls) : decl list * context * int * idx list * context = 
-    let 
-      fun f (decl, (decls, ctxd, nps, ds, ctx)) =
-          let 
-            val (decl, ctxd', nps', ds') = check_decl gctx (ctx, decl)
-            val decls = decl :: decls
-            val ctxd = add_ctx ctxd' ctxd
-            val nps = nps + nps'
-            val ds = ds' @ map (shift_ctx_i ctxd') ds
-            val ctx = add_ctx ctxd' ctx
-          in
-            (decls, ctxd, nps, ds, ctx)
-          end
-      val (decls, ctxd, nps, ds, ctx) = foldl f ([], empty_ctx, 0, [], ctx) decls
-      val decls = rev decls
-      val ctxd = (upd4 o map o mapSnd) (simp_t o update_uvar_t) ctxd
-      val ds = map simp_i $ map update_i $ rev ds
-    in
-      (decls, ctxd, nps, ds, ctx)
-    end
-
 and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
     let
       val check_decl = check_decl gctx
@@ -2365,7 +2387,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
           in
             t
           end
-      (* val () = println $ sprintf "Typing Decl $" [fst $ U.str_decl (ctx_names ctx) decl] *)
+      val () = println $ sprintf "Typing Decl $" [fst $ U.str_decl (gctx_names gctx) (ctx_names ctx) decl]
       fun main () = 
           case decl of
               U.Val (tnames, U.VarP (name, r1), e, r) =>
@@ -2542,6 +2564,29 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
 	                          (* val () = print $ sprintf "   Time : $: \n" [str_i sctxn d] *)
     in
       ret
+    end
+
+and check_decls gctx (ctx, decls) : decl list * context * int * idx list * context = 
+    let 
+      fun f (decl, (decls, ctxd, nps, ds, ctx)) =
+          let 
+            val (decl, ctxd', nps', ds') = check_decl gctx (ctx, decl)
+            val decls = decl :: decls
+            val ctxd = add_ctx ctxd' ctxd
+            val nps = nps + nps'
+            val ds = ds' @ map (shift_ctx_i ctxd') ds
+            val ctx = add_ctx ctxd' ctx
+          in
+            (decls, ctxd, nps, ds, ctx)
+          end
+      val (decls, ctxd, nps, ds, ctx) = foldl f ([], empty_ctx, 0, [], ctx) decls
+      val decls = rev decls
+      val ctxd = (upd4 o map o mapSnd) (simp_t o update_uvar_t) ctxd
+      val ds = map simp_i $ map update_i $ rev ds
+      (* val skctxn_old = (sctx_names $ #1 ctx, names $ #2 ctx) *)
+      (* val () = app println $ str_typing_info (gctx_names gctx) skctxn_old (ctxd, ds) *)
+    in
+      (decls, ctxd, nps, ds, ctx)
     end
 
 and is_wf_datatype gctx ctx (name, tnames, sorts, constr_decls, r) : datatype_def * context =

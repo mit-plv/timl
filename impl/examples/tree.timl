@@ -1,3 +1,7 @@
+structure Tree = struct
+open Bool
+open List
+       
 datatype {Nat} 'a tree =
          Leaf of {0} 'a tree
        | Node {n1 : Nat} {n2 : Nat} of 'a * {n1} 'a tree * {n2} 'a tree --> {n1 + 1 + n2} 'a tree
@@ -103,4 +107,6 @@ end
 absidx g : BigO 1 (fn n => $n) with
 fun tree_flatten_mlr (* ['a] *) {n : Nat} (tr : {n} _ tree) return {n} _ list using g n =
     tree_append_rlm tr {_} Nil
+end
+
 end

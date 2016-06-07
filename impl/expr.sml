@@ -352,6 +352,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         fun eq_option eq (a, a') =
             case (a, a') of
                 (SOME v, SOME v') => eq (v, v')
+              | (NONE, NONE) => true
               | _ => false
 
         fun eq_id ((x, _), (x', _)) =
@@ -964,7 +965,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 | _ => ([], p)
             end
 
-        exception ModuleUVar
+        exception ModuleUVar of string
 
         fun package_long_id m (m', x) =
             (SOME $ default m m', x)
@@ -986,7 +987,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	            | FalseI r => FalseI r
                     | TimeAbs (name, i, r) => TimeAbs (name, f i, r)
                     | AdmitI r => AdmitI r
-                    | UVarI a => raise ModuleUVar
+                    | UVarI a => raise ModuleUVar "package_i ()"
             in
               f b
             end
@@ -1019,7 +1020,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	          case b of
 	              Basic s => Basic s
 	            | Subset (s, bind, r) => Subset (s, package_ibind package_p m bind, r)
-                    | UVarS a => raise ModuleUVar
+                    | UVarS a => raise ModuleUVar "package_s ()"
             in
               f m b
             end
@@ -1039,7 +1040,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                     (* | MtAbsI (s, bind, r) => MtAbsI (package_s m s, package_ibind f m bind, r) *)
 	            | AppV (x, ts, is, r) => AppV (package_long_id m x, map (f m) ts, map (package_i m) is, r)
 	            | BaseType a => BaseType a
-                    | UVar a => raise ModuleUVar
+                    | UVar a => raise ModuleUVar "package_mt ()"
             in
               f m b
             end
@@ -1235,7 +1236,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	            | FalseI r => FalseI r
                     | TimeAbs (name, i, r) => TimeAbs (name, f (x + 1) n i, r)
                     | AdmitI r => AdmitI r
-                    | UVarI a => raise ModuleUVar
+                    | UVarI a => raise ModuleUVar "on_m_i ()"
             in
               f x n b
             end
@@ -1268,7 +1269,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	          case b of
 	              Basic s => Basic s
 	            | Subset (s, bind, r) => Subset (s, on_m_ibind on_m_p x n bind, r)
-                    | UVarS a => raise ModuleUVar
+                    | UVarS a => raise ModuleUVar "on_m_s ()"
             in
               f x n b
             end
@@ -1288,7 +1289,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                     (* | MtAbsI (s, bind, r) => MtAbsI (on_m_s x n s, on_m_ibind f x n bind, r) *)
 	            | AppV (y, ts, is, r) => AppV (on_m_long_id on_v x n y, map (f x n) ts, map (on_m_i x n) is, r)
 	            | BaseType a => BaseType a
-                    | UVar a => raise ModuleUVar
+                    | UVar a => raise ModuleUVar "on_m_mt ()"
             in
               f x n b
             end

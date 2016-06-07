@@ -260,7 +260,7 @@ fun remove_m_f n f =
         ForallF2 (name, ft, f) =>
         (case ft of
              FtModule _ => raise Impossible "remove_m(): FtModule"
-           | FtSorting bs => remove_m_f (n + 1) f
+           | FtSorting bs => ForallF2 (name, ft, remove_m_f (n + 1) f)
         )
       | BinConnF2 (opr, f1, f2) => BinConnF2 (opr, remove_m_f n f1, remove_m_f n f2)
       | AnchorF2 (anchor, f) => AnchorF2 (anchor, remove_m_f n f)
@@ -572,8 +572,8 @@ fun no_uvar_p p =
 fun vces_to_vcs vces =
     let
       open VC
-      val () = println "VCEs: "
-      val () = println $ join " " $ map str_vce vces
+      (* val () = println "VCEs: " *)
+      (* val () = println $ join " " $ map str_vce vces *)
       val (fs, vces) = get_formulas vces
       val () = case vces of
                    [] => ()
@@ -582,11 +582,13 @@ fun vces_to_vcs vces =
       fun fs_to_prop fs =
           let
             (* val () = println "Formulas: " *)
-            (* val () = app println $ map (str_f []) fs *)
+            (* val () = app println $ map (str_f [] []) fs *)
             val f = fs_to_f2 fs
-            val f = unpackage_f2 f
             (* val () = println "Formula2: " *)
-            (* val () = println $ str_f2 [] f *)
+            (* val () = println $ str_f2 [] [] f *)
+            val f = unpackage_f2 f
+            (* val () = println "Formula2 after unpackage_f2 (): " *)
+            (* val () = println $ str_f2 [] [] f *)
             val f = fst $ bring_forward_anchor f
             (* val () = println "Formula2 after bring_forward_anchor (): " *)
             (* val () = println $ str_f2 [] f *)
@@ -606,7 +608,7 @@ fun vces_to_vcs vces =
       (* val () = println $ str_p [] p *)
       val p = simp_p p
       (* val () = println "NoUVar Props after simp_p(): " *)
-      (* val () = println $ str_p [] p *)
+      (* val () = println $ str_p [] [] p *)
       val p = uniquefy [] p
       val admits = map (fs_to_prop o singleton) admits
       val vcs = prop2vcs p
@@ -628,32 +630,6 @@ fun runWriter m _ =
       (r, vcs_admits) 
     end
 
-type typing_info = decl list * context * idx list * context
-
-fun str_typing_info gctxn (sctxn, kctxn) (ctxd : context, ds) =
-    let
-      fun on_ns ((name, s), (acc, sctxn)) =
-          ([sprintf "$ : $" [name, str_s gctxn sctxn s](* , "" *)] :: acc, name :: sctxn)
-      val (idx_lines, sctxn) = foldr on_ns ([], sctxn) $ #1 $ ctxd
-      val idx_lines = List.concat $ rev idx_lines
-      fun on_nk ((name, k), (acc, kctxn)) =
-          ([sprintf "$ :: $" [name, str_ke gctxn (sctxn, kctxn) k](* , "" *)] :: acc, name :: kctxn)
-      val (type_lines, kctxn) = foldr on_nk ([], kctxn) $ #2 $ ctxd
-      val type_lines = List.concat $ rev type_lines
-      val expr_lines =
-          (concatMap (fn (name, t) => [sprintf "$ : $" [name, str_t gctxn (sctxn, kctxn) t](* , "" *)]) o rev o #4) ctxd
-      val time_lines =
-          "Times:" :: "" ::
-          (concatMap (fn d => [sprintf "|> $" [str_i gctxn sctxn d](* , "" *)])) ds
-      val lines = 
-          idx_lines
-          @ type_lines
-          @ expr_lines
-      (* @ time_lines  *)
-    in
-      lines
-    end
-      
 fun typecheck_expr gctx ctx e =
     runWriter (fn () => get_mtype gctx (ctx, e)) ()
 	      
@@ -661,14 +637,13 @@ fun typecheck_decls gctx ctx decls =
     let
       fun m () =
           let
-            val skctxn_old = (sctx_names $ #1 ctx, names $ #2 ctx)
             val (decls, ctxd, nps, ds, ctx) = check_decls gctx (ctx, decls)
             val () = close_n nps
             val () = close_ctx ctxd
-            val ret = (decls, ctxd, ds, ctx)
+            val skctxn_old = (sctx_names $ #1 ctx, names $ #2 ctx)
             val () = app println $ str_typing_info (gctx_names gctx) skctxn_old (ctxd, ds)
           in
-            ret
+            (decls, ctxd, ds, ctx)
           end
     in
       runWriter m ()
