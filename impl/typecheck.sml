@@ -43,9 +43,6 @@ fun idx_bin_op_type opr =
       | MultI => raise Impossible "idx_bin_op_type ()"
       | BoundedMinusI => raise Impossible "idx_bin_op_type ()"
 
-(* sorting context *)
-type scontext = (string (* option *) * sort) list
-(* kinding context *)
 datatype kind_ext =
          KeKind of kind
          | KeTypeEq of kind * mtype
@@ -75,6 +72,9 @@ fun package_ke m k =
         KeKind k => KeKind $ package_kind m k
       | KeTypeEq (k, t) => KeTypeEq (package_kind m k, package_mt m t)
                                     
+(* sorting context *)
+type scontext = (string (* option *) * sort) list
+(* kinding context *)
 type kcontext = (string * kind_ext) list 
 (* constructor context *)
 type ccontext = (string * constr) list
@@ -386,7 +386,13 @@ val get_outmost_module = id
 
 fun filter_module gctx = List.mapPartial (fn (name, sg) => case sg of Sig sg => SOME (name, sg) | _ => NONE) gctx
                                          
-fun gctx_names (gctx : sigcontext) = names $ filter_module gctx
+fun gctx_names (gctx : sigcontext) =
+    let
+      val gctx = filter_module gctx
+      val gctx = map (mapSnd ctx_names) gctx
+    in
+      gctx
+    end
                                          
 fun lookup_module gctx m =
     Option.map snd $ nth_error (filter_module gctx) m
@@ -441,14 +447,14 @@ fun fetch_sort_by_name gctx ctx (m, name) =
 fun do_fetch_kind (kctx, (a, r)) =
     case lookup_kind a kctx of
       	SOME k => k
-      | NONE => raise Error (r, ["Unbound type variable: " ^ str_v (names kctx) a])
+      | NONE => raise Error (r, [sprintf "Unbound type variable $ in context $" [str_v (names kctx) a, str_ls id $ names kctx]])
 
 fun fetch_kind a = generic_fetch shiftx_m_k package_kind do_fetch_kind #2 a
 
 fun do_fetch_kindext (kctx, (a, r)) =
     case lookup_kindext a kctx of
       	SOME k => k
-      | NONE => raise Error (r, ["Unbound type variable: " ^ str_v (names kctx) a])
+      | NONE => raise Error (r, [sprintf "Unbound type variable $ in context $" [str_v (names kctx) a, str_ls id $ names kctx]])
 
 fun fetch_kindext a = generic_fetch shiftx_m_ke package_ke do_fetch_kindext #2 a
 
@@ -706,7 +712,7 @@ fun unify_i r gctxn ctxn (i, i') =
       fun error (i, i') = unify_error r (str_i gctxn ctxn i, str_i gctxn ctxn i')
       val i = update_i i
       val i' = update_i i'
-      val () = println $ sprintf "Unifying indices $ and $" [str_i gctxn ctxn i, str_i gctxn ctxn i']
+      (* val () = println $ sprintf "Unifying indices $ and $" [str_i gctxn ctxn i, str_i gctxn ctxn i'] *)
     in
       case (i, i') of
           (UVarI ((invis, x), _), UVarI ((invis', x'), _)) =>
@@ -799,7 +805,7 @@ fun unify_mt r gctx ctx (t, t') =
       val gctxn = gctx_names gctx
       val ctxn = (sctx_names $ #1 ctx, names $ #2 ctx)
       fun error ctxn (t, t') = unify_error r (str_mt gctxn ctxn t, str_mt gctxn ctxn t')
-      val () = println $ sprintf "Unifying types $ and $" [str_mt gctxn ctxn t, str_mt gctxn ctxn t']
+      (* val () = println $ sprintf "Unifying types $ and $" [str_mt gctxn ctxn t, str_mt gctxn ctxn t'] *)
       fun loop (ctx as (sctx, kctx)) (t, t') =
           let 
             val t = whnf_mt gctx kctx t
@@ -836,8 +842,13 @@ fun unify_mt r gctx ctx (t, t') =
                 )
               | (Unit _, Unit _) => ()
 	      | (BaseType (Int, _), BaseType (Int, _)) => ()
-	      | (AppV ((a, _), ts, is, _), AppV ((a', _), ts', is', _)) => 
-	        if a = a' then
+	      | (MtVar x, MtVar x') => 
+	        if eq_long_id (x, x') then
+                  ()
+	        else
+		  raise error ctxn (t, t')
+	      | (AppV (x, ts, is, _), AppV (x', ts', is', _)) => 
+	        if eq_long_id (x, x') then
 		  (ListPair.app (loop ctx) (ts, ts');
                    ListPair.app (unify_i r gctxn sctxn) (is, is'))
 	        else
@@ -1235,7 +1246,7 @@ fun get_kind gctx (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype) : mty
       val check_kind_Type = check_kind_Type gctx
       val gctxn = gctx_names gctx
       val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
-      (* val () = print (sprintf "Type wellformedness checking: $\n" [str_t ctxn c]) *)
+      val () = print (sprintf "Kinding $\n" [U.str_mt gctxn ctxn c])
       fun main () =
           case c of
 	      U.Arrow (c1, d, c2) => 
@@ -1499,6 +1510,7 @@ local
         (* the last argument is for checking that recursive calls to [loop] are always on smaller arguments, to ensure termination *)
         fun loop (t : mtype, cs_all, ()) : habitant =
             let
+              val () = println (sprintf "find_hab on type $" [str_mt (gctx_names gctx) (sctx_names sctx, names kctx) t])
               (* val t = normalize_mt t *)
               val t = whnf_mt gctx kctx t
               (* val size = covers_size cs_all *)
@@ -1532,22 +1544,25 @@ local
                     TrueH
                   else
                     let
-                      (* val () = Debug.println (sprintf "Empty constraints now. Now try to find any inhabitant of type $" [str_mt (sctx_names sctx, names kctx) t]) *)
+                      val () = println (sprintf "Empty constraints now. Now try to find any inhabitant of type $" [str_mt (gctx_names gctx) (sctx_names sctx, names kctx) t])
+                      val ret =
+                          case t of
+                              AppV (family, _, _, _) =>
+                              (case fetch_kind gctx (kctx, family) of
+                                   ArrowK (true, _, _) =>
+	                           let
+                                     val all = get_family_members gctx cctx family
+                                   in
+                                     case all of x :: _ => ConstrH (x, TrueH) | [] => raise Incon "empty datatype"
+                                   end
+                                 | _ => TrueH (* an abstract type is treated as an inhabited type *)
+                              )
+                            | Unit _ => TTH
+                            | Prod (t1, t2) => PairH (loop $ check_size (t1, []), loop $ check_size (t2, []))
+                            | _ => TrueH
+                      val () = println "Found"
                     in
-                      case t of
-                          AppV (family, _, _, _) =>
-                          (case fetch_kind gctx (kctx, family) of
-                               ArrowK (true, _, _) =>
-	                       let
-                                 val all = get_family_members gctx cctx family
-                               in
-                                 case all of x :: _ => ConstrH (x, TrueH) | [] => raise Incon "empty datatype"
-                               end
-                             | _ => TrueH (* an abstract type is treated as an inhabited type *)
-                          )
-                        | Unit _ => TTH
-                        | Prod (t1, t2) => PairH (loop $ check_size (t1, []), loop $ check_size (t2, []))
-                        | _ => TrueH
+                      ret
                     end
                 | c :: cs =>
                   let
@@ -1657,10 +1672,10 @@ fun is_redundant gctx (ctx, t, prevs, this) =
       (*     (isNull o (* (trace "after any_missing()") o *) any_missing true(*treat empty datatype as uninhabited*) ctx t o (* (trace "after cover_imply()") o *) cover_imply ctx t) (small, big) *)
       (* val t = normalize_mt t *)
       val prev = combine_covers prevs
-      (* val () = println "after combine_covers()" *)
+      val () = println "after combine_covers()"
       (* val something_new = not (is_covered ctx t this prev) *)
       val something_new = isSome $ find_hab true(*treat empty datatype as uninhabited*) gctx ctx t $ [this, cover_neg gctx ctx t prev]                                  
-                                 (* val () = println "after is_covered()" *)
+      val () = println "after find_hab()"
     in
       something_new
     end
@@ -1782,27 +1797,28 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
                  val c as (family', tnames, ibinds) = fetch_constr gctx (cctx, cx)
                  val (name_sorts, (t1, is')) = unfold_ibinds ibinds
                  val () = if eia then () else raise Impossible "eia shouldn't be false"
-		 val () = if eq_long_id (family', family) then ()
-                          else
-                            let
-                              val expect = str_long_id gctxn kctxn family
-                              val got = str_long_id gctxn kctxn family'
-                            in
-                              raise Error 
-                                    (r, sprintf "Type of constructor $ doesn't match datatype " [str_long_id gctxn (names cctx) cx] :: 
-                                        indent ["expect: " ^ expect, 
-                                                "got: " ^ got])
-                            end
+		 val () = unify_mt r gctx (sctx, kctx) (MtVar family', MtVar family)
+                          handle
+                          Error _ =>
+                          let
+                            val expect = str_long_id #2 gctxn kctxn family
+                            val got = str_long_id #2 gctxn kctxn family'
+                          in
+                            raise Error
+                                  (r, sprintf "Type of constructor $ doesn't match datatype " [str_long_id #3 gctxn (names cctx) cx] ::
+                                      indent ["expect: " ^ expect,
+                                              "got: " ^ got])
+                          end
 		 val () = if length tnames = length ts then ()
                           else
                             raise Error 
-                                  (r, sprintf "Type of constructor $ doesn't match datatype " [str_long_id gctxn (names cctx) cx] :: 
+                                  (r, sprintf "Type of constructor $ doesn't match datatype " [str_long_id #3 gctxn (names cctx) cx] :: 
                                       indent ["expect number of type arguments: " ^ (str_int $ length ts),
                                               "got: " ^ (str_int $ length tnames)])
 		 val () = if length is' = length is then ()
                           else
                             raise Error 
-                                  (r, sprintf "Type of constructor $ doesn't match datatype " [str_long_id gctxn (names cctx) cx] :: 
+                                  (r, sprintf "Type of constructor $ doesn't match datatype " [str_long_id #3 gctxn (names cctx) cx] :: 
                                       indent ["expect number of index arguments: " ^ (str_int $ length is),
                                               "got: " ^ (str_int $ length is')])
                  val () =
@@ -1896,6 +1912,45 @@ fun update_uvar_t t =
         Mono t => Mono (update_uvar_mt t)
       | Uni (Bind (name, t), r) => Uni (Bind (name, update_uvar_t t), r)
 
+fun update_k k =
+    case k of
+        ArrowK (is_dt, arity, sorts) => ArrowK (is_dt, arity, map update_s sorts)
+
+fun update_ke k =
+    case k of
+        KeKind k => KeKind $ update_k k
+      | KeTypeEq (k, t) => KeTypeEq (update_k k, update_uvar_mt t)
+
+fun update_c (x, tnames, ibinds) =
+    let
+      val (ns, (t, is)) = unfold_ibinds ibinds
+      val ns = map (mapSnd update_s) ns
+      val t = update_uvar_mt t
+      val is = map update_i is
+      val ibinds = fold_ibinds (ns, (t, is))
+    in
+      (x, tnames, ibinds)
+    end
+
+fun update_ctx (sctx, kctx, cctx, tctx) =
+    let
+      val sctx = map (mapSnd update_s) sctx
+      val kctx = map (mapSnd update_ke) kctx
+      val cctx = map (mapSnd update_c) cctx
+      val tctx = map (mapSnd update_uvar_t) tctx
+    in
+      (sctx, kctx, cctx, tctx)
+    end
+
+fun update_sgntr sg =
+    case sg of
+        Sig ctx => Sig $ update_ctx ctx
+      | FunctorBind ((arg_name, arg), body) =>
+        FunctorBind ((arg_name, update_ctx arg), update_ctx body)
+
+fun update_gctx gctx =
+    map (mapSnd update_sgntr) gctx
+            
 fun fv_mt t =
     let
     in      
@@ -1935,13 +1990,15 @@ fun expand_rules gctx (ctx as (sctx, kctx, cctx), rules, t, r) =
     let
       fun expand_rule (rule as (pn, e), (pcovers, rules)) =
           let
+            val () = println "before match_ptrn()"
 	    val (pn, cover, ctxd, nps) = match_ptrn gctx (ctx, (* pcovers, *) pn, t)
+            val () = println "after match_ptrn()"
             val () = close_n nps
             val () = close_ctx ctxd
             (* val cover = ptrn_to_cover pn *)
-            (* val () = println "before check_redundancy()" *)
+            val () = println "before check_redundancy()"
             val () = check_redundancy gctx (ctx, t, pcovers, cover, get_region_pn pn)
-            (* val () = println "after check_redundancy()" *)
+            val () = println "after check_redundancy()"
             val (pcovers, new_rules) =
                 case (pn, e) of
                     (VarP _, U.Never (U.UVar ((), _), _)) =>
@@ -2115,12 +2172,12 @@ fun str_gctx old_gctxn gctx =
                     Sig ctx =>
                     ([sprintf "structure $ : " [name] ] @
                      indent (str_sig gctxn ctx),
-                     [name])
+                     [(name, ctx_names ctx)])
                   | FunctorBind ((arg_name, arg), body) =>
                     ([sprintf "functor $ (structure $ : " [name, arg_name] ] @
                      indent (str_sig gctxn arg) @
                      [") : "] @
-                     indent (str_sig (arg_name :: gctxn) body),
+                     indent (str_sig ((arg_name, ctx_names arg) :: gctxn) body),
                      [])
           in
             (ls :: acc, gctxnd @ gctxn)
@@ -2147,7 +2204,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
       val gctxn = gctx_names gctx
       val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
       val skctxn = (sctxn, kctxn)
-      val () = print (sprintf "Typing $\n" [U.str_e gctxn ctxn e_all])
+      (* val () = print (sprintf "Typing $\n" [U.str_e gctxn ctxn e_all]) *)
       fun print_ctx gctx (ctx as (sctx, kctx, _, tctx)) = app (fn (nm, t) => println $ sprintf "$: $" [nm, str_t (gctx_names gctx) (sctx_names sctx, names kctx) t]) tctx
       fun main () =
 	  case e_all of
@@ -2349,21 +2406,29 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 		(e, t, d)
 	      end
 	    | U.Case (e, return, rules, r) => 
-	      let val (e, t1, d1) = get_mtype (ctx, e)
-                  val return = is_wf_return gctx (skctx, return)
-                  val rules = expand_rules gctx ((sctx, kctx, cctx), rules, t1, r)
-                  val (rules, tds) = check_rules (ctx, rules, (t1, return), r)
-                  fun computed_t () : mtype =
-                      case map fst tds of
-                          [] => raise Error (r, ["Empty case-matching must have a return type clause"])
-                        | t :: ts => 
-                          (map (fn t' => unify_mt r gctx (sctx, kctx) (t, t')) ts; 
-                           t)
-                  fun computed_d () =
-                      (smart_max_list o map snd) tds
-                  val (t, d) = mapPair (lazy_default computed_t, lazy_default computed_d) return
+	      let
+                val () = println "before Case"
+                val (e, t1, d1) = get_mtype (ctx, e)
+                val () = println "before is_wf_return"
+                val return = is_wf_return gctx (skctx, return)
+                val () = println "after is_wf_return"
+                val rules = expand_rules gctx ((sctx, kctx, cctx), rules, t1, r)
+                val () = println "after expand_rules"
+                val (rules, tds) = check_rules (ctx, rules, (t1, return), r)
+                val () = println "after check_rules"
+                fun computed_t () : mtype =
+                    case map fst tds of
+                        [] => raise Error (r, ["Empty case-matching must have a return type clause"])
+                      | t :: ts => 
+                        (map (fn t' => unify_mt r gctx (sctx, kctx) (t, t')) ts; 
+                         t)
+                fun computed_d () =
+                    (smart_max_list o map snd) tds
+                val (t, d) = mapPair (lazy_default computed_t, lazy_default computed_d) return
+		val ret = (Case (e, return, rules, r), t, d1 %+ d)
+                val () = println "after Case"
               in
-		(Case (e, return, rules, r), t, d1 %+ d)
+                ret
               end
 	    | U.Never (t, r) => 
               let
@@ -2422,7 +2487,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
           in
             t
           end
-      val () = println $ sprintf "Typing Decl $" [fst $ U.str_decl (gctx_names gctx) (ctx_names ctx) decl]
+      (* val () = println $ sprintf "Typing Decl $" [fst $ U.str_decl (gctx_names gctx) (ctx_names ctx) decl] *)
       fun main () = 
           case decl of
               U.Val (tnames, U.VarP (name, r1), e, r) =>
@@ -2588,6 +2653,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
                       ctx
                     end
                 val ctxd = clone_module gctx (m, r)
+                val () = open_ctx ctxd
               in
                 (Open (m, r), ctxd, 0, [])
               end

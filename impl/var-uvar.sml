@@ -1,6 +1,7 @@
 signature VAR = sig
   type var
   val str_v : string list -> var -> string
+  val str_long_id : (string list * string list * string list * string list -> string list) -> (string * (string list * string list * string list * string list)) list -> string list -> ((var * Region.region) option * (var * Region.region)) -> string
   val eq_v : var * var -> bool
                             
   val shiftx_v : int -> int -> var -> var

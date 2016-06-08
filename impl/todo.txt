@@ -74,4 +74,5 @@ Done. 55. Investigate amortized complexity analysis.
 66. Have some Nat/Time inference.
 67. Unify [UnOpI], [DivI] and [ExpI].
 68. Change [unify_s] to [is_sub_sort].
-69. Should apply solvers and check no-uvar after every module, not every file (unless we enforce one-module-per-file policy). 
+Done. 69. Should apply solvers and check no-uvar after every module, not every file (unless we enforce one-module-per-file policy). 
+70. Move VC openings from [check_decl] to [check_decls].

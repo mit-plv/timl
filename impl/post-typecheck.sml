@@ -45,7 +45,7 @@ fun str_f gctx ctx f =
           val (gctx, ctx) =
               case ft of
                   FtSorting _ => (gctx, name :: ctx)
-                | FtModule _ => (name :: gctx, ctx)
+                | FtModule sctx => ((name, (sctx_names sctx, [], [], [])) :: gctx, ctx)
         in
           sprintf "(forall ($ : $) ($))" [name, str_ft ft, str_fs gctx ctx fs]
         end
@@ -174,7 +174,7 @@ fun str_f2 gctx ctx f =
           val (gctx, ctx) =
               case ft of
                   FtSorting _ => (gctx, name :: ctx)
-                | FtModule _ => (name :: gctx, ctx)
+                | FtModule sctx => ((name, (sctx_names sctx, [], [], [])) :: gctx, ctx)
         in
           sprintf "(forall ($ : $) ($))" [name, str_ft ft, str_f2 gctx ctx f]
         end
@@ -578,11 +578,11 @@ fun vces_to_vcs vces =
       val () = case vces of
                    [] => ()
                  | _ => raise Impossible "to_vcs (): remaining after get_formulas"
+      (* val () = println "Formulas: " *)
+      (* val () = app println $ map (str_f [] []) fs *)
       val (admits, fs) = get_admits_fs fs
       fun fs_to_prop fs =
           let
-            (* val () = println "Formulas: " *)
-            (* val () = app println $ map (str_f [] []) fs *)
             val f = fs_to_f2 fs
             (* val () = println "Formula2: " *)
             (* val () = println $ str_f2 [] [] f *)
@@ -596,19 +596,17 @@ fun vces_to_vcs vces =
             (* val () = println "Formulas after trim_anchors (): " *)
             (* val () = println $ str_f2 [] f *)
             val p = f2_to_prop f
-            val () = println "Props: "
-            val () = println $ Expr.str_p [] [] p
-            val () = println "Simplifying ... "
+            (* val () = println "Props: " *)
+            (* val () = println $ Expr.str_p [] [] p *)
             val p = Expr.Simp.simp_p p
-            val () = println "Simplified"
           in
             p
           end
       val p = fs_to_prop fs
-      val () = println "Checking no-uvar ... "
+      (* val () = println "Checking no-uvar ... " *)
       val p = no_uvar_p p
-      val () = println "NoUVar Props: "
-      val () = println $ str_p [] [] p
+      (* val () = println "NoUVar Props: " *)
+      (* val () = println $ str_p [] [] p *)
       val p = simp_p p
       (* val () = println "NoUVar Props after simp_p(): " *)
       (* val () = println $ str_p [] [] p *)
@@ -651,6 +649,9 @@ fun typecheck_decls gctx ctx decls =
     in
       runWriter m ()
     end
+      
+fun typecheck_top_bind gctx top_bind =
+    runWriter (fn () => check_top_bind gctx top_bind) ()
       
 fun typecheck_prog gctx prog =
     runWriter (fn () => check_prog gctx prog) ()

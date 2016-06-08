@@ -31,29 +31,11 @@ fun print_result show_region filename old_gctxn gctx =
     in
       lines
     end
-
-fun typecheck_file gctx filename =
+      
+fun process_top_bind filename gctx bind =
     let
-      fun TCctx2NRctx (ctx : TC.context) : NR.context =
-          let
-            val (sctx, kctx, cctx, tctx) = ctx
-            val cctx = map (fn (name, (_, _, core)) => (name, get_constr_inames core)) cctx
-          in
-            (sctx_names sctx, names kctx, cctx, names tctx)
-          end
-      fun TCsgntr2NRsgntr (sg : TC.sgntr) : NR.sgntr =
-          case sg of
-              Sig ctx => NR.Sig $ TCctx2NRctx ctx
-            | FunctorBind ((name, arg), body) => NR.FunctorBind ((name, TCctx2NRctx arg), TCctx2NRctx body)
-      fun TCgctx2NRgctx gctx = map (mapSnd TCsgntr2NRsgntr) gctx
-      val () = println $ sprintf "Typechecking file $ ..." [filename]
-      val prog = parse_file filename
-      val prog = elaborate_prog prog
-      (* val () = (app println o map (suffix "\n") o fst o E.str_decls ctxn) decls *)
-      val (prog, _, _) = resolve_prog (TCgctx2NRgctx gctx) prog
-      (* val () = (app println o map (suffix "\n") o fst o UnderscoredExpr.str_decls ctxn) decls *)
       val old_gctx = gctx
-      val result as ((gctxd, gctx), (vcs, admits)) = typecheck_prog gctx prog
+      val result as ((gctxd, (* gctx *)_), (vcs, admits)) = typecheck_prog gctx [bind]
       (* val () = write_file (filename ^ ".smt2", to_smt2 vcs) *)
       val () = app println $ print_result false filename (gctx_names old_gctx) gctxd
       val () = println $ sprintf "Type checker generated $ proof obligations." [str_int $ length vcs]
@@ -127,6 +109,40 @@ fun typecheck_file gctx filename =
                  concatMap (print_unsat true filename) vcs
                )
       val admits = map (fn admit => (filename, admit)) admits
+      val gctxd = update_gctx gctxd
+      val gctx = gctxd @ old_gctx
+    in
+      (gctx, admits)
+    end
+
+fun typecheck_file gctx filename =
+    let
+      fun TCctx2NRctx (ctx : TC.context) : NR.context =
+          let
+            val (sctx, kctx, cctx, tctx) = ctx
+            val cctx = map (fn (name, (_, _, core)) => (name, get_constr_inames core)) cctx
+          in
+            (sctx_names sctx, names kctx, cctx, names tctx)
+          end
+      fun TCsgntr2NRsgntr (sg : TC.sgntr) : NR.sgntr =
+          case sg of
+              Sig ctx => NR.Sig $ TCctx2NRctx ctx
+            | FunctorBind ((name, arg), body) => NR.FunctorBind ((name, TCctx2NRctx arg), TCctx2NRctx body)
+      fun TCgctx2NRgctx gctx = map (mapSnd TCsgntr2NRsgntr) gctx
+      val () = println $ sprintf "Typechecking file $ ..." [filename]
+      val prog = parse_file filename
+      val prog = elaborate_prog prog
+      (* val () = (app println o map (suffix "\n") o fst o E.str_decls ctxn) decls *)
+      val (prog, _, _) = resolve_prog (TCgctx2NRgctx gctx) prog
+      (* val () = (app println o map (suffix "\n") o fst o UnderscoredExpr.str_decls ctxn) decls *)
+      (* apply solvers after each top bind *)
+      fun iter (bind, (gctx, acc)) =
+          let
+            val (gctx, admits) = process_top_bind filename gctx bind
+          in
+            (gctx, acc @ admits)
+          end
+      val (gctx, admits) = foldl iter (gctx, []) prog
     in
       (gctx, admits)
     end

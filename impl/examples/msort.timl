@@ -1,3 +1,7 @@
+structure MSort = struct
+open Bool
+open List
+       
 fun split ['a] {n : Nat} (xs : {n} 'a list) return {ceil ($n/2)} (* _ *)'a list * {floor ($n/2)} (* _ *)'a list using $n =
     case xs of
         Nil => (Nil, Nil)
@@ -48,3 +52,4 @@ absidx g : BigO 1 (fn n => $n) with
 fun rev ['a] {n : Nat} (xs : {n} 'a list) return {n} _ list using g n = revAppend xs {_} Nil
 end
 
+end

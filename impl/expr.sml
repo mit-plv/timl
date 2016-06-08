@@ -404,28 +404,24 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         (* pretty-printers *)
 
+        type scontext = string list
+        type kcontext = string list 
+        type ccontext = string list
+        type tcontext = string list
+        type context = scontext * kcontext * ccontext * tcontext
+        type sigcontext = (string * context) list
+                                                  
         fun str_bs (s : bsort) =
             case s of
                 Base s => str_b s
               | UVarBS u => str_uvar_bs str_bs u
 
-        fun str_id ctx (x, _) =
-            str_v ctx x
-                  
-        fun str_long_id gctx ctx (m, x) =
-            let
-              val m = default "" $ Option.map (fn x => str_id gctx x ^ ".") m
-              val x = str_id ctx x
-            in
-              m ^ x
-            end
-              
         fun str_i gctx ctx (i : idx) : string =
             let
               val str_i = str_i gctx
             in
               case i of
-                  VarI x => str_long_id gctx ctx x
+                  VarI x => str_long_id #1 gctx ctx x
                 | ConstIN (n, _) => str_int n
                 | ConstIT (x, _) => x
                 | UnOpI (opr, i, _) => sprintf "($ $)" [str_idx_un_op opr, str_i ctx i]
@@ -485,7 +481,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                   in
                     case (bs, p) of
                         (Base (TimeFun arity), BinPred (BigO, VarI x, i2)) =>
-                        if str_long_id gctx (name :: ctx) x = name then
+                        if str_long_id #1 gctx (name :: ctx) x = name then
                           sprintf "BigO $ $" [str_int arity, str_i gctx (name :: ctx) i2]
                         else
                           default ()
@@ -549,16 +545,16 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                   in
                     str_uni gctx ctx (map SortingT binds, t)
                   end
-                | MtVar x => str_long_id gctx kctx x
+                | MtVar x => str_long_id #2 gctx kctx x
                 (* | MtApp (t1, t2) => sprintf "($ $)" [str_mt ctx t1, str_mt ctx t2] *)
                 (* | MtAbs (Bind ((name, _), t), _) => sprintf "(fn [$] => $)" [name, str_mt (sctx, name :: kctx) t] *)
                 (* | MtAppI (t, i) => sprintf "($ $)" [str_mt ctx t, str_i gctx sctx i] *)
                 (* | MtAbsI (s, Bind ((name, _), t), _) => sprintf "(fn {$ : $} => $)" [name, str_s gctx sctx s, str_mt (name :: sctx, kctx) t] *)
                 | AppV (x, ts, is, _) => 
                   if null ts andalso null is then
-	            str_long_id gctx kctx x
+	            str_long_id #2 gctx kctx x
                   else
-	            sprintf "($$$)" [(join "" o map (suffix " ") o map (surround "{" "}") o map (str_i gctx sctx) o rev) is, (join "" o map (suffix " ") o map (str_mt ctx) o rev) ts, str_long_id gctx kctx x]
+	            sprintf "($$$)" [(join "" o map (suffix " ") o map (surround "{" "}") o map (str_i gctx sctx) o rev) is, (join "" o map (suffix " ") o map (str_mt ctx) o rev) ts, str_long_id #2 gctx kctx x]
                 | BaseType (bt, _) => str_bt bt
                 | UVar (u, _) => str_uvar_mt str_mt ctx u
             end
@@ -621,7 +617,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               val str_pn = str_pn gctx
             in
               case pn of
-                  ConstrP ((x, eia), inames, pn, _) => sprintf "$$$" [decorate_var eia $ str_long_id gctx cctx x, join_prefix " " $ map (surround "{" "}") inames, str_opt (fn pn => " " ^ str_pn ctx pn) pn]
+                  ConstrP ((x, eia), inames, pn, _) => sprintf "$$$" [decorate_var eia $ str_long_id #3 gctx cctx x, join_prefix " " $ map (surround "{" "}") inames, str_opt (fn pn => " " ^ str_pn ctx pn) pn]
                 | VarP (name, _) => name
                 | PairP (pn1, pn2) => sprintf "($, $)" [str_pn ctx pn1, str_pn ctx pn2]
                 | TTP _ => "()"
@@ -647,7 +643,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               val skctx = (sctx, kctx) 
             in
               case e of
-	          Var (x, b) => decorate_var b $ str_long_id gctx tctx x
+	          Var (x, b) => decorate_var b $ str_long_id #4 gctx tctx x
 	        | Abs (pn, e) => 
                   let 
                     val (inames, enames) = ptrn_names pn
@@ -680,7 +676,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	        | AscriptionTime (e, d) => sprintf "($ |> $)" [str_e ctx e, str_i gctx sctx d]
 	        | BinOp (opr, e1, e2) => sprintf "($ $ $)" [str_e ctx e1, str_bin_op opr, str_e ctx e2]
 	        | ConstInt (n, _) => str_int n
-	        | AppConstr ((x, b), is, e) => sprintf "($$ $)" [decorate_var b $ str_long_id gctx cctx x, (join "" o map (prefix " ") o map (fn i => sprintf "{$}" [str_i gctx sctx i])) is, str_e ctx e]
+	        | AppConstr ((x, b), is, e) => sprintf "($$ $)" [decorate_var b $ str_long_id #3 gctx cctx x, (join "" o map (prefix " ") o map (fn i => sprintf "{$}" [str_i gctx sctx i])) is, str_e ctx e]
 	        | Case (e, return, rules, _) => sprintf "(case $ $of $)" [str_e ctx e, str_return gctx skctx return, join " | " (map (str_rule gctx ctx) rules)]
 	        | Never (t, _) => sprintf "(never [$])" [str_mt gctx skctx t]
             end
@@ -767,7 +763,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 | TypeDef ((name, _), t) =>
                   (sprintf "type $ = $" [name, str_mt gctx (sctx, kctx) t], add_kinding name ctx)
                 | Open (m, _) =>
-                  (sprintf "open $" [str_v gctx m], ctx)
+                  (sprintf "open $" [str_v (map fst gctx) m], ctx)
             end
               
         and str_rule gctx (ctx as (sctx, kctx, cctx, tctx)) (pn, e) =
@@ -2225,6 +2221,15 @@ structure StringVar = struct
 open Util
 type var = string
 fun str_v ctx x : string = x
+
+fun str_long_id sel gctx ctx (m, x) =
+    let
+      val m = default "" (Option.map fst m)
+      val x = str_v ctx (fst x)
+    in
+      m ^ x
+    end
+      
 fun eq_v (x : var, y) = x = y
                               
 fun shiftx_v x n y = y
@@ -2242,7 +2247,26 @@ fun str_v ctx x : string =
     (* sprintf "%$" [str_int x] *)
     case nth_error ctx x of
         SOME name => name
-      | NONE => "unbound_" ^ str_int x
+  | NONE => "unbound_" ^ str_int x
+            
+fun str_id ctx (x, _) =
+    str_v ctx x
+          
+fun str_long_id sel gctx ctx (m, x) =
+    let
+      val (mod_name, ctx) =
+          case m of
+              SOME (m, _) =>
+              (case nth_error gctx m of
+                   SOME (name, ctx) => (name ^ ".", sel ctx)
+                 | NONE => ("unbound_module_" ^ str_int m ^ ".", [])
+              )
+            | NONE => ("", ctx)
+      val x = str_id ctx x
+    in
+      mod_name ^ x
+    end
+              
 fun eq_v (x : var, y) = x = y
 
 fun shiftx_v x n y = 
