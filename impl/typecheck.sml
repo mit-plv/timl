@@ -43,6 +43,278 @@ fun idx_bin_op_type opr =
       | MultI => raise Impossible "idx_bin_op_type ()"
       | BoundedMinusI => raise Impossible "idx_bin_op_type ()"
 
+(* a special kind of substitution, where a variable y >= x will be replaced with m.(y-x) *)
+
+fun package_long_id x m (long_id as (m', (y, r))) =
+    case m' of
+        NONE =>
+        if y >= x then
+          (SOME m, (y - x, r))
+        else
+          long_id
+      | SOME _ =>
+        (* if it has module reference, don't substitute *)
+        long_id
+                         
+local
+  fun f x v b =
+      case b of
+	  VarI y => VarI $ package_long_id x v y
+	| ConstIN n => ConstIN n
+	| ConstIT x => ConstIT x
+        | UnOpI (opr, i, r) => UnOpI (opr, f x v i, r)
+        | DivI (i1, n2) => DivI (f x v i1, n2)
+        | ExpI (i1, n2) => ExpI (f x v i1, n2)
+	| BinOpI (opr, d1, d2) => BinOpI (opr, f x v d1, f x v d2)
+        | Ite (i1, i2, i3, r) => Ite (f x v i1, f x v i2, f x v i3, r)
+	| TrueI r => TrueI r
+	| FalseI r => FalseI r
+	| TTI r => TTI r
+        | TimeAbs (name, i, r) => TimeAbs (name, f (x + 1) v i, r)
+        | AdmitI r => AdmitI r
+        | UVarI a => raise ModuleUVar "package_i_i ()"
+in
+fun package_i_i x v (b : idx) : idx = f x v b
+end
+fun package0_i v = package_i_i 0 v
+
+fun package_i_ibind f x v bind =
+    case bind of
+        Bind (name, inner) => Bind (name, f (x + 1) v inner)
+
+fun package_i_tbind f x v bind =
+    case bind of
+        Bind (name, inner) => Bind (name, f x v inner)
+
+local
+  fun f x v b =
+      case b of
+	  True r => True r
+	| False r => False r
+        | Not (p, r) => Not (f x v p, r)
+	| BinConn (opr,p1, p2) => BinConn (opr, f x v p1, f x v p2)
+	| BinPred (opr, d1, d2) => BinPred (opr, package_i_i x v d1, package_i_i x v d2)
+        | Quan (q, bs, bind, r) => Quan (q, bs, package_i_ibind f x v bind, r)
+in
+fun package_i_p x v b = f x v b
+end
+
+local
+  fun f x v b =
+      case b of
+	  Basic s => Basic s
+	| Subset (s, bind, r) => Subset (s, package_i_ibind package_i_p x v bind, r)
+        | UVarS a => raise ModuleUVar "package_i_s ()"
+in
+fun package_i_s x v (b : sort) : sort = f x v b
+end
+fun package0_s v = package_i_s 0 v
+
+local
+  fun f x v b =
+      case b of
+	  Arrow (t1, d, t2) => Arrow (f x v t1, package_i_i x v d, f x v t2)
+        | Unit r => Unit r
+	| Prod (t1, t2) => Prod (f x v t1, f x v t2)
+	| UniI (s, bind, r) => UniI (package_i_s x v s, package_i_ibind f x v bind, r)
+        | MtVar y => MtVar y
+	| AppV (y, ts, is, r) => AppV (y, map (f x v) ts, map (package_i_i x v) is, r)
+	| BaseType a => BaseType a
+        | UVar a => raise ModuleUVar "package_i_mt ()"
+in
+fun package_i_mt x v (b : mtype) : mtype = f x v b
+end
+
+local
+  fun f x v b =
+      case b of
+	  Mono t => Mono (package_i_mt x v t)
+	| Uni (bind, r) => Uni (package_i_tbind f x v bind, r)
+in
+fun package_i_t x v (b : ty) : ty = f x v b
+end
+
+fun package_t_ibind f x v bind =
+    case bind of
+        Bind (name, inner) => Bind (name, f x v inner)
+
+fun package_t_tbind f x v bind =
+    case bind of
+        Bind (name, inner) => Bind (name, f (x + 1) v inner)
+
+local
+  fun f x v (b : mtype) : mtype =
+      case b of
+	  Arrow (t1, d, t2) => Arrow (f x v t1, d, f x v t2)
+        | Unit r => Unit r
+	| Prod (t1, t2) => Prod (f x v t1, f x v t2)
+	| UniI (s, bind, r) => UniI (s, package_t_ibind f x v bind, r)
+        | MtVar y => MtVar $ package_long_id x v y
+	| AppV (y, ts, is, r) =>
+          AppV (package_long_id x v y, map (f x v) ts, is, r)
+	| BaseType a => BaseType a
+        | UVar a => raise ModuleUVar "package_m_mt ()"
+in
+fun package_t_mt x v (b : mtype) : mtype = f x v b
+end
+fun package0_mt v b = package_t_mt 0 v $ package_i_mt 0 v b
+
+fun package_t_t x v (b : ty) : ty =
+    case b of
+        Mono t => Mono (package_t_mt x v t)
+      | Uni (bind, r) => Uni (package_t_tbind package_t_t x v bind, r)
+fun package0_t v b = package_t_t 0 v $ package_i_t 0 v b
+
+fun package_i_kind x v b =
+    case b of
+	ArrowK (is_datatype, n, sorts) => ArrowK (is_datatype, n, map (package_i_s x v) sorts)
+fun package0_kind v = package_i_kind 0 v
+                                                 
+fun package_i_ibinds f_cls f_inner x v ibinds =
+    let
+      val package_i_ibinds = package_i_ibinds f_cls f_inner
+    in
+      case ibinds of
+          BindNil inner => BindNil $ f_inner x v inner
+        | BindCons (cls, bind) => BindCons (f_cls x v cls, package_i_ibind package_i_ibinds x v bind)
+    end
+      
+fun package_t_ibinds f_cls f_inner x v ibinds =
+    let
+      val package_t_ibinds = package_t_ibinds f_cls f_inner
+    in
+      case ibinds of
+          BindNil inner => BindNil $ f_inner x v inner
+        | BindCons (cls, bind) => BindCons (f_cls x v cls, package_t_ibind package_t_ibinds x v bind)
+    end
+      
+fun package_i_c x m (family, tnames, core) =
+    let
+      fun package_i_body x v (t, is) = (package_i_mt x v t, map (package_i_i x v) is)
+      val core = package_i_ibinds package_i_s package_i_body x m core
+    in
+      (family, tnames, core)
+    end
+
+fun package_t_c x m (family, tnames, core) =
+    let
+      fun package_t_body x v (t, is) = (package_t_mt x v t, is)
+      fun package_t_s x v b = b
+      val family = package_long_id x m family
+      val core = package_t_ibinds package_t_s package_t_body (x + length tnames) m core
+    in
+      (family, tnames, core)
+    end
+
+fun package0_c v b =
+    package_t_c 0 v $ package_i_c 0 v b
+      
+(*                               
+fun package_long_id m (m', x) =
+    (SOME $ default m m', x)
+      
+fun package_i m b =
+    let
+      fun f b =
+	  case b of
+	      VarI x => VarI $ package_long_id m x
+	    | ConstIN n => ConstIN n
+	    | ConstIT x => ConstIT x
+            | UnOpI (opr, i, r) => UnOpI (opr, f i, r)
+            | DivI (i1, n2) => DivI (f i1, n2)
+            | ExpI (i1, n2) => ExpI (f i1, n2)
+	    | BinOpI (opr, i1, i2) => BinOpI (opr, f i1, f i2)
+            | Ite (i1, i2, i3, r) => Ite (f i1, f i2, f i3, r)
+	    | TTI r => TTI r
+	    | TrueI r => TrueI r
+	    | FalseI r => FalseI r
+            | TimeAbs (name, i, r) => TimeAbs (name, f i, r)
+            | AdmitI r => AdmitI r
+            | UVarI a => raise ModuleUVar "package_i ()"
+    in
+      f b
+    end
+
+fun package_ibind f m bind =
+    case bind of
+        Bind (name, inner) => Bind (name, f m inner)
+
+fun package_tbind f m bind =
+    case bind of
+        Bind (name, inner) => Bind (name, f m inner)
+
+fun package_p m b =
+    let
+      fun f m b =
+          case b of
+	      True r => True r
+	    | False r => False r
+            | Not (p, r) => Not (f m p, r)
+	    | BinConn (opr, p1, p2) => BinConn (opr, f m p1, f m p2)
+	    | BinPred (opr, d1, d2) => BinPred (opr, package_i m d1, package_i m d2)
+            | Quan (q, bs, bind, r) => Quan (q, bs, package_ibind f m bind, r)
+    in
+      f m b
+    end
+
+fun package_s m b =
+    let
+      fun f m b =
+	  case b of
+	      Basic s => Basic s
+	    | Subset (s, bind, r) => Subset (s, package_ibind package_p m bind, r)
+            | UVarS a => raise ModuleUVar "package_s ()"
+    in
+      f m b
+    end
+
+fun package_mt m b =
+    let
+      fun f m b =
+	  case b of
+	      Arrow (t1, d, t2) => Arrow (f m t1, package_i m d, f m t2)
+            | Unit r => Unit r
+	    | Prod (t1, t2) => Prod (f m t1, f m t2)
+	    | UniI (s, bind, r) => UniI (package_s m s, package_ibind f m bind, r)
+            | MtVar x => MtVar $ package_long_id m x
+            (* | MtApp (t1, t2) => MtApp (f m t1, f m t2) *)
+            (* | MtAbs (bind, r) => MtAbs (package_tbind f m bind, r) *)
+            (* | MtAppI (t, i) => MtAppI (f m t, package_i m i) *)
+            (* | MtAbsI (s, bind, r) => MtAbsI (package_s m s, package_ibind f m bind, r) *)
+	    | AppV (x, ts, is, r) => AppV (package_long_id m x, map (f m) ts, map (package_i m) is, r)
+	    | BaseType a => BaseType a
+            | UVar a => raise ModuleUVar "package_mt ()"
+    in
+      f m b
+    end
+
+fun package_t m b =
+    let
+      fun f m b =
+	  case b of
+	      Mono t => Mono (package_mt m t)
+	    | Uni (bind, r) => Uni (package_tbind f m bind, r)
+    in
+      f m b
+    end
+
+fun package_kind m b =
+    case b of
+	ArrowK (is_datatype, n, sorts) => ArrowK (is_datatype, n, map (package_s m) sorts)
+
+fun package_c m (family, tnames, core) =
+    let
+      val family = package_long_id m family
+      val (name_sorts, (t, is)) = unfold_binds core
+      val t = package_mt m t
+      val is = map (package_i m) is
+      val name_sorts = map (mapSnd $ package_s m) name_sorts
+      val core = fold_binds (name_sorts, (t, is))
+    in
+      (family, tnames, core)
+    end
+*)
+               
 datatype kind_ext =
          KeKind of kind
          | KeTypeEq of kind * mtype
@@ -51,7 +323,7 @@ fun str_ke gctx (ctx as (sctx, kctx)) k =
     case k of
         KeKind k => str_k gctx sctx k
       | KeTypeEq (k, t) => sprintf "(= $ :: $)" [str_mt gctx ctx t, str_k gctx sctx k]
-                                
+                                   
 fun shiftx_i_ke x n k =
     case k of
         KeKind k => KeKind $ shiftx_i_k x n k
@@ -67,10 +339,18 @@ fun shiftx_m_ke x n k =
         KeKind k => KeKind $ shiftx_m_k x n k
       | KeTypeEq (k, t) => KeTypeEq (shiftx_m_k x n k, shiftx_m_mt x n t)
 
-fun package_ke m k =
+fun package_i_ke x v k =
     case k of
-        KeKind k => KeKind $ package_kind m k
-      | KeTypeEq (k, t) => KeTypeEq (package_kind m k, package_mt m t)
+        KeKind k => KeKind $ package_i_kind x v k
+      | KeTypeEq (k, t) => KeTypeEq (package_i_kind x v k, package_i_mt x v t)
+                                    
+fun package_t_ke x v k =
+    case k of
+        KeKind k => KeKind k
+      | KeTypeEq (k, t) => KeTypeEq (k, package_t_mt x v t)
+
+fun package0_ke v b =
+    package_t_ke 0 v $ package_i_ke 0 v b
                                     
 (* sorting context *)
 type scontext = (string (* option *) * sort) list
@@ -120,7 +400,6 @@ fun shiftx_t_ts n ctx =
 
 fun shiftx_snd f x n (a, b) = (a, f x n b)
 fun shiftx_list_snd f x n ls = map (mapSnd (f x n)) ls
-fun package_snd f m (a, b) = (a, f m b)
                                
 fun shiftx_m_ctx x n (sctx, kctx, cctx, tctx) : context =
     (shiftx_list_snd shiftx_m_s x n sctx,
@@ -129,12 +408,19 @@ fun shiftx_m_ctx x n (sctx, kctx, cctx, tctx) : context =
      shiftx_list_snd shiftx_m_t x n tctx
     )
 
-fun package_ctx m (sctx, kctx, cctx, tctx) =
+fun pacakge_is_mt vs b =
+    fst (foldl (fn (v, (b, x)) => (package_i_mt x v b, x - 1)) (b, length vs - 1) vs)
+fun package_ts_mt vs b =
+    fst (foldl (fn (v, (b, x)) => (package_t_mt x v b, x - 1)) (b, length vs - 1) vs)
+        
+fun package0_ctx m (sctx, kctx, cctx, tctx) =
     let
-      val sctx = map (package_snd package_s m) sctx
-      val kctx = map (package_snd package_ke m) kctx
-      val cctx = map (package_snd package_c m) cctx
-      val tctx = map (package_snd package_t m) tctx
+      val sctx = foldrWithIdx 0 (fn ((name, s), acc, x) => (name, package_i_s x m s) :: acc) [] sctx
+      val sctx_len = length sctx
+      val kctx = foldrWithIdx 0 (fn ((name, k), acc, x) => (name, package_i_ke sctx_len m $ package_t_ke x m k) :: acc) [] kctx
+      val kctx_len = length kctx
+      val cctx = map (fn (name, c) => (name, package_t_c kctx_len m $ package_i_c sctx_len m c)) cctx
+      val tctx = map (fn (name, t) => (name, package_t_t kctx_len m $ package_i_t sctx_len m t)) tctx
     in
       (sctx, kctx, cctx, tctx)
     end
@@ -343,7 +629,7 @@ fun update_s s =
 exception Error of region * string list
 
 (* fetching from context *)
-                      
+                                   
 fun lookup_sort (n : int) (ctx : scontext) : sort option =
     case nth_error ctx n of
         NONE => NONE
@@ -393,7 +679,7 @@ fun gctx_names (gctx : sigcontext) =
     in
       gctx
     end
-                                         
+      
 fun lookup_module gctx m =
     Option.map snd $ nth_error (filter_module gctx) m
 
@@ -430,16 +716,18 @@ fun do_fetch_sort (ctx, (x, r)) =
       	SOME s => s
       | NONE => raise Error (r, ["Unbound index variable: " ^ str_v (sctx_names ctx) x])
 
-fun fetch_sort a = generic_fetch shiftx_m_s package_s do_fetch_sort #1 a
+fun fetch_sort a = generic_fetch shiftx_m_s package0_s do_fetch_sort #1 a
                                  
 fun do_fetch_sort_by_name (ctx, (name, r)) =
     case lookup_sort_by_name ctx name of
         SOME (i, s) => ((i, r), s)
       | NONE => raise Error (r, ["Can't find index variable: " ^ name])
 
+fun package0_snd f m (a, b) = (a, f m b)
+                    
 fun fetch_sort_by_name gctx ctx (m, name) =
     let
-      val (x, s) = generic_fetch (shiftx_snd shiftx_m_s) (package_snd package_s) do_fetch_sort_by_name #1 gctx (ctx, (m, name))
+      val (x, s) = generic_fetch (shiftx_snd shiftx_m_s) (package0_snd package0_s) do_fetch_sort_by_name #1 gctx (ctx, (m, name))
     in
       ((m, x), s)
     end
@@ -449,14 +737,14 @@ fun do_fetch_kind (kctx, (a, r)) =
       	SOME k => k
       | NONE => raise Error (r, [sprintf "Unbound type variable $ in context $" [str_v (names kctx) a, str_ls id $ names kctx]])
 
-fun fetch_kind a = generic_fetch shiftx_m_k package_kind do_fetch_kind #2 a
+fun fetch_kind a = generic_fetch shiftx_m_k package0_kind do_fetch_kind #2 a
 
 fun do_fetch_kindext (kctx, (a, r)) =
     case lookup_kindext a kctx of
       	SOME k => k
       | NONE => raise Error (r, [sprintf "Unbound type variable $ in context $" [str_v (names kctx) a, str_ls id $ names kctx]])
 
-fun fetch_kindext a = generic_fetch shiftx_m_ke package_ke do_fetch_kindext #2 a
+fun fetch_kindext a = generic_fetch shiftx_m_ke package0_ke do_fetch_kindext #2 a
 
 fun do_fetch_kindext_by_name (kctx, (name, r)) =
     case lookup_kindext_by_name kctx name of
@@ -465,7 +753,7 @@ fun do_fetch_kindext_by_name (kctx, (name, r)) =
 
 fun fetch_kindext_by_name gctx ctx (m, name) =
     let
-      val (x, k) = generic_fetch (shiftx_snd shiftx_m_ke) (package_snd package_ke) do_fetch_kindext_by_name #2 gctx (ctx, (m, name))
+      val (x, k) = generic_fetch (shiftx_snd shiftx_m_ke) (package0_snd package0_ke) do_fetch_kindext_by_name #2 gctx (ctx, (m, name))
     in
       ((m, x), k)
     end
@@ -473,12 +761,12 @@ fun fetch_kindext_by_name gctx ctx (m, name) =
 fun do_fetch_constr (ctx, (x, r)) =
     case lookup_constr x ctx of
 	SOME c => c
-      | NONE => raise Error (r, [sprintf "Unbound constructor: $" [str_v (names ctx) x]])
+      | NONE => raise Error (r, [sprintf "Unbound constructor $ in context $" [str_v (names ctx) x, str_ls fst ctx]])
 
-fun fetch_constr a = generic_fetch shiftx_m_c package_c do_fetch_constr #3 a
+fun fetch_constr a = generic_fetch shiftx_m_c package0_c do_fetch_constr #3 a
                                    
 fun fetch_constr_type gctx (ctx : ccontext, x) =
-    constr_type VarT shiftx_v $ fetch_constr gctx (ctx, x)
+    constr_type VarT shiftx_long_id $ fetch_constr gctx (ctx, x)
 
 fun do_fetch_constr_by_name (ctx, (name, r)) =
     case find_idx_value name ctx of
@@ -487,20 +775,20 @@ fun do_fetch_constr_by_name (ctx, (name, r)) =
 
 fun fetch_constr_by_name gctx ctx (m, name) =
     let
-      val (x, c) = generic_fetch (shiftx_snd shiftx_m_c) (package_snd package_c) do_fetch_constr_by_name #3 gctx (ctx, (m, name))
+      val (x, c) = generic_fetch (shiftx_snd shiftx_m_c) (package0_snd package0_c) do_fetch_constr_by_name #3 gctx (ctx, (m, name))
     in
       ((m, x), c)
     end
       
 fun fetch_constr_type_by_name gctx ctx name =
-    mapSnd (constr_type VarT shiftx_v) $ fetch_constr_by_name gctx ctx name
+    mapSnd (constr_type VarT shiftx_long_id) $ fetch_constr_by_name gctx ctx name
 
 fun do_fetch_type (tctx, (x, r)) =
     case lookup_type x tctx of
       	SOME t => t
       | NONE => raise Error (r, ["Unbound variable: " ^ str_v (names tctx) x])
 
-fun fetch_type a = generic_fetch shiftx_m_t package_t do_fetch_type #4 a
+fun fetch_type a = generic_fetch shiftx_m_t package0_t do_fetch_type #4 a
 
 fun do_fetch_type_by_name (ctx, (name, r)) =
     case find_idx_value name ctx of
@@ -509,7 +797,7 @@ fun do_fetch_type_by_name (ctx, (name, r)) =
 
 fun fetch_type_by_name gctx ctx (m, name) =
     let
-      val (x, t) = generic_fetch (shiftx_snd shiftx_m_t) (package_snd package_t) do_fetch_type_by_name #4 gctx (ctx, (m, name))
+      val (x, t) = generic_fetch (shiftx_snd shiftx_m_t) (package0_snd package0_t) do_fetch_type_by_name #4 gctx (ctx, (m, name))
     in
       ((m, x), t)
     end
@@ -600,7 +888,7 @@ datatype vc_entry =
 
 fun VcSorting (name, s) = VcForall (name, FtSorting s)
 fun VcModule (name, m) = VcForall (name, FtModule m)
-             
+                                  
 val acc = ref ([] : vc_entry list)
 
 fun write x = push_ref acc x
@@ -608,7 +896,7 @@ fun write x = push_ref acc x
 fun open_paren () = write OpenParen
 fun open_sorting ns = write $ VcSorting ns
 fun open_module (name, ctx : context) = write $ VcModule (name, #1 ctx)
-                            
+                                              
 fun close_paren () = write CloseParen
 fun close_n n = repeat_app close_paren n
 fun open_premises ps = app write $ map ImplyVC ps
@@ -671,7 +959,7 @@ fun open_close add ns ctx f =
     end
 
 (* unification *)
-            
+      
 fun unify_error r (s, s') =             
     Error (r, ["Can't unify"] @ indent [s] @ ["and"] @ indent [s'])
 
@@ -712,7 +1000,7 @@ fun unify_i r gctxn ctxn (i, i') =
       fun error (i, i') = unify_error r (str_i gctxn ctxn i, str_i gctxn ctxn i')
       val i = update_i i
       val i' = update_i i'
-      (* val () = println $ sprintf "Unifying indices $ and $" [str_i gctxn ctxn i, str_i gctxn ctxn i'] *)
+                        (* val () = println $ sprintf "Unifying indices $ and $" [str_i gctxn ctxn i, str_i gctxn ctxn i'] *)
     in
       case (i, i') of
           (UVarI ((invis, x), _), UVarI ((invis', x'), _)) =>
@@ -870,7 +1158,7 @@ fun unify_t r gctx ctx (t, t') =
         in
           raise unify_error r (str_t gctxn ctxn t, str_t gctxn ctxn t')
         end
-                                                                         
+          
 fun kind_mismatch gctx sctx expect have = sprintf "Kind mismatch: expect $ have $" [expect, str_k gctx sctx have]
 
 fun unify_kind r gctxn sctxn (k, k') =
@@ -1246,7 +1534,7 @@ fun get_kind gctx (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype) : mty
       val check_kind_Type = check_kind_Type gctx
       val gctxn = gctx_names gctx
       val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
-      val () = print (sprintf "Kinding $\n" [U.str_mt gctxn ctxn c])
+      (* val () = print (sprintf "Kinding $\n" [U.str_mt gctxn ctxn c]) *)
       fun main () =
           case c of
 	      U.Arrow (c1, d, c2) => 
@@ -1634,17 +1922,20 @@ local
                                     inr (dissident, c :: remove i cs, t)
                             end
                           | _ => inr (c, cs, t)
+                    val ret =
+                        case result of
+                            inl hab => hab
+                          | inr (c, cs, t) =>
+                            case (c, t) of
+                                (TrueC, _) => loop $ check_size (t, cs)
+                              | (FalseC, _) => raise Incon "false"
+                              | (AndC (c1, c2), _) => loop $ check_size (t, c1 :: c2 :: cs)
+                              | (OrC (c1, c2), _) =>
+                                (loop $ check_size (t, c1 :: cs) handle Incon _ => loop $ check_size (t, c2 :: cs))
+                              | _ => raise impossible "find_hab()"
+                    val () = println (sprintf "Done find_hab on type $" [str_mt (gctx_names gctx) (sctx_names sctx, names kctx) t])
                   in
-                    case result of
-                        inl hab => hab
-                      | inr (c, cs, t) =>
-                        case (c, t) of
-                            (TrueC, _) => loop $ check_size (t, cs)
-                          | (FalseC, _) => raise Incon "false"
-                          | (AndC (c1, c2), _) => loop $ check_size (t, c1 :: c2 :: cs)
-                          | (OrC (c1, c2), _) =>
-                            (loop $ check_size (t, c1 :: cs) handle Incon _ => loop $ check_size (t, c2 :: cs))
-                          | _ => raise impossible "find_hab()"
+                    ret
                   end
             end
       in
@@ -1950,7 +2241,7 @@ fun update_sgntr sg =
 
 fun update_gctx gctx =
     map (mapSnd update_sgntr) gctx
-            
+        
 fun fv_mt t =
     let
     in      
@@ -2153,7 +2444,7 @@ fun str_typing_info gctxn (sctxn, kctxn) (ctxd : context, ds) =
           idx_lines
           @ type_lines
           @ expr_lines
-      (* @ time_lines  *)
+              (* @ time_lines  *)
     in
       lines
     end
@@ -2162,7 +2453,7 @@ fun str_sig gctxn ctx =
     ["sig"] @
     indent (str_typing_info gctxn ([], []) (ctx, [])) @
     ["end"]
-                  
+      
 fun str_gctx old_gctxn gctx =
     let 
       fun str_sigging ((name, sg), (acc, gctxn)) =
@@ -2442,10 +2733,10 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                       Error (r, msg) => raise Error (r, msg @ ["when type-checking"] @ indent [U.str_e gctxn ctxn e_all])
       val t = simp_mt $ update_uvar_mt t
       val d = simp_i $ update_i d
-      (* val () = println $ str_ls id $ #4 ctxn *)
-      (* val () = print (sprintf "  Typed : $: \n          $\n" [str_e ((* upd4 (const [])  *)ctxn) e, str_mt skctxn t]) *)
-      (* val () = print (sprintf "   Time : $: \n" [str_i sctxn d]) *)
-      (* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_mt skctxn t, str_e ctxn e, str_i sctxn d]) *)
+                     (* val () = println $ str_ls id $ #4 ctxn *)
+                     (* val () = print (sprintf "  Typed : $: \n          $\n" [str_e ((* upd4 (const [])  *)ctxn) e, str_mt skctxn t]) *)
+                     (* val () = print (sprintf "   Time : $: \n" [str_i sctxn d]) *)
+                     (* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_mt skctxn t, str_e ctxn e, str_i sctxn d]) *)
     in
       (e, t, d)
     end
@@ -2589,8 +2880,8 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
                 val s = sort_add_idx_eq r s i
                 val ctxd = ctx_from_sorting (name, s)
                 val () = open_ctx ctxd
-                (* val ps = [BinPred (EqP, VarI (NONE, (0, r)), shift_ctx_i ctxd i)] *)
-                (* val () = open_premises ps *)
+                                  (* val ps = [BinPred (EqP, VarI (NONE, (0, r)), shift_ctx_i ctxd i)] *)
+                                  (* val () = open_premises ps *)
               in
                 (IdxDef ((name, r), s, i), ctxd, 0, [])
               end
@@ -2685,7 +2976,7 @@ and check_decls gctx (ctx, decls) : decl list * context * int * idx list * conte
       val decls = rev decls
       val ctxd = (upd4 o map o mapSnd) (simp_t o update_uvar_t) ctxd
       val ds = map simp_i $ map update_i $ rev ds
-      (* val () = app println $ str_typing_info (gctx_names gctx) skctxn_old (ctxd, ds) *)
+                   (* val () = app println $ str_typing_info (gctx_names gctx) skctxn_old (ctxd, ds) *)
     in
       (decls, ctxd, nps, ds, ctx)
     end
@@ -2699,7 +2990,7 @@ and is_wf_datatype gctx ctx (name, tnames, sorts, constr_decls, r) : datatype_de
 	  let
             val family = (NONE, (0, r))
             val c = (family, tnames, ibinds)
-	    val t = U.constr_type U.VarT shiftx_v c
+	    val t = U.constr_type U.VarT shiftx_long_id c
 	    val t = is_wf_type gctx ((sctx, kctx), t)
 		    handle Error (_, msg) =>
 			   raise Error (r, 
@@ -2851,7 +3142,7 @@ fun link_sig r gctx m (ctx' as (sctx', kctx', cctx', tctx') : context) =
       fun match_constr_type (name, c) =
           let
             val (_, t) = fetch_constr_type_by_name gctx [] (SOME m, (name, r))
-            val t' = constr_type VarT shiftx_v c
+            val t' = constr_type VarT shiftx_long_id c
           in
             unify_t r gctx (sctx', kctx') (t', t)
           end
@@ -3025,7 +3316,7 @@ fun check_top_bind gctx bind =
     in
       gctxd
     end
-          
+      
 and check_prog gctx binds =
     let
       fun open_gctx gctx =
