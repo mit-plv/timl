@@ -30,7 +30,7 @@ fun runError m _ =
 fun on_id ctx (x, r) =
     case find_idx x ctx of
 	SOME i => (i, r)
-      | NONE => raise Error (r, "Unbound variable " ^ x ^ sprintf " in context: $" [join " " $ rev ctx])
+      | NONE => raise Error (r, sprintf "Unbound variable $ in context: $" [x, str_ls id ctx])
 
 fun lookup_module gctx m =
     find_idx_value m (List.mapPartial (fn (name, sg) => case sg of Sig sg => SOME (name, sg) | _ => NONE) gctx)
@@ -49,7 +49,7 @@ fun find_long_id gctx sel eq ctx (m, (x, xr)) =
 fun on_long_id gctx sel ctx x =
     case find_long_id gctx sel is_eq_snd ctx x of
         SOME x => x
-      | NONE => raise Error (E.get_region_long_id x, sprintf "Unbound variable $ in context: $" [E.str_long_id #1 [] [] x, join " " $ rev $ ctx @ map fst gctx])
+      | NONE => raise Error (E.get_region_long_id x, sprintf "Unbound (long) variable '$' in context: $ $" [E.str_long_id #1 [] [] x, str_ls id ctx, str_ls fst gctx])
                       
 fun find_constr (gctx : sigcontext) ctx x =
     flip Option.map (find_long_id gctx #3 is_eq_fst_snd ctx x)

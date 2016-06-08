@@ -2157,10 +2157,10 @@ structure IntVar = struct
 open Util
 type var = int
 fun str_v ctx x : string =
-    sprintf "%$" [str_int x]
-  (*   case nth_error ctx x of *)
-  (*       SOME name => name *)
-  (* | NONE => "unbound_" ^ str_int x *)
+    (* sprintf "%$" [str_int x] *)
+    case nth_error ctx x of
+        SOME name => name
+  | NONE => "unbound_" ^ str_int x
             
 fun str_id ctx (x, _) =
     str_v ctx x

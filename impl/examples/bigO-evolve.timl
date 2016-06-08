@@ -1,3 +1,6 @@
+structure BigOEvolve = struct
+open List
+       
 (* The following is the thought process of evoluting [map] from using precise time spec to using big-O time spec. *)
 
 (* original version *)
@@ -110,3 +113,5 @@ val ['a 'b] map =
     in
         map
     end
+
+end
