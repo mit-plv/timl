@@ -85,6 +85,7 @@ val ['a 'b] map =
     end
 end
 
+(*
 (* the magic goes further: even [g]'s BigO class can be inferred! *)
 idx g_spec : Fun 2 = _
 absidx g : BigO 2 (* (fn m n => $m * $n) *)(* _ *) g_spec with
@@ -113,5 +114,6 @@ val ['a 'b] map =
     in
         map
     end
+*)
 
 end

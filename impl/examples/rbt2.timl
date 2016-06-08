@@ -1,3 +1,6 @@
+structure Rbt = struct
+open Bool
+       
 (* color: true=Black | false=Red *)
 datatype {Bool} color =
          Black of {true} color
@@ -151,3 +154,4 @@ fun lookup ['a 'b] {bh : Nat} (tr : {bh} ('a * 'b) rb_tree) k return 'b option u
         RBTree tr => search tr k
 end
 
+end

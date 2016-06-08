@@ -3322,8 +3322,8 @@ fun check_top_bind gctx bind =
               in
                 (name, Sig body) :: gctxd
               end
-      val () = println "Typechecked program:"
-      val () = app println $ str_gctx (gctx_names gctx) gctxd
+      (* val () = println "Typechecked program:" *)
+      (* val () = app println $ str_gctx (gctx_names gctx) gctxd *)
     in
       gctxd
     end

@@ -1,3 +1,7 @@
+structure InsertionSort = struct
+open Bool
+open List
+       
 absidx g : BigO 2 (fn m n => $m * $n) with
 fun insert ['a] {m : Nat} {n : Nat} (le : 'a * 'a -- $m --> bool) (xs : {n} (* _ *)'a list) x return {n + 1} (* _ *)'a list using g m n =
     case xs of
@@ -13,4 +17,6 @@ fun isort ['a] {m : Nat} {n : Nat} (le : 'a * 'a -- $m --> bool) (xs : {n} (* _ 
     case xs of
         Nil => Nil
       | Cons (x, xs) => insert le (isort le xs) x
+end
+
 end

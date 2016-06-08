@@ -1,3 +1,6 @@
+structure SingleVar = struct
+open List
+       
 absidx gg : {gg : Fun 1 | gg O (fn n => $n)} with
 val g =
  fn {n : Nat} (xs : {n} int list) return using gg n => xs
@@ -77,4 +80,6 @@ fun isort ['a] {n : Nat} (le : 'a * 'a -- 7.0(* _ *) --> bool) (xs : {n} (* _ *)
     case xs of
         Nil => Nil
       | Cons (x, xs) => insert le (isort le xs) x
+end
+
 end

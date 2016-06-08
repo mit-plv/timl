@@ -1,3 +1,5 @@
+structure Rbt = struct
+
 (* color: true=Black | false=Red *)
 datatype {Nat} {Bool} 'a rbt =
          Leaf of {1} {true} 'a rbt
@@ -135,6 +137,8 @@ fun insert ['a] {bh : Nat} (tr : {bh} 'a rb_tree) new return {bh} 'a rbt_may_gro
           | _ => never
 end
 
+open Bool
+       
 absidx g : BigO 1 (fn n => $n) with
 fun search ['a 'b] {color : Bool} {bh : Nat} (tr : {bh} {color} ('a * 'b) rbt) k return 'b option using g (2 * bh + b2n (not color)) =
     case tr of
@@ -157,4 +161,6 @@ absidx g : BigO 1 (fn n => $n) with
 fun lookup ['a 'b] {bh : Nat} (tr : {bh} ('a * 'b) rb_tree) k return 'b option using g bh =
     case tr of
         RBTree tr => search tr k
+end
+
 end

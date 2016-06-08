@@ -25,7 +25,7 @@ fun print_result show_region filename old_gctxn gctx =
       val typing_lines = str_gctx old_gctxn gctx
       val lines = 
           header @
-          ["Types: ", ""] @
+          (* ["Types: ", ""] @ *)
           typing_lines @
           [""]
     in
@@ -37,7 +37,7 @@ fun process_top_bind filename gctx bind =
       val old_gctx = gctx
       val result as ((gctxd, (* gctx *)_), (vcs, admits)) = typecheck_prog gctx [bind]
       (* val () = write_file (filename ^ ".smt2", to_smt2 vcs) *)
-      val () = app println $ print_result false filename (gctx_names old_gctx) gctxd
+      (* val () = app println $ print_result false filename (gctx_names old_gctx) gctxd *)
       val () = println $ sprintf "Type checker generated $ proof obligations." [str_int $ length vcs]
       (* val () = app println $ concatMap (fn vc => VC.str_vc false filename vc @ [""]) vcs *)
       fun print_unsat show_region filename (vc, counter) =

@@ -2016,16 +2016,32 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                             (* val () = println $ str_p [] [] p_all *)
                             val p = passp p
                             (* val () = println $ str_bs bs *)
+                            fun default_time_fun n =
+                                if n <= 0 then
+                                  T0 dummy
+                                else
+                                  TimeAbs (("__dummy_default", dummy), default_time_fun (n - 1), dummy)
+                            fun default_idx b =
+                                case b of
+                                    TimeFun arity =>
+                                    SOME $ default_time_fun arity
+                                  | Nat =>
+                                    SOME $ N0 dummy
+                                  | BoolSort =>
+                                    SOME $ FalseI dummy
+                                  | UnitSort =>
+                                    SOME $ TTI dummy
                             val inferred =
-                                case try_forget (forget_i_p 0 1) p of
-                                    SOME p =>
-                                       if eq_bs bs (Base Time) then
-                                         SOME (p, T0 dummy)
-                                       else if eq_bs bs (Base Nat) then
-                                         SOME (p, N0 dummy)
-                                       else
-                                         NONE
-                                  | NONE => NONE
+                                case bs of
+                                    Base b =>
+                                    opt_bind
+                                      (try_forget (forget_i_p 0 1) p)
+                                      (fn p =>
+                                          opt_bind
+                                            (default_idx b)
+                                            (fn i =>
+                                                opt_return (p, i)))
+                                  | _ => NONE
                           in
                             case inferred of
                                 SOME (p, v) =>

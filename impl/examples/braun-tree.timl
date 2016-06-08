@@ -1,3 +1,6 @@
+structure BraunTree = struct
+open Bool
+
 datatype {Nat} 'a braun_tree =
          Leaf of {0} 'a braun_tree
        | Node {size : Nat} of 'a * {ceil ($size/2)} 'a braun_tree * {floor ($size/2)} 'a braun_tree --> {size+1} 'a braun_tree
@@ -79,3 +82,4 @@ fun pop ['a] {size : Nat} (tr : {size + 1} 'a braun_tree) return 'a * {size} 'a 
       | Leaf => never
 end
 
+end

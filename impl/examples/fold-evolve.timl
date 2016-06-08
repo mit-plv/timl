@@ -1,3 +1,6 @@
+structure FoldEvolve = struct
+open List
+       
 val ['a 'b] foldl =
  fn {m : Nat} (f : 'a * 'b -- $m --> 'b) =>
     let
@@ -35,3 +38,4 @@ val ['a 'b] foldl =
     end
 end
 
+end
