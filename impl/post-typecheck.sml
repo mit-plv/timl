@@ -612,6 +612,7 @@ fun vces_to_vcs vces =
       (* val () = println $ str_p [] [] p *)
       val p = uniquefy [] p
       val admits = map (fs_to_prop o singleton) admits
+      (* val admits = map Expr.Simp.simp_p admits *)
       val vcs = prop2vcs p
       val vcs = concatMap simp_vc_vcs vcs
       (* val () = app println $ concatMap (str_vc false "") vcs *)

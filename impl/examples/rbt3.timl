@@ -1,6 +1,9 @@
+structure Rbt = struct
+
 (* Red-black tree with invariant for well-red-ness, black-height-blance and sorted-ness. Key type is indexed unsigned fixed-width integers *)
 
-(* open Uint *)
+open Bool
+open Uint
        
 datatype {Bool} color =
          Black of {true} color
@@ -152,4 +155,6 @@ absidx Tlookup : BigO 1 (fn n => $n) with
 fun lookup ['a] {bh k : Nat} (tr : {bh} 'a rb_tree) (k : {k} uint) return 'a option using Tlookup bh =
     case tr of
         RBTree tr => lookup' tr k
+end
+
 end

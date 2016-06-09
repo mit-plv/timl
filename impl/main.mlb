@@ -14,6 +14,7 @@ front-end/timl.grm.sml
 front-end/timl.lex.sml
 front-end/parser.sml
 bind.sml
+var-uvar.sml
 expr.sml
 uvar-expr.sml
 elaborate.sml
@@ -30,6 +31,7 @@ smt-solver.sml
 trivial-solver.sml
 bigO-solver.sml
 typecheck.sml
+post-typecheck.sml
 main.sml
 
 mlton-main.sml

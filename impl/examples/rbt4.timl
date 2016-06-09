@@ -1,6 +1,9 @@
+structure Rbt = struct
+
 (* Red-black tree with invariant for well-red-ness, black-height-blance and sorted-ness. Size-height-ratio can be derived from well-red-ness and black-height-blance. Key type is indexed unsigned fixed-width integers *)
 
-(* open Uint *)
+open Bool
+open Uint
        
 datatype {Nat} {Nat} lemma1 =
          Lemma1 {a b : Nat} {2 ^ a <= b + 1 -> a <= ceil (log2 $(b + 1))} of {b} {a} lemma1
@@ -278,4 +281,6 @@ fun lookup ['a] {size k : Nat} (tr : {size} 'a rb_tree) (k : {k} uint) return 'a
         in
           lookup_rbt tr k using 2.0 + T_lookup_rbt (ceil (log2 $(size + 1)))
         end
+end
+
 end

@@ -16,6 +16,7 @@ front-end/timl.grm \
 front-end/timl.lex \
 front-end/parser.sml \
 bind.sml \
+var-uvar.sml \
 expr.sml \
 uvar-expr.sml \
 elaborate.sml \
@@ -25,6 +26,7 @@ nouvar-expr.sml \
 vc.sml \
 bigO-solver.sml \
 typecheck.sml \
+post-typecheck.sml \
 sexp/sexp.sml \
 sexp/sexp.grm \
 sexp/sexp.lex \

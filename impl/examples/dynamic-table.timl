@@ -1,3 +1,7 @@
+structure DynamicTable = struct
+open List
+open Uint
+       
 datatype {Nat} {Nat} 'a table =
          Dummy {size num : Nat} of {num} {size} 'a table
 
@@ -101,4 +105,6 @@ fun insert_seq ['a] {n size num : Nat} {2 * num <= n + size} (xs : {n} 'a list) 
     in
       SomeGoodTable table
     end
+end
+
 end

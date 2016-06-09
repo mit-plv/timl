@@ -1,6 +1,9 @@
+structure BraunTree = struct
+
 (* Braun tree with invariant for balance and sortedness. Key type is indexed unsigned fixed-width integers *)
 
-(* open Uint *)
+open Bool
+open Uint
        
 datatype {Nat(*size*)} {Nat(*min element*)} braun_tree =
          Leaf of {0} {0} braun_tree
@@ -99,4 +102,6 @@ fun pop {size k : Nat} (tr : {size + 1} {k} braun_tree) return {size} {k} pop us
            | _ => never
         )
       | Leaf => never
+end
+
 end

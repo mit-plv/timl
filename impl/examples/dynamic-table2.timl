@@ -1,3 +1,8 @@
+structure DynamicTable = struct
+open Bool
+open List
+open Uint
+       
 datatype {Nat} {Nat} 'a table =
          Dummy {size num : Nat} of {num} {size} 'a table
 
@@ -175,4 +180,6 @@ end
 absidx T_insert_delete_seq_0 : BigO 1 (fn n => $n) with
 fun insert_delete_seq_0 ['a] {n : Nat} (xs : {n} (bool * 'a) list) (table : {0} {0} 'a good_table) return 'a some_good_table using T_insert_delete_seq_0 n =
     insert_delete_seq xs table using 2.0 + 48.0 * $n
+end
+
 end

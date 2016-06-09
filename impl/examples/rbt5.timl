@@ -1,5 +1,9 @@
+structure Rbt = struct
+
 (* Red-black tree with invariant for well-red-ness and black-height-blance. Size-height-ratio can be derived from well-red-ness and black-height-blance. *)
 
+open Bool
+       
 datatype {Nat} {Nat} lemma1 =
          Lemma1 {a b : Nat} {2 ^ a <= b + 1 -> a <= ceil (log2 $(b + 1))} of {b} {a} lemma1
 
@@ -271,4 +275,6 @@ fun lookup ['k 'v] {size : Nat} (tr : {size} ('k * 'v) rb_tree) k return 'v opti
         in
           lookup_rbt tr k using 2.0 + T_lookup_rbt (ceil (log2 $(size + 1)))
         end
+end
+
 end
