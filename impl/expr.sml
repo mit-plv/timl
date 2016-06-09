@@ -1144,7 +1144,10 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	            | FalseI r => FalseI r
                     | TimeAbs (name, i, r) => TimeAbs (name, f (x + 1) n i, r)
                     | AdmitI r => AdmitI r
-                    | UVarI a => raise ModuleUVar "on_m_i ()"
+                    | UVarI a =>
+                      (* (* ToDo: unsafe *) *)
+                      (* UVarI a *)
+                      raise ModuleUVar "on_m_i ()"
             in
               f x n b
             end

@@ -72,7 +72,10 @@ local
 	| TTI r => TTI r
         | TimeAbs (name, i, r) => TimeAbs (name, f (x + 1) v i, r)
         | AdmitI r => AdmitI r
-        | UVarI a => raise ModuleUVar "package_i_i ()"
+        | UVarI a =>
+          (* (* ToDo: unsafe *) *)
+          (* UVarI a *)
+          raise ModuleUVar "package_i_i ()"
 in
 fun package_i_i x v (b : idx) : idx = f x v b
 end
@@ -2908,8 +2911,8 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
                 val s = sort_add_idx_eq r s i
                 val ctxd = ctx_from_sorting (name, s)
                 val () = open_ctx ctxd
-                                  (* val ps = [BinPred (EqP, VarI (NONE, (0, r)), shift_ctx_i ctxd i)] *)
-                                  (* val () = open_premises ps *)
+                (* val ps = [BinPred (EqP, VarI (NONE, (0, r)), shift_ctx_i ctxd i)] *)
+                (* val () = open_premises ps *)
               in
                 (IdxDef ((name, r), s, i), ctxd, 0, [])
               end
@@ -3351,16 +3354,15 @@ and check_prog gctx binds =
           app open_module $ rev $ filter_module gctx
       fun close_gctx gctx =
           close_n $ length $ filter_module gctx
-      val () = open_gctx gctx
       fun iter (bind, (acc, gctx)) =
           let
+            val () = open_gctx gctx
             val gctxd = check_top_bind gctx bind
-            val () = open_gctx gctxd
+            val () = close_gctx gctx
           in
             (gctxd @ acc, gctxd @ gctx)
           end
       val ret as (gctxd, gctx) = foldl iter ([], gctx) binds
-      val () = close_gctx gctx
     in
       ret
     end

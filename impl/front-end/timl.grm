@@ -175,7 +175,7 @@ module : STRUCT decl_star END (ModComponents (decl_star, (decl_starleft, decl_st
     | module COLON_GT sgn (ModSeal (module, sgn))
                      | module COLON sgn (ModTransparentAscription (module, sgn))
 
-sgn : specs (SigComponents (specs, (specsleft, specsright)))
+sgn : SIG specs END (SigComponents (specs, (specsleft, specsright)))
 
 specs : spec specs (spec :: specs)
   | ([])

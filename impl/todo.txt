@@ -27,7 +27,7 @@ Done. 26. Change syntax order of function name and [t] declares.
 Done. 27. Be able to infer for [tree_map] and [tree_foldl].
 28. Have module system.
     Road map to add module system:
-    (1) Have a barebone module system with only modules, signatures, sealing, functors and 'open'. No hierarchy (embeded modules), module alias, signature alias, 'where'/'sharing', 'include'.
+Done. (1) Have a barebone module system with only modules, signatures, sealing, functors and 'open'. No hierarchy (embeded modules), module alias, signature alias, 'where'/'sharing', 'include'.
     (2) Combine name-resolve and typecheck.
     (3) Combine cctx and tctx into tctx.
     (4) Combine idx and type into constructors, sort and kind into kind, Combine sctx and kctx into kctx.
@@ -77,5 +77,7 @@ Done. 55. Investigate amortized complexity analysis.
 Done. 69. Should apply solvers and check no-uvar after every module, not every file (unless we enforce one-module-per-file policy). 
 70. Move VC openings from [check_decl] to [check_decls].
 71. [subst] should do lazy shifting, not eager.
-72. The last two examples in bigO-evolve.timl about using [idx] instead of [absidx] doesn't work now.
+Done. 72. The last two examples in bigO-evolve.timl about using [idx] instead of [absidx] doesn't work now.
 73. Simplify unused 'forall' in [prop].
+74. [BigOEvolveSealed] in bigO-evolve.timl doesn't work yet.
+75. if-then-else syntax.
