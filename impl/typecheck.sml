@@ -706,6 +706,9 @@ fun fetch_from_module (params as (shift, package, do_fetch)) (* sigs *) gctx ((m
       v
     end
       
+fun add_error_msg (r, old_msg) new_msg =
+    (r, new_msg @ ["Cause:"] @ indent old_msg)
+                
 fun generic_fetch shift package do_fetch sel (ggctx as ((* sigs,  *)gctx : sigcontext)) (fctx, (m, x)) =
     case m of
         NONE => do_fetch (fctx, x)
@@ -733,19 +736,22 @@ fun fetch_sort_by_name gctx ctx (m, name) =
       ((m, x), s)
     end
       
-fun do_fetch_kind (kctx, (a, r)) =
-    case lookup_kind a kctx of
-      	SOME k => k
-      | NONE => raise Error (r, [sprintf "Unbound type variable $ in context $" [str_v (names kctx) a, str_ls id $ names kctx]])
-
-fun fetch_kind a = generic_fetch shiftx_m_k package0_kind do_fetch_kind #2 a
-
 fun do_fetch_kindext (kctx, (a, r)) =
     case lookup_kindext a kctx of
       	SOME k => k
       | NONE => raise Error (r, [sprintf "Unbound type variable $ in context $" [str_v (names kctx) a, str_ls id $ names kctx]])
 
-fun fetch_kindext a = generic_fetch shiftx_m_ke package0_ke do_fetch_kindext #2 a
+fun fetch_kindext gctx (kctx, x) =
+    generic_fetch shiftx_m_ke package0_ke do_fetch_kindext #2 gctx (kctx, x)
+    handle Error e => raise Error $ add_error_msg e [sprintf "Unbound name '$' in context $ $" [str_long_id #2 (gctx_names gctx) (names kctx) x, str_ls fst kctx, str_ls fst gctx ]]
+
+(* fun do_fetch_kind (kctx, (a, r)) = *)
+(*     case lookup_kind a kctx of *)
+(*       	SOME k => k *)
+(*       | NONE => raise Error (r, [sprintf "Unbound type variable $ in context $" [str_v (names kctx) a, str_ls id $ names kctx]]) *)
+
+(* fun fetch_kind a = generic_fetch shiftx_m_k package0_kind do_fetch_kind #2 a *)
+fun fetch_kind gctx (kctx, x) = get_ke_kind $ fetch_kindext gctx (kctx, x)
 
 fun do_fetch_kindext_by_name (kctx, (name, r)) =
     case lookup_kindext_by_name kctx name of
@@ -2512,8 +2518,15 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
       val gctxn = gctx_names gctx
       val ctxn as (sctxn, kctxn, cctxn, tctxn) = ctx_names ctx
       val skctxn = (sctxn, kctxn)
-      (* val () = print (sprintf "Typing $\n" [U.str_e gctxn ctxn e_all]) *)
-      fun print_ctx gctx (ctx as (sctx, kctx, _, tctx)) = app (fn (nm, t) => println $ sprintf "$: $" [nm, str_t (gctx_names gctx) (sctx_names sctx, names kctx) t]) tctx
+      fun print_ctx gctx (ctx as (sctx, kctx, _, tctx)) =
+          let
+            val () = println $ str_ls fst kctx
+            (* val () = str_ls (fn (nm, t) => println $ sprintf "$: $" [nm, str_t (gctx_names gctx) (sctx_names sctx, names kctx) t]) tctx *)
+          in
+            ()
+          end
+      (* val () = print $ sprintf "Typing $\n" [U.str_e gctxn ctxn e_all] *)
+      (* val () = print_ctx gctx ctx *)
       fun main () =
 	  case e_all of
 	      U.Var (info as (x, eia)) =>
@@ -2563,14 +2576,15 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                 (Var info, t, T0 dummy)
               end
 	    | U.App (e1, e2) =>
-	      let 
+	      let
                 val (e2, t2, d2) = get_mtype (ctx, e2)
                 val r = U.get_region_e e1
                 val d = fresh_i sctxn (Base Time) r
                 val t = fresh_mt (kctxn @ sctxn) r
-                val (e1, _, d1) = check_mtype (ctx, e1, Arrow (t2, d, t)) 
+                val (e1, _, d1) = check_mtype (ctx, e1, Arrow (t2, d, t))
+                val ret = (App (e1, e2), t, d1 %+ d2 %+ T1 dummy %+ d) 
               in
-                (App (e1, e2), t, d1 %+ d2 %+ T1 dummy %+ d) 
+                ret
 	      end
 	    | U.Abs (pn, e) => 
 	      let
@@ -2745,7 +2759,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
       val t = simp_mt $ update_uvar_mt t
       val d = simp_i $ update_i d
                      (* val () = println $ str_ls id $ #4 ctxn *)
-                     (* val () = print (sprintf "  Typed : $: \n          $\n" [str_e ((* upd4 (const [])  *)ctxn) e, str_mt skctxn t]) *)
+      (* val () = print (sprintf " Typed $: \n        $\n" [str_e gctxn ctxn e, str_mt gctxn skctxn t]) *)
                      (* val () = print (sprintf "   Time : $: \n" [str_i sctxn d]) *)
                      (* val () = print (sprintf "  type: $ [for $]\n  time: $\n" [str_mt skctxn t, str_e ctxn e, str_i sctxn d]) *)
     in
@@ -2823,7 +2837,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
               end
 	    | U.Rec (tnames, (name, r1), (binds, ((t, d), e)), r) => 
 	      let 
-                val ctx = add_kindings_skct (zip ((rev o map fst) tnames, repeat (length tnames) Type)) ctx
+                val ctx as (sctx, kctx, cctx, tctx) = add_kindings_skct (zip ((rev o map fst) tnames, repeat (length tnames) Type)) ctx
                 fun f (bind, (binds, ctxd, nps)) =
                     case bind of
                         U.SortingST (name, s) => 
@@ -2838,7 +2852,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
                         end
                       | U.TypingST pn =>
                         let
-                          val ctx as (sctx, kctx, _, _) = add_ctx ctxd ctx
+                          val ctx as (sctx, kctx, cctx, tctx) = add_ctx ctxd ctx
                           val r = U.get_region_pn pn
                           val t = fresh_mt (names kctx @ names sctx) r
                           val skcctx = (sctx, kctx, cctx) 
@@ -2851,7 +2865,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
                         end
                 val (binds, ctxd, nps) = foldl f ([], empty_ctx, 0) binds
                 val binds = rev binds
-                val (sctx, kctx, _, _) = add_ctx ctxd ctx
+                val (sctx, kctx, cctx, tctx) = add_ctx ctxd ctx
 	        val t = check_kind_Type gctx ((sctx, kctx), t)
 	        val d = check_bsort gctx (sctx, d, Base Time)
                 fun g (bind, t) =
@@ -2963,7 +2977,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
           main ()
           handle
           Error (r, msg) => raise Error (r, msg @ ["when type-checking declaration "] @ indent [fst $ U.str_decl (gctx_names gctx) (ctx_names ctx) decl])
-	                          (* val () = println $ sprintf "  Typed : $ " [fst $ str_decl (ctx_names ctx) decl] *)
+      (* val () = println $ sprintf " Typed Decl $ " [fst $ str_decl (gctx_names gctx) (ctx_names ctx) decl] *)
 	                          (* val () = print $ sprintf "   Time : $: \n" [str_i sctxn d] *)
     in
       ret

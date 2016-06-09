@@ -1105,7 +1105,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                     (* | MtAbs (bind, r) => MtAbs (on_t_tbind f x n bind, r) *)
                     (* | MtAppI (t, i) => MtAppI (f x n t, i) *)
                     (* | MtAbsI (s, bind, r) => MtAbsI (s, on_t_ibind f x n bind, r) *)
-	            | AppV ((m, (y, r1)), ts, is, r) => AppV ((m, (on_v x n y, r1)), map (f x n) ts, is, r)
+	            | AppV (y, ts, is, r) => AppV (on_v_long_id on_v x n y, map (f x n) ts, is, r)
 	            | BaseType a => BaseType a
                     | UVar a => on_t_UVar UVar f x n a
             in
