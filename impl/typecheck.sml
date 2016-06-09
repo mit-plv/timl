@@ -117,7 +117,7 @@ local
         | Unit r => Unit r
 	| Prod (t1, t2) => Prod (f x v t1, f x v t2)
 	| UniI (s, bind, r) => UniI (package_i_s x v s, package_i_ibind f x v bind, r)
-        | MtVar y => MtVar y
+        (* | MtVar y => MtVar y *)
 	| AppV (y, ts, is, r) => AppV (y, map (f x v) ts, map (package_i_i x v) is, r)
 	| BaseType a => BaseType a
         | UVar a => raise ModuleUVar "package_i_mt ()"
@@ -149,7 +149,7 @@ local
         | Unit r => Unit r
 	| Prod (t1, t2) => Prod (f x v t1, f x v t2)
 	| UniI (s, bind, r) => UniI (s, package_t_ibind f x v bind, r)
-        | MtVar y => MtVar $ package_long_id x v y
+        (* | MtVar y => MtVar $ package_long_id x v y *)
 	| AppV (y, ts, is, r) =>
           AppV (package_long_id x v y, map (f x v) ts, is, r)
 	| BaseType a => BaseType a
@@ -827,20 +827,25 @@ fun try_retrieve_MtVar f gctx kctx x =
           KeKind _ => MtVar x
         | KeTypeEq (_, t) => f t
     end
-      
+
+fun check_is_MtVar r y =
+    (* ToDo: can do better *)
+    case y of
+        AppV (x, [], [], _) => x
+      (* | MtVar x => x *)
+      | _ => raise Error (r, ["Head of type operator application must be a datatype name"])
+                                   
 fun whnf_mt gctx kctx t =
     let
       val whnf_mt = whnf_mt gctx
     in
       case t of
           UVar a => try_retrieve_UVar (whnf_mt kctx) a
-        | MtVar x => try_retrieve_MtVar (whnf_mt kctx) gctx kctx x
+        (* | MtVar x => try_retrieve_MtVar (whnf_mt kctx) gctx kctx x *)
         | AppV (y, ts, is, r) =>
           let
             val y = try_retrieve_MtVar (whnf_mt kctx) gctx kctx y
-            val y = case y of
-                        MtVar x => x
-                      | _ => raise Error (r, ["Head of type operator application must be a datatype name"])
+            val y = check_is_MtVar r y
           in
             AppV (y, ts, is, r)
           end
@@ -853,17 +858,15 @@ fun normalize_mt gctx kctx t =
     in
       case t of
           UVar a => try_retrieve_UVar (normalize_mt kctx) a
-        | MtVar x => try_retrieve_MtVar (normalize_mt kctx) gctx kctx x
         | Unit r => Unit r
         | Arrow (t1, d, t2) => Arrow (normalize_mt kctx t1, update_i d, normalize_mt kctx t2)
         | Prod (t1, t2) => Prod (normalize_mt kctx t1, normalize_mt kctx t2)
         | UniI (s, Bind (name, t1), r) => UniI (update_s s, Bind (name, normalize_mt (shiftx_i_kctx 1 kctx) t1), r)
+        (* | MtVar x => try_retrieve_MtVar (normalize_mt kctx) gctx kctx x *)
         | AppV (y, ts, is, r) =>
           let
             val y = try_retrieve_MtVar (normalize_mt kctx) gctx kctx y
-            val y = case y of
-                        MtVar x => x
-                      | _ => raise Error (r, ["Head of type operator application must be a datatype name"])
+            val y = check_is_MtVar r y
           in
             AppV (y, map (normalize_mt kctx) ts, map update_i is, r)
           end
@@ -1137,11 +1140,11 @@ fun unify_mt r gctx ctx (t, t') =
                 )
               | (Unit _, Unit _) => ()
 	      | (BaseType (Int, _), BaseType (Int, _)) => ()
-	      | (MtVar x, MtVar x') => 
-	        if eq_long_id (x, x') then
-                  ()
-	        else
-		  raise error ctxn (t, t')
+	      (* | (MtVar x, MtVar x') =>  *)
+	      (*   if eq_long_id (x, x') then *)
+              (*     () *)
+	      (*   else *)
+	      (*     raise error ctxn (t, t') *)
 	      | (AppV (x, ts, is, _), AppV (x', ts', is', _)) => 
 	        if eq_long_id (x, x') then
 		  (ListPair.app (loop ctx) (ts, ts');
@@ -1577,8 +1580,8 @@ fun get_kind gctx (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype) : mty
             | U.UVar ((), r) =>
               (*ToDo: need to create a fresh kind, like what we does for U.UVarI *)
               (fresh_mt (sctxn @ kctxn) r, Type)
-            | U.MtVar x =>
-              (MtVar x, fetch_kind gctx (kctx, x))
+            (* | U.MtVar x => *)
+            (*   (MtVar x, fetch_kind gctx (kctx, x)) *)
       val ret =
           main ()
           handle
@@ -2217,7 +2220,7 @@ fun update_uvar_mt t =
       | Arrow (t1, d, t2) => Arrow (update_uvar_mt t1, update_i d, update_uvar_mt t2)
       | Prod (t1, t2) => Prod (update_uvar_mt t1, update_uvar_mt t2)
       | UniI (s, Bind (name, t1), r) => UniI (update_s s, Bind (name, update_uvar_mt t1), r)
-      | MtVar x => MtVar x
+      (* | MtVar x => MtVar x *)
       | AppV (y, ts, is, r) => AppV (y, map update_uvar_mt ts, map update_i is, r)
       | BaseType a => BaseType a
 
@@ -2274,7 +2277,7 @@ fun fv_mt t =
         | Arrow (t1, _, t2) => fv_mt t1 @ fv_mt t2
         | Prod (t1, t2) => fv_mt t1 @ fv_mt t2
         | UniI (s, Bind (name, t1), _) => fv_mt t1
-        | MtVar x => []
+        (* | MtVar x => [] *)
         | AppV (y, ts, is, r) => concatMap fv_mt ts
         | BaseType _ => []
     end
@@ -2787,7 +2790,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
 	          | Prod (t1, t2) => Prod (substu x v t1, substu x v t2)
 	          | UniI (s, Bind (name, t1), r) => UniI (s, Bind (name, substu x v t1), r)
                   (* don't need to consult type variable's definition *)
-                  | MtVar x => MtVar x
+                  (* | MtVar x => MtVar x *)
 	          | AppV (y, ts, is, r) => 
 		    AppV (y, map (substu x v) ts, is, r)
 	          | BaseType a => BaseType a

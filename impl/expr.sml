@@ -96,13 +96,15 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  | Unit of region
 	         | Prod of mtype * mtype
 	         | UniI of sort * (name * mtype) ibind * region
-                 | MtVar of long_id
+                 (* | MtVar of long_id *)
                  (* | MtApp of mtype * mtype *)
                  (* | MtAbs of (name * mtype) tbind * region *)
                  (* | MtAppI of mtype * idx *)
                  (* | MtAbsI of sort * (name * mtype) ibind * region *)
                  | AppV of long_id * mtype list * idx list * region (* the first operant of App can only be a type variable. The degenerated case of no-arguments is also included *)
 
+        fun MtVar x = AppV (x, [], [], snd (snd x))
+            
         datatype ty = 
 	         Mono of mtype
 	         | Uni of (name * ty) tbind * region
@@ -545,7 +547,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                   in
                     str_uni gctx ctx (map SortingT binds, t)
                   end
-                | MtVar x => str_long_id #2 gctx kctx x
+                (* | MtVar x => str_long_id #2 gctx kctx x *)
                 (* | MtApp (t1, t2) => sprintf "($ $)" [str_mt ctx t1, str_mt ctx t2] *)
                 (* | MtAbs (Bind ((name, _), t), _) => sprintf "(fn [$] => $)" [name, str_mt (sctx, name :: kctx) t] *)
                 (* | MtAppI (t, i) => sprintf "($ $)" [str_mt ctx t, str_i gctx sctx i] *)
@@ -846,7 +848,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | Unit r => r
               | Prod (t1, t2) => combine_region (get_region_mt t1) (get_region_mt t2)
               | UniI (_, _, r) => r
-              | MtVar y => get_region_long_id y
+              (* | MtVar y => get_region_long_id y *)
               (* | MtApp (t1, t2) => combine_region (get_region_mt t1) (get_region_mt t2) *)
               (* | MtAbs (_, r) => r *)
               (* | MtAppI (t, i) => combine_region (get_region_mt t) (get_region_i i) *)
@@ -1044,7 +1046,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                     | Unit r => Unit r
 	            | Prod (t1, t2) => Prod (f x n t1, f x n t2)
 	            | UniI (s, bind, r) => UniI (on_i_s x n s, on_i_ibind f x n bind, r)
-                    | MtVar y => MtVar y
+                    (* | MtVar y => MtVar y *)
                     (* | MtApp (t1, t2) => MtApp (f x n t1, f x n t2) *)
                     (* | MtAbs (bind, r) => MtAbs (on_i_tbind f x n bind, r) *)
                     (* | MtAppI (t, i) => MtAppI (f x n t, on_i_i x n i) *)
@@ -1100,7 +1102,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                     | Unit r => Unit r
 	            | Prod (t1, t2) => Prod (f x n t1, f x n t2)
 	            | UniI (s, bind, r) => UniI (s, on_t_ibind f x n bind, r)
-                    | MtVar y => MtVar $ on_v_long_id on_v x n y
+                    (* | MtVar y => MtVar $ on_v_long_id on_v x n y *)
                     (* | MtApp (t1, t2) => MtApp (f x n t1, f x n t2) *)
                     (* | MtAbs (bind, r) => MtAbs (on_t_tbind f x n bind, r) *)
                     (* | MtAppI (t, i) => MtAppI (f x n t, i) *)
@@ -1188,7 +1190,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                     | Unit r => Unit r
 	            | Prod (t1, t2) => Prod (f x n t1, f x n t2)
 	            | UniI (s, bind, r) => UniI (on_m_s x n s, on_m_ibind f x n bind, r)
-                    | MtVar y => MtVar $ on_m_long_id on_v x n y
+                    (* | MtVar y => MtVar $ on_m_long_id on_v x n y *)
                     (* | MtApp (t1, t2) => MtApp (f x n t1, f x n t2) *)
                     (* | MtAbs (bind, r) => MtAbs (on_m_tbind f x n bind, r) *)
                     (* | MtAppI (t, i) => MtAppI (f x n t, on_m_i x n i) *)
@@ -1505,7 +1507,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 | Unit r => Unit r
 	        | Prod (t1, t2) => Prod (f x v t1, f x v t2)
 	        | UniI (s, bind, r) => UniI (substx_i_s x v s, substx_i_ibind f x idx_shiftable v bind, r)
-                | MtVar y => MtVar y
+                (* | MtVar y => MtVar y *)
                 (* | MtApp (t1, t2) => MtApp (f x v t1, f x v t2) *)
                 (* | MtAbs (bind, r) => MtAbs (substx_i_tbind f x idx_shiftable v bind, r) *)
                 (* | MtAppI (t, i) => MtAppI (f x v t, substx_i_i x v i) *)
@@ -1540,7 +1542,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 | Unit r => Unit r
 	        | Prod (t1, t2) => Prod (f x v t1, f x v t2)
 	        | UniI (s, bind, r) => UniI (s, substx_t_ibind f x mtype_shiftable v bind, r)
-                | MtVar y => substx_long_id MtVar x (const v) y
+                (* | MtVar y => substx_long_id MtVar x (const v) y *)
                 (* | MtApp (t1, t2) => MtApp (f x v t1, f x v t2) *)
                 (* | MtAbs (bind, r) => MtAbs (substx_t_tbind f x mtype_shiftable v bind, r) *)
                 (* | MtAppI (t, i) => MtAppI (f x v t, i) *)
@@ -2128,7 +2130,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | Unit r => Unit r
 	      | Prod (t1, t2) => Prod (simp_mt t1, simp_mt t2)
 	      | AppV (x, ts, is, r) => AppV (x, map simp_mt ts, map simp_i is, r)
-              | MtVar x => MtVar x
+              (* | MtVar x => MtVar x *)
               (* | MtApp (t1, t2) => MtApp (simp_mt t1, simp_mt t2) *)
               (* | MtAbs (bind, r) => MtAbs (simp_tbind simp_mt bind, r) *)
               (* | MtAppI (t, i) => MtAppI (simp_mt t, simp_i i) *)
