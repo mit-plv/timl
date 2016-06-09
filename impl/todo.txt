@@ -78,6 +78,9 @@ Done. 69. Should apply solvers and check no-uvar after every module, not every f
 70. Move VC openings from [check_decl] to [check_decls].
 71. [subst] should do lazy shifting, not eager.
 Done. 72. The last two examples in bigO-evolve.timl about using [idx] instead of [absidx] doesn't work now.
-73. Simplify unused 'forall' in [prop].
+73. Simplify unused 'forall' in [prop]. The unused foralls are Big-O premises.
 74. [BigOEvolveSealed] in bigO-evolve.timl doesn't work yet.
 75. if-then-else syntax.
+76. Restore the version of [link_sig] in revision 00ba072, because a module may have uvars before sealing, and uvars can't be retrieved from a module.
+77. Big-O solver should heuristically distinguish "defining" side of [TimeFun] uvars from the "using" side, by the rule-of-thumb that only [_ <= f x] is a defining constraint of [f].
+78. Do a module dependent analysis of each module and only bring the needed modules into [gctx] VC context.
