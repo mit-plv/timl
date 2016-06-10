@@ -126,3 +126,28 @@ val ['a 'b] map =
 
 end
 *)                       
+
+(*
+(* using module-scoped abstract index *)
+structure BigOEvolveSealed :>
+                       sig
+                         idx g : BigO 2 (fn m n => $m * $n)
+                       end =
+struct
+open List
+
+idx g_spec : Fun 2 = _
+absidx g : BigO 2 (* (fn m n => $m * $n) *)(* _ *) g_spec = _
+val ['a 'b] map =
+ fn {m : Nat} (f : 'a -- $m --> 'b) =>
+    let
+      fun map {n : Nat} (ls : {n} (* _ *)'a list) return {n} (* _ *)'b list using g m n =
+            case ls of
+                Nil => Nil
+              | Cons (x, xs) => Cons (f x, map xs)
+    in
+        map
+    end
+
+end
+*)                       

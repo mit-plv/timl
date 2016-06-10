@@ -489,7 +489,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                           default ()
                       | _ => default ()
                   end
-                | UVarS _ => "_"
+                | UVarS (u, _) =>
+                  str_uvar_s str_s ctx u
             end
 
         datatype 'a bind = 
@@ -2253,6 +2254,7 @@ type ('bsort, 'idx) uvar_i = unit
 type 'sort uvar_s = unit
 type 'mtype uvar_mt = unit
 fun str_uvar_bs (_ : 'a -> string) (_ : 'a uvar_bs) = "_"
+fun str_uvar_s (_ : string list -> 'sort -> string) (_ : string list) (_ : 'sort uvar_s) = "_"
 fun str_uvar_i (_ : string list -> 'idx -> string) (_ : string list) (_ : ('bsort, 'idx) uvar_i) = "_"
 fun str_uvar_mt (_ : string list * string list -> 'mtype -> string) (_ : string list * string list) (_ : 'mtype uvar_mt) = "_"
 fun eq_uvar_i (_, _) = false

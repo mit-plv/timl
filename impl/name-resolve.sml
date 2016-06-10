@@ -599,7 +599,7 @@ fun on_top_bind gctx bind =
                   SOME a => a
                 | NONE => raise Error (r, "Unbound functor " ^ m)
           val (f, ((_, formal_arg), body)) = fetch_functor gctx (f, f_r)
-          val m = on_id (map fst gctx) m
+          val m = on_id (names $ filter_module gctx) m
           val formal_arg_name = "__formal_mod_arg"
           val gctxd = [(formal_arg_name, Sig formal_arg)]
         in

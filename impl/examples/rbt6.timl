@@ -9,9 +9,14 @@ fun lemma1 {a b : Nat} () return {b} {a} lemma1 =
 end
 
 structure Compare = struct
-
 datatype cmp_result = Equal | Less | Greater
+end
 
+structure IntKey = struct
+type t = int
+absidx m = 7.0 with
+fun cmp (a : int, b : int) return using m = Compare.Equal
+end
 end
 
 (* Red-black tree with invariant for well-red-ness and black-height-blance. Size-height-ratio can be derived from well-red-ness and black-height-blance. *)
@@ -290,13 +295,6 @@ fun lookup ['v] {size : Nat} (tr : {size} 'v rb_tree) k return 'v option using T
         end
 end
 
-end
-
-structure IntKey = struct
-type t = int
-absidx m : Time (* ToDo: can't comment out [Time] *) = 7.0 with
-fun cmp (a : int, b : int) return using m = Compare.Equal
-end
 end
 
 structure IntRbt = Rbt (structure K = IntKey)

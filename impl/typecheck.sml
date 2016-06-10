@@ -727,7 +727,7 @@ fun fetch_sort a = generic_fetch shiftx_m_s package0_s do_fetch_sort #1 a
 fun do_fetch_sort_by_name (ctx, (name, r)) =
     case lookup_sort_by_name ctx name of
         SOME (i, s) => ((i, r), s)
-      | NONE => raise Error (r, ["Can't find index variable: " ^ name])
+      | NONE => raise Error (r, [sprintf "Can't find index variable '$' in context $" [name, str_ls fst ctx]])
 
 fun package0_snd f m (a, b) = (a, f m b)
 fun package0_list f m ls = map (f m) ls
@@ -1246,11 +1246,11 @@ fun is_wf_bsort (bs : U.bsort) : bsort =
         U.Base bs => Base bs
       | U.UVarBS () => fresh_bsort ()
 
-fun get_base r gctx ctx s =
+fun get_base (* r gctx ctx *) error s =
     case update_s s of
         Basic (s, _) => s
       | Subset ((s, _), _, _) => s
-      | UVarS _ => raise Error (r, [sprintf "Can't figure out base sort of $" [str_s gctx ctx s]])
+      | UVarS _ => raise error () (* Error (r, [sprintf "Can't figure out base sort of $" [str_s gctx ctx s]]) *)
 
 fun is_wf_sort gctx (ctx : scontext, s : U.sort) : sort =
     let
@@ -1341,8 +1341,9 @@ and get_bsort (gctx : sigcontext) (ctx : scontext, i : U.idx) : idx * bsort =
 	      U.VarI x =>
               let
                 val s = fetch_sort gctx (ctx, x)
+                fun error r gctx ctx () = Error (r, [sprintf "Can't figure out base sort of $" [str_s gctx ctx s]])
               in
-                (VarI x, get_base (U.get_region_i i) (gctx_names gctx) (sctx_names ctx) s)
+                (VarI x, get_base (error (U.get_region_i i) (gctx_names gctx) (sctx_names ctx)) s)
               end
             | U.UnOpI (opr, i, r) =>
               let
@@ -2708,7 +2709,9 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 		val f = U.Var ((NONE, (0, U.get_region_long_id x)), eia)
 		val f = foldl (fn (i, e) => U.AppI (e, i)) f is
 		val e = U.App (f, U.Subst.shift_e_e e)
-		val (e, t, d) = get_mtype (add_typing_skct ("__synthesized_constructor", tc) ctx, e) 
+                (* val f_name = "__synthesized_constructor" *)
+                val f_name = str_long_id #3 (gctx_names gctx) (names cctx) x
+		val (e, t, d) = get_mtype (add_typing_skct (f_name, tc) ctx, e) 
                 (* val () = println $ str_i sctxn d *)
                 val d = update_i d
                 val d = simp_i d
@@ -3013,7 +3016,8 @@ and check_decls gctx (ctx, decls) : decl list * context * int * idx list * conte
       val decls = rev decls
       val ctxd = (upd4 o map o mapSnd) (simp_t o update_uvar_t) ctxd
       val ds = map simp_i $ map update_i $ rev ds
-                   (* val () = app println $ str_typing_info (gctx_names gctx) skctxn_old (ctxd, ds) *)
+      (* val () = println "Typed Decls:" *)
+      (* val () = app println $ str_typing_info (gctx_names gctx) skctxn_old (ctxd, ds) *)
     in
       (decls, ctxd, nps, ds, ctx)
     end
@@ -3148,8 +3152,10 @@ and check_mtype_time gctx (ctx as (sctx, kctx, cctx, tctx), e, t, d) =
 fun link_sig r gctx m (ctx' as (sctx', kctx', cctx', tctx') : context) =
     let
       val gctxn = gctx_names gctx
+      (* val () = println $ sprintf "Linking module $ (%$) against signature" [str_v (names gctxn) $ fst m, str_int $ fst m] *)
       fun match_sort ((name, s'), sctx') =
           let
+            (* val () = println $ sprintf "before fetch_sort_by_name $.$" [str_v (names gctxn) $ fst m, name] *)
             val (x, s) = fetch_sort_by_name gctx [] (SOME m, (name, r))
             val () = unify_s r gctxn (sctx_names sctx') (s, s')
             val s' = sort_add_idx_eq r s' (VarI x)

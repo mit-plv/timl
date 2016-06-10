@@ -52,6 +52,12 @@ fun str_uvar_i str_i ctx ((invis, u) : ('bsort, 'idx) uvar_i) =
       (* | Fresh name => str_uname_i name *)
       | Fresh name => sprintf "($ $)" [str_uname_i name, str_ls (str_pair (str_int, str_int)) invis]
 
+fun str_uvar_s str_s ctx ((invis, u) : 'sort uvar_s) =
+    case !u of
+        Refined s => str_s (shrink_ctx invis ctx) s
+      (* | Fresh name => str_uname_i name *)
+      | Fresh name => sprintf "($ $)" [str_uname_nonidx name, str_ls (str_pair (str_int, str_int)) invis]
+
 fun str_uvar_bs str_bs (u : 'bsort uvar_bs) =
     case !u of
         Refined bs => str_bs bs

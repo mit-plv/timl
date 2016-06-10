@@ -69,13 +69,16 @@ fun consume_close (s : vc_entry list) : vc_entry list =
         CloseParen :: s => s
       | _ => raise Impossible "consume_close ()"
 
-fun get_bsort_UVarS (a, r) =
-    let
-      val def = Base UnitSort
-      val () = unify_s dummy [] [] (UVarS (a, r), Basic (def, r))
-    in
-      def
-    end
+fun get_bsort_UVarS s =
+    case update_s s of
+        s as UVarS (a, r) =>
+        let
+          val def = Base UnitSort
+          val () = unify_s dummy [] [] (s, Basic (def, r))
+        in
+          def
+        end
+      | s => get_base (fn () => Impossible "get_bsort_UVarS(): get_base UVarS") s
       
 fun get_formula s =
     case s of
@@ -96,8 +99,8 @@ fun get_formula s =
                           (FtSorting bsort, [ImplyF (p, fs)])
                         | Basic (bsort, _) =>
                           (FtSorting bsort, fs)
-                        | UVarS a =>
-                          (FtSorting $ get_bsort_UVarS a, fs)
+                        | UVarS _ =>
+                          (FtSorting $ get_bsort_UVarS s, fs)
             in
               (ForallF (name, ft, fs), s)
             end
@@ -285,8 +288,8 @@ fun unpackage_f2 f =
                               (bsort, BinConnF2 (Imply, PropF2 (p, get_region_p p), f))
                             | Basic (bsort, _) =>
                               (bsort, f)
-                            | UVarS a =>
-                              (get_bsort_UVarS a, f)
+                            | UVarS _ =>
+                              (get_bsort_UVarS s, f)
                     in
                       ForallF2 (mod_name ^ "_" ^ name, FtSorting bs, f)
                     end
