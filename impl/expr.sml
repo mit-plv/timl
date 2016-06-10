@@ -637,6 +637,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         fun add_sorting name (sctx, kctx, cctx, tctx) = (name :: sctx, kctx, cctx, tctx)
         fun add_kinding name (sctx, kctx, cctx, tctx) = (sctx, name :: kctx, cctx, tctx)
         fun add_typing name (sctx, kctx, cctx, tctx) = (sctx, kctx, cctx, name :: tctx)
+        fun add_ctx (sctxd, kctxd, cctxd, tctxd) (sctx, kctx, cctx, tctx) =
+            (sctxd @ sctx, kctxd @ kctx, cctxd @ cctx, tctxd @ tctx)
                                                           
         fun str_e gctx (ctx as (sctx, kctx, cctx, tctx)) (e : expr) : string =
             let
@@ -764,8 +766,13 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                   end
                 | TypeDef ((name, _), t) =>
                   (sprintf "type $ = $" [name, str_mt gctx (sctx, kctx) t], add_kinding name ctx)
-                | Open (m, _) =>
-                  (sprintf "open $" [str_v (map fst gctx) m], ctx)
+                | Open (m, r) =>
+                  let
+                    val (m, ctxd) = lookup_module gctx m
+                    val ctx = add_ctx ctxd ctx
+                  in
+                    (sprintf "open $" [m], ctx)
+                  end
             end
               
         and str_rule gctx (ctx as (sctx, kctx, cctx, tctx)) (pn, e) =
@@ -2156,6 +2163,8 @@ open Util
 type var = string
 fun str_v ctx x : string = x
 
+fun lookup_module gctx m = (m, ([], [], [], []))
+    
 fun str_long_id sel gctx ctx (m, x) =
     let
       val m = default "" (Option.map (suffix "." o fst) m)
@@ -2186,15 +2195,23 @@ fun str_v ctx x : string =
 fun str_id ctx (x, _) =
     str_v ctx x
           
+fun lookup_module gctx m =
+    case nth_error gctx m of
+        SOME (name, ctx) => (name, ctx)
+      | NONE => ("unbound_module_" ^ str_int m, ([], [], [], []))
+                   
 fun str_long_id sel gctx ctx (m, x) =
     let
       val (mod_name, ctx) =
           case m of
               SOME (m, _) =>
-              (case nth_error gctx m of
-                   SOME (name, ctx) => (name ^ ".", sel ctx)
-                 | NONE => ("unbound_module_" ^ str_int m ^ ".", [])
-              )
+              let
+                val (name, ctx) = lookup_module gctx m
+                val name = name ^ "."
+                val ctx = sel ctx
+              in
+                (name, ctx)
+              end
             | NONE => ("", ctx)
       val x = str_id ctx x
     in

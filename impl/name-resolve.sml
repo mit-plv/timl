@@ -32,9 +32,25 @@ fun on_id ctx (x, r) =
 	SOME i => (i, r)
       | NONE => raise Error (r, sprintf "Unbound variable $ in context: $" [x, str_ls id ctx])
 
-fun lookup_module gctx m =
-    find_idx_value m (List.mapPartial (fn (name, sg) => case sg of Sig sg => SOME (name, sg) | _ => NONE) gctx)
+fun filter_module gctx =
+    List.mapPartial (fn (name, sg) => case sg of Sig sg => SOME (name, sg) | _ => NONE) gctx
                    
+fun lookup_module gctx m =
+    find_idx_value m $ filter_module gctx
+
+fun names ctx = map fst ctx
+
+fun ctx_names (sctx, kctx, cctx, tctx) =
+    (sctx, kctx, names cctx, tctx) 
+
+fun gctx_names (gctx : sigcontext) =
+    let
+      val gctx = filter_module gctx
+      val gctx = map (mapSnd ctx_names) gctx
+    in
+      gctx
+    end
+      
 fun find_long_id gctx sel eq ctx (m, (x, xr)) =
     case m of
         NONE =>
@@ -196,8 +212,10 @@ fun shift_return (sctxn, kctxn) (t, d) =
        Option.map (fn d => shiftx_i_i 0 sctxn d) d)
     end
       
-fun copy_anno (anno as (t, d)) e =
+fun copy_anno gctx (anno as (t, d)) e =
     let
+      val copy_anno = copy_anno gctx
+      val copy_anno_rule = copy_anno_rule gctx
       fun copy a b = case a of
                          NONE => b
                        | SOME _ => a
@@ -220,7 +238,7 @@ fun copy_anno (anno as (t, d)) e =
         | Let ((t', d'), decls, e, r) =>
           let
             val (t, d) = (copy t' t, copy d' d)
-            val (_, (sctx, kctx, _, _)) = str_decls [] ([], [], [], []) decls
+            val (_, (sctx, kctx, _, _)) = str_decls gctx ([], [], [], []) decls
             val (sctxn, kctxn) = (length sctx, length kctx)
             fun is_match_var decl =
                 case decl of
@@ -251,12 +269,12 @@ fun copy_anno (anno as (t, d)) e =
             | NONE => e
     end
       
-and copy_anno_rule return (pn, e) =
+and copy_anno_rule gctx return (pn, e) =
     let
       val (sctx, _) = ptrn_names pn
       val offset = (length sctx, 0)
     in
-      (pn, copy_anno (shift_return offset return) e)
+      (pn, copy_anno gctx (shift_return offset return) e)
     end
       
 fun get_constr_inames core = map fst $ fst $ unfold_ibinds core
@@ -333,7 +351,7 @@ fun on_expr gctx (ctx as (sctx, kctx, cctx, tctx)) e =
           let
             val t = on_mtype gctx skctx t
             val e = on_expr ctx e
-            val e = copy_anno (SOME t, NONE) e
+            val e = copy_anno (gctx_names gctx) (SOME t, NONE) e
           in
             Ascription (e, t)
           end
@@ -341,7 +359,7 @@ fun on_expr gctx (ctx as (sctx, kctx, cctx, tctx)) e =
           let
             val d = on_idx gctx sctx d
             val e = on_expr ctx e
-            val e = copy_anno (NONE, SOME d) e
+            val e = copy_anno (gctx_names gctx) (NONE, SOME d) e
           in
             AscriptionTime (e, d)
           end
@@ -352,7 +370,7 @@ fun on_expr gctx (ctx as (sctx, kctx, cctx, tctx)) e =
           let
             val return = on_return gctx skctx return
             val rules = map (on_rule gctx ctx) rules
-            val rules = map (copy_anno_rule return) rules
+            val rules = map (copy_anno_rule (gctx_names gctx) return) rules
           in
             Case (on_expr ctx e, return, rules, r)
           end
@@ -408,7 +426,7 @@ and on_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
             val t = on_mtype gctx (sctx, kctx) t
             val d = on_idx gctx sctx d
             val e = on_expr gctx ctx e
-            val e = copy_anno (SOME t, SOME d) e
+            val e = copy_anno (gctx_names gctx) (SOME t, SOME d) e
           in
             (Rec (tnames, (name, r1), (binds, ((t, d), e)), r), ctx_ret)
           end
@@ -437,8 +455,9 @@ and on_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
                 case lookup_module gctx m of
                     SOME a => a
                   | NONE => raise Error (r, "Unbound module " ^ m)
+            val ctx = add_ctx ctxd ctx
           in
-            (Open (m, r), add_ctx ctxd ctx)
+            (Open (m, r), ctx)
           end
     end
 

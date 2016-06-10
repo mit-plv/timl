@@ -552,6 +552,7 @@ fun no_uvar_bsort bs =
     case update_bs bs of
         Base b => N.Base b
       | UVarBS uvar_ref =>
+        (* raise Impossible "no_uvar_bsort(): UVarBS" *)
         (unify_bs dummy (bs, Base UnitSort);
          N.Base N.UnitSort)
 

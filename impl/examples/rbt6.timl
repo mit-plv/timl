@@ -282,9 +282,9 @@ fun lookup ['v] {size : Nat} (tr : {size} 'v rb_tree) k return 'v option using T
     case tr of
         @RBTree {_ bh} tr =>
         let
-          (* open LogFacts *)
+          open LogFacts
           val SizeGood _ = rbt_size_good tr
-          val LogFacts.Lemma1 _ = @LogFacts.lemma1 {bh} {size} ()
+          val Lemma1 _ = @lemma1 {bh} {size} ()
         in
           lookup_rbt tr k using 2.0 + T_lookup_rbt (ceil (log2 $(size + 1)))
         end
@@ -294,7 +294,7 @@ end
 
 structure IntKey = struct
 type t = int
-absidx m : Time = 7.0 with
+absidx m : Time (* ToDo: can't comment out [Time] *) = 7.0 with
 fun cmp (a : int, b : int) return using m = Compare.Equal
 end
 end
