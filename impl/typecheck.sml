@@ -831,13 +831,19 @@ fun try_retrieve_MtVar f gctx kctx x =
         | KeTypeEq (_, t) => f t
     end
 
-fun check_is_MtVar r y =
+fun is_type_variable r y =
     (* ToDo: can do better *)
     case y of
         AppV (x, [], [], _) => x
       (* | MtVar x => x *)
       | _ => raise Error (r, ["Head of type operator application must be a datatype name"])
                                    
+fun eval_AppV y (ts, is, r) =
+    if null ts andalso null is then
+      y
+    else
+      AppV (is_type_variable r y, ts, is, r)
+           
 fun whnf_mt gctx kctx t =
     let
       val whnf_mt = whnf_mt gctx
@@ -848,9 +854,8 @@ fun whnf_mt gctx kctx t =
         | AppV (y, ts, is, r) =>
           let
             val y = try_retrieve_MtVar (whnf_mt kctx) gctx kctx y
-            val y = check_is_MtVar r y
           in
-            AppV (y, ts, is, r)
+            eval_AppV y (ts, is, r)
           end
         | _ => t
     end
@@ -869,9 +874,10 @@ fun normalize_mt gctx kctx t =
         | AppV (y, ts, is, r) =>
           let
             val y = try_retrieve_MtVar (normalize_mt kctx) gctx kctx y
-            val y = check_is_MtVar r y
+            val ts = map (normalize_mt kctx) ts
+            val is = map update_i is
           in
-            AppV (y, map (normalize_mt kctx) ts, map update_i is, r)
+            eval_AppV y (ts, is, r)
           end
         | BaseType a => BaseType a
     end
@@ -2921,7 +2927,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
                 val (t, k) = get_kind gctx ((sctx, kctx), t)
                 val kinding = (name, KeTypeEq (k, t))
               in
-                (TypeDef ((name, r), t), ctx_from_kindingext kinding, 1, [])
+                (TypeDef ((name, r), t), ctx_from_kindingext kinding, 0, [])
               end
             | U.AbsIdx (((name, r1), s, i), decls, r) =>
               let
@@ -3337,7 +3343,7 @@ fun check_top_bind gctx bind =
                       | NONE => raise Error (r, ["Unbound functor " ^ str_v [] m])
                 val (_, ((_, formal_arg), body)) = fetch_functor gctx f
                 val formal_arg = link_sig (snd m) gctx m formal_arg
-                val formal_arg_name = "__formal_mod_arg"
+                val formal_arg_name = "__mod_arg"
                 val gctxd = [(formal_arg_name, Sig formal_arg)]
               in
                 (name, Sig body) :: gctxd

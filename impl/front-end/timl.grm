@@ -62,7 +62,7 @@ open Ast
     | BIG_O_INFIX
     | IDX
     | TYPE
-    | ABSTYPE
+    (* | ABSTYPE *)
     | ABSIDX
     | WITH
     | DOT
@@ -131,8 +131,9 @@ open Ast
        | spec of spec
        | specs of spec list
        | datatype_def of datatype_def
+       (* | sig_anno_opt of sig_anno option *)
 
-%keyword FN CASE UNPACK OF LET IN END RETURN VAL DATATYPE AS TYPE STRUCTURE STRUCT FUNCTOR SIG OPEN
+%keyword FN CASE UNPACK OF LET IN END RETURN VAL DATATYPE AS TYPE STRUCTURE STRUCT FUNCTOR SIG OPEN IDX
 
 %pos pos
 
@@ -167,35 +168,44 @@ start : prog (prog)
 prog : top_bind prog (top_bind :: prog)
      | ([])
 
-top_bind : STRUCTURE id EQ module (TopModBind (id, module))
+top_bind : STRUCTURE id EQ id LPAREN STRUCTURE id EQ id RPAREN (TopFunctorApp (id1, id2, id4))
          | FUNCTOR id LPAREN STRUCTURE id COLON sgn RPAREN EQ module (TopFunctorBind (id1, (id2, sgn), module))
-         | STRUCTURE id EQ id LPAREN id RPAREN (TopFunctorApp (id1, id2, id3))
+         | STRUCTURE id EQ module (TopModBind (id, module))
+         (* | STRUCTURE id sig_anno_opt EQ module (TopModBind (id, add_sig_anno module sig_anno_opt)) *)
+         | STRUCTURE id COLON_GT sgn EQ module (TopModBind (id, ModSeal (module, sgn)))
+         | STRUCTURE id COLON sgn EQ module (TopModBind (id, ModTransparentAscription (module, sgn)))
+         
 
 module : STRUCT decl_star END (ModComponents (decl_star, (decl_starleft, decl_starright)))
-    | module COLON_GT sgn (ModSeal (module, sgn))
-                     | module COLON sgn (ModTransparentAscription (module, sgn))
+    (* | module COLON_GT sgn (ModSeal (module, sgn)) *)
+    (* | module COLON sgn (ModTransparentAscription (module, sgn)) *)
 
+(* sig_anno_opt : COLON_GT sgn (SOME (Seal sgn)) *)
+(*              | COLON sgn (SOME (Transparent sgn)) *)
+(*              | (NONE) *)
+      
 sgn : SIG specs END (SigComponents (specs, (specsleft, specsright)))
 
 specs : spec specs (spec :: specs)
   | ([])
 
 spec : VAL id tnames COLON ty (SpecVal (id, tnames, ty, (VALleft, tyright)))
-  | datatype_def (SpecDatatype datatype_def)
+  | DATATYPE datatype_def (SpecDatatype datatype_def)
   | IDX id COLON sort (SpecIdx (id, sort))
-  | TYPE cur_sort_star id_plus (SpecType (rev id_plus, rev cur_sort_star, (TYPEleft, id_plusright)))
   | TYPE id EQ ty (SpecTypeDef (id, ty))
+  | TYPE cur_sort_star id_plus (SpecType (rev id_plus, rev cur_sort_star, (TYPEleft, id_plusright)))
+  | TYPE id (SpecType ([id], [], (TYPEleft, idright))) (* need this rule. don't know why *)
 
 decl : VAL tnames ptrn EQ exp (Val (tnames, ptrn, exp, (VALleft, expright)))
      | FUN id tnames bind_star return EQ exp (Rec (tnames, id, bind_star, return, exp, (FUNleft, expright)))
-    | datatype_def (Datatype datatype_def)
+    | DATATYPE datatype_def (Datatype datatype_def)
     | IDX id optional_colon_sort EQ idx (IdxDef (id, optional_colon_sort, idx))
     | ABSIDX id optional_colon_sort optional_eq_idx WITH decl_star END (AbsIdx (id, optional_colon_sort, optional_eq_idx, decl_star, (ABSIDXleft, ENDright)))
     | ABSIDX LCUR id COLON bsort BAR prop RCUR optional_eq_idx WITH decl_star END (AbsIdx (id, SOME (Subset (bsort, id, prop, (LCURleft, RCURright))), optional_eq_idx, decl_star, (ABSIDXleft, ENDright)))
     | TYPE id EQ ty (TypeDef (id, ty))
     | OPEN id (Open id)
 
-datatype_def : DATATYPE cur_sort_star id_plus EQ constr_bar_star (case (map fst o rev) id_plus of id :: id_star => (id, id_star, rev cur_sort_star, constr_bar_star, (DATATYPEleft, constr_bar_starright)) | [] => raise Impossible "id_plus can't be empty")
+datatype_def : cur_sort_star id_plus EQ constr_bar_star (case (map fst o rev) id_plus of id :: id_star => (id, id_star, rev cur_sort_star, constr_bar_star, (cur_sort_starleft, constr_bar_starright)) | [] => raise Impossible "id_plus can't be empty")
                     
 ty : ty DDASH idx LARROW ty (Arrow (ty1, idx, ty2, (ty1left, ty2right)))
    | ty ARROW ty (Arrow (ty1, VarI (underscore (ty1left, ty2right)), ty2, (ty1left, ty2right)))

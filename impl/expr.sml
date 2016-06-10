@@ -2158,7 +2158,7 @@ fun str_v ctx x : string = x
 
 fun str_long_id sel gctx ctx (m, x) =
     let
-      val m = default "" (Option.map fst m)
+      val m = default "" (Option.map (suffix "." o fst) m)
       val x = str_v ctx (fst x)
     in
       m ^ x

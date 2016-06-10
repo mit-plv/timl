@@ -84,3 +84,5 @@ Done. 72. The last two examples in bigO-evolve.timl about using [idx] instead of
 76. Restore the version of [link_sig] in revision 00ba072, because a module may have uvars before sealing, and uvars can't be retrieved from a module.
 77. Big-O solver should heuristically distinguish "defining" side of [TimeFun] uvars from the "using" side, by the rule-of-thumb that only [_ <= f x] is a defining constraint of [f].
 78. Do a module dependent analysis of each module and only bring the needed modules into [gctx] VC context.
+79. Have double-linked lists.
+80. rbt6.timl: (1) local [open LogFacts]; (2) absidx sort inference in [IntKey]

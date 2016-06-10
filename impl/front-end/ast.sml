@@ -134,6 +134,18 @@ datatype top_bind =
 
 type prog = top_bind list
 
+(* datatype sig_anno = *)
+(*          Seal of sgn *)
+(*          | Transparent of sgn *)
+
+(* fun add_sig_anno m sg = *)
+(*     case sg of *)
+(*         NONE => m *)
+(*       | SOME sg => *)
+(*         case sg of *)
+(*             Seal sg => ModSeal (m, sg) *)
+(*           | Transparent sg => ModTransparentAscription (m, sg) *)
+
 type reporter = string * pos * pos -> unit
 
 fun underscore r = (NONE, ("_", r))

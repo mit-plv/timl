@@ -103,7 +103,11 @@ end
 end
 
 (*
-structure BigOEvolveSealed = struct
+structure BigOEvolveSealed :>
+                       sig
+                         idx g : BigO 2 (fn m n => $m * $n)
+                       end =
+struct
 open List
 
 (* we can leave [g] transparent here and later use module signature to seal it  *)
@@ -121,8 +125,4 @@ val ['a 'b] map =
     end
 
 end
-                       :>
-                       sig
-                         idx g : BigO 2 (fn m n => $m * $n)
-                       end
-*)
+*)                       
