@@ -1045,6 +1045,88 @@ fun unify_i r gctxn ctxn (i, i') =
           else write_prop (BinPred (EqP, i, i'), r)
     end
 
+fun is_sub_sort r gctx ctx (s, s') =
+    let
+      val is_sub_sort = is_sub_sort r gctx
+      fun error (s, s') = 
+          Error (r, ["Sort"] @ indent [str_s gctx ctx s] @ ["is not a subsort of"] @ indent [str_s gctx ctx s'])
+      val s = update_s s
+      val s' = update_s s'
+    in
+      (* UVarS can only be fresh *)
+      case (s, s') of
+          (UVarS ((invis, x), _), UVarS ((invis', x'), _)) =>
+          if x = x' then ()
+          else
+            (refine x (shrink_s invis s')
+	     handle 
+             ForgetError _ => 
+             refine x' (shrink_s invis' s)
+             handle ForgetError _ => raise error (s, s')
+            )
+        | (UVarS ((invis, x), _), _) =>
+          (refine x (shrink_s invis s')
+	   handle ForgetError _ => raise error (s, s')
+          )
+        | (_, UVarS _) => 
+          is_sub_sort ctx (s', s)
+	| (Basic (bs, _), Basic (bs', _)) =>
+	  unify_bs r (bs, bs')
+	| (Subset ((bs, r1), Bind ((name, _), p), _), Subset ((bs', _), Bind (_, p'), _)) =>
+          let
+	    val () = unify_bs r (bs, bs')
+            val ctxd = ctx_from_sorting (name, Basic (bs, r1))
+            val () = open_ctx ctxd
+	    (* val () = write_prop (p <-> p', r) *)
+	    val () = write_prop (p --> p', r)
+	    (* val () = write_prop (p' --> p, r) *)
+            val () = close_ctx ctxd
+          in
+            ()
+          end
+	| (Subset ((bs, r1), Bind ((name, _), p), _), Basic (bs', _)) =>
+          let
+	    val () = unify_bs r (bs, bs')
+            val ctxd = ctx_from_sorting (name, Basic (bs, r1))
+            val () = open_ctx ctxd
+	    (* val () = write_prop (p, r) *)
+            val () = close_ctx ctxd
+          in
+            ()
+          end
+	| (Basic (bs, r1), Subset ((bs', _), Bind ((name, _), p), _)) =>
+          let
+	    val () = unify_bs r (bs, bs')
+            val ctxd = ctx_from_sorting (name, Basic (bs, r1))
+            val () = open_ctx ctxd
+	    val () = write_prop (p, r)
+            val () = close_ctx ctxd
+          in
+            ()
+          end
+    end
+
+fun is_sub_sorts r gctx ctx (sorts, sorts') =
+    (check_length r (sorts, sorts');
+     ListPair.app (is_sub_sort r gctx ctx) (sorts, sorts'))
+
+fun is_eqv_sort r gctx ctx (s, s') =
+    let
+      val () = is_sub_sort r gctx ctx (s, s')
+      val () = is_sub_sort r gctx ctx (s', s)
+    in
+      ()
+    end
+      
+fun is_eqv_sorts r gctx ctx (sorts, sorts') =
+    let
+      val () = is_sub_sorts r gctx ctx (sorts, sorts')
+      val () = is_sub_sorts r gctx ctx (sorts', sorts)
+    in
+      ()
+    end
+
+      (*
 fun unify_s r gctx ctx (s, s') =
     let
       val unify_s = unify_s r gctx
@@ -1108,7 +1190,8 @@ fun unify_s r gctx ctx (s, s') =
 fun unify_sorts r gctx ctx (sorts, sorts') =
     (check_length r (sorts, sorts');
      ListPair.app (unify_s r gctx ctx) (sorts, sorts'))
-
+      *)
+      
 fun unify_mt r gctx ctx (t, t') =
     let
       val gctxn = gctx_names gctx
@@ -1146,7 +1229,7 @@ fun unify_mt r gctx ctx (t, t') =
                 (loop ctx (t1, t1');
                  loop ctx (t2, t2'))
               | (UniI (s, Bind ((name, _), t1), _), UniI (s', Bind (_, t1'), _)) =>
-                (unify_s r gctxn sctxn (s, s');
+                (is_eqv_sort r gctxn sctxn (s, s');
                  open_close add_sorting_sk (name, s) ctx (fn ctx => loop ctx (t1, t1'))
                 )
               | (Unit _, Unit _) => ()
@@ -1182,6 +1265,27 @@ fun unify_t r gctx ctx (t, t') =
           
 fun kind_mismatch gctx sctx expect have = sprintf "Kind mismatch: expect $ have $" [expect, str_k gctx sctx have]
 
+fun is_sub_kind r gctxn sctxn (k, k') =
+    case (k, k') of
+        (ArrowK (is_dt, ntargs, sorts), ArrowK (is_dt', ntargs', sorts')) =>
+        let
+          val () = check_eq r op= (is_dt, is_dt')
+          val () = check_eq r op= (ntargs, ntargs')
+          val () = is_sub_sorts r gctxn sctxn (sorts, sorts')
+        in
+          ()
+        end
+        handle Error _ => raise Error (r, [kind_mismatch gctxn sctxn (str_k gctxn sctxn k) k'])
+                                
+fun is_eqv_kind r gctxn sctxn (k, k') =
+    let
+      val () = is_sub_kind r gctxn sctxn (k, k')
+      val () = is_sub_kind r gctxn sctxn (k', k)
+    in
+      ()
+    end
+
+(*      
 fun unify_kind r gctxn sctxn (k, k') =
     case (k, k') of
         (ArrowK (is_dt, ntargs, sorts), ArrowK (is_dt', ntargs', sorts')) =>
@@ -1193,7 +1297,8 @@ fun unify_kind r gctxn sctxn (k, k') =
           ()
         end
         handle Error _ => raise Error (r, [kind_mismatch gctxn sctxn (str_k gctxn sctxn k) k'])
-                                
+*)
+      
 fun is_sub_kindext r gctx ctx (k, k') =
     let
       val gctxn = gctx_names gctx
@@ -1202,16 +1307,16 @@ fun is_sub_kindext r gctx ctx (k, k') =
     in
       case (k, k') of
           (KeKind k, KeKind k') =>
-          unify_kind r gctxn sctxn (k, k')
+          is_sub_kind r gctxn sctxn (k, k')
         | (KeTypeEq (k, t), KeTypeEq (k', t')) =>
           let
-            val () = unify_kind r gctxn sctxn (k, k')
+            val () = is_sub_kind r gctxn sctxn (k, k')
             val () = unify_mt r gctx ctx (t, t')
           in
             ()
           end
         | (KeTypeEq (k, _), KeKind k') =>
-          unify_kind r gctxn sctxn (k, k')
+          is_sub_kind r gctxn sctxn (k, k')
         | (KeKind _, KeTypeEq _) => raise Error (r, [sprintf "Kind $ is not a sub kind of $" [str_ke gctxn (sctxn, kctxn) k, str_ke gctxn (sctxn, kctxn) k']])
     end
 
@@ -1605,7 +1710,7 @@ fun get_kind gctx (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype) : mty
 and check_kind gctx (ctx, t, k) =
     let
       val (t, k') = get_kind gctx (ctx, t)
-      val () = unify_kind (get_region_mt t) (gctx_names gctx) (sctx_names $ #1 ctx) (k', k)
+      val () = is_sub_kind (get_region_mt t) (gctx_names gctx) (sctx_names $ #1 ctx) (k', k)
     in
       t
     end
@@ -3170,7 +3275,7 @@ fun link_sig r gctx m (ctx' as (sctx', kctx', cctx', tctx') : context) =
           let
             (* val () = println $ sprintf "before fetch_sort_by_name $.$" [str_v (names gctxn) $ fst m, name] *)
             val (x, s) = fetch_sort_by_name gctx [] (SOME m, (name, r))
-            val () = unify_s r gctxn (sctx_names sctx') (s, s')
+            val () = is_sub_sort r gctxn (sctx_names sctx') (s, s')
             val s' = sort_add_idx_eq r s' (VarI x)
             val sctx' = open_and add_sorting (name, s') sctx'
           in

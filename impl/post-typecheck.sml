@@ -74,7 +74,7 @@ fun get_bsort_UVarS s =
         s as UVarS (a, r) =>
         let
           val def = Base UnitSort
-          val () = unify_s dummy [] [] (s, Basic (def, r))
+          val () = is_eqv_sort dummy [] [] (s, Basic (def, r))
         in
           def
         end

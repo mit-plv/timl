@@ -25,7 +25,7 @@ datatype {Nat} {Nat} 'a do_delete =
          DoDelete {size num num' : Nat} {num = num' \/ num = num' + 1} of {num'} {size} 'a table --> {num} {size} 'a do_delete
                               
 fun do_delete ['a] {size num : Nat} (table : {num} {size} 'a table) (x : 'a) return {num} {size} 'a do_delete =
-    @DoDelete {} {} {} {admit} Dummy
+    @DoDelete {} {} {0} {admit} Dummy
 
 fun copy ['a] {size num size' num' : Nat} (table : {num} {size} 'a table) (table' : {num'} {size'} 'a table) return {num min size'} {size'} 'a table using $num =
     Dummy
@@ -183,3 +183,4 @@ fun insert_delete_seq_0 ['a] {n : Nat} (xs : {n} (bool * 'a) list) (table : {0} 
 end
 
 end
+

@@ -73,7 +73,7 @@ Done. 55. Investigate amortized complexity analysis.
 65. Wrongly inferred [T_insert_delete_seq_0] to be (fn n => $n) without the [2.0 + 48.0 * $n] annotation.
 66. Have some Nat/Time inference.
 67. Unify [UnOpI], [DivI] and [ExpI].
-68. Change [unify_s] to [is_sub_sort].
+Done. 68. Change [unify_s] to [is_sub_sort].
 Done. 69. Should apply solvers and check no-uvar after every module, not every file (unless we enforce one-module-per-file policy). 
 70. Move VC openings from [check_decl] to [check_decls].
 71. [subst] should do lazy shifting, not eager.
