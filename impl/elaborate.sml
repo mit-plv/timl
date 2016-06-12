@@ -343,6 +343,12 @@ local
           in
             IdxDef ((name, r), s, elab_i i)
           end
+        | S.AbsIdx2 ((name, r), s, i) =>
+          let
+            val s = default (UVarS ((), r)) $ Option.map elab_s s
+          in
+            AbsIdx2 ((name, r), s, elab_i i)
+          end
         | S.AbsIdx ((name, r1), s, i, decls, r) =>
           let
             val s = default (UVarS ((), r1)) $ Option.map elab_s s

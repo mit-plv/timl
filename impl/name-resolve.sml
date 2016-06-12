@@ -434,6 +434,8 @@ and on_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
           mapFst Datatype $ on_datatype gctx ctx a
         | E.IdxDef ((name, r), s, i) =>
           (IdxDef ((name, r), on_sort gctx sctx s, on_idx gctx sctx i), add_sorting_skct name ctx)
+        | E.AbsIdx2 ((name, r), s, i) =>
+          (AbsIdx2 ((name, r), on_sort gctx sctx s, on_idx gctx sctx i), add_sorting_skct name ctx)
         | E.AbsIdx (((name, r1), s, i), decls, r) =>
           let
             val s = on_sort gctx sctx s

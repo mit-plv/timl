@@ -127,12 +127,11 @@ val ['a 'b] map =
 end
 *)                       
 
-(*
 (* using module-scoped abstract index *)
-structure BigOEvolveSealed :>
-                       sig
-                         idx g : BigO 2 (fn m n => $m * $n)
-                       end =
+structure BigOEvolveSealed (* :> *)
+                       (* sig *)
+                       (*   idx g : BigO 2 (fn m n => $m * $n) *)
+                       (* end *) =
 struct
 open List
 
@@ -150,4 +149,3 @@ val ['a 'b] map =
     end
 
 end
-*)                       

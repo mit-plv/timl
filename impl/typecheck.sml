@@ -1076,7 +1076,9 @@ fun unify_s r gctx ctx (s, s') =
 	    val () = unify_bs r (bs, bs')
             val ctxd = ctx_from_sorting (name, Basic (bs, r1))
             val () = open_ctx ctxd
-	    val () = write_prop (p <-> p', r)
+	    (* val () = write_prop (p <-> p', r) *)
+	    val () = write_prop (p --> p', r)
+	    val () = write_prop (p' --> p, r)
             val () = close_ctx ctxd
           in
             ()
@@ -2924,6 +2926,17 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
                 (* val () = open_premises ps *)
               in
                 (IdxDef ((name, r), s, i), ctxd, 0, [])
+              end
+            | U.AbsIdx2 ((name, r), s, i) =>
+              let
+                val s = is_wf_sort gctx (sctx, s)
+                val i = check_sort gctx (sctx, i, s)
+                val ctxd = ctx_from_sorting (name, s)
+                val () = open_ctx ctxd
+                val ps = [BinPred (EqP, VarI (NONE, (0, r)), shift_ctx_i ctxd i)]
+                val () = open_premises ps
+              in
+                (AbsIdx2 ((name, r), s, i), ctxd, length ps, [])
               end
             | U.TypeDef ((name, r), t) =>
               let

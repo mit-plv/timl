@@ -106,6 +106,7 @@ datatype exp =
          | Rec of id list * id * bind list * return * exp * region
          | Datatype of datatype_def
          | IdxDef of id * sort option * idx
+         | AbsIdx2 of id * sort option * idx
          | AbsIdx of id * sort option * idx option * decl list * region
          | TypeDef of id * ty
        | Open of id

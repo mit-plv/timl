@@ -141,11 +141,51 @@ fun class_le (m1, m2) =
       M.foldli f true m1
     end
       
+(* if [i] is [f n] or [f m n] where [f]'s bigO spec is known, replace [f] with its bigO spec *)
+fun use_bigO_hyp is_outer long_hyps i =
+    case i of
+        BinOpI (TimeApp, f_i, n') =>
+        (case f_i of
+             VarI (_, (f, _)) =>
+             if is_outer f then
+               case find_bigO_hyp f_i long_hyps of
+                   SOME (g, _) => simp_i (g %@ n')
+                 | NONE => i
+             else i
+           | BinOpI (TimeApp, f_i as VarI (_, (f, _)), m') =>
+             if is_outer f  then
+               case find_bigO_hyp f_i long_hyps of
+                   SOME (g, _) => simp_i (g %@ m' %@ n')
+                 | NONE => i
+             else i
+           | _ => i
+        )
+      | _ => i
+                           
 fun timefun_le hs arity a b =
     let
+      fun use_bigO_hyp long_hyps i =
+          case i of
+              VarI (_, (f, _)) =>
+              (case find_bigO_hyp i long_hyps of
+                   SOME (g, _) =>
+                   let
+                     val g = simp_i g
+                     (* val ctx = hyps2ctx hs *)
+                     (* val () = println $ sprintf "timefun_le(): $ ~> $" [str_i [] ctx i, str_i [] ctx g] *)
+                   in
+                     g
+                   end
+                 | NONE => i
+              )
+            | _ => i
       exception Error of string
       fun main () =
           let
+            val a = if arity <= 2 then
+                     use_bigO_hyp hs a
+                   else
+                     a
             val (names1, i1) = collect_TimeAbs a
             val (names2, i2) = collect_TimeAbs b
             val () = if length names1 = length names2 then () else raise Error "timefun_le: arity must equal"
@@ -307,26 +347,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                 in
                   ret
                 end
-            (* if [i] is [f m n] where [f]'s bigO spec is known, replace [f] with its bigO spec *)
-            fun use_bigO_hyp i =
-                case i of
-                    BinOpI (TimeApp, f_i, n') =>
-                    (case f_i of
-                         VarI (_, (f, _)) =>
-                         if is_outer f then
-                           case find_bigO_hyp f_i long_hyps of
-                               SOME (g, _) => simp_i (g %@ n')
-                             | NONE => i
-                         else i
-                       | BinOpI (TimeApp, f_i as VarI (_, (f, _)), m') =>
-                         if is_outer f  then
-                           case find_bigO_hyp f_i long_hyps of
-                               SOME (g, _) => simp_i (g %@ m' %@ n')
-                             | NONE => i
-                         else i
-                       | _ => i
-                    )
-                  | _ => i
+            val use_bigO_hyp = use_bigO_hyp is_outer long_hyps
             fun infer_b n_ n' =
                 let
                   fun infer_b_i i =
@@ -710,7 +731,7 @@ fun solve_bigO_compare (vc as (hs, p)) =
           (* val () = println "BigO-compare-solver to solve this: " *)
           (* val () = app println $ str_vc false "" vc @ [""] *)
           fun get_arity i = length $ fst $ collect_TimeAbs i
-          val arity = get_arity i1
+          val arity = get_arity i2
           val result = timefun_le hs arity i1 i2
                                   (* val () = println $ str_bool result *)
         in

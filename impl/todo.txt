@@ -86,4 +86,4 @@ Done. 72. The last two examples in bigO-evolve.timl about using [idx] instead of
 78. Do a module dependent analysis of each module and only bring the needed modules into [gctx] VC context.
 79. Have double-linked lists.
 Done. 80. rbt6.timl:  absidx sort [Time] inference error in [IntKey].
-81. Currently [absidx ... with ... end] is "scoped abstract index". We should have "unscoped" or "module-scoped" abstract index [absidx id = ...] so within the module [id]'s definition is visible but outside the module it's not.
+Done. 81. Currently [absidx ... with ... end] is "scoped abstract index". We should have "unscoped" or "module-scoped" abstract index [absidx id = ...] so within the module [id]'s definition is visible but outside the module it's not.

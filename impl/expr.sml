@@ -157,6 +157,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                  | Rec of name list * name * (stbind list * ((mtype * idx) * expr)) * region
 	         | Datatype of datatype_def
                  | IdxDef of name * sort * idx
+                 | AbsIdx2 of name * sort * idx
                  | AbsIdx of (name * sort * idx) * decl list * region
                  | TypeDef of name * mtype
                  | Open of mod_projectible
@@ -757,7 +758,9 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                     (s, ctx)
                   end
                 | IdxDef ((name, r), s, i) =>
-                  (sprintf "type idx $ : $ = $" [name, str_s gctx sctx s, str_i gctx sctx i], (name :: sctx, kctx, cctx, tctx))
+                  (sprintf "idx $ : $ = $" [name, str_s gctx sctx s, str_i gctx sctx i], (name :: sctx, kctx, cctx, tctx))
+                | AbsIdx2 ((name, r), s, i) =>
+                  (sprintf "absidx $ : $ = $" [name, str_s gctx sctx s, str_i gctx sctx i], (name :: sctx, kctx, cctx, tctx))
                 | AbsIdx (((name, r1), s, i), decls, _) =>
                   let
                     val ctx' = (name :: sctx, kctx, cctx, tctx)
@@ -907,6 +910,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | Rec (_, _, _, r) => r
               | Datatype (_, _, _, _, r) => r
               | IdxDef ((_, r), _, i) => combine_region r (get_region_i i)
+              | AbsIdx2 ((_, r), _, i) => combine_region r (get_region_i i)
               | AbsIdx (_, _, r) => r
               | TypeDef ((_, r), t) => combine_region r $ get_region_mt t
               | Open (_, r) => r
@@ -1302,6 +1306,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                   end
                 | Datatype a => (Datatype a, 0)
                 | IdxDef a => (IdxDef a, 0)
+                | AbsIdx2 a => (AbsIdx2 a, 0)
                 | AbsIdx (a, decls, r) => 
                   let
                     val (decls, m) = f_decls x n decls
