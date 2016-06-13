@@ -32,10 +32,25 @@ fun print_result show_region filename old_gctxn gctx =
       lines
     end
       
+fun TCctx2NRctx (ctx : TC.context) : NR.context =
+    let
+      val (sctx, kctx, cctx, tctx) = ctx
+      val cctx = map (fn (name, (_, _, core)) => (name, get_constr_inames core)) cctx
+    in
+      (sctx_names sctx, names kctx, cctx, names tctx)
+    end
+fun TCsgntr2NRsgntr (sg : TC.sgntr) : NR.sgntr =
+    case sg of
+        Sig ctx => NR.Sig $ TCctx2NRctx ctx
+      | FunctorBind ((name, arg), body) => NR.FunctorBind ((name, TCctx2NRctx arg), TCctx2NRctx body)
+fun TCgctx2NRgctx gctx = map (mapSnd TCsgntr2NRsgntr) gctx
+                             
 fun process_top_bind filename gctx bind =
     let
       val old_gctx = gctx
-      val result as ((gctxd, (* gctx *)_), (vcs, admits)) = typecheck_prog gctx [bind]
+      val prog = [bind]
+      val (prog, _, _) = resolve_prog (TCgctx2NRgctx gctx) prog
+      val result as ((gctxd, (* gctx *)_), (vcs, admits)) = typecheck_prog gctx prog
       (* val () = write_file (filename ^ ".smt2", to_smt2 vcs) *)
       (* val () = app println $ print_result false filename (gctx_names old_gctx) gctxd *)
       val () = println $ sprintf "Type checker generated $ proof obligations." [str_int $ length vcs]
@@ -66,8 +81,8 @@ fun process_top_bind filename gctx bind =
               val () = println "Applying BigO solver ..."
               val vcs = BigOSolver.solve_vcs vcs
               val () = println (sprintf "BigO solver generated or left $ proof obligations unproved." [str_int $ length vcs])
-              (* val () = println "" *)
-              (* val () = print_unsats false filename $ map (fn vc => (vc, SOME [])) vcs *)
+                               (* val () = println "" *)
+                               (* val () = print_unsats false filename $ map (fn vc => (vc, SOME [])) vcs *)
             in
               vcs
             end
@@ -91,7 +106,7 @@ fun process_top_bind filename gctx bind =
                                            
               val () = println (sprintf "SMT solver generated or left $ proof obligations unproved." [str_int $ length unsats])
               val () = println ""
-              (* val () = print_unsats false filename unsats *)
+                               (* val () = print_unsats false filename unsats *)
             in
               (* map fst unsats *)
               unsats
@@ -110,35 +125,117 @@ fun process_top_bind filename gctx bind =
                )
       val admits = map (fn admit => (filename, admit)) admits
       val gctxd = update_gctx gctxd
-      val gctx = gctxd @ old_gctx
+                              (* val gctx = gctxd @ old_gctx *)
     in
-      (gctx, admits)
+      (gctxd, (* gctx,  *)admits)
     end
+
+local
+  (*
+  open E
+  fun mod_names_i x n b = on_m_i mod_names_v x n b
+  fun mod_names_p x n b = on_m_p mod_names_i x n b
+  fun mod_names_s x n b = on_m_s mod_names_p x n b
+  fun mod_names_mt x n b = on_m_mt mod_names_v mod_names_i mod_names_s x n b
+  fun mod_names_t x n b = on_m_t mod_names_mt x n b
+                                 
+  fun on_e_e on_v =
+      let
+        fun f b =
+	    case b of
+	        Var (y, b) => Var (on_m_long_id on_v y, b)
+	      | Abs (pn, e) =>
+                Abs (on_pn pn, f e)
+	      | App (e1, e2) => App (f e1, f e2)
+	      | TT r => TT r
+	      | Pair (e1, e2) => Pair (f e1, f e2)
+	      | Fst e => Fst (f e)
+	      | Snd e => Snd (f e)
+	      | AbsI (s, name, e, r) => AbsI (on_s f x s, name, f e, r)
+	      | AppI (e, i) => AppI (f e, on_i f x i)
+	      | Let (return, decs, e, r) =>
+	        let
+                  val return = on_return return
+		  val decs = map on_decl decs
+                  val e = f e
+	        in
+		  Let (return, decs, e, r)
+	        end
+	      | Ascription (e, t) => Ascription (f e, t)
+	      | AscriptionTime (e, d) => AscriptionTime (f e, d)
+	      | ConstInt n => ConstInt n
+	      | BinOp (opr, e1, e2) => BinOp (opr, f e1, f e2)
+	      | AppConstr (cx, is, e) => AppConstr (cx, is, f e)
+	      | Case (e, return, rules, r) => Case (f e, return, map (f_rule) rules, r)
+	      | Never t => Never t
+
+        and f_dec dec =
+	    case dec of
+	        Val (tnames, pn, e, r) => 
+	        let 
+                  val (_, enames) = ptrn_names pn 
+	        in
+                  (Val (tnames, pn, f e, r), length enames)
+                end
+              | Rec (tnames, name, (binds, ((t, d), e)), r) => 
+                let
+                  fun g (bind, m) =
+                      case bind of
+                          SortingST _ => m
+                        | TypingST pn =>
+	                  let 
+                            val (_, enames) = ptrn_names pn 
+	                  in
+                            m + length enames
+                          end
+                  val m = foldl g 0 binds
+                  val e = f (x + 1 + m) n e
+                in
+                  (Rec (tnames, name, (binds, ((t, d), e)), r), 1)
+                end
+              | Datatype a => (Datatype a, 0)
+              | IdxDef a => (IdxDef a, 0)
+              | AbsIdx2 a => (AbsIdx2 a, 0)
+              | AbsIdx (a, decls, r) => 
+                let
+                  val (decls, m) = f_decls decls
+                in
+                  (AbsIdx (a, decls, r), m)
+                end
+              | TypeDef (name, t) => (TypeDef (name, t), 0)
+              | Open m => (Open m, 0)
+
+        and f_rule (pn, e) =
+	    let 
+              val (_, enames) = ptrn_names pn 
+	    in
+	      (pn, f (x + length enames) n e)
+	    end
+      in
+        f
+      end
+*)
+in
+fun mod_names_top_bind bind = []
+fun select_modules gctx mod_names = (gctx, ())
+fun remap_modules gctx mapping = gctx
+end
 
 fun typecheck_file gctx filename =
     let
-      fun TCctx2NRctx (ctx : TC.context) : NR.context =
-          let
-            val (sctx, kctx, cctx, tctx) = ctx
-            val cctx = map (fn (name, (_, _, core)) => (name, get_constr_inames core)) cctx
-          in
-            (sctx_names sctx, names kctx, cctx, names tctx)
-          end
-      fun TCsgntr2NRsgntr (sg : TC.sgntr) : NR.sgntr =
-          case sg of
-              Sig ctx => NR.Sig $ TCctx2NRctx ctx
-            | FunctorBind ((name, arg), body) => NR.FunctorBind ((name, TCctx2NRctx arg), TCctx2NRctx body)
-      fun TCgctx2NRgctx gctx = map (mapSnd TCsgntr2NRsgntr) gctx
       val () = println $ sprintf "Typechecking file $ ..." [filename]
       val prog = parse_file filename
       val prog = elaborate_prog prog
       (* val () = (app println o map (suffix "\n") o fst o E.str_decls ctxn) decls *)
-      val (prog, _, _) = resolve_prog (TCgctx2NRgctx gctx) prog
       (* val () = (app println o map (suffix "\n") o fst o UnderscoredExpr.str_decls ctxn) decls *)
       (* apply solvers after each top bind *)
       fun iter (bind, (gctx, acc)) =
           let
-            val (gctx, admits) = process_top_bind filename gctx bind
+            val mod_names = mod_names_top_bind bind
+            val (gctx', mapping) = select_modules gctx mod_names
+            val (gctxd, admits) = process_top_bind filename gctx bind
+            val gctxd = remap_modules gctxd mapping
+            val gctx = gctxd @ gctx
           in
             (gctx, acc @ admits)
           end
@@ -202,7 +299,7 @@ and process_files gctx filenames =
     in
       foldl iter (gctx, []) filenames
     end
-          
+      
 fun main filenames =
     let
       val () = app println $ ["Input file(s):"] @ indent filenames
@@ -251,7 +348,7 @@ fun main (prog_name, args : string list) : int =
     | IO.Io e => (println (sprintf "IO Error doing $ on $" [#function e, #name e]); 1)
     | Impossible msg => (println ("Impossible: " ^ msg); 1)
     | Expr.ModuleUVar msg => (println ("ModuleUVar: " ^ msg); 1)
-    (* | _ => (println ("Internal error"); 1) *)
+                               (* | _ => (println ("Internal error"); 1) *)
 
 end
 
