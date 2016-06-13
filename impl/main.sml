@@ -130,8 +130,8 @@ fun process_top_bind filename gctx bind =
       (gctxd, (* gctx,  *)admits)
     end
 
-local
   (*
+local
   open E
   fun mod_names_i x n b = on_m_i mod_names_v x n b
   fun mod_names_p x n b = on_m_p mod_names_i x n b
@@ -214,12 +214,12 @@ local
       in
         f
       end
-*)
 in
 fun mod_names_top_bind bind = []
 fun select_modules gctx mod_names = (gctx, ())
 fun remap_modules gctx mapping = gctx
 end
+*)
 
 fun typecheck_file gctx filename =
     let
@@ -231,10 +231,11 @@ fun typecheck_file gctx filename =
       (* apply solvers after each top bind *)
       fun iter (bind, (gctx, acc)) =
           let
-            val mod_names = mod_names_top_bind bind
-            val (gctx', mapping) = select_modules gctx mod_names
-            val (gctxd, admits) = process_top_bind filename gctx bind
-            val gctxd = remap_modules gctxd mapping
+            (* val mod_names = mod_names_top_bind bind *)
+            (* val (gctx', mapping) = select_modules gctx mod_names *)
+            val gctx' = gctx
+            val (gctxd, admits) = process_top_bind filename gctx' bind
+            (* val gctxd = remap_modules gctxd mapping *)
             val gctx = gctxd @ gctx
           in
             (gctx, acc @ admits)

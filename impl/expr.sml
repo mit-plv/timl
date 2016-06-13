@@ -981,7 +981,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         open Util
                
         infixr 0 $
-
+(*
         structure Visit = struct
 
         fun on_i visitor q b =
@@ -1212,7 +1212,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
             end
               
         end
-
+*)
         (* generic traversers for both 'shift' and 'forget' *)
 
         (* if it has module reference, don't shift/forget *)
