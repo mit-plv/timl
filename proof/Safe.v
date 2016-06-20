@@ -47,6 +47,7 @@ Inductive cstr :=
 | CApp (t c : cstr)
 | CQuan (q : quan) (c : cstr)
 | CRec (t : cstr)
+| CRef (t : cstr)
 .
 
 Definition T0 := CConst (CCTime R0).
@@ -130,6 +131,8 @@ Inductive sum_cstr :=
 | SCInr
 .
 
+Definition loc := nat.
+
 Inductive exp :=
 | EVar (x : var)
 | EConst (cn : exp_const)
@@ -149,6 +152,10 @@ Inductive exp :=
 | EUnfold (e : exp)
 (* | EAsc (e : exp) (t : cstr) *)
 (* | EAstTime (e : exp) (i : cstr) *)
+| ENew (e : exp)
+| ERead (e : exp)
+| EWrite (e1 e2 : exp)
+| ELoc (l : loc)
 .
 
 Definition EFst := EProj ProjFst.
@@ -157,8 +164,9 @@ Definition EInl := ESumI SCInl.
 Definition EInr := ESumI SCInr.
 
 Definition kctx := list kind.
+Definition hctx := fmap loc cstr.
 Definition tctx := list cstr.
-Definition ctx := (kctx * tctx)%type.
+Definition ctx := (kctx * hctx * tctx)%type.
 
 Definition shift_c_c (x : var) (n : nat) (b : cstr) : cstr.
   admit.
@@ -188,17 +196,26 @@ Definition interpP : kctx -> prop -> Prop.
   admit.
 Defined.
 
+Definition fmap_map {K A B} (f : A -> B) (m : fmap K A) : fmap K B.
+  admit.
+Defined.
 
-Definition add_kinding_kt k (C : ctx) :=
+Definition add_kinding_ctx k (C : ctx) :=
   match C with
-    (L, G) => (k :: L, map (shift_c_c 0 1) G)
+    (L, H, G) => (k :: L, fmap_map (shift_c_c 0 1) H, map (shift_c_c 0 1) G)
   end
 .
-Definition add_typing_kt t (C : ctx) :=
+
+Definition add_typing_ctx t (C : ctx) :=
   match C with
-    (L, G) => (L, t :: G)
+    (L, H, G) => (L, H, t :: G)
   end
 .
+
+Definition get_kctx (C : ctx) : kctx := fst (fst C).
+Definition get_hctx (C : ctx) : hctx := snd (fst C).
+Definition get_tctx (C : ctx) : tctx := snd C.
+
 
 Fixpoint CApps t cs :=
   match cs with
@@ -224,55 +241,55 @@ Inductive typing : ctx -> exp -> cstr -> cstr -> Prop :=
     typing C e1 (CArrow t2 i t) i1 ->
     typing C e2 t2 i2 ->
     typing C (EApp e1 e2) t (i1 + i2 + T1 + i)
-| TyAbs L G e t1 i t :
-    kinding L t1 KType ->
-    typing (L, t1 :: G) e t i ->
-    typing (L, G) (EAbs e) (CArrow t1 i t) T0
-| TyAppC L G e c t i k :
-    typing (L, G) e (CForall t) i ->
-    kinding L (CForall t) (KArrow k KType) ->
-    kinding L c k -> 
-    typing (L, G) (EAppC e c) (subst_c_c 0 c t) i
-| TyAbsC L G e t k :
+| TyAbs C e t1 i t :
+    kinding (get_kctx C) t1 KType ->
+    typing (add_typing_ctx t1 C) e t i ->
+    typing C (EAbs e) (CArrow t1 i t) T0
+| TyAppC C e c t i k :
+    typing C e (CForall t) i ->
+    kinding (get_kctx C) (CForall t) (KArrow k KType) ->
+    kinding (get_kctx C) c k -> 
+    typing C (EAppC e c) (subst_c_c 0 c t) i
+| TyAbsC C e t k :
     value e ->
-    wfkind L k ->
-    typing (add_kinding_kt k (L, G)) e t T0 ->
-    typing (L, G) (EAbsC e) (CAbs t) T0
+    wfkind (get_kctx C) k ->
+    typing (add_kinding_ctx k C) e t T0 ->
+    typing C (EAbsC e) (CAbs t) T0
 | TyRec C e t n e1 :
-    kinding (fst C) t KType ->
+    kinding (get_kctx C) t KType ->
     e = AbsCs_Abs n e1 ->
-    typing (add_typing_kt t C) e t T0 ->
+    typing (add_typing_ctx t C) e t T0 ->
     typing C (ERec e) t T0
-| TyFold L G e t i t1 cs t2 :
+| TyFold C e t i t1 cs t2 :
     t = CApps t1 cs ->
     t1 = CRec t2 ->
-    kinding L t KType ->
-    typing (L, G) e (CApps (subst_c_c 0 t1 t2) cs) i ->
-    typing (L, G) (EFold e) t i
+    kinding (get_kctx C) t KType ->
+    typing C e (CApps (subst_c_c 0 t1 t2) cs) i ->
+    typing C (EFold e) t i
 | TyUnfold C e t t1 cs i :
     t = CRec t1 ->
     typing C e (CApps t cs) i ->
     typing C (EUnfold e) (CApps (subst_c_c 0 t t1) cs) i
-| TySub L G e t2 i2 t1 i1 :
-    typing (L, G) e t1 i1 ->
-    tyeq L t1 t2 ->
-    interpP L (i1 <= i2) ->
-    typing (L, G) e t2 i2 
+| TySub C e t2 i2 t1 i1 :
+    typing C e t1 i1 ->
+    tyeq (get_kctx C) t1 t2 ->
+    interpP (get_kctx C) (i1 <= i2) ->
+    typing C e t2 i2 
 (* | TyAsc L G e t i : *)
 (*     kinding L t KType -> *)
 (*     typing (L, G) e t i -> *)
 (*     typing (L, G) (EAsc e t) t i *)
-| TyPack L G c e t i t1 k :
+| TyPack C c e t i t1 k :
     t = CExists t1 ->
-    wfkind L k -> 
-    kinding L t1 (KArrow k KType) ->
-    kinding L c k ->
-    typing (L, G) e (subst_c_c 0 c t1) i ->
-    typing (L, G) (EPack c e) t i
+    wfkind (get_kctx C) k -> 
+    kinding (get_kctx C) t1 (KArrow k KType) ->
+    kinding (get_kctx C) c k ->
+    typing C e (subst_c_c 0 c t1) i ->
+    typing C (EPack c e) t i
 | TyUnpack C e1 e2 t2' i1 i2' t k t2 i2 :
     typing C e1 (CExists t) i1 ->
-    kinding (fst C) t (KArrow k KType) ->
-    typing (add_typing_kt t (add_kinding_kt k C)) e2 t2 i2 ->
+    kinding (get_kctx C) t (KArrow k KType) ->
+    typing (add_typing_ctx t (add_kinding_ctx k C)) e2 t2 i2 ->
     forget_c_c 0 1 t2 = Some t2' ->
     forget_c_c 0 1 i2 = Some i2' ->
     typing C (EUnpack e1 e2) t2' (i1 + i2')
@@ -290,16 +307,29 @@ Inductive typing : ctx -> exp -> cstr -> cstr -> Prop :=
     typing C (ESnd e) t2 i
 | TyInl C e t t' i :
     typing C e t i ->
-    kinding (fst C) t' KType ->
+    kinding (get_kctx C) t' KType ->
     typing C (EInl e) (CSum t t') i
 | TyInr C e t t' i :
     typing C e t i ->
-    kinding (fst C) t' KType ->
+    kinding (get_kctx C) t' KType ->
     typing C (EInr e) (CSum t' t) i
 | TyCase C e e1 e2 t i i1 i2 t1 t2 :
     typing C e (CSum t1 t2) i ->
-    typing (add_typing_kt t1 C) e1 t i1 ->
-    typing (add_typing_kt t2 C) e2 t i2 ->
+    typing (add_typing_ctx t1 C) e1 t i1 ->
+    typing (add_typing_ctx t2 C) e2 t i2 ->
     typing C (ECase e e1 e2) t (i + Tmax i1 i2)
+| TyNew C e t i :
+    typing C e t i ->
+    typing C (ENew e) (CRef t) i
+| TyRead C e t i :
+    typing C e (CRef t) i ->
+    typing C (ERead e) t i
+| TyWrite C e1 e2 i1 i2 t :
+    typing C e1 (CRef t) i1 ->
+    typing C e2 t i2 ->
+    typing C (EWrite e1 e2) CTypeUnit (i1 + i2)
+| TyLoc C l t :
+    get_hctx C $? l = Some t ->
+    typing C (ELoc l) t T0
 .
            
