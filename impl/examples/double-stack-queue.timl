@@ -1,65 +1,19 @@
-structure DynamicTable = struct
+functor DynamicTable (structure T : sig
+  type {Nat} {Nat} 'a table
+  val table_num_le_size ['a] : forall {size num : Nat}, {num} {size} 'a table -- 1.0 --> {size} {num} Bool.le
+  val alloc ['a] : forall {size : Nat}, {size} Uint.uint -- 1.0 --> {0} {size} 'a table
+  val do_insert ['a] : forall {size num : Nat} {num < size}, {num} {size} 'a table ->> 'a -- 1.0 --> {num + 1} {size} 'a table
+  datatype {Nat} {Nat} 'a do_delete = DoDelete {size num num' : Nat} {num = num' \/ num = num' + 1} of {num'} {size} 'a table --> {num} {size} 'a do_delete
+  val do_delete ['a] : forall {size num : Nat}, {num} {size} 'a table ->> 'a -- 1.0 --> {num} {size} 'a do_delete
+  val copy ['a] : forall {size num size' num' : Nat}, {num} {size} 'a table ->> {num'} {size'} 'a table -- $num --> {num min size'} {size'} 'a table
+  val num ['a] : forall {size num : Nat}, {num} {size} 'a table -- 1.0 --> {num} Uint.uint
+  val size ['a] : forall {size num : Nat}, {num} {size} 'a table -- 1.0 --> {size} Uint.uint
+end) = struct
+open T
 open Bool
 open List
 open Uint
        
-datatype {Nat} {Nat} 'a table =
-         Dummy {size num : Nat} of {num} {size} 'a table
-
-datatype {Nat} {Nat} le =
-         LE {a b : Nat} {a <= b} of {b} {a} le
-
-fun table_num_le_size ['a] {size num : Nat} (table : {num} {size} 'a table) return {size} {num} le using 1.0 =
-    @LE {} {} {admit}
-        
-fun alloc ['a] {size : Nat} (size : {size} uint) return {0} {size} 'a table using 1.0 =
-    Dummy
-
-(* fun free ['a] {size num : Nat} (table : {num} {size} 'a table) return {0} {0} 'a table using 1.0 = *)
-(*     Dummy *)
-
-fun do_insert ['a] {size num : Nat} {num < size} (table : {num} {size} 'a table) (x : 'a) return {num + 1} {size} 'a table using 1.0 =
-    Dummy
-
-datatype {Nat} {Nat} 'a do_delete =
-         DoDelete {size num num' : Nat} {num = num' \/ num = num' + 1} of {num'} {size} 'a table --> {num} {size} 'a do_delete
-                              
-fun do_delete ['a] {size num : Nat} (table : {num} {size} 'a table) (x : 'a) return {num} {size} 'a do_delete =
-    @DoDelete {} {} {0} {admit} Dummy
-
-fun copy ['a] {size num size' num' : Nat} (table : {num} {size} 'a table) (table' : {num'} {size'} 'a table) return {num min size'} {size'} 'a table using $num =
-    Dummy
-
-fun num ['a] {size num : Nat} (table : {num} {size} 'a table) return {num} uint using 1.0 =
-    UintDummy
-      
-fun size ['a] {size num : Nat} (table : {num} {size} 'a table) return {size} uint using 1.0 =
-    UintDummy
-      
-datatype {Nat} {Nat} eq_dec =
-         Eq {a b : Nat} {a = b} of {b} {a} eq_dec
-       | Neq {a b : Nat} {~ (a = b)} of {b} {a} eq_dec
-
-fun eq_dec {x y : Nat} (x : {x} uint, y : {y} uint) return {y} {x} eq_dec using 1.0 =
-    @Eq {x} {y} {admit}
-
-datatype {Nat} {Nat} lt_dec =
-         Lt {a b : Nat} {a < b} of {b} {a} lt_dec
-       | Ge {a b : Nat} {a >= b} of {b} {a} lt_dec
-
-fun lt_dec {x y : Nat} (x : {x} uint, y : {y} uint) return {y} {x} lt_dec using 1.0 =
-    @Lt {x} {y} {admit}
-
-fun uint_mult {a b : Nat} (a : {a} uint, b : {b} uint) return {a * b} uint using 1.0 =
-    UintDummy
-
-fun uint_max {a b : Nat} (a : {a} uint, b : {b} uint) return {a max b} uint using 1.0 =
-    UintDummy
-
-val uint_1 : {1} uint = UintDummy
-val uint_2 : {2} uint = UintDummy
-val uint_4 : {4} uint = UintDummy
-
 datatype {Nat} {Nat} 'a good_table =
          GoodTable {size num : Nat} (* {size <= 2 * num} *) of {num} {size} 'a table --> {num} {size} 'a good_table
                                                                
@@ -81,9 +35,6 @@ fun insert' ['a] {size num : Nat} (x : 'a) (table : {num} {size} 'a good_table) 
             GoodTable (do_insert new_table x)
           end
     end
-
-fun floor_half {n : Nat} (n : {n} uint) return {floor ($n / 2)} uint =
-    UintDummy
 
 datatype {Nat} {Nat} {Nat} {Time} 'a good_cost =
          GoodCost {cost : Time} {size num num' size' : Nat}
@@ -124,9 +75,10 @@ datatype {Time} {Time} {Nat} {Nat} {Nat} 'a amortized_output =
            {cost + ite (2 * num' >= size') ($(2 * num')) ($size' / 2) + ite (2 * num >= size) $size $num <= ite (2 * num >= size) ($(2 * num)) ($size / 2) + ite (2 * num' >= size') $size' $num' + amortized_cost * $n}
            {num' <= num + n}
          of {num'} {size'} 'a good_table --> {cost} {amortized_cost} {n} {num} {size} 'a amortized_output
-                                                                                                    datatype {Time} {Nat} {Nat} {Nat} 'a amortized_fun =
+                   
+datatype {Time} {Nat} {Nat} {Nat} 'a amortized_fun =
          AmortizedFun {size num n : Nat} {cost amortized_cost : Time} of (unit -- cost --> {cost} {amortized_cost} {n} {num} {size} 'a amortized_output) --> {amortized_cost} {n} {num} {size} 'a amortized_fun
-                                                                                                                                                                            
+
 fun insert ['a] {size num : Nat} (x : 'a) (table : {num} {size} 'a good_table) return {23.0} {1} {num} {size} 'a amortized_fun =
     AmortizedFun
       (fn () =>

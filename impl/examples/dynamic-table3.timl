@@ -75,9 +75,10 @@ datatype {Time} {Time} {Nat} {Nat} {Nat} 'a amortized_output =
            {cost + ite (2 * num' >= size') ($(2 * num')) ($size' / 2) + ite (2 * num >= size) $size $num <= ite (2 * num >= size) ($(2 * num)) ($size / 2) + ite (2 * num' >= size') $size' $num' + amortized_cost * $n}
            {num' <= num + n}
          of {num'} {size'} 'a good_table --> {cost} {amortized_cost} {n} {num} {size} 'a amortized_output
-                                                                                                    datatype {Time} {Nat} {Nat} {Nat} 'a amortized_fun =
+                   
+datatype {Time} {Nat} {Nat} {Nat} 'a amortized_fun =
          AmortizedFun {size num n : Nat} {cost amortized_cost : Time} of (unit -- cost --> {cost} {amortized_cost} {n} {num} {size} 'a amortized_output) --> {amortized_cost} {n} {num} {size} 'a amortized_fun
-                                                                                                                                                                            
+
 fun insert ['a] {size num : Nat} (x : 'a) (table : {num} {size} 'a good_table) return {23.0} {1} {num} {size} 'a amortized_fun =
     AmortizedFun
       (fn () =>
