@@ -100,7 +100,7 @@ Inductive prop_bin_conn :=
 .
 
 Inductive prop_bin_pred :=
-| PBLe
+| PBTimeLe
 .
 
 Inductive prop :=
@@ -113,8 +113,8 @@ Inductive prop :=
 | PQuan (q : quan) (p : prop)
 .
 
-Definition PLe := PBinPred PBLe.
-Infix "<=" := PLe : idx_scope.
+Definition Tle := PBinPred PBTimeLe.
+Infix "<=" := Tle : idx_scope.
 
 Inductive base_sort :=
 | BSNat
@@ -305,13 +305,13 @@ Admitted.
 
 Definition add_kinding_ctx k (C : ctx) :=
   match C with
-    (L, H, G) => (k :: L, fmap_map shift01_c_c H, map shift01_c_c G)
+    (L, W, G) => (k :: L, fmap_map shift01_c_c W, map shift01_c_c G)
   end
 .
 
 Definition add_typing_ctx t (C : ctx) :=
   match C with
-    (L, H, G) => (L, H, t :: G)
+    (L, W, G) => (L, W, t :: G)
   end
 .
 
@@ -509,9 +509,9 @@ Inductive step : config -> config -> Prop :=
 Definition empty_ctx : ctx := ([], $0, []).
 Notation "${}" := empty_ctx.
 
-Definition htyping (h : heap) (H : hctx) :=
+Definition htyping (h : heap) (W : hctx) :=
   forall l t,
-    H $? l = Some t ->
+    W $? l = Some t ->
     exists v,
       h $? l = Some v /\
       value v /\
@@ -520,10 +520,10 @@ Definition htyping (h : heap) (H : hctx) :=
 Definition interpTime : cstr -> time.
 Admitted.
 
-Definition ctyping H (s : config) t i :=
+Definition ctyping W (s : config) t i :=
   let '(h, e, f) := s in
-  typing ([], H, []) e t i /\
-  htyping h H /\
+  typing ([], W, []) e t i /\
+  htyping h W /\
   interpTime i <= f
 .
 
@@ -538,30 +538,84 @@ Definition unstuck s :=
 
 Definition safe s := forall s', step^* s s' -> unstuck s'.
 
-Lemma progress H s t i :
-  ctyping H s t i ->
-  unstuck s.
-Proof.
-Admitted.
-
 (* Local Close Scope time_scope. *)
 
 Import Time.CloseScope.
 
-Lemma preservation :
-  forall s s',
-    step s s' ->
+Lemma progress W s t i :
+  ctyping W s t i ->
+  unstuck s.
+Proof.
+Admitted.
+
+Lemma preservation0 s s' :
+  astep s s' ->
+  forall W t i,
+    ctyping W s t i ->
+    let df := (get_fuel s - get_fuel s')%time in
+    (df <= interpTime i)%time ->
+    exists W',
+      ctyping W' s' t (Tminus i (Tconst df)) /\
+      (W $<= W').
+Proof.
+  invert 1; simplify.
+  {
+    exists W.
+    destruct H as (Hty & Hhty & Hle).
+    rename t into f.
+    rename t0 into t.
+    Lemma invert_TyUnfold C e t2 i :
+      typing C (EUnfold e) t2 i ->
+      exists t t1 cs i',
+      tyeq (get_kctx C) t2 (CApps (subst0_c_c t t1) cs) /\
+      t = CRec t1 /\
+      typing C e (CApps t cs) i' /\
+      interpP (get_kctx C) (i' <= i)%idx.
+    Proof.
+    Admitted.
+    eapply invert_TyUnfold in Hty.
+    destruct Hty as (t1 & t2& cs& i'& Htyeq & ? & Hty & Hle2).
+    Arguments get_kctx _ / .
+    simplify.
+    Lemma invert_TyFold C e t' i :
+      typing C (EFold e) t' i ->
+      exists t t1 cs t2,
+        tyeq (get_kctx C) t' t /\
+        t = CApps t1 cs /\
+        t1 = CRec t2 /\
+        kinding (get_kctx C) t KType /\
+        typing C e (CApps (subst0_c_c t1 t2) cs) i.
+    Admitted.
+    subst.
+    eapply invert_TyFold in Hty.
+    destruct Hty as (? & ? & cs' & t2' & Htyeq2 & ? & ? & Hkd & Hty).
+    subst.
+    simplify.
+    Lemma invert_CApps_tyeq t cs t' cs' :
+      tyeq [] (CApps (CRec t) cs) (CApps (CRec t') cs') ->
+      tyeq [] t t' /\
+      Forall2 (tyeq []) cs cs'.
+    Admitted.
+    eapply invert_CApps_tyeq in Htyeq2.
+    (*here*)
+  }
+    
+Qed.
+
+
+Lemma preservation s s' :
+  step s s' ->
   (* forall h e f h' e' f', *)
   (*   step (h, e, f) (h', e', f') -> *)
   (*   let s := (h, e, f) in *)
   (*   let s' := (h', e', f') in *)
-    forall H t i,
-      ctyping H s t i ->
-      let df := (get_fuel s - get_fuel s')%time in
-      (df <= interpTime i)%time ->
-      exists H',
-        ctyping H' s t (Tminus i (Tconst df)) /\
-        (H $<= H').
+  forall W t i,
+    ctyping W s t i ->
+    let df := (get_fuel s - get_fuel s')%time in
+    (df <= interpTime i)%time ->
+    exists W',
+      ctyping W' s t (Tminus i (Tconst df)) /\
+      (W $<= W').
 Proof.
   invert 1.
   (* induct 1. *)
