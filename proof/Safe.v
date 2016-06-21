@@ -567,7 +567,12 @@ Proof.
   (* induct 1. *)
   (* induction 1. *)
   simplify.
-  destruct H3 as [Hty Hhty Hle].
+  destruct H3 as (Hty & Hhty & Hle).
+  (* destruct H3 as [Hty & Hhty & Hle]. *)
+  (* generalize H3. *)
+  (* intros (Hty & Hhty & Hle). *)
+  (* intros (Hty, (Hhty, Hle)). *)
+  (* intros (Hty, Hhty). *)
   Lemma generalize_plug : forall C e1 e1',
     plug C e1 e1' ->
     forall H t,
