@@ -2,18 +2,38 @@ Require Import Frap.
 
 Set Implicit Arguments.
 
-Definition var := nat.
-
 Require Rdefinitions.
-Module R := Rdefinitions.
-Definition real := R.R.
-Definition R0 := R.R0.
-Definition R1 := R.R1.
-(* Require RIneq. *)
-(* Definition nnreal := RIneq.nonnegreal. *)
 
-Definition time := real.
-                     
+Module Time.
+  Module R := Rdefinitions.
+  Definition real := R.R.
+  (* Require RIneq. *)
+  (* Definition nnreal := RIneq.nonnegreal. *)
+  Definition time := real.
+  Definition Time0 := R.R0.
+  Definition Time1 := R.R1.
+  Definition TimeAdd := R.Rplus.
+  Definition TimeMinus := R.Rminus.
+  Definition TimeLe := R.Rle.
+  Delimit Scope time_scope with time.
+  Notation "0" := Time0 : time_scope.
+  Notation "1" := Time1 : time_scope.
+  Infix "+" := TimeAdd : time_scope.
+  Infix "-" := TimeMinus : time_scope.
+  Infix "<=" := TimeLe : time_scope.
+
+  Module OpenScope.
+    Open Scope time_scope.
+  End OpenScope.
+
+  Module CloseScope.
+    Close Scope time_scope.
+  End CloseScope.
+
+End Time.
+
+Import Time.
+
 Inductive cstr_const :=
 | CCIdxTT
 | CCIdxNat (n : nat)
@@ -38,6 +58,8 @@ Inductive quan :=
 | QuanExists
 .
 
+Definition var := nat.
+
 Inductive cstr :=
 | CVar (x : var)
 | CConst (cn : cstr_const)
@@ -54,12 +76,15 @@ Inductive cstr :=
 .
 
 Definition Tconst r := CConst (CCTime r).
-Definition T0 := Tconst R0.
-Definition T1 := Tconst R1.
+Definition T0 := Tconst Time0.
+Definition T1 := Tconst Time1.
 Definition Tadd := CBinOp CBTimeAdd.
-Infix "+" := Tadd : idx_scope.
-Delimit Scope idx_scope with idx.
 Definition Tminus := CBinOp CBTimeMinus.
+
+Delimit Scope idx_scope with idx.
+Infix "+" := Tadd : idx_scope.
+(* Notation "0" := T0 : idx_scope. *)
+(* Notation "1" := T1 : idx_scope. *)
 
 Definition Tmax := CBinOp CBTimeMax.
 
@@ -252,16 +277,16 @@ Definition tctx := list cstr.
 Definition ctx := (kctx * hctx * tctx)%type.
 
 Definition shift_c_c (x : var) (n : nat) (b : cstr) : cstr.
-  admit.
-Defined.
-
+  Admitted.
+Definition shift01_c_c := shift_c_c 0 1.
+           
 Definition forget_c_c (x : var) (n : nat) (b : cstr) : option cstr.
-  admit.
-Defined.
+  Admitted.
+Definition forget01_c_c := forget_c_c 0 1.
 
 Definition subst_c_c (x : var) (v : cstr) (b : cstr) : cstr.
-  admit.
-Defined.
+Admitted.
+Definition subst0_c_c := subst_c_c 0.
 
 Inductive wfkind : kctx -> kind -> Prop :=
 .
@@ -273,16 +298,14 @@ Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
 .
 
 Definition interpP : kctx -> prop -> Prop.
-  admit.
-Defined.
+Admitted.
 
 Definition fmap_map {K A B} (f : A -> B) (m : fmap K A) : fmap K B.
-  admit.
-Defined.
+Admitted.
 
 Definition add_kinding_ctx k (C : ctx) :=
   match C with
-    (L, H, G) => (k :: L, fmap_map (shift_c_c 0 1) H, map (shift_c_c 0 1) G)
+    (L, H, G) => (k :: L, fmap_map shift01_c_c H, map shift01_c_c G)
   end
 .
 
@@ -343,7 +366,7 @@ Inductive typing : ctx -> expr -> cstr -> cstr -> Prop :=
     typing C e (CForall t) i ->
     kinding (get_kctx C) (CForall t) (KArrow k KType) ->
     kinding (get_kctx C) c k -> 
-    typing C (EAppC e c) (subst_c_c 0 c t) i
+    typing C (EAppC e c) (subst0_c_c c t) i
 | TyAbsC C e t k :
     value e ->
     wfkind (get_kctx C) k ->
@@ -358,12 +381,12 @@ Inductive typing : ctx -> expr -> cstr -> cstr -> Prop :=
     t = CApps t1 cs ->
     t1 = CRec t2 ->
     kinding (get_kctx C) t KType ->
-    typing C e (CApps (subst_c_c 0 t1 t2) cs) i ->
+    typing C e (CApps (subst0_c_c t1 t2) cs) i ->
     typing C (EFold e) t i
 | TyUnfold C e t t1 cs i :
     t = CRec t1 ->
     typing C e (CApps t cs) i ->
-    typing C (EUnfold e) (CApps (subst_c_c 0 t t1) cs) i
+    typing C (EUnfold e) (CApps (subst0_c_c t t1) cs) i
 | TySub C e t2 i2 t1 i1 :
     typing C e t1 i1 ->
     tyeq (get_kctx C) t1 t2 ->
@@ -377,14 +400,14 @@ Inductive typing : ctx -> expr -> cstr -> cstr -> Prop :=
     t = CExists t1 ->
     kinding (get_kctx C) t1 (KArrow k KType) ->
     kinding (get_kctx C) c k ->
-    typing C e (subst_c_c 0 c t1) i ->
+    typing C e (subst0_c_c c t1) i ->
     typing C (EPack c e) t i
 | TyUnpack C e1 e2 t2' i1 i2' t k t2 i2 :
     typing C e1 (CExists t) i1 ->
     kinding (get_kctx C) t (KArrow k KType) ->
     typing (add_typing_ctx t (add_kinding_ctx k C)) e2 t2 i2 ->
-    forget_c_c 0 1 t2 = Some t2' ->
-    forget_c_c 0 1 i2 = Some i2' ->
+    forget01_c_c t2 = Some t2' ->
+    forget01_c_c i2 = Some i2' ->
     typing C (EUnpack e1 e2) t2' (i1 + i2')
 | TyConst C cn :
     typing C (EConst cn) (const_type cn) T0
@@ -424,21 +447,24 @@ Local Close Scope idx_scope.
 Definition heap := fmap loc expr.
   
 Definition subst_e_e (x : var) (v : expr) (b : expr) : expr.
-  admit.
-Defined.
+Admitted.
 Definition subst0_e_e := subst_e_e 0.
 
 Definition subst_c_e (x : var) (v : cstr) (b : expr) : expr.
-  admit.
-Defined.
+Admitted.
 Definition subst0_c_e := subst_c_e 0.
 
 Definition fuel := time.
 
-Require Import Reals.
-Local Open Scope R_scope.
-
 Definition config := (heap * expr * fuel)%type.
+
+(* Require Import Reals. *)
+
+(* Local Open Scope R_scope. *)
+
+(* Local Open Scope time_scope. *)
+
+Import Time.OpenScope.
 
 Inductive astep : config -> config -> Prop :=
 | AUnfoldFold h v t :
@@ -492,8 +518,7 @@ Definition htyping (h : heap) (H : hctx) :=
       typing ${} v t T0.
 
 Definition interpTime : cstr -> time.
-  admit.
-Defined.
+Admitted.
 
 Definition ctyping H (s : config) t i :=
   let '(h, e, f) := s in
@@ -517,8 +542,11 @@ Lemma progress H s t i :
   ctyping H s t i ->
   unstuck s.
 Proof.
-  admit.
-Qed.
+Admitted.
+
+(* Local Close Scope time_scope. *)
+
+Import Time.CloseScope.
 
 Lemma preservation :
   forall s s',
@@ -529,16 +557,17 @@ Lemma preservation :
   (*   let s' := (h', e', f') in *)
     forall H t i,
       ctyping H s t i ->
-      let df := get_fuel s - get_fuel s' in
-      df <= interpTime i ->
+      let df := (get_fuel s - get_fuel s')%time in
+      (df <= interpTime i)%time ->
       exists H',
         ctyping H' s t (Tminus i (Tconst df)) /\
         (H $<= H').
 Proof.
+  invert 1.
   (* induct 1. *)
-  induction 1.
-  (* invert 1. *)
+  (* induction 1. *)
   simplify.
+  destruct H3 as [Hty Hhty Hle].
   Lemma generalize_plug : forall C e1 e1',
     plug C e1 e1' ->
     forall H t,
@@ -571,4 +600,12 @@ Proof.
       induct 1; t; eauto.
     Qed.
 
-Qed.
+  Qed.
+
+
+
+
+
+Lemma ttt : forall A (ls : list A) p, Forall p ls -> ls = List.nil.
+  induct 1.
+  
