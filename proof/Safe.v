@@ -11,11 +11,13 @@ Definition R0 := R.R0.
 Definition R1 := R.R1.
 (* Require RIneq. *)
 (* Definition nnreal := RIneq.nonnegreal. *)
+
+Definition time := real.
                      
 Inductive cstr_const :=
 | CCIdxTT
 | CCIdxNat (n : nat)
-| CCTime (r : real)
+| CCTime (r : time)
 | CCTypeUnit
 | CCTypeInt
 .
@@ -25,6 +27,7 @@ Inductive cstr_un_op :=
 
 Inductive cstr_bin_op :=
 | CBTimeAdd
+| CBTimeMinus
 | CBTimeMax
 | CBTypeProd
 | CBTypeSum
@@ -50,11 +53,13 @@ Inductive cstr :=
 | CRef (t : cstr)
 .
 
-Definition T0 := CConst (CCTime R0).
-Definition T1 := CConst (CCTime R1).
+Definition Tconst r := CConst (CCTime r).
+Definition T0 := Tconst R0.
+Definition T1 := Tconst R1.
 Definition Tadd := CBinOp CBTimeAdd.
 Infix "+" := Tadd : idx_scope.
 Delimit Scope idx_scope with idx.
+Definition Tminus := CBinOp CBTimeMinus.
 
 Definition Tmax := CBinOp CBTimeMax.
 
@@ -103,7 +108,7 @@ Inductive kind :=
 Require BinIntDef.
 Definition int := BinIntDef.Z.t.
 
-Inductive exp_const :=
+Inductive expr_const :=
 | ECTT
 | ECInt (i : int)
 .
@@ -117,8 +122,8 @@ Definition const_type cn :=
   end
 .
 
-Inductive exp_bin_op :=
-| EBIntAdd
+Inductive prim_expr_bin_op :=
+| PEBIntAdd
 .
 
 Inductive projector :=
@@ -133,35 +138,113 @@ Inductive sum_cstr :=
 
 Definition loc := nat.
 
-Inductive exp :=
+Inductive expr_un_op :=
+| EUProj (p : projector)
+| EUSumI (c : sum_cstr)
+| EUAppC (c : cstr)
+| EUPack (c : cstr)
+| EUFold
+| EUUnfold
+| EUNew 
+| EURead 
+.
+
+Inductive expr_bin_op :=
+| EBPrim (opr : prim_expr_bin_op)
+| EBApp
+| EBPair
+| EBWrite
+.
+
+Inductive expr :=
 | EVar (x : var)
-| EConst (cn : exp_const)
-| EBinOp (opr : exp_bin_op) (e1 e2 : exp)
-| EPair (e1 e2 : exp)
-| EProj (p : projector) (e : exp)
-| ESumI (c : sum_cstr) (e : exp)
-| ECase (e e1 e2 : exp)
-| EAbs (e : exp)
-| EApp (e1 e2 : exp)
-| ERec (e : exp)
-| EAbsC (e : exp)
-| EAppC (e : exp) (c : cstr)
-| EPack (c : cstr) (e : exp)
-| EUnpack (e1 e2 : exp)
-| EFold (e : exp)
-| EUnfold (e : exp)
-(* | EAsc (e : exp) (t : cstr) *)
-(* | EAstTime (e : exp) (i : cstr) *)
-| ENew (e : exp)
-| ERead (e : exp)
-| EWrite (e1 e2 : exp)
+| EConst (cn : expr_const)
 | ELoc (l : loc)
+| EUnOp (opr : expr_un_op) (e : expr)
+| EBinOp (opr : expr_bin_op) (e1 e2 : expr)
+| ECase (e e1 e2 : expr)
+| EAbs (e : expr)
+| ERec (e : expr)
+| EAbsC (e : expr)
+| EUnpack (e1 e2 : expr)
+(* | EAsc (e : expr) (t : cstr) *)
+(* | EAstTime (e : expr) (i : cstr) *)
+.
+
+
+Definition EProj p e := EUnOp (EUProj p) e.
+Definition ESumI c e := EUnOp (EUSumI c) e.
+Definition EAppC e c := EUnOp (EUAppC c) e.
+Definition EPack c e := EUnOp (EUPack c) e.
+Definition EFold e := EUnOp EUFold e.
+Definition EUnfold e := EUnOp EUUnfold e.
+Definition ENew e := EUnOp EUNew e.
+Definition ERead e := EUnOp EURead e.
+
+Definition EApp := EBinOp EBApp.
+Definition EPair := EBinOp EBPair.
+Definition EWrite := EBinOp EBWrite.
+
+Inductive value : expr -> Prop :=
+| VVar x :
+    value (EVar x)
+| VConst cn :
+    value (EConst cn)
+| VPair v1 v2 :
+    value v1 ->
+    value v2 ->
+    value (EPair v1 v2)
+| VSumI c v :
+    value v ->
+    value (ESumI c v)
+| VAbs e :
+    value (EAbs e)
+| VAbsC e :
+    value (EAbsC e)
+| VPack c v :
+    value (EPack c v)
+| VFold v :
+    value (EFold v)
+| VLoc l :
+    value (ELoc l)
+.
+
+Inductive ectx :=
+| ECHole
+| ECUnOp (opr : expr_un_op) (E : ectx)
+| ECBinOp1 (opr : expr_bin_op) (E : ectx) (e : expr)
+| ECBinOp2 (opr : expr_bin_op) (v : expr) (E : ectx)
+| ECCase (E : ectx) (e1 e2 : expr)
+| ECUnpack (E : ectx) (e : expr)
+.
+
+Inductive plug : ectx -> expr -> expr -> Prop :=
+| PlugHole e :
+    plug ECHole e e
+| PlugUnOp E e e' opr :
+    plug E e e' ->
+    plug (ECUnOp opr E) e (EUnOp opr e')
+| PlugBinOp1 E e e' opr e2 :
+    plug E e e' ->
+    plug (ECBinOp1 opr E e2) e (EBinOp opr e' e2)
+| PlugBinOp2 E e e' opr v :
+    plug E e e' ->
+    value v ->
+    plug (ECBinOp2 opr v E) e (EBinOp opr v e')
+| PlugCase E e e' e1 e2 :
+    plug E e e' ->
+    plug (ECCase E e1 e2) e (ECase e' e1 e2)
+| PlugUnpack E e e' e2 :
+    plug E e e' ->
+    plug (ECUnpack E e2) e (EUnpack e' e2)
 .
 
 Definition EFst := EProj ProjFst.
 Definition ESnd := EProj ProjSnd.
 Definition EInl := ESumI SCInl.
 Definition EInr := ESumI SCInr.
+
+Definition ETT := EConst ECTT.
 
 Definition kctx := list kind.
 Definition hctx := fmap loc cstr.
@@ -179,9 +262,6 @@ Defined.
 Definition subst_c_c (x : var) (v : cstr) (b : cstr) : cstr.
   admit.
 Defined.
-
-Inductive value : exp -> Prop :=
-.
 
 Inductive wfkind : kctx -> kind -> Prop :=
 .
@@ -231,9 +311,23 @@ Fixpoint AbsCs_Abs n e :=
   end
 .
 
+Definition proj {A} (p : A * A) pr :=
+  match pr with
+  | ProjFst => fst p
+  | ProjSnd => snd p
+  end
+.
+
+Definition choose {A} (p : A * A) sc :=
+  match sc with
+  | SCInl => fst p
+  | SCInr => snd p
+  end
+.
+
 Local Open Scope idx_scope.
 
-Inductive typing : ctx -> exp -> cstr -> cstr -> Prop :=
+Inductive typing : ctx -> expr -> cstr -> cstr -> Prop :=
 | TyVar L G x t :
     nth_error G x = Some t ->
     typing (L, G) (EVar x) t T0
@@ -256,8 +350,8 @@ Inductive typing : ctx -> exp -> cstr -> cstr -> Prop :=
     typing (add_kinding_ctx k C) e t T0 ->
     typing C (EAbsC e) (CAbs t) T0
 | TyRec C e t n e1 :
-    kinding (get_kctx C) t KType ->
     e = AbsCs_Abs n e1 ->
+    kinding (get_kctx C) t KType ->
     typing (add_typing_ctx t C) e t T0 ->
     typing C (ERec e) t T0
 | TyFold C e t i t1 cs t2 :
@@ -281,7 +375,6 @@ Inductive typing : ctx -> exp -> cstr -> cstr -> Prop :=
 (*     typing (L, G) (EAsc e t) t i *)
 | TyPack C c e t i t1 k :
     t = CExists t1 ->
-    wfkind (get_kctx C) k -> 
     kinding (get_kctx C) t1 (KArrow k KType) ->
     kinding (get_kctx C) c k ->
     typing C e (subst_c_c 0 c t1) i ->
@@ -299,20 +392,13 @@ Inductive typing : ctx -> exp -> cstr -> cstr -> Prop :=
     typing C e1 t1 i1 ->
     typing C e2 t2 i2 ->
     typing C (EPair e1 e2) (CProd t1 t2) (i1 + i2)
-| TyFst C e t1 t2 i :
+| TyProj C pr e t1 t2 i :
     typing C e (CProd t1 t2) i ->
-    typing C (EFst e) t1 i
-| TySnd C e t1 t2 i :
-    typing C e (CProd t1 t2) i ->
-    typing C (ESnd e) t2 i
-| TyInl C e t t' i :
+    typing C (EProj pr e) (proj (t1, t2) pr) i
+| TySumI C sc e t t' i :
     typing C e t i ->
     kinding (get_kctx C) t' KType ->
-    typing C (EInl e) (CSum t t') i
-| TyInr C e t t' i :
-    typing C e t i ->
-    kinding (get_kctx C) t' KType ->
-    typing C (EInr e) (CSum t' t) i
+    typing C (ESumI sc e) (choose (CSum t t', CSum t' t) sc) i
 | TyCase C e e1 e2 t i i1 i2 t1 t2 :
     typing C e (CSum t1 t2) i ->
     typing (add_typing_ctx t1 C) e1 t i1 ->
@@ -332,4 +418,157 @@ Inductive typing : ctx -> exp -> cstr -> cstr -> Prop :=
     get_hctx C $? l = Some t ->
     typing C (ELoc l) t T0
 .
-           
+
+Local Close Scope idx_scope.
+
+Definition heap := fmap loc expr.
+  
+Definition subst_e_e (x : var) (v : expr) (b : expr) : expr.
+  admit.
+Defined.
+Definition subst0_e_e := subst_e_e 0.
+
+Definition subst_c_e (x : var) (v : cstr) (b : expr) : expr.
+  admit.
+Defined.
+Definition subst0_c_e := subst_c_e 0.
+
+Definition fuel := time.
+
+Require Import Reals.
+Local Open Scope R_scope.
+
+Definition config := (heap * expr * fuel)%type.
+
+Inductive astep : config -> config -> Prop :=
+| AUnfoldFold h v t :
+    value v ->
+    astep (h, EUnfold (EFold v), t) (h, v, t)
+| ARec h e t :
+    astep (h, ERec e, t) (h, subst0_e_e (ERec e) e, t)
+| AUnpackPack h c v e t :
+    astep (h, EUnpack (EPack c v) e, t) (h, subst0_e_e v (subst0_c_e c e), t)
+| ARead h l t v :
+    h $? l = Some v ->
+    astep (h, ERead (ELoc l), t) (h, v, t)
+| AWrite h l v t v' :
+    value v ->
+    h $? l = Some v' ->
+    astep (h, EWrite (ELoc l) v, t) (h $+ (l, v), ETT, t)
+| ANew h v t l :
+    value v ->
+    h $? l = None ->
+    astep (h, ENew v, t) (h $+ (l, v), ELoc l, t)
+| ABeta h e v t :
+    value v ->
+    astep (h, EApp (EAbs e) v, 1 + t) (h, subst0_e_e v e, t)
+| ABetaC h e c t :
+    astep (h, EAppC (EAbsC e) c, t) (h, subst0_c_e c e, t)
+| AProj h pr v1 v2 t :
+    value v1 ->
+    value v2 ->
+    astep (h, EProj pr (EPair v1 v2), t) (h, proj (v1, v2) pr, t)
+| AMatch h sc v e1 e2 t :
+    astep (h, ECase (ESumI sc v) e1 e2, t) (h, subst0_e_e v (choose (e1, e2) sc), t)
+.
+
+Inductive step : config -> config -> Prop :=
+| Step h e1 t h' e1' t' e e' E :
+    astep (h, e, t) (h', e', t') ->
+    plug E e e1 ->
+    plug E e' e1' ->
+    step (h, e1, t) (h', e1', t')
+.
+
+Definition empty_ctx : ctx := ([], $0, []).
+Notation "${}" := empty_ctx.
+
+Definition htyping (h : heap) (H : hctx) :=
+  forall l t,
+    H $? l = Some t ->
+    exists v,
+      h $? l = Some v /\
+      value v /\
+      typing ${} v t T0.
+
+Definition interpTime : cstr -> time.
+  admit.
+Defined.
+
+Definition ctyping H (s : config) t i :=
+  let '(h, e, f) := s in
+  typing ([], H, []) e t i /\
+  htyping h H /\
+  interpTime i <= f
+.
+
+Definition get_expr (s : config) : expr := snd (fst s).
+Definition get_fuel (s : config) : fuel := snd s.
+
+Definition finished s := value (get_expr s).
+
+Definition unstuck s :=
+  finished s /\
+  exists s', step s s'.
+
+Definition safe s := forall s', step^* s s' -> unstuck s'.
+
+Lemma progress H s t i :
+  ctyping H s t i ->
+  unstuck s.
+Proof.
+  admit.
+Qed.
+
+Lemma preservation :
+  forall s s',
+    step s s' ->
+  (* forall h e f h' e' f', *)
+  (*   step (h, e, f) (h', e', f') -> *)
+  (*   let s := (h, e, f) in *)
+  (*   let s' := (h', e', f') in *)
+    forall H t i,
+      ctyping H s t i ->
+      let df := get_fuel s - get_fuel s' in
+      df <= interpTime i ->
+      exists H',
+        ctyping H' s t (Tminus i (Tconst df)) /\
+        (H $<= H').
+Proof.
+  (* induct 1. *)
+  induction 1.
+  (* invert 1. *)
+  simplify.
+  Lemma generalize_plug : forall C e1 e1',
+    plug C e1 e1' ->
+    forall H t,
+      hasty H $0 e1' t ->
+      exists H1 Hctx t0,
+        hasty H1 $0 e1 t0 /\
+        split H H1 Hctx /\
+        forall e2 e2' H1' H',
+          hasty H1' $0 e2 t0 ->
+          plug C e2 e2' ->
+          split H' H1' Hctx ->
+          hasty H' $0 e2' t.
+    
+  Lemma generalize_plug : forall H e1 C e1',
+    plug C e1 e1'
+    -> forall t, hasty H $0 e1' t
+    -> exists t0, hasty H $0 e1 t0
+                  /\ (forall e2 e2' H',
+                         hasty H' $0 e2 t0
+                         -> plug C e2 e2'
+                         -> (forall l t, H $? l = Some t -> H' $? l = Some t)
+                         -> hasty H' $0 e2' t).
+    
+    Lemma generalize_plug : forall e1 E e1',
+      plug E e1 e1'
+      -> forall e2 e2', plug C e2 e2'
+                  -> (forall t, hasty $0 $0 e1 t -> hasty $0 $0 e2 t)
+                  -> (forall t, hasty $0 $0 e1' t -> hasty $0 $0 e2' t).
+    Proof.
+      induct 1; t; eauto.
+    Qed.
+
+Qed.
