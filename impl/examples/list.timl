@@ -28,4 +28,9 @@ fun foldl ['a 'b] {m : Nat} (f : 'a * 'b -- $m --> 'b) =
     end
 end
 
+fun hd ['a] {n: Nat | n > 0} (ls: {n} 'a list) =
+    case ls of
+        x :: _ => x
+      | _ => never
+       
 end

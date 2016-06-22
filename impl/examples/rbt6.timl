@@ -31,7 +31,20 @@ open Bool
 open Compare
 
 type key = K.t
-             
+
+(* simplified version for paper *)             
+datatype {Bool} color =
+         Black of {true} color
+         | Red of {false} color
+                          
+datatype {Nat} {Bool} 'a rbt =
+         Leaf of {0} {true} 'a rbt
+       | Node {lc c rc : Bool}
+              {bh : Nat}
+              {c = false -> lc = true /\ rc = true }
+         of {c} color * {bh} {lc} 'a rbt * (key * 'a) * {bh} {rc} 'a rbt --> {bh + b2n c} {c} 'a rbt
+
+(* real version *)                                                             
 datatype {Bool} color =
          Black of {true} color
          | Red of {false} color
