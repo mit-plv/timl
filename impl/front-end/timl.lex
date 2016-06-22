@@ -73,6 +73,9 @@ val keywords = [
     ("functor", T.FUNCTOR),
     ("sig", T.SIG),
     ("open", T.OPEN),
+    ("if", T.IF),
+    ("then", T.THEN),
+    ("else", T.ELSE),
     ("as", T.AS)
 ]
  
@@ -106,6 +109,7 @@ id_init = ({alpha}|[_']);
 <INITIAL>"]" => (T.RSQ (make_region (yypos, size yytext)));
 <INITIAL>"{" => (T.LCUR (make_region (yypos, size yytext)));
 <INITIAL>"}" => (T.RCUR (make_region (yypos, size yytext)));
+<INITIAL>"::" => (T.DCOLON (make_region (yypos, size yytext)));
 <INITIAL>":" => (T.COLON (make_region (yypos, size yytext)));
 <INITIAL>":>" => (T.COLON_GT (make_region (yypos, size yytext)));
 <INITIAL>"|>" => (T.RTRI (make_region (yypos, size yytext)));

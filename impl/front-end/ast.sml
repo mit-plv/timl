@@ -111,6 +111,17 @@ datatype exp =
          | TypeDef of id * ty
        | Open of id
 
+fun short_id id = ((NONE, id), false)
+fun PShortVar (x, r) = ConstrP (short_id (x, r), [], NONE, r)
+fun EIte (e, e1, e2, r) = Case (e, (NONE, NONE), [(PShortVar ("true", r), e1), (PShortVar ("false", r), e2)], r)
+fun EShortVar id = Var (short_id id)
+fun ECons (e1, e2, r) = App (EShortVar ("Cons", r), Tuple ([e1, e2], r), r)
+fun PCons (pn1, pn2, r) = ConstrP (short_id ("Cons", r), [], SOME (TupleP ([pn1, pn2], r)), r)
+fun ENil r = EShortVar ("Nil", r)
+fun EList (es, r) = foldr (fn (e, acc) => ECons (e, acc, r)) (ENil r) es
+fun PNil r = PShortVar ("Nil", r)
+fun PList (pns, r) = foldr (fn (pn, acc) => PCons (pn, acc, r)) (PNil r) pns
+                               
 type name = id
               
 datatype spec =

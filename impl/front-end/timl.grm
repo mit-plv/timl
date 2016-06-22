@@ -73,6 +73,10 @@ open Ast
     | OPEN
     | COLON_GT
     | ZERO_ARROW
+    | IF
+    | THEN
+    | ELSE
+    | DCOLON
 
 %nonterm start of prog
        | exp of exp
@@ -134,7 +138,7 @@ open Ast
        | datatype_def of datatype_def
        (* | sig_anno_opt of sig_anno option *)
 
-%keyword FN CASE UNPACK OF LET IN END RETURN VAL DATATYPE AS TYPE STRUCTURE STRUCT FUNCTOR SIG OPEN IDX
+%keyword FN CASE UNPACK OF LET IN END RETURN VAL DATATYPE AS TYPE STRUCTURE STRUCT FUNCTOR SIG OPEN IDX IF THEN ELSE
 
 %pos pos
 
@@ -142,6 +146,7 @@ open Ast
 %left RTRI COLON COLON_GT
 %nonassoc LSQ LCUR
 %left COMMA
+%right DCOLON
 %nonassoc IFF
 %right DDASH LARROW ARROW ZERO_ARROW
 %right OR
@@ -222,11 +227,21 @@ ty : ty DDASH idx LARROW ty (Arrow (ty1, idx, ty2, (ty1left, ty2right)))
 
 exp : aexp (aexp)
      | exp PLUS exp (BinOp (Add, exp1, exp2, (exp1left, exp2right)))
+     | exp DCOLON exp (ECons (exp1, exp2, (exp1left, exp2right)))
      | exp COLON ty (Ascription (exp, ty, (expleft, tyright)))
      | exp RTRI idx (AscriptionTime (exp, idx, (expleft, idxright)))
      | exp LCUR idx RCUR (AppI (exp, idx, (expleft, idxright)))
      | exp LCUR RCUR (AppI (exp, VarI (underscore (LCURleft, RCURright)), (expleft, RCURright)))
      | exp aexp (App (exp, aexp, (expleft, aexpright)))
+
+aexp : decorated_id (Var decorated_id)
+     | LPAREN exp_comma_star RPAREN (Tuple (exp_comma_star, (LPARENleft, RPARENright)))
+     | FN bind_plus return DARROW exp (Abs (bind_plus, return, exp, (FNleft, expright)))
+     | CASE exp return OF rule_bar_star (Case (exp, return, rule_bar_star, (CASEleft, rule_bar_starright)))
+     | IF exp THEN exp ELSE exp (EIte (exp1, exp2, exp3, (IFleft, exp3right)))
+     | LET return decl_star IN exp END (Let (return, decl_star, exp, (LETleft, ENDright)))
+     | INT (Const (INT, (INTleft, INTright)))
+     | LSQ exp_comma_star RSQ (EList (exp_comma_star, (LSQleft, RSQright)))
 
 long_id : id ((NONE, id))
         | id DOT id (SOME id1, id2)
@@ -234,13 +249,6 @@ long_id : id ((NONE, id))
 decorated_id : long_id ((long_id, false))
              | AT long_id ((long_id, true))          
            
-aexp : decorated_id (Var decorated_id)
-     | LPAREN exp_comma_star RPAREN (Tuple (exp_comma_star, (LPARENleft, RPARENright)))
-     | FN bind_plus return DARROW exp (Abs (bind_plus, return, exp, (FNleft, expright)))
-     | CASE exp return OF rule_bar_star (Case (exp, return, rule_bar_star, (CASEleft, rule_bar_starright)))
-     | LET return decl_star IN exp END (Let (return, decl_star, exp, (LETleft, ENDright)))
-     | INT (Const (INT, (INTleft, INTright)))
-
 idx : aidx (aidx)
     | idx PLUS idx (BinOpI (AddI, idx1, idx2, (idx1left, idx2right)))
     | idx MINUS idx (BinOpI (BoundedMinusI, idx1, idx2, (idx1left, idx2right)))
@@ -331,10 +339,12 @@ rule : ptrn DARROW exp ((ptrn, exp))
 ptrn : decorated_id idx_ids ptrn_opt (ConstrP (decorated_id, map fst idx_ids, ptrn_opt, (decorated_idleft, ptrn_optright)))
      | id AS ptrn (AliasP (id, ptrn, (idleft, ptrnright)))
      | ptrn COLON ty (AnnoP (ptrn, ty, (ptrnleft, tyright)))
+     | ptrn DCOLON ptrn (PCons (ptrn1, ptrn2, (ptrn1left, ptrn2right)))
      | aptrn (aptrn)
 
 aptrn : LPAREN ptrn_comma_star RPAREN (TupleP (ptrn_comma_star, (LPARENleft, RPARENright)))
       | decorated_id (ConstrP (decorated_id, [], NONE, (decorated_idleft, decorated_idright)))
+      | LSQ ptrn_comma_star RSQ (PList (ptrn_comma_star, (LSQleft, RSQright)))
 
 ptrn_opt : ptrn (SOME ptrn)
          | (NONE)

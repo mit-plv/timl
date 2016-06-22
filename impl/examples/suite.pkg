@@ -1,6 +1,6 @@
 (* tree.timl *)
 (* trivial.timl *)
-(* msort.timl *)
+msort.timl
 (* bigO-evolve.timl *)
 (* fold-evolve.timl *)
 (* single-var.timl *)
@@ -15,4 +15,4 @@
 (* rbt6.timl *)
 (* dynamic-table.timl *)
 (* dynamic-table2.timl *)
-dynamic-table3.timl
+(* dynamic-table3.timl *)
