@@ -439,7 +439,7 @@ Inductive typing : ctx -> expr -> cstr -> cstr -> Prop :=
     typing C (EWrite e1 e2) CTypeUnit (i1 + i2)
 | TyLoc C l t :
     get_hctx C $? l = Some t ->
-    typing C (ELoc l) t T0
+    typing C (ELoc l) (CRef t) T0
 .
 
 Local Close Scope idx_scope.
