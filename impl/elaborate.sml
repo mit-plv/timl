@@ -264,6 +264,8 @@ local
                 NONE =>
                 if x = "never" andalso eia = false then
                   Never (elab_mt (S.VarT (NONE, ("_", r))), r)
+                else if x = "builtin" andalso eia = false then
+                  Builtin (elab_mt (S.VarT (NONE, ("_", r))), r)
                 else
                   def ()
               | SOME _ => def ()
@@ -314,6 +316,7 @@ local
 	| S.Let (return, decs, e, r) =>
           Let (elab_return return, map elab_decl decs, elab e, r)
 	| S.Const n => ConstInt n
+	| S.ConstNat n => ConstNat n
         | S.BinOp (opr, e1, e2, _) => BinOp (opr, elab e1, elab e2)
 
   and elab_decl decl =

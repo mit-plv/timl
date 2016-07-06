@@ -265,10 +265,14 @@ fun process_file (filename, gctx) =
             (#dir dir_file, #base base_ext, #ext base_ext)
           end
       fun joinDirFileCurried dir file = joinDirFile {dir = dir, file = file}
-      val (dir, _, ext) = splitDirFileExt filename
+      val (dir, base, ext) = splitDirFileExt filename
       val gctx =
           if ext = SOME "pkg" then
             let
+              val is_stdlib = base = "stdlib"
+              val () = if is_stdlib then
+                         TypeCheck.turn_on_builtin ()
+                       else ()
               val split_lines = String.tokens (fn c => c = #"\n")
               val read_lines = split_lines o read_file
               val filenames = read_lines filename
@@ -279,6 +283,7 @@ fun process_file (filename, gctx) =
               val filenames = List.filter (fn s => s <> "") filenames
               val filenames = map (joinDirFileCurried dir) filenames
               val gctx = process_files gctx filenames
+              val () = TypeCheck.turn_off_builtin ()
             in
               gctx
             end

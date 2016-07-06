@@ -40,6 +40,11 @@ datatype bin_pred =
                
 datatype bin_op =
          Add
+         | New
+         | Read
+
+datatype tri_op =
+         Write
 
 (* existential quantifier might carry other information such as a unification variable to update when this existential quantifier gets instantiated *)
 datatype 'a quan =
@@ -88,6 +93,8 @@ fun str_bin_pred opr =
 fun str_bin_op opr =
   case opr of
       Add => "+"
+    | New => "new"
+    | Read => "read"
 
 fun str_quan q =
     case q of

@@ -135,6 +135,7 @@ id_init = ({alpha}|[_']);
 <INITIAL>"*" => (T.MULT (make_region (yypos, size yytext)));
 <INITIAL>"/" => (T.DIV (make_region (yypos, size yytext)));
 <INITIAL>"^" => (T.EXP (make_region (yypos, size yytext)));
+<INITIAL>"#" => (T.SHARP (make_region (yypos, size yytext)));
 <INITIAL>"$" => (T.DOLLAR (make_region (yypos, size yytext)));
 <INITIAL>"@" => (T.AT (make_region (yypos, size yytext)));
 <INITIAL>"." => (T.DOT (make_region (yypos, size yytext)));

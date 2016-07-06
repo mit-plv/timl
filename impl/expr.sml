@@ -91,6 +91,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         (* monotypes *)
         datatype mtype = 
 	         Arrow of mtype * idx * mtype
+                 | TyNat of idx * region
+                 | TyArray of mtype * idx
 	         | BaseType of base_type * region
                  | UVar of mtype uvar_mt * region
                  | Unit of region
@@ -143,6 +145,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         | AppI of expr * idx
                  (* other *)
 	         | BinOp of bin_op * expr * expr
+	         | TriOp of tri_op * expr * expr * expr
+	         | ConstNat of int * region
 	         | ConstInt of int * region
 	         | AppConstr of (long_id * bool) * idx list * expr
 	         | Case of expr * return * (ptrn * expr) list * region
@@ -150,6 +154,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         | Ascription of expr * mtype
 	         | AscriptionTime of expr * idx
 	         | Never of mtype * region
+	         | Builtin of mtype * region
 
 
              and decl =
@@ -541,6 +546,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                     sprintf "($ -> $)" [str_mt ctx t1, str_mt ctx t2]
                   else
                     sprintf "($ -- $ --> $)" [str_mt ctx t1, str_i gctx sctx d, str_mt ctx t2]
+                | TyNat (i, _) => sprintf "(nat $)" [str_i gctx sctx i]
+                | TyArray (t, i) => sprintf "(arr $ $)" [str_mt ctx t, str_i gctx sctx i]
                 | Unit _ => "unit"
                 | Prod (t1, t2) => sprintf "($ * $)" [str_mt ctx t1, str_mt ctx t2]
                 | UniI _ =>
@@ -680,11 +687,16 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                   end
 	        | Ascription (e, t) => sprintf "($ : $)" [str_e ctx e, str_mt gctx skctx t]
 	        | AscriptionTime (e, d) => sprintf "($ |> $)" [str_e ctx e, str_i gctx sctx d]
+	        | BinOp (New, e1, e2) => sprintf "(new $ $)" [str_e ctx e1, str_e ctx e2]
+	        | BinOp (Read, e1, e2) => sprintf "(read $ $)" [str_e ctx e1, str_e ctx e2]
 	        | BinOp (opr, e1, e2) => sprintf "($ $ $)" [str_e ctx e1, str_bin_op opr, str_e ctx e2]
+	        | TriOp (Write, e1, e2, e3) => sprintf "(write $ $ $)" [str_e ctx e1, str_e ctx e2, str_e ctx e3]
 	        | ConstInt (n, _) => str_int n
+	        | ConstNat (n, _) => sprintf "#$" [str_int n]
 	        | AppConstr ((x, b), is, e) => sprintf "($$ $)" [decorate_var b $ str_long_id #3 gctx cctx x, (join "" o map (prefix " ") o map (fn i => sprintf "{$}" [str_i gctx sctx i])) is, str_e ctx e]
 	        | Case (e, return, rules, _) => sprintf "(case $ $of $)" [str_e ctx e, str_return gctx skctx return, join " | " (map (str_rule gctx ctx) rules)]
 	        | Never (t, _) => sprintf "(never [$])" [str_mt gctx skctx t]
+	        | Builtin (t, _) => sprintf "(builtin [$])" [str_mt gctx skctx t]
             end
 
         and str_decls gctx (ctx as (sctx, kctx, cctx, tctx)) decls =
@@ -856,6 +868,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         fun get_region_mt t = 
             case t of
                 Arrow (t1, d, t2) => combine_region (get_region_mt t1) (get_region_mt t2)
+              | TyNat (_, r) => r
+              | TyArray (t, i) => combine_region (get_region_mt t) (get_region_i i)
               | Unit r => r
               | Prod (t1, t2) => combine_region (get_region_mt t1) (get_region_mt t2)
               | UniI (_, _, r) => r
@@ -894,10 +908,13 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | AbsI (_, _, _, r) => r
               | AppI (e, i) => combine_region (get_region_e e) (get_region_i i)
               | BinOp (_, e1, e2) => combine_region (get_region_e e1) (get_region_e e2)
+              | TriOp (_, e1, _, e3) => combine_region (get_region_e e1) (get_region_e e3)
               | ConstInt (_, r) => r
+              | ConstNat (_, r) => r
               | AppConstr ((x, _), _, e) => combine_region (get_region_long_id x) (get_region_e e)
               | Case (_, _, _, r) => r
               | Never (_, r) => r
+              | Builtin (_, r) => r
               | Let (_, _, _, r) => r
               | Ascription (e, t) => combine_region (get_region_e e) (get_region_mt t)
               | AscriptionTime (e, i) => combine_region (get_region_e e) (get_region_i i)
@@ -940,10 +957,13 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               | Ascription _ => false
               | AscriptionTime _ => false
               | BinOp _ => false
+              | TriOp _ => false
               | ConstInt _ => true
+              | ConstNat _ => true
               | AppConstr (_, _, e) => is_value e
               | Case _ => false
               | Never _ => true
+              | Builtin _ => true
 
         datatype ('var, 'prop) hyp = 
                  VarH of 'var
@@ -1286,6 +1306,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               fun f x n b =
 	          case b of
 	              Arrow (t1, d, t2) => Arrow (f x n t1, on_i_i x n d, f x n t2)
+                    | TyNat (i, r) => TyNat (on_i_i x n i, r)
+                    | TyArray (t, i) => TyArray (f x n t, on_i_i x n i)
                     | Unit r => Unit r
 	            | Prod (t1, t2) => Prod (f x n t1, f x n t2)
 	            | UniI (s, bind, r) => UniI (on_i_s x n s, on_i_ibind f x n bind, r)
@@ -1342,6 +1364,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               fun f x n b =
 	          case b of
 	              Arrow (t1, d, t2) => Arrow (f x n t1, d, f x n t2)
+                    | TyNat (i, r) => TyNat (i, r)
+                    | TyArray (t, i) => TyArray (f x n t, i)
                     | Unit r => Unit r
 	            | Prod (t1, t2) => Prod (f x n t1, f x n t2)
 	            | UniI (s, bind, r) => UniI (s, on_t_ibind f x n bind, r)
@@ -1433,6 +1457,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               fun f x n b =
 	          case b of
 	              Arrow (t1, d, t2) => Arrow (f x n t1, on_m_i x n d, f x n t2)
+                    | TyNat (i, r) => TyNat (on_m_i x n i, r)
+                    | TyArray (t, i) => TyArray (f x n t, on_m_i x n i)
                     | Unit r => Unit r
 	            | Prod (t1, t2) => Prod (f x n t1, f x n t2)
 	            | UniI (s, bind, r) => UniI (on_m_s x n s, on_m_ibind f x n bind, r)
@@ -1492,10 +1518,13 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	            | Ascription (e, t) => Ascription (f x n e, t)
 	            | AscriptionTime (e, d) => AscriptionTime (f x n e, d)
 	            | ConstInt n => ConstInt n
+	            | ConstNat n => ConstNat n
 	            | BinOp (opr, e1, e2) => BinOp (opr, f x n e1, f x n e2)
+	            | TriOp (opr, e1, e2, e3) => TriOp (opr, f x n e1, f x n e2, f x n e3)
 	            | AppConstr (cx, is, e) => AppConstr (cx, is, f x n e)
 	            | Case (e, return, rules, r) => Case (f x n e, return, map (f_rule x n) rules, r)
 	            | Never t => Never t
+	            | Builtin t => Builtin t
 
               and f_decls x n decs =
 	          let 
@@ -1751,6 +1780,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
           fun f x v b =
 	      case b of
 	          Arrow (t1, d, t2) => Arrow (f x v t1, substx_i_i x v d, f x v t2)
+                | TyNat (i, r) => TyNat (substx_i_i x v i, r)
+                | TyArray (t, i) => TyArray (f x v t, substx_i_i x v i)
                 | Unit r => Unit r
 	        | Prod (t1, t2) => Prod (f x v t1, f x v t2)
 	        | UniI (s, bind, r) => UniI (substx_i_s x v s, substx_i_ibind f x idx_shiftable v bind, r)
@@ -1786,6 +1817,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
           fun f x v (b : mtype) : mtype =
 	      case b of
 	          Arrow (t1, d, t2) => Arrow (f x v t1, d, f x v t2)
+                | TyNat (i, r) => TyNat (i, r)
+                | TyArray (t, i) => TyArray (f x v t, i)
                 | Unit r => Unit r
 	        | Prod (t1, t2) => Prod (f x v t1, f x v t2)
 	        | UniI (s, bind, r) => UniI (s, substx_t_ibind f x mtype_shiftable v bind, r)
@@ -2389,6 +2422,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         fun simp_mt t =
 	    case t of
 	        Arrow (t1, d, t2) => Arrow (simp_mt t1, simp_i d, simp_mt t2)
+              | TyNat (i, r) => TyNat (simp_i i, r)
+              | TyArray (t, i) => TyArray (simp_mt t, simp_i i)
               | Unit r => Unit r
 	      | Prod (t1, t2) => Prod (simp_mt t1, simp_mt t2)
 	      | AppV (x, ts, is, r) => AppV (x, map simp_mt ts, map simp_i is, r)

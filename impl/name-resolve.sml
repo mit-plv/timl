@@ -129,6 +129,8 @@ fun on_mtype gctx (ctx as (sctx, kctx)) t =
     in
       case t of
 	  E.Arrow (t1, d, t2) => Arrow (on_mtype ctx t1, on_idx gctx sctx d, on_mtype ctx t2)
+        | E.TyArray (t, i) => TyArray (on_mtype ctx t, on_idx gctx sctx i)
+        | E.TyNat (i, r) => TyNat (on_idx gctx sctx i, r)
         | E.Unit r => Unit r
 	| E.Prod (t1, t2) => Prod (on_mtype ctx t1, on_mtype ctx t2)
 	| E.UniI (s, E.Bind ((name, r), t), r_all) => UniI (on_sort gctx sctx s, Bind ((name, r), on_mtype (name :: sctx, kctx) t), r_all)
@@ -137,7 +139,18 @@ fun on_mtype gctx (ctx as (sctx, kctx)) t =
         (* | E.MtAbs (Bind ((name, r), t), r_all) => MtAbs (Bind ((name, r), on_mtype (sctx, name :: kctx) t), r_all) *)
         (* | E.MtAppI (t, i) => MtAppI (on_mtype ctx t, on_idx gctx sctx i) *)
         (* | E.MtAbsI (s, Bind ((name, r), t), r_all) => MtAbsI (on_sort gctx sctx s, Bind ((name, r), on_mtype (name :: sctx, kctx) t), r_all) *)
-        | E.AppV (x, ts, is, r) => AppV (on_long_id gctx #2 kctx x, map (on_mtype ctx) ts, map (on_idx gctx sctx) is, r)
+        | E.AppV (x, ts, is, r) =>
+          let
+            val ts = map (on_mtype ctx) ts
+            val is = map (on_idx gctx sctx) is
+          in
+            if E.eq_long_id (x, (NONE, ("nat", dummy))) andalso length ts = 0 andalso length is = 1 then
+              TyNat (hd is, r)
+            else if E.eq_long_id (x, (NONE, ("array", dummy))) andalso length ts = 1 andalso length is = 1 then
+              TyArray (hd ts, hd is)
+            else
+              AppV (on_long_id gctx #2 kctx x, ts, is, r)
+          end
 	| E.BaseType (bt, r) => BaseType (bt, r)
         | E.UVar u => UVar u
     end
@@ -364,7 +377,9 @@ fun on_expr gctx (ctx as (sctx, kctx, cctx, tctx)) e =
             AscriptionTime (e, d)
           end
 	| E.ConstInt n => ConstInt n
+	| E.ConstNat n => ConstNat n
 	| E.BinOp (opr, e1, e2) => BinOp (opr, on_expr ctx e1, on_expr ctx e2)
+	| E.TriOp (opr, e1, e2, e3) => TriOp (opr, on_expr ctx e1, on_expr ctx e2, on_expr ctx e3)
 	| E.AppConstr ((x, b), is, e) => AppConstr ((on_long_id gctx (map fst o #3) (map fst cctx) x, b), map (on_idx gctx sctx) is, on_expr ctx e)
 	| E.Case (e, return, rules, r) =>
           let
@@ -375,6 +390,7 @@ fun on_expr gctx (ctx as (sctx, kctx, cctx, tctx)) e =
             Case (on_expr ctx e, return, rules, r)
           end
 	| E.Never (t, r) => Never (on_mtype gctx skctx t, r)
+	| E.Builtin (t, r) => Builtin (on_mtype gctx skctx t, r)
     end
 
 and on_decls gctx (ctx as (sctx, kctx, cctx, tctx)) decls =

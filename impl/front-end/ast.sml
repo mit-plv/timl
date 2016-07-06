@@ -99,6 +99,7 @@ datatype exp =
          | AscriptionTime of exp * idx * region
          | Let of return * decl list * exp * region
          | Const of int * region
+         | ConstNat of int * region
          | BinOp of bin_op * exp * exp * region
 
      and decl =

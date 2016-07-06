@@ -3,14 +3,14 @@ structure BraunTree = struct
 (* Braun tree with invariant for balance and sortedness. Key type is indexed unsigned fixed-width integers *)
 
 open Bool
-open Uint
+open Nat
        
 datatype {Nat(*size*)} {Nat(*min element*)} braun_tree =
          Leaf of {0} {0} braun_tree
-       | Node {size lk rk k : Nat} {(size >= 1 -> k <= lk) /\ (size >= 2 -> k <= rk)} of {k} uint * {ceil ($size/2)} {lk} braun_tree * {floor ($size/2)} {rk} braun_tree --> {size+1} {k} braun_tree
+       | Node {size lk rk k : Nat} {(size >= 1 -> k <= lk) /\ (size >= 2 -> k <= rk)} of {k} nat * {ceil ($size/2)} {lk} braun_tree * {floor ($size/2)} {rk} braun_tree --> {size+1} {k} braun_tree
 
 absidx Tinsert : BigO 1 (fn n => log2 $n) with
-fun insert {size k x : Nat} (tr : {size} {k} braun_tree) (x : {x} uint) return {size + 1} {ite (size == 0) x (x min k)} braun_tree using Tinsert size =
+fun insert {size k x : Nat} (tr : {size} {k} braun_tree) (x : {x} nat) return {size + 1} {ite (size == 0) x (x min k)} braun_tree using Tinsert size =
     case tr of
         Leaf => @Node {0} {} {} {} {} (x, Leaf, Leaf)
       | @Node {size' _ _ _ _} (y, l, r) =>
@@ -22,21 +22,21 @@ fun insert {size k x : Nat} (tr : {size} {k} braun_tree) (x : {x} uint) return {
 end
 
 absidx T_peek : Time with
-fun peek {size k : Nat} (tr : {size + 1} {k} braun_tree) return {k} uint using T_peek =
+fun peek {size k : Nat} (tr : {size + 1} {k} braun_tree) return {k} nat using T_peek =
     case tr of
         Node (x, _, _) => x
       | Leaf => never
 end
 
 absidx T : Time with
-fun peek_option {size k : Nat} (tr : {size} {k} braun_tree) return ({k} uint) option using T =
+fun peek_option {size k : Nat} (tr : {size} {k} braun_tree) return ({k} nat) option using T =
     case tr of
         Leaf => NONE
       | Node (x, _, _) => SOME x
 end
 
 datatype {Nat} {Nat} peek_option_result =
-         PeekSOME {size k : Nat} {size > 0} of {k} uint --> {size} {k} peek_option_result
+         PeekSOME {size k : Nat} {size > 0} of {k} nat --> {size} {k} peek_option_result
        | PeekNONE {size k : Nat} {size = 0} of {size} {k} peek_option_result
 
 absidx T : Time with
@@ -50,7 +50,7 @@ datatype {Nat} {Nat} {Nat} {Nat} le_le =
          LeLe {a b a' b' : Nat} {a <= b /\ a' <= b'} of {b'} {a'} {b} {a} le_le
        | NotLeLe {a b a' b' : Nat} {~ (a <= b /\ a' <= b')} of {b'} {a'} {b} {a} le_le
 
-fun le_le {m : Time} {a b a' b' : Nat} (le : forall {x y : Nat}, {x} uint * {y} uint -- m --> {y} {x} le_result) (a : {a} uint, b : {b} uint) (a' : {a'} uint, b' : {b'} uint) return {b'} {a'} {b} {a} le_le =
+fun le_le {m : Time} {a b a' b' : Nat} (le : forall {x y : Nat}, {x} nat * {y} nat -- m --> {y} {x} le_result) (a : {a} nat, b : {b} nat) (a' : {a'} nat, b' : {b'} nat) return {b'} {a'} {b} {a} le_le =
     case (le (a, b), le (a', b')) of
         (Le, Le) => LeLe
       | (Le, Gt) => NotLeLe
@@ -58,7 +58,7 @@ fun le_le {m : Time} {a b a' b' : Nat} (le : forall {x y : Nat}, {x} uint * {y} 
       | (Gt, Gt) => NotLeLe
 
 absidx Tsift : BigO 1 (fn n => log2 $n)(* _ *) with
-fun sift {size lk rk x : Nat} (x : {x} uint, l : {ceil ($size/2)} {lk} braun_tree, r : {floor ($size/2)} {rk} braun_tree) return {size+1} {ite (size == 0) x (ite (size == 1) (x min lk) (x min lk min rk))} braun_tree using Tsift size =
+fun sift {size lk rk x : Nat} (x : {x} nat, l : {ceil ($size/2)} {lk} braun_tree, r : {floor ($size/2)} {rk} braun_tree) return {size+1} {ite (size == 0) x (ite (size == 1) (x min lk) (x min lk min rk))} braun_tree using Tsift size =
     case (l, r) of
         (Leaf, Leaf) =>
         @Node {0} {} {} {} {} (x, Leaf, Leaf)
@@ -81,7 +81,7 @@ fun sift {size lk rk x : Nat} (x : {x} uint, l : {ceil ($size/2)} {lk} braun_tre
 end
 
 datatype {Nat} {Nat} pop =
-         Pop {size k k' : Nat} {size > 0 -> k <= k'} of {k} uint * {size} {k'} braun_tree --> {size} {k} pop
+         Pop {size k k' : Nat} {size > 0 -> k <= k'} of {k} nat * {size} {k'} braun_tree --> {size} {k} pop
                                                  
 absidx Tpop : BigO 1 (fn n => log2 $n * log2 $n)(* _ *) with
 fun pop {size k : Nat} (tr : {size + 1} {k} braun_tree) return {size} {k} pop using Tpop size =

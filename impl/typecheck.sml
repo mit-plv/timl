@@ -20,6 +20,10 @@ infix 1 <->
         
 open Subst
 
+val is_builtin_enabled = ref false
+fun turn_on_builtin () = (is_builtin_enabled := true)
+fun turn_off_builtin () = (is_builtin_enabled := false)
+                             
 fun idx_un_op_type opr =
     case opr of
         ToReal => (Nat, Time)
@@ -117,6 +121,8 @@ local
   fun f x v b =
       case b of
 	  Arrow (t1, d, t2) => Arrow (f x v t1, package_i_i x v d, f x v t2)
+        | TyArray (t, i) => TyArray (f x v t, package_i_i x v i)
+        | TyNat (i, r) => TyNat (package_i_i x v i, r)
         | Unit r => Unit r
 	| Prod (t1, t2) => Prod (f x v t1, f x v t2)
 	| UniI (s, bind, r) => UniI (package_i_s x v s, package_i_ibind f x v bind, r)
@@ -149,6 +155,8 @@ local
   fun f x v (b : mtype) : mtype =
       case b of
 	  Arrow (t1, d, t2) => Arrow (f x v t1, d, f x v t2)
+        | TyArray (t, i) => TyArray (f x v t, i)
+        | TyNat (i, r) => TyNat (i, r)
         | Unit r => Unit r
 	| Prod (t1, t2) => Prod (f x v t1, f x v t2)
 	| UniI (s, bind, r) => UniI (s, package_t_ibind f x v bind, r)
@@ -868,6 +876,8 @@ fun normalize_mt gctx kctx t =
           UVar a => try_retrieve_UVar (normalize_mt kctx) a
         | Unit r => Unit r
         | Arrow (t1, d, t2) => Arrow (normalize_mt kctx t1, update_i d, normalize_mt kctx t2)
+        | TyArray (t, i) => TyArray (normalize_mt kctx t, update_i i)
+        | TyNat (i, r) => TyNat (update_i i, r)
         | Prod (t1, t2) => Prod (normalize_mt kctx t1, normalize_mt kctx t2)
         | UniI (s, Bind (name, t1), r) => UniI (update_s s, Bind (name, normalize_mt (shiftx_i_kctx 1 kctx) t1), r)
         (* | MtVar x => try_retrieve_MtVar (normalize_mt kctx) gctx kctx x *)
@@ -1225,6 +1235,12 @@ fun unify_mt r gctx ctx (t, t') =
                 (loop ctx (t1, t1');
                  unify_i r gctxn sctxn (d, d');
                  loop ctx (t2, t2'))
+              | (TyArray (t, i), TyArray (t', i')) =>
+                (loop ctx (t, t');
+                 unify_i r gctxn sctxn (i, i')
+                )
+              | (TyNat (i, _), TyNat (i', _)) =>
+                unify_i r gctxn sctxn (i, i')
               | (Prod (t1, t2), Prod (t1', t2')) =>
                 (loop ctx (t1, t1');
                  loop ctx (t2, t2'))
@@ -1668,6 +1684,13 @@ fun get_kind gctx (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype) : mty
 	      (Arrow (check_kind_Type (ctx, c1),
 	              check_bsort gctx (sctx, d, Base Time),
 	              check_kind_Type (ctx, c2)),
+               Type)
+            | U.TyArray (t, i) =>
+	      (TyArray (check_kind_Type (ctx, t),
+	              check_bsort gctx (sctx, i, Base Nat)),
+               Type)
+            | U.TyNat (i, r) =>
+	      (TyNat (check_bsort gctx (sctx, i, Base Nat), r),
                Type)
             | U.Unit r => (Unit r, Type)
 	    | U.Prod (c1, c2) => 
@@ -2335,6 +2358,8 @@ fun update_uvar_mt t =
         )
       | Unit r => Unit r
       | Arrow (t1, d, t2) => Arrow (update_uvar_mt t1, update_i d, update_uvar_mt t2)
+      | TyArray (t, i) => TyArray (update_uvar_mt t, update_i i)
+      | TyNat (i, r) => TyNat (update_i i, r)
       | Prod (t1, t2) => Prod (update_uvar_mt t1, update_uvar_mt t2)
       | UniI (s, Bind (name, t1), r) => UniI (update_s s, Bind (name, update_uvar_mt t1), r)
       (* | MtVar x => MtVar x *)
@@ -2392,6 +2417,8 @@ fun fv_mt t =
           UVar ((_, uvar_ref), _) => [uvar_ref]
         | Unit _ => []
         | Arrow (t1, _, t2) => fv_mt t1 @ fv_mt t2
+        | TyArray (t, _) => fv_mt t
+        | TyNat _ => []
         | Prod (t1, t2) => fv_mt t1 @ fv_mt t2
         | UniI (s, Bind (name, t1), _) => fv_mt t1
         (* | MtVar x => [] *)
@@ -2706,6 +2733,40 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
               in
                 ret
 	      end
+	    | U.BinOp (New, e1, e2) =>
+              let
+                val r = U.get_region_e e_all
+                val i = fresh_i sctxn (Base Time) r
+                val (e1, _, d1) = check_mtype (ctx, e1, TyNat (i, r))
+                val (e2, t, d2) = get_mtype (ctx, e2)
+              in
+                (BinOp (New, e1, e2), TyArray (t, i), d1 %+ d2)
+              end
+	    | U.BinOp (Read, e1, e2) =>
+              let
+                val r = U.get_region_e e_all
+                val t = fresh_mt (kctxn @ sctxn) r
+                val i1 = fresh_i sctxn (Base Time) r
+                val i2 = fresh_i sctxn (Base Time) r
+                val (e1, _, d1) = check_mtype (ctx, e1, TyArray (t, i1))
+                val (e2, _, d2) = check_mtype (ctx, e2, TyNat (i2, r))
+                val () = write_le (i2, i1, r)
+              in
+                (BinOp (Read, e1, e2), t, d1 %+ d2)
+              end
+	    | U.TriOp (Write, e1, e2, e3) =>
+              let
+                val r = U.get_region_e e_all
+                val t = fresh_mt (kctxn @ sctxn) r
+                val i1 = fresh_i sctxn (Base Time) r
+                val i2 = fresh_i sctxn (Base Time) r
+                val (e1, _, d1) = check_mtype (ctx, e1, TyArray (t, i1))
+                val (e2, _, d2) = check_mtype (ctx, e2, TyNat (i2, r))
+                val () = write_le (i2, i1, r)
+                val (e3, _, d3) = check_mtype (ctx, e3, t)
+              in
+                (TriOp (Write, e1, e2, e3), Unit r, d1 %+ d2 %+ d3)
+              end
 	    | U.Abs (pn, e) => 
 	      let
                 val r = U.get_region_pn pn
@@ -2807,8 +2868,13 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 		  val (e2, _, d2) = check_mtype (ctx, e2, BaseType (Int, dummy)) in
 		(BinOp (Add, e1, e2), BaseType (Int, dummy), d1 %+ d2 %+ T1 dummy)
 	      end
-	    | U.ConstInt n => 
-	      (ConstInt n, BaseType (Int, dummy), T0 dummy)
+	    | U.ConstInt (n, r) => 
+	      (ConstInt (n, r), BaseType (Int, dummy), T0 dummy)
+	    | U.ConstNat (n, r) => 
+	      if n >= 0 then
+	        (ConstNat (n, r), TyNat (ConstIN (n, r), r), T0 r)
+	      else
+	        raise Error (r, ["Natural number constant must be non-negative"])
 	    | U.AppConstr ((x, eia), is, e) => 
 	      let 
                 val tc = fetch_constr_type gctx (cctx, x)
@@ -2875,6 +2941,14 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
               in
 		(Never (t, r), t, T0 r)
               end
+	    | U.Builtin (t, r) => 
+              let
+		val t = check_kind_Type gctx (skctx, t)
+		val () = if !is_builtin_enabled then ()
+                         else raise Error (r, ["builtin keyword is only available in standard library"])
+              in
+		(Builtin (t, r), t, T0 r)
+              end
       val (e, t, d) = main ()
                       handle
                       Error (r, msg) => raise Error (r, msg @ ["when type-checking"] @ indent [U.str_e gctxn ctxn e_all])
@@ -2906,6 +2980,8 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
                       b
                   | Unit r => Unit r
 	          | Arrow (t1, d, t2) => Arrow (substu x v t1, d, substu x v t2)
+                  | TyNat (i, r) => TyNat (i, r)
+                  | TyArray (t, i) => TyArray (substu x v t, i)
 	          | Prod (t1, t2) => Prod (substu x v t1, substu x v t2)
 	          | UniI (s, Bind (name, t1), r) => UniI (s, Bind (name, substu x v t1), r)
                   (* don't need to consult type variable's definition *)

@@ -1,0 +1,62 @@
+structure Nat = struct
+
+datatype {Nat} {Nat} cmp_result =
+         Equal {a b : Nat} {a = b} of {b} {a} cmp_result
+         | Less {a b : Nat} {a < b} of {b} {a} cmp_result
+         | Greater {a b : Nat} {a > b} of {b} {a} cmp_result
+
+fun cmp {x y : Nat} (x : {x} nat, y : {y} nat) return {y} {x} cmp_result using 0.0 =
+    builtin
+
+datatype {Nat} {Nat} le_result =
+         Le {a b : Nat} {a <= b} of {b} {a} le_result
+       | Gt {a b : Nat} {a > b} of {b} {a} le_result
+
+fun le {x : Nat} {y : Nat} (x : {x} nat, y : {y} nat) return {y} {x} le_result using 7.0 =
+    case cmp (x, y) of
+        Equal => Le
+      | Less => Le
+      | Greater => Gt
+
+datatype {Nat} {Nat} min_max_result =
+         MinMaxResult {a b a' b' : Nat} {(a <= b -> a' = a /\ b' = b) /\ (a > b -> a' = b /\ b' = a)} of {a'} nat * {b'} nat --> {b} {a} min_max_result
+
+fun min_max {m : Time} {x y : Nat} (le : {x} nat * {y} nat -- m --> {y} {x} le_result) (x : {x} nat, y : {y} nat) return {y} {x} min_max_result =
+    case le (x, y) of
+        Le => MinMaxResult (x, y)
+      | Gt => MinMaxResult (y, x)
+
+datatype {Nat} {Nat} eq_dec =
+         Eq {a b : Nat} {a = b} of {b} {a} eq_dec
+       | Neq {a b : Nat} {~ (a = b)} of {b} {a} eq_dec
+
+fun eq_dec {x y : Nat} (x : {x} nat, y : {y} nat) return {y} {x} eq_dec using 1.0 =
+    case cmp (x, y) of
+        Equal => Eq
+      | Less => Neq
+      | Greater => Neq
+
+datatype {Nat} {Nat} lt_dec =
+         Lt {a b : Nat} {a < b} of {b} {a} lt_dec
+       | Ge {a b : Nat} {a >= b} of {b} {a} lt_dec
+
+fun lt_dec {x y : Nat} (x : {x} nat, y : {y} nat) return {y} {x} lt_dec using 1.0 =
+    case cmp (x, y) of
+        Equal => Ge
+      | Less => Lt
+      | Greater => Ge
+
+fun nat_mult {a b : Nat} (a : {a} nat, b : {b} nat) return {a * b} nat using 1.0 =
+    builtin
+
+fun nat_max {a b : Nat} (a : {a} nat, b : {b} nat) return {a max b} nat using 1.0 =
+    builtin
+
+val nat_1 : {1} nat = #1
+val nat_2 : {2} nat = #2
+val nat_4 : {4} nat = #4
+
+fun floor_half {n : Nat} (n : {n} nat) return {floor ($n / 2)} nat =
+    builtin
+
+end
