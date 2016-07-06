@@ -557,8 +557,8 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
             fun extend_vcs_with_long_hyps vcs = append_hyps ([VarH (name0, TimeFun arity0), VarH (name1, TimeFun arity1)] @ hs) vcs
             val vcs_with_long_hyps = extend_vcs_with_long_hyps vcs
             val vcs_and_long_hyps = map (fn (vc, (long_hyps, _)) => (vc, long_hyps)) $ zip (vcs, vcs_with_long_hyps)
-            val () = println "Master-Theorem-solver to solve this: "
-            val () = app println $ concatMap (fn ((_, p), long_hyps) => str_vc false "" (long_hyps, p) @ [""]) $ vcs_and_long_hyps
+            (* val () = println "Master-Theorem-solver to solve this: " *)
+            (* val () = app println $ concatMap (fn ((_, p), long_hyps) => str_vc false "" (long_hyps, p) @ [""]) $ vcs_and_long_hyps *)
             val fs = map infer_vc vcs_and_long_hyps
             val (f, fs) = case fs of
                               [] => raise Error "by_master_theorem: no VCs"
