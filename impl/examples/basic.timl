@@ -1,4 +1,4 @@
-structure Bool = struct
+structure Basic = struct
 
 datatype bool = true | false
 

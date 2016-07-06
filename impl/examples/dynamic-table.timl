@@ -1,6 +1,6 @@
 functor DynamicTable (structure T : sig
   type {Nat} {Nat} 'a table
-  val table_num_le_size ['a] : forall {size num : Nat}, {num} {size} 'a table -- 1.0 --> {size} {num} Bool.le
+  val table_num_le_size ['a] : forall {size num : Nat}, {num} {size} 'a table -- 1.0 --> {size} {num} Basic.le
   val alloc ['a] : forall {size : Nat}, {size} nat -- 1.0 --> {0} {size} 'a table
   val do_insert ['a] : forall {size num : Nat} {num < size}, {num} {size} 'a table ->> 'a -- 1.0 --> {num + 1} {size} 'a table
   datatype {Nat} {Nat} 'a do_delete = DoDelete {size num num' : Nat} {num = num' \/ num = num' + 1} of {num'} {size} 'a table --> {num} {size} 'a do_delete
@@ -10,7 +10,7 @@ functor DynamicTable (structure T : sig
   val size ['a] : forall {size num : Nat}, {num} {size} 'a table -- 1.0 --> {size} nat
 end) = struct
 open T
-open Bool
+open Basic
 open List
 open Nat
        

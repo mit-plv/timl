@@ -1,5 +1,5 @@
 structure Tree = struct
-open Bool
+open Basic
 open List
        
 datatype {Nat} 'a tree =

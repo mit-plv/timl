@@ -1,5 +1,5 @@
 structure BraunTree = struct
-open Bool
+open Basic
 
 datatype {Nat} 'a braun_tree =
          Leaf of {0} 'a braun_tree

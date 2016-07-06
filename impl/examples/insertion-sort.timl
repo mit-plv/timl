@@ -1,5 +1,5 @@
 structure InsertionSort = struct
-open Bool
+open Basic
 open List
        
 absidx g : BigO 2 (fn m n => $m * $n) with

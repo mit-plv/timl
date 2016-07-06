@@ -27,7 +27,7 @@ functor Rbt (structure K : sig
                            val cmp : t * t -- m --> Compare.cmp_result
               end) =
 struct
-open Bool
+open Basic
 open Compare
 
 type key = K.t

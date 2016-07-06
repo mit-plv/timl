@@ -1,5 +1,5 @@
 structure Trivial = struct
-open Bool
+open Basic
        
 fun add a b = a + b
                     

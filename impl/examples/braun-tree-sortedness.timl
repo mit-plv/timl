@@ -2,7 +2,7 @@ structure BraunTree = struct
 
 (* Braun tree with invariant for balance and sortedness. Key type is indexed unsigned fixed-width integers *)
 
-open Bool
+open Basic
 open Nat
        
 datatype {Nat(*size*)} {Nat(*min element*)} braun_tree =

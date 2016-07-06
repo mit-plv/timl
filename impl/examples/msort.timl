@@ -1,5 +1,5 @@
 structure MSort = struct
-open Bool
+open Basic
 open List
 
 absidx T_split: BigO 1 _ (* (fn n => $n) *) = _ with
