@@ -17,15 +17,10 @@ fun map ['a 'b] {m : Nat} (f : 'a -- $m --> 'b) =
 end
 
 absidx T_foldl : BigO 2 (fn m n => $m * $n) with
-fun foldl ['a 'b] {m : Nat} (f : 'a * 'b -- $m --> 'b) =
-    let
-      fun foldl {n : Nat} y (xs : {n} 'a(* _ *) list) return 'b(* _ *) using T_foldl m n =
-          case xs of
-              Nil => y
-            | Cons (x, xs) => foldl (f (x, y)) xs
-    in
-      foldl
-    end
+fun foldl ['a 'b] {m n : Nat} (f : 'a * 'b -- $m --> 'b) y (xs : {n} 'a list) return 'b using T_foldl m n =
+        case xs of
+            [] => y
+          | x :: xs => foldl f (f (x, y)) xs
 end
 
 fun hd ['a] {n: Nat | n > 0} (ls: {n} 'a list) =

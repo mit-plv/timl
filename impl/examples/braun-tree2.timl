@@ -21,10 +21,12 @@ fun insert {size k x : Nat} (tr : {size} {k} braun_tree) (x : {x} uint) return {
         end
 end
 
-fun peek {size k : Nat} (tr : {size + 1} {k} braun_tree) return {k} uint =
+absidx T_peek : Time with
+fun peek {size k : Nat} (tr : {size + 1} {k} braun_tree) return {k} uint using T_peek =
     case tr of
         Node (x, _, _) => x
       | Leaf => never
+end
 
 absidx T : Time with
 fun peek_option {size k : Nat} (tr : {size} {k} braun_tree) return ({k} uint) option using T =

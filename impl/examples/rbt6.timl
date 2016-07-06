@@ -260,18 +260,18 @@ datatype {Nat} 'a rb_tree =
 
 val empty = RBTree Leaf
 
-datatype {Nat} 'a rbt_may_grow_one =
-         RbtMayGrowOne {size : Nat} {size' : Nat | size' = size \/ size' = size + 1} of {size'} 'a rb_tree --> {size} 'a rbt_may_grow_one
+datatype {Nat} 'a may_grow_one =
+         MayGrowOne {size : Nat} {size' : Nat | size' = size \/ size' = size + 1} of {size'} 'a rb_tree --> {size} 'a may_grow_one
 
 absidx T_insert : BigO 1 (fn n => log2 $n) with
-fun insert ['v] {size : Nat} (tr : {size} 'v rb_tree) new return {size} 'v rbt_may_grow_one using T_insert size =
+fun insert ['v] {size : Nat} (tr : {size} 'v rb_tree) new return {size} 'v may_grow_one using T_insert size =
     case tr of
         RBTree tr =>
         case insert_rbt tr new of
             InsResult (Good (color, tr)) =>
             (case color of
-                 Black => RbtMayGrowOne (RBTree tr)
-               | Red => RbtMayGrowOne (RBTree (blacken_root tr))
+                 Black => MayGrowOne (RBTree tr)
+               | Red => MayGrowOne (RBTree (blacken_root tr))
             )
           | _ => never
 end
@@ -316,7 +316,7 @@ structure TestIntRbt = struct
 open IntRbt
        
 val m = empty
-val RbtMayGrowOne m = insert m (77, true)
+val MayGrowOne m = insert m (77, true)
 val r1 = lookup m 77
 val r1 = case r1 of
              SOME true => true
