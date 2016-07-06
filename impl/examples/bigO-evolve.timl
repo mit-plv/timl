@@ -86,6 +86,20 @@ val ['a 'b] map =
 end
        
 (* the magic goes further: even [h]'s BigO class can be inferred! *)
+absidx h : BigO 2 _ (* (fn m n => $m * $n) *) with
+val ['a 'b] map =
+ fn {m : Nat} (f : 'a -- $m --> 'b) =>
+    let
+      fun map {n : Nat} (ls : {n} (* _ *)'a list) return {n} (* _ *)'b list using h m n =
+            case ls of
+                Nil => Nil
+              | Cons (x, xs) => Cons (f x, map xs)
+    in
+        map
+    end
+end
+
+(* another way to infer BigO class *)
 idx h_spec : Fun 2 = _
 absidx h : BigO 2 (* (fn m n => $m * $n) *)(* _ *) h_spec with
 val ['a 'b] map =

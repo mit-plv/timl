@@ -239,8 +239,8 @@ fun substx_invis fresh_uvar =
     substx_invis_generic (fn x => raise SubstUVar (fresh_uvar_info fresh_uvar, x))
                          
 (* This is a version that allows substition for [x] that is visible to [fresh_uvar]. When this happens, remove [x] from [fresh_uvar]'s visible context. *)
-(* fun substx_invis_no_throw fresh_uvar = *)
-(*     substx_invis_generic (fn x => remove_fresh_uvar_ctx fresh_uvar x 1) *)
+fun substx_invis(* _no_throw *) fresh_uvar =
+    substx_invis_generic (fn x => remove_fresh_uvar_ctx fresh_uvar x 1)
 
 fun substx_i_UVarI shiftx_i_i UVarI f x v ((invis, uvar_ref), r) =
     case !uvar_ref of

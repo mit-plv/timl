@@ -2,7 +2,7 @@ structure MSort = struct
 open Bool
 open List
 
-absidx T_split: BigO 1 (fn n => $n) = _ with
+absidx T_split: BigO 1 _ (* (fn n => $n) *) = _ with
 fun split ['a] {n: Nat} (xs: {n} 'a list) return {ceil ($n/2)} 'a list * {floor ($n/2)} 'a list using T_split n =
     case xs of
         [] => ([], [])
