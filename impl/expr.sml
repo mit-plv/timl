@@ -2155,10 +2155,25 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                   | p_all as Quan (q, bs, Bind (name, p), r_all) =>
                     let
                       fun def () = Quan (q, bs, Bind (name, passp p), r_all)
+                      fun try_forget_p p =
+                          let
+                            fun def () = try_forget (forget_i_p 0 1) p
+                          in
+                            case p of
+                                BinConn (Imply, BinPred (BigO, VarI (NONE, (x, _)), f), p) =>
+                                if var2int x = 0 then
+                                  (* ignore this variable if the only thing mentioning it is a BigO premise *)
+                                  (case (try_forget (forget_i_p 0 1) p, try_forget (forget_i_i 0 1) f) of
+                                       (SOME p, SOME _) => SOME p
+                                     | _ => def ()
+                                  )
+                                else def ()
+                              | _ => def ()
+                          end                          
                     in
                       case q of
                           Forall =>
-                          (case try_forget (forget_i_p 0 1) p of
+                          (case try_forget_p p of
                                SOME p => (set (); p)
                              | _ =>
                                (* try subst if there is a equality premise *)
