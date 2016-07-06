@@ -6,7 +6,7 @@ fold-evolve.timl
 single-var.timl
 insertion-sort.timl
 braun-tree.timl
-braun-tree2.timl
-rbt4.timl
-rbt6.timl
-dynamic-table3.timl
+braun-tree-sortedness.timl
+rbt.timl
+rbt-sortedness.timl
+dynamic-table.timl
