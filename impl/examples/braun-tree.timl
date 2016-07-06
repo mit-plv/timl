@@ -12,8 +12,8 @@ fun min_max ['a] {m : Time} (le : 'a * 'a -- m --> bool) (x, y) =
         true => (x, y)
       | false => (y, x)
 
-absidx Tinsert : BigO 1 (fn n => log2 $n) with
-fun insert ['a] {size : Nat} (tr : {size} 'a braun_tree) x return {size + 1} 'a braun_tree using Tinsert size =
+absidx T_insert : BigO 1 (fn n => log2 $n) with
+fun insert ['a] {size : Nat} (tr : {size} 'a braun_tree) (x : 'a) return {size + 1} 'a braun_tree using T_insert size =
     case tr of
         Leaf => @Node {0} (x, Leaf, Leaf)
       | @Node {size'} (y, l, r) =>
@@ -24,10 +24,12 @@ fun insert ['a] {size : Nat} (tr : {size} 'a braun_tree) x return {size + 1} 'a 
         end
 end
 
-fun peek ['a] {size : Nat} (tr : {size + 1} 'a braun_tree) =
+absidx T_peek: Time with
+fun peek ['a] {size : Nat} (tr : {size + 1} 'a braun_tree) return 'a using T_peek =
     case tr of
         Node (x, _, _) => x
       | Leaf => never
+end
 
 absidx T : Time with
 fun peek_option ['a] {size : Nat} (tr : {size} 'a braun_tree) return 'a option using T =
@@ -59,8 +61,8 @@ fun sift ['a] {size : Nat} (x, l : {ceil ($size/2)} 'a braun_tree, r : {floor ($
       | _ => never
 end
 
-absidx Tpop : BigO 1 (fn n => log2 $n * log2 $n)(* _ *) with
-fun pop ['a] {size : Nat} (tr : {size + 1} 'a braun_tree) return 'a * {size} 'a braun_tree using Tpop size =
+absidx T_pop : BigO 1 (fn n => log2 $n * log2 $n)(* _ *) with
+fun pop ['a] {size : Nat} (tr : {size + 1} 'a braun_tree) return 'a * {size} 'a braun_tree using T_pop size =
     case tr of
         Node (x, l, r) =>
         (case (l, r) of
