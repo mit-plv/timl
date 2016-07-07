@@ -264,7 +264,7 @@ datatype {Nat} 'a may_grow_one =
          MayGrowOne {size : Nat} {size' : Nat | size' = size \/ size' = size + 1} of {size'} 'a rb_tree --> {size} 'a may_grow_one
 
 absidx T_insert : BigO 1 (fn n => log2 $n) with
-fun insert ['v] {size : Nat} (tr : {size} 'v rb_tree) new return {size} 'v may_grow_one using T_insert size =
+fun insert ['v] {size : Nat} (tr : {size} 'v rb_tree) (new: key * 'v) return {size} 'v may_grow_one using T_insert size =
     case tr of
         RBTree tr =>
         case insert_rbt tr new of
@@ -296,7 +296,7 @@ fun lookup_rbt ['v] {color : Bool} {size bh : Nat}
 end
 
 absidx T_lookup : BigO 1 (fn n => log2 $n) with
-fun lookup ['v] {size : Nat} (tr : {size} 'v rb_tree) k return 'v option using T_lookup size =
+fun lookup ['v] {size : Nat} (tr : {size} 'v rb_tree) (k: key) return 'v option using T_lookup size =
     case tr of
         @RBTree {_ bh} tr =>
         let
