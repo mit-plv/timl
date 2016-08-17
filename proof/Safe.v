@@ -351,9 +351,9 @@ Definition choose {A} (p : A * A) sc :=
 Local Open Scope idx_scope.
 
 Inductive typing : ctx -> expr -> cstr -> cstr -> Prop :=
-| TyVar L G x t :
-    nth_error G x = Some t ->
-    typing (L, G) (EVar x) t T0
+| TyVar C x t :
+    nth_error (get_tctx C) x = Some t ->
+    typing C (EVar x) t T0
 | TyApp C e1 e2 t i1 i2 T1 i t2 :
     typing C e1 (CArrow t2 i t) i1 ->
     typing C e2 t2 i2 ->
@@ -553,14 +553,14 @@ Lemma preservation0 s s' :
   forall W t i,
     ctyping W s t i ->
     let df := (get_fuel s - get_fuel s')%time in
-    (df <= interpTime i)%time ->
+    (df <= interpTime i)%time /\
     exists W',
       ctyping W' s' t (Tminus i (Tconst df)) /\
       (W $<= W').
 Proof.
   invert 1; simplify.
   {
-    exists W.
+    (* Case Unfold-Fold *)
     destruct H as (Hty & Hhty & Hle).
     rename t into f.
     rename t0 into t.
@@ -575,20 +575,22 @@ Proof.
     Admitted.
     eapply invert_TyUnfold in Hty.
     destruct Hty as (t1 & t2& cs& i'& Htyeq & ? & Hty & Hle2).
+    subst.
     Arguments get_kctx _ / .
     simplify.
     Lemma invert_TyFold C e t' i :
       typing C (EFold e) t' i ->
-      exists t t1 cs t2,
+      exists t t1 cs t2 i',
         tyeq (get_kctx C) t' t /\
         t = CApps t1 cs /\
         t1 = CRec t2 /\
         kinding (get_kctx C) t KType /\
-        typing C e (CApps (subst0_c_c t1 t2) cs) i.
+        typing C e (CApps (subst0_c_c t1 t2) cs) i' /\
+        interpP (get_kctx C) (i' <= i)%idx.
     Admitted.
     subst.
     eapply invert_TyFold in Hty.
-    destruct Hty as (? & ? & cs' & t2' & Htyeq2 & ? & ? & Hkd & Hty).
+    destruct Hty as (? & ? & cs' & t2' & i'' & Htyeq2 & ? & ? & Hkd & Hty & Hle3).
     subst.
     simplify.
     Lemma invert_CApps_tyeq t cs t' cs' :
@@ -597,9 +599,100 @@ Proof.
       Forall2 (tyeq []) cs cs'.
     Admitted.
     eapply invert_CApps_tyeq in Htyeq2.
-    (*here*)
+    destruct Htyeq2 as (Htyeq2 & Htyeqcs).
+    split.
+    {
+      (* (f - f <= interpTime i)%time *)
+      admit.
+    }
+    exists W.
+    repeat split.
+    {
+      eapply TySub.
+      {
+        eapply Hty.
+      }
+      {
+        (* tyeq *)
+        simplify.
+        admit.
+        (*here*)
+      }
+      {
+        simplify.
+        (* le *)
+        admit.
+      }
+    }
+    {
+      eapply Hhty.
+    }
+    {
+      (* (interpTime (Tminus i (Tconst (f - f))) <= f)%time *)
+      admit.
+    }
+    {
+      eapply includes_intro.
+      eauto.
+    }
   }
-    
+  {
+    (* Case Rec *)
+    destruct H as (Hty & Hhty & Hle).
+    rename t into f.
+    rename t0 into t.
+    Lemma invert_TyRec C e t i :
+      typing C (ERec e) t i ->
+      exists n e1 ,
+        e = AbsCs_Abs n e1 /\
+        kinding (get_kctx C) t KType /\
+        typing (add_typing_ctx t C) e t T0.
+    Admitted.
+    generalize Hty; intro Hty0.
+    eapply invert_TyRec in Hty.
+    destruct Hty as (n & e1 & ? & Hkd & Hty).
+    simplify.
+    split.
+    {
+      (* (f - f <= interpTime i)%time *)
+      admit.
+    }
+    exists W.
+    repeat split.
+    {
+      Lemma ty_subst0_e_e L W t G e1 t1 i1 e2 i2 :
+        typing (L, W, t :: G) e1 t1 i1 ->
+        typing (L, W, G) e2 t i2 ->
+        typing (L, W, G) (subst0_e_e e2 e1) t1 (i1 + i2)%idx.
+      Admitted.
+      eapply ty_subst0_e_e with (G := []) in Hty; eauto.
+      eapply TySub.
+      {
+        eapply Hty.
+      }
+      {
+        Lemma tyeq_refl L t : tyeq L t t.
+        Admitted.
+        eapply tyeq_refl.
+      }
+      {
+        simplify.
+        (* le *)
+        admit.
+      }
+    }
+    {
+      eapply Hhty.
+    }
+    {
+      (* (interpTime (Tminus i (Tconst (f - f))) <= f)%time *)
+      admit.
+    }
+    {
+      eapply includes_intro.
+      eauto.
+    }
+  }
 Qed.
 
 
@@ -612,7 +705,7 @@ Lemma preservation s s' :
   forall W t i,
     ctyping W s t i ->
     let df := (get_fuel s - get_fuel s')%time in
-    (df <= interpTime i)%time ->
+    (df <= interpTime i)%time /\
     exists W',
       ctyping W' s t (Tminus i (Tconst df)) /\
       (W $<= W').
