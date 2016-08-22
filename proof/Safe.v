@@ -190,7 +190,7 @@ Inductive expr :=
 | ECase (e e1 e2 : expr)
 | EAbs (e : expr)
 | ERec (e : expr)
-| EAbsC (k : kind) (e : expr)
+| EAbsC (e : expr)
 | EUnpack (e1 e2 : expr)
 (* | EAsc (e : expr) (t : cstr) *)
 (* | EAstTime (e : expr) (i : cstr) *)
@@ -224,8 +224,8 @@ Inductive value : expr -> Prop :=
     value (ESumI c v)
 | VAbs e :
     value (EAbs e)
-| VAbsC k e :
-    value (EAbsC k e)
+| VAbsC e :
+    value (EAbsC e)
 | VPack c v :
     value (EPack c v)
 | VFold v :
@@ -334,10 +334,10 @@ Fixpoint CApps t cs :=
   end
 .
 
-Fixpoint EAbsCs ks e :=
-  match ks with
-  | [] => e
-  | k :: ks => EAbsC k (EAbsCs ks e)
+Fixpoint EAbsCs n e :=
+  match n with
+  | 0 => e
+  | S n => EAbsC (EAbsCs n e)
   end
 .
 
@@ -378,9 +378,9 @@ Inductive typing : ctx -> expr -> cstr -> cstr -> Prop :=
     value e ->
     wfkind (get_kctx C) k ->
     typing (add_kinding_ctx k C) e t T0 ->
-    typing C (EAbsC k e) (CForall t) T0
-| TyRec C e t ks e1 :
-    e = EAbsCs ks (EAbs e1) ->
+    typing C (EAbsC e) (CForall t) T0
+| TyRec C e t n e1 :
+    e = EAbsCs n (EAbs e1) ->
     kinding (get_kctx C) t KType ->
     typing (add_typing_ctx t C) e t T0 ->
     typing C (ERec e) t T0
@@ -495,8 +495,8 @@ Inductive astep : config -> config -> Prop :=
 | ABeta h e v t :
     value v ->
     astep (h, EApp (EAbs e) v, 1 + t) (h, subst0_e_e v e, t)
-| ABetaC h k e c t :
-    astep (h, EAppC (EAbsC k e) c, t) (h, subst0_c_e c e, t)
+| ABetaC h e c t :
+    astep (h, EAppC (EAbsC e) c, t) (h, subst0_c_e c e, t)
 | AProj h pr v1 v2 t :
     value v1 ->
     value v2 ->
@@ -670,8 +670,8 @@ Proof.
     rename t0 into t.
     Lemma invert_TyRec C e t i :
       typing C (ERec e) t i ->
-      exists ks e1 ,
-        e = EAbsCs ks (EAbs e1) /\
+      exists n e1 ,
+        e = EAbsCs n (EAbs e1) /\
         kinding (get_kctx C) t KType /\
         typing (add_typing_ctx t C) e t T0.
     Admitted.
@@ -1155,9 +1155,9 @@ Proof.
     eapply invert_TyAppC in Hty.
     destruct Hty as (t' & i' & k' & Htyeq & Hty & Hkd & Hkdc & Hle2).
     simplify.
-    Lemma invert_TyAbsC C k e t i :
-      typing C (EAbsC k e) t i ->
-      exists t' ,
+    Lemma invert_TyAbsC C e t i :
+      typing C (EAbsC e) t i ->
+      exists t' k ,
         tyeq (get_kctx C) KType t (CForall t') /\
         value e /\
         wfkind (get_kctx C) k /\
@@ -1166,6 +1166,8 @@ Proof.
     eapply invert_TyAbsC in Hty.
     destruct Hty as (t'' & Htyeq2 & Hval & Hwfk & Hty).
     simplify.
+    (*here*)
+    
     Lemma invert_tyeq_CArrow L k t1 i t2 t1' i' t2' :
       tyeq L k (CArrow t1 i t2) (CArrow t1' i' t2') ->
       tyeq L KType t1 t1' /\
