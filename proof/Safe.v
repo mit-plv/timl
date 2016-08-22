@@ -60,6 +60,20 @@ Inductive quan :=
 
 Definition var := nat.
 
+Inductive prop_bin_conn :=
+.
+
+Inductive prop_bin_pred :=
+| PBTimeLe
+.
+
+Inductive base_sort :=
+| BSNat
+| BSUnit
+| BSBool
+| BSTimeFun (arity : nat)
+.
+
 Inductive cstr :=
 | CVar (x : var)
 | CConst (cn : cstr_const)
@@ -70,9 +84,24 @@ Inductive cstr :=
 | CArrow (t1 i t2 : cstr)
 | CAbs (t : cstr)
 | CApp (t c : cstr)
-| CQuan (q : quan) (c : cstr)
+| CQuan (q : quan) (k : kind) (c : cstr)
 | CRec (t : cstr)
 | CRef (t : cstr)
+
+with prop :=
+| PTrue
+| PFalse
+| PBinConn (opr : prop_bin_conn) (p1 p2 : prop)
+| PNot (p : prop)
+| PBinPred (opr : prop_bin_pred) (i1 i2 : cstr)
+| PEq (i1 i2 : cstr)
+| PQuan (q : quan) (p : prop)
+
+with kind :=
+| KType
+| KArrow (k1 k2 : kind)
+| KBaseSort (b : base_sort)
+| KSubset (k : kind) (p : prop)
 .
 
 Definition Tconst r := CConst (CCTime r).
@@ -96,39 +125,8 @@ Definition CTypeUnit := CConst CCTypeUnit.
 Definition CProd := CBinOp CBTypeProd.
 Definition CSum := CBinOp CBTypeSum.
 
-Inductive prop_bin_conn :=
-.
-
-Inductive prop_bin_pred :=
-| PBTimeLe
-.
-
-Inductive prop :=
-| PTrue
-| PFalse
-| PBinConn (opr : prop_bin_conn) (p1 p2 : prop)
-| PNot (p : prop)
-| PBinPred (opr : prop_bin_pred) (i1 i2 : cstr)
-| PEq (i1 i2 : cstr)
-| PQuan (q : quan) (p : prop)
-.
-
 Definition Tle := PBinPred PBTimeLe.
 Infix "<=" := Tle : idx_scope.
-
-Inductive base_sort :=
-| BSNat
-| BSUnit
-| BSBool
-| BSTimeFun (arity : nat)
-.
-
-Inductive kind :=
-| KType
-| KArrow (k1 k2 : kind)
-| KBaseSort (b : base_sort)
-| KSubset (k : kind) (p : prop)
-.
 
 Require BinIntDef.
 Definition int := BinIntDef.Z.t.
@@ -370,15 +368,14 @@ Inductive typing : ctx -> expr -> cstr -> cstr -> Prop :=
     typing (add_typing_ctx t1 C) e t i ->
     typing C (EAbs e) (CArrow t1 i t) T0
 | TyAppC C e c t i k :
-    typing C e (CForall t) i ->
-    kinding (get_kctx C) (CForall t) (KArrow k KType) ->
+    typing C e (CForall k t) i ->
     kinding (get_kctx C) c k -> 
     typing C (EAppC e c) (subst0_c_c c t) i
 | TyAbsC C e t k :
     value e ->
     wfkind (get_kctx C) k ->
     typing (add_kinding_ctx k C) e t T0 ->
-    typing C (EAbsC e) (CForall t) T0
+    typing C (EAbsC e) (CForall k t) T0
 | TyRec C e t n e1 :
     e = EAbsCs n (EAbs e1) ->
     kinding (get_kctx C) t KType ->
@@ -403,15 +400,13 @@ Inductive typing : ctx -> expr -> cstr -> cstr -> Prop :=
 (*     kinding L t KType -> *)
 (*     typing (L, G) e t i -> *)
 (*     typing (L, G) (EAsc e t) t i *)
-| TyPack C c e t i t1 k :
-    t = CExists t1 ->
+| TyPack C c e i t1 k :
     kinding (get_kctx C) t1 (KArrow k KType) ->
     kinding (get_kctx C) c k ->
     typing C e (subst0_c_c c t1) i ->
-    typing C (EPack c e) t i
+    typing C (EPack c e) (CExists k t1) i
 | TyUnpack C e1 e2 t2' i1 i2' t k t2 i2 :
-    typing C e1 (CExists t) i1 ->
-    kinding (get_kctx C) t (KArrow k KType) ->
+    typing C e1 (CExists k t) i1 ->
     typing (add_typing_ctx t (add_kinding_ctx k C)) e2 t2 i2 ->
     forget01_c_c t2 = Some t2' ->
     forget01_c_c i2 = Some i2' ->
@@ -729,8 +724,7 @@ Proof.
       typing C (EUnpack e1 e2) t2'' i ->
       exists t2' t i1 k t2 i2 i2' ,
       tyeq (get_kctx C) KType t2'' t2' /\
-      typing C e1 (CExists t) i1 /\
-      kinding (get_kctx C) t (KArrow k KType) /\
+      typing C e1 (CExists k t) i1 /\
       typing (add_typing_ctx t (add_kinding_ctx k C)) e2 t2 i2 /\
       forget01_c_c t2 = Some t2' /\
       forget01_c_c i2 = Some i2' /\
@@ -738,13 +732,13 @@ Proof.
     Proof.
     Admitted.
     eapply invert_TyUnpack in Hty.
-    destruct Hty as (t2' & t0 & i1 & k & t2 & i2 & i2' & Htyeq & Hty1 & Hkd & Hty2 & Ht2 & Hi2 & Hle2).
+    destruct Hty as (t2' & t0 & i1 & k & t2 & i2 & i2' & Htyeq & Hty1 & Hty2 & Ht2 & Hi2 & Hle2).
     subst.
     simplify.
     Lemma invert_TyPack C c e t i :
       typing C (EPack c e) t i ->
       exists t1 k i' ,
-        tyeq (get_kctx C) KType t (CExists t1) /\
+        tyeq (get_kctx C) KType t (CExists k t1) /\
         kinding (get_kctx C) t1 (KArrow k KType) /\
         kinding (get_kctx C) c k /\
         typing C e (subst0_c_c c t1) i' /\
@@ -754,27 +748,13 @@ Proof.
     destruct Hty1 as (t1 & k' & i' & Htyeq2 & Hkd1 & Hkdc' & Htyv & Hle3).
     subst.
     simplify.
-    Lemma invert_tyeq_CExists L k t1 t2 :
-      tyeq L k (CExists t1) (CExists t2) ->
-      exists k' ,
-        tyeq L (KArrow k' k) t1 t2.
-    Admitted.
-    eapply invert_tyeq_CExists in Htyeq2.
-    destruct Htyeq2 as (ks & Htyeq2).
-    Lemma tyeq_kdeq L k t1 t2 k1 k2 :
-      tyeq L k t1 t2 ->
-      kinding L t1 k1 ->
-      kinding L t2 k2 ->
+    Lemma invert_tyeq_CExists L k k1 t1 k2 t2 :
+      tyeq L k (CExists k1 t1) (CExists k2 t2) ->
+      tyeq L (KArrow k1 k) t1 t2 /\
       kdeq L k1 k2.
     Admitted.
-    eapply tyeq_kdeq in Hkd1; eauto.
-    Lemma invert_kdeq_Arrow L k1 k2 k1' k2' :
-      kdeq L (KArrow k1 k2) (KArrow k1' k2') ->
-      kdeq L k1 k1' /\
-      kdeq L k2 k2'.
-    Admitted.
-    eapply invert_kdeq_Arrow in Hkd1.
-    destruct Hkd1 as (Hkdeq & ?).
+    eapply invert_tyeq_CExists in Htyeq2.
+    destruct Htyeq2 as (Htyeq2 & Hkdeq).
     assert (Hkdc : kinding [] c k).
     {
       eapply KdEq; eauto.
@@ -1147,38 +1127,41 @@ Proof.
       typing C (EAppC e c) t i ->
       exists t' i' k ,
         tyeq (get_kctx C) KType t (subst0_c_c c t') /\
-        typing C e (CForall t') i' /\
-        kinding (get_kctx C) (CForall t') (KArrow k KType) /\
+        typing C e (CForall k t') i' /\
         kinding (get_kctx C) c k /\
         interpP (get_kctx C) (i' <= i)%idx.
     Admitted.
     eapply invert_TyAppC in Hty.
-    destruct Hty as (t' & i' & k' & Htyeq & Hty & Hkd & Hkdc & Hle2).
+    destruct Hty as (t' & i' & k' & Htyeq & Hty & Hkdc & Hle2).
     simplify.
     Lemma invert_TyAbsC C e t i :
       typing C (EAbsC e) t i ->
       exists t' k ,
-        tyeq (get_kctx C) KType t (CForall t') /\
+        tyeq (get_kctx C) KType t (CForall k t') /\
         value e /\
         wfkind (get_kctx C) k /\
         typing (add_kinding_ctx k C) e t' T0.
     Admitted.
     eapply invert_TyAbsC in Hty.
-    destruct Hty as (t'' & Htyeq2 & Hval & Hwfk & Hty).
+    destruct Hty as (t'' & k & Htyeq2 & Hval & Hwfk & Hty).
     simplify.
-    (*here*)
-    
-    Lemma invert_tyeq_CArrow L k t1 i t2 t1' i' t2' :
-      tyeq L k (CArrow t1 i t2) (CArrow t1' i' t2') ->
-      tyeq L KType t1 t1' /\
-      interpP L (PEq i i') /\
-      tyeq L KType t2 t2'.
+    Lemma invert_tyeq_CForall L k k1 t1 k2 t2 :
+      tyeq L k (CForall k1 t1) (CForall k2 t2) ->
+      tyeq L (KArrow k1 k) t1 t2 /\
+      kdeq L k1 k2.
     Admitted.
-    eapply invert_tyeq_CArrow in Htyeq2.
-    destruct Htyeq2 as (Htyeq2 & Hieq & Htyeq3).
+    eapply invert_tyeq_CForall in Htyeq2.
+    destruct Htyeq2 as (Htyeq2 & Hkdeq).
+    assert (Hkdck : kinding [] c k).
+    {
+      eapply KdEq; eauto.
+      Lemma kdeq_sym L a b : kdeq L a b -> kdeq L b a.
+      Admitted.
+      eapply kdeq_sym; eauto.
+    }
     split.
     {
-      (* (1 + f - f <= interpTime i)%time *)
+      (* (f - f <= interpTime i)%time *)
       admit.
     }
     exists W.
@@ -1186,18 +1169,17 @@ Proof.
     {
       eapply TySub.
       {
-        eapply ty_subst0_e_e with (G := []) in Hty1; eauto.
-        eapply TyEq; eauto.
+        eapply ty_subst0_c_e with (G := []) in Hty; eauto.
+        simplify.
+        rewrite fmap_map_subst0_shift01 in Hty.
+        eauto.
       }
       {
         simplify.
+        (* tyeq *)
         eapply tyeq_sym.
-        Lemma tyeq_trans L k a b c :
-          tyeq L k a b ->
-          tyeq L k b c ->
-          tyeq L k a c.
-        Admitted.
         eapply tyeq_trans; eauto.
+        admit.
       }
       {
         simplify.
@@ -1209,7 +1191,7 @@ Proof.
       eapply Hhty.
     }
     {
-      (* (interpTime (Tminus i (Tconst (1 + f - f))) <= f)%time *)
+      (* (interpTime (Tminus i (Tconst (f - f))) <= f)%time *)
       admit.
     }
     {
