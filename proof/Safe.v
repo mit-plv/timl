@@ -190,7 +190,7 @@ Inductive expr :=
 | ECase (e e1 e2 : expr)
 | EAbs (e : expr)
 | ERec (e : expr)
-| EAbsC (e : expr)
+| EAbsC (k : kind) (e : expr)
 | EUnpack (e1 e2 : expr)
 (* | EAsc (e : expr) (t : cstr) *)
 (* | EAstTime (e : expr) (i : cstr) *)
@@ -224,8 +224,8 @@ Inductive value : expr -> Prop :=
     value (ESumI c v)
 | VAbs e :
     value (EAbs e)
-| VAbsC e :
-    value (EAbsC e)
+| VAbsC k e :
+    value (EAbsC k e)
 | VPack c v :
     value (EPack c v)
 | VFold v :
@@ -334,10 +334,10 @@ Fixpoint CApps t cs :=
   end
 .
 
-Fixpoint AbsCs_Abs n e :=
-  match n with
-  | 0 => e
-  | S n => EAbsC (AbsCs_Abs n e)
+Fixpoint EAbsCs ks e :=
+  match ks with
+  | [] => e
+  | k :: ks => EAbsC k (EAbsCs ks e)
   end
 .
 
@@ -378,9 +378,9 @@ Inductive typing : ctx -> expr -> cstr -> cstr -> Prop :=
     value e ->
     wfkind (get_kctx C) k ->
     typing (add_kinding_ctx k C) e t T0 ->
-    typing C (EAbsC e) (CAbs t) T0
-| TyRec C e t n e1 :
-    e = AbsCs_Abs n e1 ->
+    typing C (EAbsC k e) (CForall t) T0
+| TyRec C e t ks e1 :
+    e = EAbsCs ks (EAbs e1) ->
     kinding (get_kctx C) t KType ->
     typing (add_typing_ctx t C) e t T0 ->
     typing C (ERec e) t T0
@@ -495,8 +495,8 @@ Inductive astep : config -> config -> Prop :=
 | ABeta h e v t :
     value v ->
     astep (h, EApp (EAbs e) v, 1 + t) (h, subst0_e_e v e, t)
-| ABetaC h e c t :
-    astep (h, EAppC (EAbsC e) c, t) (h, subst0_c_e c e, t)
+| ABetaC h k e c t :
+    astep (h, EAppC (EAbsC k e) c, t) (h, subst0_c_e c e, t)
 | AProj h pr v1 v2 t :
     value v1 ->
     value v2 ->
@@ -670,8 +670,8 @@ Proof.
     rename t0 into t.
     Lemma invert_TyRec C e t i :
       typing C (ERec e) t i ->
-      exists n e1 ,
-        e = AbsCs_Abs n e1 /\
+      exists ks e1 ,
+        e = EAbsCs ks (EAbs e1) /\
         kinding (get_kctx C) t KType /\
         typing (add_typing_ctx t C) e t T0.
     Admitted.
@@ -754,12 +754,12 @@ Proof.
     destruct Hty1 as (t1 & k' & i' & Htyeq2 & Hkd1 & Hkdc' & Htyv & Hle3).
     subst.
     simplify.
-    Lemma invert_tyeq_Exists L k t1 t2 :
+    Lemma invert_tyeq_CExists L k t1 t2 :
       tyeq L k (CExists t1) (CExists t2) ->
       exists k' ,
         tyeq L (KArrow k' k) t1 t2.
     Admitted.
-    eapply invert_tyeq_Exists in Htyeq2.
+    eapply invert_tyeq_CExists in Htyeq2.
     destruct Htyeq2 as (ks & Htyeq2).
     Lemma tyeq_kdeq L k t1 t2 k1 k2 :
       tyeq L k t1 t2 ->
@@ -878,11 +878,11 @@ Proof.
     generalize Hhty; intro Hhty0.
     eapply htyping_elim in Hhty; eauto.
     destruct Hhty as (Hval & Htyv).
-    Lemma tyeq_CRef L k t t' :
+    Lemma invert_tyeq_CRef L k t t' :
       tyeq L k (CRef t) (CRef t') ->
       tyeq L KType t t'.
     Admitted.
-    eapply tyeq_CRef in Htyeq.
+    eapply invert_tyeq_CRef in Htyeq.
     split.
     {
       (* (f - f <= interpTime i)%time *)
@@ -911,6 +911,303 @@ Proof.
     }
     {
       (* (interpTime (Tminus i (Tconst (f - f))) <= f)%time *)
+      admit.
+    }
+    {
+      eapply includes_intro.
+      eauto.
+    }
+  }
+  {
+    (* Case Write *)
+    destruct H as (Hty & Hhty & Hle).
+    rename t into f.
+    rename t0 into t.
+    Lemma invert_TyWrite C e1 e2 t i :
+      typing C (EWrite e1 e2) t i ->
+      exists t' i1 i2 ,
+        tyeq (get_kctx C) KType t CTypeUnit /\
+        typing C e1 (CRef t') i1 /\
+        typing C e2 t' i2 /\
+        interpP (get_kctx C) (i1 + i2 <= i)%idx.
+    Admitted.
+    eapply invert_TyWrite in Hty.
+    destruct Hty as (t' & i1 & i2 & Htyeq & Hty1 & Hty2 & Hle2).
+    eapply invert_TyLoc in Hty1.
+    destruct Hty1 as (t'' & Htyeq2 & Hl).
+    simplify.
+    eapply invert_tyeq_CRef in Htyeq2.
+    Ltac copy h h2 := generalize h; intro h2.
+    copy Hhty Hhty0.
+    eapply htyping_elim in Hhty; eauto.
+    destruct Hhty as (Hval' & Htyv').
+    split.
+    {
+      (* (f - f <= interpTime i)%time *)
+      admit.
+    }
+    exists W.
+    repeat split.
+    {
+      eapply TySub.
+      {
+        Lemma TyETT C : typing C ETT CTypeUnit T0.
+        Proof.
+          eapply TyConst.
+        Qed.
+        eapply TyETT.
+      }
+      {
+        simplify.
+        eapply tyeq_sym; eauto.
+      }
+      {
+        simplify.
+        (* le *)
+        admit.
+      }
+    }
+    {
+      Lemma htyping_upd h W l t v i :
+        htyping h W ->
+        W $? l = Some t ->
+        value v ->
+        typing ([], W, []) v t i ->
+        htyping (h $+ (l, v)) W.
+      Admitted.
+      eapply htyping_upd; eauto.
+      eapply TyEq.
+      {
+        eapply Hty2.
+      }
+      {
+        simplify.
+        eauto.
+      }
+    }
+    {
+      (* (interpTime (Tminus i (Tconst (f - f))) <= f)%time *)
+      admit.
+    }
+    {
+      eapply includes_intro.
+      eauto.
+    }
+  }
+  {
+    (* Case New *)
+    destruct H as (Hty & Hhty & Hle).
+    rename t into f.
+    rename t0 into t.
+    Lemma invert_TyNew C e t i :
+      typing C (ENew e) t i ->
+      exists t' i' ,
+        tyeq (get_kctx C) KType t (CRef t') /\
+        typing C e t' i' /\
+        interpP (get_kctx C) (i' <= i)%idx.
+    Admitted.
+    eapply invert_TyNew in Hty.
+    destruct Hty as (t' & i' & Htyeq & Hty & Hle2).
+    simplify.
+    split.
+    {
+      (* (f - f <= interpTime i)%time *)
+      admit.
+    }
+    exists (W $+ (l, t')).
+    repeat split.
+    {
+      eapply TySub.
+      {
+        eapply TyLoc.
+        simplify.
+        eauto.
+      }
+      {
+        simplify.
+        eapply tyeq_sym; eauto.
+      }
+      {
+        simplify.
+        (* le *)
+        admit.
+      }
+    }
+    {
+      Lemma htyping_new h W l t v i :
+        htyping h W ->
+        h $? l = None ->
+        value v ->
+        typing ([], W, []) v t i ->
+        htyping (h $+ (l, v)) (W $+ (l, t)).
+      Admitted.
+      eapply htyping_new in Hhty; eauto.
+    }
+    {
+      (* (interpTime (Tminus i (Tconst (f - f))) <= f)%time *)
+      admit.
+    }
+    {
+      eapply includes_intro.
+      intros k v' Hk.
+      assert (HWk : W $? k = None).
+      {
+        admit.
+      }
+      cases (l ==n k); subst.
+      {
+        simplify.
+        eauto.
+      }
+      rewrite Hk in HWk.
+      invert HWk.
+    }
+  }
+  {
+    (* Case Beta *)
+    destruct H as (Hty & Hhty & Hle).
+    rename t into f.
+    rename t0 into t.
+    Lemma invert_TyApp C e1 e2 t i :
+      typing C (EApp e1 e2) t i ->
+      exists t' t2 i1 i2 i3 ,
+        tyeq (get_kctx C) KType t t' /\
+        typing C e1 (CArrow t2 i3 t') i1 /\
+        typing C e2 t2 i2 /\
+        interpP (get_kctx C) (i1 + i2 + T1 + i3 <= i)%idx.
+    Admitted.
+    eapply invert_TyApp in Hty.
+    destruct Hty as (t' & t2 & i1 & i2 & i3 & Htyeq & Hty1 & Hty2 & Hle2).
+    simplify.
+    Lemma invert_TyAbs C e t i :
+      typing C (EAbs e) t i ->
+      exists t1 i' t2 ,
+        tyeq (get_kctx C) KType t (CArrow t1 i' t2) /\
+        kinding (get_kctx C) t1 KType /\
+        typing (add_typing_ctx t1 C) e t2 i'.
+    Admitted.
+    eapply invert_TyAbs in Hty1.
+    destruct Hty1 as (t1 & i' & t3 & Htyeq2 & Hkd & Hty1).
+    simplify.
+    Lemma invert_tyeq_CArrow L k t1 i t2 t1' i' t2' :
+      tyeq L k (CArrow t1 i t2) (CArrow t1' i' t2') ->
+      tyeq L KType t1 t1' /\
+      interpP L (PEq i i') /\
+      tyeq L KType t2 t2'.
+    Admitted.
+    eapply invert_tyeq_CArrow in Htyeq2.
+    destruct Htyeq2 as (Htyeq2 & Hieq & Htyeq3).
+    split.
+    {
+      (* (1 + f - f <= interpTime i)%time *)
+      admit.
+    }
+    exists W.
+    repeat split.
+    {
+      eapply TySub.
+      {
+        eapply ty_subst0_e_e with (G := []) in Hty1; eauto.
+        eapply TyEq; eauto.
+      }
+      {
+        simplify.
+        eapply tyeq_sym.
+        Lemma tyeq_trans L k a b c :
+          tyeq L k a b ->
+          tyeq L k b c ->
+          tyeq L k a c.
+        Admitted.
+        eapply tyeq_trans; eauto.
+      }
+      {
+        simplify.
+        (* le *)
+        admit.
+      }
+    }
+    {
+      eapply Hhty.
+    }
+    {
+      (* (interpTime (Tminus i (Tconst (1 + f - f))) <= f)%time *)
+      admit.
+    }
+    {
+      eapply includes_intro.
+      eauto.
+    }
+  }
+  {
+    (* Case AppC *)
+    destruct H as (Hty & Hhty & Hle).
+    rename t into f.
+    rename t0 into t.
+    Lemma invert_TyAppC C e c t i :
+      typing C (EAppC e c) t i ->
+      exists t' i' k ,
+        tyeq (get_kctx C) KType t (subst0_c_c c t') /\
+        typing C e (CForall t') i' /\
+        kinding (get_kctx C) (CForall t') (KArrow k KType) /\
+        kinding (get_kctx C) c k /\
+        interpP (get_kctx C) (i' <= i)%idx.
+    Admitted.
+    eapply invert_TyAppC in Hty.
+    destruct Hty as (t' & i' & k' & Htyeq & Hty & Hkd & Hkdc & Hle2).
+    simplify.
+    Lemma invert_TyAbsC C k e t i :
+      typing C (EAbsC k e) t i ->
+      exists t' ,
+        tyeq (get_kctx C) KType t (CForall t') /\
+        value e /\
+        wfkind (get_kctx C) k /\
+        typing (add_kinding_ctx k C) e t' T0.
+    Admitted.
+    eapply invert_TyAbsC in Hty.
+    destruct Hty as (t'' & Htyeq2 & Hval & Hwfk & Hty).
+    simplify.
+    Lemma invert_tyeq_CArrow L k t1 i t2 t1' i' t2' :
+      tyeq L k (CArrow t1 i t2) (CArrow t1' i' t2') ->
+      tyeq L KType t1 t1' /\
+      interpP L (PEq i i') /\
+      tyeq L KType t2 t2'.
+    Admitted.
+    eapply invert_tyeq_CArrow in Htyeq2.
+    destruct Htyeq2 as (Htyeq2 & Hieq & Htyeq3).
+    split.
+    {
+      (* (1 + f - f <= interpTime i)%time *)
+      admit.
+    }
+    exists W.
+    repeat split.
+    {
+      eapply TySub.
+      {
+        eapply ty_subst0_e_e with (G := []) in Hty1; eauto.
+        eapply TyEq; eauto.
+      }
+      {
+        simplify.
+        eapply tyeq_sym.
+        Lemma tyeq_trans L k a b c :
+          tyeq L k a b ->
+          tyeq L k b c ->
+          tyeq L k a c.
+        Admitted.
+        eapply tyeq_trans; eauto.
+      }
+      {
+        simplify.
+        (* le *)
+        admit.
+      }
+    }
+    {
+      eapply Hhty.
+    }
+    {
+      (* (interpTime (Tminus i (Tconst (1 + f - f))) <= f)%time *)
       admit.
     }
     {
