@@ -1209,6 +1209,37 @@ Proof.
   }
 Qed.
 
+Lemma generalize_plug : forall C e e_all,
+    plug C e e_all ->
+    forall W t i,
+      typing ([], W, []) e_all t i ->
+      exists t1 i1,
+        typing ([], W, []) e t1 i1 /\
+        interpP [] (i1 <= i)%idx /\
+        forall e' e_all' W' i1',
+          plug C e' e_all' ->
+          typing ([], W', []) e' t1 i1' ->
+          interpP [] (i1' <= i1)%idx ->
+          W $<= W' ->
+          typing ([], W', []) e_all' t (i1' + Tminus i i1)%idx.
+Proof.
+  induct 1.
+  {
+    intros W t i Hty.
+    exists t, i.
+    repeat split; eauto.
+    {
+      admit. (* interpP [] (i <= i)%idx *)
+    }
+    intros.
+    (*here*)
+    do 3 eexists; t.
+    eapply split_symm in H3.
+    eapply split_to_0 in H3.
+    subst.
+    eauto.
+  }
+Qed.
 
 Lemma preservation s s' :
   step s s' ->
@@ -1237,20 +1268,6 @@ Proof.
   rename e1 into e_all.
   rename e1' into e_all'.
   rename t0 into t_all.
-  Lemma generalize_plug : forall C e e_all,
-      plug C e e_all ->
-      forall W t i,
-        typing ([], W, []) e_all t i ->
-        exists t1 i1,
-          typing ([], W, []) e t1 i1 /\
-          interpP [] (i1 <= i)%idx /\
-          forall e' e_all' W' i1',
-            plug C e' e_all' ->
-            typing ([], W', []) e' t1 i1' ->
-            interpP [] (i1' <= i1)%idx ->
-            W $<= W' ->
-            typing ([], W', []) e_all' t (i1' + Tminus i i1)%idx.
-  Admitted.
   eapply generalize_plug in Hty; eauto.
   destruct Hty as (t1 & i1 & Hty & Hle2 & He').
   rename H0 into Hstep.
