@@ -501,7 +501,7 @@ Inductive astep : config -> config -> Prop :=
 .
 
 Inductive step : config -> config -> Prop :=
-| Step h e1 t h' e1' t' e e' E :
+| StepPlug h e1 t h' e1' t' e e' E :
     astep (h, e, t) (h', e', t') ->
     plug E e e1 ->
     plug E e' e1' ->
@@ -1218,10 +1218,8 @@ Lemma preservation s s' :
   (*   let s' := (h', e', f') in *)
   forall W t i,
     ctyping W s t i ->
-    let df := (get_fuel s - get_fuel s')%time in
-    (df <= interpTime i)%time /\
-    exists W',
-      ctyping W' s t (Tminus i (Tconst df)) /\
+    exists W' i',
+      ctyping W' s' t i' /\
       (W $<= W').
 Proof.
   invert 1.
@@ -1234,7 +1232,87 @@ Proof.
   (* intros (Hty & Hhty & Hle). *)
   (* intros (Hty, (Hhty, Hle)). *)
   (* intros (Hty, Hhty). *)
-  (*here*)
+  rename t into f.
+  rename t' into f'.
+  rename e1 into e_all.
+  rename e1' into e_all'.
+  rename t0 into t_all.
+  Lemma generalize_plug : forall C e e_all,
+      plug C e e_all ->
+      forall W t i,
+        typing ([], W, []) e_all t i ->
+        exists t1 i1,
+          typing ([], W, []) e t1 i1 /\
+          interpP [] (i1 <= i)%idx /\
+          forall e' e_all' W' i1',
+            plug C e' e_all' ->
+            typing ([], W', []) e' t1 i1' ->
+            interpP [] (i1' <= i1)%idx ->
+            W $<= W' ->
+            typing ([], W', []) e_all' t (i1' + Tminus i i1)%idx.
+  Admitted.
+  eapply generalize_plug in Hty; eauto.
+  destruct Hty as (t1 & i1 & Hty & Hle2 & He').
+  rename H0 into Hstep.
+  eapply preservation0 in Hstep.
+  Focus 2.
+  {
+    unfold ctyping; repeat split; eauto.
+    admit. (* (interpTime i1 <= f)%time *)
+  }
+  Unfocus.
+  simplify.
+  destruct Hstep as (Hle3 & W' & Hty2 & Hincl).
+  destruct Hty2 as (Hty2 & Hhty' & Hle4).
+  eapply He' in H2; eauto.
+  Focus 2.
+  {
+    admit. (* interpP [] (Tminus i1 (Tconst (f - f')%time) <= i1)%idx *)
+  }
+  Unfocus.
+  exists W'.
+  eexists.
+  repeat split; eauto.
+  admit. (* (interpTime (Tminus i1 (Tconst (f - f')) + Tminus i i1)%idx <= f')%time *)
+Qed.
+
+Hint Resolve progress preservation.
+
+Definition trsys_of (s : config) :=
+  {|
+    Initial := {s};
+    Step := step
+  |}.
+
+Theorem safety W s t i :
+  ctyping W s t i ->
+  invariantFor (trsys_of s) unstuck.
+Proof.
+  simplify.
+  apply invariant_weaken with (invariant1 := fun s' => exists W' i', ctyping W' s' t i'); eauto.
+  {
+    apply invariant_induction; simplify; eauto.
+    {
+      propositional.
+      subst; simplify.
+      eauto.
+    }
+    {
+      destruct H0 as (W' & i' & Hty).
+      propositional.
+      eapply preservation in H1; eauto.
+      destruct H1 as (W'' & i'' & Hty' & Hle).
+      eauto.
+    }
+  }
+  {
+    simplify.
+    destruct H0 as (W' & i' & Hty).
+    eauto.
+  }
+Qed.
+
+(*
   Lemma generalize_plug : forall C e1 e1',
     plug C e1 e1' ->
     forall H t,
@@ -1275,4 +1353,4 @@ Proof.
 
 Lemma ttt : forall A (ls : list A) p, Forall p ls -> ls = List.nil.
   induct 1.
-  
+*)  
