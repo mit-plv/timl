@@ -1223,21 +1223,89 @@ Lemma generalize_plug : forall C e e_all,
           W $<= W' ->
           typing ([], W', []) e_all' t (i1' + Tminus i i1)%idx.
 Proof.
-  induct 1.
+  induct 1; intros W t i Hty.
   {
-    intros W t i Hty.
     exists t, i.
     repeat split; eauto.
     {
       admit. (* interpP [] (i <= i)%idx *)
     }
     intros.
-    (*here*)
-    do 3 eexists; t.
-    eapply split_symm in H3.
-    eapply split_to_0 in H3.
-    subst.
-    eauto.
+    invert H.
+    Lemma TyLe C e t i1 i2 :
+      typing C e t i1 ->
+      interpP (get_kctx C) (i1 <= i2)%idx ->
+      typing C e t i2.
+    Admitted.
+    eapply TyLe; eauto.
+    admit. (* interpP (get_kctx ([], W', [])) (i1' <= i1' + Tminus i i)%idx *)
+  }
+  {
+    (* Case UnOp *)
+    admit.
+  }
+  {
+    cases opr.
+    {
+      Lemma invert_TyBinOpPrim C opr e1 e2 t i : typing C (EBinOp (EBPrim opr) e1 e2) t i -> False.
+      Admitted.
+      eapply invert_TyBinOpPrim in Hty.
+      destruct Hty.
+    }
+    {
+      eapply invert_TyApp in Hty.
+      destruct Hty as (t' & t2 & i1 & i2 & i3 & Htyeq & Hty1 & Hty2 & Hle).
+      simplify.
+      eapply IHplug in Hty1; eauto.
+      destruct Hty1 as (t1 & i0 & Hty1 & Hle2 & HE).
+      exists t1, i0.
+      repeat split; eauto.
+      {
+        admit. (* interpP [] (i0 <= i)%idx *)
+      }
+      intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
+      invert Hplug.
+      rename e'0 into e_all''.
+      rename H5 into Hplug.
+      eapply HE in Hplug; eauto.
+      eapply TySub.
+      {
+        eapply TyApp; eauto.
+        Lemma weaken_W L W G e t i W' :
+          typing (L, W, G) e t i ->
+          W $<= W' ->
+          typing (L, W', G) e t i.
+        Admitted.
+        eapply weaken_W; eauto.
+      }
+      {
+        eapply tyeq_sym; eauto.
+      }
+      {
+        instantiate (1 := T1).
+        admit. (* interpP (get_kctx ([], W', [])) (i1' + Tminus i1 i0 + i2 + T1 + i3 <= i1' + Tminus i i0)%idx *)
+      }
+    }
+    {
+      (* Case Pair *)
+      admit.
+    }
+    {
+      (* Case Write *)
+      admit.
+    }
+  }
+  {
+    (* Case BinOp2 *)
+    admit.
+  }
+  {
+    (* Case Case *)
+    admit.
+  }
+  {
+    (* Case Unpack *)
+    admit.
   }
 Qed.
 
