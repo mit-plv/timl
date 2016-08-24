@@ -359,7 +359,7 @@ Inductive typing : ctx -> expr -> cstr -> cstr -> Prop :=
 | TyVar C x t :
     nth_error (get_tctx C) x = Some t ->
     typing C (EVar x) t T0
-| TyApp C e1 e2 t i1 i2 T1 i t2 :
+| TyApp C e1 e2 t i1 i2 i t2 :
     typing C e1 (CArrow t2 i t) i1 ->
     typing C e2 t2 i2 ->
     typing C (EApp e1 e2) t (i1 + i2 + T1 + i)
@@ -469,6 +469,10 @@ Definition config := (heap * expr * fuel)%type.
 Import Time.OpenScope.
 
 Inductive astep : config -> config -> Prop :=
+| ABeta h e v t :
+    value v ->
+    1 <= t ->
+    astep (h, EApp (EAbs e) v, t) (h, subst0_e_e v e, t - 1)
 | AUnfoldFold h v t :
     value v ->
     astep (h, EUnfold (EFold v), t) (h, v, t)
@@ -487,9 +491,6 @@ Inductive astep : config -> config -> Prop :=
     value v ->
     h $? l = None ->
     astep (h, ENew v, t) (h $+ (l, v), ELoc l, t)
-| ABeta h e v t :
-    value v ->
-    astep (h, EApp (EAbs e) v, 1 + t) (h, subst0_e_e v e, t)
 | ABetaC h e c t :
     astep (h, EAppC (EAbsC e) c, t) (h, subst0_c_e c e, t)
 | AProj h pr v1 v2 t :
@@ -535,7 +536,7 @@ Definition get_fuel (s : config) : fuel := snd s.
 Definition finished s := value (get_expr s).
 
 Definition unstuck s :=
-  finished s /\
+  finished s \/
   exists s', step s s'.
 
 Definition safe s := forall s', step^* s s' -> unstuck s'.
@@ -544,11 +545,152 @@ Definition safe s := forall s', step^* s s' -> unstuck s'.
 
 Import Time.CloseScope.
 
+Arguments get_kctx _ / .
+Arguments get_hctx _ / .
+
+Lemma progress' C e t i :
+  typing C e t i ->
+  get_kctx C = [] ->
+  get_tctx C = [] ->
+  forall h f ,
+    htyping h (get_hctx C) ->
+    (interpTime i <= f)%time ->
+    unstuck (h, e, f).
+Proof.
+  induct 1.
+  {
+    (* Case Var *)
+    intros ? ? h f Hhty Hle.
+    destruct C as ((L & W) & G).
+    simplify.
+    subst.
+    Lemma nth_error_nil A n : @nth_error A [] n = None.
+    Admitted.
+    rewrite nth_error_nil in H.
+    invert H.
+  }
+  {
+    (* Case App *)
+    intros ? ? h f Hhty Hle.
+    destruct C as ((L & W) & G).
+    simplify.
+    subst.
+    assert (Hi1 : (interpTime i1 <= f)%time).
+    {
+      admit.
+    }
+    assert (Hi2 : (interpTime i2 <= f)%time).
+    {
+      admit.
+    }
+    eapply IHtyping1 in Hi1; eauto.
+    Arguments finished / .
+    Arguments get_expr / .
+    cases Hi1; simplify.
+    {
+      Lemma canon_CArrow W v t1 i' t2 i :
+        typing ([], W, []) v (CArrow t1 i' t2) i ->
+        value v ->
+        exists e,
+          v = EAbs e.
+      Admitted.
+      eapply canon_CArrow in H1; eauto.
+      destruct H1 as (e & ?).
+      subst.
+      eapply IHtyping2 in Hi2; eauto.
+      cases Hi2; simplify.
+      {
+        right.
+        exists (h, subst0_e_e e2 e, (f - 1)%time).
+        Hint Constructors step astep plug.
+        econstructor; eauto.
+        econstructor; eauto.
+        admit. (* (1 <= f)%time *)
+      }
+      {
+        destruct H1 as (((h' & e2') & f') & Hstep).
+        invert Hstep.
+        rename e' into e0'.
+        right.
+        exists (h', EApp (EAbs e) e2', f').
+        eapply StepPlug with (E := ECBinOp2 _ (EAbs e) E); repeat econstructor; eauto.
+      }
+    }
+    {
+      destruct H1 as (((h' & e1') & f') & Hstep).
+      invert Hstep.
+      right.
+      exists (h', EApp e1' e2, f').
+      eapply StepPlug with (E := ECBinOp1 _ E e2); repeat econstructor; eauto.
+    }
+  }
+  {
+    (* Case Abs *)
+    intros.
+    left.
+    Hint Constructors value.
+    simplify; eauto.
+  }
+  {
+    (* Case AppC *)
+    intros ? ? h f Hhty Hle.
+    destruct C as ((L & W) & G).
+    simplify.
+    subst.
+    eapply IHtyping in Hle; eauto.
+    cases Hle; simplify.
+    {
+      Lemma canon_CForall W v k t i :
+        typing ([], W, []) v (CForall k t) i ->
+        value v ->
+        exists e,
+          v = EAbsC e.
+      Admitted.
+      eapply canon_CForall in H1; eauto.
+      destruct H1 as (e1 & ?).
+      subst.
+      right.
+      exists (h, subst0_c_e c e1, f).
+      eapply StepPlug with (E := ECHole); try eapply PlugHole.
+      eauto.
+    }
+    {
+      destruct H1 as (((h' & e1') & f') & Hstep).
+      invert Hstep.
+      rename e' into e0'.
+      rename e1' into e'.
+      right.
+      exists (h', EAppC e' c, f').
+      eapply StepPlug with (E := ECUnOp _ E); repeat econstructor; eauto.
+    }
+  }
+  {
+    (* Case AbsC *)
+    intros.
+    left.
+    simplify; eauto.
+  }
+  {
+    (* Case Rec *)
+    intros.
+    right.
+    exists (h, subst0_e_e (ERec e) e, f).
+    eapply StepPlug with (E := ECHole); try eapply PlugHole.
+    eauto.
+  }
+  (*here*)
+Qed.
+
 Lemma progress W s t i :
   ctyping W s t i ->
   unstuck s.
 Proof.
-Admitted.
+  unfold ctyping in *.
+  simplify.
+  destruct s as ((h & e) & f).
+  propositional.
+  eapply progress'; eauto.
+Qed.
 
 Fixpoint KArrows args result :=
   match args with
@@ -598,7 +740,6 @@ Proof.
     eapply invert_TyUnfold in Hty.
     destruct Hty as (t1 & t2& cs& i'& Htyeq & ? & Hty & Hle2).
     subst.
-    Arguments get_kctx _ / .
     simplify.
     Lemma invert_TyFold C e t' i :
       typing C (EFold e) t' i ->
@@ -846,7 +987,6 @@ Proof.
     Admitted.
     eapply invert_TyLoc in Hty.
     destruct Hty as (t' & Htyeq & Hl).
-    Arguments get_hctx _ / .
     simplify.
     Lemma htyping_elim h W l v t :
       htyping h W ->
@@ -2014,46 +2154,3 @@ Proof.
     eauto.
   }
 Qed.
-
-(*
-  Lemma generalize_plug : forall C e1 e1',
-    plug C e1 e1' ->
-    forall H t,
-      hasty H $0 e1' t ->
-      exists H1 Hctx t0,
-        hasty H1 $0 e1 t0 /\
-        split H H1 Hctx /\
-        forall e2 e2' H1' H',
-          hasty H1' $0 e2 t0 ->
-          plug C e2 e2' ->
-          split H' H1' Hctx ->
-          hasty H' $0 e2' t.
-    
-  Lemma generalize_plug : forall H e1 C e1',
-    plug C e1 e1'
-    -> forall t, hasty H $0 e1' t
-    -> exists t0, hasty H $0 e1 t0
-                  /\ (forall e2 e2' H',
-                         hasty H' $0 e2 t0
-                         -> plug C e2 e2'
-                         -> (forall l t, H $? l = Some t -> H' $? l = Some t)
-                         -> hasty H' $0 e2' t).
-    
-    Lemma generalize_plug : forall e1 E e1',
-      plug E e1 e1'
-      -> forall e2 e2', plug C e2 e2'
-                  -> (forall t, hasty $0 $0 e1 t -> hasty $0 $0 e2 t)
-                  -> (forall t, hasty $0 $0 e1' t -> hasty $0 $0 e2' t).
-    Proof.
-      induct 1; t; eauto.
-    Qed.
-
-  Qed.
-
-
-
-
-
-Lemma ttt : forall A (ls : list A) p, Forall p ls -> ls = List.nil.
-  induct 1.
-*)  
