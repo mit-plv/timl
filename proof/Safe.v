@@ -154,16 +154,16 @@ Inductive projector :=
 | ProjSnd
 .
 
-Inductive sum_cstr :=
-| SCInl
-| SCInr
+Inductive injector :=
+| InjInl
+| InjInr
 .
 
 Definition loc := nat.
 
 Inductive expr_un_op :=
 | EUProj (p : projector)
-| EUInj (c : sum_cstr)
+| EUInj (inj : injector)
 | EUAppC (c : cstr)
 | EUPack (c : cstr)
 | EUFold
@@ -264,8 +264,8 @@ Inductive plug : ectx -> expr -> expr -> Prop :=
 
 Definition EFst := EProj ProjFst.
 Definition ESnd := EProj ProjSnd.
-Definition EInl := EInj SCInl.
-Definition EInr := EInj SCInr.
+Definition EInl := EInj InjInl.
+Definition EInr := EInj InjInr.
 
 Definition ETT := EConst ECTT.
 
@@ -348,8 +348,8 @@ Definition proj {A} (p : A * A) pr :=
 
 Definition choose {A} (p : A * A) inj :=
   match inj with
-  | SCInl => fst p
-  | SCInr => snd p
+  | InjInl => fst p
+  | InjInr => snd p
   end
 .
 
@@ -1396,18 +1396,274 @@ Proof.
     admit. (* interpP (get_kctx ([], W', [])) (i1' <= i1' + Tminus i i)%idx *)
   }
   {
-    (* Case UnOp *)
-    admit.
+    cases opr.
+    {
+      (* Case Proj *)
+      eapply invert_TyProj in Hty.
+      destruct Hty as (t1 & t2 & i' & Htyeq & Hty & Hle).
+      simplify.
+      eapply IHplug in Hty; eauto.
+      destruct Hty as (t0 & i0 & Hty1 & Hle2 & HE).
+      exists t0, i0.
+      repeat split; eauto.
+      {
+        admit. (* interpP [] (i0 <= i)%idx *)
+      }
+      intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
+      invert Hplug.
+      rename e'0 into e_all''.
+      rename H4 into Hplug.
+      eapply HE in Hplug; eauto.
+      eapply TySub.
+      {
+        eapply TyProj; eauto.
+      }
+      {
+        simplify.
+        eapply tyeq_sym; eauto.
+      }
+      {
+        simplify.
+        admit. (* interpP [] (i1' + Tminus i1 i0 <= i1' + Tminus i i0)%idx *)
+      }
+    }
+    {
+      (* Case Inj *)
+      eapply invert_TyInj in Hty.
+      destruct Hty as (t1 & t2 & i' & Htyeq & Hty & Hkd & Hle).
+      simplify.
+      eapply IHplug in Hty; eauto.
+      destruct Hty as (t0 & i0 & Hty1 & Hle2 & HE).
+      exists t0, i0.
+      repeat split; eauto.
+      {
+        admit. (* interpP [] (i0 <= i)%idx *)
+      }
+      intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
+      invert Hplug.
+      rename e'0 into e_all''.
+      rename H4 into Hplug.
+      eapply HE in Hplug; eauto.
+      cases inj; simplify.
+      {
+        eapply TySub.
+        {
+          eapply TyInj with (t' := t2); eauto.
+        }
+        {
+          simplify.
+          eapply tyeq_sym; eauto.
+        }
+        {
+          simplify.
+          admit. (* interpP [] (i1' + Tminus i1 i0 <= i1' + Tminus i i0)%idx *)
+        }
+      }
+      {
+        eapply TySub.
+        {
+          eapply TyInj with (t' := t2); eauto.
+        }
+        {
+          simplify.
+          eapply tyeq_sym; eauto.
+        }
+        {
+          simplify.
+          admit. (* interpP [] (i1' + Tminus i1 i0 <= i1' + Tminus i i0)%idx *)
+        }
+      }
+    }
+    {
+      (* Case AppC *)
+      eapply invert_TyAppC in Hty.
+      destruct Hty as (t' & i' & k & Htyeq & Hty & Hkd & Hle).
+      simplify.
+      eapply IHplug in Hty; eauto.
+      destruct Hty as (t0 & i0 & Hty1 & Hle2 & HE).
+      exists t0, i0.
+      repeat split; eauto.
+      {
+        admit. (* interpP [] (i0 <= i)%idx *)
+      }
+      intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
+      invert Hplug.
+      rename e'0 into e_all''.
+      rename H4 into Hplug.
+      eapply HE in Hplug; eauto.
+      eapply TySub.
+      {
+        eapply TyAppC; eauto.
+      }
+      {
+        simplify.
+        eapply tyeq_sym; eauto.
+      }
+      {
+        simplify.
+        admit. (* interpP [] (i1' + Tminus i1 i0 <= i1' + Tminus i i0)%idx *)
+      }
+    }
+    {
+      (* Case Pack *)
+      eapply invert_TyPack in Hty.
+      destruct Hty as (t1 & k & i' & Htyeq & Hkd & Hkdc & Hty & Hle).
+      simplify.
+      eapply IHplug in Hty; eauto.
+      destruct Hty as (t0 & i0 & Hty1 & Hle2 & HE).
+      exists t0, i0.
+      repeat split; eauto.
+      {
+        admit. (* interpP [] (i0 <= i)%idx *)
+      }
+      intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
+      invert Hplug.
+      rename e'0 into e_all''.
+      rename H4 into Hplug.
+      eapply HE in Hplug; eauto.
+      eapply TySub.
+      {
+        eapply TyPack; eauto.
+      }
+      {
+        simplify.
+        eapply tyeq_sym; eauto.
+      }
+      {
+        simplify.
+        admit. (* interpP [] (i1' + Tminus i1 i0 <= i1' + Tminus i i0)%idx *)
+      }
+    }
+    {
+      (* Case Fold *)
+      eapply invert_TyFold in Hty.
+      destruct Hty as (t0 & t1 & cs & t2 & i' & Htyeq & ? & ? & Hkd & Hty & Hle).
+      subst.
+      simplify.
+      eapply IHplug in Hty; eauto.
+      destruct Hty as (t0 & i0 & Hty1 & Hle2 & HE).
+      exists t0, i0.
+      repeat split; eauto.
+      {
+        admit. (* interpP [] (i0 <= i)%idx *)
+      }
+      intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
+      invert Hplug.
+      rename e'0 into e_all''.
+      rename H4 into Hplug.
+      eapply HE in Hplug; eauto.
+      eapply TySub.
+      {
+        eapply TyFold; eauto.
+      }
+      {
+        simplify.
+        eapply tyeq_sym; eauto.
+      }
+      {
+        simplify.
+        admit. (* interpP [] (i1' + Tminus i1 i0 <= i1' + Tminus i i0)%idx *)
+      }
+    }
+    {
+      (* Case Unfold *)
+      eapply invert_TyUnfold in Hty.
+      destruct Hty as (t0 & t1 & cs & i' & Htyeq & ? & Hty & Hle).
+      subst.
+      simplify.
+      eapply IHplug in Hty; eauto.
+      destruct Hty as (t0 & i0 & Hty1 & Hle2 & HE).
+      exists t0, i0.
+      repeat split; eauto.
+      {
+        admit. (* interpP [] (i0 <= i)%idx *)
+      }
+      intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
+      invert Hplug.
+      rename e'0 into e_all''.
+      rename H4 into Hplug.
+      eapply HE in Hplug; eauto.
+      eapply TySub.
+      {
+        eapply TyUnfold; eauto.
+      }
+      {
+        simplify.
+        eapply tyeq_sym; eauto.
+      }
+      {
+        simplify.
+        admit. (* interpP [] (i1' + Tminus i' i0 <= i1' + Tminus i i0)%idx *)
+      }
+    }
+    {
+      (* Case New *)
+      eapply invert_TyNew in Hty.
+      destruct Hty as (t' & i' & Htyeq & Hty & Hle).
+      simplify.
+      eapply IHplug in Hty; eauto.
+      destruct Hty as (t0 & i0 & Hty1 & Hle2 & HE).
+      exists t0, i0.
+      repeat split; eauto.
+      {
+        admit. (* interpP [] (i0 <= i)%idx *)
+      }
+      intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
+      invert Hplug.
+      rename e'0 into e_all''.
+      rename H4 into Hplug.
+      eapply HE in Hplug; eauto.
+      eapply TySub.
+      {
+        eapply TyNew; eauto.
+      }
+      {
+        simplify.
+        eapply tyeq_sym; eauto.
+      }
+      {
+        simplify.
+        admit. (* interpP [] (i1' + Tminus i' i0 <= i1' + Tminus i i0)%idx *)
+      }
+    }
+    {
+      (* Case Read *)
+      eapply invert_TyRead in Hty.
+      destruct Hty as (i' & Hty & Hle).
+      simplify.
+      eapply IHplug in Hty; eauto.
+      destruct Hty as (t0 & i0 & Hty1 & Hle2 & HE).
+      exists t0, i0.
+      repeat split; eauto.
+      {
+        admit. (* interpP [] (i0 <= i)%idx *)
+      }
+      intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
+      invert Hplug.
+      rename e'0 into e_all''.
+      rename H4 into Hplug.
+      eapply HE in Hplug; eauto.
+      eapply TyLe.
+      {
+        eapply TyRead; eauto.
+      }
+      {
+        simplify.
+        admit. (* interpP [] (i1' + Tminus i' i0 <= i1' + Tminus i i0)%idx *)
+      }
+    }
   }
   {
     cases opr.
     {
+      (* Case BinOpPrim *)
       Lemma invert_TyBinOpPrim C opr e1 e2 t i : typing C (EBinOp (EBPrim opr) e1 e2) t i -> False.
       Admitted.
       eapply invert_TyBinOpPrim in Hty.
       destruct Hty.
     }
     {
+      (* Case App *)
       eapply invert_TyApp in Hty.
       destruct Hty as (t' & t2 & i1 & i2 & i3 & Htyeq & Hty1 & Hty2 & Hle).
       simplify.
@@ -1443,24 +1699,231 @@ Proof.
     }
     {
       (* Case Pair *)
-      admit.
+      eapply invert_TyPair in Hty.
+      destruct Hty as (t1 & t2 & i1 & i2 & Htyeq & Hty1 & Hty2 & Hle).
+      simplify.
+      eapply IHplug in Hty1; eauto.
+      destruct Hty1 as (t0 & i0 & Hty1 & Hle2 & HE).
+      exists t0, i0.
+      repeat split; eauto.
+      {
+        admit. (* interpP [] (i0 <= i)%idx *)
+      }
+      intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
+      invert Hplug.
+      rename e'0 into e_all''.
+      rename H5 into Hplug.
+      eapply HE in Hplug; eauto.
+      eapply TySub.
+      {
+        eapply TyPair; eauto.
+        eapply weaken_W; eauto.
+      }
+      {
+        simplify.
+        eapply tyeq_sym; eauto.
+      }
+      {
+        simplify.
+        admit. (* interpP [] (i1' + Tminus i1 i0 + i2 <= i1' + Tminus i i0)%idx *)
+      }
     }
     {
       (* Case Write *)
-      admit.
+      eapply invert_TyWrite in Hty.
+      destruct Hty as (t' & i1 & i2 & Htyeq & Hty1 & Hty2 & Hle).
+      simplify.
+      eapply IHplug in Hty1; eauto.
+      destruct Hty1 as (t0 & i0 & Hty1 & Hle2 & HE).
+      exists t0, i0.
+      repeat split; eauto.
+      {
+        admit. (* interpP [] (i0 <= i)%idx *)
+      }
+      intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
+      invert Hplug.
+      rename e'0 into e_all''.
+      rename H5 into Hplug.
+      eapply HE in Hplug; eauto.
+      eapply TySub.
+      {
+        eapply TyWrite; eauto.
+        eapply weaken_W; eauto.
+      }
+      {
+        simplify.
+        eapply tyeq_sym; eauto.
+      }
+      {
+        simplify.
+        admit. (* interpP [] (i1' + Tminus i1 i0 + i2 <= i1' + Tminus i i0)%idx *)
+      }
     }
   }
   {
     (* Case BinOp2 *)
-    admit.
+    cases opr.
+    {
+      (* Case BinOpPrim *)
+      eapply invert_TyBinOpPrim in Hty.
+      destruct Hty.
+    }
+    {
+      (* Case App *)
+      eapply invert_TyApp in Hty.
+      destruct Hty as (t' & t2 & i1 & i2 & i3 & Htyeq & Hty1 & Hty2 & Hle).
+      simplify.
+      eapply IHplug in Hty2; eauto.
+      destruct Hty2 as (t0 & i0 & Hty2 & Hle2 & HE).
+      exists t0, i0.
+      repeat split; eauto.
+      {
+        admit. (* interpP [] (i0 <= i)%idx *)
+      }
+      intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
+      invert Hplug.
+      rename e'0 into e_all''.
+      rename H6 into Hplug.
+      eapply HE in Hplug; eauto.
+      eapply TySub.
+      {
+        eapply TyApp; eauto.
+        eapply weaken_W; eauto.
+      }
+      {
+        eapply tyeq_sym; eauto.
+      }
+      {
+        simplify.
+        instantiate (1 := T1).
+        admit. (* interpP (get_kctx ([], W', [])) (i1' + Tminus i2 i0 + i1 + T1 + i3 <= i1' + Tminus i i0)%idx *)
+      }
+    }
+    {
+      (* Case Pair *)
+      eapply invert_TyPair in Hty.
+      destruct Hty as (t1 & t2 & i1 & i2 & Htyeq & Hty1 & Hty2 & Hle).
+      simplify.
+      eapply IHplug in Hty2; eauto.
+      destruct Hty2 as (t0 & i0 & Hty2 & Hle2 & HE).
+      exists t0, i0.
+      repeat split; eauto.
+      {
+        admit. (* interpP [] (i0 <= i)%idx *)
+      }
+      intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
+      invert Hplug.
+      rename e'0 into e_all''.
+      rename H6 into Hplug.
+      eapply HE in Hplug; eauto.
+      eapply TySub.
+      {
+        eapply TyPair; eauto.
+        eapply weaken_W; eauto.
+      }
+      {
+        simplify.
+        eapply tyeq_sym; eauto.
+      }
+      {
+        simplify.
+        admit. (* interpP [] (i1' + Tminus i2 i0 + i1 <= i1' + Tminus i i0)%idx *)
+      }
+    }
+    {
+      (* Case Write *)
+      eapply invert_TyWrite in Hty.
+      destruct Hty as (t' & i1 & i2 & Htyeq & Hty1 & Hty2 & Hle).
+      simplify.
+      eapply IHplug in Hty2; eauto.
+      destruct Hty2 as (t0 & i0 & Hty2 & Hle2 & HE).
+      exists t0, i0.
+      repeat split; eauto.
+      {
+        admit. (* interpP [] (i0 <= i)%idx *)
+      }
+      intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
+      invert Hplug.
+      rename e'0 into e_all''.
+      rename H6 into Hplug.
+      eapply HE in Hplug; eauto.
+      eapply TySub.
+      {
+        eapply TyWrite; eauto.
+        eapply weaken_W; eauto.
+      }
+      {
+        simplify.
+        eapply tyeq_sym; eauto.
+      }
+      {
+        simplify.
+        admit. (* interpP [] (i1' + Tminus i2 i0 + i1 <= i1' + Tminus i i0)%idx *)
+      }
+    }
   }
   {
     (* Case Case *)
-    admit.
+    eapply invert_TyCase in Hty.
+    destruct Hty as (t1 & t2 & i0' & i1 & i2 & Hty0 & Hty1 & Hty2 & Hle).
+    simplify.
+    eapply IHplug in Hty0; eauto.
+    destruct Hty0 as (t0 & i0 & Hty0 & Hle2 & HE).
+    exists t0, i0.
+    repeat split; eauto.
+    {
+      admit. (* interpP [] (i0 <= i)%idx *)
+    }
+    intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
+    invert Hplug.
+    rename e'0 into e_all''.
+    rename H5 into Hplug.
+    eapply HE in Hplug; eauto.
+    eapply TyLe.
+    {
+      eapply TyCase; eauto;
+      eapply weaken_W; eauto.
+    }
+    {
+      simplify.
+      admit. (* interpP [] (i1' + Tminus i0' i0 + Tmax i1 i2 <= i1' + Tminus i i0)%idx *)
+    }
   }
   {
     (* Case Unpack *)
-    admit.
+    eapply invert_TyUnpack in Hty.
+    destruct Hty as (t2' & t0' & i1 & k & t2 & i2 & i2' & Htyeq & Hty1 & Hty2 & Hfg1 & Hfg2 & Hle).
+    simplify.
+    eapply IHplug in Hty1; eauto.
+    destruct Hty1 as (t0 & i0 & Hty1 & Hle2 & HE).
+    exists t0, i0.
+    repeat split; eauto.
+    {
+      admit. (* interpP [] (i0 <= i)%idx *)
+    }
+    intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
+    invert Hplug.
+    rename e'0 into e_all''.
+    rename H4 into Hplug.
+    eapply HE in Hplug; eauto.
+    eapply TySub with (t1 := t2').
+    {
+      eapply TyUnpack; eauto.
+      simplify.
+      assert (Hincl' : fmap_map shift01_c_c W $<= fmap_map shift01_c_c W').
+      {
+        admit.
+      }
+      eapply weaken_W; eauto.
+    }
+    {
+      simplify.
+      eapply tyeq_sym; eauto.
+    }
+    {
+      simplify.
+      admit. (* interpP [] (i1' + Tminus i1 i0 + i2' <= i1' + Tminus i i0)%idx *)
+    }
   }
 Qed.
 
