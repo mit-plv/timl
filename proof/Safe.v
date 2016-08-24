@@ -163,7 +163,7 @@ Definition loc := nat.
 
 Inductive expr_un_op :=
 | EUProj (p : projector)
-| EUSumI (c : sum_cstr)
+| EUInj (c : sum_cstr)
 | EUAppC (c : cstr)
 | EUPack (c : cstr)
 | EUFold
@@ -196,7 +196,7 @@ Inductive expr :=
 
 
 Definition EProj p e := EUnOp (EUProj p) e.
-Definition ESumI c e := EUnOp (EUSumI c) e.
+Definition EInj c e := EUnOp (EUInj c) e.
 Definition EAppC e c := EUnOp (EUAppC c) e.
 Definition EPack c e := EUnOp (EUPack c) e.
 Definition EFold e := EUnOp EUFold e.
@@ -217,9 +217,9 @@ Inductive value : expr -> Prop :=
     value v1 ->
     value v2 ->
     value (EPair v1 v2)
-| VSumI c v :
+| VInj c v :
     value v ->
-    value (ESumI c v)
+    value (EInj c v)
 | VAbs e :
     value (EAbs e)
 | VAbsC e :
@@ -264,8 +264,8 @@ Inductive plug : ectx -> expr -> expr -> Prop :=
 
 Definition EFst := EProj ProjFst.
 Definition ESnd := EProj ProjSnd.
-Definition EInl := ESumI SCInl.
-Definition EInr := ESumI SCInr.
+Definition EInl := EInj SCInl.
+Definition EInr := EInj SCInr.
 
 Definition ETT := EConst ECTT.
 
@@ -346,8 +346,8 @@ Definition proj {A} (p : A * A) pr :=
   end
 .
 
-Definition choose {A} (p : A * A) sc :=
-  match sc with
+Definition choose {A} (p : A * A) inj :=
+  match inj with
   | SCInl => fst p
   | SCInr => snd p
   end
@@ -420,10 +420,10 @@ Inductive typing : ctx -> expr -> cstr -> cstr -> Prop :=
 | TyProj C pr e t1 t2 i :
     typing C e (CProd t1 t2) i ->
     typing C (EProj pr e) (proj (t1, t2) pr) i
-| TySumI C sc e t t' i :
+| TyInj C inj e t t' i :
     typing C e t i ->
     kinding (get_kctx C) t' KType ->
-    typing C (ESumI sc e) (choose (CSum t t', CSum t' t) sc) i
+    typing C (EInj inj e) (choose (CSum t t', CSum t' t) inj) i
 | TyCase C e e1 e2 t i i1 i2 t1 t2 :
     typing C e (CSum t1 t2) i ->
     typing (add_typing_ctx t1 C) e1 t i1 ->
@@ -496,8 +496,8 @@ Inductive astep : config -> config -> Prop :=
     value v1 ->
     value v2 ->
     astep (h, EProj pr (EPair v1 v2), t) (h, proj (v1, v2) pr, t)
-| AMatch h sc v e1 e2 t :
-    astep (h, ECase (ESumI sc v) e1 e2, t) (h, subst0_e_e v (choose (e1, e2) sc), t)
+| AMatch h inj v e1 e2 t :
+    astep (h, ECase (EInj inj v) e1 e2, t) (h, subst0_e_e v (choose (e1, e2) inj), t)
 .
 
 Inductive step : config -> config -> Prop :=
@@ -1201,11 +1201,171 @@ Proof.
   }
   {
     (* Case Proj-Pair *)
-    admit.
+    destruct H as (Hty & Hhty & Hle).
+    rename t into f.
+    rename t0 into t.
+    Lemma invert_TyProj C pr e t i :
+      typing C (EProj pr e) t i ->
+      exists t1 t2 i' ,
+        tyeq (get_kctx C) KType t (proj (t1, t2) pr) /\
+        typing C e (CProd t1 t2) i' /\
+        interpP (get_kctx C) (i' <= i)%idx.
+    Admitted.
+    eapply invert_TyProj in Hty.
+    destruct Hty as (t1 & t2 & i' & Htyeq & Hty & Hle2).
+    simplify.
+    Lemma invert_TyPair C e1 e2 t i :
+      typing C (EPair e1 e2) t i ->
+      exists t1 t2 i1 i2 ,
+        tyeq (get_kctx C) KType t (CProd t1 t2) /\
+        typing C e1 t1 i1 /\
+        typing C e2 t2 i2 /\
+        interpP (get_kctx C) (i1 + i2 <= i)%idx.
+    Admitted.
+    eapply invert_TyPair in Hty.
+    destruct Hty as (t1' & t2' & i1 & i2 & Htyeq2 & Hty1 & Hty2 & Hle3).
+    simplify.
+    Lemma invert_tyeq_CProd L k t1 t2 t1' t2' :
+      tyeq L k (CProd t1 t2) (CProd t1' t2') ->
+      tyeq L KType t1 t1' /\
+      tyeq L KType t2 t2'.
+    Admitted.
+    eapply invert_tyeq_CProd in Htyeq2.
+    destruct Htyeq2 as (Htyeq2 & Htyeq3).
+    split.
+    {
+      (* (f - f <= interpTime i)%time *)
+      admit.
+    }
+    exists W.
+    repeat split.
+    {
+      cases pr; simplify.
+      {
+        eapply TySub; eauto.
+        {
+          simplify.
+          eapply tyeq_sym.
+          eapply tyeq_trans; eauto.
+        }
+        {
+          simplify.
+          admit. (* interpP [] (i1 <= Tminus i (Tconst (f - f)%time))%idx *)
+        }
+      }
+      {
+        eapply TySub; eauto.
+        {
+          simplify.
+          eapply tyeq_sym.
+          eapply tyeq_trans; eauto.
+        }
+        {
+          simplify.
+          admit. (* interpP [] (i1 <= Tminus i (Tconst (f - f)%time))%idx *)
+        }
+      }
+    }
+    {
+      eapply Hhty.
+    }
+    {
+      (* (interpTime (Tminus i (Tconst (f - f))) <= f)%time *)
+      admit.
+    }
+    {
+      eapply includes_intro.
+      eauto.
+    }
   }
   {
     (* Case Case-Inj *)
-    admit.
+    destruct H as (Hty & Hhty & Hle).
+    rename t into f.
+    rename t0 into t.
+    Lemma invert_TyCase C e e1 e2 t i :
+      typing C (ECase e e1 e2) t i ->
+      exists t1 t2 i0 i1 i2 ,
+        typing C e (CSum t1 t2) i0 /\
+        typing (add_typing_ctx t1 C) e1 t i1 /\
+        typing (add_typing_ctx t2 C) e2 t i2 /\
+        interpP (get_kctx C) (i0 + Tmax i1 i2 <= i)%idx.
+    Admitted.
+    eapply invert_TyCase in Hty.
+    destruct Hty as (t1 & t2 & i0 & i1 & i2 & Hty0 & Hty1 & Hty2 & Hle2).
+    simplify.
+    Lemma invert_TyInj C inj e t i :
+      typing C (EInj inj e) t i ->
+      exists t' t'' i' ,
+        tyeq (get_kctx C) KType t (choose (CSum t' t'', CSum t'' t') inj) /\
+        typing C e t' i' /\
+        kinding (get_kctx C) t'' KType /\
+        interpP (get_kctx C) (i' <= i)%idx.
+    Admitted.
+    eapply invert_TyInj in Hty0.
+    destruct Hty0 as (t' & t'' & i' & Htyeq & Hty0 & Hkd & Hle3).
+    simplify.
+    split.
+    {
+      (* (f - f <= interpTime i)%time *)
+      admit.
+    }
+    exists W.
+    repeat split.
+    {
+      Lemma invert_tyeq_CSum L k t1 t2 t1' t2' :
+        tyeq L k (CSum t1 t2) (CSum t1' t2') ->
+        tyeq L KType t1 t1' /\
+        tyeq L KType t2 t2'.
+      Admitted.
+      Lemma TyLe C e t i1 i2 :
+        typing C e t i1 ->
+        interpP (get_kctx C) (i1 <= i2)%idx ->
+        typing C e t i2.
+      Admitted.
+      cases inj; simplify.
+      {
+        eapply invert_tyeq_CSum in Htyeq.
+        destruct Htyeq as (Htyeq1 & Htyeq2).
+        eapply TyLe; eauto.
+        {
+          eapply ty_subst0_e_e with (G := []) in Hty1; eauto.
+          eapply TyEq; eauto.
+          simplify.
+          eapply tyeq_sym; eauto.
+        }
+        {
+          simplify.
+          admit. (* interpP [] (i1 + i' <= Tminus i (Tconst (f - f)%time))%idx *)
+        }
+      }
+      {
+        eapply invert_tyeq_CSum in Htyeq.
+        destruct Htyeq as (Htyeq1 & Htyeq2).
+        eapply TyLe; eauto.
+        {
+          eapply ty_subst0_e_e with (G := []) in Hty2; eauto.
+          eapply TyEq; eauto.
+          simplify.
+          eapply tyeq_sym; eauto.
+        }
+        {
+          simplify.
+          admit. (* interpP [] (i2 + i' <= Tminus i (Tconst (f - f)%time))%idx *)
+        }
+      }
+    }
+    {
+      eapply Hhty.
+    }
+    {
+      (* (interpTime (Tminus i (Tconst (f - f))) <= f)%time *)
+      admit.
+    }
+    {
+      eapply includes_intro.
+      eauto.
+    }
   }
 Qed.
 
@@ -1232,11 +1392,6 @@ Proof.
     }
     intros.
     invert H.
-    Lemma TyLe C e t i1 i2 :
-      typing C e t i1 ->
-      interpP (get_kctx C) (i1 <= i2)%idx ->
-      typing C e t i2.
-    Admitted.
     eapply TyLe; eauto.
     admit. (* interpP (get_kctx ([], W', [])) (i1' <= i1' + Tminus i i)%idx *)
   }
