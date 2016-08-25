@@ -574,12 +574,84 @@ Admitted.
 Arguments finished / .
 Arguments get_expr / .
 
+Lemma canon_CArrow' C v t1 i' t2 i :
+  typing C v (CArrow t1 i' t2) i ->
+  get_kctx C = [] ->
+  get_tctx C = [] ->
+  value v ->
+  exists e,
+    v = EAbs e.
+Proof.
+  induct 1; intros Hknil Htnil Hval; try solve [invert Hval | eexists; eauto].
+  {
+    rewrite Htnil in H.
+    rewrite nth_error_nil in H.
+    invert H.
+  }
+  {
+    Lemma CArrow_CApps_false cs :
+      forall t1 i t2 t3,
+        CArrow t1 i t2 = CApps t3 cs ->
+        (forall t1' i' t2', t3 <> CArrow t1' i' t2') -> 
+        False.
+    Proof.
+      induction cs; simpl; subst; try discriminate; intuition eauto.
+      eapply IHcs; eauto.
+      intros; discriminate.
+    Qed.
+    Lemma CArrow_CApps_CRec_false cs t1 i t2 t3 :
+      CArrow t1 i t2 = CApps (CRec t3) cs ->
+      False.
+    Proof.
+      intros; eapply CArrow_CApps_false; eauto.
+      intros; discriminate.
+    Qed.
+    eapply CArrow_CApps_CRec_false in H; propositional.
+  }
+  {
+    (*here*)
+    admit.
+  }
+  {
+    admit.
+  }
+  {
+    admit.
+  }
+Qed.
+
+Lemma canon_CArrow' C v t i :
+  typing C v t i ->
+  get_kctx C = [] ->
+  get_tctx C = [] ->
+  forall t1 i' t2 ,
+    t = (CArrow t1 i' t2) ->
+    value v ->
+    exists e,
+      v = EAbs e.
+Proof.
+  induct 1.
+  admit.
+  
+  ; try solve [invert1 1; do 2 eexists; t].
+  invert H0.
+  eauto.
+Qed.
+
 Lemma canon_CArrow W v t1 i' t2 i :
   typing ([], W, []) v (CArrow t1 i' t2) i ->
   value v ->
   exists e,
     v = EAbs e.
-Admitted.
+Proof.
+  induct 1.
+  admit.
+  
+  ; try solve [invert1 1; do 2 eexists; t].
+  invert H0.
+  eauto.
+Qed.
+
 Lemma canon_CForall W v k t i :
   typing ([], W, []) v (CForall k t) i ->
   value v ->
