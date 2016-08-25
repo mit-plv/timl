@@ -551,7 +551,16 @@ Import Time.CloseScope.
 Arguments get_kctx _ / .
 Arguments get_hctx _ / .
 
+Ltac try_eexists := try match goal with | |- exists _, _ => eexists end.
+
 Ltac try_split := try match goal with | |- _ /\ _ => split end.
+
+Ltac eexists_split :=
+  try match goal with
+        | |- exists _, _ => eexists
+        | |- _ /\ _ => split
+      end.
+
 Ltac copy h h2 := generalize h; intro h2.
 
 Lemma progress' C e t i :
@@ -1178,30 +1187,90 @@ Proof.
   eapply TyConst.
 Qed.
 
-Lemma invert_TyApp C e1 e2 t i :
+Lemma interpP_le_refl L i : interpP L (i <= i)%idx.
+Admitted.
+Lemma interpP_le_trans L a b c :
+  interpP L (a <= b)%idx ->
+  interpP L (b <= c)%idx ->
+  interpP L (a <= c)%idx.
+Admitted.
+
+(* Hint Resolve tyeq_refl. *)
+(* Hint Resolve interpP_le_refl. *)
+
+Ltac openhyp :=
+  repeat match goal with
+         | H : _ /\ _ |- _  => destruct H
+         | H : _ \/ _ |- _ => destruct H
+         | H : exists x, _ |- _ => destruct H
+         | H : exists ! x, _ |- _ => destruct H
+         | H : unique _ _ |- _ => destruct H
+         end.
+
+Lemma invert_typing_App C e1 e2 t i :
   typing C (EApp e1 e2) t i ->
   exists t' t2 i1 i2 i3 ,
     tyeq (get_kctx C) KType t t' /\
     typing C e1 (CArrow t2 i3 t') i1 /\
     typing C e2 t2 i2 /\
     interpP (get_kctx C) (i1 + i2 + T1 + i3 <= i)%idx.
-Admitted.
-Lemma invert_TyAbs C e t i :
+Proof.
+  induct 1.
+  {
+    repeat eexists_split; eauto using tyeq_refl, interpP_le_refl.
+  }
+  {
+    (* destruct IHtyping as (t' & t0 & i0 & i3 & i4 & Htyeq & Hty1 & Hty2 & Hle). *)
+    openhyp.
+    repeat eexists_split; eauto.
+    {
+      eauto using tyeq_sym, tyeq_trans.
+    }
+    eauto using interpP_le_trans.
+  }
+Qed.  
+
+Lemma invert_typing_Abs C e t i :
   typing C (EAbs e) t i ->
   exists t1 i' t2 ,
     tyeq (get_kctx C) KType t (CArrow t1 i' t2) /\
     kinding (get_kctx C) t1 KType /\
     typing (add_typing_ctx t1 C) e t2 i'.
-Admitted.
-Lemma invert_TyUnfold C e t2 i :
+Proof.
+  induct 1.
+  {
+    repeat eexists_split; eauto using tyeq_refl, interpP_le_refl.
+  }
+  {
+    openhyp.
+    repeat eexists_split; eauto.
+    eauto using tyeq_sym, tyeq_trans.
+  }
+Qed.  
+
+Lemma invert_typing_Unfold C e t2 i :
   typing C (EUnfold e) t2 i ->
   exists t t1 cs i',
     tyeq (get_kctx C) KType t2 (CApps (subst0_c_c t t1) cs) /\
     t = CRec t1 /\
     typing C e (CApps t cs) i' /\
     interpP (get_kctx C) (i' <= i)%idx.
-Admitted.
-Lemma invert_TyFold C e t' i :
+Proof.
+  induct 1.
+  {
+    repeat eexists_split; eauto using tyeq_refl, interpP_le_refl.
+  }
+  {
+    openhyp.
+    repeat eexists_split; eauto.
+    {
+      eauto using tyeq_sym, tyeq_trans.
+    }
+    eauto using interpP_le_trans.
+  }
+Qed.  
+
+Lemma invert_typing_Fold C e t' i :
   typing C (EFold e) t' i ->
   exists t t1 cs t2 i',
     tyeq (get_kctx C) KType t' t /\
@@ -1211,14 +1280,14 @@ Lemma invert_TyFold C e t' i :
     typing C e (CApps (subst0_c_c t1 t2) cs) i' /\
     interpP (get_kctx C) (i' <= i)%idx.
 Admitted.
-Lemma invert_TyRec C e t i :
+Lemma invert_typing_Rec C e t i :
   typing C (ERec e) t i ->
   exists n e1 ,
     e = EAbsCs n (EAbs e1) /\
     kinding (get_kctx C) t KType /\
     typing (add_typing_ctx t C) e t T0.
 Admitted.
-Lemma invert_TyUnpack C e1 e2 t2'' i :
+Lemma invert_typing_Unpack C e1 e2 t2'' i :
   typing C (EUnpack e1 e2) t2'' i ->
   exists t2' t i1 k t2 i2 i2' ,
     tyeq (get_kctx C) KType t2'' t2' /\
@@ -1229,7 +1298,7 @@ Lemma invert_TyUnpack C e1 e2 t2'' i :
     interpP (get_kctx C) (i1 + i2' <= i)%idx.
 Proof.
 Admitted.
-Lemma invert_TyPack C c e t i :
+Lemma invert_typing_Pack C c e t i :
   typing C (EPack c e) t i ->
   exists t1 k i' ,
     tyeq (get_kctx C) KType t (CExists k t1) /\
@@ -1238,19 +1307,19 @@ Lemma invert_TyPack C c e t i :
     typing C e (subst0_c_c c t1) i' /\
     interpP (get_kctx C) (i' <= i)%idx.
 Admitted.
-Lemma invert_TyRead C e t i :
+Lemma invert_typing_Read C e t i :
   typing C (ERead e) t i ->
   exists i' ,
     typing C e (CRef t) i' /\
     interpP (get_kctx C) (i' <= i)%idx.
 Admitted.
-Lemma invert_TyLoc C l t i :
+Lemma invert_typing_Loc C l t i :
   typing C (ELoc l) t i ->
   exists t' ,
     tyeq (get_kctx C) KType t (CRef t') /\
     get_hctx C $? l = Some t'.
 Admitted.
-Lemma invert_TyWrite C e1 e2 t i :
+Lemma invert_typing_Write C e1 e2 t i :
   typing C (EWrite e1 e2) t i ->
   exists t' i1 i2 ,
     tyeq (get_kctx C) KType t CTypeUnit /\
@@ -1258,14 +1327,14 @@ Lemma invert_TyWrite C e1 e2 t i :
     typing C e2 t' i2 /\
     interpP (get_kctx C) (i1 + i2 <= i)%idx.
 Admitted.
-Lemma invert_TyNew C e t i :
+Lemma invert_typing_New C e t i :
   typing C (ENew e) t i ->
   exists t' i' ,
     tyeq (get_kctx C) KType t (CRef t') /\
     typing C e t' i' /\
     interpP (get_kctx C) (i' <= i)%idx.
 Admitted.
-Lemma invert_TyAppC C e c t i :
+Lemma invert_typing_AppC C e c t i :
   typing C (EAppC e c) t i ->
   exists t' i' k ,
     tyeq (get_kctx C) KType t (subst0_c_c c t') /\
@@ -1273,7 +1342,7 @@ Lemma invert_TyAppC C e c t i :
     kinding (get_kctx C) c k /\
     interpP (get_kctx C) (i' <= i)%idx.
 Admitted.
-Lemma invert_TyAbsC C e t i :
+Lemma invert_typing_AbsC C e t i :
   typing C (EAbsC e) t i ->
   exists t' k ,
     tyeq (get_kctx C) KType t (CForall k t') /\
@@ -1281,14 +1350,14 @@ Lemma invert_TyAbsC C e t i :
     wfkind (get_kctx C) k /\
     typing (add_kinding_ctx k C) e t' T0.
 Admitted.
-Lemma invert_TyProj C pr e t i :
+Lemma invert_typing_Proj C pr e t i :
   typing C (EProj pr e) t i ->
   exists t1 t2 i' ,
     tyeq (get_kctx C) KType t (proj (t1, t2) pr) /\
     typing C e (CProd t1 t2) i' /\
     interpP (get_kctx C) (i' <= i)%idx.
 Admitted.
-Lemma invert_TyPair C e1 e2 t i :
+Lemma invert_typing_Pair C e1 e2 t i :
   typing C (EPair e1 e2) t i ->
   exists t1 t2 i1 i2 ,
     tyeq (get_kctx C) KType t (CProd t1 t2) /\
@@ -1296,7 +1365,7 @@ Lemma invert_TyPair C e1 e2 t i :
     typing C e2 t2 i2 /\
     interpP (get_kctx C) (i1 + i2 <= i)%idx.
 Admitted.
-Lemma invert_TyCase C e e1 e2 t i :
+Lemma invert_typing_Case C e e1 e2 t i :
   typing C (ECase e e1 e2) t i ->
   exists t1 t2 i0 i1 i2 ,
     typing C e (CSum t1 t2) i0 /\
@@ -1304,7 +1373,7 @@ Lemma invert_TyCase C e e1 e2 t i :
     typing (add_typing_ctx t2 C) e2 t i2 /\
     interpP (get_kctx C) (i0 + Tmax i1 i2 <= i)%idx.
 Admitted.
-Lemma invert_TyInj C inj e t i :
+Lemma invert_typing_Inj C inj e t i :
   typing C (EInj inj e) t i ->
   exists t' t'' i' ,
     tyeq (get_kctx C) KType t (choose (CSum t' t'', CSum t'' t') inj) /\
@@ -1312,7 +1381,7 @@ Lemma invert_TyInj C inj e t i :
     kinding (get_kctx C) t'' KType /\
     interpP (get_kctx C) (i' <= i)%idx.
 Admitted.
-Lemma invert_TyBinOpPrim C opr e1 e2 t i : typing C (EBinOp (EBPrim opr) e1 e2) t i -> False.
+Lemma invert_typing_BinOpPrim C opr e1 e2 t i : typing C (EBinOp (EBPrim opr) e1 e2) t i -> False.
 Admitted.
 
 Lemma fmap_map_subst0_shift01 k c W : fmap_map (K := k) (subst0_c_c c) (fmap_map shift01_c_c W) = W.
@@ -1371,10 +1440,10 @@ Proof.
     destruct H as (Hty & Hhty & Hle).
     rename t into f.
     rename t0 into t.
-    eapply invert_TyApp in Hty.
+    eapply invert_typing_App in Hty.
     destruct Hty as (t' & t2 & i1 & i2 & i3 & Htyeq & Hty1 & Hty2 & Hle2).
     simplify.
-    eapply invert_TyAbs in Hty1.
+    eapply invert_typing_Abs in Hty1.
     destruct Hty1 as (t1 & i' & t3 & Htyeq2 & Hkd & Hty1).
     simplify.
     eapply invert_tyeq_CArrow in Htyeq2.
@@ -1420,12 +1489,12 @@ Proof.
     destruct H as (Hty & Hhty & Hle).
     rename t into f.
     rename t0 into t.
-    eapply invert_TyUnfold in Hty.
+    eapply invert_typing_Unfold in Hty.
     destruct Hty as (t1 & t2& cs& i'& Htyeq & ? & Hty & Hle2).
     subst.
     simplify.
     subst.
-    eapply invert_TyFold in Hty.
+    eapply invert_typing_Fold in Hty.
     destruct Hty as (? & ? & cs' & t2' & i'' & Htyeq2 & ? & ? & Hkd & Hty & Hle3).
     subst.
     simplify.
@@ -1472,7 +1541,7 @@ Proof.
     rename t into f.
     rename t0 into t.
     generalize Hty; intro Hty0.
-    eapply invert_TyRec in Hty.
+    eapply invert_typing_Rec in Hty.
     destruct Hty as (n & e1 & ? & Hkd & Hty).
     simplify.
     split.
@@ -1514,11 +1583,11 @@ Proof.
     destruct H as (Hty & Hhty & Hle).
     rename t into f.
     rename t0 into t.
-    eapply invert_TyUnpack in Hty.
+    eapply invert_typing_Unpack in Hty.
     destruct Hty as (t2' & t0 & i1 & k & t2 & i2 & i2' & Htyeq & Hty1 & Hty2 & Ht2 & Hi2 & Hle2).
     subst.
     simplify.
-    eapply invert_TyPack in Hty1.
+    eapply invert_typing_Pack in Hty1.
     destruct Hty1 as (t1 & k' & i' & Htyeq2 & Hkd1 & Hkdc' & Htyv & Hle3).
     subst.
     simplify.
@@ -1580,10 +1649,10 @@ Proof.
     destruct H as (Hty & Hhty & Hle).
     rename t into f.
     rename t0 into t.
-    eapply invert_TyRead in Hty.
+    eapply invert_typing_Read in Hty.
     destruct Hty as (i' & Hty & Hle2).
     simplify.
-    eapply invert_TyLoc in Hty.
+    eapply invert_typing_Loc in Hty.
     destruct Hty as (t' & Htyeq & Hl).
     simplify.
     generalize Hhty; intro Hhty0.
@@ -1630,9 +1699,9 @@ Proof.
     destruct H as (Hty & Hhty & Hle).
     rename t into f.
     rename t0 into t.
-    eapply invert_TyWrite in Hty.
+    eapply invert_typing_Write in Hty.
     destruct Hty as (t' & i1 & i2 & Htyeq & Hty1 & Hty2 & Hle2).
-    eapply invert_TyLoc in Hty1.
+    eapply invert_typing_Loc in Hty1.
     destruct Hty1 as (t'' & Htyeq2 & Hl).
     simplify.
     eapply invert_tyeq_CRef in Htyeq2.
@@ -1686,7 +1755,7 @@ Proof.
     destruct H as (Hty & Hhty & Hle).
     rename t into f.
     rename t0 into t.
-    eapply invert_TyNew in Hty.
+    eapply invert_typing_New in Hty.
     destruct Hty as (t' & i' & Htyeq & Hty & Hle2).
     simplify.
     split.
@@ -1741,10 +1810,10 @@ Proof.
     destruct H as (Hty & Hhty & Hle).
     rename t into f.
     rename t0 into t.
-    eapply invert_TyAppC in Hty.
+    eapply invert_typing_AppC in Hty.
     destruct Hty as (t' & i' & k' & Htyeq & Hty & Hkdc & Hle2).
     simplify.
-    eapply invert_TyAbsC in Hty.
+    eapply invert_typing_AbsC in Hty.
     destruct Hty as (t'' & k & Htyeq2 & Hval & Hwfk & Hty).
     simplify.
     eapply invert_tyeq_CForall in Htyeq2.
@@ -1799,10 +1868,10 @@ Proof.
     destruct H as (Hty & Hhty & Hle).
     rename t into f.
     rename t0 into t.
-    eapply invert_TyProj in Hty.
+    eapply invert_typing_Proj in Hty.
     destruct Hty as (t1 & t2 & i' & Htyeq & Hty & Hle2).
     simplify.
-    eapply invert_TyPair in Hty.
+    eapply invert_typing_Pair in Hty.
     destruct Hty as (t1' & t2' & i1 & i2 & Htyeq2 & Hty1 & Hty2 & Hle3).
     simplify.
     eapply invert_tyeq_CProd in Htyeq2.
@@ -1858,10 +1927,10 @@ Proof.
     destruct H as (Hty & Hhty & Hle).
     rename t into f.
     rename t0 into t.
-    eapply invert_TyCase in Hty.
+    eapply invert_typing_Case in Hty.
     destruct Hty as (t1 & t2 & i0 & i1 & i2 & Hty0 & Hty1 & Hty2 & Hle2).
     simplify.
-    eapply invert_TyInj in Hty0.
+    eapply invert_typing_Inj in Hty0.
     destruct Hty0 as (t' & t'' & i' & Htyeq & Hty0 & Hkd & Hle3).
     simplify.
     split.
@@ -1948,7 +2017,7 @@ Proof.
     cases opr.
     {
       (* Case Proj *)
-      eapply invert_TyProj in Hty.
+      eapply invert_typing_Proj in Hty.
       destruct Hty as (t1 & t2 & i' & Htyeq & Hty & Hle).
       simplify.
       eapply IHplug in Hty; eauto.
@@ -1978,7 +2047,7 @@ Proof.
     }
     {
       (* Case Inj *)
-      eapply invert_TyInj in Hty.
+      eapply invert_typing_Inj in Hty.
       destruct Hty as (t1 & t2 & i' & Htyeq & Hty & Hkd & Hle).
       simplify.
       eapply IHplug in Hty; eauto.
@@ -2025,7 +2094,7 @@ Proof.
     }
     {
       (* Case AppC *)
-      eapply invert_TyAppC in Hty.
+      eapply invert_typing_AppC in Hty.
       destruct Hty as (t' & i' & k & Htyeq & Hty & Hkd & Hle).
       simplify.
       eapply IHplug in Hty; eauto.
@@ -2055,7 +2124,7 @@ Proof.
     }
     {
       (* Case Pack *)
-      eapply invert_TyPack in Hty.
+      eapply invert_typing_Pack in Hty.
       destruct Hty as (t1 & k & i' & Htyeq & Hkd & Hkdc & Hty & Hle).
       simplify.
       eapply IHplug in Hty; eauto.
@@ -2085,7 +2154,7 @@ Proof.
     }
     {
       (* Case Fold *)
-      eapply invert_TyFold in Hty.
+      eapply invert_typing_Fold in Hty.
       destruct Hty as (t0 & t1 & cs & t2 & i' & Htyeq & ? & ? & Hkd & Hty & Hle).
       subst.
       simplify.
@@ -2116,7 +2185,7 @@ Proof.
     }
     {
       (* Case Unfold *)
-      eapply invert_TyUnfold in Hty.
+      eapply invert_typing_Unfold in Hty.
       destruct Hty as (t0 & t1 & cs & i' & Htyeq & ? & Hty & Hle).
       subst.
       simplify.
@@ -2147,7 +2216,7 @@ Proof.
     }
     {
       (* Case New *)
-      eapply invert_TyNew in Hty.
+      eapply invert_typing_New in Hty.
       destruct Hty as (t' & i' & Htyeq & Hty & Hle).
       simplify.
       eapply IHplug in Hty; eauto.
@@ -2177,7 +2246,7 @@ Proof.
     }
     {
       (* Case Read *)
-      eapply invert_TyRead in Hty.
+      eapply invert_typing_Read in Hty.
       destruct Hty as (i' & Hty & Hle).
       simplify.
       eapply IHplug in Hty; eauto.
@@ -2206,12 +2275,12 @@ Proof.
     cases opr.
     {
       (* Case BinOpPrim *)
-      eapply invert_TyBinOpPrim in Hty.
+      eapply invert_typing_BinOpPrim in Hty.
       destruct Hty.
     }
     {
       (* Case App *)
-      eapply invert_TyApp in Hty.
+      eapply invert_typing_App in Hty.
       destruct Hty as (t' & t2 & i1 & i2 & i3 & Htyeq & Hty1 & Hty2 & Hle).
       simplify.
       eapply IHplug in Hty1; eauto.
@@ -2240,7 +2309,7 @@ Proof.
     }
     {
       (* Case Pair *)
-      eapply invert_TyPair in Hty.
+      eapply invert_typing_Pair in Hty.
       destruct Hty as (t1 & t2 & i1 & i2 & Htyeq & Hty1 & Hty2 & Hle).
       simplify.
       eapply IHplug in Hty1; eauto.
@@ -2271,7 +2340,7 @@ Proof.
     }
     {
       (* Case Write *)
-      eapply invert_TyWrite in Hty.
+      eapply invert_typing_Write in Hty.
       destruct Hty as (t' & i1 & i2 & Htyeq & Hty1 & Hty2 & Hle).
       simplify.
       eapply IHplug in Hty1; eauto.
@@ -2306,12 +2375,12 @@ Proof.
     cases opr.
     {
       (* Case BinOpPrim *)
-      eapply invert_TyBinOpPrim in Hty.
+      eapply invert_typing_BinOpPrim in Hty.
       destruct Hty.
     }
     {
       (* Case App *)
-      eapply invert_TyApp in Hty.
+      eapply invert_typing_App in Hty.
       destruct Hty as (t' & t2 & i1 & i2 & i3 & Htyeq & Hty1 & Hty2 & Hle).
       simplify.
       eapply IHplug in Hty2; eauto.
@@ -2341,7 +2410,7 @@ Proof.
     }
     {
       (* Case Pair *)
-      eapply invert_TyPair in Hty.
+      eapply invert_typing_Pair in Hty.
       destruct Hty as (t1 & t2 & i1 & i2 & Htyeq & Hty1 & Hty2 & Hle).
       simplify.
       eapply IHplug in Hty2; eauto.
@@ -2372,7 +2441,7 @@ Proof.
     }
     {
       (* Case Write *)
-      eapply invert_TyWrite in Hty.
+      eapply invert_typing_Write in Hty.
       destruct Hty as (t' & i1 & i2 & Htyeq & Hty1 & Hty2 & Hle).
       simplify.
       eapply IHplug in Hty2; eauto.
@@ -2404,7 +2473,7 @@ Proof.
   }
   {
     (* Case Case *)
-    eapply invert_TyCase in Hty.
+    eapply invert_typing_Case in Hty.
     destruct Hty as (t1 & t2 & i0' & i1 & i2 & Hty0 & Hty1 & Hty2 & Hle).
     simplify.
     eapply IHplug in Hty0; eauto.
@@ -2431,7 +2500,7 @@ Proof.
   }
   {
     (* Case Unpack *)
-    eapply invert_TyUnpack in Hty.
+    eapply invert_typing_Unpack in Hty.
     destruct Hty as (t2' & t0' & i1 & k & t2 & i2 & i2' & Htyeq & Hty1 & Hty2 & Hfg1 & Hfg2 & Hle).
     simplify.
     eapply IHplug in Hty1; eauto.
