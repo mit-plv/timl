@@ -300,6 +300,9 @@ Inductive kinding : kctx -> cstr -> kind -> Prop :=
 .
 
 Inductive tyeq : kctx -> kind -> cstr -> cstr -> Prop :=
+|TyEqRef L t t' :
+   tyeq L KType t t' ->
+   tyeq L KType (CRef t) (CRef t')
 .
 
 Definition interpP : kctx -> prop -> Prop.
@@ -563,6 +566,8 @@ Ltac eexists_split :=
 
 Ltac copy h h2 := generalize h; intro h2.
 
+Hint Constructors step astep plug value.
+
 Lemma progress' C e t i :
   typing C e t i ->
   get_kctx C = [] ->
@@ -617,7 +622,6 @@ cases Hi2; simplify.
 {
   right.
   exists (h, subst0_e_e e2 e, (f - 1)%time).
-  Hint Constructors step astep plug.
   econstructor; eauto.
   econstructor; eauto.
   admit. (* (1 <= f)%time *)
@@ -643,7 +647,6 @@ cases Hi2; simplify.
   (* Case Abs *)
   intros.
   left.
-  Hint Constructors value.
   simplify; eauto.
 }
 {
@@ -1195,8 +1198,7 @@ Lemma interpP_le_trans L a b c :
   interpP L (a <= c)%idx.
 Admitted.
 
-(* Hint Resolve tyeq_refl. *)
-(* Hint Resolve interpP_le_refl. *)
+Hint Resolve tyeq_refl interpP_le_refl tyeq_sym tyeq_trans interpP_le_trans : invert_typing.
 
 Ltac openhyp :=
   repeat match goal with
@@ -1215,19 +1217,7 @@ Lemma invert_typing_App C e1 e2 t i :
     typing C e2 t2 i2 /\
     interpP (get_kctx C) (i1 + i2 + T1 + i3 <= i)%idx.
 Proof.
-  induct 1.
-  {
-    repeat eexists_split; eauto using tyeq_refl, interpP_le_refl.
-  }
-  {
-    (* destruct IHtyping as (t' & t0 & i0 & i3 & i4 & Htyeq & Hty1 & Hty2 & Hle). *)
-    openhyp.
-    repeat eexists_split; eauto.
-    {
-      eauto using tyeq_sym, tyeq_trans.
-    }
-    eauto using interpP_le_trans.
-  }
+  induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
 Qed.  
 
 Lemma invert_typing_Abs C e t i :
@@ -1237,15 +1227,7 @@ Lemma invert_typing_Abs C e t i :
     kinding (get_kctx C) t1 KType /\
     typing (add_typing_ctx t1 C) e t2 i'.
 Proof.
-  induct 1.
-  {
-    repeat eexists_split; eauto using tyeq_refl, interpP_le_refl.
-  }
-  {
-    openhyp.
-    repeat eexists_split; eauto.
-    eauto using tyeq_sym, tyeq_trans.
-  }
+  induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
 Qed.  
 
 Lemma invert_typing_Unfold C e t2 i :
@@ -1256,18 +1238,7 @@ Lemma invert_typing_Unfold C e t2 i :
     typing C e (CApps t cs) i' /\
     interpP (get_kctx C) (i' <= i)%idx.
 Proof.
-  induct 1.
-  {
-    repeat eexists_split; eauto using tyeq_refl, interpP_le_refl.
-  }
-  {
-    openhyp.
-    repeat eexists_split; eauto.
-    {
-      eauto using tyeq_sym, tyeq_trans.
-    }
-    eauto using interpP_le_trans.
-  }
+  induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
 Qed.  
 
 Lemma invert_typing_Fold C e t' i :
@@ -1279,14 +1250,44 @@ Lemma invert_typing_Fold C e t' i :
     kinding (get_kctx C) t KType /\
     typing C e (CApps (subst0_c_c t1 t2) cs) i' /\
     interpP (get_kctx C) (i' <= i)%idx.
+Proof.
+  induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+Qed.  
+
+Lemma kinding_tyeq L k t1 t2 :
+  kinding L t1 k ->
+  tyeq L k t1 t2 ->
+  kinding L t2 k.
 Admitted.
+Lemma add_typing_ctx_tyeq t1 t2 C e t i :
+  typing (add_typing_ctx t1 C) e t i ->
+  tyeq (get_kctx C) KType t1 t2 ->
+  typing (add_typing_ctx t2 C) e t i.
+Admitted.
+Lemma get_kctx_add_typing_ctx t C : get_kctx (add_typing_ctx t C) = get_kctx C.
+Admitted.
+
 Lemma invert_typing_Rec C e t i :
   typing C (ERec e) t i ->
   exists n e1 ,
     e = EAbsCs n (EAbs e1) /\
     kinding (get_kctx C) t KType /\
     typing (add_typing_ctx t C) e t T0.
-Admitted.
+Proof.
+  induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+  {
+    subst.
+    eapply kinding_tyeq; eauto.
+  }
+  {
+    subst.
+    eapply add_typing_ctx_tyeq; eauto.
+    eapply TyEq; eauto.
+    rewrite get_kctx_add_typing_ctx.
+    eauto.
+  }
+Qed.  
+
 Lemma invert_typing_Unpack C e1 e2 t2'' i :
   typing C (EUnpack e1 e2) t2'' i ->
   exists t2' t i1 k t2 i2 i2' ,
@@ -1297,7 +1298,9 @@ Lemma invert_typing_Unpack C e1 e2 t2'' i :
     forget01_c_c i2 = Some i2' /\
     interpP (get_kctx C) (i1 + i2' <= i)%idx.
 Proof.
-Admitted.
+  induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+Qed.
+
 Lemma invert_typing_Pack C c e t i :
   typing C (EPack c e) t i ->
   exists t1 k i' ,
@@ -1306,19 +1309,31 @@ Lemma invert_typing_Pack C c e t i :
     kinding (get_kctx C) c k /\
     typing C e (subst0_c_c c t1) i' /\
     interpP (get_kctx C) (i' <= i)%idx.
-Admitted.
+Proof.
+  induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+Qed.
+
+Hint Constructors tyeq.
+
 Lemma invert_typing_Read C e t i :
   typing C (ERead e) t i ->
   exists i' ,
     typing C e (CRef t) i' /\
     interpP (get_kctx C) (i' <= i)%idx.
-Admitted.
+Proof.
+  induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+  eapply TySub; try eapply H2; eauto.
+Qed.
+
 Lemma invert_typing_Loc C l t i :
   typing C (ELoc l) t i ->
   exists t' ,
     tyeq (get_kctx C) KType t (CRef t') /\
     get_hctx C $? l = Some t'.
-Admitted.
+Proof.
+  induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+Qed.
+
 Lemma invert_typing_Write C e1 e2 t i :
   typing C (EWrite e1 e2) t i ->
   exists t' i1 i2 ,
@@ -1326,14 +1341,20 @@ Lemma invert_typing_Write C e1 e2 t i :
     typing C e1 (CRef t') i1 /\
     typing C e2 t' i2 /\
     interpP (get_kctx C) (i1 + i2 <= i)%idx.
-Admitted.
+Proof.
+  induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+Qed.
+
 Lemma invert_typing_New C e t i :
   typing C (ENew e) t i ->
   exists t' i' ,
     tyeq (get_kctx C) KType t (CRef t') /\
     typing C e t' i' /\
     interpP (get_kctx C) (i' <= i)%idx.
-Admitted.
+Proof.
+  induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+Qed.
+
 Lemma invert_typing_AppC C e c t i :
   typing C (EAppC e c) t i ->
   exists t' i' k ,
@@ -1341,7 +1362,10 @@ Lemma invert_typing_AppC C e c t i :
     typing C e (CForall k t') i' /\
     kinding (get_kctx C) c k /\
     interpP (get_kctx C) (i' <= i)%idx.
-Admitted.
+Proof.
+  induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+Qed.
+
 Lemma invert_typing_AbsC C e t i :
   typing C (EAbsC e) t i ->
   exists t' k ,
@@ -1349,14 +1373,20 @@ Lemma invert_typing_AbsC C e t i :
     value e /\
     wfkind (get_kctx C) k /\
     typing (add_kinding_ctx k C) e t' T0.
-Admitted.
+Proof.
+  induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+Qed.
+
 Lemma invert_typing_Proj C pr e t i :
   typing C (EProj pr e) t i ->
   exists t1 t2 i' ,
     tyeq (get_kctx C) KType t (proj (t1, t2) pr) /\
     typing C e (CProd t1 t2) i' /\
     interpP (get_kctx C) (i' <= i)%idx.
-Admitted.
+Proof.
+  induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+Qed.
+
 Lemma invert_typing_Pair C e1 e2 t i :
   typing C (EPair e1 e2) t i ->
   exists t1 t2 i1 i2 ,
@@ -1364,7 +1394,10 @@ Lemma invert_typing_Pair C e1 e2 t i :
     typing C e1 t1 i1 /\
     typing C e2 t2 i2 /\
     interpP (get_kctx C) (i1 + i2 <= i)%idx.
-Admitted.
+Proof.
+  induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+Qed.
+
 Lemma invert_typing_Case C e e1 e2 t i :
   typing C (ECase e e1 e2) t i ->
   exists t1 t2 i0 i1 i2 ,
@@ -1372,7 +1405,20 @@ Lemma invert_typing_Case C e e1 e2 t i :
     typing (add_typing_ctx t1 C) e1 t i1 /\
     typing (add_typing_ctx t2 C) e2 t i2 /\
     interpP (get_kctx C) (i0 + Tmax i1 i2 <= i)%idx.
-Admitted.
+Proof.
+  induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+  {
+    eapply TyEq; eauto.
+    rewrite get_kctx_add_typing_ctx.
+    eauto.
+  }
+  {
+    eapply TyEq; eauto.
+    rewrite get_kctx_add_typing_ctx.
+    eauto.
+  }
+Qed.
+
 Lemma invert_typing_Inj C inj e t i :
   typing C (EInj inj e) t i ->
   exists t' t'' i' ,
@@ -1380,9 +1426,14 @@ Lemma invert_typing_Inj C inj e t i :
     typing C e t' i' /\
     kinding (get_kctx C) t'' KType /\
     interpP (get_kctx C) (i' <= i)%idx.
-Admitted.
+Proof.
+  induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+Qed.
+
 Lemma invert_typing_BinOpPrim C opr e1 e2 t i : typing C (EBinOp (EBPrim opr) e1 e2) t i -> False.
-Admitted.
+Proof.
+  induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+Qed.
 
 Lemma fmap_map_subst0_shift01 k c W : fmap_map (K := k) (subst0_c_c c) (fmap_map shift01_c_c W) = W.
 Admitted.
