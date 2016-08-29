@@ -42,8 +42,8 @@ Inductive cstr_const :=
 | CCTypeInt
 .
 
-Inductive cstr_un_op :=
-.
+(* Inductive cstr_un_op := *)
+(* . *)
 
 Inductive cstr_bin_op :=
 | CBTimeAdd
@@ -51,6 +51,7 @@ Inductive cstr_bin_op :=
 | CBTimeMax
 | CBTypeProd
 | CBTypeSum
+(* | CBApp *)
 .
 
 Inductive quan :=
@@ -77,13 +78,13 @@ Inductive base_sort :=
 Inductive cstr :=
 | CVar (x : var)
 | CConst (cn : cstr_const)
-| CUnOp (opr : cstr_un_op) (c : cstr)
+(* | CUnOp (opr : cstr_un_op) (c : cstr) *)
 | CBinOp (opr : cstr_bin_op) (c1 c2 : cstr)
 | CIte (i1 i2 i3 : cstr)
 | CTimeAbs (i : cstr)
 | CArrow (t1 i t2 : cstr)
-| CAbs (t : cstr)
-| CApp (t c : cstr)
+| CAbs (* (k : kind) *) (t : cstr)
+| CApp (c1 c2 : cstr)
 | CQuan (q : quan) (k : kind) (c : cstr)
 | CRec (t : cstr)
 | CRef (t : cstr)
@@ -124,9 +125,11 @@ Definition CTypeUnit := CConst CCTypeUnit.
 
 Definition CProd := CBinOp CBTypeProd.
 Definition CSum := CBinOp CBTypeSum.
+(* Definition CApp := CBinOp CBApp. *)
 
 Definition Tle := PBinPred PBTimeLe.
 Infix "<=" := Tle : idx_scope.
+Infix "==" := PEq (at level 70) : idx_scope.
 
 Require BinIntDef.
 Definition int := BinIntDef.Z.t.
@@ -292,6 +295,13 @@ Inductive wfkind : kctx -> kind -> Prop :=
 Inductive kdeq : kctx -> kind -> kind -> Prop :=
 .
 
+Lemma kdeq_refl L k : kdeq L k k.
+Admitted.
+Lemma kdeq_trans L a b c : kdeq L a b -> kdeq L b c -> kdeq L a c.
+Admitted.
+Lemma kdeq_sym L a b : kdeq L a b -> kdeq L b a.
+Admitted.
+
 Inductive kinding : kctx -> cstr -> kind -> Prop :=
 | KdEq L c k k' :
     kinding L c k ->
@@ -302,54 +312,213 @@ Inductive kinding : kctx -> cstr -> kind -> Prop :=
 Definition interpP : kctx -> prop -> Prop.
 Admitted.
 
+Lemma interpP_le_refl L i : interpP L (i <= i)%idx.
+Admitted.
+Lemma interpP_le_trans L a b c :
+  interpP L (a <= b)%idx ->
+  interpP L (b <= c)%idx ->
+  interpP L (a <= c)%idx.
+Admitted.
+
+Lemma interpP_eq_refl L i : interpP L (i == i)%idx.
+Admitted.
+Lemma interpP_eq_trans L a b c :
+  interpP L (a == b)%idx ->
+  interpP L (b == c)%idx ->
+  interpP L (a == c)%idx.
+Admitted.
+Lemma interpP_eq_sym L i i' :
+  interpP L (i == i')%idx ->
+  interpP L (i' == i)%idx.
+Admitted.
+
 Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
-(* | TyEqVar L x : *)
-(*     tyeq L (CVar x) (CVar x) *)
-(* | TyConst : *)
-(*     tyeq L k () *)
+(* | TyEqRefl L t : *)
+(*     tyeq L t t *)
+| TyEqVar L x :
+    tyeq L (CVar x) (CVar x)
+| TyConst L cn :
+    tyeq L (CConst cn) (CConst cn)
+(* | TyEqUnOp L opr t t' : *)
+(*     tyeq L t t' -> *)
+(*     tyeq L (CUnOp opr t) (CUnOp opr t') *)
+| TyEqBinOp L opr t1 t2 t1' t2' :
+    tyeq L t1 t1' ->
+    tyeq L t2 t2' ->
+    tyeq L (CBinOp opr t1 t2) (CBinOp opr t1' t2')
+| TyEqIte L t1 t2 t3 t1' t2' t3':
+    tyeq L t1 t1' ->
+    tyeq L t2 t2' ->
+    tyeq L t3 t3' ->
+    tyeq L (CIte t1 t2 t3) (CIte t1' t2' t3')
 | TyEqArrow L t1 i t2 t1' i' t2':
     tyeq L t1 t1' ->
     interpP L (PEq i i') ->
     tyeq L t2 t2' ->
     tyeq L (CArrow t1 i t2) (CArrow t1' i' t2')
+| TyEqApp L c1 c2 c1' c2' :
+    tyeq L c1 c1' ->
+    tyeq L c2 c2' ->
+    tyeq L (CApp c1 c2) (CApp c1' c2')
+| TyEqBeta L (* t *) t1 t2 t1' t2' t' :
+    (* tyeq L t (CApp t1 t2) -> *)
+    tyeq L t1 (CAbs t1') ->
+    tyeq L t2 t2' ->
+    tyeq L (subst0_c_c t2' t1') t' ->
+    tyeq L (CApp t1 t2) t'
+(* | TyEqBetaRev L t1 t2 t1' t2' t' : *)
+(*     tyeq L t1 (CAbs t1') -> *)
+(*     tyeq L t2 t2' -> *)
+(*     tyeq L (subst0_c_c t2' t1') t' -> *)
+(*     tyeq L t' (CApp t1 t2) *)
+| TyEqBetaRev L t1 t2 t1' t2' t' :
+    tyeq L (CAbs t1') t1 ->
+    tyeq L t2' t2 ->
+    tyeq L t' (subst0_c_c t2' t1') ->
+    tyeq L t' (CApp t1 t2)
 | TyEqQuan L quan k t k' t' :
     kdeq L k k' ->
     tyeq (k :: L) t t' ->
     tyeq L (CQuan quan k t) (CQuan quan k' t')
+(* only do deep equality test of two CRec's where the kind is KType *)
+| TyEqRec L t t' :
+    tyeq (KType :: L) t t' ->
+    tyeq L (CRec t) (CRec t')
 | TyEqRef L t t' :
    tyeq L t t' ->
    tyeq L (CRef t) (CRef t')
+(* the following rules are just here to satisfy reflexivity *)
+| TyEqTimeAbs L i :
+    tyeq L (CTimeAbs i) (CTimeAbs i)
+(* don't do deep equality test of two CAbs's *)
+| TyEqAbs L t :
+    tyeq L (CAbs t) (CAbs t)
 .
 
-(* Inductive cstr := *)
-(* | CVar (x : var) *)
-(* | CConst (cn : cstr_const) *)
-(* | CUnOp (opr : cstr_un_op) (c : cstr) *)
-(* | CBinOp (opr : cstr_bin_op) (c1 c2 : cstr) *)
-(* | CIte (i1 i2 i3 : cstr) *)
-(* | CTimeAbs (i : cstr) *)
-(* | CArrow (t1 i t2 : cstr) *)
-(* | CAbs (t : cstr) *)
-(* | CApp (t c : cstr) *)
-(* | CQuan (q : quan) (k : kind) (c : cstr) *)
-(* | CRec (t : cstr) *)
-(* | CRef (t : cstr) *)
+Hint Constructors tyeq.
 
-Lemma tyeq_refl L t : tyeq L t t.
+Lemma tyeq_refl : forall t L, tyeq L t t.
+Proof.
+  induct t; eauto using interpP_eq_refl, kdeq_refl.
+Qed.
+
+Lemma kdeq_tyeq L k k' t t' :
+  kdeq L k k' ->
+  tyeq (k :: L) t t' ->
+  tyeq (k' :: L) t t'.
 Admitted.
+
+Lemma tyeq_sym L t1 t2 : tyeq L t1 t2 -> tyeq L t2 t1.
+Proof.
+  induct 1; eauto using interpP_eq_sym, kdeq_sym.
+  {
+    econstructor; eauto using interpP_eq_sym, kdeq_sym.
+    eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym.
+  }
+Qed.
+
+Ltac copy h h2 := generalize h; intro h2.
+
+Lemma tyeq_trans' L a b :
+  tyeq L a b ->
+  forall c,
+    tyeq L b c ->
+    tyeq L a c.
+Proof.
+  induct 1; try solve [intros c Hbc; invert Hbc; eauto 3 using interpP_eq_trans, tyeq_refl].
+  (* induct 1; try solve [induct 1; eauto using interpP_eq_trans, tyeq_refl]. *)
+  {
+    induct 1; eauto using interpP_eq_trans, tyeq_refl.
+  }
+  {
+    induct 1; eauto using interpP_eq_trans, tyeq_refl.
+  }
+  {
+    induct 1; eauto using interpP_eq_trans, tyeq_refl.
+  }
+  {
+    induct 1; eauto using interpP_eq_trans, tyeq_refl.
+  }
+  {
+    induct 1; eauto using interpP_eq_trans, tyeq_refl.
+  }
+  {
+    rename t' into a.
+    induct 1.
+    {
+      eauto using interpP_eq_trans, tyeq_refl.
+    }
+    {
+      rename t' into c.
+      copy H2_ HH.
+      eapply IHtyeq1 in HH.
+      invert HH.
+      copy H2_0 HH2.
+      eapply IHtyeq2 in HH2.
+      (*here*)
+      
+      eapply IHtyeq3.
+      Lemma subst0_c_c_tyeq :
+        forall t1 L t2 t2' t,
+          tyeq L t2' t2 ->
+          tyeq L (subst0_c_c t2 t1) t ->
+          tyeq L (subst0_c_c t2' t1) t.
+      Admitted.
+      eapply subst0_c_c_tyeq; eauto.
+      admit.
+    }
+    {
+      eauto using interpP_eq_trans, tyeq_refl.
+    }
+  }
+  {
+    induct 1; eauto using interpP_eq_trans, tyeq_refl.
+    econstructor; eauto using kdeq_trans.
+    eapply IHtyeq.
+    eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym.
+  }
+  {
+    induct 1; eauto using interpP_eq_trans, tyeq_refl.
+  }
+  {
+    induct 1; eauto using interpP_eq_trans, tyeq_refl.
+  }
+    (* intros c Hbc. *)
+    (* invert Hbc. *)
+    (* econstructor; eauto using kdeq_trans. *)
+    (* eapply IHtyeq. *)
+    (* eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym. *)
+  (* induct 1; eauto using interpP_eq_trans, tyeq_refl, kdeq_tyeq, kdeq_trans, kdeq_sym. *)
+  
+  (* solve [invert Hbc; eauto 4 using interpP_eq_trans, tyeq_refl]. *)
+  (* induct 1; intros c Hbc; try solve [invert Hbc; eauto 4]. *)
+  (* induct 1; intros c Hbc; try solve [invert Hbc; eauto using tyeq_refl]. *)
+  (* induct 1; intros c Hbc; try solve [invert Hbc; eauto using interpP_eq_trans, tyeq_refl]. *)
+  (* { *)
+  (*   invert Hbc. *)
+  (*   econstructor; eauto using kdeq_trans. *)
+  (*   eapply IHtyeq. *)
+  (*   eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym. *)
+  (* } *)
+Qed.
+
 Lemma tyeq_trans L a b c :
   tyeq L a b ->
   tyeq L b c ->
   tyeq L a c.
-Admitted.
-Lemma tyeq_sym L t1 t2 : tyeq L t1 t2 -> tyeq L t2 t1.
-Admitted.
+Proof.
+  intros; eapply tyeq_trans'; eauto.
+Qed.
 
 Lemma CForall_CArrow_false k t t1 i t2 :
   tyeq [] (CForall k t) (CArrow t1 i t2) ->
   False.
 Proof.
-Admitted.
+  intros Htyeq.
+  invert Htyeq.
+  induct 1.
+Qed.
+
 Lemma CExists_CArrow_false k t t1 i t2 :
   tyeq [] (CExists k t) (CArrow t1 i t2) ->
   False.
@@ -663,8 +832,6 @@ Ltac eexists_split :=
       | |- _ /\ _ => split
       end.
 
-Ltac copy h h2 := generalize h; intro h2.
-
 Hint Constructors step astep plug value.
 
 Lemma nth_error_nil A n : @nth_error A [] n = None.
@@ -672,14 +839,6 @@ Admitted.
 
 Arguments finished / .
 Arguments get_expr / .
-
-Lemma interpP_le_refl L i : interpP L (i <= i)%idx.
-Admitted.
-Lemma interpP_le_trans L a b c :
-  interpP L (a <= b)%idx ->
-  interpP L (b <= c)%idx ->
-  interpP L (a <= c)%idx.
-Admitted.
 
 Hint Resolve tyeq_refl tyeq_sym tyeq_trans interpP_le_refl interpP_le_trans : invert_typing.
 
@@ -1305,9 +1464,6 @@ Section Forall3.
 
 End Forall3.
 
-Lemma kdeq_sym L a b : kdeq L a b -> kdeq L b a.
-Admitted.
-
 Lemma TyEq C e t2 i t1 :
   typing C e t1 i ->
   tyeq (get_kctx C) t1 t2 ->
@@ -1439,8 +1595,6 @@ Lemma invert_typing_Pack C c e t i :
 Proof.
   induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
 Qed.
-
-Hint Constructors tyeq.
 
 Lemma invert_typing_Read C e t i :
   typing C (ERead e) t i ->
