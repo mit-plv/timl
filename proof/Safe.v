@@ -302,24 +302,23 @@ Inductive kinding : kctx -> cstr -> kind -> Prop :=
 Definition interpP : kctx -> prop -> Prop.
 Admitted.
 
-Inductive tyeq : kctx -> kind -> cstr -> cstr -> Prop :=
-| TyEqVar L x k :
-    nth_error L x = Some k ->
-    tyeq L k (CVar x) (CVar x)
+Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
+(* | TyEqVar L x : *)
+(*     tyeq L (CVar x) (CVar x) *)
 (* | TyConst : *)
 (*     tyeq L k () *)
 | TyEqArrow L t1 i t2 t1' i' t2':
-    tyeq L KType t1 t1' ->
+    tyeq L t1 t1' ->
     interpP L (PEq i i') ->
-    tyeq L KType t2 t2' ->
-    tyeq L KType (CArrow t1 i t2) (CArrow t1' i' t2')
+    tyeq L t2 t2' ->
+    tyeq L (CArrow t1 i t2) (CArrow t1' i' t2')
 | TyEqQuan L quan k t k' t' :
     kdeq L k k' ->
-    tyeq (k :: L) KType t t' ->
-    tyeq L KType (CQuan quan k t) (CQuan quan k' t')
+    tyeq (k :: L) t t' ->
+    tyeq L (CQuan quan k t) (CQuan quan k' t')
 | TyEqRef L t t' :
-   tyeq L KType t t' ->
-   tyeq L KType (CRef t) (CRef t')
+   tyeq L t t' ->
+   tyeq L (CRef t) (CRef t')
 .
 
 (* Inductive cstr := *)
@@ -336,45 +335,76 @@ Inductive tyeq : kctx -> kind -> cstr -> cstr -> Prop :=
 (* | CRec (t : cstr) *)
 (* | CRef (t : cstr) *)
 
-Lemma tyeq_refl L k t : tyeq L k t t.
+Lemma tyeq_refl L t : tyeq L t t.
 Admitted.
-Lemma tyeq_trans L k a b c :
-  tyeq L k a b ->
-  tyeq L k b c ->
-  tyeq L k a c.
+Lemma tyeq_trans L a b c :
+  tyeq L a b ->
+  tyeq L b c ->
+  tyeq L a c.
 Admitted.
-Lemma tyeq_sym L k t1 t2 : tyeq L k t1 t2 -> tyeq L k t2 t1.
+Lemma tyeq_sym L t1 t2 : tyeq L t1 t2 -> tyeq L t2 t1.
 Admitted.
 
 Lemma CForall_CArrow_false k t t1 i t2 :
-  tyeq [] KType (CForall k t) (CArrow t1 i t2) ->
+  tyeq [] (CForall k t) (CArrow t1 i t2) ->
   False.
 Proof.
 Admitted.
 Lemma CExists_CArrow_false k t t1 i t2 :
-  tyeq [] KType (CExists k t) (CArrow t1 i t2) ->
+  tyeq [] (CExists k t) (CArrow t1 i t2) ->
   False.
 Proof.
 Admitted.
 Lemma const_type_CArrow_false cn t1 i t2 :
-  tyeq [] KType (const_type cn) (CArrow t1 i t2) ->
+  tyeq [] (const_type cn) (CArrow t1 i t2) ->
   False.
 Proof.
 Admitted.
 Lemma CProd_CArrow_false ta tb t1 i t2 :
-  tyeq [] KType (CProd ta tb) (CArrow t1 i t2) ->
+  tyeq [] (CProd ta tb) (CArrow t1 i t2) ->
   False.
 Proof.
 Admitted.
 Lemma CSum_CArrow_false ta tb t1 i t2 :
-  tyeq [] KType (CSum ta tb) (CArrow t1 i t2) ->
+  tyeq [] (CSum ta tb) (CArrow t1 i t2) ->
   False.
 Proof.
 Admitted.
 Lemma CRef_CArrow_false t t1 i t2 :
-  tyeq [] KType (CRef t) (CArrow t1 i t2) ->
+  tyeq [] (CRef t) (CArrow t1 i t2) ->
   False.
 Proof.
+Admitted.
+
+Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' :
+  tyeq L (CArrow t1 i t2) (CArrow t1' i' t2') ->
+  tyeq L t1 t1' /\
+  interpP L (PEq i i') /\
+  tyeq L t2 t2'.
+Admitted.
+Lemma invert_tyeq_CExists L k1 t1 k2 t2 :
+  tyeq L (CExists k1 t1) (CExists k2 t2) ->
+  tyeq (k1 :: L) t1 t2 /\
+  kdeq L k1 k2.
+Admitted.
+Lemma invert_tyeq_CForall L k1 t1 k2 t2 :
+  tyeq L (CForall k1 t1) (CForall k2 t2) ->
+  tyeq (k1 :: L) t1 t2 /\
+  kdeq L k1 k2.
+Admitted.
+Lemma invert_tyeq_CRef L t t' :
+  tyeq L (CRef t) (CRef t') ->
+  tyeq L t t'.
+Admitted.
+Lemma invert_tyeq_CProd L t1 t2 t1' t2' :
+  tyeq L (CProd t1 t2) (CProd t1' t2') ->
+  tyeq L t1 t1' /\
+  tyeq L t2 t2'.
+Admitted.
+Lemma invert_tyeq_CSum L t1 t2 t1' t2' :
+  tyeq L (CSum t1 t2) (CSum t1' t2') ->
+  tyeq L t1 t1' /\
+  tyeq L t2 t2'.
 Admitted.
 
 Definition fmap_map {K A B} (f : A -> B) (m : fmap K A) : fmap K B.
@@ -465,7 +495,7 @@ Inductive typing : ctx -> expr -> cstr -> cstr -> Prop :=
     typing C (EUnfold e) (CApps (subst0_c_c t t1) cs) i
 | TySub C e t2 i2 t1 i1 :
     typing C e t1 i1 ->
-    tyeq (get_kctx C) KType t1 t2 ->
+    tyeq (get_kctx C) t1 t2 ->
     interpP (get_kctx C) (i1 <= i2) ->
     typing C e t2 i2 
 (* | TyAsc L G e t i : *)
@@ -654,7 +684,7 @@ Admitted.
 Hint Resolve tyeq_refl tyeq_sym tyeq_trans interpP_le_refl interpP_le_trans : invert_typing.
 
 Lemma CApps_CRec_CArrow_false cs t3 t1 i t2 :
-  tyeq [] KType (CApps (CRec t3) cs) (CArrow t1 i t2) ->
+  tyeq [] (CApps (CRec t3) cs) (CArrow t1 i t2) ->
   False.
 Proof.
   (* Lemma CArrow_CApps_false cs : *)
@@ -671,12 +701,19 @@ Proof.
   (* intros; discriminate. *)
 Admitted.
 
+Lemma invert_tyeq_CApps t cs t' cs' :
+  tyeq [] (CApps (CRec t) cs) (CApps (CRec t') cs') ->
+  exists ks ,
+    tyeq ks t t' /\
+    Forall2 (tyeq []) cs cs'.
+Admitted.
+
 Lemma canon_CArrow' C v t i :
   typing C v t i ->
   get_kctx C = [] ->
   get_tctx C = [] ->
   forall t1 i' t2 ,
-    tyeq [] KType t (CArrow t1 i' t2) ->
+    tyeq [] t (CArrow t1 i' t2) ->
     value v ->
     exists e,
       v = EAbs e.
@@ -1271,46 +1308,9 @@ End Forall3.
 Lemma kdeq_sym L a b : kdeq L a b -> kdeq L b a.
 Admitted.
 
-Lemma invert_tyeq_CArrow L k t1 i t2 t1' i' t2' :
-  tyeq L k (CArrow t1 i t2) (CArrow t1' i' t2') ->
-  tyeq L KType t1 t1' /\
-  interpP L (PEq i i') /\
-  tyeq L KType t2 t2'.
-Admitted.
-Lemma invert_tyeq_CApps k t cs t' cs' :
-  tyeq [] k (CApps (CRec t) cs) (CApps (CRec t') cs') ->
-  exists ks ,
-    tyeq [] (KArrows ks k) t t' /\
-    Forall3 (tyeq []) ks cs cs'.
-Admitted.
-Lemma invert_tyeq_CExists L k k1 t1 k2 t2 :
-  tyeq L k (CExists k1 t1) (CExists k2 t2) ->
-  tyeq L (KArrow k1 k) t1 t2 /\
-  kdeq L k1 k2.
-Admitted.
-Lemma invert_tyeq_CRef L k t t' :
-  tyeq L k (CRef t) (CRef t') ->
-  tyeq L KType t t'.
-Admitted.
-Lemma invert_tyeq_CForall L k k1 t1 k2 t2 :
-  tyeq L k (CForall k1 t1) (CForall k2 t2) ->
-  tyeq L (KArrow k1 k) t1 t2 /\
-  kdeq L k1 k2.
-Admitted.
-Lemma invert_tyeq_CProd L k t1 t2 t1' t2' :
-  tyeq L k (CProd t1 t2) (CProd t1' t2') ->
-  tyeq L KType t1 t1' /\
-  tyeq L KType t2 t2'.
-Admitted.
-Lemma invert_tyeq_CSum L k t1 t2 t1' t2' :
-  tyeq L k (CSum t1 t2) (CSum t1' t2') ->
-  tyeq L KType t1 t1' /\
-  tyeq L KType t2 t2'.
-Admitted.
-
 Lemma TyEq C e t2 i t1 :
   typing C e t1 i ->
-  tyeq (get_kctx C) KType t1 t2 ->
+  tyeq (get_kctx C) t1 t2 ->
   typing C e t2 i.
 Proof.
   intros.
@@ -1339,7 +1339,7 @@ Ltac openhyp :=
 Lemma invert_typing_App C e1 e2 t i :
   typing C (EApp e1 e2) t i ->
   exists t' t2 i1 i2 i3 ,
-    tyeq (get_kctx C) KType t t' /\
+    tyeq (get_kctx C) t t' /\
     typing C e1 (CArrow t2 i3 t') i1 /\
     typing C e2 t2 i2 /\
     interpP (get_kctx C) (i1 + i2 + T1 + i3 <= i)%idx.
@@ -1350,7 +1350,7 @@ Qed.
 Lemma invert_typing_Abs C e t i :
   typing C (EAbs e) t i ->
   exists t1 i' t2 ,
-    tyeq (get_kctx C) KType t (CArrow t1 i' t2) /\
+    tyeq (get_kctx C) t (CArrow t1 i' t2) /\
     kinding (get_kctx C) t1 KType /\
     typing (add_typing_ctx t1 C) e t2 i'.
 Proof.
@@ -1360,7 +1360,7 @@ Qed.
 Lemma invert_typing_Unfold C e t2 i :
   typing C (EUnfold e) t2 i ->
   exists t t1 cs i',
-    tyeq (get_kctx C) KType t2 (CApps (subst0_c_c t t1) cs) /\
+    tyeq (get_kctx C) t2 (CApps (subst0_c_c t t1) cs) /\
     t = CRec t1 /\
     typing C e (CApps t cs) i' /\
     interpP (get_kctx C) (i' <= i)%idx.
@@ -1371,7 +1371,7 @@ Qed.
 Lemma invert_typing_Fold C e t' i :
   typing C (EFold e) t' i ->
   exists t t1 cs t2 i',
-    tyeq (get_kctx C) KType t' t /\
+    tyeq (get_kctx C) t' t /\
     t = CApps t1 cs /\
     t1 = CRec t2 /\
     kinding (get_kctx C) t KType /\
@@ -1383,12 +1383,12 @@ Qed.
 
 Lemma kinding_tyeq L k t1 t2 :
   kinding L t1 k ->
-  tyeq L k t1 t2 ->
+  tyeq L t1 t2 ->
   kinding L t2 k.
 Admitted.
 Lemma add_typing_ctx_tyeq t1 t2 C e t i :
   typing (add_typing_ctx t1 C) e t i ->
-  tyeq (get_kctx C) KType t1 t2 ->
+  tyeq (get_kctx C) t1 t2 ->
   typing (add_typing_ctx t2 C) e t i.
 Admitted.
 Lemma get_kctx_add_typing_ctx t C : get_kctx (add_typing_ctx t C) = get_kctx C.
@@ -1418,7 +1418,7 @@ Qed.
 Lemma invert_typing_Unpack C e1 e2 t2'' i :
   typing C (EUnpack e1 e2) t2'' i ->
   exists t2' t i1 k t2 i2 i2' ,
-    tyeq (get_kctx C) KType t2'' t2' /\
+    tyeq (get_kctx C) t2'' t2' /\
     typing C e1 (CExists k t) i1 /\
     typing (add_typing_ctx t (add_kinding_ctx k C)) e2 t2 i2 /\
     forget01_c_c t2 = Some t2' /\
@@ -1431,7 +1431,7 @@ Qed.
 Lemma invert_typing_Pack C c e t i :
   typing C (EPack c e) t i ->
   exists t1 k i' ,
-    tyeq (get_kctx C) KType t (CExists k t1) /\
+    tyeq (get_kctx C) t (CExists k t1) /\
     kinding (get_kctx C) t1 (KArrow k KType) /\
     kinding (get_kctx C) c k /\
     typing C e (subst0_c_c c t1) i' /\
@@ -1455,7 +1455,7 @@ Qed.
 Lemma invert_typing_Loc C l t i :
   typing C (ELoc l) t i ->
   exists t' ,
-    tyeq (get_kctx C) KType t (CRef t') /\
+    tyeq (get_kctx C) t (CRef t') /\
     get_hctx C $? l = Some t'.
 Proof.
   induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
@@ -1464,7 +1464,7 @@ Qed.
 Lemma invert_typing_Write C e1 e2 t i :
   typing C (EWrite e1 e2) t i ->
   exists t' i1 i2 ,
-    tyeq (get_kctx C) KType t CTypeUnit /\
+    tyeq (get_kctx C) t CTypeUnit /\
     typing C e1 (CRef t') i1 /\
     typing C e2 t' i2 /\
     interpP (get_kctx C) (i1 + i2 <= i)%idx.
@@ -1475,7 +1475,7 @@ Qed.
 Lemma invert_typing_New C e t i :
   typing C (ENew e) t i ->
   exists t' i' ,
-    tyeq (get_kctx C) KType t (CRef t') /\
+    tyeq (get_kctx C) t (CRef t') /\
     typing C e t' i' /\
     interpP (get_kctx C) (i' <= i)%idx.
 Proof.
@@ -1485,7 +1485,7 @@ Qed.
 Lemma invert_typing_AppC C e c t i :
   typing C (EAppC e c) t i ->
   exists t' i' k ,
-    tyeq (get_kctx C) KType t (subst0_c_c c t') /\
+    tyeq (get_kctx C) t (subst0_c_c c t') /\
     typing C e (CForall k t') i' /\
     kinding (get_kctx C) c k /\
     interpP (get_kctx C) (i' <= i)%idx.
@@ -1496,7 +1496,7 @@ Qed.
 Lemma invert_typing_AbsC C e t i :
   typing C (EAbsC e) t i ->
   exists t' k ,
-    tyeq (get_kctx C) KType t (CForall k t') /\
+    tyeq (get_kctx C) t (CForall k t') /\
     value e /\
     wfkind (get_kctx C) k /\
     typing (add_kinding_ctx k C) e t' T0.
@@ -1507,7 +1507,7 @@ Qed.
 Lemma invert_typing_Proj C pr e t i :
   typing C (EProj pr e) t i ->
   exists t1 t2 i' ,
-    tyeq (get_kctx C) KType t (proj (t1, t2) pr) /\
+    tyeq (get_kctx C) t (proj (t1, t2) pr) /\
     typing C e (CProd t1 t2) i' /\
     interpP (get_kctx C) (i' <= i)%idx.
 Proof.
@@ -1517,7 +1517,7 @@ Qed.
 Lemma invert_typing_Pair C e1 e2 t i :
   typing C (EPair e1 e2) t i ->
   exists t1 t2 i1 i2 ,
-    tyeq (get_kctx C) KType t (CProd t1 t2) /\
+    tyeq (get_kctx C) t (CProd t1 t2) /\
     typing C e1 t1 i1 /\
     typing C e2 t2 i2 /\
     interpP (get_kctx C) (i1 + i2 <= i)%idx.
@@ -1549,7 +1549,7 @@ Qed.
 Lemma invert_typing_Inj C inj e t i :
   typing C (EInj inj e) t i ->
   exists t' t'' i' ,
-    tyeq (get_kctx C) KType t (choose (CSum t' t'', CSum t'' t') inj) /\
+    tyeq (get_kctx C) t (choose (CSum t' t'', CSum t'' t') inj) /\
     typing C e t' i' /\
     kinding (get_kctx C) t'' KType /\
     interpP (get_kctx C) (i' <= i)%idx.
