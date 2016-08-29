@@ -574,68 +574,115 @@ Admitted.
 Arguments finished / .
 Arguments get_expr / .
 
-Lemma canon_CArrow' C v t1 i' t2 i :
-  typing C v (CArrow t1 i' t2) i ->
-  get_kctx C = [] ->
-  get_tctx C = [] ->
-  value v ->
-  exists e,
-    v = EAbs e.
-Proof.
-  induct 1; intros Hknil Htnil Hval; try solve [invert Hval | eexists; eauto].
-  {
-    rewrite Htnil in H.
-    rewrite nth_error_nil in H.
-    invert H.
-  }
-  {
-    Lemma CArrow_CApps_false cs :
-      forall t1 i t2 t3,
-        CArrow t1 i t2 = CApps t3 cs ->
-        (forall t1' i' t2', t3 <> CArrow t1' i' t2') -> 
-        False.
-    Proof.
-      induction cs; simpl; subst; try discriminate; intuition eauto.
-      eapply IHcs; eauto.
-      intros; discriminate.
-    Qed.
-    Lemma CArrow_CApps_CRec_false cs t1 i t2 t3 :
-      CArrow t1 i t2 = CApps (CRec t3) cs ->
-      False.
-    Proof.
-      intros; eapply CArrow_CApps_false; eauto.
-      intros; discriminate.
-    Qed.
-    eapply CArrow_CApps_CRec_false in H; propositional.
-  }
-  {
-    (*here*)
-    admit.
-  }
-  {
-    admit.
-  }
-  {
-    admit.
-  }
-Qed.
+Lemma tyeq_refl L k t : tyeq L k t t.
+Admitted.
+Lemma tyeq_trans L k a b c :
+  tyeq L k a b ->
+  tyeq L k b c ->
+  tyeq L k a c.
+Admitted.
+Lemma tyeq_sym L k t1 t2 : tyeq L k t1 t2 -> tyeq L k t2 t1.
+Admitted.
+
+Lemma interpP_le_refl L i : interpP L (i <= i)%idx.
+Admitted.
+Lemma interpP_le_trans L a b c :
+  interpP L (a <= b)%idx ->
+  interpP L (b <= c)%idx ->
+  interpP L (a <= c)%idx.
+Admitted.
+
+Hint Resolve tyeq_refl tyeq_sym tyeq_trans interpP_le_refl interpP_le_trans : invert_typing.
 
 Lemma canon_CArrow' C v t i :
   typing C v t i ->
   get_kctx C = [] ->
   get_tctx C = [] ->
   forall t1 i' t2 ,
-    t = (CArrow t1 i' t2) ->
+    tyeq [] KType t (CArrow t1 i' t2) ->
     value v ->
     exists e,
       v = EAbs e.
 Proof.
-  induct 1.
-  admit.
-  
-  ; try solve [invert1 1; do 2 eexists; t].
-  invert H0.
-  eauto.
+  induct 1; intros Hknil Htnil ta i' tb Htyeq Hval; try solve [invert Hval | eexists; eauto]; subst.
+  {
+    rewrite Htnil in H.
+    rewrite nth_error_nil in H.
+    invert H.
+  }
+  {
+    Lemma CForall_CArrow_false k t t1 i t2 :
+      tyeq [] KType (CForall k t) (CArrow t1 i t2) ->
+      False.
+    Proof.
+    Admitted.
+    eapply CForall_CArrow_false in Htyeq; propositional.
+  }
+  {
+    Lemma CApps_CRec_CArrow_false cs t3 t1 i t2 :
+      tyeq [] KType (CApps (CRec t3) cs) (CArrow t1 i t2) ->
+      False.
+    Proof.
+      (* Lemma CArrow_CApps_false cs : *)
+      (*   forall t1 i t2 t3, *)
+      (*     CArrow t1 i t2 = CApps t3 cs -> *)
+      (*     (forall t1' i' t2', t3 <> CArrow t1' i' t2') ->  *)
+      (*     False. *)
+      (* Proof. *)
+      (*   induction cs; simpl; subst; try discriminate; intuition eauto. *)
+      (*   eapply IHcs; eauto. *)
+      (*   intros; discriminate. *)
+      (* Qed. *)
+      (* intros; eapply CArrow_CApps_false; eauto. *)
+      (* intros; discriminate. *)
+      admit.
+    Qed.
+    eapply CApps_CRec_CArrow_false in Htyeq; propositional.
+  }
+  {
+    destruct C as ((L & W) & G); simplify; subst.
+    eapply IHtyping; eauto with invert_typing.
+  }
+  {
+    Lemma CExists_CArrow_false k t t1 i t2 :
+      tyeq [] KType (CExists k t) (CArrow t1 i t2) ->
+      False.
+    Proof.
+    Admitted.
+    eapply CExists_CArrow_false in Htyeq; propositional.
+  }
+  {
+    Lemma const_type_CArrow_false cn t1 i t2 :
+      tyeq [] KType (const_type cn) (CArrow t1 i t2) ->
+      False.
+    Proof.
+    Admitted.
+    eapply const_type_CArrow_false in Htyeq; propositional.
+  }
+  {
+    Lemma CProd_CArrow_false ta tb t1 i t2 :
+      tyeq [] KType (CProd ta tb) (CArrow t1 i t2) ->
+      False.
+    Proof.
+    Admitted.
+    eapply CProd_CArrow_false in Htyeq; propositional.
+  }
+  {
+    Lemma CSum_CArrow_false ta tb t1 i t2 :
+      tyeq [] KType (CSum ta tb) (CArrow t1 i t2) ->
+      False.
+    Proof.
+    Admitted.
+    cases inj; simplify; eapply CSum_CArrow_false in Htyeq; propositional.
+  }
+  {
+    Lemma CRef_CArrow_false t t1 i t2 :
+      tyeq [] KType (CRef t) (CArrow t1 i t2) ->
+      False.
+    Proof.
+    Admitted.
+    eapply CRef_CArrow_false in Htyeq; propositional.
+  }
 Qed.
 
 Lemma canon_CArrow W v t1 i' t2 i :
@@ -644,12 +691,7 @@ Lemma canon_CArrow W v t1 i' t2 i :
   exists e,
     v = EAbs e.
 Proof.
-  induct 1.
-  admit.
-  
-  ; try solve [invert1 1; do 2 eexists; t].
-  invert H0.
-  eauto.
+  intros; eapply canon_CArrow'; eauto with invert_typing.
 Qed.
 
 Lemma canon_CForall W v k t i :
@@ -1200,16 +1242,6 @@ End Forall3.
 Lemma kdeq_sym L a b : kdeq L a b -> kdeq L b a.
 Admitted.
 
-Lemma tyeq_refl L k t : tyeq L k t t.
-Admitted.
-Lemma tyeq_trans L k a b c :
-  tyeq L k a b ->
-  tyeq L k b c ->
-  tyeq L k a c.
-Admitted.
-Lemma tyeq_sym L k t1 t2 : tyeq L k t1 t2 -> tyeq L k t2 t1.
-Admitted.
-
 Lemma invert_tyeq_CArrow L k t1 i t2 t1' i' t2' :
   tyeq L k (CArrow t1 i t2) (CArrow t1' i' t2') ->
   tyeq L KType t1 t1' /\
@@ -1265,16 +1297,6 @@ Lemma TyETT C : typing C ETT CTypeUnit T0.
 Proof.
   eapply TyConst.
 Qed.
-
-Lemma interpP_le_refl L i : interpP L (i <= i)%idx.
-Admitted.
-Lemma interpP_le_trans L a b c :
-  interpP L (a <= b)%idx ->
-  interpP L (b <= c)%idx ->
-  interpP L (a <= c)%idx.
-Admitted.
-
-Hint Resolve tyeq_refl interpP_le_refl tyeq_sym tyeq_trans interpP_le_trans : invert_typing.
 
 Ltac openhyp :=
   repeat match goal with
