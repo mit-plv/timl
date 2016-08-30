@@ -332,6 +332,165 @@ Lemma interpP_eq_sym L i i' :
   interpP L (i' == i)%idx.
 Admitted.
 
+Ltac copy h h2 := generalize h; intro h2.
+
+Ltac try_eexists := try match goal with | |- exists _, _ => eexists end.
+
+Ltac try_split := try match goal with | |- _ /\ _ => split end.
+
+Ltac eexists_split :=
+  try match goal with
+      | |- exists _, _ => eexists
+      | |- _ /\ _ => split
+      end.
+
+Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
+(* | TyEqRefl L t : *)
+(*     tyeq L t t *)
+| TyEqVar L x :
+    tyeq L (CVar x) (CVar x)
+| TyConst L cn :
+    tyeq L (CConst cn) (CConst cn)
+(* | TyEqUnOp L opr t t' : *)
+(*     tyeq L t t' -> *)
+(*     tyeq L (CUnOp opr t) (CUnOp opr t') *)
+| TyEqBinOp L opr t1 t2 t1' t2' :
+    tyeq L t1 t1' ->
+    tyeq L t2 t2' ->
+    tyeq L (CBinOp opr t1 t2) (CBinOp opr t1' t2')
+| TyEqIte L t1 t2 t3 t1' t2' t3':
+    tyeq L t1 t1' ->
+    tyeq L t2 t2' ->
+    tyeq L t3 t3' ->
+    tyeq L (CIte t1 t2 t3) (CIte t1' t2' t3')
+| TyEqArrow L t1 i t2 t1' i' t2':
+    tyeq L t1 t1' ->
+    interpP L (PEq i i') ->
+    tyeq L t2 t2' ->
+    tyeq L (CArrow t1 i t2) (CArrow t1' i' t2')
+| TyEqApp L c1 c2 c1' c2' :
+    tyeq L c1 c1' ->
+    tyeq L c2 c2' ->
+    tyeq L (CApp c1 c2) (CApp c1' c2')
+| TyEqBeta L t1 t2  :
+    tyeq L (CApp (CAbs t1) t2) (subst0_c_c t2 t1)
+| TyEqBetaRev L t1 t2  :
+    tyeq L (subst0_c_c t2 t1) (CApp (CAbs t1) t2)
+| TyEqQuan L quan k t k' t' :
+    kdeq L k k' ->
+    tyeq (k :: L) t t' ->
+    tyeq L (CQuan quan k t) (CQuan quan k' t')
+(* only do deep equality test of two CRec's where the kind is KType *)
+| TyEqRec L t t' :
+    tyeq (KType :: L) t t' ->
+    tyeq L (CRec t) (CRec t')
+| TyEqRef L t t' :
+   tyeq L t t' ->
+   tyeq L (CRef t) (CRef t')
+(* the following rules are just here to satisfy reflexivity *)
+| TyEqTimeAbs L i :
+    tyeq L (CTimeAbs i) (CTimeAbs i)
+(* don't do deep equality test of two CAbs's *)
+| TyEqAbs L t :
+    tyeq L (CAbs t) (CAbs t)
+| TyEqTrans L a b c :
+    tyeq L a b ->
+    tyeq L b c ->
+    tyeq L a c
+.
+
+Hint Constructors tyeq.
+
+Lemma tyeq_refl : forall t L, tyeq L t t.
+Proof.
+  induct t; eauto using interpP_eq_refl, kdeq_refl.
+Qed.
+
+Lemma kdeq_tyeq L k k' t t' :
+  kdeq L k k' ->
+  tyeq (k :: L) t t' ->
+  tyeq (k' :: L) t t'.
+Admitted.
+
+Lemma tyeq_sym L t1 t2 : tyeq L t1 t2 -> tyeq L t2 t1.
+Proof.
+  induct 1; eauto using interpP_eq_sym, kdeq_sym.
+  {
+    econstructor; eauto using interpP_eq_sym, kdeq_sym.
+    eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym.
+  }
+Qed.
+
+Lemma tyeq_trans L a b c :
+  tyeq L a b ->
+  tyeq L b c ->
+  tyeq L a c.
+Proof.
+  intros; eauto.
+Qed.
+
+Lemma invert_tyeq_Arrow L t1 i t2 tb : 
+  tyeq L (CArrow t1 i t2) tb ->
+  (forall t1' t2' ,
+      tb <> CApp t1' t2') ->
+  (exists t1' i' t2' ,
+      tb = CArrow t1' i' t2' /\
+      tyeq L t1 t1' /\
+      interpP L (PEq i i') /\
+      tyeq L t2 t2').
+Proof.
+  induct 1; eauto; intros Hcneq.
+  {
+    repeat eexists_split; eauto.
+  }
+  {
+    specialize (Hcneq (CAbs t0) t3).
+    propositional.
+  }
+  admit.
+  eapply IHtyeq2; eauto using tyeq_sym.
+  intros Htyeq.
+  invert Htyeq.
+Qed.
+
+Lemma invert_tyeq_Arrow L ta tb : 
+    tyeq L ta tb ->
+    forall t1 i t2,
+      ta = CArrow t1 i t2 ->
+      (exists t1' i' t2' ,
+          tb = CArrow t1' i' t2' /\
+          tyeq L t1 t1' /\
+          interpP L (PEq i i') /\
+          tyeq L t2 t2') \/
+      (exists t1' t2' ,
+          tb = CApp t1' t2').
+Proof.
+  induct 1; eauto.
+  eapply IHtyeq2; eauto using tyeq_sym.
+  intros Htyeq.
+  invert Htyeq.
+Qed.
+
+Lemma CForall_CArrow_false' L ta tb : 
+    tyeq L ta tb ->
+    forall k t t1 i t2,
+      tyeq L ta (CForall k t) ->
+      tyeq L tb (CArrow t1 i t2) ->
+      False.
+Proof.
+  induct 1; eauto.
+  eapply IHtyeq2; eauto using tyeq_sym.
+  intros Htyeq.
+  invert Htyeq.
+Qed.
+
+Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' :
+  tyeq L (CArrow t1 i t2) (CArrow t1' i' t2') ->
+  tyeq L t1 t1' /\
+  interpP L (PEq i i') /\
+  tyeq L t2 t2'.
+Admitted.
+
 Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
 (* | TyEqRefl L t : *)
 (*     tyeq L t t *)
@@ -417,8 +576,6 @@ Proof.
   }
 Qed.
 
-Ltac copy h h2 := generalize h; intro h2.
-
 Lemma tyeq_trans' L a b :
   tyeq L a b ->
   forall c,
@@ -455,17 +612,18 @@ Proof.
       invert HH.
       copy H2_0 HH2.
       eapply IHtyeq2 in HH2.
-      (*here*)
-      
-      eapply IHtyeq3.
-      Lemma subst0_c_c_tyeq :
-        forall t1 L t2 t2' t,
-          tyeq L t2' t2 ->
-          tyeq L (subst0_c_c t2 t1) t ->
-          tyeq L (subst0_c_c t2' t1) t.
-      Admitted.
-      eapply subst0_c_c_tyeq; eauto.
       admit.
+      (* (*here*) *)
+      
+      (* eapply IHtyeq3. *)
+      (* Lemma subst0_c_c_tyeq : *)
+      (*   forall t1 L t2 t2' t, *)
+      (*     tyeq L t2' t2 -> *)
+      (*     tyeq L (subst0_c_c t2 t1) t -> *)
+      (*     tyeq L (subst0_c_c t2' t1) t. *)
+      (* Admitted. *)
+      (* eapply subst0_c_c_tyeq; eauto. *)
+      (* admit. *)
     }
     {
       eauto using interpP_eq_trans, tyeq_refl.
@@ -514,10 +672,15 @@ Lemma CForall_CArrow_false k t t1 i t2 :
   tyeq [] (CForall k t) (CArrow t1 i t2) ->
   False.
 Proof.
-  intros Htyeq.
-  invert Htyeq.
   induct 1.
 Qed.
+
+Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' :
+  tyeq L (CArrow t1 i t2) (CArrow t1' i' t2') ->
+  tyeq L t1 t1' /\
+  interpP L (PEq i i') /\
+  tyeq L t2 t2'.
+Admitted.
 
 Lemma CExists_CArrow_false k t t1 i t2 :
   tyeq [] (CExists k t) (CArrow t1 i t2) ->
@@ -545,12 +708,6 @@ Lemma CRef_CArrow_false t t1 i t2 :
 Proof.
 Admitted.
 
-Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' :
-  tyeq L (CArrow t1 i t2) (CArrow t1' i' t2') ->
-  tyeq L t1 t1' /\
-  interpP L (PEq i i') /\
-  tyeq L t2 t2'.
-Admitted.
 Lemma invert_tyeq_CExists L k1 t1 k2 t2 :
   tyeq L (CExists k1 t1) (CExists k2 t2) ->
   tyeq (k1 :: L) t1 t2 /\
@@ -575,6 +732,8 @@ Lemma invert_tyeq_CSum L t1 t2 t1' t2' :
   tyeq L t1 t1' /\
   tyeq L t2 t2'.
 Admitted.
+
+Hint Resolve tyeq_refl tyeq_sym tyeq_trans interpP_le_refl interpP_le_trans : invert_typing.
 
 Definition fmap_map {K A B} (f : A -> B) (m : fmap K A) : fmap K B.
 Admitted.
@@ -822,16 +981,6 @@ Import Time.CloseScope.
 Arguments get_kctx _ / .
 Arguments get_hctx _ / .
 
-Ltac try_eexists := try match goal with | |- exists _, _ => eexists end.
-
-Ltac try_split := try match goal with | |- _ /\ _ => split end.
-
-Ltac eexists_split :=
-  try match goal with
-      | |- exists _, _ => eexists
-      | |- _ /\ _ => split
-      end.
-
 Hint Constructors step astep plug value.
 
 Lemma nth_error_nil A n : @nth_error A [] n = None.
@@ -839,8 +988,6 @@ Admitted.
 
 Arguments finished / .
 Arguments get_expr / .
-
-Hint Resolve tyeq_refl tyeq_sym tyeq_trans interpP_le_refl interpP_le_trans : invert_typing.
 
 Lemma CApps_CRec_CArrow_false cs t3 t1 i t2 :
   tyeq [] (CApps (CRec t3) cs) (CArrow t1 i t2) ->
