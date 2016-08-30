@@ -429,6 +429,57 @@ Proof.
   intros; eauto.
 Qed.
 
+Lemma invert_tyeq_Arrow L ta tb : 
+  tyeq L ta tb ->
+  forall t1 i t2,
+    tyeq L ta (CArrow t1 i t2) ->
+    (exists t1' i' t2' ,
+        tb = CArrow t1' i' t2' /\
+        tyeq L t1 t1' /\
+        interpP L (PEq i i') /\
+        tyeq L t2 t2') \/
+    (exists t1' t2' ,
+        tb = CApp t1' t2').
+Proof.
+  induct 1; eauto.
+  intros.
+  invert H.
+  {
+    left; repeat eexists_split; eauto.
+  }
+
+Lemma invert_tyeq_Arrow L t1 i t2 tb : 
+    tyeq L (CArrow t1 i t2) tb ->
+      (exists t1' i' t2' ,
+          tb = CArrow t1' i' t2' /\
+          tyeq L t1 t1' /\
+          interpP L (PEq i i') /\
+          tyeq L t2 t2') \/
+      (exists t1' t2' ,
+          tb = CApp t1' t2').
+Proof.
+  induct 1; eauto.
+  {
+    left; repeat eexists_split; eauto.
+  }
+  {
+    specialize (Hcneq (CAbs t0) t3).
+    propositional.
+  }
+  induct 1; eauto.
+  {
+    repeat eexists_split; eauto.
+  }
+  {
+    specialize (Hcneq (CAbs t0) t3).
+    propositional.
+  }
+  eapply IHtyeq2; eauto using tyeq_sym.
+  intros Htyeq.
+  invert Htyeq.
+
+Qed.
+
 Lemma invert_tyeq_Arrow L t1 i t2 tb : 
   tyeq L (CArrow t1 i t2) tb ->
   (forall t1' t2' ,
@@ -453,24 +504,6 @@ Proof.
   invert Htyeq.
 Qed.
 
-Lemma invert_tyeq_Arrow L ta tb : 
-    tyeq L ta tb ->
-    forall t1 i t2,
-      ta = CArrow t1 i t2 ->
-      (exists t1' i' t2' ,
-          tb = CArrow t1' i' t2' /\
-          tyeq L t1 t1' /\
-          interpP L (PEq i i') /\
-          tyeq L t2 t2') \/
-      (exists t1' t2' ,
-          tb = CApp t1' t2').
-Proof.
-  induct 1; eauto.
-  eapply IHtyeq2; eauto using tyeq_sym.
-  intros Htyeq.
-  invert Htyeq.
-Qed.
-
 Lemma CForall_CArrow_false' L ta tb : 
     tyeq L ta tb ->
     forall k t t1 i t2,
@@ -484,6 +517,13 @@ Proof.
   invert Htyeq.
 Qed.
 
+Lemma CForall_CArrow_false' L k t t1 i t2 : 
+    tyeq L (CForall k t) (CArrow t1 i t2) ->
+    False.
+Proof.
+  induct 1.
+Qed.
+  
 Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' :
   tyeq L (CArrow t1 i t2) (CArrow t1' i' t2') ->
   tyeq L t1 t1' /\
