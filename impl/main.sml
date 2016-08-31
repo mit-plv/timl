@@ -57,7 +57,7 @@ fun process_top_bind filename gctx bind =
       (* val () = app println $ concatMap (fn vc => VC.str_vc false filename vc @ [""]) vcs *)
       fun print_unsat show_region filename (vc, counter) =
           VC.str_vc show_region filename vc @
-          [""] @
+          (* [""] @ *)
           (case counter of
                SOME assigns =>
                if length assigns > 0 then
