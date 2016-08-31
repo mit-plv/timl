@@ -16,7 +16,7 @@ val ['a 'b] map =
     end
 
 (* rewrite the time spec equivalently using a function-sort index [g] introduced by [absidx] *)
-absidx g : Fun 2 = fn m n => $(m + 1) * $n with
+absidx g : Fun 2 = fn m n => $(m + 2) * $n with
 val ['a 'b] map =
  fn {m : Nat} (f : 'a -- $m --> 'b) =>
     let
