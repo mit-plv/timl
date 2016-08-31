@@ -58,9 +58,9 @@ fun str_vc show_region filename ((hyps, p) : vc) =
         val p = str_p [] ctx p
     in
         region @
-        hyps @
-        ["==============="] @
-        [p]
+        (self_compose 2 indent) (hyps @
+                           ["==============="] @
+                           [p])
     end 
 
 fun simp_hyp h =

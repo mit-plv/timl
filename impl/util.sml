@@ -41,6 +41,12 @@ fun str_bool b = if b then "true" else "false"
 
 fun id x = x
 fun const a _ = a
+fun self_compose n f =
+    if n <= 0 then
+      id
+    else
+      (self_compose (n - 1) f) o f
+                                   
 fun range n = List.tabulate (n, id)
 fun repeat n a = List.tabulate (n, const a)
                                

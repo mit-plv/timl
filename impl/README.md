@@ -8,6 +8,8 @@ Setup instructions:
      Install Ruby. Make sure command 'ruby' is in current PATH.
 
   2. Install SML/NJ. Make sure command 'sml' and 'ml-build' is in current PATH.
+     On Ubuntu, use this command to install all necessary components of SML/NJ:
+       apt-get install smlnj libsmlnj-smlnj ml-yacc ml-ulex
 
   3. Use 'make' to build TiML, or use './test.sh' to build and test on files in 'examples' sub-directory.
 

@@ -61,8 +61,8 @@ fun process_top_bind filename gctx bind =
           (case counter of
                SOME assigns =>
                if length assigns > 0 then
-                 ["Counter-example:"] @
-                 map (fn (name, value) => sprintf "$ = $" [name, value]) assigns @
+                 indent ["Counter-example:"] @
+                 (self_compose 2 indent) (map (fn (name, value) => sprintf "$ = $" [name, value]) assigns) @
                  [""]        
                else []
              (* | NONE => ["SMT solver reported 'unknown': can't prove and can't find counter example\n"] *)
