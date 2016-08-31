@@ -1,0 +1,5 @@
+(source gnu)
+(source melpa)
+
+(depends-on "sml-mode")
+(depends-on "flycheck")
