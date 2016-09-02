@@ -251,11 +251,24 @@ Definition subst0_c_c := subst_c_c 0.
 Definition monotone : cstr -> Prop.
 Admitted.
 
-Inductive kdeq : kctx -> kind -> kind -> Prop :=
-.
-
 Definition interpP : kctx -> prop -> Prop.
 Admitted.
+
+Inductive kdeq : kctx -> kind -> kind -> Prop :=
+| KdEqKType L :
+    kdeq L KType KType
+| KdEqKArrow L k1 k2 k1' k2' :
+    kdeq L k1 k1' ->
+    kdeq L k2 k2' ->
+    kdeq L (KArrow k1 k2) (KArrow k1' k2')
+| KdEqBaseSort L b :
+    kdeq L (KBaseSort b) (KBaseSort b)
+| KdEqSubset :
+    kdeq L k k' ->
+    (*here*)
+    interpP (k :: L) (p )
+    kdeq L (KSubset k p) (KSubset k' p')
+.
 
 Inductive wfprop : kctx -> prop -> Prop :=
 | WfPropTrue L :
