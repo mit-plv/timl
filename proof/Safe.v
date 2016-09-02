@@ -655,6 +655,7 @@ Proof.
       copy H2_0 HH2.
       eapply IHtyeq2 in HH2.
       admit.
+      (* may need logical relation here *)
       (* (*here*) *)
       
       (* eapply IHtyeq3. *)
@@ -714,7 +715,7 @@ Lemma CForall_CArrow_false k t t1 i t2 :
   tyeq [] (CForall k t) (CArrow t1 i t2) ->
   False.
 Proof.
-  induct 1.
+  invert 1.
 Qed.
 
 Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' :
@@ -722,58 +723,90 @@ Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' :
   tyeq L t1 t1' /\
   interpP L (PEq i i') /\
   tyeq L t2 t2'.
-Admitted.
+Proof.
+  invert 1.
+  repeat eexists_split; eauto.
+Qed.
 
 Lemma CExists_CArrow_false k t t1 i t2 :
   tyeq [] (CExists k t) (CArrow t1 i t2) ->
   False.
 Proof.
-Admitted.
+  invert 1.
+Qed.
+
 Lemma const_type_CArrow_false cn t1 i t2 :
   tyeq [] (const_type cn) (CArrow t1 i t2) ->
   False.
 Proof.
-Admitted.
+  cases cn; intros Htyeq; simplify;
+    invert Htyeq.
+Qed.
+
 Lemma CProd_CArrow_false ta tb t1 i t2 :
   tyeq [] (CProd ta tb) (CArrow t1 i t2) ->
   False.
 Proof.
-Admitted.
+  invert 1.
+Qed.
+
 Lemma CSum_CArrow_false ta tb t1 i t2 :
   tyeq [] (CSum ta tb) (CArrow t1 i t2) ->
   False.
 Proof.
-Admitted.
+  invert 1.
+Qed.
+
 Lemma CRef_CArrow_false t t1 i t2 :
   tyeq [] (CRef t) (CArrow t1 i t2) ->
   False.
 Proof.
-Admitted.
+  invert 1.
+Qed.
 
 Lemma invert_tyeq_CExists L k1 t1 k2 t2 :
   tyeq L (CExists k1 t1) (CExists k2 t2) ->
   tyeq (k1 :: L) t1 t2 /\
   kdeq L k1 k2.
-Admitted.
+Proof.
+  invert 1.
+  repeat eexists_split; eauto.
+Qed.
+
 Lemma invert_tyeq_CForall L k1 t1 k2 t2 :
   tyeq L (CForall k1 t1) (CForall k2 t2) ->
   tyeq (k1 :: L) t1 t2 /\
   kdeq L k1 k2.
-Admitted.
+Proof.
+  invert 1.
+  repeat eexists_split; eauto.
+Qed.
+
 Lemma invert_tyeq_CRef L t t' :
   tyeq L (CRef t) (CRef t') ->
   tyeq L t t'.
-Admitted.
+Proof.
+  invert 1.
+  repeat eexists_split; eauto.
+Qed.
+
 Lemma invert_tyeq_CProd L t1 t2 t1' t2' :
   tyeq L (CProd t1 t2) (CProd t1' t2') ->
   tyeq L t1 t1' /\
   tyeq L t2 t2'.
-Admitted.
+Proof.
+  invert 1.
+  repeat eexists_split; eauto.
+Qed.
+
 Lemma invert_tyeq_CSum L t1 t2 t1' t2' :
   tyeq L (CSum t1 t2) (CSum t1' t2') ->
   tyeq L t1 t1' /\
   tyeq L t2 t2'.
-Admitted.
+Proof.
+  invert 1.
+  repeat eexists_split; eauto.
+Qed.
 
 Hint Resolve tyeq_refl tyeq_sym tyeq_trans interpP_le_refl interpP_le_trans : invert_typing.
 
