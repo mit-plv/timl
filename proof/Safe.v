@@ -34,6 +34,18 @@ End Time.
 
 Import Time.
 
+Ltac copy h h2 := generalize h; intro h2.
+
+Ltac try_eexists := try match goal with | |- exists _, _ => eexists end.
+
+Ltac try_split := try match goal with | |- _ /\ _ => split end.
+
+Ltac eexists_split :=
+  try match goal with
+      | |- exists _, _ => eexists
+      | |- _ /\ _ => split
+      end.
+
 Inductive cstr_const :=
 | CCIdxTT
 | CCIdxNat (n : nat)
@@ -105,6 +117,12 @@ with kind :=
      | KSubset (k : kind) (p : prop)
 .
 
+Definition KUnit := KBaseSort BSUnit.
+Definition KBool := KBaseSort BSBool.
+Definition KNat := KBaseSort BSNat.
+Definition KTimeFun arity := KBaseSort (BSTimeFun arity).
+Definition KTime := KTimeFun 0.
+
 Definition Tconst r := CConst (CCTime r).
 Definition T0 := Tconst Time0.
 Definition T1 := Tconst Time1.
@@ -140,12 +158,6 @@ Inductive expr_const :=
 .
 
 Definition CInt := CConst CCTypeInt.
-
-Definition KUnit := KBaseSort BSUnit.
-Definition KBool := KBaseSort BSBool.
-Definition KNat := KBaseSort BSNat.
-Definition KTimeFun arity := KBaseSort (BSTimeFun arity).
-Definition KTime := KTimeFun 0.
 
 Definition const_kind cn :=
   match cn with
@@ -191,7 +203,18 @@ Definition cbinop_result_kind opr :=
   | CBTypeSum => KType
   end.
 
-    
+Definition binpred_arg1_kind opr :=
+  match opr with
+  | PBTimeLe => KTime
+  end
+.
+
+Definition binpred_arg2_kind opr :=
+  match opr with
+  | PBTimeLe => KTime
+  end
+.
+
 Inductive prim_expr_bin_op :=
 | PEBIntAdd
 .
@@ -225,55 +248,55 @@ Definition subst_c_c (x : var) (v : cstr) (b : cstr) : cstr.
 Admitted.
 Definition subst0_c_c := subst_c_c 0.
 
-Inductive wfkind : kctx -> kind -> Prop :=
-.
+Definition monotone : cstr -> Prop.
+Admitted.
 
 Inductive kdeq : kctx -> kind -> kind -> Prop :=
 .
 
-Lemma kdeq_refl L k : kdeq L k k.
-Admitted.
-Lemma kdeq_trans L a b c : kdeq L a b -> kdeq L b c -> kdeq L a c.
-Admitted.
-Lemma kdeq_sym L a b : kdeq L a b -> kdeq L b a.
-Admitted.
-
-Ltac copy h h2 := generalize h; intro h2.
-
-Ltac try_eexists := try match goal with | |- exists _, _ => eexists end.
-
-Ltac try_split := try match goal with | |- _ /\ _ => split end.
-
-Ltac eexists_split :=
-  try match goal with
-      | |- exists _, _ => eexists
-      | |- _ /\ _ => split
-      end.
-
 Definition interpP : kctx -> prop -> Prop.
 Admitted.
 
-Lemma interpP_le_refl L i : interpP L (i <= i)%idx.
-Admitted.
-Lemma interpP_le_trans L a b c :
-  interpP L (a <= b)%idx ->
-  interpP L (b <= c)%idx ->
-  interpP L (a <= c)%idx.
-Admitted.
+Inductive wfprop : kctx -> prop -> Prop :=
+| WfPropTrue L :
+    wfprop L PTrue
+| WfPropFalse L :
+    wfprop L PFalse
+| WfPropBinConn L opr p1 p2 :
+    wfprop L p1 ->
+    wfprop L p2 ->
+    wfprop L (PBinConn opr p1 p2)
+| WfPropNot L p :
+    wfprop L p ->
+    wfprop L (PNot p)
+| WfPropBinPred L opr i1 i2 :
+    kinding L i1 (binpred_arg1_kind opr) ->
+    kinding L i2 (binpred_arg2_kind opr) ->
+    wfprop L (PBinPred opr i1 i2) 
+| WfPropEq L i1 i2 k :
+    kinding L i1 k ->
+    kinding L i2 k ->
+    wfprop L (PEq i1 i2) 
+| WfPropQuan L q p k :
+    wfkind L k ->
+    wfprop (k :: L) p ->
+    wfprop L (PQuan q p)
+    
+with wfkind : kctx -> kind -> Prop :=
+| WfKdType L :
+    wfkind L KType
+| WfKdArrow L k1 k2 :
+    wfkind L k1 ->
+    wfkind L k2 ->
+    wfkind L (KArrow k1 k2)
+| WfKdBaseSort L b :
+    wfkind L (KBaseSort b)
+| WfKdSubset L k p :
+    wfkind L k ->
+    wfprop (k :: L) p ->
+    wfkind L (KSubset k p)
 
-Lemma interpP_eq_refl L i : interpP L (i == i)%idx.
-Admitted.
-Lemma interpP_eq_trans L a b c :
-  interpP L (a == b)%idx ->
-  interpP L (b == c)%idx ->
-  interpP L (a == c)%idx.
-Admitted.
-Lemma interpP_eq_sym L i i' :
-  interpP L (i == i')%idx ->
-  interpP L (i' == i)%idx.
-Admitted.
-
-Inductive kinding : kctx -> cstr -> kind -> Prop :=
+with kinding : kctx -> cstr -> kind -> Prop :=
 | KdVar L x k :
     nth_error L x = Some k ->
     kinding L (CVar x) k
@@ -307,6 +330,7 @@ Inductive kinding : kctx -> cstr -> kind -> Prop :=
     kinding L c k'
 | KdTimeAbs L i n :
     kinding (KNat :: L) i (KTimeFun n) ->
+    monotone i ->
     kinding L (CTimeAbs i) (KTimeFun (1 + n))
 | KdQuan L quan k c :
     wfkind L k ->
@@ -321,20 +345,33 @@ Inductive kinding : kctx -> cstr -> kind -> Prop :=
     kinding L (CRef t) KType
 .
 
-Inductive cstr :=
-| CVar (x : var)
-| CConst (cn : cstr_const)
-(* | CUnOp (opr : cstr_un_op) (c : cstr) *)
-| CBinOp (opr : cstr_bin_op) (c1 c2 : cstr)
-| CIte (i1 i2 i3 : cstr)
-| CTimeAbs (i : cstr)
-| CArrow (t1 i t2 : cstr)
-| CAbs (* (k : kind) *) (t : cstr)
-| CApp (c1 c2 : cstr)
-| CQuan (q : quan) (k : kind) (c : cstr)
-| CRec (t : cstr)
-| CRef (t : cstr)
-       
+Lemma kdeq_refl L k : kdeq L k k.
+Admitted.
+Lemma kdeq_trans L a b c : kdeq L a b -> kdeq L b c -> kdeq L a c.
+Admitted.
+Lemma kdeq_sym L a b : kdeq L a b -> kdeq L b a.
+Admitted.
+
+Lemma interpP_le_refl L i : interpP L (i <= i)%idx.
+Admitted.
+Lemma interpP_le_trans L a b c :
+  interpP L (a <= b)%idx ->
+  interpP L (b <= c)%idx ->
+  interpP L (a <= c)%idx.
+Admitted.
+
+Lemma interpP_eq_refl L i : interpP L (i == i)%idx.
+Admitted.
+Lemma interpP_eq_trans L a b c :
+  interpP L (a == b)%idx ->
+  interpP L (b == c)%idx ->
+  interpP L (a == c)%idx.
+Admitted.
+Lemma interpP_eq_sym L i i' :
+  interpP L (i == i')%idx ->
+  interpP L (i' == i)%idx.
+Admitted.
+
 Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
 (* | TyEqRefl L t : *)
 (*     tyeq L t t *)
