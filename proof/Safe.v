@@ -344,6 +344,7 @@ Ltac eexists_split :=
       | |- _ /\ _ => split
       end.
 
+(*
 Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
 (* | TyEqRefl L t : *)
 (*     tyeq L t t *)
@@ -530,6 +531,7 @@ Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' :
   interpP L (PEq i i') /\
   tyeq L t2 t2'.
 Admitted.
+ *)
 
 Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
 (* | TyEqRefl L t : *)
