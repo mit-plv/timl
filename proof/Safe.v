@@ -141,6 +141,22 @@ Inductive expr_const :=
 
 Definition CInt := CConst CCTypeInt.
 
+Definition KUnit := KBaseSort BSUnit.
+Definition KBool := KBaseSort BSBool.
+Definition KNat := KBaseSort BSNat.
+Definition KTimeFun arity := KBaseSort (BSTimeFun arity).
+Definition KTime := KTimeFun 0.
+
+Definition const_kind cn :=
+  match cn with
+  | CCIdxTT => KUnit
+  | CCIdxNat _ => KNat
+  | CCTime _ => KTime
+  | CCTypeUnit => KType
+  | CCTypeInt => KType
+  end
+.
+
 Definition const_type cn :=
   match cn with
   | ECTT => CTypeUnit
@@ -148,6 +164,34 @@ Definition const_type cn :=
   end
 .
 
+Definition cbinop_arg1_kind opr :=
+  match opr with
+  | CBTimeAdd => KTime
+  | CBTimeMinus => KTime
+  | CBTimeMax => KTime
+  | CBTypeProd => KType
+  | CBTypeSum => KType
+  end.
+
+Definition cbinop_arg2_kind opr :=
+  match opr with
+  | CBTimeAdd => KTime
+  | CBTimeMinus => KTime
+  | CBTimeMax => KTime
+  | CBTypeProd => KType
+  | CBTypeSum => KType
+  end.
+
+Definition cbinop_result_kind opr :=
+  match opr with
+  | CBTimeAdd => KTime
+  | CBTimeMinus => KTime
+  | CBTimeMax => KTime
+  | CBTypeProd => KType
+  | CBTypeSum => KType
+  end.
+
+    
 Inductive prim_expr_bin_op :=
 | PEBIntAdd
 .
@@ -163,114 +207,6 @@ Inductive injector :=
 .
 
 Definition loc := nat.
-
-Inductive expr_un_op :=
-| EUProj (p : projector)
-| EUInj (inj : injector)
-| EUAppC (c : cstr)
-| EUPack (c : cstr)
-| EUFold
-| EUUnfold
-| EUNew 
-| EURead 
-.
-
-Inductive expr_bin_op :=
-| EBPrim (opr : prim_expr_bin_op)
-| EBApp
-| EBPair
-| EBWrite
-.
-
-Inductive expr :=
-| EVar (x : var)
-| EConst (cn : expr_const)
-| ELoc (l : loc)
-| EUnOp (opr : expr_un_op) (e : expr)
-| EBinOp (opr : expr_bin_op) (e1 e2 : expr)
-| ECase (e e1 e2 : expr)
-| EAbs (e : expr)
-| ERec (e : expr)
-| EAbsC (e : expr)
-| EUnpack (e1 e2 : expr)
-(* | EAsc (e : expr) (t : cstr) *)
-(* | EAstTime (e : expr) (i : cstr) *)
-.
-
-
-Definition EProj p e := EUnOp (EUProj p) e.
-Definition EInj c e := EUnOp (EUInj c) e.
-Definition EAppC e c := EUnOp (EUAppC c) e.
-Definition EPack c e := EUnOp (EUPack c) e.
-Definition EFold e := EUnOp EUFold e.
-Definition EUnfold e := EUnOp EUUnfold e.
-Definition ENew e := EUnOp EUNew e.
-Definition ERead e := EUnOp EURead e.
-
-Definition EApp := EBinOp EBApp.
-Definition EPair := EBinOp EBPair.
-Definition EWrite := EBinOp EBWrite.
-
-Inductive value : expr -> Prop :=
-| VVar x :
-    value (EVar x)
-| VConst cn :
-    value (EConst cn)
-| VPair v1 v2 :
-    value v1 ->
-    value v2 ->
-    value (EPair v1 v2)
-| VInj c v :
-    value v ->
-    value (EInj c v)
-| VAbs e :
-    value (EAbs e)
-| VAbsC e :
-    value (EAbsC e)
-| VPack c v :
-    value (EPack c v)
-| VFold v :
-    value (EFold v)
-| VLoc l :
-    value (ELoc l)
-.
-
-Inductive ectx :=
-| ECHole
-| ECUnOp (opr : expr_un_op) (E : ectx)
-| ECBinOp1 (opr : expr_bin_op) (E : ectx) (e : expr)
-| ECBinOp2 (opr : expr_bin_op) (v : expr) (E : ectx)
-| ECCase (E : ectx) (e1 e2 : expr)
-| ECUnpack (E : ectx) (e : expr)
-.
-
-Inductive plug : ectx -> expr -> expr -> Prop :=
-| PlugHole e :
-    plug ECHole e e
-| PlugUnOp E e e' opr :
-    plug E e e' ->
-    plug (ECUnOp opr E) e (EUnOp opr e')
-| PlugBinOp1 E e e' opr e2 :
-    plug E e e' ->
-    plug (ECBinOp1 opr E e2) e (EBinOp opr e' e2)
-| PlugBinOp2 E e e' opr v :
-    plug E e e' ->
-    value v ->
-    plug (ECBinOp2 opr v E) e (EBinOp opr v e')
-| PlugCase E e e' e1 e2 :
-    plug E e e' ->
-    plug (ECCase E e1 e2) e (ECase e' e1 e2)
-| PlugUnpack E e e' e2 :
-    plug E e e' ->
-    plug (ECUnpack E e2) e (EUnpack e' e2)
-.
-
-Definition EFst := EProj ProjFst.
-Definition ESnd := EProj ProjSnd.
-Definition EInl := EInj InjInl.
-Definition EInr := EInj InjInr.
-
-Definition ETT := EConst ECTT.
 
 Definition kctx := list kind.
 Definition hctx := fmap loc cstr.
@@ -302,12 +238,17 @@ Admitted.
 Lemma kdeq_sym L a b : kdeq L a b -> kdeq L b a.
 Admitted.
 
-Inductive kinding : kctx -> cstr -> kind -> Prop :=
-| KdEq L c k k' :
-    kinding L c k ->
-    kdeq L k' k -> 
-    kinding L c k'
-.
+Ltac copy h h2 := generalize h; intro h2.
+
+Ltac try_eexists := try match goal with | |- exists _, _ => eexists end.
+
+Ltac try_split := try match goal with | |- _ /\ _ => split end.
+
+Ltac eexists_split :=
+  try match goal with
+      | |- exists _, _ => eexists
+      | |- _ /\ _ => split
+      end.
 
 Definition interpP : kctx -> prop -> Prop.
 Admitted.
@@ -332,207 +273,68 @@ Lemma interpP_eq_sym L i i' :
   interpP L (i' == i)%idx.
 Admitted.
 
-Ltac copy h h2 := generalize h; intro h2.
-
-Ltac try_eexists := try match goal with | |- exists _, _ => eexists end.
-
-Ltac try_split := try match goal with | |- _ /\ _ => split end.
-
-Ltac eexists_split :=
-  try match goal with
-      | |- exists _, _ => eexists
-      | |- _ /\ _ => split
-      end.
-
-(*
-Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
-(* | TyEqRefl L t : *)
-(*     tyeq L t t *)
-| TyEqVar L x :
-    tyeq L (CVar x) (CVar x)
-| TyConst L cn :
-    tyeq L (CConst cn) (CConst cn)
-(* | TyEqUnOp L opr t t' : *)
-(*     tyeq L t t' -> *)
-(*     tyeq L (CUnOp opr t) (CUnOp opr t') *)
-| TyEqBinOp L opr t1 t2 t1' t2' :
-    tyeq L t1 t1' ->
-    tyeq L t2 t2' ->
-    tyeq L (CBinOp opr t1 t2) (CBinOp opr t1' t2')
-| TyEqIte L t1 t2 t3 t1' t2' t3':
-    tyeq L t1 t1' ->
-    tyeq L t2 t2' ->
-    tyeq L t3 t3' ->
-    tyeq L (CIte t1 t2 t3) (CIte t1' t2' t3')
-| TyEqArrow L t1 i t2 t1' i' t2':
-    tyeq L t1 t1' ->
-    interpP L (PEq i i') ->
-    tyeq L t2 t2' ->
-    tyeq L (CArrow t1 i t2) (CArrow t1' i' t2')
-| TyEqApp L c1 c2 c1' c2' :
-    tyeq L c1 c1' ->
-    tyeq L c2 c2' ->
-    tyeq L (CApp c1 c2) (CApp c1' c2')
-| TyEqBeta L t1 t2  :
-    tyeq L (CApp (CAbs t1) t2) (subst0_c_c t2 t1)
-| TyEqBetaRev L t1 t2  :
-    tyeq L (subst0_c_c t2 t1) (CApp (CAbs t1) t2)
-| TyEqQuan L quan k t k' t' :
-    kdeq L k k' ->
-    tyeq (k :: L) t t' ->
-    tyeq L (CQuan quan k t) (CQuan quan k' t')
-(* only do deep equality test of two CRec's where the kind is KType *)
-| TyEqRec L t t' :
-    tyeq (KType :: L) t t' ->
-    tyeq L (CRec t) (CRec t')
-| TyEqRef L t t' :
-   tyeq L t t' ->
-   tyeq L (CRef t) (CRef t')
-(* the following rules are just here to satisfy reflexivity *)
-| TyEqTimeAbs L i :
-    tyeq L (CTimeAbs i) (CTimeAbs i)
-(* don't do deep equality test of two CAbs's *)
-| TyEqAbs L t :
-    tyeq L (CAbs t) (CAbs t)
-| TyEqTrans L a b c :
-    tyeq L a b ->
-    tyeq L b c ->
-    tyeq L a c
+Inductive kinding : kctx -> cstr -> kind -> Prop :=
+| KdVar L x k :
+    nth_error L x = Some k ->
+    kinding L (CVar x) k
+| KdConst L cn :
+    kinding L (CConst cn) (const_kind cn)
+| KdBinOp L opr c1 c2 :
+    kinding L c1 (cbinop_arg1_kind opr) ->
+    kinding L c2 (cbinop_arg2_kind opr) ->
+    kinding L (CBinOp opr c1 c2) (cbinop_result_kind opr)
+| KdIte L c c1 c2 k :
+    kinding L c KBool ->
+    kinding L c1 k ->
+    kinding L c2 k ->
+    kinding L (CIte c c1 c2) k
+| KdArrow L t1 i t2 :
+    kinding L t1 KType ->
+    kinding L i KTime ->
+    kinding L t2 KType ->
+    kinding L (CArrow t1 i t2) KType
+| KdAbs L c k1 k2 :
+    wfkind L k1 ->
+    kinding (k1 :: L) c k2 ->
+    kinding L (CAbs c) (KArrow k1 k2)
+| KdApp L c1 c2 k1 k2 :
+    kinding L c1 (KArrow k1 k2) ->
+    kinding L c2 k1 ->
+    kinding L (CApp c1 c2) k2
+| KdEq L c k k' :
+    kinding L c k ->
+    kdeq L k' k -> 
+    kinding L c k'
+| KdTimeAbs L i n :
+    kinding (KNat :: L) i (KTimeFun n) ->
+    kinding L (CTimeAbs i) (KTimeFun (1 + n))
+| KdQuan L quan k c :
+    wfkind L k ->
+    kinding (k :: L) c KType ->
+    kinding L (CQuan quan k c) KType
+| KdRec L c k :
+    wfkind L k ->
+    kinding (k :: L) c k ->
+    kinding L (CRec c) k
+| KdRef L t :
+    kinding L t KType ->
+    kinding L (CRef t) KType
 .
 
-Hint Constructors tyeq.
-
-Lemma tyeq_refl : forall t L, tyeq L t t.
-Proof.
-  induct t; eauto using interpP_eq_refl, kdeq_refl.
-Qed.
-
-Lemma kdeq_tyeq L k k' t t' :
-  kdeq L k k' ->
-  tyeq (k :: L) t t' ->
-  tyeq (k' :: L) t t'.
-Admitted.
-
-Lemma tyeq_sym L t1 t2 : tyeq L t1 t2 -> tyeq L t2 t1.
-Proof.
-  induct 1; eauto using interpP_eq_sym, kdeq_sym.
-  {
-    econstructor; eauto using interpP_eq_sym, kdeq_sym.
-    eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym.
-  }
-Qed.
-
-Lemma tyeq_trans L a b c :
-  tyeq L a b ->
-  tyeq L b c ->
-  tyeq L a c.
-Proof.
-  intros; eauto.
-Qed.
-
-Lemma invert_tyeq_Arrow L ta tb : 
-  tyeq L ta tb ->
-  forall t1 i t2,
-    tyeq L ta (CArrow t1 i t2) ->
-    (exists t1' i' t2' ,
-        tb = CArrow t1' i' t2' /\
-        tyeq L t1 t1' /\
-        interpP L (PEq i i') /\
-        tyeq L t2 t2') \/
-    (exists t1' t2' ,
-        tb = CApp t1' t2').
-Proof.
-  induct 1; eauto.
-  intros.
-  invert H.
-  {
-    left; repeat eexists_split; eauto.
-  }
-
-Lemma invert_tyeq_Arrow L t1 i t2 tb : 
-    tyeq L (CArrow t1 i t2) tb ->
-      (exists t1' i' t2' ,
-          tb = CArrow t1' i' t2' /\
-          tyeq L t1 t1' /\
-          interpP L (PEq i i') /\
-          tyeq L t2 t2') \/
-      (exists t1' t2' ,
-          tb = CApp t1' t2').
-Proof.
-  induct 1; eauto.
-  {
-    left; repeat eexists_split; eauto.
-  }
-  {
-    specialize (Hcneq (CAbs t0) t3).
-    propositional.
-  }
-  induct 1; eauto.
-  {
-    repeat eexists_split; eauto.
-  }
-  {
-    specialize (Hcneq (CAbs t0) t3).
-    propositional.
-  }
-  eapply IHtyeq2; eauto using tyeq_sym.
-  intros Htyeq.
-  invert Htyeq.
-
-Qed.
-
-Lemma invert_tyeq_Arrow L t1 i t2 tb : 
-  tyeq L (CArrow t1 i t2) tb ->
-  (forall t1' t2' ,
-      tb <> CApp t1' t2') ->
-  (exists t1' i' t2' ,
-      tb = CArrow t1' i' t2' /\
-      tyeq L t1 t1' /\
-      interpP L (PEq i i') /\
-      tyeq L t2 t2').
-Proof.
-  induct 1; eauto; intros Hcneq.
-  {
-    repeat eexists_split; eauto.
-  }
-  {
-    specialize (Hcneq (CAbs t0) t3).
-    propositional.
-  }
-  admit.
-  eapply IHtyeq2; eauto using tyeq_sym.
-  intros Htyeq.
-  invert Htyeq.
-Qed.
-
-Lemma CForall_CArrow_false' L ta tb : 
-    tyeq L ta tb ->
-    forall k t t1 i t2,
-      tyeq L ta (CForall k t) ->
-      tyeq L tb (CArrow t1 i t2) ->
-      False.
-Proof.
-  induct 1; eauto.
-  eapply IHtyeq2; eauto using tyeq_sym.
-  intros Htyeq.
-  invert Htyeq.
-Qed.
-
-Lemma CForall_CArrow_false' L k t t1 i t2 : 
-    tyeq L (CForall k t) (CArrow t1 i t2) ->
-    False.
-Proof.
-  induct 1.
-Qed.
-  
-Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' :
-  tyeq L (CArrow t1 i t2) (CArrow t1' i' t2') ->
-  tyeq L t1 t1' /\
-  interpP L (PEq i i') /\
-  tyeq L t2 t2'.
-Admitted.
- *)
-
+Inductive cstr :=
+| CVar (x : var)
+| CConst (cn : cstr_const)
+(* | CUnOp (opr : cstr_un_op) (c : cstr) *)
+| CBinOp (opr : cstr_bin_op) (c1 c2 : cstr)
+| CIte (i1 i2 i3 : cstr)
+| CTimeAbs (i : cstr)
+| CArrow (t1 i t2 : cstr)
+| CAbs (* (k : kind) *) (t : cstr)
+| CApp (c1 c2 : cstr)
+| CQuan (q : quan) (k : kind) (c : cstr)
+| CRec (t : cstr)
+| CRef (t : cstr)
+       
 Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
 (* | TyEqRefl L t : *)
 (*     tyeq L t t *)
@@ -808,7 +610,304 @@ Proof.
   repeat eexists_split; eauto.
 Qed.
 
+(*
+Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
+(* | TyEqRefl L t : *)
+(*     tyeq L t t *)
+| TyEqVar L x :
+    tyeq L (CVar x) (CVar x)
+| TyConst L cn :
+    tyeq L (CConst cn) (CConst cn)
+(* | TyEqUnOp L opr t t' : *)
+(*     tyeq L t t' -> *)
+(*     tyeq L (CUnOp opr t) (CUnOp opr t') *)
+| TyEqBinOp L opr t1 t2 t1' t2' :
+    tyeq L t1 t1' ->
+    tyeq L t2 t2' ->
+    tyeq L (CBinOp opr t1 t2) (CBinOp opr t1' t2')
+| TyEqIte L t1 t2 t3 t1' t2' t3':
+    tyeq L t1 t1' ->
+    tyeq L t2 t2' ->
+    tyeq L t3 t3' ->
+    tyeq L (CIte t1 t2 t3) (CIte t1' t2' t3')
+| TyEqArrow L t1 i t2 t1' i' t2':
+    tyeq L t1 t1' ->
+    interpP L (PEq i i') ->
+    tyeq L t2 t2' ->
+    tyeq L (CArrow t1 i t2) (CArrow t1' i' t2')
+| TyEqApp L c1 c2 c1' c2' :
+    tyeq L c1 c1' ->
+    tyeq L c2 c2' ->
+    tyeq L (CApp c1 c2) (CApp c1' c2')
+| TyEqBeta L t1 t2  :
+    tyeq L (CApp (CAbs t1) t2) (subst0_c_c t2 t1)
+| TyEqBetaRev L t1 t2  :
+    tyeq L (subst0_c_c t2 t1) (CApp (CAbs t1) t2)
+| TyEqQuan L quan k t k' t' :
+    kdeq L k k' ->
+    tyeq (k :: L) t t' ->
+    tyeq L (CQuan quan k t) (CQuan quan k' t')
+(* only do deep equality test of two CRec's where the kind is KType *)
+| TyEqRec L t t' :
+    tyeq (KType :: L) t t' ->
+    tyeq L (CRec t) (CRec t')
+| TyEqRef L t t' :
+   tyeq L t t' ->
+   tyeq L (CRef t) (CRef t')
+(* the following rules are just here to satisfy reflexivity *)
+| TyEqTimeAbs L i :
+    tyeq L (CTimeAbs i) (CTimeAbs i)
+(* don't do deep equality test of two CAbs's *)
+| TyEqAbs L t :
+    tyeq L (CAbs t) (CAbs t)
+| TyEqTrans L a b c :
+    tyeq L a b ->
+    tyeq L b c ->
+    tyeq L a c
+.
+
+Hint Constructors tyeq.
+
+Lemma tyeq_refl : forall t L, tyeq L t t.
+Proof.
+  induct t; eauto using interpP_eq_refl, kdeq_refl.
+Qed.
+
+Lemma kdeq_tyeq L k k' t t' :
+  kdeq L k k' ->
+  tyeq (k :: L) t t' ->
+  tyeq (k' :: L) t t'.
+Admitted.
+
+Lemma tyeq_sym L t1 t2 : tyeq L t1 t2 -> tyeq L t2 t1.
+Proof.
+  induct 1; eauto using interpP_eq_sym, kdeq_sym.
+  {
+    econstructor; eauto using interpP_eq_sym, kdeq_sym.
+    eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym.
+  }
+Qed.
+
+Lemma tyeq_trans L a b c :
+  tyeq L a b ->
+  tyeq L b c ->
+  tyeq L a c.
+Proof.
+  intros; eauto.
+Qed.
+
+Lemma invert_tyeq_Arrow L ta tb : 
+  tyeq L ta tb ->
+  forall t1 i t2,
+    tyeq L ta (CArrow t1 i t2) ->
+    (exists t1' i' t2' ,
+        tb = CArrow t1' i' t2' /\
+        tyeq L t1 t1' /\
+        interpP L (PEq i i') /\
+        tyeq L t2 t2') \/
+    (exists t1' t2' ,
+        tb = CApp t1' t2').
+Proof.
+  induct 1; eauto.
+  intros.
+  invert H.
+  {
+    left; repeat eexists_split; eauto.
+  }
+
+Lemma invert_tyeq_Arrow L t1 i t2 tb : 
+    tyeq L (CArrow t1 i t2) tb ->
+      (exists t1' i' t2' ,
+          tb = CArrow t1' i' t2' /\
+          tyeq L t1 t1' /\
+          interpP L (PEq i i') /\
+          tyeq L t2 t2') \/
+      (exists t1' t2' ,
+          tb = CApp t1' t2').
+Proof.
+  induct 1; eauto.
+  {
+    left; repeat eexists_split; eauto.
+  }
+  {
+    specialize (Hcneq (CAbs t0) t3).
+    propositional.
+  }
+  induct 1; eauto.
+  {
+    repeat eexists_split; eauto.
+  }
+  {
+    specialize (Hcneq (CAbs t0) t3).
+    propositional.
+  }
+  eapply IHtyeq2; eauto using tyeq_sym.
+  intros Htyeq.
+  invert Htyeq.
+
+Qed.
+
+Lemma invert_tyeq_Arrow L t1 i t2 tb : 
+  tyeq L (CArrow t1 i t2) tb ->
+  (forall t1' t2' ,
+      tb <> CApp t1' t2') ->
+  (exists t1' i' t2' ,
+      tb = CArrow t1' i' t2' /\
+      tyeq L t1 t1' /\
+      interpP L (PEq i i') /\
+      tyeq L t2 t2').
+Proof.
+  induct 1; eauto; intros Hcneq.
+  {
+    repeat eexists_split; eauto.
+  }
+  {
+    specialize (Hcneq (CAbs t0) t3).
+    propositional.
+  }
+  admit.
+  eapply IHtyeq2; eauto using tyeq_sym.
+  intros Htyeq.
+  invert Htyeq.
+Qed.
+
+Lemma CForall_CArrow_false' L ta tb : 
+    tyeq L ta tb ->
+    forall k t t1 i t2,
+      tyeq L ta (CForall k t) ->
+      tyeq L tb (CArrow t1 i t2) ->
+      False.
+Proof.
+  induct 1; eauto.
+  eapply IHtyeq2; eauto using tyeq_sym.
+  intros Htyeq.
+  invert Htyeq.
+Qed.
+
+Lemma CForall_CArrow_false' L k t t1 i t2 : 
+    tyeq L (CForall k t) (CArrow t1 i t2) ->
+    False.
+Proof.
+  induct 1.
+Qed.
+  
+Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' :
+  tyeq L (CArrow t1 i t2) (CArrow t1' i' t2') ->
+  tyeq L t1 t1' /\
+  interpP L (PEq i i') /\
+  tyeq L t2 t2'.
+Admitted.
+ *)
+
 Hint Resolve tyeq_refl tyeq_sym tyeq_trans interpP_le_refl interpP_le_trans : invert_typing.
+
+Inductive expr_un_op :=
+| EUProj (p : projector)
+| EUInj (inj : injector)
+| EUAppC (c : cstr)
+| EUPack (c : cstr)
+| EUFold
+| EUUnfold
+| EUNew 
+| EURead 
+.
+
+Inductive expr_bin_op :=
+| EBPrim (opr : prim_expr_bin_op)
+| EBApp
+| EBPair
+| EBWrite
+.
+
+Inductive expr :=
+| EVar (x : var)
+| EConst (cn : expr_const)
+| ELoc (l : loc)
+| EUnOp (opr : expr_un_op) (e : expr)
+| EBinOp (opr : expr_bin_op) (e1 e2 : expr)
+| ECase (e e1 e2 : expr)
+| EAbs (e : expr)
+| ERec (e : expr)
+| EAbsC (e : expr)
+| EUnpack (e1 e2 : expr)
+(* | EAsc (e : expr) (t : cstr) *)
+(* | EAstTime (e : expr) (i : cstr) *)
+.
+
+
+Definition EProj p e := EUnOp (EUProj p) e.
+Definition EInj c e := EUnOp (EUInj c) e.
+Definition EAppC e c := EUnOp (EUAppC c) e.
+Definition EPack c e := EUnOp (EUPack c) e.
+Definition EFold e := EUnOp EUFold e.
+Definition EUnfold e := EUnOp EUUnfold e.
+Definition ENew e := EUnOp EUNew e.
+Definition ERead e := EUnOp EURead e.
+
+Definition EApp := EBinOp EBApp.
+Definition EPair := EBinOp EBPair.
+Definition EWrite := EBinOp EBWrite.
+
+Inductive value : expr -> Prop :=
+| VVar x :
+    value (EVar x)
+| VConst cn :
+    value (EConst cn)
+| VPair v1 v2 :
+    value v1 ->
+    value v2 ->
+    value (EPair v1 v2)
+| VInj c v :
+    value v ->
+    value (EInj c v)
+| VAbs e :
+    value (EAbs e)
+| VAbsC e :
+    value (EAbsC e)
+| VPack c v :
+    value (EPack c v)
+| VFold v :
+    value (EFold v)
+| VLoc l :
+    value (ELoc l)
+.
+
+Inductive ectx :=
+| ECHole
+| ECUnOp (opr : expr_un_op) (E : ectx)
+| ECBinOp1 (opr : expr_bin_op) (E : ectx) (e : expr)
+| ECBinOp2 (opr : expr_bin_op) (v : expr) (E : ectx)
+| ECCase (E : ectx) (e1 e2 : expr)
+| ECUnpack (E : ectx) (e : expr)
+.
+
+Inductive plug : ectx -> expr -> expr -> Prop :=
+| PlugHole e :
+    plug ECHole e e
+| PlugUnOp E e e' opr :
+    plug E e e' ->
+    plug (ECUnOp opr E) e (EUnOp opr e')
+| PlugBinOp1 E e e' opr e2 :
+    plug E e e' ->
+    plug (ECBinOp1 opr E e2) e (EBinOp opr e' e2)
+| PlugBinOp2 E e e' opr v :
+    plug E e e' ->
+    value v ->
+    plug (ECBinOp2 opr v E) e (EBinOp opr v e')
+| PlugCase E e e' e1 e2 :
+    plug E e e' ->
+    plug (ECCase E e1 e2) e (ECase e' e1 e2)
+| PlugUnpack E e e' e2 :
+    plug E e e' ->
+    plug (ECUnpack E e2) e (EUnpack e' e2)
+.
+
+Definition EFst := EProj ProjFst.
+Definition ESnd := EProj ProjSnd.
+Definition EInl := EInj InjInl.
+Definition EInr := EInj InjInr.
+
+Definition ETT := EConst ECTT.
 
 Definition fmap_map {K A B} (f : A -> B) (m : fmap K A) : fmap K B.
 Admitted.
