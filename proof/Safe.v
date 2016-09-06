@@ -74,6 +74,9 @@ Inductive quan :=
 Definition var := nat.
 
 Inductive prop_bin_conn :=
+| PBCAnd
+| PBCOr
+| PBCImply
 .
 
 Inductive prop_bin_pred :=
@@ -129,6 +132,11 @@ Definition T1 := Tconst Time1.
 Definition Tadd := CBinOp CBTimeAdd.
 Definition Tminus := CBinOp CBTimeMinus.
 
+Definition PAnd := PBinConn PBCAnd.
+Definition POr := PBinConn PBCOr.
+Definition PImply := PBinConn PBCImply.
+Definition PIff a b := PAnd (PImply a b) (PImply b a).
+
 Delimit Scope idx_scope with idx.
 Infix "+" := Tadd : idx_scope.
 (* Notation "0" := T0 : idx_scope. *)
@@ -148,6 +156,8 @@ Definition CSum := CBinOp CBTypeSum.
 Definition Tle := PBinPred PBTimeLe.
 Infix "<=" := Tle : idx_scope.
 Infix "==" := PEq (at level 70) : idx_scope.
+Infix "-->" := PImply (at level 95) : idx_scope.
+Infix "<-->" := PIff (at level 95) : idx_scope.
 
 Require BinIntDef.
 Definition int := BinIntDef.Z.t.
@@ -248,10 +258,27 @@ Definition subst_c_c (x : var) (v : cstr) (b : cstr) : cstr.
 Admitted.
 Definition subst0_c_c := subst_c_c 0.
 
-Definition monotone : cstr -> Prop.
+Definition interpP : kctx -> prop -> Prop.
 Admitted.
 
-Definition interpP : kctx -> prop -> Prop.
+Lemma interpP_le_refl L i : interpP L (i <= i)%idx.
+Admitted.
+Lemma interpP_le_trans L a b c :
+  interpP L (a <= b)%idx ->
+  interpP L (b <= c)%idx ->
+  interpP L (a <= c)%idx.
+Admitted.
+
+Lemma interpP_eq_refl L i : interpP L (i == i)%idx.
+Admitted.
+Lemma interpP_eq_trans L a b c :
+  interpP L (a == b)%idx ->
+  interpP L (b == c)%idx ->
+  interpP L (a == c)%idx.
+Admitted.
+Lemma interpP_eq_sym L i i' :
+  interpP L (i == i')%idx ->
+  interpP L (i' == i)%idx.
 Admitted.
 
 Inductive kdeq : kctx -> kind -> kind -> Prop :=
@@ -263,12 +290,60 @@ Inductive kdeq : kctx -> kind -> kind -> Prop :=
     kdeq L (KArrow k1 k2) (KArrow k1' k2')
 | KdEqBaseSort L b :
     kdeq L (KBaseSort b) (KBaseSort b)
-| KdEqSubset :
+| KdEqSubset L k p k' p' :
     kdeq L k k' ->
-    (*here*)
-    interpP (k :: L) (p )
+    interpP (k :: L) (p <--> p')%idx ->
     kdeq L (KSubset k p) (KSubset k' p')
 .
+
+Hint Constructors kdeq.
+
+Lemma interpP_iff_refl L p : interpP L (p <--> p)%idx.
+Admitted.
+Lemma interpP_iff_trans L a b c :
+  interpP L (a <--> b)%idx ->
+  interpP L (b <--> c)%idx ->
+  interpP L (a <--> c)%idx.
+Admitted.
+Lemma interpP_iff_sym L p p' :
+  interpP L (p <--> p')%idx ->
+  interpP L (p' <--> p)%idx.
+Admitted.
+
+Lemma kdeq_interpP L k k' p :
+  kdeq L k k' ->
+  interpP (k :: L) p ->
+  interpP (k' :: L) p.
+Proof.
+  induct 1; eauto.
+  (*here*)
+Admitted.
+
+Lemma kdeq_refl : forall L k, kdeq L k k.
+Proof.
+  induct k; eauto using interpP_iff_refl.
+Qed.
+
+Lemma kdeq_sym L a b : kdeq L a b -> kdeq L b a.
+Proof.
+  induct 1; eauto using kdeq_interpP, interpP_iff_sym.
+Qed.
+
+Lemma kdeq_trans' L a b :
+  kdeq L a b ->
+  forall c,
+    kdeq L b c -> kdeq L a c.
+Proof.
+  induct 1; invert 1; eauto 6 using interpP_iff_trans, kdeq_interpP, kdeq_sym.
+Qed.
+
+Lemma kdeq_trans L a b c : kdeq L a b -> kdeq L b c -> kdeq L a c.
+Proof.
+  intros; eapply kdeq_trans'; eauto.
+Qed.
+
+Definition monotone : cstr -> Prop.
+Admitted.
 
 Inductive wfprop : kctx -> prop -> Prop :=
 | WfPropTrue L :
@@ -357,33 +432,6 @@ with kinding : kctx -> cstr -> kind -> Prop :=
     kinding L t KType ->
     kinding L (CRef t) KType
 .
-
-Lemma kdeq_refl L k : kdeq L k k.
-Admitted.
-Lemma kdeq_trans L a b c : kdeq L a b -> kdeq L b c -> kdeq L a c.
-Admitted.
-Lemma kdeq_sym L a b : kdeq L a b -> kdeq L b a.
-Admitted.
-
-Lemma interpP_le_refl L i : interpP L (i <= i)%idx.
-Admitted.
-Lemma interpP_le_trans L a b c :
-  interpP L (a <= b)%idx ->
-  interpP L (b <= c)%idx ->
-  interpP L (a <= c)%idx.
-Admitted.
-
-Lemma interpP_eq_refl L i : interpP L (i == i)%idx.
-Admitted.
-Lemma interpP_eq_trans L a b c :
-  interpP L (a == b)%idx ->
-  interpP L (b == c)%idx ->
-  interpP L (a == c)%idx.
-Admitted.
-Lemma interpP_eq_sym L i i' :
-  interpP L (i == i')%idx ->
-  interpP L (i' == i)%idx.
-Admitted.
 
 Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
 (* | TyEqRefl L t : *)
