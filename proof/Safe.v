@@ -81,6 +81,7 @@ Inductive prop_bin_conn :=
 
 Inductive prop_bin_pred :=
 | PBTimeLe
+| PBBigO (arity : nat)
 .
 
 Inductive base_sort :=
@@ -216,12 +217,14 @@ Definition cbinop_result_kind opr :=
 Definition binpred_arg1_kind opr :=
   match opr with
   | PBTimeLe => KTime
+  | PBBigO n => KTimeFun n
   end
 .
 
 Definition binpred_arg2_kind opr :=
   match opr with
   | PBTimeLe => KTime
+  | PBBigO n => KTimeFun n
   end
 .
 
@@ -257,6 +260,9 @@ Definition forget01_c_c := forget_c_c 0 1.
 Definition subst_c_c (x : var) (v : cstr) (b : cstr) : cstr.
 Admitted.
 Definition subst0_c_c := subst_c_c 0.
+
+Definition interpTime : cstr -> time.
+Admitted.
 
 Definition interpP : kctx -> prop -> Prop.
 Admitted.
@@ -315,7 +321,7 @@ Lemma kdeq_interpP L k k' p :
   interpP (k :: L) p ->
   interpP (k' :: L) p.
 Proof.
-  induct 1; eauto.
+  (* induct 1; eauto. *)
   (*here*)
 Admitted.
 
@@ -1224,9 +1230,6 @@ Definition htyping (h : heap) (W : hctx) :=
         value v /\
         typing ([], W, []) v t T0) /\
   (exists l, forall l', l' >= l -> h $? l = None).
-
-Definition interpTime : cstr -> time.
-Admitted.
 
 Definition ctyping W (s : config) t i :=
   let '(h, e, f) := s in
