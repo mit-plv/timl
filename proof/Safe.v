@@ -1728,12 +1728,13 @@ Proof.
       simplify.
       unfold TimeAdd in *.
       (*here*)
-      linear_arithmetic.
-      omega.
+      (* linear_arithmetic. *)
+      (* omega. *)
       admit.
     }
     assert (Hi2 : (interpTime i2 <= f)%time).
     {
+      repeat rewrite interpTime_distr in Hle.
       admit.
     }
     eapply IHtyping1 in Hi1; eauto.
@@ -1749,6 +1750,7 @@ Proof.
         exists (h, subst0_e_e e2 e, (f - 1)%time).
         econstructor; eauto.
         econstructor; eauto.
+        repeat rewrite interpTime_distr in Hle.
         admit. (* (1 <= f)%time *)
       }
       {
@@ -1871,6 +1873,11 @@ Proof.
     simplify.
     subst.
     eapply IHtyping; eauto.
+    Lemma interpP_le_interpTime a b :
+      interpP [] (a <= b)%idx ->
+      (interpTime a <= interpTime b)%time.
+    Admitted.
+    eapply interpP_le_interpTime in H1.
     admit. (* (interpTime i1 <= f)%time *)
   }
   {
