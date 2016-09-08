@@ -2,65 +2,6 @@ Require Import Frap.
 
 Set Implicit Arguments.
 
-Require Rdefinitions.
-
-Module RealTime.
-  Module R := Rdefinitions.
-  Definition real := R.R.
-  (* Require RIneq. *)
-  (* Definition nnreal := RIneq.nonnegreal. *)
-  Definition time_type := real.
-  Definition Time0 := R.R0.
-  Definition Time1 := R.R1.
-  Definition TimeAdd := R.Rplus.
-  Definition TimeMinus := R.Rminus.
-  Definition TimeLe := R.Rle.
-  Delimit Scope time_scope with time.
-  Notation "0" := Time0 : time_scope.
-  Notation "1" := Time1 : time_scope.
-  Infix "+" := TimeAdd : time_scope.
-  Infix "-" := TimeMinus : time_scope.
-  Infix "<=" := TimeLe : time_scope.
-
-  Module OpenScope.
-    Open Scope time_scope.
-  End OpenScope.
-
-  Module CloseScope.
-    Close Scope time_scope.
-  End CloseScope.
-
-End RealTime.
-
-Module NatTime.
-  Definition time_type := nat.
-  Definition Time0 := 0.
-  Definition Time1 := 1.
-  Definition TimeAdd := plus.
-  Definition TimeMinus := Peano.minus.
-  Definition TimeLe := le.
-  Delimit Scope time_scope with time.
-  Notation "0" := Time0 : time_scope.
-  Notation "1" := Time1 : time_scope.
-  Infix "+" := TimeAdd : time_scope.
-  Infix "-" := TimeMinus : time_scope.
-  Infix "<=" := TimeLe : time_scope.
-
-  Module OpenScope.
-    Open Scope time_scope.
-  End OpenScope.
-
-  Module CloseScope.
-    Close Scope time_scope.
-  End CloseScope.
-
-End NatTime.
-
-(* Module Time := RealTime. *)
-Module Time := NatTime.
-
-Import Time.
-
 Ltac copy h h2 := generalize h; intro h2.
 
 Ltac try_eexists := try match goal with | |- exists _, _ => eexists end.
@@ -72,6 +13,90 @@ Ltac eexists_split :=
       | |- exists _, _ => eexists
       | |- _ /\ _ => split
       end.
+
+Module Type TIME.
+  Parameter time_type : Type.
+  Parameter Time0 : time_type.
+  Parameter Time1 : time_type.
+  Parameter TimeAdd : time_type -> time_type -> time_type.
+  Parameter TimeMinus : time_type -> time_type -> time_type.
+  Parameter TimeLe : time_type -> time_type -> Prop.
+End TIME.
+
+Module RealTime <: TIME.
+  Require Rdefinitions.
+  Module R := Rdefinitions.
+  Definition real := R.R.
+  (* Require RIneq. *)
+  (* Definition nnreal := RIneq.nonnegreal. *)
+  Definition time_type := real.
+  (* Definition time_type := nnreal. *)
+  Definition Time0 := R.R0.
+  Definition Time1 := R.R1.
+  Definition TimeAdd := R.Rplus.
+  Definition TimeMinus := R.Rminus.
+  Definition TimeLe := R.Rle.
+End RealTime.
+
+Module NNRealTime <: TIME.
+  Require RIneq.
+  Definition nnreal := RIneq.nonnegreal.
+  Definition time_type := nnreal.
+  Definition Time0 : time_type.
+    Require Rdefinitions.
+    Module R := Rdefinitions.
+    refine (RIneq.mknonnegreal R.R0 _).
+    eauto with rorders.
+  Defined.
+  Definition Time1 : time_type.
+    refine (RIneq.mknonnegreal R.R1 _).
+    eauto with rorders.
+    admit.
+  Admitted.
+  Definition TimeAdd (a b : time_type) : time_type.
+    Import RIneq.
+    refine (mknonnegreal (R.Rplus (nonneg a) (nonneg b)) _).
+    destruct a.
+    destruct b.
+    simplify.
+    admit.
+  Admitted.
+  Definition TimeMinus (a b : time_type) : time_type.
+  Admitted.
+  Definition TimeLe (a b : time_type) : Prop.
+    refine (R.Rle (nonneg a) (nonneg b)).
+  Defined.
+End NNRealTime.
+
+Module NatTime <: TIME.
+  Definition time_type := nat.
+  Definition Time0 := 0.
+  Definition Time1 := 1.
+  Definition TimeAdd := plus.
+  Definition TimeMinus := Peano.minus.
+  Definition TimeLe := le.
+End NatTime.
+
+(* Module Time := RealTime. *)
+(* Module Time := NatTime. *)
+
+Module M (Time : TIME).
+Import Time.
+
+Delimit Scope time_scope with time.
+Notation "0" := Time0 : time_scope.
+Notation "1" := Time1 : time_scope.
+Infix "+" := TimeAdd : time_scope.
+Infix "-" := TimeMinus : time_scope.
+Infix "<=" := TimeLe : time_scope.
+
+Module OpenScope.
+  Open Scope time_scope.
+End OpenScope.
+
+Module CloseScope.
+  Close Scope time_scope.
+End CloseScope.
 
 Inductive cstr_const :=
 | CCIdxTT
@@ -528,216 +553,220 @@ Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
     tyeq L (CAbs t) (CAbs t)
 .
 
-Hint Constructors tyeq.
+Section tyeq_hint.
+  
+  Local Hint Constructors tyeq.
 
-Lemma tyeq_refl : forall t L, tyeq L t t.
-Proof.
-  induct t; eauto using interpP_eq_refl, kdeq_refl.
-Qed.
+  Lemma tyeq_refl : forall t L, tyeq L t t.
+  Proof.
+    induct t; eauto using interpP_eq_refl, kdeq_refl.
+  Qed.
 
-Lemma kdeq_tyeq L k k' t t' :
-  kdeq L k k' ->
-  tyeq (k :: L) t t' ->
-  tyeq (k' :: L) t t'.
-Admitted.
+  Lemma kdeq_tyeq L k k' t t' :
+    kdeq L k k' ->
+    tyeq (k :: L) t t' ->
+    tyeq (k' :: L) t t'.
+  Admitted.
 
-Lemma tyeq_sym L t1 t2 : tyeq L t1 t2 -> tyeq L t2 t1.
-Proof.
-  induct 1; eauto using interpP_eq_sym, kdeq_sym.
-  {
-    econstructor; eauto using interpP_eq_sym, kdeq_sym.
-    eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym.
-  }
-Qed.
-
-Lemma tyeq_trans' L a b :
-  tyeq L a b ->
-  forall c,
-    tyeq L b c ->
-    tyeq L a c.
-Proof.
-  induct 1; try solve [intros c Hbc; invert Hbc; eauto 3 using interpP_eq_trans, tyeq_refl].
-  (* induct 1; try solve [induct 1; eauto using interpP_eq_trans, tyeq_refl]. *)
-  {
-    induct 1; eauto using interpP_eq_trans, tyeq_refl.
-  }
-  {
-    induct 1; eauto using interpP_eq_trans, tyeq_refl.
-  }
-  {
-    induct 1; eauto using interpP_eq_trans, tyeq_refl.
-  }
-  {
-    induct 1; eauto using interpP_eq_trans, tyeq_refl.
-  }
-  {
-    induct 1; eauto using interpP_eq_trans, tyeq_refl.
-  }
-  {
-    rename t' into a.
-    induct 1.
+  Lemma tyeq_sym L t1 t2 : tyeq L t1 t2 -> tyeq L t2 t1.
+  Proof.
+    induct 1; eauto using interpP_eq_sym, kdeq_sym.
     {
-      eauto using interpP_eq_trans, tyeq_refl.
+      econstructor; eauto using interpP_eq_sym, kdeq_sym.
+      eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym.
+    }
+  Qed.
+
+  Lemma tyeq_trans' L a b :
+    tyeq L a b ->
+    forall c,
+      tyeq L b c ->
+      tyeq L a c.
+  Proof.
+    induct 1; try solve [intros c Hbc; invert Hbc; eauto 3 using interpP_eq_trans, tyeq_refl].
+    (* induct 1; try solve [induct 1; eauto using interpP_eq_trans, tyeq_refl]. *)
+    {
+      induct 1; eauto using interpP_eq_trans, tyeq_refl.
     }
     {
-      rename t' into c.
-      copy H2_ HH.
-      eapply IHtyeq1 in HH.
-      invert HH.
-      copy H2_0 HH2.
-      eapply IHtyeq2 in HH2.
-      admit.
-      (* may need logical relation here *)
-      
-      (* eapply IHtyeq3. *)
-      (* Lemma subst0_c_c_tyeq : *)
-      (*   forall t1 L t2 t2' t, *)
-      (*     tyeq L t2' t2 -> *)
-      (*     tyeq L (subst0_c_c t2 t1) t -> *)
-      (*     tyeq L (subst0_c_c t2' t1) t. *)
-      (* Admitted. *)
-      (* eapply subst0_c_c_tyeq; eauto. *)
-      (* admit. *)
+      induct 1; eauto using interpP_eq_trans, tyeq_refl.
     }
     {
-      eauto using interpP_eq_trans, tyeq_refl.
+      induct 1; eauto using interpP_eq_trans, tyeq_refl.
     }
-  }
-  {
-    induct 1; eauto using interpP_eq_trans, tyeq_refl.
-    econstructor; eauto using kdeq_trans.
-    eapply IHtyeq.
-    eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym.
-  }
-  {
-    induct 1; eauto using interpP_eq_trans, tyeq_refl.
-  }
-  {
-    induct 1; eauto using interpP_eq_trans, tyeq_refl.
-  }
+    {
+      induct 1; eauto using interpP_eq_trans, tyeq_refl.
+    }
+    {
+      induct 1; eauto using interpP_eq_trans, tyeq_refl.
+    }
+    {
+      rename t' into a.
+      induct 1.
+      {
+        eauto using interpP_eq_trans, tyeq_refl.
+      }
+      {
+        rename t' into c.
+        copy H2_ HH.
+        eapply IHtyeq1 in HH.
+        invert HH.
+        copy H2_0 HH2.
+        eapply IHtyeq2 in HH2.
+        admit.
+        (* may need logical relation here *)
+        
+        (* eapply IHtyeq3. *)
+        (* Lemma subst0_c_c_tyeq : *)
+        (*   forall t1 L t2 t2' t, *)
+        (*     tyeq L t2' t2 -> *)
+        (*     tyeq L (subst0_c_c t2 t1) t -> *)
+        (*     tyeq L (subst0_c_c t2' t1) t. *)
+        (* Admitted. *)
+        (* eapply subst0_c_c_tyeq; eauto. *)
+        (* admit. *)
+      }
+      {
+        eauto using interpP_eq_trans, tyeq_refl.
+      }
+    }
+    {
+      induct 1; eauto using interpP_eq_trans, tyeq_refl.
+      econstructor; eauto using kdeq_trans.
+      eapply IHtyeq.
+      eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym.
+    }
+    {
+      induct 1; eauto using interpP_eq_trans, tyeq_refl.
+    }
+    {
+      induct 1; eauto using interpP_eq_trans, tyeq_refl.
+    }
     (* intros c Hbc. *)
     (* invert Hbc. *)
     (* econstructor; eauto using kdeq_trans. *)
     (* eapply IHtyeq. *)
     (* eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym. *)
-  (* induct 1; eauto using interpP_eq_trans, tyeq_refl, kdeq_tyeq, kdeq_trans, kdeq_sym. *)
-  
-  (* solve [invert Hbc; eauto 4 using interpP_eq_trans, tyeq_refl]. *)
-  (* induct 1; intros c Hbc; try solve [invert Hbc; eauto 4]. *)
-  (* induct 1; intros c Hbc; try solve [invert Hbc; eauto using tyeq_refl]. *)
-  (* induct 1; intros c Hbc; try solve [invert Hbc; eauto using interpP_eq_trans, tyeq_refl]. *)
-  (* { *)
-  (*   invert Hbc. *)
-  (*   econstructor; eauto using kdeq_trans. *)
-  (*   eapply IHtyeq. *)
-  (*   eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym. *)
-  (* } *)
-Qed.
+    (* induct 1; eauto using interpP_eq_trans, tyeq_refl, kdeq_tyeq, kdeq_trans, kdeq_sym. *)
+    
+    (* solve [invert Hbc; eauto 4 using interpP_eq_trans, tyeq_refl]. *)
+    (* induct 1; intros c Hbc; try solve [invert Hbc; eauto 4]. *)
+    (* induct 1; intros c Hbc; try solve [invert Hbc; eauto using tyeq_refl]. *)
+    (* induct 1; intros c Hbc; try solve [invert Hbc; eauto using interpP_eq_trans, tyeq_refl]. *)
+    (* { *)
+    (*   invert Hbc. *)
+    (*   econstructor; eauto using kdeq_trans. *)
+    (*   eapply IHtyeq. *)
+    (*   eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym. *)
+    (* } *)
+  Admitted.
 
-Lemma tyeq_trans L a b c :
-  tyeq L a b ->
-  tyeq L b c ->
-  tyeq L a c.
-Proof.
-  intros; eapply tyeq_trans'; eauto.
-Qed.
+  Lemma tyeq_trans L a b c :
+    tyeq L a b ->
+    tyeq L b c ->
+    tyeq L a c.
+  Proof.
+    intros; eapply tyeq_trans'; eauto.
+  Qed.
 
-Lemma CForall_CArrow_false k t t1 i t2 :
-  tyeq [] (CForall k t) (CArrow t1 i t2) ->
-  False.
-Proof.
-  invert 1.
-Qed.
+  Lemma CForall_CArrow_false k t t1 i t2 :
+    tyeq [] (CForall k t) (CArrow t1 i t2) ->
+    False.
+  Proof.
+    invert 1.
+  Qed.
 
-Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' :
-  tyeq L (CArrow t1 i t2) (CArrow t1' i' t2') ->
-  tyeq L t1 t1' /\
-  interpP L (PEq i i') /\
-  tyeq L t2 t2'.
-Proof.
-  invert 1.
-  repeat eexists_split; eauto.
-Qed.
+  Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' :
+    tyeq L (CArrow t1 i t2) (CArrow t1' i' t2') ->
+    tyeq L t1 t1' /\
+    interpP L (PEq i i') /\
+    tyeq L t2 t2'.
+  Proof.
+    invert 1.
+    repeat eexists_split; eauto.
+  Qed.
 
-Lemma CExists_CArrow_false k t t1 i t2 :
-  tyeq [] (CExists k t) (CArrow t1 i t2) ->
-  False.
-Proof.
-  invert 1.
-Qed.
+  Lemma CExists_CArrow_false k t t1 i t2 :
+    tyeq [] (CExists k t) (CArrow t1 i t2) ->
+    False.
+  Proof.
+    invert 1.
+  Qed.
 
-Lemma const_type_CArrow_false cn t1 i t2 :
-  tyeq [] (const_type cn) (CArrow t1 i t2) ->
-  False.
-Proof.
-  cases cn; intros Htyeq; simplify;
-    invert Htyeq.
-Qed.
+  Lemma const_type_CArrow_false cn t1 i t2 :
+    tyeq [] (const_type cn) (CArrow t1 i t2) ->
+    False.
+  Proof.
+    cases cn; intros Htyeq; simplify;
+      invert Htyeq.
+  Qed.
 
-Lemma CProd_CArrow_false ta tb t1 i t2 :
-  tyeq [] (CProd ta tb) (CArrow t1 i t2) ->
-  False.
-Proof.
-  invert 1.
-Qed.
+  Lemma CProd_CArrow_false ta tb t1 i t2 :
+    tyeq [] (CProd ta tb) (CArrow t1 i t2) ->
+    False.
+  Proof.
+    invert 1.
+  Qed.
 
-Lemma CSum_CArrow_false ta tb t1 i t2 :
-  tyeq [] (CSum ta tb) (CArrow t1 i t2) ->
-  False.
-Proof.
-  invert 1.
-Qed.
+  Lemma CSum_CArrow_false ta tb t1 i t2 :
+    tyeq [] (CSum ta tb) (CArrow t1 i t2) ->
+    False.
+  Proof.
+    invert 1.
+  Qed.
 
-Lemma CRef_CArrow_false t t1 i t2 :
-  tyeq [] (CRef t) (CArrow t1 i t2) ->
-  False.
-Proof.
-  invert 1.
-Qed.
+  Lemma CRef_CArrow_false t t1 i t2 :
+    tyeq [] (CRef t) (CArrow t1 i t2) ->
+    False.
+  Proof.
+    invert 1.
+  Qed.
 
-Lemma invert_tyeq_CExists L k1 t1 k2 t2 :
-  tyeq L (CExists k1 t1) (CExists k2 t2) ->
-  tyeq (k1 :: L) t1 t2 /\
-  kdeq L k1 k2.
-Proof.
-  invert 1.
-  repeat eexists_split; eauto.
-Qed.
+  Lemma invert_tyeq_CExists L k1 t1 k2 t2 :
+    tyeq L (CExists k1 t1) (CExists k2 t2) ->
+    tyeq (k1 :: L) t1 t2 /\
+    kdeq L k1 k2.
+  Proof.
+    invert 1.
+    repeat eexists_split; eauto.
+  Qed.
 
-Lemma invert_tyeq_CForall L k1 t1 k2 t2 :
-  tyeq L (CForall k1 t1) (CForall k2 t2) ->
-  tyeq (k1 :: L) t1 t2 /\
-  kdeq L k1 k2.
-Proof.
-  invert 1.
-  repeat eexists_split; eauto.
-Qed.
+  Lemma invert_tyeq_CForall L k1 t1 k2 t2 :
+    tyeq L (CForall k1 t1) (CForall k2 t2) ->
+    tyeq (k1 :: L) t1 t2 /\
+    kdeq L k1 k2.
+  Proof.
+    invert 1.
+    repeat eexists_split; eauto.
+  Qed.
 
-Lemma invert_tyeq_CRef L t t' :
-  tyeq L (CRef t) (CRef t') ->
-  tyeq L t t'.
-Proof.
-  invert 1.
-  repeat eexists_split; eauto.
-Qed.
+  Lemma invert_tyeq_CRef L t t' :
+    tyeq L (CRef t) (CRef t') ->
+    tyeq L t t'.
+  Proof.
+    invert 1.
+    repeat eexists_split; eauto.
+  Qed.
 
-Lemma invert_tyeq_CProd L t1 t2 t1' t2' :
-  tyeq L (CProd t1 t2) (CProd t1' t2') ->
-  tyeq L t1 t1' /\
-  tyeq L t2 t2'.
-Proof.
-  invert 1.
-  repeat eexists_split; eauto.
-Qed.
+  Lemma invert_tyeq_CProd L t1 t2 t1' t2' :
+    tyeq L (CProd t1 t2) (CProd t1' t2') ->
+    tyeq L t1 t1' /\
+    tyeq L t2 t2'.
+  Proof.
+    invert 1.
+    repeat eexists_split; eauto.
+  Qed.
 
-Lemma invert_tyeq_CSum L t1 t2 t1' t2' :
-  tyeq L (CSum t1 t2) (CSum t1' t2') ->
-  tyeq L t1 t1' /\
-  tyeq L t2 t2'.
-Proof.
-  invert 1.
-  repeat eexists_split; eauto.
-Qed.
+  Lemma invert_tyeq_CSum L t1 t2 t1' t2' :
+    tyeq L (CSum t1 t2) (CSum t1' t2') ->
+    tyeq L t1 t1' /\
+    tyeq L t2 t2'.
+  Proof.
+    invert 1.
+    repeat eexists_split; eauto.
+  Qed.
+
+End tyeq_hint.
 
 (*
 Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
@@ -1201,7 +1230,7 @@ Definition config := (heap * expr * fuel)%type.
 
 (* Local Open Scope time_scope. *)
 
-Import Time.OpenScope.
+Import OpenScope.
 
 Inductive astep : config -> config -> Prop :=
 | ABeta h e v t :
@@ -1278,7 +1307,7 @@ Definition safe s := forall s', step^* s s' -> unstuck s'.
 
 (* Local Close Scope time_scope. *)
 
-Import Time.CloseScope.
+Import CloseScope.
 
 Arguments get_kctx _ / .
 Arguments get_hctx _ / .
@@ -1723,19 +1752,17 @@ Proof.
       Lemma interpTime_distr a b : interpTime (a + b)%idx = (interpTime a + interpTime b)%time.
       Admitted.
       repeat rewrite interpTime_distr in Hle.
-      Transparent TimeAdd.
-      Arguments TimeAdd / .
-      simplify.
-      unfold TimeAdd in *.
-      (*here*)
-      (* linear_arithmetic. *)
-      (* omega. *)
-      admit.
+      Lemma Time_add_le_elim a b c :
+        (a + b <= c -> a <= c /\ b <= c)%time.
+      Admitted.
+      repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+      eauto.
     }
     assert (Hi2 : (interpTime i2 <= f)%time).
     {
       repeat rewrite interpTime_distr in Hle.
-      admit.
+      repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+      eauto.
     }
     eapply IHtyping1 in Hi1; eauto.
     cases Hi1; simplify.
@@ -1750,8 +1777,12 @@ Proof.
         exists (h, subst0_e_e e2 e, (f - 1)%time).
         econstructor; eauto.
         econstructor; eauto.
+        Lemma interpTime_1 : interpTime T1 = 1%time.
+        Admitted.
         repeat rewrite interpTime_distr in Hle.
-        admit. (* (1 <= f)%time *)
+        repeat rewrite interpTime_1 in Hle.
+        repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+        eauto.
       }
       {
         destruct H1 as (((h' & e2') & f') & Hstep).
@@ -1878,7 +1909,11 @@ Proof.
       (interpTime a <= interpTime b)%time.
     Admitted.
     eapply interpP_le_interpTime in H1.
-    admit. (* (interpTime i1 <= f)%time *)
+    Lemma Time_le_trans a b c :
+      (a <= b -> b <= c -> a <= c)%time.
+    Admitted.
+    Hint Resolve Time_le_trans : time_order.
+    eauto with time_order.
   }
   {
     (* Case Pack *)
@@ -1910,7 +1945,9 @@ Proof.
     subst.
     assert (Hi1 : (interpTime i1 <= f)%time).
     {
-      admit.
+      repeat rewrite interpTime_distr in Hle.
+      repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+      eauto.
     }
     eapply IHtyping1 in Hi1; eauto.
     cases Hi1; simplify.
@@ -1945,11 +1982,15 @@ Proof.
     subst.
     assert (Hi1 : (interpTime i1 <= f)%time).
     {
-      admit.
+      repeat rewrite interpTime_distr in Hle.
+      repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+      eauto.
     }
     assert (Hi2 : (interpTime i2 <= f)%time).
     {
-      admit.
+      repeat rewrite interpTime_distr in Hle.
+      repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+      eauto.
     }
     eapply IHtyping1 in Hi1; eauto.
     cases Hi1; simplify.
@@ -2031,7 +2072,9 @@ Proof.
     subst.
     assert (Hile : (interpTime i <= f)%time).
     {
-      admit.
+      repeat rewrite interpTime_distr in Hle.
+      repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+      eauto.
     }
     eapply IHtyping1 in Hile; eauto.
     destruct Hile as [He | He]; simplify.
@@ -2115,11 +2158,15 @@ Proof.
     subst.
     assert (Hi1 : (interpTime i1 <= f)%time).
     {
-      admit.
+      repeat rewrite interpTime_distr in Hle.
+      repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+      eauto.
     }
     assert (Hi2 : (interpTime i2 <= f)%time).
     {
-      admit.
+      repeat rewrite interpTime_distr in Hle.
+      repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+      eauto.
     }
     eapply IHtyping1 in Hi1; eauto.
     destruct Hi1 as [He1 | He1]; simplify.
@@ -2200,7 +2247,8 @@ Proof.
   intros.
   eapply TySub; eauto.
   admit. (* interpP (get_kctx C) (i <= i)%idx *)
-Qed.
+Admitted.
+
 Lemma TyLe C e t i1 i2 :
   typing C e t i1 ->
   interpP (get_kctx C) (i1 <= i2)%idx ->
@@ -2228,7 +2276,9 @@ Lemma invert_typing_App C e1 e2 t i :
     typing C e2 t2 i2 /\
     interpP (get_kctx C) (i1 + i2 + T1 + i3 <= i)%idx.
 Proof.
-  induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+  induct 1; openhyp; repeat eexists_split;
+    eauto;
+    eauto with invert_typing.
 Qed.  
 
 Lemma invert_typing_Abs C e t i :
@@ -2331,7 +2381,7 @@ Lemma invert_typing_Read C e t i :
     interpP (get_kctx C) (i' <= i)%idx.
 Proof.
   induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
-  eapply TySub; try eapply H2; eauto.
+  eapply TySub; try eapply H2; try econstructor; eauto.
 Qed.
 
 Lemma invert_typing_Loc C l t i :
@@ -2510,8 +2560,14 @@ Proof.
     destruct Htyeq2 as (Htyeq2 & Hieq & Htyeq3).
     split.
     {
-      (* (1 + f - f <= interpTime i)%time *)
-      admit.
+      Lemma xM_xM1' x : (1 <= x -> x - (x - 1) = 1)%time.
+      Admitted.
+      rewrite xM_xM1' by eauto.
+      eapply interpP_le_interpTime in Hle2.
+      repeat rewrite interpTime_distr in Hle2.
+      repeat rewrite interpTime_1 in Hle2.
+      repeat (eapply Time_add_le_elim in Hle2; destruct Hle2 as (Hle2 & ?)).
+      eauto.
     }
     exists W.
     repeat try_split.
@@ -2528,6 +2584,13 @@ Proof.
       }
       {
         simplify.
+        rewrite xM_xM1' by eauto.
+        eapply interpP_le_interpTime in Hle2.
+        repeat rewrite interpTime_distr in Hle2.
+        repeat rewrite interpTime_1 in Hle2.
+        repeat (eapply Time_add_le_elim in Hle2; destruct Hle2 as (Hle2 & ?)).
+        (*here*)
+        eauto.
         (* le *)
         admit.
       }
@@ -3683,3 +3746,5 @@ Proof.
     eauto.
   }
 Qed.
+
+End M.
