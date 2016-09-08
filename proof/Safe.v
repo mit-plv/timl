@@ -3487,7 +3487,15 @@ Proof.
       }
       {
         simplify.
-        admit. (* interpP [] (i1' + Tminus i1 i0 <= i1' + Tminus i i0)%idx *)
+        eapply interpTime_interpP_le.
+        repeat rewrite interpTime_distr.
+        rotate_lhs.
+        rotate_rhs.
+        cancel.
+        repeat rewrite interpTime_minus_distr.
+        eapply Time_minus_cancel.
+        eapply interpP_le_interpTime in Hle.
+        eauto.
       }
     }
     {
@@ -3500,6 +3508,7 @@ Proof.
       exists t0, i0.
       repeat split; eauto.
       {
+        (*here*)
         admit. (* interpP [] (i0 <= i)%idx *)
       }
       intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
