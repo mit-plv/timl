@@ -4,12 +4,12 @@ Set Implicit Arguments.
 
 Require Rdefinitions.
 
-Module Time.
+Module RealTime.
   Module R := Rdefinitions.
   Definition real := R.R.
   (* Require RIneq. *)
   (* Definition nnreal := RIneq.nonnegreal. *)
-  Definition time := real.
+  Definition time_type := real.
   Definition Time0 := R.R0.
   Definition Time1 := R.R1.
   Definition TimeAdd := R.Rplus.
@@ -30,7 +30,34 @@ Module Time.
     Close Scope time_scope.
   End CloseScope.
 
-End Time.
+End RealTime.
+
+Module NatTime.
+  Definition time_type := nat.
+  Definition Time0 := 0.
+  Definition Time1 := 1.
+  Definition TimeAdd := plus.
+  Definition TimeMinus := Peano.minus.
+  Definition TimeLe := le.
+  Delimit Scope time_scope with time.
+  Notation "0" := Time0 : time_scope.
+  Notation "1" := Time1 : time_scope.
+  Infix "+" := TimeAdd : time_scope.
+  Infix "-" := TimeMinus : time_scope.
+  Infix "<=" := TimeLe : time_scope.
+
+  Module OpenScope.
+    Open Scope time_scope.
+  End OpenScope.
+
+  Module CloseScope.
+    Close Scope time_scope.
+  End CloseScope.
+
+End NatTime.
+
+(* Module Time := RealTime. *)
+Module Time := NatTime.
 
 Import Time.
 
@@ -49,7 +76,7 @@ Ltac eexists_split :=
 Inductive cstr_const :=
 | CCIdxTT
 | CCIdxNat (n : nat)
-| CCTime (r : time)
+| CCTime (r : time_type)
 | CCTypeUnit
 | CCTypeInt
 .
@@ -261,7 +288,7 @@ Definition subst_c_c (x : var) (v : cstr) (b : cstr) : cstr.
 Admitted.
 Definition subst0_c_c := subst_c_c 0.
 
-Definition interpTime : cstr -> time.
+Definition interpTime : cstr -> time_type.
 Admitted.
 
 Definition interpP : kctx -> prop -> Prop.
@@ -322,7 +349,6 @@ Lemma kdeq_interpP L k k' p :
   interpP (k' :: L) p.
 Proof.
   (* induct 1; eauto. *)
-  (*here*)
 Admitted.
 
 Lemma kdeq_refl : forall L k, kdeq L k k.
@@ -562,7 +588,6 @@ Proof.
       eapply IHtyeq2 in HH2.
       admit.
       (* may need logical relation here *)
-      (* (*here*) *)
       
       (* eapply IHtyeq3. *)
       (* Lemma subst0_c_c_tyeq : *)
@@ -1166,7 +1191,7 @@ Definition subst_c_e (x : var) (v : cstr) (b : expr) : expr.
 Admitted.
 Definition subst0_c_e := subst_c_e 0.
 
-Definition fuel := time.
+Definition fuel := time_type.
 
 Definition config := (heap * expr * fuel)%type.
 
@@ -1695,6 +1720,16 @@ Proof.
     subst.
     assert (Hi1 : (interpTime i1 <= f)%time).
     {
+      Lemma interpTime_distr a b : interpTime (a + b)%idx = (interpTime a + interpTime b)%time.
+      Admitted.
+      repeat rewrite interpTime_distr in Hle.
+      Transparent TimeAdd.
+      Arguments TimeAdd / .
+      simplify.
+      unfold TimeAdd in *.
+      (*here*)
+      linear_arithmetic.
+      omega.
       admit.
     }
     assert (Hi2 : (interpTime i2 <= f)%time).
