@@ -444,7 +444,7 @@ Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
 (*     tyeq L t t *)
 | TyEqVar L x :
     tyeq L (CVar x) (CVar x)
-| TyConst L cn :
+| TyEqConst L cn :
     tyeq L (CConst cn) (CConst cn)
 (* | TyEqUnOp L opr t t' : *)
 (*     tyeq L t t' -> *)
@@ -969,8 +969,10 @@ Inductive value : expr -> Prop :=
 | VAbsC e :
     value (EAbsC e)
 | VPack c v :
+    value v ->
     value (EPack c v)
 | VFold v :
+    value v ->
     value (EFold v)
 | VLoc l :
     value (ELoc l)
@@ -1282,6 +1284,42 @@ Proof.
   (* intros; discriminate. *)
 Admitted.
 
+Lemma CApps_CRec_CForall_false cs t3 k t  :
+  tyeq [] (CApps (CRec t3) cs) (CForall k t) ->
+  False.
+Proof.
+Admitted.
+
+Lemma CApps_CRec_CExists_false cs t3 k t  :
+  tyeq [] (CApps (CRec t3) cs) (CExists k t) ->
+  False.
+Proof.
+Admitted.
+
+Lemma CApps_CRec_const_type_false cs t3 cn  :
+  tyeq [] (CApps (CRec t3) cs) (const_type cn) ->
+  False.
+Proof.
+Admitted.
+
+Lemma CApps_CRec_CProd_false cs t3 t1 t2  :
+  tyeq [] (CApps (CRec t3) cs) (CProd t1 t2) ->
+  False.
+Proof.
+Admitted.
+
+Lemma CApps_CRec_CSum_false cs t3 t1 t2  :
+  tyeq [] (CApps (CRec t3) cs) (CSum t1 t2) ->
+  False.
+Proof.
+Admitted.
+
+Lemma CApps_CRec_CRef_false cs t3 t  :
+  tyeq [] (CApps (CRec t3) cs) (CRef t) ->
+  False.
+Proof.
+Admitted.
+
 Lemma invert_tyeq_CApps t cs t' cs' :
   tyeq [] (CApps (CRec t) cs) (CApps (CRec t') cs') ->
   exists ks ,
@@ -1341,26 +1379,183 @@ Proof.
   intros; eapply canon_CArrow'; eauto with invert_typing.
 Qed.
 
+Lemma canon_CForall' C v t i :
+  typing C v t i ->
+  get_kctx C = [] ->
+  get_tctx C = [] ->
+  forall k t' ,
+    tyeq [] t (CForall k t') ->
+    value v ->
+    exists e,
+      v = EAbsC e.
+Proof.
+  induct 1; intros Hknil Htnil k' t'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Htyeq]; subst.
+  {
+    rewrite Htnil in H.
+    rewrite nth_error_nil in H.
+    invert H.
+  }
+  {
+    eapply CApps_CRec_CForall_false in Htyeq; propositional.
+  }
+  {
+    destruct C as ((L & W) & G); simplify; subst.
+    eapply IHtyping; eauto with invert_typing.
+  }
+  {
+    cases cn; simplify; invert Htyeq.
+  }
+  {
+    cases inj; simplify; invert Htyeq.
+  }
+Qed.
+
 Lemma canon_CForall W v k t i :
   typing ([], W, []) v (CForall k t) i ->
   value v ->
   exists e,
     v = EAbsC e.
-Admitted.
+Proof.
+  intros; eapply canon_CForall'; eauto with invert_typing.
+Qed.
+
+Lemma canon_CRec' C v t i :
+  typing C v t i ->
+  get_kctx C = [] ->
+  get_tctx C = [] ->
+  forall t' cs ,
+    tyeq [] t (CApps (CRec t') cs) ->
+    value v ->
+    exists e,
+      v = EFold e /\
+      value e.
+Proof.
+  induct 1; intros Hknil Htnil t'' cs' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst.
+  {
+    rewrite Htnil in H.
+    rewrite nth_error_nil in H.
+    invert H.
+  }
+  {
+    eapply tyeq_sym in Htyeq.
+    eapply CApps_CRec_CArrow_false in Htyeq; propositional.
+  }
+  {
+    eapply tyeq_sym in Htyeq.
+    eapply CApps_CRec_CForall_false in Htyeq; propositional.
+  }
+  {
+    destruct C as ((L & W) & G); simplify; subst.
+    eapply IHtyping; eauto with invert_typing.
+  }
+  {
+    eapply tyeq_sym in Htyeq.
+    eapply CApps_CRec_CExists_false in Htyeq; propositional.
+  }
+  {
+    eapply tyeq_sym in Htyeq.
+    eapply CApps_CRec_const_type_false in Htyeq; propositional.
+  }
+  {
+    eapply tyeq_sym in Htyeq.
+    eapply CApps_CRec_CProd_false in Htyeq; propositional.
+  }
+  {
+    eapply tyeq_sym in Htyeq.
+    cases inj; simplify;
+      eapply CApps_CRec_CSum_false in Htyeq; propositional.
+  }
+  {
+    eapply tyeq_sym in Htyeq.
+    eapply CApps_CRec_CRef_false in Htyeq; propositional.
+  }
+Qed.
+
 Lemma canon_CRec W v t cs i :
   typing ([], W, []) v (CApps (CRec t) cs) i ->
   value v ->
   exists e,
     v = EFold e /\
     value e.
-Admitted.
+Proof.
+  intros; eapply canon_CRec'; eauto with invert_typing.
+Qed.
+
+Lemma canon_CExists' C v t i :
+  typing C v t i ->
+  get_kctx C = [] ->
+  get_tctx C = [] ->
+  forall k t' ,
+    tyeq [] t (CExists k t') ->
+    value v ->
+    exists c e,
+      v = EPack c e /\
+      value e.
+Proof.
+  induct 1; intros Hknil Htnil k' t'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst.
+  {
+    rewrite Htnil in H.
+    rewrite nth_error_nil in H.
+    invert H.
+  }
+  {
+    eapply CApps_CRec_CExists_false in Htyeq; propositional.
+  }
+  {
+    destruct C as ((L & W) & G); simplify; subst.
+    eapply IHtyping; eauto with invert_typing.
+  }
+  {
+    cases cn; simplify; invert Htyeq.
+  }
+  {
+    cases inj; simplify; invert Htyeq.
+  }
+Qed.
+
 Lemma canon_CExists W v k t i :
   typing ([], W, []) v (CExists k t) i ->
   value v ->
   exists c e,
     v = EPack c e /\
     value e.
-Admitted.
+Proof.
+  intros; eapply canon_CExists'; eauto with invert_typing.
+Qed.
+
+Lemma canon_CProd' C v t i :
+  typing C v t i ->
+  get_kctx C = [] ->
+  get_tctx C = [] ->
+  forall t1 t2 ,
+    tyeq [] t (CProd t1 t2) ->
+    value v ->
+    exists v1 v2,
+      v = EPair v1 v2 /\
+      value v1 /\
+      value v2.
+Proof.
+  induct 1; intros Hknil Htnil t1'' t2'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst.
+  {
+    rewrite Htnil in H.
+    rewrite nth_error_nil in H.
+    invert H.
+  }
+  {
+    eapply CApps_CRec_CProd_false in Htyeq; propositional.
+  }
+  {
+    destruct C as ((L & W) & G); simplify; subst.
+    eapply IHtyping; eauto with invert_typing.
+  }
+  {
+    cases cn; simplify; invert Htyeq.
+  }
+  {
+    cases inj; simplify; invert Htyeq.
+  }
+Qed.
+
 Lemma canon_CProd W v t1 t2 i :
   typing ([], W, []) v (CProd t1 t2) i ->
   value v ->
@@ -1368,21 +1563,90 @@ Lemma canon_CProd W v t1 t2 i :
     v = EPair v1 v2 /\
     value v1 /\
     value v2.
-Admitted.
+Proof.
+  intros; eapply canon_CProd'; eauto with invert_typing.
+Qed.
+
+Lemma canon_CSum' C v t i :
+  typing C v t i ->
+  get_kctx C = [] ->
+  get_tctx C = [] ->
+  forall t1 t2 ,
+    tyeq [] t (CSum t1 t2) ->
+    value v ->
+    exists inj v',
+      v = EInj inj v' /\
+      value v'.
+Proof.
+  induct 1; intros Hknil Htnil t1'' t2'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst.
+  {
+    rewrite Htnil in H.
+    rewrite nth_error_nil in H.
+    invert H.
+  }
+  {
+    eapply CApps_CRec_CSum_false in Htyeq; propositional.
+  }
+  {
+    destruct C as ((L & W) & G); simplify; subst.
+    eapply IHtyping; eauto with invert_typing.
+  }
+  {
+    cases cn; simplify; invert Htyeq.
+  }
+Qed.
+  
 Lemma canon_CSum W v t1 t2 i :
   typing ([], W, []) v (CSum t1 t2) i ->
   value v ->
   exists inj v',
     v = EInj inj v' /\
     value v'.
-Admitted.
+Proof.
+  intros; eapply canon_CSum'; eauto with invert_typing.
+Qed.
+
+Lemma canon_CRef' C v t i :
+  typing C v t i ->
+  get_kctx C = [] ->
+  get_tctx C = [] ->
+  forall t' ,
+    tyeq [] t (CRef t') ->
+    value v ->
+    exists l t',
+      v = ELoc l /\
+      get_hctx C $? l = Some t'.
+Proof.
+  induct 1; intros Hknil Htnil t'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst.
+  {
+    rewrite Htnil in H.
+    rewrite nth_error_nil in H.
+    invert H.
+  }
+  {
+    eapply CApps_CRec_CRef_false in Htyeq; propositional.
+  }
+  {
+    destruct C as ((L & W) & G); simplify; subst.
+    eapply IHtyping; eauto with invert_typing.
+  }
+  {
+    cases cn; simplify; invert Htyeq.
+  }
+  {
+    cases inj; simplify; invert Htyeq.
+  }
+Qed.
+  
 Lemma canon_CRef W v t i :
   typing ([], W, []) v (CRef t) i ->
   value v ->
   exists l t',
     v = ELoc l /\
     W $? l = Some t'.
-Admitted.
+Proof.
+  intros Hty ?; eapply canon_CRef' in Hty; eauto with invert_typing.
+Qed.
 
 Lemma htyping_fresh h W :
   htyping h W ->
