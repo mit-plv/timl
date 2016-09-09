@@ -1,6 +1,84 @@
-Require Import Frap.
-
 Set Implicit Arguments.
+
+Module Type TIME.
+  Parameter time_type : Type.
+  Parameter Time0 : time_type.
+  Parameter Time1 : time_type.
+  Parameter TimeAdd : time_type -> time_type -> time_type.
+  (* A 'minus' bounded below by zero *)
+  Parameter TimeMinus : time_type -> time_type -> time_type.
+  Parameter TimeLe : time_type -> time_type -> Prop.
+  Parameter TimeMax : time_type -> time_type -> time_type.
+  
+  Delimit Scope time_scope with time.
+  Notation "0" := Time0 : time_scope.
+  Notation "1" := Time1 : time_scope.
+  Infix "+" := TimeAdd : time_scope.
+  Infix "-" := TimeMinus : time_scope.
+  Infix "<=" := TimeLe : time_scope.
+
+  Axiom Time_add_le_elim :
+    forall a b c,
+      (a + b <= c -> a <= c /\ b <= c)%time.
+  Axiom Time_minus_move_left :
+    forall a b c,
+      (c <= b ->
+       a + c <= b ->
+       a <= b - c)%time.
+  Axiom Time_add_assoc : forall a b c, (a + (b + c) = a + b + c)%time.
+  Axiom lhs_rotate :
+    forall a b c,
+      (b + a <= c ->
+       a + b <= c)%time.
+  Axiom Time_add_cancel :
+    forall a b c,
+      (a <= b ->
+       a + c <= b + c)%time.
+  Axiom rhs_rotate :
+    forall a b c,
+      (a <= c + b->
+       a <= b + c)%time.
+  Axiom Time_a_le_ba : forall a b, (a <= b + a)%time.
+  Axiom Time_minus_cancel :
+    forall a b c,
+      (a <= b -> a - c <= b - c)%time.
+  Axiom Time_a_minus_a : forall a, (a - a = 0)%time.
+  Axiom Time_0_le_x : forall x, (0 <= x)%time.
+  Axiom Time_minus_0 : forall x, (x - 0 = x)%time.
+  Axiom Time_0_add : forall x, (0 + x = x)%time.
+  Axiom Time_le_refl : forall x, (x <= x)%time.
+  Axiom Time_le_trans :
+    forall a b c,
+      (a <= b -> b <= c -> a <= c)%time.
+  Axiom Time_add_cancel2 :
+    forall a b c d,
+      (c <= d ->
+       a <= b ->
+       a + c <= b + d)%time.
+  Axiom Time_a_le_maxab : forall a b, (a <= TimeMax a b)%time.
+  Axiom Time_b_le_maxab : forall a b, (b <= TimeMax a b)%time.
+  Axiom Time_add_minus_assoc :
+    forall a b c,
+      (c <= b -> a + (b - c) = a + b - c)%time.
+  Axiom Time_minus_le : forall a b, (a - b <= a)%time.
+  Axiom Time_minus_add_cancel :
+    forall a b,
+      (b <= a -> a - b + b = a)%time.
+  Axiom Time_minus_move_right :
+    forall a b c,
+      (c <= a ->
+       a <= b + c ->
+       a - c <= b)%time.
+  Axiom Time_le_add_minus :
+    forall a b c,
+      (a + b - c <= a + (b - c))%time.
+  Axiom Time_add_comm : forall a b, (a + b = b + a)%time.
+  Axiom Time_add_minus_cancel : forall a b, (a + b - b = a)%time.
+  Axiom Time_minus_minus_cancel : forall a b, (b <= a -> a - (a - b) = b)%time.
+
+End TIME.
+
+Require Import Frap.
 
 Ltac copy h h2 := generalize h; intro h2.
 
@@ -19,29 +97,173 @@ Ltac apply_all e :=
            H : _ |- _ => eapply e in H
          end.
 
-Module Type TIME.
-  Parameter time_type : Type.
-  Parameter Time0 : time_type.
-  Parameter Time1 : time_type.
-  Parameter TimeAdd : time_type -> time_type -> time_type.
-  Parameter TimeMinus : time_type -> time_type -> time_type.
-  Parameter TimeLe : time_type -> time_type -> Prop.
-End TIME.
+Module NatTime <: TIME.
+  Definition time_type := nat.
+  Definition Time0 := 0.
+  Definition Time1 := 1.
+  Definition TimeAdd := plus.
+  Definition TimeMinus := Peano.minus.
+  Definition TimeLe := le.
+  Definition TimeMax := max.
+  
+  Delimit Scope time_scope with time.
+  Notation "0" := Time0 : time_scope.
+  Notation "1" := Time1 : time_scope.
+  Infix "+" := TimeAdd : time_scope.
+  Infix "-" := TimeMinus : time_scope.
+  Infix "<=" := TimeLe : time_scope.
 
-Module RealTime <: TIME.
-  Require Rdefinitions.
-  Module R := Rdefinitions.
-  Definition real := R.R.
-  (* Require RIneq. *)
-  (* Definition nnreal := RIneq.nonnegreal. *)
-  Definition time_type := real.
-  (* Definition time_type := nnreal. *)
-  Definition Time0 := R.R0.
-  Definition Time1 := R.R1.
-  Definition TimeAdd := R.Rplus.
-  Definition TimeMinus := R.Rminus.
-  Definition TimeLe := R.Rle.
-End RealTime.
+  Require Import Omega.
+
+  Ltac unfold_time := unfold TimeAdd, TimeMinus, TimeMax, Time0, Time1, TimeLe in *.
+  Ltac linear := unfold_time; omega.
+
+  Lemma Time_add_le_elim a b c :
+    (a + b <= c -> a <= c /\ b <= c)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_minus_move_left a b c :
+    (c <= b ->
+     a + c <= b ->
+     a <= b - c)%time.
+  Proof.
+    intros; linear.
+  Qed.
+  
+  Lemma Time_add_assoc a b c : (a + (b + c) = a + b + c)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma lhs_rotate a b c :
+    (b + a <= c ->
+     a + b <= c)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_add_cancel a b c :
+    (a <= b ->
+     a + c <= b + c)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma rhs_rotate a b c :
+    (a <= c + b->
+     a <= b + c)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_a_le_ba a b : (a <= b + a)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_minus_cancel a b c :
+    (a <= b -> a - c <= b - c)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_a_minus_a a : (a - a = 0)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_0_le_x x : (0 <= x)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_minus_0 x : (x - 0 = x)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_0_add x : (0 + x = x)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_le_refl x : (x <= x)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_le_trans a b c :
+    (a <= b -> b <= c -> a <= c)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_add_cancel2 a b c d :
+    (c <= d ->
+     a <= b ->
+     a + c <= b + d)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_a_le_maxab a b : (a <= TimeMax a b)%time.
+  Proof.
+    intros; unfold_time; linear_arithmetic.
+  Qed.
+
+  Lemma Time_b_le_maxab a b : (b <= TimeMax a b)%time.
+    intros; unfold_time; linear_arithmetic.
+  Qed.
+
+  Lemma Time_add_minus_assoc a b c :
+    (c <= b -> a + (b - c) = a + b - c)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_minus_le a b : (a - b <= a)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_minus_add_cancel a b :
+    (b <= a -> a - b + b = a)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_minus_move_right a b c :
+    (c <= a ->
+     a <= b + c ->
+     a - c <= b)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_le_add_minus a b c :
+    (a + b - c <= a + (b - c))%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_add_comm a b : (a + b = b + a)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_add_minus_cancel a b : (a + b - b = a)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_minus_minus_cancel a b : (b <= a -> a - (a - b) = b)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+End NatTime.
 
 Module NNRealTime <: TIME.
   Require RIneq.
@@ -71,37 +293,15 @@ Module NNRealTime <: TIME.
   Definition TimeLe (a b : time_type) : Prop.
     refine (R.Rle (nonneg a) (nonneg b)).
   Defined.
-End NNRealTime.
-
-Module NatTime <: TIME.
-  Definition time_type := nat.
-  Definition Time0 := 0.
-  Definition Time1 := 1.
-  Definition TimeAdd := plus.
-  Definition TimeMinus := Peano.minus.
-  Definition TimeLe := le.
-End NatTime.
-
-(* Module Time := RealTime. *)
-(* Module Time := NatTime. *)
-
-Module M (Time : TIME).
-  Import Time.
-
+  Definition TimeMax : time_type -> time_type -> time_type.
+  Admitted.
+  
   Delimit Scope time_scope with time.
   Notation "0" := Time0 : time_scope.
   Notation "1" := Time1 : time_scope.
   Infix "+" := TimeAdd : time_scope.
   Infix "-" := TimeMinus : time_scope.
   Infix "<=" := TimeLe : time_scope.
-
-  Module OpenScope.
-    Open Scope time_scope.
-  End OpenScope.
-
-  Module CloseScope.
-    Close Scope time_scope.
-  End CloseScope.
 
   Lemma Time_add_le_elim a b c :
     (a + b <= c -> a <= c /\ b <= c)%time.
@@ -148,8 +348,6 @@ Module M (Time : TIME).
      a <= b ->
      a + c <= b + d)%time.
   Admitted.
-  Definition TimeMax : time_type -> time_type -> time_type.
-  Admitted.
   Lemma Time_a_le_maxab a b : (a <= TimeMax a b)%time.
   Admitted.
   Lemma Time_b_le_maxab a b : (b <= TimeMax a b)%time.
@@ -174,8 +372,48 @@ Module M (Time : TIME).
   Admitted.
   Lemma Time_add_minus_cancel a b : (a + b - b = a)%time.
   Admitted.
-  Lemma xM_xM1' x : (1 <= x -> x - (x - 1) = 1)%time.
+  Lemma Time_minus_minus_cancel a b : (b <= a -> a - (a - b) = b)%time.
   Admitted.
+
+End NNRealTime.
+
+(*
+Module RealTime <: TIME.
+  Require Rdefinitions.
+  Module R := Rdefinitions.
+  Definition real := R.R.
+  (* Require RIneq. *)
+  (* Definition nnreal := RIneq.nonnegreal. *)
+  Definition time_type := real.
+  (* Definition time_type := nnreal. *)
+  Definition Time0 := R.R0.
+  Definition Time1 := R.R1.
+  Definition TimeAdd := R.Rplus.
+  Definition TimeMinus := R.Rminus.
+  Definition TimeLe := R.Rle.
+End RealTime.
+ *)
+
+(* Module Time := RealTime. *)
+(* Module Time := NatTime. *)
+
+Module M (Time : TIME).
+  Import Time.
+
+  Delimit Scope time_scope with time.
+  Notation "0" := Time0 : time_scope.
+  Notation "1" := Time1 : time_scope.
+  Infix "+" := TimeAdd : time_scope.
+  Infix "-" := TimeMinus : time_scope.
+  Infix "<=" := TimeLe : time_scope.
+
+  Module OpenScope.
+    Open Scope time_scope.
+  End OpenScope.
+
+  Module CloseScope.
+    Close Scope time_scope.
+  End CloseScope.
 
   Hint Resolve Time_le_refl : time_order.
   Hint Resolve Time_le_trans : time_order.
@@ -2675,7 +2913,7 @@ Admitted.
       destruct Htyeq2 as (Htyeq2 & Hieq & Htyeq3).
       split.
       {
-        rewrite xM_xM1' by eauto.
+        rewrite Time_minus_minus_cancel by eauto.
         eapply interpP_le_interpTime in Hle2.
         repeat rewrite interpTime_distr in Hle2.
         repeat rewrite interpTime_1 in Hle2.
@@ -2697,7 +2935,7 @@ Admitted.
         }
         {
           simplify.
-          rewrite xM_xM1' by eauto.
+          rewrite Time_minus_minus_cancel by eauto.
           eapply interpP_le_interpTime in Hle2.
           repeat rewrite interpTime_distr in Hle2.
           repeat rewrite interpTime_1 in Hle2.
@@ -2722,7 +2960,7 @@ Admitted.
         eapply Hhty.
       }
       {
-        rewrite xM_xM1' by eauto.
+        rewrite Time_minus_minus_cancel by eauto.
         rewrite interpTime_minus_distr.
         rewrite interpTime_1.
         eapply Time_minus_cancel.
