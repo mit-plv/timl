@@ -492,7 +492,7 @@ Module M (Time : TIME).
   | CAbs (* (k : kind) *) (t : cstr)
   | CApp (c1 c2 : cstr)
   | CQuan (q : quan) (k : kind) (c : cstr)
-  | CRec (t : cstr)
+  | CRec (k : kind) (t : cstr)
   | CRef (t : cstr)
 
   with prop :=
@@ -849,10 +849,10 @@ Module M (Time : TIME).
            wfkind L k ->
            kinding (k :: L) c KType ->
            kinding L (CQuan quan k c) KType
-       | KdRec L c k :
+       | KdRec L k c :
            wfkind L k ->
            kinding (k :: L) c k ->
-           kinding L (CRec c) k
+           kinding L (CRec k c) k
        | KdRef L t :
            kinding L t KType ->
            kinding L (CRef t) KType
@@ -906,10 +906,10 @@ Module M (Time : TIME).
       kdeq L k k' ->
       tyeq (k :: L) t t' ->
       tyeq L (CQuan quan k t) (CQuan quan k' t')
-  (* only do deep equality test of two CRec's where the kind is KType *)
-  | TyEqRec L t t' :
-      tyeq (KType :: L) t t' ->
-      tyeq L (CRec t) (CRec t')
+  | TyEqRec L k c k' c' :
+      kdeq L k k' ->
+      tyeq (k :: L) c c' ->
+      tyeq L (CRec k c) (CRec k' c')
   | TyEqRef L t t' :
       tyeq L t t' ->
       tyeq L (CRef t) (CRef t')
@@ -939,6 +939,10 @@ Module M (Time : TIME).
     Lemma tyeq_sym L t1 t2 : tyeq L t1 t2 -> tyeq L t2 t1.
     Proof.
       induct 1; eauto using interpP_eq_sym, kdeq_sym.
+      {
+        econstructor; eauto using interpP_eq_sym, kdeq_sym.
+        eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym.
+      }
       {
         econstructor; eauto using interpP_eq_sym, kdeq_sym.
         eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym.
@@ -1006,6 +1010,9 @@ Module M (Time : TIME).
       }
       {
         induct 1; eauto using interpP_eq_trans, tyeq_refl.
+        econstructor; eauto using kdeq_trans.
+        eapply IHtyeq.
+        eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym.
       }
       {
         induct 1; eauto using interpP_eq_trans, tyeq_refl.
@@ -1513,14 +1520,14 @@ Admitted.
       kinding (get_kctx C) t KType ->
       typing (add_typing_ctx t C) e t T0 ->
       typing C (ERec e) t T0
-  | TyFold C e t i t1 cs t2 :
+  | TyFold C e t i t1 cs k t2 :
       t = CApps t1 cs ->
-      t1 = CRec t2 ->
+      t1 = CRec k t2 ->
       kinding (get_kctx C) t KType ->
       typing C e (CApps (subst0_c_c t1 t2) cs) i ->
       typing C (EFold e) t i
-  | TyUnfold C e t t1 cs i :
-      t = CRec t1 ->
+  | TyUnfold C e t k t1 cs i :
+      t = CRec k t1 ->
       typing C e (CApps t cs) i ->
       typing C (EUnfold e) (CApps (subst0_c_c t t1) cs) i
   | TySub C e t2 i2 t1 i1 :
@@ -1688,8 +1695,8 @@ Admitted.
   Arguments finished / .
   Arguments get_expr / .
 
-  Lemma CApps_CRec_CArrow_false cs t3 t1 i t2 :
-    tyeq [] (CApps (CRec t3) cs) (CArrow t1 i t2) ->
+  Lemma CApps_CRec_CArrow_false cs k3 t3 t1 i t2 :
+    tyeq [] (CApps (CRec k3 t3) cs) (CArrow t1 i t2) ->
     False.
   Proof.
     (* Lemma CArrow_CApps_false cs : *)
@@ -1706,47 +1713,40 @@ Admitted.
     (* intros; discriminate. *)
   Admitted.
 
-  Lemma CApps_CRec_CForall_false cs t3 k t  :
-    tyeq [] (CApps (CRec t3) cs) (CForall k t) ->
+  Lemma CApps_CRec_CForall_false cs k3 t3 k t  :
+    tyeq [] (CApps (CRec k3 t3) cs) (CForall k t) ->
     False.
   Proof.
   Admitted.
 
-  Lemma CApps_CRec_CExists_false cs t3 k t  :
-    tyeq [] (CApps (CRec t3) cs) (CExists k t) ->
+  Lemma CApps_CRec_CExists_false cs k3 t3 k t  :
+    tyeq [] (CApps (CRec k3 t3) cs) (CExists k t) ->
     False.
   Proof.
   Admitted.
 
-  Lemma CApps_CRec_const_type_false cs t3 cn  :
-    tyeq [] (CApps (CRec t3) cs) (const_type cn) ->
+  Lemma CApps_CRec_const_type_false cs k3 t3 cn  :
+    tyeq [] (CApps (CRec k3 t3) cs) (const_type cn) ->
     False.
   Proof.
   Admitted.
 
-  Lemma CApps_CRec_CProd_false cs t3 t1 t2  :
-    tyeq [] (CApps (CRec t3) cs) (CProd t1 t2) ->
+  Lemma CApps_CRec_CProd_false cs k3 t3 t1 t2  :
+    tyeq [] (CApps (CRec k3 t3) cs) (CProd t1 t2) ->
     False.
   Proof.
   Admitted.
 
-  Lemma CApps_CRec_CSum_false cs t3 t1 t2  :
-    tyeq [] (CApps (CRec t3) cs) (CSum t1 t2) ->
+  Lemma CApps_CRec_CSum_false cs k3 t3 t1 t2  :
+    tyeq [] (CApps (CRec k3 t3) cs) (CSum t1 t2) ->
     False.
   Proof.
   Admitted.
 
-  Lemma CApps_CRec_CRef_false cs t3 t  :
-    tyeq [] (CApps (CRec t3) cs) (CRef t) ->
+  Lemma CApps_CRec_CRef_false cs k3 t3 t  :
+    tyeq [] (CApps (CRec k3 t3) cs) (CRef t) ->
     False.
   Proof.
-  Admitted.
-
-  Lemma invert_tyeq_CApps t cs t' cs' :
-    tyeq [] (CApps (CRec t) cs) (CApps (CRec t') cs') ->
-    exists ks ,
-      tyeq ks t t' /\
-      Forall2 (tyeq []) cs cs'.
   Admitted.
 
   Lemma canon_CArrow' C v t i :
@@ -1845,14 +1845,14 @@ Admitted.
     typing C v t i ->
     get_kctx C = [] ->
     get_tctx C = [] ->
-    forall t' cs ,
-      tyeq [] t (CApps (CRec t') cs) ->
+    forall k t' cs ,
+      tyeq [] t (CApps (CRec k t') cs) ->
       value v ->
       exists e,
         v = EFold e /\
         value e.
   Proof.
-    induct 1; intros Hknil Htnil t'' cs' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst.
+    induct 1; intros Hknil Htnil k'' t'' cs' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst.
     {
       rewrite Htnil in H.
       rewrite nth_error_nil in H.
@@ -1893,8 +1893,8 @@ Admitted.
     }
   Qed.
 
-  Lemma canon_CRec W v t cs i :
-    typing ([], W, []) v (CApps (CRec t) cs) i ->
+  Lemma canon_CRec W v k t cs i :
+    typing ([], W, []) v (CApps (CRec k t) cs) i ->
     value v ->
     exists e,
       v = EFold e /\
@@ -2646,9 +2646,9 @@ Admitted.
 
   Lemma invert_typing_Unfold C e t2 i :
     typing C (EUnfold e) t2 i ->
-    exists t t1 cs i',
+    exists t k t1 cs i',
       tyeq (get_kctx C) t2 (CApps (subst0_c_c t t1) cs) /\
-      t = CRec t1 /\
+      t = CRec k t1 /\
       typing C e (CApps t cs) i' /\
       interpP (get_kctx C) (i' <= i)%idx.
   Proof.
@@ -2657,10 +2657,10 @@ Admitted.
 
   Lemma invert_typing_Fold C e t' i :
     typing C (EFold e) t' i ->
-    exists t t1 cs t2 i',
+    exists t t1 cs k t2 i',
       tyeq (get_kctx C) t' t /\
       t = CApps t1 cs /\
-      t1 = CRec t2 /\
+      t1 = CRec k t2 /\
       kinding (get_kctx C) t KType /\
       typing C e (CApps (subst0_c_c t1 t2) cs) i' /\
       interpP (get_kctx C) (i' <= i)%idx.
@@ -2887,6 +2887,34 @@ Admitted.
     typing (L, W', G) e t i.
   Admitted.
 
+  Lemma invert_tyeq_CApps k t cs k' t' cs' :
+    tyeq [] (CApps (CRec k t) cs) (CApps (CRec k' t') cs') ->
+    kdeq [] k k' /\
+    tyeq [k] t t' /\
+    Forall2 (tyeq []) cs cs'.
+  Admitted.
+  Lemma TyEqApps L t cs t' cs' :
+    tyeq L t t' ->
+    Forall2 (tyeq L) cs cs' ->
+    tyeq L (CApps t cs) (CApps t' cs').
+  Admitted.            
+  Lemma tyeq_subst0_c_c k L v b v' b' :
+    tyeq L v v' ->
+    tyeq (k :: L) b b' ->
+    tyeq L (subst0_c_c v b) (subst0_c_c v' b').
+  Admitted.
+  
+  Lemma htyping_elim_None h W l :
+    htyping h W ->
+    h $? l = None ->
+    W $? l = None.
+  Admitted.
+            
+  Lemma fmap_map_shift01_c_c_incl (W W' : hctx) :
+    W $<= W' ->
+    fmap_map shift01_c_c W $<= fmap_map shift01_c_c W'.
+  Admitted.
+  
   Lemma preservation0 s s' :
     astep s s' ->
     forall W t i,
@@ -2977,16 +3005,16 @@ Admitted.
       rename t into f.
       rename t0 into t.
       eapply invert_typing_Unfold in Hty.
-      destruct Hty as (t1 & t2& cs& i'& Htyeq & ? & Hty & Hle2).
+      destruct Hty as (t1 & k & t2 & cs& i'& Htyeq & ? & Hty & Hle2).
       subst.
       simplify.
       subst.
       eapply invert_typing_Fold in Hty.
-      destruct Hty as (? & ? & cs' & t2' & i'' & Htyeq2 & ? & ? & Hkd & Hty & Hle3).
+      destruct Hty as (? & ? & cs' & k' & t2' & i'' & Htyeq2 & ? & ? & Hkd & Hty & Hle3).
       subst.
       simplify.
       eapply invert_tyeq_CApps in Htyeq2.
-      destruct Htyeq2 as (ks & Htyeq2 & Htyeqcs).
+      destruct Htyeq2 as (Hkdeq & Htyeq2 & Htyeqcs).
       split.
       {
         rewrite Time_a_minus_a.
@@ -3002,7 +3030,11 @@ Admitted.
         {
           (* tyeq *)
           simplify.
-          admit.
+          eapply tyeq_sym.
+          eapply tyeq_trans; [eapply Htyeq |].
+          eapply TyEqApps; eauto.
+          eapply tyeq_subst0_c_c; eauto.
+          econstructor; eauto.
         }
         {
           simplify.
@@ -3113,7 +3145,7 @@ Admitted.
       {
         eapply TyEq; eauto.
         simplify.
-        admit.
+        eapply tyeq_subst0_c_c; eauto with invert_typing.
       }
       eapply ty_subst0_e_e with (G := []) in Hty2; eauto.
       split.
@@ -3339,17 +3371,17 @@ Admitted.
       {
         eapply includes_intro.
         intros k v' Hk.
-        assert (HWk : W $? k = None).
-        {
-          admit.
-        }
         cases (l ==n k); subst.
         {
+          assert (HWk : W $? k = None).
+          {
+            eapply htyping_elim_None; eauto.
+          }
           simplify.
           eauto.
         }
-        rewrite Hk in HWk.
-        invert HWk.
+        simplify.
+        eauto.
       }
     }
     {
@@ -3390,7 +3422,7 @@ Admitted.
           (* tyeq *)
           eapply tyeq_sym.
           eapply tyeq_trans; eauto.
-          admit.
+          eapply tyeq_subst0_c_c; eauto with invert_typing.
         }
         {
           simplify.
@@ -3596,7 +3628,7 @@ Admitted.
         eauto.
       }
     }
-  Admitted.
+  Qed.
 
   Lemma generalize_plug : forall C e e_all,
       plug C e e_all ->
@@ -3823,7 +3855,7 @@ Admitted.
       {
         (* Case Fold *)
         eapply invert_typing_Fold in Hty.
-        destruct Hty as (t0 & t1 & cs & t2 & i' & Htyeq & ? & ? & Hkd & Hty & Hle).
+        destruct Hty as (t0 & t1 & cs & k & t2 & i' & Htyeq & ? & ? & Hkd & Hty & Hle).
         subst.
         simplify.
         eapply IHplug in Hty; eauto.
@@ -3865,7 +3897,7 @@ Admitted.
       {
         (* Case Unfold *)
         eapply invert_typing_Unfold in Hty.
-        destruct Hty as (t0 & t1 & cs & i' & Htyeq & ? & Hty & Hle).
+        destruct Hty as (t0 & k & t1 & cs & i' & Htyeq & ? & Hty & Hle).
         subst.
         simplify.
         eapply IHplug in Hty; eauto.
@@ -4382,7 +4414,7 @@ Admitted.
         simplify.
         assert (Hincl' : fmap_map shift01_c_c W $<= fmap_map shift01_c_c W').
         {
-          admit.
+          eapply fmap_map_shift01_c_c_incl; eauto.
         }
         eapply weaken_W; eauto.
       }
@@ -4408,7 +4440,7 @@ Admitted.
         eauto.
       }
     }
-  Admitted.  
+  Qed.
 
   Lemma preservation s s' :
     step s s' ->
