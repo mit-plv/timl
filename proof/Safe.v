@@ -14,6 +14,11 @@ Ltac eexists_split :=
       | |- _ /\ _ => split
       end.
 
+Ltac apply_all e := 
+  repeat match goal with
+           H : _ |- _ => eapply e in H
+         end.
+
 Module Type TIME.
   Parameter time_type : Type.
   Parameter Time0 : time_type.
@@ -97,6 +102,101 @@ End OpenScope.
 Module CloseScope.
   Close Scope time_scope.
 End CloseScope.
+
+Lemma Time_add_le_elim a b c :
+  (a + b <= c -> a <= c /\ b <= c)%time.
+Admitted.
+Lemma Time_minus_move_left a b c :
+  (c <= b ->
+   a + c <= b ->
+   a <= b - c)%time.
+Admitted.
+Lemma Time_add_assoc a b c : (a + (b + c) = a + b + c)%time.
+Admitted.
+Lemma lhs_rotate a b c :
+  (b + a <= c ->
+   a + b <= c)%time.
+Admitted.
+Lemma Time_add_cancel a b c :
+  (a <= b ->
+   a + c <= b + c)%time.
+Admitted.
+Lemma rhs_rotate a b c :
+  (a <= c + b->
+   a <= b + c)%time.
+Admitted.
+Lemma Time_a_le_ba a b : (a <= b + a)%time.
+Admitted.
+Lemma Time_minus_cancel a b c :
+  (a <= b -> a - c <= b - c)%time.
+Admitted.
+Lemma Time_a_minus_a a : (a - a = 0)%time.
+Admitted.
+Lemma Time_0_le_x x : (0 <= x)%time.
+Admitted.
+Lemma Time_minus_0 x : (x - 0 = x)%time.
+Admitted.
+Lemma Time_0_add x : (0 + x = x)%time.
+Admitted.
+Lemma Time_le_refl x : (x <= x)%time.
+Admitted.
+Lemma Time_le_trans a b c :
+  (a <= b -> b <= c -> a <= c)%time.
+Admitted.
+Lemma Time_add_cancel2 a b c d :
+  (c <= d ->
+   a <= b ->
+   a + c <= b + d)%time.
+Admitted.
+Definition TimeMax : time_type -> time_type -> time_type.
+Admitted.
+Lemma Time_a_le_maxab a b : (a <= TimeMax a b)%time.
+Admitted.
+Lemma Time_b_le_maxab a b : (b <= TimeMax a b)%time.
+Admitted.
+Lemma Time_add_minus_assoc a b c :
+  (c <= b -> a + (b - c) = a + b - c)%time.
+Admitted.
+Lemma Time_minus_le a b : (a - b <= a)%time.
+Admitted.
+Lemma Time_minus_add_cancel a b :
+  (b <= a -> a - b + b = a)%time.
+Admitted.
+Lemma Time_minus_move_right a b c :
+  (c <= a ->
+   a <= b + c ->
+   a - c <= b)%time.
+Admitted.
+Lemma Time_le_add_minus a b c :
+  (a + b - c <= a + (b - c))%time.
+Admitted.
+Lemma Time_add_comm a b : (a + b = b + a)%time.
+Admitted.
+Lemma Time_add_minus_cancel a b : (a + b - b = a)%time.
+Admitted.
+Lemma xM_xM1' x : (1 <= x -> x - (x - 1) = 1)%time.
+Admitted.
+
+Hint Resolve Time_le_refl : time_order.
+Hint Resolve Time_le_trans : time_order.
+Hint Resolve Time_0_le_x : time_order.
+Hint Resolve Time_a_le_maxab Time_b_le_maxab : time_order.
+Hint Resolve Time_minus_le : time_order.
+
+Ltac rotate_lhs := eapply lhs_rotate; repeat rewrite Time_add_assoc.
+Ltac rotate_rhs := eapply rhs_rotate; repeat rewrite Time_add_assoc.
+Ltac cancel := eapply Time_add_cancel.
+Ltac finish := eapply Time_a_le_ba.
+Ltac trans_rhs h := eapply Time_le_trans; [|eapply h].
+Ltac cancel2 := eapply Time_add_cancel2; [eauto with time_order | ..].
+Ltac clear_non_le := 
+  repeat match goal with
+           H : _ |- _ =>
+           match type of H with
+           | (_ <= _)%time => fail 1
+           | _ => clear H
+           end
+         end.
 
 Inductive cstr_const :=
 | CCIdxTT
@@ -338,6 +438,36 @@ Lemma interpP_eq_sym L i i' :
   interpP L (i == i')%idx ->
   interpP L (i' == i)%idx.
 Admitted.
+
+Lemma interpP_le_interpTime a b :
+  interpP [] (a <= b)%idx ->
+  (interpTime a <= interpTime b)%time.
+Admitted.
+Lemma interpTime_interpP_le a b :
+  (interpTime a <= interpTime b)%time ->
+  interpP [] (a <= b)%idx.
+Admitted.
+Lemma interpTime_distr a b : interpTime (a + b)%idx = (interpTime a + interpTime b)%time.
+Admitted.
+Lemma interpTime_minus_distr a b :
+  interpTime (Tminus a b) = (interpTime a - interpTime b)%time.
+Admitted.
+Lemma interpP_eq_interpTime a b :
+  interpP [] (a == b)%idx -> interpTime a = interpTime b.
+Admitted.
+Lemma interpTime_0 : interpTime T0 = 0%time.
+Admitted.
+Lemma interpTime_1 : interpTime T1 = 1%time.
+Admitted.
+Lemma interpTime_const a : interpTime (Tconst a) = a.
+Admitted.
+Lemma interpTime_max a b : interpTime (Tmax a b) = TimeMax (interpTime a) (interpTime b).
+Admitted.
+
+Lemma subst0_c_c_Const v cn : subst0_c_c v (CConst cn) = CConst cn.
+Admitted.
+
+Ltac interp_le := try eapply interpTime_interpP_le; apply_all interpP_le_interpTime.
 
 Inductive kdeq : kctx -> kind -> kind -> Prop :=
 | KdEqKType L :
@@ -1749,12 +1879,7 @@ Proof.
     subst.
     assert (Hi1 : (interpTime i1 <= f)%time).
     {
-      Lemma interpTime_distr a b : interpTime (a + b)%idx = (interpTime a + interpTime b)%time.
-      Admitted.
       repeat rewrite interpTime_distr in Hle.
-      Lemma Time_add_le_elim a b c :
-        (a + b <= c -> a <= c /\ b <= c)%time.
-      Admitted.
       repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
       eauto.
     }
@@ -1777,8 +1902,6 @@ Proof.
         exists (h, subst0_e_e e2 e, (f - 1)%time).
         econstructor; eauto.
         econstructor; eauto.
-        Lemma interpTime_1 : interpTime T1 = 1%time.
-        Admitted.
         repeat rewrite interpTime_distr in Hle.
         repeat rewrite interpTime_1 in Hle.
         repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
@@ -1904,15 +2027,7 @@ Proof.
     simplify.
     subst.
     eapply IHtyping; eauto.
-    Lemma interpP_le_interpTime a b :
-      interpP [] (a <= b)%idx ->
-      (interpTime a <= interpTime b)%time.
-    Admitted.
     eapply interpP_le_interpTime in H1.
-    Lemma Time_le_trans a b c :
-      (a <= b -> b <= c -> a <= c)%time.
-    Admitted.
-    Hint Resolve Time_le_trans : time_order.
     eauto with time_order.
   }
   {
@@ -2560,8 +2675,6 @@ Proof.
     destruct Htyeq2 as (Htyeq2 & Hieq & Htyeq3).
     split.
     {
-      Lemma xM_xM1' x : (1 <= x -> x - (x - 1) = 1)%time.
-      Admitted.
       rewrite xM_xM1' by eauto.
       eapply interpP_le_interpTime in Hle2.
       repeat rewrite interpTime_distr in Hle2.
@@ -2583,41 +2696,6 @@ Proof.
         eapply tyeq_trans; eauto.
       }
       {
-        Lemma interpTime_interpP_le a b :
-          (interpTime a <= interpTime b)%time ->
-          interpP [] (a <= b)%idx.
-        Admitted.
-        Lemma interpTime_minus_distr a b :
-          interpTime (Tminus a b) = (interpTime a - interpTime b)%time.
-        Admitted.
-        Lemma Time_minus_move_left a b c :
-          (c <= b ->
-           a + c <= b ->
-           a <= b - c)%time.
-        Admitted.
-        Lemma interpP_eq_interpTime a b :
-          interpP [] (a == b)%idx -> interpTime a = interpTime b.
-        Admitted.
-        Lemma Time_add_assoc a b c : (a + (b + c) = a + b + c)%time.
-        Admitted.
-        Lemma lhs_rotate a b c :
-          (b + a <= c ->
-           a + b <= c)%time.
-        Admitted.
-        Lemma Time_add_cancel a b c :
-          (a <= b ->
-           a + c <= b + c)%time.
-        Admitted.
-        Lemma rhs_rotate a b c :
-          (a <= c + b->
-           a <= b + c)%time.
-        Admitted.
-        Ltac rotate_lhs := eapply lhs_rotate; repeat rewrite Time_add_assoc.
-        Ltac rotate_rhs := eapply rhs_rotate; repeat rewrite Time_add_assoc.
-        Ltac cancel := eapply Time_add_cancel.
-        Lemma Time_a_le_ba a b : (a <= b + a)%time.
-        Admitted.
-        Ltac finish := eapply Time_a_le_ba.
         simplify.
         rewrite xM_xM1' by eauto.
         eapply interpP_le_interpTime in Hle2.
@@ -2647,9 +2725,6 @@ Proof.
       rewrite xM_xM1' by eauto.
       rewrite interpTime_minus_distr.
       rewrite interpTime_1.
-      Lemma Time_minus_cancel a b c :
-        (a <= b -> a - c <= b - c)%time.
-      Admitted.
       eapply Time_minus_cancel.
       eauto.
     }
@@ -2676,10 +2751,6 @@ Proof.
     destruct Htyeq2 as (ks & Htyeq2 & Htyeqcs).
     split.
     {
-      Lemma Time_a_minus_a a : (a - a = 0)%time.
-      Admitted.
-      Lemma Time_0_le_x x : (0 <= x)%time.
-      Admitted.
       rewrite Time_a_minus_a.
       eapply Time_0_le_x.
     }
@@ -2696,10 +2767,6 @@ Proof.
         admit.
       }
       {
-        Lemma interpTime_0 : interpTime T0 = 0%time.
-        Admitted.
-        Lemma Time_minus_0 x : (x - 0 = x)%time.
-        Admitted.
         simplify.
         rewrite Time_a_minus_a.
         eapply interpTime_interpP_le.
@@ -2753,11 +2820,6 @@ Proof.
         eapply tyeq_refl.
       }
       {
-        Lemma Time_0_add x : (0 + x = x)%time.
-        Admitted.
-        Lemma Time_le_refl x : (x <= x)%time.
-        Admitted.
-        Hint Resolve Time_le_refl : time_order.
         simplify.
         rewrite Time_a_minus_a.
         eapply interpTime_interpP_le.
@@ -2834,7 +2896,6 @@ Proof.
         eapply tyeq_sym; eauto.
       }
       {
-        Ltac trans_rhs h := eapply Time_le_trans; [|eapply h].
         simplify.
         rewrite Time_a_minus_a.
         eapply interpTime_interpP_le.
@@ -2901,7 +2962,6 @@ Proof.
         eapply tyeq_sym; eauto.
       }
       {
-        Hint Resolve Time_0_le_x : time_order.
         simplify.
         rewrite Time_a_minus_a.
         eapply interpTime_interpP_le.
@@ -3095,8 +3155,6 @@ Proof.
         admit.
       }
       {
-        Lemma subst0_c_c_Const v cn : subst0_c_c v (CConst cn) = CConst cn.
-        Admitted.
         simplify.
         rewrite subst0_c_c_Const.
         rewrite Time_a_minus_a.
@@ -3238,21 +3296,6 @@ Proof.
           eapply tyeq_sym; eauto.
         }
         {
-          Lemma Time_add_cancel2 a b c d :
-            (c <= d ->
-             a <= b ->
-             a + c <= b + d)%time.
-          Admitted.
-          Ltac cancel2 := eapply Time_add_cancel2; [eauto with time_order | ..].
-          Definition TimeMax : time_type -> time_type -> time_type.
-          Admitted.
-          Lemma interpTime_max a b : interpTime (Tmax a b) = TimeMax (interpTime a) (interpTime b).
-          Admitted.
-          Lemma Time_a_le_maxab a b : (a <= TimeMax a b)%time.
-          Admitted.
-          Lemma Time_b_le_maxab a b : (b <= TimeMax a b)%time.
-          Admitted.
-          Hint Resolve Time_a_le_maxab Time_b_le_maxab : time_order.
           simplify.
           rewrite Time_a_minus_a.
           eapply interpTime_interpP_le.
@@ -3741,9 +3784,6 @@ Proof.
         eapply tyeq_sym; eauto.
       }
       {
-        Lemma Time_add_minus_assoc a b c :
-          (c <= b -> a + (b - c) = a + b - c)%time.
-        Admitted.
         simplify.
         eapply interpTime_interpP_le.
         repeat rewrite interpTime_distr.
@@ -4176,16 +4216,6 @@ Proof.
   eapply He' in H2; eauto.
   Focus 2.
   {
-    Ltac apply_all e := 
-      repeat match goal with
-               H : _ |- _ => eapply e in H
-             end.
-    Ltac interp_le := try eapply interpTime_interpP_le; apply_all interpP_le_interpTime.
-    Lemma interpTime_const a : interpTime (Tconst a) = a.
-    Admitted.
-    Lemma Time_minus_le a b : (a - b <= a)%time.
-    Admitted.
-    Hint Resolve Time_minus_le : time_order.
     simplify.
     interp_le.
     repeat rewrite interpTime_minus_distr in *.
@@ -4201,41 +4231,16 @@ Proof.
   repeat rewrite interpTime_distr in *.
   repeat rewrite interpTime_minus_distr in *.
   rewrite interpTime_const in *.
-  Ltac clear_non_le := 
-    repeat match goal with
-             H : _ |- _ =>
-             match type of H with
-             | (_ <= _)%time => fail 1
-             | _ => clear H
-             end
-           end.
   clear_non_le.
   rotate_lhs.
   rewrite Time_add_minus_assoc by eauto.
-  Lemma Time_minus_add_cancel a b :
-    (b <= a -> a - b + b = a)%time.
-  Admitted.
   rewrite Time_minus_add_cancel by eauto.
-  Lemma Time_minus_move_right a b c :
-    (c <= a ->
-     a <= b + c ->
-     a - c <= b)%time.
-  Admitted.
   eapply Time_minus_move_right; eauto with time_order.
-  Lemma Time_le_add_minus a b c :
-    (a + b - c <= a + (b - c))%time.
-  Admitted.
   trans_rhs Time_le_add_minus.
-  Lemma Time_add_comm a b : (a + b = b + a)%time.
-  Admitted.
   rewrite Time_add_comm.
-  Lemma Time_add_minus_cancel a b : (a + b - b = a)%time.
-  Admitted.
   rewrite Time_add_minus_cancel.
   eauto.
 Qed.
-
-Hint Resolve progress preservation.
 
 Definition trsys_of (s : config) :=
   {|
@@ -4267,7 +4272,7 @@ Proof.
   {
     simplify.
     destruct H0 as (W' & i' & Hty).
-    eauto.
+    eauto using progress.
   }
 Qed.
 
