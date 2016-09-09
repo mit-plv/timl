@@ -3508,8 +3508,10 @@ Proof.
       exists t0, i0.
       repeat split; eauto.
       {
-        (*here*)
-        admit. (* interpP [] (i0 <= i)%idx *)
+        eapply interpTime_interpP_le.
+        eapply interpP_le_interpTime in Hle.
+        eapply interpP_le_interpTime in Hle2.
+        eauto with time_order.
       }
       intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
       invert Hplug.
@@ -3526,7 +3528,15 @@ Proof.
       }
       {
         simplify.
-        admit. (* interpP [] (i1' + Tminus i1 i0 <= i1' + Tminus i i0)%idx *)
+        eapply interpTime_interpP_le.
+        repeat rewrite interpTime_distr.
+        rotate_lhs.
+        rotate_rhs.
+        cancel.
+        repeat rewrite interpTime_minus_distr.
+        eapply Time_minus_cancel.
+        eapply interpP_le_interpTime in Hle.
+        eauto.
       }
     }
     {
@@ -3540,7 +3550,10 @@ Proof.
       exists t0, i0.
       repeat split; eauto.
       {
-        admit. (* interpP [] (i0 <= i)%idx *)
+        eapply interpTime_interpP_le.
+        eapply interpP_le_interpTime in Hle.
+        eapply interpP_le_interpTime in Hle2.
+        eauto with time_order.
       }
       intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
       invert Hplug.
@@ -3557,7 +3570,15 @@ Proof.
       }
       {
         simplify.
-        admit. (* interpP [] (i1' + Tminus i1 i0 <= i1' + Tminus i i0)%idx *)
+        eapply interpTime_interpP_le.
+        repeat rewrite interpTime_distr.
+        rotate_lhs.
+        rotate_rhs.
+        cancel.
+        repeat rewrite interpTime_minus_distr.
+        eapply Time_minus_cancel.
+        eapply interpP_le_interpTime in Hle.
+        eauto.
       }
     }
     {
@@ -3571,7 +3592,10 @@ Proof.
       exists t0, i0.
       repeat split; eauto.
       {
-        admit. (* interpP [] (i0 <= i)%idx *)
+        eapply interpTime_interpP_le.
+        eapply interpP_le_interpTime in Hle.
+        eapply interpP_le_interpTime in Hle2.
+        eauto with time_order.
       }
       intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
       invert Hplug.
@@ -3588,7 +3612,15 @@ Proof.
       }
       {
         simplify.
-        admit. (* interpP [] (i1' + Tminus i' i0 <= i1' + Tminus i i0)%idx *)
+        eapply interpTime_interpP_le.
+        repeat rewrite interpTime_distr.
+        rotate_lhs.
+        rotate_rhs.
+        cancel.
+        repeat rewrite interpTime_minus_distr.
+        eapply Time_minus_cancel.
+        eapply interpP_le_interpTime in Hle.
+        eauto.
       }
     }
     {
@@ -3601,7 +3633,10 @@ Proof.
       exists t0, i0.
       repeat split; eauto.
       {
-        admit. (* interpP [] (i0 <= i)%idx *)
+        eapply interpTime_interpP_le.
+        eapply interpP_le_interpTime in Hle.
+        eapply interpP_le_interpTime in Hle2.
+        eauto with time_order.
       }
       intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
       invert Hplug.
@@ -3618,7 +3653,15 @@ Proof.
       }
       {
         simplify.
-        admit. (* interpP [] (i1' + Tminus i' i0 <= i1' + Tminus i i0)%idx *)
+        eapply interpTime_interpP_le.
+        repeat rewrite interpTime_distr.
+        rotate_lhs.
+        rotate_rhs.
+        cancel.
+        repeat rewrite interpTime_minus_distr.
+        eapply Time_minus_cancel.
+        eapply interpP_le_interpTime in Hle.
+        eauto.
       }
     }
     {
@@ -3631,7 +3674,10 @@ Proof.
       exists t0, i0.
       repeat split; eauto.
       {
-        admit. (* interpP [] (i0 <= i)%idx *)
+        eapply interpTime_interpP_le.
+        eapply interpP_le_interpTime in Hle.
+        eapply interpP_le_interpTime in Hle2.
+        eauto with time_order.
       }
       intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
       invert Hplug.
@@ -3644,7 +3690,15 @@ Proof.
       }
       {
         simplify.
-        admit. (* interpP [] (i1' + Tminus i' i0 <= i1' + Tminus i i0)%idx *)
+        eapply interpTime_interpP_le.
+        repeat rewrite interpTime_distr.
+        rotate_lhs.
+        rotate_rhs.
+        cancel.
+        repeat rewrite interpTime_minus_distr.
+        eapply Time_minus_cancel.
+        eapply interpP_le_interpTime in Hle.
+        eauto.
       }
     }
   }
@@ -3665,7 +3719,13 @@ Proof.
       exists t1, i0.
       repeat split; eauto.
       {
-        admit. (* interpP [] (i0 <= i)%idx *)
+        eapply interpTime_interpP_le.
+        eapply interpP_le_interpTime in Hle.
+        eapply interpP_le_interpTime in Hle2.
+        repeat rewrite interpTime_distr in Hle.
+        repeat rewrite interpTime_1 in Hle.
+        repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+        eauto with time_order.
       }
       intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
       invert Hplug.
@@ -3681,7 +3741,27 @@ Proof.
         eapply tyeq_sym; eauto.
       }
       {
-        admit. (* interpP (get_kctx ([], W', [])) (i1' + Tminus i1 i0 + i2 + T1 + i3 <= i1' + Tminus i i0)%idx *)
+        Lemma Time_add_minus_assoc a b c :
+          (c <= b -> a + (b - c) = a + b - c)%time.
+        Admitted.
+        simplify.
+        eapply interpTime_interpP_le.
+        repeat rewrite interpTime_distr.
+        rotate_rhs.
+        do 4 rotate_lhs.
+        cancel.
+        do 3 rotate_lhs.
+        repeat rewrite interpTime_minus_distr.
+        eapply interpP_le_interpTime in Hle.
+        eapply interpP_le_interpTime in Hle2.
+        eapply interpP_le_interpTime in Hle3.
+        rewrite Time_add_minus_assoc by eauto.
+        eapply Time_minus_cancel.
+        trans_rhs Hle.
+        repeat rewrite interpTime_distr.
+        rotate_lhs.
+        cancel.
+        eauto with time_order.
       }
     }
     {
@@ -3694,7 +3774,13 @@ Proof.
       exists t0, i0.
       repeat split; eauto.
       {
-        admit. (* interpP [] (i0 <= i)%idx *)
+        eapply interpTime_interpP_le.
+        eapply interpP_le_interpTime in Hle.
+        eapply interpP_le_interpTime in Hle2.
+        repeat rewrite interpTime_distr in Hle.
+        repeat rewrite interpTime_1 in Hle.
+        repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+        eauto with time_order.
       }
       intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
       invert Hplug.
@@ -3712,7 +3798,22 @@ Proof.
       }
       {
         simplify.
-        admit. (* interpP [] (i1' + Tminus i1 i0 + i2 <= i1' + Tminus i i0)%idx *)
+        eapply interpTime_interpP_le.
+        repeat rewrite interpTime_distr.
+        rotate_rhs.
+        do 2 rotate_lhs.
+        cancel.
+        rotate_lhs.
+        repeat rewrite interpTime_minus_distr.
+        eapply interpP_le_interpTime in Hle.
+        eapply interpP_le_interpTime in Hle2.
+        eapply interpP_le_interpTime in Hle3.
+        rewrite Time_add_minus_assoc by eauto.
+        eapply Time_minus_cancel.
+        trans_rhs Hle.
+        repeat rewrite interpTime_distr.
+        rotate_lhs.
+        eauto with time_order.
       }
     }
     {
@@ -3725,7 +3826,13 @@ Proof.
       exists t0, i0.
       repeat split; eauto.
       {
-        admit. (* interpP [] (i0 <= i)%idx *)
+        eapply interpTime_interpP_le.
+        eapply interpP_le_interpTime in Hle.
+        eapply interpP_le_interpTime in Hle2.
+        repeat rewrite interpTime_distr in Hle.
+        repeat rewrite interpTime_1 in Hle.
+        repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+        eauto with time_order.
       }
       intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
       invert Hplug.
@@ -3743,7 +3850,22 @@ Proof.
       }
       {
         simplify.
-        admit. (* interpP [] (i1' + Tminus i1 i0 + i2 <= i1' + Tminus i i0)%idx *)
+        eapply interpTime_interpP_le.
+        repeat rewrite interpTime_distr.
+        rotate_rhs.
+        do 2 rotate_lhs.
+        cancel.
+        rotate_lhs.
+        repeat rewrite interpTime_minus_distr.
+        eapply interpP_le_interpTime in Hle.
+        eapply interpP_le_interpTime in Hle2.
+        eapply interpP_le_interpTime in Hle3.
+        rewrite Time_add_minus_assoc by eauto.
+        eapply Time_minus_cancel.
+        trans_rhs Hle.
+        repeat rewrite interpTime_distr.
+        rotate_lhs.
+        eauto with time_order.
       }
     }
   }
@@ -3765,7 +3887,13 @@ Proof.
       exists t0, i0.
       repeat split; eauto.
       {
-        admit. (* interpP [] (i0 <= i)%idx *)
+        eapply interpTime_interpP_le.
+        eapply interpP_le_interpTime in Hle.
+        eapply interpP_le_interpTime in Hle2.
+        repeat rewrite interpTime_distr in Hle.
+        repeat rewrite interpTime_1 in Hle.
+        repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+        eauto with time_order.
       }
       intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
       invert Hplug.
@@ -3782,7 +3910,24 @@ Proof.
       }
       {
         simplify.
-        admit. (* interpP (get_kctx ([], W', [])) (i1' + Tminus i2 i0 + i1 + T1 + i3 <= i1' + Tminus i i0)%idx *)
+        eapply interpTime_interpP_le.
+        repeat rewrite interpTime_distr.
+        repeat rewrite Time_add_assoc.
+        rotate_rhs.
+        do 3 rotate_lhs.
+        cancel.
+        do 3 rotate_lhs.
+        repeat rewrite interpTime_minus_distr.
+        eapply interpP_le_interpTime in Hle.
+        eapply interpP_le_interpTime in Hle2.
+        eapply interpP_le_interpTime in Hle3.
+        rewrite Time_add_minus_assoc by eauto.
+        eapply Time_minus_cancel.
+        trans_rhs Hle.
+        repeat rewrite interpTime_distr.
+        do 2 rotate_lhs.
+        cancel.
+        eauto with time_order.
       }
     }
     {
@@ -3795,7 +3940,13 @@ Proof.
       exists t0, i0.
       repeat split; eauto.
       {
-        admit. (* interpP [] (i0 <= i)%idx *)
+        eapply interpTime_interpP_le.
+        eapply interpP_le_interpTime in Hle.
+        eapply interpP_le_interpTime in Hle2.
+        repeat rewrite interpTime_distr in Hle.
+        repeat rewrite interpTime_1 in Hle.
+        repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+        eauto with time_order.
       }
       intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
       invert Hplug.
@@ -3813,7 +3964,19 @@ Proof.
       }
       {
         simplify.
-        admit. (* interpP [] (i1' + Tminus i2 i0 + i1 <= i1' + Tminus i i0)%idx *)
+        eapply interpTime_interpP_le.
+        eapply interpP_le_interpTime in Hle.
+        eapply interpP_le_interpTime in Hle2.
+        eapply interpP_le_interpTime in Hle3.
+        repeat rewrite interpTime_distr in *.
+        rotate_rhs.
+        rotate_lhs.
+        cancel.
+        rotate_lhs.
+        repeat rewrite interpTime_minus_distr.
+        rewrite Time_add_minus_assoc by eauto.
+        eapply Time_minus_cancel.
+        eauto.
       }
     }
     {
@@ -3826,7 +3989,13 @@ Proof.
       exists t0, i0.
       repeat split; eauto.
       {
-        admit. (* interpP [] (i0 <= i)%idx *)
+        eapply interpTime_interpP_le.
+        eapply interpP_le_interpTime in Hle.
+        eapply interpP_le_interpTime in Hle2.
+        repeat rewrite interpTime_distr in Hle.
+        repeat rewrite interpTime_1 in Hle.
+        repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+        eauto with time_order.
       }
       intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
       invert Hplug.
@@ -3844,7 +4013,19 @@ Proof.
       }
       {
         simplify.
-        admit. (* interpP [] (i1' + Tminus i2 i0 + i1 <= i1' + Tminus i i0)%idx *)
+        eapply interpTime_interpP_le.
+        eapply interpP_le_interpTime in Hle.
+        eapply interpP_le_interpTime in Hle2.
+        eapply interpP_le_interpTime in Hle3.
+        repeat rewrite interpTime_distr in *.
+        rotate_rhs.
+        rotate_lhs.
+        cancel.
+        rotate_lhs.
+        repeat rewrite interpTime_minus_distr.
+        rewrite Time_add_minus_assoc by eauto.
+        eapply Time_minus_cancel.
+        eauto.
       }
     }
   }
@@ -3858,7 +4039,13 @@ Proof.
     exists t0, i0.
     repeat split; eauto.
     {
-      admit. (* interpP [] (i0 <= i)%idx *)
+      eapply interpTime_interpP_le.
+      eapply interpP_le_interpTime in Hle.
+      eapply interpP_le_interpTime in Hle2.
+      repeat rewrite interpTime_distr in Hle.
+      repeat rewrite interpTime_1 in Hle.
+      repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+      eauto with time_order.
     }
     intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
     invert Hplug.
@@ -3872,7 +4059,20 @@ Proof.
     }
     {
       simplify.
-      admit. (* interpP [] (i1' + Tminus i0' i0 + Tmax i1 i2 <= i1' + Tminus i i0)%idx *)
+      eapply interpTime_interpP_le.
+      eapply interpP_le_interpTime in Hle.
+      eapply interpP_le_interpTime in Hle2.
+      eapply interpP_le_interpTime in Hle3.
+      repeat rewrite interpTime_distr in *.
+      rotate_rhs.
+      do 2 rotate_lhs.
+      cancel.
+      rotate_lhs.
+      repeat rewrite interpTime_minus_distr.
+      rewrite Time_add_minus_assoc by eauto.
+      eapply Time_minus_cancel.
+      rotate_lhs.
+      eauto.
     }
   }
   {
@@ -3885,7 +4085,13 @@ Proof.
     exists t0, i0.
     repeat split; eauto.
     {
-      admit. (* interpP [] (i0 <= i)%idx *)
+      eapply interpTime_interpP_le.
+      eapply interpP_le_interpTime in Hle.
+      eapply interpP_le_interpTime in Hle2.
+      repeat rewrite interpTime_distr in Hle.
+      repeat rewrite interpTime_1 in Hle.
+      repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+      eauto with time_order.
     }
     intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
     invert Hplug.
@@ -3908,10 +4114,23 @@ Proof.
     }
     {
       simplify.
-      admit. (* interpP [] (i1' + Tminus i1 i0 + i2' <= i1' + Tminus i i0)%idx *)
+      eapply interpTime_interpP_le.
+      eapply interpP_le_interpTime in Hle.
+      eapply interpP_le_interpTime in Hle2.
+      eapply interpP_le_interpTime in Hle3.
+      repeat rewrite interpTime_distr in *.
+      rotate_rhs.
+      do 2 rotate_lhs.
+      cancel.
+      rotate_lhs.
+      repeat rewrite interpTime_minus_distr.
+      rewrite Time_add_minus_assoc by eauto.
+      eapply Time_minus_cancel.
+      rotate_lhs.
+      eauto.
     }
   }
-Qed.
+Admitted.  
 
 Lemma preservation s s' :
   step s s' ->
@@ -3947,7 +4166,8 @@ Proof.
   Focus 2.
   {
     unfold ctyping; repeat try_split; eauto.
-    admit. (* (interpTime i1 <= f)%time *)
+    eapply interpP_le_interpTime in Hle2.
+    eauto with time_order.
   }
   Unfocus.
   simplify.
@@ -3956,13 +4176,63 @@ Proof.
   eapply He' in H2; eauto.
   Focus 2.
   {
-    admit. (* interpP [] (Tminus i1 (Tconst (f - f')%time) <= i1)%idx *)
+    Ltac apply_all e := 
+      repeat match goal with
+               H : _ |- _ => eapply e in H
+             end.
+    Ltac interp_le := try eapply interpTime_interpP_le; apply_all interpP_le_interpTime.
+    Lemma interpTime_const a : interpTime (Tconst a) = a.
+    Admitted.
+    Lemma Time_minus_le a b : (a - b <= a)%time.
+    Admitted.
+    Hint Resolve Time_minus_le : time_order.
+    simplify.
+    interp_le.
+    repeat rewrite interpTime_minus_distr in *.
+    rewrite interpTime_const in *.
+    eauto with time_order.
   }
   Unfocus.
   exists W'.
   eexists.
   repeat try_split; eauto.
-  admit. (* (interpTime (Tminus i1 (Tconst (f - f')) + Tminus i i1)%idx <= f')%time *)
+  simplify.
+  interp_le.
+  repeat rewrite interpTime_distr in *.
+  repeat rewrite interpTime_minus_distr in *.
+  rewrite interpTime_const in *.
+  Ltac clear_non_le := 
+    repeat match goal with
+             H : _ |- _ =>
+             match type of H with
+             | (_ <= _)%time => fail 1
+             | _ => clear H
+             end
+           end.
+  clear_non_le.
+  rotate_lhs.
+  rewrite Time_add_minus_assoc by eauto.
+  Lemma Time_minus_add_cancel a b :
+    (b <= a -> a - b + b = a)%time.
+  Admitted.
+  rewrite Time_minus_add_cancel by eauto.
+  Lemma Time_minus_move_right a b c :
+    (c <= a ->
+     a <= b + c ->
+     a - c <= b)%time.
+  Admitted.
+  eapply Time_minus_move_right; eauto with time_order.
+  Lemma Time_le_add_minus a b c :
+    (a + b - c <= a + (b - c))%time.
+  Admitted.
+  trans_rhs Time_le_add_minus.
+  Lemma Time_add_comm a b : (a + b = b + a)%time.
+  Admitted.
+  rewrite Time_add_comm.
+  Lemma Time_add_minus_cancel a b : (a + b - b = a)%time.
+  Admitted.
+  rewrite Time_add_minus_cancel.
+  eauto.
 Qed.
 
 Hint Resolve progress preservation.
