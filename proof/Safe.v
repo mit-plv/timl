@@ -495,6 +495,12 @@ Module M (Time : TIME).
   | CRec (k : kind) (t : cstr)
   | CRef (t : cstr)
 
+  with kind :=
+       | KType
+       | KArrow (k1 k2 : kind)
+       | KBaseSort (b : base_sort)
+       | KSubset (k : kind) (p : prop)
+
   with prop :=
        | PTrue
        | PFalse
@@ -503,12 +509,6 @@ Module M (Time : TIME).
        | PBinPred (opr : prop_bin_pred) (i1 i2 : cstr)
        | PEq (i1 i2 : cstr)
        | PQuan (q : quan) (p : prop)
-
-  with kind :=
-       | KType
-       | KArrow (k1 k2 : kind)
-       | KBaseSort (b : base_sort)
-       | KSubset (k : kind) (p : prop)
   .
 
   Definition KUnit := KBaseSort BSUnit.
@@ -639,36 +639,111 @@ Module M (Time : TIME).
   Definition tctx := list cstr.
   Definition ctx := (kctx * hctx * tctx)%type.
 
-  Fixpoint shift_c_c (x : var) (n : nat) (b : cstr) : cstr :=
-    match b with
-    | CVar y =>
-      if le_lt_dec x y then
-        CVar (n + y)
-      else
-        CVar y
-    | CConst cn => CConst cn
-    | CBinOp opr c1 c2 => CBinOp opr (shift_c_c x n c1) (shift_c_c x n c2)
-    | CIte i1 i2 i3 => CIte (shift_c_c x n i1) (shift_c_c x n i2) (shift_c_c x n i3)
-    | CTimeAbs i => CTimeAbs (shift_c_c (1 + x) n i)
-    | CArrow t1 i t2 => CArrow (shift_c_c x n t1) (shift_c_c x n i) (shift_c_c x n t2)
-    | CAbs t => CAbs (shift_c_c (1 + x) n t)
-    | CApp (c1 c2 : cstr)
-    | CQuan (q : quan) (k : kind) (c : cstr)
-    | CRec (k : kind) (t : cstr)
-    | CRef (t : cstr)
+  Section shift_c_c.
 
+    Variable n : nat.
+    
+    Fixpoint shift_c_c (x : var) (b : cstr) : cstr :=
+      match b with
+      | CVar y =>
+        if le_lt_dec x y then
+          CVar (n + y)
+        else
+          CVar y
+      | CConst cn => CConst cn
+      | CBinOp opr c1 c2 => CBinOp opr (shift_c_c x c1) (shift_c_c x c2)
+      | CIte i1 i2 i3 => CIte (shift_c_c x i1) (shift_c_c x i2) (shift_c_c x i3)
+      | CTimeAbs i => CTimeAbs (shift_c_c (1 + x) i)
+      | CArrow t1 i t2 => CArrow (shift_c_c x t1) (shift_c_c x i) (shift_c_c x t2)
+      | CAbs t => CAbs (shift_c_c (1 + x) t)
+      | CApp c1 c2 => CApp (shift_c_c x c1) (shift_c_c x c2)
+      | CQuan q k c => CQuan q (shift_c_k x k) (shift_c_c (1 + x) c)
+      | CRec k t => CRec (shift_c_k x k) (shift_c_c (1 + x) t)
+      | CRef t => CRef (shift_c_c x t)
+      end
+    with shift_c_k (x : var) (b : kind) : kind :=
+           match b with
+           | KType => KType
+           | KArrow k1 k2 => KArrow (shift_c_k x k1) (shift_c_k x k2)
+           | KBaseSort b => KBaseSort b
+           | KSubset k p => KSubset (shift_c_k x k) (shift_c_p (1 + x) p)
+           end
+    with shift_c_p (x : var) (b : prop) : prop :=
+           match b with
+           | PTrue => PTrue
+           | PFalse => PFalse
+           | PBinConn opr p1 p2 => PBinConn opr (shift_c_p x p1) (shift_c_p x p2)
+           | PNot p => PNot (shift_c_p x p)
+           | PBinPred opr i1 i2 => PBinPred opr (shift_c_c x i1) (shift_c_c x i2)
+           | PEq i1 i2 => PEq (shift_c_c x i1) (shift_c_c x i2)
+           | PQuan q p => PQuan q (shift_c_p (1 + x) p)
+           end.
 
-  Definition shift_c_c (x : var) (n : nat) (b : cstr) : cstr.
-  Admitted.
-  Definition shift01_c_c := shift_c_c 0 1.
+  End shift_c_c.
+  
+  Definition shift01_c_c := shift_c_c 1 0.
+
+  Inductive LtEqGt (a b : nat) :=
+    | Lt : a < b -> LtEqGt a b
+    | Eq : a = b -> LtEqGt a b
+    | Gt : a > b -> LtEqGt a b
+  .
+  
+  Definition lt_eq_gt_dec a b : LtEqGt a b :=
+    match lt_eq_lt_dec a b with
+    | inleft (left H) => Lt H
+    | inleft (right H) => Eq H
+    | inright H => Gt H
+    end.
+          
+  Section subst_c_c.
+
+    Variable v : cstr.
+    
+    Fixpoint subst_c_c (x : var) (n : nat) (b : cstr) : cstr :=
+      match b with
+      | CVar y =>
+        match lt_eq_gt_dec y x with
+        | Lt _ => CVar y
+        | Eq _ => shift_c_c n 0 v
+        | Gt _ => CVar (y - 1)
+        end
+      | CConst cn => CConst cn
+      | CBinOp opr c1 c2 => CBinOp opr (subst_c_c x n c1) (subst_c_c x n c2)
+      | CIte i1 i2 i3 => CIte (subst_c_c x n i1) (subst_c_c x n i2) (subst_c_c x n i3)
+      | CTimeAbs i => CTimeAbs (subst_c_c (1 + x) (1 + n) i)
+      | CArrow t1 i t2 => CArrow (subst_c_c x n t1) (subst_c_c x n i) (subst_c_c x n t2)
+      | CAbs t => CAbs (subst_c_c (1 + x) (1 + n) t)
+      | CApp c1 c2 => CApp (subst_c_c x n c1) (subst_c_c x n c2)
+      | CQuan q k c => CQuan q (subst_c_k x n k) (subst_c_c (1 + x) (1 + n) c)
+      | CRec k t => CRec (subst_c_k x n k) (subst_c_c (1 + x) (1 + n) t)
+      | CRef t => CRef (subst_c_c x n t)
+      end
+    with subst_c_k (x : var) (n : nat) (b : kind) : kind :=
+           match b with
+           | KType => KType
+           | KArrow k1 k2 => KArrow (subst_c_k x n k1) (subst_c_k x n k2)
+           | KBaseSort b => KBaseSort b
+           | KSubset k p => KSubset (subst_c_k x n k) (subst_c_p (1 + x) (1 + n) p)
+           end
+    with subst_c_p (x : var) (n : nat) (b : prop) : prop :=
+           match b with
+           | PTrue => PTrue
+           | PFalse => PFalse
+           | PBinConn opr p1 p2 => PBinConn opr (subst_c_p x n p1) (subst_c_p x n p2)
+           | PNot p => PNot (subst_c_p x n p)
+           | PBinPred opr i1 i2 => PBinPred opr (subst_c_c x n i1) (subst_c_c x n i2)
+           | PEq i1 i2 => PEq (subst_c_c x n i1) (subst_c_c x n i2)
+           | PQuan q p => PQuan q (subst_c_p (1 + x) (1 + n) p)
+           end.
+
+  End subst_c_c.
+  
+  Definition subst0_c_c v b := subst_c_c v 0 0 b.
 
   Definition forget_c_c (x : var) (n : nat) (b : cstr) : option cstr.
   Admitted.
   Definition forget01_c_c := forget_c_c 0 1.
-
-  Definition subst_c_c (x : var) (v : cstr) (b : cstr) : cstr.
-  Admitted.
-  Definition subst0_c_c := subst_c_c 0.
 
   Definition interpTime : cstr -> time_type.
   Admitted.
@@ -1162,195 +1237,6 @@ Module M (Time : TIME).
 
   End tyeq_hint.
 
-  (*
-Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
-(* | TyEqRefl L t : *)
-(*     tyeq L t t *)
-| TyEqVar L x :
-    tyeq L (CVar x) (CVar x)
-| TyConst L cn :
-    tyeq L (CConst cn) (CConst cn)
-(* | TyEqUnOp L opr t t' : *)
-(*     tyeq L t t' -> *)
-(*     tyeq L (CUnOp opr t) (CUnOp opr t') *)
-| TyEqBinOp L opr t1 t2 t1' t2' :
-    tyeq L t1 t1' ->
-    tyeq L t2 t2' ->
-    tyeq L (CBinOp opr t1 t2) (CBinOp opr t1' t2')
-| TyEqIte L t1 t2 t3 t1' t2' t3':
-    tyeq L t1 t1' ->
-    tyeq L t2 t2' ->
-    tyeq L t3 t3' ->
-    tyeq L (CIte t1 t2 t3) (CIte t1' t2' t3')
-| TyEqArrow L t1 i t2 t1' i' t2':
-    tyeq L t1 t1' ->
-    interpP L (PEq i i') ->
-    tyeq L t2 t2' ->
-    tyeq L (CArrow t1 i t2) (CArrow t1' i' t2')
-| TyEqApp L c1 c2 c1' c2' :
-    tyeq L c1 c1' ->
-    tyeq L c2 c2' ->
-    tyeq L (CApp c1 c2) (CApp c1' c2')
-| TyEqBeta L t1 t2  :
-    tyeq L (CApp (CAbs t1) t2) (subst0_c_c t2 t1)
-| TyEqBetaRev L t1 t2  :
-    tyeq L (subst0_c_c t2 t1) (CApp (CAbs t1) t2)
-| TyEqQuan L quan k t k' t' :
-    kdeq L k k' ->
-    tyeq (k :: L) t t' ->
-    tyeq L (CQuan quan k t) (CQuan quan k' t')
-(* only do deep equality test of two CRec's where the kind is KType *)
-| TyEqRec L t t' :
-    tyeq (KType :: L) t t' ->
-    tyeq L (CRec t) (CRec t')
-| TyEqRef L t t' :
-   tyeq L t t' ->
-   tyeq L (CRef t) (CRef t')
-(* the following rules are just here to satisfy reflexivity *)
-| TyEqTimeAbs L i :
-    tyeq L (CTimeAbs i) (CTimeAbs i)
-(* don't do deep equality test of two CAbs's *)
-| TyEqAbs L t :
-    tyeq L (CAbs t) (CAbs t)
-| TyEqTrans L a b c :
-    tyeq L a b ->
-    tyeq L b c ->
-    tyeq L a c
-.
-
-Hint Constructors tyeq.
-
-Lemma tyeq_refl : forall t L, tyeq L t t.
-Proof.
-  induct t; eauto using interpP_eq_refl, kdeq_refl.
-Qed.
-
-Lemma kdeq_tyeq L k k' t t' :
-  kdeq L k k' ->
-  tyeq (k :: L) t t' ->
-  tyeq (k' :: L) t t'.
-Admitted.
-
-Lemma tyeq_sym L t1 t2 : tyeq L t1 t2 -> tyeq L t2 t1.
-Proof.
-  induct 1; eauto using interpP_eq_sym, kdeq_sym.
-  {
-    econstructor; eauto using interpP_eq_sym, kdeq_sym.
-    eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym.
-  }
-Qed.
-
-Lemma tyeq_trans L a b c :
-  tyeq L a b ->
-  tyeq L b c ->
-  tyeq L a c.
-Proof.
-  intros; eauto.
-Qed.
-
-Lemma invert_tyeq_Arrow L ta tb : 
-  tyeq L ta tb ->
-  forall t1 i t2,
-    tyeq L ta (CArrow t1 i t2) ->
-    (exists t1' i' t2' ,
-        tb = CArrow t1' i' t2' /\
-        tyeq L t1 t1' /\
-        interpP L (PEq i i') /\
-        tyeq L t2 t2') \/
-    (exists t1' t2' ,
-        tb = CApp t1' t2').
-Proof.
-  induct 1; eauto.
-  intros.
-  invert H.
-  {
-    left; repeat eexists_split; eauto.
-  }
-
-Lemma invert_tyeq_Arrow L t1 i t2 tb : 
-    tyeq L (CArrow t1 i t2) tb ->
-      (exists t1' i' t2' ,
-          tb = CArrow t1' i' t2' /\
-          tyeq L t1 t1' /\
-          interpP L (PEq i i') /\
-          tyeq L t2 t2') \/
-      (exists t1' t2' ,
-          tb = CApp t1' t2').
-Proof.
-  induct 1; eauto.
-  {
-    left; repeat eexists_split; eauto.
-  }
-  {
-    specialize (Hcneq (CAbs t0) t3).
-    propositional.
-  }
-  induct 1; eauto.
-  {
-    repeat eexists_split; eauto.
-  }
-  {
-    specialize (Hcneq (CAbs t0) t3).
-    propositional.
-  }
-  eapply IHtyeq2; eauto using tyeq_sym.
-  intros Htyeq.
-  invert Htyeq.
-
-Qed.
-
-Lemma invert_tyeq_Arrow L t1 i t2 tb : 
-  tyeq L (CArrow t1 i t2) tb ->
-  (forall t1' t2' ,
-      tb <> CApp t1' t2') ->
-  (exists t1' i' t2' ,
-      tb = CArrow t1' i' t2' /\
-      tyeq L t1 t1' /\
-      interpP L (PEq i i') /\
-      tyeq L t2 t2').
-Proof.
-  induct 1; eauto; intros Hcneq.
-  {
-    repeat eexists_split; eauto.
-  }
-  {
-    specialize (Hcneq (CAbs t0) t3).
-    propositional.
-  }
-  admit.
-  eapply IHtyeq2; eauto using tyeq_sym.
-  intros Htyeq.
-  invert Htyeq.
-Qed.
-
-Lemma CForall_CArrow_false' L ta tb : 
-    tyeq L ta tb ->
-    forall k t t1 i t2,
-      tyeq L ta (CForall k t) ->
-      tyeq L tb (CArrow t1 i t2) ->
-      False.
-Proof.
-  induct 1; eauto.
-  eapply IHtyeq2; eauto using tyeq_sym.
-  intros Htyeq.
-  invert Htyeq.
-Qed.
-
-Lemma CForall_CArrow_false' L k t t1 i t2 : 
-    tyeq L (CForall k t) (CArrow t1 i t2) ->
-    False.
-Proof.
-  induct 1.
-Qed.
-  
-Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' :
-  tyeq L (CArrow t1 i t2) (CArrow t1' i' t2') ->
-  tyeq L t1 t1' /\
-  interpP L (PEq i i') /\
-  tyeq L t2 t2'.
-Admitted.
-   *)
-
   Hint Resolve tyeq_refl tyeq_sym tyeq_trans interpP_le_refl interpP_le_trans : invert_typing.
 
   Inductive expr_un_op :=
@@ -1606,13 +1492,78 @@ Admitted.
 
   Definition heap := fmap loc expr.
 
-  Definition subst_e_e (x : var) (v : expr) (b : expr) : expr.
-  Admitted.
-  Definition subst0_e_e := subst_e_e 0.
+  Section subst_c_e.
 
-  Definition subst_c_e (x : var) (v : cstr) (b : expr) : expr.
-  Admitted.
-  Definition subst0_c_e := subst_c_e 0.
+    Variable v : cstr.
+
+    Fixpoint subst_c_e (x : var) (n : nat) (b : expr) : expr :=
+      match b with
+      | EVar y => EVar y
+      | EConst cn => EConst cn
+      | ELoc l => ELoc l
+      | EUnOp opr e => EUnOp opr (subst_c_e x n e)
+      | EBinOp opr e1 e2 => EBinOp opr (subst_c_e x n e1) (subst_c_e x n e2)
+      | ECase e e1 e2 => ECase (subst_c_e x n e) (subst_c_e x n e1) (subst_c_e x n e2)
+      | EAbs e => EAbs (subst_c_e x n e)
+      | ERec e => ERec (subst_c_e x n e)
+      | EAbsC e => EAbsC (subst_c_e (1 + x) (1 + n) e)
+      | EUnpack e1 e2 => EUnpack (subst_c_e x n e1) (subst_c_e (1 + x) (1 + n) e2)
+      end.
+    
+  End subst_c_e.
+
+  Definition subst0_c_e (v : cstr) b := subst_c_e (* v *) 0 0 b.
+
+  Section shift_e_e.
+
+    Variable n : nat.
+
+    Fixpoint shift_e_e (x : var) (b : expr) : expr :=
+      match b with
+      | EVar y =>
+        if le_lt_dec x y then
+          EVar (n + y)
+        else
+          EVar y
+      | EConst cn => EConst cn
+      | ELoc l => ELoc l
+      | EUnOp opr e => EUnOp opr (shift_e_e x e)
+      | EBinOp opr e1 e2 => EBinOp opr (shift_e_e x e1) (shift_e_e x e2)
+      | ECase e e1 e2 => ECase (shift_e_e x e) (shift_e_e (1 + x) e1) (shift_e_e (1 + x) e2)
+      | EAbs e => EAbs (shift_e_e (1 + x) e)
+      | ERec e => ERec (shift_e_e (1 + x) e)
+      | EAbsC e => EAbsC (shift_e_e x e)
+      | EUnpack e1 e2 => EUnpack (shift_e_e x e1) (shift_e_e (1 + x) e2)
+      end.
+    
+  End shift_e_e.
+
+  Section subst_e_e.
+
+    Variable v : expr.
+
+    Fixpoint subst_e_e (x : var) (n : nat) (b : expr) : expr :=
+      match b with
+      | EVar y => 
+        match lt_eq_gt_dec y x with
+        | Lt _ => EVar y
+        | Eq _ => shift_e_e n 0 v
+        | Gt _ => EVar (y - 1)
+        end
+      | EConst cn => EConst cn
+      | ELoc l => ELoc l
+      | EUnOp opr e => EUnOp opr (subst_e_e x n e)
+      | EBinOp opr e1 e2 => EBinOp opr (subst_e_e x n e1) (subst_e_e x n e2)
+      | ECase e e1 e2 => ECase (subst_e_e x n e) (subst_e_e (1 + x) (1 + n) e1) (subst_e_e (1 + x) (1 + n) e2)
+      | EAbs e => EAbs (subst_e_e (1 + x) (1 + n) e)
+      | ERec e => ERec (subst_e_e (1 + x) (1 + n) e)
+      | EAbsC e => EAbsC (subst_e_e x n e)
+      | EUnpack e1 e2 => EUnpack (subst_e_e x n e1) (subst_e_e (1 + x) (1 + n) e2)
+      end.
+    
+  End subst_e_e.
+
+  Definition subst0_e_e v b := subst_e_e v 0 0 b.
 
   Definition fuel := time_type.
 
