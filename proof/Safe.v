@@ -639,6 +639,25 @@ Module M (Time : TIME).
   Definition tctx := list cstr.
   Definition ctx := (kctx * hctx * tctx)%type.
 
+  Fixpoint shift_c_c (x : var) (n : nat) (b : cstr) : cstr :=
+    match b with
+    | CVar y =>
+      if le_lt_dec x y then
+        CVar (n + y)
+      else
+        CVar y
+    | CConst cn => CConst cn
+    | CBinOp opr c1 c2 => CBinOp opr (shift_c_c x n c1) (shift_c_c x n c2)
+    | CIte i1 i2 i3 => CIte (shift_c_c x n i1) (shift_c_c x n i2) (shift_c_c x n i3)
+    | CTimeAbs i => CTimeAbs (shift_c_c (1 + x) n i)
+    | CArrow t1 i t2 => CArrow (shift_c_c x n t1) (shift_c_c x n i) (shift_c_c x n t2)
+    | CAbs t => CAbs (shift_c_c (1 + x) n t)
+    | CApp (c1 c2 : cstr)
+    | CQuan (q : quan) (k : kind) (c : cstr)
+    | CRec (k : kind) (t : cstr)
+    | CRef (t : cstr)
+
+
   Definition shift_c_c (x : var) (n : nat) (b : cstr) : cstr.
   Admitted.
   Definition shift01_c_c := shift_c_c 0 1.
