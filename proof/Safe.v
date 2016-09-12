@@ -681,7 +681,7 @@ Module M (Time : TIME).
 
   End shift_c_c.
   
-  Definition shift01_c_c := shift_c_c 1 0.
+  Definition shift0_c_c := shift_c_c 1 0.
 
   Inductive LtEqGt (a b : nat) :=
     | Lt : a < b -> LtEqGt a b
@@ -1354,7 +1354,7 @@ Module M (Time : TIME).
 
   Definition add_kinding_ctx k (C : ctx) :=
     match C with
-      (L, W, G) => (k :: L, fmap_map shift01_c_c W, map shift01_c_c G)
+      (L, W, G) => (k :: L, fmap_map shift0_c_c W, map shift0_c_c G)
     end
   .
 
@@ -1537,7 +1537,10 @@ Module M (Time : TIME).
       end.
     
   End shift_e_e.
+  
+  Definition shift0_e_e := shift_e_e 1 0.
 
+(*
   Section subst_e_e.
 
     Variable v : expr.
@@ -1564,6 +1567,31 @@ Module M (Time : TIME).
   End subst_e_e.
 
   Definition subst0_e_e v b := subst_e_e v 0 0 b.
+*)
+  Section subst_e_e.
+
+    Fixpoint subst_e_e (x : var) (v : expr) (b : expr) : expr :=
+      match b with
+      | EVar y => 
+        match lt_eq_gt_dec y x with
+        | Lt _ => EVar y
+        | Eq _ => v
+        | Gt _ => EVar (y - 1)
+        end
+      | EConst cn => EConst cn
+      | ELoc l => ELoc l
+      | EUnOp opr e => EUnOp opr (subst_e_e x v e)
+      | EBinOp opr e1 e2 => EBinOp opr (subst_e_e x v e1) (subst_e_e x v e2)
+      | ECase e e1 e2 => ECase (subst_e_e x v e) (subst_e_e (1 + x) (shift0_e_e v) e1) (subst_e_e (1 + x) (shift0_e_e v) e2)
+      | EAbs e => EAbs (subst_e_e (1 + x) (shift0_e_e v) e)
+      | ERec e => ERec (subst_e_e (1 + x) (shift0_e_e v) e)
+      | EAbsC e => EAbsC (subst_e_e x v e)
+      | EUnpack e1 e2 => EUnpack (subst_e_e x v e1) (subst_e_e (1 + x) (shift0_e_e v) e2)
+      end.
+    
+  End subst_e_e.
+
+  Definition subst0_e_e v b := subst_e_e 0 v b.
 
   Definition fuel := time_type.
 
@@ -2562,7 +2590,7 @@ Module M (Time : TIME).
 
   End Forall3.
 
-  Lemma TyEq C e t2 i t1 :
+  Lemma TyTyeq C e t2 i t1 :
     typing C e t1 i ->
     tyeq (get_kctx C) t1 t2 ->
     typing C e t2 i.
@@ -2666,7 +2694,7 @@ Module M (Time : TIME).
     {
       subst.
       eapply add_typing_ctx_tyeq; eauto.
-      eapply TyEq; eauto.
+      eapply TyTyeq; eauto.
       rewrite get_kctx_add_typing_ctx.
       eauto.
     }
@@ -2790,12 +2818,12 @@ Module M (Time : TIME).
   Proof.
     induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
     {
-      eapply TyEq; eauto.
+      eapply TyTyeq; eauto.
       rewrite get_kctx_add_typing_ctx.
       eauto.
     }
     {
-      eapply TyEq; eauto.
+      eapply TyTyeq; eauto.
       rewrite get_kctx_add_typing_ctx.
       eauto.
     }
@@ -2817,7 +2845,7 @@ Module M (Time : TIME).
     induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
   Qed.
 
-  Lemma fmap_map_subst0_shift01 k c W : fmap_map (K := k) (subst0_c_c c) (fmap_map shift01_c_c W) = W.
+  Lemma fmap_map_subst0_shift0 k c W : fmap_map (K := k) (subst0_c_c c) (fmap_map shift0_c_c W) = W.
   Admitted.
   Lemma forget01_c_c_Some_subst0 c c' c'' :
     forget01_c_c c = Some c' ->
@@ -2830,9 +2858,105 @@ Module M (Time : TIME).
     typing (L, fmap_map (subst0_c_c c) W, map (subst0_c_c c) G) (subst0_c_e c e) (subst0_c_c c t) (subst0_c_c c i).
   Admitted.
 
+  (* Definition removen A n (ls : list A) := firstn n ls ++ skipn (1 + n) ls. *)
+  Fixpoint removen A n (ls : list A) :=
+    match ls with
+    | [] => []
+    | a :: ls =>
+      match n with
+      | 0 => ls
+      | S n => a :: removen n ls
+      end
+    end.
+  
+  Lemma ty_subst0_e_e C e1 t1 i1 :
+    typing C e1 t1 i1 ->
+    forall n t e2 ,
+      nth_error (get_tctx C) n = Some t ->
+      typing (get_kctx C, get_hctx C, removen n (get_tctx C)) e2 t T0 ->
+      typing (get_kctx C, get_hctx C, removen n (get_tctx C)) (subst_e_e n e2 e1) t1 i1.
+      (* typing (get_kctx C, get_hctx C, removen n (get_tctx C)) (subst_e_e e2 n 0 e1) t1 i1. *)
+  Proof.
+    induct 1.
+    Focus 3.
+    {
+      (* Case Abs *)
+      intros n t' e2 Hnth Hty.
+      destruct C as ((L & W) & G).
+      simplify.
+      Lemma TyIdxEq C e t i1 i2 :
+        typing C e t i1 ->
+        interpP (get_kctx C) (i1 == i2)%idx ->
+        typing C e t i2.
+      Admitted.
+      eapply TyIdxEq.
+      {
+        eapply TyAbs; simplify; eauto.
+        eapply IHtyping with (n := 1 + n); eauto.
+        simplify.
+        Lemma ty_shift0_e_e L W G e t i t' :
+          typing (L, W, G) e t i ->
+          typing (L, W, t' :: G) (shift0_e_e e) t i.
+        Admitted.
+        eapply ty_shift0_e_e; eauto.
+      }
+      {
+        simplify.
+        eapply interpP_eq_refl.
+      }
+    }
+    Unfocus.
+    {
+      (* Case Var *)
+      intros n t' e2 Hnth Hty.
+      destruct C as ((L & W) & G).
+      simplify.
+      cases (lt_eq_gt_dec x n).
+      {
+        econstructor; simplify.
+        Lemma removen_lt A ls n (a : A) n' :
+          nth_error ls n = Some a ->
+          n' < n ->
+          nth_error (removen n ls) n' = nth_error ls n'.
+        Admitted.
+        erewrite removen_lt; eauto.
+      }
+      {
+        subst.
+        rewrite H in Hnth.
+        invert Hnth.
+        eauto.
+      }
+      {
+        econstructor; simplify.
+        Lemma removen_gt A ls n (a : A) n' :
+          nth_error ls n' = Some a ->
+          n' > n ->
+          nth_error (removen n ls) (n' - 1) = nth_error ls n'.
+        Admitted.
+        erewrite removen_gt; eauto.
+      }
+    }
+    {
+      (* Case App *)
+      intros n t' e2' Hnth Hty.
+      destruct C as ((L & W) & G).
+      simplify.
+      econstructor; eauto.
+    }
+    (*here*)
+  Qed.
+  
   Lemma ty_subst0_e_e L W t G e1 t1 i1 e2 i2 :
     typing (L, W, t :: G) e1 t1 i1 ->
     typing (L, W, G) e2 t i2 ->
+    value e2 ->
+    typing (L, W, G) (subst0_e_e e2 e1) t1 (i1 + i2)%idx.
+  Admitted.
+
+  Lemma ty_subst0_e_e_T0 L W t G e1 t1 i1 e2 i2 :
+    typing (L, W, t :: G) e1 t1 i1 ->
+    typing (L, W, G) e2 t T0 ->
     typing (L, W, G) (subst0_e_e e2 e1) t1 (i1 + i2)%idx.
   Admitted.
 
@@ -2880,9 +3004,9 @@ Module M (Time : TIME).
     W $? l = None.
   Admitted.
             
-  Lemma fmap_map_shift01_c_c_incl (W W' : hctx) :
+  Lemma fmap_map_shift0_c_c_incl (W W' : hctx) :
     W $<= W' ->
-    fmap_map shift01_c_c W $<= fmap_map shift01_c_c W'.
+    fmap_map shift0_c_c W $<= fmap_map shift0_c_c W'.
   Admitted.
   
   Lemma preservation0 s s' :
@@ -2924,7 +3048,7 @@ Module M (Time : TIME).
         eapply TySub.
         {
           eapply ty_subst0_e_e with (G := []) in Hty1; eauto.
-          eapply TyEq; eauto.
+          eapply TyTyeq; eauto.
         }
         {
           simplify.
@@ -3051,24 +3175,30 @@ Module M (Time : TIME).
       exists W.
       repeat try_split.
       {
-        eapply ty_subst0_e_e with (G := []) in Hty; eauto.
-        eapply TySub.
+        eapply ty_subst0_e_e_T0 with (G := []) in Hty; eauto.
         {
-          eapply Hty.
+          eapply TySub.
+          {
+            eapply Hty.
+          }
+          {
+            eapply tyeq_refl.
+          }
+          {
+            simplify.
+            rewrite Time_a_minus_a.
+            eapply interpTime_interpP_le.
+            rewrite interpTime_minus_distr.
+            rewrite interpTime_distr.
+            rewrite interpTime_0.
+            rewrite Time_minus_0.
+            rewrite Time_0_add.
+            eauto with time_order.
+          }
         }
         {
-          eapply tyeq_refl.
-        }
-        {
-          simplify.
-          rewrite Time_a_minus_a.
-          eapply interpTime_interpP_le.
-          rewrite interpTime_minus_distr.
-          rewrite interpTime_distr.
-          rewrite interpTime_0.
-          rewrite Time_minus_0.
-          rewrite Time_0_add.
-          eauto with time_order.
+          subst.
+          econstructor; eauto.
         }
       }
       {
@@ -3108,12 +3238,12 @@ Module M (Time : TIME).
       }
       eapply ty_subst0_c_e with (L := []) in Hty2; eauto.
       simplify.
-      rewrite fmap_map_subst0_shift01 in Hty2.
+      rewrite fmap_map_subst0_shift0 in Hty2.
       erewrite (@forget01_c_c_Some_subst0 t2) in Hty2; eauto.
       erewrite (@forget01_c_c_Some_subst0 i2) in Hty2; eauto.
       assert (Htyv' : typing ([], W, []) v (subst0_c_c c t0) i').
       {
-        eapply TyEq; eauto.
+        eapply TyTyeq; eauto.
         simplify.
         eapply tyeq_subst0_c_c; eauto with invert_typing.
       }
@@ -3269,7 +3399,7 @@ Module M (Time : TIME).
       }
       {
         eapply htyping_upd; eauto.
-        eapply TyEq.
+        eapply TyTyeq.
         {
           eapply Hty2.
         }
@@ -3384,7 +3514,7 @@ Module M (Time : TIME).
         {
           eapply ty_subst0_c_e with (G := []) in Hty; eauto.
           simplify.
-          rewrite fmap_map_subst0_shift01 in Hty.
+          rewrite fmap_map_subst0_shift0 in Hty.
           eauto.
         }
         {
@@ -3531,7 +3661,7 @@ Module M (Time : TIME).
           eapply TyLe; eauto.
           {
             eapply ty_subst0_e_e with (G := []) in Hty1; eauto.
-            eapply TyEq; eauto.
+            eapply TyTyeq; eauto.
             simplify.
             eapply tyeq_sym; eauto.
           }
@@ -3559,7 +3689,7 @@ Module M (Time : TIME).
           eapply TyLe; eauto.
           {
             eapply ty_subst0_e_e with (G := []) in Hty2; eauto.
-            eapply TyEq; eauto.
+            eapply TyTyeq; eauto.
             simplify.
             eapply tyeq_sym; eauto.
           }
@@ -4382,9 +4512,9 @@ Module M (Time : TIME).
       {
         eapply TyUnpack; eauto.
         simplify.
-        assert (Hincl' : fmap_map shift01_c_c W $<= fmap_map shift01_c_c W').
+        assert (Hincl' : fmap_map shift0_c_c W $<= fmap_map shift0_c_c W').
         {
-          eapply fmap_map_shift01_c_c_incl; eauto.
+          eapply fmap_map_shift0_c_c_incl; eauto.
         }
         eapply weaken_W; eauto.
       }
