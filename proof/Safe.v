@@ -1287,8 +1287,8 @@ Module M (Time : TIME).
   Definition EWrite := EBinOp EBWrite.
 
   Inductive value : expr -> Prop :=
-  | VVar x :
-      value (EVar x)
+  (* | VVar x : *)
+  (*     value (EVar x) *)
   | VConst cn :
       value (EConst cn)
   | VPair v1 v2 :
@@ -1492,28 +1492,6 @@ Module M (Time : TIME).
 
   Definition heap := fmap loc expr.
 
-  Section subst_c_e.
-
-    Variable v : cstr.
-
-    Fixpoint subst_c_e (x : var) (n : nat) (b : expr) : expr :=
-      match b with
-      | EVar y => EVar y
-      | EConst cn => EConst cn
-      | ELoc l => ELoc l
-      | EUnOp opr e => EUnOp opr (subst_c_e x n e)
-      | EBinOp opr e1 e2 => EBinOp opr (subst_c_e x n e1) (subst_c_e x n e2)
-      | ECase e e1 e2 => ECase (subst_c_e x n e) (subst_c_e x n e1) (subst_c_e x n e2)
-      | EAbs e => EAbs (subst_c_e x n e)
-      | ERec e => ERec (subst_c_e x n e)
-      | EAbsC e => EAbsC (subst_c_e (1 + x) (1 + n) e)
-      | EUnpack e1 e2 => EUnpack (subst_c_e x n e1) (subst_c_e (1 + x) (1 + n) e2)
-      end.
-    
-  End subst_c_e.
-
-  Definition subst0_c_e (v : cstr) b := subst_c_e (* v *) 0 0 b.
-
   Section shift_e_e.
 
     Variable n : nat.
@@ -1539,6 +1517,50 @@ Module M (Time : TIME).
   End shift_e_e.
   
   Definition shift0_e_e := shift_e_e 1 0.
+
+  Section shift_c_e.
+
+    Variable n : nat.
+
+    Fixpoint shift_c_e (x : var) (b : expr) : expr :=
+      match b with
+      | EVar y => EVar y
+      | EConst cn => EConst cn
+      | ELoc l => ELoc l
+      | EUnOp opr e => EUnOp opr (shift_c_e x e)
+      | EBinOp opr e1 e2 => EBinOp opr (shift_c_e x e1) (shift_c_e x e2)
+      | ECase e e1 e2 => ECase (shift_c_e x e) (shift_c_e x e1) (shift_c_e x e2)
+      | EAbs e => EAbs (shift_c_e x e)
+      | ERec e => ERec (shift_c_e x e)
+      | EAbsC e => EAbsC (shift_c_e (1 + x) e)
+      | EUnpack e1 e2 => EUnpack (shift_c_e x e1) (shift_c_e (1 + x) e2)
+      end.
+    
+  End shift_c_e.
+  
+  Definition shift0_c_e := shift_c_e (* 1 *) 0.
+
+  Section subst_c_e.
+
+    Variable v : cstr.
+
+    Fixpoint subst_c_e (x : var) (n : nat) (b : expr) : expr :=
+      match b with
+      | EVar y => EVar y
+      | EConst cn => EConst cn
+      | ELoc l => ELoc l
+      | EUnOp opr e => EUnOp opr (subst_c_e x n e)
+      | EBinOp opr e1 e2 => EBinOp opr (subst_c_e x n e1) (subst_c_e x n e2)
+      | ECase e e1 e2 => ECase (subst_c_e x n e) (subst_c_e x n e1) (subst_c_e x n e2)
+      | EAbs e => EAbs (subst_c_e x n e)
+      | ERec e => ERec (subst_c_e x n e)
+      | EAbsC e => EAbsC (subst_c_e (1 + x) (1 + n) e)
+      | EUnpack e1 e2 => EUnpack (subst_c_e x n e1) (subst_c_e (1 + x) (1 + n) e2)
+      end.
+    
+  End subst_c_e.
+
+  Definition subst0_c_e (v : cstr) b := subst_c_e (* v *) 0 0 b.
 
 (*
   Section subst_e_e.
@@ -1585,8 +1607,8 @@ Module M (Time : TIME).
       | ECase e e1 e2 => ECase (subst_e_e x v e) (subst_e_e (1 + x) (shift0_e_e v) e1) (subst_e_e (1 + x) (shift0_e_e v) e2)
       | EAbs e => EAbs (subst_e_e (1 + x) (shift0_e_e v) e)
       | ERec e => ERec (subst_e_e (1 + x) (shift0_e_e v) e)
-      | EAbsC e => EAbsC (subst_e_e x v e)
-      | EUnpack e1 e2 => EUnpack (subst_e_e x v e1) (subst_e_e (1 + x) (shift0_e_e v) e2)
+      | EAbsC e => EAbsC (subst_e_e x (shift0_c_e v) e)
+      | EUnpack e1 e2 => EUnpack (subst_e_e x v e1) (subst_e_e (1 + x) (shift0_e_e (shift0_c_e v)) e2)
       end.
     
   End subst_e_e.
@@ -1758,11 +1780,11 @@ Module M (Time : TIME).
         v = EAbs e.
   Proof.
     induct 1; intros Hknil Htnil ta i' tb Htyeq Hval; try solve [invert Hval | eexists; eauto]; subst.
-    {
-      rewrite Htnil in H.
-      rewrite nth_error_nil in H.
-      invert H.
-    }
+    (* { *)
+    (*   rewrite Htnil in H. *)
+    (*   rewrite nth_error_nil in H. *)
+    (*   invert H. *)
+    (* } *)
     {
       eapply CForall_CArrow_false in Htyeq; propositional.
     }
@@ -1810,11 +1832,11 @@ Module M (Time : TIME).
         v = EAbsC e.
   Proof.
     induct 1; intros Hknil Htnil k' t'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Htyeq]; subst.
-    {
-      rewrite Htnil in H.
-      rewrite nth_error_nil in H.
-      invert H.
-    }
+    (* { *)
+    (*   rewrite Htnil in H. *)
+    (*   rewrite nth_error_nil in H. *)
+    (*   invert H. *)
+    (* } *)
     {
       eapply CApps_CRec_CForall_false in Htyeq; propositional.
     }
@@ -1851,11 +1873,11 @@ Module M (Time : TIME).
         value e.
   Proof.
     induct 1; intros Hknil Htnil k'' t'' cs' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst.
-    {
-      rewrite Htnil in H.
-      rewrite nth_error_nil in H.
-      invert H.
-    }
+    (* { *)
+    (*   rewrite Htnil in H. *)
+    (*   rewrite nth_error_nil in H. *)
+    (*   invert H. *)
+    (* } *)
     {
       eapply tyeq_sym in Htyeq.
       eapply CApps_CRec_CArrow_false in Htyeq; propositional.
@@ -1913,11 +1935,11 @@ Module M (Time : TIME).
         value e.
   Proof.
     induct 1; intros Hknil Htnil k' t'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst.
-    {
-      rewrite Htnil in H.
-      rewrite nth_error_nil in H.
-      invert H.
-    }
+    (* { *)
+    (*   rewrite Htnil in H. *)
+    (*   rewrite nth_error_nil in H. *)
+    (*   invert H. *)
+    (* } *)
     {
       eapply CApps_CRec_CExists_false in Htyeq; propositional.
     }
@@ -1956,11 +1978,11 @@ Module M (Time : TIME).
         value v2.
   Proof.
     induct 1; intros Hknil Htnil t1'' t2'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst.
-    {
-      rewrite Htnil in H.
-      rewrite nth_error_nil in H.
-      invert H.
-    }
+    (* { *)
+    (*   rewrite Htnil in H. *)
+    (*   rewrite nth_error_nil in H. *)
+    (*   invert H. *)
+    (* } *)
     {
       eapply CApps_CRec_CProd_false in Htyeq; propositional.
     }
@@ -1999,11 +2021,11 @@ Module M (Time : TIME).
         value v'.
   Proof.
     induct 1; intros Hknil Htnil t1'' t2'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst.
-    {
-      rewrite Htnil in H.
-      rewrite nth_error_nil in H.
-      invert H.
-    }
+    (* { *)
+    (*   rewrite Htnil in H. *)
+    (*   rewrite nth_error_nil in H. *)
+    (*   invert H. *)
+    (* } *)
     {
       eapply CApps_CRec_CSum_false in Htyeq; propositional.
     }
@@ -2038,11 +2060,11 @@ Module M (Time : TIME).
         get_hctx C $? l = Some t'.
   Proof.
     induct 1; intros Hknil Htnil t'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst.
-    {
-      rewrite Htnil in H.
-      rewrite nth_error_nil in H.
-      invert H.
-    }
+    (* { *)
+    (*   rewrite Htnil in H. *)
+    (*   rewrite nth_error_nil in H. *)
+    (*   invert H. *)
+    (* } *)
     {
       eapply CApps_CRec_CRef_false in Htyeq; propositional.
     }
@@ -2869,7 +2891,47 @@ Module M (Time : TIME).
       end
     end.
   
-  Lemma ty_subst0_e_e C e1 t1 i1 :
+  Lemma TyIdxEq C e t i1 i2 :
+    typing C e t i1 ->
+    interpP (get_kctx C) (i1 == i2)%idx ->
+    typing C e t i2.
+  Admitted.
+  Lemma ty_shift0_e_e L W G e t i t' :
+    typing (L, W, G) e t i ->
+    typing (L, W, t' :: G) (shift0_e_e e) t i.
+  Admitted.
+  Lemma removen_lt A ls n (a : A) n' :
+    nth_error ls n = Some a ->
+    n' < n ->
+    nth_error (removen n ls) n' = nth_error ls n'.
+  Admitted.
+  Lemma removen_gt A ls n (a : A) n' :
+    nth_error ls n' = Some a ->
+    n' > n ->
+    nth_error (removen n ls) (n' - 1) = nth_error ls n'.
+  Admitted.
+  Lemma value_subst_e_e v :
+    value v ->
+    forall n e,
+      value (subst_e_e n e v).
+  Proof.
+    induct 1; intros n e'; simplify; try econstructor; eauto.
+  Qed.
+  Lemma map_removen A B (f : A -> B) n ls : map f (removen n ls) = removen n (map f ls).
+  Admitted.
+  Lemma map_nth_error A B (f : A -> B) ls n a :
+    nth_error ls n = Some a ->
+    nth_error (map f ls) n = Some (f a).
+  Admitted.
+  Lemma ty_shift0_c_e L W G e t i k :
+    typing (L, W, G) e t i ->
+    typing (k :: L, fmap_map shift0_c_c W, map shift0_c_c G) (shift0_c_e e) (shift0_c_c t) (shift0_c_c i).
+  Admitted.
+  Lemma subst_e_e_AbsCs x v m e :
+    subst_e_e x v (EAbsCs m e) = EAbsCs m (subst_e_e x (shift_c_e (* m *) 0 v) e).
+  Admitted.
+  
+  Lemma ty_subst_e_e C e1 t1 i1 :
     typing C e1 t1 i1 ->
     forall n t e2 ,
       nth_error (get_tctx C) n = Some t ->
@@ -2884,20 +2946,11 @@ Module M (Time : TIME).
       intros n t' e2 Hnth Hty.
       destruct C as ((L & W) & G).
       simplify.
-      Lemma TyIdxEq C e t i1 i2 :
-        typing C e t i1 ->
-        interpP (get_kctx C) (i1 == i2)%idx ->
-        typing C e t i2.
-      Admitted.
       eapply TyIdxEq.
       {
         eapply TyAbs; simplify; eauto.
         eapply IHtyping with (n := 1 + n); eauto.
         simplify.
-        Lemma ty_shift0_e_e L W G e t i t' :
-          typing (L, W, G) e t i ->
-          typing (L, W, t' :: G) (shift0_e_e e) t i.
-        Admitted.
         eapply ty_shift0_e_e; eauto.
       }
       {
@@ -2914,11 +2967,6 @@ Module M (Time : TIME).
       cases (lt_eq_gt_dec x n).
       {
         econstructor; simplify.
-        Lemma removen_lt A ls n (a : A) n' :
-          nth_error ls n = Some a ->
-          n' < n ->
-          nth_error (removen n ls) n' = nth_error ls n'.
-        Admitted.
         erewrite removen_lt; eauto.
       }
       {
@@ -2929,11 +2977,6 @@ Module M (Time : TIME).
       }
       {
         econstructor; simplify.
-        Lemma removen_gt A ls n (a : A) n' :
-          nth_error ls n' = Some a ->
-          n' > n ->
-          nth_error (removen n ls) (n' - 1) = nth_error ls n'.
-        Admitted.
         erewrite removen_gt; eauto.
       }
     }
@@ -2957,9 +3000,83 @@ Module M (Time : TIME).
       destruct C as ((L & W) & G).
       simplify.
       econstructor; eauto.
-      (*here*)
+      {
+        eapply value_subst_e_e; eauto.
+      }
+      simplify.
+      rewrite map_removen.
+      eapply IHtyping; eauto.
+      {
+        eapply map_nth_error; eauto.
+      }
+      rewrite <- map_removen.
+      change T0 with (shift0_c_c T0).
+      eapply ty_shift0_c_e; eauto.
     }
-  Qed.
+    {
+      (* Case Rec *)
+      rename n into m.
+      intros n t' e2 Hnth Hty.
+      destruct C as ((L & W) & G).
+      simplify.
+      subst.
+      econstructor; eauto; simplify.
+      {
+        rewrite subst_e_e_AbsCs.
+        simplify.
+        eauto.
+      }
+      {
+        eapply IHtyping with (n := S n); eauto.
+        simplify.
+        eapply ty_shift0_e_e; eauto.
+      }
+    }
+    {
+      (* Case Fold *)
+      intros n t' e2' Hnth Hty.
+      destruct C as ((L & W) & G).
+      simplify.
+      econstructor; eauto.
+    }
+    {
+      (* Case Unfold *)
+      intros n t' e2' Hnth Hty.
+      destruct C as ((L & W) & G).
+      simplify.
+      econstructor; eauto.
+    }
+    {
+      (* Case Sub *)
+      intros n t' e2' Hnth Hty.
+      destruct C as ((L & W) & G).
+      simplify.
+      econstructor; eauto.
+    }
+    {
+      (* Case Pack *)
+      intros n t' e2' Hnth Hty.
+      destruct C as ((L & W) & G).
+      simplify.
+      (*here*)
+      econstructor; eauto.
+    }
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+  Admitted.
   
   Lemma ty_subst0_e_e L W t G e1 t1 i1 e2 i2 :
     typing (L, W, t :: G) e1 t1 i1 ->
