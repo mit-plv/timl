@@ -695,7 +695,7 @@ Module M (Time : TIME).
     | inleft (right H) => Eq H
     | inright H => Gt H
     end.
-          
+(*          
   Section subst_c_c.
 
     Variable v : cstr.
@@ -740,6 +740,49 @@ Module M (Time : TIME).
   End subst_c_c.
   
   Definition subst0_c_c v b := subst_c_c v 0 0 b.
+*)
+  Section subst_c_c.
+
+    Fixpoint subst_c_c (x : var) (v : cstr) (b : cstr) : cstr :=
+      match b with
+      | CVar y =>
+        match lt_eq_gt_dec y x with
+        | Lt _ => CVar y
+        | Eq _ => v
+        | Gt _ => CVar (y - 1)
+        end
+      | CConst cn => CConst cn
+      | CBinOp opr c1 c2 => CBinOp opr (subst_c_c x v c1) (subst_c_c x v c2)
+      | CIte i1 i2 i3 => CIte (subst_c_c x v i1) (subst_c_c x v i2) (subst_c_c x v i3)
+      | CTimeAbs i => CTimeAbs (subst_c_c (1 + x) (shift0_c_c v) i)
+      | CArrow t1 i t2 => CArrow (subst_c_c x v t1) (subst_c_c x v i) (subst_c_c x v t2)
+      | CAbs t => CAbs (subst_c_c (1 + x) (shift0_c_c v) t)
+      | CApp c1 c2 => CApp (subst_c_c x v c1) (subst_c_c x v c2)
+      | CQuan q k c => CQuan q (subst_c_k x v k) (subst_c_c (1 + x) (shift0_c_c v) c)
+      | CRec k t => CRec (subst_c_k x v k) (subst_c_c (1 + x) (shift0_c_c v) t)
+      | CRef t => CRef (subst_c_c x v t)
+      end
+    with subst_c_k (x : var) (v : cstr) (b : kind) : kind :=
+           match b with
+           | KType => KType
+           | KArrow k1 k2 => KArrow (subst_c_k x v k1) (subst_c_k x v k2)
+           | KBaseSort b => KBaseSort b
+           | KSubset k p => KSubset (subst_c_k x v k) (subst_c_p (1 + x) (shift0_c_c v) p)
+           end
+    with subst_c_p (x : var) (v : cstr) (b : prop) : prop :=
+           match b with
+           | PTrue => PTrue
+           | PFalse => PFalse
+           | PBinConn opr p1 p2 => PBinConn opr (subst_c_p x v p1) (subst_c_p x v p2)
+           | PNot p => PNot (subst_c_p x v p)
+           | PBinPred opr i1 i2 => PBinPred opr (subst_c_c x v i1) (subst_c_c x v i2)
+           | PEq i1 i2 => PEq (subst_c_c x v i1) (subst_c_c x v i2)
+           | PQuan q p => PQuan q (subst_c_p (1 + x) (shift0_c_c v) p)
+           end.
+
+  End subst_c_c.
+  
+  Definition subst0_c_c v b := subst_c_c 0 v b.
 
   Definition forget_c_c (x : var) (n : nat) (b : cstr) : option cstr.
   Admitted.
@@ -1539,7 +1582,7 @@ Module M (Time : TIME).
   End shift_c_e.
   
   Definition shift0_c_e := shift_c_e (* 1 *) 0.
-
+(*
   Section subst_c_e.
 
     Variable v : cstr.
@@ -1562,7 +1605,6 @@ Module M (Time : TIME).
 
   Definition subst0_c_e (v : cstr) b := subst_c_e (* v *) 0 0 b.
 
-(*
   Section subst_e_e.
 
     Variable v : expr.
@@ -1590,6 +1632,26 @@ Module M (Time : TIME).
 
   Definition subst0_e_e v b := subst_e_e v 0 0 b.
 *)
+  Section subst_c_e.
+
+    Fixpoint subst_c_e (x : var) (v : cstr) (b : expr) : expr :=
+      match b with
+      | EVar y => EVar y
+      | EConst cn => EConst cn
+      | ELoc l => ELoc l
+      | EUnOp opr e => EUnOp opr (subst_c_e x v e)
+      | EBinOp opr e1 e2 => EBinOp opr (subst_c_e x v e1) (subst_c_e x v e2)
+      | ECase e e1 e2 => ECase (subst_c_e x v e) (subst_c_e x v e1) (subst_c_e x v e2)
+      | EAbs e => EAbs (subst_c_e x v e)
+      | ERec e => ERec (subst_c_e x v e)
+      | EAbsC e => EAbsC (subst_c_e (1 + x) (shift0_c_c v) e)
+      | EUnpack e1 e2 => EUnpack (subst_c_e x v e1) (subst_c_e (1 + x) (shift0_c_c v) e2)
+      end.
+    
+  End subst_c_e.
+
+  Definition subst0_c_e (v : cstr) b := subst_c_e 0 v b.
+
   Section subst_e_e.
 
     Fixpoint subst_e_e (x : var) (v : expr) (b : expr) : expr :=
@@ -2880,12 +2942,11 @@ Module M (Time : TIME).
     tyeq L (subst0_c_c v b) (subst0_c_c v' b').
   Admitted.
   
-  Lemma ty_subst0_c_e k L W G e t i c :
-    typing (k :: L, W, G) e t i ->
-    kinding L c k ->
-    typing (L, fmap_map (subst0_c_c c) W, map (subst0_c_c c) G) (subst0_c_e c e) (subst0_c_c c t) (subst0_c_c c i).
+  Lemma map_nth_error A B (f : A -> B) ls n a :
+    nth_error ls n = Some a ->
+    nth_error (map f ls) n = Some (f a).
   Admitted.
-
+  
   (* Definition removen A n (ls : list A) := firstn n ls ++ skipn (1 + n) ls. *)
   Fixpoint removen A n (ls : list A) :=
     match ls with
@@ -2897,15 +2958,6 @@ Module M (Time : TIME).
       end
     end.
   
-  Lemma TyIdxEq C e t i1 i2 :
-    typing C e t i1 ->
-    interpP (get_kctx C) (i1 == i2)%idx ->
-    typing C e t i2.
-  Admitted.
-  Lemma ty_shift0_e_e L W G e t i t' :
-    typing (L, W, G) e t i ->
-    typing (L, W, t' :: G) (shift0_e_e e) t i.
-  Admitted.
   Lemma removen_lt A ls n (a : A) n' :
     nth_error ls n = Some a ->
     n' < n ->
@@ -2916,6 +2968,15 @@ Module M (Time : TIME).
     n' > n ->
     nth_error (removen n ls) (n' - 1) = nth_error ls n'.
   Admitted.
+  Lemma map_removen A B (f : A -> B) n ls : map f (removen n ls) = removen n (map f ls).
+  Admitted.
+  
+  Lemma TyIdxEq C e t i1 i2 :
+    typing C e t i1 ->
+    interpP (get_kctx C) (i1 == i2)%idx ->
+    typing C e t i2.
+  Admitted.
+  
   Lemma value_subst_e_e v :
     value v ->
     forall n e,
@@ -2923,15 +2984,70 @@ Module M (Time : TIME).
   Proof.
     induct 1; intros n e'; simplify; try econstructor; eauto.
   Qed.
-  Lemma map_removen A B (f : A -> B) n ls : map f (removen n ls) = removen n (map f ls).
-  Admitted.
-  Lemma map_nth_error A B (f : A -> B) ls n a :
-    nth_error ls n = Some a ->
-    nth_error (map f ls) n = Some (f a).
-  Admitted.
+  
   Lemma ty_shift0_c_e L W G e t i k :
     typing (L, W, G) e t i ->
     typing (k :: L, fmap_map shift0_c_c W, map shift0_c_c G) (shift0_c_e e) (shift0_c_c t) (shift0_c_c i).
+  Admitted.
+  
+  Lemma kd_subst_c_c L c k :
+    kinding L c k ->
+    forall n k' c' ,
+      nth_error L n = Some k' ->
+      kinding (removen n L) c' (shift_c_k n 0 k') ->
+      kinding (removen n L) (subst_c_c n c' c) (subst_c_k n c' k).
+  Admitted.
+  
+  Lemma ty_subst_c_e C e t i :
+    typing C e t i ->
+    forall n k c ,
+      nth_error (get_kctx C) n = Some k ->
+      kinding (removen n (get_kctx C)) c (shift_c_k n 0 k) ->
+      typing (removen n (get_kctx C), fmap_map (subst_c_c n c) (get_hctx C), map (subst_c_c n c) (get_tctx C)) (subst_c_e n c e) (subst_c_c n c t) (subst_c_c n c i).
+  Proof.
+    induct 1;
+      try rename n into n';
+      try rename k into k';
+      try rename c into c';
+      intros n k c Hnth Hkd;
+      destruct C as ((L & W) & G);
+      simplify;
+      try solve [econstructor; eauto].
+    {
+      econstructor;
+      eauto using map_nth_error.
+    }
+    {
+      econstructor; simplify.
+      {  
+        eapply kd_subst_c_c with (k := KType); eauto.
+      }
+      eapply IHtyping; eauto.
+    }
+    {
+      eapply TyTyeq.
+      {
+        (*here*)
+        eapply TyAppC; simplify.
+        {
+          eapply IHtyping; eauto.
+        }
+        {  
+          eapply kd_subst_c_c; eauto.
+        }
+      }
+    }
+  Qed.
+  
+  Lemma ty_subst0_c_e k L W G e t i c :
+    typing (k :: L, W, G) e t i ->
+    kinding L c k ->
+    typing (L, fmap_map (subst0_c_c c) W, map (subst0_c_c c) G) (subst0_c_e c e) (subst0_c_c c t) (subst0_c_c c i).
+  Admitted.
+
+  Lemma ty_shift0_e_e L W G e t i t' :
+    typing (L, W, G) e t i ->
+    typing (L, W, t' :: G) (shift0_e_e e) t i.
   Admitted.
   Lemma subst_e_e_AbsCs x v m e :
     subst_e_e x v (EAbsCs m e) = EAbsCs m (subst_e_e x (shift_c_e (* m *) 0 v) e).
@@ -3056,7 +3172,7 @@ Module M (Time : TIME).
     eauto.
   Qed.
 
-  Lemma interpP_le_add_0 L a : interpP L (a + T0 <= a)%idx.
+  Lemma interpP_eq_add_0 L a : interpP L (a + T0 == a)%idx.
   Admitted.
   
   Lemma value_typing_T0 C e t i :
@@ -3069,8 +3185,8 @@ Module M (Time : TIME).
       try solve [econstructor; eauto | eapply TyTyeq; eauto].
     {
       clear H H0.
-      eapply TyLe; [econstructor; eauto | ].
-      eapply interpP_le_add_0.
+      eapply TyIdxEq; [econstructor; eauto | ].
+      eapply interpP_eq_add_0.
     }
   Qed.
     
