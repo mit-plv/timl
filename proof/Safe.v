@@ -2944,7 +2944,21 @@ Module M (Time : TIME).
       simplify.
       econstructor; eauto.
     }
-    (*here*)
+    {
+      (* Case AppC *)
+      intros n t' e2' Hnth Hty.
+      destruct C as ((L & W) & G).
+      simplify.
+      econstructor; eauto.
+    }
+    {
+      (* Case Forall *)
+      intros n t' e2' Hnth Hty.
+      destruct C as ((L & W) & G).
+      simplify.
+      econstructor; eauto.
+      (*here*)
+    }
   Qed.
   
   Lemma ty_subst0_e_e L W t G e1 t1 i1 e2 i2 :
