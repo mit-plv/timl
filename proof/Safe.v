@@ -2874,6 +2874,12 @@ Module M (Time : TIME).
     subst0_c_c c'' c = c'.
   Admitted.
 
+  Lemma tyeq_subst0_c_c k L v b v' b' :
+    tyeq L v v' ->
+    tyeq (k :: L) b b' ->
+    tyeq L (subst0_c_c v b) (subst0_c_c v' b').
+  Admitted.
+  
   Lemma ty_subst0_c_e k L W G e t i c :
     typing (k :: L, W, G) e t i ->
     kinding L c k ->
@@ -3039,18 +3045,45 @@ Module M (Time : TIME).
     }
   Qed.
   
+  Lemma ty_subst0_e_e_T0 L W t G e1 t1 i1 e2 :
+    typing (L, W, t :: G) e1 t1 i1 ->
+    typing (L, W, G) e2 t T0 ->
+    typing (L, W, G) (subst0_e_e e2 e1) t1 i1%idx.
+  Proof.
+    intros Hty1 Hty2.
+    eapply ty_subst_e_e with (C := (L, W, t :: G)) (n := 0); eauto.
+    simplify.
+    eauto.
+  Qed.
+
+  Lemma interpP_le_add_0 L a : interpP L (a + T0 <= a)%idx.
+  Admitted.
+  
+  Lemma value_typing_T0 C e t i :
+    typing C e t i ->
+    value e ->
+    typing C e t T0.
+  Proof.
+    induct 1;
+      invert 1;
+      try solve [econstructor; eauto | eapply TyTyeq; eauto].
+    {
+      clear H H0.
+      eapply TyLe; [econstructor; eauto | ].
+      eapply interpP_le_add_0.
+    }
+  Qed.
+    
   Lemma ty_subst0_e_e L W t G e1 t1 i1 e2 i2 :
     typing (L, W, t :: G) e1 t1 i1 ->
     typing (L, W, G) e2 t i2 ->
     value e2 ->
-    typing (L, W, G) (subst0_e_e e2 e1) t1 (i1 + i2)%idx.
-  Admitted.
-
-  Lemma ty_subst0_e_e_T0 L W t G e1 t1 i1 e2 i2 :
-    typing (L, W, t :: G) e1 t1 i1 ->
-    typing (L, W, G) e2 t T0 ->
-    typing (L, W, G) (subst0_e_e e2 e1) t1 (i1 + i2)%idx.
-  Admitted.
+    typing (L, W, G) (subst0_e_e e2 e1) t1 i1%idx.
+  Proof.
+    intros Hty1 Hty2 Hval.
+    eapply ty_subst0_e_e_T0; eauto.
+    eapply value_typing_T0; eauto.
+  Qed.
 
   Lemma htyping_upd h W l t v i :
     htyping h W ->
@@ -3066,12 +3099,38 @@ Module M (Time : TIME).
     typing ([], W, []) v t i ->
     htyping (h $+ (l, v)) (W $+ (l, t)).
   Admitted.
+  Lemma htyping_elim_None h W l :
+    htyping h W ->
+    h $? l = None ->
+    W $? l = None.
+  Admitted.
 
+  Lemma fmap_map_shift0_c_c_incl (W W' : hctx) :
+    W $<= W' ->
+    fmap_map shift0_c_c W $<= fmap_map shift0_c_c W'.
+  Admitted.
+  
+  Lemma weaken_W' C e t i :
+    typing C e t i ->
+    forall W' ,
+      get_hctx C $<= W' ->
+      typing (get_kctx C, W', get_tctx C) e t i.
+  Proof.
+    induct 1;
+      intros W' Hincl;
+      destruct C as ((L & W) & G);
+      simplify;
+      try solve [econstructor; simplify; eauto using fmap_map_shift0_c_c_incl].
+  Qed.
+    
   Lemma weaken_W L W G e t i W' :
     typing (L, W, G) e t i ->
     W $<= W' ->
     typing (L, W', G) e t i.
-  Admitted.
+  Proof.
+    intros Hty Hincl.
+    eapply weaken_W' with (C := (L, W, G)); eauto.
+  Qed.
 
   Lemma invert_tyeq_CApps k t cs k' t' cs' :
     tyeq [] (CApps (CRec k t) cs) (CApps (CRec k' t') cs') ->
@@ -3083,22 +3142,6 @@ Module M (Time : TIME).
     tyeq L t t' ->
     Forall2 (tyeq L) cs cs' ->
     tyeq L (CApps t cs) (CApps t' cs').
-  Admitted.            
-  Lemma tyeq_subst0_c_c k L v b v' b' :
-    tyeq L v v' ->
-    tyeq (k :: L) b b' ->
-    tyeq L (subst0_c_c v b) (subst0_c_c v' b').
-  Admitted.
-  
-  Lemma htyping_elim_None h W l :
-    htyping h W ->
-    h $? l = None ->
-    W $? l = None.
-  Admitted.
-            
-  Lemma fmap_map_shift0_c_c_incl (W W' : hctx) :
-    W $<= W' ->
-    fmap_map shift0_c_c W $<= fmap_map shift0_c_c W'.
   Admitted.
   
   Lemma preservation0 s s' :
@@ -3156,7 +3199,6 @@ Module M (Time : TIME).
           copy Hle2 Hle2'.
           repeat (eapply Time_add_le_elim in Hle2; destruct Hle2 as (Hle2 & ?)).
           eapply interpTime_interpP_le.
-          rewrite interpTime_distr.
           rewrite interpTime_minus_distr.
           rewrite interpTime_1.
           eapply Time_minus_move_left; eauto.
@@ -3164,8 +3206,6 @@ Module M (Time : TIME).
           rewrite <- Hieq in *.
           eapply Time_le_trans; [| eapply Hle2'].
           rotate_lhs.
-          rotate_lhs.
-          cancel.
           cancel.
           finish.
         }
@@ -3281,10 +3321,8 @@ Module M (Time : TIME).
             rewrite Time_a_minus_a.
             eapply interpTime_interpP_le.
             rewrite interpTime_minus_distr.
-            rewrite interpTime_distr.
             rewrite interpTime_0.
             rewrite Time_minus_0.
-            rewrite Time_0_add.
             eauto with time_order.
           }
         }
@@ -3362,7 +3400,6 @@ Module M (Time : TIME).
           rewrite Time_a_minus_a.
           eapply interpTime_interpP_le.
           rewrite interpTime_minus_distr.
-          rewrite interpTime_distr.
           rewrite interpTime_0.
           rewrite Time_minus_0.
           eapply interpP_le_interpTime in Hle2.
@@ -3370,9 +3407,7 @@ Module M (Time : TIME).
           repeat rewrite interpTime_distr in Hle2.
           repeat rewrite interpTime_1 in Hle2.
           trans_rhs Hle2.
-          rotate_lhs.
-          cancel.
-          eauto.
+          finish.
         }
       }
       {
@@ -3762,16 +3797,21 @@ Module M (Time : TIME).
             rewrite Time_a_minus_a.
             eapply interpTime_interpP_le.
             rewrite interpTime_minus_distr.
-            rewrite interpTime_distr.
             repeat rewrite interpTime_0.
             rewrite Time_minus_0.
             eapply interpP_le_interpTime in Hle2.
             trans_rhs Hle2.
             rewrite interpTime_distr.
             eapply interpP_le_interpTime in Hle3.
-            rotate_rhs.
-            cancel2.
             rewrite interpTime_max.
+            eapply Time_le_trans.
+            {
+              instantiate (1 := (interpTime i1 + interpTime i0)%time).
+              rotate_rhs.
+              finish.
+            }
+            rotate_rhs.
+            cancel.
             eauto with time_order.
           }
         }
@@ -3790,16 +3830,21 @@ Module M (Time : TIME).
             rewrite Time_a_minus_a.
             eapply interpTime_interpP_le.
             rewrite interpTime_minus_distr.
-            rewrite interpTime_distr.
             repeat rewrite interpTime_0.
             rewrite Time_minus_0.
             eapply interpP_le_interpTime in Hle2.
             trans_rhs Hle2.
             rewrite interpTime_distr.
             eapply interpP_le_interpTime in Hle3.
-            rotate_rhs.
-            cancel2.
             rewrite interpTime_max.
+            eapply Time_le_trans.
+            {
+              instantiate (1 := (interpTime i2 + interpTime i0)%time).
+              rotate_rhs.
+              finish.
+            }
+            rotate_rhs.
+            cancel.
             eauto with time_order.
           }
         }
