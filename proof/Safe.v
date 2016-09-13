@@ -1285,8 +1285,6 @@ Module M (Time : TIME).
   Inductive expr_un_op :=
   | EUProj (p : projector)
   | EUInj (inj : injector)
-  | EUAppC (c : cstr)
-  | EUPack (c : cstr)
   | EUFold
   | EUUnfold
   | EUNew 
@@ -1310,6 +1308,8 @@ Module M (Time : TIME).
   | EAbs (e : expr)
   | ERec (e : expr)
   | EAbsC (e : expr)
+  | EAppC (e : expr) (c : cstr)
+  | EPack (c : cstr) (e : expr)
   | EUnpack (e1 e2 : expr)
   (* | EAsc (e : expr) (t : cstr) *)
   (* | EAstTime (e : expr) (i : cstr) *)
@@ -1318,8 +1318,6 @@ Module M (Time : TIME).
 
   Definition EProj p e := EUnOp (EUProj p) e.
   Definition EInj c e := EUnOp (EUInj c) e.
-  Definition EAppC e c := EUnOp (EUAppC c) e.
-  Definition EPack c e := EUnOp (EUPack c) e.
   Definition EFold e := EUnOp EUFold e.
   Definition EUnfold e := EUnOp EUUnfold e.
   Definition ENew e := EUnOp EUNew e.
@@ -1361,6 +1359,8 @@ Module M (Time : TIME).
   | ECBinOp1 (opr : expr_bin_op) (E : ectx) (e : expr)
   | ECBinOp2 (opr : expr_bin_op) (v : expr) (E : ectx)
   | ECCase (E : ectx) (e1 e2 : expr)
+  | ECAppC (E : ectx) (c : cstr)
+  | ECPack (c : cstr) (E : ectx)
   | ECUnpack (E : ectx) (e : expr)
   .
 
@@ -1380,6 +1380,12 @@ Module M (Time : TIME).
   | PlugCase E e e' e1 e2 :
       plug E e e' ->
       plug (ECCase E e1 e2) e (ECase e' e1 e2)
+  | PlugAppC E e e' c :
+      plug E e e' ->
+      plug (ECAppC E c) e (EAppC e' c)
+  | PlugPack E e e' c :
+      plug E e e' ->
+      plug (ECPack c E) e (EPack c e')
   | PlugUnpack E e e' e2 :
       plug E e e' ->
       plug (ECUnpack E e2) e (EUnpack e' e2)
@@ -1535,6 +1541,30 @@ Module M (Time : TIME).
 
   Definition heap := fmap loc expr.
 
+  Section shift_c_e.
+
+    Variable n : nat.
+
+    Fixpoint shift_c_e (x : var) (b : expr) : expr :=
+      match b with
+      | EVar y => EVar y
+      | EConst cn => EConst cn
+      | ELoc l => ELoc l
+      | EUnOp opr e => EUnOp opr (shift_c_e x e)
+      | EBinOp opr e1 e2 => EBinOp opr (shift_c_e x e1) (shift_c_e x e2)
+      | ECase e e1 e2 => ECase (shift_c_e x e) (shift_c_e x e1) (shift_c_e x e2)
+      | EAbs e => EAbs (shift_c_e x e)
+      | ERec e => ERec (shift_c_e x e)
+      | EAbsC e => EAbsC (shift_c_e (1 + x) e)
+      | EAppC e c => EAppC (shift_c_e x e) (shift_c_c n x c)
+      | EPack c e => EPack (shift_c_c n x c) (shift_c_e x e)
+      | EUnpack e1 e2 => EUnpack (shift_c_e x e1) (shift_c_e (1 + x) e2)
+      end.
+    
+  End shift_c_e.
+  
+  Definition shift0_c_e := shift_c_e 1 0.
+  
   Section shift_e_e.
 
     Variable n : nat.
@@ -1554,34 +1584,14 @@ Module M (Time : TIME).
       | EAbs e => EAbs (shift_e_e (1 + x) e)
       | ERec e => ERec (shift_e_e (1 + x) e)
       | EAbsC e => EAbsC (shift_e_e x e)
+      | EAppC e c => EAppC (shift_e_e x e) c
+      | EPack c e => EPack c (shift_e_e x e)
       | EUnpack e1 e2 => EUnpack (shift_e_e x e1) (shift_e_e (1 + x) e2)
       end.
     
   End shift_e_e.
   
   Definition shift0_e_e := shift_e_e 1 0.
-
-  Section shift_c_e.
-
-    Variable n : nat.
-
-    Fixpoint shift_c_e (x : var) (b : expr) : expr :=
-      match b with
-      | EVar y => EVar y
-      | EConst cn => EConst cn
-      | ELoc l => ELoc l
-      | EUnOp opr e => EUnOp opr (shift_c_e x e)
-      | EBinOp opr e1 e2 => EBinOp opr (shift_c_e x e1) (shift_c_e x e2)
-      | ECase e e1 e2 => ECase (shift_c_e x e) (shift_c_e x e1) (shift_c_e x e2)
-      | EAbs e => EAbs (shift_c_e x e)
-      | ERec e => ERec (shift_c_e x e)
-      | EAbsC e => EAbsC (shift_c_e (1 + x) e)
-      | EUnpack e1 e2 => EUnpack (shift_c_e x e1) (shift_c_e (1 + x) e2)
-      end.
-    
-  End shift_c_e.
-  
-  Definition shift0_c_e := shift_c_e (* 1 *) 0.
 (*
   Section subst_c_e.
 
@@ -1645,6 +1655,8 @@ Module M (Time : TIME).
       | EAbs e => EAbs (subst_c_e x v e)
       | ERec e => ERec (subst_c_e x v e)
       | EAbsC e => EAbsC (subst_c_e (1 + x) (shift0_c_c v) e)
+      | EAppC e c => EAppC (subst_c_e x v e) (subst_c_c x v c)
+      | EPack c e => EPack (subst_c_c x v c) (subst_c_e x v e)
       | EUnpack e1 e2 => EUnpack (subst_c_e x v e1) (subst_c_e (1 + x) (shift0_c_c v) e2)
       end.
     
@@ -1670,6 +1682,8 @@ Module M (Time : TIME).
       | EAbs e => EAbs (subst_e_e (1 + x) (shift0_e_e v) e)
       | ERec e => ERec (subst_e_e (1 + x) (shift0_e_e v) e)
       | EAbsC e => EAbsC (subst_e_e x (shift0_c_e v) e)
+      | EAppC e c => EAppC (subst_e_e x v e) c
+      | EPack c e => EPack c (subst_e_e x v e)
       | EUnpack e1 e2 => EUnpack (subst_e_e x v e1) (subst_e_e (1 + x) (shift0_e_e (shift0_c_e v)) e2)
       end.
     
@@ -2274,7 +2288,7 @@ Module M (Time : TIME).
         rename e1' into e'.
         right.
         exists (h', EAppC e' c, f').
-        eapply StepPlug with (E := ECUnOp _ E); repeat econstructor; eauto.
+        eapply StepPlug with (E := ECAppC E c); repeat econstructor; eauto.
       }
     }
     {
@@ -2359,7 +2373,7 @@ Module M (Time : TIME).
         rename e1' into e'.
         right.
         exists (h', EPack c e', f').
-        eapply StepPlug with (E := ECUnOp _ E); repeat econstructor; eauto.
+        eapply StepPlug with (E := ECPack c E); repeat econstructor; eauto.
       }
     }
     {
@@ -2998,6 +3012,25 @@ Module M (Time : TIME).
       kinding (removen n L) (subst_c_c n c' c) (subst_c_k n c' k).
   Admitted.
   
+  Lemma wfkind_subst_c_k L k :
+    wfkind L k ->
+    forall n k' c ,
+      nth_error L n = Some k' ->
+      kinding (removen n L) c (shift_c_k n 0 k') ->
+      wfkind (removen n L) (subst_c_k n c k).
+  Admitted.
+  
+  Lemma subst_c_c_subst0 n c c' t : subst_c_c n c (subst0_c_c c' t) = subst0_c_c (subst_c_c n c c') (subst_c_c (S n) (shift0_c_c c) t).
+  Admitted.
+  
+  Lemma value_subst_c_e v :
+    value v ->
+    forall n c,
+      value (subst_c_e n c v).
+  Proof.
+    induct 1; intros n e'; simplify; try econstructor; eauto.
+  Qed.
+  
   Lemma ty_subst_c_e C e t i :
     typing C e t i ->
     forall n k c ,
@@ -3014,10 +3047,12 @@ Module M (Time : TIME).
       simplify;
       try solve [econstructor; eauto].
     {
+      (* Case Var *)
       econstructor;
       eauto using map_nth_error.
     }
     {
+      (* Case Abs *)
       econstructor; simplify.
       {  
         eapply kd_subst_c_c with (k := KType); eauto.
@@ -3025,9 +3060,9 @@ Module M (Time : TIME).
       eapply IHtyping; eauto.
     }
     {
+      (* Case AppC *)
       eapply TyTyeq.
       {
-        (*here*)
         eapply TyAppC; simplify.
         {
           eapply IHtyping; eauto.
@@ -3036,8 +3071,35 @@ Module M (Time : TIME).
           eapply kd_subst_c_c; eauto.
         }
       }
+      simplify.
+      rewrite subst_c_c_subst0.
+      eauto with invert_typing.
     }
-  Qed.
+    {
+      (* Case AbsC *)
+      econstructor; simplify.
+      {
+        eapply value_subst_c_e; eauto.
+      }
+      {
+        eapply wfkind_subst_c_k; eauto.
+      }
+      (*here*)
+      eapply IHtyping; eauto.
+    }
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+  Admitted.
   
   Lemma ty_subst0_c_e k L W G e t i c :
     typing (k :: L, W, G) e t i ->
@@ -3050,7 +3112,7 @@ Module M (Time : TIME).
     typing (L, W, t' :: G) (shift0_e_e e) t i.
   Admitted.
   Lemma subst_e_e_AbsCs x v m e :
-    subst_e_e x v (EAbsCs m e) = EAbsCs m (subst_e_e x (shift_c_e (* m *) 0 v) e).
+    subst_e_e x v (EAbsCs m e) = EAbsCs m (subst_e_e x (shift_c_e m 0 v) e).
   Admitted.
   
   Lemma ty_subst_e_e C e1 t1 i1 :
@@ -4124,88 +4186,6 @@ Module M (Time : TIME).
         }
       }
       {
-        (* Case AppC *)
-        eapply invert_typing_AppC in Hty.
-        destruct Hty as (t' & i' & k & Htyeq & Hty & Hkd & Hle).
-        simplify.
-        eapply IHplug in Hty; eauto.
-        destruct Hty as (t0 & i0 & Hty1 & Hle2 & HE).
-        exists t0, i0.
-        repeat split; eauto.
-        {
-          eapply interpTime_interpP_le.
-          eapply interpP_le_interpTime in Hle.
-          eapply interpP_le_interpTime in Hle2.
-          eauto with time_order.
-        }
-        intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
-        invert Hplug.
-        rename e'0 into e_all''.
-        rename H4 into Hplug.
-        eapply HE in Hplug; eauto.
-        eapply TySub.
-        {
-          eapply TyAppC; eauto.
-        }
-        {
-          simplify.
-          eapply tyeq_sym; eauto.
-        }
-        {
-          simplify.
-          eapply interpTime_interpP_le.
-          repeat rewrite interpTime_distr.
-          rotate_lhs.
-          rotate_rhs.
-          cancel.
-          repeat rewrite interpTime_minus_distr.
-          eapply Time_minus_cancel.
-          eapply interpP_le_interpTime in Hle.
-          eauto.
-        }
-      }
-      {
-        (* Case Pack *)
-        eapply invert_typing_Pack in Hty.
-        destruct Hty as (t1 & k & i' & Htyeq & Hkd & Hkdc & Hty & Hle).
-        simplify.
-        eapply IHplug in Hty; eauto.
-        destruct Hty as (t0 & i0 & Hty1 & Hle2 & HE).
-        exists t0, i0.
-        repeat split; eauto.
-        {
-          eapply interpTime_interpP_le.
-          eapply interpP_le_interpTime in Hle.
-          eapply interpP_le_interpTime in Hle2.
-          eauto with time_order.
-        }
-        intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
-        invert Hplug.
-        rename e'0 into e_all''.
-        rename H4 into Hplug.
-        eapply HE in Hplug; eauto.
-        eapply TySub.
-        {
-          eapply TyPack; eauto.
-        }
-        {
-          simplify.
-          eapply tyeq_sym; eauto.
-        }
-        {
-          simplify.
-          eapply interpTime_interpP_le.
-          repeat rewrite interpTime_distr.
-          rotate_lhs.
-          rotate_rhs.
-          cancel.
-          repeat rewrite interpTime_minus_distr.
-          eapply Time_minus_cancel.
-          eapply interpP_le_interpTime in Hle.
-          eauto.
-        }
-      }
-      {
         (* Case Fold *)
         eapply invert_typing_Fold in Hty.
         destruct Hty as (t0 & t1 & cs & k & t2 & i' & Htyeq & ? & ? & Hkd & Hty & Hle).
@@ -4735,6 +4715,88 @@ Module M (Time : TIME).
         rewrite Time_add_minus_assoc by eauto.
         eapply Time_minus_cancel.
         rotate_lhs.
+        eauto.
+      }
+    }
+    {
+      (* Case AppC *)
+      eapply invert_typing_AppC in Hty.
+      destruct Hty as (t' & i' & k & Htyeq & Hty & Hkd & Hle).
+      simplify.
+      eapply IHplug in Hty; eauto.
+      destruct Hty as (t0 & i0 & Hty1 & Hle2 & HE).
+      exists t0, i0.
+      repeat split; eauto.
+      {
+        eapply interpTime_interpP_le.
+        eapply interpP_le_interpTime in Hle.
+        eapply interpP_le_interpTime in Hle2.
+        eauto with time_order.
+      }
+      intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
+      invert Hplug.
+      rename e'0 into e_all''.
+      rename H4 into Hplug.
+      eapply HE in Hplug; eauto.
+      eapply TySub.
+      {
+        eapply TyAppC; eauto.
+      }
+      {
+        simplify.
+        eapply tyeq_sym; eauto.
+      }
+      {
+        simplify.
+        eapply interpTime_interpP_le.
+        repeat rewrite interpTime_distr.
+        rotate_lhs.
+        rotate_rhs.
+        cancel.
+        repeat rewrite interpTime_minus_distr.
+        eapply Time_minus_cancel.
+        eapply interpP_le_interpTime in Hle.
+        eauto.
+      }
+    }
+    {
+      (* Case Pack *)
+      eapply invert_typing_Pack in Hty.
+      destruct Hty as (t1 & k & i' & Htyeq & Hkd & Hkdc & Hty & Hle).
+      simplify.
+      eapply IHplug in Hty; eauto.
+      destruct Hty as (t0 & i0 & Hty1 & Hle2 & HE).
+      exists t0, i0.
+      repeat split; eauto.
+      {
+        eapply interpTime_interpP_le.
+        eapply interpP_le_interpTime in Hle.
+        eapply interpP_le_interpTime in Hle2.
+        eauto with time_order.
+      }
+      intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
+      invert Hplug.
+      rename e'0 into e_all''.
+      rename H4 into Hplug.
+      eapply HE in Hplug; eauto.
+      eapply TySub.
+      {
+        eapply TyPack; eauto.
+      }
+      {
+        simplify.
+        eapply tyeq_sym; eauto.
+      }
+      {
+        simplify.
+        eapply interpTime_interpP_le.
+        repeat rewrite interpTime_distr.
+        rotate_lhs.
+        rotate_rhs.
+        cancel.
+        repeat rewrite interpTime_minus_distr.
+        eapply Time_minus_cancel.
+        eapply interpP_le_interpTime in Hle.
         eauto.
       }
     }
