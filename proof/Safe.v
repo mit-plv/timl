@@ -1435,11 +1435,6 @@ Module M (Time : TIME).
       t = CRec k t1 ->
       typing C e (CApps t cs) i ->
       typing C (EUnfold e) (CApps (subst0_c_c t t1) cs) i
-  | TySub C e t2 i2 t1 i1 :
-      typing C e t1 i1 ->
-      tyeq (get_kctx C) t1 t2 ->
-      interpP (get_kctx C) (i1 <= i2) ->
-      typing C e t2 i2 
   (* | TyAsc L G e t i : *)
   (*     kinding L t KType -> *)
   (*     typing (L, G) e t i -> *)
@@ -1486,6 +1481,11 @@ Module M (Time : TIME).
   | TyLoc C l t :
       get_hctx C $? l = Some t ->
       typing C (ELoc l) (CRef t) T0
+  | TySub C e t2 i2 t1 i1 :
+      typing C e t1 i1 ->
+      tyeq (get_kctx C) t1 t2 ->
+      interpP (get_kctx C) (i1 <= i2) ->
+      typing C e t2 i2 
   .
 
   Local Close Scope idx_scope.
@@ -1792,10 +1792,6 @@ Module M (Time : TIME).
       eapply CApps_CRec_CArrow_false in Htyeq; propositional.
     }
     {
-      destruct C as ((L & W) & G); simplify; subst.
-      eapply IHtyping; eauto with invert_typing.
-    }
-    {
       eapply CExists_CArrow_false in Htyeq; propositional.
     }
     {
@@ -1809,6 +1805,10 @@ Module M (Time : TIME).
     }
     {
       eapply CRef_CArrow_false in Htyeq; propositional.
+    }
+    {
+      destruct C as ((L & W) & G); simplify; subst.
+      eapply IHtyping; eauto with invert_typing.
     }
   Qed.
 
@@ -1841,14 +1841,14 @@ Module M (Time : TIME).
       eapply CApps_CRec_CForall_false in Htyeq; propositional.
     }
     {
-      destruct C as ((L & W) & G); simplify; subst.
-      eapply IHtyping; eauto with invert_typing.
-    }
-    {
       cases cn; simplify; invert Htyeq.
     }
     {
       cases inj; simplify; invert Htyeq.
+    }
+    {
+      destruct C as ((L & W) & G); simplify; subst.
+      eapply IHtyping; eauto with invert_typing.
     }
   Qed.
 
@@ -1887,10 +1887,6 @@ Module M (Time : TIME).
       eapply CApps_CRec_CForall_false in Htyeq; propositional.
     }
     {
-      destruct C as ((L & W) & G); simplify; subst.
-      eapply IHtyping; eauto with invert_typing.
-    }
-    {
       eapply tyeq_sym in Htyeq.
       eapply CApps_CRec_CExists_false in Htyeq; propositional.
     }
@@ -1910,6 +1906,10 @@ Module M (Time : TIME).
     {
       eapply tyeq_sym in Htyeq.
       eapply CApps_CRec_CRef_false in Htyeq; propositional.
+    }
+    {
+      destruct C as ((L & W) & G); simplify; subst.
+      eapply IHtyping; eauto with invert_typing.
     }
   Qed.
 
@@ -1944,14 +1944,14 @@ Module M (Time : TIME).
       eapply CApps_CRec_CExists_false in Htyeq; propositional.
     }
     {
-      destruct C as ((L & W) & G); simplify; subst.
-      eapply IHtyping; eauto with invert_typing.
-    }
-    {
       cases cn; simplify; invert Htyeq.
     }
     {
       cases inj; simplify; invert Htyeq.
+    }
+    {
+      destruct C as ((L & W) & G); simplify; subst.
+      eapply IHtyping; eauto with invert_typing.
     }
   Qed.
 
@@ -1987,14 +1987,14 @@ Module M (Time : TIME).
       eapply CApps_CRec_CProd_false in Htyeq; propositional.
     }
     {
-      destruct C as ((L & W) & G); simplify; subst.
-      eapply IHtyping; eauto with invert_typing.
-    }
-    {
       cases cn; simplify; invert Htyeq.
     }
     {
       cases inj; simplify; invert Htyeq.
+    }
+    {
+      destruct C as ((L & W) & G); simplify; subst.
+      eapply IHtyping; eauto with invert_typing.
     }
   Qed.
 
@@ -2030,11 +2030,11 @@ Module M (Time : TIME).
       eapply CApps_CRec_CSum_false in Htyeq; propositional.
     }
     {
-      destruct C as ((L & W) & G); simplify; subst.
-      eapply IHtyping; eauto with invert_typing.
+      cases cn; simplify; invert Htyeq.
     }
     {
-      cases cn; simplify; invert Htyeq.
+      destruct C as ((L & W) & G); simplify; subst.
+      eapply IHtyping; eauto with invert_typing.
     }
   Qed.
   
@@ -2069,14 +2069,14 @@ Module M (Time : TIME).
       eapply CApps_CRec_CRef_false in Htyeq; propositional.
     }
     {
-      destruct C as ((L & W) & G); simplify; subst.
-      eapply IHtyping; eauto with invert_typing.
-    }
-    {
       cases cn; simplify; invert Htyeq.
     }
     {
       cases inj; simplify; invert Htyeq.
+    }
+    {
+      destruct C as ((L & W) & G); simplify; subst.
+      eapply IHtyping; eauto with invert_typing.
     }
   Qed.
   
@@ -2277,16 +2277,6 @@ Module M (Time : TIME).
         exists (h', EUnfold e', f').
         eapply StepPlug with (E := ECUnOp _ E); repeat econstructor; eauto.
       }
-    }
-    {
-      (* Case Sub *)
-      intros ? ? h f Hhty Hle.
-      destruct C as ((L & W) & G).
-      simplify.
-      subst.
-      eapply IHtyping; eauto.
-      eapply interpP_le_interpTime in H1.
-      eauto with time_order.
     }
     {
       (* Case Pack *)
@@ -2578,6 +2568,16 @@ Module M (Time : TIME).
       intros.
       left.
       simplify; eauto.
+    }
+    {
+      (* Case Sub *)
+      intros ? ? h f Hhty Hle.
+      destruct C as ((L & W) & G).
+      simplify.
+      subst.
+      eapply IHtyping; eauto.
+      eapply interpP_le_interpTime in H1.
+      eauto with time_order.
     }
   Qed.
 
@@ -2939,31 +2939,14 @@ Module M (Time : TIME).
       typing (get_kctx C, get_hctx C, removen n (get_tctx C)) (subst_e_e n e2 e1) t1 i1.
       (* typing (get_kctx C, get_hctx C, removen n (get_tctx C)) (subst_e_e e2 n 0 e1) t1 i1. *)
   Proof.
-    induct 1.
-    Focus 3.
-    {
-      (* Case Abs *)
-      intros n t' e2 Hnth Hty.
-      destruct C as ((L & W) & G).
-      simplify.
-      eapply TyIdxEq.
-      {
-        eapply TyAbs; simplify; eauto.
-        eapply IHtyping with (n := 1 + n); eauto.
-        simplify.
-        eapply ty_shift0_e_e; eauto.
-      }
-      {
-        simplify.
-        eapply interpP_eq_refl.
-      }
-    }
-    Unfocus.
+    induct 1;
+      try rename n into n';
+      intros n t'' e2' Hnth Hty;
+      destruct C as ((L & W) & G);
+      simplify;
+      try solve [econstructor; eauto].
     {
       (* Case Var *)
-      intros n t' e2 Hnth Hty.
-      destruct C as ((L & W) & G).
-      simplify.
       cases (lt_eq_gt_dec x n).
       {
         econstructor; simplify.
@@ -2981,24 +2964,21 @@ Module M (Time : TIME).
       }
     }
     {
-      (* Case App *)
-      intros n t' e2' Hnth Hty.
-      destruct C as ((L & W) & G).
-      simplify.
-      econstructor; eauto.
-    }
-    {
-      (* Case AppC *)
-      intros n t' e2' Hnth Hty.
-      destruct C as ((L & W) & G).
-      simplify.
-      econstructor; eauto.
+      (* Case Abs *)
+      eapply TyIdxEq.
+      {
+        eapply TyAbs; simplify; eauto.
+        eapply IHtyping with (n := 1 + n); eauto.
+        simplify.
+        eapply ty_shift0_e_e; eauto.
+      }
+      {
+        simplify.
+        eapply interpP_eq_refl.
+      }
     }
     {
       (* Case Forall *)
-      intros n t' e2' Hnth Hty.
-      destruct C as ((L & W) & G).
-      simplify.
       econstructor; eauto.
       {
         eapply value_subst_e_e; eauto.
@@ -3015,10 +2995,6 @@ Module M (Time : TIME).
     }
     {
       (* Case Rec *)
-      rename n into m.
-      intros n t' e2 Hnth Hty.
-      destruct C as ((L & W) & G).
-      simplify.
       subst.
       econstructor; eauto; simplify.
       {
@@ -3033,50 +3009,35 @@ Module M (Time : TIME).
       }
     }
     {
-      (* Case Fold *)
-      intros n t' e2' Hnth Hty.
-      destruct C as ((L & W) & G).
+      (* Case Unpack *)
+      eapply TyUnpack; eauto.
       simplify.
-      econstructor; eauto.
+      rewrite map_removen.
+      eapply IHtyping2 with (n := S n); eauto; simplify.
+      {
+        eapply map_nth_error; eauto.
+      }
+      rewrite <- map_removen.
+      eapply ty_shift0_e_e; eauto.
+      change T0 with (shift0_c_c T0).
+      eapply ty_shift0_c_e; eauto.
     }
     {
-      (* Case Unfold *)
-      intros n t' e2' Hnth Hty.
-      destruct C as ((L & W) & G).
-      simplify.
-      econstructor; eauto.
+      (* Case Case *)
+      subst.
+      econstructor; eauto; simplify.
+      {
+        eapply IHtyping2 with (n := S n); eauto.
+        simplify.
+        eapply ty_shift0_e_e; eauto.
+      }
+      {
+        eapply IHtyping3 with (n := S n); eauto.
+        simplify.
+        eapply ty_shift0_e_e; eauto.
+      }
     }
-    {
-      (* Case Sub *)
-      intros n t' e2' Hnth Hty.
-      destruct C as ((L & W) & G).
-      simplify.
-      econstructor; eauto.
-    }
-    {
-      (* Case Pack *)
-      intros n t' e2' Hnth Hty.
-      destruct C as ((L & W) & G).
-      simplify.
-      (*here*)
-      econstructor; eauto.
-    }
-    admit.
-    admit.
-    admit.
-    admit.
-    admit.
-    admit.
-    admit.
-    admit.
-    admit.
-    admit.
-    admit.
-    admit.
-    admit.
-    admit.
-    admit.
-  Admitted.
+  Qed.
   
   Lemma ty_subst0_e_e L W t G e1 t1 i1 e2 i2 :
     typing (L, W, t :: G) e1 t1 i1 ->
