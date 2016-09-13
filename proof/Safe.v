@@ -3003,23 +3003,7 @@ Module M (Time : TIME).
     typing (L, W, G) e t i ->
     typing (k :: L, fmap_map shift0_c_c W, map shift0_c_c G) (shift0_c_e e) (shift0_c_c t) (shift0_c_c i).
   Admitted.
-  
-  Lemma kd_subst_c_c L c k :
-    kinding L c k ->
-    forall n k' c' ,
-      nth_error L n = Some k' ->
-      kinding (removen n L) c' (shift_c_k n 0 k') ->
-      kinding (removen n L) (subst_c_c n c' c) (subst_c_k n c' k).
-  Admitted.
-  
-  Lemma wfkind_subst_c_k L k :
-    wfkind L k ->
-    forall n k' c ,
-      nth_error L n = Some k' ->
-      kinding (removen n L) c (shift_c_k n 0 k') ->
-      wfkind (removen n L) (subst_c_k n c k).
-  Admitted.
-  
+
   Lemma subst_c_c_subst0 n c c' t : subst_c_c n c (subst0_c_c c' t) = subst0_c_c (subst_c_c n c c') (subst_c_c (S n) (shift0_c_c c) t).
   Admitted.
   
@@ -3031,12 +3015,90 @@ Module M (Time : TIME).
     induct 1; intros n e'; simplify; try econstructor; eauto.
   Qed.
   
+  Fixpoint subst_c_ks v bs :=
+    match bs with
+    | [] => []
+    | b :: bs => subst_c_k (length bs) (shift_c_c (length bs) 0 v) b :: subst_c_ks v bs
+    end.
+
+  Fixpoint my_skipn A (ls : list A) n :=
+    match ls with
+    | [] => []
+    | a :: ls =>
+      match n with
+      | 0 => ls
+      | S n => my_skipn ls n
+      end
+    end.
+    
+  Lemma fmap_map_shift0_c_c_incl (W W' : hctx) :
+    W $<= W' ->
+    fmap_map shift0_c_c W $<= fmap_map shift0_c_c W'.
+  Admitted.
+  Lemma fmap_map_shift_subst n c (W : hctx) :
+    fmap_map shift0_c_c (fmap_map (subst_c_c n (shift_c_c n 0 c)) W) =
+    fmap_map (subst_c_c (1 + n) (shift_c_c (1 + n) 0 c)) (fmap_map shift0_c_c W).
+  Admitted.
+  Lemma map_shift_subst n c ls :
+    map shift0_c_c (map (subst_c_c n (shift_c_c n 0 c)) ls) =
+    map (subst_c_c (1 + n) (shift_c_c (1 + n) 0 c)) (map shift0_c_c ls).
+  Admitted.
+  Lemma shift0_c_c_shift n c :
+    shift0_c_c (shift_c_c n 0 c) = shift_c_c (1 + n) 0 c.
+  Admitted.
+  Lemma nth_error_length_firstn A L n (a : A) :
+    nth_error L n = Some a ->
+    length (firstn n L) = n.
+  Admitted.
+  
+  (* Definition forget_c_k (x : var) (n : nat) (b : kind) : option kind. *)
+  (* Admitted. *)
+  
+  (* Inductive dep_removen : nat -> list kind -> list kind -> Prop := *)
+  (* | DRN0 k L : *)
+  (*     dep_removen 0 (k :: L) L *)
+  (* | DRNS n k L k' L' : *)
+  (*     forget_c_k n 1 k = Some k' -> *)
+  (*     dep_removen n L L' -> *)
+  (*     dep_removen (S n) (k :: L) (k' :: L') *)
+  (* . *)
+
+  (* Hint Constructors dep_removen. *)
+    
+  Lemma subst_e_e_AbsCs x v m e :
+    subst_e_e x v (EAbsCs m e) = EAbsCs m (subst_e_e x (shift_c_e m 0 v) e).
+  Admitted.
+  
+  Lemma subst_c_e_AbsCs x v m e :
+    subst_c_e x v (EAbsCs m e) = EAbsCs m (subst_c_e (m + x) (shift_c_c m 0 v) e).
+  Admitted.
+  
+  Lemma subst_c_c_Apps n v c cs :
+    subst_c_c n v (CApps c cs) = CApps (subst_c_c n v c) (map (subst_c_c n v) cs).
+  Admitted.
+  
+  Lemma kd_subst_c_c L c' k' :
+    kinding L c' k' ->
+    forall n k c ,
+      nth_error L n = Some k ->
+      kinding (my_skipn L (1 + n)) c k ->
+      kinding (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_c n (shift_c_c n 0 c) c') (subst_c_k n (shift_c_c n 0 c) k').
+  Admitted.
+  
+  Lemma wfkind_subst_c_k L k' :
+    wfkind L k' ->
+    forall n k c ,
+      nth_error L n = Some k ->
+      kinding (my_skipn L (1 + n)) c k ->
+      wfkind (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_k n (shift_c_c n 0 c) k').
+  Admitted.
+
   Lemma ty_subst_c_e C e t i :
     typing C e t i ->
     forall n k c ,
       nth_error (get_kctx C) n = Some k ->
-      kinding (removen n (get_kctx C)) c (shift_c_k n 0 k) ->
-      typing (removen n (get_kctx C), fmap_map (subst_c_c n c) (get_hctx C), map (subst_c_c n c) (get_tctx C)) (subst_c_e n c e) (subst_c_c n c t) (subst_c_c n c i).
+      kinding (my_skipn (get_kctx C) (1 + n)) c k ->
+      typing (subst_c_ks c (firstn n (get_kctx C)) ++ my_skipn (get_kctx C) (1 + n), fmap_map (subst_c_c n (shift_c_c n 0 c)) (get_hctx C), map (subst_c_c n (shift_c_c n 0 c)) (get_tctx C)) (subst_c_e n (shift_c_c n 0 c) e) (subst_c_c n (shift_c_c n 0 c) t) (subst_c_c n (shift_c_c n 0 c) i).
   Proof.
     induct 1;
       try rename n into n';
@@ -3048,14 +3110,14 @@ Module M (Time : TIME).
       try solve [econstructor; eauto].
     {
       (* Case Var *)
-      econstructor;
+      econstructor.
       eauto using map_nth_error.
     }
     {
       (* Case Abs *)
       econstructor; simplify.
       {  
-        eapply kd_subst_c_c with (k := KType); eauto.
+        eapply kd_subst_c_c with (k' := KType); eauto.
       }
       eapply IHtyping; eauto.
     }
@@ -3084,9 +3146,79 @@ Module M (Time : TIME).
       {
         eapply wfkind_subst_c_k; eauto.
       }
-      (*here*)
+      {
+        rewrite fmap_map_shift_subst.
+        rewrite map_shift_subst.
+        repeat rewrite shift0_c_c_shift.
+        specialize (IHtyping (S n)); simplify.
+        erewrite nth_error_length_firstn in IHtyping by eauto.
+        eapply IHtyping; eauto.
+      }
+    }
+    {
+      (* Case Rec *)
+      subst.
+      econstructor; simplify.
+      {
+        rewrite subst_c_e_AbsCs.
+        simplify.
+        eauto.
+      }
+      {  
+        eapply kd_subst_c_c with (k' := KType); eauto.
+      }
       eapply IHtyping; eauto.
     }
+    {
+      (* Case Fold *)
+      subst.
+      econstructor; simplify.
+      {
+        rewrite subst_c_c_Apps.
+        eauto.
+      }
+      {
+        simplify.
+        eauto.
+      }
+      {  
+        eapply kd_subst_c_c with (k' := KType); eauto.
+      }
+      eapply TyTyeq.
+      {
+        eauto.
+      }
+      rewrite subst_c_c_Apps.
+      simplify.
+      rewrite subst_c_c_subst0.
+      eauto with invert_typing.
+    }
+    {
+      (* Case Unfold *)
+      subst.
+      eapply TyTyeq.
+      {
+        eapply TyUnfold; simplify.
+        {
+          eauto.
+        }
+        {
+          eapply TyTyeq.
+          {
+            eauto.
+          }
+          rewrite subst_c_c_Apps.
+          simplify.
+          eauto with invert_typing.
+        }
+      }
+      simplify.
+      rewrite subst_c_c_Apps.
+      simplify.
+      rewrite subst_c_c_subst0.
+      eauto with invert_typing.
+    }
+    (*here*)
     admit.
     admit.
     admit.
@@ -3111,10 +3243,6 @@ Module M (Time : TIME).
     typing (L, W, G) e t i ->
     typing (L, W, t' :: G) (shift0_e_e e) t i.
   Admitted.
-  Lemma subst_e_e_AbsCs x v m e :
-    subst_e_e x v (EAbsCs m e) = EAbsCs m (subst_e_e x (shift_c_e m 0 v) e).
-  Admitted.
-  
   Lemma ty_subst_e_e C e1 t1 i1 :
     typing C e1 t1 i1 ->
     forall n t e2 ,
@@ -3283,11 +3411,6 @@ Module M (Time : TIME).
     W $? l = None.
   Admitted.
 
-  Lemma fmap_map_shift0_c_c_incl (W W' : hctx) :
-    W $<= W' ->
-    fmap_map shift0_c_c W $<= fmap_map shift0_c_c W'.
-  Admitted.
-  
   Lemma weaken_W' C e t i :
     typing C e t i ->
     forall W' ,
