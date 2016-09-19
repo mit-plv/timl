@@ -436,6 +436,8 @@ Module M (Time : TIME).
              end
            end.
 
+  (* The constructor language *)
+
   Inductive cstr_const :=
   | CCIdxTT
   | CCIdxNat (n : nat)
@@ -553,11 +555,6 @@ Module M (Time : TIME).
   Require BinIntDef.
   Definition int := BinIntDef.Z.t.
 
-  Inductive expr_const :=
-  | ECTT
-  | ECInt (i : int)
-  .
-
   Definition CInt := CConst CCTypeInt.
 
   Definition const_kind cn :=
@@ -567,13 +564,6 @@ Module M (Time : TIME).
     | CCTime _ => KTime
     | CCTypeUnit => KType
     | CCTypeInt => KType
-    end
-  .
-
-  Definition const_type cn :=
-    match cn with
-    | ECTT => CTypeUnit
-    | ECInt _ => CInt
     end
   .
 
@@ -618,27 +608,8 @@ Module M (Time : TIME).
     end
   .
 
-  Inductive prim_expr_bin_op :=
-  | PEBIntAdd
-  .
-
-  Inductive projector :=
-  | ProjFst
-  | ProjSnd
-  .
-
-  Inductive injector :=
-  | InjInl
-  | InjInr
-  .
-
-  Definition loc := nat.
-
   Definition kctx := list kind.
-  Definition hctx := fmap loc cstr.
-  Definition tctx := list cstr.
-  Definition ctx := (kctx * hctx * tctx)%type.
-
+  
   Section shift_c_c.
 
     Variable n : nat.
@@ -1205,14 +1176,6 @@ Module M (Time : TIME).
       invert 1.
     Qed.
 
-    Lemma const_type_CArrow_false cn t1 i t2 :
-      tyeq [] (const_type cn) (CArrow t1 i t2) ->
-      False.
-    Proof.
-      cases cn; intros Htyeq; simplify;
-        invert Htyeq.
-    Qed.
-
     Lemma CProd_CArrow_false ta tb t1 i t2 :
       tyeq [] (CProd ta tb) (CArrow t1 i t2) ->
       False.
@@ -1282,6 +1245,254 @@ Module M (Time : TIME).
 
   Hint Resolve tyeq_refl tyeq_sym tyeq_trans interpP_le_refl interpP_le_trans : invert_typing.
 
+  Fixpoint CApps t cs :=
+    match cs with
+    | nil => t
+    | c :: cs => CApps (CApp t c) cs
+    end
+  .
+
+  Lemma CApps_CRec_CArrow_false cs k3 t3 t1 i t2 :
+    tyeq [] (CApps (CRec k3 t3) cs) (CArrow t1 i t2) ->
+    False.
+  Proof.
+    (* Lemma CArrow_CApps_false cs : *)
+    (*   forall t1 i t2 t3, *)
+    (*     CArrow t1 i t2 = CApps t3 cs -> *)
+    (*     (forall t1' i' t2', t3 <> CArrow t1' i' t2') ->  *)
+    (*     False. *)
+    (* Proof. *)
+    (*   induction cs; simpl; subst; try discriminate; intuition eauto. *)
+    (*   eapply IHcs; eauto. *)
+    (*   intros; discriminate. *)
+    (* Qed. *)
+    (* intros; eapply CArrow_CApps_false; eauto. *)
+    (* intros; discriminate. *)
+  Admitted.
+
+  Lemma CApps_CRec_CForall_false cs k3 t3 k t  :
+    tyeq [] (CApps (CRec k3 t3) cs) (CForall k t) ->
+    False.
+  Proof.
+  Admitted.
+
+  Lemma CApps_CRec_CExists_false cs k3 t3 k t  :
+    tyeq [] (CApps (CRec k3 t3) cs) (CExists k t) ->
+    False.
+  Proof.
+  Admitted.
+
+  Lemma CApps_CRec_CProd_false cs k3 t3 t1 t2  :
+    tyeq [] (CApps (CRec k3 t3) cs) (CProd t1 t2) ->
+    False.
+  Proof.
+  Admitted.
+
+  Lemma CApps_CRec_CSum_false cs k3 t3 t1 t2  :
+    tyeq [] (CApps (CRec k3 t3) cs) (CSum t1 t2) ->
+    False.
+  Proof.
+  Admitted.
+
+  Lemma CApps_CRec_CRef_false cs k3 t3 t  :
+    tyeq [] (CApps (CRec k3 t3) cs) (CRef t) ->
+    False.
+  Proof.
+  Admitted.
+
+  Lemma interpP_eq_add_0 L a : interpP L (a + T0 == a)%idx.
+  Admitted.
+  
+  Lemma includes_add_new A B m m' (k : A) (v : B) :
+    m $<= m' ->
+    m' $? k = None ->
+    m $<= m' $+ (k, v).
+  Admitted.
+  
+  Lemma invert_tyeq_CApps k t cs k' t' cs' :
+    tyeq [] (CApps (CRec k t) cs) (CApps (CRec k' t') cs') ->
+    kdeq [] k k' /\
+    tyeq [k] t t' /\
+    Forall2 (tyeq []) cs cs'.
+  Admitted.
+
+  Lemma TyEqApps L t cs t' cs' :
+    tyeq L t t' ->
+    Forall2 (tyeq L) cs cs' ->
+    tyeq L (CApps t cs) (CApps t' cs').
+  Proof.
+  Admitted.
+  
+  Lemma kinding_tyeq L k t1 t2 :
+    kinding L t1 k ->
+    tyeq L t1 t2 ->
+    kinding L t2 k.
+  Admitted.
+  
+  Lemma forget01_c_c_Some_subst0 c c' c'' :
+    forget01_c_c c = Some c' ->
+    subst0_c_c c'' c = c'.
+  Admitted.
+
+  Lemma tyeq_subst0_c_c k L v b v' b' :
+    tyeq L v v' ->
+    tyeq (k :: L) b b' ->
+    tyeq L (subst0_c_c v b) (subst0_c_c v' b').
+  Admitted.
+  
+  Lemma map_nth_error A B (f : A -> B) ls n a :
+    nth_error ls n = Some a ->
+    nth_error (map f ls) n = Some (f a).
+  Admitted.
+  
+  (* Definition removen A n (ls : list A) := firstn n ls ++ skipn (1 + n) ls. *)
+  Fixpoint removen A n (ls : list A) :=
+    match ls with
+    | [] => []
+    | a :: ls =>
+      match n with
+      | 0 => ls
+      | S n => a :: removen n ls
+      end
+    end.
+  
+  Lemma removen_lt A ls n (a : A) n' :
+    nth_error ls n = Some a ->
+    n' < n ->
+    nth_error (removen n ls) n' = nth_error ls n'.
+  Admitted.
+  Lemma removen_gt A ls n (a : A) n' :
+    nth_error ls n' = Some a ->
+    n' > n ->
+    nth_error (removen n ls) (n' - 1) = nth_error ls n'.
+  Admitted.
+  Lemma map_removen A B (f : A -> B) n ls : map f (removen n ls) = removen n (map f ls).
+  Admitted.
+  
+  Lemma subst_c_c_subst0 n c c' t : subst_c_c n c (subst0_c_c c' t) = subst0_c_c (subst_c_c n c c') (subst_c_c (S n) (shift0_c_c c) t).
+  Admitted.
+  
+  Fixpoint subst_c_ks v bs :=
+    match bs with
+    | [] => []
+    | b :: bs => subst_c_k (length bs) (shift_c_c (length bs) 0 v) b :: subst_c_ks v bs
+    end.
+
+  Fixpoint my_skipn A (ls : list A) n :=
+    match ls with
+    | [] => []
+    | a :: ls =>
+      match n with
+      | 0 => a :: ls
+      | S n => my_skipn ls n
+      end
+    end.
+    
+  Lemma map_shift_subst n c ls :
+    map shift0_c_c (map (subst_c_c n (shift_c_c n 0 c)) ls) =
+    map (subst_c_c (1 + n) (shift_c_c (1 + n) 0 c)) (map shift0_c_c ls).
+  Admitted.
+  Lemma shift0_c_c_shift n c :
+    shift0_c_c (shift_c_c n 0 c) = shift_c_c (1 + n) 0 c.
+  Admitted.
+  Lemma nth_error_length_firstn A L n (a : A) :
+    nth_error L n = Some a ->
+    length (firstn n L) = n.
+  Admitted.
+  
+  Lemma subst_c_c_Apps n v c cs :
+    subst_c_c n v (CApps c cs) = CApps (subst_c_c n v c) (map (subst_c_c n v) cs).
+  Admitted.
+  
+  Lemma forget01_subst_c_c b b' n v :
+    forget01_c_c b = Some b' ->
+    forget01_c_c (subst_c_c (S n) (shift_c_c (S n) 0 v) b) = Some (subst_c_c n (shift_c_c n 0 v) b').
+  Admitted.
+  
+  Lemma my_skipn_0 A (ls : list A) : my_skipn ls 0 = ls.
+  Admitted.
+  Lemma shift_c_c_0 x c : shift_c_c x 0 c = c.
+  Admitted.
+  
+  Lemma nth_error_insert A G y (t : A) x ls :
+    nth_error G y = Some t ->
+    x <= y ->
+    nth_error (firstn x G ++ ls ++ my_skipn G x) (length ls + y) = Some t.
+  Admitted.
+  Lemma nth_error_before_insert A G y (t : A) x ls :
+    nth_error G y = Some t ->
+    y < x ->
+    nth_error (firstn x G ++ ls ++ my_skipn G x) y = Some t.
+  Admitted.
+        
+  Lemma map_firstn A B (f : A -> B) n ls :
+    map f (firstn n ls) = firstn n (map f ls).
+  Admitted.
+  Lemma map_my_skipn A B (f : A -> B) n ls :
+    map f (my_skipn ls n) = my_skipn (map f ls) n.
+  Admitted.
+      
+  Lemma kd_subst_c_c L c' k' :
+    kinding L c' k' ->
+    forall n k c ,
+      nth_error L n = Some k ->
+      kinding (my_skipn L (1 + n)) c k ->
+      kinding (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_c n (shift_c_c n 0 c) c') (subst_c_k n (shift_c_c n 0 c) k').
+  Admitted.
+  
+  Lemma wfkind_subst_c_k L k' :
+    wfkind L k' ->
+    forall n k c ,
+      nth_error L n = Some k ->
+      kinding (my_skipn L (1 + n)) c k ->
+      wfkind (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_k n (shift_c_c n 0 c) k').
+  Admitted.
+
+  Lemma interpP_subst_c_p L p :
+    interpP L p ->
+    forall n k c ,
+      nth_error L n = Some k ->
+      kinding (my_skipn L (1 + n)) c k ->
+      interpP (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_p n (shift_c_c n 0 c) p).
+  Admitted.
+  
+  Lemma tyeq_subst_c_c L c1' c2' :
+    tyeq L c1' c2' ->
+    forall n k c1 c2 ,
+      nth_error L n = Some k ->
+      kinding (my_skipn L (1 + n)) c1 k ->
+      kinding (my_skipn L (1 + n)) c2 k ->
+      tyeq (my_skipn L (1 + n)) c1 c2 ->
+      tyeq (subst_c_ks c1 (firstn n L) ++ my_skipn L (1 + n)) (subst_c_c n (shift_c_c n 0 c1) c1') (subst_c_c n (shift_c_c n 0 c2) c2').
+  Admitted.
+  
+  (* The term language *)
+  
+  Inductive expr_const :=
+  | ECTT
+  | ECInt (i : int)
+  .
+
+  Inductive prim_expr_bin_op :=
+  | PEBIntAdd
+  .
+
+  Inductive projector :=
+  | ProjFst
+  | ProjSnd
+  .
+
+  Inductive injector :=
+  | InjInl
+  | InjInr
+  .
+
+  Definition loc := nat.
+
+  Definition hctx := fmap loc cstr.
+  Definition tctx := list cstr.
+  Definition ctx := (kctx * hctx * tctx)%type.
+  
   Inductive expr_un_op :=
   | EUProj (p : projector)
   | EUInj (inj : injector)
@@ -1353,44 +1564,6 @@ Module M (Time : TIME).
       value (ELoc l)
   .
 
-  Inductive ectx :=
-  | ECHole
-  | ECUnOp (opr : expr_un_op) (E : ectx)
-  | ECBinOp1 (opr : expr_bin_op) (E : ectx) (e : expr)
-  | ECBinOp2 (opr : expr_bin_op) (v : expr) (E : ectx)
-  | ECCase (E : ectx) (e1 e2 : expr)
-  | ECAppC (E : ectx) (c : cstr)
-  | ECPack (c : cstr) (E : ectx)
-  | ECUnpack (E : ectx) (e : expr)
-  .
-
-  Inductive plug : ectx -> expr -> expr -> Prop :=
-  | PlugHole e :
-      plug ECHole e e
-  | PlugUnOp E e e' opr :
-      plug E e e' ->
-      plug (ECUnOp opr E) e (EUnOp opr e')
-  | PlugBinOp1 E e e' opr e2 :
-      plug E e e' ->
-      plug (ECBinOp1 opr E e2) e (EBinOp opr e' e2)
-  | PlugBinOp2 E e e' opr v :
-      plug E e e' ->
-      value v ->
-      plug (ECBinOp2 opr v E) e (EBinOp opr v e')
-  | PlugCase E e e' e1 e2 :
-      plug E e e' ->
-      plug (ECCase E e1 e2) e (ECase e' e1 e2)
-  | PlugAppC E e e' c :
-      plug E e e' ->
-      plug (ECAppC E c) e (EAppC e' c)
-  | PlugPack E e e' c :
-      plug E e e' ->
-      plug (ECPack c E) e (EPack c e')
-  | PlugUnpack E e e' e2 :
-      plug E e e' ->
-      plug (ECUnpack E e2) e (EUnpack e' e2)
-  .
-
   Definition EFst := EProj ProjFst.
   Definition ESnd := EProj ProjSnd.
   Definition EInl := EInj InjInl.
@@ -1418,13 +1591,6 @@ Module M (Time : TIME).
   Definition get_tctx (C : ctx) : tctx := snd C.
 
 
-  Fixpoint CApps t cs :=
-    match cs with
-    | nil => t
-    | c :: cs => CApps (CApp t c) cs
-    end
-  .
-
   Fixpoint EAbsCs n e :=
     match n with
     | 0 => e
@@ -1443,6 +1609,13 @@ Module M (Time : TIME).
     match inj with
     | InjInl => fst p
     | InjInr => snd p
+    end
+  .
+
+  Definition const_type cn :=
+    match cn with
+    | ECTT => CTypeUnit
+    | ECInt _ => CInt
     end
   .
 
@@ -1540,8 +1713,6 @@ Module M (Time : TIME).
 
   Local Close Scope idx_scope.
 
-  Definition heap := fmap loc expr.
-
   Section shift_c_e.
 
     Variable n : nat.
@@ -1593,56 +1764,7 @@ Module M (Time : TIME).
   End shift_e_e.
   
   Definition shift0_e_e := shift_e_e 1 0.
-(*
-  Section subst_c_e.
-
-    Variable v : cstr.
-
-    Fixpoint subst_c_e (x : var) (n : nat) (b : expr) : expr :=
-      match b with
-      | EVar y => EVar y
-      | EConst cn => EConst cn
-      | ELoc l => ELoc l
-      | EUnOp opr e => EUnOp opr (subst_c_e x n e)
-      | EBinOp opr e1 e2 => EBinOp opr (subst_c_e x n e1) (subst_c_e x n e2)
-      | ECase e e1 e2 => ECase (subst_c_e x n e) (subst_c_e x n e1) (subst_c_e x n e2)
-      | EAbs e => EAbs (subst_c_e x n e)
-      | ERec e => ERec (subst_c_e x n e)
-      | EAbsC e => EAbsC (subst_c_e (1 + x) (1 + n) e)
-      | EUnpack e1 e2 => EUnpack (subst_c_e x n e1) (subst_c_e (1 + x) (1 + n) e2)
-      end.
-    
-  End subst_c_e.
-
-  Definition subst0_c_e (v : cstr) b := subst_c_e (* v *) 0 0 b.
-
-  Section subst_e_e.
-
-    Variable v : expr.
-
-    Fixpoint subst_e_e (x : var) (n : nat) (b : expr) : expr :=
-      match b with
-      | EVar y => 
-        match lt_eq_gt_dec y x with
-        | Lt _ => EVar y
-        | Eq _ => shift_e_e n 0 v
-        | Gt _ => EVar (y - 1)
-        end
-      | EConst cn => EConst cn
-      | ELoc l => ELoc l
-      | EUnOp opr e => EUnOp opr (subst_e_e x n e)
-      | EBinOp opr e1 e2 => EBinOp opr (subst_e_e x n e1) (subst_e_e x n e2)
-      | ECase e e1 e2 => ECase (subst_e_e x n e) (subst_e_e (1 + x) (1 + n) e1) (subst_e_e (1 + x) (1 + n) e2)
-      | EAbs e => EAbs (subst_e_e (1 + x) (1 + n) e)
-      | ERec e => ERec (subst_e_e (1 + x) (1 + n) e)
-      | EAbsC e => EAbsC (subst_e_e x n e)
-      | EUnpack e1 e2 => EUnpack (subst_e_e x n e1) (subst_e_e (1 + x) (1 + n) e2)
-      end.
-    
-  End subst_e_e.
-
-  Definition subst0_e_e v b := subst_e_e v 0 0 b.
-*)
+  
   Section subst_c_e.
 
     Fixpoint subst_c_e (x : var) (v : cstr) (b : expr) : expr :=
@@ -1691,6 +1813,46 @@ Module M (Time : TIME).
   End subst_e_e.
 
   Definition subst0_e_e v b := subst_e_e 0 v b.
+
+  Inductive ectx :=
+  | ECHole
+  | ECUnOp (opr : expr_un_op) (E : ectx)
+  | ECBinOp1 (opr : expr_bin_op) (E : ectx) (e : expr)
+  | ECBinOp2 (opr : expr_bin_op) (v : expr) (E : ectx)
+  | ECCase (E : ectx) (e1 e2 : expr)
+  | ECAppC (E : ectx) (c : cstr)
+  | ECPack (c : cstr) (E : ectx)
+  | ECUnpack (E : ectx) (e : expr)
+  .
+
+  Inductive plug : ectx -> expr -> expr -> Prop :=
+  | PlugHole e :
+      plug ECHole e e
+  | PlugUnOp E e e' opr :
+      plug E e e' ->
+      plug (ECUnOp opr E) e (EUnOp opr e')
+  | PlugBinOp1 E e e' opr e2 :
+      plug E e e' ->
+      plug (ECBinOp1 opr E e2) e (EBinOp opr e' e2)
+  | PlugBinOp2 E e e' opr v :
+      plug E e e' ->
+      value v ->
+      plug (ECBinOp2 opr v E) e (EBinOp opr v e')
+  | PlugCase E e e' e1 e2 :
+      plug E e e' ->
+      plug (ECCase E e1 e2) e (ECase e' e1 e2)
+  | PlugAppC E e e' c :
+      plug E e e' ->
+      plug (ECAppC E c) e (EAppC e' c)
+  | PlugPack E e e' c :
+      plug E e e' ->
+      plug (ECPack c E) e (EPack c e')
+  | PlugUnpack E e e' e2 :
+      plug E e e' ->
+      plug (ECUnpack E e2) e (EUnpack e' e2)
+  .
+
+  Definition heap := fmap loc expr.
 
   Definition fuel := time_type.
 
@@ -1794,380 +1956,7 @@ Module M (Time : TIME).
   Arguments finished / .
   Arguments get_expr / .
 
-  Lemma CApps_CRec_CArrow_false cs k3 t3 t1 i t2 :
-    tyeq [] (CApps (CRec k3 t3) cs) (CArrow t1 i t2) ->
-    False.
-  Proof.
-    (* Lemma CArrow_CApps_false cs : *)
-    (*   forall t1 i t2 t3, *)
-    (*     CArrow t1 i t2 = CApps t3 cs -> *)
-    (*     (forall t1' i' t2', t3 <> CArrow t1' i' t2') ->  *)
-    (*     False. *)
-    (* Proof. *)
-    (*   induction cs; simpl; subst; try discriminate; intuition eauto. *)
-    (*   eapply IHcs; eauto. *)
-    (*   intros; discriminate. *)
-    (* Qed. *)
-    (* intros; eapply CArrow_CApps_false; eauto. *)
-    (* intros; discriminate. *)
-  Admitted.
-
-  Lemma CApps_CRec_CForall_false cs k3 t3 k t  :
-    tyeq [] (CApps (CRec k3 t3) cs) (CForall k t) ->
-    False.
-  Proof.
-  Admitted.
-
-  Lemma CApps_CRec_CExists_false cs k3 t3 k t  :
-    tyeq [] (CApps (CRec k3 t3) cs) (CExists k t) ->
-    False.
-  Proof.
-  Admitted.
-
-  Lemma CApps_CRec_const_type_false cs k3 t3 cn  :
-    tyeq [] (CApps (CRec k3 t3) cs) (const_type cn) ->
-    False.
-  Proof.
-  Admitted.
-
-  Lemma CApps_CRec_CProd_false cs k3 t3 t1 t2  :
-    tyeq [] (CApps (CRec k3 t3) cs) (CProd t1 t2) ->
-    False.
-  Proof.
-  Admitted.
-
-  Lemma CApps_CRec_CSum_false cs k3 t3 t1 t2  :
-    tyeq [] (CApps (CRec k3 t3) cs) (CSum t1 t2) ->
-    False.
-  Proof.
-  Admitted.
-
-  Lemma CApps_CRec_CRef_false cs k3 t3 t  :
-    tyeq [] (CApps (CRec k3 t3) cs) (CRef t) ->
-    False.
-  Proof.
-  Admitted.
-
-  Lemma canon_CArrow' C v t i :
-    typing C v t i ->
-    get_kctx C = [] ->
-    get_tctx C = [] ->
-    forall t1 i' t2 ,
-      tyeq [] t (CArrow t1 i' t2) ->
-      value v ->
-      exists e,
-        v = EAbs e.
-  Proof.
-    induct 1; intros Hknil Htnil ta i' tb Htyeq Hval; try solve [invert Hval | eexists; eauto]; subst.
-    (* { *)
-    (*   rewrite Htnil in H. *)
-    (*   rewrite nth_error_nil in H. *)
-    (*   invert H. *)
-    (* } *)
-    {
-      eapply CForall_CArrow_false in Htyeq; propositional.
-    }
-    {
-      eapply CApps_CRec_CArrow_false in Htyeq; propositional.
-    }
-    {
-      eapply CExists_CArrow_false in Htyeq; propositional.
-    }
-    {
-      eapply const_type_CArrow_false in Htyeq; propositional.
-    }
-    {
-      eapply CProd_CArrow_false in Htyeq; propositional.
-    }
-    {
-      cases inj; simplify; eapply CSum_CArrow_false in Htyeq; propositional.
-    }
-    {
-      eapply CRef_CArrow_false in Htyeq; propositional.
-    }
-    {
-      destruct C as ((L & W) & G); simplify; subst.
-      eapply IHtyping; eauto with invert_typing.
-    }
-  Qed.
-
-  Lemma canon_CArrow W v t1 i' t2 i :
-    typing ([], W, []) v (CArrow t1 i' t2) i ->
-    value v ->
-    exists e,
-      v = EAbs e.
-  Proof.
-    intros; eapply canon_CArrow'; eauto with invert_typing.
-  Qed.
-
-  Lemma canon_CForall' C v t i :
-    typing C v t i ->
-    get_kctx C = [] ->
-    get_tctx C = [] ->
-    forall k t' ,
-      tyeq [] t (CForall k t') ->
-      value v ->
-      exists e,
-        v = EAbsC e.
-  Proof.
-    induct 1; intros Hknil Htnil k' t'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Htyeq]; subst.
-    (* { *)
-    (*   rewrite Htnil in H. *)
-    (*   rewrite nth_error_nil in H. *)
-    (*   invert H. *)
-    (* } *)
-    {
-      eapply CApps_CRec_CForall_false in Htyeq; propositional.
-    }
-    {
-      cases cn; simplify; invert Htyeq.
-    }
-    {
-      cases inj; simplify; invert Htyeq.
-    }
-    {
-      destruct C as ((L & W) & G); simplify; subst.
-      eapply IHtyping; eauto with invert_typing.
-    }
-  Qed.
-
-  Lemma canon_CForall W v k t i :
-    typing ([], W, []) v (CForall k t) i ->
-    value v ->
-    exists e,
-      v = EAbsC e.
-  Proof.
-    intros; eapply canon_CForall'; eauto with invert_typing.
-  Qed.
-
-  Lemma canon_CRec' C v t i :
-    typing C v t i ->
-    get_kctx C = [] ->
-    get_tctx C = [] ->
-    forall k t' cs ,
-      tyeq [] t (CApps (CRec k t') cs) ->
-      value v ->
-      exists e,
-        v = EFold e /\
-        value e.
-  Proof.
-    induct 1; intros Hknil Htnil k'' t'' cs' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst.
-    (* { *)
-    (*   rewrite Htnil in H. *)
-    (*   rewrite nth_error_nil in H. *)
-    (*   invert H. *)
-    (* } *)
-    {
-      eapply tyeq_sym in Htyeq.
-      eapply CApps_CRec_CArrow_false in Htyeq; propositional.
-    }
-    {
-      eapply tyeq_sym in Htyeq.
-      eapply CApps_CRec_CForall_false in Htyeq; propositional.
-    }
-    {
-      eapply tyeq_sym in Htyeq.
-      eapply CApps_CRec_CExists_false in Htyeq; propositional.
-    }
-    {
-      eapply tyeq_sym in Htyeq.
-      eapply CApps_CRec_const_type_false in Htyeq; propositional.
-    }
-    {
-      eapply tyeq_sym in Htyeq.
-      eapply CApps_CRec_CProd_false in Htyeq; propositional.
-    }
-    {
-      eapply tyeq_sym in Htyeq.
-      cases inj; simplify;
-        eapply CApps_CRec_CSum_false in Htyeq; propositional.
-    }
-    {
-      eapply tyeq_sym in Htyeq.
-      eapply CApps_CRec_CRef_false in Htyeq; propositional.
-    }
-    {
-      destruct C as ((L & W) & G); simplify; subst.
-      eapply IHtyping; eauto with invert_typing.
-    }
-  Qed.
-
-  Lemma canon_CRec W v k t cs i :
-    typing ([], W, []) v (CApps (CRec k t) cs) i ->
-    value v ->
-    exists e,
-      v = EFold e /\
-      value e.
-  Proof.
-    intros; eapply canon_CRec'; eauto with invert_typing.
-  Qed.
-
-  Lemma canon_CExists' C v t i :
-    typing C v t i ->
-    get_kctx C = [] ->
-    get_tctx C = [] ->
-    forall k t' ,
-      tyeq [] t (CExists k t') ->
-      value v ->
-      exists c e,
-        v = EPack c e /\
-        value e.
-  Proof.
-    induct 1; intros Hknil Htnil k' t'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst.
-    (* { *)
-    (*   rewrite Htnil in H. *)
-    (*   rewrite nth_error_nil in H. *)
-    (*   invert H. *)
-    (* } *)
-    {
-      eapply CApps_CRec_CExists_false in Htyeq; propositional.
-    }
-    {
-      cases cn; simplify; invert Htyeq.
-    }
-    {
-      cases inj; simplify; invert Htyeq.
-    }
-    {
-      destruct C as ((L & W) & G); simplify; subst.
-      eapply IHtyping; eauto with invert_typing.
-    }
-  Qed.
-
-  Lemma canon_CExists W v k t i :
-    typing ([], W, []) v (CExists k t) i ->
-    value v ->
-    exists c e,
-      v = EPack c e /\
-      value e.
-  Proof.
-    intros; eapply canon_CExists'; eauto with invert_typing.
-  Qed.
-
-  Lemma canon_CProd' C v t i :
-    typing C v t i ->
-    get_kctx C = [] ->
-    get_tctx C = [] ->
-    forall t1 t2 ,
-      tyeq [] t (CProd t1 t2) ->
-      value v ->
-      exists v1 v2,
-        v = EPair v1 v2 /\
-        value v1 /\
-        value v2.
-  Proof.
-    induct 1; intros Hknil Htnil t1'' t2'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst.
-    (* { *)
-    (*   rewrite Htnil in H. *)
-    (*   rewrite nth_error_nil in H. *)
-    (*   invert H. *)
-    (* } *)
-    {
-      eapply CApps_CRec_CProd_false in Htyeq; propositional.
-    }
-    {
-      cases cn; simplify; invert Htyeq.
-    }
-    {
-      cases inj; simplify; invert Htyeq.
-    }
-    {
-      destruct C as ((L & W) & G); simplify; subst.
-      eapply IHtyping; eauto with invert_typing.
-    }
-  Qed.
-
-  Lemma canon_CProd W v t1 t2 i :
-    typing ([], W, []) v (CProd t1 t2) i ->
-    value v ->
-    exists v1 v2,
-      v = EPair v1 v2 /\
-      value v1 /\
-      value v2.
-  Proof.
-    intros; eapply canon_CProd'; eauto with invert_typing.
-  Qed.
-
-  Lemma canon_CSum' C v t i :
-    typing C v t i ->
-    get_kctx C = [] ->
-    get_tctx C = [] ->
-    forall t1 t2 ,
-      tyeq [] t (CSum t1 t2) ->
-      value v ->
-      exists inj v',
-        v = EInj inj v' /\
-        value v'.
-  Proof.
-    induct 1; intros Hknil Htnil t1'' t2'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst.
-    (* { *)
-    (*   rewrite Htnil in H. *)
-    (*   rewrite nth_error_nil in H. *)
-    (*   invert H. *)
-    (* } *)
-    {
-      eapply CApps_CRec_CSum_false in Htyeq; propositional.
-    }
-    {
-      cases cn; simplify; invert Htyeq.
-    }
-    {
-      destruct C as ((L & W) & G); simplify; subst.
-      eapply IHtyping; eauto with invert_typing.
-    }
-  Qed.
-  
-  Lemma canon_CSum W v t1 t2 i :
-    typing ([], W, []) v (CSum t1 t2) i ->
-    value v ->
-    exists inj v',
-      v = EInj inj v' /\
-      value v'.
-  Proof.
-    intros; eapply canon_CSum'; eauto with invert_typing.
-  Qed.
-
-  Lemma canon_CRef' C v t i :
-    typing C v t i ->
-    get_kctx C = [] ->
-    get_tctx C = [] ->
-    forall t' ,
-      tyeq [] t (CRef t') ->
-      value v ->
-      exists l t',
-        v = ELoc l /\
-        get_hctx C $? l = Some t'.
-  Proof.
-    induct 1; intros Hknil Htnil t'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst.
-    (* { *)
-    (*   rewrite Htnil in H. *)
-    (*   rewrite nth_error_nil in H. *)
-    (*   invert H. *)
-    (* } *)
-    {
-      eapply CApps_CRec_CRef_false in Htyeq; propositional.
-    }
-    {
-      cases cn; simplify; invert Htyeq.
-    }
-    {
-      cases inj; simplify; invert Htyeq.
-    }
-    {
-      destruct C as ((L & W) & G); simplify; subst.
-      eapply IHtyping; eauto with invert_typing.
-    }
-  Qed.
-  
-  Lemma canon_CRef W v t i :
-    typing ([], W, []) v (CRef t) i ->
-    value v ->
-    exists l t',
-      v = ELoc l /\
-      W $? l = Some t'.
-  Proof.
-    intros Hty ?; eapply canon_CRef' in Hty; eauto with invert_typing.
-  Qed.
+  (* term language proof *)
 
   Lemma TyTyeq C e t2 i t1 :
     typing C e t1 i ->
@@ -2195,12 +1984,72 @@ Module M (Time : TIME).
     eapply TyConst.
   Qed.
 
+  Lemma subst_c_c_const_type x v cn :
+    subst_c_c x v (const_type cn) = const_type cn.
+  Admitted.
+  
+  Lemma CApps_CRec_const_type_false cs k3 t3 cn  :
+    tyeq [] (CApps (CRec k3 t3) cs) (const_type cn) ->
+    False.
+  Proof.
+  Admitted.
+
+  Lemma const_type_CArrow_false cn t1 i t2 :
+    tyeq [] (const_type cn) (CArrow t1 i t2) ->
+    False.
+  Proof.
+    cases cn; intros Htyeq; simplify;
+      invert Htyeq.
+  Qed.
+
+  Lemma shift_e_e_AbsCs n x m e :
+    shift_e_e n x (EAbsCs m e) = EAbsCs m (shift_e_e n x e).
+  Admitted.
+  
+  Lemma fmap_map_lookup A B C (f : B -> C) m (k : A) (v : B) :
+    m $? k = Some v ->
+    fmap_map f m $? k = Some (f v).
+  Admitted.
+  
+  Lemma subst_e_e_AbsCs x v m e :
+    subst_e_e x v (EAbsCs m e) = EAbsCs m (subst_e_e x (shift_c_e m 0 v) e).
+  Admitted.
+  
+  Lemma subst_c_e_AbsCs x v m e :
+    subst_c_e x v (EAbsCs m e) = EAbsCs m (subst_c_e (m + x) (shift_c_c m 0 v) e).
+  Admitted.
+  
+  Lemma fmap_map_shift_subst n c (W : hctx) :
+    fmap_map shift0_c_c (fmap_map (subst_c_c n (shift_c_c n 0 c)) W) =
+    fmap_map (subst_c_c (1 + n) (shift_c_c (1 + n) 0 c)) (fmap_map shift0_c_c W).
+  Admitted.
+  Lemma value_subst_c_e v :
+    value v ->
+    forall n c,
+      value (subst_c_e n c v).
+  Proof.
+    induct 1; intros n e'; simplify; try econstructor; eauto.
+  Qed.
+  
+  Lemma ty_shift0_c_e L W G e t i k :
+    typing (L, W, G) e t i ->
+    typing (k :: L, fmap_map shift0_c_c W, map shift0_c_c G) (shift0_c_e e) (shift0_c_c t) (shift0_c_c i).
+  Admitted.
+
+  Lemma value_subst_e_e v :
+    value v ->
+    forall n e,
+      value (subst_e_e n e v).
+  Proof.
+    induct 1; intros n e'; simplify; try econstructor; eauto.
+  Qed.
+  
+  Lemma fmap_map_subst0_shift0 k c W : fmap_map (K := k) (subst0_c_c c) (fmap_map shift0_c_c W) = W.
+  Admitted.
+  
   Lemma fmap_map_shift0_c_c_incl (W W' : hctx) :
     W $<= W' ->
     fmap_map shift0_c_c W $<= fmap_map shift0_c_c W'.
-  Admitted.
-  
-  Lemma interpP_eq_add_0 L a : interpP L (a + T0 == a)%idx.
   Admitted.
   
   Lemma value_typing_T0 C e t i :
@@ -2218,238 +2067,15 @@ Module M (Time : TIME).
     }
   Qed.
     
-  Lemma includes_add_new A B m m' (k : A) (v : B) :
-    m $<= m' ->
-    m' $? k = None ->
-    m $<= m' $+ (k, v).
-  Admitted.
-  
-  Lemma invert_tyeq_CApps k t cs k' t' cs' :
-    tyeq [] (CApps (CRec k t) cs) (CApps (CRec k' t') cs') ->
-    kdeq [] k k' /\
-    tyeq [k] t t' /\
-    Forall2 (tyeq []) cs cs'.
-  Admitted.
-
-  Lemma TyEqApps L t cs t' cs' :
-    tyeq L t t' ->
-    Forall2 (tyeq L) cs cs' ->
-    tyeq L (CApps t cs) (CApps t' cs').
-  Proof.
-  Admitted.
-  
-  Lemma kinding_tyeq L k t1 t2 :
-    kinding L t1 k ->
-    tyeq L t1 t2 ->
-    kinding L t2 k.
-  Admitted.
   Lemma add_typing_ctx_tyeq t1 t2 C e t i :
     typing (add_typing_ctx t1 C) e t i ->
     tyeq (get_kctx C) t1 t2 ->
     typing (add_typing_ctx t2 C) e t i.
   Admitted.
+  
   Lemma get_kctx_add_typing_ctx t C : get_kctx (add_typing_ctx t C) = get_kctx C.
   Admitted.
 
-  Lemma fmap_map_subst0_shift0 k c W : fmap_map (K := k) (subst0_c_c c) (fmap_map shift0_c_c W) = W.
-  Admitted.
-  Lemma forget01_c_c_Some_subst0 c c' c'' :
-    forget01_c_c c = Some c' ->
-    subst0_c_c c'' c = c'.
-  Admitted.
-
-  Lemma tyeq_subst0_c_c k L v b v' b' :
-    tyeq L v v' ->
-    tyeq (k :: L) b b' ->
-    tyeq L (subst0_c_c v b) (subst0_c_c v' b').
-  Admitted.
-  
-  Lemma map_nth_error A B (f : A -> B) ls n a :
-    nth_error ls n = Some a ->
-    nth_error (map f ls) n = Some (f a).
-  Admitted.
-  
-  (* Definition removen A n (ls : list A) := firstn n ls ++ skipn (1 + n) ls. *)
-  Fixpoint removen A n (ls : list A) :=
-    match ls with
-    | [] => []
-    | a :: ls =>
-      match n with
-      | 0 => ls
-      | S n => a :: removen n ls
-      end
-    end.
-  
-  Lemma removen_lt A ls n (a : A) n' :
-    nth_error ls n = Some a ->
-    n' < n ->
-    nth_error (removen n ls) n' = nth_error ls n'.
-  Admitted.
-  Lemma removen_gt A ls n (a : A) n' :
-    nth_error ls n' = Some a ->
-    n' > n ->
-    nth_error (removen n ls) (n' - 1) = nth_error ls n'.
-  Admitted.
-  Lemma map_removen A B (f : A -> B) n ls : map f (removen n ls) = removen n (map f ls).
-  Admitted.
-  
-  Lemma value_subst_e_e v :
-    value v ->
-    forall n e,
-      value (subst_e_e n e v).
-  Proof.
-    induct 1; intros n e'; simplify; try econstructor; eauto.
-  Qed.
-  
-  Lemma ty_shift0_c_e L W G e t i k :
-    typing (L, W, G) e t i ->
-    typing (k :: L, fmap_map shift0_c_c W, map shift0_c_c G) (shift0_c_e e) (shift0_c_c t) (shift0_c_c i).
-  Admitted.
-
-  Lemma subst_c_c_subst0 n c c' t : subst_c_c n c (subst0_c_c c' t) = subst0_c_c (subst_c_c n c c') (subst_c_c (S n) (shift0_c_c c) t).
-  Admitted.
-  
-  Lemma value_subst_c_e v :
-    value v ->
-    forall n c,
-      value (subst_c_e n c v).
-  Proof.
-    induct 1; intros n e'; simplify; try econstructor; eauto.
-  Qed.
-  
-  Fixpoint subst_c_ks v bs :=
-    match bs with
-    | [] => []
-    | b :: bs => subst_c_k (length bs) (shift_c_c (length bs) 0 v) b :: subst_c_ks v bs
-    end.
-
-  Fixpoint my_skipn A (ls : list A) n :=
-    match ls with
-    | [] => []
-    | a :: ls =>
-      match n with
-      | 0 => a :: ls
-      | S n => my_skipn ls n
-      end
-    end.
-    
-  Lemma fmap_map_shift_subst n c (W : hctx) :
-    fmap_map shift0_c_c (fmap_map (subst_c_c n (shift_c_c n 0 c)) W) =
-    fmap_map (subst_c_c (1 + n) (shift_c_c (1 + n) 0 c)) (fmap_map shift0_c_c W).
-  Admitted.
-  Lemma map_shift_subst n c ls :
-    map shift0_c_c (map (subst_c_c n (shift_c_c n 0 c)) ls) =
-    map (subst_c_c (1 + n) (shift_c_c (1 + n) 0 c)) (map shift0_c_c ls).
-  Admitted.
-  Lemma shift0_c_c_shift n c :
-    shift0_c_c (shift_c_c n 0 c) = shift_c_c (1 + n) 0 c.
-  Admitted.
-  Lemma nth_error_length_firstn A L n (a : A) :
-    nth_error L n = Some a ->
-    length (firstn n L) = n.
-  Admitted.
-  
-  (* Definition forget_c_k (x : var) (n : nat) (b : kind) : option kind. *)
-  (* Admitted. *)
-  
-  (* Inductive dep_removen : nat -> list kind -> list kind -> Prop := *)
-  (* | DRN0 k L : *)
-  (*     dep_removen 0 (k :: L) L *)
-  (* | DRNS n k L k' L' : *)
-  (*     forget_c_k n 1 k = Some k' -> *)
-  (*     dep_removen n L L' -> *)
-  (*     dep_removen (S n) (k :: L) (k' :: L') *)
-  (* . *)
-
-  (* Hint Constructors dep_removen. *)
-    
-  Lemma subst_e_e_AbsCs x v m e :
-    subst_e_e x v (EAbsCs m e) = EAbsCs m (subst_e_e x (shift_c_e m 0 v) e).
-  Admitted.
-  
-  Lemma subst_c_e_AbsCs x v m e :
-    subst_c_e x v (EAbsCs m e) = EAbsCs m (subst_c_e (m + x) (shift_c_c m 0 v) e).
-  Admitted.
-  
-  Lemma subst_c_c_Apps n v c cs :
-    subst_c_c n v (CApps c cs) = CApps (subst_c_c n v c) (map (subst_c_c n v) cs).
-  Admitted.
-  
-  Lemma subst_c_c_const_type x v cn :
-    subst_c_c x v (const_type cn) = const_type cn.
-  Admitted.
-  
-  Lemma forget01_subst_c_c b b' n v :
-    forget01_c_c b = Some b' ->
-    forget01_c_c (subst_c_c (S n) (shift_c_c (S n) 0 v) b) = Some (subst_c_c n (shift_c_c n 0 v) b').
-  Admitted.
-  
-  Lemma fmap_map_lookup A B C (f : B -> C) m (k : A) (v : B) :
-    m $? k = Some v ->
-    fmap_map f m $? k = Some (f v).
-  Admitted.
-  
-  Lemma my_skipn_0 A (ls : list A) : my_skipn ls 0 = ls.
-  Admitted.
-  Lemma shift_c_c_0 x c : shift_c_c x 0 c = c.
-  Admitted.
-  
-  Lemma nth_error_insert A G y (t : A) x ls :
-    nth_error G y = Some t ->
-    x <= y ->
-    nth_error (firstn x G ++ ls ++ my_skipn G x) (length ls + y) = Some t.
-  Admitted.
-  Lemma nth_error_before_insert A G y (t : A) x ls :
-    nth_error G y = Some t ->
-    y < x ->
-    nth_error (firstn x G ++ ls ++ my_skipn G x) y = Some t.
-  Admitted.
-        
-  Lemma map_firstn A B (f : A -> B) n ls :
-    map f (firstn n ls) = firstn n (map f ls).
-  Admitted.
-  Lemma map_my_skipn A B (f : A -> B) n ls :
-    map f (my_skipn ls n) = my_skipn (map f ls) n.
-  Admitted.
-      
-  Lemma shift_e_e_AbsCs n x m e :
-    shift_e_e n x (EAbsCs m e) = EAbsCs m (shift_e_e n x e).
-  Admitted.
-  
-  Lemma kd_subst_c_c L c' k' :
-    kinding L c' k' ->
-    forall n k c ,
-      nth_error L n = Some k ->
-      kinding (my_skipn L (1 + n)) c k ->
-      kinding (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_c n (shift_c_c n 0 c) c') (subst_c_k n (shift_c_c n 0 c) k').
-  Admitted.
-  
-  Lemma wfkind_subst_c_k L k' :
-    wfkind L k' ->
-    forall n k c ,
-      nth_error L n = Some k ->
-      kinding (my_skipn L (1 + n)) c k ->
-      wfkind (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_k n (shift_c_c n 0 c) k').
-  Admitted.
-
-  Lemma interpP_subst_c_p L p :
-    interpP L p ->
-    forall n k c ,
-      nth_error L n = Some k ->
-      kinding (my_skipn L (1 + n)) c k ->
-      interpP (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_p n (shift_c_c n 0 c) p).
-  Admitted.
-  
-  Lemma tyeq_subst_c_c L c1' c2' :
-    tyeq L c1' c2' ->
-    forall n k c1 c2 ,
-      nth_error L n = Some k ->
-      kinding (my_skipn L (1 + n)) c1 k ->
-      kinding (my_skipn L (1 + n)) c2 k ->
-      tyeq (my_skipn L (1 + n)) c1 c2 ->
-      tyeq (subst_c_ks c1 (firstn n L) ++ my_skipn L (1 + n)) (subst_c_c n (shift_c_c n 0 c1) c1') (subst_c_c n (shift_c_c n 0 c2) c2').
-  Admitted.
-  
   Lemma ty_subst_c_e C e t i :
     typing C e t i ->
     forall n k c ,
@@ -3062,6 +2688,327 @@ Module M (Time : TIME).
     }
   Qed.
   
+  Lemma canon_CArrow' C v t i :
+    typing C v t i ->
+    get_kctx C = [] ->
+    get_tctx C = [] ->
+    forall t1 i' t2 ,
+      tyeq [] t (CArrow t1 i' t2) ->
+      value v ->
+      exists e,
+        v = EAbs e.
+  Proof.
+    induct 1; intros Hknil Htnil ta i' tb Htyeq Hval; try solve [invert Hval | eexists; eauto]; subst.
+    (* { *)
+    (*   rewrite Htnil in H. *)
+    (*   rewrite nth_error_nil in H. *)
+    (*   invert H. *)
+    (* } *)
+    {
+      eapply CForall_CArrow_false in Htyeq; propositional.
+    }
+    {
+      eapply CApps_CRec_CArrow_false in Htyeq; propositional.
+    }
+    {
+      eapply CExists_CArrow_false in Htyeq; propositional.
+    }
+    {
+      eapply const_type_CArrow_false in Htyeq; propositional.
+    }
+    {
+      eapply CProd_CArrow_false in Htyeq; propositional.
+    }
+    {
+      cases inj; simplify; eapply CSum_CArrow_false in Htyeq; propositional.
+    }
+    {
+      eapply CRef_CArrow_false in Htyeq; propositional.
+    }
+    {
+      destruct C as ((L & W) & G); simplify; subst.
+      eapply IHtyping; eauto with invert_typing.
+    }
+  Qed.
+
+  Lemma canon_CArrow W v t1 i' t2 i :
+    typing ([], W, []) v (CArrow t1 i' t2) i ->
+    value v ->
+    exists e,
+      v = EAbs e.
+  Proof.
+    intros; eapply canon_CArrow'; eauto with invert_typing.
+  Qed.
+
+  Lemma canon_CForall' C v t i :
+    typing C v t i ->
+    get_kctx C = [] ->
+    get_tctx C = [] ->
+    forall k t' ,
+      tyeq [] t (CForall k t') ->
+      value v ->
+      exists e,
+        v = EAbsC e.
+  Proof.
+    induct 1; intros Hknil Htnil k' t'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Htyeq]; subst.
+    (* { *)
+    (*   rewrite Htnil in H. *)
+    (*   rewrite nth_error_nil in H. *)
+    (*   invert H. *)
+    (* } *)
+    {
+      eapply CApps_CRec_CForall_false in Htyeq; propositional.
+    }
+    {
+      cases cn; simplify; invert Htyeq.
+    }
+    {
+      cases inj; simplify; invert Htyeq.
+    }
+    {
+      destruct C as ((L & W) & G); simplify; subst.
+      eapply IHtyping; eauto with invert_typing.
+    }
+  Qed.
+
+  Lemma canon_CForall W v k t i :
+    typing ([], W, []) v (CForall k t) i ->
+    value v ->
+    exists e,
+      v = EAbsC e.
+  Proof.
+    intros; eapply canon_CForall'; eauto with invert_typing.
+  Qed.
+
+  Lemma canon_CRec' C v t i :
+    typing C v t i ->
+    get_kctx C = [] ->
+    get_tctx C = [] ->
+    forall k t' cs ,
+      tyeq [] t (CApps (CRec k t') cs) ->
+      value v ->
+      exists e,
+        v = EFold e /\
+        value e.
+  Proof.
+    induct 1; intros Hknil Htnil k'' t'' cs' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst.
+    (* { *)
+    (*   rewrite Htnil in H. *)
+    (*   rewrite nth_error_nil in H. *)
+    (*   invert H. *)
+    (* } *)
+    {
+      eapply tyeq_sym in Htyeq.
+      eapply CApps_CRec_CArrow_false in Htyeq; propositional.
+    }
+    {
+      eapply tyeq_sym in Htyeq.
+      eapply CApps_CRec_CForall_false in Htyeq; propositional.
+    }
+    {
+      eapply tyeq_sym in Htyeq.
+      eapply CApps_CRec_CExists_false in Htyeq; propositional.
+    }
+    {
+      eapply tyeq_sym in Htyeq.
+      eapply CApps_CRec_const_type_false in Htyeq; propositional.
+    }
+    {
+      eapply tyeq_sym in Htyeq.
+      eapply CApps_CRec_CProd_false in Htyeq; propositional.
+    }
+    {
+      eapply tyeq_sym in Htyeq.
+      cases inj; simplify;
+        eapply CApps_CRec_CSum_false in Htyeq; propositional.
+    }
+    {
+      eapply tyeq_sym in Htyeq.
+      eapply CApps_CRec_CRef_false in Htyeq; propositional.
+    }
+    {
+      destruct C as ((L & W) & G); simplify; subst.
+      eapply IHtyping; eauto with invert_typing.
+    }
+  Qed.
+
+  Lemma canon_CRec W v k t cs i :
+    typing ([], W, []) v (CApps (CRec k t) cs) i ->
+    value v ->
+    exists e,
+      v = EFold e /\
+      value e.
+  Proof.
+    intros; eapply canon_CRec'; eauto with invert_typing.
+  Qed.
+
+  Lemma canon_CExists' C v t i :
+    typing C v t i ->
+    get_kctx C = [] ->
+    get_tctx C = [] ->
+    forall k t' ,
+      tyeq [] t (CExists k t') ->
+      value v ->
+      exists c e,
+        v = EPack c e /\
+        value e.
+  Proof.
+    induct 1; intros Hknil Htnil k' t'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst.
+    (* { *)
+    (*   rewrite Htnil in H. *)
+    (*   rewrite nth_error_nil in H. *)
+    (*   invert H. *)
+    (* } *)
+    {
+      eapply CApps_CRec_CExists_false in Htyeq; propositional.
+    }
+    {
+      cases cn; simplify; invert Htyeq.
+    }
+    {
+      cases inj; simplify; invert Htyeq.
+    }
+    {
+      destruct C as ((L & W) & G); simplify; subst.
+      eapply IHtyping; eauto with invert_typing.
+    }
+  Qed.
+
+  Lemma canon_CExists W v k t i :
+    typing ([], W, []) v (CExists k t) i ->
+    value v ->
+    exists c e,
+      v = EPack c e /\
+      value e.
+  Proof.
+    intros; eapply canon_CExists'; eauto with invert_typing.
+  Qed.
+
+  Lemma canon_CProd' C v t i :
+    typing C v t i ->
+    get_kctx C = [] ->
+    get_tctx C = [] ->
+    forall t1 t2 ,
+      tyeq [] t (CProd t1 t2) ->
+      value v ->
+      exists v1 v2,
+        v = EPair v1 v2 /\
+        value v1 /\
+        value v2.
+  Proof.
+    induct 1; intros Hknil Htnil t1'' t2'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst.
+    (* { *)
+    (*   rewrite Htnil in H. *)
+    (*   rewrite nth_error_nil in H. *)
+    (*   invert H. *)
+    (* } *)
+    {
+      eapply CApps_CRec_CProd_false in Htyeq; propositional.
+    }
+    {
+      cases cn; simplify; invert Htyeq.
+    }
+    {
+      cases inj; simplify; invert Htyeq.
+    }
+    {
+      destruct C as ((L & W) & G); simplify; subst.
+      eapply IHtyping; eauto with invert_typing.
+    }
+  Qed.
+
+  Lemma canon_CProd W v t1 t2 i :
+    typing ([], W, []) v (CProd t1 t2) i ->
+    value v ->
+    exists v1 v2,
+      v = EPair v1 v2 /\
+      value v1 /\
+      value v2.
+  Proof.
+    intros; eapply canon_CProd'; eauto with invert_typing.
+  Qed.
+
+  Lemma canon_CSum' C v t i :
+    typing C v t i ->
+    get_kctx C = [] ->
+    get_tctx C = [] ->
+    forall t1 t2 ,
+      tyeq [] t (CSum t1 t2) ->
+      value v ->
+      exists inj v',
+        v = EInj inj v' /\
+        value v'.
+  Proof.
+    induct 1; intros Hknil Htnil t1'' t2'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst.
+    (* { *)
+    (*   rewrite Htnil in H. *)
+    (*   rewrite nth_error_nil in H. *)
+    (*   invert H. *)
+    (* } *)
+    {
+      eapply CApps_CRec_CSum_false in Htyeq; propositional.
+    }
+    {
+      cases cn; simplify; invert Htyeq.
+    }
+    {
+      destruct C as ((L & W) & G); simplify; subst.
+      eapply IHtyping; eauto with invert_typing.
+    }
+  Qed.
+  
+  Lemma canon_CSum W v t1 t2 i :
+    typing ([], W, []) v (CSum t1 t2) i ->
+    value v ->
+    exists inj v',
+      v = EInj inj v' /\
+      value v'.
+  Proof.
+    intros; eapply canon_CSum'; eauto with invert_typing.
+  Qed.
+
+  Lemma canon_CRef' C v t i :
+    typing C v t i ->
+    get_kctx C = [] ->
+    get_tctx C = [] ->
+    forall t' ,
+      tyeq [] t (CRef t') ->
+      value v ->
+      exists l t',
+        v = ELoc l /\
+        get_hctx C $? l = Some t'.
+  Proof.
+    induct 1; intros Hknil Htnil t'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst.
+    (* { *)
+    (*   rewrite Htnil in H. *)
+    (*   rewrite nth_error_nil in H. *)
+    (*   invert H. *)
+    (* } *)
+    {
+      eapply CApps_CRec_CRef_false in Htyeq; propositional.
+    }
+    {
+      cases cn; simplify; invert Htyeq.
+    }
+    {
+      cases inj; simplify; invert Htyeq.
+    }
+    {
+      destruct C as ((L & W) & G); simplify; subst.
+      eapply IHtyping; eauto with invert_typing.
+    }
+  Qed.
+  
+  Lemma canon_CRef W v t i :
+    typing ([], W, []) v (CRef t) i ->
+    value v ->
+    exists l t',
+      v = ELoc l /\
+      W $? l = Some t'.
+  Proof.
+    intros Hty ?; eapply canon_CRef' in Hty; eauto with invert_typing.
+  Qed.
+
   Lemma progress' C e t i :
     typing C e t i ->
     get_kctx C = [] ->
