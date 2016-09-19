@@ -3092,6 +3092,33 @@ Module M (Time : TIME).
     fmap_map f m $? k = Some (f v).
   Admitted.
   
+  Lemma my_skipn_0 A (ls : list A) : my_skipn ls 0 = ls.
+  Admitted.
+  Lemma shift_c_c_0 x c : shift_c_c x 0 c = c.
+  Admitted.
+  
+  Lemma nth_error_insert A G y (t : A) x ls :
+    nth_error G y = Some t ->
+    x <= y ->
+    nth_error (firstn x G ++ ls ++ my_skipn G x) (length ls + y) = Some t.
+  Admitted.
+  Lemma nth_error_before_insert A G y (t : A) x ls :
+    nth_error G y = Some t ->
+    y < x ->
+    nth_error (firstn x G ++ ls ++ my_skipn G x) y = Some t.
+  Admitted.
+        
+  Lemma map_firstn A B (f : A -> B) n ls :
+    map f (firstn n ls) = firstn n (map f ls).
+  Admitted.
+  Lemma map_my_skipn A B (f : A -> B) n ls :
+    map f (my_skipn ls n) = my_skipn (map f ls) n.
+  Admitted.
+      
+  Lemma shift_e_e_AbsCs n x m e :
+    shift_e_e n x (EAbsCs m e) = EAbsCs m (shift_e_e n x e).
+  Admitted.
+  
   Lemma kd_subst_c_c L c' k' :
     kinding L c' k' ->
     forall n k c ,
@@ -3354,11 +3381,6 @@ Module M (Time : TIME).
     }
   Qed.
   
-  Lemma my_skipn_0 A (ls : list A) : my_skipn ls 0 = ls.
-  Admitted.
-  Lemma shift_c_c_0 x c : shift_c_c x 0 c = c.
-  Admitted.
-  
   Lemma ty_subst0_c_e k L W G e t i c :
     typing (k :: L, W, G) e t i ->
     kinding L c k ->
@@ -3371,31 +3393,13 @@ Module M (Time : TIME).
       eauto.
   Qed.
 
-  Lemma nth_error_insert A G y (t : A) x ls :
-    nth_error G y = Some t ->
-    x <= y ->
-    nth_error (firstn x G ++ ls ++ my_skipn G x) (length ls + y) = Some t.
-  Admitted.
-  Lemma nth_error_before_insert A G y (t : A) x ls :
-    nth_error G y = Some t ->
-    y < x ->
-    nth_error (firstn x G ++ ls ++ my_skipn G x) y = Some t.
-  Admitted.
-  Lemma value_shfit_e_e n x e :
+  Lemma value_shfit_e_e e :
     value e ->
-    value (shift_e_e n x e).
-  Admitted.
-        
-  Lemma map_firstn A B (f : A -> B) n ls :
-    map f (firstn n ls) = firstn n (map f ls).
-  Admitted.
-  Lemma map_my_skipn A B (f : A -> B) n ls :
-    map f (my_skipn ls n) = my_skipn (map f ls) n.
-  Admitted.
-      
-  Lemma shift_e_e_AbsCs n x m e :
-    shift_e_e n x (EAbsCs m e) = EAbsCs m (shift_e_e n x e).
-  Admitted.
+    forall n x,
+      value (shift_e_e n x e).
+  Proof.
+    induct 1; simplify; econstructor; eauto.
+  Qed.
   
   Lemma ty_shift_e_e C e t i :
     typing C e t i ->
