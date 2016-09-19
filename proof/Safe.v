@@ -3371,10 +3371,112 @@ Module M (Time : TIME).
       eauto.
   Qed.
 
+  Lemma nth_error_insert A G y (t : A) x ls :
+    nth_error G y = Some t ->
+    x <= y ->
+    nth_error (firstn x G ++ ls ++ my_skipn G x) (length ls + y) = Some t.
+  Admitted.
+  Lemma nth_error_before_insert A G y (t : A) x ls :
+    nth_error G y = Some t ->
+    y < x ->
+    nth_error (firstn x G ++ ls ++ my_skipn G x) y = Some t.
+  Admitted.
+  Lemma value_shfit_e_e n x e :
+    value e ->
+    value (shift_e_e n x e).
+  Admitted.
+        
+  Lemma map_firstn A B (f : A -> B) n ls :
+    map f (firstn n ls) = firstn n (map f ls).
+  Admitted.
+  Lemma map_my_skipn A B (f : A -> B) n ls :
+    map f (my_skipn ls n) = my_skipn (map f ls) n.
+  Admitted.
+      
+  Lemma shift_e_e_AbsCs n x m e :
+    shift_e_e n x (EAbsCs m e) = EAbsCs m (shift_e_e n x e).
+  Admitted.
+  
+  Lemma ty_shift_e_e C e t i :
+    typing C e t i ->
+    forall x ls,
+      typing (get_kctx C, get_hctx C, firstn x (get_tctx C) ++ ls ++ my_skipn (get_tctx C) x) (shift_e_e (length ls) x e) t i.
+  Proof.
+    induct 1;
+      try rename x into y;
+      intros x ls;
+      destruct C as ((L & W) & G);
+      simplify;
+      try solve [econstructor; eauto].
+    {
+      (* Case Var *)
+      cases (x <=? y).
+      {
+        econstructor; simplify.
+        eapply nth_error_insert; eauto.
+      }
+      {
+        econstructor; simplify.
+        eapply nth_error_before_insert; eauto.
+      }
+    }
+    {
+      (* Case Abs *)
+      econstructor; simplify; eauto.
+      eapply IHtyping with (x := S x).
+    }
+    {
+      (* Case AbsC *)
+      econstructor; simplify; eauto.
+      {
+        eapply value_shfit_e_e; eauto.
+      }
+      repeat rewrite map_app.
+      rewrite map_firstn.
+      rewrite map_my_skipn.
+      specialize (IHtyping x (map shift0_c_c ls)).
+      rewrite map_length in *.
+      eauto.
+    }
+    {
+      (* Case Rec *)
+      subst.
+      specialize (IHtyping (S x) ls); simplify.
+      rewrite shift_e_e_AbsCs in *.
+      econstructor; simplify; eauto.
+    }
+    {
+      (* Case Unpack *)
+      econstructor; simplify; eauto.
+      repeat rewrite map_app.
+      rewrite map_firstn.
+      rewrite map_my_skipn.
+      specialize (IHtyping2 (S x) (map shift0_c_c ls)); simplify.
+      rewrite map_length in *.
+      eauto.
+    }
+    {
+      (* Case Case *)
+      econstructor; simplify; eauto.
+      {
+        eapply IHtyping2 with (x := S x).
+      }
+      {
+        eapply IHtyping3 with (x := S x).
+      }
+    }
+  Qed.
+  
   Lemma ty_shift0_e_e L W G e t i t' :
     typing (L, W, G) e t i ->
     typing (L, W, t' :: G) (shift0_e_e e) t i.
-  Admitted.
+  Proof.
+    intros Hty.
+    eapply ty_shift_e_e with (C := (L, W, G)) (x := 0) (ls := [t']) in Hty.
+    simplify.
+    repeat rewrite my_skipn_0 in *.
+    eauto.
+  Qed.
   
   Lemma ty_subst_e_e C e1 t1 i1 :
     typing C e1 t1 i1 ->
