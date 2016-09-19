@@ -5397,7 +5397,7 @@ Module M (Time : TIME).
       Step := step
     |}.
 
-  Theorem safety W s t i :
+  Lemma unstuck_invariant W s t i :
     ctyping W s t i ->
     invariantFor (trsys_of s) unstuck.
   Proof.
@@ -5425,4 +5425,14 @@ Module M (Time : TIME).
     }
   Qed.
 
+  Theorem safety W s t i : ctyping W s t i -> safe s.
+  Proof.
+    intros H.
+    eapply unstuck_invariant in H.
+    unfold invariantFor, safe in *.
+    intros s' Hstep.
+    simplify.
+    eauto.
+  Qed.
+  
 End M.
