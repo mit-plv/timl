@@ -1750,6 +1750,8 @@ Module M (Time : TIME).
   Definition empty_ctx : ctx := ([], $0, []).
   Notation "${}" := empty_ctx.
 
+  Definition allocatable (h : heap) := exists l_alloc, forall l, l >= l_alloc -> h $? l = None.
+  
   Definition htyping (h : heap) (W : hctx) :=
     (forall l t,
         W $? l = Some t ->
@@ -1757,7 +1759,7 @@ Module M (Time : TIME).
           h $? l = Some v /\
           value v /\
           typing ([], W, []) v t T0) /\
-    (exists l, forall l', l' >= l -> h $? l = None).
+    allocatable h.
 
   Definition ctyping W (s : config) t i :=
     let '(h, e, f) := s in
@@ -2167,528 +2169,6 @@ Module M (Time : TIME).
     intros Hty ?; eapply canon_CRef' in Hty; eauto with invert_typing.
   Qed.
 
-  Lemma htyping_fresh h W :
-    htyping h W ->
-    exists l, h $? l = None.
-  Admitted.
-  Lemma htyping_elim h W l v t :
-    htyping h W ->
-    h $? l = Some v ->
-    W $? l = Some t ->
-    value v /\
-    typing ([], W, []) v t T0.
-  Admitted.
-  Lemma htyping_elim_exists h W l t :
-    htyping h W ->
-    W $? l = Some t ->
-    exists v,
-      h $? l = Some v /\
-      value v /\
-      typing ([], W, []) v t T0.
-  Admitted.
-
-  Lemma progress' C e t i :
-    typing C e t i ->
-    get_kctx C = [] ->
-    get_tctx C = [] ->
-    forall h f ,
-      htyping h (get_hctx C) ->
-      (interpTime i <= f)%time ->
-      unstuck (h, e, f).
-  Proof.
-    induct 1.
-    {
-      (* Case Var *)
-      intros ? ? h f Hhty Hle.
-      destruct C as ((L & W) & G).
-      simplify.
-      subst.
-      rewrite nth_error_nil in H.
-      invert H.
-    }
-    {
-      (* Case App *)
-      intros ? ? h f Hhty Hle.
-      destruct C as ((L & W) & G).
-      simplify.
-      subst.
-      assert (Hi1 : (interpTime i1 <= f)%time).
-      {
-        repeat rewrite interpTime_distr in Hle.
-        repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
-        eauto.
-      }
-      assert (Hi2 : (interpTime i2 <= f)%time).
-      {
-        repeat rewrite interpTime_distr in Hle.
-        repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
-        eauto.
-      }
-      eapply IHtyping1 in Hi1; eauto.
-      cases Hi1; simplify.
-      {
-        eapply canon_CArrow in H1; eauto.
-        destruct H1 as (e & ?).
-        subst.
-        eapply IHtyping2 in Hi2; eauto.
-        cases Hi2; simplify.
-        {
-          right.
-          exists (h, subst0_e_e e2 e, (f - 1)%time).
-          econstructor; eauto.
-          econstructor; eauto.
-          repeat rewrite interpTime_distr in Hle.
-          repeat rewrite interpTime_1 in Hle.
-          repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
-          eauto.
-        }
-        {
-          destruct H1 as (((h' & e2') & f') & Hstep).
-          invert Hstep.
-          rename e' into e0'.
-          right.
-          exists (h', EApp (EAbs e) e2', f').
-          eapply StepPlug with (E := ECBinOp2 _ (EAbs e) E); repeat econstructor; eauto.
-        }
-      }
-      {
-        destruct H1 as (((h' & e1') & f') & Hstep).
-        invert Hstep.
-        right.
-        exists (h', EApp e1' e2, f').
-        eapply StepPlug with (E := ECBinOp1 _ E e2); repeat econstructor; eauto.
-      }
-    }
-    {
-      (* Case Abs *)
-      intros.
-      left.
-      simplify; eauto.
-    }
-    {
-      (* Case AppC *)
-      intros ? ? h f Hhty Hle.
-      destruct C as ((L & W) & G).
-      simplify.
-      subst.
-      eapply IHtyping in Hle; eauto.
-      cases Hle; simplify.
-      {
-        eapply canon_CForall in H1; eauto.
-        destruct H1 as (e1 & ?).
-        subst.
-        right.
-        exists (h, subst0_c_e c e1, f).
-        eapply StepPlug with (E := ECHole); try eapply PlugHole.
-        eauto.
-      }
-      {
-        destruct H1 as (((h' & e1') & f') & Hstep).
-        invert Hstep.
-        rename e' into e0'.
-        rename e1' into e'.
-        right.
-        exists (h', EAppC e' c, f').
-        eapply StepPlug with (E := ECAppC E c); repeat econstructor; eauto.
-      }
-    }
-    {
-      (* Case AbsC *)
-      intros.
-      left.
-      simplify; eauto.
-    }
-    {
-      (* Case Rec *)
-      intros.
-      right.
-      exists (h, subst0_e_e (ERec e) e, f).
-      eapply StepPlug with (E := ECHole); try eapply PlugHole.
-      eauto.
-    }
-    {
-      (* Case Fold *)
-      intros ? ? h f Hhty Hle.
-      destruct C as ((L & W) & G).
-      simplify.
-      subst.
-      eapply IHtyping in Hle; eauto.
-      cases Hle; simplify.
-      {
-        left.
-        simplify; eauto.
-      }
-      {
-        destruct H as (((h' & e1') & f') & Hstep).
-        invert Hstep.
-        rename e' into e0'.
-        rename e1' into e'.
-        right.
-        exists (h', EFold e', f').
-        eapply StepPlug with (E := ECUnOp _ E); repeat econstructor; eauto.
-      }
-    }
-    {
-      (* Case Unfold *)
-      intros ? ? h f Hhty Hle.
-      destruct C as ((L & W) & G).
-      simplify.
-      subst.
-      eapply IHtyping in Hle; eauto.
-      cases Hle; simplify.
-      {
-        eapply canon_CRec in H; eauto.
-        destruct H as (e1 & ? & Hv).
-        subst.
-        right.
-        exists (h, e1, f).
-        eapply StepPlug with (E := ECHole); try eapply PlugHole.
-        eauto.
-      }
-      {
-        destruct H as (((h' & e1') & f') & Hstep).
-        invert Hstep.
-        rename e' into e0'.
-        rename e1' into e'.
-        right.
-        exists (h', EUnfold e', f').
-        eapply StepPlug with (E := ECUnOp _ E); repeat econstructor; eauto.
-      }
-    }
-    {
-      (* Case Pack *)
-      intros ? ? h f Hhty Hle.
-      destruct C as ((L & W) & G).
-      simplify.
-      subst.
-      eapply IHtyping in Hle; eauto.
-      cases Hle; simplify.
-      {
-        left.
-        simplify; eauto.
-      }
-      {
-        destruct H2 as (((h' & e1') & f') & Hstep).
-        invert Hstep.
-        rename e' into e0'.
-        rename e1' into e'.
-        right.
-        exists (h', EPack c e', f').
-        eapply StepPlug with (E := ECPack c E); repeat econstructor; eauto.
-      }
-    }
-    {
-      (* Case Unpack *)
-      intros ? ? h f Hhty Hle.
-      destruct C as ((L & W) & G).
-      simplify.
-      subst.
-      assert (Hi1 : (interpTime i1 <= f)%time).
-      {
-        repeat rewrite interpTime_distr in Hle.
-        repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
-        eauto.
-      }
-      eapply IHtyping1 in Hi1; eauto.
-      cases Hi1; simplify.
-      {
-        eapply canon_CExists in H3; eauto.
-        destruct H3 as (c & e & ? & Hv).
-        subst.
-        right.
-        exists (h, subst0_e_e e (subst0_c_e c e2), f).
-        eapply StepPlug with (E := ECHole); try eapply PlugHole.
-        eauto.
-      }
-      {
-        destruct H3 as (((h' & e1') & f') & Hstep).
-        invert Hstep.
-        right.
-        exists (h', EUnpack e1' e2, f').
-        eapply StepPlug with (E := ECUnpack E e2); repeat econstructor; eauto.
-      }
-    }
-    {
-      (* Case Const *)
-      intros.
-      left.
-      simplify; eauto.
-    }
-    {
-      (* Case Pair *)
-      intros ? ? h f Hhty Hle.
-      destruct C as ((L & W) & G).
-      simplify.
-      subst.
-      assert (Hi1 : (interpTime i1 <= f)%time).
-      {
-        repeat rewrite interpTime_distr in Hle.
-        repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
-        eauto.
-      }
-      assert (Hi2 : (interpTime i2 <= f)%time).
-      {
-        repeat rewrite interpTime_distr in Hle.
-        repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
-        eauto.
-      }
-      eapply IHtyping1 in Hi1; eauto.
-      cases Hi1; simplify.
-      {
-        eapply IHtyping2 in Hi2; eauto.
-        cases Hi2; simplify.
-        {
-          left.
-          simplify; eauto.
-        }
-        {
-          destruct H2 as (((h' & e2') & f') & Hstep).
-          invert Hstep.
-          right.
-          exists (h', EPair e1 e2', f').
-          eapply StepPlug with (E := ECBinOp2 _ e1 E); repeat econstructor; eauto.
-        }
-      }
-      {
-        destruct H1 as (((h' & e1') & f') & Hstep).
-        invert Hstep.
-        right.
-        exists (h', EPair e1' e2, f').
-        eapply StepPlug with (E := ECBinOp1 _ E e2); repeat econstructor; eauto.
-      }
-    }
-    {
-      (* Case Proj *)
-      intros ? ? h f Hhty Hle.
-      destruct C as ((L & W) & G).
-      simplify.
-      subst.
-      eapply IHtyping in Hle; eauto.
-      destruct Hle as [He | He]; simplify.
-      {
-        eapply canon_CProd in He; eauto.
-        destruct He as (v1 & v2 & ? & Hv1 & Hv2).
-        subst.
-        right.
-        exists (h, proj (v1, v2) pr, f).
-        eapply StepPlug with (E := ECHole); try eapply PlugHole.
-        eauto.
-      }
-      {
-        destruct He as (((h' & e') & f') & Hstep).
-        invert Hstep.
-        rename e'0 into e0'.
-        right.
-        exists (h', EProj pr e', f').
-        eapply StepPlug with (E := ECUnOp _ E); repeat econstructor; eauto.
-      }
-    }
-    {
-      (* Case Inj *)
-      intros ? ? h f Hhty Hle.
-      destruct C as ((L & W) & G).
-      simplify.
-      subst.
-      eapply IHtyping in Hle; eauto.
-      destruct Hle as [He | He]; simplify.
-      {
-        left.
-        simplify; eauto.
-      }
-      {
-        destruct He as (((h' & e') & f') & Hstep).
-        invert Hstep.
-        rename e'0 into e0'.
-        right.
-        exists (h', EInj inj e', f').
-        eapply StepPlug with (E := ECUnOp _ E); repeat econstructor; eauto.
-      }
-    }
-    {
-      (* Case Case *)
-      intros ? ? h f Hhty Hle.
-      destruct C as ((L & W) & G).
-      simplify.
-      subst.
-      assert (Hile : (interpTime i <= f)%time).
-      {
-        repeat rewrite interpTime_distr in Hle.
-        repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
-        eauto.
-      }
-      eapply IHtyping1 in Hile; eauto.
-      destruct Hile as [He | He]; simplify.
-      {
-        eapply canon_CSum in He; eauto.
-        destruct He as (inj & v & ? & Hv).
-        subst.
-        right.
-        exists (h, subst0_e_e v (choose (e1, e2) inj), f).
-        eapply StepPlug with (E := ECHole); try eapply PlugHole.
-        eauto.
-      }
-      {
-        destruct He as (((h' & e') & f') & Hstep).
-        invert Hstep.
-        rename e3 into e0.
-        rename e'0 into e0'.
-        right.
-        exists (h', ECase e' e1 e2, f').
-        eapply StepPlug with (E := ECCase E e1 e2); repeat econstructor; eauto.
-      }
-    }
-    {
-      (* Case New *)
-      intros ? ? h f Hhty Hle.
-      destruct C as ((L & W) & G).
-      simplify.
-      subst.
-      eapply IHtyping in Hle; eauto.
-      destruct Hle as [He | He]; simplify.
-      {
-        right.
-        eapply htyping_fresh in Hhty.
-        destruct Hhty as (l & Hl).
-        exists (h $+ (l, e), ELoc l, f).
-        eapply StepPlug with (E := ECHole); try eapply PlugHole.
-        eauto.
-      }
-      {
-        destruct He as (((h' & e') & f') & Hstep).
-        invert Hstep.
-        rename e'0 into e0'.
-        right.
-        exists (h', ENew e', f').
-        eapply StepPlug with (E := ECUnOp _ E); repeat econstructor; eauto.
-      }
-    }
-    {
-      (* Case Read *)
-      intros ? ? h f Hhty Hle.
-      destruct C as ((L & W) & G).
-      simplify.
-      subst.
-      eapply IHtyping in Hle; eauto.
-      destruct Hle as [He | He]; simplify.
-      {
-        eapply canon_CRef in He; eauto.
-        destruct He as (l & t' & ? & Hl).
-        subst.
-        eapply htyping_elim_exists in Hl; eauto.
-        destruct Hl as (v & Hl & Hv & Hty).
-        right.
-        exists (h, v, f).
-        eapply StepPlug with (E := ECHole); try eapply PlugHole.
-        eauto.
-      }
-      {
-        destruct He as (((h' & e') & f') & Hstep).
-        invert Hstep.
-        rename e'0 into e0'.
-        right.
-        exists (h', ERead e', f').
-        eapply StepPlug with (E := ECUnOp _ E); repeat econstructor; eauto.
-      }
-    }
-    {
-      (* Case Write *)
-      intros ? ? h f Hhty Hle.
-      destruct C as ((L & W) & G).
-      simplify.
-      subst.
-      assert (Hi1 : (interpTime i1 <= f)%time).
-      {
-        repeat rewrite interpTime_distr in Hle.
-        repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
-        eauto.
-      }
-      assert (Hi2 : (interpTime i2 <= f)%time).
-      {
-        repeat rewrite interpTime_distr in Hle.
-        repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
-        eauto.
-      }
-      eapply IHtyping1 in Hi1; eauto.
-      destruct Hi1 as [He1 | He1]; simplify.
-      {
-        eapply IHtyping2 in Hi2; eauto.
-        destruct Hi2 as [He2 | He2]; simplify.
-        {
-          eapply canon_CRef in He1; eauto.
-          destruct He1 as (l & t' & ? & Hl).
-          subst.
-          eapply htyping_elim_exists in Hl; eauto.
-          destruct Hl as (v & Hl & Hv & Hty).
-          right.
-          exists (h $+ (l, e2), ETT, f).
-          eapply StepPlug with (E := ECHole); try eapply PlugHole.
-          eauto.
-        }
-        {
-          destruct He2 as (((h' & e2') & f') & Hstep).
-          invert Hstep.
-          right.
-          exists (h', EWrite e1 e2', f').
-          eapply StepPlug with (E := ECBinOp2 _ e1 E); repeat econstructor; eauto.
-        }
-      }
-      {
-        destruct He1 as (((h' & e1') & f') & Hstep).
-        invert Hstep.
-        right.
-        exists (h', EWrite e1' e2, f').
-        eapply StepPlug with (E := ECBinOp1 _ E e2); repeat econstructor; eauto.
-      }
-    }
-    {
-      (* Case Loc *)
-      intros.
-      left.
-      simplify; eauto.
-    }
-    {
-      (* Case Sub *)
-      intros ? ? h f Hhty Hle.
-      destruct C as ((L & W) & G).
-      simplify.
-      subst.
-      eapply IHtyping; eauto.
-      eapply interpP_le_interpTime in H1.
-      eauto with time_order.
-    }
-  Qed.
-
-  Lemma progress W s t i :
-    ctyping W s t i ->
-    unstuck s.
-  Proof.
-    unfold ctyping in *.
-    simplify.
-    destruct s as ((h & e) & f).
-    propositional.
-    eapply progress'; eauto.
-  Qed.
-
-  Fixpoint KArrows args result :=
-    match args with
-    | [] => result
-    | arg :: args => KArrow arg (KArrows args result)
-    end.
-
-  Section Forall3.
-
-    Variables A B C : Type.
-    Variable R : A -> B -> C -> Prop.
-
-    Inductive Forall3 : list A -> list B -> list C -> Prop :=
-    | Forall3_nil : Forall3 [] [] []
-    | Forall3_cons : forall x y z l l' l'',
-        R x y z -> Forall3 l l' l'' -> Forall3 (x::l) (y::l') (z::l'').
-
-    Hint Constructors Forall3.
-
-  End Forall3.
-
   Lemma TyTyeq C e t2 i t1 :
     typing C e t1 i ->
     tyeq (get_kctx C) t1 t2 ->
@@ -2696,9 +2176,15 @@ Module M (Time : TIME).
   Proof.
     intros.
     eapply TySub; eauto.
-    admit. (* interpP (get_kctx C) (i <= i)%idx *)
-  Admitted.
+    eapply interpP_le_refl.
+  Qed.
 
+  Lemma TyIdxEq C e t i1 i2 :
+    typing C e t i1 ->
+    interpP (get_kctx C) (i1 == i2)%idx ->
+    typing C e t i2.
+  Admitted.
+  
   Lemma TyLe C e t i1 i2 :
     typing C e t i1 ->
     interpP (get_kctx C) (i1 <= i2)%idx ->
@@ -2709,62 +2195,49 @@ Module M (Time : TIME).
     eapply TyConst.
   Qed.
 
-  Ltac openhyp :=
-    repeat match goal with
-           | H : _ /\ _ |- _  => destruct H
-           | H : _ \/ _ |- _ => destruct H
-           | H : exists x, _ |- _ => destruct H
-           | H : exists ! x, _ |- _ => destruct H
-           | H : unique _ _ |- _ => destruct H
-           end.
-
-  Lemma invert_typing_App C e1 e2 t i :
-    typing C (EApp e1 e2) t i ->
-    exists t' t2 i1 i2 i3 ,
-      tyeq (get_kctx C) t t' /\
-      typing C e1 (CArrow t2 i3 t') i1 /\
-      typing C e2 t2 i2 /\
-      interpP (get_kctx C) (i1 + i2 + T1 + i3 <= i)%idx.
+  Lemma fmap_map_shift0_c_c_incl (W W' : hctx) :
+    W $<= W' ->
+    fmap_map shift0_c_c W $<= fmap_map shift0_c_c W'.
+  Admitted.
+  
+  Lemma interpP_eq_add_0 L a : interpP L (a + T0 == a)%idx.
+  Admitted.
+  
+  Lemma value_typing_T0 C e t i :
+    typing C e t i ->
+    value e ->
+    typing C e t T0.
   Proof.
-    induct 1; openhyp; repeat eexists_split;
-      eauto;
-      eauto with invert_typing.
-  Qed.  
+    induct 1;
+      invert 1;
+      try solve [econstructor; eauto | eapply TyTyeq; eauto].
+    {
+      clear H H0.
+      eapply TyIdxEq; [econstructor; eauto | ].
+      eapply interpP_eq_add_0.
+    }
+  Qed.
+    
+  Lemma includes_add_new A B m m' (k : A) (v : B) :
+    m $<= m' ->
+    m' $? k = None ->
+    m $<= m' $+ (k, v).
+  Admitted.
+  
+  Lemma invert_tyeq_CApps k t cs k' t' cs' :
+    tyeq [] (CApps (CRec k t) cs) (CApps (CRec k' t') cs') ->
+    kdeq [] k k' /\
+    tyeq [k] t t' /\
+    Forall2 (tyeq []) cs cs'.
+  Admitted.
 
-  Lemma invert_typing_Abs C e t i :
-    typing C (EAbs e) t i ->
-    exists t1 i' t2 ,
-      tyeq (get_kctx C) t (CArrow t1 i' t2) /\
-      kinding (get_kctx C) t1 KType /\
-      typing (add_typing_ctx t1 C) e t2 i'.
+  Lemma TyEqApps L t cs t' cs' :
+    tyeq L t t' ->
+    Forall2 (tyeq L) cs cs' ->
+    tyeq L (CApps t cs) (CApps t' cs').
   Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
-  Qed.  
-
-  Lemma invert_typing_Unfold C e t2 i :
-    typing C (EUnfold e) t2 i ->
-    exists t k t1 cs i',
-      tyeq (get_kctx C) t2 (CApps (subst0_c_c t t1) cs) /\
-      t = CRec k t1 /\
-      typing C e (CApps t cs) i' /\
-      interpP (get_kctx C) (i' <= i)%idx.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
-  Qed.  
-
-  Lemma invert_typing_Fold C e t' i :
-    typing C (EFold e) t' i ->
-    exists t t1 cs k t2 i',
-      tyeq (get_kctx C) t' t /\
-      t = CApps t1 cs /\
-      t1 = CRec k t2 /\
-      kinding (get_kctx C) t KType /\
-      typing C e (CApps (subst0_c_c t1 t2) cs) i' /\
-      interpP (get_kctx C) (i' <= i)%idx.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
-  Qed.  
-
+  Admitted.
+  
   Lemma kinding_tyeq L k t1 t2 :
     kinding L t1 k ->
     tyeq L t1 t2 ->
@@ -2777,172 +2250,6 @@ Module M (Time : TIME).
   Admitted.
   Lemma get_kctx_add_typing_ctx t C : get_kctx (add_typing_ctx t C) = get_kctx C.
   Admitted.
-
-  Lemma invert_typing_Rec C e t i :
-    typing C (ERec e) t i ->
-    exists n e1 ,
-      e = EAbsCs n (EAbs e1) /\
-      kinding (get_kctx C) t KType /\
-      typing (add_typing_ctx t C) e t T0.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
-    {
-      subst.
-      eapply kinding_tyeq; eauto.
-    }
-    {
-      subst.
-      eapply add_typing_ctx_tyeq; eauto.
-      eapply TyTyeq; eauto.
-      rewrite get_kctx_add_typing_ctx.
-      eauto.
-    }
-  Qed.  
-
-  Lemma invert_typing_Unpack C e1 e2 t2'' i :
-    typing C (EUnpack e1 e2) t2'' i ->
-    exists t2' t i1 k t2 i2 i2' ,
-      tyeq (get_kctx C) t2'' t2' /\
-      typing C e1 (CExists k t) i1 /\
-      typing (add_typing_ctx t (add_kinding_ctx k C)) e2 t2 i2 /\
-      forget01_c_c t2 = Some t2' /\
-      forget01_c_c i2 = Some i2' /\
-      interpP (get_kctx C) (i1 + i2' <= i)%idx.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
-  Qed.
-
-  Lemma invert_typing_Pack C c e t i :
-    typing C (EPack c e) t i ->
-    exists t1 k i' ,
-      tyeq (get_kctx C) t (CExists k t1) /\
-      kinding (get_kctx C) (CExists k t1) KType /\
-      kinding (get_kctx C) c k /\
-      typing C e (subst0_c_c c t1) i' /\
-      interpP (get_kctx C) (i' <= i)%idx.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
-  Qed.
-
-  Lemma invert_typing_Read C e t i :
-    typing C (ERead e) t i ->
-    exists i' ,
-      typing C e (CRef t) i' /\
-      interpP (get_kctx C) (i' <= i)%idx.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
-    eapply TySub; try eapply H2; try econstructor; eauto.
-  Qed.
-
-  Lemma invert_typing_Loc C l t i :
-    typing C (ELoc l) t i ->
-    exists t' ,
-      tyeq (get_kctx C) t (CRef t') /\
-      get_hctx C $? l = Some t'.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
-  Qed.
-
-  Lemma invert_typing_Write C e1 e2 t i :
-    typing C (EWrite e1 e2) t i ->
-    exists t' i1 i2 ,
-      tyeq (get_kctx C) t CTypeUnit /\
-      typing C e1 (CRef t') i1 /\
-      typing C e2 t' i2 /\
-      interpP (get_kctx C) (i1 + i2 <= i)%idx.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
-  Qed.
-
-  Lemma invert_typing_New C e t i :
-    typing C (ENew e) t i ->
-    exists t' i' ,
-      tyeq (get_kctx C) t (CRef t') /\
-      typing C e t' i' /\
-      interpP (get_kctx C) (i' <= i)%idx.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
-  Qed.
-
-  Lemma invert_typing_AppC C e c t i :
-    typing C (EAppC e c) t i ->
-    exists t' i' k ,
-      tyeq (get_kctx C) t (subst0_c_c c t') /\
-      typing C e (CForall k t') i' /\
-      kinding (get_kctx C) c k /\
-      interpP (get_kctx C) (i' <= i)%idx.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
-  Qed.
-
-  Lemma invert_typing_AbsC C e t i :
-    typing C (EAbsC e) t i ->
-    exists t' k ,
-      tyeq (get_kctx C) t (CForall k t') /\
-      value e /\
-      wfkind (get_kctx C) k /\
-      typing (add_kinding_ctx k C) e t' T0.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
-  Qed.
-
-  Lemma invert_typing_Proj C pr e t i :
-    typing C (EProj pr e) t i ->
-    exists t1 t2 i' ,
-      tyeq (get_kctx C) t (proj (t1, t2) pr) /\
-      typing C e (CProd t1 t2) i' /\
-      interpP (get_kctx C) (i' <= i)%idx.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
-  Qed.
-
-  Lemma invert_typing_Pair C e1 e2 t i :
-    typing C (EPair e1 e2) t i ->
-    exists t1 t2 i1 i2 ,
-      tyeq (get_kctx C) t (CProd t1 t2) /\
-      typing C e1 t1 i1 /\
-      typing C e2 t2 i2 /\
-      interpP (get_kctx C) (i1 + i2 <= i)%idx.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
-  Qed.
-
-  Lemma invert_typing_Case C e e1 e2 t i :
-    typing C (ECase e e1 e2) t i ->
-    exists t1 t2 i0 i1 i2 ,
-      typing C e (CSum t1 t2) i0 /\
-      typing (add_typing_ctx t1 C) e1 t i1 /\
-      typing (add_typing_ctx t2 C) e2 t i2 /\
-      interpP (get_kctx C) (i0 + Tmax i1 i2 <= i)%idx.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
-    {
-      eapply TyTyeq; eauto.
-      rewrite get_kctx_add_typing_ctx.
-      eauto.
-    }
-    {
-      eapply TyTyeq; eauto.
-      rewrite get_kctx_add_typing_ctx.
-      eauto.
-    }
-  Qed.
-
-  Lemma invert_typing_Inj C inj e t i :
-    typing C (EInj inj e) t i ->
-    exists t' t'' i' ,
-      tyeq (get_kctx C) t (choose (CSum t' t'', CSum t'' t') inj) /\
-      typing C e t' i' /\
-      kinding (get_kctx C) t'' KType /\
-      interpP (get_kctx C) (i' <= i)%idx.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
-  Qed.
-
-  Lemma invert_typing_BinOpPrim C opr e1 e2 t i : typing C (EBinOp (EBPrim opr) e1 e2) t i -> False.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
-  Qed.
 
   Lemma fmap_map_subst0_shift0 k c W : fmap_map (K := k) (subst0_c_c c) (fmap_map shift0_c_c W) = W.
   Admitted.
@@ -2986,12 +2293,6 @@ Module M (Time : TIME).
   Lemma map_removen A B (f : A -> B) n ls : map f (removen n ls) = removen n (map f ls).
   Admitted.
   
-  Lemma TyIdxEq C e t i1 i2 :
-    typing C e t i1 ->
-    interpP (get_kctx C) (i1 == i2)%idx ->
-    typing C e t i2.
-  Admitted.
-  
   Lemma value_subst_e_e v :
     value v ->
     forall n e,
@@ -3032,10 +2333,6 @@ Module M (Time : TIME).
       end
     end.
     
-  Lemma fmap_map_shift0_c_c_incl (W W' : hctx) :
-    W $<= W' ->
-    fmap_map shift0_c_c W $<= fmap_map shift0_c_c W'.
-  Admitted.
   Lemma fmap_map_shift_subst n c (W : hctx) :
     fmap_map shift0_c_c (fmap_map (subst_c_c n (shift_c_c n 0 c)) W) =
     fmap_map (subst_c_c (1 + n) (shift_c_c (1 + n) 0 c)) (fmap_map shift0_c_c W).
@@ -3601,24 +2898,6 @@ Module M (Time : TIME).
     eauto.
   Qed.
 
-  Lemma interpP_eq_add_0 L a : interpP L (a + T0 == a)%idx.
-  Admitted.
-  
-  Lemma value_typing_T0 C e t i :
-    typing C e t i ->
-    value e ->
-    typing C e t T0.
-  Proof.
-    induct 1;
-      invert 1;
-      try solve [econstructor; eauto | eapply TyTyeq; eauto].
-    {
-      clear H H0.
-      eapply TyIdxEq; [econstructor; eauto | ].
-      eapply interpP_eq_add_0.
-    }
-  Qed.
-    
   Lemma ty_subst0_e_e L W t G e1 t1 i1 e2 i2 :
     typing (L, W, t :: G) e1 t1 i1 ->
     typing (L, W, G) e2 t i2 ->
@@ -3629,26 +2908,6 @@ Module M (Time : TIME).
     eapply ty_subst0_e_e_T0; eauto.
     eapply value_typing_T0; eauto.
   Qed.
-
-  Lemma htyping_upd h W l t v i :
-    htyping h W ->
-    W $? l = Some t ->
-    value v ->
-    typing ([], W, []) v t i ->
-    htyping (h $+ (l, v)) W.
-  Admitted.
-  Lemma htyping_new h W l t v i :
-    htyping h W ->
-    h $? l = None ->
-    value v ->
-    typing ([], W, []) v t i ->
-    htyping (h $+ (l, v)) (W $+ (l, t)).
-  Admitted.
-  Lemma htyping_elim_None h W l :
-    htyping h W ->
-    h $? l = None ->
-    W $? l = None.
-  Admitted.
 
   Lemma weaken_W' C e t i :
     typing C e t i ->
@@ -3672,18 +2931,861 @@ Module M (Time : TIME).
     eapply weaken_W' with (C := (L, W, G)); eauto.
   Qed.
 
-  Lemma invert_tyeq_CApps k t cs k' t' cs' :
-    tyeq [] (CApps (CRec k t) cs) (CApps (CRec k' t') cs') ->
-    kdeq [] k k' /\
-    tyeq [k] t t' /\
-    Forall2 (tyeq []) cs cs'.
-  Admitted.
-  Lemma TyEqApps L t cs t' cs' :
-    tyeq L t t' ->
-    Forall2 (tyeq L) cs cs' ->
-    tyeq L (CApps t cs) (CApps t' cs').
-  Admitted.
+  Lemma allocatable_add h l v :
+    allocatable h ->
+    allocatable (h $+ (l, v)).
+  Proof.
+    intros Halloc.
+    destruct Halloc as (l_alloc & Halloc).
+    exists (max l_alloc (1 + l)).
+    intros l' Hge.
+    cases (l' ==n l); subst; simplify.
+    {
+      linear_arithmetic.
+    }
+    {
+      eapply Halloc.
+      linear_arithmetic.
+    }
+  Qed.
+      
+  Lemma htyping_fresh h W :
+    htyping h W ->
+    exists l, h $? l = None.
+  Proof.
+    intros Hhty.
+    unfold htyping in *.
+    destruct Hhty as (Hhty & Halloc).
+    destruct Halloc as (l_alloc & Halloc).
+    exists l_alloc.
+    eapply Halloc.
+    linear_arithmetic.
+  Qed.
   
+  Lemma htyping_elim_exists h W l t :
+    htyping h W ->
+    W $? l = Some t ->
+    exists v,
+      h $? l = Some v /\
+      value v /\
+      typing ([], W, []) v t T0.
+  Proof.
+    intros Hhty Hl.
+    unfold htyping in *.
+    destruct Hhty as (Hhty & Halloc).
+    eauto.
+  Qed.    
+
+  Lemma htyping_elim h W l v t :
+    htyping h W ->
+    h $? l = Some v ->
+    W $? l = Some t ->
+    value v /\
+    typing ([], W, []) v t T0.
+  Proof.
+    intros Hhty Hl HWl.
+    unfold htyping in *.
+    destruct Hhty as (Hhty & Halloc).
+    eapply Hhty in HWl.
+    destruct HWl as (v' & Hl' & Hval' & Hty').
+    rewrite Hl' in Hl.
+    invert Hl.
+    eauto.
+  Qed.
+  
+  Lemma htyping_elim_None h W l :
+    htyping h W ->
+    h $? l = None ->
+    W $? l = None.
+  Proof.
+    intros Hhty Hl.
+    unfold htyping in *.
+    destruct Hhty as (Hhty & Halloc).
+    cases (W $? l); eauto.
+    eapply Hhty in Heq.
+    destruct Heq as (? & Hl2 & ?).
+    rewrite Hl2 in Hl.
+    invert Hl.
+  Qed.
+  
+  Lemma htyping_upd h W l t v i :
+    htyping h W ->
+    W $? l = Some t ->
+    value v ->
+    typing ([], W, []) v t i ->
+    htyping (h $+ (l, v)) W.
+  Proof.
+    intros Hhty Hl Hval Hty.
+    unfold htyping in *.
+    destruct Hhty as (Hhty & Halloc).
+    split; [ | eapply allocatable_add; eauto].
+    intros l' t' Hl'.
+    cases (l' ==n l); subst; simplify; eauto.
+    rewrite Hl' in Hl.
+    invert Hl.
+    exists v; repeat eexists_split; eauto.
+    eapply value_typing_T0; eauto.
+  Qed.
+  
+  Lemma htyping_new h W l t v i :
+    htyping h W ->
+    h $? l = None ->
+    value v ->
+    typing ([], W, []) v t i ->
+    htyping (h $+ (l, v)) (W $+ (l, t)).
+  Proof.
+    intros Hhty Hl Hval Hty.
+    copy Hhty Hhty'.
+    unfold htyping.
+    destruct Hhty as (Hhty & Halloc).
+    split; [ | eapply allocatable_add; eauto].
+    assert (Hincl : W $<= W $+ (l, t)).
+    {
+      eapply htyping_elim_None in Hl; eauto.
+      eapply includes_add_new; eauto.
+      eapply includes_intro; eauto.
+    }
+    intros l' t' Hl'.
+    cases (l' ==n l); subst; simplify.
+    {
+      symmetry in Hl'.
+      invert Hl'.
+      exists v; repeat eexists_split; eauto.
+      eapply weaken_W; eauto.
+      eapply value_typing_T0; eauto.
+    }
+    {
+      eapply Hhty in Hl'.
+      destruct Hl' as (v' & Hl' & Hval' & Hty').
+      exists v'; repeat eexists_split; eauto.
+      eapply weaken_W; eauto.
+    }
+  Qed.
+  
+  Lemma progress' C e t i :
+    typing C e t i ->
+    get_kctx C = [] ->
+    get_tctx C = [] ->
+    forall h f ,
+      htyping h (get_hctx C) ->
+      (interpTime i <= f)%time ->
+      unstuck (h, e, f).
+  Proof.
+    induct 1.
+    {
+      (* Case Var *)
+      intros ? ? h f Hhty Hle.
+      destruct C as ((L & W) & G).
+      simplify.
+      subst.
+      rewrite nth_error_nil in H.
+      invert H.
+    }
+    {
+      (* Case App *)
+      intros ? ? h f Hhty Hle.
+      destruct C as ((L & W) & G).
+      simplify.
+      subst.
+      assert (Hi1 : (interpTime i1 <= f)%time).
+      {
+        repeat rewrite interpTime_distr in Hle.
+        repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+        eauto.
+      }
+      assert (Hi2 : (interpTime i2 <= f)%time).
+      {
+        repeat rewrite interpTime_distr in Hle.
+        repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+        eauto.
+      }
+      eapply IHtyping1 in Hi1; eauto.
+      cases Hi1; simplify.
+      {
+        eapply canon_CArrow in H1; eauto.
+        destruct H1 as (e & ?).
+        subst.
+        eapply IHtyping2 in Hi2; eauto.
+        cases Hi2; simplify.
+        {
+          right.
+          exists (h, subst0_e_e e2 e, (f - 1)%time).
+          econstructor; eauto.
+          econstructor; eauto.
+          repeat rewrite interpTime_distr in Hle.
+          repeat rewrite interpTime_1 in Hle.
+          repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+          eauto.
+        }
+        {
+          destruct H1 as (((h' & e2') & f') & Hstep).
+          invert Hstep.
+          rename e' into e0'.
+          right.
+          exists (h', EApp (EAbs e) e2', f').
+          eapply StepPlug with (E := ECBinOp2 _ (EAbs e) E); repeat econstructor; eauto.
+        }
+      }
+      {
+        destruct H1 as (((h' & e1') & f') & Hstep).
+        invert Hstep.
+        right.
+        exists (h', EApp e1' e2, f').
+        eapply StepPlug with (E := ECBinOp1 _ E e2); repeat econstructor; eauto.
+      }
+    }
+    {
+      (* Case Abs *)
+      intros.
+      left.
+      simplify; eauto.
+    }
+    {
+      (* Case AppC *)
+      intros ? ? h f Hhty Hle.
+      destruct C as ((L & W) & G).
+      simplify.
+      subst.
+      eapply IHtyping in Hle; eauto.
+      cases Hle; simplify.
+      {
+        eapply canon_CForall in H1; eauto.
+        destruct H1 as (e1 & ?).
+        subst.
+        right.
+        exists (h, subst0_c_e c e1, f).
+        eapply StepPlug with (E := ECHole); try eapply PlugHole.
+        eauto.
+      }
+      {
+        destruct H1 as (((h' & e1') & f') & Hstep).
+        invert Hstep.
+        rename e' into e0'.
+        rename e1' into e'.
+        right.
+        exists (h', EAppC e' c, f').
+        eapply StepPlug with (E := ECAppC E c); repeat econstructor; eauto.
+      }
+    }
+    {
+      (* Case AbsC *)
+      intros.
+      left.
+      simplify; eauto.
+    }
+    {
+      (* Case Rec *)
+      intros.
+      right.
+      exists (h, subst0_e_e (ERec e) e, f).
+      eapply StepPlug with (E := ECHole); try eapply PlugHole.
+      eauto.
+    }
+    {
+      (* Case Fold *)
+      intros ? ? h f Hhty Hle.
+      destruct C as ((L & W) & G).
+      simplify.
+      subst.
+      eapply IHtyping in Hle; eauto.
+      cases Hle; simplify.
+      {
+        left.
+        simplify; eauto.
+      }
+      {
+        destruct H as (((h' & e1') & f') & Hstep).
+        invert Hstep.
+        rename e' into e0'.
+        rename e1' into e'.
+        right.
+        exists (h', EFold e', f').
+        eapply StepPlug with (E := ECUnOp _ E); repeat econstructor; eauto.
+      }
+    }
+    {
+      (* Case Unfold *)
+      intros ? ? h f Hhty Hle.
+      destruct C as ((L & W) & G).
+      simplify.
+      subst.
+      eapply IHtyping in Hle; eauto.
+      cases Hle; simplify.
+      {
+        eapply canon_CRec in H; eauto.
+        destruct H as (e1 & ? & Hv).
+        subst.
+        right.
+        exists (h, e1, f).
+        eapply StepPlug with (E := ECHole); try eapply PlugHole.
+        eauto.
+      }
+      {
+        destruct H as (((h' & e1') & f') & Hstep).
+        invert Hstep.
+        rename e' into e0'.
+        rename e1' into e'.
+        right.
+        exists (h', EUnfold e', f').
+        eapply StepPlug with (E := ECUnOp _ E); repeat econstructor; eauto.
+      }
+    }
+    {
+      (* Case Pack *)
+      intros ? ? h f Hhty Hle.
+      destruct C as ((L & W) & G).
+      simplify.
+      subst.
+      eapply IHtyping in Hle; eauto.
+      cases Hle; simplify.
+      {
+        left.
+        simplify; eauto.
+      }
+      {
+        destruct H2 as (((h' & e1') & f') & Hstep).
+        invert Hstep.
+        rename e' into e0'.
+        rename e1' into e'.
+        right.
+        exists (h', EPack c e', f').
+        eapply StepPlug with (E := ECPack c E); repeat econstructor; eauto.
+      }
+    }
+    {
+      (* Case Unpack *)
+      intros ? ? h f Hhty Hle.
+      destruct C as ((L & W) & G).
+      simplify.
+      subst.
+      assert (Hi1 : (interpTime i1 <= f)%time).
+      {
+        repeat rewrite interpTime_distr in Hle.
+        repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+        eauto.
+      }
+      eapply IHtyping1 in Hi1; eauto.
+      cases Hi1; simplify.
+      {
+        eapply canon_CExists in H3; eauto.
+        destruct H3 as (c & e & ? & Hv).
+        subst.
+        right.
+        exists (h, subst0_e_e e (subst0_c_e c e2), f).
+        eapply StepPlug with (E := ECHole); try eapply PlugHole.
+        eauto.
+      }
+      {
+        destruct H3 as (((h' & e1') & f') & Hstep).
+        invert Hstep.
+        right.
+        exists (h', EUnpack e1' e2, f').
+        eapply StepPlug with (E := ECUnpack E e2); repeat econstructor; eauto.
+      }
+    }
+    {
+      (* Case Const *)
+      intros.
+      left.
+      simplify; eauto.
+    }
+    {
+      (* Case Pair *)
+      intros ? ? h f Hhty Hle.
+      destruct C as ((L & W) & G).
+      simplify.
+      subst.
+      assert (Hi1 : (interpTime i1 <= f)%time).
+      {
+        repeat rewrite interpTime_distr in Hle.
+        repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+        eauto.
+      }
+      assert (Hi2 : (interpTime i2 <= f)%time).
+      {
+        repeat rewrite interpTime_distr in Hle.
+        repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+        eauto.
+      }
+      eapply IHtyping1 in Hi1; eauto.
+      cases Hi1; simplify.
+      {
+        eapply IHtyping2 in Hi2; eauto.
+        cases Hi2; simplify.
+        {
+          left.
+          simplify; eauto.
+        }
+        {
+          destruct H2 as (((h' & e2') & f') & Hstep).
+          invert Hstep.
+          right.
+          exists (h', EPair e1 e2', f').
+          eapply StepPlug with (E := ECBinOp2 _ e1 E); repeat econstructor; eauto.
+        }
+      }
+      {
+        destruct H1 as (((h' & e1') & f') & Hstep).
+        invert Hstep.
+        right.
+        exists (h', EPair e1' e2, f').
+        eapply StepPlug with (E := ECBinOp1 _ E e2); repeat econstructor; eauto.
+      }
+    }
+    {
+      (* Case Proj *)
+      intros ? ? h f Hhty Hle.
+      destruct C as ((L & W) & G).
+      simplify.
+      subst.
+      eapply IHtyping in Hle; eauto.
+      destruct Hle as [He | He]; simplify.
+      {
+        eapply canon_CProd in He; eauto.
+        destruct He as (v1 & v2 & ? & Hv1 & Hv2).
+        subst.
+        right.
+        exists (h, proj (v1, v2) pr, f).
+        eapply StepPlug with (E := ECHole); try eapply PlugHole.
+        eauto.
+      }
+      {
+        destruct He as (((h' & e') & f') & Hstep).
+        invert Hstep.
+        rename e'0 into e0'.
+        right.
+        exists (h', EProj pr e', f').
+        eapply StepPlug with (E := ECUnOp _ E); repeat econstructor; eauto.
+      }
+    }
+    {
+      (* Case Inj *)
+      intros ? ? h f Hhty Hle.
+      destruct C as ((L & W) & G).
+      simplify.
+      subst.
+      eapply IHtyping in Hle; eauto.
+      destruct Hle as [He | He]; simplify.
+      {
+        left.
+        simplify; eauto.
+      }
+      {
+        destruct He as (((h' & e') & f') & Hstep).
+        invert Hstep.
+        rename e'0 into e0'.
+        right.
+        exists (h', EInj inj e', f').
+        eapply StepPlug with (E := ECUnOp _ E); repeat econstructor; eauto.
+      }
+    }
+    {
+      (* Case Case *)
+      intros ? ? h f Hhty Hle.
+      destruct C as ((L & W) & G).
+      simplify.
+      subst.
+      assert (Hile : (interpTime i <= f)%time).
+      {
+        repeat rewrite interpTime_distr in Hle.
+        repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+        eauto.
+      }
+      eapply IHtyping1 in Hile; eauto.
+      destruct Hile as [He | He]; simplify.
+      {
+        eapply canon_CSum in He; eauto.
+        destruct He as (inj & v & ? & Hv).
+        subst.
+        right.
+        exists (h, subst0_e_e v (choose (e1, e2) inj), f).
+        eapply StepPlug with (E := ECHole); try eapply PlugHole.
+        eauto.
+      }
+      {
+        destruct He as (((h' & e') & f') & Hstep).
+        invert Hstep.
+        rename e3 into e0.
+        rename e'0 into e0'.
+        right.
+        exists (h', ECase e' e1 e2, f').
+        eapply StepPlug with (E := ECCase E e1 e2); repeat econstructor; eauto.
+      }
+    }
+    {
+      (* Case New *)
+      intros ? ? h f Hhty Hle.
+      destruct C as ((L & W) & G).
+      simplify.
+      subst.
+      eapply IHtyping in Hle; eauto.
+      destruct Hle as [He | He]; simplify.
+      {
+        right.
+        eapply htyping_fresh in Hhty.
+        destruct Hhty as (l & Hl).
+        exists (h $+ (l, e), ELoc l, f).
+        eapply StepPlug with (E := ECHole); try eapply PlugHole.
+        eauto.
+      }
+      {
+        destruct He as (((h' & e') & f') & Hstep).
+        invert Hstep.
+        rename e'0 into e0'.
+        right.
+        exists (h', ENew e', f').
+        eapply StepPlug with (E := ECUnOp _ E); repeat econstructor; eauto.
+      }
+    }
+    {
+      (* Case Read *)
+      intros ? ? h f Hhty Hle.
+      destruct C as ((L & W) & G).
+      simplify.
+      subst.
+      eapply IHtyping in Hle; eauto.
+      destruct Hle as [He | He]; simplify.
+      {
+        eapply canon_CRef in He; eauto.
+        destruct He as (l & t' & ? & Hl).
+        subst.
+        eapply htyping_elim_exists in Hl; eauto.
+        destruct Hl as (v & Hl & Hv & Hty).
+        right.
+        exists (h, v, f).
+        eapply StepPlug with (E := ECHole); try eapply PlugHole.
+        eauto.
+      }
+      {
+        destruct He as (((h' & e') & f') & Hstep).
+        invert Hstep.
+        rename e'0 into e0'.
+        right.
+        exists (h', ERead e', f').
+        eapply StepPlug with (E := ECUnOp _ E); repeat econstructor; eauto.
+      }
+    }
+    {
+      (* Case Write *)
+      intros ? ? h f Hhty Hle.
+      destruct C as ((L & W) & G).
+      simplify.
+      subst.
+      assert (Hi1 : (interpTime i1 <= f)%time).
+      {
+        repeat rewrite interpTime_distr in Hle.
+        repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+        eauto.
+      }
+      assert (Hi2 : (interpTime i2 <= f)%time).
+      {
+        repeat rewrite interpTime_distr in Hle.
+        repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+        eauto.
+      }
+      eapply IHtyping1 in Hi1; eauto.
+      destruct Hi1 as [He1 | He1]; simplify.
+      {
+        eapply IHtyping2 in Hi2; eauto.
+        destruct Hi2 as [He2 | He2]; simplify.
+        {
+          eapply canon_CRef in He1; eauto.
+          destruct He1 as (l & t' & ? & Hl).
+          subst.
+          eapply htyping_elim_exists in Hl; eauto.
+          destruct Hl as (v & Hl & Hv & Hty).
+          right.
+          exists (h $+ (l, e2), ETT, f).
+          eapply StepPlug with (E := ECHole); try eapply PlugHole.
+          eauto.
+        }
+        {
+          destruct He2 as (((h' & e2') & f') & Hstep).
+          invert Hstep.
+          right.
+          exists (h', EWrite e1 e2', f').
+          eapply StepPlug with (E := ECBinOp2 _ e1 E); repeat econstructor; eauto.
+        }
+      }
+      {
+        destruct He1 as (((h' & e1') & f') & Hstep).
+        invert Hstep.
+        right.
+        exists (h', EWrite e1' e2, f').
+        eapply StepPlug with (E := ECBinOp1 _ E e2); repeat econstructor; eauto.
+      }
+    }
+    {
+      (* Case Loc *)
+      intros.
+      left.
+      simplify; eauto.
+    }
+    {
+      (* Case Sub *)
+      intros ? ? h f Hhty Hle.
+      destruct C as ((L & W) & G).
+      simplify.
+      subst.
+      eapply IHtyping; eauto.
+      eapply interpP_le_interpTime in H1.
+      eauto with time_order.
+    }
+  Qed.
+
+  Lemma progress W s t i :
+    ctyping W s t i ->
+    unstuck s.
+  Proof.
+    unfold ctyping in *.
+    simplify.
+    destruct s as ((h & e) & f).
+    propositional.
+    eapply progress'; eauto.
+  Qed.
+
+  Fixpoint KArrows args result :=
+    match args with
+    | [] => result
+    | arg :: args => KArrow arg (KArrows args result)
+    end.
+
+  Section Forall3.
+
+    Variables A B C : Type.
+    Variable R : A -> B -> C -> Prop.
+
+    Inductive Forall3 : list A -> list B -> list C -> Prop :=
+    | Forall3_nil : Forall3 [] [] []
+    | Forall3_cons : forall x y z l l' l'',
+        R x y z -> Forall3 l l' l'' -> Forall3 (x::l) (y::l') (z::l'').
+
+    Hint Constructors Forall3.
+
+  End Forall3.
+
+  Ltac openhyp :=
+    repeat match goal with
+           | H : _ /\ _ |- _  => destruct H
+           | H : _ \/ _ |- _ => destruct H
+           | H : exists x, _ |- _ => destruct H
+           | H : exists ! x, _ |- _ => destruct H
+           | H : unique _ _ |- _ => destruct H
+           end.
+
+  Lemma invert_typing_App C e1 e2 t i :
+    typing C (EApp e1 e2) t i ->
+    exists t' t2 i1 i2 i3 ,
+      tyeq (get_kctx C) t t' /\
+      typing C e1 (CArrow t2 i3 t') i1 /\
+      typing C e2 t2 i2 /\
+      interpP (get_kctx C) (i1 + i2 + T1 + i3 <= i)%idx.
+  Proof.
+    induct 1; openhyp; repeat eexists_split;
+      eauto;
+      eauto with invert_typing.
+  Qed.  
+
+  Lemma invert_typing_Abs C e t i :
+    typing C (EAbs e) t i ->
+    exists t1 i' t2 ,
+      tyeq (get_kctx C) t (CArrow t1 i' t2) /\
+      kinding (get_kctx C) t1 KType /\
+      typing (add_typing_ctx t1 C) e t2 i'.
+  Proof.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+  Qed.  
+
+  Lemma invert_typing_Unfold C e t2 i :
+    typing C (EUnfold e) t2 i ->
+    exists t k t1 cs i',
+      tyeq (get_kctx C) t2 (CApps (subst0_c_c t t1) cs) /\
+      t = CRec k t1 /\
+      typing C e (CApps t cs) i' /\
+      interpP (get_kctx C) (i' <= i)%idx.
+  Proof.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+  Qed.  
+
+  Lemma invert_typing_Fold C e t' i :
+    typing C (EFold e) t' i ->
+    exists t t1 cs k t2 i',
+      tyeq (get_kctx C) t' t /\
+      t = CApps t1 cs /\
+      t1 = CRec k t2 /\
+      kinding (get_kctx C) t KType /\
+      typing C e (CApps (subst0_c_c t1 t2) cs) i' /\
+      interpP (get_kctx C) (i' <= i)%idx.
+  Proof.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+  Qed.  
+
+  Lemma invert_typing_Rec C e t i :
+    typing C (ERec e) t i ->
+    exists n e1 ,
+      e = EAbsCs n (EAbs e1) /\
+      kinding (get_kctx C) t KType /\
+      typing (add_typing_ctx t C) e t T0.
+  Proof.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+    {
+      subst.
+      eapply kinding_tyeq; eauto.
+    }
+    {
+      subst.
+      eapply add_typing_ctx_tyeq; eauto.
+      eapply TyTyeq; eauto.
+      rewrite get_kctx_add_typing_ctx.
+      eauto.
+    }
+  Qed.  
+
+  Lemma invert_typing_Unpack C e1 e2 t2'' i :
+    typing C (EUnpack e1 e2) t2'' i ->
+    exists t2' t i1 k t2 i2 i2' ,
+      tyeq (get_kctx C) t2'' t2' /\
+      typing C e1 (CExists k t) i1 /\
+      typing (add_typing_ctx t (add_kinding_ctx k C)) e2 t2 i2 /\
+      forget01_c_c t2 = Some t2' /\
+      forget01_c_c i2 = Some i2' /\
+      interpP (get_kctx C) (i1 + i2' <= i)%idx.
+  Proof.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+  Qed.
+
+  Lemma invert_typing_Pack C c e t i :
+    typing C (EPack c e) t i ->
+    exists t1 k i' ,
+      tyeq (get_kctx C) t (CExists k t1) /\
+      kinding (get_kctx C) (CExists k t1) KType /\
+      kinding (get_kctx C) c k /\
+      typing C e (subst0_c_c c t1) i' /\
+      interpP (get_kctx C) (i' <= i)%idx.
+  Proof.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+  Qed.
+
+  Lemma invert_typing_Read C e t i :
+    typing C (ERead e) t i ->
+    exists i' ,
+      typing C e (CRef t) i' /\
+      interpP (get_kctx C) (i' <= i)%idx.
+  Proof.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+    eapply TySub; try eapply H2; try econstructor; eauto.
+  Qed.
+
+  Lemma invert_typing_Loc C l t i :
+    typing C (ELoc l) t i ->
+    exists t' ,
+      tyeq (get_kctx C) t (CRef t') /\
+      get_hctx C $? l = Some t'.
+  Proof.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+  Qed.
+
+  Lemma invert_typing_Write C e1 e2 t i :
+    typing C (EWrite e1 e2) t i ->
+    exists t' i1 i2 ,
+      tyeq (get_kctx C) t CTypeUnit /\
+      typing C e1 (CRef t') i1 /\
+      typing C e2 t' i2 /\
+      interpP (get_kctx C) (i1 + i2 <= i)%idx.
+  Proof.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+  Qed.
+
+  Lemma invert_typing_New C e t i :
+    typing C (ENew e) t i ->
+    exists t' i' ,
+      tyeq (get_kctx C) t (CRef t') /\
+      typing C e t' i' /\
+      interpP (get_kctx C) (i' <= i)%idx.
+  Proof.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+  Qed.
+
+  Lemma invert_typing_AppC C e c t i :
+    typing C (EAppC e c) t i ->
+    exists t' i' k ,
+      tyeq (get_kctx C) t (subst0_c_c c t') /\
+      typing C e (CForall k t') i' /\
+      kinding (get_kctx C) c k /\
+      interpP (get_kctx C) (i' <= i)%idx.
+  Proof.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+  Qed.
+
+  Lemma invert_typing_AbsC C e t i :
+    typing C (EAbsC e) t i ->
+    exists t' k ,
+      tyeq (get_kctx C) t (CForall k t') /\
+      value e /\
+      wfkind (get_kctx C) k /\
+      typing (add_kinding_ctx k C) e t' T0.
+  Proof.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+  Qed.
+
+  Lemma invert_typing_Proj C pr e t i :
+    typing C (EProj pr e) t i ->
+    exists t1 t2 i' ,
+      tyeq (get_kctx C) t (proj (t1, t2) pr) /\
+      typing C e (CProd t1 t2) i' /\
+      interpP (get_kctx C) (i' <= i)%idx.
+  Proof.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+  Qed.
+
+  Lemma invert_typing_Pair C e1 e2 t i :
+    typing C (EPair e1 e2) t i ->
+    exists t1 t2 i1 i2 ,
+      tyeq (get_kctx C) t (CProd t1 t2) /\
+      typing C e1 t1 i1 /\
+      typing C e2 t2 i2 /\
+      interpP (get_kctx C) (i1 + i2 <= i)%idx.
+  Proof.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+  Qed.
+
+  Lemma invert_typing_Case C e e1 e2 t i :
+    typing C (ECase e e1 e2) t i ->
+    exists t1 t2 i0 i1 i2 ,
+      typing C e (CSum t1 t2) i0 /\
+      typing (add_typing_ctx t1 C) e1 t i1 /\
+      typing (add_typing_ctx t2 C) e2 t i2 /\
+      interpP (get_kctx C) (i0 + Tmax i1 i2 <= i)%idx.
+  Proof.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+    {
+      eapply TyTyeq; eauto.
+      rewrite get_kctx_add_typing_ctx.
+      eauto.
+    }
+    {
+      eapply TyTyeq; eauto.
+      rewrite get_kctx_add_typing_ctx.
+      eauto.
+    }
+  Qed.
+
+  Lemma invert_typing_Inj C inj e t i :
+    typing C (EInj inj e) t i ->
+    exists t' t'' i' ,
+      tyeq (get_kctx C) t (choose (CSum t' t'', CSum t'' t') inj) /\
+      typing C e t' i' /\
+      kinding (get_kctx C) t'' KType /\
+      interpP (get_kctx C) (i' <= i)%idx.
+  Proof.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+  Qed.
+
+  Lemma invert_typing_BinOpPrim C opr e1 e2 t i : typing C (EBinOp (EBPrim opr) e1 e2) t i -> False.
+  Proof.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+  Qed.
+
   Lemma preservation0 s s' :
     astep s s' ->
     forall W t i,
