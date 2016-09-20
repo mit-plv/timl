@@ -1,6 +1,6 @@
 TiML: A Functional Programming Language with Time Complexity (Parser and Typechecker)
 
-==============================================
+===============================================
 
 Setup instructions:
 
