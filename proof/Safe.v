@@ -1388,7 +1388,7 @@ Module M (Time : TIME).
       end
     end.
     
-  Lemma map_shift_subst n c ls :
+  Lemma map_shift0_subst n c ls :
     map shift0_c_c (map (subst_c_c n (shift_c_c n 0 c)) ls) =
     map (subst_c_c (1 + n) (shift_c_c (1 + n) 0 c)) (map shift0_c_c ls).
   Admitted.
@@ -1411,7 +1411,7 @@ Module M (Time : TIME).
   
   Lemma my_skipn_0 A (ls : list A) : my_skipn ls 0 = ls.
   Admitted.
-  Lemma shift_c_c_0 x c : shift_c_c x 0 c = c.
+  Lemma shift_c_c_0 x c : shift_c_c 0 x c = c.
   Admitted.
   
   Lemma nth_error_insert A G y (t : A) x ls :
@@ -2019,7 +2019,7 @@ Module M (Time : TIME).
     subst_c_e x v (EAbsCs m e) = EAbsCs m (subst_c_e (m + x) (shift_c_c m 0 v) e).
   Admitted.
   
-  Lemma fmap_map_shift_subst n c (W : hctx) :
+  Lemma fmap_map_shift0_subst n c (W : hctx) :
     fmap_map shift0_c_c (fmap_map (subst_c_c n (shift_c_c n 0 c)) W) =
     fmap_map (subst_c_c (1 + n) (shift_c_c (1 + n) 0 c)) (fmap_map shift0_c_c W).
   Admitted.
@@ -2147,7 +2147,7 @@ Module M (Time : TIME).
     eauto using Forall2_refl' with invert_typing.
   Qed.
   
-  Lemma value_shfit_e_e e :
+  Lemma value_shift_e_e e :
     value e ->
     forall n x,
       value (shift_e_e n x e).
@@ -2155,106 +2155,312 @@ Module M (Time : TIME).
     induct 1; simplify; econstructor; eauto.
   Qed.
   
-  (*here*)
-  
-  Fixpoint shift_c_ks v bs :=
+  Fixpoint shift_c_ks n bs :=
     match bs with
     | [] => []
-    | b :: bs => subst_c_k (length bs) (shift_c_c (length bs) 0 v) b :: subst_c_ks v bs
+    | b :: bs => shift_c_k n (length bs) b :: shift_c_ks n bs
     end.
 
+  Lemma shift_c_c_subst0 n x v b : shift_c_c n x (subst0_c_c v b) = subst0_c_c (shift_c_c n x v) (shift_c_c n (S x) b).
+  Admitted.
+  
+  Lemma value_shift_c_e e :
+    value e ->
+    forall n x,
+      value (shift_c_e n x e).
+  Proof.
+    induct 1; simplify; econstructor; eauto.
+  Qed.
+  
+  Lemma fmap_map_shift0_shift n x (W : hctx) :
+    fmap_map shift0_c_c (fmap_map (shift_c_c n x) W) =
+    fmap_map (shift_c_c n (1 + x)) (fmap_map shift0_c_c W).
+  Admitted.
+  Lemma map_shift0_shift n x G :
+    map shift0_c_c (map (shift_c_c n x) G) =
+    map (shift_c_c n (1 + x)) (map shift0_c_c G).
+  Admitted.
+  
+  Lemma shift_c_e_AbsCs n x m e :
+    shift_c_e n x (EAbsCs m e) = EAbsCs m (shift_c_e n (m + x) e).
+  Admitted.
+  
+  Lemma shift_c_c_Apps n x c cs :
+    shift_c_c n x (CApps c cs) = CApps (shift_c_c n x c) (map (shift_c_c n x) cs).
+  Admitted.
+  
+  Lemma forget01_shift_c_c b b' n x :
+    forget01_c_c b = Some b' ->
+    forget01_c_c (shift_c_c n (S x) b) = Some (shift_c_c n x b').
+  Admitted.
+  
+  Lemma length_firstn_le A (L : list A) n :
+    n <= length L ->
+    length (firstn n L) = n.
+  Admitted.
+  
+  Lemma tyeq_shift_c_c L c1 c2 :
+    tyeq L c1 c2 ->
+    forall x ls ,
+      let n := length ls in
+      x <= length L ->
+      tyeq (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_c n x c1) (shift_c_c n x c2).
+  Admitted.
+  Lemma interpP_shift_c_p L p :
+    interpP L p ->
+    forall x ls ,
+      let n := length ls in
+      x <= length L ->
+      interpP (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_p n x p).
+  Admitted.
+  Lemma kd_shift_c_c L c k :
+    kinding L c k ->
+    forall x ls,
+      let n := length ls in
+      kinding (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_c n x c) (shift_c_k n x k).
+  Admitted.
+  
+  Lemma wfkind_shift_c_k L k :
+    wfkind L k ->
+    forall x ls,
+      let n := length ls in
+      wfkind (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_k n x k).
+  Admitted.
+  
   Lemma ty_shift_c_e C e t i :
     typing C e t i ->
     forall x ls,
-    typing (firstn x (get_kctx C) ++ ls ++ my_skipn (get_kctx C) x, fmap_map shift0_c_c W, map shift0_c_c G) (shift0_c_e e) (shift0_c_c t) (shift0_c_c i).
-  Admitted.
-
-  Lemma ty_shift0_c_e L W G e t i k :
-    typing (L, W, G) e t i ->
-    typing (k :: L, fmap_map shift0_c_c W, map shift0_c_c G) (shift0_c_e e) (shift0_c_c t) (shift0_c_c i).
-  Admitted.
-
-  Lemma ty_shift_e_e C e t i :
-    typing C e t i ->
-    forall x ls,
-      typing (get_kctx C, get_hctx C, firstn x (get_tctx C) ++ ls ++ my_skipn (get_tctx C) x) (shift_e_e (length ls) x e) t i.
+      let n := length ls in
+      let L := get_kctx C in
+      x <= length L ->
+      typing (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x, fmap_map (shift_c_c n x) (get_hctx C), map (shift_c_c n x) (get_tctx C)) (shift_c_e n x e) (shift_c_c n x t) (shift_c_c n x i).
   Proof.
-    induct 1;
-      try rename x into y;
-      intros x ls;
+    induct 1; simpl; 
+      try rename x into x';
+      intros x ls Hle;
       destruct C as ((L & W) & G);
       simplify;
-      try solve [econstructor; eauto].
+      cbn in *;
+      try solve [cbn in *; econstructor; eauto].
     {
       (* Case Var *)
-      cases (x <=? y).
-      {
-        econstructor; simplify.
-        eapply nth_error_insert; eauto.
-      }
-      {
-        econstructor; simplify.
-        eapply nth_error_before_insert; eauto.
-      }
+      econstructor.
+      eauto using map_nth_error.
     }
     {
       (* Case Abs *)
-      econstructor; simplify; eauto.
-      eapply IHtyping with (x := S x).
+      econstructor; simplify.
+      {
+        eapply kd_shift_c_c with (k := KType); eauto.
+      }
+      eauto.
+    }
+    {
+      (* Case AppC *)
+      eapply TyTyeq.
+      {
+        eapply TyAppC; simplify.
+        {
+          eapply IHtyping; eauto.
+        }
+        {  
+          eapply kd_shift_c_c; eauto.
+        }
+      }
+      simplify.
+      rewrite shift_c_c_subst0.
+      eauto with invert_typing.
     }
     {
       (* Case AbsC *)
-      econstructor; simplify; eauto.
+      econstructor; simplify.
       {
-        eapply value_shfit_e_e; eauto.
+        eapply value_shift_c_e; eauto.
       }
-      repeat rewrite map_app.
-      rewrite map_firstn.
-      rewrite map_my_skipn.
-      specialize (IHtyping x (map shift0_c_c ls)).
-      rewrite map_length in *.
-      eauto.
+      {
+        eapply wfkind_shift_c_k; eauto.
+      }
+      {
+        rewrite fmap_map_shift0_shift.
+        rewrite map_shift0_shift.
+        specialize (IHtyping (S x) ls); simplify.
+        erewrite length_firstn_le in IHtyping by eauto.
+        eapply IHtyping; eauto.
+        linear_arithmetic.
+      }
     }
     {
       (* Case Rec *)
       subst.
-      specialize (IHtyping (S x) ls); simplify.
-      rewrite shift_e_e_AbsCs in *.
-      econstructor; simplify; eauto.
+      econstructor; simplify.
+      {
+        rewrite shift_c_e_AbsCs.
+        simplify.
+        eauto.
+      }
+      {  
+        eapply kd_shift_c_c with (k := KType); eauto.
+      }
+      eapply IHtyping; eauto.
+    }
+    {
+      (* Case Fold *)
+      subst.
+      econstructor; simplify.
+      {
+        rewrite shift_c_c_Apps.
+        eauto.
+      }
+      {
+        cbn.
+        eauto.
+      }
+      {  
+        eapply kd_shift_c_c with (k := KType); eauto.
+      }
+      eapply TyTyeq.
+      {
+        eauto.
+      }
+      rewrite shift_c_c_Apps.
+      simplify.
+      rewrite shift_c_c_subst0.
+      eauto with invert_typing.
+    }
+    {
+      (* Case Unfold *)
+      subst.
+      eapply TyTyeq.
+      {
+        eapply TyUnfold; simplify.
+        {
+          eauto.
+        }
+        {
+          eapply TyTyeq.
+          {
+            eauto.
+          }
+          rewrite shift_c_c_Apps.
+          cbn.
+          eauto with invert_typing.
+        }
+      }
+      simplify.
+      rewrite shift_c_c_Apps.
+      simplify.
+      rewrite shift_c_c_subst0.
+      eauto with invert_typing.
+    }
+    {
+      (* Case Pack *)
+      eapply TyPack; simplify.
+      {
+        eapply kd_shift_c_c with (c := CExists k t1) (k := KType); eauto.
+      }
+      {
+        eapply kd_shift_c_c; eauto.
+      }
+      eapply TyTyeq.
+      {
+        eapply IHtyping; eauto.
+      }
+      simplify.
+      rewrite shift_c_c_subst0.
+      eauto with invert_typing.
     }
     {
       (* Case Unpack *)
-      econstructor; simplify; eauto.
-      repeat rewrite map_app.
-      rewrite map_firstn.
-      rewrite map_my_skipn.
-      specialize (IHtyping2 (S x) (map shift0_c_c ls)); simplify.
-      rewrite map_length in *.
-      eauto.
-    }
-    {
-      (* Case Case *)
-      econstructor; simplify; eauto.
+      eapply TyUnpack; simplify.
       {
-        eapply IHtyping2 with (x := S x).
+        eapply IHtyping1; eauto.
       }
       {
-        eapply IHtyping3 with (x := S x).
+        rewrite fmap_map_shift0_shift.
+        rewrite map_shift0_shift.
+        specialize (IHtyping2 (S x) ls); simplify.
+        erewrite length_firstn_le in IHtyping2 by eauto.
+        eapply IHtyping2; eauto.
+        linear_arithmetic.
+      }
+      {
+        eapply forget01_shift_c_c; eauto.
+      }
+      {
+        eapply forget01_shift_c_c; eauto.
+      }
+    }
+    {
+      (* Case Const *)
+      eapply TyTyeq.
+      {
+        eapply TyConst; simplify.
+      }
+      simplify.
+      {
+        cases cn; simplify;
+          eauto with invert_typing.
+      }
+    }
+    {
+      (* Case Proj *)
+      eapply TyTyeq.
+      {
+        eapply TyProj; simplify.
+        eapply IHtyping; eauto.
+      }
+      simplify.
+      cases pr; simplify;
+        eauto with invert_typing.
+    }
+    {
+      (* Case Inj *)
+      eapply TyTyeq.
+      {
+        eapply TyInj; simplify.
+        {
+          eapply IHtyping; eauto.
+        }
+        {  
+          eapply kd_shift_c_c with (k := KType); eauto.
+        }
+      }
+      simplify.
+      cases inj; simplify;
+        eauto with invert_typing.
+    }
+    {
+      (* Case Loc *)
+      eapply TyLoc; simplify.
+      eapply fmap_map_lookup; eauto.
+    }
+    {
+      (* Case Sub *)
+      eapply TySub.
+      {
+        eapply IHtyping; eauto.
+      }
+      {
+        simplify.
+        eapply tyeq_shift_c_c; eauto with invert_typing.
+      }
+      {
+        simplify.
+        eapply interpP_shift_c_p with (p := (i1 <= i2)%idx); eauto.
       }
     }
   Qed.
-  
-  Lemma ty_shift0_e_e L W G e t i t' :
+
+  Lemma ty_shift0_c_e L W G e t i k :
     typing (L, W, G) e t i ->
-    typing (L, W, t' :: G) (shift0_e_e e) t i.
+    typing (k :: L, fmap_map shift0_c_c W, map shift0_c_c G) (shift0_c_e e) (shift0_c_c t) (shift0_c_c i).
   Proof.
     intros Hty.
-    eapply ty_shift_e_e with (C := (L, W, G)) (x := 0) (ls := [t']) in Hty.
-    simplify.
+    eapply ty_shift_c_e with (C := (L, W, G)) (x := 0) (ls := [k]) in Hty; simplify; try linear_arithmetic.
     repeat rewrite my_skipn_0 in *.
     eauto.
   Qed.
-  
+
   Lemma ty_subst_c_e C e t i :
     typing C e t i ->
     forall n k c ,
@@ -2309,8 +2515,8 @@ Module M (Time : TIME).
         eapply wfkind_subst_c_k; eauto.
       }
       {
-        rewrite fmap_map_shift_subst.
-        rewrite map_shift_subst.
+        rewrite fmap_map_shift0_subst.
+        rewrite map_shift0_subst.
         repeat rewrite shift0_c_c_shift.
         specialize (IHtyping (S n)); simplify.
         erewrite nth_error_length_firstn in IHtyping by eauto.
@@ -2404,8 +2610,8 @@ Module M (Time : TIME).
         eapply IHtyping1; eauto.
       }
       {
-        rewrite fmap_map_shift_subst.
-        rewrite map_shift_subst.
+        rewrite fmap_map_shift0_subst.
+        rewrite map_shift0_subst.
         repeat rewrite shift0_c_c_shift.
         specialize (IHtyping2 (S n)); simplify.
         erewrite nth_error_length_firstn in IHtyping2 by eauto.
@@ -2495,6 +2701,87 @@ Module M (Time : TIME).
       eauto.
   Qed.
 
+  Lemma ty_shift_e_e C e t i :
+    typing C e t i ->
+    forall x ls,
+      typing (get_kctx C, get_hctx C, firstn x (get_tctx C) ++ ls ++ my_skipn (get_tctx C) x) (shift_e_e (length ls) x e) t i.
+  Proof.
+    induct 1;
+      try rename x into y;
+      intros x ls;
+      destruct C as ((L & W) & G);
+      simplify;
+      try solve [econstructor; eauto].
+    {
+      (* Case Var *)
+      cases (x <=? y).
+      {
+        econstructor; simplify.
+        eapply nth_error_insert; eauto.
+      }
+      {
+        econstructor; simplify.
+        eapply nth_error_before_insert; eauto.
+      }
+    }
+    {
+      (* Case Abs *)
+      econstructor; simplify; eauto.
+      eapply IHtyping with (x := S x).
+    }
+    {
+      (* Case AbsC *)
+      econstructor; simplify; eauto.
+      {
+        eapply value_shift_e_e; eauto.
+      }
+      repeat rewrite map_app.
+      rewrite map_firstn.
+      rewrite map_my_skipn.
+      specialize (IHtyping x (map shift0_c_c ls)).
+      rewrite map_length in *.
+      eauto.
+    }
+    {
+      (* Case Rec *)
+      subst.
+      specialize (IHtyping (S x) ls); simplify.
+      rewrite shift_e_e_AbsCs in *.
+      econstructor; simplify; eauto.
+    }
+    {
+      (* Case Unpack *)
+      econstructor; simplify; eauto.
+      repeat rewrite map_app.
+      rewrite map_firstn.
+      rewrite map_my_skipn.
+      specialize (IHtyping2 (S x) (map shift0_c_c ls)); simplify.
+      rewrite map_length in *.
+      eauto.
+    }
+    {
+      (* Case Case *)
+      econstructor; simplify; eauto.
+      {
+        eapply IHtyping2 with (x := S x).
+      }
+      {
+        eapply IHtyping3 with (x := S x).
+      }
+    }
+  Qed.
+  
+  Lemma ty_shift0_e_e L W G e t i t' :
+    typing (L, W, G) e t i ->
+    typing (L, W, t' :: G) (shift0_e_e e) t i.
+  Proof.
+    intros Hty.
+    eapply ty_shift_e_e with (C := (L, W, G)) (x := 0) (ls := [t']) in Hty.
+    simplify.
+    repeat rewrite my_skipn_0 in *.
+    eauto.
+  Qed.
+  
   Lemma ty_subst_e_e C e1 t1 i1 :
     typing C e1 t1 i1 ->
     forall n t e2 ,
