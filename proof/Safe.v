@@ -80,6 +80,8 @@ End TIME.
 
 Require Import Frap.
 
+(* Some common utilities *)
+
 Ltac copy h h2 := generalize h; intro h2.
 
 Ltac try_eexists := try match goal with | |- exists _, _ => eexists end.
@@ -96,6 +98,124 @@ Ltac apply_all e :=
   repeat match goal with
            H : _ |- _ => eapply e in H
          end.
+
+Ltac openhyp :=
+  repeat match goal with
+         | H : _ /\ _ |- _  => destruct H
+         | H : _ \/ _ |- _ => destruct H
+         | H : exists x, _ |- _ => destruct H
+         | H : exists ! x, _ |- _ => destruct H
+         | H : unique _ _ |- _ => destruct H
+         end.
+
+Definition fmap_map {K A B} (f : A -> B) (m : fmap K A) : fmap K B.
+Admitted.
+
+Lemma fmap_map_lookup A B C (f : B -> C) m (k : A) (v : B) :
+  m $? k = Some v ->
+  fmap_map f m $? k = Some (f v).
+Admitted.
+Lemma fmap_map_ext A B (f g : A -> B) :
+  (forall a, f a = g a) ->
+  forall K (m : fmap K A), fmap_map f m = fmap_map g m.
+Admitted.
+Lemma fmap_map_fmap_map K A B C (f : A -> B) (g : B -> C) (m : fmap K A) :
+  fmap_map g (fmap_map f m) = fmap_map (fun x => g (f x)) m.
+Admitted.
+Lemma fmap_map_id K A (m : fmap K A) :
+  fmap_map (fun x => x) m = m.
+Admitted.
+Lemma incl_fmap_map K A B (f : A -> B) (m m' : fmap K A) :
+  m $<= m' ->
+  fmap_map f m $<= fmap_map f m'.
+Admitted.
+
+Require Import Coq.Setoids.Setoid.
+Require Import Coq.Classes.Morphisms.
+
+Global Add Parametric Morphism A B : (@List.map A B)
+    with signature pointwise_relation A eq ==> eq ==> eq as list_map_m.
+Proof.
+  intros; eapply map_ext; eauto.
+Qed.
+
+Global Add Parametric Morphism K A B : (@fmap_map K A B)
+    with signature pointwise_relation A eq ==> eq ==> eq as fmap_map_m.
+Proof.
+  intros.
+  eapply fmap_map_ext; eauto.
+Qed.
+
+Lemma nth_error_Forall2 A B P ls1 ls2 n (a : A) :
+  Forall2 P ls1 ls2 ->
+  nth_error ls1 n = Some a ->
+  exists b : B,
+    nth_error ls2 n = Some b /\
+    P a b.
+Admitted.
+
+Lemma nth_error_nil A n : @nth_error A [] n = None.
+Admitted.
+
+(* a reformulation of [skipn] that has a better reduction behavior *)
+Fixpoint my_skipn A (ls : list A) n :=
+  match ls with
+  | [] => []
+  | a :: ls =>
+    match n with
+    | 0 => a :: ls
+    | S n => my_skipn ls n
+    end
+  end.
+
+Lemma my_skipn_0 A (ls : list A) : my_skipn ls 0 = ls.
+Admitted.
+Lemma nth_error_insert A G y (t : A) x ls :
+  nth_error G y = Some t ->
+  x <= y ->
+  nth_error (firstn x G ++ ls ++ my_skipn G x) (length ls + y) = Some t.
+Admitted.
+Lemma nth_error_before_insert A G y (t : A) x ls :
+  nth_error G y = Some t ->
+  y < x ->
+  nth_error (firstn x G ++ ls ++ my_skipn G x) y = Some t.
+Admitted.
+
+Lemma map_firstn A B (f : A -> B) n ls :
+  map f (firstn n ls) = firstn n (map f ls).
+Admitted.
+Lemma map_my_skipn A B (f : A -> B) n ls :
+  map f (my_skipn ls n) = my_skipn (map f ls) n.
+Admitted.
+
+Lemma map_nth_error A B (f : A -> B) ls n a :
+  nth_error ls n = Some a ->
+  nth_error (map f ls) n = Some (f a).
+Admitted.
+
+(* Definition removen A n (ls : list A) := firstn n ls ++ skipn (1 + n) ls. *)
+Fixpoint removen A n (ls : list A) :=
+  match ls with
+  | [] => []
+  | a :: ls =>
+    match n with
+    | 0 => ls
+    | S n => a :: removen n ls
+    end
+  end.
+
+Lemma removen_lt A ls n (a : A) n' :
+  nth_error ls n = Some a ->
+  n' < n ->
+  nth_error (removen n ls) n' = nth_error ls n'.
+Admitted.
+Lemma removen_gt A ls n (a : A) n' :
+  nth_error ls n' = Some a ->
+  n' > n ->
+  nth_error (removen n ls) (n' - 1) = nth_error ls n'.
+Admitted.
+Lemma map_removen A B (f : A -> B) n ls : map f (removen n ls) = removen n (map f ls).
+Admitted.
 
 Module NatTime <: TIME.
   Definition time_type := nat.
@@ -549,8 +669,8 @@ Module M (Time : TIME).
   Definition Tle := PBinPred PBTimeLe.
   Infix "<=" := Tle : idx_scope.
   Infix "==" := PEq (at level 70) : idx_scope.
-  Infix "-->" := PImply (at level 95) : idx_scope.
-  Infix "<-->" := PIff (at level 95) : idx_scope.
+  Infix "===>" := PImply (at level 95) : idx_scope.
+  Infix "<===>" := PIff (at level 95) : idx_scope.
 
   Require BinIntDef.
   Definition int := BinIntDef.Z.t.
@@ -740,6 +860,11 @@ Module M (Time : TIME).
     interpP L (i' == i)%idx.
   Admitted.
 
+  Lemma interpP_eq_interpP_le L a b :
+    interpP L (a == b)%idx ->
+    interpP L (a <= b)%idx.
+  Admitted.
+  
   Lemma interpP_le_interpTime a b :
     interpP [] (a <= b)%idx ->
     (interpTime a <= interpTime b)%time.
@@ -781,22 +906,22 @@ Module M (Time : TIME).
       kdeq L (KBaseSort b) (KBaseSort b)
   | KdEqSubset L k p k' p' :
       kdeq L k k' ->
-      interpP (k :: L) (p <--> p')%idx ->
+      interpP (k :: L) (p <===> p')%idx ->
       kdeq L (KSubset k p) (KSubset k' p')
   .
 
   Hint Constructors kdeq.
 
-  Lemma interpP_iff_refl L p : interpP L (p <--> p)%idx.
+  Lemma interpP_iff_refl L p : interpP L (p <===> p)%idx.
   Admitted.
   Lemma interpP_iff_trans L a b c :
-    interpP L (a <--> b)%idx ->
-    interpP L (b <--> c)%idx ->
-    interpP L (a <--> c)%idx.
+    interpP L (a <===> b)%idx ->
+    interpP L (b <===> c)%idx ->
+    interpP L (a <===> c)%idx.
   Admitted.
   Lemma interpP_iff_sym L p p' :
-    interpP L (p <--> p')%idx ->
-    interpP L (p' <--> p)%idx.
+    interpP L (p <===> p')%idx ->
+    interpP L (p' <===> p)%idx.
   Admitted.
 
   Lemma kdeq_interpP L k k' p :
@@ -1203,12 +1328,6 @@ Module M (Time : TIME).
   Lemma interpP_eq_add_0 L a : interpP L (a + T0 == a)%idx.
   Admitted.
   
-  Lemma includes_add_new A B m m' (k : A) (v : B) :
-    m $<= m' ->
-    m' $? k = None ->
-    m $<= m' $+ (k, v).
-  Admitted.
-  
   Lemma kinding_tyeq L k t1 t2 :
     kinding L t1 k ->
     tyeq L t1 t2 ->
@@ -1226,58 +1345,7 @@ Module M (Time : TIME).
     tyeq L (subst0_c_c v b) (subst0_c_c v' b').
   Admitted.
   
-  Lemma map_nth_error A B (f : A -> B) ls n a :
-    nth_error ls n = Some a ->
-    nth_error (map f ls) n = Some (f a).
-  Admitted.
-  
-  (* Definition removen A n (ls : list A) := firstn n ls ++ skipn (1 + n) ls. *)
-  Fixpoint removen A n (ls : list A) :=
-    match ls with
-    | [] => []
-    | a :: ls =>
-      match n with
-      | 0 => ls
-      | S n => a :: removen n ls
-      end
-    end.
-  
-  Lemma removen_lt A ls n (a : A) n' :
-    nth_error ls n = Some a ->
-    n' < n ->
-    nth_error (removen n ls) n' = nth_error ls n'.
-  Admitted.
-  Lemma removen_gt A ls n (a : A) n' :
-    nth_error ls n' = Some a ->
-    n' > n ->
-    nth_error (removen n ls) (n' - 1) = nth_error ls n'.
-  Admitted.
-  Lemma map_removen A B (f : A -> B) n ls : map f (removen n ls) = removen n (map f ls).
-  Admitted.
-  
   Lemma subst_c_c_subst0 n c c' t : subst_c_c n c (subst0_c_c c' t) = subst0_c_c (subst_c_c n c c') (subst_c_c (S n) (shift0_c_c c) t).
-  Admitted.
-  
-  Fixpoint my_skipn A (ls : list A) n :=
-    match ls with
-    | [] => []
-    | a :: ls =>
-      match n with
-      | 0 => a :: ls
-      | S n => my_skipn ls n
-      end
-    end.
-    
-  Lemma map_shift0_subst n c ls :
-    map shift0_c_c (map (subst_c_c n (shift_c_c n 0 c)) ls) =
-    map (subst_c_c (1 + n) (shift_c_c (1 + n) 0 c)) (map shift0_c_c ls).
-  Admitted.
-  Lemma shift0_c_c_shift n c :
-    shift0_c_c (shift_c_c n 0 c) = shift_c_c (1 + n) 0 c.
-  Admitted.
-  Lemma nth_error_length_firstn A L n (a : A) :
-    nth_error L n = Some a ->
-    length (firstn n L) = n.
   Admitted.
   
   Lemma forget01_subst_c_c b b' n v :
@@ -1285,29 +1353,9 @@ Module M (Time : TIME).
     forget01_c_c (subst_c_c (S n) (shift_c_c (S n) 0 v) b) = Some (subst_c_c n (shift_c_c n 0 v) b').
   Admitted.
   
-  Lemma my_skipn_0 A (ls : list A) : my_skipn ls 0 = ls.
-  Admitted.
   Lemma shift_c_c_0 x c : shift_c_c 0 x c = c.
   Admitted.
   
-  Lemma nth_error_insert A G y (t : A) x ls :
-    nth_error G y = Some t ->
-    x <= y ->
-    nth_error (firstn x G ++ ls ++ my_skipn G x) (length ls + y) = Some t.
-  Admitted.
-  Lemma nth_error_before_insert A G y (t : A) x ls :
-    nth_error G y = Some t ->
-    y < x ->
-    nth_error (firstn x G ++ ls ++ my_skipn G x) y = Some t.
-  Admitted.
-        
-  Lemma map_firstn A B (f : A -> B) n ls :
-    map f (firstn n ls) = firstn n (map f ls).
-  Admitted.
-  Lemma map_my_skipn A B (f : A -> B) n ls :
-    map f (my_skipn ls n) = my_skipn (map f ls) n.
-  Admitted.
-      
   Lemma tyeq_shift0_c_c L c c' k :
     tyeq L c c' ->
     tyeq (k :: L) (shift0_c_c c) (shift0_c_c c').
@@ -1316,10 +1364,44 @@ Module M (Time : TIME).
   Lemma shift_c_c_subst0 n x v b : shift_c_c n x (subst0_c_c v b) = subst0_c_c (shift_c_c n x v) (shift_c_c n (S x) b).
   Admitted.
   
+  Lemma shift_c_c_shift b :
+    forall n1 n2 x,
+      shift_c_c n2 x (shift_c_c n1 x b) = shift_c_c (n1 + n2) x b.
+  Admitted.
+  
+  Lemma shift_c_c_shift0 n b :
+    shift_c_c n 0 (shift0_c_c b) = shift_c_c (S n) 0 b.
+  Admitted.
+  
+  Lemma shift0_c_c_shift_0 n c :
+    shift0_c_c (shift_c_c n 0 c) = shift_c_c (1 + n) 0 c.
+  Admitted.
+  
+  Lemma shift0_c_c_subst x v b :
+    shift0_c_c (subst_c_c x (shift_c_c x 0 v) b) = subst_c_c (1 + x) (shift_c_c (1 + x) 0 v) (shift0_c_c b).
+  Admitted.
+  
+  Lemma subst0_c_c_shift0 v b :
+    subst0_c_c v (shift0_c_c b) = b.
+  Admitted.
+  
+  Lemma shift0_c_c_shift n x b :
+    shift0_c_c (shift_c_c n x b) = shift_c_c n (1 + x) (shift0_c_c b).
+  Admitted.
+  
   Lemma forget01_shift_c_c b b' n x :
     forget01_c_c b = Some b' ->
     forget01_c_c (shift_c_c n (S x) b) = Some (shift_c_c n x b').
   Admitted.
+  
+  Lemma map_shift0_subst n c ls :
+    map shift0_c_c (map (subst_c_c n (shift_c_c n 0 c)) ls) =
+    map (subst_c_c (1 + n) (shift_c_c (1 + n) 0 c)) (map shift0_c_c ls).
+  Proof.
+    repeat rewrite map_map.
+    setoid_rewrite shift0_c_c_subst.
+    eauto.
+  Qed.
   
   Fixpoint shift_c_ks n bs :=
     match bs with
@@ -1450,6 +1532,11 @@ Module M (Time : TIME).
   Proof.
   Admitted.
 
+  Lemma CApps_CRec_CConst_false cs k3 t3 cn  :
+    tyeq [] (CApps (CRec k3 t3) cs) (CConst cn) ->
+    False.
+  Admitted.
+  
   Lemma invert_tyeq_CApps k t cs k' t' cs' :
     tyeq [] (CApps (CRec k t) cs) (CApps (CRec k' t') cs') ->
     kdeq [] k k' /\
@@ -1580,9 +1667,6 @@ Module M (Time : TIME).
   Definition EInr := EInj InjInr.
 
   Definition ETT := EConst ECTT.
-
-  Definition fmap_map {K A B} (f : A -> B) (m : fmap K A) : fmap K B.
-  Admitted.
 
   Definition add_kinding_ctx k (C : ctx) :=
     match C with
@@ -1960,9 +2044,6 @@ Module M (Time : TIME).
 
   Hint Constructors step astep plug value.
 
-  Lemma nth_error_nil A n : @nth_error A [] n = None.
-  Admitted.
-
   Arguments finished / .
   Arguments get_expr / .
 
@@ -1972,6 +2053,11 @@ Module M (Time : TIME).
   (* ============================================================= *)
 
   
+  Lemma TyETT C : typing C ETT CTypeUnit T0.
+  Proof.
+    eapply TyConst.
+  Qed.
+
   Lemma TyTyeq C e t2 i t1 :
     typing C e t1 i ->
     tyeq (get_kctx C) t1 t2 ->
@@ -1982,31 +2068,33 @@ Module M (Time : TIME).
     eapply interpP_le_refl.
   Qed.
 
-  Lemma TyIdxEq C e t i1 i2 :
-    typing C e t i1 ->
-    interpP (get_kctx C) (i1 == i2)%idx ->
-    typing C e t i2.
-  Admitted.
-  
   Lemma TyLe C e t i1 i2 :
     typing C e t i1 ->
     interpP (get_kctx C) (i1 <= i2)%idx ->
     typing C e t i2.
-  Admitted.
-  Lemma TyETT C : typing C ETT CTypeUnit T0.
   Proof.
-    eapply TyConst.
+    intros.
+    eapply TySub; eauto.
+    eauto with invert_typing.
   Qed.
-
-  Lemma subst_c_c_const_type x v cn :
-    subst_c_c x v (const_type cn) = const_type cn.
-  Admitted.
+  
+  Lemma TyIdxEq C e t i1 i2 :
+    typing C e t i1 ->
+    interpP (get_kctx C) (i1 == i2)%idx ->
+    typing C e t i2.
+  Proof.
+    intros.
+    eapply TyLe; eauto.
+    eapply interpP_eq_interpP_le; eauto.
+  Qed.
   
   Lemma CApps_CRec_const_type_false cs k3 t3 cn  :
     tyeq [] (CApps (CRec k3 t3) cs) (const_type cn) ->
     False.
   Proof.
-  Admitted.
+    cases cn; simplify;
+      eapply CApps_CRec_CConst_false; eauto.
+  Qed.
 
   Lemma const_type_CArrow_false cn t1 i t2 :
     tyeq [] (const_type cn) (CArrow t1 i t2) ->
@@ -2016,27 +2104,142 @@ Module M (Time : TIME).
       invert Htyeq.
   Qed.
 
-  Lemma shift_e_e_AbsCs n x m e :
-    shift_e_e n x (EAbsCs m e) = EAbsCs m (shift_e_e n x e).
-  Admitted.
+  Lemma length_firstn_le A (L : list A) n :
+    n <= length L ->
+    length (firstn n L) = n.
+  Proof.
+    intros.
+    rewrite firstn_length.
+    linear_arithmetic.
+  Qed.
   
-  Lemma fmap_map_lookup A B C (f : B -> C) m (k : A) (v : B) :
-    m $? k = Some v ->
-    fmap_map f m $? k = Some (f v).
-  Admitted.
+  Lemma nth_error_length_firstn A L n (a : A) :
+    nth_error L n = Some a ->
+    length (firstn n L) = n.
+  Proof.
+    intros Hnth.
+    eapply length_firstn_le.
+    assert (Hlt : n < length L).
+    {
+      eapply nth_error_Some.
+      intros H.
+      rewrite Hnth in H.
+      invert H.
+    }
+    linear_arithmetic.
+  Qed.
   
-  Lemma subst_e_e_AbsCs x v m e :
-    subst_e_e x v (EAbsCs m e) = EAbsCs m (subst_e_e x (shift_c_e m 0 v) e).
-  Admitted.
+  Lemma subst_c_c_const_type x v cn :
+    subst_c_c x v (const_type cn) = const_type cn.
+  Proof.
+    cases cn; simplify; eauto.
+  Qed.
   
-  Lemma subst_c_e_AbsCs x v m e :
-    subst_c_e x v (EAbsCs m e) = EAbsCs m (subst_c_e (m + x) (shift_c_c m 0 v) e).
-  Admitted.
+  Lemma shift_c_e_AbsCs m :
+    forall n x e,
+      shift_c_e n x (EAbsCs m e) = EAbsCs m (shift_c_e n (m + x) e).
+  Proof.
+    induct m; simplify; eauto.
+    rewrite IHm.
+    repeat f_equal; eauto.
+  Qed.
   
+  Lemma shift_e_e_AbsCs m :
+    forall n x e,
+      shift_e_e n x (EAbsCs m e) = EAbsCs m (shift_e_e n x e).
+  Proof.
+    induct m; simplify; eauto.
+    rewrite IHm.
+    repeat f_equal; eauto.
+  Qed.
+  
+  Lemma shift_c_e_0 b : forall x, shift_c_e 0 x b = b.
+  Proof.
+    induct b; simplify; try rewrite IHb; try rewrite IHb1; try rewrite IHb2; try rewrite IHb3; try rewrite shift_c_c_0; eauto.
+  Qed.
+  
+  Lemma shift_c_e_shift b :
+    forall n1 n2 x,
+      shift_c_e n2 x (shift_c_e n1 x b) = shift_c_e (n1 + n2) x b.
+  Proof.
+    induct b; simplify; try rewrite IHb; try rewrite IHb1; try rewrite IHb2; try rewrite IHb3; try rewrite shift_c_c_shift; eauto.
+  Qed.
+  
+  Lemma shift_c_e_shift0 n b :
+    shift_c_e n 0 (shift0_c_e b) = shift_c_e (S n) 0 b.
+  Proof.
+    unfold shift0_c_e.
+    rewrite shift_c_e_shift.
+    eauto.
+  Qed.
+  
+  Lemma map_shift0_shift n x G :
+    map shift0_c_c (map (shift_c_c n x) G) =
+    map (shift_c_c n (1 + x)) (map shift0_c_c G).
+  Proof.
+    repeat rewrite map_map.
+    setoid_rewrite shift0_c_c_shift.
+    eauto.
+  Qed.
+
+  Lemma fmap_map_shift0_shift n x (W : hctx) :
+    fmap_map shift0_c_c (fmap_map (shift_c_c n x) W) =
+    fmap_map (shift_c_c n (1 + x)) (fmap_map shift0_c_c W).
+  Proof.
+    repeat rewrite fmap_map_fmap_map.
+    setoid_rewrite shift0_c_c_shift.
+    eauto.
+  Qed.
+
   Lemma fmap_map_shift0_subst n c (W : hctx) :
     fmap_map shift0_c_c (fmap_map (subst_c_c n (shift_c_c n 0 c)) W) =
     fmap_map (subst_c_c (1 + n) (shift_c_c (1 + n) 0 c)) (fmap_map shift0_c_c W).
-  Admitted.
+  Proof.
+    repeat rewrite fmap_map_fmap_map.
+    setoid_rewrite shift0_c_c_subst.
+    eauto.
+  Qed.
+  
+  Lemma fmap_map_subst0_shift0 k c W : fmap_map (K := k) (subst0_c_c c) (fmap_map shift0_c_c W) = W.
+  Proof.
+    repeat rewrite fmap_map_fmap_map.
+    setoid_rewrite subst0_c_c_shift0.
+    eapply fmap_map_id.
+  Qed.
+  
+  Lemma fmap_map_shift0_c_c_incl (W W' : hctx) :
+    W $<= W' ->
+    fmap_map shift0_c_c W $<= fmap_map shift0_c_c W'.
+  Proof.
+    intros; eapply incl_fmap_map; eauto.
+  Qed.
+  
+  Lemma subst_c_e_AbsCs m :
+    forall x v e,
+      subst_c_e x v (EAbsCs m e) = EAbsCs m (subst_c_e (m + x) (shift_c_c m 0 v) e).
+  Proof.
+    induct m; simplify.
+    {
+      rewrite shift_c_c_0; eauto.
+    }
+    rewrite IHm.
+    rewrite shift_c_c_shift0.
+    repeat f_equal; eauto.
+  Qed.
+  
+  Lemma subst_e_e_AbsCs m :
+    forall x v e,
+      subst_e_e x v (EAbsCs m e) = EAbsCs m (subst_e_e x (shift_c_e m 0 v) e).
+  Proof.
+    induct m; simplify.
+    {
+      rewrite shift_c_e_0; eauto.
+    }
+    rewrite IHm.
+    rewrite shift_c_e_shift0.
+    repeat f_equal; eauto.
+  Qed.
+  
   Lemma value_subst_c_e v :
     value v ->
     forall n c,
@@ -2044,14 +2247,6 @@ Module M (Time : TIME).
   Proof.
     induct 1; intros n e'; simplify; try econstructor; eauto.
   Qed.
-  
-  Lemma fmap_map_subst0_shift0 k c W : fmap_map (K := k) (subst0_c_c c) (fmap_map shift0_c_c W) = W.
-  Admitted.
-  
-  Lemma fmap_map_shift0_c_c_incl (W W' : hctx) :
-    W $<= W' ->
-    fmap_map shift0_c_c W $<= fmap_map shift0_c_c W'.
-  Admitted.
   
   Lemma value_subst_e_e v :
     value v ->
@@ -2081,13 +2276,6 @@ Module M (Time : TIME).
     destruct C as ((L & W) & G); eauto.
   Qed.
   
-  Lemma nth_error_Forall2 A B P ls1 ls2 n (a : A) :
-    Forall2 P ls1 ls2 ->
-    nth_error ls1 n = Some a ->
-    exists b : B,
-      nth_error ls2 n = Some b /\
-      P a b.
-  Admitted.
   Hint Constructors Forall2.
   Lemma Forall2_map A B A' B' (P : A -> B -> Prop) (Q : A' -> B' -> Prop) f1 f2 ls1 ls2 :
     (forall a b, P a b -> Q (f1 a) (f2 b)) -> 
@@ -2172,24 +2360,6 @@ Module M (Time : TIME).
   Proof.
     induct 1; simplify; econstructor; eauto.
   Qed.
-  
-  Lemma fmap_map_shift0_shift n x (W : hctx) :
-    fmap_map shift0_c_c (fmap_map (shift_c_c n x) W) =
-    fmap_map (shift_c_c n (1 + x)) (fmap_map shift0_c_c W).
-  Admitted.
-  Lemma map_shift0_shift n x G :
-    map shift0_c_c (map (shift_c_c n x) G) =
-    map (shift_c_c n (1 + x)) (map shift0_c_c G).
-  Admitted.
-  
-  Lemma length_firstn_le A (L : list A) n :
-    n <= length L ->
-    length (firstn n L) = n.
-  Admitted.
-  
-  Lemma shift_c_e_AbsCs n x m e :
-    shift_c_e n x (EAbsCs m e) = EAbsCs m (shift_c_e n (m + x) e).
-  Admitted.
   
   Lemma ty_shift_c_e C e t i :
     typing C e t i ->
@@ -2481,7 +2651,7 @@ Module M (Time : TIME).
       {
         rewrite fmap_map_shift0_subst.
         rewrite map_shift0_subst.
-        repeat rewrite shift0_c_c_shift.
+        repeat rewrite shift0_c_c_shift_0.
         specialize (IHtyping (S n)); simplify.
         erewrite nth_error_length_firstn in IHtyping by eauto.
         eapply IHtyping; eauto.
@@ -2576,7 +2746,7 @@ Module M (Time : TIME).
       {
         rewrite fmap_map_shift0_subst.
         rewrite map_shift0_subst.
-        repeat rewrite shift0_c_c_shift.
+        repeat rewrite shift0_c_c_shift_0.
         specialize (IHtyping2 (S n)); simplify.
         erewrite nth_error_length_firstn in IHtyping2 by eauto.
         eapply IHtyping2; eauto.
@@ -2992,6 +3162,19 @@ Module M (Time : TIME).
     invert Hl.
     exists v; repeat eexists_split; eauto.
     eapply value_typing_T0; eauto.
+  Qed.
+  
+  Lemma includes_add_new A (m m' : fmap loc A) k (v : A) :
+    m $<= m' ->
+    m' $? k = None ->
+    m $<= m' $+ (k, v).
+  Proof.
+    intros Hincl Hk.
+    eapply includes_intro.
+    intros k' v' Hk'.
+    cases (k' ==n k); subst; simplify; eauto.
+    eapply includes_lookup in Hincl; eauto.
+    rewrite Hincl in Hk; invert Hk.
   Qed.
   
   Lemma htyping_new h W l t v i :
@@ -3851,15 +4034,6 @@ Module M (Time : TIME).
     Hint Constructors Forall3.
 
   End Forall3.
-
-  Ltac openhyp :=
-    repeat match goal with
-           | H : _ /\ _ |- _  => destruct H
-           | H : _ \/ _ |- _ => destruct H
-           | H : exists x, _ |- _ => destruct H
-           | H : exists ! x, _ |- _ => destruct H
-           | H : unique _ _ |- _ => destruct H
-           end.
 
   Lemma invert_typing_App C e1 e2 t i :
     typing C (EApp e1 e2) t i ->
