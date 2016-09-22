@@ -1,0 +1,66 @@
+structure QSort = struct
+  open Basic
+  open List
+
+  datatype {Nat} 'a plist =
+    PList {p q : Nat} of {p} 'a list * {q} 'a list --> {p + q} 'a plist
+
+  idx T_list_pivot : Fun 2 = fn m n => 4.0 * ($m + 1.0) * ($n + 1.0)
+  fun list_pivot ['a] {m : Nat} {len : Nat} (le : 'a * 'a -- $m --> bool) (x : 'a) (l : {len} 'a list) return {len} 'a plist using T_list_pivot m len =
+    case l of
+         [] => PList ([], [])
+       | hd :: tl =>
+           let
+             val res = list_pivot le x tl
+           in
+             (case res of
+                   PList (left, right) => (case le (hd, x) of
+                                                true => PList (hd :: left, right)
+                                              | false => PList (left, hd :: right)))
+           end
+
+  idx T_list_append : Fun 1 = fn n => 2.0 * $n
+  fun list_append ['a] {len1 len2 : Nat} (l1 : {len1} 'a list) (l2 : {len2} 'a list) return {len1 + len2} 'a list using T_list_append len1 =
+    case l1 of
+         [] => l2
+       | hd :: tl => hd :: (list_append tl l2)
+
+  idx T_list_qsort : Fun 2 = fn m n => 4.0 * ($m + 10.0) * ($n * $n + 20.0 * $n)
+  fun list_qsort ['a] {m : Nat} {len : Nat} (le : 'a * 'a -- $m --> bool) (l : {len} 'a list) return {len} 'a list using T_list_qsort m len =
+    case l of
+         [] => []
+       | hd :: tl =>
+           let
+             val res = list_pivot le hd tl
+             idx T_case : Fun 2 = fn m n => 4.0 * $m * $n * $n + 74.0 * $m * $n + 40.0 * $n * $n + 750.0 * $n - 100.0
+           in
+             (case res return using T_case m len of
+                   PList (left, right) =>
+                   let
+                     val sorted_left = list_qsort le left
+                     val sorted_right = list_qsort le right
+                   in
+                     list_append sorted_left (hd :: sorted_right)
+                   end)
+           end
+
+  (*absidx T_list_qsort2 : BigO 2 (fn m n => $m * $n * $n) with
+    fun list_qsort2 ['a] {m : Nat} {len : Nat} (le : 'a * 'a -- $m --> bool) (l : {len} 'a list) return {len} 'a list using T_list_qsort2 m len =
+      case l of
+           [] => []
+         | hd :: tl =>
+             let
+               val res = list_pivot le hd tl
+               absidx T_case : BigO 2 (fn m n => $m * $n * $n) = _
+             in
+               (case res return using T_case m len of
+                     PList (left, right) =>
+                     let
+                       val sorted_left = list_qsort2 le left
+                       val sorted_right = list_qsort2 le right
+                     in
+                       list_append sorted_left (hd :: sorted_right)
+                     end)
+             end
+  end*)
+end
