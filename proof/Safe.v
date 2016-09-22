@@ -666,52 +666,7 @@ Module M (Time : TIME).
     | inleft (right H) => Eq H
     | inright H => Gt H
     end.
-(*          
-  Section subst_c_c.
-
-    Variable v : cstr.
-    
-    Fixpoint subst_c_c (x : var) (n : nat) (b : cstr) : cstr :=
-      match b with
-      | CVar y =>
-        match lt_eq_gt_dec y x with
-        | Lt _ => CVar y
-        | Eq _ => shift_c_c n 0 v
-        | Gt _ => CVar (y - 1)
-        end
-      | CConst cn => CConst cn
-      | CBinOp opr c1 c2 => CBinOp opr (subst_c_c x n c1) (subst_c_c x n c2)
-      | CIte i1 i2 i3 => CIte (subst_c_c x n i1) (subst_c_c x n i2) (subst_c_c x n i3)
-      | CTimeAbs i => CTimeAbs (subst_c_c (1 + x) (1 + n) i)
-      | CArrow t1 i t2 => CArrow (subst_c_c x n t1) (subst_c_c x n i) (subst_c_c x n t2)
-      | CAbs t => CAbs (subst_c_c (1 + x) (1 + n) t)
-      | CApp c1 c2 => CApp (subst_c_c x n c1) (subst_c_c x n c2)
-      | CQuan q k c => CQuan q (subst_c_k x n k) (subst_c_c (1 + x) (1 + n) c)
-      | CRec k t => CRec (subst_c_k x n k) (subst_c_c (1 + x) (1 + n) t)
-      | CRef t => CRef (subst_c_c x n t)
-      end
-    with subst_c_k (x : var) (n : nat) (b : kind) : kind :=
-           match b with
-           | KType => KType
-           | KArrow k1 k2 => KArrow (subst_c_k x n k1) (subst_c_k x n k2)
-           | KBaseSort b => KBaseSort b
-           | KSubset k p => KSubset (subst_c_k x n k) (subst_c_p (1 + x) (1 + n) p)
-           end
-    with subst_c_p (x : var) (n : nat) (b : prop) : prop :=
-           match b with
-           | PTrue => PTrue
-           | PFalse => PFalse
-           | PBinConn opr p1 p2 => PBinConn opr (subst_c_p x n p1) (subst_c_p x n p2)
-           | PNot p => PNot (subst_c_p x n p)
-           | PBinPred opr i1 i2 => PBinPred opr (subst_c_c x n i1) (subst_c_c x n i2)
-           | PEq i1 i2 => PEq (subst_c_c x n i1) (subst_c_c x n i2)
-           | PQuan q p => PQuan q (subst_c_p (1 + x) (1 + n) p)
-           end.
-
-  End subst_c_c.
   
-  Definition subst0_c_c v b := subst_c_c v 0 0 b.
-*)
   Section subst_c_c.
 
     Fixpoint subst_c_c (x : var) (v : cstr) (b : cstr) : cstr :=
@@ -1245,6 +1200,201 @@ Module M (Time : TIME).
 
   Hint Resolve tyeq_refl tyeq_sym tyeq_trans interpP_le_refl interpP_le_trans : invert_typing.
 
+  Lemma interpP_eq_add_0 L a : interpP L (a + T0 == a)%idx.
+  Admitted.
+  
+  Lemma includes_add_new A B m m' (k : A) (v : B) :
+    m $<= m' ->
+    m' $? k = None ->
+    m $<= m' $+ (k, v).
+  Admitted.
+  
+  Lemma kinding_tyeq L k t1 t2 :
+    kinding L t1 k ->
+    tyeq L t1 t2 ->
+    kinding L t2 k.
+  Admitted.
+  
+  Lemma forget01_c_c_Some_subst0 c c' c'' :
+    forget01_c_c c = Some c' ->
+    subst0_c_c c'' c = c'.
+  Admitted.
+
+  Lemma tyeq_subst0_c_c k L v b v' b' :
+    tyeq L v v' ->
+    tyeq (k :: L) b b' ->
+    tyeq L (subst0_c_c v b) (subst0_c_c v' b').
+  Admitted.
+  
+  Lemma map_nth_error A B (f : A -> B) ls n a :
+    nth_error ls n = Some a ->
+    nth_error (map f ls) n = Some (f a).
+  Admitted.
+  
+  (* Definition removen A n (ls : list A) := firstn n ls ++ skipn (1 + n) ls. *)
+  Fixpoint removen A n (ls : list A) :=
+    match ls with
+    | [] => []
+    | a :: ls =>
+      match n with
+      | 0 => ls
+      | S n => a :: removen n ls
+      end
+    end.
+  
+  Lemma removen_lt A ls n (a : A) n' :
+    nth_error ls n = Some a ->
+    n' < n ->
+    nth_error (removen n ls) n' = nth_error ls n'.
+  Admitted.
+  Lemma removen_gt A ls n (a : A) n' :
+    nth_error ls n' = Some a ->
+    n' > n ->
+    nth_error (removen n ls) (n' - 1) = nth_error ls n'.
+  Admitted.
+  Lemma map_removen A B (f : A -> B) n ls : map f (removen n ls) = removen n (map f ls).
+  Admitted.
+  
+  Lemma subst_c_c_subst0 n c c' t : subst_c_c n c (subst0_c_c c' t) = subst0_c_c (subst_c_c n c c') (subst_c_c (S n) (shift0_c_c c) t).
+  Admitted.
+  
+  Fixpoint my_skipn A (ls : list A) n :=
+    match ls with
+    | [] => []
+    | a :: ls =>
+      match n with
+      | 0 => a :: ls
+      | S n => my_skipn ls n
+      end
+    end.
+    
+  Lemma map_shift0_subst n c ls :
+    map shift0_c_c (map (subst_c_c n (shift_c_c n 0 c)) ls) =
+    map (subst_c_c (1 + n) (shift_c_c (1 + n) 0 c)) (map shift0_c_c ls).
+  Admitted.
+  Lemma shift0_c_c_shift n c :
+    shift0_c_c (shift_c_c n 0 c) = shift_c_c (1 + n) 0 c.
+  Admitted.
+  Lemma nth_error_length_firstn A L n (a : A) :
+    nth_error L n = Some a ->
+    length (firstn n L) = n.
+  Admitted.
+  
+  Lemma forget01_subst_c_c b b' n v :
+    forget01_c_c b = Some b' ->
+    forget01_c_c (subst_c_c (S n) (shift_c_c (S n) 0 v) b) = Some (subst_c_c n (shift_c_c n 0 v) b').
+  Admitted.
+  
+  Lemma my_skipn_0 A (ls : list A) : my_skipn ls 0 = ls.
+  Admitted.
+  Lemma shift_c_c_0 x c : shift_c_c 0 x c = c.
+  Admitted.
+  
+  Lemma nth_error_insert A G y (t : A) x ls :
+    nth_error G y = Some t ->
+    x <= y ->
+    nth_error (firstn x G ++ ls ++ my_skipn G x) (length ls + y) = Some t.
+  Admitted.
+  Lemma nth_error_before_insert A G y (t : A) x ls :
+    nth_error G y = Some t ->
+    y < x ->
+    nth_error (firstn x G ++ ls ++ my_skipn G x) y = Some t.
+  Admitted.
+        
+  Lemma map_firstn A B (f : A -> B) n ls :
+    map f (firstn n ls) = firstn n (map f ls).
+  Admitted.
+  Lemma map_my_skipn A B (f : A -> B) n ls :
+    map f (my_skipn ls n) = my_skipn (map f ls) n.
+  Admitted.
+      
+  Lemma tyeq_shift0_c_c L c c' k :
+    tyeq L c c' ->
+    tyeq (k :: L) (shift0_c_c c) (shift0_c_c c').
+  Admitted.
+  
+  Lemma shift_c_c_subst0 n x v b : shift_c_c n x (subst0_c_c v b) = subst0_c_c (shift_c_c n x v) (shift_c_c n (S x) b).
+  Admitted.
+  
+  Lemma forget01_shift_c_c b b' n x :
+    forget01_c_c b = Some b' ->
+    forget01_c_c (shift_c_c n (S x) b) = Some (shift_c_c n x b').
+  Admitted.
+  
+  Fixpoint shift_c_ks n bs :=
+    match bs with
+    | [] => []
+    | b :: bs => shift_c_k n (length bs) b :: shift_c_ks n bs
+    end.
+
+  Lemma tyeq_shift_c_c L c1 c2 :
+    tyeq L c1 c2 ->
+    forall x ls ,
+      let n := length ls in
+      x <= length L ->
+      tyeq (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_c n x c1) (shift_c_c n x c2).
+  Admitted.
+  Lemma interpP_shift_c_p L p :
+    interpP L p ->
+    forall x ls ,
+      let n := length ls in
+      x <= length L ->
+      interpP (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_p n x p).
+  Admitted.
+  Lemma kd_shift_c_c L c k :
+    kinding L c k ->
+    forall x ls,
+      let n := length ls in
+      kinding (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_c n x c) (shift_c_k n x k).
+  Admitted.
+  
+  Lemma wfkind_shift_c_k L k :
+    wfkind L k ->
+    forall x ls,
+      let n := length ls in
+      wfkind (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_k n x k).
+  Admitted.
+  
+  Fixpoint subst_c_ks v bs :=
+    match bs with
+    | [] => []
+    | b :: bs => subst_c_k (length bs) (shift_c_c (length bs) 0 v) b :: subst_c_ks v bs
+    end.
+
+  Lemma kd_subst_c_c L c' k' :
+    kinding L c' k' ->
+    forall n k c ,
+      nth_error L n = Some k ->
+      kinding (my_skipn L (1 + n)) c k ->
+      kinding (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_c n (shift_c_c n 0 c) c') (subst_c_k n (shift_c_c n 0 c) k').
+  Admitted.
+  
+  Lemma wfkind_subst_c_k L k' :
+    wfkind L k' ->
+    forall n k c ,
+      nth_error L n = Some k ->
+      kinding (my_skipn L (1 + n)) c k ->
+      wfkind (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_k n (shift_c_c n 0 c) k').
+  Admitted.
+
+  Lemma interpP_subst_c_p L p :
+    interpP L p ->
+    forall n k c ,
+      nth_error L n = Some k ->
+      kinding (my_skipn L (1 + n)) c k ->
+      interpP (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_p n (shift_c_c n 0 c) p).
+  Admitted.
+  
+  Lemma tyeq_subst_c_c L c1' c2' :
+    tyeq L c1' c2' ->
+    forall n k c1 c2 ,
+      nth_error L n = Some k ->
+      kinding (my_skipn L (1 + n)) c1 k ->
+      kinding (my_skipn L (1 + n)) c2 k ->
+      tyeq (my_skipn L (1 + n)) c1 c2 ->
+      tyeq (subst_c_ks c1 (firstn n L) ++ my_skipn L (1 + n)) (subst_c_c n (shift_c_c n 0 c1) c1') (subst_c_c n (shift_c_c n 0 c2) c2').
+  Admitted.
+  
   Fixpoint CApps t cs :=
     match cs with
     | nil => t
@@ -1300,15 +1450,6 @@ Module M (Time : TIME).
   Proof.
   Admitted.
 
-  Lemma interpP_eq_add_0 L a : interpP L (a + T0 == a)%idx.
-  Admitted.
-  
-  Lemma includes_add_new A B m m' (k : A) (v : B) :
-    m $<= m' ->
-    m' $? k = None ->
-    m $<= m' $+ (k, v).
-  Admitted.
-  
   Lemma invert_tyeq_CApps k t cs k' t' cs' :
     tyeq [] (CApps (CRec k t) cs) (CApps (CRec k' t') cs') ->
     kdeq [] k k' /\
@@ -1323,150 +1464,19 @@ Module M (Time : TIME).
   Proof.
   Admitted.
   
-  Lemma kinding_tyeq L k t1 t2 :
-    kinding L t1 k ->
-    tyeq L t1 t2 ->
-    kinding L t2 k.
-  Admitted.
-  
-  Lemma forget01_c_c_Some_subst0 c c' c'' :
-    forget01_c_c c = Some c' ->
-    subst0_c_c c'' c = c'.
-  Admitted.
-
-  Lemma tyeq_subst0_c_c k L v b v' b' :
-    tyeq L v v' ->
-    tyeq (k :: L) b b' ->
-    tyeq L (subst0_c_c v b) (subst0_c_c v' b').
-  Admitted.
-  
-  Lemma map_nth_error A B (f : A -> B) ls n a :
-    nth_error ls n = Some a ->
-    nth_error (map f ls) n = Some (f a).
-  Admitted.
-  
-  (* Definition removen A n (ls : list A) := firstn n ls ++ skipn (1 + n) ls. *)
-  Fixpoint removen A n (ls : list A) :=
-    match ls with
-    | [] => []
-    | a :: ls =>
-      match n with
-      | 0 => ls
-      | S n => a :: removen n ls
-      end
-    end.
-  
-  Lemma removen_lt A ls n (a : A) n' :
-    nth_error ls n = Some a ->
-    n' < n ->
-    nth_error (removen n ls) n' = nth_error ls n'.
-  Admitted.
-  Lemma removen_gt A ls n (a : A) n' :
-    nth_error ls n' = Some a ->
-    n' > n ->
-    nth_error (removen n ls) (n' - 1) = nth_error ls n'.
-  Admitted.
-  Lemma map_removen A B (f : A -> B) n ls : map f (removen n ls) = removen n (map f ls).
-  Admitted.
-  
-  Lemma subst_c_c_subst0 n c c' t : subst_c_c n c (subst0_c_c c' t) = subst0_c_c (subst_c_c n c c') (subst_c_c (S n) (shift0_c_c c) t).
-  Admitted.
-  
-  Fixpoint subst_c_ks v bs :=
-    match bs with
-    | [] => []
-    | b :: bs => subst_c_k (length bs) (shift_c_c (length bs) 0 v) b :: subst_c_ks v bs
-    end.
-
-  Fixpoint my_skipn A (ls : list A) n :=
-    match ls with
-    | [] => []
-    | a :: ls =>
-      match n with
-      | 0 => a :: ls
-      | S n => my_skipn ls n
-      end
-    end.
-    
-  Lemma map_shift0_subst n c ls :
-    map shift0_c_c (map (subst_c_c n (shift_c_c n 0 c)) ls) =
-    map (subst_c_c (1 + n) (shift_c_c (1 + n) 0 c)) (map shift0_c_c ls).
-  Admitted.
-  Lemma shift0_c_c_shift n c :
-    shift0_c_c (shift_c_c n 0 c) = shift_c_c (1 + n) 0 c.
-  Admitted.
-  Lemma nth_error_length_firstn A L n (a : A) :
-    nth_error L n = Some a ->
-    length (firstn n L) = n.
+  Lemma shift_c_c_Apps n x c cs :
+    shift_c_c n x (CApps c cs) = CApps (shift_c_c n x c) (map (shift_c_c n x) cs).
   Admitted.
   
   Lemma subst_c_c_Apps n v c cs :
     subst_c_c n v (CApps c cs) = CApps (subst_c_c n v c) (map (subst_c_c n v) cs).
   Admitted.
-  
-  Lemma forget01_subst_c_c b b' n v :
-    forget01_c_c b = Some b' ->
-    forget01_c_c (subst_c_c (S n) (shift_c_c (S n) 0 v) b) = Some (subst_c_c n (shift_c_c n 0 v) b').
-  Admitted.
-  
-  Lemma my_skipn_0 A (ls : list A) : my_skipn ls 0 = ls.
-  Admitted.
-  Lemma shift_c_c_0 x c : shift_c_c 0 x c = c.
-  Admitted.
-  
-  Lemma nth_error_insert A G y (t : A) x ls :
-    nth_error G y = Some t ->
-    x <= y ->
-    nth_error (firstn x G ++ ls ++ my_skipn G x) (length ls + y) = Some t.
-  Admitted.
-  Lemma nth_error_before_insert A G y (t : A) x ls :
-    nth_error G y = Some t ->
-    y < x ->
-    nth_error (firstn x G ++ ls ++ my_skipn G x) y = Some t.
-  Admitted.
-        
-  Lemma map_firstn A B (f : A -> B) n ls :
-    map f (firstn n ls) = firstn n (map f ls).
-  Admitted.
-  Lemma map_my_skipn A B (f : A -> B) n ls :
-    map f (my_skipn ls n) = my_skipn (map f ls) n.
-  Admitted.
-      
-  Lemma kd_subst_c_c L c' k' :
-    kinding L c' k' ->
-    forall n k c ,
-      nth_error L n = Some k ->
-      kinding (my_skipn L (1 + n)) c k ->
-      kinding (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_c n (shift_c_c n 0 c) c') (subst_c_k n (shift_c_c n 0 c) k').
-  Admitted.
-  
-  Lemma wfkind_subst_c_k L k' :
-    wfkind L k' ->
-    forall n k c ,
-      nth_error L n = Some k ->
-      kinding (my_skipn L (1 + n)) c k ->
-      wfkind (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_k n (shift_c_c n 0 c) k').
-  Admitted.
 
-  Lemma interpP_subst_c_p L p :
-    interpP L p ->
-    forall n k c ,
-      nth_error L n = Some k ->
-      kinding (my_skipn L (1 + n)) c k ->
-      interpP (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_p n (shift_c_c n 0 c) p).
-  Admitted.
-  
-  Lemma tyeq_subst_c_c L c1' c2' :
-    tyeq L c1' c2' ->
-    forall n k c1 c2 ,
-      nth_error L n = Some k ->
-      kinding (my_skipn L (1 + n)) c1 k ->
-      kinding (my_skipn L (1 + n)) c2 k ->
-      tyeq (my_skipn L (1 + n)) c1 c2 ->
-      tyeq (subst_c_ks c1 (firstn n L) ++ my_skipn L (1 + n)) (subst_c_c n (shift_c_c n 0 c1) c1') (subst_c_c n (shift_c_c n 0 c2) c2').
-  Admitted.
-  
+
+  (* ============================================================= *)
   (* The term language *)
+  (* ============================================================= *)
+  
   
   Inductive expr_const :=
   | ECTT
@@ -1956,8 +1966,12 @@ Module M (Time : TIME).
   Arguments finished / .
   Arguments get_expr / .
 
-  (* term language proof *)
 
+  (* ============================================================= *)
+  (* Term language proofs *)
+  (* ============================================================= *)
+
+  
   Lemma TyTyeq C e t2 i t1 :
     typing C e t1 i ->
     tyeq (get_kctx C) t1 t2 ->
@@ -2082,10 +2096,6 @@ Module M (Time : TIME).
   Proof.
     induct 2; simplify; eauto.
   Qed.
-  Lemma tyeq_shift0_c_c L c c' k :
-    tyeq L c c' ->
-    tyeq (k :: L) (shift0_c_c c) (shift0_c_c c').
-  Admitted.
   
   Lemma ty_G_tyeq C e t i :
     typing C e t i ->
@@ -2155,15 +2165,6 @@ Module M (Time : TIME).
     induct 1; simplify; econstructor; eauto.
   Qed.
   
-  Fixpoint shift_c_ks n bs :=
-    match bs with
-    | [] => []
-    | b :: bs => shift_c_k n (length bs) b :: shift_c_ks n bs
-    end.
-
-  Lemma shift_c_c_subst0 n x v b : shift_c_c n x (subst0_c_c v b) = subst0_c_c (shift_c_c n x v) (shift_c_c n (S x) b).
-  Admitted.
-  
   Lemma value_shift_c_e e :
     value e ->
     forall n x,
@@ -2181,50 +2182,13 @@ Module M (Time : TIME).
     map (shift_c_c n (1 + x)) (map shift0_c_c G).
   Admitted.
   
-  Lemma shift_c_e_AbsCs n x m e :
-    shift_c_e n x (EAbsCs m e) = EAbsCs m (shift_c_e n (m + x) e).
-  Admitted.
-  
-  Lemma shift_c_c_Apps n x c cs :
-    shift_c_c n x (CApps c cs) = CApps (shift_c_c n x c) (map (shift_c_c n x) cs).
-  Admitted.
-  
-  Lemma forget01_shift_c_c b b' n x :
-    forget01_c_c b = Some b' ->
-    forget01_c_c (shift_c_c n (S x) b) = Some (shift_c_c n x b').
-  Admitted.
-  
   Lemma length_firstn_le A (L : list A) n :
     n <= length L ->
     length (firstn n L) = n.
   Admitted.
   
-  Lemma tyeq_shift_c_c L c1 c2 :
-    tyeq L c1 c2 ->
-    forall x ls ,
-      let n := length ls in
-      x <= length L ->
-      tyeq (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_c n x c1) (shift_c_c n x c2).
-  Admitted.
-  Lemma interpP_shift_c_p L p :
-    interpP L p ->
-    forall x ls ,
-      let n := length ls in
-      x <= length L ->
-      interpP (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_p n x p).
-  Admitted.
-  Lemma kd_shift_c_c L c k :
-    kinding L c k ->
-    forall x ls,
-      let n := length ls in
-      kinding (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_c n x c) (shift_c_k n x k).
-  Admitted.
-  
-  Lemma wfkind_shift_c_k L k :
-    wfkind L k ->
-    forall x ls,
-      let n := length ls in
-      wfkind (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_k n x k).
+  Lemma shift_c_e_AbsCs n x m e :
+    shift_c_e n x (EAbsCs m e) = EAbsCs m (shift_c_e n (m + x) e).
   Admitted.
   
   Lemma ty_shift_c_e C e t i :
