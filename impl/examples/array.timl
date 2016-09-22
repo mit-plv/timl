@@ -1,0 +1,52 @@
+structure Array = struct
+  fun length ['a] {len : Nat} (a : {len} 'a array) return {len} nat using 1.0 =
+    builtin
+
+  fun get ['a] {len who : Nat} {who < len} (a : {len} 'a array, n : {who} nat) return 'a using 1.0 =
+    builtin
+
+  fun set ['a] {len who : Nat} {who < len} (a : {len} 'a array, n : {who} nat, x : 'a) return unit using 1.0 =
+    builtin
+
+  fun make ['a] {len : Nat} (n : {len} nat, x : 'a) return {len} 'a array using $len =
+    builtin
+
+  fun init ['a] {len : Nat} {m : Time} (n : {len} nat, f : (forall {who : Nat}, {who} nat -- m --> 'a)) return {len} 'a array using m * $len =
+    builtin
+
+  fun append ['a] {len1 len2 : Nat} (a1 : {len1} 'a array, a2 : {len2} 'a array) return {len1 + len2} 'a array using $len1 + $len2 =
+    builtin
+
+  fun sub ['a] {len s d : Nat} {s + d <= len} (a : {len} 'a array, start : {s} nat, duration : {d} nat) return {d} 'a array using $d =
+    builtin
+
+  fun copy ['a] {len : Nat} (a : {len} 'a array) return {len} 'a array using $len =
+    builtin
+
+  fun fill ['a] {len s d : Nat} {s + d <= len} (a : {len} 'a array, start : {s} nat, duration : {d} nat, x : 'a) return unit using $d =
+    builtin
+
+  fun to_list ['a] {len : Nat} (a : {len} 'a array) return {len} 'a List.list using $len =
+    builtin
+
+  fun of_list ['a] {len : Nat} (l : {len} 'a List.list) return {len} 'a array using $len =
+    builtin
+
+  fun iter ['a] {m : Time} {len : Nat} (f : 'a -- m --> unit, a : {len} 'a array) return unit using m * $len =
+    builtin
+
+  fun iteri ['a] {m : Time} {len : Nat} (f : (forall {who : Nat}, {who} nat -> ('a -- m --> unit)), a : {len} 'a array) return unit using m * $len =
+    builtin
+
+  fun map ['a 'b] {m : Time} {len : Nat} (f : 'a -- m --> 'b, a : {len} 'a array) return {len} 'b array using m * $len =
+    builtin
+
+  fun mapi ['a 'b] {m : Time} {len : Nat} (f : (forall {who : Nat}, {who} nat -> ('a -- m --> 'b)), a : {len} 'a array) return {len} 'b array using m * $len =
+    builtin
+
+  fun fold_left ['a 'b] {m : Time} {len : Nat} (f : 'a -> ('b -- m --> 'a), x : 'a, a : {len} 'b array) return 'a using m * $len =
+    builtin
+
+  fun fold_right ['a 'b] {m : Time} {len : Nat} (f : 'b -> ('a -- m --> 'a), a : {len} 'b array, x : 'a) return 'a using m * $len =
+    builtin
+end
