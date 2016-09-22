@@ -108,17 +108,64 @@ Ltac openhyp :=
          | H : unique _ _ |- _ => destruct H
          end.
 
+Lemma nth_error_nil A n : @nth_error A [] n = None.
+Proof.
+  induct n; simplify; eauto.
+Qed.
+
+Lemma nth_error_Forall2 A B P ls1 ls2 :
+  Forall2 P ls1 ls2 ->
+  forall n (a : A),
+    nth_error ls1 n = Some a ->
+    exists b : B,
+      nth_error ls2 n = Some b /\
+      P a b.
+Proof.
+  induct 1; destruct n; simplify; repeat rewrite nth_error_nil in *; try discriminate; eauto.
+  invert H1.
+  eexists; eauto.
+Qed.
+
+Lemma map_firstn A B (f : A -> B) ls :
+  forall n,
+    map f (firstn n ls) = firstn n (map f ls).
+Proof.
+  induct ls; destruct n; simplify; eauto.
+  f_equal; eauto.
+Qed.
+
 Definition fmap_map {K A B} (f : A -> B) (m : fmap K A) : fmap K B.
 Admitted.
 
-Lemma fmap_map_lookup A B C (f : B -> C) m (k : A) (v : B) :
-  m $? k = Some v ->
-  fmap_map f m $? k = Some (f v).
+Lemma fmap_map_lookup K A B (f : A -> B) m (k : K) (a : A) :
+  m $? k = Some a ->
+  fmap_map f m $? k = Some (f a).
 Admitted.
+Lemma fmap_map_lookup_elim K A B (f : A -> B) m (k : K) (b : B) :
+  fmap_map f m $? k = Some b ->
+  exists a : A,
+    f a = b /\
+    m $? k = Some a.
+Admitted.
+
 Lemma fmap_map_ext A B (f g : A -> B) :
   (forall a, f a = g a) ->
   forall K (m : fmap K A), fmap_map f m = fmap_map g m.
-Admitted.
+Proof.
+  intros Hfg K m.
+  eapply fmap_ext.
+  intros k.
+  cases (fmap_map g m $? k).
+  {
+    eapply fmap_map_lookup_elim in Heq.
+    destruct Heq as (a & Hga & Hk).
+    subst.
+    rewrite <- Hfg.
+    eapply fmap_map_lookup; eauto.
+  }
+  admit.
+Admitted
+
 Lemma fmap_map_fmap_map K A B C (f : A -> B) (g : B -> C) (m : fmap K A) :
   fmap_map g (fmap_map f m) = fmap_map (fun x => g (f x)) m.
 Admitted.
@@ -146,17 +193,6 @@ Proof.
   eapply fmap_map_ext; eauto.
 Qed.
 
-Lemma nth_error_Forall2 A B P ls1 ls2 n (a : A) :
-  Forall2 P ls1 ls2 ->
-  nth_error ls1 n = Some a ->
-  exists b : B,
-    nth_error ls2 n = Some b /\
-    P a b.
-Admitted.
-
-Lemma nth_error_nil A n : @nth_error A [] n = None.
-Admitted.
-
 (* a reformulation of [skipn] that has a better reduction behavior *)
 Fixpoint my_skipn A (ls : list A) n :=
   match ls with
@@ -170,6 +206,7 @@ Fixpoint my_skipn A (ls : list A) n :=
 
 Lemma my_skipn_0 A (ls : list A) : my_skipn ls 0 = ls.
 Admitted.
+
 Lemma nth_error_insert A G y (t : A) x ls :
   nth_error G y = Some t ->
   x <= y ->
@@ -181,16 +218,8 @@ Lemma nth_error_before_insert A G y (t : A) x ls :
   nth_error (firstn x G ++ ls ++ my_skipn G x) y = Some t.
 Admitted.
 
-Lemma map_firstn A B (f : A -> B) n ls :
-  map f (firstn n ls) = firstn n (map f ls).
-Admitted.
 Lemma map_my_skipn A B (f : A -> B) n ls :
   map f (my_skipn ls n) = my_skipn (map f ls) n.
-Admitted.
-
-Lemma map_nth_error A B (f : A -> B) ls n a :
-  nth_error ls n = Some a ->
-  nth_error (map f ls) n = Some (f a).
 Admitted.
 
 (* Definition removen A n (ls : list A) := firstn n ls ++ skipn (1 + n) ls. *)
