@@ -148,34 +148,105 @@ Lemma fmap_map_lookup_elim K A B (f : A -> B) m (k : K) (b : B) :
     m $? k = Some a.
 Admitted.
 
+Lemma fmap_ext2 K A (m m' : fmap K A) :
+  (forall k v, m $? k = Some v -> m' $? k = Some v) ->
+  (forall k v, m' $? k = Some v -> m $? k = Some v) ->
+  m = m'.
+Proof.
+  intros H1 H2.
+  eapply fmap_ext.
+  intros k.
+  cases (m $? k).
+  {
+    eapply H1 in Heq.
+    eauto.
+  }
+  cases (m' $? k); eauto.
+  {
+    eapply H2 in Heq0.
+    erewrite Heq0 in Heq.
+    discriminate.
+  }
+Qed.
+
 Lemma fmap_map_ext A B (f g : A -> B) :
   (forall a, f a = g a) ->
   forall K (m : fmap K A), fmap_map f m = fmap_map g m.
 Proof.
   intros Hfg K m.
-  eapply fmap_ext.
-  intros k.
-  cases (fmap_map g m $? k).
+  eapply fmap_ext2.
   {
-    eapply fmap_map_lookup_elim in Heq.
-    destruct Heq as (a & Hga & Hk).
+    intros k v Hk.
+    eapply fmap_map_lookup_elim in Hk.
+    destruct Hk as (a & Hga & Hk).
     subst.
-    rewrite <- Hfg.
-    eapply fmap_map_lookup; eauto.
+    erewrite fmap_map_lookup; eauto.
+    f_equal; eauto.
   }
-  admit.
-Admitted
+  {
+    intros k v Hk.
+    eapply fmap_map_lookup_elim in Hk.
+    destruct Hk as (a & Hga & Hk).
+    subst.
+    erewrite fmap_map_lookup; eauto.
+    f_equal; eauto.
+  }
+Qed.
 
 Lemma fmap_map_fmap_map K A B C (f : A -> B) (g : B -> C) (m : fmap K A) :
   fmap_map g (fmap_map f m) = fmap_map (fun x => g (f x)) m.
-Admitted.
+Proof.
+  eapply fmap_ext2.
+  {
+    intros k v Hk.
+    eapply fmap_map_lookup_elim in Hk.
+    destruct Hk as (b & Hgb & Hk).
+    subst.
+    eapply fmap_map_lookup_elim in Hk.
+    destruct Hk as (a & Hfa & Hk).
+    subst.
+    erewrite fmap_map_lookup; eauto.
+  }
+  {
+    intros k v Hk.
+    eapply fmap_map_lookup_elim in Hk.
+    destruct Hk as (a & Hgfa & Hk).
+    subst.
+    erewrite fmap_map_lookup; eauto.
+    erewrite fmap_map_lookup; eauto.
+  }
+Qed.
+
 Lemma fmap_map_id K A (m : fmap K A) :
   fmap_map (fun x => x) m = m.
-Admitted.
+Proof.
+  eapply fmap_ext2.
+  {
+    intros k v Hk.
+    eapply fmap_map_lookup_elim in Hk.
+    destruct Hk as (a & ? & Hk).
+    subst.
+    eauto.
+  }
+  {
+    intros k v Hk.
+    erewrite fmap_map_lookup; eauto.
+  }
+Qed.
+
 Lemma incl_fmap_map K A B (f : A -> B) (m m' : fmap K A) :
   m $<= m' ->
   fmap_map f m $<= fmap_map f m'.
-Admitted.
+Proof.
+  intros Hincl.
+  eapply includes_intro.
+  intros k v Hk.
+  eapply fmap_map_lookup_elim in Hk.
+  destruct Hk as (a & ? & Hk).
+  subst.
+  eapply includes_lookup in Hincl; eauto.
+  erewrite fmap_map_lookup; eauto.
+Qed.
 
 Require Import Coq.Setoids.Setoid.
 Require Import Coq.Classes.Morphisms.
