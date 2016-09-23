@@ -1651,13 +1651,21 @@ Module M (Time : TIME).
   Proof.
   Admitted.
   
-  Lemma shift_c_c_Apps n x c cs :
-    shift_c_c n x (CApps c cs) = CApps (shift_c_c n x c) (map (shift_c_c n x) cs).
-  Admitted.
+  Lemma shift_c_c_Apps cs :
+    forall n x c,
+      shift_c_c n x (CApps c cs) = CApps (shift_c_c n x c) (map (shift_c_c n x) cs).
+  Proof.
+    induct cs; simplify; eauto.
+    rewrite IHcs; eauto.
+  Qed.
   
-  Lemma subst_c_c_Apps n v c cs :
-    subst_c_c n v (CApps c cs) = CApps (subst_c_c n v c) (map (subst_c_c n v) cs).
-  Admitted.
+  Lemma subst_c_c_Apps cs :
+    forall n v c,
+      subst_c_c n v (CApps c cs) = CApps (subst_c_c n v c) (map (subst_c_c n v) cs).
+  Proof.
+    induct cs; simplify; eauto.
+    rewrite IHcs; eauto.
+  Qed.
 
 
   (* ============================================================= *)
