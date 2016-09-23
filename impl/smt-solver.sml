@@ -51,6 +51,8 @@ datatype solver =
                          
 fun smt_solver filename get_ce solver vcs = 
     let
+      (* val () = println "SMT solver to solve these problems:" *)
+      (* val () = app println $ concatMap (fn vc => VC.str_vc false filename vc @ [""]) vcs *)
       val get_cs = if length vcs = 1 then get_ce else false
       val smt2 = to_smt2 get_ce vcs
       (* val () = println smt2 *)
