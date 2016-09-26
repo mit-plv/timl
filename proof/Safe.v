@@ -1100,7 +1100,7 @@ Module M (Time : TIME).
   with kinding : kctx -> cstr -> kind -> Prop :=
        | KdVar L x k :
            nth_error L x = Some k ->
-           kinding L (CVar x) k
+           kinding L (CVar x) (shift_c_k (1 + x) 0 k)
        | KdConst L cn :
            kinding L (CConst cn) (const_kind cn)
        | KdBinOp L opr c1 c2 :
@@ -1125,10 +1125,6 @@ Module M (Time : TIME).
            kinding L c1 (KArrow k1 k2) ->
            kinding L c2 k1 ->
            kinding L (CApp c1 c2) k2
-       | KdEq L c k k' :
-           kinding L c k ->
-           kdeq L k' k -> 
-           kinding L c k'
        | KdTimeAbs L i n :
            kinding (KNat :: L) i (KTimeFun n) ->
            monotone i ->
@@ -1144,7 +1140,204 @@ Module M (Time : TIME).
        | KdRef L t :
            kinding L t KType ->
            kinding L (CRef t) KType
+       | KdEq L c k k' :
+           kinding L c k ->
+           kdeq L k' k -> 
+           kinding L c k'
   .
+
+  (*
+Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
+(* | TyEqRefl L t : *)
+(*     tyeq L t t *)
+| TyEqVar L x :
+    tyeq L (CVar x) (CVar x)
+| TyConst L cn :
+    tyeq L (CConst cn) (CConst cn)
+(* | TyEqUnOp L opr t t' : *)
+(*     tyeq L t t' -> *)
+(*     tyeq L (CUnOp opr t) (CUnOp opr t') *)
+| TyEqBinOp L opr t1 t2 t1' t2' :
+    tyeq L t1 t1' ->
+    tyeq L t2 t2' ->
+    tyeq L (CBinOp opr t1 t2) (CBinOp opr t1' t2')
+| TyEqIte L t1 t2 t3 t1' t2' t3':
+    tyeq L t1 t1' ->
+    tyeq L t2 t2' ->
+    tyeq L t3 t3' ->
+    tyeq L (CIte t1 t2 t3) (CIte t1' t2' t3')
+| TyEqArrow L t1 i t2 t1' i' t2':
+    tyeq L t1 t1' ->
+    interpP L (PEq i i') ->
+    tyeq L t2 t2' ->
+    tyeq L (CArrow t1 i t2) (CArrow t1' i' t2')
+| TyEqApp L c1 c2 c1' c2' :
+    tyeq L c1 c1' ->
+    tyeq L c2 c2' ->
+    tyeq L (CApp c1 c2) (CApp c1' c2')
+| TyEqBeta L t1 t2  :
+    tyeq L (CApp (CAbs t1) t2) (subst0_c_c t2 t1)
+| TyEqBetaRev L t1 t2  :
+    tyeq L (subst0_c_c t2 t1) (CApp (CAbs t1) t2)
+| TyEqQuan L quan k t k' t' :
+    kdeq L k k' ->
+    tyeq (k :: L) t t' ->
+    tyeq L (CQuan quan k t) (CQuan quan k' t')
+| TyEqRec L k c k' c' :
+    kdeq L k k' ->
+    tyeq (k :: L) c c' ->
+    tyeq L (CRec k c) (CRec k' c')
+| TyEqRef L t t' :
+   tyeq L t t' ->
+   tyeq L (CRef t) (CRef t')
+(* the following rules are just here to satisfy reflexivity *)
+| TyEqTimeAbs L i :
+    tyeq L (CTimeAbs i) (CTimeAbs i)
+(* don't do deep equality test of two CAbs's *)
+| TyEqAbs L t :
+    tyeq L (CAbs t) (CAbs t)
+| TyEqTrans L a b c :
+    tyeq L a b ->
+    tyeq L b c ->
+    tyeq L a c
+.
+
+Hint Constructors tyeq.
+
+Lemma tyeq_refl : forall t L, tyeq L t t.
+Proof.
+  induct t; eauto using interpP_eq_refl, kdeq_refl.
+Qed.
+
+Lemma kdeq_tyeq L k k' t t' :
+  kdeq L k k' ->
+  tyeq (k :: L) t t' ->
+  tyeq (k' :: L) t t'.
+Admitted.
+
+Lemma tyeq_sym L t1 t2 : tyeq L t1 t2 -> tyeq L t2 t1.
+Proof.
+  induct 1; eauto using interpP_eq_sym, kdeq_sym.
+  {
+    econstructor; eauto using interpP_eq_sym, kdeq_sym.
+    eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym.
+  }
+  {
+    econstructor; eauto using interpP_eq_sym, kdeq_sym.
+    eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym.
+  }
+Qed.
+
+Lemma tyeq_trans L a b c :
+  tyeq L a b ->
+  tyeq L b c ->
+  tyeq L a c.
+Proof.
+  intros; eauto.
+Qed.
+
+Lemma invert_tyeq_Arrow L t1 i t2 tb : 
+    tyeq L (CArrow t1 i t2) tb ->
+      (exists t1' i' t2' ,
+          tb = CArrow t1' i' t2' /\
+          tyeq L t1 t1' /\
+          interpP L (PEq i i') /\
+          tyeq L t2 t2') \/
+      (exists t1' t2' ,
+          tb = CApp t1' t2').
+Proof.
+  induct 1; eauto.
+  {
+    left; repeat eexists_split; eauto.
+  }
+  {
+    specialize (Hcneq (CAbs t0) t3).
+    propositional.
+  }
+  induct 1; eauto.
+  {
+    repeat eexists_split; eauto.
+  }
+  {
+    specialize (Hcneq (CAbs t0) t3).
+    propositional.
+  }
+  eapply IHtyeq2; eauto using tyeq_sym.
+  intros Htyeq.
+  invert Htyeq.
+
+Qed.
+
+Lemma invert_tyeq_Arrow L ta tb : 
+  tyeq L ta tb ->
+  forall t1 i t2,
+    tyeq L ta (CArrow t1 i t2) ->
+    (exists t1' i' t2' ,
+        tb = CArrow t1' i' t2' /\
+        tyeq L t1 t1' /\
+        interpP L (PEq i i') /\
+        tyeq L t2 t2') \/
+    (exists t1' t2' ,
+        tb = CApp t1' t2').
+Proof.
+  induct 1; eauto.
+  intros.
+  invert H.
+  {
+    left; repeat eexists_split; eauto.
+  }
+
+Lemma invert_tyeq_Arrow L t1 i t2 tb : 
+  tyeq L (CArrow t1 i t2) tb ->
+  (forall t1' t2' ,
+      tb <> CApp t1' t2') ->
+  (exists t1' i' t2' ,
+      tb = CArrow t1' i' t2' /\
+      tyeq L t1 t1' /\
+      interpP L (PEq i i') /\
+      tyeq L t2 t2').
+Proof.
+  induct 1; eauto; intros Hcneq.
+  {
+    repeat eexists_split; eauto.
+  }
+  {
+    specialize (Hcneq (CAbs t0) t3).
+    propositional.
+  }
+  admit.
+  eapply IHtyeq2; eauto using tyeq_sym.
+  intros Htyeq.
+  invert Htyeq.
+Qed.
+
+Lemma CForall_CArrow_false' L ta tb : 
+    tyeq L ta tb ->
+    forall k t t1 i t2,
+      tyeq L ta (CForall k t) ->
+      tyeq L tb (CArrow t1 i t2) ->
+      False.
+Proof.
+  induct 1; eauto.
+  eapply IHtyeq2; eauto using tyeq_sym.
+  intros Htyeq.
+  invert Htyeq.
+Qed.
+
+Lemma CForall_CArrow_false' L k t t1 i t2 : 
+    tyeq L (CForall k t) (CArrow t1 i t2) ->
+    False.
+Proof.
+  induct 1.
+Qed.
+  
+Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' :
+  tyeq L (CArrow t1 i t2) (CArrow t1' i' t2') ->
+  tyeq L t1 t1' /\
+  interpP L (PEq i i') /\
+  tyeq L t2 t2'.
+Admitted.
+   *)
 
   Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
   (* | TyEqRefl L t : *)
@@ -1543,30 +1736,6 @@ Module M (Time : TIME).
     | b :: bs => subst_c_k (length bs) (shift_c_c (length bs) 0 v) b :: subst_c_ks v bs
     end.
 
-  Lemma kd_subst_c_c L c' k' :
-    kinding L c' k' ->
-    forall n k c ,
-      nth_error L n = Some k ->
-      kinding (my_skipn L (1 + n)) c k ->
-      kinding (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_c n (shift_c_c n 0 c) c') (subst_c_k n (shift_c_c n 0 c) k').
-  Admitted.
-  
-  Lemma wfkind_subst_c_k L k' :
-    wfkind L k' ->
-    forall n k c ,
-      nth_error L n = Some k ->
-      kinding (my_skipn L (1 + n)) c k ->
-      wfkind (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_k n (shift_c_c n 0 c) k').
-  Admitted.
-
-  Lemma interpP_subst_c_p L p :
-    interpP L p ->
-    forall n k c ,
-      nth_error L n = Some k ->
-      kinding (my_skipn L (1 + n)) c k ->
-      interpP (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_p n (shift_c_c n 0 c) p).
-  Admitted.
-  
   Lemma tyeq_subst_c_c L c1' c2' :
     tyeq L c1' c2' ->
     forall n k c1 c2 ,
@@ -1577,12 +1746,185 @@ Module M (Time : TIME).
       tyeq (subst_c_ks c1 (firstn n L) ++ my_skipn L (1 + n)) (subst_c_c n (shift_c_c n 0 c1) c1') (subst_c_c n (shift_c_c n 0 c2) c2').
   Admitted.
   
+  Lemma interpP_subst_c_p L p :
+    interpP L p ->
+    forall n k c ,
+      nth_error L n = Some k ->
+      kinding (my_skipn L (1 + n)) c k ->
+      interpP (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_p n (shift_c_c n 0 c) p).
+  Admitted.
+  
+  Lemma wfkind_subst_c_k L k' :
+    wfkind L k' ->
+    forall n k c ,
+      nth_error L n = Some k ->
+      kinding (my_skipn L (1 + n)) c k ->
+      wfkind (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_k n (shift_c_c n 0 c) k').
+  Admitted.
+
+  Lemma kd_subst_c_c L c' k' :
+    kinding L c' k' ->
+    forall n k c ,
+      nth_error L n = Some k ->
+      kinding (my_skipn L (1 + n)) c k ->
+      kinding (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_c n (shift_c_c n 0 c) c') (subst_c_k n (shift_c_c n 0 c) k').
+  Proof.
+    induct 1; simplify.
+    Lemma subst_c_k_shift x y v b :
+      x <= y ->
+      subst_c_k y (shift_c_c y 0 v) (shift_c_k x 0 b) = shift_c_k x 0 (subst_c_k (y - x) (shift_c_c (y - x) 0 v) b).
+    Admitted.
+    Lemma length_firstn_le A (L : list A) n :
+      n <= length L ->
+      length (firstn n L) = n.
+    Proof.
+      intros.
+      rewrite firstn_length.
+      linear_arithmetic.
+    Qed.
+    
+    Lemma nth_error_Some_lt A ls n (a : A) :
+      nth_error ls n = Some a ->
+      n < length ls.
+    Proof.
+      intros Hnth.
+      eapply nth_error_Some.
+      intros H.
+      rewrite Hnth in H.
+      invert H.
+    Qed.
+    
+    Lemma nth_error_length_firstn A L n (a : A) :
+      nth_error L n = Some a ->
+      length (firstn n L) = n.
+    Proof.
+      intros Hnth.
+      eapply length_firstn_le.
+      eapply nth_error_Some_lt in Hnth.
+      linear_arithmetic.
+    Qed.
+    
+    Lemma nth_error_subst_c_ks bs :
+      forall x b v,
+        nth_error bs x = Some b ->
+        let n := length bs in
+        nth_error (subst_c_ks v bs) x = Some (subst_c_k (n - S x) (shift_c_c (n - S x) 0 v) b).
+    Proof.
+      induct bs; simplify.
+      {
+        rewrite nth_error_nil in *; discriminate.
+      }
+      destruct x; simplify; eauto.
+      invert H.
+      repeat f_equal; linear_arithmetic.
+    Qed.
+    
+    Lemma nth_error_firstn A x n (L : list A) :
+      x < n ->
+      n <= length L ->
+      nth_error (firstn n L) x = nth_error L x.
+    Admitted.
+    
+    Lemma length_subst_c_ks bs :
+      forall v,
+        length (subst_c_ks v bs) = length bs.
+    Proof.
+      induct bs; simplify; eauto.
+    Qed.
+    
+    Lemma subst_c_k_shift_avoid x y v b :
+      y < x ->
+      subst_c_k y (shift_c_c y 0 v) (shift_c_k x 0 b) = shift_c_k (x - 1) 0 b.
+    Admitted.
+    
+    {
+      (* Case Var *)
+      copy H0 HnltL.
+      eapply nth_error_Some_lt in HnltL.
+      cases (lt_eq_gt_dec x n).
+      {
+        rewrite subst_c_k_shift by linear_arithmetic.
+        econstructor.
+        rewrite nth_error_app1.
+        {
+          erewrite nth_error_subst_c_ks.
+          {
+            repeat erewrite nth_error_length_firstn by eauto.
+            eauto.
+          }
+          rewrite nth_error_firstn by linear_arithmetic.
+          eauto.
+        }
+        rewrite length_subst_c_ks.
+        repeat erewrite nth_error_length_firstn by eauto.
+        eauto.
+      }
+      {
+        subst.
+        rewrite H0 in H.
+        invert H.
+        rewrite subst_c_k_shift_avoid by linear_arithmetic.
+        simplify.
+        repeat rewrite Nat.sub_0_r in *.
+        eapply kd_shift_c_c with (x := 0) (ls := subst_c_ks c (firstn n L)) in H1.
+        rewrite length_subst_c_ks in *.
+        repeat erewrite nth_error_length_firstn in * by eauto.
+        simplify.
+        rewrite my_skipn_0 in *.
+        eapply H1.
+      }
+      {
+        rewrite subst_c_k_shift_avoid by linear_arithmetic.
+        simplify.
+        repeat rewrite Nat.sub_0_r in *.
+        destruct x as [| x]; simplify; try linear_arithmetic.
+        repeat rewrite Nat.sub_0_r in *.
+        eapply KdVar.
+        rewrite nth_error_app2; repeat rewrite length_subst_c_ks in *.
+        {
+          (*here*) 
+        }
+      }
+    }
+    
+  Qed.
+  
   Fixpoint CApps t cs :=
     match cs with
     | nil => t
     | c :: cs => CApps (CApp t c) cs
     end
   .
+
+  Lemma TyEqApps L cs cs' :
+    Forall2 (tyeq L) cs cs' ->
+    forall t t',
+      tyeq L t t' ->
+      tyeq L (CApps t cs) (CApps t' cs').
+  Proof.
+    induct 1; simplify; eauto.
+    eapply IHForall2.
+    econstructor; eauto.
+  Qed.
+  
+  (* Lemma invert_tyeq_CApps cs cs' c c' : *)
+  (*     tyeq [] (CApps c cs) (CApps c' cs') -> *)
+  (*     tyeq [] c c' /\ *)
+  (*     Forall2 (tyeq []) cs cs'. *)
+  (* Proof. *)
+  (*   induct 1; simplify. *)
+  (*   { *)
+  (*     destruct cs; destruct cs'; simplify; try discriminate. *)
+  (*     admit. *)
+  (*   } *)
+  (* Qed. *)
+
+  Lemma invert_tyeq_CApps_CRec cs cs' k t k' t' :
+    tyeq [] (CApps (CRec k t) cs) (CApps (CRec k' t') cs') ->
+    kdeq [] k k' /\
+    tyeq [k] t t' /\
+    Forall2 (tyeq []) cs cs'.
+  Admitted.
 
   Lemma CApps_CRec_CArrow_false cs k3 t3 t1 i t2 :
     tyeq [] (CApps (CRec k3 t3) cs) (CArrow t1 i t2) ->
@@ -1635,20 +1977,6 @@ Module M (Time : TIME).
   Lemma CApps_CRec_CConst_false cs k3 t3 cn  :
     tyeq [] (CApps (CRec k3 t3) cs) (CConst cn) ->
     False.
-  Admitted.
-  
-  Lemma invert_tyeq_CApps k t cs k' t' cs' :
-    tyeq [] (CApps (CRec k t) cs) (CApps (CRec k' t') cs') ->
-    kdeq [] k k' /\
-    tyeq [k] t t' /\
-    Forall2 (tyeq []) cs cs'.
-  Admitted.
-
-  Lemma TyEqApps L t cs t' cs' :
-    tyeq L t t' ->
-    Forall2 (tyeq L) cs cs' ->
-    tyeq L (CApps t cs) (CApps t' cs').
-  Proof.
   Admitted.
   
   Lemma shift_c_c_Apps cs :
@@ -2212,31 +2540,6 @@ Module M (Time : TIME).
       invert Htyeq.
   Qed.
 
-  Lemma length_firstn_le A (L : list A) n :
-    n <= length L ->
-    length (firstn n L) = n.
-  Proof.
-    intros.
-    rewrite firstn_length.
-    linear_arithmetic.
-  Qed.
-  
-  Lemma nth_error_length_firstn A L n (a : A) :
-    nth_error L n = Some a ->
-    length (firstn n L) = n.
-  Proof.
-    intros Hnth.
-    eapply length_firstn_le.
-    assert (Hlt : n < length L).
-    {
-      eapply nth_error_Some.
-      intros H.
-      rewrite Hnth in H.
-      invert H.
-    }
-    linear_arithmetic.
-  Qed.
-  
   Lemma subst_c_c_const_type x v cn :
     subst_c_c x v (const_type cn) = const_type cn.
   Proof.
@@ -4451,7 +4754,7 @@ Module M (Time : TIME).
       destruct Hty as (? & ? & cs' & k' & t2' & i'' & Htyeq2 & ? & ? & Hkd & Hty & Hle3).
       subst.
       simplify.
-      eapply invert_tyeq_CApps in Htyeq2.
+      eapply invert_tyeq_CApps_CRec in Htyeq2.
       destruct Htyeq2 as (Hkdeq & Htyeq2 & Htyeqcs).
       split.
       {
