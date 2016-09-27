@@ -1058,94 +1058,112 @@ Module M (Time : TIME).
   Definition monotone : cstr -> Prop.
   Admitted.
 
-  Inductive wfprop : kctx -> prop -> Prop :=
-  | WfPropTrue L :
-      wfprop L PTrue
-  | WfPropFalse L :
-      wfprop L PFalse
-  | WfPropBinConn L opr p1 p2 :
-      wfprop L p1 ->
-      wfprop L p2 ->
-      wfprop L (PBinConn opr p1 p2)
-  | WfPropNot L p :
-      wfprop L p ->
-      wfprop L (PNot p)
-  | WfPropBinPred L opr i1 i2 :
-      kinding L i1 (binpred_arg1_kind opr) ->
-      kinding L i2 (binpred_arg2_kind opr) ->
-      wfprop L (PBinPred opr i1 i2) 
-  | WfPropEq L i1 i2 k :
-      kinding L i1 k ->
-      kinding L i2 k ->
-      wfprop L (PEq i1 i2) 
-  | WfPropQuan L q p k :
-      wfkind L k ->
-      wfprop (k :: L) p ->
-      wfprop L (PQuan q p)
-             
-  with wfkind : kctx -> kind -> Prop :=
-       | WfKdType L :
-           wfkind L KType
-       | WfKdArrow L k1 k2 :
+  Inductive kinding : kctx -> cstr -> kind -> Prop :=
+       (* | KdVar L x k : *)
+       (*     nth_error L x = Some k -> *)
+       (*     kinding L (CVar x) (shift_c_k (1 + x) 0 k) *)
+       (* | KdConst L cn : *)
+       (*     kinding L (CConst cn) (const_kind cn) *)
+       (* | KdBinOp L opr c1 c2 : *)
+       (*     kinding L c1 (cbinop_arg1_kind opr) -> *)
+       (*     kinding L c2 (cbinop_arg2_kind opr) -> *)
+       (*     kinding L (CBinOp opr c1 c2) (cbinop_result_kind opr) *)
+       (* | KdIte L c c1 c2 k : *)
+       (*     kinding L c KBool -> *)
+       (*     kinding L c1 k -> *)
+       (*     kinding L c2 k -> *)
+       (*     kinding L (CIte c c1 c2) k *)
+       (* | KdArrow L t1 i t2 : *)
+       (*     kinding L t1 KType -> *)
+       (*     kinding L i KTime -> *)
+       (*     kinding L t2 KType -> *)
+       (*     kinding L (CArrow t1 i t2) KType *)
+       | KdAbs L c k1 k2 :
            wfkind L k1 ->
-           wfkind L k2 ->
-           wfkind L (KArrow k1 k2)
-       | WfKdBaseSort L b :
-           wfkind L (KBaseSort b)
+           kinding (k1 :: L) c (shift_c_k 1 0 k2) ->
+           kinding L (CAbs c) (KArrow k1 k2)
+       (* | KdApp L c1 c2 k1 k2 : *)
+       (*     kinding L c1 (KArrow k1 k2) -> *)
+       (*     kinding L c2 k1 -> *)
+       (*     kinding L (CApp c1 c2) k2 *)
+       (* | KdTimeAbs L i n : *)
+       (*     kinding (KNat :: L) i (KTimeFun n) -> *)
+       (*     monotone i -> *)
+       (*     kinding L (CTimeAbs i) (KTimeFun (1 + n)) *)
+       (* | KdQuan L quan k c : *)
+       (*     wfkind L k -> *)
+       (*     kinding (k :: L) c KType -> *)
+       (*     kinding L (CQuan quan k c) KType *)
+       (* | KdRec L k c : *)
+       (*     wfkind L k -> *)
+       (*     kinding (k :: L) c k -> *)
+       (*     kinding L (CRec k c) k *)
+       (* | KdRef L t : *)
+       (*     kinding L t KType -> *)
+       (*     kinding L (CRef t) KType *)
+       (* | KdEq L c k k' : *)
+       (*     kinding L c k -> *)
+       (*     kdeq L k' k ->  *)
+                   (*     kinding L c k' *)
+                   
+  with wfkind : kctx -> kind -> Prop :=
+       (* | WfKdType L : *)
+       (*     wfkind L KType *)
+       (* | WfKdArrow L k1 k2 : *)
+       (*     wfkind L k1 -> *)
+       (*     wfkind L k2 -> *)
+       (*     wfkind L (KArrow k1 k2) *)
+       (* | WfKdBaseSort L b : *)
+       (*     wfkind L (KBaseSort b) *)
        | WfKdSubset L k p :
            wfkind L k ->
            wfprop (k :: L) p ->
            wfkind L (KSubset k p)
 
-  with kinding : kctx -> cstr -> kind -> Prop :=
-       | KdVar L x k :
-           nth_error L x = Some k ->
-           kinding L (CVar x) (shift_c_k (1 + x) 0 k)
-       | KdConst L cn :
-           kinding L (CConst cn) (const_kind cn)
-       | KdBinOp L opr c1 c2 :
-           kinding L c1 (cbinop_arg1_kind opr) ->
-           kinding L c2 (cbinop_arg2_kind opr) ->
-           kinding L (CBinOp opr c1 c2) (cbinop_result_kind opr)
-       | KdIte L c c1 c2 k :
-           kinding L c KBool ->
-           kinding L c1 k ->
-           kinding L c2 k ->
-           kinding L (CIte c c1 c2) k
-       | KdArrow L t1 i t2 :
-           kinding L t1 KType ->
-           kinding L i KTime ->
-           kinding L t2 KType ->
-           kinding L (CArrow t1 i t2) KType
-       | KdAbs L c k1 k2 :
-           wfkind L k1 ->
-           kinding (k1 :: L) c (shift_c_k 1 0 k2) ->
-           kinding L (CAbs c) (KArrow k1 k2)
-       | KdApp L c1 c2 k1 k2 :
-           kinding L c1 (KArrow k1 k2) ->
-           kinding L c2 k1 ->
-           kinding L (CApp c1 c2) k2
-       | KdTimeAbs L i n :
-           kinding (KNat :: L) i (KTimeFun n) ->
-           monotone i ->
-           kinding L (CTimeAbs i) (KTimeFun (1 + n))
-       | KdQuan L quan k c :
-           wfkind L k ->
-           kinding (k :: L) c KType ->
-           kinding L (CQuan quan k c) KType
-       | KdRec L k c :
-           wfkind L k ->
-           kinding (k :: L) c k ->
-           kinding L (CRec k c) k
-       | KdRef L t :
-           kinding L t KType ->
-           kinding L (CRef t) KType
-       | KdEq L c k k' :
-           kinding L c k ->
-           kdeq L k' k -> 
-           kinding L c k'
+  with wfprop : kctx -> prop -> Prop :=
+  (* | WfPropTrue L : *)
+  (*     wfprop L PTrue *)
+  (* | WfPropFalse L : *)
+  (*     wfprop L PFalse *)
+  (* | WfPropBinConn L opr p1 p2 : *)
+  (*     wfprop L p1 -> *)
+  (*     wfprop L p2 -> *)
+  (*     wfprop L (PBinConn opr p1 p2) *)
+  (* | WfPropNot L p : *)
+  (*     wfprop L p -> *)
+  (*     wfprop L (PNot p) *)
+  (* | WfPropBinPred L opr i1 i2 : *)
+  (*     kinding L i1 (binpred_arg1_kind opr) -> *)
+  (*     kinding L i2 (binpred_arg2_kind opr) -> *)
+  (*     wfprop L (PBinPred opr i1 i2) *)
+  | WfPropEq L i1 i2 k :
+      kinding L i1 k ->
+      kinding L i2 k ->
+      wfprop L (PEq i1 i2)
+  (* | WfPropQuan L q p k : *)
+  (*     wfkind L k -> *)
+  (*     wfprop (k :: L) p -> *)
+  (*     wfprop L (PQuan q p) *)
+             
   .
 
+  Section kinding_ind2.
+
+    Variable Pkd : kctx -> cstr -> kind -> Prop.
+
+    Variable CaseKdAbs
+    Fixpoint kinding_ind2 L c k (H : kinding L c' k') {struct H} : Pkd L c k :=
+      match H with
+        | KdAbs L c k1 k2 Hwfkind Hkd =>
+      
+    with wfkind_ind2 L k :
+         wfkind L k' ->
+         forall n k c ,
+           nth_error L n = Some k ->
+           kinding (my_skipn L (1 + n)) c k ->
+           wfkind (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_k n (shift_c_c n 0 c) k').
+
+  End kinding_ind2.
   (*
 Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
 (* | TyEqRefl L t : *)
