@@ -1149,19 +1149,31 @@ Module M (Time : TIME).
 
   Section kinding_ind2.
 
-    Variable Pkd : kctx -> cstr -> kind -> Prop.
+    Variable Pkinding : kctx -> cstr -> kind -> Prop.
+    Variable Pwfkind : kctx -> kind -> Prop.
 
-    Variable CaseKdAbs
-    Fixpoint kinding_ind2 L c k (H : kinding L c' k') {struct H} : Pkd L c k :=
+    Unset Implicit Arguments.
+    
+    Variable HKdAbs :
+      forall L c k1 k2,
+        wfkind L k1 ->
+        Pwfkind L k1 ->
+        kinding (k1 :: L) c (shift_c_k 1 0 k2) ->
+        Pkinding (k1 :: L) c (shift_c_k 1 0 k2) ->
+        Pkinding L (CAbs c) (KArrow k1 k2).
+    
+    Set Implicit Arguments.
+    
+    Fixpoint kinding_ind2 L c k (H : kinding L c' k') {struct H} : Pkinding L c k :=
       match H with
-        | KdAbs L c k1 k2 Hwfkind Hkd =>
-      
-    with wfkind_ind2 L k :
-         wfkind L k' ->
-         forall n k c ,
-           nth_error L n = Some k ->
-           kinding (my_skipn L (1 + n)) c k ->
-           wfkind (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_k n (shift_c_c n 0 c) k').
+      | KdAbs L c k1 k2 Hwfkind Hkinding =>
+        HKdAbs L c k1 k2 Hwfkind (wfkind_ind2 Hwfkind) Hkinding (kinding_ind2 Hkinding)
+      end
+    with
+    wfkind_ind2 L k (H : wfkind L k) {struct H} : Pwfkind L k :=
+      match H with
+      | 
+      end
 
   End kinding_ind2.
   (*
