@@ -110,7 +110,7 @@ Ltac openhyp :=
 
 Lemma nth_error_nil A n : @nth_error A [] n = None.
 Proof.
-  induct n; simplify; eauto.
+  induction n; simplify; eauto.
 Qed.
 
 Lemma nth_error_Forall2 A B P ls1 ls2 :
@@ -130,7 +130,7 @@ Lemma map_firstn A B (f : A -> B) ls :
   forall n,
     map f (firstn n ls) = firstn n (map f ls).
 Proof.
-  induct ls; destruct n; simplify; eauto.
+  induction ls; destruct n; simplify; eauto.
   f_equal; eauto.
 Qed.
 
@@ -1119,7 +1119,7 @@ Module M (Time : TIME).
            kinding L (CArrow t1 i t2) KType
        | KdAbs L c k1 k2 :
            wfkind L k1 ->
-           kinding (k1 :: L) c k2 ->
+           kinding (k1 :: L) c (shift_c_k 1 0 k2) ->
            kinding L (CAbs c) (KArrow k1 k2)
        | KdApp L c1 c2 k1 k2 :
            kinding L c1 (KArrow k1 k2) ->
@@ -1754,139 +1754,231 @@ Admitted.
       interpP (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_p n (shift_c_c n 0 c) p).
   Admitted.
   
-  Lemma wfkind_subst_c_k L k' :
-    wfkind L k' ->
-    forall n k c ,
-      nth_error L n = Some k ->
-      kinding (my_skipn L (1 + n)) c k ->
-      wfkind (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_k n (shift_c_c n 0 c) k').
+  Lemma subst_c_k_shift x y v b :
+    x <= y ->
+    subst_c_k y (shift_c_c y 0 v) (shift_c_k x 0 b) = shift_c_k x 0 (subst_c_k (y - x) (shift_c_c (y - x) 0 v) b).
   Admitted.
+  Lemma length_firstn_le A (L : list A) n :
+    n <= length L ->
+    length (firstn n L) = n.
+  Proof.
+    intros.
+    rewrite firstn_length.
+    linear_arithmetic.
+  Qed.
+  
+  Lemma nth_error_Some_lt A ls :
+    forall n (a : A),
+      nth_error ls n = Some a ->
+      n < length ls.
+  Proof.
+    induction ls; simplify; eauto.
+    {
+      rewrite nth_error_nil in *.
+      discriminate.
+    }
+    destruct n; simplify; try linear_arithmetic.
+    eapply IHls in H.
+    linear_arithmetic.
+  Qed.
+  
+  Lemma nth_error_length_firstn A L n (a : A) :
+    nth_error L n = Some a ->
+    length (firstn n L) = n.
+  Proof.
+    intros Hnth.
+    eapply length_firstn_le.
+    eapply nth_error_Some_lt in Hnth.
+    linear_arithmetic.
+  Qed.
+  
+  Lemma nth_error_subst_c_ks bs :
+    forall x b v,
+      nth_error bs x = Some b ->
+      let n := length bs in
+      nth_error (subst_c_ks v bs) x = Some (subst_c_k (n - S x) (shift_c_c (n - S x) 0 v) b).
+  Proof.
+    induction bs; simplify.
+    {
+      rewrite nth_error_nil in *; discriminate.
+    }
+    destruct x; simplify; eauto.
+    invert H.
+    try unfold value; repeat f_equal; linear_arithmetic.
+  Qed.
+  
+  Lemma nth_error_firstn A x n (L : list A) :
+    x < n ->
+    n <= length L ->
+    nth_error (firstn n L) x = nth_error L x.
+  Admitted.
+  
+  Lemma length_subst_c_ks bs :
+    forall v,
+      length (subst_c_ks v bs) = length bs.
+  Proof.
+    induction bs; simplify; eauto.
+  Qed.
+  
+  Lemma subst_c_k_shift_avoid x y v b :
+    y < x ->
+    subst_c_k y (shift_c_c y 0 v) (shift_c_k x 0 b) = shift_c_k (x - 1) 0 b.
+  Admitted.
+  
+  Lemma nth_error_my_skipn A (ls : list A) :
+    forall x n,
+      n <= length ls ->
+      nth_error (my_skipn ls n) x = nth_error ls (n + x).
+  Proof.
+    induction ls; simplify.
+    {
+      repeat rewrite nth_error_nil in *.
+      eauto.
+    }
+    destruct n as [|n]; simplify; eauto.
+    eapply IHls; linear_arithmetic.
+  Qed.
+  
+  Lemma subst_c_k_cbinop_result_kind x v opr :
+    subst_c_k x v (cbinop_result_kind opr) = cbinop_result_kind opr.
+  Proof.
+    cases opr; simplify; eauto.
+  Qed.
+  Lemma subst_c_k_cbinop_arg1_kind x v opr :
+    subst_c_k x v (cbinop_arg1_kind opr) = cbinop_result_kind opr.
+  Proof.
+    cases opr; simplify; eauto.
+  Qed.
+  Lemma subst_c_k_cbinop_arg2_kind x v opr :
+    subst_c_k x v (cbinop_arg2_kind opr) = cbinop_result_kind opr.
+  Proof.
+    cases opr; simplify; eauto.
+  Qed.
+  
+  (* Lemma wfkind_subst_c_k L k' : *)
+  (*   wfkind L k' -> *)
+  (*   forall n k c , *)
+  (*     nth_error L n = Some k -> *)
+  (*     kinding (my_skipn L (1 + n)) c k -> *)
+  (*     wfkind (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_k n (shift_c_c n 0 c) k'). *)
+  (* Admitted. *)
 
   Lemma kd_subst_c_c L c' k' :
     kinding L c' k' ->
     forall n k c ,
       nth_error L n = Some k ->
       kinding (my_skipn L (1 + n)) c k ->
-      kinding (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_c n (shift_c_c n 0 c) c') (subst_c_k n (shift_c_c n 0 c) k').
+      kinding (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_c n (shift_c_c n 0 c) c') (subst_c_k n (shift_c_c n 0 c) k')
+  with wfkind_subst_c_k L k' :
+         wfkind L k' ->
+         forall n k c ,
+           nth_error L n = Some k ->
+           kinding (my_skipn L (1 + n)) c k ->
+           wfkind (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_k n (shift_c_c n 0 c) k').
   Proof.
-    induct 1; simplify.
-    Lemma subst_c_k_shift x y v b :
-      x <= y ->
-      subst_c_k y (shift_c_c y 0 v) (shift_c_k x 0 b) = shift_c_k x 0 (subst_c_k (y - x) (shift_c_c (y - x) 0 v) b).
-    Admitted.
-    Lemma length_firstn_le A (L : list A) n :
-      n <= length L ->
-      length (firstn n L) = n.
-    Proof.
-      intros.
-      rewrite firstn_length.
-      linear_arithmetic.
-    Qed.
-    
-    Lemma nth_error_Some_lt A ls n (a : A) :
-      nth_error ls n = Some a ->
-      n < length ls.
-    Proof.
-      intros Hnth.
-      eapply nth_error_Some.
-      intros H.
-      rewrite Hnth in H.
-      invert H.
-    Qed.
-    
-    Lemma nth_error_length_firstn A L n (a : A) :
-      nth_error L n = Some a ->
-      length (firstn n L) = n.
-    Proof.
-      intros Hnth.
-      eapply length_firstn_le.
-      eapply nth_error_Some_lt in Hnth.
-      linear_arithmetic.
-    Qed.
-    
-    Lemma nth_error_subst_c_ks bs :
-      forall x b v,
-        nth_error bs x = Some b ->
-        let n := length bs in
-        nth_error (subst_c_ks v bs) x = Some (subst_c_k (n - S x) (shift_c_c (n - S x) 0 v) b).
-    Proof.
-      induct bs; simplify.
-      {
-        rewrite nth_error_nil in *; discriminate.
-      }
-      destruct x; simplify; eauto.
-      invert H.
-      repeat f_equal; linear_arithmetic.
-    Qed.
-    
-    Lemma nth_error_firstn A x n (L : list A) :
-      x < n ->
-      n <= length L ->
-      nth_error (firstn n L) x = nth_error L x.
-    Admitted.
-    
-    Lemma length_subst_c_ks bs :
-      forall v,
-        length (subst_c_ks v bs) = length bs.
-    Proof.
-      induct bs; simplify; eauto.
-    Qed.
-    
-    Lemma subst_c_k_shift_avoid x y v b :
-      y < x ->
-      subst_c_k y (shift_c_c y 0 v) (shift_c_k x 0 b) = shift_c_k (x - 1) 0 b.
-    Admitted.
-    
     {
-      (* Case Var *)
-      copy H0 HnltL.
-      eapply nth_error_Some_lt in HnltL.
-      cases (lt_eq_gt_dec x n).
+      induct 1; simplify; try solve [clear kd_subst_c_c wfkind_subst_c_k; econstructor; eauto].
+      Focus 4.
       {
-        rewrite subst_c_k_shift by linear_arithmetic.
+        (* Case Abs *)
         econstructor.
-        rewrite nth_error_app1.
         {
-          erewrite nth_error_subst_c_ks.
-          {
-            repeat erewrite nth_error_length_firstn by eauto.
-            eauto.
-          }
-          rewrite nth_error_firstn by linear_arithmetic.
-          eauto.
+          eapply wfkind_subst_c_k; clear kd_subst_c_c wfkind_subst_c_k; eauto.
         }
-        rewrite length_subst_c_ks.
-        repeat erewrite nth_error_length_firstn by eauto.
+        clear kd_subst_c_c wfkind_subst_c_k.
+        specialize (IHkinding (S n) k c0).
+        simplify.
+        repeat erewrite nth_error_length_firstn in * by eauto.
+        rewrite subst_c_k_shift in * by linear_arithmetic.
+        simplify.
+        Require Import NPeano.
+        repeat rewrite Nat.sub_0_r in *.
+        rewrite shift0_c_c_shift_0.
         eauto.
       }
+      Unfocus.
+      admit.
+      admit.
+      admit.
+      admit.
+      admit.
+      admit.
+      admit.
+    }
+    admit.
+  Qed.
+      Guarded.
+      (*here*)
+  Admitted.
       {
-        subst.
-        rewrite H0 in H.
-        invert H.
-        rewrite subst_c_k_shift_avoid by linear_arithmetic.
-        simplify.
-        repeat rewrite Nat.sub_0_r in *.
-        eapply kd_shift_c_c with (x := 0) (ls := subst_c_ks c (firstn n L)) in H1.
-        rewrite length_subst_c_ks in *.
-        repeat erewrite nth_error_length_firstn in * by eauto.
-        simplify.
-        rewrite my_skipn_0 in *.
-        eapply H1.
-      }
-      {
-        rewrite subst_c_k_shift_avoid by linear_arithmetic.
-        simplify.
-        repeat rewrite Nat.sub_0_r in *.
-        destruct x as [| x]; simplify; try linear_arithmetic.
-        repeat rewrite Nat.sub_0_r in *.
-        eapply KdVar.
-        rewrite nth_error_app2; repeat rewrite length_subst_c_ks in *.
+        (* Case Var *)
+        copy H0 HnltL.
+        eapply nth_error_Some_lt in HnltL.
+        cases (lt_eq_gt_dec x n).
         {
-          (*here*) 
+          rewrite subst_c_k_shift by linear_arithmetic.
+          econstructor.
+          rewrite nth_error_app1.
+          {
+            erewrite nth_error_subst_c_ks.
+            {
+              repeat erewrite nth_error_length_firstn by eauto.
+              eauto.
+            }
+            rewrite nth_error_firstn by linear_arithmetic.
+            eauto.
+          }
+          rewrite length_subst_c_ks.
+          repeat erewrite nth_error_length_firstn by eauto.
+          eauto.
+        }
+        {
+          subst.
+          rewrite H0 in H.
+          invert H.
+          rewrite subst_c_k_shift_avoid by linear_arithmetic.
+          simplify.
+          repeat rewrite Nat.sub_0_r in *.
+          eapply kd_shift_c_c with (x := 0) (ls := subst_c_ks c (firstn n L)) in H1.
+          rewrite length_subst_c_ks in *.
+          repeat erewrite nth_error_length_firstn in * by eauto.
+          simplify.
+          rewrite my_skipn_0 in *.
+          eapply H1.
+        }
+        {
+          rewrite subst_c_k_shift_avoid by linear_arithmetic.
+          simplify.
+          repeat rewrite Nat.sub_0_r in *.
+          destruct x as [| x]; simplify; try linear_arithmetic.
+          repeat rewrite Nat.sub_0_r in *.
+          eapply KdVar.
+          rewrite nth_error_app2; repeat rewrite length_subst_c_ks in *.
+          {
+            rewrite nth_error_my_skipn; repeat erewrite nth_error_length_firstn by eauto; try linear_arithmetic.
+            replace (S n + (x - n)) with (S x); eauto.
+            linear_arithmetic.
+          }
+          {
+            repeat erewrite nth_error_length_firstn by eauto.
+            linear_arithmetic.
+          }
         }
       }
+      {
+        (* Case Const *)
+        cases cn; simplify; econstructor.
+      }
+      {
+        (* Case BinOp *)
+        rewrite subst_c_k_cbinop_result_kind.
+        specialize (IHkinding1 n k c).
+        rewrite subst_c_k_cbinop_arg1_kind in *.
+        specialize (IHkinding2 n k c).
+        rewrite subst_c_k_cbinop_arg2_kind in *.
+        eapply KdBinOp; eauto.
+      }
     }
-    
   Qed.
   
   Fixpoint CApps t cs :=
