@@ -5,15 +5,10 @@ datatype {Nat} 'a list =
        | Cons {n' : Nat} of 'a * {n'} 'a list --> {n' + 1} 'a list
 
 absidx T_map : BigO 2 (fn m n => $m * $n) with
-fun map ['a 'b] {m : Nat} (f : 'a -- $m --> 'b) =
-    let
-      fun map {n : Nat} (ls : {n} 'a(* _ *) list) return {n} 'b(* _ *) list using T_map m n =
+fun map ['a 'b] {m n : Nat} (f : 'a -- $m --> 'b) (ls : {n} 'a list) return {n} 'b list using T_map m n =
           case ls of
               Nil => Nil
-            | Cons (x, xs) => Cons (f x, map xs)
-    in
-      map
-    end
+            | Cons (x, xs) => Cons (f x, map f xs)
 end
 
 absidx T_foldl : BigO 2 (fn m n => $m * $n) with

@@ -59,4 +59,9 @@ val nat_4 : {4} nat = #4
 fun floor_half {n : Nat} (n : {n} nat) return {floor ($n / 2)} nat =
     builtin
 
+  fun ceil_half {n : Nat} (n : {n} nat) return {ceil ($n / 2)} nat =
+    builtin
+
+  fun nat_plus {a b : Nat} (a : {a} nat, b : {b} nat) return {a + b} nat using 1.0 = builtin
+
 end

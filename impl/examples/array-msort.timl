@@ -1,0 +1,67 @@
+structure ArrayMSort = struct
+  open Basic
+  open List
+  open Nat
+  open Array
+
+  datatype some_nat =
+    ExNat {n : Nat} of {n} nat --> some_nat
+
+  fun le_some_nat (a : some_nat, b : some_nat) =
+    case (a, b) of
+         (@ExNat {n} p, @ExNat {m} q) =>
+           case cmp (p, q) of
+                Equal => true
+              | Less => true
+              | Greater => false
+
+  absidx T_array_split : BigO 1 (fn n => $n) with
+    fun array_split ['a] {len : Nat} (a : {len} 'a array) return {floor ($len/2)} 'a array * {ceil ($len/2)} 'a array using T_array_split len =
+    let
+      val n = length a
+      val m = floor_half n
+      val k = ceil_half n
+      val left = tabulate (m, fn (w : {floor ($len/2)} nat_less_than) => case w of NatLT i => sub (a, i))
+      val right = tabulate (k, fn (w : {ceil ($len/2)} nat_less_than) => case w of NatLT i => sub (a, nat_plus (i, m)))
+    in
+      (left, right)
+    end
+  end
+
+  absidx T_array_merge_helper : BigO 2 (fn m n => $m * $n) with
+    fun array_merge_helper ['a] {m n1 n2 i j : Nat} {i <= n1} {j <= n2} (le : 'a * 'a -- $m --> bool) (xs : {n1} 'a array, ys : {n2} 'a array, i : {i} nat, j : {j} nat) return {n1 - i + n2 - j} 'a list using T_array_merge_helper m (n1 - i + n2 - j) =
+    let
+      val l1 = length xs
+      val l2 = length ys
+    in
+      case (eq_dec (i, l1), eq_dec (j, l2)) of
+           (Eq, Eq) => []
+         | (Eq, Neq) => (sub (ys, j)) :: array_merge_helper le (xs, ys, i, nat_plus (j, #1))
+         | (Neq, Eq) => (sub (xs, i)) :: array_merge_helper le (xs, ys, nat_plus (i, #1), j)
+         | (Neq, Neq) =>
+             let
+               val x = sub (xs, i)
+               val y = sub (ys, j)
+             in
+               case le (x, y) of
+                    true => x :: array_merge_helper le (xs, ys, nat_plus (i, #1), j)
+                  | false => y :: array_merge_helper le (xs, ys, i, nat_plus (j, #1))
+             end
+    end
+  end
+
+  absidx T_array_merge : BigO 2 (fn m n => $m * $n) with
+    fun array_merge ['a] {m n1 n2 : Nat} (le : 'a * 'a -- $m --> bool) (xs : {n1} 'a array, ys : {n2} 'a array) return {n1 + n2} 'a array using T_array_merge m (n1 + n2) =
+      fromList (array_merge_helper le (xs, ys, #0, #0))
+  end
+
+  absidx T_array_msort : BigO 2 (fn m n => $m * $n * log2 $n) with
+    fun array_msort ['a] {m : Nat} {len : Nat} (le : 'a * 'a -- $m --> bool) (a : {len} 'a array) return {len} 'a array using T_array_msort m len =
+      case cmp (length a, #1) of
+           Equal => a
+         | Less => a
+         | Greater =>
+             case array_split a of
+                  (left, right) => array_merge le (array_msort le left, array_msort le right)
+  end
+end
