@@ -1,4 +1,4 @@
-structure ArrayMSort = struct
+functor ArrayMSortFun(structure Var : sig end) = struct
   open Basic
   open List
   open Nat
@@ -52,4 +52,20 @@ structure ArrayMSort = struct
              case array_split a of
                   (left, right) => array_merge le (array_msort le left, array_msort le right)
   end
+
+  fun main () = 0
 end
+
+functor NonFun(strcuture Var : sig end) =
+struct
+end
+
+structure SVar =
+struct
+end
+
+structure IVar =
+struct
+end
+
+structure ArrayMSort = ArrayMSortFun(structure Var = SVar)
