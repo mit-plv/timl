@@ -127,7 +127,7 @@ fun process_top_bind filename gctx bind =
       val gctxd = update_gctx gctxd
                               (* val gctx = gctxd @ old_gctx *)
     in
-      (gctxd, (* gctx,  *)admits)
+      (prog, gctxd, (* gctx,  *)admits)
     end
 
   (*
@@ -229,20 +229,20 @@ fun typecheck_file gctx filename =
       (* val () = (app println o map (suffix "\n") o fst o E.str_decls ctxn) decls *)
       (* val () = (app println o map (suffix "\n") o fst o UnderscoredExpr.str_decls ctxn) decls *)
       (* apply solvers after each top bind *)
-      fun iter (bind, (gctx, acc)) =
+      fun iter (bind, (prog, gctx, acc)) =
           let
             (* val mod_names = mod_names_top_bind bind *)
             (* val (gctx', mapping) = select_modules gctx mod_names *)
             val gctx' = gctx
-            val (gctxd, admits) = process_top_bind filename gctx' bind
+            val (progd, gctxd, admits) = process_top_bind filename gctx' bind
             (* val gctxd = remap_modules gctxd mapping *)
             val gctx = gctxd @ gctx
           in
-            (gctx, acc @ admits)
+            (progd @ prog, gctx, acc @ admits)
           end
-      val (gctx, admits) = foldl iter (gctx, []) prog
+      val (prog, gctx, admits) = foldl iter ([], gctx, []) prog
     in
-      (gctx, admits)
+      (prog, gctx, admits)
     end
     handle
     Elaborate.Error (r, msg) => raise Error $ str_error "Error" filename r ["Elaborate error: " ^ msg]
@@ -296,20 +296,20 @@ fun process_file (filename, gctx) =
       
 and process_files gctx filenames =
     let
-      fun iter (filename, (gctx, acc)) =
+      fun iter (filename, (prog, gctx, acc)) =
           let
-            val (gctx, admits) = process_file (filename, gctx)
+            val (progd, gctx, admits) = process_file (filename, gctx)
           in
-            (gctx, acc @ admits)
+            (progd @ prog, gctx, acc @ admits)
           end
     in
-      foldl iter (gctx, []) filenames
+      foldl iter ([], gctx, []) filenames
     end
       
 fun main filenames =
     let
       val () = app println $ ["Input file(s):"] @ indent filenames
-      val (gctx, admits) = process_files [] filenames
+      val (prog, gctx, admits) = process_files [] filenames
       fun str_admit show_region (filename, p) =
           let
             open Expr
@@ -330,7 +330,7 @@ fun main filenames =
             (* app println $ "Admitted axioms: \n" :: concatMap (str_admit true) admits *)
             app println $ "Admitted axioms: \n" :: (concatMap (str_admit false) $ dedup (fn ((_, p), (_, p')) => Expr.eq_p p p') admits)
     in
-      gctx
+      (prog, gctx, admits)
     end
       
 end
