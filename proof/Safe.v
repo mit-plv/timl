@@ -1058,95 +1058,108 @@ Module M (Time : TIME).
   Definition monotone : cstr -> Prop.
   Admitted.
 
+  (* Unset Elimination Schemes. *)
+
   Inductive kinding : kctx -> cstr -> kind -> Prop :=
-       (* | KdVar L x k : *)
-       (*     nth_error L x = Some k -> *)
-       (*     kinding L (CVar x) (shift_c_k (1 + x) 0 k) *)
-       (* | KdConst L cn : *)
-       (*     kinding L (CConst cn) (const_kind cn) *)
-       (* | KdBinOp L opr c1 c2 : *)
-       (*     kinding L c1 (cbinop_arg1_kind opr) -> *)
-       (*     kinding L c2 (cbinop_arg2_kind opr) -> *)
-       (*     kinding L (CBinOp opr c1 c2) (cbinop_result_kind opr) *)
-       (* | KdIte L c c1 c2 k : *)
-       (*     kinding L c KBool -> *)
-       (*     kinding L c1 k -> *)
-       (*     kinding L c2 k -> *)
-       (*     kinding L (CIte c c1 c2) k *)
-       (* | KdArrow L t1 i t2 : *)
-       (*     kinding L t1 KType -> *)
-       (*     kinding L i KTime -> *)
-       (*     kinding L t2 KType -> *)
-       (*     kinding L (CArrow t1 i t2) KType *)
+       | KdVar L x k :
+           nth_error L x = Some k ->
+           kinding L (CVar x) (shift_c_k (1 + x) 0 k)
+       | KdConst L cn :
+           kinding L (CConst cn) (const_kind cn)
+       | KdBinOp L opr c1 c2 :
+           kinding L c1 (cbinop_arg1_kind opr) ->
+           kinding L c2 (cbinop_arg2_kind opr) ->
+           kinding L (CBinOp opr c1 c2) (cbinop_result_kind opr)
+       | KdIte L c c1 c2 k :
+           kinding L c KBool ->
+           kinding L c1 k ->
+           kinding L c2 k ->
+           kinding L (CIte c c1 c2) k
+       | KdArrow L t1 i t2 :
+           kinding L t1 KType ->
+           kinding L i KTime ->
+           kinding L t2 KType ->
+           kinding L (CArrow t1 i t2) KType
        | KdAbs L c k1 k2 :
            wfkind L k1 ->
            kinding (k1 :: L) c (shift_c_k 1 0 k2) ->
            kinding L (CAbs c) (KArrow k1 k2)
-       (* | KdApp L c1 c2 k1 k2 : *)
-       (*     kinding L c1 (KArrow k1 k2) -> *)
-       (*     kinding L c2 k1 -> *)
-       (*     kinding L (CApp c1 c2) k2 *)
-       (* | KdTimeAbs L i n : *)
-       (*     kinding (KNat :: L) i (KTimeFun n) -> *)
-       (*     monotone i -> *)
-       (*     kinding L (CTimeAbs i) (KTimeFun (1 + n)) *)
-       (* | KdQuan L quan k c : *)
-       (*     wfkind L k -> *)
-       (*     kinding (k :: L) c KType -> *)
-       (*     kinding L (CQuan quan k c) KType *)
-       (* | KdRec L k c : *)
-       (*     wfkind L k -> *)
-       (*     kinding (k :: L) c k -> *)
-       (*     kinding L (CRec k c) k *)
-       (* | KdRef L t : *)
-       (*     kinding L t KType -> *)
-       (*     kinding L (CRef t) KType *)
-       (* | KdEq L c k k' : *)
-       (*     kinding L c k -> *)
-       (*     kdeq L k' k ->  *)
-                   (*     kinding L c k' *)
+       | KdApp L c1 c2 k1 k2 :
+           kinding L c1 (KArrow k1 k2) ->
+           kinding L c2 k1 ->
+           kinding L (CApp c1 c2) k2
+       | KdTimeAbs L i n :
+           kinding (KNat :: L) i (KTimeFun n) ->
+           monotone i ->
+           kinding L (CTimeAbs i) (KTimeFun (1 + n))
+       | KdQuan L quan k c :
+           wfkind L k ->
+           kinding (k :: L) c KType ->
+           kinding L (CQuan quan k c) KType
+       | KdRec L k c :
+           wfkind L k ->
+           kinding (k :: L) c (shift_c_k 1 0 k) ->
+           kinding L (CRec k c) k
+       | KdRef L t :
+           kinding L t KType ->
+           kinding L (CRef t) KType
+       | KdEq L c k k' :
+           kinding L c k ->
+           kdeq L k' k ->
+           kinding L c k'
                    
   with wfkind : kctx -> kind -> Prop :=
-       (* | WfKdType L : *)
-       (*     wfkind L KType *)
-       (* | WfKdArrow L k1 k2 : *)
-       (*     wfkind L k1 -> *)
-       (*     wfkind L k2 -> *)
-       (*     wfkind L (KArrow k1 k2) *)
-       (* | WfKdBaseSort L b : *)
-       (*     wfkind L (KBaseSort b) *)
+       | WfKdType L :
+           wfkind L KType
+       | WfKdArrow L k1 k2 :
+           wfkind L k1 ->
+           wfkind L k2 ->
+           wfkind L (KArrow k1 k2)
+       | WfKdBaseSort L b :
+           wfkind L (KBaseSort b)
        | WfKdSubset L k p :
            wfkind L k ->
            wfprop (k :: L) p ->
            wfkind L (KSubset k p)
 
   with wfprop : kctx -> prop -> Prop :=
-  (* | WfPropTrue L : *)
-  (*     wfprop L PTrue *)
-  (* | WfPropFalse L : *)
-  (*     wfprop L PFalse *)
-  (* | WfPropBinConn L opr p1 p2 : *)
-  (*     wfprop L p1 -> *)
-  (*     wfprop L p2 -> *)
-  (*     wfprop L (PBinConn opr p1 p2) *)
-  (* | WfPropNot L p : *)
-  (*     wfprop L p -> *)
-  (*     wfprop L (PNot p) *)
-  (* | WfPropBinPred L opr i1 i2 : *)
-  (*     kinding L i1 (binpred_arg1_kind opr) -> *)
-  (*     kinding L i2 (binpred_arg2_kind opr) -> *)
-  (*     wfprop L (PBinPred opr i1 i2) *)
+  | WfPropTrue L :
+      wfprop L PTrue
+  | WfPropFalse L :
+      wfprop L PFalse
+  | WfPropBinConn L opr p1 p2 :
+      wfprop L p1 ->
+      wfprop L p2 ->
+      wfprop L (PBinConn opr p1 p2)
+  | WfPropNot L p :
+      wfprop L p ->
+      wfprop L (PNot p)
+  | WfPropBinPred L opr i1 i2 :
+      kinding L i1 (binpred_arg1_kind opr) ->
+      kinding L i2 (binpred_arg2_kind opr) ->
+      wfprop L (PBinPred opr i1 i2)
   | WfPropEq L i1 i2 k :
       kinding L i1 k ->
       kinding L i2 k ->
       wfprop L (PEq i1 i2)
-  (* | WfPropQuan L q p k : *)
-  (*     wfkind L k -> *)
-  (*     wfprop (k :: L) p -> *)
-  (*     wfprop L (PQuan q p) *)
+  | WfPropQuan L q p k :
+      wfkind L k ->
+      wfprop (k :: L) p ->
+      wfprop L (PQuan q p)
              
   .
 
+  (* Scheme Minimality for kinding Sort Prop *)
+  (* with Minimality for wfkind Sort Prop *)
+  (* with Minimality for wfprop Sort Prop. *)
+
+  Scheme kinding_mutind := Minimality for kinding Sort Prop
+  with wfkind_mutind := Minimality for wfkind Sort Prop
+  with wfprop_mutind := Minimality for wfprop Sort Prop.
+
+  Combined Scheme kinding_wfkind_wfprop_mutind from kinding_mutind, wfkind_mutind, wfprop_mutind. 
+
+  (*
   Section kinding_ind2.
 
     Variable Pkinding : kctx -> cstr -> kind -> Prop.
@@ -1176,6 +1189,8 @@ Module M (Time : TIME).
       end
 
   End kinding_ind2.
+*)
+
   (*
 Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
 (* | TyEqRefl L t : *)
@@ -1893,122 +1908,175 @@ Admitted.
   (*     wfkind (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_k n (shift_c_c n 0 c) k'). *)
   (* Admitted. *)
 
-  Lemma kd_subst_c_c L c' k' :
-    kinding L c' k' ->
-    forall n k c ,
-      nth_error L n = Some k ->
-      kinding (my_skipn L (1 + n)) c k ->
-      kinding (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_c n (shift_c_c n 0 c) c') (subst_c_k n (shift_c_c n 0 c) k')
-  with wfkind_subst_c_k L k' :
-         wfkind L k' ->
-         forall n k c ,
-           nth_error L n = Some k ->
-           kinding (my_skipn L (1 + n)) c k ->
-           wfkind (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_k n (shift_c_c n 0 c) k').
+  Require Import NPeano.
+  
+  Lemma kd_wfkind_wfprop_subst_c_c :
+    (forall L c' k',
+        kinding L c' k' ->
+        forall n k c ,
+          nth_error L n = Some k ->
+          kinding (my_skipn L (1 + n)) c k ->
+          kinding (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_c n (shift_c_c n 0 c) c') (subst_c_k n (shift_c_c n 0 c) k')) /\
+    (forall L k',
+        wfkind L k' ->
+        forall n k c ,
+          nth_error L n = Some k ->
+          kinding (my_skipn L (1 + n)) c k ->
+          wfkind (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_k n (shift_c_c n 0 c) k')) /\
+    (forall L p,
+        wfprop L p ->
+        forall n k c ,
+          nth_error L n = Some k ->
+          kinding (my_skipn L (1 + n)) c k ->
+          wfprop (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_p n (shift_c_c n 0 c) p)).
   Proof.
+    eapply kinding_wfkind_wfprop_mutind;
+      simplify; try solve [econstructor; eauto].
+
+    Lemma monotone_subst_c_c x v b :
+      monotone b ->
+      monotone (subst_c_c x v b).
+    Admitted.
+    
+    Lemma kdeq_shift_c_k L k1 k2 :
+      kdeq L k1 k2 ->
+      forall x ls ,
+        let n := length ls in
+        x <= length L ->
+        kdeq (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_k n x k1) (shift_c_k n x k2).
+    Admitted.
+    Lemma kdeq_subst_c_k L k1 k2 :
+      kdeq L k1 k2 ->
+      forall n k c1 c2 ,
+        nth_error L n = Some k ->
+        kinding (my_skipn L (1 + n)) c1 k ->
+        kinding (my_skipn L (1 + n)) c2 k ->
+        tyeq (my_skipn L (1 + n)) c1 c2 ->
+        kdeq (subst_c_ks c1 (firstn n L) ++ my_skipn L (1 + n)) (subst_c_k n (shift_c_c n 0 c1) k1) (subst_c_k n (shift_c_c n 0 c2) k2).
+    Admitted.
+    
     {
-      induct 1; simplify; try solve [clear kd_subst_c_c wfkind_subst_c_k; econstructor; eauto].
-      Focus 4.
+      (* Case Var *)
+      copy H0 HnltL.
+      eapply nth_error_Some_lt in HnltL.
+      cases (lt_eq_gt_dec x n).
       {
-        (* Case Abs *)
+        rewrite subst_c_k_shift by linear_arithmetic.
         econstructor.
+        rewrite nth_error_app1.
         {
-          eapply wfkind_subst_c_k; clear kd_subst_c_c wfkind_subst_c_k; eauto.
-        }
-        clear kd_subst_c_c wfkind_subst_c_k.
-        specialize (IHkinding (S n) k c0).
-        simplify.
-        repeat erewrite nth_error_length_firstn in * by eauto.
-        rewrite subst_c_k_shift in * by linear_arithmetic.
-        simplify.
-        Require Import NPeano.
-        repeat rewrite Nat.sub_0_r in *.
-        rewrite shift0_c_c_shift_0.
-        eauto.
-      }
-      Unfocus.
-      admit.
-      admit.
-      admit.
-      admit.
-      admit.
-      admit.
-      admit.
-    }
-    admit.
-  Qed.
-      Guarded.
-      (*here*)
-  Admitted.
-      {
-        (* Case Var *)
-        copy H0 HnltL.
-        eapply nth_error_Some_lt in HnltL.
-        cases (lt_eq_gt_dec x n).
-        {
-          rewrite subst_c_k_shift by linear_arithmetic.
-          econstructor.
-          rewrite nth_error_app1.
-          {
-            erewrite nth_error_subst_c_ks.
-            {
-              repeat erewrite nth_error_length_firstn by eauto.
-              eauto.
-            }
-            rewrite nth_error_firstn by linear_arithmetic.
-            eauto.
-          }
-          rewrite length_subst_c_ks.
-          repeat erewrite nth_error_length_firstn by eauto.
-          eauto.
-        }
-        {
-          subst.
-          rewrite H0 in H.
-          invert H.
-          rewrite subst_c_k_shift_avoid by linear_arithmetic.
-          simplify.
-          repeat rewrite Nat.sub_0_r in *.
-          eapply kd_shift_c_c with (x := 0) (ls := subst_c_ks c (firstn n L)) in H1.
-          rewrite length_subst_c_ks in *.
-          repeat erewrite nth_error_length_firstn in * by eauto.
-          simplify.
-          rewrite my_skipn_0 in *.
-          eapply H1.
-        }
-        {
-          rewrite subst_c_k_shift_avoid by linear_arithmetic.
-          simplify.
-          repeat rewrite Nat.sub_0_r in *.
-          destruct x as [| x]; simplify; try linear_arithmetic.
-          repeat rewrite Nat.sub_0_r in *.
-          eapply KdVar.
-          rewrite nth_error_app2; repeat rewrite length_subst_c_ks in *.
-          {
-            rewrite nth_error_my_skipn; repeat erewrite nth_error_length_firstn by eauto; try linear_arithmetic.
-            replace (S n + (x - n)) with (S x); eauto.
-            linear_arithmetic.
-          }
+          erewrite nth_error_subst_c_ks.
           {
             repeat erewrite nth_error_length_firstn by eauto.
-            linear_arithmetic.
+            eauto.
           }
+          rewrite nth_error_firstn by linear_arithmetic.
+          eauto.
+        }
+        rewrite length_subst_c_ks.
+        repeat erewrite nth_error_length_firstn by eauto.
+        eauto.
+      }
+      {
+        subst.
+        rewrite H0 in H.
+        invert H.
+        rewrite subst_c_k_shift_avoid by linear_arithmetic.
+        simplify.
+        repeat rewrite Nat.sub_0_r in *.
+        eapply kd_shift_c_c with (x := 0) (ls := subst_c_ks c (firstn n L)) in H1.
+        rewrite length_subst_c_ks in *.
+        repeat erewrite nth_error_length_firstn in * by eauto.
+        simplify.
+        rewrite my_skipn_0 in *.
+        eapply H1.
+      }
+      {
+        rewrite subst_c_k_shift_avoid by linear_arithmetic.
+        simplify.
+        repeat rewrite Nat.sub_0_r in *.
+        destruct x as [| x]; simplify; try linear_arithmetic.
+        repeat rewrite Nat.sub_0_r in *.
+        eapply KdVar.
+        rewrite nth_error_app2; repeat rewrite length_subst_c_ks in *.
+        {
+          rewrite nth_error_my_skipn; repeat erewrite nth_error_length_firstn by eauto; try linear_arithmetic.
+          replace (S n + (x - n)) with (S x); eauto.
+          linear_arithmetic.
+        }
+        {
+          repeat erewrite nth_error_length_firstn by eauto.
+          linear_arithmetic.
         }
       }
-      {
-        (* Case Const *)
-        cases cn; simplify; econstructor.
-      }
-      {
-        (* Case BinOp *)
-        rewrite subst_c_k_cbinop_result_kind.
-        specialize (IHkinding1 n k c).
-        rewrite subst_c_k_cbinop_arg1_kind in *.
-        specialize (IHkinding2 n k c).
-        rewrite subst_c_k_cbinop_arg2_kind in *.
-        eapply KdBinOp; eauto.
-      }
     }
+    {
+      (* Case Const *)
+      cases cn; simplify; econstructor.
+    }
+    {
+      (* Case BinOp *)
+      rewrite subst_c_k_cbinop_result_kind.
+      rename H0 into IHkinding1.
+      rename H2 into IHkinding2.
+      specialize (IHkinding1 n k c).
+      rewrite subst_c_k_cbinop_arg1_kind in *.
+      specialize (IHkinding2 n k c).
+      rewrite subst_c_k_cbinop_arg2_kind in *.
+      eapply KdBinOp; eauto.
+    }
+    {
+      (* Case Abs *)
+      rewrite shift0_c_c_shift_0.
+      econstructor; eauto.
+      rename H2 into IHkinding.
+      specialize (IHkinding (S n) k c0).
+      simplify.
+      repeat erewrite nth_error_length_firstn in * by eauto.
+      rewrite subst_c_k_shift in * by linear_arithmetic.
+      simplify.
+      repeat rewrite Nat.sub_0_r in *.
+      eauto.
+    }
+    {
+      (* Case TimeAbs *)
+      rewrite shift0_c_c_shift_0.
+      econstructor; eauto.
+      {
+        rename H0 into IHkinding.
+        eapply IHkinding with (n0 := S n0); eauto.
+      }
+      eapply monotone_subst_c_c; eauto.
+    }
+    {
+      (* Case Quan *)
+      rewrite shift0_c_c_shift_0.
+      econstructor; eauto.
+      rename H2 into IHkinding.
+      specialize (IHkinding (S n) k0 c0).
+      simplify.
+      repeat erewrite nth_error_length_firstn in * by eauto.
+      eauto.
+    }
+    {
+      (* Case Rec *)
+      rewrite shift0_c_c_shift_0.
+      econstructor; eauto.
+      rename H2 into IHkinding.
+      specialize (IHkinding (S n) k0 c0).
+      simplify.
+      repeat erewrite nth_error_length_firstn in * by eauto.
+      rewrite subst_c_k_shift in * by linear_arithmetic.
+      simplify.
+      repeat rewrite Nat.sub_0_r in *.
+      eauto.
+    }
+    {
+      (* Case Eq *)
+      econstructor; eauto.
+      eapply kdeq_subst_c_k; eauto with invert_typing.
+    }
+    (*here*)
   Qed.
   
   Fixpoint CApps t cs :=
