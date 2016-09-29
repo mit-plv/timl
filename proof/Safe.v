@@ -1640,6 +1640,34 @@ Admitted.
     kinding L t2 k.
   Admitted.
   
+  Fixpoint subst_c_ks v bs :=
+    match bs with
+    | [] => []
+    | b :: bs => subst_c_k (length bs) (shift_c_c (length bs) 0 v) b :: subst_c_ks v bs
+    end.
+
+  (* Lemma kdeq_shift_c_k L k1 k2 : *)
+  (*   kdeq L k1 k2 -> *)
+  (*   forall x ls , *)
+  (*     let n := length ls in *)
+  (*     x <= length L -> *)
+  (*     kdeq (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_k n x k1) (shift_c_k n x k2). *)
+  (* Admitted. *)
+  Lemma kdeq_subst_c_k L k1 k2 :
+    kdeq L k1 k2 ->
+    forall n k c1 c2 ,
+      nth_error L n = Some k ->
+      kinding (my_skipn L (1 + n)) c1 k ->
+      kinding (my_skipn L (1 + n)) c2 k ->
+      tyeq (my_skipn L (1 + n)) c1 c2 ->
+      kdeq (subst_c_ks c1 (firstn n L) ++ my_skipn L (1 + n)) (subst_c_k n (shift_c_c n 0 c1) k1) (subst_c_k n (shift_c_c n 0 c2) k2).
+  Admitted.
+  
+  Lemma monotone_subst_c_c x v b :
+    monotone b ->
+    monotone (subst_c_c x v b).
+  Admitted.
+  
   Lemma forget01_c_c_Some_subst0 c c' c'' :
     forget01_c_c c = Some c' ->
     subst0_c_c c'' c = c'.
@@ -1729,26 +1757,6 @@ Admitted.
       x <= length L ->
       interpP (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_p n x p).
   Admitted.
-  Lemma kd_shift_c_c L c k :
-    kinding L c k ->
-    forall x ls,
-      let n := length ls in
-      kinding (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_c n x c) (shift_c_k n x k).
-  Admitted.
-  
-  Lemma wfkind_shift_c_k L k :
-    wfkind L k ->
-    forall x ls,
-      let n := length ls in
-      wfkind (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_k n x k).
-  Admitted.
-  
-  Fixpoint subst_c_ks v bs :=
-    match bs with
-    | [] => []
-    | b :: bs => subst_c_k (length bs) (shift_c_c (length bs) 0 v) b :: subst_c_ks v bs
-    end.
-
   Lemma tyeq_subst_c_c L c1' c2' :
     tyeq L c1' c2' ->
     forall n k c1 c2 ,
@@ -1820,11 +1828,15 @@ Admitted.
     try unfold value; repeat f_equal; linear_arithmetic.
   Qed.
   
-  Lemma nth_error_firstn A x n (L : list A) :
-    x < n ->
-    n <= length L ->
-    nth_error (firstn n L) x = nth_error L x.
-  Admitted.
+  Lemma nth_error_firstn A (ls : list A) :
+    forall n x,
+      x < n ->
+      nth_error (firstn n ls) x = nth_error ls x.
+  Proof.
+    induct ls; destruct n as [|n]; simplify; eauto; try linear_arithmetic.
+    destruct x as [|x]; simplify; eauto.
+    eapply IHls; linear_arithmetic.
+  Qed.
   
   Lemma length_subst_c_ks bs :
     forall v,
@@ -1882,26 +1894,173 @@ Admitted.
   
   Require Import NPeano.
   
-  Lemma monotone_subst_c_c x v b :
-    monotone b ->
-    monotone (subst_c_c x v b).
+  Lemma kd_wfkind_wfprop_shift_c_c :
+    (forall L c k,
+        kinding L c k ->
+        forall x ls,
+          let n := length ls in
+          kinding (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_c n x c) (shift_c_k n x k)) /\
+    (forall L k,
+        wfkind L k ->
+        forall x ls,
+          let n := length ls in
+          wfkind (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_k n x k)) /\
+    (forall L p,
+        wfprop L p ->
+        forall x ls,
+          let n := length ls in
+          wfprop (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_p n x p))
+  .
+  Proof.
+    eapply kinding_wfkind_wfprop_mutind;
+      simplify; cbn in *; try solve [econstructor; eauto].
+    Lemma length_shift_c_ks bs :
+      forall v,
+        length (shift_c_ks v bs) = length bs.
+    Proof.
+      induction bs; simplify; eauto.
+    Qed.
+  
+    Lemma shift_c_k_shift b :
+          forall n1 n2 x,
+            x <= n1 ->
+            shift_c_k n2 x (shift_c_k n1 0 b) = shift_c_k (n1 + n2) 0 b.
+    Admitted.
+    
+    Lemma kdeq_refl2 : forall L k k', k = k' -> kdeq L k k'.
+    Proof.
+      intros; subst; eapply kdeq_refl.
+    Qed.
+    
+    Lemma nth_error_shift_c_ks bs :
+      forall x b m,
+        nth_error bs x = Some b ->
+        let n := length bs in
+        nth_error (shift_c_ks m bs) x = Some (shift_c_k m (n - S x) b).
+    Proof.
+      induction bs; simplify.
+      {
+        rewrite nth_error_nil in *; discriminate.
+      }
+      destruct x; simplify; eauto.
+      invert H.
+      try unfold value; repeat f_equal; linear_arithmetic.
+    Qed.
+    
+    {
+      (* Case Var *)
+      copy H HnltL.
+      eapply nth_error_Some_lt in HnltL.
+      rename x0 into y.
+      cases (y <=? x).
+      {
+        eapply KdEq.
+        {
+          eapply KdVar.
+          rewrite nth_error_app2;
+            rewrite length_shift_c_ks; erewrite length_firstn_le; try linear_arithmetic.
+          rewrite nth_error_app2 by linear_arithmetic.
+          rewrite nth_error_my_skipn by linear_arithmetic.
+          erewrite <- H.
+          f_equal.
+          linear_arithmetic.
+        }
+        eapply kdeq_refl2.
+        rewrite shift_c_k_shift by linear_arithmetic.
+        simplify.
+        f_equal.
+        linear_arithmetic.
+      }
+      {
+        eapply KdEq.
+        {
+          eapply KdVar.
+          rewrite nth_error_app1;
+            try rewrite length_shift_c_ks; try erewrite firstn_length; try linear_arithmetic.
+          erewrite nth_error_shift_c_ks; eauto.
+          rewrite nth_error_firstn; eauto.
+        }
+        eapply kdeq_refl2.
+    Lemma shift_c_k_shift_2 b :
+          forall n1 n2 x,
+            n1 <= x ->
+            shift_c_k n2 x (shift_c_k n1 0 b) = shift_c_k n1 0 (shift_c_k n2 (x - n1) b).
+    Admitted.
+        rewrite shift_c_k_shift_2
+          by linear_arithmetic.
+        (*here*)
+    
+        symmetry.
+        simplify.
+        f_equal.
+        linear_arithmetic.
+      }
+      {
+        rewrite subst_c_k_shift by linear_arithmetic.
+        econstructor.
+        rewrite nth_error_app1.
+        {
+          erewrite nth_error_subst_c_ks.
+          {
+            repeat erewrite nth_error_length_firstn by eauto.
+            eauto.
+          }
+          rewrite nth_error_firstn by linear_arithmetic.
+          eauto.
+        }
+        rewrite length_subst_c_ks.
+        repeat erewrite nth_error_length_firstn by eauto.
+        eauto.
+      }
+      {
+        subst.
+        rewrite H0 in H.
+        invert H.
+        rewrite subst_c_k_shift_avoid by linear_arithmetic.
+        simplify.
+        repeat rewrite Nat.sub_0_r in *.
+        eapply kd_shift_c_c with (x := 0) (ls := subst_c_ks c (firstn n L)) in H1.
+        rewrite length_subst_c_ks in *.
+        repeat erewrite nth_error_length_firstn in * by eauto.
+        simplify.
+        rewrite my_skipn_0 in *.
+        eapply H1.
+      }
+      {
+        rewrite subst_c_k_shift_avoid by linear_arithmetic.
+        simplify.
+        repeat rewrite Nat.sub_0_r in *.
+        destruct x as [| x]; simplify; try linear_arithmetic.
+        repeat rewrite Nat.sub_0_r in *.
+        eapply KdVar.
+        rewrite nth_error_app2; repeat rewrite length_subst_c_ks in *.
+        {
+          rewrite nth_error_my_skipn; repeat erewrite nth_error_length_firstn by eauto; try linear_arithmetic.
+          replace (S n + (x - n)) with (S x); eauto.
+          linear_arithmetic.
+        }
+        {
+          repeat erewrite nth_error_length_firstn by eauto.
+          linear_arithmetic.
+        }
+      }
+    }
+  Qed.
+  
+  Lemma kd_shift_c_c :
+    forall L c k,
+      kinding L c k ->
+      forall x ls,
+        let n := length ls in
+        kinding (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_c n x c) (shift_c_k n x k).
   Admitted.
   
-  Lemma kdeq_shift_c_k L k1 k2 :
-    kdeq L k1 k2 ->
-    forall x ls ,
-      let n := length ls in
-      x <= length L ->
-      kdeq (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_k n x k1) (shift_c_k n x k2).
-  Admitted.
-  Lemma kdeq_subst_c_k L k1 k2 :
-    kdeq L k1 k2 ->
-    forall n k c1 c2 ,
-      nth_error L n = Some k ->
-      kinding (my_skipn L (1 + n)) c1 k ->
-      kinding (my_skipn L (1 + n)) c2 k ->
-      tyeq (my_skipn L (1 + n)) c1 c2 ->
-      kdeq (subst_c_ks c1 (firstn n L) ++ my_skipn L (1 + n)) (subst_c_k n (shift_c_c n 0 c1) k1) (subst_c_k n (shift_c_c n 0 c2) k2).
+  Lemma wfkind_shift_c_k :
+    forall L k,
+      wfkind L k ->
+      forall x ls,
+        let n := length ls in
+        wfkind (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_k n x k).
   Admitted.
   
   Lemma kd_wfkind_wfprop_subst_c_c :
