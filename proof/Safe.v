@@ -1160,38 +1160,6 @@ Module M (Time : TIME).
   Combined Scheme kinding_wfkind_wfprop_mutind from kinding_mutind, wfkind_mutind, wfprop_mutind. 
 
   (*
-  Section kinding_ind2.
-
-    Variable Pkinding : kctx -> cstr -> kind -> Prop.
-    Variable Pwfkind : kctx -> kind -> Prop.
-
-    Unset Implicit Arguments.
-    
-    Variable HKdAbs :
-      forall L c k1 k2,
-        wfkind L k1 ->
-        Pwfkind L k1 ->
-        kinding (k1 :: L) c (shift_c_k 1 0 k2) ->
-        Pkinding (k1 :: L) c (shift_c_k 1 0 k2) ->
-        Pkinding L (CAbs c) (KArrow k1 k2).
-    
-    Set Implicit Arguments.
-    
-    Fixpoint kinding_ind2 L c k (H : kinding L c' k') {struct H} : Pkinding L c k :=
-      match H with
-      | KdAbs L c k1 k2 Hwfkind Hkinding =>
-        HKdAbs L c k1 k2 Hwfkind (wfkind_ind2 Hwfkind) Hkinding (kinding_ind2 Hkinding)
-      end
-    with
-    wfkind_ind2 L k (H : wfkind L k) {struct H} : Pwfkind L k :=
-      match H with
-      | 
-      end
-
-  End kinding_ind2.
-*)
-
-  (*
 Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
 (* | TyEqRefl L t : *)
 (*     tyeq L t t *)
@@ -1890,25 +1858,51 @@ Admitted.
     cases opr; simplify; eauto.
   Qed.
   Lemma subst_c_k_cbinop_arg1_kind x v opr :
-    subst_c_k x v (cbinop_arg1_kind opr) = cbinop_result_kind opr.
+    subst_c_k x v (cbinop_arg1_kind opr) = cbinop_arg1_kind opr.
   Proof.
     cases opr; simplify; eauto.
   Qed.
   Lemma subst_c_k_cbinop_arg2_kind x v opr :
-    subst_c_k x v (cbinop_arg2_kind opr) = cbinop_result_kind opr.
+    subst_c_k x v (cbinop_arg2_kind opr) = cbinop_arg2_kind opr.
   Proof.
     cases opr; simplify; eauto.
   Qed.
   
-  (* Lemma wfkind_subst_c_k L k' : *)
-  (*   wfkind L k' -> *)
-  (*   forall n k c , *)
-  (*     nth_error L n = Some k -> *)
-  (*     kinding (my_skipn L (1 + n)) c k -> *)
-  (*     wfkind (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_k n (shift_c_c n 0 c) k'). *)
-  (* Admitted. *)
-
+  Lemma subst_c_k_binpred_arg1_kind x v opr :
+    subst_c_k x v (binpred_arg1_kind opr) = binpred_arg1_kind opr.
+  Proof.
+    cases opr; simplify; eauto.
+  Qed.
+  
+  Lemma subst_c_k_binpred_arg2_kind x v opr :
+    subst_c_k x v (binpred_arg2_kind opr) = binpred_arg2_kind opr.
+  Proof.
+    cases opr; simplify; eauto.
+  Qed.
+  
   Require Import NPeano.
+  
+  Lemma monotone_subst_c_c x v b :
+    monotone b ->
+    monotone (subst_c_c x v b).
+  Admitted.
+  
+  Lemma kdeq_shift_c_k L k1 k2 :
+    kdeq L k1 k2 ->
+    forall x ls ,
+      let n := length ls in
+      x <= length L ->
+      kdeq (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_k n x k1) (shift_c_k n x k2).
+  Admitted.
+  Lemma kdeq_subst_c_k L k1 k2 :
+    kdeq L k1 k2 ->
+    forall n k c1 c2 ,
+      nth_error L n = Some k ->
+      kinding (my_skipn L (1 + n)) c1 k ->
+      kinding (my_skipn L (1 + n)) c2 k ->
+      tyeq (my_skipn L (1 + n)) c1 c2 ->
+      kdeq (subst_c_ks c1 (firstn n L) ++ my_skipn L (1 + n)) (subst_c_k n (shift_c_c n 0 c1) k1) (subst_c_k n (shift_c_c n 0 c2) k2).
+  Admitted.
   
   Lemma kd_wfkind_wfprop_subst_c_c :
     (forall L c' k',
@@ -1932,29 +1926,6 @@ Admitted.
   Proof.
     eapply kinding_wfkind_wfprop_mutind;
       simplify; try solve [econstructor; eauto].
-
-    Lemma monotone_subst_c_c x v b :
-      monotone b ->
-      monotone (subst_c_c x v b).
-    Admitted.
-    
-    Lemma kdeq_shift_c_k L k1 k2 :
-      kdeq L k1 k2 ->
-      forall x ls ,
-        let n := length ls in
-        x <= length L ->
-        kdeq (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_k n x k1) (shift_c_k n x k2).
-    Admitted.
-    Lemma kdeq_subst_c_k L k1 k2 :
-      kdeq L k1 k2 ->
-      forall n k c1 c2 ,
-        nth_error L n = Some k ->
-        kinding (my_skipn L (1 + n)) c1 k ->
-        kinding (my_skipn L (1 + n)) c2 k ->
-        tyeq (my_skipn L (1 + n)) c1 c2 ->
-        kdeq (subst_c_ks c1 (firstn n L) ++ my_skipn L (1 + n)) (subst_c_k n (shift_c_c n 0 c1) k1) (subst_c_k n (shift_c_c n 0 c2) k2).
-    Admitted.
-    
     {
       (* Case Var *)
       copy H0 HnltL.
@@ -2076,9 +2047,71 @@ Admitted.
       econstructor; eauto.
       eapply kdeq_subst_c_k; eauto with invert_typing.
     }
-    (*here*)
+    {
+      (* Case Subset *)
+      rewrite shift0_c_c_shift_0.
+      econstructor; eauto.
+      rename H2 into IHwfprop.
+      specialize (IHwfprop (S n) k0 c).
+      simplify.
+      repeat erewrite nth_error_length_firstn in * by eauto.
+      eauto.
+    }
+    {
+      (* Case BinPred *)
+      rename H0 into IHwfprop1.
+      rename H2 into IHwfprop2.
+      specialize (IHwfprop1 n k c).
+      rewrite subst_c_k_binpred_arg1_kind in *.
+      specialize (IHwfprop2 n k c).
+      rewrite subst_c_k_binpred_arg2_kind in *.
+      econstructor; eauto.
+    }
+    {
+      (* Case PQuan *)
+      rewrite shift0_c_c_shift_0.
+      econstructor; eauto.
+      rename H2 into IHwfprop.
+      specialize (IHwfprop (S n) k0 c).
+      simplify.
+      repeat erewrite nth_error_length_firstn in * by eauto.
+      eauto.
+    }
   Qed.
   
+  Lemma kd_subst_c_c :
+    forall L c' k',
+      kinding L c' k' ->
+      forall n k c ,
+        nth_error L n = Some k ->
+        kinding (my_skipn L (1 + n)) c k ->
+        kinding (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_c n (shift_c_c n 0 c) c') (subst_c_k n (shift_c_c n 0 c) k').
+  Proof.
+    eapply kd_wfkind_wfprop_subst_c_c.
+  Qed.
+    
+  Lemma wfkind_subst_c_k :
+    forall L k',
+      wfkind L k' ->
+      forall n k c ,
+        nth_error L n = Some k ->
+        kinding (my_skipn L (1 + n)) c k ->
+        wfkind (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_k n (shift_c_c n 0 c) k').
+  Proof.
+    eapply kd_wfkind_wfprop_subst_c_c.
+  Qed.
+
+  Lemma wfprop_subst_c_p :
+    forall L p,
+      wfprop L p ->
+      forall n k c ,
+        nth_error L n = Some k ->
+        kinding (my_skipn L (1 + n)) c k ->
+        wfprop (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_p n (shift_c_c n 0 c) p).
+  Proof.
+    eapply kd_wfkind_wfprop_subst_c_c.
+  Qed.
+
   Fixpoint CApps t cs :=
     match cs with
     | nil => t
