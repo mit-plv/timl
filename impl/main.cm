@@ -28,7 +28,7 @@ Group is
       smt-solver.sml
       main.sml
       compiler/compile.sml
-	  compiler/desugar.sml
+      compiler/desugar.sml
 
       $/basis.cm
       $/smlnj-lib.cm
