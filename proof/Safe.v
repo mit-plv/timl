@@ -733,6 +733,12 @@ Module M (Time : TIME).
        | PQuan (q : quan) (p : prop)
   .
 
+  Scheme cstr_mutind := Induction for cstr Sort Prop
+  with kind_mutind := Induction for kind Sort Prop
+  with prop_mutind := Induction for prop Sort Prop.
+
+  Combined Scheme cstr_kind_prop_mutind from cstr_mutind, kind_mutind, prop_mutind. 
+
   Definition KUnit := KBaseSort BSUnit.
   Definition KBool := KBaseSort BSBool.
   Definition KNat := KBaseSort BSNat.
@@ -1629,7 +1635,7 @@ Admitted.
 
   End tyeq_hint.
 
-  Hint Resolve tyeq_refl tyeq_sym tyeq_trans interpP_le_refl interpP_le_trans : invert_typing.
+  Hint Resolve tyeq_refl tyeq_sym tyeq_trans interpP_le_refl interpP_le_trans : db_tyeq.
 
   Lemma interpP_eq_add_0 L a : interpP L (a + T0 == a)%idx.
   Admitted.
@@ -1670,31 +1676,14 @@ Admitted.
       kdeq (subst_c_ks c1 (firstn n L) ++ my_skipn L (1 + n)) (subst_c_k n (shift_c_c n 0 c1) k1) (subst_c_k n (shift_c_c n 0 c2) k2).
   Admitted.
   
+  Lemma monotone_shift_c_c x v b :
+    monotone b ->
+    monotone (shift_c_c x v b).
+  Admitted.
+  
   Lemma monotone_subst_c_c x v b :
     monotone b ->
     monotone (subst_c_c x v b).
-  Admitted.
-  
-  Lemma forget01_c_c_Some_subst0 c c' c'' :
-    forget01_c_c c = Some c' ->
-    subst0_c_c c'' c = c'.
-  Admitted.
-
-  Lemma tyeq_subst0_c_c k L v b v' b' :
-    tyeq L v v' ->
-    tyeq (k :: L) b b' ->
-    tyeq L (subst0_c_c v b) (subst0_c_c v' b').
-  Admitted.
-  
-  Lemma subst_c_c_subst0 n c c' t : subst_c_c n c (subst0_c_c c' t) = subst0_c_c (subst_c_c n c c') (subst_c_c (S n) (shift0_c_c c) t).
-  Admitted.
-  
-  Lemma forget01_subst_c_c b b' n v :
-    forget01_c_c b = Some b' ->
-    forget01_c_c (subst_c_c (S n) (shift_c_c (S n) 0 v) b) = Some (subst_c_c n (shift_c_c n 0 v) b').
-  Admitted.
-  
-  Lemma shift_c_c_0 x c : shift_c_c 0 x c = c.
   Admitted.
   
   Lemma tyeq_shift0_c_c L c c' k :
@@ -1702,47 +1691,11 @@ Admitted.
     tyeq (k :: L) (shift0_c_c c) (shift0_c_c c').
   Admitted.
   
-  Lemma shift_c_c_subst0 n x v b : shift_c_c n x (subst0_c_c v b) = subst0_c_c (shift_c_c n x v) (shift_c_c n (S x) b).
+  Lemma tyeq_subst0_c_c k L v b v' b' :
+    tyeq L v v' ->
+    tyeq (k :: L) b b' ->
+    tyeq L (subst0_c_c v b) (subst0_c_c v' b').
   Admitted.
-  
-  Lemma shift_c_c_shift b :
-    forall n1 n2 x,
-      shift_c_c n2 x (shift_c_c n1 x b) = shift_c_c (n1 + n2) x b.
-  Admitted.
-  
-  Lemma shift_c_c_shift0 n b :
-    shift_c_c n 0 (shift0_c_c b) = shift_c_c (S n) 0 b.
-  Admitted.
-  
-  Lemma shift0_c_c_shift_0 n c :
-    shift0_c_c (shift_c_c n 0 c) = shift_c_c (1 + n) 0 c.
-  Admitted.
-  
-  Lemma shift0_c_c_subst x v b :
-    shift0_c_c (subst_c_c x (shift_c_c x 0 v) b) = subst_c_c (1 + x) (shift_c_c (1 + x) 0 v) (shift0_c_c b).
-  Admitted.
-  
-  Lemma subst0_c_c_shift0 v b :
-    subst0_c_c v (shift0_c_c b) = b.
-  Admitted.
-  
-  Lemma shift0_c_c_shift n x b :
-    shift0_c_c (shift_c_c n x b) = shift_c_c n (1 + x) (shift0_c_c b).
-  Admitted.
-  
-  Lemma forget01_shift_c_c b b' n x :
-    forget01_c_c b = Some b' ->
-    forget01_c_c (shift_c_c n (S x) b) = Some (shift_c_c n x b').
-  Admitted.
-  
-  Lemma map_shift0_subst n c ls :
-    map shift0_c_c (map (subst_c_c n (shift_c_c n 0 c)) ls) =
-    map (subst_c_c (1 + n) (shift_c_c (1 + n) 0 c)) (map shift0_c_c ls).
-  Proof.
-    repeat rewrite map_map.
-    setoid_rewrite shift0_c_c_subst.
-    eauto.
-  Qed.
   
   Lemma tyeq_shift_c_c L c1 c2 :
     tyeq L c1 c2 ->
@@ -1776,10 +1729,21 @@ Admitted.
       interpP (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_p n (shift_c_c n 0 c) p).
   Admitted.
   
-  Lemma subst_c_k_shift x y v b :
-    x <= y ->
-    subst_c_k y (shift_c_c y 0 v) (shift_c_k x 0 b) = shift_c_k x 0 (subst_c_k (y - x) (shift_c_c (y - x) 0 v) b).
+  Lemma forget01_shift_c_c b b' n x :
+    forget01_c_c b = Some b' ->
+    forget01_c_c (shift_c_c n (S x) b) = Some (shift_c_c n x b').
   Admitted.
+  
+  Lemma forget01_subst_c_c b b' n v :
+    forget01_c_c b = Some b' ->
+    forget01_c_c (subst_c_c (S n) (shift_c_c (S n) 0 v) b) = Some (subst_c_c n (shift_c_c n 0 v) b').
+  Admitted.
+  
+  Lemma forget01_c_c_Some_subst0 c c' c'' :
+    forget01_c_c c = Some c' ->
+    subst0_c_c c'' c = c'.
+  Admitted.
+
   Lemma length_firstn_le A (L : list A) n :
     n <= length L ->
     length (firstn n L) = n.
@@ -1846,11 +1810,6 @@ Admitted.
     induction bs; simplify; eauto.
   Qed.
   
-  Lemma subst_c_k_shift_avoid x y v b :
-    y < x ->
-    subst_c_k y (shift_c_c y 0 v) (shift_c_k x 0 b) = shift_c_k (x - 1) 0 b.
-  Admitted.
-  
   Lemma nth_error_my_skipn A (ls : list A) :
     forall x n,
       n <= length ls ->
@@ -1863,6 +1822,36 @@ Admitted.
     }
     destruct n as [|n]; simplify; eauto.
     eapply IHls; linear_arithmetic.
+  Qed.
+  
+  Hint Extern 0 (_ <= _) => linear_arithmetic : db_la.
+  
+  Lemma shift_c_k_cbinop_result_kind x v opr :
+    shift_c_k x v (cbinop_result_kind opr) = cbinop_result_kind opr.
+  Proof.
+    cases opr; simplify; eauto.
+  Qed.
+  Lemma shift_c_k_cbinop_arg1_kind x v opr :
+    shift_c_k x v (cbinop_arg1_kind opr) = cbinop_arg1_kind opr.
+  Proof.
+    cases opr; simplify; eauto.
+  Qed.
+  Lemma shift_c_k_cbinop_arg2_kind x v opr :
+    shift_c_k x v (cbinop_arg2_kind opr) = cbinop_arg2_kind opr.
+  Proof.
+    cases opr; simplify; eauto.
+  Qed.
+  
+  Lemma shift_c_k_binpred_arg1_kind x v opr :
+    shift_c_k x v (binpred_arg1_kind opr) = binpred_arg1_kind opr.
+  Proof.
+    cases opr; simplify; eauto.
+  Qed.
+  
+  Lemma shift_c_k_binpred_arg2_kind x v opr :
+    shift_c_k x v (binpred_arg2_kind opr) = binpred_arg2_kind opr.
+  Proof.
+    cases opr; simplify; eauto.
   Qed.
   
   Lemma subst_c_k_cbinop_result_kind x v opr :
@@ -1902,12 +1891,6 @@ Admitted.
     induction bs; simplify; eauto.
   Qed.
   
-  Lemma shift_c_k_shift b :
-    forall n1 n2 x,
-      x <= n1 ->
-      shift_c_k n2 x (shift_c_k n1 0 b) = shift_c_k (n1 + n2) 0 b.
-  Admitted.
-  
   Lemma kdeq_refl2 : forall L k k', k = k' -> kdeq L k k'.
   Proof.
     intros; subst; eapply kdeq_refl.
@@ -1928,45 +1911,92 @@ Admitted.
     try unfold value; repeat f_equal; linear_arithmetic.
   Qed.
   
+  Lemma shift_c_k_shift :
+    (forall b n1 n2 x y,
+      x <= y ->
+      y <= x + n1 ->
+      shift_c_c n2 y (shift_c_c n1 x b) = shift_c_c (n1 + n2) x b) /\
+    (forall b n1 n2 x y,
+      x <= y ->
+      y <= x + n1 ->
+      shift_c_k n2 y (shift_c_k n1 x b) = shift_c_k (n1 + n2) x b) /\
+    (forall b n1 n2 x y,
+      x <= y ->
+      y <= x + n1 ->
+      shift_c_p n2 y (shift_c_p n1 x b) = shift_c_p (n1 + n2) x b).
+  Proof.
+    induct b; simplify; cbn in *; eauto.
+    {
+      f_equal; eauto.
+    }
+    f_equal; eauto.
+    (*here*)
+
+    with db_la.
+  Qed.
+  
+  Lemma shift_c_k_shift_0 b :
+    forall n1 n2 x,
+      x <= n1 ->
+      shift_c_k n2 x (shift_c_k n1 0 b) = shift_c_k (n1 + n2) 0 b.
+  Admitted.
+  
   Lemma shift_c_k_shift_2 b :
     forall n1 n2 x,
       n1 <= x ->
       shift_c_k n2 x (shift_c_k n1 0 b) = shift_c_k n1 0 (shift_c_k n2 (x - n1) b).
   Admitted.
   
-  Lemma shift_c_k_cbinop_result_kind x v opr :
-    shift_c_k x v (cbinop_result_kind opr) = cbinop_result_kind opr.
-  Proof.
-    cases opr; simplify; eauto.
-  Qed.
-  Lemma shift_c_k_cbinop_arg1_kind x v opr :
-    shift_c_k x v (cbinop_arg1_kind opr) = cbinop_arg1_kind opr.
-  Proof.
-    cases opr; simplify; eauto.
-  Qed.
-  Lemma shift_c_k_cbinop_arg2_kind x v opr :
-    shift_c_k x v (cbinop_arg2_kind opr) = cbinop_arg2_kind opr.
-  Proof.
-    cases opr; simplify; eauto.
-  Qed.
-  
-  Lemma monotone_shift_c_c x v b :
-    monotone b ->
-    monotone (shift_c_c x v b).
+  Lemma subst_c_k_shift x y v b :
+    x <= y ->
+    subst_c_k y (shift_c_c y 0 v) (shift_c_k x 0 b) = shift_c_k x 0 (subst_c_k (y - x) (shift_c_c (y - x) 0 v) b).
+  Admitted.
+  Lemma subst_c_k_shift_avoid x y v b :
+    y < x ->
+    subst_c_k y (shift_c_c y 0 v) (shift_c_k x 0 b) = shift_c_k (x - 1) 0 b.
   Admitted.
   
-  Hint Extern 0 (_ <= _) => linear_arithmetic : db_la.
+  Lemma shift_c_c_0 x c : shift_c_c 0 x c = c.
+  Admitted.
   
-  Lemma shift_c_k_binpred_arg1_kind x v opr :
-    shift_c_k x v (binpred_arg1_kind opr) = binpred_arg1_kind opr.
-  Proof.
-    cases opr; simplify; eauto.
-  Qed.
+  Lemma shift_c_c_shift b :
+    forall n1 n2 x,
+      shift_c_c n2 x (shift_c_c n1 x b) = shift_c_c (n1 + n2) x b.
+  Admitted.
   
-  Lemma shift_c_k_binpred_arg2_kind x v opr :
-    shift_c_k x v (binpred_arg2_kind opr) = binpred_arg2_kind opr.
+  Lemma shift_c_c_shift0 n b :
+    shift_c_c n 0 (shift0_c_c b) = shift_c_c (S n) 0 b.
+  Admitted.
+  
+  Lemma shift0_c_c_shift_0 n c :
+    shift0_c_c (shift_c_c n 0 c) = shift_c_c (1 + n) 0 c.
+  Admitted.
+  
+  Lemma shift0_c_c_shift n x b :
+    shift0_c_c (shift_c_c n x b) = shift_c_c n (1 + x) (shift0_c_c b).
+  Admitted.
+  
+  Lemma subst_c_c_subst0 n c c' t : subst_c_c n c (subst0_c_c c' t) = subst0_c_c (subst_c_c n c c') (subst_c_c (S n) (shift0_c_c c) t).
+  Admitted.
+  
+  Lemma shift_c_c_subst0 n x v b : shift_c_c n x (subst0_c_c v b) = subst0_c_c (shift_c_c n x v) (shift_c_c n (S x) b).
+  Admitted.
+  
+  Lemma shift0_c_c_subst x v b :
+    shift0_c_c (subst_c_c x (shift_c_c x 0 v) b) = subst_c_c (1 + x) (shift_c_c (1 + x) 0 v) (shift0_c_c b).
+  Admitted.
+  
+  Lemma subst0_c_c_shift0 v b :
+    subst0_c_c v (shift0_c_c b) = b.
+  Admitted.
+  
+  Lemma map_shift0_subst n c ls :
+    map shift0_c_c (map (subst_c_c n (shift_c_c n 0 c)) ls) =
+    map (subst_c_c (1 + n) (shift_c_c (1 + n) 0 c)) (map shift0_c_c ls).
   Proof.
-    cases opr; simplify; eauto.
+    repeat rewrite map_map.
+    setoid_rewrite shift0_c_c_subst.
+    eauto.
   Qed.
   
   Lemma kd_wfkind_wfprop_shift_c_c :
@@ -2011,7 +2041,7 @@ Admitted.
           linear_arithmetic.
         }
         eapply kdeq_refl2.
-        rewrite shift_c_k_shift by linear_arithmetic.
+        rewrite shift_c_k_shift_0 by linear_arithmetic.
         simplify.
         f_equal.
         linear_arithmetic.
@@ -2096,7 +2126,7 @@ Admitted.
     {
       (* Case Eq *)
       econstructor; eauto.
-      eapply kdeq_shift_c_k; eauto with invert_typing.
+      eapply kdeq_shift_c_k; eauto with db_tyeq.
     }
     {
       (* Case Subset *)
@@ -2310,7 +2340,7 @@ Admitted.
     {
       (* Case Eq *)
       econstructor; eauto.
-      eapply kdeq_subst_c_k; eauto with invert_typing.
+      eapply kdeq_subst_c_k; eauto with db_tyeq.
     }
     {
       (* Case Subset *)
@@ -2999,7 +3029,7 @@ Admitted.
   Proof.
     intros.
     eapply TySub; eauto.
-    eauto with invert_typing.
+    eauto with db_tyeq.
   Qed.
   
   Lemma TyIdxEq C e t i1 i2 :
@@ -3194,7 +3224,7 @@ Admitted.
       intros G' Htyeq;
       destruct C as ((L & W) & G);
       simplify;
-      try solve [econstructor; eauto | econstructor; simplify; eauto with invert_typing].
+      try solve [econstructor; eauto | econstructor; simplify; eauto with db_tyeq].
     {
       (* Case Var *)
       eapply nth_error_Forall2 in Htyeq; eauto.
@@ -3204,7 +3234,7 @@ Admitted.
         econstructor; simplify; eauto.
       }
       simplify.
-      eauto with invert_typing.
+      eauto with db_tyeq.
     }
     {
       (* Case AbsC *)
@@ -3218,7 +3248,7 @@ Admitted.
       (* Case Unpack *)
       econstructor; simplify; eauto.
       eapply IHtyping2.
-      econstructor; eauto with invert_typing.
+      econstructor; eauto with db_tyeq.
       eapply Forall2_map; eauto.
       intros c c' Htyeq2.
       eapply tyeq_shift0_c_c; eauto.
@@ -3241,7 +3271,7 @@ Admitted.
     destruct C as ((L & W) & G); simplify.
     eapply ty_G_tyeq in Hty; eauto.
     simplify.
-    eauto using Forall2_refl' with invert_typing.
+    eauto using Forall2_refl' with db_tyeq.
   Qed.
   
   Lemma value_shift_e_e e :
@@ -3302,7 +3332,7 @@ Admitted.
       }
       simplify.
       rewrite shift_c_c_subst0.
-      eauto with invert_typing.
+      eauto with db_tyeq.
     }
     {
       (* Case AbsC *)
@@ -3358,7 +3388,7 @@ Admitted.
       rewrite shift_c_c_Apps.
       simplify.
       rewrite shift_c_c_subst0.
-      eauto with invert_typing.
+      eauto with db_tyeq.
     }
     {
       (* Case Unfold *)
@@ -3376,14 +3406,14 @@ Admitted.
           }
           rewrite shift_c_c_Apps.
           cbn.
-          eauto with invert_typing.
+          eauto with db_tyeq.
         }
       }
       simplify.
       rewrite shift_c_c_Apps.
       simplify.
       rewrite shift_c_c_subst0.
-      eauto with invert_typing.
+      eauto with db_tyeq.
     }
     {
       (* Case Pack *)
@@ -3400,7 +3430,7 @@ Admitted.
       }
       simplify.
       rewrite shift_c_c_subst0.
-      eauto with invert_typing.
+      eauto with db_tyeq.
     }
     {
       (* Case Unpack *)
@@ -3432,7 +3462,7 @@ Admitted.
       simplify.
       {
         cases cn; simplify;
-          eauto with invert_typing.
+          eauto with db_tyeq.
       }
     }
     {
@@ -3444,7 +3474,7 @@ Admitted.
       }
       simplify.
       cases pr; simplify;
-        eauto with invert_typing.
+        eauto with db_tyeq.
     }
     {
       (* Case Inj *)
@@ -3460,7 +3490,7 @@ Admitted.
       }
       simplify.
       cases inj; simplify;
-        eauto with invert_typing.
+        eauto with db_tyeq.
     }
     {
       (* Case Loc *)
@@ -3475,7 +3505,7 @@ Admitted.
       }
       {
         simplify.
-        eapply tyeq_shift_c_c; eauto with invert_typing.
+        eapply tyeq_shift_c_c; eauto with db_tyeq.
       }
       {
         simplify.
@@ -3536,7 +3566,7 @@ Admitted.
       }
       simplify.
       rewrite subst_c_c_subst0.
-      eauto with invert_typing.
+      eauto with db_tyeq.
     }
     {
       (* Case AbsC *)
@@ -3592,7 +3622,7 @@ Admitted.
       rewrite subst_c_c_Apps.
       simplify.
       rewrite subst_c_c_subst0.
-      eauto with invert_typing.
+      eauto with db_tyeq.
     }
     {
       (* Case Unfold *)
@@ -3610,14 +3640,14 @@ Admitted.
           }
           rewrite subst_c_c_Apps.
           simplify.
-          eauto with invert_typing.
+          eauto with db_tyeq.
         }
       }
       simplify.
       rewrite subst_c_c_Apps.
       simplify.
       rewrite subst_c_c_subst0.
-      eauto with invert_typing.
+      eauto with db_tyeq.
     }
     {
       (* Case Pack *)
@@ -3634,7 +3664,7 @@ Admitted.
       }
       simplify.
       rewrite subst_c_c_subst0.
-      eauto with invert_typing.
+      eauto with db_tyeq.
     }
     {
       (* Case Unpack *)
@@ -3666,7 +3696,7 @@ Admitted.
       simplify.
       {
         rewrite subst_c_c_const_type.
-        eauto with invert_typing.
+        eauto with db_tyeq.
       }
     }
     {
@@ -3678,7 +3708,7 @@ Admitted.
       }
       simplify.
       cases pr; simplify;
-        eauto with invert_typing.
+        eauto with db_tyeq.
     }
     {
       (* Case Inj *)
@@ -3694,7 +3724,7 @@ Admitted.
       }
       simplify.
       cases inj; simplify;
-        eauto with invert_typing.
+        eauto with db_tyeq.
     }
     {
       (* Case Case *)
@@ -3713,7 +3743,7 @@ Admitted.
       }
       {
         simplify.
-        eapply tyeq_subst_c_c; eauto with invert_typing.
+        eapply tyeq_subst_c_c; eauto with db_tyeq.
       }
       {
         simplify.
@@ -4150,7 +4180,7 @@ Admitted.
     }
     {
       destruct C as ((L & W) & G); simplify; subst.
-      eapply IHtyping; eauto with invert_typing.
+      eapply IHtyping; eauto with db_tyeq.
     }
   Qed.
 
@@ -4160,7 +4190,7 @@ Admitted.
     exists e,
       v = EAbs e.
   Proof.
-    intros; eapply canon_CArrow'; eauto with invert_typing.
+    intros; eapply canon_CArrow'; eauto with db_tyeq.
   Qed.
 
   Lemma canon_CForall' C v t i :
@@ -4190,7 +4220,7 @@ Admitted.
     }
     {
       destruct C as ((L & W) & G); simplify; subst.
-      eapply IHtyping; eauto with invert_typing.
+      eapply IHtyping; eauto with db_tyeq.
     }
   Qed.
 
@@ -4200,7 +4230,7 @@ Admitted.
     exists e,
       v = EAbsC e.
   Proof.
-    intros; eapply canon_CForall'; eauto with invert_typing.
+    intros; eapply canon_CForall'; eauto with db_tyeq.
   Qed.
 
   Lemma canon_CRec' C v t i :
@@ -4251,7 +4281,7 @@ Admitted.
     }
     {
       destruct C as ((L & W) & G); simplify; subst.
-      eapply IHtyping; eauto with invert_typing.
+      eapply IHtyping; eauto with db_tyeq.
     }
   Qed.
 
@@ -4262,7 +4292,7 @@ Admitted.
       v = EFold e /\
       value e.
   Proof.
-    intros; eapply canon_CRec'; eauto with invert_typing.
+    intros; eapply canon_CRec'; eauto with db_tyeq.
   Qed.
 
   Lemma canon_CExists' C v t i :
@@ -4293,7 +4323,7 @@ Admitted.
     }
     {
       destruct C as ((L & W) & G); simplify; subst.
-      eapply IHtyping; eauto with invert_typing.
+      eapply IHtyping; eauto with db_tyeq.
     }
   Qed.
 
@@ -4304,7 +4334,7 @@ Admitted.
       v = EPack c e /\
       value e.
   Proof.
-    intros; eapply canon_CExists'; eauto with invert_typing.
+    intros; eapply canon_CExists'; eauto with db_tyeq.
   Qed.
 
   Lemma canon_CProd' C v t i :
@@ -4336,7 +4366,7 @@ Admitted.
     }
     {
       destruct C as ((L & W) & G); simplify; subst.
-      eapply IHtyping; eauto with invert_typing.
+      eapply IHtyping; eauto with db_tyeq.
     }
   Qed.
 
@@ -4348,7 +4378,7 @@ Admitted.
       value v1 /\
       value v2.
   Proof.
-    intros; eapply canon_CProd'; eauto with invert_typing.
+    intros; eapply canon_CProd'; eauto with db_tyeq.
   Qed.
 
   Lemma canon_CSum' C v t i :
@@ -4376,7 +4406,7 @@ Admitted.
     }
     {
       destruct C as ((L & W) & G); simplify; subst.
-      eapply IHtyping; eauto with invert_typing.
+      eapply IHtyping; eauto with db_tyeq.
     }
   Qed.
   
@@ -4387,7 +4417,7 @@ Admitted.
       v = EInj inj v' /\
       value v'.
   Proof.
-    intros; eapply canon_CSum'; eauto with invert_typing.
+    intros; eapply canon_CSum'; eauto with db_tyeq.
   Qed.
 
   Lemma canon_CRef' C v t i :
@@ -4418,7 +4448,7 @@ Admitted.
     }
     {
       destruct C as ((L & W) & G); simplify; subst.
-      eapply IHtyping; eauto with invert_typing.
+      eapply IHtyping; eauto with db_tyeq.
     }
   Qed.
   
@@ -4429,7 +4459,7 @@ Admitted.
       v = ELoc l /\
       W $? l = Some t'.
   Proof.
-    intros Hty ?; eapply canon_CRef' in Hty; eauto with invert_typing.
+    intros Hty ?; eapply canon_CRef' in Hty; eauto with db_tyeq.
   Qed.
 
   Lemma progress' C e t i :
@@ -4944,7 +4974,7 @@ Admitted.
   Proof.
     induct 1; openhyp; repeat eexists_split;
       eauto;
-      eauto with invert_typing.
+      eauto with db_tyeq.
   Qed.  
 
   Lemma invert_typing_Abs C e t i :
@@ -4954,7 +4984,7 @@ Admitted.
       kinding (get_kctx C) t1 KType /\
       typing (add_typing_ctx t1 C) e t2 i'.
   Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
   Qed.  
 
   Lemma invert_typing_Unfold C e t2 i :
@@ -4965,7 +4995,7 @@ Admitted.
       typing C e (CApps t cs) i' /\
       interpP (get_kctx C) (i' <= i)%idx.
   Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
   Qed.  
 
   Lemma invert_typing_Fold C e t' i :
@@ -4978,7 +5008,7 @@ Admitted.
       typing C e (CApps (subst0_c_c t1 t2) cs) i' /\
       interpP (get_kctx C) (i' <= i)%idx.
   Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
   Qed.  
 
   Lemma invert_typing_Rec C e t i :
@@ -4988,7 +5018,7 @@ Admitted.
       kinding (get_kctx C) t KType /\
       typing (add_typing_ctx t C) e t T0.
   Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
     {
       subst.
       eapply kinding_tyeq; eauto.
@@ -5012,7 +5042,7 @@ Admitted.
       forget01_c_c i2 = Some i2' /\
       interpP (get_kctx C) (i1 + i2' <= i)%idx.
   Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
   Qed.
 
   Lemma invert_typing_Pack C c e t i :
@@ -5024,7 +5054,7 @@ Admitted.
       typing C e (subst0_c_c c t1) i' /\
       interpP (get_kctx C) (i' <= i)%idx.
   Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
   Qed.
 
   Lemma invert_typing_Read C e t i :
@@ -5033,7 +5063,7 @@ Admitted.
       typing C e (CRef t) i' /\
       interpP (get_kctx C) (i' <= i)%idx.
   Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
     eapply TySub; try eapply H2; try econstructor; eauto.
   Qed.
 
@@ -5043,7 +5073,7 @@ Admitted.
       tyeq (get_kctx C) t (CRef t') /\
       get_hctx C $? l = Some t'.
   Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
   Qed.
 
   Lemma invert_typing_Write C e1 e2 t i :
@@ -5054,7 +5084,7 @@ Admitted.
       typing C e2 t' i2 /\
       interpP (get_kctx C) (i1 + i2 <= i)%idx.
   Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
   Qed.
 
   Lemma invert_typing_New C e t i :
@@ -5064,7 +5094,7 @@ Admitted.
       typing C e t' i' /\
       interpP (get_kctx C) (i' <= i)%idx.
   Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
   Qed.
 
   Lemma invert_typing_AppC C e c t i :
@@ -5075,7 +5105,7 @@ Admitted.
       kinding (get_kctx C) c k /\
       interpP (get_kctx C) (i' <= i)%idx.
   Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
   Qed.
 
   Lemma invert_typing_AbsC C e t i :
@@ -5086,7 +5116,7 @@ Admitted.
       wfkind (get_kctx C) k /\
       typing (add_kinding_ctx k C) e t' T0.
   Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
   Qed.
 
   Lemma invert_typing_Proj C pr e t i :
@@ -5096,7 +5126,7 @@ Admitted.
       typing C e (CProd t1 t2) i' /\
       interpP (get_kctx C) (i' <= i)%idx.
   Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
   Qed.
 
   Lemma invert_typing_Pair C e1 e2 t i :
@@ -5107,7 +5137,7 @@ Admitted.
       typing C e2 t2 i2 /\
       interpP (get_kctx C) (i1 + i2 <= i)%idx.
   Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
   Qed.
 
   Lemma invert_typing_Case C e e1 e2 t i :
@@ -5118,7 +5148,7 @@ Admitted.
       typing (add_typing_ctx t2 C) e2 t i2 /\
       interpP (get_kctx C) (i0 + Tmax i1 i2 <= i)%idx.
   Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
     {
       eapply TyTyeq; eauto.
       rewrite get_kctx_add_typing_ctx.
@@ -5139,12 +5169,12 @@ Admitted.
       kinding (get_kctx C) t'' KType /\
       interpP (get_kctx C) (i' <= i)%idx.
   Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
   Qed.
 
   Lemma invert_typing_BinOpPrim C opr e1 e2 t i : typing C (EBinOp (EBPrim opr) e1 e2) t i -> False.
   Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with invert_typing.
+    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
   Qed.
 
   Lemma preservation0 s s' :
@@ -5378,7 +5408,7 @@ Admitted.
       {
         eapply TyTyeq; eauto.
         simplify.
-        eapply tyeq_subst0_c_c; eauto with invert_typing.
+        eapply tyeq_subst0_c_c; eauto with db_tyeq.
       }
       eapply ty_subst0_e_e with (G := []) in Hty2; eauto.
       split.
@@ -5652,7 +5682,7 @@ Admitted.
           (* tyeq *)
           eapply tyeq_sym.
           eapply tyeq_trans; eauto.
-          eapply tyeq_subst0_c_c; eauto with invert_typing.
+          eapply tyeq_subst0_c_c; eauto with db_tyeq.
         }
         {
           simplify.
