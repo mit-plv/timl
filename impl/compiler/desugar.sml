@@ -3,18 +3,21 @@ struct
   open UnderscoredExpr
   structure O = Option
 
-  exception TODO
-
-  type sigcontext = (int * int * int * int) list
+  type scontext = int
+  type kcontext = int
+  type ccontext = int
+  type tcontext = int
+  type context = scontext * kcontext * ccontext * tcontext
+  type sigcontext = context list
 
   fun long_id_map (on_mod_proj : id -> id) (on_var : id -> id) ((mp, x) : long_id) : long_id =
     case mp of
       SOME mp => (SOME (on_mod_proj mp), x)
     | NONE => (NONE, on_var x)
 
-  fun idx_map (on_mod_proj : sigcontext -> id -> id) (on_vars : int -> id -> id) (gctx : sigcontext) (sctx : int) (i : idx) : idx =
+  fun idx_map (on_mod_proj : sigcontext -> id -> id) (on_vars : scontext -> id -> id) (gctx : sigcontext) (sctx : scontext) (i : idx) : idx =
     let
-      fun walk (sctx : int) (i : idx) : idx =
+      fun walk (sctx : scontext) (i : idx) : idx =
         case i of
           VarI longid => VarI (long_id_map (on_mod_proj gctx) (on_vars sctx) longid)
         | ConstIT _ => i
@@ -34,9 +37,9 @@ struct
       walk sctx i
     end
 
-  fun prop_map (on_idx : sigcontext -> int -> idx -> idx) (gctx : sigcontext) (sctx : int) (p : prop) : prop =
+  fun prop_map (on_idx : sigcontext -> scontext -> idx -> idx) (gctx : sigcontext) (sctx : scontext) (p : prop) : prop =
     let
-      fun walk (sctx : int) (p : prop) : prop =
+      fun walk (sctx : scontext) (p : prop) : prop =
         case p of
           True _ => p
         | False _ => p
@@ -48,7 +51,7 @@ struct
       walk sctx p
     end
 
-  fun sort_map (on_prop : sigcontext -> int -> prop -> prop) (gctx : sigcontext) (sctx : int) (s : sort) : sort =
+  fun sort_map (on_prop : sigcontext -> scontext -> prop -> prop) (gctx : sigcontext) (sctx : scontext) (s : sort) : sort =
     let
       fun walk (s : sort) : sort =
         case s of
@@ -59,7 +62,7 @@ struct
       walk s
     end
 
-  fun kind_map (on_sort : sigcontext -> int -> sort -> sort) (gctx : sigcontext) (sctx : int) (k : kind) : kind =
+  fun kind_map (on_sort : sigcontext -> scontext -> sort -> sort) (gctx : sigcontext) (sctx : scontext) (k : kind) : kind =
     let
       fun walk (k : kind) : kind =
         case k of
@@ -68,10 +71,11 @@ struct
       walk k
     end
 
-  fun mtype_map (on_mod_proj : sigcontext -> id -> id) (on_idx : sigcontext -> int -> idx -> idx) (on_sort : sigcontext -> int -> sort -> sort)
-    (on_vark : int -> id -> id) (gctx : sigcontext) (sctx : int) (kctx : int) (mt : mtype) : mtype =
+  fun mtype_map (on_mod_proj : sigcontext -> id -> id) (on_idx : sigcontext -> scontext -> idx -> idx)
+    (on_sort : sigcontext -> scontext -> sort -> sort)
+    (on_vark : kcontext -> id -> id) (gctx : sigcontext) (sctx : scontext) (kctx : kcontext) (mt : mtype) : mtype =
     let
-      fun walk (sctx : int) (mt : mtype) : mtype =
+      fun walk (sctx : scontext) (mt : mtype) : mtype =
         case mt of
           Arrow (mt1, i, mt2) => Arrow (walk sctx mt1, on_idx gctx sctx i, walk sctx mt2)
         | TyNat (i, r) => TyNat (on_idx gctx sctx i, r)
@@ -87,9 +91,10 @@ struct
       walk sctx mt
     end
 
-  fun ty_map (on_mtype : sigcontext -> int -> int -> mtype -> mtype) (gctx : sigcontext) (sctx : int) (kctx : int) (t : ty) : ty =
+  fun ty_map (on_mtype : sigcontext -> scontext -> kcontext -> mtype -> mtype) (gctx : sigcontext)
+    (sctx : scontext) (kctx : kcontext) (t : ty) : ty =
     let
-      fun walk (kctx : int) (t : ty) : ty =
+      fun walk (kctx : kcontext) (t : ty) : ty =
         case t of
           Mono mt => Mono (on_mtype gctx sctx kctx mt)
         | Uni (Bind (name, t1), r) => Uni (Bind (name, walk (kctx + 1) t1), r)
@@ -97,8 +102,9 @@ struct
       walk kctx t
     end
 
-  fun ptrn_map (on_mod_proj : sigcontext -> id -> id) (on_mtype : sigcontext -> int -> int -> mtype -> mtype) (on_varc : int -> id -> id)
-    (gctx : sigcontext) (sctx : int) (kctx : int) (cctx : int) (p : ptrn) : ptrn =
+  fun ptrn_map (on_mod_proj : sigcontext -> id -> id) (on_mtype : sigcontext -> scontext -> kcontext -> mtype -> mtype)
+    (on_varc : ccontext -> id -> id)
+    (gctx : sigcontext) (sctx : scontext) (kctx : kcontext) (cctx : ccontext) (p : ptrn) : ptrn =
     let
       fun walk (p : ptrn) : ptrn =
         case p of
@@ -113,14 +119,14 @@ struct
       walk p
     end
 
-  fun expr_map (on_mod_proj : sigcontext -> id -> id) (on_idx : sigcontext -> int -> idx -> idx)
-    (on_sort : sigcontext -> int -> sort -> sort) (on_mtype : sigcontext -> int -> int -> mtype -> mtype)
-    (on_ptrn : sigcontext -> int -> int -> int -> ptrn -> ptrn)
-    (on_decl : sigcontext -> int -> int -> int -> int -> decl -> (decl * int * int * int * int))
-    (on_varc : int -> id -> id) (on_vart : int -> id -> id)
-    (gctx : sigcontext) (sctx : int) (kctx : int) (cctx : int) (tctx : int) (e : expr) : expr =
+  fun expr_map (on_mod_proj : sigcontext -> id -> id) (on_idx : sigcontext -> scontext -> idx -> idx)
+    (on_sort : sigcontext -> scontext -> sort -> sort) (on_mtype : sigcontext -> scontext -> kcontext -> mtype -> mtype)
+    (on_ptrn : sigcontext -> scontext -> kcontext -> ccontext -> ptrn -> ptrn)
+    (on_decl : sigcontext -> scontext -> kcontext -> ccontext -> tcontext -> decl -> (decl * context))
+    (on_varc : ccontext -> id -> id) (on_vart : tcontext -> id -> id)
+    (gctx : sigcontext) (sctx : scontext) (kctx : kcontext) (cctx : ccontext) (tctx : tcontext) (e : expr) : expr =
     let
-      fun walk (sctx : int) (kctx : int) (cctx : int) (tctx : int) (e : expr) : expr =
+      fun walk (sctx : scontext) (kctx : kcontext) (cctx : ccontext) (tctx : tcontext) (e : expr) : expr =
         case e of
           Var (longid, eia) => Var (long_id_map (on_mod_proj gctx) (on_vart tctx) longid, eia)
         | App (e1, e2) => App (walk sctx kctx cctx tctx e1, walk sctx kctx cctx tctx e2)
@@ -174,13 +180,13 @@ struct
             let
               val omt' = O.map (on_mtype gctx sctx kctx) omt
               val oi' = O.map (on_idx gctx sctx) oi
-              fun iter (decl, (acc, sctx, kctx, cctx, tctx)) =
+              fun iter (decl, (acc, (sctx, kctx, cctx, tctx))) =
                 let
-                  val (decl', sctx', kctx', cctx', tctx') = on_decl gctx sctx kctx cctx tctx decl
+                  val (decl', (sctx', kctx', cctx', tctx')) = on_decl gctx sctx kctx cctx tctx decl
                 in
-                  (decl' :: acc, sctx', kctx', cctx', tctx')
+                  (decl' :: acc, (sctx', kctx', cctx', tctx'))
                 end
-              val (decls', sctx', kctx', cctx', tctx') = foldl iter ([], sctx, kctx, cctx, tctx) decls
+              val (decls', (sctx', kctx', cctx', tctx')) = foldl iter ([], (sctx, kctx, cctx, tctx)) decls
             in
               Let ((omt', oi'), rev decls', walk sctx' kctx' cctx' tctx' e1, r)
             end
@@ -192,22 +198,22 @@ struct
       walk sctx kctx cctx tctx e
     end
 
-  fun decl_map (on_mod_proj : sigcontext -> id -> id) (on_idx : sigcontext -> int -> idx -> idx)
-    (on_sort : sigcontext -> int -> sort -> sort)
-    (on_mtype : sigcontext -> int -> int -> mtype -> mtype)
-    (on_ptrn : sigcontext -> int -> int -> int -> ptrn -> ptrn)
-    (on_expr : sigcontext -> int -> int -> int -> int -> expr -> expr)
-    (gctx : sigcontext) (sctx : int) (kctx : int) (cctx : int) (tctx : int)
-    (d : decl) : (decl * int * int * int * int) =
+  fun decl_map (on_mod_proj : sigcontext -> id -> id) (on_idx : sigcontext -> scontext -> idx -> idx)
+    (on_sort : sigcontext -> scontext -> sort -> sort)
+    (on_mtype : sigcontext -> scontext -> kcontext -> mtype -> mtype)
+    (on_ptrn : sigcontext -> scontext -> kcontext -> ccontext -> ptrn -> ptrn)
+    (on_expr : sigcontext -> scontext -> kcontext -> ccontext -> tcontext -> expr -> expr)
+    (gctx : sigcontext) (sctx : scontext) (kctx : kcontext) (cctx : ccontext) (tctx : tcontext)
+    (d : decl) : (decl * context) =
     let
-      fun walk (sctx : int) (kctx : int) (cctx : int) (tctx : int) (d : decl) : (decl * int * int * int * int) =
+      fun walk (sctx : scontext) (kctx : kcontext) (cctx : ccontext) (tctx : tcontext) (d : decl) : (decl * context) =
         case d of
           Val (tnames, p, e, r) =>
             let
               val d' = Val (tnames, on_ptrn gctx sctx kctx cctx p, on_expr gctx sctx kctx cctx tctx e, r)
               val (inames, enames) = ptrn_names p
             in
-              (d', sctx + length inames, kctx + length tnames, cctx, tctx + length enames)
+              (d', (sctx + length inames, kctx + length tnames, cctx, tctx + length enames))
             end
         | Rec (tnames, fname, (stbinds, ((return, using), e)), r) =>
             let
@@ -233,7 +239,7 @@ struct
               val using' = on_idx gctx sctx' using
               val e' = on_expr gctx sctx' kctx'' cctx' tctx'' e
             in
-              (Rec (tnames, fname, (stbinds'', ((return', using'), e')), r), sctx, kctx, cctx, tctx + 1)
+              (Rec (tnames, fname, (stbinds'', ((return', using'), e')), r), (sctx, kctx, cctx, tctx + 1))
             end
         | Datatype (name, tnames, sorts, constrs, r) =>
             let
@@ -259,41 +265,41 @@ struct
                 end
               val constrs' = map walk_constr constrs
             in
-              (Datatype (name, tnames, sorts', constrs', r), sctx, kctx + 1, cctx + length constrs, tctx)
+              (Datatype (name, tnames, sorts', constrs', r), (sctx, kctx + 1, cctx + length constrs, tctx))
             end
-        | IdxDef (name, s, i) => (IdxDef (name, on_sort gctx sctx s, on_idx gctx sctx i), sctx + 1, kctx, cctx, tctx)
-        | AbsIdx2 (name, s, i) => (AbsIdx2 (name, on_sort gctx sctx s, on_idx gctx sctx i), sctx + 1, kctx, cctx, tctx)
+        | IdxDef (name, s, i) => (IdxDef (name, on_sort gctx sctx s, on_idx gctx sctx i), (sctx + 1, kctx, cctx, tctx))
+        | AbsIdx2 (name, s, i) => (AbsIdx2 (name, on_sort gctx sctx s, on_idx gctx sctx i), (sctx + 1, kctx, cctx, tctx))
         | AbsIdx ((name, s, i), decls, r) =>
             let
               val s' = on_sort gctx sctx s
               val i' = on_idx gctx sctx i
               fun iter (decl, (acc, sctx, kctx, cctx, tctx)) =
                 let
-                  val (decl', sctx', kctx', cctx', tctx') = walk sctx kctx cctx tctx decl
+                  val (decl', (sctx', kctx', cctx', tctx')) = walk sctx kctx cctx tctx decl
                 in
                   (decl' :: acc, sctx', kctx', cctx', tctx')
                 end
               val decls' = #1 (foldl iter ([], sctx + 1, kctx, cctx, tctx) decls)
               val decls'' = rev decls'
             in
-              (AbsIdx ((name, s', i'), decls'', r), sctx + 1, kctx, cctx, tctx)
+              (AbsIdx ((name, s', i'), decls'', r), (sctx + 1, kctx, cctx, tctx))
             end
-        | TypeDef (name, mt) => (TypeDef (name, on_mtype gctx sctx kctx mt), sctx, kctx + 1, cctx, tctx)
+        | TypeDef (name, mt) => (TypeDef (name, on_mtype gctx sctx kctx mt), (sctx, kctx + 1, cctx, tctx))
         | Open (mp, x) =>
             case List.nth (gctx, mp) of
-              (s, k, c, t) => (Open (on_mod_proj gctx (mp, x)), sctx + s, kctx + k, cctx + c, tctx + t)
+              (s, k, c, t) => (Open (on_mod_proj gctx (mp, x)), (sctx + s, kctx + k, cctx + c, tctx + t))
     in
       walk sctx kctx cctx tctx d
     end
 
-  fun spec_map (on_idx : sigcontext -> int -> idx -> idx)
-    (on_sort : sigcontext -> int -> sort -> sort) (on_kind : sigcontext -> int -> kind -> kind)
-    (on_mtype : sigcontext -> int -> int -> mtype -> mtype) (on_ty : sigcontext -> int -> int -> ty -> ty)
-    (gctx : sigcontext) (sctx : int) (kctx : int) (cctx : int) (tctx : int) (s : spec) : spec * int * int * int * int =
+  fun spec_map (on_idx : sigcontext -> scontext -> idx -> idx)
+    (on_sort : sigcontext -> scontext -> sort -> sort) (on_kind : sigcontext -> scontext -> kind -> kind)
+    (on_mtype : sigcontext -> scontext -> kcontext -> mtype -> mtype) (on_ty : sigcontext -> scontext -> kcontext -> ty -> ty)
+    (gctx : sigcontext) (sctx : scontext) (kctx : kcontext) (cctx : ccontext) (tctx : tcontext) (s : spec) : spec * context =
     let
-      fun walk (s : spec) : spec * int * int * int * int =
+      fun walk (s : spec) : spec * context =
         case s of
-          SpecVal (name, t) => (SpecVal (name, on_ty gctx sctx kctx t), sctx, kctx, cctx, tctx + 1)
+          SpecVal (name, t) => (SpecVal (name, on_ty gctx sctx kctx t), (sctx, kctx, cctx, tctx + 1))
         | SpecDatatype (name, tnames, sorts, constrs, r) =>
             let
               val sorts' = map (on_sort gctx sctx) sorts
@@ -318,23 +324,23 @@ struct
                 end
               val constrs' = map walk_constr constrs
             in
-              (SpecDatatype (name, tnames, sorts', constrs', r), sctx, kctx + 1, cctx + length constrs, tctx)
+              (SpecDatatype (name, tnames, sorts', constrs', r), (sctx, kctx + 1, cctx + length constrs, tctx))
             end
-        | SpecIdx (name, s) => (SpecIdx (name, on_sort gctx sctx s), sctx + 1, kctx, cctx, tctx)
-        | SpecType (name, k) => (SpecType (name, on_kind gctx sctx k), sctx, kctx + 1, cctx, tctx)
-        | SpecTypeDef (name, mt) => (SpecTypeDef (name, on_mtype gctx sctx kctx mt), sctx, kctx + 1, cctx, tctx)
+        | SpecIdx (name, s) => (SpecIdx (name, on_sort gctx sctx s), (sctx + 1, kctx, cctx, tctx))
+        | SpecType (name, k) => (SpecType (name, on_kind gctx sctx k), (sctx, kctx + 1, cctx, tctx))
+        | SpecTypeDef (name, mt) => (SpecTypeDef (name, on_mtype gctx sctx kctx mt), (sctx, kctx + 1, cctx, tctx))
     in
       walk s
     end
 
-  fun sgn_map (on_spec : sigcontext -> int -> int -> int -> int -> spec -> spec * int * int * int * int)
-    (gctx : sigcontext) (s : sgn) : sgn * (int * int * int * int) =
+  fun sgn_map (on_spec : sigcontext -> scontext -> kcontext -> ccontext -> tcontext -> spec -> spec * context)
+    (gctx : sigcontext) (s : sgn) : sgn * context =
     case s of
       SigComponents (specs, r) =>
         let
           fun iter (spec, (acc, s, k, c, t)) =
             let
-              val (spec', s', k', c', t') = on_spec gctx s k c t spec
+              val (spec', (s', k', c', t')) = on_spec gctx s k c t spec
             in
               (spec' :: acc, s', k', c', t')
             end
@@ -345,17 +351,17 @@ struct
         end
 
   fun modu_map (on_mod_proj : sigcontext -> id -> id)
-    (on_decl : sigcontext -> int -> int -> int -> int -> decl -> decl * int * int * int * int)
-    (on_sgn : sigcontext -> sgn -> sgn * (int * int * int * int))
-    (gctx : sigcontext) (modu : mod) : mod * (int * int * int * int) =
+    (on_decl : sigcontext -> scontext -> kcontext -> ccontext -> tcontext -> decl -> decl * context)
+    (on_sgn : sigcontext -> sgn -> sgn * context)
+    (gctx : sigcontext) (modu : mod) : mod * context =
     let
-      fun walk (modu : mod) : mod * (int * int * int * int) =
+      fun walk (modu : mod) : mod * context =
         case modu of
           ModComponents (decls, r) =>
             let
               fun iter (decl, (acc, sctx, kctx, cctx, tctx)) =
                 let
-                  val (decl', sctx', kctx', cctx', tctx') = on_decl gctx sctx kctx cctx tctx decl
+                  val (decl', (sctx', kctx', cctx', tctx')) = on_decl gctx sctx kctx cctx tctx decl
                 in
                   (decl' :: acc, sctx', kctx', cctx', tctx')
                 end
@@ -371,8 +377,8 @@ struct
       walk modu
     end
 
-  fun top_bind_map (on_modu : sigcontext -> mod -> mod * (int * int * int * int))
-    (on_sgn : sigcontext -> sgn -> sgn * (int * int * int * int))
+  fun top_bind_map (on_modu : sigcontext -> mod -> mod * context)
+    (on_sgn : sigcontext -> sgn -> sgn * context)
     (gctx : sigcontext) (fctx : sigcontext) (tb : top_bind) : top_bind * sigcontext * sigcontext =
     let
       fun walk (tb : top_bind) : top_bind * sigcontext * sigcontext =
