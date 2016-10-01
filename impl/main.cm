@@ -27,6 +27,7 @@ Group is
       smt2-printer.sml
       smt-solver.sml
       main.sml
+      compiler/micro-timl.sml
       compiler/compile.sml
       compiler/desugar.sml
 
