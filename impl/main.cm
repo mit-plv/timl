@@ -28,6 +28,8 @@ Group is
       smt-solver.sml
       main.sml
       compiler/micro-timl.sml
+      compiler/transform.sml
+      compiler/passes.sml
       compiler/compile.sml
       compiler/desugar.sml
 
