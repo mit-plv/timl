@@ -936,9 +936,10 @@ Module M (Time : TIME).
   
   Definition subst0_c_c v b := subst_c_c 0 v b.
 
-  Definition forget_c_c (x : var) (n : nat) (b : cstr) : option cstr.
-  Admitted.
-  Definition forget01_c_c := forget_c_c 0 1.
+  (* Definition forget_c_c (x : var) (n : nat) (b : cstr) : option cstr. *)
+  (* Admitted. *)
+  
+  (* Definition forget01_c_c := forget_c_c 0 1. *)
 
   Definition interpTime : cstr -> time_type.
   Admitted.
@@ -1729,20 +1730,20 @@ Admitted.
       interpP (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_p n (shift_c_c n 0 c) p).
   Admitted.
   
-  Lemma forget01_shift_c_c b b' n x :
-    forget01_c_c b = Some b' ->
-    forget01_c_c (shift_c_c n (S x) b) = Some (shift_c_c n x b').
-  Admitted.
+  (* Lemma forget01_shift_c_c b b' n x : *)
+  (*   forget01_c_c b = Some b' -> *)
+  (*   forget01_c_c (shift_c_c n (S x) b) = Some (shift_c_c n x b'). *)
+  (* Admitted. *)
   
-  Lemma forget01_subst_c_c b b' n v :
-    forget01_c_c b = Some b' ->
-    forget01_c_c (subst_c_c (S n) (shift_c_c (S n) 0 v) b) = Some (subst_c_c n (shift_c_c n 0 v) b').
-  Admitted.
+  (* Lemma forget01_subst_c_c b b' n v : *)
+  (*   forget01_c_c b = Some b' -> *)
+  (*   forget01_c_c (subst_c_c (S n) (shift_c_c (S n) 0 v) b) = Some (subst_c_c n (shift_c_c n 0 v) b'). *)
+  (* Admitted. *)
   
-  Lemma forget01_c_c_Some_subst0 c c' c'' :
-    forget01_c_c c = Some c' ->
-    subst0_c_c c'' c = c'.
-  Admitted.
+  (* Lemma forget01_c_c_Some_subst0 c c' c'' : *)
+  (*   forget01_c_c c = Some c' -> *)
+  (*   subst0_c_c c'' c = c'. *)
+  (* Admitted. *)
 
   Lemma length_firstn_le A (L : list A) n :
     n <= length L ->
@@ -2713,12 +2714,10 @@ Admitted.
       kinding (get_kctx C) c k ->
       typing C e (subst0_c_c c t1) i ->
       typing C (EPack c e) (CExists k t1) i
-  | TyUnpack C e1 e2 t2' i1 i2' t k t2 i2 :
+  | TyUnpack C e1 e2 t2 i1 i2 t k :
       typing C e1 (CExists k t) i1 ->
-      typing (add_typing_ctx t (add_kinding_ctx k C)) e2 t2 i2 ->
-      forget01_c_c t2 = Some t2' ->
-      forget01_c_c i2 = Some i2' ->
-      typing C (EUnpack e1 e2) t2' (i1 + i2')
+      typing (add_typing_ctx t (add_kinding_ctx k C)) e2 (shift0_c_c t2) (shift0_c_c i2) ->
+      typing C (EUnpack e1 e2) t2 (i1 + i2)
   | TyConst C cn :
       typing C (EConst cn) (const_type cn) T0
   | TyPair C e1 e2 t1 t2 i1 i2 :
@@ -3441,14 +3440,9 @@ Admitted.
         rewrite map_shift0_shift.
         specialize (IHtyping2 (S x) ls); simplify.
         erewrite length_firstn_le in IHtyping2 by eauto.
+        repeat rewrite shift0_c_c_shift.
         eapply IHtyping2; eauto.
         linear_arithmetic.
-      }
-      {
-        eapply forget01_shift_c_c; eauto.
-      }
-      {
-        eapply forget01_shift_c_c; eauto.
       }
     }
     {
@@ -3676,13 +3670,8 @@ Admitted.
         repeat rewrite shift0_c_c_shift_0.
         specialize (IHtyping2 (S n)); simplify.
         erewrite nth_error_length_firstn in IHtyping2 by eauto.
+        repeat rewrite shift0_c_c_subst.
         eapply IHtyping2; eauto.
-      }
-      {
-        eapply forget01_subst_c_c; eauto.
-      }
-      {
-        eapply forget01_subst_c_c; eauto.
       }
     }
     {
@@ -4665,8 +4654,9 @@ Admitted.
       eapply IHtyping1 in Hi1; eauto.
       cases Hi1; simplify.
       {
-        eapply canon_CExists in H3; eauto.
-        destruct H3 as (c & e & ? & Hv).
+        rename H into Hty.
+        eapply canon_CExists in Hty; eauto.
+        destruct Hty as (c & e & ? & Hv).
         subst.
         right.
         exists (h, subst0_e_e e (subst0_c_e c e2), f).
@@ -4674,7 +4664,8 @@ Admitted.
         eauto.
       }
       {
-        destruct H3 as (((h' & e1') & f') & Hstep).
+        rename H1 into Hstep.
+        destruct Hstep as (((h' & e1') & f') & Hstep).
         invert Hstep.
         right.
         exists (h', EUnpack e1' e2, f').
@@ -5032,13 +5023,11 @@ Admitted.
 
   Lemma invert_typing_Unpack C e1 e2 t2'' i :
     typing C (EUnpack e1 e2) t2'' i ->
-    exists t2' t i1 k t2 i2 i2' ,
-      tyeq (get_kctx C) t2'' t2' /\
+    exists t2 t i1 k i2 ,
+      tyeq (get_kctx C) t2'' t2 /\
       typing C e1 (CExists k t) i1 /\
-      typing (add_typing_ctx t (add_kinding_ctx k C)) e2 t2 i2 /\
-      forget01_c_c t2 = Some t2' /\
-      forget01_c_c i2 = Some i2' /\
-      interpP (get_kctx C) (i1 + i2' <= i)%idx.
+      typing (add_typing_ctx t (add_kinding_ctx k C)) e2 (shift0_c_c t2) (shift0_c_c i2) /\
+      interpP (get_kctx C) (i1 + i2 <= i)%idx.
   Proof.
     induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
   Qed.
@@ -5384,7 +5373,7 @@ Admitted.
       rename t into f.
       rename t0 into t.
       eapply invert_typing_Unpack in Hty.
-      destruct Hty as (t2' & t0 & i1 & k & t2 & i2 & i2' & Htyeq & Hty1 & Hty2 & Ht2 & Hi2 & Hle2).
+      destruct Hty as (t2 & t0 & i1 & k & i2 & Htyeq & Hty1 & Hty2 & Hle2).
       subst.
       simplify.
       eapply invert_typing_Pack in Hty1.
@@ -5400,8 +5389,7 @@ Admitted.
       eapply ty_subst0_c_e with (L := []) in Hty2; eauto.
       simplify.
       rewrite fmap_map_subst0_shift0 in Hty2.
-      erewrite (@forget01_c_c_Some_subst0 t2) in Hty2; eauto.
-      erewrite (@forget01_c_c_Some_subst0 i2) in Hty2; eauto.
+      repeat rewrite subst0_c_c_shift0 in Hty2.
       assert (Htyv' : typing ([], W, []) v (subst0_c_c c t0) i').
       {
         eapply TyTyeq; eauto.
@@ -6656,7 +6644,7 @@ Admitted.
     {
       (* Case Unpack *)
       eapply invert_typing_Unpack in Hty.
-      destruct Hty as (t2' & t0' & i1 & k & t2 & i2 & i2' & Htyeq & Hty1 & Hty2 & Hfg1 & Hfg2 & Hle).
+      destruct Hty as (t2 & t0' & i1 & k & i2 & Htyeq & Hty1 & Hty2 & Hle).
       simplify.
       eapply IHplug in Hty1; eauto.
       destruct Hty1 as (t0 & i0 & Hty1 & Hle2 & HE).
@@ -6676,7 +6664,7 @@ Admitted.
       rename e'0 into e_all''.
       rename H4 into Hplug.
       eapply HE in Hplug; eauto.
-      eapply TySub with (t1 := t2').
+      eapply TySub with (t1 := t2).
       {
         eapply TyUnpack; eauto.
         simplify.
