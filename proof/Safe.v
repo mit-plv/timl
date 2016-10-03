@@ -1925,15 +1925,13 @@ Admitted.
       y <= x + n1 ->
       shift_c_p n2 y (shift_c_p n1 x b) = shift_c_p (n1 + n2) x b).
   Proof.
-    induct b; simplify; cbn in *; eauto.
-    {
-      f_equal; eauto.
-    }
-    f_equal; eauto.
+    eapply cstr_kind_prop_mutind;
+      simplify; cbn in *; eauto.  
     (*here*)
+    (* with db_la. *)
+  Admitted.
 
-    with db_la.
-  Qed.
+  (* Qed. *)
   
   Lemma shift_c_k_shift_0 b :
     forall n1 n2 x,
