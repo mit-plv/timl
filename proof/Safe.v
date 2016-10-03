@@ -80,6 +80,174 @@ End TIME.
 
 Require Import Frap.
 
+Module NatTime <: TIME.
+  Definition time_type := nat.
+  Definition Time0 := 0.
+  Definition Time1 := 1.
+  Definition TimeAdd := plus.
+  Definition TimeMinus := Peano.minus.
+  Definition TimeLe := le.
+  Definition TimeMax := max.
+  
+  Delimit Scope time_scope with time.
+  Notation "0" := Time0 : time_scope.
+  Notation "1" := Time1 : time_scope.
+  Infix "+" := TimeAdd : time_scope.
+  Infix "-" := TimeMinus : time_scope.
+  Infix "<=" := TimeLe : time_scope.
+
+  Require Import Omega.
+
+  Ltac unfold_time := unfold TimeAdd, TimeMinus, TimeMax, Time0, Time1, TimeLe in *.
+  Ltac linear := unfold_time; omega.
+
+  Lemma Time_add_le_elim a b c :
+    (a + b <= c -> a <= c /\ b <= c)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_minus_move_left a b c :
+    (c <= b ->
+     a + c <= b ->
+     a <= b - c)%time.
+  Proof.
+    intros; linear.
+  Qed.
+  
+  Lemma Time_add_assoc a b c : (a + (b + c) = a + b + c)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma lhs_rotate a b c :
+    (b + a <= c ->
+     a + b <= c)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_add_cancel a b c :
+    (a <= b ->
+     a + c <= b + c)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma rhs_rotate a b c :
+    (a <= c + b->
+     a <= b + c)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_a_le_ba a b : (a <= b + a)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_minus_cancel a b c :
+    (a <= b -> a - c <= b - c)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_a_minus_a a : (a - a = 0)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_0_le_x x : (0 <= x)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_minus_0 x : (x - 0 = x)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_0_add x : (0 + x = x)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_le_refl x : (x <= x)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_le_trans a b c :
+    (a <= b -> b <= c -> a <= c)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_add_cancel2 a b c d :
+    (c <= d ->
+     a <= b ->
+     a + c <= b + d)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_a_le_maxab a b : (a <= TimeMax a b)%time.
+  Proof.
+    intros; unfold_time; linear_arithmetic.
+  Qed.
+
+  Lemma Time_b_le_maxab a b : (b <= TimeMax a b)%time.
+    intros; unfold_time; linear_arithmetic.
+  Qed.
+
+  Lemma Time_add_minus_assoc a b c :
+    (c <= b -> a + (b - c) = a + b - c)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_minus_le a b : (a - b <= a)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_minus_add_cancel a b :
+    (b <= a -> a - b + b = a)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_minus_move_right a b c :
+    (c <= a ->
+     a <= b + c ->
+     a - c <= b)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_le_add_minus a b c :
+    (a + b - c <= a + (b - c))%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_add_comm a b : (a + b = b + a)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_add_minus_cancel a b : (a + b - b = a)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_minus_minus_cancel a b : (b <= a -> a - (a - b) = b)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+End NatTime.
+
 (* Some common utilities *)
 
 Ltac copy h h2 := generalize h; intro h2.
@@ -316,174 +484,6 @@ Lemma removen_gt A ls n (a : A) n' :
 Admitted.
 Lemma map_removen A B (f : A -> B) n ls : map f (removen n ls) = removen n (map f ls).
 Admitted.
-
-Module NatTime <: TIME.
-  Definition time_type := nat.
-  Definition Time0 := 0.
-  Definition Time1 := 1.
-  Definition TimeAdd := plus.
-  Definition TimeMinus := Peano.minus.
-  Definition TimeLe := le.
-  Definition TimeMax := max.
-  
-  Delimit Scope time_scope with time.
-  Notation "0" := Time0 : time_scope.
-  Notation "1" := Time1 : time_scope.
-  Infix "+" := TimeAdd : time_scope.
-  Infix "-" := TimeMinus : time_scope.
-  Infix "<=" := TimeLe : time_scope.
-
-  Require Import Omega.
-
-  Ltac unfold_time := unfold TimeAdd, TimeMinus, TimeMax, Time0, Time1, TimeLe in *.
-  Ltac linear := unfold_time; omega.
-
-  Lemma Time_add_le_elim a b c :
-    (a + b <= c -> a <= c /\ b <= c)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_minus_move_left a b c :
-    (c <= b ->
-     a + c <= b ->
-     a <= b - c)%time.
-  Proof.
-    intros; linear.
-  Qed.
-  
-  Lemma Time_add_assoc a b c : (a + (b + c) = a + b + c)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma lhs_rotate a b c :
-    (b + a <= c ->
-     a + b <= c)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_add_cancel a b c :
-    (a <= b ->
-     a + c <= b + c)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma rhs_rotate a b c :
-    (a <= c + b->
-     a <= b + c)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_a_le_ba a b : (a <= b + a)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_minus_cancel a b c :
-    (a <= b -> a - c <= b - c)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_a_minus_a a : (a - a = 0)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_0_le_x x : (0 <= x)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_minus_0 x : (x - 0 = x)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_0_add x : (0 + x = x)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_le_refl x : (x <= x)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_le_trans a b c :
-    (a <= b -> b <= c -> a <= c)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_add_cancel2 a b c d :
-    (c <= d ->
-     a <= b ->
-     a + c <= b + d)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_a_le_maxab a b : (a <= TimeMax a b)%time.
-  Proof.
-    intros; unfold_time; linear_arithmetic.
-  Qed.
-
-  Lemma Time_b_le_maxab a b : (b <= TimeMax a b)%time.
-    intros; unfold_time; linear_arithmetic.
-  Qed.
-
-  Lemma Time_add_minus_assoc a b c :
-    (c <= b -> a + (b - c) = a + b - c)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_minus_le a b : (a - b <= a)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_minus_add_cancel a b :
-    (b <= a -> a - b + b = a)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_minus_move_right a b c :
-    (c <= a ->
-     a <= b + c ->
-     a - c <= b)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_le_add_minus a b c :
-    (a + b - c <= a + (b - c))%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_add_comm a b : (a + b = b + a)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_add_minus_cancel a b : (a + b - b = a)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_minus_minus_cancel a b : (b <= a -> a - (a - b) = b)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-End NatTime.
 
 Module NNRealTime <: TIME.
   Require RIneq.
@@ -2237,13 +2237,134 @@ Admitted.
     intros.
     eapply subst_c_k_shift_hit; linear_arithmetic.
   Qed.
+
+  Lemma shift_c_c_k_p_subst_in v n :
+    (forall b x y,
+        y <= x ->
+        shift_c_c n y (subst_c_c x (shift_c_c x 0 v) b) = subst_c_c (x + n) (shift_c_c (x + n) 0 v) (shift_c_c n y b)) /\
+    (forall b x y,
+        y <= x ->
+        shift_c_k n y (subst_c_k x (shift_c_c x 0 v) b) = subst_c_k (x + n) (shift_c_c (x + n) 0 v) (shift_c_k n y b)) /\
+    (forall b x y,
+        y <= x ->
+        shift_c_p n y (subst_c_p x (shift_c_c x 0 v) b) = subst_c_p (x + n) (shift_c_c (x + n) 0 v) (shift_c_p n y b)).
+  Proof.
+    eapply cstr_kind_prop_mutind;
+      simplify; cbn in *;
+        try solve [eauto |
+                   f_equal; eauto |
+                   erewrite H by linear_arithmetic; repeat f_equal; eauto with db_la |
+                   repeat rewrite shift0_c_c_shift_0; simplify;
+                   repeat replace (S (y - n)) with (S y - n) by linear_arithmetic;
+                   f_equal;
+                   match goal with
+                     H : _ |- _ => eapply H; eauto with db_la
+                   end].
+    {
+      (* Case CVar *)
+      repeat match goal with
+             | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+             | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
+             end; try solve [f_equal; linear_arithmetic].
+      rewrite shift_c_c_shift_merge by linear_arithmetic.
+      f_equal; eauto with db_la.
+    }
+  Qed.
   
-  Lemma shift_c_c_subst0 n x v b : shift_c_c n x (subst0_c_c v b) = subst0_c_c (shift_c_c n x v) (shift_c_c n (S x) b).
-  Admitted.
+  Lemma shift_c_c_subst_in v n :
+    forall b x y,
+      y <= x ->
+      shift_c_c n y (subst_c_c x (shift_c_c x 0 v) b) = subst_c_c (x + n) (shift_c_c (x + n) 0 v) (shift_c_c n y b).
+  Proof.
+    eapply shift_c_c_k_p_subst_in.
+  Qed.
+  
+  Lemma shift_c_k_subst_in v n :
+    forall b x y,
+      y <= x ->
+      shift_c_k n y (subst_c_k x (shift_c_c x 0 v) b) = subst_c_k (x + n) (shift_c_c (x + n) 0 v) (shift_c_k n y b).
+  Proof.
+    eapply shift_c_c_k_p_subst_in.
+  Qed.
+  
+  Lemma shift_c_p_subst_in v n :
+    forall b x y,
+      y <= x ->
+      shift_c_p n y (subst_c_p x (shift_c_c x 0 v) b) = subst_c_p (x + n) (shift_c_c (x + n) 0 v) (shift_c_p n y b).
+  Proof.
+    eapply shift_c_c_k_p_subst_in.
+  Qed.
   
   Lemma shift0_c_c_subst x v b :
     shift0_c_c (subst_c_c x (shift_c_c x 0 v) b) = subst_c_c (1 + x) (shift_c_c (1 + x) 0 v) (shift0_c_c b).
-  Admitted.
+  Proof.
+    unfold shift0_c_c, subst0_c_c.
+    rewrite shift_c_c_subst_in; repeat (f_equal; try linear_arithmetic).
+  Qed.
+  
+  Opaque le_lt_dec.
+  
+  Lemma shift_c_c_k_p_subst_out n :
+    (forall b v x y,
+        x <= y ->
+        shift_c_c n y (subst_c_c x v b) = subst_c_c x (shift_c_c n y v) (shift_c_c n (S y) b)) /\
+    (forall b v x y,
+        x <= y ->
+        shift_c_k n y (subst_c_k x v b) = subst_c_k x (shift_c_c n y v) (shift_c_k n (S y) b)) /\
+    (forall b v x y,
+        x <= y ->
+        shift_c_p n y (subst_c_p x v b) = subst_c_p x (shift_c_c n y v) (shift_c_p n (S y) b)).
+  Proof.
+    eapply cstr_kind_prop_mutind;
+      simplify;
+      cbn in *;
+        try solve [eauto |
+                   f_equal; eauto |
+                   erewrite H by linear_arithmetic; repeat f_equal; eauto with db_la |
+                   repeat rewrite shift0_c_c_shift; simplify;
+                   repeat replace (S (y - n)) with (S y - n) by linear_arithmetic;
+                   f_equal;
+                   match goal with
+                     H : _ |- _ => eapply H; eauto with db_la
+                   end].
+    {
+      (* Case CVar *)
+      repeat match goal with
+             | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+             | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
+             end; try solve [f_equal; linear_arithmetic].
+    }
+  Qed.
+    
+  Lemma shift_c_c_subst_out n :
+    forall b v x y,
+      x <= y ->
+      shift_c_c n y (subst_c_c x v b) = subst_c_c x (shift_c_c n y v) (shift_c_c n (S y) b).
+  Proof.
+    eapply shift_c_c_k_p_subst_out.
+  Qed.
+    
+  Lemma shift_c_k_subst_out n :
+    forall b v x y,
+      x <= y ->
+      shift_c_k n y (subst_c_k x v b) = subst_c_k x (shift_c_c n y v) (shift_c_k n (S y) b).
+  Proof.
+    eapply shift_c_c_k_p_subst_out.
+  Qed.
+    
+  Lemma shift_c_p_subst_out n :
+    forall b v x y,
+      x <= y ->
+      shift_c_p n y (subst_c_p x v b) = subst_c_p x (shift_c_c n y v) (shift_c_p n (S y) b).
+  Proof.
+    eapply shift_c_c_k_p_subst_out.
+  Qed.
+    
+  Lemma shift_c_c_subst0 n x v b : shift_c_c n x (subst0_c_c v b) = subst0_c_c (shift_c_c n x v) (shift_c_c n (S x) b).
+  Proof.
+    unfold shift0_c_c, subst0_c_c.
+    rewrite shift_c_c_subst_out; repeat (f_equal; try linear_arithmetic).
+  Qed.
   
   Lemma subst_c_c_subst0 n c c' t : subst_c_c n c (subst0_c_c c' t) = subst0_c_c (subst_c_c n c c') (subst_c_c (S n) (shift0_c_c c) t).
   Admitted.
