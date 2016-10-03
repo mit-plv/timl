@@ -112,19 +112,21 @@ struct
   | TmArrayNew of term * term
   | TmArrayGet of term * term
   | TmArrayPut of term * term * term
+  | TmLet of term * term
 
   and term_bin_op =
     TmBopIntAdd
   | TmBopIntMul
 
-  type kcontext = kind list
-  type tcontext = constr list
-  type context = kcontext * tcontext
+  datatype bind =
+    BdKind of kind
+  | BdType of constr
+  type context = bind list
 
-  type prop_wellformedness_relation = kcontext * prop
-  type kind_wellformedness_relation = kcontext * kind
-  type kinding_relation = kcontext * constr * kind
-  type proping_relation = kcontext * prop
+  type prop_wellformedness_relation = context * prop
+  type kind_wellformedness_relation = context * kind
+  type kinding_relation = context * constr * kind
+  type proping_relation = context * prop
   type typing_relation = context * term * constr * constr
 
   datatype kind_wellformedness_derivation =
@@ -195,6 +197,7 @@ struct
   | TyDerivCstrApp of typing_relation * typing_derivation
   | TyDerivBinOp of typing_relation * typing_derivation * typing_derivation
   | TyDerivArrayNew of typing_relation * typing_derivation * typing_derivation
-  | TyDerivArrayGet of typing_relation * typing_derivation * typing_derivation
-  | TyDerivArrayPut of typing_relation * typing_derivation * typing_derivation * typing_derivation
+  | TyDerivArrayGet of typing_relation * typing_derivation * typing_derivation * proping_derivation
+  | TyDerivArrayPut of typing_relation * typing_derivation * typing_derivation * proping_derivation * typing_derivation
+  | TyDerivLet of typing_relation * typing_derivation * typing_derivation
 end
