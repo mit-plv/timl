@@ -843,7 +843,7 @@ Module M (Time : TIME).
     Fixpoint shift_c_c (x : var) (b : cstr) : cstr :=
       match b with
       | CVar y =>
-        if le_lt_dec x y then
+        if x <=? y then
           CVar (n + y)
         else
           CVar y
@@ -893,12 +893,14 @@ Module M (Time : TIME).
     | inright H => Gt H
     end.
   
+  Infix "<=>?" := lt_eq_gt_dec (at level 70).
+  
   Section subst_c_c.
 
     Fixpoint subst_c_c (x : var) (v : cstr) (b : cstr) : cstr :=
       match b with
       | CVar y =>
-        match lt_eq_gt_dec y x with
+        match y <=>? x with
         | Lt _ => CVar y
         | Eq _ => v
         | Gt _ => CVar (y - 1)
@@ -2135,7 +2137,7 @@ Admitted.
                      H : _ |- _ => eapply H; eauto with db_la
                    end].
     (*here*)
-  Qed.
+  Admitted.
     
   Lemma subst_c_k_shift_hit v :
     forall b x n y,
@@ -2156,8 +2158,7 @@ Admitted.
     subst0_c_c v (shift0_c_c b) = b.
   Proof.
     unfold shift0_c_c, subst0_c_c.
-    
-  Qed.
+  Admitted.
   
   Lemma shift_c_c_subst0 n x v b : shift_c_c n x (subst0_c_c v b) = subst0_c_c (shift_c_c n x v) (shift_c_c n (S x) b).
   Admitted.
@@ -2404,7 +2405,7 @@ Admitted.
       (* Case Var *)
       copy H0 HnltL.
       eapply nth_error_Some_lt in HnltL.
-      cases (lt_eq_gt_dec x n).
+      cases (x <=>? n).
       {
         rewrite subst_c_k_shift by linear_arithmetic.
         econstructor.
@@ -2969,7 +2970,7 @@ Admitted.
     Fixpoint shift_e_e (x : var) (b : expr) : expr :=
       match b with
       | EVar y =>
-        if le_lt_dec x y then
+        if x <=? y then
           EVar (n + y)
         else
           EVar y
@@ -3017,7 +3018,7 @@ Admitted.
     Fixpoint subst_e_e (x : var) (v : expr) (b : expr) : expr :=
       match b with
       | EVar y => 
-        match lt_eq_gt_dec y x with
+        match y <=>? x with
         | Lt _ => EVar y
         | Eq _ => v
         | Gt _ => EVar (y - 1)
@@ -4028,7 +4029,7 @@ Admitted.
       try solve [econstructor; eauto].
     {
       (* Case Var *)
-      cases (lt_eq_gt_dec x n).
+      cases (x <=>? n).
       {
         econstructor; simplify.
         erewrite removen_lt; eauto.
