@@ -1656,24 +1656,6 @@ Admitted.
     | b :: bs => subst_c_k (length bs) (shift_c_c (length bs) 0 v) b :: subst_c_ks v bs
     end.
 
-  Lemma kdeq_shift_c_k L k1 k2 :
-    kdeq L k1 k2 ->
-    forall x ls ,
-      let n := length ls in
-      x <= length L ->
-      kdeq (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_k n x k1) (shift_c_k n x k2).
-  Admitted.
-  
-  Lemma kdeq_subst_c_k L k1 k2 :
-    kdeq L k1 k2 ->
-    forall n k c1 c2 ,
-      nth_error L n = Some k ->
-      kinding (my_skipn L (1 + n)) c1 k ->
-      kinding (my_skipn L (1 + n)) c2 k ->
-      tyeq (my_skipn L (1 + n)) c1 c2 ->
-      kdeq (subst_c_ks c1 (firstn n L) ++ my_skipn L (1 + n)) (subst_c_k n (shift_c_c n 0 c1) k1) (subst_c_k n (shift_c_c n 0 c2) k2).
-  Admitted.
-  
   Lemma monotone_shift_c_c x v b :
     monotone b ->
     monotone (shift_c_c x v b).
@@ -2429,6 +2411,65 @@ Admitted.
     setoid_rewrite shift0_c_c_subst.
     eauto.
   Qed.
+  
+  Lemma kdeq_shift_c_k L k1 k2 :
+    kdeq L k1 k2 ->
+    forall x ls ,
+      let n := length ls in
+      x <= length L ->
+      kdeq (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_k n x k1) (shift_c_k n x k2).
+  Proof.
+    induct 1; simpl; 
+      (* try rename x into x'; *)
+      intros x ls Hle;
+      simplify;
+      cbn in *;
+      try solve [cbn in *; econstructor; eauto].
+    {
+      (* Case Subset *)
+      econstructor; eauto.
+      specialize (@interpP_shift_c_p (k :: L) (p <===> p')%idx H0 (S x) ls); intros HH.
+      simplify; cbn in *.
+      repeat erewrite length_firstn_le in * by linear_arithmetic.
+      eauto with db_la.
+    }
+  Qed.
+  
+  Lemma kdeq_subst_c_k L k1 k2 :
+    kdeq L k1 k2 ->
+    forall n k c ,
+      nth_error L n = Some k ->
+      kinding (my_skipn L (1 + n)) c k ->
+      kdeq (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_k n (shift_c_c n 0 c) k1) (subst_c_k n (shift_c_c n 0 c) k2).
+  Proof.
+    induct 1;
+      try rename n into n';
+      try rename k into k'';
+      try rename c into c';
+      intros n k c Hnth Hkd;
+      simplify;
+      try solve [econstructor; eauto].
+    {
+      (* Case Subset *)
+      econstructor; eauto.
+      specialize (@interpP_subst_c_p (k'' :: L) (p <===> p')%idx H0 (S n) k c); intros HH.
+      simplify.
+      repeat erewrite nth_error_length_firstn in * by eauto.
+      repeat rewrite shift0_c_c_shift_0.
+      simplify.
+      eauto with db_la.
+    }
+  Qed.
+  
+  (* Lemma kdeq_subst_c_k L k1 k2 : *)
+  (*   kdeq L k1 k2 -> *)
+  (*   forall n k c1 c2 , *)
+  (*     nth_error L n = Some k -> *)
+  (*     kinding (my_skipn L (1 + n)) c1 k -> *)
+  (*     kinding (my_skipn L (1 + n)) c2 k -> *)
+  (*     tyeq (my_skipn L (1 + n)) c1 c2 -> *)
+  (*     kdeq (subst_c_ks c1 (firstn n L) ++ my_skipn L (1 + n)) (subst_c_k n (shift_c_c n 0 c1) k1) (subst_c_k n (shift_c_c n 0 c2) k2). *)
+  (* Admitted. *)
   
   Lemma kd_wfkind_wfprop_shift_c_c :
     (forall L c k,
