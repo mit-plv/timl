@@ -1051,28 +1051,28 @@ Module M (Time : TIME).
   
   Definition subst0_c_c v b := subst_c_c 0 v b.
 
+  Fixpoint interpTime (i : cstr) : time_type :=
+    match i with
+      | CVar y => 0
+      | CConst cn => cn
+      | CBinOp opr c1 c2 => interpTime_binop opr (interpTime c1) (interpTime c2)
+      | CIte i i1 i2 =>
+        if interpBool i then
+          interpTime i1
+        else
+          interpTime i2
+      | CTimeAbs i => 0
+      | CArrow t1 i t2 => 0
+      | CAbs t => 0
+      | CApp c1 c2 => 0
+      | CQuan q k c => 0
+      | CRec k t => 0
+      | CRef t => 0
+    end.
+  
   Definition interpTime (i : cstr) : time_type.
   Admitted.
     
-  (* Fixpoint interpTime (i : cstr) : time_type := *)
-  (*   match i with *)
-  (*     | CVar y => 0 *)
-  (*     | CConst cn => cn *)
-  (*     | CBinOp opr c1 c2 => interpTime_binop opr (interpTime c1) (interpTime c2) *)
-  (*     | CIte i i1 i2 => *)
-  (*       if interpBool i then *)
-  (*         interpTime i1 *)
-  (*       else *)
-  (*         interpTime i2 *)
-  (*     | CTimeAbs i => 0 *)
-  (*     | CArrow t1 i t2 => 0 *)
-  (*     | CAbs t => 0 *)
-  (*     | CApp c1 c2 => 0 *)
-  (*     | CQuan q k c => 0 *)
-  (*     | CRec k t => 0 *)
-  (*     | CRef t => 0 *)
-  (*   end. *)
-  
   Definition interpP : kctx -> prop -> Prop.
   Admitted.
 
