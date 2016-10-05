@@ -242,11 +242,11 @@ struct
   | TyDerivPack of typing_relation * kinding_derivation * kinding_derivation * typing_derivation
   | TyDerivUnpack of typing_relation * typing_derivation * typing_derivation
   | TyDerivCstrAbs of typing_relation * kind_wellformedness_derivation * typing_derivation
-  | TyDerivCstrApp of typing_relation * typing_derivation
+  | TyDerivCstrApp of typing_relation * typing_derivation * kinding_derivation
   | TyDerivBinOp of typing_relation * typing_derivation * typing_derivation
   | TyDerivArrayNew of typing_relation * typing_derivation * typing_derivation
   | TyDerivArrayGet of typing_relation * typing_derivation * typing_derivation * proping_derivation
   | TyDerivArrayPut of typing_relation * typing_derivation * typing_derivation * proping_derivation * typing_derivation
   | TyDerivLet of typing_relation * typing_derivation * typing_derivation
-  | TmDerivNever of typing_relation
+  | TyDerivNever of typing_relation * proping_derivation
 end

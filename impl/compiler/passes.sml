@@ -390,8 +390,9 @@ struct
       | TmUnfold tm1 => normalize_shift tm1 (fn (tm1, d1) => k (TmUnfold tm1, d1))
       | TmPack (cstr1, tm2) => normalize_shift tm2 (fn (tm2, d2) => k (TmPack (TermShift.shift_constr_above d2 0 cstr1, tm2), d2))
       | TmUnpack (tm1, tm2) =>
-          normalize_shift tm1 (fn (tm1, d1) =>
-            k (TmUnpack (tm1, normalize_term (TermShift.shift_term_above d1 2 tm2)), d1))
+          normalize tm1 (fn (tm1, d1) =>
+            TmUnpack (tm1, normalize (TermShift.shift_term_above d1 2 tm2) (fn (tm2, d2) =>
+              k (tm2, d1 + 2 + d2))))
       | TmCstrAbs (kd1, tm2) => k (TmCstrAbs (kd1, normalize_term tm2), 0)
       | TmCstrApp (tm1, cstr2) => normalize_shift tm1 (fn (tm1, d1) => k (TmCstrApp (tm1, TermShift.shift_constr_above d1 0 cstr2), d1))
       | TmBinOp (bop, tm1, tm2) =>
@@ -410,7 +411,7 @@ struct
           normalize_shift tm1 (fn (tm1, d1) =>
             normalize_shift (TermShift.shift_term_above d1 0 tm2) (fn (tm2, d2) =>
               normalize_shift (TermShift.shift_term_above (d1 + d2) 0 tm3) (fn (tm3, d3) =>
-                k (TmArrayPut (TermShift.shift_term_above (d2 + d3) 0 tm1, TermShift.shift_term_above d3 0 tm2, tm3), d1 + d2 + d3))))
+                TmLet (TmArrayPut (TermShift.shift_term_above (d2 + d3) 0 tm1, TermShift.shift_term_above d3 0 tm2, tm3), k (TmUnit, d1 + d2 + d3 + 1)))))
       | TmLet (tm1, tm2) =>
           normalize tm1 (fn (tm1, d1) =>
             TmLet (tm1, normalize (TermShift.shift_term_above d1 1 tm2) (fn (tm2, d2) =>
