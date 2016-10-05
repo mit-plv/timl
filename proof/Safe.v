@@ -823,6 +823,7 @@ Module M (Time : TIME).
   | CBinOp (opr : cstr_bin_op) (c1 c2 : cstr)
   | CIte (i1 i2 i3 : cstr)
   | CTimeAbs (i : cstr)
+  | CTimeApp (arity : nat) (c1 c2 : cstr)
   | CArrow (t1 i t2 : cstr)
   | CAbs (* (k : kind) *) (t : cstr)
   | CApp (c1 c2 : cstr)
@@ -964,6 +965,7 @@ Module M (Time : TIME).
       | CBinOp opr c1 c2 => CBinOp opr (shift_c_c x c1) (shift_c_c x c2)
       | CIte i1 i2 i3 => CIte (shift_c_c x i1) (shift_c_c x i2) (shift_c_c x i3)
       | CTimeAbs i => CTimeAbs (shift_c_c (1 + x) i)
+      | CTimeApp n c1 c2 => CTimeApp n (shift_c_c x c1) (shift_c_c x c2)
       | CArrow t1 i t2 => CArrow (shift_c_c x t1) (shift_c_c x i) (shift_c_c x t2)
       | CAbs t => CAbs (shift_c_c (1 + x) t)
       | CApp c1 c2 => CApp (shift_c_c x c1) (shift_c_c x c2)
@@ -1022,6 +1024,7 @@ Module M (Time : TIME).
       | CBinOp opr c1 c2 => CBinOp opr (subst_c_c x v c1) (subst_c_c x v c2)
       | CIte i1 i2 i3 => CIte (subst_c_c x v i1) (subst_c_c x v i2) (subst_c_c x v i3)
       | CTimeAbs i => CTimeAbs (subst_c_c (1 + x) (shift0_c_c v) i)
+      | CTimeApp n c1 c2 => CTimeApp n (subst_c_c x v c1) (subst_c_c x v c2)
       | CArrow t1 i t2 => CArrow (subst_c_c x v t1) (subst_c_c x v i) (subst_c_c x v t2)
       | CAbs t => CAbs (subst_c_c (1 + x) (shift0_c_c v) t)
       | CApp c1 c2 => CApp (subst_c_c x v c1) (subst_c_c x v c2)
@@ -1054,7 +1057,7 @@ Module M (Time : TIME).
   Fixpoint interp_time_fun (arity : nat) : Type :=
     match arity with
     | 0 => time_type
-    | S n => time_type -> interp_time_fun n
+    | S n => nat -> interp_time_fun n
     end.
 
   Definition interp_base_sort (b : base_sort) : Type :=
@@ -1068,7 +1071,7 @@ Module M (Time : TIME).
   Fixpoint time_fun_default_value arity : interp_time_fun arity :=
     match arity with
     | 0 => 0%time
-    | S n => fun (_ : time_type) => time_fun_default_value n
+    | S n => fun _ : nat => time_fun_default_value n
     end.
   
   Definition base_sort_default_value (b : base_sort) : interp_base_sort b :=
@@ -1205,7 +1208,7 @@ Module M (Time : TIME).
             else
               x2.
   
-  Fixpoint interpCstr c arg_ks res_k {struct c} : interp_kinds arg_ks (interp_kind res_k) :=
+  Fixpoint interp_cstr c arg_ks res_k {struct c} : interp_kinds arg_ks (interp_kind res_k) :=
     match c with
       | CVar x => interp_var res_k x arg_ks id
       | CConst cn =>
@@ -1217,51 +1220,33 @@ Module M (Time : TIME).
         end
       | CBinOp opr c1 c2 =>
         let f x1 x2 := convert_kind_value (cbinop_result_bkind opr) res_k (interp_cbinop opr x1 x2) in
-        lift2 arg_ks f (interpCstr c1 arg_ks (cbinop_arg1_bkind opr)) (interpCstr c2 arg_ks (cbinop_arg2_bkind opr))
+        lift2 arg_ks f (interp_cstr c1 arg_ks (cbinop_arg1_bkind opr)) (interp_cstr c2 arg_ks (cbinop_arg2_bkind opr))
       | CIte c c1 c2 =>
-        lift3 arg_ks ite (interpCstr c1 arg_ks BKBool) (interpCstr c1 arg_ks res_k) (interpCstr c2 arg_ks res_k)
+        lift3 arg_ks ite (interp_cstr c1 arg_ks BKBool) (interp_cstr c1 arg_ks res_k) (interp_cstr c2 arg_ks res_k)
       | CTimeAbs c =>
         match res_k return interp_kinds arg_ks (interp_kind res_k) with
         | BKBaseSort (BSTimeFun (S n)) =>
-          interpCstr c (BKTime :: arg_ks) (BKTimeFun n)
+          interp_cstr c (BKNat :: arg_ks) (BKTimeFun n)
         | res_k => lift0 arg_ks (kind_default_value res_k)
         end
+      | CTimeApp n c1 c2 => 
+        let f x1 x2 := convert_kind_value (BKTimeFun n) res_k (x1 x2) in
+        lift2 arg_ks f (interp_cstr c1 arg_ks (BKTimeFun (S n))) (interp_cstr c2 arg_ks BKNat)
       | CAbs c =>
         match res_k return interp_kinds arg_ks (interp_kind res_k) with
         | BKArrow k1 k2 =>
-          interpCstr c (k1 :: arg_ks) k2
+          interp_cstr c (k1 :: arg_ks) k2
         | res_k => lift0 arg_ks (kind_default_value res_k)
         end
-      (* | CApp c1 c2 => 0 *)
+      | CApp c1 c2 => lift0 arg_ks (kind_default_value res_k)
       | CArrow t1 i t2 => lift0 arg_ks (kind_default_value res_k)
       | CQuan q k c => lift0 arg_ks (kind_default_value res_k)
       | CRec k t => lift0 arg_ks (kind_default_value res_k)
       | CRef t => lift0 arg_ks (kind_default_value res_k)
-      | _ => lift0 arg_ks (kind_default_value res_k)
     end.
+
+  Definition interpTime i : time_type := interp_cstr i [] BKTime.
   
-  Fixpoint interpTime (i : cstr) : time_type :=
-    match i with
-      | CVar y => 0
-      | CConst cn => cn
-      | CBinOp opr c1 c2 => interpTime_binop opr (interpTime c1) (interpTime c2)
-      | CIte i i1 i2 =>
-        if interpBool i then
-          interpTime i1
-        else
-          interpTime i2
-      | CTimeAbs i => 0
-      | CArrow t1 i t2 => 0
-      | CAbs t => 0
-      | CApp c1 c2 => 0
-      | CQuan q k c => 0
-      | CRec k t => 0
-      | CRef t => 0
-    end.
-  
-  Definition interpTime (i : cstr) : time_type.
-  Admitted.
-    
   Definition interpP : kctx -> prop -> Prop.
   Admitted.
 
@@ -1417,6 +1402,10 @@ Module M (Time : TIME).
            kinding (KNat :: L) i (KTimeFun n) ->
            monotone i ->
            kinding L (CTimeAbs i) (KTimeFun (1 + n))
+       | KdTimeApp L c1 c2 n :
+           kinding L c1 (KTimeFun (S n)) ->
+           kinding L c2 KNat ->
+           kinding L (CTimeApp n c1 c2) (KTimeFun n)
        (* todo: need elimination rule for TimeAbs *)
        | KdQuan L quan k c :
            wfkind L k ->
@@ -1706,6 +1695,11 @@ Admitted.
       tyeq L c1 c1' ->
       tyeq L c2 c2' ->
       tyeq L (CApp c1 c2) (CApp c1' c2')
+  | TyEqTimeApp L n c1 c2 n' c1' c2' :
+      n = n' ->
+      tyeq L c1 c1' ->
+      tyeq L c2 c2' ->
+      tyeq L (CTimeApp n c1 c2) (CTimeApp n' c1' c2')
   | TyEqBeta L (* t *) t1 t2 t1' t2' t' :
       (* tyeq L t (CApp t1 t2) -> *)
       tyeq L t1 (CAbs t1') ->
@@ -1734,11 +1728,11 @@ Admitted.
       tyeq L t t' ->
       tyeq L (CRef t) (CRef t')
   (* the following rules are just here to satisfy reflexivity *)
-  | TyEqTimeAbs L i :
-      tyeq L (CTimeAbs i) (CTimeAbs i)
   (* don't do deep equality test of two CAbs's *)
   | TyEqAbs L t :
       tyeq L (CAbs t) (CAbs t)
+  | TyEqTimeAbs L i :
+      tyeq L (CTimeAbs i) (CTimeAbs i)
   .
 
   Section tyeq_hint.
@@ -1777,6 +1771,9 @@ Admitted.
     Proof.
       induct 1; try solve [intros c Hbc; invert Hbc; eauto 3 using interpP_eq_trans, tyeq_refl].
       (* induct 1; try solve [induct 1; eauto using interpP_eq_trans, tyeq_refl]. *)
+      {
+        induct 1; eauto using interpP_eq_trans, tyeq_refl.
+      }
       {
         induct 1; eauto using interpP_eq_trans, tyeq_refl.
       }
