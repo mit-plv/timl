@@ -1054,13 +1054,13 @@ Module M (Time : TIME).
   
   Definition subst0_c_c v b := subst_c_c 0 v b.
 
-  Fixpoint interp_time_fun (arity : nat) : Set :=
+  Fixpoint interp_time_fun (arity : nat) :=
     match arity with
     | 0 => time_type
     | S n => nat -> interp_time_fun n
     end.
 
-  Definition interp_sort (b : sort) : Set :=
+  Definition interp_sort (b : sort) :=
     match b with
     | BSNat => nat
     | BSUnit => unit
@@ -1090,30 +1090,30 @@ Module M (Time : TIME).
     | KSubset k p => kind_to_sort k
     end.
       
-  Fixpoint interp_sorts arg_ks (res : Set) : Set :=
+  Fixpoint interp_sorts arg_ks res :=
     match arg_ks with
     | [] => res
     | arg_k :: arg_ks => interp_sorts arg_ks (interp_sort arg_k -> res)
     end.
 
-  Fixpoint lift0 arg_ks : forall (t : Set), t -> interp_sorts arg_ks t :=
-    match arg_ks return forall (t : Set), t -> interp_sorts arg_ks t with
+  Fixpoint lift0 arg_ks : forall t, t -> interp_sorts arg_ks t :=
+    match arg_ks return forall t, t -> interp_sorts arg_ks t with
     | [] =>
       fun t f => f
     | arg_k :: arg_ks =>
       fun t f => lift0 arg_ks (fun ak => f)
     end.
 
-  Fixpoint lift2 arg_ks : forall (t1 t2 t : Set), (t1 -> t2 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t :=
-    match arg_ks return forall (t1 t2 t : Set), (t1 -> t2 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t with
+  Fixpoint lift2 arg_ks : forall t1 t2 t, (t1 -> t2 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t :=
+    match arg_ks return forall t1 t2 t, (t1 -> t2 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t with
     | [] =>
       fun t1 t2 t f x1 x2 => f x1 x2
     | arg_k :: arg_ks =>
       fun t1 t2 t f x1 x2 => lift2 arg_ks (fun a1 a2 ak => f (a1 ak) (a2 ak)) x1 x2
     end.
   
-  Fixpoint lift3 arg_ks : forall (t1 t2 t3 t : Set), (t1 -> t2 -> t3 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t :=
-    match arg_ks return forall (t1 t2 t3 t : Set), (t1 -> t2 -> t3 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t with
+  Fixpoint lift3 arg_ks : forall t1 t2 t3 t, (t1 -> t2 -> t3 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t :=
+    match arg_ks return forall t1 t2 t3 t, (t1 -> t2 -> t3 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t with
     | [] =>
       fun t1 t2 t3 t f x1 x2 x3 => f x1 x2 x3
     | arg_k :: arg_ks =>
@@ -1139,7 +1139,7 @@ Module M (Time : TIME).
 
     Variables (k_in : sort).
     
-    Fixpoint interp_var (x : var) arg_ks (k_out : Set) (k : interp_sort k_in -> k_out) : interp_sorts arg_ks k_out :=
+    Fixpoint interp_var (x : var) arg_ks k_out (k : interp_sort k_in -> k_out) : interp_sorts arg_ks k_out :=
     match arg_ks with
     | [] => k (sort_default_value k_in)
     | arg_k :: arg_ks =>
