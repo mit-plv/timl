@@ -342,6 +342,7 @@ struct
         in
           (TmLet (tm1, tm2), combine [up1, up2])
         end
+    | TmNever => (TmNever, Arg.upward_base)
 
   and transform_term (tm : term, down : Arg.down) =
     case Arg.transformer_term (transform_constr, transform_kind, transform_term) (tm, down) of
@@ -687,6 +688,7 @@ struct
         in
           (TmLet (tm1, tm2), thread)
         end
+    | TmNever => (TmNever, thread)
 
   and transform_term (tm : term, thread : Arg.thread) =
     case Arg.transformer_term (transform_constr, transform_kind, transform_term) (tm, thread) of
