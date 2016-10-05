@@ -205,5 +205,88 @@ struct
 
     structure TypingDerivationShiftIns = TypingDerivationTransformPass(TypingDerivationShiftHelper)
     open TypingDerivationShiftIns
+
+    fun shift_typing_derivation_above delta dep tyderiv = #1 (transform_typing_derivation (tyderiv, (dep, delta)))
+  end
+
+  structure ANF =
+  struct
+    open TypingDerivationShift
+    exception Impossible
+
+    fun extract_tyrel tyderiv =
+      case tyderiv of
+        TyDerivVar rel => rel
+      | TyDerivInt rel => rel
+      | TyDerivNat rel => rel
+      | TyDerivUnit rel => rel
+      | TyDerivApp (rel, _, _) => rel
+      | TyDerivAbs (rel, _, _) => rel
+      | TyDerivRec (rel, _, _) => rel
+      | TyDerivPair (rel, _, _) => rel
+      | TyDerivFst (rel, _) => rel
+      | TyDerivSnd (rel, _) => rel
+      | TyDerivInLeft (rel, _, _) => rel
+      | TyDerivInRight (rel, _, _) => rel
+      | TyDerivCase (rel, _, _, _) => rel
+      | TyDerivFold (rel, _, _) => rel
+      | TyDerivUnfold (rel, _) => rel
+      | TyDerivPack (rel, _, _, _) => rel
+      | TyDerivUnpack (rel, _, _) => rel
+      | TyDerivCstrAbs (rel, _, _) => rel
+      | TyDerivCstrApp (rel, _, _) => rel
+      | TyDerivBinOp (rel, _, _) => rel
+      | TyDerivArrayNew (rel, _, _) => rel
+      | TyDerivArrayGet (rel, _, _, _) => rel
+      | TyDerivArrayPut (rel, _, _, _, _) => rel
+      | TyDerivLet (rel, _, _) => rel
+      | TyDerivNever (rel, _) => rel
+
+    fun extract_cstr_arrow (_, _, CstrArrow r, _) = r
+      | extract_cstr_arrow _ = raise Impossible
+
+    fun normalize_derivation tyderiv = normalize tyderiv (fn (x, d) => x)
+
+    and normalize tyderiv k =
+      case tyderiv of
+        TyDerivVar _ => k (tyderiv, [])
+      | TyDerivInt _ => k (tyderiv, [])
+      | TyDerivNat _ => k (tyderiv, [])
+      | TyDerivUnit _ => k (tyderiv, [])
+      | TyDerivApp (tyrel, tyderiv1, tyderiv2) =>
+          normalize_shift tyderiv1 (fn (tyderiv1, d1) =>
+            normalize_shift (shift_typing_derivation_above d1 0 tyderiv2) (fn (tyderiv2, d2) =>
+              let
+                val tyderiv1 = shift_typing_derivation_above d2 0 tyderiv1
+                val tyrel1 = extract_tyrel tyderiv1
+                val tyrel2 = extract_tyrel tyderiv2
+                val (ty1, ty2, ti) = extract_cstr_arrow tyrel
+                val tyrel = (#1 tyrel2, TmApp (#2 tyrel1, #2 tyrel2), ty2, CstrBinOp (CstrBopAdd, CstrBinOp (CstrBopAdd, CstrBinOp (CstrBopAdd, #4 tyrel1, #4 tyrel2), CstrNat 1), ti))
+              in
+                k (TyDerivApp (tyrel, tyderiv1, tyderiv2), List.concat [d2, d1])
+              end))
+      | _ => raise Impossible
+
+    and normalize_shift tyderiv k =
+      normalize tyderiv (fn (tyderiv, d) =>
+        let
+          val tyrel = extract_tyrel tyderiv
+        in
+          if Passes.ANF.is_value (#2 tyrel) then
+            k (tyderiv, d)
+          else
+            let
+              val ty = #3 tyrel
+              val tyrel' = (BdType ty :: (#1 tyrel), TmVar 0, ty, CstrNat 0)
+              val tyderiv' = TyDerivVar tyrel'
+              val res = k (tyderiv', BdType ty :: d)
+              val tyrel'' = extract_tyrel res
+              val tm = TmLet (#2 tyrel, #2 tyrel'')
+              val tyrel''' = (#1 tyrel, tm, #3 tyrel'', CstrBinOp (CstrBopAdd, #4 tyrel, #4 tyrel''))
+              val tyderiv'' = TyDerivLet (tyrel''', tyderiv, res)
+            in
+              tyderiv''
+            end
+        end)
   end
 end
