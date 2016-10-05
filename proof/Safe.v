@@ -809,7 +809,7 @@ Module M (Time : TIME).
   | PBBigO (arity : nat)
   .
 
-  Inductive base_sort :=
+  Inductive sort :=
   | BSNat
   | BSUnit
   | BSBool
@@ -834,7 +834,7 @@ Module M (Time : TIME).
   with kind :=
        | KType
        | KArrow (k1 k2 : kind)
-       | KBaseSort (b : base_sort)
+       | KBaseSort (b : sort)
        | KSubset (k : kind) (p : prop)
 
   with prop :=
@@ -1060,7 +1060,7 @@ Module M (Time : TIME).
     | S n => nat -> interp_time_fun n
     end.
 
-  Definition interp_base_sort (b : base_sort) : Type :=
+  Definition interp_sort (b : sort) : Type :=
     match b with
     | BSNat => nat
     | BSUnit => unit
@@ -1074,7 +1074,7 @@ Module M (Time : TIME).
     | S n => fun _ : nat => time_fun_default_value n
     end.
   
-  Definition base_sort_default_value (b : base_sort) : interp_base_sort b :=
+  Definition sort_default_value (b : sort) : interp_sort b :=
     match b with
     | BSNat => 0%nat
     | BSUnit => tt
@@ -1082,72 +1082,45 @@ Module M (Time : TIME).
     | BSTimeFun arity => time_fun_default_value arity
     end.
 
-  (* base kinds: kinds that don't have the Subset case *)
-  Inductive bkind :=
-       | BKType
-       | BKArrow (k1 k2 : bkind)
-       | BKBaseSort (b : base_sort)
-  .
-  
-  Definition BKUnit := BKBaseSort BSUnit.
-  Definition BKBool := BKBaseSort BSBool.
-  Definition BKNat := BKBaseSort BSNat.
-  Definition BKTimeFun arity := BKBaseSort (BSTimeFun arity).
-  Definition BKTime := BKTimeFun 0.
-
-  Fixpoint kind_to_bkind k :=
+  Fixpoint kind_to_sort k :=
     match k with
-    | KType => BKType
-    | KArrow k1 k2 => BKArrow (kind_to_bkind k1) (kind_to_bkind k2)
-    | KBaseSort b => BKBaseSort b
-    | KSubset k p => kind_to_bkind k
+    | KType => BSUnit
+    | KArrow k1 k2 => BSUnit
+    | KBaseSort b => b
+    | KSubset k p => kind_to_sort k
     end.
       
-  Fixpoint interp_kind k : Type :=
-    match k with
-    | BKType => unit
-    | BKArrow k1 k2 => interp_kind k1 -> interp_kind k2
-    | BKBaseSort b => interp_base_sort b
-    end.
-
-  Fixpoint kind_default_value k : interp_kind k :=
-    match k with
-    | BKType => tt
-    | BKArrow k1 k2 => fun _ : interp_kind k1 => kind_default_value k2
-    | BKBaseSort b => base_sort_default_value b
-    end.
-
-  Fixpoint interp_kinds arg_ks (res : Type) : Type :=
+  Fixpoint interp_sorts arg_ks (res : Type) : Type :=
     match arg_ks with
     | [] => res
-    | arg_k :: arg_ks => interp_kinds arg_ks (interp_kind arg_k -> res)
+    | arg_k :: arg_ks => interp_sorts arg_ks (interp_sort arg_k -> res)
     end.
 
-  Fixpoint lift0 arg_ks : forall t, t -> interp_kinds arg_ks t :=
-    match arg_ks return forall t, t -> interp_kinds arg_ks t with
+  Fixpoint lift0 arg_ks : forall t, t -> interp_sorts arg_ks t :=
+    match arg_ks return forall t, t -> interp_sorts arg_ks t with
     | [] =>
       fun t f => f
     | arg_k :: arg_ks =>
       fun t f => lift0 arg_ks (fun ak => f)
     end.
 
-  Fixpoint lift2 arg_ks : forall t1 t2 t, (t1 -> t2 -> t) -> interp_kinds arg_ks t1 -> interp_kinds arg_ks t2 -> interp_kinds arg_ks t :=
-    match arg_ks return forall t1 t2 t, (t1 -> t2 -> t) -> interp_kinds arg_ks t1 -> interp_kinds arg_ks t2 -> interp_kinds arg_ks t with
+  Fixpoint lift2 arg_ks : forall t1 t2 t, (t1 -> t2 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t :=
+    match arg_ks return forall t1 t2 t, (t1 -> t2 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t with
     | [] =>
       fun t1 t2 t f x1 x2 => f x1 x2
     | arg_k :: arg_ks =>
       fun t1 t2 t f x1 x2 => lift2 arg_ks (fun a1 a2 ak => f (a1 ak) (a2 ak)) x1 x2
     end.
   
-  Fixpoint lift3 arg_ks : forall t1 t2 t3 t, (t1 -> t2 -> t3 -> t) -> interp_kinds arg_ks t1 -> interp_kinds arg_ks t2 -> interp_kinds arg_ks t3 -> interp_kinds arg_ks t :=
-    match arg_ks return forall t1 t2 t3 t, (t1 -> t2 -> t3 -> t) -> interp_kinds arg_ks t1 -> interp_kinds arg_ks t2 -> interp_kinds arg_ks t3 -> interp_kinds arg_ks t with
+  Fixpoint lift3 arg_ks : forall t1 t2 t3 t, (t1 -> t2 -> t3 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t :=
+    match arg_ks return forall t1 t2 t3 t, (t1 -> t2 -> t3 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t with
     | [] =>
       fun t1 t2 t3 t f x1 x2 x3 => f x1 x2 x3
     | arg_k :: arg_ks =>
       fun t1 t2 t3 t f x1 x2 x3 => lift3 arg_ks (fun a1 a2 a3 ak => f (a1 ak) (a2 ak) (a3 ak)) x1 x2 x3
     end.
 
-  Definition base_sort_dec : forall (b b' : base_sort), sumbool (b = b') (b <> b').
+  Definition sort_dec : forall (b b' : sort), sumbool (b = b') (b <> b').
   Proof.
     induction b; destruct b'; simpl; try solve [left; f_equal; eauto | right; intro Heq; discriminate].
     {
@@ -1155,45 +1128,34 @@ Module M (Time : TIME).
     }
   Defined.
   
-  Definition bkind_dec : forall (k k' : bkind), sumbool (k = k') (k <> k').
+  Definition convert_kind_value k1 k2 : interp_sort k1 -> interp_sort k2.
   Proof.
-    induction k; destruct k'; simpl; try solve [left; f_equal; eauto | right; intro Heq; discriminate].
-    {
-      destruct (IHk1 k'1); destruct (IHk2 k'2); subst; simplify; try solve [left; f_equal; eauto | right; intro Heq; invert Heq; subst; eauto].
-    }
-    {
-      destruct (base_sort_dec b b0); subst; simplify; try solve [left; f_equal; eauto | right; intro Heq; invert Heq; subst; eauto].
-    }
-  Defined.
-  
-  Definition convert_kind_value k1 k2 : interp_kind k1 -> interp_kind k2.
-  Proof.
-    cases (bkind_dec k1 k2); subst; eauto.
+    cases (sort_dec k1 k2); subst; eauto.
     intros.
-    eapply kind_default_value.
+    eapply sort_default_value.
   Defined.
   
   Section interp_var.
 
-    Variables (k_in : bkind).
+    Variables (k_in : sort).
     
-    Fixpoint interp_var (x : var) arg_ks (k_out : Type) (k : interp_kind k_in -> k_out) : interp_kinds arg_ks k_out :=
+    Fixpoint interp_var (x : var) arg_ks (k_out : Type) (k : interp_sort k_in -> k_out) : interp_sorts arg_ks k_out :=
     match arg_ks with
-    | [] => k (kind_default_value k_in)
+    | [] => k (sort_default_value k_in)
     | arg_k :: arg_ks =>
       match x with
-      | 0 => lift0 arg_ks (fun x : interp_kind arg_k => k (convert_kind_value arg_k k_in x))
-      | S x => @interp_var x arg_ks (interp_kind arg_k -> k_out) (fun (x : interp_kind k_in) (_ : interp_kind arg_k) => k x)
+      | 0 => lift0 arg_ks (fun x : interp_sort arg_k => k (convert_kind_value arg_k k_in x))
+      | S x => @interp_var x arg_ks (interp_sort arg_k -> k_out) (fun (x : interp_sort k_in) (_ : interp_sort arg_k) => k x)
       end
     end.
 
   End interp_var.
   
-  Definition cbinop_arg1_bkind opr := kind_to_bkind (cbinop_arg1_kind opr).
-  Definition cbinop_arg2_bkind opr := kind_to_bkind (cbinop_arg2_kind opr).
-  Definition cbinop_result_bkind opr := kind_to_bkind (cbinop_result_kind opr).
+  Definition cbinop_arg1_sort opr := kind_to_sort (cbinop_arg1_kind opr).
+  Definition cbinop_arg2_sort opr := kind_to_sort (cbinop_arg2_kind opr).
+  Definition cbinop_result_sort opr := kind_to_sort (cbinop_result_kind opr).
 
-  Definition interp_cbinop opr : interp_kind (cbinop_arg1_bkind opr) -> interp_kind (cbinop_arg2_bkind opr) -> interp_kind (cbinop_result_bkind opr) :=
+  Definition interp_cbinop opr : interp_sort (cbinop_arg1_sort opr) -> interp_sort (cbinop_arg2_sort opr) -> interp_sort (cbinop_result_sort opr) :=
     match opr with
     | CBTimeAdd => fun (a b : time_type) => (a + b)%time
     | CBTimeMinus => fun (a b : time_type) => (a - b)%time
@@ -1208,45 +1170,73 @@ Module M (Time : TIME).
             else
               x2.
   
-  Fixpoint interp_cstr c arg_ks res_k {struct c} : interp_kinds arg_ks (interp_kind res_k) :=
+  Definition BSTime := BSTimeFun 0.
+  
+  Fixpoint interp_cstr c arg_ks res_k {struct c} : interp_sorts arg_ks (interp_sort res_k) :=
     match c with
       | CVar x => interp_var res_k x arg_ks id
       | CConst cn =>
         match cn with
-        | CCTime cn => lift0 arg_ks (convert_kind_value BKTime res_k cn)
-        | CCIdxNat cn => lift0 arg_ks (convert_kind_value BKNat res_k cn)
-        | CCIdxTT => lift0 arg_ks (convert_kind_value BKUnit res_k tt)
-        | _ => lift0 arg_ks (convert_kind_value BKType res_k tt)
+        | CCTime cn => lift0 arg_ks (convert_kind_value BSTime res_k cn)
+        | CCIdxNat cn => lift0 arg_ks (convert_kind_value BSNat res_k cn)
+        | CCIdxTT => lift0 arg_ks (convert_kind_value BSUnit res_k tt)
+        | _ => lift0 arg_ks (convert_kind_value BSUnit res_k tt)
         end
       | CBinOp opr c1 c2 =>
-        let f x1 x2 := convert_kind_value (cbinop_result_bkind opr) res_k (interp_cbinop opr x1 x2) in
-        lift2 arg_ks f (interp_cstr c1 arg_ks (cbinop_arg1_bkind opr)) (interp_cstr c2 arg_ks (cbinop_arg2_bkind opr))
+        let f x1 x2 := convert_kind_value (cbinop_result_sort opr) res_k (interp_cbinop opr x1 x2) in
+        lift2 arg_ks f (interp_cstr c1 arg_ks (cbinop_arg1_sort opr)) (interp_cstr c2 arg_ks (cbinop_arg2_sort opr))
       | CIte c c1 c2 =>
-        lift3 arg_ks ite (interp_cstr c1 arg_ks BKBool) (interp_cstr c1 arg_ks res_k) (interp_cstr c2 arg_ks res_k)
+        lift3 arg_ks ite (interp_cstr c1 arg_ks BSBool) (interp_cstr c1 arg_ks res_k) (interp_cstr c2 arg_ks res_k)
       | CTimeAbs c =>
-        match res_k return interp_kinds arg_ks (interp_kind res_k) with
-        | BKBaseSort (BSTimeFun (S n)) =>
-          interp_cstr c (BKNat :: arg_ks) (BKTimeFun n)
-        | res_k => lift0 arg_ks (kind_default_value res_k)
+        match res_k return interp_sorts arg_ks (interp_sort res_k) with
+        | BSTimeFun (S n) =>
+          interp_cstr c (BSNat :: arg_ks) (BSTimeFun n)
+        | res_k => lift0 arg_ks (sort_default_value res_k)
         end
       | CTimeApp n c1 c2 => 
-        let f x1 x2 := convert_kind_value (BKTimeFun n) res_k (x1 x2) in
-        lift2 arg_ks f (interp_cstr c1 arg_ks (BKTimeFun (S n))) (interp_cstr c2 arg_ks BKNat)
-      | CAbs c =>
-        match res_k return interp_kinds arg_ks (interp_kind res_k) with
-        | BKArrow k1 k2 =>
-          interp_cstr c (k1 :: arg_ks) k2
-        | res_k => lift0 arg_ks (kind_default_value res_k)
-        end
-      | CApp c1 c2 => lift0 arg_ks (kind_default_value res_k)
-      | CArrow t1 i t2 => lift0 arg_ks (kind_default_value res_k)
-      | CQuan q k c => lift0 arg_ks (kind_default_value res_k)
-      | CRec k t => lift0 arg_ks (kind_default_value res_k)
-      | CRef t => lift0 arg_ks (kind_default_value res_k)
+        let f x1 x2 := convert_kind_value (BSTimeFun n) res_k (x1 x2) in
+        lift2 arg_ks f (interp_cstr c1 arg_ks (BSTimeFun (S n))) (interp_cstr c2 arg_ks BSNat)
+      | CAbs c => lift0 arg_ks (sort_default_value res_k)
+      | CApp c1 c2 => lift0 arg_ks (sort_default_value res_k)
+      | CArrow t1 i t2 => lift0 arg_ks (sort_default_value res_k)
+      | CQuan q k c => lift0 arg_ks (sort_default_value res_k)
+      | CRec k t => lift0 arg_ks (sort_default_value res_k)
+      | CRef t => lift0 arg_ks (sort_default_value res_k)
     end.
 
-  Definition interp_time i : time_type := interp_cstr i [] BKTime.
+  Definition interp_time i : time_type := interp_cstr i [] BSTime.
   
+  Lemma interp_time_const a : interp_time (Tconst a) = a.
+  Proof.
+    cbn in *; eauto.
+  Qed.
+  
+  Lemma interp_time_0 : interp_time T0 = 0%time.
+  Proof.
+    cbn in *; eauto.
+  Qed.
+
+  Lemma interp_time_1 : interp_time T1 = 1%time.
+  Proof.
+    cbn in *; eauto.
+  Qed.
+
+  Lemma interp_time_distr a b : interp_time (a + b)%idx = (interp_time a + interp_time b)%time.
+  Proof.
+    cbn in *; eauto.
+  Qed.
+  
+  Lemma interp_time_minus_distr a b :
+    interp_time (Tminus a b) = (interp_time a - interp_time b)%time.
+  Proof.
+    cbn in *; eauto.
+  Qed.
+
+  Lemma interp_time_max a b : interp_time (Tmax a b) = TimeMax (interp_time a) (interp_time b).
+  Proof.
+    cbn in *; eauto.
+  Qed.
+
   Definition interp_prop : kctx -> prop -> Prop.
   Admitted.
 
@@ -1283,24 +1273,8 @@ Module M (Time : TIME).
     (interp_time a <= interp_time b)%time ->
     interp_prop [] (a <= b)%idx.
   Admitted.
-  Lemma interp_time_distr a b : interp_time (a + b)%idx = (interp_time a + interp_time b)%time.
-  Admitted.
-  Lemma interp_time_minus_distr a b :
-    interp_time (Tminus a b) = (interp_time a - interp_time b)%time.
-  Admitted.
   Lemma interp_prop_eq_interp_time a b :
     interp_prop [] (a == b)%idx -> interp_time a = interp_time b.
-  Admitted.
-  Lemma interp_time_0 : interp_time T0 = 0%time.
-  Admitted.
-  Lemma interp_time_1 : interp_time T1 = 1%time.
-  Admitted.
-  Lemma interp_time_const a : interp_time (Tconst a) = a.
-  Admitted.
-  Lemma interp_time_max a b : interp_time (Tmax a b) = TimeMax (interp_time a) (interp_time b).
-  Admitted.
-
-  Lemma subst0_c_c_Const v cn : subst0_c_c v (CConst cn) = CConst cn.
   Admitted.
 
   Ltac interp_le := try eapply interp_time_interp_prop_le; apply_all interp_prop_le_interp_time.
@@ -2313,6 +2287,11 @@ Admitted.
     unfold shift0_c_c; intros.
     symmetry.
     rewrite shift_c_c_shift_cut; repeat f_equal; linear_arithmetic.
+  Qed.
+
+  Lemma subst0_c_c_Const v cn : subst0_c_c v (CConst cn) = CConst cn.
+  Proof.
+    cbn in *; eauto.
   Qed.
 
   Lemma subst_c_c_k_p_shift_avoid n :
