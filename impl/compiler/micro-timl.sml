@@ -1,6 +1,7 @@
 structure MicroTiML =
 struct
   exception TODO
+  open Util
 
   type nat = int
   type var = nat
@@ -8,28 +9,28 @@ struct
   type loc = nat
 
   datatype constr =
-    CstrVar of var
-  | CstrNat of nat
-  | CstrTime of time
-  | CstrUnit
-  | CstrTrue
-  | CstrFalse
-  | CstrUnOp of constr_un_op * constr
-  | CstrBinOp of constr_bin_op * constr * constr
-  | CstrIte of constr * constr * constr
-  | CstrTimeAbs of constr
-  | CstrProd of constr * constr
-  | CstrSum of constr * constr
-  | CstrArrow of constr * constr * constr
-  | CstrApp of constr * constr
-  | CstrAbs of kind * constr
-  | CstrForall of kind * constr
-  | CstrExists of kind * constr
-  | CstrRec of kind * constr
-  | CstrTypeUnit
-  | CstrTypeInt
-  | CstrTypeNat of constr
-  | CstrTypeArray of constr * constr
+    CstrVar of var (* constructor variable: index/type *)
+  | CstrNat of nat (* index :: Nat *)
+  | CstrTime of time (* index :: TimeFun 0 *)
+  | CstrUnit (* index :: Unit *)
+  | CstrTrue (* index :: Bool *)
+  | CstrFalse (* index :: Bool *)
+  | CstrUnOp of constr_un_op * constr (* index *)
+  | CstrBinOp of constr_bin_op * constr * constr (* index *)
+  | CstrIte of constr * constr * constr (* index *)
+  | CstrTimeAbs of constr (* index :: TimeFun _ *)
+  | CstrProd of constr * constr (* type :: * *)
+  | CstrSum of constr * constr (* type :: * *)
+  | CstrArrow of constr * constr * constr (* type :: * *)
+  | CstrApp of constr * constr (* type-level application *)
+  | CstrAbs of kind * constr (* type-level abstraction *)
+  | CstrForall of kind * constr (* type :: *, universal *)
+  | CstrExists of kind * constr (* type :: *, existential *)
+  | CstrRec of kind * constr (* type :: *, recursive *)
+  | CstrTypeUnit (* type :: * *)
+  | CstrTypeInt (* type :: * *)
+  | CstrTypeNat of constr (* type :: * *)
+  | CstrTypeArray of constr * constr (* type :: * *)
 
   and constr_un_op =
     CstrUopCeil
@@ -80,13 +81,13 @@ struct
   | PrRelBigO
 
   and kind =
-    KdNat
-  | KdUnit
-  | KdBool
-  | KdTimeFun of nat
-  | KdSubset of kind * prop
-  | KdProper
-  | KdArrow of kind * kind
+    KdNat (* for index *)
+  | KdUnit (* for index *)
+  | KdBool (* for index *)
+  | KdTimeFun of nat (* for index *)
+  | KdSubset of kind * prop (* for index *)
+  | KdProper (* for type *)
+  | KdArrow of kind * kind (* for type-level functions *)
 
   and term =
     TmVar of var
@@ -113,10 +114,57 @@ struct
   | TmArrayGet of term * term
   | TmArrayPut of term * term * term
   | TmLet of term * term
+  | TmNever
 
   and term_bin_op =
     TmBopIntAdd
   | TmBopIntMul
+
+  fun str_term_bin_op TmBopIntAdd = "+"
+    | str_term_bin_op TmBopIntMul = "*"
+
+  fun str_prop_bin_conn conn =
+    case conn of
+      PrConnConj => "/\\"
+    | PrConnDisj => "\\/"
+    | PrConnImply => "=>"
+    | PrConnEquiv => "<=>"
+
+  fun str_prop_bin_rel rel =
+    case rel of
+      PrRelEq => "="
+    | PrRelLe => "<="
+    | PrRelLt => "<"
+    | PrRelGe => ">="
+    | PrRelGt => ">"
+    | PrRelBigO => "BigO"
+
+  fun str_constr_bin_op bop =
+    case bop of
+      CstrBopAdd => "+"
+    | CstrBopDiff => "-"
+    | CstrBopMult => "*"
+    | CstrBopExp => "exp"
+    | CstrBopMax => "max"
+    | CstrBopMin => "min"
+    | CstrBopTimeApp => "TimeApp"
+    | CstrBopAnd => "and"
+    | CstrBopOr => "or"
+    | CstrBopEq => "=?"
+    | CstrBopLe => "<=?"
+    | CstrBopLt => "<?"
+    | CstrBopGe => ">=?"
+    | CstrBopGt => ">?"
+
+  fun str_constr_un_op uop =
+    case uop of
+      CstrUopCeil => "ceil"
+    | CstrUopFloor => "floor"
+    | CstrUopNeg => "~"
+    | CstrUopLog b => "log_" ^ str_int b
+    | CstrUopDiv b => "div/" ^ str_int b
+    | CstrUopNat2Time => "nat2time"
+    | CstrUopBool2Nat => "bool2nat"
 
   datatype bind =
     BdKind of kind
@@ -200,4 +248,5 @@ struct
   | TyDerivArrayGet of typing_relation * typing_derivation * typing_derivation * proping_derivation
   | TyDerivArrayPut of typing_relation * typing_derivation * typing_derivation * proping_derivation * typing_derivation
   | TyDerivLet of typing_relation * typing_derivation * typing_derivation
+  | TmDerivNever of typing_relation
 end
