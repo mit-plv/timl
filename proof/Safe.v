@@ -1245,65 +1245,65 @@ Module M (Time : TIME).
       | CRef t => lift0 arg_ks (kind_default_value res_k)
     end.
 
-  Definition interpTime i : time_type := interp_cstr i [] BKTime.
+  Definition interp_time i : time_type := interp_cstr i [] BKTime.
   
-  Definition interpP : kctx -> prop -> Prop.
+  Definition interp_prop : kctx -> prop -> Prop.
   Admitted.
 
-  Lemma interpP_le_refl L i : interpP L (i <= i)%idx.
+  Lemma interp_prop_le_refl L i : interp_prop L (i <= i)%idx.
   Admitted.
-  Lemma interpP_le_trans L a b c :
-    interpP L (a <= b)%idx ->
-    interpP L (b <= c)%idx ->
-    interpP L (a <= c)%idx.
-  Admitted.
-
-  Lemma interpP_eq_refl L i : interpP L (i == i)%idx.
-  Admitted.
-  Lemma interpP_eq_trans L a b c :
-    interpP L (a == b)%idx ->
-    interpP L (b == c)%idx ->
-    interpP L (a == c)%idx.
-  Admitted.
-  Lemma interpP_eq_sym L i i' :
-    interpP L (i == i')%idx ->
-    interpP L (i' == i)%idx.
+  Lemma interp_prop_le_trans L a b c :
+    interp_prop L (a <= b)%idx ->
+    interp_prop L (b <= c)%idx ->
+    interp_prop L (a <= c)%idx.
   Admitted.
 
-  Lemma interpP_eq_interpP_le L a b :
-    interpP L (a == b)%idx ->
-    interpP L (a <= b)%idx.
+  Lemma interp_prop_eq_refl L i : interp_prop L (i == i)%idx.
+  Admitted.
+  Lemma interp_prop_eq_trans L a b c :
+    interp_prop L (a == b)%idx ->
+    interp_prop L (b == c)%idx ->
+    interp_prop L (a == c)%idx.
+  Admitted.
+  Lemma interp_prop_eq_sym L i i' :
+    interp_prop L (i == i')%idx ->
+    interp_prop L (i' == i)%idx.
+  Admitted.
+
+  Lemma interp_prop_eq_interp_prop_le L a b :
+    interp_prop L (a == b)%idx ->
+    interp_prop L (a <= b)%idx.
   Admitted.
   
-  Lemma interpP_le_interpTime a b :
-    interpP [] (a <= b)%idx ->
-    (interpTime a <= interpTime b)%time.
+  Lemma interp_prop_le_interp_time a b :
+    interp_prop [] (a <= b)%idx ->
+    (interp_time a <= interp_time b)%time.
   Admitted.
-  Lemma interpTime_interpP_le a b :
-    (interpTime a <= interpTime b)%time ->
-    interpP [] (a <= b)%idx.
+  Lemma interp_time_interp_prop_le a b :
+    (interp_time a <= interp_time b)%time ->
+    interp_prop [] (a <= b)%idx.
   Admitted.
-  Lemma interpTime_distr a b : interpTime (a + b)%idx = (interpTime a + interpTime b)%time.
+  Lemma interp_time_distr a b : interp_time (a + b)%idx = (interp_time a + interp_time b)%time.
   Admitted.
-  Lemma interpTime_minus_distr a b :
-    interpTime (Tminus a b) = (interpTime a - interpTime b)%time.
+  Lemma interp_time_minus_distr a b :
+    interp_time (Tminus a b) = (interp_time a - interp_time b)%time.
   Admitted.
-  Lemma interpP_eq_interpTime a b :
-    interpP [] (a == b)%idx -> interpTime a = interpTime b.
+  Lemma interp_prop_eq_interp_time a b :
+    interp_prop [] (a == b)%idx -> interp_time a = interp_time b.
   Admitted.
-  Lemma interpTime_0 : interpTime T0 = 0%time.
+  Lemma interp_time_0 : interp_time T0 = 0%time.
   Admitted.
-  Lemma interpTime_1 : interpTime T1 = 1%time.
+  Lemma interp_time_1 : interp_time T1 = 1%time.
   Admitted.
-  Lemma interpTime_const a : interpTime (Tconst a) = a.
+  Lemma interp_time_const a : interp_time (Tconst a) = a.
   Admitted.
-  Lemma interpTime_max a b : interpTime (Tmax a b) = TimeMax (interpTime a) (interpTime b).
+  Lemma interp_time_max a b : interp_time (Tmax a b) = TimeMax (interp_time a) (interp_time b).
   Admitted.
 
   Lemma subst0_c_c_Const v cn : subst0_c_c v (CConst cn) = CConst cn.
   Admitted.
 
-  Ltac interp_le := try eapply interpTime_interpP_le; apply_all interpP_le_interpTime.
+  Ltac interp_le := try eapply interp_time_interp_prop_le; apply_all interp_prop_le_interp_time.
 
   Inductive kdeq : kctx -> kind -> kind -> Prop :=
   | KdEqKType L :
@@ -1316,40 +1316,40 @@ Module M (Time : TIME).
       kdeq L (KBaseSort b) (KBaseSort b)
   | KdEqSubset L k p k' p' :
       kdeq L k k' ->
-      interpP (k :: L) (p <===> p')%idx ->
+      interp_prop (k :: L) (p <===> p')%idx ->
       kdeq L (KSubset k p) (KSubset k' p')
   .
 
   Hint Constructors kdeq.
 
-  Lemma interpP_iff_refl L p : interpP L (p <===> p)%idx.
+  Lemma interp_prop_iff_refl L p : interp_prop L (p <===> p)%idx.
   Admitted.
-  Lemma interpP_iff_trans L a b c :
-    interpP L (a <===> b)%idx ->
-    interpP L (b <===> c)%idx ->
-    interpP L (a <===> c)%idx.
+  Lemma interp_prop_iff_trans L a b c :
+    interp_prop L (a <===> b)%idx ->
+    interp_prop L (b <===> c)%idx ->
+    interp_prop L (a <===> c)%idx.
   Admitted.
-  Lemma interpP_iff_sym L p p' :
-    interpP L (p <===> p')%idx ->
-    interpP L (p' <===> p)%idx.
+  Lemma interp_prop_iff_sym L p p' :
+    interp_prop L (p <===> p')%idx ->
+    interp_prop L (p' <===> p)%idx.
   Admitted.
 
-  Lemma kdeq_interpP L k k' p :
+  Lemma kdeq_interp_prop L k k' p :
     kdeq L k k' ->
-    interpP (k :: L) p ->
-    interpP (k' :: L) p.
+    interp_prop (k :: L) p ->
+    interp_prop (k' :: L) p.
   Proof.
     (* induct 1; eauto. *)
   Admitted.
 
   Lemma kdeq_refl : forall L k, kdeq L k k.
   Proof.
-    induct k; eauto using interpP_iff_refl.
+    induct k; eauto using interp_prop_iff_refl.
   Qed.
 
   Lemma kdeq_sym L a b : kdeq L a b -> kdeq L b a.
   Proof.
-    induct 1; eauto using kdeq_interpP, interpP_iff_sym.
+    induct 1; eauto using kdeq_interp_prop, interp_prop_iff_sym.
   Qed.
 
   Lemma kdeq_trans' L a b :
@@ -1357,7 +1357,7 @@ Module M (Time : TIME).
     forall c,
       kdeq L b c -> kdeq L a c.
   Proof.
-    induct 1; invert 1; eauto 6 using interpP_iff_trans, kdeq_interpP, kdeq_sym.
+    induct 1; invert 1; eauto 6 using interp_prop_iff_trans, kdeq_interp_prop, kdeq_sym.
   Qed.
 
   Lemma kdeq_trans L a b c : kdeq L a b -> kdeq L b c -> kdeq L a c.
@@ -1496,7 +1496,7 @@ Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
     tyeq L (CIte t1 t2 t3) (CIte t1' t2' t3')
 | TyEqArrow L t1 i t2 t1' i' t2':
     tyeq L t1 t1' ->
-    interpP L (PEq i i') ->
+    interp_prop L (PEq i i') ->
     tyeq L t2 t2' ->
     tyeq L (CArrow t1 i t2) (CArrow t1' i' t2')
 | TyEqApp L c1 c2 c1' c2' :
@@ -1534,7 +1534,7 @@ Hint Constructors tyeq.
 
 Lemma tyeq_refl : forall t L, tyeq L t t.
 Proof.
-  induct t; eauto using interpP_eq_refl, kdeq_refl.
+  induct t; eauto using interp_prop_eq_refl, kdeq_refl.
 Qed.
 
 Lemma kdeq_tyeq L k k' t t' :
@@ -1545,13 +1545,13 @@ Admitted.
 
 Lemma tyeq_sym L t1 t2 : tyeq L t1 t2 -> tyeq L t2 t1.
 Proof.
-  induct 1; eauto using interpP_eq_sym, kdeq_sym.
+  induct 1; eauto using interp_prop_eq_sym, kdeq_sym.
   {
-    econstructor; eauto using interpP_eq_sym, kdeq_sym.
+    econstructor; eauto using interp_prop_eq_sym, kdeq_sym.
     eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym.
   }
   {
-    econstructor; eauto using interpP_eq_sym, kdeq_sym.
+    econstructor; eauto using interp_prop_eq_sym, kdeq_sym.
     eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym.
   }
 Qed.
@@ -1569,7 +1569,7 @@ Lemma invert_tyeq_Arrow L t1 i t2 tb :
       (exists t1' i' t2' ,
           tb = CArrow t1' i' t2' /\
           tyeq L t1 t1' /\
-          interpP L (PEq i i') /\
+          interp_prop L (PEq i i') /\
           tyeq L t2 t2') \/
       (exists t1' t2' ,
           tb = CApp t1' t2').
@@ -1603,7 +1603,7 @@ Lemma invert_tyeq_Arrow L ta tb :
     (exists t1' i' t2' ,
         tb = CArrow t1' i' t2' /\
         tyeq L t1 t1' /\
-        interpP L (PEq i i') /\
+        interp_prop L (PEq i i') /\
         tyeq L t2 t2') \/
     (exists t1' t2' ,
         tb = CApp t1' t2').
@@ -1622,7 +1622,7 @@ Lemma invert_tyeq_Arrow L t1 i t2 tb :
   (exists t1' i' t2' ,
       tb = CArrow t1' i' t2' /\
       tyeq L t1 t1' /\
-      interpP L (PEq i i') /\
+      interp_prop L (PEq i i') /\
       tyeq L t2 t2').
 Proof.
   induct 1; eauto; intros Hcneq.
@@ -1662,7 +1662,7 @@ Qed.
 Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' :
   tyeq L (CArrow t1 i t2) (CArrow t1' i' t2') ->
   tyeq L t1 t1' /\
-  interpP L (PEq i i') /\
+  interp_prop L (PEq i i') /\
   tyeq L t2 t2'.
 Admitted.
    *)
@@ -1688,7 +1688,7 @@ Admitted.
       tyeq L (CIte t1 t2 t3) (CIte t1' t2' t3')
   | TyEqArrow L t1 i t2 t1' i' t2':
       tyeq L t1 t1' ->
-      interpP L (PEq i i') ->
+      interp_prop L (PEq i i') ->
       tyeq L t2 t2' ->
       tyeq L (CArrow t1 i t2) (CArrow t1' i' t2')
   | TyEqApp L c1 c2 c1' c2' :
@@ -1741,7 +1741,7 @@ Admitted.
 
     Lemma tyeq_refl : forall t L, tyeq L t t.
     Proof.
-      induct t; eauto using interpP_eq_refl, kdeq_refl.
+      induct t; eauto using interp_prop_eq_refl, kdeq_refl.
     Qed.
 
     Lemma kdeq_tyeq L k k' t t' :
@@ -1752,13 +1752,13 @@ Admitted.
 
     Lemma tyeq_sym L t1 t2 : tyeq L t1 t2 -> tyeq L t2 t1.
     Proof.
-      induct 1; eauto using interpP_eq_sym, kdeq_sym.
+      induct 1; eauto using interp_prop_eq_sym, kdeq_sym.
       {
-        econstructor; eauto using interpP_eq_sym, kdeq_sym.
+        econstructor; eauto using interp_prop_eq_sym, kdeq_sym.
         eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym.
       }
       {
-        econstructor; eauto using interpP_eq_sym, kdeq_sym.
+        econstructor; eauto using interp_prop_eq_sym, kdeq_sym.
         eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym.
       }
     Qed.
@@ -1769,31 +1769,31 @@ Admitted.
         tyeq L b c ->
         tyeq L a c.
     Proof.
-      induct 1; try solve [intros c Hbc; invert Hbc; eauto 3 using interpP_eq_trans, tyeq_refl].
-      (* induct 1; try solve [induct 1; eauto using interpP_eq_trans, tyeq_refl]. *)
+      induct 1; try solve [intros c Hbc; invert Hbc; eauto 3 using interp_prop_eq_trans, tyeq_refl].
+      (* induct 1; try solve [induct 1; eauto using interp_prop_eq_trans, tyeq_refl]. *)
       {
-        induct 1; eauto using interpP_eq_trans, tyeq_refl.
+        induct 1; eauto using interp_prop_eq_trans, tyeq_refl.
       }
       {
-        induct 1; eauto using interpP_eq_trans, tyeq_refl.
+        induct 1; eauto using interp_prop_eq_trans, tyeq_refl.
       }
       {
-        induct 1; eauto using interpP_eq_trans, tyeq_refl.
+        induct 1; eauto using interp_prop_eq_trans, tyeq_refl.
       }
       {
-        induct 1; eauto using interpP_eq_trans, tyeq_refl.
+        induct 1; eauto using interp_prop_eq_trans, tyeq_refl.
       }
       {
-        induct 1; eauto using interpP_eq_trans, tyeq_refl.
+        induct 1; eauto using interp_prop_eq_trans, tyeq_refl.
       }
       {
-        induct 1; eauto using interpP_eq_trans, tyeq_refl.
+        induct 1; eauto using interp_prop_eq_trans, tyeq_refl.
       }
       {
         rename t' into a.
         induct 1.
         {
-          eauto using interpP_eq_trans, tyeq_refl.
+          eauto using interp_prop_eq_trans, tyeq_refl.
         }
         {
           rename t' into c.
@@ -1816,35 +1816,35 @@ Admitted.
           (* admit. *)
         }
         {
-          eauto using interpP_eq_trans, tyeq_refl.
+          eauto using interp_prop_eq_trans, tyeq_refl.
         }
       }
       {
-        induct 1; eauto using interpP_eq_trans, tyeq_refl.
+        induct 1; eauto using interp_prop_eq_trans, tyeq_refl.
         econstructor; eauto using kdeq_trans.
         eapply IHtyeq.
         eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym.
       }
       {
-        induct 1; eauto using interpP_eq_trans, tyeq_refl.
+        induct 1; eauto using interp_prop_eq_trans, tyeq_refl.
         econstructor; eauto using kdeq_trans.
         eapply IHtyeq.
         eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym.
       }
       {
-        induct 1; eauto using interpP_eq_trans, tyeq_refl.
+        induct 1; eauto using interp_prop_eq_trans, tyeq_refl.
       }
       (* intros c Hbc. *)
       (* invert Hbc. *)
       (* econstructor; eauto using kdeq_trans. *)
       (* eapply IHtyeq. *)
       (* eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym. *)
-      (* induct 1; eauto using interpP_eq_trans, tyeq_refl, kdeq_tyeq, kdeq_trans, kdeq_sym. *)
+      (* induct 1; eauto using interp_prop_eq_trans, tyeq_refl, kdeq_tyeq, kdeq_trans, kdeq_sym. *)
       
-      (* solve [invert Hbc; eauto 4 using interpP_eq_trans, tyeq_refl]. *)
+      (* solve [invert Hbc; eauto 4 using interp_prop_eq_trans, tyeq_refl]. *)
       (* induct 1; intros c Hbc; try solve [invert Hbc; eauto 4]. *)
       (* induct 1; intros c Hbc; try solve [invert Hbc; eauto using tyeq_refl]. *)
-      (* induct 1; intros c Hbc; try solve [invert Hbc; eauto using interpP_eq_trans, tyeq_refl]. *)
+      (* induct 1; intros c Hbc; try solve [invert Hbc; eauto using interp_prop_eq_trans, tyeq_refl]. *)
       (* { *)
       (*   invert Hbc. *)
       (*   econstructor; eauto using kdeq_trans. *)
@@ -1871,7 +1871,7 @@ Admitted.
     Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' :
       tyeq L (CArrow t1 i t2) (CArrow t1' i' t2') ->
       tyeq L t1 t1' /\
-      interpP L (PEq i i') /\
+      interp_prop L (PEq i i') /\
       tyeq L t2 t2'.
     Proof.
       invert 1.
@@ -1952,9 +1952,9 @@ Admitted.
 
   End tyeq_hint.
 
-  Hint Resolve tyeq_refl tyeq_sym tyeq_trans interpP_le_refl interpP_le_trans : db_tyeq.
+  Hint Resolve tyeq_refl tyeq_sym tyeq_trans interp_prop_le_refl interp_prop_le_trans : db_tyeq.
 
-  Lemma interpP_eq_add_0 L a : interpP L (a + T0 == a)%idx.
+  Lemma interp_prop_eq_add_0 L a : interp_prop L (a + T0 == a)%idx.
   Admitted.
   
   Lemma kinding_tyeq L k t1 t2 :
@@ -2003,12 +2003,12 @@ Admitted.
       x <= length L ->
       tyeq (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_c n x c1) (shift_c_c n x c2).
   Admitted.
-  Lemma interpP_shift_c_p L p :
-    interpP L p ->
+  Lemma interp_prop_shift_c_p L p :
+    interp_prop L p ->
     forall x ls ,
       let n := length ls in
       x <= length L ->
-      interpP (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_p n x p).
+      interp_prop (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_p n x p).
   Admitted.
   Lemma tyeq_subst_c_c L c1' c2' :
     tyeq L c1' c2' ->
@@ -2020,12 +2020,12 @@ Admitted.
       tyeq (subst_c_ks c1 (firstn n L) ++ my_skipn L (1 + n)) (subst_c_c n (shift_c_c n 0 c1) c1') (subst_c_c n (shift_c_c n 0 c2) c2').
   Admitted.
   
-  Lemma interpP_subst_c_p L p :
-    interpP L p ->
+  Lemma interp_prop_subst_c_p L p :
+    interp_prop L p ->
     forall n k c ,
       nth_error L n = Some k ->
       kinding (my_skipn L (1 + n)) c k ->
-      interpP (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_p n (shift_c_c n 0 c) p).
+      interp_prop (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_p n (shift_c_c n 0 c) p).
   Admitted.
   
   Lemma nth_error_subst_c_ks bs :
@@ -2686,7 +2686,7 @@ Admitted.
     {
       (* Case Subset *)
       econstructor; eauto.
-      specialize (@interpP_shift_c_p (k :: L) (p <===> p')%idx H0 (S x) ls); intros HH.
+      specialize (@interp_prop_shift_c_p (k :: L) (p <===> p')%idx H0 (S x) ls); intros HH.
       simplify; cbn in *.
       repeat erewrite length_firstn_le in * by linear_arithmetic.
       eauto with db_la.
@@ -2710,7 +2710,7 @@ Admitted.
     {
       (* Case Subset *)
       econstructor; eauto.
-      specialize (@interpP_subst_c_p (k'' :: L) (p <===> p')%idx H0 (S n) k c); intros HH.
+      specialize (@interp_prop_subst_c_p (k'' :: L) (p <===> p')%idx H0 (S n) k c); intros HH.
       simplify.
       repeat erewrite nth_error_length_firstn in * by eauto.
       repeat rewrite shift0_c_c_shift_0.
@@ -3473,7 +3473,7 @@ Admitted.
   | TySub C e t2 i2 t1 i1 :
       typing C e t1 i1 ->
       tyeq (get_kctx C) t1 t2 ->
-      interpP (get_kctx C) (i1 <= i2) ->
+      interp_prop (get_kctx C) (i1 <= i2) ->
       typing C e t2 i2 
   .
 
@@ -3693,7 +3693,7 @@ Admitted.
     let '(h, e, f) := s in
     typing ([], W, []) e t i /\
     htyping h W /\
-    interpTime i <= f
+    interp_time i <= f
   .
 
   Definition get_expr (s : config) : expr := snd (fst s).
@@ -3737,12 +3737,12 @@ Admitted.
   Proof.
     intros.
     eapply TySub; eauto.
-    eapply interpP_le_refl.
+    eapply interp_prop_le_refl.
   Qed.
 
   Lemma TyLe C e t i1 i2 :
     typing C e t i1 ->
-    interpP (get_kctx C) (i1 <= i2)%idx ->
+    interp_prop (get_kctx C) (i1 <= i2)%idx ->
     typing C e t i2.
   Proof.
     intros.
@@ -3752,12 +3752,12 @@ Admitted.
   
   Lemma TyIdxEq C e t i1 i2 :
     typing C e t i1 ->
-    interpP (get_kctx C) (i1 == i2)%idx ->
+    interp_prop (get_kctx C) (i1 == i2)%idx ->
     typing C e t i2.
   Proof.
     intros.
     eapply TyLe; eauto.
-    eapply interpP_eq_interpP_le; eauto.
+    eapply interp_prop_eq_interp_prop_le; eauto.
   Qed.
   
   Lemma CApps_CRec_const_type_false cs k3 t3 cn  :
@@ -3914,7 +3914,7 @@ Admitted.
     {
       clear H H0.
       eapply TyIdxEq; [econstructor; eauto | ].
-      eapply interpP_eq_add_0.
+      eapply interp_prop_eq_add_0.
     }
   Qed.
     
@@ -4222,7 +4222,7 @@ Admitted.
       }
       {
         simplify.
-        eapply interpP_shift_c_p with (p := (i1 <= i2)%idx); eauto.
+        eapply interp_prop_shift_c_p with (p := (i1 <= i2)%idx); eauto.
       }
     }
   Qed.
@@ -4455,7 +4455,7 @@ Admitted.
       }
       {
         simplify.
-        eapply interpP_subst_c_p with (p := (i1 <= i2)%idx); eauto.
+        eapply interp_prop_subst_c_p with (p := (i1 <= i2)%idx); eauto.
       }
     }
   Qed.
@@ -4596,7 +4596,7 @@ Admitted.
       }
       {
         simplify.
-        eapply interpP_eq_refl.
+        eapply interp_prop_eq_refl.
       }
     }
     {
@@ -5176,7 +5176,7 @@ Admitted.
     get_tctx C = [] ->
     forall h f ,
       htyping h (get_hctx C) ->
-      (interpTime i <= f)%time ->
+      (interp_time i <= f)%time ->
       unstuck (h, e, f).
   Proof.
     induct 1.
@@ -5195,15 +5195,15 @@ Admitted.
       destruct C as ((L & W) & G).
       simplify.
       subst.
-      assert (Hi1 : (interpTime i1 <= f)%time).
+      assert (Hi1 : (interp_time i1 <= f)%time).
       {
-        repeat rewrite interpTime_distr in Hle.
+        repeat rewrite interp_time_distr in Hle.
         repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
         eauto.
       }
-      assert (Hi2 : (interpTime i2 <= f)%time).
+      assert (Hi2 : (interp_time i2 <= f)%time).
       {
-        repeat rewrite interpTime_distr in Hle.
+        repeat rewrite interp_time_distr in Hle.
         repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
         eauto.
       }
@@ -5220,8 +5220,8 @@ Admitted.
           exists (h, subst0_e_e e2 e, (f - 1)%time).
           econstructor; eauto.
           econstructor; eauto.
-          repeat rewrite interpTime_distr in Hle.
-          repeat rewrite interpTime_1 in Hle.
+          repeat rewrite interp_time_distr in Hle.
+          repeat rewrite interp_time_1 in Hle.
           repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
           eauto.
         }
@@ -5366,9 +5366,9 @@ Admitted.
       destruct C as ((L & W) & G).
       simplify.
       subst.
-      assert (Hi1 : (interpTime i1 <= f)%time).
+      assert (Hi1 : (interp_time i1 <= f)%time).
       {
-        repeat rewrite interpTime_distr in Hle.
+        repeat rewrite interp_time_distr in Hle.
         repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
         eauto.
       }
@@ -5405,15 +5405,15 @@ Admitted.
       destruct C as ((L & W) & G).
       simplify.
       subst.
-      assert (Hi1 : (interpTime i1 <= f)%time).
+      assert (Hi1 : (interp_time i1 <= f)%time).
       {
-        repeat rewrite interpTime_distr in Hle.
+        repeat rewrite interp_time_distr in Hle.
         repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
         eauto.
       }
-      assert (Hi2 : (interpTime i2 <= f)%time).
+      assert (Hi2 : (interp_time i2 <= f)%time).
       {
-        repeat rewrite interpTime_distr in Hle.
+        repeat rewrite interp_time_distr in Hle.
         repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
         eauto.
       }
@@ -5495,9 +5495,9 @@ Admitted.
       destruct C as ((L & W) & G).
       simplify.
       subst.
-      assert (Hile : (interpTime i <= f)%time).
+      assert (Hile : (interp_time i <= f)%time).
       {
-        repeat rewrite interpTime_distr in Hle.
+        repeat rewrite interp_time_distr in Hle.
         repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
         eauto.
       }
@@ -5581,15 +5581,15 @@ Admitted.
       destruct C as ((L & W) & G).
       simplify.
       subst.
-      assert (Hi1 : (interpTime i1 <= f)%time).
+      assert (Hi1 : (interp_time i1 <= f)%time).
       {
-        repeat rewrite interpTime_distr in Hle.
+        repeat rewrite interp_time_distr in Hle.
         repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
         eauto.
       }
-      assert (Hi2 : (interpTime i2 <= f)%time).
+      assert (Hi2 : (interp_time i2 <= f)%time).
       {
-        repeat rewrite interpTime_distr in Hle.
+        repeat rewrite interp_time_distr in Hle.
         repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
         eauto.
       }
@@ -5638,7 +5638,7 @@ Admitted.
       simplify.
       subst.
       eapply IHtyping; eauto.
-      eapply interpP_le_interpTime in H1.
+      eapply interp_prop_le_interp_time in H1.
       eauto with time_order.
     }
   Qed.
@@ -5680,7 +5680,7 @@ Admitted.
       tyeq (get_kctx C) t t' /\
       typing C e1 (CArrow t2 i3 t') i1 /\
       typing C e2 t2 i2 /\
-      interpP (get_kctx C) (i1 + i2 + T1 + i3 <= i)%idx.
+      interp_prop (get_kctx C) (i1 + i2 + T1 + i3 <= i)%idx.
   Proof.
     induct 1; openhyp; repeat eexists_split;
       eauto;
@@ -5703,7 +5703,7 @@ Admitted.
       tyeq (get_kctx C) t2 (CApps (subst0_c_c t t1) cs) /\
       t = CRec k t1 /\
       typing C e (CApps t cs) i' /\
-      interpP (get_kctx C) (i' <= i)%idx.
+      interp_prop (get_kctx C) (i' <= i)%idx.
   Proof.
     induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
   Qed.  
@@ -5716,7 +5716,7 @@ Admitted.
       t1 = CRec k t2 /\
       kinding (get_kctx C) t KType /\
       typing C e (CApps (subst0_c_c t1 t2) cs) i' /\
-      interpP (get_kctx C) (i' <= i)%idx.
+      interp_prop (get_kctx C) (i' <= i)%idx.
   Proof.
     induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
   Qed.  
@@ -5748,7 +5748,7 @@ Admitted.
       tyeq (get_kctx C) t2'' t2 /\
       typing C e1 (CExists k t) i1 /\
       typing (add_typing_ctx t (add_kinding_ctx k C)) e2 (shift0_c_c t2) (shift0_c_c i2) /\
-      interpP (get_kctx C) (i1 + i2 <= i)%idx.
+      interp_prop (get_kctx C) (i1 + i2 <= i)%idx.
   Proof.
     induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
   Qed.
@@ -5760,7 +5760,7 @@ Admitted.
       kinding (get_kctx C) (CExists k t1) KType /\
       kinding (get_kctx C) c k /\
       typing C e (subst0_c_c c t1) i' /\
-      interpP (get_kctx C) (i' <= i)%idx.
+      interp_prop (get_kctx C) (i' <= i)%idx.
   Proof.
     induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
   Qed.
@@ -5769,7 +5769,7 @@ Admitted.
     typing C (ERead e) t i ->
     exists i' ,
       typing C e (CRef t) i' /\
-      interpP (get_kctx C) (i' <= i)%idx.
+      interp_prop (get_kctx C) (i' <= i)%idx.
   Proof.
     induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
     eapply TySub; try eapply H2; try econstructor; eauto.
@@ -5790,7 +5790,7 @@ Admitted.
       tyeq (get_kctx C) t CTypeUnit /\
       typing C e1 (CRef t') i1 /\
       typing C e2 t' i2 /\
-      interpP (get_kctx C) (i1 + i2 <= i)%idx.
+      interp_prop (get_kctx C) (i1 + i2 <= i)%idx.
   Proof.
     induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
   Qed.
@@ -5800,7 +5800,7 @@ Admitted.
     exists t' i' ,
       tyeq (get_kctx C) t (CRef t') /\
       typing C e t' i' /\
-      interpP (get_kctx C) (i' <= i)%idx.
+      interp_prop (get_kctx C) (i' <= i)%idx.
   Proof.
     induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
   Qed.
@@ -5811,7 +5811,7 @@ Admitted.
       tyeq (get_kctx C) t (subst0_c_c c t') /\
       typing C e (CForall k t') i' /\
       kinding (get_kctx C) c k /\
-      interpP (get_kctx C) (i' <= i)%idx.
+      interp_prop (get_kctx C) (i' <= i)%idx.
   Proof.
     induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
   Qed.
@@ -5832,7 +5832,7 @@ Admitted.
     exists t1 t2 i' ,
       tyeq (get_kctx C) t (proj (t1, t2) pr) /\
       typing C e (CProd t1 t2) i' /\
-      interpP (get_kctx C) (i' <= i)%idx.
+      interp_prop (get_kctx C) (i' <= i)%idx.
   Proof.
     induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
   Qed.
@@ -5843,7 +5843,7 @@ Admitted.
       tyeq (get_kctx C) t (CProd t1 t2) /\
       typing C e1 t1 i1 /\
       typing C e2 t2 i2 /\
-      interpP (get_kctx C) (i1 + i2 <= i)%idx.
+      interp_prop (get_kctx C) (i1 + i2 <= i)%idx.
   Proof.
     induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
   Qed.
@@ -5854,7 +5854,7 @@ Admitted.
       typing C e (CSum t1 t2) i0 /\
       typing (add_typing_ctx t1 C) e1 t i1 /\
       typing (add_typing_ctx t2 C) e2 t i2 /\
-      interpP (get_kctx C) (i0 + Tmax i1 i2 <= i)%idx.
+      interp_prop (get_kctx C) (i0 + Tmax i1 i2 <= i)%idx.
   Proof.
     induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
     {
@@ -5875,7 +5875,7 @@ Admitted.
       tyeq (get_kctx C) t (choose (CSum t' t'', CSum t'' t') inj) /\
       typing C e t' i' /\
       kinding (get_kctx C) t'' KType /\
-      interpP (get_kctx C) (i' <= i)%idx.
+      interp_prop (get_kctx C) (i' <= i)%idx.
   Proof.
     induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
   Qed.
@@ -5890,7 +5890,7 @@ Admitted.
     forall W t i,
       ctyping W s t i ->
       let df := (get_fuel s - get_fuel s')%time in
-      (df <= interpTime i)%time /\
+      (df <= interp_time i)%time /\
       exists W',
         ctyping W' s' t (Tminus i (Tconst df)) /\
         (W $<= W').
@@ -5912,9 +5912,9 @@ Admitted.
       split.
       {
         rewrite Time_minus_minus_cancel by eauto.
-        eapply interpP_le_interpTime in Hle2.
-        repeat rewrite interpTime_distr in Hle2.
-        repeat rewrite interpTime_1 in Hle2.
+        eapply interp_prop_le_interp_time in Hle2.
+        repeat rewrite interp_time_distr in Hle2.
+        repeat rewrite interp_time_1 in Hle2.
         repeat (eapply Time_add_le_elim in Hle2; destruct Hle2 as (Hle2 & ?)).
         eauto.
       }
@@ -5934,16 +5934,16 @@ Admitted.
         {
           simplify.
           rewrite Time_minus_minus_cancel by eauto.
-          eapply interpP_le_interpTime in Hle2.
-          repeat rewrite interpTime_distr in Hle2.
-          repeat rewrite interpTime_1 in Hle2.
+          eapply interp_prop_le_interp_time in Hle2.
+          repeat rewrite interp_time_distr in Hle2.
+          repeat rewrite interp_time_1 in Hle2.
           copy Hle2 Hle2'.
           repeat (eapply Time_add_le_elim in Hle2; destruct Hle2 as (Hle2 & ?)).
-          eapply interpTime_interpP_le.
-          rewrite interpTime_minus_distr.
-          rewrite interpTime_1.
+          eapply interp_time_interp_prop_le.
+          rewrite interp_time_minus_distr.
+          rewrite interp_time_1.
           eapply Time_minus_move_left; eauto.
-          eapply interpP_eq_interpTime in Hieq.
+          eapply interp_prop_eq_interp_time in Hieq.
           rewrite <- Hieq in *.
           eapply Time_le_trans; [| eapply Hle2'].
           rotate_lhs.
@@ -5956,8 +5956,8 @@ Admitted.
       }
       {
         rewrite Time_minus_minus_cancel by eauto.
-        rewrite interpTime_minus_distr.
-        rewrite interpTime_1.
+        rewrite interp_time_minus_distr.
+        rewrite interp_time_1.
         eapply Time_minus_cancel.
         eauto.
       }
@@ -6006,12 +6006,12 @@ Admitted.
         {
           simplify.
           rewrite Time_a_minus_a.
-          eapply interpTime_interpP_le.
-          rewrite interpTime_minus_distr.
-          rewrite interpTime_0.
+          eapply interp_time_interp_prop_le.
+          rewrite interp_time_minus_distr.
+          rewrite interp_time_0.
           rewrite Time_minus_0.
-          eapply interpP_le_interpTime in Hle2.
-          eapply interpP_le_interpTime in Hle3.
+          eapply interp_prop_le_interp_time in Hle2.
+          eapply interp_prop_le_interp_time in Hle3.
           eauto with time_order.
         }
       }
@@ -6021,8 +6021,8 @@ Admitted.
       {
         simplify.
         rewrite Time_a_minus_a.
-        rewrite interpTime_minus_distr.
-        rewrite interpTime_0.
+        rewrite interp_time_minus_distr.
+        rewrite interp_time_0.
         rewrite Time_minus_0.
         eauto.
       }
@@ -6060,9 +6060,9 @@ Admitted.
           {
             simplify.
             rewrite Time_a_minus_a.
-            eapply interpTime_interpP_le.
-            rewrite interpTime_minus_distr.
-            rewrite interpTime_0.
+            eapply interp_time_interp_prop_le.
+            rewrite interp_time_minus_distr.
+            rewrite interp_time_0.
             rewrite Time_minus_0.
             eauto with time_order.
           }
@@ -6078,8 +6078,8 @@ Admitted.
       {
         simplify.
         rewrite Time_a_minus_a.
-        rewrite interpTime_minus_distr.
-        rewrite interpTime_0.
+        rewrite interp_time_minus_distr.
+        rewrite interp_time_0.
         rewrite Time_minus_0.
         eauto.
       }
@@ -6138,14 +6138,14 @@ Admitted.
         {
           simplify.
           rewrite Time_a_minus_a.
-          eapply interpTime_interpP_le.
-          rewrite interpTime_minus_distr.
-          rewrite interpTime_0.
+          eapply interp_time_interp_prop_le.
+          rewrite interp_time_minus_distr.
+          rewrite interp_time_0.
           rewrite Time_minus_0.
-          eapply interpP_le_interpTime in Hle2.
-          eapply interpP_le_interpTime in Hle3.
-          repeat rewrite interpTime_distr in Hle2.
-          repeat rewrite interpTime_1 in Hle2.
+          eapply interp_prop_le_interp_time in Hle2.
+          eapply interp_prop_le_interp_time in Hle3.
+          repeat rewrite interp_time_distr in Hle2.
+          repeat rewrite interp_time_1 in Hle2.
           trans_rhs Hle2.
           finish.
         }
@@ -6156,8 +6156,8 @@ Admitted.
       {
         simplify.
         rewrite Time_a_minus_a.
-        rewrite interpTime_minus_distr.
-        rewrite interpTime_0.
+        rewrite interp_time_minus_distr.
+        rewrite interp_time_0.
         rewrite Time_minus_0.
         eauto.
       }
@@ -6201,9 +6201,9 @@ Admitted.
         {
           simplify.
           rewrite Time_a_minus_a.
-          eapply interpTime_interpP_le.
-          rewrite interpTime_minus_distr.
-          repeat rewrite interpTime_0.
+          eapply interp_time_interp_prop_le.
+          rewrite interp_time_minus_distr.
+          repeat rewrite interp_time_0.
           rewrite Time_minus_0.
           eauto with time_order.
         }
@@ -6214,8 +6214,8 @@ Admitted.
       {
         simplify.
         rewrite Time_a_minus_a.
-        rewrite interpTime_minus_distr.
-        repeat rewrite interpTime_0.
+        rewrite interp_time_minus_distr.
+        repeat rewrite interp_time_0.
         rewrite Time_minus_0.
         eauto.
       }
@@ -6257,9 +6257,9 @@ Admitted.
         {
           simplify.
           rewrite Time_a_minus_a.
-          eapply interpTime_interpP_le.
-          rewrite interpTime_minus_distr.
-          repeat rewrite interpTime_0.
+          eapply interp_time_interp_prop_le.
+          rewrite interp_time_minus_distr.
+          repeat rewrite interp_time_0.
           rewrite Time_minus_0.
           eauto with time_order.
         }
@@ -6278,8 +6278,8 @@ Admitted.
       {
         simplify.
         rewrite Time_a_minus_a.
-        rewrite interpTime_minus_distr.
-        repeat rewrite interpTime_0.
+        rewrite interp_time_minus_distr.
+        repeat rewrite interp_time_0.
         rewrite Time_minus_0.
         eauto.
       }
@@ -6317,9 +6317,9 @@ Admitted.
         {
           simplify.
           rewrite Time_a_minus_a.
-          eapply interpTime_interpP_le.
-          rewrite interpTime_minus_distr.
-          repeat rewrite interpTime_0.
+          eapply interp_time_interp_prop_le.
+          rewrite interp_time_minus_distr.
+          repeat rewrite interp_time_0.
           rewrite Time_minus_0.
           eauto with time_order.
         }
@@ -6330,8 +6330,8 @@ Admitted.
       {
         simplify.
         rewrite Time_a_minus_a.
-        rewrite interpTime_minus_distr.
-        repeat rewrite interpTime_0.
+        rewrite interp_time_minus_distr.
+        repeat rewrite interp_time_0.
         rewrite Time_minus_0.
         eauto.
       }
@@ -6395,9 +6395,9 @@ Admitted.
           simplify.
           rewrite subst0_c_c_Const.
           rewrite Time_a_minus_a.
-          eapply interpTime_interpP_le.
-          rewrite interpTime_minus_distr.
-          repeat rewrite interpTime_0.
+          eapply interp_time_interp_prop_le.
+          rewrite interp_time_minus_distr.
+          repeat rewrite interp_time_0.
           rewrite Time_minus_0.
           eauto with time_order.
         }
@@ -6408,8 +6408,8 @@ Admitted.
       {
         simplify.
         rewrite Time_a_minus_a.
-        rewrite interpTime_minus_distr.
-        repeat rewrite interpTime_0.
+        rewrite interp_time_minus_distr.
+        repeat rewrite interp_time_0.
         rewrite Time_minus_0.
         eauto.
       }
@@ -6450,13 +6450,13 @@ Admitted.
           {
             simplify.
             rewrite Time_a_minus_a.
-            eapply interpTime_interpP_le.
-            rewrite interpTime_minus_distr.
-            repeat rewrite interpTime_0.
+            eapply interp_time_interp_prop_le.
+            rewrite interp_time_minus_distr.
+            repeat rewrite interp_time_0.
             rewrite Time_minus_0.
-            eapply interpP_le_interpTime in Hle2.
-            eapply interpP_le_interpTime in Hle3.
-            repeat rewrite interpTime_distr in Hle3.
+            eapply interp_prop_le_interp_time in Hle2.
+            eapply interp_prop_le_interp_time in Hle3.
+            repeat rewrite interp_time_distr in Hle3.
             trans_rhs Hle2.
             trans_rhs Hle3.
             rotate_rhs.
@@ -6473,13 +6473,13 @@ Admitted.
           {
             simplify.
             rewrite Time_a_minus_a.
-            eapply interpTime_interpP_le.
-            rewrite interpTime_minus_distr.
-            repeat rewrite interpTime_0.
+            eapply interp_time_interp_prop_le.
+            rewrite interp_time_minus_distr.
+            repeat rewrite interp_time_0.
             rewrite Time_minus_0.
-            eapply interpP_le_interpTime in Hle2.
-            eapply interpP_le_interpTime in Hle3.
-            repeat rewrite interpTime_distr in Hle3.
+            eapply interp_prop_le_interp_time in Hle2.
+            eapply interp_prop_le_interp_time in Hle3.
+            repeat rewrite interp_time_distr in Hle3.
             trans_rhs Hle2.
             trans_rhs Hle3.
             finish.
@@ -6492,8 +6492,8 @@ Admitted.
       {
         simplify.
         rewrite Time_a_minus_a.
-        rewrite interpTime_minus_distr.
-        repeat rewrite interpTime_0.
+        rewrite interp_time_minus_distr.
+        repeat rewrite interp_time_0.
         rewrite Time_minus_0.
         eauto.
       }
@@ -6535,18 +6535,18 @@ Admitted.
           {
             simplify.
             rewrite Time_a_minus_a.
-            eapply interpTime_interpP_le.
-            rewrite interpTime_minus_distr.
-            repeat rewrite interpTime_0.
+            eapply interp_time_interp_prop_le.
+            rewrite interp_time_minus_distr.
+            repeat rewrite interp_time_0.
             rewrite Time_minus_0.
-            eapply interpP_le_interpTime in Hle2.
+            eapply interp_prop_le_interp_time in Hle2.
             trans_rhs Hle2.
-            rewrite interpTime_distr.
-            eapply interpP_le_interpTime in Hle3.
-            rewrite interpTime_max.
+            rewrite interp_time_distr.
+            eapply interp_prop_le_interp_time in Hle3.
+            rewrite interp_time_max.
             eapply Time_le_trans.
             {
-              instantiate (1 := (interpTime i1 + interpTime i0)%time).
+              instantiate (1 := (interp_time i1 + interp_time i0)%time).
               rotate_rhs.
               finish.
             }
@@ -6568,18 +6568,18 @@ Admitted.
           {
             simplify.
             rewrite Time_a_minus_a.
-            eapply interpTime_interpP_le.
-            rewrite interpTime_minus_distr.
-            repeat rewrite interpTime_0.
+            eapply interp_time_interp_prop_le.
+            rewrite interp_time_minus_distr.
+            repeat rewrite interp_time_0.
             rewrite Time_minus_0.
-            eapply interpP_le_interpTime in Hle2.
+            eapply interp_prop_le_interp_time in Hle2.
             trans_rhs Hle2.
-            rewrite interpTime_distr.
-            eapply interpP_le_interpTime in Hle3.
-            rewrite interpTime_max.
+            rewrite interp_time_distr.
+            eapply interp_prop_le_interp_time in Hle3.
+            rewrite interp_time_max.
             eapply Time_le_trans.
             {
-              instantiate (1 := (interpTime i2 + interpTime i0)%time).
+              instantiate (1 := (interp_time i2 + interp_time i0)%time).
               rotate_rhs.
               finish.
             }
@@ -6595,8 +6595,8 @@ Admitted.
       {
         simplify.
         rewrite Time_a_minus_a.
-        rewrite interpTime_minus_distr.
-        repeat rewrite interpTime_0.
+        rewrite interp_time_minus_distr.
+        repeat rewrite interp_time_0.
         rewrite Time_minus_0.
         eauto.
       }
@@ -6613,11 +6613,11 @@ Admitted.
         typing ([], W, []) e_all t i ->
         exists t1 i1,
           typing ([], W, []) e t1 i1 /\
-          interpP [] (i1 <= i)%idx /\
+          interp_prop [] (i1 <= i)%idx /\
           forall e' e_all' W' i1',
             plug C e' e_all' ->
             typing ([], W', []) e' t1 i1' ->
-            interpP [] (i1' <= i1)%idx ->
+            interp_prop [] (i1' <= i1)%idx ->
             W $<= W' ->
             typing ([], W', []) e_all' t (i1' + Tminus i i1)%idx.
   Proof.
@@ -6626,15 +6626,15 @@ Admitted.
       exists t, i.
       repeat split; eauto.
       {
-        eapply interpTime_interpP_le.
+        eapply interp_time_interp_prop_le.
         eauto with time_order.
       }
       intros.
       invert H.
       eapply TyLe; eauto.
       simplify.
-      eapply interpTime_interpP_le.
-      rewrite interpTime_distr.
+      eapply interp_time_interp_prop_le.
+      rewrite interp_time_distr.
       rotate_rhs.
       finish.
     }
@@ -6650,9 +6650,9 @@ Admitted.
         exists t0, i0.
         repeat split; eauto.
         {
-          eapply interpTime_interpP_le.
-          eapply interpP_le_interpTime in Hle.
-          eapply interpP_le_interpTime in Hle2.
+          eapply interp_time_interp_prop_le.
+          eapply interp_prop_le_interp_time in Hle.
+          eapply interp_prop_le_interp_time in Hle2.
           eauto with time_order.
         }
         intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
@@ -6670,14 +6670,14 @@ Admitted.
         }
         {
           simplify.
-          eapply interpTime_interpP_le.
-          repeat rewrite interpTime_distr.
+          eapply interp_time_interp_prop_le.
+          repeat rewrite interp_time_distr.
           rotate_lhs.
           rotate_rhs.
           cancel.
-          repeat rewrite interpTime_minus_distr.
+          repeat rewrite interp_time_minus_distr.
           eapply Time_minus_cancel.
-          eapply interpP_le_interpTime in Hle.
+          eapply interp_prop_le_interp_time in Hle.
           eauto.
         }
       }
@@ -6691,9 +6691,9 @@ Admitted.
         exists t0, i0.
         repeat split; eauto.
         {
-          eapply interpTime_interpP_le.
-          eapply interpP_le_interpTime in Hle.
-          eapply interpP_le_interpTime in Hle2.
+          eapply interp_time_interp_prop_le.
+          eapply interp_prop_le_interp_time in Hle.
+          eapply interp_prop_le_interp_time in Hle2.
           eauto with time_order.
         }
         intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
@@ -6713,14 +6713,14 @@ Admitted.
           }
           {
             simplify.
-            eapply interpTime_interpP_le.
-            repeat rewrite interpTime_distr.
+            eapply interp_time_interp_prop_le.
+            repeat rewrite interp_time_distr.
             rotate_lhs.
             rotate_rhs.
             cancel.
-            repeat rewrite interpTime_minus_distr.
+            repeat rewrite interp_time_minus_distr.
             eapply Time_minus_cancel.
-            eapply interpP_le_interpTime in Hle.
+            eapply interp_prop_le_interp_time in Hle.
             eauto.
           }
         }
@@ -6735,14 +6735,14 @@ Admitted.
           }
           {
             simplify.
-            eapply interpTime_interpP_le.
-            repeat rewrite interpTime_distr.
+            eapply interp_time_interp_prop_le.
+            repeat rewrite interp_time_distr.
             rotate_lhs.
             rotate_rhs.
             cancel.
-            repeat rewrite interpTime_minus_distr.
+            repeat rewrite interp_time_minus_distr.
             eapply Time_minus_cancel.
-            eapply interpP_le_interpTime in Hle.
+            eapply interp_prop_le_interp_time in Hle.
             eauto.
           }
         }
@@ -6758,9 +6758,9 @@ Admitted.
         exists t0, i0.
         repeat split; eauto.
         {
-          eapply interpTime_interpP_le.
-          eapply interpP_le_interpTime in Hle.
-          eapply interpP_le_interpTime in Hle2.
+          eapply interp_time_interp_prop_le.
+          eapply interp_prop_le_interp_time in Hle.
+          eapply interp_prop_le_interp_time in Hle2.
           eauto with time_order.
         }
         intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
@@ -6778,14 +6778,14 @@ Admitted.
         }
         {
           simplify.
-          eapply interpTime_interpP_le.
-          repeat rewrite interpTime_distr.
+          eapply interp_time_interp_prop_le.
+          repeat rewrite interp_time_distr.
           rotate_lhs.
           rotate_rhs.
           cancel.
-          repeat rewrite interpTime_minus_distr.
+          repeat rewrite interp_time_minus_distr.
           eapply Time_minus_cancel.
-          eapply interpP_le_interpTime in Hle.
+          eapply interp_prop_le_interp_time in Hle.
           eauto.
         }
       }
@@ -6800,9 +6800,9 @@ Admitted.
         exists t0, i0.
         repeat split; eauto.
         {
-          eapply interpTime_interpP_le.
-          eapply interpP_le_interpTime in Hle.
-          eapply interpP_le_interpTime in Hle2.
+          eapply interp_time_interp_prop_le.
+          eapply interp_prop_le_interp_time in Hle.
+          eapply interp_prop_le_interp_time in Hle2.
           eauto with time_order.
         }
         intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
@@ -6820,14 +6820,14 @@ Admitted.
         }
         {
           simplify.
-          eapply interpTime_interpP_le.
-          repeat rewrite interpTime_distr.
+          eapply interp_time_interp_prop_le.
+          repeat rewrite interp_time_distr.
           rotate_lhs.
           rotate_rhs.
           cancel.
-          repeat rewrite interpTime_minus_distr.
+          repeat rewrite interp_time_minus_distr.
           eapply Time_minus_cancel.
-          eapply interpP_le_interpTime in Hle.
+          eapply interp_prop_le_interp_time in Hle.
           eauto.
         }
       }
@@ -6841,9 +6841,9 @@ Admitted.
         exists t0, i0.
         repeat split; eauto.
         {
-          eapply interpTime_interpP_le.
-          eapply interpP_le_interpTime in Hle.
-          eapply interpP_le_interpTime in Hle2.
+          eapply interp_time_interp_prop_le.
+          eapply interp_prop_le_interp_time in Hle.
+          eapply interp_prop_le_interp_time in Hle2.
           eauto with time_order.
         }
         intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
@@ -6861,14 +6861,14 @@ Admitted.
         }
         {
           simplify.
-          eapply interpTime_interpP_le.
-          repeat rewrite interpTime_distr.
+          eapply interp_time_interp_prop_le.
+          repeat rewrite interp_time_distr.
           rotate_lhs.
           rotate_rhs.
           cancel.
-          repeat rewrite interpTime_minus_distr.
+          repeat rewrite interp_time_minus_distr.
           eapply Time_minus_cancel.
-          eapply interpP_le_interpTime in Hle.
+          eapply interp_prop_le_interp_time in Hle.
           eauto.
         }
       }
@@ -6882,9 +6882,9 @@ Admitted.
         exists t0, i0.
         repeat split; eauto.
         {
-          eapply interpTime_interpP_le.
-          eapply interpP_le_interpTime in Hle.
-          eapply interpP_le_interpTime in Hle2.
+          eapply interp_time_interp_prop_le.
+          eapply interp_prop_le_interp_time in Hle.
+          eapply interp_prop_le_interp_time in Hle2.
           eauto with time_order.
         }
         intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
@@ -6898,14 +6898,14 @@ Admitted.
         }
         {
           simplify.
-          eapply interpTime_interpP_le.
-          repeat rewrite interpTime_distr.
+          eapply interp_time_interp_prop_le.
+          repeat rewrite interp_time_distr.
           rotate_lhs.
           rotate_rhs.
           cancel.
-          repeat rewrite interpTime_minus_distr.
+          repeat rewrite interp_time_minus_distr.
           eapply Time_minus_cancel.
-          eapply interpP_le_interpTime in Hle.
+          eapply interp_prop_le_interp_time in Hle.
           eauto.
         }
       }
@@ -6927,11 +6927,11 @@ Admitted.
         exists t1, i0.
         repeat split; eauto.
         {
-          eapply interpTime_interpP_le.
-          eapply interpP_le_interpTime in Hle.
-          eapply interpP_le_interpTime in Hle2.
-          repeat rewrite interpTime_distr in Hle.
-          repeat rewrite interpTime_1 in Hle.
+          eapply interp_time_interp_prop_le.
+          eapply interp_prop_le_interp_time in Hle.
+          eapply interp_prop_le_interp_time in Hle2.
+          repeat rewrite interp_time_distr in Hle.
+          repeat rewrite interp_time_1 in Hle.
           repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
           eauto with time_order.
         }
@@ -6950,20 +6950,20 @@ Admitted.
         }
         {
           simplify.
-          eapply interpTime_interpP_le.
-          repeat rewrite interpTime_distr.
+          eapply interp_time_interp_prop_le.
+          repeat rewrite interp_time_distr.
           rotate_rhs.
           do 4 rotate_lhs.
           cancel.
           do 3 rotate_lhs.
-          repeat rewrite interpTime_minus_distr.
-          eapply interpP_le_interpTime in Hle.
-          eapply interpP_le_interpTime in Hle2.
-          eapply interpP_le_interpTime in Hle3.
+          repeat rewrite interp_time_minus_distr.
+          eapply interp_prop_le_interp_time in Hle.
+          eapply interp_prop_le_interp_time in Hle2.
+          eapply interp_prop_le_interp_time in Hle3.
           rewrite Time_add_minus_assoc by eauto.
           eapply Time_minus_cancel.
           trans_rhs Hle.
-          repeat rewrite interpTime_distr.
+          repeat rewrite interp_time_distr.
           rotate_lhs.
           cancel.
           eauto with time_order.
@@ -6979,11 +6979,11 @@ Admitted.
         exists t0, i0.
         repeat split; eauto.
         {
-          eapply interpTime_interpP_le.
-          eapply interpP_le_interpTime in Hle.
-          eapply interpP_le_interpTime in Hle2.
-          repeat rewrite interpTime_distr in Hle.
-          repeat rewrite interpTime_1 in Hle.
+          eapply interp_time_interp_prop_le.
+          eapply interp_prop_le_interp_time in Hle.
+          eapply interp_prop_le_interp_time in Hle2.
+          repeat rewrite interp_time_distr in Hle.
+          repeat rewrite interp_time_1 in Hle.
           repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
           eauto with time_order.
         }
@@ -7003,20 +7003,20 @@ Admitted.
         }
         {
           simplify.
-          eapply interpTime_interpP_le.
-          repeat rewrite interpTime_distr.
+          eapply interp_time_interp_prop_le.
+          repeat rewrite interp_time_distr.
           rotate_rhs.
           do 2 rotate_lhs.
           cancel.
           rotate_lhs.
-          repeat rewrite interpTime_minus_distr.
-          eapply interpP_le_interpTime in Hle.
-          eapply interpP_le_interpTime in Hle2.
-          eapply interpP_le_interpTime in Hle3.
+          repeat rewrite interp_time_minus_distr.
+          eapply interp_prop_le_interp_time in Hle.
+          eapply interp_prop_le_interp_time in Hle2.
+          eapply interp_prop_le_interp_time in Hle3.
           rewrite Time_add_minus_assoc by eauto.
           eapply Time_minus_cancel.
           trans_rhs Hle.
-          repeat rewrite interpTime_distr.
+          repeat rewrite interp_time_distr.
           rotate_lhs.
           eauto with time_order.
         }
@@ -7031,11 +7031,11 @@ Admitted.
         exists t0, i0.
         repeat split; eauto.
         {
-          eapply interpTime_interpP_le.
-          eapply interpP_le_interpTime in Hle.
-          eapply interpP_le_interpTime in Hle2.
-          repeat rewrite interpTime_distr in Hle.
-          repeat rewrite interpTime_1 in Hle.
+          eapply interp_time_interp_prop_le.
+          eapply interp_prop_le_interp_time in Hle.
+          eapply interp_prop_le_interp_time in Hle2.
+          repeat rewrite interp_time_distr in Hle.
+          repeat rewrite interp_time_1 in Hle.
           repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
           eauto with time_order.
         }
@@ -7055,20 +7055,20 @@ Admitted.
         }
         {
           simplify.
-          eapply interpTime_interpP_le.
-          repeat rewrite interpTime_distr.
+          eapply interp_time_interp_prop_le.
+          repeat rewrite interp_time_distr.
           rotate_rhs.
           do 2 rotate_lhs.
           cancel.
           rotate_lhs.
-          repeat rewrite interpTime_minus_distr.
-          eapply interpP_le_interpTime in Hle.
-          eapply interpP_le_interpTime in Hle2.
-          eapply interpP_le_interpTime in Hle3.
+          repeat rewrite interp_time_minus_distr.
+          eapply interp_prop_le_interp_time in Hle.
+          eapply interp_prop_le_interp_time in Hle2.
+          eapply interp_prop_le_interp_time in Hle3.
           rewrite Time_add_minus_assoc by eauto.
           eapply Time_minus_cancel.
           trans_rhs Hle.
-          repeat rewrite interpTime_distr.
+          repeat rewrite interp_time_distr.
           rotate_lhs.
           eauto with time_order.
         }
@@ -7092,11 +7092,11 @@ Admitted.
         exists t0, i0.
         repeat split; eauto.
         {
-          eapply interpTime_interpP_le.
-          eapply interpP_le_interpTime in Hle.
-          eapply interpP_le_interpTime in Hle2.
-          repeat rewrite interpTime_distr in Hle.
-          repeat rewrite interpTime_1 in Hle.
+          eapply interp_time_interp_prop_le.
+          eapply interp_prop_le_interp_time in Hle.
+          eapply interp_prop_le_interp_time in Hle2.
+          repeat rewrite interp_time_distr in Hle.
+          repeat rewrite interp_time_1 in Hle.
           repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
           eauto with time_order.
         }
@@ -7115,21 +7115,21 @@ Admitted.
         }
         {
           simplify.
-          eapply interpTime_interpP_le.
-          repeat rewrite interpTime_distr.
+          eapply interp_time_interp_prop_le.
+          repeat rewrite interp_time_distr.
           repeat rewrite Time_add_assoc.
           rotate_rhs.
           do 3 rotate_lhs.
           cancel.
           do 3 rotate_lhs.
-          repeat rewrite interpTime_minus_distr.
-          eapply interpP_le_interpTime in Hle.
-          eapply interpP_le_interpTime in Hle2.
-          eapply interpP_le_interpTime in Hle3.
+          repeat rewrite interp_time_minus_distr.
+          eapply interp_prop_le_interp_time in Hle.
+          eapply interp_prop_le_interp_time in Hle2.
+          eapply interp_prop_le_interp_time in Hle3.
           rewrite Time_add_minus_assoc by eauto.
           eapply Time_minus_cancel.
           trans_rhs Hle.
-          repeat rewrite interpTime_distr.
+          repeat rewrite interp_time_distr.
           do 2 rotate_lhs.
           cancel.
           eauto with time_order.
@@ -7145,11 +7145,11 @@ Admitted.
         exists t0, i0.
         repeat split; eauto.
         {
-          eapply interpTime_interpP_le.
-          eapply interpP_le_interpTime in Hle.
-          eapply interpP_le_interpTime in Hle2.
-          repeat rewrite interpTime_distr in Hle.
-          repeat rewrite interpTime_1 in Hle.
+          eapply interp_time_interp_prop_le.
+          eapply interp_prop_le_interp_time in Hle.
+          eapply interp_prop_le_interp_time in Hle2.
+          repeat rewrite interp_time_distr in Hle.
+          repeat rewrite interp_time_1 in Hle.
           repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
           eauto with time_order.
         }
@@ -7169,16 +7169,16 @@ Admitted.
         }
         {
           simplify.
-          eapply interpTime_interpP_le.
-          eapply interpP_le_interpTime in Hle.
-          eapply interpP_le_interpTime in Hle2.
-          eapply interpP_le_interpTime in Hle3.
-          repeat rewrite interpTime_distr in *.
+          eapply interp_time_interp_prop_le.
+          eapply interp_prop_le_interp_time in Hle.
+          eapply interp_prop_le_interp_time in Hle2.
+          eapply interp_prop_le_interp_time in Hle3.
+          repeat rewrite interp_time_distr in *.
           rotate_rhs.
           rotate_lhs.
           cancel.
           rotate_lhs.
-          repeat rewrite interpTime_minus_distr.
+          repeat rewrite interp_time_minus_distr.
           rewrite Time_add_minus_assoc by eauto.
           eapply Time_minus_cancel.
           eauto.
@@ -7194,11 +7194,11 @@ Admitted.
         exists t0, i0.
         repeat split; eauto.
         {
-          eapply interpTime_interpP_le.
-          eapply interpP_le_interpTime in Hle.
-          eapply interpP_le_interpTime in Hle2.
-          repeat rewrite interpTime_distr in Hle.
-          repeat rewrite interpTime_1 in Hle.
+          eapply interp_time_interp_prop_le.
+          eapply interp_prop_le_interp_time in Hle.
+          eapply interp_prop_le_interp_time in Hle2.
+          repeat rewrite interp_time_distr in Hle.
+          repeat rewrite interp_time_1 in Hle.
           repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
           eauto with time_order.
         }
@@ -7218,16 +7218,16 @@ Admitted.
         }
         {
           simplify.
-          eapply interpTime_interpP_le.
-          eapply interpP_le_interpTime in Hle.
-          eapply interpP_le_interpTime in Hle2.
-          eapply interpP_le_interpTime in Hle3.
-          repeat rewrite interpTime_distr in *.
+          eapply interp_time_interp_prop_le.
+          eapply interp_prop_le_interp_time in Hle.
+          eapply interp_prop_le_interp_time in Hle2.
+          eapply interp_prop_le_interp_time in Hle3.
+          repeat rewrite interp_time_distr in *.
           rotate_rhs.
           rotate_lhs.
           cancel.
           rotate_lhs.
-          repeat rewrite interpTime_minus_distr.
+          repeat rewrite interp_time_minus_distr.
           rewrite Time_add_minus_assoc by eauto.
           eapply Time_minus_cancel.
           eauto.
@@ -7244,11 +7244,11 @@ Admitted.
       exists t0, i0.
       repeat split; eauto.
       {
-        eapply interpTime_interpP_le.
-        eapply interpP_le_interpTime in Hle.
-        eapply interpP_le_interpTime in Hle2.
-        repeat rewrite interpTime_distr in Hle.
-        repeat rewrite interpTime_1 in Hle.
+        eapply interp_time_interp_prop_le.
+        eapply interp_prop_le_interp_time in Hle.
+        eapply interp_prop_le_interp_time in Hle2.
+        repeat rewrite interp_time_distr in Hle.
+        repeat rewrite interp_time_1 in Hle.
         repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
         eauto with time_order.
       }
@@ -7264,16 +7264,16 @@ Admitted.
       }
       {
         simplify.
-        eapply interpTime_interpP_le.
-        eapply interpP_le_interpTime in Hle.
-        eapply interpP_le_interpTime in Hle2.
-        eapply interpP_le_interpTime in Hle3.
-        repeat rewrite interpTime_distr in *.
+        eapply interp_time_interp_prop_le.
+        eapply interp_prop_le_interp_time in Hle.
+        eapply interp_prop_le_interp_time in Hle2.
+        eapply interp_prop_le_interp_time in Hle3.
+        repeat rewrite interp_time_distr in *.
         rotate_rhs.
         do 2 rotate_lhs.
         cancel.
         rotate_lhs.
-        repeat rewrite interpTime_minus_distr.
+        repeat rewrite interp_time_minus_distr.
         rewrite Time_add_minus_assoc by eauto.
         eapply Time_minus_cancel.
         rotate_lhs.
@@ -7290,9 +7290,9 @@ Admitted.
       exists t0, i0.
       repeat split; eauto.
       {
-        eapply interpTime_interpP_le.
-        eapply interpP_le_interpTime in Hle.
-        eapply interpP_le_interpTime in Hle2.
+        eapply interp_time_interp_prop_le.
+        eapply interp_prop_le_interp_time in Hle.
+        eapply interp_prop_le_interp_time in Hle2.
         eauto with time_order.
       }
       intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
@@ -7310,14 +7310,14 @@ Admitted.
       }
       {
         simplify.
-        eapply interpTime_interpP_le.
-        repeat rewrite interpTime_distr.
+        eapply interp_time_interp_prop_le.
+        repeat rewrite interp_time_distr.
         rotate_lhs.
         rotate_rhs.
         cancel.
-        repeat rewrite interpTime_minus_distr.
+        repeat rewrite interp_time_minus_distr.
         eapply Time_minus_cancel.
-        eapply interpP_le_interpTime in Hle.
+        eapply interp_prop_le_interp_time in Hle.
         eauto.
       }
     }
@@ -7331,9 +7331,9 @@ Admitted.
       exists t0, i0.
       repeat split; eauto.
       {
-        eapply interpTime_interpP_le.
-        eapply interpP_le_interpTime in Hle.
-        eapply interpP_le_interpTime in Hle2.
+        eapply interp_time_interp_prop_le.
+        eapply interp_prop_le_interp_time in Hle.
+        eapply interp_prop_le_interp_time in Hle2.
         eauto with time_order.
       }
       intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl.
@@ -7351,14 +7351,14 @@ Admitted.
       }
       {
         simplify.
-        eapply interpTime_interpP_le.
-        repeat rewrite interpTime_distr.
+        eapply interp_time_interp_prop_le.
+        repeat rewrite interp_time_distr.
         rotate_lhs.
         rotate_rhs.
         cancel.
-        repeat rewrite interpTime_minus_distr.
+        repeat rewrite interp_time_minus_distr.
         eapply Time_minus_cancel.
-        eapply interpP_le_interpTime in Hle.
+        eapply interp_prop_le_interp_time in Hle.
         eauto.
       }
     }
@@ -7372,11 +7372,11 @@ Admitted.
       exists t0, i0.
       repeat split; eauto.
       {
-        eapply interpTime_interpP_le.
-        eapply interpP_le_interpTime in Hle.
-        eapply interpP_le_interpTime in Hle2.
-        repeat rewrite interpTime_distr in Hle.
-        repeat rewrite interpTime_1 in Hle.
+        eapply interp_time_interp_prop_le.
+        eapply interp_prop_le_interp_time in Hle.
+        eapply interp_prop_le_interp_time in Hle2.
+        repeat rewrite interp_time_distr in Hle.
+        repeat rewrite interp_time_1 in Hle.
         repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
         eauto with time_order.
       }
@@ -7401,16 +7401,16 @@ Admitted.
       }
       {
         simplify.
-        eapply interpTime_interpP_le.
-        eapply interpP_le_interpTime in Hle.
-        eapply interpP_le_interpTime in Hle2.
-        eapply interpP_le_interpTime in Hle3.
-        repeat rewrite interpTime_distr in *.
+        eapply interp_time_interp_prop_le.
+        eapply interp_prop_le_interp_time in Hle.
+        eapply interp_prop_le_interp_time in Hle2.
+        eapply interp_prop_le_interp_time in Hle3.
+        repeat rewrite interp_time_distr in *.
         rotate_rhs.
         do 2 rotate_lhs.
         cancel.
         rotate_lhs.
-        repeat rewrite interpTime_minus_distr.
+        repeat rewrite interp_time_minus_distr.
         rewrite Time_add_minus_assoc by eauto.
         eapply Time_minus_cancel.
         rotate_lhs.
@@ -7453,7 +7453,7 @@ Admitted.
     Focus 2.
     {
       unfold ctyping; repeat try_split; eauto.
-      eapply interpP_le_interpTime in Hle2.
+      eapply interp_prop_le_interp_time in Hle2.
       eauto with time_order.
     }
     Unfocus.
@@ -7465,8 +7465,8 @@ Admitted.
     {
       simplify.
       interp_le.
-      repeat rewrite interpTime_minus_distr in *.
-      rewrite interpTime_const in *.
+      repeat rewrite interp_time_minus_distr in *.
+      rewrite interp_time_const in *.
       eauto with time_order.
     }
     Unfocus.
@@ -7475,9 +7475,9 @@ Admitted.
     repeat try_split; eauto.
     simplify.
     interp_le.
-    repeat rewrite interpTime_distr in *.
-    repeat rewrite interpTime_minus_distr in *.
-    rewrite interpTime_const in *.
+    repeat rewrite interp_time_distr in *.
+    repeat rewrite interp_time_minus_distr in *.
+    rewrite interp_time_const in *.
     clear_non_le.
     rotate_lhs.
     rewrite Time_add_minus_assoc by eauto.
