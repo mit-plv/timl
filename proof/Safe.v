@@ -1312,7 +1312,9 @@ Module M (Time : TIME).
     | k :: ks =>
       let ps1 := strip_subset k in
       let b := kind_to_sort k in
-      let (bs, ps2) := strip_subsets ks in
+      let bs_ps2 := strip_subsets ks in
+      let bs := fst bs_ps2 in
+      let ps2 := snd bs_ps2 in
       let ps2 := map shift0_c_p ps2 in
       (b :: bs, ps1 ++ ps2)
     end.
@@ -1324,13 +1326,23 @@ Module M (Time : TIME).
     end.
   
   Definition interp_prop (ks : kctx) (p : prop) : Prop :=
-    let (bs, ps) := strip_subsets ks in
+    let bs_ps := strip_subsets ks in
+    let bs := fst bs_ps in
+    let ps := snd bs_ps in
     let p := implys ps p in
     let P := interp_p bs p in
     foralls bs P.
 
-  Lemma interp_prop_le_refl L i : interp_prop L (i <= i)%idx.
-  Admitted.
+  Lemma interp_prop_le_refl L : forall i, interp_prop L (i <= i)%idx.
+  Proof.
+    unfold interp_prop.
+    induct L; intros i; cbn in *.
+    {
+      eapply Time_le_refl.
+    }
+    (*here*)
+  Qed.
+
   Lemma interp_prop_le_trans L a b c :
     interp_prop L (a <= b)%idx ->
     interp_prop L (b <= c)%idx ->
