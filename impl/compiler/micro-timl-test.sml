@@ -72,6 +72,7 @@ struct
       val tm15_ctx = List.tl tm14_ctx
       val tm15_rel = (tm15_ctx, tm15, fac_ty, CstrTime "0.0")
       val tm15_deriv = TyDerivRec (tm15_rel, KdDerivForall ((tm15_ctx, fac_ty, KdProper), KdWfDerivNat (tm15_ctx, KdNat), KdDerivArrow ((BdKind KdNat :: tm15_ctx, CstrArrow (CstrTypeNat (CstrVar 0), CstrExists (KdNat, CstrTypeNat (CstrVar 0)), CstrBinOp (CstrBopMult, CstrTime "7.0", CstrUnOp (CstrUopNat2Time, CstrVar 0))), KdProper), KdDerivTypeNat ((BdKind KdNat :: tm15_ctx, CstrTypeNat (CstrVar 0), KdProper), KdDerivVar (BdKind KdNat :: tm15_ctx, CstrVar 0, KdNat)), KdDerivExists ((BdKind KdNat :: tm15_ctx, CstrExists (KdNat, CstrTypeNat (CstrVar 0)), KdProper), KdWfDerivNat (BdKind KdNat :: tm15_ctx, KdNat), KdDerivVar (BdKind KdNat :: BdKind KdNat :: tm15_ctx, CstrVar 0, KdNat)), KdDerivBinOp ((BdKind KdNat :: tm15_ctx, CstrBinOp (CstrBopMult, CstrTime "7.0", CstrUnOp (CstrUopNat2Time, CstrVar 0)), KdTimeFun 0), KdDerivTime (BdKind KdNat :: tm15_ctx, CstrTime "7.0", KdTimeFun 0), KdDerivUnOp ((BdKind KdNat :: tm15_ctx, CstrUnOp (CstrUopNat2Time, CstrVar 0), KdTimeFun 0), KdDerivVar (BdKind KdNat :: tm15_ctx, CstrVar 0, KdNat))))), tm14_deriv)
+      val _ = println (str_bool (MicroTiMLChecker.check_typing_derivation tm15_deriv))
       val tm15_deriv_new = DerivationPasses.ANF.normalize_derivation tm15_deriv
       val tm15_rel_new = DerivationPasses.ANF.extract_tyrel tm15_deriv_new
       val _ = println (snd (Passes.Printer.transform_term (#2 tm15_rel_new, ["mult", "minus", "is_zero"])))

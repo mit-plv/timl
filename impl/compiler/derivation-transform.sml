@@ -179,11 +179,12 @@ struct
           in
             (TyDerivLet (on_rel tyrel, tyderiv1, tyderiv2), combine [up1, up2])
           end
-      | TyDerivNever (tyrel, prderiv1) =>
+      | TyDerivNever (tyrel, kdderiv1, prderiv2) =>
           let
-            val (prderiv1, up1) = on_prderiv prderiv1
+            val (kdderiv1, up1) = on_kdderiv kdderiv1
+            val (prderiv2, up2) = on_prderiv prderiv2
           in
-            (TyDerivNever (on_rel tyrel, prderiv1), combine [up1])
+            (TyDerivNever (on_rel tyrel, kdderiv1, prderiv2), combine [up1, up2])
           end
     end
 

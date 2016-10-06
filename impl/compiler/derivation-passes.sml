@@ -216,6 +216,20 @@ struct
     open TypingDerivationShift
     exception Impossible
 
+    fun extract_kdwfrel kdwf =
+      case kdwf of
+        KdWfDerivNat rel => rel
+      | KdWfDerivUnit rel => rel
+      | KdWfDerivBool rel => rel
+      | KdWfDerivTimeFun rel => rel
+      | KdWfDerivSubset (rel, _, _) => rel
+      | KdWfDerivProper rel => rel
+      | KdWfDerivArrow (rel, _, _) => rel
+
+    fun extract_prrel prderiv =
+      case prderiv of
+        PrDerivAdmit rel => rel
+
     fun extract_tyrel tyderiv =
       case tyderiv of
         TyDerivVar rel => rel
@@ -242,7 +256,7 @@ struct
       | TyDerivArrayGet (rel, _, _, _) => rel
       | TyDerivArrayPut (rel, _, _, _, _) => rel
       | TyDerivLet (rel, _, _) => rel
-      | TyDerivNever (rel, _) => rel
+      | TyDerivNever (rel, _, _) => rel
 
     fun extract_kdrel kdderiv =
       case kdderiv of
@@ -305,8 +319,8 @@ struct
 
     fun term_bin_op_to_constr bop =
       case bop of
-        TmBopIntAdd => CstrTypeInt
-      | TmBopIntMul => CstrTypeInt
+        TmBopIntAdd => (CstrTypeInt, (CstrTypeInt, CstrTypeInt))
+      | TmBopIntMul => (CstrTypeInt, (CstrTypeInt, CstrTypeInt))
 
     fun normalize_derivation tyderiv = normalize tyderiv (fn (x, d) => x)
 
@@ -492,7 +506,7 @@ struct
                 val tyderiv1_new = shift_typing_derivation_above d2 0 tyderiv1_new
                 val tyrel1_new = extract_tyrel tyderiv1_new
                 val tyrel2_new = extract_tyrel tyderiv2_new
-                val tyrel_new = (#1 tyrel2_new, TmBinOp (bop, #2 tyrel1_new, #2 tyrel2_new), term_bin_op_to_constr bop, CstrBinOp (CstrBopAdd, #4 tyrel1_new, #4 tyrel2_new))
+                val tyrel_new = (#1 tyrel2_new, TmBinOp (bop, #2 tyrel1_new, #2 tyrel2_new), #1 (term_bin_op_to_constr bop), CstrBinOp (CstrBopAdd, #4 tyrel1_new, #4 tyrel2_new))
               in
                 k (TyDerivBinOp (tyrel_new, tyderiv1_new, tyderiv2_new), List.concat [d2, d1])
               end))

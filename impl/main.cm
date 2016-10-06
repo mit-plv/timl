@@ -29,6 +29,7 @@ Group is
       main.sml
       compiler/micro-timl.sml
       compiler/micro-timl-test.sml
+      compiler/micro-timl-checker.sml
       compiler/transform.sml
       compiler/derivation-transform.sml
       compiler/passes.sml

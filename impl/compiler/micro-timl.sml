@@ -1,6 +1,5 @@
 structure MicroTiML =
 struct
-  exception TODO
   open Util
 
   type nat = int
@@ -248,5 +247,5 @@ struct
   | TyDerivArrayGet of typing_relation * typing_derivation * typing_derivation * proping_derivation
   | TyDerivArrayPut of typing_relation * typing_derivation * typing_derivation * proping_derivation * typing_derivation
   | TyDerivLet of typing_relation * typing_derivation * typing_derivation
-  | TyDerivNever of typing_relation * proping_derivation
+  | TyDerivNever of typing_relation * kinding_derivation * proping_derivation
 end
