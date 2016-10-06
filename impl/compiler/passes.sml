@@ -146,6 +146,142 @@ struct
     fun shift_term d tm = shift_term_above d 0 tm
   end
 
+  structure TermSubstConstr =
+  struct
+    structure TermSubstConstrHelper =
+    struct
+      type down = int * constr
+      type up = unit
+
+      val upward_base = ()
+      fun combiner ((), ()) = ()
+
+      fun transformer_constr (on_constr, on_kind) (cstr : constr, down as (who, to) : down) =
+        case cstr of
+          CstrVar a => SOME (if a = who then TermShift.shift_constr who to else cstr, ())
+        | CstrTimeAbs cstr1 =>
+            let
+              val (cstr1, ()) = on_constr (cstr1, (who + 1, to))
+            in
+              SOME (CstrTimeAbs cstr1, ())
+            end
+        | CstrAbs (kd1, cstr2) =>
+            let
+              val (kd1, ()) = on_kind (kd1, down)
+              val (cstr2, ()) = on_constr (cstr2, (who + 1, to))
+            in
+              SOME (CstrAbs (kd1, cstr2), ())
+            end
+        | CstrForall (kd1, cstr2) =>
+            let
+              val (kd1, ()) = on_kind (kd1, down)
+              val (cstr2, ()) = on_constr (cstr2, (who + 1, to))
+            in
+              SOME (CstrForall (kd1, cstr2), ())
+            end
+        | CstrExists (kd1, cstr2) =>
+            let
+              val (kd1, ()) = on_kind (kd1, down)
+              val (cstr2, ()) = on_constr (cstr2, (who + 1, to))
+            in
+              SOME (CstrExists (kd1, cstr2), ())
+            end
+        | CstrRec (kd1, cstr2) =>
+            let
+              val (kd1, ()) = on_kind (kd1, down)
+              val (cstr2, ()) = on_constr (cstr2, (who + 1, to))
+            in
+              SOME (CstrRec (kd1, cstr2), ())
+            end
+        | _ => NONE
+
+      fun transformer_kind (on_kind, on_prop) (kd : kind, down as (who, to) : down) =
+        case kd of
+          KdSubset (kd1, pr2) =>
+            let
+              val (kd1, ()) = on_kind (kd1, down)
+              val (pr2, ()) = on_prop (pr2, (who + 1, to))
+            in
+              SOME (KdSubset (kd1, pr2), ())
+            end
+        | _ => NONE
+
+      fun transformer_prop (on_constr, on_kind, on_prop) (pr : prop, down as (who, to) : down) =
+        case pr of
+          PrForall (kd1, pr2) =>
+            let
+              val (kd1, ()) = on_kind (kd1, down)
+              val (pr2, ()) = on_prop (pr2, (who + 1, to))
+            in
+              SOME (PrForall (kd1, pr2), ())
+            end
+        | PrExists (kd1, pr2) =>
+            let
+              val (kd1, ()) = on_kind (kd1, down)
+              val (pr2, ()) = on_prop (pr2, (who + 1, to))
+            in
+              SOME (PrExists (kd1, pr2), ())
+            end
+        | _ => NONE
+
+      fun transformer_term (on_constr, on_kind, on_term) (tm : term, down as (who, to) : down) =
+        case tm of
+          TmAbs (cstr1, tm2) =>
+            let
+              val (cstr1, ()) = on_constr (cstr1, down)
+              val (tm2, ()) = on_term (tm2, (who + 1, to))
+            in
+              SOME (TmAbs (cstr1, tm2), ())
+            end
+        | TmRec (cstr1, tm2) =>
+            let
+              val (cstr1, ()) = on_constr (cstr1, down)
+              val (tm2, ()) = on_term (tm2, (who + 1, to))
+            in
+              SOME (TmRec (cstr1, tm2), ())
+            end
+        | TmCase (tm1, tm2, tm3) =>
+           let
+             val (tm1, ()) = on_term (tm1, down)
+             val (tm2, ()) = on_term (tm2, (who + 1, to))
+             val (tm3, ()) = on_term (tm3, (who + 1, to))
+           in
+             SOME (TmCase (tm1, tm2, tm3), ())
+           end
+        | TmUnpack (tm1, tm2) =>
+            let
+              val (tm1, ()) = on_term (tm1, down)
+              val (tm2, ()) = on_term (tm2, (who + 2, to))
+            in
+              SOME (TmUnpack (tm1, tm2), ())
+            end
+        | TmCstrAbs (kd1, tm2) =>
+            let
+              val (kd1, ()) = on_kind (kd1, down)
+              val (tm2, ()) = on_term (tm2, (who + 1, to))
+            in
+              SOME (TmCstrAbs (kd1, tm2), ())
+            end
+        | TmLet (tm1, tm2) =>
+            let
+              val (tm1, ()) = on_term (tm1, down)
+              val (tm2, ()) = on_term (tm2, (who + 1, to))
+            in
+              SOME (TmLet (tm1, tm2), ())
+            end
+        | _ => NONE
+    end
+
+    structure TermSubstConstrIns = TermTransformPass(TermSubstConstrHelper)
+    open TermSubstConstrIns
+
+    fun subst_constr_in_term_top to tm =
+      TermShift.shift_term ~1 (#1 (transform_term (tm, (0, TermShift.shift_constr 1 to))))
+
+    fun subst_constr_in_constr_top to cstr =
+      TermShift.shift_constr ~1 (#1 (transform_constr (cstr, (0, TermShift.shift_constr 1 to))))
+  end
+
   structure Printer =
   struct
     structure PrinterHelper =
@@ -388,13 +524,13 @@ struct
             k (TmCase (tm1, normalize_term (TermShift.shift_term_above d1 1 tm2), normalize_term (TermShift.shift_term_above d1 1 tm3)), d1))
       | TmFold tm1 => normalize_shift tm1 (fn (tm1, d1) => k (TmFold tm1, d1))
       | TmUnfold tm1 => normalize_shift tm1 (fn (tm1, d1) => k (TmUnfold tm1, d1))
-      | TmPack (cstr1, tm2) => normalize_shift tm2 (fn (tm2, d2) => k (TmPack (TermShift.shift_constr_above d2 0 cstr1, tm2), d2))
+      | TmPack (cstr1, tm2) => normalize tm2 (fn (tm2, d2) => k (TmPack (TermShift.shift_constr_above d2 0 cstr1, tm2), d2))
       | TmUnpack (tm1, tm2) =>
           normalize tm1 (fn (tm1, d1) =>
             TmUnpack (tm1, normalize (TermShift.shift_term_above d1 2 tm2) (fn (tm2, d2) =>
               k (tm2, d1 + 2 + d2))))
       | TmCstrAbs (kd1, tm2) => k (TmCstrAbs (kd1, normalize_term tm2), 0)
-      | TmCstrApp (tm1, cstr2) => normalize_shift tm1 (fn (tm1, d1) => k (TmCstrApp (tm1, TermShift.shift_constr_above d1 0 cstr2), d1))
+      | TmCstrApp (tm1, cstr2) => normalize tm1 (fn (tm1, d1) => k (TmCstrApp (tm1, TermShift.shift_constr_above d1 0 cstr2), d1))
       | TmBinOp (bop, tm1, tm2) =>
           normalize_shift tm1 (fn (tm1, d1) =>
             normalize_shift (TermShift.shift_term_above d1 0 tm2) (fn (tm2, d2) =>
