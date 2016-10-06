@@ -324,7 +324,7 @@ struct
                 val tyrel1_new = extract_tyrel tyderiv1_new
                 val tyrel2_new = extract_tyrel tyderiv2_new
                 val (ty1, ty2, ti) = extract_cstr_arrow (#3 tyrel1_new)
-                val tyrel_new = (#1 tyrel2_new, TmApp (#2 tyrel1_new, #2 tyrel2_new), ty2, CstrBinOp (CstrBopAdd, CstrBinOp (CstrBopAdd, CstrBinOp (CstrBopAdd, #4 tyrel1_new, #4 tyrel2_new), CstrNat 1), ti))
+                val tyrel_new = (#1 tyrel2_new, TmApp (#2 tyrel1_new, #2 tyrel2_new), ty2, CstrBinOp (CstrBopAdd, CstrBinOp (CstrBopAdd, CstrBinOp (CstrBopAdd, #4 tyrel1_new, #4 tyrel2_new), CstrTime "1.0"), ti))
               in
                 k (TyDerivApp (tyrel_new, tyderiv1_new, tyderiv2_new), List.concat [d2, d1])
               end))
@@ -333,7 +333,7 @@ struct
             val (kd1, tm2) = extract_tm_abs (#2 tyrel)
             val tyderiv2_new = normalize_derivation tyderiv2
             val tyrel2_new = extract_tyrel tyderiv2_new
-            val tyrel_new = (#1 tyrel, TmAbs (kd1, #2 tyrel2_new), #3 tyrel, CstrNat 0)
+            val tyrel_new = (#1 tyrel, TmAbs (kd1, #2 tyrel2_new), #3 tyrel, CstrTime "0.0")
           in
             k (TyDerivAbs (tyrel_new, kdderiv1, tyderiv2_new), [])
           end
@@ -342,7 +342,7 @@ struct
             val (kd1, tm2) = extract_tm_rec (#2 tyrel)
             val tyderiv2_new = normalize_derivation tyderiv2
             val tyrel2_new = extract_tyrel tyderiv2_new
-            val tyrel_new = (#1 tyrel, TmRec (kd1, #2 tyrel2_new), #3 tyrel, CstrNat 0)
+            val tyrel_new = (#1 tyrel, TmRec (kd1, #2 tyrel2_new), #3 tyrel, CstrTime "0.0")
           in
             k (TyDerivRec (tyrel_new, kdderiv1, tyderiv2_new), [])
           end
@@ -468,7 +468,7 @@ struct
             val (kd1, tm2) = extract_tm_cstr_abs (#2 tyrel)
             val tyderiv2_new = normalize_derivation tyderiv2
             val tyrel2_new = extract_tyrel tyderiv2_new
-            val tyrel_new = (#1 tyrel, TmCstrAbs (kd1, #2 tyrel2_new), #3 tyrel, CstrNat 0)
+            val tyrel_new = (#1 tyrel, TmCstrAbs (kd1, #2 tyrel2_new), #3 tyrel, CstrTime "0.0")
           in
             k (TyDerivCstrAbs (tyrel_new, kdwf1, tyderiv2_new), [])
           end
@@ -562,7 +562,7 @@ struct
           else
             let
               val ty = #3 tyrel
-              val tyrel_intro_var = (BdType ty :: (#1 tyrel), TmVar 0, ty, CstrNat 0)
+              val tyrel_intro_var = (BdType ty :: (#1 tyrel), TmVar 0, ty, CstrTime "0.0")
               val tyderiv_intro_var = TyDerivVar tyrel_intro_var
               val res = k (tyderiv_intro_var, BdType ty :: d)
               val tyrel_res = extract_tyrel res
