@@ -844,7 +844,7 @@ Module M (Time : TIME).
        | PBinConn (opr : prop_bin_conn) (p1 p2 : prop)
        | PNot (p : prop)
        | PBinPred (opr : prop_bin_pred) (i1 i2 : cstr)
-       | PQuan (q : quan) (p : prop)
+       | PQuan (q : quan) (b : sort) (p : prop)
   .
 
   Scheme cstr_mutind := Induction for cstr Sort Prop
@@ -990,12 +990,14 @@ Module M (Time : TIME).
            | PBinConn opr p1 p2 => PBinConn opr (shift_c_p x p1) (shift_c_p x p2)
            | PNot p => PNot (shift_c_p x p)
            | PBinPred opr i1 i2 => PBinPred opr (shift_c_c x i1) (shift_c_c x i2)
-           | PQuan q p => PQuan q (shift_c_p (1 + x) p)
+           | PQuan q b p => PQuan q b (shift_c_p (1 + x) p)
            end.
 
   End shift_c_c.
   
   Definition shift0_c_c := shift_c_c 1 0.
+  Definition shift0_c_k := shift_c_k 1 0.
+  Definition shift0_c_p := shift_c_p 1 0.
 
   Inductive LtEqGt (a b : nat) :=
     | Lt : a < b -> LtEqGt a b
@@ -1048,17 +1050,17 @@ Module M (Time : TIME).
            | PBinConn opr p1 p2 => PBinConn opr (subst_c_p x v p1) (subst_c_p x v p2)
            | PNot p => PNot (subst_c_p x v p)
            | PBinPred opr i1 i2 => PBinPred opr (subst_c_c x v i1) (subst_c_c x v i2)
-           | PQuan q p => PQuan q (subst_c_p (1 + x) (shift0_c_c v) p)
+           | PQuan q b p => PQuan q b (subst_c_p (1 + x) (shift0_c_c v) p)
            end.
 
   End subst_c_c.
   
   Definition subst0_c_c v b := subst_c_c 0 v b.
 
-  Fixpoint interp_time_fun (arity : nat) :=
+  Fixpoint time_fun (arity : nat) :=
     match arity with
     | 0 => time_type
-    | S n => nat -> interp_time_fun n
+    | S n => nat -> time_fun n
     end.
 
   Definition interp_sort (b : sort) :=
@@ -1066,10 +1068,10 @@ Module M (Time : TIME).
     | BSNat => nat
     | BSUnit => unit
     | BSBool => bool
-    | BSTimeFun arity => interp_time_fun arity
+    | BSTimeFun arity => time_fun arity
     end.
 
-  Fixpoint time_fun_default_value arity : interp_time_fun arity :=
+  Fixpoint time_fun_default_value arity : time_fun arity :=
     match arity with
     | 0 => 0%time
     | S n => fun _ : nat => time_fun_default_value n
@@ -1166,11 +1168,11 @@ Module M (Time : TIME).
 
   Definition interp_cbinop opr : interp_sort (cbinop_arg1_sort opr) -> interp_sort (cbinop_arg2_sort opr) -> interp_sort (cbinop_result_sort opr) :=
     match opr with
-    | CBTimeAdd => fun (a b : time_type) => (a + b)%time
-    | CBTimeMinus => fun (a b : time_type) => (a - b)%time
-    | CBTimeMax => fun (a b : time_type) => TimeMax a b
-    | CBTypeProd => fun (_ _ : unit) => tt
-    | CBTypeSum => fun (_ _ : unit) => tt
+    | CBTimeAdd => TimeAdd
+    | CBTimeMinus => TimeMinus
+    | CBTimeMax => TimeMax
+    | CBTypeProd => fun _ _ => tt
+    | CBTypeSum => fun _ _ => tt
     end.
 
   Definition ite {A} (x : bool) (x1 x2 : A) := 
@@ -1248,46 +1250,84 @@ Module M (Time : TIME).
 
   Definition imply (A B : Prop) := A -> B.
   
-  Definition interp_binpred opr : Prop -> Prop -> Prop :=
+  Definition interp_binconn opr : Prop -> Prop -> Prop :=
     match opr with
     | PBCAnd => and
     | PBCOr => or
     | PBCImply => imply
     end.
 
-  (*here*)
-  
-  (* Definition cbinop_arg1_sort opr := kind_to_sort (cbinop_arg1_kind opr). *)
-  (* Definition cbinop_arg2_sort opr := kind_to_sort (cbinop_arg2_kind opr). *)
-  (* Definition cbinop_result_sort opr := kind_to_sort (cbinop_result_kind opr). *)
+  Definition binpred_arg1_sort opr := kind_to_sort (binpred_arg1_kind opr).
+  Definition binpred_arg2_sort opr := kind_to_sort (binpred_arg2_kind opr).
 
-  (* Definition interp_cbinop opr : interp_sort (cbinop_arg1_sort opr) -> interp_sort (cbinop_arg2_sort opr) -> interp_sort (cbinop_result_sort opr) := *)
-  (*   match opr with *)
-  (*   | CBTimeAdd => fun (a b : time_type) => (a + b)%time *)
-  (*   | CBTimeMinus => fun (a b : time_type) => (a - b)%time *)
-  (*   | CBTimeMax => fun (a b : time_type) => TimeMax a b *)
-  (*   | CBTypeProd => fun (_ _ : unit) => tt *)
-  (*   | CBTypeSum => fun (_ _ : unit) => tt *)
-  (*   end. *)
-
-  (* Fixpoint interp_p arg_ks p : interp_sorts arg_ks Prop := *)
-  (*   match p with *)
-  (*   | PTrue => lift0 arg_ks True *)
-  (*   | PFalse => lift0 arg_ks False *)
-  (*   | PBinConn opr p1 p2 => *)
-  (*     lift2 arg_ks (interp_binpred opr) (interp_p arg_ks p1) (interp_p arg_ks p2) *)
-  (*   | PNot p => *)
-  (*     lift1 arg_ks not (interp_p arg_ks p) *)
-  (*   | PBinPred (opr : prop_bin_pred) (i1 i2 : cstr) *)
-  (*     let f x1 x2 := convert_kind_value (cbinop_result_sort opr) res_k (interp_cbinop opr x1 x2) in *)
-  (*     lift2 arg_ks f (interp_cstr c1 arg_ks (cbinop_arg1_sort opr)) (interp_cstr c2 arg_ks (cbinop_arg2_sort opr)) *)
-  (*      (* | TEq (i1 i2 : cstr) *) *)
-  (*      (*               | PQuan (q : quan) (p : prop) *) *)
-  (*   | _ => lift0 arg_ks True *)
-  (*   end. *)
-
-  Definition interp_prop : kctx -> prop -> Prop.
+  Definition TimeBigO (arity : nat) : time_fun arity -> time_fun arity -> Prop.
   Admitted.
+
+  Definition interp_binpred opr : interp_sort (binpred_arg1_sort opr) -> interp_sort (binpred_arg2_sort opr) -> Prop :=
+    match opr with
+    | PBTimeLe => TimeLe
+    | PBTimeEq => eq
+    | PBBigO n => TimeBigO n
+    end.
+
+  Definition interp_quan {A} q (P : A -> Prop) : Prop :=
+    match q with
+    | QuanForall => forall a, P a
+    | QuanExists => exists a, P a
+    end.
+  
+  Definition for_all {A} (P : A -> Prop) : Prop := forall a, P a.
+  
+  Fixpoint interp_p arg_ks p : interp_sorts arg_ks Prop :=
+    match p with
+    | PTrue => lift0 arg_ks True
+    | PFalse => lift0 arg_ks False
+    | PBinConn opr p1 p2 =>
+      lift2 arg_ks (interp_binconn opr) (interp_p arg_ks p1) (interp_p arg_ks p2)
+    | PNot p =>
+      lift1 arg_ks not (interp_p arg_ks p)
+    | PBinPred opr c1 c2 =>
+      let f x1 x2 := interp_binpred opr x1 x2 in
+      lift2 arg_ks f (interp_cstr c1 arg_ks (binpred_arg1_sort opr)) (interp_cstr c2 arg_ks (binpred_arg2_sort opr))
+    | PQuan q b p => lift1 arg_ks (interp_quan q) (interp_p (b :: arg_ks) p)
+    end.
+
+  Fixpoint foralls arg_ks : interp_sorts arg_ks Prop -> Prop :=
+    match arg_ks with
+    | [] => id
+    | arg_k :: arg_ks => fun P => foralls arg_ks (lift1 arg_ks for_all P)
+    end.
+
+  Fixpoint strip_subset k :=
+    match k with
+    | KType => []
+    | KArrow k1 k2 => []
+    | KBaseSort b => []
+    | KSubset k p => p :: strip_subset k
+    end.
+
+  Fixpoint strip_subsets ks : list sort * list prop :=
+    match ks with
+    | [] => ([], [])
+    | k :: ks =>
+      let ps1 := strip_subset k in
+      let b := kind_to_sort k in
+      let (bs, ps2) := strip_subsets ks in
+      let ps2 := map shift0_c_p ps2 in
+      (b :: bs, ps1 ++ ps2)
+    end.
+
+  Fixpoint implys ps q :=
+    match ps with
+    | [] => q
+    | p :: ps => implys ps (p ===> q)%idx
+    end.
+  
+  Definition interp_prop (ks : kctx) (p : prop) : Prop :=
+    let (bs, ps) := strip_subsets ks in
+    let p := implys ps p in
+    let P := interp_p bs p in
+    foralls bs P.
 
   Lemma interp_prop_le_refl L i : interp_prop L (i <= i)%idx.
   Admitted.
