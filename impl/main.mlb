@@ -33,12 +33,5 @@ bigO-solver.sml
 typecheck.sml
 post-typecheck.sml
 main.sml
-compiler/micro-timl.sml
-compiler/transform.sml
-compiler/passes.sml
-compiler/derivation-transform.sml
-compiler/derivation-passes.sml
-compiler/micro-timl-checker.sml
-compiler/micro-timl-test.sml
 
 mlton-main.sml

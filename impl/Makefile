@@ -35,13 +35,6 @@ smt2-printer.sml \
 smt-solver.sml \
 main.sml \
 mlton-main.sml \
-compiler/micro-timl.sml \
-compiler/micro-timl-test.sml \
-compiler/micro-timl-checker.sml \
-compiler/transform.sml \
-compiler/passes.sml \
-compiler/derivation-transform.sml \
-compiler/derivation-passes.sml \
 
 main: main.mlb $(FILES)
 	mlyacc front-end/timl.grm
@@ -54,7 +47,7 @@ profile:
 	mlprof -show-line true -raw true main mlmon.out
 
 smlnj: main.cm
-	ml-build -Ccompiler-mc.error-non-exhaustive-match=true -Ccompiler-mc.error-non-exhaustive-bind=true main.cm MicroTiMLTest.main main-image
+	./format.rb ml-build -Ccompiler-mc.error-non-exhaustive-match=true -Ccompiler-mc.error-non-exhaustive-bind=true main.cm Main.main main-image
 
 clean:
 	rm main
