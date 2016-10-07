@@ -15,9 +15,13 @@ struct
 
       fun shift_context_above delta dep ctx =
         let
-          val (left, right) = List.splitAt (ctx, dep)
+          val (left, right) = (List.take (ctx, dep), List.drop (ctx, dep))
+          val left' = List.mapi (fn (i, bd) =>
+            case bd of
+              BdType ty => BdType (Passes.TermShift.shift_constr_above (List.length delta) (dep - 1 - i) ty)
+            | BdKind kd => BdKind (Passes.TermShift.shift_kind_above (List.length delta) (dep - 1 - i) kd)) left
         in
-          List.concat [left, delta, right]
+          List.concat [left', delta, right]
         end
 
       fun on_typing_relation ((ctx, tm, ty, ti), (dep, delta)) =
@@ -232,7 +236,8 @@ struct
 
     fun extract_tyrel tyderiv =
       case tyderiv of
-        TyDerivVar rel => rel
+        TyDerivSub (rel, _, _) => rel
+      | TyDerivVar rel => rel
       | TyDerivInt rel => rel
       | TyDerivNat rel => rel
       | TyDerivUnit rel => rel
@@ -326,7 +331,8 @@ struct
 
     and normalize tyderiv k =
       case tyderiv of
-        TyDerivVar _ => k (tyderiv, [])
+        TyDerivSub (tyrel, tyderiv1, prderiv2) => normalize tyderiv1 k
+      | TyDerivVar _ => k (tyderiv, [])
       | TyDerivInt _ => k (tyderiv, [])
       | TyDerivNat _ => k (tyderiv, [])
       | TyDerivUnit _ => k (tyderiv, [])
@@ -348,8 +354,10 @@ struct
             val tyderiv2_new = normalize_derivation tyderiv2
             val tyrel2_new = extract_tyrel tyderiv2_new
             val tyrel_new = (#1 tyrel, TmAbs (kd1, #2 tyrel2_new), #3 tyrel, CstrTime "0.0")
+            val (ty1, ty2, ti) = extract_cstr_arrow (#3 tyrel)
+            val tyderiv2_sub = TyDerivSub ((#1 tyrel2_new, #2 tyrel2_new, #3 tyrel2_new, Passes.TermShift.shift_constr 1 ti), tyderiv2_new, PrDerivAdmit (#1 tyrel2_new, PrBinRel (PrRelLe, #4 tyrel2_new, Passes.TermShift.shift_constr 1 ti)))
           in
-            k (TyDerivAbs (tyrel_new, kdderiv1, tyderiv2_new), [])
+            k (TyDerivAbs (tyrel_new, kdderiv1, tyderiv2_sub), [])
           end
       | TyDerivRec (tyrel, kdderiv1, tyderiv2) =>
           let
@@ -419,7 +427,7 @@ struct
               val tyrel2_new = extract_tyrel tyderiv2_new
               val tyrel3_new = extract_tyrel tyderiv3_new
               val tyrel1_new = extract_tyrel tyderiv1_new
-              val tyrel_new = (#1 tyrel1_new, TmCase (#2 tyrel1_new, #2 tyrel2_new, #2 tyrel3_new), Passes.TermShift.shift_constr_above ~1 0 (#4 tyrel2_new), CstrBinOp (CstrBopAdd, #4 tyrel1_new, CstrBinOp (CstrBopMax, Passes.TermShift.shift_constr_above ~1 0 (#4 tyrel2_new), Passes.TermShift.shift_constr_above ~1 0 (#4 tyrel3_new))))
+              val tyrel_new = (#1 tyrel1_new, TmCase (#2 tyrel1_new, #2 tyrel2_new, #2 tyrel3_new), Passes.TermShift.shift_constr_above ~1 0 (#3 tyrel2_new), CstrBinOp (CstrBopAdd, #4 tyrel1_new, CstrBinOp (CstrBopMax, Passes.TermShift.shift_constr_above ~1 0 (#4 tyrel2_new), Passes.TermShift.shift_constr_above ~1 0 (#4 tyrel3_new))))
             in
               k (TyDerivCase (tyrel_new, tyderiv1_new, tyderiv2_new, tyderiv3_new), d1)
             end)
@@ -576,12 +584,12 @@ struct
           else
             let
               val ty = #3 tyrel
-              val tyrel_intro_var = (BdType ty :: (#1 tyrel), TmVar 0, ty, CstrTime "0.0")
+              val tyrel_intro_var = (BdType ty :: (#1 tyrel), TmVar 0, Passes.TermShift.shift_constr 1 ty, CstrTime "0.0")
               val tyderiv_intro_var = TyDerivVar tyrel_intro_var
               val res = k (tyderiv_intro_var, BdType ty :: d)
               val tyrel_res = extract_tyrel res
               val tm = TmLet (#2 tyrel, #2 tyrel_res)
-              val tyrel_let = (#1 tyrel, tm, #3 tyrel_res, CstrBinOp (CstrBopAdd, #4 tyrel, #4 tyrel_res))
+              val tyrel_let = (#1 tyrel, tm, Passes.TermShift.shift_constr_above ~1 0 (#3 tyrel_res), CstrBinOp (CstrBopAdd, #4 tyrel, Passes.TermShift.shift_constr_above ~1 0 (#4 tyrel_res)))
               val tyderiv_let = TyDerivLet (tyrel_let, tyderiv, res)
             in
               tyderiv_let

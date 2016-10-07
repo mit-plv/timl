@@ -34,7 +34,14 @@ struct
       fun on_prderiv prderiv = transform_proping_derivation (prderiv, down)
     in
       case tyderiv of
-        TyDerivVar tyrel => (TyDerivVar (on_rel tyrel), Arg.upward_base)
+        TyDerivSub (tyrel, tyderiv1, prderiv2) =>
+          let
+            val (tyderiv1, up1) = on_tyderiv tyderiv1
+            val (prderiv2, up2) = on_prderiv prderiv2
+          in
+            (TyDerivSub (on_rel tyrel, tyderiv1, prderiv2), combine [up1, up2])
+          end
+      | TyDerivVar tyrel => (TyDerivVar (on_rel tyrel), Arg.upward_base)
       | TyDerivInt tyrel => (TyDerivInt (on_rel tyrel), Arg.upward_base)
       | TyDerivNat tyrel => (TyDerivNat (on_rel tyrel), Arg.upward_base)
       | TyDerivUnit tyrel => (TyDerivUnit (on_rel tyrel), Arg.upward_base)

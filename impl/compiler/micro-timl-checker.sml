@@ -26,9 +26,23 @@ struct
 
   fun check_typing_derivation tyderiv =
     (case tyderiv of
-      TyDerivVar (ctx, TmVar x, ty, CstrTime "0.0") =>
+      TyDerivSub ((ctx, tm, ty, ti), tyderiv1, prderiv2) =>
         let
-          val _ = assert (x < List.length ctx)
+          val _ = assert (check_typing_derivation tyderiv1)
+          val _ = assert (check_proping_derivation prderiv2)
+          val tyrel1 = ANF.extract_tyrel tyderiv1
+          val prrel2 = ANF.extract_prrel prderiv2
+          val _ = assert (#1 tyrel1 = ctx)
+          val _ = assert (#2 tyrel1 = tm)
+          val _ = assert (#3 tyrel1 = ty)
+          val _ = assert (#1 prrel2 = ctx)
+          val _ = assert (#2 prrel2 = PrBinRel (PrRelLe, #4 tyrel1, ti))
+        in
+          true
+        end
+    | TyDerivVar (ctx, TmVar x, ty, CstrTime "0.0") =>
+        let
+          val _ = assert (x >= 0 andalso x < List.length ctx)
           val _ = assert (get_bind (ctx, x) = BdType ty)
         in
           true
@@ -459,6 +473,6 @@ struct
         in
           true
         end
-    | _ => false)
-      handle CheckFail => false
+    | _ => let val _ = assert false in true end)
+      handle CheckFail => let val _ = println (snd (Passes.Printer.transform_term (#2 (ANF.extract_tyrel tyderiv), List.mapi (fn (i, _) => "%orz" ^ (str_int i)) (#1 (ANF.extract_tyrel tyderiv))))) in false end
 end

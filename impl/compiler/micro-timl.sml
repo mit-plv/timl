@@ -223,7 +223,8 @@ struct
     PrDerivAdmit of proping_relation
 
   datatype typing_derivation =
-    TyDerivVar of typing_relation
+    TyDerivSub of typing_relation * typing_derivation * proping_derivation
+  | TyDerivVar of typing_relation
   | TyDerivInt of typing_relation
   | TyDerivNat of typing_relation
   | TyDerivUnit of typing_relation
