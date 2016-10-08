@@ -214,6 +214,12 @@ struct
           in
             (KdDerivRefine (on_rel kdrel, kdderiv1, prderiv2), combine [up1, up2])
           end
+      | KdDerivBase (kdrel, kdderiv1) =>
+          let
+            val (kdderiv1, up1) = on_kdderiv kdderiv1
+          in
+            (KdDerivBase (on_rel kdrel, kdderiv1), combine [up1])
+          end
       | KdDerivVar kdrel => (KdDerivVar (on_rel kdrel), Arg.upward_base)
       | KdDerivNat kdrel => (KdDerivNat (on_rel kdrel), Arg.upward_base)
       | KdDerivTime kdrel => (KdDerivTime (on_rel kdrel), Arg.upward_base)

@@ -230,6 +230,16 @@ struct
       | KdWfDerivProper rel => rel
       | KdWfDerivArrow (rel, _, _) => rel
 
+    fun extract_prwfrel prwf =
+      case prwf of
+        PrWfDerivTop rel => rel
+      | PrWfDerivBot rel => rel
+      | PrWfDerivBinConn (rel, _, _) => rel
+      | PrWfDerivNot (rel, _) => rel
+      | PrWfDerivBinRel (rel, _, _) => rel
+      | PrWfDerivForall (rel, _, _) => rel
+      | PrWfDerivExists (rel, _, _) => rel
+
     fun extract_prrel prderiv =
       case prderiv of
         PrDerivAdmit rel => rel
@@ -266,6 +276,7 @@ struct
     fun extract_kdrel kdderiv =
       case kdderiv of
         KdDerivRefine (rel, _, _) => rel
+      | KdDerivBase (rel, _) => rel
       | KdDerivVar rel => rel
       | KdDerivNat rel => rel
       | KdDerivTime rel => rel
@@ -304,6 +315,9 @@ struct
     fun extract_cstr_forall (CstrForall r) = r
       | extract_cstr_forall _ = raise Impossible
 
+    fun extract_cstr_abs (CstrAbs r) = r
+      | extract_cstr_abs _ = raise Impossible
+
     fun extract_cstr_type_nat (CstrTypeNat r) = r
       | extract_cstr_type_nat _ = raise Impossible
 
@@ -326,6 +340,42 @@ struct
       case bop of
         TmBopIntAdd => (CstrTypeInt, (CstrTypeInt, CstrTypeInt))
       | TmBopIntMul => (CstrTypeInt, (CstrTypeInt, CstrTypeInt))
+
+    fun cstr_un_op_to_kind uop =
+      case uop of
+        CstrUopDiv _ => (KdTimeFun 0, KdTimeFun 0)
+      | CstrUopLog _ => (KdTimeFun 0, KdTimeFun 0)
+      | CstrUopNeg => (KdTimeFun 0, KdTimeFun 0)
+      | CstrUopCeil => (KdTimeFun 0, KdTimeFun 0)
+      | CstrUopFloor => (KdTimeFun 0, KdTimeFun 0)
+      | CstrUopBool2Nat => (KdNat, KdBool)
+      | CstrUopNat2Time => (KdTimeFun 0, KdNat)
+
+    fun cstr_bin_op_to_kind bop =
+      case bop of
+        CstrBopOr => [(KdBool, (KdBool, KdBool))]
+      | CstrBopEq => [(KdBool, (KdNat, KdNat)), (KdBool, (KdBool, KdBool))]
+      | CstrBopGe => [(KdBool, (KdNat, KdNat))]
+      | CstrBopGt => [(KdBool, (KdNat, KdNat))]
+      | CstrBopLe => [(KdBool, (KdNat, KdNat))]
+      | CstrBopLt => [(KdBool, (KdNat, KdNat))]
+      | CstrBopAdd => [(KdNat, (KdNat, KdNat)), (KdTimeFun 0, (KdTimeFun 0, KdTimeFun 0))]
+      | CstrBopAnd => [(KdBool, (KdBool, KdBool))]
+      | CstrBopExp => [(KdNat, (KdNat, KdNat))]
+      | CstrBopDiff => [(KdNat, (KdNat, KdNat)), (KdTimeFun 0, (KdTimeFun 0, KdTimeFun 0))]
+      | CstrBopMult => [(KdNat, (KdNat, KdNat)), (KdTimeFun 0, (KdTimeFun 0, KdTimeFun 0))]
+      | CstrBopMax => [(KdNat, (KdNat, KdNat)), (KdTimeFun 0, (KdTimeFun 0, KdTimeFun 0))]
+      | CstrBopMin => [(KdNat, (KdNat, KdNat)), (KdTimeFun 0, (KdTimeFun 0, KdTimeFun 0))]
+      | CstrBopTimeApp => []
+
+    fun prop_bin_rel_to_kind rel =
+      case rel of
+        PrRelEq => [(KdBool, KdBool), (KdNat, KdNat)]
+      | PrRelLe => [(KdNat, KdNat), (KdTimeFun 0, KdTimeFun 0)]
+      | PrRelLt => [(KdNat, KdNat)]
+      | PrRelGe => [(KdNat, KdNat)]
+      | PrRelGt => [(KdNat, KdNat)]
+      | PrRelBigO => []
 
     fun normalize_derivation tyderiv = normalize tyderiv (fn (x, d) => x)
 
@@ -427,9 +477,12 @@ struct
               val tyrel2_new = extract_tyrel tyderiv2_new
               val tyrel3_new = extract_tyrel tyderiv3_new
               val tyrel1_new = extract_tyrel tyderiv1_new
-              val tyrel_new = (#1 tyrel1_new, TmCase (#2 tyrel1_new, #2 tyrel2_new, #2 tyrel3_new), Passes.TermShift.shift_constr_above ~1 0 (#3 tyrel2_new), CstrBinOp (CstrBopAdd, #4 tyrel1_new, CstrBinOp (CstrBopMax, Passes.TermShift.shift_constr_above ~1 0 (#4 tyrel2_new), Passes.TermShift.shift_constr_above ~1 0 (#4 tyrel3_new))))
+              val ty_wrap = Passes.TermShift.shift_constr (List.length d1) (#3 tyrel)
+              val tyderiv2_wrap = TyDerivSub ((#1 tyrel2_new, #2 tyrel2_new, Passes.TermShift.shift_constr 1 ty_wrap, #4 tyrel2_new), tyderiv2_new, PrDerivAdmit (#1 tyrel2_new, PrBinRel (PrRelLe, #4 tyrel2_new, #4 tyrel2_new)))
+              val tyderiv3_wrap = TyDerivSub ((#1 tyrel3_new, #2 tyrel3_new, Passes.TermShift.shift_constr 1 ty_wrap, #4 tyrel3_new), tyderiv3_new, PrDerivAdmit (#1 tyrel3_new, PrBinRel (PrRelLe, #4 tyrel3_new, #4 tyrel3_new)))
+              val tyrel_new = (#1 tyrel1_new, TmCase (#2 tyrel1_new, #2 tyrel2_new, #2 tyrel3_new), ty_wrap, CstrBinOp (CstrBopAdd, #4 tyrel1_new, CstrBinOp (CstrBopMax, Passes.TermShift.shift_constr_above ~1 0 (#4 tyrel2_new), Passes.TermShift.shift_constr_above ~1 0 (#4 tyrel3_new))))
             in
-              k (TyDerivCase (tyrel_new, tyderiv1_new, tyderiv2_new, tyderiv3_new), d1)
+              k (TyDerivCase (tyrel_new, tyderiv1_new, tyderiv2_wrap, tyderiv3_wrap), d1)
             end)
       | TyDerivFold (tyrel, kdderiv1, tyderiv2) =>
           normalize_shift tyderiv2 (fn (tyderiv2_new, d2) =>
@@ -453,10 +506,10 @@ struct
               fun fold_app ty1 rands =
                 case rands of
                   [] => ty1
-                | hd :: tl => fold_app (CstrApp (ty1, hd)) tl
+                | hd :: tl => fold_app (Passes.TermSubstConstr.subst_constr_in_constr_top hd (#2 (extract_cstr_abs ty1))) tl
               val (inner, rands) = unfold_app ty1_new []
               val (inner_kd, inner_cstr) = extract_cstr_rec inner
-              val ty_new = Passes.TermSubstConstr.subst_constr_in_constr_top inner inner_cstr
+              val ty_new = fold_app (Passes.TermSubstConstr.subst_constr_in_constr_top inner inner_cstr) rands
               val tyrel_new = (#1 tyrel1_new, TmUnfold (#2 tyrel1_new), ty_new, #4 tyrel1_new)
             in
               k (TyDerivUnfold (tyrel_new, tyderiv1_new), d1)
@@ -481,9 +534,13 @@ struct
               val tyderiv2_new = normalize tyderiv2_new (fn (tyderiv2_new, d2) => k (tyderiv2_new, List.concat [d2, List.take (#1 tyrel2_new, 2), d1]))
               val tyrel2_new = extract_tyrel tyderiv2_new
               val tyrel1_new = extract_tyrel tyderiv1_new
-              val tyrel_new = (#1 tyrel1_new, TmUnpack (#2 tyrel1_new, #2 tyrel2_new), Passes.TermShift.shift_constr_above ~2 0 (#3 tyrel2_new), CstrBinOp (CstrBopAdd, #4 tyrel1_new, Passes.TermShift.shift_constr_above ~2 0 (#4 tyrel2_new)))
+              val ty2_wrap = Passes.TermShift.shift_constr_above (List.length d1 + 2) 0 (#3 tyrel)
+              val ti2_wrap = Passes.TermShift.shift_constr_above (List.length d1 + 2) 0 (#4 tyrel)
+              val ti2_inner_wrap = CstrBinOp (CstrBopDiff, ti2_wrap, Passes.TermShift.shift_constr_above 2 0 (#4 tyrel1_new))
+              val tyderiv2_wrap = TyDerivSub ((#1 tyrel2_new, #2 tyrel2_new, ty2_wrap, ti2_inner_wrap), tyderiv2_new, PrDerivAdmit (#1 tyrel2_new, PrBinRel (PrRelLe, #4 tyrel2_new, ti2_inner_wrap)))
+              val tyrel_new = (#1 tyrel1_new, TmUnpack (#2 tyrel1_new, #2 tyrel2_new), Passes.TermShift.shift_constr_above ~2 0 ty2_wrap, CstrBinOp (CstrBopAdd, #4 tyrel1_new, Passes.TermShift.shift_constr_above ~2 0 ti2_inner_wrap))
             in
-              TyDerivUnpack (tyrel_new, tyderiv1_new, tyderiv2_new)
+              TyDerivUnpack (tyrel_new, tyderiv1_new, tyderiv2_wrap)
             end)
       | TyDerivCstrAbs (tyrel, kdwf1, tyderiv2) =>
           let

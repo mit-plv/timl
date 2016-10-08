@@ -18,13 +18,396 @@ struct
 
   fun assert b = if b then () else raise CheckFail
 
-  fun check_kind_wellformness_derivation kdwf = true
+  fun check_kind_wellformness_derivation kdwf =
+    (case kdwf of
+       KdWfDerivNat (ctx, KdNat) => true
+     | KdWfDerivBool (ctx, KdBool) => true
+     | KdWfDerivUnit (ctx, KdUnit) => true
+     | KdWfDerivTimeFun (ctx, KdTimeFun _) => true
+     | KdWfDerivProper (ctx, KdProper) => true
+     | KdWfDerivArrow ((ctx, KdArrow (kd1, kd2)), kdwf1, kdwf2) =>
+         let
+           val _ = assert (check_kind_wellformness_derivation kdwf1)
+           val _ = assert (check_kind_wellformness_derivation kdwf2)
+           val kdwfrel1 = ANF.extract_kdwfrel kdwf1
+           val kdwfrel2 = ANF.extract_kdwfrel kdwf2
+           val _ = assert (#1 kdwfrel1 = ctx)
+           val _ = assert (#2 kdwfrel1 = kd1)
+           val _ = assert (#1 kdwfrel2 = ctx)
+           val _ = assert (#2 kdwfrel2 = kd2)
+         in
+           true
+         end
+     | KdWfDerivSubset ((ctx, KdSubset (kd1, pr2)), kdwf1, prwf2) =>
+         let
+           val _ = assert (check_kind_wellformness_derivation kdwf1)
+           val _ = assert (check_prop_wellformness_derivation prwf2)
+           val kdwfrel1 = ANF.extract_kdwfrel kdwf1
+           val prwfrel2 = ANF.extract_prwfrel prwf2
+           val _ = assert (#1 kdwfrel1 = ctx)
+           val _ = assert (#2 kdwfrel1 = kd1)
+           val _ = assert (#1 prwfrel2 = BdKind kd1 :: ctx)
+           val _ = assert (#2 prwfrel2 = pr2)
+         in
+           true
+         end
+     | _ => let val _ = assert false in true end)
+           handle CheckFail => false
 
-  fun check_kinding_derivation kdderiv = true
+  and check_prop_wellformness_derivation prwf =
+    (case prwf of
+       PrWfDerivTop (ctx, PrTop) => true
+     | PrWfDerivBot (ctx, PrBot) => true
+     | PrWfDerivBinConn ((ctx, PrBinConn (conn, pr1, pr2)), prwf1, prwf2) =>
+         let
+           val _ = assert (check_prop_wellformness_derivation prwf1)
+           val _ = assert (check_prop_wellformness_derivation prwf2)
+           val prwfrel1 = ANF.extract_prwfrel prwf1
+           val prwfrel2 = ANF.extract_prwfrel prwf2
+           val _ = assert (#1 prwfrel1 = ctx)
+           val _ = assert (#2 prwfrel1 = pr1)
+           val _ = assert (#1 prwfrel2 = ctx)
+           val _ = assert (#2 prwfrel2 = pr2)
+         in
+           true
+         end
+     | PrWfDerivNot ((ctx, PrNot pr1), prwf1) =>
+         let
+           val _ = assert (check_prop_wellformness_derivation prwf1)
+           val prwfrel1 = ANF.extract_prwfrel prwf1
+           val _ = assert (#1 prwfrel1 = ctx)
+           val _ = assert (#2 prwfrel1 = pr1)
+         in
+           true
+         end
+     | PrWfDerivForall ((ctx, PrForall (kd1, pr2)), kdwf1, prwf2) =>
+         let
+           val _ = assert (check_kind_wellformness_derivation kdwf1)
+           val _ = assert (check_prop_wellformness_derivation prwf2)
+           val kdwfrel1 = ANF.extract_kdwfrel kdwf1
+           val prwfrel2 = ANF.extract_prwfrel prwf2
+           val _ = assert (#1 kdwfrel1 = ctx)
+           val _ = assert (#2 kdwfrel1 = kd1)
+           val _ = assert (#1 prwfrel2 = BdKind kd1 :: ctx)
+           val _ = assert (#2 prwfrel2 = pr2)
+         in
+           true
+         end
+     | PrWfDerivExists ((ctx, PrExists (kd1, pr2)), kdwf1, prwf2) =>
+         let
+           val _ = assert (check_kind_wellformness_derivation kdwf1)
+           val _ = assert (check_prop_wellformness_derivation prwf2)
+           val kdwfrel1 = ANF.extract_kdwfrel kdwf1
+           val prwfrel2 = ANF.extract_prwfrel prwf2
+           val _ = assert (#1 kdwfrel1 = ctx)
+           val _ = assert (#2 kdwfrel1 = kd1)
+           val _ = assert (#1 prwfrel2 = BdKind kd1 :: ctx)
+           val _ = assert (#2 prwfrel2 = pr2)
+         in
+           true
+         end
+     | PrWfDerivBinRel ((ctx, PrBinRel (rel, cstr1, cstr2)), kdderiv1, kdderiv2) =>
+         let
+           val _ = assert (check_kinding_derivation kdderiv1)
+           val _ = assert (check_kinding_derivation kdderiv2)
+           val kdrel1 = ANF.extract_kdrel kdderiv1
+           val kdrel2 = ANF.extract_kdrel kdderiv2
+           val _ = assert (#1 kdrel1 = ctx)
+           val _ = assert (#2 kdrel1 = cstr1)
+           val _ = assert (#1 kdrel2 = ctx)
+           val _ = assert (#2 kdrel2 = cstr2)
+           val _ =
+             case rel of
+               PrRelBigO =>
+                 (case (#3 kdrel1, #3 kdrel2) of
+                   (KdTimeFun n1, KdTimeFun n2) => assert (n1 = n2)
+                  | _ => assert false)
+             | _ => assert (List.exists (fn x => x = (#3 kdrel1, #3 kdrel2)) (ANF.prop_bin_rel_to_kind rel))
+         in
+           true
+         end
+     | _ =>
+         let
+           val _ = assert false
+         in
+           true
+         end)
+           handle CheckFail => false
 
-  fun check_proping_derivation prderiv = true
+  and check_kinding_derivation kdderiv =
+    (case kdderiv of
+       KdDerivRefine ((ctx, cstr, KdSubset (kd1, pr2)), kdderiv1, prderiv2) =>
+         let
+           val _ = assert (check_kinding_derivation kdderiv1)
+           val _ = assert (check_proping_derivation prderiv2)
+           val kdrel1 = ANF.extract_kdrel kdderiv1
+           val prrel2 = ANF.extract_prrel prderiv2
+           val _ = assert (#1 kdrel1 = ctx)
+           val _ = assert (#2 kdrel1 = cstr)
+           val _ = assert (#3 kdrel1 = kd1)
+           val _ = assert (#1 prrel2 = BdKind kd1 :: ctx)
+           val _ = assert (#2 prrel2 = pr2)
+         in
+           true
+         end
+     | KdDerivBase ((ctx, cstr, kd), kdderiv1) =>
+         let
+           val _ = assert (check_kinding_derivation kdderiv1)
+           val kdrel1 = ANF.extract_kdrel kdderiv1
+           val _ = assert (#1 kdrel1 = ctx)
+           val _ = assert (#2 kdrel1 = cstr)
+           fun inner_most kd =
+             case kd of
+               KdSubset (kd, _) => inner_most kd
+             | _ => kd
+           val _ = assert ((inner_most (#3 kdrel1)) = kd)
+         in
+           true
+         end
+     | KdDerivVar (ctx, CstrVar a, kd) =>
+         let
+           val _ = assert (a >= 0 andalso a < List.length ctx)
+           val _ = assert (get_bind (ctx, a) = BdKind kd)
+         in
+           true
+         end
+     | KdDerivNat (ctx, CstrNat _, KdNat) => true
+     | KdDerivTime (ctx, CstrTime _, KdTimeFun 0) => true
+     | KdDerivUnit (ctx, CstrUnit, KdUnit) => true
+     | KdDerivTrue (ctx, CstrTrue, KdBool) => true
+     | KdDerivFalse (ctx, CstrFalse, KdBool) => true
+     | KdDerivUnOp ((ctx, CstrUnOp (uop, cstr1), kd), kdderiv1) =>
+         let
+           val _ = assert (check_kinding_derivation kdderiv1)
+           val kdrel1 = ANF.extract_kdrel kdderiv1
+           val _ = assert (#1 kdrel1 = ctx)
+           val _ = assert (#2 kdrel1 = cstr1)
+           val _ = assert ((kd, #3 kdrel1) = ANF.cstr_un_op_to_kind uop)
+         in
+           true
+         end
+     | KdDerivBinOp ((ctx, CstrBinOp (bop, cstr1, cstr2), kd), kdderiv1, kdderiv2) =>
+         let
+           val _ = assert (check_kinding_derivation kdderiv1)
+           val _ = assert (check_kinding_derivation kdderiv2)
+           val kdrel1 = ANF.extract_kdrel kdderiv1
+           val kdrel2 = ANF.extract_kdrel kdderiv2
+           val _ = assert (#1 kdrel1 = ctx)
+           val _ = assert (#2 kdrel1 = cstr1)
+           val _ = assert (#1 kdrel2 = ctx)
+           val _ = assert (#2 kdrel2 = cstr2)
+           val _ =
+             case bop of
+               CstrBopTimeApp =>
+                 let
+                   val _ =
+                     case (#3 kdrel1, #3 kdrel2, kd) of
+                       (KdTimeFun n1, KdTimeFun 0, KdTimeFun n2) =>
+                         let
+                           val _ = assert (n2 + 1 = n1)
+                         in
+                           ()
+                         end
+                     | _ => assert false
+                 in
+                   ()
+                 end
+             | _ => assert (List.exists (fn x => x = (kd, (#3 kdrel1, #3 kdrel2))) (ANF.cstr_bin_op_to_kind bop))
+         in
+           true
+         end
+     | KdDerivIte ((ctx, CstrIte (cstr1, cstr2, cstr3), kd), kdderiv1, kdderiv2, kdderiv3) =>
+         let
+           val _ = assert (check_kinding_derivation kdderiv1)
+           val _ = assert (check_kinding_derivation kdderiv2)
+           val _ = assert (check_kinding_derivation kdderiv3)
+           val kdrel1 = ANF.extract_kdrel kdderiv1
+           val kdrel2 = ANF.extract_kdrel kdderiv2
+           val kdrel3 = ANF.extract_kdrel kdderiv3
+           val _ = assert (#1 kdrel1 = ctx)
+           val _ = assert (#2 kdrel1 = cstr1)
+           val _ = assert (#3 kdrel1 = KdBool)
+           val _ = assert (#1 kdrel2 = ctx)
+           val _ = assert (#2 kdrel2 = cstr2)
+           val _ = assert (#3 kdrel2 = kd)
+           val _ = assert (#1 kdrel3 = ctx)
+           val _ = assert (#2 kdrel3 = cstr3)
+           val _ = assert (#3 kdrel3 = kd)
+         in
+           true
+         end
+     | KdDerivTimeAbs ((ctx, CstrTimeAbs cstr1, KdTimeFun n), kdderiv1) =>
+         let
+           val _ = assert (check_kinding_derivation kdderiv1)
+           val kdrel1 = ANF.extract_kdrel kdderiv1
+           val _ = assert (#1 kdrel1 = BdKind (KdTimeFun 0) :: ctx)
+           val _ = assert (#2 kdrel1 = cstr1)
+           val _ =
+             case (#3 kdrel1) of
+               KdTimeFun n1 => assert (n1 + 1 = n)
+             | _ => assert false
+         in
+           true
+         end
+     | KdDerivProd ((ctx, CstrProd (cstr1, cstr2), KdProper), kdderiv1, kdderiv2) =>
+         let
+           val _ = assert (check_kinding_derivation kdderiv1)
+           val _ = assert (check_kinding_derivation kdderiv2)
+           val kdrel1 = ANF.extract_kdrel kdderiv1
+           val kdrel2 = ANF.extract_kdrel kdderiv2
+           val _ = assert (#1 kdrel1 = ctx)
+           val _ = assert (#2 kdrel1 = cstr1)
+           val _ = assert (#3 kdrel1 = KdProper)
+           val _ = assert (#1 kdrel2 = ctx)
+           val _ = assert (#2 kdrel2 = cstr2)
+           val _ = assert (#3 kdrel2 = KdProper)
+         in
+           true
+         end
+     | KdDerivSum ((ctx, CstrSum (cstr1, cstr2), KdProper), kdderiv1, kdderiv2) =>
+         let
+           val _ = assert (check_kinding_derivation kdderiv1)
+           val _ = assert (check_kinding_derivation kdderiv2)
+           val kdrel1 = ANF.extract_kdrel kdderiv1
+           val kdrel2 = ANF.extract_kdrel kdderiv2
+           val _ = assert (#1 kdrel1 = ctx)
+           val _ = assert (#2 kdrel1 = cstr1)
+           val _ = assert (#3 kdrel1 = KdProper)
+           val _ = assert (#1 kdrel2 = ctx)
+           val _ = assert (#2 kdrel2 = cstr2)
+           val _ = assert (#3 kdrel2 = KdProper)
+         in
+           true
+         end
+     | KdDerivArrow ((ctx, CstrArrow (ty1, ty2, ti), KdProper), kdderiv1, kdderiv2, kdderiv3) =>
+         let
+           val _ = assert (check_kinding_derivation kdderiv1)
+           val _ = assert (check_kinding_derivation kdderiv2)
+           val _ = assert (check_kinding_derivation kdderiv3)
+           val kdrel1 = ANF.extract_kdrel kdderiv1
+           val kdrel2 = ANF.extract_kdrel kdderiv2
+           val kdrel3 = ANF.extract_kdrel kdderiv3
+           val _ = assert (#1 kdrel1 = ctx)
+           val _ = assert (#2 kdrel1 = ty1)
+           val _ = assert (#3 kdrel1 = KdProper)
+           val _ = assert (#1 kdrel2 = ctx)
+           val _ = assert (#2 kdrel2 = ty2)
+           val _ = assert (#3 kdrel2 = KdProper)
+           val _ = assert (#1 kdrel3 = ctx)
+           val _ = assert (#2 kdrel3 = ti)
+           val _ = assert (#3 kdrel3 = KdTimeFun 0)
+         in
+           true
+         end
+     | KdDerivApp ((ctx, CstrApp (cstr1, cstr2), kd), kdderiv1, kdderiv2) =>
+         let
+           val _ = assert (check_kinding_derivation kdderiv1)
+           val _ = assert (check_kinding_derivation kdderiv2)
+           val kdrel1 = ANF.extract_kdrel kdderiv1
+           val kdrel2 = ANF.extract_kdrel kdderiv2
+           val _ = assert (#1 kdrel1 = ctx)
+           val _ = assert (#2 kdrel1 = cstr1)
+           val _ = assert (#3 kdrel1 = KdArrow (#3 kdrel2, kd))
+           val _ = assert (#1 kdrel2 = ctx)
+           val _ = assert (#2 kdrel2 = cstr2)
+         in
+           true
+         end
+     | KdDerivAbs ((ctx, CstrAbs (kd1, cstr2), kd), kdwf1, kdderiv2) =>
+         let
+           val _ = assert (check_kind_wellformness_derivation kdwf1)
+           val _ = assert (check_kinding_derivation kdderiv2)
+           val kdwfrel1 = ANF.extract_kdwfrel kdwf1
+           val kdrel2 = ANF.extract_kdrel kdderiv2
+           val _ = assert (#1 kdwfrel1 = ctx)
+           val _ = assert (#2 kdwfrel1 = kd1)
+           val _ = assert (#1 kdrel2 = BdKind kd1 :: ctx)
+           val _ = assert (#2 kdrel2 = cstr2)
+           val _ = assert (KdArrow (kd1, shift_kind ~1 (#3 kdrel2)) = kd)
+         in
+           true
+         end
+     | KdDerivForall ((ctx, CstrForall (kd1, cstr2), KdProper), kdwf1, kdderiv2) =>
+         let
+           val _ = assert (check_kind_wellformness_derivation kdwf1)
+           val _ = assert (check_kinding_derivation kdderiv2)
+           val kdwfrel1 = ANF.extract_kdwfrel kdwf1
+           val kdrel2 = ANF.extract_kdrel kdderiv2
+           val _ = assert (#1 kdwfrel1 = ctx)
+           val _ = assert (#2 kdwfrel1 = kd1)
+           val _ = assert (#1 kdrel2 = BdKind kd1 :: ctx)
+           val _ = assert (#2 kdrel2 = cstr2)
+           val _ = assert (#3 kdrel2 = KdProper)
+         in
+          true
+         end
+     | KdDerivExists ((ctx, CstrExists (kd1, cstr2), KdProper), kdwf1, kdderiv2) =>
+         let
+           val _ = assert (check_kind_wellformness_derivation kdwf1)
+           val _ = assert (check_kinding_derivation kdderiv2)
+           val kdwfrel1 = ANF.extract_kdwfrel kdwf1
+           val kdrel2 = ANF.extract_kdrel kdderiv2
+           val _ = assert (#1 kdwfrel1 = ctx)
+           val _ = assert (#2 kdwfrel1 = kd1)
+           val _ = assert (#1 kdrel2 = BdKind kd1 :: ctx)
+           val _ = assert (#2 kdrel2 = cstr2)
+           val _ = assert (#3 kdrel2 = KdProper)
+         in
+          true
+         end
+     | KdDerivRec ((ctx, CstrRec (kd1, cstr2), kd), kdwf1, kdderiv2) =>
+         let
+           val _ = assert (check_kind_wellformness_derivation kdwf1)
+           val _ = assert (check_kinding_derivation kdderiv2)
+           val kdwfrel1 = ANF.extract_kdwfrel kdwf1
+           val kdrel2 = ANF.extract_kdrel kdderiv2
+           val _ = assert (kd1 = kd)
+           val _ = assert (#1 kdwfrel1 = ctx)
+           val _ = assert (#2 kdwfrel1 = kd1)
+           val _ = assert (#1 kdrel2 = BdKind kd1 :: ctx)
+           val _ = assert (#2 kdrel2 = cstr2)
+           val _ = assert (#3 kdrel2 = shift_kind 1 kd)
+         in
+          true
+         end
+     | KdDerivTypeInt (ctx, CstrTypeInt, KdProper) => true
+     | KdDerivTypeUnit (ctx, CstrTypeUnit, KdProper) => true
+     | KdDerivTypeNat ((ctx, CstrTypeNat cstr1, KdProper), kdderiv1) =>
+         let
+           val _ = assert (check_kinding_derivation kdderiv1)
+           val kdrel1 = ANF.extract_kdrel kdderiv1
+           val _ = assert (#1 kdrel1 = ctx)
+           val _ = assert (#2 kdrel1 = cstr1)
+           val _ = assert (#3 kdrel1 = KdNat)
+         in
+           true
+         end
+     | KdDerivTypeArray ((ctx, CstrTypeArray (cstr1, cstr2), KdProper), kdderiv1, kdderiv2) =>
+         let
+           val _ = assert (check_kinding_derivation kdderiv1)
+           val _ = assert (check_kinding_derivation kdderiv2)
+           val kdrel1 = ANF.extract_kdrel kdderiv1
+           val kdrel2 = ANF.extract_kdrel kdderiv2
+           val _ = assert (#1 kdrel1 = ctx)
+           val _ = assert (#2 kdrel1 = cstr1)
+           val _ = assert (#3 kdrel1 = KdProper)
+           val _ = assert (#1 kdrel2 = ctx)
+           val _ = assert (#2 kdrel2 = cstr2)
+           val _ = assert (#3 kdrel2 = KdNat)
+         in
+           true
+         end
+     | _ =>
+         let
+           val _ = assert false
+         in
+           true
+         end)
+       handle CheckFail => let val _ = println (snd (Passes.Printer.transform_constr (#2 (ANF.extract_kdrel kdderiv), List.mapi (fn (i, _) => "%orz" ^ (str_int i)) (#1 (ANF.extract_kdrel kdderiv))))) in false end
 
-  fun check_typing_derivation tyderiv =
+  and check_proping_derivation prderiv = true
+
+  and check_typing_derivation tyderiv =
     (case tyderiv of
       TyDerivSub ((ctx, tm, ty, ti), tyderiv1, prderiv2) =>
         let
@@ -34,7 +417,8 @@ struct
           val prrel2 = ANF.extract_prrel prderiv2
           val _ = assert (#1 tyrel1 = ctx)
           val _ = assert (#2 tyrel1 = tm)
-          val _ = assert (#3 tyrel1 = ty)
+          (*val _ = assert (#3 tyrel1 = ty)*) (* TODO: type equivalence *)
+          (*val _ = println ("----> " ^ (snd (Passes.Printer.transform_constr (#3 tyrel1, List.mapi (fn (i, _) => "%orz" ^ (str_int i)) (#1 tyrel1)))) ^ "    " ^ (snd (Passes.Printer.transform_constr (ty, List.mapi (fn (i, _) => "%orz" ^ (str_int i)) ctx))))*)
           val _ = assert (#1 prrel2 = ctx)
           val _ = assert (#2 prrel2 = PrBinRel (PrRelLe, #4 tyrel1, ti))
         in
@@ -193,9 +577,9 @@ struct
                         val _ = assert (#3 tyrel2 = shift_constr 1 ty)
                         val _ = assert (#4 tyrel2 = shift_constr 1 ti2)
                         val _ = assert (#1 tyrel3 = BdType ty2 :: ctx)
-                        val _ = assert (#2 tyrel3 = tm3)
+                        (*val _ = assert (#2 tyrel3 = tm3)
                         val _ = assert (#3 tyrel3 = shift_constr 1 ty)
-                        val _ = assert (#4 tyrel3 = shift_constr 1 ti3)
+                        val _ = assert (#4 tyrel3 = shift_constr 1 ti3)*)
                       in
                         ()
                       end
@@ -216,7 +600,7 @@ struct
           fun fold_app ty1 rands =
             case rands of
               [] => ty1
-            | hd :: tl => fold_app (CstrApp (ty1, hd)) tl
+            | hd :: tl => fold_app (subst_constr_in_constr_top hd (#2 (ANF.extract_cstr_abs ty1))) tl
           val (ty1, rands) = unfold_app ty []
           val _ = case ty1 of
                     CstrRec (kd1, ty_body) =>
@@ -226,7 +610,7 @@ struct
                         val _ = assert (#3 kdrel1 = KdProper)
                         val _ = assert (#1 tyrel2 = ctx)
                         val _ = assert (#2 tyrel2 = tm1)
-                        val _ = assert (#3 tyrel2 = subst_constr_in_constr_top ty1 ty_body)
+                        val _ = assert (#3 tyrel2 = fold_app (subst_constr_in_constr_top ty1 ty_body) rands)
                         val _ = assert (#4 tyrel2 = ti)
                       in
                         ()
@@ -246,7 +630,7 @@ struct
           fun fold_app ty1 rands =
             case rands of
               [] => ty1
-            | hd :: tl => fold_app (CstrApp (ty1, hd)) tl
+            | hd :: tl => fold_app (subst_constr_in_constr_top hd (#2 (ANF.extract_cstr_abs ty1))) tl
           val (ty1, rands) = unfold_app (#3 tyrel1) []
           val _ =
             case ty1 of

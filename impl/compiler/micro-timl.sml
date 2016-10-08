@@ -196,6 +196,7 @@ struct
 
   and kinding_derivation =
     KdDerivRefine of kinding_relation * kinding_derivation * proping_derivation
+  | KdDerivBase of kinding_relation * kinding_derivation
   | KdDerivVar of kinding_relation
   | KdDerivNat of kinding_relation
   | KdDerivTime of kinding_relation
