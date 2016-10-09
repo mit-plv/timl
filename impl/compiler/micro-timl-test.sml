@@ -28,9 +28,9 @@ struct
       fun unfold_list_cstr ty n =
         let
           val tmp1 = Passes.TermSubstConstr.subst_constr_in_constr_top list_cstr list_cstr_body
-          val (_, body1) = DerivationPasses.ANF.extract_cstr_abs tmp1
+          val (_, body1) = extract_cstr_abs tmp1
           val tmp2 = Passes.TermSubstConstr.subst_constr_in_constr_top ty body1
-          val (_, body2) = DerivationPasses.ANF.extract_cstr_abs tmp2
+          val (_, body2) = extract_cstr_abs tmp2
           val tmp3 = Passes.TermSubstConstr.subst_constr_in_constr_top n body2
         in
           tmp3
@@ -42,7 +42,7 @@ struct
       val d7 = KdDerivBinOp ((ct7, c7, KdTimeFun 0), KdDerivTime (ct7, CstrTime "3.0", KdTimeFun 0), KdDerivUnOp ((ct7, CstrUnOp (CstrUopNat2Time, CstrVar 0), KdTimeFun 0), KdDerivVar (ct7, CstrVar 0, KdNat)))
       val c8 = CstrApp (CstrApp (list_cstr, CstrVar 1), CstrVar 0)
       val ct8 = ct7
-      val d8 = KdDerivApp ((ct8, c8, KdProper), KdDerivApp ((ct8, CstrApp (list_cstr, CstrVar 1), KdArrow (KdNat, KdProper)), DerivationPasses.ANF.shift_kinding_derivation_above ct8 0 d6, KdDerivVar (ct8, CstrVar 1, KdProper)), KdDerivVar (ct8, CstrVar 0, KdNat))
+      val d8 = KdDerivApp ((ct8, c8, KdProper), KdDerivApp ((ct8, CstrApp (list_cstr, CstrVar 1), KdArrow (KdNat, KdProper)), DerivationPasses.TypingDerivationShift.shift_kinding_derivation_above ct8 0 d6, KdDerivVar (ct8, CstrVar 1, KdProper)), KdDerivVar (ct8, CstrVar 0, KdNat))
       val c9 = CstrArrow (c8, CstrTypeNat (CstrVar 0), c7)
       val ct9 = ct8
       val d9 = KdDerivArrow ((ct9, c9, KdProper), d8, KdDerivTypeNat ((ct9, CstrTypeNat (CstrVar 0), KdProper), KdDerivVar (ct9, CstrVar 0, KdNat)), d7)
@@ -51,7 +51,7 @@ struct
       val d10 = KdDerivForall ((ct10, c10, KdProper), KdWfDerivProper (ct10, KdProper), KdDerivForall ((tl ct9, CstrForall (KdNat, c9), KdProper), KdWfDerivNat (tl ct9, KdNat), d9))
       fun app_type_fun ty1 cstr2 =
         let
-          val (_, body1) = DerivationPasses.ANF.extract_cstr_forall ty1
+          val (_, body1) = extract_cstr_forall ty1
           val tmp1 = Passes.TermSubstConstr.subst_constr_in_constr_top cstr2 body1
         in
           tmp1
@@ -112,8 +112,8 @@ struct
       val tm7_deriv = TyDerivSnd (tm7_rel, tm6_deriv)
       val tm8 = TmApp (tm5, tm7)
       val tm8_ctx = tm7_ctx
-      val tm8_ty = #2 (DerivationPasses.ANF.extract_cstr_arrow tm5_ty)
-      val tm8_ti = CstrBinOp (CstrBopAdd, CstrBinOp (CstrBopAdd, CstrBinOp (CstrBopAdd, tm5_ti, tm7_ti), CstrTime "1.0"), #3 (DerivationPasses.ANF.extract_cstr_arrow tm5_ty))
+      val tm8_ty = #2 (extract_cstr_arrow tm5_ty)
+      val tm8_ti = CstrBinOp (CstrBopAdd, CstrBinOp (CstrBopAdd, CstrBinOp (CstrBopAdd, tm5_ti, tm7_ti), CstrTime "1.0"), #3 (extract_cstr_arrow tm5_ty))
       val tm8_rel = (tm8_ctx, tm8, tm8_ty, tm8_ti)
       val tm8_deriv = TyDerivApp (tm8_rel, tm5_deriv, tm7_deriv)
       val tm9 = TmPair (tm2, tm8)
@@ -147,8 +147,8 @@ struct
       val tm12_deriv = TyDerivCstrApp (tm12_rel, tm11_deriv, cstr2_deriv)
       val tm13 = TmApp (tm12, tm9)
       val tm13_ctx = tm12_ctx
-      val tm13_ty = #2 (DerivationPasses.ANF.extract_cstr_arrow tm12_ty)
-      val tm13_ti = CstrBinOp (CstrBopAdd, CstrBinOp (CstrBopAdd, CstrBinOp (CstrBopAdd, tm12_ti, tm9_ti), CstrTime "1.0"), #3 (DerivationPasses.ANF.extract_cstr_arrow tm12_ty))
+      val tm13_ty = #2 (extract_cstr_arrow tm12_ty)
+      val tm13_ti = CstrBinOp (CstrBopAdd, CstrBinOp (CstrBopAdd, CstrBinOp (CstrBopAdd, tm12_ti, tm9_ti), CstrTime "1.0"), #3 (extract_cstr_arrow tm12_ty))
       val tm13_rel = (tm13_ctx, tm13, tm13_ty, tm13_ti)
       val tm13_deriv = TyDerivApp (tm13_rel, tm12_deriv, tm9_deriv)
       val tm13_5_rel = (tm13_ctx, tm13, CstrTypeNat (CstrVar 4), CstrBinOp (CstrBopMult, CstrTime "3.0", CstrUnOp (CstrUopNat2Time, CstrVar 4)))
@@ -190,7 +190,7 @@ struct
       val tm19_ty = CstrArrow (CstrApp (CstrApp (list_cstr, CstrVar 1), CstrVar 0), CstrTypeNat (CstrVar 0), CstrBinOp (CstrBopMult, CstrTime "3.0", CstrUnOp (CstrUopNat2Time, CstrVar 0)))
       val tm19_ti = CstrTime "0.0"
       val tm19_rel = (tm19_ctx, tm19, tm19_ty, tm19_ti)
-      val tm19_deriv = TyDerivAbs (tm19_rel, KdDerivApp ((tm19_ctx, CstrApp (CstrApp (list_cstr, CstrVar 1), CstrVar 0), KdProper), KdDerivApp ((tm19_ctx, CstrApp (list_cstr, CstrVar 1), KdArrow (KdNat, KdProper)), DerivationPasses.ANF.shift_kinding_derivation_above tm19_ctx 0 d6, KdDerivVar (tm19_ctx, CstrVar 1, KdProper)), KdDerivVar (tm19_ctx, CstrVar 0, KdNat)), tm18_5_deriv)
+      val tm19_deriv = TyDerivAbs (tm19_rel, KdDerivApp ((tm19_ctx, CstrApp (CstrApp (list_cstr, CstrVar 1), CstrVar 0), KdProper), KdDerivApp ((tm19_ctx, CstrApp (list_cstr, CstrVar 1), KdArrow (KdNat, KdProper)), DerivationPasses.TypingDerivationShift.shift_kinding_derivation_above tm19_ctx 0 d6, KdDerivVar (tm19_ctx, CstrVar 1, KdProper)), KdDerivVar (tm19_ctx, CstrVar 0, KdNat)), tm18_5_deriv)
       val tm20 = TmCstrAbs (KdNat, tm19)
       val tm20_ctx = tl tm19_ctx
       val tm20_ty = CstrForall (KdNat, tm19_ty)
@@ -208,7 +208,7 @@ struct
       val tm22_ty = len_ty
       val tm22_ti = CstrTime "0.0"
       val tm22_rel = (tm22_ctx, tm22, tm22_ty, tm22_ti)
-      val tm22_deriv = TyDerivRec (tm22_rel, DerivationPasses.ANF.shift_kinding_derivation_above tm22_ctx 0 d10, tm21_deriv)
+      val tm22_deriv = TyDerivRec (tm22_rel, DerivationPasses.TypingDerivationShift.shift_kinding_derivation_above tm22_ctx 0 d10, tm21_deriv)
       val _ = println (str_bool (MicroTiMLChecker.check_typing_derivation tm22_deriv))
       val tm22_deriv_new = DerivationPasses.ANF.normalize_derivation tm22_deriv
       val _ = println (str_bool (MicroTiMLChecker.check_typing_derivation tm22_deriv_new))
@@ -289,8 +289,6 @@ struct
       val _ = println (str_bool (MicroTiMLChecker.check_typing_derivation tm15_deriv))
       val tm15_deriv_new = DerivationPasses.ANF.normalize_derivation tm15_deriv
       val _ = println (str_bool (MicroTiMLChecker.check_typing_derivation tm15_deriv_new))
-      (*val tm15_rel_new = DerivationPasses.ANF.extract_tyrel tm15_deriv_new
-      val _ = println (snd (Passes.Printer.transform_term (#2 tm15_rel_new, ["mult", "minus", "is_zero"])))*)
     in
       tm15_deriv
     end
