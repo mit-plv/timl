@@ -1,4 +1,3 @@
 !_TAG_FILE_SORTED	2	/0=unsorted, 1=sorted, 2=foldcase/
-Ccompiler-mc.error-non-exhaustive-match	/Users/wayne/timl/impl/Makefile	/^	.\/format.rb ml-build -Ccompiler-mc.error-non-exhaustive-match=true -Ccompiler-mc.error-non-exhaustive-bind=true main.cm MicroTiMLTest.main main-image$/;"	m	language:Make
+Ccompiler-mc.error-non-exhaustive-match	/Users/wayne/timl/impl/Makefile	/^	.\/format.rb ml-build -Ccompiler-mc.error-non-exhaustive-match=true -Ccompiler-mc.error-non-exhaustive-bind=true main.cm Main.main main-image$/;"	m	language:Make
 FILES	/Users/wayne/timl/impl/Makefile	/^FILES = \\$/;"	m	language:Make
-_	/Users/wayne/timl/impl/mlton-main.sml	/^val _ = Main.main (CommandLine.name (), CommandLine.arguments ())$/;"	v	language:SML
