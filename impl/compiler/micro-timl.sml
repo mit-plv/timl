@@ -177,7 +177,8 @@ struct
   type typing_relation = context * term * constr * constr
 
   datatype kind_wellformedness_derivation =
-    KdWfDerivNat of kind_wellformedness_relation
+    KdWfDerivAssume of kind_wellformedness_relation
+  | KdWfDerivNat of kind_wellformedness_relation
   | KdWfDerivUnit of kind_wellformedness_relation
   | KdWfDerivBool of kind_wellformedness_relation
   | KdWfDerivTimeFun of kind_wellformedness_relation
@@ -195,7 +196,8 @@ struct
   | PrWfDerivExists of prop_wellformedness_relation * kind_wellformedness_derivation * prop_wellformedness_derivation
 
   and kinding_derivation =
-    KdDerivRefine of kinding_relation * kinding_derivation * proping_derivation
+    KdDerivAssume of kinding_relation
+  | KdDerivRefine of kinding_relation * kinding_derivation * proping_derivation
   | KdDerivBase of kinding_relation * kinding_derivation
   | KdDerivVar of kinding_relation
   | KdDerivNat of kinding_relation
@@ -271,7 +273,8 @@ struct
 
   fun extract_kdwfrel kdwf =
     case kdwf of
-      KdWfDerivNat rel => rel
+      KdWfDerivAssume rel => rel
+    | KdWfDerivNat rel => rel
     | KdWfDerivUnit rel => rel
     | KdWfDerivBool rel => rel
     | KdWfDerivTimeFun rel => rel
@@ -324,7 +327,8 @@ struct
 
   fun extract_kdrel kdderiv =
     case kdderiv of
-      KdDerivRefine (rel, _, _) => rel
+      KdDerivAssume rel => rel
+    | KdDerivRefine (rel, _, _) => rel
     | KdDerivBase (rel, _) => rel
     | KdDerivVar rel => rel
     | KdDerivNat rel => rel
@@ -363,6 +367,9 @@ struct
 
   fun extract_cstr_forall (CstrForall r) = r
     | extract_cstr_forall _ = raise Impossible
+
+  fun extract_cstr_exists (CstrExists r) = r
+    | extract_cstr_exists _ = raise Impossible
 
   fun extract_cstr_abs (CstrAbs r) = r
     | extract_cstr_abs _ = raise Impossible

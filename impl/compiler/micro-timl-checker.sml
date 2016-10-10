@@ -19,7 +19,8 @@ struct
 
   fun check_kind_wellformness_derivation kdwf =
     (case kdwf of
-       KdWfDerivNat (ctx, KdNat) => true
+       KdWfDerivAssume (ctx, kd) => true
+     | KdWfDerivNat (ctx, KdNat) => true
      | KdWfDerivBool (ctx, KdBool) => true
      | KdWfDerivUnit (ctx, KdUnit) => true
      | KdWfDerivTimeFun (ctx, KdTimeFun _) => true
@@ -135,7 +136,8 @@ struct
 
   and check_kinding_derivation kdderiv =
     (case kdderiv of
-       KdDerivRefine ((ctx, cstr, KdSubset (kd1, pr2)), kdderiv1, prderiv2) =>
+       KdDerivAssume (ctx, cstr, kd) => true
+     | KdDerivRefine ((ctx, cstr, KdSubset (kd1, pr2)), kdderiv1, prderiv2) =>
          let
            val _ = assert (check_kinding_derivation kdderiv1)
            val _ = assert (check_proping_derivation prderiv2)
@@ -829,19 +831,19 @@ struct
         in
           true
         end
-    | TyDerivLet ((ctx, TmLet (tm1, tm2), ty2, CstrBinOp (CstrBopAdd, ti1, ti2)), tyderiv1, tyderiv2) =>
+    | TyDerivLet ((ctx, TmLet (tm1, tm2), ty2, CstrBinOp (CstrBopAdd, ti1, ti2)), tyderiv2, tyderiv3) =>
         let
-          val _ = assert (check_typing_derivation tyderiv1)
           val _ = assert (check_typing_derivation tyderiv2)
-          val tyrel1 = extract_tyrel tyderiv1
+          val _ = assert (check_typing_derivation tyderiv3)
           val tyrel2 = extract_tyrel tyderiv2
-          val _ = assert (#1 tyrel1 = ctx)
-          val _ = assert (#2 tyrel1 = tm1)
-          val _ = assert (#4 tyrel1 = ti1)
-          val _ = assert (#1 tyrel2 = BdType (#3 tyrel1) :: ctx)
-          val _ = assert (#2 tyrel2 = tm2)
-          val _ = assert (#3 tyrel2 = shift_constr 1 ty2)
-          val _ = assert (#4 tyrel2 = shift_constr 1 ti2)
+          val tyrel3 = extract_tyrel tyderiv3
+          val _ = assert (#1 tyrel2 = ctx)
+          val _ = assert (#2 tyrel2 = tm1)
+          val _ = assert (#4 tyrel2 = ti1)
+          val _ = assert (#1 tyrel3 = BdType (#3 tyrel2) :: ctx)
+          val _ = assert (#2 tyrel3 = tm2)
+          val _ = assert (#3 tyrel3 = shift_constr 1 ty2)
+          val _ = assert (#4 tyrel3 = shift_constr 1 ti2)
         in
           true
         end

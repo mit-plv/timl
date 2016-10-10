@@ -744,5 +744,10 @@ struct
 
     structure FVIns = TermTransformPass(FVHelper)
     open FVIns
+
+    fun free_variables_term tm ctx = #2 (transform_term (tm, ctx))
+    fun free_variables_constr cstr ctx = #2 (transform_constr (cstr, ctx))
+    fun free_variables_kind kd ctx = #2 (transform_kind (kd, ctx))
+    fun free_variables_prop pr ctx = #2 (transform_prop (pr, ctx))
   end
 end

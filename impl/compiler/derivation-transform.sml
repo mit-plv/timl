@@ -3,12 +3,12 @@ sig
   type down
   type up
 
-  val on_typing_relation : MicroTiML.typing_relation * down -> MicroTiML.typing_relation
-  val on_kinding_relation : MicroTiML.kinding_relation * down -> MicroTiML.kinding_relation
-  val on_proping_relation : MicroTiML.proping_relation * down -> MicroTiML.proping_relation
+  val on_typing_relation : MicroTiML.typing_relation * down -> MicroTiML.typing_relation * up
+  val on_kinding_relation : MicroTiML.kinding_relation * down -> MicroTiML.kinding_relation * up
+  val on_proping_relation : MicroTiML.proping_relation * down -> MicroTiML.proping_relation * up
 
-  val on_kind_wellformness_relation : MicroTiML.kind_wellformedness_relation * down -> MicroTiML.kind_wellformedness_relation
-  val on_prop_wellformness_relation : MicroTiML.prop_wellformedness_relation * down -> MicroTiML.prop_wellformedness_relation
+  val on_kind_wellformness_relation : MicroTiML.kind_wellformedness_relation * down -> MicroTiML.kind_wellformedness_relation * up
+  val on_prop_wellformness_relation : MicroTiML.prop_wellformedness_relation * down -> MicroTiML.prop_wellformedness_relation * up
 
   val transformer_typing_derivation : (MicroTiML.typing_derivation * down -> MicroTiML.typing_derivation * up) * (MicroTiML.kinding_derivation * down -> MicroTiML.kinding_derivation * up) * (MicroTiML.proping_derivation * down -> MicroTiML.proping_derivation * up) * (MicroTiML.kind_wellformedness_derivation * down -> MicroTiML.kind_wellformedness_derivation * up) -> (MicroTiML.typing_derivation * down) -> (MicroTiML.typing_derivation * up) option
   val transformer_kinding_derivation : (MicroTiML.kinding_derivation * down -> MicroTiML.kinding_derivation * up) * (MicroTiML.proping_derivation * down -> MicroTiML.proping_derivation * up) * (MicroTiML.kind_wellformedness_derivation * down -> MicroTiML.kind_wellformedness_derivation * up) -> (MicroTiML.kinding_derivation * down) -> (MicroTiML.kinding_derivation * up) option
@@ -24,6 +24,8 @@ end
 struct
   open MicroTiML
 
+  (* FIXME: reconstruct typing relation when sub-calls retun *)
+
   fun combine (ups : Arg.up list) = List.foldl Arg.combiner Arg.upward_base ups
 
   fun default_transform_typing_derivation (tyderiv : typing_derivation, down : Arg.down) =
@@ -32,166 +34,210 @@ struct
       fun on_tyderiv tyderiv = transform_typing_derivation (tyderiv, down)
       fun on_kdderiv kdderiv = transform_kinding_derivation (kdderiv, down)
       fun on_prderiv prderiv = transform_proping_derivation (prderiv, down)
+      fun on_kdwf kdwf = transform_kind_wellformness_derivation (kdwf, down)
     in
       case tyderiv of
         TyDerivSub (tyrel, tyderiv1, prderiv2) =>
           let
+            val (tyrel, up0) = on_rel tyrel
             val (tyderiv1, up1) = on_tyderiv tyderiv1
             val (prderiv2, up2) = on_prderiv prderiv2
           in
-            (TyDerivSub (on_rel tyrel, tyderiv1, prderiv2), combine [up1, up2])
+            (TyDerivSub (tyrel, tyderiv1, prderiv2), combine [up0, up1, up2])
           end
-      | TyDerivVar tyrel => (TyDerivVar (on_rel tyrel), Arg.upward_base)
-      | TyDerivInt tyrel => (TyDerivInt (on_rel tyrel), Arg.upward_base)
-      | TyDerivNat tyrel => (TyDerivNat (on_rel tyrel), Arg.upward_base)
-      | TyDerivUnit tyrel => (TyDerivUnit (on_rel tyrel), Arg.upward_base)
+      | TyDerivVar tyrel =>
+          let
+            val (tyrel, up0) = on_rel tyrel
+          in
+            (TyDerivVar tyrel, combine [up0])
+          end
+      | TyDerivInt tyrel =>
+          let
+            val (tyrel, up0) = on_rel tyrel
+          in
+            (TyDerivInt tyrel, combine [up0])
+          end
+      | TyDerivNat tyrel =>
+          let
+            val (tyrel, up0) = on_rel tyrel
+          in
+            (TyDerivNat tyrel, combine [up0])
+          end
+      | TyDerivUnit tyrel =>
+          let
+            val (tyrel, up0) = on_rel tyrel
+          in
+            (TyDerivUnit tyrel, combine [up0])
+          end
       | TyDerivApp (tyrel, tyderiv1, tyderiv2) =>
           let
+            val (tyrel, up0) = on_rel tyrel
             val (tyderiv1, up1) = on_tyderiv tyderiv1
             val (tyderiv2, up2) = on_tyderiv tyderiv2
           in
-            (TyDerivApp (on_rel tyrel, tyderiv1, tyderiv2), combine [up1, up2])
+            (TyDerivApp (tyrel, tyderiv1, tyderiv2), combine [up0, up1, up2])
           end
       | TyDerivAbs (tyrel, kdderiv1, tyderiv2) =>
           let
+            val (tyrel, up0) = on_rel tyrel
             val (kdderiv1, up1) = on_kdderiv kdderiv1
             val (tyderiv2, up2) = on_tyderiv tyderiv2
           in
-           (TyDerivAbs (on_rel tyrel, kdderiv1, tyderiv2), combine [up1, up2])
+           (TyDerivAbs (tyrel, kdderiv1, tyderiv2), combine [up0, up1, up2])
           end
       | TyDerivRec (tyrel, kdderiv1, tyderiv2) =>
           let
+            val (tyrel, up0) = on_rel tyrel
             val (kdderiv1, up1) = on_kdderiv kdderiv1
             val (tyderiv2, up2) = on_tyderiv tyderiv2
           in
-            (TyDerivRec (on_rel tyrel, kdderiv1, tyderiv2), combine [up1, up2])
+            (TyDerivRec (tyrel, kdderiv1, tyderiv2), combine [up0, up1, up2])
           end
       | TyDerivPair (tyrel, tyderiv1, tyderiv2) =>
           let
+            val (tyrel, up0) = on_rel tyrel
             val (tyderiv1, up1) = on_tyderiv tyderiv1
             val (tyderiv2, up2) = on_tyderiv tyderiv2
           in
-            (TyDerivPair (on_rel tyrel, tyderiv1, tyderiv2), combine [up1, up2])
+            (TyDerivPair (tyrel, tyderiv1, tyderiv2), combine [up0, up1, up2])
           end
       | TyDerivFst (tyrel, tyderiv1) =>
           let
+            val (tyrel, up0) = on_rel tyrel
             val (tyderiv1, up1) = on_tyderiv tyderiv1
           in
-            (TyDerivFst (on_rel tyrel, tyderiv1), combine [up1])
+            (TyDerivFst (tyrel, tyderiv1), combine [up0, up1])
           end
       | TyDerivSnd (tyrel, tyderiv1) =>
           let
+            val (tyrel, up0) = on_rel tyrel
             val (tyderiv1, up1) = on_tyderiv tyderiv1
           in
-            (TyDerivSnd (on_rel tyrel, tyderiv1), combine [up1])
+            (TyDerivSnd (tyrel, tyderiv1), combine [up0, up1])
           end
       | TyDerivInLeft (tyrel, kdderiv1, tyderiv2) =>
           let
+            val (tyrel, up0) = on_rel tyrel
             val (kdderiv1, up1) = on_kdderiv kdderiv1
             val (tyderiv2, up2) = on_tyderiv tyderiv2
           in
-            (TyDerivInLeft (on_rel tyrel, kdderiv1, tyderiv2), combine [up1, up2])
+            (TyDerivInLeft (tyrel, kdderiv1, tyderiv2), combine [up0, up1, up2])
           end
       | TyDerivInRight (tyrel, kdderiv1, tyderiv2) =>
           let
+            val (tyrel, up0) = on_rel tyrel
             val (kdderiv1, up1) = on_kdderiv kdderiv1
             val (tyderiv2, up2) = on_tyderiv tyderiv2
           in
-            (TyDerivInRight (on_rel tyrel, kdderiv1, tyderiv2), combine [up1, up2])
+            (TyDerivInRight (tyrel, kdderiv1, tyderiv2), combine [up0, up1, up2])
           end
       | TyDerivCase (tyrel, tyderiv1, tyderiv2, tyderiv3) =>
           let
+            val (tyrel, up0) = on_rel tyrel
             val (tyderiv1, up1) = on_tyderiv tyderiv1
             val (tyderiv2, up2) = on_tyderiv tyderiv2
             val (tyderiv3, up3) = on_tyderiv tyderiv3
           in
-            (TyDerivCase (on_rel tyrel, tyderiv1, tyderiv2, tyderiv3), combine [up1, up2, up3])
+            (TyDerivCase (tyrel, tyderiv1, tyderiv2, tyderiv3), combine [up0, up1, up2, up3])
           end
       | TyDerivFold (tyrel, kdderiv1, tyderiv2) =>
           let
+            val (tyrel, up0) = on_rel tyrel
             val (kdderiv1, up1) = on_kdderiv kdderiv1
             val (tyderiv2, up2) = on_tyderiv tyderiv2
           in
-            (TyDerivFold (on_rel tyrel, kdderiv1, tyderiv2), combine [up1, up2])
+            (TyDerivFold (tyrel, kdderiv1, tyderiv2), combine [up0, up1, up2])
           end
       | TyDerivUnfold (tyrel, tyderiv1) =>
           let
+            val (tyrel, up0) = on_rel tyrel
             val (tyderiv1, up1) = on_tyderiv tyderiv1
           in
-            (TyDerivUnfold (on_rel tyrel, tyderiv1), combine [up1])
+            (TyDerivUnfold (tyrel, tyderiv1), combine [up0, up1])
           end
       | TyDerivPack (tyrel, kdderiv1, kdderiv2, tyderiv3) =>
           let
+            val (tyrel, up0) = on_rel tyrel
             val (kdderiv1, up1) = on_kdderiv kdderiv1
             val (kdderiv2, up2) = on_kdderiv kdderiv2
             val (tyderiv3, up3) = on_tyderiv tyderiv3
           in
-            (TyDerivPack (on_rel tyrel, kdderiv1, kdderiv2, tyderiv3), combine [up1, up2, up3])
+            (TyDerivPack (tyrel, kdderiv1, kdderiv2, tyderiv3), combine [up0, up1, up2, up3])
           end
       | TyDerivUnpack (tyrel, tyderiv1, tyderiv2) =>
           let
+            val (tyrel, up0) = on_rel tyrel
             val (tyderiv1, up1) = on_tyderiv tyderiv1
             val (tyderiv2, up2) = on_tyderiv tyderiv2
           in
-            (TyDerivUnpack (on_rel tyrel, tyderiv1, tyderiv2), combine [up1, up2])
+            (TyDerivUnpack (tyrel, tyderiv1, tyderiv2), combine [up0, up1, up2])
           end
       | TyDerivCstrAbs (tyrel, kdwf1, tyderiv2) =>
           let
+            val (tyrel, up0) = on_rel tyrel
+            val (kdwf1, up1) = on_kdwf kdwf1
             val (tyderiv2, up2) = on_tyderiv tyderiv2
           in
-            (TyDerivCstrAbs (on_rel tyrel, kdwf1, tyderiv2), combine [up2])
+            (TyDerivCstrAbs (tyrel, kdwf1, tyderiv2), combine [up0, up1, up2])
           end
       | TyDerivCstrApp (tyrel, tyderiv1, kdderiv2) =>
           let
+            val (tyrel, up0) = on_rel tyrel
             val (tyderiv1, up1) = on_tyderiv tyderiv1
             val (kdderiv2, up2) = on_kdderiv kdderiv2
           in
-            (TyDerivCstrApp (on_rel tyrel, tyderiv1, kdderiv2), combine [up1, up2])
+            (TyDerivCstrApp (tyrel, tyderiv1, kdderiv2), combine [up0, up1, up2])
           end
       | TyDerivBinOp (tyrel, tyderiv1, tyderiv2) =>
           let
+            val (tyrel, up0) = on_rel tyrel
             val (tyderiv1, up1) = on_tyderiv tyderiv1
             val (tyderiv2, up2) = on_tyderiv tyderiv2
           in
-            (TyDerivBinOp (on_rel tyrel, tyderiv1, tyderiv2), combine [up1, up2])
+            (TyDerivBinOp (tyrel, tyderiv1, tyderiv2), combine [up0, up1, up2])
           end
       | TyDerivArrayNew (tyrel, tyderiv1, tyderiv2) =>
           let
+            val (tyrel, up0) = on_rel tyrel
             val (tyderiv1, up1) = on_tyderiv tyderiv1
             val (tyderiv2, up2) = on_tyderiv tyderiv2
           in
-            (TyDerivArrayNew (on_rel tyrel, tyderiv1, tyderiv2), combine [up1, up2])
+            (TyDerivArrayNew (tyrel, tyderiv1, tyderiv2), combine [up0, up1, up2])
           end
       | TyDerivArrayGet (tyrel, tyderiv1, tyderiv2, prderiv3) =>
           let
+            val (tyrel, up0) = on_rel tyrel
             val (tyderiv1, up1) = on_tyderiv tyderiv1
             val (tyderiv2, up2) = on_tyderiv tyderiv2
             val (prderiv3, up3) = on_prderiv prderiv3
           in
-            (TyDerivArrayGet (on_rel tyrel, tyderiv1, tyderiv2, prderiv3), combine [up1, up2, up3])
+            (TyDerivArrayGet (tyrel, tyderiv1, tyderiv2, prderiv3), combine [up0, up1, up2, up3])
           end
       | TyDerivArrayPut (tyrel, tyderiv1, tyderiv2, prderiv3, tyderiv4) =>
           let
+            val (tyrel, up0) = on_rel tyrel
             val (tyderiv1, up1) = on_tyderiv tyderiv1
             val (tyderiv2, up2) = on_tyderiv tyderiv2
             val (prderiv3, up3) = on_prderiv prderiv3
             val (tyderiv4, up4) = on_tyderiv tyderiv4
           in
-            (TyDerivArrayPut (on_rel tyrel, tyderiv1, tyderiv2, prderiv3, tyderiv4), combine [up1, up2, up3, up4])
+            (TyDerivArrayPut (tyrel, tyderiv1, tyderiv2, prderiv3, tyderiv4), combine [up0, up1, up2, up3, up4])
           end
-      | TyDerivLet (tyrel, tyderiv1, tyderiv2) =>
+      | TyDerivLet (tyrel, tyderiv2, tyderiv3) =>
           let
-            val (tyderiv1, up1) = on_tyderiv tyderiv1
+            val (tyrel, up0) = on_rel tyrel
             val (tyderiv2, up2) = on_tyderiv tyderiv2
+            val (tyderiv3, up3) = on_tyderiv tyderiv3
           in
-            (TyDerivLet (on_rel tyrel, tyderiv1, tyderiv2), combine [up1, up2])
+            (TyDerivLet (tyrel, tyderiv2, tyderiv3), combine [up0, up2, up3])
           end
       | TyDerivNever (tyrel, kdderiv1, prderiv2) =>
           let
+            val (tyrel, up0) = on_rel tyrel
             val (kdderiv1, up1) = on_kdderiv kdderiv1
             val (prderiv2, up2) = on_prderiv prderiv2
           in
-            (TyDerivNever (on_rel tyrel, kdderiv1, prderiv2), combine [up1, up2])
+            (TyDerivNever (tyrel, kdderiv1, prderiv2), combine [up0, up1, up2])
           end
     end
 
@@ -205,121 +251,188 @@ struct
       fun on_rel kdrel = Arg.on_kinding_relation (kdrel, down)
       fun on_kdderiv kdderiv = transform_kinding_derivation (kdderiv, down)
       fun on_prderiv prderiv = transform_proping_derivation (prderiv, down)
+      fun on_kdwf kdwf = transform_kind_wellformness_derivation (kdwf, down)
     in
       case kdderiv of
-        KdDerivRefine (kdrel, kdderiv1, prderiv2) =>
+        KdDerivAssume kdrel =>
           let
+            val (kdrel, up0) = on_rel kdrel
+          in
+            (KdDerivAssume kdrel, combine [up0])
+          end
+      | KdDerivRefine (kdrel, kdderiv1, prderiv2) =>
+          let
+            val (kdrel, up0) = on_rel kdrel
             val (kdderiv1, up1) = on_kdderiv kdderiv1
             val (prderiv2, up2) = on_prderiv prderiv2
           in
-            (KdDerivRefine (on_rel kdrel, kdderiv1, prderiv2), combine [up1, up2])
+            (KdDerivRefine (kdrel, kdderiv1, prderiv2), combine [up0, up1, up2])
           end
       | KdDerivBase (kdrel, kdderiv1) =>
           let
+            val (kdrel, up0) = on_rel kdrel
             val (kdderiv1, up1) = on_kdderiv kdderiv1
           in
-            (KdDerivBase (on_rel kdrel, kdderiv1), combine [up1])
+            (KdDerivBase (kdrel, kdderiv1), combine [up0, up1])
           end
-      | KdDerivVar kdrel => (KdDerivVar (on_rel kdrel), Arg.upward_base)
-      | KdDerivNat kdrel => (KdDerivNat (on_rel kdrel), Arg.upward_base)
-      | KdDerivTime kdrel => (KdDerivTime (on_rel kdrel), Arg.upward_base)
-      | KdDerivUnit kdrel => (KdDerivUnit (on_rel kdrel), Arg.upward_base)
-      | KdDerivTrue kdrel => (KdDerivTrue (on_rel kdrel), Arg.upward_base)
-      | KdDerivFalse kdrel => (KdDerivFalse (on_rel kdrel), Arg.upward_base)
+      | KdDerivVar kdrel =>
+          let
+            val (kdrel, up0) = on_rel kdrel
+          in
+            (KdDerivVar kdrel, combine [up0])
+          end
+      | KdDerivNat kdrel =>
+          let
+            val (kdrel, up0) = on_rel kdrel
+          in
+            (KdDerivNat kdrel, combine [up0])
+          end
+      | KdDerivTime kdrel =>
+          let
+            val (kdrel, up0) = on_rel kdrel
+          in
+            (KdDerivTime kdrel, combine [up0])
+          end
+      | KdDerivUnit kdrel =>
+          let
+            val (kdrel, up0) = on_rel kdrel
+          in
+            (KdDerivUnit kdrel, combine [up0])
+          end
+      | KdDerivTrue kdrel =>
+          let
+            val (kdrel, up0) = on_rel kdrel
+          in
+            (KdDerivTrue kdrel, combine [up0])
+          end
+      | KdDerivFalse kdrel =>
+          let
+            val (kdrel, up0) = on_rel kdrel
+          in
+            (KdDerivFalse kdrel, combine [up0])
+          end
       | KdDerivUnOp (kdrel, kdderiv1) =>
           let
+            val (kdrel, up0) = on_rel kdrel
             val (kdderiv1, up1) = on_kdderiv kdderiv1
           in
-            (KdDerivUnOp (on_rel kdrel, kdderiv1), combine [up1])
+            (KdDerivUnOp (kdrel, kdderiv1), combine [up0, up1])
           end
       | KdDerivBinOp (kdrel, kdderiv1, kdderiv2) =>
           let
+            val (kdrel, up0) = on_rel kdrel
             val (kdderiv1, up1) = on_kdderiv kdderiv1
             val (kdderiv2, up2) = on_kdderiv kdderiv2
           in
-            (KdDerivBinOp (on_rel kdrel, kdderiv1, kdderiv2), combine [up1, up2])
+            (KdDerivBinOp (kdrel, kdderiv1, kdderiv2), combine [up0, up1, up2])
           end
       | KdDerivIte (kdrel, kdderiv1, kdderiv2, kdderiv3) =>
           let
+            val (kdrel, up0) = on_rel kdrel
             val (kdderiv1, up1) = on_kdderiv kdderiv1
             val (kdderiv2, up2) = on_kdderiv kdderiv2
             val (kdderiv3, up3) = on_kdderiv kdderiv3
           in
-            (KdDerivIte (on_rel kdrel, kdderiv1, kdderiv2, kdderiv3), combine [up1, up2, up3])
+            (KdDerivIte (kdrel, kdderiv1, kdderiv2, kdderiv3), combine [up0, up1, up2, up3])
           end
       | KdDerivTimeAbs (kdrel, kdderiv1) =>
           let
+            val (kdrel, up0) = on_rel kdrel
             val (kdderiv1, up1) = on_kdderiv kdderiv1
           in
-            (KdDerivTimeAbs (on_rel kdrel, kdderiv1), combine [up1])
+            (KdDerivTimeAbs (kdrel, kdderiv1), combine [up0, up1])
           end
       | KdDerivProd (kdrel, kdderiv1, kdderiv2) =>
           let
+            val (kdrel, up0) = on_rel kdrel
             val (kdderiv1, up1) = on_kdderiv kdderiv1
             val (kdderiv2, up2) = on_kdderiv kdderiv2
           in
-            (KdDerivProd (on_rel kdrel, kdderiv1, kdderiv2), combine [up1, up2])
+            (KdDerivProd (kdrel, kdderiv1, kdderiv2), combine [up0, up1, up2])
           end
       | KdDerivSum (kdrel, kdderiv1, kdderiv2) =>
           let
+            val (kdrel, up0) = on_rel kdrel
             val (kdderiv1, up1) = on_kdderiv kdderiv1
             val (kdderiv2, up2) = on_kdderiv kdderiv2
           in
-            (KdDerivSum (on_rel kdrel, kdderiv1, kdderiv2), combine [up1, up2])
+            (KdDerivSum (kdrel, kdderiv1, kdderiv2), combine [up0, up1, up2])
           end
       | KdDerivArrow (kdrel, kdderiv1, kdderiv2, kdderiv3) =>
           let
+            val (kdrel, up0) = on_rel kdrel
             val (kdderiv1, up1) = on_kdderiv kdderiv1
             val (kdderiv2, up2) = on_kdderiv kdderiv2
             val (kdderiv3, up3) = on_kdderiv kdderiv3
           in
-            (KdDerivArrow (on_rel kdrel, kdderiv1, kdderiv2, kdderiv3), combine [up1, up2, up3])
+            (KdDerivArrow (kdrel, kdderiv1, kdderiv2, kdderiv3), combine [up0, up1, up2, up3])
           end
       | KdDerivApp (kdrel, kdderiv1, kdderiv2) =>
           let
+            val (kdrel, up0) = on_rel kdrel
             val (kdderiv1, up1) = on_kdderiv kdderiv1
             val (kdderiv2, up2) = on_kdderiv kdderiv2
           in
-            (KdDerivApp (on_rel kdrel, kdderiv1, kdderiv2), combine [up1, up2])
+            (KdDerivApp (kdrel, kdderiv1, kdderiv2), combine [up0, up1, up2])
           end
       | KdDerivAbs (kdrel, kdwf1, kdderiv2) =>
           let
+            val (kdrel, up0) = on_rel kdrel
+            val (kdwf1, up1) = on_kdwf kdwf1
             val (kdderiv2, up2) = on_kdderiv kdderiv2
           in
-            (KdDerivAbs (on_rel kdrel, kdwf1, kdderiv2), combine [up2])
+            (KdDerivAbs (kdrel, kdwf1, kdderiv2), combine [up0, up1, up2])
           end
       | KdDerivForall (kdrel, kdwf1, kdderiv2) =>
           let
+            val (kdrel, up0) = on_rel kdrel
+            val (kdwf1, up1) = on_kdwf kdwf1
             val (kdderiv2, up2) = on_kdderiv kdderiv2
           in
-            (KdDerivForall (on_rel kdrel, kdwf1, kdderiv2), combine [up2])
+            (KdDerivForall (kdrel, kdwf1, kdderiv2), combine [up0, up1, up2])
           end
       | KdDerivExists (kdrel, kdwf1, kdderiv2) =>
           let
+            val (kdrel, up0) = on_rel kdrel
+            val (kdwf1, up1) = on_kdwf kdwf1
             val (kdderiv2, up2) = on_kdderiv kdderiv2
           in
-            (KdDerivExists (on_rel kdrel, kdwf1, kdderiv2), combine [up2])
+            (KdDerivExists (kdrel, kdwf1, kdderiv2), combine [up0, up1, up2])
           end
       | KdDerivRec (kdrel, kdwf1, kdderiv2) =>
           let
+            val (kdrel, up0) = on_rel kdrel
+            val (kdwf1, up1) = on_kdwf kdwf1
             val (kdderiv2, up2) = on_kdderiv kdderiv2
           in
-            (KdDerivRec (on_rel kdrel, kdwf1, kdderiv2), combine [up2])
+            (KdDerivRec (kdrel, kdwf1, kdderiv2), combine [up0, up1, up2])
           end
-      | KdDerivTypeUnit kdrel => (KdDerivTypeUnit (on_rel kdrel), Arg.upward_base)
-      | KdDerivTypeInt kdrel => (KdDerivTypeInt (on_rel kdrel), Arg.upward_base)
+      | KdDerivTypeUnit kdrel =>
+          let
+            val (kdrel, up0) = on_rel kdrel
+          in
+            (KdDerivTypeUnit kdrel, combine [up0])
+          end
+      | KdDerivTypeInt kdrel =>
+          let
+            val (kdrel, up0) = on_rel kdrel
+          in
+            (KdDerivTypeInt kdrel, combine [up0])
+          end
       | KdDerivTypeNat (kdrel, kdderiv1) =>
           let
+            val (kdrel, up0) = on_rel kdrel
             val (kdderiv1, up1) = on_kdderiv kdderiv1
           in
-            (KdDerivTypeNat (on_rel kdrel, kdderiv1), combine [up1])
+            (KdDerivTypeNat (kdrel, kdderiv1), combine [up0, up1])
           end
       | KdDerivTypeArray (kdrel, kdderiv1, kdderiv2) =>
           let
+            val (kdrel, up0) = on_rel kdrel
             val (kdderiv1, up1) = on_kdderiv kdderiv1
             val (kdderiv2, up2) = on_kdderiv kdderiv2
           in
-            (KdDerivTypeArray (on_rel kdrel, kdderiv1, kdderiv2), combine [up1, up2])
+            (KdDerivTypeArray (kdrel, kdderiv1, kdderiv2), combine [up0, up1, up2])
           end
     end
 
@@ -330,7 +443,12 @@ struct
 
   and default_transform_proping_derivation (prderiv : proping_derivation, down : Arg.down) =
     case prderiv of
-      PrDerivAdmit prrel => (PrDerivAdmit (Arg.on_proping_relation (prrel, down)), Arg.upward_base)
+      PrDerivAdmit prrel =>
+        let
+          val (prrel, up0) = Arg.on_proping_relation (prrel, down)
+        in
+          (PrDerivAdmit prrel, combine [up0])
+        end
 
   and transform_proping_derivation (prderiv : proping_derivation, down : Arg.down) =
     case Arg.transformer_proping_derivation (prderiv, down) of
@@ -344,24 +462,57 @@ struct
       fun on_prwf prwf = transform_prop_wellformness_derivation (prwf, down)
     in
       case kdwf of
-        KdWfDerivNat kdrel => (KdWfDerivNat (on_rel kdrel), Arg.upward_base)
-      | KdWfDerivUnit kdrel => (KdWfDerivUnit (on_rel kdrel), Arg.upward_base)
-      | KdWfDerivBool kdrel => (KdWfDerivBool (on_rel kdrel), Arg.upward_base)
-      | KdWfDerivTimeFun kdrel => (KdWfDerivTimeFun (on_rel kdrel), Arg.upward_base)
+        KdWfDerivAssume kdrel =>
+          let
+            val (kdrel, up0) = on_rel kdrel
+          in
+            (KdWfDerivAssume kdrel, combine [up0])
+          end
+      | KdWfDerivNat kdrel =>
+          let
+            val (kdrel, up0) = on_rel kdrel
+          in
+            (KdWfDerivNat kdrel, combine [up0])
+          end
+      | KdWfDerivBool kdrel =>
+          let
+            val (kdrel, up0) = on_rel kdrel
+          in
+            (KdWfDerivBool kdrel, combine [up0])
+          end
+      | KdWfDerivUnit kdrel =>
+          let
+            val (kdrel, up0) = on_rel kdrel
+          in
+            (KdWfDerivUnit kdrel, combine [up0])
+          end
+      | KdWfDerivTimeFun kdrel =>
+          let
+            val (kdrel, up0) = on_rel kdrel
+          in
+            (KdWfDerivTimeFun kdrel, combine [up0])
+          end
       | KdWfDerivSubset (kdrel, kdwf1, prwf2) =>
           let
+            val (kdrel, up0) = on_rel kdrel
             val (kdwf1, up1) = on_kdwf kdwf1
             val (prwf2, up2) = on_prwf prwf2
           in
-            (KdWfDerivSubset (on_rel kdrel, kdwf1, prwf2), combine [up1, up2])
+            (KdWfDerivSubset (kdrel, kdwf1, prwf2), combine [up0, up1, up2])
           end
-      | KdWfDerivProper kdrel => (KdWfDerivProper (on_rel kdrel), Arg.upward_base)
+      | KdWfDerivProper kdrel =>
+          let
+            val (kdrel, up0) = on_rel kdrel
+          in
+            (KdWfDerivProper kdrel, combine [up0])
+          end
       | KdWfDerivArrow (kdrel, kdwf1, kdwf2) =>
           let
+            val (kdrel, up0) = on_rel kdrel
             val (kdwf1, up1) = on_kdwf kdwf1
             val (kdwf2, up2) = on_kdwf kdwf2
           in
-            (KdWfDerivArrow (on_rel kdrel, kdwf1, kdwf2), combine [up1, up2])
+            (KdWfDerivArrow (kdrel, kdwf1, kdwf2), combine [up0, up1, up2])
           end
     end
 
@@ -378,41 +529,56 @@ struct
       fun on_kdderiv kdderiv = transform_kinding_derivation (kdderiv, down)
     in
       case prwf of
-        PrWfDerivTop prrel => (PrWfDerivTop (on_rel prrel), Arg.upward_base)
-      | PrWfDerivBot prrel => (PrWfDerivBot (on_rel prrel), Arg.upward_base)
+        PrWfDerivTop prrel =>
+          let
+            val (prrel, up0) = on_rel prrel
+          in
+            (PrWfDerivTop prrel, combine [up0])
+          end
+      | PrWfDerivBot prrel =>
+          let
+            val (prrel, up0) = on_rel prrel
+          in
+            (PrWfDerivBot prrel, combine [up0])
+          end
       | PrWfDerivBinConn (prrel, prwf1, prwf2) =>
           let
+            val (prrel, up0) = on_rel prrel
             val (prwf1, up1) = on_prwf prwf1
             val (prwf2, up2) = on_prwf prwf2
           in
-            (PrWfDerivBinConn (on_rel prrel, prwf1, prwf2), combine [up1, up2])
+            (PrWfDerivBinConn (prrel, prwf1, prwf2), combine [up0, up1, up2])
           end
       | PrWfDerivNot (prrel, prwf1) =>
           let
+            val (prrel, up0) = on_rel prrel
             val (prwf1, up1) = on_prwf prwf1
           in
-            (PrWfDerivNot (on_rel prrel, prwf1), combine [up1])
+            (PrWfDerivNot (prrel, prwf1), combine [up0, up1])
           end
       | PrWfDerivBinRel (prrel, kdderiv1, kdderiv2) =>
           let
+            val (prrel, up0) = on_rel prrel
             val (kdderiv1, up1) = on_kdderiv kdderiv1
             val (kdderiv2, up2) = on_kdderiv kdderiv2
           in
-            (PrWfDerivBinRel (on_rel prrel, kdderiv1, kdderiv2), combine [up1, up2])
+            (PrWfDerivBinRel (prrel, kdderiv1, kdderiv2), combine [up0, up1, up2])
           end
       | PrWfDerivForall (prrel, kdwf1, prwf2) =>
           let
+            val (prrel, up0) = on_rel prrel
             val (kdwf1, up1) = on_kdwf kdwf1
             val (prwf2, up2) = on_prwf prwf2
           in
-            (PrWfDerivForall (on_rel prrel, kdwf1, prwf2), combine [up1, up2])
+            (PrWfDerivForall (prrel, kdwf1, prwf2), combine [up0, up1, up2])
           end
       | PrWfDerivExists (prrel, kdwf1, prwf2) =>
           let
+            val (prrel, up0) = on_rel prrel
             val (kdwf1, up1) = on_kdwf kdwf1
             val (prwf2, up2) = on_prwf prwf2
           in
-            (PrWfDerivExists (on_rel prrel, kdwf1, prwf2), combine [up1, up2])
+            (PrWfDerivExists (prrel, kdwf1, prwf2), combine [up0, up1, up2])
           end
     end
 
