@@ -1,6 +1,5 @@
 structure MicroTiML =
 struct
-  exception TODO
   open Util
 
   type nat = int
@@ -197,6 +196,7 @@ struct
 
   and kinding_derivation =
     KdDerivRefine of kinding_relation * kinding_derivation * proping_derivation
+  | KdDerivBase of kinding_relation * kinding_derivation
   | KdDerivVar of kinding_relation
   | KdDerivNat of kinding_relation
   | KdDerivTime of kinding_relation
@@ -224,7 +224,8 @@ struct
     PrDerivAdmit of proping_relation
 
   datatype typing_derivation =
-    TyDerivVar of typing_relation
+    TyDerivSub of typing_relation * typing_derivation * proping_derivation
+  | TyDerivVar of typing_relation
   | TyDerivInt of typing_relation
   | TyDerivNat of typing_relation
   | TyDerivUnit of typing_relation
@@ -248,5 +249,180 @@ struct
   | TyDerivArrayGet of typing_relation * typing_derivation * typing_derivation * proping_derivation
   | TyDerivArrayPut of typing_relation * typing_derivation * typing_derivation * proping_derivation * typing_derivation
   | TyDerivLet of typing_relation * typing_derivation * typing_derivation
-  | TyDerivNever of typing_relation * proping_derivation
+  | TyDerivNever of typing_relation * kinding_derivation * proping_derivation
+
+  exception Impossible
+
+  fun is_value tm =
+    case tm of
+      TmVar _ => true
+    | TmInt _ => true
+    | TmNat _ => true
+    | TmUnit => true
+    | TmAbs _ => true
+    | TmRec _ => true
+    | TmCstrAbs _ => true
+    (*| TmFold tm1 => is_value tm1
+    | TmUnfold tm1 => is_value tm1
+    | TmPack (cstr1, tm2) => is_value tm2
+    | TmCstrApp (tm1, cstr2) => is_value tm1*)
+    | TmNever => true
+    | _ => false
+
+  fun extract_kdwfrel kdwf =
+    case kdwf of
+      KdWfDerivNat rel => rel
+    | KdWfDerivUnit rel => rel
+    | KdWfDerivBool rel => rel
+    | KdWfDerivTimeFun rel => rel
+    | KdWfDerivSubset (rel, _, _) => rel
+    | KdWfDerivProper rel => rel
+    | KdWfDerivArrow (rel, _, _) => rel
+
+  fun extract_prwfrel prwf =
+    case prwf of
+      PrWfDerivTop rel => rel
+    | PrWfDerivBot rel => rel
+    | PrWfDerivBinConn (rel, _, _) => rel
+    | PrWfDerivNot (rel, _) => rel
+    | PrWfDerivBinRel (rel, _, _) => rel
+    | PrWfDerivForall (rel, _, _) => rel
+    | PrWfDerivExists (rel, _, _) => rel
+
+  fun extract_prrel prderiv =
+    case prderiv of
+      PrDerivAdmit rel => rel
+
+  fun extract_tyrel tyderiv =
+    case tyderiv of
+      TyDerivSub (rel, _, _) => rel
+    | TyDerivVar rel => rel
+    | TyDerivInt rel => rel
+    | TyDerivNat rel => rel
+    | TyDerivUnit rel => rel
+    | TyDerivApp (rel, _, _) => rel
+    | TyDerivAbs (rel, _, _) => rel
+    | TyDerivRec (rel, _, _) => rel
+    | TyDerivPair (rel, _, _) => rel
+    | TyDerivFst (rel, _) => rel
+    | TyDerivSnd (rel, _) => rel
+    | TyDerivInLeft (rel, _, _) => rel
+    | TyDerivInRight (rel, _, _) => rel
+    | TyDerivCase (rel, _, _, _) => rel
+    | TyDerivFold (rel, _, _) => rel
+    | TyDerivUnfold (rel, _) => rel
+    | TyDerivPack (rel, _, _, _) => rel
+    | TyDerivUnpack (rel, _, _) => rel
+    | TyDerivCstrAbs (rel, _, _) => rel
+    | TyDerivCstrApp (rel, _, _) => rel
+    | TyDerivBinOp (rel, _, _) => rel
+    | TyDerivArrayNew (rel, _, _) => rel
+    | TyDerivArrayGet (rel, _, _, _) => rel
+    | TyDerivArrayPut (rel, _, _, _, _) => rel
+    | TyDerivLet (rel, _, _) => rel
+    | TyDerivNever (rel, _, _) => rel
+
+  fun extract_kdrel kdderiv =
+    case kdderiv of
+      KdDerivRefine (rel, _, _) => rel
+    | KdDerivBase (rel, _) => rel
+    | KdDerivVar rel => rel
+    | KdDerivNat rel => rel
+    | KdDerivTime rel => rel
+    | KdDerivUnit rel => rel
+    | KdDerivTrue rel => rel
+    | KdDerivFalse rel => rel
+    | KdDerivUnOp (rel, _) => rel
+    | KdDerivBinOp (rel, _, _) => rel
+    | KdDerivIte (rel, _, _, _) => rel
+    | KdDerivTimeAbs (rel, _) => rel
+    | KdDerivProd (rel, _, _) => rel
+    | KdDerivSum (rel, _, _) => rel
+    | KdDerivArrow (rel, _, _, _) => rel
+    | KdDerivAbs (rel, _, _) => rel
+    | KdDerivApp (rel, _, _) => rel
+    | KdDerivForall (rel, _, _) => rel
+    | KdDerivExists (rel, _, _) => rel
+    | KdDerivRec (rel, _, _) => rel
+    | KdDerivTypeUnit rel => rel
+    | KdDerivTypeInt rel => rel
+    | KdDerivTypeNat (rel, _) => rel
+    | KdDerivTypeArray (rel, _, _) => rel
+
+  fun extract_cstr_arrow (CstrArrow r) = r
+    | extract_cstr_arrow _ = raise Impossible
+
+  fun extract_cstr_prod (CstrProd r) = r
+    | extract_cstr_prod _ = raise Impossible
+
+  fun extract_cstr_sum (CstrSum r) = r
+    | extract_cstr_sum _ = raise Impossible
+
+  fun extract_cstr_rec (CstrRec r) = r
+    | extract_cstr_rec _ = raise Impossible
+
+  fun extract_cstr_forall (CstrForall r) = r
+    | extract_cstr_forall _ = raise Impossible
+
+  fun extract_cstr_abs (CstrAbs r) = r
+    | extract_cstr_abs _ = raise Impossible
+
+  fun extract_cstr_type_nat (CstrTypeNat r) = r
+    | extract_cstr_type_nat _ = raise Impossible
+
+  fun extract_cstr_type_array (CstrTypeArray r) = r
+    | extract_cstr_type_array _ = raise Impossible
+
+  fun extract_tm_abs (TmAbs r) = r
+    | extract_tm_abs _ = raise Impossible
+
+  fun extract_tm_rec (TmRec r) = r
+    | extract_tm_rec _ = raise Impossible
+
+  fun extract_tm_cstr_abs (TmCstrAbs r) = r
+    | extract_tm_cstr_abs _ = raise Impossible
+
+  fun extract_tm_bin_op (TmBinOp r) = r
+    | extract_tm_bin_op _ = raise Impossible
+
+  fun term_bin_op_to_constr bop =
+    case bop of
+      TmBopIntAdd => (CstrTypeInt, (CstrTypeInt, CstrTypeInt))
+    | TmBopIntMul => (CstrTypeInt, (CstrTypeInt, CstrTypeInt))
+
+  fun cstr_un_op_to_kind uop =
+    case uop of
+      CstrUopDiv _ => (KdTimeFun 0, KdTimeFun 0)
+    | CstrUopLog _ => (KdTimeFun 0, KdTimeFun 0)
+    | CstrUopNeg => (KdTimeFun 0, KdTimeFun 0)
+    | CstrUopCeil => (KdTimeFun 0, KdTimeFun 0)
+    | CstrUopFloor => (KdTimeFun 0, KdTimeFun 0)
+    | CstrUopBool2Nat => (KdNat, KdBool)
+    | CstrUopNat2Time => (KdTimeFun 0, KdNat)
+
+  fun cstr_bin_op_to_kind bop =
+    case bop of
+      CstrBopOr => [(KdBool, (KdBool, KdBool))]
+    | CstrBopEq => [(KdBool, (KdNat, KdNat)), (KdBool, (KdBool, KdBool))]
+    | CstrBopGe => [(KdBool, (KdNat, KdNat))]
+    | CstrBopGt => [(KdBool, (KdNat, KdNat))]
+    | CstrBopLe => [(KdBool, (KdNat, KdNat))]
+    | CstrBopLt => [(KdBool, (KdNat, KdNat))]
+    | CstrBopAdd => [(KdNat, (KdNat, KdNat)), (KdTimeFun 0, (KdTimeFun 0, KdTimeFun 0))]
+    | CstrBopAnd => [(KdBool, (KdBool, KdBool))]
+    | CstrBopExp => [(KdNat, (KdNat, KdNat))]
+    | CstrBopDiff => [(KdNat, (KdNat, KdNat)), (KdTimeFun 0, (KdTimeFun 0, KdTimeFun 0))]
+    | CstrBopMult => [(KdNat, (KdNat, KdNat)), (KdTimeFun 0, (KdTimeFun 0, KdTimeFun 0))]
+    | CstrBopMax => [(KdNat, (KdNat, KdNat)), (KdTimeFun 0, (KdTimeFun 0, KdTimeFun 0))]
+    | CstrBopMin => [(KdNat, (KdNat, KdNat)), (KdTimeFun 0, (KdTimeFun 0, KdTimeFun 0))]
+    | CstrBopTimeApp => []
+
+  fun prop_bin_rel_to_kind rel =
+    case rel of
+      PrRelEq => [(KdBool, KdBool), (KdNat, KdNat)]
+    | PrRelLe => [(KdNat, KdNat), (KdTimeFun 0, KdTimeFun 0)]
+    | PrRelLt => [(KdNat, KdNat)]
+    | PrRelGe => [(KdNat, KdNat)]
+    | PrRelGt => [(KdNat, KdNat)]
+    | PrRelBigO => []
 end

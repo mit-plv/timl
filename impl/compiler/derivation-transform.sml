@@ -34,7 +34,14 @@ struct
       fun on_prderiv prderiv = transform_proping_derivation (prderiv, down)
     in
       case tyderiv of
-        TyDerivVar tyrel => (TyDerivVar (on_rel tyrel), Arg.upward_base)
+        TyDerivSub (tyrel, tyderiv1, prderiv2) =>
+          let
+            val (tyderiv1, up1) = on_tyderiv tyderiv1
+            val (prderiv2, up2) = on_prderiv prderiv2
+          in
+            (TyDerivSub (on_rel tyrel, tyderiv1, prderiv2), combine [up1, up2])
+          end
+      | TyDerivVar tyrel => (TyDerivVar (on_rel tyrel), Arg.upward_base)
       | TyDerivInt tyrel => (TyDerivInt (on_rel tyrel), Arg.upward_base)
       | TyDerivNat tyrel => (TyDerivNat (on_rel tyrel), Arg.upward_base)
       | TyDerivUnit tyrel => (TyDerivUnit (on_rel tyrel), Arg.upward_base)
@@ -179,11 +186,12 @@ struct
           in
             (TyDerivLet (on_rel tyrel, tyderiv1, tyderiv2), combine [up1, up2])
           end
-      | TyDerivNever (tyrel, prderiv1) =>
+      | TyDerivNever (tyrel, kdderiv1, prderiv2) =>
           let
-            val (prderiv1, up1) = on_prderiv prderiv1
+            val (kdderiv1, up1) = on_kdderiv kdderiv1
+            val (prderiv2, up2) = on_prderiv prderiv2
           in
-            (TyDerivNever (on_rel tyrel, prderiv1), combine [up1])
+            (TyDerivNever (on_rel tyrel, kdderiv1, prderiv2), combine [up1, up2])
           end
     end
 
@@ -205,6 +213,12 @@ struct
             val (prderiv2, up2) = on_prderiv prderiv2
           in
             (KdDerivRefine (on_rel kdrel, kdderiv1, prderiv2), combine [up1, up2])
+          end
+      | KdDerivBase (kdrel, kdderiv1) =>
+          let
+            val (kdderiv1, up1) = on_kdderiv kdderiv1
+          in
+            (KdDerivBase (on_rel kdrel, kdderiv1), combine [up1])
           end
       | KdDerivVar kdrel => (KdDerivVar (on_rel kdrel), Arg.upward_base)
       | KdDerivNat kdrel => (KdDerivNat (on_rel kdrel), Arg.upward_base)

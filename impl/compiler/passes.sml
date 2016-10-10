@@ -146,6 +146,142 @@ struct
     fun shift_term d tm = shift_term_above d 0 tm
   end
 
+  structure TermSubstConstr =
+  struct
+    structure TermSubstConstrHelper =
+    struct
+      type down = int * constr
+      type up = unit
+
+      val upward_base = ()
+      fun combiner ((), ()) = ()
+
+      fun transformer_constr (on_constr, on_kind) (cstr : constr, down as (who, to) : down) =
+        case cstr of
+          CstrVar a => SOME (if a = who then TermShift.shift_constr who to else cstr, ())
+        | CstrTimeAbs cstr1 =>
+            let
+              val (cstr1, ()) = on_constr (cstr1, (who + 1, to))
+            in
+              SOME (CstrTimeAbs cstr1, ())
+            end
+        | CstrAbs (kd1, cstr2) =>
+            let
+              val (kd1, ()) = on_kind (kd1, down)
+              val (cstr2, ()) = on_constr (cstr2, (who + 1, to))
+            in
+              SOME (CstrAbs (kd1, cstr2), ())
+            end
+        | CstrForall (kd1, cstr2) =>
+            let
+              val (kd1, ()) = on_kind (kd1, down)
+              val (cstr2, ()) = on_constr (cstr2, (who + 1, to))
+            in
+              SOME (CstrForall (kd1, cstr2), ())
+            end
+        | CstrExists (kd1, cstr2) =>
+            let
+              val (kd1, ()) = on_kind (kd1, down)
+              val (cstr2, ()) = on_constr (cstr2, (who + 1, to))
+            in
+              SOME (CstrExists (kd1, cstr2), ())
+            end
+        | CstrRec (kd1, cstr2) =>
+            let
+              val (kd1, ()) = on_kind (kd1, down)
+              val (cstr2, ()) = on_constr (cstr2, (who + 1, to))
+            in
+              SOME (CstrRec (kd1, cstr2), ())
+            end
+        | _ => NONE
+
+      fun transformer_kind (on_kind, on_prop) (kd : kind, down as (who, to) : down) =
+        case kd of
+          KdSubset (kd1, pr2) =>
+            let
+              val (kd1, ()) = on_kind (kd1, down)
+              val (pr2, ()) = on_prop (pr2, (who + 1, to))
+            in
+              SOME (KdSubset (kd1, pr2), ())
+            end
+        | _ => NONE
+
+      fun transformer_prop (on_constr, on_kind, on_prop) (pr : prop, down as (who, to) : down) =
+        case pr of
+          PrForall (kd1, pr2) =>
+            let
+              val (kd1, ()) = on_kind (kd1, down)
+              val (pr2, ()) = on_prop (pr2, (who + 1, to))
+            in
+              SOME (PrForall (kd1, pr2), ())
+            end
+        | PrExists (kd1, pr2) =>
+            let
+              val (kd1, ()) = on_kind (kd1, down)
+              val (pr2, ()) = on_prop (pr2, (who + 1, to))
+            in
+              SOME (PrExists (kd1, pr2), ())
+            end
+        | _ => NONE
+
+      fun transformer_term (on_constr, on_kind, on_term) (tm : term, down as (who, to) : down) =
+        case tm of
+          TmAbs (cstr1, tm2) =>
+            let
+              val (cstr1, ()) = on_constr (cstr1, down)
+              val (tm2, ()) = on_term (tm2, (who + 1, to))
+            in
+              SOME (TmAbs (cstr1, tm2), ())
+            end
+        | TmRec (cstr1, tm2) =>
+            let
+              val (cstr1, ()) = on_constr (cstr1, down)
+              val (tm2, ()) = on_term (tm2, (who + 1, to))
+            in
+              SOME (TmRec (cstr1, tm2), ())
+            end
+        | TmCase (tm1, tm2, tm3) =>
+           let
+             val (tm1, ()) = on_term (tm1, down)
+             val (tm2, ()) = on_term (tm2, (who + 1, to))
+             val (tm3, ()) = on_term (tm3, (who + 1, to))
+           in
+             SOME (TmCase (tm1, tm2, tm3), ())
+           end
+        | TmUnpack (tm1, tm2) =>
+            let
+              val (tm1, ()) = on_term (tm1, down)
+              val (tm2, ()) = on_term (tm2, (who + 2, to))
+            in
+              SOME (TmUnpack (tm1, tm2), ())
+            end
+        | TmCstrAbs (kd1, tm2) =>
+            let
+              val (kd1, ()) = on_kind (kd1, down)
+              val (tm2, ()) = on_term (tm2, (who + 1, to))
+            in
+              SOME (TmCstrAbs (kd1, tm2), ())
+            end
+        | TmLet (tm1, tm2) =>
+            let
+              val (tm1, ()) = on_term (tm1, down)
+              val (tm2, ()) = on_term (tm2, (who + 1, to))
+            in
+              SOME (TmLet (tm1, tm2), ())
+            end
+        | _ => NONE
+    end
+
+    structure TermSubstConstrIns = TermTransformPass(TermSubstConstrHelper)
+    open TermSubstConstrIns
+
+    fun subst_constr_in_term_top to tm =
+      TermShift.shift_term ~1 (#1 (transform_term (tm, (0, TermShift.shift_constr 1 to))))
+
+    fun subst_constr_in_constr_top to cstr =
+      TermShift.shift_constr ~1 (#1 (transform_constr (cstr, (0, TermShift.shift_constr 1 to))))
+  end
+
   structure Printer =
   struct
     structure PrinterHelper =
@@ -345,22 +481,6 @@ struct
 
   structure ANF =
   struct
-    fun is_value tm =
-      case tm of
-        TmVar _ => true
-      | TmInt _ => true
-      | TmNat _ => true
-      | TmUnit => true
-      | TmAbs _ => true
-      | TmRec _ => true
-      | TmCstrAbs _ => true
-      | TmFold tm1 => is_value tm1
-      | TmUnfold tm1 => is_value tm1
-      | TmPack (cstr1, tm2) => is_value tm2
-      | TmCstrApp (tm1, cstr2) => is_value tm1
-      | TmNever => true
-      | _ => false
-
     fun normalize_term tm = normalize tm (fn (x, d) => x)
 
     and normalize tm k =
@@ -420,5 +540,137 @@ struct
 
     and normalize_shift tm k =
       normalize tm (fn (tm, d) => if is_value tm then k (tm, d) else TmLet (tm, k (TmVar 0, d + 1)))
+  end
+
+  structure FV =
+  struct
+    structure FVHelper =
+    struct
+      type down = int
+      type up = int list * int list
+
+      val upward_base = ([], [])
+      fun merge s1 s2 = s1 @ (List.filter (fn x => List.all (fn (y : int) => x <> y) s1) s2)
+      fun combiner ((ftv1, fcv1), (ftv2, fcv2)) = (merge ftv1 ftv2, merge fcv1 fcv2)
+
+      fun transformer_constr (transform_constr, transform_kind) (cstr : constr, ctx : down) =
+        case cstr of
+          CstrVar a => SOME (if a >= ctx then (cstr, ([], [a - ctx])) else (cstr, ([], [])))
+        | CstrTimeAbs cstr1 =>
+            let
+              val (cstr1, up1) = transform_constr (cstr1, ctx + 1)
+            in
+              SOME (CstrTimeAbs cstr1, up1)
+            end
+        | CstrAbs (kd1, cstr2) =>
+            let
+              val (kd1, up1) = transform_kind (kd1, ctx)
+              val (cstr2, up2) = transform_constr (cstr2, ctx + 1)
+            in
+              SOME (CstrAbs (kd1, cstr2), combiner (up1, up2))
+            end
+        | CstrForall (kd1, cstr2) =>
+            let
+              val (kd1, up1) = transform_kind (kd1, ctx)
+              val (cstr2, up2) = transform_constr (cstr2, ctx + 1)
+            in
+              SOME (CstrForall (kd1, cstr2), combiner (up1, up2))
+            end
+        | CstrExists (kd1, cstr2) =>
+            let
+              val (kd1, up1) = transform_kind (kd1, ctx)
+              val (cstr2, up2) = transform_constr (cstr2, ctx + 1)
+            in
+              SOME (CstrExists (kd1, cstr2), combiner (up1, up2))
+            end
+        | CstrRec (kd1, cstr2) =>
+            let
+              val (kd1, up1) = transform_kind (kd1, ctx)
+              val (cstr2, up2) = transform_constr (cstr2, ctx + 1)
+            in
+              SOME (CstrRec (kd1, cstr2), combiner (up1, up2))
+            end
+        | _ => NONE
+
+      fun transformer_kind (transform_kind, transform_prop) (kd : kind, ctx : down) =
+        case kd of
+          KdSubset (kd1, pr2) =>
+            let
+              val (kd1, up1) = transform_kind (kd1, ctx)
+              val (pr2, up2) = transform_prop (pr2, ctx + 1)
+            in
+              SOME (KdSubset (kd1, pr2), combiner (up1, up2))
+            end
+        | _ => NONE
+
+      fun transformer_prop (transform_constr, transform_kind, transform_prop) (pr : prop, ctx : down) =
+        case pr of
+          PrForall (kd1, pr2) =>
+            let
+              val (kd1, up1) = transform_kind (kd1, ctx)
+              val (pr2, up2) = transform_prop (pr2, ctx)
+            in
+              SOME (PrForall (kd1, pr2), combiner (up1, up2))
+            end
+        | PrExists (kd1, pr2) =>
+            let
+              val (kd1, up1) = transform_kind (kd1, ctx)
+              val (pr2, up2) = transform_prop (pr2, ctx)
+            in
+              SOME (PrExists (kd1, pr2), combiner (up1, up2))
+            end
+        | _ => NONE
+
+      fun transformer_term (transform_constr, transform_kind, transform_term) (tm : term, ctx : down) =
+        case tm of
+          TmVar x => SOME (if x >= ctx then (tm, ([x - ctx], [])) else (tm, ([], [])))
+        | TmAbs (cstr1, tm2) =>
+            let
+              val (cstr1, up1) = transform_constr (cstr1, ctx)
+              val (tm2, up2) = transform_term (tm2, ctx + 1)
+            in
+              SOME (TmAbs (cstr1, tm2), combiner (up1, up2))
+            end
+        | TmRec (cstr1, tm2) =>
+            let
+              val (cstr1, up1) = transform_constr (cstr1, ctx)
+              val (tm2, up2) = transform_term (tm2, ctx + 1)
+            in
+              SOME (TmRec (cstr1, tm2), combiner (up1, up2))
+            end
+        | TmCase (tm1, tm2, tm3) =>
+            let
+              val (tm1, up1) = transform_term (tm1, ctx)
+              val (tm2, up2) = transform_term (tm2, ctx + 1)
+              val (tm3, up3) = transform_term (tm3, ctx + 1)
+            in
+              SOME (TmCase (tm1, tm2, tm3), combiner (combiner (up1, up2), up3))
+            end
+        | TmUnpack (tm1, tm2) =>
+            let
+              val (tm1, up1) = transform_term (tm1, ctx)
+              val (tm2, up2) = transform_term (tm2, ctx + 2)
+            in
+              SOME (TmUnpack (tm1, tm2), combiner (up1, up2))
+            end
+        | TmCstrAbs (kd1, tm2) =>
+            let
+              val (kd1, up1) = transform_kind (kd1, ctx)
+              val (tm2, up2) = transform_term (tm2, ctx + 1)
+            in
+              SOME (TmCstrAbs (kd1, tm2), combiner (up1, up2))
+            end
+        | TmLet (tm1, tm2) =>
+            let
+              val (tm1, up1) = transform_term (tm1, ctx)
+              val (tm2, up2) = transform_term (tm2, ctx + 1)
+            in
+              SOME (TmLet (tm1, tm2), combiner (up1, up2))
+            end
+        | _ => NONE
+    end
+
+    structure FVIns = TermTransformPass(FVHelper)
+    open FVIns
   end
 end
