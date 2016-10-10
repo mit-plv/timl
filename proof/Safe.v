@@ -1292,10 +1292,10 @@ Module M (Time : TIME).
     | PQuan q b p => lift1 arg_ks (interp_quan q) (interp_p (b :: arg_ks) p)
     end.
 
-  Fixpoint foralls arg_ks : interp_sorts arg_ks Prop -> Prop :=
+  Fixpoint forall_all arg_ks : interp_sorts arg_ks Prop -> Prop :=
     match arg_ks with
     | [] => id
-    | arg_k :: arg_ks => fun P => foralls arg_ks (lift1 arg_ks for_all P)
+    | arg_k :: arg_ks => fun P => forall_all arg_ks (lift1 arg_ks for_all P)
     end.
 
   Fixpoint strip_subset k :=
@@ -1319,38 +1319,115 @@ Module M (Time : TIME).
       (b :: bs, ps1 ++ ps2)
     end.
 
-  Fixpoint implys ps q :=
+  (* Fixpoint implys ps q := *)
+  (*   match ps with *)
+  (*   | [] => q *)
+  (*   | p :: ps => implys ps (p ===> q)%idx *)
+  (*   end. *)
+  
+  Infix "/\" := PAnd : idx_scope.
+  
+  Fixpoint and_all ps :=
     match ps with
-    | [] => q
-    | p :: ps => implys ps (p ===> q)%idx
+    | [] => PTrue
+    | p :: ps => (p /\ and_all ps) % idx
     end.
   
   Definition interp_prop (ks : kctx) (p : prop) : Prop :=
     let bs_ps := strip_subsets ks in
     let bs := fst bs_ps in
     let ps := snd bs_ps in
-    let p := implys ps p in
+    let p := (and_all ps ===> p)%idx in
     let P := interp_p bs p in
-    foralls bs P.
+    forall_all bs P.
 
-  Lemma interp_prop_le_refl L : forall i, interp_prop L (i <= i)%idx.
+  Lemma interp_prop_le_interp_time a b :
+    interp_prop [] (a <= b)%idx ->
+    (interp_time a <= interp_time b)%time.
   Proof.
     unfold interp_prop.
-    induct L; intros i; cbn in *.
-    {
-      eapply Time_le_refl.
-    }
+    cbn in *.
+    eauto.
+  Qed.
+
+  Arguments imply / .
+  Arguments for_all / .
+
+  Lemma interp_time_interp_prop_le a b :
+    (interp_time a <= interp_time b)%time ->
+    interp_prop [] (a <= b)%idx.
+  Proof.
+    unfold interp_prop.
+    cbn in *.
+    eauto.
+  Qed.
+
+  Lemma interp_prop_eq_interp_time a b :
+    interp_prop [] (a == b)%idx -> interp_time a = interp_time b.
+  Proof.
+    unfold interp_prop.
+    cbn in *.
+    eauto.
+  Qed.
+
+(*  
+    Lemma forall_all_imply_elim ks P1 P2 :
+      forall_all ks P1 ->
+      forall_all ks (lift2 ks imply P1 P2) ->
+      forall_all ks P2.
+    Admitted.
+    Lemma fuse_lift2_lift1 A B C D ks (f : A -> C -> D) (g : B -> C) a b :
+      lift2 ks f a (lift1 ks g b) = lift2 ks (fun x y => f x (g y)) a b.
+    Admitted.
+    
+  Fixpoint lift4 arg_ks : forall t1 t2 t3 t4 t, (t1 -> t2 -> t3 -> t4 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t4 -> interp_sorts arg_ks t :=
+    match arg_ks return forall t1 t2 t3 t4 t, (t1 -> t2 -> t3 -> t4 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t4 -> interp_sorts arg_ks t with
+    | [] =>
+      fun t1 t2 t3 t4 t f x1 x2 x3 x4 => f x1 x2 x3 x4
+    | arg_k :: arg_ks =>
+      fun t1 t2 t3 t4 t f x1 x2 x3 x4 => lift4 arg_ks (fun a1 a2 a3 a4 ak => f (a1 ak) (a2 ak) (a3 ak) (a4 ak)) x1 x2 x3 x4
+    end.
+
+    Lemma fuse_lift2_lift2_lift2 A B C D E F G ks (f : E -> F -> G) (g : A -> B -> E) (h : C -> D -> F) a b c d :
+      lift2 ks f (lift2 ks g a b) (lift2 ks h c d) = lift4 ks (fun a b c d  => f (g a b) (h c d)) a b c d.
+    Admitted.
+    *)
+
+    Lemma forall_all_ignore_premise ks P1 P2:
+      forall_all ks P2 ->
+      forall_all ks (lift2 ks imply P1 P2).
+    Admitted.
+    Lemma fuse_lift1_lift2 A B C D (f : C -> D) (g : A -> B -> C) ks a b :
+      lift1 ks f (lift2 ks g a b) = lift2 ks (fun a b => f (g a b)) a b.
+    Admitted.
+    
+  Lemma interp_prop_eq_refl' ks : forall A (P : A -> A -> Prop), (forall a, P a a) -> forall a, forall_all ks (lift2 ks P a a).
+  Proof.
+    induct ks; try rename a into k; intros A P HP a; cbn in *; eauto.
+    rewrite fuse_lift1_lift2.
+    eauto.
+  Qed.
+
+  Lemma interp_prop_eq_refl L : forall i, interp_prop L (i == i)%idx.
+  Proof.
+    unfold interp_prop.
+    cbn in *.
+    intros i.
+    eapply forall_all_ignore_premise.
+    eapply interp_prop_eq_refl'; eauto.
+  Qed.
+  
+  Lemma interp_prop_ground_truth L : forall p, interp_prop [] p -> interp_prop L p.
+  Proof.
+    unfold interp_prop.
+    induct L; intros p Hp; cbn in *; eauto.
+    rename a into k.
+    eapply forall_all_imply_elim; eauto.
+    rewrite fuse_lift2_lift1.
+    rewrite fuse_lift2_lift2_lift2.
     (*here*)
   Qed.
 
-  Lemma interp_prop_le_trans L a b c :
-    interp_prop L (a <= b)%idx ->
-    interp_prop L (b <= c)%idx ->
-    interp_prop L (a <= c)%idx.
-  Admitted.
-
-  Lemma interp_prop_eq_refl L i : interp_prop L (i == i)%idx.
-  Admitted.
   Lemma interp_prop_eq_trans L a b c :
     interp_prop L (a == b)%idx ->
     interp_prop L (b == c)%idx ->
@@ -1361,23 +1438,40 @@ Module M (Time : TIME).
     interp_prop L (i' == i)%idx.
   Admitted.
 
+  Lemma interp_prop_le_refl L : forall i, interp_prop L (i <= i)%idx.
+  Proof.
+    unfold interp_prop.
+    induct L; intros i; cbn in *.
+    {
+      eapply Time_le_refl.
+    }
+    rename a into k.
+    (*here*)
+  Qed.
+
+  Lemma interp_prop_le_trans L a b c :
+    interp_prop L (a <= b)%idx ->
+    interp_prop L (b <= c)%idx ->
+    interp_prop L (a <= c)%idx.
+  Admitted.
+
+  Lemma interp_prop_iff_refl L p : interp_prop L (p <===> p)%idx.
+  Admitted.
+  Lemma interp_prop_iff_trans L a b c :
+    interp_prop L (a <===> b)%idx ->
+    interp_prop L (b <===> c)%idx ->
+    interp_prop L (a <===> c)%idx.
+  Admitted.
+  Lemma interp_prop_iff_sym L p p' :
+    interp_prop L (p <===> p')%idx ->
+    interp_prop L (p' <===> p)%idx.
+  Admitted.
+
   Lemma interp_prop_eq_interp_prop_le L a b :
     interp_prop L (a == b)%idx ->
     interp_prop L (a <= b)%idx.
   Admitted.
   
-  Lemma interp_prop_le_interp_time a b :
-    interp_prop [] (a <= b)%idx ->
-    (interp_time a <= interp_time b)%time.
-  Admitted.
-  Lemma interp_time_interp_prop_le a b :
-    (interp_time a <= interp_time b)%time ->
-    interp_prop [] (a <= b)%idx.
-  Admitted.
-  Lemma interp_prop_eq_interp_time a b :
-    interp_prop [] (a == b)%idx -> interp_time a = interp_time b.
-  Admitted.
-
   Ltac interp_le := try eapply interp_time_interp_prop_le; apply_all interp_prop_le_interp_time.
 
   Inductive kdeq : kctx -> kind -> kind -> Prop :=
@@ -1396,18 +1490,6 @@ Module M (Time : TIME).
   .
 
   Hint Constructors kdeq.
-
-  Lemma interp_prop_iff_refl L p : interp_prop L (p <===> p)%idx.
-  Admitted.
-  Lemma interp_prop_iff_trans L a b c :
-    interp_prop L (a <===> b)%idx ->
-    interp_prop L (b <===> c)%idx ->
-    interp_prop L (a <===> c)%idx.
-  Admitted.
-  Lemma interp_prop_iff_sym L p p' :
-    interp_prop L (p <===> p')%idx ->
-    interp_prop L (p' <===> p)%idx.
-  Admitted.
 
   Lemma kdeq_interp_prop L k k' p :
     kdeq L k k' ->
