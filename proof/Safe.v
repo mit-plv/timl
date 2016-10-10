@@ -802,6 +802,7 @@ Module M (Time : TIME).
   | PBCAnd
   | PBCOr
   | PBCImply
+  | PBCIff
   .
 
   Inductive prop_bin_pred :=
@@ -868,7 +869,7 @@ Module M (Time : TIME).
   Definition PAnd := PBinConn PBCAnd.
   Definition POr := PBinConn PBCOr.
   Definition PImply := PBinConn PBCImply.
-  Definition PIff a b := PAnd (PImply a b) (PImply b a).
+  Definition PIff := PBinConn PBCIff.
 
   Delimit Scope idx_scope with idx.
   Infix "+" := Tadd : idx_scope.
@@ -1249,12 +1250,14 @@ Module M (Time : TIME).
   Qed.
 
   Definition imply (A B : Prop) := A -> B.
+  Definition iff (A B : Prop) := A <-> B.
   
   Definition interp_binconn opr : Prop -> Prop -> Prop :=
     match opr with
     | PBCAnd => and
     | PBCOr => or
     | PBCImply => imply
+    | PBCIff => iff
     end.
 
   Definition binpred_arg1_sort opr := kind_to_sort (binpred_arg1_kind opr).
@@ -1351,6 +1354,7 @@ Module M (Time : TIME).
   Qed.
 
   Arguments imply / .
+  Arguments iff / .
   Arguments for_all / .
 
   Lemma interp_time_interp_prop_le a b :
@@ -1390,30 +1394,6 @@ Module M (Time : TIME).
       lift1 ks f (lift2 ks g a b) = lift2 ks (fun a b => f (g a b)) a b.
     Admitted.
     
-  (* Lemma interp_prop_eq_refl' ks : forall A B (P : A -> B -> Prop), (forall a b, P a b) -> forall a b, forall_all ks (lift2 ks P a b). *)
-  (* Proof. *)
-  (*   induct ks; try rename a into k; intros A B P HP a b; cbn in *; eauto. *)
-  (*   rewrite fuse_lift1_lift2. *)
-  (*   eauto. *)
-  (* Qed. *)
-
-  Lemma interp_prop_eq_refl' ks : forall A (P : A -> A -> Prop), (forall a, P a a) -> forall a, forall_all ks (lift2 ks P a a).
-  Proof.
-    induct ks; try rename a into k; intros A P HP a; cbn in *; eauto.
-    rewrite fuse_lift1_lift2.
-    eauto.
-  Qed.
-
-  Lemma interp_prop_eq_refl L : forall i, interp_prop L (i == i)%idx.
-  Proof.
-    unfold interp_prop.
-    cbn in *.
-    intros i.
-    eapply forall_all_ignore_premise.
-    eapply interp_prop_eq_refl'.
-    eauto.
-  Qed.
-  
   Fixpoint lift4 arg_ks : forall t1 t2 t3 t4 t, (t1 -> t2 -> t3 -> t4 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t4 -> interp_sorts arg_ks t :=
     match arg_ks return forall t1 t2 t3 t4 t, (t1 -> t2 -> t3 -> t4 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t4 -> interp_sorts arg_ks t with
     | [] =>
@@ -1435,28 +1415,6 @@ Module M (Time : TIME).
       lift1 ks f (lift4 ks g a b c d) = lift4 ks (fun a b c d => f (g a b c d)) a b c d.
     Admitted.
     
-  Lemma interp_prop_eq_sym' ks : forall A (P : A -> A -> A -> A -> Prop), (forall a b, P a b b a) -> forall a b, forall_all ks (lift4 ks P a b b a).
-  Proof.
-    induct ks; try rename a into k; intros A P HP a b; cbn in *; eauto.
-    rewrite fuse_lift1_lift4.
-    eauto.
-  Qed.
-
-  Lemma interp_prop_eq_sym L i i' :
-    interp_prop L (i == i')%idx ->
-    interp_prop L (i' == i)%idx.
-  Proof.
-    unfold interp_prop.
-    intros H.
-    cbn in *.
-    eapply forall_all_same_premise; eauto.
-    eapply forall_all_ignore_premise.
-    rewrite fuse_lift2_lift2_lift2.
-    simplify.
-    eapply interp_prop_eq_sym'.
-    eauto.
-  Qed.
-
   Fixpoint lift6 arg_ks : forall t1 t2 t3 t4 t5 t6 t, (t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t4 -> interp_sorts arg_ks t5 -> interp_sorts arg_ks t6 -> interp_sorts arg_ks t :=
     match arg_ks return forall t1 t2 t3 t4 t5 t6 t, (t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t4 -> interp_sorts arg_ks t5 -> interp_sorts arg_ks t6 -> interp_sorts arg_ks t with
     | [] =>
@@ -1479,9 +1437,48 @@ Module M (Time : TIME).
       lift1 ks h (lift6 ks g a b c d e f) = lift6 ks (fun a b c d e f => h (g a b c d e f)) a b c d e f.
     Admitted.
     
+  Lemma interp_prop_eq_refl' ks : forall A (P : A -> A -> Prop), (forall a, P a a) -> forall a, forall_all ks (lift2 ks P a a).
+  Proof.
+    induct ks; intros; cbn in *; eauto.
+    rewrite fuse_lift1_lift2.
+    eauto.
+  Qed.
+
+  Lemma interp_prop_eq_refl L : forall i, interp_prop L (i == i)%idx.
+  Proof.
+    unfold interp_prop.
+    cbn in *.
+    intros i.
+    eapply forall_all_ignore_premise.
+    eapply interp_prop_eq_refl'.
+    eauto.
+  Qed.
+  
+  Lemma interp_prop_eq_sym' ks : forall A (P : A -> A -> A -> A -> Prop), (forall a b, P a b b a) -> forall a b, forall_all ks (lift4 ks P a b b a).
+  Proof.
+    induct ks; intros; cbn in *; eauto.
+    rewrite fuse_lift1_lift4.
+    eauto.
+  Qed.
+
+  Lemma interp_prop_eq_sym L i i' :
+    interp_prop L (i == i')%idx ->
+    interp_prop L (i' == i)%idx.
+  Proof.
+    unfold interp_prop.
+    intros H.
+    cbn in *.
+    eapply forall_all_same_premise; eauto.
+    eapply forall_all_ignore_premise.
+    rewrite fuse_lift2_lift2_lift2.
+    simplify.
+    eapply interp_prop_eq_sym'.
+    eauto.
+  Qed.
+
   Lemma interp_prop_eq_trans' ks : forall A (P : A -> A -> A -> A -> A -> A -> Prop), (forall a b c, P a b b c a c) -> forall a b c, forall_all ks (lift6 ks P a b b c a c).
   Proof.
-    induct ks; try rename a into k; intros A P HP a b c; cbn in *; eauto.
+    induct ks; intros; cbn in *; eauto.
     rewrite fuse_lift1_lift6.
     eauto.
   Qed.
@@ -1507,36 +1504,97 @@ Module M (Time : TIME).
   Lemma interp_prop_le_refl L : forall i, interp_prop L (i <= i)%idx.
   Proof.
     unfold interp_prop.
-    induct L; intros i; cbn in *.
-    {
-      eapply Time_le_refl.
-    }
-    rename a into k.
-    (*here*)
+    cbn in *.
+    intros i.
+    eapply forall_all_ignore_premise.
+    eapply interp_prop_eq_refl'.
+    intros.
+    eapply Time_le_refl.
   Qed.
 
   Lemma interp_prop_le_trans L a b c :
     interp_prop L (a <= b)%idx ->
     interp_prop L (b <= c)%idx ->
     interp_prop L (a <= c)%idx.
-  Admitted.
+  Proof.
+    unfold interp_prop.
+    intros Hab Hbc.
+    cbn in *.
+    eapply forall_all_same_premise_2; [eapply Hab | eapply Hbc |].
+    eapply forall_all_ignore_premise.
+    rewrite fuse_lift2_lift2_lift2.
+    rewrite fuse_lift4_lift2_lift2.
+    simplify.
+    eapply interp_prop_eq_trans'.
+    intros.
+    eapply Time_le_trans; eauto.
+  Qed.
 
   Lemma interp_prop_iff_refl L p : interp_prop L (p <===> p)%idx.
-  Admitted.
+  Proof.
+    unfold interp_prop.
+    cbn in *.
+    eapply forall_all_ignore_premise.
+    eapply interp_prop_eq_refl'.
+    intros.
+    propositional.
+  Qed.
+
+  Lemma interp_prop_iff_sym L p p' :
+    interp_prop L (p <===> p')%idx ->
+    interp_prop L (p' <===> p)%idx.
+  Proof.
+    unfold interp_prop.
+    intros H.
+    cbn in *.
+    eapply forall_all_same_premise; eauto.
+    eapply forall_all_ignore_premise.
+    rewrite fuse_lift2_lift2_lift2.
+    simplify.
+    eapply interp_prop_eq_sym'.
+    propositional.
+  Qed.
+  
   Lemma interp_prop_iff_trans L a b c :
     interp_prop L (a <===> b)%idx ->
     interp_prop L (b <===> c)%idx ->
     interp_prop L (a <===> c)%idx.
-  Admitted.
-  Lemma interp_prop_iff_sym L p p' :
-    interp_prop L (p <===> p')%idx ->
-    interp_prop L (p' <===> p)%idx.
-  Admitted.
+  Proof.
+    unfold interp_prop.
+    intros Hab Hbc.
+    cbn in *.
+    eapply forall_all_same_premise_2; [eapply Hab | eapply Hbc |].
+    eapply forall_all_ignore_premise.
+    rewrite fuse_lift2_lift2_lift2.
+    rewrite fuse_lift4_lift2_lift2.
+    simplify.
+    eapply interp_prop_eq_trans'.
+    intros.
+    propositional.
+  Qed.
+
+  Lemma interp_prop_eq_le' ks : forall A (P : A -> A -> A -> A -> Prop), (forall a b, P a b a b) -> forall a b, forall_all ks (lift4 ks P a b a b).
+  Proof.
+    induct ks; intros; cbn in *; eauto.
+    rewrite fuse_lift1_lift4.
+    eauto.
+  Qed.
 
   Lemma interp_prop_eq_interp_prop_le L a b :
     interp_prop L (a == b)%idx ->
     interp_prop L (a <= b)%idx.
-  Admitted.
+  Proof.
+    unfold interp_prop.
+    intros H.
+    cbn in *.
+    eapply forall_all_same_premise; eauto.
+    eapply forall_all_ignore_premise.
+    rewrite fuse_lift2_lift2_lift2.
+    simplify.
+    eapply interp_prop_eq_le'.
+    intros; subst.
+    eapply Time_le_refl.
+  Qed.
   
   Ltac interp_le := try eapply interp_time_interp_prop_le; apply_all interp_prop_le_interp_time.
 
