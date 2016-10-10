@@ -215,6 +215,14 @@ struct
     fun shift_proping_derivation_above delta dep prderiv = #1 (transform_proping_derivation (prderiv, (dep, delta)))
   end
 
+  structure TypingDerivationSubstConstr =
+  struct
+  end
+
+  structure TypingDerivationSubstTerm =
+  struct
+  end
+
   structure ANF =
   struct
     open TypingDerivationShift
@@ -527,14 +535,73 @@ struct
           | BdKind kd => BdKind (Passes.TermShift.shift_kind (i + 1) kd)
         end
 
+      fun assoc x ls =
+        case ls of
+          [] => raise Subscript
+        | (a, b) :: tl => if a = x then b else assoc x tl
+
       fun transformer_typing_derivation (on_tyderiv, on_kdderiv, on_prderiv, on_kdwf) (tyderiv : typing_derivation, ()) =
         case tyderiv of
-          TyDerivAbs (tyrel, kdderiv1, tyderiv2) =>
+          TyDerivAbs ((ctx, tm as TmAbs (ty1, tm2), ty_arrow, ti), kdderiv1, tyderiv2) =>
             let
-              val (ftv, fcv) = #2 (Passes.FV.transform_term (#2 tyrel, 0))
+              val (ftv, fcv) = #2 (Passes.FV.transform_term (tm, 0))
               val ftv = ListMergeSort.sort (op>) ftv
+              val types = List.map (fn i => case get_bind (ctx, i) of BdType ty => ty | _ => raise (Impossible "must be type")) ftv
+              val fcv = #2 (Passes.FV.combine (([], fcv) :: List.map (fn ty => #2 (Passes.FV.transform_constr (ty, 0))) types))
+              fun trace cur_fcv new_fcv delta_fcv =
+                case new_fcv of
+                  [] =>
+                    let
+                      val new_cur_fcv = #2 (Passes.FV.combine [([], cur_fcv), ([], delta_fcv)])
+                    in
+                      if List.length cur_fcv = List.length new_cur_fcv then
+                        cur_fcv
+                      else
+                        trace new_cur_fcv delta_fcv []
+                    end
+                | hd :: tl =>
+                    trace (hd :: cur_fcv) tl (#2 (Passes.FV.combine [([], delta_fcv), #2 (Passes.FV.transform_kind (case get_bind (ctx, hd) of BdKind kd => kd | _ => raise (Impossible "must be kind"), 0))]))
+              val fcv = trace [] fcv []
               val fcv = ListMergeSort.sort (op>) fcv
-              val types = List.map (fn i => case get_bind (#1 tyrel, i) of BdType ty => ty | _ => raise (Impossible "must be type")) ftv
+              val kinds = List.map (fn i => case get_bind (ctx, i) of BdKind kd => kd | _ => raise (Impossible "must be kind")) fcv
+              val env = List.foldr (fn ((kd, n), env) =>
+                (List.foldli (fn (i, (_, m), kd) => #1 (Passes.TermSubstConstr.transform_kind (kd, (m, CstrVar (i - m))))) kd env, n) :: env) [] (ListPair.zip (kinds, fcv))
+              val kinds = List.map (fn (kd, _) => kd) env
+              val types = List.foldr (fn (ty, ls) => (List.foldli (fn (i, (_, m), ty) => #1 (Passes.TermSubstConstr.transform_constr (ty, (m, CstrVar (i - m))))) ty env) :: ls) [] types
+              val ty_arg = List.foldli (fn (i, (_, m), ty) => #1 (Passes.TermSubstConstr.transform_constr (ty, (m, CstrVar (i - m))))) ty1 env
+              val ty_env =
+                case List.length types of
+                  0 => CstrTypeUnit
+                | 1 => hd types
+                | _ => List.foldl (fn (a, b) => CstrProd (a, b)) (CstrProd (hd (tl types), hd types)) (tl (tl types))
+              val ty1_new = CstrProd (ty_env, ty_arg)
+              val ctx_new = List.foldr (fn (kd, ctx) => BdKind kd :: ctx) [] kinds
+              val ctx_inner_new = BdType ty1_new :: ctx_new
+              val ctx_inner_bind =
+                case List.length types of
+                  0 => ctx_inner_new
+                | 1 => BdType (Passes.TermShift.shift_constr 1 ty_env) :: ctx_inner_new
+                | _ =>
+                    let
+                      fun inner wrapped d ctx =
+                        case wrapped of
+                          CstrProd (a, b) =>
+                            if d = 0 then
+                              let
+                                val dep = (List.length types - 1) * 2
+                              in
+                                BdType (Passes.TermShift.shift_constr (dep + 1) b) :: BdType (Passes.TermShift.shift_constr dep a) :: ctx
+                              end
+                            else
+                              let
+                                val dep = (List.length types - d - 1) * 2
+                              in
+                                inner b (d - 1) (BdType (Passes.TermShift.shift_constr (dep + 1) b) :: BdType (Passes.TermShift.shift_constr dep a) :: ctx)
+                              end
+                        | _ => raise (Impossible "must be product type")
+                    in
+                      inner ty_env (List.length types - 2) (BdType (Passes.TermShift.shift_constr 1 ty_env) :: ctx_inner_new)
+                    end
               val tyrel2 = extract_tyrel tyderiv2
             in
               NONE

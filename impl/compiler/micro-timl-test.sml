@@ -212,6 +212,7 @@ struct
       val _ = println (str_bool (MicroTiMLChecker.check_typing_derivation tm22_deriv))
       val tm22_deriv_new = DerivationPasses.ANF.normalize_derivation tm22_deriv
       val _ = println (str_bool (MicroTiMLChecker.check_typing_derivation tm22_deriv_new))
+      val tm22_deriv_clo = DerivationPasses.CloConv.transform_typing_derivation (tm22_deriv_new, ())
     in
       tm22_deriv
     end
@@ -289,6 +290,7 @@ struct
       val _ = println (str_bool (MicroTiMLChecker.check_typing_derivation tm15_deriv))
       val tm15_deriv_new = DerivationPasses.ANF.normalize_derivation tm15_deriv
       val _ = println (str_bool (MicroTiMLChecker.check_typing_derivation tm15_deriv_new))
+      val tm15_deriv_clo = DerivationPasses.CloConv.transform_typing_derivation (tm15_deriv, ())
     in
       tm15_deriv
     end

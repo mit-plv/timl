@@ -282,6 +282,78 @@ struct
       TermShift.shift_constr ~1 (#1 (transform_constr (cstr, (0, TermShift.shift_constr 1 to))))
   end
 
+  structure TermSubstTerm =
+  struct
+    structure TermSubstTermHelper =
+    struct
+      type down = int * term
+      type up = unit
+
+      val upward_base = ()
+      fun combiner ((), ()) = ()
+
+      fun transformer_constr (on_constr, on_kind) (cstr : constr, down as (who, to) : down) = NONE
+
+      fun transformer_kind (on_kind, on_prop) (kd : kind, down as (who, to) : down) = NONE
+
+      fun transformer_prop (on_constr, on_kind, on_prop) (pr : prop, down as (who, to) : down) = NONE
+
+      fun transformer_term (on_constr, on_kind, on_term) (tm : term, down as (who, to) : down) =
+        case tm of
+          TmVar x => SOME (if x = who then TermShift.shift_term who to else tm, ())
+        | TmAbs (cstr1, tm2) =>
+            let
+              val (cstr1, ()) = on_constr (cstr1, down)
+              val (tm2, ()) = on_term (tm2, (who + 1, to))
+            in
+              SOME (TmAbs (cstr1, tm2), ())
+            end
+        | TmRec (cstr1, tm2) =>
+            let
+              val (cstr1, ()) = on_constr (cstr1, down)
+              val (tm2, ()) = on_term (tm2, (who + 1, to))
+            in
+              SOME (TmRec (cstr1, tm2), ())
+            end
+        | TmCase (tm1, tm2, tm3) =>
+           let
+             val (tm1, ()) = on_term (tm1, down)
+             val (tm2, ()) = on_term (tm2, (who + 1, to))
+             val (tm3, ()) = on_term (tm3, (who + 1, to))
+           in
+             SOME (TmCase (tm1, tm2, tm3), ())
+           end
+        | TmUnpack (tm1, tm2) =>
+            let
+              val (tm1, ()) = on_term (tm1, down)
+              val (tm2, ()) = on_term (tm2, (who + 2, to))
+            in
+              SOME (TmUnpack (tm1, tm2), ())
+            end
+        | TmCstrAbs (kd1, tm2) =>
+            let
+              val (kd1, ()) = on_kind (kd1, down)
+              val (tm2, ()) = on_term (tm2, (who + 1, to))
+            in
+              SOME (TmCstrAbs (kd1, tm2), ())
+            end
+        | TmLet (tm1, tm2) =>
+            let
+              val (tm1, ()) = on_term (tm1, down)
+              val (tm2, ()) = on_term (tm2, (who + 1, to))
+            in
+              SOME (TmLet (tm1, tm2), ())
+            end
+        | _ => NONE
+    end
+
+    structure TermSubstTermIns = TermTransformPass(TermSubstTermHelper)
+    open TermSubstTermIns
+
+    fun subst_term_in_term_top to tm =
+      TermShift.shift_term ~1 (#1 (transform_term (tm, (0, TermShift.shift_term 1 to))))
+  end
+
   structure Printer =
   struct
     structure PrinterHelper =
