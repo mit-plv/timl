@@ -2536,9 +2536,10 @@ Module M (Time : TIME).
     repeat rewrite fuse_lift2_lift2_1 in *.
     repeat rewrite fuse_lift2_lift2_2 in *.
     Lemma kdeq_interp_prop' :
-      forall_all ks (lift3 ks f3 p ps p0) ->
-      forall_all ks (lift3 ks f3 p ps p0) ->
-      forall_all ks (lift3 ks f4 p' ps p0)
+      forall_all ks (lift3 ks f1 kps kp kp') ->
+      (forall_all ks (lift2 ks f2 kps kp0) -> forall_all ks (lift2 ks f3 k'ps k'p0)) ->
+      forall_all ks (lift3 ks f4 kp kps kp0) ->
+      forall_all ks (lift3 ks f5 k'p' k'ps k'p0)
     (*here*)
   Admitted.
 
