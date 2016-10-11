@@ -1059,6 +1059,660 @@ Module M (Time : TIME).
   
   Definition subst0_c_c v b := subst_c_c 0 v b.
 
+  Fixpoint shift_c_ks n bs :=
+    match bs with
+    | [] => []
+    | b :: bs => shift_c_k n (length bs) b :: shift_c_ks n bs
+    end.
+
+  Fixpoint subst_c_ks v bs :=
+    match bs with
+    | [] => []
+    | b :: bs => subst_c_k (length bs) (shift_c_c (length bs) 0 v) b :: subst_c_ks v bs
+    end.
+
+  Lemma nth_error_subst_c_ks bs :
+    forall x b v,
+      nth_error bs x = Some b ->
+      let n := length bs in
+      nth_error (subst_c_ks v bs) x = Some (subst_c_k (n - S x) (shift_c_c (n - S x) 0 v) b).
+  Proof.
+    induction bs; simplify.
+    {
+      rewrite nth_error_nil in *; discriminate.
+    }
+    destruct x; simplify; eauto.
+    invert H.
+    try unfold value; repeat f_equal; linear_arithmetic.
+  Qed.
+  
+  Lemma length_subst_c_ks bs :
+    forall v,
+      length (subst_c_ks v bs) = length bs.
+  Proof.
+    induction bs; simplify; eauto.
+  Qed.
+  
+  Lemma shift_c_k_cbinop_result_kind x v opr :
+    shift_c_k x v (cbinop_result_kind opr) = cbinop_result_kind opr.
+  Proof.
+    cases opr; simplify; eauto.
+  Qed.
+  Lemma shift_c_k_cbinop_arg1_kind x v opr :
+    shift_c_k x v (cbinop_arg1_kind opr) = cbinop_arg1_kind opr.
+  Proof.
+    cases opr; simplify; eauto.
+  Qed.
+  Lemma shift_c_k_cbinop_arg2_kind x v opr :
+    shift_c_k x v (cbinop_arg2_kind opr) = cbinop_arg2_kind opr.
+  Proof.
+    cases opr; simplify; eauto.
+  Qed.
+  
+  Lemma shift_c_k_binpred_arg1_kind x v opr :
+    shift_c_k x v (binpred_arg1_kind opr) = binpred_arg1_kind opr.
+  Proof.
+    cases opr; simplify; eauto.
+  Qed.
+  
+  Lemma shift_c_k_binpred_arg2_kind x v opr :
+    shift_c_k x v (binpred_arg2_kind opr) = binpred_arg2_kind opr.
+  Proof.
+    cases opr; simplify; eauto.
+  Qed.
+  
+  Lemma subst_c_k_cbinop_result_kind x v opr :
+    subst_c_k x v (cbinop_result_kind opr) = cbinop_result_kind opr.
+  Proof.
+    cases opr; simplify; eauto.
+  Qed.
+  Lemma subst_c_k_cbinop_arg1_kind x v opr :
+    subst_c_k x v (cbinop_arg1_kind opr) = cbinop_arg1_kind opr.
+  Proof.
+    cases opr; simplify; eauto.
+  Qed.
+  Lemma subst_c_k_cbinop_arg2_kind x v opr :
+    subst_c_k x v (cbinop_arg2_kind opr) = cbinop_arg2_kind opr.
+  Proof.
+    cases opr; simplify; eauto.
+  Qed.
+  
+  Lemma subst_c_k_binpred_arg1_kind x v opr :
+    subst_c_k x v (binpred_arg1_kind opr) = binpred_arg1_kind opr.
+  Proof.
+    cases opr; simplify; eauto.
+  Qed.
+  
+  Lemma subst_c_k_binpred_arg2_kind x v opr :
+    subst_c_k x v (binpred_arg2_kind opr) = binpred_arg2_kind opr.
+  Proof.
+    cases opr; simplify; eauto.
+  Qed.
+  
+  Require Import NPeano.
+  
+  Lemma length_shift_c_ks bs :
+    forall v,
+      length (shift_c_ks v bs) = length bs.
+  Proof.
+    induction bs; simplify; eauto.
+  Qed.
+  
+  Lemma nth_error_shift_c_ks bs :
+    forall x b m,
+      nth_error bs x = Some b ->
+      let n := length bs in
+      nth_error (shift_c_ks m bs) x = Some (shift_c_k m (n - S x) b).
+  Proof.
+    induction bs; simplify.
+    {
+      rewrite nth_error_nil in *; discriminate.
+    }
+    destruct x; simplify; eauto.
+    invert H.
+    try unfold value; repeat f_equal; linear_arithmetic.
+  Qed.
+  
+  Lemma shift_c_c_k_p_0 :
+    (forall b x, shift_c_c 0 x b = b) /\
+    (forall b x, shift_c_k 0 x b = b) /\
+    (forall b x, shift_c_p 0 x b = b).
+  Proof.
+    eapply cstr_kind_prop_mutind;
+      simplify; cbn in *;
+        try solve [f_equal; eauto].
+    {
+      (* Case CVar *)
+      repeat match goal with
+               |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+             end; f_equal; linear_arithmetic.
+    }
+  Qed.
+  
+  Lemma shift_c_c_0 : forall c x, shift_c_c 0 x c = c.
+  Proof.
+    eapply shift_c_c_k_p_0.
+  Qed.
+  
+  Lemma shift_c_c_k_p_shift_merge n1 n2 :
+    (forall b x y,
+        x <= y ->
+        y <= x + n1 ->
+        shift_c_c n2 y (shift_c_c n1 x b) = shift_c_c (n1 + n2) x b) /\
+    (forall b x y,
+        x <= y ->
+        y <= x + n1 ->
+        shift_c_k n2 y (shift_c_k n1 x b) = shift_c_k (n1 + n2) x b) /\
+    (forall b x y,
+        x <= y ->
+        y <= x + n1 ->
+        shift_c_p n2 y (shift_c_p n1 x b) = shift_c_p (n1 + n2) x b).
+  Proof.
+    eapply cstr_kind_prop_mutind;
+      simplify; cbn in *;
+        try solve [eauto |
+                   f_equal; eauto |
+                   erewrite H by linear_arithmetic; f_equal; eauto with db_la |
+                   f_equal;
+                   match goal with
+                     H : _ |- _ => eapply H; eauto with db_la
+                   end].
+    {
+      (* Case CVar *)
+      repeat match goal with
+               |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+             end; f_equal; linear_arithmetic.
+    }
+  Qed.
+  
+  Lemma shift_c_c_shift_merge n1 n2 :
+    forall b x y,
+      x <= y ->
+      y <= x + n1 ->
+      shift_c_c n2 y (shift_c_c n1 x b) = shift_c_c (n1 + n2) x b.
+  Proof.
+    eapply shift_c_c_k_p_shift_merge.
+  Qed.
+    
+  Lemma shift_c_k_shift_merge n1 n2 :
+    forall b x y,
+      x <= y ->
+      y <= x + n1 ->
+      shift_c_k n2 y (shift_c_k n1 x b) = shift_c_k (n1 + n2) x b.
+  Proof.
+    eapply shift_c_c_k_p_shift_merge.
+  Qed.
+    
+  Lemma shift_c_p_shift_merge n1 n2 :
+    forall b x y,
+      x <= y ->
+      y <= x + n1 ->
+      shift_c_p n2 y (shift_c_p n1 x b) = shift_c_p (n1 + n2) x b.
+  Proof.
+    eapply shift_c_c_k_p_shift_merge.
+  Qed.
+    
+  Lemma shift_c_k_shift_0 b :
+    forall n1 n2 x,
+      x <= n1 ->
+      shift_c_k n2 x (shift_c_k n1 0 b) = shift_c_k (n1 + n2) 0 b.
+  Proof.
+    intros.
+    eapply shift_c_k_shift_merge; linear_arithmetic.
+  Qed.
+  
+  Lemma shift_c_c_k_p_shift_cut n1 n2 :
+    (forall b x y,
+        x + n1 <= y ->
+        shift_c_c n2 y (shift_c_c n1 x b) = shift_c_c n1 x (shift_c_c n2 (y - n1) b)) /\
+    (forall b x y,
+        x + n1 <= y ->
+        shift_c_k n2 y (shift_c_k n1 x b) = shift_c_k n1 x (shift_c_k n2 (y - n1) b)) /\
+    (forall b x y,
+        x + n1 <= y ->
+        shift_c_p n2 y (shift_c_p n1 x b) = shift_c_p n1 x (shift_c_p n2 (y - n1) b)).
+  Proof.
+    eapply cstr_kind_prop_mutind;
+      simplify; cbn in *;
+        try solve [eauto |
+                   f_equal; eauto |
+                   erewrite H by linear_arithmetic; repeat f_equal; eauto with db_la |
+                   try replace (S (y - n1)) with (S y - n1) by linear_arithmetic;
+                   f_equal;
+                   match goal with
+                     H : _ |- _ => eapply H; eauto with db_la
+                   end].
+    {
+      (* Case CVar *)
+      repeat match goal with
+               |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+             end; f_equal; linear_arithmetic.
+    }
+  Qed.
+  
+  Lemma shift_c_c_shift_cut n1 n2 :
+    forall b x y,
+      x + n1 <= y ->
+      shift_c_c n2 y (shift_c_c n1 x b) = shift_c_c n1 x (shift_c_c n2 (y - n1) b).
+  Proof.
+    eapply shift_c_c_k_p_shift_cut.
+  Qed.
+  
+  Lemma shift_c_k_shift_cut n1 n2 :
+    forall b x y,
+      x + n1 <= y ->
+      shift_c_k n2 y (shift_c_k n1 x b) = shift_c_k n1 x (shift_c_k n2 (y - n1) b).
+  Proof.
+    eapply shift_c_c_k_p_shift_cut.
+  Qed.
+  
+  Lemma shift_c_p_shift_cut n1 n2 :
+    forall b x y,
+      x + n1 <= y ->
+      shift_c_p n2 y (shift_c_p n1 x b) = shift_c_p n1 x (shift_c_p n2 (y - n1) b).
+  Proof.
+    eapply shift_c_c_k_p_shift_cut.
+  Qed.
+  
+  Lemma shift_c_k_shift_2 b :
+    forall n1 n2 x,
+      n1 <= x ->
+      shift_c_k n2 x (shift_c_k n1 0 b) = shift_c_k n1 0 (shift_c_k n2 (x - n1) b).
+  Proof.
+    intros.
+    eapply shift_c_k_shift_cut; linear_arithmetic.
+  Qed.
+  
+  Lemma shift_c_c_shift b :
+    forall n1 n2 x,
+      shift_c_c n2 x (shift_c_c n1 x b) = shift_c_c (n1 + n2) x b.
+  Proof.
+    intros.
+    eapply shift_c_c_shift_merge; linear_arithmetic.
+  Qed.
+  
+  Lemma shift_c_c_shift0 n b :
+    shift_c_c n 0 (shift0_c_c b) = shift_c_c (S n) 0 b.
+  Proof.
+    intros.
+    eapply shift_c_c_shift_merge; linear_arithmetic.
+  Qed.
+  
+  Lemma shift0_c_c_shift_0 n c :
+    shift0_c_c (shift_c_c n 0 c) = shift_c_c (1 + n) 0 c.
+  Proof.
+    unfold shift0_c_c; intros.
+    rewrite shift_c_c_shift_merge; f_equal; linear_arithmetic.
+  Qed.
+  
+  Lemma shift0_c_c_shift n x b :
+    shift0_c_c (shift_c_c n x b) = shift_c_c n (1 + x) (shift0_c_c b).
+  Proof.
+    unfold shift0_c_c; intros.
+    symmetry.
+    rewrite shift_c_c_shift_cut; repeat f_equal; linear_arithmetic.
+  Qed.
+
+  Lemma subst0_c_c_Const v cn : subst0_c_c v (CConst cn) = CConst cn.
+  Proof.
+    cbn in *; eauto.
+  Qed.
+
+  Lemma subst_c_c_k_p_shift_avoid n :
+    (forall b v x y,
+        x <= y ->
+        y < x + n ->
+        subst_c_c y v (shift_c_c n x b) = shift_c_c (n - 1) x b) /\
+    (forall b v x y,
+        x <= y ->
+        y < x + n ->
+        subst_c_k y v (shift_c_k n x b) = shift_c_k (n - 1) x b) /\
+    (forall b v x y,
+        x <= y ->
+        y < x + n ->
+        subst_c_p y v (shift_c_p n x b) = shift_c_p (n - 1) x b).
+  Proof.
+    eapply cstr_kind_prop_mutind;
+      simplify; cbn in *;
+        try solve [eauto |
+                   f_equal; eauto |
+                   erewrite H by linear_arithmetic; repeat f_equal; eauto with db_la |
+                   repeat rewrite shift0_c_c_shift_0; simplify;
+                   repeat replace (S (y - n)) with (S y - n) by linear_arithmetic;
+                   f_equal;
+                   match goal with
+                     H : _ |- _ => eapply H; eauto with db_la
+                   end].
+    {
+      (* Case CVar *)
+      repeat match goal with
+             | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+             | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
+             end; try solve [f_equal; linear_arithmetic].
+    }
+  Qed.
+  
+  Lemma subst_c_c_shift_avoid n :
+    forall b v x y,
+      x <= y ->
+      y < x + n ->
+      subst_c_c y v (shift_c_c n x b) = shift_c_c (n - 1) x b.
+  Proof.
+    eapply subst_c_c_k_p_shift_avoid.
+  Qed.
+  
+  Lemma subst_c_k_shift_avoid n :
+    forall b v x y,
+      x <= y ->
+      y < x + n ->
+      subst_c_k y v (shift_c_k n x b) = shift_c_k (n - 1) x b.
+  Proof.
+    eapply subst_c_c_k_p_shift_avoid.
+  Qed.
+  
+  Lemma subst_c_p_shift_avoid n :
+    forall b v x y,
+      x <= y ->
+      y < x + n ->
+      subst_c_p y v (shift_c_p n x b) = shift_c_p (n - 1) x b.
+  Proof.
+    eapply subst_c_c_k_p_shift_avoid.
+  Qed.
+  
+  Lemma subst_c_k_shift_0_avoid x y v b :
+    y < x ->
+    subst_c_k y (shift_c_c y 0 v) (shift_c_k x 0 b) = shift_c_k (x - 1) 0 b.
+  Proof.
+    intros.
+    eapply subst_c_k_shift_avoid; linear_arithmetic.
+  Qed.
+  
+  Lemma subst0_c_c_shift0 v b :
+    subst0_c_c v (shift0_c_c b) = b.
+  Proof.
+    unfold shift0_c_c, subst0_c_c.
+    specialize (@subst_c_c_shift_avoid 1 b v 0 0); intros H; simplify.
+    repeat rewrite shift_c_c_0 in *.
+    eauto with db_la.
+  Qed.
+  
+  Lemma subst_c_c_k_p_shift_hit v n :
+    (forall b x y,
+        x + n <= y ->
+        subst_c_c y (shift_c_c y 0 v) (shift_c_c n x b) = shift_c_c n x (subst_c_c (y - n) (shift_c_c (y - n) 0 v) b)) /\
+    (forall b x y,
+        x + n <= y ->
+        subst_c_k y (shift_c_c y 0 v) (shift_c_k n x b) = shift_c_k n x (subst_c_k (y - n) (shift_c_c (y - n) 0 v) b)) /\
+    (forall b x y,
+        x + n <= y ->
+        subst_c_p y (shift_c_c y 0 v) (shift_c_p n x b) = shift_c_p n x (subst_c_p (y - n) (shift_c_c (y - n) 0 v) b)).
+  Proof.
+    eapply cstr_kind_prop_mutind;
+      simplify; cbn in *;
+        try solve [eauto |
+                   f_equal; eauto |
+                   erewrite H by linear_arithmetic; repeat f_equal; eauto with db_la |
+                   repeat rewrite shift0_c_c_shift_0; simplify;
+                   repeat replace (S (y - n)) with (S y - n) by linear_arithmetic;
+                   f_equal;
+                   match goal with
+                     H : _ |- _ => eapply H; eauto with db_la
+                   end].
+    {
+      (* Case CVar *)
+      repeat match goal with
+             | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+             | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
+             end; try solve [f_equal; linear_arithmetic].
+      rewrite shift_c_c_shift_merge by linear_arithmetic.
+      f_equal; eauto with db_la.
+    }
+  Qed.
+  
+  Lemma subst_c_c_shift_hit v n :
+    forall b x y,
+      x + n <= y ->
+      subst_c_c y (shift_c_c y 0 v) (shift_c_c n x b) = shift_c_c n x (subst_c_c (y - n) (shift_c_c (y - n) 0 v) b).
+  Proof.
+    eapply subst_c_c_k_p_shift_hit.
+  Qed.
+  
+  Lemma subst_c_k_shift_hit v n :
+    forall b x y,
+      x + n <= y ->
+      subst_c_k y (shift_c_c y 0 v) (shift_c_k n x b) = shift_c_k n x (subst_c_k (y - n) (shift_c_c (y - n) 0 v) b).
+  Proof.
+    eapply subst_c_c_k_p_shift_hit.
+  Qed.
+  
+  Lemma subst_c_p_shift_hit v n :
+    forall b x y,
+      x + n <= y ->
+      subst_c_p y (shift_c_c y 0 v) (shift_c_p n x b) = shift_c_p n x (subst_c_p (y - n) (shift_c_c (y - n) 0 v) b).
+  Proof.
+    eapply subst_c_c_k_p_shift_hit.
+  Qed.
+  
+  Lemma subst_c_k_shift x y v b :
+    x <= y ->
+    subst_c_k y (shift_c_c y 0 v) (shift_c_k x 0 b) = shift_c_k x 0 (subst_c_k (y - x) (shift_c_c (y - x) 0 v) b).
+  Proof.
+    intros.
+    eapply subst_c_k_shift_hit; linear_arithmetic.
+  Qed.
+
+  Lemma shift_c_c_k_p_subst_in n :
+    (forall b v x y,
+        y <= x ->
+        shift_c_c n y (subst_c_c x v b) = subst_c_c (x + n) (shift_c_c n y v) (shift_c_c n y b)) /\
+    (forall b v x y,
+        y <= x ->
+        shift_c_k n y (subst_c_k x v b) = subst_c_k (x + n) (shift_c_c n y v) (shift_c_k n y b)) /\
+    (forall b v x y,
+        y <= x ->
+        shift_c_p n y (subst_c_p x v b) = subst_c_p (x + n) (shift_c_c n y v) (shift_c_p n y b)).
+  Proof.
+    eapply cstr_kind_prop_mutind;
+      simplify; cbn in *;
+        try solve [eauto |
+                   f_equal; eauto |
+                   erewrite H by linear_arithmetic; repeat f_equal; eauto with db_la |
+                   repeat rewrite shift0_c_c_shift; simplify;
+                   repeat replace (S (y - n)) with (S y - n) by linear_arithmetic;
+                   f_equal;
+                   match goal with
+                     H : _ |- _ => eapply H; eauto with db_la
+                   end].
+    {
+      (* Case CVar *)
+      repeat match goal with
+             | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+             | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
+             end; try solve [f_equal; linear_arithmetic].
+    }
+  Qed.
+  
+  Lemma shift_c_c_subst_in n :
+    forall b v x y,
+      y <= x ->
+      shift_c_c n y (subst_c_c x v b) = subst_c_c (x + n) (shift_c_c n y v) (shift_c_c n y b).
+  Proof.
+    eapply shift_c_c_k_p_subst_in.
+  Qed.
+  
+  Lemma shift_c_k_subst_in n :
+    forall b v x y,
+      y <= x ->
+      shift_c_k n y (subst_c_k x v b) = subst_c_k (x + n) (shift_c_c n y v) (shift_c_k n y b).
+  Proof.
+    eapply shift_c_c_k_p_subst_in.
+  Qed.
+  
+  Lemma shift_c_p_subst_in n :
+    forall b v x y,
+      y <= x ->
+      shift_c_p n y (subst_c_p x v b) = subst_c_p (x + n) (shift_c_c n y v) (shift_c_p n y b).
+  Proof.
+    eapply shift_c_c_k_p_subst_in.
+  Qed.
+  
+  Lemma shift0_c_c_subst x v b :
+    shift0_c_c (subst_c_c x (shift_c_c x 0 v) b) = subst_c_c (1 + x) (shift_c_c (1 + x) 0 v) (shift0_c_c b).
+  Proof.
+    unfold shift0_c_c, subst0_c_c.
+    rewrite shift_c_c_subst_in by linear_arithmetic.
+    rewrite shift_c_c_shift_merge by linear_arithmetic.
+    repeat (f_equal; try linear_arithmetic).
+  Qed.
+
+  Lemma shift0_c_c_subst_2 x v b :
+    shift0_c_c (subst_c_c x v b) = subst_c_c (1 + x) (shift0_c_c v) (shift0_c_c b).
+  Proof.
+    unfold shift0_c_c, subst0_c_c.
+    rewrite shift_c_c_subst_in by linear_arithmetic.
+    repeat (f_equal; try linear_arithmetic).
+  Qed.
+
+  Opaque le_lt_dec.
+  
+  Lemma shift_c_c_k_p_subst_out n :
+    (forall b v x y,
+        x <= y ->
+        shift_c_c n y (subst_c_c x v b) = subst_c_c x (shift_c_c n y v) (shift_c_c n (S y) b)) /\
+    (forall b v x y,
+        x <= y ->
+        shift_c_k n y (subst_c_k x v b) = subst_c_k x (shift_c_c n y v) (shift_c_k n (S y) b)) /\
+    (forall b v x y,
+        x <= y ->
+        shift_c_p n y (subst_c_p x v b) = subst_c_p x (shift_c_c n y v) (shift_c_p n (S y) b)).
+  Proof.
+    eapply cstr_kind_prop_mutind;
+      simplify;
+      cbn in *;
+        try solve [eauto |
+                   f_equal; eauto |
+                   erewrite H by linear_arithmetic; repeat f_equal; eauto with db_la |
+                   repeat rewrite shift0_c_c_shift; simplify;
+                   repeat replace (S (y - n)) with (S y - n) by linear_arithmetic;
+                   f_equal;
+                   match goal with
+                     H : _ |- _ => eapply H; eauto with db_la
+                   end].
+    {
+      (* Case CVar *)
+      repeat match goal with
+             | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+             | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
+             end; try solve [f_equal; linear_arithmetic].
+    }
+  Qed.
+    
+  Lemma shift_c_c_subst_out n :
+    forall b v x y,
+      x <= y ->
+      shift_c_c n y (subst_c_c x v b) = subst_c_c x (shift_c_c n y v) (shift_c_c n (S y) b).
+  Proof.
+    eapply shift_c_c_k_p_subst_out.
+  Qed.
+    
+  Lemma shift_c_k_subst_out n :
+    forall b v x y,
+      x <= y ->
+      shift_c_k n y (subst_c_k x v b) = subst_c_k x (shift_c_c n y v) (shift_c_k n (S y) b).
+  Proof.
+    eapply shift_c_c_k_p_subst_out.
+  Qed.
+    
+  Lemma shift_c_p_subst_out n :
+    forall b v x y,
+      x <= y ->
+      shift_c_p n y (subst_c_p x v b) = subst_c_p x (shift_c_c n y v) (shift_c_p n (S y) b).
+  Proof.
+    eapply shift_c_c_k_p_subst_out.
+  Qed.
+    
+  Lemma shift_c_c_subst0 n x v b : shift_c_c n x (subst0_c_c v b) = subst0_c_c (shift_c_c n x v) (shift_c_c n (S x) b).
+  Proof.
+    unfold shift0_c_c, subst0_c_c.
+    rewrite shift_c_c_subst_out; repeat (f_equal; try linear_arithmetic).
+  Qed.
+  
+  Lemma subst_c_c_k_p_subst :
+    (forall b v1 v2 x y,
+        x <= y ->
+        subst_c_c y v2 (subst_c_c x v1 b) = subst_c_c x (subst_c_c y v2 v1) (subst_c_c (S y) (shift_c_c 1 x v2) b)) /\
+    (forall b v1 v2 x y,
+        x <= y ->
+        subst_c_k y v2 (subst_c_k x v1 b) = subst_c_k x (subst_c_c y v2 v1) (subst_c_k (S y) (shift_c_c 1 x v2) b)) /\
+    (forall b v1 v2 x y,
+        x <= y ->
+        subst_c_p y v2 (subst_c_p x v1 b) = subst_c_p x (subst_c_c y v2 v1) (subst_c_p (S y) (shift_c_c 1 x v2) b)).
+  Proof.
+    eapply cstr_kind_prop_mutind;
+      simplify;
+      cbn in *;
+        try solve [eauto |
+                   f_equal; eauto |
+                   erewrite H by linear_arithmetic; repeat f_equal; eauto with db_la |
+                   repeat rewrite shift0_c_c_shift; simplify;
+                   repeat rewrite shift0_c_c_subst_2; simplify;
+                   repeat replace (S (y - n)) with (S y - n) by linear_arithmetic;
+                   f_equal;
+                   match goal with
+                     H : _ |- _ => eapply H; eauto with db_la
+                   end].
+    {
+      (* Case CVar *)
+      repeat match goal with
+             | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+             | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
+             end; try solve [f_equal; linear_arithmetic].
+      rewrite subst_c_c_shift_avoid by linear_arithmetic.
+      simplify.
+      rewrite shift_c_c_0.
+      eauto.
+    }
+  Qed.
+  
+  Lemma subst_c_c_subst :
+    forall b v1 v2 x y,
+      x <= y ->
+      subst_c_c y v2 (subst_c_c x v1 b) = subst_c_c x (subst_c_c y v2 v1) (subst_c_c (S y) (shift_c_c 1 x v2) b).
+  Proof.
+    eapply subst_c_c_k_p_subst.
+  Qed.
+  
+  Lemma subst_c_k_subst :
+    forall b v1 v2 x y,
+      x <= y ->
+      subst_c_k y v2 (subst_c_k x v1 b) = subst_c_k x (subst_c_c y v2 v1) (subst_c_k (S y) (shift_c_c 1 x v2) b).
+  Proof.
+    eapply subst_c_c_k_p_subst.
+  Qed.
+  
+  Lemma subst_c_p_subst :
+    forall b v1 v2 x y,
+      x <= y ->
+      subst_c_p y v2 (subst_c_p x v1 b) = subst_c_p x (subst_c_c y v2 v1) (subst_c_p (S y) (shift_c_c 1 x v2) b).
+  Proof.
+    eapply subst_c_c_k_p_subst.
+  Qed.
+  
+  Lemma subst_c_c_subst0 n c c' t : subst_c_c n c (subst0_c_c c' t) = subst0_c_c (subst_c_c n c c') (subst_c_c (S n) (shift0_c_c c) t).
+  Proof.
+    eapply subst_c_c_subst.
+    linear_arithmetic.
+  Qed.
+  
+  Lemma map_shift0_subst n c ls :
+    map shift0_c_c (map (subst_c_c n (shift_c_c n 0 c)) ls) =
+    map (subst_c_c (1 + n) (shift_c_c (1 + n) 0 c)) (map shift0_c_c ls).
+  Proof.
+    repeat rewrite map_map.
+    setoid_rewrite shift0_c_c_subst.
+    eauto.
+  Qed.
+
   Fixpoint time_fun (arity : nat) :=
     match arity with
     | 0 => time_type
@@ -1838,24 +2492,15 @@ Module M (Time : TIME).
     eapply Time_add_0.
   Qed.
   
-  Fixpoint shift_c_ks n bs :=
-    match bs with
-    | [] => []
-    | b :: bs => shift_c_k n (length bs) b :: shift_c_ks n bs
-    end.
-
-  Fixpoint subst_c_ks v bs :=
-    match bs with
-    | [] => []
-    | b :: bs => subst_c_k (length bs) (shift_c_c (length bs) 0 v) b :: subst_c_ks v bs
-    end.
-
   Lemma interp_prop_shift_c_p L p :
     interp_prop L p ->
     forall x ls ,
       let n := length ls in
       x <= length L ->
       interp_prop (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_p n x p).
+  Proof.
+    (*here*)
+  (* Qed. *)
   Admitted.
   
   Ltac interp_le := try eapply interp_time_interp_prop_le; apply_all interp_prop_le_interp_time.
@@ -1877,12 +2522,24 @@ Module M (Time : TIME).
 
   Hint Constructors kdeq.
 
-  Lemma kdeq_interp_prop L k k' p :
+  Lemma kdeq_interp_prop L k k' :
     kdeq L k k' ->
-    interp_prop (k :: L) p ->
-    interp_prop (k' :: L) p.
+    forall p,
+      interp_prop (k :: L) p ->
+      interp_prop (k' :: L) p.
   Proof.
-    (* induct 1; eauto. *)
+    induct 1; eauto.
+    intros p0 Hp.
+    specialize (IHkdeq p0).
+    cbn in *.
+    repeat rewrite fuse_lift1_lift2 in *.
+    repeat rewrite fuse_lift2_lift2_1 in *.
+    repeat rewrite fuse_lift2_lift2_2 in *.
+    Lemma kdeq_interp_prop' :
+      forall_all ks (lift3 ks f3 p ps p0) ->
+      forall_all ks (lift3 ks f3 p ps p0) ->
+      forall_all ks (lift3 ks f4 p' ps p0)
+    (*here*)
   Admitted.
 
   Lemma kdeq_refl : forall L k, kdeq L k k.
@@ -1890,6 +2547,11 @@ Module M (Time : TIME).
     induct k; eauto using interp_prop_iff_refl.
   Qed.
 
+  Lemma kdeq_refl2 : forall L k k', k = k' -> kdeq L k k'.
+  Proof.
+    intros; subst; eapply kdeq_refl.
+  Qed.
+  
   Lemma kdeq_sym L a b : kdeq L a b -> kdeq L b a.
   Proof.
     induct 1; eauto using kdeq_interp_prop, interp_prop_iff_sym.
@@ -2543,653 +3205,6 @@ Admitted.
       tyeq (my_skipn L (1 + n)) c1 c2 ->
       tyeq (subst_c_ks c1 (firstn n L) ++ my_skipn L (1 + n)) (subst_c_c n (shift_c_c n 0 c1) c1') (subst_c_c n (shift_c_c n 0 c2) c2').
   Admitted.
-  
-  Lemma nth_error_subst_c_ks bs :
-    forall x b v,
-      nth_error bs x = Some b ->
-      let n := length bs in
-      nth_error (subst_c_ks v bs) x = Some (subst_c_k (n - S x) (shift_c_c (n - S x) 0 v) b).
-  Proof.
-    induction bs; simplify.
-    {
-      rewrite nth_error_nil in *; discriminate.
-    }
-    destruct x; simplify; eauto.
-    invert H.
-    try unfold value; repeat f_equal; linear_arithmetic.
-  Qed.
-  
-  Lemma length_subst_c_ks bs :
-    forall v,
-      length (subst_c_ks v bs) = length bs.
-  Proof.
-    induction bs; simplify; eauto.
-  Qed.
-  
-  Lemma shift_c_k_cbinop_result_kind x v opr :
-    shift_c_k x v (cbinop_result_kind opr) = cbinop_result_kind opr.
-  Proof.
-    cases opr; simplify; eauto.
-  Qed.
-  Lemma shift_c_k_cbinop_arg1_kind x v opr :
-    shift_c_k x v (cbinop_arg1_kind opr) = cbinop_arg1_kind opr.
-  Proof.
-    cases opr; simplify; eauto.
-  Qed.
-  Lemma shift_c_k_cbinop_arg2_kind x v opr :
-    shift_c_k x v (cbinop_arg2_kind opr) = cbinop_arg2_kind opr.
-  Proof.
-    cases opr; simplify; eauto.
-  Qed.
-  
-  Lemma shift_c_k_binpred_arg1_kind x v opr :
-    shift_c_k x v (binpred_arg1_kind opr) = binpred_arg1_kind opr.
-  Proof.
-    cases opr; simplify; eauto.
-  Qed.
-  
-  Lemma shift_c_k_binpred_arg2_kind x v opr :
-    shift_c_k x v (binpred_arg2_kind opr) = binpred_arg2_kind opr.
-  Proof.
-    cases opr; simplify; eauto.
-  Qed.
-  
-  Lemma subst_c_k_cbinop_result_kind x v opr :
-    subst_c_k x v (cbinop_result_kind opr) = cbinop_result_kind opr.
-  Proof.
-    cases opr; simplify; eauto.
-  Qed.
-  Lemma subst_c_k_cbinop_arg1_kind x v opr :
-    subst_c_k x v (cbinop_arg1_kind opr) = cbinop_arg1_kind opr.
-  Proof.
-    cases opr; simplify; eauto.
-  Qed.
-  Lemma subst_c_k_cbinop_arg2_kind x v opr :
-    subst_c_k x v (cbinop_arg2_kind opr) = cbinop_arg2_kind opr.
-  Proof.
-    cases opr; simplify; eauto.
-  Qed.
-  
-  Lemma subst_c_k_binpred_arg1_kind x v opr :
-    subst_c_k x v (binpred_arg1_kind opr) = binpred_arg1_kind opr.
-  Proof.
-    cases opr; simplify; eauto.
-  Qed.
-  
-  Lemma subst_c_k_binpred_arg2_kind x v opr :
-    subst_c_k x v (binpred_arg2_kind opr) = binpred_arg2_kind opr.
-  Proof.
-    cases opr; simplify; eauto.
-  Qed.
-  
-  Require Import NPeano.
-  
-  Lemma length_shift_c_ks bs :
-    forall v,
-      length (shift_c_ks v bs) = length bs.
-  Proof.
-    induction bs; simplify; eauto.
-  Qed.
-  
-  Lemma kdeq_refl2 : forall L k k', k = k' -> kdeq L k k'.
-  Proof.
-    intros; subst; eapply kdeq_refl.
-  Qed.
-  
-  Lemma nth_error_shift_c_ks bs :
-    forall x b m,
-      nth_error bs x = Some b ->
-      let n := length bs in
-      nth_error (shift_c_ks m bs) x = Some (shift_c_k m (n - S x) b).
-  Proof.
-    induction bs; simplify.
-    {
-      rewrite nth_error_nil in *; discriminate.
-    }
-    destruct x; simplify; eauto.
-    invert H.
-    try unfold value; repeat f_equal; linear_arithmetic.
-  Qed.
-  
-  Lemma shift_c_c_k_p_0 :
-    (forall b x, shift_c_c 0 x b = b) /\
-    (forall b x, shift_c_k 0 x b = b) /\
-    (forall b x, shift_c_p 0 x b = b).
-  Proof.
-    eapply cstr_kind_prop_mutind;
-      simplify; cbn in *;
-        try solve [f_equal; eauto].
-    {
-      (* Case CVar *)
-      repeat match goal with
-               |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
-             end; f_equal; linear_arithmetic.
-    }
-  Qed.
-  
-  Lemma shift_c_c_0 : forall c x, shift_c_c 0 x c = c.
-  Proof.
-    eapply shift_c_c_k_p_0.
-  Qed.
-  
-  Lemma shift_c_c_k_p_shift_merge n1 n2 :
-    (forall b x y,
-        x <= y ->
-        y <= x + n1 ->
-        shift_c_c n2 y (shift_c_c n1 x b) = shift_c_c (n1 + n2) x b) /\
-    (forall b x y,
-        x <= y ->
-        y <= x + n1 ->
-        shift_c_k n2 y (shift_c_k n1 x b) = shift_c_k (n1 + n2) x b) /\
-    (forall b x y,
-        x <= y ->
-        y <= x + n1 ->
-        shift_c_p n2 y (shift_c_p n1 x b) = shift_c_p (n1 + n2) x b).
-  Proof.
-    eapply cstr_kind_prop_mutind;
-      simplify; cbn in *;
-        try solve [eauto |
-                   f_equal; eauto |
-                   erewrite H by linear_arithmetic; f_equal; eauto with db_la |
-                   f_equal;
-                   match goal with
-                     H : _ |- _ => eapply H; eauto with db_la
-                   end].
-    {
-      (* Case CVar *)
-      repeat match goal with
-               |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
-             end; f_equal; linear_arithmetic.
-    }
-  Qed.
-  
-  Lemma shift_c_c_shift_merge n1 n2 :
-    forall b x y,
-      x <= y ->
-      y <= x + n1 ->
-      shift_c_c n2 y (shift_c_c n1 x b) = shift_c_c (n1 + n2) x b.
-  Proof.
-    eapply shift_c_c_k_p_shift_merge.
-  Qed.
-    
-  Lemma shift_c_k_shift_merge n1 n2 :
-    forall b x y,
-      x <= y ->
-      y <= x + n1 ->
-      shift_c_k n2 y (shift_c_k n1 x b) = shift_c_k (n1 + n2) x b.
-  Proof.
-    eapply shift_c_c_k_p_shift_merge.
-  Qed.
-    
-  Lemma shift_c_p_shift_merge n1 n2 :
-    forall b x y,
-      x <= y ->
-      y <= x + n1 ->
-      shift_c_p n2 y (shift_c_p n1 x b) = shift_c_p (n1 + n2) x b.
-  Proof.
-    eapply shift_c_c_k_p_shift_merge.
-  Qed.
-    
-  Lemma shift_c_k_shift_0 b :
-    forall n1 n2 x,
-      x <= n1 ->
-      shift_c_k n2 x (shift_c_k n1 0 b) = shift_c_k (n1 + n2) 0 b.
-  Proof.
-    intros.
-    eapply shift_c_k_shift_merge; linear_arithmetic.
-  Qed.
-  
-  Lemma shift_c_c_k_p_shift_cut n1 n2 :
-    (forall b x y,
-        x + n1 <= y ->
-        shift_c_c n2 y (shift_c_c n1 x b) = shift_c_c n1 x (shift_c_c n2 (y - n1) b)) /\
-    (forall b x y,
-        x + n1 <= y ->
-        shift_c_k n2 y (shift_c_k n1 x b) = shift_c_k n1 x (shift_c_k n2 (y - n1) b)) /\
-    (forall b x y,
-        x + n1 <= y ->
-        shift_c_p n2 y (shift_c_p n1 x b) = shift_c_p n1 x (shift_c_p n2 (y - n1) b)).
-  Proof.
-    eapply cstr_kind_prop_mutind;
-      simplify; cbn in *;
-        try solve [eauto |
-                   f_equal; eauto |
-                   erewrite H by linear_arithmetic; repeat f_equal; eauto with db_la |
-                   try replace (S (y - n1)) with (S y - n1) by linear_arithmetic;
-                   f_equal;
-                   match goal with
-                     H : _ |- _ => eapply H; eauto with db_la
-                   end].
-    {
-      (* Case CVar *)
-      repeat match goal with
-               |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
-             end; f_equal; linear_arithmetic.
-    }
-  Qed.
-  
-  Lemma shift_c_c_shift_cut n1 n2 :
-    forall b x y,
-      x + n1 <= y ->
-      shift_c_c n2 y (shift_c_c n1 x b) = shift_c_c n1 x (shift_c_c n2 (y - n1) b).
-  Proof.
-    eapply shift_c_c_k_p_shift_cut.
-  Qed.
-  
-  Lemma shift_c_k_shift_cut n1 n2 :
-    forall b x y,
-      x + n1 <= y ->
-      shift_c_k n2 y (shift_c_k n1 x b) = shift_c_k n1 x (shift_c_k n2 (y - n1) b).
-  Proof.
-    eapply shift_c_c_k_p_shift_cut.
-  Qed.
-  
-  Lemma shift_c_p_shift_cut n1 n2 :
-    forall b x y,
-      x + n1 <= y ->
-      shift_c_p n2 y (shift_c_p n1 x b) = shift_c_p n1 x (shift_c_p n2 (y - n1) b).
-  Proof.
-    eapply shift_c_c_k_p_shift_cut.
-  Qed.
-  
-  Lemma shift_c_k_shift_2 b :
-    forall n1 n2 x,
-      n1 <= x ->
-      shift_c_k n2 x (shift_c_k n1 0 b) = shift_c_k n1 0 (shift_c_k n2 (x - n1) b).
-  Proof.
-    intros.
-    eapply shift_c_k_shift_cut; linear_arithmetic.
-  Qed.
-  
-  Lemma shift_c_c_shift b :
-    forall n1 n2 x,
-      shift_c_c n2 x (shift_c_c n1 x b) = shift_c_c (n1 + n2) x b.
-  Proof.
-    intros.
-    eapply shift_c_c_shift_merge; linear_arithmetic.
-  Qed.
-  
-  Lemma shift_c_c_shift0 n b :
-    shift_c_c n 0 (shift0_c_c b) = shift_c_c (S n) 0 b.
-  Proof.
-    intros.
-    eapply shift_c_c_shift_merge; linear_arithmetic.
-  Qed.
-  
-  Lemma shift0_c_c_shift_0 n c :
-    shift0_c_c (shift_c_c n 0 c) = shift_c_c (1 + n) 0 c.
-  Proof.
-    unfold shift0_c_c; intros.
-    rewrite shift_c_c_shift_merge; f_equal; linear_arithmetic.
-  Qed.
-  
-  Lemma shift0_c_c_shift n x b :
-    shift0_c_c (shift_c_c n x b) = shift_c_c n (1 + x) (shift0_c_c b).
-  Proof.
-    unfold shift0_c_c; intros.
-    symmetry.
-    rewrite shift_c_c_shift_cut; repeat f_equal; linear_arithmetic.
-  Qed.
-
-  Lemma subst0_c_c_Const v cn : subst0_c_c v (CConst cn) = CConst cn.
-  Proof.
-    cbn in *; eauto.
-  Qed.
-
-  Lemma subst_c_c_k_p_shift_avoid n :
-    (forall b v x y,
-        x <= y ->
-        y < x + n ->
-        subst_c_c y v (shift_c_c n x b) = shift_c_c (n - 1) x b) /\
-    (forall b v x y,
-        x <= y ->
-        y < x + n ->
-        subst_c_k y v (shift_c_k n x b) = shift_c_k (n - 1) x b) /\
-    (forall b v x y,
-        x <= y ->
-        y < x + n ->
-        subst_c_p y v (shift_c_p n x b) = shift_c_p (n - 1) x b).
-  Proof.
-    eapply cstr_kind_prop_mutind;
-      simplify; cbn in *;
-        try solve [eauto |
-                   f_equal; eauto |
-                   erewrite H by linear_arithmetic; repeat f_equal; eauto with db_la |
-                   repeat rewrite shift0_c_c_shift_0; simplify;
-                   repeat replace (S (y - n)) with (S y - n) by linear_arithmetic;
-                   f_equal;
-                   match goal with
-                     H : _ |- _ => eapply H; eauto with db_la
-                   end].
-    {
-      (* Case CVar *)
-      repeat match goal with
-             | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
-             | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
-             end; try solve [f_equal; linear_arithmetic].
-    }
-  Qed.
-  
-  Lemma subst_c_c_shift_avoid n :
-    forall b v x y,
-      x <= y ->
-      y < x + n ->
-      subst_c_c y v (shift_c_c n x b) = shift_c_c (n - 1) x b.
-  Proof.
-    eapply subst_c_c_k_p_shift_avoid.
-  Qed.
-  
-  Lemma subst_c_k_shift_avoid n :
-    forall b v x y,
-      x <= y ->
-      y < x + n ->
-      subst_c_k y v (shift_c_k n x b) = shift_c_k (n - 1) x b.
-  Proof.
-    eapply subst_c_c_k_p_shift_avoid.
-  Qed.
-  
-  Lemma subst_c_p_shift_avoid n :
-    forall b v x y,
-      x <= y ->
-      y < x + n ->
-      subst_c_p y v (shift_c_p n x b) = shift_c_p (n - 1) x b.
-  Proof.
-    eapply subst_c_c_k_p_shift_avoid.
-  Qed.
-  
-  Lemma subst_c_k_shift_0_avoid x y v b :
-    y < x ->
-    subst_c_k y (shift_c_c y 0 v) (shift_c_k x 0 b) = shift_c_k (x - 1) 0 b.
-  Proof.
-    intros.
-    eapply subst_c_k_shift_avoid; linear_arithmetic.
-  Qed.
-  
-  Lemma subst0_c_c_shift0 v b :
-    subst0_c_c v (shift0_c_c b) = b.
-  Proof.
-    unfold shift0_c_c, subst0_c_c.
-    specialize (@subst_c_c_shift_avoid 1 b v 0 0); intros H; simplify.
-    repeat rewrite shift_c_c_0 in *.
-    eauto with db_la.
-  Qed.
-  
-  Lemma subst_c_c_k_p_shift_hit v n :
-    (forall b x y,
-        x + n <= y ->
-        subst_c_c y (shift_c_c y 0 v) (shift_c_c n x b) = shift_c_c n x (subst_c_c (y - n) (shift_c_c (y - n) 0 v) b)) /\
-    (forall b x y,
-        x + n <= y ->
-        subst_c_k y (shift_c_c y 0 v) (shift_c_k n x b) = shift_c_k n x (subst_c_k (y - n) (shift_c_c (y - n) 0 v) b)) /\
-    (forall b x y,
-        x + n <= y ->
-        subst_c_p y (shift_c_c y 0 v) (shift_c_p n x b) = shift_c_p n x (subst_c_p (y - n) (shift_c_c (y - n) 0 v) b)).
-  Proof.
-    eapply cstr_kind_prop_mutind;
-      simplify; cbn in *;
-        try solve [eauto |
-                   f_equal; eauto |
-                   erewrite H by linear_arithmetic; repeat f_equal; eauto with db_la |
-                   repeat rewrite shift0_c_c_shift_0; simplify;
-                   repeat replace (S (y - n)) with (S y - n) by linear_arithmetic;
-                   f_equal;
-                   match goal with
-                     H : _ |- _ => eapply H; eauto with db_la
-                   end].
-    {
-      (* Case CVar *)
-      repeat match goal with
-             | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
-             | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
-             end; try solve [f_equal; linear_arithmetic].
-      rewrite shift_c_c_shift_merge by linear_arithmetic.
-      f_equal; eauto with db_la.
-    }
-  Qed.
-  
-  Lemma subst_c_c_shift_hit v n :
-    forall b x y,
-      x + n <= y ->
-      subst_c_c y (shift_c_c y 0 v) (shift_c_c n x b) = shift_c_c n x (subst_c_c (y - n) (shift_c_c (y - n) 0 v) b).
-  Proof.
-    eapply subst_c_c_k_p_shift_hit.
-  Qed.
-  
-  Lemma subst_c_k_shift_hit v n :
-    forall b x y,
-      x + n <= y ->
-      subst_c_k y (shift_c_c y 0 v) (shift_c_k n x b) = shift_c_k n x (subst_c_k (y - n) (shift_c_c (y - n) 0 v) b).
-  Proof.
-    eapply subst_c_c_k_p_shift_hit.
-  Qed.
-  
-  Lemma subst_c_p_shift_hit v n :
-    forall b x y,
-      x + n <= y ->
-      subst_c_p y (shift_c_c y 0 v) (shift_c_p n x b) = shift_c_p n x (subst_c_p (y - n) (shift_c_c (y - n) 0 v) b).
-  Proof.
-    eapply subst_c_c_k_p_shift_hit.
-  Qed.
-  
-  Lemma subst_c_k_shift x y v b :
-    x <= y ->
-    subst_c_k y (shift_c_c y 0 v) (shift_c_k x 0 b) = shift_c_k x 0 (subst_c_k (y - x) (shift_c_c (y - x) 0 v) b).
-  Proof.
-    intros.
-    eapply subst_c_k_shift_hit; linear_arithmetic.
-  Qed.
-
-  Lemma shift_c_c_k_p_subst_in n :
-    (forall b v x y,
-        y <= x ->
-        shift_c_c n y (subst_c_c x v b) = subst_c_c (x + n) (shift_c_c n y v) (shift_c_c n y b)) /\
-    (forall b v x y,
-        y <= x ->
-        shift_c_k n y (subst_c_k x v b) = subst_c_k (x + n) (shift_c_c n y v) (shift_c_k n y b)) /\
-    (forall b v x y,
-        y <= x ->
-        shift_c_p n y (subst_c_p x v b) = subst_c_p (x + n) (shift_c_c n y v) (shift_c_p n y b)).
-  Proof.
-    eapply cstr_kind_prop_mutind;
-      simplify; cbn in *;
-        try solve [eauto |
-                   f_equal; eauto |
-                   erewrite H by linear_arithmetic; repeat f_equal; eauto with db_la |
-                   repeat rewrite shift0_c_c_shift; simplify;
-                   repeat replace (S (y - n)) with (S y - n) by linear_arithmetic;
-                   f_equal;
-                   match goal with
-                     H : _ |- _ => eapply H; eauto with db_la
-                   end].
-    {
-      (* Case CVar *)
-      repeat match goal with
-             | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
-             | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
-             end; try solve [f_equal; linear_arithmetic].
-    }
-  Qed.
-  
-  Lemma shift_c_c_subst_in n :
-    forall b v x y,
-      y <= x ->
-      shift_c_c n y (subst_c_c x v b) = subst_c_c (x + n) (shift_c_c n y v) (shift_c_c n y b).
-  Proof.
-    eapply shift_c_c_k_p_subst_in.
-  Qed.
-  
-  Lemma shift_c_k_subst_in n :
-    forall b v x y,
-      y <= x ->
-      shift_c_k n y (subst_c_k x v b) = subst_c_k (x + n) (shift_c_c n y v) (shift_c_k n y b).
-  Proof.
-    eapply shift_c_c_k_p_subst_in.
-  Qed.
-  
-  Lemma shift_c_p_subst_in n :
-    forall b v x y,
-      y <= x ->
-      shift_c_p n y (subst_c_p x v b) = subst_c_p (x + n) (shift_c_c n y v) (shift_c_p n y b).
-  Proof.
-    eapply shift_c_c_k_p_subst_in.
-  Qed.
-  
-  Lemma shift0_c_c_subst x v b :
-    shift0_c_c (subst_c_c x (shift_c_c x 0 v) b) = subst_c_c (1 + x) (shift_c_c (1 + x) 0 v) (shift0_c_c b).
-  Proof.
-    unfold shift0_c_c, subst0_c_c.
-    rewrite shift_c_c_subst_in by linear_arithmetic.
-    rewrite shift_c_c_shift_merge by linear_arithmetic.
-    repeat (f_equal; try linear_arithmetic).
-  Qed.
-
-  Lemma shift0_c_c_subst_2 x v b :
-    shift0_c_c (subst_c_c x v b) = subst_c_c (1 + x) (shift0_c_c v) (shift0_c_c b).
-  Proof.
-    unfold shift0_c_c, subst0_c_c.
-    rewrite shift_c_c_subst_in by linear_arithmetic.
-    repeat (f_equal; try linear_arithmetic).
-  Qed.
-
-  Opaque le_lt_dec.
-  
-  Lemma shift_c_c_k_p_subst_out n :
-    (forall b v x y,
-        x <= y ->
-        shift_c_c n y (subst_c_c x v b) = subst_c_c x (shift_c_c n y v) (shift_c_c n (S y) b)) /\
-    (forall b v x y,
-        x <= y ->
-        shift_c_k n y (subst_c_k x v b) = subst_c_k x (shift_c_c n y v) (shift_c_k n (S y) b)) /\
-    (forall b v x y,
-        x <= y ->
-        shift_c_p n y (subst_c_p x v b) = subst_c_p x (shift_c_c n y v) (shift_c_p n (S y) b)).
-  Proof.
-    eapply cstr_kind_prop_mutind;
-      simplify;
-      cbn in *;
-        try solve [eauto |
-                   f_equal; eauto |
-                   erewrite H by linear_arithmetic; repeat f_equal; eauto with db_la |
-                   repeat rewrite shift0_c_c_shift; simplify;
-                   repeat replace (S (y - n)) with (S y - n) by linear_arithmetic;
-                   f_equal;
-                   match goal with
-                     H : _ |- _ => eapply H; eauto with db_la
-                   end].
-    {
-      (* Case CVar *)
-      repeat match goal with
-             | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
-             | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
-             end; try solve [f_equal; linear_arithmetic].
-    }
-  Qed.
-    
-  Lemma shift_c_c_subst_out n :
-    forall b v x y,
-      x <= y ->
-      shift_c_c n y (subst_c_c x v b) = subst_c_c x (shift_c_c n y v) (shift_c_c n (S y) b).
-  Proof.
-    eapply shift_c_c_k_p_subst_out.
-  Qed.
-    
-  Lemma shift_c_k_subst_out n :
-    forall b v x y,
-      x <= y ->
-      shift_c_k n y (subst_c_k x v b) = subst_c_k x (shift_c_c n y v) (shift_c_k n (S y) b).
-  Proof.
-    eapply shift_c_c_k_p_subst_out.
-  Qed.
-    
-  Lemma shift_c_p_subst_out n :
-    forall b v x y,
-      x <= y ->
-      shift_c_p n y (subst_c_p x v b) = subst_c_p x (shift_c_c n y v) (shift_c_p n (S y) b).
-  Proof.
-    eapply shift_c_c_k_p_subst_out.
-  Qed.
-    
-  Lemma shift_c_c_subst0 n x v b : shift_c_c n x (subst0_c_c v b) = subst0_c_c (shift_c_c n x v) (shift_c_c n (S x) b).
-  Proof.
-    unfold shift0_c_c, subst0_c_c.
-    rewrite shift_c_c_subst_out; repeat (f_equal; try linear_arithmetic).
-  Qed.
-  
-  Lemma subst_c_c_k_p_subst :
-    (forall b v1 v2 x y,
-        x <= y ->
-        subst_c_c y v2 (subst_c_c x v1 b) = subst_c_c x (subst_c_c y v2 v1) (subst_c_c (S y) (shift_c_c 1 x v2) b)) /\
-    (forall b v1 v2 x y,
-        x <= y ->
-        subst_c_k y v2 (subst_c_k x v1 b) = subst_c_k x (subst_c_c y v2 v1) (subst_c_k (S y) (shift_c_c 1 x v2) b)) /\
-    (forall b v1 v2 x y,
-        x <= y ->
-        subst_c_p y v2 (subst_c_p x v1 b) = subst_c_p x (subst_c_c y v2 v1) (subst_c_p (S y) (shift_c_c 1 x v2) b)).
-  Proof.
-    eapply cstr_kind_prop_mutind;
-      simplify;
-      cbn in *;
-        try solve [eauto |
-                   f_equal; eauto |
-                   erewrite H by linear_arithmetic; repeat f_equal; eauto with db_la |
-                   repeat rewrite shift0_c_c_shift; simplify;
-                   repeat rewrite shift0_c_c_subst_2; simplify;
-                   repeat replace (S (y - n)) with (S y - n) by linear_arithmetic;
-                   f_equal;
-                   match goal with
-                     H : _ |- _ => eapply H; eauto with db_la
-                   end].
-    {
-      (* Case CVar *)
-      repeat match goal with
-             | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
-             | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
-             end; try solve [f_equal; linear_arithmetic].
-      rewrite subst_c_c_shift_avoid by linear_arithmetic.
-      simplify.
-      rewrite shift_c_c_0.
-      eauto.
-    }
-  Qed.
-  
-  Lemma subst_c_c_subst :
-    forall b v1 v2 x y,
-      x <= y ->
-      subst_c_c y v2 (subst_c_c x v1 b) = subst_c_c x (subst_c_c y v2 v1) (subst_c_c (S y) (shift_c_c 1 x v2) b).
-  Proof.
-    eapply subst_c_c_k_p_subst.
-  Qed.
-  
-  Lemma subst_c_k_subst :
-    forall b v1 v2 x y,
-      x <= y ->
-      subst_c_k y v2 (subst_c_k x v1 b) = subst_c_k x (subst_c_c y v2 v1) (subst_c_k (S y) (shift_c_c 1 x v2) b).
-  Proof.
-    eapply subst_c_c_k_p_subst.
-  Qed.
-  
-  Lemma subst_c_p_subst :
-    forall b v1 v2 x y,
-      x <= y ->
-      subst_c_p y v2 (subst_c_p x v1 b) = subst_c_p x (subst_c_c y v2 v1) (subst_c_p (S y) (shift_c_c 1 x v2) b).
-  Proof.
-    eapply subst_c_c_k_p_subst.
-  Qed.
-  
-  Lemma subst_c_c_subst0 n c c' t : subst_c_c n c (subst0_c_c c' t) = subst0_c_c (subst_c_c n c c') (subst_c_c (S n) (shift0_c_c c) t).
-  Proof.
-    eapply subst_c_c_subst.
-    linear_arithmetic.
-  Qed.
-  
-  Lemma map_shift0_subst n c ls :
-    map shift0_c_c (map (subst_c_c n (shift_c_c n 0 c)) ls) =
-    map (subst_c_c (1 + n) (shift_c_c (1 + n) 0 c)) (map shift0_c_c ls).
-  Proof.
-    repeat rewrite map_map.
-    setoid_rewrite shift0_c_c_subst.
-    eauto.
-  Qed.
   
   Lemma kdeq_shift_c_k L k1 k2 :
     kdeq L k1 k2 ->
