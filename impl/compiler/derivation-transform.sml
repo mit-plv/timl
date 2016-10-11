@@ -10,12 +10,20 @@ sig
   val on_kind_wellformness_relation : MicroTiML.kind_wellformedness_relation * down -> MicroTiML.kind_wellformedness_relation * up
   val on_prop_wellformness_relation : MicroTiML.prop_wellformedness_relation * down -> MicroTiML.prop_wellformedness_relation * up
 
-  val transformer_typing_derivation : (MicroTiML.typing_derivation * down -> MicroTiML.typing_derivation * up) * (MicroTiML.kinding_derivation * down -> MicroTiML.kinding_derivation * up) * (MicroTiML.proping_derivation * down -> MicroTiML.proping_derivation * up) * (MicroTiML.kind_wellformedness_derivation * down -> MicroTiML.kind_wellformedness_derivation * up) -> (MicroTiML.typing_derivation * down) -> (MicroTiML.typing_derivation * up) option
+  val on_type_equivalence_relation : MicroTiML.type_equivalence_relation * down -> MicroTiML.type_equivalence_relation * up
+  val on_kind_equivalence_relation : MicroTiML.kind_equivalence_relation * down -> MicroTiML.kind_equivalence_relation * up
+  val on_kind_sub_relation : MicroTiML.kind_sub_relation * down -> MicroTiML.kind_sub_relation * up
+
+  val transformer_typing_derivation : (MicroTiML.typing_derivation * down -> MicroTiML.typing_derivation * up) * (MicroTiML.kinding_derivation * down -> MicroTiML.kinding_derivation * up) * (MicroTiML.proping_derivation * down -> MicroTiML.proping_derivation * up) * (MicroTiML.kind_wellformedness_derivation * down -> MicroTiML.kind_wellformedness_derivation * up) * (MicroTiML.type_equivalence_derivation * down -> MicroTiML.type_equivalence_derivation * up) -> (MicroTiML.typing_derivation * down) -> (MicroTiML.typing_derivation * up) option
   val transformer_kinding_derivation : (MicroTiML.kinding_derivation * down -> MicroTiML.kinding_derivation * up) * (MicroTiML.proping_derivation * down -> MicroTiML.proping_derivation * up) * (MicroTiML.kind_wellformedness_derivation * down -> MicroTiML.kind_wellformedness_derivation * up) -> (MicroTiML.kinding_derivation * down) -> (MicroTiML.kinding_derivation * up) option
   val transformer_proping_derivation : (MicroTiML.proping_derivation * down) -> (MicroTiML.proping_derivation * up) option
 
   val transformer_kind_wellformness_derivation : (MicroTiML.kind_wellformedness_derivation * down -> MicroTiML.kind_wellformedness_derivation * up) * (MicroTiML.prop_wellformedness_derivation * down -> MicroTiML.prop_wellformedness_derivation * up) -> (MicroTiML.kind_wellformedness_derivation * down) -> (MicroTiML.kind_wellformedness_derivation * up) option
   val transformer_prop_wellformness_derivation : (MicroTiML.prop_wellformedness_derivation * down -> MicroTiML.prop_wellformedness_derivation * up) * (MicroTiML.kind_wellformedness_derivation * down -> MicroTiML.kind_wellformedness_derivation * up) * (MicroTiML.kinding_derivation * down -> MicroTiML.kinding_derivation * up) -> (MicroTiML.prop_wellformedness_derivation * down) -> (MicroTiML.prop_wellformedness_derivation * up) option
+
+  val transformer_type_equivalence_derivation : (MicroTiML.type_equivalence_derivation * down -> MicroTiML.type_equivalence_derivation * up) * (MicroTiML.kind_equivalence_derivation * down -> MicroTiML.kind_equivalence_derivation * up) * (MicroTiML.proping_derivation * down -> MicroTiML.proping_derivation * up) -> (MicroTiML.type_equivalence_derivation * down) -> (MicroTiML.type_equivalence_derivation * up) option
+  val transformer_kind_equivalence_derivation : (MicroTiML.kind_sub_derivation * down -> MicroTiML.kind_sub_derivation * up) -> (MicroTiML.kind_equivalence_derivation * down) -> (MicroTiML.kind_equivalence_derivation * up) option
+  val transformer_kind_sub_derivation : (MicroTiML.kinding_derivation * down -> MicroTiML.kinding_derivation * up) -> (MicroTiML.kind_sub_derivation * down) -> (MicroTiML.kind_sub_derivation * up) option
 
   val upward_base : up
   val combiner : (up * up) -> up
@@ -35,15 +43,17 @@ struct
       fun on_kdderiv kdderiv = transform_kinding_derivation (kdderiv, down)
       fun on_prderiv prderiv = transform_proping_derivation (prderiv, down)
       fun on_kdwf kdwf = transform_kind_wellformness_derivation (kdwf, down)
+      fun on_tyeq tyeq = transform_type_equivalence_derivation (tyeq, down)
     in
       case tyderiv of
-        TyDerivSub (tyrel, tyderiv1, prderiv2) =>
+        TyDerivSub (tyrel, tyderiv1, tyeq2, prderiv3) =>
           let
             val (tyrel, up0) = on_rel tyrel
             val (tyderiv1, up1) = on_tyderiv tyderiv1
-            val (prderiv2, up2) = on_prderiv prderiv2
+            val (tyeq2, up2) = on_tyeq tyeq2
+            val (prderiv3, up3) = on_prderiv prderiv3
           in
-            (TyDerivSub (tyrel, tyderiv1, prderiv2), combine [up0, up1, up2])
+            (TyDerivSub (tyrel, tyderiv1, tyeq2, prderiv3), combine [up0, up1, up2, up3])
           end
       | TyDerivVar tyrel =>
           let
@@ -242,7 +252,7 @@ struct
     end
 
   and transform_typing_derivation (tyderiv : typing_derivation, down : Arg.down) =
-    case Arg.transformer_typing_derivation (transform_typing_derivation, transform_kinding_derivation, transform_proping_derivation, transform_kind_wellformness_derivation) (tyderiv, down) of
+    case Arg.transformer_typing_derivation (transform_typing_derivation, transform_kinding_derivation, transform_proping_derivation, transform_kind_wellformness_derivation, transform_type_equivalence_derivation) (tyderiv, down) of
       SOME res => res
     | NONE => default_transform_typing_derivation (tyderiv, down)
 
@@ -586,4 +596,165 @@ struct
     case Arg.transformer_prop_wellformness_derivation (transform_prop_wellformness_derivation, transform_kind_wellformness_derivation, transform_kinding_derivation) (prwf, down) of
       SOME res => res
     | NONE => default_transform_prop_wellformness_derivation (prwf, down)
+
+  and default_transform_type_equivalence_derivation (tyeq : type_equivalence_derivation, down : Arg.down) =
+    let
+      fun on_rel tyrel = Arg.on_type_equivalence_relation (tyrel, down)
+      fun on_prderiv prderiv = transform_proping_derivation (prderiv, down)
+      fun on_tyeq tyeq = transform_type_equivalence_derivation (tyeq, down)
+      fun on_kdeq kdeq = transform_kind_equivalence_derivation (kdeq, down)
+    in
+      case tyeq of
+        TyEqDerivAdmit tyrel =>
+          let
+            val (tyrel, up0) = on_rel tyrel
+          in
+            (TyEqDerivAdmit tyrel, combine [up0])
+          end
+      | TyEqDerivTypeUnit tyrel =>
+          let
+            val (tyrel, up0) = on_rel tyrel
+          in
+            (TyEqDerivTypeUnit tyrel, combine [up0])
+          end
+      | TyEqDerivTypeInt tyrel =>
+          let
+            val (tyrel, up0) = on_rel tyrel
+          in
+            (TyEqDerivTypeInt tyrel, combine [up0])
+          end
+      | TyEqDerivTypeNat (tyrel, prderiv1) =>
+          let
+            val (tyrel, up0) = on_rel tyrel
+            val (prderiv1, up1) = on_prderiv prderiv1
+          in
+            (TyEqDerivTypeNat (tyrel, prderiv1), combine [up0, up1])
+          end
+      | TyEqDerivTypeArray (tyrel, tyeq1, prderiv2) =>
+          let
+            val (tyrel, up0) = on_rel tyrel
+            val (tyeq1, up1) = on_tyeq tyeq1
+            val (prderiv2, up2) = on_prderiv prderiv2
+          in
+            (TyEqDerivTypeArray (tyrel, tyeq1, prderiv2), combine [up0, up1, up2])
+          end
+      | TyEqDerivArrow (tyrel, tyeq1, tyeq2, prderiv3) =>
+          let
+            val (tyrel, up0) = on_rel tyrel
+            val (tyeq1, up1) = on_tyeq tyeq1
+            val (tyeq2, up2) = on_tyeq tyeq2
+            val (prderiv3, up3) = on_prderiv prderiv3
+          in
+            (TyEqDerivArrow (tyrel, tyeq1, tyeq2, prderiv3), combine [up0, up1, up2, up3])
+          end
+      | TyEqDerivProd (tyrel, tyeq1, tyeq2) =>
+          let
+            val (tyrel, up0) = on_rel tyrel
+            val (tyeq1, up1) = on_tyeq tyeq1
+            val (tyeq2, up2) = on_tyeq tyeq2
+          in
+            (TyEqDerivProd (tyrel, tyeq1, tyeq2), combine [up0, up1, up2])
+          end
+      | TyEqDerivSum (tyrel, tyeq1, tyeq2) =>
+          let
+            val (tyrel, up0) = on_rel tyrel
+            val (tyeq1, up1) = on_tyeq tyeq1
+            val (tyeq2, up2) = on_tyeq tyeq2
+          in
+            (TyEqDerivSum (tyrel, tyeq1, tyeq2), combine [up0, up1, up2])
+          end
+      | TyEqDerivForall (tyrel, kdeq1, tyeq2) =>
+          let
+            val (tyrel, up0) = on_rel tyrel
+            val (kdeq1, up1) = on_kdeq kdeq1
+            val (tyeq2, up2) = on_tyeq tyeq2
+          in
+            (TyEqDerivForall (tyrel, kdeq1, tyeq2), combine [up0, up1, up2])
+          end
+      | TyEqDerivExists (tyrel, kdeq1, tyeq2) =>
+          let
+            val (tyrel, up0) = on_rel tyrel
+            val (kdeq1, up1) = on_kdeq kdeq1
+            val (tyeq2, up2) = on_tyeq tyeq2
+          in
+            (TyEqDerivExists (tyrel, kdeq1, tyeq2), combine [up0, up1, up2])
+          end
+      | TyEqDerivRec (tyrel, kdeq1, tyeq2) =>
+          let
+            val (tyrel, up0) = on_rel tyrel
+            val (kdeq1, up1) = on_kdeq kdeq1
+            val (tyeq2, up2) = on_tyeq tyeq2
+          in
+            (TyEqDerivRec (tyrel, kdeq1, tyeq2), combine [up0, up1, up2])
+          end
+      | TyEqDerivAbs (tyrel, kdeq1, tyeq2) =>
+          let
+            val (tyrel, up0) = on_rel tyrel
+            val (kdeq1, up1) = on_kdeq kdeq1
+            val (tyeq2, up2) = on_tyeq tyeq2
+          in
+            (TyEqDerivAbs (tyrel, kdeq1, tyeq2), combine [up0, up1, up2])
+          end
+      | TyEqDerivApp (tyrel, tyeq1, tyeq2) =>
+          let
+            val (tyrel, up0) = on_rel tyrel
+            val (tyeq1, up1) = on_tyeq tyeq1
+            val (tyeq2, up2) = on_tyeq tyeq2
+          in
+            (TyEqDerivApp (tyrel, tyeq1, tyeq2), combine [up0, up1, up2])
+          end
+      | TyEqDerivIndex (tyrel, prderiv1) =>
+          let
+            val (tyrel, up0) = on_rel tyrel
+            val (prderiv1, up1) = on_prderiv prderiv1
+          in
+            (TyEqDerivIndex (tyrel, prderiv1), combine [up0, up1])
+          end
+    end
+
+  and transform_type_equivalence_derivation (tyeq : type_equivalence_derivation, down : Arg.down) =
+    case Arg.transformer_type_equivalence_derivation (transform_type_equivalence_derivation, transform_kind_equivalence_derivation, transform_proping_derivation) (tyeq, down) of
+      SOME res => res
+    | NONE => default_transform_type_equivalence_derivation (tyeq, down)
+
+  and default_transform_kind_equivalence_derivation (kdeq : kind_equivalence_derivation, down : Arg.down) =
+    let
+      fun on_rel kdrel = Arg.on_kind_equivalence_relation (kdrel, down)
+      fun on_kdsub kdsub = transform_kind_sub_derivation (kdsub, down)
+    in
+      case kdeq of
+        KdEqDerivBiSub (kdrel, kdsub1, kdsub2) =>
+          let
+            val (kdrel, up0) = on_rel kdrel
+            val (kdsub1, up1) = on_kdsub kdsub1
+            val (kdsub2, up2) = on_kdsub kdsub2
+          in
+            (KdEqDerivBiSub (kdrel, kdsub1, kdsub2), combine [up0, up1, up2])
+          end
+    end
+
+  and transform_kind_equivalence_derivation (kdeq : kind_equivalence_derivation, down : Arg.down) =
+    case Arg.transformer_kind_equivalence_derivation transform_kind_sub_derivation (kdeq, down) of
+      SOME res => res
+    | NONE => default_transform_kind_equivalence_derivation (kdeq, down)
+
+  and default_transform_kind_sub_derivation (kdsub : kind_sub_derivation, down : Arg.down) =
+    let
+      fun on_rel kdrel = Arg.on_kind_sub_relation (kdrel, down)
+      fun on_kdderiv kdderiv = transform_kinding_derivation (kdderiv, down)
+    in
+      case kdsub of
+        KdSubDerivSub (kdrel, kdderiv1) =>
+          let
+            val (kdrel, up0) = on_rel kdrel
+            val (kdderiv1, up1) = on_kdderiv kdderiv1
+          in
+            (KdSubDerivSub (kdrel, kdderiv1), combine [up0, up1])
+          end
+    end
+
+  and transform_kind_sub_derivation (kdsub : kind_sub_derivation, down : Arg.down) =
+    case Arg.transformer_kind_sub_derivation transform_kinding_derivation (kdsub, down) of
+      SOME res => res
+    | NONE => default_transform_kind_sub_derivation (kdsub, down)
 end

@@ -63,7 +63,7 @@ struct
       val tm1_rel = (tm1_ctx, tm1, tm1_ty, tm1_ti)
       val tm1_deriv = TyDerivNat tm1_rel
       val tm1_5_rel = (tm1_ctx, tm1, CstrTypeNat (CstrVar 2), CstrTime "0.0")
-      val tm1_5_deriv = TyDerivSub (tm1_5_rel, tm1_deriv, PrDerivAdmit (tm1_ctx, PrBinRel (PrRelLe, #4 tm1_rel, #4 tm1_5_rel)))
+      val tm1_5_deriv = TyDerivSub (tm1_5_rel, tm1_deriv, TyEqDerivAdmit (tm1_ctx, tm1_ty, #3 tm1_5_rel), PrDerivAdmit (tm1_ctx, PrBinRel (PrRelLe, #4 tm1_rel, #4 tm1_5_rel)))
       val tm2 = TmNat 1
       val tm2_ctx = [BdType (CstrProd (CstrVar 4, CstrApp (CstrApp (list_cstr, CstrVar 4), CstrVar 0))), BdKind (KdSubset (KdNat, PrBinRel (PrRelEq, CstrVar 3, CstrBinOp (CstrBopAdd, CstrVar 0, CstrNat 1)))), BdType (CstrExists (KdSubset (KdNat, PrBinRel (PrRelEq, CstrVar 2, CstrBinOp (CstrBopAdd, CstrVar 0, CstrNat 1))), CstrProd (CstrVar 3, CstrApp (CstrApp (list_cstr, CstrVar 3), CstrVar 0))))] @ (tl tm1_ctx)
       val tm2_ty = CstrTypeNat (CstrNat 1)
@@ -152,7 +152,7 @@ struct
       val tm13_rel = (tm13_ctx, tm13, tm13_ty, tm13_ti)
       val tm13_deriv = TyDerivApp (tm13_rel, tm12_deriv, tm9_deriv)
       val tm13_5_rel = (tm13_ctx, tm13, CstrTypeNat (CstrVar 4), CstrBinOp (CstrBopMult, CstrTime "3.0", CstrUnOp (CstrUopNat2Time, CstrVar 4)))
-      val tm13_5_deriv = TyDerivSub (tm13_5_rel, tm13_deriv, PrDerivAdmit (tm13_ctx, PrBinRel (PrRelLe, #4 tm13_rel, #4 tm13_5_rel)))
+      val tm13_5_deriv = TyDerivSub (tm13_5_rel, tm13_deriv, TyEqDerivAdmit (tm13_ctx, tm13_ty, #3 tm13_5_rel), PrDerivAdmit (tm13_ctx, PrBinRel (PrRelLe, #4 tm13_rel, #4 tm13_5_rel)))
       val tm14 = TmVar 0
       val tm14_ctx = tl (tl tm13_ctx)
       val tm14_ty = CstrExists (KdSubset (KdNat, PrBinRel (PrRelEq, CstrVar 3, CstrBinOp (CstrBopAdd, CstrVar 0, CstrNat 1))), CstrProd (CstrVar 4, CstrApp (CstrApp (list_cstr, CstrVar 4), CstrVar 0)))
@@ -184,7 +184,7 @@ struct
       val tm18_rel = (tm18_ctx, tm18, tm18_ty, tm18_ti)
       val tm18_deriv = TyDerivCase (tm18_rel, tm17_deriv, tm1_5_deriv, tm15_deriv)
       val tm18_5_rel = (tm18_ctx, tm18, tm18_ty, CstrBinOp (CstrBopMult, CstrTime "3.0", CstrUnOp (CstrUopNat2Time, CstrVar 1)))
-      val tm18_5_deriv = TyDerivSub (tm18_5_rel, tm18_deriv, PrDerivAdmit (tm18_ctx, PrBinRel (PrRelLe, #4 tm18_rel, #4 tm18_5_rel)))
+      val tm18_5_deriv = TyDerivSub (tm18_5_rel, tm18_deriv, TyEqDerivAdmit (tm18_ctx, tm18_ty, #3 tm18_5_rel), PrDerivAdmit (tm18_ctx, PrBinRel (PrRelLe, #4 tm18_rel, #4 tm18_5_rel)))
       val tm19 = TmAbs (CstrApp (CstrApp (list_cstr, CstrVar 1), CstrVar 0), tm18)
       val tm19_ctx = tl tm18_ctx
       val tm19_ty = CstrArrow (CstrApp (CstrApp (list_cstr, CstrVar 1), CstrVar 0), CstrTypeNat (CstrVar 0), CstrBinOp (CstrBopMult, CstrTime "3.0", CstrUnOp (CstrUopNat2Time, CstrVar 0)))
@@ -276,7 +276,7 @@ struct
       val tm12_rel = (tm12_ctx, tm12, CstrExists (KdNat, CstrTypeNat (CstrVar 0)), CstrBinOp (CstrBopAdd, CstrBinOp (CstrBopAdd, CstrBinOp (CstrBopAdd, CstrBinOp (CstrBopAdd, CstrTime "0.0", CstrTime "0.0"), CstrTime "1.0"), CstrTime "1.0"), CstrBinOp (CstrBopMax, CstrTime "0.0", CstrBinOp (CstrBopAdd, CstrBinOp (CstrBopAdd, CstrBinOp (CstrBopAdd, CstrTime "0.0", CstrBinOp (CstrBopAdd, CstrTime "0.0", CstrBinOp (CstrBopAdd, CstrBinOp (CstrBopAdd, CstrBinOp (CstrBopAdd, CstrTime "0.0", CstrBinOp (CstrBopAdd, CstrBinOp (CstrBopAdd, CstrBinOp (CstrBopAdd, CstrTime "0.0", CstrBinOp (CstrBopAdd, CstrTime "0.0", CstrTime "0.0")), CstrTime "1.0"), CstrTime "1.0")), CstrTime "1.0"), CstrBinOp (CstrBopMult, CstrTime "7.0", CstrUnOp (CstrUopNat2Time, CstrBinOp (CstrBopDiff, CstrVar 1, CstrNat 1)))))), CstrTime "1.0"), CstrTime "1.0"))))
       val tm12_deriv = TyDerivCase (tm12_rel, tm11_deriv, tm1_deriv, tm9_deriv)
       val tm125_rel = (tm12_ctx, tm12, #3 tm12_rel, CstrBinOp (CstrBopMult, CstrTime "7.0", CstrUnOp (CstrUopNat2Time, CstrVar 1)))
-      val tm125_deriv = TyDerivSub (tm125_rel, tm12_deriv, PrDerivAdmit (tm12_ctx, PrBinRel (PrRelLe, #4 tm12_rel, #4 tm125_rel)))
+      val tm125_deriv = TyDerivSub (tm125_rel, tm12_deriv, TyEqDerivAdmit (tm12_ctx, #3 tm12_rel, #3 tm125_rel), PrDerivAdmit (tm12_ctx, PrBinRel (PrRelLe, #4 tm12_rel, #4 tm125_rel)))
       val tm13 = TmAbs (CstrTypeNat (CstrVar 0), tm12)
       val tm13_ctx = List.tl tm12_ctx
       val tm13_rel = (tm13_ctx, tm13, CstrArrow (CstrTypeNat (CstrVar 0), CstrExists (KdNat, CstrTypeNat (CstrVar 0)), CstrBinOp (CstrBopMult, CstrTime "7.0", CstrUnOp (CstrUopNat2Time, CstrVar 0))), CstrTime "0.0")

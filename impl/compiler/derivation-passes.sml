@@ -67,7 +67,34 @@ struct
           ((ctx', pr'), ())
         end
 
-      fun transformer_typing_derivation (on_tyderiv, on_kdderiv, on_prderiv, on_kdwf) (tyderiv : typing_derivation, down as (dep, delta) : down) =
+      fun on_type_equivalence_relation ((ctx, ty1, ty2), (dep, delta)) =
+        let
+          val ctx' = shift_context_above delta dep ctx
+          val ty1' = Passes.TermShift.shift_constr_above (List.length delta) dep ty1
+          val ty2' = Passes.TermShift.shift_constr_above (List.length delta) dep ty2
+        in
+          ((ctx', ty1', ty2'), ())
+        end
+
+      fun on_kind_equivalence_relation ((ctx, kd1, kd2), (dep, delta)) =
+        let
+          val ctx' = shift_context_above delta dep ctx
+          val kd1' = Passes.TermShift.shift_kind_above (List.length delta) dep kd1
+          val kd2' = Passes.TermShift.shift_kind_above (List.length delta) dep kd2
+        in
+          ((ctx', kd1', kd2'), ())
+        end
+
+      fun on_kind_sub_relation ((ctx, kd1, kd2), (dep, delta)) =
+        let
+          val ctx' = shift_context_above delta dep ctx
+          val kd1' = Passes.TermShift.shift_kind_above (List.length delta) dep kd1
+          val kd2' = Passes.TermShift.shift_kind_above (List.length delta) dep kd2
+        in
+          ((ctx', kd1', kd2'), ())
+        end
+
+      fun transformer_typing_derivation (on_tyderiv, on_kdderiv, on_prderiv, on_kdwf, on_tyeq) (tyderiv : typing_derivation, down as (dep, delta) : down) =
         let
           fun on_rel tyrel = #1 (on_typing_relation (tyrel, down))
         in
@@ -205,6 +232,46 @@ struct
               end
           | _ => NONE
         end
+
+      fun transformer_type_equivalence_derivation (on_tyeq, on_kdeq, on_prderiv) (tyeq : type_equivalence_derivation, down as (dep, delta) : down) =
+        let
+          fun on_rel tyrel = #1 (on_type_equivalence_relation (tyrel, down))
+        in
+          case tyeq of
+            TyEqDerivForall (tyrel, kdeq1, tyeq2) =>
+              let
+                val (kdeq1, ()) = on_kdeq (kdeq1, down)
+                val (tyeq2, ()) = on_tyeq (tyeq2, (dep + 1, delta))
+              in
+                SOME (TyEqDerivForall (on_rel tyrel, kdeq1, tyeq2), ())
+              end
+          | TyEqDerivExists (tyrel, kdeq1, tyeq2) =>
+              let
+                val (kdeq1, ()) = on_kdeq (kdeq1, down)
+                val (tyeq2, ()) = on_tyeq (tyeq2, (dep + 1, delta))
+              in
+                SOME (TyEqDerivExists (on_rel tyrel, kdeq1, tyeq2), ())
+              end
+          | TyEqDerivRec (tyrel, kdeq1, tyeq2) =>
+              let
+                val (kdeq1, ()) = on_kdeq (kdeq1, down)
+                val (tyeq2, ()) = on_tyeq (tyeq2, (dep + 1, delta))
+              in
+                SOME (TyEqDerivRec (on_rel tyrel, kdeq1, tyeq2), ())
+              end
+          | TyEqDerivAbs (tyrel, kdeq1, tyeq2) =>
+              let
+                val (kdeq1, ()) = on_kdeq (kdeq1, down)
+                val (tyeq2, ()) = on_tyeq (tyeq2, (dep + 1, delta))
+              in
+                SOME (TyEqDerivAbs (on_rel tyrel, kdeq1, tyeq2), ())
+              end
+          | _ => NONE
+        end
+
+      fun transformer_kind_equivalence_derivation on_kdsub (kdeq : kind_equivalence_derivation, down as (dep, delta) : down) = NONE
+
+      fun transformer_kind_sub_derivation on_kdderiv (kdsub : kind_sub_derivation, down as (dep, delta) : down) = NONE
     end
 
     structure TypingDerivationShiftIns = TypingDerivationTransformPass(TypingDerivationShiftHelper)
@@ -235,7 +302,13 @@ struct
 
       fun on_prop_wellformness_relation ((ctx, pr), down) = ((down, pr), ())
 
-      fun transformer_typing_derivation (on_tyderiv, on_kdderiv, on_prderiv, on_kdwf) (tyderiv : typing_derivation, down : down) =
+      fun on_type_equivalence_relation ((ctx, ty1, ty2), down) = ((down, ty1, ty2), ())
+
+      fun on_kind_equivalence_relation ((ctx, kd1, kd2), down) = ((down, kd1, kd2), ())
+
+      fun on_kind_sub_relation ((ctx, kd1, kd2), down) = ((down, kd1, kd2), ())
+
+      fun transformer_typing_derivation (on_tyderiv, on_kdderiv, on_prderiv, on_kdwf, on_tyeq) (tyderiv : typing_derivation, down : down) =
         let
           fun on_rel tyrel = #1 (on_typing_relation (tyrel, down))
         in
@@ -375,6 +448,46 @@ struct
               end
           | _ => NONE
         end
+
+      fun transformer_type_equivalence_derivation (on_tyeq, on_kdeq, on_prderiv) (tyeq : type_equivalence_derivation, down : down) =
+        let
+          fun on_rel tyrel = #1 (on_type_equivalence_relation (tyrel, down))
+        in
+          case tyeq of
+            TyEqDerivForall (tyrel, kdeq1, tyeq2) =>
+              let
+                val (kdeq1, ()) = on_kdeq (kdeq1, down)
+                val (tyeq2, ()) = on_tyeq (tyeq2, BdKind (#2 (extract_kdeqrel kdeq1)) :: down)
+              in
+                SOME (TyEqDerivForall (on_rel tyrel, kdeq1, tyeq2), ())
+              end
+          | TyEqDerivExists (tyrel, kdeq1, tyeq2) =>
+              let
+                val (kdeq1, ()) = on_kdeq (kdeq1, down)
+                val (tyeq2, ()) = on_tyeq (tyeq2, BdKind (#2 (extract_kdeqrel kdeq1)) :: down)
+              in
+                SOME (TyEqDerivExists (on_rel tyrel, kdeq1, tyeq2), ())
+              end
+          | TyEqDerivRec (tyrel, kdeq1, tyeq2) =>
+              let
+                val (kdeq1, ()) = on_kdeq (kdeq1, down)
+                val (tyeq2, ()) = on_tyeq (tyeq2, BdKind (#2 (extract_kdeqrel kdeq1)) :: down)
+              in
+                SOME (TyEqDerivRec (on_rel tyrel, kdeq1, tyeq2), ())
+              end
+          | TyEqDerivAbs (tyrel, kdeq1, tyeq2) =>
+              let
+                val (kdeq1, ()) = on_kdeq (kdeq1, down)
+                val (tyeq2, ()) = on_tyeq (tyeq2, BdKind (#2 (extract_kdeqrel kdeq1)) :: down)
+              in
+                SOME (TyEqDerivAbs (on_rel tyrel, kdeq1, tyeq2), ())
+              end
+          | _ => NONE
+        end
+
+      fun transformer_kind_equivalence_derivation on_kdsub (kdeq : kind_equivalence_derivation, down : down) = NONE
+
+      fun transformer_kind_sub_derivation on_kdderiv (kdsub : kind_sub_derivation, down : down) = NONE
     end
 
     structure TypingDerivationChangeContextIns = TypingDerivationTransformPass(TypingDerivationChangeContextHelper)
@@ -435,7 +548,31 @@ struct
           ((ctx, pr'), ())
         end
 
-      fun transformer_typing_derivation (on_tyderiv, on_kdderiv, on_prderiv, on_kdwf) (tyderiv : typing_derivation, down as (who, to) : down) =
+      fun on_type_equivalence_relation ((ctx, ty1, ty2), (who, to)) =
+        let
+          val ty1' = #1 (Passes.TermSubstConstr.transform_constr (ty1, (who, to)))
+          val ty2' = #1 (Passes.TermSubstConstr.transform_constr (ty2, (who, to)))
+        in
+          ((ctx, ty1', ty2'), ())
+        end
+
+      fun on_kind_equivalence_relation ((ctx, kd1, kd2), (who, to)) =
+        let
+          val kd1' = #1 (Passes.TermSubstConstr.transform_kind (kd1, (who, to)))
+          val kd2' = #1 (Passes.TermSubstConstr.transform_kind (kd2, (who, to)))
+        in
+          ((ctx, kd1', kd2'), ())
+        end
+
+      fun on_kind_sub_relation ((ctx, kd1, kd2), (who, to)) =
+        let
+          val kd1' = #1 (Passes.TermSubstConstr.transform_kind (kd1, (who, to)))
+          val kd2' = #1 (Passes.TermSubstConstr.transform_kind (kd2, (who, to)))
+        in
+          ((ctx, kd1', kd2'), ())
+        end
+
+      fun transformer_typing_derivation (on_tyderiv, on_kdderiv, on_prderiv, on_kdwf, on_tyeq) (tyderiv : typing_derivation, down as (who, to) : down) =
         let
           fun on_rel tyrel = #1 (on_typing_relation (tyrel, down))
         in
@@ -573,6 +710,46 @@ struct
               end
           | _ => NONE
         end
+
+      fun transformer_type_equivalence_derivation (on_tyeq, on_kdeq, on_prderiv) (tyeq : type_equivalence_derivation, down as (who, to) : down) =
+        let
+          fun on_rel tyrel = #1 (on_type_equivalence_relation (tyrel, down))
+        in
+          case tyeq of
+            TyEqDerivForall (tyrel, kdeq1, tyeq2) =>
+              let
+                val (kdeq1, ()) = on_kdeq (kdeq1, down)
+                val (tyeq2, ()) = on_tyeq (tyeq2, (who + 1, to))
+              in
+                SOME (TyEqDerivForall (on_rel tyrel, kdeq1, tyeq2), ())
+              end
+          | TyEqDerivExists (tyrel, kdeq1, tyeq2) =>
+              let
+                val (kdeq1, ()) = on_kdeq (kdeq1, down)
+                val (tyeq2, ()) = on_tyeq (tyeq2, (who + 1, to))
+              in
+                SOME (TyEqDerivExists (on_rel tyrel, kdeq1, tyeq2), ())
+              end
+          | TyEqDerivRec (tyrel, kdeq1, tyeq2) =>
+              let
+                val (kdeq1, ()) = on_kdeq (kdeq1, down)
+                val (tyeq2, ()) = on_tyeq (tyeq2, (who + 1, to))
+              in
+                SOME (TyEqDerivRec (on_rel tyrel, kdeq1, tyeq2), ())
+              end
+          | TyEqDerivAbs (tyrel, kdeq1, tyeq2) =>
+              let
+                val (kdeq1, ()) = on_kdeq (kdeq1, down)
+                val (tyeq2, ()) = on_tyeq (tyeq2, (who + 1, to))
+              in
+                SOME (TyEqDerivAbs (on_rel tyrel, kdeq1, tyeq2), ())
+              end
+          | _ => NONE
+        end
+
+      fun transformer_kind_equivalence_derivation on_kdsub (kdeq : kind_equivalence_derivation, down : down) = NONE
+
+      fun transformer_kind_sub_derivation on_kdderiv (kdsub : kind_sub_derivation, down : down) = NONE
     end
 
     structure TypingDerivationSubstConstrIns = TypingDerivationTransformPass(TypingDerivationSubstConstrHelper)
@@ -604,7 +781,13 @@ struct
 
       fun on_prop_wellformness_relation (rel as (ctx, pr), (who, to)) = (rel, ())
 
-      fun transformer_typing_derivation (on_tyderiv, on_kdderiv, on_prderiv, on_kdwf) (tyderiv : typing_derivation, down as (who, to) : down) =
+      fun on_type_equivalence_relation (rel, down) = (rel, ())
+
+      fun on_kind_equivalence_relation (rel, down) = (rel, ())
+
+      fun on_kind_sub_relation (rel, down) = (rel, ())
+
+      fun transformer_typing_derivation (on_tyderiv, on_kdderiv, on_prderiv, on_kdwf, on_tyeq) (tyderiv : typing_derivation, down as (who, to) : down) =
         let
           fun on_rel tyrel = #1 (on_typing_relation (tyrel, down))
         in
@@ -662,6 +845,12 @@ struct
       fun transformer_kind_wellformness_derivation (on_kdwf, on_prwf) (kdwf : kind_wellformedness_derivation, down as (who, to) : down) = NONE
 
       fun transformer_prop_wellformness_derivation (on_prwf, on_kdwf, on_kdderiv) (prwf : prop_wellformedness_derivation, down as (who, to) : down) = NONE
+
+      fun transformer_type_equivalence_derivation _ _ = NONE
+
+      fun transformer_kind_equivalence_derivation _ _ = NONE
+
+      fun transformer_kind_sub_derivation _ _ = NONE
     end
 
     structure TypingDerivationSubstTermIns = TypingDerivationTransformPass(TypingDerivationSubstTermHelper)
@@ -676,7 +865,7 @@ struct
 
     and normalize tyderiv k =
       case tyderiv of
-        TyDerivSub (tyrel, tyderiv1, prderiv2) => normalize tyderiv1 k
+        TyDerivSub (tyrel, tyderiv1, tyeq2, prderiv3) => normalize tyderiv1 k
       | TyDerivVar _ => k (tyderiv, [])
       | TyDerivInt _ => k (tyderiv, [])
       | TyDerivNat _ => k (tyderiv, [])
@@ -700,7 +889,7 @@ struct
             val tyrel2_new = extract_tyrel tyderiv2_new
             val tyrel_new = (#1 tyrel, TmAbs (kd1, #2 tyrel2_new), #3 tyrel, CstrTime "0.0")
             val (ty1, ty2, ti) = extract_cstr_arrow (#3 tyrel)
-            val tyderiv2_sub = TyDerivSub ((#1 tyrel2_new, #2 tyrel2_new, #3 tyrel2_new, Passes.TermShift.shift_constr 1 ti), tyderiv2_new, PrDerivAdmit (#1 tyrel2_new, PrBinRel (PrRelLe, #4 tyrel2_new, Passes.TermShift.shift_constr 1 ti)))
+            val tyderiv2_sub = TyDerivSub ((#1 tyrel2_new, #2 tyrel2_new, #3 tyrel2_new, Passes.TermShift.shift_constr 1 ti), tyderiv2_new, TyEqDerivAdmit (#1 tyrel2_new, Passes.TermShift.shift_constr 1 ty2, #3 tyrel2_new), PrDerivAdmit (#1 tyrel2_new, PrBinRel (PrRelLe, #4 tyrel2_new, Passes.TermShift.shift_constr 1 ti)))
           in
             k (TyDerivAbs (tyrel_new, kdderiv1, tyderiv2_sub), [])
           end
@@ -773,8 +962,8 @@ struct
               val tyrel3_new = extract_tyrel tyderiv3_new
               val tyrel1_new = extract_tyrel tyderiv1_new
               val ty_wrap = Passes.TermShift.shift_constr (List.length d1) (#3 tyrel)
-              val tyderiv2_wrap = TyDerivSub ((#1 tyrel2_new, #2 tyrel2_new, Passes.TermShift.shift_constr 1 ty_wrap, #4 tyrel2_new), tyderiv2_new, PrDerivAdmit (#1 tyrel2_new, PrBinRel (PrRelLe, #4 tyrel2_new, #4 tyrel2_new)))
-              val tyderiv3_wrap = TyDerivSub ((#1 tyrel3_new, #2 tyrel3_new, Passes.TermShift.shift_constr 1 ty_wrap, #4 tyrel3_new), tyderiv3_new, PrDerivAdmit (#1 tyrel3_new, PrBinRel (PrRelLe, #4 tyrel3_new, #4 tyrel3_new)))
+              val tyderiv2_wrap = TyDerivSub ((#1 tyrel2_new, #2 tyrel2_new, Passes.TermShift.shift_constr 1 ty_wrap, #4 tyrel2_new), tyderiv2_new, TyEqDerivAdmit (#1 tyrel2_new, #3 tyrel2_new, Passes.TermShift.shift_constr 1 ty_wrap), PrDerivAdmit (#1 tyrel2_new, PrBinRel (PrRelLe, #4 tyrel2_new, #4 tyrel2_new)))
+              val tyderiv3_wrap = TyDerivSub ((#1 tyrel3_new, #2 tyrel3_new, Passes.TermShift.shift_constr 1 ty_wrap, #4 tyrel3_new), tyderiv3_new, TyEqDerivAdmit (#1 tyrel3_new, #3 tyrel3_new, Passes.TermShift.shift_constr 1 ty_wrap), PrDerivAdmit (#1 tyrel3_new, PrBinRel (PrRelLe, #4 tyrel3_new, #4 tyrel3_new)))
               val tyrel_new = (#1 tyrel1_new, TmCase (#2 tyrel1_new, #2 tyrel2_new, #2 tyrel3_new), ty_wrap, CstrBinOp (CstrBopAdd, #4 tyrel1_new, CstrBinOp (CstrBopMax, Passes.TermShift.shift_constr ~1 (#4 tyrel2_new), Passes.TermShift.shift_constr ~1 (#4 tyrel3_new))))
             in
               k (TyDerivCase (tyrel_new, tyderiv1_new, tyderiv2_wrap, tyderiv3_wrap), d1)
@@ -821,7 +1010,7 @@ struct
               val ty2_wrap = Passes.TermShift.shift_constr (List.length d1 + 2) (#3 tyrel)
               val ti2_wrap = Passes.TermShift.shift_constr (List.length d1 + 2) (#4 tyrel)
               val ti2_inner_wrap = CstrBinOp (CstrBopDiff, ti2_wrap, Passes.TermShift.shift_constr 2 (#4 tyrel1_new))
-              val tyderiv2_wrap = TyDerivSub ((#1 tyrel2_new, #2 tyrel2_new, ty2_wrap, ti2_inner_wrap), tyderiv2_new, PrDerivAdmit (#1 tyrel2_new, PrBinRel (PrRelLe, #4 tyrel2_new, ti2_inner_wrap)))
+              val tyderiv2_wrap = TyDerivSub ((#1 tyrel2_new, #2 tyrel2_new, ty2_wrap, ti2_inner_wrap), tyderiv2_new, TyEqDerivAdmit (#1 tyrel2_new, #3 tyrel2_new, ty2_wrap), PrDerivAdmit (#1 tyrel2_new, PrBinRel (PrRelLe, #4 tyrel2_new, ti2_inner_wrap)))
               val tyrel_new = (#1 tyrel1_new, TmUnpack (#2 tyrel1_new, #2 tyrel2_new), Passes.TermShift.shift_constr ~2 ty2_wrap, CstrBinOp (CstrBopAdd, #4 tyrel1_new, Passes.TermShift.shift_constr ~2 ti2_inner_wrap))
             in
               TyDerivUnpack (tyrel_new, tyderiv1_new, tyderiv2_wrap)
@@ -960,8 +1149,11 @@ struct
       fun on_proping_relation (rel as (ctx, pr), down) = (rel, Passes.FV.free_variables_prop pr down)
       fun on_kind_wellformness_relation (rel as (ctx, kd), down) = (rel, Passes.FV.free_variables_kind kd down)
       fun on_prop_wellformness_relation (rel as (ctx, pr), down) = (rel, Passes.FV.free_variables_prop pr down)
+      fun on_type_equivalence_relation (rel as (ctx, ty1, ty2), down) = (rel, combiner (Passes.FV.free_variables_constr ty1 down, Passes.FV.free_variables_constr ty2 down))
+      fun on_kind_equivalence_relation (rel as (ctx, kd1, kd2), down) = (rel, combiner (Passes.FV.free_variables_kind kd1 down, Passes.FV.free_variables_kind kd2 down))
+      fun on_kind_sub_relation (rel as (ctx, kd1, kd2), down) = (rel, combiner (Passes.FV.free_variables_kind kd1 down, Passes.FV.free_variables_kind kd2 down))
 
-      fun transformer_typing_derivation (on_tyderiv, on_kdderiv, on_prderiv, on_kdwf) (tyderiv : typing_derivation, ctx : down) =
+      fun transformer_typing_derivation (on_tyderiv, on_kdderiv, on_prderiv, on_kdwf, on_tyeq) (tyderiv : typing_derivation, ctx : down) =
         let
           fun on_rel tyrel = on_typing_relation (tyrel, ctx)
         in
@@ -1114,6 +1306,50 @@ struct
               end
           | _ => NONE
         end
+
+      fun transformer_type_equivalence_derivation (on_tyeq, on_kdeq, on_prderiv) (tyeq : type_equivalence_derivation, ctx : down) =
+        let
+          fun on_rel tyrel = on_type_equivalence_relation (tyrel, ctx)
+        in
+          case tyeq of
+            TyEqDerivForall (tyrel, kdeq1, tyeq2) =>
+              let
+                val (tyrel, up0) = on_rel tyrel
+                val (kdeq1, up1) = on_kdeq (kdeq1, ctx)
+                val (tyeq2, up2) = on_tyeq (tyeq2, ctx + 1)
+              in
+                SOME (TyEqDerivForall (tyrel, kdeq1, tyeq2), combiner (combiner (up0, up1), up2))
+              end
+          | TyEqDerivExists (tyrel, kdeq1, tyeq2) =>
+              let
+                val (tyrel, up0) = on_rel tyrel
+                val (kdeq1, up1) = on_kdeq (kdeq1, ctx)
+                val (tyeq2, up2) = on_tyeq (tyeq2, ctx + 1)
+              in
+                SOME (TyEqDerivExists (tyrel, kdeq1, tyeq2), combiner (combiner (up0, up1), up2))
+              end
+          | TyEqDerivRec (tyrel, kdeq1, tyeq2) =>
+              let
+                val (tyrel, up0) = on_rel tyrel
+                val (kdeq1, up1) = on_kdeq (kdeq1, ctx)
+                val (tyeq2, up2) = on_tyeq (tyeq2, ctx + 1)
+              in
+                SOME (TyEqDerivRec (tyrel, kdeq1, tyeq2), combiner (combiner (up0, up1), up2))
+              end
+          | TyEqDerivAbs (tyrel, kdeq1, tyeq2) =>
+              let
+                val (tyrel, up0) = on_rel tyrel
+                val (kdeq1, up1) = on_kdeq (kdeq1, ctx)
+                val (tyeq2, up2) = on_tyeq (tyeq2, ctx + 1)
+              in
+                SOME (TyEqDerivAbs (tyrel, kdeq1, tyeq2), combiner (combiner (up0, up1), up2))
+              end
+          | _ => NONE
+        end
+
+      fun transformer_kind_equivalence_derivation _ _ = NONE
+
+      fun transformer_kind_sub_derivation _ _ = NONE
     end
 
     structure FVIns = TypingDerivationTransformPass(FVHelper)
@@ -1158,6 +1394,9 @@ struct
       fun on_proping_relation (rel, ()) = (rel, ())
       fun on_kind_wellformness_relation (rel, ()) = (rel, ())
       fun on_prop_wellformness_relation (rel, ()) = (rel, ())
+      fun on_type_equivalence_relation (rel as (ctx, ty1, ty2), ()) = ((ctx, transform_type ty1, transform_type ty2), ())
+      fun on_kind_equivalence_relation (rel, ()) = (rel, ())
+      fun on_kind_sub_relation (rel, ()) = (rel, ())
 
       fun get_bind (ctx : context, i : int) =
         let
@@ -1179,7 +1418,7 @@ struct
           [] => raise Subscript
         | (a, b) :: tl => if a = x then b else assoc x tl
 
-      fun transformer_typing_derivation (on_tyderiv : typing_derivation * down -> typing_derivation * up, on_kdderiv, on_prderiv, on_kdwf) (tyderiv : typing_derivation, ()) =
+      fun transformer_typing_derivation (on_tyderiv : typing_derivation * down -> typing_derivation * up, on_kdderiv, on_prderiv, on_kdwf, on_tyeq) (tyderiv : typing_derivation, ()) =
         case tyderiv of
           TyDerivAbs ((ctx, tm as TmAbs (ty1, tm2), ty_arrow, _), kdderiv1, tyderiv2) =>
             let
@@ -1309,6 +1548,12 @@ struct
       fun transformer_kind_wellformness_derivation _ _ = NONE
 
       fun transformer_prop_wellformness_derivation _ _ = NONE
+
+      fun transformer_type_equivalence_derivation _ _ = NONE
+
+      fun transformer_kind_equivalence_derivation _ _ = NONE
+
+      fun transformer_kind_sub_derivation _ _ = NONE
     end
 
     structure CloConvIns = TypingDerivationTransformPass(CloConvHelper)

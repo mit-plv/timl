@@ -412,18 +412,22 @@ struct
 
   and check_typing_derivation tyderiv =
     (case tyderiv of
-      TyDerivSub ((ctx, tm, ty, ti), tyderiv1, prderiv2) =>
+      TyDerivSub ((ctx, tm, ty, ti), tyderiv1, tyeq2, prderiv3) =>
         let
           val _ = assert (check_typing_derivation tyderiv1)
-          val _ = assert (check_proping_derivation prderiv2)
+          (* TODO: check type equivalence *)
+          val _ = assert (check_proping_derivation prderiv3)
           val tyrel1 = extract_tyrel tyderiv1
-          val prrel2 = extract_prrel prderiv2
+          val tyeqrel2 = extract_tyeqrel tyeq2
+          val prrel3 = extract_prrel prderiv3
           val _ = assert (#1 tyrel1 = ctx)
           val _ = assert (#2 tyrel1 = tm)
-          (*val _ = assert (#3 tyrel1 = ty)*) (* TODO: type equivalence *)
+          val _ = assert (#1 tyeqrel2 = ctx)
+          val _ = assert (#2 tyeqrel2 = #3 tyrel1)
+          val _ = assert (#3 tyeqrel2 = ty)
           (*val _ = println ("----> " ^ (snd (Passes.Printer.transform_constr (#3 tyrel1, List.mapi (fn (i, _) => "%orz" ^ (str_int i)) (#1 tyrel1)))) ^ "    " ^ (snd (Passes.Printer.transform_constr (ty, List.mapi (fn (i, _) => "%orz" ^ (str_int i)) ctx))))*)
-          val _ = assert (#1 prrel2 = ctx)
-          val _ = assert (#2 prrel2 = PrBinRel (PrRelLe, #4 tyrel1, ti))
+          val _ = assert (#1 prrel3 = ctx)
+          val _ = assert (#2 prrel3 = PrBinRel (PrRelLe, #4 tyrel1, ti))
           (*val _ = println ("----> " ^ (snd (Passes.Printer.transform_constr (#4 tyrel1, List.mapi (fn (i, _) => "%orz" ^ (str_int i)) (#1 tyrel1)))) ^ "    " ^ (snd (Passes.Printer.transform_constr (ti, List.mapi (fn (i, _) => "%orz" ^ (str_int i)) ctx))))*)
         in
           true

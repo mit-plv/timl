@@ -172,6 +172,9 @@ struct
 
   type prop_wellformedness_relation = context * prop
   type kind_wellformedness_relation = context * kind
+  type type_equivalence_relation = context * constr * constr
+  type kind_equivalence_relation = context * kind * kind
+  type kind_sub_relation = context * kind * kind
   type kinding_relation = context * constr * kind
   type proping_relation = context * prop
   type typing_relation = context * term * constr * constr
@@ -194,6 +197,28 @@ struct
   | PrWfDerivBinRel of prop_wellformedness_relation * kinding_derivation * kinding_derivation
   | PrWfDerivForall of prop_wellformedness_relation * kind_wellformedness_derivation * prop_wellformedness_derivation
   | PrWfDerivExists of prop_wellformedness_relation * kind_wellformedness_derivation * prop_wellformedness_derivation
+
+  and type_equivalence_derivation =
+    TyEqDerivAdmit of type_equivalence_relation
+  | TyEqDerivTypeUnit of type_equivalence_relation
+  | TyEqDerivTypeInt of type_equivalence_relation
+  | TyEqDerivTypeNat of type_equivalence_relation * proping_derivation
+  | TyEqDerivTypeArray of type_equivalence_relation * type_equivalence_derivation * proping_derivation
+  | TyEqDerivArrow of type_equivalence_relation * type_equivalence_derivation * type_equivalence_derivation * proping_derivation
+  | TyEqDerivProd of type_equivalence_relation * type_equivalence_derivation * type_equivalence_derivation
+  | TyEqDerivSum of type_equivalence_relation * type_equivalence_derivation * type_equivalence_derivation
+  | TyEqDerivForall of type_equivalence_relation * kind_equivalence_derivation * type_equivalence_derivation
+  | TyEqDerivExists of type_equivalence_relation * kind_equivalence_derivation * type_equivalence_derivation
+  | TyEqDerivRec of type_equivalence_relation * kind_equivalence_derivation * type_equivalence_derivation
+  | TyEqDerivAbs of type_equivalence_relation * kind_equivalence_derivation * type_equivalence_derivation
+  | TyEqDerivApp of type_equivalence_relation * type_equivalence_derivation * type_equivalence_derivation
+  | TyEqDerivIndex of type_equivalence_relation * proping_derivation
+
+  and kind_equivalence_derivation =
+    KdEqDerivBiSub of kind_equivalence_relation * kind_sub_derivation * kind_sub_derivation
+
+  and kind_sub_derivation =
+    KdSubDerivSub of kind_sub_relation * kinding_derivation
 
   and kinding_derivation =
     KdDerivAssume of kinding_relation
@@ -226,7 +251,7 @@ struct
     PrDerivAdmit of proping_relation
 
   datatype typing_derivation =
-    TyDerivSub of typing_relation * typing_derivation * proping_derivation
+    TyDerivSub of typing_relation * typing_derivation * type_equivalence_derivation * proping_derivation
   | TyDerivVar of typing_relation
   | TyDerivInt of typing_relation
   | TyDerivNat of typing_relation
@@ -271,6 +296,27 @@ struct
     | TmNever => true
     | _ => false
 
+  fun extract_tyeqrel tyeq =
+    case tyeq of
+      TyEqDerivAdmit rel => rel
+    | TyEqDerivAbs (rel, _, _) => rel
+    | TyEqDerivRec (rel, _, _) => rel
+    | TyEqDerivForall (rel, _, _) => rel
+    | TyEqDerivExists (rel, _, _) => rel
+    | TyEqDerivTypeInt rel => rel
+    | TyEqDerivTypeUnit rel => rel
+    | TyEqDerivTypeNat (rel, _) => rel
+    | TyEqDerivTypeArray (rel, _, _) => rel
+    | TyEqDerivProd (rel, _, _) => rel
+    | TyEqDerivSum (rel, _, _) => rel
+    | TyEqDerivArrow (rel, _, _, _) => rel
+    | TyEqDerivApp (rel, _, _) => rel
+    | TyEqDerivIndex (rel, _) => rel
+
+  fun extract_kdeqrel kdeq =
+    case kdeq of
+      KdEqDerivBiSub (rel, _, _) => rel
+
   fun extract_kdwfrel kdwf =
     case kdwf of
       KdWfDerivAssume rel => rel
@@ -298,7 +344,7 @@ struct
 
   fun extract_tyrel tyderiv =
     case tyderiv of
-      TyDerivSub (rel, _, _) => rel
+      TyDerivSub (rel, _, _, _) => rel
     | TyDerivVar rel => rel
     | TyDerivInt rel => rel
     | TyDerivNat rel => rel
@@ -380,6 +426,9 @@ struct
   fun extract_cstr_type_array (CstrTypeArray r) = r
     | extract_cstr_type_array _ = raise Impossible
 
+  fun extract_cstr_bin_op (CstrBinOp r) = r
+    | extract_cstr_bin_op _ = raise Impossible
+
   fun extract_tm_abs (TmAbs r) = r
     | extract_tm_abs _ = raise Impossible
 
@@ -410,11 +459,11 @@ struct
   fun cstr_bin_op_to_kind bop =
     case bop of
       CstrBopOr => [(KdBool, (KdBool, KdBool))]
-    | CstrBopEq => [(KdBool, (KdNat, KdNat)), (KdBool, (KdBool, KdBool))]
-    | CstrBopGe => [(KdBool, (KdNat, KdNat))]
-    | CstrBopGt => [(KdBool, (KdNat, KdNat))]
-    | CstrBopLe => [(KdBool, (KdNat, KdNat))]
-    | CstrBopLt => [(KdBool, (KdNat, KdNat))]
+    | CstrBopEq => [(KdBool, (KdNat, KdNat)), (KdBool, (KdBool, KdBool)), (KdBool, (KdUnit, KdUnit))]
+    | CstrBopGe => [(KdBool, (KdNat, KdNat)), (KdBool, (KdTimeFun 0, KdTimeFun 0))]
+    | CstrBopGt => [(KdBool, (KdNat, KdNat)), (KdBool, (KdTimeFun 0, KdTimeFun 0))]
+    | CstrBopLe => [(KdBool, (KdNat, KdNat)), (KdBool, (KdTimeFun 0, KdTimeFun 0))]
+    | CstrBopLt => [(KdBool, (KdNat, KdNat)), (KdBool, (KdTimeFun 0, KdTimeFun 0))]
     | CstrBopAdd => [(KdNat, (KdNat, KdNat)), (KdTimeFun 0, (KdTimeFun 0, KdTimeFun 0))]
     | CstrBopAnd => [(KdBool, (KdBool, KdBool))]
     | CstrBopExp => [(KdNat, (KdNat, KdNat))]
@@ -426,10 +475,10 @@ struct
 
   fun prop_bin_rel_to_kind rel =
     case rel of
-      PrRelEq => [(KdBool, KdBool), (KdNat, KdNat)]
+      PrRelEq => [(KdBool, KdBool), (KdNat, KdNat), (KdUnit, KdUnit), (KdTimeFun 0, KdTimeFun 0)]
     | PrRelLe => [(KdNat, KdNat), (KdTimeFun 0, KdTimeFun 0)]
-    | PrRelLt => [(KdNat, KdNat)]
-    | PrRelGe => [(KdNat, KdNat)]
-    | PrRelGt => [(KdNat, KdNat)]
+    | PrRelLt => [(KdNat, KdNat), (KdTimeFun 0, KdTimeFun 0)]
+    | PrRelGe => [(KdNat, KdNat), (KdTimeFun 0, KdTimeFun 0)]
+    | PrRelGt => [(KdNat, KdNat), (KdTimeFun 0, KdTimeFun 0)]
     | PrRelBigO => []
 end
