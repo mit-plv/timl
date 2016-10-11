@@ -1337,6 +1337,11 @@ Module M (Time : TIME).
     let P := interp_p bs p in
     forall_all bs P.
 
+  Arguments imply / .
+  Arguments iff / .
+  Arguments for_all / .
+  Arguments id / .
+
   Lemma interp_prop_le_interp_time a b :
     interp_prop [] (a <= b)%idx ->
     (interp_time a <= interp_time b)%time.
@@ -1345,11 +1350,6 @@ Module M (Time : TIME).
     cbn in *.
     eauto.
   Qed.
-
-  Arguments imply / .
-  Arguments iff / .
-  Arguments for_all / .
-  Arguments id / .
 
   Lemma interp_time_interp_prop_le a b :
     (interp_time a <= interp_time b)%time ->
@@ -1362,6 +1362,14 @@ Module M (Time : TIME).
 
   Lemma interp_prop_eq_interp_time a b :
     interp_prop [] (a == b)%idx -> interp_time a = interp_time b.
+  Proof.
+    unfold interp_prop.
+    cbn in *.
+    eauto.
+  Qed.
+
+  Lemma interp_time_interp_prop_eq a b :
+    interp_time a = interp_time b -> interp_prop [] (a == b)%idx.
   Proof.
     unfold interp_prop.
     cbn in *.
@@ -1701,6 +1709,69 @@ Module M (Time : TIME).
     intros; subst.
     eapply Time_le_refl.
   Qed.
+  
+  Lemma fuse_lift2_lift2_1 ks :
+    forall A B C D E (f : C -> D -> E) (g : A -> B -> C) a b c,
+      lift2 ks f (lift2 ks g a b) c = lift3 ks (fun a b c => f (g a b) c) a b c.
+  Proof.
+    induct ks; simplify; eauto.
+    eapply IHks.
+  Qed.
+  
+  Lemma dedup_lift3_1_3 ks :
+    forall A B C (f : A -> B -> A -> C) a b,
+      lift3 ks f a b a = lift2 ks (fun a b => f a b a) a b.
+  Proof.
+    induct ks; simplify; eauto.
+    eapply IHks.
+  Qed.
+  
+  Lemma fuse_lift2_lift0_2 ks :
+    forall A B C (f : A -> B -> C) (g : B) a,
+      lift2 ks f a (lift0 ks g) = lift1 ks (fun a => f a g) a.
+  Proof.
+    induct ks; simplify; eauto.
+    eapply IHks.
+  Qed.
+  
+  Lemma forall_all_lift1 ks : forall A (P : A -> Prop), (forall a, P a) -> forall a, forall_all ks (lift1 ks P a).
+  Proof.
+    induct ks; intros; cbn in *; eauto.
+    rewrite fuse_lift1_lift1.
+    eauto.
+  Qed.
+  
+  Lemma interp_prop_eq_add_0 L a : interp_prop L (a + T0 == a)%idx.
+  Proof.
+    unfold interp_prop.
+    cbn in *.
+    eapply forall_all_ignore_premise.
+    rewrite fuse_lift2_lift2_1.
+    rewrite dedup_lift3_1_3.
+    rewrite fuse_lift2_lift0_2.
+    eapply forall_all_lift1.
+    simplify.
+    etransitivity.
+    {
+      eapply Time_add_comm.
+    }
+    eapply Time_0_add.
+  Qed.
+  
+  Lemma interp_prop_shift_c_p L p :
+    interp_prop L p ->
+    forall x ls ,
+      let n := length ls in
+      x <= length L ->
+      interp_prop (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_p n x p).
+  Admitted.
+  Lemma interp_prop_subst_c_p L p :
+    interp_prop L p ->
+    forall n k c ,
+      nth_error L n = Some k ->
+      kinding (my_skipn L (1 + n)) c k ->
+      interp_prop (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_p n (shift_c_c n 0 c) p).
+  Admitted.
   
   Ltac interp_le := try eapply interp_time_interp_prop_le; apply_all interp_prop_le_interp_time.
 
@@ -2336,9 +2407,6 @@ Admitted.
 
   Hint Resolve tyeq_refl tyeq_sym tyeq_trans interp_prop_le_refl interp_prop_le_trans : db_tyeq.
 
-  Lemma interp_prop_eq_add_0 L a : interp_prop L (a + T0 == a)%idx.
-  Admitted.
-  
   Lemma kinding_tyeq L k t1 t2 :
     kinding L t1 k ->
     tyeq L t1 t2 ->
@@ -2385,13 +2453,6 @@ Admitted.
       x <= length L ->
       tyeq (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_c n x c1) (shift_c_c n x c2).
   Admitted.
-  Lemma interp_prop_shift_c_p L p :
-    interp_prop L p ->
-    forall x ls ,
-      let n := length ls in
-      x <= length L ->
-      interp_prop (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_p n x p).
-  Admitted.
   Lemma tyeq_subst_c_c L c1' c2' :
     tyeq L c1' c2' ->
     forall n k c1 c2 ,
@@ -2400,14 +2461,6 @@ Admitted.
       kinding (my_skipn L (1 + n)) c2 k ->
       tyeq (my_skipn L (1 + n)) c1 c2 ->
       tyeq (subst_c_ks c1 (firstn n L) ++ my_skipn L (1 + n)) (subst_c_c n (shift_c_c n 0 c1) c1') (subst_c_c n (shift_c_c n 0 c2) c2').
-  Admitted.
-  
-  Lemma interp_prop_subst_c_p L p :
-    interp_prop L p ->
-    forall n k c ,
-      nth_error L n = Some k ->
-      kinding (my_skipn L (1 + n)) c k ->
-      interp_prop (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_p n (shift_c_c n 0 c) p).
   Admitted.
   
   Lemma nth_error_subst_c_ks bs :
