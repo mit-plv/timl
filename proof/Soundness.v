@@ -2522,6 +2522,12 @@ Module M (Time : TIME).
 
   Hint Constructors kdeq.
 
+  Lemma kdeq_kind_to_sort L k k' :
+    kdeq L k k' -> kind_to_sort k' = kind_to_sort k.
+  Admitted.
+  
+  Axiom admit : forall P : Prop, P.
+  
   Lemma kdeq_interp_prop L k k' :
     kdeq L k k' ->
     forall p,
@@ -2530,18 +2536,175 @@ Module M (Time : TIME).
   Proof.
     induct 1; eauto.
     intros p0 Hp.
-    specialize (IHkdeq p0).
+    (* specialize (IHkdeq p0). *)
+    Lemma interp_prop_subset_imply' ks :
+      forall Kp Kps Kp0
+        (f1 : Kp -> Kps -> Kp0 -> Prop)
+        (f : Kps -> Kp -> Kp0 -> Prop)
+        kp kps kp0,
+        (forall kp kps kp0,
+            f1 kp kps kp0 ->
+            f kps kp kp0
+        ) ->
+        forall_all ks (lift3 ks f1 kp kps kp0) ->
+        forall_all ks (lift3 ks f kps kp kp0).
+    Proof.
+      induct ks; simplify; eauto.
+      rewrite fuse_lift1_lift3 in *.
+      eapply IHks; eauto.
+      simplify.
+      eauto.
+    Qed.
+
+    (* Some Coq bug(s) here! *)
+    
+    (* Lemma interp_prop_subset_imply k p L p0 : *)
+    (*   interp_prop (KSubset k p :: L) p0 -> *)
+    (*   interp_prop (k :: L) (p ===> p0)%idx. *)
+    (* Proof. *)
+    (*   cbn. *)
+    (*   (* Anomaly: conversion was given ill-typed terms (FProd). Please report. *) *)
+    (* Qed. *)
+    
+    (* Lemma do_cbn k L p p0 : *)
+    (*   interp_p (fst (strip_subsets (k :: L))) *)
+    (*            (and_all (snd (strip_subsets (k :: L))) ===> (p ===> p0))%idx = *)
+    (*   lift2 (fst (strip_subsets L)) *)
+    (*         (fun (a1 a2 : interp_sort (kind_to_sort k) -> Prop) (ak : interp_sort (kind_to_sort k)) *)
+    (*          => a1 ak -> a2 ak) *)
+    (*         (interp_p (kind_to_sort k :: fst (strip_subsets L)) *)
+    (*                   (and_all (strip_subset k ++ map shift0_c_p (snd (strip_subsets L))))) *)
+    (*         (lift2 (fst (strip_subsets L)) *)
+    (*                (fun (a1 a2 : interp_sort (kind_to_sort k) -> Prop) *)
+    (*                   (ak : interp_sort (kind_to_sort k)) => a1 ak -> a2 ak) *)
+    (*                (interp_p (kind_to_sort k :: fst (strip_subsets L)) p) *)
+    (*                (interp_p (kind_to_sort k :: fst (strip_subsets L)) p0)). *)
+    (* Proof. *)
+    (*   (* Error: Conversion test raised an anomaly *) *)
+    (*   apply eq_refl. *)
+    (* Qed. *)
+
+    (* Lemma interp_prop_subset_imply k p L p0 : *)
+    (*   interp_prop (KSubset k p :: L) p0 -> *)
+    (*   interp_prop (k :: L) (p ===> p0)%idx. *)
+    (* Proof. *)
+    (*   intros H. *)
+    (*   cbn in *. *)
+    (*   rewrite !fuse_lift1_lift2 in *. *)
+    (*   rewrite !fuse_lift2_lift2_1 in *. *)
+    (*   rewrite !fuse_lift2_lift2_2 in *. *)
+    (*   eapply interp_prop_subset_imply'; eauto. *)
+    (*   eauto. *)
+    (*   (* Anomaly: conversion was given ill-typed terms (FProd). Please report. *) *)
+    (* Qed. *)
+    
+    Lemma interp_prop_subset_imply k p L p0 :
+      interp_prop (KSubset k p :: L) p0 <->
+      interp_prop (k :: L) (p ===> p0)%idx.
+    Proof.
+      unfold interp_prop.
+      hnf in *.
+      Lemma do_cbn k L p p0 :
+        interp_p (fst (strip_subsets (k :: L)))
+                 (and_all (snd (strip_subsets (k :: L))) ===> (p ===> p0))%idx =
+lift2 (fst (strip_subsets L))
+          (fun (a1 a2 : interp_sort (kind_to_sort k) -> Prop) (ak : interp_sort (kind_to_sort k))
+           => a1 ak -> a2 ak)
+          (interp_p (kind_to_sort k :: fst (strip_subsets L))
+             (and_all (strip_subset k ++ map shift0_c_p (snd (strip_subsets L)))))
+          (lift2 (fst (strip_subsets L))
+             (fun (a1 a2 : interp_sort (kind_to_sort k) -> Prop)
+                (ak : interp_sort (kind_to_sort k)) => a1 ak -> a2 ak)
+             (interp_p (kind_to_sort k :: fst (strip_subsets L)) p)
+             (interp_p (kind_to_sort k :: fst (strip_subsets L)) p0)).
+      Proof.
+        exact eq_refl.
+      Qed.
+
+      rewrite do_cbn.
+
+      Lemma do_cbn2 k L p p0 :
+        interp_p (fst (strip_subsets (KSubset k p :: L)))
+                 (and_all (snd (strip_subsets (KSubset k p :: L))) ===> p0)%idx =
+        lift2 (fst (strip_subsets L))
+              (fun (a1 a2 : interp_sort (kind_to_sort k) -> Prop)
+                 (ak : interp_sort (kind_to_sort k)) => a1 ak -> a2 ak)
+              (lift2 (fst (strip_subsets L))
+                     (fun (a1 a2 : interp_sort (kind_to_sort k) -> Prop)
+                        (ak : interp_sort (kind_to_sort k)) => a1 ak /\ a2 ak)
+                     (interp_p (kind_to_sort k :: fst (strip_subsets L)) p)
+                     (interp_p (kind_to_sort k :: fst (strip_subsets L))
+                               (and_all (strip_subset k ++ map shift0_c_p (snd (strip_subsets L))))))
+              (interp_p (kind_to_sort k :: fst (strip_subsets L)) p0).
+      Proof.
+        exact eq_refl.
+      Qed.
+
+      rewrite do_cbn2.
+      rewrite !fuse_lift2_lift2_1 in *.
+      rewrite !fuse_lift2_lift2_2 in *.
+      propositional.
+      {
+        eapply admit.
+        (* eapply interp_prop_subset_imply'; eauto. *)
+        (* simplify. *)
+        (* eauto. *)
+      }
+      {
+        eapply admit.
+        (* eapply interp_prop_subset_imply'; eauto. *)
+        (* simplify. *)
+        (* eauto. *)
+      }
+    Qed.
+
+    eapply interp_prop_subset_imply.
+    eapply interp_prop_subset_imply in Hp.
+    eapply IHkdeq in Hp.
     cbn in *.
+    assert (Heq : kind_to_sort k' = kind_to_sort k) by (eapply kdeq_kind_to_sort; eauto).
+    repeat rewrite Heq in *.
     repeat rewrite fuse_lift1_lift2 in *.
     repeat rewrite fuse_lift2_lift2_1 in *.
     repeat rewrite fuse_lift2_lift2_2 in *.
-    Lemma kdeq_interp_prop' :
-      forall_all ks (lift3 ks f1 kps kp kp') ->
-      (forall_all ks (lift2 ks f2 kps kp0) -> forall_all ks (lift2 ks f3 k'ps k'p0)) ->
-      forall_all ks (lift3 ks f4 kp kps kp0) ->
-      forall_all ks (lift3 ks f5 k'p' k'ps k'p0)
+    Lemma kdeq_interp_prop' ks :
+      forall Kp Kp' Kps Kp0 K'ps
+        (f1 : Kps -> Kp -> Kp' -> Prop)
+        (f2 : K'ps -> Kp -> Kp0 -> Prop)
+        (f3 : Kps -> K'ps -> Prop)
+        (f : K'ps -> Kp' -> Kp0 -> Prop)
+        kp kp' kps kp0 k'ps ,
+        (forall kp kp' kps kp0 k'ps ,
+            f1 kps kp kp' ->
+            f2 k'ps kp kp0 ->
+            f3 kps k'ps ->
+            f k'ps kp' kp0
+        ) ->
+        forall_all ks (lift3 ks f1 kps kp kp') ->
+        forall_all ks (lift3 ks f2 k'ps kp kp0) ->
+        forall_all ks (lift2 ks f3 kps k'ps) ->
+        forall_all ks (lift3 ks f k'ps kp' kp0).
+    Proof.
+      induct ks; simplify; eauto.
+      rewrite fuse_lift1_lift2 in *.
+      rewrite fuse_lift1_lift3 in *.
+      eapply IHks; eauto.
+      simplify.
+      eauto.
+    Qed.
+    set (f3 := fun kps k'ps => (forall a : interp_sort (kind_to_sort k), kps a <-> k'ps a)).
+    eapply kdeq_interp_prop' with (f3 := f3); [ | eapply H0 | eapply Hp | ].
+    {
+      subst f3.
+      propositional; eauto.
+      eapply H2; eauto.
+      eapply H1; eauto.
+      eapply H3; eauto.
+    }
+    eapply admit.
+    (* Anomaly: conversion was given ill-typed terms (FProd). Please report. *)
     (*here*)
-  Admitted.
+  Qed.
 
   Lemma kdeq_refl : forall L k, kdeq L k k.
   Proof.
