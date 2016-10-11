@@ -1133,6 +1133,30 @@ Module M (Time : TIME).
       fun t1 t2 t3 t f x1 x2 x3 => lift3 arg_ks (fun a1 a2 a3 ak => f (a1 ak) (a2 ak) (a3 ak)) x1 x2 x3
     end.
 
+  Fixpoint lift4 arg_ks : forall t1 t2 t3 t4 t, (t1 -> t2 -> t3 -> t4 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t4 -> interp_sorts arg_ks t :=
+    match arg_ks return forall t1 t2 t3 t4 t, (t1 -> t2 -> t3 -> t4 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t4 -> interp_sorts arg_ks t with
+    | [] =>
+      fun t1 t2 t3 t4 t f x1 x2 x3 x4 => f x1 x2 x3 x4
+    | arg_k :: arg_ks =>
+      fun t1 t2 t3 t4 t f x1 x2 x3 x4 => lift4 arg_ks (fun a1 a2 a3 a4 ak => f (a1 ak) (a2 ak) (a3 ak) (a4 ak)) x1 x2 x3 x4
+    end.
+
+  Fixpoint lift5 arg_ks : forall t1 t2 t3 t4 t5 t, (t1 -> t2 -> t3 -> t4 -> t5 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t4 -> interp_sorts arg_ks t5 -> interp_sorts arg_ks t :=
+    match arg_ks return forall t1 t2 t3 t4 t5 t, (t1 -> t2 -> t3 -> t4 -> t5 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t4 -> interp_sorts arg_ks t5 -> interp_sorts arg_ks t with
+    | [] =>
+      fun t1 t2 t3 t4 t5 t f x1 x2 x3 x4 x5 => f x1 x2 x3 x4 x5
+    | arg_k :: arg_ks =>
+      fun t1 t2 t3 t4 t5 t f x1 x2 x3 x4 x5 => lift5 arg_ks (fun a1 a2 a3 a4 a5 ak => f (a1 ak) (a2 ak) (a3 ak) (a4 ak) (a5 ak)) x1 x2 x3 x4 x5
+    end.
+
+  Fixpoint lift6 arg_ks : forall t1 t2 t3 t4 t5 t6 t, (t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t4 -> interp_sorts arg_ks t5 -> interp_sorts arg_ks t6 -> interp_sorts arg_ks t :=
+    match arg_ks return forall t1 t2 t3 t4 t5 t6 t, (t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t4 -> interp_sorts arg_ks t5 -> interp_sorts arg_ks t6 -> interp_sorts arg_ks t with
+    | [] =>
+      fun t1 t2 t3 t4 t5 t6 t f x1 x2 x3 x4 x5 x6 => f x1 x2 x3 x4 x5 x6
+    | arg_k :: arg_ks =>
+      fun t1 t2 t3 t4 t5 t6 t f x1 x2 x3 x4 x5 x6 => lift6 arg_ks (fun a1 a2 a3 a4 a5 a6 ak => f (a1 ak) (a2 ak) (a3 ak) (a4 ak) (a5 ak) (a6 ak)) x1 x2 x3 x4 x5 x6
+    end.
+
   Definition sort_dec : forall (b b' : sort), sumbool (b = b') (b <> b').
   Proof.
     induction b; destruct b'; simpl; try solve [left; f_equal; eauto | right; intro Heq; discriminate].
@@ -1376,30 +1400,21 @@ Module M (Time : TIME).
     eauto.
   Qed.
 
-  Fixpoint lift4 arg_ks : forall t1 t2 t3 t4 t, (t1 -> t2 -> t3 -> t4 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t4 -> interp_sorts arg_ks t :=
-    match arg_ks return forall t1 t2 t3 t4 t, (t1 -> t2 -> t3 -> t4 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t4 -> interp_sorts arg_ks t with
-    | [] =>
-      fun t1 t2 t3 t4 t f x1 x2 x3 x4 => f x1 x2 x3 x4
-    | arg_k :: arg_ks =>
-      fun t1 t2 t3 t4 t f x1 x2 x3 x4 => lift4 arg_ks (fun a1 a2 a3 a4 ak => f (a1 ak) (a2 ak) (a3 ak) (a4 ak)) x1 x2 x3 x4
-    end.
-
-  Fixpoint lift5 arg_ks : forall t1 t2 t3 t4 t5 t, (t1 -> t2 -> t3 -> t4 -> t5 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t4 -> interp_sorts arg_ks t5 -> interp_sorts arg_ks t :=
-    match arg_ks return forall t1 t2 t3 t4 t5 t, (t1 -> t2 -> t3 -> t4 -> t5 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t4 -> interp_sorts arg_ks t5 -> interp_sorts arg_ks t with
-    | [] =>
-      fun t1 t2 t3 t4 t5 t f x1 x2 x3 x4 x5 => f x1 x2 x3 x4 x5
-    | arg_k :: arg_ks =>
-      fun t1 t2 t3 t4 t5 t f x1 x2 x3 x4 x5 => lift5 arg_ks (fun a1 a2 a3 a4 a5 ak => f (a1 ak) (a2 ak) (a3 ak) (a4 ak) (a5 ak)) x1 x2 x3 x4 x5
-    end.
-
-  Fixpoint lift6 arg_ks : forall t1 t2 t3 t4 t5 t6 t, (t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t4 -> interp_sorts arg_ks t5 -> interp_sorts arg_ks t6 -> interp_sorts arg_ks t :=
-    match arg_ks return forall t1 t2 t3 t4 t5 t6 t, (t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t4 -> interp_sorts arg_ks t5 -> interp_sorts arg_ks t6 -> interp_sorts arg_ks t with
-    | [] =>
-      fun t1 t2 t3 t4 t5 t6 t f x1 x2 x3 x4 x5 x6 => f x1 x2 x3 x4 x5 x6
-    | arg_k :: arg_ks =>
-      fun t1 t2 t3 t4 t5 t6 t f x1 x2 x3 x4 x5 x6 => lift6 arg_ks (fun a1 a2 a3 a4 a5 a6 ak => f (a1 ak) (a2 ak) (a3 ak) (a4 ak) (a5 ak) (a6 ak)) x1 x2 x3 x4 x5 x6
-    end.
-
+  Lemma fuse_lift1_id ks :
+    forall A a,
+      lift1 ks (@id A) a = a.
+  Proof.
+    induct ks; simplify; eauto.
+  Qed.
+  
+  Lemma fuse_lift1_lift1 ks :
+    forall A B C (f : B -> C) (g : A -> B) a,
+      lift1 ks f (lift1 ks g a) = lift1 ks (fun a => f (g a)) a.
+  Proof.
+    induct ks; simplify; eauto.
+    eapply IHks.
+  Qed.
+  
   Lemma fuse_lift1_lift2 ks :
     forall A B C D (f : C -> D) (g : A -> B -> C) a b,
       lift1 ks f (lift2 ks g a b) = lift2 ks (fun a b => f (g a b)) a b.
@@ -1408,9 +1423,9 @@ Module M (Time : TIME).
     eapply IHks.
   Qed.
   
-  Lemma fuse_lift2_lift2_lift2 ks :
-    forall A B C D E F G (f : E -> F -> G) (g : A -> B -> E) (h : C -> D -> F) a b c d,
-      lift2 ks f (lift2 ks g a b) (lift2 ks h c d) = lift4 ks (fun a b c d  => f (g a b) (h c d)) a b c d.
+  Lemma fuse_lift1_lift3 ks :
+    forall A B C D E (f : D -> E) (g : A -> B -> C -> D) a b c,
+      lift1 ks f (lift3 ks g a b c) = lift3 ks (fun a b c => f (g a b c)) a b c.
   Proof.
     induct ks; simplify; eauto.
     eapply IHks.
@@ -1424,14 +1439,6 @@ Module M (Time : TIME).
     eapply IHks.
   Qed.
   
-  Lemma fuse_lift4_lift2_lift2 ks :
-    forall A B C D E F G H I (i : A -> B -> G -> H -> I) (g : C -> D -> G) (h : E -> F -> H) a b c d e f,
-      lift4 ks i a b (lift2 ks g c d) (lift2 ks h e f) = lift6 ks (fun a b c d e f => i a b (g c d) (h e f)) a b c d e f.
-  Proof.
-    induct ks; simplify; eauto.
-    eapply IHks.
-  Qed.
-  
   Lemma fuse_lift1_lift6 ks :
     forall A B C D E F G H (h : G -> H) (g : A -> B -> C -> D -> E -> F -> G) a b c d e f,
       lift1 ks h (lift6 ks g a b c d e f) = lift6 ks (fun a b c d e f => h (g a b c d e f)) a b c d e f.
@@ -1440,21 +1447,139 @@ Module M (Time : TIME).
     eapply IHks.
   Qed.
   
-  Lemma fuse_lift1_lift1 ks :
-    forall A B C (f : B -> C) (g : A -> B) a,
-      lift1 ks f (lift1 ks g a) = lift1 ks (fun a => f (g a)) a.
+  Lemma fuse_lift2_lift0_2 ks :
+    forall A B C (f : A -> B -> C) (g : B) a,
+      lift2 ks f a (lift0 ks g) = lift1 ks (fun a => f a g) a.
   Proof.
     induct ks; simplify; eauto.
     eapply IHks.
   Qed.
   
-  Lemma fuse_lift1_id ks :
-    forall A a,
-      lift1 ks (@id A) a = a.
+  Lemma fuse_lift2_lift2_1 ks :
+    forall A B C D E (f : C -> D -> E) (g : A -> B -> C) a b c,
+      lift2 ks f (lift2 ks g a b) c = lift3 ks (fun a b c => f (g a b) c) a b c.
   Proof.
     induct ks; simplify; eauto.
+    eapply IHks.
   Qed.
   
+  Lemma fuse_lift2_lift2_2 ks :
+    forall A B C D E (f : A -> D -> E) (g : B -> C -> D) a b c,
+      lift2 ks f a (lift2 ks g b c) = lift3 ks (fun a b c => f a (g b c)) a b c.
+  Proof.
+    induct ks; simplify; eauto.
+    eapply IHks.
+  Qed.
+  
+  Lemma fuse_lift2_lift2_1_2 ks :
+    forall A B C D E F G (f : E -> F -> G) (g : A -> B -> E) (h : C -> D -> F) a b c d,
+      lift2 ks f (lift2 ks g a b) (lift2 ks h c d) = lift4 ks (fun a b c d  => f (g a b) (h c d)) a b c d.
+  Proof.
+    induct ks; simplify; eauto.
+    eapply IHks.
+  Qed.
+  
+  Lemma fuse_lift3_lift2_3 ks :
+    forall A B C D E F (f : A -> B -> E -> F) (g : C -> D -> E) a b c d,
+      lift3 ks f a b (lift2 ks g c d) = lift4 ks (fun a b c d => f a b (g c d)) a b c d.
+  Proof.
+    induct ks; simplify; eauto.
+    eapply IHks.
+  Qed.
+  
+  Lemma fuse_lift4_lift2_3_4 ks :
+    forall A B C D E F G H I (i : A -> B -> G -> H -> I) (g : C -> D -> G) (h : E -> F -> H) a b c d e f,
+      lift4 ks i a b (lift2 ks g c d) (lift2 ks h e f) = lift6 ks (fun a b c d e f => i a b (g c d) (h e f)) a b c d e f.
+  Proof.
+    induct ks; simplify; eauto.
+    eapply IHks.
+  Qed.
+  
+  Lemma dedup_lift2 ks :
+    forall A B (f : A -> A -> B) a,
+      lift2 ks f a a = lift1 ks (fun a => f a a) a.
+  Proof.
+    induct ks; simplify; eauto.
+    eapply IHks.
+  Qed.
+  
+  Lemma dedup_lift3_1_3 ks :
+    forall A B C (f : A -> B -> A -> C) a b,
+      lift3 ks f a b a = lift2 ks (fun a b => f a b a) a b.
+  Proof.
+    induct ks; simplify; eauto.
+    eapply IHks.
+  Qed.
+  
+  Lemma dedup_lift3_2_3 ks :
+    forall A B C (f : A -> B -> B -> C) a b,
+      lift3 ks f a b b = lift2 ks (fun a b => f a b b) a b.
+  Proof.
+    induct ks; simplify; eauto.
+    eapply IHks.
+  Qed.
+  
+  Lemma dedup_lift4_1_3 ks :
+    forall A B C D (f : A -> B -> A -> C -> D) a b c,
+      lift4 ks f a b a c = lift3 ks (fun a b c => f a b a c) a b c.
+  Proof.
+    induct ks; simplify; eauto.
+    eapply IHks.
+  Qed.
+  
+  Lemma dedup_lift4_1_4 ks :
+    forall A B C D (f : A -> B -> C -> A -> D) a b c,
+      lift4 ks f a b c a = lift3 ks (fun a b c => f a b c a) a b c.
+  Proof.
+    induct ks; simplify; eauto.
+    eapply IHks.
+  Qed.
+  
+  Lemma dedup_lift4_3_4 ks :
+    forall A B C D (f : A -> B -> C -> C -> D) a b c,
+      lift4 ks f a b c c = lift3 ks (fun a b c => f a b c c) a b c.
+  Proof.
+    induct ks; simplify; eauto.
+    eapply IHks.
+  Qed.
+  
+  Lemma dedup_lift5_2_3 ks :
+    forall A B C D E (f : A -> B -> B -> C -> D -> E) a b c d,
+      lift5 ks f a b b c d = lift4 ks (fun a b c d => f a b b c d) a b c d.
+  Proof.
+    induct ks; simplify; eauto.
+    eapply IHks.
+  Qed.
+  
+  Lemma dedup_lift6_1_5 ks :
+    forall A B C D E F (f : A -> B -> C -> D -> A -> E -> F) a b c d e,
+      lift6 ks f a b c d a e = lift5 ks (fun a b c d e => f a b c d a e) a b c d e.
+  Proof.
+    induct ks; simplify; eauto.
+    eapply IHks.
+  Qed.
+  
+  Lemma forall_all_lift1 ks : forall A (P : A -> Prop), (forall a, P a) -> forall a, forall_all ks (lift1 ks P a).
+  Proof.
+    induct ks; intros; cbn in *; eauto.
+    rewrite fuse_lift1_lift1.
+    eauto.
+  Qed.
+  
+  Lemma forall_all_lift2 ks : forall A B (P : A -> B -> Prop), (forall a b, P a b) -> forall a b, forall_all ks (lift2 ks P a b).
+  Proof.
+    induct ks; intros; cbn in *; eauto.
+    rewrite fuse_lift1_lift2.
+    eauto.
+  Qed.
+  
+  Lemma forall_all_lift3 ks : forall A B C (P : A -> B -> C -> Prop), (forall a b c, P a b c) -> forall a b c, forall_all ks (lift3 ks P a b c).
+  Proof.
+    induct ks; intros; cbn in *; eauto.
+    rewrite fuse_lift1_lift3.
+    eauto.
+  Qed.
+
   Lemma forall_all_ignore_premise' ks :
     forall A B P1 P2 (f : B -> Prop) (g : A -> B -> Prop),
       (forall a b, f b -> g a b) ->
@@ -1478,22 +1603,6 @@ Module M (Time : TIME).
     eapply forall_all_ignore_premise' with (f := id); simplify; eauto.
     rewrite fuse_lift1_id.
     eauto.
-  Qed.
-  
-  Lemma fuse_lift1_lift3 ks :
-    forall A B C D E (f : D -> E) (g : A -> B -> C -> D) a b c,
-      lift1 ks f (lift3 ks g a b c) = lift3 ks (fun a b c => f (g a b c)) a b c.
-  Proof.
-    induct ks; simplify; eauto.
-    eapply IHks.
-  Qed.
-  
-  Lemma fuse_lift2_lift2_2 ks :
-    forall A B C D E (f : A -> D -> E) (g : B -> C -> D) a b c,
-      lift2 ks f a (lift2 ks g b c) = lift3 ks (fun a b c => f a (g b c)) a b c.
-  Proof.
-    induct ks; simplify; eauto.
-    eapply IHks.
   Qed.
   
   Lemma forall_all_same_premise' ks :
@@ -1538,14 +1647,6 @@ Module M (Time : TIME).
     eauto.
   Qed.
   
-  Lemma fuse_lift3_lift2_3 ks :
-    forall A B C D E F (f : A -> B -> E -> F) (g : C -> D -> E) a b c d,
-      lift3 ks f a b (lift2 ks g c d) = lift4 ks (fun a b c d => f a b (g c d)) a b c d.
-  Proof.
-    induct ks; simplify; eauto.
-    eapply IHks.
-  Qed.
-  
   Lemma forall_all_same_premise_2 ks P1 P2 P2' P2'' :
     forall_all ks (lift2 ks imply P1 P2) ->
     forall_all ks (lift2 ks imply P1 P2') ->
@@ -1559,107 +1660,6 @@ Module M (Time : TIME).
     eauto.
   Qed.
   
-  Lemma forall_all_lift1 ks : forall A (P : A -> Prop), (forall a, P a) -> forall a, forall_all ks (lift1 ks P a).
-  Proof.
-    induct ks; intros; cbn in *; eauto.
-    rewrite fuse_lift1_lift1.
-    eauto.
-  Qed.
-  
-  Lemma forall_all_lift2 ks : forall A B (P : A -> B -> Prop), (forall a b, P a b) -> forall a b, forall_all ks (lift2 ks P a b).
-  Proof.
-    induct ks; intros; cbn in *; eauto.
-    rewrite fuse_lift1_lift2.
-    eauto.
-  Qed.
-  
-  Lemma forall_all_lift3 ks : forall A B C (P : A -> B -> C -> Prop), (forall a b c, P a b c) -> forall a b c, forall_all ks (lift3 ks P a b c).
-  Proof.
-    induct ks; intros; cbn in *; eauto.
-    rewrite fuse_lift1_lift3.
-    eauto.
-  Qed.
-
-  Lemma fuse_lift2_lift2_1 ks :
-    forall A B C D E (f : C -> D -> E) (g : A -> B -> C) a b c,
-      lift2 ks f (lift2 ks g a b) c = lift3 ks (fun a b c => f (g a b) c) a b c.
-  Proof.
-    induct ks; simplify; eauto.
-    eapply IHks.
-  Qed.
-  
-  Lemma dedup_lift3_1_3 ks :
-    forall A B C (f : A -> B -> A -> C) a b,
-      lift3 ks f a b a = lift2 ks (fun a b => f a b a) a b.
-  Proof.
-    induct ks; simplify; eauto.
-    eapply IHks.
-  Qed.
-  
-  Lemma fuse_lift2_lift0_2 ks :
-    forall A B C (f : A -> B -> C) (g : B) a,
-      lift2 ks f a (lift0 ks g) = lift1 ks (fun a => f a g) a.
-  Proof.
-    induct ks; simplify; eauto.
-    eapply IHks.
-  Qed.
-  
-  Lemma dedup_lift2 ks :
-    forall A B (f : A -> A -> B) a,
-      lift2 ks f a a = lift1 ks (fun a => f a a) a.
-  Proof.
-    induct ks; simplify; eauto.
-    eapply IHks.
-  Qed.
-  
-  Lemma dedup_lift4_1_4 ks :
-    forall A B C D (f : A -> B -> C -> A -> D) a b c,
-      lift4 ks f a b c a = lift3 ks (fun a b c => f a b c a) a b c.
-  Proof.
-    induct ks; simplify; eauto.
-    eapply IHks.
-  Qed.
-  
-  Lemma dedup_lift3_2_3 ks :
-    forall A B C (f : A -> B -> B -> C) a b,
-      lift3 ks f a b b = lift2 ks (fun a b => f a b b) a b.
-  Proof.
-    induct ks; simplify; eauto.
-    eapply IHks.
-  Qed.
-  
-  Lemma dedup_lift6_1_5 ks :
-    forall A B C D E F (f : A -> B -> C -> D -> A -> E -> F) a b c d e,
-      lift6 ks f a b c d a e = lift5 ks (fun a b c d e => f a b c d a e) a b c d e.
-  Proof.
-    induct ks; simplify; eauto.
-    eapply IHks.
-  Qed.
-  
-  Lemma dedup_lift5_2_3 ks :
-    forall A B C D E (f : A -> B -> B -> C -> D -> E) a b c d,
-      lift5 ks f a b b c d = lift4 ks (fun a b c d => f a b b c d) a b c d.
-  Proof.
-    induct ks; simplify; eauto.
-    eapply IHks.
-  Qed.
-  
-  Lemma dedup_lift4_3_4 ks :
-    forall A B C D (f : A -> B -> C -> C -> D) a b c,
-      lift4 ks f a b c c = lift3 ks (fun a b c => f a b c c) a b c.
-  Proof.
-    induct ks; simplify; eauto.
-    eapply IHks.
-  Qed.
-  
-  Lemma dedup_lift4_1_3 ks :
-    forall A B C D (f : A -> B -> A -> C -> D) a b c,
-      lift4 ks f a b a c = lift3 ks (fun a b c => f a b a c) a b c.
-  Proof.
-    induct ks; simplify; eauto.
-    eapply IHks.
-  Qed.
-  
   Lemma Time_add_0 i : (i + 0)%time = i.
   Proof.
     etransitivity.
@@ -1669,13 +1669,6 @@ Module M (Time : TIME).
     eapply Time_0_add.
   Qed.
   
-  (* Lemma interp_prop_eq_refl' ks : forall A (P : A -> A -> Prop), (forall a, P a a) -> forall a, forall_all ks (lift2 ks P a a). *)
-  (* Proof. *)
-  (*   induct ks; intros; cbn in *; eauto. *)
-  (*   rewrite fuse_lift1_lift2. *)
-  (*   eauto. *)
-  (* Qed. *)
-
   Lemma interp_prop_eq_refl L : forall i, interp_prop L (i == i)%idx.
   Proof.
     unfold interp_prop.
@@ -1687,13 +1680,6 @@ Module M (Time : TIME).
     eauto.
   Qed.
   
-  (* Lemma interp_prop_eq_sym' ks : forall A (P : A -> A -> A -> A -> Prop), (forall a b, P a b b a) -> forall a b, forall_all ks (lift4 ks P a b b a). *)
-  (* Proof. *)
-  (*   induct ks; intros; cbn in *; eauto. *)
-  (*   rewrite fuse_lift1_lift4. *)
-  (*   eauto. *)
-  (* Qed. *)
-
   Lemma interp_prop_eq_sym L i i' :
     interp_prop L (i == i')%idx ->
     interp_prop L (i' == i)%idx.
@@ -1703,20 +1689,13 @@ Module M (Time : TIME).
     cbn in *.
     eapply forall_all_same_premise; eauto.
     eapply forall_all_ignore_premise.
-    rewrite fuse_lift2_lift2_lift2.
+    rewrite fuse_lift2_lift2_1_2.
     simplify.
     rewrite dedup_lift4_1_4.
     rewrite dedup_lift3_2_3.
     eapply forall_all_lift2.
     eauto.
   Qed.
-
-  (* Lemma interp_prop_eq_trans' ks : forall A (P : A -> A -> A -> A -> A -> A -> Prop), (forall a b c, P a b b c a c) -> forall a b c, forall_all ks (lift6 ks P a b b c a c). *)
-  (* Proof. *)
-  (*   induct ks; intros; cbn in *; eauto. *)
-  (*   rewrite fuse_lift1_lift6. *)
-  (*   eauto. *)
-  (* Qed. *)
 
   Lemma interp_prop_eq_trans L a b c :
     interp_prop L (a == b)%idx ->
@@ -1728,8 +1707,8 @@ Module M (Time : TIME).
     cbn in *.
     eapply forall_all_same_premise_2; [eapply Hab | eapply Hbc |].
     eapply forall_all_ignore_premise.
-    rewrite fuse_lift2_lift2_lift2.
-    rewrite fuse_lift4_lift2_lift2.
+    rewrite fuse_lift2_lift2_1_2.
+    rewrite fuse_lift4_lift2_3_4.
     simplify.
     rewrite dedup_lift6_1_5.
     rewrite dedup_lift5_2_3.
@@ -1761,8 +1740,8 @@ Module M (Time : TIME).
     cbn in *.
     eapply forall_all_same_premise_2; [eapply Hab | eapply Hbc |].
     eapply forall_all_ignore_premise.
-    rewrite fuse_lift2_lift2_lift2.
-    rewrite fuse_lift4_lift2_lift2.
+    rewrite fuse_lift2_lift2_1_2.
+    rewrite fuse_lift4_lift2_3_4.
     simplify.
     rewrite dedup_lift6_1_5.
     rewrite dedup_lift5_2_3.
@@ -1792,7 +1771,7 @@ Module M (Time : TIME).
     cbn in *.
     eapply forall_all_same_premise; eauto.
     eapply forall_all_ignore_premise.
-    rewrite fuse_lift2_lift2_lift2.
+    rewrite fuse_lift2_lift2_1_2.
     simplify.
     rewrite dedup_lift4_1_4.
     rewrite dedup_lift3_2_3.
@@ -1810,8 +1789,8 @@ Module M (Time : TIME).
     cbn in *.
     eapply forall_all_same_premise_2; [eapply Hab | eapply Hbc |].
     eapply forall_all_ignore_premise.
-    rewrite fuse_lift2_lift2_lift2.
-    rewrite fuse_lift4_lift2_lift2.
+    rewrite fuse_lift2_lift2_1_2.
+    rewrite fuse_lift4_lift2_3_4.
     simplify.
     rewrite dedup_lift6_1_5.
     rewrite dedup_lift5_2_3.
@@ -1837,7 +1816,7 @@ Module M (Time : TIME).
     cbn in *.
     eapply forall_all_same_premise; eauto.
     eapply forall_all_ignore_premise.
-    rewrite fuse_lift2_lift2_lift2.
+    rewrite fuse_lift2_lift2_1_2.
     simplify.
     rewrite dedup_lift4_1_3.
     rewrite dedup_lift3_2_3.
