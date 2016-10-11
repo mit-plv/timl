@@ -17,6 +17,17 @@ struct
 
   fun assert b = if b then () else raise CheckFail
 
+  fun check_type_equivalence_derivation tyeq =
+    (case tyeq of
+       TyEqDerivAssume (ctx, ty1, ty2) => true
+     | _ =>
+         let
+           val _ = assert false
+         in
+           true
+         end)
+           handle CheckFail => false
+
   fun check_kind_wellformness_derivation kdwf =
     (case kdwf of
        KdWfDerivAssume (ctx, kd) => true
@@ -415,7 +426,7 @@ struct
       TyDerivSub ((ctx, tm, ty, ti), tyderiv1, tyeq2, prderiv3) =>
         let
           val _ = assert (check_typing_derivation tyderiv1)
-          (* TODO: check type equivalence *)
+          val _ = assert (check_type_equivalence_derivation tyeq2)
           val _ = assert (check_proping_derivation prderiv3)
           val tyrel1 = extract_tyrel tyderiv1
           val tyeqrel2 = extract_tyeqrel tyeq2

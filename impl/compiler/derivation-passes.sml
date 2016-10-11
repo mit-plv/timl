@@ -889,7 +889,7 @@ struct
             val tyrel2_new = extract_tyrel tyderiv2_new
             val tyrel_new = (#1 tyrel, TmAbs (kd1, #2 tyrel2_new), #3 tyrel, CstrTime "0.0")
             val (ty1, ty2, ti) = extract_cstr_arrow (#3 tyrel)
-            val tyderiv2_sub = TyDerivSub ((#1 tyrel2_new, #2 tyrel2_new, #3 tyrel2_new, Passes.TermShift.shift_constr 1 ti), tyderiv2_new, TyEqDerivAdmit (#1 tyrel2_new, Passes.TermShift.shift_constr 1 ty2, #3 tyrel2_new), PrDerivAdmit (#1 tyrel2_new, PrBinRel (PrRelLe, #4 tyrel2_new, Passes.TermShift.shift_constr 1 ti)))
+            val tyderiv2_sub = TyDerivSub ((#1 tyrel2_new, #2 tyrel2_new, #3 tyrel2_new, Passes.TermShift.shift_constr 1 ti), tyderiv2_new, TyEqDerivAssume (#1 tyrel2_new, Passes.TermShift.shift_constr 1 ty2, #3 tyrel2_new), PrDerivAdmit (#1 tyrel2_new, PrBinRel (PrRelLe, #4 tyrel2_new, Passes.TermShift.shift_constr 1 ti)))
           in
             k (TyDerivAbs (tyrel_new, kdderiv1, tyderiv2_sub), [])
           end
@@ -962,8 +962,8 @@ struct
               val tyrel3_new = extract_tyrel tyderiv3_new
               val tyrel1_new = extract_tyrel tyderiv1_new
               val ty_wrap = Passes.TermShift.shift_constr (List.length d1) (#3 tyrel)
-              val tyderiv2_wrap = TyDerivSub ((#1 tyrel2_new, #2 tyrel2_new, Passes.TermShift.shift_constr 1 ty_wrap, #4 tyrel2_new), tyderiv2_new, TyEqDerivAdmit (#1 tyrel2_new, #3 tyrel2_new, Passes.TermShift.shift_constr 1 ty_wrap), PrDerivAdmit (#1 tyrel2_new, PrBinRel (PrRelLe, #4 tyrel2_new, #4 tyrel2_new)))
-              val tyderiv3_wrap = TyDerivSub ((#1 tyrel3_new, #2 tyrel3_new, Passes.TermShift.shift_constr 1 ty_wrap, #4 tyrel3_new), tyderiv3_new, TyEqDerivAdmit (#1 tyrel3_new, #3 tyrel3_new, Passes.TermShift.shift_constr 1 ty_wrap), PrDerivAdmit (#1 tyrel3_new, PrBinRel (PrRelLe, #4 tyrel3_new, #4 tyrel3_new)))
+              val tyderiv2_wrap = TyDerivSub ((#1 tyrel2_new, #2 tyrel2_new, Passes.TermShift.shift_constr 1 ty_wrap, #4 tyrel2_new), tyderiv2_new, TyEqDerivAssume (#1 tyrel2_new, #3 tyrel2_new, Passes.TermShift.shift_constr 1 ty_wrap), PrDerivAdmit (#1 tyrel2_new, PrBinRel (PrRelLe, #4 tyrel2_new, #4 tyrel2_new)))
+              val tyderiv3_wrap = TyDerivSub ((#1 tyrel3_new, #2 tyrel3_new, Passes.TermShift.shift_constr 1 ty_wrap, #4 tyrel3_new), tyderiv3_new, TyEqDerivAssume (#1 tyrel3_new, #3 tyrel3_new, Passes.TermShift.shift_constr 1 ty_wrap), PrDerivAdmit (#1 tyrel3_new, PrBinRel (PrRelLe, #4 tyrel3_new, #4 tyrel3_new)))
               val tyrel_new = (#1 tyrel1_new, TmCase (#2 tyrel1_new, #2 tyrel2_new, #2 tyrel3_new), ty_wrap, CstrBinOp (CstrBopAdd, #4 tyrel1_new, CstrBinOp (CstrBopMax, Passes.TermShift.shift_constr ~1 (#4 tyrel2_new), Passes.TermShift.shift_constr ~1 (#4 tyrel3_new))))
             in
               k (TyDerivCase (tyrel_new, tyderiv1_new, tyderiv2_wrap, tyderiv3_wrap), d1)
@@ -1010,7 +1010,7 @@ struct
               val ty2_wrap = Passes.TermShift.shift_constr (List.length d1 + 2) (#3 tyrel)
               val ti2_wrap = Passes.TermShift.shift_constr (List.length d1 + 2) (#4 tyrel)
               val ti2_inner_wrap = CstrBinOp (CstrBopDiff, ti2_wrap, Passes.TermShift.shift_constr 2 (#4 tyrel1_new))
-              val tyderiv2_wrap = TyDerivSub ((#1 tyrel2_new, #2 tyrel2_new, ty2_wrap, ti2_inner_wrap), tyderiv2_new, TyEqDerivAdmit (#1 tyrel2_new, #3 tyrel2_new, ty2_wrap), PrDerivAdmit (#1 tyrel2_new, PrBinRel (PrRelLe, #4 tyrel2_new, ti2_inner_wrap)))
+              val tyderiv2_wrap = TyDerivSub ((#1 tyrel2_new, #2 tyrel2_new, ty2_wrap, ti2_inner_wrap), tyderiv2_new, TyEqDerivAssume (#1 tyrel2_new, #3 tyrel2_new, ty2_wrap), PrDerivAdmit (#1 tyrel2_new, PrBinRel (PrRelLe, #4 tyrel2_new, ti2_inner_wrap)))
               val tyrel_new = (#1 tyrel1_new, TmUnpack (#2 tyrel1_new, #2 tyrel2_new), Passes.TermShift.shift_constr ~2 ty2_wrap, CstrBinOp (CstrBopAdd, #4 tyrel1_new, Passes.TermShift.shift_constr ~2 ti2_inner_wrap))
             in
               TyDerivUnpack (tyrel_new, tyderiv1_new, tyderiv2_wrap)

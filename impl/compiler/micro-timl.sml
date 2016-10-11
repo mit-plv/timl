@@ -199,7 +199,7 @@ struct
   | PrWfDerivExists of prop_wellformedness_relation * kind_wellformedness_derivation * prop_wellformedness_derivation
 
   and type_equivalence_derivation =
-    TyEqDerivAdmit of type_equivalence_relation
+    TyEqDerivAssume of type_equivalence_relation
   | TyEqDerivTypeUnit of type_equivalence_relation
   | TyEqDerivTypeInt of type_equivalence_relation
   | TyEqDerivTypeNat of type_equivalence_relation * proping_derivation
@@ -298,7 +298,7 @@ struct
 
   fun extract_tyeqrel tyeq =
     case tyeq of
-      TyEqDerivAdmit rel => rel
+      TyEqDerivAssume rel => rel
     | TyEqDerivAbs (rel, _, _) => rel
     | TyEqDerivRec (rel, _, _) => rel
     | TyEqDerivForall (rel, _, _) => rel
@@ -341,6 +341,10 @@ struct
   fun extract_prrel prderiv =
     case prderiv of
       PrDerivAdmit rel => rel
+
+  fun extract_kdsubrel kdsub =
+    case kdsub of
+      KdSubDerivSub (rel, _) => rel
 
   fun extract_tyrel tyderiv =
     case tyderiv of
@@ -429,6 +433,9 @@ struct
   fun extract_cstr_bin_op (CstrBinOp r) = r
     | extract_cstr_bin_op _ = raise Impossible
 
+  fun extract_cstr_un_op (CstrUnOp r) = r
+    | extract_cstr_un_op _ = raise Impossible
+
   fun extract_tm_abs (TmAbs r) = r
     | extract_tm_abs _ = raise Impossible
 
@@ -440,6 +447,18 @@ struct
 
   fun extract_tm_bin_op (TmBinOp r) = r
     | extract_tm_bin_op _ = raise Impossible
+
+  fun extract_pr_bin_rel (PrBinRel r) = r
+    | extract_pr_bin_rel _ = raise Impossible
+
+  fun extract_pr_bin_conn (PrBinConn r) = r
+    | extract_pr_bin_conn _ = raise Impossible
+
+  fun extract_kd_time_fun (KdTimeFun n) = n
+    | extract_kd_time_fun _ = raise Impossible
+
+  fun extract_kd_arrow (KdArrow r) = r
+    | extract_kd_arrow _ = raise Impossible
 
   fun term_bin_op_to_constr bop =
     case bop of
