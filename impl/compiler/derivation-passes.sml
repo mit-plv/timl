@@ -57,6 +57,16 @@ struct
       TyDerivLet (tyrel_new, tyderiv2, tyderiv3)
     end
 
+  (*fun reconstruct_ty_deriv_fix_abs tyrel kdwfs kdderiv1 tyderiv2 =
+    let
+      val kdrel1 = extract_kdrel kdderiv1
+      val tyrel2 = extract_tyrel tyderiv2
+      val kinds = List.rev (List.map (fn kdwf => #2 (extract_kdwfrel kdwf)) kdwfs)
+      val tyrel_new = (#1 tyrel, TmFixAbs (kinds, #2 kdrel1, #2 tyrel2), List.foldl (fn (kd, ty) => CstrForall (kd, ty)) (#2 kdrel1) kinds, CstrTime "0.0")
+    in
+      TyDerivFixAbs (tyrel_new, kdwfs, kdderiv1, tyderiv2)
+    end*)
+
   fun reconstruct_kd_deriv_refine kdrel kdderiv1 prderiv2 =
     let
       val kdrel1 = extract_kdrel kdderiv1
@@ -319,6 +329,8 @@ struct
               in
                 SOME (reconstruct_ty_deriv_let tyrel tyderiv2 tyderiv3, ())
               end
+          | TyDerivFixAbs ((ctx, tm, ty, ti), kdwfs, kdderiv1, tyderiv2) =>
+              SOME (TyDerivFixAbs ((shift_context_above delta dep ctx, tm, ty, ti), kdwfs, kdderiv1, tyderiv2), ())
           | _ => NONE
         end
 
@@ -535,6 +547,8 @@ struct
               in
                 SOME (reconstruct_ty_deriv_let tyrel tyderiv2 tyderiv3, ())
               end
+          | TyDerivFixAbs ((ctx, tm, ty, ti), kdwfs, kdderiv1, tyderiv2) =>
+              SOME (TyDerivFixAbs ((down, tm, ty, ti), kdwfs, kdderiv1, tyderiv2), ())
           | _ => NONE
         end
 
@@ -687,6 +701,8 @@ struct
       val upward_base = ()
       fun combiner ((), ()) = ()
 
+      (* FIXME: do I need to change the ctx? *)
+
       fun on_typing_relation ((ctx, tm, ty, ti), (who, to)) =
         let
           val tm' = #1 (Passes.TermSubstConstr.transform_term (tm, (who, to)))
@@ -797,6 +813,8 @@ struct
               in
                 SOME (reconstruct_ty_deriv_let tyrel tyderiv2 tyderiv3, ())
               end
+          | TyDerivFixAbs _ =>
+              SOME (tyderiv, ())
           | _ => NONE
         end
 
@@ -1012,6 +1030,8 @@ struct
               in
                 SOME (reconstruct_ty_deriv_let tyrel tyderiv2 tyderiv3, ())
               end
+          | TyDerivFixAbs _ =>
+              SOME (tyderiv, ())
           | _ => NONE
         end
 
@@ -1307,7 +1327,6 @@ struct
 
   structure FV =
   struct
-    (* FIXME: quadratic time complexity *)
     structure FVHelper =
     struct
       type down = int
@@ -1380,6 +1399,8 @@ struct
               in
                 SOME (tyderiv, combiner (up2, up3))
               end
+          | TyDerivFixAbs _ =>
+              SOME (tyderiv, upward_base)
           | _ => NONE
         end
 
@@ -1621,14 +1642,17 @@ struct
               val types = List.foldr (fn (ty, ls) => (List.foldli (fn (i, (_, m), ty) => #1 (Passes.TermSubstConstr.transform_constr (ty, (m, CstrVar (i - m))))) ty env) :: ls) [] types
               val ty_arg = List.foldli (fn (i, (_, m), ty) => #1 (Passes.TermSubstConstr.transform_constr (ty, (m, CstrVar (i - m))))) ty1 env
               val ty_arrow_new = List.foldli (fn (i, (_, m), ty) => #1 (Passes.TermSubstConstr.transform_constr (ty, (m, CstrVar (i - m))))) ty_arrow env
+              val ty_arrow_new_wrap = List.foldl (fn (kd, ty) => CstrForall (kd, ty)) ty_arrow_new kinds
               val ty_env =
                 case List.length types of
                   0 => CstrTypeUnit
                 | 1 => hd types
                 | _ => List.foldl (fn (a, b) => CstrProd (a, b)) (CstrProd (hd (tl types), hd types)) (tl (tl types))
+              val ty_arg = Passes.TermShift.shift_constr 1 ty_arg
+              val ty_env = Passes.TermShift.shift_constr 1 ty_env
               val ty1_new = CstrProd (ty_env, ty_arg)
               val ctx_new = List.foldr (fn (kd, ctx) => BdKind kd :: ctx) [] kinds
-              val ctx_inner_new = BdType ty1_new :: ctx_new
+              val ctx_inner_new = BdType ty1_new :: BdType ty_arrow_new_wrap :: ctx_new
               val ctx_inner_bind =
                 case List.length types of
                   0 => BdType (Passes.TermShift.shift_constr 1 ty_env) :: ctx_inner_new
@@ -1659,7 +1683,7 @@ struct
               val kdderiv1_arg = TypingDerivationChangeContext.change_context_kinding_derivation (List.foldli (fn (i, (_, m), kdderiv) => #1 (TypingDerivationSubstConstr.transform_kinding_derivation (kdderiv, (m, CstrVar (i - m))))) kdderiv1 env) ctx_new
               val kdderiv1_env = KdDerivAssume (ctx_new, ty_env, KdProper)
               val kdderiv1_new = KdDerivProd ((ctx_new, ty1_new, KdProper), kdderiv1_env, kdderiv1_arg)
-              val tyderiv2_new = List.foldli (fn (i, (_, m), tyderiv) => #1 (TypingDerivationSubstConstr.transform_typing_derivation (tyderiv, (m + 1, CstrVar (i - m + bind_depth))))) tyderiv2 env
+              val tyderiv2_new = List.foldli (fn (i, (_, m), tyderiv) => #1 (TypingDerivationSubstConstr.transform_typing_derivation (tyderiv, (m + 1, CstrVar (i - m + bind_depth + 1))))) tyderiv2 env
               val tyderiv2_new =
                 case List.length types of
                   0 => tyderiv2_new
@@ -1694,29 +1718,74 @@ struct
               val tyrel2_new = extract_tyrel tyderiv2_new
               val tyderiv2_new = TyDerivLet ((ctx_inner_new, TmLet (TmFst (TmVar 0), #2 tyrel2_new), Passes.TermShift.shift_constr ~1 (#3 tyrel2_new), CstrBinOp (CstrBopAdd, CstrTime "0.0", Passes.TermShift.shift_constr ~1 (#4 tyrel2_new))), TyDerivFst ((ctx_inner_new, TmFst (TmVar 0), Passes.TermShift.shift_constr 1 ty_env, CstrTime "0.0"), TyDerivVar (ctx_inner_new, TmVar 0, Passes.TermShift.shift_constr 1 ty1_new, CstrTime "0.0")), tyderiv2_new)
               val tyrel2_new = extract_tyrel tyderiv2_new
-              val tyderiv_new = TyDerivAbs ((ctx_new, TmAbs (ty1, #2 tyrel2_new), ty_arrow_new, CstrTime "0.0"), kdderiv1_new, tyderiv2_new)
+              val tyderiv_new = TyDerivFixAbs ((ctx, TmFixAbs (kinds, ty_arrow_new, #2 tyrel2_new), List.foldl (fn (kd, ty) => CstrForall (kd, ty)) ty_arrow_new kinds, CstrTime "0.0"), [], KdDerivAssume (ctx_new, ty_arrow_new, KdProper), tyderiv2_new)
+              (*val tyderiv_new = TyDerivAbs ((ctx_new, TmAbs (ty1, #2 tyrel2_new), ty_arrow_new, CstrTime "0.0"), kdderiv1_new, tyderiv2_new)
               val tyderiv_new = List.foldl (fn (kd, tyderiv) =>
                 let
                   val tyrel = extract_tyrel tyderiv
                 in
                   TyDerivCstrAbs ((tl (#1 tyrel), TmCstrAbs (kd, #2 tyrel), CstrForall (kd, #3 tyrel), Passes.TermShift.shift_constr ~1 (#4 tyrel)), KdWfDerivAssume (tl (#1 tyrel), kd), tyderiv)
-                end) tyderiv_new kinds
+                end) tyderiv_new kinds*)
               val tyderiv_new = List.foldr (fn (n, tyderiv) =>
                 let
                   val tyrel = extract_tyrel tyderiv
                   val (kd1, ty_body) = extract_cstr_forall (#3 tyrel)
                 in
-                  TyDerivCstrApp ((#1 tyrel, TmCstrApp (#2 tyrel, CstrVar n), Passes.TermSubstConstr.subst_constr_in_constr_top (CstrVar n) ty_body, #4 tyrel), tyderiv, KdDerivVar (#1 tyrel, CstrVar n, get_kind (get_bind (#1 tyrel, n))))
+                  TyDerivCstrApp ((ctx, TmCstrApp (#2 tyrel, CstrVar n), Passes.TermSubstConstr.subst_constr_in_constr_top (CstrVar n) ty_body, #4 tyrel), tyderiv, KdDerivVar (ctx, CstrVar n, get_kind (get_bind (ctx, n))))
                 end) tyderiv_new fcv
+              val tyrel_new = extract_tyrel tyderiv_new
+              val types = List.map (fn i => get_type (get_bind (ctx, i))) ftv
+              val env_ins =
+                case List.length types of
+                  0 => TmUnit
+                | 1 => TmVar (hd ftv)
+                | _ => List.foldl (fn (n, tm) => TmPair (TmVar n, tm)) (TmPair (TmVar (hd (tl ftv)), TmVar (hd ftv))) (tl (tl ftv))
+              val env_ty =
+                case List.length types of
+                  0 => CstrTypeUnit
+                | 1 => hd types
+                | _ => List.foldl (fn (ty1, ty2) => CstrProd (ty1, ty2)) (CstrProd (hd (tl types), hd types)) (tl (tl types))
+              val env_deriv =
+                case List.length types of
+                  0 => TyDerivUnit (ctx, TmUnit, CstrTypeUnit, CstrTime "0.0")
+                | 1 => TyDerivVar (ctx, TmVar (hd ftv), hd types, CstrTime "0.0")
+                | _ => List.foldl (fn ((n, ty), tyderiv) =>
+                         let
+                           val tyrel = extract_tyrel tyderiv
+                         in
+                           TyDerivPair ((ctx, TmPair (TmVar n, #2 tyrel), CstrProd (ty, #3 tyrel), CstrBinOp (CstrBopAdd, CstrTime "0.0", #4 tyrel)), TyDerivVar (ctx, TmVar n, ty, CstrTime "0.0"), tyderiv)
+                         end) (TyDerivPair ((ctx, TmPair (TmVar (hd (tl ftv)), TmVar (hd ftv)), CstrProd (hd (tl types), hd types), CstrBinOp (CstrBopAdd, CstrTime "0.0", CstrTime "0.0")), TyDerivVar (ctx, TmVar (hd (tl ftv)), hd (tl types), CstrTime "0.0"), TyDerivVar (ctx, TmVar (hd ftv), hd types, CstrTime "0.0"))) (tl (tl (ListPair.zip (ftv, types))))
+              val env_rel = extract_tyrel env_deriv
+              val pack_deriv = TyDerivPack ((ctx, TmPack (env_ty, TmPair (#2 tyrel_new, env_ins)), CstrExists (KdProper, CstrProd (ty_arrow_new_wrap, CstrVar 0)), CstrBinOp (CstrBopAdd, #4 tyrel_new, #4 env_rel)), KdDerivAssume (ctx, CstrExists (KdProper, CstrProd (ty_arrow_new_wrap, CstrVar 0)), KdProper), KdDerivAssume (ctx, env_ty, KdProper), TyDerivPair ((ctx, TmPair (#2 tyrel_new, env_ins), CstrProd (#3 tyrel_new, env_ty), CstrBinOp (CstrBopAdd, #4 tyrel_new, #4 env_rel)), tyderiv_new, env_deriv))
             in
-              SOME (tyderiv_new, ())
+              SOME (pack_deriv, ())
             end
         | TyDerivRec (tyrel, kdderiv1, tyderiv2) =>
             NONE
         | TyDerivCstrAbs (tyrel, kdwf1, tyderiv2) =>
             NONE
         | TyDerivApp (tyrel, tyderiv1, tyderiv2) =>
-            NONE
+            let
+              val tyderiv1 = #1 (on_tyderiv (tyderiv1, ()))
+              val tyderiv2 = #1 (on_tyderiv (tyderiv2, ()))
+              val tyrel1 = extract_tyrel tyderiv1
+              val tyrel2 = extract_tyrel tyderiv2
+            in
+              case (#3 tyrel1) of
+                CstrArrow _ => NONE
+              | CstrExists (_, ty as CstrProd (ty1 as CstrArrow (ty11, ty12, ti1), ty2)) =>
+                  let
+                    val ctx = #1 tyrel1
+                    val tm1 = TmApp (TmVar 2, TmVar 0)
+                    val ctx1 = BdType (CstrProd (Passes.TermShift.shift_constr 3 ty2, Passes.TermShift.shift_constr 4 (#3 tyrel2))):: BdType (Passes.TermShift.shift_constr 2 ty2) :: BdType (Passes.TermShift.shift_constr 1 ty1) :: BdType ty :: BdKind KdProper:: ctx
+                    val ty1 = Passes.TermShift.shift_constr 5 ty12
+                    val ti1 = CstrBinOp (CstrBopAdd, CstrBinOp (CstrBopAdd, CstrBinOp (CstrBopAdd, CstrTime "0.0", CstrTime "0.0"), CstrTime "1.0"), ti1)
+                    val tm1_deriv = TyDerivApp ((ctx1, tm1, ty1, ti1), TyDerivVar (ctx, TmVar 2, get_type (get_bind (ctx, 2)), CstrTime "0.0"), TyDerivVar (ctx, TmVar 0, get_type (get_bind (ctx, 0)), CstrTime "0.0"))
+                  in
+                    SOME (tm1_deriv, ())
+                  end
+              | _ => raise (Impossible "Impossible")
+            end
         | TyDerivCstrApp (tyrel, tyderiv1, kdderiv2) =>
             NONE
         | _ => NONE

@@ -1,6 +1,6 @@
 Group is
       cont-smlnj.sml
-      
+
       util.sml
       region.sml
       operators.sml
@@ -27,15 +27,8 @@ Group is
       smt2-printer.sml
       smt-solver.sml
       main.sml
-      compiler/micro-timl.sml
-      compiler/micro-timl-test.sml
-      compiler/micro-timl-checker.sml
-      compiler/transform.sml
-      compiler/derivation-transform.sml
-      compiler/passes.sml
-      compiler/derivation-passes.sml
-      compiler/compile.sml
-      compiler/desugar.sml
+      compiler/micro-timl-def.sml
+      compiler/ast-transformers.sml
 
       $/basis.cm
       $/smlnj-lib.cm
