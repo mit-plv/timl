@@ -445,7 +445,7 @@ Fixpoint my_skipn A (ls : list A) n :=
 
 Lemma my_skipn_0 A (ls : list A) : my_skipn ls 0 = ls.
 Proof.
-  induct ls; simplify; eauto.
+  induction ls; simplify; eauto.
 Qed.
 
 Lemma nth_error_Some_lt A ls :
@@ -501,10 +501,16 @@ Lemma nth_error_firstn A (ls : list A) :
     x < n ->
     nth_error (firstn n ls) x = nth_error ls x.
 Proof.
-  induct ls; destruct n as [|n]; simplify; eauto; try linear_arithmetic.
+  induction ls; destruct n as [|n]; simplify; eauto; try linear_arithmetic.
   destruct x as [|x]; simplify; eauto.
   eapply IHls; linear_arithmetic.
 Qed.
+
+(* Lemma nth_error_app1 A (l : list A) l' n : n < length l -> nth_error (l++l') n = nth_error l n. *)
+(* Admitted. *)
+
+(* Lemma nth_error_app2 A (l : list A) l' n : length l <= n -> nth_error (l++l') n = nth_error l' (n-length l). *)
+(* Admitted. *)
 
 Lemma nth_error_insert A G :
   forall x y ls (t : A),
@@ -541,7 +547,7 @@ Lemma map_my_skipn A B (f : A -> B) ls :
   forall n,
     map f (my_skipn ls n) = my_skipn (map f ls) n.
 Proof.
-  induct ls; destruct n; simplify; eauto.
+  induction ls; destruct n; simplify; eauto.
 Qed.
 
 (* Definition removen A n (ls : list A) := firstn n ls ++ skipn (1 + n) ls. *)
@@ -564,20 +570,22 @@ Lemma removen_lt A ls :
     n' < n ->
     nth_error (removen n ls) n' = nth_error ls n'.
 Proof.
-  induct ls; simplify.
+  induction ls; simplify.
   {
     rewrite nth_error_nil in *; discriminate.
   }
   destruct n as [|n]; destruct n' as [|n']; simplify; eauto with db_la.
 Qed.
 
+Require Import NPeano.
+  
 Lemma removen_gt' A ls :
   forall n (a : A) n',
     nth_error ls (S n') = Some a ->
     n' >= n ->
     nth_error (removen n ls) n' = nth_error ls (S n').
 Proof.
-  induct ls; simplify; try discriminate.
+  induction ls; simplify; try discriminate.
   destruct n as [|n]; destruct n' as [|n']; simplify; repeat rewrite Nat.sub_0_r in *; eauto with db_la.
 Qed.
 
@@ -595,7 +603,7 @@ Qed.
 
 Lemma map_removen A B (f : A -> B) ls : forall n, map f (removen n ls) = removen n (map f ls).
 Proof.
-  induct ls; destruct n; simplify; f_equal; eauto.
+  induction ls; destruct n; simplify; f_equal; eauto.
 Qed.
 
 Module NNRealTime <: TIME.
@@ -1148,8 +1156,6 @@ Module M (Time : TIME).
   Proof.
     cases opr; simplify; eauto.
   Qed.
-  
-  Require Import NPeano.
   
   Lemma length_shift_c_ks bs :
     forall v,
