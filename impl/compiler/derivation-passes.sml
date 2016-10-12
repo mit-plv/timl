@@ -1,7 +1,184 @@
+structure DerivationPassesUtil =
+struct
+  open MicroTiML
+
+  fun reconstruct_ty_deriv_abs tyrel kdderiv1 tyderiv2 =
+    let
+      val kdrel1 = extract_kdrel kdderiv1
+      val tyrel2 = extract_tyrel tyderiv2
+      val tyrel_new = (#1 kdrel1, TmAbs (#2 kdrel1, #2 tyrel2), CstrArrow (#2 kdrel1, Passes.TermShift.shift_constr ~1 (#3 tyrel2), Passes.TermShift.shift_constr ~1 (#4 tyrel2)), CstrTime "0.0")
+    in
+      TyDerivAbs (tyrel_new, kdderiv1, tyderiv2)
+    end
+
+  fun reconstruct_ty_deriv_rec tyrel kdderiv1 tyderiv2 =
+    let
+      val kdrel1 = extract_kdrel kdderiv1
+      val tyrel2 = extract_tyrel tyderiv2
+      val tyrel_new = (#1 kdrel1, TmRec (#2 kdrel1, #2 tyrel2), #2 kdrel1, CstrTime "0.0")
+    in
+      TyDerivRec (tyrel_new, kdderiv1, tyderiv2)
+    end
+
+  fun reconstruct_ty_deriv_case tyrel tyderiv1 tyderiv2 tyderiv3 =
+    let
+      val tyrel1 = extract_tyrel tyderiv1
+      val tyrel2 = extract_tyrel tyderiv2
+      val tyrel3 = extract_tyrel tyderiv3
+      val tyrel_new = (#1 tyrel1, TmCase (#2 tyrel1, #2 tyrel2, #2 tyrel3), Passes.TermShift.shift_constr ~1 (#3 tyrel2), CstrBinOp (CstrBopAdd, #4 tyrel1, CstrBinOp (CstrBopMax, Passes.TermShift.shift_constr ~1 (#4 tyrel2), Passes.TermShift.shift_constr ~1 (#4 tyrel3))))
+    in
+      TyDerivCase (tyrel_new, tyderiv1, tyderiv2, tyderiv3)
+    end
+
+  fun reconstruct_ty_deriv_unpack tyrel tyderiv1 tyderiv2 =
+    let
+      val tyrel1 = extract_tyrel tyderiv1
+      val tyrel2 = extract_tyrel tyderiv2
+      val tyrel_new = (#1 tyrel1, TmUnpack (#2 tyrel1, #2 tyrel2), Passes.TermShift.shift_constr ~2 (#3 tyrel2), Passes.TermShift.shift_constr ~2 (#4 tyrel2))
+    in
+      TyDerivUnpack (tyrel_new, tyderiv1, tyderiv2)
+    end
+
+  fun reconstruct_ty_deriv_cstr_abs tyrel kdwf1 tyderiv2 =
+    let
+      val kdwfrel1 = extract_kdwfrel kdwf1
+      val tyrel2 = extract_tyrel tyderiv2
+      val tyrel_new = (#1 kdwfrel1, TmCstrAbs (#2 kdwfrel1, #2 tyrel2), CstrForall (#2 kdwfrel1, #3 tyrel2), CstrTime "0.0")
+    in
+      TyDerivCstrAbs (tyrel_new, kdwf1, tyderiv2)
+    end
+
+  fun reconstruct_ty_deriv_let tyrel tyderiv2 tyderiv3 =
+    let
+      val tyrel2 = extract_tyrel tyderiv2
+      val tyrel3 = extract_tyrel tyderiv3
+      val tyrel_new = (#1 tyrel2, TmLet (#2 tyrel2, #2 tyrel3), Passes.TermShift.shift_constr ~1 (#3 tyrel3), CstrBinOp (CstrBopAdd, #4 tyrel2, Passes.TermShift.shift_constr ~1 (#4 tyrel3)))
+    in
+      TyDerivLet (tyrel_new, tyderiv2, tyderiv3)
+    end
+
+  fun reconstruct_kd_deriv_refine kdrel kdderiv1 prderiv2 =
+    let
+      val kdrel1 = extract_kdrel kdderiv1
+      val prrel2 = extract_prrel prderiv2
+      val kdrel_new = (#1 kdrel1, #2 kdrel1, KdSubset (#3 kdrel1, #2 prrel2))
+    in
+      KdDerivRefine (kdrel_new, kdderiv1, prderiv2)
+    end
+
+  fun reconstruct_kd_deriv_time_abs kdrel kdderiv1 =
+    let
+      val kdrel1 = extract_kdrel kdderiv1
+      val kdrel_new = (#1 kdrel1, CstrTimeAbs (#2 kdrel1), KdTimeFun (extract_kd_time_fun (#3 kdrel1) + 1))
+    in
+      KdDerivTimeAbs (kdrel_new, kdderiv1)
+    end
+
+  fun reconstruct_kd_deriv_abs kdrel kdwf1 kdderiv2 =
+    let
+      val kdwfrel1 = extract_kdwfrel kdwf1
+      val kdrel2 = extract_kdrel kdderiv2
+      val kdrel_new = (#1 kdwfrel1, CstrAbs (#2 kdwfrel1, #2 kdrel2), KdArrow (#2 kdwfrel1, Passes.TermShift.shift_kind ~1 (#3 kdrel2)))
+    in
+      KdDerivAbs (kdrel_new, kdwf1, kdderiv2)
+    end
+
+  fun reconstruct_kd_deriv_forall kdrel kdwf1 kdderiv2 =
+    let
+      val kdwfrel1 = extract_kdwfrel kdwf1
+      val kdrel2 = extract_kdrel kdderiv2
+      val kdrel_new = (#1 kdwfrel1, CstrForall (#2 kdwfrel1, #2 kdrel2), KdProper)
+    in
+      KdDerivForall (kdrel_new, kdwf1, kdderiv2)
+    end
+
+  fun reconstruct_kd_deriv_exists kdrel kdwf1 kdderiv2 =
+    let
+      val kdwfrel1 = extract_kdwfrel kdwf1
+      val kdrel2 = extract_kdrel kdderiv2
+      val kdrel_new = (#1 kdwfrel1, CstrExists (#2 kdwfrel1, #2 kdrel2), KdProper)
+    in
+      KdDerivExists (kdrel_new, kdwf1, kdderiv2)
+    end
+
+  fun reconstruct_kd_deriv_rec kdrel kdwf1 kdderiv2 =
+    let
+      val kdwfrel1 = extract_kdwfrel kdwf1
+      val kdrel2 = extract_kdrel kdderiv2
+      val kdrel_new = (#1 kdwfrel1, CstrRec (#2 kdwfrel1, #2 kdrel2), #2 kdwfrel1)
+    in
+      KdDerivRec (kdrel_new, kdwf1, kdderiv2)
+    end
+
+  fun reconstrct_kd_wf_deriv_subset kdrel kdwf1 prwf2 =
+    let
+      val kdwfrel1 = extract_kdwfrel kdwf1
+      val prwfrel2 = extract_prwfrel prwf2
+      val kdrel_new = (#1 kdwfrel1, KdSubset (#2 kdwfrel1, #2 prwfrel2))
+    in
+      KdWfDerivSubset (kdrel_new, kdwf1, prwf2)
+    end
+
+  fun reconstruct_pr_wf_deriv_forall prrel kdwf1 prwf2 =
+    let
+      val kdwfrel1 = extract_kdwfrel kdwf1
+      val prwfrel2 = extract_prwfrel prwf2
+      val prrel_new = (#1 kdwfrel1, PrForall (#2 kdwfrel1, #2 prwfrel2))
+    in
+      PrWfDerivForall (prrel_new, kdwf1, prwf2)
+    end
+
+  fun reconstruct_pr_wf_deriv_exists prrel kdwf1 prwf2 =
+    let
+      val kdwfrel1 = extract_kdwfrel kdwf1
+      val prwfrel2 = extract_prwfrel prwf2
+      val prrel_new = (#1 kdwfrel1, PrExists (#2 kdwfrel1, #2 prwfrel2))
+    in
+      PrWfDerivExists (prrel_new, kdwf1, prwf2)
+    end
+
+  fun reconstruct_ty_eq_deriv_forall tyrel kdeq1 tyeq2 =
+    let
+      val kdeqrel1 = extract_kdeqrel kdeq1
+      val tyeqrel2 = extract_tyeqrel tyeq2
+      val tyrel_new = (#1 kdeqrel1, CstrForall (#2 kdeqrel1, #2 tyeqrel2), CstrForall (#3 kdeqrel1, #3 tyeqrel2))
+    in
+      TyEqDerivForall (tyrel_new, kdeq1, tyeq2)
+    end
+
+  fun reconstruct_ty_eq_deriv_exists tyrel kdeq1 tyeq2 =
+    let
+      val kdeqrel1 = extract_kdeqrel kdeq1
+      val tyeqrel2 = extract_tyeqrel tyeq2
+      val tyrel_new = (#1 kdeqrel1, CstrExists (#2 kdeqrel1, #2 tyeqrel2), CstrExists (#3 kdeqrel1, #3 tyeqrel2))
+    in
+      TyEqDerivExists (tyrel_new, kdeq1, tyeq2)
+    end
+
+  fun reconstruct_ty_eq_deriv_abs tyrel kdeq1 tyeq2 =
+    let
+      val kdeqrel1 = extract_kdeqrel kdeq1
+      val tyeqrel2 = extract_tyeqrel tyeq2
+      val tyrel_new = (#1 kdeqrel1, CstrAbs (#2 kdeqrel1, #2 tyeqrel2), CstrAbs (#3 kdeqrel1, #3 tyeqrel2))
+    in
+      TyEqDerivAbs (tyrel_new, kdeq1, tyeq2)
+    end
+
+  fun reconstruct_ty_eq_deriv_rec tyrel kdeq1 tyeq2 =
+    let
+      val kdeqrel1 = extract_kdeqrel kdeq1
+      val tyeqrel2 = extract_tyeqrel tyeq2
+      val tyrel_new = (#1 kdeqrel1, CstrRec (#2 kdeqrel1, #2 tyeqrel2), CstrRec (#3 kdeqrel1, #3 tyeqrel2))
+    in
+      TyEqDerivRec (tyrel_new, kdeq1, tyeq2)
+    end
+end
+
 structure DerivationPasses =
 struct
   open MicroTiML
   open Util
+  open DerivationPassesUtil
 
   structure TypingDerivationShift =
   struct
@@ -103,63 +280,44 @@ struct
               let
                 val (kdderiv1, ()) = on_kdderiv (kdderiv1, down)
                 val (tyderiv2, ()) = on_tyderiv (tyderiv2, (dep + 1, delta))
-                val kdrel1 = extract_kdrel kdderiv1
-                val tyrel2 = extract_tyrel tyderiv2
-                val tyrel_new = (#1 kdrel1, TmAbs (#2 kdrel1, #2 tyrel2), CstrArrow (#2 kdrel1, Passes.TermShift.shift_constr ~1 (#3 tyrel2), Passes.TermShift.shift_constr ~1 (#4 tyrel2)), CstrTime "0.0")
               in
-                SOME (TyDerivAbs (tyrel_new, kdderiv1, tyderiv2), ())
+                SOME (reconstruct_ty_deriv_abs tyrel kdderiv1 tyderiv2, ())
               end
           | TyDerivRec (tyrel, kdderiv1, tyderiv2) =>
               let
                 val (kdderiv1, ()) = on_kdderiv (kdderiv1, down)
                 val (tyderiv2, ()) = on_tyderiv (tyderiv2, (dep + 1, delta))
-                val kdrel1 = extract_kdrel kdderiv1
-                val tyrel2 = extract_tyrel tyderiv2
-                val tyrel_new = (#1 kdrel1, TmRec (#2 kdrel1, #2 tyrel2), #2 kdrel1, CstrTime "0.0")
               in
-                SOME (TyDerivRec (tyrel_new, kdderiv1, tyderiv2), ())
+                SOME (reconstruct_ty_deriv_rec tyrel kdderiv1 tyderiv2, ())
               end
           | TyDerivCase (tyrel, tyderiv1, tyderiv2, tyderiv3) =>
               let
                 val (tyderiv1, ()) = on_tyderiv (tyderiv1, down)
                 val (tyderiv2, ()) = on_tyderiv (tyderiv2, (dep + 1, delta))
                 val (tyderiv3, ()) = on_tyderiv (tyderiv3, (dep + 1, delta))
-                val tyrel1 = extract_tyrel tyderiv1
-                val tyrel2 = extract_tyrel tyderiv2
-                val tyrel3 = extract_tyrel tyderiv3
-                val tyrel_new = (#1 tyrel1, TmCase (#2 tyrel1, #2 tyrel2, #2 tyrel3), Passes.TermShift.shift_constr ~1 (#3 tyrel2), CstrBinOp (CstrBopAdd, #4 tyrel1, CstrBinOp (CstrBopMax, Passes.TermShift.shift_constr ~1 (#4 tyrel2), Passes.TermShift.shift_constr ~1 (#4 tyrel3))))
               in
-                SOME (TyDerivCase (tyrel_new, tyderiv1, tyderiv2, tyderiv3), ())
+                SOME (reconstruct_ty_deriv_case tyrel tyderiv1 tyderiv2 tyderiv3, ())
               end
           | TyDerivUnpack (tyrel, tyderiv1, tyderiv2) =>
               let
                 val (tyderiv1, ()) = on_tyderiv (tyderiv1, down)
                 val (tyderiv2, ()) = on_tyderiv (tyderiv2, (dep + 2, delta))
-                val tyrel1 = extract_tyrel tyderiv1
-                val tyrel2 = extract_tyrel tyderiv2
-                val tyrel_new = (#1 tyrel1, TmUnpack (#2 tyrel1, #2 tyrel2), Passes.TermShift.shift_constr ~2 (#3 tyrel2), Passes.TermShift.shift_constr ~2 (#4 tyrel2))
               in
-                 SOME (TyDerivUnpack (tyrel_new, tyderiv1, tyderiv2), ())
+                 SOME (reconstruct_ty_deriv_unpack tyrel tyderiv1 tyderiv2, ())
               end
           | TyDerivCstrAbs (tyrel, kdwf1, tyderiv2) =>
               let
                 val (kdwf1, ()) = on_kdwf (kdwf1, down)
                 val (tyderiv2, ()) = on_tyderiv (tyderiv2, (dep + 1, delta))
-                val kdwfrel1 = extract_kdwfrel kdwf1
-                val tyrel2 = extract_tyrel tyderiv2
-                val tyrel_new = (#1 kdwfrel1, TmCstrAbs (#2 kdwfrel1, #2 tyrel2), CstrForall (#2 kdwfrel1, #3 tyrel2), CstrTime "0.0")
               in
-                SOME (TyDerivCstrAbs (tyrel_new, kdwf1, tyderiv2), ())
+                SOME (reconstruct_ty_deriv_cstr_abs tyrel kdwf1 tyderiv2, ())
               end
           | TyDerivLet (tyrel, tyderiv2, tyderiv3) =>
               let
                 val (tyderiv2, ()) = on_tyderiv (tyderiv2, down)
                 val (tyderiv3, ()) = on_tyderiv (tyderiv3, (dep + 1, delta))
-                val tyrel2 = extract_tyrel tyderiv2
-                val tyrel3 = extract_tyrel tyderiv3
-                val tyrel_new = (#1 tyrel2, TmLet (#2 tyrel2, #2 tyrel3), Passes.TermShift.shift_constr ~1 (#3 tyrel3), CstrBinOp (CstrBopAdd, #4 tyrel2, Passes.TermShift.shift_constr ~1 (#4 tyrel3)))
               in
-                SOME (TyDerivLet (tyrel_new, tyderiv2, tyderiv3), ())
+                SOME (reconstruct_ty_deriv_let tyrel tyderiv2 tyderiv3, ())
               end
           | _ => NONE
         end
@@ -173,59 +331,42 @@ struct
               let
                 val (kdderiv1, ()) = on_kdderiv (kdderiv1, down)
                 val (prderiv2, ()) = on_prderiv (prderiv2, (dep + 1, delta))
-                val kdrel1 = extract_kdrel kdderiv1
-                val prrel2 = extract_prrel prderiv2
-                val kdrel_new = (#1 kdrel1, #2 kdrel1, KdSubset (#3 kdrel1, #2 prrel2))
               in
-                SOME (KdDerivRefine (kdrel_new, kdderiv1, prderiv2), ())
+                SOME (reconstruct_kd_deriv_refine kdrel kdderiv1 prderiv2, ())
               end
           | KdDerivTimeAbs (kdrel, kdderiv1) =>
               let
                 val (kdderiv1, ()) = on_kdderiv (kdderiv1, (dep + 1, delta))
-                val kdrel1 = extract_kdrel kdderiv1
-                val kdrel_new = (#1 kdrel1, CstrTimeAbs (#2 kdrel1), KdTimeFun (extract_kd_time_fun (#3 kdrel1) + 1))
               in
-                SOME (KdDerivTimeAbs (kdrel_new, kdderiv1), ())
+                SOME (reconstruct_kd_deriv_time_abs kdrel kdderiv1, ())
               end
           | KdDerivAbs (kdrel, kdwf1, kdderiv2) =>
               let
                 val (kdwf1, ()) = on_kdwf (kdwf1, down)
                 val (kdderiv2, ()) = on_kdderiv (kdderiv2, (dep + 1, delta))
-                val kdwfrel1 = extract_kdwfrel kdwf1
-                val kdrel2 = extract_kdrel kdderiv2
-                val kdrel_new = (#1 kdwfrel1, CstrAbs (#2 kdwfrel1, #2 kdrel2), KdArrow (#2 kdwfrel1, Passes.TermShift.shift_kind ~1 (#3 kdrel2)))
               in
-                SOME (KdDerivAbs (kdrel_new, kdwf1, kdderiv2), ())
+                SOME (reconstruct_kd_deriv_abs kdrel kdwf1 kdderiv2, ())
               end
           | KdDerivForall (kdrel, kdwf1, kdderiv2) =>
               let
                 val (kdwf1, ()) = on_kdwf (kdwf1, down)
                 val (kdderiv2, ()) = on_kdderiv (kdderiv2, (dep + 1, delta))
-                val kdwfrel1 = extract_kdwfrel kdwf1
-                val kdrel2 = extract_kdrel kdderiv2
-                val kdrel_new = (#1 kdwfrel1, CstrForall (#2 kdwfrel1, #2 kdrel2), KdProper)
               in
-                SOME (KdDerivForall (kdrel_new, kdwf1, kdderiv2), ())
+                SOME (reconstruct_kd_deriv_forall kdrel kdwf1 kdderiv2, ())
               end
           | KdDerivExists (kdrel, kdwf1, kdderiv2) =>
               let
                 val (kdwf1, ()) = on_kdwf (kdwf1, down)
                 val (kdderiv2, ()) = on_kdderiv (kdderiv2, (dep + 1, delta))
-                val kdwfrel1 = extract_kdwfrel kdwf1
-                val kdrel2 = extract_kdrel kdderiv2
-                val kdrel_new = (#1 kdwfrel1, CstrExists (#2 kdwfrel1, #2 kdrel2), KdProper)
               in
-                SOME (KdDerivExists (kdrel_new, kdwf1, kdderiv2), ())
+                SOME (reconstruct_kd_deriv_exists kdrel kdwf1 kdderiv2, ())
               end
           | KdDerivRec (kdrel, kdwf1, kdderiv2) =>
               let
                 val (kdwf1, ()) = on_kdwf (kdwf1, down)
                 val (kdderiv2, ()) = on_kdderiv (kdderiv2, (dep + 1, delta))
-                val kdwfrel1 = extract_kdwfrel kdwf1
-                val kdrel2 = extract_kdrel kdderiv2
-                val kdrel_new = (#1 kdwfrel1, CstrRec (#2 kdwfrel1, #2 kdrel2), #2 kdwfrel1)
               in
-                SOME (KdDerivRec (kdrel_new, kdwf1, kdderiv2), ())
+                SOME (reconstruct_kd_deriv_rec kdrel kdwf1 kdderiv2, ())
               end
           | _ => NONE
         end
@@ -241,11 +382,8 @@ struct
               let
                 val (kdwf1, ()) = on_kdwf (kdwf1, down)
                 val (prwf2, ()) = on_prwf (prwf2, (dep + 1, delta))
-                val kdwfrel1 = extract_kdwfrel kdwf1
-                val prwfrel2 = extract_prwfrel prwf2
-                val kdrel_new = (#1 kdwfrel1, KdSubset (#2 kdwfrel1, #2 prwfrel2))
               in
-                SOME (KdWfDerivSubset (kdrel_new, kdwf1, prwf2), ())
+                SOME (reconstrct_kd_wf_deriv_subset kdrel kdwf1 prwf2, ())
               end
           | _ => NONE
         end
@@ -259,21 +397,15 @@ struct
               let
                 val (kdwf1, ()) = on_kdwf (kdwf1, down)
                 val (prwf2, ()) = on_prwf (prwf2, (dep + 1, delta))
-                val kdwfrel1 = extract_kdwfrel kdwf1
-                val prwfrel2 = extract_prwfrel prwf2
-                val prrel_new = (#1 kdwfrel1, PrForall (#2 kdwfrel1, #2 prwfrel2))
               in
-                SOME (PrWfDerivForall (prrel_new, kdwf1, prwf2), ())
+                SOME (reconstruct_pr_wf_deriv_forall prrel kdwf1 prwf2, ())
               end
           | PrWfDerivExists (prrel, kdwf1, prwf2) =>
               let
                 val (kdwf1, ()) = on_kdwf (kdwf1, down)
                 val (prwf2, ()) = on_prwf (prwf2, (dep + 1, delta))
-                val kdwfrel1 = extract_kdwfrel kdwf1
-                val prwfrel2 = extract_prwfrel prwf2
-                val prrel_new = (#1 kdwfrel1, PrExists (#2 kdwfrel1, #2 prwfrel2))
               in
-                SOME (PrWfDerivExists (prrel_new, kdwf1, prwf2), ())
+                SOME (reconstruct_pr_wf_deriv_exists prrel kdwf1 prwf2, ())
               end
           | _ => NONE
         end
@@ -287,41 +419,29 @@ struct
               let
                 val (kdeq1, ()) = on_kdeq (kdeq1, down)
                 val (tyeq2, ()) = on_tyeq (tyeq2, (dep + 1, delta))
-                val kdeqrel1 = extract_kdeqrel kdeq1
-                val tyeqrel2 = extract_tyeqrel tyeq2
-                val tyrel_new = (#1 kdeqrel1, CstrForall (#2 kdeqrel1, #2 tyeqrel2), CstrForall (#3 kdeqrel1, #3 tyeqrel2))
               in
-                SOME (TyEqDerivForall (tyrel_new, kdeq1, tyeq2), ())
+                SOME (reconstruct_ty_eq_deriv_forall tyrel kdeq1 tyeq2, ())
               end
           | TyEqDerivExists (tyrel, kdeq1, tyeq2) =>
               let
                 val (kdeq1, ()) = on_kdeq (kdeq1, down)
                 val (tyeq2, ()) = on_tyeq (tyeq2, (dep + 1, delta))
-                val kdeqrel1 = extract_kdeqrel kdeq1
-                val tyeqrel2 = extract_tyeqrel tyeq2
-                val tyrel_new = (#1 kdeqrel1, CstrExists (#2 kdeqrel1, #2 tyeqrel2), CstrForall (#3 kdeqrel1, #3 tyeqrel2))
               in
-                SOME (TyEqDerivExists (tyrel_new, kdeq1, tyeq2), ())
+                SOME (reconstruct_ty_eq_deriv_exists tyrel kdeq1 tyeq2, ())
               end
           | TyEqDerivRec (tyrel, kdeq1, tyeq2) =>
               let
                 val (kdeq1, ()) = on_kdeq (kdeq1, down)
                 val (tyeq2, ()) = on_tyeq (tyeq2, (dep + 1, delta))
-                val kdeqrel1 = extract_kdeqrel kdeq1
-                val tyeqrel2 = extract_tyeqrel tyeq2
-                val tyrel_new = (#1 kdeqrel1, CstrRec (#2 kdeqrel1, #2 tyeqrel2), CstrForall (#3 kdeqrel1, #3 tyeqrel2))
               in
-                SOME (TyEqDerivRec (tyrel_new, kdeq1, tyeq2), ())
+                SOME (reconstruct_ty_eq_deriv_rec tyrel kdeq1 tyeq2, ())
               end
           | TyEqDerivAbs (tyrel, kdeq1, tyeq2) =>
               let
                 val (kdeq1, ()) = on_kdeq (kdeq1, down)
                 val (tyeq2, ()) = on_tyeq (tyeq2, (dep + 1, delta))
-                val kdeqrel1 = extract_kdeqrel kdeq1
-                val tyeqrel2 = extract_tyeqrel tyeq2
-                val tyrel_new = (#1 kdeqrel1, CstrAbs (#2 kdeqrel1, #2 tyeqrel2), CstrForall (#3 kdeqrel1, #3 tyeqrel2))
               in
-                SOME (TyEqDerivAbs (tyrel_new, kdeq1, tyeq2), ())
+                SOME (reconstruct_ty_eq_deriv_abs tyrel kdeq1 tyeq2, ())
               end
           | _ => NONE
         end
@@ -361,13 +481,13 @@ struct
 
       fun on_type_equivalence_relation ((ctx, ty1, ty2), down) = ((down, ty1, ty2), ())
 
-      fun on_kind_equivalence_relation ((ctx, kd1, kd2), down) = ((down, kd1, kd2), ())
+      (*fun on_kind_equivalence_relation ((ctx, kd1, kd2), down) = ((down, kd1, kd2), ())
 
-      fun on_kind_sub_relation ((ctx, kd1, kd2), down) = ((down, kd1, kd2), ())
+      fun on_kind_sub_relation ((ctx, kd1, kd2), down) = ((down, kd1, kd2), ())*)
 
       fun transformer_typing_derivation (on_tyderiv, on_kdderiv, on_prderiv, on_kdwf, on_tyeq) (tyderiv : typing_derivation, down : down) =
         let
-          fun on_rel tyrel = #1 (on_typing_relation (tyrel, down))
+          (*fun on_rel tyrel = #1 (on_typing_relation (tyrel, down))*)
         in
           case tyderiv of
             TyDerivAbs (tyrel, kdderiv1, tyderiv2) =>
@@ -375,14 +495,14 @@ struct
                 val (kdderiv1, ()) = on_kdderiv (kdderiv1, down)
                 val (tyderiv2, ()) = on_tyderiv (tyderiv2, BdType (#2 (extract_kdrel kdderiv1)) :: down)
               in
-                SOME (TyDerivAbs (on_rel tyrel, kdderiv1, tyderiv2), ())
+                SOME (reconstruct_ty_deriv_abs tyrel kdderiv1 tyderiv2, ())
               end
           | TyDerivRec (tyrel, kdderiv1, tyderiv2) =>
               let
                 val (kdderiv1, ()) = on_kdderiv (kdderiv1, down)
                 val (tyderiv2, ()) = on_tyderiv (tyderiv2, BdType (#2 (extract_kdrel kdderiv1)) :: down)
               in
-                SOME (TyDerivRec (on_rel tyrel, kdderiv1, tyderiv2), ())
+                SOME (reconstruct_ty_deriv_rec tyrel kdderiv1 tyderiv2, ())
               end
           | TyDerivCase (tyrel, tyderiv1, tyderiv2, tyderiv3) =>
               let
@@ -391,7 +511,7 @@ struct
                 val (tyderiv2, ()) = on_tyderiv (tyderiv2, BdType ty_l :: down)
                 val (tyderiv3, ()) = on_tyderiv (tyderiv3, BdType ty_r :: down)
               in
-                SOME (TyDerivCase (on_rel tyrel, tyderiv1, tyderiv2, tyderiv3), ())
+                SOME (reconstruct_ty_deriv_case tyrel tyderiv1 tyderiv2 tyderiv3, ())
               end
           | TyDerivUnpack (tyrel, tyderiv1, tyderiv2) =>
               let
@@ -399,28 +519,28 @@ struct
                 val (kd1, ty2) = extract_cstr_exists (#3 (extract_tyrel tyderiv1))
                 val (tyderiv2, ()) = on_tyderiv (tyderiv2, BdType ty2 :: BdKind kd1 :: down)
               in
-                SOME (TyDerivUnpack (on_rel tyrel, tyderiv1, tyderiv2), ())
+                SOME (reconstruct_ty_deriv_unpack tyrel tyderiv1 tyderiv2, ())
               end
           | TyDerivCstrAbs (tyrel, kdwf1, tyderiv2) =>
               let
                 val (kdwf1, ()) = on_kdwf (kdwf1, down)
                 val (tyderiv2, ()) = on_tyderiv (tyderiv2, BdKind (#2 (extract_kdwfrel kdwf1)) :: down)
               in
-                SOME (TyDerivCstrAbs (on_rel tyrel, kdwf1, tyderiv2), ())
+                SOME (reconstruct_ty_deriv_cstr_abs tyrel kdwf1 tyderiv2, ())
               end
           | TyDerivLet (tyrel, tyderiv2, tyderiv3) =>
               let
                 val (tyderiv2, ()) = on_tyderiv (tyderiv2, down)
                 val (tyderiv3, ()) = on_tyderiv (tyderiv3, BdType (#3 (extract_tyrel tyderiv2)) :: down)
               in
-                SOME (TyDerivLet (on_rel tyrel, tyderiv2, tyderiv3), ())
+                SOME (reconstruct_ty_deriv_let tyrel tyderiv2 tyderiv3, ())
               end
           | _ => NONE
         end
 
       fun transformer_kinding_derivation (on_kdderiv, on_prderiv, on_kdwf) (kdderiv : kinding_derivation, down : down) =
         let
-          fun on_rel kdrel = #1 (on_kinding_relation (kdrel, down))
+          (*fun on_rel kdrel = #1 (on_kinding_relation (kdrel, down))*)
         in
           case kdderiv of
             KdDerivRefine (kdrel, kdderiv1, prderiv2) =>
@@ -428,41 +548,41 @@ struct
                 val (kdderiv1, ()) = on_kdderiv (kdderiv1, down)
                 val (prderiv2, ()) = on_prderiv (prderiv2, BdKind (#3 (extract_kdrel kdderiv1)) :: down)
               in
-                SOME (KdDerivRefine (on_rel kdrel, kdderiv1, prderiv2), ())
+                SOME (reconstruct_kd_deriv_refine kdrel kdderiv1 prderiv2, ())
               end
           | KdDerivTimeAbs (kdrel, kdderiv1) =>
               let
                 val (kdderiv1, ()) = on_kdderiv (kdderiv1, BdKind (KdTimeFun 0) :: down)
               in
-                SOME (KdDerivTimeAbs (on_rel kdrel, kdderiv1), ())
+                SOME (reconstruct_kd_deriv_time_abs kdrel kdderiv1, ())
               end
           | KdDerivAbs (kdrel, kdwf1, kdderiv2) =>
               let
                 val (kdwf1, ()) = on_kdwf (kdwf1, down)
                 val (kdderiv2, ()) = on_kdderiv (kdderiv2, BdKind (#2 (extract_kdwfrel kdwf1)) :: down)
               in
-                SOME (KdDerivAbs (on_rel kdrel, kdwf1, kdderiv2), ())
+                SOME (reconstruct_kd_deriv_abs kdrel kdwf1 kdderiv2, ())
               end
           | KdDerivForall (kdrel, kdwf1, kdderiv2) =>
               let
                 val (kdwf1, ()) = on_kdwf (kdwf1, down)
                 val (kdderiv2, ()) = on_kdderiv (kdderiv2, BdKind (#2 (extract_kdwfrel kdwf1)) :: down)
               in
-                SOME (KdDerivForall (on_rel kdrel, kdwf1, kdderiv2), ())
+                SOME (reconstruct_kd_deriv_forall kdrel kdwf1 kdderiv2, ())
               end
           | KdDerivExists (kdrel, kdwf1, kdderiv2) =>
               let
                 val (kdwf1, ()) = on_kdwf (kdwf1, down)
                 val (kdderiv2, ()) = on_kdderiv (kdderiv2, BdKind (#2 (extract_kdwfrel kdwf1)) :: down)
               in
-                SOME (KdDerivExists (on_rel kdrel, kdwf1, kdderiv2), ())
+                SOME (reconstruct_kd_deriv_exists kdrel kdwf1 kdderiv2, ())
               end
           | KdDerivRec (kdrel, kdwf1, kdderiv2) =>
               let
                 val (kdwf1, ()) = on_kdwf (kdwf1, down)
                 val (kdderiv2, ()) = on_kdderiv (kdderiv2, BdKind (#2 (extract_kdwfrel kdwf1)) :: down)
               in
-                SOME (KdDerivRec (on_rel kdrel, kdwf1, kdderiv2), ())
+                SOME (reconstruct_kd_deriv_rec kdrel kdwf1 kdderiv2, ())
               end
           | _ => NONE
         end
@@ -471,7 +591,7 @@ struct
 
       fun transformer_kind_wellformness_derivation (on_kdwf, on_prwf) (kdwf : kind_wellformedness_derivation, down : down) =
         let
-          fun on_rel kdrel = #1 (on_kind_wellformness_relation (kdrel, down))
+          (*fun on_rel kdrel = #1 (on_kind_wellformness_relation (kdrel, down))*)
         in
           case kdwf of
             KdWfDerivSubset (kdrel, kdwf1, prwf2) =>
@@ -479,14 +599,14 @@ struct
                 val (kdwf1, ()) = on_kdwf (kdwf1, down)
                 val (prwf2, ()) = on_prwf (prwf2, BdKind (#2 (extract_kdwfrel kdwf1)) :: down)
               in
-                SOME (KdWfDerivSubset (on_rel kdrel, kdwf1, prwf2), ())
+                SOME (reconstrct_kd_wf_deriv_subset kdrel kdwf1 prwf2, ())
               end
           | _ => NONE
         end
 
       fun transformer_prop_wellformness_derivation (on_prwf, on_kdwf, on_kdderiv) (prwf : prop_wellformedness_derivation, down : down) =
         let
-          fun on_rel prrel = #1 (on_prop_wellformness_relation (prrel, down))
+          (*fun on_rel prrel = #1 (on_prop_wellformness_relation (prrel, down))*)
         in
           case prwf of
             PrWfDerivForall (prrel, kdwf1, prwf2) =>
@@ -494,21 +614,21 @@ struct
                 val (kdwf1, ()) = on_kdwf (kdwf1, down)
                 val (prwf2, ()) = on_prwf (prwf2, BdKind (#2 (extract_kdwfrel kdwf1)) :: down)
               in
-                SOME (PrWfDerivForall (on_rel prrel, kdwf1, prwf2), ())
+                SOME (reconstruct_pr_wf_deriv_forall prrel kdwf1 prwf2, ())
               end
           | PrWfDerivExists (prrel, kdwf1, prwf2) =>
               let
                 val (kdwf1, ()) = on_kdwf (kdwf1, down)
                 val (prwf2, ()) = on_prwf (prwf2, BdKind (#2 (extract_kdwfrel kdwf1)) :: down)
               in
-                SOME (PrWfDerivExists (on_rel prrel, kdwf1, prwf2), ())
+                SOME (reconstruct_pr_wf_deriv_exists prrel kdwf1 prwf2, ())
               end
           | _ => NONE
         end
 
       fun transformer_type_equivalence_derivation (on_tyeq, on_kdeq, on_prderiv) (tyeq : type_equivalence_derivation, down : down) =
         let
-          fun on_rel tyrel = #1 (on_type_equivalence_relation (tyrel, down))
+          (*fun on_rel tyrel = #1 (on_type_equivalence_relation (tyrel, down))*)
         in
           case tyeq of
             TyEqDerivForall (tyrel, kdeq1, tyeq2) =>
@@ -516,28 +636,28 @@ struct
                 val (kdeq1, ()) = on_kdeq (kdeq1, down)
                 val (tyeq2, ()) = on_tyeq (tyeq2, BdKind (#2 (extract_kdeqrel kdeq1)) :: down)
               in
-                SOME (TyEqDerivForall (on_rel tyrel, kdeq1, tyeq2), ())
+                SOME (reconstruct_ty_eq_deriv_forall tyrel kdeq1 tyeq2, ())
               end
           | TyEqDerivExists (tyrel, kdeq1, tyeq2) =>
               let
                 val (kdeq1, ()) = on_kdeq (kdeq1, down)
                 val (tyeq2, ()) = on_tyeq (tyeq2, BdKind (#2 (extract_kdeqrel kdeq1)) :: down)
               in
-                SOME (TyEqDerivExists (on_rel tyrel, kdeq1, tyeq2), ())
+                SOME (reconstruct_ty_eq_deriv_exists tyrel kdeq1 tyeq2, ())
               end
           | TyEqDerivRec (tyrel, kdeq1, tyeq2) =>
               let
                 val (kdeq1, ()) = on_kdeq (kdeq1, down)
                 val (tyeq2, ()) = on_tyeq (tyeq2, BdKind (#2 (extract_kdeqrel kdeq1)) :: down)
               in
-                SOME (TyEqDerivRec (on_rel tyrel, kdeq1, tyeq2), ())
+                SOME (reconstruct_ty_eq_deriv_rec tyrel kdeq1 tyeq2, ())
               end
           | TyEqDerivAbs (tyrel, kdeq1, tyeq2) =>
               let
                 val (kdeq1, ()) = on_kdeq (kdeq1, down)
                 val (tyeq2, ()) = on_tyeq (tyeq2, BdKind (#2 (extract_kdeqrel kdeq1)) :: down)
               in
-                SOME (TyEqDerivAbs (on_rel tyrel, kdeq1, tyeq2), ())
+                SOME (reconstruct_ty_eq_deriv_abs tyrel kdeq1 tyeq2, ())
               end
           | _ => NONE
         end
@@ -613,7 +733,7 @@ struct
           ((ctx, ty1', ty2'), ())
         end
 
-      fun on_kind_equivalence_relation ((ctx, kd1, kd2), (who, to)) =
+      (*fun on_kind_equivalence_relation ((ctx, kd1, kd2), (who, to)) =
         let
           val kd1' = #1 (Passes.TermSubstConstr.transform_kind (kd1, (who, to)))
           val kd2' = #1 (Passes.TermSubstConstr.transform_kind (kd2, (who, to)))
@@ -627,11 +747,11 @@ struct
           val kd2' = #1 (Passes.TermSubstConstr.transform_kind (kd2, (who, to)))
         in
           ((ctx, kd1', kd2'), ())
-        end
+        end*)
 
       fun transformer_typing_derivation (on_tyderiv, on_kdderiv, on_prderiv, on_kdwf, on_tyeq) (tyderiv : typing_derivation, down as (who, to) : down) =
         let
-          fun on_rel tyrel = #1 (on_typing_relation (tyrel, down))
+          (*fun on_rel tyrel = #1 (on_typing_relation (tyrel, down))*)
         in
           case tyderiv of
             TyDerivAbs (tyrel, kdderiv1, tyderiv2) =>
@@ -639,14 +759,14 @@ struct
                 val (kdderiv1, ()) = on_kdderiv (kdderiv1, down)
                 val (tyderiv2, ()) = on_tyderiv (tyderiv2, (who + 1, to))
               in
-                SOME (TyDerivAbs (on_rel tyrel, kdderiv1, tyderiv2), ())
+                SOME (reconstruct_ty_deriv_abs tyrel kdderiv1 tyderiv2, ())
               end
           | TyDerivRec (tyrel, kdderiv1, tyderiv2) =>
               let
                 val (kdderiv1, ()) = on_kdderiv (kdderiv1, down)
                 val (tyderiv2, ()) = on_tyderiv (tyderiv2, (who + 1, to))
               in
-                SOME (TyDerivRec (on_rel tyrel, kdderiv1, tyderiv2), ())
+                SOME (reconstruct_ty_deriv_rec tyrel kdderiv1 tyderiv2, ())
               end
           | TyDerivCase (tyrel, tyderiv1, tyderiv2, tyderiv3) =>
               let
@@ -654,35 +774,35 @@ struct
                 val (tyderiv2, ()) = on_tyderiv (tyderiv2, (who + 1, to))
                 val (tyderiv3, ()) = on_tyderiv (tyderiv3, (who + 1, to))
               in
-                SOME (TyDerivCase (on_rel tyrel, tyderiv1, tyderiv2, tyderiv3), ())
+                SOME (reconstruct_ty_deriv_case tyrel tyderiv1 tyderiv2 tyderiv3, ())
               end
           | TyDerivUnpack (tyrel, tyderiv1, tyderiv2) =>
               let
                 val (tyderiv1, ()) = on_tyderiv (tyderiv1, down)
                 val (tyderiv2, ()) = on_tyderiv (tyderiv2, (who + 2, to))
               in
-                SOME (TyDerivUnpack (on_rel tyrel, tyderiv1, tyderiv2), ())
+                SOME (reconstruct_ty_deriv_unpack tyrel tyderiv1 tyderiv2, ())
               end
           | TyDerivCstrAbs (tyrel, kdwf1, tyderiv2) =>
               let
                 val (kdwf1, ()) = on_kdwf (kdwf1, down)
                 val (tyderiv2, ()) = on_tyderiv (tyderiv2, (who + 1, to))
               in
-                SOME (TyDerivCstrAbs (on_rel tyrel, kdwf1, tyderiv2), ())
+                SOME (reconstruct_ty_deriv_cstr_abs tyrel kdwf1 tyderiv2, ())
               end
           | TyDerivLet (tyrel, tyderiv2, tyderiv3) =>
               let
                 val (tyderiv2, ()) = on_tyderiv (tyderiv2, down)
                 val (tyderiv3, ()) = on_tyderiv (tyderiv3, (who + 1, to))
               in
-                SOME (TyDerivLet (on_rel tyrel, tyderiv2, tyderiv3), ())
+                SOME (reconstruct_ty_deriv_let tyrel tyderiv2 tyderiv3, ())
               end
           | _ => NONE
         end
 
       fun transformer_kinding_derivation (on_kdderiv, on_prderiv, on_kdwf) (kdderiv : kinding_derivation, down as (who, to) : down) =
         let
-          fun on_rel kdrel = #1 (on_kinding_relation (kdrel, down))
+          (*fun on_rel kdrel = #1 (on_kinding_relation (kdrel, down))*)
         in
           case kdderiv of
             KdDerivRefine (kdrel, kdderiv1, prderiv2) =>
@@ -690,41 +810,41 @@ struct
                 val (kdderiv1, ()) = on_kdderiv (kdderiv1, down)
                 val (prderiv2, ()) = on_prderiv (prderiv2, (who + 1, to))
               in
-                SOME (KdDerivRefine (on_rel kdrel, kdderiv1, prderiv2), ())
+                SOME (reconstruct_kd_deriv_refine kdrel kdderiv1 prderiv2, ())
               end
           | KdDerivTimeAbs (kdrel, kdderiv1) =>
               let
                 val (kdderiv1, ()) = on_kdderiv (kdderiv1, (who + 1, to))
               in
-                SOME (KdDerivTimeAbs (on_rel kdrel, kdderiv1), ())
+                SOME (reconstruct_kd_deriv_time_abs kdrel kdderiv1, ())
               end
           | KdDerivAbs (kdrel, kdwf1, kdderiv2) =>
               let
                 val (kdwf1, ()) = on_kdwf (kdwf1, down)
                 val (kdderiv2, ()) = on_kdderiv (kdderiv2, (who + 1, to))
               in
-                SOME (KdDerivAbs (on_rel kdrel, kdwf1, kdderiv2), ())
+                SOME (reconstruct_kd_deriv_abs kdrel kdwf1 kdderiv2, ())
               end
           | KdDerivForall (kdrel, kdwf1, kdderiv2) =>
               let
                 val (kdwf1, ()) = on_kdwf (kdwf1, down)
                 val (kdderiv2, ()) = on_kdderiv (kdderiv2, (who + 1, to))
               in
-                SOME (KdDerivForall (on_rel kdrel, kdwf1, kdderiv2), ())
+                SOME (reconstruct_kd_deriv_forall kdrel kdwf1 kdderiv2, ())
               end
           | KdDerivExists (kdrel, kdwf1, kdderiv2) =>
               let
                 val (kdwf1, ()) = on_kdwf (kdwf1, down)
                 val (kdderiv2, ()) = on_kdderiv (kdderiv2, (who + 1, to))
               in
-                SOME (KdDerivExists (on_rel kdrel, kdwf1, kdderiv2), ())
+                SOME (reconstruct_kd_deriv_exists kdrel kdwf1 kdderiv2, ())
               end
           | KdDerivRec (kdrel, kdwf1, kdderiv2) =>
               let
                 val (kdwf1, ()) = on_kdwf (kdwf1, down)
                 val (kdderiv2, ()) = on_kdderiv (kdderiv2, (who + 1, to))
               in
-                SOME (KdDerivRec (on_rel kdrel, kdwf1, kdderiv2), ())
+                SOME (reconstruct_kd_deriv_rec kdrel kdwf1 kdderiv2, ())
               end
           | _ => NONE
         end
@@ -733,7 +853,7 @@ struct
 
       fun transformer_kind_wellformness_derivation (on_kdwf, on_prwf) (kdwf : kind_wellformedness_derivation, down as (who, to) : down) =
         let
-          fun on_rel kdrel = #1 (on_kind_wellformness_relation (kdrel, down))
+          (*fun on_rel kdrel = #1 (on_kind_wellformness_relation (kdrel, down))*)
         in
           case kdwf of
             KdWfDerivSubset (kdrel, kdwf1, prwf2) =>
@@ -741,14 +861,14 @@ struct
                 val (kdwf1, ()) = on_kdwf (kdwf1, down)
                 val (prwf2, ()) = on_prwf (prwf2, (who + 1, to))
               in
-                SOME (KdWfDerivSubset (on_rel kdrel, kdwf1, prwf2), ())
+                SOME (reconstrct_kd_wf_deriv_subset kdrel kdwf1 prwf2, ())
               end
           | _ => NONE
         end
 
       fun transformer_prop_wellformness_derivation (on_prwf, on_kdwf, on_kdderiv) (prwf : prop_wellformedness_derivation, down as (who, to) : down) =
         let
-          fun on_rel prrel = #1 (on_prop_wellformness_relation (prrel, down))
+          (*fun on_rel prrel = #1 (on_prop_wellformness_relation (prrel, down))*)
         in
           case prwf of
             PrWfDerivForall (prrel, kdwf1, prwf2) =>
@@ -756,21 +876,21 @@ struct
                 val (kdwf1, ()) = on_kdwf (kdwf1, down)
                 val (prwf2, ()) = on_prwf (prwf2, (who + 1, to))
               in
-                SOME (PrWfDerivForall (on_rel prrel, kdwf1, prwf2), ())
+                SOME (reconstruct_pr_wf_deriv_forall prrel kdwf1 prwf2, ())
               end
           | PrWfDerivExists (prrel, kdwf1, prwf2) =>
               let
                 val (kdwf1, ()) = on_kdwf (kdwf1, down)
                 val (prwf2, ()) = on_prwf (prwf2, (who + 1, to))
               in
-                SOME (PrWfDerivExists (on_rel prrel, kdwf1, prwf2), ())
+                SOME (reconstruct_pr_wf_deriv_exists prrel kdwf1 prwf2, ())
               end
           | _ => NONE
         end
 
       fun transformer_type_equivalence_derivation (on_tyeq, on_kdeq, on_prderiv) (tyeq : type_equivalence_derivation, down as (who, to) : down) =
         let
-          fun on_rel tyrel = #1 (on_type_equivalence_relation (tyrel, down))
+          (*fun on_rel tyrel = #1 (on_type_equivalence_relation (tyrel, down))*)
         in
           case tyeq of
             TyEqDerivForall (tyrel, kdeq1, tyeq2) =>
@@ -778,28 +898,28 @@ struct
                 val (kdeq1, ()) = on_kdeq (kdeq1, down)
                 val (tyeq2, ()) = on_tyeq (tyeq2, (who + 1, to))
               in
-                SOME (TyEqDerivForall (on_rel tyrel, kdeq1, tyeq2), ())
+                SOME (reconstruct_ty_eq_deriv_forall tyrel kdeq1 tyeq2, ())
               end
           | TyEqDerivExists (tyrel, kdeq1, tyeq2) =>
               let
                 val (kdeq1, ()) = on_kdeq (kdeq1, down)
                 val (tyeq2, ()) = on_tyeq (tyeq2, (who + 1, to))
               in
-                SOME (TyEqDerivExists (on_rel tyrel, kdeq1, tyeq2), ())
+                SOME (reconstruct_ty_eq_deriv_exists tyrel kdeq1 tyeq2, ())
               end
           | TyEqDerivRec (tyrel, kdeq1, tyeq2) =>
               let
                 val (kdeq1, ()) = on_kdeq (kdeq1, down)
                 val (tyeq2, ()) = on_tyeq (tyeq2, (who + 1, to))
               in
-                SOME (TyEqDerivRec (on_rel tyrel, kdeq1, tyeq2), ())
+                SOME (reconstruct_ty_eq_deriv_rec tyrel kdeq1 tyeq2, ())
               end
           | TyEqDerivAbs (tyrel, kdeq1, tyeq2) =>
               let
                 val (kdeq1, ()) = on_kdeq (kdeq1, down)
                 val (tyeq2, ()) = on_tyeq (tyeq2, (who + 1, to))
               in
-                SOME (TyEqDerivAbs (on_rel tyrel, kdeq1, tyeq2), ())
+                SOME (reconstruct_ty_eq_deriv_abs tyrel kdeq1 tyeq2, ())
               end
           | _ => NONE
         end
@@ -840,13 +960,13 @@ struct
 
       fun on_type_equivalence_relation (rel, down) = (rel, ())
 
-      fun on_kind_equivalence_relation (rel, down) = (rel, ())
+      (*fun on_kind_equivalence_relation (rel, down) = (rel, ())
 
-      fun on_kind_sub_relation (rel, down) = (rel, ())
+      fun on_kind_sub_relation (rel, down) = (rel, ())*)
 
       fun transformer_typing_derivation (on_tyderiv, on_kdderiv, on_prderiv, on_kdwf, on_tyeq) (tyderiv : typing_derivation, down as (who, to) : down) =
         let
-          fun on_rel tyrel = #1 (on_typing_relation (tyrel, down))
+          (*fun on_rel tyrel = #1 (on_typing_relation (tyrel, down))*)
         in
           case tyderiv of
             TyDerivAbs (tyrel, kdderiv1, tyderiv2) =>
@@ -854,14 +974,14 @@ struct
                 val (kdderiv1, ()) = on_kdderiv (kdderiv1, down)
                 val (tyderiv2, ()) = on_tyderiv (tyderiv2, (who + 1, to))
               in
-                SOME (TyDerivAbs (on_rel tyrel, kdderiv1, tyderiv2), ())
+                SOME (reconstruct_ty_deriv_abs tyrel kdderiv1 tyderiv2, ())
               end
           | TyDerivRec (tyrel, kdderiv1, tyderiv2) =>
               let
                 val (kdderiv1, ()) = on_kdderiv (kdderiv1, down)
                 val (tyderiv2, ()) = on_tyderiv (tyderiv2, (who + 1, to))
               in
-                SOME (TyDerivRec (on_rel tyrel, kdderiv1, tyderiv2), ())
+                SOME (reconstruct_ty_deriv_rec tyrel kdderiv1 tyderiv2, ())
               end
           | TyDerivCase (tyrel, tyderiv1, tyderiv2, tyderiv3) =>
               let
@@ -869,28 +989,28 @@ struct
                 val (tyderiv2, ()) = on_tyderiv (tyderiv2, (who + 1, to))
                 val (tyderiv3, ()) = on_tyderiv (tyderiv3, (who + 1, to))
               in
-                SOME (TyDerivCase (on_rel tyrel, tyderiv1, tyderiv2, tyderiv3), ())
+                SOME (reconstruct_ty_deriv_case tyrel tyderiv1 tyderiv2 tyderiv3, ())
               end
           | TyDerivUnpack (tyrel, tyderiv1, tyderiv2) =>
               let
                 val (tyderiv1, ()) = on_tyderiv (tyderiv1, down)
                 val (tyderiv2, ()) = on_tyderiv (tyderiv2, (who + 2, to))
               in
-                SOME (TyDerivUnpack (on_rel tyrel, tyderiv1, tyderiv2), ())
+                SOME (reconstruct_ty_deriv_unpack tyrel tyderiv1 tyderiv2, ())
               end
           | TyDerivCstrAbs (tyrel, kdwf1, tyderiv2) =>
               let
                 val (kdwf1, ()) = on_kdwf (kdwf1, down)
                 val (tyderiv2, ()) = on_tyderiv (tyderiv2, (who + 1, to))
               in
-                SOME (TyDerivCstrAbs (on_rel tyrel, kdwf1, tyderiv2), ())
+                SOME (reconstruct_ty_deriv_cstr_abs tyrel kdwf1 tyderiv2, ())
               end
           | TyDerivLet (tyrel, tyderiv2, tyderiv3) =>
               let
                 val (tyderiv2, ()) = on_tyderiv (tyderiv2, down)
                 val (tyderiv3, ()) = on_tyderiv (tyderiv3, (who + 1, to))
               in
-                SOME (TyDerivLet (on_rel tyrel, tyderiv2, tyderiv3), ())
+                SOME (reconstruct_ty_deriv_let tyrel tyderiv2 tyderiv3, ())
               end
           | _ => NONE
         end
@@ -1182,11 +1302,6 @@ struct
               tyderiv_let
             end
         end)
-
-    and gen_kinding_derivation ctx cstr =
-      case cstr of
-        CstrTypeUnit => KdDerivTypeUnit (ctx, CstrTypeUnit, KdProper)
-      | _ => raise Impossible
   end
 
   structure FV =
@@ -1207,117 +1322,117 @@ struct
       fun on_kind_wellformness_relation (rel as (ctx, kd), down) = (rel, Passes.FV.free_variables_kind kd down)
       fun on_prop_wellformness_relation (rel as (ctx, pr), down) = (rel, Passes.FV.free_variables_prop pr down)
       fun on_type_equivalence_relation (rel as (ctx, ty1, ty2), down) = (rel, combiner (Passes.FV.free_variables_constr ty1 down, Passes.FV.free_variables_constr ty2 down))
-      fun on_kind_equivalence_relation (rel as (ctx, kd1, kd2), down) = (rel, combiner (Passes.FV.free_variables_kind kd1 down, Passes.FV.free_variables_kind kd2 down))
-      fun on_kind_sub_relation (rel as (ctx, kd1, kd2), down) = (rel, combiner (Passes.FV.free_variables_kind kd1 down, Passes.FV.free_variables_kind kd2 down))
+      (*fun on_kind_equivalence_relation (rel as (ctx, kd1, kd2), down) = (rel, combiner (Passes.FV.free_variables_kind kd1 down, Passes.FV.free_variables_kind kd2 down))
+      fun on_kind_sub_relation (rel as (ctx, kd1, kd2), down) = (rel, combiner (Passes.FV.free_variables_kind kd1 down, Passes.FV.free_variables_kind kd2 down))*)
 
       fun transformer_typing_derivation (on_tyderiv, on_kdderiv, on_prderiv, on_kdwf, on_tyeq) (tyderiv : typing_derivation, ctx : down) =
         let
-          fun on_rel tyrel = on_typing_relation (tyrel, ctx)
+          (*fun on_rel tyrel = on_typing_relation (tyrel, ctx)*)
         in
           case tyderiv of
             TyDerivAbs (tyrel, kdderiv1, tyderiv2) =>
               let
-                val (tyrel, up0) = on_rel tyrel
+                (*val (tyrel, up0) = on_rel tyrel*)
                 val (kdderiv1, up1) = on_kdderiv (kdderiv1, ctx)
                 val (tyderiv2, up2) = on_tyderiv (tyderiv2, ctx + 1)
               in
-                SOME (TyDerivAbs (tyrel, kdderiv1, tyderiv2), combiner (combiner (up0, up1), up2))
+                SOME (tyderiv, combiner (up1, up2))
               end
           | TyDerivRec (tyrel, kdderiv1, tyderiv2) =>
               let
-                val (tyrel, up0) = on_rel tyrel
+                (*val (tyrel, up0) = on_rel tyrel*)
                 val (kdderiv1, up1) = on_kdderiv (kdderiv1, ctx)
                 val (tyderiv2, up2) = on_tyderiv (tyderiv2, ctx + 1)
               in
-                SOME (TyDerivRec (tyrel, kdderiv1, tyderiv2), combiner (combiner (up0, up1), up2))
+                SOME (tyderiv, combiner (up1, up2))
               end
           | TyDerivCase (tyrel, tyderiv1, tyderiv2, tyderiv3) =>
               let
-                val (tyrel, up0) = on_rel tyrel
+                (*val (tyrel, up0) = on_rel tyrel*)
                 val (tyderiv1, up1) = on_tyderiv (tyderiv1, ctx)
                 val (tyderiv2, up2) = on_tyderiv (tyderiv2, ctx + 1)
                 val (tyderiv3, up3) = on_tyderiv (tyderiv3, ctx + 1)
               in
-                SOME (TyDerivCase (tyrel, tyderiv1, tyderiv2, tyderiv3), combiner (combiner (combiner (up0, up1), up2), up3))
+                SOME (tyderiv, combiner (combiner (up1, up2), up3))
               end
           | TyDerivUnpack (tyrel, tyderiv1, tyderiv2) =>
               let
-                val (tyrel, up0) = on_rel tyrel
+                (*val (tyrel, up0) = on_rel tyrel*)
                 val (tyderiv1, up1) = on_tyderiv (tyderiv1, ctx)
                 val (tyderiv2, up2) = on_tyderiv (tyderiv2, ctx + 2)
               in
-                SOME (TyDerivUnpack (tyrel, tyderiv1, tyderiv2), combiner (combiner (up0, up1), up2))
+                SOME (tyderiv, combiner (up1, up2))
               end
           | TyDerivCstrAbs (tyrel, kdwf1, tyderiv2) =>
               let
-                val (tyrel, up0) = on_rel tyrel
+                (*val (tyrel, up0) = on_rel tyrel*)
                 val (kdwf1, up1) = on_kdwf (kdwf1, ctx)
                 val (tyderiv2, up2) = on_tyderiv (tyderiv2, ctx + 1)
               in
-                SOME (TyDerivCstrAbs (tyrel, kdwf1, tyderiv2), combiner (combiner (up0, up1), up2))
+                SOME (tyderiv, combiner (up1, up2))
               end
           | TyDerivLet (tyrel, tyderiv2, tyderiv3) =>
               let
-                val (tyrel, up0) = on_rel tyrel
+                (*val (tyrel, up0) = on_rel tyrel*)
                 val (tyderiv2, up2) = on_tyderiv (tyderiv2, ctx)
                 val (tyderiv3, up3) = on_tyderiv (tyderiv3, ctx + 1)
               in
-                SOME (TyDerivLet (tyrel, tyderiv2, tyderiv3), combiner (combiner (up0, up2), up3))
+                SOME (tyderiv, combiner (up2, up3))
               end
           | _ => NONE
         end
 
       fun transformer_kinding_derivation (on_kdderiv, on_prderiv, on_kdwf) (kdderiv : kinding_derivation, ctx : down) =
         let
-          fun on_rel kdrel = on_kinding_relation (kdrel, ctx)
+          (*fun on_rel kdrel = on_kinding_relation (kdrel, ctx)*)
         in
           case kdderiv of
             KdDerivRefine (kdrel, kdderiv1, prderiv2) =>
               let
-                val (kdrel, up0) = on_rel kdrel
+                (*val (kdrel, up0) = on_rel kdrel*)
                 val (kdderiv1, up1) = on_kdderiv (kdderiv1, ctx)
                 val (prderiv2, up2) = on_prderiv (prderiv2, ctx + 1)
               in
-                SOME (KdDerivRefine (kdrel, kdderiv1, prderiv2), combiner (combiner (up0, up1), up2))
+                SOME (kdderiv, combiner (up1, up2))
               end
           | KdDerivTimeAbs (kdrel, kdderiv1) =>
               let
-                val (kdrel, up0) = on_rel kdrel
+                (*val (kdrel, up0) = on_rel kdrel*)
                 val (kdderiv1, up1) = on_kdderiv (kdderiv1, ctx + 1)
               in
-                SOME (KdDerivTimeAbs (kdrel, kdderiv1), combiner (up0, up1))
+                SOME (kdderiv, up1)
               end
           | KdDerivAbs (kdrel, kdwf1, kdderiv2) =>
               let
-                val (kdrel, up0) = on_rel kdrel
+                (*val (kdrel, up0) = on_rel kdrel*)
                 val (kdwf1, up1) = on_kdwf (kdwf1, ctx)
                 val (kdderiv2, up2) = on_kdderiv (kdderiv2, ctx + 1)
               in
-                SOME (KdDerivAbs (kdrel, kdwf1, kdderiv2), combiner (combiner (up0, up1), up2))
+                SOME (kdderiv, combiner (up1, up2))
               end
           | KdDerivForall (kdrel, kdwf1, kdderiv2) =>
               let
-                val (kdrel, up0) = on_rel kdrel
+                (*val (kdrel, up0) = on_rel kdrel*)
                 val (kdwf1, up1) = on_kdwf (kdwf1, ctx)
                 val (kdderiv2, up2) = on_kdderiv (kdderiv2, ctx + 1)
               in
-                SOME (KdDerivForall (kdrel, kdwf1, kdderiv2), combiner (combiner (up0, up1), up2))
+                SOME (kdderiv, combiner (up1, up2))
               end
           | KdDerivExists (kdrel, kdwf1, kdderiv2) =>
               let
-                val (kdrel, up0) = on_rel kdrel
+                (*val (kdrel, up0) = on_rel kdrel*)
                 val (kdwf1, up1) = on_kdwf (kdwf1, ctx)
                 val (kdderiv2, up2) = on_kdderiv (kdderiv2, ctx + 1)
               in
-                SOME (KdDerivExists (kdrel, kdwf1, kdderiv2), combiner (combiner (up0, up1), up2))
+                SOME (kdderiv, combiner (up1, up2))
               end
           | KdDerivRec (kdrel, kdwf1, kdderiv2) =>
               let
-                val (kdrel, up0) = on_rel kdrel
+                (*val (kdrel, up0) = on_rel kdrel*)
                 val (kdwf1, up1) = on_kdwf (kdwf1, ctx)
                 val (kdderiv2, up2) = on_kdderiv (kdderiv2, ctx + 1)
               in
-                SOME (KdDerivRec (kdrel, kdwf1, kdderiv2), combiner (combiner (up0, up1), up2))
+                SOME (kdderiv, combiner (up1, up2))
               end
           | _ => NONE
         end
@@ -1326,80 +1441,80 @@ struct
 
       fun transformer_kind_wellformness_derivation (on_kdwf, on_prwf) (kdwf : kind_wellformedness_derivation, ctx : down) =
         let
-          fun on_rel kdrel = on_kind_wellformness_relation (kdrel, ctx)
+          (*fun on_rel kdrel = on_kind_wellformness_relation (kdrel, ctx)*)
         in
           case kdwf of
             KdWfDerivSubset (kdrel, kdwf1, prwf2) =>
               let
-                val (kdrel, up0) = on_rel kdrel
+                (*val (kdrel, up0) = on_rel kdrel*)
                 val (kdwf1, up1) = on_kdwf (kdwf1, ctx)
                 val (prwf2, up2) = on_prwf (prwf2, ctx + 1)
               in
-                SOME (KdWfDerivSubset (kdrel, kdwf1, prwf2), combiner (combiner (up0, up1), up2))
+                SOME (kdwf, combiner (up1, up2))
               end
           | _ => NONE
         end
 
       fun transformer_prop_wellformness_derivation (on_prwf, on_kdwf, on_kdderiv) (prwf : prop_wellformedness_derivation, ctx : down) =
         let
-          fun on_rel prrel = on_prop_wellformness_relation (prrel, ctx)
+          (*fun on_rel prrel = on_prop_wellformness_relation (prrel, ctx)*)
         in
           case prwf of
             PrWfDerivForall (prrel, kdwf1, prwf2) =>
               let
-                val (prrel, up0) = on_rel prrel
+                (*val (prrel, up0) = on_rel prrel*)
                 val (kdwf1, up1) = on_kdwf (kdwf1, ctx)
                 val (prwf2, up2) = on_prwf (prwf2, ctx + 1)
               in
-                SOME (PrWfDerivForall (prrel, kdwf1, prwf2), combiner (combiner (up0, up1), up2))
+                SOME (prwf, combiner (up1, up2))
               end
           | PrWfDerivExists (prrel, kdwf1, prwf2) =>
               let
-                val (prrel, up0) = on_rel prrel
+                (*val (prrel, up0) = on_rel prrel*)
                 val (kdwf1, up1) = on_kdwf (kdwf1, ctx)
                 val (prwf2, up2) = on_prwf (prwf2, ctx + 1)
               in
-                SOME (PrWfDerivExists (prrel, kdwf1, prwf2), combiner (combiner (up0, up1), up2))
+                SOME (prwf, combiner (up1, up2))
               end
           | _ => NONE
         end
 
       fun transformer_type_equivalence_derivation (on_tyeq, on_kdeq, on_prderiv) (tyeq : type_equivalence_derivation, ctx : down) =
         let
-          fun on_rel tyrel = on_type_equivalence_relation (tyrel, ctx)
+          (*fun on_rel tyrel = on_type_equivalence_relation (tyrel, ctx)*)
         in
           case tyeq of
             TyEqDerivForall (tyrel, kdeq1, tyeq2) =>
               let
-                val (tyrel, up0) = on_rel tyrel
+                (*val (tyrel, up0) = on_rel tyrel*)
                 val (kdeq1, up1) = on_kdeq (kdeq1, ctx)
                 val (tyeq2, up2) = on_tyeq (tyeq2, ctx + 1)
               in
-                SOME (TyEqDerivForall (tyrel, kdeq1, tyeq2), combiner (combiner (up0, up1), up2))
+                SOME (tyeq, combiner (up1, up2))
               end
           | TyEqDerivExists (tyrel, kdeq1, tyeq2) =>
               let
-                val (tyrel, up0) = on_rel tyrel
+                (*val (tyrel, up0) = on_rel tyrel*)
                 val (kdeq1, up1) = on_kdeq (kdeq1, ctx)
                 val (tyeq2, up2) = on_tyeq (tyeq2, ctx + 1)
               in
-                SOME (TyEqDerivExists (tyrel, kdeq1, tyeq2), combiner (combiner (up0, up1), up2))
+                SOME (tyeq, combiner (up1, up2))
               end
           | TyEqDerivRec (tyrel, kdeq1, tyeq2) =>
               let
-                val (tyrel, up0) = on_rel tyrel
+                (*val (tyrel, up0) = on_rel tyrel*)
                 val (kdeq1, up1) = on_kdeq (kdeq1, ctx)
                 val (tyeq2, up2) = on_tyeq (tyeq2, ctx + 1)
               in
-                SOME (TyEqDerivRec (tyrel, kdeq1, tyeq2), combiner (combiner (up0, up1), up2))
+                SOME (tyeq, combiner (up1, up2))
               end
           | TyEqDerivAbs (tyrel, kdeq1, tyeq2) =>
               let
-                val (tyrel, up0) = on_rel tyrel
+                (*val (tyrel, up0) = on_rel tyrel*)
                 val (kdeq1, up1) = on_kdeq (kdeq1, ctx)
                 val (tyeq2, up2) = on_tyeq (tyeq2, ctx + 1)
               in
-                SOME (TyEqDerivAbs (tyrel, kdeq1, tyeq2), combiner (combiner (up0, up1), up2))
+                SOME (tyeq, combiner (up1, up2))
               end
           | _ => NONE
         end
@@ -1452,8 +1567,8 @@ struct
       fun on_kind_wellformness_relation (rel, ()) = (rel, ())
       fun on_prop_wellformness_relation (rel, ()) = (rel, ())
       fun on_type_equivalence_relation (rel as (ctx, ty1, ty2), ()) = ((ctx, transform_type ty1, transform_type ty2), ())
-      fun on_kind_equivalence_relation (rel, ()) = (rel, ())
-      fun on_kind_sub_relation (rel, ()) = (rel, ())
+      (*fun on_kind_equivalence_relation (rel, ()) = (rel, ())
+      fun on_kind_sub_relation (rel, ()) = (rel, ())*)
 
       fun get_bind (ctx : context, i : int) =
         let

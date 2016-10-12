@@ -953,7 +953,7 @@ struct
             (*val (kdrel, up0) = on_rel kdrel*)
             val (kdderiv1, up1) = on_kdderiv kdderiv1
             val kdrel1 = extract_kdrel kdderiv1
-            val kdrel_new = (tl (#1 kdrel1), case hd (#1 kdrel1) of BdKind kd => kd | _ => raise Impossible, Passes.TermShift.shift_kind ~1 (#3 kdrel1))
+            val kdrel_new = (tl (#1 kdrel1), case hd (#1 kdrel1) of BdKind kd => kd | _ => raise (Impossible "must be kind"), Passes.TermShift.shift_kind ~1 (#3 kdrel1))
           in
             (KdSubDerivSub (kdrel_new, kdderiv1), combine [up1])
           end

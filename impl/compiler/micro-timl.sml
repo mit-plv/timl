@@ -278,8 +278,6 @@ struct
   | TyDerivLet of typing_relation * typing_derivation * typing_derivation
   | TyDerivNever of typing_relation * kinding_derivation * proping_derivation
 
-  exception Impossible
-
   fun is_value tm =
     case tm of
       TmVar _ => true
@@ -404,61 +402,61 @@ struct
     | KdDerivTypeArray (rel, _, _) => rel
 
   fun extract_cstr_arrow (CstrArrow r) = r
-    | extract_cstr_arrow _ = raise Impossible
+    | extract_cstr_arrow _ = raise (Impossible "not a cstr arrow")
 
   fun extract_cstr_prod (CstrProd r) = r
-    | extract_cstr_prod _ = raise Impossible
+    | extract_cstr_prod _ = raise (Impossible "not a cstr prod")
 
   fun extract_cstr_sum (CstrSum r) = r
-    | extract_cstr_sum _ = raise Impossible
+    | extract_cstr_sum _ = raise (Impossible "not a cstr sum")
 
   fun extract_cstr_rec (CstrRec r) = r
-    | extract_cstr_rec _ = raise Impossible
+    | extract_cstr_rec _ = raise (Impossible "not a cstr rec")
 
   fun extract_cstr_forall (CstrForall r) = r
-    | extract_cstr_forall _ = raise Impossible
+    | extract_cstr_forall _ = raise (Impossible "not a cstr forall")
 
   fun extract_cstr_exists (CstrExists r) = r
-    | extract_cstr_exists _ = raise Impossible
+    | extract_cstr_exists _ = raise (Impossible "not a cstr exists")
 
   fun extract_cstr_abs (CstrAbs r) = r
-    | extract_cstr_abs _ = raise Impossible
+    | extract_cstr_abs _ = raise (Impossible "not a cstr abs")
 
   fun extract_cstr_type_nat (CstrTypeNat r) = r
-    | extract_cstr_type_nat _ = raise Impossible
+    | extract_cstr_type_nat _ = raise (Impossible "not a cstr type nat")
 
   fun extract_cstr_type_array (CstrTypeArray r) = r
-    | extract_cstr_type_array _ = raise Impossible
+    | extract_cstr_type_array _ = raise (Impossible "not a cstr type array")
 
   fun extract_cstr_bin_op (CstrBinOp r) = r
-    | extract_cstr_bin_op _ = raise Impossible
+    | extract_cstr_bin_op _ = raise (Impossible "not a cstr bin op")
 
   fun extract_cstr_un_op (CstrUnOp r) = r
-    | extract_cstr_un_op _ = raise Impossible
+    | extract_cstr_un_op _ = raise (Impossible "not a cstr un op")
 
   fun extract_tm_abs (TmAbs r) = r
-    | extract_tm_abs _ = raise Impossible
+    | extract_tm_abs _ = raise (Impossible "not a tm abs")
 
   fun extract_tm_rec (TmRec r) = r
-    | extract_tm_rec _ = raise Impossible
+    | extract_tm_rec _ = raise (Impossible "not a tm rec")
 
   fun extract_tm_cstr_abs (TmCstrAbs r) = r
-    | extract_tm_cstr_abs _ = raise Impossible
+    | extract_tm_cstr_abs _ = raise (Impossible "not a tm cstr abs")
 
   fun extract_tm_bin_op (TmBinOp r) = r
-    | extract_tm_bin_op _ = raise Impossible
+    | extract_tm_bin_op _ = raise (Impossible "not a tm bin op")
 
   fun extract_pr_bin_rel (PrBinRel r) = r
-    | extract_pr_bin_rel _ = raise Impossible
+    | extract_pr_bin_rel _ = raise (Impossible "not a pr bin rel")
 
   fun extract_pr_bin_conn (PrBinConn r) = r
-    | extract_pr_bin_conn _ = raise Impossible
+    | extract_pr_bin_conn _ = raise (Impossible "not a pr bin conn")
 
   fun extract_kd_time_fun (KdTimeFun n) = n
-    | extract_kd_time_fun _ = raise Impossible
+    | extract_kd_time_fun _ = raise (Impossible "not a kd time fun")
 
   fun extract_kd_arrow (KdArrow r) = r
-    | extract_kd_arrow _ = raise Impossible
+    | extract_kd_arrow _ = raise (Impossible "not a kd arrow")
 
   fun term_bin_op_to_constr bop =
     case bop of
