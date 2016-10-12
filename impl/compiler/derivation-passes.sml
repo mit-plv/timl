@@ -1280,6 +1280,7 @@ struct
               TyDerivLet (tyrel_new, tyderiv2_new, tyderiv3_new)
             end)
       | TyDerivNever _ => k (tyderiv, [])
+      | TyDerivFixAbs _ => raise (Impossible "not in the source language")
 
     and normalize_shift tyderiv k =
       normalize tyderiv (fn (tyderiv, d) =>
@@ -1553,12 +1554,12 @@ struct
             in
               CstrExists (KdProper, CstrProd (CstrArrow (CstrProd (CstrVar 0, Passes.TermShift.shift_constr 1 ty1), Passes.TermShift.shift_constr 1 ty2, Passes.TermShift.shift_constr 1 ti), CstrVar 0))
             end
-        | CstrForall (kd1, ty2) =>
+        (*| CstrForall (kd1, ty2) =>
             let
               val ty2 = transform_type ty2
             in
               CstrExists (KdProper, CstrProd (CstrForall (Passes.TermShift.shift_kind 1 kd1, CstrArrow (CstrVar 1, Passes.TermShift.shift_constr_above 1 1 ty2, CstrTime "0.0")), CstrVar 0))
-            end
+            end*)
         | _ => ty
 
       fun on_typing_relation (rel as (ctx, tm, ty, ti), ()) = ((ctx, tm, transform_type ty, ti), ())
@@ -1700,6 +1701,13 @@ struct
                 in
                   TyDerivCstrAbs ((tl (#1 tyrel), TmCstrAbs (kd, #2 tyrel), CstrForall (kd, #3 tyrel), Passes.TermShift.shift_constr ~1 (#4 tyrel)), KdWfDerivAssume (tl (#1 tyrel), kd), tyderiv)
                 end) tyderiv_new kinds
+              val tyderiv_new = List.foldr (fn (n, tyderiv) =>
+                let
+                  val tyrel = extract_tyrel tyderiv
+                  val (kd1, ty_body) = extract_cstr_forall (#3 tyrel)
+                in
+                  TyDerivCstrApp ((#1 tyrel, TmCstrApp (#2 tyrel, CstrVar n), Passes.TermSubstConstr.subst_constr_in_constr_top (CstrVar n) ty_body, #4 tyrel), tyderiv, KdDerivVar (#1 tyrel, CstrVar n, get_kind (get_bind (#1 tyrel, n))))
+                end) tyderiv_new fcv
             in
               SOME (tyderiv_new, ())
             end

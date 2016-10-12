@@ -343,6 +343,14 @@ struct
           (TmLet (tm1, tm2), combine [up1, up2])
         end
     | TmNever => (TmNever, Arg.upward_base)
+    | TmFixAbs (kinds, cstr1, tm2) =>
+        let
+          val (kinds, ups) = ListPair.unzip (List.map (fn kd => transform_kind (kd, down)) kinds)
+          val (cstr1, up1) = transform_constr (cstr1, down)
+          val (tm2, up2) = transform_term (tm2, down)
+        in
+          (TmFixAbs (kinds, cstr1, tm2), combine (ups @ [up1, up2]))
+        end
 
   and transform_term (tm : term, down : Arg.down) =
     case Arg.transformer_term (transform_constr, transform_kind, transform_term) (tm, down) of
@@ -689,6 +697,15 @@ struct
           (TmLet (tm1, tm2), thread)
         end
     | TmNever => (TmNever, thread)
+    | TmFixAbs (kinds, cstr1, tm2) =>
+        let
+          val (kinds, thread) = List.foldl (fn (kd, (kinds, thread)) => let val (kd, thread) = transform_kind (kd, thread) in (kd :: kinds, thread) end) ([], thread) kinds
+          val kinds = List.rev kinds
+          val (cstr1, thread) = transform_constr (cstr1, thread)
+          val (tm2, thread) = transform_term (tm2, thread)
+        in
+          (TmFixAbs (kinds, cstr1, tm2), thread)
+        end
 
   and transform_term (tm : term, thread : Arg.thread) =
     case Arg.transformer_term (transform_constr, transform_kind, transform_term) (tm, thread) of

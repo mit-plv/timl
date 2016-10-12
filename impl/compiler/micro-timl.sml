@@ -114,6 +114,7 @@ struct
   | TmArrayPut of term * term * term
   | TmLet of term * term
   | TmNever
+  | TmFixAbs of kind list * constr * term
 
   and term_bin_op =
     TmBopIntAdd
@@ -277,6 +278,7 @@ struct
   | TyDerivArrayPut of typing_relation * typing_derivation * typing_derivation * proping_derivation * typing_derivation
   | TyDerivLet of typing_relation * typing_derivation * typing_derivation
   | TyDerivNever of typing_relation * kinding_derivation * proping_derivation
+  | TyDerivFixAbs of typing_relation * kind_wellformedness_derivation list * kinding_derivation * typing_derivation
 
   fun is_value tm =
     case tm of
@@ -292,6 +294,7 @@ struct
     | TmPack (cstr1, tm2) => is_value tm2
     | TmCstrApp (tm1, cstr2) => is_value tm1*)
     | TmNever => true
+    | TmFixAbs _ => true
     | _ => false
 
   fun extract_tyeqrel tyeq =
@@ -372,6 +375,7 @@ struct
     | TyDerivArrayPut (rel, _, _, _, _) => rel
     | TyDerivLet (rel, _, _) => rel
     | TyDerivNever (rel, _, _) => rel
+    | TyDerivFixAbs (rel, _, _, _) => rel
 
   fun extract_kdrel kdderiv =
     case kdderiv of

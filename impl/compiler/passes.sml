@@ -541,7 +541,15 @@ struct
             in
               SOME ("(let ([" ^ fresh ^ " " ^ snd (transform_term (tm1, ctx)) ^ "]) " ^ snd (transform_term (tm2, fresh :: ctx)) ^ ")")
             end
-        | TmNever => SOME "never"))
+        | TmNever => SOME "never"
+        | TmFixAbs (kinds, cstr1, tm2) =>
+            let
+              val fresh1 = gensym ()
+              val fresh2 = gensym ()
+              val freshes = map (fn _ => gensym ()) kinds
+            in
+              SOME ("(fix " ^ fresh1 ^ "[" ^ str_int (List.length freshes) ^ "](" ^ fresh2 ^ ")" ^ ":" ^ snd (transform_constr (cstr1, freshes @ ctx)) ^ " " ^ snd (transform_term (tm2, fresh2 :: fresh1 :: (freshes @ ctx))) ^ ")")
+            end))
     end
 
     structure PrinterIns = TermTransformPass(PrinterHelper)
@@ -609,6 +617,7 @@ struct
             TmLet (tm1, normalize (TermShift.shift_term_above d1 1 tm2) (fn (tm2, d2) =>
               k (tm2, d1 + 1 + d2))))
       | TmNever => k (tm, 0)
+      | TmFixAbs (kinds, cstr1, tm2) => k (TmFixAbs (kinds, cstr1, normalize_term tm2), 0)
 
     and normalize_shift tm k =
       normalize tm (fn (tm, d) => if is_value tm then k (tm, d) else TmLet (tm, k (TmVar 0, d + 1)))

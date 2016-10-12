@@ -334,6 +334,18 @@ struct
           in
             (TyDerivNever (tyrel_new, kdderiv1, prderiv2), combine [up1, up2])
           end
+      | TyDerivFixAbs (tyrel, kdwfs, kdderiv1, tyderiv2) =>
+          let
+            val (kdwfs, ups) = ListPair.unzip (List.map (fn kdwf => on_kdwf kdwf) kdwfs)
+            val (kdderiv1, up1) = on_kdderiv kdderiv1
+            val (tyderiv2, up2) = on_tyderiv tyderiv2
+            val kdrel1 = extract_kdrel kdderiv1
+            val tyrel2 = extract_tyrel tyderiv2
+            val kinds = List.rev (List.map (fn kdwf => #2 (extract_kdwfrel kdwf)) kdwfs)
+            val tyrel_new = (#1 tyrel, TmFixAbs (kinds, #2 kdrel1, #2 tyrel2), List.foldl (fn (kd, ty) => CstrForall (kd, ty)) (#2 kdrel1) kinds, CstrTime "0.0")
+          in
+            (TyDerivFixAbs (tyrel_new, kdwfs, kdderiv1, tyderiv2), combine (ups @ [up1, up2]))
+          end
     end
 
   and transform_typing_derivation (tyderiv : typing_derivation, down : Arg.down) =
