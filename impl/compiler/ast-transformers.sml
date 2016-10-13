@@ -5,60 +5,6 @@ struct
 
   open Util
 
-  structure ShiftCstr =
-  struct
-    structure Helper = AstGenericOnlyDownTransformer(
-    struct
-      type down = int * int
-
-      fun add_kind (_, (d, ctx)) = (d, ctx + 1)
-      fun add_type (_, (d, ctx)) = (d, ctx)
-
-      fun transformer_cstr (on_cstr, on_kind) (c, (d, ctx)) =
-        case c of
-          CVar x => SOME (if x >= ctx then CVar (x + d) else CVar x)
-        | _ => NONE
-
-      fun transformer_kind _ _ = NONE
-      fun transformer_prop _ _ = NONE
-      fun transformer_expr _ _ = NONE
-    end)
-
-    fun shift_c_c d ctx c = Helper.transform_cstr (c, (d, ctx))
-    fun shift_c_k d ctx k = Helper.transform_kind (k, (d, ctx))
-    fun shift_c_p d ctx p = Helper.transform_prop (p, (d, ctx))
-    fun shift_c_e d ctx e = Helper.transform_expr (e, (d, ctx))
-
-    val shift0_c_c = shift_c_c 1 0
-    val shift0_c_k = shift_c_k 1 0
-    val shift0_c_p = shift_c_p 1 0
-    val shift0_c_e = shift_c_e 1 0
-  end
-
-  structure ShiftExpr =
-  struct
-    structure Helper = AstGenericOnlyDownTransformer(
-    struct
-      type down = int * int
-
-      fun add_kind (_, (d, ctx)) = (d, ctx)
-      fun add_type (_, (d, ctx)) = (d, ctx + 1)
-
-      fun transformer_expr (on_expr, on_cstr) (e, (d, ctx)) =
-        case e of
-          EVar x => SOME (if x >= ctx then EVar (x + d) else EVar x)
-        | _ => NONE
-
-      fun transformer_cstr _ _ = NONE
-      fun transformer_kind _ _ = NONE
-      fun transformer_prop _ _ = NONE
-    end)
-
-    fun shift_e_e d ctx e = Helper.transform_expr (e, (d, ctx))
-
-    val shift0_e_e = shift_e_e 1 0
-  end
-
   structure PrinterUtil =
   struct
     val str_time = Time.str_time
@@ -231,6 +177,60 @@ struct
     val str_expr = snd o Helper.transform_expr
   end
 
+  structure ShiftCstr =
+  struct
+    structure Helper = AstGenericOnlyDownTransformer(
+    struct
+      type down = int * int
+
+      fun add_kind (_, (d, ctx)) = (d, ctx + 1)
+      fun add_type (_, (d, ctx)) = (d, ctx)
+
+      fun transformer_cstr (on_cstr, on_kind) (c, (d, ctx)) =
+        case c of
+          CVar x => SOME (if x >= ctx then CVar (x + d) else CVar x)
+        | _ => NONE
+
+      fun transformer_kind _ _ = NONE
+      fun transformer_prop _ _ = NONE
+      fun transformer_expr _ _ = NONE
+    end)
+
+    fun shift_c_c d ctx c = Helper.transform_cstr (c, (d, ctx))
+    fun shift_c_k d ctx k = Helper.transform_kind (k, (d, ctx))
+    fun shift_c_p d ctx p = Helper.transform_prop (p, (d, ctx))
+    fun shift_c_e d ctx e = Helper.transform_expr (e, (d, ctx))
+
+    val shift0_c_c = shift_c_c 1 0
+    val shift0_c_k = shift_c_k 1 0
+    val shift0_c_p = shift_c_p 1 0
+    val shift0_c_e = shift_c_e 1 0
+  end
+
+  structure ShiftExpr =
+  struct
+    structure Helper = AstGenericOnlyDownTransformer(
+    struct
+      type down = int * int
+
+      fun add_kind (_, (d, ctx)) = (d, ctx)
+      fun add_type (_, (d, ctx)) = (d, ctx + 1)
+
+      fun transformer_expr (on_expr, on_cstr) (e, (d, ctx)) =
+        case e of
+          EVar x => SOME (if x >= ctx then EVar (x + d) else EVar x)
+        | _ => NONE
+
+      fun transformer_cstr _ _ = NONE
+      fun transformer_kind _ _ = NONE
+      fun transformer_prop _ _ = NONE
+    end)
+
+    fun shift_e_e d ctx e = Helper.transform_expr (e, (d, ctx))
+
+    val shift0_e_e = shift_e_e 1 0
+  end
+
   structure SubstCstr =
   struct
     structure Helper = AstGenericOnlyDownTransformer(
@@ -288,5 +288,82 @@ struct
     fun subst_e_e to who e = Helper.transform_expr (e, (to, who))
 
     fun subst0_e_e to = subst_e_e to 0
+  end
+
+  structure FVUtil =
+  struct
+    fun unique_merge (ls1, ls2) =
+      case (ls1, ls2) of
+        ([], ls2) => ls2
+      | (ls1, []) => ls1
+      | (x1 :: s1, x2 :: s2) =>
+          if x1 = x2 then
+            x1 :: unique_merge (s1, s2)
+          else
+            if x1 < x2 then
+              x1 :: unique_merge (s1, ls2)
+            else
+              x2 :: unique_merge (ls1, s2)
+  end
+
+  structure FVCstr =
+  struct
+    structure Helper = AstGenericTransformer(
+    struct
+      open List
+      open FVUtil
+
+      type down = int
+      type up = int list
+
+      val upward_base = []
+      val combiner = unique_merge
+
+      fun add_kind (_, ctx) = ctx + 1
+      fun add_type (_, ctx) = ctx
+
+      fun transformer_cstr (on_cstr, on_kind) (c, ctx) =
+        case c of
+          CVar x => SOME (c, if x >= ctx then [x - ctx] else [])
+        | _ => NONE
+
+      fun transformer_kind _ _ = NONE
+      fun transformer_prop _ _ = NONE
+      fun transformer_expr _ _ = NONE
+    end)
+
+    fun free_vars_c_c c = Helper.transform_cstr (c, 0)
+    fun free_vars_c_k k = Helper.transform_kind (k, 0)
+    fun free_vars_c_p p = Helper.transform_prop (p, 0)
+    fun free_vars_c_e e = Helper.transform_expr (e, 0)
+  end
+
+  structure FVExpr =
+  struct
+    structure Helper = AstGenericTransformer(
+    struct
+      open List
+      open FVUtil
+
+      type down = int
+      type up = int list
+
+      val upward_base = []
+      val combiner = unique_merge
+
+      fun add_kind (_, ctx) = ctx
+      fun add_type (_, ctx) = ctx + 1
+
+      fun transformer_expr (on_expr, on_cstr) (e, ctx) =
+        case e of
+          EVar x => SOME (e, if x >= ctx then [x - ctx] else [])
+        | _ => NONE
+
+      fun transformer_cstr _ _ = NONE
+      fun transformer_kind _ _ = NONE
+      fun transformer_prop _ _ = NONE
+    end)
+
+    fun free_vars_e_e e = Helper.transform_expr (e, 0)
   end
 end
