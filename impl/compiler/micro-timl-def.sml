@@ -34,6 +34,7 @@ struct
   | CBTimeMax
   | CBTypeProd
   | CBTypeSum
+  | CBNatAdd
 
   datatype quan =
     QuanForall
@@ -51,6 +52,7 @@ struct
     PBTimeLe
   | PBTimeEq
   | PBBigO of nat
+  | PBNatEq
 
   datatype sort =
     BSNat
@@ -117,6 +119,7 @@ struct
   fun TEq (c1, c2) = PBinPred (PBTimeEq, c1, c2)
 
   val CInt = CConst CCTypeInt
+  fun CNat n = CConst (CCIdxNat n)
 
   fun CApps t cs =
     case cs of
@@ -138,6 +141,7 @@ struct
     | CBTimeMax => KTime
     | CBTypeProd => KType
     | CBTypeSum => KType
+    | CBNatAdd => KNat
 
   fun cbinop_arg2_kind opr =
     case opr of
@@ -146,6 +150,7 @@ struct
     | CBTimeMax => KTime
     | CBTypeProd => KType
     | CBTypeSum => KType
+    | CBNatAdd => KNat
 
   fun cbinop_result_kind opr =
     case opr of
@@ -154,18 +159,21 @@ struct
     | CBTimeMax => KTime
     | CBTypeProd => KType
     | CBTypeSum => KType
+    | CBNatAdd => KNat
 
   fun binpred_arg1_kind opr =
     case opr of
       PBTimeLe => KTime
     | PBTimeEq => KTime
     | PBBigO n => KTimeFun n
+    | PBNatEq => KNat
 
   fun binpred_arg2_kind opr =
     case opr of
       PBTimeLe => KTime
     | PBTimeEq => KTime
     | PBBigO n => KTimeFun n
+    | PBNatEq => KNat
 
   type kctx = kind list
 

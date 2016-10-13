@@ -30,6 +30,7 @@ Group is
       compiler/micro-timl-def.sml
       compiler/ast-transformers.sml
       compiler/deriv-transformers.sml
+      compiler/micro-timl-test.sml
 
       $/basis.cm
       $/smlnj-lib.cm

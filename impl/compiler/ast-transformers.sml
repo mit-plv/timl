@@ -24,6 +24,7 @@ struct
       | CBTimeMax => "max"
       | CBTypeProd => "*"
       | CBTypeSum => "+"
+      | CBNatAdd => "+"
 
     fun str_quan q =
       case q of
@@ -49,6 +50,7 @@ struct
         PBTimeLe => "<="
       | PBTimeEq => "="
       | PBBigO arity => "BigO"
+      | PBNatEq => "="
 
     fun str_expr_const cn =
       case cn of

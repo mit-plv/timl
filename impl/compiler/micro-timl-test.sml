@@ -1,6 +1,25 @@
 structure MicroTiMLTest =
 struct
   open Util
+
+  infixr 0 $
+
+  structure DerivTransformers = DerivTransformers(
+  struct
+    type time_type = int
+
+    val Time0 = 0
+    val Time1 = 1
+
+    val str_time = str_int
+  end)
+
+  fun main(prog_name : string, args : string list) : int =
+    let
+    in
+      0
+    end
+  (*open Util
   open MicroTiML
 
   fun test_len () =
@@ -303,5 +322,5 @@ struct
       val _ = test_fac ()
     in
       0
-    end
+    end*)
 end
