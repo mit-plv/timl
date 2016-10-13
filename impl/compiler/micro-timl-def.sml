@@ -1,6 +1,6 @@
 signature SIG_TIME =
 sig
-  type time_type
+  eqtype time_type
 
   val Time0 : time_type
   val Time1 : time_type
@@ -278,6 +278,7 @@ struct
   | EAppC of expr * cstr
   | EPack of cstr * expr
   | EUnpack of expr * expr
+  | ELet of expr * expr
 
   fun EProj (p, e) = EUnOp (EUProj p, e)
   fun EInj (c, e) = EUnOp (EUInj c, e)
@@ -289,6 +290,11 @@ struct
   fun EApp (e1, e2) = EBinOp (EBApp, e1, e2)
   fun EPair (e1, e2) = EBinOp (EBPair, e1, e2)
   fun EWrite (e1, e2) = EBinOp (EBWrite, e1, e2)
+
+  fun const_type cn =
+    case cn of
+      ECTT => CTypeUnit
+    | ECInt _ => CInt
 
   type typing_judgement = ctx * expr * cstr * cstr
 
@@ -312,6 +318,7 @@ struct
   | TyRead of typing_judgement * typing
   | TyWrite of typing_judgement * typing * typing
   | TySub of typing_judgement * typing * tyeq * proping
+  | TyLet of typing_judgement * typing * typing
 
   fun extract_judge_kdeq ke =
     case ke of
@@ -394,6 +401,7 @@ struct
     | TyRead (j, _) => j
     | TyWrite (j, _, _) => j
     | TySub (j, _, _, _) => j
+    | TyLet (j, _, _) => j
 
   fun extract_p_bin_conn (PBinConn a) = a
     | extract_p_bin_conn _ = raise (Impossible "extract_p_bin_conn")
@@ -663,6 +671,13 @@ struct
             val (e2, up2) = transform_expr (e2, Action.add_type (NONE, Action.add_kind (NONE, down)))
           in
             (EUnpack (e1, e2), combine [up1, up2])
+          end
+      | ELet (e1, e2) =>
+          let
+            val (e1, up1) = transform_expr (e1, down)
+            val (e2, up2) = transform_expr (e2, Action.add_type (NONE, down))
+          in
+            (ELet (e1, e2), combine [up1, up2])
           end
 
     and transform_expr (e, down) =
@@ -1187,6 +1202,14 @@ struct
         val (_, k, t) = extract_c_quan (#3 jty)
       in
         (#1 jty, EAppC (#2 jty, #2 jkd), Action.subst_c_c (#2 jkd) 0 t, #4 jty)
+      end
+
+    fun as_TyLet ty1 ty2 =
+      let
+        val jty1 = extract_judge_typing ty1
+        val jty2 = extract_judge_typing ty2
+      in
+        (#1 jty1, ELet (#2 jty1, #2 jty2), #3 jty2, Tadd (#4 jty1, #4 jty2))
       end
   end
 
@@ -1724,6 +1747,14 @@ struct
           in
             (TySub (as_TySub ty te pr, ty, te, pr), combine [up1, up2, up3])
           end
+      | TyLet (judge, ty1, ty2) =>
+          let
+            val (ty1, up1) = transform_typing (ty1, down)
+            val jty1 = extract_judge_typing ty1
+            val (ty2, up2) = transform_typing (ty2, Action.add_type (#3 jty1, down))
+          in
+            (TyLet (as_TyLet ty1 ty2, ty1, ty2), combine [up1, up2])
+          end
 
     and transform_typing (ty, down) =
       case Action.transformer_typing (transform_typing, transform_kinding, transform_wfkind, transform_tyeq, transform_proping)
@@ -1852,5 +1883,126 @@ struct
     val transform_wfprop = fst o Transformer.transform_wfprop
     val transform_tyeq = fst o Transformer.transform_tyeq
     val transform_typing = fst o Transformer.transform_typing
+  end
+
+  functor DerivGenericOnlyUpTransformer(Action:
+  sig
+    type up
+
+    val upward_base : up
+    val combiner : up * up -> up
+
+    val on_pr_leaf : proping_judgement -> proping_judgement * up
+    val on_ke_leaf : kdeq_judgement -> kdeq_judgement * up
+    val on_kd_leaf : kinding_judgement -> kinding_judgement * up
+    val on_wk_leaf : wfkind_judgement -> wfkind_judgement * up
+    val on_wp_leaf : wfprop_judgement -> wfprop_judgement * up
+    val on_te_leaf : tyeq_judgement -> tyeq_judgement * up
+    val on_ty_leaf : typing_judgement -> typing_judgement * up
+
+    val shift_c_c : int -> int -> cstr -> cstr
+    val shift_c_k : int -> int -> kind -> kind
+
+    val subst_c_c : cstr -> int -> cstr -> cstr
+
+    val transformer_proping : proping -> (proping * up) option
+    val transformer_kdeq : (kdeq -> kdeq * up) * (proping -> proping * up) -> kdeq -> (kdeq * up) option
+    val transformer_kinding : (kinding -> kinding * up) * (wfkind -> wfkind * up) * (kdeq -> kdeq * up)
+      -> kinding -> (kinding * up) option
+    val transformer_wfkind : (wfkind -> wfkind * up) * (wfprop -> wfprop * up) -> wfkind -> (wfkind * up) option
+    val transformer_wfprop : (wfprop -> wfprop * up) * (kinding -> kinding * up) -> wfprop -> (wfprop * up) option
+    val transformer_tyeq : (tyeq -> tyeq * up) * (proping -> proping * up) * (kdeq -> kdeq * up)
+      -> tyeq -> (tyeq * up) option
+    val transformer_typing : (typing -> typing * up) * (kinding -> kinding * up) * (wfkind -> wfkind * up)
+      * (tyeq -> tyeq * up) * (proping -> proping * up) -> typing -> (typing * up) option
+  end) =
+  struct
+    structure Transformer = DerivGenericTransformer(
+    struct
+      type down = unit
+      type up = Action.up
+
+      val upward_base = Action.upward_base
+      val combiner = Action.combiner
+
+      fun add_kind (_, ()) = ()
+      fun add_type (_, ()) = ()
+
+      fun on_pr_leaf (j, ()) = Action.on_pr_leaf j
+      fun on_ke_leaf (j, ()) = Action.on_ke_leaf j
+      fun on_kd_leaf (j, ()) = Action.on_kd_leaf j
+      fun on_wk_leaf (j, ()) = Action.on_wk_leaf j
+      fun on_wp_leaf (j, ()) = Action.on_wp_leaf j
+      fun on_te_leaf (j, ()) = Action.on_te_leaf j
+      fun on_ty_leaf (j, ()) = Action.on_ty_leaf j
+
+      val shift_c_c = Action.shift_c_c
+      val shift_c_k = Action.shift_c_k
+
+      val subst_c_c = Action.subst_c_c
+
+      fun transformer_proping (pr, ()) = Action.transformer_proping pr
+
+      fun transformer_kdeq (on_kdeq, on_proping) =
+        let
+          val on_kdeq_no_down = on_kdeq o (fn ke => (ke, ()))
+          val on_proping_no_down = on_proping o (fn pr => (pr, ()))
+        in
+          Action.transformer_kdeq (on_kdeq_no_down, on_proping_no_down) o fst
+        end
+
+      fun transformer_kinding (on_kinding, on_wfkind, on_kdeq) =
+        let
+          val on_kinding_no_down = on_kinding o (fn kd => (kd, ()))
+          val on_wfkind_no_down = on_wfkind o (fn wk => (wk, ()))
+          val on_kdeq_no_down = on_kdeq o (fn ke => (ke, ()))
+        in
+          Action.transformer_kinding (on_kinding_no_down, on_wfkind_no_down, on_kdeq_no_down) o fst
+        end
+
+      fun transformer_wfkind (on_wfkind, on_wfprop) =
+        let
+          val on_wfkind_no_down = on_wfkind o (fn wk => (wk, ()))
+          val on_wfprop_no_down = on_wfprop o (fn wp => (wp, ()))
+        in
+          Action.transformer_wfkind (on_wfkind_no_down, on_wfprop_no_down) o fst
+        end
+
+      fun transformer_wfprop (on_wfprop, on_kinding) =
+        let
+          val on_wfprop_no_down = on_wfprop o (fn wp => (wp, ()))
+          val on_kinding_no_down = on_kinding o (fn kd => (kd, ()))
+        in
+          Action.transformer_wfprop (on_wfprop_no_down, on_kinding_no_down) o fst
+        end
+
+      fun transformer_tyeq (on_tyeq, on_proping, on_kdeq) =
+        let
+          val on_tyeq_no_down = on_tyeq o (fn te => (te, ()))
+          val on_proping_no_down = on_proping o (fn pr => (pr, ()))
+          val on_kdeq_no_down = on_kdeq o (fn ke => (ke, ()))
+        in
+          Action.transformer_tyeq (on_tyeq_no_down, on_proping_no_down, on_kdeq_no_down) o fst
+        end
+
+      fun transformer_typing (on_typing, on_kinding, on_wfkind, on_tyeq, on_proping) =
+        let
+          val on_typing_no_down = on_typing o (fn ty => (ty, ()))
+          val on_kinding_no_down = on_kinding o (fn kd => (kd, ()))
+          val on_wfkind_no_down = on_wfkind o (fn wk => (wk, ()))
+          val on_tyeq_no_down = on_tyeq o (fn te => (te, ()))
+          val on_proping_no_down = on_proping o (fn pr => (pr, ()))
+        in
+          Action.transformer_typing (on_typing_no_down, on_kinding_no_down, on_wfkind_no_down, on_tyeq_no_down, on_proping_no_down) o fst
+        end
+    end)
+
+    val transform_proping = Transformer.transform_proping o (fn pr => (pr, ()))
+    val transform_kdeq = Transformer.transform_kdeq o (fn ke => (ke, ()))
+    val transform_kinding = Transformer.transform_kinding o (fn kd => (kd, ()))
+    val transform_wfkind = Transformer.transform_wfkind o (fn wk => (wk, ()))
+    val transform_wfprop = Transformer.transform_wfprop o (fn wp => (wp, ()))
+    val transform_tyeq = Transformer.transform_tyeq o (fn te => (te, ()))
+    val transform_typing = Transformer.transform_typing o (fn ty => (ty, ()))
   end
 end

@@ -166,6 +166,7 @@ struct
             | EAppC (e, c) => str_expr e ^ "[" ^ str_cstr c ^ "]"
             | EPack (c, e) => "<" ^ str_cstr c ^ " | " ^ str_expr e ^ ">"
             | EUnpack (e1, e2) => "(unpack " ^ str_expr e1 ^ " in " ^ str_expr e2 ^ ")"
+            | ELet (e1, e2) => "(let = " ^ str_expr e1 ^ " in " ^ str_expr e2 ^ ")"
         in
           SOME (e, res)
         end
