@@ -174,6 +174,7 @@ struct
             | EPack (c, e) => "<" ^ str_cstr c ^ " | " ^ str_expr e ^ ">"
             | EUnpack (e1, e2) => "(unpack " ^ str_expr e1 ^ " in " ^ str_expr e2 ^ ")"
             | ELet (e1, e2) => "(let = " ^ str_expr e1 ^ " in " ^ str_expr e2 ^ ")"
+            | EFix (n, e) => "(fix [" ^ str_int n ^ "] => " ^ str_expr e ^ ")"
         in
           SOME (e, res)
         end
@@ -340,10 +341,15 @@ struct
       fun transformer_expr _ _ = NONE
     end)
 
-    fun free_vars_c_c c = Helper.transform_cstr (c, 0)
-    fun free_vars_c_k k = Helper.transform_kind (k, 0)
-    fun free_vars_c_p p = Helper.transform_prop (p, 0)
-    fun free_vars_c_e e = Helper.transform_expr (e, 0)
+    fun free_vars_c_c d c = #2 (Helper.transform_cstr (c, d))
+    fun free_vars_c_k d k = #2 (Helper.transform_kind (k, d))
+    fun free_vars_c_p d p = #2 (Helper.transform_prop (p, d))
+    fun free_vars_c_e d e = #2 (Helper.transform_expr (e, d))
+
+    val free_vars0_c_c = free_vars_c_c 0
+    val free_vars0_c_k = free_vars_c_k 0
+    val free_vars0_c_p = free_vars_c_p 0
+    val free_vars0_c_e = free_vars_c_e 0
   end
 
   structure FVExpr =
@@ -372,6 +378,8 @@ struct
       fun transformer_prop _ _ = NONE
     end)
 
-    fun free_vars_e_e e = Helper.transform_expr (e, 0)
+    fun free_vars_e_e d e = #2 (Helper.transform_expr (e, d))
+
+    val free_vars0_e_e = free_vars_e_e 0
   end
 end

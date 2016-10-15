@@ -652,6 +652,36 @@ struct
           in
             ()
           end
+      | TyFix ((ctx as (kctx, tctx), EFix (n, e), t, T0), kd, ty) =>
+          let
+            val () = check_kinding kd
+            val () = check_typing ty
+            val jkd = extract_judge_kinding kd
+            val jty = extract_judge_typing ty
+            val () = assert (#1 jkd = [])
+            val () = assert (#2 jkd = t)
+            val () = assert (#3 jkd = KType)
+            fun unfold_CForalls t ks =
+              case t of
+                CQuan (QuanForall, k, t) => unfold_CForalls t (k :: ks)
+              | _ => (t, ks)
+            val (t, ks) = unfold_CForalls t []
+            val () = assert (n = length ks)
+            val () =
+              case t of
+                CArrow (t1, i, t2) =>
+                  let
+                    val () = assert (#1 jty = (ks, [t1]))
+                    val () = assert (#2 jty = e)
+                    val () = assert (#3 jty = t2)
+                    val () = assert (#4 jty = i)
+                  in
+                    ()
+                  end
+              | _ => assert false
+          in
+            ()
+          end
       | TyFold ((ctx as (kctx, tctx), EUnOp (EUFold, e), t, i), kd, ty) =>
           let
             val () = check_kinding kd
@@ -953,13 +983,17 @@ struct
              shift_c_c (length kctxd) kdep t, shift_c_c (length kctxd) kdep i)
         end
 
+      fun transformer_typing (on_typing, on_kinding, on_wfkind, on_tyeq, on_proping) (ty, down) =
+        case ty of
+          TyFix (j, kd, ty) => SOME (TyFix (on_ty_leaf (j, down), kd, ty))
+        | _ => NONE
+
       fun transformer_proping _ = NONE
       fun transformer_kdeq _ _ = NONE
       fun transformer_kinding _ _ = NONE
       fun transformer_wfkind _ _ = NONE
       fun transformer_wfprop _ _ = NONE
       fun transformer_tyeq _ _ = NONE
-      fun transformer_typing _ _ = NONE
     end)
 
     fun shift_ctx_ty ctxd dep ty = Helper.transform_typing (ty, (ctxd, dep))
@@ -979,8 +1013,133 @@ struct
     val subst_c_c = SubstCstr.subst_c_c
   end)
 
+  structure DerivFVCstr =
+  struct
+    structure Helper = DerivGenericTransformer(
+    struct
+      open List
+      open FVUtil
+
+      type down = int
+      type up = int list
+
+      val upward_base = []
+      val combiner = unique_merge
+
+      val shift_c_c = ShiftCstr.shift_c_c
+      val shift_c_k = ShiftCstr.shift_c_k
+
+      val subst_c_c = SubstCstr.subst_c_c
+
+      fun add_kind (_, dep) = dep + 1
+      fun add_type (_, dep) = dep
+
+      fun on_pr_leaf (pr as (kctx, p), dep) = (pr, FVCstr.free_vars_c_p dep p)
+      fun on_ke_leaf (ke as (kctx, k1, k2), dep) = (ke, combiner (FVCstr.free_vars_c_k dep k1, FVCstr.free_vars_c_k dep k2))
+      fun on_kd_leaf (kd as (kctx, c, k), dep) = (kd, combiner (FVCstr.free_vars_c_c dep c, FVCstr.free_vars_c_k dep k))
+      fun on_wk_leaf (wk as (kctx, k), dep) = (wk, FVCstr.free_vars_c_k dep k)
+      fun on_wp_leaf (wp as (kctx, p), dep) = (wp, FVCstr.free_vars_c_p dep p)
+      fun on_te_leaf (te as (kctx, t1, t2), dep) = (te, combiner (FVCstr.free_vars_c_c dep t1, FVCstr.free_vars_c_c dep t2))
+      fun on_ty_leaf (ty as (ctx, e, t, i), dep) =
+        (ty, combiner (combiner (FVCstr.free_vars_c_e dep e, FVCstr.free_vars_c_c dep t), FVCstr.free_vars_c_c dep i))
+
+      fun transformer_typing (on_typing, on_kinding, on_wfkind, on_tyeq, on_proping) (ty, dep) =
+        case ty of
+          TyFix _ => SOME (ty, [])
+        | _ => NONE
+
+      fun transformer_proping _ = NONE
+      fun transformer_kdeq _ _ = NONE
+      fun transformer_kinding _ _ = NONE
+      fun transformer_wfkind _ _ = NONE
+      fun transformer_wfprop _ _ = NONE
+      fun transformer_tyeq _ _ = NONE
+    end)
+  end
+
+  structure DerivFVExpr =
+  struct
+    structure Helper = DerivGenericTransformer(
+    struct
+      open List
+      open FVUtil
+
+      type down = int
+      type up = int list
+
+      val upward_base = []
+      val combiner = unique_merge
+
+      val shift_c_c = ShiftCstr.shift_c_c
+      val shift_c_k = ShiftCstr.shift_c_k
+
+      val subst_c_c = SubstCstr.subst_c_c
+
+      fun add_kind (_, dep) = dep
+      fun add_type (_, dep) = dep + 1
+
+      fun on_pr_leaf (pr as (kctx, p), dep) = (pr, [])
+      fun on_ke_leaf (ke as (kctx, k1, k2), dep) = (ke, [])
+      fun on_kd_leaf (kd as (kctx, c, k), dep) = (kd, [])
+      fun on_wk_leaf (wk as (kctx, k), dep) = (wk, [])
+      fun on_wp_leaf (wp as (kctx, p), dep) = (wp, [])
+      fun on_te_leaf (te as (kctx, t1, t2), dep) = (te, [])
+      fun on_ty_leaf (ty as (ctx, e, t, i), dep) =
+        (ty, FVExpr.free_vars_e_e dep e)
+
+      fun transformer_typing (on_typing, on_kinding, on_wfkind, on_tyeq, on_proping) (ty, dep) =
+        case ty of
+          TyFix _ => SOME (ty, [])
+        | _ => NONE
+
+      fun transformer_proping _ = NONE
+      fun transformer_kdeq _ _ = NONE
+      fun transformer_kinding _ _ = NONE
+      fun transformer_wfkind _ _ = NONE
+      fun transformer_wfprop _ _ = NONE
+      fun transformer_tyeq _ _ = NONE
+    end)
+  end
+
   structure CloConv =
   struct
+    structure Helper = DerivGenericOnlyDownTransformer(
+    struct
+      type down = unit
+
+      val shift_c_k = ShiftCstr.shift_c_k
+      val shift_c_c = ShiftCstr.shift_c_c
+
+      val subst_c_c = SubstCstr.subst_c_c
+
+      fun add_kind (_, ()) = ()
+      fun add_type (_, ()) = ()
+
+      fun on_pr_leaf (pr, ()) = pr
+      fun on_ke_leaf (ke, ()) = ke
+      fun on_kd_leaf (kd, ()) = kd
+      fun on_wk_leaf (wk, ()) = wk
+      fun on_wp_leaf (wp, ()) = wp
+      fun on_te_leaf (te, ()) = te
+      fun on_ty_leaf (ty, ()) = ty
+
+      fun transformer_typing (on_typing, on_kinding, on_wfkind, on_tyeq, on_proping) (ty, ()) =
+        case ty of
+          TyAbs (j, kd, ty) =>
+            let
+              val ty = on_typing (ty, ())
+            in
+              NONE
+            end
+        | _ => NONE
+
+      fun transformer_proping _ = NONE
+      fun transformer_kdeq _ _ = NONE
+      fun transformer_kinding _ _ = NONE
+      fun transformer_wfkind _ _ = NONE
+      fun transformer_wfprop _ _ = NONE
+      fun transformer_tyeq _ _ = NONE
+    end)
   end
 
   structure ANF =
@@ -1248,6 +1407,12 @@ struct
                in
                  cont (TySub (as_TySub ty te pr, ty, te, pr), d)
                end)
+      | TyFix (j, kd, ty) =>
+          let
+            val ty = normalize_deriv ty
+          in
+            cont (TyFix (as_TyFix (#1 j) kd ty, kd, ty), ([], []))
+          end
 
     and normalize_name ty cont =
       normalize ty
@@ -1274,6 +1439,7 @@ struct
       | EAbs _ => true
       | ERec _ => true
       | EAbsC _ => true
+      | EFix _ => true
       | _ => false
   end
 end

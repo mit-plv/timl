@@ -304,6 +304,7 @@ struct
   | EPack of cstr * expr
   | EUnpack of expr * expr
   | ELet of expr * expr
+  | EFix of nat * expr
 
   fun EProj (p, e) = EUnOp (EUProj p, e)
   fun EInj (c, e) = EUnOp (EUInj c, e)
@@ -344,6 +345,7 @@ struct
   | TyWrite of typing_judgement * typing * typing
   | TySub of typing_judgement * typing * tyeq * proping
   | TyLet of typing_judgement * typing * typing
+  | TyFix of typing_judgement * kinding * typing
 
   fun extract_judge_kdeq ke =
     case ke of
@@ -430,6 +432,7 @@ struct
     | TyWrite (j, _, _) => j
     | TySub (j, _, _, _) => j
     | TyLet (j, _, _) => j
+    | TyFix (j, _, _) => j
 
   fun extract_p_bin_conn (PBinConn a) = a
     | extract_p_bin_conn _ = raise (Impossible "extract_p_bin_conn")
@@ -718,6 +721,12 @@ struct
             val (e2, up2) = transform_expr (e2, Action.add_type (NONE, down))
           in
             (ELet (e1, e2), combine [up1, up2])
+          end
+      | EFix (n, e) =>
+          let
+            val (e, up1) = transform_expr (e, Action.add_type (NONE, foldr Action.add_kind down (tabulate (n, fn _ => NONE))))
+          in
+            (EFix (n, e), combine [up1])
           end
 
     and transform_expr (e, down) =
@@ -1247,6 +1256,14 @@ struct
         val jty = extract_judge_typing ty
       in
         ((#1 jkd, tl o snd $ #1 jty), ERec (#2 jty), #3 jty, T0)
+      end
+
+    fun as_TyFix ctx kd ty =
+      let
+        val jkd = extract_judge_kinding kd
+        val jty = extract_judge_typing ty
+      in
+        (ctx, EFix (length $ fst $ #1 jty, #2 jty), #2 jkd, T0)
       end
 
     fun as_TyAbsC wk ty =
@@ -1836,6 +1853,20 @@ struct
             val (ty2, up2) = transform_typing (ty2, Action.add_type (#3 jty1, down))
           in
             (TyLet (as_TyLet ty1 ty2, ty1, ty2), combine [up1, up2])
+          end
+      | TyFix (judge, kd, ty) =>
+          let
+            val t = #3 judge
+            fun unfold_CForalls t ks =
+              case t of
+                CQuan (QuanForall, k, t) => unfold_CForalls t (k :: ks)
+              | _ => (t, ks)
+            val (t, ks) = unfold_CForalls t []
+            val (t1, i, t2) = extract_c_arrow t
+            val (kd, up1) = transform_kinding (kd, down)
+            val (ty, up2) = transform_typing (ty, Action.add_type (t1, foldr Action.add_kind down ks))
+          in
+            (TyFix (as_TyFix (#1 judge) kd ty, kd, ty), combine [up1, up2])
           end
 
     and transform_typing (ty, down) =
