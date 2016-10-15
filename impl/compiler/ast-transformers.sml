@@ -26,6 +26,10 @@ struct
       | CBTypeSum => "+"
       | CBNatAdd => "+"
 
+    fun str_cstr_un_op opr =
+      case opr of
+        CUNat2Time => "nat2time"
+
     fun str_quan q =
       case q of
         QuanForall => "forall"
@@ -117,6 +121,7 @@ struct
             | CQuan (q, k, c) => "(" ^ str_quan q ^ " " ^ str_kind k ^ " : " ^ str_cstr c ^ ")"
             | CRec (k, t) => "(rec " ^ str_kind k ^ " => " ^ str_cstr t ^ ")"
             | CRef t => "(ref " ^ str_cstr t ^ ")"
+            | CUnOp (opr, c) => "(" ^ str_cstr_un_op opr ^ " " ^ str_cstr c ^ ")"
         in
           SOME (c, res)
         end

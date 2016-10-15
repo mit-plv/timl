@@ -36,6 +36,9 @@ struct
   | CBTypeSum
   | CBNatAdd
 
+  datatype cstr_un_op =
+    CUNat2Time
+
   datatype quan =
     QuanForall
   | QuanExists
@@ -73,6 +76,7 @@ struct
   | CQuan of quan * kind * cstr
   | CRec of kind * cstr
   | CRef of cstr
+  | CUnOp of cstr_un_op * cstr
 
   and kind =
     KType
@@ -99,6 +103,8 @@ struct
   val T1 = Tconst Time1
   fun Tadd (c1, c2) = CBinOp (CBTimeAdd, c1, c2)
   fun Tminus (c1, c2) = CBinOp (CBTimeMinus, c1, c2)
+
+  fun TfromNat c = CUnOp (CUNat2Time, c)
 
   fun PAnd (p1, p2) = PBinConn (PBCAnd, p1, p2)
   fun POr (p1, p2) = PBinConn (PBCOr, p1, p2)
@@ -161,6 +167,14 @@ struct
     | CBTypeSum => KType
     | CBNatAdd => KNat
 
+  fun cunop_arg_kind opr =
+    case opr of
+      CUNat2Time => KNat
+
+  fun cunop_result_kind opr =
+    case opr of
+      CUNat2Time => KTime
+
   fun binpred_arg1_kind opr =
     case opr of
       PBTimeLe => KTime
@@ -209,6 +223,7 @@ struct
   | KdRec of kinding_judgement * wfkind * kinding
   | KdRef of kinding_judgement * kinding
   | KdEq of kinding_judgement * kinding * kdeq
+  | KdUnOp of kinding_judgement * kinding
 
   and wfkind =
     WfKdType of wfkind_judgement
@@ -241,6 +256,8 @@ struct
   | TyEqRef of tyeq_judgement * tyeq
   | TyEqAbs of tyeq_judgement
   | TyEqTimeAbs of tyeq_judgement
+  | TyEqUnOp of tyeq_judgement * tyeq
+  | TyEqNatEq of tyeq_judgement * proping
 
   datatype expr_const =
     ECTT
@@ -354,6 +371,7 @@ struct
     | KdRec (j, _, _) => j
     | KdRef (j, _) => j
     | KdEq (j, _, _) => j
+    | KdUnOp (j, _) => j
 
   fun extract_judge_wfkind wk =
     case wk of
@@ -387,6 +405,8 @@ struct
     | TyEqRef (j, _) => j
     | TyEqAbs j => j
     | TyEqTimeAbs j => j
+    | TyEqUnOp (j, _) => j
+    | TyEqNatEq (j, _) => j
 
   fun extract_judge_typing ty =
     case ty of
@@ -426,6 +446,9 @@ struct
   fun extract_c_bin_op (CBinOp a) = a
     | extract_c_bin_op _ = raise (Impossible "extract_c_bin_op")
 
+  fun extract_c_un_op (CUnOp a) = a
+    | extract_c_un_op _ = raise (Impossible "extract_c_un_op")
+
   fun extract_c_time_app (CTimeApp a) = a
     | extract_c_time_app _ = raise (Impossible "extract_c_time_app")
 
@@ -440,6 +463,9 @@ struct
 
   fun extract_c_rec (CRec a) = a
     | extract_c_rec _ = raise (Impossible "extract_c_rec")
+
+  fun extract_c_abs (CAbs a) = a
+    | extract_c_abs _ = raise (Impossible "extract_c_abs")
 
   fun extract_c_ref (CRef a) = a
     | extract_c_ref _ = raise (Impossible "extract_c_ref")
@@ -549,6 +575,12 @@ struct
             val (t, up1) = transform_cstr (t, down)
           in
             (CRef t, combine [up1])
+          end
+      | CUnOp (opr, c) =>
+          let
+            val (c, up1) = transform_cstr (c, down)
+          in
+            (CUnOp (opr, c), combine [up1])
           end
 
     and transform_cstr (c, down) =
@@ -982,6 +1014,13 @@ struct
         (#1 jkd1, CBinOp (opr, #2 jkd1, #2 jkd2), cbinop_result_kind opr)
       end
 
+    fun as_KdUnOp opr kd =
+      let
+        val jkd = extract_judge_kinding kd
+      in
+        (#1 jkd, CUnOp (opr, #2 jkd), cunop_result_kind opr)
+      end
+
     fun as_TyEqRef te =
       let
         val jte = extract_judge_tyeq te
@@ -1013,6 +1052,14 @@ struct
         val jte3 = extract_judge_tyeq te3
       in
         (#1 jte1, CApp (#2 jte1, #2 jte2), #3 jte3)
+      end
+
+    fun as_TyEqNatEq pr =
+      let
+        val jpr = extract_judge_proping pr
+        val (_, i1, i2) = extract_p_bin_pred (#2 jpr)
+      in
+        (#1 jpr, i1, i2)
       end
 
     fun as_TyEqTimeApp arity te1 te2 =
@@ -1064,6 +1111,13 @@ struct
         val jte2 = extract_judge_tyeq te2
       in
         (#1 jte1, CBinOp (opr, #2 jte1, #2 jte2), CBinOp (opr, #3 jte1, #3 jte2))
+      end
+
+    fun as_TyEqUnOp opr te =
+      let
+        val jte = extract_judge_tyeq te
+      in
+        (#1 jte, CUnOp (opr, #2 jte), CUnOp (opr, #3 jte))
       end
 
     fun as_TyApp ty1 ty2 =
@@ -1414,6 +1468,13 @@ struct
           in
             (KdEq (as_KdEq kd ke, kd, ke), combine [up1, up2])
           end
+      | KdUnOp (judge, kd) =>
+          let
+            val (kd, up1) = transform_kinding (kd, down)
+            val (opr, _) = extract_c_un_op (#2 judge)
+          in
+            (KdUnOp (as_KdUnOp opr kd, kd), combine [up1])
+          end
 
     and transform_kinding (kd, down) =
       case Action.transformer_kinding (transform_kinding, transform_wfkind, transform_kdeq) (kd, down) of
@@ -1607,6 +1668,19 @@ struct
             val (judge, up) = Action.on_te_leaf (judge, down)
           in
             (TyEqTimeAbs judge, combine [up])
+          end
+      | TyEqUnOp (judge, te) =>
+          let
+            val (te, up1) = transform_tyeq (te, down)
+            val (opr, _) = extract_c_un_op (#2 judge)
+          in
+            (TyEqUnOp (as_TyEqUnOp opr te, te), combine [up1])
+          end
+      | TyEqNatEq (judge, pr) =>
+          let
+            val (pr, up1) = transform_proping (pr, down)
+          in
+            (TyEqNatEq (as_TyEqNatEq pr, pr), combine [up1])
           end
 
     and transform_tyeq (te, down) =

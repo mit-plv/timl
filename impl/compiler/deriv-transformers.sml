@@ -18,11 +18,13 @@ struct
     open SubstCstr
     open List
 
+    open PlainPrinter
+
     fun assert p = if p then () else raise CheckFail
 
     fun check_proping _ = ()
 
-    and check_kdeq ke =
+    and check_kdeq ke = (
       case ke of
         KdEqKType (kctx, KType, KType) => ()
       | KdEqKArrow ((kctx, KArrow (k11, k12), KArrow (k21, k22)), ke1, ke2) =>
@@ -55,9 +57,15 @@ struct
           in
             ()
           end
-      | _ => raise CheckFail
+      | _ => raise CheckFail)
+      handle CheckFail =>
+        let
+          val jke = extract_judge_kdeq ke
+        in
+          println $ "kdeq: " ^ str_kind (#2 jke) ^ " " ^ str_kind (#3 jke)
+        end
 
-    and check_kinding kd =
+    and check_kinding kd = (
       case kd of
         KdVar (kctx, CVar x, k) => assert (k = shift_c_k (1 + x) 0 (nth (kctx, x)))
       | KdConst (kctx, CConst cn, k) => assert (k = const_kind cn)
@@ -74,6 +82,17 @@ struct
             val () = assert (#2 jkd2 = i2)
             val () = assert (#3 jkd2 = cbinop_arg2_kind opr)
             val () = assert (k = cbinop_result_kind opr)
+          in
+            ()
+          end
+      | KdUnOp ((kctx, CUnOp (opr, i), k), kd) =>
+          let
+            val () = check_kinding kd
+            val jkd = extract_judge_kinding kd
+            val () = assert (#1 jkd = kctx)
+            val () = assert (#2 jkd = i)
+            val () = assert (#3 jkd = cunop_arg_kind opr)
+            val () = assert (k = cunop_result_kind opr)
           in
             ()
           end
@@ -224,9 +243,15 @@ struct
           in
             ()
           end
-      | _ => raise CheckFail
+      | _ => raise CheckFail)
+      handle CheckFail =>
+        let
+          val jkd = extract_judge_kinding kd
+        in
+          println $ "kinding: " ^ str_cstr (#2 jkd) ^ " " ^ str_kind (#3 jkd)
+        end
 
-    and check_wfkind wk =
+    and check_wfkind wk = (
       case wk of
         WfKdType (kctx, KType) => ()
       | WfKdArrow ((kctx, KArrow (k1, k2)), wk1, wk2) =>
@@ -256,9 +281,15 @@ struct
           in
             ()
           end
-      | _ => raise CheckFail
+      | _ => raise CheckFail)
+      handle CheckFail =>
+        let
+          val jwk = extract_judge_wfkind wk
+        in
+          println $ "wfkind: " ^ str_kind (#2 jwk)
+        end
 
-    and check_wfprop wp =
+    and check_wfprop wp = (
       case wp of
         WfPropTrue (kctx, PTrue) => ()
       | WfPropFalse (kctx, PFalse) => ()
@@ -308,9 +339,15 @@ struct
           in
             ()
           end
-      | _ => raise CheckFail
+      | _ => raise CheckFail)
+      handle CheckFail =>
+        let
+          val jwp = extract_judge_wfprop wp
+        in
+          println $ "wfprop: " ^ str_prop (#2 jwp)
+        end
 
-    and check_tyeq te =
+    and check_tyeq te = (
       case te of
         TyEqVar (kctx, CVar x, CVar x') => assert (x = x')
       | TyEqConst (kctx, CConst cn, CConst cn') => assert (cn = cn')
@@ -327,6 +364,26 @@ struct
             val () = assert (#1 jte2 = kctx)
             val () = assert (#2 jte2 = t12)
             val () = assert (#3 jte2 = t22)
+          in
+            ()
+          end
+      | TyEqUnOp ((kctx, CUnOp (opr, t1), CUnOp (opr', t2)), te) =>
+          let
+            val () = check_tyeq te
+            val jte = extract_judge_tyeq te
+            val () = assert (opr = opr')
+            val () = assert (#1 jte = kctx)
+            val () = assert (#2 jte = t1)
+            val () = assert (#3 jte = t2)
+          in
+            ()
+          end
+      | TyEqNatEq ((kctx, i1, i2), pr) =>
+          let
+            val () = check_proping pr
+            val jpr = extract_judge_proping pr
+            val () = assert (#1 jpr = kctx)
+            val () = assert (#2 jpr = PBinPred (PBNatEq, i1, i2))
           in
             ()
           end
@@ -497,9 +554,15 @@ struct
           end
       | TyEqAbs ((kctx, t, t')) => assert (t = t')
       | TyEqTimeAbs ((kctx, t, t')) => assert (t = t')
-      | _ => raise CheckFail
+      | _ => raise CheckFail)
+      handle CheckFail =>
+        let
+          val jte = extract_judge_tyeq te
+        in
+          println $ "tyeq: " ^ str_cstr (#2 jte) ^ " " ^ str_cstr (#3 jte)
+        end
 
-    and check_typing ty =
+    and check_typing ty = (
       case ty of
         TyVar ((kctx, tctx), EVar x, t, T0) => assert (nth (tctx, x) = t)
       | TyApp ((ctx, EBinOp (EBApp, e1, e2), t2, CBinOp (CBTimeAdd, CBinOp (CBTimeAdd, CBinOp (CBTimeAdd, i1, i2), T1), i)), ty1, ty2) =>
@@ -715,7 +778,7 @@ struct
                   let
                     val () = assert (#1 jty = ctx)
                     val () = assert (#2 jty = e)
-                    val () = assert (#3 jty = (case p of ProjFst => t1 | ProjSnd => t2))
+                    val () = assert (t = (case p of ProjFst => t1 | ProjSnd => t2))
                     val () = assert (#4 jty = i)
                   in
                     ()
@@ -842,7 +905,13 @@ struct
           in
             ()
           end
-      | _ => raise CheckFail
+      | _ => raise CheckFail)
+      handle CheckFail =>
+        let
+          val jty = extract_judge_typing ty
+        in
+          println $ "typing: " ^ str_expr (#2 jty) ^ " " ^ str_cstr (#3 jty) ^ " " ^ str_cstr (#4 jty)
+        end
   end
 
   structure ShiftCtx =
@@ -860,24 +929,25 @@ struct
       fun add_kind (_, ((kctxd, tctxd), (kdep, tdep))) = ((kctxd, map shift0_c_c tctxd), (kdep + 1, tdep))
       fun add_type (_, ((kctxd, tctxd), (kdep, tdep))) = ((kctxd, tctxd), (kdep, tdep + 1))
 
-      fun insert a b c = take (a, b) @ c @ drop (a, b)
+      fun insert_k a b c = (mapi (fn (i, k) => shift_c_k (length c) (b - 1 - i) k) $ take (a, b)) @ c @ drop (a, b)
+      fun insert_t a b c = take (a, b) @ c @ drop (a, b)
 
       fun on_pr_leaf ((kctx, p), ((kctxd, tctxd), (kdep, tdep))) =
-        (insert kctx kdep kctxd, shift_c_p (length kctxd) kdep p)
+        (insert_k kctx kdep kctxd, shift_c_p (length kctxd) kdep p)
       fun on_ke_leaf ((kctx, k1, k2), ((kctxd, tctxd), (kdep, tdep))) =
-        (insert kctx kdep kctxd, shift_c_k (length kctxd) kdep k1, shift_c_k (length kctxd) kdep k2)
+        (insert_k kctx kdep kctxd, shift_c_k (length kctxd) kdep k1, shift_c_k (length kctxd) kdep k2)
       fun on_kd_leaf ((kctx, c, k), ((kctxd, tctxd), (kdep, tdep))) =
-        (insert kctx kdep kctxd, shift_c_c (length kctxd) kdep c, shift_c_k (length kctxd) kdep k)
+        (insert_k kctx kdep kctxd, shift_c_c (length kctxd) kdep c, shift_c_k (length kctxd) kdep k)
       fun on_wk_leaf ((kctx, k), ((kctxd, tctxd), (kdep, tdep))) =
-        (insert kctx kdep kctxd, shift_c_k (length kctxd) kdep k)
+        (insert_k kctx kdep kctxd, shift_c_k (length kctxd) kdep k)
       fun on_wp_leaf ((kctx, p), ((kctxd, tctxd), (kdep, tdep))) =
-        (insert kctx kdep kctxd, shift_c_p (length kctxd) kdep p)
+        (insert_k kctx kdep kctxd, shift_c_p (length kctxd) kdep p)
       fun on_te_leaf ((kctx, t1, t2), ((kctxd, tctxd), (kdep, tdep))) =
-        (insert kctx kdep kctxd, shift_c_c (length kctxd) kdep t1, shift_c_c (length kctxd) kdep t2)
+        (insert_k kctx kdep kctxd, shift_c_c (length kctxd) kdep t1, shift_c_c (length kctxd) kdep t2)
       fun on_ty_leaf (((kctx, tctx), e, t, i), ((kctxd, tctxd), (kdep, tdep))) =
         let
-          val kctx = insert kctx kdep kctxd
-          val tctx = insert (map (shift_c_c (length kctxd) kdep) tctx) tdep tctxd
+          val kctx = insert_k kctx kdep kctxd
+          val tctx = insert_t (map (shift_c_c (length kctxd) kdep) tctx) tdep tctxd
         in
           ((kctx, tctx), shift_e_e (length tctxd) tdep (shift_c_e (length kctxd) kdep e),
              shift_c_c (length kctxd) kdep t, shift_c_c (length kctxd) kdep i)
