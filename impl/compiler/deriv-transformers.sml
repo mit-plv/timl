@@ -1,948 +1,11 @@
 functor DerivTransformers(Time : SIG_TIME) =
 struct
-  structure MicroTiML = MicroTiML(Time)
-  open MicroTiML
-
   structure AstTransformers = AstTransformers(Time)
   open AstTransformers
 
   open Util
 
   infixr 0 $
-
-  structure DerivChecker =
-  struct
-    exception CheckFail
-
-    open ShiftCstr
-    open SubstCstr
-    open List
-
-    open PlainPrinter
-
-    fun assert p = if p then () else raise CheckFail
-
-    fun check_proping _ = ()
-
-    and check_kdeq ke = (
-      case ke of
-        KdEqKType (kctx, KType, KType) => ()
-      | KdEqKArrow ((kctx, KArrow (k11, k12), KArrow (k21, k22)), ke1, ke2) =>
-          let
-            val () = check_kdeq ke1
-            val () = check_kdeq ke2
-            val jke1 = extract_judge_kdeq ke1
-            val jke2 = extract_judge_kdeq ke2
-            val () = assert (#1 jke1 = kctx)
-            val () = assert (#2 jke1 = k11)
-            val () = assert (#3 jke1 = k21)
-            val () = assert (#1 jke2 = kctx)
-            val () = assert (#2 jke2 = k12)
-            val () = assert (#3 jke2 = k22)
-          in
-            ()
-          end
-      | KdEqBaseSort (kctx, KBaseSort b1, KBaseSort b2) => assert (b1 = b2)
-      | KdEqSubset ((kctx, KSubset (k1, p1), KSubset (k2, p2)), ke, pr) =>
-          let
-            val () = check_kdeq ke
-            val () = check_proping pr
-            val jke = extract_judge_kdeq ke
-            val jpr = extract_judge_proping pr
-            val () = assert (#1 jke = kctx)
-            val () = assert (#2 jke = k1)
-            val () = assert (#3 jke = k2)
-            val () = assert (#1 jpr = k1 :: kctx)
-            val () = assert (#2 jpr = PBinConn (PBCIff, p1, p2))
-          in
-            ()
-          end
-      | _ => raise CheckFail)
-      handle CheckFail =>
-        let
-          val jke = extract_judge_kdeq ke
-        in
-          println $ "kdeq: " ^ str_kind (#2 jke) ^ " " ^ str_kind (#3 jke)
-        end
-
-    and check_kinding kd = (
-      case kd of
-        KdVar (kctx, CVar x, k) => assert (k = shift_c_k (1 + x) 0 (nth (kctx, x)))
-      | KdConst (kctx, CConst cn, k) => assert (k = const_kind cn)
-      | KdBinOp ((kctx, CBinOp (opr, i1, i2), k), kd1, kd2) =>
-          let
-            val () = check_kinding kd1
-            val () = check_kinding kd2
-            val jkd1 = extract_judge_kinding kd1
-            val jkd2 = extract_judge_kinding kd2
-            val () = assert (#1 jkd1 = kctx)
-            val () = assert (#2 jkd1 = i1)
-            val () = assert (#3 jkd1 = cbinop_arg1_kind opr)
-            val () = assert (#1 jkd2 = kctx)
-            val () = assert (#2 jkd2 = i2)
-            val () = assert (#3 jkd2 = cbinop_arg2_kind opr)
-            val () = assert (k = cbinop_result_kind opr)
-          in
-            ()
-          end
-      | KdUnOp ((kctx, CUnOp (opr, i), k), kd) =>
-          let
-            val () = check_kinding kd
-            val jkd = extract_judge_kinding kd
-            val () = assert (#1 jkd = kctx)
-            val () = assert (#2 jkd = i)
-            val () = assert (#3 jkd = cunop_arg_kind opr)
-            val () = assert (k = cunop_result_kind opr)
-          in
-            ()
-          end
-      | KdIte ((kctx, CIte (i1, i2, i3), k), kd1, kd2, kd3) =>
-          let
-            val () = check_kinding kd1
-            val () = check_kinding kd2
-            val () = check_kinding kd3
-            val jkd1 = extract_judge_kinding kd1
-            val jkd2 = extract_judge_kinding kd2
-            val jkd3 = extract_judge_kinding kd3
-            val () = assert (#1 jkd1 = kctx)
-            val () = assert (#2 jkd1 = i1)
-            val () = assert (#3 jkd1 = KBool)
-            val () = assert (#1 jkd2 = kctx)
-            val () = assert (#2 jkd2 = i2)
-            val () = assert (#3 jkd2 = k)
-            val () = assert (#1 jkd3 = kctx)
-            val () = assert (#2 jkd3 = i3)
-            val () = assert (#3 jkd3 = k)
-          in
-            ()
-          end
-      | KdArrow ((kctx, CArrow (t1, i, t2), KType), kd1, kd2, kd3) =>
-          let
-            val () = check_kinding kd1
-            val () = check_kinding kd2
-            val () = check_kinding kd3
-            val jkd1 = extract_judge_kinding kd1
-            val jkd2 = extract_judge_kinding kd2
-            val jkd3 = extract_judge_kinding kd3
-            val () = assert (#1 jkd1 = kctx)
-            val () = assert (#2 jkd1 = t1)
-            val () = assert (#3 jkd1 = KType)
-            val () = assert (#1 jkd2 = kctx)
-            val () = assert (#2 jkd2 = i)
-            val () = assert (#3 jkd2 = KTime)
-            val () = assert (#1 jkd3 = kctx)
-            val () = assert (#2 jkd3 = t2)
-            val () = assert (#3 jkd3 = KType)
-          in
-            ()
-          end
-      | KdAbs ((kctx, CAbs c, KArrow (k1, k2)), wk, kd) =>
-          let
-            val () = check_wfkind wk
-            val () = check_kinding kd
-            val jwk = extract_judge_wfkind wk
-            val jkd = extract_judge_kinding kd
-            val () = assert (#1 jwk = kctx)
-            val () = assert (#2 jwk = k1)
-            val () = assert (#1 jkd = k1 :: kctx)
-            val () = assert (#2 jkd = c)
-            val () = assert (#3 jkd = shift0_c_k k2)
-          in
-            ()
-          end
-      | KdApp ((kctx, CApp (c1, c2), k2), kd1, kd2) =>
-          let
-            val () = check_kinding kd1
-            val () = check_kinding kd2
-            val jkd1 = extract_judge_kinding kd1
-            val jkd2 = extract_judge_kinding kd2
-            val () = assert (#1 jkd1 = kctx)
-            val () = assert (#2 jkd1 = c1)
-            val () = assert (#3 jkd1 = KArrow (#3 jkd2, k2))
-            val () = assert (#1 jkd2 = kctx)
-            val () = assert (#2 jkd2 = c2)
-          in
-            ()
-          end
-      | KdTimeAbs ((kctx, CTimeAbs i, KBaseSort (BSTimeFun arity)), kd) =>
-          let
-            val () = check_kinding kd
-            val jkd = extract_judge_kinding kd
-            val () = assert (#1 jkd = KNat :: kctx)
-            val () = assert (#2 jkd = i)
-            val () = assert (#3 jkd = KTimeFun (arity - 1))
-          in
-            ()
-          end
-      | KdTimeApp ((kctx, CTimeApp (arity, c1, c2), KBaseSort (BSTimeFun arity')), kd1, kd2) =>
-          let
-            val () = check_kinding kd1
-            val () = check_kinding kd2
-            val jkd1 = extract_judge_kinding kd1
-            val jkd2 = extract_judge_kinding kd2
-            val () = assert (arity = arity')
-            val () = assert (#1 jkd1 = kctx)
-            val () = assert (#2 jkd1 = c1)
-            val () = assert (#3 jkd1 = KTimeFun (arity + 1))
-            val () = assert (#1 jkd2 = kctx)
-            val () = assert (#2 jkd2 = c2)
-            val () = assert (#3 jkd2 = KNat)
-          in
-            ()
-          end
-      | KdQuan ((kctx, CQuan (q, k, c), KType), wk, kd) =>
-          let
-            val () = check_wfkind wk
-            val () = check_kinding kd
-            val jwk = extract_judge_wfkind wk
-            val jkd = extract_judge_kinding kd
-            val () = assert (#1 jwk = kctx)
-            val () = assert (#2 jwk = k)
-            val () = assert (#1 jkd = k :: kctx)
-            val () = assert (#2 jkd = c)
-            val () = assert (#3 jkd = KType)
-          in
-            ()
-          end
-      | KdRec ((kctx, CRec (k, c), k'), wk, kd) =>
-          let
-            val () = check_wfkind wk
-            val () = check_kinding kd
-            val jwk = extract_judge_wfkind wk
-            val jkd = extract_judge_kinding kd
-            val () = assert (k = k')
-            val () = assert (#1 jwk = kctx)
-            val () = assert (#2 jwk = k)
-            val () = assert (#1 jkd = k :: kctx)
-            val () = assert (#2 jkd = c)
-            val () = assert (#3 jkd = shift0_c_k k)
-          in
-            ()
-          end
-      | KdRef ((kctx, CRef t, KType), kd) =>
-          let
-            val () = check_kinding kd
-            val jkd = extract_judge_kinding kd
-            val () = assert (#1 jkd = kctx)
-            val () = assert (#2 jkd = t)
-            val () = assert (#3 jkd = KType)
-          in
-            ()
-          end
-      | KdEq ((kctx, c, k), kd, ke) =>
-          let
-            val () = check_kinding kd
-            val () = check_kdeq ke
-            val jkd = extract_judge_kinding kd
-            val jke = extract_judge_kdeq ke
-            val () = assert (#1 jkd = kctx)
-            val () = assert (#2 jkd = c)
-            val () = assert (#1 jke = kctx)
-            val () = assert (#2 jke = k)
-            val () = assert (#3 jke = #3 jkd)
-          in
-            ()
-          end
-      | _ => raise CheckFail)
-      handle CheckFail =>
-        let
-          val jkd = extract_judge_kinding kd
-        in
-          println $ "kinding: " ^ str_cstr (#2 jkd) ^ " " ^ str_kind (#3 jkd)
-        end
-
-    and check_wfkind wk = (
-      case wk of
-        WfKdType (kctx, KType) => ()
-      | WfKdArrow ((kctx, KArrow (k1, k2)), wk1, wk2) =>
-          let
-            val () = check_wfkind wk1
-            val () = check_wfkind wk2
-            val jwk1 = extract_judge_wfkind wk1
-            val jwk2 = extract_judge_wfkind wk2
-            val () = assert (#1 jwk1 = kctx)
-            val () = assert (#2 jwk1 = k1)
-            val () = assert (#1 jwk2 = kctx)
-            val () = assert (#2 jwk2 = k2)
-          in
-            ()
-          end
-      | WfKdBaseSort (kctx, KBaseSort b) => ()
-      | WfKdSubset ((kctx, KSubset (k, p)), wk, wp) =>
-          let
-            val () = check_wfkind wk
-            val () = check_wfprop wp
-            val jwk = extract_judge_wfkind wk
-            val jwp = extract_judge_wfprop wp
-            val () = assert (#1 jwk = kctx)
-            val () = assert (#2 jwk = k)
-            val () = assert (#1 jwp = k :: kctx)
-            val () = assert (#2 jwp = p)
-          in
-            ()
-          end
-      | _ => raise CheckFail)
-      handle CheckFail =>
-        let
-          val jwk = extract_judge_wfkind wk
-        in
-          println $ "wfkind: " ^ str_kind (#2 jwk)
-        end
-
-    and check_wfprop wp = (
-      case wp of
-        WfPropTrue (kctx, PTrue) => ()
-      | WfPropFalse (kctx, PFalse) => ()
-      | WfPropBinConn ((kctx, PBinConn (opr, p1, p2)), wp1, wp2) =>
-          let
-            val () = check_wfprop wp1
-            val () = check_wfprop wp2
-            val jwp1 = extract_judge_wfprop wp1
-            val jwp2 = extract_judge_wfprop wp2
-            val () = assert (#1 jwp1 = kctx)
-            val () = assert (#2 jwp1 = p1)
-            val () = assert (#1 jwp2 = kctx)
-            val () = assert (#2 jwp2 = p2)
-          in
-            ()
-          end
-      | WfPropNot ((kctx, PNot p), wp) =>
-          let
-            val () = check_wfprop wp
-            val jwp = extract_judge_wfprop wp
-            val () = assert (#1 jwp = kctx)
-            val () = assert (#2 jwp = p)
-          in
-            ()
-          end
-      | WfPropBinPred ((kctx, PBinPred (opr, i1, i2)), kd1, kd2) =>
-          let
-            val () = check_kinding kd1
-            val () = check_kinding kd2
-            val jkd1 = extract_judge_kinding kd1
-            val jkd2 = extract_judge_kinding kd2
-            val () = assert (#1 jkd1 = kctx)
-            val () = assert (#2 jkd1 = i1)
-            val () = assert (#3 jkd1 = binpred_arg1_kind opr)
-            val () = assert (#1 jkd2 = kctx)
-            val () = assert (#2 jkd2 = i2)
-            val () = assert (#3 jkd2 = binpred_arg2_kind opr)
-          in
-            ()
-          end
-      | WfPropQuan ((kctx, PQuan (q, s, p)), wp) =>
-          let
-            val () = check_wfprop wp
-            val jwp = extract_judge_wfprop wp
-            val () = assert (#1 jwp = KBaseSort s :: kctx)
-            val () = assert (#2 jwp = p)
-          in
-            ()
-          end
-      | _ => raise CheckFail)
-      handle CheckFail =>
-        let
-          val jwp = extract_judge_wfprop wp
-        in
-          println $ "wfprop: " ^ str_prop (#2 jwp)
-        end
-
-    and check_tyeq te = (
-      case te of
-        TyEqVar (kctx, CVar x, CVar x') => assert (x = x')
-      | TyEqConst (kctx, CConst cn, CConst cn') => assert (cn = cn')
-      | TyEqBinOp ((kctx, CBinOp (opr, t11, t12), CBinOp (opr', t21, t22)), te1, te2) =>
-          let
-            val () = check_tyeq te1
-            val () = check_tyeq te2
-            val jte1 = extract_judge_tyeq te1
-            val jte2 = extract_judge_tyeq te2
-            val () = assert (opr = opr')
-            val () = assert (#1 jte1 = kctx)
-            val () = assert (#2 jte1 = t11)
-            val () = assert (#3 jte1 = t21)
-            val () = assert (#1 jte2 = kctx)
-            val () = assert (#2 jte2 = t12)
-            val () = assert (#3 jte2 = t22)
-          in
-            ()
-          end
-      | TyEqUnOp ((kctx, CUnOp (opr, t1), CUnOp (opr', t2)), te) =>
-          let
-            val () = check_tyeq te
-            val jte = extract_judge_tyeq te
-            val () = assert (opr = opr')
-            val () = assert (#1 jte = kctx)
-            val () = assert (#2 jte = t1)
-            val () = assert (#3 jte = t2)
-          in
-            ()
-          end
-      | TyEqNatEq ((kctx, i1, i2), pr) =>
-          let
-            val () = check_proping pr
-            val jpr = extract_judge_proping pr
-            val () = assert (#1 jpr = kctx)
-            val () = assert (#2 jpr = PBinPred (PBNatEq, i1, i2))
-          in
-            ()
-          end
-      | TyEqIte ((kctx, CIte (t11, t12, t13), CIte (t21, t22, t23)), te1, te2, te3) =>
-          let
-            val () = check_tyeq te1
-            val () = check_tyeq te2
-            val () = check_tyeq te3
-            val jte1 = extract_judge_tyeq te1
-            val jte2 = extract_judge_tyeq te2
-            val jte3 = extract_judge_tyeq te3
-            val () = assert (#1 jte1 = kctx)
-            val () = assert (#2 jte1 = t11)
-            val () = assert (#3 jte1 = t21)
-            val () = assert (#1 jte2 = kctx)
-            val () = assert (#2 jte2 = t12)
-            val () = assert (#3 jte2 = t22)
-            val () = assert (#1 jte3 = kctx)
-            val () = assert (#2 jte3 = t13)
-            val () = assert (#3 jte3 = t23)
-          in
-            ()
-          end
-      | TyEqArrow ((kctx, CArrow (t11, i1, t12), CArrow (t21, i2, t22)), te1, pr, te2) =>
-          let
-            val () = check_tyeq te1
-            val () = check_proping pr
-            val () = check_tyeq te2
-            val jte1 = extract_judge_tyeq te1
-            val jpr = extract_judge_proping pr
-            val jte2 = extract_judge_tyeq te2
-            val () = assert (#1 jte1 = kctx)
-            val () = assert (#2 jte1 = t11)
-            val () = assert (#3 jte1 = t21)
-            val () = assert (#1 jpr = kctx)
-            val () = assert (#2 jpr = TEq (i1, i2))
-            val () = assert (#1 jte2 = kctx)
-            val () = assert (#2 jte2 = t12)
-            val () = assert (#3 jte2 = t22)
-          in
-            ()
-          end
-      | TyEqApp ((kctx, CApp (c11, c12), CApp (c21, c22)), te1, te2) =>
-          let
-            val () = check_tyeq te1
-            val () = check_tyeq te2
-            val jte1 = extract_judge_tyeq te1
-            val jte2 = extract_judge_tyeq te2
-            val () = assert (#1 jte1 = kctx)
-            val () = assert (#2 jte1 = c11)
-            val () = assert (#3 jte1 = c21)
-            val () = assert (#1 jte2 = kctx)
-            val () = assert (#2 jte2 = c12)
-            val () = assert (#3 jte2 = c22)
-          in
-            ()
-          end
-      | TyEqTimeApp ((kctx, CTimeApp (arity, c11, c12), CTimeApp (arity', c21, c22)), te1, te2) =>
-          let
-            val () = check_tyeq te1
-            val () = check_tyeq te2
-            val jte1 = extract_judge_tyeq te1
-            val jte2 = extract_judge_tyeq te2
-            val () = assert (arity = arity')
-            val () = assert (#1 jte1 = kctx)
-            val () = assert (#2 jte1 = c11)
-            val () = assert (#3 jte1 = c21)
-            val () = assert (#1 jte2 = kctx)
-            val () = assert (#2 jte2 = c12)
-            val () = assert (#3 jte2 = c22)
-          in
-            ()
-          end
-      | TyEqBeta ((kctx, CApp (t1, t2), t'), te1, te2, te3) =>
-          let
-            val () = check_tyeq te1
-            val () = check_tyeq te2
-            val () = check_tyeq te3
-            val jte1 = extract_judge_tyeq te1
-            val jte2 = extract_judge_tyeq te2
-            val jte3 = extract_judge_tyeq te3
-            val () =
-              case (#3 jte1) of
-                CAbs t1' =>
-                  let
-                    val () = assert (#1 jte1 = kctx)
-                    val () = assert (#2 jte1 = t1)
-                    val () = assert (#1 jte2 = kctx)
-                    val () = assert (#2 jte2 = t2)
-                    val t2' = #3 jte2
-                    val () = assert (#1 jte3 = kctx)
-                    val () = assert (#2 jte3 = subst0_c_c t2' t1')
-                    val () = assert (#3 jte3 = t')
-                  in
-                    ()
-                  end
-              | _ => assert false
-          in
-            ()
-          end
-      | TyEqBetaRev ((kctx, t', CApp (t1, t2)), te1, te2, te3) =>
-          let
-            val () = check_tyeq te1
-            val () = check_tyeq te2
-            val () = check_tyeq te3
-            val jte1 = extract_judge_tyeq te1
-            val jte2 = extract_judge_tyeq te2
-            val jte3 = extract_judge_tyeq te3
-            val () =
-              case (#2 jte1) of
-                CAbs t1' =>
-                  let
-                    val () = assert (#1 jte1 = kctx)
-                    val () = assert (#3 jte1 = t1)
-                    val () = assert (#1 jte2 = kctx)
-                    val t2' = #2 jte2
-                    val () = assert (#3 jte2 = t2)
-                    val () = assert (#1 jte3 = kctx)
-                    val () = assert (#2 jte3 = t')
-                    val () = assert (#3 jte3 = subst0_c_c t2' t1')
-                  in
-                    ()
-                  end
-              | _ => assert false
-          in
-            ()
-          end
-      | TyEqQuan ((kctx, CQuan (q, k1, t1), CQuan (q', k2, t2)), ke, te) =>
-          let
-            val () = check_kdeq ke
-            val () = check_tyeq te
-            val jke = extract_judge_kdeq ke
-            val jte = extract_judge_tyeq te
-            val () = assert (q = q')
-            val () = assert (#1 jke = kctx)
-            val () = assert (#2 jke = k1)
-            val () = assert (#3 jke = k2)
-            val () = assert (#1 jte = k1 :: kctx)
-            val () = assert (#2 jte = t1)
-            val () = assert (#3 jte = t2)
-          in
-            ()
-          end
-      | TyEqRec ((kctx, CRec (k1, t1), CRec (k2, t2)), ke, te) =>
-          let
-            val () = check_kdeq ke
-            val () = check_tyeq te
-            val jke = extract_judge_kdeq ke
-            val jte = extract_judge_tyeq te
-            val () = assert (#1 jke = kctx)
-            val () = assert (#2 jke = k1)
-            val () = assert (#3 jke = k2)
-            val () = assert (#1 jte = k1 :: kctx)
-            val () = assert (#2 jte = t1)
-            val () = assert (#3 jte = t2)
-          in
-            ()
-          end
-      | TyEqRef ((kctx, CRef t1, CRef t2), te) =>
-          let
-            val () = check_tyeq te
-            val jte = extract_judge_tyeq te
-            val () = assert (#1 jte = kctx)
-            val () = assert (#2 jte = t1)
-            val () = assert (#3 jte = t2)
-          in
-            ()
-          end
-      | TyEqAbs ((kctx, t, t')) => assert (t = t')
-      | TyEqTimeAbs ((kctx, t, t')) => assert (t = t')
-      | _ => raise CheckFail)
-      handle CheckFail =>
-        let
-          val jte = extract_judge_tyeq te
-        in
-          println $ "tyeq: " ^ str_cstr (#2 jte) ^ " " ^ str_cstr (#3 jte)
-        end
-
-    and check_typing ty = (
-      case ty of
-        TyVar ((kctx, tctx), EVar x, t, T0) => assert (nth (tctx, x) = t)
-      | TyApp ((ctx, EBinOp (EBApp, e1, e2), t2, CBinOp (CBTimeAdd, CBinOp (CBTimeAdd, CBinOp (CBTimeAdd, i1, i2), T1), i)), ty1, ty2) =>
-          let
-            val () = check_typing ty1
-            val () = check_typing ty2
-            val jty1 = extract_judge_typing ty1
-            val jty2 = extract_judge_typing ty2
-            val () = assert (#1 jty1 = ctx)
-            val () = assert (#2 jty1 = e1)
-            val () = assert (#3 jty1 = CArrow (#3 jty2, i, t2))
-            val () = assert (#4 jty1 = i1)
-            val () = assert (#1 jty2 = ctx)
-            val () = assert (#2 jty2 = e2)
-            val () = assert (#4 jty2 = i2)
-          in
-            ()
-          end
-      | TyAbs (((kctx, tctx), EAbs e, CArrow (t1, i, t2), T0), kd, ty) =>
-          let
-            val () = check_kinding kd
-            val () = check_typing ty
-            val jkd = extract_judge_kinding kd
-            val jty = extract_judge_typing ty
-            val () = assert (#1 jkd = kctx)
-            val () = assert (#2 jkd = t1)
-            val () = assert (#3 jkd = KType)
-            val () = assert (#1 jty = (kctx, t1 :: tctx))
-            val () = assert (#2 jty = e)
-            val () = assert (#3 jty = t2)
-            val () = assert (#4 jty = i)
-          in
-            ()
-          end
-      | TyAppC ((ctx as (kctx, tctx), EAppC (e, c), t, i), ty, kd) =>
-          let
-            val () = check_typing ty
-            val () = check_kinding kd
-            val jty = extract_judge_typing ty
-            val jkd = extract_judge_kinding kd
-            val () =
-              case (#3 jty) of
-                CQuan (QuanForall, k, t') =>
-                  let
-                    val () = assert (#1 jty = ctx)
-                    val () = assert (#2 jty = e)
-                    val () = assert (#4 jty = i)
-                    val () = assert (#1 jkd = kctx)
-                    val () = assert (#2 jkd = c)
-                    val () = assert (#3 jkd = k)
-                    val () = assert (t = subst0_c_c c t')
-                  in
-                    ()
-                  end
-              | _ => assert false
-          in
-            ()
-          end
-      | TyAbsC ((ctx as (kctx, tctx), EAbsC e, CQuan (QuanForall, k, t), T0), wk, ty) =>
-          let
-            val () = check_wfkind wk
-            val () = check_typing ty
-            val jwk = extract_judge_wfkind wk
-            val jty = extract_judge_typing ty
-            val () = assert (#1 jwk = kctx)
-            val () = assert (#2 jwk = k)
-            val () = assert (#1 jty = (k :: kctx, map shift0_c_c tctx))
-            val () = assert (#2 jty = e)
-            val () = assert (#3 jty = t)
-            val () = assert (#4 jty = T0)
-          in
-            ()
-          end
-      | TyRec ((ctx as (kctx, tctx), ERec e, t, T0), kd, ty) =>
-          let
-            val () = check_kinding kd
-            val () = check_typing ty
-            val jkd = extract_judge_kinding kd
-            val jty = extract_judge_typing ty
-            val () = assert (#1 jkd = kctx)
-            val () = assert (#2 jkd = t)
-            val () = assert (#3 jkd = KType)
-            val () = assert (#1 jty = (kctx, t :: tctx))
-            val () = assert (#2 jty = e)
-            val () = assert (#3 jty = t)
-            val () = assert (#4 jty = T0)
-          in
-            ()
-          end
-      | TyFix ((ctx as (kctx, tctx), EFix (n, e), t, T0), kd, ty) =>
-          let
-            val () = check_kinding kd
-            val () = check_typing ty
-            val jkd = extract_judge_kinding kd
-            val jty = extract_judge_typing ty
-            val () = assert (#1 jkd = [])
-            val () = assert (#2 jkd = t)
-            val () = assert (#3 jkd = KType)
-            fun unfold_CForalls t ks =
-              case t of
-                CQuan (QuanForall, k, t) => unfold_CForalls t (k :: ks)
-              | _ => (t, ks)
-            val (t, ks) = unfold_CForalls t []
-            val () = assert (n = length ks)
-            val () =
-              case t of
-                CArrow (t1, i, t2) =>
-                  let
-                    val () = assert (#1 jty = (ks, [t1]))
-                    val () = assert (#2 jty = e)
-                    val () = assert (#3 jty = t2)
-                    val () = assert (#4 jty = i)
-                  in
-                    ()
-                  end
-              | _ => assert false
-          in
-            ()
-          end
-      | TyFold ((ctx as (kctx, tctx), EUnOp (EUFold, e), t, i), kd, ty) =>
-          let
-            val () = check_kinding kd
-            val () = check_typing ty
-            val jkd = extract_judge_kinding kd
-            val jty = extract_judge_typing ty
-            fun unfold_CApps t cs =
-              case t of
-                CApp (t, c) => unfold_CApps t (c :: cs)
-              | _ => (t, cs)
-            val (t1, cs) = unfold_CApps t []
-            val () =
-              case t1 of
-                CRec (k, t2) =>
-                  let
-                    val () = assert (#1 jkd = kctx)
-                    val () = assert (#2 jkd = t)
-                    val () = assert (#3 jkd = KType)
-                    val () = assert (#1 jty = ctx)
-                    val () = assert (#2 jty = e)
-                    val () = assert (#3 jty = CApps (subst0_c_c t1 t2) cs)
-                    val () = assert (#4 jty = i)
-                  in
-                    ()
-                  end
-              | _ => assert false
-          in
-            ()
-          end
-      | TyUnfold ((ctx, EUnOp (EUUnfold, e), t', i), ty) =>
-          let
-            val () = check_typing ty
-            val jty = extract_judge_typing ty
-            fun unfold_CApps t cs =
-              case t of
-                CApp (t, c) => unfold_CApps t (c :: cs)
-              | _ => (t, cs)
-            val (t, cs) = unfold_CApps (#3 jty) []
-            val () =
-              case t of
-                CRec (k, t1) =>
-                  let
-                    val () = assert (#1 jty = ctx)
-                    val () = assert (#2 jty = e)
-                    val () = assert (#4 jty = i)
-                    val () = assert (t' = CApps (subst0_c_c t t1) cs)
-                  in
-                    ()
-                  end
-              | _ => assert false
-          in
-            ()
-          end
-      | TyPack ((ctx as (kctx, tctx), EPack (c, e), CQuan (QuanExists, k, t1), i), kd1, kd2, ty) =>
-          let
-            val () = check_kinding kd1
-            val () = check_kinding kd2
-            val () = check_typing ty
-            val jkd1 = extract_judge_kinding kd1
-            val jkd2 = extract_judge_kinding kd2
-            val jty = extract_judge_typing ty
-            val () = assert (#1 jkd1 = kctx)
-            val () = assert (#2 jkd1 = CExists (k, t1))
-            val () = assert (#3 jkd1 = KType)
-            val () = assert (#1 jkd2 = kctx)
-            val () = assert (#2 jkd2 = c)
-            val () = assert (#3 jkd2 = k)
-            val () = assert (#1 jty = ctx)
-            val () = assert (#2 jty = e)
-            val () = assert (#3 jty = subst0_c_c c t1)
-            val () = assert (#4 jty = i)
-          in
-            ()
-          end
-      | TyUnpack ((ctx as (kctx, tctx), EUnpack (e1, e2), t2, CBinOp (CBTimeAdd, i1, i2)), ty1, ty2) =>
-          let
-            val () = check_typing ty1
-            val () = check_typing ty2
-            val jty1 = extract_judge_typing ty1
-            val jty2 = extract_judge_typing ty2
-            val () =
-              case (#3 jty1) of
-                CQuan (QuanExists, k, t) =>
-                  let
-                    val () = assert (#1 jty1 = ctx)
-                    val () = assert (#2 jty1 = e1)
-                    val () = assert (#4 jty1 = i1)
-                    val () = assert (#1 jty2 = (k :: kctx, t :: map shift0_c_c tctx))
-                    val () = assert (#2 jty2 = e2)
-                    val () = assert (#3 jty2 = shift0_c_c t2)
-                    val () = assert (#4 jty2 = shift0_c_c i2)
-                  in
-                    ()
-                  end
-              | _ => assert false
-          in
-            ()
-          end
-      | TyConst (ctx, EConst cn, t, T0) => assert (t = const_type cn)
-      | TyPair ((ctx, EBinOp (EBPair, e1, e2), CBinOp (CBTypeProd, t1, t2), CBinOp (CBTimeAdd, i1, i2)), ty1, ty2) =>
-          let
-            val () = check_typing ty1
-            val () = check_typing ty2
-            val jty1 = extract_judge_typing ty1
-            val jty2 = extract_judge_typing ty2
-            val () = assert (#1 jty1 = ctx)
-            val () = assert (#2 jty1 = e1)
-            val () = assert (#3 jty1 = t1)
-            val () = assert (#4 jty1 = i1)
-            val () = assert (#1 jty2 = ctx)
-            val () = assert (#2 jty2 = e2)
-            val () = assert (#3 jty2 = t2)
-            val () = assert (#4 jty2 = i2)
-          in
-            ()
-          end
-      | TyProj ((ctx, EUnOp (EUProj p, e), t, i), ty) =>
-          let
-            val () = check_typing ty
-            val jty = extract_judge_typing ty
-            val () =
-              case (#3 jty) of
-                CBinOp (CBTypeProd, t1, t2) =>
-                  let
-                    val () = assert (#1 jty = ctx)
-                    val () = assert (#2 jty = e)
-                    val () = assert (t = (case p of ProjFst => t1 | ProjSnd => t2))
-                    val () = assert (#4 jty = i)
-                  in
-                    ()
-                  end
-              | _ => assert false
-          in
-            ()
-          end
-      | TyInj ((ctx, EUnOp (EUInj inj, e), CBinOp (CBTypeSum, t1, t2), i), ty, kd) =>
-          let
-            val () = check_typing ty
-            val () = check_kinding kd
-            val jty = extract_judge_typing ty
-            val jkd = extract_judge_kinding kd
-            val () = assert (#1 jty = ctx)
-            val () = assert (#2 jty = e)
-            val () = assert (#3 jty = (case inj of InjInl => t1 | InjInr => t2))
-            val () = assert (#4 jty = i)
-            val () = assert (#1 jkd = fst ctx)
-            val () = assert (#2 jkd = (case inj of InjInl => t2 | InjInr => t1))
-            val () = assert (#3 jkd = KType)
-          in
-            ()
-          end
-      | TyCase ((ctx as (kctx, tctx), ECase (e, e1, e2), t, CBinOp (CBTimeAdd, i, CBinOp (CBTimeMax, i1, i2))), ty1, ty2, ty3) =>
-          let
-            val () = check_typing ty1
-            val () = check_typing ty2
-            val () = check_typing ty3
-            val jty1 = extract_judge_typing ty1
-            val jty2 = extract_judge_typing ty2
-            val jty3 = extract_judge_typing ty3
-            val () =
-              case (#3 jty1) of
-                CBinOp (CBTypeSum, t1, t2) =>
-                  let
-                    val () = assert (#1 jty1 = ctx)
-                    val () = assert (#2 jty1 = e)
-                    val () = assert (#4 jty1 = i)
-                    val () = assert (#1 jty2 = (kctx, t1 :: tctx))
-                    val () = assert (#2 jty2 = e1)
-                    val () = assert (#3 jty2 = t)
-                    val () = assert (#4 jty2 = i1)
-                    val () = assert (#1 jty3 = (kctx, t2 :: tctx))
-                    val () = assert (#2 jty3 = e2)
-                    val () = assert (#3 jty3 = t)
-                    val () = assert (#4 jty3 = i2)
-                  in
-                    ()
-                  end
-              | _ => assert false
-          in
-            ()
-          end
-      | TyNew ((ctx, EUnOp (EUNew, e), CRef t, i), ty) =>
-          let
-            val () = check_typing ty
-            val jty = extract_judge_typing ty
-            val () = assert (#1 jty = ctx)
-            val () = assert (#2 jty = e)
-            val () = assert (#3 jty = t)
-            val () = assert (#4 jty = i)
-          in
-            ()
-          end
-      | TyRead ((ctx, EUnOp (EURead, e), t, i), ty) =>
-          let
-            val () = check_typing ty
-            val jty = extract_judge_typing ty
-            val () = assert (#1 jty = ctx)
-            val () = assert (#2 jty = e)
-            val () = assert (#3 jty = CRef t)
-            val () = assert (#4 jty = i)
-          in
-            ()
-          end
-      | TyWrite ((ctx, EBinOp (EBWrite, e1, e2), CConst CCTypeUnit, CBinOp (CBTimeAdd, i1, i2)), ty1, ty2) =>
-          let
-            val () = check_typing ty1
-            val () = check_typing ty2
-            val jty1 = extract_judge_typing ty1
-            val jty2 = extract_judge_typing ty2
-            val () = assert (#1 jty1 = ctx)
-            val () = assert (#2 jty1 = e1)
-            val () = assert (#3 jty1 = CRef (#3 jty2))
-            val () = assert (#4 jty1 = i1)
-            val () = assert (#1 jty2 = ctx)
-            val () = assert (#2 jty2 = e2)
-            val () = assert (#4 jty2 = i2)
-          in
-            ()
-          end
-      | TySub ((ctx as (kctx, tctx), e, t2, i2), ty, te, pr) =>
-          let
-            val () = check_typing ty
-            val () = check_tyeq te
-            val () = check_proping pr
-            val jty = extract_judge_typing ty
-            val jte = extract_judge_tyeq te
-            val jpr = extract_judge_proping pr
-            val () = assert (#1 jty = ctx)
-            val () = assert (#2 jty = e)
-            val () = assert (#1 jte = kctx)
-            val () = assert (#2 jte = #3 jty)
-            val () = assert (#3 jte = t2)
-            val () = assert (#1 jpr = kctx)
-            val () = assert (#2 jpr = TLe (#4 jty, i2))
-          in
-            ()
-          end
-      | TyLet ((ctx as (kctx, tctx), ELet (e1, e2), t2, CBinOp (CBTimeAdd, i1, i2)), ty1, ty2) =>
-          let
-            val () = check_typing ty1
-            val () = check_typing ty2
-            val jty1 = extract_judge_typing ty1
-            val jty2 = extract_judge_typing ty2
-            val () = assert (#1 jty1 = ctx)
-            val () = assert (#2 jty1 = e1)
-            val () = assert (#4 jty1 = i1)
-            val () = assert (#1 jty2 = (kctx, #3 jty1 :: tctx))
-            val () = assert (#2 jty2 = e2)
-            val () = assert (#3 jty2 = t2)
-            val () = assert (#4 jty2 = i2)
-          in
-            ()
-          end
-      | _ => raise CheckFail)
-      handle CheckFail =>
-        let
-          val jty = extract_judge_typing ty
-        in
-          println $ "typing: " ^ str_expr (#2 jty) ^ " " ^ str_cstr (#3 jty) ^ " " ^ str_cstr (#4 jty)
-        end
-  end
 
   structure ShiftCtx =
   struct
@@ -1055,6 +118,10 @@ struct
       fun transformer_wfprop _ _ = NONE
       fun transformer_tyeq _ _ = NONE
     end)
+
+    fun free_vars_c_ty d ty = #2 (Helper.transform_typing (ty, d))
+
+    val free_vars0_c_ty = free_vars_c_ty 0
   end
 
   structure DerivFVExpr =
@@ -1099,38 +166,38 @@ struct
       fun transformer_wfprop _ _ = NONE
       fun transformer_tyeq _ _ = NONE
     end)
+
+    fun free_vars_e_ty d ty = #2 (Helper.transform_typing (ty, d))
+
+    val free_vars0_e_ty = free_vars_e_ty 0
   end
 
-  structure CloConv =
+  structure DerivDirectSubstCstr =
   struct
     structure Helper = DerivGenericOnlyDownTransformer(
     struct
-      type down = unit
+      type down = cstr * int
 
-      val shift_c_k = ShiftCstr.shift_c_k
-      val shift_c_c = ShiftCstr.shift_c_c
+      open ShiftCstr
+
+      fun add_kind (_, (to, who)) = (shift0_c_c to, who + 1)
+      fun add_type (_, (to, who)) = (to, who)
 
       val subst_c_c = SubstCstr.subst_c_c
 
-      fun add_kind (_, ()) = ()
-      fun add_type (_, ()) = ()
+      open DirectSubstCstr
 
-      fun on_pr_leaf (pr, ()) = pr
-      fun on_ke_leaf (ke, ()) = ke
-      fun on_kd_leaf (kd, ()) = kd
-      fun on_wk_leaf (wk, ()) = wk
-      fun on_wp_leaf (wp, ()) = wp
-      fun on_te_leaf (te, ()) = te
-      fun on_ty_leaf (ty, ()) = ty
+      fun on_pr_leaf ((kctx, p), (to, who)) = (kctx, dsubst_c_p to who p)
+      fun on_ke_leaf ((kctx, k1, k2), (to, who)) = (kctx, dsubst_c_k to who k1, dsubst_c_k to who k2)
+      fun on_kd_leaf ((kctx, c, k), (to, who)) = (kctx, dsubst_c_c to who c, dsubst_c_k to who k)
+      fun on_wk_leaf ((kctx, k), (to, who)) = (kctx, dsubst_c_k to who k)
+      fun on_wp_leaf ((kctx, p), (to, who)) = (kctx, dsubst_c_p to who p)
+      fun on_te_leaf ((kctx, t1, t2), (to, who)) = (kctx, dsubst_c_c to who t1, dsubst_c_c to who t2)
+      fun on_ty_leaf ((ctx, e, t, i), (to, who)) = (ctx, dsubst_c_e to who e, dsubst_c_c to who t, dsubst_c_c to who i)
 
-      fun transformer_typing (on_typing, on_kinding, on_wfkind, on_tyeq, on_proping) (ty, ()) =
+      fun transformer_typing (on_typing, on_kinding, on_wfkind, on_tyeq, on_proping) (ty, (to, who)) =
         case ty of
-          TyAbs (j, kd, ty) =>
-            let
-              val ty = on_typing (ty, ())
-            in
-              NONE
-            end
+          TyFix _ => SOME ty
         | _ => NONE
 
       fun transformer_proping _ = NONE
@@ -1140,6 +207,95 @@ struct
       fun transformer_wfprop _ _ = NONE
       fun transformer_tyeq _ _ = NONE
     end)
+
+    fun dsubst_c_ty to who ty = Helper.transform_typing (ty, (to, who))
+    fun dsubst_c_kd to who kd = Helper.transform_kinding (kd, (to, who))
+
+    fun dsubst0_c_ty to = dsubst_c_ty to 0
+    fun dsubst0_c_kd to = dsubst_c_kd to 0
+  end
+
+  structure DerivDirectSubstExpr =
+  struct
+    structure Helper = DerivGenericOnlyDownTransformer(
+    struct
+      type down = expr * int
+
+      open ShiftCstr
+      open ShiftExpr
+
+      fun add_kind (_, (to, who)) = (shift0_c_e to, who)
+      fun add_type (_, (to, who)) = (shift0_e_e to, who + 1)
+
+      val subst_c_c = SubstCstr.subst_c_c
+
+      open DirectSubstExpr
+
+      fun on_pr_leaf (pr, _) = pr
+      fun on_ke_leaf (ke, _) = ke
+      fun on_kd_leaf (kd, _) = kd
+      fun on_wk_leaf (wk, _) = wk
+      fun on_wp_leaf (wp, _) = wp
+      fun on_te_leaf (te, _) = te
+      fun on_ty_leaf ((ctx, e, t, i), (to, who)) = (ctx, dsubst_e_e to who e, t, i)
+
+      fun transformer_typing (on_typing, on_kinding, on_wfkind, on_tyeq, on_proping) (ty, (to, who)) =
+        case ty of
+          TyFix _ => SOME ty
+        | _ => NONE
+
+      fun transformer_proping _ = NONE
+      fun transformer_kdeq _ _ = NONE
+      fun transformer_kinding _ _ = NONE
+      fun transformer_wfkind _ _ = NONE
+      fun transformer_wfprop _ _ = NONE
+      fun transformer_tyeq _ _ = NONE
+    end)
+
+    fun dsubst_e_ty to who ty = Helper.transform_typing (ty, (to, who))
+
+    fun dsubst0_e_ty to = dsubst_e_ty to 0
+  end
+
+  structure DerivChangeContext =
+  struct
+    structure Helper = DerivGenericOnlyDownTransformer(
+    struct
+      type down = ctx
+
+      open ShiftCstr
+
+      fun add_kind (k, (kctx, tctx)) = (k :: kctx, map shift0_c_c tctx)
+      fun add_type (t, (kctx, tctx)) = (kctx, t :: tctx)
+
+      val subst_c_c = SubstCstr.subst_c_c
+
+      fun on_pr_leaf ((_ , p), (kctx, tctx)) = (kctx, p)
+      fun on_ke_leaf ((_, k1, k2), (kctx, tctx)) = (kctx, k1, k2)
+      fun on_kd_leaf ((_, c, k), (kctx, tctx)) = (kctx, c, k)
+      fun on_wk_leaf ((_, k), (kctx, tctx)) = (kctx, k)
+      fun on_wp_leaf ((_, p), (kctx, tctx)) = (kctx, p)
+      fun on_te_leaf ((_, t1, t2), (kctx, tctx)) = (kctx, t1, t2)
+      fun on_ty_leaf ((_, e, t, i), ctx) = (ctx, e, t, i)
+
+      fun transformer_typing (on_typing, on_kinding, on_wfkind, on_tyeq, on_proping) (ty, ctx) =
+        case ty of
+          TyFix (j, kd, ty) => SOME (TyFix (on_ty_leaf (j, ctx), kd, ty))
+        | _ => NONE
+
+      fun transformer_proping _ = NONE
+      fun transformer_kdeq _ _ = NONE
+      fun transformer_kinding _ _ = NONE
+      fun transformer_wfkind _ _ = NONE
+      fun transformer_wfprop _ _ = NONE
+      fun transformer_tyeq _ _ = NONE
+    end)
+
+    fun change_ctx_ty ctx ty = Helper.transform_typing (ty, ctx)
+    fun change_ctx_kd ctx kd = Helper.transform_kinding (kd, ctx)
+
+    val change0_ctx_ty = change_ctx_ty ([], [])
+    val change0_ctx_kd = change_ctx_kd ([], [])
   end
 
   structure ANF =
@@ -1199,7 +355,7 @@ struct
       | CArrow (t1, i, t2) =>
           let
             val te1 = gen_tyeq_refl kctx t1
-            val pr = PrAdmit (kctx, TLe (i, i))
+            val pr = PrAdmit (kctx, TEq (i, i))
             val te2 = gen_tyeq_refl kctx t2
           in
             TyEqArrow (as_TyEqArrow te1 pr te2, te1, pr, te2)
@@ -1317,12 +473,8 @@ struct
                let
                  val jty1 = extract_judge_typing ty1
                  val (_, k, t) = extract_c_quan (#3 jty1)
-                 val ty2 = shift_ctx_ty d1 (1, 1) ty2
-                 val jty2 = extract_judge_typing ty2
+                 val ty2 = shift_ctx_ty (kctxd1, map shift0_c_c tctxd1) (1, 1) ty2
                  val ty2 = normalize ty2 (fn (ty2, d2 as (kctxd2, tctxd2)) => cont (ty2, concat_ctx (d2, concat_ctx (([k], [t]), d1))))
-                 val te2 = gen_tyeq_refl (fst $ #1 jty2) (#3 jty2)
-                 val pr2 = PrAdmit (fst $ #1 jty2, TLe (#4 (extract_judge_typing ty2), #4 jty2))
-                 val ty2 = TySub (as_TySub ty2 te2 pr2, ty2, te2, pr2)
                in
                  TyUnpack (as_TyUnpack ty1 ty2, ty1, ty2)
                end)
@@ -1403,13 +555,24 @@ struct
                let
                  val te = shift0_ctx_te d te
                  val jty = extract_judge_typing ty
-                 val pr = PrAdmit (fst $ #1 jty, TLe (#4 jty, #4 jty))
+                 val pr = PrAdmit (fst $ #1 jty, TLe (#4 jty, #4 jty)) (* FIXME: how to maintain time *)
                in
                  cont (TySub (as_TySub ty te pr, ty, te, pr), d)
                end)
       | TyFix (j, kd, ty) =>
           let
             val ty = normalize_deriv ty
+            val jkd = extract_judge_kinding kd
+            val jty = extract_judge_typing ty
+            fun unfold_CForalls t ks =
+              case t of
+                CQuan (QuanForall, k, t) => unfold_CForalls t (k :: ks)
+              | _ => (t, ks)
+            val (t, ks) = unfold_CForalls (#2 jkd) []
+            val (t1, i, t2) = extract_c_arrow t
+            val te = gen_tyeq_refl (fst $ #1 jty) (#3 jty)
+            val pr = PrAdmit (fst $ #1 jty, TLe (#4 jty, i))
+            val ty = TySub (as_TySub ty te pr, ty, te, pr)
           in
             cont (TyFix (as_TyFix (#1 j) kd ty, kd, ty), ([], []))
           end
@@ -1441,5 +604,330 @@ struct
       | EAbsC _ => true
       | EFix _ => true
       | _ => false
+  end
+
+  structure CloConv =
+  struct
+    structure Helper = DerivGenericOnlyDownTransformer(
+    struct
+      type down = unit
+
+      val shift_c_k = ShiftCstr.shift_c_k
+      val shift_c_c = ShiftCstr.shift_c_c
+
+      val subst_c_c = SubstCstr.subst_c_c
+
+      fun add_kind (_, ()) = ()
+      fun add_type (_, ()) = ()
+
+      fun on_pr_leaf (pr, ()) = pr
+      fun on_ke_leaf (ke, ()) = ke
+      fun on_kd_leaf (kd, ()) = kd
+      fun on_wk_leaf (wk, ()) = wk
+      fun on_wp_leaf (wp, ()) = wp
+      fun on_te_leaf (te, ()) = te
+      fun on_ty_leaf (ty as ((kctx, tctx), e, t, i), ()) =
+        case e of
+          EVar x => ((kctx, tctx), e, List.nth (tctx, x), T0)
+        | _ => ty
+
+      open DerivFVCstr
+      open DerivFVExpr
+      open List
+
+      open DerivDirectSubstCstr
+      open DerivDirectSubstExpr
+      open DirectSubstCstr
+      open DirectSubstExpr
+
+      open DerivChangeContext
+      open DerivAssembler
+
+      fun transformer_typing (on_typing, on_kinding, on_wfkind, on_tyeq, on_proping) (ty, ()) =
+        case ty of
+          TyAbs (j, kd, ty_inner) => NONE
+        | TyRec (j, kd, ty_inner) =>
+            let
+              val fcv = free_vars0_c_ty ty
+              val fev = free_vars0_e_ty ty
+              val jty = extract_judge_typing ty
+              val kinds = map (fn x => shift_c_k (1 + x) 0 (nth (fst $ #1 jty, x))) fcv
+              val new_kinds = snd $ ListPair.unzip $
+                foldri (fn (i, (x, k), kctx) =>
+                          (x, foldli (fn (j, (x, _), k) =>
+                                        dsubst_c_k (CVar j) x k) k kctx) :: kctx) [] $ ListPair.zip (fcv, kinds)
+              val types = map (fn x => nth (snd $ #1 jty, x)) fev
+              val new_types = map (fn t => foldli (fn (j, x, t) => dsubst_c_c (CVar j) x t) t fcv) types
+
+              fun unfold ty wks =
+                case ty of
+                  TyAbsC (j, wk, ty) => unfold ty (wk :: wks)
+                | _ => (ty, wks)
+              val (ty_abs, wks) = unfold ty_inner []
+              val (j_abs, kd_abs, ty_abs_body) =
+                case ty_abs of
+                  TyAbs a => a
+                | _ => raise (Impossible "closure conversion")
+
+              val ori_kinds = map (snd o extract_judge_wfkind) wks
+              val new_ori_kinds = mapi (fn (i, k) => foldli (fn (j, x, k) => dsubst_c_k (CVar (j + length wks - 1 - i)) (x + length wks - 1 - i) k) k fcv) ori_kinds
+              val new_types = map (shift_c_c (length wks) 0) new_types
+
+              val kctx_rec = new_ori_kinds @ new_kinds
+
+              val t_env =
+                case length new_types of
+                  0 => CTypeUnit
+                | 1 => hd new_types
+                | _ => foldl (fn (a, b) => CProd (a, b)) (CProd (hd $ tl new_types, hd new_types)) (tl $ tl new_types)
+
+              (* FIXME: change the types to correct form : inner type can be arrow *)
+              val t_arrow_self = foldli (fn (j, x, t) => dsubst_c_c (CVar (j + length wks)) (x + length wks) t) (#3 j_abs) fcv
+              val (t_arrow_1, t_arrow_i, t_arrow_2) = extract_c_arrow t_arrow_self
+              val t_arrow_self = CArrow (CProd (t_env, t_arrow_1), t_arrow_i, t_arrow_2)
+              val t_partial_self = foldl (fn (a, b) => CForall (a, b)) t_arrow_self new_ori_kinds
+              val t_self = foldl (fn (a, b) => CForall (a, b)) t_partial_self new_kinds
+
+              val t_arrow_self_exi = CArrow (CProd (CVar (length wks), t_arrow_1), t_arrow_i, t_arrow_2)
+              val t_partial_self_exi = foldl (fn (a, b) => CForall (a, b)) t_arrow_self_exi new_ori_kinds
+
+              val jkd_abs = extract_judge_kinding kd_abs
+              val t_arg = foldli (fn (j, x, t) => dsubst_c_c (CVar (j + length wks + 1)) (x + length wks) t) (#2 jkd_abs) fcv
+              val t_param = CProd (t_env, t_arg)
+
+              val tctx_rec = [t_param, t_self]
+
+              val tctx_unwrap_env =
+                case length new_types of
+                  0 => tctx_rec
+                | 1 => t_env :: tctx_rec
+                | _ =>
+                    let
+                      fun inner tctx d t =
+                        if d = 0 then
+                          let
+                            val (t1, t2) = extract_c_prod t
+                          in
+                            t2 :: t1 :: tctx
+                          end
+                        else
+                          let
+                            val (t1, t2) = extract_c_prod t
+                          in
+                            inner (t1 :: tctx) (d - 1) t2
+                          end
+                    in
+                      inner (t_env :: tctx_rec) (length new_types - 2) t_env
+                    end
+              val tctx_get_self = CExists (KType, CProd (shift_c_c (length wks + 1) 1 t_partial_self_exi, CVar 0)) :: tctx_unwrap_env
+              val tctx_unwrap_arg = t_arg :: tctx_get_self
+
+              val new_ty_abs_body = ty_abs_body
+              val new_ty_abs_body = foldli (fn (j, x, ty) => dsubst_c_ty (CVar (j + length wks)) (x + length wks) ty) new_ty_abs_body fcv
+              val new_ty_abs_body = foldli (fn (j, x, ty) => dsubst_e_ty (EVar (if j = 0 then 2 else 2 * j + 1)) (x + 2) ty) new_ty_abs_body fev
+              val new_ty_abs_body = change_ctx_ty (kctx_rec, tctx_unwrap_arg) new_ty_abs_body
+              val new_ty_abs_body = on_typing (new_ty_abs_body, ())
+
+              val new_ty_abs_body_wrap_arg =
+                let
+                  val param_idx = length tctx_get_self - 2
+                  val tmp_ty = TyProj (((kctx_rec, tctx_get_self), EProj (ProjSnd, EVar param_idx), t_arg, T0), TyVar ((kctx_rec, tctx_get_self), EVar param_idx, t_param, T0))
+                in
+                  TyLet (as_TyLet tmp_ty new_ty_abs_body, tmp_ty, new_ty_abs_body)
+                end
+              val new_ty_abs_body_unget_self =
+                let
+                  val param_idx = length tctx_unwrap_env - 2
+                  val ty1 = TyProj (((kctx_rec, tctx_unwrap_env), EProj (ProjFst, EVar param_idx), t_env, T0), TyVar ((kctx_rec, tctx_unwrap_env), EVar param_idx, t_param, T0))
+                  val ty2 = TyVar ((kctx_rec, tctx_unwrap_env), EVar (param_idx + 1), t_self, T0)
+                  val ty3 = foldri (fn (j, _, ty) =>
+                                      let
+                                        val jty = extract_judge_typing ty
+                                        val e = EAppC (#2 jty, CVar (j + length wks))
+                                        val i = #4 jty
+                                        val (_, k, body) = extract_c_quan (#3 jty)
+                                        val t = SubstCstr.subst0_c_c (CVar (j + length wks)) body
+                                      in
+                                        TyAppC ((#1 jty, e, t, i), ty, KdVar (fst $ #1 jty, CVar (j + length wks), k))
+                                      end) ty2 new_kinds
+                  val ty4 = TyPair (as_TyPair ty3 ty1, ty3, ty1)
+                  val kd1 = KdAdmit (kctx_rec, t_env, KType)
+                  val kd2 = KdAdmit (kctx_rec, CExists (KType, CProd (shift_c_c (length wks + 1) 1 t_partial_self_exi ,CVar 0)), KType)
+                  val ty5 = TyPack (as_TyPack kd2 kd1 ty4, kd2, kd1, ty4)
+                in
+                  TyLet (as_TyLet ty5 new_ty_abs_body_wrap_arg, ty5, new_ty_abs_body_wrap_arg)
+                end
+              val new_ty_abs_body_wrap_env =
+                case length new_types of
+                  0 => new_ty_abs_body_unget_self
+                | 1 =>
+                    let
+                      val tmp_ty = TyProj (((kctx_rec, tctx_rec), EProj (ProjFst, EVar 0), t_env, T0), TyVar ((kctx_rec, tctx_rec), EVar 0, t_param, T0))
+                    in
+                      TyLet (as_TyLet tmp_ty new_ty_abs_body_unget_self, tmp_ty, new_ty_abs_body_unget_self)
+                    end
+                | _ =>
+                    let
+                      val tylet2 =
+                        foldli (fn (i, t, ty) =>
+                                  if i mod 2 = 0 then
+                                    let
+                                      val jty = extract_judge_typing ty
+                                      val (kctx, tctx') = #1 jty
+                                      val tctx = tl tctx'
+                                      val tmp_ty = TyProj (((kctx, tctx), EProj (ProjSnd, EVar 1), hd tctx', T0), TyVar ((kctx, tctx), EVar 1, nth (tctx, 1), T0))
+                                    in
+                                      TyLet (as_TyLet tmp_ty ty, tmp_ty, ty)
+                                    end
+                                  else
+                                    let
+                                      val jty = extract_judge_typing ty
+                                      val (kctx, tctx') = #1 jty
+                                      val tctx = tl tctx'
+                                      val tmp_ty = TyProj (((kctx, tctx), EProj (ProjFst, EVar 0), hd tctx', T0), TyVar ((kctx, tctx), EVar 0, hd tctx, T0))
+                                    in
+                                      TyLet (as_TyLet tmp_ty ty, tmp_ty, ty)
+                                    end) new_ty_abs_body_unget_self (take (tctx_unwrap_env, length tctx_unwrap_env - 3))
+                      val tylet1 = TyProj (((kctx_rec, tctx_rec), EProj (ProjFst, EVar 0), t_env, T0), TyVar ((kctx_rec, tctx_rec), EVar 0, t_param, T0))
+                    in
+                      TyLet (as_TyLet tylet1 tylet2, tylet1, tylet2)
+                    end
+
+              val jnew_ty_abs_body_wrap_env = extract_judge_typing new_ty_abs_body_wrap_env
+              val jnew_ty_abs_body = extract_judge_typing new_ty_abs_body
+              val new_ty_abs_body_wrap_env_sub =
+                TySub ((#1 jnew_ty_abs_body_wrap_env, #2 jnew_ty_abs_body_wrap_env, #3 jnew_ty_abs_body, #4 jnew_ty_abs_body), new_ty_abs_body_wrap_env, ANF.gen_tyeq_refl kctx_rec (#3 jnew_ty_abs_body), PrAdmit (kctx_rec, TLe (#4 jnew_ty_abs_body_wrap_env, #4 jnew_ty_abs_body)))
+
+              val kd_self = KdAdmit ([], t_self, KType)
+              val ty_fix = TyFix (as_TyFix (#1 j) kd_self new_ty_abs_body_wrap_env_sub, kd_self, new_ty_abs_body_wrap_env_sub)
+
+              val ty_app_c =
+                foldr (fn (j, ty) =>
+                         let
+                           val jty = extract_judge_typing ty
+                           val e = EAppC (#2 jty, CVar j)
+                           val (_, k, body) = extract_c_quan (#3 jty)
+                           val t = SubstCstr.subst0_c_c (CVar j) body
+                           val i = #4 jty
+                         in
+                           TyAppC ((#1 jty, e, t, i), ty, KdVar (fst $ #1 jty, CVar j, k))
+                         end) ty_fix fcv
+              val ty_construct =
+                case length types of
+                  0 => TyConst (#1 j, EConst ECTT, CTypeUnit, T0)
+                | 1 => TyVar (#1 j, EVar (hd fev), hd types, T0)
+                | _ => foldl (fn (j, ty) =>
+                                let
+                                  val jty = extract_judge_typing ty
+                                  val e = EPair (EVar j, #2 jty)
+                                  val t = CProd (nth (types, j), #3 jty)
+                                  val i = Tadd (T0, #4 jty)
+                                in
+                                  TyPair ((#1 jty, e, t, i), TyVar (#1 jty, EVar j, nth (types, j), T0), ty)
+                                end) (TyPair ((#1 j, EPair (EVar (hd $ tl fev), EVar (hd fev)), CProd (hd $ tl types, hd types), Tadd (T0, T0)), TyVar (#1 j, EVar (hd $ tl fev), hd $ tl types, T0), TyVar (#1 j, EVar (hd fev), hd types, T0))) (tl $ tl fev)
+              val ty_clo = TyPair (as_TyPair ty_app_c ty_construct, ty_app_c, ty_construct)
+              val jty_clo = extract_judge_typing ty_clo
+              val ty_clo_sub = TySub ((#1 jty_clo, #2 jty_clo, #3 jty_clo, T0), ty_clo, ANF.gen_tyeq_refl (fst $ #1 jty_clo) (#3 jty_clo), PrAdmit (fst $ #1 jty_clo, TLe (#4 jty_clo, T0)))
+              val jty_construct = extract_judge_typing ty_construct
+              val jty_app_c = extract_judge_typing ty_app_c
+              val pack_kd2 = KdAdmit (fst $ #1 j, #3 jty_construct, KType)
+              val t_pack = CExists (KType, CProd (shift_c_c 1 1 t_partial_self_exi, CVar 0))
+              val pack_kd1 = KdAdmit (fst $ #1 j, t_pack, KType)
+              val ty_pack = TyPack (as_TyPack pack_kd1 pack_kd2 ty_clo_sub, pack_kd1, pack_kd2, ty_clo_sub)
+            in
+              SOME ty_pack
+            end
+        | TyAbsC _ => NONE
+        | TyApp (j, ty1, ty2) =>
+            let
+              val ty1 = on_typing (ty1, ())
+              val ty2 = on_typing (ty2, ())
+              val jty1 = extract_judge_typing ty1
+              val jty2 = extract_judge_typing ty2
+              val (_, _, t_clo) = extract_c_quan (#3 jty1)
+              val (t_func, t_env) = extract_c_prod t_clo
+              val (t1, i, t2) = extract_c_arrow t_func
+              val ty3 =
+                let
+                  val e = EProj (ProjFst, EVar 0)
+                  val t = t_func
+                  val ctx = (KType :: fst (#1 j), t_clo :: map ShiftCstr.shift0_c_c (snd (#1 j)))
+                in
+                  TyProj ((ctx, e, t, T0), TyVar (ctx, EVar 0, t_clo, T0))
+                end
+              val ty4 =
+                let
+                  val jty3 = extract_judge_typing ty3
+                  val e = EProj (ProjSnd, EVar 0)
+                  val t = t_env
+                  val ctx = #1 jty3
+                in
+                  TyProj ((ctx, e, t, T0), TyVar (ctx, EVar 0, t_clo, T0))
+                end
+              val ty5 = ShiftCtx.shift0_ctx_ty ([KType], [t_clo]) ty2
+              val ty6 = TyPair (as_TyPair ty4 ty5, ty4, ty5)
+              val ty7 = TyApp (as_TyApp ty3 ty6, ty3, ty6)
+              val ty8 = TyUnpack (as_TyUnpack ty1 ty7, ty1, ty7)
+              val jty8 = extract_judge_typing ty8
+              val ty9 = TySub ((#1 jty8, #2 jty8, #3 jty8, #4 j), ty8, ANF.gen_tyeq_refl (fst $ #1 jty8) (#3 jty8), PrAdmit (fst $ #1 jty8, TLe (#4 jty8, #4 j)))
+            in
+              SOME ty9
+            end
+        | TyAppC (j, ty, kd) =>
+            let
+              val ty = on_typing (ty, ())
+              val jkd = extract_judge_kinding kd
+              val jty = extract_judge_typing ty
+              val (_, _, t_clo) = extract_c_quan (#3 jty)
+              val (t_func, t_env) = extract_c_prod t_clo
+              val (_, _, t_body) = extract_c_quan t_func
+              val ty1 =
+                let
+                  val e = EProj (ProjFst, EVar 0)
+                  val t = t_func
+                  val ctx = (KType :: fst (#1 j), t_clo :: map ShiftCstr.shift0_c_c (snd (#1 j)))
+                in
+                  TyProj ((ctx, e, t, T0), TyVar (ctx, EVar 0, t_clo, T0))
+                end
+              val ty2 =
+                let
+                  val jty1 = extract_judge_typing ty1
+                  val e = EAppC (#2 jty1, ShiftCstr.shift0_c_c (#2 jkd))
+                  val t = SubstCstr.subst0_c_c (ShiftCstr.shift0_c_c (#2 jkd)) t_body
+                  val ctx = #1 jty1
+                in
+                  TyAppC ((ctx, e, t, T0), ty1, ShiftCtx.shift0_ctx_kd ([KType], [t_clo]) kd)
+                end
+              val ty3 =
+                let
+                  val jty2 = extract_judge_typing ty2
+                  val e = EProj (ProjSnd, EVar 0)
+                  val t = t_env
+                  val ctx = #1 jty2
+                in
+                  TyProj ((ctx, e, t, T0), TyVar (ctx, EVar 0, t_clo, T0))
+                end
+              val ty4 = TyPair (as_TyPair ty2 ty3, ty2, ty3)
+              val kd2 = KdVar (KType :: fst (#1 j), CVar 0, KType)
+              val t_pack = CExists (KType, CProd (shift_c_c 1 1 $ #3 (extract_judge_typing ty2), CVar 0))
+              val kd1 = KdAdmit (KType :: fst (#1 j), t_pack, KType)
+              val ty5 = TyPack (as_TyPack kd1 kd2 ty4, kd1, kd2, ty4)
+              val ty6 = TyUnpack (as_TyUnpack ty ty5, ty, ty5)
+              val jty6 = extract_judge_typing ty6
+              val ty7 = TySub ((#1 jty6, #2 jty6, #3 jty6, #4 jty), ty6, ANF.gen_tyeq_refl (fst $ #1 jty6) (#3 jty6), PrAdmit (fst $ #1 jty6, TLe (#4 jty6, #4 jty)))
+            in
+              SOME ty7
+            end
+        | _ => NONE
+
+      fun transformer_proping _ = NONE
+      fun transformer_kdeq _ _ = NONE
+      fun transformer_kinding _ _ = NONE
+      fun transformer_wfkind _ _ = NONE
+      fun transformer_wfprop _ _ = NONE
+      fun transformer_tyeq _ _ = NONE
+    end)
+
+    fun clo_conv_ty ty = Helper.transform_typing (ty, ())
   end
 end

@@ -272,7 +272,7 @@ struct
     fun subst0_c_e to = subst_c_e to 0
   end
 
-  structure SubstEXpr =
+  structure SubstExpr =
   struct
     structure Helper = AstGenericOnlyDownTransformer(
     struct
@@ -297,6 +297,65 @@ struct
     fun subst_e_e to who e = Helper.transform_expr (e, (to, who))
 
     fun subst0_e_e to = subst_e_e to 0
+  end
+
+  structure DirectSubstCstr =
+  struct
+    structure Helper = AstGenericOnlyDownTransformer(
+    struct
+      type down = cstr * int
+
+      open ShiftCstr
+
+      fun add_kind (_, (to, who)) = (shift0_c_c to, who + 1)
+      fun add_type (_, (to, who)) = (to, who)
+
+      fun transformer_cstr (on_cstr, on_kind) (c, (to, who)) =
+        case c of
+          CVar x => SOME (if x = who then to else CVar x)
+        | _ => NONE
+
+      fun transformer_kind _ _ = NONE
+      fun transformer_prop _ _ = NONE
+      fun transformer_expr _ _ = NONE
+    end)
+
+    fun dsubst_c_c to who c = Helper.transform_cstr (c, (to, who))
+    fun dsubst_c_k to who k = Helper.transform_kind (k, (to, who))
+    fun dsubst_c_p to who p = Helper.transform_prop (p, (to, who))
+    fun dsubst_c_e to who e = Helper.transform_expr (e, (to, who))
+
+    fun dsubst0_c_c to = dsubst_c_c to 0
+    fun dsubst0_c_k to = dsubst_c_k to 0
+    fun dsubst0_c_p to = dsubst_c_p to 0
+    fun dsubst0_c_e to = dsubst_c_e to 0
+  end
+
+  structure DirectSubstExpr =
+  struct
+    structure Helper = AstGenericOnlyDownTransformer(
+    struct
+      type down = expr * int
+
+      open ShiftCstr
+      open ShiftExpr
+
+      fun add_kind (_, (to, who)) = (shift0_c_e to, who)
+      fun add_type (_, (to, who)) = (shift0_e_e to, who + 1)
+
+      fun transformer_expr (on_expr, on_cstr) (e, (to, who)) =
+        case e of
+          EVar x => SOME (if x = who then to else EVar x)
+        | _ => NONE
+
+      fun transformer_cstr _ _ = NONE
+      fun transformer_kind _ _ = NONE
+      fun transformer_prop _ _ = NONE
+    end)
+
+    fun dsubst_e_e to who e = Helper.transform_expr (e, (to, who))
+
+    fun dsubst0_e_e to = dsubst_e_e to 0
   end
 
   structure FVUtil =

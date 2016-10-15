@@ -4,7 +4,7 @@ struct
 
   infixr 0 $
 
-  structure DerivTransformers = DerivTransformers(
+  structure NatTime : SIG_TIME =
   struct
     type time_type = int
 
@@ -12,11 +12,11 @@ struct
     val Time1 = 1
 
     val str_time = str_int
-  end)
+  end
 
-  open DerivTransformers
+  structure DerivChecker = DerivChecker(NatTime)
+
   open DerivChecker
-  open ShiftCtx
   open ANF
 
   fun test_concat () =
@@ -295,7 +295,13 @@ struct
       val () = check_typing d50
       val concat_e = e50
       val concat_ty = d50
-      val concat_anf_ty = normalize_deriv concat_ty
+      val concat_clo_conv_ty = CloConv.clo_conv_ty concat_ty
+      val jconcat_clo_conv_ty = extract_judge_typing concat_clo_conv_ty
+      val () = println $ str_expr $ #2 jconcat_clo_conv_ty
+      val () = check_typing concat_clo_conv_ty
+      val concat_anf_ty = ANF.normalize_deriv concat_clo_conv_ty
+      val jconcat_anf_ty = extract_judge_typing concat_anf_ty
+      val () = println $ str_expr $ #2 jconcat_anf_ty
       val () = check_typing concat_anf_ty
     in
       ()

@@ -224,6 +224,7 @@ struct
   | KdRef of kinding_judgement * kinding
   | KdEq of kinding_judgement * kinding * kdeq
   | KdUnOp of kinding_judgement * kinding
+  | KdAdmit of kinding_judgement
 
   and wfkind =
     WfKdType of wfkind_judgement
@@ -374,6 +375,7 @@ struct
     | KdRef (j, _) => j
     | KdEq (j, _, _) => j
     | KdUnOp (j, _) => j
+    | KdAdmit j => j
 
   fun extract_judge_wfkind wk =
     case wk of
@@ -724,7 +726,7 @@ struct
           end
       | EFix (n, e) =>
           let
-            val (e, up1) = transform_expr (e, Action.add_type (NONE, foldr Action.add_kind down (tabulate (n, fn _ => NONE))))
+            val (e, up1) = transform_expr (e, Action.add_type (NONE, Action.add_type (NONE, foldr Action.add_kind down (tabulate (n, fn _ => NONE)))))
           in
             (EFix (n, e), combine [up1])
           end
@@ -1492,6 +1494,12 @@ struct
           in
             (KdUnOp (as_KdUnOp opr kd, kd), combine [up1])
           end
+      | KdAdmit judge =>
+          let
+            val (judge, up) = Action.on_kd_leaf (judge, down)
+          in
+            (KdAdmit judge, combine [up])
+          end
 
     and transform_kinding (kd, down) =
       case Action.transformer_kinding (transform_kinding, transform_wfkind, transform_kdeq) (kd, down) of
@@ -1856,15 +1864,16 @@ struct
           end
       | TyFix (judge, kd, ty) =>
           let
-            val t = #3 judge
+            val (kd, up1) = transform_kinding (kd, down)
+            val jkd = extract_judge_kinding kd
+            val t = #2 jkd
             fun unfold_CForalls t ks =
               case t of
                 CQuan (QuanForall, k, t) => unfold_CForalls t (k :: ks)
               | _ => (t, ks)
-            val (t, ks) = unfold_CForalls t []
-            val (t1, i, t2) = extract_c_arrow t
-            val (kd, up1) = transform_kinding (kd, down)
-            val (ty, up2) = transform_typing (ty, Action.add_type (t1, foldr Action.add_kind down ks))
+            val (it, ks) = unfold_CForalls t []
+            val (t1, i, t2) = extract_c_arrow it
+            val (ty, up2) = transform_typing (ty, Action.add_type (t1, Action.add_type (t, foldr Action.add_kind down ks)))
           in
             (TyFix (as_TyFix (#1 judge) kd ty, kd, ty), combine [up1, up2])
           end
