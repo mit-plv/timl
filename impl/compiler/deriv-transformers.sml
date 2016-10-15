@@ -991,6 +991,95 @@ struct
     open ShiftCtx
     open List
 
+    fun gen_kdeq_refl kctx k =
+      case k of
+        KType => KdEqKType (kctx, k, k)
+      | KArrow (k1, k2) =>
+          let
+            val ke1 = gen_kdeq_refl kctx k1
+            val ke2 = gen_kdeq_refl kctx k2
+          in
+            KdEqKArrow (as_KdEqKArrow ke1 ke2, ke1, ke2)
+          end
+      | KBaseSort s => KdEqBaseSort (kctx, k, k)
+      | KSubset (k, p) =>
+          let
+            val ke = gen_kdeq_refl kctx k
+            val pr = PrAdmit (k :: kctx, PIff (p, p))
+          in
+            KdEqSubset (as_KdEqKSubset ke pr, ke, pr)
+          end
+
+    fun gen_tyeq_refl kctx t =
+      case t of
+        CVar x => TyEqVar (kctx, t, t)
+      | CConst cn => TyEqConst (kctx, t, t)
+      | CBinOp (opr, t1, t2) =>
+          let
+            val te1 = gen_tyeq_refl kctx t1
+            val te2 = gen_tyeq_refl kctx t2
+          in
+            TyEqBinOp (as_TyEqBinOp opr te1 te2, te1, te2)
+          end
+      | CIte (i1, i2, i3) =>
+          let
+            val te1 = gen_tyeq_refl kctx i1
+            val te2 = gen_tyeq_refl kctx i2
+            val te3 = gen_tyeq_refl kctx i3
+          in
+            TyEqIte (as_TyEqIte te1 te2 te3, te1, te2, te3)
+          end
+      | CTimeAbs c => TyEqTimeAbs (kctx, t, t)
+      | CTimeApp (arity, c1, c2) =>
+          let
+            val te1 = gen_tyeq_refl kctx c1
+            val te2 = gen_tyeq_refl kctx c2
+          in
+            TyEqTimeApp (as_TyEqTimeApp arity te1 te2, te1, te2)
+          end
+      | CArrow (t1, i, t2) =>
+          let
+            val te1 = gen_tyeq_refl kctx t1
+            val pr = PrAdmit (kctx, TLe (i, i))
+            val te2 = gen_tyeq_refl kctx t2
+          in
+            TyEqArrow (as_TyEqArrow te1 pr te2, te1, pr, te2)
+          end
+      | CAbs c => TyEqAbs (kctx, t, t)
+      | CApp (c1, c2) =>
+          let
+            val te1 = gen_tyeq_refl kctx c1
+            val te2 = gen_tyeq_refl kctx c2
+          in
+            TyEqApp (as_TyEqApp te1 te2, te1, te2)
+          end
+      | CQuan (q, k, c) =>
+          let
+            val ke = gen_kdeq_refl kctx k
+            val te = gen_tyeq_refl (k :: kctx) c
+          in
+            TyEqQuan (as_TyEqQuan q ke te, ke, te)
+          end
+      | CRec (k, c) =>
+          let
+            val ke = gen_kdeq_refl kctx k
+            val te = gen_tyeq_refl (k :: kctx) c
+          in
+            TyEqRec (as_TyEqRec ke te, ke, te)
+          end
+      | CRef c =>
+          let
+            val te = gen_tyeq_refl kctx c
+          in
+            TyEqRef (as_TyEqRef te, te)
+          end
+      | CUnOp (opr, c) =>
+          let
+            val te = gen_tyeq_refl kctx c
+          in
+            TyEqUnOp (as_TyEqUnOp opr te, te)
+          end
+
     fun add_kind (k, (kctx, tctx)) = (k :: kctx, map shift0_c_c tctx)
     fun add_type (t, (kctx, tctx)) = (kctx, t :: tctx)
 
@@ -1015,6 +1104,11 @@ struct
       | TyAbs (j, kd, ty) =>
           let
             val ty = normalize_deriv ty
+            val (t1, i, t2) = extract_c_arrow (#3 j)
+            val jty = extract_judge_typing ty
+            val te = gen_tyeq_refl (fst $ #1 jty) (#3 jty)
+            val pr = PrAdmit (fst $ #1 jty, TLe (#4 jty, i))
+            val ty = TySub (as_TySub ty te pr, ty, te, pr)
           in
             cont (TyAbs (as_TyAbs kd ty, kd, ty), ([], []))
           end
@@ -1065,7 +1159,11 @@ struct
                  val jty1 = extract_judge_typing ty1
                  val (_, k, t) = extract_c_quan (#3 jty1)
                  val ty2 = shift_ctx_ty d1 (1, 1) ty2
+                 val jty2 = extract_judge_typing ty2
                  val ty2 = normalize ty2 (fn (ty2, d2 as (kctxd2, tctxd2)) => cont (ty2, concat_ctx (d2, concat_ctx (([k], [t]), d1))))
+                 val te2 = gen_tyeq_refl (fst $ #1 jty2) (#3 jty2)
+                 val pr2 = PrAdmit (fst $ #1 jty2, TLe (#4 (extract_judge_typing ty2), #4 jty2))
+                 val ty2 = TySub (as_TySub ty2 te2 pr2, ty2, te2, pr2)
                in
                  TyUnpack (as_TyUnpack ty1 ty2, ty1, ty2)
                end)
@@ -1100,11 +1198,13 @@ struct
       | TyCase (j, ty1, ty2, ty3) =>
           normalize_name ty1
             (fn (ty1, d1 as (kctxd, tctxd)) =>
-            let
+               let
                  val ty2 = shift_ctx_ty d1 (0, 1) ty2
                  val ty3 = shift_ctx_ty d1 (0, 1) ty3
                  val ty2 = normalize_deriv ty2
                  val ty3 = normalize_deriv ty3
+                 val jty2 = extract_judge_typing ty2
+                 val jty3 = extract_judge_typing ty3
                in
                  cont (TyCase (as_TyCase ty1 ty2 ty3, ty1, ty2, ty3), d1)
                end)
@@ -1144,7 +1244,7 @@ struct
                let
                  val te = shift0_ctx_te d te
                  val jty = extract_judge_typing ty
-                 val pr = PrAdmit (fst $ #1 jty, TLe (#4 jty, #4 jty)) (* FIXME : add prop to correct position *)
+                 val pr = PrAdmit (fst $ #1 jty, TLe (#4 jty, #4 jty))
                in
                  cont (TySub (as_TySub ty te pr, ty, te, pr), d)
                end)

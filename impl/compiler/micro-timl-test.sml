@@ -17,96 +17,7 @@ struct
   open DerivTransformers
   open DerivChecker
   open ShiftCtx
-  open DerivAssembler
-
-  fun gen_kdeq_refl kctx k =
-    case k of
-      KType => KdEqKType (kctx, k, k)
-    | KArrow (k1, k2) =>
-        let
-          val ke1 = gen_kdeq_refl kctx k1
-          val ke2 = gen_kdeq_refl kctx k2
-        in
-          KdEqKArrow (as_KdEqKArrow ke1 ke2, ke1, ke2)
-        end
-    | KBaseSort s => KdEqBaseSort (kctx, k, k)
-    | KSubset (k, p) =>
-        let
-          val ke = gen_kdeq_refl kctx k
-          val pr = PrAdmit (k :: kctx, PIff (p, p))
-        in
-          KdEqSubset (as_KdEqKSubset ke pr, ke, pr)
-        end
-
-  fun gen_tyeq_refl kctx t =
-    case t of
-      CVar x => TyEqVar (kctx, t, t)
-    | CConst cn => TyEqConst (kctx, t, t)
-    | CBinOp (opr, t1, t2) =>
-        let
-          val te1 = gen_tyeq_refl kctx t1
-          val te2 = gen_tyeq_refl kctx t2
-        in
-            TyEqBinOp (as_TyEqBinOp opr te1 te2, te1, te2)
-        end
-    | CIte (i1, i2, i3) =>
-        let
-          val te1 = gen_tyeq_refl kctx i1
-          val te2 = gen_tyeq_refl kctx i2
-          val te3 = gen_tyeq_refl kctx i3
-        in
-          TyEqIte (as_TyEqIte te1 te2 te3, te1, te2, te3)
-        end
-    | CTimeAbs c => TyEqTimeAbs (kctx, t, t)
-    | CTimeApp (arity, c1, c2) =>
-        let
-          val te1 = gen_tyeq_refl kctx c1
-          val te2 = gen_tyeq_refl kctx c2
-        in
-          TyEqTimeApp (as_TyEqTimeApp arity te1 te2, te1, te2)
-        end
-    | CArrow (t1, i, t2) =>
-        let
-          val te1 = gen_tyeq_refl kctx t1
-          val pr = PrAdmit (kctx, TLe (i, i))
-          val te2 = gen_tyeq_refl kctx t2
-        in
-          TyEqArrow (as_TyEqArrow te1 pr te2, te1, pr, te2)
-        end
-    | CAbs c => TyEqAbs (kctx, t, t)
-    | CApp (c1, c2) =>
-        let
-          val te1 = gen_tyeq_refl kctx c1
-          val te2 = gen_tyeq_refl kctx c2
-        in
-          TyEqApp (as_TyEqApp te1 te2, te1, te2)
-        end
-    | CQuan (q, k, c) =>
-        let
-          val ke = gen_kdeq_refl kctx k
-          val te = gen_tyeq_refl (k :: kctx) c
-        in
-          TyEqQuan (as_TyEqQuan q ke te, ke, te)
-        end
-    | CRec (k, c) =>
-        let
-          val ke = gen_kdeq_refl kctx k
-          val te = gen_tyeq_refl (k :: kctx) c
-        in
-          TyEqRec (as_TyEqRec ke te, ke, te)
-        end
-    | CRef c =>
-        let
-          val te = gen_tyeq_refl kctx c
-        in
-          TyEqRef (as_TyEqRef te, te)
-        end
-    | CUnOp (opr, c) =>
-        let
-          val te = gen_tyeq_refl kctx c
-        in
-          TyEqUnOp (as_TyEqUnOp opr te, te)
-        end
+  open ANF
 
   fun test_concat () =
     let
@@ -180,11 +91,10 @@ struct
       val ct17 = tl ct16
       val d17 = KdQuan ((ct17, c17, KType), WfKdType (ct17, KType), d16)
       val () = check_kinding d17
-      val concat_ty = c17
+      val concat_t = c17
       val concat_kd = d17
-      val concat_e = ERec (EAbsC (EAbsC (EAbsC (EAbs (ECase (EProj (ProjFst, EUnfold (EVar 0)), EProj (ProjSnd, EVar 1), EUnpack (EVar 0, EUnpack (EVar 0, EFold (EInj (InjInr, EPack (CBinOp (CBNatAdd, CVar 1, CVar 2), EPack (CVar 0, EPair (EProj (ProjFst, EVar 0), EApp (EAppC (EAppC (EAppC (EVar 4, CVar 4), CVar 1), CVar 2), EPair (EProj (ProjSnd, EVar 0), EProj (ProjSnd, EVar 3))))))))))))))))
       val e18 = EProj (ProjSnd, EVar 1)
-      val ct18 = ([KNat, KNat, KType], [CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 2, CNat 0)), CTypeUnit), CProd (CApps list_dec [CVar 2, CVar 1], CApps list_dec [CVar 2, CVar 0]), concat_ty])
+      val ct18 = ([KNat, KNat, KType], [CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 2, CNat 0)), CTypeUnit), CProd (CApps list_dec [CVar 2, CVar 1], CApps list_dec [CVar 2, CVar 0]), concat_t])
       val t18 = CApps list_dec [CVar 2, CVar 0]
       val i18 = T0
       val d18 = TyProj ((ct18, e18, t18, i18), TyVar (ct18, EVar 1, nth (snd ct18, 1), T0))
@@ -196,7 +106,7 @@ struct
       val d19 = TySub ((ct19, e19, t19, i19), d18, TyEqApp ((fst ct19, t18, t19), TyEqApp ((fst ct19, CApp (list_dec, CVar 2), CApp (list_dec, CVar 2)), TyEqRec ((fst ct19, list_dec, list_dec), KdEqKArrow ((fst ct19, KArrow (KType, KArrow (KNat, KType)), KArrow (KType, KArrow (KNat, KType))), KdEqKType (fst ct19, KType, KType), KdEqKArrow ((fst ct19, KArrow (KNat, KType), KArrow (KNat, KType)), KdEqBaseSort (fst ct19, KNat, KNat), KdEqKType (fst ct19, KType, KType))), TyEqAbs (KArrow (KType, KArrow (KNat, KType)) :: fst ct19, c8, c8)), TyEqVar (fst ct19, CVar 2, CVar 2)), TyEqNatEq ((fst ct19, CVar 0, CBinOp (CBNatAdd, CVar 1, CVar 0)), PrAdmit (fst ct19, PBinPred (PBNatEq, CVar 0, CBinOp (CBNatAdd, CVar 1, CVar 0))))), PrAdmit (fst ct19, TLe (i18, i19)))
       val () = check_typing d19
       val e20 = EProj (ProjFst, EVar 0)
-      val ct20 = ([KSubset (KUnit, PBinPred (PBNatEq, CVar 3, CBinOp (CBNatAdd, CVar 1, CNat 1))), KNat, KNat, KNat, KType], [CProd (CVar 4, CApps list_dec [CVar 4, CVar 1]), CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, CNat 1))), CProd (CVar 5, CApps list_dec [CVar 5, CVar 2])), CExists (KNat, CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 5, CBinOp (CBNatAdd, CVar 1, CNat 1))), CProd (CVar 6, CApps list_dec [CVar 6, CVar 1]))), CProd (CApps list_dec [CVar 4, CVar 3], CApps list_dec [CVar 4, CVar 2]), concat_ty])
+      val ct20 = ([KSubset (KUnit, PBinPred (PBNatEq, CVar 3, CBinOp (CBNatAdd, CVar 1, CNat 1))), KNat, KNat, KNat, KType], [CProd (CVar 4, CApps list_dec [CVar 4, CVar 1]), CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, CNat 1))), CProd (CVar 5, CApps list_dec [CVar 5, CVar 2])), CExists (KNat, CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 5, CBinOp (CBNatAdd, CVar 1, CNat 1))), CProd (CVar 6, CApps list_dec [CVar 6, CVar 1]))), CProd (CApps list_dec [CVar 4, CVar 3], CApps list_dec [CVar 4, CVar 2]), concat_t])
       val t20 = CVar 4
       val i20 = T0
       val d20 = TyProj ((ct20, e20, t20, i20), TyVar (ct20, EVar 0, nth (snd ct20, 0), T0))
@@ -221,7 +131,7 @@ struct
       val () = check_typing d23
       val e24 = EAppC (EVar 4, CVar 4)
       val ct24 = ct23
-      val t24 = subst0_c_c (CVar 4) (#3 (extract_c_quan concat_ty))
+      val t24 = subst0_c_c (CVar 4) (#3 (extract_c_quan concat_t))
       val i24 = T0
       val d24 = TyAppC ((ct24, e24, t24, i24), TyVar (ct24, EVar 4, nth (snd ct24, 4), T0), KdVar (fst ct24, CVar 4, KType))
       val () = check_typing d24
@@ -383,6 +293,10 @@ struct
       val i50 = T0
       val d50 = TyRec ((ct50, e50, t50, i50), concat_kd, d49)
       val () = check_typing d50
+      val concat_e = e50
+      val concat_ty = d50
+      val concat_anf_ty = normalize_deriv concat_ty
+      val () = check_typing concat_anf_ty
     in
       ()
     end
