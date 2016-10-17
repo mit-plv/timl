@@ -31,6 +31,7 @@ Group is
       compiler/ast-transformers.sml
       compiler/deriv-transformers.sml
       compiler/deriv-checker.sml
+      compiler/micro-timl-hoisted-def.sml
       compiler/micro-timl-test.sml
 
       $/basis.cm
