@@ -14,9 +14,9 @@ struct
     val str_time = str_int
   end
 
-  structure DerivChecker = DerivChecker(NatTime)
+  structure MicroTiMLHoisted = MicroTiMLHoisted(NatTime)
 
-  open DerivChecker
+  open MicroTiMLHoisted
   open ANF
 
   fun test_concat () =
@@ -303,6 +303,8 @@ struct
       val jconcat_anf_ty = extract_judge_typing concat_anf_ty
       val () = println $ str_expr $ #2 jconcat_anf_ty
       val () = check_typing concat_anf_ty
+      val concat_hoisted_ty = Hoist.hoist concat_anf_ty
+      val () = HoistedDerivChecker.check_program concat_hoisted_ty
     in
       ()
     end
