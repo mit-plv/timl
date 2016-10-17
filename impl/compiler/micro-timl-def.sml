@@ -487,6 +487,12 @@ struct
   fun extract_e_proj (EUnOp (EUProj p, e)) = (p, e)
     | extract_e_proj _ = raise (Impossible "extract_e_proj")
 
+  fun extract_e_abs (EAbs a) = a
+    | extract_e_abs _ = raise (Impossible "extract_e_abs")
+
+  fun extract_e_abs_c (EAbsC a) =a
+    | extract_e_abs_c _ = raise (Impossible "extract_e_abs_c")
+
   functor AstGenericTransformer(Action:
   sig
     type down

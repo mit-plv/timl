@@ -611,17 +611,6 @@ struct
       fun add_kind (_, ()) = ()
       fun add_type (_, ()) = ()
 
-      fun on_pr_leaf (pr, ()) = pr
-      fun on_ke_leaf (ke, ()) = ke
-      fun on_kd_leaf (kd, ()) = kd
-      fun on_wk_leaf (wk, ()) = wk
-      fun on_wp_leaf (wp, ()) = wp
-      fun on_te_leaf (te, ()) = te
-      fun on_ty_leaf (ty as ((kctx, tctx), e, t, i), ()) =
-        case e of
-          EVar x => ((kctx, tctx), e, List.nth (tctx, x), T0)
-        | _ => ty
-
       open DerivFVCstr
       open DerivFVExpr
       open List
@@ -634,10 +623,79 @@ struct
       open DerivChangeContext
       open DerivAssembler
 
+      fun transform_type t =
+        case t of
+          CVar x => CVar x
+        | CConst cn => CConst cn
+        | CBinOp (opr, t1, t2) =>
+            let
+              val t1 = transform_type t1
+              val t2 = transform_type t2
+            in
+              CBinOp (opr, t1, t2)
+            end
+        | CIte (i1, i2, i3) =>
+            let
+              val i1 = transform_type i1
+              val i2 = transform_type i2
+              val i3 = transform_type i3
+            in
+              CIte (i1, i2, i3)
+            end
+        | CTimeAbs c => CTimeAbs (transform_type c)
+        | CTimeApp (arity, c1, c2) =>
+            let
+              val c1 = transform_type c1
+              val c2 = transform_type c2
+            in
+              CTimeApp (arity, c1, c2)
+            end
+        | CArrow (t1, i, t2) =>
+            let
+              val t1 = transform_type t1
+              val i = transform_type i
+              val t2 = transform_type t2
+            in
+              CExists (KType, CProd (CArrow (ShiftCstr.shift0_c_c t1, ShiftCstr.shift0_c_c i, ShiftCstr.shift0_c_c t2), CVar 0))
+            end
+        | CAbs c => CAbs (transform_type c)
+        | CApp (c1, c2) =>
+            let
+              val c1 = transform_type c1
+              val c2 = transform_type c2
+            in
+              CApp (c1, c2)
+            end
+        | CQuan (q, k, c) =>
+            let
+              val c = transform_type c
+            in
+              CQuan (q, k, c)
+            end
+        | CRec (k, c) =>
+            let
+              val c = transform_type c
+            in
+              CRec (k, c)
+            end
+        | CRef c => CRef (transform_type c)
+        | CUnOp (opr, c) => CUnOp (opr, transform_type c)
+
+      fun on_pr_leaf (pr, ()) = pr
+      fun on_ke_leaf (ke, ()) = ke
+      fun on_kd_leaf ((kctx, c, k), ()) = (kctx, transform_type c, k)
+      fun on_wk_leaf (wk, ()) = wk
+      fun on_wp_leaf (wp, ()) = wp
+      fun on_te_leaf (te, ()) = te
+      fun on_ty_leaf (ty as ((kctx, tctx), e, t, i), ()) =
+        case e of
+          EVar x => ((kctx, tctx), e, List.nth (tctx, x), T0)
+        | EConst cn => ((kctx, tctx), e, const_type cn, T0)
+        | _ => raise (Impossible "CloConv")
+
       fun transformer_typing (on_typing, on_kinding, on_wfkind, on_tyeq, on_proping) (ty, ()) =
         case ty of
-          TyAbs (j, kd, ty_inner) => NONE
-        | TyRec (j, kd, ty_inner) =>
+          TyRec (j, kd, ty_inner) =>
             let
               val fcv = free_vars0_c_ty ty
               val fev = free_vars0_e_ty ty
@@ -672,9 +730,11 @@ struct
                 | 1 => hd new_types
                 | _ => foldl (fn (a, b) => CProd (a, b)) (CProd (hd $ tl new_types, hd new_types)) (tl $ tl new_types)
 
-              (* FIXME: change the types to correct form : inner type can be arrow *)
               val t_arrow_self = foldli (fn (j, x, t) => dsubst_c_c (CVar (j + length wks)) (x + length wks) t) (#3 j_abs) fcv
               val (t_arrow_1, t_arrow_i, t_arrow_2) = extract_c_arrow t_arrow_self
+              val t_arrow_1 = transform_type t_arrow_1
+              val t_arrow_i = transform_type t_arrow_i
+              val t_arrow_2 = transform_type t_arrow_2
               val t_arrow_self = CArrow (CProd (t_env, t_arrow_1), t_arrow_i, t_arrow_2)
               val t_partial_self = foldl (fn (a, b) => CForall (a, b)) t_arrow_self new_ori_kinds
               val t_self = foldl (fn (a, b) => CForall (a, b)) t_partial_self new_kinds
@@ -828,7 +888,22 @@ struct
             in
               SOME ty_pack
             end
-        | TyAbsC _ => NONE
+        | TyAbs (j, kd, ty_inner) =>
+            let
+              val body = extract_e_abs (#2 j)
+              val kd = KdAdmit (fst $ #1 j, #3 j, KType)
+              val ty = ShiftCtx.shift0_ctx_ty ([], [#3 j]) ty
+            in
+              SOME (on_typing (TyRec (as_TyRec kd ty, kd, ty), ()))
+            end
+        | TyAbsC (j, wk, ty_inner) =>
+            let
+              val body = extract_e_abs_c (#2 j)
+              val kd = KdAdmit (fst $ #1 j, #3 j, KType)
+              val ty = ShiftCtx.shift0_ctx_ty ([], [#3 j]) ty
+            in
+              SOME (on_typing (TyRec (as_TyRec kd ty, kd, ty), ()))
+            end
         | TyApp (j, ty1, ty2) =>
             let
               val ty1 = on_typing (ty1, ())
@@ -909,14 +984,48 @@ struct
             in
               SOME ty7
             end
+        | TyFix _ => raise (Impossible "CloConv")
+        | _ => NONE
+
+
+      fun transformer_tyeq (on_tyeq, on_proping, on_kdeq) (te, ()) =
+        case te of
+          TyEqArrow (j, te1, pr, te2) =>
+            let
+              val te1 = on_tyeq (te1, ())
+              val pr = on_proping (pr, ())
+              val te2 = on_tyeq (te2, ())
+              val te = TyEqArrow (as_TyEqArrow te1 pr te2, te1, pr, te2)
+              val jte = extract_judge_tyeq te
+              val ke = KdEqKType (#1 jte, KType, KType)
+              val te = ShiftCtx.shift0_ctx_te ([KType], []) te
+            in
+              SOME (TyEqQuan (as_TyEqQuan QuanExists ke te, ke, te))
+            end
+        | TyEqAbs j => SOME (TyEqAbs (#1 j, transform_type (#2 j), transform_type (#3 j)))
+        | TyEqTimeAbs j => SOME (TyEqTimeAbs (#1 j, transform_type (#2 j), transform_type (#3 j)))
+        | _ => NONE
+
+      fun transformer_kinding (on_kinding, on_wfkind, on_kdeq) (kd, ()) =
+        case kd of
+          KdArrow (j, kd1, kd2, kd3) =>
+            let
+              val kd1 = on_kinding (kd1, ())
+              val kd2 = on_kinding (kd2, ())
+              val kd3 = on_kinding (kd3, ())
+              val kd = KdArrow (as_KdArrow kd1 kd2 kd3, kd1, kd2, kd3)
+              val jkd = extract_judge_kinding kd
+              val wk = WfKdType (#1 jkd, KType)
+              val kd = ShiftCtx.shift0_ctx_kd ([KType], []) kd
+            in
+              SOME (KdQuan (as_KdQuan QuanExists wk kd, wk, kd))
+            end
         | _ => NONE
 
       fun transformer_proping _ = NONE
       fun transformer_kdeq _ _ = NONE
-      fun transformer_kinding _ _ = NONE
       fun transformer_wfkind _ _ = NONE
       fun transformer_wfprop _ _ = NONE
-      fun transformer_tyeq _ _ = NONE
     end)
 
     fun clo_conv_ty ty = Helper.transform_typing (ty, ())
