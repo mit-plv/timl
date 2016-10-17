@@ -231,6 +231,7 @@ struct
   | WfKdArrow of wfkind_judgement * wfkind * wfkind
   | WfKdBaseSort of wfkind_judgement
   | WfKdSubset of wfkind_judgement * wfkind * wfprop
+  | WfKdAdmit of wfkind_judgement
 
   and wfprop =
     WfPropTrue of wfprop_judgement
@@ -383,6 +384,7 @@ struct
     | WfKdArrow (j, _, _) => j
     | WfKdBaseSort j => j
     | WfKdSubset (j, _, _) => j
+    | WfKdAdmit j => j
 
   fun extract_judge_wfprop wp =
     case wp of
@@ -1540,6 +1542,12 @@ struct
             val (wp, up2) = transform_wfprop (wp, Action.add_kind (#2 jwk, down))
           in
             (WfKdSubset (as_WfKdSubset wk wp, wk, wp), combine [up1, up2])
+          end
+      | WfKdAdmit judge =>
+          let
+            val (judge, up) = Action.on_wk_leaf (judge, down)
+          in
+            (WfKdAdmit judge, combine [up])
           end
 
     and transform_wfkind (wk, down) =

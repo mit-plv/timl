@@ -280,6 +280,7 @@ struct
           in
             ()
           end
+      | WfKdAdmit (kctx, k) => ()
       | _ => raise CheckFail)
       handle CheckFail =>
         let
