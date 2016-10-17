@@ -660,7 +660,7 @@ struct
               val i = transform_type i
               val t2 = transform_type t2
             in
-              CExists (KType, CProd (CArrow (ShiftCstr.shift0_c_c t1, ShiftCstr.shift0_c_c i, ShiftCstr.shift0_c_c t2), CVar 0))
+              CExists (KType, CProd (CArrow (CProd (CVar 0, ShiftCstr.shift0_c_c t1), ShiftCstr.shift0_c_c i, ShiftCstr.shift0_c_c t2), CVar 0))
             end
         | CAbs c => CAbs (transform_type c)
         | CApp (c1, c2) =>
@@ -944,7 +944,8 @@ struct
         | TyAbs (j, kd, ty_inner) =>
             let
               val body = extract_e_abs (#2 j)
-              val kd = KdAdmit (fst $ #1 j, #3 j, KType)
+              val (t1, i, t2) = extract_c_arrow (#3 j)
+              val kd = KdArrow ((fst $ #1 j, #3 j, KType), kd, KdAdmit (fst $ #1 j, i, KTime), KdAdmit (fst $ #1 j, t2, KType))
               val ty = ShiftCtx.shift0_ctx_ty ([], [#3 j]) ty
             in
               SOME (on_typing (TyRec (as_TyRec kd ty, kd, ty), ()))
@@ -952,7 +953,8 @@ struct
         | TyAbsC (j, wk, ty_inner) =>
             let
               val body = extract_e_abs_c (#2 j)
-              val kd = KdAdmit (fst $ #1 j, #3 j, KType)
+              val (_, k, t) = extract_c_quan (#3 j)
+              val kd = KdQuan ((fst $ #1 j, #3 j, KType), wk, KdAdmit (k :: (fst $ #1 j), t, KType))
               val ty = ShiftCtx.shift0_ctx_ty ([], [#3 j]) ty
             in
               SOME (on_typing (TyRec (as_TyRec kd ty, kd, ty), ()))

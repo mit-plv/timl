@@ -574,10 +574,10 @@ struct
             val () = assert (#1 jty1 = ctx)
             val () = assert (#2 jty1 = e1)
             val () = assert (#3 jty1 = CArrow (#3 jty2, i, t2))
-            val () = assert (#4 jty1 = i1)
+            (*val () = assert (#4 jty1 = i1)
             val () = assert (#1 jty2 = ctx)
             val () = assert (#2 jty2 = e2)
-            val () = assert (#4 jty2 = i2)
+            val () = assert (#4 jty2 = i2)*)
           in
             ()
           end

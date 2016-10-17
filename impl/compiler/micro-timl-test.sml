@@ -19,6 +19,32 @@ struct
   open MicroTiMLHoisted
   open ANF
 
+  fun test_currying () =
+    let
+      val e1 = EAbs (EAbs (EPair (EVar 1, EVar 0)))
+      val ct1 = ([], [])
+      val i1 = T0
+      val t1 = CArrow (CInt, T0, CArrow (CInt, Tadd (T0, T0), CProd (CInt, CInt)))
+      val d1 = TyAbs ((ct1, e1, t1, i1), KdConst ([], CInt, KType), TyAbs ((([], [CInt]), EAbs (EPair (EVar 1, EVar 0)), CArrow (CInt, Tadd (T0, T0), CProd (CInt, CInt)), T0), KdConst ([], CInt, KType), TyPair ((([], [CInt, CInt]), EPair (EVar 1, EVar 0), CProd (CInt, CInt), Tadd (T0, T0)), TyVar (([], [CInt, CInt]), EVar 1, CInt, T0), TyVar (([], [CInt, CInt]), EVar 0, CInt, T0))))
+      val () = check_typing d1
+      val d2 = TyApp (as_TyApp d1 (TyConst (([], []), EConst (ECInt 2), CInt, T0)), d1, TyConst (([], []), EConst (ECInt 2), CInt, T0))
+      val () = check_typing d2
+      val d3 = TyApp (as_TyApp d2 (TyConst (([], []), EConst (ECInt 6), CInt, T0)), d2, TyConst (([], []), EConst (ECInt 6), CInt, T0))
+      val () = check_typing d3
+      val clo_conv_ty = CloConv.clo_conv_ty d3
+      val jclo_conv_ty = extract_judge_typing clo_conv_ty
+      val () = println $ str_expr $ #2 jclo_conv_ty
+      val () = check_typing clo_conv_ty
+      val anf_ty = fst $ ANF.normalize_deriv clo_conv_ty
+      val janf_ty = extract_judge_typing anf_ty
+      val () = println $ str_expr $ #2 janf_ty
+      val () = check_typing anf_ty
+      val hoisted_ty = Hoist.hoist anf_ty
+      val () = HoistedDerivChecker.check_program hoisted_ty
+    in
+      ()
+    end
+
   fun test_concat () =
     let
       val c1 = CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 1, CNat 0)), CTypeUnit)
@@ -311,6 +337,7 @@ struct
 
   fun main(prog_name : string, args : string list) : int =
     let
+      val () = test_currying ()
       val () = test_concat ()
     in
       0
