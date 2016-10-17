@@ -299,7 +299,7 @@ struct
       val jconcat_clo_conv_ty = extract_judge_typing concat_clo_conv_ty
       val () = println $ str_expr $ #2 jconcat_clo_conv_ty
       val () = check_typing concat_clo_conv_ty
-      val concat_anf_ty = ANF.normalize_deriv concat_clo_conv_ty
+      val concat_anf_ty = fst $ ANF.normalize_deriv concat_clo_conv_ty
       val jconcat_anf_ty = extract_judge_typing concat_anf_ty
       val () = println $ str_expr $ #2 jconcat_anf_ty
       val () = check_typing concat_anf_ty

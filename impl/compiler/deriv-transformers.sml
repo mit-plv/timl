@@ -62,10 +62,12 @@ struct
     fun shift_ctx_ty ctxd dep ty = Helper.transform_typing (ty, (ctxd, dep))
     fun shift_ctx_kd ctxd dep kd = Helper.transform_kinding (kd, (ctxd, dep))
     fun shift_ctx_te ctxd dep te = Helper.transform_tyeq (te, (ctxd, dep))
+    fun shift_ctx_pr ctxd dep pr = Helper.transform_proping (pr, (ctxd, dep))
 
     fun shift0_ctx_ty ctxd = shift_ctx_ty ctxd (0, 0)
     fun shift0_ctx_kd ctxd = shift_ctx_kd ctxd (0, 0)
     fun shift0_ctx_te ctxd = shift_ctx_te ctxd (0, 0)
+    fun shift0_ctx_pr ctxd = shift_ctx_pr ctxd (0, 0)
   end
 
   structure DerivAssembler = DerivAssembler(
@@ -401,167 +403,155 @@ struct
     fun concat_ctx ((kctx1, tctx1), (kctx2, tctx2)) =
       (kctx1 @ kctx2, tctx1 @ map (shift_c_c (length kctx1) 0) tctx2)
 
-    fun normalize_deriv ty = normalize ty (fn (ty, (kctxd, tctxd)) => ty)
+    fun normalize_deriv ty = normalize ty (fn (ty, (kctxd, tctxd), ti) => (ty, ti))
 
-    and normalize ty cont =
+    and normalize ty (cont : typing * ctx * cstr -> typing * cstr) =
       case ty of
-        TyVar j => cont (ty, ([], []))
+        TyVar j => cont (ty, ([], []), T0)
       | TyApp (j, ty1, ty2) =>
           normalize_name ty1
-            (fn (ty1, d1 as (kctxd1, tctxd1)) =>
+            (fn (ty1, d1 as (kctxd1, tctxd1), ti1) =>
                normalize_name (shift0_ctx_ty d1 ty2)
-                 (fn (ty2, d2 as (kctxd2, tctxd2)) =>
+                 (fn (ty2, d2 as (kctxd2, tctxd2), ti2) =>
                     let
                       val ty1 = shift0_ctx_ty d2 ty1
+                      val jty1 = extract_judge_typing ty1
+                      val (_, i, _) = extract_c_arrow (#3 jty1)
+                      val ti1 = shift_c_c (length kctxd2) 0 ti1
                     in
-                      cont (TyApp (as_TyApp ty1 ty2, ty1, ty2), concat_ctx (d2, d1))
+                      cont (TyApp (as_TyApp ty1 ty2, ty1, ty2), concat_ctx (d2, d1), Tadd (Tadd (ti1, ti2), Tadd (T1, i)))
                     end))
-      | TyAbs (j, kd, ty) =>
-          let
-            val ty = normalize_deriv ty
-            val (t1, i, t2) = extract_c_arrow (#3 j)
-            val jty = extract_judge_typing ty
-            val te = gen_tyeq_refl (fst $ #1 jty) (#3 jty)
-            val pr = PrAdmit (fst $ #1 jty, TLe (#4 jty, i))
-            val ty = TySub (as_TySub ty te pr, ty, te, pr)
-          in
-            cont (TyAbs (as_TyAbs kd ty, kd, ty), ([], []))
-          end
       | TyAppC (j, ty, kd) =>
           normalize_name ty
-            (fn (ty, d as (kctxd, tctxd)) =>
+            (fn (ty, d as (kctxd, tctxd), ti) =>
                let
                  val kd = shift0_ctx_kd d kd
                in
-                 cont (TyAppC (as_TyAppC ty kd, ty, kd), d)
+                 cont (TyAppC (as_TyAppC ty kd, ty, kd), d, ti)
                end)
-      | TyAbsC (j, wk, ty) =>
-          let
-            val ty = normalize_deriv ty
-          in
-            cont (TyAbsC (as_TyAbsC wk ty, wk, ty), ([], []))
-          end
-      | TyRec (j, kd, ty) =>
-          let
-            val ty = normalize_deriv ty
-          in
-            cont (TyRec (as_TyRec kd ty, kd, ty), ([], []))
-          end
       | TyFold (j, kd, ty) =>
           normalize_name ty
-            (fn (ty, d as (kctxd, tctxd)) =>
+            (fn (ty, d as (kctxd, tctxd), ti) =>
                let
                  val kd = shift0_ctx_kd d kd
                in
-                 cont (TyFold (as_TyFold kd ty, kd, ty), d)
+                 cont (TyFold (as_TyFold kd ty, kd, ty), d, ti)
                end)
       | TyUnfold (j, ty) =>
           normalize_name ty
-            (fn (ty, d as (kctxd, tctxd)) => cont (TyUnfold (as_TyUnfold ty, ty), d))
+            (fn (ty, d as (kctxd, tctxd), ti) => cont (TyUnfold (as_TyUnfold ty, ty), d, ti))
       | TyPack (j, kd1, kd2, ty) =>
           normalize_name ty
-            (fn (ty, d as (kctxd, tctxd)) =>
+            (fn (ty, d as (kctxd, tctxd), ti) =>
                let
                  val kd1 = shift0_ctx_kd d kd1
                  val kd2 = shift0_ctx_kd d kd2
                in
-                 cont (TyPack (as_TyPack kd1 kd2 ty, kd1, kd2, ty), d)
+                 cont (TyPack (as_TyPack kd1 kd2 ty, kd1, kd2, ty), d, ti)
                end)
       | TyUnpack (j, ty1, ty2) =>
           normalize ty1
-            (fn (ty1, d1 as (kctxd1, tctxd1)) =>
+            (fn (ty1, d1 as (kctxd1, tctxd1), ti1) =>
                let
                  val jty1 = extract_judge_typing ty1
                  val (_, k, t) = extract_c_quan (#3 jty1)
                  val ty2 = shift_ctx_ty (kctxd1, map shift0_c_c tctxd1) (1, 1) ty2
-                 val ty2 = normalize ty2 (fn (ty2, d2 as (kctxd2, tctxd2)) => cont (ty2, concat_ctx (d2, concat_ctx (([k], [t]), d1))))
+                 val (ty2, ti2) = normalize ty2
+                   (fn (ty2, d2 as (kctxd2, tctxd2), ti2) =>
+                      cont (ty2, concat_ctx (d2, concat_ctx (([k], [t]), d1)), ti2))
+                 val jty2 = extract_judge_typing ty2
+                 val ty2 = TySub ((#1 jty2, #2 jty2, #3 jty2, ti2), ty2, gen_tyeq_refl (fst $ #1 jty2) (#3 jty2), PrAdmit (fst $ #1 jty2, TLe (#4 jty2, ti2)))
                in
-                 TyUnpack (as_TyUnpack ty1 ty2, ty1, ty2)
+                 (TyUnpack (as_TyUnpack ty1 ty2, ty1, ty2), Tadd (ti1, shift_c_c ~1 0 ti2))
                end)
-      | TyConst j => cont (ty, ([], []))
+      | TyConst j => cont (ty, ([], []), T0)
       | TyPair (j, ty1, ty2) =>
           normalize_name ty1
-            (fn (ty1, d1 as (kctxd1, tctxd1)) =>
+            (fn (ty1, d1 as (kctxd1, tctxd1), ti1) =>
                normalize_name (shift0_ctx_ty d1 ty2)
-                 (fn (ty2, d2 as (kctxd2, tctxd2)) =>
+                 (fn (ty2, d2 as (kctxd2, tctxd2), ti2) =>
                     let
                       val ty1 = shift0_ctx_ty d2 ty1
+                      val ti1 = shift_c_c (length kctxd2) 0 ti1
                     in
-                      cont (TyPair (as_TyPair ty1 ty2, ty1, ty2), concat_ctx (d2, d1))
+                      cont (TyPair (as_TyPair ty1 ty2, ty1, ty2), concat_ctx (d2, d1), Tadd (ti1, ti2))
                     end))
       | TyProj (j, ty) =>
           normalize_name ty
-            (fn (ty, d as (kctxd, tctxd)) =>
+            (fn (ty, d as (kctxd, tctxd), ti) =>
                let
                  val (p, _) = extract_e_proj (#2 j)
                in
-                 cont (TyProj (as_TyProj p ty, ty), d)
+                 cont (TyProj (as_TyProj p ty, ty), d, ti)
                end)
       | TyInj (j, ty, kd) =>
           normalize_name ty
-            (fn (ty, d as (kctxd, tctxd)) =>
+            (fn (ty, d as (kctxd, tctxd), ti) =>
                let
                  val (inj, _) = extract_e_inj (#2 j)
                  val kd = shift0_ctx_kd d kd
                in
-                 cont (TyInj (as_TyInj inj ty kd, ty, kd), d)
+                 cont (TyInj (as_TyInj inj ty kd, ty, kd), d, ti)
                end)
       | TyCase (j, ty1, ty2, ty3) =>
           normalize_name ty1
-            (fn (ty1, d1 as (kctxd, tctxd)) =>
+            (fn (ty1, d1 as (kctxd, tctxd), ti) =>
                let
                  val ty2 = shift_ctx_ty d1 (0, 1) ty2
                  val ty3 = shift_ctx_ty d1 (0, 1) ty3
-                 val ty2 = normalize_deriv ty2
-                 val ty3 = normalize_deriv ty3
+                 val (ty2, ti2) = normalize_deriv ty2
+                 val (ty3, ti3) = normalize_deriv ty3
                  val jty2 = extract_judge_typing ty2
                  val jty3 = extract_judge_typing ty3
                in
-                 cont (TyCase (as_TyCase ty1 ty2 ty3, ty1, ty2, ty3), d1)
+                 cont (TyCase (as_TyCase ty1 ty2 ty3, ty1, ty2, ty3), d1, Tadd (ti, Tmax (ti2, ti3)))
                end)
       | TyNew (j, ty) =>
           normalize_name ty
-            (fn (ty, d as (kctxd, tctxd)) => cont (TyNew (as_TyNew ty, ty), d))
+            (fn (ty, d as (kctxd, tctxd), ti) => cont (TyNew (as_TyNew ty, ty), d, ti))
       | TyRead (j, ty) =>
           normalize_name ty
-            (fn (ty, d as (kctxd, tctxd)) => cont (TyRead (as_TyRead ty, ty), d))
+            (fn (ty, d as (kctxd, tctxd), ti) => cont (TyRead (as_TyRead ty, ty), d, ti))
       | TyWrite (j, ty1, ty2) =>
           normalize_name ty1
-            (fn (ty1, d1 as (kctxd1, tctxd1)) =>
+            (fn (ty1, d1 as (kctxd1, tctxd1), ti1) =>
                normalize_name (shift0_ctx_ty d1 ty2)
-                 (fn (ty2, d2 as (kctxd2, tctxd2)) =>
+                 (fn (ty2, d2 as (kctxd2, tctxd2), ti2) =>
                     let
                       val ty1 = shift0_ctx_ty d2 ty1
                       val jty1 = extract_judge_typing ty1
                       val tylet1 = TyConst (#1 jty1, EConst ECTT, CTypeUnit, T0)
-                      val tylet2 = cont (TyVar ((fst $ #1 jty1, CTypeUnit :: (snd $ #1 jty1)), EVar 0, CTypeUnit, T0), concat_ctx (([], [CTypeUnit]), concat_ctx (d2, d1)))
+                      val (tylet2, ti3) = cont (TyVar ((fst $ #1 jty1, CTypeUnit :: (snd $ #1 jty1)), EVar 0, CTypeUnit, T0), concat_ctx (([], [CTypeUnit]), concat_ctx (d2, d1)), Tadd (shift_c_c (length kctxd2) 0 ti1, ti2))
                     in
-                      TyLet (as_TyLet tylet1 tylet2, tylet1, tylet2)
+                      (TyLet (as_TyLet tylet1 tylet2, tylet1, tylet2), ti3)
                     end))
       | TyLet (j, ty1, ty2) =>
           normalize ty1
-            (fn (ty1, d1 as (kctxd1, tctxd1)) =>
+            (fn (ty1, d1 as (kctxd1, tctxd1), ti1) =>
                let
                  val jty1 = extract_judge_typing ty1
                  val ty2 = shift_ctx_ty d1 (0, 1) ty2
-                 val ty2 =
-                   normalize ty2 (fn (ty2, d2 as (kctxd2, tctxd2)) => cont (ty2, concat_ctx (d2, concat_ctx (([], [#3 jty1]), d1))))
+                 val (ty2, ti2) =
+                   normalize ty2 (fn (ty2, d2 as (kctxd2, tctxd2), ti2) => cont (ty2, concat_ctx (d2, concat_ctx (([], [#3 jty1]), d1)), Tadd (shift_c_c (length kctxd2) 0 ti1, ti2)))
                in
-                 TyLet (as_TyLet ty1 ty2, ty1, ty2)
+                 (TyLet (as_TyLet ty1 ty2, ty1, ty2), ti2)
                end)
       | TySub (j, ty, te, pr) =>
           normalize ty
-            (fn (ty, d as (kctxd, tctxd)) =>
+            (fn (ty, d as (kctxd, tctxd), _) =>
                let
                  val te = shift0_ctx_te d te
+                 val pr = shift0_ctx_pr d pr
+                 val jpr = extract_judge_proping pr
+                 val (_, _, i2) = extract_p_bin_pred $ #2 jpr
                  val jty = extract_judge_typing ty
-                 val pr = PrAdmit (fst $ #1 jty, TLe (#4 jty, #4 jty)) (* FIXME: how to maintain time *)
+                 val pr = PrAdmit (fst $ #1 jty, TLe (#4 jty, #4 jty))
                in
-                 cont (TySub (as_TySub ty te pr, ty, te, pr), d)
+                 cont (TySub (as_TySub ty te pr, ty, te, pr), d, i2)
                end)
       | TyFix (j, kd, ty) =>
           let
-            val ty = normalize_deriv ty
+            val (ty, _) = normalize_deriv ty
             val jkd = extract_judge_kinding kd
             val jty = extract_judge_typing ty
             fun unfold_CForalls t ks =
@@ -574,24 +564,25 @@ struct
             val pr = PrAdmit (fst $ #1 jty, TLe (#4 jty, i))
             val ty = TySub (as_TySub ty te pr, ty, te, pr)
           in
-            cont (TyFix (as_TyFix (#1 j) kd ty, kd, ty), ([], []))
+            cont (TyFix (as_TyFix (#1 j) kd ty, kd, ty), ([], []), T0)
           end
+      | _ => raise (Impossible "normalize")
 
     and normalize_name ty cont =
       normalize ty
-        (fn (ty, d as (kctxd, tctxd)) =>
+        (fn (ty, d as (kctxd, tctxd), ti1) =>
            let
              val jty = extract_judge_typing ty
            in
              if is_atomic (#2 jty) then
-               cont (ty, d)
+               cont (ty, d, ti1)
              else
                let
                  val t = #3 jty
                  val tylet1 = ty
-                 val tylet2 = cont (TyVar ((fst $ #1 jty, t :: (snd $ #1 jty)), EVar 0, t, T0), concat_ctx (([], [t]), d))
+                 val (tylet2, ti2) = cont (TyVar ((fst $ #1 jty, t :: (snd $ #1 jty)), EVar 0, t, T0), concat_ctx (([], [t]), d), ti1)
                in
-                 TyLet (as_TyLet tylet1 tylet2, tylet1, tylet2)
+                 (TyLet (as_TyLet tylet1 tylet2, tylet1, tylet2), ti2)
                end
            end)
 
