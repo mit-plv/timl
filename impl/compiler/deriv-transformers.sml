@@ -948,7 +948,7 @@ struct
             val jty_old = extract_judge_typing ty
             val old_ctx = #1 (extract_judge_typing cont)
             val new_ctx = (KTime :: fst old_ctx, t_arg :: t_cont :: (#2 jkd) :: map shift0_c_c (snd old_ctx))
-            val (ty, _) = cps ty (Tadd (T1, ti)) (TyVar (new_ctx, EVar 1, t_cont, T0))
+            val (ty, ti2) = cps ty (Tadd (#4 jty_old, Tadd (T1, CVar 0))) (TyVar (new_ctx, EVar 1, t_cont, T0))
             val jty = extract_judge_typing ty
             val ty_get_arg = TyProj (as_TyProj ProjFst (TyVar ((fst $ #1 jty, tl $ snd $ #1 jty), EVar 1, #2 jkd, T0)), TyVar ((fst $ #1 jty, tl $ snd $ #1 jty), EVar 1, #2 jkd, T0))
             val ty = TyLet (as_TyLet ty_get_arg ty, ty_get_arg, ty)
@@ -1012,7 +1012,7 @@ struct
             val jty_old = extract_judge_typing ty
             val old_ctx = #1 (extract_judge_typing cont)
             val new_ctx = (KTime :: (#2 jwk) :: fst old_ctx, t :: map (shift_c_c 2 0) (snd old_ctx))
-            val (ty, _) = cps ty (Tadd (T1, ti)) (TyVar (new_ctx, EVar 0, t, T0))
+            val (ty, ti2) = cps ty (Tadd (T1, CVar 0)) (TyVar (new_ctx, EVar 0, t, T0))
             val jty_new = extract_judge_typing ty
             val new_i = Tadd (T1, CVar 0)
             val ty = TySub ((#1 jty_new, #2 jty_new, #3 jty_new, new_i), ty, ANF.gen_tyeq_refl (fst $ #1 jty_new) (#3 jty_new), PrAdmit (fst $ #1 jty_new, TLe (#4 jty_new, new_i)))
@@ -1026,13 +1026,14 @@ struct
           end
       | TyRec (j, kd, ty) =>
           let
+            (* FIXME: time annotation incorrect *)
             val () = println "TyRec in"
             val kd = transform_kinding kd
             val jkd = extract_judge_kinding kd
             val jty = extract_judge_typing ty
             val old_ctx = #1 (extract_judge_typing cont)
             val new_ctx = (fst old_ctx, (#2 jkd) :: snd old_ctx)
-            val (ty, _) = cps ty (Tadd (T1, ti)) (TyAbs (as_TyAbs kd (TyVar ((fst new_ctx, #2 jkd :: snd new_ctx), EVar 0, #2 jkd, T0)), kd, TyVar ((fst new_ctx, #2 jkd :: snd new_ctx), EVar 0, #2 jkd, T0)))
+            val (ty, _) = cps ty T1 (TyAbs (as_TyAbs kd (TyVar ((fst new_ctx, #2 jkd :: snd new_ctx), EVar 0, #2 jkd, T0)), kd, TyVar ((fst new_ctx, #2 jkd :: snd new_ctx), EVar 0, #2 jkd, T0)))
             val ty = case ty of
                       TyApp (j, ty1, ty2) => ty2
                     | _ => raise (Impossible "cps")
@@ -1279,8 +1280,7 @@ struct
             val in1_jcont = extract_judge_typing in1_cont
             val (in0_cont, ti2, ti3) =
               let
-                val t1_tmp = transform_type (#3 jty1)
-                val t2_tmp = transform_type (#3 jty2)
+                val (t1_tmp, t2_tmp) = extract_c_sum t
                 val d1 = TyVar ((fst $ #1 in1_jcont, t1_tmp :: (#3 in1_jcont) :: (snd $ #1 in1_jcont)), EVar 1, #3 in1_jcont, T0)
                 val (d2, ti2) = cps (shift_ctx_ty ([], [#3 in1_jcont, t]) (0, 1) ty1) (Tadd (T1, ti)) d1
                 val d3 = TyVar ((fst $ #1 in1_jcont, t2_tmp :: (#3 in1_jcont) :: (snd $ #1 in1_jcont)), EVar 1, #3 in1_jcont, T0)
