@@ -305,6 +305,7 @@ struct
   | EAppC of expr * cstr
   | EPack of cstr * expr
   | EUnpack of expr * expr
+  | EHalt of expr
   | ELet of expr * expr
   | EFix of nat * expr
 
@@ -346,6 +347,7 @@ struct
   | TyRead of typing_judgement * typing
   | TyWrite of typing_judgement * typing * typing
   | TySub of typing_judgement * typing * tyeq * proping
+  | TyHalt of typing_judgement * typing
   | TyLet of typing_judgement * typing * typing
   | TyFix of typing_judgement * kinding * typing
 
@@ -435,6 +437,7 @@ struct
     | TyRead (j, _) => j
     | TyWrite (j, _, _) => j
     | TySub (j, _, _, _) => j
+    | TyHalt (j, _) => j
     | TyLet (j, _, _) => j
     | TyFix (j, _, _) => j
 
@@ -724,6 +727,12 @@ struct
             val (e2, up2) = transform_expr (e2, Action.add_type (NONE, Action.add_kind (NONE, down)))
           in
             (EUnpack (e1, e2), combine [up1, up2])
+          end
+      | EHalt e =>
+          let
+            val (e, up1) = transform_expr (e, down)
+          in
+            (EHalt e, combine [up1])
           end
       | ELet (e1, e2) =>
           let
@@ -1258,6 +1267,13 @@ struct
         val jty = extract_judge_typing ty
       in
         (#1 jty, EFold (#2 jty), #2 jkd, #4 jty)
+      end
+
+    fun as_TyHalt ty =
+      let
+        val jty = extract_judge_typing ty
+      in
+        (#1 jty, EHalt (#2 jty), CTypeUnit, #4 jty)
       end
 
     fun as_TyRec kd ty =
@@ -1867,6 +1883,12 @@ struct
             val (pr, up3) = transform_proping (pr, down)
           in
             (TySub (as_TySub ty te pr, ty, te, pr), combine [up1, up2, up3])
+          end
+      | TyHalt (judge, ty) =>
+          let
+            val (ty, up1) = transform_typing (ty, down)
+          in
+            (TyHalt (as_TyHalt ty, ty), combine [up1])
           end
       | TyLet (judge, ty1, ty2) =>
           let

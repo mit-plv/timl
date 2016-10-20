@@ -65,7 +65,12 @@ struct
 
     and check_kinding kd = (
       case kd of
-        KdVar (kctx, CVar x, k) => assert (k = shift_c_k (1 + x) 0 (nth (kctx, x)))
+        KdVar (kctx, CVar x, k) =>
+          let
+            val () = assert (k = shift_c_k (1 + x) 0 (nth (kctx, x)))
+          in
+            ()
+          end
       | KdConst (kctx, CConst cn, k) => assert (k = const_kind cn)
       | KdBinOp ((kctx, CBinOp (opr, i1, i2), k), kd1, kd2) =>
           let
@@ -574,10 +579,10 @@ struct
             val () = assert (#1 jty1 = ctx)
             val () = assert (#2 jty1 = e1)
             val () = assert (#3 jty1 = CArrow (#3 jty2, i, t2))
-            (*val () = assert (#4 jty1 = i1)
+            val () = assert (#4 jty1 = i1)
             val () = assert (#1 jty2 = ctx)
             val () = assert (#2 jty2 = e2)
-            val () = assert (#4 jty2 = i2)*)
+            val () = assert (#4 jty2 = i2)
           in
             ()
           end
@@ -932,6 +937,16 @@ struct
             val () = assert (#2 jty2 = e2)
             val () = assert (#3 jty2 = t2)
             val () = assert (#4 jty2 = i2)
+          in
+            ()
+          end
+      | TyHalt ((ctx, EHalt e, CTypeUnit, i), ty) =>
+          let
+            val () = check_typing ty
+            val jty = extract_judge_typing ty
+            val () = assert (#1 jty = ctx)
+            val () = assert (#2 jty = e)
+            val () = assert (#4 jty = i)
           in
             ()
           end

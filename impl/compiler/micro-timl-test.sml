@@ -19,6 +19,46 @@ struct
   open MicroTiMLHoisted
   open ANF
 
+  fun test_cps1 () =
+    let
+      val tctx = [CArrow (CInt, T1, CArrow (CInt, T1, CInt)), CArrow (CInt, T1, CInt), CInt, CArrow (CInt, T1, CInt), CArrow (CInt, T1, CInt), CInt, CArrow (CInt, T0, CTypeUnit)]
+      val tctx = List.map (CPS.transform_type) tctx
+      val ctx = ([], tctx)
+      val d1 = TyVar (ctx, EVar 1, CArrow (CInt, T1, CInt), T0)
+      val d2 = TyVar (ctx, EVar 2, CInt, T0)
+      val d3 = TyApp (as_TyApp d1 d2, d1, d2)
+      val d4 = TyVar (ctx, EVar 0, CArrow (CInt, T1, CArrow (CInt, T1, CInt)), T0)
+      val d5 = TyApp (as_TyApp d4 d3, d4, d3)
+      val d6 = TyVar (ctx, EVar 4, CArrow (CInt, T1, CInt), T0)
+      val d7 = TyVar (ctx, EVar 5, CInt, T0)
+      val d8 = TyApp (as_TyApp d6 d7, d6, d7)
+      val d9 = TyVar (ctx, EVar 3, CArrow (CInt, T1, CInt), T0)
+      val d10 = TyApp (as_TyApp d9 d8, d9, d8)
+      val d11 = TyApp (as_TyApp d5 d10, d5, d10)
+      val cps_ty = CPS.cps_deriv d11
+      val () = println $ str_expr $ #2 (extract_judge_typing cps_ty)
+      val () = check_typing cps_ty
+    in
+      ()
+    end
+
+  fun test_cps2 () =
+    let
+      val e1 = EAbs (EVar 0)
+      val ct1 = ([], [])
+      val i1 = T0
+      val t1 = CArrow (CInt, T0, CInt)
+      val d1 = TyAbs ((ct1, e1, t1, i1), KdConst ([], CInt, KType), TyVar (([], [CInt]), EVar 0, CInt, T0))
+      val () = check_typing d1
+      val d2 = TyApp (as_TyApp d1 (TyConst (([], []), EConst (ECInt 2), CInt, T0)), d1, TyConst (([], []), EConst (ECInt 2), CInt, T0))
+      val () = check_typing d2
+      val cps_ty = CPS.cps_deriv d2
+      val () = println $ str_expr $ #2 (extract_judge_typing cps_ty)
+      val () = check_typing cps_ty
+    in
+      ()
+    end
+
   fun test_currying () =
     let
       val e1 = EAbs (EAbs (EPair (EVar 1, EVar 0)))
@@ -31,7 +71,11 @@ struct
       val () = check_typing d2
       val d3 = TyApp (as_TyApp d2 (TyConst (([], []), EConst (ECInt 6), CInt, T0)), d2, TyConst (([], []), EConst (ECInt 6), CInt, T0))
       val () = check_typing d3
-      val clo_conv_ty = CloConv.clo_conv_ty d3
+      val cps_ty = CPS.cps_deriv d3
+      val jcps_ty = extract_judge_typing cps_ty
+      val () = println $ str_expr $ #2 jcps_ty
+      val () = check_typing cps_ty
+      (*val clo_conv_ty = CloConv.clo_conv_ty d3
       val jclo_conv_ty = extract_judge_typing clo_conv_ty
       val () = println $ str_expr $ #2 jclo_conv_ty
       val () = check_typing clo_conv_ty
@@ -40,7 +84,7 @@ struct
       val () = println $ str_expr $ #2 janf_ty
       val () = check_typing anf_ty
       val hoisted_ty = Hoist.hoist anf_ty
-      val () = HoistedDerivChecker.check_program hoisted_ty
+      val () = HoistedDerivChecker.check_program hoisted_ty*)
     in
       ()
     end
@@ -319,9 +363,11 @@ struct
       val i50 = T0
       val d50 = TyRec ((ct50, e50, t50, i50), concat_kd, d49)
       val () = check_typing d50
-      val concat_e = e50
-      val concat_ty = d50
-      val concat_clo_conv_ty = CloConv.clo_conv_ty concat_ty
+      val cps_ty = CPS.cps_deriv d50
+      val jcps_ty = extract_judge_typing cps_ty
+      val () = println $ str_expr $ #2 jcps_ty
+      val () = check_typing cps_ty
+      (*val concat_clo_conv_ty = CloConv.clo_conv_ty concat_ty
       val jconcat_clo_conv_ty = extract_judge_typing concat_clo_conv_ty
       val () = println $ str_expr $ #2 jconcat_clo_conv_ty
       val () = check_typing concat_clo_conv_ty
@@ -330,13 +376,15 @@ struct
       val () = println $ str_expr $ #2 jconcat_anf_ty
       val () = check_typing concat_anf_ty
       val concat_hoisted_ty = Hoist.hoist concat_anf_ty
-      val () = HoistedDerivChecker.check_program concat_hoisted_ty
+      val () = HoistedDerivChecker.check_program concat_hoisted_ty*)
     in
       ()
     end
 
   fun main(prog_name : string, args : string list) : int =
     let
+      val () = test_cps1 ()
+      val () = test_cps2 ()
       val () = test_currying ()
       val () = test_concat ()
     in

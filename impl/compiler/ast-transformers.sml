@@ -173,6 +173,7 @@ struct
             | EAppC (e, c) => str_expr e ^ "[" ^ str_cstr c ^ "]"
             | EPack (c, e) => "<" ^ str_cstr c ^ " | " ^ str_expr e ^ ">"
             | EUnpack (e1, e2) => "(unpack " ^ str_expr e1 ^ " in " ^ str_expr e2 ^ ")"
+            | EHalt e => "(halt " ^ str_expr e ^ ")"
             | ELet (e1, e2) => "(let = " ^ str_expr e1 ^ " in " ^ str_expr e2 ^ ")"
             | EFix (n, e) => "(fix [" ^ str_int n ^ "] => " ^ str_expr e ^ ")"
         in
