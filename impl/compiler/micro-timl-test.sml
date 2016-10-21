@@ -65,6 +65,7 @@ struct
       val () = println $ str_expr $ #2 (extract_judge_typing clo_ty)
       val () = check_typing clo_ty
       val hoisted_ty = Hoist.hoist clo_ty
+      val () = print $ HoistedPlainPrinter.str_program $ #1 (extract_judge_ptyping hoisted_ty)
       val () = HoistedDerivChecker.check_program hoisted_ty
     in
       println ""
@@ -92,6 +93,7 @@ struct
       val () = println $ str_expr $ #2 (extract_judge_typing clo_ty)
       val () = check_typing clo_ty
       val hoisted_ty = Hoist.hoist clo_ty
+      val () = print $ HoistedPlainPrinter.str_program $ #1 (extract_judge_ptyping hoisted_ty)
       val () = HoistedDerivChecker.check_program hoisted_ty
       (*val anf_ty = fst $ ANF.normalize_deriv clo_conv_ty
       val janf_ty = extract_judge_typing anf_ty
@@ -387,6 +389,7 @@ struct
       val () = println $ str_expr $ #2 (extract_judge_typing clo_ty)
       val () = check_typing clo_ty
       val hoisted_ty = Hoist.hoist clo_ty
+      val () = print $ HoistedPlainPrinter.str_program $ #1 (extract_judge_ptyping hoisted_ty)
       val () = HoistedDerivChecker.check_program hoisted_ty
       (*val concat_anf_ty = fst $ ANF.normalize_deriv concat_clo_conv_ty
       val jconcat_anf_ty = extract_judge_typing concat_anf_ty

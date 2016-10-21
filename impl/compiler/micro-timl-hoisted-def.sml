@@ -86,6 +86,10 @@ struct
   fun CERead e = CEUnOp (EURead, e)
   fun CEWrite (e1, e2) = CEBinOp (EBWrite, e1, e2)
 
+  fun extract_judge_ptyping ty =
+    case ty of
+      TyProgram (j, _, _) => j
+
   fun extract_judge_htyping ty =
     case ty of
       HTyLet (j, _, _) => j
@@ -122,6 +126,44 @@ struct
   fun extract_judge_ftyping ty =
     case ty of
       FTyFix (j, _, _) => j
+
+  structure HoistedPlainPrinter =
+  struct
+    structure PU = PrinterUtil
+    structure PP = PlainPrinter
+
+    fun str_atom_expr e =
+      case e of
+        AEVar x => "&" ^ str_int x
+      | AEConst cn => PU.str_expr_const cn
+      | AEFuncPointer f => "FUN" ^ str_int f
+      | AEPair (e1, e2) => "<" ^ str_atom_expr e1 ^ " , " ^ str_atom_expr e2 ^ ">"
+      | AEAppC (e, c) => str_atom_expr e ^ "[" ^ PP.str_cstr c ^ "]"
+      | AEAbsC e => "(idxfn => " ^ str_atom_expr e ^ ")"
+      | AEPack (c, e) => "pack[" ^ PP.str_cstr c ^ " , " ^ str_atom_expr e ^ "]"
+
+    fun str_complex_expr e =
+      case e of
+        CEUnOp (opr, e) => "(" ^ PU.str_expr_un_op opr ^ " " ^ str_atom_expr e ^ ")"
+      | CEBinOp (opr, e1, e2) => "(" ^ str_atom_expr e1 ^ " " ^ PU.str_expr_bin_op opr ^ " " ^ str_atom_expr e2 ^ ")"
+      | CEAtom e => str_atom_expr e
+
+    fun str_hoisted_expr tab e =
+      case e of
+        HELet (e1, e2) => (prefix tab $ "let = " ^ str_complex_expr e1 ^ " in\n") ^ str_hoisted_expr tab e2
+      | HEUnpack (e1, e2) => (prefix tab $ "unpack = " ^ str_atom_expr e1 ^ " in\n") ^ str_hoisted_expr tab e2
+      | HEApp (e1, e2) => prefix tab $ str_atom_expr e1 ^ "(" ^ str_atom_expr e2 ^ ")\n"
+      | HECase (e, e1, e2) => (prefix tab $ "case " ^ str_atom_expr e ^ " of\n") ^ str_hoisted_expr (tab ^ "  ") e1 ^ (prefix tab "else\n") ^ str_hoisted_expr (tab ^ "  ") e2
+      | HEHalt e => prefix tab $ "halt(" ^ str_atom_expr e ^ ")\n"
+
+    fun str_func_expr num e =
+      case e of
+        FEFix (cnt, e) => "FUN" ^ str_int num ^ "(" ^ str_int cnt ^ "):\n" ^ str_hoisted_expr "  " e
+
+    fun str_program p =
+      case p of
+        Program (funcs, body) => (foldli (fn (i, func, str) => str ^ str_func_expr i func) "" funcs) ^ "main:\n" ^ str_hoisted_expr "  " body
+  end
 
   structure HoistedDerivChecker =
   struct
