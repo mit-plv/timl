@@ -229,6 +229,7 @@ struct
       fun transformer_expr (on_expr, on_cstr) (e, (d, ctx)) =
         case e of
           EVar x => SOME (if x >= ctx then EVar (x + d) else EVar x)
+        | EFix (n, e) => SOME (EFix (n, e))
         | _ => NONE
 
       fun transformer_cstr _ _ = NONE
@@ -288,6 +289,7 @@ struct
       fun transformer_expr (on_expr, on_cstr) (e, (to, who)) =
         case e of
           EVar x => SOME (if x = who then to else if x < who then EVar x else EVar (x - 1))
+        | EFix (n, e) => SOME (EFix (n, e))
         | _ => NONE
 
       fun transformer_cstr _ _ = NONE
@@ -346,7 +348,12 @@ struct
 
       fun transformer_expr (on_expr, on_cstr) (e, (to, who)) =
         case e of
-          EVar x => SOME (if x = who then to else EVar x)
+          EVar x =>
+            let
+            in
+              SOME (if x = who then to else EVar x)
+            end
+        | EFix (n, e) => SOME (EFix (n, e))
         | _ => NONE
 
       fun transformer_cstr _ _ = NONE
@@ -430,7 +437,8 @@ struct
 
       fun transformer_expr (on_expr, on_cstr) (e, ctx) =
         case e of
-          EVar x => SOME (e, if x >= ctx then [x - ctx] else [])
+          EVar x => SOME (EVar x, if x >= ctx then [x - ctx] else [])
+        | EFix (n, e) => SOME (EFix (n, e), [])
         | _ => NONE
 
       fun transformer_cstr _ _ = NONE

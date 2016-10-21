@@ -19,7 +19,7 @@ struct
   open MicroTiMLHoisted
   open ANF
 
-  fun test_cps1 () =
+  fun test_cps () =
     let
       val tctx = [CArrow (CInt, T1, CArrow (CInt, T1, CInt)), CArrow (CInt, T1, CInt), CInt, CArrow (CInt, T1, CInt), CArrow (CInt, T1, CInt), CInt, CArrow (CInt, T0, CTypeUnit)]
       val tctx = List.map (CPS.transform_type) tctx
@@ -38,11 +38,14 @@ struct
       val cps_ty = CPS.cps_deriv d11
       val () = println $ str_expr $ #2 (extract_judge_typing cps_ty)
       val () = check_typing cps_ty
+      val wrap_ty = WrapLambda.wrap_lambda_ty cps_ty
+      val () = println $ str_expr $ #2 (extract_judge_typing wrap_ty)
+      val () = check_typing wrap_ty
     in
-      ()
+      println ""
     end
 
-  fun test_cps2 () =
+  fun test_abs_app () =
     let
       val e1 = EAbs (EVar 0)
       val ct1 = ([], [])
@@ -55,11 +58,14 @@ struct
       val cps_ty = CPS.cps_deriv d2
       val () = println $ str_expr $ #2 (extract_judge_typing cps_ty)
       val () = check_typing cps_ty
-      val clo_conv_ty = CloConv.clo_conv_ty cps_ty
-      val () = println $ str_expr $ #2 (extract_judge_typing clo_conv_ty)
-      val () = check_typing clo_conv_ty
+      val wrap_ty = WrapLambda.wrap_lambda_ty cps_ty
+      val () = println $ str_expr $ #2 (extract_judge_typing wrap_ty)
+      val () = check_typing wrap_ty
+      val clo_ty = CloConv.clo_conv_ty wrap_ty
+      val () = println $ str_expr $ #2 (extract_judge_typing clo_ty)
+      val () = check_typing clo_ty
     in
-      ()
+      println ""
     end
 
   fun test_currying () =
@@ -75,13 +81,14 @@ struct
       val d3 = TyApp (as_TyApp d2 (TyConst (([], []), EConst (ECInt 6), CInt, T0)), d2, TyConst (([], []), EConst (ECInt 6), CInt, T0))
       val () = check_typing d3
       val cps_ty = CPS.cps_deriv d3
-      val jcps_ty = extract_judge_typing cps_ty
-      val () = println $ str_expr $ #2 jcps_ty
+      val () = println $ str_expr $ #2 (extract_judge_typing cps_ty)
       val () = check_typing cps_ty
-      val clo_conv_ty = CloConv.clo_conv_ty cps_ty
-      val jclo_conv_ty = extract_judge_typing clo_conv_ty
-      val () = println $ str_expr $ #2 jclo_conv_ty
-      val () = check_typing clo_conv_ty
+      val wrap_ty = WrapLambda.wrap_lambda_ty cps_ty
+      val () = println $ str_expr $ #2 (extract_judge_typing wrap_ty)
+      val () = check_typing wrap_ty
+      val clo_ty = CloConv.clo_conv_ty wrap_ty
+      val () = println $ str_expr $ #2 (extract_judge_typing clo_ty)
+      val () = check_typing clo_ty
       (*val anf_ty = fst $ ANF.normalize_deriv clo_conv_ty
       val janf_ty = extract_judge_typing anf_ty
       val () = println $ str_expr $ #2 janf_ty
@@ -89,7 +96,7 @@ struct
       val hoisted_ty = Hoist.hoist anf_ty
       val () = HoistedDerivChecker.check_program hoisted_ty*)
     in
-      ()
+      println ""
     end
 
   fun test_concat () =
@@ -367,12 +374,13 @@ struct
       val d50 = TyRec ((ct50, e50, t50, i50), concat_kd, d49)
       val () = check_typing d50
       val cps_ty = CPS.cps_deriv d50
-      val jcps_ty = extract_judge_typing cps_ty
-      val () = println $ str_expr $ #2 jcps_ty
+      val () = println $ str_expr $ #2 (extract_judge_typing cps_ty)
       val () = check_typing cps_ty
-      val clo_conv_ty = CloConv.clo_conv_ty cps_ty
-      val jclo_conv_ty = extract_judge_typing clo_conv_ty
-      val () = println $ str_expr $ #2 jclo_conv_ty
+      val wrap_ty = WrapLambda.wrap_lambda_ty cps_ty
+      val () = println $ str_expr $ #2 (extract_judge_typing wrap_ty)
+      val () = check_typing wrap_ty
+      val clo_conv_ty = CloConv.clo_conv_ty wrap_ty
+      val () = println $ str_expr $ #2 (extract_judge_typing clo_conv_ty)
       val () = check_typing clo_conv_ty
       (*val concat_anf_ty = fst $ ANF.normalize_deriv concat_clo_conv_ty
       val jconcat_anf_ty = extract_judge_typing concat_anf_ty
@@ -381,13 +389,13 @@ struct
       val concat_hoisted_ty = Hoist.hoist concat_anf_ty
       val () = HoistedDerivChecker.check_program concat_hoisted_ty*)
     in
-      ()
+      println ""
     end
 
   fun main(prog_name : string, args : string list) : int =
     let
-      val () = test_cps1 ()
-      val () = test_cps2 ()
+      val () = test_cps ()
+      val () = test_abs_app ()
       val () = test_currying ()
       val () = test_concat ()
     in
