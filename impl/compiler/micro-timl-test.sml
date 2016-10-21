@@ -55,6 +55,9 @@ struct
       val cps_ty = CPS.cps_deriv d2
       val () = println $ str_expr $ #2 (extract_judge_typing cps_ty)
       val () = check_typing cps_ty
+      val clo_conv_ty = CloConv.clo_conv_ty cps_ty
+      val () = println $ str_expr $ #2 (extract_judge_typing clo_conv_ty)
+      val () = check_typing clo_conv_ty
     in
       ()
     end
@@ -75,11 +78,11 @@ struct
       val jcps_ty = extract_judge_typing cps_ty
       val () = println $ str_expr $ #2 jcps_ty
       val () = check_typing cps_ty
-      (*val clo_conv_ty = CloConv.clo_conv_ty d3
+      val clo_conv_ty = CloConv.clo_conv_ty cps_ty
       val jclo_conv_ty = extract_judge_typing clo_conv_ty
       val () = println $ str_expr $ #2 jclo_conv_ty
       val () = check_typing clo_conv_ty
-      val anf_ty = fst $ ANF.normalize_deriv clo_conv_ty
+      (*val anf_ty = fst $ ANF.normalize_deriv clo_conv_ty
       val janf_ty = extract_judge_typing anf_ty
       val () = println $ str_expr $ #2 janf_ty
       val () = check_typing anf_ty
@@ -367,11 +370,11 @@ struct
       val jcps_ty = extract_judge_typing cps_ty
       val () = println $ str_expr $ #2 jcps_ty
       val () = check_typing cps_ty
-      (*val concat_clo_conv_ty = CloConv.clo_conv_ty concat_ty
-      val jconcat_clo_conv_ty = extract_judge_typing concat_clo_conv_ty
-      val () = println $ str_expr $ #2 jconcat_clo_conv_ty
-      val () = check_typing concat_clo_conv_ty
-      val concat_anf_ty = fst $ ANF.normalize_deriv concat_clo_conv_ty
+      val clo_conv_ty = CloConv.clo_conv_ty cps_ty
+      val jclo_conv_ty = extract_judge_typing clo_conv_ty
+      val () = println $ str_expr $ #2 jclo_conv_ty
+      val () = check_typing clo_conv_ty
+      (*val concat_anf_ty = fst $ ANF.normalize_deriv concat_clo_conv_ty
       val jconcat_anf_ty = extract_judge_typing concat_anf_ty
       val () = println $ str_expr $ #2 jconcat_anf_ty
       val () = check_typing concat_anf_ty

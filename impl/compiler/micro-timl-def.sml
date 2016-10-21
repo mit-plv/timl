@@ -348,6 +348,7 @@ struct
   | TyWrite of typing_judgement * typing * typing
   | TySub of typing_judgement * typing * tyeq * proping
   | TyHalt of typing_judgement * typing
+  | TyAppK of typing_judgement * typing * typing
   | TyLet of typing_judgement * typing * typing
   | TyFix of typing_judgement * kinding * typing
 
@@ -438,6 +439,7 @@ struct
     | TyWrite (j, _, _) => j
     | TySub (j, _, _, _) => j
     | TyHalt (j, _) => j
+    | TyAppK (j, _, _) => j
     | TyLet (j, _, _) => j
     | TyFix (j, _, _) => j
 
@@ -1155,6 +1157,15 @@ struct
         val (t1, i, t2) = extract_c_arrow (#3 jty1)
       in
         (#1 jty1, EApp (#2 jty1, #2 jty2), t2, Tadd (Tadd (Tadd (#4 jty1, #4 jty2), T1), i))
+      end
+
+    fun as_TyAppK ty1 ty2 =
+      let
+        val jty1 = extract_judge_typing ty1
+        val jty2 = extract_judge_typing ty2
+        val (t1, i, t2) = extract_c_arrow (#3 jty1)
+      in
+        (#1 jty1, EApp (#2 jty1, #2 jty2), t2, Tadd (Tadd (#4 jty1, #4 jty2), i))
       end
 
     fun as_TyAbs kd ty =
@@ -1889,6 +1900,13 @@ struct
             val (ty, up1) = transform_typing (ty, down)
           in
             (TyHalt (as_TyHalt ty, ty), combine [up1])
+          end
+      | TyAppK (judge, ty1, ty2) =>
+          let
+            val (ty1, up1) = transform_typing (ty1, down)
+            val (ty2, up2) = transform_typing (ty2, down)
+          in
+            (TyAppK (as_TyAppK ty1 ty2, ty1, ty2), combine [up1, up2])
           end
       | TyLet (judge, ty1, ty2) =>
           let

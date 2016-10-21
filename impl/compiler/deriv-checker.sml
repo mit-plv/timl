@@ -586,6 +586,22 @@ struct
           in
             ()
           end
+      | TyAppK ((ctx, EBinOp (EBApp, e1, e2), t2, CBinOp (CBTimeAdd, CBinOp (CBTimeAdd, i1, i2), i)), ty1, ty2) =>
+          let
+            val () = check_typing ty1
+            val () = check_typing ty2
+            val jty1 = extract_judge_typing ty1
+            val jty2 = extract_judge_typing ty2
+            val () = assert (#1 jty1 = ctx)
+            val () = assert (#2 jty1 = e1)
+            val () = assert (#3 jty1 = CArrow (#3 jty2, i, t2))
+            val () = assert (#4 jty1 = i1)
+            val () = assert (#1 jty2 = ctx)
+            val () = assert (#2 jty2 = e2)
+            val () = assert (#4 jty2 = i2)
+          in
+            ()
+          end
       | TyAbs (((kctx, tctx), EAbs e, CArrow (t1, i, t2), T0), kd, ty) =>
           let
             val () = check_kinding kd
