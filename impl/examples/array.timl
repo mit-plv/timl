@@ -10,45 +10,51 @@ structure Array = struct
   fun fromList ['a] {len : Nat} (l : {len} 'a List.list) return {len} 'a array using $len =
     builtin
 
-  fun tabulate ['a] {len : Nat} {m : Time} (n : {len} nat, f : {len} nat_less_than -- m --> 'a) return {len} 'a array using m * $len =
+  fun tabulate ['a] {len : Nat} {m : Time} (n : {len} nat, f : {len} nat_less_than -- m --> 'a) return {len} 'a array using (m + $1) * $len =
     builtin
 
-  fun length ['a] {len : Nat} (a : {len} 'a array) return {len} nat using 1.0 =
+  fun length ['a] {len : Nat} (a : {len} 'a array) return {len} nat using 0.0 =
     builtin
 
-  fun sub ['a] {len who : Nat} {who < len} (a : {len} 'a array, n : {who} nat) return 'a using 1.0 =
+  fun sub ['a] {len who : Nat} {who < len} (a : {len} 'a array, n : {who} nat) return 'a using 0.0 =
     builtin
 
-  fun update ['a] {len who : Nat} {who < len} (a : {len} 'a array, n : {who} nat, x : 'a) return unit using 1.0 =
+  fun update ['a] {len who : Nat} {who < len} (a : {len} 'a array, n : {who} nat, x : 'a) return unit using 0.0 =
     builtin
 
-  fun appi ['a] {m : Time} {len : Nat} (f : {len} nat_less_than * 'a -- m --> unit) (a : {len} 'a array) return unit using m * $len =
+  fun appi ['a] {m : Time} {len : Nat} (f : {len} nat_less_than * 'a -- m --> unit) (a : {len} 'a array) return unit using (m + $1) * $len =
     builtin
 
-  fun app ['a] {m : Time} (f : 'a -- m --> unit) {len : Nat} (a : {len} 'a array) return unit using m * $len =
+  fun app ['a] {m : Time} (f : 'a -- m --> unit) {len : Nat} (a : {len} 'a array) return unit using (m + $1) * $len =
     builtin
 
-  fun modifyi ['a] {m : Time} {len : Nat} (f : {len} nat_less_than * 'a -- m --> 'a) (a : {len} 'a array) return unit using m * $len =
+  fun modifyi ['a] {m : Time} {len : Nat} (f : {len} nat_less_than * 'a -- m --> 'a) (a : {len} 'a array) return unit using (m + $1) * $len =
     builtin
 
-  fun modify ['a] {m : Time} (f : 'a -- m --> 'a) {len : Nat} (a : {len} 'a array) return unit using m * $len =
+  fun modify ['a] {m : Time} (f : 'a -- m --> 'a) {len : Nat} (a : {len} 'a array) return unit using (m + $1) * $len =
     builtin
 
-  fun foldli ['a 'b] {m : Time} {len : Nat} (f : {len} nat_less_than * 'a * 'b -- m --> 'b) (x : 'b) (a : {len} 'a array) return 'b using m * $len =
+  fun foldli ['a 'b] {m : Time} {len : Nat} (f : {len} nat_less_than * 'a * 'b -- m --> 'b) (x : 'b) (a : {len} 'a array) return 'b using (m + $1) * $len =
     builtin
 
-  fun foldri ['a 'b] {m : Time} {len : Nat} (f : {len} nat_less_than * 'a * 'b -- m --> 'b) (x : 'b) (a : {len} 'a array) return 'b using m * $len =
+  fun foldri ['a 'b] {m : Time} {len : Nat} (f : {len} nat_less_than * 'a * 'b -- m --> 'b) (x : 'b) (a : {len} 'a array) return 'b using (m + $1) * $len =
     builtin
 
-  fun foldl ['a 'b] {m : Time} (f : 'a * 'b -- m --> 'b) (x : 'b) {len : Nat} (a : {len} 'a array) return 'b using m * $len =
+  fun foldl ['a 'b] {m : Time} (f : 'a * 'b -- m --> 'b) (x : 'b) {len : Nat} (a : {len} 'a array) return 'b using (m + $1) * $len =
     builtin
 
-  fun foldr ['a 'b] {m : Time} (f : 'a * 'b -- m --> 'b) (x : 'b) {len : Nat} (a : {len} 'a array) return 'b using m * $len =
+  fun foldr ['a 'b] {m : Time} (f : 'a * 'b -- m --> 'b) (x : 'b) {len : Nat} (a : {len} 'a array) return 'b using (m + $1) * $len =
     builtin
 
-  fun find ['a] {m : Time} (f : 'a -- m --> bool) {len : Nat} (a : {len} 'a array) return 'a option using m * $len =
+  fun find ['a] {m : Time} (f : 'a -- m --> bool) {len : Nat} (a : {len} 'a array) return 'a option using (m + $1) * $len =
     builtin
 
-  fun all ['a] {m : Time} (f : 'a -- m --> bool) {len : Nat} (a : {len} 'a array) return bool using m * $len =
+  fun exi_sts ['a] {m : Time} (f : 'a -- m --> bool) {len : Nat} (a : {len} 'a array) return bool using (m + $1) * $len =
+    builtin
+
+  fun all ['a] {m : Time} (f : 'a -- m --> bool) {len : Nat} (a : {len} 'a array) return bool using (m + $1) * $len =
+    builtin
+
+  fun toList ['a] {len : Nat} (a : {len} 'a array) return {len} 'a List.list using $len =
     builtin
 end
