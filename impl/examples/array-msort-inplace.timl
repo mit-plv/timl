@@ -1,0 +1,117 @@
+structure ArrayMSortInplace =
+struct
+
+open Basic
+open Nat
+open Array
+
+datatype {Nat} natnum =
+         NumO of {0} natnum
+       | NumS {n' : Nat} of {n'} nat * {n'} natnum --> {n' + 1} natnum
+
+absidx T_nat_2_natnum : BigO 1 (fn n => $n) = fn n => 11.0 * $n + 8.0 with
+fun nat_2_natnum {n : Nat} (n : {n} nat) return {n} natnum using T_nat_2_natnum n =
+  case le (n, #0) return using (T_nat_2_natnum n) - 8.0 of
+      Le => NumO
+    | @Gt {m} {_} {pf} =>
+      let
+          val n' = @nat_minus {m} {1} {pf} (n, #1)
+      in
+          NumS (n', nat_2_natnum n')
+      end
+end
+
+fun swap ['a] {len i j : Nat} {i < len} {j < len} (a : {len} 'a array, i : {i} nat, j : {j} nat) =
+  let
+      val tmp = sub (a, i)
+      val () = update (a, i, sub (a, j))
+      val () = update (a, j, tmp)
+  in
+      ()
+  end
+
+absidx T_array_imerge_helper : BigO 2 (fn m n => $m * $n) with
+fun array_imerge_helper ['a] {t len i m j n w s : Nat} {i + m <= len} {j + n <= len} {w + m + n <= len} {s = m + n} (le : 'a * 'a -- $t --> bool) (a : {len} 'a array, i : {i} nat, m : {m} natnum, j : {j} nat, n : {n} natnum, w : {w} nat, s : {s} natnum) return unit using T_array_imerge_helper t s =
+  case (m, n, s) of
+      (NumO, NumO, NumO) => ()
+    | (NumO, NumS (vn, n'), NumS (vs, s')) =>
+      let
+          val from = nat_plus (j, vn)
+          val to = nat_plus (w, vs)
+          val () = swap (a, from, to)
+      in
+          array_imerge_helper le (a, i, m, j, n', w, s')
+      end
+    | (NumS (vm, m'), NumO, NumS (vs, s')) =>
+      let
+          val from = nat_plus (i, vm)
+          val to = nat_plus (w, vs)
+          val () = swap (a, from, to)
+      in
+          array_imerge_helper le (a, i, m', j, n, w, s')
+      end
+    | (NumS (vm, m'), NumS (vn, n'), NumS (vs, s')) =>
+      let
+          val from1 = nat_plus (i, vm)
+          val from2 = nat_plus (j, vn)
+          val ele1 = sub (a, from1)
+          val ele2 = sub (a, from2)
+          val to = nat_plus (w, vs)
+      in
+          if le (ele1, ele2) then
+              let
+                  val () = swap (a, from2, to)
+              in
+                  array_imerge_helper le (a, i, m, j, n', w, s')
+              end
+          else
+              let
+                  val () = swap (a, from1, to)
+              in
+                  array_imerge_helper le (a, i, m', j, n, w, s')
+              end
+      end
+    | _ => never
+end
+
+fun array_imerge ['a] {t len i m j n w : Nat} {i + m <= len} {j + n <= len} {w + m + n <= len} (le : 'a * 'a -- $t --> bool) (a : {len} 'a array, i : {i} nat, m : {m} nat, j : {j} nat, n : {n} nat, w : {w} nat) =
+  array_imerge_helper le (a, i, nat_2_natnum m, j, nat_2_natnum n, w, nat_2_natnum (nat_plus (m, n)))
+
+absidx T_array_insert : BigO 2 (fn m n => $m * $n) with
+fun array_insert ['a] {m len w p : Nat} {w + p < len} (le : 'a * 'a -- $m --> bool) (a : {len} 'a array, w : {w} nat, p : {p} natnum) return unit using T_array_insert m p =
+  case p of
+      NumO => ()
+    | NumS (vp, p') =>
+      if le (sub (a, nat_plus (w, vp)), sub (a, nat_plus (nat_plus (w, vp), #1))) then
+          ()
+      else
+          let
+              val () = swap (a, nat_plus (w, vp), (nat_plus (nat_plus (w, vp), #1)))
+          in
+              array_insert le (a, w, p')
+          end
+end
+
+absidx T_array_imsort_on_range : BigO 2 (fn m n => $m * $n * log2 $n) with
+fun array_imsort_on_range ['a] {m len w left right : Nat} {right > 0} {w + left + right <= len} (le : 'a * 'a -- $m --> bool) (a : {len} 'a array, w : {w} nat, left : {left} nat, right : {right} nat) return unit using T_array_imsort_on_range m right =
+  case Nat.le (right, #1) of
+      Le => array_insert le (a, w, nat_2_natnum left)
+    | Gt =>
+      let
+          val half = ceil_half right
+          val rest : {floor ($right/2)} nat = nat_minus (right, half)
+          val m = nat_plus (nat_plus (w, left), half)
+          val () = array_imsort_on_range le (a, m, #0, rest)
+          val () = array_imerge le (a, w, left, m, rest, w)
+          val () = array_imsort_on_range le (a, w, nat_plus (left, rest), half)
+      in
+          ()
+      end
+end
+
+fun array_imsort ['a] {m len : Nat} (le : 'a * 'a -- $m --> bool) (a : {len} 'a array) =
+  case Nat.le (length a, #0) of
+      Le => ()
+    | Gt => array_imsort_on_range le (a, #0, #0, length a)
+
+end
