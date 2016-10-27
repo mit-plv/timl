@@ -1,0 +1,69 @@
+structure ArrayKthMedian =
+struct
+
+open Basic
+open Nat
+open Array
+
+datatype {Nat} nat_less_equal_than =
+         NatLE {m n : Nat} {m <= n} of {m} nat --> {n} nat_less_equal_than
+
+fun swap ['a] {len i j : Nat} {i < len} {j < len} (a : {len} 'a array, i : {i} nat, j : {j} nat) =
+  let
+      val tmp = sub (a, i)
+      val () = update (a, i, sub (a, j))
+      val () = update (a, j, tmp)
+  in
+      ()
+  end
+
+idx T_array_pivot_on_range : Fun 2 = fn m n => 23.0 * ($m + 1.0) * $n + 8.0
+fun array_pivot_on_range ['a] {m len l n : Nat} {l + n <= len} (le : 'a * 'a -- $m --> bool) (a : {len} 'a array, l : {l} nat, n : {n} nat, x : 'a) return {n} nat_less_equal_than using T_array_pivot_on_range m n =
+  case Nat.le (n, #0) return using (T_array_pivot_on_range m n) - 8.0 of
+      Le => NatLE #0
+    | Gt =>
+      let
+          val n' = nat_minus (n, #1)
+          val who = nat_plus (l, n')
+          val ele = sub (a, who)
+      in
+          if le (ele, x) then
+              let
+                  val () = swap (a, l, who)
+              in
+                  case array_pivot_on_range le (a, nat_plus (l, #1), n', x) of
+                      NatLE p => NatLE p
+              end
+          else
+              case array_pivot_on_range le (a, l, n', x) of
+                  NatLE p => NatLE (nat_plus (p, #1))
+      end
+
+idx T_array_kth_median_on_range : Fun 2 = fn m n => 41.0 * ($m + 1.0) * $n * $n + 8.0
+fun array_kth_median_on_range ['a] {m len l n k : Nat} {l + n <= len} {1 <= k} {k <= n} (le : 'a * 'a -- $m --> bool) (a : {len} 'a array, l : {l} nat, n : {n} nat, k : {k} nat) return 'a using T_array_kth_median_on_range m n =
+  case Nat.le (n, #0) return using (T_array_kth_median_on_range m n - 8.0) of
+      Le => never
+    | Gt =>
+      let
+          val x = sub (a, l)
+          val res = array_pivot_on_range le (a, nat_plus (l, #1), nat_minus (n, #1), x)
+      in
+          case res of
+              NatLE gtc =>
+              let
+                  val rank = nat_plus (gtc, #1)
+              in
+                  case cmp (rank, k) of
+                      Equal => x
+                    | Less =>
+                      let
+                          val () = swap (a, l, nat_plus (l, nat_minus (n, rank)))
+                      in
+                          (array_kth_median_on_range le (a, l, nat_minus (n, rank), nat_minus (k, rank)) using (T_array_kth_median_on_range m (n - 1)) + 6.0)
+                      end
+                    | Greater =>
+                      (array_kth_median_on_range le (a, nat_plus (l, nat_minus (n, gtc)), gtc, k) using (T_array_kth_median_on_range m (n - 1)) + 6.0)
+              end
+      end
+
+end
