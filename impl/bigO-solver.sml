@@ -113,6 +113,8 @@ fun summarize (is_outer, on_error) i =
               mult_class (loop a, loop b)
             | BinOpI (AddI, a, b) =>
               add_class (loop a, loop b)
+            | BinOpI (BoundedMinusI, a, b) =>
+              loop a
             | BinOpI (MaxI, a, b) =>
               add_class (loop a, loop b)
             | _ => on_error $ "summarize fails with " ^ str_i [] [] i
@@ -164,20 +166,24 @@ fun use_bigO_hyp is_outer long_hyps i =
                            
 fun timefun_le hs arity a b =
     let
+      fun match_bigO () hyps hyp =
+          case hyp of
+              PropH (BinPred (BigO, f', g)) =>
+              SOME (f', g)
+            | _ => NONE
+      fun find_bigO_hyp f_i hyps =
+          find_hyp id (fn (a, b) => (shift_i_i a, shift_i_i b)) match_bigO () hyps
       fun use_bigO_hyp long_hyps i =
-          case i of
-              VarI (_, (f, _)) =>
-              (case find_bigO_hyp i long_hyps of
-                   SOME (g, _) =>
-                   let
-                     val g = simp_i g
-                     (* val ctx = hyps2ctx hs *)
-                     (* val () = println $ sprintf "timefun_le(): $ ~> $" [str_i [] ctx i, str_i [] ctx g] *)
-                   in
-                     g
-                   end
-                 | NONE => i
-              )
+          case find_bigO_hyp i long_hyps of
+              SOME ((VarI (_, (f', _)), g), _) =>
+              let
+                val g = simp_i g
+                val i' = simp_i $ substx_i_i f' g i
+                (* val ctx = hyps2ctx hs *)
+                (* val () = println $ sprintf "timefun_le(): $ ~> $" [str_i [] ctx i, str_i [] ctx i'] *)
+              in
+                i'
+              end
             | _ => i
       exception Error of string
       fun main () =
@@ -197,7 +203,14 @@ fun timefun_le hs arity a b =
             class_le (cls1, cls2)
           end
     in
-      main () handle Error _ => false
+      main ()
+      handle
+      Error msg =>
+      let
+        val () = println $ sprintf "timefun_le failed because: $" [msg]
+      in
+        false
+      end
     end
 
 fun timefun_eq hs arity a b = timefun_le hs arity a b andalso timefun_le hs arity b a
@@ -254,7 +267,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                   (* find terms of the form [T m (ceil (n/b))] (or respectively for [floor]) *)
                   val (bs, others) = partitionOption is_sub_problem is
                   val a = length bs
-                  val b = if null bs then raise Error "null bs" else hd bs
+                  val b = if null bs then raise Error "bs is null" else hd bs
                   val () = if List.all (curry op= (b : int)) (tl bs) then () else raise Error "all bs eq"
                 in
                   (a, b, others)
@@ -456,16 +469,25 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                   Error msg =>
                   (* test the case: T m n + m + C <= T m (n + 1) *)
                   let
-                    val () = printf "Failed the [T m (n/b)] case because: $\nTry [T m (n-1)] case ...\n" [msg]
+                    val () = println $ sprintf "Failed the [T m (n/b)] case because: $" [msg]
+                    val () = println "Try [T m (n-1)] case ..."
+                    (* val () = println $ sprintf "main_fun=$   g=$" [str_int main_fun, str_int g] *)
                     val is = collect_AddI i1
                     fun par i =
                         case i of
                             BinOpI (TimeApp, BinOpI (TimeApp, VarI (_, (g', _)), VarI (_, (m', _))), n') =>
-                            if g' = g andalso m' = m then
-                              SOME n'
-                            else NONE
+                            let
+                              (* val () = println $ sprintf "main_fun=$   g=$  g'=$" [str_int main_fun, str_int g, str_int g'] *)
+
+                            in
+                              if g' = g andalso m' = m then
+                                SOME n'
+                              else NONE
+                            end
                           | _ => NONE
                     val (n's, rest) = partitionOption par is
+                    val () = if null n's then raise Error "n's is null" else ()
+                    (* val () = println $ sprintf "length n's = $" [str_int $ length n's] *)
                     val n' = combine_AddI_Nat n's
                     val () = if ask_smt (n' %+ N1 %<= n_i) then () else raise Error "n' %+ N1 %<= n_i"
                     val (c, k) =
@@ -557,8 +579,8 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
             fun extend_vcs_with_long_hyps vcs = append_hyps ([VarH (name0, TimeFun arity0), VarH (name1, TimeFun arity1)] @ hs) vcs
             val vcs_with_long_hyps = extend_vcs_with_long_hyps vcs
             val vcs_and_long_hyps = map (fn (vc, (long_hyps, _)) => (vc, long_hyps)) $ zip (vcs, vcs_with_long_hyps)
-            (* val () = println "Master-Theorem-solver to solve this: " *)
-            (* val () = app println $ concatMap (fn ((_, p), long_hyps) => str_vc false "" (long_hyps, p) @ [""]) $ vcs_and_long_hyps *)
+            val () = println "Master-Theorem-solver to solve this: "
+            val () = app println $ concatMap (fn ((_, p), long_hyps) => str_vc false "" (long_hyps, p) @ [""]) $ vcs_and_long_hyps
             val fs = map infer_vc vcs_and_long_hyps
             val (f, fs) = case fs of
                               [] => raise Error "by_master_theorem: no VCs"
@@ -626,7 +648,6 @@ exception MasterTheoremCheckFail of region * string list
 fun solve_exists (vc as (hs, p)) =
     case p of
         Quan (Exists ins, Base (TimeFun arity), Bind ((name, _), p), _) =>
-        
         let
           val ret =
               case p of
@@ -680,7 +701,8 @@ fun solve_exists (vc as (hs, p)) =
                     case infer_exists hs (name, arity) p of
                         SOME (i, vcs) =>
                         let
-                          val () = println "Inferrred by infer_exists() !"
+                          val () = println "Inferred by infer_exists():"
+                          val () = println $ str_i [] [] i
                           val () = case ins of
                                        SOME ins => ins i
                                      | NONE => ()
@@ -696,14 +718,17 @@ fun solve_exists (vc as (hs, p)) =
                   let
                     (* ToDo: a bit unsound inference strategy: infer [i] from [p1] and substitute for [i] in [p2] (assuming that [p2] doesn't contribute to inferring [i]) *)
                     val (p1, p2) = split_and p
-                                     (* val () = println "Exists-solver to solve this: " *)
-                                     (* val () = app println $ (str_vc false "" vc @ [""]) *)
-                                     (* val () = app println $ (str_vc false "" (VarH (name, TimeFun arity) :: hs, p1) @ [""]) *)
+                    val () = println "This inference may be unsound. It assumes this proposition doesn't contribute to inference:"
+                    val () = app println $ (str_vc false "" (VarH (name, TimeFun arity) :: hs, p2) @ [""])
+                    (* val () = println "Exists-solver to solve this: " *)
+                    (* val () = app println $ (str_vc false "" vc @ [""]) *)
+                    (* val () = app println $ (str_vc false "" (VarH (name, TimeFun arity) :: hs, p1) @ [""]) *)
                   in
                     case infer_exists hs (name, arity) p1 of
                         SOME (i, vcs1) =>
                         let
-                          val () = println "Inferrred by infer_exists() !"
+                          val () = println "Inferred by infer_exists():"
+                          val () = println $ str_i [] [] i
                           val () = case ins of
                                        SOME ins => ins i
                                      | NONE => ()
@@ -733,7 +758,7 @@ fun solve_bigO_compare (vc as (hs, p)) =
           fun get_arity i = length $ fst $ collect_TimeAbs i
           val arity = get_arity i2
           val result = timefun_le hs arity i1 i2
-                                  (* val () = println $ str_bool result *)
+          (* val () = println $ sprintf "bigO-compare result: $" [str_bool result] *)
         in
           if result then
             []
@@ -774,7 +799,7 @@ fun solve_fun_compare (vc as (hs, p)) =
                
 fun solve_vcs (vcs : vc list) : vc list =
     let 
-      (* val () = println "solve_vcs ()" *)
+      val () = println "solve_vcs ()"
       val vcs = concatMap solve_exists vcs
       val vcs = concatMap solve_bigO_compare vcs
       val vcs = concatMap solve_fun_compare vcs

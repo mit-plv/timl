@@ -27,12 +27,12 @@ Group is
       smt2-printer.sml
       smt-solver.sml
       main.sml
-      compiler/micro-timl-def.sml
+      compiler/micro-timl-def.sml 
       compiler/ast-transformers.sml
-      compiler/deriv-transformers.sml
-      compiler/deriv-checker.sml
-      compiler/micro-timl-hoisted-def.sml
-      compiler/micro-timl-test.sml
+(*      compiler/deriv-transformers.sml *)
+(*      compiler/deriv-checker.sml *)
+(*      compiler/micro-timl-hoisted-def.sml *)
+(*      compiler/micro-timl-test.sml *)
 
       $/basis.cm
       $/smlnj-lib.cm

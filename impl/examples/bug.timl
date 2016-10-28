@@ -1,0 +1,23 @@
+structure Bug = struct
+open Basic
+open List
+       
+absidx T_fun1 : BigO 2 (fn m n => $m * $n) with
+fun fun1 ['a] {m n : Nat} (le : 'a * 'a -- $m --> bool) (l : {n} 'a list) return unit using T_fun1 m n =
+  ()
+end
+ 
+(* absidx T_fun2 : BigO 2 (fn m n => $m * $n) with *)
+idx T_fun2 : BigO 2 (fn m n => $m * $n) = fn m n => T_fun1 m (n-1) + 2.0
+fun fun2 ['a] {m n : Nat} (le : 'a * 'a -- $m --> bool) (l : {n} 'a list) return unit using T_fun2 m n =
+  case l of
+      [] => ()
+    | hd :: tl =>
+      let
+          val () = fun1 le tl
+      in
+          ()
+      end
+(* end *)
+
+end

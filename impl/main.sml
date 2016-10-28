@@ -54,7 +54,7 @@ fun process_top_bind filename gctx bind =
       (* val () = write_file (filename ^ ".smt2", to_smt2 vcs) *)
       (* val () = app println $ print_result false filename (gctx_names old_gctx) gctxd *)
       val () = println $ sprintf "Type checker generated $ proof obligations." [str_int $ length vcs]
-      (* val () = app println $ concatMap (fn vc => VC.str_vc false filename vc @ [""]) vcs *)
+      val () = app println $ concatMap (fn vc => VC.str_vc false filename vc @ [""]) vcs
       fun print_unsat show_region filename (vc, counter) =
           VC.str_vc show_region filename vc @
           (* [""] @ *)
@@ -63,11 +63,12 @@ fun process_top_bind filename gctx bind =
                if length assigns > 0 then
                  indent ["Counter-example:"] @
                  (self_compose 2 indent) (map (fn (name, value) => sprintf "$ = $" [name, value]) assigns) @
-                 [""]        
+                 []        
                else []
              (* | NONE => ["SMT solver reported 'unknown': can't prove and can't find counter example\n"] *)
              | NONE => []
-          ) 
+          ) @
+          [""]
       fun print_unsats show_region filename unsats =
           if length unsats > 0 then
             app println $ concatMap (print_unsat show_region filename) unsats
@@ -81,8 +82,8 @@ fun process_top_bind filename gctx bind =
               val () = println "Applying BigO solver ..."
               val vcs = BigOSolver.solve_vcs vcs
               val () = println (sprintf "BigO solver generated or left $ proof obligations unproved." [str_int $ length vcs])
-                               (* val () = println "" *)
-                               (* val () = print_unsats false filename $ map (fn vc => (vc, SOME [])) vcs *)
+              val () = println ""
+              val () = print_unsats false filename $ map (fn vc => (vc, SOME [])) vcs
             in
               vcs
             end
