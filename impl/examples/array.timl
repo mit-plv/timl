@@ -25,13 +25,13 @@ structure Array = struct
   fun appi ['a] {m : Time} {len : Nat} (f : {len} nat_less_than * 'a -- m --> unit) (a : {len} 'a array) return unit using (m + $1) * $len =
     builtin
 
-  fun app ['a] {m : Time} (f : 'a -- m --> unit) {len : Nat} (a : {len} 'a array) return unit using (m + $1) * $len =
+  fun app ['a] {m : Time} {len : Nat} (f : 'a -- m --> unit) (a : {len} 'a array) return unit using (m + $1) * $len =
     builtin
 
   fun modifyi ['a] {m : Time} {len : Nat} (f : {len} nat_less_than * 'a -- m --> 'a) (a : {len} 'a array) return unit using (m + $1) * $len =
     builtin
 
-  fun modify ['a] {m : Time} (f : 'a -- m --> 'a) {len : Nat} (a : {len} 'a array) return unit using (m + $1) * $len =
+  fun modify ['a] {m : Time} {len : Nat} (f : 'a -- m --> 'a) (a : {len} 'a array) return unit using (m + $1) * $len =
     builtin
 
   fun foldli ['a 'b] {m : Time} {len : Nat} (f : {len} nat_less_than * 'a * 'b -- m --> 'b) (x : 'b) (a : {len} 'a array) return 'b using (m + $1) * $len =

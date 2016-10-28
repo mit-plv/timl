@@ -1,0 +1,74 @@
+structure Dijkstra =
+struct
+
+open Basic
+open Array
+
+datatype {Nat} 'a dist_matrix =
+         Mat {n : Nat} of {n} ({n} 'a array) array --> {n} 'a dist_matrix
+
+fun relax ['a] {m1 m2 n u : Nat} {u < n} (add : 'a * 'a -- $m1 --> 'a, le : 'a * 'a -- $m2 --> bool) (graph : {n} 'a dist_matrix) (u : {u} nat, dist : {n} 'a array) =
+  let
+      val vec =
+          case graph return {n} 'a array of
+              Mat content => sub (content, u)
+      fun iter (w : {n} nat_less_than, ori_dist) =
+        case w of
+            NatLT v =>
+            let
+                val new_dist = add (sub (dist, u), sub (vec, v))
+            in
+                if le (ori_dist, new_dist) then
+                    ()
+                else
+                    update (dist, v, new_dist)
+            end
+  in
+      appi iter dist
+  end
+
+fun select ['a] {m2 n : Nat} (le : 'a * 'a -- $m2 --> bool) (vis : {n} bool array, dist : {n} 'a array) =
+  let
+      fun iter (w : {n} nat_less_than, ori_dist, who : ({n} nat_less_than) option) =
+        case w of
+            NatLT v =>
+            if sub (vis, v) then who
+            else
+                case who of
+                    NONE => SOME w
+                  | SOME k =>
+                    let
+                        val who_dist =
+                            case k of
+                                NatLT k => sub (dist, k)
+                    in
+                        if le (who_dist, ori_dist) then who else SOME w
+                    end
+  in
+      foldli iter NONE dist
+  end
+
+fun dijkstra ['a] {m1 m2 n u : Nat} {u < n} (add : 'a * 'a -- $m1 --> 'a, le : 'a * 'a -- $m2 --> bool) (graph : {n} 'a dist_matrix, src : {u} nat, zero : 'a) =
+  let
+      val n = case graph return {n} nat of Mat content => length content
+      val dist = array (n, zero)
+      val vis = array (n, false)
+      val () = update (vis, src, true)
+      fun iter _ =
+        case select le (vis, dist) of
+            NONE => ()
+          | SOME w =>
+            case w of
+                NatLT u =>
+                let
+                    val () = relax (add, le) graph (u, dist)
+                    val () = update (vis, u, true)
+                in
+                    ()
+                end
+      val () = app iter dist
+  in
+      dist
+  end
+
+end
