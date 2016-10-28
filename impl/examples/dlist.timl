@@ -1,0 +1,65 @@
+structure DList =
+struct
+
+open Array
+
+datatype 'a ref = Ref of {1} 'a array --> 'a ref
+
+fun setref ['a] (r : 'a ref, x : 'a) =
+  case r of
+      Ref content => update (content, #0, x)
+
+fun deref ['a] (r : 'a ref) =
+  case r of
+      Ref content => sub (content, #0)
+
+fun newref ['a] (x : 'a) =
+  Ref (array (#1, x))
+
+datatype {Nat} 'a dlist =
+         DNil of {0} 'a dlist
+       | DMid {l r : Nat} of {l} 'a dlist * 'a * {r} 'a dlist --> {l + 1 + r} 'a dlist
+
+absidx T_map : BigO 2 (fn m n => $m * $n) with
+fun map ['a 'b] {m n : Nat} (f : 'a -- $m --> 'b) (l : {n} 'a dlist) return {n} 'b dlist using T_map m n =
+  case l of
+      DNil => DNil
+    | DMid (left, x, right) =>
+      let
+          val left' = map f left
+          val x' = f x
+          val right' = map f right
+      in
+          DMid (left', x', right')
+      end
+end
+
+absidx T_fold_to_left : BigO 2 (fn m n => $m * $n) with
+fun fold_to_left ['a 'b] {m n : Nat} (f : 'a * 'b -- $m --> 'b) (acc : 'b) (l : {n} 'a dlist) return 'b using T_fold_to_left m n =
+  case l of
+      DNil => acc
+    | DMid (left, x, _) => fold_to_left f (f (x, acc)) left
+end
+
+absidx T_fold_from_left : BigO 2 (fn m n => $m * $n) with
+fun fold_from_left ['a 'b] {m n : Nat} (f : 'a * 'b -- $m --> 'b) (acc : 'b) (l : {n} 'a dlist) return 'b using T_fold_from_left m n =
+  case l of
+      DNil => acc
+    | DMid (left, x, _) => f (x, fold_from_left f acc left)
+end
+
+absidx T_fold_to_right : BigO 2 (fn m n => $m * $n) with
+fun fold_to_right ['a 'b] {m n : Nat} (f : 'a * 'b -- $m --> 'b) (acc : 'b) (l : {n} 'a dlist) return 'b using T_fold_to_right m n =
+  case l of
+      DNil => acc
+    | DMid (_, x, right) => fold_to_right f (f (x, acc)) right
+end
+
+absidx T_fold_from_right : BigO 2 (fn m n => $m * $n) with
+fun fold_from_right ['a 'b] {m n : Nat} (f : 'a * 'b -- $m --> 'b) (acc : 'b) (l : {n} 'a dlist) return 'b using T_fold_from_right m n =
+  case l of
+      DNil => acc
+    | DMid (_, x, right) => f (x, fold_from_right f acc right)
+end
+
+end
