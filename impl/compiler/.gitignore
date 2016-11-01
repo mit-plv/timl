@@ -1,0 +1,14 @@
+compiler-image*
+compiler
+*.x86-linux
+*.s
+*.o
+*.asm
+.cm
+*.cmi
+*.cmo
+*.grm.*
+*.lex.*
+*.model
+*.lisp
+*.smt2

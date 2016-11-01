@@ -1,26 +1,51 @@
+structure NatTime =
+struct
+open Util
+
+type time_type = int
+
+val Time0 = 0
+val Time1 = 1
+
+val str_time = str_int
+end
+
+structure IntNat =
+struct
+open Util
+
+type nat_type = int
+
+val str_nat = str_int
+end
+
+structure MicroTiMLDef = MicroTiMLDefFun(
+    structure Time = NatTime
+    structure Nat = IntNat)
+
 structure MicroTiMLTest =
 struct
-  open Util
+open Util
+infixr 0 $
 
-  infixr 0 $
+open MicroTiMLDef
+structure MicroTiMLUtil = MicroTiMLUtilFun(MicroTiMLDef)
+open MicroTiMLUtil
+structure DerivTransformers = DerivTransformersFun(MicroTiMLDef)
+open DerivTransformers
+structure DerivChecker = DerivCheckerFun(MicroTiMLDef)
+open DerivChecker
+structure MicroTiMLHoistedDef = MicroTiMLHoistedDefFun(MicroTiMLDef)
+open MicroTiMLHoistedDef
+structure HoistedDerivChecker = HoistedDerivCheckerFun(MicroTiMLHoistedDef)
+open HoistedDerivChecker
+structure HoistedDerivTransformers = HoistedDerivTransformersFun(MicroTiMLHoistedDef)
+open HoistedDerivTransformers
 
-  structure NatTime : SIG_TIME =
-  struct
-    type time_type = int
+open ANF
 
-    val Time0 = 0
-    val Time1 = 1
-
-    val str_time = str_int
-  end
-
-  structure MicroTiMLHoisted = MicroTiMLHoisted(NatTime)
-
-  open MicroTiMLHoisted
-  open ANF
-
-  fun test_cps () =
-    let
+fun test_cps () =
+  let
       val tctx = [CArrow (CInt, T1, CArrow (CInt, T1, CInt)), CArrow (CInt, T1, CInt), CInt, CArrow (CInt, T1, CInt), CArrow (CInt, T1, CInt), CInt, CArrow (CInt, T0, CTypeUnit)]
       val tctx = List.map (CPS.transform_type) tctx
       val ctx = ([], tctx)
@@ -41,12 +66,12 @@ struct
       val wrap_ty = WrapLambda.wrap_lambda_ty cps_ty
       val () = println $ str_expr $ #2 (extract_judge_typing wrap_ty)
       val () = check_typing wrap_ty
-    in
+  in
       println ""
-    end
+  end
 
-  fun test_abs_app () =
-    let
+fun test_abs_app () =
+  let
       val e1 = EAbs (EVar 0)
       val ct1 = ([], [])
       val i1 = T0
@@ -65,14 +90,14 @@ struct
       val () = println $ str_expr $ #2 (extract_judge_typing clo_ty)
       val () = check_typing clo_ty
       val hoisted_ty = Hoist.hoist clo_ty
-      val () = print $ HoistedPlainPrinter.str_program $ #1 (extract_judge_ptyping hoisted_ty)
+      val () = print $ str_program $ #1 (extract_judge_ptyping hoisted_ty)
       val () = HoistedDerivChecker.check_program hoisted_ty
-    in
+  in
       println ""
-    end
+  end
 
-  fun test_currying () =
-    let
+fun test_currying () =
+  let
       val e1 = EAbs (EAbs (EPair (EVar 1, EVar 0)))
       val ct1 = ([], [])
       val i1 = T0
@@ -93,20 +118,20 @@ struct
       val () = println $ str_expr $ #2 (extract_judge_typing clo_ty)
       val () = check_typing clo_ty
       val hoisted_ty = Hoist.hoist clo_ty
-      val () = print $ HoistedPlainPrinter.str_program $ #1 (extract_judge_ptyping hoisted_ty)
+      val () = print $ str_program $ #1 (extract_judge_ptyping hoisted_ty)
       val () = HoistedDerivChecker.check_program hoisted_ty
-      (*val anf_ty = fst $ ANF.normalize_deriv clo_conv_ty
+  (*val anf_ty = fst $ ANF.normalize_deriv clo_conv_ty
       val janf_ty = extract_judge_typing anf_ty
       val () = println $ str_expr $ #2 janf_ty
       val () = check_typing anf_ty
       val hoisted_ty = Hoist.hoist anf_ty
       val () = HoistedDerivChecker.check_program hoisted_ty*)
-    in
+  in
       println ""
-    end
+  end
 
-  fun test_concat () =
-    let
+fun test_concat () =
+  let
       val c1 = CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 1, CNat 0)), CTypeUnit)
       val ct1 = [KNat, KType, KArrow (KType, KArrow (KNat, KType))]
       val d1 = KdQuan ((ct1, c1, KType), WfKdSubset ((ct1, KSubset (KUnit, PBinPred (PBNatEq, CVar 1, CNat 0))), WfKdBaseSort (ct1, KUnit), WfPropBinPred ((KUnit :: ct1, PBinPred (PBNatEq, CVar 1, CNat 0)), KdVar (KUnit :: ct1, CVar 1, KNat), KdConst (KUnit :: ct1, CNat 0, KNat))), KdConst ((KSubset (KUnit, PBinPred (PBNatEq, CVar 1, CNat 0))) :: ct1, CTypeUnit, KType))
@@ -389,28 +414,28 @@ struct
       val () = println $ str_expr $ #2 (extract_judge_typing clo_ty)
       val () = check_typing clo_ty
       val hoisted_ty = Hoist.hoist clo_ty
-      val () = print $ HoistedPlainPrinter.str_program $ #1 (extract_judge_ptyping hoisted_ty)
+      val () = print $ str_program $ #1 (extract_judge_ptyping hoisted_ty)
       val () = HoistedDerivChecker.check_program hoisted_ty
-      (*val concat_anf_ty = fst $ ANF.normalize_deriv concat_clo_conv_ty
+  (*val concat_anf_ty = fst $ ANF.normalize_deriv concat_clo_conv_ty
       val jconcat_anf_ty = extract_judge_typing concat_anf_ty
       val () = println $ str_expr $ #2 jconcat_anf_ty
       val () = check_typing concat_anf_ty
       val concat_hoisted_ty = Hoist.hoist concat_anf_ty
       val () = HoistedDerivChecker.check_program concat_hoisted_ty*)
-    in
+  in
       println ""
-    end
+  end
 
-  fun main(prog_name : string, args : string list) : int =
-    let
+fun test () =
+  let
       val () = test_cps ()
       val () = test_abs_app ()
       val () = test_currying ()
       val () = test_concat ()
-    in
-      0
-    end
-  (*open Util
+  in
+      ()
+  end
+(*open Util
   open MicroTiML
 
   fun test_len () =
