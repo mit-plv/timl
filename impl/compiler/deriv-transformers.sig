@@ -85,8 +85,8 @@ sig
                   val wrap_lambda_deriv : MicroTiMLDef.typing -> MicroTiMLDef.typing
               end
 
-    (*structure CloConv :
+    structure CloConv :
               sig
                   val clo_conv_deriv : MicroTiMLDef.typing -> MicroTiMLDef.typing
-              end*)
+              end
 end

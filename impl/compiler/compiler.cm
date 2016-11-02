@@ -5,6 +5,7 @@ Group is
       ast-transformers.sig
       deriv-transformers.sig
       deriv-checker.sig
+      micro-timl-test.sig
       (*micro-timl-hoisted-def.sig*)
       micro-timl-def.sml
       micro-timl-util.sml
@@ -13,8 +14,8 @@ Group is
       deriv-checker.sml
       (*micro-timl-hoisted-def.sml
       hoisted-deriv-checker.sml
-      hoisted-deriv-transformers.sml
-      micro-timl-test.sml*)
+      hoisted-deriv-transformers.sml*)
+      micro-timl-test.sml
       compiler.sml
 
       $/basis.cm

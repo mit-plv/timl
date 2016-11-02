@@ -1,3 +1,9 @@
+structure MicroTiMLTest : SIG_MICRO_TIML_TEST =
+struct
+open List
+open Util
+infixr 0 $
+
 structure NatTime =
 struct
 open Util
@@ -24,26 +30,127 @@ structure MicroTiMLDef = MicroTiMLDefFun(
     structure Time = NatTime
     structure Nat = IntNat)
 
-structure MicroTiMLTest =
-struct
-open Util
-infixr 0 $
-
 open MicroTiMLDef
 structure MicroTiMLUtil = MicroTiMLUtilFun(MicroTiMLDef)
 open MicroTiMLUtil
+structure AstTransformers = AstTransformersFun(MicroTiMLDef)
+open AstTransformers
 structure DerivTransformers = DerivTransformersFun(MicroTiMLDef)
 open DerivTransformers
 structure DerivChecker = DerivCheckerFun(MicroTiMLDef)
 open DerivChecker
-structure MicroTiMLHoistedDef = MicroTiMLHoistedDefFun(MicroTiMLDef)
+(*structure MicroTiMLHoistedDef = MicroTiMLHoistedDefFun(MicroTiMLDef)
 open MicroTiMLHoistedDef
 structure HoistedDerivChecker = HoistedDerivCheckerFun(MicroTiMLHoistedDef)
-open HoistedDerivChecker
+open HoistedDerivChecker*)
 
-open ANF
+open DerivAssembler
+open ShiftCtx
+open PlainPrinter
+open ShiftCstr
+open ShiftExpr
+open SubstCstr
+open SubstExpr
 
-fun test_cps () =
+fun TySub ((ctx, e, t, i), ty, te, pr) =
+  let
+      val jty = extract_judge_typing ty
+      val ty1 = TySubTy ((ctx, e, t, #4 jty), ty, te)
+      val ty2 = TySubTi ((ctx, e, t, i), ty1, pr)
+  in
+      ty2
+  end
+
+fun gen_kdeq_refl kctx k =
+  case k of
+      KType => KdEqKType (kctx, k, k)
+    | KArrow (k1, k2) =>
+      let
+          val ke1 = gen_kdeq_refl kctx k1
+          val ke2 = gen_kdeq_refl kctx k2
+      in
+          KdEqKArrow (as_KdEqKArrow ke1 ke2, ke1, ke2)
+      end
+    | KBaseSort s => KdEqBaseSort (kctx, k, k)
+    | KSubset (k, p) =>
+      let
+          val ke = gen_kdeq_refl kctx k
+          val pr = PrAdmit (k :: kctx, PIff (p, p))
+      in
+          KdEqSubset (as_KdEqKSubset ke pr, ke, pr)
+      end
+
+fun gen_tyeq_refl kctx t =
+  case t of
+      CVar x => TyEqVar (kctx, t, t)
+    | CConst cn => TyEqConst (kctx, t, t)
+    | CBinOp (opr, t1, t2) =>
+      let
+          val te1 = gen_tyeq_refl kctx t1
+          val te2 = gen_tyeq_refl kctx t2
+      in
+          TyEqBinOp (as_TyEqBinOp opr te1 te2, te1, te2)
+      end
+    | CIte (i1, i2, i3) =>
+      let
+          val te1 = gen_tyeq_refl kctx i1
+          val te2 = gen_tyeq_refl kctx i2
+          val te3 = gen_tyeq_refl kctx i3
+      in
+          TyEqIte (as_TyEqIte te1 te2 te3, te1, te2, te3)
+      end
+    | CTimeAbs c => TyEqTimeAbs (kctx, t, t)
+    | CTimeApp (arity, c1, c2) =>
+      let
+          val te1 = gen_tyeq_refl kctx c1
+          val te2 = gen_tyeq_refl kctx c2
+      in
+          TyEqTimeApp (as_TyEqTimeApp arity te1 te2, te1, te2)
+      end
+    | CArrow (t1, i, t2) =>
+      let
+          val te1 = gen_tyeq_refl kctx t1
+          val pr = PrAdmit (kctx, TEq (i, i))
+          val te2 = gen_tyeq_refl kctx t2
+      in
+          TyEqArrow (as_TyEqArrow te1 pr te2, te1, pr, te2)
+      end
+    | CAbs c => TyEqAbs (kctx, t, t)
+    | CApp (c1, c2) =>
+      let
+          val te1 = gen_tyeq_refl kctx c1
+          val te2 = gen_tyeq_refl kctx c2
+      in
+          TyEqApp (as_TyEqApp te1 te2, te1, te2)
+      end
+    | CQuan (q, k, c) =>
+      let
+          val ke = gen_kdeq_refl kctx k
+          val te = gen_tyeq_refl (k :: kctx) c
+      in
+          TyEqQuan (as_TyEqQuan q ke te, ke, te)
+      end
+    | CRec (k, c) =>
+      let
+          val ke = gen_kdeq_refl kctx k
+          val te = gen_tyeq_refl (k :: kctx) c
+      in
+          TyEqRec (as_TyEqRec ke te, ke, te)
+      end
+    | CRef c =>
+      let
+          val te = gen_tyeq_refl kctx c
+      in
+          TyEqRef (as_TyEqRef te, te)
+      end
+    | CUnOp (opr, c) =>
+      let
+          val te = gen_tyeq_refl kctx c
+      in
+          TyEqUnOp (as_TyEqUnOp opr te, te)
+      end
+
+(*fun test_cps () =
   let
       val tctx = [CArrow (CInt, T1, CArrow (CInt, T1, CInt)), CArrow (CInt, T1, CInt), CInt, CArrow (CInt, T1, CInt), CArrow (CInt, T1, CInt), CInt, CArrow (CInt, T0, CTypeUnit)]
       val tctx = List.map (CPS.transform_type) tctx
@@ -62,12 +169,12 @@ fun test_cps () =
       val cps_ty = CPS.cps_deriv d11
       val () = println $ str_expr $ #2 (extract_judge_typing cps_ty)
       val () = check_typing cps_ty
-      val wrap_ty = WrapLambda.wrap_lambda_ty cps_ty
+      val wrap_ty = WrapLambda.wrap_lambda_deriv cps_ty
       val () = println $ str_expr $ #2 (extract_judge_typing wrap_ty)
       val () = check_typing wrap_ty
   in
       println ""
-  end
+  end*)
 
 fun test_abs_app () =
   let
@@ -82,15 +189,15 @@ fun test_abs_app () =
       val cps_ty = CPS.cps_deriv d2
       val () = println $ str_expr $ #2 (extract_judge_typing cps_ty)
       val () = check_typing cps_ty
-      val wrap_ty = WrapLambda.wrap_lambda_ty cps_ty
+      val wrap_ty = WrapLambda.wrap_lambda_deriv cps_ty
       val () = println $ str_expr $ #2 (extract_judge_typing wrap_ty)
       val () = check_typing wrap_ty
-      val clo_ty = CloConv.clo_conv_ty wrap_ty
+      val clo_ty = CloConv.clo_conv_deriv wrap_ty
       val () = println $ str_expr $ #2 (extract_judge_typing clo_ty)
       val () = check_typing clo_ty
-      val hoisted_ty = hoist_deriv clo_ty
+      (*val hoisted_ty = hoist_deriv clo_ty
       val () = print $ str_program $ #1 (extract_judge_ptyping hoisted_ty)
-      val () = HoistedDerivChecker.check_program hoisted_ty
+      val () = HoistedDerivChecker.check_program hoisted_ty*)
   in
       println ""
   end
@@ -110,16 +217,16 @@ fun test_currying () =
       val cps_ty = CPS.cps_deriv d3
       val () = println $ str_expr $ #2 (extract_judge_typing cps_ty)
       val () = check_typing cps_ty
-      val wrap_ty = WrapLambda.wrap_lambda_ty cps_ty
+      val wrap_ty = WrapLambda.wrap_lambda_deriv cps_ty
       val () = println $ str_expr $ #2 (extract_judge_typing wrap_ty)
       val () = check_typing wrap_ty
-      val clo_ty = CloConv.clo_conv_ty wrap_ty
+      val clo_ty = CloConv.clo_conv_deriv wrap_ty
       val () = println $ str_expr $ #2 (extract_judge_typing clo_ty)
       val () = check_typing clo_ty
-      val hoisted_ty = hoist_deriv clo_ty
+      (*val hoisted_ty = hoist_deriv clo_ty
       val () = print $ str_program $ #1 (extract_judge_ptyping hoisted_ty)
-      val () = HoistedDerivChecker.check_program hoisted_ty
-  (*val anf_ty = fst $ ANF.normalize_deriv clo_conv_ty
+      val () = HoistedDerivChecker.check_program hoisted_ty*)
+  (*val anf_ty = fst $ ANF.normalize_deriv clo_conv_deriv
       val janf_ty = extract_judge_typing anf_ty
       val () = println $ str_expr $ #2 janf_ty
       val () = check_typing anf_ty
@@ -214,7 +321,7 @@ fun test_concat () =
       val ct19 = ct18
       val t19 = CApps list_dec [CVar 2, CBinOp (CBNatAdd, CVar 1, CVar 0)]
       val i19 = TfromNat (CVar 1)
-      val d19 = TySub ((ct19, e19, t19, i19), d18, TyEqApp ((fst ct19, t18, t19), TyEqApp ((fst ct19, CApp (list_dec, CVar 2), CApp (list_dec, CVar 2)), TyEqRec ((fst ct19, list_dec, list_dec), KdEqKArrow ((fst ct19, KArrow (KType, KArrow (KNat, KType)), KArrow (KType, KArrow (KNat, KType))), KdEqKType (fst ct19, KType, KType), KdEqKArrow ((fst ct19, KArrow (KNat, KType), KArrow (KNat, KType)), KdEqBaseSort (fst ct19, KNat, KNat), KdEqKType (fst ct19, KType, KType))), TyEqAbs (KArrow (KType, KArrow (KNat, KType)) :: fst ct19, c8, c8)), TyEqVar (fst ct19, CVar 2, CVar 2)), TyEqNatEq ((fst ct19, CVar 0, CBinOp (CBNatAdd, CVar 1, CVar 0)), PrAdmit (fst ct19, PBinPred (PBNatEq, CVar 0, CBinOp (CBNatAdd, CVar 1, CVar 0))))), PrAdmit (fst ct19, TLe (i18, i19)))
+      val d19 = TySub ((ct19, e19, t19, i19), d18, TyEqApp ((fst ct19, t18, t19), TyEqApp ((fst ct19, CApp (list_dec, CVar 2), CApp (list_dec, CVar 2)), TyEqRec ((fst ct19, list_dec, list_dec), KdEqKArrow ((fst ct19, KArrow (KType, KArrow (KNat, KType)), KArrow (KType, KArrow (KNat, KType))), KdEqKType (fst ct19, KType, KType), KdEqKArrow ((fst ct19, KArrow (KNat, KType), KArrow (KNat, KType)), KdEqBaseSort (fst ct19, KNat, KNat), KdEqKType (fst ct19, KType, KType))), TyEqAbs (KArrow (KType, KArrow (KNat, KType)) :: fst ct19, c8, c8)), TyEqVar (fst ct19, CVar 2, CVar 2)), TyEqNat ((fst ct19, CVar 0, CBinOp (CBNatAdd, CVar 1, CVar 0)), KdVar (fst ct19, CVar 0, KNat), KdBinOp ((fst ct19, CBinOp (CBNatAdd, CVar 1, CVar 0), KNat), KdVar (fst ct19, CVar 1, KNat), KdVar (fst ct19, CVar 0, KNat)), PrAdmit (fst ct19, PBinPred (PBNatEq, CVar 0, CBinOp (CBNatAdd, CVar 1, CVar 0))))), PrAdmit (fst ct19, TLe (i18, i19)))
       val () = check_typing d19
       val e20 = EProj (ProjFst, EVar 0)
       val ct20 = ([KSubset (KUnit, PBinPred (PBNatEq, CVar 3, CBinOp (CBNatAdd, CVar 1, get_nat 1))), KNat, KNat, KNat, KType], [CProd (CVar 4, CApps list_dec [CVar 4, CVar 1]), CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, get_nat 1))), CProd (CVar 5, CApps list_dec [CVar 5, CVar 2])), CExists (KNat, CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 5, CBinOp (CBNatAdd, CVar 1, get_nat 1))), CProd (CVar 6, CApps list_dec [CVar 6, CVar 1]))), CProd (CApps list_dec [CVar 4, CVar 3], CApps list_dec [CVar 4, CVar 2]), concat_t])
@@ -407,16 +514,16 @@ fun test_concat () =
       val cps_ty = CPS.cps_deriv d50
       val () = println $ str_expr $ #2 (extract_judge_typing cps_ty)
       val () = check_typing cps_ty
-      val wrap_ty = WrapLambda.wrap_lambda_ty cps_ty
+      val wrap_ty = WrapLambda.wrap_lambda_deriv cps_ty
       val () = println $ str_expr $ #2 (extract_judge_typing wrap_ty)
       val () = check_typing wrap_ty
-      val clo_ty = CloConv.clo_conv_ty wrap_ty
+      val clo_ty = CloConv.clo_conv_deriv wrap_ty
       val () = println $ str_expr $ #2 (extract_judge_typing clo_ty)
       val () = check_typing clo_ty
-      val hoisted_ty = hoist_deriv clo_ty
+      (*val hoisted_ty = hoist_deriv clo_ty
       val () = print $ str_program $ #1 (extract_judge_ptyping hoisted_ty)
-      val () = HoistedDerivChecker.check_program hoisted_ty
-  (*val concat_anf_ty = fst $ ANF.normalize_deriv concat_clo_conv_ty
+      val () = HoistedDerivChecker.check_program hoisted_ty*)
+  (*val concat_anf_ty = fst $ ANF.normalize_deriv concat_clo_conv_deriv
       val jconcat_anf_ty = extract_judge_typing concat_anf_ty
       val () = println $ str_expr $ #2 jconcat_anf_ty
       val () = check_typing concat_anf_ty
@@ -428,7 +535,7 @@ fun test_concat () =
 
 fun test () =
   let
-      val () = test_cps ()
+      (*val () = test_cps ()*)
       val () = test_abs_app ()
       val () = test_currying ()
       val () = test_concat ()
