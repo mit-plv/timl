@@ -43,7 +43,7 @@ fun do_pop ['a] {s1 s2 : Nat} (q : {s2} {s1} 'a queue) return {s2} {s1} 'a do_po
 datatype {Time} {Time} {Nat} {Nat} {Nat} 'a amortized_output =
          AmortizedOutput
              {cost amortized_cost : Time} {s1 s2 s1' s2' cnt : Nat}
-             {cost + $s2 <= $s2' + amortized_cost * $cnt}
+             {cost + $s1' <= $s1 + amortized_cost * $cnt}
              {s1' + s2' <= s1 + s2 + cnt}
  of {s2'} {s1'} 'a queue --> {cost} {amortized_cost} {cnt} {s2} {s1} 'a amortized_output
 
@@ -75,7 +75,7 @@ fun push_or_pop ['a] {s1 s2 : Nat} (q : {s2} {s1} 'a queue, opr : 'a operation) 
       OPush x => push (q, x)
     | OPop => pop q
 
-fun push_pop_seq ['a] {s1 s2 cnt : Nat} (q : {s2} {s1} 'a queue, oprs : {cnt} ('a operation) list) return 'a some_queue using 8.0 * $cnt + $s1 =
+fun push_pop_seq ['a] {s1 s2 cnt : Nat} (q : {s2} {s1} 'a queue, oprs : {cnt} ('a operation) list) return 'a some_queue using 7.0 * $cnt + $s1 =
   case oprs of
       [] => SomeQueue q
     | hd :: tl =>
