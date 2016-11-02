@@ -1,99 +1,3 @@
-signature SIG_MICRO_TIML_HOISTED_DEF =
-sig
-    structure MicroTiMLDef : SIG_MICRO_TIML_DEF
-
-    datatype atom_expr =
-             AEVar of MicroTiMLDef.var
-             | AEConst of MicroTiMLDef.expr_const
-             | AEFuncPointer of int
-             | AEPair of atom_expr * atom_expr
-             | AEAppC of atom_expr * MicroTiMLDef.cstr
-             | AEAbsC of atom_expr
-             | AEPack of MicroTiMLDef.cstr * atom_expr
-
-         and complex_expr =
-             CEUnOp of MicroTiMLDef.expr_un_op * atom_expr
-             | CEBinOp of MicroTiMLDef.expr_bin_op * atom_expr * atom_expr (* no app or pair *)
-             | CEAtom of atom_expr
-
-         and hoisted_expr =
-             HELet of complex_expr * hoisted_expr
-             | HEUnpack of atom_expr * hoisted_expr
-             | HEApp of atom_expr * atom_expr
-             | HECase of atom_expr * hoisted_expr * hoisted_expr
-             | HEHalt of atom_expr
-
-         and func_expr =
-             FEFix of int * hoisted_expr
-
-    type fctx = MicroTiMLDef.cstr list
-    type ctx = fctx * MicroTiMLDef.kctx * MicroTiMLDef.tctx
-
-    type atom_typing_judgement = ctx * atom_expr * MicroTiMLDef.cstr * MicroTiMLDef.cstr
-    type complex_typing_judgement = ctx * complex_expr * MicroTiMLDef.cstr * MicroTiMLDef.cstr
-    type hoisted_typing_judgement = ctx * hoisted_expr * MicroTiMLDef.cstr
-    type func_typing_judgement = fctx * func_expr * MicroTiMLDef.cstr
-
-    datatype atom_typing =
-             ATyVar of atom_typing_judgement
-             | ATyConst of atom_typing_judgement
-             | ATyFuncPointer of atom_typing_judgement
-             | ATyPair of atom_typing_judgement * atom_typing * atom_typing
-             | ATyAppC of atom_typing_judgement * atom_typing * MicroTiMLDef.kinding
-             | ATyAbsC of atom_typing_judgement * MicroTiMLDef.wfkind * atom_typing
-             | ATyPack of atom_typing_judgement * MicroTiMLDef.kinding * MicroTiMLDef.kinding * atom_typing
-             | ATySub of atom_typing_judgement * atom_typing * MicroTiMLDef.tyeq * MicroTiMLDef.proping
-
-         and complex_typing =
-             CTyProj of complex_typing_judgement * atom_typing
-             | CTyInj of complex_typing_judgement * atom_typing * MicroTiMLDef.kinding
-             | CTyFold of complex_typing_judgement * MicroTiMLDef.kinding * atom_typing
-             | CTyUnfold of complex_typing_judgement * atom_typing
-             | CTyNew of complex_typing_judgement * atom_typing
-             | CTyRead of complex_typing_judgement * atom_typing
-             | CTyWrite of complex_typing_judgement * atom_typing * atom_typing
-             | CTyAtom of complex_typing_judgement * atom_typing
-             | CTySub of complex_typing_judgement * complex_typing * MicroTiMLDef.tyeq * MicroTiMLDef.proping
-
-         and hoisted_typing =
-             HTyLet of hoisted_typing_judgement * complex_typing * hoisted_typing
-             | HTyUnpack of hoisted_typing_judgement * atom_typing * hoisted_typing
-             | HTyApp of hoisted_typing_judgement * atom_typing * atom_typing
-             | HTyAppK of hoisted_typing_judgement * atom_typing * atom_typing
-             | HTyCase of hoisted_typing_judgement * atom_typing * hoisted_typing * hoisted_typing
-             | HTyHalt of hoisted_typing_judgement * atom_typing
-             | HTySub of hoisted_typing_judgement * hoisted_typing * MicroTiMLDef.proping
-
-         and func_typing =
-             FTyFix of func_typing_judgement * MicroTiMLDef.kinding * hoisted_typing
-
-    datatype program =
-             Program of func_expr list * hoisted_expr
-    type program_typing_judgement = program * MicroTiMLDef.cstr
-    datatype program_typing =
-             TyProgram of program_typing_judgement * func_typing list * hoisted_typing
-
-    val CEProj : MicroTiMLDef.projector * atom_expr -> complex_expr
-    val CEInj : MicroTiMLDef.injector * atom_expr -> complex_expr
-    val CEFold : atom_expr -> complex_expr
-    val CEUnfold : atom_expr -> complex_expr
-    val CENew : atom_expr -> complex_expr
-    val CERead : atom_expr -> complex_expr
-    val CEWrite : atom_expr * atom_expr -> complex_expr
-
-    val extract_judge_ptyping : program_typing -> program_typing_judgement
-    val extract_judge_htyping : hoisted_typing -> hoisted_typing_judgement
-    val extract_judge_atyping : atom_typing -> atom_typing_judgement
-    val extract_judge_ctyping : complex_typing -> complex_typing_judgement
-    val extract_judge_ftyping : func_typing -> func_typing_judgement
-
-    val str_atom_expr : atom_expr -> string
-    val str_complex_expr : complex_expr -> string
-    val str_hoisted_expr : string -> hoisted_expr -> string
-    val str_func_expr : int -> func_expr -> string
-    val str_program : program -> string
-end
-
 functor MicroTiMLHoistedDefFun(MicroTiMLDef : SIG_MICRO_TIML_DEF) : SIG_MICRO_TIML_HOISTED_DEF =
 struct
 open List
@@ -101,8 +5,10 @@ open Util
 infixr 0 $
 
 structure MicroTiMLDef = MicroTiMLDef
-structure AstTransformers = AstTransformersFun(MicroTiMLDef)
 open MicroTiMLDef
+structure MicroTiMLUtil = MicroTiMLUtilFun(MicroTiMLDef)
+open MicroTiMLUtil
+structure AstTransformers = AstTransformersFun(MicroTiMLDef)
 open AstTransformers
 
 datatype atom_expr =
@@ -225,13 +131,12 @@ fun extract_judge_ftyping ty =
   case ty of
       FTyFix (j, _, _) => j
 
-structure PU = PrinterUtil
 structure PP = PlainPrinter
 
 fun str_atom_expr e =
   case e of
       AEVar x => "&" ^ str_int x
-    | AEConst cn => PU.str_expr_const cn
+    | AEConst cn => str_expr_const cn
     | AEFuncPointer f => "FUN" ^ str_int f
     | AEPair (e1, e2) => "<" ^ str_atom_expr e1 ^ " , " ^ str_atom_expr e2 ^ ">"
     | AEAppC (e, c) => str_atom_expr e ^ "[" ^ PP.str_cstr c ^ "]"
@@ -240,8 +145,8 @@ fun str_atom_expr e =
 
 fun str_complex_expr e =
   case e of
-      CEUnOp (opr, e) => "(" ^ PU.str_expr_un_op opr ^ " " ^ str_atom_expr e ^ ")"
-    | CEBinOp (opr, e1, e2) => "(" ^ str_atom_expr e1 ^ " " ^ PU.str_expr_bin_op opr ^ " " ^ str_atom_expr e2 ^ ")"
+      CEUnOp (opr, e) => "(" ^ str_expr_un_op opr ^ " " ^ str_atom_expr e ^ ")"
+    | CEBinOp (opr, e1, e2) => "(" ^ str_atom_expr e1 ^ " " ^ str_expr_bin_op opr ^ " " ^ str_atom_expr e2 ^ ")"
     | CEAtom e => str_atom_expr e
 
 fun str_hoisted_expr tab e =
@@ -259,4 +164,291 @@ fun str_func_expr num e =
 fun str_program p =
   case p of
       Program (funcs, body) => (foldli (fn (i, func, str) => str ^ str_func_expr i func) "" funcs) ^ "main:\n" ^ str_hoisted_expr "  " body
+
+structure Hoist =
+struct
+fun is_atom ty =
+  case ty of
+      TyVar _ => true
+    | TyConst _ => true
+    | TyFix _ => true
+    | TyPair _ => true
+    | TyAppC _ => true
+    | TyAbsC _ => true
+    | TyPack _ => true
+    | _ => false
+
+fun is_complex ty =
+  is_atom ty orelse
+  (case ty of
+       TyProj _ => true
+     | TyInj _ => true
+     | TyFold _ => true
+     | TyUnfold _ => true
+     | TyNew _ => true
+     | TyRead _ => true
+     | TyWrite _ => true
+     | _ => false)
+
+fun transform_typing_atom (ty : typing, funcs : func_typing list) =
+  case ty of
+      TyVar ((kctx, tctx), EVar x, t, i) => (ATyVar (([], kctx, tctx), AEVar x, t, i), funcs)
+    | TyConst ((kctx, tctx), EConst cn, t, i) => (ATyConst (([], kctx, tctx), AEConst cn, t, i), funcs)
+    | TyFix (((kctx, tctx), EFix (n, e), t, i), kd, ty) =>
+      let
+          val (ty, funcs) = transform_typing_hoisted (ty, funcs)
+          val jty = extract_judge_htyping ty
+      in
+          (ATyFuncPointer (([], kctx, tctx), AEFuncPointer (length funcs), t, i), FTyFix (([], FEFix (n, #2 jty), t), kd, ty) :: funcs)
+      end
+    | TyPair (((kctx, tctx), EBinOp (EBPair, e1, e2), t, i), ty1, ty2) =>
+      let
+          val (ty1, funcs) = transform_typing_atom (ty1, funcs)
+          val (ty2, funcs) = transform_typing_atom (ty2, funcs)
+          val jty1 = extract_judge_atyping ty1
+          val jty2 = extract_judge_atyping ty2
+      in
+          (ATyPair ((([], kctx, tctx), AEPair (#2 jty1, #2 jty2), t, i), ty1, ty2), funcs)
+      end
+    | TyAppC (((kctx, tctx), EAppC (e, c), t, i), ty, kd) =>
+      let
+          val (ty, funcs) = transform_typing_atom (ty, funcs)
+          val jty = extract_judge_atyping ty
+      in
+          (ATyAppC ((([], kctx, tctx), AEAppC (#2 jty, c), t, i), ty, kd), funcs)
+      end
+    | TyAbsC (((kctx, tctx), EAbsC e, t, i), wk, ty) =>
+      let
+          val (ty, funcs) = transform_typing_atom (ty, funcs)
+          val jty = extract_judge_atyping ty
+      in
+          (ATyAbsC ((([], kctx, tctx), AEAbsC (#2 jty), t, i), wk, ty), funcs)
+      end
+    | TyPack (((kctx, tctx), EPack (c, e), t, i), kd1, kd2, ty) =>
+      let
+          val (ty, funcs) = transform_typing_atom (ty, funcs)
+          val jty = extract_judge_atyping ty
+      in
+          (ATyPack ((([], kctx, tctx), AEPack (c, #2 jty), t, i), kd1, kd2, ty), funcs)
+      end
+    | TySub (((kctx, tctx), e, t, i), ty, te, pr) =>
+      let
+          val (ty, funcs) = transform_typing_atom (ty, funcs)
+          val jty = extract_judge_atyping ty
+      in
+          (ATySub ((([], kctx, tctx), #2 jty, t, i), ty, te, pr), funcs)
+      end
+    | _ => raise (Impossible "transform_typing_atom")
+
+and transform_typing_complex (ty : typing, funcs : func_typing list) =
+    case ty of
+        TyProj (((kctx, tctx), EUnOp (EUProj p, e), t, i), ty) =>
+        let
+            val (ty, funcs) = transform_typing_atom (ty, funcs)
+            val jty = extract_judge_atyping ty
+        in
+            (CTyProj ((([], kctx, tctx), CEProj (p, #2 jty), t, i), ty), funcs)
+        end
+      | TyInj (((kctx, tctx), EUnOp (EUInj inj, e), t, i), ty, kd) =>
+        let
+            val (ty, funcs) = transform_typing_atom (ty, funcs)
+            val jty = extract_judge_atyping ty
+        in
+            (CTyInj ((([], kctx, tctx), CEInj (inj, #2 jty), t, i), ty, kd), funcs)
+        end
+      | TyFold (((kctx, tctx), EUnOp (EUFold, e), t, i), kd, ty) =>
+        let
+            val (ty, funcs) = transform_typing_atom (ty, funcs)
+            val jkd = extract_judge_kinding kd
+            val jty = extract_judge_atyping ty
+        in
+            (CTyFold ((([], kctx, tctx), CEFold (#2 jty), t, i), kd, ty), funcs)
+        end
+      | TyUnfold (((kctx, tctx), EUnOp (EUUnfold, e), t, i), ty) =>
+        let
+            val (ty, funcs) = transform_typing_atom (ty, funcs)
+            val jty = extract_judge_atyping ty
+        in
+            (CTyUnfold ((([], kctx, tctx), CEUnfold (#2 jty), t, i), ty), funcs)
+        end
+      | TyNew (((kctx, tctx), EUnOp (EUNew, e), t, i), ty) =>
+        let
+            val (ty, funcs) = transform_typing_atom (ty, funcs)
+            val jty = extract_judge_atyping ty
+        in
+            (CTyNew ((([], kctx, tctx), CENew (#2 jty), t, i), ty), funcs)
+        end
+      | TyRead (((kctx, tctx), EUnOp (EURead, e), t, i), ty) =>
+        let
+            val (ty, funcs) = transform_typing_atom (ty, funcs)
+            val jty = extract_judge_atyping ty
+        in
+            (CTyRead ((([], kctx, tctx), CERead (#2 jty), t, i), ty), funcs)
+        end
+      | TyWrite (((kctx, tctx), EBinOp (EBWrite, e1, e2), t, i), ty1, ty2) =>
+        let
+            val (ty1, funcs) = transform_typing_atom (ty1, funcs)
+            val (ty2, funcs) = transform_typing_atom (ty2, funcs)
+            val jty1 = extract_judge_atyping ty1
+            val jty2 = extract_judge_atyping ty2
+        in
+            (CTyWrite ((([], kctx, tctx), CEWrite (#2 jty1, #2 jty2), t, i), ty1, ty2), funcs)
+        end
+      | TySub (((kctx, tctx), e, t, i), ty, te, pr) =>
+        let
+            val (ty, funcs) = transform_typing_complex (ty, funcs)
+            val jty = extract_judge_ctyping ty
+        in
+            (CTySub ((([], kctx, tctx), #2 jty, t, i), ty, te, pr), funcs)
+        end
+      | _ =>
+        if is_atom ty then
+            let
+                val (ty, funcs) = transform_typing_atom (ty, funcs)
+                val jty = extract_judge_atyping ty
+            in
+                (CTyAtom ((#1 jty, CEAtom (#2 jty), #3 jty, #4 jty), ty), funcs)
+            end
+        else
+            raise (Impossible "transform_typing_complex")
+
+and transform_typing_hoisted (ty : typing, funcs : func_typing list) =
+    case ty of
+        TyLet (((kctx, tctx), ELet (e1, e2), CTypeUnit, i), ty1, ty2) =>
+        let
+            val (ty1, funcs) = transform_typing_complex (ty1, funcs)
+            val (ty2, funcs) = transform_typing_hoisted (ty2, funcs)
+            val jty1 = extract_judge_ctyping ty1
+            val jty2 = extract_judge_htyping ty2
+        in
+            (HTyLet ((([], kctx, tctx), HELet (#2 jty1, #2 jty2), i), ty1, ty2), funcs)
+        end
+      | TyUnpack (((kctx, tctx), EUnpack (e1, e2), CTypeUnit, i), ty1, ty2) =>
+        let
+            val (ty1, funcs) = transform_typing_atom (ty1, funcs)
+            val (ty2, funcs) = transform_typing_hoisted (ty2, funcs)
+            val jty1 = extract_judge_atyping ty1
+            val jty2 = extract_judge_htyping ty2
+        in
+            (HTyUnpack ((([], kctx, tctx), HEUnpack (#2 jty1, #2 jty2), i), ty1, ty2), funcs)
+        end
+      | TyApp (((kctx, tctx), EBinOp (EBApp, e1, e2), CTypeUnit, i), ty1, ty2) =>
+        let
+            val (ty1, funcs) = transform_typing_atom (ty1, funcs)
+            val (ty2, funcs) = transform_typing_atom (ty2, funcs)
+            val jty1 = extract_judge_atyping ty1
+            val jty2 = extract_judge_atyping ty2
+        in
+            (HTyApp ((([], kctx, tctx), HEApp (#2 jty1, #2 jty2), i), ty1, ty2), funcs)
+        end
+      | TyAppK (((kctx, tctx), EBinOp (EBApp, e1, e2), CTypeUnit, i), ty1, ty2) =>
+        let
+            val (ty1, funcs) = transform_typing_atom (ty1, funcs)
+            val (ty2, funcs) = transform_typing_atom (ty2, funcs)
+            val jty1 = extract_judge_atyping ty1
+            val jty2 = extract_judge_atyping ty2
+        in
+            (HTyAppK ((([], kctx, tctx), HEApp (#2 jty1, #2 jty2), i), ty1, ty2), funcs)
+        end
+      | TyCase (((kctx, tctx), ECase (e, e1, e2), CTypeUnit, i), ty, ty1, ty2) =>
+        let
+            val (ty, funcs) = transform_typing_atom (ty, funcs)
+            val (ty1, funcs) = transform_typing_hoisted (ty1, funcs)
+            val (ty2, funcs) = transform_typing_hoisted (ty2, funcs)
+            val jty = extract_judge_atyping ty
+            val jty1 = extract_judge_htyping ty1
+            val jty2 = extract_judge_htyping ty2
+        in
+            (HTyCase ((([], kctx, tctx), HECase (#2 jty, #2 jty1, #2 jty2), i), ty, ty1, ty2), funcs)
+        end
+      | TyHalt (((kctx, tctx), EHalt e, CTypeUnit, i), ty) =>
+        let
+            val (ty, funcs) = transform_typing_atom (ty, funcs)
+            val jty = extract_judge_atyping ty
+        in
+            (HTyHalt ((([], kctx, tctx), HEHalt (#2 jty), i), ty), funcs)
+        end
+      | TySub (((kctx, tctx), e, CTypeUnit, i), ty, te, pr) =>
+        let
+            val (ty, funcs) = transform_typing_hoisted (ty, funcs)
+            val jty = extract_judge_htyping ty
+        in
+            (HTySub ((([], kctx, tctx), #2 jty, i), ty, pr), funcs)
+        end
+      | _ => raise (Impossible "transform_typing_hoisted")
+
+fun set_fctx_atom fctx ty =
+  let
+      fun replace ((_, kctx, tctx), e, t, i) = ((fctx, kctx, tctx), e, t, i)
+      val on_atom = set_fctx_atom fctx
+      fun inner ty =
+        case ty of
+            ATyVar j => ATyVar (replace j)
+          | ATyConst j => ATyConst (replace j)
+          | ATyFuncPointer j => ATyFuncPointer (replace j)
+          | ATyPair (j, ty1, ty2) => ATyPair (replace j, on_atom ty1, on_atom ty2)
+          | ATyAppC (j, ty, kd) => ATyAppC (replace j, on_atom ty, kd)
+          | ATyAbsC (j, wk, ty) => ATyAbsC (replace j, wk, on_atom ty)
+          | ATyPack (j, kd1, kd2, ty) => ATyPack (replace j, kd1, kd2, on_atom ty)
+          | ATySub (j, ty, te, pr) => ATySub (replace j, on_atom ty, te, pr)
+  in
+      inner ty
+  end
+
+and set_fctx_complex fctx ty =
+    let
+        fun replace ((_, kctx, tctx), e, t, i) = ((fctx, kctx, tctx), e, t, i)
+        val on_atom = set_fctx_atom fctx
+        val on_complex = set_fctx_complex fctx
+        fun inner ty =
+          case ty of
+              CTyProj (j, ty) => CTyProj (replace j, on_atom ty)
+            | CTyInj (j, ty, kd) => CTyInj (replace j, on_atom ty, kd)
+            | CTyFold (j, kd, ty) => CTyFold (replace j, kd, on_atom ty)
+            | CTyUnfold (j, ty) => CTyUnfold (replace j, on_atom ty)
+            | CTyNew (j, ty) => CTyNew (replace j, on_atom ty)
+            | CTyRead (j, ty) => CTyRead (replace j, on_atom ty)
+            | CTyWrite (j, ty1, ty2) => CTyWrite (replace j, on_atom ty1, on_atom ty2)
+            | CTyAtom (j, ty) => CTyAtom (replace j, on_atom ty)
+            | CTySub (j, ty, te, pr) => CTySub (replace j, on_complex ty, te, pr)
+    in
+        inner ty
+    end
+
+and set_fctx_hoisted fctx ty =
+    let
+        fun replace ((_, kctx, tctx), e, i) = ((fctx, kctx, tctx), e, i)
+        val on_atom = set_fctx_atom fctx
+        val on_complex = set_fctx_complex fctx
+        val on_hoisted = set_fctx_hoisted fctx
+        fun inner ty =
+          case ty of
+              HTyLet (j, ty1, ty2) => HTyLet (replace j, on_complex ty1, on_hoisted ty2)
+            | HTyUnpack (j, ty1, ty2) => HTyUnpack (replace j, on_atom ty1, on_hoisted ty2)
+            | HTyApp (j, ty1, ty2) => HTyApp (replace j, on_atom ty1, on_atom ty2)
+            | HTyAppK (j, ty1, ty2) => HTyAppK (replace j, on_atom ty1, on_atom ty2)
+            | HTyCase (j, ty, ty1, ty2) => HTyCase (replace j, on_atom ty, on_hoisted ty1, on_hoisted ty2)
+            | HTyHalt (j, ty) => HTyHalt (replace j, on_atom ty)
+            | HTySub (j, ty, pr) => HTySub (replace j, on_hoisted ty, pr)
+    in
+        inner ty
+    end
+
+and set_fctx_func fctx ty =
+    case ty of
+        FTyFix ((_, e, t), kd, ty) => FTyFix ((fctx, e, t), kd, set_fctx_hoisted fctx ty)
+end
+
+fun hoist_deriv ty =
+  let
+      val (ty, funcs) = Hoist.transform_typing_hoisted (ty, [])
+      val funcs = List.rev funcs
+      val fctx = List.map (fn func => #3 (extract_judge_ftyping func)) funcs
+      val ty = Hoist.set_fctx_hoisted fctx ty
+      val funcs = List.map (Hoist.set_fctx_func fctx) funcs
+      val jty = extract_judge_htyping ty
+      val program = Program (List.map (fn func => #2 (extract_judge_ftyping func)) funcs, #2 jty)
+  in
+      TyProgram ((program, #3 jty), funcs, ty)
+  end
 end

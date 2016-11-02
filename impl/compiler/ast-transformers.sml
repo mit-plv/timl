@@ -1,10 +1,11 @@
-functor AstTransformersFun(MicroTiMLDef : SIG_MICRO_TIML_DEF) =
+functor AstTransformersFun(MicroTiMLDef : SIG_MICRO_TIML_DEF) : SIG_AST_TRANSFORMERS =
 struct
 open Util
 infixr 0 $
 
-structure MicroTiMLUtil = MicroTiMLUtilFun(MicroTiMLDef)
+structure MicroTiMLDef = MicroTiMLDef
 open MicroTiMLDef
+structure MicroTiMLUtil = MicroTiMLUtilFun(MicroTiMLDef)
 open MicroTiMLUtil
 
 functor AstGenericTransformer(
@@ -251,12 +252,7 @@ and default_transform_expr (e, down) =
         in
             (ELet (e1, e2), combine [up1, up2])
         end
-      | EFix (n, e) =>
-        let
-            val (e, up1) = transform_expr (e, Action.add_type (NONE, Action.add_type (NONE, foldr Action.add_kind down (tabulate (n, fn _ => NONE)))))
-        in
-            (EFix (n, e), combine [up1])
-        end
+      | EFix (n, e) => raise (Impossible "EFix transformer not implemented")
 
 and transform_expr (e, down) =
     case Action.transformer_expr (transform_expr, transform_cstr) (e, down) of
@@ -392,94 +388,6 @@ val transform_prop = Transformer.transform_prop o (fn p => (p, ()))
 val transform_expr = Transformer.transform_expr o (fn e => (e, ()))
 end
 
-structure PrinterUtil =
-struct
-val str_time = Time.str_time
-val str_nat = Nat.str_nat
-
-fun str_cstr_const cn =
-  case cn of
-      CCIdxTT => "tt"
-    | CCIdxNat n => str_nat n
-    | CCTime r => str_time r
-    | CCTypeUnit => "Unit"
-    | CCTypeInt => "Int"
-
-fun str_cstr_bin_op opr =
-  case opr of
-      CBTimeAdd => "+"
-    | CBTimeMinus => "-"
-    | CBTimeMax => "max"
-    | CBTypeProd => "*"
-    | CBTypeSum => "+"
-    | CBNatAdd => "+"
-
-fun str_cstr_un_op opr =
-  case opr of
-      CUNat2Time => "nat2time"
-
-fun str_quan q =
-  case q of
-      QuanForall => "forall"
-    | QuanExists => "exists"
-
-fun str_sort b =
-  case b of
-      BSNat => "nat"
-    | BSUnit => "unit"
-    | BSBool => "bool"
-    | BSTimeFun arity => "time_fun(" ^ str_int arity ^ ")"
-
-fun str_prop_bin_conn opr =
-  case opr of
-      PBCAnd => "/\\"
-    | PBCOr => "\\/"
-    | PBCImply => "->"
-    | PBCIff => "<->"
-
-fun str_prop_bin_pred opr =
-  case opr of
-      PBTimeLe => "<="
-    | PBTimeEq => "="
-    | PBBigO arity => "BigO"
-    | PBNatEq => "="
-
-fun str_expr_const cn =
-  case cn of
-      ECTT => "()"
-    | ECInt i => str_int i
-
-fun str_projector p =
-  case p of
-      ProjFst => "fst"
-    | ProjSnd => "snd"
-
-fun str_injectror inj =
-  case inj of
-      InjInl => "inl"
-    | InjInr => "inr"
-
-fun str_expr_un_op opr =
-  case opr of
-      EUProj p => str_projector p
-    | EUInj inj => str_injectror inj
-    | EUFold => "fold"
-    | EUUnfold => "unfold"
-    | EUNew => "new"
-    | EURead => "read"
-
-fun str_prim_expr_bin_op opr =
-  case opr of
-      PEBIntAdd => "+"
-
-fun str_expr_bin_op opr =
-  case opr of
-      EBPrim opr => str_prim_expr_bin_op opr
-    | EBApp => ""
-    | EBPair => ","
-    | EBWrite => ":="
-end
-
 structure PlainPrinter =
 struct
 structure Helper = AstGenericOnlyUpTransformer(
@@ -488,8 +396,6 @@ structure Helper = AstGenericOnlyUpTransformer(
 
     val upward_base = ""
     fun combiner (up1, up2) = up1 ^ up2
-
-    open PrinterUtil
 
     fun transformer_cstr (on_cstr, on_kind) c =
       let
@@ -589,9 +495,13 @@ structure Helper = AstGenericOnlyDownTransformer(
           CVar x => SOME (if x >= ctx then CVar (x + d) else CVar x)
         | _ => NONE
 
+    fun transformer_expr (on_expr, on_cstr) (e, (d, ctx)) =
+      case e of
+          EFix (n, e) => SOME (EFix (n, e))
+        | _ => NONE
+
     fun transformer_kind _ _ = NONE
     fun transformer_prop _ _ = NONE
-    fun transformer_expr _ _ = NONE
     end)
 
 fun shift_c_c d ctx c = Helper.transform_cstr (c, (d, ctx))
@@ -646,9 +556,13 @@ structure Helper = AstGenericOnlyDownTransformer(
           CVar x => SOME (if x = who then to else if x < who then CVar x else CVar (x - 1))
         | _ => NONE
 
+    fun transformer_expr (on_expr, on_cstr) (e, (to, who)) =
+      case e of
+          EFix (n, e) => SOME (EFix (n, e))
+        | _ => NONE
+
     fun transformer_kind _ _ = NONE
     fun transformer_prop _ _ = NONE
-    fun transformer_expr _ _ = NONE
     end)
 
 fun subst_c_c to who c = Helper.transform_cstr (c, (to, who))
@@ -706,9 +620,13 @@ structure Helper = AstGenericOnlyDownTransformer(
           CVar x => SOME (if x = who then to else CVar x)
         | _ => NONE
 
+    fun transformer_expr (on_expr, on_cstr) (e, (to, who)) =
+      case e of
+          EFix (n, e) => SOME (EFix (n, e))
+        | _ => NONE
+
     fun transformer_kind _ _ = NONE
     fun transformer_prop _ _ = NONE
-    fun transformer_expr _ _ = NONE
     end)
 
 fun dsubst_c_c to who c = Helper.transform_cstr (c, (to, who))
@@ -736,11 +654,7 @@ structure Helper = AstGenericOnlyDownTransformer(
 
     fun transformer_expr (on_expr, on_cstr) (e, (to, who)) =
       case e of
-          EVar x =>
-          let
-          in
-              SOME (if x = who then to else EVar x)
-          end
+          EVar x => SOME (if x = who then to else EVar x)
         | EFix (n, e) => SOME (EFix (n, e))
         | _ => NONE
 
@@ -791,9 +705,13 @@ structure Helper = AstGenericTransformer(
           CVar x => SOME (c, if x >= ctx then [x - ctx] else [])
         | _ => NONE
 
+    fun transformer_expr (on_expr, on_cstr) (e, ctx) =
+      case e of
+          EFix (n, e) => SOME (EFix (n, e), [])
+        | _ => NONE
+
     fun transformer_kind _ _ = NONE
     fun transformer_prop _ _ = NONE
-    fun transformer_expr _ _ = NONE
     end)
 
 fun free_vars_c_c d c = #2 (Helper.transform_cstr (c, d))

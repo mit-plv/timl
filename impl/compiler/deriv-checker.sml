@@ -1,13 +1,14 @@
-functor DerivCheckerFun(MicroTiMLDef : SIG_MICRO_TIML_DEF) =
+functor DerivCheckerFun(MicroTiMLDef : SIG_MICRO_TIML_DEF) : SIG_DERIV_CHECKER =
 struct
 open Util
 open List
 infixr 0 $
 
-structure MicroTiMLUtil = MicroTiMLUtilFun(MicroTiMLDef)
-structure AstTransformers = AstTransformersFun(MicroTiMLDef)
+structure MicroTiMLDef = MicroTiMLDef
 open MicroTiMLDef
+structure MicroTiMLUtil = MicroTiMLUtilFun(MicroTiMLDef)
 open MicroTiMLUtil
+structure AstTransformers = AstTransformersFun(MicroTiMLDef)
 open AstTransformers
 
 open PlainPrinter
@@ -381,10 +382,20 @@ and check_tyeq te = (
         in
             ()
         end
-      | TyEqNatEq ((kctx, i1, i2), pr) =>
+      | TyEqNat ((kctx, i1, i2), kd1, kd2, pr) =>
         let
+            val () = check_kinding kd1
+            val () = check_kinding kd2
             val () = check_proping pr
+            val jkd1 = extract_judge_kinding kd1
+            val jkd2 = extract_judge_kinding kd2
             val jpr = extract_judge_proping pr
+            val () = assert (#1 jkd1 = kctx)
+            val () = assert (#2 jkd1 = i1)
+            val () = assert (#3 jkd1 = KNat)
+            val () = assert (#1 jkd2 = kctx)
+            val () = assert (#2 jkd2 = i2)
+            val () = assert (#3 jkd2 = KNat)
             val () = assert (#1 jpr = kctx)
             val () = assert (#2 jpr = PBinPred (PBNatEq, i1, i2))
         in
@@ -920,19 +931,30 @@ and check_typing ty = (
         in
             ()
         end
-      | TySub ((ctx as (kctx, tctx), e, t2, i2), ty, te, pr) =>
+      | TySubTy ((ctx as (kctx, tctx), e, t2, i2), ty, te) =>
         let
             val () = check_typing ty
             val () = check_tyeq te
-            val () = check_proping pr
             val jty = extract_judge_typing ty
             val jte = extract_judge_tyeq te
-            val jpr = extract_judge_proping pr
             val () = assert (#1 jty = ctx)
             val () = assert (#2 jty = e)
             val () = assert (#1 jte = kctx)
             val () = assert (#2 jte = #3 jty)
             val () = assert (#3 jte = t2)
+            val () = assert (#4 jty = i2)
+        in
+            ()
+        end
+      | TySubTi ((ctx as (kctx, tctx), e, t2, i2), ty, pr) =>
+        let
+            val () = check_typing ty
+            val () = check_proping pr
+            val jty = extract_judge_typing ty
+            val jpr = extract_judge_proping pr
+            val () = assert (#1 jty = ctx)
+            val () = assert (#2 jty = e)
+            val () = assert (#3 jty = t2)
             val () = assert (#1 jpr = kctx)
             val () = assert (#2 jpr = TLe (#4 jty, i2))
         in
