@@ -1,0 +1,12 @@
+structure Basic = struct
+
+datatype bool = true | false
+
+datatype 'a option =
+         NONE
+         | SOME of 'a --> 'a option
+
+datatype {Nat} {Nat} le =
+         LE {a b : Nat} {a <= b} of {b} {a} le
+                   
+end

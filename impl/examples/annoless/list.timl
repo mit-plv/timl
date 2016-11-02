@@ -1,0 +1,38 @@
+structure List = struct
+
+datatype {Nat} 'a list =
+         Nil {n : Nat} {n = 0} of {n} 'a list
+       | Cons {n : Nat} {0 < n} of 'a * {n - 1} 'a list --> {n} 'a list
+
+idx T_map : BigO 2 (fn m n => $m * $n) = fn m n => ($m + 3.0) * $n
+fun map ['a 'b] {m n : Nat} (f : 'a -- $m --> 'b) (ls : {n} 'a list) return {n} 'b list using T_map m n =
+          case ls return using _ of
+              Nil => Nil
+            | Cons (x, xs) => Cons (f x, map f xs)
+                                                
+idx T_foldl : BigO 2 (fn m n => $m * $n) = fn m n => ($m + 4.0) * $n
+fun foldl ['a 'b] {m n : Nat} (f : 'a * 'b -- $m --> 'b) y (xs : {n} 'a list) return 'b using T_foldl m n =
+        case xs of
+            [] => y
+          | x :: xs => foldl f (f (x, y)) xs
+
+                             (*
+idx T_map : BigO 2 (fn m n => $m * $n) = fn m n => ($m + 3.0) * $n
+fun map ['a 'b] {m n : Nat} (f : 'a -- $m --> 'b) (ls : {n} 'a list) return {n} 'b list using T_map m n =
+          case ls return using (ite (n == 0) 0.0 0.0) max (ite (0 < n) (3.0 + $m + T_map m (n - 1)) 0.0) of
+              Nil => Nil
+            | Cons (x, xs) => Cons (f x, map f xs)
+
+idx T_foldl : BigO 2 (fn m n => $m * $n) = fn m n => ($m + 4.0) * $n
+fun foldl ['a 'b] {m n : Nat} (f : 'a * 'b -- $m --> 'b) y (xs : {n} 'a list) return 'b using T_foldl m n =
+        case xs return using (ite (n == 0) 0.0 0.0) max (ite (0 < n) (4.0 + $m + T_foldl m (n - 1)) 0.0) of
+            [] => y
+          | x :: xs => foldl f (f (x, y)) xs
+                             *)
+                             
+fun hd ['a] {n: Nat | n > 0} (ls: {n} 'a list) =
+    case ls of
+        x :: _ => x
+      | _ => never
+                                      
+end

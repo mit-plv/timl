@@ -2206,9 +2206,67 @@ fun forget_d r gctxn sctxn sctxl d =
     forget_i_i 0 sctxl d
     handle ForgetError (x, cause) => raise Error (r, escapes "index variable" (str_v sctxn x) "time" (str_i gctxn sctxn d) cause)
 
+val anno_less = ref true
+
+fun substx_i_i_nonconsuming x v b =
+    let
+      val v = forget_i_i x 1 v
+    in
+      shiftx_i_i x 1 $ substx_i_i x v b
+    end
+               
+fun substx_i_p_nonconsuming x v b =
+    let
+      val v = forget_i_i x 1 v
+    in
+      shiftx_i_p x 1 $ substx_i_p x v b
+    end
+               
 fun forget_ctx_d r gctx (sctx, _, _, _) (sctxd, _, _, _) d =
-    let val sctxn = sctx_names sctx
-        val sctxl = sctx_length sctxd
+    let
+      val sctxn = sctx_names sctx
+      val sctxl = sctx_length sctxd
+      val d = 
+          case (!anno_less, sctxd) of
+              (true, (_, Subset (bs, Bind (name, BinConn (And, p1, p2)), r)) :: sorts') =>
+              let
+                val ps = collect_And p1
+                fun change (p, (d, p2)) =
+                    case p of
+                        BinPred (EqP, VarI (NONE, (x, _)), i) =>
+                        (substx_i_i_nonconsuming x i d,
+                         substx_i_p_nonconsuming x i p2)
+                      | _ => (d, p2)
+                val (d, p2) = foldl change (d, p2) ps
+                exception Prop2IdxError
+                fun prop2idx p =
+                    case p of
+                        BinPred (opr, i1, i2) =>
+                        let
+                          val opr =
+                              case opr of
+                                  EqP => EqI
+                                | LtP => LtI
+                                | GeP => GeI
+                                | _ => raise Prop2IdxError                       
+                        in
+                          BinOpI (opr, i1, i2)
+                        end
+                      | BinConn (opr, p1, p2) =>
+                        let
+                          val opr =
+                              case opr of
+                                  And => AndI
+                                | _ => raise Prop2IdxError                       
+                        in
+                          BinOpI (opr, prop2idx p1, prop2idx p2)
+                        end
+                      | _ => raise Prop2IdxError                       
+              in
+                Ite (prop2idx p2, d, T0 dummy, dummy)
+                handle Prop2IdxError => d
+              end
+            | _ => d
     in
       forget_d r (gctx_names gctx) sctxn sctxl d
     end
@@ -2239,6 +2297,9 @@ fun is_wf_return gctx (skctx as (sctx, _), return) =
          SOME (check_bsort gctx (sctx, d, Base Time)))
       | (NONE, NONE) => (NONE, NONE)
 
+fun str_sctx gctx sctx =
+    snd $ foldr (fn ((name, sort), (sctxn, acc)) => (name :: sctxn, (name, str_s (gctx_names gctx) sctxn sort) :: acc)) ([], []) sctx
+        
 (* t is already checked for wellformedness *)
 fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext), (* pcovers, *) pn : U.ptrn, t : mtype) : ptrn * cover * context * int =
     let
@@ -2284,7 +2345,20 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
 		 val t1 = subst_ts_mt ts t1
 		 val is = map (shiftx_i_i 0 (length name_sorts)) is
 		 val ps = ListPair.map (fn (a, b) => BinPred (EqP, a, b)) (is', is)
-                 val ctxd = ctx_from_full_sortings o rev o ListPair.zip $ (inames, snd (ListPair.unzip name_sorts))
+                 (* val () = println "try piggyback:" *)
+                 (* val () = println $ str_ls (fn (name, sort) => sprintf "$: $" [name, sort]) $ str_sctx gctx $ rev name_sorts *)
+                 val sorts = rev $ map snd name_sorts
+                 val sorts =
+                     case (!anno_less, sorts) of
+                         (true, Subset (bs, Bind (name, p), r) :: sorts') =>
+                         (* piggyback the equalities on a Subset sort *)
+                         let
+                           (* val () = println "piggyback!" *)
+                         in
+                           Subset (bs, Bind (name, combine_And ps /\ p), r) :: sorts'
+                         end
+                         | _ => sorts
+                 val ctxd = ctx_from_full_sortings o ListPair.zip $ (rev inames, sorts)
                  val () = open_ctx ctxd
                  val () = open_premises ps
                  val ctx = add_ctx_skc ctxd ctx
@@ -2430,7 +2504,8 @@ fun fv_t t =
     case t of
         Mono t => fv_mt t
       | Uni _ => [] (* fresh uvars in Uni should either have been generalized or in previous ctx *)
-                   
+
+(* If i1 or i2 is fresh, do unification instead of VC generation. Could be unsound. *)
 fun smart_write_le gctx ctx (i1, i2, r) =
     let
       (* val () = println $ sprintf "Check Le : $ <= $" [str_i ctx i1, str_i ctx i2] *)
@@ -2667,13 +2742,14 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
       val skctxn = (sctxn, kctxn)
       fun print_ctx gctx (ctx as (sctx, kctx, _, tctx)) =
           let
-            val () = println $ str_ls fst kctx
+            val () = println $ str_ls (fn (name, sort) => sprintf "$: $" [name, sort]) $ str_sctx gctx sctx
+            (* val () = println $ str_ls fst kctx *)
             (* val () = str_ls (fn (nm, t) => println $ sprintf "$: $" [nm, str_t (gctx_names gctx) (sctx_names sctx, names kctx) t]) tctx *)
           in
             ()
           end
-      (* val () = print $ sprintf "Typing $\n" [U.str_e gctxn ctxn e_all] *)
-      (* val () = print_ctx gctx ctx *)
+      val () = print $ sprintf "Typing $\n" [U.str_e gctxn ctxn e_all]
+      val () = print_ctx gctx ctx
       fun main () =
 	  case e_all of
 	      U.Var (info as (x, eia)) =>
@@ -2917,6 +2993,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	      end
 	    | U.Case (e, return, rules, r) => 
 	      let
+                val return = if !anno_less then (fst return, NONE) else return
                 val (e, t1, d1) = get_mtype (ctx, e)
                 val return = is_wf_return gctx (skctx, return)
                 val rules = expand_rules gctx ((sctx, kctx, cctx), rules, t1, r)

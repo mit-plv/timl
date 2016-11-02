@@ -22,7 +22,6 @@ fun merge ['a] {m n1 n2: Nat} (le: 'a*'a --$m--> bool) (xs: {n1} 'a list, ys: {n
         else y :: merge le (xs, ys')
 end
 
-
 absidx {T : Fun 2 | T O (fn m n => $m * $n * log2 $n)(* _ *)} with
 fun msort ['a] {m : Nat} {n : Nat} (le : 'a * 'a -- $m --> bool) (xs : {n} (* _ *)'a list) return {n} (* _ *)'a list using T m n =
     case xs of
@@ -32,6 +31,8 @@ fun msort ['a] {m : Nat} {n : Nat} (le : 'a * 'a -- $m --> bool) (xs : {n} (* _ 
         case split xs of
             (xs1, xs2) => merge le (msort le xs1, msort le xs2)
 end
+
+(*                    
 
 absidx g : BigO 1 (fn n => $n) = fn n => 2.0 * $n with
 fun revAppend ['a] {n1 : Nat} (xs : {n1} 'a list) {n2 : Nat} (ys : {n2} 'a list) return {n1 + n2} (* _ *)'a list using g n1 =
@@ -60,5 +61,6 @@ fun msort ['a] {m n: Nat} (le: 'a*'a --$m--> bool) (xs: {n} 'a list) return {n} 
       | _ :: _ :: _ =>
         let val (xs1, xs2) = split xs in
           merge le (msort le xs1, msort le xs2) end
-
+*)
+                    
 end
