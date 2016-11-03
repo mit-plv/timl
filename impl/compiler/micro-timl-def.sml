@@ -308,6 +308,15 @@ fun EApp (e1, e2) = EBinOp (EBApp, e1, e2)
 fun EPair (e1, e2) = EBinOp (EBPair, e1, e2)
 fun EWrite (e1, e2) = EBinOp (EBWrite, e1, e2)
 
+datatype value =
+         VConst of expr
+         | VPair of expr * value * value
+         | VInj of expr * value
+         | VAbs of expr
+         | VAbsC of expr
+         | VPack of expr * value
+         | VFold of expr * value
+
 fun EFst e = EProj (ProjFst, e)
 fun ESnd e = EProj (ProjSnd, e)
 fun EInl e = EInj (InjInl, e)

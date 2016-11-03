@@ -269,7 +269,14 @@ sig
     val EPair : expr * expr -> expr
     val EWrite : expr * expr -> expr
 
-    (* TODO: add value rules *)
+    datatype value =
+             VConst of expr
+             | VPair of expr * value * value
+             | VInj of expr * value
+             | VAbs of expr
+             | VAbsC of expr
+             | VPack of expr * value
+             | VFold of expr * value
 
     val EFst : expr -> expr
     val ESnd : expr -> expr
