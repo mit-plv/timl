@@ -2395,17 +2395,27 @@ and cps ty cont =
             val jwk = extract_judge_wfkind wk
             val jty = extract_judge_typing ty
             val t = shift0_c_c $ #3 jty
-            val kd = KdAdmit (KTime :: #1 jwk, t, KType)
+            val kd = KdAdmit (KTime :: #2 jwk :: #1 jwk, t, KType)
             val kd = transform_kinding kd
             val jkd = extract_judge_kinding kd
             val kd = KdArrow (as_KdArrow kd (KdVar (#1 jkd, CVar 0, KTime)) (KdConst (#1 jkd, CTypeUnit, KType)), kd, KdVar (#1 jkd, CVar 0, KTime), KdConst (#1 jkd, CTypeUnit, KType))
             val jkd = extract_judge_kinding kd
             val t = #2 jkd
-            val ty = shift0_ctx_ty ([KTime], t) ty
+            val ty = shift0_ctx_ty ([KTime], [t]) ty
             val old_ctx = #1 (extract_judge_typing cont)
-            val new_ctx = ()
-
-                           
+            val new_ctx = (KTime :: #2 jwk :: fst old_ctx, t :: map (shift_c_c 2 0) (snd old_ctx))
+            val ty = cps ty (TyVar (new_ctx, EVar 0, t, T0))
+            val jty_new = extract_judge_typing ty
+            val ty = TySubTi ((#1 jty_new, #2 jty_new, #3 jty_new, CVar 0), ty, PrAdmit (fst $ #1 jty_new, TLe (#4 jty_new, CVar 0)))
+            val ty = TyAbs (as_TyAbs kd ty, kd, ty)
+            val ty = TyAbsC (as_TyAbsC (WfKdBaseSort (tl $ fst $ #1 jty_new, KTime)) ty, WfKdBaseSort (tl $ fst $ #1 jty_new, KTime), ty)
+            val ty = TyAbsC (as_TyAbsC wk ty, wk, ty)
+            val res = send_to_cont cont ty
+            val () = debug "TyAbsC out"
+        in
+            res
+        end
+        (*let
             val jwk = extract_judge_wfkind wk
             val ty = cps_value ty (shift0_ctx_ty ([#2 jwk], []) cont)
             val ty = TyAbsC (as_TyAbsC wk ty, wk, ty)
@@ -2413,7 +2423,7 @@ and cps ty cont =
             val () = debug "TyAbsC out"
         in
             res
-        end
+        end*)
       | TyRec (j, kd, ty) =>
         let
             val () = debug "TyRec in"
