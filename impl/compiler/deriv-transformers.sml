@@ -1918,7 +1918,16 @@ fun transform_type t =
       end
     | CAbs c => CAbs (transform_type c)
     | CApp (c1, c2) => CApp (transform_type c1, transform_type c2)
-    | CQuan (quan, k, t) => CQuan (quan, k, transform_type t)
+    | CQuan (QuanForall, k, t) =>
+      let
+          val t = shift0_c_c $ transform_type t
+          val t = CArrow (t, CVar 0, CTypeUnit)
+          val t = CForall (KTime, CArrow (t, CVar 0, CTypeUnit))
+          val t = CForall (k, t)
+      in
+          t
+      end
+    | CQuan (QuanExists, k, t) => CExists (k, transform_type t)
     | CRec (k, c) => CRec (k, transform_type c)
     | CRef c => CRef (transform_type c)
     | CUnOp (opr, c) => CUnOp (opr, transform_type c)
@@ -1981,11 +1990,21 @@ fun transform_kinding kd =
       in
           KdTimeApp (as_KdTimeApp kd1 kd2, kd1, kd2)
       end
-    | KdQuan ((kctx, CQuan (quan, k, t), _), wk, kd) =>
+    | KdQuan ((kctx, CQuan (QuanForall, k, t), _), wk, kd) =>
+      let
+          val kd = shift0_ctx_kd ([KTime], []) $ transform_kinding kd
+          val jkd = extract_judge_kinding kd
+          val kd = KdArrow (as_KdArrow kd (KdVar (#1 jkd, CVar 0, KTime)) (KdConst (#1 jkd, CTypeUnit, KType)), kd, KdVar (#1 jkd, CVar 0, KTime), KdConst (#1 jkd, CTypeUnit, KType))
+          val kd = KdArrow (as_KdArrow kd (KdVar (#1 jkd, CVar 0, KTime)) (KdConst (#1 jkd, CTypeUnit, KType)), kd, KdVar (#1 jkd, CVar 0, KTime), KdConst (#1 jkd, CTypeUnit, KType))
+          val kd = KdQuan (as_KdQuan QuanForall (WfKdBaseSort (tl $ #1 jkd, KTime)) kd, WfKdBaseSort (tl $ #1 jkd, KTime), kd)
+      in
+          KdQuan (as_KdQuan QuanForall wk kd, wk, kd)
+      end
+    | KdQuan ((kctx, CQuan (QuanExists, k, t), _), wk, kd) =>
       let
           val kd = transform_kinding kd
       in
-          KdQuan (as_KdQuan quan wk kd, wk, kd)
+          KdQuan (as_KdQuan QuanExists wk kd, wk, kd)
       end
     | KdRec ((kctx, CRec (k, c), _), wk, kd) =>
       let
@@ -2077,11 +2096,21 @@ fun transform_tyeq te =
       in
           TyEqBetaRev (as_TyEqBetaRev te1 te2 te3, te1, te2, te3)
       end
-    | TyEqQuan ((kctx, CQuan (quan, _, _), _), ke, te) =>
+    | TyEqQuan ((kctx, CQuan (QuanForall, _, _), _), ke, te) =>
+      let
+          val te = shift0_ctx_te ([KTime], []) $ transform_tyeq te
+          val jte = extract_judge_tyeq te
+          val te = TyEqArrow (as_TyEqArrow te (PrAdmit (#1 jte, TEq (CVar 0, CVar 0))) (TyEqConst (#1 jte, CTypeUnit, CTypeUnit)), te, PrAdmit (#1 jte, TEq (CVar 0, CVar 0)), TyEqConst (#1 jte, CTypeUnit, CTypeUnit))
+          val te = TyEqArrow (as_TyEqArrow te (PrAdmit (#1 jte, TEq (CVar 0, CVar 0))) (TyEqConst (#1 jte, CTypeUnit, CTypeUnit)), te, PrAdmit (#1 jte, TEq (CVar 0, CVar 0)), TyEqConst (#1 jte, CTypeUnit, CTypeUnit))
+          val te = TyEqQuan (as_TyEqQuan QuanForall (KdEqBaseSort (tl $ #1 jte, KTime, KTime)) te, KdEqBaseSort (tl $ #1 jte, KTime, KTime), te)
+      in
+          TyEqQuan (as_TyEqQuan QuanForall ke te, ke, te)
+      end
+    | TyEqQuan ((kctx, CQuan (QuanExists, _, _), _), ke, te) =>
       let
           val te = transform_tyeq te
       in
-          TyEqQuan (as_TyEqQuan quan ke te, ke, te)
+          TyEqQuan (as_TyEqQuan QuanExists ke te, ke, te)
       end
     | TyEqRec (j, ke, te) =>
       let
@@ -2121,7 +2150,7 @@ fun cps_deriv ty =
       cps ty cont
   end
 
-and cps_value ty cont =
+(*and cps_value ty cont =
     case ty of
         TyConst (_, EConst cn, t, T0) =>
         let
@@ -2221,7 +2250,7 @@ and cps_value ty cont =
        in
            res
        end
-     | _ => raise (Impossible "CPS: cps_value a non-value")
+     | _ => raise (Impossible "CPS: cps_value a non-value")*)
 
 and cps ty cont =
     case ty of
@@ -2331,16 +2360,29 @@ and cps ty cont =
             val in1_jcont = extract_judge_typing in1_cont
             val in0_cont =
                 let
-                    val t_tmp = subst0_c_c (#2 jkd) (#3 (extract_c_quan t))
+                    val t_tmp1 = subst0_c_c (#2 jkd) (#3 (extract_c_quan t))
+                    val t_tmp2 = subst0_c_c (#2 (extract_c_arrow (#3 in1_jcont))) (#3 (extract_c_quan t_tmp1))
+                    val d1 = TyVar ((fst $ #1 in1_jcont, t_tmp2 :: t_tmp1 :: (snd $ #1 in1_jcont)), EVar 0, t_tmp2, T0)
+                    val d2 = shift0_ctx_ty ([], [t_tmp2, t_tmp1]) in1_cont
+                    val d3 = TyAppK (as_TyAppK d1 d2, d1, d2)
+                    val d4 = TyVar ((fst $ #1 in1_jcont, t_tmp1 :: (snd $ #1 in1_jcont)), EVar 0, t_tmp1, T0)
+                    val d5 = KdAdmit (fst $ #1 in1_jcont, #2 (extract_c_arrow (#3 in1_jcont)), KTime)
+                    val d6 = TyAppC (as_TyAppC d4 d5, d4, d5)
+                    val d7 = TyLet (as_TyLet d6 d3, d6, d3)
+                    val d8 = TyVar (#1 in1_jcont, EVar 0, t, T0)
+                    val d9 = TyAppC (as_TyAppC d8 kd, d8, kd)
+                    val d10 = TyLet (as_TyLet d9 d7, d9, d7)
+                    val d11 = kdt
+                    (*val t_tmp = subst0_c_c (#2 jkd) (#3 (extract_c_quan t))
                     val d1 = shift0_ctx_ty ([], [t_tmp]) in1_cont
                     val d2 = TyVar ((fst $ #1 in1_jcont, t_tmp :: (snd $ #1 in1_jcont)), EVar 0, t_tmp, T0)
                     val d3 = send_to_cont d1 d2
                     val d4 = TyVar (#1 in1_jcont, EVar 0, t, T0)
                     val d5 = TyAppC (as_TyAppC d4 kd, d4, kd)
                     val d6 = TyLet (as_TyLet d5 d3, d5, d3)
-                    val d7 = kdt
+                    val d7 = kdt*)
                 in
-                    TyAbs (as_TyAbs d7 d6, d7, d6)
+                    TyAbs (as_TyAbs d11 d10, d11, d10)
                 end
             val res = cps ty in0_cont
             val () = debug "TyAppC out"
@@ -2350,6 +2392,20 @@ and cps ty cont =
       | TyAbsC (j, wk, ty) =>
         let
             val () = debug "TyAbsC in"
+            val jwk = extract_judge_wfkind wk
+            val jty = extract_judge_typing ty
+            val t = shift0_c_c $ #3 jty
+            val kd = KdAdmit (KTime :: #1 jwk, t, KType)
+            val kd = transform_kinding kd
+            val jkd = extract_judge_kinding kd
+            val kd = KdArrow (as_KdArrow kd (KdVar (#1 jkd, CVar 0, KTime)) (KdConst (#1 jkd, CTypeUnit, KType)), kd, KdVar (#1 jkd, CVar 0, KTime), KdConst (#1 jkd, CTypeUnit, KType))
+            val jkd = extract_judge_kinding kd
+            val t = #2 jkd
+            val ty = shift0_ctx_ty ([KTime], t) ty
+            val old_ctx = #1 (extract_judge_typing cont)
+            val new_ctx = ()
+
+                           
             val jwk = extract_judge_wfkind wk
             val ty = cps_value ty (shift0_ctx_ty ([#2 jwk], []) cont)
             val ty = TyAbsC (as_TyAbsC wk ty, wk, ty)

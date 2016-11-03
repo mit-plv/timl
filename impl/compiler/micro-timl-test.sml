@@ -176,6 +176,33 @@ fun gen_tyeq_refl kctx t =
       println ""
   end*)
 
+fun test_absc_appc () =
+  let
+      val e1 = EInl ETT
+      val ct1 = ([KType], [])
+      val i1 = T0
+      val t1 = CSum (CTypeUnit, CVar 0)
+      val d1 = TyInj ((ct1, e1, t1, i1), TyConst (ct1, ETT, CTypeUnit, T0), KdVar (fst ct1, CVar 0, KType))
+      val () = check_typing d1
+      val e2 = EAbsC e1
+      val ct2 = ([], [])
+      val i2 = T0
+      val t2 = CForall (KType, CSum (CTypeUnit, CVar 0))
+      val d2 = TyAbsC ((ct2, e2, t2, i2), WfKdType (fst ct2, KType), d1)
+      val () = check_typing d2
+      val e3 = EAppC (e2, CInt)
+      val ct3 = ct2
+      val i3 = T0
+      val t3 = CSum (CTypeUnit, CInt)
+      val d3 = TyAppC ((ct3, e3, t3, i3), d2, KdConst (fst ct3, CInt, KType))
+      val () = check_typing d3
+      val cps_ty = CPS.cps_deriv d3
+      val () = println $ str_expr $ #2 (extract_judge_typing cps_ty)
+      val () = check_typing cps_ty
+  in
+      println ""
+  end
+
 fun test_abs_app () =
   let
       val e1 = EAbs (EVar 0)
@@ -189,12 +216,12 @@ fun test_abs_app () =
       val cps_ty = CPS.cps_deriv d2
       val () = println $ str_expr $ #2 (extract_judge_typing cps_ty)
       val () = check_typing cps_ty
-      val wrap_ty = WrapLambda.wrap_lambda_deriv cps_ty
+      (*val wrap_ty = WrapLambda.wrap_lambda_deriv cps_ty
       val () = println $ str_expr $ #2 (extract_judge_typing wrap_ty)
       val () = check_typing wrap_ty
       val clo_ty = CloConv.clo_conv_deriv wrap_ty
       val () = println $ str_expr $ #2 (extract_judge_typing clo_ty)
-      val () = check_typing clo_ty
+      val () = check_typing clo_ty*)
       (*val hoisted_ty = hoist_deriv clo_ty
       val () = print $ str_program $ #1 (extract_judge_ptyping hoisted_ty)
       val () = HoistedDerivChecker.check_program hoisted_ty*)
@@ -217,12 +244,12 @@ fun test_currying () =
       val cps_ty = CPS.cps_deriv d3
       val () = println $ str_expr $ #2 (extract_judge_typing cps_ty)
       val () = check_typing cps_ty
-      val wrap_ty = WrapLambda.wrap_lambda_deriv cps_ty
+      (*val wrap_ty = WrapLambda.wrap_lambda_deriv cps_ty
       val () = println $ str_expr $ #2 (extract_judge_typing wrap_ty)
       val () = check_typing wrap_ty
       val clo_ty = CloConv.clo_conv_deriv wrap_ty
       val () = println $ str_expr $ #2 (extract_judge_typing clo_ty)
-      val () = check_typing clo_ty
+      val () = check_typing clo_ty*)
       (*val hoisted_ty = hoist_deriv clo_ty
       val () = print $ str_program $ #1 (extract_judge_ptyping hoisted_ty)
       val () = HoistedDerivChecker.check_program hoisted_ty*)
@@ -514,12 +541,12 @@ fun test_concat () =
       val cps_ty = CPS.cps_deriv d50
       val () = println $ str_expr $ #2 (extract_judge_typing cps_ty)
       val () = check_typing cps_ty
-      val wrap_ty = WrapLambda.wrap_lambda_deriv cps_ty
+      (*val wrap_ty = WrapLambda.wrap_lambda_deriv cps_ty
       val () = println $ str_expr $ #2 (extract_judge_typing wrap_ty)
       val () = check_typing wrap_ty
       val clo_ty = CloConv.clo_conv_deriv wrap_ty
       val () = println $ str_expr $ #2 (extract_judge_typing clo_ty)
-      val () = check_typing clo_ty
+      val () = check_typing clo_ty*)
       (*val hoisted_ty = hoist_deriv clo_ty
       val () = print $ str_program $ #1 (extract_judge_ptyping hoisted_ty)
       val () = HoistedDerivChecker.check_program hoisted_ty*)
@@ -536,6 +563,7 @@ fun test_concat () =
 fun test () =
   let
       (*val () = test_cps ()*)
+      val () = test_absc_appc ()
       val () = test_abs_app ()
       val () = test_currying ()
       val () = test_concat ()
