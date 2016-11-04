@@ -2206,7 +2206,8 @@ fun forget_d r gctxn sctxn sctxl d =
     forget_i_i 0 sctxl d
     handle ForgetError (x, cause) => raise Error (r, escapes "index variable" (str_v sctxn x) "time" (str_i gctxn sctxn d) cause)
 
-val anno_less = ref true
+(* val anno_less = ref true *)
+val anno_less = ref false
 
 fun substx_i_i_nonconsuming x v b =
     let
@@ -2748,8 +2749,8 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
           in
             ()
           end
-      val () = print $ sprintf "Typing $\n" [U.str_e gctxn ctxn e_all]
-      val () = print_ctx gctx ctx
+      (* val () = print $ sprintf "Typing $\n" [U.str_e gctxn ctxn e_all] *)
+      (* val () = print_ctx gctx ctx *)
       fun main () =
 	  case e_all of
 	      U.Var (info as (x, eia)) =>
