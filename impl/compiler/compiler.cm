@@ -15,7 +15,6 @@ Group is
       deriv-checker.sml
       micro-timl-hoisted-def.sml
       hoisted-deriv-checker.sml
-      (*hoisted-deriv-transformers.sml*)
       micro-timl-test.sml
       compiler.sml
 
