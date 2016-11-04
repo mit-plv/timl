@@ -3132,7 +3132,8 @@ structure Helper = DerivGenericOnlyDownTransformer(
                       val t_self_paritial =
                           let
                               val t1 = foldri (fn (i, _, t) => subst0_c_c (CVar (i + cnt_wks)) (#3 (extract_c_quan t))) t_self new_wks
-                              val t2 = shift_c_c 1 cnt_wks t1
+                              (*val t2 = shift_c_c 1 cnt_wks t1*)
+                              val t2 = t1
                               fun iter t ks =
                                   case t of
                                       CQuan (QuanForall, k, t) => iter t (k :: ks)
@@ -3140,13 +3141,12 @@ structure Helper = DerivGenericOnlyDownTransformer(
                               val (t3, ks) = iter t2 []
                               val (t31, t3i, t32) = extract_c_arrow t3
                               val (_, t312) = extract_c_prod t31
-                              val t4 = CArrow (CProd (CVar cnt_wks, t312), t3i, t32)
-                              val t5 = foldl (fn (k, t) => CForall (k, t)) t4 ks
+                              val t4 = CArrow (CProd (CVar cnt_wks, shift_c_c 1 cnt_wks t312), shift_c_c 1 cnt_wks t3i, shift_c_c 1 cnt_wks t32)
+                              val t5 = foldli (fn (i, k, t) => CForall (shift_c_k 1 (cnt_wks - 1 - i) k, t)) t4 ks
                               val t6 = CExists (KType, CProd (t5, CVar 0))
                           in
                               t6
                           end
-                      val () = debug $ PlainPrinter.str_cstr t_self_paritial
 
                       val tctx_self = t_self_paritial :: tctx_env
 
@@ -3324,7 +3324,8 @@ structure Helper = DerivGenericOnlyDownTransformer(
                       val t_tmp =
                           let
                               val t1 = #3 jty_app_c
-                              val t2 = shift_c_c 1 cnt_wks t1
+                              (*val t2 = shift_c_c 1 cnt_wks t1*)
+                              val t2 = t1
                               fun iter t ks =
                                 case t of
                                     CQuan (CForall, k, t) => iter t (k :: ks)
@@ -3332,8 +3333,8 @@ structure Helper = DerivGenericOnlyDownTransformer(
                               val (t3, ks) = iter t2 []
                               val (t31, t3i, t32) = extract_c_arrow t3
                               val (_, t312) = extract_c_prod t31
-                              val t4 = CArrow (CProd (CVar cnt_wks, t312), t3i, t32)
-                              val t5 = foldl (fn (k, t) => CForall (k, t)) t4 ks
+                              val t4 = CArrow (CProd (CVar cnt_wks, shift_c_c 1 cnt_wks t312), shift_c_c 1 cnt_wks t3i, shift_c_c 1 cnt_wks t32)
+                              val t5 = foldli (fn (i, k, t) => CForall (shift_c_k 1 (cnt_wks - 1 - i) k, t)) t4 ks
                               val t6= CProd (t5, CVar 0)
                           in
                               CExists (KType, t6)
@@ -3378,14 +3379,11 @@ structure Helper = DerivGenericOnlyDownTransformer(
               val ty2 = on_typing (ty2, (kctx, tctx))
               val jty1 = extract_judge_typing ty1
               val jty2 = extract_judge_typing ty2
-              val () = debug $ PlainPrinter.str_cstr $ #3 jty1
               val (_, _, t_clo) = extract_c_quan (#3 jty1)
               val (t_func, t_env) = extract_c_prod t_clo
 
               val ty3 = TyVar ((KType :: kctx, CProd (t_env, shift0_c_c (#3 jty2)) :: t_env :: t_func :: t_clo :: map shift0_c_c tctx), EVar 2, t_func, T0)
-              val () = debug $ PlainPrinter.str_cstr $ #3 (extract_judge_typing ty3)
               val ty3 = foldl (fn (kd, ty) => TyAppC (as_TyAppC ty kd, ty, kd)) ty3 (map (fn kd => shift0_ctx_kd ([KType], []) (on_kinding (kd, (kctx, tctx)))) kds)
-              val () = debug $ PlainPrinter.str_cstr $ #3 (extract_judge_typing ty3)
               val ty4 =
                   let
                       val jty3 = extract_judge_typing ty3
