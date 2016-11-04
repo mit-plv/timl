@@ -3131,7 +3131,7 @@ structure Helper = DerivGenericOnlyDownTransformer(
                       (*val tctx_self = foldl (fn (k, t) => CForall (k, t)) (CExists (KType, CProd (CArrow (CProd (CVar 0, shift_c_c 1 0 t_arg), shift_c_c 1 0 ti_abs, shift_c_c 1 0 t_res), CVar 0))) ori_kinds :: tctx_env*)
                       val t_self_paritial =
                           let
-                              val t1 = foldri (fn (j, _, t) => subst0_c_c (CVar (j + cnt_wks)) (#3 (extract_c_quan t))) t_self new_wks
+                              val t1 = foldri (fn (i, _, t) => subst0_c_c (CVar (i + cnt_wks)) (#3 (extract_c_quan t))) t_self new_wks
                               val t2 = shift_c_c 1 cnt_wks t1
                               fun iter t ks =
                                   case t of
@@ -3384,7 +3384,7 @@ structure Helper = DerivGenericOnlyDownTransformer(
 
               val ty3 = TyVar ((KType :: kctx, CProd (t_env, shift0_c_c (#3 jty2)) :: t_env :: t_func :: t_clo :: map shift0_c_c tctx), EVar 2, t_func, T0)
               val () = debug $ PlainPrinter.str_cstr $ #3 (extract_judge_typing ty3)
-              val ty3 = foldl (fn (kd, ty) => TyAppC (as_TyAppC ty kd, ty, kd)) ty3 (map (shift0_ctx_kd ([KType], [])) kds)
+              val ty3 = foldl (fn (kd, ty) => TyAppC (as_TyAppC ty kd, ty, kd)) ty3 (map (fn kd => shift0_ctx_kd ([KType], []) (on_kinding (kd, (kctx, tctx)))) kds)
               val () = debug $ PlainPrinter.str_cstr $ #3 (extract_judge_typing ty3)
               val ty4 =
                   let
@@ -3425,7 +3425,6 @@ structure Helper = DerivGenericOnlyDownTransformer(
                   in
                       TySubTi ((#1 jty16, #2 jty16, #3 jty16, ti), ty16, PrAdmit (fst $ #1 jty16, TLe (#4 jty16, ti)))
                   end
-              val () = debug $ PlainPrinter.str_expr $ #2 (extract_judge_typing ty17)
               val () = debug "OUT APP"
           in
               SOME ty17
@@ -3447,7 +3446,7 @@ structure Helper = DerivGenericOnlyDownTransformer(
               val (t_func, t_env) = extract_c_prod t_clo
 
               val ty3 = TyVar ((KType :: kctx, CProd (t_env, ShiftCstr.shift0_c_c (#3 jty2)) :: t_env :: t_func :: t_clo :: map ShiftCstr.shift0_c_c tctx), EVar 2, t_func, T0)
-              val ty3 = foldl (fn (kd, ty) => TyAppC (as_TyAppC ty kd, ty, kd)) ty3 (map (shift0_ctx_kd ([KType], [])) kds)
+              val ty3 = foldl (fn (kd, ty) => TyAppC (as_TyAppC ty kd, ty, kd)) ty3 (map (fn kd => shift0_ctx_kd ([KType], []) (on_kinding (kd, (kctx, tctx)))) kds)
               val ty4 =
                   let
                       val jty3 = extract_judge_typing ty3
