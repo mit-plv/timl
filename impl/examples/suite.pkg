@@ -11,3 +11,11 @@ rbt-sortedness.timl
 rbt.timl
 dynamic-table.timl
 two-stack-queue.timl
+array-bsearch.timl
+array-heap.timl
+array-msort.timl
+array-msort-inplace.timl
+array-kmed.timl
+qsort.timl
+dijkstra.timl
+dlist.timl
