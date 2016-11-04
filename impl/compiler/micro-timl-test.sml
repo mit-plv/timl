@@ -1,26 +1,157 @@
-structure MicroTiMLTest =
+structure MicroTiMLTest : SIG_MICRO_TIML_TEST =
 struct
-  open Util
+open List
+open Util
+infixr 0 $
 
-  infixr 0 $
+structure NatTime =
+struct
+open Util
 
-  structure NatTime : SIG_TIME =
-  struct
-    type time_type = int
+type time_type = int
 
-    val Time0 = 0
-    val Time1 = 1
+val Time0 = 0
+val Time1 = 1
 
-    val str_time = str_int
+val str_time = str_int
+end
+
+structure IntNat =
+struct
+open Util
+
+type nat_type = int
+
+fun from_int i = i
+val str_nat = str_int
+end
+
+structure MicroTiMLDef = MicroTiMLDefFun(
+    structure Time = NatTime
+    structure Nat = IntNat)
+
+open MicroTiMLDef
+structure MicroTiMLUtil = MicroTiMLUtilFun(MicroTiMLDef)
+open MicroTiMLUtil
+structure AstTransformers = AstTransformersFun(MicroTiMLDef)
+open AstTransformers
+structure DerivTransformers = DerivTransformersFun(MicroTiMLDef)
+open DerivTransformers
+structure DerivChecker = DerivCheckerFun(MicroTiMLDef)
+open DerivChecker
+structure MicroTiMLHoistedDef = MicroTiMLHoistedDefFun(MicroTiMLDef)
+open MicroTiMLHoistedDef
+structure HoistedDerivChecker = HoistedDerivCheckerFun(MicroTiMLHoistedDef)
+open HoistedDerivChecker
+
+open DerivAssembler
+open ShiftCtx
+open PlainPrinter
+open ShiftCstr
+open ShiftExpr
+open SubstCstr
+open SubstExpr
+
+fun TySub ((ctx, e, t, i), ty, te, pr) =
+  let
+      val jty = extract_judge_typing ty
+      val ty1 = TySubTy ((ctx, e, t, #4 jty), ty, te)
+      val ty2 = TySubTi ((ctx, e, t, i), ty1, pr)
+  in
+      ty2
   end
 
-  structure MicroTiMLHoisted = MicroTiMLHoisted(NatTime)
+fun gen_kdeq_refl kctx k =
+  case k of
+      KType => KdEqKType (kctx, k, k)
+    | KArrow (k1, k2) =>
+      let
+          val ke1 = gen_kdeq_refl kctx k1
+          val ke2 = gen_kdeq_refl kctx k2
+      in
+          KdEqKArrow (as_KdEqKArrow ke1 ke2, ke1, ke2)
+      end
+    | KBaseSort s => KdEqBaseSort (kctx, k, k)
+    | KSubset (k, p) =>
+      let
+          val ke = gen_kdeq_refl kctx k
+          val pr = PrAdmit (k :: kctx, PIff (p, p))
+      in
+          KdEqSubset (as_KdEqKSubset ke pr, ke, pr)
+      end
 
-  open MicroTiMLHoisted
-  open ANF
+fun gen_tyeq_refl kctx t =
+  case t of
+      CVar x => TyEqVar (kctx, t, t)
+    | CConst cn => TyEqConst (kctx, t, t)
+    | CBinOp (opr, t1, t2) =>
+      let
+          val te1 = gen_tyeq_refl kctx t1
+          val te2 = gen_tyeq_refl kctx t2
+      in
+          TyEqBinOp (as_TyEqBinOp opr te1 te2, te1, te2)
+      end
+    | CIte (i1, i2, i3) =>
+      let
+          val te1 = gen_tyeq_refl kctx i1
+          val te2 = gen_tyeq_refl kctx i2
+          val te3 = gen_tyeq_refl kctx i3
+      in
+          TyEqIte (as_TyEqIte te1 te2 te3, te1, te2, te3)
+      end
+    | CTimeAbs c => TyEqTimeAbs (kctx, t, t)
+    | CTimeApp (arity, c1, c2) =>
+      let
+          val te1 = gen_tyeq_refl kctx c1
+          val te2 = gen_tyeq_refl kctx c2
+      in
+          TyEqTimeApp (as_TyEqTimeApp arity te1 te2, te1, te2)
+      end
+    | CArrow (t1, i, t2) =>
+      let
+          val te1 = gen_tyeq_refl kctx t1
+          val pr = PrAdmit (kctx, TEq (i, i))
+          val te2 = gen_tyeq_refl kctx t2
+      in
+          TyEqArrow (as_TyEqArrow te1 pr te2, te1, pr, te2)
+      end
+    | CAbs c => TyEqAbs (kctx, t, t)
+    | CApp (c1, c2) =>
+      let
+          val te1 = gen_tyeq_refl kctx c1
+          val te2 = gen_tyeq_refl kctx c2
+      in
+          TyEqApp (as_TyEqApp te1 te2, te1, te2)
+      end
+    | CQuan (q, k, c) =>
+      let
+          val ke = gen_kdeq_refl kctx k
+          val te = gen_tyeq_refl (k :: kctx) c
+      in
+          TyEqQuan (as_TyEqQuan q ke te, ke, te)
+      end
+    | CRec (k, c) =>
+      let
+          val ke = gen_kdeq_refl kctx k
+          val te = gen_tyeq_refl (k :: kctx) c
+      in
+          TyEqRec (as_TyEqRec ke te, ke, te)
+      end
+    | CRef c =>
+      let
+          val te = gen_tyeq_refl kctx c
+      in
+          TyEqRef (as_TyEqRef te, te)
+      end
+    | CUnOp (opr, c) =>
+      let
+          val te = gen_tyeq_refl kctx c
+      in
+          TyEqUnOp (as_TyEqUnOp opr te, te)
+      end
 
-  fun test_cps () =
-    let
+(*fun test_cps () =
+  let
       val tctx = [CArrow (CInt, T1, CArrow (CInt, T1, CInt)), CArrow (CInt, T1, CInt), CInt, CArrow (CInt, T1, CInt), CArrow (CInt, T1, CInt), CInt, CArrow (CInt, T0, CTypeUnit)]
       val tctx = List.map (CPS.transform_type) tctx
       val ctx = ([], tctx)
@@ -38,15 +169,51 @@ struct
       val cps_ty = CPS.cps_deriv d11
       val () = println $ str_expr $ #2 (extract_judge_typing cps_ty)
       val () = check_typing cps_ty
-      val wrap_ty = WrapLambda.wrap_lambda_ty cps_ty
+      val wrap_ty = WrapLambda.wrap_lambda_deriv cps_ty
       val () = println $ str_expr $ #2 (extract_judge_typing wrap_ty)
       val () = check_typing wrap_ty
-    in
+  in
       println ""
-    end
+  end*)
 
-  fun test_abs_app () =
-    let
+fun test_absc_appc () =
+  let
+      val e1 = EInl ETT
+      val ct1 = ([KType], [])
+      val i1 = T0
+      val t1 = CSum (CTypeUnit, CVar 0)
+      val d1 = TyInj ((ct1, e1, t1, i1), TyConst (ct1, ETT, CTypeUnit, T0), KdVar (fst ct1, CVar 0, KType))
+      val () = check_typing d1
+      val e2 = EAbsC e1
+      val ct2 = ([], [])
+      val i2 = T0
+      val t2 = CForall (KType, CSum (CTypeUnit, CVar 0))
+      val d2 = TyAbsC ((ct2, e2, t2, i2), WfKdType (fst ct2, KType), d1)
+      val () = check_typing d2
+      val e3 = EAppC (e2, CInt)
+      val ct3 = ct2
+      val i3 = T0
+      val t3 = CSum (CTypeUnit, CInt)
+      val d3 = TyAppC ((ct3, e3, t3, i3), d2, KdConst (fst ct3, CInt, KType))
+      val () = check_typing d3
+      val cps_ty = CPS.cps_deriv d3
+      val () = println $ str_expr $ #2 (extract_judge_typing cps_ty)
+      val () = check_typing cps_ty
+      val wrap_ty = WrapLambda.wrap_lambda_deriv cps_ty
+      val () = println $ str_expr $ #2 (extract_judge_typing wrap_ty)
+      val () = check_typing wrap_ty
+      val clo_ty = CloConv.clo_conv_deriv wrap_ty
+      val () = println $ str_expr $ #2 (extract_judge_typing clo_ty)
+      val () = check_typing clo_ty
+      val hoisted_ty = hoist_deriv clo_ty
+      val () = print $ str_program $ #1 (extract_judge_ptyping hoisted_ty)
+      val () = check_program hoisted_ty
+  in
+      println ""
+  end
+
+fun test_abs_app () =
+  let
       val e1 = EAbs (EVar 0)
       val ct1 = ([], [])
       val i1 = T0
@@ -58,21 +225,21 @@ struct
       val cps_ty = CPS.cps_deriv d2
       val () = println $ str_expr $ #2 (extract_judge_typing cps_ty)
       val () = check_typing cps_ty
-      val wrap_ty = WrapLambda.wrap_lambda_ty cps_ty
+      val wrap_ty = WrapLambda.wrap_lambda_deriv cps_ty
       val () = println $ str_expr $ #2 (extract_judge_typing wrap_ty)
       val () = check_typing wrap_ty
-      val clo_ty = CloConv.clo_conv_ty wrap_ty
+      val clo_ty = CloConv.clo_conv_deriv wrap_ty
       val () = println $ str_expr $ #2 (extract_judge_typing clo_ty)
       val () = check_typing clo_ty
-      val hoisted_ty = Hoist.hoist clo_ty
-      val () = print $ HoistedPlainPrinter.str_program $ #1 (extract_judge_ptyping hoisted_ty)
-      val () = HoistedDerivChecker.check_program hoisted_ty
-    in
+      val hoisted_ty = hoist_deriv clo_ty
+      val () = print $ str_program $ #1 (extract_judge_ptyping hoisted_ty)
+      val () = check_program hoisted_ty
+  in
       println ""
-    end
+  end
 
-  fun test_currying () =
-    let
+fun test_currying () =
+  let
       val e1 = EAbs (EAbs (EPair (EVar 1, EVar 0)))
       val ct1 = ([], [])
       val i1 = T0
@@ -86,42 +253,43 @@ struct
       val cps_ty = CPS.cps_deriv d3
       val () = println $ str_expr $ #2 (extract_judge_typing cps_ty)
       val () = check_typing cps_ty
-      val wrap_ty = WrapLambda.wrap_lambda_ty cps_ty
+      val wrap_ty = WrapLambda.wrap_lambda_deriv cps_ty
       val () = println $ str_expr $ #2 (extract_judge_typing wrap_ty)
       val () = check_typing wrap_ty
-      val clo_ty = CloConv.clo_conv_ty wrap_ty
+      val clo_ty = CloConv.clo_conv_deriv wrap_ty
       val () = println $ str_expr $ #2 (extract_judge_typing clo_ty)
       val () = check_typing clo_ty
-      val hoisted_ty = Hoist.hoist clo_ty
-      val () = print $ HoistedPlainPrinter.str_program $ #1 (extract_judge_ptyping hoisted_ty)
-      val () = HoistedDerivChecker.check_program hoisted_ty
-      (*val anf_ty = fst $ ANF.normalize_deriv clo_conv_ty
+      val hoisted_ty = hoist_deriv clo_ty
+      val () = print $ str_program $ #1 (extract_judge_ptyping hoisted_ty)
+      val () = check_program hoisted_ty
+  (*val anf_ty = fst $ ANF.normalize_deriv clo_conv_deriv
       val janf_ty = extract_judge_typing anf_ty
       val () = println $ str_expr $ #2 janf_ty
       val () = check_typing anf_ty
       val hoisted_ty = Hoist.hoist anf_ty
       val () = HoistedDerivChecker.check_program hoisted_ty*)
-    in
+  in
       println ""
-    end
+  end
 
-  fun test_concat () =
-    let
-      val c1 = CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 1, CNat 0)), CTypeUnit)
+fun test_concat () =
+  let
+      fun get_nat i = CNat (Nat.from_int i)
+      val c1 = CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 1, get_nat 0)), CTypeUnit)
       val ct1 = [KNat, KType, KArrow (KType, KArrow (KNat, KType))]
-      val d1 = KdQuan ((ct1, c1, KType), WfKdSubset ((ct1, KSubset (KUnit, PBinPred (PBNatEq, CVar 1, CNat 0))), WfKdBaseSort (ct1, KUnit), WfPropBinPred ((KUnit :: ct1, PBinPred (PBNatEq, CVar 1, CNat 0)), KdVar (KUnit :: ct1, CVar 1, KNat), KdConst (KUnit :: ct1, CNat 0, KNat))), KdConst ((KSubset (KUnit, PBinPred (PBNatEq, CVar 1, CNat 0))) :: ct1, CTypeUnit, KType))
+      val d1 = KdQuan ((ct1, c1, KType), WfKdSubset ((ct1, KSubset (KUnit, PBinPred (PBNatEq, CVar 1, get_nat 0))), WfKdBaseSort (ct1, KUnit), WfPropBinPred ((KUnit :: ct1, PBinPred (PBNatEq, CVar 1, get_nat 0)), KdVar (KUnit :: ct1, CVar 1, KNat), KdConst (KUnit :: ct1, get_nat 0, KNat))), KdConst ((KSubset (KUnit, PBinPred (PBNatEq, CVar 1, get_nat 0))) :: ct1, CTypeUnit, KType))
       val () = check_kinding d1
       val c2 = CApps (CVar 4) [CVar 3, CVar 1]
-      val ct2 = KSubset (KUnit, PBinPred (PBNatEq, CVar 2, CBinOp (CBNatAdd, CVar 1, CNat 1))) :: KNat :: ct1
+      val ct2 = KSubset (KUnit, PBinPred (PBNatEq, CVar 2, CBinOp (CBNatAdd, CVar 1, get_nat 1))) :: KNat :: ct1
       val d2 = KdApp ((ct2, c2, KType), KdApp ((ct2, CApp (CVar 4, CVar 3), KArrow (KNat, KType)), KdVar (ct2, CVar 4, shift_c_k 5 0 (nth (ct2, 4))), KdVar (ct2, CVar 3, shift_c_k 4 0 (nth (ct2, 3)))), KdVar (ct2, CVar 1, shift_c_k 2 0 (nth (ct2, 1))))
       val () = check_kinding d2
       val c3 = CProd (CVar 3, c2)
       val ct3 = ct2
       val d3 = KdBinOp ((ct3, c3, KType), KdVar (ct3, CVar 3, shift_c_k 4 0 (nth (ct3, 3))), d2)
       val () = check_kinding d3
-      val c4 = CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 2, CBinOp (CBNatAdd, CVar 1, CNat 1))), c3)
+      val c4 = CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 2, CBinOp (CBNatAdd, CVar 1, get_nat 1))), c3)
       val ct4 = tl ct3
-      val d4 = KdQuan ((ct4, c4, KType), WfKdSubset ((ct4, KSubset (KUnit, PBinPred (PBNatEq, CVar 2, CBinOp (CBNatAdd, CVar 1, CNat 1)))), WfKdBaseSort (ct4, KUnit), WfPropBinPred ((KUnit :: ct4, PBinPred (PBNatEq, CVar 2, CBinOp (CBNatAdd, CVar 1, CNat 1))), KdVar (KUnit :: ct4, CVar 2, KNat), KdBinOp ((KUnit :: ct4, CBinOp (CBNatAdd, CVar 1, CNat 1), KNat), KdVar (KUnit :: ct4, CVar 1, KNat), KdConst (KUnit :: ct4, CNat 1, KNat)))), d3)
+      val d4 = KdQuan ((ct4, c4, KType), WfKdSubset ((ct4, KSubset (KUnit, PBinPred (PBNatEq, CVar 2, CBinOp (CBNatAdd, CVar 1, get_nat 1)))), WfKdBaseSort (ct4, KUnit), WfPropBinPred ((KUnit :: ct4, PBinPred (PBNatEq, CVar 2, CBinOp (CBNatAdd, CVar 1, get_nat 1))), KdVar (KUnit :: ct4, CVar 2, KNat), KdBinOp ((KUnit :: ct4, CBinOp (CBNatAdd, CVar 1, get_nat 1), KNat), KdVar (KUnit :: ct4, CVar 1, KNat), KdConst (KUnit :: ct4, get_nat 1, KNat)))), d3)
       val () = check_kinding d4
       val c5 = CExists (KNat, c4)
       val ct5 = tl ct4
@@ -180,7 +348,7 @@ struct
       val concat_t = c17
       val concat_kd = d17
       val e18 = EProj (ProjSnd, EVar 1)
-      val ct18 = ([KNat, KNat, KType], [CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 2, CNat 0)), CTypeUnit), CProd (CApps list_dec [CVar 2, CVar 1], CApps list_dec [CVar 2, CVar 0]), concat_t])
+      val ct18 = ([KNat, KNat, KType], [CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 2, get_nat 0)), CTypeUnit), CProd (CApps list_dec [CVar 2, CVar 1], CApps list_dec [CVar 2, CVar 0]), concat_t])
       val t18 = CApps list_dec [CVar 2, CVar 0]
       val i18 = T0
       val d18 = TyProj ((ct18, e18, t18, i18), TyVar (ct18, EVar 1, nth (snd ct18, 1), T0))
@@ -189,10 +357,10 @@ struct
       val ct19 = ct18
       val t19 = CApps list_dec [CVar 2, CBinOp (CBNatAdd, CVar 1, CVar 0)]
       val i19 = TfromNat (CVar 1)
-      val d19 = TySub ((ct19, e19, t19, i19), d18, TyEqApp ((fst ct19, t18, t19), TyEqApp ((fst ct19, CApp (list_dec, CVar 2), CApp (list_dec, CVar 2)), TyEqRec ((fst ct19, list_dec, list_dec), KdEqKArrow ((fst ct19, KArrow (KType, KArrow (KNat, KType)), KArrow (KType, KArrow (KNat, KType))), KdEqKType (fst ct19, KType, KType), KdEqKArrow ((fst ct19, KArrow (KNat, KType), KArrow (KNat, KType)), KdEqBaseSort (fst ct19, KNat, KNat), KdEqKType (fst ct19, KType, KType))), TyEqAbs (KArrow (KType, KArrow (KNat, KType)) :: fst ct19, c8, c8)), TyEqVar (fst ct19, CVar 2, CVar 2)), TyEqNatEq ((fst ct19, CVar 0, CBinOp (CBNatAdd, CVar 1, CVar 0)), PrAdmit (fst ct19, PBinPred (PBNatEq, CVar 0, CBinOp (CBNatAdd, CVar 1, CVar 0))))), PrAdmit (fst ct19, TLe (i18, i19)))
+      val d19 = TySub ((ct19, e19, t19, i19), d18, TyEqApp ((fst ct19, t18, t19), TyEqApp ((fst ct19, CApp (list_dec, CVar 2), CApp (list_dec, CVar 2)), TyEqRec ((fst ct19, list_dec, list_dec), KdEqKArrow ((fst ct19, KArrow (KType, KArrow (KNat, KType)), KArrow (KType, KArrow (KNat, KType))), KdEqKType (fst ct19, KType, KType), KdEqKArrow ((fst ct19, KArrow (KNat, KType), KArrow (KNat, KType)), KdEqBaseSort (fst ct19, KNat, KNat), KdEqKType (fst ct19, KType, KType))), TyEqAbs (KArrow (KType, KArrow (KNat, KType)) :: fst ct19, c8, c8)), TyEqVar (fst ct19, CVar 2, CVar 2)), TyEqNat ((fst ct19, CVar 0, CBinOp (CBNatAdd, CVar 1, CVar 0)), KdVar (fst ct19, CVar 0, KNat), KdBinOp ((fst ct19, CBinOp (CBNatAdd, CVar 1, CVar 0), KNat), KdVar (fst ct19, CVar 1, KNat), KdVar (fst ct19, CVar 0, KNat)), PrAdmit (fst ct19, PBinPred (PBNatEq, CVar 0, CBinOp (CBNatAdd, CVar 1, CVar 0))))), PrAdmit (fst ct19, TLe (i18, i19)))
       val () = check_typing d19
       val e20 = EProj (ProjFst, EVar 0)
-      val ct20 = ([KSubset (KUnit, PBinPred (PBNatEq, CVar 3, CBinOp (CBNatAdd, CVar 1, CNat 1))), KNat, KNat, KNat, KType], [CProd (CVar 4, CApps list_dec [CVar 4, CVar 1]), CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, CNat 1))), CProd (CVar 5, CApps list_dec [CVar 5, CVar 2])), CExists (KNat, CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 5, CBinOp (CBNatAdd, CVar 1, CNat 1))), CProd (CVar 6, CApps list_dec [CVar 6, CVar 1]))), CProd (CApps list_dec [CVar 4, CVar 3], CApps list_dec [CVar 4, CVar 2]), concat_t])
+      val ct20 = ([KSubset (KUnit, PBinPred (PBNatEq, CVar 3, CBinOp (CBNatAdd, CVar 1, get_nat 1))), KNat, KNat, KNat, KType], [CProd (CVar 4, CApps list_dec [CVar 4, CVar 1]), CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, get_nat 1))), CProd (CVar 5, CApps list_dec [CVar 5, CVar 2])), CExists (KNat, CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 5, CBinOp (CBNatAdd, CVar 1, get_nat 1))), CProd (CVar 6, CApps list_dec [CVar 6, CVar 1]))), CProd (CApps list_dec [CVar 4, CVar 3], CApps list_dec [CVar 4, CVar 2]), concat_t])
       val t20 = CVar 4
       val i20 = T0
       val d20 = TyProj ((ct20, e20, t20, i20), TyVar (ct20, EVar 0, nth (snd ct20, 0), T0))
@@ -259,40 +427,40 @@ struct
       val () = check_typing d30
       val e31 = EPack (CVar 0, e30)
       val ct31 = ct30
-      val t31 = CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, CNat 1))), shift_c_c 1 1 t30)
+      val t31 = CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, get_nat 1))), shift_c_c 1 1 t30)
       val i31 = i30
-      val d31 = TyPack ((ct31, e31, t31, i31), KdQuan ((fst ct31, t31, KType), WfKdSubset ((fst ct31, KSubset (KUnit, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, CNat 1)))), WfKdBaseSort (fst ct31, KUnit), WfPropBinPred ((KUnit :: fst ct31, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, CNat 1))), KdVar (KUnit :: fst ct31, CVar 4, KNat), KdBinOp ((KUnit :: fst ct31, CBinOp (CBNatAdd, CVar 2, CNat 1), KNat), KdVar (KUnit :: fst ct31, CVar 2, KNat), KdConst (KUnit :: fst ct31, CNat 1, KNat)))), KdBinOp ((KSubset (KUnit, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, CNat 1))) :: fst ct31, shift0_c_c t29, KType), KdVar (KSubset (KUnit, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, CNat 1))) :: fst ct31, shift0_c_c t28, KType), KdApp ((KSubset (KUnit, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, CNat 1))) :: fst ct31, shift0_c_c t27, KType), KdApp ((KSubset (KUnit, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, CNat 1))) :: fst ct31, CApp (list_dec, CVar 5), KArrow (KNat, KType)), shift0_ctx_kd (KSubset (KUnit, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, CNat 1))) :: fst ct31, []) list_kd, KdVar (KSubset (KUnit, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, CNat 1))) :: fst ct31, CVar 5, KType)), KdBinOp ((KSubset (KUnit, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, CNat 1))) :: fst ct31, CBinOp (CBNatAdd, CVar 2, CVar 3), KNat), KdVar (KSubset (KUnit, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, CNat 1))) :: fst ct31, CVar 2, KNat), KdVar (KSubset (KUnit, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, CNat 1))) :: fst ct31, CVar 3, KNat))))), KdVar (fst ct31, CVar 0, shift_c_k 1 0 (nth (fst ct31, 0))), d30)
+      val d31 = TyPack ((ct31, e31, t31, i31), KdQuan ((fst ct31, t31, KType), WfKdSubset ((fst ct31, KSubset (KUnit, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, get_nat 1)))), WfKdBaseSort (fst ct31, KUnit), WfPropBinPred ((KUnit :: fst ct31, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, get_nat 1))), KdVar (KUnit :: fst ct31, CVar 4, KNat), KdBinOp ((KUnit :: fst ct31, CBinOp (CBNatAdd, CVar 2, get_nat 1), KNat), KdVar (KUnit :: fst ct31, CVar 2, KNat), KdConst (KUnit :: fst ct31, get_nat 1, KNat)))), KdBinOp ((KSubset (KUnit, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, get_nat 1))) :: fst ct31, shift0_c_c t29, KType), KdVar (KSubset (KUnit, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, get_nat 1))) :: fst ct31, shift0_c_c t28, KType), KdApp ((KSubset (KUnit, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, get_nat 1))) :: fst ct31, shift0_c_c t27, KType), KdApp ((KSubset (KUnit, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, get_nat 1))) :: fst ct31, CApp (list_dec, CVar 5), KArrow (KNat, KType)), shift0_ctx_kd (KSubset (KUnit, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, get_nat 1))) :: fst ct31, []) list_kd, KdVar (KSubset (KUnit, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, get_nat 1))) :: fst ct31, CVar 5, KType)), KdBinOp ((KSubset (KUnit, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, get_nat 1))) :: fst ct31, CBinOp (CBNatAdd, CVar 2, CVar 3), KNat), KdVar (KSubset (KUnit, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, get_nat 1))) :: fst ct31, CVar 2, KNat), KdVar (KSubset (KUnit, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, get_nat 1))) :: fst ct31, CVar 3, KNat))))), KdVar (fst ct31, CVar 0, shift_c_k 1 0 (nth (fst ct31, 0))), d30)
       val () = check_typing d31
       val e32 = e31
       val ct32 = ct31
-      val t32 = CExists (KSubset (KUnit, PBinPred (PBNatEq, CBinOp (CBNatAdd, CVar 4, CVar 3), CBinOp (CBNatAdd, CBinOp (CBNatAdd, CVar 2, CVar 3), CNat 1))), shift_c_c 1 1 t30)
+      val t32 = CExists (KSubset (KUnit, PBinPred (PBNatEq, CBinOp (CBNatAdd, CVar 4, CVar 3), CBinOp (CBNatAdd, CBinOp (CBNatAdd, CVar 2, CVar 3), get_nat 1))), shift_c_c 1 1 t30)
       val i32 = i31
-      val d32 = TySub ((ct32, e32, t32, i32), d31, TyEqQuan ((fst ct32, t31, t32), KdEqSubset ((fst ct32, KSubset (KUnit, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, CNat 1))), KSubset (KUnit, PBinPred (PBNatEq, CBinOp (CBNatAdd, CVar 4, CVar 3), CBinOp (CBNatAdd, CBinOp (CBNatAdd, CVar 2, CVar 3), CNat 1)))), KdEqBaseSort (fst ct32, KUnit, KUnit), PrAdmit (KUnit :: fst ct32, PIff (PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, CNat 1)), PBinPred (PBNatEq, CBinOp (CBNatAdd, CVar 4, CVar 3), CBinOp (CBNatAdd, CBinOp (CBNatAdd, CVar 2, CVar 3), CNat 1))))), shift0_ctx_te ([KSubset (KUnit, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, CNat 1)))], []) (TyEqBinOp ((fst ct32, t30, t30), TyEqVar (fst ct32, CVar 4, CVar 4), TyEqApp ((fst ct30, t27, t27), TyEqApp ((fst ct30, CApp (list_dec, CVar 4), CApp (list_dec, CVar 4)), TyEqRec ((fst ct30, list_dec, list_dec), KdEqKArrow ((fst ct30, KArrow (KType, KArrow (KNat, KType)), KArrow (KType, KArrow (KNat, KType))), KdEqKType (fst ct30, KType, KType), KdEqKArrow ((fst ct30, KArrow (KNat, KType), KArrow (KNat, KType)), KdEqBaseSort (fst ct30, KNat, KNat), KdEqKType (fst ct30, KType, KType))), TyEqAbs (KArrow (KType, KArrow (KNat, KType)) :: fst ct30, c8, c8)), TyEqVar (fst ct30, CVar 4, CVar 4)), TyEqBinOp ((fst ct30, CBinOp (CBNatAdd, CVar 1, CVar 2), CBinOp (CBNatAdd, CVar 1, CVar 2)), TyEqVar (fst ct30, CVar 1, CVar 1), TyEqVar (fst ct30, CVar 2, CVar 2)))))), PrAdmit (fst ct32, TLe (i31, i32)))
+      val d32 = TySub ((ct32, e32, t32, i32), d31, TyEqQuan ((fst ct32, t31, t32), KdEqSubset ((fst ct32, KSubset (KUnit, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, get_nat 1))), KSubset (KUnit, PBinPred (PBNatEq, CBinOp (CBNatAdd, CVar 4, CVar 3), CBinOp (CBNatAdd, CBinOp (CBNatAdd, CVar 2, CVar 3), get_nat 1)))), KdEqBaseSort (fst ct32, KUnit, KUnit), PrAdmit (KUnit :: fst ct32, PIff (PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, get_nat 1)), PBinPred (PBNatEq, CBinOp (CBNatAdd, CVar 4, CVar 3), CBinOp (CBNatAdd, CBinOp (CBNatAdd, CVar 2, CVar 3), get_nat 1))))), shift0_ctx_te ([KSubset (KUnit, PBinPred (PBNatEq, CVar 4, CBinOp (CBNatAdd, CVar 2, get_nat 1)))], []) (TyEqBinOp ((fst ct32, t30, t30), TyEqVar (fst ct32, CVar 4, CVar 4), TyEqApp ((fst ct30, t27, t27), TyEqApp ((fst ct30, CApp (list_dec, CVar 4), CApp (list_dec, CVar 4)), TyEqRec ((fst ct30, list_dec, list_dec), KdEqKArrow ((fst ct30, KArrow (KType, KArrow (KNat, KType)), KArrow (KType, KArrow (KNat, KType))), KdEqKType (fst ct30, KType, KType), KdEqKArrow ((fst ct30, KArrow (KNat, KType), KArrow (KNat, KType)), KdEqBaseSort (fst ct30, KNat, KNat), KdEqKType (fst ct30, KType, KType))), TyEqAbs (KArrow (KType, KArrow (KNat, KType)) :: fst ct30, c8, c8)), TyEqVar (fst ct30, CVar 4, CVar 4)), TyEqBinOp ((fst ct30, CBinOp (CBNatAdd, CVar 1, CVar 2), CBinOp (CBNatAdd, CVar 1, CVar 2)), TyEqVar (fst ct30, CVar 1, CVar 1), TyEqVar (fst ct30, CVar 2, CVar 2)))))), PrAdmit (fst ct32, TLe (i31, i32)))
       val () = check_typing d32
       val e33 = EPack (CBinOp (CBNatAdd, CVar 1, CVar 2), e32)
       val ct33 = ct32
-      val t33 = CExists (KNat, CExists (KSubset (KUnit, PBinPred (PBNatEq, CBinOp (CBNatAdd, CVar 5, CVar 4), CBinOp (CBNatAdd, CVar 1, CNat 1))), CProd (CVar 6, CApps list_dec [CVar 6, CVar 1])))
+      val t33 = CExists (KNat, CExists (KSubset (KUnit, PBinPred (PBNatEq, CBinOp (CBNatAdd, CVar 5, CVar 4), CBinOp (CBNatAdd, CVar 1, get_nat 1))), CProd (CVar 6, CApps list_dec [CVar 6, CVar 1])))
       val i33 = i32
-      val tmp1 = [KSubset (KUnit, PBinPred (PBNatEq, CBinOp (CBNatAdd, CVar 5, CVar 4), CBinOp (CBNatAdd, CVar 1, CNat 1))), KNat] @ fst ct33
-      val d33 = TyPack ((ct33, e33, t33, i33), KdQuan ((fst ct33, CExists (KNat, CExists (KSubset (KUnit, PBinPred (PBNatEq, CBinOp (CBNatAdd, CVar 5, CVar 4), CBinOp (CBNatAdd, CVar 1, CNat 1))), CProd (CVar 6, CApps list_dec [CVar 6, CVar 1]))), KType), WfKdBaseSort (fst ct33, KNat), KdQuan ((KNat :: fst ct33, CExists (KSubset (KUnit, PBinPred (PBNatEq, CBinOp (CBNatAdd, CVar 5, CVar 4), CBinOp (CBNatAdd, CVar 1, CNat 1))), CProd (CVar 6, CApps list_dec [CVar 6, CVar 1])), KType), WfKdSubset ((KNat :: fst ct33, KSubset (KUnit, PBinPred (PBNatEq, CBinOp (CBNatAdd, CVar 5, CVar 4), CBinOp (CBNatAdd, CVar 1, CNat 1)))), WfKdBaseSort (KNat :: fst ct33, KUnit), WfPropBinPred ((KUnit :: KNat :: fst ct33, PBinPred (PBNatEq, CBinOp (CBNatAdd, CVar 5, CVar 4), CBinOp (CBNatAdd, CVar 1, CNat 1))), KdBinOp ((KUnit :: KNat :: fst ct33, CBinOp (CBNatAdd, CVar 5, CVar 4), KNat), KdVar (KUnit :: KNat :: fst ct33, CVar 5, KNat), KdVar (KUnit :: KNat :: fst ct33, CVar 4, KNat)), KdBinOp ((KUnit :: KNat :: fst ct33, CBinOp (CBNatAdd, CVar 1, CNat 1), KNat), KdVar (KUnit :: KNat :: fst ct33, CVar 1, KNat), KdConst (KUnit :: KNat :: fst ct33, CNat 1, KNat)))), KdBinOp ((tmp1, CProd (CVar 6, CApps list_dec [CVar 6, CVar 1]), KType), KdVar (tmp1, CVar 6, KType), KdApp ((tmp1, CApps list_dec [CVar 6, CVar 1], KType), KdApp ((tmp1, CApp (list_dec, CVar 6), KArrow (KNat, KType)), shift0_ctx_kd (tmp1, []) list_kd, KdVar (tmp1, CVar 6, KType)), KdVar (tmp1, CVar 1, KNat))))), KdBinOp ((fst ct33, CBinOp (CBNatAdd, CVar 1, CVar 2), KNat), KdVar (fst ct33, CVar 1, KNat), KdVar (fst ct33, CVar 2, KNat)), d32)
+      val tmp1 = [KSubset (KUnit, PBinPred (PBNatEq, CBinOp (CBNatAdd, CVar 5, CVar 4), CBinOp (CBNatAdd, CVar 1, get_nat 1))), KNat] @ fst ct33
+      val d33 = TyPack ((ct33, e33, t33, i33), KdQuan ((fst ct33, CExists (KNat, CExists (KSubset (KUnit, PBinPred (PBNatEq, CBinOp (CBNatAdd, CVar 5, CVar 4), CBinOp (CBNatAdd, CVar 1, get_nat 1))), CProd (CVar 6, CApps list_dec [CVar 6, CVar 1]))), KType), WfKdBaseSort (fst ct33, KNat), KdQuan ((KNat :: fst ct33, CExists (KSubset (KUnit, PBinPred (PBNatEq, CBinOp (CBNatAdd, CVar 5, CVar 4), CBinOp (CBNatAdd, CVar 1, get_nat 1))), CProd (CVar 6, CApps list_dec [CVar 6, CVar 1])), KType), WfKdSubset ((KNat :: fst ct33, KSubset (KUnit, PBinPred (PBNatEq, CBinOp (CBNatAdd, CVar 5, CVar 4), CBinOp (CBNatAdd, CVar 1, get_nat 1)))), WfKdBaseSort (KNat :: fst ct33, KUnit), WfPropBinPred ((KUnit :: KNat :: fst ct33, PBinPred (PBNatEq, CBinOp (CBNatAdd, CVar 5, CVar 4), CBinOp (CBNatAdd, CVar 1, get_nat 1))), KdBinOp ((KUnit :: KNat :: fst ct33, CBinOp (CBNatAdd, CVar 5, CVar 4), KNat), KdVar (KUnit :: KNat :: fst ct33, CVar 5, KNat), KdVar (KUnit :: KNat :: fst ct33, CVar 4, KNat)), KdBinOp ((KUnit :: KNat :: fst ct33, CBinOp (CBNatAdd, CVar 1, get_nat 1), KNat), KdVar (KUnit :: KNat :: fst ct33, CVar 1, KNat), KdConst (KUnit :: KNat :: fst ct33, get_nat 1, KNat)))), KdBinOp ((tmp1, CProd (CVar 6, CApps list_dec [CVar 6, CVar 1]), KType), KdVar (tmp1, CVar 6, KType), KdApp ((tmp1, CApps list_dec [CVar 6, CVar 1], KType), KdApp ((tmp1, CApp (list_dec, CVar 6), KArrow (KNat, KType)), shift0_ctx_kd (tmp1, []) list_kd, KdVar (tmp1, CVar 6, KType)), KdVar (tmp1, CVar 1, KNat))))), KdBinOp ((fst ct33, CBinOp (CBNatAdd, CVar 1, CVar 2), KNat), KdVar (fst ct33, CVar 1, KNat), KdVar (fst ct33, CVar 2, KNat)), d32)
       val () = check_typing d33
       val e34 = EInj (InjInr, e33)
       val ct34 = ct33
-      val t34 = CSum (CExists (KSubset (KUnit, PBinPred (PBNatEq, CBinOp (CBNatAdd, CVar 4, CVar 3), CNat 0)), CTypeUnit), t33)
+      val t34 = CSum (CExists (KSubset (KUnit, PBinPred (PBNatEq, CBinOp (CBNatAdd, CVar 4, CVar 3), get_nat 0)), CTypeUnit), t33)
       val i34 = i33
-      val d34 = TyInj ((ct34, e34, t34, i34), d33, KdQuan ((fst ct34, CExists (KSubset (KUnit, PBinPred (PBNatEq, CBinOp (CBNatAdd, CVar 4, CVar 3), CNat 0)), CTypeUnit), KType), WfKdSubset ((fst ct34, KSubset (KUnit, PBinPred (PBNatEq, CBinOp (CBNatAdd, CVar 4, CVar 3), CNat 0))), WfKdBaseSort (fst ct34, KUnit), WfPropBinPred ((KUnit :: fst ct34, PBinPred (PBNatEq, CBinOp (CBNatAdd, CVar 4, CVar 3), CNat 0)), KdBinOp ((KUnit :: fst ct34, CBinOp (CBNatAdd, CVar 4, CVar 3), KNat), KdVar (KUnit :: fst ct34, CVar 4, KNat), KdVar (KUnit :: fst ct34, CVar 3, KNat)), KdConst (KUnit :: fst ct34, CNat 0, KNat))), KdConst (KSubset (KUnit, PBinPred (PBNatEq, CBinOp (CBNatAdd, CVar 4, CVar 3), CNat 0)) :: fst ct34, CTypeUnit, KType)))
+      val d34 = TyInj ((ct34, e34, t34, i34), d33, KdQuan ((fst ct34, CExists (KSubset (KUnit, PBinPred (PBNatEq, CBinOp (CBNatAdd, CVar 4, CVar 3), get_nat 0)), CTypeUnit), KType), WfKdSubset ((fst ct34, KSubset (KUnit, PBinPred (PBNatEq, CBinOp (CBNatAdd, CVar 4, CVar 3), get_nat 0))), WfKdBaseSort (fst ct34, KUnit), WfPropBinPred ((KUnit :: fst ct34, PBinPred (PBNatEq, CBinOp (CBNatAdd, CVar 4, CVar 3), get_nat 0)), KdBinOp ((KUnit :: fst ct34, CBinOp (CBNatAdd, CVar 4, CVar 3), KNat), KdVar (KUnit :: fst ct34, CVar 4, KNat), KdVar (KUnit :: fst ct34, CVar 3, KNat)), KdConst (KUnit :: fst ct34, get_nat 0, KNat))), KdConst (KSubset (KUnit, PBinPred (PBNatEq, CBinOp (CBNatAdd, CVar 4, CVar 3), get_nat 0)) :: fst ct34, CTypeUnit, KType)))
       val () = check_typing d34
       val e35 = e34
       val ct35 = ct34
-      val t35 = CApp (CAbs (CSum (CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 1, CNat 0)), CTypeUnit), CExists (KNat, CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 2, CBinOp (CBNatAdd, CVar 1, CNat 1))), CProd (CVar 7, CApps list_dec [CVar 7, CVar 1]))))), CBinOp (CBNatAdd, CVar 3, CVar 2))
+      val t35 = CApp (CAbs (CSum (CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 1, get_nat 0)), CTypeUnit), CExists (KNat, CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 2, CBinOp (CBNatAdd, CVar 1, get_nat 1))), CProd (CVar 7, CApps list_dec [CVar 7, CVar 1]))))), CBinOp (CBNatAdd, CVar 3, CVar 2))
       val i35 = i34
-      val d35 = TySub ((ct35, e35, t35, i35), d34, TyEqBetaRev ((fst ct35, t34, t35), TyEqAbs (fst ct35, CAbs (CSum (CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 1, CNat 0)), CTypeUnit), CExists (KNat, CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 2, CBinOp (CBNatAdd, CVar 1, CNat 1))), CProd (CVar 7, CApps list_dec [CVar 7, CVar 1]))))), CAbs (CSum (CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 1, CNat 0)), CTypeUnit), CExists (KNat, CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 2, CBinOp (CBNatAdd, CVar 1, CNat 1))), CProd (CVar 7, CApps list_dec [CVar 7, CVar 1])))))), TyEqBinOp ((fst ct35, CBinOp (CBNatAdd, CVar 3, CVar 2), CBinOp (CBNatAdd, CVar 3, CVar 2)), TyEqVar (fst ct35, CVar 3, CVar 3), TyEqVar (fst ct35, CVar 2, CVar 2)), gen_tyeq_refl (fst ct35) t34), PrAdmit (fst ct35, TLe (i34, i35)))
+      val d35 = TySub ((ct35, e35, t35, i35), d34, TyEqBetaRev ((fst ct35, t34, t35), TyEqAbs (fst ct35, CAbs (CSum (CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 1, get_nat 0)), CTypeUnit), CExists (KNat, CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 2, CBinOp (CBNatAdd, CVar 1, get_nat 1))), CProd (CVar 7, CApps list_dec [CVar 7, CVar 1]))))), CAbs (CSum (CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 1, get_nat 0)), CTypeUnit), CExists (KNat, CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 2, CBinOp (CBNatAdd, CVar 1, get_nat 1))), CProd (CVar 7, CApps list_dec [CVar 7, CVar 1])))))), TyEqBinOp ((fst ct35, CBinOp (CBNatAdd, CVar 3, CVar 2), CBinOp (CBNatAdd, CVar 3, CVar 2)), TyEqVar (fst ct35, CVar 3, CVar 3), TyEqVar (fst ct35, CVar 2, CVar 2)), gen_tyeq_refl (fst ct35) t34), PrAdmit (fst ct35, TLe (i34, i35)))
       val () = check_typing d35
       val e36 = e35
       val ct36 = ct35
-      val t36 = CApps (CAbs (CAbs (CSum (CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 1, CNat 0)), CTypeUnit), CExists (KNat, CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 2, CBinOp (CBNatAdd, CVar 1, CNat 1))), CProd (CVar 3, CApps list_dec [CVar 3, CVar 1]))))))) [CVar 4, CBinOp (CBNatAdd, CVar 3, CVar 2)]
+      val t36 = CApps (CAbs (CAbs (CSum (CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 1, get_nat 0)), CTypeUnit), CExists (KNat, CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 2, CBinOp (CBNatAdd, CVar 1, get_nat 1))), CProd (CVar 3, CApps list_dec [CVar 3, CVar 1]))))))) [CVar 4, CBinOp (CBNatAdd, CVar 3, CVar 2)]
       val i36 = i35
-      val d36 = TySub ((ct36, e36, t36, i36), d35, TyEqApp ((fst ct36, t35, t36), TyEqBetaRev ((fst ct36, CAbs (CSum (CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 1, CNat 0)), CTypeUnit), CExists (KNat, CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 2, CBinOp (CBNatAdd, CVar 1, CNat 1))), CProd (CVar 7, CApps list_dec [CVar 7, CVar 1]))))), CApp (CAbs (CAbs (CSum (CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 1, CNat 0)), CTypeUnit), CExists (KNat, CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 2, CBinOp (CBNatAdd, CVar 1, CNat 1))), CProd (CVar 3, CApps list_dec [CVar 3, CVar 1])))))), CVar 4)), gen_tyeq_refl (fst ct36) (CAbs (CAbs (CSum (CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 1, CNat 0)), CTypeUnit), CExists (KNat, CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 2, CBinOp (CBNatAdd, CVar 1, CNat 1))), CProd (CVar 3, CApps list_dec [CVar 3, CVar 1]))))))), gen_tyeq_refl (fst ct36) (CVar 4),gen_tyeq_refl (fst ct36) (CAbs (CSum (CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 1, CNat 0)), CTypeUnit), CExists (KNat, CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 2, CBinOp (CBNatAdd, CVar 1, CNat 1))), CProd (CVar 7, CApps list_dec [CVar 7, CVar 1]))))))), gen_tyeq_refl (fst ct36) (CBinOp (CBNatAdd, CVar 3, CVar 2))), PrAdmit (fst ct36, TLe (i35, i36)))
+      val d36 = TySub ((ct36, e36, t36, i36), d35, TyEqApp ((fst ct36, t35, t36), TyEqBetaRev ((fst ct36, CAbs (CSum (CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 1, get_nat 0)), CTypeUnit), CExists (KNat, CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 2, CBinOp (CBNatAdd, CVar 1, get_nat 1))), CProd (CVar 7, CApps list_dec [CVar 7, CVar 1]))))), CApp (CAbs (CAbs (CSum (CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 1, get_nat 0)), CTypeUnit), CExists (KNat, CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 2, CBinOp (CBNatAdd, CVar 1, get_nat 1))), CProd (CVar 3, CApps list_dec [CVar 3, CVar 1])))))), CVar 4)), gen_tyeq_refl (fst ct36) (CAbs (CAbs (CSum (CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 1, get_nat 0)), CTypeUnit), CExists (KNat, CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 2, CBinOp (CBNatAdd, CVar 1, get_nat 1))), CProd (CVar 3, CApps list_dec [CVar 3, CVar 1]))))))), gen_tyeq_refl (fst ct36) (CVar 4),gen_tyeq_refl (fst ct36) (CAbs (CSum (CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 1, get_nat 0)), CTypeUnit), CExists (KNat, CExists (KSubset (KUnit, PBinPred (PBNatEq, CVar 2, CBinOp (CBNatAdd, CVar 1, get_nat 1))), CProd (CVar 7, CApps list_dec [CVar 7, CVar 1]))))))), gen_tyeq_refl (fst ct36) (CBinOp (CBNatAdd, CVar 3, CVar 2))), PrAdmit (fst ct36, TLe (i35, i36)))
       val () = check_typing d36
       val e37 = EFold e36
       val ct37 = ct36
@@ -382,35 +550,36 @@ struct
       val cps_ty = CPS.cps_deriv d50
       val () = println $ str_expr $ #2 (extract_judge_typing cps_ty)
       val () = check_typing cps_ty
-      val wrap_ty = WrapLambda.wrap_lambda_ty cps_ty
+      val wrap_ty = WrapLambda.wrap_lambda_deriv cps_ty
       val () = println $ str_expr $ #2 (extract_judge_typing wrap_ty)
       val () = check_typing wrap_ty
-      val clo_ty = CloConv.clo_conv_ty wrap_ty
+      val clo_ty = CloConv.clo_conv_deriv wrap_ty
       val () = println $ str_expr $ #2 (extract_judge_typing clo_ty)
       val () = check_typing clo_ty
-      val hoisted_ty = Hoist.hoist clo_ty
-      val () = print $ HoistedPlainPrinter.str_program $ #1 (extract_judge_ptyping hoisted_ty)
-      val () = HoistedDerivChecker.check_program hoisted_ty
-      (*val concat_anf_ty = fst $ ANF.normalize_deriv concat_clo_conv_ty
+      val hoisted_ty = hoist_deriv clo_ty
+      val () = print $ str_program $ #1 (extract_judge_ptyping hoisted_ty)
+      val () = check_program hoisted_ty
+  (*val concat_anf_ty = fst $ ANF.normalize_deriv concat_clo_conv_deriv
       val jconcat_anf_ty = extract_judge_typing concat_anf_ty
       val () = println $ str_expr $ #2 jconcat_anf_ty
       val () = check_typing concat_anf_ty
       val concat_hoisted_ty = Hoist.hoist concat_anf_ty
       val () = HoistedDerivChecker.check_program concat_hoisted_ty*)
-    in
+  in
       println ""
-    end
+  end
 
-  fun main(prog_name : string, args : string list) : int =
-    let
-      val () = test_cps ()
+fun test () =
+  let
+      (*val () = test_cps ()*)
+      val () = test_absc_appc ()
       val () = test_abs_app ()
       val () = test_currying ()
       val () = test_concat ()
-    in
-      0
-    end
-  (*open Util
+  in
+      ()
+  end
+(*open Util
   open MicroTiML
 
   fun test_len () =

@@ -1,0 +1,87 @@
+structure TwoStackQueue =
+struct
+
+open Basic
+open List
+
+datatype {Nat} {Nat} 'a queue =
+         Queue {s1 s2 : Nat} of {s1} 'a list * {s2} 'a list --> {s2} {s1} 'a queue
+
+datatype {Time} {Time} {Nat} {Nat} 'a some_output_and_cost_constraint =
+         SomeOutputAndCostConstraint
+           {cost acost : Time} {s1 s2 s1' s2' : Nat}
+           {cost + $s1' <= $s1 + acost}
+         of {s2'} {s1'} 'a queue --> {cost} {acost} {s2} {s1} 'a some_output_and_cost_constraint
+
+datatype {Time} {Nat} {Nat} 'a amortized_comp =
+         AmortizedComp
+           {cost acost : Time} {s1 s2 : Nat}
+         of (unit -- cost --> {cost} {acost} {s2} {s1} 'a some_output_and_cost_constraint) --> {acost} {s2} {s1} 'a amortized_comp
+
+fun rev_append ['a] {n m : Nat} (l : {n} 'a list, acc : {m} 'a list) return {n + m} 'a list using $n =
+    case l of
+        [] => acc
+      | hd :: tl => rev_append (tl, hd :: acc)
+
+fun do_push ['a] {s1 s2 : Nat} (q : {s2} {s1} 'a queue, x : 'a) =
+    case q return {s2} {s1 + 1} 'a queue of
+        Queue (l1, l2) => Queue (x :: l1, l2)
+
+fun do_pop ['a] {s1 s2 : Nat} (q : {s2} {s1} 'a queue) return {ite (s2 == 0) (s1 - 1) (s2 - 1)} {ite (s2 == 0) 0 s1} 'a queue using ite (s2 == 0) ($s1 + 1.0) 0.0 =
+    case q of
+        Queue (l1, l2) =>
+        case l2 of
+            hd :: tl => Queue (l1, tl)
+          | [] =>
+            let
+              val l2 = rev_append (l1, [])
+            in
+              case l2 of
+                  hd :: tl => Queue ([], tl)
+                | [] => Queue ([], [])
+            end
+
+fun push ['a] {s1 s2 : Nat} (q : {s2} {s1} 'a queue, x : 'a) return {3.0} {s2} {s1} 'a amortized_comp =
+    AmortizedComp
+      (fn () =>
+          SomeOutputAndCostConstraint (do_push (q, x)))
+
+fun pop ['a] {s1 s2 : Nat} (q : {s2} {s1} 'a queue) return {3.0} {s2} {s1} 'a amortized_comp =
+    AmortizedComp
+      (fn () =>
+          SomeOutputAndCostConstraint (do_pop q))
+
+datatype 'a operation =
+         OPush of 'a --> 'a operation
+         | OPop of 'a operation
+
+fun push_or_pop ['a] {s1 s2 : Nat} (q : {s2} {s1} 'a queue, opr : 'a operation) =
+    case opr of
+        OPush x => push (q, x)
+      | OPop => pop q
+
+datatype 'a some_queue =
+         SomeQueue {s1 s2 : Nat} of {s2} {s1} 'a queue --> 'a some_queue
+
+fun push_pop_seq ['a] {s1 s2 cnt : Nat} (q : {s2} {s1} 'a queue, oprs : {cnt} ('a operation) list) return 'a some_queue using 7.0 * $cnt + $s1 =
+    case oprs of
+        [] => SomeQueue q
+      | hd :: tl =>
+        let
+          val AmortizedComp f = push_or_pop (q, hd)
+          val SomeOutputAndCostConstraint q = f ()
+        in
+          push_pop_seq (q, tl)
+        end
+
+absidx T_push_pop_seq_from_good_start : BigO 1 (fn n => $n) with
+fun push_pop_seq_from_good_start ['a] {s1 s2 cnt : Nat} {s1 <= cnt} (q : {s2} {s1} 'a queue, oprs : {cnt} ('a operation) list) return 'a some_queue using T_push_pop_seq_from_good_start cnt =
+    push_pop_seq (q, oprs)
+end
+
+absidx T_push_pop_seq_from_empty : BigO 1 (fn n => $n) with
+fun push_pop_seq_from_empty ['a] {cnt : Nat} (q : {0} {0} 'a queue, oprs : {cnt} ('a operation) list) return 'a some_queue using T_push_pop_seq_from_empty cnt =
+    push_pop_seq (q, oprs)
+end
+
+end
