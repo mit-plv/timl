@@ -1,0 +1,99 @@
+structure TwoStackQueue =
+struct
+
+open Basic
+open List
+
+fun rev ['a] {n m : Nat} (l : {n} 'a list, acc : {m} 'a list) return {n + m} 'a list using $n =
+  case l of
+      [] => acc
+    | hd :: tl => rev (tl, hd :: acc)
+
+datatype {Nat} {Nat} 'a queue =
+         Queue {s1 s2 : Nat} of {s1} 'a list * {s2} 'a list --> {s2} {s1} 'a queue
+
+datatype 'a some_queue =
+         SomeQueue {s1 s2 : Nat} of {s2} {s1} 'a queue --> 'a some_queue
+
+fun do_push ['a] {s1 s2 : Nat} (q : {s2} {s1} 'a queue, x : 'a) =
+  case q return {s2} {s1 + 1} 'a queue of
+      Queue (l1, l2) => Queue (x :: l1, l2)
+
+datatype {Nat} {Nat} 'a do_pop =
+         DoPop
+             {s1 s2 s1' s2' : Nat}
+             {s1' = ite (s2 == 0) 0 s1}
+             {s2' = ite (s2 == 0) (s1 - 1) (s2 - 1)}
+ of {s2'} {s1'} 'a queue --> {s2} {s1} 'a do_pop
+
+fun do_pop ['a] {s1 s2 : Nat} (q : {s2} {s1} 'a queue) return {s2} {s1} 'a do_pop using ite (s2 == 0) ($s1 + 1.0) 0.0 =
+  case q of
+      Queue (l1, l2) =>
+      case l2 return using ite (s2 == 0) ($s1 + 1.0) 0.0 of
+          hd :: tl => DoPop (Queue (l1, tl))
+        | [] =>
+          let
+              val l2 = rev (l1, [])
+          in
+              case l2 of
+                  hd :: tl => DoPop (Queue ([], tl))
+                | [] => DoPop (Queue ([], []))
+          end
+
+datatype {Time} {Time} {Nat} {Nat} {Nat} 'a amortized_output =
+         AmortizedOutput
+             {cost amortized_cost : Time} {s1 s2 s1' s2' cnt : Nat}
+             {cost + $s1' <= $s1 + amortized_cost * $cnt}
+             {s1' + s2' <= s1 + s2 + cnt}
+ of {s2'} {s1'} 'a queue --> {cost} {amortized_cost} {cnt} {s2} {s1} 'a amortized_output
+
+datatype {Time} {Nat} {Nat} {Nat} 'a amortized_fun =
+         AmortizedFun
+             {cost amortized_cost : Time} {s1 s2 cnt : Nat}
+ of (unit -- cost --> {cost} {amortized_cost} {cnt} {s2} {s1} 'a amortized_output) --> {amortized_cost} {cnt} {s2} {s1} 'a amortized_fun
+
+fun push ['a] {s1 s2 : Nat} (q : {s2} {s1} 'a queue, x : 'a) return {3.0} {1} {s2} {s1} 'a amortized_fun =
+  AmortizedFun
+      (fn () =>
+          AmortizedOutput (do_push (q, x)))
+
+fun pop ['a] {s1 s2 : Nat} (q : {s2} {s1} 'a queue) =
+  AmortizedFun
+      (fn () return {_} {3.0} {1} {s2} {s1} 'a amortized_output =>
+          let
+              val DoPop q = do_pop q
+          in
+              AmortizedOutput q
+          end)
+
+datatype 'a operation =
+         OPush of 'a --> 'a operation
+         | OPop of 'a operation
+
+fun push_or_pop ['a] {s1 s2 : Nat} (q : {s2} {s1} 'a queue, opr : 'a operation) =
+  case opr of
+      OPush x => push (q, x)
+    | OPop => pop q
+
+fun push_pop_seq ['a] {s1 s2 cnt : Nat} (q : {s2} {s1} 'a queue, oprs : {cnt} ('a operation) list) return 'a some_queue using 7.0 * $cnt + $s1 =
+  case oprs of
+      [] => SomeQueue q
+    | hd :: tl =>
+      let
+          val AmortizedFun f = push_or_pop (q, hd)
+          val AmortizedOutput q = f ()
+      in
+          push_pop_seq (q, tl)
+      end
+
+absidx T_push_pop_seq_1 : BigO 1 (fn n => $n) with
+fun push_pop_seq_1 ['a] {s1 s2 cnt : Nat} {s1 <= cnt} (q : {s2} {s1} 'a queue, oprs : {cnt} ('a operation) list) return 'a some_queue using T_push_pop_seq_1 cnt =
+  push_pop_seq (q, oprs)
+end
+
+absidx T_push_pop_seq_0 : BigO 1 (fn n => $n) with
+fun push_pop_seq_0 ['a] {cnt : Nat} (q : {0} {0} 'a queue, oprs : {cnt} ('a operation) list) return 'a some_queue using T_push_pop_seq_0 cnt =
+  push_pop_seq (q, oprs)
+end
+
+end

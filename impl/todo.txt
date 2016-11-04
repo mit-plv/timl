@@ -89,14 +89,15 @@ Done. 80. rbt6.timl:  absidx sort [Time] inference error in [IntKey].
 Done. 81. Currently [absidx ... with ... end] is "scoped abstract index". We should have "unscoped" or "module-scoped" abstract index [absidx id = ...] so within the module [id]'s definition is visible but outside the module it's not.
 82. Make [kind]'s sorts dependent.
 83. Generate typing derivations.
+84. [datatype] can introduce index variable names at the first line for every constructor.
 
 To-do Examples:
-1. Binary search with arrays.
-2. binary heap with arrays.
-3. In-place merge sort with arrays.
-4. k-median search with arrays.
-5. Quicksort.
-6. Dijkstra algorithm.
-7. Two-stack queue (amortized).
-8. Double-linked lists.
+Done. 1. Binary search with arrays.
+Done. 2. binary heap with arrays.
+Done. 3. In-place merge sort with arrays.
+Done. 4. k-median search with arrays.
+Done. 5. Quicksort.
+Done. 6. Dijkstra algorithm.
+Done. 7. Two-stack queue (amortized).
+Done. 8. Double-linked lists.
 9. Union-find (amortized).
