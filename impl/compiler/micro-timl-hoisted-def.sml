@@ -17,12 +17,11 @@ datatype atom_expr =
          | AEFuncPointer of int
          | AEPair of atom_expr * atom_expr
          | AEAppC of atom_expr * cstr
-         | AEAbsC of atom_expr
          | AEPack of cstr * atom_expr
 
      and complex_expr =
          CEUnOp of expr_un_op * atom_expr
-         | CEBinOp of expr_bin_op * atom_expr * atom_expr (* no app or pair *)
+         | CEBinOp of expr_bin_op * atom_expr * atom_expr
          | CEAtom of atom_expr
 
      and hoisted_expr =
@@ -49,9 +48,9 @@ datatype atom_typing =
          | ATyFuncPointer of atom_typing_judgement
          | ATyPair of atom_typing_judgement * atom_typing * atom_typing
          | ATyAppC of atom_typing_judgement * atom_typing * kinding
-         | ATyAbsC of atom_typing_judgement * wfkind * atom_typing
          | ATyPack of atom_typing_judgement * kinding * kinding * atom_typing
-         | ATySub of atom_typing_judgement * atom_typing * tyeq * proping
+         | ATySubTy of atom_typing_judgement * atom_typing * tyeq
+         | ATySubTi of atom_typing_judgement * atom_typing * proping
 
      and complex_typing =
          CTyProj of complex_typing_judgement * atom_typing
@@ -62,7 +61,8 @@ datatype atom_typing =
          | CTyRead of complex_typing_judgement * atom_typing
          | CTyWrite of complex_typing_judgement * atom_typing * atom_typing
          | CTyAtom of complex_typing_judgement * atom_typing
-         | CTySub of complex_typing_judgement * complex_typing * tyeq * proping
+         | CTySubTy of complex_typing_judgement * complex_typing * tyeq
+         | CTySubTi of complex_typing_judgement * complex_typing * proping
 
      and hoisted_typing =
          HTyLet of hoisted_typing_judgement * complex_typing * hoisted_typing
@@ -71,7 +71,7 @@ datatype atom_typing =
          | HTyAppK of hoisted_typing_judgement * atom_typing * atom_typing
          | HTyCase of hoisted_typing_judgement * atom_typing * hoisted_typing * hoisted_typing
          | HTyHalt of hoisted_typing_judgement * atom_typing
-         | HTySub of hoisted_typing_judgement * hoisted_typing * proping
+         | HTySubTi of hoisted_typing_judgement * hoisted_typing * proping
 
      and func_typing =
          FTyFix of func_typing_judgement * kinding * hoisted_typing
@@ -102,7 +102,7 @@ fun extract_judge_htyping ty =
     | HTyAppK (j, _, _) => j
     | HTyCase (j, _, _, _) => j
     | HTyHalt (j, _) => j
-    | HTySub (j, _, _) => j
+    | HTySubTi (j, _, _) => j
 
 fun extract_judge_atyping ty =
   case ty of
@@ -111,9 +111,9 @@ fun extract_judge_atyping ty =
     | ATyFuncPointer j => j
     | ATyPair (j, _, _) => j
     | ATyAppC (j, _, _) => j
-    | ATyAbsC (j, _, _) => j
     | ATyPack (j, _, _, _) => j
-    | ATySub (j, _, _, _) => j
+    | ATySubTy (j, _, _) => j
+    | ATySubTi (j, _, _) => j
 
 fun extract_judge_ctyping ty =
   case ty of
@@ -125,7 +125,8 @@ fun extract_judge_ctyping ty =
     | CTyRead (j, _) => j
     | CTyWrite (j, _, _) => j
     | CTyAtom (j, _) => j
-    | CTySub (j, _, _, _) => j
+    | CTySubTy (j, _, _) => j
+    | CTySubTi (j, _, _) => j
 
 fun extract_judge_ftyping ty =
   case ty of
@@ -140,7 +141,6 @@ fun str_atom_expr e =
     | AEFuncPointer f => "FUN" ^ str_int f
     | AEPair (e1, e2) => "<" ^ str_atom_expr e1 ^ " , " ^ str_atom_expr e2 ^ ">"
     | AEAppC (e, c) => str_atom_expr e ^ "[" ^ PP.str_cstr c ^ "]"
-    | AEAbsC e => "(idxfn => " ^ str_atom_expr e ^ ")"
     | AEPack (c, e) => "pack[" ^ PP.str_cstr c ^ " , " ^ str_atom_expr e ^ "]"
 
 fun str_complex_expr e =
@@ -174,7 +174,6 @@ fun is_atom ty =
     | TyFix _ => true
     | TyPair _ => true
     | TyAppC _ => true
-    | TyAbsC _ => true
     | TyPack _ => true
     | _ => false
 
@@ -217,13 +216,6 @@ fun transform_typing_atom (ty : typing, funcs : func_typing list) =
       in
           (ATyAppC ((([], kctx, tctx), AEAppC (#2 jty, c), t, i), ty, kd), funcs)
       end
-    | TyAbsC (((kctx, tctx), EAbsC e, t, i), wk, ty) =>
-      let
-          val (ty, funcs) = transform_typing_atom (ty, funcs)
-          val jty = extract_judge_atyping ty
-      in
-          (ATyAbsC ((([], kctx, tctx), AEAbsC (#2 jty), t, i), wk, ty), funcs)
-      end
     | TyPack (((kctx, tctx), EPack (c, e), t, i), kd1, kd2, ty) =>
       let
           val (ty, funcs) = transform_typing_atom (ty, funcs)
@@ -231,12 +223,19 @@ fun transform_typing_atom (ty : typing, funcs : func_typing list) =
       in
           (ATyPack ((([], kctx, tctx), AEPack (c, #2 jty), t, i), kd1, kd2, ty), funcs)
       end
-    | TySub (((kctx, tctx), e, t, i), ty, te, pr) =>
+    | TySubTy (((kctx, tctx), e, t, i), ty, te) =>
       let
           val (ty, funcs) = transform_typing_atom (ty, funcs)
           val jty = extract_judge_atyping ty
       in
-          (ATySub ((([], kctx, tctx), #2 jty, t, i), ty, te, pr), funcs)
+          (ATySubTy ((([], kctx, tctx), #2 jty, t, i), ty, te), funcs)
+      end
+    | TySubTi (((kctx, tctx), e, t, i), ty, pr) =>
+      let
+          val (ty, funcs) = transform_typing_atom (ty, funcs)
+          val jty = extract_judge_atyping ty
+      in
+          (ATySubTi ((([], kctx, tctx), #2 jty, t, i), ty, pr), funcs)
       end
     | _ => raise (Impossible "transform_typing_atom")
 
@@ -294,12 +293,19 @@ and transform_typing_complex (ty : typing, funcs : func_typing list) =
         in
             (CTyWrite ((([], kctx, tctx), CEWrite (#2 jty1, #2 jty2), t, i), ty1, ty2), funcs)
         end
-      | TySub (((kctx, tctx), e, t, i), ty, te, pr) =>
+      | TySubTy (((kctx, tctx), e, t, i), ty, te) =>
         let
             val (ty, funcs) = transform_typing_complex (ty, funcs)
             val jty = extract_judge_ctyping ty
         in
-            (CTySub ((([], kctx, tctx), #2 jty, t, i), ty, te, pr), funcs)
+            (CTySubTy ((([], kctx, tctx), #2 jty, t, i), ty, te), funcs)
+        end
+      | TySubTi (((kctx, tctx), e, t, i), ty, pr) =>
+        let
+            val (ty, funcs) = transform_typing_complex (ty, funcs)
+            val jty = extract_judge_ctyping ty
+        in
+            (CTySubTi ((([], kctx, tctx), #2 jty, t, i), ty, pr), funcs)
         end
       | _ =>
         if is_atom ty then
@@ -368,12 +374,18 @@ and transform_typing_hoisted (ty : typing, funcs : func_typing list) =
         in
             (HTyHalt ((([], kctx, tctx), HEHalt (#2 jty), i), ty), funcs)
         end
-      | TySub (((kctx, tctx), e, CTypeUnit, i), ty, te, pr) =>
+      | TySubTy (((kctx, tctx), e, CTypeUnit, i), ty, te) =>
+        let
+            val (ty, funcs) = transform_typing_hoisted (ty, funcs)
+        in
+            (ty, funcs)
+        end
+      | TySubTi (((kctx, tctx), e, CTypeUnit, i), ty, pr) =>
         let
             val (ty, funcs) = transform_typing_hoisted (ty, funcs)
             val jty = extract_judge_htyping ty
         in
-            (HTySub ((([], kctx, tctx), #2 jty, i), ty, pr), funcs)
+            (HTySubTi ((([], kctx, tctx), #2 jty, i), ty, pr), funcs)
         end
       | _ => raise (Impossible "transform_typing_hoisted")
 
@@ -388,9 +400,9 @@ fun set_fctx_atom fctx ty =
           | ATyFuncPointer j => ATyFuncPointer (replace j)
           | ATyPair (j, ty1, ty2) => ATyPair (replace j, on_atom ty1, on_atom ty2)
           | ATyAppC (j, ty, kd) => ATyAppC (replace j, on_atom ty, kd)
-          | ATyAbsC (j, wk, ty) => ATyAbsC (replace j, wk, on_atom ty)
           | ATyPack (j, kd1, kd2, ty) => ATyPack (replace j, kd1, kd2, on_atom ty)
-          | ATySub (j, ty, te, pr) => ATySub (replace j, on_atom ty, te, pr)
+          | ATySubTy (j, ty, te) => ATySubTy (replace j, on_atom ty, te)
+          | ATySubTi (j, ty, pr) => ATySubTi (replace j, on_atom ty, pr)
   in
       inner ty
   end
@@ -410,7 +422,8 @@ and set_fctx_complex fctx ty =
             | CTyRead (j, ty) => CTyRead (replace j, on_atom ty)
             | CTyWrite (j, ty1, ty2) => CTyWrite (replace j, on_atom ty1, on_atom ty2)
             | CTyAtom (j, ty) => CTyAtom (replace j, on_atom ty)
-            | CTySub (j, ty, te, pr) => CTySub (replace j, on_complex ty, te, pr)
+            | CTySubTy (j, ty, te) => CTySubTy (replace j, on_complex ty, te)
+            | CTySubTi (j, ty, pr) => CTySubTi (replace j, on_complex ty, pr)
     in
         inner ty
     end
@@ -429,7 +442,7 @@ and set_fctx_hoisted fctx ty =
             | HTyAppK (j, ty1, ty2) => HTyAppK (replace j, on_atom ty1, on_atom ty2)
             | HTyCase (j, ty, ty1, ty2) => HTyCase (replace j, on_atom ty, on_hoisted ty1, on_hoisted ty2)
             | HTyHalt (j, ty) => HTyHalt (replace j, on_atom ty)
-            | HTySub (j, ty, pr) => HTySub (replace j, on_hoisted ty, pr)
+            | HTySubTi (j, ty, pr) => HTySubTi (replace j, on_hoisted ty, pr)
     in
         inner ty
     end

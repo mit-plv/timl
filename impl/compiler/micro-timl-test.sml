@@ -39,10 +39,10 @@ structure DerivTransformers = DerivTransformersFun(MicroTiMLDef)
 open DerivTransformers
 structure DerivChecker = DerivCheckerFun(MicroTiMLDef)
 open DerivChecker
-(*structure MicroTiMLHoistedDef = MicroTiMLHoistedDefFun(MicroTiMLDef)
+structure MicroTiMLHoistedDef = MicroTiMLHoistedDefFun(MicroTiMLDef)
 open MicroTiMLHoistedDef
 structure HoistedDerivChecker = HoistedDerivCheckerFun(MicroTiMLHoistedDef)
-open HoistedDerivChecker*)
+open HoistedDerivChecker
 
 open DerivAssembler
 open ShiftCtx
@@ -205,6 +205,9 @@ fun test_absc_appc () =
       val clo_ty = CloConv.clo_conv_deriv wrap_ty
       val () = println $ str_expr $ #2 (extract_judge_typing clo_ty)
       val () = check_typing clo_ty
+      val hoisted_ty = hoist_deriv clo_ty
+      val () = print $ str_program $ #1 (extract_judge_ptyping hoisted_ty)
+      val () = check_program hoisted_ty
   in
       println ""
   end
@@ -228,9 +231,9 @@ fun test_abs_app () =
       val clo_ty = CloConv.clo_conv_deriv wrap_ty
       val () = println $ str_expr $ #2 (extract_judge_typing clo_ty)
       val () = check_typing clo_ty
-      (*val hoisted_ty = hoist_deriv clo_ty
+      val hoisted_ty = hoist_deriv clo_ty
       val () = print $ str_program $ #1 (extract_judge_ptyping hoisted_ty)
-      val () = HoistedDerivChecker.check_program hoisted_ty*)
+      val () = check_program hoisted_ty
   in
       println ""
   end
@@ -256,9 +259,9 @@ fun test_currying () =
       val clo_ty = CloConv.clo_conv_deriv wrap_ty
       val () = println $ str_expr $ #2 (extract_judge_typing clo_ty)
       val () = check_typing clo_ty
-      (*val hoisted_ty = hoist_deriv clo_ty
+      val hoisted_ty = hoist_deriv clo_ty
       val () = print $ str_program $ #1 (extract_judge_ptyping hoisted_ty)
-      val () = HoistedDerivChecker.check_program hoisted_ty*)
+      val () = check_program hoisted_ty
   (*val anf_ty = fst $ ANF.normalize_deriv clo_conv_deriv
       val janf_ty = extract_judge_typing anf_ty
       val () = println $ str_expr $ #2 janf_ty
@@ -553,9 +556,9 @@ fun test_concat () =
       val clo_ty = CloConv.clo_conv_deriv wrap_ty
       val () = println $ str_expr $ #2 (extract_judge_typing clo_ty)
       val () = check_typing clo_ty
-      (*val hoisted_ty = hoist_deriv clo_ty
+      val hoisted_ty = hoist_deriv clo_ty
       val () = print $ str_program $ #1 (extract_judge_ptyping hoisted_ty)
-      val () = HoistedDerivChecker.check_program hoisted_ty*)
+      val () = check_program hoisted_ty
   (*val concat_anf_ty = fst $ ANF.normalize_deriv concat_clo_conv_deriv
       val jconcat_anf_ty = extract_judge_typing concat_anf_ty
       val () = println $ str_expr $ #2 jconcat_anf_ty

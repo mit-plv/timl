@@ -8,7 +8,6 @@ sig
              | AEFuncPointer of int
              | AEPair of atom_expr * atom_expr
              | AEAppC of atom_expr * MicroTiMLDef.cstr
-             | AEAbsC of atom_expr
              | AEPack of MicroTiMLDef.cstr * atom_expr
 
          and complex_expr =
@@ -40,9 +39,9 @@ sig
              | ATyFuncPointer of atom_typing_judgement
              | ATyPair of atom_typing_judgement * atom_typing * atom_typing
              | ATyAppC of atom_typing_judgement * atom_typing * MicroTiMLDef.kinding
-             | ATyAbsC of atom_typing_judgement * MicroTiMLDef.wfkind * atom_typing
              | ATyPack of atom_typing_judgement * MicroTiMLDef.kinding * MicroTiMLDef.kinding * atom_typing
-             | ATySub of atom_typing_judgement * atom_typing * MicroTiMLDef.tyeq * MicroTiMLDef.proping
+             | ATySubTy of atom_typing_judgement * atom_typing * MicroTiMLDef.tyeq
+             | ATySubTi of atom_typing_judgement * atom_typing * MicroTiMLDef.proping
 
          and complex_typing =
              CTyProj of complex_typing_judgement * atom_typing
@@ -53,7 +52,8 @@ sig
              | CTyRead of complex_typing_judgement * atom_typing
              | CTyWrite of complex_typing_judgement * atom_typing * atom_typing
              | CTyAtom of complex_typing_judgement * atom_typing
-             | CTySub of complex_typing_judgement * complex_typing * MicroTiMLDef.tyeq * MicroTiMLDef.proping
+             | CTySubTy of complex_typing_judgement * complex_typing * MicroTiMLDef.tyeq
+             | CTySubTi of complex_typing_judgement * complex_typing * MicroTiMLDef.proping
 
          and hoisted_typing =
              HTyLet of hoisted_typing_judgement * complex_typing * hoisted_typing
@@ -62,7 +62,7 @@ sig
              | HTyAppK of hoisted_typing_judgement * atom_typing * atom_typing
              | HTyCase of hoisted_typing_judgement * atom_typing * hoisted_typing * hoisted_typing
              | HTyHalt of hoisted_typing_judgement * atom_typing
-             | HTySub of hoisted_typing_judgement * hoisted_typing * MicroTiMLDef.proping
+             | HTySubTi of hoisted_typing_judgement * hoisted_typing * MicroTiMLDef.proping
 
          and func_typing =
              FTyFix of func_typing_judgement * MicroTiMLDef.kinding * hoisted_typing

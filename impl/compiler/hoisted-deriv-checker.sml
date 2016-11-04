@@ -1,11 +1,23 @@
-functor HoistedDerivCheckerFun(MicroTiMLHoistedDef : SIG_MICRO_TIML_HOISTED_DEF) =
+functor HoistedDerivCheckerFun(MicroTiMLHoistedDef : SIG_MICRO_TIML_HOISTED_DEF) : SIG_HOISTED_DERIV_CHECKER =
 struct
+open List
 open Util
 infixr 0 $
 
+structure MicroTiMLHoistedDef = MicroTiMLHoistedDef
 open MicroTiMLHoistedDef
+open MicroTiMLDef
+structure MicroTiMLUtil = MicroTiMLUtilFun(MicroTiMLDef)
+open MicroTiMLUtil
+structure AstTransformers = AstTransformersFun(MicroTiMLDef)
+open AstTransformers
 structure DerivChecker = DerivCheckerFun(MicroTiMLDef)
 open DerivChecker
+
+open ShiftCstr
+open ShiftExpr
+open SubstCstr
+open SubstExpr
 
 fun check_atyping ty =
   (case ty of
@@ -53,21 +65,6 @@ fun check_atyping ty =
        in
            ()
        end
-     | ATyAbsC ((ctx as (fctx, kctx, tctx), AEAbsC e, CQuan (QuanForall, k, t), T0), wk, ty) =>
-       let
-           val () = check_wfkind wk
-           val () = check_atyping ty
-           val jwk = extract_judge_wfkind wk
-           val jty = extract_judge_atyping ty
-           val () = assert (#1 jwk = kctx)
-           val () = assert (#2 jwk = k)
-           val () = assert (#1 jty = (fctx, k :: kctx, map shift0_c_c tctx))
-           val () = assert (#2 jty = e)
-           val () = assert (#3 jty = t)
-           val () = assert (#4 jty = T0)
-       in
-           ()
-       end
      | ATyPack ((ctx as (fctx, kctx, tctx), AEPack (c, e), CQuan (QuanExists, k, t1), i), kd1, kd2, ty) =>
        let
            val () = check_kinding kd1
@@ -89,19 +86,30 @@ fun check_atyping ty =
        in
            ()
        end
-     | ATySub ((ctx as (fctx, kctx, tctx), e, t2, i2), ty, te, pr) =>
+     | ATySubTy ((ctx as (fctx, kctx, tctx), e, t2, i2), ty, te) =>
        let
            val () = check_atyping ty
            val () = check_tyeq te
-           val () = check_proping pr
            val jty = extract_judge_atyping ty
            val jte = extract_judge_tyeq te
-           val jpr = extract_judge_proping pr
            val () = assert (#1 jty = ctx)
            val () = assert (#2 jty = e)
            val () = assert (#1 jte = kctx)
            val () = assert (#2 jte = #3 jty)
            val () = assert (#3 jte = t2)
+           val () = assert (#4 jty = i2)
+       in
+           ()
+       end
+     | ATySubTi ((ctx as (fctx, kctx, tctx), e, t2, i2), ty, pr) =>
+       let
+           val () = check_atyping ty
+           val () = check_proping pr
+           val jty = extract_judge_atyping ty
+           val jpr = extract_judge_proping pr
+           val () = assert (#1 jty = ctx)
+           val () = assert (#2 jty = e)
+           val () = assert (#3 jty = t2)
            val () = assert (#1 jpr = kctx)
            val () = assert (#2 jpr = TLe (#4 jty, i2))
        in
@@ -248,19 +256,30 @@ and check_ctyping ty =
          in
              ()
          end
-       | CTySub ((ctx as (fctx, kctx, tctx), e, t2, i2), ty, te, pr) =>
+       | CTySubTy ((ctx as (fctx, kctx, tctx), e, t2, i2), ty, te) =>
          let
              val () = check_ctyping ty
              val () = check_tyeq te
-             val () = check_proping pr
              val jty = extract_judge_ctyping ty
              val jte = extract_judge_tyeq te
-             val jpr = extract_judge_proping pr
              val () = assert (#1 jty = ctx)
              val () = assert (#2 jty = e)
              val () = assert (#1 jte = kctx)
              val () = assert (#2 jte = #3 jty)
              val () = assert (#3 jte = t2)
+             val () = assert (#4 jty = i2)
+         in
+             ()
+         end
+       | CTySubTi ((ctx as (fctx, kctx, tctx), e, t2, i2), ty, pr) =>
+         let
+             val () = check_ctyping ty
+             val () = check_proping pr
+             val jty = extract_judge_ctyping ty
+             val jpr = extract_judge_proping pr
+             val () = assert (#1 jty = ctx)
+             val () = assert (#2 jty = e)
+             val () = assert (#3 jty = t2)
              val () = assert (#1 jpr = kctx)
              val () = assert (#2 jpr = TLe (#4 jty, i2))
          in
@@ -378,7 +397,7 @@ and check_htyping ty =
          in
              ()
          end
-       | HTySub ((ctx as (fctx, kctx, tctx), e, i2), ty, pr) =>
+       | HTySubTi ((ctx as (fctx, kctx, tctx), e, i2), ty, pr) =>
          let
              val () = check_htyping ty
              val () = check_proping pr
