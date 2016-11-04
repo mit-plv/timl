@@ -1326,12 +1326,14 @@ fun shift_ctx_kd ctxd dep kd = Helper.transform_kinding (kd, (ctxd, dep))
 fun shift_ctx_te ctxd dep te = Helper.transform_tyeq (te, (ctxd, dep))
 fun shift_ctx_pr ctxd dep pr = Helper.transform_proping (pr, (ctxd, dep))
 fun shift_ctx_wk ctxd dep wk = Helper.transform_wfkind (wk, (ctxd, dep))
+fun shift_ctx_ke ctxd dep ke = Helper.transform_kdeq (ke, (ctxd, dep))
 
 fun shift0_ctx_ty ctxd = shift_ctx_ty ctxd (0, 0)
 fun shift0_ctx_kd ctxd = shift_ctx_kd ctxd (0, 0)
 fun shift0_ctx_te ctxd = shift_ctx_te ctxd (0, 0)
 fun shift0_ctx_pr ctxd = shift_ctx_pr ctxd (0, 0)
 fun shift0_ctx_wk ctxd = shift_ctx_wk ctxd (0, 0)
+fun shift0_ctx_ke ctxd = shift_ctx_ke ctxd (0, 0)
 end
 
 structure DerivFVCstr =
@@ -2282,7 +2284,16 @@ and cps ty cont =
             val in1_cont =
                 let
                     val t_tmp = subst0_c_c (#2 (extract_c_arrow (#3 in2_jcont))) (#3 (extract_c_quan t1))
-                    val d1 = TyVar ((fst $ #1 in2_jcont, CProd (t2, #3 in2_jcont) :: t_tmp :: (snd $ #1 in2_jcont)), EVar 1, t_tmp, T0)
+                    val d1 = TyVar ((fst $ #1 in2_jcont, CProd (t2, #3 in2_jcont) :: (snd $ #1 in2_jcont)), EVar 2, t1, T0)
+                    val d2 = KdAdmit (fst $ #1 in2_jcont, #2 (extract_c_arrow (#3 in2_jcont)), KTime)
+                    val d3 = TyAppC (as_TyAppC d1 d2, d1, d2)
+                    val d4 = TyVar ((fst $ #1 in2_jcont, CProd (t2, #3 in2_jcont) :: (snd $ #1 in2_jcont)), EVar 0, CProd (t2, #3 in2_jcont), T0)
+                    val d5 = TyApp (as_TyApp d3 d4, d3, d4)
+                    val d6 = TyVar (#1 in2_jcont, EVar 0, t2, T0)
+                    val d7 = TyPair (as_TyPair d6 in2_cont, d6, in2_cont)
+                    val d8 = TyLet (as_TyLet d7 d5, d7, d5)
+                    val d9 = kd2
+                    (*val d1 = TyVar ((fst $ #1 in2_jcont, CProd (t2, #3 in2_jcont) :: t_tmp :: (snd $ #1 in2_jcont)), EVar 1, t_tmp, T0)
                     val d2 = TyVar ((fst $ #1 in2_jcont, CProd (t2, #3 in2_jcont) :: t_tmp :: (snd $ #1 in2_jcont)), EVar 0, CProd (t2, #3 in2_jcont), T0)
                     val d3 = TyApp (as_TyApp d1 d2, d1, d2)
                     val d4 = TyVar ((fst $ #1 in2_jcont, t_tmp :: (snd $ #1 in2_jcont)), EVar 1, t2, T0)
@@ -2293,9 +2304,9 @@ and cps ty cont =
                     val d9 = KdAdmit (fst $ #1 in2_jcont, #2 (extract_c_arrow (#3 in2_jcont)), KTime)
                     val d10 = TyAppC (as_TyAppC d8 d9, d8, d9)
                     val d11 = TyLet (as_TyLet d10 d7, d10, d7)
-                    val d12 = kd2
+                    val d12 = kd2*)
                 in
-                    TyAbs (as_TyAbs d12 d11, d12, d11)
+                    TyAbs (as_TyAbs d9 d8, d9, d8)
                 end
             val in1_jcont = extract_judge_typing in1_cont
             val in0_cont =
@@ -2360,7 +2371,13 @@ and cps ty cont =
             val in1_jcont = extract_judge_typing in1_cont
             val in0_cont =
                 let
-                    val t_tmp1 = subst0_c_c (#2 jkd) (#3 (extract_c_quan t))
+                    val d1 = TyVar (#1 in1_jcont, EVar 0, t, T0)
+                    val d2 = TyAppC (as_TyAppC d1 kd, d1, kd)
+                    val d3 = KdAdmit (fst $ #1 in1_jcont, #2 (extract_c_arrow (#3 in1_jcont)), KTime)
+                    val d4 = TyAppC (as_TyAppC d2 d3, d2, d3)
+                    val d5 = TyAppK (as_TyAppK d4 in1_cont, d4, in1_cont)
+                    val d6 = kdt
+                    (*val t_tmp1 = subst0_c_c (#2 jkd) (#3 (extract_c_quan t))
                     val t_tmp2 = subst0_c_c (#2 (extract_c_arrow (#3 in1_jcont))) (#3 (extract_c_quan t_tmp1))
                     val d1 = TyVar ((fst $ #1 in1_jcont, t_tmp2 :: t_tmp1 :: (snd $ #1 in1_jcont)), EVar 0, t_tmp2, T0)
                     val d2 = shift0_ctx_ty ([], [t_tmp2, t_tmp1]) in1_cont
@@ -2372,7 +2389,7 @@ and cps ty cont =
                     val d8 = TyVar (#1 in1_jcont, EVar 0, t, T0)
                     val d9 = TyAppC (as_TyAppC d8 kd, d8, kd)
                     val d10 = TyLet (as_TyLet d9 d7, d9, d7)
-                    val d11 = kdt
+                    val d11 = kdt*)
                     (*val t_tmp = subst0_c_c (#2 jkd) (#3 (extract_c_quan t))
                     val d1 = shift0_ctx_ty ([], [t_tmp]) in1_cont
                     val d2 = TyVar ((fst $ #1 in1_jcont, t_tmp :: (snd $ #1 in1_jcont)), EVar 0, t_tmp, T0)
@@ -2382,7 +2399,7 @@ and cps ty cont =
                     val d6 = TyLet (as_TyLet d5 d3, d5, d3)
                     val d7 = kdt*)
                 in
-                    TyAbs (as_TyAbs d11 d10, d11, d10)
+                    TyAbs (as_TyAbs d6 d5, d6, d5)
                 end
             val res = cps ty in0_cont
             val () = debug "TyAppC out"
@@ -2402,6 +2419,7 @@ and cps ty cont =
             val jkd = extract_judge_kinding kd
             val t = #2 jkd
             val ty = shift0_ctx_ty ([KTime], [t]) ty
+            (* need to use cont's context since the type in orignal context isn't transformed *)
             val old_ctx = #1 (extract_judge_typing cont)
             val new_ctx = (KTime :: #2 jwk :: fst old_ctx, t :: map (shift_c_c 2 0) (snd old_ctx))
             val ty = cps ty (TyVar (new_ctx, EVar 0, t, T0))
@@ -2865,7 +2883,15 @@ structure Helper = DerivGenericOnlyDownTransformer(
 
     fun transformer_typing (on_typing, on_kinding, on_wfkind, on_tyeq, on_proping) (ty, ()) =
       case ty of
-          TyAbs ((ctx, _, t, _), kd, _) =>
+          TyAbsC ((ctx, _, t, _), wk, _) =>
+          let
+              val (_, k, t_body) = extract_c_quan t
+              val kd = KdQuan ((fst ctx, t, KType), wk, KdAdmit (k :: fst ctx, t_body, KType))
+              val ty = ShiftCtx.shift0_ctx_ty ([], [t]) ty
+          in
+              SOME (on_typing (TyRec (as_TyRec kd ty, kd, ty), ()))
+          end
+        | TyAbs ((ctx, _, t, _), kd, _) =>
           let
               val (t1, i, t2) = extract_c_arrow t
               val kd = KdArrow ((fst ctx, t, KType), kd, KdAdmit (fst ctx, i, KTime), KdAdmit (fst ctx, t2, KType))
@@ -2918,6 +2944,7 @@ structure Helper = DerivGenericOnlyDownTransformer(
     open DirectSubstCstr
     open DirectSubstExpr
     open DerivAssembler
+    open ShiftCtx
 
     type down = ctx
 
@@ -2967,11 +2994,29 @@ structure Helper = DerivGenericOnlyDownTransformer(
           in
               CApp (c1, c2)
           end
-        | CQuan (q, k, c) =>
+        | CQuan (QuanForall, _, _) =>
+          let
+              fun unfold_CForalls t ks =
+                case t of
+                    CQuan (QuanForall, k, t) => unfold_CForalls t (k :: ks)
+                  | _ => (t, ks)
+              val (t, ks) = unfold_CForalls t []
+              val cnt_ks = length ks
+              val (t1, i, t2) = extract_c_arrow t
+              val t1 = shift_c_c 1 cnt_ks $ transform_type t1
+              val i = shift_c_c 1 cnt_ks $ transform_type i
+              val t2 = shift_c_c 1 cnt_ks $ transform_type t2
+              val t = CArrow (CProd (CVar cnt_ks, t1), i, t2)
+              val t = foldli (fn (i, k, t) => CForall (shift_c_k 1 (cnt_ks - 1 - i) k, t)) t ks
+              val t = CProd (t, CVar 0)
+          in
+              CExists (KType, t)
+          end
+        | CQuan (QuanExists, k, c) =>
           let
               val c = transform_type c
           in
-              CQuan (q, k, c)
+              CExists (k, c)
           end
         | CRec (k, c) =>
           let
@@ -2994,10 +3039,13 @@ structure Helper = DerivGenericOnlyDownTransformer(
         | EConst cn => ((kctx, tctx), e, const_type cn, T0)
         | _ => raise (Impossible "CloConv")
 
+    fun debug s = ()
+
     fun transformer_typing (on_typing, on_kinding, on_wfkind, on_tyeq, on_proping) (ty, (kctx, tctx)) =
       case ty of
           TyRec (_, kd, ty_inner) =>
           let
+              val () = debug "IN REC"
               fun unfold_ty ty wks =
                 case ty of
                     TyAbsC (j, wk, ty) => unfold_ty ty (wk :: wks)
@@ -3080,7 +3128,28 @@ structure Helper = DerivGenericOnlyDownTransformer(
                               inner t_env (t_env :: tctx_base)
                           end
 
-                      val tctx_self = foldl (fn (k, t) => CForall (k, t)) (CExists (KType, CProd (CArrow (CProd (CVar 0, shift_c_c 1 0 t_arg), shift_c_c 1 0 ti_abs, shift_c_c 1 0 t_res), CVar 0))) ori_kinds :: tctx_env
+                      (*val tctx_self = foldl (fn (k, t) => CForall (k, t)) (CExists (KType, CProd (CArrow (CProd (CVar 0, shift_c_c 1 0 t_arg), shift_c_c 1 0 ti_abs, shift_c_c 1 0 t_res), CVar 0))) ori_kinds :: tctx_env*)
+                      val t_self_paritial =
+                          let
+                              val t1 = foldri (fn (j, _, t) => subst0_c_c (CVar (j + cnt_wks)) (#3 (extract_c_quan t))) t_self new_wks
+                              val t2 = shift_c_c 1 cnt_wks t1
+                              fun iter t ks =
+                                  case t of
+                                      CQuan (QuanForall, k, t) => iter t (k :: ks)
+                                    | _ => (t, ks)
+                              val (t3, ks) = iter t2 []
+                              val (t31, t3i, t32) = extract_c_arrow t3
+                              val (_, t312) = extract_c_prod t31
+                              val t4 = CArrow (CProd (CVar cnt_wks, t312), t3i, t32)
+                              val t5 = foldl (fn (k, t) => CForall (k, t)) t4 ks
+                              val t6 = CExists (KType, CProd (t5, CVar 0))
+                          in
+                              t6
+                          end
+                      val () = debug $ PlainPrinter.str_cstr t_self_paritial
+
+                      val tctx_self = t_self_paritial :: tctx_env
+
                       val tctx_arg = t_arg :: tctx_self
 
                       val ty_body = foldli (fn (j, x, ty) => dsubst_c_ty (CVar (j + cnt_wks)) (x + cnt_wks) ty) ty_body fcv
@@ -3100,7 +3169,7 @@ structure Helper = DerivGenericOnlyDownTransformer(
                               TyLet (as_TyLet ty ty_body, ty, ty_body)
                           end
 
-                      val ty_wrap_self =
+                      (*val ty_wrap_self =
                           let
                               val ctx = (kctx_base, tctx_env)
                               val self_idx = length tctx_env - 1
@@ -3145,6 +3214,29 @@ structure Helper = DerivGenericOnlyDownTransformer(
                                                    end) ty9 ori_kinds
                           in
                               TyLet (as_TyLet ty10 ty_wrap_arg, ty10, ty_wrap_arg)
+                          end*)
+
+                      val ty_wrap_self =
+                          let
+                              val ctx = (kctx_base, tctx_env)
+                              val self_idx = length tctx_env - 1
+                              val param_idx = self_idx - 1
+                              val env_idx = param_idx - 1
+                              val ty0 = TyVar (ctx, EVar env_idx, t_env, T0)
+                              val ty1 = TyVar (ctx, EVar self_idx, t_self, T0)
+                              val ty2 = foldri (fn (i, _, ty) =>
+                                                   let
+                                                       val jty = extract_judge_typing ty
+                                                       val (_, k, t_body) = extract_c_quan (#3 jty)
+                                                       val kd = KdVar (fst $ #1 jty, CVar (i + cnt_wks), k)
+                                                   in
+                                                       TyAppC (as_TyAppC ty kd, ty, kd)
+                                                   end) ty1 new_kinds
+                              val ty3 = TyPair (as_TyPair ty2 ty0, ty2, ty0)
+                              val kd4 = KdAdmit (kctx_base, t_self_paritial, KType)
+                              val ty5 = TyPack (as_TyPack kd4 kd_env ty3, kd4, kd_env, ty3)
+                          in
+                              TyLet (as_TyLet ty5 ty_wrap_arg, ty5, ty_wrap_arg)
                           end
 
                       val ty_wrap_env =
@@ -3209,7 +3301,7 @@ structure Helper = DerivGenericOnlyDownTransformer(
                                     in
                                         TyAppC (as_TyAppC ty kd, ty, kd)
                                     end) ty_fix fcv
-                      val (_, wks) = foldr (fn (wk, (kctx, wks)) =>
+                      (*val (_, wks) = foldr (fn (wk, (kctx, wks)) =>
                                                let
                                                    val jwk = extract_judge_wfkind wk
                                                    val wk = on_wfkind (wk, (kctx, []))
@@ -3225,42 +3317,75 @@ structure Helper = DerivGenericOnlyDownTransformer(
                                                     val kd = KdVar (fst $ #1 jty, CVar i, k)
                                                 in
                                                     TyAppC (as_TyAppC ty kd, ty, kd)
-                                                end) ty_app_c raw_kinds
+                                                end) ty_app_c raw_kinds*)
                       val jty_app_c = extract_judge_typing ty_app_c
-                      val (t_app_c_1, t_app_c_i, t_app_c_2) = extract_c_arrow (#3 jty_app_c)
-                      val (t_app_c_11, t_app_c_12) = extract_c_prod (t_app_c_1)
-                      val t_tmp = CExists (KType, CProd (CArrow (CProd (CVar 0, shift_c_c 1 0 t_app_c_12), shift_c_c 1 0 t_app_c_i, shift_c_c 1 0 t_app_c_2), CVar 0))
+                      (*val (t_app_c_1, t_app_c_i, t_app_c_2) = extract_c_arrow (#3 jty_app_c)
+                      val (t_app_c_11, t_app_c_12) = extract_c_prod (t_app_c_1)*)
+                      val t_tmp =
+                          let
+                              val t1 = #3 jty_app_c
+                              val t2 = shift_c_c 1 cnt_wks t1
+                              fun iter t ks =
+                                case t of
+                                    CQuan (CForall, k, t) => iter t (k :: ks)
+                                  | _ => (t, ks)
+                              val (t3, ks) = iter t2 []
+                              val (t31, t3i, t32) = extract_c_arrow t3
+                              val (_, t312) = extract_c_prod t31
+                              val t4 = CArrow (CProd (CVar cnt_wks, t312), t3i, t32)
+                              val t5 = foldl (fn (k, t) => CForall (k, t)) t4 ks
+                              val t6= CProd (t5, CVar 0)
+                          in
+                              CExists (KType, t6)
+                          end
+                      (*val t_tmp = CExists (KType, CProd (CArrow (CProd (CVar 0, shift_c_c 1 0 t_app_c_12), shift_c_c 1 0 t_app_c_i, shift_c_c 1 0 t_app_c_2), CVar 0))*)
                       val kd_tmp = KdAdmit (fst $ #1 jty_app_c, t_tmp, KType)
-                      val ty_construct_shifted = ShiftCtx.shift_ctx_ty (raw_kinds, []) (0, 0) ty_construct
+                      (*val ty_construct_shifted = ShiftCtx.shift_ctx_ty (raw_kinds, []) (0, 0) ty_construct
                       val kd_construct_shifted = ShiftCtx.shift_ctx_kd (raw_kinds, []) (0, 0) kd_construct
                       val ty_clo = TyPair (as_TyPair ty_app_c ty_construct_shifted, ty_app_c, ty_construct_shifted)
                       val jty_clo = extract_judge_typing ty_clo
                       val ty_clo_sub = TySubTi ((#1 jty_clo, #2 jty_clo, #3 jty_clo, T0), ty_clo, PrAdmit (fst $ #1 jty_clo, TLe (#4 jty_clo, T0)))
-                      val ty_pack = TyPack (as_TyPack kd_tmp kd_construct_shifted ty_clo_sub, kd_tmp, kd_construct_shifted, ty_clo_sub)
+                      val ty_pack = TyPack (as_TyPack kd_tmp kd_construct_shifted ty_clo_sub, kd_tmp, kd_construct_shifted, ty_clo_sub)*)
+                      val ty_clo = TyPair (as_TyPair ty_app_c ty_construct, ty_app_c, ty_construct)
+                      val jty_clo = extract_judge_typing ty_clo
+                      val ty_clo_sub = TySubTi ((#1 jty_clo, #2 jty_clo, #3 jty_clo, T0), ty_clo, PrAdmit (fst $ #1 jty_clo, TLe (#4 jty_clo, T0)))
+                      val ty_pack = TyPack (as_TyPack kd_tmp kd_construct ty_clo_sub, kd_tmp, kd_construct, ty_clo_sub)
 
-                      val ty_res =
+                      (*val ty_res =
                           foldl (fn (_, ty) =>
                                     let
                                         val jty = extract_judge_typing ty
                                         val wk = WfKdAdmit (tl $ fst $ #1 jty, hd $ fst $ #1 jty)
                                     in
                                         TyAbsC (as_TyAbsC wk ty, wk, ty)
-                                    end) ty_pack raw_kinds
+                                    end) ty_pack raw_kinds*)
+                      val () = debug "OUT REC"
                   in
-                      SOME ty_res
+                      SOME ty_pack
                   end
                 | _ => raise (Impossible "CloConv")
           end
         | TyApp ((_, _, _, ti), ty1, ty2) =>
           let
+              val () = debug "IN APP"
+              fun unfold_TyAppC ty kds =
+                case ty of
+                    TyAppC (_, ty, kd) => unfold_TyAppC ty (kd :: kds)
+                  | _ => (ty, kds)
+              val (ty1, kds) = unfold_TyAppC ty1 []
+
               val ty1 = on_typing (ty1, (kctx, tctx))
               val ty2 = on_typing (ty2, (kctx, tctx))
               val jty1 = extract_judge_typing ty1
               val jty2 = extract_judge_typing ty2
+              val () = debug $ PlainPrinter.str_cstr $ #3 jty1
               val (_, _, t_clo) = extract_c_quan (#3 jty1)
               val (t_func, t_env) = extract_c_prod t_clo
 
-              val ty3 = TyVar ((KType :: kctx, CProd (t_env, ShiftCstr.shift0_c_c (#3 jty2)) :: t_env :: t_func :: t_clo :: map ShiftCstr.shift0_c_c tctx), EVar 2, t_func, T0)
+              val ty3 = TyVar ((KType :: kctx, CProd (t_env, shift0_c_c (#3 jty2)) :: t_env :: t_func :: t_clo :: map shift0_c_c tctx), EVar 2, t_func, T0)
+              val () = debug $ PlainPrinter.str_cstr $ #3 (extract_judge_typing ty3)
+              val ty3 = foldl (fn (kd, ty) => TyAppC (as_TyAppC ty kd, ty, kd)) ty3 (map (shift0_ctx_kd ([KType], [])) kds)
+              val () = debug $ PlainPrinter.str_cstr $ #3 (extract_judge_typing ty3)
               val ty4 =
                   let
                       val jty3 = extract_judge_typing ty3
@@ -3300,11 +3425,20 @@ structure Helper = DerivGenericOnlyDownTransformer(
                   in
                       TySubTi ((#1 jty16, #2 jty16, #3 jty16, ti), ty16, PrAdmit (fst $ #1 jty16, TLe (#4 jty16, ti)))
                   end
+              val () = debug $ PlainPrinter.str_expr $ #2 (extract_judge_typing ty17)
+              val () = debug "OUT APP"
           in
               SOME ty17
           end
         | TyAppK ((_, _, _, ti), ty1, ty2) =>
           let
+              val () = debug "IN APPK"
+              fun unfold_TyAppC ty kds =
+                case ty of
+                    TyAppC (_, ty, kd) => unfold_TyAppC ty (kd :: kds)
+                  | _ => (ty, kds)
+              val (ty1, kds) = unfold_TyAppC ty1 []
+
               val ty1 = on_typing (ty1, (kctx, tctx))
               val ty2 = on_typing (ty2, (kctx, tctx))
               val jty1 = extract_judge_typing ty1
@@ -3313,6 +3447,7 @@ structure Helper = DerivGenericOnlyDownTransformer(
               val (t_func, t_env) = extract_c_prod t_clo
 
               val ty3 = TyVar ((KType :: kctx, CProd (t_env, ShiftCstr.shift0_c_c (#3 jty2)) :: t_env :: t_func :: t_clo :: map ShiftCstr.shift0_c_c tctx), EVar 2, t_func, T0)
+              val ty3 = foldl (fn (kd, ty) => TyAppC (as_TyAppC ty kd, ty, kd)) ty3 (map (shift0_ctx_kd ([KType], [])) kds)
               val ty4 =
                   let
                       val jty3 = extract_judge_typing ty3
@@ -3352,16 +3487,49 @@ structure Helper = DerivGenericOnlyDownTransformer(
                   in
                       TySubTi ((#1 jty16, #2 jty16, #3 jty16, ti), ty16, PrAdmit (fst $ #1 jty16, TLe (#4 jty16, ti)))
                   end
+              val () = debug "OUT APPK"
           in
               SOME ty17
           end
         | TyFix _ => raise (Impossible "CloConv")
         | TyAbs _ => raise (Impossible "CloConv")
+        | TyAbsC _ => raise (Impossible "CloConv")
+        | TyAppC _ => raise (Impossible "CloConv")
         | _ => NONE
 
     fun transformer_tyeq (on_tyeq, on_proping, on_kdeq, on_kinding) (te, (kctx, tctx)) =
       case te of
-          TyEqArrow (_, te1, pr, te2) =>
+          TyEqQuan ((_, CQuan (QuanForall, _, _), _), _, _) =>
+          let
+              fun unfold_TyEqQuan te kes =
+                case te of
+                    TyEqQuan ((_, CQuan (QuanForall, _, _), _), ke, te) => unfold_TyEqQuan te (ke :: kes)
+                  | _ => (te, kes)
+              val (te, kes) = unfold_TyEqQuan te []
+              val (te1, pr, te2) =
+                  case te of
+                      TyEqArrow (_, te1, pr, te2) => (te1, pr, te2)
+                    | _ => raise (Impossible "CloConv")
+              val cnt_kes = length kes
+              val cur_kctx = (map (fn ke => #2 (extract_judge_kdeq ke)) kes) @ kctx
+              val te1 = shift_ctx_te ([KType], []) (cnt_kes, 0) $ on_tyeq (te1, (cur_kctx, tctx))
+              val pr = shift_ctx_pr ([KType], []) (cnt_kes, 0) $ on_proping (pr, (cur_kctx, tctx))
+              val te2 = shift_ctx_te ([KType], []) (cnt_kes, 0) $ on_tyeq (te2, (cur_kctx, tctx))
+              val new_kctx = #1 (extract_judge_tyeq te1)
+              val te1 = TyEqBinOp (as_TyEqBinOp CBTypeProd (TyEqVar (new_kctx, CVar cnt_kes, CVar cnt_kes)) te1, TyEqVar (new_kctx, CVar cnt_kes, CVar cnt_kes), te1)
+              val te = TyEqArrow (as_TyEqArrow te1 pr te2, te1, pr, te2)
+              val te = foldli (fn (j, ke, te) =>
+                                  let
+                                      val ke = shift_ctx_ke ([KType], []) (cnt_kes - 1 - j, 0) ke
+                                  in
+                                      TyEqQuan (as_TyEqQuan QuanForall ke te, ke, te)
+                                  end) te kes
+              val ke = KdEqKType (kctx, KType, KType)
+              val te = TyEqBinOp (as_TyEqBinOp CBTypeProd te (TyEqVar (KType :: kctx, CVar 0, CVar 0)), te, TyEqVar (KType :: kctx, CVar 0, CVar 0))
+          in
+              SOME (TyEqQuan (as_TyEqQuan QuanExists ke te, ke, te))
+          end
+        | TyEqArrow (_, te1, pr, te2) =>
           let
               val te1 = ShiftCtx.shift0_ctx_te ([KType], []) $ on_tyeq (te1, (kctx, tctx))
               val pr = ShiftCtx.shift0_ctx_pr ([KType], []) $ on_proping (pr, (kctx, tctx))
@@ -3378,7 +3546,37 @@ structure Helper = DerivGenericOnlyDownTransformer(
 
     fun transformer_kinding (on_kinding, on_wfkind, on_kdeq) (kd, (kctx, tctx)) =
       case kd of
-          KdArrow (_, kd1, kd2, kd3) =>
+          KdQuan ((_, CQuan (QuanForall, _, _), _), _, _) =>
+          let
+              fun unfold_KdQuan kd wks =
+                case kd of
+                    KdQuan ((_, CQuan (QuanForall, _, _), _), wk, kd) => unfold_KdQuan kd (wk :: wks)
+                  | _ => (kd, wks)
+              val (kd, wks) = unfold_KdQuan kd []
+              val (kd1, kd2, kd3) =
+                  case kd of
+                      KdArrow (_, kd1, kd2, kd3) => (kd1, kd2, kd3)
+                    | _ => raise (Impossible "CloConv")
+              val cnt_wks = length wks
+              val cur_kctx = (map (snd o extract_judge_wfkind) wks) @ kctx
+              val kd1 = shift_ctx_kd ([KType], []) (cnt_wks, 0) $ on_kinding (kd1, (cur_kctx, tctx))
+              val kd2 = shift_ctx_kd ([KType], []) (cnt_wks, 0) $ on_kinding (kd2, (cur_kctx, tctx))
+              val kd3 = shift_ctx_kd ([KType], []) (cnt_wks, 0) $ on_kinding (kd3, (cur_kctx, tctx))
+              val new_kctx = #1 (extract_judge_kinding kd1)
+              val kd1 = KdBinOp (as_KdBinOp CBTypeProd (KdVar (new_kctx, CVar cnt_wks, KType)) kd1, KdVar (new_kctx, CVar cnt_wks, KType), kd1)
+              val kd = KdArrow (as_KdArrow kd1 kd2 kd3, kd1, kd2, kd3)
+              val kd = foldli (fn (i, wk, kd) =>
+                                  let
+                                      val wk = shift_ctx_wk ([KType], []) (cnt_wks - 1 - i, 0) wk
+                                  in
+                                      KdQuan (as_KdQuan QuanForall wk kd, wk, kd)
+                                  end) kd wks
+              val wk = WfKdType (kctx, KType)
+              val kd = KdBinOp (as_KdBinOp CBTypeProd kd (KdVar (KType :: kctx, CVar 0, KType)), kd, KdVar (KType :: kctx, CVar 0, KType))
+          in
+              SOME (KdQuan (as_KdQuan QuanExists wk kd, wk, kd))
+          end
+        | KdArrow (_, kd1, kd2, kd3) =>
           let
               val kd1 = ShiftCtx.shift0_ctx_kd ([KType], []) $ on_kinding (kd1, (kctx, tctx))
               val kd2 = ShiftCtx.shift0_ctx_kd ([KType], []) $ on_kinding (kd2, (kctx, tctx))
