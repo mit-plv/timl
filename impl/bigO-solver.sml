@@ -579,8 +579,8 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
             fun extend_vcs_with_long_hyps vcs = append_hyps ([VarH (name0, TimeFun arity0), VarH (name1, TimeFun arity1)] @ hs) vcs
             val vcs_with_long_hyps = extend_vcs_with_long_hyps vcs
             val vcs_and_long_hyps = map (fn (vc, (long_hyps, _)) => (vc, long_hyps)) $ zip (vcs, vcs_with_long_hyps)
-            val () = println "Master-Theorem-solver to solve this: "
-            val () = app println $ concatMap (fn ((_, p), long_hyps) => str_vc false "" (long_hyps, p) @ [""]) $ vcs_and_long_hyps
+            (* val () = println "Master-Theorem-solver to solve this: " *)
+            (* val () = app println $ concatMap (fn ((_, p), long_hyps) => str_vc false "" (long_hyps, p) @ [""]) $ vcs_and_long_hyps *)
             val fs = map infer_vc vcs_and_long_hyps
             val (f, fs) = case fs of
                               [] => raise Error "by_master_theorem: no VCs"
@@ -723,10 +723,11 @@ fun solve_exists (vc as (hs, p)) =
                   let
                     (* ToDo: a bit unsound inference strategy: infer [i] from [p1] and substitute for [i] in [p2] (assuming that [p2] doesn't contribute to inferring [i]) *)
                     val (p1, p2) = split_and p
-                    val () = println $ sprintf "This inference may be unsound. It assumes this proposition doesn't contribute to inference of $:" [name]
-                    val () = app println $ (str_vc false "" (VarH (name, TimeFun arity) :: hs, p2) @ [""])
-                    val () = println "and it only uses this proposition to do the inference:"
-                    val () = app println $ (str_vc false "" (VarH (name, TimeFun arity) :: hs, p1) @ [""])
+                    val () = println "This inference may be unsound. "
+                    (* val () = println $ sprintf "It assumes this proposition doesn't contribute to inference of $:" [name] *)
+                    (* val () = app println $ (str_vc false "" (VarH (name, TimeFun arity) :: hs, p2) @ [""]) *)
+                    (* val () = println "and it only uses this proposition to do the inference:" *)
+                    (* val () = app println $ (str_vc false "" (VarH (name, TimeFun arity) :: hs, p1) @ [""]) *)
                     (* val () = println "solve_exists() to solve this: " *)
                     (* val () = app println $ (str_vc false "" vc @ [""]) *)
                   in

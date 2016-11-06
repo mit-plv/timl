@@ -1880,6 +1880,7 @@ local
        deep: when turned on, [find_hab] try to find a [ConstrH] for a datatype when constraints are empty (treat empty datatype as uninhabited); otherwise only return [TrueH] in such case (treat empty datatype as inhabited) *)
   fun find_hab deep gctx (ctx as (sctx, kctx, cctx)) (t : mtype) cs =
       let
+        (* val () = println "find_hab() begin" *)
         (* fun sum ls = foldl' op+ 0 ls *)
         (* fun cover_size c = *)
         (*     case c of *)
@@ -2097,15 +2098,18 @@ local
                     ret
                   end
             end
+        val ret = 
+            SOME (loop (t, cs, ()))
+            handle
+            Incon debug =>
+            let
+              (* val () = println $ "Can't find a habitant because: " ^ debug *)
+            in
+              NONE
+            end
+        (* val () = println "find_hab() end" *)
       in
-        SOME (loop (t, cs, ()))
-        handle
-        Incon debug =>
-        let
-          (* val () = println $ "Can't find a habitant because: " ^ debug *)
-        in
-          NONE
-        end
+        ret
       end
 
 in              
