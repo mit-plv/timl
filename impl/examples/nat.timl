@@ -28,7 +28,7 @@ fun min_max {m : Time} {x y : Nat} (le : nat {x} * nat {y} -- m --> le_result {x
 
 datatype eq_dec {a b : Nat} =
          Eq {a = b} of eq_dec {a} {b}
-       | Neq {~ (a = b)} of eq_dec {a} {b}
+       | Neq {a <> b} of eq_dec {a} {b}
 
 fun eq_dec {x y : Nat} (x : nat {x}, y : nat {y}) return eq_dec {x} {y} using 1.0 =
     case cmp (x, y) of

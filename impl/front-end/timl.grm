@@ -40,6 +40,7 @@ open Ast
     | OR
     | IFF
     | EQ
+    | NEQ
     | DOUBLE_EQ
     | DOUBLE_POND
     | VAL
@@ -157,7 +158,7 @@ open Ast
 %right OR
 %right AND
 %nonassoc NOT
-%nonassoc EQ LE LT GE GT 
+%nonassoc EQ NEQ LE LT GE GT 
 %left DOUBLE_POND
 %left DOUBLE_EQ
 %left PLUS MINUS
@@ -291,6 +292,7 @@ prop : id (ConstP id)
      | prop ARROW prop (BinConn (Imply, prop1, prop2, (prop1left, prop2right)))
      | prop IFF prop (BinConn (Iff, prop1, prop2, (prop1left, prop2right)))
      | idx EQ idx (BinPred (EqP, idx1, idx2, (idx1left, idx2right)))
+     | idx NEQ idx (Not (BinPred (EqP, idx1, idx2, (idx1left, idx2right)), (idx1left, idx2right)))
      | idx LE idx (BinPred (LeP, idx1, idx2, (idx1left, idx2right)))
      | idx LT idx (BinPred (LtP, idx1, idx2, (idx1left, idx2right)))
      | idx GE idx (BinPred (GeP, idx1, idx2, (idx1left, idx2right)))

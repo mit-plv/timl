@@ -56,19 +56,19 @@ Done. 47. rename "peel_" to "collect_".
 Done. 48. Register admitted things.
 49. Make SMT batch response parsing smarter (don't check response length beforehand)
 Done. 50. Simplify MaxI using SMT solver.
-51. Have binary search with arrays.
-52. Have binary heap with arrays.
-53. Have in-place merge sort with arrays.
-54. Have k-median search with arrays.
+Done. 51. Have binary search with arrays.
+Done. 52. Have binary heap with arrays.
+Done. 53. Have in-place merge sort with arrays.
+Done. 54. Have k-median search with arrays.
 Done. 55. Investigate amortized complexity analysis.
 56. Prove in Coq.
 57. Infer [BigO] arity.
-58. Have built-in indexed [uint].
+Done. 58. Have built-in indexed [uint].
 59. Pretty-print to SML.
 60. Combine cctx and tctx.
-61. Add <> notation.
+Done. 61. Add <> notation.
 62. Let return clause in [Case] to mean the time including the matchee.
-63. Amortized complexity of queue implementation by two stacks.
+Done. 63. Amortized complexity of queue implementation by two stacks.
 64. Infer type according to pattern.
 65. Wrongly inferred [T_insert_delete_seq_0] to be (fn n => $n) without the [2.0 + 48.0 * $n] annotation.
 66. Have some Nat/Time inference.
@@ -84,12 +84,12 @@ Done. 75. if-then-else and list syntax.
 76. Restore the version of [link_sig] in revision 00ba072, because a module may have uvars before sealing, and uvars can't be retrieved from a module.
 77. Big-O solver should heuristically distinguish "defining" side of [TimeFun] uvars from the "using" side, by the rule-of-thumb that only [_ <= f x] is a defining constraint of [f].
 78. Do a module dependent analysis of each module and only bring the needed modules into [gctx] VC context.
-79. Have double-linked lists.
+Done. 79. Have double-linked lists.
 Done. 80. rbt6.timl:  absidx sort [Time] inference error in [IntKey].
 Done. 81. Currently [absidx ... with ... end] is "scoped abstract index". We should have "unscoped" or "module-scoped" abstract index [absidx id = ...] so within the module [id]'s definition is visible but outside the module it's not.
 82. Make [kind]'s sorts dependent.
 83. Generate typing derivations.
-84. Remove annotations on [case] (at least in a mode).
+Done. 84. Remove annotations on [case] (at least in a mode).
 Done. 85. [datatype] can introduce index variable names at the first line for every constructor.
 86. [find_hab] is too slow on array-msort.timl on array-msort-inplace.timl
 
