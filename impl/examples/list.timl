@@ -1,24 +1,24 @@
 structure List = struct
 
 datatype list 'a : {Nat} =
-         Nil of {0} 'a list
-       | Cons {n' : Nat} of 'a * {n'} 'a list --> {n' + 1} 'a list
+         Nil of list 'a {0} 
+       | Cons {n' : Nat} of 'a * list 'a {n'} --> list 'a {n' + 1} 
 
 absidx T_map : BigO 2 (fn m n => $m * $n) with
-fun map ['a 'b] {m n : Nat} (f : 'a -- $m --> 'b) (ls : {n} 'a list) return {n} 'b list using T_map m n =
+fun map ['a 'b] {m n : Nat} (f : 'a -- $m --> 'b) (ls : list 'a {n}) return list 'b {n} using T_map m n =
           case ls of
               Nil => Nil
             | Cons (x, xs) => Cons (f x, map f xs)
 end
 
 absidx T_foldl : BigO 2 (fn m n => $m * $n) with
-fun foldl ['a 'b] {m n : Nat} (f : 'a * 'b -- $m --> 'b) y (xs : {n} 'a list) return 'b using T_foldl m n =
+fun foldl ['a 'b] {m n : Nat} (f : 'a * 'b -- $m --> 'b) y (xs : list 'a {n}) return 'b using T_foldl m n =
         case xs of
             [] => y
           | x :: xs => foldl f (f (x, y)) xs
 end
 
-fun hd ['a] {n: Nat | n > 0} (ls: {n} 'a list) =
+fun hd ['a] {n: Nat | n > 0} (ls: list 'a {n}) =
     case ls of
         x :: _ => x
       | _ => never

@@ -177,7 +177,7 @@ local
 	  in
 	    case is_var_app_ts t of
 		SOME (x, ts) => AppV (x, map elab_mt ts, map elab_i is, r)
-	      | NONE => raise Error (r, "The form of type-index application can only be (recursive-type indices) or (variable types indices)")
+	      | NONE => raise Error (r, "The form of type-index application can only be [Variable Types Indices]")
 	  end
 
   fun elab_return return = mapPair (Option.map elab_mt, Option.map elab_i) return

@@ -10,7 +10,7 @@ struct
   | OrdGt
 
   absidx T_array_bsearch_on_range : BigO 2 (fn m n => $m * log2 $n) with
-    fun array_bsearch_on_range ['a] {m : Nat} {len : Nat} {l : Nat} {n : Nat} {n > 0} {l + n <= len} (p : 'a -- $m --> order) (a : {len} 'a array, l : {l} nat, n : {n} nat) return {len} nat_less_than using T_array_bsearch_on_range m n =
+    fun array_bsearch_on_range ['a] {m : Nat} {len : Nat} {l : Nat} {n : Nat} {n > 0} {l + n <= len} (p : 'a -- $m --> order) (a : array 'a {len}, l : nat {l}, n : nat {n}) return nat_less_than {len} using T_array_bsearch_on_range m n =
       case le (n, #1) of
            Le => NatLT l
          | Gt =>
@@ -26,7 +26,7 @@ struct
              end
   end
 
-  fun array_bsearch ['a] {m : Nat} {len : Nat} (p : 'a -- $m --> order) (a : {len} 'a array) return ({len} nat_less_than) option =
+  fun array_bsearch ['a] {m : Nat} {len : Nat} (p : 'a -- $m --> order) (a : array 'a {len}) return option (nat_less_than {len}) =
     case le (length a, #0) of
          Le => NONE
        | Gt =>

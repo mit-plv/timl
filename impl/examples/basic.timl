@@ -4,13 +4,13 @@ datatype bool = true | false
 
 datatype option 'a =
          NONE
-         | SOME of 'a --> 'a option
+         | SOME of 'a --> option 'a 
 
 datatype le {a b : Nat} =
-         LE {a <= b} of {b} {a} le
+         LE {a <= b} of le {a} {b} 
                    
 datatype ibool : {Bool} =
-         True of {true} ibool
-         | False of {false} ibool
+         True of ibool {true} 
+         | False of ibool {false} 
 
 end

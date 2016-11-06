@@ -5,13 +5,13 @@ open Basic
 open List
 open Array
 
-datatype ref 'a = Ref of {1} 'a array --> 'a ref
+datatype ref 'a = Ref of array 'a {1} --> ref 'a
 
-fun setref ['a] (r : 'a ref, x : 'a) =
+fun setref ['a] (r : ref 'a, x : 'a) =
   case r of
       Ref content => update (content, #0, x)
 
-fun deref ['a] (r : 'a ref) =
+fun deref ['a] (r : ref 'a) =
   case r of
       Ref content => sub (content, #0)
 
@@ -19,12 +19,12 @@ fun newref ['a] (x : 'a) =
   Ref (array (#1, x))
 
 datatype dlist 'a : {Nat} {Nat} =
-         DLNil {r : Nat} of {1} {r} 'a dlist --> {0} {1 + r} 'a dlist
-       | DRNil {l : Nat} of (({l} {1} 'a dlist) option) ref --> {l + 1} {0} 'a dlist
-       | DMid {l r : Nat} of (({l} {r + 2} 'a dlist) option) ref * 'a * {l + 2} {r} 'a dlist --> {l + 1} {r + 1} 'a dlist
+         DLNil {r : Nat} of dlist 'a {r} {1} --> dlist 'a {1 + r} {0}
+       | DRNil {l : Nat} of ref (option (dlist 'a {1} {l})) --> dlist 'a {0} {l + 1}
+       | DMid {l r : Nat} of ref (option (dlist 'a {r + 2} {l})) * 'a * dlist 'a {r} {l + 2} --> dlist 'a {r + 1} {l + 1}
 
 absidx T_build_dlist_helper : BigO 1 (fn n => $n) with
-fun build_dlist_helper ['a] {l r : Nat} (p : (({l} {r + 1} 'a dlist) option) ref, l : {r} 'a list) return {l + 1} {r} 'a dlist using T_build_dlist_helper r =
+fun build_dlist_helper ['a] {l r : Nat} (p : ref (option (dlist 'a {r + 1} {l})), l : list 'a {r}) return dlist 'a {r} {l + 1} using T_build_dlist_helper r =
   case l of
       [] => DRNil p
     | hd :: tl =>
@@ -38,7 +38,7 @@ fun build_dlist_helper ['a] {l r : Nat} (p : (({l} {r + 1} 'a dlist) option) ref
       end
 end
 
-fun build_dlist ['a] {n : Nat} (l : {n} 'a list) =
+fun build_dlist ['a] {n : Nat} (l : list 'a {n}) =
   let
       val ref_left = newref NONE
       val l' = build_dlist_helper (ref_left, l)
@@ -49,7 +49,7 @@ fun build_dlist ['a] {n : Nat} (l : {n} 'a list) =
   end
 
 absidx T_fold_to_left : BigO 2 (fn m n => $m * $n) with
-fun fold_to_left ['a 'b] {m l r : Nat} (f : 'a * 'b -- $m --> 'b) (acc : 'b) (l : {l} {r} 'a dlist) return 'b using T_fold_to_left m l =
+fun fold_to_left ['a 'b] {m l r : Nat} (f : 'a * 'b -- $m --> 'b) (acc : 'b) (l : dlist 'a {r} {l}) return 'b using T_fold_to_left m l =
   case l of
       DLNil _ => acc
     | DRNil ref_left =>
@@ -71,7 +71,7 @@ fun fold_to_left ['a 'b] {m l r : Nat} (f : 'a * 'b -- $m --> 'b) (acc : 'b) (l 
 end
 
 absidx T_fold_from_left : BigO 2 (fn m n => $m * $n) with
-fun fold_from_left ['a 'b] {m l r : Nat} (f : 'a * 'b -- $m --> 'b) (acc : 'b) (l : {l} {r} 'a dlist) return 'b using T_fold_from_left m l =
+fun fold_from_left ['a 'b] {m l r : Nat} (f : 'a * 'b -- $m --> 'b) (acc : 'b) (l : dlist 'a {r} {l}) return 'b using T_fold_from_left m l =
   case l of
       DLNil _ => acc
     | DRNil ref_left =>
@@ -93,7 +93,7 @@ fun fold_from_left ['a 'b] {m l r : Nat} (f : 'a * 'b -- $m --> 'b) (acc : 'b) (
 end
 
 absidx T_fold_to_right : BigO 2 (fn m n => $m * $n) with
-fun fold_to_right ['a 'b] {m l r : Nat} (f : 'a * 'b -- $m --> 'b) (acc : 'b) (l : {l} {r} 'a dlist) return 'b using T_fold_to_right m r =
+fun fold_to_right ['a 'b] {m l r : Nat} (f : 'a * 'b -- $m --> 'b) (acc : 'b) (l : dlist 'a {r} {l}) return 'b using T_fold_to_right m r =
   case l of
       DLNil right => fold_to_right f acc right
     | DRNil _ => acc
@@ -101,7 +101,7 @@ fun fold_to_right ['a 'b] {m l r : Nat} (f : 'a * 'b -- $m --> 'b) (acc : 'b) (l
 end
 
 absidx T_fold_from_right : BigO 2 (fn m n => $m * $n) with
-fun fold_from_right ['a 'b] {m l r : Nat} (f : 'a * 'b -- $m --> 'b) (acc : 'b) (l : {l} {r} 'a dlist) return 'b using T_fold_from_right m r =
+fun fold_from_right ['a 'b] {m l r : Nat} (f : 'a * 'b -- $m --> 'b) (acc : 'b) (l : dlist 'a {r} {l}) return 'b using T_fold_from_right m r =
   case l of
       DLNil right => fold_from_right f acc right
     | DRNil _ => acc

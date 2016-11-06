@@ -3,17 +3,17 @@ open List
        
 absidx gg : {gg : Fun 1 | gg O (fn n => $n)} with
 val g =
- fn {n : Nat} (xs : {n} int list) return using gg n => xs
+ fn {n : Nat} (xs : list int {n}) return using gg n => xs
 end
 
 absidx hh : {hh : Fun 1 | hh O (fn n => 1.0)} with
 val h =
- fn {n : Nat} (xs : {n} int list) return using hh n => xs
+ fn {n : Nat} (xs : list int {n}) return using hh n => xs
 end
 
-absidx ff : {ff : Fun 1 | ff O (fn n => $n)(* _ *)} with
+absidx ff : {ff : Fun 1 | ff O (fn n => $n)} with
 val f =
- fn {n : Nat} (xs : {n} int list) return using ff n =>
+ fn {n : Nat} (xs : list int {n}) return using ff n =>
     let
         val xs = g xs
         val xs = h xs
@@ -22,10 +22,10 @@ val f =
     end
 end
 
-absidx {T : Fun 1 | T O (fn n => $n)(* _ *)} with
+absidx {T : Fun 1 | T O (fn n => $n)} with
 fun map ['a 'b] (f : 'a -- 5.0 --> 'b) =
     let
-      fun map {n : Nat} (xs : {n} (* _ *)'a list) return {n} (* _ *)'b list using T n =
+      fun map {n : Nat} (xs : list 'a {n}) return list 'b {n} using T n =
           case xs of
               Nil => Nil
             | Cons (x, xs) =>
@@ -35,7 +35,7 @@ fun map ['a 'b] (f : 'a -- 5.0 --> 'b) =
     end
 end      
 
-fun split ['a] {n : Nat} (xs : {n} 'a list) return {ceil ($n/2)} (* _ *)'a list * {floor ($n/2)} (* _ *)'a list using $n =
+fun split ['a] {n : Nat} (xs : list 'a {n}) return list 'a {ceil ($n/2)} * list 'a {floor ($n/2)} using $n =
     case xs of
         Nil => (Nil, Nil)
       | Cons (x, Nil) => (xs, Nil)
@@ -45,8 +45,8 @@ fun split ['a] {n : Nat} (xs : {n} 'a list) return {ceil ($n/2)} (* _ *)'a list 
 
 datatype bool = true | false
 
-absidx {T2 : Fun 1 | T2 O (fn n => $n)(* _ *)} with
-fun merge ['a] {n1 : Nat} {n2 : Nat} (lt : 'a * 'a -- 8.0 --> bool) (xs : {n1} (* _ *)'a list) (ys : {n2} (* _ *)'a list) return {n1 + n2} (* _ *)'a list using T2 (n1 + n2) =
+absidx {T2 : Fun 1 | T2 O (fn n => $n)} with
+fun merge ['a] {n1 : Nat} {n2 : Nat} (lt : 'a * 'a -- 8.0 --> bool) (xs : list 'a {n1}) (ys : list 'a {n2}) return list 'a {n1 + n2} using T2 (n1 + n2) =
     case (xs, ys) of
         (Nil, _) => ys
       | (_, Nil) => xs
@@ -56,8 +56,8 @@ fun merge ['a] {n1 : Nat} {n2 : Nat} (lt : 'a * 'a -- 8.0 --> bool) (xs : {n1} (
           | false => Cons (y, merge lt xs ys')
 end
 
-absidx {T3 : Fun 1 | T3 O (fn n => $n * log2 $n)(* _ *)} with
-fun msort ['a] {n : Nat} (lt : 'a * 'a -- 8.0 --> bool) (xs : {n} 'a list) return {n} (* _ *)'a list using T3 n =
+absidx {T3 : Fun 1 | T3 O (fn n => $n * log2 $n)} with
+fun msort ['a] {n : Nat} (lt : 'a * 'a -- 8.0 --> bool) (xs : list 'a {n}) return list 'a {n} using T3 n =
     case xs of
         Nil => xs
       | Cons _ =>
@@ -66,17 +66,17 @@ fun msort ['a] {n : Nat} (lt : 'a * 'a -- 8.0 --> bool) (xs : {n} 'a list) retur
 end
 
 absidx g : BigO 1 (fn n => $n) with
-fun insert ['a] {n : Nat} (le : 'a * 'a -- 7.0(* _ *) --> bool) (xs : {n} (* _ *)'a list) x return {n + 1} (* _ *)'a list using g n =
+fun insert ['a] {n : Nat} (le : 'a * 'a -- 7.0 --> bool) (xs : list 'a {n}) x return list 'a {n + 1} using g n =
     case xs of
         Nil => Cons (x, Nil)
       | Cons (x', xs') =>
-        case le (x, x') (* return {n + 1} _ list using 1.0 + g n' *) of
+        case le (x, x') (* return list _ {n + 1} using 1.0 + g n' *) of
             true => Cons (x, xs)
           | false => Cons (x', insert le xs' x)
 end
 
 absidx g : BigO 1 (fn n => $n * $n) with
-fun isort ['a] {n : Nat} (le : 'a * 'a -- 7.0(* _ *) --> bool) (xs : {n} (* _ *)'a list) return {n} (* _ *)'a list using g n =
+fun isort ['a] {n : Nat} (le : 'a * 'a -- 7.0 --> bool) (xs : list 'a {n}) return list 'a {n} using g n =
     case xs of
         Nil => Nil
       | Cons (x, xs) => insert le (isort le xs) x

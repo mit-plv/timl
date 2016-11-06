@@ -5,11 +5,11 @@ struct
   open Array
 
   datatype natnum : {Nat} =
-    NumO of {0} natnum
-  | NumS {n' : Nat} of {n'} nat * {n'} natnum --> {n' + 1} natnum
+    NumO of natnum {0}
+  | NumS {n' : Nat} of nat {n'} * natnum {n'} --> natnum {n' + 1}
 
   absidx T_nat_2_natnum : BigO 1 (fn n => $n) = fn n => 11.0 * $n + 8.0  with
-    fun nat_2_natnum {n : Nat} (n : {n} nat) return {n} natnum using T_nat_2_natnum n =
+    fun nat_2_natnum {n : Nat} (n : nat {n}) return natnum {n} using T_nat_2_natnum n =
       case Nat.le (n, #0) return using (T_nat_2_natnum n) - 8.0 of
            Le => NumO
          | @Gt {m} {_} {pf} =>
@@ -21,7 +21,7 @@ struct
   end
 
   absidx T_array_merge_helper : BigO 2 (fn m n => $m * $n) with
-    fun array_merge_helper ['a] {m n1 n2 l r n : Nat} {l <= n1} {r <= n2} {n = l + r} (le : 'a * 'a -- $m --> bool) (xs : {n1} 'a array, ys : {n2} 'a array, des : {n1 + n2} 'a array, l : {l} natnum, r : {r} natnum, n : {n} natnum) return unit using T_array_merge_helper m n =
+    fun array_merge_helper ['a] {m n1 n2 l r n : Nat} {l <= n1} {r <= n2} {n = l + r} (le : 'a * 'a -- $m --> bool) (xs : array 'a {n1}, ys : array 'a {n2}, des : array 'a {n1 + n2}, l : natnum {l}, r : natnum {r}, n : natnum {n}) return unit using T_array_merge_helper m n =
       case (l, r, n) of
            (NumO, NumO, NumO) => ()
          | (NumO, NumS (j, r'), NumS (k, n')) =>
@@ -59,7 +59,7 @@ struct
          | _ => never
   end
 
-  fun array_merge ['a] {m n1 n2 : Nat} (le : 'a * 'a -- $m --> bool) (xs : {n1} 'a array, ys : {n2} 'a array, des : {n1 + n2} 'a array) =
+  fun array_merge ['a] {m n1 n2 : Nat} (le : 'a * 'a -- $m --> bool) (xs : array 'a {n1}, ys : array 'a {n2}, des : array 'a {n1 + n2}) =
   let
     val lx = length xs
     val ly = length ys
@@ -68,26 +68,26 @@ struct
   end
 
   absidx T_array_msort_on_range : BigO 2 (fn m n => $m * $n * log2 $n) with
-    fun array_msort_on_range ['a] {m : Nat} {len : Nat} {l : Nat} {n : Nat} {n > 0} {l + n <= len} (le : 'a * 'a -- $m --> bool) (a : {len} 'a array, l : {l} nat, n : {n} nat) return unit using T_array_msort_on_range m n =
+    fun array_msort_on_range ['a] {m : Nat} {len : Nat} {l : Nat} {n : Nat} {n > 0} {l + n <= len} (le : 'a * 'a -- $m --> bool) (a : array 'a {len}, l : nat {l}, n : nat {n}) return unit using T_array_msort_on_range m n =
       case Nat.le (n, #1) of
            Le => ()
          | Gt =>
              let
                val half = floor_half n
-               val rest : {ceil ($n/2)} nat = nat_minus (n, half)
+               val rest : nat {ceil ($n/2)} = nat_minus (n, half)
                val m = nat_plus (l, half)
                val () = array_msort_on_range le (a, l, half)
                val () = array_msort_on_range le (a, m, rest)
-               val left = tabulate (half, fn (w : {floor ($n/2)} nat_less_than) => case w of NatLT i => sub (a, nat_plus (l, i)))
-               val right = tabulate (rest, fn (w : {ceil ($n/2)} nat_less_than) => case w of NatLT i => sub (a, nat_plus (m, i)))
+               val left = tabulate (half, fn (w : nat_less_than {floor ($n/2)}) => case w of NatLT i => sub (a, nat_plus (l, i)))
+               val right = tabulate (rest, fn (w : nat_less_than {ceil ($n/2)}) => case w of NatLT i => sub (a, nat_plus (m, i)))
                val res = array (n, sub (a, l))
                val () = array_merge le (left, right, res)
              in
-               appi (fn (w : {n} nat_less_than, x) => case w of NatLT i => update (a, nat_plus (l, i), x)) res
+               appi (fn (w : nat_less_than {n}, x) => case w of NatLT i => update (a, nat_plus (l, i), x)) res
              end
   end
 
-  fun array_msort ['a] {m : Nat} {len : Nat} (le : 'a * 'a -- $m --> bool) (a : {len} 'a array) =
+  fun array_msort ['a] {m : Nat} {len : Nat} (le : 'a * 'a -- $m --> bool) (a : array 'a {len}) =
     case Nat.le (length a, #0) of
          Le => ()
        | Gt => array_msort_on_range le (a, #0, length a)

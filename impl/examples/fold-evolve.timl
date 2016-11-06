@@ -4,7 +4,7 @@ open List
 val ['a 'b] foldl =
  fn {m : Nat} (f : 'a * 'b -- $m --> 'b) =>
     let
-        fun foldl {n : Nat} (y : (* _ *)'b, xs : {n} (* _ *)'a list) return (* _ *)'b using $(m + 2) * $n =
+        fun foldl {n : Nat} (y : 'b, xs : list 'a {n}) return 'b using $(m + 2) * $n =
             case xs of
                 Nil => y
               | Cons (x, xs) => foldl (f (x, y), xs)
@@ -12,11 +12,11 @@ val ['a 'b] foldl =
         foldl
     end
 
-absidx h : BigO 2 (fn m n => $m * $n)(* _ *) with
+absidx h : BigO 2 (fn m n => $m * $n) with
 val ['a 'b] foldl =
  fn {m : Nat} (f : 'a * 'b -- $m --> 'b) =>
     let
-        fun foldl {n : Nat} (y : (* _ *)'b, xs : {n} (* _ *)'a list) return (* _ *)'b using h m n =
+        fun foldl {n : Nat} (y : 'b, xs : list 'a {n}) return 'b using h m n =
             case xs of
                 Nil => y
               | Cons (x, xs) => foldl (f (x, y), xs)
@@ -25,11 +25,11 @@ val ['a 'b] foldl =
     end
 end
 
-absidx h : BigO 2 (fn m n => $m * $n)(* _ *) with
+absidx h : BigO 2 (fn m n => $m * $n) with
 val ['a 'b] foldl =
  fn {m : Nat} (f : 'a * 'b -- $m --> 'b) =>
     let
-        fun foldl {n : Nat} y (xs : {n} (* _ *)'a list) return (* _ *)'b using h m n =
+        fun foldl {n : Nat} y (xs : list 'a {n}) return 'b using h m n =
             case xs of
                 Nil => y
               | Cons (x, xs) => foldl (f (x, y)) xs

@@ -2,59 +2,59 @@ structure Array = struct
   open Basic
 
   datatype nat_less_than {m : Nat} =
-    NatLT {n : Nat} {n < m} of {n} nat --> {m} nat_less_than
+    NatLT {n : Nat} {n < m} of nat {n} --> nat_less_than {m}
 
-  fun array ['a] {len : Nat} (n : {len} nat, x : 'a) return {len} 'a array using $len =
+  fun array ['a] {len : Nat} (n : nat {len}, x : 'a) return array 'a {len} using $len =
     builtin
 
-  fun fromList ['a] {len : Nat} (l : {len} 'a List.list) return {len} 'a array using $len =
+  fun fromList ['a] {len : Nat} (l : List.list 'a {len}) return array 'a {len} using $len =
     builtin
 
-  fun tabulate ['a] {len : Nat} {m : Time} (n : {len} nat, f : {len} nat_less_than -- m --> 'a) return {len} 'a array using (m + $1) * $len =
+  fun tabulate ['a] {len : Nat} {m : Time} (n : nat {len}, f : nat_less_than {len} -- m --> 'a) return array 'a {len} using (m + $1) * $len =
     builtin
 
-  fun length ['a] {len : Nat} (a : {len} 'a array) return {len} nat using 0.0 =
+  fun length ['a] {len : Nat} (a : array 'a {len}) return nat {len} using 0.0 =
     builtin
 
-  fun sub ['a] {len who : Nat} {who < len} (a : {len} 'a array, n : {who} nat) return 'a using 0.0 =
+  fun sub ['a] {len who : Nat} {who < len} (a : array 'a {len}, n : nat {who}) return 'a using 0.0 =
     builtin
 
-  fun update ['a] {len who : Nat} {who < len} (a : {len} 'a array, n : {who} nat, x : 'a) return unit using 0.0 =
+  fun update ['a] {len who : Nat} {who < len} (a : array 'a {len}, n : nat {who}, x : 'a) return unit using 0.0 =
     builtin
 
-  fun appi ['a] {m : Time} {len : Nat} (f : {len} nat_less_than * 'a -- m --> unit) (a : {len} 'a array) return unit using (m + $1) * $len =
+  fun appi ['a] {m : Time} {len : Nat} (f : nat_less_than {len} * 'a -- m --> unit) (a : array 'a {len}) return unit using (m + $1) * $len =
     builtin
 
-  fun app ['a] {m : Time} {len : Nat} (f : 'a -- m --> unit) (a : {len} 'a array) return unit using (m + $1) * $len =
+  fun app ['a] {m : Time} {len : Nat} (f : 'a -- m --> unit) (a : array 'a {len}) return unit using (m + $1) * $len =
     builtin
 
-  fun modifyi ['a] {m : Time} {len : Nat} (f : {len} nat_less_than * 'a -- m --> 'a) (a : {len} 'a array) return unit using (m + $1) * $len =
+  fun modifyi ['a] {m : Time} {len : Nat} (f : nat_less_than {len} * 'a -- m --> 'a) (a : array 'a {len}) return unit using (m + $1) * $len =
     builtin
 
-  fun modify ['a] {m : Time} {len : Nat} (f : 'a -- m --> 'a) (a : {len} 'a array) return unit using (m + $1) * $len =
+  fun modify ['a] {m : Time} {len : Nat} (f : 'a -- m --> 'a) (a : array 'a {len}) return unit using (m + $1) * $len =
     builtin
 
-  fun foldli ['a 'b] {m : Time} {len : Nat} (f : {len} nat_less_than * 'a * 'b -- m --> 'b) (x : 'b) (a : {len} 'a array) return 'b using (m + $1) * $len =
+  fun foldli ['a 'b] {m : Time} {len : Nat} (f : nat_less_than {len} * 'a * 'b -- m --> 'b) (x : 'b) (a : array 'a {len}) return 'b using (m + $1) * $len =
     builtin
 
-  fun foldri ['a 'b] {m : Time} {len : Nat} (f : {len} nat_less_than * 'a * 'b -- m --> 'b) (x : 'b) (a : {len} 'a array) return 'b using (m + $1) * $len =
+  fun foldri ['a 'b] {m : Time} {len : Nat} (f : nat_less_than {len} * 'a * 'b -- m --> 'b) (x : 'b) (a : array 'a {len}) return 'b using (m + $1) * $len =
     builtin
 
-  fun foldl ['a 'b] {m : Time} (f : 'a * 'b -- m --> 'b) (x : 'b) {len : Nat} (a : {len} 'a array) return 'b using (m + $1) * $len =
+  fun foldl ['a 'b] {m : Time} (f : 'a * 'b -- m --> 'b) (x : 'b) {len : Nat} (a : array 'a {len}) return 'b using (m + $1) * $len =
     builtin
 
-  fun foldr ['a 'b] {m : Time} (f : 'a * 'b -- m --> 'b) (x : 'b) {len : Nat} (a : {len} 'a array) return 'b using (m + $1) * $len =
+  fun foldr ['a 'b] {m : Time} (f : 'a * 'b -- m --> 'b) (x : 'b) {len : Nat} (a : array 'a {len}) return 'b using (m + $1) * $len =
     builtin
 
-  fun find ['a] {m : Time} (f : 'a -- m --> bool) {len : Nat} (a : {len} 'a array) return 'a option using (m + $1) * $len =
+  fun find ['a] {m : Time} (f : 'a -- m --> bool) {len : Nat} (a : array 'a {len}) return option 'a using (m + $1) * $len =
     builtin
 
-  fun exi_sts ['a] {m : Time} (f : 'a -- m --> bool) {len : Nat} (a : {len} 'a array) return bool using (m + $1) * $len =
+  fun exi_sts ['a] {m : Time} (f : 'a -- m --> bool) {len : Nat} (a : array 'a {len}) return bool using (m + $1) * $len =
     builtin
 
-  fun all ['a] {m : Time} (f : 'a -- m --> bool) {len : Nat} (a : {len} 'a array) return bool using (m + $1) * $len =
+  fun all ['a] {m : Time} (f : 'a -- m --> bool) {len : Nat} (a : array 'a {len}) return bool using (m + $1) * $len =
     builtin
 
-  fun toList ['a] {len : Nat} (a : {len} 'a array) return {len} 'a List.list using $len =
+  fun toList ['a] {len : Nat} (a : array 'a {len}) return List.list 'a {len} using $len =
     builtin
 end

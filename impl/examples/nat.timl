@@ -1,71 +1,71 @@
 structure Nat = struct
 
 datatype cmp_result {a b : Nat} =
-         Equal {a = b} of {b} {a} cmp_result
-         | Less {a < b} of {b} {a} cmp_result
-         | Greater {a > b} of {b} {a} cmp_result
+         Equal {a = b} of cmp_result {a} {b} 
+       | Less {a < b} of cmp_result {a} {b}
+       | Greater {a > b} of cmp_result {a} {b} 
 
-fun cmp {x y : Nat} (x : {x} nat, y : {y} nat) return {y} {x} cmp_result using 0.0 =
+fun cmp {x y : Nat} (x : nat {x}, y : nat {y}) return cmp_result {x} {y} using 0.0 =
     builtin
 
 datatype le_result : {Nat} {Nat} =
-         Le {a b : Nat} {a <= b} of {b} {a} le_result
-       | Gt {a b : Nat} {a > b} of {b} {a} le_result
+         Le {a b : Nat} {a <= b} of le_result {a} {b} 
+       | Gt {a b : Nat} {a > b} of le_result {a} {b} 
 
-fun le {x : Nat} {y : Nat} (x : {x} nat, y : {y} nat) return {y} {x} le_result using 7.0 =
+fun le {x : Nat} {y : Nat} (x : nat {x}, y : nat {y}) return le_result {x} {y} using 7.0 =
     case cmp (x, y) of
         Equal => Le
       | Less => Le
       | Greater => Gt
 
 datatype min_max_result : {Nat} {Nat} =
-         MinMaxResult {a b a' b' : Nat} {(a <= b -> a' = a /\ b' = b) /\ (a > b -> a' = b /\ b' = a)} of {a'} nat * {b'} nat --> {b} {a} min_max_result
+         MinMaxResult {a b a' b' : Nat} {(a <= b -> a' = a /\ b' = b) /\ (a > b -> a' = b /\ b' = a)} of nat {a'} * nat {b'} --> min_max_result {a} {b} 
 
-fun min_max {m : Time} {x y : Nat} (le : {x} nat * {y} nat -- m --> {y} {x} le_result) (x : {x} nat, y : {y} nat) return {y} {x} min_max_result =
+fun min_max {m : Time} {x y : Nat} (le : nat {x} * nat {y} -- m --> le_result {x} {y}) (x : nat {x}, y : nat {y}) return min_max_result {x} {y} =
     case le (x, y) of
         Le => MinMaxResult (x, y)
       | Gt => MinMaxResult (y, x)
 
 datatype eq_dec {a b : Nat} =
-         Eq {a = b} of {b} {a} eq_dec
-       | Neq {~ (a = b)} of {b} {a} eq_dec
+         Eq {a = b} of eq_dec {a} {b}
+       | Neq {~ (a = b)} of eq_dec {a} {b}
 
-fun eq_dec {x y : Nat} (x : {x} nat, y : {y} nat) return {y} {x} eq_dec using 1.0 =
+fun eq_dec {x y : Nat} (x : nat {x}, y : nat {y}) return eq_dec {x} {y} using 1.0 =
     case cmp (x, y) of
         Equal => Eq
       | Less => Neq
       | Greater => Neq
 
 datatype lt_dec {a b : Nat} =
-         Lt {a < b} of {b} {a} lt_dec
-       | Ge {a >= b} of {b} {a} lt_dec
+         Lt {a < b} of lt_dec {a} {b}
+       | Ge {a >= b} of lt_dec {a} {b}
 
-fun lt_dec {x y : Nat} (x : {x} nat, y : {y} nat) return {y} {x} lt_dec using 1.0 =
+fun lt_dec {x y : Nat} (x : nat {x}, y : nat {y}) return lt_dec {x} {y} using 1.0 =
     case cmp (x, y) of
         Equal => Ge
       | Less => Lt
       | Greater => Ge
 
-fun nat_mult {a b : Nat} (a : {a} nat, b : {b} nat) return {a * b} nat using 1.0 =
+fun nat_mult {a b : Nat} (a : nat {a}, b : nat {b}) return nat {a * b} using 1.0 =
     builtin
 
-fun nat_max {a b : Nat} (a : {a} nat, b : {b} nat) return {a max b} nat using 1.0 =
+fun nat_max {a b : Nat} (a : nat {a}, b : nat {b}) return nat {a max b} using 1.0 =
     builtin
 
-val nat_1 : {1} nat = #1
-val nat_2 : {2} nat = #2
-val nat_4 : {4} nat = #4
+val nat_1 : nat {1} = #1
+val nat_2 : nat {2} = #2
+val nat_4 : nat {4} = #4
 
-fun floor_half {n : Nat} (n : {n} nat) return {floor ($n / 2)} nat =
+fun floor_half {n : Nat} (n : nat {n}) return nat {floor ($n / 2)} =
     builtin
 
-  fun ceil_half {n : Nat} (n : {n} nat) return {ceil ($n / 2)} nat =
+fun ceil_half {n : Nat} (n : nat {n}) return nat {ceil ($n / 2)} =
     builtin
 
-  fun nat_plus {a b : Nat} (a : {a} nat, b : {b} nat) return {a + b} nat using 1.0 =
+fun nat_plus {a b : Nat} (a : nat {a}, b : nat {b}) return nat {a + b} using 1.0 =
     builtin
 
-  fun nat_minus {a b : Nat} {a >= b} (a : {a} nat, b : {b} nat) return {a - b} nat using 1.0 =
+fun nat_minus {a b : Nat} {a >= b} (a : nat {a}, b : nat {b}) return nat {a - b} using 1.0 =
     builtin
 
 end

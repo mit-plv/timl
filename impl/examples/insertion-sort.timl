@@ -3,17 +3,17 @@ open Basic
 open List
        
 absidx g : BigO 2 (fn m n => $m * $n) with
-fun insert ['a] {m : Nat} {n : Nat} (le : 'a * 'a -- $m --> bool) (xs : {n} (* _ *)'a list) x return {n + 1} (* _ *)'a list using g m n =
+fun insert ['a] {m : Nat} {n : Nat} (le : 'a * 'a -- $m --> bool) (xs : list 'a {n}) x return list 'a {n + 1} using g m n =
     case xs of
         Nil => Cons (x, Nil)
       | Cons (x', xs') =>
-        case le (x, x') (* return {n + 1} _ list using 1.0 + g m n' *) of
+        case le (x, x') (* return list _ {n + 1} using 1.0 + g m n' *) of
             true => Cons (x, xs)
           | false => Cons (x', insert le xs' x)
 end
 
 absidx g : BigO 2 (fn m n => $m * $n * $n) with
-fun isort ['a] {m : Nat} {n : Nat} (le : 'a * 'a -- $m --> bool) (xs : {n} (* _ *)'a list) return {n} (* _ *)'a list using g m n =
+fun isort ['a] {m : Nat} {n : Nat} (le : 'a * 'a -- $m --> bool) (xs : list 'a {n}) return list 'a {n} using g m n =
     case xs of
         Nil => Nil
       | Cons (x, xs) => insert le (isort le xs) x

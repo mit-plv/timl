@@ -83,7 +83,8 @@ open Ast
        | exp of exp
        | aexp of exp
        | ty of ty
-         (* | aty of ty *)
+       | ty_term of ty
+       | ty_atom of ty
        | idx of idx
        | aidx of idx
        | sort of sort
@@ -162,7 +163,7 @@ open Ast
 %left PLUS MINUS
 %left MULT DIV MAX MIN
 (* %left APP *)
-%right APPR
+(* %left APPR *)
 
 %eop EOF
 %noshift EOF
@@ -203,7 +204,7 @@ spec : VAL id tnames COLON ty (SpecVal (id, tnames, ty, (VALleft, tyright)))
   | DATATYPE datatype_def (SpecDatatype datatype_def)
   | IDX id COLON sort (SpecIdx (id, sort))
   | TYPE id EQ ty (SpecTypeDef (id, ty))
-  | TYPE cur_sort_star id_plus (SpecType (rev id_plus, rev cur_sort_star, (TYPEleft, id_plusright)))
+  | TYPE id_plus cur_sort_star (SpecType (id_plus, cur_sort_star, (TYPEleft, cur_sort_starright)))
   | TYPE id (SpecType ([id], [], (TYPEleft, idright))) (* need this rule. don't know why *)
 
 decl : VAL tnames ptrn EQ exp (Val (tnames, ptrn, exp, (VALleft, expright)))
@@ -221,16 +222,20 @@ datatype_def : id_plus sorting_star datatype_def_kind EQ constr_bar_star (case m
 datatype_def_kind : COLON cur_sort_plus (cur_sort_plus)
                   | ([])
                     
-ty : ty DDASH idx LARROW ty (Arrow (ty1, idx, ty2, (ty1left, ty2right)))
+ty : ty_term (ty_term)
+   | ty DDASH idx LARROW ty (Arrow (ty1, idx, ty2, (ty1left, ty2right)))
    | ty ARROW ty (Arrow (ty1, VarI (underscore (ty1left, ty2right)), ty2, (ty1left, ty2right)))
    | ty ZERO_ARROW ty (Arrow (ty1, ConstIT ("0.0", (ty1left, ty2right)), ty2, (ty1left, ty2right)))
    | ty MULT ty (Prod (ty1, ty2, (ty1left, ty2right)))
-   | long_id (VarT long_id)
-   | quan tbind_plus COMMA ty (Quan (quan, tbind_plus, ty, (quanleft, tyright)))
-   | LPAREN ty RPAREN (ty)
-   | LCUR idx RCUR ty %prec APPR (AppTI (ty, idx, (LCURleft, tyright)))
-   | LCUR RCUR ty %prec APPR (AppTI (ty, VarI (underscore (LCURleft, RCURright)), (LCURleft, tyright)))
-   | ty ty %prec APPR (AppTT (ty2, ty1, (ty1left, ty2right)))
+
+ty_term : ty_atom (ty_atom)
+        | ty_term ty_atom (AppTT (ty_term, ty_atom, (ty_termleft, ty_atomright)))
+        | ty_term LCUR idx RCUR (AppTI (ty_term, idx, (ty_termleft, RCURright)))
+        | ty_term LCUR RCUR (AppTI (ty_term, VarI (underscore (LCURleft, RCURright)), (ty_termleft, RCURright)))
+                  
+ty_atom : long_id (VarT long_id)
+        | LPAREN ty RPAREN (ty)
+        | quan tbind_plus COMMA ty (Quan (quan, tbind_plus, ty, (quanleft, tyright)))
 
 exp : aexp (aexp)
      | exp PLUS exp (BinOp (Add, exp1, exp2, (exp1left, exp2right)))

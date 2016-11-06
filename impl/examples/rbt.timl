@@ -1,9 +1,9 @@
 structure LogFacts = struct
 
 datatype lemma1 {a b : Nat} =
-         Lemma1 {2 ^ a <= b + 1 -> a <= ceil (log2 $(b + 1))} of {b} {a} lemma1
+         Lemma1 {2 ^ a <= b + 1 -> a <= ceil (log2 $(b + 1))} of lemma1 {a} {b}
 
-fun lemma1 {a b : Nat} () return {b} {a} lemma1 =
+fun lemma1 {a b : Nat} () return lemma1 {a} {b} =
     @Lemma1 {a} {b} {admit}
       
 end
@@ -34,35 +34,35 @@ type key = K.t
 
 (* simplified version for paper *)             
 datatype color : {Bool} =
-         Black of {true} color
-         | Red of {false} color
+         Black of color {true}
+         | Red of color {false}
                           
 datatype rbt 'a : {Bool} {Nat} =
-         Leaf of {0} {true} 'a rbt
+         Leaf of rbt 'a {true} {0}
        | Node {lc c rc : Bool}
               {bh : Nat}
               {c = false -> lc = true /\ rc = true }
-         of {c} color * {bh} {lc} 'a rbt * (key * 'a) * {bh} {rc} 'a rbt --> {bh + b2n c} {c} 'a rbt
+         of color {c} * rbt 'a {lc} {bh} * (key * 'a) * rbt 'a {rc} {bh} --> rbt 'a {c} {bh + b2n c}
 
 (* real version *)                                                             
 datatype color : {Bool} =
-         Black of {true} color
-         | Red of {false} color
+         Black of color {true}
+         | Red of color {false}
 
 datatype rbt 'a : {Nat(*size*)} {Bool} {Nat(*black height*)} =
-         Leaf of {0} {true} {0} 'a rbt
+         Leaf of rbt 'a {0} {true} {0}
        | Node {lcolor color rcolor : Bool}
               {lsize rsize bh : Nat}
               {color = false -> lcolor = true /\ rcolor = true }
               {2 ^ (bh + b2n (not lcolor) + 1) <= 2 * (lsize + 1) /\ 2 * (lsize + 1) <= 2 ^ (2 * bh + b2n (not lcolor) + 1)}
               {2 ^ (bh + b2n (not rcolor) + 1) <= 2 * (rsize + 1) /\ 2 * (rsize + 1) <= 2 ^ (2 * bh + b2n (not rcolor) + 1)}
-         of {color} color * {bh} {lcolor} {lsize} 'a rbt * (key * 'a) * {bh} {rcolor} {rsize} 'a rbt --> {bh + b2n color} {color} {lsize + 1 + rsize} 'a rbt
+         of color {color} * rbt 'a {lsize} {lcolor} {bh} * (key * 'a) * rbt 'a {rsize} {rcolor} {bh} --> rbt 'a {lsize + 1 + rsize} {color} {bh + b2n color}
 
 datatype size_good {color : Bool} {size bh : Nat} =
          SizeGood {2 ^ (bh + b2n (not color) + 1) <= 2 * (size + 1) /\ 2 * (size + 1) <= 2 ^ (2 * bh + b2n (not color) + 1)}
-         of {bh} {size} {color} size_good
+         of size_good {color} {size} {bh}
                  
-fun rbt_size_good ['a] {color : Bool} {size bh : Nat} (tr : {bh} {color} {size} 'a rbt) return {bh} {size} {color} size_good =
+fun rbt_size_good ['a] {color : Bool} {size bh : Nat} (tr : rbt 'a {size} {color} {bh}) return size_good {color} {size} {bh} =
     case tr of
         Leaf => SizeGood
       | Node (color, _, _, _) =>
@@ -72,15 +72,15 @@ fun rbt_size_good ['a] {color : Bool} {size bh : Nat} (tr : {bh} {color} {size} 
                   
 datatype violation 'a : {Nat} {Nat} =
          ViolateLeft {lsize rsize bh : Nat}
-         of {bh} {false} {lsize} 'a rbt * (key * 'a) * {bh} {true} {rsize} 'a rbt --> {bh} {lsize + 1 + rsize} 'a violation
+         of rbt 'a {lsize} {false} {bh} * (key * 'a) * rbt 'a {rsize} {true} {bh} --> violation 'a {lsize + 1 + rsize} {bh}
        | ViolateRight {lsize rsize bh : Nat}
-         of {bh} {true} {lsize} 'a rbt * (key * 'a) * {bh} {false} {rsize} 'a rbt --> {bh} {lsize + 1 + rsize} 'a violation
+         of rbt 'a {lsize} {true} {bh} * (key * 'a) * rbt 'a {rsize} {false} {bh} --> violation 'a {lsize + 1 + rsize} {bh}
 
 fun balance_left ['a] {rcolor : Bool} {lsize rsize bh : Nat}
-                 (left : {bh} {lsize} 'a violation)
+                 (left : violation 'a {lsize} {bh})
                  (center as z : key * 'a)
-                 (right as d : {bh} {rcolor} {rsize} 'a rbt)
-                 return {bh + 1} {false} {lsize + 1 + rsize} 'a rbt =
+                 (right as d : rbt 'a {rsize} {rcolor} {bh})
+                 return rbt 'a {lsize + 1 + rsize} {false} {bh + 1} =
     case left of
         ViolateLeft (Node (Red, a, x, b), y, c) =>
         let
@@ -99,10 +99,10 @@ fun balance_left ['a] {rcolor : Bool} {lsize rsize bh : Nat}
       | _ => never
 
 fun balance_right ['a] {lcolor : Bool} {lsize rsize bh : Nat}
-                  (left as a : {bh} {lcolor} {lsize} 'a rbt)
+                  (left as a : rbt 'a {lsize} {lcolor} {bh})
                   (center as x : key * 'a)
-                  (right : {bh} {rsize} 'a violation)
-                  return {bh + 1} {false} {lsize + 1 + rsize} 'a rbt =
+                  (right : violation 'a {rsize} {bh})
+                  return rbt 'a {lsize + 1 + rsize} {false} {bh + 1} =
     case right of
         ViolateLeft (Node (Red, b, y, c), z, d) =>
         let
@@ -123,21 +123,21 @@ fun balance_right ['a] {lcolor : Bool} {lsize rsize bh : Nat}
 (* arbt: 'almost' red black tree, except that wellredness may be violated between root and one of its children *)
 datatype arbt 'a {size bh : Nat} : {Bool (*is already good?*)} {Bool} =
          Good {color : Bool}
-         of {color} color * {bh} {color} {size} 'a rbt --> {color} {true} {bh} {size} 'a arbt
+         of color {color} * rbt 'a {size} {color} {bh} --> arbt 'a {size} {bh} {true} {color}
        | Bad {size bh : Nat}
-         of {bh} {size} 'a violation --> {false} {false} {bh} {size} 'a arbt
+         of violation 'a {size} {bh} --> arbt 'a {size} {bh} {false} {false}
 
 datatype ins_result 'a {input_color : Bool} {input_size bh : Nat} =
          InsResult {output_color is_good : Bool}
                    {output_size : Nat}
                    {input_color = true -> is_good = true}
                    {output_size = input_size \/ output_size = input_size + 1}
-         of {output_color} {is_good} {bh} {output_size} 'a arbt --> {bh} {input_size} {input_color} 'a ins_result
+         of arbt 'a {output_size} {bh} {is_good} {output_color} --> ins_result 'a {input_color} {input_size} {bh}
 
 absidx T_ins : BigO 1 (fn n => $n) (* = fn n => 6.0 * $n *) with                                   
 fun ins ['v] {input_color : Bool} {input_size bh : Nat}
-        (tr : {bh} {input_color} {input_size} 'v rbt) (new as (k, _))
-        return {bh} {input_size} {input_color} 'v ins_result using (* 6.0 * $ *)T_ins (2 * bh + b2n (not input_color)) =
+        (tr : rbt 'v {input_size} {input_color} {bh}) (new as (k, _))
+        return ins_result 'v {input_color} {input_size} {bh} using (* 6.0 * $ *)T_ins (2 * bh + b2n (not input_color)) =
     case tr of
         Leaf =>
         let
@@ -231,14 +231,14 @@ end
 (* simplify time complexity *)
 absidx T_insert_rbt' : BigO 1 (fn n => $n) with                                   
 fun insert_rbt' ['v] {color : Bool} {size bh : Nat}
-        (tr : {bh} {color} {size} 'v rbt) new
+        (tr : rbt 'v {size} {color} {bh}) new
         return using T_insert_rbt' bh =
     ins tr new
 end
 
 absidx T_insert_rbt : BigO 1 (fn n => log2 $n) with                                   
 fun insert_rbt ['v] {color : Bool} {size bh : Nat}
-        (tr : {bh} {color} {size} 'v rbt) new
+        (tr : rbt 'v {size} {color} {bh}) new
         return using T_insert_rbt size =
     let
       val SizeGood _ = rbt_size_good tr
@@ -248,22 +248,22 @@ fun insert_rbt ['v] {color : Bool} {size bh : Nat}
     end
 end
 
-fun blacken_root ['a] {size bh : Nat} (tr : {bh} {false} {size} 'a rbt) return {bh + 1} {true} {size} 'a rbt =
+fun blacken_root ['a] {size bh : Nat} (tr : rbt 'a {size} {false} {bh}) return rbt 'a {size} {true} {bh + 1} =
     case tr of
         Node (Red, l, c, r) => Node (Black, l, c, r)
       | _ => never
 
 (* final packaging: root must be black *)
 datatype rb_tree 'a {size : Nat} =
-         RBTree {bh : Nat} of {bh} {true} {size} 'a rbt --> {size} 'a rb_tree
+         RBTree {bh : Nat} of rbt 'a {size} {true} {bh} --> rb_tree 'a {size}
 
 val empty = RBTree Leaf
 
 datatype may_grow_one 'a {size : Nat} =
-         MayGrowOne {size' : Nat | size' = size \/ size' = size + 1} of {size'} 'a rb_tree --> {size} 'a may_grow_one
+         MayGrowOne {size' : Nat | size' = size \/ size' = size + 1} of rb_tree 'a {size'} --> may_grow_one 'a {size}
 
 absidx T_insert : BigO 1 (fn n => log2 $n) with
-fun insert ['v] {size : Nat} (tr : {size} 'v rb_tree) (new: key * 'v) return {size} 'v may_grow_one using T_insert size =
+fun insert ['v] {size : Nat} (tr : rb_tree 'v {size}) (new: key * 'v) return may_grow_one 'v {size} using T_insert size =
     case tr of
         RBTree tr =>
         case insert_rbt tr new of
@@ -276,7 +276,7 @@ fun insert ['v] {size : Nat} (tr : {size} 'v rb_tree) (new: key * 'v) return {si
 end
 
 absidx T_lookup_rbt' : BigO 1 (fn n => $n) with
-fun lookup_rbt' ['v] {color : Bool} {size bh : Nat} (tr :{bh} {color} {size} 'v rbt) k return 'v option using T_lookup_rbt' (2 * bh + b2n (not color)) =
+fun lookup_rbt' ['v] {color : Bool} {size bh : Nat} (tr :rbt 'v {size} {color} {bh}) k return option 'v using T_lookup_rbt' (2 * bh + b2n (not color)) =
     case tr of
         Leaf => NONE
       | Node (_, left, (k', v), right) =>
@@ -289,13 +289,13 @@ end
 (* simplify time complexity *)
 absidx T_lookup_rbt : BigO 1 (fn n => $n) with                                   
 fun lookup_rbt ['v] {color : Bool} {size bh : Nat}
-        (tr : {bh} {color} {size} 'v rbt) k
+        (tr : rbt 'v {size} {color} {bh}) k
         return using T_lookup_rbt bh =
     lookup_rbt' tr k
 end
 
 absidx T_lookup : BigO 1 (fn n => log2 $n) with
-fun lookup ['v] {size : Nat} (tr : {size} 'v rb_tree) (k: key) return 'v option using T_lookup size =
+fun lookup ['v] {size : Nat} (tr : rb_tree 'v {size}) (k: key) return option 'v using T_lookup size =
     case tr of
         @RBTree {_ bh} tr =>
         let

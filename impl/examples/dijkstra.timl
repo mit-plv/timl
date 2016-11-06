@@ -5,14 +5,14 @@ open Basic
 open Array
 
 datatype dist_matrix 'a {n : Nat} =
-         Mat of {n} ({n} 'a array) array --> {n} 'a dist_matrix
+         Mat of array (array 'a {n}) {n} --> dist_matrix 'a {n}
 
-fun relax ['a] {m1 m2 n u : Nat} {u < n} (add : 'a * 'a -- $m1 --> 'a, le : 'a * 'a -- $m2 --> bool) (graph : {n} 'a dist_matrix) (u : {u} nat, dist : {n} 'a array) =
+fun relax ['a] {m1 m2 n u : Nat} {u < n} (add : 'a * 'a -- $m1 --> 'a, le : 'a * 'a -- $m2 --> bool) (graph : dist_matrix 'a {n}) (u : nat {u}, dist : array 'a {n}) =
   let
       val vec =
-          case graph return {n} 'a array of
+          case graph return array 'a {n} of
               Mat content => sub (content, u)
-      fun iter (w : {n} nat_less_than, ori_dist) =
+      fun iter (w : nat_less_than {n}, ori_dist) =
         case w of
             NatLT v =>
             let
@@ -27,9 +27,9 @@ fun relax ['a] {m1 m2 n u : Nat} {u < n} (add : 'a * 'a -- $m1 --> 'a, le : 'a *
       appi iter dist
   end
 
-fun select ['a] {m2 n : Nat} (le : 'a * 'a -- $m2 --> bool) (vis : {n} bool array, dist : {n} 'a array) =
+fun select ['a] {m2 n : Nat} (le : 'a * 'a -- $m2 --> bool) (vis : array bool {n}, dist : array 'a {n}) =
   let
-      fun iter (w : {n} nat_less_than, ori_dist, who : ({n} nat_less_than) option) =
+      fun iter (w : nat_less_than {n}, ori_dist, who : option (nat_less_than {n})) =
         case w of
             NatLT v =>
             if sub (vis, v) then who
@@ -48,9 +48,9 @@ fun select ['a] {m2 n : Nat} (le : 'a * 'a -- $m2 --> bool) (vis : {n} bool arra
       foldli iter NONE dist
   end
 
-fun dijkstra ['a] {m1 m2 n u : Nat} {u < n} (add : 'a * 'a -- $m1 --> 'a, le : 'a * 'a -- $m2 --> bool) (graph : {n} 'a dist_matrix, src : {u} nat, zero : 'a) =
+fun dijkstra ['a] {m1 m2 n u : Nat} {u < n} (add : 'a * 'a -- $m1 --> 'a, le : 'a * 'a -- $m2 --> bool) (graph : dist_matrix 'a {n}, src : nat {u}, zero : 'a) =
   let
-      val n = case graph return {n} nat of Mat content => length content
+      val n = case graph return nat {n} of Mat content => length content
       val dist = array (n, zero)
       val vis = array (n, false)
       val () = update (vis, src, true)
