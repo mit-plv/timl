@@ -340,6 +340,7 @@ structure Main = struct
 open Util
 open OS.Process
 open String
+open List
 
 exception ParseArgsError of string
             
