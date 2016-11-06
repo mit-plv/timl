@@ -1,6 +1,6 @@
 structure List = struct
 
-datatype {Nat} 'a list =
+datatype list 'a : {Nat} =
          Nil of {0} 'a list
        | Cons {n' : Nat} of 'a * {n'} 'a list --> {n' + 1} 'a list
 

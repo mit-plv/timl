@@ -4,18 +4,18 @@ struct
 open Basic
 open List
 
-datatype {Nat} {Nat} 'a queue =
-         Queue {s1 s2 : Nat} of {s1} 'a list * {s2} 'a list --> {s2} {s1} 'a queue
+datatype queue 'a {s1 s2 : Nat} =
+         Queue of {s1} 'a list * {s2} 'a list --> {s2} {s1} 'a queue
 
-datatype {Time} {Time} {Nat} {Nat} 'a some_output_and_cost_constraint =
+datatype some_output_and_cost_constraint 'a {s1 s2 : Nat} {acost cost : Time} =
          SomeOutputAndCostConstraint
-           {cost acost : Time} {s1 s2 s1' s2' : Nat}
+           {s1' s2' : Nat}
            {cost + $s1' <= $s1 + acost}
          of {s2'} {s1'} 'a queue --> {cost} {acost} {s2} {s1} 'a some_output_and_cost_constraint
 
-datatype {Time} {Nat} {Nat} 'a amortized_comp =
+datatype amortized_comp 'a {s1 s2 : Nat} {acost : Time} =
          AmortizedComp
-           {cost acost : Time} {s1 s2 : Nat}
+           {cost : Time} 
          of (unit -- cost --> {cost} {acost} {s2} {s1} 'a some_output_and_cost_constraint) --> {acost} {s2} {s1} 'a amortized_comp
 
 fun rev_append ['a] {n m : Nat} (l : {n} 'a list, acc : {m} 'a list) return {n + m} 'a list using $n =
@@ -51,7 +51,7 @@ fun pop ['a] {s1 s2 : Nat} (q : {s2} {s1} 'a queue) return {3.0} {s2} {s1} 'a am
       (fn () =>
           SomeOutputAndCostConstraint (do_pop q))
 
-datatype 'a operation =
+datatype operation 'a =
          OPush of 'a --> 'a operation
          | OPop of 'a operation
 
@@ -60,7 +60,7 @@ fun push_or_pop ['a] {s1 s2 : Nat} (q : {s2} {s1} 'a queue, opr : 'a operation) 
         OPush x => push (q, x)
       | OPop => pop q
 
-datatype 'a some_queue =
+datatype some_queue 'a =
          SomeQueue {s1 s2 : Nat} of {s2} {s1} 'a queue --> 'a some_queue
 
 fun push_pop_seq ['a] {s1 s2 cnt : Nat} (q : {s2} {s1} 'a queue, oprs : {cnt} ('a operation) list) return 'a some_queue using 7.0 * $cnt + $s1 =

@@ -90,7 +90,7 @@ Done. 81. Currently [absidx ... with ... end] is "scoped abstract index". We sho
 82. Make [kind]'s sorts dependent.
 83. Generate typing derivations.
 84. Remove annotations on [case] (at least in a mode).
-85. [datatype] can introduce index variable names at the first line for every constructor.
+Done. 85. [datatype] can introduce index variable names at the first line for every constructor.
 
 To-do Examples:
 Done. 1. Binary search with arrays.

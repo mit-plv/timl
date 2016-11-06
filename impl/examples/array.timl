@@ -1,8 +1,8 @@
 structure Array = struct
   open Basic
 
-  datatype {Nat} nat_less_than =
-    NatLT {n m : Nat} {n < m} of {n} nat --> {m} nat_less_than
+  datatype nat_less_than {m : Nat} =
+    NatLT {n : Nat} {n < m} of {n} nat --> {m} nat_less_than
 
   fun array ['a] {len : Nat} (n : {len} nat, x : 'a) return {len} 'a array using $len =
     builtin

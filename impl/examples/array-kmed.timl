@@ -5,8 +5,8 @@ open Basic
 open Nat
 open Array
 
-datatype {Nat} nat_less_equal_than =
-         NatLE {m n : Nat} {m <= n} of {m} nat --> {n} nat_less_equal_than
+datatype nat_less_equal_than {n : Nat} =
+         NatLE {m : Nat} {m <= n} of {m} nat --> {n} nat_less_equal_than
 
 fun swap ['a] {len i j : Nat} {i < len} {j < len} (a : {len} 'a array, i : {i} nat, j : {j} nat) =
   let

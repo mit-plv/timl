@@ -6,7 +6,7 @@ functor DynamicTable (structure T : sig
   val table_size_le_capa ['a] : forall {capa size : Nat}, {size} {capa} 'a table -- 1.0 --> {capa} {size} Basic.le
   val alloc ['a] : forall {capa : Nat}, {capa} nat -- 1.0 --> {0} {capa} 'a table
   val do_insert ['a] : forall {capa size : Nat} {size < capa}, {size} {capa} 'a table ->> 'a -- 1.0 --> {size + 1} {capa} 'a table
-  datatype {Nat} {Nat} 'a do_delete = DoDelete {capa size size' : Nat} {size = size' \/ size = size' + 1} of {size'} {capa} 'a table --> {size} {capa} 'a do_delete
+  datatype do_delete 'a {size capa : Nat} = DoDelete {size' : Nat} {size = size' \/ size = size' + 1} of {size'} {capa} 'a table --> {size} {capa} 'a do_delete
   val do_delete ['a] : forall {capa size : Nat}, {size} {capa} 'a table ->> 'a -- 1.0 --> {size} {capa} 'a do_delete
   val copy ['a] : forall {capa size capa' size' : Nat}, {size} {capa} 'a table ->> {size'} {capa'} 'a table -- $size --> {size min capa'} {capa'} 'a table
   val size ['a] : forall {capa size : Nat}, {size} {capa} 'a table -- 1.0 --> {size} nat
@@ -21,18 +21,18 @@ open Nat
      cost + post_potential <= acost + pre_potential
    (acost: amortized cost)
  *)
-datatype {Time} {Time} {Nat} {Nat} 'a some_output_and_cost_constraint =
+datatype some_output_and_cost_constraint 'a {capa size : Nat} {acost cost : Time} =
          SomeOutputAndCostConstaint
-           {capa size capa' size' : Nat} {cost acost : Time}
+           {capa' size' : Nat}
            {cost + ite (2 * size' >= capa') ($(2 * size')) ($capa' / 2) + ite (2 * size >= capa) $capa $size <= ite (2 * size >= capa) ($(2 * size)) ($capa / 2) + ite (2 * size' >= capa') $capa' $size' + acost}
          of {size'} {capa'} 'a table --> {cost} {acost} {size} {capa} 'a some_output_and_cost_constraint
 
 (* An amortized computation is a closure (or "computation") whose cost is constrainted by the input and output capas in some manner.
    Note that the actual [cost] is existentially introduced and not visible from the type.
  *)
-datatype {Time} {Nat} {Nat} 'a amortized_comp =
-         AmortizedComp {capa size : Nat} {cost acost : Time} of
-         (unit -- cost --> {cost} {acost} {size} {capa} 'a some_output_and_cost_constraint) -->                                                                                                          {acost} {size} {capa} 'a amortized_comp
+datatype amortized_comp 'a {capa size : Nat} {acost : Time} =
+         AmortizedComp {cost : Time} of
+         (unit -- cost --> {cost} {acost} {size} {capa} 'a some_output_and_cost_constraint) --> {acost} {size} {capa} 'a amortized_comp
 
 (* When size reaches capacity, do re-allocation and copying *)
 fun insert ['a] {capa size : Nat} (x : 'a) (table : {size} {capa} 'a table) =
@@ -84,7 +84,7 @@ fun insert_or_delete ['a] {capa size : Nat} (is_insert : bool, x : 'a) (table : 
         true => insert x table
       | false => delete x table
 
-datatype 'a some_table =
+datatype some_table 'a =
          SomeTable {capa size : Nat} of {size} {capa} 'a table --> 'a some_table
 
 fun insert_delete_seq ['a] {n capa size : Nat} (xs : {n} (bool * 'a) list) (table : {size} {capa} 'a table) return 'a some_table using 48.0 * $n + ite (2 * size >= capa) ($(2 * size - capa)) ($capa / 2 - $size) =

@@ -5,7 +5,7 @@ open Basic
 open List
 open Array
 
-datatype 'a ref = Ref of {1} 'a array --> 'a ref
+datatype ref 'a = Ref of {1} 'a array --> 'a ref
 
 fun setref ['a] (r : 'a ref, x : 'a) =
   case r of
@@ -18,7 +18,7 @@ fun deref ['a] (r : 'a ref) =
 fun newref ['a] (x : 'a) =
   Ref (array (#1, x))
 
-datatype {Nat} {Nat} 'a dlist =
+datatype dlist 'a : {Nat} {Nat} =
          DLNil {r : Nat} of {1} {r} 'a dlist --> {0} {1 + r} 'a dlist
        | DRNil {l : Nat} of (({l} {1} 'a dlist) option) ref --> {l + 1} {0} 'a dlist
        | DMid {l r : Nat} of (({l} {r + 2} 'a dlist) option) ref * 'a * {l + 2} {r} 'a dlist --> {l + 1} {r + 1} 'a dlist

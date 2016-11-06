@@ -2,7 +2,7 @@ structure Tree = struct
 open Basic
 open List
        
-datatype {Nat} 'a tree =
+datatype tree 'a : {Nat} =
          Leaf of {0} 'a tree
        | Node {n1 : Nat} {n2 : Nat} of 'a * {n1} 'a tree * {n2} 'a tree --> {n1 + 1 + n2} 'a tree
 

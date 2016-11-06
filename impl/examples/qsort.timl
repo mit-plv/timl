@@ -2,7 +2,7 @@ structure QSort = struct
 open Basic
 open List
 
-datatype {Nat} 'a plist =
+datatype plist 'a : {Nat} =
          PList {p q : Nat} of {p} 'a list * {q} 'a list --> {p + q} 'a plist
 
 idx T_list_pivot : Fun 2 = fn m n => 4.0 * ($m + 1.0) * ($n + 1.0)

@@ -4,8 +4,8 @@ struct
 open Basic
 open Array
 
-datatype {Nat} 'a dist_matrix =
-         Mat {n : Nat} of {n} ({n} 'a array) array --> {n} 'a dist_matrix
+datatype dist_matrix 'a {n : Nat} =
+         Mat of {n} ({n} 'a array) array --> {n} 'a dist_matrix
 
 fun relax ['a] {m1 m2 n u : Nat} {u < n} (add : 'a * 'a -- $m1 --> 'a, le : 'a * 'a -- $m2 --> bool) (graph : {n} 'a dist_matrix) (u : {u} nat, dist : {n} 'a array) =
   let

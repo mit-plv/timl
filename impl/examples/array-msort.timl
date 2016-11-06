@@ -4,7 +4,7 @@ struct
   open Nat
   open Array
 
-  datatype {Nat} natnum =
+  datatype natnum : {Nat} =
     NumO of {0} natnum
   | NumS {n' : Nat} of {n'} nat * {n'} natnum --> {n' + 1} natnum
 

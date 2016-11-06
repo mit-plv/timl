@@ -38,7 +38,7 @@ datatype abs =
 	 Fn
 	 | Rec
 
-     and tbind =
+datatype tbind =
          Sorting of id * sort * region
 
 fun sortings (ids, s, r) = map (fn id => Sorting (id, s, r)) ids
@@ -86,7 +86,8 @@ datatype bind =
 	 | TBind of tbind
 
 type return = ty option * idx option
-type datatype_def = string * string list * sort list * constr_decl list * region
+
+type datatype_def = string * string list * tbind list * sort list * constr_decl list * region
               
 datatype exp = 
 	 Var of long_id * bool

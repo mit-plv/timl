@@ -5,7 +5,7 @@ structure BraunTree = struct
 open Basic
 open Nat
        
-datatype {Nat(*size*)} {Nat(*min element*)} braun_tree =
+datatype braun_tree : {Nat(*min element*)} {Nat(*size*)} =
          Leaf of {0} {0} braun_tree
        | Node {size lk rk k : Nat} {(size >= 1 -> k <= lk) /\ (size >= 2 -> k <= rk)} of {k} nat * {ceil ($size/2)} {lk} braun_tree * {floor ($size/2)} {rk} braun_tree --> {size+1} {k} braun_tree
 
@@ -35,9 +35,9 @@ fun peek_option {size k : Nat} (tr : {size} {k} braun_tree) return ({k} nat) opt
       | Node (x, _, _) => SOME x
 end
 
-datatype {Nat} {Nat} peek_option_result =
-         PeekSOME {size k : Nat} {size > 0} of {k} nat --> {size} {k} peek_option_result
-       | PeekNONE {size k : Nat} {size = 0} of {size} {k} peek_option_result
+datatype peek_option_result {k size : Nat} =
+         PeekSOME {size > 0} of {k} nat --> {size} {k} peek_option_result
+       | PeekNONE {size = 0} of {size} {k} peek_option_result
 
 absidx T : Time with
 fun peek_option {size k : Nat} (tr : {size} {k} braun_tree) return {size} {k} peek_option_result using T =
@@ -46,9 +46,9 @@ fun peek_option {size k : Nat} (tr : {size} {k} braun_tree) return {size} {k} pe
       | Node (x, _, _) => PeekSOME x
 end
 
-datatype {Nat} {Nat} {Nat} {Nat} le_le =
-         LeLe {a b a' b' : Nat} {a <= b /\ a' <= b'} of {b'} {a'} {b} {a} le_le
-       | NotLeLe {a b a' b' : Nat} {~ (a <= b /\ a' <= b')} of {b'} {a'} {b} {a} le_le
+datatype le_le {a b a' b' : Nat} =
+         LeLe {a <= b /\ a' <= b'} of {b'} {a'} {b} {a} le_le
+       | NotLeLe {~ (a <= b /\ a' <= b')} of {b'} {a'} {b} {a} le_le
 
 fun le_le {m : Time} {a b a' b' : Nat} (le : forall {x y : Nat}, {x} nat * {y} nat -- m --> {y} {x} le_result) (a : {a} nat, b : {b} nat) (a' : {a'} nat, b' : {b'} nat) return {b'} {a'} {b} {a} le_le =
     case (le (a, b), le (a', b')) of
@@ -80,8 +80,8 @@ fun sift {size lk rk x : Nat} (x : {x} nat, l : {ceil ($size/2)} {lk} braun_tree
       | _ => never
 end
 
-datatype {Nat} {Nat} pop =
-         Pop {size k k' : Nat} {size > 0 -> k <= k'} of {k} nat * {size} {k'} braun_tree --> {size} {k} pop
+datatype pop {k size : Nat} =
+         Pop {k' : Nat} {size > 0 -> k <= k'} of {k} nat * {size} {k'} braun_tree --> {size} {k} pop
                                                  
 absidx Tpop : BigO 1 (fn n => log2 $n * log2 $n)(* _ *) with
 fun pop {size k : Nat} (tr : {size + 1} {k} braun_tree) return {size} {k} pop using Tpop size =

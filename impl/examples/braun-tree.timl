@@ -1,7 +1,7 @@
 structure BraunTree = struct
 open Basic
 
-datatype {Nat} 'a braun_tree =
+datatype braun_tree 'a : {Nat} =
          Leaf of {0} 'a braun_tree
        | Node {size : Nat} of 'a * {ceil ($size/2)} 'a braun_tree * {floor ($size/2)} 'a braun_tree --> {size+1} 'a braun_tree
 

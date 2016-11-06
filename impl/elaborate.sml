@@ -213,47 +213,52 @@ local
           loop
         end
     *)
+
+  fun partitionSum f ls = mapPair (rev, rev) $ foldl (fn (x, (acc1, acc2)) => case f x of
+                                                             inl a => (a :: acc1, acc2) |
+                                                             inr b => (acc1, b :: acc2)) ([], []) ls
                 
-  fun elab_datatype (name, tnames, sorts, constrs, r) =
-          let
-            fun default_t2 r = foldl (fn (arg, f) => S.AppTT (f, S.VarT (NONE, (arg, r)), r)) (S.VarT (NONE, (name, r))) tnames
-              fun elab_constr (((cname, _), binds, core, r) : S.constr_decl) : constr_decl =
+  fun elab_datatype (name, tnames, top_sortings, sorts, constrs, r) =
+      let
+        val sorts = map elab_s (map (fn Sorting (_, s, _) => s) top_sortings @ sorts)
+        fun default_t2 r = foldl (fn (arg, f) => S.AppTT (f, S.VarT (NONE, (arg, r)), r)) (S.VarT (NONE, (name, r))) tnames
+        fun elab_constr (((cname, _), binds, core, r) : S.constr_decl) : constr_decl =
+            let
+              (* val (t1, t2) = default (S.VarT ("unit", r), SOME (default_t2 r)) core *)
+              (* val t2 = default (default_t2 r) t2 *)
+              val (t1, t2) =
+                  case core of
+                      NONE => (S.VarT (NONE, ("unit", r)), default_t2 r)
+                    | SOME (t1, NONE) => (S.VarT (NONE, ("unit", r)), t1)
+                    | SOME (t1, SOME t2) => (t1, t2)
+              fun f bind =
+                  case bind of
+                      Sorting ((name, _), sort, r) => (name, elab_s sort)
+              val binds = map f (top_sortings @ binds)
+              val t2_orig = t2
+              val (t2, is) = get_is t2
+              val (t2, ts) = get_ts t2
+              val () = if case t2 of S.VarT (NONE, (x, _)) => x = name | _ => false then
+                         ()
+                       else
+                         raise Error (S.get_region_t t2, sprintf "Result type of constructor must be $ (did you use -> when you should you --> ?)" [name])
+              val () = if length ts = length tnames then () else raise Error (S.get_region_t t2_orig, "Must have type arguments " ^ join " " tnames)
+              fun f (t, tname) =
                   let
-                    (* val (t1, t2) = default (S.VarT ("unit", r), SOME (default_t2 r)) core *)
-                    (* val t2 = default (default_t2 r) t2 *)
-                    val (t1, t2) =
-                        case core of
-                            NONE => (S.VarT (NONE, ("unit", r)), default_t2 r)
-                          | SOME (t1, NONE) => (S.VarT (NONE, ("unit", r)), t1)
-                          | SOME (t1, SOME t2) => (t1, t2)
-                    fun f bind =
-                        case bind of
-                            Sorting ((name, _), sort, r) => (name, elab_s sort)
-                    val binds = map f binds
-                    val t2_orig = t2
-                    val (t2, is) = get_is t2
-                    val (t2, ts) = get_ts t2
-                    val () = if case t2 of S.VarT (NONE, (x, _)) => x = name | _ => false then
-                               ()
-                             else
-                               raise Error (S.get_region_t t2, sprintf "Result type of constructor must be $ (did you use -> when you should you --> ?)" [name])
-                    val () = if length ts = length tnames then () else raise Error (S.get_region_t t2_orig, "Must have type arguments " ^ join " " tnames)
-                    fun f (t, tname) =
-                        let
-                          val targ_mismatch = "This type argument must be " ^ tname
-                        in
-                          case t of
-                              S.VarT (NONE, (x, r)) => if x = tname then () else raise Error (r, targ_mismatch)
-                            | _ => raise Error (S.get_region_t t, targ_mismatch)
-                        end
-                    val () = app f (zip (ts, tnames))
+                    val targ_mismatch = "This type argument must be " ^ tname
                   in
-                    (cname, fold_ibinds (binds, (elab_mt t1, map elab_i is)), r)
+                    case t of
+                        S.VarT (NONE, (x, r)) => if x = tname then () else raise Error (r, targ_mismatch)
+                      | _ => raise Error (S.get_region_t t, targ_mismatch)
                   end
-          in
-            (name, tnames, map elab_s sorts, map elab_constr constrs, r)
-          end
-            
+              val () = app f (zip (ts, tnames))
+            in
+              (cname, fold_ibinds (binds, (elab_mt t1, map elab_i is)), r)
+            end
+      in
+        (name, tnames, sorts, map elab_constr constrs, r)
+      end
+        
   fun elab e =
       case e of
 	  S.Var (id as (m, (x, r)), eia) =>
@@ -385,15 +390,15 @@ local
           S.ModComponents (comps, r) => ModComponents (map elab_decl comps, r)
         | S.ModSeal (m, sg) => ModSeal (elab_mod m, elab_sig sg)
         | S.ModTransparentAscription (m, sg) => ModTransparentAscription (elab_mod m, elab_sig sg)
-      
+                                                                         
   fun elab_top_bind bind =
       case bind of
           S.TopModBind (name, m) => TopModBind (name, elab_mod m)
         | S.TopFunctorBind (name, (arg_name, arg), body) => TopFunctorBind (name, (arg_name, elab_sig arg), elab_mod body)
         | S.TopFunctorApp (name, f, arg) => TopFunctorApp (name, f, arg)
-          
+                                                          
   fun elab_prog prog = map elab_top_bind prog
-                  
+                           
 in
 val elaborate = elab
 fun elaborate_opt e = runError (fn () => elab e) ()

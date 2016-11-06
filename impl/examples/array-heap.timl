@@ -5,12 +5,8 @@ open Basic
 open Nat
 open Array
 
-datatype {Bool} bbool =
-         True of {true} bbool
-         | False of {false} bbool
-
-datatype {Nat} {Nat} 'a heap =
-         Heap {cap size : Nat} {size <= cap} of {size} nat * {cap} 'a array --> {size} {cap} 'a heap
+datatype heap 'a {cap size : Nat} =
+         Heap {size <= cap} of {size} nat * {cap} 'a array --> {size} {cap} 'a heap
 
 fun create_heap ['a] {cap : Nat} (cap : {cap} nat, default : 'a) =
   Heap (#0, array (cap, default))
@@ -19,7 +15,7 @@ fun size ['a] {cap size : Nat} {size <= cap} (heap : {size} {cap} 'a heap) retur
   case heap of
       Heap (size, _) => size
 
-fun is_empty ['a] {cap size : Nat} {size <= cap} (heap : {size} {cap} 'a heap) return {size == 0} bbool =
+fun is_empty ['a] {cap size : Nat} {size <= cap} (heap : {size} {cap} 'a heap) return {size == 0} ibool =
   case heap of
       Heap (size, _) =>
       case cmp (size, #0) of

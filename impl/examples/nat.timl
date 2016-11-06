@@ -1,14 +1,14 @@
 structure Nat = struct
 
-datatype {Nat} {Nat} cmp_result =
-         Equal {a b : Nat} {a = b} of {b} {a} cmp_result
-         | Less {a b : Nat} {a < b} of {b} {a} cmp_result
-         | Greater {a b : Nat} {a > b} of {b} {a} cmp_result
+datatype cmp_result {a b : Nat} =
+         Equal {a = b} of {b} {a} cmp_result
+         | Less {a < b} of {b} {a} cmp_result
+         | Greater {a > b} of {b} {a} cmp_result
 
 fun cmp {x y : Nat} (x : {x} nat, y : {y} nat) return {y} {x} cmp_result using 0.0 =
     builtin
 
-datatype {Nat} {Nat} le_result =
+datatype le_result : {Nat} {Nat} =
          Le {a b : Nat} {a <= b} of {b} {a} le_result
        | Gt {a b : Nat} {a > b} of {b} {a} le_result
 
@@ -18,7 +18,7 @@ fun le {x : Nat} {y : Nat} (x : {x} nat, y : {y} nat) return {y} {x} le_result u
       | Less => Le
       | Greater => Gt
 
-datatype {Nat} {Nat} min_max_result =
+datatype min_max_result : {Nat} {Nat} =
          MinMaxResult {a b a' b' : Nat} {(a <= b -> a' = a /\ b' = b) /\ (a > b -> a' = b /\ b' = a)} of {a'} nat * {b'} nat --> {b} {a} min_max_result
 
 fun min_max {m : Time} {x y : Nat} (le : {x} nat * {y} nat -- m --> {y} {x} le_result) (x : {x} nat, y : {y} nat) return {y} {x} min_max_result =
@@ -26,9 +26,9 @@ fun min_max {m : Time} {x y : Nat} (le : {x} nat * {y} nat -- m --> {y} {x} le_r
         Le => MinMaxResult (x, y)
       | Gt => MinMaxResult (y, x)
 
-datatype {Nat} {Nat} eq_dec =
-         Eq {a b : Nat} {a = b} of {b} {a} eq_dec
-       | Neq {a b : Nat} {~ (a = b)} of {b} {a} eq_dec
+datatype eq_dec {a b : Nat} =
+         Eq {a = b} of {b} {a} eq_dec
+       | Neq {~ (a = b)} of {b} {a} eq_dec
 
 fun eq_dec {x y : Nat} (x : {x} nat, y : {y} nat) return {y} {x} eq_dec using 1.0 =
     case cmp (x, y) of
@@ -36,9 +36,9 @@ fun eq_dec {x y : Nat} (x : {x} nat, y : {y} nat) return {y} {x} eq_dec using 1.
       | Less => Neq
       | Greater => Neq
 
-datatype {Nat} {Nat} lt_dec =
-         Lt {a b : Nat} {a < b} of {b} {a} lt_dec
-       | Ge {a b : Nat} {a >= b} of {b} {a} lt_dec
+datatype lt_dec {a b : Nat} =
+         Lt {a < b} of {b} {a} lt_dec
+       | Ge {a >= b} of {b} {a} lt_dec
 
 fun lt_dec {x y : Nat} (x : {x} nat, y : {y} nat) return {y} {x} lt_dec using 1.0 =
     case cmp (x, y) of

@@ -2,11 +2,15 @@ structure Basic = struct
 
 datatype bool = true | false
 
-datatype 'a option =
+datatype option 'a =
          NONE
          | SOME of 'a --> 'a option
 
-datatype {Nat} {Nat} le =
-         LE {a b : Nat} {a <= b} of {b} {a} le
+datatype le {a b : Nat} =
+         LE {a <= b} of {b} {a} le
                    
+datatype ibool : {Bool} =
+         True of {true} ibool
+         | False of {false} ibool
+
 end
