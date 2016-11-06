@@ -1,1 +1,1 @@
-set -o pipefail && make -C .. mlton && ../main stdlib.pkg suite.pkg
+set -o pipefail && make -C .. mlton && ../main stdlib.pkg test-suite.pkg
