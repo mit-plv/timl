@@ -9,8 +9,8 @@ single-var.timl
 insertion-sort.timl
 braun-tree.timl
 braun-tree-sortedness.timl
-rbt.timl
 rbt-sortedness.timl
+rbt.timl
 dynamic-table.timl
 two-stack-queue.timl
 array-bsearch.timl

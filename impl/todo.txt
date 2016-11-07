@@ -6,7 +6,7 @@ Done. 5. Distill the 'bind' pattern
 Done. 6. Disallow impredicative universal types
 Done. 7. Type inference
 Done. 8. Idx inference
-9. Allow [datatype] to have idx arguments that don't change.
+Kind-of. 9. Allow [datatype] to have idx arguments that don't change.
 Done. 10. Multi-argument idx functions.
 Done. 11. Add an optional idx to [Quan], to link the remaining unification variables in types and the witnesses found by the Master Theorem solver.
 Done. 12. Infer by Master Theorem then check.
@@ -14,10 +14,10 @@ Done. 13. Single variable Master Theorem case.
 Done. 14. Error line number on multiple files.
 Done. 15. Make linking between inferred existential variable values and types better.
 Done. 16. Copy function signature annotation to case annotation
-Abondoned. Unit and product types are required to define datatypes. 17. Remove unit and product types from the language, and have standard library.
+Abondoned. 17. Unit and product types are required to define datatypes. 17. Remove unit and product types from the language, and have standard library.
 Done. 18. Example: Tree flatten.
 Done. 19. Example: Insertion sort.
-20. Have reference and arrays.
+Done. 20. Have reference and arrays.
 Done. 21. RB-tree insertion.
 Done. 22. RB-tree lookup.
 Done. 23. Braun tree insertion.
@@ -25,7 +25,7 @@ Done. 23. Braun tree insertion.
 Done. 25. 'return _ using' works but 'return using' doesn't in msort.timl and tree.timl.
 Done. 26. Change syntax order of function name and [t] declares.
 Done. 27. Be able to infer for [tree_map] and [tree_foldl].
-28. Have module system.
+Partially. 28. Have module system.
     Road map to add module system:
 Done. (1) Have a barebone module system with only modules, signatures, sealing, functors and 'open'. No hierarchy (embeded modules), module alias, signature alias, 'where'/'sharing', 'include'.
     (2) Combine name-resolve and typecheck.
@@ -46,7 +46,7 @@ Abondoned. No problem. 37. [as] pattern may have a problem in [balance_left].
 Done. 38. Bug: redundancy checker runs forever on [balance_left].
 Done.. 39. rbt.timl typecheckes when using ForgetError-less [subst] and ForgetError-full [forget]. Investigate why.
 Done. 40. [find_habitant] can further simplify covers and speed up.
-41. Have [type =] type aliasing.
+Done. 41. Have [type =] type aliasing.
 Done. 42. Maximally insertion of index arguments.
 Done. 43. Maximally insertion of index arguments in patterns.
 Done. 44. nouvar-expr/passp/Imply/_ is not sound, possibly losing information.
@@ -67,10 +67,10 @@ Done. 58. Have built-in indexed [uint].
 59. Pretty-print to SML.
 60. Combine cctx and tctx.
 Done. 61. Add <> notation.
-62. Let return clause in [Case] to mean the time including the matchee.
+62. Add a return clause in [Case] to mean the time including the matchee.
 Done. 63. Amortized complexity of queue implementation by two stacks.
 64. Infer type according to pattern.
-65. Wrongly inferred [T_insert_delete_seq_0] to be (fn n => $n) without the [2.0 + 48.0 * $n] annotation.
+65. Wrongly inferred [T_insert_delete_seq_0] to be (fn n => $n) without the [2.0 + 48.0 * $n] annotation. The source of the problem: unsoundness in bigO-solver.sml/solve_exists(). 
 66. Have some Nat/Time inference.
 67. Unify [UnOpI], [DivI] and [ExpI].
 Done. 68. Change [unify_s] to [is_sub_sort].
@@ -78,7 +78,7 @@ Done. 69. Should apply solvers and check no-uvar after every module, not every f
 70. Move VC openings from [check_decl] to [check_decls].
 71. [subst] should do lazy shifting, not eager.
 Done. 72. The last two examples in bigO-evolve.timl about using [idx] instead of [absidx] doesn't work now.
-73. Simplify unused 'forall' in [prop]. The unused foralls are Big-O premises.
+Done. 73. Simplify unused 'forall' in [prop]. The unused foralls are Big-O premises.
 74. [BigOEvolveSealed] in bigO-evolve.timl doesn't work yet.
 Done. 75. if-then-else and list syntax.
 76. Restore the version of [link_sig] in revision 00ba072, because a module may have uvars before sealing, and uvars can't be retrieved from a module.
