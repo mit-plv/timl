@@ -1,4 +1,4 @@
-functor CPSPass(MicroTiMLDef : SIG_MICRO_TIML_DEF) =
+functor CPSPassFun(MicroTiMLDef : SIG_MICRO_TIML_DEF) : SIG_CPS_PASS =
 struct
 open List
 open Util
@@ -20,9 +20,6 @@ open SubstExpr
 
 open ShiftCtx
 open DerivAssembler
-
-structure CPS =
-struct
 open DerivSubstTyping
 
 fun send_to_cont ty_cont ty =
@@ -52,7 +49,27 @@ CstrGenericOnlyDownTransformer(
 
     fun add_kind (_, ()) = ()
 
-    fun transformer_cstr _ _ = NONE
+    fun transformer_cstr (on_cstr, on_kind) (c, ()) =
+      case c of
+          CArrow (t1, i, t2) =>
+          let
+              val t1 = shift0_c_c $ on_cstr (t1, ())
+              val i = shift0_c_c $ on_cstr (i, ())
+              val t2 = shift0_c_c $ on_cstr (t2, ())
+              val t2_cont = CArrow (t2, CVar 0, CTypeUnit)
+          in
+              SOME (CForall (KTime, CArrow (CProd (t1, t2_cont), Tadd (i, CVar 0), CTypeUnit)))
+          end
+        | CQuan (QuanForall, k, t) =>
+          let
+              val t = shift0_c_c $ on_cstr (t, ())
+              val t_cont = CArrow (t, CVar 0, CTypeUnit)
+              val t_quan_j = CForall (KTime, CArrow (t_cont, CVar 0, CTypeUnit))
+          in
+              SOME (CForall (k, t_quan_j))
+          end
+        | _ => NONE
+
     fun transformer_kind _ _ = NONE
     fun transformer_prop _ _ = NONE
     end)
@@ -66,19 +83,19 @@ CstrDerivGenericOnlyDownTransformer(
 
     fun on_pr_leaf (pr, ()) = pr
     fun on_ke_leaf (ke, ()) = ke
-    fun on_kd_leaf (kd, ()) = kd (* FIXME *)
+    fun on_kd_leaf ((kctx, c, k), ()) = (kctx, CstrHelper.transform_cstr (c, ()), k)
     fun on_wk_leaf (wk, ()) = wk
     fun on_wp_leaf (wp, ()) = wp
-    fun on_te_leaf (te, ()) = te (* FIXME *)
+    fun on_te_leaf ((kctx, t1, t2), ()) = (kctx, CstrHelper.transform_cstr (t1, ()), CstrHelper.transform_cstr (t2, ()))
 
     fun transformer_kinding (on_kinding, on_wfkind, on_kdeq) (kd, ()) =
       case kd of
-          KdArrow ((_, CArrow (t1, i, t2), k), kd_t1, kd_i, kd_t2) =>
+          KdArrow (_, kd_t1, kd_i, kd_t2) =>
           let
               val kd_t1 = shift0_ctx_kd [KTime] $ on_kinding (kd_t1, ())
               val kd_i = shift0_ctx_kd [KTime] $ on_kinding (kd_i, ())
               val kd_t2 = shift0_ctx_kd [KTime] $ on_kinding (kd_t2, ())
-              val (kctx, t2, _) = extract_judge_kinding kd_t2
+              val (kctx, _, _) = extract_judge_kinding kd_t2
               val kd_j = KdVar (kctx, CVar 0, KTime)
               val kd_t2_cont =
                   let
@@ -101,7 +118,7 @@ CstrDerivGenericOnlyDownTransformer(
         | KdQuan ((_, CQuan (QuanForall, _, _), _), wk, kd) =>
           let
               val kd = shift0_ctx_kd [KTime] $ on_kinding (kd, ())
-              val (kctx, t, _) = extract_judge_kinding kd
+              val (kctx, _, _) = extract_judge_kinding kd
               val kd_j = KdVar (kctx, CVar 0, KTime)
               val kd_cont =
                   let
@@ -109,14 +126,70 @@ CstrDerivGenericOnlyDownTransformer(
                   in
                       KdArrow (as_KdArrow kd kd_j kd_tmp1, kd, kd_j, kd_tmp1)
                   end
+              val kd_arrow =
+                  let
+                      val kd_tmp1 = KdConst (kctx, CTypeUnit, KType)
+                  in
+                      KdArrow (as_KdArrow kd_cont kd_j kd_tmp1, kd_cont, kd_j, kd_tmp1)
+                  end
               val wk_j = WfKdBaseSort (tl kctx, KTime)
-              val kd_quan_j = KdQuan (as_KdQuan QuanForall wk_j kd_cont, wk_j, kd_cont)
+              val kd_quan_j = KdQuan (as_KdQuan QuanForall wk_j kd_arrow, wk_j, kd_arrow)
           in
               SOME (KdQuan (as_KdQuan QuanForall wk kd_quan_j, wk, kd_quan_j))
           end
         | _ => NONE
 
-    fun transformer_tyeq (on_tyeq, on_proping, on_kdeq, on_kinding) (te, ()) = NONE
+    fun transformer_tyeq (on_tyeq, on_proping, on_kdeq, on_kinding) (te, ()) =
+      case te of
+          TyEqArrow (_, te_t1, pr_i, te_t2) =>
+          let
+              val te_t1 = shift0_ctx_te [KTime] $ on_tyeq (te_t1, ())
+              val pr_i = shift0_ctx_pr [KTime] pr_i
+              val te_t2 = shift0_ctx_te [KTime] $ on_tyeq (te_t2, ())
+              val (kctx, _, _) = extract_judge_tyeq te_t2
+              val pr_j = PrAdmit (kctx, TEq (CVar 0, CVar 0))
+              val te_t2_cont =
+                  let
+                      val te_tmp1 = TyEqConst (kctx, CTypeUnit, CTypeUnit)
+                  in
+                      TyEqArrow (as_TyEqArrow te_t2 pr_j te_tmp1, te_t2, pr_j, te_tmp1)
+                  end
+              val te_t_param = TyEqBinOp (as_TyEqBinOp CBTypeProd te_t1 te_t2_cont, te_t1, te_t2_cont)
+              val te_t_arrow =
+                  let
+                      val (_, i_lhs, i_rhs) = extract_p_bin_pred $ snd $ extract_judge_proping pr_i
+                      val pr_tmp1 = PrAdmit (kctx, TEq (Tadd (i_lhs, CVar 0), Tadd (i_rhs, CVar 0)))
+                      val te_tmp2 = TyEqConst (kctx, CTypeUnit, CTypeUnit)
+                  in
+                      TyEqArrow (as_TyEqArrow te_t_param pr_tmp1 te_tmp2, te_t_param, pr_tmp1, te_tmp2)
+                  end
+              val ke = KdEqBaseSort (tl kctx, KTime, KTime)
+          in
+              SOME (TyEqQuan (as_TyEqQuan QuanForall ke te_t_arrow, ke, te_t_arrow))
+          end
+        | TyEqQuan ((_, CQuan (QuanForall, _, _), _), ke, te) =>
+          let
+              val te = shift0_ctx_te [KTime] $ on_tyeq (te, ())
+              val (kctx, _, _) = extract_judge_tyeq te
+              val pr_j = PrAdmit (kctx, TEq (CVar 0, CVar 0))
+              val te_cont =
+                  let
+                      val te_tmp1 = TyEqConst (kctx, CTypeUnit, CTypeUnit)
+                  in
+                      TyEqArrow (as_TyEqArrow te pr_j te_tmp1, te, pr_j, te_tmp1)
+                  end
+              val te_arrow =
+                  let
+                      val te_tmp1 = TyEqConst (kctx, CTypeUnit, CTypeUnit)
+                  in
+                      TyEqArrow (as_TyEqArrow te_cont pr_j te_tmp1, te_cont, pr_j, te_tmp1)
+                  end
+              val ke_j = KdEqBaseSort (tl kctx, KTime, KTime)
+              val te_quan_j = TyEqQuan (as_TyEqQuan QuanForall ke_j te_arrow, ke_j, te_arrow)
+          in
+              SOME (TyEqQuan (as_TyEqQuan QuanForall ke te_quan_j, ke, te_quan_j))
+          end
+        | _ => NONE
 
     fun transformer_proping _ = NONE
     fun transformer_kdeq _ _ = NONE
@@ -309,7 +382,7 @@ fun cps ty ty_cont =
           val ty_self =
               let
                   val ((kctx, tctx), _, _, _) = extract_judge_typing ty_cont
-                  val ty_tmp1 = TyVar ((kctx, t_self :: tctx), EVar 0, t_self, T0)
+                  val ty_tmp1 = TyVar ((kctx, t_self :: t_self :: tctx), EVar 0, t_self, T0)
               in
                   cps ty_self (TyAbs (as_TyAbs kd_t_self ty_tmp1, kd_t_self, ty_tmp1))
               end
@@ -435,7 +508,7 @@ fun cps ty ty_cont =
               in
                   TyAbs (as_TyAbs kd_t_disp ty_tmp8, kd_t_disp, ty_tmp8)
               end
-          val ty_res = cps ty1 in0_ty_cont
+          val ty_res = cps ty_disp in0_ty_cont
       in
           ty_res
       end
@@ -463,9 +536,9 @@ fun cps ty ty_cont =
     | _ => raise (Impossible "CPS")
 
 (* since cps doesn't change kinds, it is okay to retain kinding's context *)
-and cps_kinding kd = kd
+and cps_kinding kd = CstrDerivHelper.transform_kinding (kd, ())
 
-and cps_tyeq te = te
+and cps_tyeq te = CstrDerivHelper.transform_tyeq (te, ())
 
 and cps_body_as_var ty_body ty_cont =
     let
@@ -516,6 +589,20 @@ and cps_finisher_in2 ty1 ty2 kd_t1 kd_t2 t1 t2 ty_post ty_cont =
     in
         ty_res
     end
-end
 
+fun cps_deriv ty =
+  let
+      val kd_t = cps_kinding $ fst $ meta_lemma ty
+      val (_, t, _) = extract_judge_kinding kd_t
+      val ((kctx, tctx), _, _, _) = extract_judge_typing ty
+      val ty_cont =
+          let
+              val ty_tmp1 = TyVar ((kctx, t :: tctx), EVar 0, t, T0)
+              val ty_tmp2 = TyHalt (as_TyHalt ty_tmp1, ty_tmp1)
+          in
+              TyAbs (as_TyAbs kd_t ty_tmp2, kd_t, ty_tmp2)
+          end
+  in
+      cps ty ty_cont
+  end
 end

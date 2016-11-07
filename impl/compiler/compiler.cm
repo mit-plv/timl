@@ -6,6 +6,7 @@ Group is
       ast-transformers.sig
       deriv-transformers.sig
       deriv-checker.sig
+      cps-pass.sig
       micro-timl-test.sig
       micro-timl-hoisted-def.sig
       hoisted-deriv-checker.sig
