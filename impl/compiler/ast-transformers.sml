@@ -274,7 +274,7 @@ fun default_transform_expr (e, down as (kdown, tdown)) =
         in
             (ELet (e1, e2), combine [up1, up2])
         end
-      | EFix (n, e) => raise (Impossible "EFix transformer not implemented")
+      | EFix (n, e) => (EFix (n, e), Action.upward_base)
 
 and transform_expr (e, down) =
     case Action.transformer_expr transform_expr (e, down) of
@@ -455,10 +455,7 @@ structure ExprHelper = ExprGenericOnlyDownTransformer(
 
     val transform_cstr = CstrHelper.transform_cstr
 
-    fun transformer_expr on_expr (e, down) =
-      case e of
-          EFix (n, e) => SOME (EFix (n, e))
-        | _ => NONE
+    fun transformer_expr _ _ = NONE
     end)
 
 fun shift_c_c d ctx c = CstrHelper.transform_cstr (c, (d, ctx))
@@ -488,7 +485,6 @@ structure ExprHelper = ExprGenericOnlyDownTransformer(
     fun transformer_expr on_expr (e, ((), (d, ctx))) =
       case e of
           EVar x => SOME (if x >= ctx then EVar (x + d) else EVar x)
-        | EFix (n, e) => SOME (EFix (n, e))
         | _ => NONE
     end)
 
@@ -527,10 +523,7 @@ structure ExprHelper = ExprGenericOnlyDownTransformer(
 
     val transform_cstr = CstrHelper.transform_cstr
 
-    fun transformer_expr on_expr (e, down) =
-      case e of
-          EFix (n, e) => SOME (EFix (n, e))
-        | _ => NONE
+    fun transformer_expr _ _ = NONE
     end)
 
 fun subst_c_c to who c = CstrHelper.transform_cstr (c, (to, who))
@@ -563,7 +556,6 @@ structure ExprHelper = ExprGenericOnlyDownTransformer(
     fun transformer_expr on_expr (e, ((), (to, who))) =
       case e of
           EVar x => SOME (if x = who then to else if x < who then EVar x else EVar (x - 1))
-        | EFix (n, e) => SOME (EFix (n, e))
         | _ => NONE
     end)
 
@@ -602,10 +594,7 @@ structure ExprHelper = ExprGenericOnlyDownTransformer(
 
     val transform_cstr = CstrHelper.transform_cstr
 
-    fun transformer_expr on_expr (e, down) =
-      case e of
-          EFix (n, e) => SOME (EFix (n, e))
-        | _ => NONE
+    fun transformer_expr _ _ = NONE
     end)
 
 fun dsubst_c_c to who c = CstrHelper.transform_cstr (c, (to, who))
@@ -638,7 +627,6 @@ structure ExprHelper = ExprGenericOnlyDownTransformer(
     fun transformer_expr on_expr (e, ((), (to, who))) =
       case e of
           EVar x => SOME (if x = who then to else EVar x)
-        | EFix (n, e) => SOME (EFix (n, e))
         | _ => NONE
     end)
 
@@ -702,10 +690,7 @@ structure ExprHelper = ExprGenericTransformer(
 
     val transform_cstr = CstrHelper.transform_cstr
 
-    fun transformer_expr on_expr (e, down) =
-      case e of
-          EFix (n, e) => SOME (EFix (n, e), [])
-        | _ => NONE
+    fun transformer_expr _ _ = NONE
     end)
 
 fun free_vars_c_c d c = #2 (CstrHelper.transform_cstr (c, d))
@@ -742,7 +727,6 @@ structure ExprHelper = ExprGenericTransformer(
     fun transformer_expr on_expr (e, ((), ctx)) =
       case e of
           EVar x => SOME (EVar x, if x >= ctx then [x - ctx] else [])
-        | EFix (n, e) => SOME (EFix (n, e), [])
         | _ => NONE
     end)
 
