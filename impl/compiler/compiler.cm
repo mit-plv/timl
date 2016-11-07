@@ -7,6 +7,7 @@ Group is
       deriv-transformers.sig
       deriv-checker.sig
       cps-pass.sig
+      wrap-abs-pass.sig
       micro-timl-test.sig
       micro-timl-hoisted-def.sig
       hoisted-deriv-checker.sig
@@ -17,6 +18,8 @@ Group is
       deriv-transformers.sml
       deriv-checker.sml
       cps-pass.sml
+      wrap-abs-pass.sml
+      clo-conv-pass.sml
       micro-timl-hoisted-def.sml
       hoisted-deriv-checker.sml
       micro-timl-test.sml

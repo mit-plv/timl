@@ -32,6 +32,29 @@ sig
                 val transform_tyeq : MicroTiMLDef.tyeq * Action.down -> MicroTiMLDef.tyeq
             end
 
+    functor ExprDerivGenericOnlyDownTransformer(
+        Action:
+        sig
+            type kdown
+            type tdown
+            type down = kdown * tdown
+
+            val add_kind : MicroTiMLDef.kind * down -> down
+            val add_type : MicroTiMLDef.cstr * tdown -> tdown
+
+            val on_ty_leaf : MicroTiMLDef.typing_judgement * down -> MicroTiMLDef.typing_judgement
+
+            val transform_proping : MicroTiMLDef.proping * kdown -> MicroTiMLDef.proping
+            val transform_kinding : MicroTiMLDef.kinding * kdown -> MicroTiMLDef.kinding
+            val transform_wfkind : MicroTiMLDef.wfkind * kdown -> MicroTiMLDef.wfkind
+            val transform_tyeq : MicroTiMLDef.tyeq * kdown -> MicroTiMLDef.tyeq
+
+            val transformer_typing : (MicroTiMLDef.typing * down -> MicroTiMLDef.typing) -> MicroTiMLDef.typing * down -> MicroTiMLDef.typing option
+        end) :
+            sig
+                val transform_typing : MicroTiMLDef.typing * Action.down -> MicroTiMLDef.typing
+            end
+
     structure DerivAssembler :
               sig
                   val as_KdEqKArrow : MicroTiMLDef.kdeq -> MicroTiMLDef.kdeq -> MicroTiMLDef.kdeq_judgement
@@ -111,24 +134,37 @@ sig
                   val subst0_ty_ty : MicroTiMLDef.typing -> MicroTiMLDef.typing -> MicroTiMLDef.typing
               end
 
-    (*structure DerivSubstKinding :
-              sig
-                  val subst_kd_kd : MicroTiMLDef.kinding -> int -> MicroTiMLDef.kinding -> MicroTiMLDef.kinding
-                  val subst0_kd_kd : MicroTiMLDef.kinding -> MicroTiMLDef.kinding -> MicroTiMLDef.kinding
-              end*)
-
-    structure CPS :
-              sig
-                  val cps_deriv : MicroTiMLDef.typing -> MicroTiMLDef.typing
-              end
-
-    structure WrapLambda :
-              sig
-                  val wrap_lambda_deriv : MicroTiMLDef.typing -> MicroTiMLDef.typing
-              end
-
     structure CloConv :
               sig
                   val clo_conv_deriv : MicroTiMLDef.typing -> MicroTiMLDef.typing
+              end
+
+    structure DerivFVCstr :
+              sig
+                  val free_vars_c_ty : int -> MicroTiMLDef.typing -> int list
+                  val free_vars0_c_ty : MicroTiMLDef.typing -> int list
+              end
+
+    structure DerivFVExpr :
+              sig
+                  val free_vars_e_ty : int -> MicroTiMLDef.typing -> int list
+                  val free_vars0_e_ty : MicroTiMLDef.typing -> int list
+              end
+
+    structure DerivDirectSubstCstr :
+              sig
+                  val dsubst_c_ty : MicroTiMLDef.cstr -> int -> MicroTiMLDef.typing -> MicroTiMLDef.typing
+                  val dsubst_c_kd : MicroTiMLDef.cstr -> int -> MicroTiMLDef.kinding -> MicroTiMLDef.kinding
+                  val dsubst_c_wk : MicroTiMLDef.cstr -> int -> MicroTiMLDef.wfkind -> MicroTiMLDef.wfkind
+
+                  val dsubst0_c_ty : MicroTiMLDef.cstr -> MicroTiMLDef.typing -> MicroTiMLDef.typing
+                  val dsubst0_c_kd : MicroTiMLDef.cstr -> MicroTiMLDef.kinding -> MicroTiMLDef.kinding
+                  val dsubst0_c_wk : MicroTiMLDef.cstr -> MicroTiMLDef.wfkind -> MicroTiMLDef.wfkind
+              end
+
+    structure DerivDirectSubstExpr :
+              sig
+                  val dsubst_e_ty : MicroTiMLDef.expr -> int -> MicroTiMLDef.typing -> MicroTiMLDef.typing
+                  val dsubst0_e_ty : MicroTiMLDef.expr -> MicroTiMLDef.typing -> MicroTiMLDef.typing
               end
 end
