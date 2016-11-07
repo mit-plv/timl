@@ -124,8 +124,8 @@ sig
     val TLe : cstr * cstr -> prop
     val TEq : cstr * cstr -> prop
 
-    val CInt : cstr
-    val CNat : Nat.nat_type -> cstr (* new *)
+    val CTypeInt : cstr (* rename CInt to CTypeInt *)
+    val CNat : Nat.nat_type -> cstr (* new helper *)
 
     val CApps : cstr -> cstr list -> cstr
 
@@ -254,9 +254,9 @@ sig
              | EAppC of expr * cstr
              | EPack of cstr * expr
              | EUnpack of expr * expr
-             | EHalt of expr (* new *)
-             | ELet of expr * expr (* new *)
-             | EFix of int * expr (* new *)
+             | EHalt of expr (* new, introduced in CPS *)
+             | ELet of expr * expr (* new, introduced in CPS *)
+             | EFix of int * expr (* new, introduced in CloConv *)
 
     val EProj : projector * expr -> expr
     val EInj : injector * expr -> expr

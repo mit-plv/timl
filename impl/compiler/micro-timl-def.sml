@@ -112,7 +112,7 @@ fun CSum (c1, c2) = CBinOp (CBTypeSum, c1, c2)
 fun TLe (c1, c2) = PBinPred (PBTimeLe, c1, c2)
 fun TEq (c1, c2) = PBinPred (PBTimeEq, c1, c2)
 
-val CInt = CConst CCTypeInt
+val CTypeInt = CConst CCTypeInt
 fun CNat n = CConst (CCIdxNat n)
 
 fun CApps t cs =
@@ -327,7 +327,7 @@ val ETT = EConst ECTT
 fun const_type cn =
   case cn of
       ECTT => CTypeUnit
-    | ECInt _ => CInt
+    | ECInt _ => CTypeInt
 
 type typing_judgement = ctx * expr * cstr * cstr
 
