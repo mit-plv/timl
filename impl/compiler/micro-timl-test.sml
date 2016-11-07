@@ -131,12 +131,12 @@ fun gen_tyeq_refl kctx t =
       in
           TyEqQuan (as_TyEqQuan q ke te, ke, te)
       end
-    | CRec (k, c) =>
+    | CRec (name, k, c) =>
       let
           val ke = gen_kdeq_refl kctx k
           val te = gen_tyeq_refl (k :: kctx) c
       in
-          TyEqRec (as_TyEqRec ke te, ke, te)
+          TyEqRec (as_TyEqRec name name ke te, ke, te)
       end
     | CRef c =>
       let
@@ -308,7 +308,7 @@ fun test_concat () =
       val ct8 = tl ct7
       val d8 = KdAbs ((ct8, c8, KArrow (KType, KArrow (KNat, KType))), WfKdType (ct8, KType), d7)
       val () = check_kinding d8
-      val c9 = CRec (KArrow (KType, KArrow (KNat, KType)), c8)
+      val c9 = CRec ("list", KArrow (KType, KArrow (KNat, KType)), c8)
       val ct9 = tl ct8
       val d9 = KdRec ((ct9, c9, KArrow (KType, KArrow (KNat, KType))), WfKdArrow ((ct9, KArrow (KType, KArrow (KNat, KType))), WfKdType (ct9, KType), WfKdArrow ((ct9, KArrow (KNat, KType)), WfKdBaseSort (ct9, KNat), WfKdType (ct9, KType))), d8)
       val () = check_kinding d9
@@ -489,7 +489,7 @@ fun test_concat () =
       val () = check_typing d40
       val e41 = EUnfold e40
       val ct41 = ct40
-      val (_, list_body) = extract_c_rec list_dec
+      val (_, _, list_body) = extract_c_rec list_dec
       val t41 = CApps (subst0_c_c list_dec list_body) [CVar 2, CVar 1]
       val i41 = T0
       val d41 = TyUnfold ((ct41, e41, t41, i41), d40)

@@ -44,7 +44,7 @@ sig
                   val as_WfKdArrow : MicroTiMLDef.wfkind -> MicroTiMLDef.wfkind -> MicroTiMLDef.wfkind_judgement
                   val as_KdEq : MicroTiMLDef.kinding -> MicroTiMLDef.kdeq -> MicroTiMLDef.kinding_judgement
                   val as_KdRef : MicroTiMLDef.kinding -> MicroTiMLDef.kinding_judgement
-                  val as_KdRec : MicroTiMLDef.wfkind -> MicroTiMLDef.kinding -> MicroTiMLDef.kinding_judgement
+                  val as_KdRec : string -> MicroTiMLDef.wfkind -> MicroTiMLDef.kinding -> MicroTiMLDef.kinding_judgement
                   val as_KdQuan : MicroTiMLDef.quan -> MicroTiMLDef.wfkind -> MicroTiMLDef.kinding -> MicroTiMLDef.kinding_judgement
                   val as_KdTimeApp : MicroTiMLDef.kinding -> MicroTiMLDef.kinding -> MicroTiMLDef.kinding_judgement
                   val as_KdTimeAbs : MicroTiMLDef.kinding -> MicroTiMLDef.kinding_judgement
@@ -55,7 +55,7 @@ sig
                   val as_KdBinOp : MicroTiMLDef.cstr_bin_op -> MicroTiMLDef.kinding -> MicroTiMLDef.kinding -> MicroTiMLDef.kinding_judgement
                   val as_KdUnOp : MicroTiMLDef.cstr_un_op -> MicroTiMLDef.kinding -> MicroTiMLDef.kinding_judgement
                   val as_TyEqRef : MicroTiMLDef.tyeq -> MicroTiMLDef.tyeq_judgement
-                  val as_TyEqRec : MicroTiMLDef.kdeq -> MicroTiMLDef.tyeq -> MicroTiMLDef.tyeq_judgement
+                  val as_TyEqRec : string -> string -> MicroTiMLDef.kdeq -> MicroTiMLDef.tyeq -> MicroTiMLDef.tyeq_judgement
                   val as_TyEqBetaRev : MicroTiMLDef.tyeq -> MicroTiMLDef.tyeq -> MicroTiMLDef.tyeq -> MicroTiMLDef.tyeq_judgement
                   val as_TyEqBeta : MicroTiMLDef.tyeq -> MicroTiMLDef.tyeq -> MicroTiMLDef.tyeq -> MicroTiMLDef.tyeq_judgement
                   val as_TyEqNat : MicroTiMLDef.kinding -> MicroTiMLDef.kinding -> MicroTiMLDef.proping -> MicroTiMLDef.tyeq_judgement

@@ -74,7 +74,7 @@ sig
              | CAbs of cstr
              | CApp of cstr * cstr
              | CQuan of quan * kind * cstr
-             | CRec of kind * cstr
+             | CRec of string * kind * cstr (* add a id for debug *)
              | CRef of cstr
              | CUnOp of cstr_un_op * cstr (* new *)
 
