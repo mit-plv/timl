@@ -124,6 +124,7 @@ id_init = ({alpha}|[_']);
 <INITIAL>"\\/" => (T.OR (make_region (yypos, size yytext)));
 <INITIAL>"<->" => (T.IFF (make_region (yypos, size yytext)));
 <INITIAL>"=" => (T.EQ (make_region (yypos, size yytext)));
+<INITIAL>"<>" => (T.NEQ (make_region (yypos, size yytext)));
 <INITIAL>"==" => (T.DOUBLE_EQ (make_region (yypos, size yytext)));
 <INITIAL>"&&" => (T.DOUBLE_POND (make_region (yypos, size yytext)));
 <INITIAL>"<=" => (T.LE (make_region (yypos, size yytext)));

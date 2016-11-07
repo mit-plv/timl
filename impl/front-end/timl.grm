@@ -40,6 +40,7 @@ open Ast
     | OR
     | IFF
     | EQ
+    | NEQ
     | DOUBLE_EQ
     | DOUBLE_POND
     | VAL
@@ -83,7 +84,8 @@ open Ast
        | exp of exp
        | aexp of exp
        | ty of ty
-         (* | aty of ty *)
+       | ty_term of ty
+       | ty_atom of ty
        | idx of idx
        | aidx of idx
        | sort of sort
@@ -114,7 +116,9 @@ open Ast
        | decl_star of decl list
        | decl of decl
        | quan of quan
+       | cur_sort of sort
        | cur_sort_star of sort list
+       | cur_sort_plus of sort list
        (* | sort_plus of sort list *)
        | constr_bar_star of constr_decl list
        | bar_constr_star of constr_decl list
@@ -137,7 +141,8 @@ open Ast
        | spec of spec
        | specs of spec list
        | datatype_def of datatype_def
-       (* | sig_anno_opt of sig_anno option *)
+         (* | sig_anno_opt of sig_anno option *)
+       | datatype_def_kind of sort list
 
 %keyword FN CASE UNPACK OF LET IN END RETURN VAL DATATYPE AS TYPE STRUCTURE STRUCT FUNCTOR SIG OPEN IDX IF THEN ELSE
 
@@ -153,13 +158,13 @@ open Ast
 %right OR
 %right AND
 %nonassoc NOT
-%nonassoc EQ LE LT GE GT 
+%nonassoc EQ NEQ LE LT GE GT 
 %left DOUBLE_POND
 %left DOUBLE_EQ
 %left PLUS MINUS
 %left MULT DIV MAX MIN
 (* %left APP *)
-%right APPR
+(* %left APPR *)
 
 %eop EOF
 %noshift EOF
@@ -200,7 +205,7 @@ spec : VAL id tnames COLON ty (SpecVal (id, tnames, ty, (VALleft, tyright)))
   | DATATYPE datatype_def (SpecDatatype datatype_def)
   | IDX id COLON sort (SpecIdx (id, sort))
   | TYPE id EQ ty (SpecTypeDef (id, ty))
-  | TYPE cur_sort_star id_plus (SpecType (rev id_plus, rev cur_sort_star, (TYPEleft, id_plusright)))
+  | TYPE id_plus cur_sort_star (SpecType (id_plus, cur_sort_star, (TYPEleft, cur_sort_starright)))
   | TYPE id (SpecType ([id], [], (TYPEleft, idright))) (* need this rule. don't know why *)
 
 decl : VAL tnames ptrn EQ exp (Val (tnames, ptrn, exp, (VALleft, expright)))
@@ -213,18 +218,25 @@ decl : VAL tnames ptrn EQ exp (Val (tnames, ptrn, exp, (VALleft, expright)))
     | TYPE id EQ ty (TypeDef (id, ty))
     | OPEN id (Open id)
 
-datatype_def : cur_sort_star id_plus EQ constr_bar_star (case (map fst o rev) id_plus of id :: id_star => (id, id_star, rev cur_sort_star, constr_bar_star, (cur_sort_starleft, constr_bar_starright)) | [] => raise Impossible "id_plus can't be empty")
+datatype_def : id_plus sorting_star datatype_def_kind EQ constr_bar_star (case map fst id_plus of id :: id_star => (id, id_star, sorting_star, datatype_def_kind, constr_bar_star, (id_plusleft, constr_bar_starright)) | [] => raise Impossible "id_plus can't be empty")
+                       
+datatype_def_kind : COLON cur_sort_plus (cur_sort_plus)
+                  | ([])
                     
-ty : ty DDASH idx LARROW ty (Arrow (ty1, idx, ty2, (ty1left, ty2right)))
+ty : ty_term (ty_term)
+   | ty DDASH idx LARROW ty (Arrow (ty1, idx, ty2, (ty1left, ty2right)))
    | ty ARROW ty (Arrow (ty1, VarI (underscore (ty1left, ty2right)), ty2, (ty1left, ty2right)))
    | ty ZERO_ARROW ty (Arrow (ty1, ConstIT ("0.0", (ty1left, ty2right)), ty2, (ty1left, ty2right)))
    | ty MULT ty (Prod (ty1, ty2, (ty1left, ty2right)))
-   | long_id (VarT long_id)
-   | quan tbind_plus COMMA ty (Quan (quan, tbind_plus, ty, (quanleft, tyright)))
-   | LPAREN ty RPAREN (ty)
-   | LCUR idx RCUR ty %prec APPR (AppTI (ty, idx, (LCURleft, tyright)))
-   | LCUR RCUR ty %prec APPR (AppTI (ty, VarI (underscore (LCURleft, RCURright)), (LCURleft, tyright)))
-   | ty ty %prec APPR (AppTT (ty2, ty1, (ty1left, ty2right)))
+
+ty_term : ty_atom (ty_atom)
+        | ty_term ty_atom (AppTT (ty_term, ty_atom, (ty_termleft, ty_atomright)))
+        | ty_term LCUR idx RCUR (AppTI (ty_term, idx, (ty_termleft, RCURright)))
+        | ty_term LCUR RCUR (AppTI (ty_term, VarI (underscore (LCURleft, RCURright)), (ty_termleft, RCURright)))
+                  
+ty_atom : long_id (VarT long_id)
+        | LPAREN ty RPAREN (ty)
+        | quan tbind_plus COMMA ty (Quan (quan, tbind_plus, ty, (quanleft, tyright)))
 
 exp : aexp (aexp)
      | exp PLUS exp (BinOp (Add, exp1, exp2, (exp1left, exp2right)))
@@ -280,6 +292,7 @@ prop : id (ConstP id)
      | prop ARROW prop (BinConn (Imply, prop1, prop2, (prop1left, prop2right)))
      | prop IFF prop (BinConn (Iff, prop1, prop2, (prop1left, prop2right)))
      | idx EQ idx (BinPred (EqP, idx1, idx2, (idx1left, idx2right)))
+     | idx NEQ idx (Not (BinPred (EqP, idx1, idx2, (idx1left, idx2right)), (idx1left, idx2right)))
      | idx LE idx (BinPred (LeP, idx1, idx2, (idx1left, idx2right)))
      | idx LT idx (BinPred (LtP, idx1, idx2, (idx1left, idx2right)))
      | idx GE idx (BinPred (GeP, idx1, idx2, (idx1left, idx2right)))
@@ -375,8 +388,11 @@ constr_result_opt : LARROW ty (SOME (ty))
 (* constr_result_opt : ARROW ty (SOME (ty)) *)
                   | (NONE)
 
-cur_sort_star : LCUR sort RCUR cur_sort_star (sort :: cur_sort_star)
-	  | ([])
+cur_sort : LCUR sort RCUR (sort)                       
+cur_sort_plus : cur_sort cur_sort_star (cur_sort :: cur_sort_star)
+cur_sort_star :  cur_sort_plus (cur_sort_plus)
+	      | ([])
+                         
 (* sort_plus : sort cur_sort_star (sort :: cur_sort_star) *)
 
 constr_bar_star : constr bar_constr_star (constr :: bar_constr_star)

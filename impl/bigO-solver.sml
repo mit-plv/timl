@@ -579,8 +579,8 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
             fun extend_vcs_with_long_hyps vcs = append_hyps ([VarH (name0, TimeFun arity0), VarH (name1, TimeFun arity1)] @ hs) vcs
             val vcs_with_long_hyps = extend_vcs_with_long_hyps vcs
             val vcs_and_long_hyps = map (fn (vc, (long_hyps, _)) => (vc, long_hyps)) $ zip (vcs, vcs_with_long_hyps)
-            val () = println "Master-Theorem-solver to solve this: "
-            val () = app println $ concatMap (fn ((_, p), long_hyps) => str_vc false "" (long_hyps, p) @ [""]) $ vcs_and_long_hyps
+            (* val () = println "Master-Theorem-solver to solve this: " *)
+            (* val () = app println $ concatMap (fn ((_, p), long_hyps) => str_vc false "" (long_hyps, p) @ [""]) $ vcs_and_long_hyps *)
             val fs = map infer_vc vcs_and_long_hyps
             val (f, fs) = case fs of
                               [] => raise Error "by_master_theorem: no VCs"
@@ -619,30 +619,35 @@ fun split_and p =
         BinConn (And, p1, p2) => (p1, p2)
       | _ => (p, True dummy)
                
-fun infer_exists hs (name_arity1 as (_, arity1)) p =
-    if arity1 = 0 then
-      (* just to infer a Time *)
-      (case p of
-           BinPred (Le, i1 as (ConstIT _), VarI (_, (x, _))) =>
-           if x = 0 then SOME (i1, []) else NONE
-         | _ => NONE
-      )
-    else
-      case p of
-          Quan (Exists _, Base (TimeFun arity0), Bind ((name0, _), BinConn (And, bigO as BinPred (BigO, VarI (_, (n0, _)), VarI (_, (n1, _))), BinConn (Imply, bigO', p))), _) =>
-          if n0 = 0 andalso n1 = 1 andalso eq_p bigO bigO' then
-            use_master_theorem hs name_arity1 (name0, arity0) p
-          else NONE
-        | BinPred (BigO, VarI (_, (x, _)), f) =>
-          if x = 0 then
-            let
-              val () = println "No other constraint on function"
-            in
-              SOME (f, [])
-            end
-          else NONE
-        | _ => NONE
-
+fun infer_exists hs (name_arity1 as (name1, arity1)) p =
+    let
+      (* val () = println "infer_exists() to solve this: " *)
+      (* val () = app println $ (str_vc false "" (VarH (name1, TimeFun arity1) :: hs, p) @ [""]) *)
+    in
+      if arity1 = 0 then
+        (* just to infer a Time *)
+        (case p of
+             BinPred (Le, i1 as (ConstIT _), VarI (_, (x, _))) =>
+             if x = 0 then SOME (i1, []) else NONE
+           | _ => NONE
+        )
+      else
+        case p of
+            Quan (Exists _, Base (TimeFun arity0), Bind ((name0, _), BinConn (And, bigO as BinPred (BigO, VarI (_, (n0, _)), VarI (_, (n1, _))), BinConn (Imply, bigO', p))), _) =>
+            if n0 = 0 andalso n1 = 1 andalso eq_p bigO bigO' then
+              use_master_theorem hs name_arity1 (name0, arity0) p
+            else NONE
+          | BinPred (BigO, VarI (_, (x, _)), f) =>
+            if x = 0 then
+              let
+                val () = println "No other constraint on function"
+              in
+                SOME (f, [])
+              end
+            else NONE
+          | _ => NONE
+    end
+      
 exception MasterTheoremCheckFail of region * string list
                                                     
 fun solve_exists (vc as (hs, p)) =
@@ -702,7 +707,7 @@ fun solve_exists (vc as (hs, p)) =
                         SOME (i, vcs) =>
                         let
                           val () = println "Inferred by infer_exists():"
-                          val () = println $ str_i [] [] i
+                          val () = println $ sprintf "$ = $" [name, str_i [] [] i]
                           val () = case ins of
                                        SOME ins => ins i
                                      | NONE => ()
@@ -718,17 +723,19 @@ fun solve_exists (vc as (hs, p)) =
                   let
                     (* ToDo: a bit unsound inference strategy: infer [i] from [p1] and substitute for [i] in [p2] (assuming that [p2] doesn't contribute to inferring [i]) *)
                     val (p1, p2) = split_and p
-                    val () = println "This inference may be unsound. It assumes this proposition doesn't contribute to inference:"
-                    val () = app println $ (str_vc false "" (VarH (name, TimeFun arity) :: hs, p2) @ [""])
-                    (* val () = println "Exists-solver to solve this: " *)
-                    (* val () = app println $ (str_vc false "" vc @ [""]) *)
+                    val () = println "This inference may be unsound. "
+                    (* val () = println $ sprintf "It assumes this proposition doesn't contribute to inference of $:" [name] *)
+                    (* val () = app println $ (str_vc false "" (VarH (name, TimeFun arity) :: hs, p2) @ [""]) *)
+                    (* val () = println "and it only uses this proposition to do the inference:" *)
                     (* val () = app println $ (str_vc false "" (VarH (name, TimeFun arity) :: hs, p1) @ [""]) *)
+                    (* val () = println "solve_exists() to solve this: " *)
+                    (* val () = app println $ (str_vc false "" vc @ [""]) *)
                   in
                     case infer_exists hs (name, arity) p1 of
                         SOME (i, vcs1) =>
                         let
                           val () = println "Inferred by infer_exists():"
-                          val () = println $ str_i [] [] i
+                          val () = println $ sprintf "$ = $" [name, str_i [] [] i]
                           val () = case ins of
                                        SOME ins => ins i
                                      | NONE => ()

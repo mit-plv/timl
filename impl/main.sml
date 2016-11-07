@@ -54,7 +54,7 @@ fun process_top_bind filename gctx bind =
       (* val () = write_file (filename ^ ".smt2", to_smt2 vcs) *)
       (* val () = app println $ print_result false filename (gctx_names old_gctx) gctxd *)
       val () = println $ sprintf "Type checker generated $ proof obligations." [str_int $ length vcs]
-      val () = app println $ concatMap (fn vc => VC.str_vc false filename vc @ [""]) vcs
+      (* val () = app println $ concatMap (fn vc => VC.str_vc false filename vc @ [""]) vcs *)
       fun print_unsat show_region filename (vc, counter) =
           VC.str_vc show_region filename vc @
           (* [""] @ *)
@@ -83,7 +83,7 @@ fun process_top_bind filename gctx bind =
               val vcs = BigOSolver.solve_vcs vcs
               val () = println (sprintf "BigO solver generated or left $ proof obligations unproved." [str_int $ length vcs])
               val () = println ""
-              val () = print_unsats false filename $ map (fn vc => (vc, SOME [])) vcs
+              (* val () = print_unsats false filename $ map (fn vc => (vc, SOME [])) vcs *)
             in
               vcs
             end
@@ -339,14 +339,47 @@ end
 structure Main = struct
 open Util
 open OS.Process
-       
+open String
+open List
+
+exception ParseArgsError of string
+            
+fun usage () =
+    println "Usage: THIS filename1 filename2 ..."
+(* print ("Usage: " ^ prog ^ " [-help] [-switch] [-A Argument] [-B]\n") *)
+            
+fun parse_arguments args =
+    let
+      val annoless = ref false
+      val positionals = ref []
+      (* fun do_A arg = print ("Argument of -A is " ^ arg ^ "\n") *)
+      (* fun do_B ()  = if !switch then print "switch is on\n" else print "switch is off\n" *)
+      fun parseArgs args =
+          case args of
+              [] => ()
+	    | "--help" :: ts => (usage (); parseArgs ts)
+	    | "--annoless" :: ts => (annoless := true; parseArgs ts)
+	    (* | parseArgs ("-A" :: arg :: ts) = (do_A arg;       parseArgs ts) *)
+	    (* | parseArgs ("-B"        :: ts) = (do_B();         parseArgs ts) *)
+	    | s :: ts =>
+              if isPrefix "-" s then
+	        raise ParseArgsError ("Unrecognized option: " ^ s)
+              else
+                (push_ref positionals s; parseArgs ts)
+      val () = parseArgs args
+    in
+      (!annoless, rev (!positionals))
+    end
+                   
 fun main (prog_name, args : string list) : int = 
     let
-      val _ =
-	  case args of
-	      [] => (println "Usage: THIS filename1 filename2 ..."; exit(failure))
-	    | filenames =>
-              TiML.main filenames
+      val (opt, filenames) = parse_arguments args
+      val () = if null filenames then
+                 (usage ();
+                  exit failure)
+               else ()
+      val () = PreTypeCheck.anno_less := opt
+      val _ = TiML.main filenames
     in	
       0
     end
@@ -355,6 +388,7 @@ fun main (prog_name, args : string list) : int =
     | IO.Io e => (println (sprintf "IO Error doing $ on $" [#function e, #name e]); 1)
     | Impossible msg => (println ("Impossible: " ^ msg); 1)
     | Expr.ModuleUVar msg => (println ("ModuleUVar: " ^ msg); 1)
+    | ParseArgsError msg => (println msg; usage (); 1)
                                (* | _ => (println ("Internal error"); 1) *)
 
 end

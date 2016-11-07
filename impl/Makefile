@@ -41,7 +41,7 @@ main: main.mlb $(FILES)
 	mllex front-end/timl.lex
 	mlyacc sexp/sexp.grm
 	mllex sexp/sexp.lex
-	mlton -profile time main.mlb
+	mlton $(MLTON_FLAGS) main.mlb
 
 profile:
 	mlprof -show-line true -raw true main mlmon.out
