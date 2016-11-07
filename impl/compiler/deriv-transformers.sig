@@ -2,6 +2,36 @@ signature SIG_DERIV_TRANSFOMRERS =
 sig
     structure MicroTiMLDef : SIG_MICRO_TIML_DEF
 
+    functor CstrDerivGenericOnlyDownTransformer(
+    Action:
+    sig
+        type down
+
+        val add_kind : MicroTiMLDef.kind * down -> down
+
+        val on_pr_leaf : MicroTiMLDef.proping_judgement * down -> MicroTiMLDef.proping_judgement
+        val on_ke_leaf : MicroTiMLDef.kdeq_judgement * down -> MicroTiMLDef.kdeq_judgement
+        val on_kd_leaf : MicroTiMLDef.kinding_judgement * down -> MicroTiMLDef.kinding_judgement
+        val on_wk_leaf : MicroTiMLDef.wfkind_judgement * down -> MicroTiMLDef.wfkind_judgement
+        val on_wp_leaf : MicroTiMLDef.wfprop_judgement * down -> MicroTiMLDef.wfprop_judgement
+        val on_te_leaf : MicroTiMLDef.tyeq_judgement * down -> MicroTiMLDef.tyeq_judgement
+
+        val transformer_proping : MicroTiMLDef.proping * down -> MicroTiMLDef.proping option
+        val transformer_kdeq : (MicroTiMLDef.kdeq * down -> MicroTiMLDef.kdeq) * (MicroTiMLDef.proping * down -> MicroTiMLDef.proping) -> MicroTiMLDef.kdeq * down -> MicroTiMLDef.kdeq option
+        val transformer_kinding : (MicroTiMLDef.kinding * down -> MicroTiMLDef.kinding) * (MicroTiMLDef.wfkind * down -> MicroTiMLDef.wfkind) * (MicroTiMLDef.kdeq * down -> MicroTiMLDef.kdeq) -> MicroTiMLDef.kinding * down -> MicroTiMLDef.kinding option
+        val transformer_wfkind : (MicroTiMLDef.wfkind * down -> MicroTiMLDef.wfkind) * (MicroTiMLDef.wfprop * down -> MicroTiMLDef.wfprop) -> MicroTiMLDef.wfkind * down -> MicroTiMLDef.wfkind option
+        val transformer_wfprop : (MicroTiMLDef.wfprop * down -> MicroTiMLDef.wfprop) * (MicroTiMLDef.kinding * down -> MicroTiMLDef.kinding) -> MicroTiMLDef.wfprop * down -> MicroTiMLDef.wfprop option
+        val transformer_tyeq : (MicroTiMLDef.tyeq * down -> MicroTiMLDef.tyeq) * (MicroTiMLDef.proping * down -> MicroTiMLDef.proping) * (MicroTiMLDef.kdeq * down -> MicroTiMLDef.kdeq) * (MicroTiMLDef.kinding * down -> MicroTiMLDef.kinding) -> MicroTiMLDef.tyeq * down -> MicroTiMLDef.tyeq option
+    end) :
+            sig
+                val transform_proping : MicroTiMLDef.proping * Action.down -> MicroTiMLDef.proping
+                val transform_kdeq : MicroTiMLDef.kdeq * Action.down -> MicroTiMLDef.kdeq
+                val transform_kinding : MicroTiMLDef.kinding * Action.down -> MicroTiMLDef.kinding
+                val transform_wfkind : MicroTiMLDef.wfkind * Action.down -> MicroTiMLDef.wfkind
+                val transform_wfprop : MicroTiMLDef.wfprop * Action.down -> MicroTiMLDef.wfprop
+                val transform_tyeq : MicroTiMLDef.tyeq * Action.down -> MicroTiMLDef.tyeq
+            end
+
     structure DerivAssembler :
               sig
                   val as_KdEqKArrow : MicroTiMLDef.kdeq -> MicroTiMLDef.kdeq -> MicroTiMLDef.kdeq_judgement
