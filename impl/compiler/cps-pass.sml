@@ -54,7 +54,7 @@ CstrGenericOnlyDownTransformer(
           CArrow (t1, i, t2) =>
           let
               val t1 = shift0_c_c $ on_cstr (t1, ())
-              val i = shift0_c_c $ on_cstr (i, ())
+              val i = shift0_c_c i (* only on type *)
               val t2 = shift0_c_c $ on_cstr (t2, ())
               val t2_cont = CArrow (t2, CVar 0, CTypeUnit)
           in
@@ -70,8 +70,8 @@ CstrGenericOnlyDownTransformer(
           end
         | _ => NONE
 
-    fun transformer_kind _ _ = NONE
-    fun transformer_prop _ _ = NONE
+    fun transformer_kind (on_kind, on_prop) (k, ()) = SOME k
+    fun transformer_prop (on_prop, on_cstr) (p, ()) = SOME p (* bin pred cannot have types as operands *)
     end)
 
 structure CstrDerivHelper =
@@ -191,10 +191,11 @@ CstrDerivGenericOnlyDownTransformer(
           end
         | _ => NONE
 
-    fun transformer_proping _ = NONE
-    fun transformer_kdeq _ _ = NONE
-    fun transformer_wfkind _ _ = NONE
-    fun transformer_wfprop _ _ = NONE
+    (* be confident! *)
+    fun transformer_proping (pr, ()) = SOME pr
+    fun transformer_kdeq _ (ke, ()) = SOME ke
+    fun transformer_wfkind _ (wk, ()) = SOME wk
+    fun transformer_wfprop _ (wp, ()) = SOME wp
     end)
 
 (* the size of ty's and ty_cont's context should be the same
