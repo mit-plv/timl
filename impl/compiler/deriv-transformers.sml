@@ -2192,14 +2192,13 @@ end*)
 
 structure DerivDirectSubstCstr =
 struct
-structure Helper = DerivGenericOnlyDownTransformer(
-    struct
-    open DirectSubstCstr
+open DirectSubstCstr
 
+structure CstrHelper = CstrDerivGenericOnlyDownTransformer(
+    struct
     type down = cstr * int
 
     fun add_kind (_, (to, who)) = (shift0_c_c to, who + 1)
-    fun add_type (_, (to, who)) = (to, who)
 
     fun on_pr_leaf ((kctx, p), (to, who)) = (kctx, dsubst_c_p to who p)
     fun on_ke_leaf ((kctx, k1, k2), (to, who)) = (kctx, dsubst_c_k to who k1, dsubst_c_k to who k2)
@@ -2207,12 +2206,6 @@ structure Helper = DerivGenericOnlyDownTransformer(
     fun on_wk_leaf ((kctx, k), (to, who)) = (kctx, dsubst_c_k to who k)
     fun on_wp_leaf ((kctx, p), (to, who)) = (kctx, dsubst_c_p to who p)
     fun on_te_leaf ((kctx, t1, t2), (to, who)) = (kctx, dsubst_c_c to who t1, dsubst_c_c to who t2)
-    fun on_ty_leaf ((ctx, e, t, i), (to, who)) = (ctx, dsubst_c_e to who e, dsubst_c_c to who t, dsubst_c_c to who i)
-
-    fun transformer_typing (on_typing, on_kinding, on_wfkind, on_tyeq, on_proping) (ty, (to, who)) =
-      case ty of
-          TyFix _ => SOME ty
-        | _ => NONE
 
     fun transformer_proping _ = NONE
     fun transformer_kdeq _ _ = NONE
@@ -2222,9 +2215,28 @@ structure Helper = DerivGenericOnlyDownTransformer(
     fun transformer_tyeq _ _ = NONE
     end)
 
-fun dsubst_c_ty to who ty = Helper.transform_typing (ty, (to, who))
-fun dsubst_c_kd to who kd = Helper.transform_kinding (kd, (to, who))
-fun dsubst_c_wk to who wk = Helper.transform_wfkind (wk, (to, who))
+structure ExprHelper = ExprDerivGenericOnlyDownTransformer(
+    struct
+    type kdown = cstr * int
+    type tdown = unit
+    type down = kdown * tdown
+
+    fun add_kind (_, ((to, who), ())) = ((shift0_c_c to, who + 1), ())
+    fun add_type (_, ()) = ()
+
+    fun on_ty_leaf ((ctx, e, t, i), ((to, who), ())) = (ctx, dsubst_c_e to who e, dsubst_c_c to who t, dsubst_c_c to who i)
+
+    val transform_proping = CstrHelper.transform_proping
+    val transform_kinding = CstrHelper.transform_kinding
+    val transform_wfkind = CstrHelper.transform_wfkind
+    val transform_tyeq = CstrHelper.transform_tyeq
+
+    fun transformer_typing _ _ = NONE
+    end)
+
+fun dsubst_c_ty to who ty = ExprHelper.transform_typing (ty, ((to, who), ()))
+fun dsubst_c_kd to who kd = CstrHelper.transform_kinding (kd, (to, who))
+fun dsubst_c_wk to who wk = CstrHelper.transform_wfkind (wk, (to, who))
 
 fun dsubst0_c_ty to = dsubst_c_ty to 0
 fun dsubst0_c_kd to = dsubst_c_kd to 0
@@ -2233,37 +2245,28 @@ end
 
 structure DerivDirectSubstExpr =
 struct
-structure Helper = DerivGenericOnlyDownTransformer(
+open DirectSubstExpr
+
+structure ExprHelper = ExprDerivGenericOnlyDownTransformer(
     struct
-    open DirectSubstExpr
+    type kdown = unit
+    type tdown = expr * int
+    type down = kdown * tdown
 
-    type down = expr * int
-
-    fun add_kind (_, (to, who)) = (shift0_c_e to, who)
+    fun add_kind (_, ((), (to, who))) = ((), (shift0_c_e to, who))
     fun add_type (_, (to, who)) = (shift0_e_e to, who + 1)
 
-    fun on_pr_leaf (pr, _) = pr
-    fun on_ke_leaf (ke, _) = ke
-    fun on_kd_leaf (kd, _) = kd
-    fun on_wk_leaf (wk, _) = wk
-    fun on_wp_leaf (wp, _) = wp
-    fun on_te_leaf (te, _) = te
-    fun on_ty_leaf ((ctx, e, t, i), (to, who)) = (ctx, dsubst_e_e to who e, t, i)
+    fun on_ty_leaf ((ctx, e, t, i), ((), (to, who))) = (ctx, dsubst_e_e to who e, t, i)
 
-    fun transformer_typing (on_typing, on_kinding, on_wfkind, on_tyeq, on_proping) (ty, (to, who)) =
-      case ty of
-          TyFix _ => SOME ty
-        | _ => NONE
+    fun transform_proping (pr, kdown) = pr
+    fun transform_kinding (kd, kdown) = kd
+    fun transform_wfkind (wk, kdown) = wk
+    fun transform_tyeq (te, kdown) = te
 
-    fun transformer_proping _ = NONE
-    fun transformer_kdeq _ _ = NONE
-    fun transformer_kinding _ _ = NONE
-    fun transformer_wfkind _ _ = NONE
-    fun transformer_wfprop _ _ = NONE
-    fun transformer_tyeq _ _ = NONE
+    fun transformer_typing _ _ = NONE
     end)
 
-fun dsubst_e_ty to who ty = Helper.transform_typing (ty, (to, who))
+fun dsubst_e_ty to who ty = ExprHelper.transform_typing (ty, ((), (to, who)))
 
 fun dsubst0_e_ty to = dsubst_e_ty to 0
 end
