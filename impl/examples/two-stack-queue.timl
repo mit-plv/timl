@@ -7,12 +7,20 @@ open List
 datatype queue 'a {s1 s2 : Nat} =
          Queue of list 'a {s1} * list 'a {s2} --> queue 'a {s1} {s2}
 
+(* Common pattern for cost constraint :
+     cost + post_potential <= acost + pre_potential
+   (acost: amortized cost)
+ *)
+(* potential := s1 *)
 datatype some_output_and_cost_constraint 'a {s1 s2 : Nat} {acost cost : Time} =
          SomeOutputAndCostConstraint
            {s1' s2' : Nat}
            {cost + $s1' <= $s1 + acost}
          of queue 'a {s1'} {s2'} --> some_output_and_cost_constraint 'a {s1} {s2} {acost} {cost}
 
+(* An amortized computation is a closure (or "computation") whose cost is constrainted by the input and output capas in some manner.
+   Note that the actual [cost] is existentially introduced and not visible from the type.
+ *)
 datatype amortized_comp 'a {s1 s2 : Nat} {acost : Time} =
          AmortizedComp
            {cost : Time} 
