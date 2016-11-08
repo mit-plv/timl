@@ -115,6 +115,7 @@ Run POSTPROC after fontifying if non-nil."
 
 (defun timl--error-filter (errors)
   "Fontify messages of ERRORS and adjust column number."
+  (flycheck-sanitize-errors errors)
   (flycheck-increment-error-columns errors)
   (dolist (err errors)
     (let ((message (flycheck-error-message err)))
