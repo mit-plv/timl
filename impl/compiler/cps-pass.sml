@@ -25,7 +25,7 @@ open DerivSubstTyping
 fun send_to_cont ty_cont ty =
   case ty_cont of
       TyAbs (_, _, ty_body) => subst0_ty_ty ty ty_body
-    | _ => TyAppK (as_TyAppK ty_cont ty, ty_cont, ty)
+    | _ => TyApp (as_TyApp ty_cont ty, ty_cont, ty)
 
 fun meta_lemma ty =
   let
@@ -58,13 +58,13 @@ CstrGenericOnlyDownTransformer(
               val t2 = shift0_c_c $ on_cstr (t2, ())
               val t2_cont = CArrow (t2, CVar 0, CTypeUnit)
           in
-              SOME (CForall (KTime, CArrow (CProd (t1, t2_cont), Tadd (i, CVar 0), CTypeUnit)))
+              SOME (CForall (KTime, CArrow (CProd (t1, t2_cont), Tadd (i, Tadd (T1, CVar 0)), CTypeUnit)))
           end
         | CQuan (QuanForall, k, t) =>
           let
               val t = shift0_c_c $ on_cstr (t, ())
               val t_cont = CArrow (t, CVar 0, CTypeUnit)
-              val t_quan_j = CForall (KTime, CArrow (t_cont, CVar 0, CTypeUnit))
+              val t_quan_j = CForall (KTime, CArrow (t_cont, Tadd (T1, CVar 0), CTypeUnit))
           in
               SOME (CForall (k, t_quan_j))
           end
@@ -106,10 +106,12 @@ CstrDerivGenericOnlyDownTransformer(
               val kd_t_param = KdBinOp (as_KdBinOp CBTypeProd kd_t1 kd_t2_cont, kd_t1, kd_t2_cont)
               val kd_arrow =
                   let
-                      val kd_tmp1 = KdBinOp (as_KdBinOp CBTimeAdd kd_i kd_j, kd_i, kd_j)
-                      val kd_tmp2 = KdConst (kctx, CTypeUnit, KType)
+                      val kd_tmp1 = KdConst (kctx, T1, KTime)
+                      val kd_tmp2 = KdBinOp (as_KdBinOp CBTimeAdd kd_tmp1 kd_j, kd_tmp1, kd_j)
+                      val kd_tmp3 = KdBinOp (as_KdBinOp CBTimeAdd kd_i kd_tmp2, kd_i, kd_tmp2)
+                      val kd_tmp4 = KdConst (kctx, CTypeUnit, KType)
                   in
-                      KdArrow (as_KdArrow kd_t_param kd_tmp1 kd_tmp2, kd_t_param, kd_tmp1, kd_tmp2)
+                      KdArrow (as_KdArrow kd_t_param kd_tmp3 kd_tmp4, kd_t_param, kd_tmp3, kd_tmp4)
                   end
               val wk = WfKdBaseSort (tl kctx, KTime)
           in
@@ -129,8 +131,10 @@ CstrDerivGenericOnlyDownTransformer(
               val kd_arrow =
                   let
                       val kd_tmp1 = KdConst (kctx, CTypeUnit, KType)
+                      val kd_tmp2 = KdConst (kctx, T1, KTime)
+                      val kd_tmp3 = KdBinOp (as_KdBinOp CBTimeAdd kd_tmp2 kd_j, kd_tmp2, kd_j)
                   in
-                      KdArrow (as_KdArrow kd_cont kd_j kd_tmp1, kd_cont, kd_j, kd_tmp1)
+                      KdArrow (as_KdArrow kd_cont kd_tmp3 kd_tmp1, kd_cont, kd_tmp3, kd_tmp1)
                   end
               val wk_j = WfKdBaseSort (tl kctx, KTime)
               val kd_quan_j = KdQuan (as_KdQuan QuanForall wk_j kd_arrow, wk_j, kd_arrow)
@@ -158,7 +162,7 @@ CstrDerivGenericOnlyDownTransformer(
               val te_t_arrow =
                   let
                       val (_, i_lhs, i_rhs) = extract_p_bin_pred $ snd $ extract_judge_proping pr_i
-                      val pr_tmp1 = PrAdmit (kctx, TEq (Tadd (i_lhs, CVar 0), Tadd (i_rhs, CVar 0)))
+                      val pr_tmp1 = PrAdmit (kctx, TEq (Tadd (i_lhs, Tadd (T1, CVar 0)), Tadd (i_rhs, Tadd (T1, CVar 0))))
                       val te_tmp2 = TyEqConst (kctx, CTypeUnit, CTypeUnit)
                   in
                       TyEqArrow (as_TyEqArrow te_t_param pr_tmp1 te_tmp2, te_t_param, pr_tmp1, te_tmp2)
@@ -181,8 +185,9 @@ CstrDerivGenericOnlyDownTransformer(
               val te_arrow =
                   let
                       val te_tmp1 = TyEqConst (kctx, CTypeUnit, CTypeUnit)
+                      val pr_tmp2 = PrAdmit (kctx, TEq (Tadd (T1, CVar 0), Tadd (T1, CVar 0)))
                   in
-                      TyEqArrow (as_TyEqArrow te_cont pr_j te_tmp1, te_cont, pr_j, te_tmp1)
+                      TyEqArrow (as_TyEqArrow te_cont pr_tmp2 te_tmp1, te_cont, pr_tmp2, te_tmp1)
                   end
               val ke_j = KdEqBaseSort (tl kctx, KTime, KTime)
               val te_quan_j = TyEqQuan (as_TyEqQuan QuanForall ke_j te_arrow, ke_j, te_arrow)
@@ -260,7 +265,7 @@ fun cps ty ty_cont =
                   val ty_tmp2 = TyAppC (as_TyAppC ty_tmp1 kd_c, ty_tmp1, kd_c)
                   val (_, kd_tmp3, _) = inverse_kd_arrow $ fst $ meta_lemma in1_ty_cont
                   val ty_tmp4 = TyAppC (as_TyAppC ty_tmp2 kd_tmp3, ty_tmp2, kd_tmp3)
-                  val ty_tmp5 = TyAppK (as_TyAppK ty_tmp4 in1_ty_cont, ty_tmp4, in1_ty_cont)
+                  val ty_tmp5 = TyApp (as_TyApp ty_tmp4 in1_ty_cont, ty_tmp4, in1_ty_cont)
               in
                   TyAbs (as_TyAbs kd_t ty_tmp5, kd_t, ty_tmp5)
               end
@@ -273,7 +278,7 @@ fun cps ty ty_cont =
           val kd_t_arg = cps_kinding $ shift0_ctx_kd [KTime] kd_t_arg
           val (kd_t_body, _) = meta_lemma ty_body
           val kd_t_body = cps_kinding $ shift0_ctx_kd [KTime] kd_t_body
-          (* t1 -- i --> t2 => forall j, ([t1], [t2] -- j --> unit) -- i + j --> unit *)
+          (* t1 -- i --> t2 => forall j, ([t1], [t2] -- j --> unit) -- i + (1 + j) --> unit *)
           val kd_t_body_cont =
               let
                   val (kctx, _, _) = extract_judge_kinding kd_t_body
@@ -314,7 +319,7 @@ fun cps ty ty_cont =
           val ty_sub_ti =
               let
                   val ((kctx, tctx), e, t, i) = extract_judge_typing ty_wrap_body_cont
-                  val as_i = Tadd (i_body, CVar 0)
+                  val as_i = Tadd (i_body, Tadd (T1, CVar 0))
               in
                   TySubTi (((kctx, tctx), e, t, as_i), ty_wrap_body_cont, PrAdmit (kctx, TLe (i, as_i)))
               end
@@ -336,7 +341,7 @@ fun cps ty ty_cont =
           val (_, k_arg) = extract_judge_wfkind wk_arg
           val (kd_t_body, _) = meta_lemma ty_body
           val kd_t_body = cps_kinding $ shift0_ctx_kd [KTime] kd_t_body
-          (* forall a, t => forall a, forall j, ([t] -- j --> unit) -- j --> unit  *)
+          (* forall a, t => forall a, forall j, ([t] -- j --> unit) -- 1 + j --> unit  *)
           val kd_t_body_cont =
               let
                   val (kctx, _, _) = extract_judge_kinding kd_t_body
@@ -357,7 +362,7 @@ fun cps ty ty_cont =
           val ty_sub_ti =
               let
                   val ((kctx, tctx), e, t, i) = extract_judge_typing ty_body
-                  val as_i = CVar 0
+                  val as_i = Tadd (T1, CVar 0)
               in
                   TySubTi (((kctx, tctx), e, t, as_i), ty_body, PrAdmit (kctx, TLe (i, as_i)))
               end
@@ -528,8 +533,9 @@ fun cps ty ty_cont =
           val ty_bare_res = cps_finisher ty_body kd_t_body t_body ty_body_as_var ty_cont
           val ((kctx, _), _, _, i_bare_res) = extract_judge_typing ty_bare_res
           val (_, _, i_body) =  extract_p_bin_pred $ snd $ extract_judge_proping pr
-          val (_, _, _, i_cont) = extract_judge_typing ty_cont
-          val pr = PrAdmit (kctx, TLe (i_bare_res, Tadd (i_body, i_cont)))
+          val (_, _, t_cont, _) = extract_judge_typing ty_cont
+          val (_, i_cont, _) = extract_c_arrow t_cont
+          val pr = PrAdmit (kctx, TLe (i_bare_res, Tadd (i_body, Tadd (T1, i_cont))))
           val ty_res = TySubTi (as_TySubTi ty_bare_res pr, ty_bare_res, pr)
       in
           ty_res

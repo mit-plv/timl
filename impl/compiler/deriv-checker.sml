@@ -19,7 +19,23 @@ exception CheckFail
 
 fun assert p = if p then () else raise CheckFail
 
-fun check_proping _ = ()
+fun check_proping pr =
+  case pr of
+      PrAdmit (kctx, p) =>
+      let
+          val () =
+              case p of
+                  PBinPred (PBTimeLe, _, _) =>
+                  let
+                      val () = app (println o prefix "    " o str_kind) kctx
+                      val () = println $ "ADMIT: " ^ str_prop p
+                  in
+                      ()
+                  end
+                | _ => ()
+      in
+          ()
+      end
 
 and check_kdeq ke = (
     case ke of
