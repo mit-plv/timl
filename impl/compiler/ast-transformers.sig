@@ -2,6 +2,46 @@ signature SIG_AST_TRANSFORMERS =
 sig
     structure MicroTiMLDef : SIG_MICRO_TIML_DEF
 
+    functor ExprGenericTransformer(
+        Action:
+        sig
+            type kdown
+            type tdown
+            type down = kdown * tdown
+            type up
+
+            val upward_base : up
+            val combiner : up * up -> up
+
+            val add_kind : MicroTiMLDef.kind option * down -> down
+            val add_type : MicroTiMLDef.cstr option * tdown -> tdown
+
+            val transform_cstr : MicroTiMLDef.cstr * kdown -> MicroTiMLDef.cstr * up
+
+            val transformer_expr : (MicroTiMLDef.expr * down -> MicroTiMLDef.expr * up) -> MicroTiMLDef.expr * down -> (MicroTiMLDef.expr * up) option
+        end
+    ) :
+            sig
+                val transform_expr : MicroTiMLDef.expr * Action.down -> MicroTiMLDef.expr * Action.up
+            end
+
+    functor CstrGenericOnlyDownTransformer(
+        Action:
+        sig
+            type down
+
+            val add_kind : MicroTiMLDef.kind option * down -> down
+
+            val transformer_cstr : (MicroTiMLDef.cstr * down -> MicroTiMLDef.cstr) * (MicroTiMLDef.kind * down -> MicroTiMLDef.kind) -> MicroTiMLDef.cstr * down -> MicroTiMLDef.cstr option
+            val transformer_kind : (MicroTiMLDef.kind * down -> MicroTiMLDef.kind) * (MicroTiMLDef.prop * down -> MicroTiMLDef.prop) -> MicroTiMLDef.kind * down -> MicroTiMLDef.kind option
+            val transformer_prop : (MicroTiMLDef.prop * down -> MicroTiMLDef.prop) * (MicroTiMLDef.cstr * down -> MicroTiMLDef.cstr) -> MicroTiMLDef.prop * down -> MicroTiMLDef.prop option
+        end) :
+            sig
+                val transform_cstr : MicroTiMLDef.cstr * Action.down -> MicroTiMLDef.cstr
+                val transform_kind : MicroTiMLDef.kind * Action.down -> MicroTiMLDef.kind
+                val transform_prop : MicroTiMLDef.prop * Action.down -> MicroTiMLDef.prop
+            end
+
     structure PlainPrinter :
               sig
                   val str_cstr : MicroTiMLDef.cstr -> string

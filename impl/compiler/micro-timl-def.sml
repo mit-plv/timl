@@ -19,6 +19,7 @@ datatype cstr_const =
 datatype cstr_bin_op =
          CBTimeAdd
          | CBTimeMinus
+         | CBTimeMult
          | CBTimeMax
          | CBTypeProd
          | CBTypeSum
@@ -62,7 +63,7 @@ datatype cstr =
          | CAbs of cstr
          | CApp of cstr * cstr
          | CQuan of quan * kind * cstr
-         | CRec of kind * cstr
+         | CRec of string * kind * cstr
          | CRef of cstr
          | CUnOp of cstr_un_op * cstr
 
@@ -91,6 +92,7 @@ val T0 = Tconst Time0
 val T1 = Tconst Time1
 fun Tadd (c1, c2) = CBinOp (CBTimeAdd, c1, c2)
 fun Tminus (c1, c2) = CBinOp (CBTimeMinus, c1, c2)
+fun Tmult (c1, c2) = CBinOp (CBTimeMult, c1, c2)
 
 fun TfromNat c = CUnOp (CUNat2Time, c)
 
@@ -112,7 +114,7 @@ fun CSum (c1, c2) = CBinOp (CBTypeSum, c1, c2)
 fun TLe (c1, c2) = PBinPred (PBTimeLe, c1, c2)
 fun TEq (c1, c2) = PBinPred (PBTimeEq, c1, c2)
 
-val CInt = CConst CCTypeInt
+val CTypeInt = CConst CCTypeInt
 fun CNat n = CConst (CCIdxNat n)
 
 fun CApps t cs =
@@ -132,6 +134,7 @@ fun cbinop_arg1_kind opr =
   case opr of
       CBTimeAdd => KTime
     | CBTimeMinus => KTime
+    | CBTimeMult => KTime
     | CBTimeMax => KTime
     | CBTypeProd => KType
     | CBTypeSum => KType
@@ -141,6 +144,7 @@ fun cbinop_arg2_kind opr =
   case opr of
       CBTimeAdd => KTime
     | CBTimeMinus => KTime
+    | CBTimeMult => KTime
     | CBTimeMax => KTime
     | CBTypeProd => KType
     | CBTypeSum => KType
@@ -150,6 +154,7 @@ fun cbinop_result_kind opr =
   case opr of
       CBTimeAdd => KTime
     | CBTimeMinus => KTime
+    | CBTimeMult => KTime
     | CBTimeMax => KTime
     | CBTypeProd => KType
     | CBTypeSum => KType
@@ -327,7 +332,7 @@ val ETT = EConst ECTT
 fun const_type cn =
   case cn of
       ECTT => CTypeUnit
-    | ECInt _ => CInt
+    | ECInt _ => CTypeInt
 
 type typing_judgement = ctx * expr * cstr * cstr
 

@@ -169,6 +169,7 @@ fun str_cstr_bin_op opr =
   case opr of
       CBTimeAdd => "+"
     | CBTimeMinus => "-"
+    | CBTimeMult => "*"
     | CBTimeMax => "max"
     | CBTypeProd => "*"
     | CBTypeSum => "+"

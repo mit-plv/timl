@@ -141,7 +141,7 @@ fun str_atom_expr e =
     | AEFuncPointer f => "FUN" ^ str_int f
     | AEPair (e1, e2) => "<" ^ str_atom_expr e1 ^ " , " ^ str_atom_expr e2 ^ ">"
     | AEAppC (e, c) => str_atom_expr e ^ "[" ^ PP.str_cstr c ^ "]"
-    | AEPack (c, e) => "pack[" ^ PP.str_cstr c ^ " , " ^ str_atom_expr e ^ "]"
+    | AEPack (c, e) => "pack[" ^ (* PP.str_cstr c *) "_" ^ " , " ^ str_atom_expr e ^ "]"
 
 fun str_complex_expr e =
   case e of

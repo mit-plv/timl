@@ -167,7 +167,7 @@ and check_ctyping ty =
              val (t1, cs) = unfold_CApps t []
              val () =
                  case t1 of
-                     CRec (k, t2) =>
+                     CRec (_, k, t2) =>
                      let
                          val () = assert (#1 jkd = kctx)
                          val () = assert (#2 jkd = t)
@@ -194,7 +194,7 @@ and check_ctyping ty =
              val (t, cs) = unfold_CApps (#3 jty) []
              val () =
                  case t of
-                     CRec (k, t1) =>
+                     CRec (_, k, t1) =>
                      let
                          val () = assert (#1 jty = ctx)
                          val () = assert (#2 jty = e)

@@ -31,6 +31,7 @@ sig
     datatype cstr_bin_op =
              CBTimeAdd
              | CBTimeMinus
+             | CBTimeMult (* new *)
              | CBTimeMax
              | CBTypeProd
              | CBTypeSum
@@ -74,7 +75,7 @@ sig
              | CAbs of cstr
              | CApp of cstr * cstr
              | CQuan of quan * kind * cstr
-             | CRec of kind * cstr
+             | CRec of string * kind * cstr (* add a id for debug *)
              | CRef of cstr
              | CUnOp of cstr_un_op * cstr (* new *)
 
@@ -103,6 +104,7 @@ sig
     val T1 : cstr
     val Tadd : cstr * cstr -> cstr
     val Tminus : cstr * cstr -> cstr
+    val Tmult : cstr * cstr -> cstr (* new *)
 
     val TfromNat : cstr -> cstr
 
@@ -124,8 +126,8 @@ sig
     val TLe : cstr * cstr -> prop
     val TEq : cstr * cstr -> prop
 
-    val CInt : cstr
-    val CNat : Nat.nat_type -> cstr (* new *)
+    val CTypeInt : cstr (* rename CInt to CTypeInt *)
+    val CNat : Nat.nat_type -> cstr (* new helper *)
 
     val CApps : cstr -> cstr list -> cstr
 
@@ -254,9 +256,9 @@ sig
              | EAppC of expr * cstr
              | EPack of cstr * expr
              | EUnpack of expr * expr
-             | EHalt of expr (* new *)
-             | ELet of expr * expr (* new *)
-             | EFix of int * expr (* new *)
+             | EHalt of expr (* new, introduced in CPS *)
+             | ELet of expr * expr (* new, introduced in CPS *)
+             | EFix of int * expr (* new, introduced in CloConv *)
 
     val EProj : projector * expr -> expr
     val EInj : injector * expr -> expr

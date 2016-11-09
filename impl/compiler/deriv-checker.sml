@@ -19,7 +19,23 @@ exception CheckFail
 
 fun assert p = if p then () else raise CheckFail
 
-fun check_proping _ = ()
+fun check_proping pr =
+  case pr of
+      PrAdmit (kctx, p) =>
+      let
+          val () =
+              case p of
+                  PBinPred (PBTimeLe, _, _) =>
+                  let
+                      val () = app (println o prefix "    " o str_kind) kctx
+                      val () = println $ "ADMIT: " ^ str_prop p
+                  in
+                      ()
+                  end
+                | _ => ()
+      in
+          ()
+      end
 
 and check_kdeq ke = (
     case ke of
@@ -206,7 +222,7 @@ and check_kinding kd = (
         in
             ()
         end
-      | KdRec ((kctx, CRec (k, c), k'), wk, kd) =>
+      | KdRec ((kctx, CRec (_, k, c), k'), wk, kd) =>
         let
             val () = check_wfkind wk
             val () = check_kinding kd
@@ -541,7 +557,7 @@ and check_tyeq te = (
         in
             ()
         end
-      | TyEqRec ((kctx, CRec (k1, t1), CRec (k2, t2)), ke, te) =>
+      | TyEqRec ((kctx, CRec (_, k1, t1), CRec (_, k2, t2)), ke, te) =>
         let
             val () = check_kdeq ke
             val () = check_tyeq te
@@ -725,7 +741,7 @@ and check_typing ty = (
             val (t1, cs) = unfold_CApps t []
             val () =
                 case t1 of
-                    CRec (k, t2) =>
+                    CRec (_, k, t2) =>
                     let
                         val () = assert (#1 jkd = kctx)
                         val () = assert (#2 jkd = t)
@@ -752,7 +768,7 @@ and check_typing ty = (
             val (t, cs) = unfold_CApps (#3 jty) []
             val () =
                 case t of
-                    CRec (k, t1) =>
+                    CRec (_, k, t1) =>
                     let
                         val () = assert (#1 jty = ctx)
                         val () = assert (#2 jty = e)
