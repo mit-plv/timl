@@ -2,6 +2,29 @@ signature SIG_AST_TRANSFORMERS =
 sig
     structure MicroTiMLDef : SIG_MICRO_TIML_DEF
 
+    functor ExprGenericTransformer(
+        Action:
+        sig
+            type kdown
+            type tdown
+            type down = kdown * tdown
+            type up
+
+            val upward_base : up
+            val combiner : up * up -> up
+
+            val add_kind : MicroTiMLDef.kind option * down -> down
+            val add_type : MicroTiMLDef.cstr option * tdown -> tdown
+
+            val transform_cstr : MicroTiMLDef.cstr * kdown -> MicroTiMLDef.cstr * up
+
+            val transformer_expr : (MicroTiMLDef.expr * down -> MicroTiMLDef.expr * up) -> MicroTiMLDef.expr * down -> (MicroTiMLDef.expr * up) option
+        end
+    ) :
+            sig
+                val transform_expr : MicroTiMLDef.expr * Action.down -> MicroTiMLDef.expr * Action.up
+            end
+
     functor CstrGenericOnlyDownTransformer(
         Action:
         sig

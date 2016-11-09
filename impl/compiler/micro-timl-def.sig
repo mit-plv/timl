@@ -31,6 +31,7 @@ sig
     datatype cstr_bin_op =
              CBTimeAdd
              | CBTimeMinus
+             | CBTimeMult (* new *)
              | CBTimeMax
              | CBTypeProd
              | CBTypeSum
@@ -103,6 +104,7 @@ sig
     val T1 : cstr
     val Tadd : cstr * cstr -> cstr
     val Tminus : cstr * cstr -> cstr
+    val Tmult : cstr * cstr -> cstr (* new *)
 
     val TfromNat : cstr -> cstr
 

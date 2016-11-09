@@ -22,6 +22,47 @@ open ShiftCtx
 open DerivAssembler
 open DerivSubstTyping
 
+structure CountAppCAndCase =
+struct
+structure ExprHelper = ExprGenericTransformer(
+    struct
+    type kdown = unit
+    type tdown = unit
+    type down = kdown * tdown
+    type up = int
+
+    val upward_base = 0
+    val combiner = (op+)
+
+    fun add_kind (_, ((), ())) = ((), ())
+    fun add_type (_, ()) = ()
+
+    fun transform_cstr (c, ()) = (c, 0)
+
+    fun transformer_expr on_expr (e, ((), ())) =
+      case e of
+          EAppC (e, c) =>
+          let
+              val (e, up1) = on_expr (e, ((), ()))
+          in
+              SOME (EAppC (e, c), up1 + 1)
+          end
+        | ECase (e, e1, e2) =>
+          let
+              val (e, up1) = on_expr (e, ((), ()))
+              val (e1, up2) = on_expr (e1, ((), ()))
+              val (e2, up3) = on_expr (e2, ((), ()))
+          in
+              SOME (ECase (e, e1, e2), up1 + up2 + up3 + 1)
+          end
+        | _ => NONE
+    end)
+
+fun count_app_c_and_case e = ExprHelper.transform_expr (e, ((), ()))
+end
+
+val num_of_app_c_and_case = ref (TfromNat $ CNat $ Nat.from_int 0)
+
 fun send_to_cont ty_cont ty =
   case ty_cont of
       TyAbs (_, _, ty_body) => subst0_ty_ty ty ty_body
@@ -53,15 +94,17 @@ CstrGenericOnlyDownTransformer(
       case c of
           CArrow (t1, i, t2) =>
           let
+              (* t1 -- i --> t2 => forall j, ([t1], [t2] -- j --> unit) -- k * (i + 1) + (2 * i + (1 + j)) --> unit  *)
               val t1 = shift0_c_c $ on_cstr (t1, ())
               val i = shift0_c_c i (* only on type *)
               val t2 = shift0_c_c $ on_cstr (t2, ())
               val t2_cont = CArrow (t2, CVar 0, CTypeUnit)
           in
-              SOME (CForall (KTime, CArrow (CProd (t1, t2_cont), Tadd (i, Tadd (T1, CVar 0)), CTypeUnit)))
+              SOME (CForall (KTime, CArrow (CProd (t1, t2_cont), Tadd (Tmult (!num_of_app_c_and_case, Tadd (i, T1)), Tadd (Tmult (TfromNat $ CNat $ Nat.from_int 2, i), Tadd (T1, CVar 0))), CTypeUnit)))
           end
         | CQuan (QuanForall, k, t) =>
           let
+              (* forall a, t => forall a, forall j, ([t] -- j --> unit) -- 1 + j --> unit *)
               val t = shift0_c_c $ on_cstr (t, ())
               val t_cont = CArrow (t, CVar 0, CTypeUnit)
               val t_quan_j = CForall (KTime, CArrow (t_cont, Tadd (T1, CVar 0), CTypeUnit))
@@ -108,10 +151,17 @@ CstrDerivGenericOnlyDownTransformer(
                   let
                       val kd_tmp1 = KdConst (kctx, T1, KTime)
                       val kd_tmp2 = KdBinOp (as_KdBinOp CBTimeAdd kd_tmp1 kd_j, kd_tmp1, kd_j)
-                      val kd_tmp3 = KdBinOp (as_KdBinOp CBTimeAdd kd_i kd_tmp2, kd_i, kd_tmp2)
-                      val kd_tmp4 = KdConst (kctx, CTypeUnit, KType)
+                      val (_, coef) = extract_c_un_op (!num_of_app_c_and_case)
+                      val kd_tmp3 = KdUnOp (as_KdUnOp CUNat2Time (KdConst (kctx, coef, KNat)), KdConst (kctx, coef, KNat))
+                      val kd_tmp4 = KdBinOp (as_KdBinOp CBTimeAdd kd_i kd_tmp1, kd_i, kd_tmp1)
+                      val kd_tmp5=  KdBinOp (as_KdBinOp CBTimeMult kd_tmp3 kd_tmp4, kd_tmp3, kd_tmp4)
+                      val kd_tmp6 = KdUnOp (as_KdUnOp CUNat2Time (KdConst (kctx, CNat $ Nat.from_int 2, KNat)), KdConst (kctx, CNat $ Nat.from_int 2, KNat))
+                      val kd_tmp7 = KdBinOp (as_KdBinOp CBTimeMult kd_tmp6 kd_i, kd_tmp6, kd_i)
+                      val kd_tmp8 = KdBinOp (as_KdBinOp CBTimeAdd kd_tmp7 kd_tmp2, kd_tmp7, kd_tmp2)
+                      val kd_tmp9 = KdBinOp (as_KdBinOp CBTimeAdd kd_tmp5 kd_tmp8, kd_tmp5, kd_tmp8)
+                      val kd_tmp10 = KdConst (kctx, CTypeUnit, KType)
                   in
-                      KdArrow (as_KdArrow kd_t_param kd_tmp3 kd_tmp4, kd_t_param, kd_tmp3, kd_tmp4)
+                      KdArrow (as_KdArrow kd_t_param kd_tmp9 kd_tmp10, kd_t_param, kd_tmp9, kd_tmp10)
                   end
               val wk = WfKdBaseSort (tl kctx, KTime)
           in
@@ -162,7 +212,7 @@ CstrDerivGenericOnlyDownTransformer(
               val te_t_arrow =
                   let
                       val (_, i_lhs, i_rhs) = extract_p_bin_pred $ snd $ extract_judge_proping pr_i
-                      val pr_tmp1 = PrAdmit (kctx, TEq (Tadd (i_lhs, Tadd (T1, CVar 0)), Tadd (i_rhs, Tadd (T1, CVar 0))))
+                      val pr_tmp1 = PrAdmit (kctx, TEq (Tadd (Tmult (!num_of_app_c_and_case, Tadd (i_lhs, T1)), Tadd (Tmult (TfromNat $ CNat $ Nat.from_int 2, i_lhs), Tadd (T1, CVar 0))), Tadd (Tmult (!num_of_app_c_and_case, Tadd (i_rhs, T1)), Tadd (Tmult (TfromNat $ CNat $ Nat.from_int 2, i_rhs), Tadd (T1, CVar 0)))))
                       val te_tmp2 = TyEqConst (kctx, CTypeUnit, CTypeUnit)
                   in
                       TyEqArrow (as_TyEqArrow te_t_param pr_tmp1 te_tmp2, te_t_param, pr_tmp1, te_tmp2)
@@ -278,7 +328,7 @@ fun cps ty ty_cont =
           val kd_t_arg = cps_kinding $ shift0_ctx_kd [KTime] kd_t_arg
           val (kd_t_body, _) = meta_lemma ty_body
           val kd_t_body = cps_kinding $ shift0_ctx_kd [KTime] kd_t_body
-          (* t1 -- i --> t2 => forall j, ([t1], [t2] -- j --> unit) -- i + (1 + j) --> unit *)
+          (* t1 -- i --> t2 => forall j, ([t1], [t2] -- j --> unit) -- k * (i + 1) + (2 * i + (1 + j)) --> unit *)
           val kd_t_body_cont =
               let
                   val (kctx, _, _) = extract_judge_kinding kd_t_body
@@ -319,7 +369,7 @@ fun cps ty ty_cont =
           val ty_sub_ti =
               let
                   val ((kctx, tctx), e, t, i) = extract_judge_typing ty_wrap_body_cont
-                  val as_i = Tadd (i_body, Tadd (T1, CVar 0))
+                  val as_i = Tadd (Tmult (!num_of_app_c_and_case, Tadd (i_body, T1)), Tadd (Tmult (TfromNat $ CNat $ Nat.from_int 2, i_body), Tadd (T1, CVar 0)))
               in
                   TySubTi (((kctx, tctx), e, t, as_i), ty_wrap_body_cont, PrAdmit (kctx, TLe (i, as_i)))
               end
@@ -535,7 +585,7 @@ fun cps ty ty_cont =
           val (_, _, i_body) =  extract_p_bin_pred $ snd $ extract_judge_proping pr
           val (_, _, t_cont, _) = extract_judge_typing ty_cont
           val (_, i_cont, _) = extract_c_arrow t_cont
-          val pr = PrAdmit (kctx, TLe (i_bare_res, Tadd (i_body, Tadd (T1, i_cont))))
+          val pr = PrAdmit (kctx, TLe (i_bare_res, Tadd (Tmult (!num_of_app_c_and_case, Tadd (i_body, T1)), Tadd (Tmult (TfromNat $ CNat $ Nat.from_int 2, i_body), Tadd (T1, i_cont)))))
           val ty_res = TySubTi (as_TySubTi ty_bare_res pr, ty_bare_res, pr)
       in
           ty_res
@@ -599,6 +649,8 @@ and cps_finisher_in2 ty1 ty2 kd_t1 kd_t2 t1 t2 ty_post ty_cont =
 
 fun cps_deriv ty =
   let
+      val (_, e, _, _) = extract_judge_typing ty
+      val () = num_of_app_c_and_case := (TfromNat $ CNat $ Nat.from_int $ (snd $ CountAppCAndCase.count_app_c_and_case e) * 2)
       val kd_t = cps_kinding $ fst $ meta_lemma ty
       val (_, t, _) = extract_judge_kinding kd_t
       val ((kctx, tctx), _, _, _) = extract_judge_typing ty

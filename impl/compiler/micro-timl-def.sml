@@ -19,6 +19,7 @@ datatype cstr_const =
 datatype cstr_bin_op =
          CBTimeAdd
          | CBTimeMinus
+         | CBTimeMult
          | CBTimeMax
          | CBTypeProd
          | CBTypeSum
@@ -91,6 +92,7 @@ val T0 = Tconst Time0
 val T1 = Tconst Time1
 fun Tadd (c1, c2) = CBinOp (CBTimeAdd, c1, c2)
 fun Tminus (c1, c2) = CBinOp (CBTimeMinus, c1, c2)
+fun Tmult (c1, c2) = CBinOp (CBTimeMult, c1, c2)
 
 fun TfromNat c = CUnOp (CUNat2Time, c)
 
@@ -132,6 +134,7 @@ fun cbinop_arg1_kind opr =
   case opr of
       CBTimeAdd => KTime
     | CBTimeMinus => KTime
+    | CBTimeMult => KTime
     | CBTimeMax => KTime
     | CBTypeProd => KType
     | CBTypeSum => KType
@@ -141,6 +144,7 @@ fun cbinop_arg2_kind opr =
   case opr of
       CBTimeAdd => KTime
     | CBTimeMinus => KTime
+    | CBTimeMult => KTime
     | CBTimeMax => KTime
     | CBTypeProd => KType
     | CBTypeSum => KType
@@ -150,6 +154,7 @@ fun cbinop_result_kind opr =
   case opr of
       CBTimeAdd => KTime
     | CBTimeMinus => KTime
+    | CBTimeMult => KTime
     | CBTimeMax => KTime
     | CBTypeProd => KType
     | CBTypeSum => KType
