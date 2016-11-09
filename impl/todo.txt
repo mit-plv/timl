@@ -103,3 +103,4 @@ Done. 6. Dijkstra algorithm.
 Done. 7. Two-stack queue (amortized).
 Done. 8. Double-linked lists.
 9. Union-find (amortized).
+10. Some example showcasing the flexibility of "size" (not decided yet).
