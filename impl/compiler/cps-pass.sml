@@ -577,7 +577,7 @@ fun cps ty ty_cont =
       in
           ty_res
       end
-    | TySubTi (_, ty_body, pr) =>
+    | TySubTi ((_, e, _, _), ty_body, pr) =>
       let
           val (kd_t_body, t_body, ty_body_as_var) = cps_body_as_var ty_body ty_cont
           val ty_bare_res = cps_finisher ty_body kd_t_body t_body ty_body_as_var ty_cont
@@ -585,7 +585,7 @@ fun cps ty ty_cont =
           val (_, _, i_body) =  extract_p_bin_pred $ snd $ extract_judge_proping pr
           val (_, _, t_cont, _) = extract_judge_typing ty_cont
           val (_, i_cont, _) = extract_c_arrow t_cont
-          val pr = PrAdmit (kctx, TLe (i_bare_res, Tadd (Tmult (!num_of_app_c_and_case, Tadd (i_body, T1)), Tadd (Tmult (TfromNat $ CNat $ Nat.from_int 2, i_body), Tadd (T1, i_cont)))))
+          val pr = PrAdmit (kctx, TLe (i_bare_res, Tadd (Tadd (TfromNat $ CNat $ Nat.from_int ((snd $ CountAppCAndCase.count_app_c_and_case e) * 2), Tmult (!num_of_app_c_and_case, i_body)), Tadd (Tmult (TfromNat $ CNat $ Nat.from_int 2, i_body), Tadd (case ty_cont of TyAbs _ => T0 | _ => T1, i_cont)))))
           val ty_res = TySubTi (as_TySubTi ty_bare_res pr, ty_bare_res, pr)
       in
           ty_res

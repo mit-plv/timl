@@ -2,6 +2,33 @@ signature SIG_DERIV_TRANSFOMRERS =
 sig
     structure MicroTiMLDef : SIG_MICRO_TIML_DEF
 
+    functor ExprDerivGenericTransformer(
+        Action:
+        sig
+            type kdown
+            type tdown
+            type down = kdown * tdown
+            type up
+
+            val upward_base : up
+            val combiner : up * up -> up
+
+            val add_kind : MicroTiMLDef.kind * down -> down
+            val add_type : MicroTiMLDef.cstr * tdown -> tdown
+
+            val on_ty_leaf : MicroTiMLDef.typing_judgement * down -> MicroTiMLDef.typing_judgement * up
+
+            val transform_proping : MicroTiMLDef.proping * kdown -> MicroTiMLDef.proping * up
+            val transform_kinding : MicroTiMLDef.kinding * kdown -> MicroTiMLDef.kinding * up
+            val transform_wfkind : MicroTiMLDef.wfkind * kdown -> MicroTiMLDef.wfkind * up
+            val transform_tyeq : MicroTiMLDef.tyeq * kdown -> MicroTiMLDef.tyeq * up
+
+            val transformer_typing : (MicroTiMLDef.typing * down -> MicroTiMLDef.typing * up) -> MicroTiMLDef.typing * down -> (MicroTiMLDef.typing * up) option
+                                                                                                                                                  end) :
+            sig
+                val transform_typing : MicroTiMLDef.typing * Action.down -> MicroTiMLDef.typing * Action.up
+            end
+
     functor CstrDerivGenericOnlyDownTransformer(
     Action:
     sig
