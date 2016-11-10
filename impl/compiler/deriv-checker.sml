@@ -27,8 +27,8 @@ fun check_proping pr =
               case p of
                   PBinPred (PBTimeLe, _, _) =>
                   let
-                      val () = app (println o prefix "    " o str_kind) kctx
-                      val () = println $ "ADMIT: " ^ str_prop p
+                      (*8val () = app (println o prefix "    " o str_kind) kctx
+                      val () = println $ "ADMIT: " ^ str_prop p*)
                   in
                       ()
                   end

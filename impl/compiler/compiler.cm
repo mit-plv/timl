@@ -8,6 +8,7 @@ Group is
       deriv-checker.sig
       cps-pass.sig
       wrap-abs-pass.sig
+      clo-conv-pass.sig
       micro-timl-test.sig
       micro-timl-hoisted-def.sig
       hoisted-deriv-checker.sig
