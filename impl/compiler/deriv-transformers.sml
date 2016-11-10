@@ -1059,13 +1059,6 @@ fun default_transform_typing (ty, down as (kdown, tdown)) =
         in
             (TyHalt (as_TyHalt ty, ty), combine [up1])
         end
-      | TyAppK (judge, ty1, ty2) =>
-        let
-            val (ty1, up1) = transform_typing (ty1, down)
-            val (ty2, up2) = transform_typing (ty2, down)
-        in
-            (TyAppK (as_TyAppK ty1 ty2, ty1, ty2), combine [up1, up2])
-        end
       | TyLet (judge, ty1, ty2) =>
         let
             val (ty1, up1) = transform_typing (ty1, down)

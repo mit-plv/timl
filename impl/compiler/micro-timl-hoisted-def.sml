@@ -68,7 +68,6 @@ datatype atom_typing =
          HTyLet of hoisted_typing_judgement * complex_typing * hoisted_typing
          | HTyUnpack of hoisted_typing_judgement * atom_typing * hoisted_typing
          | HTyApp of hoisted_typing_judgement * atom_typing * atom_typing
-         | HTyAppK of hoisted_typing_judgement * atom_typing * atom_typing
          | HTyCase of hoisted_typing_judgement * atom_typing * hoisted_typing * hoisted_typing
          | HTyHalt of hoisted_typing_judgement * atom_typing
          | HTySubTi of hoisted_typing_judgement * hoisted_typing * proping
@@ -99,7 +98,6 @@ fun extract_judge_htyping ty =
       HTyLet (j, _, _) => j
     | HTyUnpack (j, _, _) => j
     | HTyApp (j, _, _) => j
-    | HTyAppK (j, _, _) => j
     | HTyCase (j, _, _, _) => j
     | HTyHalt (j, _) => j
     | HTySubTi (j, _, _) => j
@@ -347,15 +345,6 @@ and transform_typing_hoisted (ty : typing, funcs : func_typing list) =
         in
             (HTyApp ((([], kctx, tctx), HEApp (#2 jty1, #2 jty2), i), ty1, ty2), funcs)
         end
-      | TyAppK (((kctx, tctx), EBinOp (EBApp, e1, e2), CTypeUnit, i), ty1, ty2) =>
-        let
-            val (ty1, funcs) = transform_typing_atom (ty1, funcs)
-            val (ty2, funcs) = transform_typing_atom (ty2, funcs)
-            val jty1 = extract_judge_atyping ty1
-            val jty2 = extract_judge_atyping ty2
-        in
-            (HTyAppK ((([], kctx, tctx), HEApp (#2 jty1, #2 jty2), i), ty1, ty2), funcs)
-        end
       | TyCase (((kctx, tctx), ECase (e, e1, e2), CTypeUnit, i), ty, ty1, ty2) =>
         let
             val (ty, funcs) = transform_typing_atom (ty, funcs)
@@ -439,7 +428,6 @@ and set_fctx_hoisted fctx ty =
               HTyLet (j, ty1, ty2) => HTyLet (replace j, on_complex ty1, on_hoisted ty2)
             | HTyUnpack (j, ty1, ty2) => HTyUnpack (replace j, on_atom ty1, on_hoisted ty2)
             | HTyApp (j, ty1, ty2) => HTyApp (replace j, on_atom ty1, on_atom ty2)
-            | HTyAppK (j, ty1, ty2) => HTyAppK (replace j, on_atom ty1, on_atom ty2)
             | HTyCase (j, ty, ty1, ty2) => HTyCase (replace j, on_atom ty, on_hoisted ty1, on_hoisted ty2)
             | HTyHalt (j, ty) => HTyHalt (replace j, on_atom ty)
             | HTySubTi (j, ty, pr) => HTySubTi (replace j, on_hoisted ty, pr)

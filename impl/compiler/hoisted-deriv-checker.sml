@@ -343,22 +343,6 @@ and check_htyping ty =
          in
              ()
          end
-       | HTyAppK ((ctx, HEApp (e1, e2), CBinOp (CBTimeAdd, CBinOp (CBTimeAdd, i1, i2), i)), ty1, ty2) =>
-         let
-             val () = check_atyping ty1
-             val () = check_atyping ty2
-             val jty1 = extract_judge_atyping ty1
-             val jty2 = extract_judge_atyping ty2
-             val () = assert (#1 jty1 = ctx)
-             val () = assert (#2 jty1 = e1)
-             val () = assert (#3 jty1 = CArrow (#3 jty2, i, CTypeUnit))
-             val () = assert (#4 jty1 = i1)
-             val () = assert (#1 jty2 = ctx)
-             val () = assert (#2 jty2 = e2)
-             val () = assert (#4 jty2 = i2)
-         in
-             ()
-         end
        | HTyCase ((ctx as (fctx, kctx, tctx), HECase (e, e1, e2), CBinOp (CBTimeAdd, i, CBinOp (CBTimeMax, i1, i2))), ty1, ty2, ty3) =>
          let
              val () = check_atyping ty1

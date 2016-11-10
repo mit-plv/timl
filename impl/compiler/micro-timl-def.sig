@@ -313,7 +313,6 @@ sig
              | TySubTy of typing_judgement * typing * tyeq (* new : split from TySub *)
              | TySubTi of typing_judgement * typing * proping (* new : split from TySub *)
              | TyHalt of typing_judgement * typing (* new *)
-             | TyAppK of typing_judgement * typing * typing (* TODO: eliminate this rule *)
              | TyLet of typing_judgement * typing * typing (* new *)
              | TyFix of typing_judgement * kinding * typing (* new *)
 end

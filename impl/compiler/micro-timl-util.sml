@@ -93,7 +93,6 @@ fun extract_judge_typing ty =
     | TySubTy (j, _, _) => j
     | TySubTi (j, _, _) => j
     | TyHalt (j, _) => j
-    | TyAppK (j, _, _) => j
     | TyLet (j, _, _) => j
     | TyFix (j, _, _) => j
 

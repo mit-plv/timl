@@ -358,7 +358,6 @@ datatype typing =
          | TySubTy of typing_judgement * typing * tyeq
          | TySubTi of typing_judgement * typing * proping
          | TyHalt of typing_judgement * typing
-         | TyAppK of typing_judgement * typing * typing
          | TyLet of typing_judgement * typing * typing
          | TyFix of typing_judgement * kinding * typing
 end

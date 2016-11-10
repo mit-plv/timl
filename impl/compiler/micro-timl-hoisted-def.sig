@@ -59,7 +59,6 @@ sig
              HTyLet of hoisted_typing_judgement * complex_typing * hoisted_typing
              | HTyUnpack of hoisted_typing_judgement * atom_typing * hoisted_typing
              | HTyApp of hoisted_typing_judgement * atom_typing * atom_typing
-             | HTyAppK of hoisted_typing_judgement * atom_typing * atom_typing
              | HTyCase of hoisted_typing_judgement * atom_typing * hoisted_typing * hoisted_typing
              | HTyHalt of hoisted_typing_judgement * atom_typing
              | HTySubTi of hoisted_typing_judgement * hoisted_typing * MicroTiMLDef.proping
