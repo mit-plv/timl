@@ -1308,6 +1308,53 @@ fun shift0_ctx_wk kctxd = shift_ctx_wk (kctxd, 0)
 fun shift0_ctx_ke kctxd = shift_ctx_ke (kctxd, 0)
 end
 
+structure ChangeCtx =
+struct
+structure CstrDerivHelper = CstrDerivGenericOnlyDownTransformer(
+    struct
+    type down = kctx
+
+    fun add_kind (k, kctx) = k :: kctx
+
+    fun on_pr_leaf ((_, p), kctx) = (kctx, p)
+    fun on_ke_leaf ((_, k1, k2), kctx) = (kctx, k1, k2)
+    fun on_kd_leaf ((_, c, k), kctx) = (kctx, c, k)
+    fun on_wk_leaf ((_, k), kctx) = (kctx, k)
+    fun on_wp_leaf ((_, p), kctx) = (kctx, p)
+    fun on_te_leaf ((_, c1, c2), kctx) = (kctx, c1, c2)
+
+    fun transformer_proping _ = NONE
+    fun transformer_kdeq _ _ = NONE
+    fun transformer_kinding _ _ = NONE
+    fun transformer_wfkind _ _ = NONE
+    fun transformer_wfprop _ _ = NONE
+    fun transformer_tyeq _ _ = NONE
+    end)
+
+structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformer(
+    struct
+    type kdown = kctx
+    type tdown = tctx
+    type down = kdown * tdown
+
+    fun add_kind (k, (kctx, tctx)) = (k :: kctx, map shift0_c_c tctx)
+    fun add_type (t, tctx) = t :: tctx
+
+    fun on_ty_leaf ((_, e, t, i), ctx) = (ctx, e, t, i)
+
+    val transform_proping = CstrDerivHelper.transform_proping
+    val transform_kinding = CstrDerivHelper.transform_kinding
+    val transform_wfkind = CstrDerivHelper.transform_wfkind
+    val transform_tyeq = CstrDerivHelper.transform_tyeq
+
+    fun transformer_typing _ _ = NONE
+    end)
+
+fun change_ctx_wk kctx wk = CstrDerivHelper.transform_wfkind (wk, kctx)
+fun change_ctx_kd kctx kd = CstrDerivHelper.transform_kinding (kd, kctx)
+fun change_ctx_ty ctx ty = ExprDerivHelper.transform_typing (ty, ctx)
+end
+
 structure DerivFVCstr =
 struct
 open List

@@ -20,6 +20,7 @@ open SubstExpr
 
 open DerivAssembler
 open ShiftCtx
+open ChangeCtx
 open DirectSubstCstr
 open DirectSubstExpr
 open DerivFVCstr
@@ -46,83 +47,6 @@ structure CstrHelper = CstrGenericOnlyDownTransformer(
     type down = unit
 
     fun add_kind (_, ()) = ()
-
-                               
-fun transform_type t =
-  case t of
-      CVar x => CVar x
-    | CConst cn => CConst cn
-    | CBinOp (opr, t1, t2) =>
-      let
-          val t1 = transform_type t1
-          val t2 = transform_type t2
-      in
-          CBinOp (opr, t1, t2)
-      end
-    | CIte (i1, i2, i3) =>
-      let
-          val i1 = transform_type i1
-          val i2 = transform_type i2
-          val i3 = transform_type i3
-      in
-          CIte (i1, i2, i3)
-      end
-    | CTimeAbs c => CTimeAbs (transform_type c)
-    | CTimeApp (arity, c1, c2) =>
-      let
-          val c1 = transform_type c1
-          val c2 = transform_type c2
-      in
-          CTimeApp (arity, c1, c2)
-      end
-    | CArrow (t1, i, t2) =>
-      let
-          val t1 = transform_type t1
-          val i = transform_type i
-          val t2 = transform_type t2
-      in
-          CExists (KType, CProd (CArrow (CProd (CVar 0, ShiftCstr.shift0_c_c t1), ShiftCstr.shift0_c_c i, ShiftCstr.shift0_c_c t2), CVar 0))
-      end
-    | CAbs c => CAbs (transform_type c)
-    | CApp (c1, c2) =>
-      let
-          val c1 = transform_type c1
-          val c2 = transform_type c2
-      in
-          CApp (c1, c2)
-      end
-    | CQuan (QuanForall, _, _) =>
-      let
-          fun unfold_CForalls t ks =
-            case t of
-                CQuan (QuanForall, k, t) => unfold_CForalls t (k :: ks)
-              | _ => (t, ks)
-          val (t, ks) = unfold_CForalls t []
-          val cnt_ks = length ks
-          val (t1, i, t2) = extract_c_arrow t
-          val t1 = shift_c_c 1 cnt_ks $ transform_type t1
-          val i = shift_c_c 1 cnt_ks $ transform_type i
-          val t2 = shift_c_c 1 cnt_ks $ transform_type t2
-          val t = CArrow (CProd (CVar cnt_ks, t1), i, t2)
-          val t = foldli (fn (i, k, t) => CForall (shift_c_k 1 (cnt_ks - 1 - i) k, t)) t ks
-          val t = CProd (t, CVar 0)
-      in
-          CExists (KType, t)
-      end
-    | CQuan (QuanExists, k, c) =>
-      let
-          val c = transform_type c
-      in
-          CExists (k, c)
-      end
-    | CRec (name, k, c) =>
-      let
-          val c = transform_type c
-      in
-          CRec (name, k, c)
-      end
-    | CRef c => CRef (transform_type c)
-    | CUnOp (opr, c) => CUnOp (opr, transform_type c)
 
     fun transformer_cstr (on_cstr, on_kind) (c, ()) =
       case c of
@@ -319,7 +243,7 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformer(
                                      foldri (fn (i, (x, wk), pairs) =>
                                                 let
                                                     val wk = foldli (fn (j, (y, _), wk) => dsubst_c_wk (CVar j) y wk) wk pairs
-                                                    val wk = transform_wfkind (wk, map (snd o extract_judge_wfkind o snd) pairs)
+                                                    val wk = change_ctx_wk (map (snd o extract_judge_wfkind o snd) pairs) wk
                                                 in
                                                     (x, wk) :: pairs
                                                 end)
@@ -330,12 +254,11 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformer(
               val new_free_kds = map (fn kd =>
                                          let
                                              val kd = foldli (fn (j, x, kd) => dsubst_c_kd (CVar j) x kd) kd fcv
-                                             val kd = transform_kinding (kd, free_kinds)
+                                             val kd = change_ctx_kd new_free_kinds kd
                                          in
                                              kd
                                          end) free_kds
               val cnt_ori_kinds = length ori_wks
-              val cnt_free_types = length free_types
 
               val new_ori_wks = mapi (fn (i, wk) => foldli (fn (j, x, wk) => dsubst_c_wk (CVar (j + cnt_ori_kinds - 1 - i)) (x + cnt_ori_kinds - 1 - i) wk) wk fcv) ori_wks
               val (new_all_kinds, new_ori_wks) = foldr
@@ -354,9 +277,11 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformer(
               val new_kd_arg = transform_kinding (new_kd_arg, new_all_kinds)
               val (_, new_t_arg, _) = extract_judge_kinding new_kd_arg
               val (kd_res, kd_time) = meta_lemma1 ty_body
-              val new_kd_time = transform_kinding (kd_time, new_all_kinds)
+              val new_kd_time = foldli (fn (j, x, kd) => dsubst_c_kd (CVar (j + cnt_ori_kinds)) (x + cnt_ori_kinds) kd) kd_time fcv
+              val new_kd_time = transform_kinding (new_kd_time, new_all_kinds)
               val (_, new_i_abs, _) = extract_judge_kinding new_kd_time
-              val new_kd_res = transform_kinding (kd_res, new_all_kinds)
+              val new_kd_res = foldli (fn (j, x, kd) => dsubst_c_kd (CVar (j + cnt_ori_kinds)) (x + cnt_ori_kinds) kd) kd_res fcv
+              val new_kd_res = transform_kinding (new_kd_res, new_all_kinds)
               val (_, new_t_res, _) = extract_judge_kinding new_kd_res
 
               val new_kd_env = foldl (fn (kd, kd_env) =>

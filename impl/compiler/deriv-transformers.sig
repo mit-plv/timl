@@ -157,6 +157,13 @@ sig
                   val shift0_ctx_ke : MicroTiMLDef.kctx -> MicroTiMLDef.kdeq -> MicroTiMLDef.kdeq
               end
 
+    structure ChangeCtx :
+              sig
+                  val change_ctx_wk : MicroTiMLDef.kctx -> MicroTiMLDef.wfkind -> MicroTiMLDef.wfkind
+                  val change_ctx_kd : MicroTiMLDef.kctx -> MicroTiMLDef.kinding -> MicroTiMLDef.kinding
+                  val change_ctx_ty : MicroTiMLDef.ctx -> MicroTiMLDef.typing -> MicroTiMLDef.typing
+              end
+
     structure DerivSubstTyping :
               sig
                   val subst_ty_ty : MicroTiMLDef.typing -> int -> MicroTiMLDef.typing -> MicroTiMLDef.typing
