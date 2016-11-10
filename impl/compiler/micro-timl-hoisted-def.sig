@@ -51,6 +51,7 @@ sig
              | CTyNew of complex_typing_judgement * atom_typing
              | CTyRead of complex_typing_judgement * atom_typing
              | CTyWrite of complex_typing_judgement * atom_typing * atom_typing
+             | CTyPrimBinOp of complex_typing_judgement * atom_typing * atom_typing
              | CTyAtom of complex_typing_judgement * atom_typing
              | CTySubTy of complex_typing_judgement * complex_typing * MicroTiMLDef.tyeq
              | CTySubTi of complex_typing_judgement * complex_typing * MicroTiMLDef.proping

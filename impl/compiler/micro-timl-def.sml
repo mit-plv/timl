@@ -261,6 +261,18 @@ datatype expr_const =
 datatype prim_expr_bin_op =
          PEBIntAdd
 
+fun pebinop_arg1_type opr =
+  case opr of
+      PEBIntAdd => CTypeInt
+
+fun pebinop_arg2_type opr =
+  case opr of
+      PEBIntAdd => CTypeInt
+
+fun pebinop_result_type opr =
+  case opr of
+      PEBIntAdd => CTypeInt
+
 datatype projector =
          ProjFst
          | ProjSnd
@@ -360,4 +372,5 @@ datatype typing =
          | TyHalt of typing_judgement * typing
          | TyLet of typing_judgement * typing * typing
          | TyFix of typing_judgement * kinding * typing
+         | TyPrimBinOp of typing_judgement * typing * typing
 end

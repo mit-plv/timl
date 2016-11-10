@@ -524,6 +524,14 @@ fun cps ty ty_cont =
       in
           ty_res
       end
+    | TyPrimBinOp ((_, EBinOp (EBPrim opr, _, _), _, _), ty1, ty2) =>
+      let
+          val (kd_t1, kd_t2, t1, t2, ty1_as_var, ty2_as_var) = cps_body_as_var_in2 ty1 ty2 ty_cont
+          val ty_prim_var = TyPrimBinOp (as_TyPrimBinOp opr ty1_as_var ty2_as_var, ty1_as_var, ty2_as_var)
+          val ty_res = cps_finisher_in2 ty1 ty2 kd_t1 kd_t2 t1 t2 ty_prim_var ty_cont
+      in
+          ty_res
+      end
     | TyUnpack (_, ty1, ty2) =>
       let
           val kd_t1 = cps_kinding $ fst $ meta_lemma ty1

@@ -986,6 +986,24 @@ and check_typing ty = (
         in
             ()
         end
+      | TyPrimBinOp ((ctx, EBinOp (EBPrim opr, e1, e2), t, CBinOp (CBTimeAdd, i1, i2)), ty1, ty2) =>
+        let
+            val () = check_typing ty1
+            val () = check_typing ty2
+            val jty1 = extract_judge_typing ty1
+            val jty2 = extract_judge_typing ty2
+            val () = assert (#1 jty1 = ctx)
+            val () = assert (#2 jty1 = e1)
+            val () = assert (#3 jty1 = pebinop_arg1_type opr)
+            val () = assert (#4 jty1 = i1)
+            val () = assert (#1 jty2 = ctx)
+            val () = assert (#2 jty2 = e2)
+            val () = assert (#3 jty2 = pebinop_arg2_type opr)
+            val () = assert (#4 jty2 = i2)
+            val () = assert (t = pebinop_result_type opr)
+        in
+            ()
+        end
       | _ => raise CheckFail)
                       handle CheckFail =>
                              let

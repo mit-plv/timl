@@ -60,6 +60,7 @@ datatype atom_typing =
          | CTyNew of complex_typing_judgement * atom_typing
          | CTyRead of complex_typing_judgement * atom_typing
          | CTyWrite of complex_typing_judgement * atom_typing * atom_typing
+         | CTyPrimBinOp of complex_typing_judgement * atom_typing * atom_typing
          | CTyAtom of complex_typing_judgement * atom_typing
          | CTySubTy of complex_typing_judgement * complex_typing * tyeq
          | CTySubTi of complex_typing_judgement * complex_typing * proping
@@ -122,6 +123,7 @@ fun extract_judge_ctyping ty =
     | CTyNew (j, _) => j
     | CTyRead (j, _) => j
     | CTyWrite (j, _, _) => j
+    | CTyPrimBinOp (j, _, _) => j
     | CTyAtom (j, _) => j
     | CTySubTy (j, _, _) => j
     | CTySubTi (j, _, _) => j
@@ -185,6 +187,7 @@ fun is_complex ty =
      | TyNew _ => true
      | TyRead _ => true
      | TyWrite _ => true
+     | TyPrimBinOp _ => true
      | _ => false)
 
 fun transform_typing_atom (ty : typing, funcs : func_typing list) =
@@ -290,6 +293,15 @@ and transform_typing_complex (ty : typing, funcs : func_typing list) =
             val jty2 = extract_judge_atyping ty2
         in
             (CTyWrite ((([], kctx, tctx), CEWrite (#2 jty1, #2 jty2), t, i), ty1, ty2), funcs)
+        end
+      | TyPrimBinOp (((kctx, tctx), EBinOp (EBPrim opr, e1, e2), t, i), ty1, ty2) =>
+        let
+            val (ty1, funcs) = transform_typing_atom (ty1, funcs)
+            val (ty2, funcs) = transform_typing_atom (ty2, funcs)
+            val jty1 = extract_judge_atyping ty1
+            val jty2 = extract_judge_atyping ty2
+        in
+            (CTyPrimBinOp ((([], kctx, tctx), CEBinOp (EBPrim opr, #2 jty1, #2 jty2), t, i), ty1, ty2), funcs)
         end
       | TySubTy (((kctx, tctx), e, t, i), ty, te) =>
         let
@@ -410,6 +422,7 @@ and set_fctx_complex fctx ty =
             | CTyNew (j, ty) => CTyNew (replace j, on_atom ty)
             | CTyRead (j, ty) => CTyRead (replace j, on_atom ty)
             | CTyWrite (j, ty1, ty2) => CTyWrite (replace j, on_atom ty1, on_atom ty2)
+            | CTyPrimBinOp (j, ty1, ty2) => CTyPrimBinOp (replace j, on_atom ty1, on_atom ty2)
             | CTyAtom (j, ty) => CTyAtom (replace j, on_atom ty)
             | CTySubTy (j, ty, te) => CTySubTy (replace j, on_complex ty, te)
             | CTySubTi (j, ty, pr) => CTySubTi (replace j, on_complex ty, pr)

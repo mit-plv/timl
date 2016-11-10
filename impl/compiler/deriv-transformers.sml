@@ -461,6 +461,14 @@ fun as_TyLet ty1 ty2 =
   in
       (#1 jty1, ELet (#2 jty1, #2 jty2), #3 jty2, Tadd (#4 jty1, #4 jty2))
   end
+
+fun as_TyPrimBinOp opr ty1 ty2 =
+  let
+      val jty1 = extract_judge_typing ty1
+      val jty2 = extract_judge_typing ty2
+  in
+      (#1 jty1, EBinOp (EBPrim opr, #2 jty1, #2 jty2), pebinop_result_type opr, Tadd (#4 jty1, #4 jty2))
+  end
 end
 
 functor CstrDerivGenericTransformer(
@@ -1072,6 +1080,14 @@ fun default_transform_typing (ty, down as (kdown, tdown)) =
             val (judge, up) = Action.on_ty_leaf (judge, down)
         in
             (TyFix (judge, kd, ty), combine [up])
+        end
+      | TyPrimBinOp (judge, ty1, ty2) =>
+        let
+            val (ty1, up1) = transform_typing (ty1, down)
+            val (ty2, up2) = transform_typing (ty2, down)
+            val (opr, _, _) = extract_e_prim_bin_op (#2 judge)
+        in
+            (TyPrimBinOp (as_TyPrimBinOp opr ty1 ty2, ty1, ty2), combine [up1, up2])
         end
 
 and transform_typing (ty, down) =

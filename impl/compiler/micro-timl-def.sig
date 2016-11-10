@@ -219,6 +219,10 @@ sig
     datatype prim_expr_bin_op =
              PEBIntAdd
 
+    val pebinop_arg1_type : prim_expr_bin_op -> cstr
+    val pebinop_arg2_type : prim_expr_bin_op -> cstr
+    val pebinop_result_type : prim_expr_bin_op -> cstr
+
     datatype projector =
              ProjFst
              | ProjSnd
@@ -315,4 +319,5 @@ sig
              | TyHalt of typing_judgement * typing (* new *)
              | TyLet of typing_judgement * typing * typing (* new *)
              | TyFix of typing_judgement * kinding * typing (* new *)
+             | TyPrimBinOp of typing_judgement * typing * typing (* new *)
 end

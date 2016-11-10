@@ -95,6 +95,7 @@ fun extract_judge_typing ty =
     | TyHalt (j, _) => j
     | TyLet (j, _, _) => j
     | TyFix (j, _, _) => j
+    | TyPrimBinOp (j, _, _) => j
 
 fun extract_p_bin_conn (PBinConn a) = a
   | extract_p_bin_conn _ = raise (Impossible "extract_p_bin_conn")
@@ -152,6 +153,9 @@ fun extract_e_abs (EAbs a) = a
 
 fun extract_e_abs_c (EAbsC a) = a
   | extract_e_abs_c _ = raise (Impossible "extract_e_abs_c")
+
+fun extract_e_prim_bin_op (EBinOp (EBPrim opr, e1, e2)) = (opr, e1, e2)
+  | extract_e_prim_bin_op _ = raise (Impossible "extract_e_prim_bin_op")
 
 val str_time = Time.str_time
 val str_nat = Nat.str_nat
