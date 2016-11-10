@@ -318,6 +318,7 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformer(
                                            let
                                                val (wk, kd_body) = case kd of
                                                                        KdQuan (_, wk, kd_body) => (wk, kd_body)
+                                                                     | KdEq _ => raise (Impossible "not supported")
                                                                      | _ => raise (Impossible "CloConv")
                                                val to = KdVar (new_kctx_base, CVar (i + cnt_ori_kinds), shift_c_k (1 + i + cnt_ori_kinds) 0 $ nth (new_kctx_base, i + cnt_ori_kinds))
                                            in
