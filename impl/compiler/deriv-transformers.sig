@@ -170,9 +170,10 @@ sig
                   val subst0_ty_ty : MicroTiMLDef.typing -> MicroTiMLDef.typing -> MicroTiMLDef.typing
               end
 
-    structure CloConv :
+    structure DerivSubstKinding :
               sig
-                  val clo_conv_deriv : MicroTiMLDef.typing -> MicroTiMLDef.typing
+                  val subst_kd_kd : MicroTiMLDef.kinding -> int -> MicroTiMLDef.kinding -> MicroTiMLDef.kinding
+                  val subst0_kd_kd : MicroTiMLDef.kinding -> MicroTiMLDef.kinding -> MicroTiMLDef.kinding
               end
 
     structure DerivFVCstr :

@@ -27,6 +27,7 @@ open DerivFVCstr
 open DerivFVExpr
 open DerivDirectSubstCstr
 open DerivDirectSubstExpr
+open DerivSubstKinding
 
 fun meta_lemma1 ty =
   let
@@ -310,22 +311,64 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformer(
                       inner new_t_env (new_t_env :: new_tctx_base)
                   end
 
-              val new_t_self_pairtial =
+              val new_kd_self_partial =
                   let
-                      val t1 = foldri (fn (i, _, t) => subst0_c_c (CVar (i + cnt_ori_kinds)) (#3 (extract_c_quan t))) new_t_self new_free_wks
-                      fun iter t ks =
-                        case t of
-                            CQuan (QuanForall, k, t) => iter t (k :: ks)
-                          | _ => (t, ks)
-                      val (t2, ks) = iter t1 []
-                      val (t21, t2i, t22) = extract_c_arrow t2
-                      val (_, t212) = extract_c_prod t21
-                      val t3 = CArrow (CProd (CVar cnt_ori_kinds, shift_c_c 1 cnt_ori_kinds t212), shift_c_c 1 cnt_ori_kinds t2i, shift_c_c 1 cnt_ori_kinds t22)
-                      val t4 = foldli (fn (i, k, t) => CForall (shift_c_k 1 (cnt_ori_kinds - 1 - i) k, t)) t3 ks
-                      val t5 = CExists (KType, CProd (t4, CVar 0))
+                      val kd1 = shift0_ctx_kd new_kctx_base new_kd_self
+                      val kd2 = foldri (fn (i, _, kd) =>
+                                           let
+                                               val (wk, kd_body) = case kd of
+                                                                       KdQuan (_, wk, kd_body) => (wk, kd_body)
+                                                                     | _ => raise (Impossible "CloConv")
+                                               val to = KdVar (new_kctx_base, CVar (i + cnt_ori_kinds), shift_c_k (1 + i + cnt_ori_kinds) 0 $ nth (new_kctx_base, i + cnt_ori_kinds))
+                                           in
+                                               subst0_kd_kd to kd_body
+                                           end) kd1 new_free_wks
+                      fun iter kd wks =
+                        case kd of
+                            KdQuan ((_, CQuan (QuanForall, _, _), _), wk, kd) => iter kd (wk :: wks)
+                          | KdEq _ => raise (Impossible "not supported")
+                          | _ => (kd, wks)
+                      val (kd3, wks) = iter kd2 []
+                      val (kd31, kd3i, kd32) =
+                          case kd3 of
+                              KdArrow (_, kd1, kdi, kd2) => (kd1, kdi, kd2)
+                            | KdEq _ => raise (Impossible "not supported")
+                            | _ => raise (Impossible "CloConv")
+                      val (_, kd312) =
+                          case kd31 of
+                              KdBinOp ((_, CBinOp (CBTypeProd, _, _), _), kd1, kd2) => (kd1, kd2)
+                            | KdEq _ => raise (Impossible "not supported")
+                            | _ => raise (Impossible "CloConv")
+                      val kd4 = shift_ctx_kd ([KType], cnt_ori_kinds) kd312
+                      val kd5 = shift_ctx_kd ([KType], cnt_ori_kinds) kd3i
+                      val kd6 = shift_ctx_kd ([KType], cnt_ori_kinds) kd32
+                      val kd7 =
+                          let
+                              val (kctx, _, _) = extract_judge_kinding kd4
+                          in
+                              KdVar (kctx, CVar cnt_ori_kinds, KType)
+                          end
+                      val kd8 = KdBinOp (as_KdBinOp CBTypeProd kd7 kd4, kd7, kd4)
+                      val kd9 = KdArrow (as_KdArrow kd8 kd5 kd6, kd8, kd5, kd6)
+                      val kd10 = foldli (fn (i, wk, kd) =>
+                                            let
+                                                val wk = shift_ctx_wk ([KType], cnt_ori_kinds - 1 - i) wk
+                                            in
+                                                KdQuan (as_KdQuan QuanForall wk kd, wk, kd)
+                                            end) kd9 wks
+                      val kd11 =
+                          let
+                              val (kctx, _, _) = extract_judge_kinding kd10
+                          in
+                              KdVar (kctx, CVar 0, KType)
+                          end
+                      val kd12 = KdBinOp (as_KdBinOp CBTypeProd kd10 kd11, kd10, kd11)
+                      val kd13= KdQuan (as_KdQuan QuanExists (WfKdType (new_kctx_base, KType)) kd12, WfKdType (new_kctx_base, KType), kd12)
                   in
-                      t5
+                      kd13
                   end
+
+              val (_, new_t_self_pairtial, _) = extract_judge_kinding new_kd_self_partial
 
               val new_tctx_self = new_t_self_pairtial :: new_tctx_env
 
@@ -362,8 +405,7 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformer(
                                                TyAppC (as_TyAppC ty kd, ty, kd)
                                            end) ty2 new_free_kinds
                       val ty4 = TyPair (as_TyPair ty3 ty1, ty3, ty1)
-                      val kd5 = KdAdmit (new_kctx_base, new_t_self_pairtial, KType) (* FIXME!!! *)
-                      val ty6 = TyPack (as_TyPack kd5 new_kd_env ty4, kd5, new_kd_env, ty4)
+                      val ty6 = TyPack (as_TyPack new_kd_self_partial new_kd_env ty4, new_kd_self_partial, new_kd_env, ty4)
                   in
                       TyLet (as_TyLet ty6 new_ty_wrap_arg, ty6, new_ty_wrap_arg)
                   end
@@ -433,25 +475,57 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformer(
 
               val ty_res =
                   let
-                      val jty_app_c = extract_judge_typing ty_app_c
-                      val t_tmp =
+                      val kd_tmp =
                           let
-                              val t1 = #3 jty_app_c
-                              fun iter t ks =
-                                case t of
-                                    CQuan (CForall, k, t) => iter t (k :: ks)
-                                  | _ => (t, ks)
-                              val (t2, ks) = iter t1 []
-                              val (t21, t2i, t22) = extract_c_arrow t2
-                              val (_, t212) = extract_c_prod t21
-                              val t3 = CArrow (CProd (CVar cnt_ori_kinds, shift_c_c 1 cnt_ori_kinds t212), shift_c_c 1 cnt_ori_kinds t2i, shift_c_c 1 cnt_ori_kinds t22)
-                              val t4 = foldli (fn (i, k, t) => CForall (shift_c_k 1 (cnt_ori_kinds - 1 - i) k, t)) t3 ks
-                              val t5 = CProd (t4, CVar 0)
+                              val kd1 = fst $ meta_lemma1 ty_app_c
+                              fun iter kd wks step =
+                                if step = 0 then (kd, wks) else
+                                case kd of
+                                    KdQuan ((_, CQuan (QuanForall, _, _), _), wk, kd) => iter kd (wk :: wks) (step - 1)
+                                  | KdAdmit (kctx, CQuan (QuanForall, k, t), _) => iter (KdAdmit (k :: kctx, t, KType)) (WfKdAdmit (kctx, k) :: wks) (step - 1) (* needed since meta lemmas are not implemented *)
+                                  | KdEq _ => raise (Impossible "not supported")
+                                  | _ => raise (Impossible "CloConv")
+                              val (kd2, wks) = iter kd1 [] cnt_ori_kinds
+                              val (kd21, kd2i, kd22) =
+                                  case kd2 of
+                                      KdArrow (_, kd1, kdi, kd2) => (kd1, kdi, kd2)
+                                    | KdAdmit (kctx, CArrow (t1, i, t2), _) => (KdAdmit (kctx, t1, KType), KdAdmit (kctx, i, KTime), KdAdmit (kctx, t2, KType)) (* needed since meta lemmas are not implemented *)
+                                    | KdEq _ => raise (Impossible "not supported")
+                                    | _ => raise (Impossible "CloConv")
+                              val (_, kd212) =
+                                  case kd21 of
+                                      KdBinOp ((_, CBinOp (CBTypeProd, _, _), _), kd1, kd2) => (kd1, kd2)
+                                    | KdAdmit (kctx, CBinOp (CBTypeProd, t1, t2), _) => (KdAdmit (kctx, t1, KType), KdAdmit (kctx, t2, KType)) (* needed since meta lemmas are not implemented *)
+                                    | KdEq _ => raise (Impossible "not supported")
+                                    | _ => raise (Impossible "CloConv")
+                              val kd3 = shift_ctx_kd ([KType], cnt_ori_kinds) kd212
+                              val kd4 = shift_ctx_kd ([KType], cnt_ori_kinds) kd2i
+                              val kd5 = shift_ctx_kd ([KType], cnt_ori_kinds) kd22
+                              val kd6 =
+                                  let
+                                      val (kctx, _, _) = extract_judge_kinding kd3
+                                  in
+                                      KdVar (kctx, CVar cnt_ori_kinds, KType)
+                                  end
+                              val kd7 = KdBinOp (as_KdBinOp CBTypeProd kd6 kd3, kd6, kd3)
+                              val kd8 = KdArrow (as_KdArrow kd7 kd4 kd5, kd7, kd4, kd5)
+                              val kd9 = foldli (fn (i, wk, kd) =>
+                                                   let
+                                                       val wk = shift_ctx_wk ([KType], cnt_ori_kinds - 1 - i) wk
+                                                   in
+                                                       KdQuan (as_KdQuan QuanForall wk kd, wk, kd)
+                                                   end) kd8 wks
+                              val kd10 =
+                                  let
+                                      val (kctx, _, _) = extract_judge_kinding kd9
+                                  in
+                                      KdVar (kctx, CVar 0, KType)
+                                  end
+                              val kd11 = KdBinOp (as_KdBinOp CBTypeProd kd9 kd10, kd9, kd10)
+                              val kd12 = KdQuan (as_KdQuan QuanExists (WfKdType (kctx, KType)) kd11, WfKdType (kctx, KType), kd11)
                           in
-                              CExists (KType, t5)
+                              kd12
                           end
-
-                      val kd_tmp = KdAdmit (fst $ #1 jty_app_c, t_tmp, KType) (* FIXME!!! *)
 
                       val ty_clo = TyPair (as_TyPair ty_app_c ty_env, ty_app_c, ty_env)
                       val jty_clo = extract_judge_typing ty_clo
