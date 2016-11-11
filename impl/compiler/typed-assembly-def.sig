@@ -14,7 +14,7 @@ sig
              | TCIte of tal_cstr * tal_cstr * tal_cstr
              | TCTimeAbs of tal_cstr
              | TCTimeApp of int * tal_cstr * tal_cstr
-             | TCArrow of tal_cstr list * tal_cstr
+             | TCArrow of tal_cstr list * tal_cstr (* type of register file & index of running time *)
              | TCAbs of tal_cstr
              | TCApp of tal_cstr * tal_cstr
              | TCQuan of MicroTiMLDef.quan * tal_kind * tal_cstr
