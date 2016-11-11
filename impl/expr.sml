@@ -565,7 +565,11 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                   if null ts andalso null is then
 	            str_long_id #2 gctx kctx x
                   else
-	            sprintf "($$$)" [(join "" o map (suffix " ") o map (surround "{" "}") o map (str_i gctx sctx) o rev) is, (join "" o map (suffix " ") o map (str_mt ctx) o rev) ts, str_long_id #2 gctx kctx x]
+	            sprintf "($$$)" [
+                      str_long_id #2 gctx kctx x,
+                      (join_prefix " " o map (str_mt ctx)) ts,
+                      (join_prefix " " o map (surround "{" "}") o map (str_i gctx sctx)) is
+                    ]
                 | BaseType (bt, _) => str_bt bt
                 | UVar (u, _) => str_uvar_mt str_mt ctx u
             end
