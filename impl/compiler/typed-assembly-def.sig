@@ -3,73 +3,198 @@ sig
     structure MicroTiMLHoistedDef : SIG_MICRO_TIML_HOISTED_DEF
     structure MicroTiMLDef : SIG_MICRO_TIML_DEF
 
-    type register = int
-    type location = int
+    type tal_register = int
+    type tal_location = int
+    type tal_var = int
 
-    datatype word_value =
-             WVLoc of location
-           | WVConst of MicroTiMLDef.expr_const
+    datatype tal_cstr =
+             TCVar of tal_var
+             | TCConst of MicroTiMLDef.cstr_const
+             | TCBinOp of MicroTiMLDef.cstr_bin_op * tal_cstr * tal_cstr
+             | TCIte of tal_cstr * tal_cstr * tal_cstr
+             | TCTimeAbs of tal_cstr
+             | TCTimeApp of int * tal_cstr * tal_cstr
+             | TCArrow of tal_cstr list * tal_cstr
+             | TCAbs of tal_cstr
+             | TCApp of tal_cstr * tal_cstr
+             | TCQuan of MicroTiMLDef.quan * tal_kind * tal_cstr
+             | TCRec of string * tal_kind * tal_cstr
+             | TCRef of tal_cstr
+             | TCUnOp of MicroTiMLDef.cstr_un_op * tal_cstr
 
-    datatype small_value =
-             SVReg of register
-             | SVWord of word_value
-             | SVAppC of small_value * MicroTiMLDef.cstr
-             | SVPack of MicroTiMLDef.cstr * small_value
+         and tal_kind =
+             TKType
+             | TKArrow of tal_kind * tal_kind
+             | TKBaseSort of MicroTiMLDef.sort
+             | TKSubset of tal_kind * tal_prop
 
-    datatype instr =
-             INewpair of register * small_value * small_value
-             | IProj of MicroTiMLDef.projector * register * register
-             | IInj of MicroTiMLDef.injector * register * small_value
-             | IFold of register * small_value
-             | IUnfold of register * small_value
-             | IPrimBinOp of MicroTiMLDef.prim_expr_bin_op * register * register * small_value
-             | IMove of register * small_value
-             | IUnpack of register * small_value
-             | IBranchSum of register * small_value
+         and tal_prop =
+             TPTrue
+             | TPFalse
+             | TPBinConn of MicroTiMLDef.prop_bin_conn * tal_prop * tal_prop
+             | TPNot of tal_prop
+             | TPBinPred of MicroTiMLDef.prop_bin_pred * tal_cstr * tal_cstr
+             | TPQuan of MicroTiMLDef.quan * MicroTiMLDef.sort * tal_prop
 
-    datatype fin_instr =
-             FIJump of small_value
-           | FIHalt
+    datatype tal_word =
+             TWLoc of tal_location
+             | TWConst of MicroTiMLDef.expr_const
+             | TWAppC of tal_word * tal_cstr
+             | TWPack of tal_cstr * tal_word
 
-    type instr_block = instr list * fin_instr
+    datatype tal_value =
+             TVReg of tal_register
+             | TVWord of tal_word
+             | TVAppC of tal_value * tal_cstr
+             | TVPack of tal_cstr * tal_value
 
-    datatype heap_value =
-             HVCode of int * instr_block
+    datatype tal_instr =
+             TINewpair of tal_register * tal_register * tal_register
+             | TIProj of MicroTiMLDef.projector * tal_register * tal_register
+             | TIInj of MicroTiMLDef.injector * tal_register
+             | TIFold of tal_register
+             | TIUnfold of tal_register
+             | TINewref of tal_register * tal_register
+             | TIDeref of tal_register * tal_register
+             | TISetref of tal_register * tal_register
+             | TIPrimBinOp of MicroTiMLDef.prim_expr_bin_op * tal_register * tal_register * tal_register
+             | TIMove of tal_register * tal_value
+             | TIUnpack of tal_register * tal_value
+             | TICase of tal_register * tal_value
 
-    datatype program =
-             Program of heap_value list * instr_block
+    datatype tal_control =
+             TCJump of tal_value
+           | TCHalt of tal_cstr
 
-    type hctx = heap_value list
-    type ctx = hctx * MicroTiMLDef.kctx * MicroTiMLDef.tctx
+    type tal_block = tal_instr list * tal_control
 
-    type small_value_typing_judgement = ctx * small_value * MicroTiMLDef.cstr
-    type instr_typing_judgement = ctx * instr_block * MicroTiMLDef.cstr
+    datatype tal_heap =
+             THCode of int * tal_block
+             | THPair of tal_word * tal_word
+             | THWord of tal_word
 
-    datatype small_value_typing =
-         SVTyReg of small_value_typing_judgement
-         | SVTyWord of small_value_typing_judgement
-         | SVTyAppC of small_value_typing_judgement * small_value_typing * MicroTiMLDef.kinding
-         | SVTyPack of small_value_typing_judgement * MicroTiMLDef.kinding * MicroTiMLDef.kinding * small_value_typing
+    datatype tal_program =
+             TProgram of tal_heap list * tal_word list * tal_block
 
-    datatype instr_typing =
-             InsTyNewpair of instr_typing_judgement * small_value_typing * small_value_typing * instr_typing
-             | InsTyProj of instr_typing_judgement * small_value_typing * instr_typing
-             | InsTyInj of instr_typing_judgement * small_value_typing * MicroTiMLDef.kinding * instr_typing
-             | InsTyFold of instr_typing_judgement * MicroTiMLDef.kinding * small_value_typing * instr_typing
-             | InsTyUnfold of instr_typing_judgement * small_value_typing * instr_typing
-             | InsTyPrimBinOp of instr_typing_judgement * small_value_typing * small_value_typing * instr_typing
-             | InsTyMove of instr_typing_judgement * small_value_typing * instr_typing
-             | InsTyUnpack of instr_typing_judgement * small_value_typing * instr_typing
-             | InsTyBranchSum of instr_typing_judgement * small_value_typing * small_value_typing * instr_typing
-             | InsTyJump of instr_typing_judgement * small_value_typing
-             | InsTyHalt of instr_typing_judgement * small_value_typing
+    type tal_hctx = tal_heap list
+    type tal_kctx = tal_kind list
+    type tal_tctx = tal_cstr list
+    type tal_ctx = tal_hctx * tal_kctx * tal_tctx
 
-    type heap_value_typing_judgement = hctx * heap_value * MicroTiMLDef.cstr
-    type program_typing_judgement = program * MicroTiMLDef.cstr
+    type tal_proping_judgement = tal_kctx * tal_prop
 
-    datatype heap_value_typing =
-             HVTyCode of heap_value_typing_judgement * MicroTiMLDef.kinding * instr_typing
+    datatype tal_proping =
+             TPrAdmit of tal_proping_judgement
 
-    datatype program_typing =
-             TyProgram of program_typing_judgement * heap_value_typing list * instr_typing
+    type tal_kdeq_judgement = tal_kctx * tal_kind * tal_kind
+
+    datatype tal_kdeq =
+             TKdEqKType of tal_kdeq_judgement
+             | TKdEqKArrow of tal_kdeq_judgement * tal_kdeq * tal_kdeq
+             | TKdEqBaseSort of tal_kdeq_judgement
+             | TKdEqSubset of tal_kdeq_judgement * tal_kdeq * tal_proping
+
+    type tal_kinding_judgement = tal_kctx * tal_cstr * tal_kind
+    type tal_wfkind_judgement = tal_kctx * tal_kind
+    type tal_wfprop_judgement = tal_kctx * tal_prop
+
+    datatype tal_kinding =
+             TKdVar of tal_kinding_judgement
+             | TKdConst of tal_kinding_judgement
+             | TKdBinOp of tal_kinding_judgement * tal_kinding * tal_kinding
+             | TKdIte of tal_kinding_judgement * tal_kinding * tal_kinding * tal_kinding
+             | TKdArrow of tal_kinding_judgement * tal_kinding list * tal_kinding
+             | TKdAbs of tal_kinding_judgement * tal_wfkind * tal_kinding
+             | TKdApp of tal_kinding_judgement * tal_kinding * tal_kinding
+             | TKdTimeAbs of tal_kinding_judgement * tal_kinding
+             | TKdTimeApp of tal_kinding_judgement * tal_kinding * tal_kinding
+             | TKdQuan of tal_kinding_judgement * tal_wfkind * tal_kinding
+             | TKdRec of tal_kinding_judgement * tal_kinding
+             | TKdEq of tal_kinding_judgement * tal_kinding * tal_kdeq
+             | TKdUnOp of tal_kinding_judgement * tal_kinding
+             | TKdAdmit of tal_kinding_judgement
+
+         and tal_wfkind =
+             TWfKdType of tal_wfkind_judgement
+             | TWfKdArrow of tal_wfkind_judgement * tal_wfkind * tal_wfkind
+             | TWfKdBaseSort of tal_wfkind_judgement
+             | TWfKdSubset of tal_wfkind_judgement * tal_wfkind * tal_wfprop
+             | TWfKdAdmit of tal_wfkind_judgement
+
+         and tal_wfprop =
+             TWfPropTrue of tal_wfprop_judgement
+             | TWfPropFalse of tal_wfprop_judgement
+             | TWfPropBinConn of tal_wfprop_judgement * tal_wfprop * tal_wfprop
+             | TWfPropNot of tal_wfprop_judgement * tal_wfprop
+             | TWfPropBinPred of tal_wfprop_judgement * tal_kinding * tal_kinding
+             | TWfPropQuan of tal_wfprop_judgement * tal_wfprop
+
+    type tal_tyeq_judgement = tal_kctx * tal_cstr * tal_cstr
+
+    datatype tal_tyeq =
+             TTyEqVar of tal_tyeq_judgement
+             | TTyEqConst of tal_tyeq_judgement
+             | TTyEqBinOp of tal_tyeq_judgement * tal_tyeq * tal_tyeq
+             | TTyEqIte of tal_tyeq_judgement * tal_tyeq * tal_tyeq * tal_tyeq
+             | TTyEqArrow of tal_tyeq_judgement * tal_tyeq list * tal_proping
+             | TTyEqApp of tal_tyeq_judgement * tal_tyeq * tal_tyeq
+             | TTyEqTimeApp of tal_tyeq_judgement * tal_tyeq * tal_tyeq
+             | TTyEqBeta of tal_tyeq_judgement * tal_tyeq * tal_tyeq * tal_tyeq
+             | TTyEqBetaRev of tal_tyeq_judgement * tal_tyeq * tal_tyeq * tal_tyeq
+             | TTyEqQuan of tal_tyeq_judgement * tal_kdeq * tal_tyeq
+             | TTyEqRec of tal_tyeq_judgement * tal_kdeq * tal_tyeq
+             | TTyEqRef of tal_tyeq_judgement * tal_tyeq
+             | TTyEqAbs of tal_tyeq_judgement
+             | TTyEqTimeAbs of tal_tyeq_judgement
+             | TTyEqUnOp of tal_tyeq_judgement * tal_tyeq
+             | TTyEqNat of tal_tyeq_judgement * tal_kinding * tal_kinding * tal_proping
+
+    type tal_word_typing_judgement = (tal_hctx * tal_kctx) * tal_word * tal_cstr
+
+    datatype tal_word_typing =
+             TWTyLoc of tal_word_typing_judgement
+             | TWTyConst of tal_word_typing_judgement
+             | TWTyAppC of tal_word_typing_judgement * tal_word_typing * tal_kinding
+             | TWTyPack of tal_word_typing_judgement * tal_kinding * tal_kinding * tal_word_typing
+             | TWTySub of tal_word_typing_judgement * tal_word_typing * tal_tyeq
+
+    type tal_value_typing_judgement = tal_ctx * tal_value * tal_cstr
+
+    datatype tal_value_typing =
+             TVTyReg of tal_value_typing_judgement
+             | TVTyWord of tal_value_typing_judgement * tal_word_typing
+             | TVTyAppC of tal_value_typing_judgement * tal_value_typing * tal_kinding
+             | TVTyPack of tal_value_typing_judgement * tal_kinding * tal_kinding * tal_value_typing
+             | TVTySub of tal_value_typing_judgement * tal_value_typing * tal_tyeq
+
+    type tal_instr_typing_judgement = tal_ctx * tal_block * tal_cstr
+
+    datatype tal_instr_typing =
+             TITyNewpair of tal_instr_typing_judgement * tal_value_typing * tal_value_typing * tal_instr_typing
+             | TITyProj of tal_instr_typing_judgement * tal_value_typing * tal_instr_typing
+             | TITyInj of tal_instr_typing_judgement * tal_value_typing * tal_kinding * tal_instr_typing
+             | TITyFold of tal_instr_typing_judgement * tal_kinding * tal_value_typing * tal_instr_typing
+             | TITyUnfold of tal_instr_typing_judgement * tal_value_typing * tal_instr_typing
+             | TITyNewref of tal_instr_typing_judgement * tal_value_typing * tal_instr_typing
+             | TITyDeref of tal_instr_typing_judgement * tal_value_typing * tal_instr_typing
+             | TITySetref of tal_instr_typing_judgement * tal_value_typing * tal_value_typing * tal_instr_typing
+             | TITyPrimBinOp of tal_instr_typing_judgement * tal_value_typing * tal_value_typing * tal_instr_typing
+             | TITyMove of tal_instr_typing_judgement * tal_value_typing * tal_instr_typing
+             | TITyUnpack of tal_instr_typing_judgement * tal_value_typing * tal_instr_typing
+             | TITyCase of tal_instr_typing_judgement * tal_value_typing * tal_instr_typing * tal_value_typing
+             | TITyJump of tal_instr_typing_judgement * tal_value_typing
+             | TITyHalt of tal_instr_typing_judgement * tal_value_typing
+             | TITySub of tal_instr_typing_judgement * tal_instr_typing * tal_proping
+
+    type tal_heap_typing_judgement = tal_hctx * tal_heap * tal_cstr
+
+    datatype tal_heap_typing =
+             THTyCode of tal_heap_typing_judgement * tal_kinding * tal_instr_typing
+             | THTyPair of tal_heap_typing_judgement * tal_word_typing * tal_word_typing
+             | THTyWord of tal_heap_typing_judgement * tal_word_typing
+
+    type tal_program_typing_judgement = tal_program * tal_cstr
+
+    datatype tal_program_typing =
+             TPTyProgram of tal_heap_typing list * tal_word_typing list * tal_instr_typing
 end
