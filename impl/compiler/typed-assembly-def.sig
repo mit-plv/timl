@@ -109,7 +109,7 @@ sig
              | TKdTimeAbs of tal_kinding_judgement * tal_kinding
              | TKdTimeApp of tal_kinding_judgement * tal_kinding * tal_kinding
              | TKdQuan of tal_kinding_judgement * tal_wfkind * tal_kinding
-             | TKdRec of tal_kinding_judgement * tal_kinding
+             | TKdRec of tal_kinding_judgement * tal_wfkind * tal_kinding
              | TKdEq of tal_kinding_judgement * tal_kinding * tal_kdeq
              | TKdUnOp of tal_kinding_judgement * tal_kinding
              | TKdAdmit of tal_kinding_judgement
@@ -196,5 +196,5 @@ sig
     type tal_program_typing_judgement = tal_program * tal_cstr
 
     datatype tal_program_typing =
-             TPTyProgram of tal_heap_typing list * tal_word_typing list * tal_instr_typing
+             TPTyProgram of tal_program_typing_judgement * tal_heap_typing list * tal_word_typing list * tal_instr_typing
 end
