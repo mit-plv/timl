@@ -345,8 +345,13 @@ open List
 exception ParseArgsError of string
             
 fun usage () =
-    println "Usage: THIS filename1 filename2 ..."
-(* print ("Usage: " ^ prog ^ " [-help] [-switch] [-A Argument] [-B]\n") *)
+    let
+      val () = println "Usage: THIS [--help] [--annoless] filename1 filename2 ..."
+      val () = println "  --annoless: less annotations on case-of"
+      (* print ("Usage: " ^ prog ^ " [-help] [-switch] [-A Argument] [-B]\n") *)
+    in
+      ()
+    end
             
 fun parse_arguments args =
     let
