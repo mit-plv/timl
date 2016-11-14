@@ -18,7 +18,7 @@ sig
              | TCAbs of tal_cstr
              | TCApp of tal_cstr * tal_cstr
              | TCQuan of MicroTiMLDef.quan * tal_kind * tal_cstr
-             | TCRec of string * tal_kind * tal_cstr
+             | TCRec of tal_kind * tal_cstr
              | TCRef of tal_cstr
              | TCUnOp of MicroTiMLDef.cstr_un_op * tal_cstr
 
@@ -147,7 +147,7 @@ sig
              | TTyEqAbs of tal_tyeq_judgement
              | TTyEqTimeAbs of tal_tyeq_judgement
              | TTyEqUnOp of tal_tyeq_judgement * tal_tyeq
-             | TTyEqNat of tal_tyeq_judgement * tal_kinding * tal_kinding * tal_proping
+             | TTyEqNat of tal_tyeq_judgement * tal_proping
 
     type tal_word_typing_judgement = (tal_hctx * tal_kctx) * tal_word * tal_cstr
 
