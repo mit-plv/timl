@@ -71,7 +71,10 @@ fun array_imerge_helper ['a] {t len i m j n w s : Nat} {i + m <= len} {j + n <= 
                   array_imerge_helper le (a, i, m', j, n, w, s')
               end
       end
-    | _ => never
+    | (NumO, NumO, NumS _) => never
+    | (NumO, NumS _, NumO) => never
+    | (NumS _, NumS _, NumO) => never
+    | (NumS _, NumO, NumO) => never
 end
 
 fun array_imerge ['a] {t len i m j n w : Nat} {i + m <= len} {j + n <= len} {w + m + n <= len} (le : 'a * 'a -- $t --> bool) (a : array 'a {len}, i : nat {i}, m : nat {m}, j : nat {j}, n : nat {n}, w : nat {w}) =

@@ -56,7 +56,10 @@ struct
                    array_merge_helper le (xs, ys, des, l', r, n')
                  end
              end
-         | _ => never
+         | (NumO, NumO, NumS _) => never
+         | (NumO, NumS _, NumO) => never
+         | (NumS _, NumS _, NumO) => never
+         | (NumS _, NumO, NumO) => never
   end
 
   fun array_merge ['a] {m n1 n2 : Nat} (le : 'a * 'a -- $m --> bool) (xs : array 'a {n1}, ys : array 'a {n2}, des : array 'a {n1 + n2}) =
