@@ -22,44 +22,56 @@ struct
 
   absidx T_array_merge_helper : BigO 2 (fn m n => $m * $n) with
     fun array_merge_helper ['a] {m n1 n2 l r n : Nat} {l <= n1} {r <= n2} {n = l + r} (le : 'a * 'a -- $m --> bool) (xs : array 'a {n1}, ys : array 'a {n2}, des : array 'a {n1 + n2}, l : natnum {l}, r : natnum {r}, n : natnum {n}) return unit using T_array_merge_helper m n =
-      case (l, r, n) of
-           (NumO, NumO, NumO) => ()
-         | (NumO, NumS (j, r'), NumS (k, n')) =>
-             let
-               val y = sub (ys, j)
-               val () = update (des, k, y)
-             in
-               array_merge_helper le (xs, ys, des, l, r', n')
-             end
-         | (NumS (i, l'), NumO, NumS (k, n')) =>
-             let
-               val x = sub (xs, i)
-               val () = update (des, k, x)
-             in
-               array_merge_helper le (xs, ys, des, l', r, n')
-             end
-         | (NumS (i, l'), NumS (j, r'), NumS (k, n')) =>
-             let
-               val x = sub(xs, i)
-               val y = sub(ys, j)
-             in
-               if le (x, y) then
-                 let
-                   val () = update (des, k, y)
-                 in
-                   array_merge_helper le (xs, ys, des, l, r', n')
-                 end
-               else
-                 let
-                   val () = update (des, k, x)
-                 in
-                   array_merge_helper le (xs, ys, des, l', r, n')
-                 end
-             end
-         | (NumO, NumO, NumS _) => never
-         | (NumO, NumS _, NumO) => never
-         | (NumS _, NumS _, NumO) => never
-         | (NumS _, NumO, NumO) => never
+      case l of
+          NumO =>
+          (case r of
+               NumO =>
+               (case n of
+                    NumO => ()
+                  | NumS _ => never)
+             | NumS (j, r') =>
+               (case n of
+                    NumO => never
+                  | NumS (k, n') =>
+                    let
+                        val y = sub (ys, j)
+                        val () = update (des, k, y)
+                    in
+                        array_merge_helper le (xs, ys, des, l, r', n')
+                    end))
+        | NumS (i, l') =>
+          (case r of
+               NumO =>
+               (case n of
+                    NumO => never
+                  | NumS (k, n') =>
+                    let
+                        val x = sub (xs, i)
+                        val () = update (des, k, x)
+                    in
+                        array_merge_helper le (xs, ys, des, l', r, n')
+                    end)
+             | NumS (j, r') =>
+               (case n of
+                    NumO => never
+                  | NumS (k, n') =>
+                    let
+                        val x = sub(xs, i)
+                        val y = sub(ys, j)
+                    in
+                        if le (x, y) then
+                            let
+                                val () = update (des, k, y)
+                            in
+                                array_merge_helper le (xs, ys, des, l, r', n')
+                            end
+                        else
+                            let
+                                val () = update (des, k, x)
+                            in
+                                array_merge_helper le (xs, ys, des, l', r, n')
+                            end
+                    end))
   end
 
   fun array_merge ['a] {m n1 n2 : Nat} (le : 'a * 'a -- $m --> bool) (xs : array 'a {n1}, ys : array 'a {n2}, des : array 'a {n1 + n2}) =

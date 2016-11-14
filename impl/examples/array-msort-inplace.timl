@@ -32,49 +32,61 @@ fun swap ['a] {len i j : Nat} {i < len} {j < len} (a : array 'a {len}, i : nat {
 
 absidx T_array_imerge_helper : BigO 2 (fn m n => $m * $n) with
 fun array_imerge_helper ['a] {t len i m j n w s : Nat} {i + m <= len} {j + n <= len} {w + m + n <= len} {s = m + n} (le : 'a * 'a -- $t --> bool) (a : array 'a {len}, i : nat {i}, m : natnum {m}, j : nat {j}, n : natnum {n}, w : nat {w}, s : natnum {s}) return unit using T_array_imerge_helper t s =
-  case (m, n, s) of
-      (NumO, NumO, NumO) => ()
-    | (NumO, NumS (vn, n'), NumS (vs, s')) =>
-      let
-          val from = nat_plus (j, vn)
-          val to = nat_plus (w, vs)
-          val () = swap (a, from, to)
-      in
-          array_imerge_helper le (a, i, m, j, n', w, s')
-      end
-    | (NumS (vm, m'), NumO, NumS (vs, s')) =>
-      let
-          val from = nat_plus (i, vm)
-          val to = nat_plus (w, vs)
-          val () = swap (a, from, to)
-      in
-          array_imerge_helper le (a, i, m', j, n, w, s')
-      end
-    | (NumS (vm, m'), NumS (vn, n'), NumS (vs, s')) =>
-      let
-          val from1 = nat_plus (i, vm)
-          val from2 = nat_plus (j, vn)
-          val ele1 = sub (a, from1)
-          val ele2 = sub (a, from2)
-          val to = nat_plus (w, vs)
-      in
-          if le (ele1, ele2) then
-              let
-                  val () = swap (a, from2, to)
-              in
-                  array_imerge_helper le (a, i, m, j, n', w, s')
-              end
-          else
-              let
-                  val () = swap (a, from1, to)
-              in
-                  array_imerge_helper le (a, i, m', j, n, w, s')
-              end
-      end
-    | (NumO, NumO, NumS _) => never
-    | (NumO, NumS _, NumO) => never
-    | (NumS _, NumS _, NumO) => never
-    | (NumS _, NumO, NumO) => never
+  case m of
+      NumO =>
+      (case n of
+           NumO =>
+           (case s of
+                NumO => ()
+              | NumS _ => never)
+         | NumS (vn, n') =>
+           (case s of
+                NumO => never
+              | NumS (vs, s') =>
+                let
+                    val from = nat_plus (j, vn)
+                    val to = nat_plus (w, vs)
+                    val () = swap (a, from, to)
+                in
+                    array_imerge_helper le (a, i, m, j, n', w, s')
+                end))
+    | NumS (vm, m') =>
+      (case n of
+           NumO =>
+           (case s of
+                NumO => never
+              | NumS (vs, s') =>
+                let
+                    val from = nat_plus (i, vm)
+                    val to = nat_plus (w, vs)
+                    val () = swap (a, from, to)
+                in
+                    array_imerge_helper le (a, i, m', j, n, w, s')
+                end)
+         | NumS (vn, n') =>
+           (case s of
+                NumO => never
+              | NumS (vs, s') =>
+                let
+                    val from1 = nat_plus (i, vm)
+                    val from2 = nat_plus (j, vn)
+                    val ele1 = sub (a, from1)
+                    val ele2 = sub (a, from2)
+                    val to = nat_plus (w, vs)
+                in
+                    if le (ele1, ele2) then
+                        let
+                            val () = swap (a, from2, to)
+                        in
+                            array_imerge_helper le (a, i, m, j, n', w, s')
+                        end
+                    else
+                        let
+                            val () = swap (a, from1, to)
+                        in
+                            array_imerge_helper le (a, i, m', j, n, w, s')
+                        end
+                end))
 end
 
 fun array_imerge ['a] {t len i m j n w : Nat} {i + m <= len} {j + n <= len} {w + m + n <= len} (le : 'a * 'a -- $t --> bool) (a : array 'a {len}, i : nat {i}, m : nat {m}, j : nat {j}, n : nat {n}, w : nat {w}) =
