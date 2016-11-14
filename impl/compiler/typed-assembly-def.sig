@@ -76,7 +76,7 @@ sig
     datatype tal_program =
              TProgram of tal_heap list * tal_word list * tal_block
 
-    type tal_hctx = tal_heap list
+    type tal_hctx = tal_cstr list
     type tal_kctx = tal_kind list
     type tal_tctx = tal_cstr list
     type tal_ctx = tal_hctx * tal_kctx * tal_tctx
