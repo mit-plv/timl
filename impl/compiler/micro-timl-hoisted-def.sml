@@ -15,7 +15,6 @@ datatype atom_expr =
          AEVar of var
          | AEConst of expr_const
          | AEFuncPointer of int
-         | AEPair of atom_expr * atom_expr
          | AEAppC of atom_expr * cstr
          | AEPack of cstr * atom_expr
 
@@ -46,7 +45,6 @@ datatype atom_typing =
          ATyVar of atom_typing_judgement
          | ATyConst of atom_typing_judgement
          | ATyFuncPointer of atom_typing_judgement
-         | ATyPair of atom_typing_judgement * atom_typing * atom_typing
          | ATyAppC of atom_typing_judgement * atom_typing * kinding
          | ATyPack of atom_typing_judgement * kinding * kinding * atom_typing
          | ATySubTy of atom_typing_judgement * atom_typing * tyeq
@@ -54,6 +52,7 @@ datatype atom_typing =
 
      and complex_typing =
          CTyProj of complex_typing_judgement * atom_typing
+         | CTyPair of complex_typing_judgement * atom_typing * atom_typing
          | CTyInj of complex_typing_judgement * atom_typing * kinding
          | CTyFold of complex_typing_judgement * kinding * atom_typing
          | CTyUnfold of complex_typing_judgement * atom_typing
@@ -83,6 +82,7 @@ datatype program_typing =
          TyProgram of program_typing_judgement * func_typing list * hoisted_typing
 
 fun CEProj (p, e) = CEUnOp (EUProj p, e)
+fun CEPair (e1, e2) = CEBinOp (EBPair, e1, e2)
 fun CEInj (inj, e) = CEUnOp (EUInj inj, e)
 fun CEFold e = CEUnOp (EUFold, e)
 fun CEUnfold e = CEUnOp (EUUnfold, e)
@@ -108,7 +108,6 @@ fun extract_judge_atyping ty =
       ATyVar j => j
     | ATyConst j => j
     | ATyFuncPointer j => j
-    | ATyPair (j, _, _) => j
     | ATyAppC (j, _, _) => j
     | ATyPack (j, _, _, _) => j
     | ATySubTy (j, _, _) => j
@@ -117,6 +116,7 @@ fun extract_judge_atyping ty =
 fun extract_judge_ctyping ty =
   case ty of
       CTyProj (j, _) => j
+    | CTyPair (j, _, _) => j
     | CTyInj (j, _, _) => j
     | CTyFold (j, _, _) => j
     | CTyUnfold (j, _) => j
@@ -139,7 +139,6 @@ fun str_atom_expr e =
       AEVar x => "&" ^ str_int x
     | AEConst cn => str_expr_const cn
     | AEFuncPointer f => "FUN" ^ str_int f
-    | AEPair (e1, e2) => "<" ^ str_atom_expr e1 ^ " , " ^ str_atom_expr e2 ^ ">"
     | AEAppC (e, c) => str_atom_expr e ^ "[" ^ PP.str_cstr c ^ "]"
     | AEPack (c, e) => "pack[" ^ (* PP.str_cstr c *) "_" ^ " , " ^ str_atom_expr e ^ "]"
 
@@ -172,7 +171,6 @@ fun is_atom ty =
       TyVar _ => true
     | TyConst _ => true
     | TyFix _ => true
-    | TyPair _ => true
     | TyAppC _ => true
     | TyPack _ => true
     | _ => false
@@ -181,6 +179,7 @@ fun is_complex ty =
   is_atom ty orelse
   (case ty of
        TyProj _ => true
+     | TyPair _ => true
      | TyInj _ => true
      | TyFold _ => true
      | TyUnfold _ => true
@@ -200,15 +199,6 @@ fun transform_typing_atom (ty : typing, funcs : func_typing list) =
           val jty = extract_judge_htyping ty
       in
           (ATyFuncPointer (([], kctx, tctx), AEFuncPointer (length funcs), t, i), FTyFix (([], FEFix (n, #2 jty), t), kd, ty) :: funcs)
-      end
-    | TyPair (((kctx, tctx), EBinOp (EBPair, e1, e2), t, i), ty1, ty2) =>
-      let
-          val (ty1, funcs) = transform_typing_atom (ty1, funcs)
-          val (ty2, funcs) = transform_typing_atom (ty2, funcs)
-          val jty1 = extract_judge_atyping ty1
-          val jty2 = extract_judge_atyping ty2
-      in
-          (ATyPair ((([], kctx, tctx), AEPair (#2 jty1, #2 jty2), t, i), ty1, ty2), funcs)
       end
     | TyAppC (((kctx, tctx), EAppC (e, c), t, i), ty, kd) =>
       let
@@ -248,6 +238,15 @@ and transform_typing_complex (ty : typing, funcs : func_typing list) =
             val jty = extract_judge_atyping ty
         in
             (CTyProj ((([], kctx, tctx), CEProj (p, #2 jty), t, i), ty), funcs)
+        end
+      | TyPair (((kctx, tctx), EBinOp (EBPair, e1, e2), t, i), ty1, ty2) =>
+        let
+            val (ty1, funcs) = transform_typing_atom (ty1, funcs)
+            val (ty2, funcs) = transform_typing_atom (ty2, funcs)
+            val jty1 = extract_judge_atyping ty1
+            val jty2 = extract_judge_atyping ty2
+        in
+            (CTyPair ((([], kctx, tctx), CEPair (#2 jty1, #2 jty2), t, i), ty1, ty2), funcs)
         end
       | TyInj (((kctx, tctx), EUnOp (EUInj inj, e), t, i), ty, kd) =>
         let
@@ -399,7 +398,6 @@ fun set_fctx_atom fctx ty =
             ATyVar j => ATyVar (replace j)
           | ATyConst j => ATyConst (replace j)
           | ATyFuncPointer j => ATyFuncPointer (replace j)
-          | ATyPair (j, ty1, ty2) => ATyPair (replace j, on_atom ty1, on_atom ty2)
           | ATyAppC (j, ty, kd) => ATyAppC (replace j, on_atom ty, kd)
           | ATyPack (j, kd1, kd2, ty) => ATyPack (replace j, kd1, kd2, on_atom ty)
           | ATySubTy (j, ty, te) => ATySubTy (replace j, on_atom ty, te)
@@ -416,6 +414,7 @@ and set_fctx_complex fctx ty =
         fun inner ty =
           case ty of
               CTyProj (j, ty) => CTyProj (replace j, on_atom ty)
+            | CTyPair (j, ty1, ty2) => CTyPair (replace j, on_atom ty1, on_atom ty2)
             | CTyInj (j, ty, kd) => CTyInj (replace j, on_atom ty, kd)
             | CTyFold (j, kd, ty) => CTyFold (replace j, kd, on_atom ty)
             | CTyUnfold (j, ty) => CTyUnfold (replace j, on_atom ty)

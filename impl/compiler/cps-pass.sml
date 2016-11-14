@@ -65,8 +65,41 @@ val num_of_app_c_and_case = ref (TfromNat $ CNat $ Nat.from_int 0)
 
 fun send_to_cont ty_cont ty =
   case ty_cont of
-      TyAbs (_, _, ty_body) => subst0_ty_ty ty ty_body
-    | _ => TyApp (as_TyApp ty_cont ty, ty_cont, ty)
+      TyAbs (_, _, ty_body) =>
+      let
+          val add_let =
+              case ty of
+                  TyAbs _ => true
+                | TyAbsC _ => true
+                | TyRec _ => true
+                | _ => false
+      in
+          if add_let then
+              TyLet (as_TyLet ty ty_body, ty, ty_body)
+          else
+              subst0_ty_ty ty ty_body
+      end
+    | _ =>
+      let
+          val add_let =
+              case ty of
+                  TyAbs _ => true
+                | TyAbsC _ => true
+                | TyRec _ => true
+                | _ => false
+      in
+          if add_let then
+              let
+                  val ((kctx, tctx), _, t, _) = extract_judge_typing ty
+                  val ty_tmp1 = shift0_ctx_ty ([], [t]) ty_cont
+                  val ty_tmp2 = TyVar ((kctx, t :: tctx), EVar 0, t, T0)
+                  val ty_tmp3 = TyApp (as_TyApp ty_tmp1 ty_tmp2, ty_tmp1, ty_tmp2)
+              in
+                  TyLet (as_TyLet ty ty_tmp3, ty, ty_tmp3)
+              end
+          else
+              TyApp (as_TyApp ty_cont ty, ty_cont, ty)
+      end
 
 fun meta_lemma ty =
   let
@@ -281,16 +314,18 @@ fun cps ty ty_cont =
           val in1_ty_cont =
               let
                   val ((kctx, tctx), _, t_cont, _) = extract_judge_typing in2_ty_cont
-                  val ty_tmp1 = TyVar ((kctx, CProd (t2, t_cont) :: tctx), EVar 2, t1, T0)
-                  val (_, kd_tmp2, _) = inverse_kd_arrow $ fst $ meta_lemma in2_ty_cont
+                  val ty_tmp1 = TyVar ((kctx, CProd (t2, t_cont) :: t_cont :: tctx), EVar 3, t1, T0)
+                  val (_, kd_tmp2, _) = inverse_kd_arrow $ fst $ meta_lemma in2_ty_cont (* kind context is just correct *)
                   val ty_tmp3 = TyAppC (as_TyAppC ty_tmp1 kd_tmp2, ty_tmp1, kd_tmp2)
-                  val ty_tmp4 = TyVar ((kctx, CProd (t2, t_cont) :: tctx), EVar 0, CProd (t2, t_cont), T0)
+                  val ty_tmp4 = TyVar ((kctx, CProd (t2, t_cont) :: t_cont :: tctx), EVar 0, CProd (t2, t_cont), T0)
                   val ty_tmp5 = TyApp (as_TyApp ty_tmp3 ty_tmp4, ty_tmp3, ty_tmp4)
-                  val ty_tmp6 = TyVar ((kctx, tctx), EVar 0, t2, T0)
-                  val ty_tmp7 = TyPair (as_TyPair ty_tmp6 in2_ty_cont, ty_tmp6, in2_ty_cont)
-                  val ty_tmp8 = TyLet (as_TyLet ty_tmp7 ty_tmp5, ty_tmp7, ty_tmp5)
+                  val ty_tmp6 = TyVar ((kctx, t_cont :: tctx), EVar 1, t2, T0)
+                  val ty_tmp7 = TyVar ((kctx, t_cont :: tctx), EVar 0, t_cont, T0)
+                  val ty_tmp8 = TyPair (as_TyPair ty_tmp6 ty_tmp7, ty_tmp6, ty_tmp7)
+                  val ty_tmp9 = TyLet (as_TyLet ty_tmp8 ty_tmp5, ty_tmp8, ty_tmp5)
+                  val ty_tmp10 = TyLet (as_TyLet in2_ty_cont ty_tmp9, in2_ty_cont, ty_tmp9)
               in
-                  TyAbs (as_TyAbs kd_t2 ty_tmp8, kd_t2, ty_tmp8)
+                  TyAbs (as_TyAbs kd_t2 ty_tmp10, kd_t2, ty_tmp10)
               end
           val in0_ty_cont =
               let
@@ -311,13 +346,15 @@ fun cps ty ty_cont =
           val in0_ty_cont =
               let
                   val ((kctx, tctx), _, t_cont, _) = extract_judge_typing in1_ty_cont
-                  val ty_tmp1 = TyVar ((kctx, tctx), EVar 0, t, T0)
+                  val ty_tmp1 = TyVar ((kctx, t_cont :: tctx), EVar 1, t, T0)
                   val ty_tmp2 = TyAppC (as_TyAppC ty_tmp1 kd_c, ty_tmp1, kd_c)
-                  val (_, kd_tmp3, _) = inverse_kd_arrow $ fst $ meta_lemma in1_ty_cont
+                  val (_, kd_tmp3, _) = inverse_kd_arrow $ fst $ meta_lemma in1_ty_cont (* kind context is just correct *)
                   val ty_tmp4 = TyAppC (as_TyAppC ty_tmp2 kd_tmp3, ty_tmp2, kd_tmp3)
-                  val ty_tmp5 = TyApp (as_TyApp ty_tmp4 in1_ty_cont, ty_tmp4, in1_ty_cont)
+                  val ty_tmp5 = TyVar ((kctx, t_cont :: tctx), EVar 0, t_cont, T0)
+                  val ty_tmp6 = TyApp (as_TyApp ty_tmp4 ty_tmp5, ty_tmp4, ty_tmp5)
+                  val ty_tmp7 = TyLet (as_TyLet in1_ty_cont ty_tmp6, in1_ty_cont, ty_tmp6)
               in
-                  TyAbs (as_TyAbs kd_t ty_tmp5, kd_t, ty_tmp5)
+                  TyAbs (as_TyAbs kd_t ty_tmp7, kd_t, ty_tmp7)
               end
           val ty_res = cps ty in0_ty_cont
       in
@@ -442,6 +479,12 @@ fun cps ty ty_cont =
               in
                   cps ty_self (TyAbs (as_TyAbs kd_t_self ty_tmp1, kd_t_self, ty_tmp1))
               end
+          val ty_self =
+              case ty_self of
+                  TyAbs _ => ty_self
+                | TyAbsC _ => ty_self
+                | TyLet (_, ty, _) => ty
+                | _ => raise (Impossible "CPS")
           val ty_rec = TyRec (as_TyRec kd_t_self ty_self, kd_t_self, ty_self)
           (* abstraction is value, send to continuation *)
           val ty_res = send_to_cont ty_cont ty_rec

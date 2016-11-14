@@ -254,6 +254,11 @@ fun const_tal_kind cn =
     | CCTypeUnit => TKType
     | CCTypeInt => TKType
 
+fun const_tal_type cn =
+  case cn of
+      ECTT => TCTypeUnit
+    | ECInt _ => TCTypeInt
+
 fun cbinop_arg1_tal_kind opr =
   case opr of
       CBTimeAdd => TKTime
@@ -750,6 +755,12 @@ exception AssembleFail of string
 fun assert b msg =
   if b then () else raise AssembleFail msg
 
+fun as_TPrAdmit kctx p =
+  TPrAdmit (kctx, p)
+
+fun as_TKdEqKType kctx =
+  TKdEqKType (kctx, TKType, TKType)
+
 fun as_TKdEqKArrow ke1 ke2 =
   let
       val (kctx1, k11, k12) = extract_judge_tal_kdeq ke1
@@ -758,6 +769,9 @@ fun as_TKdEqKArrow ke1 ke2 =
   in
       TKdEqKArrow ((kctx1, TKArrow (k11, k21), TKArrow (k12, k22)), ke1, ke2)
   end
+
+fun as_TKdEqBaseSort kctx b =
+  TKdEqBaseSort (kctx, TKBaseSort b, TKBaseSort b)
 
 fun as_TKdEqSubset ke pr =
   let
@@ -769,6 +783,12 @@ fun as_TKdEqSubset ke pr =
   in
       TKdEqSubset ((kctx1, TKSubset (k11, p21), TKSubset (k12, p22)), ke, pr)
   end
+
+fun as_TKdVar kctx x =
+  TKdVar (kctx, TCVar x, shift_tal_c_k (1 + x) 0 (nth (kctx, x)))
+
+fun as_TKdConst kctx cn =
+  TKdConst (kctx, TCConst cn, const_tal_kind cn)
 
 fun as_TKdBinOp opr kd1 kd2 =
   let
@@ -881,6 +901,12 @@ fun as_TKdUnOp opr kd =
       TKdUnOp ((kctx, TCUnOp (opr, c), cunop_result_tal_kind opr), kd)
   end
 
+fun as_TKdAdmit kctx c k =
+  TKdAdmit (kctx, c, k)
+
+fun as_TWfKdType kctx =
+  TWfKdType (kctx, TKType)
+
 fun as_TWfKdArrow wk1 wk2 =
   let
       val (kctx1, k1) = extract_judge_tal_wfkind wk1
@@ -890,6 +916,9 @@ fun as_TWfKdArrow wk1 wk2 =
       TWfKdArrow ((kctx1, TKArrow (k1, k2)), wk1, wk2)
   end
 
+fun as_TWfKdBasesort kctx b =
+  TWfKdBaseSort (kctx, TKBaseSort b)
+
 fun as_TWfKdSubset wk wp =
   let
       val (kctx1, k1) = extract_judge_tal_wfkind wk
@@ -898,6 +927,15 @@ fun as_TWfKdSubset wk wp =
   in
       TWfKdSubset ((kctx1, TKSubset (k1, p2)), wk, wp)
   end
+
+fun as_TWfKdAdmit kctx k =
+  TWfKdAdmit (kctx, k)
+
+fun as_TWfPropTrue kctx =
+  TWfPropTrue (kctx, TPTrue)
+
+fun as_TWfPropFalse kctx =
+  TWfPropFalse (kctx, TPFalse)
 
 fun as_TWfPropBinConn opr wp1 wp2 =
   let
@@ -932,6 +970,12 @@ fun as_TWfPropQuan q b wp =
   in
       TWfPropQuan ((tl kctx, TPQuan (q, b, p)), wp)
   end
+
+fun as_TTyEqVar kctx x =
+  TTyEqVar (kctx, TCVar x, TCVar x)
+
+fun as_TTyEqConst kctx cn =
+  TTyEqConst (kctx, TCConst cn, TCConst cn)
 
 fun as_TTyEqBinOp opr te1 te2 =
   let
@@ -1033,6 +1077,16 @@ fun as_TTyEqRef te =
       TTyEqRef ((kctx, TCRef t1, TCRef t2), te)
   end
 
+fun as_TTyEqAbs kctx c =
+  case c of
+      TCAbs _ => TTyEqAbs (kctx, c, c)
+    | _ => raise (AssembleFail "TTyEqAbs")
+
+fun as_TTyEqTimeAbs kctx c =
+  case c of
+      TCTimeAbs _ => TTyEqTimeAbs (kctx, c, c)
+    | _ => raise (AssembleFail "TTyEqTimeAbs")
+
 fun as_TTyEqUnOp opr te =
   let
       val (kctx, t1, t2) = extract_judge_tal_tyeq te
@@ -1048,6 +1102,12 @@ fun as_TTyEqNat pr =
   in
       TTyEqNat ((kctx, i1, i2), pr)
   end
+
+fun as_TWTyLoc hctx kctx l =
+  TWTyLoc ((hctx, kctx), TWLoc l, nth (hctx, l))
+
+fun as_TWTyConst hctx kctx cn =
+  TWTyConst ((hctx, kctx), TWConst cn, const_tal_type cn)
 
 fun as_TWTyAppC wty kd =
   let
@@ -1086,6 +1146,9 @@ fun as_TWTySub wty te =
   in
       TWTySub (((hctx1, kctx1), w1, t22), wty, te)
   end
+
+fun as_TVTyReg hctx kctx tctx r =
+  TVTyReg ((hctx, kctx, tctx), TVReg r, nth (tctx, r))
 
 fun as_TVTyWord tctx wty =
   let
@@ -1333,6 +1396,18 @@ fun as_TITyHalt vty =
       TITyHalt (((hctx, kctx, tctx), ([], TCHalt t), TT1), vty)
   end
 
+fun as_TITySub ity pr =
+  let
+      val ((hctx1, kctx1, tctx1), (ins1, fin1), i1) = extract_judge_tal_instr_typing ity
+      val (kctx2, p2) = extract_judge_tal_proping pr
+      val () = assert (kctx1 = kctx2) "TITySub"
+      val (opr, i21, i22) = extract_tal_p_bin_pred p2
+      val () = assert (opr = PBTimeLe) "TITySub"
+      val () = assert (i21 = i1) "TITySub"
+  in
+      TITySub (((hctx1, kctx1, tctx1), (ins1, fin1), i22), ity, pr)
+  end
+
 fun as_THTyCode kd ity =
   let
       val (kctx1, t1, k1) = extract_judge_tal_kinding kd
@@ -1388,5 +1463,45 @@ end
 
 structure InstrSelect =
 struct
+open TALDerivAssembler
+
+fun transform_cstr c =
+  case c of
+      CVar x => TCVar x
+    | CConst cn => TCConst cn
+    | CBinOp (opr, c1, c2) => TCBinOp (opr, transform_cstr c1, transform_cstr c2)
+    | CIte (i1, i2, i3) => TCIte (transform_cstr i1, transform_cstr i2, transform_cstr i3)
+    | CTimeAbs c => TCTimeAbs (transform_cstr c)
+    | CTimeApp (arity, c1, c2) => TCTimeApp (arity, transform_cstr c1, transform_cstr c2)
+    | CArrow (t1, i, t2) => TCArrow ([transform_cstr t1], transform_cstr i)
+    | CAbs c => TCAbs (transform_cstr c)
+    | CApp (c1, c2) => TCApp (transform_cstr c1, transform_cstr c2)
+    | CQuan (q, k, c) => TCQuan (q, transform_kind k, transform_cstr c)
+    | CRec (k, c) => TCRec (transform_kind k, transform_cstr c)
+    | CRef c => TCRef (transform_cstr c)
+    | CUnOp (opr, c) => TCUnOp (opr, transform_cstr c)
+
+and transform_kind k =
+    case k of
+        KType => TKType
+      | KArrow (k1, k2) => TKArrow (transform_kind k1, transform_kind k2)
+      | KBaseSort b => TKBaseSort b
+      | KSubset (k, p) => TKSubset (transform_kind k, transform_prop p)
+
+and transform_prop p =
+    case p of
+        PTrue => TPTrue
+      | PFalse => TPFalse
+      | PBinConn (opr, p1, p2) => TPBinConn (opr, transform_prop p1, transform_prop p2)
+      | PNot p => TPNot (transform_prop p)
+      | PBinPred (opr, i1, i2) => TPBinPred (opr, transform_cstr i1, transform_cstr i2)
+      | PQuan (q, b, p) => TPQuan (q, b, transform_prop p)
+
+fun transform_atom_typing hctx kctx tctx env aty =
+  case aty of
+      ATyVar (_, AEVar x, _, _) => ([], tctx, as_TVTyReg hctx kctx tctx $ nth (env, x))
+    | ATyConst (_, AEConst cn, _, _) => ([], tctx, as_TVTyWord tctx (as_TWTyConst hctx kctx cn))
+    | ATyFuncPointer (_, AEFuncPointer l, _, _) => ([], tctx, as_TVTyWord tctx (as_TWTyLoc hctx kctx l))
+    | _ => raise (Impossible "transform_atom_typing")
 end
 end
