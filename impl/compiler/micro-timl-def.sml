@@ -63,7 +63,7 @@ datatype cstr =
          | CAbs of cstr
          | CApp of cstr * cstr
          | CQuan of quan * kind * cstr
-         | CRec of string * kind * cstr
+         | CRec of kind * cstr
          | CRef of cstr
          | CUnOp of cstr_un_op * cstr
 

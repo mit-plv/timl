@@ -95,12 +95,12 @@ fun as_KdRef kd =
       (#1 jkd, CRef (#2 jkd), KType)
   end
 
-fun as_KdRec name wk kd =
+fun as_KdRec wk kd =
   let
       val jwk = extract_judge_wfkind wk
       val jkd = extract_judge_kinding kd
   in
-      (#1 jwk, CRec (name, #2 jwk, #2 jkd), #2 jwk)
+      (#1 jwk, CRec (#2 jwk, #2 jkd), #2 jwk)
   end
 
 fun as_KdQuan q wk kd =
@@ -185,12 +185,12 @@ fun as_TyEqRef te =
       (#1 jte, CRef (#2 jte), CRef (#3 jte))
   end
 
-fun as_TyEqRec name1 name2 ke te =
+fun as_TyEqRec ke te =
   let
       val jke = extract_judge_kdeq ke
       val jte = extract_judge_tyeq te
   in
-      (#1 jke, CRec (name1, #2 jke, #2 jte), CRec (name2, #3 jke, #3 jte))
+      (#1 jke, CRec (#2 jke, #2 jte), CRec (#3 jke, #3 jte))
   end
 
 fun as_TyEqBetaRev te1 te2 te3 =
@@ -401,7 +401,7 @@ fun as_TyUnfold ty =
             CApp (t, c) => unfold_CApps t (c :: cs)
           | _ => (t, cs)
       val (t, cs) = unfold_CApps (#3 jty) []
-      val (_, k, t1) = extract_c_rec t
+      val (k, t1) = extract_c_rec t
   in
       (#1 jty, EUnfold (#2 jty), CApps (subst_c_c t 0 t1) cs, #4 jty)
   end
@@ -628,12 +628,11 @@ fun default_transform_kinding (kd, down) =
         end
       | KdRec (judge, wk, kd) =>
         let
-            val (name, _, _) = extract_c_rec (#2 judge)
             val (wk, up1) = transform_wfkind (wk, down)
             val jwk = extract_judge_wfkind wk
             val (kd, up2) = transform_kinding (kd, Action.add_kind (#2 jwk, down))
         in
-            (KdRec (as_KdRec name wk kd, wk, kd), combine [up1, up2])
+            (KdRec (as_KdRec wk kd, wk, kd), combine [up1, up2])
         end
       | KdRef (judge, kd) =>
         let
@@ -837,13 +836,11 @@ fun default_transform_tyeq (te, down) =
         end
       | TyEqRec (judge, ke, te) =>
         let
-            val (name1, _, _) = extract_c_rec (#2 judge)
-            val (name2, _, _) = extract_c_rec (#3 judge)
             val (ke, up1) = transform_kdeq (ke, down)
             val jke = extract_judge_kdeq ke
             val (te, up2) = transform_tyeq (te, Action.add_kind (#2 jke, down))
         in
-            (TyEqRec (as_TyEqRec name1 name2 ke te, ke, te), combine [up1, up2])
+            (TyEqRec (as_TyEqRec ke te, ke, te), combine [up1, up2])
         end
       | TyEqRef (judge, te) =>
         let
@@ -1634,12 +1631,12 @@ structure CstrDerivHelper = CstrDerivGenericOnlyDownTransformer(
           in
               TyEqQuan (as_TyEqQuan q ke te, ke, te)
           end
-        | CRec (name, k, c) =>
+        | CRec (k, c) =>
           let
               val ke = gen_kdeq_refl kctx k
               val te = gen_tyeq_refl (k :: kctx) c
           in
-              TyEqRec (as_TyEqRec name name ke te, ke, te)
+              TyEqRec (as_TyEqRec ke te, ke, te)
           end
         | CRef c =>
           let

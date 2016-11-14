@@ -88,12 +88,12 @@ fun default_transform_cstr (c, down) =
       in
           (CQuan (q, k, c), combine [up1, up2])
       end
-    | CRec (name, k, t) =>
+    | CRec (k, t) =>
       let
           val (k, up1) = transform_kind (k, down)
           val (t, up2) = transform_cstr (t, Action.add_kind (SOME k, down))
       in
-          (CRec (name, k, t), combine [up1, up2])
+          (CRec (k, t), combine [up1, up2])
       end
     | CRef t =>
       let
@@ -389,7 +389,7 @@ fun str_cstr c =
     | CAbs t => "(fn => " ^ str_cstr t ^ ")"
     | CApp (c1, c2) => "(" ^ str_cstr c1 ^ " " ^ str_cstr c2 ^ ")"
     | CQuan (q, k, c) => "(" ^ str_quan q ^ " " ^ str_kind k ^ " : " ^ str_cstr c ^ ")"
-    | CRec (name, k, t) => name (* "(rec " ^ str_kind k ^ " => " ^ str_cstr t ^ ")" *)
+    | CRec (k, t) => "REC_TYPE" (* "(rec " ^ str_kind k ^ " => " ^ str_cstr t ^ ")" *)
     | CRef t => "(ref " ^ str_cstr t ^ ")"
     | CUnOp (opr, c) => "(" ^ str_cstr_un_op opr ^ " " ^ str_cstr c ^ ")"
 
