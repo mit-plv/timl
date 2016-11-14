@@ -31,11 +31,11 @@ fun rev_append ['a] {n m : Nat} (l : list 'a {n}, acc : list 'a {m}) return list
         [] => acc
       | hd :: tl => rev_append (tl, hd :: acc)
 
-fun do_push ['a] {s1 s2 : Nat} (q : queue 'a {s1} {s2}, x : 'a) =
+fun do_enqueue ['a] {s1 s2 : Nat} (q : queue 'a {s1} {s2}, x : 'a) =
     case q return queue 'a {s1 + 1} {s2} of
         Queue (l1, l2) => Queue (x :: l1, l2)
 
-fun do_pop ['a] {s1 s2 : Nat} (q : queue 'a {s1} {s2}) return queue 'a {ite (s2 == 0) 0 s1} {ite (s2 == 0) (s1 - 1) (s2 - 1)} using ite (s2 == 0) ($s1 + 1.0) 0.0 =
+fun do_dequeue ['a] {s1 s2 : Nat} (q : queue 'a {s1} {s2}) return queue 'a {ite (s2 == 0) 0 s1} {ite (s2 == 0) (s1 - 1) (s2 - 1)} using ite (s2 == 0) ($s1 + 1.0) 0.0 =
     case q of
         Queue (l1, l2) =>
         case l2 of
@@ -49,47 +49,47 @@ fun do_pop ['a] {s1 s2 : Nat} (q : queue 'a {s1} {s2}) return queue 'a {ite (s2 
                 | [] => Queue ([], [])
             end
 
-fun push ['a] {s1 s2 : Nat} (q : queue 'a {s1} {s2}, x : 'a) return amortized_comp 'a {s1} {s2} {3.0} =
+fun enqueue ['a] {s1 s2 : Nat} (q : queue 'a {s1} {s2}, x : 'a) return amortized_comp 'a {s1} {s2} {2.0} =
     AmortizedComp
       (fn () =>
-          SomeOutputAndCostConstraint (do_push (q, x)))
+          SomeOutputAndCostConstraint (do_enqueue (q, x)))
 
-fun pop ['a] {s1 s2 : Nat} (q : queue 'a {s1} {s2}) return amortized_comp 'a {s1} {s2} {3.0} =
+fun dequeue ['a] {s1 s2 : Nat} (q : queue 'a {s1} {s2}) return amortized_comp 'a {s1} {s2} {2.0} =
     AmortizedComp
       (fn () =>
-          SomeOutputAndCostConstraint (do_pop q))
+          SomeOutputAndCostConstraint (do_dequeue q))
 
 datatype operation 'a =
          OPush of 'a --> operation 'a
          | OPop of operation 'a
 
-fun push_or_pop ['a] {s1 s2 : Nat} (q : queue 'a {s1} {s2}, opr : operation 'a) =
+fun enqueue_or_dequeue ['a] {s1 s2 : Nat} (q : queue 'a {s1} {s2}, opr : operation 'a) =
     case opr of
-        OPush x => push (q, x)
-      | OPop => pop q
+        OPush x => enqueue (q, x)
+      | OPop => dequeue q
 
 datatype some_queue 'a =
          SomeQueue {s1 s2 : Nat} of queue 'a {s1} {s2} --> some_queue 'a
 
-fun push_pop_seq ['a] {s1 s2 cnt : Nat} (q : queue 'a {s1} {s2}, oprs : list (operation 'a) {cnt}) return some_queue 'a using 7.0 * $cnt + $s1 =
+fun enqueue_dequeue_seq ['a] {s1 s2 cnt : Nat} (q : queue 'a {s1} {s2}, oprs : list (operation 'a) {cnt}) return some_queue 'a using 6.0 * $cnt + $s1 =
     case oprs of
         [] => SomeQueue q
       | hd :: tl =>
         let
-          val AmortizedComp f = push_or_pop (q, hd)
+          val AmortizedComp f = enqueue_or_dequeue (q, hd)
           val SomeOutputAndCostConstraint q = f ()
         in
-          push_pop_seq (q, tl)
+          enqueue_dequeue_seq (q, tl)
         end
 
-absidx T_push_pop_seq_from_good_start : BigO 1 (fn n => $n) with
-fun push_pop_seq_from_good_start ['a] {s1 s2 cnt : Nat} {s1 <= cnt} (q : queue 'a {s1} {s2}, oprs : list (operation 'a) {cnt}) return some_queue 'a using T_push_pop_seq_from_good_start cnt =
-    push_pop_seq (q, oprs)
+absidx T_enqueue_dequeue_seq_from_good_start : BigO 1 (fn n => $n) with
+fun enqueue_dequeue_seq_from_good_start ['a] {s1 s2 cnt : Nat} {s1 <= cnt} (q : queue 'a {s1} {s2}, oprs : list (operation 'a) {cnt}) return some_queue 'a using T_enqueue_dequeue_seq_from_good_start cnt =
+    enqueue_dequeue_seq (q, oprs)
 end
 
-absidx T_push_pop_seq_from_empty : BigO 1 (fn n => $n) with
-fun push_pop_seq_from_empty ['a] {cnt : Nat} (q : queue 'a {0} {0}, oprs : list (operation 'a) {cnt}) return some_queue 'a using T_push_pop_seq_from_empty cnt =
-    push_pop_seq (q, oprs)
+absidx T_enqueue_dequeue_seq_from_empty : BigO 1 (fn n => $n) with
+fun enqueue_dequeue_seq_from_empty ['a] {cnt : Nat} (q : queue 'a {0} {0}, oprs : list (operation 'a) {cnt}) return some_queue 'a using T_enqueue_dequeue_seq_from_empty cnt =
+    enqueue_dequeue_seq (q, oprs)
 end
 
 end

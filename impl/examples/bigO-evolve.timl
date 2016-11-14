@@ -3,6 +3,11 @@ open List
 
 (* The following is the thought process of evoluting [map] from using precise time spec to using big-O time spec. *)
 
+fun foldl ['a 'b] {m n : Nat} (f : 'a * 'b -- $m --> 'b) y (xs : list 'a {n}) return 'b using ($m + 4.0) * $n  =
+        case xs of
+            [] => y
+          | x :: xs => foldl f (f (x, y)) xs
+
 (* original version *)
 fun map ['a 'b] {m n : Nat} (f : 'a -- $m --> 'b) (ls : list 'a {n}) return list 'b {n} using $(m + 3) * $n =
     case ls of
