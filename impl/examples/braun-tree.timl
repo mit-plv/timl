@@ -1,4 +1,10 @@
+(* Braun trees *)
+
+(* Braun trees are a kind of balanced binary tree where the element stored in each node is no larger than elements in its children, and the size of each left child is equal to or larger by one than its right sibling. They are used to implement functional priority queues (or binary heaps), where the dequeue operation pops and returns the minimal element of the queue. 
+ *)
+
 structure BraunTree = struct
+
 open Basic
 
 datatype braun_tree 'a : {Nat} =

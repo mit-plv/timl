@@ -1,3 +1,4 @@
+(* benchmark examples *)
 tree.timl
 msort.timl
 insertion-sort.timl

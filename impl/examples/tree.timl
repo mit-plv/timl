@@ -1,25 +1,19 @@
+(* Operations on trees *)
+
 structure Tree = struct
+
 open Basic
 open List
-       
+
+(* tree indexed by its total size *)       
 datatype tree 'a : {Nat} =
          Leaf of tree 'a {0}
        | Node {n1 : Nat} {n2 : Nat} of 'a * tree 'a {n1} * tree 'a {n2} --> tree 'a {n1 + 1 + n2}
 
-fun map_tree ['a 'b] {m : Time} (f : 'a -- m --> 'b) =
-    let
-      fun map {n : Nat} (tr : tree 'a {n}) return tree 'b {n} using (m + 3.0) * $n =
-          case tr of
-              Leaf => Leaf
-            | Node (x, tr1, tr2) => Node (f x, map tr1, map tr2)
-    in
-      map
-    end
-
-absidx g : Fun 2 = fn m n => $(m + 3) * $n with
+absidx T_map_tree : BigO 2 (fn m n => $m * $n) with
 fun map_tree ['a 'b] {m : Nat} (f : 'a -- $m --> 'b) =
     let
-      fun map {n : Nat} (tr : tree 'a {n}) return tree 'b {n} using g m n =
+      fun map {n : Nat} (tr : tree 'a {n}) return tree 'b {n} using T_map_tree m n =
           case tr of
               Leaf => Leaf
             | Node (x, tr1, tr2) => Node (f x, map tr1, map tr2)
@@ -28,34 +22,11 @@ fun map_tree ['a 'b] {m : Nat} (f : 'a -- $m --> 'b) =
     end
 end
 
-absidx g : BigO 2 (fn m n => $m * $n) = fn m n => $(m + 3) * $n with
-fun map_tree ['a 'b] {m : Nat} (f : 'a -- $m --> 'b) =
-    let
-      fun map {n : Nat} (tr : tree 'a {n}) return tree 'b {n} using g m n =
-          case tr of
-              Leaf => Leaf
-            | Node (x, tr1, tr2) => Node (f x, map tr1, map tr2)
-    in
-      map
-    end
-end
-
-absidx g : BigO 2 (fn m n => $m * $n) with
-fun map_tree ['a 'b] {m : Nat} (f : 'a -- $m --> 'b) =
-    let
-      fun map {n : Nat} (tr : tree 'a {n}) return tree 'b {n} using g m n =
-          case tr of
-              Leaf => Leaf
-            | Node (x, tr1, tr2) => Node (f x, map tr1, map tr2)
-    in
-      map
-    end
-end
-
-absidx g : BigO 2 (fn m n => $m * $n) with
+(* middle-left-right fold *)                   
+absidx T_tree_foldmlr : BigO 2 (fn m n => $m * $n) with
 fun tree_foldmlr ['a 'b] {m : Nat} (f : 'a * 'b -- $m --> 'b) =
     let
-      fun fold {n : Nat} acc (tr : tree 'a {n}) return 'b using g m n =
+      fun fold {n : Nat} acc (tr : tree 'a {n}) return 'b using T_tree_foldmlr m n =
           case tr of
               Leaf => acc
             | Node (x, tr1, tr2) =>
@@ -71,10 +42,11 @@ fun tree_foldmlr ['a 'b] {m : Nat} (f : 'a * 'b -- $m --> 'b) =
     end
 end
 
-absidx g : BigO 2 (fn m n => $m * $n) with
+(* right-left-middle fold *)                   
+absidx T_tree_foldrlm : BigO 2 (fn m n => $m * $n) with
 fun tree_foldrlm ['a 'b] {m : Nat} (f : 'a * 'b -- $m --> 'b) =
     let
-      fun fold {n : Nat} acc (tr : tree 'a {n}) return 'b using g m n =
+      fun fold {n : Nat} acc (tr : tree 'a {n}) return 'b using T_tree_foldrlm m n =
           case tr of
               Leaf => acc
             | Node (x, tr1, tr2) =>
@@ -90,8 +62,9 @@ fun tree_foldrlm ['a 'b] {m : Nat} (f : 'a * 'b -- $m --> 'b) =
     end
 end
 
-absidx g : BigO 1 (fn n => $n) (* = fn n => $(4 * n) *) with
-fun tree_append_rlm ['a] {n : Nat} (tr : tree 'a {n}) {n2 : Nat} (ls : list 'a {n2}) return list 'a {n + n2} using g n =
+(* traverse (right-left-middle) the tree and append all the elements to a list *)
+absidx T_tree_append_rlm : BigO 1 (fn n => $n) (* = fn n => $(4 * n) *) with
+fun tree_append_rlm ['a] {n : Nat} (tr : tree 'a {n}) {n2 : Nat} (ls : list 'a {n2}) return list 'a {n + n2} using T_tree_append_rlm n =
     case tr of
         Leaf => ls
       | Node (x (* : 'a *), tr1, tr2) =>
@@ -104,8 +77,9 @@ fun tree_append_rlm ['a] {n : Nat} (tr : tree 'a {n}) {n2 : Nat} (ls : list 'a {
         end
 end
 
-absidx g : BigO 1 (fn n => $n) with
-fun tree_flatten_mlr (* ['a] *) {n : Nat} (tr : tree _ {n}) return list _ {n} using g n =
+(* flatten (right-left-middle) the tree to a list *)
+absidx T_tree_flatten_rlm : BigO 1 (fn n => $n) with
+fun tree_flatten_rlm (* ['a] *) {n : Nat} (tr : tree _ {n}) return list _ {n} using T_tree_flatten_rlm n =
     tree_append_rlm tr {_} Nil
 end
 
