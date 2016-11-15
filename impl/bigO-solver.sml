@@ -562,7 +562,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
                       val n' = combine_AddI_Nat n's
                       val () = if ask_smt (n' %+ N1 %<= n_i) then () else raise Error "n' %+ N1 %<= n_i"
                       val rest = map use_bigO_hyp rest
-                      val () = println $ str_i [] (hyps2ctx long_hyps) $ combine_AddI_Time rest
+                      (* val () = println $ str_i [] (hyps2ctx long_hyps) $ combine_AddI_Time rest *)
                       val (c, k) =
                           add_class_entries $ map (summarize_1 n_) rest
                       val Tn = class2term (c + 1, k) (to_real (V 0))
