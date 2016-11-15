@@ -46,6 +46,9 @@ structure MicroTiMLHoistedDef = MicroTiMLHoistedDefFun(MicroTiMLDef)
 open MicroTiMLHoistedDef
 structure HoistedDerivChecker = HoistedDerivCheckerFun(MicroTiMLHoistedDef)
 open HoistedDerivChecker
+structure TypedAssemblyDef = TypedAssemblyDefFun(MicroTiMLHoistedDef)
+structure CodeGenPass = CodeGenPassFun(TypedAssemblyDef)
+open CodeGenPass
 
 structure DerivAssembler = DerivAssemblerFun(MicroTiMLDef)
 open DerivAssembler
@@ -213,6 +216,7 @@ fun test_absc_appc () =
       val hoisted_ty = hoist_deriv clo_ty
       val () = print $ str_program $ #1 (extract_judge_ptyping hoisted_ty)
       val () = check_program hoisted_ty
+      val assembly_ty =  code_gen_deriv hoisted_ty
   in
       println ""
   end
