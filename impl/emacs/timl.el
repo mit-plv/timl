@@ -23,11 +23,11 @@
   "Full path of this script.")
 
 (defconst timl--default-executable
-  (expand-file-name "../impl/main.sh"
+  (expand-file-name "main.sh"
                     (file-name-directory timl--this-file)))
 
 (defconst timl--stdlib
-  (expand-file-name "../impl/examples/stdlib.pkg"
+  (expand-file-name "examples/stdlib.pkg"
                     (file-name-directory timl--this-file)))
 
 ;;; Customizable settings
