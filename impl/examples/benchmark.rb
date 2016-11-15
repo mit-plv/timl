@@ -1,31 +1,68 @@
 #!/usr/bin/env ruby
 
-subjects = %w{list lsls tree trivial msort bigO-evolve fold-evolve single-var insertion-sort braun-tree braun-tree-sortedness rbt-sortedness rbt dynamic-table two-stack-queue array-bsearch array-heap array-msort array-msort-inplace array-kmed qsort dijkstra dlist}
-descriptions = [
-  "Length-indexed lists",
-  "Flexibility of \"size\"",
-  "Size-indexed binary trees",
-  "Trivial examples",
-  "Merge sort",
-  "Evolving [map] from precise time to big-O time",
-  "Evolving [fold] from precise time to big-O time",
-  "(TBA)",
-  "Insertion sort",
-  "Braun trees",
-  "Braun trees with invariant for sortedness",
-  "Red-black trees with invariant for sortedness",
-  "Red-black trees",
-  "Dynamic tables with amortized time complexity",
-  "Two-stack queues with amortized time complexity",
-  "Binary search with arrays",
-  "Binary heap with arrays",
-  "Merge sort with arrays",
-  "In-place merge sort with arrays",
-  "k-median search with arrays",
-  "Quicksort",
-  "Dijkstra algorithm",
-  "Double-linked lists"
-]
+# subjects = %w{list lsls tree msort insertion-sort braun-tree braun-tree-sortedness rbt-sortedness rbt dynamic-table two-stack-queue array-bsearch array-heap array-msort array-msort-inplace array-kmed qsort dijkstra dlist}
+# descriptions = [
+#   "List operations",
+#   "List of lists",
+#   "Trees",
+#   "Merge sort",
+#   "Insertion sort",
+#   "Braun trees",
+#   "Braun trees with invariant for sortedness",
+#   "Red-black trees with invariant for sortedness",
+#   "Red-black trees",
+#   "Dynamic tables with amortized time complexity",
+#   "Two-stack queues with amortized time complexity",
+#   "Binary search on arrays",
+#   "Binary heap on arrays",
+#   "Merge sort on arrays",
+#   "Inplace merge sort on arrays",
+#   "k-median search on arrays",
+#   "Quicksort",
+#   "Dijkstra algorithm",
+#   "Double-linked lists"
+# ]
+
+template = 
+%q{
+list & List operations & 0.171 & 26 & 4 & $n$, $mn$ \\\\
+lsls & List of lists & 0.113 & 14 & 1 & $m^2 n$ \\\\
+tree & Trees & 0.222 & 112 & 15 & $mn$\\\\
+msort & Merge sort & 0.286 & 63 & 14 & $mn\log n$ \\\\
+insertion-sort & Insertion sort & 0.15 & 22 & 4 & $mn^2$ \\\\
+braun-tree & Braun trees & 0.225 & 87 & 11 & $\log n$, $\log^2 n$ \\\\
+braun-tree-sortedness & Braun trees w/ sortedness & 0.304 & 109 & 12 & $\log n$, $\log^2 n$ \\\\
+rbt & Red-black trees & 0.533 & 328 & 18 & $\log n$ \\\\
+rbt-sortedness & Red-black trees w/ sortedness & 0.919 & 284 & 16 & $\log n$ \\\\
+dynamic-table & Dynamic tables & 0.145 & 116 & 10 & (amortized) $1$ \\\\
+two-stack-queue & Two-stack queues & 0.15 & 95 & 7 & (amortized) $1$ \\\\
+array-bsearch & Binary search & 0.169 & 42 & 2 & $m\log n$ \\\\
+array-heap & Binary heap & 0.241 & 138 & 6 & $m\log n$ \\\\
+array-msort & Merge sort on arrays & 0.243 & 109 & 7 & $mn\log n$ \\\\
+array-msort-inplace & Inplace merge sort on arrays & 0.293 & 132 & 9 & $mn\log n$ \\\\
+array-kmed & k-median search & 0.152 & 69 & 8 & $mn^2$ \\\\
+qsort & Quicksort & 0.121 & 39 & 7 & $m n^2$ \\\\
+dijkstra & Dijkstra & 0.125 & 74 & 0 & $(m_++m_\leq)n^2$ \\\\
+dlist & Double-linked lists & 0.305 & 111 & 10 & $mn$\\\\
+}
+
+template = template.split("\n").join("")
+
+# puts template.inspect
+
+lines = template.split(%q{\\\\})
+
+lines = lines.map do |line|
+  line.split('&').map do |x| x.strip end
+end
+
+subjects = lines.map do |x| x[0] end
+descriptions = lines.map do |x| x[1] end
+coms = lines.map do |x| x[5] end
+
+# lines.each do |line|
+#   puts line.join(",")
+# end
 
 results = subjects.zip(descriptions).map do |(sub, desc)|
   fn = "#{sub}.timl"
@@ -33,12 +70,21 @@ results = subjects.zip(descriptions).map do |(sub, desc)|
   system("../main stdlib.pkg #{fn} > /dev/null")
   final = Time.new
   contents = File.open(fn).readlines
-  [sub, desc, (final - start).to_s, contents.length.to_s, contents.count { |ln| (ln =~ /absidx|idx|using/) != nil }.to_s]
+  [sub, desc, (final - start).round(3).to_s, contents.length.to_s, contents.count { |ln| (ln =~ /absidx|idx|using/) != nil }.to_s]
 end
 
 File.open("result.csv", "w") do |f|
-  f.puts "Example,Description,Time of type checking (s),#line,#line containing time annotations"
+  f.puts "Example,Description,Time (s),LOC,LOC containing time annotations"
   results.each do |result|
     f.puts result.join(",")
   end
 end
+
+puts
+results.zip(coms).each do |(line, com)|
+  line = line << com
+  line = line.join(" & ")
+  line = line + " \\\\"
+  puts line
+end
+puts

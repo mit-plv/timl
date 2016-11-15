@@ -26,11 +26,6 @@ datatype amortized_comp 'a {s1 s2 : Nat} {acost : Time} =
            {cost : Time} 
          of (unit -- cost --> some_output_and_cost_constraint 'a {s1} {s2} {acost} {cost}) --> amortized_comp 'a {s1} {s2} {acost}
 
-fun rev_append ['a] {n m : Nat} (l : list 'a {n}, acc : list 'a {m}) return list 'a {n + m} using $n =
-    case l of
-        [] => acc
-      | hd :: tl => rev_append (tl, hd :: acc)
-
 fun do_enqueue ['a] {s1 s2 : Nat} (q : queue 'a {s1} {s2}, x : 'a) =
     case q return queue 'a {s1 + 1} {s2} of
         Queue (l1, l2) => Queue (x :: l1, l2)

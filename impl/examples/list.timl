@@ -1,5 +1,8 @@
+(* List and its operations *)
+
 structure List = struct
 
+(* length-indexed list *)
 datatype list 'a : {Nat} =
          Nil of list 'a {0} 
        | Cons {n' : Nat} of 'a * list 'a {n'} --> list 'a {n' + 1} 
@@ -22,5 +25,24 @@ fun hd ['a] {n: Nat | n > 0} (ls: list 'a {n}) =
     case ls of
         x :: _ => x
       | _ => never
-       
+
+(* revert and append *)               
+fun rev_append ['a] {n m : Nat} (l : list 'a {n}, acc : list 'a {m}) return list 'a {n + m} using $n =
+    case l of
+        [] => acc
+      | hd :: tl => rev_append (tl, hd :: acc)
+
+(* another version with Big-O complexity *)
+absidx T_rev_append : BigO 1 (fn n => $n) (* = fn n => 2.0 * $n *) with
+fun rev_append_2 ['a] {n1 n2 : Nat} (xs : list 'a {n1}) (ys : list 'a {n2}) return list 'a {n1 + n2} using T_rev_append n1 =
+    case xs of
+        [] => ys
+      | x :: xs => rev_append_2 xs (x :: ys)
+end
+
+(* revert *)
+absidx T_rev : BigO 1 (fn n => $n) with
+fun rev ['a] {n : Nat} (xs : list 'a {n}) return list _ {n} using T_rev n = rev_append_2 xs []
+end
+
 end

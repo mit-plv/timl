@@ -57,7 +57,7 @@ fun le_le {m : Time} {a b a' b' : Nat} (le : forall {x y : Nat}, nat {x} * nat {
       | (Gt, Le) => NotLeLe
       | (Gt, Gt) => NotLeLe
 
-absidx Tsift : BigO 1 (fn n => log2 $n)(* _ *) with
+absidx Tsift : BigO 1 (fn n => log2 $n) with
 fun sift {size lk rk x : Nat} (x : nat {x}, l : braun_tree {lk} {ceil ($size/2)}, r : braun_tree {rk} {floor ($size/2)}) return braun_tree {ite (size == 0) x (ite (size == 1) (x min lk) (x min lk min rk))} {size+1} using Tsift size =
     case (l, r) of
         (Leaf, Leaf) =>
@@ -83,7 +83,7 @@ end
 datatype pop {k size : Nat} =
          Pop {k' : Nat} {size > 0 -> k <= k'} of nat {k} * braun_tree {k'} {size} --> pop {k} {size}
                                                  
-absidx Tpop : BigO 1 (fn n => log2 $n * log2 $n)(* _ *) with
+absidx Tpop : BigO 1 (fn n => log2 $n * log2 $n) with
 fun pop {size k : Nat} (tr : braun_tree {k} {size + 1}) return pop {k} {size} using Tpop size =
     case tr of
         Node (x, l, r) =>
