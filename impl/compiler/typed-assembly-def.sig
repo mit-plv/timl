@@ -277,4 +277,8 @@ sig
     val extract_tal_c_ref : tal_cstr -> tal_cstr
     val extract_tal_c_sum : tal_cstr -> tal_cstr * tal_cstr
     val extract_tal_v_reg : tal_value -> tal_register
+
+    val str_tal_cstr : tal_cstr -> string
+    val str_tal_kind : tal_kind -> string
+    val str_tal_prop : tal_prop -> string
 end

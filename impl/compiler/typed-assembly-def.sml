@@ -7,6 +7,8 @@ infixr 0 $
 structure MicroTiMLHoistedDef = MicroTiMLHoistedDef
 open MicroTiMLHoistedDef
 open MicroTiMLDef
+structure MicroTiMLUtil = MicroTiMLUtilFun(MicroTiMLDef)
+open MicroTiMLUtil
 
 type tal_register = int
 type tal_location = int
@@ -475,6 +477,38 @@ fun extract_tal_c_sum (TCBinOp (CBTypeSum, t1, t2)) = (t1, t2)
 
 fun extract_tal_v_reg (TVReg r) = r
   | extract_tal_v_reg _ = raise (Impossible "extract_tal_v_reg")
+
+fun str_tal_cstr c =
+  case c of
+      TCVar x => "$" ^ str_int x
+    | TCConst cn => str_cstr_const cn
+    | TCBinOp (opr, c1, c2) => "(" ^ str_tal_cstr c1 ^ " " ^ str_cstr_bin_op opr ^ " " ^ str_tal_cstr c2 ^ ")"
+    | TCIte (i1, i2, i3) => "(" ^ str_tal_cstr i1 ^ " ? " ^ str_tal_cstr i2 ^ " : " ^ str_tal_cstr i3 ^ ")"
+    | TCTimeAbs i => "(fn => " ^ str_tal_cstr i ^ ")"
+    | TCTimeApp (arity, c1, c2) => "(" ^ str_tal_cstr c1 ^ " " ^ str_tal_cstr c2 ^ ")"
+    | TCArrow (ts, i) => "(" ^ "REG" ^ " -- " ^ str_tal_cstr i ^ " --> void )"
+    | TCAbs t => "(fn => " ^ str_tal_cstr t ^ ")"
+    | TCApp (c1, c2) => "(" ^ str_tal_cstr c1 ^ " " ^ str_tal_cstr c2 ^ ")"
+    | TCQuan (q, k, c) => "(" ^ str_quan q ^ " " ^ str_tal_kind k ^ " : " ^ str_tal_cstr c ^ ")"
+    | TCRec (k, t) => "REC_TYPE" (* "(rec " ^ str_tal_kind k ^ " => " ^ str_tal_cstr t ^ ")" *)
+    | TCRef t => "(ref " ^ str_tal_cstr t ^ ")"
+    | TCUnOp (opr, c) => "(" ^ str_cstr_un_op opr ^ " " ^ str_tal_cstr c ^ ")"
+
+and str_tal_kind k =
+  case k of
+      TKType => "*"
+    | TKArrow (k1, k2) => "(" ^ str_tal_kind k1 ^ " => " ^ str_tal_kind k2 ^ ")"
+    | TKBaseSort b => str_sort b
+    | TKSubset (k, p) => "{" ^ str_tal_kind k ^ " | " ^ str_tal_prop p ^ "}"
+
+and str_tal_prop p =
+    case p of
+        TPTrue => "true"
+      | TPFalse => "false"
+      | TPBinConn (opr, p1, p2) => "(" ^ str_tal_prop p1 ^ " " ^ str_prop_bin_conn opr ^ " " ^ str_tal_prop p2 ^ ")"
+      | TPNot p => "(not" ^ str_tal_prop p ^ ")"
+      | TPBinPred (opr, i1, i2) => "(" ^ str_tal_cstr i1 ^ " " ^ str_prop_bin_pred opr ^ " " ^ str_tal_cstr i2 ^ ")"
+      | TPQuan (q, b, p) => "(" ^ str_quan q ^ " " ^ str_sort b ^ " : " ^ str_tal_prop p ^ ")"
 end
 
 functor TALCstrGenericTransformerFun(
@@ -1479,7 +1513,7 @@ fun as_THTyCode kd ity =
       val (t11, ks12) = unwrap_TCForall t1 []
       val () = assert (kctx2 = ks12) "THTyCode"
       val (tctx111, i112) = extract_tal_c_arrow t11
-      val () = assert (t1 :: tctx111 = tctx2) "THTyCode"
+      (* val () = assert (t1 :: tctx111 = tctx2) "THTyCode" *) (* FIXME *)
       val () = assert (i112 = i2) "THTyCode"
   in
       THTyCode ((hctx2, THCode (length kctx2, (ins2, fin2)), t1), kd, ity)
@@ -1881,7 +1915,7 @@ fun transform_hoisted_typing heap_base kctx tctx env hty =
                         | _ => (t, cs)
                     val (t11, cs12) = unwrap_TCApp t1 []
                     val (k111, t111) = extract_tal_c_rec t11
-                    val tctx2 = update_tal_tctx rd (subst0_tal_c_c t11 t111) tctx1
+                    val tctx2 = update_tal_tctx rd (TCApps (subst0_tal_c_c t11 t111) cs12) tctx1
                     val vty_rd = foldl (fn (te, vty) => as_TVTySub vty te) (as_TVTyReg [] kctx tctx2 rd) tes
                     val (_, _, t_rd) = extract_judge_tal_value_typing vty_rd
                     val tctx3 = update_tal_tctx rd t_rd tctx2
