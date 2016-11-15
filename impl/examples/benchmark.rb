@@ -48,7 +48,7 @@ dlist & Double-linked lists & 0.305 & 111 & 10 & $mn$\\\\
 
 template = template.split("\n").join("")
 
-puts template.inspect
+# puts template.inspect
 
 lines = template.split(%q{\\\\})
 
@@ -60,9 +60,9 @@ subjects = lines.map do |x| x[0] end
 descriptions = lines.map do |x| x[1] end
 coms = lines.map do |x| x[5] end
 
-lines.each do |line|
-  puts line.join(",")
-end
+# lines.each do |line|
+#   puts line.join(",")
+# end
 
 results = subjects.zip(descriptions).map do |(sub, desc)|
   fn = "#{sub}.timl"
@@ -73,14 +73,18 @@ results = subjects.zip(descriptions).map do |(sub, desc)|
   [sub, desc, (final - start).round(3).to_s, contents.length.to_s, contents.count { |ln| (ln =~ /absidx|idx|using/) != nil }.to_s]
 end
 
-result.zip(coms).each do |(line, com)|
-  line = line << com
-  puts line.join(" & ")
-end
-
 File.open("result.csv", "w") do |f|
   f.puts "Example,Description,Time (s),LOC,LOC containing time annotations"
   results.each do |result|
     f.puts result.join(",")
   end
 end
+
+puts
+results.zip(coms).each do |(line, com)|
+  line = line << com
+  line = line.join(" & ")
+  line = line + " \\\\"
+  puts line
+end
+puts
