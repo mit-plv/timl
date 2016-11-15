@@ -1,6 +1,6 @@
 signature SIG_TYPED_ASSEMBLY_DEF =
 sig
-    structure MicroTiMLDef : SIG_MICRO_TIML_DEF
+    structure MicroTiMLHoistedDef : SIG_MICRO_TIML_HOISTED_DEF
 
     type tal_register = int
     type tal_location = int
@@ -8,36 +8,36 @@ sig
 
     datatype tal_cstr =
              TCVar of tal_var
-             | TCConst of MicroTiMLDef.cstr_const
-             | TCBinOp of MicroTiMLDef.cstr_bin_op * tal_cstr * tal_cstr
+             | TCConst of MicroTiMLHoistedDef.MicroTiMLDef.cstr_const
+             | TCBinOp of MicroTiMLHoistedDef.MicroTiMLDef.cstr_bin_op * tal_cstr * tal_cstr
              | TCIte of tal_cstr * tal_cstr * tal_cstr
              | TCTimeAbs of tal_cstr
              | TCTimeApp of int * tal_cstr * tal_cstr
              | TCArrow of tal_cstr list * tal_cstr (* type of register file & index of running time *)
              | TCAbs of tal_cstr
              | TCApp of tal_cstr * tal_cstr
-             | TCQuan of MicroTiMLDef.quan * tal_kind * tal_cstr
+             | TCQuan of MicroTiMLHoistedDef.MicroTiMLDef.quan * tal_kind * tal_cstr
              | TCRec of tal_kind * tal_cstr
              | TCRef of tal_cstr
-             | TCUnOp of MicroTiMLDef.cstr_un_op * tal_cstr
+             | TCUnOp of MicroTiMLHoistedDef.MicroTiMLDef.cstr_un_op * tal_cstr
 
          and tal_kind =
              TKType
              | TKArrow of tal_kind * tal_kind
-             | TKBaseSort of MicroTiMLDef.sort
+             | TKBaseSort of MicroTiMLHoistedDef.MicroTiMLDef.sort
              | TKSubset of tal_kind * tal_prop
 
          and tal_prop =
              TPTrue
              | TPFalse
-             | TPBinConn of MicroTiMLDef.prop_bin_conn * tal_prop * tal_prop
+             | TPBinConn of MicroTiMLHoistedDef.MicroTiMLDef.prop_bin_conn * tal_prop * tal_prop
              | TPNot of tal_prop
-             | TPBinPred of MicroTiMLDef.prop_bin_pred * tal_cstr * tal_cstr
-             | TPQuan of MicroTiMLDef.quan * MicroTiMLDef.sort * tal_prop
+             | TPBinPred of MicroTiMLHoistedDef.MicroTiMLDef.prop_bin_pred * tal_cstr * tal_cstr
+             | TPQuan of MicroTiMLHoistedDef.MicroTiMLDef.quan * MicroTiMLHoistedDef.MicroTiMLDef.sort * tal_prop
 
     datatype tal_word =
              TWLoc of tal_location
-             | TWConst of MicroTiMLDef.expr_const
+             | TWConst of MicroTiMLHoistedDef.MicroTiMLDef.expr_const
              | TWAppC of tal_word * tal_cstr
              | TWPack of tal_cstr * tal_word
 
@@ -49,14 +49,14 @@ sig
 
     datatype tal_instr =
              TINewpair of tal_register * tal_register * tal_register
-             | TIProj of MicroTiMLDef.projector * tal_register * tal_register
-             | TIInj of MicroTiMLDef.injector * tal_register
+             | TIProj of MicroTiMLHoistedDef.MicroTiMLDef.projector * tal_register * tal_register
+             | TIInj of MicroTiMLHoistedDef.MicroTiMLDef.injector * tal_register
              | TIFold of tal_register
              | TIUnfold of tal_register
              | TINewref of tal_register * tal_register
              | TIDeref of tal_register * tal_register
              | TISetref of tal_register * tal_register
-             | TIPrimBinOp of MicroTiMLDef.prim_expr_bin_op * tal_register * tal_register * tal_register
+             | TIPrimBinOp of MicroTiMLHoistedDef.MicroTiMLDef.prim_expr_bin_op * tal_register * tal_register * tal_register
              | TIMove of tal_register * tal_value
              | TIUnpack of tal_register * tal_value
              | TICase of tal_register * tal_value
@@ -109,6 +109,7 @@ sig
              | TKdTimeApp of tal_kinding_judgement * tal_kinding * tal_kinding
              | TKdQuan of tal_kinding_judgement * tal_wfkind * tal_kinding
              | TKdRec of tal_kinding_judgement * tal_wfkind * tal_kinding
+             | TKdRef of tal_kinding_judgement * tal_kinding
              | TKdEq of tal_kinding_judgement * tal_kinding * tal_kdeq
              | TKdUnOp of tal_kinding_judgement * tal_kinding
              | TKdAdmit of tal_kinding_judgement
@@ -156,6 +157,7 @@ sig
              | TWTyAppC of tal_word_typing_judgement * tal_word_typing * tal_kinding
              | TWTyPack of tal_word_typing_judgement * tal_kinding * tal_kinding * tal_word_typing
              | TWTySub of tal_word_typing_judgement * tal_word_typing * tal_tyeq
+             | TWTyLocAdmit of tal_word_typing_judgement (* only used during code generation *)
 
     type tal_value_typing_judgement = tal_ctx * tal_value * tal_cstr
 
@@ -203,7 +205,7 @@ sig
     val TKTimeFun : int -> tal_kind
     val TKTime : tal_kind
 
-    val TTconst : MicroTiMLDef.Time.time_type -> tal_cstr
+    val TTconst : MicroTiMLHoistedDef.MicroTiMLDef.Time.time_type -> tal_cstr
     val TT0 : tal_cstr
     val TT1 : tal_cstr
     val TTadd : tal_cstr * tal_cstr -> tal_cstr
@@ -231,24 +233,24 @@ sig
     val TTEq : tal_cstr * tal_cstr -> tal_prop
 
     val TCTypeInt : tal_cstr
-    val TCNat : MicroTiMLDef.Nat.nat_type -> tal_cstr
+    val TCNat : MicroTiMLHoistedDef.MicroTiMLDef.Nat.nat_type -> tal_cstr
 
     val TCApps : tal_cstr -> tal_cstr list -> tal_cstr
 
-    val TBSTime : MicroTiMLDef.sort
+    val TBSTime : MicroTiMLHoistedDef.MicroTiMLDef.sort
 
-    val const_tal_kind : MicroTiMLDef.cstr_const -> tal_kind
-    val const_tal_type : MicroTiMLDef.expr_const -> tal_cstr
-    val cbinop_arg1_tal_kind : MicroTiMLDef.cstr_bin_op -> tal_kind
-    val cbinop_arg2_tal_kind : MicroTiMLDef.cstr_bin_op -> tal_kind
-    val cbinop_result_tal_kind : MicroTiMLDef.cstr_bin_op -> tal_kind
-    val cunop_arg_tal_kind : MicroTiMLDef.cstr_un_op -> tal_kind
-    val cunop_result_tal_kind : MicroTiMLDef.cstr_un_op -> tal_kind
-    val binpred_arg1_tal_kind : MicroTiMLDef.prop_bin_pred -> tal_kind
-    val binpred_arg2_tal_kind : MicroTiMLDef.prop_bin_pred -> tal_kind
-    val pebinop_arg1_tal_type : MicroTiMLDef.prim_expr_bin_op -> tal_cstr
-    val pebinop_arg2_tal_type : MicroTiMLDef.prim_expr_bin_op -> tal_cstr
-    val pebinop_result_tal_type : MicroTiMLDef.prim_expr_bin_op -> tal_cstr
+    val const_tal_kind : MicroTiMLHoistedDef.MicroTiMLDef.cstr_const -> tal_kind
+    val const_tal_type : MicroTiMLHoistedDef.MicroTiMLDef.expr_const -> tal_cstr
+    val cbinop_arg1_tal_kind : MicroTiMLHoistedDef.MicroTiMLDef.cstr_bin_op -> tal_kind
+    val cbinop_arg2_tal_kind : MicroTiMLHoistedDef.MicroTiMLDef.cstr_bin_op -> tal_kind
+    val cbinop_result_tal_kind : MicroTiMLHoistedDef.MicroTiMLDef.cstr_bin_op -> tal_kind
+    val cunop_arg_tal_kind : MicroTiMLHoistedDef.MicroTiMLDef.cstr_un_op -> tal_kind
+    val cunop_result_tal_kind : MicroTiMLHoistedDef.MicroTiMLDef.cstr_un_op -> tal_kind
+    val binpred_arg1_tal_kind : MicroTiMLHoistedDef.MicroTiMLDef.prop_bin_pred -> tal_kind
+    val binpred_arg2_tal_kind : MicroTiMLHoistedDef.MicroTiMLDef.prop_bin_pred -> tal_kind
+    val pebinop_arg1_tal_type : MicroTiMLHoistedDef.MicroTiMLDef.prim_expr_bin_op -> tal_cstr
+    val pebinop_arg2_tal_type : MicroTiMLHoistedDef.MicroTiMLDef.prim_expr_bin_op -> tal_cstr
+    val pebinop_result_tal_type : MicroTiMLHoistedDef.MicroTiMLDef.prim_expr_bin_op -> tal_cstr
 
     val update_tal_tctx : tal_register -> tal_cstr -> tal_tctx -> tal_tctx
 
@@ -263,11 +265,11 @@ sig
     val extract_judge_tal_instr_typing : tal_instr_typing -> tal_instr_typing_judgement
     val extract_judge_tal_heap_typing : tal_heap_typing -> tal_heap_typing_judgement
 
-    val extract_tal_p_bin_conn : tal_prop -> MicroTiMLDef.prop_bin_conn * tal_prop * tal_prop
-    val extract_tal_p_bin_pred : tal_prop -> MicroTiMLDef.prop_bin_pred * tal_cstr * tal_cstr
+    val extract_tal_p_bin_conn : tal_prop -> MicroTiMLHoistedDef.MicroTiMLDef.prop_bin_conn * tal_prop * tal_prop
+    val extract_tal_p_bin_pred : tal_prop -> MicroTiMLHoistedDef.MicroTiMLDef.prop_bin_pred * tal_cstr * tal_cstr
     val extract_tal_k_arrow : tal_kind -> tal_kind * tal_kind
     val extract_tal_k_time_fun : tal_kind -> int
-    val extract_tal_c_quan : tal_cstr -> MicroTiMLDef.quan * tal_kind * tal_cstr
+    val extract_tal_c_quan : tal_cstr -> MicroTiMLHoistedDef.MicroTiMLDef.quan * tal_kind * tal_cstr
     val extract_tal_c_arrow : tal_cstr -> tal_cstr list * tal_cstr
     val extract_tal_c_abs : tal_cstr -> tal_cstr
     val extract_tal_c_prod : tal_cstr -> tal_cstr * tal_cstr
