@@ -1497,11 +1497,25 @@ and transform_prop p =
       | PBinPred (opr, i1, i2) => TPBinPred (opr, transform_cstr i1, transform_cstr i2)
       | PQuan (q, b, p) => TPQuan (q, b, transform_prop p)
 
+fun transform_kinding (kd, kctx) =
+  case kd of
+      KdVar (_, CVar x, _) => as_TKdVar kctx x
+    | _ => raise (Impossible "transform_kinding")
+
+fun transform_tyeq (te, kctx) =
+  case te of
+      TyEqVar (_, CVar x, _) => as_TTyEqVar kctx x
+    | _ => raise (Impossible "transform_tyeq")
+
 fun transform_atom_typing hctx kctx tctx env aty =
   case aty of
-      ATyVar (_, AEVar x, _, _) => ([], tctx, as_TVTyReg hctx kctx tctx $ nth (env, x))
-    | ATyConst (_, AEConst cn, _, _) => ([], tctx, as_TVTyWord tctx (as_TWTyConst hctx kctx cn))
-    | ATyFuncPointer (_, AEFuncPointer l, _, _) => ([], tctx, as_TVTyWord tctx (as_TWTyLoc hctx kctx l))
+      ATyVar (_, AEVar x, _, _) => as_TVTyReg hctx kctx tctx $ nth (env, x)
+    | ATyConst (_, AEConst cn, _, _) => as_TVTyWord tctx (as_TWTyConst hctx kctx cn)
+    | ATyFuncPointer (_, AEFuncPointer l, _, _) => as_TVTyWord tctx (as_TWTyLoc hctx kctx l)
+    | ATyAppC (_, aty1, kd2) => as_TVTyAppC (transform_atom_typing hctx kctx tctx env aty1) (transform_kinding (kd2, kctx))
+    | ATyPack (_, kd1, kd2, aty3) => as_TVTyPack (transform_kinding (kd1, kctx)) (transform_kinding (kd2, kctx)) (transform_atom_typing hctx kctx tctx env aty3)
+    | ATySubTy (_, aty1, te2) => as_TVTySub (transform_atom_typing hctx kctx tctx env aty1) (transform_tyeq (te2, kctx))
+    | ATySubTi (_, aty1, _) => transform_atom_typing hctx kctx tctx env aty1
     | _ => raise (Impossible "transform_atom_typing")
 end
 end
