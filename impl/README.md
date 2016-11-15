@@ -15,7 +15,7 @@
    apt-get install smlnj libsmlnj-smlnj ml-yacc ml-ulex
    ``
 
-3. Use `make` to build TiML, or use `./test.sh` to build and test on files in `examples` sub-directory.
+3. Use `make` to build TiML, or use [./test.sh](./test.sh) to build and test on files in [examples](examples) sub-directory.
 
 4. (Optional). Install MLton (a whole-program optimizing SML compiler). Make sure command `mlton`, `mlyacc` and `mllex` is in current PATH. Use `make mlton` to build TiML with MLton, or use `./test-mlton.sh` to build and test on files in `examples` sub-directory.
 
@@ -39,11 +39,4 @@ or this command to run a single example:
   ./main.sh examples/stdlib.pkg examples/FILENAME.timl
   ``
 
-Note that `examples/stdlib.pkg` (the standard library) is usually required.
-
-[examples/test-suite.pkg]:
-
-[]: examples/test-suite.pkg
-
- 
-
+Note that [examples/stdlib.pkg](examples/stdlib.pkg) (the standard library) is usually required.
