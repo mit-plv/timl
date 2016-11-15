@@ -15,13 +15,13 @@
    apt-get install smlnj libsmlnj-smlnj ml-yacc ml-ulex
    ``
 
-3. Use `make` to build TiML, or use [./test.sh](./test.sh) to build and test on files in [examples](examples) sub-directory.
+3. Use `make` to build TiML, or use `./test.sh` to build and test on files in [examples](examples) sub-directory.
 
-4. (Optional). Install MLton (a whole-program optimizing SML compiler). Make sure command `mlton`, `mlyacc` and `mllex` is in current PATH. Use `make mlton` to build TiML with MLton, or use `./test-mlton.sh` to build and test on files in `examples` sub-directory.
+4. (Optional). Install MLton (a whole-program optimizing SML compiler). Make sure command `mlton`, `mlyacc` and `mllex` is in current PATH. Use `make mlton` to build TiML with MLton, or use `./test-mlton.sh` to build and test on files in [examples](examples) sub-directory.
 
-5. (Optional, requires step 4). Run `ruby benchmark.rb` in directory `examples`, which will generate file `result.csv` that reproduces results in the table in Section 6 of the paper.
+5. (Optional, requires step 4). Run `ruby benchmark.rb` in directory [examples](examples), which will generate file `result.csv` that reproduces results in the table in Section 6 of the paper.
 
-6. (Optional). Follow `emacs/README.rst` to install TiML mode on Emacs.
+6. (Optional). Follow [emacs/README.rst](emacs/README.rst) to install TiML mode on Emacs.
 
 -------------------------------------------------------------------------------
 
