@@ -27,7 +27,7 @@
 
 ## Play with TiML
 
-`examples/test-suite.pkg` lists all the benchmark examples. You can use this command to run all the examples:
+[examples/test-suite.pkg](examples/test-suite.pkg) lists all the benchmark examples. You can use this command to run all the examples:
 
   ``
   ./main.sh examples/stdlib.pkg examples/test-suite.pkg
@@ -40,3 +40,10 @@ or this command to run a single example:
   ``
 
 Note that `examples/stdlib.pkg` (the standard library) is usually required.
+
+[examples/test-suite.pkg]:
+
+[]: examples/test-suite.pkg
+
+ 
+
