@@ -19,7 +19,7 @@
 
 4. (Optional). Install MLton (a whole-program optimizing SML compiler). Make sure command `mlton`, `mlyacc` and `mllex` is in current PATH. Use `make mlton` to build TiML with MLton, or use `./test-mlton.sh` to build and test on files in [examples](examples) sub-directory.
 
-5. (Optional, requires step 4). Run `ruby benchmark.rb` in directory [examples](examples), which will generate file `result.csv` that reproduces results in the table in Section 6 of the paper.
+5. (Optional, requires step 4). Run `ruby benchmark.rb` in directory [examples](examples), which will generate file `result.csv` that reproduces results in Table 1 of the paper.
 
 6. (Optional). Follow [emacs/README.rst](emacs/README.rst) to install TiML mode on Emacs.
 

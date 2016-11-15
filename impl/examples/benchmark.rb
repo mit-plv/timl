@@ -29,7 +29,7 @@ results = subjects.zip(descriptions).map do |(sub, desc)|
   system("../main stdlib.pkg #{fn} > /dev/null")
   final = Time.new
   contents = File.open(fn).readlines
-  [sub, desc, (final - start).to_s, contents.length.to_s, contents.count { |ln| (ln =~ /absidx|idx|using/) != nil }.to_s]
+  [sub, desc, (final - start).round(3).to_s, contents.length.to_s, contents.count { |ln| (ln =~ /absidx|idx|using/) != nil }.to_s]
 end
 
 File.open("result.csv", "w") do |f|
