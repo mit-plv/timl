@@ -1,5 +1,3 @@
-regression.pkg
-  
 tree.timl
 msort.timl
 insertion-sort.timl
@@ -18,3 +16,6 @@ qsort.timl
 dijkstra.timl
 dlist.timl
 lsls.timl
+
+(* this is for regression test, not a benchmark *)
+regression-test.pkg

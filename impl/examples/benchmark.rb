@@ -1,15 +1,11 @@
 #!/usr/bin/env ruby
 
-subjects = %w{list lsls tree trivial msort bigO-evolve fold-evolve single-var insertion-sort braun-tree braun-tree-sortedness rbt-sortedness rbt dynamic-table two-stack-queue array-bsearch array-heap array-msort array-msort-inplace array-kmed qsort dijkstra dlist}
+subjects = %w{list lsls tree msort insertion-sort braun-tree braun-tree-sortedness rbt-sortedness rbt dynamic-table two-stack-queue array-bsearch array-heap array-msort array-msort-inplace array-kmed qsort dijkstra dlist}
 descriptions = [
-  "Length-indexed lists",
-  "Flexibility of \"size\"",
-  "Size-indexed binary trees",
-  "Trivial examples",
+  "List operations",
+  "List of lists",
+  "Trees",
   "Merge sort",
-  "Evolving [map] from precise time to big-O time",
-  "Evolving [fold] from precise time to big-O time",
-  "(TBA)",
   "Insertion sort",
   "Braun trees",
   "Braun trees with invariant for sortedness",
@@ -17,11 +13,11 @@ descriptions = [
   "Red-black trees",
   "Dynamic tables with amortized time complexity",
   "Two-stack queues with amortized time complexity",
-  "Binary search with arrays",
-  "Binary heap with arrays",
-  "Merge sort with arrays",
-  "In-place merge sort with arrays",
-  "k-median search with arrays",
+  "Binary search on arrays",
+  "Binary heap on arrays",
+  "Merge sort on arrays",
+  "Inplace merge sort on arrays",
+  "k-median search on arrays",
   "Quicksort",
   "Dijkstra algorithm",
   "Double-linked lists"
@@ -37,7 +33,7 @@ results = subjects.zip(descriptions).map do |(sub, desc)|
 end
 
 File.open("result.csv", "w") do |f|
-  f.puts "Example,Description,Time of type checking (s),#line,#line containing time annotations"
+  f.puts "Example,Description,Time (s),LOC,LOC containing time annotations"
   results.each do |result|
     f.puts result.join(",")
   end

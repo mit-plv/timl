@@ -36,15 +36,6 @@ datatype color : {Bool} =
          Black of color {true}
          | Red of color {false}
                           
-(* simplified version for paper *)             
-datatype rbt 'a : {Bool} {Nat} =
-         Leaf of rbt 'a {true} {0}
-       | Node {lc c rc : Bool}
-              {bh : Nat}
-              {c = false -> lc = true /\ rc = true }
-         of color {c} * rbt 'a {lc} {bh} * (key * 'a) * rbt 'a {rc} {bh} --> rbt 'a {c} {bh + b2n c}
-
-(* real version *)                                                             
 datatype rbt 'a : {Nat(*size*)} {Bool} {Nat(*black height*)} =
          Leaf of rbt 'a {0} {true} {0}
        | Node {lcolor color rcolor : Bool}
