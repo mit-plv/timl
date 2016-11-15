@@ -39,4 +39,4 @@ or this command to run a single example:
   ./main.sh examples/stdlib.pkg examples/FILENAME.timl
   ``
 
-Note that [examples/stdlib.pkg](examples/stdlib.pkg) (the standard library) is usually required.
+Note that [examples/stdlib.pkg](examples/stdlib.pkg) (the standard library) is usually needed.
