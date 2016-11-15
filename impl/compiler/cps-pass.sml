@@ -18,13 +18,17 @@ open ShiftExpr
 open SubstCstr
 open SubstExpr
 
-open ShiftCtx
+structure DerivAssembler = DerivAssemblerFun(MicroTiMLDef)
 open DerivAssembler
+
+open ShiftCtx
 open DerivSubstTyping
 
 structure CountAppCAndCase =
 struct
-structure ExprHelper = ExprGenericTransformer(
+structure ExprHelper = ExprGenericTransformerFun(
+    structure MicroTiMLDef = MicroTiMLDef
+    structure Action =
     struct
     type kdown = unit
     type tdown = unit
@@ -116,8 +120,9 @@ fun inverse_kd_arrow kd =
     | KdEq (_, kd, _) => inverse_kd_arrow kd
     | _ => raise (Impossible "inverse_kd_arrow")
 
-structure CstrHelper =
-CstrGenericOnlyDownTransformer(
+structure CstrHelper = CstrGenericOnlyDownTransformerFun(
+    structure MicroTiMLDef = MicroTiMLDef
+    structure Action =
     struct
     type down = unit
 
@@ -150,8 +155,9 @@ CstrGenericOnlyDownTransformer(
     fun transformer_prop (on_prop, on_cstr) (p, ()) = SOME p (* bin pred cannot have types as operands *)
     end)
 
-structure CstrDerivHelper =
-CstrDerivGenericOnlyDownTransformer(
+structure CstrDerivHelper = CstrDerivGenericOnlyDownTransformerFun(
+    structure MicroTiMLDef = MicroTiMLDef
+    structure Action =
     struct
     type down = unit
 

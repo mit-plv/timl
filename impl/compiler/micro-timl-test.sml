@@ -47,7 +47,9 @@ open MicroTiMLHoistedDef
 structure HoistedDerivChecker = HoistedDerivCheckerFun(MicroTiMLHoistedDef)
 open HoistedDerivChecker
 
+structure DerivAssembler = DerivAssemblerFun(MicroTiMLDef)
 open DerivAssembler
+
 open ShiftCtx
 open PlainPrinter
 open ShiftCstr

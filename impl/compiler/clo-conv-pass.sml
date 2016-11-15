@@ -18,7 +18,9 @@ open ShiftExpr
 open SubstCstr
 open SubstExpr
 
+structure DerivAssembler = DerivAssemblerFun(MicroTiMLDef)
 open DerivAssembler
+
 open ShiftCtx
 open ChangeCtx
 open DirectSubstCstr
@@ -43,7 +45,9 @@ fun meta_lemma2 kd =
       WfKdAdmit (kctx, k)
   end
 
-structure CstrHelper = CstrGenericOnlyDownTransformer(
+structure CstrHelper = CstrGenericOnlyDownTransformerFun(
+    structure MicroTiMLDef = MicroTiMLDef
+    structure Action =
     struct
     type down = unit
 
@@ -82,7 +86,9 @@ structure CstrHelper = CstrGenericOnlyDownTransformer(
     fun transformer_prop _ (p, ()) = SOME p
     end)
 
-structure CstrDerivHelper = CstrDerivGenericOnlyDownTransformer(
+structure CstrDerivHelper = CstrDerivGenericOnlyDownTransformerFun(
+    structure MicroTiMLDef = MicroTiMLDef
+    structure Action =
     struct
     type down = kctx
 
@@ -195,7 +201,9 @@ structure CstrDerivHelper = CstrDerivGenericOnlyDownTransformer(
     fun transformer_wfprop _ _ = NONE
     end)
 
-structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformer(
+structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformerFun(
+    structure MicroTiMLDef = MicroTiMLDef
+    structure Action =
     struct
     type kdown = kctx
     type tdown = tctx

@@ -1,6 +1,5 @@
 signature SIG_TYPED_ASSEMBLY_DEF =
 sig
-    structure MicroTiMLHoistedDef : SIG_MICRO_TIML_HOISTED_DEF
     structure MicroTiMLDef : SIG_MICRO_TIML_DEF
 
     type tal_register = int
@@ -197,4 +196,83 @@ sig
 
     datatype tal_program_typing =
              TPTyProgram of tal_program_typing_judgement * tal_heap_typing list * tal_word_typing list * tal_instr_typing
+
+    val TKUnit : tal_kind
+    val TKBool : tal_kind
+    val TKNat : tal_kind
+    val TKTimeFun : int -> tal_kind
+    val TKTime : tal_kind
+
+    val TTconst : MicroTiMLDef.Time.time_type -> tal_cstr
+    val TT0 : tal_cstr
+    val TT1 : tal_cstr
+    val TTadd : tal_cstr * tal_cstr -> tal_cstr
+    val TTminus : tal_cstr * tal_cstr -> tal_cstr
+    val TTmult : tal_cstr * tal_cstr -> tal_cstr
+
+    val TTfromNat : tal_cstr -> tal_cstr
+
+    val TPAnd : tal_prop * tal_prop -> tal_prop
+    val TPOr : tal_prop * tal_prop -> tal_prop
+    val TPImply : tal_prop * tal_prop -> tal_prop
+    val TPIff : tal_prop * tal_prop -> tal_prop
+
+    val TTmax : tal_cstr * tal_cstr -> tal_cstr
+
+    val TCForall : tal_kind * tal_cstr -> tal_cstr
+    val TCExists : tal_kind * tal_cstr -> tal_cstr
+
+    val TCTypeUnit : tal_cstr
+
+    val TCProd : tal_cstr * tal_cstr -> tal_cstr
+    val TCSum : tal_cstr * tal_cstr -> tal_cstr
+
+    val TTLe : tal_cstr * tal_cstr -> tal_prop
+    val TTEq : tal_cstr * tal_cstr -> tal_prop
+
+    val TCTypeInt : tal_cstr
+    val TCNat : MicroTiMLDef.Nat.nat_type -> tal_cstr
+
+    val TCApps : tal_cstr -> tal_cstr list -> tal_cstr
+
+    val TBSTime : MicroTiMLDef.sort
+
+    val const_tal_kind : MicroTiMLDef.cstr_const -> tal_kind
+    val const_tal_type : MicroTiMLDef.expr_const -> tal_cstr
+    val cbinop_arg1_tal_kind : MicroTiMLDef.cstr_bin_op -> tal_kind
+    val cbinop_arg2_tal_kind : MicroTiMLDef.cstr_bin_op -> tal_kind
+    val cbinop_result_tal_kind : MicroTiMLDef.cstr_bin_op -> tal_kind
+    val cunop_arg_tal_kind : MicroTiMLDef.cstr_un_op -> tal_kind
+    val cunop_result_tal_kind : MicroTiMLDef.cstr_un_op -> tal_kind
+    val binpred_arg1_tal_kind : MicroTiMLDef.prop_bin_pred -> tal_kind
+    val binpred_arg2_tal_kind : MicroTiMLDef.prop_bin_pred -> tal_kind
+    val pebinop_arg1_tal_type : MicroTiMLDef.prim_expr_bin_op -> tal_cstr
+    val pebinop_arg2_tal_type : MicroTiMLDef.prim_expr_bin_op -> tal_cstr
+    val pebinop_result_tal_type : MicroTiMLDef.prim_expr_bin_op -> tal_cstr
+
+    val update_tal_tctx : tal_register -> tal_cstr -> tal_tctx -> tal_tctx
+
+    val extract_judge_tal_proping : tal_proping -> tal_proping_judgement
+    val extract_judge_tal_kdeq : tal_kdeq -> tal_kdeq_judgement
+    val extract_judge_tal_kinding : tal_kinding -> tal_kinding_judgement
+    val extract_judge_tal_wfkind : tal_wfkind -> tal_wfkind_judgement
+    val extract_judge_tal_wfprop : tal_wfprop -> tal_wfprop_judgement
+    val extract_judge_tal_tyeq : tal_tyeq -> tal_tyeq_judgement
+    val extract_judge_tal_word_typing : tal_word_typing -> tal_word_typing_judgement
+    val extract_judge_tal_value_typing : tal_value_typing -> tal_value_typing_judgement
+    val extract_judge_tal_instr_typing : tal_instr_typing -> tal_instr_typing_judgement
+    val extract_judge_tal_heap_typing : tal_heap_typing -> tal_heap_typing_judgement
+
+    val extract_tal_p_bin_conn : tal_prop -> MicroTiMLDef.prop_bin_conn * tal_prop * tal_prop
+    val extract_tal_p_bin_pred : tal_prop -> MicroTiMLDef.prop_bin_pred * tal_cstr * tal_cstr
+    val extract_tal_k_arrow : tal_kind -> tal_kind * tal_kind
+    val extract_tal_k_time_fun : tal_kind -> int
+    val extract_tal_c_quan : tal_cstr -> MicroTiMLDef.quan * tal_kind * tal_cstr
+    val extract_tal_c_arrow : tal_cstr -> tal_cstr list * tal_cstr
+    val extract_tal_c_abs : tal_cstr -> tal_cstr
+    val extract_tal_c_prod : tal_cstr -> tal_cstr * tal_cstr
+    val extract_tal_c_rec : tal_cstr -> tal_kind * tal_cstr
+    val extract_tal_c_ref : tal_cstr -> tal_cstr
+    val extract_tal_c_sum : tal_cstr -> tal_cstr * tal_cstr
+    val extract_tal_v_reg : tal_value -> tal_register
 end

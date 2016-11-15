@@ -1,5 +1,5 @@
 Group is
-      ../util.sml
+      util.sml
 
       micro-timl-def.sig
       micro-timl-util.sig

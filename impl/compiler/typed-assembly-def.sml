@@ -4,7 +4,6 @@ open List
 open Util
 infixr 0 $
 
-structure MicroTiMLHoistedDef = MicroTiMLHoistedDef
 open MicroTiMLHoistedDef
 open MicroTiMLDef
 
@@ -332,8 +331,6 @@ fun update_tal_tctx r t tctx =
       inner r tctx
   end
 
-structure TALUtil =
-struct
 fun extract_judge_tal_proping pr =
   case pr of
       TPrAdmit j => j
@@ -475,8 +472,9 @@ fun extract_tal_v_reg (TVReg r) = r
   | extract_tal_v_reg _ = raise (Impossible "extract_tal_v_reg")
 end
 
-functor TALCstrGenericTransformer(
-    Action:
+functor TALCstrGenericTransformerFun(
+    structure TypedAssemblyDef : SIG_TYPED_ASSEMBLY_DEF
+    structure Action :
     sig
         type down
         type up
@@ -484,19 +482,28 @@ functor TALCstrGenericTransformer(
         val upward_base : up
         val combiner : up * up -> up
 
-        val add_tal_kind : tal_kind option * down -> down
+        val add_tal_kind : TypedAssemblyDef.tal_kind option * down -> down
 
-        val transformer_tal_cstr : (tal_cstr * down -> tal_cstr * up) * (tal_kind * down -> tal_kind * up) -> tal_cstr * down -> (tal_cstr * up) option
-        val transformer_tal_kind : (tal_kind * down -> tal_kind * up) * (tal_prop * down -> tal_prop * up) -> tal_kind * down -> (tal_kind * up) option
-        val transformer_tal_prop : (tal_prop * down -> tal_prop * up) * (tal_cstr * down -> tal_cstr * up) -> tal_prop * down -> (tal_prop * up) option
+        val transformer_tal_cstr : (TypedAssemblyDef.tal_cstr * down -> TypedAssemblyDef.tal_cstr * up) * (TypedAssemblyDef.tal_kind * down -> TypedAssemblyDef.tal_kind * up) -> TypedAssemblyDef.tal_cstr * down -> (TypedAssemblyDef.tal_cstr * up) option
+        val transformer_tal_kind : (TypedAssemblyDef.tal_kind * down -> TypedAssemblyDef.tal_kind * up) * (TypedAssemblyDef.tal_prop * down -> TypedAssemblyDef.tal_prop * up) -> TypedAssemblyDef.tal_kind * down -> (TypedAssemblyDef.tal_kind * up) option
+        val transformer_tal_prop : (TypedAssemblyDef.tal_prop * down -> TypedAssemblyDef.tal_prop * up) * (TypedAssemblyDef.tal_cstr * down -> TypedAssemblyDef.tal_cstr * up) -> TypedAssemblyDef.tal_prop * down -> (TypedAssemblyDef.tal_prop * up) option
     end) =
 struct
-val combine = foldl Action.combiner Action.upward_base
+open List
+open Util
+infixr 0 $
+
+structure TypedAssemblyDef = TypedAssemblyDef
+open TypedAssemblyDef
+
+open Action
+
+val combine = foldl combiner upward_base
 
 fun default_transform_tal_cstr (c, down) =
   case c of
-      TCVar x => (TCVar x, Action.upward_base)
-    | TCConst cn => (TCConst cn, Action.upward_base)
+      TCVar x => (TCVar x, upward_base)
+    | TCConst cn => (TCConst cn, upward_base)
     | TCBinOp (opr, c1, c2) =>
       let
           val (c1, up1) = transform_tal_cstr (c1, down)
@@ -514,7 +521,7 @@ fun default_transform_tal_cstr (c, down) =
       end
     | TCTimeAbs i =>
       let
-          val (i, up1) = transform_tal_cstr (i, Action.add_tal_kind (SOME TKTime, down))
+          val (i, up1) = transform_tal_cstr (i, add_tal_kind (SOME TKTime, down))
       in
           (TCTimeAbs i, combine [up1])
       end
@@ -534,7 +541,7 @@ fun default_transform_tal_cstr (c, down) =
       end
     | TCAbs t =>
       let
-          val (t, up1) = transform_tal_cstr (t, Action.add_tal_kind (NONE, down))
+          val (t, up1) = transform_tal_cstr (t, add_tal_kind (NONE, down))
       in
           (TCAbs t, combine [up1])
       end
@@ -548,14 +555,14 @@ fun default_transform_tal_cstr (c, down) =
     | TCQuan (q, k, c) =>
       let
           val (k, up1) = transform_tal_kind (k, down)
-          val (c, up2) = transform_tal_cstr (c, Action.add_tal_kind (SOME k, down))
+          val (c, up2) = transform_tal_cstr (c, add_tal_kind (SOME k, down))
       in
           (TCQuan (q, k, c), combine [up1, up2])
       end
     | TCRec (k, t) =>
       let
           val (k, up1) = transform_tal_kind (k, down)
-          val (t, up2) = transform_tal_cstr (t, Action.add_tal_kind (SOME k, down))
+          val (t, up2) = transform_tal_cstr (t, add_tal_kind (SOME k, down))
       in
           (TCRec (k, t), combine [up1, up2])
       end
@@ -573,13 +580,13 @@ fun default_transform_tal_cstr (c, down) =
       end
 
 and transform_tal_cstr (c, down) =
-    case Action.transformer_tal_cstr (transform_tal_cstr, transform_tal_kind) (c, down) of
+    case transformer_tal_cstr (transform_tal_cstr, transform_tal_kind) (c, down) of
         SOME res => res
       | NONE => default_transform_tal_cstr (c, down)
 
 and default_transform_tal_kind (k, down) =
     case k of
-        TKType => (TKType, Action.upward_base)
+        TKType => (TKType, upward_base)
       | TKArrow (k1, k2) =>
         let
             val (k1, up1) = transform_tal_kind (k1, down)
@@ -587,24 +594,24 @@ and default_transform_tal_kind (k, down) =
         in
             (TKArrow (k1, k2), combine [up1, up2])
         end
-      | TKBaseSort b => (TKBaseSort b, Action.upward_base)
+      | TKBaseSort b => (TKBaseSort b, upward_base)
       | TKSubset (k, p) =>
         let
             val (k, up1) = transform_tal_kind (k, down)
-            val (p, up2) = transform_tal_prop (p, Action.add_tal_kind (SOME k, down))
+            val (p, up2) = transform_tal_prop (p, add_tal_kind (SOME k, down))
         in
             (TKSubset (k, p), combine [up1, up2])
         end
 
 and transform_tal_kind (k, down) =
-    case Action.transformer_tal_kind (transform_tal_kind, transform_tal_prop) (k, down) of
+    case transformer_tal_kind (transform_tal_kind, transform_tal_prop) (k, down) of
         SOME res => res
       | NONE => default_transform_tal_kind (k, down)
 
 and default_transform_tal_prop (p, down) =
     case p of
-        TPTrue => (TPTrue, Action.upward_base)
-      | TPFalse => (TPFalse, Action.upward_base)
+        TPTrue => (TPTrue, upward_base)
+      | TPFalse => (TPFalse, upward_base)
       | TPBinConn (opr, p1, p2) =>
         let
             val (p1, up1) = transform_tal_prop (p1, down)
@@ -627,38 +634,50 @@ and default_transform_tal_prop (p, down) =
         end
       | TPQuan (q, b, p) =>
         let
-            val (p, up1) = transform_tal_prop (p, Action.add_tal_kind (SOME (TKBaseSort b), down))
+            val (p, up1) = transform_tal_prop (p, add_tal_kind (SOME (TKBaseSort b), down))
         in
             (TPQuan (q, b, p), combine [up1])
         end
 
 and transform_tal_prop (p, down) =
-    case Action.transformer_tal_prop (transform_tal_prop, transform_tal_cstr) (p, down) of
+    case transformer_tal_prop (transform_tal_prop, transform_tal_cstr) (p, down) of
         SOME res => res
       | NONE => default_transform_tal_prop (p, down)
 end
 
-functor TALCstrGenericOnlyDownTransformer(
-    Action:
+functor TALCstrGenericOnlyDownTransformerFun(
+    structure TypedAssemblyDef : SIG_TYPED_ASSEMBLY_DEF
+    structure Action :
     sig
         type down
 
-        val add_tal_kind : tal_kind option * down -> down
+        val add_tal_kind : TypedAssemblyDef.tal_kind option * down -> down
 
-        val transformer_tal_cstr : (tal_cstr * down -> tal_cstr) * (tal_kind * down -> tal_kind) -> tal_cstr * down -> tal_cstr option
-        val transformer_tal_kind : (tal_kind * down -> tal_kind) * (tal_prop * down -> tal_prop) -> tal_kind * down -> tal_kind option
-        val transformer_tal_prop : (tal_prop * down -> tal_prop) * (tal_cstr * down -> tal_cstr) -> tal_prop * down -> tal_prop option
+        val transformer_tal_cstr : (TypedAssemblyDef.tal_cstr * down -> TypedAssemblyDef.tal_cstr) * (TypedAssemblyDef.tal_kind * down -> TypedAssemblyDef.tal_kind) -> TypedAssemblyDef.tal_cstr * down -> TypedAssemblyDef.tal_cstr option
+        val transformer_tal_kind : (TypedAssemblyDef.tal_kind * down -> TypedAssemblyDef.tal_kind) * (TypedAssemblyDef.tal_prop * down -> TypedAssemblyDef.tal_prop) -> TypedAssemblyDef.tal_kind * down -> TypedAssemblyDef.tal_kind option
+        val transformer_tal_prop : (TypedAssemblyDef.tal_prop * down -> TypedAssemblyDef.tal_prop) * (TypedAssemblyDef.tal_cstr * down -> TypedAssemblyDef.tal_cstr) -> TypedAssemblyDef.tal_prop * down -> TypedAssemblyDef.tal_prop option
     end) =
 struct
-structure Transformer = TALCstrGenericTransformer(
+open List
+open Util
+infixr 0 $
+
+structure TypedAssemblyDef = TypedAssemblyDef
+open TypedAssemblyDef
+
+open Action
+
+structure Transformer = TALCstrGenericTransformerFun(
+    structure TypedAssemblyDef = TypedAssemblyDef
+    structure Action =
     struct
-    type down = Action.down
+    type down = down
     type up = unit
 
     val upward_base = ()
     fun combiner ((), ()) = ()
 
-    val add_tal_kind = Action.add_tal_kind
+    val add_tal_kind = add_tal_kind
 
     fun transformer_tal_cstr (on_cstr, on_kind) =
       let
@@ -690,9 +709,20 @@ val transform_tal_kind = fst o Transformer.transform_tal_kind
 val transform_tal_prop = fst o Transformer.transform_tal_prop
 end
 
+functor TALCstrTransformersFun(TypedAssemblyDef : SIG_TYPED_ASSEMBLY_DEF) =
+struct
+open List
+open Util
+infixr 0 $
+
+structure TypedAssemblyDef = TypedAssemblyDef
+open TypedAssemblyDef
+
 structure ShiftTALCstr =
 struct
-structure CstrHelper = TALCstrGenericOnlyDownTransformer(
+structure CstrHelper = TALCstrGenericOnlyDownTransformerFun(
+    structure TypedAssemblyDef = TypedAssemblyDef
+    structure Action =
     struct
     type down = int * int
 
@@ -720,7 +750,9 @@ structure SubstTALCstr =
 struct
 open ShiftTALCstr
 
-structure CstrHelper = TALCstrGenericOnlyDownTransformer(
+structure CstrHelper = TALCstrGenericOnlyDownTransformerFun(
+    structure TypedAssemblyDef = TypedAssemblyDef
+    structure Action =
     struct
     type down = tal_cstr * int
 
@@ -743,779 +775,779 @@ fun subst0_tal_c_c to = subst_tal_c_c to 0
 fun subst0_tal_c_k to = subst_tal_c_k to 0
 fun subst0_tal_c_p to = subst_tal_c_p to 0
 end
-
-structure TALDerivAssembler =
-struct
-open ShiftTALCstr
-open SubstTALCstr
-open TALUtil
-
-exception AssembleFail of string
-
-fun assert b msg =
-  if b then () else raise AssembleFail msg
-
-fun as_TPrAdmit kctx p =
-  TPrAdmit (kctx, p)
-
-fun as_TKdEqKType kctx =
-  TKdEqKType (kctx, TKType, TKType)
-
-fun as_TKdEqKArrow ke1 ke2 =
-  let
-      val (kctx1, k11, k12) = extract_judge_tal_kdeq ke1
-      val (kctx2, k21, k22) = extract_judge_tal_kdeq ke2
-      val () = assert (kctx1 = kctx2) "TKdEqKArrow"
-  in
-      TKdEqKArrow ((kctx1, TKArrow (k11, k21), TKArrow (k12, k22)), ke1, ke2)
-  end
-
-fun as_TKdEqBaseSort kctx b =
-  TKdEqBaseSort (kctx, TKBaseSort b, TKBaseSort b)
-
-fun as_TKdEqSubset ke pr =
-  let
-      val (kctx1, k11, k12) = extract_judge_tal_kdeq ke
-      val (kctx2, p2) = extract_judge_tal_proping pr
-      val () = assert (k11 :: kctx1 = kctx2) "TKdEqSubset"
-      val (opr2, p21, p22) = extract_tal_p_bin_conn p2
-      val () = assert (opr2 = PBCIff) "TKdEqSubset"
-  in
-      TKdEqSubset ((kctx1, TKSubset (k11, p21), TKSubset (k12, p22)), ke, pr)
-  end
-
-fun as_TKdVar kctx x =
-  TKdVar (kctx, TCVar x, shift_tal_c_k (1 + x) 0 (nth (kctx, x)))
-
-fun as_TKdConst kctx cn =
-  TKdConst (kctx, TCConst cn, const_tal_kind cn)
-
-fun as_TKdBinOp opr kd1 kd2 =
-  let
-      val (kctx1, c1, k1) = extract_judge_tal_kinding kd1
-      val (kctx2, c2, k2) = extract_judge_tal_kinding kd2
-      val () = assert (kctx1 = kctx2) "TKdBinOp"
-      val () = assert (k1 = cbinop_arg1_tal_kind opr) "TKdBinOp"
-      val () = assert (k2 = cbinop_arg2_tal_kind opr) "TKdBinOp"
-  in
-      TKdBinOp ((kctx1, TCBinOp (opr, c1, c2), cbinop_result_tal_kind opr), kd1, kd2)
-  end
-
-fun as_TKdIte kd1 kd2 kd3 =
-  let
-      val (kctx1, c1, k1) = extract_judge_tal_kinding kd1
-      val (kctx2, c2, k2) = extract_judge_tal_kinding kd2
-      val (kctx3, c3, k3) = extract_judge_tal_kinding kd3
-      val () = assert (kctx1 = kctx2) "TKdIte"
-      val () = assert (kctx1 = kctx3) "TKdIte"
-      val () = assert (k1 = TKBool) "TKdIte"
-      val () = assert (k2 = k3) "TKdIte"
-  in
-      TKdIte ((kctx1, TCIte (c1, c2, c3), k2), kd1, kd2, kd3)
-  end
-
-fun as_TKdArrow kds kd =
-  let
-      val jkds = map extract_judge_tal_kinding kds
-      val (kctx2, i2, k2) = extract_judge_tal_kinding kd
-      val () = assert (k2 = TKTime) "TKdArrow"
-      val () = assert (all (fn (kctx1, _, k1) => kctx1 = kctx2 andalso k1 = TKType) jkds) "TKdArrow"
-  in
-      TKdArrow ((kctx2, TCArrow (map (fn (_, t1, _) => t1) jkds, i2), TKType), kds, kd)
-  end
-
-fun as_TKdAbs wk kd =
-  let
-      val (kctx1, k1) = extract_judge_tal_wfkind wk
-      val (kctx2, c1, k2) = extract_judge_tal_kinding kd
-      val () = assert (k1 :: kctx1 = kctx2) "TKdAbs"
-  in
-      TKdAbs ((kctx1, TCAbs c1, TKArrow (k1, shift_tal_c_k ~1 0 k2)), wk, kd)
-  end
-
-fun as_TKdApp kd1 kd2 =
-  let
-      val (kctx1, c1, k1) = extract_judge_tal_kinding kd1
-      val (kctx2, c2, k2) = extract_judge_tal_kinding kd2
-      val () = assert (kctx1 = kctx2) "TKdApp"
-      val (k11, k12) = extract_tal_k_arrow k1
-      val () = assert (k11 = k2) "TKdApp"
-  in
-      TKdApp ((kctx1, TCApp (c1, c2), k12), kd1, kd2)
-  end
-
-fun as_TKdTimeAbs kd =
-  let
-      val (kctx, c, k) = extract_judge_tal_kinding kd
-      val arity = extract_tal_k_time_fun k
-  in
-      TKdTimeAbs ((tl kctx, TCTimeAbs c, TKTimeFun (arity + 1)), kd)
-  end
-
-fun as_TKdTimeApp kd1 kd2 =
-  let
-      val (kctx1, c1, k1) = extract_judge_tal_kinding kd1
-      val (kctx2, c2, k2) = extract_judge_tal_kinding kd2
-      val () = assert (kctx1 = kctx2) "TKdTimeApp"
-      val () = assert (k2 = TKNat) "TKdTimeApp"
-      val arity = extract_tal_k_time_fun k1
-  in
-      TKdTimeApp ((kctx1, TCTimeApp (arity - 1, c1, c2), TKTimeFun (arity - 1)), kd1, kd2)
-  end
-
-fun as_TKdQuan q wk kd =
-  let
-      val (kctx1, k1) = extract_judge_tal_wfkind wk
-      val (kctx2, c2, k2) = extract_judge_tal_kinding kd
-      val () = assert (k1 :: kctx1 = kctx2) "TKdQuan"
-      val () = assert (k2 = TKType) "TKdQuan"
-  in
-      TKdQuan ((kctx1, TCQuan (q, k1, c2), TKType), wk, kd)
-  end
-
-fun as_TKdRec wk kd =
-  let
-      val (kctx1, k1) = extract_judge_tal_wfkind wk
-      val (kctx2, c2, k2) = extract_judge_tal_kinding kd
-      val () = assert (k1 :: kctx1 = kctx2) "TKdRec"
-      val () = assert (k1 = shift_tal_c_k ~1 0 k2) "TKdRec"
-  in
-      TKdRec ((kctx1, TCRec (k1, c2), k1), wk, kd)
-  end
-
-fun as_TKdEq kd ke =
-  let
-      val (kctx1, c1, k1) = extract_judge_tal_kinding kd
-      val (kctx2, k21, k22) = extract_judge_tal_kdeq ke
-      val () = assert (kctx1 = kctx2) "TKdEq"
-      val () = assert (k1 = k22) "TKdEq"
-  in
-      TKdEq ((kctx1, c1, k21), kd, ke)
-  end
-
-fun as_TKdUnOp opr kd =
-  let
-      val (kctx, c, k) = extract_judge_tal_kinding kd
-      val () = assert (k = cunop_arg_tal_kind opr) "TKdUnOp"
-  in
-      TKdUnOp ((kctx, TCUnOp (opr, c), cunop_result_tal_kind opr), kd)
-  end
-
-fun as_TKdAdmit kctx c k =
-  TKdAdmit (kctx, c, k)
-
-fun as_TWfKdType kctx =
-  TWfKdType (kctx, TKType)
-
-fun as_TWfKdArrow wk1 wk2 =
-  let
-      val (kctx1, k1) = extract_judge_tal_wfkind wk1
-      val (kctx2, k2) = extract_judge_tal_wfkind wk2
-      val () = assert (kctx1 = kctx2) "TWfKdArrow"
-  in
-      TWfKdArrow ((kctx1, TKArrow (k1, k2)), wk1, wk2)
-  end
-
-fun as_TWfKdBasesort kctx b =
-  TWfKdBaseSort (kctx, TKBaseSort b)
-
-fun as_TWfKdSubset wk wp =
-  let
-      val (kctx1, k1) = extract_judge_tal_wfkind wk
-      val (kctx2, p2) = extract_judge_tal_wfprop wp
-      val () = assert (k1 :: kctx1 = kctx2) "TWfKdSubset"
-  in
-      TWfKdSubset ((kctx1, TKSubset (k1, p2)), wk, wp)
-  end
-
-fun as_TWfKdAdmit kctx k =
-  TWfKdAdmit (kctx, k)
-
-fun as_TWfPropTrue kctx =
-  TWfPropTrue (kctx, TPTrue)
-
-fun as_TWfPropFalse kctx =
-  TWfPropFalse (kctx, TPFalse)
-
-fun as_TWfPropBinConn opr wp1 wp2 =
-  let
-      val (kctx1, p1) = extract_judge_tal_wfprop wp1
-      val (kctx2, p2) = extract_judge_tal_wfprop wp2
-      val () = assert (kctx1 = kctx2) "TWfPropBinConn"
-  in
-      TWfPropBinConn ((kctx1, TPBinConn (opr, p1, p2)), wp1, wp2)
-  end
-
-fun as_TWfPropNot wp =
-  let
-      val (kctx, p) = extract_judge_tal_wfprop wp
-  in
-      TWfPropNot ((kctx, TPNot p), wp)
-  end
-
-fun as_TWfPropBinPred opr kd1 kd2 =
-  let
-      val (kctx1, c1, k1) = extract_judge_tal_kinding kd1
-      val (kctx2, c2, k2) = extract_judge_tal_kinding kd2
-      val () = assert (kctx1 = kctx2) "TWfPropBinPred"
-      val () = assert (k1 = binpred_arg1_tal_kind opr) "TWfPropBinPred"
-      val () = assert (k2 = binpred_arg2_tal_kind opr) "TWfPropBinPred"
-  in
-      TWfPropBinPred ((kctx1, TPBinPred (opr, c1, c2)), kd1, kd2)
-  end
-
-fun as_TWfPropQuan q b wp =
-  let
-      val (kctx, p) = extract_judge_tal_wfprop wp
-  in
-      TWfPropQuan ((tl kctx, TPQuan (q, b, p)), wp)
-  end
-
-fun as_TTyEqVar kctx x =
-  TTyEqVar (kctx, TCVar x, TCVar x)
-
-fun as_TTyEqConst kctx cn =
-  TTyEqConst (kctx, TCConst cn, TCConst cn)
-
-fun as_TTyEqBinOp opr te1 te2 =
-  let
-      val (kctx1, t11, t12) = extract_judge_tal_tyeq te1
-      val (kctx2, t21, t22) = extract_judge_tal_tyeq te2
-      val () = assert (kctx1 = kctx2) "TTyEqBinOp"
-  in
-      TTyEqBinOp ((kctx1, TCBinOp (opr, t11, t21), TCBinOp (opr, t12, t22)), te1, te2)
-  end
-
-fun as_TTyEqIte te1 te2 te3 =
-  let
-      val (kctx1, t11, t12) = extract_judge_tal_tyeq te1
-      val (kctx2, t21, t22) = extract_judge_tal_tyeq te2
-      val (kctx3, t31, t32) = extract_judge_tal_tyeq te3
-      val () = assert (kctx1 = kctx2) "TTyEqIte"
-      val () = assert (kctx1 = kctx3) "TTyEqIte"
-  in
-      TTyEqIte ((kctx1, TCIte (t11, t21, t31), TCIte (t12, t22, t32)), te1, te2, te3)
-  end
-
-fun as_TTyEqArrow tes pr =
-  let
-      val jtes = map extract_judge_tal_tyeq tes
-      val (kctx2, p2) = extract_judge_tal_proping pr
-      val () = assert (all (fn (kctx1, _, _) => kctx1 = kctx2) jtes) "TTyEqArrow"
-      val (opr2, i21, i22) = extract_tal_p_bin_pred p2
-      val () = assert (opr2 = PBTimeEq) "TTyEqArrow"
-  in
-      TTyEqArrow ((kctx2, TCArrow (map (fn (_, t1, _) => t1) jtes, i21), TCArrow (map (fn (_, _, t2) => t2) jtes, i22)), tes, pr)
-  end
-
-fun as_TTyEqApp te1 te2 =
-  let
-      val (kctx1, t11, t12) = extract_judge_tal_tyeq te1
-      val (kctx2, t21, t22) = extract_judge_tal_tyeq te2
-      val () = assert (kctx1 = kctx2) "TTyEqApp"
-  in
-      TTyEqApp ((kctx1, TCApp (t11, t21), TCApp (t12, t22)), te1, te2)
-  end
-
-fun as_TTyEqTimeApp arity te1 te2 =
-  let
-      val (kctx1, t11, t12) = extract_judge_tal_tyeq te1
-      val (kctx2, t21, t22) = extract_judge_tal_tyeq te2
-      val () = assert (kctx1 = kctx2) " TTyEqTimeApp"
-  in
-      TTyEqTimeApp ((kctx1, TCTimeApp (arity, t11, t21), TCTimeApp (arity, t12, t22)), te1, te2)
-  end
-
-fun as_TTyEqBeta te1 te2 te3 =
-  let
-      val (kctx1, t11, t12) = extract_judge_tal_tyeq te1
-      val (kctx2, t21, t22) = extract_judge_tal_tyeq te2
-      val (kctx3, t31, t32) = extract_judge_tal_tyeq te3
-      val () = assert (kctx1 = kctx2) "TTyEqBeta"
-      val () = assert (kctx1 = kctx3) "TTyEqBeta"
-      val t12_body = extract_tal_c_abs t12
-      val () = assert (subst0_tal_c_c t22 t12_body = t31) "TTyEqBeta"
-  in
-      TTyEqBeta ((kctx1, TCApp (t11, t21), t32), te1, te2, te3)
-  end
-
-fun as_TTyEqBetaRev te1 te2 te3 =
-  let
-      val (kctx1, t11, t12) = extract_judge_tal_tyeq te1
-      val (kctx2, t21, t22) = extract_judge_tal_tyeq te2
-      val (kctx3, t31, t32) = extract_judge_tal_tyeq te3
-      val () = assert (kctx1 = kctx2) "TTyEqBetaRev"
-      val () = assert (kctx1 = kctx3) "TTyEqBetaRev"
-      val t11_body = extract_tal_c_abs t11
-      val () = assert (subst0_tal_c_c t21 t11_body = t32) "TTyEqBetaRev"
-  in
-      TTyEqBetaRev ((kctx1, t31, TCApp (t12, t22)), te1, te2, te3)
-  end
-
-fun as_TTyEqQuan q ke te =
-  let
-      val (kctx1, k11, k12) = extract_judge_tal_kdeq ke
-      val (kctx2, t21, t22) = extract_judge_tal_tyeq te
-      val () = assert (k11 :: kctx1 = kctx2) "TTyEqQuan"
-  in
-      TTyEqQuan ((kctx1, TCQuan (q, k11, t21), TCQuan (q, k12, t22)), ke, te)
-  end
-
-fun as_TTyEqRec ke te =
-  let
-      val (kctx1, k11, k12) = extract_judge_tal_kdeq ke
-      val (kctx2, t21, t22) = extract_judge_tal_tyeq te
-      val () = assert (k11 :: kctx1 = kctx2) "TTyEqRec"
-  in
-      TTyEqRec ((kctx1, TCRec (k11, t21), TCRec (k12, t22)), ke, te)
-  end
-
-fun as_TTyEqRef te =
-  let
-      val (kctx, t1, t2) = extract_judge_tal_tyeq te
-  in
-      TTyEqRef ((kctx, TCRef t1, TCRef t2), te)
-  end
-
-fun as_TTyEqAbs kctx c =
-  case c of
-      TCAbs _ => TTyEqAbs (kctx, c, c)
-    | _ => raise (AssembleFail "TTyEqAbs")
-
-fun as_TTyEqTimeAbs kctx c =
-  case c of
-      TCTimeAbs _ => TTyEqTimeAbs (kctx, c, c)
-    | _ => raise (AssembleFail "TTyEqTimeAbs")
-
-fun as_TTyEqUnOp opr te =
-  let
-      val (kctx, t1, t2) = extract_judge_tal_tyeq te
-  in
-      TTyEqUnOp ((kctx, TCUnOp (opr, t1), TCUnOp (opr, t2)), te)
-  end
-
-fun as_TTyEqNat pr =
-  let
-      val (kctx, p) = extract_judge_tal_proping pr
-      val (opr, i1, i2) = extract_tal_p_bin_pred p
-      val () = assert (opr = PBNatEq) "TTyEqNat"
-  in
-      TTyEqNat ((kctx, i1, i2), pr)
-  end
-
-fun as_TWTyLoc hctx kctx l =
-  TWTyLoc ((hctx, kctx), TWLoc l, nth (hctx, l))
-
-fun as_TWTyConst hctx kctx cn =
-  TWTyConst ((hctx, kctx), TWConst cn, const_tal_type cn)
-
-fun as_TWTyAppC wty kd =
-  let
-      val ((hctx1, kctx1), w1, t1) = extract_judge_tal_word_typing wty
-      val (kctx2, c2, k2) = extract_judge_tal_kinding kd
-      val () = assert (kctx1 = kctx2) "TWTyAppC"
-      val (q11, k12, t13) = extract_tal_c_quan t1
-      val () = assert (q11 = QuanForall) "TWTyAppC"
-      val () = assert (k12 = k2) "TWTyAppC"
-  in
-      TWTyAppC (((hctx1, kctx1), TWAppC (w1, c2), subst0_tal_c_c c2 t13), wty, kd)
-  end
-
-fun as_TWTyPack kd1 kd2 wty =
-  let
-      val (kctx1, c1, k1) = extract_judge_tal_kinding kd1
-      val (kctx2, c2, k2) = extract_judge_tal_kinding kd2
-      val ((hctx3, kctx3), w3, t3) = extract_judge_tal_word_typing wty
-      val () = assert (kctx1 = kctx2) "TWTyPack"
-      val () = assert (kctx1 = kctx3) "TWTyPack"
-      val () = assert (k1 = TKType) "TWTyPack"
-      val (q11, k12, t13) = extract_tal_c_quan c1
-      val () = assert (q11 = QuanExists) "TWTyPack"
-      val () = assert (k12 = k2) "TWTyPack"
-      val () = assert (subst0_tal_c_c c2 t13 = t3) "TWTyPack"
-  in
-      TWTyPack (((hctx3, kctx3), TWPack (c2, w3), c1), kd1, kd2, wty)
-  end
-
-fun as_TWTySub wty te =
-  let
-      val ((hctx1, kctx1), w1, t1) = extract_judge_tal_word_typing wty
-      val (kctx2, t21, t22) = extract_judge_tal_tyeq te
-      val () = assert (kctx1 = kctx2) "TWTySub"
-      val () = assert (t21 = t1) "TWTySub"
-  in
-      TWTySub (((hctx1, kctx1), w1, t22), wty, te)
-  end
-
-fun as_TVTyReg hctx kctx tctx r =
-  TVTyReg ((hctx, kctx, tctx), TVReg r, nth (tctx, r))
-
-fun as_TVTyWord tctx wty =
-  let
-      val ((hctx, kctx), w, t) = extract_judge_tal_word_typing wty
-  in
-      TVTyWord (((hctx, kctx, tctx), TVWord w, t), wty)
-  end
-
-fun as_TVTyAppC vty kd =
-  let
-      val ((hctx1, kctx1, tctx1), v1, t1) = extract_judge_tal_value_typing vty
-      val (kctx2, c2, k2) = extract_judge_tal_kinding kd
-      val () = assert (kctx1 = kctx2) "TVTyAppC"
-      val (q11, k12, t13) = extract_tal_c_quan t1
-      val () = assert (q11 = QuanForall) "TVTyAppC"
-      val () = assert (k12 = k2) "TVTyAppC"
-  in
-      TVTyAppC (((hctx1, kctx1, tctx1), TVAppC (v1, c2), subst0_tal_c_c c2 t13), vty, kd)
-  end
-
-fun as_TVTyPack kd1 kd2 vty =
-  let
-      val (kctx1, c1, k1) = extract_judge_tal_kinding kd1
-      val (kctx2, c2, k2) = extract_judge_tal_kinding kd2
-      val ((hctx3, kctx3, tctx3), v3, t3) = extract_judge_tal_value_typing vty
-      val () = assert (kctx1 = kctx2) "TVTyPack"
-      val () = assert (kctx1 = kctx3) "TVTyPack"
-      val () = assert (k1 = TKType) "TVTyPack"
-      val (q11, k12, t13) = extract_tal_c_quan c1
-      val () = assert (q11 = QuanExists) "TVTyPack"
-      val () = assert (k12 = k2) "TVTyPack"
-      val () = assert (subst0_tal_c_c c2 t13 = t3) "TVTyPack"
-  in
-      TVTyPack (((hctx3, kctx3, tctx3), TVPack (c2, v3), c1), kd1, kd2, vty)
-  end
-
-fun as_TVTySub vty te =
-  let
-      val ((hctx1, kctx1, tctx1), v1, t1) = extract_judge_tal_value_typing vty
-      val (kctx2, t21, t22) = extract_judge_tal_tyeq te
-      val () = assert (kctx1 = kctx2) "TVTySub"
-      val () = assert (t21 = t1) "TVTySub"
-  in
-      TVTySub (((hctx1, kctx1, tctx1), v1, t22), vty, te)
-  end
-
-fun as_TITyNewpair rd vty1 vty2 ity =
-  let
-      val ((hctx1, kctx1, tctx1), v1, t1) = extract_judge_tal_value_typing vty1
-      val ((hctx2, kctx2, tctx2), v2, t2) = extract_judge_tal_value_typing vty2
-      val ((hctx3, kctx3, tctx3), (ins3, fin3), i3) = extract_judge_tal_instr_typing ity
-      val () = assert ((hctx1, kctx1, tctx1) = (hctx2, kctx2, tctx2)) "TITyNewpair"
-      val () = assert (hctx3 = hctx1) "TITyNewpair"
-      val () = assert (kctx3 = kctx1) "TITyNewpair"
-      val () = assert (update_tal_tctx rd (TCProd (t1, t2)) tctx1 = tctx3) "TITyNewpair"
-      val rs = extract_tal_v_reg v1
-      val rt = extract_tal_v_reg v2
-  in
-      TITyNewpair (((hctx1, kctx1, tctx1), (TINewpair (rd, rs, rt) :: ins3, fin3), TTadd (TT1, i3)), vty1, vty2, ity)
-  end
-
-fun as_TITyProj p rd vty ity =
-  let
-      val ((hctx1, kctx1, tctx1), v1, t1) = extract_judge_tal_value_typing vty
-      val ((hctx2, kctx2, tctx2), (ins2, fin2), i2) = extract_judge_tal_instr_typing ity
-      val () = assert (hctx2 = hctx1) "TITyProj"
-      val () = assert (kctx2 = kctx1) "TITyProj"
-      val (t11, t12) = extract_tal_c_prod t1
-      val () = assert (update_tal_tctx rd (case p of ProjFst => t11
-                                                   | ProjSnd => t12) tctx1 = tctx2) "TITyProj"
-      val rs = extract_tal_v_reg v1
-  in
-      TITyProj (((hctx1, kctx1, tctx1), (TIProj (p, rd, rs) :: ins2, fin2), TTadd (TT1, i2)), vty, ity)
-  end
-
-fun as_TITyInj inj vty kd ity =
-  let
-      val ((hctx1, kctx1, tctx1), v1, t1) = extract_judge_tal_value_typing vty
-      val (kctx2, t2, k2) = extract_judge_tal_kinding kd
-      val ((hctx3, kctx3, tctx3), (ins3, fin3), i3) = extract_judge_tal_instr_typing ity
-      val () = assert (kctx2 = kctx1) "TITyInj"
-      val () = assert (hctx3 = hctx1) "TITyInj"
-      val () = assert (kctx3 = kctx1) "TITyInj"
-      val () = assert (k2 = TKType) "TITyInj"
-      val rd = extract_tal_v_reg v1
-      val () = assert (update_tal_tctx rd (case inj of InjInl => TCSum (t1, t2)
-                                                     | InjInr => TCSum (t2, t1)) tctx1 = tctx3) "TITyInj"
-  in
-      TITyInj (((hctx1, kctx1, tctx1), (TIInj (inj, rd) :: ins3, fin3), TTadd (TT1, i3)), vty, kd, ity)
-  end
-
-fun as_TITyFold kd vty ity =
-  let
-      val (kctx1, t1, k1) = extract_judge_tal_kinding kd
-      val ((hctx2, kctx2, tctx2), v2, t2) = extract_judge_tal_value_typing vty
-      val ((hctx3, kctx3, tctx3), (ins3, fin3), i3) = extract_judge_tal_instr_typing ity
-      val () = assert (kctx1 = kctx2) "TITyFold"
-      val () = assert (hctx3 = hctx2) "TITyFold"
-      val () = assert (kctx3 = kctx2) "TITyFold"
-      val () = assert (k1 = TKType) "TITyFold"
-      fun unwrap_TCApp t cs =
-        case t of
-            TCApp (c1, c2) => unwrap_TCApp c1 (c2 :: cs)
-          | _ => (t, cs)
-      val (t11, cs12) = unwrap_TCApp t1 []
-      val (k111, t111) = extract_tal_c_rec t11
-      val () = assert (t2 = TCApps (subst0_tal_c_c t11 t111) cs12) "TITyFold"
-      val rd = extract_tal_v_reg v2
-      val () = assert (update_tal_tctx rd t1 tctx2 = tctx3) "TITyFold"
-  in
-      TITyFold (((hctx2, kctx2, tctx2), (TIFold rd :: ins3, fin3), TTadd (TT1, i3)), kd, vty, ity)
-  end
-
-fun as_TITyUnfold vty ity =
-  let
-      val ((hctx1, kctx1, tctx1), v1, t1) = extract_judge_tal_value_typing vty
-      val ((hctx2, kctx2, tctx2), (ins2, fin2), i2) = extract_judge_tal_instr_typing ity
-      val () = assert (hctx2 = hctx1) "TITyUnfold"
-      val () = assert (kctx2 = kctx1) "TITyUnfold"
-      fun unwrap_TCApp t cs =
-        case t of
-            TCApp (c1, c2) => unwrap_TCApp c1 (c2 :: cs)
-          | _ => (t, cs)
-      val (t11, cs12) = unwrap_TCApp t1 []
-      val (k111, t111) = extract_tal_c_rec t11
-      val rd = extract_tal_v_reg v1
-      val () = assert (update_tal_tctx rd (TCApps (subst0_tal_c_c t11 t111) cs12) tctx1 = tctx2) "TITyUnfold"
-  in
-      TITyUnfold (((hctx1, kctx1, tctx1), (TIUnfold rd :: ins2, fin2), TTadd (TT1, i2)), vty, ity)
-  end
-
-fun as_TITyNewref rd vty ity =
-  let
-      val ((hctx1, kctx1, tctx1), v1, t1) = extract_judge_tal_value_typing vty
-      val ((hctx2, kctx2, tctx2), (ins2, fin2), i2) = extract_judge_tal_instr_typing ity
-      val () = assert (hctx2 = hctx1) "TITyNewref"
-      val () = assert (kctx2 = kctx1) "TITyNewref"
-      val () = assert (update_tal_tctx rd (TCRef t1) tctx1 = tctx2) "TITyNewref"
-      val rs = extract_tal_v_reg v1
-  in
-      TITyNewref (((hctx1, kctx1, tctx1), (TINewref (rd, rs) :: ins2, fin2), TTadd (TT1, i2)), vty, ity)
-  end
-
-fun as_TITyDeref rd vty ity =
-  let
-      val ((hctx1, kctx1, tctx1), v1, t1) = extract_judge_tal_value_typing vty
-      val ((hctx2, kctx2, tctx2), (ins2, fin2), i2) = extract_judge_tal_instr_typing ity
-      val () = assert (hctx2 = hctx1) "TITyDeref"
-      val () = assert (kctx2 = kctx1) "TITyDeref"
-      val t11 = extract_tal_c_ref t1
-      val () = assert (update_tal_tctx rd t11 tctx1 = tctx2) "TITyDeref"
-      val rs = extract_tal_v_reg v1
-  in
-      TITyDeref (((hctx1, kctx1, tctx1), (TIDeref (rd, rs) :: ins2, fin2), TTadd (TT1, i2)), vty, ity)
-  end
-
-fun as_TITySetref vty1 vty2 ity =
-  let
-      val ((hctx1, kctx1, tctx1), v1, t1) = extract_judge_tal_value_typing vty1
-      val ((hctx2, kctx2, tctx2), v2, t2) = extract_judge_tal_value_typing vty2
-      val ((hctx3, kctx3, tctx3), (ins3, fin3), i3) = extract_judge_tal_instr_typing ity
-      val () = assert ((hctx1, kctx1, tctx1) = (hctx2, kctx2, tctx2)) "TITySetref"
-      val () = assert (hctx3 = hctx1) "TITySetref"
-      val () = assert (kctx3 = kctx1) "TITySetref"
-      val () = assert (tctx3 = tctx1) "TITySetref"
-      val () = assert (t1 = TCRef t2) "TITySetref"
-      val rd = extract_tal_v_reg v1
-      val rs = extract_tal_v_reg v2
-  in
-      TITySetref (((hctx1, kctx1, tctx1), (TISetref (rd, rs) :: ins3, fin3), TTadd (TT1, i3)), vty1, vty2, ity)
-  end
-
-fun as_TITyPrimBinOp opr rd vty1 vty2 ity =
-  let
-      val ((hctx1, kctx1, tctx1), v1, t1) = extract_judge_tal_value_typing vty1
-      val ((hctx2, kctx2, tctx2), v2, t2) = extract_judge_tal_value_typing vty2
-      val ((hctx3, kctx3, tctx3), (ins3, fin3), i3) = extract_judge_tal_instr_typing ity
-      val () = assert ((hctx1, kctx1, tctx1) = (hctx2, kctx2, tctx2)) "TITyPrimBinOp"
-      val () = assert (hctx3 = hctx1) "TITyPrimBinOp"
-      val () = assert (kctx3 = kctx1) "TITyPrimBinOp"
-      val () = assert (t1 = pebinop_arg1_tal_type opr) "TITyPrimBinOp"
-      val () = assert (t2 = pebinop_arg2_tal_type opr) "TITyPrimBinOp"
-      val () = assert (update_tal_tctx rd (pebinop_result_tal_type opr) tctx1 = tctx3) "TITyPrimBinOp"
-      val rs = extract_tal_v_reg v1
-      val rt = extract_tal_v_reg v2
-  in
-      TITyPrimBinOp (((hctx1, kctx1, tctx1), (TIPrimBinOp (opr, rd, rs, rt) :: ins3, fin3), TTadd (TT1, i3)), vty1, vty2, ity)
-  end
-
-fun as_TITyMove rd vty ity =
-  let
-      val ((hctx1, kctx1, tctx1), v1, t1) = extract_judge_tal_value_typing vty
-      val ((hctx2, kctx2, tctx2), (ins2, fin2), i2) = extract_judge_tal_instr_typing ity
-      val () = assert (hctx2 = hctx1) "TITyMove"
-      val () = assert (kctx2 = kctx1) "TITyMove"
-      val () = assert (update_tal_tctx rd t1 tctx1 = tctx2) "TITyMove"
-  in
-      TITyMove (((hctx1, kctx1, tctx1), (TIMove (rd, v1) :: ins2, fin2), TTadd (TT1, i2)), vty, ity)
-  end
-
-fun as_TITyUnpack rd vty ity =
-  let
-      val ((hctx1, kctx1, tctx1), v1, t1) = extract_judge_tal_value_typing vty
-      val ((hctx2, kctx2, tctx2), (ins2, fin2), i2) = extract_judge_tal_instr_typing ity
-      val () = assert (hctx2 = hctx1) "TITyUnpack"
-      val (q11, k12, t13) = extract_tal_c_quan t1
-      val () = assert (q11 = QuanExists) "TITyUnpack"
-      val () = assert (kctx2 = k12 :: kctx1) "TITyUnpack"
-      val () = assert (update_tal_tctx rd t13 (map shift0_tal_c_c tctx1) = tctx2) "TITyUnpack"
-  in
-      TITyUnpack (((hctx1, kctx1, tctx1), (TIUnpack (rd, v1) :: ins2, fin2), TTadd (TT1, shift_tal_c_c ~1 0 i2)), vty, ity)
-  end
-
-fun as_TITyCase vty1 ity vty2 =
-  let
-      val ((hctx1, kctx1, tctx1), v1, t1) = extract_judge_tal_value_typing vty1
-      val ((hctx2, kctx2, tctx2), (ins2, fin2), i2) = extract_judge_tal_instr_typing ity
-      val ((hctx3, kctx3, tctx3), v3, t3) = extract_judge_tal_value_typing vty2
-      val () = assert ((hctx1, kctx1, tctx1) = (hctx3, kctx3, tctx3)) "TITyCase"
-      val () = assert (hctx2 = hctx1) "TITyCase"
-      val () = assert (kctx2 = kctx1) "TITyCase"
-      val (t11, t12) = extract_tal_c_sum t1
-      val r = extract_tal_v_reg v1
-      val () = assert (update_tal_tctx r t11 tctx1 = tctx2) "TITyCase"
-      val (tctx31, i32) = extract_tal_c_arrow t3
-      val () = assert (List.take (update_tal_tctx r t12 tctx1, length tctx31) = tctx31) "TITyCase"
-  in
-      TITyCase (((hctx1, kctx1, tctx1), (TICase (r, v1) :: ins2, fin2), TTadd (TT1, TTmax (i2, i32))), vty1, ity, vty2)
-  end
-
-fun as_TITyJump vty =
-  let
-      val ((hctx, kctx, tctx), v, t) = extract_judge_tal_value_typing vty
-      val (tctx1, i2) = extract_tal_c_arrow t
-      val () = assert (List.take (tctx, length tctx1) = tctx1) "TITyJump"
-  in
-      TITyJump (((hctx, kctx, tctx), ([], TCJump v), TTadd (TT1, i2)), vty)
-  end
-
-fun as_TITyHalt vty =
-  let
-      val ((hctx, kctx, tctx), v, t) = extract_judge_tal_value_typing vty
-      val () = assert (v = TVReg 0) "TITyHalt"
-  in
-      TITyHalt (((hctx, kctx, tctx), ([], TCHalt t), TT1), vty)
-  end
-
-fun as_TITySub ity pr =
-  let
-      val ((hctx1, kctx1, tctx1), (ins1, fin1), i1) = extract_judge_tal_instr_typing ity
-      val (kctx2, p2) = extract_judge_tal_proping pr
-      val () = assert (kctx1 = kctx2) "TITySub"
-      val (opr, i21, i22) = extract_tal_p_bin_pred p2
-      val () = assert (opr = PBTimeLe) "TITySub"
-      val () = assert (i21 = i1) "TITySub"
-  in
-      TITySub (((hctx1, kctx1, tctx1), (ins1, fin1), i22), ity, pr)
-  end
-
-fun as_THTyCode kd ity =
-  let
-      val (kctx1, t1, k1) = extract_judge_tal_kinding kd
-      val ((hctx2, kctx2, tctx2), (ins2, fin2), i2) = extract_judge_tal_instr_typing ity
-      val () = assert (kctx1 = []) "THTyCode"
-      val () = assert (k1 = TKType) "THTyCode"
-      fun unwrap_TCForall t ks =
-        case t of
-            TCQuan (QuanForall, k, t) => unwrap_TCForall t (k :: ks)
-          | _ => (t, ks)
-      val (t11, ks12) = unwrap_TCForall t1 []
-      val () = assert (kctx2 = ks12) "THTyCode"
-      val (tctx111, i112) = extract_tal_c_arrow t11
-      val () = assert (tctx111 = tctx2) "THTyCode"
-      val () = assert (i112 = i2) "THTyCode"
-  in
-      THTyCode ((hctx2, THCode (length kctx2, (ins2, fin2)), t1), kd, ity)
-  end
-
-fun as_THTyPair wty1 wty2 =
-  let
-      val ((hctx1, kctx1), w1, t1) = extract_judge_tal_word_typing wty1
-      val ((hctx2, kctx2), w2, t2) = extract_judge_tal_word_typing wty2
-      val () = assert (hctx1 = hctx2) "THTyPair"
-      val () = assert (kctx1 = []) "THTyPair"
-      val () = assert (kctx2 = []) "THTyPair"
-  in
-      THTyPair ((hctx1, THPair (w1, w2), TCProd (t1, t2)), wty1, wty2)
-  end
-
-fun as_THTyWord wty =
-  let
-      val ((hctx, kctx), w, t) = extract_judge_tal_word_typing wty
-      val () = assert (kctx = []) "THTyWord"
-  in
-      THTyWord ((hctx, THWord w, t), wty)
-  end
-
-fun as_TPTyProgram htys wtys ity =
-  let
-      val jhtys = map extract_judge_tal_heap_typing htys
-      val jwtys = map extract_judge_tal_word_typing wtys
-      val ((hctx3, kctx3, tctx3), (ins3, fin3), i3) = extract_judge_tal_instr_typing ity
-      val () = assert (hctx3 = map (fn (_, _, t) => t) jhtys) "TPTyProgram"
-      val () = assert (kctx3 = []) "TPTyProgram"
-      val () = assert (tctx3 = map (fn (_, _, t) => t) jwtys) "TPTyProgram"
-      val () = assert (all (fn (hctx, _, _) => hctx = hctx3) jhtys) "TPTyProgram"
-      val () = assert (all (fn ((hctx, kctx), _, _) => hctx = hctx3 andalso kctx = []) jwtys) "TPTyProgram"
-  in
-      TPTyProgram ((TProgram (map (fn (_, h, _) => h) jhtys, map (fn (_, w, _) => w) jwtys, (ins3, fin3)), i3), htys, wtys, ity)
-  end
 end
 
-structure InstrSelect =
-struct
-open TALDerivAssembler
+(* structure TALDerivAssembler = *)
+(* struct *)
+(* open ShiftTALCstr *)
+(* open SubstTALCstr *)
+(* open TALUtil *)
 
-fun transform_cstr c =
-  case c of
-      CVar x => TCVar x
-    | CConst cn => TCConst cn
-    | CBinOp (opr, c1, c2) => TCBinOp (opr, transform_cstr c1, transform_cstr c2)
-    | CIte (i1, i2, i3) => TCIte (transform_cstr i1, transform_cstr i2, transform_cstr i3)
-    | CTimeAbs c => TCTimeAbs (transform_cstr c)
-    | CTimeApp (arity, c1, c2) => TCTimeApp (arity, transform_cstr c1, transform_cstr c2)
-    | CArrow (t1, i, t2) => TCArrow ([transform_cstr t1], transform_cstr i)
-    | CAbs c => TCAbs (transform_cstr c)
-    | CApp (c1, c2) => TCApp (transform_cstr c1, transform_cstr c2)
-    | CQuan (q, k, c) => TCQuan (q, transform_kind k, transform_cstr c)
-    | CRec (k, c) => TCRec (transform_kind k, transform_cstr c)
-    | CRef c => TCRef (transform_cstr c)
-    | CUnOp (opr, c) => TCUnOp (opr, transform_cstr c)
+(* exception AssembleFail of string *)
 
-and transform_kind k =
-    case k of
-        KType => TKType
-      | KArrow (k1, k2) => TKArrow (transform_kind k1, transform_kind k2)
-      | KBaseSort b => TKBaseSort b
-      | KSubset (k, p) => TKSubset (transform_kind k, transform_prop p)
+(* fun assert b msg = *)
+(*   if b then () else raise AssembleFail msg *)
 
-and transform_prop p =
-    case p of
-        PTrue => TPTrue
-      | PFalse => TPFalse
-      | PBinConn (opr, p1, p2) => TPBinConn (opr, transform_prop p1, transform_prop p2)
-      | PNot p => TPNot (transform_prop p)
-      | PBinPred (opr, i1, i2) => TPBinPred (opr, transform_cstr i1, transform_cstr i2)
-      | PQuan (q, b, p) => TPQuan (q, b, transform_prop p)
+(* fun as_TPrAdmit kctx p = *)
+(*   TPrAdmit (kctx, p) *)
 
-fun transform_kinding (kd, kctx) =
-  case kd of
-      KdVar (_, CVar x, _) => as_TKdVar kctx x
-    | _ => raise (Impossible "transform_kinding")
+(* fun as_TKdEqKType kctx = *)
+(*   TKdEqKType (kctx, TKType, TKType) *)
 
-fun transform_tyeq (te, kctx) =
-  case te of
-      TyEqVar (_, CVar x, _) => as_TTyEqVar kctx x
-    | _ => raise (Impossible "transform_tyeq")
+(* fun as_TKdEqKArrow ke1 ke2 = *)
+(*   let *)
+(*       val (kctx1, k11, k12) = extract_judge_tal_kdeq ke1 *)
+(*       val (kctx2, k21, k22) = extract_judge_tal_kdeq ke2 *)
+(*       val () = assert (kctx1 = kctx2) "TKdEqKArrow" *)
+(*   in *)
+(*       TKdEqKArrow ((kctx1, TKArrow (k11, k21), TKArrow (k12, k22)), ke1, ke2) *)
+(*   end *)
 
-fun transform_atom_typing hctx kctx tctx env aty =
-  case aty of
-      ATyVar (_, AEVar x, _, _) => as_TVTyReg hctx kctx tctx $ nth (env, x)
-    | ATyConst (_, AEConst cn, _, _) => as_TVTyWord tctx (as_TWTyConst hctx kctx cn)
-    | ATyFuncPointer (_, AEFuncPointer l, _, _) => as_TVTyWord tctx (as_TWTyLoc hctx kctx l)
-    | ATyAppC (_, aty1, kd2) => as_TVTyAppC (transform_atom_typing hctx kctx tctx env aty1) (transform_kinding (kd2, kctx))
-    | ATyPack (_, kd1, kd2, aty3) => as_TVTyPack (transform_kinding (kd1, kctx)) (transform_kinding (kd2, kctx)) (transform_atom_typing hctx kctx tctx env aty3)
-    | ATySubTy (_, aty1, te2) => as_TVTySub (transform_atom_typing hctx kctx tctx env aty1) (transform_tyeq (te2, kctx))
-    | ATySubTi (_, aty1, _) => transform_atom_typing hctx kctx tctx env aty1
-    | _ => raise (Impossible "transform_atom_typing")
-end
-end
+(* fun as_TKdEqBaseSort kctx b = *)
+(*   TKdEqBaseSort (kctx, TKBaseSort b, TKBaseSort b) *)
+
+(* fun as_TKdEqSubset ke pr = *)
+(*   let *)
+(*       val (kctx1, k11, k12) = extract_judge_tal_kdeq ke *)
+(*       val (kctx2, p2) = extract_judge_tal_proping pr *)
+(*       val () = assert (k11 :: kctx1 = kctx2) "TKdEqSubset" *)
+(*       val (opr2, p21, p22) = extract_tal_p_bin_conn p2 *)
+(*       val () = assert (opr2 = PBCIff) "TKdEqSubset" *)
+(*   in *)
+(*       TKdEqSubset ((kctx1, TKSubset (k11, p21), TKSubset (k12, p22)), ke, pr) *)
+(*   end *)
+
+(* fun as_TKdVar kctx x = *)
+(*   TKdVar (kctx, TCVar x, shift_tal_c_k (1 + x) 0 (nth (kctx, x))) *)
+
+(* fun as_TKdConst kctx cn = *)
+(*   TKdConst (kctx, TCConst cn, const_tal_kind cn) *)
+
+(* fun as_TKdBinOp opr kd1 kd2 = *)
+(*   let *)
+(*       val (kctx1, c1, k1) = extract_judge_tal_kinding kd1 *)
+(*       val (kctx2, c2, k2) = extract_judge_tal_kinding kd2 *)
+(*       val () = assert (kctx1 = kctx2) "TKdBinOp" *)
+(*       val () = assert (k1 = cbinop_arg1_tal_kind opr) "TKdBinOp" *)
+(*       val () = assert (k2 = cbinop_arg2_tal_kind opr) "TKdBinOp" *)
+(*   in *)
+(*       TKdBinOp ((kctx1, TCBinOp (opr, c1, c2), cbinop_result_tal_kind opr), kd1, kd2) *)
+(*   end *)
+
+(* fun as_TKdIte kd1 kd2 kd3 = *)
+(*   let *)
+(*       val (kctx1, c1, k1) = extract_judge_tal_kinding kd1 *)
+(*       val (kctx2, c2, k2) = extract_judge_tal_kinding kd2 *)
+(*       val (kctx3, c3, k3) = extract_judge_tal_kinding kd3 *)
+(*       val () = assert (kctx1 = kctx2) "TKdIte" *)
+(*       val () = assert (kctx1 = kctx3) "TKdIte" *)
+(*       val () = assert (k1 = TKBool) "TKdIte" *)
+(*       val () = assert (k2 = k3) "TKdIte" *)
+(*   in *)
+(*       TKdIte ((kctx1, TCIte (c1, c2, c3), k2), kd1, kd2, kd3) *)
+(*   end *)
+
+(* fun as_TKdArrow kds kd = *)
+(*   let *)
+(*       val jkds = map extract_judge_tal_kinding kds *)
+(*       val (kctx2, i2, k2) = extract_judge_tal_kinding kd *)
+(*       val () = assert (k2 = TKTime) "TKdArrow" *)
+(*       val () = assert (all (fn (kctx1, _, k1) => kctx1 = kctx2 andalso k1 = TKType) jkds) "TKdArrow" *)
+(*   in *)
+(*       TKdArrow ((kctx2, TCArrow (map (fn (_, t1, _) => t1) jkds, i2), TKType), kds, kd) *)
+(*   end *)
+
+(* fun as_TKdAbs wk kd = *)
+(*   let *)
+(*       val (kctx1, k1) = extract_judge_tal_wfkind wk *)
+(*       val (kctx2, c1, k2) = extract_judge_tal_kinding kd *)
+(*       val () = assert (k1 :: kctx1 = kctx2) "TKdAbs" *)
+(*   in *)
+(*       TKdAbs ((kctx1, TCAbs c1, TKArrow (k1, shift_tal_c_k ~1 0 k2)), wk, kd) *)
+(*   end *)
+
+(* fun as_TKdApp kd1 kd2 = *)
+(*   let *)
+(*       val (kctx1, c1, k1) = extract_judge_tal_kinding kd1 *)
+(*       val (kctx2, c2, k2) = extract_judge_tal_kinding kd2 *)
+(*       val () = assert (kctx1 = kctx2) "TKdApp" *)
+(*       val (k11, k12) = extract_tal_k_arrow k1 *)
+(*       val () = assert (k11 = k2) "TKdApp" *)
+(*   in *)
+(*       TKdApp ((kctx1, TCApp (c1, c2), k12), kd1, kd2) *)
+(*   end *)
+
+(* fun as_TKdTimeAbs kd = *)
+(*   let *)
+(*       val (kctx, c, k) = extract_judge_tal_kinding kd *)
+(*       val arity = extract_tal_k_time_fun k *)
+(*   in *)
+(*       TKdTimeAbs ((tl kctx, TCTimeAbs c, TKTimeFun (arity + 1)), kd) *)
+(*   end *)
+
+(* fun as_TKdTimeApp kd1 kd2 = *)
+(*   let *)
+(*       val (kctx1, c1, k1) = extract_judge_tal_kinding kd1 *)
+(*       val (kctx2, c2, k2) = extract_judge_tal_kinding kd2 *)
+(*       val () = assert (kctx1 = kctx2) "TKdTimeApp" *)
+(*       val () = assert (k2 = TKNat) "TKdTimeApp" *)
+(*       val arity = extract_tal_k_time_fun k1 *)
+(*   in *)
+(*       TKdTimeApp ((kctx1, TCTimeApp (arity - 1, c1, c2), TKTimeFun (arity - 1)), kd1, kd2) *)
+(*   end *)
+
+(* fun as_TKdQuan q wk kd = *)
+(*   let *)
+(*       val (kctx1, k1) = extract_judge_tal_wfkind wk *)
+(*       val (kctx2, c2, k2) = extract_judge_tal_kinding kd *)
+(*       val () = assert (k1 :: kctx1 = kctx2) "TKdQuan" *)
+(*       val () = assert (k2 = TKType) "TKdQuan" *)
+(*   in *)
+(*       TKdQuan ((kctx1, TCQuan (q, k1, c2), TKType), wk, kd) *)
+(*   end *)
+
+(* fun as_TKdRec wk kd = *)
+(*   let *)
+(*       val (kctx1, k1) = extract_judge_tal_wfkind wk *)
+(*       val (kctx2, c2, k2) = extract_judge_tal_kinding kd *)
+(*       val () = assert (k1 :: kctx1 = kctx2) "TKdRec" *)
+(*       val () = assert (k1 = shift_tal_c_k ~1 0 k2) "TKdRec" *)
+(*   in *)
+(*       TKdRec ((kctx1, TCRec (k1, c2), k1), wk, kd) *)
+(*   end *)
+
+(* fun as_TKdEq kd ke = *)
+(*   let *)
+(*       val (kctx1, c1, k1) = extract_judge_tal_kinding kd *)
+(*       val (kctx2, k21, k22) = extract_judge_tal_kdeq ke *)
+(*       val () = assert (kctx1 = kctx2) "TKdEq" *)
+(*       val () = assert (k1 = k22) "TKdEq" *)
+(*   in *)
+(*       TKdEq ((kctx1, c1, k21), kd, ke) *)
+(*   end *)
+
+(* fun as_TKdUnOp opr kd = *)
+(*   let *)
+(*       val (kctx, c, k) = extract_judge_tal_kinding kd *)
+(*       val () = assert (k = cunop_arg_tal_kind opr) "TKdUnOp" *)
+(*   in *)
+(*       TKdUnOp ((kctx, TCUnOp (opr, c), cunop_result_tal_kind opr), kd) *)
+(*   end *)
+
+(* fun as_TKdAdmit kctx c k = *)
+(*   TKdAdmit (kctx, c, k) *)
+
+(* fun as_TWfKdType kctx = *)
+(*   TWfKdType (kctx, TKType) *)
+
+(* fun as_TWfKdArrow wk1 wk2 = *)
+(*   let *)
+(*       val (kctx1, k1) = extract_judge_tal_wfkind wk1 *)
+(*       val (kctx2, k2) = extract_judge_tal_wfkind wk2 *)
+(*       val () = assert (kctx1 = kctx2) "TWfKdArrow" *)
+(*   in *)
+(*       TWfKdArrow ((kctx1, TKArrow (k1, k2)), wk1, wk2) *)
+(*   end *)
+
+(* fun as_TWfKdBasesort kctx b = *)
+(*   TWfKdBaseSort (kctx, TKBaseSort b) *)
+
+(* fun as_TWfKdSubset wk wp = *)
+(*   let *)
+(*       val (kctx1, k1) = extract_judge_tal_wfkind wk *)
+(*       val (kctx2, p2) = extract_judge_tal_wfprop wp *)
+(*       val () = assert (k1 :: kctx1 = kctx2) "TWfKdSubset" *)
+(*   in *)
+(*       TWfKdSubset ((kctx1, TKSubset (k1, p2)), wk, wp) *)
+(*   end *)
+
+(* fun as_TWfKdAdmit kctx k = *)
+(*   TWfKdAdmit (kctx, k) *)
+
+(* fun as_TWfPropTrue kctx = *)
+(*   TWfPropTrue (kctx, TPTrue) *)
+
+(* fun as_TWfPropFalse kctx = *)
+(*   TWfPropFalse (kctx, TPFalse) *)
+
+(* fun as_TWfPropBinConn opr wp1 wp2 = *)
+(*   let *)
+(*       val (kctx1, p1) = extract_judge_tal_wfprop wp1 *)
+(*       val (kctx2, p2) = extract_judge_tal_wfprop wp2 *)
+(*       val () = assert (kctx1 = kctx2) "TWfPropBinConn" *)
+(*   in *)
+(*       TWfPropBinConn ((kctx1, TPBinConn (opr, p1, p2)), wp1, wp2) *)
+(*   end *)
+
+(* fun as_TWfPropNot wp = *)
+(*   let *)
+(*       val (kctx, p) = extract_judge_tal_wfprop wp *)
+(*   in *)
+(*       TWfPropNot ((kctx, TPNot p), wp) *)
+(*   end *)
+
+(* fun as_TWfPropBinPred opr kd1 kd2 = *)
+(*   let *)
+(*       val (kctx1, c1, k1) = extract_judge_tal_kinding kd1 *)
+(*       val (kctx2, c2, k2) = extract_judge_tal_kinding kd2 *)
+(*       val () = assert (kctx1 = kctx2) "TWfPropBinPred" *)
+(*       val () = assert (k1 = binpred_arg1_tal_kind opr) "TWfPropBinPred" *)
+(*       val () = assert (k2 = binpred_arg2_tal_kind opr) "TWfPropBinPred" *)
+(*   in *)
+(*       TWfPropBinPred ((kctx1, TPBinPred (opr, c1, c2)), kd1, kd2) *)
+(*   end *)
+
+(* fun as_TWfPropQuan q b wp = *)
+(*   let *)
+(*       val (kctx, p) = extract_judge_tal_wfprop wp *)
+(*   in *)
+(*       TWfPropQuan ((tl kctx, TPQuan (q, b, p)), wp) *)
+(*   end *)
+
+(* fun as_TTyEqVar kctx x = *)
+(*   TTyEqVar (kctx, TCVar x, TCVar x) *)
+
+(* fun as_TTyEqConst kctx cn = *)
+(*   TTyEqConst (kctx, TCConst cn, TCConst cn) *)
+
+(* fun as_TTyEqBinOp opr te1 te2 = *)
+(*   let *)
+(*       val (kctx1, t11, t12) = extract_judge_tal_tyeq te1 *)
+(*       val (kctx2, t21, t22) = extract_judge_tal_tyeq te2 *)
+(*       val () = assert (kctx1 = kctx2) "TTyEqBinOp" *)
+(*   in *)
+(*       TTyEqBinOp ((kctx1, TCBinOp (opr, t11, t21), TCBinOp (opr, t12, t22)), te1, te2) *)
+(*   end *)
+
+(* fun as_TTyEqIte te1 te2 te3 = *)
+(*   let *)
+(*       val (kctx1, t11, t12) = extract_judge_tal_tyeq te1 *)
+(*       val (kctx2, t21, t22) = extract_judge_tal_tyeq te2 *)
+(*       val (kctx3, t31, t32) = extract_judge_tal_tyeq te3 *)
+(*       val () = assert (kctx1 = kctx2) "TTyEqIte" *)
+(*       val () = assert (kctx1 = kctx3) "TTyEqIte" *)
+(*   in *)
+(*       TTyEqIte ((kctx1, TCIte (t11, t21, t31), TCIte (t12, t22, t32)), te1, te2, te3) *)
+(*   end *)
+
+(* fun as_TTyEqArrow tes pr = *)
+(*   let *)
+(*       val jtes = map extract_judge_tal_tyeq tes *)
+(*       val (kctx2, p2) = extract_judge_tal_proping pr *)
+(*       val () = assert (all (fn (kctx1, _, _) => kctx1 = kctx2) jtes) "TTyEqArrow" *)
+(*       val (opr2, i21, i22) = extract_tal_p_bin_pred p2 *)
+(*       val () = assert (opr2 = PBTimeEq) "TTyEqArrow" *)
+(*   in *)
+(*       TTyEqArrow ((kctx2, TCArrow (map (fn (_, t1, _) => t1) jtes, i21), TCArrow (map (fn (_, _, t2) => t2) jtes, i22)), tes, pr) *)
+(*   end *)
+
+(* fun as_TTyEqApp te1 te2 = *)
+(*   let *)
+(*       val (kctx1, t11, t12) = extract_judge_tal_tyeq te1 *)
+(*       val (kctx2, t21, t22) = extract_judge_tal_tyeq te2 *)
+(*       val () = assert (kctx1 = kctx2) "TTyEqApp" *)
+(*   in *)
+(*       TTyEqApp ((kctx1, TCApp (t11, t21), TCApp (t12, t22)), te1, te2) *)
+(*   end *)
+
+(* fun as_TTyEqTimeApp arity te1 te2 = *)
+(*   let *)
+(*       val (kctx1, t11, t12) = extract_judge_tal_tyeq te1 *)
+(*       val (kctx2, t21, t22) = extract_judge_tal_tyeq te2 *)
+(*       val () = assert (kctx1 = kctx2) " TTyEqTimeApp" *)
+(*   in *)
+(*       TTyEqTimeApp ((kctx1, TCTimeApp (arity, t11, t21), TCTimeApp (arity, t12, t22)), te1, te2) *)
+(*   end *)
+
+(* fun as_TTyEqBeta te1 te2 te3 = *)
+(*   let *)
+(*       val (kctx1, t11, t12) = extract_judge_tal_tyeq te1 *)
+(*       val (kctx2, t21, t22) = extract_judge_tal_tyeq te2 *)
+(*       val (kctx3, t31, t32) = extract_judge_tal_tyeq te3 *)
+(*       val () = assert (kctx1 = kctx2) "TTyEqBeta" *)
+(*       val () = assert (kctx1 = kctx3) "TTyEqBeta" *)
+(*       val t12_body = extract_tal_c_abs t12 *)
+(*       val () = assert (subst0_tal_c_c t22 t12_body = t31) "TTyEqBeta" *)
+(*   in *)
+(*       TTyEqBeta ((kctx1, TCApp (t11, t21), t32), te1, te2, te3) *)
+(*   end *)
+
+(* fun as_TTyEqBetaRev te1 te2 te3 = *)
+(*   let *)
+(*       val (kctx1, t11, t12) = extract_judge_tal_tyeq te1 *)
+(*       val (kctx2, t21, t22) = extract_judge_tal_tyeq te2 *)
+(*       val (kctx3, t31, t32) = extract_judge_tal_tyeq te3 *)
+(*       val () = assert (kctx1 = kctx2) "TTyEqBetaRev" *)
+(*       val () = assert (kctx1 = kctx3) "TTyEqBetaRev" *)
+(*       val t11_body = extract_tal_c_abs t11 *)
+(*       val () = assert (subst0_tal_c_c t21 t11_body = t32) "TTyEqBetaRev" *)
+(*   in *)
+(*       TTyEqBetaRev ((kctx1, t31, TCApp (t12, t22)), te1, te2, te3) *)
+(*   end *)
+
+(* fun as_TTyEqQuan q ke te = *)
+(*   let *)
+(*       val (kctx1, k11, k12) = extract_judge_tal_kdeq ke *)
+(*       val (kctx2, t21, t22) = extract_judge_tal_tyeq te *)
+(*       val () = assert (k11 :: kctx1 = kctx2) "TTyEqQuan" *)
+(*   in *)
+(*       TTyEqQuan ((kctx1, TCQuan (q, k11, t21), TCQuan (q, k12, t22)), ke, te) *)
+(*   end *)
+
+(* fun as_TTyEqRec ke te = *)
+(*   let *)
+(*       val (kctx1, k11, k12) = extract_judge_tal_kdeq ke *)
+(*       val (kctx2, t21, t22) = extract_judge_tal_tyeq te *)
+(*       val () = assert (k11 :: kctx1 = kctx2) "TTyEqRec" *)
+(*   in *)
+(*       TTyEqRec ((kctx1, TCRec (k11, t21), TCRec (k12, t22)), ke, te) *)
+(*   end *)
+
+(* fun as_TTyEqRef te = *)
+(*   let *)
+(*       val (kctx, t1, t2) = extract_judge_tal_tyeq te *)
+(*   in *)
+(*       TTyEqRef ((kctx, TCRef t1, TCRef t2), te) *)
+(*   end *)
+
+(* fun as_TTyEqAbs kctx c = *)
+(*   case c of *)
+(*       TCAbs _ => TTyEqAbs (kctx, c, c) *)
+(*     | _ => raise (AssembleFail "TTyEqAbs") *)
+
+(* fun as_TTyEqTimeAbs kctx c = *)
+(*   case c of *)
+(*       TCTimeAbs _ => TTyEqTimeAbs (kctx, c, c) *)
+(*     | _ => raise (AssembleFail "TTyEqTimeAbs") *)
+
+(* fun as_TTyEqUnOp opr te = *)
+(*   let *)
+(*       val (kctx, t1, t2) = extract_judge_tal_tyeq te *)
+(*   in *)
+(*       TTyEqUnOp ((kctx, TCUnOp (opr, t1), TCUnOp (opr, t2)), te) *)
+(*   end *)
+
+(* fun as_TTyEqNat pr = *)
+(*   let *)
+(*       val (kctx, p) = extract_judge_tal_proping pr *)
+(*       val (opr, i1, i2) = extract_tal_p_bin_pred p *)
+(*       val () = assert (opr = PBNatEq) "TTyEqNat" *)
+(*   in *)
+(*       TTyEqNat ((kctx, i1, i2), pr) *)
+(*   end *)
+
+(* fun as_TWTyLoc hctx kctx l = *)
+(*   TWTyLoc ((hctx, kctx), TWLoc l, nth (hctx, l)) *)
+
+(* fun as_TWTyConst hctx kctx cn = *)
+(*   TWTyConst ((hctx, kctx), TWConst cn, const_tal_type cn) *)
+
+(* fun as_TWTyAppC wty kd = *)
+(*   let *)
+(*       val ((hctx1, kctx1), w1, t1) = extract_judge_tal_word_typing wty *)
+(*       val (kctx2, c2, k2) = extract_judge_tal_kinding kd *)
+(*       val () = assert (kctx1 = kctx2) "TWTyAppC" *)
+(*       val (q11, k12, t13) = extract_tal_c_quan t1 *)
+(*       val () = assert (q11 = QuanForall) "TWTyAppC" *)
+(*       val () = assert (k12 = k2) "TWTyAppC" *)
+(*   in *)
+(*       TWTyAppC (((hctx1, kctx1), TWAppC (w1, c2), subst0_tal_c_c c2 t13), wty, kd) *)
+(*   end *)
+
+(* fun as_TWTyPack kd1 kd2 wty = *)
+(*   let *)
+(*       val (kctx1, c1, k1) = extract_judge_tal_kinding kd1 *)
+(*       val (kctx2, c2, k2) = extract_judge_tal_kinding kd2 *)
+(*       val ((hctx3, kctx3), w3, t3) = extract_judge_tal_word_typing wty *)
+(*       val () = assert (kctx1 = kctx2) "TWTyPack" *)
+(*       val () = assert (kctx1 = kctx3) "TWTyPack" *)
+(*       val () = assert (k1 = TKType) "TWTyPack" *)
+(*       val (q11, k12, t13) = extract_tal_c_quan c1 *)
+(*       val () = assert (q11 = QuanExists) "TWTyPack" *)
+(*       val () = assert (k12 = k2) "TWTyPack" *)
+(*       val () = assert (subst0_tal_c_c c2 t13 = t3) "TWTyPack" *)
+(*   in *)
+(*       TWTyPack (((hctx3, kctx3), TWPack (c2, w3), c1), kd1, kd2, wty) *)
+(*   end *)
+
+(* fun as_TWTySub wty te = *)
+(*   let *)
+(*       val ((hctx1, kctx1), w1, t1) = extract_judge_tal_word_typing wty *)
+(*       val (kctx2, t21, t22) = extract_judge_tal_tyeq te *)
+(*       val () = assert (kctx1 = kctx2) "TWTySub" *)
+(*       val () = assert (t21 = t1) "TWTySub" *)
+(*   in *)
+(*       TWTySub (((hctx1, kctx1), w1, t22), wty, te) *)
+(*   end *)
+
+(* fun as_TVTyReg hctx kctx tctx r = *)
+(*   TVTyReg ((hctx, kctx, tctx), TVReg r, nth (tctx, r)) *)
+
+(* fun as_TVTyWord tctx wty = *)
+(*   let *)
+(*       val ((hctx, kctx), w, t) = extract_judge_tal_word_typing wty *)
+(*   in *)
+(*       TVTyWord (((hctx, kctx, tctx), TVWord w, t), wty) *)
+(*   end *)
+
+(* fun as_TVTyAppC vty kd = *)
+(*   let *)
+(*       val ((hctx1, kctx1, tctx1), v1, t1) = extract_judge_tal_value_typing vty *)
+(*       val (kctx2, c2, k2) = extract_judge_tal_kinding kd *)
+(*       val () = assert (kctx1 = kctx2) "TVTyAppC" *)
+(*       val (q11, k12, t13) = extract_tal_c_quan t1 *)
+(*       val () = assert (q11 = QuanForall) "TVTyAppC" *)
+(*       val () = assert (k12 = k2) "TVTyAppC" *)
+(*   in *)
+(*       TVTyAppC (((hctx1, kctx1, tctx1), TVAppC (v1, c2), subst0_tal_c_c c2 t13), vty, kd) *)
+(*   end *)
+
+(* fun as_TVTyPack kd1 kd2 vty = *)
+(*   let *)
+(*       val (kctx1, c1, k1) = extract_judge_tal_kinding kd1 *)
+(*       val (kctx2, c2, k2) = extract_judge_tal_kinding kd2 *)
+(*       val ((hctx3, kctx3, tctx3), v3, t3) = extract_judge_tal_value_typing vty *)
+(*       val () = assert (kctx1 = kctx2) "TVTyPack" *)
+(*       val () = assert (kctx1 = kctx3) "TVTyPack" *)
+(*       val () = assert (k1 = TKType) "TVTyPack" *)
+(*       val (q11, k12, t13) = extract_tal_c_quan c1 *)
+(*       val () = assert (q11 = QuanExists) "TVTyPack" *)
+(*       val () = assert (k12 = k2) "TVTyPack" *)
+(*       val () = assert (subst0_tal_c_c c2 t13 = t3) "TVTyPack" *)
+(*   in *)
+(*       TVTyPack (((hctx3, kctx3, tctx3), TVPack (c2, v3), c1), kd1, kd2, vty) *)
+(*   end *)
+
+(* fun as_TVTySub vty te = *)
+(*   let *)
+(*       val ((hctx1, kctx1, tctx1), v1, t1) = extract_judge_tal_value_typing vty *)
+(*       val (kctx2, t21, t22) = extract_judge_tal_tyeq te *)
+(*       val () = assert (kctx1 = kctx2) "TVTySub" *)
+(*       val () = assert (t21 = t1) "TVTySub" *)
+(*   in *)
+(*       TVTySub (((hctx1, kctx1, tctx1), v1, t22), vty, te) *)
+(*   end *)
+
+(* fun as_TITyNewpair rd vty1 vty2 ity = *)
+(*   let *)
+(*       val ((hctx1, kctx1, tctx1), v1, t1) = extract_judge_tal_value_typing vty1 *)
+(*       val ((hctx2, kctx2, tctx2), v2, t2) = extract_judge_tal_value_typing vty2 *)
+(*       val ((hctx3, kctx3, tctx3), (ins3, fin3), i3) = extract_judge_tal_instr_typing ity *)
+(*       val () = assert ((hctx1, kctx1, tctx1) = (hctx2, kctx2, tctx2)) "TITyNewpair" *)
+(*       val () = assert (hctx3 = hctx1) "TITyNewpair" *)
+(*       val () = assert (kctx3 = kctx1) "TITyNewpair" *)
+(*       val () = assert (update_tal_tctx rd (TCProd (t1, t2)) tctx1 = tctx3) "TITyNewpair" *)
+(*       val rs = extract_tal_v_reg v1 *)
+(*       val rt = extract_tal_v_reg v2 *)
+(*   in *)
+(*       TITyNewpair (((hctx1, kctx1, tctx1), (TINewpair (rd, rs, rt) :: ins3, fin3), TTadd (TT1, i3)), vty1, vty2, ity) *)
+(*   end *)
+
+(* fun as_TITyProj p rd vty ity = *)
+(*   let *)
+(*       val ((hctx1, kctx1, tctx1), v1, t1) = extract_judge_tal_value_typing vty *)
+(*       val ((hctx2, kctx2, tctx2), (ins2, fin2), i2) = extract_judge_tal_instr_typing ity *)
+(*       val () = assert (hctx2 = hctx1) "TITyProj" *)
+(*       val () = assert (kctx2 = kctx1) "TITyProj" *)
+(*       val (t11, t12) = extract_tal_c_prod t1 *)
+(*       val () = assert (update_tal_tctx rd (case p of ProjFst => t11 *)
+(*                                                    | ProjSnd => t12) tctx1 = tctx2) "TITyProj" *)
+(*       val rs = extract_tal_v_reg v1 *)
+(*   in *)
+(*       TITyProj (((hctx1, kctx1, tctx1), (TIProj (p, rd, rs) :: ins2, fin2), TTadd (TT1, i2)), vty, ity) *)
+(*   end *)
+
+(* fun as_TITyInj inj vty kd ity = *)
+(*   let *)
+(*       val ((hctx1, kctx1, tctx1), v1, t1) = extract_judge_tal_value_typing vty *)
+(*       val (kctx2, t2, k2) = extract_judge_tal_kinding kd *)
+(*       val ((hctx3, kctx3, tctx3), (ins3, fin3), i3) = extract_judge_tal_instr_typing ity *)
+(*       val () = assert (kctx2 = kctx1) "TITyInj" *)
+(*       val () = assert (hctx3 = hctx1) "TITyInj" *)
+(*       val () = assert (kctx3 = kctx1) "TITyInj" *)
+(*       val () = assert (k2 = TKType) "TITyInj" *)
+(*       val rd = extract_tal_v_reg v1 *)
+(*       val () = assert (update_tal_tctx rd (case inj of InjInl => TCSum (t1, t2) *)
+(*                                                      | InjInr => TCSum (t2, t1)) tctx1 = tctx3) "TITyInj" *)
+(*   in *)
+(*       TITyInj (((hctx1, kctx1, tctx1), (TIInj (inj, rd) :: ins3, fin3), TTadd (TT1, i3)), vty, kd, ity) *)
+(*   end *)
+
+(* fun as_TITyFold kd vty ity = *)
+(*   let *)
+(*       val (kctx1, t1, k1) = extract_judge_tal_kinding kd *)
+(*       val ((hctx2, kctx2, tctx2), v2, t2) = extract_judge_tal_value_typing vty *)
+(*       val ((hctx3, kctx3, tctx3), (ins3, fin3), i3) = extract_judge_tal_instr_typing ity *)
+(*       val () = assert (kctx1 = kctx2) "TITyFold" *)
+(*       val () = assert (hctx3 = hctx2) "TITyFold" *)
+(*       val () = assert (kctx3 = kctx2) "TITyFold" *)
+(*       val () = assert (k1 = TKType) "TITyFold" *)
+(*       fun unwrap_TCApp t cs = *)
+(*         case t of *)
+(*             TCApp (c1, c2) => unwrap_TCApp c1 (c2 :: cs) *)
+(*           | _ => (t, cs) *)
+(*       val (t11, cs12) = unwrap_TCApp t1 [] *)
+(*       val (k111, t111) = extract_tal_c_rec t11 *)
+(*       val () = assert (t2 = TCApps (subst0_tal_c_c t11 t111) cs12) "TITyFold" *)
+(*       val rd = extract_tal_v_reg v2 *)
+(*       val () = assert (update_tal_tctx rd t1 tctx2 = tctx3) "TITyFold" *)
+(*   in *)
+(*       TITyFold (((hctx2, kctx2, tctx2), (TIFold rd :: ins3, fin3), TTadd (TT1, i3)), kd, vty, ity) *)
+(*   end *)
+
+(* fun as_TITyUnfold vty ity = *)
+(*   let *)
+(*       val ((hctx1, kctx1, tctx1), v1, t1) = extract_judge_tal_value_typing vty *)
+(*       val ((hctx2, kctx2, tctx2), (ins2, fin2), i2) = extract_judge_tal_instr_typing ity *)
+(*       val () = assert (hctx2 = hctx1) "TITyUnfold" *)
+(*       val () = assert (kctx2 = kctx1) "TITyUnfold" *)
+(*       fun unwrap_TCApp t cs = *)
+(*         case t of *)
+(*             TCApp (c1, c2) => unwrap_TCApp c1 (c2 :: cs) *)
+(*           | _ => (t, cs) *)
+(*       val (t11, cs12) = unwrap_TCApp t1 [] *)
+(*       val (k111, t111) = extract_tal_c_rec t11 *)
+(*       val rd = extract_tal_v_reg v1 *)
+(*       val () = assert (update_tal_tctx rd (TCApps (subst0_tal_c_c t11 t111) cs12) tctx1 = tctx2) "TITyUnfold" *)
+(*   in *)
+(*       TITyUnfold (((hctx1, kctx1, tctx1), (TIUnfold rd :: ins2, fin2), TTadd (TT1, i2)), vty, ity) *)
+(*   end *)
+
+(* fun as_TITyNewref rd vty ity = *)
+(*   let *)
+(*       val ((hctx1, kctx1, tctx1), v1, t1) = extract_judge_tal_value_typing vty *)
+(*       val ((hctx2, kctx2, tctx2), (ins2, fin2), i2) = extract_judge_tal_instr_typing ity *)
+(*       val () = assert (hctx2 = hctx1) "TITyNewref" *)
+(*       val () = assert (kctx2 = kctx1) "TITyNewref" *)
+(*       val () = assert (update_tal_tctx rd (TCRef t1) tctx1 = tctx2) "TITyNewref" *)
+(*       val rs = extract_tal_v_reg v1 *)
+(*   in *)
+(*       TITyNewref (((hctx1, kctx1, tctx1), (TINewref (rd, rs) :: ins2, fin2), TTadd (TT1, i2)), vty, ity) *)
+(*   end *)
+
+(* fun as_TITyDeref rd vty ity = *)
+(*   let *)
+(*       val ((hctx1, kctx1, tctx1), v1, t1) = extract_judge_tal_value_typing vty *)
+(*       val ((hctx2, kctx2, tctx2), (ins2, fin2), i2) = extract_judge_tal_instr_typing ity *)
+(*       val () = assert (hctx2 = hctx1) "TITyDeref" *)
+(*       val () = assert (kctx2 = kctx1) "TITyDeref" *)
+(*       val t11 = extract_tal_c_ref t1 *)
+(*       val () = assert (update_tal_tctx rd t11 tctx1 = tctx2) "TITyDeref" *)
+(*       val rs = extract_tal_v_reg v1 *)
+(*   in *)
+(*       TITyDeref (((hctx1, kctx1, tctx1), (TIDeref (rd, rs) :: ins2, fin2), TTadd (TT1, i2)), vty, ity) *)
+(*   end *)
+
+(* fun as_TITySetref vty1 vty2 ity = *)
+(*   let *)
+(*       val ((hctx1, kctx1, tctx1), v1, t1) = extract_judge_tal_value_typing vty1 *)
+(*       val ((hctx2, kctx2, tctx2), v2, t2) = extract_judge_tal_value_typing vty2 *)
+(*       val ((hctx3, kctx3, tctx3), (ins3, fin3), i3) = extract_judge_tal_instr_typing ity *)
+(*       val () = assert ((hctx1, kctx1, tctx1) = (hctx2, kctx2, tctx2)) "TITySetref" *)
+(*       val () = assert (hctx3 = hctx1) "TITySetref" *)
+(*       val () = assert (kctx3 = kctx1) "TITySetref" *)
+(*       val () = assert (tctx3 = tctx1) "TITySetref" *)
+(*       val () = assert (t1 = TCRef t2) "TITySetref" *)
+(*       val rd = extract_tal_v_reg v1 *)
+(*       val rs = extract_tal_v_reg v2 *)
+(*   in *)
+(*       TITySetref (((hctx1, kctx1, tctx1), (TISetref (rd, rs) :: ins3, fin3), TTadd (TT1, i3)), vty1, vty2, ity) *)
+(*   end *)
+
+(* fun as_TITyPrimBinOp opr rd vty1 vty2 ity = *)
+(*   let *)
+(*       val ((hctx1, kctx1, tctx1), v1, t1) = extract_judge_tal_value_typing vty1 *)
+(*       val ((hctx2, kctx2, tctx2), v2, t2) = extract_judge_tal_value_typing vty2 *)
+(*       val ((hctx3, kctx3, tctx3), (ins3, fin3), i3) = extract_judge_tal_instr_typing ity *)
+(*       val () = assert ((hctx1, kctx1, tctx1) = (hctx2, kctx2, tctx2)) "TITyPrimBinOp" *)
+(*       val () = assert (hctx3 = hctx1) "TITyPrimBinOp" *)
+(*       val () = assert (kctx3 = kctx1) "TITyPrimBinOp" *)
+(*       val () = assert (t1 = pebinop_arg1_tal_type opr) "TITyPrimBinOp" *)
+(*       val () = assert (t2 = pebinop_arg2_tal_type opr) "TITyPrimBinOp" *)
+(*       val () = assert (update_tal_tctx rd (pebinop_result_tal_type opr) tctx1 = tctx3) "TITyPrimBinOp" *)
+(*       val rs = extract_tal_v_reg v1 *)
+(*       val rt = extract_tal_v_reg v2 *)
+(*   in *)
+(*       TITyPrimBinOp (((hctx1, kctx1, tctx1), (TIPrimBinOp (opr, rd, rs, rt) :: ins3, fin3), TTadd (TT1, i3)), vty1, vty2, ity) *)
+(*   end *)
+
+(* fun as_TITyMove rd vty ity = *)
+(*   let *)
+(*       val ((hctx1, kctx1, tctx1), v1, t1) = extract_judge_tal_value_typing vty *)
+(*       val ((hctx2, kctx2, tctx2), (ins2, fin2), i2) = extract_judge_tal_instr_typing ity *)
+(*       val () = assert (hctx2 = hctx1) "TITyMove" *)
+(*       val () = assert (kctx2 = kctx1) "TITyMove" *)
+(*       val () = assert (update_tal_tctx rd t1 tctx1 = tctx2) "TITyMove" *)
+(*   in *)
+(*       TITyMove (((hctx1, kctx1, tctx1), (TIMove (rd, v1) :: ins2, fin2), TTadd (TT1, i2)), vty, ity) *)
+(*   end *)
+
+(* fun as_TITyUnpack rd vty ity = *)
+(*   let *)
+(*       val ((hctx1, kctx1, tctx1), v1, t1) = extract_judge_tal_value_typing vty *)
+(*       val ((hctx2, kctx2, tctx2), (ins2, fin2), i2) = extract_judge_tal_instr_typing ity *)
+(*       val () = assert (hctx2 = hctx1) "TITyUnpack" *)
+(*       val (q11, k12, t13) = extract_tal_c_quan t1 *)
+(*       val () = assert (q11 = QuanExists) "TITyUnpack" *)
+(*       val () = assert (kctx2 = k12 :: kctx1) "TITyUnpack" *)
+(*       val () = assert (update_tal_tctx rd t13 (map shift0_tal_c_c tctx1) = tctx2) "TITyUnpack" *)
+(*   in *)
+(*       TITyUnpack (((hctx1, kctx1, tctx1), (TIUnpack (rd, v1) :: ins2, fin2), TTadd (TT1, shift_tal_c_c ~1 0 i2)), vty, ity) *)
+(*   end *)
+
+(* fun as_TITyCase vty1 ity vty2 = *)
+(*   let *)
+(*       val ((hctx1, kctx1, tctx1), v1, t1) = extract_judge_tal_value_typing vty1 *)
+(*       val ((hctx2, kctx2, tctx2), (ins2, fin2), i2) = extract_judge_tal_instr_typing ity *)
+(*       val ((hctx3, kctx3, tctx3), v3, t3) = extract_judge_tal_value_typing vty2 *)
+(*       val () = assert ((hctx1, kctx1, tctx1) = (hctx3, kctx3, tctx3)) "TITyCase" *)
+(*       val () = assert (hctx2 = hctx1) "TITyCase" *)
+(*       val () = assert (kctx2 = kctx1) "TITyCase" *)
+(*       val (t11, t12) = extract_tal_c_sum t1 *)
+(*       val r = extract_tal_v_reg v1 *)
+(*       val () = assert (update_tal_tctx r t11 tctx1 = tctx2) "TITyCase" *)
+(*       val (tctx31, i32) = extract_tal_c_arrow t3 *)
+(*       val () = assert (List.take (update_tal_tctx r t12 tctx1, length tctx31) = tctx31) "TITyCase" *)
+(*   in *)
+(*       TITyCase (((hctx1, kctx1, tctx1), (TICase (r, v1) :: ins2, fin2), TTadd (TT1, TTmax (i2, i32))), vty1, ity, vty2) *)
+(*   end *)
+
+(* fun as_TITyJump vty = *)
+(*   let *)
+(*       val ((hctx, kctx, tctx), v, t) = extract_judge_tal_value_typing vty *)
+(*       val (tctx1, i2) = extract_tal_c_arrow t *)
+(*       val () = assert (List.take (tctx, length tctx1) = tctx1) "TITyJump" *)
+(*   in *)
+(*       TITyJump (((hctx, kctx, tctx), ([], TCJump v), TTadd (TT1, i2)), vty) *)
+(*   end *)
+
+(* fun as_TITyHalt vty = *)
+(*   let *)
+(*       val ((hctx, kctx, tctx), v, t) = extract_judge_tal_value_typing vty *)
+(*       val () = assert (v = TVReg 0) "TITyHalt" *)
+(*   in *)
+(*       TITyHalt (((hctx, kctx, tctx), ([], TCHalt t), TT1), vty) *)
+(*   end *)
+
+(* fun as_TITySub ity pr = *)
+(*   let *)
+(*       val ((hctx1, kctx1, tctx1), (ins1, fin1), i1) = extract_judge_tal_instr_typing ity *)
+(*       val (kctx2, p2) = extract_judge_tal_proping pr *)
+(*       val () = assert (kctx1 = kctx2) "TITySub" *)
+(*       val (opr, i21, i22) = extract_tal_p_bin_pred p2 *)
+(*       val () = assert (opr = PBTimeLe) "TITySub" *)
+(*       val () = assert (i21 = i1) "TITySub" *)
+(*   in *)
+(*       TITySub (((hctx1, kctx1, tctx1), (ins1, fin1), i22), ity, pr) *)
+(*   end *)
+
+(* fun as_THTyCode kd ity = *)
+(*   let *)
+(*       val (kctx1, t1, k1) = extract_judge_tal_kinding kd *)
+(*       val ((hctx2, kctx2, tctx2), (ins2, fin2), i2) = extract_judge_tal_instr_typing ity *)
+(*       val () = assert (kctx1 = []) "THTyCode" *)
+(*       val () = assert (k1 = TKType) "THTyCode" *)
+(*       fun unwrap_TCForall t ks = *)
+(*         case t of *)
+(*             TCQuan (QuanForall, k, t) => unwrap_TCForall t (k :: ks) *)
+(*           | _ => (t, ks) *)
+(*       val (t11, ks12) = unwrap_TCForall t1 [] *)
+(*       val () = assert (kctx2 = ks12) "THTyCode" *)
+(*       val (tctx111, i112) = extract_tal_c_arrow t11 *)
+(*       val () = assert (tctx111 = tctx2) "THTyCode" *)
+(*       val () = assert (i112 = i2) "THTyCode" *)
+(*   in *)
+(*       THTyCode ((hctx2, THCode (length kctx2, (ins2, fin2)), t1), kd, ity) *)
+(*   end *)
+
+(* fun as_THTyPair wty1 wty2 = *)
+(*   let *)
+(*       val ((hctx1, kctx1), w1, t1) = extract_judge_tal_word_typing wty1 *)
+(*       val ((hctx2, kctx2), w2, t2) = extract_judge_tal_word_typing wty2 *)
+(*       val () = assert (hctx1 = hctx2) "THTyPair" *)
+(*       val () = assert (kctx1 = []) "THTyPair" *)
+(*       val () = assert (kctx2 = []) "THTyPair" *)
+(*   in *)
+(*       THTyPair ((hctx1, THPair (w1, w2), TCProd (t1, t2)), wty1, wty2) *)
+(*   end *)
+
+(* fun as_THTyWord wty = *)
+(*   let *)
+(*       val ((hctx, kctx), w, t) = extract_judge_tal_word_typing wty *)
+(*       val () = assert (kctx = []) "THTyWord" *)
+(*   in *)
+(*       THTyWord ((hctx, THWord w, t), wty) *)
+(*   end *)
+
+(* fun as_TPTyProgram htys wtys ity = *)
+(*   let *)
+(*       val jhtys = map extract_judge_tal_heap_typing htys *)
+(*       val jwtys = map extract_judge_tal_word_typing wtys *)
+(*       val ((hctx3, kctx3, tctx3), (ins3, fin3), i3) = extract_judge_tal_instr_typing ity *)
+(*       val () = assert (hctx3 = map (fn (_, _, t) => t) jhtys) "TPTyProgram" *)
+(*       val () = assert (kctx3 = []) "TPTyProgram" *)
+(*       val () = assert (tctx3 = map (fn (_, _, t) => t) jwtys) "TPTyProgram" *)
+(*       val () = assert (all (fn (hctx, _, _) => hctx = hctx3) jhtys) "TPTyProgram" *)
+(*       val () = assert (all (fn ((hctx, kctx), _, _) => hctx = hctx3 andalso kctx = []) jwtys) "TPTyProgram" *)
+(*   in *)
+(*       TPTyProgram ((TProgram (map (fn (_, h, _) => h) jhtys, map (fn (_, w, _) => w) jwtys, (ins3, fin3)), i3), htys, wtys, ity) *)
+(*   end *)
+(* end *)
+
+(* structure InstrSelect = *)
+(* struct *)
+(* open TALDerivAssembler *)
+
+(* fun transform_cstr c = *)
+(*   case c of *)
+(*       CVar x => TCVar x *)
+(*     | CConst cn => TCConst cn *)
+(*     | CBinOp (opr, c1, c2) => TCBinOp (opr, transform_cstr c1, transform_cstr c2) *)
+(*     | CIte (i1, i2, i3) => TCIte (transform_cstr i1, transform_cstr i2, transform_cstr i3) *)
+(*     | CTimeAbs c => TCTimeAbs (transform_cstr c) *)
+(*     | CTimeApp (arity, c1, c2) => TCTimeApp (arity, transform_cstr c1, transform_cstr c2) *)
+(*     | CArrow (t1, i, t2) => TCArrow ([transform_cstr t1], transform_cstr i) *)
+(*     | CAbs c => TCAbs (transform_cstr c) *)
+(*     | CApp (c1, c2) => TCApp (transform_cstr c1, transform_cstr c2) *)
+(*     | CQuan (q, k, c) => TCQuan (q, transform_kind k, transform_cstr c) *)
+(*     | CRec (k, c) => TCRec (transform_kind k, transform_cstr c) *)
+(*     | CRef c => TCRef (transform_cstr c) *)
+(*     | CUnOp (opr, c) => TCUnOp (opr, transform_cstr c) *)
+
+(* and transform_kind k = *)
+(*     case k of *)
+(*         KType => TKType *)
+(*       | KArrow (k1, k2) => TKArrow (transform_kind k1, transform_kind k2) *)
+(*       | KBaseSort b => TKBaseSort b *)
+(*       | KSubset (k, p) => TKSubset (transform_kind k, transform_prop p) *)
+
+(* and transform_prop p = *)
+(*     case p of *)
+(*         PTrue => TPTrue *)
+(*       | PFalse => TPFalse *)
+(*       | PBinConn (opr, p1, p2) => TPBinConn (opr, transform_prop p1, transform_prop p2) *)
+(*       | PNot p => TPNot (transform_prop p) *)
+(*       | PBinPred (opr, i1, i2) => TPBinPred (opr, transform_cstr i1, transform_cstr i2) *)
+(*       | PQuan (q, b, p) => TPQuan (q, b, transform_prop p) *)
+
+(* fun transform_kinding (kd, kctx) = *)
+(*   case kd of *)
+(*       KdVar (_, CVar x, _) => as_TKdVar kctx x *)
+(*     | _ => raise (Impossible "transform_kinding") *)
+
+(* fun transform_tyeq (te, kctx) = *)
+(*   case te of *)
+(*       TyEqVar (_, CVar x, _) => as_TTyEqVar kctx x *)
+(*     | _ => raise (Impossible "transform_tyeq") *)
+
+(* fun transform_atom_typing hctx kctx tctx env aty = *)
+(*   case aty of *)
+(*       ATyVar (_, AEVar x, _, _) => as_TVTyReg hctx kctx tctx $ nth (env, x) *)
+(*     | ATyConst (_, AEConst cn, _, _) => as_TVTyWord tctx (as_TWTyConst hctx kctx cn) *)
+(*     | ATyFuncPointer (_, AEFuncPointer l, _, _) => as_TVTyWord tctx (as_TWTyLoc hctx kctx l) *)
+(*     | ATyAppC (_, aty1, kd2) => as_TVTyAppC (transform_atom_typing hctx kctx tctx env aty1) (transform_kinding (kd2, kctx)) *)
+(*     | ATyPack (_, kd1, kd2, aty3) => as_TVTyPack (transform_kinding (kd1, kctx)) (transform_kinding (kd2, kctx)) (transform_atom_typing hctx kctx tctx env aty3) *)
+(*     | ATySubTy (_, aty1, te2) => as_TVTySub (transform_atom_typing hctx kctx tctx env aty1) (transform_tyeq (te2, kctx)) *)
+(*     | ATySubTi (_, aty1, _) => transform_atom_typing hctx kctx tctx env aty1 *)
+(*     | _ => raise (Impossible "transform_atom_typing") *)
+(* end *)

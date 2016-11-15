@@ -17,6 +17,7 @@ open ShiftExpr
 open SubstCstr
 open SubstExpr
 
+structure DerivAssembler = DerivAssemblerFun(MicroTiMLDef)
 open DerivAssembler
 
 fun meta_lemma ty =
@@ -26,7 +27,9 @@ fun meta_lemma ty =
       (KdAdmit (kctx, t, KType), KdAdmit (kctx, i, KTime))
   end
 
-structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformer(
+structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformerFun(
+    structure MicroTiMLDef = MicroTiMLDef
+    structure Action =
     struct
     type kdown = unit
     type tdown = unit
