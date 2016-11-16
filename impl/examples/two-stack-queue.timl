@@ -1,5 +1,8 @@
-structure TwoStackQueue =
-struct
+(* Two-stack queue (amortized analysis) *)
+
+(* This file showcases how to use TiML, more specifically the [some_output_and_cost_constraint] and [amortized_comp] datatypes below, to conduct amortized complexity analysis. *)
+
+structure TwoStackQueue = struct
 
 open Basic
 open List
@@ -26,10 +29,12 @@ datatype amortized_comp 'a {s1 s2 : Nat} {acost : Time} =
            {cost : Time} 
          of (unit -- cost --> some_output_and_cost_constraint 'a {s1} {s2} {acost} {cost}) --> amortized_comp 'a {s1} {s2} {acost}
 
+(* enqueue is implemented by pushing to stack 1 *)                                
 fun do_enqueue ['a] {s1 s2 : Nat} (q : queue 'a {s1} {s2}, x : 'a) =
     case q return queue 'a {s1 + 1} {s2} of
         Queue (l1, l2) => Queue (x :: l1, l2)
 
+(* dequeue is implemented by poping from stack 2; when stack 2 is empty, dump all elements from stack 1 to stack2, reversing order naturally *)
 fun do_dequeue ['a] {s1 s2 : Nat} (q : queue 'a {s1} {s2}) return queue 'a {ite (s2 == 0) 0 s1} {ite (s2 == 0) (s1 - 1) (s2 - 1)} using ite (s2 == 0) ($s1 + 1.0) 0.0 =
     case q of
         Queue (l1, l2) =>

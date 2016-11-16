@@ -1,11 +1,11 @@
-structure LogFacts = struct
+(* Red-black tree with invariant for well-red-ness and black-height-blancedness *)
 
+structure LogFacts = struct
 datatype lemma1 {a b : Nat} =
          Lemma1 {2 ^ a <= b + 1 -> a <= ceil (log2 $(b + 1))} of lemma1 {a} {b}
 
 fun lemma1 {a b : Nat} () return lemma1 {a} {b} =
-    @Lemma1 {a} {b} {admit}
-      
+    @Lemma1 {a} {b} {admit} (* assume this fact as axiom *)
 end
 
 structure Compare = struct
@@ -19,14 +19,13 @@ fun cmp (a : int, b : int) return using m = Compare.Equal
 end
 end
 
-(* Red-black tree with invariant for well-red-ness and black-height-blance. Size-height-ratio can be derived from well-red-ness and black-height-blance. *)
-
 functor Rbt (structure K : sig
                            type t
                            idx m : Time
                            val cmp : t * t -- m --> Compare.cmp_result
               end) =
 struct
+        
 open Basic
 open Compare
 
@@ -36,7 +35,7 @@ datatype color : {Bool} =
          Black of color {true}
          | Red of color {false}
                           
-datatype rbt 'a : {Nat(*size*)} {Bool} {Nat(*black height*)} =
+datatype rbt 'a : {Nat(*size*)} {Bool} {Nat(*black-height*)} =
          Leaf of rbt 'a {0} {true} {0}
        | Node {lcolor color rcolor : Bool}
               {lsize rsize bh : Nat}
@@ -240,12 +239,13 @@ fun blacken_root ['a] {size bh : Nat} (tr : rbt 'a {size} {false} {bh}) return r
         Node (Red, l, c, r) => Node (Black, l, c, r)
       | _ => never
 
-(* final packaging: root must be black *)
+(* final packaging: hide color and black-height; root must be black. *)
 datatype rb_tree 'a {size : Nat} =
          RBTree {bh : Nat} of rbt 'a {size} {true} {bh} --> rb_tree 'a {size}
 
 val empty = RBTree Leaf
 
+(* for insert, the size of the resulting tree may be one node larger than the input *) 
 datatype may_grow_one 'a {size : Nat} =
          MayGrowOne {size' : Nat | size' = size \/ size' = size + 1} of rb_tree 'a {size'} --> may_grow_one 'a {size}
 
@@ -296,6 +296,7 @@ end
 
 end
 
+(* test the functor *)
 structure IntRbt = Rbt (structure K = IntKey)
 
 structure TestIntRbt = struct

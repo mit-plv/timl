@@ -1,42 +1,44 @@
-structure ArrayBSearch =
-struct
-  open Basic
-  open Nat
-  open Array
+(* Binary search on arrays *)
 
-  datatype order =
-    OrdLt
-  | OrdEq
-  | OrdGt
+structure ArrayBSearch = struct
 
-  absidx T_array_bsearch_on_range : BigO 2 (fn m n => $m * log2 $n) with
-    fun array_bsearch_on_range ['a] {m : Nat} {len : Nat} {l : Nat} {n : Nat} {n > 0} {l + n <= len} (p : 'a -- $m --> order) (a : array 'a {len}, l : nat {l}, n : nat {n}) return nat_less_than {len} using T_array_bsearch_on_range m n =
-      case le (n, #1) of
-           Le => NatLT l
-         | Gt =>
-             let
-               val half = floor_half n
-               val rest = nat_minus (n, half)
-               val m = nat_plus (l, half)
-               val ord = p (sub (a, m))
-             in
-               case ord of
-                    OrdLt => array_bsearch_on_range p (a, l, half)
-                  | _ => array_bsearch_on_range p (a, m, rest)
-             end
-  end
+open Basic
+open Nat
+open Array
 
-  fun array_bsearch ['a] {m : Nat} {len : Nat} (p : 'a -- $m --> order) (a : array 'a {len}) return option (nat_less_than {len}) =
+datatype order =
+         OrdLt
+         | OrdEq
+         | OrdGt
+
+absidx T_array_bsearch_on_range : BigO 2 (fn m n => $m * log2 $n) with
+fun array_bsearch_on_range ['a] {m : Nat} {len : Nat} {l : Nat} {n : Nat} {n > 0} {l + n <= len} (p : 'a -- $m --> order) (a : array 'a {len}, l : nat {l}, n : nat {n}) return nat_less_than {len} using T_array_bsearch_on_range m n =
+    case le (n, #1) of
+        Le => NatLT l
+      | Gt =>
+        let
+          val half = floor_half n
+          val rest = nat_minus (n, half)
+          val m = nat_plus (l, half)
+          val ord = p (sub (a, m))
+        in
+          case ord of
+              OrdLt => array_bsearch_on_range p (a, l, half)
+            | _ => array_bsearch_on_range p (a, m, rest)
+        end
+end
+
+fun array_bsearch ['a] {m : Nat} {len : Nat} (p : 'a -- $m --> order) (a : array 'a {len}) return option (nat_less_than {len}) =
     case le (length a, #0) of
-         Le => NONE
-       | Gt =>
-           let
-             val res = array_bsearch_on_range p (a, #0, length a)
-           in
-             case res of
-                  NatLT n =>
-                    case p (sub (a, n)) of
-                         OrdEq => SOME res
-                       | _ => NONE
-           end
+        Le => NONE
+      | Gt =>
+        let
+          val res = array_bsearch_on_range p (a, #0, length a)
+        in
+          case res of
+              NatLT n =>
+              case p (sub (a, n)) of
+                  OrdEq => SOME res
+                | _ => NONE
+        end
 end

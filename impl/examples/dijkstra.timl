@@ -1,5 +1,6 @@
-structure Dijkstra =
-struct
+(* Dijkstra's algorithm for graph shortest path *)
+
+structure Dijkstra = struct
 
 open Basic
 open Array
@@ -8,67 +9,67 @@ datatype dist_matrix 'a {n : Nat} =
          Mat of array (array 'a {n}) {n} --> dist_matrix 'a {n}
 
 fun relax ['a] {m1 m2 n u : Nat} {u < n} (add : 'a * 'a -- $m1 --> 'a, le : 'a * 'a -- $m2 --> bool) (graph : dist_matrix 'a {n}) (u : nat {u}, dist : array 'a {n}) =
-  let
+    let
       val vec =
           case graph return array 'a {n} of
               Mat content => sub (content, u)
       fun iter (w : nat_less_than {n}, ori_dist) =
-        case w of
-            NatLT v =>
-            let
+          case w of
+              NatLT v =>
+              let
                 val new_dist = add (sub (dist, u), sub (vec, v))
-            in
+              in
                 if le (ori_dist, new_dist) then
-                    ()
+                  ()
                 else
-                    update (dist, v, new_dist)
-            end
-  in
+                  update (dist, v, new_dist)
+              end
+    in
       appi iter dist
-  end
+    end
 
 fun select ['a] {m2 n : Nat} (le : 'a * 'a -- $m2 --> bool) (vis : array bool {n}, dist : array 'a {n}) =
-  let
+    let
       fun iter (w : nat_less_than {n}, ori_dist, who : option (nat_less_than {n})) =
-        case w of
-            NatLT v =>
-            if sub (vis, v) then who
-            else
+          case w of
+              NatLT v =>
+              if sub (vis, v) then who
+              else
                 case who of
                     NONE => SOME w
                   | SOME k =>
                     let
-                        val who_dist =
-                            case k of
-                                NatLT k => sub (dist, k)
+                      val who_dist =
+                          case k of
+                              NatLT k => sub (dist, k)
                     in
-                        if le (who_dist, ori_dist) then who else SOME w
+                      if le (who_dist, ori_dist) then who else SOME w
                     end
-  in
+    in
       foldli iter NONE dist
-  end
+    end
 
 fun dijkstra ['a] {m1 m2 n u : Nat} {u < n} (add : 'a * 'a -- $m1 --> 'a, le : 'a * 'a -- $m2 --> bool) (graph : dist_matrix 'a {n}, src : nat {u}, zero : 'a) =
-  let
+    let
       val n = case graph return nat {n} of Mat content => length content
       val dist = array (n, zero)
       val vis = array (n, false)
       val () = update (vis, src, true)
       fun iter _ =
-        case select le (vis, dist) of
-            NONE => ()
-          | SOME w =>
-            case w of
-                NatLT u =>
-                let
+          case select le (vis, dist) of
+              NONE => ()
+            | SOME w =>
+              case w of
+                  NatLT u =>
+                  let
                     val () = relax (add, le) graph (u, dist)
                     val () = update (vis, u, true)
-                in
+                  in
                     ()
-                end
+                  end
       val () = app iter dist
-  in
+    in
       dist
-  end
+    end
 
 end

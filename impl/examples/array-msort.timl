@@ -1,109 +1,112 @@
-structure ArrayMSort =
-struct
-  open Basic
-  open Nat
-  open Array
+(* Array-based merge sort *)
 
-  datatype natnum : {Nat} =
-    NumO of natnum {0}
-  | NumS {n' : Nat} of nat {n'} * natnum {n'} --> natnum {n' + 1}
+structure ArrayMSort = struct
 
-  absidx T_nat_2_natnum : BigO 1 (fn n => $n) = fn n => 11.0 * $n + 8.0  with
-    fun nat_2_natnum {n : Nat} (n : nat {n}) return natnum {n} using T_nat_2_natnum n =
-      case Nat.le (n, #0) return using (T_nat_2_natnum n) - 8.0 of
-           Le => NumO
-         | @Gt {m} {_} {pf} =>
-             let
-               val n' = @nat_minus {m} {1} {pf} (n, #1)
-             in
-               NumS (n', nat_2_natnum n')
-             end
-  end
+open Basic
+open Nat
+open Array
 
-  absidx T_array_merge_helper : BigO 2 (fn m n => $m * $n) with
-    fun array_merge_helper ['a] {m n1 n2 l r n : Nat} {l <= n1} {r <= n2} {n = l + r} (le : 'a * 'a -- $m --> bool) (xs : array 'a {n1}, ys : array 'a {n2}, des : array 'a {n1 + n2}, l : natnum {l}, r : natnum {r}, n : natnum {n}) return unit using T_array_merge_helper m n =
-      case l of
-          NumO =>
-          (case r of
-               NumO =>
-               (case n of
-                    NumO => ()
-                  | NumS _ => never)
-             | NumS (j, r') =>
-               (case n of
-                    NumO => never
-                  | NumS (k, n') =>
-                    let
-                        val y = sub (ys, j)
+datatype natnum : {Nat} =
+         NumO of natnum {0}
+       | NumS {n' : Nat} of nat {n'} * natnum {n'} --> natnum {n' + 1}
+
+absidx T_nat_2_natnum : BigO 1 (fn n => $n) = fn n => 11.0 * $n + 8.0  with
+fun nat_2_natnum {n : Nat} (n : nat {n}) return natnum {n} using T_nat_2_natnum n =
+    case Nat.le (n, #0) return using (T_nat_2_natnum n) - 8.0 of
+        Le => NumO
+      | @Gt {m} {_} {pf} =>
+        let
+          val n' = @nat_minus {m} {1} {pf} (n, #1)
+        in
+          NumS (n', nat_2_natnum n')
+        end
+end
+
+absidx T_array_merge_helper : BigO 2 (fn m n => $m * $n) with
+fun array_merge_helper ['a] {m n1 n2 l r n : Nat} {l <= n1} {r <= n2} {n = l + r} (le : 'a * 'a -- $m --> bool) (xs : array 'a {n1}, ys : array 'a {n2}, des : array 'a {n1 + n2}, l : natnum {l}, r : natnum {r}, n : natnum {n}) return unit using T_array_merge_helper m n =
+    case l of
+        NumO =>
+        (case r of
+             NumO =>
+             (case n of
+                  NumO => ()
+                | NumS _ => never)
+           | NumS (j, r') =>
+             (case n of
+                  NumO => never
+                | NumS (k, n') =>
+                  let
+                    val y = sub (ys, j)
+                    val () = update (des, k, y)
+                  in
+                    array_merge_helper le (xs, ys, des, l, r', n')
+                  end))
+      | NumS (i, l') =>
+        (case r of
+             NumO =>
+             (case n of
+                  NumO => never
+                | NumS (k, n') =>
+                  let
+                    val x = sub (xs, i)
+                    val () = update (des, k, x)
+                  in
+                    array_merge_helper le (xs, ys, des, l', r, n')
+                  end)
+           | NumS (j, r') =>
+             (case n of
+                  NumO => never
+                | NumS (k, n') =>
+                  let
+                    val x = sub(xs, i)
+                    val y = sub(ys, j)
+                  in
+                    if le (x, y) then
+                      let
                         val () = update (des, k, y)
-                    in
+                      in
                         array_merge_helper le (xs, ys, des, l, r', n')
-                    end))
-        | NumS (i, l') =>
-          (case r of
-               NumO =>
-               (case n of
-                    NumO => never
-                  | NumS (k, n') =>
-                    let
-                        val x = sub (xs, i)
+                      end
+                    else
+                      let
                         val () = update (des, k, x)
-                    in
+                      in
                         array_merge_helper le (xs, ys, des, l', r, n')
-                    end)
-             | NumS (j, r') =>
-               (case n of
-                    NumO => never
-                  | NumS (k, n') =>
-                    let
-                        val x = sub(xs, i)
-                        val y = sub(ys, j)
-                    in
-                        if le (x, y) then
-                            let
-                                val () = update (des, k, y)
-                            in
-                                array_merge_helper le (xs, ys, des, l, r', n')
-                            end
-                        else
-                            let
-                                val () = update (des, k, x)
-                            in
-                                array_merge_helper le (xs, ys, des, l', r, n')
-                            end
-                    end))
-  end
+                      end
+                  end))
+end
 
-  fun array_merge ['a] {m n1 n2 : Nat} (le : 'a * 'a -- $m --> bool) (xs : array 'a {n1}, ys : array 'a {n2}, des : array 'a {n1 + n2}) =
-  let
-    val lx = length xs
-    val ly = length ys
-  in
-    array_merge_helper le (xs, ys, des, nat_2_natnum lx, nat_2_natnum ly, nat_2_natnum (nat_plus (lx, ly)))
-  end
+fun array_merge ['a] {m n1 n2 : Nat} (le : 'a * 'a -- $m --> bool) (xs : array 'a {n1}, ys : array 'a {n2}, des : array 'a {n1 + n2}) =
+    let
+      val lx = length xs
+      val ly = length ys
+    in
+      array_merge_helper le (xs, ys, des, nat_2_natnum lx, nat_2_natnum ly, nat_2_natnum (nat_plus (lx, ly)))
+    end
 
-  absidx T_array_msort_on_range : BigO 2 (fn m n => $m * $n * log2 $n) with
-    fun array_msort_on_range ['a] {m : Nat} {len : Nat} {l : Nat} {n : Nat} {n > 0} {l + n <= len} (le : 'a * 'a -- $m --> bool) (a : array 'a {len}, l : nat {l}, n : nat {n}) return unit using T_array_msort_on_range m n =
-      case Nat.le (n, #1) of
-           Le => ()
-         | Gt =>
-             let
-               val half = floor_half n
-               val rest : nat {ceil ($n/2)} = nat_minus (n, half)
-               val m = nat_plus (l, half)
-               val () = array_msort_on_range le (a, l, half)
-               val () = array_msort_on_range le (a, m, rest)
-               val left = tabulate (half, fn (w : nat_less_than {floor ($n/2)}) => case w of NatLT i => sub (a, nat_plus (l, i)))
-               val right = tabulate (rest, fn (w : nat_less_than {ceil ($n/2)}) => case w of NatLT i => sub (a, nat_plus (m, i)))
-               val res = array (n, sub (a, l))
-               val () = array_merge le (left, right, res)
-             in
-               appi (fn (w : nat_less_than {n}, x) => case w of NatLT i => update (a, nat_plus (l, i), x)) res
-             end
-  end
+absidx T_array_msort_on_range : BigO 2 (fn m n => $m * $n * log2 $n) with
+fun array_msort_on_range ['a] {m : Nat} {len : Nat} {l : Nat} {n : Nat} {n > 0} {l + n <= len} (le : 'a * 'a -- $m --> bool) (a : array 'a {len}, l : nat {l}, n : nat {n}) return unit using T_array_msort_on_range m n =
+    case Nat.le (n, #1) of
+        Le => ()
+      | Gt =>
+        let
+          val half = floor_half n
+          val rest : nat {ceil ($n/2)} = nat_minus (n, half)
+          val m = nat_plus (l, half)
+          val () = array_msort_on_range le (a, l, half)
+          val () = array_msort_on_range le (a, m, rest)
+          val left = tabulate (half, fn (w : nat_less_than {floor ($n/2)}) => case w of NatLT i => sub (a, nat_plus (l, i)))
+          val right = tabulate (rest, fn (w : nat_less_than {ceil ($n/2)}) => case w of NatLT i => sub (a, nat_plus (m, i)))
+          val res = array (n, sub (a, l))
+          val () = array_merge le (left, right, res)
+        in
+          appi (fn (w : nat_less_than {n}, x) => case w of NatLT i => update (a, nat_plus (l, i), x)) res
+        end
+end
 
-  fun array_msort ['a] {m : Nat} {len : Nat} (le : 'a * 'a -- $m --> bool) (a : array 'a {len}) =
+fun array_msort ['a] {m : Nat} {len : Nat} (le : 'a * 'a -- $m --> bool) (a : array 'a {len}) =
     case Nat.le (length a, #0) of
-         Le => ()
-       | Gt => array_msort_on_range le (a, #0, length a)
+        Le => ()
+      | Gt => array_msort_on_range le (a, #0, length a)
+                                  
 end

@@ -1,4 +1,7 @@
+(* Quick sort *)
+
 structure QSort = struct
+
 open Basic
 open List
 
@@ -36,4 +39,5 @@ fun list_qsort ['a] {m len : Nat} (le : 'a * 'a -- $m --> bool) (l : list 'a {le
           in
               list_append (sorted_left, hd :: sorted_right)
           end
+            
 end

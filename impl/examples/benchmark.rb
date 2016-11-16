@@ -39,11 +39,11 @@ two-stack-queue & Two-stack queues & 0.15 & 95 & 7 & (amortized) $1$ \\\\
 array-bsearch & Binary search & 0.169 & 42 & 2 & $m\log n$ \\\\
 array-heap & Binary heap & 0.241 & 138 & 6 & $m\log n$ \\\\
 array-msort & Merge sort on arrays & 0.243 & 109 & 7 & $mn\log n$ \\\\
-array-msort-inplace & Inplace merge sort on arrays & 0.293 & 132 & 9 & $mn\log n$ \\\\
+array-msort-inplace & In-place merge sort on arrays & 0.293 & 132 & 9 & $mn\log n$ \\\\
 array-kmed & k-median search & 0.152 & 69 & 8 & $mn^2$ \\\\
 qsort & Quicksort & 0.121 & 39 & 7 & $m n^2$ \\\\
-dijkstra & Dijkstra & 0.125 & 74 & 0 & $(m_++m_\leq)n^2$ \\\\
-dlist & Double-linked lists & 0.305 & 111 & 10 & $mn$\\\\
+dijkstra & Dijkstra's & 0.125 & 74 & 0 & $(m_++m_\leq)n^2$ \\\\
+dlist & Doubly linked lists & 0.305 & 111 & 10 & $mn$\\\\
 }
 
 template = template.split("\n").join("")

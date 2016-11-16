@@ -1,5 +1,6 @@
-structure ArrayHeap =
-struct
+(* Array-based binary heaps *)
+
+structure ArrayHeap = struct
 
 open Basic
 open Nat
@@ -9,130 +10,130 @@ datatype heap 'a {cap size : Nat} =
          Heap {size <= cap} of nat {size} * array 'a {cap} --> heap 'a {cap} {size}
 
 fun create_heap ['a] {cap : Nat} (cap : nat {cap}, default : 'a) =
-  Heap (#0, array (cap, default))
+    Heap (#0, array (cap, default))
 
 fun size ['a] {cap size : Nat} {size <= cap} (heap : heap 'a {cap} {size}) return nat {size} =
-  case heap of
-      Heap (size, _) => size
+    case heap of
+        Heap (size, _) => size
 
 fun is_empty ['a] {cap size : Nat} {size <= cap} (heap : heap 'a {cap} {size}) return ibool {size == 0} =
-  case heap of
-      Heap (size, _) =>
-      case cmp (size, #0) of
-          Equal => True
-        | Greater => False
-        | _ => never
+    case heap of
+        Heap (size, _) =>
+        case cmp (size, #0) of
+            Equal => True
+          | Greater => False
+          | _ => never
 
 fun top ['a] {cap size : Nat} {size <= cap} {size > 0} (heap : heap 'a {cap} {size}) =
-  case heap of
-      Heap (size, content) => sub (content, #0)
+    case heap of
+        Heap (size, content) => sub (content, #0)
 
 absidx T_shift_up : BigO 2 (fn m n => $m * log2 $n) with
 fun shift_up ['a] {m cap size who : Nat} {size <= cap} {1 <= who} {who <= size} (comp : 'a * 'a -- $m --> bool) (heap : heap 'a {cap} {size}, who : nat {who}) return unit using T_shift_up m who =
-  case cmp (who, #1) of
-      Equal => ()
-    | Greater =>
-      (case heap of
-           Heap (_, content) =>
-           let
+    case cmp (who, #1) of
+        Equal => ()
+      | Greater =>
+        (case heap of
+             Heap (_, content) =>
+             let
                val par = floor_half who
                val par_ele = sub (content, nat_minus (par, #1))
                val cur_ele = sub (content, nat_minus (who, #1))
                val comp_res = comp (cur_ele, par_ele)
-           in
+             in
                if comp_res then
-                   ()
+                 ()
                else
-                   let
-                       val () = update (content, nat_minus (par, #1), cur_ele)
-                       val () = update (content, nat_minus (who, #1), par_ele)
-                   in
-                       shift_up comp (heap, par)
-                   end
-           end)
-    | _ => never
+                 let
+                   val () = update (content, nat_minus (par, #1), cur_ele)
+                   val () = update (content, nat_minus (who, #1), par_ele)
+                 in
+                   shift_up comp (heap, par)
+                 end
+             end)
+      | _ => never
 end
 
 fun push ['a] {m cap size : Nat} {size < cap} (comp : 'a * 'a -- $m --> bool) (heap : heap 'a {cap} {size}, ele : 'a) return heap 'a {cap} {size + 1} =
-  case heap return heap 'a {cap} {size + 1} using (T_shift_up m (size + 1)) + 5.0 of
-      Heap (size, content) =>
-      let
+    case heap return heap 'a {cap} {size + 1} using (T_shift_up m (size + 1)) + 5.0 of
+        Heap (size, content) =>
+        let
           val () = update (content, size, ele)
           val size' = nat_plus (size, #1)
           val heap' = Heap (size', content)
           val () = shift_up comp (heap', size')
-      in
+        in
           heap'
-      end
+        end
 
 absidx T_shift_down : BigO 2 (fn m n => $m * log2 $n) with
 fun shift_down ['a] {m cap size who dep : Nat} {size <= cap} {1 <= who} {who <= size} {who * dep >= size} (comp : 'a * 'a -- $m --> bool) (heap : heap 'a {cap} {size}, who : nat {who}, dep : nat {dep}) return unit using T_shift_down m dep =
-  let
+    let
       val left = nat_mult (#2, who)
       val right = nat_plus (left, #1)
       val dep' = ceil_half dep
-  in
+    in
       case heap of
           Heap (size, content) =>
           case cmp (left, size) of
               Greater => ()
             | Equal =>
               let
-                  val ele_left = sub (content, nat_minus (left, #1))
-                  val ele_cur = sub (content, nat_minus (who, #1))
-                  val comp_left = comp (ele_left, ele_cur)
+                val ele_left = sub (content, nat_minus (left, #1))
+                val ele_cur = sub (content, nat_minus (who, #1))
+                val comp_left = comp (ele_left, ele_cur)
               in
-                  if comp_left then
-                      ()
-                  else
-                      let
-                          val () = update (content, nat_minus (left, #1), ele_cur)
-                          val () = update (content, nat_minus (who, #1), ele_left)
-                      in
-                          shift_down comp (heap, left, dep')
-                      end
+                if comp_left then
+                  ()
+                else
+                  let
+                    val () = update (content, nat_minus (left, #1), ele_cur)
+                    val () = update (content, nat_minus (who, #1), ele_left)
+                  in
+                    shift_down comp (heap, left, dep')
+                  end
               end
             | Less =>
               let
-                  val ele_left = sub (content, nat_minus (left, #1))
-                  val ele_right = sub (content, nat_minus (right, #1))
-                  val ele_cur = sub (content, nat_minus (who, #1))
+                val ele_left = sub (content, nat_minus (left, #1))
+                val ele_right = sub (content, nat_minus (right, #1))
+                val ele_cur = sub (content, nat_minus (who, #1))
               in
-                  if comp (ele_left, ele_right) then
-                      let
-                          val () = update (content, nat_minus (right, #1), ele_cur)
-                          val () = update (content, nat_minus (who, #1), ele_right)
-                      in
-                          shift_down comp (heap, right, dep')
-                      end
-                  else
-                      let
-                          val () = update (content, nat_minus (left, #1), ele_cur)
-                          val () = update (content, nat_minus (who, #1), ele_left)
-                      in
-                          shift_down comp (heap, left, dep')
-                      end
+                if comp (ele_left, ele_right) then
+                  let
+                    val () = update (content, nat_minus (right, #1), ele_cur)
+                    val () = update (content, nat_minus (who, #1), ele_right)
+                  in
+                    shift_down comp (heap, right, dep')
+                  end
+                else
+                  let
+                    val () = update (content, nat_minus (left, #1), ele_cur)
+                    val () = update (content, nat_minus (who, #1), ele_left)
+                  in
+                    shift_down comp (heap, left, dep')
+                  end
               end
-  end
+    end
 end
 
 fun pop ['a] {m cap size : Nat} {size <= cap} {size > 0} (comp : 'a * 'a -- $m --> bool) (heap : heap 'a {cap} {size}) return heap 'a {cap} {size - 1} =
-  case heap return heap 'a {cap} {size - 1} using (T_shift_down m (size - 1)) + 8.0 of
-      Heap (size, content) =>
-      let
+    case heap return heap 'a {cap} {size - 1} using (T_shift_down m (size - 1)) + 8.0 of
+        Heap (size, content) =>
+        let
           val size' = nat_minus (size, #1)
           val heap' = Heap (size', content)
-      in
+        in
           case cmp (size', #0) of
               Equal => heap'
             | Greater =>
               let
-                  val () = update (content, #0, sub (content, size'))
-                  val () = shift_down comp (heap', #1, size')
+                val () = update (content, #0, sub (content, size'))
+                val () = shift_down comp (heap', #1, size')
               in
-                  heap'
+                heap'
               end
             | Less => never
-      end
+        end
 
 end
