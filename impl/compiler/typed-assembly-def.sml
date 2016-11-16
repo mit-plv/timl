@@ -1522,7 +1522,7 @@ fun as_TITyCase vty1 ity vty2 =
       val r = extract_tal_v_reg v1
       val () = assert (update_tal_tctx r t11 tctx1 = tctx2) "TITyCase"
       val (tctx31, i32) = extract_tal_c_arrow t3
-      val () = assert (List.take (update_tal_tctx r t12 tctx1, length tctx31) = tctx31) "TITyCase"
+      val () = assert (List.take (tl (update_tal_tctx r t12 tctx1), length tctx31) = tctx31) "TITyCase"
   in
       TITyCase (((hctx1, kctx1, tctx1), (TICase (r, v1) :: ins2, fin2), TTadd (TT1, TTmax (i2, i32))), vty1, ity, vty2)
   end
@@ -1569,7 +1569,7 @@ fun as_THTyCode kd ity =
       val (t11, ks12) = unwrap_TCForall t1 []
       val () = assert (kctx2 = ks12) "THTyCode"
       val (tctx111, i112) = extract_tal_c_arrow t11
-      val () = assert (tctx111 = tctx2 orelse t1 :: tctx111 = tctx2) "THTyCode"
+      val () = assert (tctx111 = tl tctx2) "THTyCode"
       (* val () = assert (t1 :: tctx111 = tctx2) "THTyCode" *) (* FIXME *)
       val () = assert (i112 = i2) "THTyCode"
   in
@@ -1854,7 +1854,7 @@ fun transform_hoisted_typing heap_base kctx tctx env hty =
           val (new_loc_ty, new_heap_ty) =
               let
                   val ((_, ks, ts), _, i) = extract_judge_tal_instr_typing ity3 (* ks should be the same as kctx *)
-                  val t_loc = foldl (fn (k, t) => TCForall (k, t)) (TCArrow (ts, i)) ks
+                  val t_loc = foldl (fn (k, t) => TCForall (k, t)) (TCArrow (tl ts, i)) ks
                   val wty1 = as_TWTyLocAdmit [] kctx new_loc t_loc
                   val vty1 = as_TVTyWord tctx1 wty1
                   val new_loc_ty = foldri (fn (i, _, vty) =>
@@ -1865,7 +1865,7 @@ fun transform_hoisted_typing heap_base kctx tctx env hty =
                             in
                                 as_TVTyAppC vty kd
                             end) vty1 kctx
-                  val new_heap_ty = as_THTyCode (as_TKdAdmit [] t_loc TKType) ity3
+                  val new_heap_ty = as_THTyCode (as_TKdAdmit [] t_loc TKType) ity3 (* FIXME *)
               in
                   (new_loc_ty, new_heap_ty)
               end
