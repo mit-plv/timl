@@ -1,6 +1,6 @@
-structure Rbt = struct
+(* Red-black tree with invariant for well-red-ness, black-height-blancedness and sortedness *)
 
-(* Red-black tree with invariant for well-red-ness, black-height-blance and sorted-ness. Size-height-ratio can be derived from well-red-ness and black-height-blance. Key type is indexed unsigned fixed-width integers *)
+structure Rbt = struct
 
 open Basic
 open Nat

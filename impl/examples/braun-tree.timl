@@ -3,23 +3,27 @@
 (* Braun trees are a kind of balanced binary tree where the element stored in each node is no larger than elements in its children, and the size of each left child is equal to or larger by one than its right sibling. They are used to implement functional priority queues (or binary heaps), where the dequeue operation pops and returns the minimal element of the queue. 
  *)
 
-structure BraunTree = struct
+functor BraunTree (structure K : sig
+                               type t
+                               idx m : Time
+                               val le : t * t -- m --> Basic.bool
+              end) =
+struct
 
 open Basic
+open K
+           
+datatype braun_tree : {Nat} =
+         Leaf of braun_tree {0}
+       | Node {size : Nat} of t * braun_tree {ceil ($size/2)} * braun_tree {floor ($size/2)} --> braun_tree {size+1}
 
-datatype braun_tree 'a : {Nat} =
-         Leaf of braun_tree 'a {0}
-       | Node {size : Nat} of 'a * braun_tree 'a {ceil ($size/2)} * braun_tree 'a {floor ($size/2)} --> braun_tree 'a {size+1}
-
-fun le ['a] (x : 'a, y : 'a) = false using 7.0
-
-fun min_max ['a] {m : Time} (le : 'a * 'a -- m --> bool) (x, y) =
+fun min_max {m : Time} (le : t * t -- m --> bool) (x, y) =
     case le (x, y) of
         true => (x, y)
       | false => (y, x)
 
 absidx T_insert : BigO 1 (fn n => log2 $n) with
-fun insert ['a] {size : Nat} (tr : braun_tree 'a {size}) (x : 'a) return braun_tree 'a {size + 1} using T_insert size =
+fun insert {size : Nat} (tr : braun_tree {size}) (x : t) return braun_tree {size + 1} using T_insert size =
     case tr of
         Leaf => @Node {0} (x, Leaf, Leaf)
       | @Node {size'} (y, l, r) =>
@@ -30,22 +34,23 @@ fun insert ['a] {size : Nat} (tr : braun_tree 'a {size}) (x : 'a) return braun_t
         end
 end
 
+(* retrieve without pop *)  
 absidx T_peek: Time with
-fun peek ['a] {size : Nat} (tr : braun_tree 'a {size + 1}) return 'a using T_peek =
+fun peek {size : Nat} (tr : braun_tree {size + 1}) return t using T_peek =
     case tr of
         Node (x, _, _) => x
       | Leaf => never
 end
 
 absidx T : Time with
-fun peek_option ['a] {size : Nat} (tr : braun_tree 'a {size}) return option 'a using T =
+fun peek_option {size : Nat} (tr : braun_tree {size}) return option t using T =
     case tr of
         Leaf => NONE
       | Node (x, _, _) => SOME x
 end
 
-absidx Tsift : BigO 1 (fn n => log2 $n) with
-fun sift ['a] {size : Nat} (x, l : braun_tree 'a {ceil ($size/2)}, r : braun_tree 'a {floor ($size/2)}) return braun_tree 'a {size+1} using Tsift size =
+absidx T_sift : BigO 1 (fn n => log2 $n) with
+fun sift {size : Nat} (x, l : braun_tree {ceil ($size/2)}, r : braun_tree {floor ($size/2)}) return braun_tree {size+1} using T_sift size =
     case (l, r) of
         (Leaf, Leaf) =>
         @Node {0} (x, Leaf, Leaf)
@@ -68,7 +73,7 @@ fun sift ['a] {size : Nat} (x, l : braun_tree 'a {ceil ($size/2)}, r : braun_tre
 end
 
 absidx T_pop : BigO 1 (fn n => log2 $n * log2 $n) with
-fun pop ['a] {size : Nat} (tr : braun_tree 'a {size + 1}) return 'a * braun_tree 'a {size} using T_pop size =
+fun pop {size : Nat} (tr : braun_tree {size + 1}) return t * braun_tree {size} using T_pop size =
     case tr of
         Node (x, l, r) =>
         (case (l, r) of
