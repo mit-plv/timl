@@ -1861,7 +1861,7 @@ fun transform_hoisted_typing heap_base kctx tctx env hty =
                             let
                                 val (_, _, t) = extract_judge_tal_value_typing vty
                                 val (_, k, _) = extract_tal_c_quan t
-                                val kd = as_TKdAdmit kctx (TCVar i) k (* FIXME: need some meta lemma, or introduce in upper layers *)
+                                val kd = as_TKdVar kctx i
                             in
                                 as_TVTyAppC vty kd
                             end) vty1 kctx
