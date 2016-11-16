@@ -26,7 +26,7 @@ fun hd ['a] {n: Nat | n > 0} (ls: list 'a {n}) =
         x :: _ => x
       | _ => never
 
-(* revert and append *)               
+(* reverse and append *)               
 fun rev_append ['a] {n m : Nat} (l : list 'a {n}, acc : list 'a {m}) return list 'a {n + m} using $n =
     case l of
         [] => acc
@@ -40,7 +40,7 @@ fun rev_append_2 ['a] {n1 n2 : Nat} (xs : list 'a {n1}) (ys : list 'a {n2}) retu
       | x :: xs => rev_append_2 xs (x :: ys)
 end
 
-(* revert *)
+(* reverse *)
 absidx T_rev : BigO 1 (fn n => $n) with
 fun rev ['a] {n : Nat} (xs : list 'a {n}) return list _ {n} using T_rev n = rev_append_2 xs []
 end
