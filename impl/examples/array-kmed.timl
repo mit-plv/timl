@@ -1,5 +1,6 @@
-structure ArrayKthMedian =
-struct
+(* K-median search *)
+
+structure ArrayKthMedian = struct
 
 open Basic
 open Nat
@@ -9,61 +10,61 @@ datatype nat_less_equal_than {n : Nat} =
          NatLE {m : Nat} {m <= n} of nat {m} --> nat_less_equal_than {n}
 
 fun swap ['a] {len i j : Nat} {i < len} {j < len} (a : array 'a {len}, i : nat {i}, j : nat {j}) =
-  let
+    let
       val tmp = sub (a, i)
       val () = update (a, i, sub (a, j))
       val () = update (a, j, tmp)
-  in
+    in
       ()
-  end
+    end
 
-idx T_array_pivot_on_range : Fun 2 = fn m n => 23.0 * ($m + 1.0) * $n + 8.0
+      idx T_array_pivot_on_range : Fun 2 = fn m n => 23.0 * ($m + 1.0) * $n + 8.0
 fun array_pivot_on_range ['a] {m len l n : Nat} {l + n <= len} (le : 'a * 'a -- $m --> bool) (a : array 'a {len}, l : nat {l}, n : nat {n}, x : 'a) return nat_less_equal_than {n} using T_array_pivot_on_range m n =
-  case Nat.le (n, #0) return using (T_array_pivot_on_range m n) - 8.0 of
-      Le => NatLE #0
-    | Gt =>
-      let
+    case Nat.le (n, #0) return using (T_array_pivot_on_range m n) - 8.0 of
+        Le => NatLE #0
+      | Gt =>
+        let
           val n' = nat_minus (n, #1)
           val who = nat_plus (l, n')
           val ele = sub (a, who)
-      in
+        in
           if le (ele, x) then
-              let
-                  val () = swap (a, l, who)
-              in
-                  case array_pivot_on_range le (a, nat_plus (l, #1), n', x) of
-                      NatLE p => NatLE p
-              end
+            let
+              val () = swap (a, l, who)
+            in
+              case array_pivot_on_range le (a, nat_plus (l, #1), n', x) of
+                  NatLE p => NatLE p
+            end
           else
-              case array_pivot_on_range le (a, l, n', x) of
-                  NatLE p => NatLE (nat_plus (p, #1))
-      end
+            case array_pivot_on_range le (a, l, n', x) of
+                NatLE p => NatLE (nat_plus (p, #1))
+        end
 
-idx T_array_kth_median_on_range : Fun 2 = fn m n => 41.0 * ($m + 1.0) * $n * $n + 8.0
+          idx T_array_kth_median_on_range : Fun 2 = fn m n => 41.0 * ($m + 1.0) * $n * $n + 8.0
 fun array_kth_median_on_range ['a] {m len l n k : Nat} {l + n <= len} {1 <= k} {k <= n} (le : 'a * 'a -- $m --> bool) (a : array 'a {len}, l : nat {l}, n : nat {n}, k : nat {k}) return 'a using T_array_kth_median_on_range m n =
-  case Nat.le (n, #0) return using (T_array_kth_median_on_range m n - 8.0) of
-      Le => never
-    | Gt =>
-      let
+    case Nat.le (n, #0) return using (T_array_kth_median_on_range m n - 8.0) of
+        Le => never
+      | Gt =>
+        let
           val x = sub (a, l)
           val res = array_pivot_on_range le (a, nat_plus (l, #1), nat_minus (n, #1), x)
-      in
+        in
           case res of
               NatLE gtc =>
               let
-                  val rank = nat_plus (gtc, #1)
+                val rank = nat_plus (gtc, #1)
               in
-                  case cmp (rank, k) of
-                      Equal => x
-                    | Less =>
-                      let
-                          val () = swap (a, l, nat_plus (l, nat_minus (n, rank)))
-                      in
-                          (array_kth_median_on_range le (a, l, nat_minus (n, rank), nat_minus (k, rank)) using (T_array_kth_median_on_range m (n - 1)) + 6.0)
-                      end
-                    | Greater =>
-                      (array_kth_median_on_range le (a, nat_plus (l, nat_minus (n, gtc)), gtc, k) using (T_array_kth_median_on_range m (n - 1)) + 6.0)
+                case cmp (rank, k) of
+                    Equal => x
+                  | Less =>
+                    let
+                      val () = swap (a, l, nat_plus (l, nat_minus (n, rank)))
+                    in
+                      (array_kth_median_on_range le (a, l, nat_minus (n, rank), nat_minus (k, rank)) using (T_array_kth_median_on_range m (n - 1)) + 6.0)
+                    end
+                  | Greater =>
+                    (array_kth_median_on_range le (a, nat_plus (l, nat_minus (n, gtc)), gtc, k) using (T_array_kth_median_on_range m (n - 1)) + 6.0)
               end
-      end
+        end
 
 end

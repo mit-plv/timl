@@ -1,3 +1,5 @@
+(* Lists of lists *)
+
 structure LsLs = struct
 
 open List

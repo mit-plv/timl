@@ -1,3 +1,12 @@
+(* Dynamic table (amortized analysis) *)
+
+(* This file showcases how to use TiML, more specifically the [some_output_and_cost_constraint] and [amortized_comp] datatypes below, to conduct amortized complexity analysis. *)
+(* A dynamic table [1] (like the ``vector'' container in C++'s STL) is a dynamically allocated buffer that enlarges itself when the load factor becomes too high after an insertion, and shrinks itself when the load factor becomes too low after a deletion. *)
+
+(* [1] T. H. Cormen, C. Stein, R. L. Rivest, and C. E. Leiserson.
+Introduction to Algorithms. McGraw-Hill Higher Education,
+2nd edition, 2001. *)
+
 functor DynamicTable (structure T : sig
 (* num: the number of existing elements in the table 
    size: the capacity (the maximal possible number of elements) *)
