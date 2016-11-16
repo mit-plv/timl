@@ -442,6 +442,10 @@ fun extract_judge_tal_heap_typing hty =
     | THTyPair (j, _, _) => j
     | THTyWord (j, _) => j
 
+fun extract_judge_tal_program_typing pty =
+  case pty of
+      TPTyProgram (j, _, _, _) => j
+
 fun extract_tal_p_bin_conn (TPBinConn a) = a
   | extract_tal_p_bin_conn _ = raise (Impossible "extract_tal_p_bin_conn")
 
@@ -509,6 +513,58 @@ and str_tal_prop p =
       | TPNot p => "(not" ^ str_tal_prop p ^ ")"
       | TPBinPred (opr, i1, i2) => "(" ^ str_tal_cstr i1 ^ " " ^ str_prop_bin_pred opr ^ " " ^ str_tal_cstr i2 ^ ")"
       | TPQuan (q, b, p) => "(" ^ str_quan q ^ " " ^ str_sort b ^ " : " ^ str_tal_prop p ^ ")"
+
+fun str_tal_word w =
+  case w of
+      TWLoc loc => "LOC:" ^ str_int loc
+    | TWConst cn => str_expr_const cn
+    | TWAppC (w, c) => str_tal_word w ^ "[" ^ str_tal_cstr c ^ "]"
+    | TWPack (c, w) => "pack[" ^ "_" ^ " , " ^ str_tal_word w ^ "]"
+
+fun str_tal_value v =
+  case v of
+      TVReg reg => "REG:" ^ str_int reg
+    | TVWord w => str_tal_word w
+    | TVAppC (v, c) => str_tal_value v ^ "[" ^ str_tal_cstr c ^ "]"
+    | TVPack (c, v) => "pack[" ^ "_" ^ " , " ^ str_tal_value v ^ "]"
+
+fun str_tal_instr i =
+  case i of
+      TINewpair (rd, rs, rt) => "newpair " ^ str_tal_value (TVReg rd) ^ ", " ^ str_tal_value (TVReg rs) ^ ", " ^ str_tal_value (TVReg rt)
+    | TIProj (p, rd, rs) => (case p of ProjFst => "ldfst "
+                                    | ProjSnd => "ldsnd ") ^ str_tal_value (TVReg rd) ^ ", " ^ str_tal_value (TVReg rs)
+    | TIInj (inj, rd) => (case inj of InjInl => "inl "
+                                   | InjInr => "inr ") ^ str_tal_value (TVReg rd)
+    | TIFold rd => "fold " ^ str_tal_value (TVReg rd)
+    | TIUnfold rd => "unfold " ^ str_tal_value (TVReg rd)
+    | TINewref (rd, rs) => "newref " ^ str_tal_value (TVReg rd) ^ ", " ^ str_tal_value (TVReg rs)
+    | TIDeref (rd, rs) => "deref " ^ str_tal_value (TVReg rd) ^ ", " ^ str_tal_value (TVReg rs)
+    | TISetref (rd, rs) => "setref " ^ str_tal_value (TVReg rd) ^ ", " ^ str_tal_value (TVReg rs)
+    | TIPrimBinOp (opr, rd, rs, rt) => (case opr of
+                                           PEBIntAdd => "addi "
+                                      ) ^ str_tal_value (TVReg rd) ^ ", " ^ str_tal_value (TVReg rs) ^ ", " ^ str_tal_value (TVReg rt)
+    | TIMove (rd, v) => "move " ^ str_tal_value (TVReg rd) ^ ", " ^ str_tal_value v
+    | TIUnpack (rd, v) => "unpack " ^ str_tal_value (TVReg rd) ^ ", " ^ str_tal_value v
+    | TICase (rd, v) => "case " ^ str_tal_value (TVReg rd) ^ ", " ^ str_tal_value v
+
+fun str_tal_control c =
+  case c of
+      TCJump v => "jump " ^ str_tal_value v
+    | TCHalt c => "halt[" ^ str_tal_cstr c ^ "]"
+
+fun str_tal_block (ins, fin) =
+  (foldl (fn (i, s) => s ^ "  " ^ str_tal_instr i ^ "\n") "" ins) ^ ("  " ^ str_tal_control fin ^ "\n")
+
+fun str_tal_heap h =
+  case h of
+      THWord w => "  " ^ str_tal_word w ^ "\n"
+    | THPair (w1, w2) => "  " ^ "(" ^ str_tal_word w1 ^ " , " ^ str_tal_word w2 ^ ")" ^ "\n"
+    | THCode (n, blk) => "  (" ^ str_int n ^ " cstr parameter(s)" ^ ")\n" ^ str_tal_block blk
+
+fun str_tal_program p =
+  case p of
+      TProgram (heaps, _, main) =>
+      (foldli (fn (i, h, s) => s ^ "LOC:" ^ str_int i ^ ":\n" ^ str_tal_heap h) "" heaps) ^ "MAIN:\n" ^ str_tal_block main
 end
 
 functor TALCstrGenericTransformerFun(
@@ -1513,6 +1569,7 @@ fun as_THTyCode kd ity =
       val (t11, ks12) = unwrap_TCForall t1 []
       val () = assert (kctx2 = ks12) "THTyCode"
       val (tctx111, i112) = extract_tal_c_arrow t11
+      val () = assert (tctx111 = tctx2 orelse t1 :: tctx111 = tctx2) "THTyCode"
       (* val () = assert (t1 :: tctx111 = tctx2) "THTyCode" *) (* FIXME *)
       val () = assert (i112 = i2) "THTyCode"
   in
@@ -1543,10 +1600,10 @@ fun as_TPTyProgram htys wtys ity =
       val jhtys = map extract_judge_tal_heap_typing htys
       val jwtys = map extract_judge_tal_word_typing wtys
       val ((hctx3, kctx3, tctx3), (ins3, fin3), i3) = extract_judge_tal_instr_typing ity
-      (* val () = assert (hctx3 = map (fn (_, _, t) => t) jhtys) "TPTyProgram" *) (* FIXME *)
+      val () = assert (hctx3 = map (fn (_, _, t) => t) jhtys) "TPTyProgram"
       val () = assert (kctx3 = []) "TPTyProgram"
       val () = assert (tctx3 = map (fn (_, _, t) => t) jwtys) "TPTyProgram"
-      (* val () = assert (all (fn (hctx, _, _) => hctx = hctx3) jhtys) "TPTyProgram" *) (* FIXME *)
+      val () = assert (all (fn (hctx, _, _) => hctx = hctx3) jhtys) "TPTyProgram"
       val () = assert (all (fn ((hctx, kctx), _, _) => hctx = hctx3 andalso kctx = []) jwtys) "TPTyProgram"
   in
       TPTyProgram ((TProgram (map (fn (_, h, _) => h) jhtys, map (fn (_, w, _) => w) jwtys, (ins3, fin3)), i3), htys, wtys, ity)
@@ -1972,7 +2029,7 @@ fun transform_hoisted_typing heap_base kctx tctx env hty =
                     val rs = fresh_reg tctx1
                     val (_, _, t2) = extract_judge_tal_value_typing vty2
                     val tctx2 = update_tal_tctx rs t2 tctx1
-                    val (heaps3, heap_next, ity3) = transform_hoisted_typing heap_base kctx tctx2 (~1 :: env) hty2 (* TODO *)
+                    val (heaps3, heap_next, ity3) = transform_hoisted_typing heap_base kctx tctx2 (~1 :: env) hty2 (* CPS should eliminate the use of result of a writing *)
                     val ity2 = as_TITySetref (as_TVTyReg [] kctx tctx2 rd) (as_TVTyReg [] kctx tctx2 rs) ity3
                     val ity1 = as_TITyMove rs vty2 ity2
                     val ity = as_TITyMove rd vty1 ity1
@@ -2048,6 +2105,74 @@ fun transform_func_typing heap_base fty =
           (heaps, heap_next, as_THTyCode kd1 ity)
       end
 
+fun set_hctx_word_typing hctx wty =
+  let
+      fun inner wty =
+        case wty of
+            TWTyLoc ((_, kctx), TWLoc loc, _) => as_TWTyLoc hctx kctx loc
+          | TWTyConst ((_, kctx), TWConst cn, _) => as_TWTyConst hctx kctx cn
+          | TWTyAppC (_, wty1, kd2) => as_TWTyAppC (inner wty1) kd2
+          | TWTyPack (_, kd1, kd2, wty3) => as_TWTyPack kd1 kd2 (inner wty3)
+          | TWTySub (_, wty1, te2) => as_TWTySub (inner wty1) te2
+          | TWTyLocAdmit ((_, kctx), TWLoc loc, _) => as_TWTyLoc hctx kctx loc
+          | _ => raise (Impossible "set_hctx_word_typing")
+  in
+      inner wty
+  end
+
+fun set_hctx_value_typing hctx vty =
+  let
+      val on_wty = set_hctx_word_typing hctx
+      fun inner vty =
+        case vty of
+            TVTyReg ((_, kctx, tctx), TVReg reg, _) => as_TVTyReg hctx kctx tctx reg
+          | TVTyWord (((_, _, tctx), _, _), wty) => as_TVTyWord tctx (on_wty wty)
+          | TVTyAppC (_, vty1, kd2) => as_TVTyAppC (inner vty1) kd2
+          | TVTyPack (_, kd1, kd2, vty3) => as_TVTyPack kd1 kd2 (inner vty3)
+          | TVTySub (_, vty1, te2) => as_TVTySub (inner vty1) te2
+          | _ => raise (Impossible "set_hctx_value_typing")
+  in
+      inner vty
+  end
+
+fun set_hctx_instr_typing hctx ity =
+  let
+      val on_vty = set_hctx_value_typing hctx
+      fun inner ity =
+        case ity of
+            TITyNewpair ((_, (TINewpair (rd, _, _) :: _, _), _), vty1, vty2, ity3) => as_TITyNewpair rd (on_vty vty1) (on_vty vty2) (inner ity3)
+          | TITyProj ((_, (TIProj (p, rd, _) :: _, _), _), vty1, ity2) => as_TITyProj p rd (on_vty vty1) (inner ity2)
+          | TITyInj ((_, (TIInj (inj, _) :: _, _), _), vty1, kd2, ity3) => as_TITyInj inj (on_vty vty1) kd2 (inner ity3)
+          | TITyFold ((_, (TIFold _ :: _, _), _), kd1, vty2, ity3) => as_TITyFold kd1 (on_vty vty2) (inner ity3)
+          | TITyUnfold ((_, (TIUnfold _ :: _, _), _), vty1, ity2) => as_TITyUnfold (on_vty vty1) (inner ity2)
+          | TITyNewref ((_, (TINewref (rd, _) :: _, _), _), vty1, ity2) => as_TITyNewref rd (on_vty vty1) (inner ity2)
+          | TITyDeref ((_, (TIDeref (rd, _) :: _, _), _), vty1, ity2) => as_TITyDeref rd (on_vty vty1) (inner ity2)
+          | TITySetref ((_, (TISetref _ :: _, _), _), vty1, vty2, ity3) => as_TITySetref (on_vty vty1) (on_vty vty2) (inner ity3)
+          | TITyPrimBinOp ((_, (TIPrimBinOp (opr, rd, _, _) :: _, _), _), vty1, vty2, ity3) => as_TITyPrimBinOp opr rd (on_vty vty1) (on_vty vty2) (inner ity3)
+          | TITyMove ((_, (TIMove (rd, _) :: _, _), _), vty1, ity2) => as_TITyMove rd (on_vty vty1) (inner ity2)
+          | TITyUnpack ((_, (TIUnpack (rd, _) :: _, _), _), vty1, ity2) => as_TITyUnpack rd (on_vty vty1) (inner ity2)
+          | TITyCase ((_, (TICase _ :: _, _), _), vty1, ity2, vty3) => as_TITyCase (on_vty vty1) (inner ity2) (on_vty vty3)
+          | TITyJump (_, vty) => as_TITyJump (on_vty vty)
+          | TITyHalt (_, vty) => as_TITyHalt (on_vty vty)
+          | TITySub (_, ity1, pr2) => as_TITySub (inner ity1) pr2
+          | _ => raise (Impossible "set_hctx_instr_typing")
+  in
+      inner ity
+  end
+
+fun set_hctx_heap_typing hctx hty =
+  let
+      val on_ity = set_hctx_instr_typing hctx
+      val on_wty = set_hctx_word_typing hctx
+      fun inner hty =
+        case hty of
+            THTyCode (_, kd1, ity2) => as_THTyCode kd1 (on_ity ity2)
+          | THTyPair (_, wty1, wty2) => as_THTyPair (on_wty wty1) (on_wty wty2)
+          | THTyWord (_, wty) => as_THTyWord (on_wty wty)
+  in
+      inner hty
+  end
+
 fun transform_program_typing ty =
   case ty of
       TyProgram (_, ftys, hty_main) =>
@@ -2062,7 +2187,9 @@ fun transform_program_typing ty =
           val htys = rev rev_htys
           val (heaps_d, _, ity_main) = transform_hoisted_typing heap_next [] [] [] hty_main
           val whole_heaps = htys @ heaps @ heaps_d
-          val hctx = map (fn hty => #3 (extract_judge_tal_heap_typing hty)) whole_heaps (* TODO: plug in correct hctx *)
+          val hctx = map (fn hty => #3 (extract_judge_tal_heap_typing hty)) whole_heaps
+          val ity_main = set_hctx_instr_typing hctx ity_main
+          val whole_heaps = map (set_hctx_heap_typing hctx) whole_heaps
       in
           as_TPTyProgram whole_heaps [] ity_main
       end

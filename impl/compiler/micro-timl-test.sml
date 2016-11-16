@@ -217,6 +217,7 @@ fun test_absc_appc () =
       val () = print $ str_program $ #1 (extract_judge_ptyping hoisted_ty)
       val () = check_program hoisted_ty
       val assembly_ty = code_gen_deriv hoisted_ty
+      val () = print $ str_tal_program $ #1 (extract_judge_tal_program_typing assembly_ty)
   in
       println ""
   end
@@ -244,6 +245,7 @@ fun test_abs_app () =
       val () = print $ str_program $ #1 (extract_judge_ptyping hoisted_ty)
       val () = check_program hoisted_ty
       val assembly_ty = code_gen_deriv hoisted_ty
+      val () = println $ str_tal_program (#1 (extract_judge_tal_program_typing assembly_ty))
   in
       println ""
   end
@@ -273,6 +275,7 @@ fun test_currying () =
       val () = print $ str_program $ #1 (extract_judge_ptyping hoisted_ty)
       val () = check_program hoisted_ty
       val assembly_ty = code_gen_deriv hoisted_ty
+      val () = println $ str_tal_program (#1 (extract_judge_tal_program_typing assembly_ty))
   (*val anf_ty = fst $ ANF.normalize_deriv clo_conv_deriv
       val janf_ty = extract_judge_typing anf_ty
       val () = println $ str_expr $ #2 janf_ty
@@ -571,6 +574,7 @@ fun test_concat () =
       val () = print $ str_program $ #1 (extract_judge_ptyping hoisted_ty)
       val () = check_program hoisted_ty
       val assembly_ty = code_gen_deriv hoisted_ty
+      val () = println $ str_tal_program (#1 (extract_judge_tal_program_typing assembly_ty))
   (*val concat_anf_ty = fst $ ANF.normalize_deriv concat_clo_conv_deriv
       val jconcat_anf_ty = extract_judge_typing concat_anf_ty
       val () = println $ str_expr $ #2 jconcat_anf_ty

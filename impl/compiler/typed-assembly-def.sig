@@ -264,6 +264,7 @@ sig
     val extract_judge_tal_value_typing : tal_value_typing -> tal_value_typing_judgement
     val extract_judge_tal_instr_typing : tal_instr_typing -> tal_instr_typing_judgement
     val extract_judge_tal_heap_typing : tal_heap_typing -> tal_heap_typing_judgement
+    val extract_judge_tal_program_typing : tal_program_typing -> tal_program_typing_judgement
 
     val extract_tal_p_bin_conn : tal_prop -> MicroTiMLHoistedDef.MicroTiMLDef.prop_bin_conn * tal_prop * tal_prop
     val extract_tal_p_bin_pred : tal_prop -> MicroTiMLHoistedDef.MicroTiMLDef.prop_bin_pred * tal_cstr * tal_cstr
@@ -281,4 +282,6 @@ sig
     val str_tal_cstr : tal_cstr -> string
     val str_tal_kind : tal_kind -> string
     val str_tal_prop : tal_prop -> string
+
+    val str_tal_program : tal_program -> string
 end
