@@ -245,7 +245,7 @@ datatype rb_tree 'a {size : Nat} =
 
 val empty = RBTree Leaf
 
-(* the result size of insert may be larger by one *)                   
+(* for insert, the size of the resulting tree may be one node larger than the input *) 
 datatype may_grow_one 'a {size : Nat} =
          MayGrowOne {size' : Nat | size' = size \/ size' = size + 1} of rb_tree 'a {size'} --> may_grow_one 'a {size}
 
