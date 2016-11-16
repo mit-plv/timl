@@ -1569,8 +1569,7 @@ fun as_THTyCode kd ity =
       val (t11, ks12) = unwrap_TCForall t1 []
       val () = assert (kctx2 = ks12) "THTyCode"
       val (tctx111, i112) = extract_tal_c_arrow t11
-      val () = assert (tctx111 = tl tctx2) "THTyCode"
-      (* val () = assert (t1 :: tctx111 = tctx2) "THTyCode" *) (* FIXME *)
+      val () = assert (t1 :: tctx111 = tctx2) "THTyCode"
       val () = assert (i112 = i2) "THTyCode"
   in
       THTyCode ((hctx2, THCode (length kctx2, (ins2, fin2)), t1), kd, ity)
@@ -1848,13 +1847,20 @@ fun transform_hoisted_typing heap_base kctx tctx env hty =
           val (t11, t12) = extract_tal_c_sum t1
           val tctx1 = update_tal_tctx rd t1 tctx
           val (heaps2, heap_next_mid, ity2) = transform_hoisted_typing heap_base kctx (update_tal_tctx rd t11 tctx1) (rd :: env) hty2
-          val (heaps3, heap_next, ity3) = transform_hoisted_typing heap_next_mid kctx (update_tal_tctx rd t12 tctx1) (rd :: env) hty3
+          val dummy_i = transform_cstr $ #3 (extract_judge_htyping hty3) (* FIXME: time annotations *)
+          val dummy_t =
+              let
+                  val t1 = TCArrow (tl (update_tal_tctx rd t12 tctx1), dummy_i)
+              in
+                  foldl (fn (k, t) => TCForall (k, t)) t1 kctx
+              end
+          val (heaps3, heap_next, ity3) = transform_hoisted_typing heap_next_mid kctx (update_tal_tctx 0 dummy_t (update_tal_tctx rd t12 tctx1)) (rd :: env) hty3
+          val ity3 = as_TITySub ity3 (as_TPrAdmit kctx (TTLe (#3 (extract_judge_tal_instr_typing ity3), dummy_i)))
           val new_loc = heap_next
           val heap_next = heap_next + 1
           val (new_loc_ty, new_heap_ty) =
               let
-                  val ((_, ks, ts), _, i) = extract_judge_tal_instr_typing ity3 (* ks should be the same as kctx *)
-                  val t_loc = foldl (fn (k, t) => TCForall (k, t)) (TCArrow (tl ts, i)) ks
+                  val t_loc = dummy_t
                   val wty1 = as_TWTyLocAdmit [] kctx new_loc t_loc
                   val vty1 = as_TVTyWord tctx1 wty1
                   val new_loc_ty = foldri (fn (i, _, vty) =>
@@ -1865,7 +1871,7 @@ fun transform_hoisted_typing heap_base kctx tctx env hty =
                             in
                                 as_TVTyAppC vty kd
                             end) vty1 kctx
-                  val new_heap_ty = as_THTyCode (as_TKdAdmit [] t_loc TKType) ity3 (* FIXME *)
+                  val new_heap_ty = as_THTyCode (as_TKdAdmit [] t_loc TKType) ity3 (* FIXME: kinding admit *)
               in
                   (new_loc_ty, new_heap_ty)
               end
