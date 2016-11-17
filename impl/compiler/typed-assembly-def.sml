@@ -894,7 +894,11 @@ fun assert b msg =
   if b then () else raise AssembleFail msg
 
 fun as_TPrAdmit kctx p =
-  TPrAdmit (kctx, p)
+  let
+      (* val () = println $ str_tal_prop p *)
+  in
+      TPrAdmit (kctx, p)
+  end
 
 fun as_TKdEqKType kctx =
   TKdEqKType (kctx, TKType, TKType)
@@ -1531,7 +1535,7 @@ fun as_TITyJump vty =
   let
       val ((hctx, kctx, tctx), v, t) = extract_judge_tal_value_typing vty
       val (tctx1, i2) = extract_tal_c_arrow t
-      val () = assert (List.take (tctx, length tctx1) = tctx1) "TITyJump"
+      val () = assert (List.take (tl tctx, length tctx1) = tctx1) "TITyJump"
   in
       TITyJump (((hctx, kctx, tctx), ([], TCJump v), TTadd (TT1, i2)), vty)
   end
@@ -1539,7 +1543,7 @@ fun as_TITyJump vty =
 fun as_TITyHalt vty =
   let
       val ((hctx, kctx, tctx), v, t) = extract_judge_tal_value_typing vty
-      val () = assert (v = TVReg 0) "TITyHalt"
+      val () = assert (v = TVReg 1) "TITyHalt"
   in
       TITyHalt (((hctx, kctx, tctx), ([], TCHalt t), TT1), vty)
   end
@@ -1791,29 +1795,23 @@ fun transform_hoisted_typing heap_base kctx tctx env hty =
       let
           val vty = transform_atom_typing kctx tctx env aty
           val (_, _, t) = extract_judge_tal_value_typing vty
-          val tctx1 = update_tal_tctx 0 t tctx
-          val ity1 = as_TITyHalt (as_TVTyReg [] kctx tctx1 0)
-          val ity = as_TITyMove 0 vty ity1
+          val tctx1 = update_tal_tctx 1 t tctx
+          val ity1 = as_TITyHalt (as_TVTyReg [] kctx tctx1 1)
+          val ity = as_TITyMove 1 vty ity1
       in
           ([], heap_base, ity)
       end
     | HTyApp (_, aty1, aty2) =>
       let
           val vty1 = transform_atom_typing kctx tctx env aty1
-          val rd =
-              let
-                  val f = fresh_reg tctx
-              in
-                  if f = 0 then 1 else f
-              end
           val (_, _, t1) = extract_judge_tal_value_typing vty1
-          val tctx1 = update_tal_tctx rd t1 tctx
+          val tctx1 = update_tal_tctx 0 t1 tctx
           val vty2 = transform_atom_typing kctx tctx1 env aty2
           val (_, _, t2) = extract_judge_tal_value_typing vty2
-          val tctx2 = update_tal_tctx 0 t2 tctx1
-          val ity2 = as_TITyJump (as_TVTyReg [] kctx tctx2 rd)
-          val ity1 = as_TITyMove 0 vty2 ity2
-          val ity = as_TITyMove rd vty1 ity1
+          val tctx2 = update_tal_tctx 1 t2 tctx1
+          val ity2 = as_TITyJump (as_TVTyReg [] kctx tctx2 0)
+          val ity1 = as_TITyMove 1 vty2 ity2
+          val ity = as_TITyMove 0 vty1 ity1
       in
           ([], heap_base, ity)
       end

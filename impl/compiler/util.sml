@@ -44,4 +44,40 @@ fun foldri f x ls =
   in
       inner 0 x ls
   end
+
+exception Not_found
+
+fun assoc a l =
+  let
+      fun inner l =
+        case l of
+            [] => raise Not_found
+          | (k, v) :: l' => if k = a then v else inner l'
+  in
+      inner l
+  end
+
+fun mem_assoc a l =
+  let
+      fun inner l =
+        case l of
+            [] => false
+          | (k, _) :: l' => k = a orelse inner l'
+  in
+      inner l
+  end
+
+fun add_assoc k v l = (k, v) :: l
+
+fun subseteq_assoc l1 l2 =
+  let
+      fun inner l1 =
+        case l1 of
+            [] => true
+          | (k, v) :: l1' => mem_assoc k l2 andalso assoc k l2 = v andalso inner l1'
+  in
+      inner l1
+  end
+
+fun eq_assoc l1 l2 = subseteq_assoc l1 l2 andalso subseteq_assoc l2 l1
 end
