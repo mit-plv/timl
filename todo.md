@@ -6,7 +6,7 @@
 - [x] Disallow impredicative universal types
 - [x] Type inference
 - [x] Idx inference
-- [x] (Kind-of) Allow `datatype` to have idx arguments that do not change.
+- [x] \(Kind-of) Allow `datatype` to have idx arguments that do not change.
 - [x] Multi-argument idx functions.
 - [x] Add an optional idx to `Quan`, to link the remaining unification variables in types and the witnesses found by the Master Theorem solver.
 - [x] Infer by Master Theorem then check.
@@ -14,7 +14,7 @@
 - [x] Error line number on multiple files.
 - [x] Make linking between inferred existential variable values and types better.
 - [x] Copy function signature annotation to case annotation
-- [ ] (Abondoned. No problem.) Unit and product types are required to define datatypes. 17. Remove unit and product types from the language, and have standard library.
+- [ ] \(Abondoned. No problem.) Unit and product types are required to define datatypes. 17. Remove unit and product types from the language, and have standard library.
 - [x] Example: Tree flatten.
 - [x] Example: Insertion sort.
 - [x] Have reference and arrays.
@@ -25,7 +25,7 @@
 - [x] `return _ using` works but `return using` does not in msort.timl and tree.timl.
 - [x] Change syntax order of function name and `t` declares.
 - [x] Be able to infer for `tree_map` and `tree_foldl`.
-- [x] (Partially) Have module system.
+- [x] \(Partially) Have module system.
     Road map to add module system:
     * [x] Have a barebone module system with only modules, signatures, sealing, functors and `open`. No hierarchy (embeded modules), module alias, signature alias, `where`/`sharing`, `include`.
     * [ ] Combine name-resolve and typecheck.
@@ -42,7 +42,7 @@
 - [x] Have a standard library.
 - [x] Automatically generate premises in `(VarP, Never)` case of `match_ptrn`, from complement cover of previous rules.
 - [x] `case` should also copy `fun`'s `return` clause even without `using`.
-- [ ] (Abondoned. No problem.) `as` pattern may have a problem in `balance_left`.
+- [ ] \(Abondoned. No problem.) `as` pattern may have a problem in `balance_left`.
 - [x] Bug: redundancy checker runs forever on `balance_left`.
 - [x] rbt.timl typecheckes when using ForgetError-less `subst` and ForgetError-full `forget`. Investigate why.
 - [x] `find_habitant` can further simplify covers and speed up.
