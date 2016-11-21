@@ -1777,6 +1777,40 @@ Module M (Time : TIME).
       fun t1 t f x1 => lift1 arg_ks (fun a1 ak => f (a1 ak)) x1
     end.
   
+  Import Datatypes.
+
+  Fixpoint insert A (ls : list A) n new :=
+    match ls with
+    | [] => new
+    | a :: ls =>
+      match n with
+      | 0 => new ++ a :: ls
+      | S n => a :: insert ls n new
+      end
+    end.
+  (* Definition insert A n (new ls : list A) := firstn n ls ++ new ++ my_skipn ls n. *)
+
+  Fixpoint shift0 ks new : forall t, interp_sorts ks t -> interp_sorts (new ++ ks) t :=
+    match new return forall t, interp_sorts ks t -> interp_sorts (new ++ ks) t with
+    | [] =>
+      fun t x => x
+    | new_k :: new' =>
+      fun t x => shift0 ks new' _ (lift1 ks (fun a _ => a) x)
+    end.
+  
+  Fixpoint shift new ks : forall n t, interp_sorts ks t -> interp_sorts (insert ks n new) t :=
+    match ks return forall n t, interp_sorts ks t -> interp_sorts (insert ks n new) t with
+    | [] =>
+      fun _ => lift0 new
+    | k :: ks' =>
+      fun n =>
+        match n return forall t, interp_sorts (k :: ks') t -> interp_sorts (insert (k :: ks') n new) t with
+        | 0 => shift0 (k :: ks') new
+        | S n' => 
+          fun t x => shift new ks' n' _ x
+        end
+    end.
+
   Fixpoint lift2 arg_ks : forall t1 t2 t, (t1 -> t2 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t :=
     match arg_ks return forall t1 t2 t, (t1 -> t2 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t with
     | [] =>
@@ -1934,8 +1968,15 @@ Module M (Time : TIME).
     cbn in *; eauto.
   Qed.
 
-  Definition imply (A B : Prop) := A -> B.
+  Notation imply := (fun A B : Prop => A -> B).
+  (* Definition imply (A B : Prop) := A -> B. *)
   Definition iff (A B : Prop) := A <-> B.
+  Definition for_all {A} (P : A -> Prop) : Prop := forall a, P a.
+  
+  (* Arguments imply / . *)
+  Arguments iff / .
+  Arguments for_all / .
+  Arguments id / .
   
   Definition interp_binconn opr : Prop -> Prop -> Prop :=
     match opr with
@@ -1963,8 +2004,6 @@ Module M (Time : TIME).
     | QuanForall => forall a, P a
     | QuanExists => exists a, P a
     end.
-  
-  Definition for_all {A} (P : A -> Prop) : Prop := forall a, P a.
   
   Fixpoint interp_p arg_ks p : interp_sorts arg_ks Prop :=
     match p with
@@ -2021,11 +2060,6 @@ Module M (Time : TIME).
     let P := interp_p bs p in
     forall_all bs P.
 
-  Arguments imply / .
-  Arguments iff / .
-  Arguments for_all / .
-  Arguments id / .
-
   Lemma interp_prop_le_interp_time a b :
     interp_prop [] (a <= b)%idx ->
     (interp_time a <= interp_time b)%time.
@@ -2065,6 +2099,14 @@ Module M (Time : TIME).
       lift1 ks (@id A) a = a.
   Proof.
     induct ks; simplify; eauto.
+  Qed.
+  
+  Lemma fuse_lift1_lift0 ks :
+    forall A B (f : A -> B) (g : A),
+      lift1 ks f (lift0 ks g) = lift0 ks (f g).
+  Proof.
+    induct ks; simplify; eauto.
+    eapply IHks.
   Qed.
   
   Lemma fuse_lift1_lift1 ks :
@@ -2219,6 +2261,13 @@ Module M (Time : TIME).
     eapply IHks.
   Qed.
   
+  Lemma forall_all_lift0 ks : forall (P : Prop), P -> forall_all ks (lift0 ks P).
+  Proof.
+    induct ks; intros; cbn in *; eauto.
+    rewrite fuse_lift1_lift0.
+    eauto.
+  Qed.
+  
   Lemma forall_all_lift1 ks : forall A (P : A -> Prop), (forall a, P a) -> forall a, forall_all ks (lift1 ks P a).
   Proof.
     induct ks; intros; cbn in *; eauto.
@@ -2288,6 +2337,30 @@ Module M (Time : TIME).
     intros.
     rewrite fuse_lift2_lift2_2 in *.
     eapply forall_all_same_premise'; simplify; eauto.
+    eauto.
+  Qed.
+  
+  Lemma forall_all_trans' ks :
+    forall A B C P1 P2 P3 (f : A -> B -> Prop) (g : B -> C -> Prop) (h : A -> C -> Prop),
+      (forall a b c, f a b -> g b c -> h a c) ->
+      forall_all ks (lift2 ks f P1 P2) ->
+      forall_all ks (lift2 ks g P2 P3) ->
+      forall_all ks (lift2 ks h P1 P3).
+  Proof.
+    induct ks; simplify; eauto.
+    rewrite fuse_lift1_lift2 in *.
+    eapply IHks; eauto.
+    simplify.
+    eauto.
+  Qed.
+  
+  Lemma forall_all_trans ks P1 P2 P3:
+    forall_all ks (lift2 ks imply P1 P2) ->
+    forall_all ks (lift2 ks imply P2 P3) ->
+    forall_all ks (lift2 ks imply P1 P3).
+  Proof.
+    intros.
+    eapply forall_all_trans'; simplify; eauto.
     eauto.
   Qed.
   
@@ -2498,6 +2571,11 @@ Module M (Time : TIME).
     eapply Time_add_0.
   Qed.
   
+  Lemma fst_strip_subsets_insert x ls L :
+    let L' := shift_c_ks (length ls) (firstn x L) ++ ls ++ my_skipn L x in
+    fst (strip_subsets L') = insert (fst (strip_subsets L)) x (fst (strip_subsets ls)).
+  Admitted.
+  
   Lemma interp_prop_shift_c_p L p :
     interp_prop L p ->
     forall x ls ,
@@ -2505,7 +2583,62 @@ Module M (Time : TIME).
       x <= length L ->
       interp_prop (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_p n x p).
   Proof.
-    (*here*)
+    cbn in *.
+    intros H x ls Hle.
+    unfold interp_prop in *.
+    cbn in *.
+    rewrite !fst_strip_subsets_insert.
+    Lemma snd_strip_subsets_insert x ls L :
+      let n := length ls in
+      let L' := shift_c_ks (length ls) (firstn x L) ++ ls ++ my_skipn L x in
+      snd (strip_subsets L') = insert (map (shift_c_p n x) (snd (strip_subsets L))) x (map (shift_c_p x 0) (snd (strip_subsets ls))).
+    Admitted.
+    rewrite !snd_strip_subsets_insert.
+    set (ks := fst (strip_subsets L)) in *.
+    set (ks_new := fst (strip_subsets ls)) in *.
+    Arguments shift new ks n [t] x .
+    Lemma forall_all_lift2_imply_shift ks x :
+      forall new p1 p2 p1' p2',
+        x <= length ks ->
+        let ks' := insert ks x new in
+        forall_all ks' (lift2 ks' imply p1' (shift new ks x p1)) ->
+        forall_all ks' (lift2 ks' imply (shift new ks x p2) p2') ->
+        forall_all ks (lift2 ks imply p1 p2) ->
+        forall_all ks' (lift2 ks' imply p1' p2').
+    Proof.
+      induct ks; destruct x; cbn in *; intros new p1 p2 p1' p2' Hle Ha Hb H; try linear_arithmetic.
+      {
+        eapply forall_all_trans; eauto.
+        eapply forall_all_trans; eauto.
+        rewrite fuse_lift2_lift0_2.
+        rewrite fuse_lift1_lift0.
+        eapply forall_all_lift0; eauto.
+      }
+      {
+        Notation forall_ A := (fun P : A -> Prop => forall a : A, P a).
+        (*here*)
+      }
+      
+    set (L' := shift_c_ks (length ls) (firstn x L) ++ ls ++ my_skipn L x) in *.
+    
+    induct p.
+    {
+      (* Case True *)
+      intros H x ls Hle.
+      unfold interp_prop in *.
+      cbn in *.
+      eapply forall_all_ignore_premise.
+      eapply forall_all_lift0.
+      eauto.
+    }
+    {
+      (* Case False *)
+      intros H x ls Hle.
+      unfold interp_prop in *.
+      cbn in *.
+      set (L' := shift_c_ks (length ls) (firstn x L) ++ ls ++ my_skipn L x) in *.
+      
+    }
   (* Qed. *)
   Admitted.
   
@@ -2632,7 +2765,7 @@ Module M (Time : TIME).
     eauto.
   Qed.
 
-  (* Some Coq bug(s) here! *)
+  (* Some Coq bug(s)! *)
   
   (* Lemma interp_prop_subset_imply k p L p0 : *)
   (*   interp_prop (KSubset k p :: L) p0 -> *)
@@ -2950,6 +3083,8 @@ lift2 (fst (strip_subsets L))
       nth_error L n = Some k ->
       kinding (my_skipn L (1 + n)) c k ->
       interp_prop (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_p n (shift_c_c n 0 c) p).
+  Proof.
+    
   Admitted.
   
   (*
