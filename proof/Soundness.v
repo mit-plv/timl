@@ -1767,53 +1767,48 @@ Module M (Time : TIME).
     | arg_k :: arg_ks => interp_sorts arg_ks (interp_sort arg_k -> res)
     end.
 
-  Fixpoint lift0 arg_ks : forall t, t -> interp_sorts arg_ks t :=
-    match arg_ks return forall t, t -> interp_sorts arg_ks t with
-    | [] =>
-      fun t f => f
+  Fixpoint lift0 arg_ks t : t -> interp_sorts arg_ks t :=
+    match arg_ks return t -> interp_sorts arg_ks t with
+    | [] => id
     | arg_k :: arg_ks =>
-      fun t f => lift0 arg_ks (fun ak => f)
+      fun f => lift0 arg_ks (fun ak => f)
     end.
 
-  Fixpoint lift1 arg_ks : forall t1 t, (t1 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t :=
-    match arg_ks return forall t1 t, (t1 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t with
+  Fixpoint lift1 arg_ks t1 t : (t1 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t :=
+    match arg_ks return (t1 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t with
     | [] =>
-      fun t1 t f x1 => f x1
+      fun f x1 => f x1
     | arg_k :: arg_ks =>
-      fun t1 t f x1 => lift1 arg_ks (fun a1 ak => f (a1 ak)) x1
+      fun f x1 => lift1 arg_ks (fun a1 ak => f (a1 ak)) x1
     end.
   
   Import Datatypes.
 
-  Fixpoint insert A (ls : list A) n new :=
-    match ls with
-    | [] => new
-    | a :: ls =>
-      match n with
-      | 0 => new ++ a :: ls
-      | S n => a :: insert ls n new
+  Fixpoint insert A new n (ls : list A) :=
+    match n with
+    | 0 => new ++ ls
+    | S n => 
+      match ls with
+      | [] => new
+      | a :: ls => a :: insert new n ls
       end
     end.
-  (* Definition insert A n (new ls : list A) := firstn n ls ++ new ++ my_skipn ls n. *)
 
-  Fixpoint shift0 new ks : forall t, interp_sorts ks t -> interp_sorts (new ++ ks) t :=
-    match new return forall t, interp_sorts ks t -> interp_sorts (new ++ ks) t with
-    | [] =>
-      fun t x => x
+  Fixpoint shift0 new ks t : interp_sorts ks t -> interp_sorts (new ++ ks) t :=
+    match new return interp_sorts ks t -> interp_sorts (new ++ ks) t with
+    | [] => id
     | new_k :: new' =>
-      fun t x => shift0 new' ks _ (lift1 ks (fun a _ => a) x)
+      fun x => shift0 new' ks _ (lift1 ks (fun a _ => a) x)
     end.
   
-  Fixpoint shift new ks : forall n t, interp_sorts ks t -> interp_sorts (insert ks n new) t :=
-    match ks return forall n t, interp_sorts ks t -> interp_sorts (insert ks n new) t with
-    | [] =>
-      fun _ => lift0 new
-    | k :: ks' =>
-      fun n =>
-        match n return forall t, interp_sorts (k :: ks') t -> interp_sorts (insert (k :: ks') n new) t with
-        | 0 => shift0 new (k :: ks')
-        | S n' => 
-          fun t x => shift new ks' n' _ x
+  Fixpoint shift new n ks t : interp_sorts ks t -> interp_sorts (insert new n ks) t :=
+    match n return interp_sorts ks t -> interp_sorts (insert new n ks) t with
+    | 0 => shift0 new ks t
+    | S n' => 
+        match ks return interp_sorts ks t -> interp_sorts (insert new (S n') ks) t with
+        | [] => @lift0 new t
+        | k :: ks' =>
+          fun x => shift new n' ks' _ x
         end
     end.
 
@@ -2163,6 +2158,22 @@ Module M (Time : TIME).
     eapply IHks.
   Qed.
   
+  Lemma fuse_lift2_lift1_1 ks :
+    forall A B C D (f : B -> C -> D) (g : A -> B) a b,
+      lift2 ks f (lift1 ks g a) b = lift2 ks (fun a b => f (g a) b) a b.
+  Proof.
+    induct ks; simplify; eauto.
+    eapply IHks.
+  Qed.
+  
+  Lemma fuse_lift2_lift1_2 ks :
+    forall A B C D (f : A -> C -> D) (g : B -> C) a b,
+      lift2 ks f a (lift1 ks g b) = lift2 ks (fun a b => f a (g b)) a b.
+  Proof.
+    induct ks; simplify; eauto.
+    eapply IHks.
+  Qed.
+  
   Lemma fuse_lift2_lift2_1 ks :
     forall A B C D E (f : C -> D -> E) (g : A -> B -> C) a b c,
       lift2 ks f (lift2 ks g a b) c = lift3 ks (fun a b c => f (g a b) c) a b c.
@@ -2318,6 +2329,31 @@ Module M (Time : TIME).
     eapply forall_ignore_premise' with (f := id); simplify; eauto.
     rewrite fuse_lift1_id.
     eauto.
+  Qed.
+  
+  Lemma forall_use_premise' ks :
+    forall A B P1 P2 (f : A -> Prop) (g : A -> B -> Prop) (h : B -> Prop),
+      (forall a b, f a -> g a b -> h b) ->
+      forall_ ks (lift1 ks f P1) ->
+      forall_ ks (lift2 ks g P1 P2) ->
+      forall_ ks (lift1 ks h P2).
+  Proof.
+    induct ks; simplify; eauto.
+    rewrite fuse_lift1_lift1 in *.
+    rewrite fuse_lift1_lift2 in *.
+    eapply IHks; eauto.
+    simplify.
+    eauto.
+  Qed.
+  
+  Lemma forall_use_premise ks P1 P2 :
+    forall_ ks P1 ->
+    forall_ ks (lift2 ks imply P1 P2) ->
+    forall_ ks P2.
+  Proof.
+    intros H1 H2.
+    eapply forall_use_premise' with (f := id) (h := id) in H2; simplify; 
+      try rewrite fuse_lift1_id in *; eauto.
   Qed.
   
   Lemma forall_same_premise' ks :
@@ -2577,13 +2613,128 @@ Module M (Time : TIME).
     eapply Time_add_0.
   Qed.
   
-  Lemma fst_strip_subsets_insert x ls L :
-    let L' := shift_c_ks (length ls) (firstn x L) ++ ls ++ my_skipn L x in
-    fst (strip_subsets L') = insert (fst (strip_subsets L)) x (fst (strip_subsets ls)).
-  Admitted.
-  
   Notation for_all_ A := (fun P : A -> Prop => forall a : A, P a).
   
+  Lemma fst_strip_subsets_insert x ls L :
+    let L' := shift_c_ks (length ls) (firstn x L) ++ ls ++ my_skipn L x in
+    fst (strip_subsets L') = insert (fst (strip_subsets ls)) x (fst (strip_subsets L)).
+  Admitted.
+  
+  Lemma snd_strip_subsets_insert x ls L :
+    let n := length ls in
+    let L' := shift_c_ks (length ls) (firstn x L) ++ ls ++ my_skipn L x in
+    snd (strip_subsets L') = insert (map (shift_c_p x 0) (snd (strip_subsets ls))) x (map (shift_c_p n x) (snd (strip_subsets L))).
+  Admitted.
+  
+  Arguments shift0 new ks [t] x .
+  Arguments shift new n ks [t] x .
+  
+  Lemma lift1_shift0 new : forall ks A B (f : A -> B) a, lift1 (new ++ ks) f (shift0 new ks a) = shift0 new ks (lift1 ks f a).
+  Proof.
+    induct new; cbn in *; try rename a into a'; intros ks A B f a; eauto.
+    rewrite IHnew.
+    rewrite !fuse_lift1_lift1.
+    eauto.
+  Qed.
+  
+  Lemma lift1_shift x : forall ks new A B (f : A -> B) a, lift1 (insert new x ks) f (shift new x ks a) = shift new x ks (lift1 ks f a).
+  Proof.
+    induct x; cbn in *.
+    {
+      intros ks new A B f a.
+      rewrite lift1_shift0.
+      eauto.
+    }
+    destruct ks; cbn in *; intros new A B f a.
+    {
+      rewrite fuse_lift1_lift0.
+      eauto.
+    }
+    {
+      eauto.
+    }
+  Qed.
+  
+  Lemma lift2_shift0 new : forall ks A B C (f : A -> B -> C) a b, lift2 (new ++ ks) f (shift0 new ks a) (shift0 new ks b) = shift0 new ks (lift2 ks f a b).
+  Proof.
+    induct new; cbn in *; try rename a into a'; intros ks A B C f a b; eauto.
+    rewrite IHnew.
+    rewrite !fuse_lift1_lift2.
+    rewrite !fuse_lift2_lift1_1.
+    rewrite !fuse_lift2_lift1_2.
+    eauto.
+  Qed.
+  
+  Lemma lift2_shift x : forall ks new A B C (f : A -> B -> C) a b, lift2 (insert new x ks) f (shift new x ks a) (shift new x ks b) = shift new x ks (lift2 ks f a b).
+  Proof.
+    induct x; cbn in *.
+    {
+      intros ks new A B C f a b.
+      rewrite lift2_shift0.
+      eauto.
+    }
+    destruct ks; cbn in *; intros new A B C f a b; try linear_arithmetic.
+    {
+      rewrite fuse_lift2_lift0_2.
+      rewrite fuse_lift1_lift0.
+      eauto.
+    }
+    {
+      eauto.
+    }
+  Qed.
+  
+  Lemma forall_shift0 new :
+    forall ks p,
+      forall_ ks p ->
+      forall_ (new ++ ks) (shift0 new ks p).
+  Proof.
+    induct new; cbn in *; intros ks p H; eauto.
+    rewrite lift1_shift0.
+    rewrite fuse_lift1_lift1.
+    eapply IHnew.
+    eapply forall_use_premise; eauto.
+    rewrite fuse_lift2_lift1_2.
+    rewrite dedup_lift2.
+    eapply forall_lift1; eauto.
+  Qed.
+  
+  Lemma forall_shift x :
+    forall ks new p,
+      forall_ ks p ->
+      forall_ (insert new x ks) (shift new x ks p).
+  Proof.
+    induct x; cbn in *.
+    {
+      intros ks new p H.
+      eapply forall_shift0; eauto.
+    }
+    destruct ks; cbn in *; intros new p H.
+    {
+      eapply forall_lift0; eauto.
+    }
+    {
+      rewrite lift1_shift.
+      eauto.
+    }
+  Qed.
+    
+  Lemma forall_lift2_imply_shift ks x :
+    forall new p1 p2 p1' p2',
+      x <= length ks ->
+      let ks' := insert new x ks in
+      forall_ ks' (lift2 ks' imply p1' (shift new x ks p1)) ->
+      forall_ ks' (lift2 ks' imply (shift new x ks p2) p2') ->
+      forall_ ks (lift2 ks imply p1 p2) ->
+      forall_ ks' (lift2 ks' imply p1' p2').
+  Proof.
+    cbn in *; intros new p1 p2 p1' p2' Hle Ha Hb H.
+    eapply forall_trans; eauto.
+    eapply forall_trans; eauto.
+    rewrite lift2_shift.
+    eapply forall_shift; eauto.
+  Qed.
+
   Lemma interp_prop_shift_c_p L p :
     interp_prop L p ->
     forall x ls ,
@@ -2596,100 +2747,19 @@ Module M (Time : TIME).
     unfold interp_prop in *.
     cbn in *.
     rewrite !fst_strip_subsets_insert.
-    Lemma snd_strip_subsets_insert x ls L :
-      let n := length ls in
-      let L' := shift_c_ks (length ls) (firstn x L) ++ ls ++ my_skipn L x in
-      snd (strip_subsets L') = insert (map (shift_c_p n x) (snd (strip_subsets L))) x (map (shift_c_p x 0) (snd (strip_subsets ls))).
-    Admitted.
     rewrite !snd_strip_subsets_insert.
     set (ks := fst (strip_subsets L)) in *.
     set (ks_new := fst (strip_subsets ls)) in *.
-    Arguments shift0 new ks [t] x .
-    Arguments shift new ks n [t] x .
-    Lemma forall_lift2_imply_shift ks x :
-      forall new p1 p2 p1' p2',
-        x <= length ks ->
-        let ks' := insert ks x new in
-        forall_ ks' (lift2 ks' imply p1' (shift new ks x p1)) ->
-        forall_ ks' (lift2 ks' imply (shift new ks x p2) p2') ->
-        forall_ ks (lift2 ks imply p1 p2) ->
-        forall_ ks' (lift2 ks' imply p1' p2').
-    Proof.
-      cbn in *; intros new p1 p2 p1' p2' Hle Ha Hb H.
-      eapply forall_trans; eauto.
-      eapply forall_trans; eauto.
-      Lemma lift1_shift0 new : forall ks A B (f : A -> B) a, lift1 (new ++ ks) f (shift0 new ks a) = shift0 new ks (lift1 ks f a).
-      Proof.
-        induct new; cbn in *; try rename a into a'; intros ks A B f a; try linear_arithmetic; eauto.
-        rewrite IHnew.
-        rewrite !fuse_lift1_lift1.
-        eauto.
-      Qed.
-      Lemma lift1_shift ks : forall x new A B (f : A -> B) a, lift1 (insert ks x new) f (shift new ks x a) = shift new ks x (lift1 ks f a).
-      Proof.
-        induct ks; destruct x; cbn in *; try rename a into a'; intros new A B f a; try linear_arithmetic.
-        {
-          rewrite fuse_lift1_lift0.
-          eauto.
-        }
-        {
-          rewrite fuse_lift1_lift0.
-          eauto.
-        }
-        {
-          rewrite lift1_shift0.
-          eauto.
-        }
-        {
-          eauto.
-        }
-      Qed.
-      Lemma lift2_shift ks : forall x new A B C (f : A -> B -> C) a b, lift2 (insert ks x new) f (shift new ks x a) (shift new ks x b) = shift new ks x (lift2 ks f a b).
-      Proof.
-        induct ks; destruct x; cbn in *; try rename a into a'; intros new A B C f a b; try linear_arithmetic.
-        {
-          rewrite fuse_lift2_lift0_2.
-          rewrite fuse_lift1_lift0.
-          eauto.
-        }
-        {
-          rewrite fuse_lift2_lift0_2.
-          rewrite fuse_lift1_lift0.
-          eauto.
-        }
-      Admitted.
-      rewrite lift2_shift.
-      Lemma forall_shift ks :
-        forall x new p,
-          forall_ ks p ->
-          forall_ (insert ks x new) (shift new ks x p).
-      Proof.
-        induct ks; destruct x; cbn in *; intros new p H; try linear_arithmetic.
-        {
-          eapply forall_lift0; eauto.
-        }
-        {
-          eapply forall_lift0; eauto.
-        }
-        {
-          Lemma forall_shift0 ks :
-            forall x new p,
-              forall_ ks p ->
-              forall_ (new ++ ks) (shift new ks x p).
-          Proof.
-          Admitted.
-          admit.
-        }
-        {
-          rewrite lift1_shift.
-          eauto.
-        }
-      Admitted.
-      eapply forall_shift; eauto.
-    Qed.
-
     eapply forall_lift2_imply_shift; eauto.
-    
+    {
+      admit.
+    }
+    {
+      admit.
+    }
+    {
+      admit.
+    }
   Admitted.
   
   Ltac interp_le := try eapply interp_time_interp_prop_le; apply_all interp_prop_le_interp_time.
