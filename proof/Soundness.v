@@ -1,9 +1,3 @@
- <   > 
-
- <   > 
-
- <   > 
-
 Set Implicit Arguments.
 
 Module Type TIME.
@@ -84,6 +78,7 @@ Module Type TIME.
 
 End TIME.
 
+Require Import Datatypes.
 Require Import Frap.
 
 Module NatTime <: TIME.
@@ -1782,8 +1777,6 @@ Module M (Time : TIME).
       fun f x1 => lift1 arg_ks (fun a1 ak => f (a1 ak)) x1
     end.
   
-  Import Datatypes.
-
   Fixpoint insert A new n (ls : list A) :=
     match n with
     | 0 => new ++ ls
@@ -3197,13 +3190,13 @@ lift2 (fst (strip_subsets L))
     
   Admitted.
   
-  (*
+(* a version that builds in transitivity *)
 Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
 (* | TyEqRefl L t : *)
 (*     tyeq L t t *)
 | TyEqVar L x :
     tyeq L (CVar x) (CVar x)
-| TyConst L cn :
+| TyEqConst L cn :
     tyeq L (CConst cn) (CConst cn)
 (* | TyEqUnOp L opr t t' : *)
 (*     tyeq L t t' -> *)
@@ -3226,6 +3219,11 @@ Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
     tyeq L c1 c1' ->
     tyeq L c2 c2' ->
     tyeq L (CApp c1 c2) (CApp c1' c2')
+| TyEqTimeApp L n c1 c2 n' c1' c2' :
+    n = n' ->
+    tyeq L c1 c1' ->
+    tyeq L c2 c2' ->
+    tyeq L (CTimeApp n c1 c2) (CTimeApp n' c1' c2')
 | TyEqBeta L t1 t2  :
     tyeq L (CApp (CAbs t1) t2) (subst0_c_c t2 t1)
 | TyEqBetaRev L t1 t2  :
@@ -3242,51 +3240,54 @@ Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
    tyeq L t t' ->
    tyeq L (CRef t) (CRef t')
 (* the following rules are just here to satisfy reflexivity *)
-| TyEqTimeAbs L i :
-    tyeq L (CTimeAbs i) (CTimeAbs i)
 (* don't do deep equality test of two CAbs's *)
 | TyEqAbs L t :
     tyeq L (CAbs t) (CAbs t)
+| TyEqTimeAbs L i :
+    tyeq L (CTimeAbs i) (CTimeAbs i)
 | TyEqTrans L a b c :
     tyeq L a b ->
     tyeq L b c ->
     tyeq L a c
 .
 
-Hint Constructors tyeq.
+Section tyeq_hint.
+    
+  Local Hint Constructors tyeq.
 
-Lemma tyeq_refl : forall t L, tyeq L t t.
-Proof.
-  induct t; eauto using interp_prop_eq_refl, kdeq_refl.
-Qed.
+  Lemma tyeq_refl : forall t L, tyeq L t t.
+  Proof.
+    induct t; eauto using interp_prop_eq_refl, kdeq_refl.
+  Qed.
 
-Lemma kdeq_tyeq L k k' t t' :
-  kdeq L k k' ->
-  tyeq (k :: L) t t' ->
-  tyeq (k' :: L) t t'.
-Admitted.
+  Lemma kdeq_tyeq L k k' t t' :
+    kdeq L k k' ->
+    tyeq (k :: L) t t' ->
+    tyeq (k' :: L) t t'.
+  Admitted.
 
-Lemma tyeq_sym L t1 t2 : tyeq L t1 t2 -> tyeq L t2 t1.
-Proof.
-  induct 1; eauto using interp_prop_eq_sym, kdeq_sym.
-  {
-    econstructor; eauto using interp_prop_eq_sym, kdeq_sym.
-    eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym.
-  }
-  {
-    econstructor; eauto using interp_prop_eq_sym, kdeq_sym.
-    eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym.
-  }
-Qed.
+  Lemma tyeq_sym L t1 t2 : tyeq L t1 t2 -> tyeq L t2 t1.
+  Proof.
+    induct 1; eauto using interp_prop_eq_sym, kdeq_sym.
+    {
+      econstructor; eauto using interp_prop_eq_sym, kdeq_sym.
+      eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym.
+    }
+    {
+      econstructor; eauto using interp_prop_eq_sym, kdeq_sym.
+      eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym.
+    }
+  Qed.
 
-Lemma tyeq_trans L a b c :
-  tyeq L a b ->
-  tyeq L b c ->
-  tyeq L a c.
-Proof.
-  intros; eauto.
-Qed.
+  Lemma tyeq_trans L a b c :
+    tyeq L a b ->
+    tyeq L b c ->
+    tyeq L a c.
+  Proof.
+    intros; eauto.
+  Qed.
 
+(*
 Lemma invert_tyeq_Arrow L t1 i t2 tb : 
     tyeq L (CArrow t1 i t2) tb ->
       (exists t1' i' t2' ,
@@ -3302,7 +3303,8 @@ Proof.
     left; repeat eexists_split; eauto.
   }
   {
-    specialize (Hcneq (CAbs t0) t3).
+    sp
+      ecialize (Hcneq (CAbs t0) t3).
     propositional.
   }
   induct 1; eauto.
@@ -3381,15 +3383,19 @@ Lemma CForall_CArrow_false' L k t t1 i t2 :
 Proof.
   induct 1.
 Qed.
+ *)
   
-Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' :
-  tyeq L (CArrow t1 i t2) (CArrow t1' i' t2') ->
-  tyeq L t1 t1' /\
-  interp_prop L (TEq i i') /\
-  tyeq L t2 t2'.
-Admitted.
-   *)
+  Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' :
+    tyeq L (CArrow t1 i t2) (CArrow t1' i' t2') ->
+    tyeq L t1 t1' /\
+    interp_prop L (TEq i i') /\
+    tyeq L t2 t2'.
+  Admitted.
 
+End tyeq_hint.
+
+(*
+  (* a version that does not build in transitivity *)
   Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
   (* | TyEqRefl L t : *)
   (*     tyeq L t t *)
@@ -3583,98 +3589,109 @@ Admitted.
     Proof.
       intros; eapply tyeq_trans'; eauto.
     Qed.
-
+*)
     Lemma CForall_CArrow_false k t t1 i t2 :
       tyeq [] (CForall k t) (CArrow t1 i t2) ->
       False.
     Proof.
-      invert 1.
-    Qed.
-
-    Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' :
-      tyeq L (CArrow t1 i t2) (CArrow t1' i' t2') ->
-      tyeq L t1 t1' /\
-      interp_prop L (TEq i i') /\
-      tyeq L t2 t2'.
-    Proof.
-      invert 1.
-      repeat eexists_split; eauto.
-    Qed.
+    (*   invert 1. *)
+    (* Qed. *)
+    Admitted.
+    
+    (* Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' : *)
+    (*   tyeq L (CArrow t1 i t2) (CArrow t1' i' t2') -> *)
+    (*   tyeq L t1 t1' /\ *)
+    (*   interp_prop L (TEq i i') /\ *)
+    (*   tyeq L t2 t2'. *)
+    (* Proof. *)
+    (*   invert 1. *)
+    (*   repeat eexists_split; eauto. *)
+    (* Qed. *)
 
     Lemma CExists_CArrow_false k t t1 i t2 :
       tyeq [] (CExists k t) (CArrow t1 i t2) ->
       False.
     Proof.
-      invert 1.
-    Qed.
+    (*   invert 1. *)
+    (* Qed. *)
+    Admitted.
 
     Lemma CProd_CArrow_false ta tb t1 i t2 :
       tyeq [] (CProd ta tb) (CArrow t1 i t2) ->
       False.
-    Proof.
-      invert 1.
-    Qed.
+    (* Proof. *)
+    (*   invert 1. *)
+    (* Qed. *)
+    Admitted.
 
     Lemma CSum_CArrow_false ta tb t1 i t2 :
       tyeq [] (CSum ta tb) (CArrow t1 i t2) ->
       False.
     Proof.
-      invert 1.
-    Qed.
-
+    (*   invert 1. *)
+    (* Qed. *)
+    Admitted.
+    
     Lemma CRef_CArrow_false t t1 i t2 :
       tyeq [] (CRef t) (CArrow t1 i t2) ->
       False.
     Proof.
-      invert 1.
-    Qed.
-
+    (*   invert 1. *)
+    (* Qed. *)
+    Admitted.
+    
     Lemma invert_tyeq_CExists L k1 t1 k2 t2 :
       tyeq L (CExists k1 t1) (CExists k2 t2) ->
       tyeq (k1 :: L) t1 t2 /\
       kdeq L k1 k2.
     Proof.
-      invert 1.
-      repeat eexists_split; eauto.
-    Qed.
-
+    (*   invert 1. *)
+    (*   repeat eexists_split; eauto. *)
+    (* Qed. *)
+    Admitted.
+    
     Lemma invert_tyeq_CForall L k1 t1 k2 t2 :
       tyeq L (CForall k1 t1) (CForall k2 t2) ->
       tyeq (k1 :: L) t1 t2 /\
       kdeq L k1 k2.
     Proof.
-      invert 1.
-      repeat eexists_split; eauto.
-    Qed.
-
+    (*   invert 1. *)
+    (*   repeat eexists_split; eauto. *)
+    (* Qed. *)
+    Admitted.
+    
     Lemma invert_tyeq_CRef L t t' :
       tyeq L (CRef t) (CRef t') ->
       tyeq L t t'.
     Proof.
-      invert 1.
-      repeat eexists_split; eauto.
-    Qed.
-
+    (*   invert 1. *)
+    (*   repeat eexists_split; eauto. *)
+    (* Qed. *)
+    Admitted.
+    
     Lemma invert_tyeq_CProd L t1 t2 t1' t2' :
       tyeq L (CProd t1 t2) (CProd t1' t2') ->
       tyeq L t1 t1' /\
       tyeq L t2 t2'.
     Proof.
-      invert 1.
-      repeat eexists_split; eauto.
-    Qed.
-
+    (*   invert 1. *)
+    (*   repeat eexists_split; eauto. *)
+    (* Qed. *)
+    Admitted.
+    
     Lemma invert_tyeq_CSum L t1 t2 t1' t2' :
       tyeq L (CSum t1 t2) (CSum t1' t2') ->
       tyeq L t1 t1' /\
       tyeq L t2 t2'.
     Proof.
-      invert 1.
-      repeat eexists_split; eauto.
-    Qed.
-
+    (*   invert 1. *)
+    (*   repeat eexists_split; eauto. *)
+    (* Qed. *)
+    Admitted.
+    
+(*
   End tyeq_hint.
-
+*)
   Hint Resolve tyeq_refl tyeq_sym tyeq_trans interp_prop_le_refl interp_prop_le_trans : db_tyeq.
 
   Lemma kinding_tyeq L k t1 t2 :
@@ -4817,7 +4834,8 @@ Admitted.
   Proof.
     cases cn; intros Htyeq; simplify;
       invert Htyeq.
-  Qed.
+  Admitted.
+  (* Qed. *)
 
   Lemma subst_c_c_const_type x v cn :
     subst_c_c x v (const_type cn) = const_type cn.
@@ -5960,20 +5978,21 @@ Admitted.
     (*   rewrite nth_error_nil in H. *)
     (*   invert H. *)
     (* } *)
-    {
-      eapply CApps_CRec_CForall_false in Htyeq; propositional.
-    }
-    {
-      cases cn; simplify; invert Htyeq.
-    }
-    {
-      cases inj; simplify; invert Htyeq.
-    }
-    {
-      destruct C as ((L & W) & G); simplify; subst.
-      eapply IHtyping; eauto with db_tyeq.
-    }
-  Qed.
+  (*   { *)
+  (*     eapply CApps_CRec_CForall_false in Htyeq; propositional. *)
+  (*   } *)
+  (*   { *)
+  (*     cases cn; simplify; invert Htyeq. *)
+  (*   } *)
+  (*   { *)
+  (*     cases inj; simplify; invert Htyeq. *)
+  (*   } *)
+  (*   { *)
+  (*     destruct C as ((L & W) & G); simplify; subst. *)
+  (*     eapply IHtyping; eauto with db_tyeq. *)
+  (*   } *)
+    (* Qed. *)
+  Admitted.
 
   Lemma canon_CForall W v k t i :
     typing ([], W, []) v (CForall k t) i ->
@@ -6063,21 +6082,22 @@ Admitted.
     (*   rewrite nth_error_nil in H. *)
     (*   invert H. *)
     (* } *)
-    {
-      eapply CApps_CRec_CExists_false in Htyeq; propositional.
-    }
-    {
-      cases cn; simplify; invert Htyeq.
-    }
-    {
-      cases inj; simplify; invert Htyeq.
-    }
-    {
-      destruct C as ((L & W) & G); simplify; subst.
-      eapply IHtyping; eauto with db_tyeq.
-    }
-  Qed.
-
+  (*   { *)
+  (*     eapply CApps_CRec_CExists_false in Htyeq; propositional. *)
+  (*   } *)
+  (*   { *)
+  (*     cases cn; simplify; invert Htyeq. *)
+  (*   } *)
+  (*   { *)
+  (*     cases inj; simplify; invert Htyeq. *)
+  (*   } *)
+  (*   { *)
+  (*     destruct C as ((L & W) & G); simplify; subst. *)
+  (*     eapply IHtyping; eauto with db_tyeq. *)
+  (*   } *)
+  (* Qed. *)
+  Admitted.
+  
   Lemma canon_CExists W v k t i :
     typing ([], W, []) v (CExists k t) i ->
     value v ->
@@ -6106,21 +6126,22 @@ Admitted.
     (*   rewrite nth_error_nil in H. *)
     (*   invert H. *)
     (* } *)
-    {
-      eapply CApps_CRec_CProd_false in Htyeq; propositional.
-    }
-    {
-      cases cn; simplify; invert Htyeq.
-    }
-    {
-      cases inj; simplify; invert Htyeq.
-    }
-    {
-      destruct C as ((L & W) & G); simplify; subst.
-      eapply IHtyping; eauto with db_tyeq.
-    }
-  Qed.
-
+  (*   { *)
+  (*     eapply CApps_CRec_CProd_false in Htyeq; propositional. *)
+  (*   } *)
+  (*   { *)
+  (*     cases cn; simplify; invert Htyeq. *)
+  (*   } *)
+  (*   { *)
+  (*     cases inj; simplify; invert Htyeq. *)
+  (*   } *)
+  (*   { *)
+  (*     destruct C as ((L & W) & G); simplify; subst. *)
+  (*     eapply IHtyping; eauto with db_tyeq. *)
+  (*   } *)
+  (* Qed. *)
+  Admitted.
+  
   Lemma canon_CProd W v t1 t2 i :
     typing ([], W, []) v (CProd t1 t2) i ->
     value v ->
@@ -6149,17 +6170,18 @@ Admitted.
     (*   rewrite nth_error_nil in H. *)
     (*   invert H. *)
     (* } *)
-    {
-      eapply CApps_CRec_CSum_false in Htyeq; propositional.
-    }
-    {
-      cases cn; simplify; invert Htyeq.
-    }
-    {
-      destruct C as ((L & W) & G); simplify; subst.
-      eapply IHtyping; eauto with db_tyeq.
-    }
-  Qed.
+  (*   { *)
+  (*     eapply CApps_CRec_CSum_false in Htyeq; propositional. *)
+  (*   } *)
+  (*   { *)
+  (*     cases cn; simplify; invert Htyeq. *)
+  (*   } *)
+  (*   { *)
+  (*     destruct C as ((L & W) & G); simplify; subst. *)
+  (*     eapply IHtyping; eauto with db_tyeq. *)
+  (*   } *)
+  (* Qed. *)
+  Admitted.
   
   Lemma canon_CSum W v t1 t2 i :
     typing ([], W, []) v (CSum t1 t2) i ->
@@ -6188,20 +6210,21 @@ Admitted.
     (*   rewrite nth_error_nil in H. *)
     (*   invert H. *)
     (* } *)
-    {
-      eapply CApps_CRec_CRef_false in Htyeq; propositional.
-    }
-    {
-      cases cn; simplify; invert Htyeq.
-    }
-    {
-      cases inj; simplify; invert Htyeq.
-    }
-    {
-      destruct C as ((L & W) & G); simplify; subst.
-      eapply IHtyping; eauto with db_tyeq.
-    }
-  Qed.
+  (*   { *)
+  (*     eapply CApps_CRec_CRef_false in Htyeq; propositional. *)
+  (*   } *)
+  (*   { *)
+  (*     cases cn; simplify; invert Htyeq. *)
+  (*   } *)
+  (*   { *)
+  (*     cases inj; simplify; invert Htyeq. *)
+  (*   } *)
+  (*   { *)
+  (*     destruct C as ((L & W) & G); simplify; subst. *)
+  (*     eapply IHtyping; eauto with db_tyeq. *)
+  (*   } *)
+  (* Qed. *)
+  Admitted.
   
   Lemma canon_CRef W v t i :
     typing ([], W, []) v (CRef t) i ->
