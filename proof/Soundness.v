@@ -2575,13 +2575,6 @@ Module M (Time : TIME).
     propositional.
   Qed.
 
-  (* Lemma interp_prop_eq_le' ks : forall A (P : A -> A -> A -> A -> Prop), (forall a b, P a b a b) -> forall a b, forall_ ks (lift4 ks P a b a b). *)
-  (* Proof. *)
-  (*   induct ks; intros; cbn in *; eauto. *)
-  (*   rewrite fuse_lift1_lift4. *)
-  (*   eauto. *)
-  (* Qed. *)
-
   Lemma interp_prop_eq_interp_prop_le L a b :
     interp_prop L (a == b)%idx ->
     interp_prop L (a <= b)%idx.
@@ -2721,14 +2714,13 @@ Module M (Time : TIME).
     
   Lemma forall_lift2_imply_shift ks x :
     forall new p1 p2 p1' p2',
-      x <= length ks ->
       let ks' := insert new x ks in
       forall_ ks' (lift2 ks' imply p1' (shift new x ks p1)) ->
       forall_ ks' (lift2 ks' imply (shift new x ks p2) p2') ->
       forall_ ks (lift2 ks imply p1 p2) ->
       forall_ ks' (lift2 ks' imply p1' p2').
   Proof.
-    cbn in *; intros new p1 p2 p1' p2' Hle Ha Hb H.
+    cbn in *; intros new p1 p2 p1' p2' Ha Hb H.
     eapply forall_trans; eauto.
     eapply forall_trans; eauto.
     rewrite lift2_shift.
@@ -2755,9 +2747,7 @@ Module M (Time : TIME).
       admit.
     }
     {
-      admit.
-    }
-    {
+      (*here*)
       admit.
     }
   Admitted.
