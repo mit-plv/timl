@@ -2604,6 +2604,7 @@ Module M (Time : TIME).
     rewrite !snd_strip_subsets_insert.
     set (ks := fst (strip_subsets L)) in *.
     set (ks_new := fst (strip_subsets ls)) in *.
+    Arguments shift0 new ks [t] x .
     Arguments shift new ks n [t] x .
     Lemma forall_lift2_imply_shift ks x :
       forall new p1 p2 p1' p2',
@@ -2617,8 +2618,32 @@ Module M (Time : TIME).
       cbn in *; intros new p1 p2 p1' p2' Hle Ha Hb H.
       eapply forall_trans; eauto.
       eapply forall_trans; eauto.
+      Lemma lift1_shift0 new : forall ks A B (f : A -> B) a, lift1 (new ++ ks) f (shift0 new ks a) = shift0 new ks (lift1 ks f a).
+      Proof.
+        induct new; cbn in *; try rename a into a'; intros ks A B f a; try linear_arithmetic; eauto.
+        rewrite IHnew.
+        rewrite !fuse_lift1_lift1.
+        eauto.
+      Qed.
       Lemma lift1_shift ks : forall x new A B (f : A -> B) a, lift1 (insert ks x new) f (shift new ks x a) = shift new ks x (lift1 ks f a).
-      Admitted.
+      Proof.
+        induct ks; destruct x; cbn in *; try rename a into a'; intros new A B f a; try linear_arithmetic.
+        {
+          rewrite fuse_lift1_lift0.
+          eauto.
+        }
+        {
+          rewrite fuse_lift1_lift0.
+          eauto.
+        }
+        {
+          rewrite lift1_shift0.
+          eauto.
+        }
+        {
+          eauto.
+        }
+      Qed.
       Lemma lift2_shift ks : forall x new A B C (f : A -> B -> C) a b, lift2 (insert ks x new) f (shift new ks x a) (shift new ks x b) = shift new ks x (lift2 ks f a b).
       Proof.
         induct ks; destruct x; cbn in *; try rename a into a'; intros new A B C f a b; try linear_arithmetic.
@@ -2647,18 +2672,18 @@ Module M (Time : TIME).
           eapply forall_lift0; eauto.
         }
         {
+          Lemma forall_shift0 ks :
+            forall x new p,
+              forall_ ks p ->
+              forall_ (new ++ ks) (shift new ks x p).
+          Proof.
+          Admitted.
           admit.
         }
         {
           rewrite lift1_shift.
           eauto.
         }
-        
-        Lemma forall_shift0 ks :
-          forall x new p,
-            forall_ ks p ->
-            forall_ (new ++ ks) (shift new ks x p).
-        Proof.
       Admitted.
       eapply forall_shift; eauto.
     Qed.
