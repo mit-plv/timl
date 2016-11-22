@@ -3287,44 +3287,10 @@ Section tyeq_hint.
     intros; eauto.
   Qed.
 
-(*
-Lemma invert_tyeq_Arrow L t1 i t2 tb : 
+  (*here*)
+  
+  Lemma invert_tyeq_Arrow L t1 i t2 tb : 
     tyeq L (CArrow t1 i t2) tb ->
-      (exists t1' i' t2' ,
-          tb = CArrow t1' i' t2' /\
-          tyeq L t1 t1' /\
-          interp_prop L (TEq i i') /\
-          tyeq L t2 t2') \/
-      (exists t1' t2' ,
-          tb = CApp t1' t2').
-Proof.
-  induct 1; eauto.
-  {
-    left; repeat eexists_split; eauto.
-  }
-  {
-    sp
-      ecialize (Hcneq (CAbs t0) t3).
-    propositional.
-  }
-  induct 1; eauto.
-  {
-    repeat eexists_split; eauto.
-  }
-  {
-    specialize (Hcneq (CAbs t0) t3).
-    propositional.
-  }
-  eapply IHtyeq2; eauto using tyeq_sym.
-  intros Htyeq.
-  invert Htyeq.
-
-Qed.
-
-Lemma invert_tyeq_Arrow L ta tb : 
-  tyeq L ta tb ->
-  forall t1 i t2,
-    tyeq L ta (CArrow t1 i t2) ->
     (exists t1' i' t2' ,
         tb = CArrow t1' i' t2' /\
         tyeq L t1 t1' /\
@@ -3332,59 +3298,74 @@ Lemma invert_tyeq_Arrow L ta tb :
         tyeq L t2 t2') \/
     (exists t1' t2' ,
         tb = CApp t1' t2').
-Proof.
-  induct 1; eauto.
-  intros.
-  invert H.
-  {
-    left; repeat eexists_split; eauto.
-  }
+  Proof.
+    induct 1; eauto.
+    {
+      left; repeat eexists_split; eauto.
+    }
+    {
+      sp
+        ecialize (Hcneq (CAbs t0) t3).
+      propositional.
+    }
+    induct 1; eauto.
+    {
+      repeat eexists_split; eauto.
+    }
+    {
+      specialize (Hcneq (CAbs t0) t3).
+      propositional.
+    }
+    eapply IHtyeq2; eauto using tyeq_sym.
+    intros Htyeq.
+    invert Htyeq.
 
-Lemma invert_tyeq_Arrow L t1 i t2 tb : 
-  tyeq L (CArrow t1 i t2) tb ->
-  (forall t1' t2' ,
-      tb <> CApp t1' t2') ->
-  (exists t1' i' t2' ,
-      tb = CArrow t1' i' t2' /\
-      tyeq L t1 t1' /\
-      interp_prop L (TEq i i') /\
-      tyeq L t2 t2').
-Proof.
-  induct 1; eauto; intros Hcneq.
-  {
-    repeat eexists_split; eauto.
-  }
-  {
-    specialize (Hcneq (CAbs t0) t3).
-    propositional.
-  }
-  admit.
-  eapply IHtyeq2; eauto using tyeq_sym.
-  intros Htyeq.
-  invert Htyeq.
-Qed.
+  Qed.
 
-Lemma CForall_CArrow_false' L ta tb : 
+  Lemma invert_tyeq_Arrow L ta tb : 
     tyeq L ta tb ->
-    forall k t t1 i t2,
-      tyeq L ta (CForall k t) ->
-      tyeq L tb (CArrow t1 i t2) ->
-      False.
-Proof.
-  induct 1; eauto.
-  eapply IHtyeq2; eauto using tyeq_sym.
-  intros Htyeq.
-  invert Htyeq.
-Qed.
-
-Lemma CForall_CArrow_false' L k t t1 i t2 : 
-    tyeq L (CForall k t) (CArrow t1 i t2) ->
-    False.
-Proof.
-  induct 1.
-Qed.
- *)
+    forall t1 i t2,
+      tyeq L ta (CArrow t1 i t2) ->
+      (exists t1' i' t2' ,
+          tb = CArrow t1' i' t2' /\
+          tyeq L t1 t1' /\
+          interp_prop L (TEq i i') /\
+          tyeq L t2 t2') \/
+      (exists t1' t2' ,
+          tb = CApp t1' t2').
+  Proof.
+    induct 1; eauto.
+    intros.
+    invert H.
+    {
+      left; repeat eexists_split; eauto.
+    }
+  Admitted.
   
+  Lemma invert_tyeq_Arrow L t1 i t2 tb : 
+    tyeq L (CArrow t1 i t2) tb ->
+    (forall t1' t2' ,
+        tb <> CApp t1' t2') ->
+    (exists t1' i' t2' ,
+        tb = CArrow t1' i' t2' /\
+        tyeq L t1 t1' /\
+        interp_prop L (TEq i i') /\
+        tyeq L t2 t2').
+  Proof.
+    induct 1; eauto; intros Hcneq.
+    {
+      repeat eexists_split; eauto.
+    }
+    {
+      specialize (Hcneq (CAbs t0) t3).
+      propositional.
+    }
+    admit.
+    eapply IHtyeq2; eauto using tyeq_sym.
+    intros Htyeq.
+    invert Htyeq.
+  Qed.
+
   Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' :
     tyeq L (CArrow t1 i t2) (CArrow t1' i' t2') ->
     tyeq L t1 t1' /\
@@ -3392,6 +3373,32 @@ Qed.
     tyeq L t2 t2'.
   Admitted.
 
+  Lemma CForall_CArrow_false' L ta tb : 
+    tyeq L ta tb ->
+    forall k t t1 i t2,
+      tyeq L ta (CForall k t) ->
+      tyeq L tb (CArrow t1 i t2) ->
+      False.
+  Proof.
+    induct 1; eauto.
+    eapply IHtyeq2; eauto using tyeq_sym.
+    intros Htyeq.
+    invert Htyeq.
+  Qed.
+
+  Lemma CForall_CArrow_false' L k t t1 i t2 : 
+    tyeq L (CForall k t) (CArrow t1 i t2) ->
+    False.
+  Proof.
+    induct 1.
+  Qed.
+  
+  Lemma CForall_CArrow_false k t t1 i t2 :
+    tyeq [] (CForall k t) (CArrow t1 i t2) ->
+    False.
+  Proof.
+  Admitted.
+  
 End tyeq_hint.
 
 (*
@@ -3589,24 +3596,24 @@ End tyeq_hint.
     Proof.
       intros; eapply tyeq_trans'; eauto.
     Qed.
-*)
+
     Lemma CForall_CArrow_false k t t1 i t2 :
       tyeq [] (CForall k t) (CArrow t1 i t2) ->
       False.
     Proof.
-    (*   invert 1. *)
-    (* Qed. *)
-    Admitted.
+      invert 1.
+    Qed.
     
-    (* Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' : *)
-    (*   tyeq L (CArrow t1 i t2) (CArrow t1' i' t2') -> *)
-    (*   tyeq L t1 t1' /\ *)
-    (*   interp_prop L (TEq i i') /\ *)
-    (*   tyeq L t2 t2'. *)
-    (* Proof. *)
-    (*   invert 1. *)
-    (*   repeat eexists_split; eauto. *)
-    (* Qed. *)
+    Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' :
+      tyeq L (CArrow t1 i t2) (CArrow t1' i' t2') ->
+      tyeq L t1 t1' /\
+      interp_prop L (TEq i i') /\
+      tyeq L t2 t2'.
+    Proof.
+      invert 1.
+      repeat eexists_split; eauto.
+    Qed.
+*)
 
     Lemma CExists_CArrow_false k t t1 i t2 :
       tyeq [] (CExists k t) (CArrow t1 i t2) ->
