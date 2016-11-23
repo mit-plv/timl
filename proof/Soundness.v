@@ -78,6 +78,7 @@ Module Type TIME.
 
 End TIME.
 
+Require Import Datatypes.
 Require Import Frap.
 
 Module NatTime <: TIME.
@@ -1761,22 +1762,49 @@ Module M (Time : TIME).
     | arg_k :: arg_ks => interp_sorts arg_ks (interp_sort arg_k -> res)
     end.
 
-  Fixpoint lift0 arg_ks : forall t, t -> interp_sorts arg_ks t :=
-    match arg_ks return forall t, t -> interp_sorts arg_ks t with
-    | [] =>
-      fun t f => f
+  Fixpoint lift0 arg_ks t : t -> interp_sorts arg_ks t :=
+    match arg_ks return t -> interp_sorts arg_ks t with
+    | [] => id
     | arg_k :: arg_ks =>
-      fun t f => lift0 arg_ks (fun ak => f)
+      fun f => lift0 arg_ks (fun ak => f)
     end.
 
-  Fixpoint lift1 arg_ks : forall t1 t, (t1 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t :=
-    match arg_ks return forall t1 t, (t1 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t with
+  Fixpoint lift1 arg_ks t1 t : (t1 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t :=
+    match arg_ks return (t1 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t with
     | [] =>
-      fun t1 t f x1 => f x1
+      fun f x1 => f x1
     | arg_k :: arg_ks =>
-      fun t1 t f x1 => lift1 arg_ks (fun a1 ak => f (a1 ak)) x1
+      fun f x1 => lift1 arg_ks (fun a1 ak => f (a1 ak)) x1
     end.
   
+  Fixpoint insert A new n (ls : list A) :=
+    match n with
+    | 0 => new ++ ls
+    | S n => 
+      match ls with
+      | [] => new
+      | a :: ls => a :: insert new n ls
+      end
+    end.
+
+  Fixpoint shift0 new ks t : interp_sorts ks t -> interp_sorts (new ++ ks) t :=
+    match new return interp_sorts ks t -> interp_sorts (new ++ ks) t with
+    | [] => id
+    | new_k :: new' =>
+      fun x => shift0 new' ks _ (lift1 ks (fun a _ => a) x)
+    end.
+  
+  Fixpoint shift new n ks t : interp_sorts ks t -> interp_sorts (insert new n ks) t :=
+    match n return interp_sorts ks t -> interp_sorts (insert new n ks) t with
+    | 0 => shift0 new ks t
+    | S n' => 
+        match ks return interp_sorts ks t -> interp_sorts (insert new (S n') ks) t with
+        | [] => @lift0 new t
+        | k :: ks' =>
+          fun x => shift new n' ks' _ x
+        end
+    end.
+
   Fixpoint lift2 arg_ks : forall t1 t2 t, (t1 -> t2 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t :=
     match arg_ks return forall t1 t2 t, (t1 -> t2 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t with
     | [] =>
@@ -1934,8 +1962,15 @@ Module M (Time : TIME).
     cbn in *; eauto.
   Qed.
 
-  Definition imply (A B : Prop) := A -> B.
+  Notation imply := (fun A B : Prop => A -> B).
+  (* Definition imply (A B : Prop) := A -> B. *)
   Definition iff (A B : Prop) := A <-> B.
+  Definition for_all {A} (P : A -> Prop) : Prop := forall a, P a.
+  
+  (* Arguments imply / . *)
+  Arguments iff / .
+  Arguments for_all / .
+  Arguments id / .
   
   Definition interp_binconn opr : Prop -> Prop -> Prop :=
     match opr with
@@ -1964,8 +1999,6 @@ Module M (Time : TIME).
     | QuanExists => exists a, P a
     end.
   
-  Definition for_all {A} (P : A -> Prop) : Prop := forall a, P a.
-  
   Fixpoint interp_p arg_ks p : interp_sorts arg_ks Prop :=
     match p with
     | PTrue => lift0 arg_ks True
@@ -1980,10 +2013,10 @@ Module M (Time : TIME).
     | PQuan q b p => lift1 arg_ks (interp_quan q) (interp_p (b :: arg_ks) p)
     end.
 
-  Fixpoint forall_all arg_ks : interp_sorts arg_ks Prop -> Prop :=
+  Fixpoint forall_ arg_ks : interp_sorts arg_ks Prop -> Prop :=
     match arg_ks with
     | [] => id
-    | arg_k :: arg_ks => fun P => forall_all arg_ks (lift1 arg_ks for_all P)
+    | arg_k :: arg_ks => fun P => forall_ arg_ks (lift1 arg_ks for_all P)
     end.
 
   Fixpoint strip_subset k :=
@@ -2019,12 +2052,7 @@ Module M (Time : TIME).
     let ps := snd bs_ps in
     let p := (and_all ps ===> p)%idx in
     let P := interp_p bs p in
-    forall_all bs P.
-
-  Arguments imply / .
-  Arguments iff / .
-  Arguments for_all / .
-  Arguments id / .
+    forall_ bs P.
 
   Lemma interp_prop_le_interp_time a b :
     interp_prop [] (a <= b)%idx ->
@@ -2065,6 +2093,14 @@ Module M (Time : TIME).
       lift1 ks (@id A) a = a.
   Proof.
     induct ks; simplify; eauto.
+  Qed.
+  
+  Lemma fuse_lift1_lift0 ks :
+    forall A B (f : A -> B) (g : A),
+      lift1 ks f (lift0 ks g) = lift0 ks (f g).
+  Proof.
+    induct ks; simplify; eauto.
+    eapply IHks.
   Qed.
   
   Lemma fuse_lift1_lift1 ks :
@@ -2110,6 +2146,22 @@ Module M (Time : TIME).
   Lemma fuse_lift2_lift0_2 ks :
     forall A B C (f : A -> B -> C) (g : B) a,
       lift2 ks f a (lift0 ks g) = lift1 ks (fun a => f a g) a.
+  Proof.
+    induct ks; simplify; eauto.
+    eapply IHks.
+  Qed.
+  
+  Lemma fuse_lift2_lift1_1 ks :
+    forall A B C D (f : B -> C -> D) (g : A -> B) a b,
+      lift2 ks f (lift1 ks g a) b = lift2 ks (fun a b => f (g a) b) a b.
+  Proof.
+    induct ks; simplify; eauto.
+    eapply IHks.
+  Qed.
+  
+  Lemma fuse_lift2_lift1_2 ks :
+    forall A B C D (f : A -> C -> D) (g : B -> C) a b,
+      lift2 ks f a (lift1 ks g b) = lift2 ks (fun a b => f a (g b)) a b.
   Proof.
     induct ks; simplify; eauto.
     eapply IHks.
@@ -2219,32 +2271,39 @@ Module M (Time : TIME).
     eapply IHks.
   Qed.
   
-  Lemma forall_all_lift1 ks : forall A (P : A -> Prop), (forall a, P a) -> forall a, forall_all ks (lift1 ks P a).
+  Lemma forall_lift0 ks : forall (P : Prop), P -> forall_ ks (lift0 ks P).
+  Proof.
+    induct ks; intros; cbn in *; eauto.
+    rewrite fuse_lift1_lift0.
+    eauto.
+  Qed.
+  
+  Lemma forall_lift1 ks : forall A (P : A -> Prop), (forall a, P a) -> forall a, forall_ ks (lift1 ks P a).
   Proof.
     induct ks; intros; cbn in *; eauto.
     rewrite fuse_lift1_lift1.
     eauto.
   Qed.
   
-  Lemma forall_all_lift2 ks : forall A B (P : A -> B -> Prop), (forall a b, P a b) -> forall a b, forall_all ks (lift2 ks P a b).
+  Lemma forall_lift2 ks : forall A B (P : A -> B -> Prop), (forall a b, P a b) -> forall a b, forall_ ks (lift2 ks P a b).
   Proof.
     induct ks; intros; cbn in *; eauto.
     rewrite fuse_lift1_lift2.
     eauto.
   Qed.
   
-  Lemma forall_all_lift3 ks : forall A B C (P : A -> B -> C -> Prop), (forall a b c, P a b c) -> forall a b c, forall_all ks (lift3 ks P a b c).
+  Lemma forall_lift3 ks : forall A B C (P : A -> B -> C -> Prop), (forall a b c, P a b c) -> forall a b c, forall_ ks (lift3 ks P a b c).
   Proof.
     induct ks; intros; cbn in *; eauto.
     rewrite fuse_lift1_lift3.
     eauto.
   Qed.
 
-  Lemma forall_all_ignore_premise' ks :
+  Lemma forall_ignore_premise' ks :
     forall A B P1 P2 (f : B -> Prop) (g : A -> B -> Prop),
       (forall a b, f b -> g a b) ->
-      forall_all ks (lift1 ks f P2) ->
-      forall_all ks (lift2 ks g P1 P2).
+      forall_ ks (lift1 ks f P2) ->
+      forall_ ks (lift2 ks g P1 P2).
   Proof.
     induct ks; simplify; eauto.
     rewrite fuse_lift1_lift2.
@@ -2254,23 +2313,48 @@ Module M (Time : TIME).
     eauto.
   Qed.
   
-  Lemma forall_all_ignore_premise ks :
+  Lemma forall_ignore_premise ks :
     forall P1 P2,
-      forall_all ks P2 ->
-      forall_all ks (lift2 ks imply P1 P2).
+      forall_ ks P2 ->
+      forall_ ks (lift2 ks imply P1 P2).
   Proof.
     intros.
-    eapply forall_all_ignore_premise' with (f := id); simplify; eauto.
+    eapply forall_ignore_premise' with (f := id); simplify; eauto.
     rewrite fuse_lift1_id.
     eauto.
   Qed.
   
-  Lemma forall_all_same_premise' ks :
+  Lemma forall_use_premise' ks :
+    forall A B P1 P2 (f : A -> Prop) (g : A -> B -> Prop) (h : B -> Prop),
+      (forall a b, f a -> g a b -> h b) ->
+      forall_ ks (lift1 ks f P1) ->
+      forall_ ks (lift2 ks g P1 P2) ->
+      forall_ ks (lift1 ks h P2).
+  Proof.
+    induct ks; simplify; eauto.
+    rewrite fuse_lift1_lift1 in *.
+    rewrite fuse_lift1_lift2 in *.
+    eapply IHks; eauto.
+    simplify.
+    eauto.
+  Qed.
+  
+  Lemma forall_use_premise ks P1 P2 :
+    forall_ ks P1 ->
+    forall_ ks (lift2 ks imply P1 P2) ->
+    forall_ ks P2.
+  Proof.
+    intros H1 H2.
+    eapply forall_use_premise' with (f := id) (h := id) in H2; simplify; 
+      try rewrite fuse_lift1_id in *; eauto.
+  Qed.
+  
+  Lemma forall_same_premise' ks :
     forall A B C P1 P2 P3 (f : A -> B -> Prop) (g : A -> B -> C -> Prop) (h : A -> C -> Prop),
       (forall a b c, f a b -> g a b c -> h a c) ->
-      forall_all ks (lift2 ks f P1 P2) ->
-      forall_all ks (lift3 ks g P1 P2 P3) ->
-      forall_all ks (lift2 ks h P1 P3).
+      forall_ ks (lift2 ks f P1 P2) ->
+      forall_ ks (lift3 ks g P1 P2 P3) ->
+      forall_ ks (lift2 ks h P1 P3).
   Proof.
     induct ks; simplify; eauto.
     rewrite fuse_lift1_lift2 in *.
@@ -2280,24 +2364,48 @@ Module M (Time : TIME).
     eauto.
   Qed.
   
-  Lemma forall_all_same_premise ks P1 P2 P2':
-    forall_all ks (lift2 ks imply P1 P2) ->
-    forall_all ks (lift2 ks imply P1 (lift2 ks imply P2 P2')) ->
-    forall_all ks (lift2 ks imply P1 P2').
+  Lemma forall_same_premise ks P1 P2 P2':
+    forall_ ks (lift2 ks imply P1 P2) ->
+    forall_ ks (lift2 ks imply P1 (lift2 ks imply P2 P2')) ->
+    forall_ ks (lift2 ks imply P1 P2').
   Proof.
     intros.
     rewrite fuse_lift2_lift2_2 in *.
-    eapply forall_all_same_premise'; simplify; eauto.
+    eapply forall_same_premise'; simplify; eauto.
     eauto.
   Qed.
   
-  Lemma forall_all_same_premise_2' ks :
+  Lemma forall_trans' ks :
+    forall A B C P1 P2 P3 (f : A -> B -> Prop) (g : B -> C -> Prop) (h : A -> C -> Prop),
+      (forall a b c, f a b -> g b c -> h a c) ->
+      forall_ ks (lift2 ks f P1 P2) ->
+      forall_ ks (lift2 ks g P2 P3) ->
+      forall_ ks (lift2 ks h P1 P3).
+  Proof.
+    induct ks; simplify; eauto.
+    rewrite fuse_lift1_lift2 in *.
+    eapply IHks; eauto.
+    simplify.
+    eauto.
+  Qed.
+  
+  Lemma forall_trans ks P1 P2 P3:
+    forall_ ks (lift2 ks imply P1 P2) ->
+    forall_ ks (lift2 ks imply P2 P3) ->
+    forall_ ks (lift2 ks imply P1 P3).
+  Proof.
+    intros.
+    eapply forall_trans'; simplify; eauto.
+    eauto.
+  Qed.
+  
+  Lemma forall_same_premise_2' ks :
     forall A B C D P1 P2 P3 P4 (f : A -> B -> Prop) (g : A -> C -> Prop) (h : A -> B -> C -> D -> Prop) (i : A -> D -> Prop),
       (forall a b c d, f a b -> g a c -> h a b c d -> i a d) ->
-      forall_all ks (lift2 ks f P1 P2) ->
-      forall_all ks (lift2 ks g P1 P3) ->
-      forall_all ks (lift4 ks h P1 P2 P3 P4) ->
-      forall_all ks (lift2 ks i P1 P4).
+      forall_ ks (lift2 ks f P1 P2) ->
+      forall_ ks (lift2 ks g P1 P3) ->
+      forall_ ks (lift4 ks h P1 P2 P3 P4) ->
+      forall_ ks (lift2 ks i P1 P4).
   Proof.
     induct ks; simplify; eauto.
     rewrite fuse_lift1_lift2 in *.
@@ -2307,16 +2415,16 @@ Module M (Time : TIME).
     eauto.
   Qed.
   
-  Lemma forall_all_same_premise_2 ks P1 P2 P2' P2'' :
-    forall_all ks (lift2 ks imply P1 P2) ->
-    forall_all ks (lift2 ks imply P1 P2') ->
-    forall_all ks (lift2 ks imply P1 (lift2 ks imply P2 (lift2 ks imply P2' P2''))) ->
-    forall_all ks (lift2 ks imply P1 P2'').
+  Lemma forall_same_premise_2 ks P1 P2 P2' P2'' :
+    forall_ ks (lift2 ks imply P1 P2) ->
+    forall_ ks (lift2 ks imply P1 P2') ->
+    forall_ ks (lift2 ks imply P1 (lift2 ks imply P2 (lift2 ks imply P2' P2''))) ->
+    forall_ ks (lift2 ks imply P1 P2'').
   Proof.
     intros.
     rewrite fuse_lift2_lift2_2 in *.
     rewrite fuse_lift3_lift2_3 in *.
-    eapply forall_all_same_premise_2'; [ .. | eapply H1]; simplify; eauto.
+    eapply forall_same_premise_2'; [ .. | eapply H1]; simplify; eauto.
     eauto.
   Qed.
   
@@ -2334,9 +2442,9 @@ Module M (Time : TIME).
     unfold interp_prop.
     cbn in *.
     intros i.
-    eapply forall_all_ignore_premise.
+    eapply forall_ignore_premise.
     rewrite dedup_lift2.
-    eapply forall_all_lift1.
+    eapply forall_lift1.
     eauto.
   Qed.
   
@@ -2347,13 +2455,13 @@ Module M (Time : TIME).
     unfold interp_prop.
     intros H.
     cbn in *.
-    eapply forall_all_same_premise; eauto.
-    eapply forall_all_ignore_premise.
+    eapply forall_same_premise; eauto.
+    eapply forall_ignore_premise.
     rewrite fuse_lift2_lift2_1_2.
     simplify.
     rewrite dedup_lift4_1_4.
     rewrite dedup_lift3_2_3.
-    eapply forall_all_lift2.
+    eapply forall_lift2.
     eauto.
   Qed.
 
@@ -2365,15 +2473,15 @@ Module M (Time : TIME).
     unfold interp_prop.
     intros Hab Hbc.
     cbn in *.
-    eapply forall_all_same_premise_2; [eapply Hab | eapply Hbc |].
-    eapply forall_all_ignore_premise.
+    eapply forall_same_premise_2; [eapply Hab | eapply Hbc |].
+    eapply forall_ignore_premise.
     rewrite fuse_lift2_lift2_1_2.
     rewrite fuse_lift4_lift2_3_4.
     simplify.
     rewrite dedup_lift6_1_5.
     rewrite dedup_lift5_2_3.
     rewrite dedup_lift4_3_4.
-    eapply forall_all_lift3.
+    eapply forall_lift3.
     intros.
     equality.
   Qed.
@@ -2383,9 +2491,9 @@ Module M (Time : TIME).
     unfold interp_prop.
     cbn in *.
     intros i.
-    eapply forall_all_ignore_premise.
+    eapply forall_ignore_premise.
     rewrite dedup_lift2.
-    eapply forall_all_lift1.
+    eapply forall_lift1.
     intros.
     eapply Time_le_refl.
   Qed.
@@ -2398,15 +2506,15 @@ Module M (Time : TIME).
     unfold interp_prop.
     intros Hab Hbc.
     cbn in *.
-    eapply forall_all_same_premise_2; [eapply Hab | eapply Hbc |].
-    eapply forall_all_ignore_premise.
+    eapply forall_same_premise_2; [eapply Hab | eapply Hbc |].
+    eapply forall_ignore_premise.
     rewrite fuse_lift2_lift2_1_2.
     rewrite fuse_lift4_lift2_3_4.
     simplify.
     rewrite dedup_lift6_1_5.
     rewrite dedup_lift5_2_3.
     rewrite dedup_lift4_3_4.
-    eapply forall_all_lift3.
+    eapply forall_lift3.
     intros.
     eapply Time_le_trans; eauto.
   Qed.
@@ -2415,9 +2523,9 @@ Module M (Time : TIME).
   Proof.
     unfold interp_prop.
     cbn in *.
-    eapply forall_all_ignore_premise.
+    eapply forall_ignore_premise.
     rewrite dedup_lift2.
-    eapply forall_all_lift1.
+    eapply forall_lift1.
     intros.
     propositional.
   Qed.
@@ -2429,13 +2537,13 @@ Module M (Time : TIME).
     unfold interp_prop.
     intros H.
     cbn in *.
-    eapply forall_all_same_premise; eauto.
-    eapply forall_all_ignore_premise.
+    eapply forall_same_premise; eauto.
+    eapply forall_ignore_premise.
     rewrite fuse_lift2_lift2_1_2.
     simplify.
     rewrite dedup_lift4_1_4.
     rewrite dedup_lift3_2_3.
-    eapply forall_all_lift2.
+    eapply forall_lift2.
     propositional.
   Qed.
   
@@ -2447,25 +2555,18 @@ Module M (Time : TIME).
     unfold interp_prop.
     intros Hab Hbc.
     cbn in *.
-    eapply forall_all_same_premise_2; [eapply Hab | eapply Hbc |].
-    eapply forall_all_ignore_premise.
+    eapply forall_same_premise_2; [eapply Hab | eapply Hbc |].
+    eapply forall_ignore_premise.
     rewrite fuse_lift2_lift2_1_2.
     rewrite fuse_lift4_lift2_3_4.
     simplify.
     rewrite dedup_lift6_1_5.
     rewrite dedup_lift5_2_3.
     rewrite dedup_lift4_3_4.
-    eapply forall_all_lift3.
+    eapply forall_lift3.
     intros.
     propositional.
   Qed.
-
-  (* Lemma interp_prop_eq_le' ks : forall A (P : A -> A -> A -> A -> Prop), (forall a b, P a b a b) -> forall a b, forall_all ks (lift4 ks P a b a b). *)
-  (* Proof. *)
-  (*   induct ks; intros; cbn in *; eauto. *)
-  (*   rewrite fuse_lift1_lift4. *)
-  (*   eauto. *)
-  (* Qed. *)
 
   Lemma interp_prop_eq_interp_prop_le L a b :
     interp_prop L (a == b)%idx ->
@@ -2474,13 +2575,13 @@ Module M (Time : TIME).
     unfold interp_prop.
     intros H.
     cbn in *.
-    eapply forall_all_same_premise; eauto.
-    eapply forall_all_ignore_premise.
+    eapply forall_same_premise; eauto.
+    eapply forall_ignore_premise.
     rewrite fuse_lift2_lift2_1_2.
     simplify.
     rewrite dedup_lift4_1_3.
     rewrite dedup_lift3_2_3.
-    eapply forall_all_lift2.
+    eapply forall_lift2.
     intros; subst.
     eapply Time_le_refl.
   Qed.
@@ -2489,15 +2590,136 @@ Module M (Time : TIME).
   Proof.
     unfold interp_prop.
     cbn in *.
-    eapply forall_all_ignore_premise.
+    eapply forall_ignore_premise.
     rewrite fuse_lift2_lift2_1.
     rewrite dedup_lift3_1_3.
     rewrite fuse_lift2_lift0_2.
-    eapply forall_all_lift1.
+    eapply forall_lift1.
     simplify.
     eapply Time_add_0.
   Qed.
   
+  Notation for_all_ A := (fun P : A -> Prop => forall a : A, P a).
+  
+  Lemma fst_strip_subsets_insert x ls L :
+    let L' := shift_c_ks (length ls) (firstn x L) ++ ls ++ my_skipn L x in
+    fst (strip_subsets L') = insert (fst (strip_subsets ls)) x (fst (strip_subsets L)).
+  Admitted.
+  
+  Lemma snd_strip_subsets_insert x ls L :
+    let n := length ls in
+    let L' := shift_c_ks (length ls) (firstn x L) ++ ls ++ my_skipn L x in
+    snd (strip_subsets L') = insert (map (shift_c_p x 0) (snd (strip_subsets ls))) x (map (shift_c_p n x) (snd (strip_subsets L))).
+  Admitted.
+  
+  Arguments shift0 new ks [t] x .
+  Arguments shift new n ks [t] x .
+  
+  Lemma lift1_shift0 new : forall ks A B (f : A -> B) a, lift1 (new ++ ks) f (shift0 new ks a) = shift0 new ks (lift1 ks f a).
+  Proof.
+    induct new; cbn in *; try rename a into a'; intros ks A B f a; eauto.
+    rewrite IHnew.
+    rewrite !fuse_lift1_lift1.
+    eauto.
+  Qed.
+  
+  Lemma lift1_shift x : forall ks new A B (f : A -> B) a, lift1 (insert new x ks) f (shift new x ks a) = shift new x ks (lift1 ks f a).
+  Proof.
+    induct x; cbn in *.
+    {
+      intros ks new A B f a.
+      rewrite lift1_shift0.
+      eauto.
+    }
+    destruct ks; cbn in *; intros new A B f a.
+    {
+      rewrite fuse_lift1_lift0.
+      eauto.
+    }
+    {
+      eauto.
+    }
+  Qed.
+  
+  Lemma lift2_shift0 new : forall ks A B C (f : A -> B -> C) a b, lift2 (new ++ ks) f (shift0 new ks a) (shift0 new ks b) = shift0 new ks (lift2 ks f a b).
+  Proof.
+    induct new; cbn in *; try rename a into a'; intros ks A B C f a b; eauto.
+    rewrite IHnew.
+    rewrite !fuse_lift1_lift2.
+    rewrite !fuse_lift2_lift1_1.
+    rewrite !fuse_lift2_lift1_2.
+    eauto.
+  Qed.
+  
+  Lemma lift2_shift x : forall ks new A B C (f : A -> B -> C) a b, lift2 (insert new x ks) f (shift new x ks a) (shift new x ks b) = shift new x ks (lift2 ks f a b).
+  Proof.
+    induct x; cbn in *.
+    {
+      intros ks new A B C f a b.
+      rewrite lift2_shift0.
+      eauto.
+    }
+    destruct ks; cbn in *; intros new A B C f a b; try linear_arithmetic.
+    {
+      rewrite fuse_lift2_lift0_2.
+      rewrite fuse_lift1_lift0.
+      eauto.
+    }
+    {
+      eauto.
+    }
+  Qed.
+  
+  Lemma forall_shift0 new :
+    forall ks p,
+      forall_ ks p ->
+      forall_ (new ++ ks) (shift0 new ks p).
+  Proof.
+    induct new; cbn in *; intros ks p H; eauto.
+    rewrite lift1_shift0.
+    rewrite fuse_lift1_lift1.
+    eapply IHnew.
+    eapply forall_use_premise; eauto.
+    rewrite fuse_lift2_lift1_2.
+    rewrite dedup_lift2.
+    eapply forall_lift1; eauto.
+  Qed.
+  
+  Lemma forall_shift x :
+    forall ks new p,
+      forall_ ks p ->
+      forall_ (insert new x ks) (shift new x ks p).
+  Proof.
+    induct x; cbn in *.
+    {
+      intros ks new p H.
+      eapply forall_shift0; eauto.
+    }
+    destruct ks; cbn in *; intros new p H.
+    {
+      eapply forall_lift0; eauto.
+    }
+    {
+      rewrite lift1_shift.
+      eauto.
+    }
+  Qed.
+    
+  Lemma forall_lift2_imply_shift ks x :
+    forall new p1 p2 p1' p2',
+      let ks' := insert new x ks in
+      forall_ ks' (lift2 ks' imply p1' (shift new x ks p1)) ->
+      forall_ ks' (lift2 ks' imply (shift new x ks p2) p2') ->
+      forall_ ks (lift2 ks imply p1 p2) ->
+      forall_ ks' (lift2 ks' imply p1' p2').
+  Proof.
+    cbn in *; intros new p1 p2 p1' p2' Ha Hb H.
+    eapply forall_trans; eauto.
+    eapply forall_trans; eauto.
+    rewrite lift2_shift.
+    eapply forall_shift; eauto.
+  Qed.
+
   Lemma interp_prop_shift_c_p L p :
     interp_prop L p ->
     forall x ls ,
@@ -2505,8 +2727,22 @@ Module M (Time : TIME).
       x <= length L ->
       interp_prop (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_p n x p).
   Proof.
-    (*here*)
-  (* Qed. *)
+    cbn in *.
+    intros H x ls Hle.
+    unfold interp_prop in *.
+    cbn in *.
+    rewrite !fst_strip_subsets_insert.
+    rewrite !snd_strip_subsets_insert.
+    set (ks := fst (strip_subsets L)) in *.
+    set (ks_new := fst (strip_subsets ls)) in *.
+    eapply forall_lift2_imply_shift; eauto.
+    {
+      admit.
+    }
+    {
+      (*here*)
+      admit.
+    }
   Admitted.
   
   Ltac interp_le := try eapply interp_time_interp_prop_le; apply_all interp_prop_le_interp_time.
@@ -2572,9 +2808,9 @@ Module M (Time : TIME).
           f2 kps k'ps ->
           f p kps p' k'ps
       ) ->
-      forall_all ks (lift3 ks f1 kps p p') ->
-      forall_all ks (lift2 ks f2 kps k'ps) ->
-      forall_all ks (lift4 ks f p kps p' k'ps).
+      forall_ ks (lift3 ks f1 kps p p') ->
+      forall_ ks (lift2 ks f2 kps k'ps) ->
+      forall_ ks (lift4 ks f p kps p' k'ps).
   Proof.
     induct ks; simplify; eauto.
     rewrite fuse_lift1_lift2 in *.
@@ -2592,12 +2828,12 @@ Module M (Time : TIME).
     let ps := snd bs_ps in
     let ps := map shift0_c_p ps in
     let b := kind_to_sort k in
-    forall_all (b :: bs)
+    forall_ (b :: bs)
                (lift2 (b :: bs) (fun a b : Prop => a -> (a <-> b))
                       (interp_p (b :: bs) (and_all (strip_subset k ++ ps)))
                       (interp_p (b :: bs) (and_all (strip_subset k' ++ ps)))).
   Proof.
-    induct 1; simplify; eauto; rewrite ? fuse_lift1_lift2, ? dedup_lift2 in *; try solve [eapply forall_all_lift1; propositional].
+    induct 1; simplify; eauto; rewrite ? fuse_lift1_lift2, ? dedup_lift2 in *; try solve [eapply forall_lift1; propositional].
     rename H into Hkdeq.
     copy Hkdeq Heq.
     eapply kdeq_kind_to_sort in Heq.
@@ -2622,8 +2858,8 @@ Module M (Time : TIME).
           f1 kp kps kp0 ->
           f kps kp kp0
       ) ->
-      forall_all ks (lift3 ks f1 kp kps kp0) ->
-      forall_all ks (lift3 ks f kps kp kp0).
+      forall_ ks (lift3 ks f1 kp kps kp0) ->
+      forall_ ks (lift3 ks f kps kp kp0).
   Proof.
     induct ks; simplify; eauto.
     rewrite fuse_lift1_lift3 in *.
@@ -2632,7 +2868,7 @@ Module M (Time : TIME).
     eauto.
   Qed.
 
-  (* Some Coq bug(s) here! *)
+  (* Some Coq bug(s)! *)
   
   (* Lemma interp_prop_subset_imply k p L p0 : *)
   (*   interp_prop (KSubset k p :: L) p0 -> *)
@@ -2755,10 +2991,10 @@ lift2 (fst (strip_subsets L))
           f3 kps k'ps ->
           f kps p p0
       ) ->
-      forall_all ks (lift3 ks f1 kps p p') ->
-      forall_all ks (lift3 ks f2 kps p' p0) ->
-      forall_all ks (lift2 ks f3 kps k'ps) ->
-      forall_all ks (lift3 ks f kps p p0).
+      forall_ ks (lift3 ks f1 kps p p') ->
+      forall_ ks (lift3 ks f2 kps p' p0) ->
+      forall_ ks (lift2 ks f3 kps k'ps) ->
+      forall_ ks (lift3 ks f kps p p0).
   Proof.
     induct ks; simplify; eauto.
     rewrite fuse_lift1_lift2 in *.
@@ -2950,15 +3186,17 @@ lift2 (fst (strip_subsets L))
       nth_error L n = Some k ->
       kinding (my_skipn L (1 + n)) c k ->
       interp_prop (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_p n (shift_c_c n 0 c) p).
+  Proof.
+    
   Admitted.
   
-  (*
+(* a version that builds in transitivity *)
 Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
 (* | TyEqRefl L t : *)
 (*     tyeq L t t *)
 | TyEqVar L x :
     tyeq L (CVar x) (CVar x)
-| TyConst L cn :
+| TyEqConst L cn :
     tyeq L (CConst cn) (CConst cn)
 (* | TyEqUnOp L opr t t' : *)
 (*     tyeq L t t' -> *)
@@ -2981,6 +3219,11 @@ Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
     tyeq L c1 c1' ->
     tyeq L c2 c2' ->
     tyeq L (CApp c1 c2) (CApp c1' c2')
+| TyEqTimeApp L n c1 c2 n' c1' c2' :
+    n = n' ->
+    tyeq L c1 c1' ->
+    tyeq L c2 c2' ->
+    tyeq L (CTimeApp n c1 c2) (CTimeApp n' c1' c2')
 | TyEqBeta L t1 t2  :
     tyeq L (CApp (CAbs t1) t2) (subst0_c_c t2 t1)
 | TyEqBetaRev L t1 t2  :
@@ -2997,87 +3240,57 @@ Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
    tyeq L t t' ->
    tyeq L (CRef t) (CRef t')
 (* the following rules are just here to satisfy reflexivity *)
-| TyEqTimeAbs L i :
-    tyeq L (CTimeAbs i) (CTimeAbs i)
 (* don't do deep equality test of two CAbs's *)
 | TyEqAbs L t :
     tyeq L (CAbs t) (CAbs t)
+| TyEqTimeAbs L i :
+    tyeq L (CTimeAbs i) (CTimeAbs i)
 | TyEqTrans L a b c :
     tyeq L a b ->
     tyeq L b c ->
     tyeq L a c
 .
 
-Hint Constructors tyeq.
+Section tyeq_hint.
+    
+  Local Hint Constructors tyeq.
 
-Lemma tyeq_refl : forall t L, tyeq L t t.
-Proof.
-  induct t; eauto using interp_prop_eq_refl, kdeq_refl.
-Qed.
+  Lemma tyeq_refl : forall t L, tyeq L t t.
+  Proof.
+    induct t; eauto using interp_prop_eq_refl, kdeq_refl.
+  Qed.
 
-Lemma kdeq_tyeq L k k' t t' :
-  kdeq L k k' ->
-  tyeq (k :: L) t t' ->
-  tyeq (k' :: L) t t'.
-Admitted.
+  Lemma kdeq_tyeq L k k' t t' :
+    kdeq L k k' ->
+    tyeq (k :: L) t t' ->
+    tyeq (k' :: L) t t'.
+  Admitted.
 
-Lemma tyeq_sym L t1 t2 : tyeq L t1 t2 -> tyeq L t2 t1.
-Proof.
-  induct 1; eauto using interp_prop_eq_sym, kdeq_sym.
-  {
-    econstructor; eauto using interp_prop_eq_sym, kdeq_sym.
-    eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym.
-  }
-  {
-    econstructor; eauto using interp_prop_eq_sym, kdeq_sym.
-    eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym.
-  }
-Qed.
+  Lemma tyeq_sym L t1 t2 : tyeq L t1 t2 -> tyeq L t2 t1.
+  Proof.
+    induct 1; eauto using interp_prop_eq_sym, kdeq_sym.
+    {
+      econstructor; eauto using interp_prop_eq_sym, kdeq_sym.
+      eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym.
+    }
+    {
+      econstructor; eauto using interp_prop_eq_sym, kdeq_sym.
+      eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym.
+    }
+  Qed.
 
-Lemma tyeq_trans L a b c :
-  tyeq L a b ->
-  tyeq L b c ->
-  tyeq L a c.
-Proof.
-  intros; eauto.
-Qed.
+  Lemma tyeq_trans L a b c :
+    tyeq L a b ->
+    tyeq L b c ->
+    tyeq L a c.
+  Proof.
+    intros; eauto.
+  Qed.
 
-Lemma invert_tyeq_Arrow L t1 i t2 tb : 
+  (*here*)
+  
+  Lemma invert_tyeq_Arrow L t1 i t2 tb : 
     tyeq L (CArrow t1 i t2) tb ->
-      (exists t1' i' t2' ,
-          tb = CArrow t1' i' t2' /\
-          tyeq L t1 t1' /\
-          interp_prop L (TEq i i') /\
-          tyeq L t2 t2') \/
-      (exists t1' t2' ,
-          tb = CApp t1' t2').
-Proof.
-  induct 1; eauto.
-  {
-    left; repeat eexists_split; eauto.
-  }
-  {
-    specialize (Hcneq (CAbs t0) t3).
-    propositional.
-  }
-  induct 1; eauto.
-  {
-    repeat eexists_split; eauto.
-  }
-  {
-    specialize (Hcneq (CAbs t0) t3).
-    propositional.
-  }
-  eapply IHtyeq2; eauto using tyeq_sym.
-  intros Htyeq.
-  invert Htyeq.
-
-Qed.
-
-Lemma invert_tyeq_Arrow L ta tb : 
-  tyeq L ta tb ->
-  forall t1 i t2,
-    tyeq L ta (CArrow t1 i t2) ->
     (exists t1' i' t2' ,
         tb = CArrow t1' i' t2' /\
         tyeq L t1 t1' /\
@@ -3085,66 +3298,111 @@ Lemma invert_tyeq_Arrow L ta tb :
         tyeq L t2 t2') \/
     (exists t1' t2' ,
         tb = CApp t1' t2').
-Proof.
-  induct 1; eauto.
-  intros.
-  invert H.
-  {
-    left; repeat eexists_split; eauto.
-  }
+  Proof.
+    induct 1; eauto.
+    {
+      left; repeat eexists_split; eauto.
+    }
+    {
+      sp
+        ecialize (Hcneq (CAbs t0) t3).
+      propositional.
+    }
+    induct 1; eauto.
+    {
+      repeat eexists_split; eauto.
+    }
+    {
+      specialize (Hcneq (CAbs t0) t3).
+      propositional.
+    }
+    eapply IHtyeq2; eauto using tyeq_sym.
+    intros Htyeq.
+    invert Htyeq.
 
-Lemma invert_tyeq_Arrow L t1 i t2 tb : 
-  tyeq L (CArrow t1 i t2) tb ->
-  (forall t1' t2' ,
-      tb <> CApp t1' t2') ->
-  (exists t1' i' t2' ,
-      tb = CArrow t1' i' t2' /\
-      tyeq L t1 t1' /\
-      interp_prop L (TEq i i') /\
-      tyeq L t2 t2').
-Proof.
-  induct 1; eauto; intros Hcneq.
-  {
-    repeat eexists_split; eauto.
-  }
-  {
-    specialize (Hcneq (CAbs t0) t3).
-    propositional.
-  }
-  admit.
-  eapply IHtyeq2; eauto using tyeq_sym.
-  intros Htyeq.
-  invert Htyeq.
-Qed.
+  Qed.
 
-Lemma CForall_CArrow_false' L ta tb : 
+  Lemma invert_tyeq_Arrow L ta tb : 
+    tyeq L ta tb ->
+    forall t1 i t2,
+      tyeq L ta (CArrow t1 i t2) ->
+      (exists t1' i' t2' ,
+          tb = CArrow t1' i' t2' /\
+          tyeq L t1 t1' /\
+          interp_prop L (TEq i i') /\
+          tyeq L t2 t2') \/
+      (exists t1' t2' ,
+          tb = CApp t1' t2').
+  Proof.
+    induct 1; eauto.
+    intros.
+    invert H.
+    {
+      left; repeat eexists_split; eauto.
+    }
+  Admitted.
+  
+  Lemma invert_tyeq_Arrow L t1 i t2 tb : 
+    tyeq L (CArrow t1 i t2) tb ->
+    (forall t1' t2' ,
+        tb <> CApp t1' t2') ->
+    (exists t1' i' t2' ,
+        tb = CArrow t1' i' t2' /\
+        tyeq L t1 t1' /\
+        interp_prop L (TEq i i') /\
+        tyeq L t2 t2').
+  Proof.
+    induct 1; eauto; intros Hcneq.
+    {
+      repeat eexists_split; eauto.
+    }
+    {
+      specialize (Hcneq (CAbs t0) t3).
+      propositional.
+    }
+    admit.
+    eapply IHtyeq2; eauto using tyeq_sym.
+    intros Htyeq.
+    invert Htyeq.
+  Qed.
+
+  Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' :
+    tyeq L (CArrow t1 i t2) (CArrow t1' i' t2') ->
+    tyeq L t1 t1' /\
+    interp_prop L (TEq i i') /\
+    tyeq L t2 t2'.
+  Admitted.
+
+  Lemma CForall_CArrow_false' L ta tb : 
     tyeq L ta tb ->
     forall k t t1 i t2,
       tyeq L ta (CForall k t) ->
       tyeq L tb (CArrow t1 i t2) ->
       False.
-Proof.
-  induct 1; eauto.
-  eapply IHtyeq2; eauto using tyeq_sym.
-  intros Htyeq.
-  invert Htyeq.
-Qed.
+  Proof.
+    induct 1; eauto.
+    eapply IHtyeq2; eauto using tyeq_sym.
+    intros Htyeq.
+    invert Htyeq.
+  Qed.
 
-Lemma CForall_CArrow_false' L k t t1 i t2 : 
+  Lemma CForall_CArrow_false' L k t t1 i t2 : 
     tyeq L (CForall k t) (CArrow t1 i t2) ->
     False.
-Proof.
-  induct 1.
-Qed.
+  Proof.
+    induct 1.
+  Qed.
   
-Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' :
-  tyeq L (CArrow t1 i t2) (CArrow t1' i' t2') ->
-  tyeq L t1 t1' /\
-  interp_prop L (TEq i i') /\
-  tyeq L t2 t2'.
-Admitted.
-   *)
+  Lemma CForall_CArrow_false k t t1 i t2 :
+    tyeq [] (CForall k t) (CArrow t1 i t2) ->
+    False.
+  Proof.
+  Admitted.
+  
+End tyeq_hint.
 
+(*
+  (* a version that does not build in transitivity *)
   Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
   (* | TyEqRefl L t : *)
   (*     tyeq L t t *)
@@ -3345,7 +3603,7 @@ Admitted.
     Proof.
       invert 1.
     Qed.
-
+    
     Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' :
       tyeq L (CArrow t1 i t2) (CArrow t1' i' t2') ->
       tyeq L t1 t1' /\
@@ -3355,81 +3613,92 @@ Admitted.
       invert 1.
       repeat eexists_split; eauto.
     Qed.
+*)
 
     Lemma CExists_CArrow_false k t t1 i t2 :
       tyeq [] (CExists k t) (CArrow t1 i t2) ->
       False.
     Proof.
-      invert 1.
-    Qed.
+    (*   invert 1. *)
+    (* Qed. *)
+    Admitted.
 
     Lemma CProd_CArrow_false ta tb t1 i t2 :
       tyeq [] (CProd ta tb) (CArrow t1 i t2) ->
       False.
-    Proof.
-      invert 1.
-    Qed.
+    (* Proof. *)
+    (*   invert 1. *)
+    (* Qed. *)
+    Admitted.
 
     Lemma CSum_CArrow_false ta tb t1 i t2 :
       tyeq [] (CSum ta tb) (CArrow t1 i t2) ->
       False.
     Proof.
-      invert 1.
-    Qed.
-
+    (*   invert 1. *)
+    (* Qed. *)
+    Admitted.
+    
     Lemma CRef_CArrow_false t t1 i t2 :
       tyeq [] (CRef t) (CArrow t1 i t2) ->
       False.
     Proof.
-      invert 1.
-    Qed.
-
+    (*   invert 1. *)
+    (* Qed. *)
+    Admitted.
+    
     Lemma invert_tyeq_CExists L k1 t1 k2 t2 :
       tyeq L (CExists k1 t1) (CExists k2 t2) ->
       tyeq (k1 :: L) t1 t2 /\
       kdeq L k1 k2.
     Proof.
-      invert 1.
-      repeat eexists_split; eauto.
-    Qed.
-
+    (*   invert 1. *)
+    (*   repeat eexists_split; eauto. *)
+    (* Qed. *)
+    Admitted.
+    
     Lemma invert_tyeq_CForall L k1 t1 k2 t2 :
       tyeq L (CForall k1 t1) (CForall k2 t2) ->
       tyeq (k1 :: L) t1 t2 /\
       kdeq L k1 k2.
     Proof.
-      invert 1.
-      repeat eexists_split; eauto.
-    Qed.
-
+    (*   invert 1. *)
+    (*   repeat eexists_split; eauto. *)
+    (* Qed. *)
+    Admitted.
+    
     Lemma invert_tyeq_CRef L t t' :
       tyeq L (CRef t) (CRef t') ->
       tyeq L t t'.
     Proof.
-      invert 1.
-      repeat eexists_split; eauto.
-    Qed.
-
+    (*   invert 1. *)
+    (*   repeat eexists_split; eauto. *)
+    (* Qed. *)
+    Admitted.
+    
     Lemma invert_tyeq_CProd L t1 t2 t1' t2' :
       tyeq L (CProd t1 t2) (CProd t1' t2') ->
       tyeq L t1 t1' /\
       tyeq L t2 t2'.
     Proof.
-      invert 1.
-      repeat eexists_split; eauto.
-    Qed.
-
+    (*   invert 1. *)
+    (*   repeat eexists_split; eauto. *)
+    (* Qed. *)
+    Admitted.
+    
     Lemma invert_tyeq_CSum L t1 t2 t1' t2' :
       tyeq L (CSum t1 t2) (CSum t1' t2') ->
       tyeq L t1 t1' /\
       tyeq L t2 t2'.
     Proof.
-      invert 1.
-      repeat eexists_split; eauto.
-    Qed.
-
+    (*   invert 1. *)
+    (*   repeat eexists_split; eauto. *)
+    (* Qed. *)
+    Admitted.
+    
+(*
   End tyeq_hint.
-
+*)
   Hint Resolve tyeq_refl tyeq_sym tyeq_trans interp_prop_le_refl interp_prop_le_trans : db_tyeq.
 
   Lemma kinding_tyeq L k t1 t2 :
@@ -4572,7 +4841,8 @@ Admitted.
   Proof.
     cases cn; intros Htyeq; simplify;
       invert Htyeq.
-  Qed.
+  Admitted.
+  (* Qed. *)
 
   Lemma subst_c_c_const_type x v cn :
     subst_c_c x v (const_type cn) = const_type cn.
@@ -5715,20 +5985,21 @@ Admitted.
     (*   rewrite nth_error_nil in H. *)
     (*   invert H. *)
     (* } *)
-    {
-      eapply CApps_CRec_CForall_false in Htyeq; propositional.
-    }
-    {
-      cases cn; simplify; invert Htyeq.
-    }
-    {
-      cases inj; simplify; invert Htyeq.
-    }
-    {
-      destruct C as ((L & W) & G); simplify; subst.
-      eapply IHtyping; eauto with db_tyeq.
-    }
-  Qed.
+  (*   { *)
+  (*     eapply CApps_CRec_CForall_false in Htyeq; propositional. *)
+  (*   } *)
+  (*   { *)
+  (*     cases cn; simplify; invert Htyeq. *)
+  (*   } *)
+  (*   { *)
+  (*     cases inj; simplify; invert Htyeq. *)
+  (*   } *)
+  (*   { *)
+  (*     destruct C as ((L & W) & G); simplify; subst. *)
+  (*     eapply IHtyping; eauto with db_tyeq. *)
+  (*   } *)
+    (* Qed. *)
+  Admitted.
 
   Lemma canon_CForall W v k t i :
     typing ([], W, []) v (CForall k t) i ->
@@ -5818,21 +6089,22 @@ Admitted.
     (*   rewrite nth_error_nil in H. *)
     (*   invert H. *)
     (* } *)
-    {
-      eapply CApps_CRec_CExists_false in Htyeq; propositional.
-    }
-    {
-      cases cn; simplify; invert Htyeq.
-    }
-    {
-      cases inj; simplify; invert Htyeq.
-    }
-    {
-      destruct C as ((L & W) & G); simplify; subst.
-      eapply IHtyping; eauto with db_tyeq.
-    }
-  Qed.
-
+  (*   { *)
+  (*     eapply CApps_CRec_CExists_false in Htyeq; propositional. *)
+  (*   } *)
+  (*   { *)
+  (*     cases cn; simplify; invert Htyeq. *)
+  (*   } *)
+  (*   { *)
+  (*     cases inj; simplify; invert Htyeq. *)
+  (*   } *)
+  (*   { *)
+  (*     destruct C as ((L & W) & G); simplify; subst. *)
+  (*     eapply IHtyping; eauto with db_tyeq. *)
+  (*   } *)
+  (* Qed. *)
+  Admitted.
+  
   Lemma canon_CExists W v k t i :
     typing ([], W, []) v (CExists k t) i ->
     value v ->
@@ -5861,21 +6133,22 @@ Admitted.
     (*   rewrite nth_error_nil in H. *)
     (*   invert H. *)
     (* } *)
-    {
-      eapply CApps_CRec_CProd_false in Htyeq; propositional.
-    }
-    {
-      cases cn; simplify; invert Htyeq.
-    }
-    {
-      cases inj; simplify; invert Htyeq.
-    }
-    {
-      destruct C as ((L & W) & G); simplify; subst.
-      eapply IHtyping; eauto with db_tyeq.
-    }
-  Qed.
-
+  (*   { *)
+  (*     eapply CApps_CRec_CProd_false in Htyeq; propositional. *)
+  (*   } *)
+  (*   { *)
+  (*     cases cn; simplify; invert Htyeq. *)
+  (*   } *)
+  (*   { *)
+  (*     cases inj; simplify; invert Htyeq. *)
+  (*   } *)
+  (*   { *)
+  (*     destruct C as ((L & W) & G); simplify; subst. *)
+  (*     eapply IHtyping; eauto with db_tyeq. *)
+  (*   } *)
+  (* Qed. *)
+  Admitted.
+  
   Lemma canon_CProd W v t1 t2 i :
     typing ([], W, []) v (CProd t1 t2) i ->
     value v ->
@@ -5904,17 +6177,18 @@ Admitted.
     (*   rewrite nth_error_nil in H. *)
     (*   invert H. *)
     (* } *)
-    {
-      eapply CApps_CRec_CSum_false in Htyeq; propositional.
-    }
-    {
-      cases cn; simplify; invert Htyeq.
-    }
-    {
-      destruct C as ((L & W) & G); simplify; subst.
-      eapply IHtyping; eauto with db_tyeq.
-    }
-  Qed.
+  (*   { *)
+  (*     eapply CApps_CRec_CSum_false in Htyeq; propositional. *)
+  (*   } *)
+  (*   { *)
+  (*     cases cn; simplify; invert Htyeq. *)
+  (*   } *)
+  (*   { *)
+  (*     destruct C as ((L & W) & G); simplify; subst. *)
+  (*     eapply IHtyping; eauto with db_tyeq. *)
+  (*   } *)
+  (* Qed. *)
+  Admitted.
   
   Lemma canon_CSum W v t1 t2 i :
     typing ([], W, []) v (CSum t1 t2) i ->
@@ -5943,20 +6217,21 @@ Admitted.
     (*   rewrite nth_error_nil in H. *)
     (*   invert H. *)
     (* } *)
-    {
-      eapply CApps_CRec_CRef_false in Htyeq; propositional.
-    }
-    {
-      cases cn; simplify; invert Htyeq.
-    }
-    {
-      cases inj; simplify; invert Htyeq.
-    }
-    {
-      destruct C as ((L & W) & G); simplify; subst.
-      eapply IHtyping; eauto with db_tyeq.
-    }
-  Qed.
+  (*   { *)
+  (*     eapply CApps_CRec_CRef_false in Htyeq; propositional. *)
+  (*   } *)
+  (*   { *)
+  (*     cases cn; simplify; invert Htyeq. *)
+  (*   } *)
+  (*   { *)
+  (*     cases inj; simplify; invert Htyeq. *)
+  (*   } *)
+  (*   { *)
+  (*     destruct C as ((L & W) & G); simplify; subst. *)
+  (*     eapply IHtyping; eauto with db_tyeq. *)
+  (*   } *)
+  (* Qed. *)
+  Admitted.
   
   Lemma canon_CRef W v t i :
     typing ([], W, []) v (CRef t) i ->
