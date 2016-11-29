@@ -3219,11 +3219,11 @@ Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
     tyeq L c1 c1' ->
     tyeq L c2 c2' ->
     tyeq L (CApp c1 c2) (CApp c1' c2')
-| TyEqTimeApp L n c1 c2 n' c1' c2' :
-    n = n' ->
-    tyeq L c1 c1' ->
-    tyeq L c2 c2' ->
-    tyeq L (CTimeApp n c1 c2) (CTimeApp n' c1' c2')
+(* | TyEqTimeApp L n c1 c2 n' c1' c2' : *)
+(*     n = n' -> *)
+(*     tyeq L c1 c1' -> *)
+(*     tyeq L c2 c2' -> *)
+(*     tyeq L (CTimeApp n c1 c2) (CTimeApp n' c1' c2') *)
 | TyEqBeta L t1 t2  :
     tyeq L (CApp (CAbs t1) t2) (subst0_c_c t2 t1)
 | TyEqBetaRev L t1 t2  :
@@ -3239,12 +3239,16 @@ Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
 | TyEqRef L t t' :
    tyeq L t t' ->
    tyeq L (CRef t) (CRef t')
-(* the following rules are just here to satisfy reflexivity *)
+(* the following rules (except [TyEqTrans]) are just here to satisfy reflexivity *)
 (* don't do deep equality test of two CAbs's *)
 | TyEqAbs L t :
     tyeq L (CAbs t) (CAbs t)
 | TyEqTimeAbs L i :
     tyeq L (CTimeAbs i) (CTimeAbs i)
+(* | TyEqApp L c1 c2 : *)
+(*     tyeq L (CApp c1 c2) (CApp c1 c2) *)
+| TyEqTimeApp L n c1 c2 :
+    tyeq L (CTimeApp n c1 c2) (CTimeApp n c1 c2)
 | TyEqTrans L a b c :
     tyeq L a b ->
     tyeq L b c ->
@@ -3297,6 +3301,7 @@ Section tyeq_hint.
   | HnfAbs t : is_hnf (CAbs t)
   | HnfQuan q k c : is_hnf (CQuan q k c)
   | HnfRec k t : is_hnf (CRec k t)
+  | HnfRef t : is_hnf (CRef t)
   .
 
   Local Hint Constructors is_hnf.
@@ -3304,6 +3309,9 @@ Section tyeq_hint.
   Inductive tstep : cstr -> cstr -> Prop :=
   | TstepBeta t1 t2  :
       tstep (CApp (CAbs t1) t2) (subst0_c_c t2 t1)
+  | TstepApp1 t1 t2 t1' :
+      tstep t1 t1' ->
+      tstep (CApp t1 t2) (CApp t1' t2)
   .
   
   (* almost the safe with [tyeq], but without Beta, BetaRev *)
@@ -3399,7 +3407,12 @@ Section tyeq_hint.
     intros; eapply hnfeq_trans'; eauto.
   Qed.
 
-  Lemma tyeq_hnf L t1 t2:
+  Ltac invert_tstep :=
+    match goal with
+      H : tstep _ _ |- _ => invert H
+    end.
+
+  Lemma tyeq_hnfeq L t1 t2:
     tyeq L t1 t2 ->
     forall t1',
       tstep^* t1 t1' ->
@@ -3409,21 +3422,24 @@ Section tyeq_hint.
         is_hnf t2' /\
         hnfeq L t1' t2'.
   Proof.
-    induct 1.
-    Focus 8.
+    induct 1; try solve [invert 1; try solve [invert_tstep]; intros; repeat eexists_split; eauto].
+    {
+      (* maybe I should replace [TyEqApp], [TyEqBeta] and [TyEqBetaRev] in [tyeq] with [TyEqStep] and [TyEqStepRev], and prove [TyEqApp] as a lemma *)
+      (* or prove this subgoal *)
+      (*here*)
+      admit.
+    }
     {
       invert 1.
       {
         invert 1.
       }
-      invert H0.
+      invert_tstep; try solve [invert_tstep].
       intros Hhnf.
       exists t1'.
       repeat eexists_split; eauto.
       eauto using hnfeq_refl.
     }
-    Unfocus.
-    Focus 8.
     {
       intros t1' Hsteps Hhnf.
       exists t1'.
@@ -3434,8 +3450,6 @@ Section tyeq_hint.
       }
       eauto using hnfeq_refl.
     }
-    Unfocus.
-    Focus 13.
     {
       intros t1' Hsteps Hhnf.
       eapply IHtyeq1 in Hhnf; eauto.
@@ -3446,10 +3460,8 @@ Section tyeq_hint.
       repeat eexists_split; eauto.
       eauto using hnfeq_trans.
     }
-    Unfocus.
+    (* Qed. *)
   Admitted.
-  
-  (*here*)
   
   Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' :
     tyeq L (CArrow t1 i t2) (CArrow t1' i' t2') ->
@@ -3458,7 +3470,7 @@ Section tyeq_hint.
     tyeq L t2 t2'.
   Proof.
     intros H.
-    eapply tyeq_hnf in H; eauto.
+    eapply tyeq_hnfeq in H; eauto.
     destruct H as (t' & Hsteps & Hhnf & Heq).
     invert Hsteps.
     {
@@ -3473,7 +3485,7 @@ Section tyeq_hint.
     False.
   Proof.
     unfold CForall; intros H.
-    eapply tyeq_hnf in H; eauto.
+    eapply tyeq_hnfeq in H; eauto.
     destruct H as (t' & Hsteps & Hhnf & Heq).
     invert Hsteps.
     {
