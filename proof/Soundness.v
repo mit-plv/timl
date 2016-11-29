@@ -3291,20 +3291,20 @@ Section tyeq_hint.
     intros; eauto.
   Qed.
 
-  Inductive is_hnf : cstr -> Prop :=
-  | HnfVar x : is_hnf (CVar x)
-  | HnfConst cn : is_hnf (CConst cn)
-  | HnfBinOp opr c1 c2 : is_hnf (CBinOp opr c1 c2)
-  | HnfIte c c1 c2 : is_hnf (CIte c c1 c2)
-  | HnfTimeAbs i : is_hnf (CTimeAbs i)
-  | HnfArrow t1 i t2 : is_hnf (CArrow t1 i t2)
-  | HnfAbs t : is_hnf (CAbs t)
-  | HnfQuan q k c : is_hnf (CQuan q k c)
-  | HnfRec k t : is_hnf (CRec k t)
-  | HnfRef t : is_hnf (CRef t)
+  Inductive is_whnf : cstr -> Prop :=
+  | HnfVar x : is_whnf (CVar x)
+  | HnfConst cn : is_whnf (CConst cn)
+  | HnfBinOp opr c1 c2 : is_whnf (CBinOp opr c1 c2)
+  | HnfIte c c1 c2 : is_whnf (CIte c c1 c2)
+  | HnfTimeAbs i : is_whnf (CTimeAbs i)
+  | HnfArrow t1 i t2 : is_whnf (CArrow t1 i t2)
+  | HnfAbs t : is_whnf (CAbs t)
+  | HnfQuan q k c : is_whnf (CQuan q k c)
+  | HnfRec k t : is_whnf (CRec k t)
+  | HnfRef t : is_whnf (CRef t)
   .
 
-  Local Hint Constructors is_hnf.
+  Local Hint Constructors is_whnf.
   
   Inductive tstep : cstr -> cstr -> Prop :=
   | TstepBeta t1 t2  :
@@ -3315,96 +3315,96 @@ Section tyeq_hint.
   .
   
   (* almost the safe with [tyeq], but without Beta, BetaRev *)
-  Inductive hnfeq : kctx -> cstr -> cstr -> Prop :=
+  Inductive whnfeq : kctx -> cstr -> cstr -> Prop :=
   | HnfEqVar L x :
-      hnfeq L (CVar x) (CVar x)
+      whnfeq L (CVar x) (CVar x)
   | HnfEqConst L cn :
-      hnfeq L (CConst cn) (CConst cn)
+      whnfeq L (CConst cn) (CConst cn)
   | HnfEqBinOp L opr t1 t2 t1' t2' :
       tyeq L t1 t1' ->
       tyeq L t2 t2' ->
-      hnfeq L (CBinOp opr t1 t2) (CBinOp opr t1' t2')
+      whnfeq L (CBinOp opr t1 t2) (CBinOp opr t1' t2')
   | HnfEqIte L t1 t2 t3 t1' t2' t3':
       tyeq L t1 t1' ->
       tyeq L t2 t2' ->
       tyeq L t3 t3' ->
-      hnfeq L (CIte t1 t2 t3) (CIte t1' t2' t3')
+      whnfeq L (CIte t1 t2 t3) (CIte t1' t2' t3')
   | HnfEqArrow L t1 i t2 t1' i' t2':
       tyeq L t1 t1' ->
       interp_prop L (TEq i i') ->
       tyeq L t2 t2' ->
-      hnfeq L (CArrow t1 i t2) (CArrow t1' i' t2')
+      whnfeq L (CArrow t1 i t2) (CArrow t1' i' t2')
   | HnfEqQuan L quan k t k' t' :
       kdeq L k k' ->
       tyeq (k :: L) t t' ->
-      hnfeq L (CQuan quan k t) (CQuan quan k' t')
+      whnfeq L (CQuan quan k t) (CQuan quan k' t')
   | HnfEqRec L k c k' c' :
       kdeq L k k' ->
       tyeq (k :: L) c c' ->
-      hnfeq L (CRec k c) (CRec k' c')
+      whnfeq L (CRec k c) (CRec k' c')
   | HnfEqRef L t t' :
       tyeq L t t' ->
-      hnfeq L (CRef t) (CRef t')
+      whnfeq L (CRef t) (CRef t')
   (* the following rules are just here to satisfy reflexivity *)
   (* don't do deep equality test of two CAbs's *)
   | HnfEqAbs L t :
-      hnfeq L (CAbs t) (CAbs t)
+      whnfeq L (CAbs t) (CAbs t)
   | HnfEqTimeAbs L i :
-      hnfeq L (CTimeAbs i) (CTimeAbs i)
+      whnfeq L (CTimeAbs i) (CTimeAbs i)
   | HnfEqApp L c1 c2 :
-      hnfeq L (CApp c1 c2) (CApp c1 c2)
+      whnfeq L (CApp c1 c2) (CApp c1 c2)
   | HnfEqTimeApp L n c1 c2 :
-      hnfeq L (CTimeApp n c1 c2) (CTimeApp n c1 c2)
+      whnfeq L (CTimeApp n c1 c2) (CTimeApp n c1 c2)
   (* | HnfEqRefl L a : *)
-  (*     hnfeq L a a *)
+  (*     whnfeq L a a *)
   (* | HnfEqTrans L a b c : *)
-  (*     hnfeq L a b -> *)
-  (*     hnfeq L b c -> *)
-  (*     hnfeq L a c *)
+  (*     whnfeq L a b -> *)
+  (*     whnfeq L b c -> *)
+  (*     whnfeq L a c *)
   .
 
-  Local Hint Constructors hnfeq.
+  Local Hint Constructors whnfeq.
 
-  Lemma hnfeq_tyeq :
+  Lemma whnfeq_tyeq :
     forall L a b,
-      hnfeq L a b ->
+      whnfeq L a b ->
       tyeq L a b.
   Proof.
     induct 1; intros; eauto using tyeq_refl.
   Qed.
       
-  Lemma hnfeq_refl : forall t L, hnfeq L t t.
+  Lemma whnfeq_refl : forall t L, whnfeq L t t.
   Proof.
-    induct t; eauto using interp_prop_eq_refl, kdeq_refl, hnfeq_tyeq.
+    induct t; eauto using interp_prop_eq_refl, kdeq_refl, whnfeq_tyeq.
   Qed.
 
-  Lemma hnfeq_trans' L a b :
-    hnfeq L a b ->
+  Lemma whnfeq_trans' L a b :
+    whnfeq L a b ->
     forall c,
-      hnfeq L b c ->
-      hnfeq L a c.
+      whnfeq L b c ->
+      whnfeq L a c.
   Proof.
-    induct 1; try solve [induct 1; eauto using interp_prop_eq_trans, hnfeq_refl, tyeq_trans].
+    induct 1; try solve [induct 1; eauto using interp_prop_eq_trans, whnfeq_refl, tyeq_trans].
     {
-      induct 1; eauto using interp_prop_eq_trans, hnfeq_refl, tyeq_trans.
+      induct 1; eauto using interp_prop_eq_trans, whnfeq_refl, tyeq_trans.
       econstructor; eauto using kdeq_trans.
       eapply tyeq_trans; eauto.
       eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym, tyeq_trans.
     }
     {
-      induct 1; eauto using interp_prop_eq_trans, hnfeq_refl, tyeq_trans.
+      induct 1; eauto using interp_prop_eq_trans, whnfeq_refl, tyeq_trans.
       econstructor; eauto using kdeq_trans.
       eapply tyeq_trans; eauto.
       eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym, tyeq_trans.
     }
   Qed.
 
-  Lemma hnfeq_trans L a b c :
-    hnfeq L a b ->
-    hnfeq L b c ->
-    hnfeq L a c.
+  Lemma whnfeq_trans L a b c :
+    whnfeq L a b ->
+    whnfeq L b c ->
+    whnfeq L a c.
   Proof.
-    intros; eapply hnfeq_trans'; eauto.
+    intros; eapply whnfeq_trans'; eauto.
   Qed.
 
   Ltac invert_tstep :=
@@ -3412,15 +3412,15 @@ Section tyeq_hint.
       H : tstep _ _ |- _ => invert H
     end.
 
-  Lemma tyeq_hnfeq L t1 t2:
+  Lemma tyeq_whnfeq L t1 t2:
     tyeq L t1 t2 ->
     forall t1',
       tstep^* t1 t1' ->
-      is_hnf t1' ->
+      is_whnf t1' ->
       exists t2',
         tstep^* t2 t2' /\
-        is_hnf t2' /\
-        hnfeq L t1' t2'.
+        is_whnf t2' /\
+        whnfeq L t1' t2'.
   Proof.
     induct 1; try solve [invert 1; try solve [invert_tstep]; intros; repeat eexists_split; eauto].
     {
@@ -3435,32 +3435,37 @@ Section tyeq_hint.
         invert 1.
       }
       invert_tstep; try solve [invert_tstep].
-      intros Hhnf.
+      intros Hwhnf.
       exists t1'.
       repeat eexists_split; eauto.
-      eauto using hnfeq_refl.
+      eauto using whnfeq_refl.
     }
     {
-      intros t1' Hsteps Hhnf.
+      intros t1' Hsteps Hwhnf.
       exists t1'.
       repeat eexists_split; eauto.
       {
         eapply TrcFront; try eassumption.
         repeat econstructor; eauto.
       }
-      eauto using hnfeq_refl.
+      eauto using whnfeq_refl.
     }
+    (* { *)
+    (*   intros t1' Hsteps Hwhnf. *)
+    (*   exists t1'. *)
+    (*   repeat eexists_split; eauto using whnfeq_refl. *)
+    (* } *)
     {
-      intros t1' Hsteps Hhnf.
-      eapply IHtyeq1 in Hhnf; eauto.
-      destruct Hhnf as (t2' & Hsteps2 & Hhnf & Htyeq).
-      eapply IHtyeq2 in Hhnf; eauto.
-      destruct Hhnf as (t3' & Hsteps3 & Hhnf & Htyeq2).
+      intros t1' Hsteps Hwhnf.
+      eapply IHtyeq1 in Hwhnf; eauto.
+      destruct Hwhnf as (t2' & Hsteps2 & Hwhnf & Htyeq).
+      eapply IHtyeq2 in Hwhnf; eauto.
+      destruct Hwhnf as (t3' & Hsteps3 & Hwhnf & Htyeq2).
       exists t3'.
       repeat eexists_split; eauto.
-      eauto using hnfeq_trans.
+      eauto using whnfeq_trans.
     }
-    (* Qed. *)
+  (* Qed. *)
   Admitted.
   
   Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' :
@@ -3470,8 +3475,8 @@ Section tyeq_hint.
     tyeq L t2 t2'.
   Proof.
     intros H.
-    eapply tyeq_hnfeq in H; eauto.
-    destruct H as (t' & Hsteps & Hhnf & Heq).
+    eapply tyeq_whnfeq in H; eauto.
+    destruct H as (t' & Hsteps & Hwhnf & Heq).
     invert Hsteps.
     {
       invert Heq.
@@ -3485,8 +3490,8 @@ Section tyeq_hint.
     False.
   Proof.
     unfold CForall; intros H.
-    eapply tyeq_hnfeq in H; eauto.
-    destruct H as (t' & Hsteps & Hhnf & Heq).
+    eapply tyeq_whnfeq in H; eauto.
+    destruct H as (t' & Hsteps & Hwhnf & Heq).
     invert Hsteps.
     {
       invert Heq.
@@ -4296,17 +4301,6 @@ End tyeq_hint.
     end
   .
 
-  Lemma TyEqApps L cs cs' :
-    Forall2 (tyeq L) cs cs' ->
-    forall t t',
-      tyeq L t t' ->
-      tyeq L (CApps t cs) (CApps t' cs').
-  Proof.
-    induct 1; simplify; eauto.
-    eapply IHForall2.
-    econstructor; eauto.
-  Qed.
-  
   (* Lemma invert_tyeq_CApps cs cs' c c' : *)
   (*     tyeq [] (CApps c cs) (CApps c' cs') -> *)
   (*     tyeq [] c c' /\ *)
@@ -4318,13 +4312,6 @@ End tyeq_hint.
   (*     admit. *)
   (*   } *)
   (* Qed. *)
-
-  Lemma invert_tyeq_CApps_CRec cs cs' k t k' t' :
-    tyeq [] (CApps (CRec k t) cs) (CApps (CRec k' t') cs') ->
-    kdeq [] k k' /\
-    tyeq [k] t t' /\
-    Forall2 (tyeq []) cs cs'.
-  Admitted.
 
   Lemma CApps_CRec_CArrow_false cs k3 t3 t1 i t2 :
     tyeq [] (CApps (CRec k3 t3) cs) (CArrow t1 i t2) ->
@@ -7148,6 +7135,13 @@ End tyeq_hint.
       destruct Hty as (? & ? & cs' & k' & t2' & i'' & Htyeq2 & ? & ? & Hkd & Hty & Hle3).
       subst.
       simplify.
+      Lemma invert_tyeq_CApps_CRec cs cs' k t k' t' :
+        tyeq [] (CApps (CRec k t) cs) (CApps (CRec k' t') cs') ->
+        kdeq [] k k' /\
+        tyeq [k] t t' /\
+        Forall2 (tyeq []) cs cs'.
+      Admitted.
+
       eapply invert_tyeq_CApps_CRec in Htyeq2.
       destruct Htyeq2 as (Hkdeq & Htyeq2 & Htyeqcs).
       split.
@@ -7167,6 +7161,19 @@ End tyeq_hint.
           simplify.
           eapply tyeq_sym.
           eapply tyeq_trans; [eapply Htyeq |].
+          Lemma TyEqApps L cs cs' :
+            Forall2 (tyeq L) cs cs' ->
+            forall t t',
+              tyeq L t t' ->
+              tyeq L (CApps t cs) (CApps t' cs').
+          Proof.
+            induct 1; simplify; eauto.
+            eapply IHForall2.
+          (* Admitted. *)
+            eapply TyEqApp; eauto.
+            (* econstructor; eauto. *)
+          Qed.
+          
           eapply TyEqApps; eauto.
           eapply tyeq_subst0_c_c; eauto.
           econstructor; eauto.
