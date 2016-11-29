@@ -3287,117 +3287,200 @@ Section tyeq_hint.
     intros; eauto.
   Qed.
 
-  (*here*)
-  
-  Lemma invert_tyeq_Arrow L t1 i t2 tb : 
-    tyeq L (CArrow t1 i t2) tb ->
-    (exists t1' i' t2' ,
-        tb = CArrow t1' i' t2' /\
-        tyeq L t1 t1' /\
-        interp_prop L (TEq i i') /\
-        tyeq L t2 t2') \/
-    (exists t1' t2' ,
-        tb = CApp t1' t2').
-  Proof.
-    induct 1; eauto.
-    {
-      left; repeat eexists_split; eauto.
-    }
-    {
-      sp
-        ecialize (Hcneq (CAbs t0) t3).
-      propositional.
-    }
-    induct 1; eauto.
-    {
-      repeat eexists_split; eauto.
-    }
-    {
-      specialize (Hcneq (CAbs t0) t3).
-      propositional.
-    }
-    eapply IHtyeq2; eauto using tyeq_sym.
-    intros Htyeq.
-    invert Htyeq.
+  Inductive is_hnf : cstr -> Prop :=
+  | HnfVar x : is_hnf (CVar x)
+  | HnfConst cn : is_hnf (CConst cn)
+  | HnfBinOp opr c1 c2 : is_hnf (CBinOp opr c1 c2)
+  | HnfIte c c1 c2 : is_hnf (CIte c c1 c2)
+  | HnfTimeAbs i : is_hnf (CTimeAbs i)
+  | HnfArrow t1 i t2 : is_hnf (CArrow t1 i t2)
+  | HnfAbs t : is_hnf (CAbs t)
+  | HnfQuan q k c : is_hnf (CQuan q k c)
+  | HnfRec k t : is_hnf (CRec k t)
+  .
 
+  Local Hint Constructors is_hnf.
+  
+  Inductive tstep : cstr -> cstr -> Prop :=
+  | TstepBeta t1 t2  :
+      tstep (CApp (CAbs t1) t2) (subst0_c_c t2 t1)
+  .
+  
+  (* almost the safe with [tyeq], but without Beta, BetaRev *)
+  Inductive hnfeq : kctx -> cstr -> cstr -> Prop :=
+  | HnfEqVar L x :
+      hnfeq L (CVar x) (CVar x)
+  | HnfEqConst L cn :
+      hnfeq L (CConst cn) (CConst cn)
+  | HnfEqBinOp L opr t1 t2 t1' t2' :
+      tyeq L t1 t1' ->
+      tyeq L t2 t2' ->
+      hnfeq L (CBinOp opr t1 t2) (CBinOp opr t1' t2')
+  | HnfEqIte L t1 t2 t3 t1' t2' t3':
+      tyeq L t1 t1' ->
+      tyeq L t2 t2' ->
+      tyeq L t3 t3' ->
+      hnfeq L (CIte t1 t2 t3) (CIte t1' t2' t3')
+  | HnfEqArrow L t1 i t2 t1' i' t2':
+      tyeq L t1 t1' ->
+      interp_prop L (TEq i i') ->
+      tyeq L t2 t2' ->
+      hnfeq L (CArrow t1 i t2) (CArrow t1' i' t2')
+  | HnfEqQuan L quan k t k' t' :
+      kdeq L k k' ->
+      tyeq (k :: L) t t' ->
+      hnfeq L (CQuan quan k t) (CQuan quan k' t')
+  | HnfEqRec L k c k' c' :
+      kdeq L k k' ->
+      tyeq (k :: L) c c' ->
+      hnfeq L (CRec k c) (CRec k' c')
+  | HnfEqRef L t t' :
+      tyeq L t t' ->
+      hnfeq L (CRef t) (CRef t')
+  (* the following rules are just here to satisfy reflexivity *)
+  (* don't do deep equality test of two CAbs's *)
+  | HnfEqAbs L t :
+      hnfeq L (CAbs t) (CAbs t)
+  | HnfEqTimeAbs L i :
+      hnfeq L (CTimeAbs i) (CTimeAbs i)
+  | HnfEqApp L c1 c2 :
+      hnfeq L (CApp c1 c2) (CApp c1 c2)
+  | HnfEqTimeApp L n c1 c2 :
+      hnfeq L (CTimeApp n c1 c2) (CTimeApp n c1 c2)
+  (* | HnfEqRefl L a : *)
+  (*     hnfeq L a a *)
+  (* | HnfEqTrans L a b c : *)
+  (*     hnfeq L a b -> *)
+  (*     hnfeq L b c -> *)
+  (*     hnfeq L a c *)
+  .
+
+  Local Hint Constructors hnfeq.
+
+  Lemma hnfeq_tyeq :
+    forall L a b,
+      hnfeq L a b ->
+      tyeq L a b.
+  Proof.
+    induct 1; intros; eauto using tyeq_refl.
+  Qed.
+      
+  Lemma hnfeq_refl : forall t L, hnfeq L t t.
+  Proof.
+    induct t; eauto using interp_prop_eq_refl, kdeq_refl, hnfeq_tyeq.
   Qed.
 
-  Lemma invert_tyeq_Arrow L ta tb : 
-    tyeq L ta tb ->
-    forall t1 i t2,
-      tyeq L ta (CArrow t1 i t2) ->
-      (exists t1' i' t2' ,
-          tb = CArrow t1' i' t2' /\
-          tyeq L t1 t1' /\
-          interp_prop L (TEq i i') /\
-          tyeq L t2 t2') \/
-      (exists t1' t2' ,
-          tb = CApp t1' t2').
+  Lemma hnfeq_trans' L a b :
+    hnfeq L a b ->
+    forall c,
+      hnfeq L b c ->
+      hnfeq L a c.
   Proof.
-    induct 1; eauto.
-    intros.
-    invert H.
+    induct 1; try solve [induct 1; eauto using interp_prop_eq_trans, hnfeq_refl, tyeq_trans].
     {
-      left; repeat eexists_split; eauto.
+      induct 1; eauto using interp_prop_eq_trans, hnfeq_refl, tyeq_trans.
+      econstructor; eauto using kdeq_trans.
+      eapply tyeq_trans; eauto.
+      eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym, tyeq_trans.
     }
+    {
+      induct 1; eauto using interp_prop_eq_trans, hnfeq_refl, tyeq_trans.
+      econstructor; eauto using kdeq_trans.
+      eapply tyeq_trans; eauto.
+      eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym, tyeq_trans.
+    }
+  Qed.
+
+  Lemma hnfeq_trans L a b c :
+    hnfeq L a b ->
+    hnfeq L b c ->
+    hnfeq L a c.
+  Proof.
+    intros; eapply hnfeq_trans'; eauto.
+  Qed.
+
+  Lemma tyeq_hnf L t1 t2:
+    tyeq L t1 t2 ->
+    forall t1',
+      tstep^* t1 t1' ->
+      is_hnf t1' ->
+      exists t2',
+        tstep^* t2 t2' /\
+        is_hnf t2' /\
+        hnfeq L t1' t2'.
+  Proof.
+    induct 1.
+    Focus 8.
+    {
+      invert 1.
+      {
+        invert 1.
+      }
+      invert H0.
+      intros Hhnf.
+      exists t1'.
+      repeat eexists_split; eauto.
+      eauto using hnfeq_refl.
+    }
+    Unfocus.
+    Focus 8.
+    {
+      intros t1' Hsteps Hhnf.
+      exists t1'.
+      repeat eexists_split; eauto.
+      {
+        eapply TrcFront; try eassumption.
+        repeat econstructor; eauto.
+      }
+      eauto using hnfeq_refl.
+    }
+    Unfocus.
+    Focus 13.
+    {
+      intros t1' Hsteps Hhnf.
+      eapply IHtyeq1 in Hhnf; eauto.
+      destruct Hhnf as (t2' & Hsteps2 & Hhnf & Htyeq).
+      eapply IHtyeq2 in Hhnf; eauto.
+      destruct Hhnf as (t3' & Hsteps3 & Hhnf & Htyeq2).
+      exists t3'.
+      repeat eexists_split; eauto.
+      eauto using hnfeq_trans.
+    }
+    Unfocus.
   Admitted.
   
-  Lemma invert_tyeq_Arrow L t1 i t2 tb : 
-    tyeq L (CArrow t1 i t2) tb ->
-    (forall t1' t2' ,
-        tb <> CApp t1' t2') ->
-    (exists t1' i' t2' ,
-        tb = CArrow t1' i' t2' /\
-        tyeq L t1 t1' /\
-        interp_prop L (TEq i i') /\
-        tyeq L t2 t2').
-  Proof.
-    induct 1; eauto; intros Hcneq.
-    {
-      repeat eexists_split; eauto.
-    }
-    {
-      specialize (Hcneq (CAbs t0) t3).
-      propositional.
-    }
-    admit.
-    eapply IHtyeq2; eauto using tyeq_sym.
-    intros Htyeq.
-    invert Htyeq.
-  Qed.
-
+  (*here*)
+  
   Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' :
     tyeq L (CArrow t1 i t2) (CArrow t1' i' t2') ->
     tyeq L t1 t1' /\
     interp_prop L (TEq i i') /\
     tyeq L t2 t2'.
-  Admitted.
-
-  Lemma CForall_CArrow_false' L ta tb : 
-    tyeq L ta tb ->
-    forall k t t1 i t2,
-      tyeq L ta (CForall k t) ->
-      tyeq L tb (CArrow t1 i t2) ->
-      False.
   Proof.
-    induct 1; eauto.
-    eapply IHtyeq2; eauto using tyeq_sym.
-    intros Htyeq.
-    invert Htyeq.
+    intros H.
+    eapply tyeq_hnf in H; eauto.
+    destruct H as (t' & Hsteps & Hhnf & Heq).
+    invert Hsteps.
+    {
+      invert Heq.
+      repeat eexists_split; eauto.
+    }
+    invert H.
   Qed.
 
-  Lemma CForall_CArrow_false' L k t t1 i t2 : 
-    tyeq L (CForall k t) (CArrow t1 i t2) ->
-    False.
-  Proof.
-    induct 1.
-  Qed.
-  
   Lemma CForall_CArrow_false k t t1 i t2 :
     tyeq [] (CForall k t) (CArrow t1 i t2) ->
     False.
   Proof.
-  Admitted.
+    unfold CForall; intros H.
+    eapply tyeq_hnf in H; eauto.
+    destruct H as (t' & Hsteps & Hhnf & Heq).
+    invert Hsteps.
+    {
+      invert Heq.
+    }
+    invert H.
+  Qed.
   
 End tyeq_hint.
 
