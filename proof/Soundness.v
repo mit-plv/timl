@@ -3563,6 +3563,29 @@ Section tyeq_hint.
         subs_kd_lgeq G g1 g2 ->
         lgeq k (do_subs g1 t1) (do_subs g2 t2).
 
+    Lemma obeq_BinOp opr c1 c2 c1' c2' :
+      tyeq L c1 c1' ->
+      tyeq L c2 c2' ->
+      obeq L (CBinOp opr c1 c2) (CBinOp opr c1' c2').
+    Proof.
+      intros Htyeq1 Htyeq2.
+      unfold obeq, confluent in *.
+      split; eauto.
+      invert 1; try solve [invert_tstep]; intros; repeat eexists_split; eauto.
+    Qed.
+    
+    Lemma obeq_Arrow c1 i c2 c1' i' c2' :
+      tyeq L c1 c1' ->
+      interp_prop L (TEq i i') ->
+      tyeq L c2 c2' ->
+      obeq L (CArrow c1 i c2) (CArrow c1' i' c2').
+    Proof.
+      intros Htyeq1 Heq Htyeq2.
+      unfold obeq, confluent in *.
+      split; eauto.
+      invert 1; try solve [invert_tstep]; intros; repeat eexists_split; eauto.
+    Qed.
+  
     (* the fundamental lemma, or reflexivity of olgeq *)
     Lemma fundamental G t k :
       kinding2 G t k ->
@@ -3647,22 +3670,28 @@ Section tyeq_hint.
         Lemma do_subs_BinOp g opr c1 c2 : do_subs g (CBinOp opr c1 c2) = CBinOp opr (do_subs g c1) (do_subs g c1).
         Admitted.
         repeat rewrite do_subs_BinOp.
-        Lemma obeq_BinOp opr c1 c2 c1' c2' :
-          obeq L c1 c1' ->
-          obeq L c2 c2' ->
-          obeq L (CBinOp opr c1 c2) (CBinOp opr c1' c2').
+        Lemma obeq_tyeq t1 t2 :
+          obeq L t1 t2 ->
+          tyeq L t1 t2.
         Proof.
-          intros [Htyeq1 Hobeq1] [Htyeq2 Hobeq2].
-          unfold obeq, confluent in *.
-          split; eauto.
-          invert 1; try solve [invert_tstep]; intros; repeat eexists_split; eauto.
+          unfold obeq.
+          intuition.
         Qed.
-        eapply obeq_BinOp; eauto.
+        eapply obeq_BinOp; eauto using obeq_tyeq.
       }
       admit.
       admit.
       admit.
-      admit.
+      {
+        unfold olgeq in *; simpl in *.
+        intros g1 g2 Hsubeq.
+        Lemma do_subs_Arrow g c1 i c2 : do_subs g (CArrow c1 i c2) = CArrow (do_subs g c1) (do_subs g i) (do_subs g c1).
+        Admitted.
+        repeat rewrite do_subs_Arrow.
+        eapply obeq_Arrow; eauto using obeq_tyeq.
+        (*here*)
+        eapply interp_prop_eq_refl.
+      }
       admit.
       admit.
       admit.
@@ -3712,18 +3741,6 @@ Section tyeq_hint.
 
   End kinding2.
 
-  Lemma obeq_Arrow L c1 i c2 c1' i' c2' :
-    obeq L c1 c1' ->
-    interp_prop L (TEq i i') ->
-    obeq L c2 c2' ->
-    obeq L (CArrow c1 i c2) (CArrow c1' i' c2').
-  Proof.
-    intros [Htyeq1 Hobeq1] Heq [Htyeq2 Hobeq2].
-    unfold obeq, confluent in *.
-    split; eauto.
-    invert 1; try solve [invert_tstep]; intros; repeat eexists_split; eauto.
-  Qed.
-  
   Lemma tyeq_lgeq L t1 t2 :
     tyeq L t1 t2 ->
     forall k,
