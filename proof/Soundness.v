@@ -3412,8 +3412,7 @@ Section tyeq_hint.
       H : tstep _ _ |- _ => invert H
     end.
 
-  Lemma tyeq_whnfeq L t1 t2:
-    tyeq L t1 t2 ->
+  Definition confluent L t1 t2 :=
     forall t1',
       tstep^* t1 t1' ->
       is_whnf t1' ->
@@ -3421,8 +3420,467 @@ Section tyeq_hint.
         tstep^* t2 t2' /\
         is_whnf t2' /\
         whnfeq L t1' t2'.
+
+  (* observational equivalence *)
+  Definition obeq L t1 t2 :=
+    tyeq L t1 t2 /\
+    confluent L t1 t2.
+
+  Lemma confluent_refl L t : confluent L t t.
   Proof.
-    induct 1; try solve [invert 1; try solve [invert_tstep]; intros; repeat eexists_split; eauto].
+    unfold confluent.
+    intros.
+    exists t1'.
+    repeat eexists_split; eauto.
+    eauto using whnfeq_refl.
+  Qed.
+
+  Lemma obeq_refl L t : obeq L t t.
+  Proof.
+    split; eauto using tyeq_refl, confluent_refl.
+  Qed.
+
+  Lemma confluent_trans L a b c :
+    confluent L a b ->
+    confluent L b c ->
+    confluent L a c.
+  Proof.
+    intros H1 H2.
+    intros t1' Hsteps Hwhnf.
+    eapply H1 in Hwhnf; eauto.
+    destruct Hwhnf as (t2' & Hsteps2 & Hwhnf & Htyeq).
+    eapply H2 in Hwhnf; eauto.
+    destruct Hwhnf as (t3' & Hsteps3 & Hwhnf & Htyeq').
+    exists t3'.
+    repeat eexists_split; eauto.
+    eauto using whnfeq_trans.
+  Qed.
+  
+  Lemma obeq_trans L a b c :
+    obeq L a b ->
+    obeq L b c ->
+    obeq L a c.
+  Proof.
+    intros; unfold obeq in *; openhyp.
+    split; eauto using tyeq_trans, confluent_trans.
+  Qed.
+  
+  (* a very simple kind system just for proving [tyeq_obeq] *)
+  Inductive kind2 :=
+  | K2Star : kind2
+  | K2Arrow : kind2 -> kind2 -> kind2
+  .
+
+  Section Forall3.
+
+    Variables A B C : Type.
+    Variable R : A -> B -> C -> Prop.
+
+    Inductive Forall3 : list A -> list B -> list C -> Prop :=
+    | Forall3_nil : Forall3 [] [] []
+    | Forall3_cons : forall x y z l l' l'',
+        R x y z -> Forall3 l l' l'' -> Forall3 (x::l) (y::l') (z::l'').
+
+  End Forall3.
+
+  Hint Constructors Forall3.
+
+  Section kinding2.
+
+    Variable L : kctx.
+    
+    Inductive kinding2 : list kind2 -> cstr -> kind2 -> Prop :=
+    | Kd2Abs G k1 t k :
+        kinding2 (k1 :: G) t k ->
+        kinding2 G (CAbs t) (K2Arrow k1 k)
+    | Kd2App G t1 t2 k1 k2 :
+        kinding2 G t1 (K2Arrow k1 k2) ->
+        kinding2 G t2 k1 ->
+        kinding2 G (CApp t1 t2) k2
+    | Kd2VarIn G x k :
+        nth_error G x = Some k ->
+        kinding2 G (CVar x) k
+    | Kd2VarOut G x :
+        (* if variable x is out of scope of G, then it's seen as just a value *)
+        nth_error G x = None ->
+        kinding2 G (CVar x) K2Star
+    | Kd2Const G cn :
+        kinding2 G (CConst cn) K2Star
+    | Kd2BinOp G opr c1 c2 :
+        (* because we only reduce to whnf, all concrete constructor forms are seen as values *)
+        kinding2 G c1 K2Star ->
+        kinding2 G c2 K2Star ->
+        kinding2 G (CBinOp opr c1 c2) K2Star
+    | Kd2Ite G c c1 c2 :
+        kinding2 G (CIte c c1 c2) K2Star
+    | Kd2TimeAbs G i :
+        kinding2 G (CTimeAbs i) K2Star
+    | Kd2TimeApp G n c1 c2 :
+        kinding2 G (CTimeApp n c1 c2) K2Star
+    | Kd2Arrrow G t1 i t2 :
+        kinding2 G t1 K2Star ->
+        kinding2 G t2 K2Star ->
+        kinding2 G (CArrow t1 i t2) K2Star
+    | Kd2Quan G q k c :
+        kinding2 G (CQuan q k c) K2Star
+    | Kd2Rec G k t :
+        kinding2 G (CRec k t) K2Star
+    | Kd2Ref G t :
+        kinding2 G (CRef t) K2Star
+    .
+
+    (* logical equivalence (logical relation) *)
+    Fixpoint lgeq k t1 t2 :=
+      match k with
+      | K2Star =>
+        obeq L t1 t2
+      | K2Arrow k1 k2 =>
+        (* obeq L t1 t2 /\ *)
+        forall t1' t2',
+          lgeq k1 t1' t2' ->
+          kinding2 [] t1' k1 ->
+          kinding2 [] t2' k1 ->
+          lgeq k2 (CApp t1 t1') (CApp t2 t2')
+      end.
+
+    Definition subs_lgeq G g1 g2 := Forall3 lgeq G g1 g2.
+
+    Fixpoint do_subs vs b :=
+      match vs with
+      | [] => b
+      | v :: vs => do_subs vs (subst0_c_c v b)
+      end.
+
+    Definition subs_kinding2 g G := Forall2 (kinding2 []) g G.
+    Definition subs_kd_lgeq G g1 g2 :=
+      subs_kinding2 g1 G /\
+      subs_kinding2 g2 G /\
+      subs_lgeq G g1 g2.
+    
+    (* logical equivalence for open types *)
+    Definition olgeq G k t1 t2 :=
+      forall g1 g2,
+        subs_kd_lgeq G g1 g2 ->
+        lgeq k (do_subs g1 t1) (do_subs g2 t2).
+
+    (* the fundamental lemma, or reflexivity of olgeq *)
+    Lemma fundamental G t k :
+      kinding2 G t k ->
+      olgeq G k t t.
+    Proof.
+      induct 1.
+      {
+        unfold olgeq in *; simpl in *.
+        intros g1 g2 Hsubeq.
+        (* split. *)
+        (* { *)
+        (* } *)
+        intros t1' t2' Hlgeq Hkd1 Hkd2.
+        assert (Hsubeq' : subs_kd_lgeq (k1 :: G) (t1' :: g1) (t2' :: g2)).
+        {
+          unfold subs_kd_lgeq, subs_lgeq, subs_kinding2 in *; openhyp.
+          repeat eexists_split; eauto.
+        }
+        eapply IHkinding2 in Hsubeq'.
+        Lemma lgeq_reverse_eval k t1' t2' t1 t2 :
+          lgeq k t1' t2' ->
+          tstep t1 t1' ->
+          tstep t2 t2' ->
+          lgeq k t1 t2.
+        Admitted.
+        Lemma do_subs_tstep t2 k2 g G t1 :
+          kinding2 [] t2 k2 ->
+          subs_kinding2 g G ->
+          tstep (CApp (do_subs g (CAbs t1)) t2) (do_subs (t2 :: g) t1).
+        Admitted.
+        unfold subs_kd_lgeq in Hsubeq; openhyp.
+        eapply lgeq_reverse_eval; eauto using do_subs_tstep.
+      }
+      {
+        unfold olgeq in *; simpl in *.
+        intros g1 g2 Hsubeq.
+        Lemma do_subs_App g a b :
+          do_subs g (CApp a b) = CApp (do_subs g a) (do_subs g b).
+        Admitted.
+        repeat rewrite do_subs_App.
+        Lemma do_subs_kinding2 G t k g :
+          kinding2 G t k ->
+          subs_kinding2 g G ->
+          kinding2 [] (do_subs g t) k.
+        Admitted.
+        eapply IHkinding2_1; eauto;
+          unfold subs_kd_lgeq in Hsubeq; openhyp;
+            eapply do_subs_kinding2; eauto.
+      }
+      {
+        unfold olgeq in *; simpl in *.
+        intros g1 g2 Hsubeq.
+        Lemma subs_kd_lgeq_var_in G x k g1 g2 :
+          nth_error G x = Some k ->
+          subs_kd_lgeq G g1 g2 ->
+          lgeq k (do_subs g1 (CVar x)) (do_subs g2 (CVar x)).
+        Admitted.
+        eapply subs_kd_lgeq_var_in; eauto.
+      }
+      {
+        unfold olgeq in *; simpl in *.
+        intros g1 g2 Hsubeq.
+        Lemma do_subs_var_out G x g :
+          nth_error G x = None ->
+          subs_kinding2 g G ->
+          do_subs g (CVar x) = CVar x.
+        Admitted.
+        repeat erewrite do_subs_var_out by (unfold subs_kd_lgeq in Hsubeq; openhyp; eauto).
+        eapply obeq_refl.
+      }
+      {
+        unfold olgeq in *; simpl in *.
+        intros g1 g2 Hsubeq.
+        Lemma do_subs_Const g cn : do_subs g (CConst cn) = CConst cn.
+        Admitted.
+        repeat rewrite do_subs_Const.
+        eapply obeq_refl.
+      }
+      {
+        unfold olgeq in *; simpl in *.
+        intros g1 g2 Hsubeq.
+        Lemma do_subs_BinOp g opr c1 c2 : do_subs g (CBinOp opr c1 c2) = CBinOp opr (do_subs g c1) (do_subs g c1).
+        Admitted.
+        repeat rewrite do_subs_BinOp.
+        Lemma obeq_BinOp opr c1 c2 c1' c2' :
+          obeq L c1 c1' ->
+          obeq L c2 c2' ->
+          obeq L (CBinOp opr c1 c2) (CBinOp opr c1' c2').
+        Proof.
+          intros [Htyeq1 Hobeq1] [Htyeq2 Hobeq2].
+          unfold obeq, confluent in *.
+          split; eauto.
+          invert 1; try solve [invert_tstep]; intros; repeat eexists_split; eauto.
+        Qed.
+        eapply obeq_BinOp; eauto.
+      }
+      admit.
+      admit.
+      admit.
+      admit.
+      admit.
+      admit.
+      admit.
+      (* Qed. *)
+    Admitted.
+
+    Lemma lgeq_refl k t :
+      kinding2 [] t k ->
+      lgeq k t t.
+    Proof.
+      intros Hkd.
+      specialize (@fundamental [] t k Hkd [] []).
+      intros H.
+      simpl in *.
+      eapply H.
+      repeat econstructor.
+    Qed.
+
+    Lemma lgeq_trans k :
+      forall a b c,
+        lgeq k a b ->
+        lgeq k b c ->
+        lgeq k a c.
+    Proof.
+      induct k; simpl.
+      {
+        intros.
+        eapply obeq_trans; eauto.
+      }
+      intros a b c H1 H2 t1' t2' Ht1't2' Hkd1 Hkd2.
+      eapply IHk2.
+      {
+        eapply H1; eauto.
+      }
+      eapply H2; eauto.
+      eapply lgeq_refl; eauto.
+    Qed.
+    
+    Lemma lgeq_obeq t1 t2 :
+      lgeq K2Star t1 t2 ->
+      obeq L t1 t2.
+    Proof.
+      intros H.
+      simpl in *.
+      eauto.
+    Qed.
+
+  End kinding2.
+
+  Lemma obeq_Arrow L c1 i c2 c1' i' c2' :
+    obeq L c1 c1' ->
+    interp_prop L (TEq i i') ->
+    obeq L c2 c2' ->
+    obeq L (CArrow c1 i c2) (CArrow c1' i' c2').
+  Proof.
+    intros [Htyeq1 Hobeq1] Heq [Htyeq2 Hobeq2].
+    unfold obeq, confluent in *.
+    split; eauto.
+    invert 1; try solve [invert_tstep]; intros; repeat eexists_split; eauto.
+  Qed.
+  
+  Lemma tyeq_lgeq L t1 t2 :
+    tyeq L t1 t2 ->
+    forall k,
+      kinding2 [] t1 k ->
+      kinding2 [] t2 k ->
+      lgeq L k t1 t2.
+  Proof.
+    induct 1; simpl; intros k2 Hkd1 Hkd2.
+    {
+      eapply lgeq_refl; eauto.
+    }
+    {
+      eapply lgeq_refl; eauto.
+    }
+    {
+      invert Hkd1.
+      invert Hkd2.
+      specialize (IHtyeq1 K2Star).
+      specialize (IHtyeq2 K2Star).
+      simpl in *.
+      eapply obeq_BinOp; eauto.
+    }
+    admit.
+    {
+      invert Hkd1.
+      invert Hkd2.
+      specialize (IHtyeq1 K2Star).
+      specialize (IHtyeq2 K2Star).
+      simpl in *.
+      eapply obeq_Arrow; eauto.
+    }
+    {
+      invert Hkd1.
+      invert Hkd2.
+      simpl in *.
+      Lemma tyeq_kind2_eq L t1 t2 k1 k2 :
+        tyeq L t1 t2 ->
+        kinding2 [] t1 k1 ->
+        kinding2 [] t2 k2 ->
+        k1 = k2.
+      Admitted.
+      assert (Hkeq : k1 = k0) by (eapply tyeq_kind2_eq; eauto).
+      symmetry in Hkeq.
+      subst.
+      specialize (IHtyeq1 (K2Arrow k1 k2)).
+      simpl in *.
+      eapply IHtyeq1; eauto.
+    }
+    Focus 6.
+    {
+      eapply lgeq_refl; eauto.
+    }
+    Unfocus.
+    Lemma tyeq_kind2 L t1 t2 k :
+      tyeq L t1 t2 ->
+      kinding2 [] t1 k ->
+      kinding2 [] t2 k.
+    Admitted.
+    Focus 8.
+    {
+      eapply lgeq_trans; eauto using tyeq_kind2.
+    }
+    Unfocus.
+    Lemma lgeq_reverse1_eval L k t1' t1 t2 :
+      lgeq L k t1' t2 ->
+      tstep t1 t1' ->
+      lgeq L k t1 t2.
+    Admitted.
+    Lemma lgeq_reverse2_eval L k t2' t1 t2 :
+      lgeq L k t1 t2' ->
+      tstep t2 t2' ->
+      lgeq L k t1 t2.
+    Admitted.
+    {
+      eapply lgeq_reverse1_eval.
+      {
+        eapply lgeq_refl; eauto.
+      }
+      econstructor.
+    }
+    {
+      eapply lgeq_reverse2_eval.
+      {
+        eapply lgeq_refl; eauto.
+      }
+      econstructor.
+    }
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+  Admitted.
+  (* Qed. *)
+      
+  Lemma tyeq_lgeq_1 L t1 t2 :
+    tyeq L t1 t2 ->
+    forall k,
+      kinding2 [] t1 k ->
+      lgeq L k t1 t2.
+  Proof.
+    intros.
+    eapply tyeq_lgeq; eauto.
+    eauto using tyeq_kind2.
+  Qed.
+  
+  Lemma tyeq_lgeq_2 L t1 t2 :
+    tyeq L t1 t2 ->
+    forall k,
+      kinding2 [] t2 k ->
+      lgeq L k t1 t2.
+  Proof.
+    intros.
+    eapply tyeq_lgeq; eauto.
+    eauto using tyeq_sym, tyeq_kind2.
+  Qed.
+  
+  Lemma tyeq_confluent L t1 t2 :
+    tyeq L t1 t2 ->
+    kinding2 [] t1 K2Star ->
+    kinding2 [] t2 K2Star ->
+    confluent L t1 t2.
+  Proof.
+    intros.
+    eapply tyeq_lgeq_1 in H; eauto.
+    eapply lgeq_obeq in H.
+    unfold obeq in *.
+    openhyp.
+    eauto.
+  Qed.
+
+  Lemma tyeq_confluent_1 L t1 t2 :
+    tyeq L t1 t2 ->
+    kinding2 [] t1 K2Star ->
+    confluent L t1 t2.
+  Proof.
+    intros.
+    eapply tyeq_confluent; eauto.
+    eauto using tyeq_kind2.
+  Qed.
+  
+  Lemma tyeq_confluent_2 L t1 t2 :
+    tyeq L t1 t2 ->
+    kinding2 [] t2 K2Star ->
+    confluent L t1 t2.
+  Proof.
+    intros.
+    eapply tyeq_confluent; eauto.
+    eauto using tyeq_sym, tyeq_kind2.
+  Qed.
+  
+(*  
+  Lemma tyeq_confluent L t1 t2:
+    tyeq L t1 t2 ->
+    obeq L t1 t2.
+  Proof.
+    unfold obeq; induct 1; try solve [invert 1; try solve [invert_tstep]; intros; repeat eexists_split; eauto].
     {
       (* maybe I should replace [TyEqApp], [TyEqBeta] and [TyEqBetaRev] in [tyeq] with [TyEqStep] and [TyEqStepRev], and prove [TyEqApp] as a lemma *)
       (* or prove this subgoal *)
@@ -3467,36 +3925,51 @@ Section tyeq_hint.
     }
   (* Qed. *)
   Admitted.
+ *)
+  
+  Lemma kinding_kinding2_Type L t :
+    kinding L t KType ->
+    kinding2 [] t K2Star.
+  Admitted.
   
   Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' :
     tyeq L (CArrow t1 i t2) (CArrow t1' i' t2') ->
+    kinding L t1 KType ->
+    kinding L t2 KType ->
     tyeq L t1 t1' /\
     interp_prop L (TEq i i') /\
     tyeq L t2 t2'.
   Proof.
-    intros H.
-    eapply tyeq_whnfeq in H; eauto.
-    destruct H as (t' & Hsteps & Hwhnf & Heq).
-    invert Hsteps.
+    intros H Hkd1 Hkd2.
+    eapply tyeq_confluent_1 in H; eauto.
     {
-      invert Heq.
-      repeat eexists_split; eauto.
+      edestruct H as (t' & Hsteps & Hwhnf & Heq); eauto.
+      invert Hsteps.
+      {
+        invert Heq.
+        repeat eexists_split; eauto.
+      }
+      invert H0.
     }
-    invert H.
+    econstructor; eauto using kinding_kinding2_Type.
   Qed.
 
   Lemma CForall_CArrow_false k t t1 i t2 :
     tyeq [] (CForall k t) (CArrow t1 i t2) ->
+    kinding [k] t KType ->
     False.
   Proof.
-    unfold CForall; intros H.
-    eapply tyeq_whnfeq in H; eauto.
-    destruct H as (t' & Hsteps & Hwhnf & Heq).
-    invert Hsteps.
+    unfold CForall; intros H Hkd.
+    eapply tyeq_confluent_1 in H; eauto.
     {
-      invert Heq.
+      edestruct H as (t' & Hsteps & Hwhnf & Heq); eauto.
+      invert Hsteps.
+      {
+        invert Heq.
+      }
+      invert H0.
     }
-    invert H.
+    econstructor; eauto using kinding_kinding2_Type.
   Qed.
   
 End tyeq_hint.
@@ -6814,20 +7287,6 @@ End tyeq_hint.
     | [] => result
     | arg :: args => KArrow arg (KArrows args result)
     end.
-
-  Section Forall3.
-
-    Variables A B C : Type.
-    Variable R : A -> B -> C -> Prop.
-
-    Inductive Forall3 : list A -> list B -> list C -> Prop :=
-    | Forall3_nil : Forall3 [] [] []
-    | Forall3_cons : forall x y z l l' l'',
-        R x y z -> Forall3 l l' l'' -> Forall3 (x::l) (y::l') (z::l'').
-
-    Hint Constructors Forall3.
-
-  End Forall3.
 
   Lemma invert_typing_App C e1 e2 t i :
     typing C (EApp e1 e2) t i ->
