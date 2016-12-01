@@ -1605,7 +1605,8 @@ fun as_TPTyProgram htys wtys ity =
       val ((hctx3, kctx3, tctx3), (ins3, fin3), i3) = extract_judge_tal_instr_typing ity
       val () = assert (hctx3 = map (fn (_, _, t) => t) jhtys) "TPTyProgram"
       val () = assert (kctx3 = []) "TPTyProgram"
-      val () = assert (tctx3 = map (fn (_, _, t) => t) jwtys) "TPTyProgram"
+      val () = assert (hd tctx3 = TCTypeUnit) "TPTyProgram"
+      val () = assert (tl tctx3 = map (fn (_, _, t) => t) jwtys) "TPTyProgram"
       val () = assert (all (fn (hctx, _, _) => hctx = hctx3) jhtys) "TPTyProgram"
       val () = assert (all (fn ((hctx, kctx), _, _) => hctx = hctx3 andalso kctx = []) jwtys) "TPTyProgram"
   in
@@ -1804,14 +1805,20 @@ fun transform_hoisted_typing heap_base kctx tctx env hty =
     | HTyApp (_, aty1, aty2) =>
       let
           val vty1 = transform_atom_typing kctx tctx env aty1
+          val rd =
+              let
+                  val tmp_rd = fresh_reg tctx
+              in
+                  if tmp_rd = 1 then 2 else tmp_rd
+              end
           val (_, _, t1) = extract_judge_tal_value_typing vty1
-          val tctx1 = update_tal_tctx 0 t1 tctx
+          val tctx1 = update_tal_tctx rd t1 tctx
           val vty2 = transform_atom_typing kctx tctx1 env aty2
           val (_, _, t2) = extract_judge_tal_value_typing vty2
           val tctx2 = update_tal_tctx 1 t2 tctx1
-          val ity2 = as_TITyJump (as_TVTyReg [] kctx tctx2 0)
+          val ity2 = as_TITyJump (as_TVTyReg [] kctx tctx2 rd)
           val ity1 = as_TITyMove 1 vty2 ity2
-          val ity = as_TITyMove 0 vty1 ity1
+          val ity = as_TITyMove rd vty1 ity1
       in
           ([], heap_base, ity)
       end
@@ -2189,7 +2196,7 @@ fun transform_program_typing ty =
                                                            (heaps @ heaps_d, heap_next_d, hty :: rev_htys)
                                                        end) ([], root_len, []) ftys
           val htys = rev rev_htys
-          val (heaps_d, _, ity_main) = transform_hoisted_typing heap_next [] [] [] hty_main
+          val (heaps_d, _, ity_main) = transform_hoisted_typing heap_next [] [TCTypeUnit] [] hty_main
           val whole_heaps = htys @ heaps @ heaps_d
           val hctx = map (fn hty => #3 (extract_judge_tal_heap_typing hty)) whole_heaps
           val ity_main = set_hctx_instr_typing hctx ity_main
