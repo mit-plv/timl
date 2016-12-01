@@ -1528,7 +1528,7 @@ fun as_TITyCase vty1 ity vty2 =
       val (tctx31, i32) = extract_tal_c_arrow t3
       val () = assert (List.take (tl (update_tal_tctx r t12 tctx1), length tctx31) = tctx31) "TITyCase"
   in
-      TITyCase (((hctx1, kctx1, tctx1), (TICase (r, v1) :: ins2, fin2), TTadd (TT1, TTmax (i2, i32))), vty1, ity, vty2)
+      TITyCase (((hctx1, kctx1, tctx1), (TICase (r, v3) :: ins2, fin2), TTadd (TT1, TTmax (i2, i32))), vty1, ity, vty2)
   end
 
 fun as_TITyJump vty =
