@@ -3638,6 +3638,37 @@ Section tyeq_hint.
       invert_tstep.
     Qed.
     
+    Lemma tstep_tyeq t t' :
+      tstep t t' ->
+      tyeq L t t'.
+    Proof.
+      induct 1.
+      {
+        eapply TyEqBeta.
+      }
+      eapply TyEqApp; eauto using tyeq_refl.
+    Qed.
+    
+    Lemma tstep_whnf_false t t' : tstep t t' -> is_whnf t -> False.
+    Proof.
+      invert 1; invert 1.
+    Qed.
+    
+    Lemma tstep_deterministic t t1 :
+      tstep t t1 ->
+      forall t2,
+        tstep t t2 ->
+        t1 = t2.
+    Proof.
+      induct 1.
+      {
+        invert 1; eauto.
+        invert_tstep.
+      }
+      invert 1; try solve [invert_tstep].
+      erewrite IHtstep; eauto.
+    Qed.
+    
     Lemma obeq_reverse1_eval t1 t2 t1' :
       tstep t1 t1' ->
       obeq L t1' t2 ->
@@ -3647,16 +3678,6 @@ Section tyeq_hint.
       intros Hstep [Htyeq Hcon].
       split.
       {
-        Lemma tstep_tyeq t t' :
-          tstep t t' ->
-          tyeq L t t'.
-        Proof.
-          induct 1.
-          {
-            eapply TyEqBeta.
-          }
-          eapply TyEqApp; eauto using tyeq_refl.
-        Qed.
         eapply tyeq_trans.
         {
           eapply tstep_tyeq; eauto.
@@ -3667,26 +3688,8 @@ Section tyeq_hint.
       intros t1'' Hsteps Hwhnf.
       invert Hsteps.
       {
-        Lemma tstep_whnf_false t t' : tstep t t' -> is_whnf t -> False.
-        Proof.
-          invert 1; invert 1.
-        Qed.
         eapply tstep_whnf_false in Hstep; propositional.
       }
-      Lemma tstep_deterministic t t1 :
-        tstep t t1 ->
-        forall t2,
-          tstep t t2 ->
-          t1 = t2.
-      Proof.
-        induct 1.
-        {
-          invert 1; eauto.
-          invert_tstep.
-        }
-        invert 1; try solve [invert_tstep].
-        erewrite IHtstep; eauto.
-      Qed.
       assert (y = t1').
       {
         eapply tstep_deterministic; eauto.
@@ -3694,6 +3697,35 @@ Section tyeq_hint.
       subst.
       eauto.
     Qed.
+    
+    Lemma obeq_reverse2_eval t1 t2 t2' :
+      tstep t2 t2' ->
+      obeq L t1 t2' ->
+      obeq L t1 t2.
+    Proof.
+      unfold obeq.
+      intros Hstep [Htyeq Hcon].
+      split.
+      {
+        eapply tyeq_trans.
+        {
+          eapply Htyeq.
+        }
+        eapply tyeq_sym.
+        eapply tstep_tyeq; eauto.
+      }
+      unfold confluent in *.
+      intros t1' Hsteps Hwhnf.
+      eapply Hcon in Hsteps; eauto.
+      destruct Hsteps as (t2'' & Hsteps2 & Hwhnf2 & Hwhnfeq).
+      exists t2''.
+      repeat eexists_split; eauto.
+    Qed.
+    
+    Ltac not_not_idx :=
+      match goal with
+        H : ~ _ |- _ => contradict H; eexists; eauto
+      end.
     
     Lemma lgeq_reverse1_eval k :
       forall t1' t2 ,
@@ -3705,21 +3737,16 @@ Section tyeq_hint.
     Proof.
       induct k; simpl in *.
       {
-        intros t1' t2 Hobeq t1 Hstep.
-        intros Hkd.
+        intros.
         eapply obeq_reverse1_eval; eauto.
       }
       {
-        intros t1' t2 Hobeq t1 Hstep.
+        intros t1' t2 Hlgeq t1 Hstep.
         intros Hkd.
-        Ltac not_not_idx :=
-          match goal with
-            H : ~ _ |- _ => contradict H; eexists; eauto
-          end.
         invert Hstep; invert Hkd; simpl in *; not_not_idx.
       }
       {
-        intros t1' t2 Hobeq t1 Hstep.
+        intros t1' t2 Hlgeq t1 Hstep.
         intros Hkd.
         intros ta tb Hab hkda Hkdb.
         intros Hni.
@@ -3756,21 +3783,68 @@ Section tyeq_hint.
         }
       }
     Admitted.
-*)    
-    Lemma lgeq_reverse2_eval k t2' t1 t2 :
-      lgeq k t1 t2' ->
-      tstep t2 t2' ->
-      kinding2 [] t2 k ->
-      lgeq k t1 t2.
-    Admitted.
-    Lemma lgeq_reverse_eval k t1' t2' t1 t2 :
-      lgeq k t1' t2' ->
-      tstep t1 t1' ->
-      tstep t2 t2' ->
-      kinding2 [] t1 k ->
-      kinding2 [] t2 k ->
-      lgeq k t1 t2.
-    Admitted.
+ *)
+    
+    Lemma lgeq_reverse2_eval k :
+      forall t2' t1 t2,
+        lgeq k t1 t2' ->
+        tstep t2 t2' ->
+        kinding2 [] t2 k ->
+        lgeq k t1 t2.
+    Proof.
+      induct k; simpl in *.
+      {
+        intros.
+        eapply obeq_reverse2_eval; eauto.
+      }
+      {
+        intros t2' t1 t2 Hlgeq Hstep.
+        intros Hkd.
+        invert Hstep; invert Hkd; simpl in *; not_not_idx.
+      }
+      {
+        intros t2' t1 t2 Hlgeq Hstep.
+        intros Hkd.
+        intros ta tb Hab hkda Hkdb.
+        intros Hni.
+        eapply IHk2; eauto;
+          econstructor; eauto.
+      }
+    Qed.
+    
+    Lemma lgeq_reverse_eval k :
+      forall t1' t2' t1 t2,
+        lgeq k t1' t2' ->
+        tstep t1 t1' ->
+        tstep t2 t2' ->
+        kinding2 [] t1 k ->
+        kinding2 [] t2 k ->
+        lgeq k t1 t2.
+    Proof.
+      induct k; simpl in *.
+      {
+        intros.
+        eapply obeq_trans.
+        {
+          eapply obeq_reverse1_eval; eauto.
+        }
+        eapply obeq_reverse2_eval; eauto.
+        eapply obeq_refl.
+      }
+      {
+        intros t1' t2' t1 t2 Hlgeq Hstep1 step2.
+        intros Hkd1 Hkd2.
+        invert Hstep1; invert Hkd1; simpl in *; not_not_idx.
+      }
+      {
+        intros t1' t2' t1 t2 Hlgeq Hstep1 Hstep2.
+        intros Hkd1 Hkd2.
+        intros ta tb Hab hkda Hkdb.
+        intros Hni.
+        eapply IHk2; eauto;
+          econstructor; eauto.
+      }
+    Qed.
     
     (* the fundamental lemma, or reflexivity of olgeq *)
     Lemma fundamental G t k :
