@@ -3467,7 +3467,8 @@ Section tyeq_hint.
   
   (* a very simple kind system just for proving [tyeq_obeq] *)
   Inductive kind2 :=
-  | K2Star : kind2
+  | K2Type : kind2
+  | K2Idx : sort -> kind2
   | K2Arrow : kind2 -> kind2 -> kind2
   .
 
@@ -3484,6 +3485,20 @@ Section tyeq_hint.
   End Forall3.
 
   Hint Constructors Forall3.
+
+  Fixpoint kind_to_kind2 k :=
+    match k with
+    | KType => K2Type
+    | KArrow k1 k2 => K2Arrow (kind_to_kind2 k1) (kind_to_kind2 k2)
+    | KBaseSort s => K2Idx s
+    | KSubset k _ => kind_to_kind2 k
+    end.
+
+  Definition cbinop_arg1_kind2 opr := kind_to_kind2 (cbinop_arg1_kind opr).
+  Definition cbinop_arg2_kind2 opr := kind_to_kind2 (cbinop_arg2_kind opr).
+  Definition cbinop_result_kind2 opr := kind_to_kind2 (cbinop_result_kind opr).
+
+  Definition K2Time := K2Idx BSTime.
 
   Section kinding2.
 
@@ -3503,37 +3518,44 @@ Section tyeq_hint.
     | Kd2VarOut G x :
         (* if variable x is out of scope of G, then it's seen as just a value *)
         nth_error G x = None ->
-        kinding2 G (CVar x) K2Star
+        kinding2 G (CVar x) K2Type
     | Kd2Const G cn :
-        kinding2 G (CConst cn) K2Star
+        kinding2 G (CConst cn) K2Type
     | Kd2BinOp G opr c1 c2 :
         (* because we only reduce to whnf, all concrete constructor forms are seen as values *)
-        kinding2 G c1 K2Star ->
-        kinding2 G c2 K2Star ->
-        kinding2 G (CBinOp opr c1 c2) K2Star
-    | Kd2Ite G c c1 c2 :
-        kinding2 G (CIte c c1 c2) K2Star
+        kinding2 G c1 (cbinop_arg1_kind2 opr) ->
+        kinding2 G c2 (cbinop_arg2_kind2 opr) ->
+        kinding2 G (CBinOp opr c1 c2) (cbinop_result_kind2 opr)
+    | Kd2Ite G c c1 c2 s :
+        kinding2 G c (K2Idx BSBool) ->
+        kinding2 G c1 (K2Idx s) ->
+        kinding2 G c2 (K2Idx s) ->
+        kinding2 G (CIte c c1 c2) (K2Idx s)
     | Kd2TimeAbs G i :
-        kinding2 G (CTimeAbs i) K2Star
+        kinding2 G (CTimeAbs i) K2Type
     | Kd2TimeApp G n c1 c2 :
-        kinding2 G (CTimeApp n c1 c2) K2Star
+        kinding2 G (CTimeApp n c1 c2) K2Type
     | Kd2Arrrow G t1 i t2 :
-        kinding2 G t1 K2Star ->
-        kinding2 G t2 K2Star ->
-        kinding2 G (CArrow t1 i t2) K2Star
+        kinding2 G t1 K2Type ->
+        kinding2 G i K2Time ->
+        kinding2 G t2 K2Type ->
+        kinding2 G (CArrow t1 i t2) K2Type
     | Kd2Quan G q k c :
-        kinding2 G (CQuan q k c) K2Star
+        kinding2 G (CQuan q k c) K2Type
     | Kd2Rec G k t :
-        kinding2 G (CRec k t) K2Star
+        kinding2 G (CRec k t) K2Type
     | Kd2Ref G t :
-        kinding2 G (CRef t) K2Star
+        kinding2 G (CRef t) K2Type
     .
 
     (* logical equivalence (logical relation) *)
     Fixpoint lgeq k t1 t2 :=
       match k with
-      | K2Star =>
+      | K2Type =>
         obeq L t1 t2
+      | K2Idx s =>
+        (* tyeq L t1 t2 /\ *)
+        interp_cstr t1 (map kind_to_sort L) s = interp_cstr t2 (map kind_to_sort L) s
       | K2Arrow k1 k2 =>
         (* obeq L t1 t2 /\ *)
         forall t1' t2',
@@ -3677,7 +3699,36 @@ Section tyeq_hint.
           unfold obeq.
           intuition.
         Qed.
-        eapply obeq_BinOp; eauto using obeq_tyeq.
+        Lemma lgeq_BinOp opr c1 c2 c1' c2' :
+          lgeq (cbinop_arg1_kind2 opr) c1 c1' ->
+          lgeq (cbinop_arg2_kind2 opr) c2 c2' ->
+          lgeq (cbinop_result_kind2 opr) (CBinOp opr c1 c2) (CBinOp opr c1' c2').
+        Proof.
+          intros H1 H2.
+          induct opr; simpl in *; cbn.
+          {
+            rewrite H1.
+            rewrite H2.
+            eauto.
+          }
+          {
+            rewrite H1.
+            rewrite H2.
+            eauto.
+          }
+          {
+            rewrite H1.
+            rewrite H2.
+            eauto.
+          }
+          {
+            eapply obeq_BinOp; eauto using obeq_tyeq.
+          }
+          {
+            eapply obeq_BinOp; eauto using obeq_tyeq.
+          }
+        Qed.
+        eapply lgeq_BinOp; eauto.
       }
       admit.
       admit.
@@ -3689,8 +3740,10 @@ Section tyeq_hint.
         Admitted.
         repeat rewrite do_subs_Arrow.
         eapply obeq_Arrow; eauto using obeq_tyeq.
-        (*here*)
-        eapply interp_prop_eq_refl.
+        Lemma interp_cstr_interp_prop_eq a b :
+          interp_cstr a (map kind_to_sort L) BSTime = interp_cstr b ((map kind_to_sort L)) BSTime -> interp_prop L (a == b)%idx.
+        Admitted.
+        eapply interp_cstr_interp_prop_eq; eauto.
       }
       admit.
       admit.
@@ -3721,6 +3774,10 @@ Section tyeq_hint.
         intros.
         eapply obeq_trans; eauto.
       }
+      {
+        intros.
+        equality.
+      }
       intros a b c H1 H2 t1' t2' Ht1't2' Hkd1 Hkd2.
       eapply IHk2.
       {
@@ -3731,7 +3788,7 @@ Section tyeq_hint.
     Qed.
     
     Lemma lgeq_obeq t1 t2 :
-      lgeq K2Star t1 t2 ->
+      lgeq K2Type t1 t2 ->
       obeq L t1 t2.
     Proof.
       intros H.
@@ -3758,19 +3815,30 @@ Section tyeq_hint.
     {
       invert Hkd1.
       invert Hkd2.
-      specialize (IHtyeq1 K2Star).
-      specialize (IHtyeq2 K2Star).
-      simpl in *.
-      eapply obeq_BinOp; eauto.
+      eapply lgeq_BinOp; eauto.
     }
     admit.
     {
+      Lemma lgeq_Arrow L c1 i c2 c1' i' c2' :
+        lgeq L K2Type c1 c1' ->
+        lgeq L K2Time i i' ->
+        lgeq L K2Type c2 c2' ->
+        lgeq L K2Type (CArrow c1 i c2) (CArrow c1' i' c2').
+      Proof.
+        intros H1 Hi H2.
+        simpl in *.
+        eapply obeq_Arrow; eauto using obeq_tyeq.
+        eapply interp_cstr_interp_prop_eq; eauto.
+      Qed.
+  
       invert Hkd1.
       invert Hkd2.
-      specialize (IHtyeq1 K2Star).
-      specialize (IHtyeq2 K2Star).
-      simpl in *.
-      eapply obeq_Arrow; eauto.
+      eapply lgeq_Arrow; eauto.
+      simpl.
+      Lemma interp_prop_eq_interp_cstr L a b :
+        interp_prop L (a == b)%idx -> interp_cstr a (map kind_to_sort L) BSTime = interp_cstr b ((map kind_to_sort L)) BSTime.
+      Admitted.
+      eapply interp_prop_eq_interp_cstr; eauto.
     }
     {
       invert Hkd1.
@@ -3860,8 +3928,8 @@ Section tyeq_hint.
   
   Lemma tyeq_confluent L t1 t2 :
     tyeq L t1 t2 ->
-    kinding2 [] t1 K2Star ->
-    kinding2 [] t2 K2Star ->
+    kinding2 [] t1 K2Type ->
+    kinding2 [] t2 K2Type ->
     confluent L t1 t2.
   Proof.
     intros.
@@ -3874,7 +3942,7 @@ Section tyeq_hint.
 
   Lemma tyeq_confluent_1 L t1 t2 :
     tyeq L t1 t2 ->
-    kinding2 [] t1 K2Star ->
+    kinding2 [] t1 K2Type ->
     confluent L t1 t2.
   Proof.
     intros.
@@ -3884,7 +3952,7 @@ Section tyeq_hint.
   
   Lemma tyeq_confluent_2 L t1 t2 :
     tyeq L t1 t2 ->
-    kinding2 [] t2 K2Star ->
+    kinding2 [] t2 K2Type ->
     confluent L t1 t2.
   Proof.
     intros.
@@ -3946,18 +4014,17 @@ Section tyeq_hint.
   
   Lemma kinding_kinding2_Type L t :
     kinding L t KType ->
-    kinding2 [] t K2Star.
+    kinding2 [] t K2Type.
   Admitted.
   
   Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' :
     tyeq L (CArrow t1 i t2) (CArrow t1' i' t2') ->
-    kinding L t1 KType ->
-    kinding L t2 KType ->
+    kinding L (CArrow t1 i t2) KType ->
     tyeq L t1 t1' /\
     interp_prop L (TEq i i') /\
     tyeq L t2 t2'.
   Proof.
-    intros H Hkd1 Hkd2.
+    intros H Hkd.
     eapply tyeq_confluent_1 in H; eauto.
     {
       edestruct H as (t' & Hsteps & Hwhnf & Heq); eauto.
@@ -3968,12 +4035,12 @@ Section tyeq_hint.
       }
       invert H0.
     }
-    econstructor; eauto using kinding_kinding2_Type.
+    eauto using kinding_kinding2_Type.
   Qed.
 
   Lemma CForall_CArrow_false k t t1 i t2 :
     tyeq [] (CForall k t) (CArrow t1 i t2) ->
-    kinding [k] t KType ->
+    kinding [] (CForall k t) KType ->
     False.
   Proof.
     unfold CForall; intros H Hkd.
@@ -3986,7 +4053,7 @@ Section tyeq_hint.
       }
       invert H0.
     }
-    econstructor; eauto using kinding_kinding2_Type.
+    eauto using kinding_kinding2_Type.
   Qed.
   
 End tyeq_hint.
