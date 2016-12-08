@@ -3692,116 +3692,116 @@ Section tyeq_hint.
   Definition not_idx k := ~ exists s, k = K2Idx s.
   Arguments  not_idx / .
   
-  Section kinding2.
+  Inductive ke2 :=
+  | Ke2Abs : kind2 -> ke2
+  | Ke2NonAbs : kind -> ke2
+  .
+
+  Definition ke2_to_kind2 ke :=
+    match ke with
+    | Ke2Abs k => k
+    | Ke2NonAbs k => kind_to_kind2 k
+    end.
+  
+  Inductive kinding2 : list ke2 -> cstr -> kind2 -> Prop :=
+  | Kd2Abs G k1 t k :
+      kinding2 (Ke2Abs k1 :: G) t k ->
+      kinding2 G (CAbs t) (K2Arrow k1 k)
+  | Kd2App G t1 t2 k1 k2 :
+      kinding2 G t1 (K2Arrow k1 k2) ->
+      kinding2 G t2 k1 ->
+      not_idx k2 ->
+      kinding2 G (CApp t1 t2) k2
+  | Kd2VarIn G x ke :
+      nth_error G x = Some ke ->
+      kinding2 G (CVar x) (ke2_to_kind2 ke)
+  (* | Kd2VarOut G x k : *)
+  (*     (* if variable x is out of scope of G, then it's seen as just a value *) *)
+  (*     x >= length G -> *)
+  (*     nth_error L (x - length G) = Some k -> *)
+  (*     kinding2 G (CVar x) (kind_to_kind2 k) *)
+  | Kd2VarOut G x :
+      (* if variable x is out of scope of G, then it's seen as just a value *)
+      nth_error G x = None ->
+      kinding2 G (CVar x) K2Type
+  | Kd2Const G cn :
+      kinding2 G (CConst cn) K2Type
+  | Kd2BinOp G opr c1 c2 :
+      (* because we only reduce to whnf, all concrete constructor forms are seen as values *)
+      kinding2 G c1 (cbinop_arg1_kind2 opr) ->
+      kinding2 G c2 (cbinop_arg2_kind2 opr) ->
+      kinding2 G (CBinOp opr c1 c2) (cbinop_result_kind2 opr)
+  | Kd2Ite G c c1 c2 s :
+      kinding2 G c (K2Idx BSBool) ->
+      kinding2 G c1 (K2Idx s) ->
+      kinding2 G c2 (K2Idx s) ->
+      kinding2 G (CIte c c1 c2) (K2Idx s)
+  | Kd2TimeAbs G i n :
+      kinding2 (Ke2NonAbs KNat :: G) i (K2Idx (BSTimeFun n)) ->
+      kinding2 G (CTimeAbs i) (K2Idx (BSTimeFun (1 + n)))
+  | Kd2TimeApp G n c1 c2 :
+      kinding2 G c1 (K2Idx (BSTimeFun (1 + n))) ->
+      kinding2 G c2 K2Nat ->
+      kinding2 G (CTimeApp n c1 c2) (K2Idx (BSTimeFun n))
+  | Kd2Arrrow G t1 i t2 :
+      kinding2 G t1 K2Type ->
+      kinding2 G i K2Time ->
+      kinding2 G t2 K2Type ->
+      kinding2 G (CArrow t1 i t2) K2Type
+  | Kd2Quan G q k c :
+      wfkind2 G k ->
+      kinding2 (Ke2NonAbs k :: G) c K2Type ->
+      kinding2 G (CQuan q k c) K2Type
+  | Kd2Rec G k t :
+      wfkind2 G k ->
+      kinding2 (Ke2NonAbs k :: G) t K2Type ->
+      kinding2 G (CRec k t) K2Type
+  | Kd2Ref G t :
+      kinding2 G t K2Type ->
+      kinding2 G (CRef t) K2Type
+  with wfkind2 : list ke2 -> kind -> Prop :=
+       | Wf2KdType G :
+           wfkind2 G KType
+       | Wf2KdArrow G k1 k2 :
+           wfkind2 G k1 ->
+           wfkind2 G k2 ->
+           wfkind2 G (KArrow k1 k2)
+       | Wf2KdBaseSort G b :
+           wfkind2 G (KBaseSort b)
+       | Wf2KdSubset G k p :
+           wfkind2 G k ->
+           wfprop2 (Ke2NonAbs k :: G) p ->
+           wfkind2 G (KSubset k p)
+  with wfprop2 : list ke2 -> prop -> Prop :=
+       | Wf2PropTrue G :
+           wfprop2 G PTrue
+       | Wf2PropFalse G :
+           wfprop2 G PFalse
+       | Wf2PropBinConn G opr p1 p2 :
+           wfprop2 G p1 ->
+           wfprop2 G p2 ->
+           wfprop2 G (PBinConn opr p1 p2)
+       | Wf2PropNot G p :
+           wfprop2 G p ->
+           wfprop2 G (PNot p)
+       | Wf2PropBinPred G opr i1 i2 :
+           kinding2 G i1 (kind_to_kind2 (binpred_arg1_kind opr)) ->
+           kinding2 G i2 (kind_to_kind2 (binpred_arg2_kind opr)) ->
+           wfprop2 G (PBinPred opr i1 i2)
+       | Wf2PropQuan G q s p :
+           wfprop2 (Ke2NonAbs (KBaseSort s) :: G) p ->
+           wfprop2 G (PQuan q s p)
+  .
+
+  Scheme kinding2_mutind := Minimality for kinding2 Sort Prop
+                            with wfkind2_mutind := Minimality for wfkind2 Sort Prop
+                                                   with wfprop2_mutind := Minimality for wfprop2 Sort Prop.
+
+  Combined Scheme kinding2_wfkind2_wfprop2_mutind from kinding2_mutind, wfkind2_mutind, wfprop2_mutind. 
+
+  Section var_L.
 
     Variable L : kctx.
-
-    Inductive ke2 :=
-    | Ke2Abs : kind2 -> ke2
-    | Ke2NonAbs : kind -> ke2
-    .
-
-    Definition ke2_to_kind2 ke :=
-      match ke with
-      | Ke2Abs k => k
-      | Ke2NonAbs k => kind_to_kind2 k
-      end.
-    
-    Inductive kinding2 : list ke2 -> cstr -> kind2 -> Prop :=
-    | Kd2Abs G k1 t k :
-        kinding2 (Ke2Abs k1 :: G) t k ->
-        kinding2 G (CAbs t) (K2Arrow k1 k)
-    | Kd2App G t1 t2 k1 k2 :
-        kinding2 G t1 (K2Arrow k1 k2) ->
-        kinding2 G t2 k1 ->
-        not_idx k2 ->
-        kinding2 G (CApp t1 t2) k2
-    | Kd2VarIn G x ke :
-        nth_error G x = Some ke ->
-        kinding2 G (CVar x) (ke2_to_kind2 ke)
-    (* | Kd2VarOut G x k : *)
-    (*     (* if variable x is out of scope of G, then it's seen as just a value *) *)
-    (*     x >= length G -> *)
-    (*     nth_error L (x - length G) = Some k -> *)
-    (*     kinding2 G (CVar x) (kind_to_kind2 k) *)
-    | Kd2VarOut G x :
-        (* if variable x is out of scope of G, then it's seen as just a value *)
-        nth_error G x = None ->
-        kinding2 G (CVar x) K2Type
-    | Kd2Const G cn :
-        kinding2 G (CConst cn) K2Type
-    | Kd2BinOp G opr c1 c2 :
-        (* because we only reduce to whnf, all concrete constructor forms are seen as values *)
-        kinding2 G c1 (cbinop_arg1_kind2 opr) ->
-        kinding2 G c2 (cbinop_arg2_kind2 opr) ->
-        kinding2 G (CBinOp opr c1 c2) (cbinop_result_kind2 opr)
-    | Kd2Ite G c c1 c2 s :
-        kinding2 G c (K2Idx BSBool) ->
-        kinding2 G c1 (K2Idx s) ->
-        kinding2 G c2 (K2Idx s) ->
-        kinding2 G (CIte c c1 c2) (K2Idx s)
-    | Kd2TimeAbs G i n :
-        kinding2 (Ke2NonAbs KNat :: G) i (K2Idx (BSTimeFun n)) ->
-        kinding2 G (CTimeAbs i) (K2Idx (BSTimeFun (1 + n)))
-    | Kd2TimeApp G n c1 c2 :
-        kinding2 G c1 (K2Idx (BSTimeFun (1 + n))) ->
-        kinding2 G c2 K2Nat ->
-        kinding2 G (CTimeApp n c1 c2) (K2Idx (BSTimeFun n))
-    | Kd2Arrrow G t1 i t2 :
-        kinding2 G t1 K2Type ->
-        kinding2 G i K2Time ->
-        kinding2 G t2 K2Type ->
-        kinding2 G (CArrow t1 i t2) K2Type
-    | Kd2Quan G q k c :
-        wfkind2 G k ->
-        kinding2 (Ke2NonAbs k :: G) c K2Type ->
-        kinding2 G (CQuan q k c) K2Type
-    | Kd2Rec G k t :
-        wfkind2 G k ->
-        kinding2 (Ke2NonAbs k :: G) t K2Type ->
-        kinding2 G (CRec k t) K2Type
-    | Kd2Ref G t :
-        kinding2 G t K2Type ->
-        kinding2 G (CRef t) K2Type
-    with wfkind2 : list ke2 -> kind -> Prop :=
-         | Wf2KdType G :
-             wfkind2 G KType
-         | Wf2KdArrow G k1 k2 :
-             wfkind2 G k1 ->
-             wfkind2 G k2 ->
-             wfkind2 G (KArrow k1 k2)
-         | Wf2KdBaseSort G b :
-             wfkind2 G (KBaseSort b)
-         | Wf2KdSubset G k p :
-             wfkind2 G k ->
-             wfprop2 (Ke2NonAbs k :: G) p ->
-             wfkind2 G (KSubset k p)
-    with wfprop2 : list ke2 -> prop -> Prop :=
-         | Wf2PropTrue G :
-             wfprop2 G PTrue
-         | Wf2PropFalse G :
-             wfprop2 G PFalse
-         | Wf2PropBinConn G opr p1 p2 :
-             wfprop2 G p1 ->
-             wfprop2 G p2 ->
-             wfprop2 G (PBinConn opr p1 p2)
-         | Wf2PropNot G p :
-             wfprop2 G p ->
-             wfprop2 G (PNot p)
-         | Wf2PropBinPred G opr i1 i2 :
-             kinding2 G i1 (kind_to_kind2 (binpred_arg1_kind opr)) ->
-             kinding2 G i2 (kind_to_kind2 (binpred_arg2_kind opr)) ->
-             wfprop2 G (PBinPred opr i1 i2)
-         | Wf2PropQuan G q s p :
-             wfprop2 (Ke2NonAbs (KBaseSort s) :: G) p ->
-             wfprop2 G (PQuan q s p)
-    .
-
-    Scheme kinding2_mutind := Minimality for kinding2 Sort Prop
-    with wfkind2_mutind := Minimality for wfkind2 Sort Prop
-    with wfprop2_mutind := Minimality for wfprop2 Sort Prop.
-
-    Combined Scheme kinding2_wfkind2_wfprop2_mutind from kinding2_mutind, wfkind2_mutind, wfprop2_mutind. 
 
     (* logical equivalence (logical relation) *)
     Fixpoint lgeq L1 L2 k t1 t2 :=
@@ -4546,12 +4546,20 @@ Section tyeq_hint.
       }
     Qed.
 
+    Lemma fundamental_kinding2 G t k :
+      kinding2 G t k ->
+      olgeq G k t t.
+    Proof.
+      intros H.
+      eapply fundamental in H; eauto.
+    Qed.
+    
     Lemma lgeq_refl k t :
       kinding2 [] t k ->
-      lgeq k t t.
+      lgeq [] [] k t t.
     Proof.
       intros Hkd.
-      specialize (@fundamental [] t k Hkd [] []).
+      specialize (@fundamental_kinding2 [] t k Hkd [] []).
       intros H.
       simpl in *.
       eapply H.
@@ -4560,9 +4568,9 @@ Section tyeq_hint.
 
     Lemma lgeq_trans k :
       forall a b c,
-        lgeq k a b ->
-        lgeq k b c ->
-        lgeq k a c.
+        lgeq [] [] k a b ->
+        lgeq [] [] k b c ->
+        lgeq [] [] k a c.
     Proof.
       induct k; simpl.
       {
@@ -4584,7 +4592,7 @@ Section tyeq_hint.
     Qed.
     
     Lemma lgeq_obeq t1 t2 :
-      lgeq K2Type t1 t2 ->
+      lgeq [] [] K2Type t1 t2 ->
       obeq L t1 t2.
     Proof.
       intros H.
@@ -4592,14 +4600,14 @@ Section tyeq_hint.
       eauto.
     Qed.
 
-  End kinding2.
+  End var_L.
 
   Lemma tyeq_lgeq L t1 t2 :
     tyeq L t1 t2 ->
     forall k,
       kinding2 [] t1 k ->
       kinding2 [] t2 k ->
-      lgeq L k t1 t2.
+      lgeq L [] [] k t1 t2.
   Proof.
     induct 1; simpl; intros k2 Hkd1 Hkd2.
     {
@@ -4623,10 +4631,10 @@ Section tyeq_hint.
     }
     {
       Lemma lgeq_Arrow L c1 i c2 c1' i' c2' :
-        lgeq L K2Type c1 c1' ->
-        lgeq L K2Time i i' ->
-        lgeq L K2Type c2 c2' ->
-        lgeq L K2Type (CArrow c1 i c2) (CArrow c1' i' c2').
+        lgeq L [] [] K2Type c1 c1' ->
+        lgeq L [] [] K2Time i i' ->
+        lgeq L [] [] K2Type c2 c2' ->
+        lgeq L [] [] K2Type (CArrow c1 i c2) (CArrow c1' i' c2').
       Proof.
         intros H1 Hi H2.
         simpl in *.
@@ -4731,7 +4739,7 @@ Section tyeq_hint.
     tyeq L t1 t2 ->
     forall k,
       kinding2 [] t1 k ->
-      lgeq L k t1 t2.
+      lgeq L [] [] k t1 t2.
   Proof.
     intros.
     eapply tyeq_lgeq; eauto.
@@ -4742,7 +4750,7 @@ Section tyeq_hint.
     tyeq L t1 t2 ->
     forall k,
       kinding2 [] t2 k ->
-      lgeq L k t1 t2.
+      lgeq L [] [] k t1 t2.
   Proof.
     intros.
     eapply tyeq_lgeq; eauto.
