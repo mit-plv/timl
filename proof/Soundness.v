@@ -3321,6 +3321,8 @@ Section tyeq_hint.
       tstep (CApp t1 t2) (CApp t1' t2)
   .
   
+  Hint Constructors tstep.
+  
   (* almost the safe with [tyeq], but without Beta, BetaRev *)
   Inductive whnfeq : kctx -> cstr -> cstr -> Prop :=
   | HnfEqVar L x :
@@ -3804,7 +3806,7 @@ Section tyeq_hint.
     Variable L : kctx.
 
     (* logical equivalence (logical relation) *)
-    Fixpoint lgeq L1 L2 k t1 t2 :=
+    Fixpoint lgeq L1 L2 t1 t2 k :=
       match k with
       | K2Type =>
         obeq (L1 ++ L) t1 t2
@@ -3814,11 +3816,11 @@ Section tyeq_hint.
       | K2Arrow k1 k2 =>
         (* obeq L t1 t2 /\ *)
         forall t1' t2',
-          lgeq L1 L2 k1 t1' t2' ->
+          lgeq L1 L2 t1' t2' k1 ->
           kinding2 (map Ke2NonAbs L1) t1' k1 ->
           kinding2 (map Ke2NonAbs L2) t2' k1 ->
           not_idx k2 ->
-          lgeq L1 L2 k2 (CApp t1 t1') (CApp t2 t2')
+          lgeq L1 L2 (CApp t1 t1') (CApp t2 t2') k2
       end.
 
     (* Definition subst_cs_c x vs b := fold_left (fun b v => subst_c_c x v b) vs b. *)
@@ -3873,15 +3875,15 @@ Section tyeq_hint.
     
     (* Definition subs_lgeq G g1 g2 := Forall3 lgeq G g1 g2. *)
 
-    Inductive subs_lgeq : list ke2 -> list (option cstr) -> list (option cstr) -> Prop :=
+    Inductive subs_lgeq : list (option cstr) -> list (option cstr) -> list ke2 -> Prop :=
     | SLNil : subs_lgeq [] [] []
     | SLAbs G g1 g2 k c1 c2 :
-        subs_lgeq G g1 g2 ->
-        lgeq (subst0_cs_ks g1 G) (subst0_cs_ks g2 G) k c1 c2 ->
-        subs_lgeq (Ke2Abs k :: G) (Some c1 :: g1) (Some c2 :: g2)
+        subs_lgeq g1 g2 G ->
+        lgeq (subst0_cs_ks g1 G) (subst0_cs_ks g2 G) c1 c2 k ->
+        subs_lgeq (Some c1 :: g1) (Some c2 :: g2) (Ke2Abs k :: G)
     | SLNonAbs G g1 g2 k :
-        subs_lgeq G g1 g2 ->
-        subs_lgeq (Ke2NonAbs k :: G) (None :: g1) (None :: g2)
+        subs_lgeq g1 g2 G ->
+        subs_lgeq (None :: g1) (None :: g2) (Ke2NonAbs k :: G)
     .
 
     (* Definition subs_kinding2 g G := Forall2 (kinding2 []) g G. *)
@@ -3899,25 +3901,25 @@ Section tyeq_hint.
     
     Hint Constructors subs_lgeq subs_kd2.
     
-    Definition subs_kd_lgeq G g1 g2 :=
+    Definition subs_kd_lgeq g1 g2 G :=
       subs_kd2 g1 G /\
       subs_kd2 g2 G /\
-      subs_lgeq G g1 g2.
+      subs_lgeq g1 g2 G.
 
     (* logical equivalence for open types *)
-    Definition olgeq G k t1 t2 :=
+    Definition olgeq G t1 t2 k :=
       forall g1 g2,
-        subs_kd_lgeq G g1 g2 ->
-        lgeq (subst0_cs_ks g1 G) (subst0_cs_ks g2 G) k (subst0_cs_c g1 t1) (subst0_cs_c g2 t2).
+        subs_kd_lgeq g1 g2 G ->
+        lgeq (subst0_cs_ks g1 G) (subst0_cs_ks g2 G) (subst0_cs_c g1 t1) (subst0_cs_c g2 t2) k.
 
     Definition okdeq G k :=
       forall g1 g2,
-        subs_kd_lgeq G g1 g2 ->
+        subs_kd_lgeq g1 g2 G ->
         kdeq (subst0_cs_ks g1 G ++ L) (subst0_cs_k g1 k) (subst0_cs_k g2 k).
 
     Definition opropeq G p :=
       forall g1 g2,
-        subs_kd_lgeq G g1 g2 ->
+        subs_kd_lgeq g1 g2 G ->
         interp_prop (subst0_cs_ks g1 G ++ L) (subst0_cs_p g1 p <===> subst0_cs_p g2 p)%idx.
 
     Ltac not_not_idx :=
@@ -3955,7 +3957,7 @@ Section tyeq_hint.
     Lemma fundamental :
       (forall G t k,
         kinding2 G t k ->
-        olgeq G k t t) /\
+        olgeq G t t k) /\
       (forall G k,
           wfkind2 G k ->
           okdeq G k) /\
@@ -3975,11 +3977,11 @@ Section tyeq_hint.
         intros t1' t2' Hlgeq Hkd1 Hkd2.
         intros Hni.
         Lemma subst_kd_lgeq_Abs g1 g2 G c1 c2 k :
-          subs_kd_lgeq G g1 g2 ->
-          lgeq (subst0_cs_ks g1 G) (subst0_cs_ks g2 G) k c1 c2 ->
+          subs_kd_lgeq g1 g2 G ->
+          lgeq (subst0_cs_ks g1 G) (subst0_cs_ks g2 G) c1 c2 k ->
           kinding2 (map Ke2NonAbs (subst0_cs_ks g1 G)) c1 k ->
           kinding2 (map Ke2NonAbs (subst0_cs_ks g2 G)) c2 k ->
-          subs_kd_lgeq (Ke2Abs k :: G) (Some c1 :: g1) (Some c2 :: g2).
+          subs_kd_lgeq (Some c1 :: g1) (Some c2 :: g2) (Ke2Abs k :: G).
         Proof.
           intros.
           unfold subs_kd_lgeq in *.
@@ -3993,11 +3995,11 @@ Section tyeq_hint.
         unfold subs_kd_lgeq in Hsubeq; openhyp.
         Lemma lgeq_reverse1_eval k :
           forall L1 L2 t1' t2 ,
-            lgeq L1 L2 k t1' t2 ->
+            lgeq L1 L2 t1' t2 k ->
             forall t1,
               tstep t1 t1' ->
               kinding2 (map Ke2NonAbs L1) t1 k ->
-              lgeq L1 L2 k t1 t2.
+              lgeq L1 L2 t1 t2 k.
         Proof.
           induct k; simpl in *.
           {
@@ -4023,10 +4025,10 @@ Section tyeq_hint.
 
         Lemma lgeq_reverse2_eval k :
           forall L1 L2 t2' t1 t2,
-            lgeq L1 L2 k t1 t2' ->
+            lgeq L1 L2 t1 t2' k ->
             tstep t2 t2' ->
             kinding2 (map Ke2NonAbs L2) t2 k ->
-            lgeq L1 L2 k t1 t2.
+            lgeq L1 L2 t1 t2 k.
         Proof.
           induct k; simpl in *.
           {
@@ -4052,12 +4054,12 @@ Section tyeq_hint.
         
         Lemma lgeq_reverse_eval k :
           forall L1 L2 t1' t2' t1 t2,
-            lgeq L1 L2 k t1' t2' ->
+            lgeq L1 L2 t1' t2' k ->
             tstep t1 t1' ->
             tstep t2 t2' ->
             kinding2 (map Ke2NonAbs L1) t1 k ->
             kinding2 (map Ke2NonAbs L2) t2 k ->
-            lgeq L1 L2 k t1 t2.
+            lgeq L1 L2 t1 t2 k.
         Proof.
           induct k; simpl in *.
           {
@@ -4085,6 +4087,7 @@ Section tyeq_hint.
               econstructor; eauto.
           }
         Qed.
+        
         Lemma subst_cs_c'_Abs g :
           forall n x c,
             subst_cs_c' n x g (CAbs c) = CAbs (subst_cs_c' (1 + n) (1 + x) g c).
@@ -4125,7 +4128,7 @@ Section tyeq_hint.
         Qed.
 
         repeat rewrite subst0_cs_c_Abs.
-        Hint Constructors tstep.
+        
         Lemma TstepBeta' t1 t2 t :
           t = (subst0_c_c t2 t1) ->
           tstep (CApp (CAbs t1) t2) t.
@@ -4187,8 +4190,8 @@ Section tyeq_hint.
         intros g1 g2 Hsubeq.
         Lemma subs_kd_lgeq_var_in G x ke g1 g2 :
           nth_error G x = Some ke ->
-          subs_kd_lgeq G g1 g2 ->
-          lgeq (subst0_cs_ks g1 G) (subst0_cs_ks g2 G) (ke2_to_kind2 ke) (subst0_cs_c g1 (CVar x)) (subst0_cs_c g2 (CVar x)).
+          subs_kd_lgeq g1 g2 G ->
+          lgeq (subst0_cs_ks g1 G) (subst0_cs_ks g2 G) (subst0_cs_c g1 (CVar x)) (subst0_cs_c g2 (CVar x)) (ke2_to_kind2 ke).
         Admitted.
         eapply subs_kd_lgeq_var_in; eauto.
       }
@@ -4220,9 +4223,9 @@ Section tyeq_hint.
         intros g1 g2 Hsubeq.
         repeat rewrite subst0_cs_c_BinOp.
         Lemma lgeq_BinOp L1 L2 opr c1 c2 c1' c2' :
-          lgeq L1 L2 (cbinop_arg1_kind2 opr) c1 c1' ->
-          lgeq L1 L2 (cbinop_arg2_kind2 opr) c2 c2' ->
-          lgeq L1 L2 (cbinop_result_kind2 opr) (CBinOp opr c1 c2) (CBinOp opr c1' c2').
+          lgeq L1 L2 c1 c1' (cbinop_arg1_kind2 opr) ->
+          lgeq L1 L2 c2 c2' (cbinop_arg2_kind2 opr) ->
+          lgeq L1 L2 (CBinOp opr c1 c2) (CBinOp opr c1' c2') (cbinop_result_kind2 opr).
         Proof.
           intros H1 H2.
           induct opr; simpl in *; cbn.
@@ -4258,10 +4261,10 @@ Section tyeq_hint.
         repeat rewrite subst0_cs_c_Ite.
         Lemma lgeq_Ite L1 s c c1 c2 c' c1' c2' :
           let L2 := [] in
-          lgeq L1 L2 (K2Idx BSBool) c c' ->
-          lgeq L1 L2 (K2Idx s) c1 c1' ->
-          lgeq L1 L2 (K2Idx s) c2 c2' ->
-          lgeq L1 L2 (K2Idx s) (CIte c c1 c2) (CIte c' c1' c2').
+          lgeq L1 L2 c c' (K2Idx BSBool) ->
+          lgeq L1 L2 c1 c1' (K2Idx s) ->
+          lgeq L1 L2 c2 c2' (K2Idx s) ->
+          lgeq L1 L2 (CIte c c1 c2) (CIte c' c1' c2') (K2Idx s).
         Proof.
           simpl.
           intros H H1 H2.
@@ -4305,8 +4308,8 @@ Section tyeq_hint.
         repeat rewrite subst0_cs_c_TimeAbs.
         simpl.
         Lemma subst_kd_lgeq_NonAbs g1 g2 G k :
-          subs_kd_lgeq G g1 g2 ->
-          subs_kd_lgeq (Ke2NonAbs k :: G) (None :: g1) (None :: g2).
+          subs_kd_lgeq g1 g2 G ->
+          subs_kd_lgeq (None :: g1) (None :: g2) (Ke2NonAbs k :: G).
         Proof.
           intros.
           unfold subs_kd_lgeq in *.
@@ -4548,7 +4551,7 @@ Section tyeq_hint.
 
     Lemma fundamental_kinding2 G t k :
       kinding2 G t k ->
-      olgeq G k t t.
+      olgeq G t t k.
     Proof.
       intros H.
       eapply fundamental in H; eauto.
@@ -4556,7 +4559,7 @@ Section tyeq_hint.
     
     Lemma lgeq_refl k t :
       kinding2 [] t k ->
-      lgeq [] [] k t t.
+      lgeq [] [] t t k.
     Proof.
       intros Hkd.
       specialize (@fundamental_kinding2 [] t k Hkd [] []).
@@ -4568,9 +4571,9 @@ Section tyeq_hint.
 
     Lemma lgeq_trans k :
       forall a b c,
-        lgeq [] [] k a b ->
-        lgeq [] [] k b c ->
-        lgeq [] [] k a c.
+        lgeq [] [] a b k ->
+        lgeq [] [] b c k ->
+        lgeq [] [] a c k.
     Proof.
       induct k; simpl.
       {
@@ -4592,7 +4595,7 @@ Section tyeq_hint.
     Qed.
     
     Lemma lgeq_obeq t1 t2 :
-      lgeq [] [] K2Type t1 t2 ->
+      lgeq [] [] t1 t2 K2Type ->
       obeq L t1 t2.
     Proof.
       intros H.
@@ -4607,7 +4610,7 @@ Section tyeq_hint.
     forall k,
       kinding2 [] t1 k ->
       kinding2 [] t2 k ->
-      lgeq L [] [] k t1 t2.
+      lgeq L [] [] t1 t2 k.
   Proof.
     induct 1; simpl; intros k2 Hkd1 Hkd2.
     {
@@ -4631,10 +4634,10 @@ Section tyeq_hint.
     }
     {
       Lemma lgeq_Arrow L c1 i c2 c1' i' c2' :
-        lgeq L [] [] K2Type c1 c1' ->
-        lgeq L [] [] K2Time i i' ->
-        lgeq L [] [] K2Type c2 c2' ->
-        lgeq L [] [] K2Type (CArrow c1 i c2) (CArrow c1' i' c2').
+        lgeq L [] [] c1 c1' K2Type ->
+        lgeq L [] [] i i' K2Time ->
+        lgeq L [] [] c2 c2' K2Type ->
+        lgeq L [] [] (CArrow c1 i c2) (CArrow c1' i' c2') K2Type.
       Proof.
         intros H1 Hi H2.
         simpl in *.
@@ -4739,7 +4742,7 @@ Section tyeq_hint.
     tyeq L t1 t2 ->
     forall k,
       kinding2 [] t1 k ->
-      lgeq L [] [] k t1 t2.
+      lgeq L [] [] t1 t2 k.
   Proof.
     intros.
     eapply tyeq_lgeq; eauto.
@@ -4750,7 +4753,7 @@ Section tyeq_hint.
     tyeq L t1 t2 ->
     forall k,
       kinding2 [] t2 k ->
-      lgeq L [] [] k t1 t2.
+      lgeq L [] [] t1 t2 k.
   Proof.
     intros.
     eapply tyeq_lgeq; eauto.
