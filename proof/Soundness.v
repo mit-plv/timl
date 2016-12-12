@@ -3837,28 +3837,41 @@ Section tyeq_hint.
 
     Definition shift0_c_oc := option_map shift0_c_c.
     Definition shift0_c_cs := map shift0_c_oc.
+
+    (* Substitute a 'substitution group' for all variables. *)
+    (* In a subtitution group, values for inner variables cannot still depend on values for outer variables.  *)
     
-    Fixpoint subst_xs_y V B subst (shift : nat -> V -> V) nshift x (vs : list (option V)) (b : B) :=
+    Fixpoint shift_cs_c x (vs : list (option cstr)) b :=
       match vs with
       | [] => b
       | v :: vs =>
         match v with
-        | Some v => subst_xs_y subst shift nshift x vs (subst x (shift nshift v) b)
-        | None => subst_xs_y subst shift (1 + nshift) (1 + x) vs b
+        | Some v => shift_cs_c (1 + x) vs (shift_c_c 1 x b)
+        | None => shift_cs_c (1 + x) vs b
+        end
+      end.
+    
+    Definition shiftn_c_c n := shift_c_c n 0.
+    
+    Fixpoint subst_cs_x B subst nshift x (vs : list (option cstr)) (b : B) :=
+      match vs with
+      | [] => b
+      | v :: vs =>
+        match v with
+        | Some v => subst_cs_x subst nshift x vs (subst x (shiftn_c_c nshift (shift_cs_c 0 vs v)) b)
+        | None => subst_cs_x subst (1 + nshift) (1 + x) vs b
         end
       end.
 
-    Definition shiftn_c_c n := shift_c_c n 0.
-    
-    Definition subst_cs_c' := subst_xs_y subst_c_c shiftn_c_c.
+    Definition subst_cs_c' := subst_cs_x subst_c_c.
     Definition subst_cs_c := subst_cs_c' 0.
     Definition subst0_cs_c := subst_cs_c 0.
 
     (* Definition subst_cs_k x vs b := fold_left (fun b v => subst_c_k x v b) vs b. *)
-    Definition subst_cs_k := subst_xs_y subst_c_k shiftn_c_c 0.
+    Definition subst_cs_k := subst_cs_x subst_c_k 0.
     Definition subst0_cs_k:= subst_cs_k 0.
     
-    Definition subst_cs_p := subst_xs_y subst_c_p shiftn_c_c 0.
+    Definition subst_cs_p := subst_cs_x subst_c_p 0.
     Definition subst0_cs_p:= subst_cs_p 0.
     
     Fixpoint subst0_cs_ks vs bs :=
@@ -4110,8 +4123,8 @@ Section tyeq_hint.
           rewrite subst_cs_c'_Abs.
           simpl.
           f_equal.
-          Lemma subst_xs_y_c_c_move_shift_1_1 g c :
-            subst_xs_y subst_c_c shiftn_c_c 1 1 g c = subst_xs_y subst_c_c shiftn_c_c 0 1 (shift0_c_cs g) c.
+          Lemma subst_cs_x_c_c_move_shift_1_1 g c :
+            subst_cs_x subst_c_c 1 1 g c = subst_cs_x subst_c_c 0 1 (shift0_c_cs g) c.
           Proof.
             (* unfold shift0_c_cs. *)
             (* unfold shift0_c_oc. *)
@@ -4122,7 +4135,7 @@ Section tyeq_hint.
             subst_cs_c' 1 1 g c = subst_cs_c' 0 1 (shift0_c_cs g) c.
           Proof.
             unfold subst_cs_c'.
-            eapply subst_xs_y_c_c_move_shift_1_1.
+            eapply subst_cs_x_c_c_move_shift_1_1.
           Qed.
           eapply subst_cs_c'_move_shift_1_1.
         Qed.
@@ -4147,9 +4160,9 @@ Section tyeq_hint.
             rewrite shift_c_c_0; eauto.
           Qed.
           Ltac la := linear_arithmetic.
-          Lemma subst_xs_y_subst_c_c_0 g :
+          Lemma subst_cs_x_subst_c_c_0 g :
             forall x v b,
-              subst_xs_y subst_c_c shiftn_c_c x x g (subst_c_c 0 v b) = subst_c_c 0 (subst_xs_y subst_c_c shiftn_c_c x x g v) (subst_xs_y subst_c_c shiftn_c_c (1 + x) (1 + x) g b).
+              subst_cs_x subst_c_c x x g (subst_c_c 0 v b) = subst_c_c 0 (subst_cs_x subst_c_c x x g v) (subst_cs_x subst_c_c (1 + x) (1 + x) g b).
           Proof.
             induct g; simpl; eauto.
             destruct a as [v | ]; eauto.
@@ -4160,36 +4173,56 @@ Section tyeq_hint.
             unfold shiftn_c_c.
             eapply shift0_c_c_shift_0.
           Qed.
-          Lemma subst0_cs_c_subst_cs_c v b g G k :
-            kinding2 (map Ke2NonAbs (subst0_cs_ks g G)) v k ->
-            subs_kd2 g G ->
+          Lemma subst0_cs_c_subst_cs_c v b g :
             subst0_cs_c (Some v :: g) b = subst0_c_c v (subst_cs_c 1 (shift0_c_cs g) b).
           Proof.
-            intros Hkd Hsubskd.
             unfold subst0_cs_c.
             unfold subst_cs_c.
             unfold subst_cs_c'.
             simpl.
             rewrite shiftn_c_c_0.
-            rewrite subst_xs_y_subst_c_c_0.
+            rewrite subst_cs_x_subst_c_c_0.
             simpl.
             unfold subst0_c_c.
-            rewrite subst_xs_y_c_c_move_shift_1_1.
+            rewrite subst_cs_x_c_c_move_shift_1_1.
             repeat f_equal.
-            Lemma subs_kd_subst_xs_y_no_effect g :
-              forall v G k,
-                subs_kd2 g G ->
-                kinding2 (map Ke2NonAbs (subst0_cs_ks g G)) v k ->
-                subst_xs_y subst_c_c shiftn_c_c 0 0 g v = v.
+            Lemma subst_cs_x_shift_cs_c g :
+              forall x v,
+                subst_cs_x subst_c_c x x g (shift_cs_c x g v) = v.
             Proof.
               induct g; simpl; eauto.
-              intros v G k Hsubskd Hkd.
-              invert Hsubskd.
-              {
-                rewrite shiftn_c_c_0.
-                
-              }
+              intros x v.
+              destruct a as [v' | ]; simpl in *; eauto.
+              Lemma shift_cs_c_shift g :
+                forall x y v n,
+                  n + x <= y ->
+                  shift_cs_c y g (shift_c_c n x v) = shift_c_c n x (shift_cs_c (y - n) g v).
+              Proof.
+                induct g; simpl; eauto.
+                destruct a as [v | ]; eauto.
+                {
+                  intros x y v' n Hle.
+                  rewrite shift_c_c_shift_cut by la.
+                  rewrite IHg by la.
+                  repeat f_equal.
+                  la.
+                }
+                {
+                  intros x y v' n Hle.
+                  rewrite IHg by la.
+                  repeat f_equal.
+                  la.
+                }
+              Qed.
+              rewrite shift_cs_c_shift by la.
+              unfold shiftn_c_c.
+              rewrite subst_c_c_shift_avoid by la.
+              simpl.
+              rewrite shift_c_c_0.
+              repeat rewrite Nat.sub_0_r in *.
+              eauto.
             Qed.
+            eapply subst_cs_x_shift_cs_c; eauto.
           Qed.
           eapply subst0_cs_c_subst_cs_c; eauto.
         }
