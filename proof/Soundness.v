@@ -4141,11 +4141,56 @@ Section tyeq_hint.
           (* unfold subst0_cs_c. *)
           (* unfold subst_cs_c. *)
           (* simpl. *)
+          Lemma shiftn_c_c_0 b : shiftn_c_c 0 b = b.
+          Proof.
+            unfold shiftn_c_c.
+            rewrite shift_c_c_0; eauto.
+          Qed.
+          Ltac la := linear_arithmetic.
+          Lemma subst_xs_y_subst_c_c_0 g :
+            forall x v b,
+              subst_xs_y subst_c_c shiftn_c_c x x g (subst_c_c 0 v b) = subst_c_c 0 (subst_xs_y subst_c_c shiftn_c_c x x g v) (subst_xs_y subst_c_c shiftn_c_c (1 + x) (1 + x) g b).
+          Proof.
+            induct g; simpl; eauto.
+            destruct a as [v | ]; eauto.
+            intros x v' b.
+            erewrite subst_c_c_subst by la.
+            rewrite IHg.
+            repeat f_equal.
+            unfold shiftn_c_c.
+            eapply shift0_c_c_shift_0.
+          Qed.
           Lemma subst0_cs_c_subst_cs_c v b g G k :
             kinding2 (map Ke2NonAbs (subst0_cs_ks g G)) v k ->
             subs_kd2 g G ->
             subst0_cs_c (Some v :: g) b = subst0_c_c v (subst_cs_c 1 (shift0_c_cs g) b).
-          Admitted.
+          Proof.
+            intros Hkd Hsubskd.
+            unfold subst0_cs_c.
+            unfold subst_cs_c.
+            unfold subst_cs_c'.
+            simpl.
+            rewrite shiftn_c_c_0.
+            rewrite subst_xs_y_subst_c_c_0.
+            simpl.
+            unfold subst0_c_c.
+            rewrite subst_xs_y_c_c_move_shift_1_1.
+            repeat f_equal.
+            Lemma subs_kd_subst_xs_y_no_effect g :
+              forall v G k,
+                subs_kd2 g G ->
+                kinding2 (map Ke2NonAbs (subst0_cs_ks g G)) v k ->
+                subst_xs_y subst_c_c shiftn_c_c 0 0 g v = v.
+            Proof.
+              induct g; simpl; eauto.
+              intros v G k Hsubskd Hkd.
+              invert Hsubskd.
+              {
+                rewrite shiftn_c_c_0.
+                
+              }
+            Qed.
+          Qed.
           eapply subst0_cs_c_subst_cs_c; eauto.
         }
         {
