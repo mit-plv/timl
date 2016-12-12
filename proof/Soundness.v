@@ -3823,18 +3823,6 @@ Section tyeq_hint.
           lgeq L1 L2 (CApp t1 t1') (CApp t2 t2') k2
       end.
 
-    (* Definition subst_cs_c x vs b := fold_left (fun b v => subst_c_c x v b) vs b. *)
-    
-    (* Fixpoint subst_cs_c x vs b := *)
-    (*   match vs with *)
-    (*   | [] => b *)
-    (*   | v :: vs => *)
-    (*     match v with *)
-    (*     | Some v => subst_cs_c x vs (subst_c_c x v b) *)
-    (*     | None => subst_cs_c (1 + x) vs b *)
-    (*     end *)
-    (*   end. *)
-
     (* Substitute a 'substitution group' for all variables. *)
     (* In a subtitution group, values for inner variables cannot still depend on values for outer variables.  *)
 
@@ -3860,25 +3848,23 @@ Section tyeq_hint.
       
     Definition shiftn_c_c n := shift_c_c n 0.
     
-    Fixpoint subst_cs_x B subst nshift x (vs : list (option cstr)) (b : B) :=
+    Fixpoint subst_cs_x B subst x (vs : list (option cstr)) (b : B) :=
       match vs with
       | [] => b
       | v :: vs =>
         match v with
-        | Some v => subst_cs_x subst nshift x vs (subst x (shiftn_c_c nshift (shift_cs_c 0 vs v)) b)
-        | None => subst_cs_x subst (1 + nshift) (1 + x) vs b
+        | Some v => subst_cs_x subst x vs (subst x (shiftn_c_c x (shift_cs_c 0 vs v)) b)
+        | None => subst_cs_x subst (1 + x) vs b
         end
       end.
 
-    Definition subst_cs_c' := subst_cs_x subst_c_c.
-    Definition subst_cs_c := subst_cs_c' 0.
+    Definition subst_cs_c := subst_cs_x subst_c_c.
     Definition subst0_cs_c := subst_cs_c 0.
 
-    (* Definition subst_cs_k x vs b := fold_left (fun b v => subst_c_k x v b) vs b. *)
-    Definition subst_cs_k x := subst_cs_x subst_c_k x x.
+    Definition subst_cs_k := subst_cs_x subst_c_k.
     Definition subst0_cs_k:= subst_cs_k 0.
     
-    Definition subst_cs_p x := subst_cs_x subst_c_p x x.
+    Definition subst_cs_p := subst_cs_x subst_c_p.
     Definition subst0_cs_p:= subst_cs_p 0.
     
     Fixpoint subst0_cs_ks vs bs :=
@@ -3947,20 +3933,20 @@ Section tyeq_hint.
         H : ~ _ |- _ => contradict H; eexists; eauto
       end.
 
-    Lemma subst_cs_c'_App g :
-      forall n x a b,
-      subst_cs_c' n x g (CApp a b) = CApp (subst_cs_c' n x g a) (subst_cs_c' n x g b).
+    Lemma subst_cs_c_App g :
+      forall x a b,
+      subst_cs_c x g (CApp a b) = CApp (subst_cs_c x g a) (subst_cs_c x g b).
     Proof.
       unfold subst_cs_c.
       induct g; simpl; eauto.
       rename a into o.
-      intros n x a b.
+      intros x a b.
       destruct o; simpl; eauto.
     Qed.
     Lemma subst0_cs_c_App g a b :
       subst0_cs_c g (CApp a b) = CApp (subst0_cs_c g a) (subst0_cs_c g b).
     Proof.
-      eapply subst_cs_c'_App; eauto.
+      eapply subst_cs_c_App; eauto.
     Qed.
     Lemma subst0_cs_c_Const g cn : subst0_cs_c g (CConst cn) = CConst cn.
     Admitted.
@@ -4116,7 +4102,7 @@ Section tyeq_hint.
         Qed.
         Lemma subst_cs_x_subst_c_c_0 g :
           forall x v b,
-            subst_cs_x subst_c_c x x g (subst_c_c 0 v b) = subst_c_c 0 (subst_cs_x subst_c_c x x g v) (subst_cs_x subst_c_c (1 + x) (1 + x) g b).
+            subst_cs_x subst_c_c x g (subst_c_c 0 v b) = subst_c_c 0 (subst_cs_x subst_c_c x g v) (subst_cs_x subst_c_c (1 + x) g b).
         Proof.
           induct g; simpl; eauto.
           destruct a as [v | ]; eauto.
@@ -4148,9 +4134,10 @@ Section tyeq_hint.
             la.
           }
         Qed.
+        
         Lemma subst_cs_x_shift_cs_c g :
           forall x v,
-            subst_cs_x subst_c_c x x g (shift_cs_c x g v) = v.
+            subst_cs_x subst_c_c x g (shift_cs_c x g v) = v.
         Proof.
           induct g; simpl; eauto.
           intros x v.
@@ -4164,14 +4151,28 @@ Section tyeq_hint.
           eauto.
         Qed.
         
-        Lemma subst_cs_c'_Abs g :
-          forall n x c,
-            subst_cs_c' n x g (CAbs c) = CAbs (subst_cs_c' (1 + n) (1 + x) g c).
+        Lemma subst0_cs_c_subst_cs_c v b g :
+          subst0_cs_c (Some v :: g) b = subst0_c_c v (subst_cs_c 1 g b).
         Proof.
-          unfold subst_cs_c, subst_cs_c'.
+          unfold subst0_cs_c.
+          unfold subst_cs_c.
+          simpl.
+          rewrite shiftn_c_c_0.
+          rewrite subst_cs_x_subst_c_c_0.
+          simpl.
+          unfold subst0_c_c.
+          repeat f_equal.
+          eapply subst_cs_x_shift_cs_c; eauto.
+        Qed.
+        
+        Lemma subst_cs_c_Abs g :
+          forall x c,
+            subst_cs_c x g (CAbs c) = CAbs (subst_cs_c (1 + x) g c).
+        Proof.
+          unfold subst_cs_c.
           induct g; simpl; eauto.
           rename a into o.
-          intros n x c.
+          intros x c.
           destruct o; simpl; eauto.
           rewrite IHg.
           unfold shiftn_c_c; simpl.
@@ -4189,11 +4190,10 @@ Section tyeq_hint.
         (* Definition shift0_c_cs := map shift0_c_oc. *)
 
         Lemma subst0_cs_c_Abs g c :
-          subst0_cs_c g (CAbs c) = CAbs (subst_cs_c' 1 1 g c).
+          subst0_cs_c g (CAbs c) = CAbs (subst_cs_c 1 g c).
         Proof.
           unfold subst0_cs_c.
-          unfold subst_cs_c.
-          rewrite subst_cs_c'_Abs.
+          rewrite subst_cs_c_Abs.
           simpl.
           f_equal.
           
@@ -4241,21 +4241,6 @@ Section tyeq_hint.
           (* eapply subst_cs_c'_move_shift_1_1. *)
         Qed.
 
-        Lemma subst0_cs_c_subst_cs_c v b g :
-          subst0_cs_c (Some v :: g) b = subst0_c_c v (subst_cs_c' 1 1 g b).
-        Proof.
-          unfold subst0_cs_c.
-          unfold subst_cs_c.
-          unfold subst_cs_c'.
-          simpl.
-          rewrite shiftn_c_c_0.
-          rewrite subst_cs_x_subst_c_c_0.
-          simpl.
-          unfold subst0_c_c.
-          repeat f_equal.
-          eapply subst_cs_x_shift_cs_c; eauto.
-        Qed.
-        
         repeat rewrite subst0_cs_c_Abs.
         
         Lemma TstepBeta' t1 t2 t :
@@ -4282,7 +4267,7 @@ Section tyeq_hint.
           Lemma subst_cs_ks_kinding2 G k1 t k g :
             kinding2 (Ke2Abs k1 :: G) t k ->
             subs_kd2 g G ->
-            kinding2 (Ke2Abs k1 :: map Ke2NonAbs (subst0_cs_ks g G)) (subst_cs_c' 1 1 g t) k.
+            kinding2 (Ke2Abs k1 :: map Ke2NonAbs (subst0_cs_ks g G)) (subst_cs_c 1 g t) k.
           Admitted.
           eapply subst_cs_ks_kinding2; eauto.
         }
@@ -4404,14 +4389,14 @@ Section tyeq_hint.
         intros G i n Hkinding2 IHkinding2.
         unfold olgeq in *; simpl in *.
         intros g1 g2 Hsubeq.
-        Lemma subst_cs_c'_TimeAbs g :
-          forall n x c,
-            subst_cs_c' n x g (CTimeAbs c) = CTimeAbs (subst_cs_c' (1 + n) (1 + x) g c).
+        Lemma subst_cs_c_TimeAbs g :
+          forall x c,
+            subst_cs_c x g (CTimeAbs c) = CTimeAbs (subst_cs_c (1 + x) g c).
         Proof.
-          unfold subst_cs_c, subst_cs_c'.
+          unfold subst_cs_c.
           induct g; simpl; eauto.
           rename a into o.
-          intros n x c.
+          intros x c.
           destruct o; simpl; eauto.
           rewrite IHg.
           unfold shiftn_c_c; simpl.
@@ -4419,11 +4404,10 @@ Section tyeq_hint.
           eauto.
         Qed.
         Lemma subst0_cs_c_TimeAbs g c :
-          subst0_cs_c g (CTimeAbs c) = CTimeAbs (subst_cs_c' 1 1 g c).
+          subst0_cs_c g (CTimeAbs c) = CTimeAbs (subst_cs_c 1 g c).
         Proof.
           unfold subst0_cs_c.
-          unfold subst_cs_c.
-          rewrite subst_cs_c'_TimeAbs.
+          rewrite subst_cs_c_TimeAbs.
           simpl.
           f_equal.
         Qed.
@@ -4451,11 +4435,10 @@ Section tyeq_hint.
         repeat rewrite subst0_cs_k_BaseSort in *.
         simpl in *.
         Lemma subst0_cs_c_None_reduce g c :
-          subst0_cs_c (None :: g) c = subst_cs_c' 1 1 g c.
+          subst0_cs_c (None :: g) c = subst_cs_c 1 g c.
         Proof.
           unfold subst0_cs_c in *.
           unfold subst_cs_c in *.
-          unfold subst_cs_c' in *.
           simpl.
           eauto.
         Qed.
@@ -4490,7 +4473,7 @@ Section tyeq_hint.
         unfold olgeq in *; simpl in *.
         intros g1 g2 Hsubeq.
         Lemma subst0_cs_c_Quan g q k c :
-          subst0_cs_c g (CQuan q k c) = CQuan q (subst_cs_k 0 g k) (subst_cs_c' 1 1 g c).
+          subst0_cs_c g (CQuan q k c) = CQuan q (subst_cs_k 0 g k) (subst_cs_c 1 g c).
         Admitted.
         repeat rewrite subst0_cs_c_Quan.
         eapply obeq_Quan; eauto.
@@ -4507,7 +4490,7 @@ Section tyeq_hint.
         unfold olgeq in *; simpl in *.
         intros g1 g2 Hsubeq.
         Lemma subst0_cs_c_Rec g k c :
-          subst0_cs_c g (CRec k c) = CRec (subst_cs_k 0 g k) (subst_cs_c' 1 1 g c).
+          subst0_cs_c g (CRec k c) = CRec (subst_cs_k 0 g k) (subst_cs_c 1 g c).
         Admitted.
         repeat rewrite subst0_cs_c_Rec.
         eapply obeq_Rec; eauto.
