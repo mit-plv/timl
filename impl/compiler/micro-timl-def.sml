@@ -359,7 +359,7 @@ datatype typing =
          | TyApp of typing_judgement * typing * typing
          | TyAbs of typing_judgement * kinding * typing
          | TyAppC of typing_judgement * typing * kinding
-         | TyAbsC of typing_judgement * wfkind * typing
+         | TyAbsC of typing_judgement * wfkind * value * typing
          | TyRec of typing_judgement * kinding * typing
          | TyFold of typing_judgement * kinding * typing
          | TyUnfold of typing_judgement * typing

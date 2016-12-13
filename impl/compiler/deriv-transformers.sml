@@ -422,16 +422,22 @@ fun as_TyAppC ty kd =
       TyAppC ((#1 jty, EAppC (#2 jty, #2 jkd), subst_c_c (#2 jkd) 0 t, #4 jty), ty, kd)
   end
 
-fun as_TyAbsC wk ty =
+fun as_TyAbsC wk va ty =
   let
       val jwk = extract_judge_wfkind wk
+      val eva = extract_expr_value va
       val jty = extract_judge_typing ty
       val () = assert (#2 jwk :: #1 jwk = (get_kctx $ #1 jty)) "TyAbsC 1"
       val () = assert (#4 jty = T0) "TyAbsC 2"
-      (* TODO: check e is value *)
+      val () = assert (eva = #2 jty) "TyAbsC 3"
   in
-      TyAbsC (((tl $ get_kctx $ #1 jty, map (shift_c_c ~1 0) $ get_tctx $ #1 jty, map_assoc (shift_c_c ~1 0) $ get_hctx $ #1 jty), EAbsC (#2 jty), CForall (#2 jwk, #3 jty), T0), wk, ty)
+      TyAbsC (((tl $ get_kctx $ #1 jty, map (shift_c_c ~1 0) $ get_tctx $ #1 jty, map_assoc (shift_c_c ~1 0) $ get_hctx $ #1 jty), EAbsC (#2 jty), CForall (#2 jwk, #3 jty), T0), wk, va, ty)
   end
+
+fun unfold_EAbsCs e =
+  case e of
+      EAbsC e => unfold_EAbsCs e
+    | _ => e
 
 fun as_TyRec kd ty =
   let
@@ -441,7 +447,8 @@ fun as_TyRec kd ty =
       val () = assert (#1 jkd = (get_kctx $ #1 jty)) "TyRec 2"
       val () = assert (#2 jkd = (hd $ get_tctx $ #1 jty)) "TyRec 3"
       val () = assert (#4 jty = T0) "TyRec 4"
-      (* TODO: check e is abstraction *)
+      val e = unfold_EAbsCs (#2 jty)
+      val _ = extract_e_abs e
   in
       TyRec (((get_kctx $ #1 jty, tl $ get_tctx $ #1 jty, get_hctx $ #1 jty), ERec (#2 jty), #3 jty, T0), kd, ty)
   end
@@ -620,7 +627,7 @@ fun as_TyFix ctx kd ty =
       val () = assert (#3 jkd = KType) "TyFix 2"
       val (t, ks) = unfold_CForalls (#2 jkd) []
       val (t1, i, t2) = extract_c_arrow t
-      val () = assert (#1 jty = (ks, [t1, #2 jkd], [])) "TyFix 3" (* TODO: is heap context empty? *)
+      val () = assert (#1 jty = (ks, [t1, #2 jkd], get_hctx ctx)) "TyFix 3"
       val () = assert (#3 jty = t2) "TyFix 4"
       val () = assert (#4 jty = i) "TyFix 5"
   in

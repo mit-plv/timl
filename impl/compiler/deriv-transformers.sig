@@ -75,7 +75,7 @@ sig
     val as_TyHalt : MicroTiMLDef.typing -> MicroTiMLDef.typing
     val as_TyRec : MicroTiMLDef.kinding -> MicroTiMLDef.typing -> MicroTiMLDef.typing
     val as_TyFix : MicroTiMLDef.ctx -> MicroTiMLDef.kinding -> MicroTiMLDef.typing -> MicroTiMLDef.typing
-    val as_TyAbsC : MicroTiMLDef.wfkind -> MicroTiMLDef.typing -> MicroTiMLDef.typing
+    val as_TyAbsC : MicroTiMLDef.wfkind -> MicroTiMLDef.value -> MicroTiMLDef.typing -> MicroTiMLDef.typing
     val as_TyAppC : MicroTiMLDef.typing -> MicroTiMLDef.kinding -> MicroTiMLDef.typing
     val as_TyLet : MicroTiMLDef.typing -> MicroTiMLDef.typing -> MicroTiMLDef.typing
     val as_TyPrimBinOp : MicroTiMLDef.prim_expr_bin_op -> MicroTiMLDef.typing -> MicroTiMLDef.typing -> MicroTiMLDef.typing
