@@ -30,6 +30,7 @@ sig
     val extract_e_abs : MicroTiMLDef.expr -> MicroTiMLDef.expr
     val extract_e_abs_c : MicroTiMLDef.expr -> MicroTiMLDef.expr
     val extract_e_prim_bin_op : MicroTiMLDef.expr -> MicroTiMLDef.prim_expr_bin_op * MicroTiMLDef.expr * MicroTiMLDef.expr
+    val extract_e_pack : MicroTiMLDef.expr -> MicroTiMLDef.cstr * MicroTiMLDef.expr
 
     val str_cstr_const : MicroTiMLDef.cstr_const -> string
     val str_cstr_bin_op : MicroTiMLDef.cstr_bin_op -> string

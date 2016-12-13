@@ -170,6 +170,9 @@ fun extract_e_abs_c (EAbsC a) = a
 fun extract_e_prim_bin_op (EBinOp (EBPrim opr, e1, e2)) = (opr, e1, e2)
   | extract_e_prim_bin_op _ = raise (Impossible "extract_e_prim_bin_op")
 
+fun extract_e_pack (EPack a) = a
+  | extract_e_pack _ = raise (Impossible "extract_e_pack")
+
 val str_time = Time.str_time
 val str_nat = Nat.str_nat
 

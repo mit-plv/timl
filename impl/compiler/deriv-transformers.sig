@@ -82,81 +82,90 @@ sig
     val as_TyLoc : MicroTiMLDef.ctx -> MicroTiMLDef.loc -> MicroTiMLDef.typing
 end
 
-(* signature SIG_CSTR_DERIV_GENERIC_TRANSFORMER = *)
-(* sig *)
-(*     structure MicroTiMLDef : SIG_MICRO_TIML_DEF *)
+signature SIG_CSTR_DERIV_GENERIC_TRANSFORMER =
+sig
+    structure MicroTiMLDef : SIG_MICRO_TIML_DEF
 
-(*     type down *)
-(*     type up *)
+    type down
+    type up
 
-(*     val transform_proping : MicroTiMLDef.proping * down -> MicroTiMLDef.proping * up *)
-(*     val transform_kdeq : MicroTiMLDef.kdeq * down -> MicroTiMLDef.kdeq * up *)
-(*     val transform_kinding : MicroTiMLDef.kinding * down -> MicroTiMLDef.kinding * up *)
-(*     val transform_wfkind : MicroTiMLDef.wfkind * down -> MicroTiMLDef.wfkind * up *)
-(*     val transform_wfprop : MicroTiMLDef.wfprop * down -> MicroTiMLDef.wfprop * up *)
-(*     val transform_tyeq : MicroTiMLDef.tyeq * down -> MicroTiMLDef.tyeq * up *)
-(* end *)
+    val transform_proping : MicroTiMLDef.proping * down -> MicroTiMLDef.proping * up
+    val transform_kdeq : MicroTiMLDef.kdeq * down -> MicroTiMLDef.kdeq * up
+    val transform_kinding : MicroTiMLDef.kinding * down -> MicroTiMLDef.kinding * up
+    val transform_wfkind : MicroTiMLDef.wfkind * down -> MicroTiMLDef.wfkind * up
+    val transform_wfprop : MicroTiMLDef.wfprop * down -> MicroTiMLDef.wfprop * up
+    val transform_tyeq : MicroTiMLDef.tyeq * down -> MicroTiMLDef.tyeq * up
+end
 
-(* signature SIG_EXPR_DERIV_GENERIC_TRANSFORMER = *)
-(* sig *)
-(*     structure MicroTiMLDef : SIG_MICRO_TIML_DEF *)
+signature SIG_EXPR_DERIV_GENERIC_TRANSFORMER =
+sig
+    structure MicroTiMLDef : SIG_MICRO_TIML_DEF
 
-(*     type down *)
-(*     type up *)
+    type down
+    type up
 
-(*     val transform_typing : MicroTiMLDef.typing * down -> MicroTiMLDef.typing * up *)
-(* end *)
+    val transform_value : MicroTiMLDef.value * down -> MicroTiMLDef.value * up
+    val transform_typing : MicroTiMLDef.typing * down -> MicroTiMLDef.typing * up
+end
 
-(* signature SIG_CSTR_DERIV_GENERIC_ONLY_DOWN_TRANSFORMER = *)
-(* sig *)
-(*     structure MicroTiMLDef : SIG_MICRO_TIML_DEF *)
+signature SIG_CSTR_DERIV_GENERIC_ONLY_DOWN_TRANSFORMER =
+sig
+    structure MicroTiMLDef : SIG_MICRO_TIML_DEF
 
-(*     type down *)
+    type down
 
-(*     val transform_proping : MicroTiMLDef.proping * down -> MicroTiMLDef.proping *)
-(*     val transform_kdeq : MicroTiMLDef.kdeq * down -> MicroTiMLDef.kdeq *)
-(*     val transform_kinding : MicroTiMLDef.kinding * down -> MicroTiMLDef.kinding *)
-(*     val transform_wfkind : MicroTiMLDef.wfkind * down -> MicroTiMLDef.wfkind *)
-(*     val transform_wfprop : MicroTiMLDef.wfprop * down -> MicroTiMLDef.wfprop *)
-(*     val transform_tyeq : MicroTiMLDef.tyeq * down -> MicroTiMLDef.tyeq *)
-(* end *)
+    val transform_proping : MicroTiMLDef.proping * down -> MicroTiMLDef.proping
+    val transform_kdeq : MicroTiMLDef.kdeq * down -> MicroTiMLDef.kdeq
+    val transform_kinding : MicroTiMLDef.kinding * down -> MicroTiMLDef.kinding
+    val transform_wfkind : MicroTiMLDef.wfkind * down -> MicroTiMLDef.wfkind
+    val transform_wfprop : MicroTiMLDef.wfprop * down -> MicroTiMLDef.wfprop
+    val transform_tyeq : MicroTiMLDef.tyeq * down -> MicroTiMLDef.tyeq
+end
 
-(* signature SIG_EXPR_DERIV_GENERIC_ONLY_DOWN_TRANSFORMER = *)
-(* sig *)
-(*     structure MicroTiMLDef : SIG_MICRO_TIML_DEF *)
+signature SIG_EXPR_DERIV_GENERIC_ONLY_DOWN_TRANSFORMER =
+sig
+    structure MicroTiMLDef : SIG_MICRO_TIML_DEF
 
-(*     type down *)
+    type down
 
-(*     val transform_typing : MicroTiMLDef.typing * down -> MicroTiMLDef.typing *)
-(* end *)
+    val transform_value : MicroTiMLDef.value * down -> MicroTiMLDef.value
+    val transform_typing : MicroTiMLDef.typing * down -> MicroTiMLDef.typing
+end
 
-(* signature SIG_DERIV_TRANSFOMRERS = *)
-(* sig *)
-(*     structure MicroTiMLDef : SIG_MICRO_TIML_DEF *)
+signature SIG_DERIV_TRANSFOMRERS =
+sig
+    structure MicroTiMLDef : SIG_MICRO_TIML_DEF
 
-(*     structure ShiftCtx : *)
-(*               sig *)
-(*                   val shift_ctx_ty : ((MicroTiMLDef.kctx * int) * (MicroTiMLDef.tctx * int)) -> MicroTiMLDef.typing -> MicroTiMLDef.typing *)
-(*                   val shift_ctx_kd : (MicroTiMLDef.kctx * int) -> MicroTiMLDef.kinding -> MicroTiMLDef.kinding *)
-(*                   val shift_ctx_te : (MicroTiMLDef.kctx * int) -> MicroTiMLDef.tyeq -> MicroTiMLDef.tyeq *)
-(*                   val shift_ctx_pr : (MicroTiMLDef.kctx * int) -> MicroTiMLDef.proping -> MicroTiMLDef.proping *)
-(*                   val shift_ctx_wk : (MicroTiMLDef.kctx * int) -> MicroTiMLDef.wfkind -> MicroTiMLDef.wfkind *)
-(*                   val shift_ctx_ke : (MicroTiMLDef.kctx * int) -> MicroTiMLDef.kdeq -> MicroTiMLDef.kdeq *)
+    structure ShiftCtx :
+              sig
+                  val shift_ctx_ty : ((MicroTiMLDef.kctx * int) * (MicroTiMLDef.tctx * int)) -> MicroTiMLDef.typing -> MicroTiMLDef.typing
+                  val shift_ctx_va : ((MicroTiMLDef.kctx * int) * (MicroTiMLDef.tctx * int)) -> MicroTiMLDef.value -> MicroTiMLDef.value
+                  val shift_ctx_kd : (MicroTiMLDef.kctx * int) -> MicroTiMLDef.kinding -> MicroTiMLDef.kinding
+                  val shift_ctx_te : (MicroTiMLDef.kctx * int) -> MicroTiMLDef.tyeq -> MicroTiMLDef.tyeq
+                  val shift_ctx_pr : (MicroTiMLDef.kctx * int) -> MicroTiMLDef.proping -> MicroTiMLDef.proping
+                  val shift_ctx_wk : (MicroTiMLDef.kctx * int) -> MicroTiMLDef.wfkind -> MicroTiMLDef.wfkind
+                  val shift_ctx_ke : (MicroTiMLDef.kctx * int) -> MicroTiMLDef.kdeq -> MicroTiMLDef.kdeq
 
-(*                   val shift0_ctx_ty : (MicroTiMLDef.kctx * MicroTiMLDef.tctx) -> MicroTiMLDef.typing -> MicroTiMLDef.typing *)
-(*                   val shift0_ctx_kd : MicroTiMLDef.kctx -> MicroTiMLDef.kinding -> MicroTiMLDef.kinding *)
-(*                   val shift0_ctx_te : MicroTiMLDef.kctx -> MicroTiMLDef.tyeq -> MicroTiMLDef.tyeq *)
-(*                   val shift0_ctx_pr : MicroTiMLDef.kctx -> MicroTiMLDef.proping -> MicroTiMLDef.proping *)
-(*                   val shift0_ctx_wk : MicroTiMLDef.kctx -> MicroTiMLDef.wfkind -> MicroTiMLDef.wfkind *)
-(*                   val shift0_ctx_ke : MicroTiMLDef.kctx -> MicroTiMLDef.kdeq -> MicroTiMLDef.kdeq *)
-(*               end *)
+                  val shift0_ctx_ty : (MicroTiMLDef.kctx * MicroTiMLDef.tctx) -> MicroTiMLDef.typing -> MicroTiMLDef.typing
+                  val shift0_ctx_va : (MicroTiMLDef.kctx * MicroTiMLDef.tctx) -> MicroTiMLDef.value -> MicroTiMLDef.value
+                  val shift0_ctx_kd : MicroTiMLDef.kctx -> MicroTiMLDef.kinding -> MicroTiMLDef.kinding
+                  val shift0_ctx_te : MicroTiMLDef.kctx -> MicroTiMLDef.tyeq -> MicroTiMLDef.tyeq
+                  val shift0_ctx_pr : MicroTiMLDef.kctx -> MicroTiMLDef.proping -> MicroTiMLDef.proping
+                  val shift0_ctx_wk : MicroTiMLDef.kctx -> MicroTiMLDef.wfkind -> MicroTiMLDef.wfkind
+                  val shift0_ctx_ke : MicroTiMLDef.kctx -> MicroTiMLDef.kdeq -> MicroTiMLDef.kdeq
+              end
 
-(*     structure ChangeCtx : *)
-(*               sig *)
-(*                   val change_ctx_wk : MicroTiMLDef.kctx -> MicroTiMLDef.wfkind -> MicroTiMLDef.wfkind *)
-(*                   val change_ctx_kd : MicroTiMLDef.kctx -> MicroTiMLDef.kinding -> MicroTiMLDef.kinding *)
-(*                   val change_ctx_ty : MicroTiMLDef.ctx -> MicroTiMLDef.typing -> MicroTiMLDef.typing *)
-(*               end *)
+    structure ChangeCtx :
+              sig
+                  val change_ctx_wk : MicroTiMLDef.kctx -> MicroTiMLDef.wfkind -> MicroTiMLDef.wfkind
+                  val change_ctx_kd : MicroTiMLDef.kctx -> MicroTiMLDef.kinding -> MicroTiMLDef.kinding
+                  val change_ctx_ty : (MicroTiMLDef.kctx * MicroTiMLDef.tctx) -> MicroTiMLDef.typing -> MicroTiMLDef.typing
+                  val change_ctx_va : (MicroTiMLDef.kctx * MicroTiMLDef.tctx) -> MicroTiMLDef.value -> MicroTiMLDef.value
+                  val change_ctx_wp : MicroTiMLDef.kctx -> MicroTiMLDef.wfprop -> MicroTiMLDef.wfprop
+                  val change_ctx_ke : MicroTiMLDef.kctx -> MicroTiMLDef.kdeq -> MicroTiMLDef.kdeq
+                  val change_ctx_pr : MicroTiMLDef.kctx -> MicroTiMLDef.proping -> MicroTiMLDef.proping
+                  val change_ctx_te : MicroTiMLDef.kctx -> MicroTiMLDef.tyeq -> MicroTiMLDef.tyeq
+              end
 
 (*     structure DerivSubstTyping : *)
 (*               sig *)
@@ -198,4 +207,4 @@ end
 (*                   val dsubst_e_ty : MicroTiMLDef.expr -> int -> MicroTiMLDef.typing -> MicroTiMLDef.typing *)
 (*                   val dsubst0_e_ty : MicroTiMLDef.expr -> MicroTiMLDef.typing -> MicroTiMLDef.typing *)
 (*               end *)
-(* end *)
+end
