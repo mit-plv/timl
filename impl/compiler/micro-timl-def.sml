@@ -243,16 +243,17 @@ datatype tyeq =
          | TyEqIte of tyeq_judgement * tyeq * tyeq * tyeq
          | TyEqArrow of tyeq_judgement * tyeq * proping * tyeq
          | TyEqApp of tyeq_judgement * tyeq * tyeq
-         | TyEqTimeApp of tyeq_judgement * tyeq * tyeq
-         | TyEqBeta of tyeq_judgement * tyeq * tyeq * tyeq
-         | TyEqBetaRev of tyeq_judgement * tyeq * tyeq * tyeq
+         | TyEqBeta of tyeq_judgement
+         | TyEqBetaRev of tyeq_judgement
          | TyEqQuan of tyeq_judgement * kdeq * tyeq
          | TyEqRec of tyeq_judgement * kdeq * tyeq
          | TyEqRef of tyeq_judgement * tyeq
          | TyEqAbs of tyeq_judgement
          | TyEqTimeAbs of tyeq_judgement
+         | TyEqTimeApp of tyeq_judgement
+         | TyEqTrans of tyeq_judgement * tyeq * tyeq
          | TyEqUnOp of tyeq_judgement * tyeq
-         | TyEqNat of tyeq_judgement * kinding * kinding * proping
+         | TyEqNat of tyeq_judgement * proping
 
 datatype expr_const =
          ECTT
@@ -281,8 +282,11 @@ datatype injector =
          InjInl
        | InjInr
 
+type loc = int
+
 type tctx = cstr list
-type ctx = kctx * tctx
+type hctx = (loc * cstr) list
+type ctx = kctx * tctx * hctx
 
 datatype expr_un_op =
          EUProj of projector
@@ -301,6 +305,7 @@ datatype expr_bin_op =
 datatype expr =
          EVar of var
          | EConst of expr_const
+         | ELoc of loc
          | EUnOp of expr_un_op * expr
          | EBinOp of expr_bin_op * expr * expr
          | ECase of expr * expr * expr
@@ -333,6 +338,7 @@ datatype value =
          | VAbsC of expr
          | VPack of expr * value
          | VFold of expr * value
+         | VLoc of expr
 
 fun EFst e = EProj (ProjFst, e)
 fun ESnd e = EProj (ProjSnd, e)
@@ -367,6 +373,7 @@ datatype typing =
          | TyNew of typing_judgement * typing
          | TyRead of typing_judgement * typing
          | TyWrite of typing_judgement * typing * typing
+         | TyLoc of typing_judgement
          | TySubTy of typing_judgement * typing * tyeq
          | TySubTi of typing_judgement * typing * proping
          | TyHalt of typing_judgement * typing

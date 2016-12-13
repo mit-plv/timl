@@ -80,4 +80,14 @@ fun subseteq_assoc l1 l2 =
   end
 
 fun eq_assoc l1 l2 = subseteq_assoc l1 l2 andalso subseteq_assoc l2 l1
+
+fun map_assoc f l =
+  let
+      fun inner l =
+        case l of
+            [] => []
+          | (k, v) :: l' => (k, f v) :: inner l'
+  in
+      inner l
+  end
 end

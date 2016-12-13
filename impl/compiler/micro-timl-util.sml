@@ -59,16 +59,28 @@ fun extract_judge_tyeq te =
     | TyEqIte (j, _, _, _) => j
     | TyEqArrow (j, _, _, _) => j
     | TyEqApp (j, _, _) => j
-    | TyEqTimeApp (j, _, _) => j
-    | TyEqBeta (j, _, _, _) => j
-    | TyEqBetaRev (j, _, _, _) => j
+    | TyEqBeta j => j
+    | TyEqBetaRev j => j
     | TyEqQuan (j, _, _) => j
     | TyEqRec (j, _, _) => j
     | TyEqRef (j, _) => j
     | TyEqAbs j => j
     | TyEqTimeAbs j => j
+    | TyEqTimeApp j => j
+    | TyEqTrans (j, _, _) => j
     | TyEqUnOp (j, _) => j
-    | TyEqNat (j, _, _, _) => j
+    | TyEqNat (j, _) => j
+
+fun extract_expr_value v =
+  case v of
+      VConst e => e
+    | VPair (e, _, _) => e
+    | VInj (e, _) => e
+    | VAbs e => e
+    | VAbsC e => e
+    | VPack (e, _) => e
+    | VFold (e, _) => e
+    | VLoc e => e
 
 fun extract_judge_typing ty =
   case ty of
@@ -90,6 +102,7 @@ fun extract_judge_typing ty =
     | TyNew (j, _) => j
     | TyRead (j, _) => j
     | TyWrite (j, _, _) => j
+    | TyLoc j => j
     | TySubTy (j, _, _) => j
     | TySubTi (j, _, _) => j
     | TyHalt (j, _) => j

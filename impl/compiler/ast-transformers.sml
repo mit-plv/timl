@@ -211,6 +211,7 @@ fun default_transform_expr (e, down as (kdown, tdown)) =
     case e of
         EVar x => (EVar x, upward_base)
       | EConst cn => (EConst cn, upward_base)
+      | ELoc l => (ELoc l, upward_base)
       | EUnOp (opr, e) =>
         let
             val (e, up1) = transform_expr (e, down)
@@ -457,6 +458,7 @@ fun str_expr e =
   case e of
       EVar x => "&" ^ str_int x
     | EConst cn => str_expr_const cn
+    | ELoc l => "#" ^ str_int l
     | EUnOp (opr, e) => "(" ^ str_expr_un_op opr ^ " " ^ str_expr e ^ ")"
     | EBinOp (opr, e1, e2) => "(" ^ str_expr e1 ^ " " ^ str_expr_bin_op opr ^ " " ^ str_expr e2 ^ ")"
     | ECase (e, e1, e2) => "(case " ^ str_expr e ^ " " ^ str_expr e1 ^ " " ^ str_expr e2 ^ ")"

@@ -8,6 +8,7 @@ sig
     val extract_judge_wfkind : MicroTiMLDef.wfkind -> MicroTiMLDef.wfkind_judgement
     val extract_judge_wfprop : MicroTiMLDef.wfprop -> MicroTiMLDef.wfprop_judgement
     val extract_judge_tyeq : MicroTiMLDef.tyeq -> MicroTiMLDef.tyeq_judgement
+    val extract_expr_value : MicroTiMLDef.value -> MicroTiMLDef.expr
     val extract_judge_typing : MicroTiMLDef.typing -> MicroTiMLDef.typing_judgement
     val extract_p_bin_conn : MicroTiMLDef.prop -> MicroTiMLDef.prop_bin_conn * MicroTiMLDef.prop * MicroTiMLDef.prop
     val extract_p_quan : MicroTiMLDef.prop -> MicroTiMLDef.quan * MicroTiMLDef.sort * MicroTiMLDef.prop
