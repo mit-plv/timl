@@ -1612,332 +1612,185 @@ fun change_ctx_pr kctx pr = CstrDerivHelper.transform_proping (pr, kctx)
 fun change_ctx_te kctx te = CstrDerivHelper.transform_tyeq (te, kctx)
 end
 
-(* structure DerivFVCstr = *)
-(* struct *)
-(* open FVUtil *)
+structure DerivFVCstr =
+struct
+open FVUtil
 
-(* structure CstrDerivHelper = CstrDerivGenericTransformerFun( *)
-(*     structure MicroTiMLDef = MicroTiMLDef *)
-(*     structure Action = *)
-(*     struct *)
-(*     type down = int *)
-(*     type up = int list *)
+structure CstrDerivHelper = CstrDerivGenericTransformerFun(
+    structure MicroTiMLDef = MicroTiMLDef
+    structure Action =
+    struct
+    type down = int
+    type up = int list
 
-(*     val upward_base = [] *)
-(*     val combiner = unique_merge *)
+    val upward_base = []
+    val combiner = unique_merge
 
-(*     fun add_kind (_, dep) = dep + 1 *)
+    fun add_kind (_, dep) = dep + 1
 
-(*     fun on_pr_leaf (pr as (kctx, p), dep) = (pr, FVCstr.free_vars_c_p dep p) *)
-(*     fun on_ke_leaf (ke as (kctx, k1, k2), dep) = (ke, combiner (FVCstr.free_vars_c_k dep k1, FVCstr.free_vars_c_k dep k2)) *)
-(*     fun on_kd_leaf (kd as (kctx, c, k), dep) = (kd, combiner (FVCstr.free_vars_c_c dep c, FVCstr.free_vars_c_k dep k)) *)
-(*     fun on_wk_leaf (wk as (kctx, k), dep) = (wk, FVCstr.free_vars_c_k dep k) *)
-(*     fun on_wp_leaf (wp as (kctx, p), dep) = (wp, FVCstr.free_vars_c_p dep p) *)
-(*     fun on_te_leaf (te as (kctx, t1, t2), dep) = (te, combiner (FVCstr.free_vars_c_c dep t1, FVCstr.free_vars_c_c dep t2)) *)
+    fun on_pr_leaf (pr as PrAdmit (kctx, p), dep) = (pr, FVCstr.free_vars_c_p dep p)
 
-(*     fun transformer_proping _ = NONE *)
-(*     fun transformer_kdeq _ _ = NONE *)
-(*     fun transformer_kinding _ _ = NONE *)
-(*     fun transformer_wfkind _ _ = NONE *)
-(*     fun transformer_wfprop _ _ = NONE *)
-(*     fun transformer_tyeq _ _ = NONE *)
-(*     end) *)
+    fun on_ke_leaf (ke as KdEqKType (_, _, _), _) = (ke, [])
+      | on_ke_leaf (ke as KdEqBaseSort (_, _, _), _) = (ke, [])
+      | on_ke_leaf _ = raise (Impossible "on_ke_leaf")
 
-(* structure ExprDerivHelper = ExprDerivGenericTransformerFun( *)
-(*     structure MicroTiMLDef = MicroTiMLDef *)
-(*     structure Action = *)
-(*     struct *)
-(*     type kdown = int *)
-(*     type tdown = unit *)
-(*     type down = kdown * tdown *)
-(*     type up = int list *)
+    fun on_kd_leaf (kd as KdVar (_, CVar x, _), dep) = (kd, if x >= dep then [x - dep] else [])
+      | on_kd_leaf (kd as KdConst (_, _, _), _) = (kd, [])
+      | on_kd_leaf (kd as KdAdmit (kctx, c, k), dep) = (kd, unique_merge (FVCstr.free_vars_c_c dep c, FVCstr.free_vars_c_k dep k))
+      | on_kd_leaf _ = raise (Impossible "on_kd_leaf")
 
-(*     val upward_base = [] *)
-(*     val combiner = unique_merge *)
+    fun on_wk_leaf (wk as WfKdType (_, _), _) = (wk, [])
+      | on_wk_leaf (wk as WfKdBaseSort (_, _), _) = (wk, [])
+      | on_wk_leaf _ = raise (Impossible "on_wk_leaf")
 
-(*     fun add_kind (_, (dep, ())) = (dep + 1, ()) *)
-(*     fun add_type (_, ()) = () *)
+    fun on_wp_leaf (wp as WfPropTrue (_, _), _) = (wp, [])
+      | on_wp_leaf (wp as WfPropFalse (_, _), _) = (wp, [])
+      | on_wp_leaf _ = raise (Impossible "on_wp_leaf")
 
-(*     fun on_ty_leaf (ty as (ctx, e, t, i), (dep, ()))= (ty, combiner (combiner (FVCstr.free_vars_c_e dep e, FVCstr.free_vars_c_c dep t), FVCstr.free_vars_c_c dep i)) *)
+    fun on_te_leaf (te as TyEqVar (_, CVar x, _), dep) = (te, if x >= dep then [x - dep] else [])
+      | on_te_leaf (te as TyEqConst (_, _, _), _) = (te, [])
+      | on_te_leaf (te as TyEqBeta (_, CApp (CAbs t1, t2), _), dep) = (te, unique_merge (FVCstr.free_vars_c_c (dep + 1) t1, FVCstr.free_vars_c_c dep t2))
+      | on_te_leaf (te as TyEqBetaRev (_, _, CApp (CAbs t1, t2)), dep) = (te, unique_merge (FVCstr.free_vars_c_c (dep + 1) t1, FVCstr.free_vars_c_c dep t2))
+      | on_te_leaf (te as TyEqAbs (_, CAbs t, _), dep) = (te, FVCstr.free_vars_c_c (dep + 1) t)
+      | on_te_leaf (te as TyEqTimeAbs (_, CTimeAbs i, _), dep) = (te, FVCstr.free_vars_c_c (dep + 1) i)
+      | on_te_leaf (te as TyEqTimeApp (_, CTimeApp (arity, c1, c2), _), dep) = (te, unique_merge (FVCstr.free_vars_c_c dep c1, FVCstr.free_vars_c_c dep c2))
+      | on_te_leaf _ = raise (Impossible "on_te_leaf")
 
-(*     val transform_proping = CstrDerivHelper.transform_proping *)
-(*     val transform_kinding = CstrDerivHelper.transform_kinding *)
-(*     val transform_wfkind = CstrDerivHelper.transform_wfkind *)
-(*     val transform_tyeq = CstrDerivHelper.transform_tyeq *)
+    fun transformer_proping _ = NONE
+    fun transformer_kdeq _ _ = NONE
+    fun transformer_kinding _ _ = NONE
+    fun transformer_wfkind _ _ = NONE
+    fun transformer_wfprop _ _ = NONE
+    fun transformer_tyeq _ _ = NONE
+    end)
 
-(*     fun transformer_typing _ _ = NONE *)
-(*     end) *)
+structure ExprDerivHelper = ExprDerivGenericTransformerFun(
+    structure MicroTiMLDef = MicroTiMLDef
+    structure Action =
+    struct
+    type kdown = int
+    type tdown = unit
+    type down = kdown * tdown
+    type up = int list
 
-(* fun free_vars_c_ty d ty = #2 (ExprDerivHelper.transform_typing (ty, (d, ()))) *)
+    val upward_base = []
+    val combiner = unique_merge
 
-(* val free_vars0_c_ty = free_vars_c_ty 0 *)
-(* end *)
+    fun add_kind (_, (dep, ())) = (dep + 1, ())
+    fun add_type (_, ()) = ()
 
-(* structure DerivFVExpr = *)
-(* struct *)
-(* open FVUtil *)
+    fun on_va_leaf (va as VConst _, _) = (va, [])
+      | on_va_leaf (va as VAbs (EAbs e), (dep, ())) = (va, FVCstr.free_vars_c_e dep e)
+      | on_va_leaf (va as VAbsC (EAbsC e), (dep, ())) = (va, FVCstr.free_vars_c_e (dep + 1) e)
+      | on_va_leaf (va as VLoc _, _) = (va, [])
+      | on_va_leaf _ = raise (Impossible "on_va_leaf")
 
-(* structure ExprDerivHelper = ExprDerivGenericTransformerFun( *)
-(*     structure MicroTiMLDef = MicroTiMLDef *)
-(*     structure Action = *)
-(*     struct *)
-(*     type kdown = unit *)
-(*     type tdown = int *)
-(*     type down = kdown * tdown *)
-(*     type up = int list *)
+    fun on_ty_leaf (ty as TyVar (_, _, t, i), (dep, ())) = (ty, unique_merge (FVCstr.free_vars_c_c dep t, FVCstr.free_vars_c_c dep i))
+      | on_ty_leaf (ty as TyConst (_, _, t, i), (dep, ())) = (ty, unique_merge (FVCstr.free_vars_c_c dep t, FVCstr.free_vars_c_c dep i))
+      | on_ty_leaf (ty as TyLoc (_, _, t, i), (dep, ())) = (ty, unique_merge (FVCstr.free_vars_c_c dep t, FVCstr.free_vars_c_c dep i))
+      | on_ty_leaf (ty as TyFix ((_, _, t, i), _, _), (dep, ())) = (ty, unique_merge (FVCstr.free_vars_c_c dep t, FVCstr.free_vars_c_c dep i))
+      | on_ty_leaf _ = raise (Impossible "on_ty_leaf")
 
-(*     val upward_base = [] *)
-(*     val combiner = unique_merge *)
+    val transform_proping = CstrDerivHelper.transform_proping
+    val transform_kinding = CstrDerivHelper.transform_kinding
+    val transform_wfkind = CstrDerivHelper.transform_wfkind
+    val transform_tyeq = CstrDerivHelper.transform_tyeq
 
-(*     fun add_kind (_, ((), dep)) = ((), dep) *)
-(*     fun add_type (_, dep) = dep + 1 *)
+    fun transformer_value _ _ = NONE
+    fun transformer_typing _ _ = NONE
+    end)
 
-(*     fun on_ty_leaf (ty as (ctx, e, t, i), ((), dep)) = (ty, FVExpr.free_vars_e_e dep e) *)
+fun free_vars_c_ty d ty = #2 (ExprDerivHelper.transform_typing (ty, (d, ())))
 
-(*     fun transform_proping (pr, kdown) = (pr, []) *)
-(*     fun transform_kinding (kd, kdown) = (kd, []) *)
-(*     fun transform_wfkind (wk, kdown) = (wk, []) *)
-(*     fun transform_tyeq (te, kdown) = (te, []) *)
+val free_vars0_c_ty = free_vars_c_ty 0
+end
 
-(*     fun transformer_typing _ _ = NONE *)
-(*     end) *)
+structure DerivFVExpr =
+struct
+open FVUtil
 
-(* fun free_vars_e_ty d ty = #2 (ExprDerivHelper.transform_typing (ty, ((), d))) *)
+structure ExprDerivHelper = ExprDerivGenericTransformerFun(
+    structure MicroTiMLDef = MicroTiMLDef
+    structure Action =
+    struct
+    type kdown = unit
+    type tdown = int
+    type down = kdown * tdown
+    type up = int list
 
-(* val free_vars0_e_ty = free_vars_e_ty 0 *)
-(* end *)
+    val upward_base = []
+    val combiner = unique_merge
 
-(* structure DerivSubstTyping = *)
-(* struct *)
-(* structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformerFun( *)
-(*     structure MicroTiMLDef = MicroTiMLDef *)
-(*     structure Action = *)
-(*     struct *)
-(*     type kdown = unit *)
-(*     type tdown = typing * int *)
-(*     type down = kdown * tdown *)
+    fun add_kind (_, ((), dep)) = ((), dep)
+    fun add_type (_, dep) = dep + 1
 
-(*     fun add_kind (k, ((), (to, who))) = ((), (ShiftCtx.shift0_ctx_ty ([k], []) to, who)) *)
-(*     fun add_type (t, (to, who)) = (ShiftCtx.shift0_ctx_ty ([], [t]) to, who + 1) *)
+    fun on_va_leaf (va as VConst _, _) = (va, [])
+      | on_va_leaf (va as VAbs (EAbs e), ((), dep)) = (va, FVExpr.free_vars_e_e (dep + 1) e)
+      | on_va_leaf (va as VAbsC (EAbsC e), ((), dep)) = (va, FVExpr.free_vars_e_e dep e)
+      | on_va_leaf (va as VLoc _, _) = (va, [])
+      | on_va_leaf _ = raise (Impossible "on_va_leaf")
 
-(*     fun on_ty_leaf (((kctx, tctx), e, t, i), ((), (to, who))) = *)
-(*       case e of *)
-(*           EConst cn => ((kctx, take (tctx, who) @ drop (tctx, who + 1)), EConst cn, t, i) *)
-(*         | _ => raise (Impossible "DerivSubstTyping") *)
+    fun on_ty_leaf (ty as TyVar (ctx, EVar x, _, _), ((), dep)) = (ty, if x >= dep then [x - dep] else [])
+      | on_ty_leaf (ty as TyConst _, _) = (ty, [])
+      | on_ty_leaf (ty as TyLoc _, _) = (ty, [])
+      | on_ty_leaf (ty as TyFix _, _) = (ty, [])
+      | on_ty_leaf _ = raise (Impossible "on_ty_leaf")
 
-(*     fun transform_proping (pr, kdown) = pr *)
-(*     fun transform_kinding (kd, kdown) = kd *)
-(*     fun transform_wfkind (wk, kdown) = wk *)
-(*     fun transform_tyeq (te, kdown) = te *)
+    fun transform_proping (pr, kdown) = (pr, [])
+    fun transform_kinding (kd, kdown) = (kd, [])
+    fun transform_wfkind (wk, kdown) = (wk, [])
+    fun transform_tyeq (te, kdown) = (te, [])
 
-(*     fun transformer_typing on_typing (ty, ((), (to, who))) = *)
-(*       case ty of *)
-(*           TyVar ((kctx, tctx), e, t, i) => *)
-(*           (case e of *)
-(*                EVar x => *)
-(*                if x = who then SOME to *)
-(*                else *)
-(*                    if x < who then *)
-(*                        SOME (TyVar ((kctx, take (tctx, who) @ drop (tctx, who + 1)), EVar x, t, i)) *)
-(*                    else *)
-(*                        SOME (TyVar ((kctx, take (tctx, who) @ drop (tctx, who + 1)), EVar (x - 1), t, i)) *)
-(*              | _ => raise (Impossible "DerivSubstTyping")) *)
-(*         | TyFix (((kctx, tctx), t, e, i), kd, ty) => SOME (TyFix (((kctx, take (tctx, who) @ drop (tctx, who + 1)), t, e, i), kd, ty)) *)
-(*         | _ => NONE *)
-(*     end) *)
+    fun transformer_value _ _ = NONE
+    fun transformer_typing _ _ = NONE
+    end)
 
-(* fun subst_ty_ty to who ty = ExprDerivHelper.transform_typing (ty, ((), (to, who))) *)
+fun free_vars_e_ty d ty = #2 (ExprDerivHelper.transform_typing (ty, ((), d)))
 
-(* fun subst0_ty_ty to = subst_ty_ty to 0 *)
-(* end *)
+val free_vars0_e_ty = free_vars_e_ty 0
+end
 
-(* structure DerivSubstKinding = *)
-(* struct *)
-(* structure CstrDerivHelper = CstrDerivGenericOnlyDownTransformerFun( *)
-(*     structure MicroTiMLDef = MicroTiMLDef *)
-(*     structure Action = *)
-(*     struct *)
-(*     type down = kinding * int *)
+structure DerivSubstTyping =
+struct
+structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformerFun(
+    structure MicroTiMLDef = MicroTiMLDef
+    structure Action =
+    struct
+    type kdown = unit
+    type tdown = typing * int
+    type down = kdown * tdown
 
-(*     fun add_kind (k, (to, who)) = (ShiftCtx.shift0_ctx_kd [k] to, who + 1) *)
+    fun add_kind (k, ((), (to, who))) = ((), (ShiftCtx.shift0_ctx_ty ([k], []) to, who))
+    fun add_type (t, (to, who)) = (ShiftCtx.shift0_ctx_ty ([], [t]) to, who + 1)
 
-(*     fun on_pr_leaf ((_, p), (to, who)) = *)
-(*       let *)
-(*           val (kctx, c, _) = extract_judge_kinding to *)
-(*       in *)
-(*           (kctx, subst_c_p c who p) *)
-(*       end *)
-(*     fun on_ke_leaf ((_, k1, k2), (to, who)) = *)
-(*       let *)
-(*           val (kctx, c, _) = extract_judge_kinding to *)
-(*       in *)
-(*           (kctx, subst_c_k c who k1, subst_c_k c who k2) *)
-(*       end *)
-(*     fun on_kd_leaf ((_, t, k), (to, who)) = *)
-(*       let *)
-(*           val (kctx, c, _) = extract_judge_kinding to *)
-(*       in *)
-(*           (kctx, subst_c_c c who t, subst_c_k c who k) *)
-(*       end *)
-(*     fun on_wk_leaf ((_, k), (to, who)) = *)
-(*       let *)
-(*           val (kctx, c, _) = extract_judge_kinding to *)
-(*       in *)
-(*           (kctx, subst_c_k c who k) *)
-(*       end *)
-(*     fun on_wp_leaf ((_, p), (to, who)) = *)
-(*       let *)
-(*           val (kctx, c, _) = extract_judge_kinding to *)
-(*       in *)
-(*           (kctx, subst_c_p c who p) *)
-(*       end *)
-(*     fun on_te_leaf ((_, t1, t2), (to, who)) = *)
-(*       let *)
-(*           val (kctx, c, _) = extract_judge_kinding to *)
-(*       in *)
-(*           (kctx, subst_c_c c who t1, subst_c_c c who t1) *)
-(*       end *)
+    fun on_va_leaf (va, _) = va
 
-(*     fun transformer_kinding (on_kinding, on_wfkind, on_kdeq) (kd, (to, who)) = *)
-(*       case kd of *)
-(*           KdVar (kctx, c, k) => *)
-(*           (case c of *)
-(*                CVar x => *)
-(*                if x = who then SOME to *)
-(*                else *)
-(*                    let *)
-(*                        val (kctx, _, _) = extract_judge_kinding to *)
-(*                    in *)
-(*                        if x < who then *)
-(*                            SOME (KdVar (kctx, CVar x, shift_c_k (1 + x) 0 $ nth (kctx, x))) *)
-(*                        else *)
-(*                            SOME (KdVar (kctx, CVar (x - 1), shift_c_k x 0 $ nth (kctx, x - 1))) *)
-(*                    end *)
-(*              | _ => raise (Impossible "DerivSubstKinding")) *)
-(*         | _ => NONE *)
+    fun on_ty_leaf (TyVar ((kctx, tctx, hctx), EVar x, _, _), ((), (to, who))) =
+      if x = who then
+          to
+      else
+          if x < who then
+              as_TyVar (kctx, take (tctx, who) @ drop (tctx, who + 1), hctx) x
+          else
+              as_TyVar (kctx, take (tctx, who) @ drop (tctx, who + 1), hctx) (x - 1)
+      | on_ty_leaf (TyConst ((kctx, tctx, hctx), EConst cn, _, _), ((), (to, who))) = as_TyConst (kctx, take (tctx, who) @ drop (tctx, who + 1), hctx) cn
+      | on_ty_leaf (TyLoc ((kctx, tctx, hctx), ELoc l, _, _), ((), (to, who))) = as_TyLoc (kctx, take (tctx, who) @ drop (tctx, who + 1), hctx) l
+      | on_ty_leaf (TyFix (((kctx, tctx, hctx), _, _, _), kd, ty), ((), (to, who))) = as_TyFix (kctx, take (tctx, who) @ drop (tctx, who + 1), hctx) kd ty
+      | on_ty_leaf _ = raise (Impossible "on_ty_leaf")
 
-(*     fun gen_kdeq_refl kctx k = *)
-(*       case k of *)
-(*           KType => KdEqKType (kctx, k, k) *)
-(*         | KArrow (k1, k2) => *)
-(*           let *)
-(*               val ke1 = gen_kdeq_refl kctx k1 *)
-(*               val ke2 = gen_kdeq_refl kctx k2 *)
-(*           in *)
-(*               KdEqKArrow (as_KdEqKArrow ke1 ke2, ke1, ke2) *)
-(*           end *)
-(*         | KBaseSort s => KdEqBaseSort (kctx, k, k) *)
-(*         | KSubset (k, p) => *)
-(*           let *)
-(*               val ke = gen_kdeq_refl kctx k *)
-(*               val pr = PrAdmit (k :: kctx, PIff (p, p)) *)
-(*           in *)
-(*               KdEqSubset (as_KdEqKSubset ke pr, ke, pr) *)
-(*           end *)
+    fun transform_proping (pr, kdown) = pr
+    fun transform_kinding (kd, kdown) = kd
+    fun transform_wfkind (wk, kdown) = wk
+    fun transform_tyeq (te, kdown) = te
 
-(*     fun gen_tyeq_refl kctx t = *)
-(*       case t of *)
-(*           CVar x => TyEqVar (kctx, t, t) *)
-(*         | CConst cn => TyEqConst (kctx, t, t) *)
-(*         | CBinOp (opr, t1, t2) => *)
-(*           let *)
-(*               val te1 = gen_tyeq_refl kctx t1 *)
-(*               val te2 = gen_tyeq_refl kctx t2 *)
-(*           in *)
-(*               TyEqBinOp (as_TyEqBinOp opr te1 te2, te1, te2) *)
-(*           end *)
-(*         | CIte (i1, i2, i3) => *)
-(*           let *)
-(*               val te1 = gen_tyeq_refl kctx i1 *)
-(*               val te2 = gen_tyeq_refl kctx i2 *)
-(*               val te3 = gen_tyeq_refl kctx i3 *)
-(*           in *)
-(*               TyEqIte (as_TyEqIte te1 te2 te3, te1, te2, te3) *)
-(*           end *)
-(*         | CTimeAbs c => TyEqTimeAbs (kctx, t, t) *)
-(*         | CTimeApp (arity, c1, c2) => *)
-(*           let *)
-(*               val te1 = gen_tyeq_refl kctx c1 *)
-(*               val te2 = gen_tyeq_refl kctx c2 *)
-(*           in *)
-(*               TyEqTimeApp (as_TyEqTimeApp arity te1 te2, te1, te2) *)
-(*           end *)
-(*         | CArrow (t1, i, t2) => *)
-(*           let *)
-(*               val te1 = gen_tyeq_refl kctx t1 *)
-(*               val pr = PrAdmit (kctx, TEq (i, i)) *)
-(*               val te2 = gen_tyeq_refl kctx t2 *)
-(*           in *)
-(*               TyEqArrow (as_TyEqArrow te1 pr te2, te1, pr, te2) *)
-(*           end *)
-(*         | CAbs c => TyEqAbs (kctx, t, t) *)
-(*         | CApp (c1, c2) => *)
-(*           let *)
-(*               val te1 = gen_tyeq_refl kctx c1 *)
-(*               val te2 = gen_tyeq_refl kctx c2 *)
-(*           in *)
-(*               TyEqApp (as_TyEqApp te1 te2, te1, te2) *)
-(*           end *)
-(*         | CQuan (q, k, c) => *)
-(*           let *)
-(*               val ke = gen_kdeq_refl kctx k *)
-(*               val te = gen_tyeq_refl (k :: kctx) c *)
-(*           in *)
-(*               TyEqQuan (as_TyEqQuan q ke te, ke, te) *)
-(*           end *)
-(*         | CRec (k, c) => *)
-(*           let *)
-(*               val ke = gen_kdeq_refl kctx k *)
-(*               val te = gen_tyeq_refl (k :: kctx) c *)
-(*           in *)
-(*               TyEqRec (as_TyEqRec ke te, ke, te) *)
-(*           end *)
-(*         | CRef c => *)
-(*           let *)
-(*               val te = gen_tyeq_refl kctx c *)
-(*           in *)
-(*               TyEqRef (as_TyEqRef te, te) *)
-(*           end *)
-(*         | CUnOp (opr, c) => *)
-(*           let *)
-(*               val te = gen_tyeq_refl kctx c *)
-(*           in *)
-(*               TyEqUnOp (as_TyEqUnOp opr te, te) *)
-(*           end *)
+    fun transformer_value _ _ = NONE
+    fun transformer_typing _ _ = NONE
+    end)
 
-(*     fun transformer_tyeq (on_tyeq, on_proping, on_kdeq, on_kinding) (te, (to, who)) = *)
-(*       case te of *)
-(*           TyEqVar (kctx, t, _) => *)
-(*           (case t of *)
-(*                CVar x => *)
-(*                if x = who then *)
-(*                    let *)
-(*                        val (kctx, c, _) = extract_judge_kinding to *)
-(*                    in *)
-(*                        SOME (gen_tyeq_refl kctx c) *)
-(*                    end *)
-(*                else *)
-(*                    let *)
-(*                        val (kctx, _, _) = extract_judge_kinding to *)
-(*                    in *)
-(*                        if x < who then *)
-(*                            SOME (TyEqVar (kctx, CVar x, CVar x)) *)
-(*                        else *)
-(*                            SOME (TyEqVar (kctx, CVar (x - 1), CVar (x - 1))) *)
-(*                    end *)
-(*              | _ => raise (Impossible "DerivSubstKinding")) *)
-(*         | _ => NONE *)
+fun subst_ty_ty to who ty = ExprDerivHelper.transform_typing (ty, ((), (to, who)))
 
-(*     fun transformer_proping _ = NONE *)
-(*     fun transformer_kdeq _ _ = NONE *)
-(*     fun transformer_wfkind _ _ = NONE *)
-(*     fun transformer_wfprop _ _ = NONE *)
-(*     end) *)
-
-(* fun subst_kd_kd to who kd = CstrDerivHelper.transform_kinding (kd, (to, who)) *)
-
-(* fun subst0_kd_kd to = subst_kd_kd to 0 *)
-(* end *)
+fun subst0_ty_ty to = subst_ty_ty to 0
+end
 
 (* structure DerivDirectSubstCstr = *)
 (* struct *)
