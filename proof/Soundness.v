@@ -79,6 +79,16 @@ Module Type TIME.
 End TIME.
 
 Require Import Datatypes.
+
+Definition option_dec A (x : option A) : {a | x = Some a} + {x = None}.
+  destruct x.
+  left.
+  exists a.
+  eauto.
+  right.
+  eauto.
+Qed.
+
 Require Import Frap.
 
 Module NatTime <: TIME.
@@ -4886,6 +4896,81 @@ Section tyeq_hint.
       destruct a; simpl; eauto.
     Qed.
 
+    Lemma subs_kd2_length g G :
+      subs_kd2 g G ->
+      length g = length G.
+    Proof.
+      induct 1; simpl; la.
+    Qed.
+      
+    Ltac think' ext solver :=
+      repeat (match goal with
+              | [ H : Some _ = Some _ |- _ ] => inversion H ; clear H ; subst
+              | [ H : inl _ = inr _ |- _ ] => inversion H ; clear H ; subst
+              | [ H : inr _ = inr _ |- _ ] => inversion H ; clear H ; subst
+              | [ H : _ |- _ ] => erewrite H in * |- by solver
+              | [ H : _ |- _ ] => erewrite H by solver
+              | [ H : andb _ _ = true |- _ ] =>
+                apply andb_true_iff in H ; destruct H
+              | [ H : orb _ _ = false |- _ ] =>
+                apply orb_false_iff in H ; destruct H
+              | [ H : Equivalence.equiv _ _ |- _ ] =>
+                unfold Equivalence.equiv in H ; subst
+              | [ H : _ /\ _ |- _ ] => destruct H
+              | [ H : exists x, _ |- _ ] => destruct H
+              end || (progress ext)).
+
+    Ltac think := think' idtac ltac:(eauto).
+
+    Lemma map_nth_error_full : forall T U (F : T -> U) ls n,
+        nth_error (map F ls) n = match nth_error ls n with
+                                 | None => None
+                                 | Some v => Some (F v)
+                                 end.
+    Proof.
+      induction ls; destruct n; simpl; intros; think; auto.
+    Qed.
+
+    Lemma nth_error_map_elim : forall A B (f : A -> B) ls i b, nth_error (List.map f ls) i = Some b -> exists a, nth_error ls i = Some a /\ f a = b.
+      intros.
+      rewrite map_nth_error_full in H.
+      destruct (option_dec (nth_error ls i)).
+      destruct s; rewrite e in *; invert H; eexists; eauto.
+      rewrite e in *; discriminate.
+    Qed.
+
+    Lemma subs_lgeq_lgeq_var_in G g1 g2 :
+      subs_lgeq g1 g2 G ->
+      forall ls ls1 ls2 x ke,
+        let n := length ls in
+        nth_error (map Ke2NonAbs ls ++ G) x = Some ke ->
+        length ls1 = n ->
+        length ls2 = n ->
+        lgeq (ls1 ++ subst0_cs_ks g1 G) (ls2 ++ subst0_cs_ks g2 G) (subst_cs_c n g1 (CVar x)) (subst_cs_c n g2 (CVar x)) (ke2_to_kind2 ke).
+    Proof.
+      induct 1; simpl.
+      {
+        intros ls ls1 ls2 x ke Hnth Hlen1 Hlen2.
+        unfold subst_cs_c in *.
+        simpl.
+        repeat rewrite app_nil_r in *.
+        eapply nth_error_map_elim in Hnth.
+        destruct Hnth as (k & Hnth & ?).
+        subst.
+        simpl.
+        eapply admit.
+      }
+      eapply admit.
+      eapply admit.
+      (*here*)
+    Qed.
+    
+    Lemma subs_kd2_lgeq_var_in G x ke g1 g2 :
+      nth_error G x = Some ke ->
+      subs_kd2_lgeq g1 g2 G ->
+      lgeq (subst0_cs_ks g1 G) (subst0_cs_ks g2 G) (subst0_cs_c g1 (CVar x)) (subst0_cs_c g2 (CVar x)) (ke2_to_kind2 ke).
+    Admitted.
+    
     Lemma subs_kd2_kd_var_in g G2 :
       subs_kd2 g G2 ->
       forall G1 x ke,
@@ -5023,8 +5108,6 @@ Section tyeq_hint.
       }
     Qed.
 
-    (* Definition plus_all := fold_right plus 0. *)
-
     Lemma subst_cs_c_Var_Gt :
       forall g x y,
         x + length g <= y ->
@@ -5053,26 +5136,12 @@ Section tyeq_hint.
     Proof.
       intros Hnth Hsubs_kd.
       eapply nth_error_None in Hnth.
-      Lemma subs_kd2_length g G :
-        subs_kd2 g G ->
-        length g = length G.
-      Proof.
-        induct 1; simpl; la.
-      Qed.
       eapply subs_kd2_length in Hsubs_kd.
       unfold subst0_cs_c.
       rewrite subst_cs_c_Var_Gt by la.
       eauto.
     Qed.
 
-    (*here*)
-    
-    Lemma subs_kd2_lgeq_var_in G x ke g1 g2 :
-      nth_error G x = Some ke ->
-      subs_kd2_lgeq g1 g2 G ->
-      lgeq (subst0_cs_ks g1 G) (subst0_cs_ks g2 G) (subst0_cs_c g1 (CVar x)) (subst0_cs_c g2 (CVar x)) (ke2_to_kind2 ke).
-    Admitted.
-    
     Lemma subst_cs_kinding2_wfkind2_wfprop2 :
       (forall G t k,
           kinding2 G t k ->
