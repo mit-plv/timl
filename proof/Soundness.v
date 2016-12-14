@@ -3913,7 +3913,7 @@ Section tyeq_hint.
     
     Hint Constructors subs_lgeq subs_kd2.
     
-    Definition subs_kd_lgeq g1 g2 G :=
+    Definition subs_kd2_lgeq g1 g2 G :=
       subs_kd2 g1 G /\
       subs_kd2 g2 G /\
       subs_lgeq g1 g2 G.
@@ -3921,17 +3921,17 @@ Section tyeq_hint.
     (* logical equivalence for open types *)
     Definition olgeq G t1 t2 k :=
       forall g1 g2,
-        subs_kd_lgeq g1 g2 G ->
+        subs_kd2_lgeq g1 g2 G ->
         lgeq (subst0_cs_ks g1 G) (subst0_cs_ks g2 G) (subst0_cs_c g1 t1) (subst0_cs_c g2 t2) k.
 
     Definition okdeq G k :=
       forall g1 g2,
-        subs_kd_lgeq g1 g2 G ->
+        subs_kd2_lgeq g1 g2 G ->
         kdeq (subst0_cs_ks g1 G ++ L) (subst0_cs_k g1 k) (subst0_cs_k g2 k).
 
     Definition opropeq G p :=
       forall g1 g2,
-        subs_kd_lgeq g1 g2 G ->
+        subs_kd2_lgeq g1 g2 G ->
         interp_prop (subst0_cs_ks g1 G ++ L) (subst0_cs_p g1 p <===> subst0_cs_p g2 p)%idx.
 
     Ltac not_not_idx :=
@@ -3940,14 +3940,14 @@ Section tyeq_hint.
       end.
 
     Lemma subst_kd_lgeq_Abs g1 g2 G c1 c2 k :
-      subs_kd_lgeq g1 g2 G ->
+      subs_kd2_lgeq g1 g2 G ->
       lgeq (subst0_cs_ks g1 G) (subst0_cs_ks g2 G) c1 c2 k ->
       kinding2 (map Ke2NonAbs (subst0_cs_ks g1 G)) c1 k ->
       kinding2 (map Ke2NonAbs (subst0_cs_ks g2 G)) c2 k ->
-      subs_kd_lgeq (Some c1 :: g1) (Some c2 :: g2) (Ke2Abs k :: G).
+      subs_kd2_lgeq (Some c1 :: g1) (Some c2 :: g2) (Ke2Abs k :: G).
     Proof.
       intros.
-      unfold subs_kd_lgeq in *.
+      unfold subs_kd2_lgeq in *.
       openhyp.
       (* destruct Hsubeq as ((L'1 & Hsubskd1) & (L'2 & Hsubskd2) & (L'3 & Hsubslgeq)). *)
       repeat eexists_split; eauto.
@@ -4502,6 +4502,37 @@ Section tyeq_hint.
     Proof.
       intros; subst; eauto.
     Qed.
+    
+    Lemma subst_cs_x_shift_c_c_le :
+      forall g x y b,
+        x <= y ->
+        subst_cs_x subst_c_c y g (shift_c_c x 0 b) = shift_c_c x 0 (subst_cs_x subst_c_c (y - x) g b).
+    Proof.
+      induct g; simpl; eauto.
+      intros x y b Hcmp.
+      destruct a as [v | ]; simpl.
+      {
+        unfold shiftn_c_c.
+        rewrite subst_c_c_shift_hit by la.
+        rewrite IHg by la.
+        eauto.
+      }
+      {
+        rewrite IHg by la.
+        f_equal.
+        f_equal.
+        la.
+      }
+    Qed.
+    Lemma subst_cs_x_shift_c_c :
+      forall g x b,
+        subst_cs_x subst_c_c x g (shift_c_c x 0 b) = shift_c_c x 0 (subst_cs_x subst_c_c 0 g b).
+    Proof.
+      intros; rewrite subst_cs_x_shift_c_c_le by la.
+      repeat f_equal.
+      la.
+    Qed.
+    
     Lemma subst_cs_c_Var_Lt :
       forall g x y,
         y < x ->
@@ -4515,6 +4546,24 @@ Section tyeq_hint.
       }
       eapply IHg; la.
     Qed.
+    
+    Lemma subst_cs_c_Var_Ge :
+      forall g x y,
+        x <= y ->
+        subst_cs_x subst_c_c x g (CVar y) = shift_c_c x 0 (subst_cs_x subst_c_c 0 g (CVar (y - x))).
+    Proof.
+      intros g x y Hle.
+      replace (CVar y) with (shift_c_c x 0 (CVar (y - x))).
+      {
+        rewrite subst_cs_x_shift_c_c.
+        eauto.
+      }
+      cbn.
+      cases (0 <=? y - x); try la.
+      f_equal.
+      la.
+    Qed.
+
     Lemma nth_error_subst0_cs_kes :
       forall G g x ke,
         nth_error G x = Some ke ->
@@ -4565,36 +4614,6 @@ Section tyeq_hint.
         rewrite subst_cs_k_Subset; eauto.
       }
     Qed.
-    Lemma subst_cs_x_shift_c_c_le :
-      forall g x y b,
-        x <= y ->
-        subst_cs_x subst_c_c y g (shift_c_c x 0 b) = shift_c_c x 0 (subst_cs_x subst_c_c (y - x) g b).
-    Proof.
-      induct g; simpl; eauto.
-      intros x y b Hcmp.
-      destruct a as [v | ]; simpl.
-      {
-        unfold shiftn_c_c.
-        rewrite subst_c_c_shift_hit by la.
-        rewrite IHg by la.
-        eauto.
-      }
-      {
-        rewrite IHg by la.
-        f_equal.
-        f_equal.
-        la.
-      }
-    Qed.
-    Lemma subst_cs_x_shift_c_c :
-      forall g x b,
-        subst_cs_x subst_c_c x g (shift_c_c x 0 b) = shift_c_c x 0 (subst_cs_x subst_c_c 0 g b).
-    Proof.
-      intros; rewrite subst_cs_x_shift_c_c_le by la.
-      repeat f_equal.
-      la.
-    Qed.
-    
     Definition shift_c_ke n x b :=
       match b with
       | Ke2Abs _ => b
@@ -4836,23 +4855,6 @@ Section tyeq_hint.
       intros; rewrite IHbs; eauto.
     Qed.
     
-    Lemma subst_cs_c_Var_Ge :
-      forall g x y,
-        x <= y ->
-        subst_cs_x subst_c_c x g (CVar y) = shift_c_c x 0 (subst_cs_x subst_c_c 0 g (CVar (y - x))).
-    Proof.
-      intros g x y Hle.
-      replace (CVar y) with (shift_c_c x 0 (CVar (y - x))).
-      {
-        rewrite subst_cs_x_shift_c_c.
-        eauto.
-      }
-      cbn.
-      cases (0 <=? y - x); try la.
-      f_equal.
-      la.
-    Qed.
-
     Definition subst_c_ke x v b :=
       match b with
       | Ke2Abs _ => b
@@ -4884,7 +4886,7 @@ Section tyeq_hint.
       destruct a; simpl; eauto.
     Qed.
 
-    Lemma subs_kd_kd_var_in g G2 :
+    Lemma subs_kd2_kd_var_in g G2 :
       subs_kd2 g G2 ->
       forall G1 x ke,
         nth_error (G1 ++ G2) x = Some ke ->
@@ -4963,21 +4965,112 @@ Section tyeq_hint.
       }
     Qed.
     
-    Lemma subs_kd_kd_var_out G1 G2 x g :
-      nth_error (G1 ++ G2) x = None ->
-      subs_kd2 g G2 ->
-      kinding2 (subst0_cs_kes g G1 ++ map Ke2NonAbs (subst0_cs_ks g G2)) (subst_cs_c (length G1) g (CVar x)) K2Type.
-    Admitted.
+    Lemma subs_kd2_kd_var_out :
+      forall g G2,
+        subs_kd2 g G2 ->
+        forall G1 x,
+          nth_error (G1 ++ G2) x = None ->
+          kinding2 (subst0_cs_kes g G1 ++ map Ke2NonAbs (subst0_cs_ks g G2)) (subst_cs_c (length G1) g (CVar x)) K2Type.
+    Proof.
+      induct 1; simpl.
+      {
+        intros G1 ke Hnth.
+        unfold subst_cs_c in *.
+        simpl.
+        repeat rewrite app_nil_r in *.
+        rewrite subst0_cs_kes_nil.
+        eauto.
+      }
+      {
+        intros G1 x Hnth.
+        unfold subst_cs_c in *.
+        simpl.
+        copy Hnth Hle2.
+        eapply nth_error_None in Hle2.
+        rewrite app_length in *.
+        simpl in *.
+        cases (x <=>? length G1); try la.
+        {
+          destruct x as [|x]; try la.
+          simpl.
+          repeat rewrite Nat.sub_0_r; eauto.
+          rewrite subst_cs_kes_Some.
+          specialize (IHsubs_kd2 (subst_c_kes (shift_cs_c 0 g c) G1) x).
+          repeat rewrite length_subst_c_kes in *.
+          eapply IHsubs_kd2.
+          rewrite nth_error_app2 in Hnth by la.
+          rewrite Nat.sub_succ_l in Hnth by la.
+          simplify.
+          rewrite nth_error_app2 by (rewrite length_subst_c_kes; la).
+          rewrite length_subst_c_kes by la.
+          eauto.
+        }
+      }
+      {
+        intros G1 x Hnth.
+        unfold subst_cs_c in *.
+        simpl.
+        specialize (IHsubs_kd2 (G1 ++ [Ke2NonAbs k]) x); simpl in *.
+        rewrite subst0_cs_kes_app in *.
+        simpl in *.
+        repeat rewrite <- app_assoc in *.
+        simpl in *.
+        rewrite subst_cs_kes_None in *.
+        rewrite app_length in *.
+        simpl in *.
+        rewrite plus_comm in IHsubs_kd2.
+        eauto.
+      }
+    Qed.
+
+    (* Definition plus_all := fold_right plus 0. *)
+
+    Lemma subst_cs_c_Var_Gt :
+      forall g x y,
+        x + length g <= y ->
+        subst_cs_c x g (CVar y) = CVar (y - length (filter isSome g)).
+    Proof.
+      induct g; simpl; eauto.
+      {
+        intros.
+        repeat rewrite Nat.sub_0_r; eauto.
+      }
+      intros x y Hcmp.
+      destruct a as [v | ]; cbn.
+      {
+        cases (y <=>? x); try la; eauto.
+        destruct y as [|y]; try la; simpl.
+        repeat rewrite Nat.sub_0_r.
+        eauto with db_la.
+      }
+      eauto with db_la.
+    Qed.
     
-    Lemma subs_kd_lgeq_var_in G x ke g1 g2 :
-      nth_error G x = Some ke ->
-      subs_kd_lgeq g1 g2 G ->
-      lgeq (subst0_cs_ks g1 G) (subst0_cs_ks g2 G) (subst0_cs_c g1 (CVar x)) (subst0_cs_c g2 (CVar x)) (ke2_to_kind2 ke).
-    Admitted.
     Lemma subst0_cs_c_var_out G x g :
       nth_error G x = None ->
       subs_kd2 g G ->
-      subst0_cs_c g (CVar x) = CVar x.
+      subst0_cs_c g (CVar x) = CVar (x - length (filter isSome g)).
+    Proof.
+      intros Hnth Hsubs_kd.
+      eapply nth_error_None in Hnth.
+      Lemma subs_kd2_length g G :
+        subs_kd2 g G ->
+        length g = length G.
+      Proof.
+        induct 1; simpl; la.
+      Qed.
+      eapply subs_kd2_length in Hsubs_kd.
+      unfold subst0_cs_c.
+      rewrite subst_cs_c_Var_Gt by la.
+      eauto.
+    Qed.
+
+    (*here*)
+    
+    Lemma subs_kd2_lgeq_var_in G x ke g1 g2 :
+      nth_error G x = Some ke ->
+      subs_kd2_lgeq g1 g2 G ->
+      lgeq (subst0_cs_ks g1 G) (subst0_cs_ks g2 G) (subst0_cs_c g1 (CVar x)) (subst0_cs_c g2 (CVar x)) (ke2_to_kind2 ke).
     Admitted.
     
     Lemma subst_cs_kinding2_wfkind2_wfprop2 :
@@ -5015,11 +5108,11 @@ Section tyeq_hint.
       }
       {
         intros; subst.
-        eapply subs_kd_kd_var_in; eauto.
+        eapply subs_kd2_kd_var_in; eauto.
       }
       {
         intros; subst.
-        eapply subs_kd_kd_var_out; eauto.
+        eapply subs_kd2_kd_var_out; eauto.
       }
       {
         intros; subst.
@@ -5174,7 +5267,7 @@ Section tyeq_hint.
         copy Hsubeq Hsubeq'.
         eapply subst_kd_lgeq_Abs in Hsubeq'; eauto.
         eapply IHkinding2 in Hsubeq'.
-        unfold subs_kd_lgeq in Hsubeq; openhyp.
+        unfold subs_kd2_lgeq in Hsubeq; openhyp.
         repeat rewrite subst0_cs_c_Abs.
         
         eapply lgeq_reverse_eval; eauto.
@@ -5204,7 +5297,7 @@ Section tyeq_hint.
         intros g1 g2 Hsubeq.
         repeat rewrite subst0_cs_c_App.
         eapply IHkinding2_1; eauto;
-          unfold subs_kd_lgeq in Hsubeq; openhyp;
+          unfold subs_kd2_lgeq in Hsubeq; openhyp;
             eapply subst0_cs_c_kinding2; eauto.
       }
       {
@@ -5212,14 +5305,23 @@ Section tyeq_hint.
         intros G x ke Hnth.
         unfold olgeq in *; simpl in *.
         intros g1 g2 Hsubeq.
-        eapply subs_kd_lgeq_var_in; eauto.
+        eapply subs_kd2_lgeq_var_in; eauto.
       }
       {
         (* Case VarOut *)
         intros G x Hnth.
         unfold olgeq in *; simpl in *.
         intros g1 g2 Hsubeq.
-        repeat erewrite subst0_cs_c_var_out by (unfold subs_kd_lgeq in Hsubeq; openhyp; eauto).
+        repeat erewrite subst0_cs_c_var_out by (unfold subs_kd2_lgeq in Hsubeq; openhyp; eauto).
+        unfold subs_kd2_lgeq in *.
+        openhyp.
+        Lemma subs_lgeq_length_filter g1 g2 G :
+          subs_lgeq g1 g2 G ->
+          length (filter isSome g1) = length (filter isSome g2).
+        Proof.
+          induct 1; simpl; la.
+        Qed.
+        erewrite subs_lgeq_length_filter by eauto.
         eapply obeq_refl.
       }
       {
@@ -5297,11 +5399,11 @@ Section tyeq_hint.
         repeat rewrite subst0_cs_c_TimeAbs.
         simpl.
         Lemma subst_kd_lgeq_NonAbs g1 g2 G k :
-          subs_kd_lgeq g1 g2 G ->
-          subs_kd_lgeq (None :: g1) (None :: g2) (Ke2NonAbs k :: G).
+          subs_kd2_lgeq g1 g2 G ->
+          subs_kd2_lgeq (None :: g1) (None :: g2) (Ke2NonAbs k :: G).
         Proof.
           intros.
-          unfold subs_kd_lgeq in *.
+          unfold subs_kd2_lgeq in *.
           openhyp.
           (* destruct Hsubeq as ((L'1 & Hsubskd1) & (L'2 & Hsubskd2) & (L'3 & Hsubslgeq)). *)
           repeat eexists_split; eauto.
