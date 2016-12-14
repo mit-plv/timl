@@ -206,12 +206,23 @@ fun as_KdRec wk kd =
       KdRec ((#1 jwk, CRec (#2 jwk, #2 jkd), #2 jwk), wk, kd)
   end
 
-fun as_KdRef kd =
+fun as_KdTypeNat kd =
   let
       val jkd = extract_judge_kinding kd
-      val () = assert (#3 jkd = KType) "KdRef 1"
+      val () = assert (#3 jkd = KNat) "KdTypeNat 1"
   in
-      KdRef ((#1 jkd, CRef (#2 jkd), KType), kd)
+      KdTypeNat ((#1 jkd, CTypeNat (#2 jkd), KType), kd)
+  end
+
+fun as_KdTypeArr kd1 kd2 =
+  let
+      val jkd1 = extract_judge_kinding kd1
+      val jkd2 = extract_judge_kinding kd2
+      val () = assert (#1 jkd1 = #1 jkd2) "KdTypeArr 1"
+      val () = assert (#3 jkd1 = KType) "KdTypeArr 1"
+      val () = assert (#3 jkd2 = KNat) "KdTypeArr 2"
+  in
+      KdTypeArr ((#1 jkd1, CTypeArr (#2 jkd1, #2 jkd2), KType), kd1, kd2)
   end
 
 fun as_KdEq kd ke =
@@ -300,11 +311,24 @@ fun as_TyEqRec ke te =
       TyEqRec ((#1 jke, CRec (#2 jke, #2 jte), CRec (#3 jke, #3 jte)), ke, te)
   end
 
-fun as_TyEqRef te =
+fun as_TyEqTypeNat pr =
+  let
+      val jpr = extract_judge_proping pr
+      val (opr, i1, i2) = extract_p_bin_pred (#2 jpr)
+      val () = assert (opr = PBNatEq) "TyEqTypeNat 1"
+  in
+      TyEqTypeNat ((#1 jpr, CTypeNat i1, CTypeNat i2), pr)
+  end
+
+fun as_TyEqTypeArr te pr =
   let
       val jte = extract_judge_tyeq te
+      val jpr = extract_judge_proping pr
+      val () = assert (#1 jte = #1 jpr) "TyEqTypeArr 1"
+      val (opr, i1, i2) = extract_p_bin_pred (#2 jpr)
+      val () = assert (opr = PBNatEq) "TyEqTypeArr 2"
   in
-      TyEqRef ((#1 jte, CRef (#2 jte), CRef (#3 jte)), te)
+      TyEqTypeArr ((#1 jte, CTypeArr (#2 jte, i1), CTypeArr (#3 jte, i2)), te, pr)
   end
 
 fun as_TyEqAbs kctx t = TyEqAbs (kctx, CAbs t, CAbs t)
@@ -328,15 +352,6 @@ fun as_TyEqUnOp opr te =
       val jte = extract_judge_tyeq te
   in
       TyEqUnOp ((#1 jte, CUnOp (opr, #2 jte), CUnOp (opr, #3 jte)), te)
-  end
-
-fun as_TyEqNat pr =
-  let
-      val jpr = extract_judge_proping pr
-      val (opr, i1, i2) = extract_p_bin_pred (#2 jpr)
-      val () = assert (opr = PBNatEq) "TyEqNat 1"
-  in
-      TyEqNat ((#1 jpr, i1, i2), pr)
   end
 
 fun as_VConst cn = VConst (EConst cn)
@@ -376,7 +391,7 @@ fun as_VFold v =
 
 fun as_VLoc l = VLoc (ELoc l)
 
-fun add_kind k (kctx, tctx, hctx) = (k :: kctx, map shift0_c_c tctx, map_assoc shift0_c_c hctx)
+fun add_kind k (kctx, tctx, hctx) = (k :: kctx, map shift0_c_c tctx, map_assoc (fn (t, i) => (shift0_c_c t, shift0_c_c i)) hctx)
 
 fun add_type t (kctx, tctx, hctx) = (kctx, t :: tctx, hctx)
 
@@ -431,7 +446,7 @@ fun as_TyAbsC wk va ty =
       val () = assert (#4 jty = T0) "TyAbsC 2"
       val () = assert (eva = #2 jty) "TyAbsC 3"
   in
-      TyAbsC (((tl $ get_kctx $ #1 jty, map (shift_c_c ~1 0) $ get_tctx $ #1 jty, map_assoc (shift_c_c ~1 0) $ get_hctx $ #1 jty), EAbsC (#2 jty), CForall (#2 jwk, #3 jty), T0), wk, va, ty)
+      TyAbsC (((tl $ get_kctx $ #1 jty, map (shift_c_c ~1 0) $ get_tctx $ #1 jty, map_assoc (fn (t, i) => (shift_c_c ~1 0 t, shift_c_c ~1 0 i)) $ get_hctx $ #1 jty), EAbsC (#2 jty), CForall (#2 jwk, #3 jty), T0), wk, va, ty)
   end
 
 fun unfold_EAbsCs e =
@@ -549,32 +564,48 @@ fun as_TyCase ty1 ty2 ty3 =
       TyCase ((#1 jty1, ECase (#2 jty1, #2 jty2, #2 jty3), #3 jty2, Tadd (#4 jty1, Tmax (#4 jty2, #4 jty3))), ty1, ty2, ty3)
   end
 
-fun as_TyNew ty =
-  let
-      val jty = extract_judge_typing ty
-  in
-      TyNew ((#1 jty, ENew (#2 jty), CRef (#3 jty), #4 jty), ty)
-  end
-
-fun as_TyRead ty =
-  let
-      val jty = extract_judge_typing ty
-      val t = extract_c_ref (#3 jty)
-  in
-      TyRead ((#1 jty, ERead (#2 jty), t, #4 jty), ty)
-  end
-
-fun as_TyWrite ty1 ty2 =
+fun as_TyNew ty1 ty2 =
   let
       val jty1 = extract_judge_typing ty1
       val jty2 = extract_judge_typing ty2
-      val () = assert (#1 jty1 = #1 jty2) "TyWrite 1"
-      val () = assert (#3 jty1 = CRef (#3 jty2)) "TyWrite 2"
+      val () = assert (#1 jty1 = #1 jty2) "TyNew 1"
+      val j = extract_c_type_nat (#3 jty2)
   in
-      TyWrite ((#1 jty1, EWrite (#2 jty1, #2 jty2), CTypeUnit, Tadd (#4 jty1, #4 jty2)), ty1, ty2)
+      TyNew ((#1 jty1, ENew (#2 jty1, #2 jty2), CTypeArr (#3 jty1, j), Tadd (#4 jty1, #4 jty2)), ty1, ty2)
   end
 
-fun as_TyLoc ctx l = TyLoc (ctx, ELoc l, assoc l (get_hctx ctx), T0)
+fun as_TyRead ty1 ty2 pr =
+  let
+      val jty1 = extract_judge_typing ty1
+      val jty2 = extract_judge_typing ty2
+      val jpr = extract_judge_proping pr
+      val () = assert (#1 jty1 = #1 jty2) "TyRead 1"
+      val () = assert (get_kctx (#1 jty1) = #1 jpr) "TyRead 2"
+      val (t, j1) = extract_c_type_arr (#3 jty1)
+      val j2 = extract_c_type_nat (#3 jty2)
+      val () = assert (#2 jpr = NLt (j2, j1)) "TyRead 3"
+  in
+      TyRead ((#1 jty1, ERead (#2 jty1, #2 jty2), t, Tadd (#4 jty1, #4 jty2)), ty1, ty2, pr)
+  end
+
+fun as_TyWrite ty1 ty2 pr ty3 =
+  let
+      val jty1 = extract_judge_typing ty1
+      val jty2 = extract_judge_typing ty2
+      val jpr = extract_judge_proping pr
+      val jty3 = extract_judge_typing ty3
+      val () = assert (#1 jty1 = #1 jty2) "TyWrite 1"
+      val () = assert (#1 jty1 = #1 jty3) "TyWrite 2"
+      val () = assert (get_kctx (#1 jty1) = #1 jpr) "TyWrite 3"
+      val (t, j1) = extract_c_type_arr (#3 jty1)
+      val j2 = extract_c_type_nat (#3 jty2)
+      val () = assert (#2 jpr = NLt (j2, j1)) "TyWrite 4"
+      val () = assert (#3 jty3 = t) "TyWrite 5"
+  in
+      TyWrite ((#1 jty1, EWrite (#2 jty1, #2 jty2, #2 jty3), CTypeUnit, Tadd (Tadd (#4 jty1, #4 jty2), #4 jty3)), ty1, ty2, pr, ty3)
+  end
+
+fun as_TyLoc ctx l = TyLoc (ctx, ELoc l, CTypeArr (assoc l (get_hctx ctx)), T0)
 
 fun as_TySubTy ty te =
   let
@@ -794,12 +825,6 @@ fun default_transform_kinding (kd, down) =
         in
             (as_KdRec wk kd, combine [up1, up2])
         end
-      | KdRef (_, kd) =>
-        let
-            val (kd, up1) = transform_kinding (kd, down)
-        in
-            (as_KdRef kd, combine [up1])
-        end
       | KdEq (_, kd, ke) =>
         let
             val (kd, up1) = transform_kinding (kd, down)
@@ -814,194 +839,208 @@ fun default_transform_kinding (kd, down) =
         in
             (as_KdUnOp opr kd, combine [up1])
         end
-      | KdAdmit _ => on_kd_leaf (kd, down)
-
-and transform_kinding (kd, down) =
-    case transformer_kinding (transform_kinding, transform_wfkind, transform_kdeq) (kd, down) of
-        SOME res => res
-      | NONE => default_transform_kinding (kd, down)
-
-and default_transform_wfkind (wk, down) =
-    case wk of
-        WfKdType _ => on_wk_leaf (wk, down)
-      | WfKdArrow (_, wk1, wk2) =>
+      | KdTypeNat (_, kd) =>
         let
-            val (wk1, up1) = transform_wfkind (wk1, down)
-            val (wk2, up2) = transform_wfkind (wk2, down)
+            val (kd, up1) = transform_kinding (kd, down)
         in
-            (as_WfKdArrow wk1 wk2, combine [up1, up2])
+            (as_KdTypeNat kd, combine [up1])
         end
-      | WfKdBaseSort _ => on_wk_leaf (wk, down)
-      | WfKdSubset (_, wk, wp) =>
-        let
-            val (wk, up1) = transform_wfkind (wk, down)
-            val jwk = extract_judge_wfkind wk
-            val (wp, up2) = transform_wfprop (wp, add_kind (#2 jwk, down))
-        in
-            (as_WfKdSubset wk wp, combine [up1, up2])
-        end
-      | WfKdAdmit _ => on_wk_leaf (wk, down)
-
-and transform_wfkind (wk, down) =
-    case transformer_wfkind (transform_wfkind, transform_wfprop) (wk, down) of
-        SOME res => res
-      | NONE => default_transform_wfkind (wk, down)
-
-and default_transform_wfprop (wp, down) =
-    case wp of
-        WfPropTrue judge => on_wp_leaf (wp, down)
-      | WfPropFalse judge => on_wp_leaf (wp, down)
-      | WfPropBinConn (judge, wp1, wp2) =>
-        let
-            val (wp1, up1) = transform_wfprop (wp1, down)
-            val (wp2, up2) = transform_wfprop (wp2, down)
-            val (opr, _, _) = extract_p_bin_conn (#2 judge)
-        in
-            (as_WfPropBinConn opr wp1 wp2, combine [up1, up2])
-        end
-      | WfPropNot (_, wp) =>
-        let
-            val (wp, up1) = transform_wfprop (wp, down)
-        in
-            (as_WfPropNot wp, combine [up1])
-        end
-      | WfPropBinPred (judge, kd1, kd2) =>
+      | KdTypeArr (_, kd1, kd2) =>
         let
             val (kd1, up1) = transform_kinding (kd1, down)
             val (kd2, up2) = transform_kinding (kd2, down)
-            val (opr, _, _) = extract_p_bin_pred (#2 judge)
         in
-            (as_WfPropBinPred opr kd1 kd2, combine [up1, up2])
-        end
-      | WfPropQuan (judge, wp) =>
-        let
-            val (q, b, _) = extract_p_quan (#2 judge)
-            val (wp, up1) = transform_wfprop (wp, add_kind (KBaseSort b, down))
-        in
-            (as_WfPropQuan q b wp, combine [up1])
-        end
+            (as_KdTypeArr kd1 kd2, combine [up1, up2])
+                end
+   | KdAdmit _ => on_kd_leaf (kd, down)
+
+and transform_kinding (kd, down) =
+ case transformer_kinding (transform_kinding, transform_wfkind, transform_kdeq) (kd, down) of
+     SOME res => res
+   | NONE => default_transform_kinding (kd, down)
+
+and default_transform_wfkind (wk, down) =
+ case wk of
+     WfKdType _ => on_wk_leaf (wk, down)
+   | WfKdArrow (_, wk1, wk2) =>
+     let
+         val (wk1, up1) = transform_wfkind (wk1, down)
+         val (wk2, up2) = transform_wfkind (wk2, down)
+     in
+         (as_WfKdArrow wk1 wk2, combine [up1, up2])
+     end
+   | WfKdBaseSort _ => on_wk_leaf (wk, down)
+   | WfKdSubset (_, wk, wp) =>
+     let
+         val (wk, up1) = transform_wfkind (wk, down)
+         val jwk = extract_judge_wfkind wk
+         val (wp, up2) = transform_wfprop (wp, add_kind (#2 jwk, down))
+     in
+         (as_WfKdSubset wk wp, combine [up1, up2])
+     end
+   | WfKdAdmit _ => on_wk_leaf (wk, down)
+
+and transform_wfkind (wk, down) =
+ case transformer_wfkind (transform_wfkind, transform_wfprop) (wk, down) of
+     SOME res => res
+   | NONE => default_transform_wfkind (wk, down)
+
+and default_transform_wfprop (wp, down) =
+ case wp of
+     WfPropTrue judge => on_wp_leaf (wp, down)
+   | WfPropFalse judge => on_wp_leaf (wp, down)
+   | WfPropBinConn (judge, wp1, wp2) =>
+     let
+         val (wp1, up1) = transform_wfprop (wp1, down)
+         val (wp2, up2) = transform_wfprop (wp2, down)
+         val (opr, _, _) = extract_p_bin_conn (#2 judge)
+     in
+         (as_WfPropBinConn opr wp1 wp2, combine [up1, up2])
+     end
+   | WfPropNot (_, wp) =>
+     let
+         val (wp, up1) = transform_wfprop (wp, down)
+     in
+         (as_WfPropNot wp, combine [up1])
+     end
+   | WfPropBinPred (judge, kd1, kd2) =>
+     let
+         val (kd1, up1) = transform_kinding (kd1, down)
+         val (kd2, up2) = transform_kinding (kd2, down)
+         val (opr, _, _) = extract_p_bin_pred (#2 judge)
+     in
+         (as_WfPropBinPred opr kd1 kd2, combine [up1, up2])
+     end
+   | WfPropQuan (judge, wp) =>
+     let
+         val (q, b, _) = extract_p_quan (#2 judge)
+         val (wp, up1) = transform_wfprop (wp, add_kind (KBaseSort b, down))
+     in
+         (as_WfPropQuan q b wp, combine [up1])
+     end
 
 and transform_wfprop (wp, down) =
-    case transformer_wfprop (transform_wfprop, transform_kinding) (wp, down) of
-        SOME res => res
-      | NONE => default_transform_wfprop (wp, down)
+ case transformer_wfprop (transform_wfprop, transform_kinding) (wp, down) of
+     SOME res => res
+   | NONE => default_transform_wfprop (wp, down)
 
 fun default_transform_tyeq (te, down) =
-    case te of
-        TyEqVar judge => on_te_leaf (te, down)
-      | TyEqConst judge => on_te_leaf (te, down)
-      | TyEqBinOp (judge, te1, te2) =>
-        let
-            val (te1, up1) = transform_tyeq (te1, down)
-            val (te2, up2) = transform_tyeq (te2, down)
-            val (opr, _, _) = extract_c_bin_op (#2 judge)
-        in
-            (as_TyEqBinOp opr te1 te2, combine [up1, up2])
-        end
-      | TyEqIte (_, te1, te2, te3) =>
-        let
-            val (te1, up1) = transform_tyeq (te1, down)
-            val (te2, up2) = transform_tyeq (te2, down)
-            val (te3, up3) = transform_tyeq (te3, down)
-        in
-            (as_TyEqIte te1 te2 te3, combine [up1, up2, up3])
-        end
-      | TyEqArrow (_, te1, pr, te2) =>
-        let
-            val (te1, up1) = transform_tyeq (te1, down)
-            val (pr, up2) = transform_proping (pr, down)
-            val (te2, up3) = transform_tyeq (te2, down)
-        in
-            (as_TyEqArrow te1 pr te2, combine [up1, up2, up3])
-        end
-      | TyEqApp (_, te1, te2) =>
-        let
-            val (te1, up1) = transform_tyeq (te1, down)
-            val (te2, up2) = transform_tyeq (te2, down)
-        in
-            (as_TyEqApp te1 te2, combine [up1, up2])
-        end
-      | TyEqTimeApp _ => on_te_leaf (te, down)
-      | TyEqBeta _ => on_te_leaf (te, down)
-      | TyEqBetaRev _ => on_te_leaf (te, down)
-      | TyEqQuan (judge, ke, te) =>
-        let
-            val (ke, up1) = transform_kdeq (ke, down)
-            val jke = extract_judge_kdeq ke
-            val (te, up2) = transform_tyeq (te, add_kind (#2 jke, down))
-            val (q, _, _) = extract_c_quan (#2 judge)
-        in
-            (as_TyEqQuan q ke te, combine [up1, up2])
-        end
-      | TyEqRec (_, ke, te) =>
-        let
-            val (ke, up1) = transform_kdeq (ke, down)
-            val jke = extract_judge_kdeq ke
-            val (te, up2) = transform_tyeq (te, add_kind (#2 jke, down))
-        in
-            (as_TyEqRec ke te, combine [up1, up2])
-        end
-      | TyEqRef (_, te) =>
-        let
-            val (te, up1) = transform_tyeq (te, down)
-        in
-            (as_TyEqRef te, combine [up1])
-        end
-      | TyEqAbs _ => on_te_leaf (te, down)
-      | TyEqTimeAbs _ => on_te_leaf (te, down)
-      | TyEqUnOp (judge, te) =>
-        let
-            val (te, up1) = transform_tyeq (te, down)
-            val (opr, _) = extract_c_un_op (#2 judge)
-        in
-            (as_TyEqUnOp opr te, combine [up1])
-        end
-      | TyEqNat (_, pr) =>
-        let
-            val (pr, up1) = transform_proping (pr, down)
-        in
-            (as_TyEqNat pr, combine [up1])
-        end
-      | TyEqTrans (_, te1, te2) =>
-        let
-            val (te1, up1) = transform_tyeq (te1, down)
-            val (te2, up2) = transform_tyeq (te2, down)
-        in
-            (as_TyEqTrans te1 te2, combine [up1, up2])
-        end
+ case te of
+     TyEqVar judge => on_te_leaf (te, down)
+   | TyEqConst judge => on_te_leaf (te, down)
+   | TyEqBinOp (judge, te1, te2) =>
+     let
+         val (te1, up1) = transform_tyeq (te1, down)
+         val (te2, up2) = transform_tyeq (te2, down)
+         val (opr, _, _) = extract_c_bin_op (#2 judge)
+     in
+         (as_TyEqBinOp opr te1 te2, combine [up1, up2])
+     end
+   | TyEqIte (_, te1, te2, te3) =>
+     let
+         val (te1, up1) = transform_tyeq (te1, down)
+         val (te2, up2) = transform_tyeq (te2, down)
+         val (te3, up3) = transform_tyeq (te3, down)
+     in
+         (as_TyEqIte te1 te2 te3, combine [up1, up2, up3])
+     end
+   | TyEqArrow (_, te1, pr, te2) =>
+     let
+         val (te1, up1) = transform_tyeq (te1, down)
+         val (pr, up2) = transform_proping (pr, down)
+         val (te2, up3) = transform_tyeq (te2, down)
+     in
+         (as_TyEqArrow te1 pr te2, combine [up1, up2, up3])
+     end
+   | TyEqApp (_, te1, te2) =>
+     let
+         val (te1, up1) = transform_tyeq (te1, down)
+         val (te2, up2) = transform_tyeq (te2, down)
+     in
+         (as_TyEqApp te1 te2, combine [up1, up2])
+     end
+   | TyEqTimeApp _ => on_te_leaf (te, down)
+   | TyEqBeta _ => on_te_leaf (te, down)
+   | TyEqBetaRev _ => on_te_leaf (te, down)
+   | TyEqQuan (judge, ke, te) =>
+     let
+         val (ke, up1) = transform_kdeq (ke, down)
+         val jke = extract_judge_kdeq ke
+         val (te, up2) = transform_tyeq (te, add_kind (#2 jke, down))
+         val (q, _, _) = extract_c_quan (#2 judge)
+     in
+         (as_TyEqQuan q ke te, combine [up1, up2])
+     end
+   | TyEqRec (_, ke, te) =>
+     let
+         val (ke, up1) = transform_kdeq (ke, down)
+         val jke = extract_judge_kdeq ke
+         val (te, up2) = transform_tyeq (te, add_kind (#2 jke, down))
+     in
+         (as_TyEqRec ke te, combine [up1, up2])
+     end
+   | TyEqAbs _ => on_te_leaf (te, down)
+   | TyEqTimeAbs _ => on_te_leaf (te, down)
+   | TyEqUnOp (judge, te) =>
+     let
+         val (te, up1) = transform_tyeq (te, down)
+         val (opr, _) = extract_c_un_op (#2 judge)
+     in
+         (as_TyEqUnOp opr te, combine [up1])
+     end
+   | TyEqTrans (_, te1, te2) =>
+     let
+         val (te1, up1) = transform_tyeq (te1, down)
+         val (te2, up2) = transform_tyeq (te2, down)
+     in
+         (as_TyEqTrans te1 te2, combine [up1, up2])
+     end
+   | TyEqTypeNat (_, pr) =>
+     let
+         val (pr, up1) = transform_proping (pr, down)
+     in
+         (as_TyEqTypeNat pr, combine [up1])
+     end
+   | TyEqTypeArr (_, te, pr) =>
+     let
+         val (te, up1) = transform_tyeq (te, down)
+         val (pr, up2) = transform_proping (pr, down)
+     in
+         (as_TyEqTypeArr te pr, combine [up1, up2])
+     end
 
 and transform_tyeq (te, down) =
-    case transformer_tyeq (transform_tyeq, transform_proping, transform_kdeq) (te, down) of
-        SOME res => res
-      | NONE => default_transform_tyeq (te, down)
+ case transformer_tyeq (transform_tyeq, transform_proping, transform_kdeq) (te, down) of
+     SOME res => res
+   | NONE => default_transform_tyeq (te, down)
 end
 
 functor ExprDerivGenericTransformerFun(
-    structure MicroTiMLDef : SIG_MICRO_TIML_DEF
-    structure Action :
-              sig
-                  type kdown
-                  type tdown
-                  type down = kdown * tdown
-                  type up
+ structure MicroTiMLDef : SIG_MICRO_TIML_DEF
+ structure Action :
+           sig
+               type kdown
+               type tdown
+               type down = kdown * tdown
+               type up
 
-                  val upward_base : up
-                  val combiner : up * up -> up
+               val upward_base : up
+               val combiner : up * up -> up
 
-                  val add_kind : MicroTiMLDef.kind * down -> down
-                  val add_type : MicroTiMLDef.cstr * tdown -> tdown
+               val add_kind : MicroTiMLDef.kind * down -> down
+               val add_type : MicroTiMLDef.cstr * tdown -> tdown
 
-                  val on_va_leaf : MicroTiMLDef.value * down -> MicroTiMLDef.value * up
-                  val on_ty_leaf : MicroTiMLDef.typing * down -> MicroTiMLDef.typing * up
+               val on_va_leaf : MicroTiMLDef.value * down -> MicroTiMLDef.value * up
+               val on_ty_leaf : MicroTiMLDef.typing * down -> MicroTiMLDef.typing * up
 
-                  val transform_proping : MicroTiMLDef.proping * kdown -> MicroTiMLDef.proping * up
-                  val transform_kinding : MicroTiMLDef.kinding * kdown -> MicroTiMLDef.kinding * up
-                  val transform_wfkind : MicroTiMLDef.wfkind * kdown -> MicroTiMLDef.wfkind * up
-                  val transform_tyeq : MicroTiMLDef.tyeq * kdown -> MicroTiMLDef.tyeq * up
+               val transform_proping : MicroTiMLDef.proping * kdown -> MicroTiMLDef.proping * up
+               val transform_kinding : MicroTiMLDef.kinding * kdown -> MicroTiMLDef.kinding * up
+               val transform_wfkind : MicroTiMLDef.wfkind * kdown -> MicroTiMLDef.wfkind * up
+               val transform_tyeq : MicroTiMLDef.tyeq * kdown -> MicroTiMLDef.tyeq * up
 
-                  val transformer_value : (MicroTiMLDef.value * down -> MicroTiMLDef.value * up) -> MicroTiMLDef.value * down -> (MicroTiMLDef.value * up) option
-                  val transformer_typing : (MicroTiMLDef.typing * down -> MicroTiMLDef.typing * up) * (MicroTiMLDef.value * down -> MicroTiMLDef.value * up) -> MicroTiMLDef.typing * down -> (MicroTiMLDef.typing * up) option
-              end) : SIG_EXPR_DERIV_GENERIC_TRANSFORMER =
+               val transformer_value : (MicroTiMLDef.value * down -> MicroTiMLDef.value * up) -> MicroTiMLDef.value * down -> (MicroTiMLDef.value * up) option
+               val transformer_typing : (MicroTiMLDef.typing * down -> MicroTiMLDef.typing * up) * (MicroTiMLDef.value * down -> MicroTiMLDef.value * up) -> MicroTiMLDef.typing * down -> (MicroTiMLDef.typing * up) option
+           end) : SIG_EXPR_DERIV_GENERIC_TRANSFORMER =
 struct
 open List
 open Util
@@ -1020,206 +1059,211 @@ open Action
 val combine = foldl combiner upward_base
 
 fun default_transform_value (va, down) =
-  case va of
-      VConst _ => on_va_leaf (va, down)
-    | VPair (_, va1, va2) =>
-      let
-          val (va1, up1) = transform_value (va1, down)
-          val (va2, up2) = transform_value (va2, down)
-      in
-          (as_VPair va1 va2, combine [up1, up2])
-      end
-    | VInj (e, va1) =>
-      let
-          val (inj, _) = extract_e_inj e
-          val (va1, up1) = transform_value (va1, down)
-      in
-          (as_VInj inj va1, combine [up1])
-      end
-    | VAbs _ => on_va_leaf (va, down)
-    | VAbsC _ => on_va_leaf (va, down)
-    | VPack (e, va1) =>
-      let
-          val (c, _) = extract_e_pack e
-          val (va1, up1) = transform_value (va1, down)
-      in
-          (as_VPack c va1, combine [up1])
-      end
-    | VFold (_, va1) =>
-      let
-          val (va1, up1) = transform_value (va1, down)
-      in
-          (as_VFold va1, combine [up1])
-      end
-    | VLoc _ => on_va_leaf (va, down)
+case va of
+   VConst _ => on_va_leaf (va, down)
+ | VPair (_, va1, va2) =>
+   let
+       val (va1, up1) = transform_value (va1, down)
+       val (va2, up2) = transform_value (va2, down)
+   in
+       (as_VPair va1 va2, combine [up1, up2])
+   end
+ | VInj (e, va1) =>
+   let
+       val (inj, _) = extract_e_inj e
+       val (va1, up1) = transform_value (va1, down)
+   in
+       (as_VInj inj va1, combine [up1])
+   end
+ | VAbs _ => on_va_leaf (va, down)
+ | VAbsC _ => on_va_leaf (va, down)
+ | VPack (e, va1) =>
+   let
+       val (c, _) = extract_e_pack e
+       val (va1, up1) = transform_value (va1, down)
+   in
+       (as_VPack c va1, combine [up1])
+   end
+ | VFold (_, va1) =>
+   let
+       val (va1, up1) = transform_value (va1, down)
+   in
+       (as_VFold va1, combine [up1])
+   end
+ | VLoc _ => on_va_leaf (va, down)
 
 and transform_value (va, down) =
-    case transformer_value transform_value (va, down) of
-        SOME res => res
-      | NONE => default_transform_value (va, down)
+ case transformer_value transform_value (va, down) of
+     SOME res => res
+   | NONE => default_transform_value (va, down)
 
 fun default_transform_typing (ty, down as (kdown, tdown)) =
-    case ty of
-        TyVar judge => on_ty_leaf (ty, down)
-      | TyApp (_, ty1, ty2) =>
-        let
-            val (ty1, up1) = transform_typing (ty1, down)
-            val (ty2, up2) = transform_typing (ty2, down)
-        in
-            (as_TyApp ty1 ty2, combine [up1, up2])
-        end
-      | TyAbs (_, kd, ty) =>
-        let
-            val (kd, up1) = transform_kinding (kd, kdown)
-            val jkd = extract_judge_kinding kd
-            val (ty, up2) = transform_typing (ty, (kdown, add_type (#2 jkd, tdown)))
-        in
-            (as_TyAbs kd ty, combine [up1, up2])
-        end
-      | TyAppC (_, ty, kd) =>
-        let
-            val (ty, up1) = transform_typing (ty, down)
-            val (kd, up2) = transform_kinding (kd, kdown)
-        in
-            (as_TyAppC ty kd, combine [up1, up2])
-        end
-      | TyAbsC (_, wk, va, ty) =>
-        let
-            val (wk, up1) = transform_wfkind (wk, kdown)
-            val jwk = extract_judge_wfkind wk
-            val (va, up2) = transform_value (va, add_kind (#2 jwk, down))
-            val (ty, up3) = transform_typing (ty, add_kind (#2 jwk, down))
-        in
-            (as_TyAbsC wk va ty, combine [up1, up2, up3])
-        end
-      | TyRec (_, kd, ty) =>
-        let
-            val (kd, up1) = transform_kinding (kd, kdown)
-            val jkd = extract_judge_kinding kd
-            val (ty, up2) = transform_typing (ty, (kdown, add_type (#2 jkd, tdown)))
-        in
-            (as_TyRec kd ty, combine [up1, up2])
-        end
-      | TyFold (_, kd, ty) =>
-        let
-            val (kd, up1) = transform_kinding (kd, kdown)
-            val (ty, up2) = transform_typing (ty, down)
-        in
-            (as_TyFold kd ty, combine [up1, up2])
-        end
-      | TyUnfold (_, ty) =>
-        let
-            val (ty, up1) = transform_typing (ty, down)
-        in
-            (as_TyUnfold ty, combine [up1])
-        end
-      | TyPack (_, kd1, kd2, ty) =>
-        let
-            val (kd1, up1) = transform_kinding (kd1, kdown)
-            val (kd2, up2) = transform_kinding (kd2, kdown)
-            val (ty, up3) = transform_typing (ty, down)
-        in
-            (as_TyPack kd1 kd2 ty, combine [up1, up2, up3])
-        end
-      | TyUnpack (_, ty1, ty2) =>
-        let
-            val (ty1, up1) = transform_typing (ty1, down)
-            val jty1 = extract_judge_typing ty1
-            val (_, k, t) = extract_c_quan (#3 jty1)
-            val (ty2, up2) = transform_typing (ty2, let val (kdown, tdown) = add_kind (k, down) in (kdown, add_type (t, tdown)) end)
-        in
-            (as_TyUnpack ty1 ty2, combine [up1, up2])
-        end
-      | TyConst _ => on_ty_leaf (ty, down)
-      | TyPair (_, ty1, ty2) =>
-        let
-            val (ty1, up1) = transform_typing (ty1, down)
-            val (ty2, up2) = transform_typing (ty2, down)
-        in
-            (as_TyPair ty1 ty2, combine [up1, up2])
-        end
-      | TyProj (judge, ty) =>
-        let
-            val (ty, up1) = transform_typing (ty, down)
-            val (p, _) = extract_e_proj (#2 judge)
-        in
-            (as_TyProj p ty, combine [up1])
-        end
-      | TyInj (judge, ty, kd) =>
-        let
-            val (ty, up1) = transform_typing (ty, down)
-            val (kd, up2) = transform_kinding (kd, kdown)
-            val (inj, _) = extract_e_inj (#2 judge)
-        in
-            (as_TyInj inj ty kd, combine [up1, up2])
-        end
-      | TyCase (_, ty1, ty2, ty3) =>
-        let
-            val (ty1, up1) = transform_typing (ty1, down)
-            val jty1 = extract_judge_typing ty1
-            val (t1, t2) = extract_c_sum (#3 jty1)
-            val (ty2, up2) = transform_typing (ty2, (kdown, add_type (t1, tdown)))
-            val (ty3, up3) = transform_typing (ty3, (kdown, add_type (t2, tdown)))
-        in
-            (as_TyCase ty1 ty2 ty3, combine [up1, up2, up3])
-        end
-      | TyNew (_, ty) =>
-        let
-            val (ty, up1) = transform_typing (ty, down)
-        in
-            (as_TyNew ty, combine [up1])
-        end
-      | TyRead (_, ty) =>
-        let
-            val (ty, up1) = transform_typing (ty, down)
-        in
-            (as_TyRead ty, combine [up1])
-        end
-      | TyWrite (_, ty1, ty2) =>
-        let
-            val (ty1, up1) = transform_typing (ty1, down)
-            val (ty2, up2) = transform_typing (ty2, down)
-        in
-            (as_TyWrite ty1 ty2, combine [up1, up2])
-        end
-      | TySubTy (_, ty, te) =>
-        let
-            val (ty, up1) = transform_typing (ty, down)
-            val (te, up2) = transform_tyeq (te, kdown)
-        in
-            (as_TySubTy ty te, combine [up1, up2])
-        end
-      | TySubTi (_, ty, pr) =>
-        let
-            val (ty, up1) = transform_typing (ty, down)
-            val (pr, up2) = transform_proping (pr, kdown)
-        in
-            (as_TySubTi ty pr, combine [up1, up2])
-        end
-      | TyHalt (_, ty) =>
-        let
-            val (ty, up1) = transform_typing (ty, down)
-        in
-            (as_TyHalt ty, combine [up1])
-        end
-      | TyLet (_, ty1, ty2) =>
-        let
-            val (ty1, up1) = transform_typing (ty1, down)
-            val jty1 = extract_judge_typing ty1
-            val (ty2, up2) = transform_typing (ty2, (kdown, add_type (#3 jty1, tdown)))
-        in
-            (as_TyLet ty1 ty2, combine [up1, up2])
-        end
-      | TyFix _ => on_ty_leaf (ty, down)
-      | TyPrimBinOp (judge, ty1, ty2) =>
-        let
-            val (ty1, up1) = transform_typing (ty1, down)
-            val (ty2, up2) = transform_typing (ty2, down)
-            val (opr, _, _) = extract_e_prim_bin_op (#2 judge)
-        in
-            (as_TyPrimBinOp opr ty1 ty2, combine [up1, up2])
-        end
-      | TyLoc _ => on_ty_leaf (ty, down)
+ case ty of
+     TyVar judge => on_ty_leaf (ty, down)
+   | TyApp (_, ty1, ty2) =>
+     let
+         val (ty1, up1) = transform_typing (ty1, down)
+         val (ty2, up2) = transform_typing (ty2, down)
+     in
+         (as_TyApp ty1 ty2, combine [up1, up2])
+     end
+   | TyAbs (_, kd, ty) =>
+     let
+         val (kd, up1) = transform_kinding (kd, kdown)
+         val jkd = extract_judge_kinding kd
+         val (ty, up2) = transform_typing (ty, (kdown, add_type (#2 jkd, tdown)))
+     in
+         (as_TyAbs kd ty, combine [up1, up2])
+     end
+   | TyAppC (_, ty, kd) =>
+     let
+         val (ty, up1) = transform_typing (ty, down)
+         val (kd, up2) = transform_kinding (kd, kdown)
+     in
+         (as_TyAppC ty kd, combine [up1, up2])
+     end
+   | TyAbsC (_, wk, va, ty) =>
+     let
+         val (wk, up1) = transform_wfkind (wk, kdown)
+         val jwk = extract_judge_wfkind wk
+         val (va, up2) = transform_value (va, add_kind (#2 jwk, down))
+         val (ty, up3) = transform_typing (ty, add_kind (#2 jwk, down))
+     in
+         (as_TyAbsC wk va ty, combine [up1, up2, up3])
+     end
+   | TyRec (_, kd, ty) =>
+     let
+         val (kd, up1) = transform_kinding (kd, kdown)
+         val jkd = extract_judge_kinding kd
+         val (ty, up2) = transform_typing (ty, (kdown, add_type (#2 jkd, tdown)))
+     in
+         (as_TyRec kd ty, combine [up1, up2])
+     end
+   | TyFold (_, kd, ty) =>
+     let
+         val (kd, up1) = transform_kinding (kd, kdown)
+         val (ty, up2) = transform_typing (ty, down)
+     in
+         (as_TyFold kd ty, combine [up1, up2])
+     end
+   | TyUnfold (_, ty) =>
+     let
+         val (ty, up1) = transform_typing (ty, down)
+     in
+         (as_TyUnfold ty, combine [up1])
+     end
+   | TyPack (_, kd1, kd2, ty) =>
+     let
+         val (kd1, up1) = transform_kinding (kd1, kdown)
+         val (kd2, up2) = transform_kinding (kd2, kdown)
+         val (ty, up3) = transform_typing (ty, down)
+     in
+         (as_TyPack kd1 kd2 ty, combine [up1, up2, up3])
+     end
+   | TyUnpack (_, ty1, ty2) =>
+     let
+         val (ty1, up1) = transform_typing (ty1, down)
+         val jty1 = extract_judge_typing ty1
+         val (_, k, t) = extract_c_quan (#3 jty1)
+         val (ty2, up2) = transform_typing (ty2, let val (kdown, tdown) = add_kind (k, down) in (kdown, add_type (t, tdown)) end)
+     in
+         (as_TyUnpack ty1 ty2, combine [up1, up2])
+     end
+   | TyConst _ => on_ty_leaf (ty, down)
+   | TyPair (_, ty1, ty2) =>
+     let
+         val (ty1, up1) = transform_typing (ty1, down)
+         val (ty2, up2) = transform_typing (ty2, down)
+     in
+         (as_TyPair ty1 ty2, combine [up1, up2])
+     end
+   | TyProj (judge, ty) =>
+     let
+         val (ty, up1) = transform_typing (ty, down)
+         val (p, _) = extract_e_proj (#2 judge)
+     in
+         (as_TyProj p ty, combine [up1])
+     end
+   | TyInj (judge, ty, kd) =>
+     let
+         val (ty, up1) = transform_typing (ty, down)
+         val (kd, up2) = transform_kinding (kd, kdown)
+         val (inj, _) = extract_e_inj (#2 judge)
+     in
+         (as_TyInj inj ty kd, combine [up1, up2])
+     end
+   | TyCase (_, ty1, ty2, ty3) =>
+     let
+         val (ty1, up1) = transform_typing (ty1, down)
+         val jty1 = extract_judge_typing ty1
+         val (t1, t2) = extract_c_sum (#3 jty1)
+         val (ty2, up2) = transform_typing (ty2, (kdown, add_type (t1, tdown)))
+         val (ty3, up3) = transform_typing (ty3, (kdown, add_type (t2, tdown)))
+     in
+         (as_TyCase ty1 ty2 ty3, combine [up1, up2, up3])
+     end
+   | TyNew (_, ty1, ty2) =>
+     let
+         val (ty1, up1) = transform_typing (ty1, down)
+         val (ty2, up2) = transform_typing (ty2, down)
+     in
+         (as_TyNew ty1 ty2, combine [up1, up2])
+     end
+   | TyRead (_, ty1, ty2, pr) =>
+     let
+         val (ty1, up1) = transform_typing (ty1, down)
+         val (ty2, up2) = transform_typing (ty2, down)
+         val (pr, up3) = transform_proping (pr, kdown)
+     in
+         (as_TyRead ty1 ty2 pr, combine [up1, up2, up3])
+     end
+   | TyWrite (_, ty1, ty2, pr, ty3) =>
+     let
+         val (ty1, up1) = transform_typing (ty1, down)
+         val (ty2, up2) = transform_typing (ty2, down)
+         val (pr, up3) = transform_proping (pr, kdown)
+         val (ty3, up4) = transform_typing (ty3, down)
+     in
+         (as_TyWrite ty1 ty2 pr ty3, combine [up1, up2, up3, up4])
+     end
+   | TySubTy (_, ty, te) =>
+     let
+         val (ty, up1) = transform_typing (ty, down)
+         val (te, up2) = transform_tyeq (te, kdown)
+     in
+         (as_TySubTy ty te, combine [up1, up2])
+     end
+   | TySubTi (_, ty, pr) =>
+     let
+         val (ty, up1) = transform_typing (ty, down)
+         val (pr, up2) = transform_proping (pr, kdown)
+     in
+         (as_TySubTi ty pr, combine [up1, up2])
+     end
+   | TyHalt (_, ty) =>
+     let
+         val (ty, up1) = transform_typing (ty, down)
+     in
+         (as_TyHalt ty, combine [up1])
+     end
+   | TyLet (_, ty1, ty2) =>
+     let
+         val (ty1, up1) = transform_typing (ty1, down)
+         val jty1 = extract_judge_typing ty1
+         val (ty2, up2) = transform_typing (ty2, (kdown, add_type (#3 jty1, tdown)))
+     in
+         (as_TyLet ty1 ty2, combine [up1, up2])
+     end
+   | TyFix _ => on_ty_leaf (ty, down)
+   | TyPrimBinOp (judge, ty1, ty2) =>
+     let
+         val (ty1, up1) = transform_typing (ty1, down)
+         val (ty2, up2) = transform_typing (ty2, down)
+         val (opr, _, _) = extract_e_prim_bin_op (#2 judge)
+     in
+         (as_TyPrimBinOp opr ty1 ty2, combine [up1, up2])
+     end
+   | TyLoc _ => on_ty_leaf (ty, down)
 
 and transform_typing (ty, down) =
     case transformer_typing (transform_typing, transform_value) (ty, down) of
@@ -1495,10 +1539,10 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformerFun(
       | on_va_leaf (VLoc (ELoc l), _) = as_VLoc l
       | on_va_leaf _ = raise (Impossible "as_va_leaf")
 
-    fun on_ty_leaf (TyVar ((kctx, tctx, hctx), EVar x, _, _), ((kctxd, kdep), (tctxd, tdep))) = as_TyVar (insert_k kctx kdep kctxd, insert_t (map (shift_c_c (length kctxd) kdep) tctx) tdep tctxd, map_assoc (shift_c_c (length kctxd) kdep) hctx) (if x >= tdep then x + (length tctxd) else x)
-      | on_ty_leaf (TyConst ((kctx, tctx, hctx), EConst cn, _, _), ((kctxd, kdep), (tctxd, tdep))) = as_TyConst (insert_k kctx kdep kctxd, insert_t (map (shift_c_c (length kctxd) kdep) tctx) tdep tctxd, map_assoc (shift_c_c (length kctxd) kdep) hctx) cn
-      | on_ty_leaf (TyLoc ((kctx, tctx, hctx), ELoc l, _, _), ((kctxd, kdep), (tctxd, tdep))) = as_TyLoc (insert_k kctx kdep kctxd, insert_t (map (shift_c_c (length kctxd) kdep) tctx) tdep tctxd, map_assoc (shift_c_c (length kctxd) kdep) hctx) l
-      | on_ty_leaf (TyFix (((kctx, tctx, hctx), EFix _, _, _), kd, ty), ((kctxd, kdep), (tctxd, tdep))) = as_TyFix (insert_k kctx kdep kctxd, insert_t (map (shift_c_c (length kctxd) kdep) tctx) tdep tctxd, map_assoc (shift_c_c (length kctxd) kdep) hctx) kd ty
+    fun on_ty_leaf (TyVar ((kctx, tctx, hctx), EVar x, _, _), ((kctxd, kdep), (tctxd, tdep))) = as_TyVar (insert_k kctx kdep kctxd, insert_t (map (shift_c_c (length kctxd) kdep) tctx) tdep tctxd, map_assoc (fn (t, i) => (shift_c_c (length kctxd) kdep t, shift_c_c (length kctxd) kdep i)) hctx) (if x >= tdep then x + (length tctxd) else x)
+      | on_ty_leaf (TyConst ((kctx, tctx, hctx), EConst cn, _, _), ((kctxd, kdep), (tctxd, tdep))) = as_TyConst (insert_k kctx kdep kctxd, insert_t (map (shift_c_c (length kctxd) kdep) tctx) tdep tctxd, map_assoc (fn (t, i) => (shift_c_c (length kctxd) kdep t, shift_c_c (length kctxd) kdep i)) hctx) cn
+      | on_ty_leaf (TyLoc ((kctx, tctx, hctx), ELoc l, _, _), ((kctxd, kdep), (tctxd, tdep))) = as_TyLoc (insert_k kctx kdep kctxd, insert_t (map (shift_c_c (length kctxd) kdep) tctx) tdep tctxd, map_assoc (fn (t, i) => (shift_c_c (length kctxd) kdep t, shift_c_c (length kctxd) kdep i)) hctx) l
+      | on_ty_leaf (TyFix (((kctx, tctx, hctx), EFix _, _, _), kd, ty), ((kctxd, kdep), (tctxd, tdep))) = as_TyFix (insert_k kctx kdep kctxd, insert_t (map (shift_c_c (length kctxd) kdep) tctx) tdep tctxd, map_assoc (fn (t, i) => (shift_c_c (length kctxd) kdep t, shift_c_c (length kctxd) kdep i)) hctx) kd ty
       | on_ty_leaf _ = raise (Impossible "as_ty_leaf")
 
     val transform_proping = CstrDerivHelper.transform_proping

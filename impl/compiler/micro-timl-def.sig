@@ -23,6 +23,8 @@ sig
 
     datatype cstr_const =
              CCIdxTT
+             | CCIdxTrue (* new *)
+             | CCIdxFalse (* new *)
              | CCIdxNat of Nat.nat_type
              | CCTime of Time.time_type
              | CCTypeUnit
@@ -33,12 +35,20 @@ sig
              | CBTimeMinus
              | CBTimeMult (* new *)
              | CBTimeMax
+             | CBTimeMin (* new *)
+             | CBNatAdd (* new *)
+             | CBNatMinus (* new *)
+             | CBNatMult (* new *)
              | CBTypeProd
              | CBTypeSum
-             | CBNatAdd (* new *)
 
     datatype cstr_un_op =
-             CUNat2Time (* new *)
+             CUCeil
+             | CUFloor
+             | CULog of int
+             | CUDiv of int
+             | CUNat2Time
+             | CUBool2Nat
 
     datatype quan =
              QuanForall
@@ -54,9 +64,16 @@ sig
 
     datatype prop_bin_pred =
              PBTimeLe
+             | PBTimeLt (* new *)
              | PBTimeEq
+             | PBTimeGe (* new *)
+             | PBTimeGt (* new *)
              | PBBigO of int
+             | PBNatLe (* new *)
+             | PBNatLt (* new *)
              | PBNatEq (* new *)
+             | PBNatGe (* new *)
+             | PBNatGt (* new *)
 
     datatype sort =
              BSNat
@@ -67,6 +84,7 @@ sig
     datatype cstr =
              CVar of var
              | CConst of cstr_const
+             | CUnOp of cstr_un_op * cstr (* new *)
              | CBinOp of cstr_bin_op * cstr * cstr
              | CIte of cstr * cstr * cstr
              | CTimeAbs of cstr
@@ -76,8 +94,8 @@ sig
              | CApp of cstr * cstr
              | CQuan of quan * kind * cstr
              | CRec of kind * cstr
-             | CRef of cstr
-             | CUnOp of cstr_un_op * cstr (* new *)
+             | CTypeNat of cstr (* new *)
+             | CTypeArr of cstr * cstr (* new & CRef removed *)
 
          and kind =
              KType
@@ -105,20 +123,20 @@ sig
     val Tadd : cstr * cstr -> cstr
     val Tminus : cstr * cstr -> cstr
     val Tmult : cstr * cstr -> cstr (* new *)
-
-    val TfromNat : cstr -> cstr
+    val Tmax : cstr * cstr -> cstr
+    val Tmin : cstr * cstr -> cstr (* new *)
+    val TfromNat : cstr -> cstr (* new *)
 
     val PAnd : prop * prop -> prop
     val POr : prop * prop -> prop
     val PImply : prop * prop -> prop
     val PIff : prop * prop -> prop
 
-    val Tmax : cstr * cstr -> cstr
-
     val CForall : kind * cstr -> cstr
     val CExists : kind * cstr -> cstr
 
     val CTypeUnit : cstr
+    val CTypeInt : cstr (* rename CInt to CTypeInt *)
 
     val CProd : cstr * cstr -> cstr
     val CSum : cstr * cstr -> cstr
@@ -126,7 +144,8 @@ sig
     val TLe : cstr * cstr -> prop
     val TEq : cstr * cstr -> prop
 
-    val CTypeInt : cstr (* rename CInt to CTypeInt *)
+    val NLt : cstr * cstr -> prop (* new helper *)
+
     val CNat : Nat.nat_type -> cstr (* new helper *)
 
     val CApps : cstr -> cstr list -> cstr
@@ -163,18 +182,19 @@ sig
     datatype kinding =
              KdVar of kinding_judgement
              | KdConst of kinding_judgement
+             | KdUnOp of kinding_judgement * kinding (* new *)
              | KdBinOp of kinding_judgement * kinding * kinding
              | KdIte of kinding_judgement * kinding * kinding * kinding
+             | KdTimeAbs of kinding_judgement * kinding
+             | KdTimeApp of kinding_judgement * kinding * kinding
              | KdArrow of kinding_judgement * kinding * kinding * kinding
              | KdAbs of kinding_judgement * wfkind * kinding
              | KdApp of kinding_judgement * kinding * kinding
-             | KdTimeAbs of kinding_judgement * kinding
-             | KdTimeApp of kinding_judgement * kinding * kinding
              | KdQuan of kinding_judgement * wfkind * kinding
              | KdRec of kinding_judgement * wfkind * kinding
-             | KdRef of kinding_judgement * kinding
+             | KdTypeNat of kinding_judgement * kinding (* new *)
+             | KdTypeArr of kinding_judgement * kinding * kinding (* new & KdRef removed *)
              | KdEq of kinding_judgement * kinding * kdeq
-             | KdUnOp of kinding_judgement * kinding (* new *)
              | KdAdmit of kinding_judgement (* TODO: eliminate this rule *)
 
          and wfkind =
@@ -197,25 +217,26 @@ sig
     datatype tyeq =
              TyEqVar of tyeq_judgement
              | TyEqConst of tyeq_judgement
+             | TyEqUnOp of tyeq_judgement * tyeq (* new *)
              | TyEqBinOp of tyeq_judgement * tyeq * tyeq
              | TyEqIte of tyeq_judgement * tyeq * tyeq * tyeq
+             | TyEqTimeAbs of tyeq_judgement
+             | TyEqTimeApp of tyeq_judgement
              | TyEqArrow of tyeq_judgement * tyeq * proping * tyeq
+             | TyEqAbs of tyeq_judgement
              | TyEqApp of tyeq_judgement * tyeq * tyeq
              | TyEqBeta of tyeq_judgement
              | TyEqBetaRev of tyeq_judgement
              | TyEqQuan of tyeq_judgement * kdeq * tyeq
              | TyEqRec of tyeq_judgement * kdeq * tyeq
-             | TyEqRef of tyeq_judgement * tyeq
-             | TyEqAbs of tyeq_judgement
-             | TyEqTimeAbs of tyeq_judgement
-             | TyEqTimeApp of tyeq_judgement
+             | TyEqTypeNat of tyeq_judgement * proping (* new *)
+             | TyEqTypeArr of tyeq_judgement * tyeq * proping (* new & TyEqRef removed *)
              | TyEqTrans of tyeq_judgement * tyeq * tyeq
-             | TyEqUnOp of tyeq_judgement * tyeq (* new *)
-             | TyEqNat of tyeq_judgement * proping (* new *)
 
     datatype expr_const =
              ECTT
              | ECInt of int
+             | ECNat of Nat.nat_type (* new *)
 
     datatype prim_expr_bin_op =
              PEBIntAdd
@@ -235,7 +256,7 @@ sig
     type loc = int
 
     type tctx = cstr list
-    type hctx = (loc * cstr) list
+    type hctx = (loc * (cstr * cstr)) list
     type ctx = kctx * tctx * hctx
 
     datatype expr_un_op =
@@ -243,14 +264,16 @@ sig
              | EUInj of injector
              | EUFold
              | EUUnfold
-             | EUNew
-             | EURead
 
     datatype expr_bin_op =
              EBPrim of prim_expr_bin_op
              | EBApp
              | EBPair
-             | EBWrite
+             | EBNew
+             | EBRead
+
+    datatype expr_tri_op =
+             ETWrite
 
     datatype expr =
              EVar of var
@@ -258,6 +281,7 @@ sig
              | ELoc of loc
              | EUnOp of expr_un_op * expr
              | EBinOp of expr_bin_op * expr * expr
+             | ETriOp of expr_tri_op * expr * expr * expr (* new *)
              | ECase of expr * expr * expr
              | EAbs of expr
              | ERec of expr
@@ -273,12 +297,14 @@ sig
     val EInj : injector * expr -> expr
     val EFold : expr -> expr
     val EUnfold : expr -> expr
-    val ENew : expr -> expr
-    val ERead : expr -> expr
 
+    val EPrim : prim_expr_bin_op -> expr * expr -> expr
     val EApp : expr * expr -> expr
     val EPair : expr * expr -> expr
-    val EWrite : expr * expr -> expr
+    val ENew : expr * expr -> expr
+    val ERead : expr * expr -> expr
+
+    val EWrite : expr * expr * expr -> expr
 
     datatype value =
              VConst of expr
@@ -296,6 +322,8 @@ sig
     val EInr : expr -> expr
 
     val ETT : expr
+    val EInt : int -> expr
+    val ENat : Nat.nat_type -> expr
 
     val const_type : expr_const -> cstr
 
@@ -317,9 +345,9 @@ sig
              | TyProj of typing_judgement * typing
              | TyInj of typing_judgement * typing * kinding
              | TyCase of typing_judgement * typing * typing * typing
-             | TyNew of typing_judgement * typing
-             | TyRead of typing_judgement * typing
-             | TyWrite of typing_judgement * typing * typing
+             | TyNew of typing_judgement * typing * typing
+             | TyRead of typing_judgement * typing * typing * proping
+             | TyWrite of typing_judgement * typing * typing * proping * typing
              | TyLoc of typing_judgement
              | TySubTy of typing_judgement * typing * tyeq (* new : split from TySub *)
              | TySubTi of typing_judgement * typing * proping (* new : split from TySub *)
@@ -327,4 +355,17 @@ sig
              | TyLet of typing_judgement * typing * typing (* new, introduced in CPS *)
              | TyFix of typing_judgement * kinding * typing (* new, introduced in CloConv *)
              | TyPrimBinOp of typing_judgement * typing * typing (* new *)
+
+    type heap = (loc * expr list) list
+    type config = heap * expr * Time.time_type
+
+    type heaping_judgement = hctx * heap
+
+    datatype heaping =
+             HpHeap of heaping_judgement * (loc * typing list) list
+
+    type configing_judgement = hctx * config * cstr * cstr
+
+    datatype configing =
+             CfgConfig of configing_judgement * typing * heaping (* TODO: fuel checking *)
 end

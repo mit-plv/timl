@@ -9,8 +9,8 @@ micro-timl-def.sig
 micro-timl-util.sig
 ast-transformers.sig
 deriv-transformers.sig
-(* cps-pass.sig
-wrap-abs-pass.sig
+cps-pass.sig
+(* wrap-abs-pass.sig
 clo-conv-pass.sig
 deriv-checker.sig
 micro-timl-hoisted-def.sig
@@ -22,8 +22,8 @@ micro-timl-def.sml
 micro-timl-util.sml
 ast-transformers.sml
 deriv-transformers.sml
-(* cps-pass.sml
-wrap-abs-pass.sml
+cps-pass.sml
+(* wrap-abs-pass.sml
 clo-conv-pass.sml
 deriv-checker.sml
 micro-timl-hoisted-def.sml

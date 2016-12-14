@@ -19,7 +19,6 @@ sig
     val as_KdVar : MicroTiMLDef.kctx -> MicroTiMLDef.var -> MicroTiMLDef.kinding
     val as_KdConst : MicroTiMLDef.kctx -> MicroTiMLDef.cstr_const -> MicroTiMLDef.kinding
     val as_KdEq : MicroTiMLDef.kinding -> MicroTiMLDef.kdeq -> MicroTiMLDef.kinding
-    val as_KdRef : MicroTiMLDef.kinding -> MicroTiMLDef.kinding
     val as_KdRec : MicroTiMLDef.wfkind -> MicroTiMLDef.kinding -> MicroTiMLDef.kinding
     val as_KdQuan : MicroTiMLDef.quan -> MicroTiMLDef.wfkind -> MicroTiMLDef.kinding -> MicroTiMLDef.kinding
     val as_KdTimeApp : MicroTiMLDef.kinding -> MicroTiMLDef.kinding -> MicroTiMLDef.kinding
@@ -30,13 +29,13 @@ sig
     val as_KdIte : MicroTiMLDef.kinding -> MicroTiMLDef.kinding -> MicroTiMLDef.kinding -> MicroTiMLDef.kinding
     val as_KdBinOp : MicroTiMLDef.cstr_bin_op -> MicroTiMLDef.kinding -> MicroTiMLDef.kinding -> MicroTiMLDef.kinding
     val as_KdUnOp : MicroTiMLDef.cstr_un_op -> MicroTiMLDef.kinding -> MicroTiMLDef.kinding
+    val as_KdTypeNat : MicroTiMLDef.kinding -> MicroTiMLDef.kinding
+    val as_KdTypeArr : MicroTiMLDef.kinding -> MicroTiMLDef.kinding -> MicroTiMLDef.kinding
     val as_TyEqVar : MicroTiMLDef.kctx -> MicroTiMLDef.var -> MicroTiMLDef.tyeq
     val as_TyEqConst : MicroTiMLDef.kctx -> MicroTiMLDef.cstr_const -> MicroTiMLDef.tyeq
-    val as_TyEqRef : MicroTiMLDef.tyeq -> MicroTiMLDef.tyeq
     val as_TyEqRec : MicroTiMLDef.kdeq -> MicroTiMLDef.tyeq -> MicroTiMLDef.tyeq
     val as_TyEqBetaRev : MicroTiMLDef.kctx -> MicroTiMLDef.cstr -> MicroTiMLDef.cstr -> MicroTiMLDef.tyeq
     val as_TyEqBeta : MicroTiMLDef.kctx -> MicroTiMLDef.cstr -> MicroTiMLDef.cstr -> MicroTiMLDef.tyeq
-    val as_TyEqNat : MicroTiMLDef.proping -> MicroTiMLDef.tyeq
     val as_TyEqTimeApp : MicroTiMLDef.kctx -> int -> MicroTiMLDef.cstr -> MicroTiMLDef.cstr -> MicroTiMLDef.tyeq
     val as_TyEqQuan : MicroTiMLDef.quan -> MicroTiMLDef.kdeq -> MicroTiMLDef.tyeq -> MicroTiMLDef.tyeq
     val as_TyEqApp : MicroTiMLDef.tyeq -> MicroTiMLDef.tyeq -> MicroTiMLDef.tyeq
@@ -47,6 +46,8 @@ sig
     val as_TyEqAbs : MicroTiMLDef.kctx -> MicroTiMLDef.cstr -> MicroTiMLDef.tyeq
     val as_TyEqTimeAbs : MicroTiMLDef.kctx -> MicroTiMLDef.cstr -> MicroTiMLDef.tyeq
     val as_TyEqTrans : MicroTiMLDef.tyeq -> MicroTiMLDef.tyeq -> MicroTiMLDef.tyeq
+    val as_TyEqTypeNat : MicroTiMLDef.proping -> MicroTiMLDef.tyeq
+    val as_TyEqTypeArr : MicroTiMLDef.tyeq -> MicroTiMLDef.proping -> MicroTiMLDef.tyeq
     val as_VConst : MicroTiMLDef.expr_const -> MicroTiMLDef.value
     val as_VPair : MicroTiMLDef.value -> MicroTiMLDef.value -> MicroTiMLDef.value
     val as_VInj : MicroTiMLDef.injector -> MicroTiMLDef.value -> MicroTiMLDef.value
@@ -61,9 +62,9 @@ sig
     val as_TyAbs : MicroTiMLDef.kinding -> MicroTiMLDef.typing -> MicroTiMLDef.typing
     val as_TySubTy : MicroTiMLDef.typing -> MicroTiMLDef.tyeq -> MicroTiMLDef.typing
     val as_TySubTi : MicroTiMLDef.typing -> MicroTiMLDef.proping -> MicroTiMLDef.typing
-    val as_TyWrite : MicroTiMLDef.typing -> MicroTiMLDef.typing -> MicroTiMLDef.typing
-    val as_TyRead : MicroTiMLDef.typing -> MicroTiMLDef.typing
-    val as_TyNew : MicroTiMLDef.typing -> MicroTiMLDef.typing
+    val as_TyWrite : MicroTiMLDef.typing -> MicroTiMLDef.typing -> MicroTiMLDef.proping -> MicroTiMLDef.typing -> MicroTiMLDef.typing
+    val as_TyRead : MicroTiMLDef.typing -> MicroTiMLDef.typing -> MicroTiMLDef.proping -> MicroTiMLDef.typing
+    val as_TyNew : MicroTiMLDef.typing -> MicroTiMLDef.typing -> MicroTiMLDef.typing
     val as_TyCase : MicroTiMLDef.typing -> MicroTiMLDef.typing -> MicroTiMLDef.typing -> MicroTiMLDef.typing
     val as_TyInj : MicroTiMLDef.injector -> MicroTiMLDef.typing -> MicroTiMLDef.kinding -> MicroTiMLDef.typing
     val as_TyProj : MicroTiMLDef.projector -> MicroTiMLDef.typing -> MicroTiMLDef.typing

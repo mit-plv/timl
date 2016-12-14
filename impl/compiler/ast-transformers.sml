@@ -95,17 +95,24 @@ fun default_transform_cstr (c, down) =
       in
           (CRec (k, t), combine [up1, up2])
       end
-    | CRef t =>
-      let
-          val (t, up1) = transform_cstr (t, down)
-      in
-          (CRef t, combine [up1])
-      end
     | CUnOp (opr, c) =>
       let
           val (c, up1) = transform_cstr (c, down)
       in
           (CUnOp (opr, c), combine [up1])
+      end
+    | CTypeNat c =>
+      let
+          val (c, up1) = transform_cstr (c, down)
+      in
+          (CTypeNat c, combine [up1])
+      end
+    | CTypeArr (c1, c2) =>
+      let
+          val (c1, up1) = transform_cstr (c1, down)
+          val (c2, up2) = transform_cstr (c2, down)
+      in
+          (CTypeArr (c1, c2), combine [up1, up2])
       end
 
 and transform_cstr (c, down) =
@@ -286,6 +293,14 @@ fun default_transform_expr (e, down as (kdown, tdown)) =
             (ELet (e1, e2), combine [up1, up2])
         end
       | EFix (n, e) => (EFix (n, e), upward_base)
+      | ETriOp (opr, e1, e2, e3) =>
+        let
+            val (e1, up1) = transform_expr (e1, down)
+            val (e2, up2) = transform_expr (e2, down)
+            val (e3, up3) = transform_expr (e3, down)
+        in
+            (ETriOp (opr, e1, e2, e3), combine [up1, up2, up3])
+        end
 
 and transform_expr (e, down) =
     case transformer_expr transform_expr (e, down) of
@@ -435,8 +450,9 @@ fun str_cstr c =
     | CApp (c1, c2) => "(" ^ str_cstr c1 ^ " " ^ str_cstr c2 ^ ")"
     | CQuan (q, k, c) => "(" ^ str_quan q ^ " " ^ str_kind k ^ " : " ^ str_cstr c ^ ")"
     | CRec (k, t) => "REC_TYPE" (* "(rec " ^ str_kind k ^ " => " ^ str_cstr t ^ ")" *)
-    | CRef t => "(ref " ^ str_cstr t ^ ")"
     | CUnOp (opr, c) => "(" ^ str_cstr_un_op opr ^ " " ^ str_cstr c ^ ")"
+    | CTypeNat c => "nat(" ^ str_cstr c ^ ")"
+    | CTypeArr (c1, c2) => "arr(" ^ str_cstr c1 ^ ", " ^ str_cstr c2 ^ ")"
 
 and str_kind k =
   case k of
@@ -471,6 +487,7 @@ fun str_expr e =
     | EHalt e => "(halt " ^ str_expr e ^ ")"
     | ELet (e1, e2) => "(let = " ^ str_expr e1 ^ " in " ^ str_expr e2 ^ ")"
     | EFix (n, e) => "(fix [" ^ str_int n ^ "] => " ^ str_expr e ^ ")"
+    | ETriOp (opr, e1, e2, e3) => "(" ^ str_expr_tri_op opr ^ " " ^ str_expr e1 ^ " " ^ str_expr e2 ^ " " ^ str_expr e3 ^ ")"
 end
 
 structure ShiftCstr =
