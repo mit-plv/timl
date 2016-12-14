@@ -3688,7 +3688,8 @@ Section tyeq_hint.
   Fixpoint kind_to_kind2 k :=
     match k with
     | KType => K2Type
-    | KArrow k1 k2 => K2Arrow (kind_to_kind2 k1) (kind_to_kind2 k2)
+    (* | KArrow k1 k2 => K2Arrow (kind_to_kind2 k1) (kind_to_kind2 k2) *)
+    | KArrow k1 k2 => K2Idx BSUnit
     | KBaseSort s => K2Idx s
     | KSubset k _ => kind_to_kind2 k
     end.
@@ -4958,18 +4959,88 @@ Section tyeq_hint.
         destruct Hnth as (k & Hnth & ?).
         subst.
         simpl.
-        eapply admit.
+        Lemma lgeq_Var_kind_to_kind2_refl :
+          forall k L1 L2 x,
+            lgeq L1 L2 (CVar x) (CVar x) (kind_to_kind2 k).
+        Proof.
+          induct k; simpl; eauto using obeq_refl.
+        Qed.
+        eapply lgeq_Var_kind_to_kind2_refl.
       }
-      eapply admit.
-      eapply admit.
-      (*here*)
+      {
+        intros ls ls1 ls2 x ke Hnth Hlen1 Hlen2.
+        unfold subst_cs_c in *.
+        simpl.
+        cases (x <=>? length ls).
+        {
+          repeat rewrite subst_cs_c_Var_Lt; eauto.
+          rewrite nth_error_app1 in Hnth by (rewrite map_length; la).
+          eapply nth_error_map_elim in Hnth.
+          destruct Hnth as (k' & Hnth & ?).
+          subst.
+          simpl.
+          eapply lgeq_Var_kind_to_kind2_refl.
+        }
+        {
+          subst.
+          unfold shiftn_c_c.
+          repeat rewrite subst_cs_x_shift_c_c.
+          repeat rewrite subst_cs_x_shift_bs_c.
+          rewrite nth_error_app2 in Hnth by (rewrite map_length; la).
+          repeat rewrite map_length in *.
+          rewrite Nat.sub_diag in Hnth.
+          simplify.
+          invert Hnth.
+          simpl.
+          Lemma shift_c_c_0_lgeq L1 L2 c1 c2 k L1' L2' n :
+            lgeq L1 L2 c1 c2 k ->
+            n = length L1' ->
+            n = length L2' ->
+            lgeq (L1' ++ L1) (L2' ++ L2) (shift_c_c n 0 c1) (shift_c_c n 0 c2) k.
+            (*here*)
+          Admitted.
+          eapply shift_c_c_0_lgeq; eauto with db_la.
+        }
+        {
+          destruct x as [|x]; try la.
+          simpl.
+          repeat rewrite Nat.sub_0_r; eauto.
+          eapply IHsubs_lgeq; eauto with db_la.
+          rewrite nth_error_app2 in Hnth by (rewrite map_length; la).
+          repeat rewrite map_length in *.
+          rewrite Nat.sub_succ_l in Hnth by la.
+          simplify.
+          rewrite nth_error_app2 by (rewrite map_length; la).
+          repeat rewrite map_length in *.
+          eauto.
+        }
+      }
+      {
+        intros ls ls1 ls2 x ke Hnth Hlen1 Hlen2.
+        unfold subst_cs_c in *.
+        simpl.
+        specialize (IHsubs_lgeq (ls ++ [k]) (ls1 ++ [subst0_cs_k g1 k]) (ls2 ++ [subst0_cs_k g2 k]) x ke).
+        repeat rewrite map_app in *.
+        repeat rewrite <- app_assoc in *.
+        simpl in *.
+        repeat rewrite app_length in *.
+        simpl in *.
+        rewrite (plus_comm (length ls) 1) in *.
+        eapply IHsubs_lgeq; try la.
+        eauto.
+      }
     Qed.
     
     Lemma subs_kd2_lgeq_var_in G x ke g1 g2 :
       nth_error G x = Some ke ->
       subs_kd2_lgeq g1 g2 G ->
       lgeq (subst0_cs_ks g1 G) (subst0_cs_ks g2 G) (subst0_cs_c g1 (CVar x)) (subst0_cs_c g2 (CVar x)) (ke2_to_kind2 ke).
-    Admitted.
+    Proof.
+      intros Hnth H.
+      unfold subs_kd2_lgeq in *.
+      destruct H as (H1 & H2 & Hlgeq).
+      eapply subs_lgeq_lgeq_var_in with (ls := []) (ls1 := []) (ls2 := []) in Hlgeq; simpl; eauto.
+    Qed.
     
     Lemma subs_kd2_kd_var_in g G2 :
       subs_kd2 g G2 ->
