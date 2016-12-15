@@ -151,7 +151,7 @@ fun as_KdAbs wk kd =
       val jkd = extract_judge_kinding kd
       val () = assert (#2 jwk :: #1 jwk = #1 jkd) "KdAbs 1"
   in
-      KdAbs ((#1 jwk, CAbs (#2 jkd), KArrow (#2 jwk, shift_c_k ~1 0 (#3 jkd))), wk, kd)
+      KdAbs ((#1 jwk, CAbs (#2 jkd), KArrow (#2 jwk, shift_c_k ~1 0 (#3 jkd))), wk, kd) (* TODO *)
   end
 
 fun as_KdApp kd1 kd2 =
@@ -389,17 +389,13 @@ fun as_VFold v =
       VFold (EFold ev, v)
   end
 
-fun as_VLoc l = VLoc (ELoc l)
+fun add_kind k (kctx, tctx) = (k :: kctx, map shift0_c_c tctx)
 
-fun add_kind k (kctx, tctx, hctx) = (k :: kctx, map shift0_c_c tctx, map_assoc (fn (t, i) => (shift0_c_c t, shift0_c_c i)) hctx)
+fun add_type t (kctx, tctx) = (kctx, t :: tctx)
 
-fun add_type t (kctx, tctx, hctx) = (kctx, t :: tctx, hctx)
+fun get_kctx (kctx, _) = kctx
 
-fun get_kctx (kctx, _, _) = kctx
-
-fun get_tctx (_, tctx, _) = tctx
-
-fun get_hctx (_, _, hctx) = hctx
+fun get_tctx (_, tctx) = tctx
 
 fun as_TyVar ctx x = TyVar (ctx, EVar x, nth (#2 ctx, x), T0)
 
@@ -422,7 +418,7 @@ fun as_TyAbs kd ty =
       val () = assert (#1 jkd = (get_kctx $ #1 jty)) "TyAbs 2"
       val () = assert (#2 jkd = (hd $ get_tctx $ #1 jty)) "TyAbs 3"
   in
-      TyAbs (((get_kctx $ #1 jty, tl $ get_tctx $ #1 jty, get_hctx $ #1 jty), EAbs (#2 jty), CArrow (#2 jkd, #4 jty, #3 jty), T0), kd, ty)
+      TyAbs (((get_kctx $ #1 jty, tl $ get_tctx $ #1 jty), EAbs (#2 jty), CArrow (#2 jkd, #4 jty, #3 jty), T0), kd, ty)
   end
 
 fun as_TyAppC ty kd =
@@ -446,7 +442,7 @@ fun as_TyAbsC wk va ty =
       val () = assert (#4 jty = T0) "TyAbsC 2"
       val () = assert (eva = #2 jty) "TyAbsC 3"
   in
-      TyAbsC (((tl $ get_kctx $ #1 jty, map (shift_c_c ~1 0) $ get_tctx $ #1 jty, map_assoc (fn (t, i) => (shift_c_c ~1 0 t, shift_c_c ~1 0 i)) $ get_hctx $ #1 jty), EAbsC (#2 jty), CForall (#2 jwk, #3 jty), T0), wk, va, ty)
+      TyAbsC (((tl $ get_kctx $ #1 jty, map (shift_c_c ~1 0) $ get_tctx $ #1 jty), EAbsC (#2 jty), CForall (#2 jwk, #3 jty), T0), wk, va, ty) (* TODO *)
   end
 
 fun unfold_EAbsCs e =
@@ -465,7 +461,7 @@ fun as_TyRec kd ty =
       val e = unfold_EAbsCs (#2 jty)
       val _ = extract_e_abs e
   in
-      TyRec (((get_kctx $ #1 jty, tl $ get_tctx $ #1 jty, get_hctx $ #1 jty), ERec (#2 jty), #3 jty, T0), kd, ty)
+      TyRec (((get_kctx $ #1 jty, tl $ get_tctx $ #1 jty), ERec (#2 jty), #3 jty, T0), kd, ty)
   end
 
 fun unfold_CApps t cs =
@@ -519,7 +515,7 @@ fun as_TyUnpack ty1 ty2 =
       val () = assert (q = QuanExists) "TyUnpack 1"
       val () = assert (#1 jty2 = add_type t (add_kind k $ #1 jty1)) "TyUnpack 2"
   in
-      TyUnpack ((#1 jty1, EUnpack (#2 jty1, #2 jty2), shift_c_c ~1 0 (#3 jty2), Tadd (#4 jty1, shift_c_c ~1 0 (#4 jty2))), ty1, ty2)
+      TyUnpack ((#1 jty1, EUnpack (#2 jty1, #2 jty2), shift_c_c ~1 0 (#3 jty2), Tadd (#4 jty1, shift_c_c ~1 0 (#4 jty2))), ty1, ty2) (* TODO *)
   end
 
 fun as_TyConst ctx cn = TyConst (ctx, EConst cn, const_type cn, T0)
@@ -605,8 +601,6 @@ fun as_TyWrite ty1 ty2 pr ty3 =
       TyWrite ((#1 jty1, EWrite (#2 jty1, #2 jty2, #2 jty3), CTypeUnit, Tadd (Tadd (#4 jty1, #4 jty2), #4 jty3)), ty1, ty2, pr, ty3)
   end
 
-fun as_TyLoc ctx l = TyLoc (ctx, ELoc l, CTypeArr (assoc l (get_hctx ctx)), T0)
-
 fun as_TySubTy ty te =
   let
       val jty = extract_judge_typing ty
@@ -658,7 +652,7 @@ fun as_TyFix ctx kd ty =
       val () = assert (#3 jkd = KType) "TyFix 2"
       val (t, ks) = unfold_CForalls (#2 jkd) []
       val (t1, i, t2) = extract_c_arrow t
-      val () = assert (#1 jty = (ks, [t1, #2 jkd], [])) "TyFix 3"
+      val () = assert (#1 jty = (ks, [t1, #2 jkd])) "TyFix 3"
       val () = assert (#3 jty = t2) "TyFix 4"
       val () = assert (#4 jty = i) "TyFix 5"
   in
@@ -1090,7 +1084,6 @@ case va of
    in
        (as_VFold va1, combine [up1])
    end
- | VLoc _ => on_va_leaf (va, down)
 
 and transform_value (va, down) =
  case transformer_value transform_value (va, down) of
@@ -1263,7 +1256,6 @@ fun default_transform_typing (ty, down as (kdown, tdown)) =
      in
          (as_TyPrimBinOp opr ty1 ty2, combine [up1, up2])
      end
-   | TyLoc _ => on_ty_leaf (ty, down)
 
 and transform_typing (ty, down) =
     case transformer_typing (transform_typing, transform_value) (ty, down) of
@@ -1536,13 +1528,11 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformerFun(
     fun on_va_leaf (VConst (EConst cn), _) = as_VConst cn
       | on_va_leaf (VAbs (EAbs e), ((kctxd, kdep), (tctxd, tdep))) = as_VAbs (shift_e_e (length tctxd) (tdep + 1) $ shift_c_e (length kctxd) kdep e)
       | on_va_leaf (VAbsC (EAbsC e), ((kctxd, kdep), (tctxd, tdep))) = as_VAbsC (shift_e_e (length tctxd) tdep $ shift_c_e (length kctxd) (kdep + 1) e)
-      | on_va_leaf (VLoc (ELoc l), _) = as_VLoc l
       | on_va_leaf _ = raise (Impossible "as_va_leaf")
 
-    fun on_ty_leaf (TyVar ((kctx, tctx, hctx), EVar x, _, _), ((kctxd, kdep), (tctxd, tdep))) = as_TyVar (insert_k kctx kdep kctxd, insert_t (map (shift_c_c (length kctxd) kdep) tctx) tdep tctxd, map_assoc (fn (t, i) => (shift_c_c (length kctxd) kdep t, shift_c_c (length kctxd) kdep i)) hctx) (if x >= tdep then x + (length tctxd) else x)
-      | on_ty_leaf (TyConst ((kctx, tctx, hctx), EConst cn, _, _), ((kctxd, kdep), (tctxd, tdep))) = as_TyConst (insert_k kctx kdep kctxd, insert_t (map (shift_c_c (length kctxd) kdep) tctx) tdep tctxd, map_assoc (fn (t, i) => (shift_c_c (length kctxd) kdep t, shift_c_c (length kctxd) kdep i)) hctx) cn
-      | on_ty_leaf (TyLoc ((kctx, tctx, hctx), ELoc l, _, _), ((kctxd, kdep), (tctxd, tdep))) = as_TyLoc (insert_k kctx kdep kctxd, insert_t (map (shift_c_c (length kctxd) kdep) tctx) tdep tctxd, map_assoc (fn (t, i) => (shift_c_c (length kctxd) kdep t, shift_c_c (length kctxd) kdep i)) hctx) l
-      | on_ty_leaf (TyFix (((kctx, tctx, hctx), EFix _, _, _), kd, ty), ((kctxd, kdep), (tctxd, tdep))) = as_TyFix (insert_k kctx kdep kctxd, insert_t (map (shift_c_c (length kctxd) kdep) tctx) tdep tctxd, map_assoc (fn (t, i) => (shift_c_c (length kctxd) kdep t, shift_c_c (length kctxd) kdep i)) hctx) kd ty
+    fun on_ty_leaf (TyVar ((kctx, tctx), EVar x, _, _), ((kctxd, kdep), (tctxd, tdep))) = as_TyVar (insert_k kctx kdep kctxd, insert_t (map (shift_c_c (length kctxd) kdep) tctx) tdep tctxd) (if x >= tdep then x + (length tctxd) else x)
+      | on_ty_leaf (TyConst ((kctx, tctx), EConst cn, _, _), ((kctxd, kdep), (tctxd, tdep))) = as_TyConst (insert_k kctx kdep kctxd, insert_t (map (shift_c_c (length kctxd) kdep) tctx) tdep tctxd) cn
+      | on_ty_leaf (TyFix (((kctx, tctx), EFix _, _, _), kd, ty), ((kctxd, kdep), (tctxd, tdep))) = as_TyFix (insert_k kctx kdep kctxd, insert_t (map (shift_c_c (length kctxd) kdep) tctx) tdep tctxd) kd ty
       | on_ty_leaf _ = raise (Impossible "as_ty_leaf")
 
     val transform_proping = CstrDerivHelper.transform_proping
@@ -1631,10 +1621,9 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformerFun(
 
     fun on_va_leaf (e, _) = e
 
-    fun on_ty_leaf (TyVar ((_, _, hctx), EVar x, _, _), (kctx, tctx)) = as_TyVar (kctx, tctx, hctx) x
-      | on_ty_leaf (TyConst ((_, _, hctx), EConst cn, _, _), (kctx, tctx)) = as_TyConst (kctx, tctx, hctx) cn
-      | on_ty_leaf (TyLoc ((_, _, hctx), ELoc l, _, _), (kctx, tctx)) = as_TyLoc (kctx, tctx, hctx) l
-      | on_ty_leaf (TyFix (((_, _, hctx), EFix _, _, _), kd, ty), (kctx, tctx)) = as_TyFix (kctx, tctx, hctx) kd ty
+    fun on_ty_leaf (TyVar ((_, _), EVar x, _, _), (kctx, tctx)) = as_TyVar (kctx, tctx) x
+      | on_ty_leaf (TyConst ((_, _), EConst cn, _, _), (kctx, tctx)) = as_TyConst (kctx, tctx) cn
+      | on_ty_leaf (TyFix (((_, _), EFix _, _, _), kd, ty), (kctx, tctx)) = as_TyFix (kctx, tctx) kd ty
       | on_ty_leaf _ = raise (Impossible "on_ty_leaf")
 
     val transform_proping = CstrDerivHelper.transform_proping
@@ -1726,12 +1715,10 @@ structure ExprDerivHelper = ExprDerivGenericTransformerFun(
     fun on_va_leaf (va as VConst _, _) = (va, [])
       | on_va_leaf (va as VAbs (EAbs e), (dep, ())) = (va, FVCstr.free_vars_c_e dep e)
       | on_va_leaf (va as VAbsC (EAbsC e), (dep, ())) = (va, FVCstr.free_vars_c_e (dep + 1) e)
-      | on_va_leaf (va as VLoc _, _) = (va, [])
       | on_va_leaf _ = raise (Impossible "on_va_leaf")
 
     fun on_ty_leaf (ty as TyVar (_, _, t, i), (dep, ())) = (ty, unique_merge (FVCstr.free_vars_c_c dep t, FVCstr.free_vars_c_c dep i))
       | on_ty_leaf (ty as TyConst (_, _, t, i), (dep, ())) = (ty, unique_merge (FVCstr.free_vars_c_c dep t, FVCstr.free_vars_c_c dep i))
-      | on_ty_leaf (ty as TyLoc (_, _, t, i), (dep, ())) = (ty, unique_merge (FVCstr.free_vars_c_c dep t, FVCstr.free_vars_c_c dep i))
       | on_ty_leaf (ty as TyFix ((_, _, t, i), _, _), (dep, ())) = (ty, unique_merge (FVCstr.free_vars_c_c dep t, FVCstr.free_vars_c_c dep i))
       | on_ty_leaf _ = raise (Impossible "on_ty_leaf")
 
@@ -1771,12 +1758,10 @@ structure ExprDerivHelper = ExprDerivGenericTransformerFun(
     fun on_va_leaf (va as VConst _, _) = (va, [])
       | on_va_leaf (va as VAbs (EAbs e), ((), dep)) = (va, FVExpr.free_vars_e_e (dep + 1) e)
       | on_va_leaf (va as VAbsC (EAbsC e), ((), dep)) = (va, FVExpr.free_vars_e_e dep e)
-      | on_va_leaf (va as VLoc _, _) = (va, [])
       | on_va_leaf _ = raise (Impossible "on_va_leaf")
 
     fun on_ty_leaf (ty as TyVar (ctx, EVar x, _, _), ((), dep)) = (ty, if x >= dep then [x - dep] else [])
       | on_ty_leaf (ty as TyConst _, _) = (ty, [])
-      | on_ty_leaf (ty as TyLoc _, _) = (ty, [])
       | on_ty_leaf (ty as TyFix _, _) = (ty, [])
       | on_ty_leaf _ = raise (Impossible "on_ty_leaf")
 
@@ -1809,17 +1794,16 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformerFun(
 
     fun on_va_leaf (va, _) = va
 
-    fun on_ty_leaf (TyVar ((kctx, tctx, hctx), EVar x, _, _), ((), (to, who))) =
+    fun on_ty_leaf (TyVar ((kctx, tctx), EVar x, _, _), ((), (to, who))) =
       if x = who then
           to
       else
           if x < who then
-              as_TyVar (kctx, take (tctx, who) @ drop (tctx, who + 1), hctx) x
+              as_TyVar (kctx, take (tctx, who) @ drop (tctx, who + 1)) x
           else
-              as_TyVar (kctx, take (tctx, who) @ drop (tctx, who + 1), hctx) (x - 1)
-      | on_ty_leaf (TyConst ((kctx, tctx, hctx), EConst cn, _, _), ((), (to, who))) = as_TyConst (kctx, take (tctx, who) @ drop (tctx, who + 1), hctx) cn
-      | on_ty_leaf (TyLoc ((kctx, tctx, hctx), ELoc l, _, _), ((), (to, who))) = as_TyLoc (kctx, take (tctx, who) @ drop (tctx, who + 1), hctx) l
-      | on_ty_leaf (TyFix (((kctx, tctx, hctx), _, _, _), kd, ty), ((), (to, who))) = as_TyFix (kctx, take (tctx, who) @ drop (tctx, who + 1), hctx) kd ty
+              as_TyVar (kctx, take (tctx, who) @ drop (tctx, who + 1)) (x - 1)
+      | on_ty_leaf (TyConst ((kctx, tctx), EConst cn, _, _), ((), (to, who))) = as_TyConst (kctx, take (tctx, who) @ drop (tctx, who + 1)) cn
+      | on_ty_leaf (TyFix (((kctx, tctx), _, _, _), kd, ty), ((), (to, who))) = as_TyFix (kctx, take (tctx, who) @ drop (tctx, who + 1)) kd ty
       | on_ty_leaf _ = raise (Impossible "on_ty_leaf")
 
     fun transform_proping (pr, kdown) = pr
