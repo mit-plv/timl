@@ -1,0 +1,217 @@
+open MicroTiMLInst
+open ShiftCstr
+
+type nkctx = string list
+type ktctx = string list
+type nctx = nkctx * ktctx
+
+fun name2index x ls =
+  case ls of
+      [] => raise Not_found
+    | y :: rest => if y = x then 0 else 1 + (name2index x rest)
+
+fun add_type t (kctx, tctx) = (kctx, t :: tctx)
+fun add_kind k (kctx, tctx) = (k :: kctx, map shift0_c_c tctx)
+
+fun add_tname x (nkctx, ntctx) = (nkctx, x :: ntctx)
+fun add_kname x (nkctx, ntctx) = (x :: nkctx, ntctx)
+
+fun gen_value e =
+  case e of
+      EConst cn => as_VConst cn
+    | EBinOp (EBPair, e1, e2) => as_VPair (gen_value e1) (gen_value e2)
+    | EUnOp (EUInj inj, e) => as_VInj inj (gen_value e)
+    | EAbs e => as_VAbs e
+    | EAbsC e => as_VAbsC e
+    | EPack (c, e) => as_VPack c (gen_value e)
+    | EUnOp (EUFold, e) => as_VFold (gen_value e)
+    | _ => raise (Impossible "gen_value")
+
+%%
+
+%name MicroTiML
+
+%term LCID of string
+    | UCID of string
+    | LPAREN
+    | RPAREN
+    | COLON
+    | RTRI
+    | LSQUARE
+    | RSQUARE
+    | LCURLY
+    | RCURLY
+    | PLUS
+    | MINUS
+    | MULT
+    | DIV
+    | TT
+    | FN
+    | PAIR
+    | FST
+    | SND
+    | INL
+    | INR
+    | CASE
+    | FOLD
+    | UNFOLD
+    | PACK
+    | UNPACK
+    | REC
+    | LET
+    | NEW
+    | READ
+    | WRITE
+    | INTV of int
+    | NATV of int
+    | REALV of string
+    | EOF
+
+%nonterm term of ctx * nctx -> typing
+       | cstr of kctx * nkctx -> kinding
+       | kind of kctx * nkctx -> wfkind
+       | tyeq of kctx * nkctx -> tyeq
+
+%keyword TT FN PAIR FST SND INL INR CASE FOLD UNFOLD PACK UNPACK REC LET NEW READ WRITE
+
+%pos unit
+
+%eop EOF
+%noshift EOF
+%nodefault
+%verbose
+
+%%
+
+term : LCID (fn (ctx, (_, ntctx)) => as_TyVar ctx (name2index LCID ntctx))
+     | TT (fn (ctx, _) => as_TyConst ctx ECTT)
+     | INTV (fn (ctx, _) => as_TyConst ctx (ECInt INTV))
+     | NATV (fn (ctx, _) => as_TyConst ctx (ECNat (Nat.from_int NATV)))
+     | LPAREN PAIR term term RPAREN (fn arg => as_TyPair (term1 arg) (term2 arg))
+     | LPAREN FST term RPAREN (fn arg => as_TyProj ProjFst (term arg))
+     | LPAREN SND term RPAREN (fn arg => as_TyProj ProjSnd (term arg))
+     | LPAREN INL term cstr RPAREN (fn (arg as ((kctx, _), (nkctx, _))) => as_TyInj InjInl (term arg) (cstr (kctx, nkctx)))
+     | LPAREN INR term cstr RPAREN (fn (arg as ((kctx, _), (nkctx, _))) => as_TyInj InjInr (term arg) (cstr (kctx, nkctx)))
+     | LPAREN CASE LPAREN LCID term RPAREN term term RPAREN
+                (fn (arg as (ctx, nctx)) =>
+                    let
+                        val ty = term1 arg
+                        val jty = extract_judge_typing ty
+                        val (t_inl, t_inr) = extract_c_sum (#3 jty)
+                        val ctx_inl = add_type t_inl ctx
+                        val ctx_inr = add_type t_inr ctx
+                        val nctx' = add_tname LCID nctx
+                    in
+                        as_TyCase ty (term2 (ctx_inl, nctx')) (term3 (ctx_inr, nctx'))
+                    end)
+     | LPAREN FOLD term cstr RPAREN (fn (arg as ((kctx, _), (nkctx, _))) => as_TyFold (cstr (kctx, nkctx)) (term arg))
+     | LPAREN UNFOLD term RPAREN (fn arg => as_TyUnfold (term arg))
+     | LPAREN PACK cstr term cstr RPAREN (fn (arg as ((kctx, _), (nkctx, _))) => as_TyPack (cstr2 (kctx, nkctx)) (cstr1 (kctx, nkctx)) (term arg))
+     | LPAREN UNPACK LPAREN UCID LCID term RPAREN term RPAREN
+                (fn (arg as (ctx, nctx)) =>
+                    let
+                        val ty = term1 arg
+                        val jty = extract_judge_typing ty
+                        val (q, k, t) = extract_c_quan (#3 jty)
+                        val ctx' = add_type t (add_kind k ctx)
+                        val nctx' = add_tname LCID (add_kname UCID nctx)
+                    in
+                        if q = QuanExists then as_TyUnpack ty (term2 (ctx', nctx')) else raise (Impossible "unpack a non-existential value")
+                    end)
+     | LPAREN REC LPAREN LCID COLON cstr RPAREN term RPAREN
+                (fn (arg as (ctx as (kctx, _), nctx as (nkctx, _))) =>
+                    let
+                        val kd = cstr (kctx, nkctx)
+                        val jkd = extract_judge_kinding kd
+                        val ctx' = add_type (#2 jkd) ctx
+                        val nctx' = add_tname LCID nctx
+                    in
+                        as_TyRec kd (term (ctx', nctx'))
+                    end)
+     | LPAREN LET LPAREN LCID term RPAREN term RPAREN
+                (fn (arg as (ctx, nctx)) =>
+                    let
+                        val ty1 = term1 arg
+                        val jty1 = extract_judge_typing ty1
+                        val ctx' = add_type (#3 jty1) ctx
+                        val nctx' = add_tname LCID nctx
+                    in
+                        as_TyLet ty1 (term2 (ctx', nctx'))
+                    end)
+     | LPAREN NEW term term RPAREN (fn arg => as_TyNew (term1 arg) (term2 arg))
+     | LPAREN READ term term RPAREN
+                (fn (arg as ((kctx, _), _)) =>
+                    let
+                        val ty1 = term1 arg
+                        val ty2 = term2 arg
+                        val jty1 = extract_judge_typing ty1
+                        val jty2 = extract_judge_typing ty2
+                        val (t, j1) = extract_c_type_arr (#3 jty1)
+                        val j2 = extract_c_type_nat (#3 jty2)
+                    in
+                        as_TyRead ty1 ty2 (PrAdmit (kctx, NLt (j2, j1)))
+                    end)
+     | LPAREN WRITE term term term RPAREN
+                (fn (arg as ((kctx, _), _)) =>
+                    let
+                        val ty1 = term1 arg
+                        val ty2 = term2 arg
+                        val ty3 = term3 arg
+                        val jty1 = extract_judge_typing ty1
+                        val jty2 = extract_judge_typing ty2
+                        val jty3 = extract_judge_typing ty3
+                        val (t, j1) = extract_c_type_arr (#3 jty1)
+                        val j2 = extract_c_type_nat (#3 jty2)
+                    in
+                        as_TyWrite ty1 ty2 (PrAdmit (kctx, NLt (j2, j1))) ty3
+                    end)
+     | LPAREN FN LPAREN LCID COLON cstr RPAREN term RPAREN
+                (fn (arg as (ctx as (kctx, _), nctx as (nkctx, _))) =>
+                    let
+                        val kd = cstr (kctx, nkctx)
+                        val jkd = extract_judge_kinding kd
+                        val ctx' = add_type (#2 jkd) ctx
+                        val nctx' = add_tname LCID nctx
+                    in
+                        as_TyAbs kd (term (ctx', nctx'))
+                    end)
+     | LPAREN FN LCURLY UCID COLON kind RCURLY term RPAREN
+                (fn (arg as (ctx as (kctx, _), nctx as (nkctx, _))) =>
+                    let
+                        val wk = kind (kctx, nkctx)
+                        val jwk = extract_judge_wfkind wk
+                        val ctx' = add_kind (#2 jwk) ctx
+                        val nctx' = add_kname UCID nctx
+                        val ty = term (ctx', nctx')
+                        val jty = extract_judge_typing ty
+                    in
+                        as_TyAbsC wk (gen_value (#2 jty)) ty
+                    end)
+     | LPAREN term term RPAREN (fn arg => as_TyApp (term1 arg) (term2 arg))
+     | LPAREN term LSQUARE cstr RSQUARE RPAREN
+                (fn (arg as ((kctx, _), (nkctx, _))) =>
+                    let
+                        val ty = term arg
+                        val kd = cstr (kctx, nkctx)
+                    in
+                        as_TyAppC ty kd
+                    end)
+     | LPAREN term COLON tyeq RPAREN
+                (fn (arg as ((kctx, _), (nkctx, _))) =>
+                    let
+                        val ty = term arg
+                        val te = tyeq (kctx, nkctx)
+                    in
+                        as_TySubTy ty te
+                    end)
+     | LPAREN term RTRI cstr RPAREN
+                (fn (arg as ((kctx, _), (nkctx, _))) =>
+                    let
+                        val ty = term arg
+                        val kd = cstr (kctx, nkctx)
+                        val jty = extract_judge_typing ty
+                        val jkd = extract_judge_kinding kd
+                    in
+                        as_TySubTi ty (PrAdmit (kctx, TLe (#4 jty, #2 jkd)))
+                    end)
+

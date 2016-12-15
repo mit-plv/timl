@@ -27,6 +27,9 @@ Group is
       typed-assembly-def.sml
       micro-timl-test.sml *)
 
+      micro-timl-inst.sml
+      micro-timl.grm
+      micro-timl.lex
       compiler.sml
 
       $/basis.cm

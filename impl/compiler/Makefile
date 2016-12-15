@@ -26,6 +26,9 @@ micro-timl-hoisted-def.sml \
 hoisted-deriv-checker.sml \
 typed-assembly-def.sml \
 micro-timl-test.sml \
+micro-timl-inst.sml \
+micro-timl.grm \
+micro-timl.lex \
 compiler.sml \
 mlton-compiler.sml
 
@@ -39,6 +42,8 @@ smlnj: compiler.cm
 mlton: compiler
 
 compiler: compiler.mlb $(FILES)
+	mlyacc micro-timl.grm
+	mllex micro-timl.lex
 	mlton $(MLTON_FLAGS) compiler.mlb
 
 clean:
