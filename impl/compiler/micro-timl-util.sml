@@ -71,6 +71,8 @@ fun extract_judge_tyeq te =
     | TyEqUnOp (j, _) => j
     | TyEqTypeNat (j, _) => j
     | TyEqTypeArr (j, _, _) => j
+    | TyEqNat (j, _) => j
+    | TyEqTime (j, _) => j
 
 fun extract_expr_value v =
   case v of
@@ -81,7 +83,6 @@ fun extract_expr_value v =
     | VAbsC e => e
     | VPack (e, _) => e
     | VFold (e, _) => e
-    | VLoc e => e
 
 fun extract_judge_typing ty =
   case ty of
@@ -103,7 +104,6 @@ fun extract_judge_typing ty =
     | TyNew (j, _, _) => j
     | TyRead (j, _, _, _) => j
     | TyWrite (j, _, _, _, _) => j
-    | TyLoc j => j
     | TySubTy (j, _, _) => j
     | TySubTi (j, _, _) => j
     | TyHalt (j, _) => j

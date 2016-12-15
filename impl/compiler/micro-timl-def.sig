@@ -5,6 +5,7 @@ sig
     val Time0 : time_type
     val Time1 : time_type
 
+    val from_string : string -> time_type
     val str_time : time_type -> string
 end
 
@@ -145,6 +146,7 @@ sig
     val TEq : cstr * cstr -> prop
 
     val NLt : cstr * cstr -> prop (* new helper *)
+    val NEq : cstr * cstr -> prop (* new helper *)
 
     val CNat : Nat.nat_type -> cstr (* new helper *)
 
@@ -232,6 +234,8 @@ sig
              | TyEqTypeNat of tyeq_judgement * proping (* new *)
              | TyEqTypeArr of tyeq_judgement * tyeq * proping (* new & TyEqRef removed *)
              | TyEqTrans of tyeq_judgement * tyeq * tyeq
+             | TyEqNat of tyeq_judgement * proping (* new *)
+             | TyEqTime of tyeq_judgement * proping (* new *)
 
     datatype expr_const =
              ECTT
@@ -253,11 +257,8 @@ sig
              InjInl
            | InjInr
 
-    type loc = int
-
     type tctx = cstr list
-    type hctx = (loc * (cstr * cstr)) list
-    type ctx = kctx * tctx * hctx
+    type ctx = kctx * tctx
 
     datatype expr_un_op =
              EUProj of projector
@@ -278,7 +279,6 @@ sig
     datatype expr =
              EVar of var
              | EConst of expr_const
-             | ELoc of loc
              | EUnOp of expr_un_op * expr
              | EBinOp of expr_bin_op * expr * expr
              | ETriOp of expr_tri_op * expr * expr * expr (* new *)
@@ -314,7 +314,6 @@ sig
              | VAbsC of expr
              | VPack of expr * value
              | VFold of expr * value
-             | VLoc of expr
 
     val EFst : expr -> expr
     val ESnd : expr -> expr
@@ -348,24 +347,10 @@ sig
              | TyNew of typing_judgement * typing * typing
              | TyRead of typing_judgement * typing * typing * proping
              | TyWrite of typing_judgement * typing * typing * proping * typing
-             | TyLoc of typing_judgement
              | TySubTy of typing_judgement * typing * tyeq (* new : split from TySub *)
              | TySubTi of typing_judgement * typing * proping (* new : split from TySub *)
              | TyHalt of typing_judgement * typing (* new, introduced in CPS *)
-             | TyLet of typing_judgement * typing * typing (* new, introduced in CPS *)
+             | TyLet of typing_judgement * typing * typing (* new *)
              | TyFix of typing_judgement * kinding * typing (* new, introduced in CloConv *)
              | TyPrimBinOp of typing_judgement * typing * typing (* new *)
-
-    type heap = (loc * expr list) list
-    type config = heap * expr * Time.time_type
-
-    type heaping_judgement = hctx * heap
-
-    datatype heaping =
-             HpHeap of heaping_judgement * (loc * typing list) list
-
-    type configing_judgement = hctx * config * cstr * cstr
-
-    datatype configing =
-             CfgConfig of configing_judgement * typing * heaping (* TODO: fuel checking *)
 end

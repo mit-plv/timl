@@ -48,6 +48,8 @@ sig
     val as_TyEqTrans : MicroTiMLDef.tyeq -> MicroTiMLDef.tyeq -> MicroTiMLDef.tyeq
     val as_TyEqTypeNat : MicroTiMLDef.proping -> MicroTiMLDef.tyeq
     val as_TyEqTypeArr : MicroTiMLDef.tyeq -> MicroTiMLDef.proping -> MicroTiMLDef.tyeq
+    val as_TyEqNat : MicroTiMLDef.proping -> MicroTiMLDef.tyeq
+    val as_TyEqTime : MicroTiMLDef.proping -> MicroTiMLDef.tyeq
     val as_VConst : MicroTiMLDef.expr_const -> MicroTiMLDef.value
     val as_VPair : MicroTiMLDef.value -> MicroTiMLDef.value -> MicroTiMLDef.value
     val as_VInj : MicroTiMLDef.injector -> MicroTiMLDef.value -> MicroTiMLDef.value
@@ -55,7 +57,6 @@ sig
     val as_VAbsC : MicroTiMLDef.expr -> MicroTiMLDef.value
     val as_VPack : MicroTiMLDef.cstr -> MicroTiMLDef.value -> MicroTiMLDef.value
     val as_VFold : MicroTiMLDef.value -> MicroTiMLDef.value
-    val as_VLoc : MicroTiMLDef.loc -> MicroTiMLDef.value
     val as_TyVar : MicroTiMLDef.ctx -> MicroTiMLDef.var -> MicroTiMLDef.typing
     val as_TyConst : MicroTiMLDef.ctx -> MicroTiMLDef.expr_const -> MicroTiMLDef.typing
     val as_TyApp : MicroTiMLDef.typing -> MicroTiMLDef.typing -> MicroTiMLDef.typing
@@ -80,7 +81,6 @@ sig
     val as_TyAppC : MicroTiMLDef.typing -> MicroTiMLDef.kinding -> MicroTiMLDef.typing
     val as_TyLet : MicroTiMLDef.typing -> MicroTiMLDef.typing -> MicroTiMLDef.typing
     val as_TyPrimBinOp : MicroTiMLDef.prim_expr_bin_op -> MicroTiMLDef.typing -> MicroTiMLDef.typing -> MicroTiMLDef.typing
-    val as_TyLoc : MicroTiMLDef.ctx -> MicroTiMLDef.loc -> MicroTiMLDef.typing
 end
 
 signature SIG_CSTR_DERIV_GENERIC_TRANSFORMER =

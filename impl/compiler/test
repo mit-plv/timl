@@ -1,0 +1,2 @@
+(let (f (rec (f : (forall (A : nat) (-> (Nat A) Unit 0.0))) (fn {A : nat} (fn (n : (Nat A)) tt))))
+  (f #10))

@@ -47,7 +47,6 @@ structure ExprHelper = ExprGenericTransformerFun(
       case e of
           EFix _ => raise (Impossible "CPS")
         | EHalt _ => raise (Impossible "CPS")
-        | ELet _ => raise (Impossible "CPS")
         | _ => NONE
     end)
 
@@ -99,7 +98,7 @@ fun send_to_cont ty_cont ty =
 
 fun meta_lemma ty =
   let
-      val ((kctx, _, _), _, t, i) = extract_judge_typing ty
+      val ((kctx, _), _, t, i) = extract_judge_typing ty
   in
       (KdAdmit (kctx, t, KType), KdAdmit (kctx, i, KTime))
   end
@@ -298,8 +297,8 @@ fun cps ty ty_cont =
   case ty of
       TyVar (_, EVar x, _, _) =>
       let
-          val ((kctx, tctx, hctx), _, _, _) = extract_judge_typing ty_cont
-          val ty_res = send_to_cont ty_cont (as_TyVar (kctx, tctx, hctx) x)
+          val ((kctx, tctx), _, _, _) = extract_judge_typing ty_cont
+          val ty_res = send_to_cont ty_cont (as_TyVar (kctx, tctx) x)
       in
           ty_res
       end
@@ -319,14 +318,14 @@ fun cps ty ty_cont =
           val in2_ty_cont = shift0_ctx_ty ([], [t2, t1]) ty_cont
           val in1_ty_cont =
               let
-                  val ((kctx, tctx, hctx), _, t_cont, _) = extract_judge_typing in2_ty_cont
-                  val ty_tmp1 = as_TyVar (kctx, CProd (t2, t_cont) :: t_cont :: tctx, hctx) 3
+                  val ((kctx, tctx), _, t_cont, _) = extract_judge_typing in2_ty_cont
+                  val ty_tmp1 = as_TyVar (kctx, CProd (t2, t_cont) :: t_cont :: tctx) 3
                   val (_, kd_tmp2, _) = inverse_kd_arrow $ fst $ meta_lemma in2_ty_cont (* kind context is just correct *)
                   val ty_tmp3 = as_TyAppC ty_tmp1 kd_tmp2
-                  val ty_tmp4 = as_TyVar (kctx, CProd (t2, t_cont) :: t_cont :: tctx, hctx) 0
+                  val ty_tmp4 = as_TyVar (kctx, CProd (t2, t_cont) :: t_cont :: tctx) 0
                   val ty_tmp5 = as_TyApp ty_tmp3 ty_tmp4
-                  val ty_tmp6 = as_TyVar (kctx, t_cont :: tctx, hctx) 1
-                  val ty_tmp7 = as_TyVar (kctx, t_cont :: tctx, hctx) 0
+                  val ty_tmp6 = as_TyVar (kctx, t_cont :: tctx) 1
+                  val ty_tmp7 = as_TyVar (kctx, t_cont :: tctx) 0
                   val ty_tmp8 = as_TyPair ty_tmp6 ty_tmp7
                   val ty_tmp9 = as_TyLet ty_tmp8 ty_tmp5
                   val ty_tmp10 = as_TyLet in2_ty_cont ty_tmp9
@@ -351,12 +350,12 @@ fun cps ty ty_cont =
           val in1_ty_cont = shift0_ctx_ty ([], [t]) ty_cont
           val in0_ty_cont =
               let
-                  val ((kctx, tctx, hctx), _, t_cont, _) = extract_judge_typing in1_ty_cont
-                  val ty_tmp1 = as_TyVar (kctx, t_cont :: tctx, hctx) 1
+                  val ((kctx, tctx), _, t_cont, _) = extract_judge_typing in1_ty_cont
+                  val ty_tmp1 = as_TyVar (kctx, t_cont :: tctx) 1
                   val ty_tmp2 = as_TyAppC ty_tmp1 kd_c
                   val (_, kd_tmp3, _) = inverse_kd_arrow $ fst $ meta_lemma in1_ty_cont (* kind context is just correct *)
                   val ty_tmp4 = as_TyAppC ty_tmp2 kd_tmp3
-                  val ty_tmp5 = as_TyVar (kctx, t_cont :: tctx, hctx) 0
+                  val ty_tmp5 = as_TyVar (kctx, t_cont :: tctx) 0
                   val ty_tmp6 = as_TyApp ty_tmp4 ty_tmp5
                   val ty_tmp7 = as_TyLet in1_ty_cont ty_tmp6
               in
@@ -389,29 +388,29 @@ fun cps ty ty_cont =
           val (_, _, _, i_body) = extract_judge_typing ty_body
           val ty_body =
               let
-                  val ((kctx, tctx, hctx), _, _, _) = extract_judge_typing ty_cont
+                  val ((kctx, tctx), _, _, _) = extract_judge_typing ty_cont
               in
-                  cps ty_body (as_TyVar (KTime :: kctx, t_arg :: t_body_cont :: t_param :: map shift0_c_c tctx, map_assoc (fn (t, i) => (shift0_c_c t, shift0_c_c i)) hctx) 1)
+                  cps ty_body (as_TyVar (KTime :: kctx, t_arg :: t_body_cont :: t_param :: map shift0_c_c tctx) 1)
               end
           val ty_wrap_arg =
               let
-                  val ((kctx, tctx, hctx), _, _, _) = extract_judge_typing ty_body
-                  val ty_tmp1 = as_TyVar (kctx, tl tctx, hctx) 1
+                  val ((kctx, tctx), _, _, _) = extract_judge_typing ty_body
+                  val ty_tmp1 = as_TyVar (kctx, tl tctx) 1
                   val ty_tmp2 = as_TyProj ProjFst ty_tmp1
               in
                   as_TyLet ty_tmp2 ty_body
               end
           val ty_wrap_body_cont =
               let
-                  val ((kctx, tctx, hctx), _, _, _) = extract_judge_typing ty_wrap_arg
-                  val ty_tmp1 = as_TyVar (kctx, tl tctx, hctx) 0
+                  val ((kctx, tctx), _, _, _) = extract_judge_typing ty_wrap_arg
+                  val ty_tmp1 = as_TyVar (kctx, tl tctx) 0
                   val ty_tmp2 = as_TyProj ProjSnd ty_tmp1
               in
                   as_TyLet ty_tmp2 ty_wrap_arg
               end
           val ty_sub_ti =
               let
-                  val ((kctx, tctx, hctx), e, t, i) = extract_judge_typing ty_wrap_body_cont
+                  val ((kctx, tctx), e, t, i) = extract_judge_typing ty_wrap_body_cont
                   val as_i = Tadd (Tadd (Tadd (Tmult (!blowup, Tadd (i_body, T1)), Tmult (TfromNat $ CNat $ Nat.from_int 2, i_body)), T1), CVar 0)
               in
                   as_TySubTi ty_wrap_body_cont (PrAdmit (kctx, TLe (i, as_i)))
@@ -419,7 +418,7 @@ fun cps ty ty_cont =
           val ty_abs = as_TyAbs kd_t_param ty_sub_ti
           val ty_abs_c =
               let
-                  val ((kctx, _, _), e_abs, _, _) = extract_judge_typing ty_abs
+                  val ((kctx, _), e_abs, _, _) = extract_judge_typing ty_abs
                   val wk = as_WfKdBaseSort (tl kctx) BSTime
               in
                   as_TyAbsC wk (as_VAbs (extract_e_abs e_abs)) ty_abs
@@ -448,13 +447,13 @@ fun cps ty ty_cont =
           val ty_body = shift0_ctx_ty ([KTime], [t_body_cont]) ty_body
           val ty_body =
               let
-                  val ((kctx, tctx, hctx), _, _, _) = extract_judge_typing ty_cont
+                  val ((kctx, tctx), _, _, _) = extract_judge_typing ty_cont
               in
-                  cps ty_body (as_TyVar (KTime :: k_arg :: kctx, t_body_cont :: map (shift_c_c 2 0) tctx, map_assoc (fn (t, i) => (shift_c_c 2 0 t, shift_c_c 2 0 i)) hctx) 0)
+                  cps ty_body (as_TyVar (KTime :: k_arg :: kctx, t_body_cont :: map (shift_c_c 2 0) tctx) 0)
               end
           val ty_sub_ti =
               let
-                  val ((kctx, tctx, hctx), e, t, i) = extract_judge_typing ty_body
+                  val ((kctx, tctx), e, t, i) = extract_judge_typing ty_body
                   val as_i = Tadd (T1, CVar 0)
               in
                   as_TySubTi ty_body (PrAdmit (kctx, TLe (i, as_i)))
@@ -462,7 +461,7 @@ fun cps ty ty_cont =
           val ty_abs = as_TyAbs kd_t_body_cont ty_sub_ti
           val ty_abs_c =
               let
-                  val ((kctx, _, _), e_abs, _, _) = extract_judge_typing ty_abs
+                  val ((kctx, _), e_abs, _, _) = extract_judge_typing ty_abs
                   val wk = as_WfKdBaseSort (tl kctx) BSTime
               in
                   as_TyAbsC wk (as_VAbs (extract_e_abs e_abs)) ty_abs
@@ -485,8 +484,8 @@ fun cps ty ty_cont =
           (* rec x. e, e must be abstraction, so [e, fn (x) => x] will return abstraction *)
           val ty_self =
               let
-                  val ((kctx, tctx, hctx), _, _, _) = extract_judge_typing ty_cont
-                  val ty_tmp1 = as_TyVar (kctx, t_self :: t_self :: tctx, hctx) 0
+                  val ((kctx, tctx), _, _, _) = extract_judge_typing ty_cont
+                  val ty_tmp1 = as_TyVar (kctx, t_self :: t_self :: tctx) 0
               in
                   cps ty_self (as_TyAbs kd_t_self ty_tmp1)
               end
@@ -593,12 +592,12 @@ fun cps ty ty_cont =
           val (_, k, t_body) = extract_c_quan t1
           val in0_ty_cont =
               let
-                  val ((kctx, tctx, hctx), _, _, _) = extract_judge_typing ty_cont
+                  val ((kctx, tctx), _, _, _) = extract_judge_typing ty_cont
                   val shifted_t1 = shift0_c_c t1
                   val ty_tmp1 = shift0_ctx_ty ([k], [t_body, shifted_t1]) ty_cont
                   val ty_tmp2 = shift_ctx_ty (([], 0), ([shifted_t1], 1)) ty2
                   val ty_tmp3 = cps ty_tmp2 ty_tmp1
-                  val ty_tmp4 = TyVar ((kctx, t1 :: tctx, hctx), EVar 0, t1, T0)
+                  val ty_tmp4 = TyVar ((kctx, t1 :: tctx), EVar 0, t1, T0)
                   val ty_tmp5 = as_TyUnpack ty_tmp4 ty_tmp3
               in
                   as_TyAbs kd_t1 ty_tmp5
@@ -614,12 +613,12 @@ fun cps ty ty_cont =
           val (t_inl, t_inr) = extract_c_sum t_disp
           val in0_ty_cont =
               let
-                  val ((kctx, tctx, hctx), _, t_cont, _) = extract_judge_typing ty_cont
-                  val ty_tmp1 = as_TyVar (kctx, t_inl :: t_cont :: t_disp :: tctx, hctx) 1
+                  val ((kctx, tctx), _, t_cont, _) = extract_judge_typing ty_cont
+                  val ty_tmp1 = as_TyVar (kctx, t_inl :: t_cont :: t_disp :: tctx) 1
                   val ty_tmp2 = cps (shift_ctx_ty (([], 0), ([t_cont, t_disp], 1)) ty1) ty_tmp1
-                  val ty_tmp3 = as_TyVar (kctx, t_inr :: t_cont :: t_disp :: tctx, hctx) 1
+                  val ty_tmp3 = as_TyVar (kctx, t_inr :: t_cont :: t_disp :: tctx) 1
                   val ty_tmp4 = cps (shift_ctx_ty (([], 0), ([t_cont, t_disp], 1)) ty2) ty_tmp3
-                  val ty_tmp5 = as_TyVar (kctx, t_cont :: t_disp :: tctx, hctx) 1
+                  val ty_tmp5 = as_TyVar (kctx, t_cont :: t_disp :: tctx) 1
                   val ty_tmp6 = as_TyCase ty_tmp5 ty_tmp2 ty_tmp4
                   val ty_tmp7 = shift0_ctx_ty ([], [t_disp]) ty_cont
                   val ty_tmp8 = as_TyLet ty_tmp7 ty_tmp6
@@ -627,6 +626,22 @@ fun cps ty ty_cont =
                   as_TyAbs kd_t_disp ty_tmp8
               end
           val ty_res = cps ty_disp in0_ty_cont
+      in
+          ty_res
+      end
+    | TyLet (_, ty1, ty2) =>
+      let
+          val kd_t1 = cps_kinding $ fst $ meta_lemma ty1
+          val (_, t1, _) = extract_judge_kinding kd_t1
+          val in0_ty_cont =
+              let
+                  val ((kctx, tctx), _, t_cont, _) = extract_judge_typing ty_cont
+                  val ty_tmp1 = shift0_ctx_ty ([], [t1]) ty_cont
+                  val ty_tmp2 = cps ty2 ty_tmp1
+              in
+                  as_TyAbs kd_t1 ty_tmp2
+              end
+          val ty_res = cps ty1 in0_ty_cont
       in
           ty_res
       end
@@ -643,7 +658,7 @@ fun cps ty ty_cont =
       let
           val (kd_t_body, t_body, ty_body_as_var) = cps_body_as_var_in1 ty_body ty_cont
           val ty_bare_res = cps_finisher_in1 ty_body kd_t_body t_body ty_body_as_var ty_cont
-          val ((kctx, _, _), _, _, i_bare_res) = extract_judge_typing ty_bare_res
+          val ((kctx, _), _, _, i_bare_res) = extract_judge_typing ty_bare_res
           val (_, _, i_body) =  extract_p_bin_pred $ snd $ extract_judge_proping pr
           val (_, _, t_cont, _) = extract_judge_typing ty_cont
           val (_, i_cont, _) = extract_c_arrow t_cont
@@ -663,9 +678,9 @@ and cps_body_as_var_in1 ty_body ty_cont =
     let
         val kd_t_body = cps_kinding $ fst $ meta_lemma ty_body
         val (_, t_body, _) = extract_judge_kinding kd_t_body
-        val ((kctx, tctx, hctx), _, _, _) = extract_judge_typing ty_cont
+        val ((kctx, tctx), _, _, _) = extract_judge_typing ty_cont
     in
-        (kd_t_body, t_body, as_TyVar (kctx, t_body :: tctx, hctx) 0)
+        (kd_t_body, t_body, as_TyVar (kctx, t_body :: tctx) 0)
     end
 
 and cps_body_as_var_in2 ty1 ty2 ty_cont =
@@ -674,9 +689,9 @@ and cps_body_as_var_in2 ty1 ty2 ty_cont =
         val kd_t2 = cps_kinding $ fst $ meta_lemma ty2
         val (_, t1, _) = extract_judge_kinding kd_t1
         val (_, t2, _) = extract_judge_kinding kd_t2
-        val ((kctx, tctx, hctx), _, _, _) = extract_judge_typing ty_cont
+        val ((kctx, tctx), _, _, _) = extract_judge_typing ty_cont
     in
-        (kd_t1, kd_t2, t1, t2, as_TyVar (kctx, t2 :: t1 :: tctx, hctx) 1, as_TyVar (kctx, t2 :: t1 :: tctx, hctx) 0)
+        (kd_t1, kd_t2, t1, t2, as_TyVar (kctx, t2 :: t1 :: tctx) 1, as_TyVar (kctx, t2 :: t1 :: tctx) 0)
     end
 
 and cps_body_as_var_in3 ty1 ty2 ty3 ty_cont =
@@ -687,16 +702,16 @@ and cps_body_as_var_in3 ty1 ty2 ty3 ty_cont =
         val (_, t1, _) = extract_judge_kinding kd_t1
         val (_, t2, _) = extract_judge_kinding kd_t2
         val (_, t3, _) = extract_judge_kinding kd_t3
-        val ((kctx, tctx, hctx), _, _, _) = extract_judge_typing ty_cont
+        val ((kctx, tctx), _, _, _) = extract_judge_typing ty_cont
     in
-        (kd_t1, kd_t2, kd_t3, t1, t2, t3, as_TyVar (kctx, t3 :: t2 :: t1 :: tctx, hctx) 2, as_TyVar (kctx, t3 :: t2 :: t1 :: tctx, hctx) 1, as_TyVar (kctx, t3 :: t2 :: t1 :: tctx, hctx) 0)
+        (kd_t1, kd_t2, kd_t3, t1, t2, t3, as_TyVar (kctx, t3 :: t2 :: t1 :: tctx) 2, as_TyVar (kctx, t3 :: t2 :: t1 :: tctx) 1, as_TyVar (kctx, t3 :: t2 :: t1 :: tctx) 0)
     end
 
 and cps_finisher_in1 ty_body kd_t_body t_body ty_post ty_cont =
     let
-        val ((kctx, tctx, hctx), _, t_post, _) = extract_judge_typing ty_post
+        val ((kctx, tctx), _, t_post, _) = extract_judge_typing ty_post
         val ty_tmp1 = shift0_ctx_ty ([], [t_post, t_body]) ty_cont
-        val ty_tmp2 = as_TyVar (kctx, t_post :: tctx, hctx) 0
+        val ty_tmp2 = as_TyVar (kctx, t_post :: tctx) 0
         (* possible optimization: if t_post is CTypeUnit, can pass it explicitly *)
         val ty_tmp3 = send_to_cont ty_tmp1 ty_tmp2
         val ty_tmp4 = as_TyLet ty_post ty_tmp3
@@ -708,9 +723,9 @@ and cps_finisher_in1 ty_body kd_t_body t_body ty_post ty_cont =
 
 and cps_finisher_in2 ty1 ty2 kd_t1 kd_t2 t1 t2 ty_post ty_cont =
     let
-        val ((kctx, tctx, hctx), _, t_post, _) = extract_judge_typing ty_post
+        val ((kctx, tctx), _, t_post, _) = extract_judge_typing ty_post
         val ty_tmp1 = shift0_ctx_ty ([], [t_post, t2, t1]) ty_cont
-        val ty_tmp2 = as_TyVar (kctx, t_post :: tctx, hctx) 0
+        val ty_tmp2 = as_TyVar (kctx, t_post :: tctx) 0
         (* possible optimization: if t_post is CTypeUnit, can pass it explicitly *)
         val ty_tmp3 = send_to_cont ty_tmp1 ty_tmp2
         val ty_tmp4 = as_TyLet ty_post ty_tmp3
@@ -724,9 +739,9 @@ and cps_finisher_in2 ty1 ty2 kd_t1 kd_t2 t1 t2 ty_post ty_cont =
 
 and cps_finisher_in3 ty1 ty2 ty3 kd_t1 kd_t2 kd_t3 t1 t2 t3 ty_post ty_cont =
     let
-        val ((kctx, tctx, hctx), _, t_post, _) = extract_judge_typing ty_post
+        val ((kctx, tctx), _, t_post, _) = extract_judge_typing ty_post
         val ty_tmp1 = shift0_ctx_ty ([], [t_post, t3, t2, t1]) ty_cont
-        val ty_tmp2 = as_TyVar (kctx, t_post :: tctx, hctx) 0
+        val ty_tmp2 = as_TyVar (kctx, t_post :: tctx) 0
         (* possible optimization: if t_post is CTypeUnit, can pass it explicitly *)
         val ty_tmp3 = send_to_cont ty_tmp1 ty_tmp2
         val ty_tmp4 = as_TyLet ty_post ty_tmp3
@@ -740,24 +755,22 @@ and cps_finisher_in3 ty1 ty2 ty3 kd_t1 kd_t2 kd_t3 t1 t2 t3 ty_post ty_cont =
         ty_res
     end
 
-fun cps_cfg (CfgConfig (([], ([], _, r), _, _), ty, hp)) =
+fun cps_deriv ty =
   let
       val (_, e, _, _) = extract_judge_typing ty
       val () = blowup := (TfromNat $ CNat $ Nat.from_int $ (snd $ CountNodes.count_nodes e) * 2)
       val kd_t = cps_kinding $ fst $ meta_lemma ty
       val (_, t, _) = extract_judge_kinding kd_t
-      val ((kctx, tctx, hctx), _, _, _) = extract_judge_typing ty
+      val ((kctx, tctx), _, _, _) = extract_judge_typing ty
       val ty_cont =
           let
-              val ty_tmp1 = as_TyVar (kctx, t :: tctx, hctx) 0
+              val ty_tmp1 = as_TyVar (kctx, t :: tctx) 0
               val ty_tmp2 = as_TyHalt ty_tmp1
           in
               as_TyAbs kd_t ty_tmp2
           end
       val ty_res = cps ty ty_cont
-      val (_, e_res, t_res, i_res) = extract_judge_typing ty_res
   in
-      CfgConfig (([], ([], e_res, r), t_res, i_res), ty_res, hp)
+      ty_res
   end
-  | cps_cfg _ = raise (Impossible "CPS a config whose heap is non-empty")
 end
