@@ -3950,20 +3950,6 @@ Section tyeq_hint.
         H : ~ _ |- _ => contradict H; eexists; eauto
       end.
 
-    Lemma subst_kd_lgeq_Abs g1 g2 G c1 c2 k :
-      subs_kd2_lgeq g1 g2 G ->
-      lgeq (subst0_cs_ks g1 G) (subst0_cs_ks g2 G) c1 c2 k ->
-      kinding2 (map Ke2NonAbs (subst0_cs_ks g1 G)) c1 k ->
-      kinding2 (map Ke2NonAbs (subst0_cs_ks g2 G)) c2 k ->
-      subs_kd2_lgeq (Some c1 :: g1) (Some c2 :: g2) (Ke2Abs k :: G).
-    Proof.
-      intros.
-      unfold subs_kd2_lgeq in *.
-      openhyp.
-      (* destruct Hsubeq as ((L'1 & Hsubskd1) & (L'2 & Hsubskd2) & (L'3 & Hsubslgeq)). *)
-      repeat eexists_split; eauto.
-    Qed.
-    
     Lemma lgeq_reverse1_eval k :
       forall L1 L2 t1' t2 ,
         lgeq L1 L2 t1' t2 k ->
@@ -4992,13 +4978,46 @@ Section tyeq_hint.
           simplify.
           invert Hnth.
           simpl.
+          (*here*)
+          Lemma shift_c_c_0_lgeq' :
+            forall k L1 L2 c1 c2 L1' L2',
+              lgeq L1 L2 c1 c2 k ->
+              let n := length L1' in
+              n = length L2' ->
+              lgeq (L1' ++ L1) (L2' ++ L2) (shift_c_c n 0 c1) (shift_c_c n 0 c2) k.
+          Proof.
+            induct k; simpl.
+            {
+              intros.
+              rewrite <- app_assoc.
+              unfold obeq in *.
+              openhyp.
+              split.
+              {
+                eapply admit.
+              }
+              unfold confluent in *.
+              eapply admit.
+            }
+            {
+              intros.
+              repeat rewrite <- app_assoc.
+              eapply admit.
+            }
+            {
+              intros.
+              (*here*)
+              eapply admit.
+            }
+          Qed.
           Lemma shift_c_c_0_lgeq L1 L2 c1 c2 k L1' L2' n :
             lgeq L1 L2 c1 c2 k ->
             n = length L1' ->
             n = length L2' ->
             lgeq (L1' ++ L1) (L2' ++ L2) (shift_c_c n 0 c1) (shift_c_c n 0 c2) k.
-            (*here*)
-          Admitted.
+          Proof.
+            eapply admit.
+          Qed.
           eapply shift_c_c_0_lgeq; eauto with db_la.
         }
         {
@@ -5404,6 +5423,20 @@ Section tyeq_hint.
         intros g1 g2 Hsubeq.
         intros t1' t2' Hlgeq Hkd1 Hkd2.
         intros Hni.
+        Lemma subst_kd_lgeq_Abs g1 g2 G c1 c2 k :
+          subs_kd2_lgeq g1 g2 G ->
+          lgeq (subst0_cs_ks g1 G) (subst0_cs_ks g2 G) c1 c2 k ->
+          kinding2 (map Ke2NonAbs (subst0_cs_ks g1 G)) c1 k ->
+          kinding2 (map Ke2NonAbs (subst0_cs_ks g2 G)) c2 k ->
+          subs_kd2_lgeq (Some c1 :: g1) (Some c2 :: g2) (Ke2Abs k :: G).
+        Proof.
+          intros.
+          unfold subs_kd2_lgeq in *.
+          openhyp.
+          (* destruct Hsubeq as ((L'1 & Hsubskd1) & (L'2 & Hsubskd2) & (L'3 & Hsubslgeq)). *)
+          repeat eexists_split; eauto.
+        Qed.
+        
         copy Hsubeq Hsubeq'.
         eapply subst_kd_lgeq_Abs in Hsubeq'; eauto.
         eapply IHkinding2 in Hsubeq'.
