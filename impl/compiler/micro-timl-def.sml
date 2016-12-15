@@ -11,6 +11,8 @@ open Nat
 
 datatype cstr_const =
          CCIdxTT
+         | CCIdxTrue
+         | CCIdxFalse
          | CCIdxNat of nat_type
          | CCTime of time_type
          | CCTypeUnit
@@ -21,12 +23,20 @@ datatype cstr_bin_op =
          | CBTimeMinus
          | CBTimeMult
          | CBTimeMax
+         | CBTimeMin
+         | CBNatAdd
+         | CBNatMinus
+         | CBNatMult
          | CBTypeProd
          | CBTypeSum
-         | CBNatAdd
 
 datatype cstr_un_op =
-         CUNat2Time
+         CUCeil
+         | CUFloor
+         | CULog of int
+         | CUDiv of int
+         | CUNat2Time
+         | CUBool2Nat
 
 datatype quan =
          QuanForall
@@ -42,9 +52,16 @@ datatype prop_bin_conn =
 
 datatype prop_bin_pred =
          PBTimeLe
+         | PBTimeLt
          | PBTimeEq
+         | PBTimeGe
+         | PBTimeGt
          | PBBigO of int
+         | PBNatLe
+         | PBNatLt
          | PBNatEq
+         | PBNatGe
+         | PBNatGt
 
 datatype sort =
          BSNat
@@ -55,6 +72,7 @@ datatype sort =
 datatype cstr =
          CVar of var
          | CConst of cstr_const
+         | CUnOp of cstr_un_op * cstr
          | CBinOp of cstr_bin_op * cstr * cstr
          | CIte of cstr * cstr * cstr
          | CTimeAbs of cstr
@@ -63,9 +81,9 @@ datatype cstr =
          | CAbs of cstr
          | CApp of cstr * cstr
          | CQuan of quan * kind * cstr
-         | CRec of string * kind * cstr
-         | CRef of cstr
-         | CUnOp of cstr_un_op * cstr
+         | CRec of kind * cstr
+         | CTypeNat of cstr
+         | CTypeArr of cstr * cstr
 
      and kind =
          KType
@@ -93,7 +111,8 @@ val T1 = Tconst Time1
 fun Tadd (c1, c2) = CBinOp (CBTimeAdd, c1, c2)
 fun Tminus (c1, c2) = CBinOp (CBTimeMinus, c1, c2)
 fun Tmult (c1, c2) = CBinOp (CBTimeMult, c1, c2)
-
+fun Tmax (c1, c2) = CBinOp (CBTimeMax, c1, c2)
+fun Tmin (c1, c2) = CBinOp (CBTimeMin, c1, c2)
 fun TfromNat c = CUnOp (CUNat2Time, c)
 
 fun PAnd (p1, p2) = PBinConn (PBCAnd, p1, p2)
@@ -101,12 +120,11 @@ fun POr (p1, p2) = PBinConn (PBCOr, p1, p2)
 fun PImply (p1, p2) = PBinConn (PBCImply, p1, p2)
 fun PIff (p1, p2) = PBinConn (PBCIff, p1, p2)
 
-fun Tmax (c1, c2) = CBinOp (CBTimeMax, c1, c2)
-
 fun CForall (k, c) = CQuan (QuanForall, k, c)
 fun CExists (k, c) = CQuan (QuanExists, k, c)
 
 val CTypeUnit = CConst CCTypeUnit
+val CTypeInt = CConst CCTypeInt
 
 fun CProd (c1, c2) = CBinOp (CBTypeProd, c1, c2)
 fun CSum (c1, c2) = CBinOp (CBTypeSum, c1, c2)
@@ -114,7 +132,8 @@ fun CSum (c1, c2) = CBinOp (CBTypeSum, c1, c2)
 fun TLe (c1, c2) = PBinPred (PBTimeLe, c1, c2)
 fun TEq (c1, c2) = PBinPred (PBTimeEq, c1, c2)
 
-val CTypeInt = CConst CCTypeInt
+fun NLt (c1, c2) = PBinPred (PBNatLt, c1, c2)
+
 fun CNat n = CConst (CCIdxNat n)
 
 fun CApps t cs =
@@ -125,6 +144,8 @@ fun CApps t cs =
 fun const_kind cn =
   case cn of
       CCIdxTT => KUnit
+    | CCIdxTrue => KBool
+    | CCIdxFalse => KBool
     | CCIdxNat _ => KNat
     | CCTime _ => KTime
     | CCTypeUnit => KType
@@ -136,9 +157,12 @@ fun cbinop_arg1_kind opr =
     | CBTimeMinus => KTime
     | CBTimeMult => KTime
     | CBTimeMax => KTime
+    | CBTimeMin => KTime
+    | CBNatAdd => KNat
+    | CBNatMinus => KNat
+    | CBNatMult => KNat
     | CBTypeProd => KType
     | CBTypeSum => KType
-    | CBNatAdd => KNat
 
 fun cbinop_arg2_kind opr =
   case opr of
@@ -146,9 +170,12 @@ fun cbinop_arg2_kind opr =
     | CBTimeMinus => KTime
     | CBTimeMult => KTime
     | CBTimeMax => KTime
+    | CBTimeMin => KTime
+    | CBNatAdd => KNat
+    | CBNatMinus => KNat
+    | CBNatMult => KNat
     | CBTypeProd => KType
     | CBTypeSum => KType
-    | CBNatAdd => KNat
 
 fun cbinop_result_kind opr =
   case opr of
@@ -156,31 +183,58 @@ fun cbinop_result_kind opr =
     | CBTimeMinus => KTime
     | CBTimeMult => KTime
     | CBTimeMax => KTime
+    | CBTimeMin => KTime
+    | CBNatAdd => KNat
+    | CBNatMinus => KNat
+    | CBNatMult => KNat
     | CBTypeProd => KType
     | CBTypeSum => KType
-    | CBNatAdd => KNat
 
 fun cunop_arg_kind opr =
   case opr of
-      CUNat2Time => KNat
+      CUCeil => KTime
+    | CUFloor => KTime
+    | CULog _ => KTime
+    | CUDiv _ => KTime
+    | CUNat2Time => KNat
+    | CUBool2Nat => KBool
 
 fun cunop_result_kind opr =
   case opr of
-      CUNat2Time => KTime
+      CUCeil => KNat
+    | CUFloor => KNat
+    | CULog _ => KTime
+    | CUDiv _ => KTime
+    | CUNat2Time => KTime
+    | CUBool2Nat => KNat
 
 fun binpred_arg1_kind opr =
   case opr of
       PBTimeLe => KTime
+    | PBTimeLt => KTime
     | PBTimeEq => KTime
+    | PBTimeGe => KTime
+    | PBTimeGt => KTime
     | PBBigO n => KTimeFun n
+    | PBNatLe => KNat
+    | PBNatLt => KNat
     | PBNatEq => KNat
+    | PBNatGe => KNat
+    | PBNatGt => KNat
 
 fun binpred_arg2_kind opr =
   case opr of
       PBTimeLe => KTime
+    | PBTimeLt => KTime
     | PBTimeEq => KTime
+    | PBTimeGe => KTime
+    | PBTimeGt => KTime
     | PBBigO n => KTimeFun n
+    | PBNatLe => KNat
+    | PBNatLt => KNat
     | PBNatEq => KNat
+    | PBNatGe => KNat
+    | PBNatGt => KNat
 
 type kctx = kind list
 
@@ -205,18 +259,19 @@ type wfprop_judgement = kctx * prop
 datatype kinding =
          KdVar of kinding_judgement
          | KdConst of kinding_judgement
+         | KdUnOp of kinding_judgement * kinding
          | KdBinOp of kinding_judgement * kinding * kinding
          | KdIte of kinding_judgement * kinding * kinding * kinding
+         | KdTimeAbs of kinding_judgement * kinding
+         | KdTimeApp of kinding_judgement * kinding * kinding
          | KdArrow of kinding_judgement * kinding * kinding * kinding
          | KdAbs of kinding_judgement * wfkind * kinding
          | KdApp of kinding_judgement * kinding * kinding
-         | KdTimeAbs of kinding_judgement * kinding
-         | KdTimeApp of kinding_judgement * kinding * kinding
          | KdQuan of kinding_judgement * wfkind * kinding
          | KdRec of kinding_judgement * wfkind * kinding
-         | KdRef of kinding_judgement * kinding
+         | KdTypeNat of kinding_judgement * kinding
+         | KdTypeArr of kinding_judgement * kinding * kinding
          | KdEq of kinding_judgement * kinding * kdeq
-         | KdUnOp of kinding_judgement * kinding
          | KdAdmit of kinding_judgement
 
      and wfkind =
@@ -239,27 +294,41 @@ type tyeq_judgement = kctx * cstr * cstr
 datatype tyeq =
          TyEqVar of tyeq_judgement
          | TyEqConst of tyeq_judgement
+         | TyEqUnOp of tyeq_judgement * tyeq
          | TyEqBinOp of tyeq_judgement * tyeq * tyeq
          | TyEqIte of tyeq_judgement * tyeq * tyeq * tyeq
+         | TyEqTimeAbs of tyeq_judgement
+         | TyEqTimeApp of tyeq_judgement
          | TyEqArrow of tyeq_judgement * tyeq * proping * tyeq
+         | TyEqAbs of tyeq_judgement
          | TyEqApp of tyeq_judgement * tyeq * tyeq
-         | TyEqTimeApp of tyeq_judgement * tyeq * tyeq
-         | TyEqBeta of tyeq_judgement * tyeq * tyeq * tyeq
-         | TyEqBetaRev of tyeq_judgement * tyeq * tyeq * tyeq
+         | TyEqBeta of tyeq_judgement
+         | TyEqBetaRev of tyeq_judgement
          | TyEqQuan of tyeq_judgement * kdeq * tyeq
          | TyEqRec of tyeq_judgement * kdeq * tyeq
-         | TyEqRef of tyeq_judgement * tyeq
-         | TyEqAbs of tyeq_judgement
-         | TyEqTimeAbs of tyeq_judgement
-         | TyEqUnOp of tyeq_judgement * tyeq
-         | TyEqNat of tyeq_judgement * kinding * kinding * proping
+         | TyEqTypeNat of tyeq_judgement * proping
+         | TyEqTypeArr of tyeq_judgement * tyeq * proping
+         | TyEqTrans of tyeq_judgement * tyeq * tyeq
 
 datatype expr_const =
          ECTT
          | ECInt of int
+         | ECNat of nat_type
 
 datatype prim_expr_bin_op =
          PEBIntAdd
+
+fun pebinop_arg1_type opr =
+  case opr of
+      PEBIntAdd => CTypeInt
+
+fun pebinop_arg2_type opr =
+  case opr of
+      PEBIntAdd => CTypeInt
+
+fun pebinop_result_type opr =
+  case opr of
+      PEBIntAdd => CTypeInt
 
 datatype projector =
          ProjFst
@@ -269,28 +338,35 @@ datatype injector =
          InjInl
        | InjInr
 
+type loc = int
+
 type tctx = cstr list
-type ctx = kctx * tctx
+type hctx = (loc * (cstr * cstr)) list
+type ctx = kctx * tctx * hctx
 
 datatype expr_un_op =
          EUProj of projector
          | EUInj of injector
          | EUFold
          | EUUnfold
-         | EUNew
-         | EURead
 
 datatype expr_bin_op =
          EBPrim of prim_expr_bin_op
          | EBApp
          | EBPair
-         | EBWrite
+         | EBNew
+         | EBRead
+
+datatype expr_tri_op =
+         ETWrite
 
 datatype expr =
          EVar of var
          | EConst of expr_const
+         | ELoc of loc
          | EUnOp of expr_un_op * expr
          | EBinOp of expr_bin_op * expr * expr
+         | ETriOp of expr_tri_op * expr * expr * expr
          | ECase of expr * expr * expr
          | EAbs of expr
          | ERec of expr
@@ -306,12 +382,14 @@ fun EProj (p, e) = EUnOp (EUProj p, e)
 fun EInj (c, e) = EUnOp (EUInj c, e)
 fun EFold e = EUnOp (EUFold, e)
 fun EUnfold e = EUnOp (EUUnfold, e)
-fun ENew e = EUnOp (EUNew, e)
-fun ERead e = EUnOp (EURead, e)
 
+fun EPrim opr (e1, e2) = EBinOp (EBPrim opr, e1, e2)
 fun EApp (e1, e2) = EBinOp (EBApp, e1, e2)
 fun EPair (e1, e2) = EBinOp (EBPair, e1, e2)
-fun EWrite (e1, e2) = EBinOp (EBWrite, e1, e2)
+fun ENew (e1, e2) = EBinOp (EBNew, e1, e2)
+fun ERead (e1, e2) = EBinOp (EBRead, e1, e2)
+
+fun EWrite (e1, e2, e3) = ETriOp (ETWrite, e1, e2, e3)
 
 datatype value =
          VConst of expr
@@ -321,6 +399,7 @@ datatype value =
          | VAbsC of expr
          | VPack of expr * value
          | VFold of expr * value
+         | VLoc of expr
 
 fun EFst e = EProj (ProjFst, e)
 fun ESnd e = EProj (ProjSnd, e)
@@ -328,11 +407,14 @@ fun EInl e = EInj (InjInl, e)
 fun EInr e = EInj (InjInr, e)
 
 val ETT = EConst ECTT
+fun EInt i = EConst (ECInt i)
+fun ENat n = EConst (ECNat n)
 
 fun const_type cn =
   case cn of
       ECTT => CTypeUnit
     | ECInt _ => CTypeInt
+    | ECNat n => CTypeNat (CNat n)
 
 type typing_judgement = ctx * expr * cstr * cstr
 
@@ -341,7 +423,7 @@ datatype typing =
          | TyApp of typing_judgement * typing * typing
          | TyAbs of typing_judgement * kinding * typing
          | TyAppC of typing_judgement * typing * kinding
-         | TyAbsC of typing_judgement * wfkind * typing
+         | TyAbsC of typing_judgement * wfkind * value * typing
          | TyRec of typing_judgement * kinding * typing
          | TyFold of typing_judgement * kinding * typing
          | TyUnfold of typing_judgement * typing
@@ -352,12 +434,27 @@ datatype typing =
          | TyProj of typing_judgement * typing
          | TyInj of typing_judgement * typing * kinding
          | TyCase of typing_judgement * typing * typing * typing
-         | TyNew of typing_judgement * typing
-         | TyRead of typing_judgement * typing
-         | TyWrite of typing_judgement * typing * typing
+         | TyNew of typing_judgement * typing * typing
+         | TyRead of typing_judgement * typing * typing * proping
+         | TyWrite of typing_judgement * typing * typing * proping * typing
+         | TyLoc of typing_judgement
          | TySubTy of typing_judgement * typing * tyeq
          | TySubTi of typing_judgement * typing * proping
          | TyHalt of typing_judgement * typing
          | TyLet of typing_judgement * typing * typing
          | TyFix of typing_judgement * kinding * typing
+         | TyPrimBinOp of typing_judgement * typing * typing
+
+type heap = (loc * expr list) list
+type config = heap * expr * Time.time_type
+
+type heaping_judgement = hctx * heap
+
+datatype heaping =
+         HpHeap of heaping_judgement * (loc * typing list) list
+
+type configing_judgement = hctx * config * cstr * cstr
+
+datatype configing =
+         CfgConfig of configing_judgement * typing * heaping
 end

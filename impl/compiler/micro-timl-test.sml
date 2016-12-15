@@ -46,8 +46,13 @@ structure MicroTiMLHoistedDef = MicroTiMLHoistedDefFun(MicroTiMLDef)
 open MicroTiMLHoistedDef
 structure HoistedDerivChecker = HoistedDerivCheckerFun(MicroTiMLHoistedDef)
 open HoistedDerivChecker
+structure TypedAssemblyDef = TypedAssemblyDefFun(MicroTiMLHoistedDef)
+structure CodeGenPass = CodeGenPassFun(TypedAssemblyDef)
+open CodeGenPass
 
+structure DerivAssembler = DerivAssemblerFun(MicroTiMLDef)
 open DerivAssembler
+
 open ShiftCtx
 open PlainPrinter
 open ShiftCstr
@@ -133,12 +138,12 @@ fun gen_tyeq_refl kctx t =
       in
           TyEqQuan (as_TyEqQuan q ke te, ke, te)
       end
-    | CRec (name, k, c) =>
+    | CRec (k, c) =>
       let
           val ke = gen_kdeq_refl kctx k
           val te = gen_tyeq_refl (k :: kctx) c
       in
-          TyEqRec (as_TyEqRec name name ke te, ke, te)
+          TyEqRec (as_TyEqRec ke te, ke, te)
       end
     | CRef c =>
       let
@@ -211,6 +216,8 @@ fun test_absc_appc () =
       val hoisted_ty = hoist_deriv clo_ty
       val () = print $ str_program $ #1 (extract_judge_ptyping hoisted_ty)
       val () = check_program hoisted_ty
+      val assembly_ty = code_gen_deriv hoisted_ty
+      val () = print $ str_tal_program $ #1 (extract_judge_tal_program_typing assembly_ty)
   in
       println ""
   end
@@ -237,6 +244,8 @@ fun test_abs_app () =
       val hoisted_ty = hoist_deriv clo_ty
       val () = print $ str_program $ #1 (extract_judge_ptyping hoisted_ty)
       val () = check_program hoisted_ty
+      val assembly_ty = code_gen_deriv hoisted_ty
+      val () = println $ str_tal_program (#1 (extract_judge_tal_program_typing assembly_ty))
   in
       println ""
   end
@@ -265,6 +274,8 @@ fun test_currying () =
       val hoisted_ty = hoist_deriv clo_ty
       val () = print $ str_program $ #1 (extract_judge_ptyping hoisted_ty)
       val () = check_program hoisted_ty
+      val assembly_ty = code_gen_deriv hoisted_ty
+      val () = println $ str_tal_program (#1 (extract_judge_tal_program_typing assembly_ty))
   (*val anf_ty = fst $ ANF.normalize_deriv clo_conv_deriv
       val janf_ty = extract_judge_typing anf_ty
       val () = println $ str_expr $ #2 janf_ty
@@ -310,7 +321,7 @@ fun test_concat () =
       val ct8 = tl ct7
       val d8 = KdAbs ((ct8, c8, KArrow (KType, KArrow (KNat, KType))), WfKdType (ct8, KType), d7)
       val () = check_kinding d8
-      val c9 = CRec ("list", KArrow (KType, KArrow (KNat, KType)), c8)
+      val c9 = CRec (KArrow (KType, KArrow (KNat, KType)), c8)
       val ct9 = tl ct8
       val d9 = KdRec ((ct9, c9, KArrow (KType, KArrow (KNat, KType))), WfKdArrow ((ct9, KArrow (KType, KArrow (KNat, KType))), WfKdType (ct9, KType), WfKdArrow ((ct9, KArrow (KNat, KType)), WfKdBaseSort (ct9, KNat), WfKdType (ct9, KType))), d8)
       val () = check_kinding d9
@@ -491,7 +502,7 @@ fun test_concat () =
       val () = check_typing d40
       val e41 = EUnfold e40
       val ct41 = ct40
-      val (_, _, list_body) = extract_c_rec list_dec
+      val (_, list_body) = extract_c_rec list_dec
       val t41 = CApps (subst0_c_c list_dec list_body) [CVar 2, CVar 1]
       val i41 = T0
       val d41 = TyUnfold ((ct41, e41, t41, i41), d40)
@@ -562,6 +573,8 @@ fun test_concat () =
       val hoisted_ty = hoist_deriv clo_ty
       val () = print $ str_program $ #1 (extract_judge_ptyping hoisted_ty)
       val () = check_program hoisted_ty
+      val assembly_ty = code_gen_deriv hoisted_ty
+      val () = println $ str_tal_program (#1 (extract_judge_tal_program_typing assembly_ty))
   (*val concat_anf_ty = fst $ ANF.normalize_deriv concat_clo_conv_deriv
       val jconcat_anf_ty = extract_judge_typing concat_anf_ty
       val () = println $ str_expr $ #2 jconcat_anf_ty

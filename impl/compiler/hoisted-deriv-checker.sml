@@ -23,24 +23,7 @@ fun check_atyping ty =
   (case ty of
        ATyVar ((fctx, kctx, tctx), AEVar x, t, T0) => assert (nth (tctx, x) = t)
      | ATyConst ((fctx, kctx, tctx), AEConst cn, t, T0) => assert (const_type cn = t)
-     | ATyFuncPointer ((fctx, kctx, tctx), AEFuncPointer f, t, T0) => assert (nth (fctx, f) = t)
-     | ATyPair ((ctx, AEPair (e1, e2), CBinOp (CBTypeProd, t1, t2), CBinOp (CBTimeAdd, i1, i2)), ty1, ty2) =>
-       let
-           val () = check_atyping ty1
-           val () = check_atyping ty2
-           val jty1 = extract_judge_atyping ty1
-           val jty2 = extract_judge_atyping ty2
-           val () = assert (#1 jty1 = ctx)
-           val () = assert (#2 jty1 = e1)
-           val () = assert (#3 jty1 = t1)
-           val () = assert (#4 jty1 = i1)
-           val () = assert (#1 jty2 = ctx)
-           val () = assert (#2 jty2 = e2)
-           val () = assert (#3 jty2 = t2)
-           val () = assert (#4 jty2 = i2)
-       in
-           ()
-       end
+     | ATyFuncPointer ((fctx, kctx, tctx), AEFuncPointer f, t, T0) => assert (nth (fctx, f) = t) 
      | ATyAppC ((ctx as (fctx, kctx, tctx), AEAppC (e, c), t, i), ty, kd) =>
        let
            val () = check_atyping ty
@@ -138,6 +121,23 @@ and check_ctyping ty =
          in
              ()
          end
+       | CTyPair ((ctx, CEBinOp (EBPair, e1, e2), CBinOp (CBTypeProd, t1, t2), CBinOp (CBTimeAdd, i1, i2)), ty1, ty2) =>
+         let
+             val () = check_atyping ty1
+             val () = check_atyping ty2
+             val jty1 = extract_judge_atyping ty1
+             val jty2 = extract_judge_atyping ty2
+             val () = assert (#1 jty1 = ctx)
+             val () = assert (#2 jty1 = e1)
+             val () = assert (#3 jty1 = t1)
+             val () = assert (#4 jty1 = i1)
+             val () = assert (#1 jty2 = ctx)
+             val () = assert (#2 jty2 = e2)
+             val () = assert (#3 jty2 = t2)
+             val () = assert (#4 jty2 = i2)
+         in
+             ()
+         end
        | CTyInj ((ctx as (fctx, kctx, tctx), CEUnOp (EUInj inj, e), CBinOp (CBTypeSum, t1, t2), i), ty, kd) =>
          let
              val () = check_atyping ty
@@ -167,7 +167,7 @@ and check_ctyping ty =
              val (t1, cs) = unfold_CApps t []
              val () =
                  case t1 of
-                     CRec (_, k, t2) =>
+                     CRec (k, t2) =>
                      let
                          val () = assert (#1 jkd = kctx)
                          val () = assert (#2 jkd = t)
@@ -194,7 +194,7 @@ and check_ctyping ty =
              val (t, cs) = unfold_CApps (#3 jty) []
              val () =
                  case t of
-                     CRec (_, k, t1) =>
+                     CRec (k, t1) =>
                      let
                          val () = assert (#1 jty = ctx)
                          val () = assert (#2 jty = e)

@@ -1,46 +1,48 @@
-signature SIG_AST_TRANSFORMERS =
+signature SIG_CSTR_GENERIC_TRANSFORMER =
 sig
     structure MicroTiMLDef : SIG_MICRO_TIML_DEF
 
-    functor ExprGenericTransformer(
-        Action:
-        sig
-            type kdown
-            type tdown
-            type down = kdown * tdown
-            type up
+    type down
+    type up
 
-            val upward_base : up
-            val combiner : up * up -> up
+    val transform_cstr : MicroTiMLDef.cstr * down -> MicroTiMLDef.cstr * up
+    val transform_kind : MicroTiMLDef.kind * down -> MicroTiMLDef.kind * up
+    val transform_prop : MicroTiMLDef.prop * down -> MicroTiMLDef.prop * up
+end
 
-            val add_kind : MicroTiMLDef.kind option * down -> down
-            val add_type : MicroTiMLDef.cstr option * tdown -> tdown
+signature SIG_EXPR_GENERIC_TRANSFORMER =
+sig
+    structure MicroTiMLDef : SIG_MICRO_TIML_DEF
 
-            val transform_cstr : MicroTiMLDef.cstr * kdown -> MicroTiMLDef.cstr * up
+    type down
+    type up
 
-            val transformer_expr : (MicroTiMLDef.expr * down -> MicroTiMLDef.expr * up) -> MicroTiMLDef.expr * down -> (MicroTiMLDef.expr * up) option
-        end
-    ) :
-            sig
-                val transform_expr : MicroTiMLDef.expr * Action.down -> MicroTiMLDef.expr * Action.up
-            end
+    val transform_expr : MicroTiMLDef.expr * down -> MicroTiMLDef.expr * up
+end
 
-    functor CstrGenericOnlyDownTransformer(
-        Action:
-        sig
-            type down
+signature SIG_CSTR_GENERIC_ONLY_DOWN_TRANSFORMER =
+sig
+    structure MicroTiMLDef : SIG_MICRO_TIML_DEF
 
-            val add_kind : MicroTiMLDef.kind option * down -> down
+    type down
 
-            val transformer_cstr : (MicroTiMLDef.cstr * down -> MicroTiMLDef.cstr) * (MicroTiMLDef.kind * down -> MicroTiMLDef.kind) -> MicroTiMLDef.cstr * down -> MicroTiMLDef.cstr option
-            val transformer_kind : (MicroTiMLDef.kind * down -> MicroTiMLDef.kind) * (MicroTiMLDef.prop * down -> MicroTiMLDef.prop) -> MicroTiMLDef.kind * down -> MicroTiMLDef.kind option
-            val transformer_prop : (MicroTiMLDef.prop * down -> MicroTiMLDef.prop) * (MicroTiMLDef.cstr * down -> MicroTiMLDef.cstr) -> MicroTiMLDef.prop * down -> MicroTiMLDef.prop option
-        end) :
-            sig
-                val transform_cstr : MicroTiMLDef.cstr * Action.down -> MicroTiMLDef.cstr
-                val transform_kind : MicroTiMLDef.kind * Action.down -> MicroTiMLDef.kind
-                val transform_prop : MicroTiMLDef.prop * Action.down -> MicroTiMLDef.prop
-            end
+    val transform_cstr : MicroTiMLDef.cstr * down -> MicroTiMLDef.cstr
+    val transform_kind : MicroTiMLDef.kind * down -> MicroTiMLDef.kind
+    val transform_prop : MicroTiMLDef.prop * down -> MicroTiMLDef.prop
+end
+
+signature SIG_EXPR_GENERIC_ONLY_DOWN_TRANSFORMER =
+sig
+    structure MicroTiMLDef : SIG_MICRO_TIML_DEF
+
+    type down
+
+    val transform_expr : MicroTiMLDef.expr * down -> MicroTiMLDef.expr
+end
+
+signature SIG_AST_TRANSFORMERS =
+sig
+    structure MicroTiMLDef : SIG_MICRO_TIML_DEF
 
     structure PlainPrinter :
               sig

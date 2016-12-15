@@ -1,0 +1,55 @@
+structure CircList =
+struct
+
+open Basic
+open Nat
+open Array
+
+datatype ref 'a = Ref of array 'a {1} --> ref 'a
+
+fun setref ['a] (r : ref 'a, x : 'a) =
+  case r of
+      Ref content => update (content, #0, x)
+
+fun deref ['a] (r : ref 'a) =
+  case r of
+      Ref content => sub (content, #0)
+
+fun newref ['a] (x : 'a) =
+  Ref (array (#1, x))
+
+datatype clist {len : Nat} {who : Nat} =
+         CCons {who < len} of nat {len} * int * ref (option (clist {len} {ite (who + 1 == len) 0 (who + 1)})) --> clist {len} {who}
+
+val c = @CCons {_} {2} {_} (#3, 3, newref NONE)
+
+val b = @CCons {_} {1} {_} (#3, 2, newref (SOME c))
+
+val a = @CCons {_} {0} {_} (#3, 1, newref (SOME b))
+
+val _ = case c of
+            CCons (_, _, next) => setref (next, SOME a)
+
+fun clen {len who : Nat} {who < len} (cl : clist {len} {who}) return nat {len} =
+  case cl of
+      CCons (len, _, _) => len
+
+absidx T_csum_helper : BigO 1 (fn n => $n) = fn n => 14.0 * $n + 8.0 with
+fun csum_helper {len who cnt : Nat} {who < len} {cnt <= len} (cl : clist {len} {who}, s : nat {cnt}) return int using T_csum_helper cnt =
+  case le (s, #0) return using (T_csum_helper cnt) - 8.0 of
+      Le => 0
+    | Gt =>
+      case cl of
+          CCons (_, x, next) => x + (case deref next of
+                                        SOME tl => csum_helper (tl, nat_minus (s, #1))
+                                      | NONE => 0)
+end
+
+fun csum {len who : Nat} {who < len} (cl : clist {len} {who}) return int =
+  csum_helper (cl, clen cl)
+
+val _ = csum a
+val _ = csum b
+val _ = csum c
+
+end

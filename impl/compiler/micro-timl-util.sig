@@ -8,6 +8,7 @@ sig
     val extract_judge_wfkind : MicroTiMLDef.wfkind -> MicroTiMLDef.wfkind_judgement
     val extract_judge_wfprop : MicroTiMLDef.wfprop -> MicroTiMLDef.wfprop_judgement
     val extract_judge_tyeq : MicroTiMLDef.tyeq -> MicroTiMLDef.tyeq_judgement
+    val extract_expr_value : MicroTiMLDef.value -> MicroTiMLDef.expr
     val extract_judge_typing : MicroTiMLDef.typing -> MicroTiMLDef.typing_judgement
     val extract_p_bin_conn : MicroTiMLDef.prop -> MicroTiMLDef.prop_bin_conn * MicroTiMLDef.prop * MicroTiMLDef.prop
     val extract_p_quan : MicroTiMLDef.prop -> MicroTiMLDef.quan * MicroTiMLDef.sort * MicroTiMLDef.prop
@@ -19,15 +20,18 @@ sig
     val extract_c_arrow : MicroTiMLDef.cstr -> MicroTiMLDef.cstr * MicroTiMLDef.cstr * MicroTiMLDef.cstr
     val extract_c_sum : MicroTiMLDef.cstr -> MicroTiMLDef.cstr * MicroTiMLDef.cstr
     val extract_c_prod : MicroTiMLDef.cstr -> MicroTiMLDef.cstr * MicroTiMLDef.cstr
-    val extract_c_rec : MicroTiMLDef.cstr -> string * MicroTiMLDef.kind * MicroTiMLDef.cstr
+    val extract_c_rec : MicroTiMLDef.cstr -> MicroTiMLDef.kind * MicroTiMLDef.cstr
     val extract_c_abs : MicroTiMLDef.cstr -> MicroTiMLDef.cstr
-    val extract_c_ref : MicroTiMLDef.cstr -> MicroTiMLDef.cstr
+    val extract_c_type_nat : MicroTiMLDef.cstr -> MicroTiMLDef.cstr
+    val extract_c_type_arr : MicroTiMLDef.cstr -> MicroTiMLDef.cstr * MicroTiMLDef.cstr
     val extract_k_time_fun : MicroTiMLDef.kind -> int
     val extract_k_arrow : MicroTiMLDef.kind -> MicroTiMLDef.kind * MicroTiMLDef.kind
     val extract_e_inj : MicroTiMLDef.expr -> MicroTiMLDef.injector * MicroTiMLDef.expr
     val extract_e_proj : MicroTiMLDef.expr -> MicroTiMLDef.projector * MicroTiMLDef.expr
     val extract_e_abs : MicroTiMLDef.expr -> MicroTiMLDef.expr
     val extract_e_abs_c : MicroTiMLDef.expr -> MicroTiMLDef.expr
+    val extract_e_prim_bin_op : MicroTiMLDef.expr -> MicroTiMLDef.prim_expr_bin_op * MicroTiMLDef.expr * MicroTiMLDef.expr
+    val extract_e_pack : MicroTiMLDef.expr -> MicroTiMLDef.cstr * MicroTiMLDef.expr
 
     val str_cstr_const : MicroTiMLDef.cstr_const -> string
     val str_cstr_bin_op : MicroTiMLDef.cstr_bin_op -> string
@@ -42,4 +46,5 @@ sig
     val str_expr_un_op : MicroTiMLDef.expr_un_op -> string
     val str_prim_expr_bin_op : MicroTiMLDef.prim_expr_bin_op -> string
     val str_expr_bin_op : MicroTiMLDef.expr_bin_op -> string
+    val str_expr_tri_op : MicroTiMLDef.expr_tri_op -> string
 end

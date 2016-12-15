@@ -18,7 +18,9 @@ open ShiftExpr
 open SubstCstr
 open SubstExpr
 
+structure DerivAssembler = DerivAssemblerFun(MicroTiMLDef)
 open DerivAssembler
+
 open ShiftCtx
 open ChangeCtx
 open DirectSubstCstr
@@ -43,7 +45,9 @@ fun meta_lemma2 kd =
       WfKdAdmit (kctx, k)
   end
 
-structure CstrHelper = CstrGenericOnlyDownTransformer(
+structure CstrHelper = CstrGenericOnlyDownTransformerFun(
+    structure MicroTiMLDef = MicroTiMLDef
+    structure Action =
     struct
     type down = unit
 
@@ -82,7 +86,9 @@ structure CstrHelper = CstrGenericOnlyDownTransformer(
     fun transformer_prop _ (p, ()) = SOME p
     end)
 
-structure CstrDerivHelper = CstrDerivGenericOnlyDownTransformer(
+structure CstrDerivHelper = CstrDerivGenericOnlyDownTransformerFun(
+    structure MicroTiMLDef = MicroTiMLDef
+    structure Action =
     struct
     type down = kctx
 
@@ -195,7 +201,9 @@ structure CstrDerivHelper = CstrDerivGenericOnlyDownTransformer(
     fun transformer_wfprop _ _ = NONE
     end)
 
-structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformer(
+structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformerFun(
+    structure MicroTiMLDef = MicroTiMLDef
+    structure Action =
     struct
     type kdown = kctx
     type tdown = tctx
@@ -217,7 +225,7 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformer(
 
     fun transformer_typing on_typing (ty, (kctx, tctx)) =
       case ty of
-          TyRec (_, _, ty_inner) =>
+          TyLet (_, TyRec (_, _, ty_inner), ty_after) =>
           let
               fun unfold_ty ty wks =
                 case ty of
@@ -311,6 +319,24 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformer(
                       inner new_t_env (new_t_env :: new_tctx_base)
                   end
 
+              val new_kd_self_partial_unpacked =
+                  let
+                      val kd1 = shift0_ctx_kd new_kctx_base new_kd_self
+                      val kd2 = foldri (fn (i, _, kd) =>
+                                           let
+                                               val (wk, kd_body) = case kd of
+                                                                       KdQuan (_, wk, kd_body) => (wk, kd_body)
+                                                                     | KdEq _ => raise (Impossible "not supported")
+                                                                     | _ => raise (Impossible "CloConv")
+                                               val to = KdVar (new_kctx_base, CVar (i + cnt_ori_kinds), shift_c_k (1 + i + cnt_ori_kinds) 0 $ nth (new_kctx_base, i + cnt_ori_kinds))
+                                           in
+                                               subst0_kd_kd to kd_body
+                                           end) kd1 new_free_wks
+                      val kd3 = KdBinOp (as_KdBinOp CBTypeProd kd2 new_kd_env, kd2, new_kd_env)
+                  in
+                      kd3
+                  end
+
               val new_kd_self_partial =
                   let
                       val kd1 = shift0_ctx_kd new_kctx_base new_kd_self
@@ -318,6 +344,7 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformer(
                                            let
                                                val (wk, kd_body) = case kd of
                                                                        KdQuan (_, wk, kd_body) => (wk, kd_body)
+                                                                     | KdEq _ => raise (Impossible "not supported")
                                                                      | _ => raise (Impossible "CloConv")
                                                val to = KdVar (new_kctx_base, CVar (i + cnt_ori_kinds), shift_c_k (1 + i + cnt_ori_kinds) 0 $ nth (new_kctx_base, i + cnt_ori_kinds))
                                            in
@@ -363,20 +390,21 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformer(
                               KdVar (kctx, CVar 0, KType)
                           end
                       val kd12 = KdBinOp (as_KdBinOp CBTypeProd kd10 kd11, kd10, kd11)
-                      val kd13= KdQuan (as_KdQuan QuanExists (WfKdType (new_kctx_base, KType)) kd12, WfKdType (new_kctx_base, KType), kd12)
+                      val kd13 = KdQuan (as_KdQuan QuanExists (WfKdType (new_kctx_base, KType)) kd12, WfKdType (new_kctx_base, KType), kd12)
                   in
                       kd13
                   end
 
-              val (_, new_t_self_pairtial, _) = extract_judge_kinding new_kd_self_partial
+              val (_, new_t_self_partial_unpacked, _) = extract_judge_kinding new_kd_self_partial_unpacked
+              val (_, new_t_self_partial, _) = extract_judge_kinding new_kd_self_partial
 
-              val new_tctx_self = new_t_self_pairtial :: new_tctx_env
+              val new_tctx_self = new_t_self_partial :: new_t_self_partial_unpacked :: new_tctx_env
 
               val new_tctx_arg = new_t_arg :: new_tctx_self
 
               val new_ty_body = foldli (fn (j, x, ty) => dsubst_c_ty (CVar (j + cnt_ori_kinds)) (x + cnt_ori_kinds) ty) ty_body fcv
               val new_ty_body = foldli (fn (j, x, ty) => dsubst_e_ty (EVar (j + 2)) (x + 2) ty) new_ty_body fev
-              val new_ty_body = foldri (fn (j, x, ty) => dsubst_e_ty (EVar (2 * j + 3)) (j + 2) ty) new_ty_body fev
+              val new_ty_body = foldri (fn (j, x, ty) => dsubst_e_ty (EVar (2 * j + 4)) (j + 2) ty) new_ty_body fev
               val new_ty_body = on_typing (new_ty_body, (new_kctx_base, new_tctx_arg))
 
               val new_ty_wrap_arg =
@@ -386,6 +414,15 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformer(
                       val ty = TyProj (as_TyProj ProjSnd (TyVar (ctx, EVar param_idx, new_t_param, T0)), TyVar (ctx, EVar param_idx, new_t_param, T0))
                   in
                       TyLet (as_TyLet ty new_ty_body, ty, new_ty_body)
+                  end
+
+              val new_ty_wrap_self_unpacked =
+                  let
+                      val ctx = (new_kctx_base, new_t_self_partial_unpacked :: new_tctx_env)
+                      val ty1 = TyVar (ctx, EVar 0, new_t_self_partial_unpacked, T0)
+                      val ty2 = TyPack (as_TyPack new_kd_self_partial new_kd_env ty1, new_kd_self_partial, new_kd_env, ty1)
+                  in
+                      TyLet (as_TyLet ty2 new_ty_wrap_arg, ty2, new_ty_wrap_arg)
                   end
 
               val new_ty_wrap_self =
@@ -405,9 +442,9 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformer(
                                                TyAppC (as_TyAppC ty kd, ty, kd)
                                            end) ty2 new_free_kinds
                       val ty4 = TyPair (as_TyPair ty3 ty1, ty3, ty1)
-                      val ty6 = TyPack (as_TyPack new_kd_self_partial new_kd_env ty4, new_kd_self_partial, new_kd_env, ty4)
+                      (* val ty6 = TyPack (as_TyPack new_kd_self_partial new_kd_env ty4, new_kd_self_partial, new_kd_env, ty4) *)
                   in
-                      TyLet (as_TyLet ty6 new_ty_wrap_arg, ty6, new_ty_wrap_arg)
+                      TyLet (as_TyLet ty4 new_ty_wrap_self_unpacked, ty4, new_ty_wrap_self_unpacked)
                   end
 
               val new_ty_wrap_env =
@@ -453,13 +490,13 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformer(
 
               val new_ty_fix = TyFix (as_TyFix (kctx, tctx) new_kd_self new_ty_sub, new_kd_self, new_ty_sub)
 
-              val ty_env =
-                  foldl (fn (i, ty) =>
-                            let
-                                val tyv = TyVar ((kctx, tctx), EVar i, nth (tctx, i), T0)
-                            in
-                                TyPair (as_TyPair tyv ty, tyv, ty)
-                            end) (TyConst ((kctx, tctx), EConst ECTT, CTypeUnit, T0)) fev
+              val kctx_add_env = kctx
+              val tctx_add_env_d = foldl (fn (x, tctx_cur) => CProd (nth (tctx, x), hd tctx_cur) :: tctx_cur) [CTypeUnit] fev
+              val tctx_add_env = tctx_add_env_d @ tctx
+
+              val new_ty_fix_add_env = shift0_ctx_ty ([], tctx_add_env_d) new_ty_fix
+
+              val ty_env = TyVar ((kctx_add_env, tctx_add_env), EVar 0, hd tctx_add_env, T0)
               val kd_env =
                   foldl (fn (kd, kd_env) => KdBinOp (as_KdBinOp CBTypeProd kd kd_env, kd, kd_env)) (KdConst (kctx, CTypeUnit, KType)) free_kds
 
@@ -471,9 +508,9 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformer(
                                 val kd = KdVar (kctx, CVar x, k)
                             in
                                 TyAppC (as_TyAppC ty kd, ty, kd)
-                            end) new_ty_fix fcv
+                            end) new_ty_fix_add_env fcv
 
-              val ty_res =
+              val (ty_clo_sub, kd_tmp) =
                   let
                       val kd_tmp =
                           let
@@ -530,13 +567,53 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformer(
                       val ty_clo = TyPair (as_TyPair ty_app_c ty_env, ty_app_c, ty_env)
                       val jty_clo = extract_judge_typing ty_clo
                       val ty_clo_sub = TySubTi ((#1 jty_clo, #2 jty_clo, #3 jty_clo, T0), ty_clo, PrAdmit (fst $ #1 jty_clo, TLe (#4 jty_clo, T0)))
-
-                      val ty_pack = TyPack (as_TyPack kd_tmp kd_env ty_clo_sub, kd_tmp, kd_env, ty_clo_sub)
                   in
-                      ty_pack
+                      (ty_clo_sub, kd_tmp)
+                  end
+
+              val (_, _, t_clo_sub, _) = extract_judge_typing ty_clo_sub
+
+              val ty_res =
+                  let
+                      val ty_var = TyVar ((kctx_add_env, t_clo_sub :: tctx_add_env), EVar 0, t_clo_sub, T0)
+                  in
+                      TyPack (as_TyPack kd_tmp kd_env ty_var, kd_tmp, kd_env, ty_var)
+                  end
+
+              val (_, _, t_res, _) = extract_judge_typing ty_res
+              val ty_after = on_typing (shift_ctx_ty (([], 0), (t_clo_sub :: tctx_add_env_d, 1)) ty_after, (kctx, t_res :: t_clo_sub :: tctx_add_env))
+              val ty_let = TyLet (as_TyLet ty_res ty_after, ty_res, ty_after)
+              val ty_let_2 = TyLet (as_TyLet ty_clo_sub ty_let, ty_clo_sub, ty_let)
+
+              val ty_add_env =
+                  foldri (fn (i, x, ty) =>
+                             let
+                                 val ((kctx, tctx), _, _, _) = extract_judge_typing ty
+                                 val ty_fst = TyVar ((kctx, tl tctx), EVar (x + i + 1), nth (tl tctx, x + i + 1), T0)
+                                 val ty_snd = TyVar ((kctx, tl tctx), EVar 0, hd (tl tctx), T0)
+                                 val ty_p = TyPair (as_TyPair ty_fst ty_snd, ty_fst, ty_snd)
+                             in
+                                 TyLet (as_TyLet ty_p ty, ty_p, ty)
+                             end) ty_let_2 fev
+              val ty_add_env =
+                  let
+                      val ((kctx, tctx), _, _, _) = extract_judge_typing ty_add_env
+                      val ty_unit = TyConst ((kctx, tl tctx), EConst ECTT, CTypeUnit, T0)
+                  in
+                      TyLet (as_TyLet ty_unit ty_add_env, ty_unit, ty_add_env)
+                  end
+
+              val (_, _, _, i_let) = extract_judge_typing ty_let
+              val (_, _, _, i_add_env) = extract_judge_typing ty_add_env
+
+              val ty_add_env_sub =
+                  let
+                      val pr = PrAdmit (kctx, TLe (i_add_env, i_let))
+                  in
+                      TySubTi (as_TySubTi ty_add_env pr, ty_add_env, pr)
                   end
           in
-              SOME ty_res
+              SOME ty_add_env_sub
           end
         | TyApp ((_, _, _, ti), ty1, ty2) =>
           let
@@ -602,6 +679,7 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformer(
         | TyFix _ => raise (Impossible "CloConv")
         | TyAbs _ => raise (Impossible "CloConv")
         | TyAbsC _ => raise (Impossible "CloConv")
+        | TyRec _ => raise (Impossible "CloConv")
         | TyAppC _ => raise (Impossible "CloConv")
         | _ => NONE
     end)

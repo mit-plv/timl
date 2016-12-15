@@ -29,7 +29,8 @@ fun extract_judge_kinding kd =
     | KdTimeApp (j, _, _) => j
     | KdQuan (j, _, _) => j
     | KdRec (j, _, _) => j
-    | KdRef (j, _) => j
+    | KdTypeNat (j, _) => j
+    | KdTypeArr (j, _, _) => j
     | KdEq (j, _, _) => j
     | KdUnOp (j, _) => j
     | KdAdmit j => j
@@ -59,16 +60,28 @@ fun extract_judge_tyeq te =
     | TyEqIte (j, _, _, _) => j
     | TyEqArrow (j, _, _, _) => j
     | TyEqApp (j, _, _) => j
-    | TyEqTimeApp (j, _, _) => j
-    | TyEqBeta (j, _, _, _) => j
-    | TyEqBetaRev (j, _, _, _) => j
+    | TyEqBeta j => j
+    | TyEqBetaRev j => j
     | TyEqQuan (j, _, _) => j
     | TyEqRec (j, _, _) => j
-    | TyEqRef (j, _) => j
     | TyEqAbs j => j
     | TyEqTimeAbs j => j
+    | TyEqTimeApp j => j
+    | TyEqTrans (j, _, _) => j
     | TyEqUnOp (j, _) => j
-    | TyEqNat (j, _, _, _) => j
+    | TyEqTypeNat (j, _) => j
+    | TyEqTypeArr (j, _, _) => j
+
+fun extract_expr_value v =
+  case v of
+      VConst e => e
+    | VPair (e, _, _) => e
+    | VInj (e, _) => e
+    | VAbs e => e
+    | VAbsC e => e
+    | VPack (e, _) => e
+    | VFold (e, _) => e
+    | VLoc e => e
 
 fun extract_judge_typing ty =
   case ty of
@@ -76,7 +89,7 @@ fun extract_judge_typing ty =
     | TyApp (j, _, _) => j
     | TyAbs (j, _, _) => j
     | TyAppC (j, _, _) => j
-    | TyAbsC (j, _, _) => j
+    | TyAbsC (j, _, _, _) => j
     | TyRec (j, _, _) => j
     | TyFold (j, _, _) => j
     | TyUnfold (j, _) => j
@@ -87,14 +100,16 @@ fun extract_judge_typing ty =
     | TyProj (j, _) => j
     | TyInj (j, _, _) => j
     | TyCase (j, _, _, _) => j
-    | TyNew (j, _) => j
-    | TyRead (j, _) => j
-    | TyWrite (j, _, _) => j
+    | TyNew (j, _, _) => j
+    | TyRead (j, _, _, _) => j
+    | TyWrite (j, _, _, _, _) => j
+    | TyLoc j => j
     | TySubTy (j, _, _) => j
     | TySubTi (j, _, _) => j
     | TyHalt (j, _) => j
     | TyLet (j, _, _) => j
     | TyFix (j, _, _) => j
+    | TyPrimBinOp (j, _, _) => j
 
 fun extract_p_bin_conn (PBinConn a) = a
   | extract_p_bin_conn _ = raise (Impossible "extract_p_bin_conn")
@@ -126,14 +141,17 @@ fun extract_c_sum (CBinOp (CBTypeSum, c1, c2)) = (c1, c2)
 fun extract_c_prod (CBinOp (CBTypeProd, c1, c2)) = (c1, c2)
   | extract_c_prod _ = raise (Impossible "extract_c_prod")
 
+fun extract_c_type_nat (CTypeNat a) = a
+  | extract_c_type_nat _ = raise (Impossible "extract_c_type_nat")
+
+fun extract_c_type_arr (CTypeArr a) = a
+  | extract_c_type_arr _ = raise (Impossible "extract_c_type_arr")
+
 fun extract_c_rec (CRec a) = a
   | extract_c_rec _ = raise (Impossible "extract_c_rec")
 
 fun extract_c_abs (CAbs a) = a
   | extract_c_abs _ = raise (Impossible "extract_c_abs")
-
-fun extract_c_ref (CRef a) = a
-  | extract_c_ref _ = raise (Impossible "extract_c_ref")
 
 fun extract_k_time_fun (KBaseSort (BSTimeFun a)) = a
   | extract_k_time_fun _ = raise (Impossible "extract_k_time_fun")
@@ -153,12 +171,20 @@ fun extract_e_abs (EAbs a) = a
 fun extract_e_abs_c (EAbsC a) = a
   | extract_e_abs_c _ = raise (Impossible "extract_e_abs_c")
 
+fun extract_e_prim_bin_op (EBinOp (EBPrim opr, e1, e2)) = (opr, e1, e2)
+  | extract_e_prim_bin_op _ = raise (Impossible "extract_e_prim_bin_op")
+
+fun extract_e_pack (EPack a) = a
+  | extract_e_pack _ = raise (Impossible "extract_e_pack")
+
 val str_time = Time.str_time
 val str_nat = Nat.str_nat
 
 fun str_cstr_const cn =
   case cn of
       CCIdxTT => "tt"
+    | CCIdxTrue => "true"
+    | CCIdxFalse => "false"
     | CCIdxNat n => str_nat n
     | CCTime r => str_time r
     | CCTypeUnit => "Unit"
@@ -166,17 +192,25 @@ fun str_cstr_const cn =
 
 fun str_cstr_bin_op opr =
   case opr of
-      CBTimeAdd => "+"
-    | CBTimeMinus => "-"
-    | CBTimeMult => "*"
+      CBTimeAdd => "+r"
+    | CBTimeMinus => "-r"
+    | CBTimeMult => "*r"
     | CBTimeMax => "max"
+    | CBTimeMin => "min"
     | CBTypeProd => "*"
     | CBTypeSum => "+"
-    | CBNatAdd => "+"
+    | CBNatAdd => "+n"
+    | CBNatMinus => "-n"
+    | CBNatMult => "*n"
 
 fun str_cstr_un_op opr =
   case opr of
       CUNat2Time => "nat2time"
+    | CUBool2Nat => "bool2nat"
+    | CUCeil => "ceil"
+    | CUFloor => "floor"
+    | CULog n => "log_" ^ str_int n
+    | CUDiv n => "/" ^ str_int n
 
 fun str_quan q =
   case q of
@@ -199,15 +233,23 @@ fun str_prop_bin_conn opr =
 
 fun str_prop_bin_pred opr =
   case opr of
-      PBTimeLe => "<="
-    | PBTimeEq => "="
+      PBTimeLe => "<=r"
+    | PBTimeLt => "<r"
+    | PBTimeEq => "=r"
+    | PBTimeGe => ">=r"
+    | PBTimeGt => ">r"
     | PBBigO arity => "BigO"
-    | PBNatEq => "="
+    | PBNatEq => "=n"
+    | PBNatLe => "<=n"
+    | PBNatLt => "<n"
+    | PBNatGe => ">=n"
+    | PBNatGt => ">n"
 
 fun str_expr_const cn =
   case cn of
       ECTT => "()"
     | ECInt i => str_int i
+    | ECNat n => str_nat n
 
 fun str_projector p =
   case p of
@@ -225,8 +267,6 @@ fun str_expr_un_op opr =
     | EUInj inj => str_injector inj
     | EUFold => "fold"
     | EUUnfold => "unfold"
-    | EUNew => "new"
-    | EURead => "read"
 
 fun str_prim_expr_bin_op opr =
   case opr of
@@ -237,5 +277,10 @@ fun str_expr_bin_op opr =
       EBPrim opr => str_prim_expr_bin_op opr
     | EBApp => ""
     | EBPair => ","
-    | EBWrite => ":="
+    | EBNew => "new"
+    | EBRead => "read"
+
+fun str_expr_tri_op opr =
+  case opr of
+      ETWrite => "write"
 end

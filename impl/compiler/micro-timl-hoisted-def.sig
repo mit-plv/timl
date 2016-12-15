@@ -6,13 +6,12 @@ sig
              AEVar of MicroTiMLDef.var
              | AEConst of MicroTiMLDef.expr_const
              | AEFuncPointer of int
-             | AEPair of atom_expr * atom_expr
              | AEAppC of atom_expr * MicroTiMLDef.cstr
              | AEPack of MicroTiMLDef.cstr * atom_expr
 
          and complex_expr =
              CEUnOp of MicroTiMLDef.expr_un_op * atom_expr
-             | CEBinOp of MicroTiMLDef.expr_bin_op * atom_expr * atom_expr (* no app or pair *)
+             | CEBinOp of MicroTiMLDef.expr_bin_op * atom_expr * atom_expr (* no app *)
              | CEAtom of atom_expr
 
          and hoisted_expr =
@@ -37,7 +36,6 @@ sig
              ATyVar of atom_typing_judgement
              | ATyConst of atom_typing_judgement
              | ATyFuncPointer of atom_typing_judgement
-             | ATyPair of atom_typing_judgement * atom_typing * atom_typing
              | ATyAppC of atom_typing_judgement * atom_typing * MicroTiMLDef.kinding
              | ATyPack of atom_typing_judgement * MicroTiMLDef.kinding * MicroTiMLDef.kinding * atom_typing
              | ATySubTy of atom_typing_judgement * atom_typing * MicroTiMLDef.tyeq
@@ -45,12 +43,14 @@ sig
 
          and complex_typing =
              CTyProj of complex_typing_judgement * atom_typing
+             | CTyPair of complex_typing_judgement * atom_typing * atom_typing
              | CTyInj of complex_typing_judgement * atom_typing * MicroTiMLDef.kinding
              | CTyFold of complex_typing_judgement * MicroTiMLDef.kinding * atom_typing
              | CTyUnfold of complex_typing_judgement * atom_typing
              | CTyNew of complex_typing_judgement * atom_typing
              | CTyRead of complex_typing_judgement * atom_typing
              | CTyWrite of complex_typing_judgement * atom_typing * atom_typing
+             | CTyPrimBinOp of complex_typing_judgement * atom_typing * atom_typing
              | CTyAtom of complex_typing_judgement * atom_typing
              | CTySubTy of complex_typing_judgement * complex_typing * MicroTiMLDef.tyeq
              | CTySubTi of complex_typing_judgement * complex_typing * MicroTiMLDef.proping
@@ -73,6 +73,7 @@ sig
              TyProgram of program_typing_judgement * func_typing list * hoisted_typing
 
     val CEProj : MicroTiMLDef.projector * atom_expr -> complex_expr
+    val CEPair : atom_expr * atom_expr -> complex_expr
     val CEInj : MicroTiMLDef.injector * atom_expr -> complex_expr
     val CEFold : atom_expr -> complex_expr
     val CEUnfold : atom_expr -> complex_expr
