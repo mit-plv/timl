@@ -230,9 +230,9 @@ fun as_KdEq kd ke =
       val jkd = extract_judge_kinding kd
       val jke = extract_judge_kdeq ke
       val () = assert (#1 jkd = #1 jke) "KdEq 1"
-      val () = assert (#3 jkd = #3 jke) "KdEq 2"
+      val () = assert (#3 jkd = #2 jke) "KdEq 2"
   in
-      KdEq ((#1 jkd, #2 jkd, #2 jke), kd, ke)
+      KdEq ((#1 jkd, #2 jkd, #3 jke), kd, ke)
   end
 
 fun as_KdUnOp opr kd =
