@@ -48,6 +48,8 @@ sig
     val as_TyEqTrans : MicroTiMLDef.tyeq -> MicroTiMLDef.tyeq -> MicroTiMLDef.tyeq
     val as_TyEqTypeNat : MicroTiMLDef.proping -> MicroTiMLDef.tyeq
     val as_TyEqTypeArr : MicroTiMLDef.tyeq -> MicroTiMLDef.proping -> MicroTiMLDef.tyeq
+    val as_TyEqNat : MicroTiMLDef.proping -> MicroTiMLDef.tyeq
+    val as_TyEqTime : MicroTiMLDef.proping -> MicroTiMLDef.tyeq
     val as_VConst : MicroTiMLDef.expr_const -> MicroTiMLDef.value
     val as_VPair : MicroTiMLDef.value -> MicroTiMLDef.value -> MicroTiMLDef.value
     val as_VInj : MicroTiMLDef.injector -> MicroTiMLDef.value -> MicroTiMLDef.value

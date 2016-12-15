@@ -354,6 +354,24 @@ fun as_TyEqUnOp opr te =
       TyEqUnOp ((#1 jte, CUnOp (opr, #2 jte), CUnOp (opr, #3 jte)), te)
   end
 
+fun as_TyEqNat pr =
+  let
+      val jpr = extract_judge_proping pr
+      val (opr, n1, n2) = extract_p_bin_pred (#2 jpr)
+      val () = assert (opr = PBNatEq) "TyEqNat 1"
+  in
+      TyEqNat ((#1 jpr, n1, n2), pr)
+  end
+
+fun as_TyEqTime pr =
+  let
+      val jpr = extract_judge_proping pr
+      val (opr, r1, r2) = extract_p_bin_pred (#2 jpr)
+      val () = assert (opr = PBTimeEq) "TyEqTime 1"
+  in
+      TyEqTime ((#1 jpr, r1, r2), pr)
+  end
+
 fun as_VConst cn = VConst (EConst cn)
 
 fun as_VPair v1 v2 =
@@ -1001,6 +1019,18 @@ fun default_transform_tyeq (te, down) =
          val (pr, up2) = transform_proping (pr, down)
      in
          (as_TyEqTypeArr te pr, combine [up1, up2])
+     end
+   | TyEqNat (_, pr) =>
+     let
+         val (pr, up1) = transform_proping (pr, down)
+     in
+         (as_TyEqNat pr, combine [up1])
+     end
+   | TyEqTime (_, pr) =>
+     let
+         val (pr, up1) = transform_proping (pr, down)
+     in
+         (as_TyEqTime pr, combine [up1])
      end
 
 and transform_tyeq (te, down) =

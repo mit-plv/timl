@@ -232,6 +232,8 @@ sig
              | TyEqTypeNat of tyeq_judgement * proping (* new *)
              | TyEqTypeArr of tyeq_judgement * tyeq * proping (* new & TyEqRef removed *)
              | TyEqTrans of tyeq_judgement * tyeq * tyeq
+             | TyEqNat of tyeq_judgement * proping (* new *)
+             | TyEqTime of tyeq_judgement * proping (* new *)
 
     datatype expr_const =
              ECTT

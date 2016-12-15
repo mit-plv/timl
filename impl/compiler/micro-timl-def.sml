@@ -309,6 +309,8 @@ datatype tyeq =
          | TyEqTypeNat of tyeq_judgement * proping
          | TyEqTypeArr of tyeq_judgement * tyeq * proping
          | TyEqTrans of tyeq_judgement * tyeq * tyeq
+         | TyEqNat of tyeq_judgement * proping
+         | TyEqTime of tyeq_judgement * proping
 
 datatype expr_const =
          ECTT

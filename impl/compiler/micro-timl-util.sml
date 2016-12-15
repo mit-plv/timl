@@ -71,6 +71,8 @@ fun extract_judge_tyeq te =
     | TyEqUnOp (j, _) => j
     | TyEqTypeNat (j, _) => j
     | TyEqTypeArr (j, _, _) => j
+    | TyEqNat (j, _) => j
+    | TyEqTime (j, _) => j
 
 fun extract_expr_value v =
   case v of
