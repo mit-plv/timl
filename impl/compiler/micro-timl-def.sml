@@ -133,6 +133,7 @@ fun TLe (c1, c2) = PBinPred (PBTimeLe, c1, c2)
 fun TEq (c1, c2) = PBinPred (PBTimeEq, c1, c2)
 
 fun NLt (c1, c2) = PBinPred (PBNatLt, c1, c2)
+fun NEq (c1, c2) = PBinPred (PBNatEq, c1, c2)
 
 fun CNat n = CConst (CCIdxNat n)
 

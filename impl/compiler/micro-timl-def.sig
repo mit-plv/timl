@@ -5,6 +5,7 @@ sig
     val Time0 : time_type
     val Time1 : time_type
 
+    val from_string : string -> time_type
     val str_time : time_type -> string
 end
 
@@ -145,6 +146,7 @@ sig
     val TEq : cstr * cstr -> prop
 
     val NLt : cstr * cstr -> prop (* new helper *)
+    val NEq : cstr * cstr -> prop (* new helper *)
 
     val CNat : Nat.nat_type -> cstr (* new helper *)
 

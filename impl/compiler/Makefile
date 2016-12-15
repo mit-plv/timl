@@ -29,6 +29,7 @@ micro-timl-test.sml \
 micro-timl-inst.sml \
 micro-timl.grm \
 micro-timl.lex \
+parser.sml \
 compiler.sml \
 mlton-compiler.sml
 

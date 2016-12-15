@@ -35,6 +35,7 @@ micro-timl-inst.sml
 micro-timl.grm.sig
 micro-timl.grm.sml
 micro-timl.lex.sml
+parser.sml
 compiler.sml
 
 mlton-compiler.sml

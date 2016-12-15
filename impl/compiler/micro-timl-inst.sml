@@ -4,6 +4,9 @@ open List
 open Util
 infixr 0 $
 
+type pos = unit
+type reporter = string * pos * pos -> unit
+
 structure StringTime =
 struct
 open Util
@@ -13,6 +16,7 @@ type time_type = string
 val Time0 = "0.0"
 val Time1 = "1.0"
 
+fun from_string s = s
 fun str_time r = r
 end
 
