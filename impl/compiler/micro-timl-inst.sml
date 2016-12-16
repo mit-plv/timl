@@ -52,4 +52,6 @@ structure DerivTransformers = DerivTransformersFun(MicroTiMLDef)
 open DerivTransformers
 structure CPSPass = CPSPassFun(MicroTiMLDef)
 open CPSPass
+structure WrapAbsPass = WrapAbsPassFun(MicroTiMLDef)
+open WrapAbsPass
 end

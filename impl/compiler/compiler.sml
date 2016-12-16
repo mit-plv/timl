@@ -17,6 +17,9 @@ fun main (prog_name, args : string list) : int =
       val ty2 = cps_deriv ty1
       val () = println "---- cpsed."
       val () = println $ PlainPrinter.str_expr (#2 (extract_judge_typing ty2))
+      val ty3 = wrap_abs_deriv ty2
+      val () = println "---- wrapped."
+      val () = println $ PlainPrinter.str_expr (#2 (extract_judge_typing ty3))
   in
       0
   end
