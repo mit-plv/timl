@@ -147,6 +147,7 @@ fun gen_tyeq kctx t1 t2 =
     | NATV of int
     | REALV of string
     | EOF
+    | BOGUS of string
 
 %nonterm term of ctx * nctx -> typing
        | cstr of kctx * nkctx -> kinding
@@ -160,7 +161,7 @@ fun gen_tyeq kctx t1 t2 =
 
 %keyword TT FN PAIR FST SND INL INR CASE FOLD UNFOLD PACK UNPACK REC LET NEW READ WRITE TRUE FALSE TUNIT TINT ITE TIMEAPP TIMEABS BIGO MIN MAX CEIL FLOOR LOG N2T B2N FORALL EXISTS TNAT TARR SNAT SBOOL SUNIT STFUN
 
-%pos unit
+%pos pos
 
 %eop EOF
 %noshift EOF
