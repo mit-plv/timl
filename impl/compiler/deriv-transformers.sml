@@ -774,13 +774,15 @@ fun default_transform_kdeq (ke, down) =
         end
       | KdEqSubsetElimLeft (_, pr) =>
         let
-            val (pr, up1) = transform_proping (pr, down)
+            val jpr = extract_judge_proping pr
+            val (pr, up1) = transform_proping (pr, add_kind (hd $ #1 jpr, down))
         in
             (as_KdEqSubsetElimLeft pr, combine [up1])
         end
       | KdEqSubsetElimRight (_, pr) =>
         let
-            val (pr, up1) = transform_proping (pr, down)
+            val jpr = extract_judge_proping pr
+            val (pr, up1) = transform_proping (pr, add_kind (hd $ #1 jpr, down))
         in
             (as_KdEqSubsetElimRight pr, combine [up1])
         end
