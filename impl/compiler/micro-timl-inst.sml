@@ -27,7 +27,7 @@ open Util
 type nat_type = int
 
 fun from_int i = i
-val str_nat = str_int
+val str_nat = prefix "@" o str_int
 end
 
 structure MicroTiMLDef = MicroTiMLDefFun(

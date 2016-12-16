@@ -1,0 +1,1 @@
+(rec (f : (-> Int Int 0.0)) (fn (x : Int) x))

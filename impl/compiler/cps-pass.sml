@@ -186,15 +186,15 @@ structure CstrDerivHelper = CstrDerivGenericOnlyDownTransformerFun(
               val kd_arrow =
                   let
                       val kd_tmp1 = as_KdConst kctx (CCTime Time.Time1)
-                      val kd_tmp2 = as_KdBinOp CBTimeAdd kd_tmp1 kd_j
                       val (_, coef) = extract_c_un_op blowup
-                      val kd_tmp3 = as_KdUnOp CUNat2Time (KdConst (kctx, coef, KNat))
-                      val kd_tmp4 = as_KdBinOp CBTimeAdd kd_i kd_tmp1
-                      val kd_tmp5=  as_KdBinOp CBTimeMult kd_tmp3 kd_tmp4
-                      val kd_tmp6 = as_KdUnOp CUNat2Time (KdConst (kctx, CNat $ Nat.from_int 2, KNat))
-                      val kd_tmp7 = as_KdBinOp CBTimeMult kd_tmp6 kd_i
-                      val kd_tmp8 = as_KdBinOp CBTimeAdd kd_tmp7 kd_tmp2
-                      val kd_tmp9 = as_KdBinOp CBTimeAdd kd_tmp5 kd_tmp8
+                      val kd_tmp2 = as_KdUnOp CUNat2Time (KdConst (kctx, coef, KNat))
+                      val kd_tmp3 = as_KdBinOp CBTimeAdd kd_i kd_tmp1
+                      val kd_tmp4 =  as_KdBinOp CBTimeMult kd_tmp2 kd_tmp3
+                      val kd_tmp5 = as_KdUnOp CUNat2Time (KdConst (kctx, CNat $ Nat.from_int 2, KNat))
+                      val kd_tmp6 = as_KdBinOp CBTimeMult kd_tmp5 kd_i
+                      val kd_tmp7 = as_KdBinOp CBTimeAdd kd_tmp4 kd_tmp6
+                      val kd_tmp8 = as_KdBinOp CBTimeAdd kd_tmp7 kd_tmp1
+                      val kd_tmp9 = as_KdBinOp CBTimeAdd kd_tmp8 kd_j
                       val kd_tmp10 = as_KdConst kctx CCTypeUnit
                   in
                       as_KdArrow kd_t_param kd_tmp9 kd_tmp10
