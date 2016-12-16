@@ -35,8 +35,10 @@ fun check_equal a b =
 fun gen_kdeq kctx k1 k2 =
   case (k1, k2) of
       (KType, KType) => as_KdEqKType kctx
-      | (KBaseSort b1, KBaseSort b2) => let val () = check_equal b1 b2 in as_KdEqBaseSort kctx b1 end
+    | (KBaseSort b1, KBaseSort b2) => let val () = check_equal b1 b2 in as_KdEqBaseSort kctx b1 end
     | (KArrow (k11, k12), KArrow (k21, k22)) => as_KdEqKArrow (gen_kdeq kctx k11 k21) (gen_kdeq kctx k12 k22)
+    | (KSubset (k1, p1), KBaseSort b) => let val () = check_equal k1 (KBaseSort b) in as_KdEqSubsetElimLeft (PrAdmit (k1 :: kctx, p1)) end
+    | (KBaseSort b, KSubset (k2, p2)) => let val () = check_equal (KBaseSort b) k2 in as_KdEqSubsetElimRight (PrAdmit (k2 :: kctx, p2)) end
     | (KSubset (k1, p1), KSubset (k2, p2)) => as_KdEqSubset (gen_kdeq kctx k1 k2) (PrAdmit (k1 :: kctx, PIff (p1, p2)))
     | _ => raise (Impossible "gen_kdeq")
 
@@ -364,6 +366,17 @@ cstr : UCID (fn (kctx, nkctx) => as_KdVar kctx (name2index UCID nkctx))
      | LPAREN TNAT cstr RPAREN (fn arg => as_KdTypeNat (cstr arg))
      | LPAREN TARR cstr cstr RPAREN (fn arg => as_KdTypeArr (cstr1 arg) (cstr2 arg))
      | LPAREN cstr cstr RPAREN (fn arg => as_KdApp (cstr1 arg) (cstr2 arg))
+     | LPAREN cstr COLON kind RPAREN
+                (fn (arg as (kctx, nkctx)) =>
+                    let
+                        val kd = cstr arg
+                        val wk = kind arg
+                        val jkd = extract_judge_kinding kd
+                        val jwk = extract_judge_wfkind wk
+                        val ke = gen_kdeq kctx (#3 jkd) (#2 jwk)
+                    in
+                        as_KdEq kd ke
+                    end)
 
 cbinop : NPLUS (CBNatAdd)
        | NMINUS (CBNatMinus)

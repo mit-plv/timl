@@ -145,10 +145,10 @@ fun CApps t cs =
 fun const_kind cn =
   case cn of
       CCIdxTT => KUnit
-    | CCIdxTrue => KBool
-    | CCIdxFalse => KBool
-    | CCIdxNat _ => KNat
-    | CCTime _ => KTime
+    | CCIdxTrue => KSubset (KBool, NEq (CUnOp (CUBool2Nat, CVar 0), CNat (Nat.from_int 1)))
+    | CCIdxFalse => KSubset (KBool, NEq (CUnOp (CUBool2Nat, CVar 0), CNat (Nat.from_int 0)))
+    | CCIdxNat n => KSubset (KNat, NEq (CVar 0, CNat n))
+    | CCTime r => KTime
     | CCTypeUnit => KType
     | CCTypeInt => KType
 
@@ -252,6 +252,8 @@ datatype kdeq =
          | KdEqKArrow of kdeq_judgement * kdeq * kdeq
          | KdEqBaseSort of kdeq_judgement
          | KdEqSubset of kdeq_judgement * kdeq * proping
+         | KdEqSubsetElimLeft of kdeq_judgement * proping
+         | KdEqSubsetElimRight of kdeq_judgement * proping
 
 type kinding_judgement = kctx * cstr * kind
 type wfkind_judgement = kctx * kind

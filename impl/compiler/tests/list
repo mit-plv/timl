@@ -1,0 +1,2 @@
+(let (nil (fn {A : *} (inl (pack 0 tt (exists (L : { L : nat | (=n L (0 : nat))}) Unit)) Int)))
+  tt)

@@ -11,6 +11,8 @@ fun extract_judge_kdeq ke =
     | KdEqKArrow (j, _, _) => j
     | KdEqBaseSort j => j
     | KdEqSubset (j, _, _) => j
+    | KdEqSubsetElimLeft (j, _) => j
+    | KdEqSubsetElimRight (j, _) => j
 
 fun extract_judge_proping pr =
   case pr of

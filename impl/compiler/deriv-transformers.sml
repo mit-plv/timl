@@ -17,7 +17,7 @@ open SubstCstr
 exception AssembleFail of string
 
 fun assert b msg =
-  if b then () else raise AssembleFail msg
+  if b then () else (println $ "AssembleFail: " ^ msg; raise AssembleFail msg)
 
 fun as_KdEqKType kctx = KdEqKType (kctx, KType, KType)
 
@@ -41,6 +41,20 @@ fun as_KdEqSubset ke pr =
       val () = assert (opr = PBCIff) "KdEqKSubset 2"
   in
       KdEqSubset ((#1 jke, KSubset (#2 jke, p1), KSubset (#3 jke, p2)), ke, pr)
+  end
+
+fun as_KdEqSubsetElimLeft pr =
+  let
+      val jpr = extract_judge_proping pr
+  in
+      KdEqSubsetElimLeft ((tl $ #1 jpr, KSubset (hd $ #1 jpr, #2 jpr), hd $ #1 jpr), pr)
+  end
+
+fun as_KdEqSubsetElimRight pr =
+  let
+      val jpr = extract_judge_proping pr
+  in
+      KdEqSubsetElimRight ((tl $ #1 jpr, hd $ #1 jpr, KSubset (hd $ #1 jpr, #2 jpr)), pr)
   end
 
 fun as_WfPropTrue kctx = WfPropTrue (kctx, PTrue)
@@ -757,6 +771,18 @@ fun default_transform_kdeq (ke, down) =
             val (pr, up2) = transform_proping (pr, add_kind (#2 jke, down))
         in
             (as_KdEqSubset ke pr, combine [up1, up2])
+        end
+      | KdEqSubsetElimLeft (_, pr) =>
+        let
+            val (pr, up1) = transform_proping (pr, down)
+        in
+            (as_KdEqSubsetElimLeft pr, combine [up1])
+        end
+      | KdEqSubsetElimRight (_, pr) =>
+        let
+            val (pr, up1) = transform_proping (pr, down)
+        in
+            (as_KdEqSubsetElimRight pr, combine [up1])
         end
 
 and transform_kdeq (ke, down) =
