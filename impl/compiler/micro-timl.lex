@@ -96,6 +96,7 @@ eol = (\013\010|\010|\013);
 "snd" => (T.SND (make_region (yypos, size yytext)));
 "inl" => (T.INL (make_region (yypos, size yytext)));
 "inr" => (T.INR (make_region (yypos, size yytext)));
+"case" => (T.CASE (make_region (yypos, size yytext)));
 "fold" => (T.FOLD (make_region (yypos, size yytext)));
 "unfold" => (T.UNFOLD (make_region (yypos, size yytext)));
 "pack" => (T.PACK (make_region (yypos, size yytext)));
@@ -128,6 +129,7 @@ eol = (\013\010|\010|\013);
 "bool" => (T.SBOOL (make_region (yypos, size yytext)));
 "unit" => (T.SUNIT (make_region (yypos, size yytext)));
 "tfun" => (T.STFUN (make_region (yypos, size yytext)));
+"type" => (T.TYPE (make_region (yypos, size yytext)));
 
 {digit}+\.{digit}+ => ((T.REALV o flat) (yytext, make_region (yypos, size yytext)));
 {digit}+ => ((T.INTV o flat) (foldl (fn (a, r) => ord(a) - ord(#"0") + 10 * r) 0 (explode yytext), make_region (yypos, size yytext)));

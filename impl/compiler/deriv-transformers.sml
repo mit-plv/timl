@@ -489,7 +489,8 @@ fun as_TyRec kd ty =
       val () = assert (#3 jkd = KType) "TyRec 1"
       val () = assert (#1 jkd = (get_kctx $ #1 jty)) "TyRec 2"
       val () = assert (#2 jkd = (hd $ get_tctx $ #1 jty)) "TyRec 3"
-      val () = assert (#4 jty = T0) "TyRec 4"
+      val () = assert (#2 jkd = #3 jty) "TyRec 4"
+      val () = assert (#4 jty = T0) "TyRec 5"
       val e = unfold_EAbsCs (#2 jty)
       val _ = extract_e_abs e
   in

@@ -155,6 +155,9 @@ fun extract_c_rec (CRec a) = a
 fun extract_c_abs (CAbs a) = a
   | extract_c_abs _ = raise (Impossible "extract_c_abs")
 
+fun extract_c_const (CConst a) = a
+  | extract_c_const _ = raise (Impossible "extract_c_const")
+
 fun extract_k_time_fun (KBaseSort (BSTimeFun a)) = a
   | extract_k_time_fun _ = raise (Impossible "extract_k_time_fun")
 

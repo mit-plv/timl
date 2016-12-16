@@ -22,6 +22,7 @@ sig
     val extract_c_prod : MicroTiMLDef.cstr -> MicroTiMLDef.cstr * MicroTiMLDef.cstr
     val extract_c_rec : MicroTiMLDef.cstr -> MicroTiMLDef.kind * MicroTiMLDef.cstr
     val extract_c_abs : MicroTiMLDef.cstr -> MicroTiMLDef.cstr
+    val extract_c_const : MicroTiMLDef.cstr -> MicroTiMLDef.cstr_const
     val extract_c_type_nat : MicroTiMLDef.cstr -> MicroTiMLDef.cstr
     val extract_c_type_arr : MicroTiMLDef.cstr -> MicroTiMLDef.cstr * MicroTiMLDef.cstr
     val extract_k_time_fun : MicroTiMLDef.kind -> int

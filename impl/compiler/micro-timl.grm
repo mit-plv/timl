@@ -61,7 +61,8 @@ fun gen_tyeq kctx t1 t2 =
     | (CApp (CAbs t1, t2), t3) => if t3 = subst0_c_c t2 t1 then as_TyEqBeta kctx t1 t2 else (case t3 of CApp (t31, t32) => as_TyEqApp (gen_tyeq kctx (CAbs t1) t31) (gen_tyeq kctx t2 t32) | _ => raise (Impossible "gen_tyeq"))
     | (t3, CApp (CAbs t1, t2)) => if t3 = subst0_c_c t2 t1 then as_TyEqBetaRev kctx t1 t2 else (case t3 of CApp (t31, t32) => as_TyEqApp (gen_tyeq kctx t31 (CAbs t1)) (gen_tyeq kctx t32 t2) | _ => raise (Impossible "gen_tyeq"))
     | (CApp (t11, t12), CApp (t21, t22)) => as_TyEqApp (gen_tyeq kctx t11 t21) (gen_tyeq kctx t12 t22)
-    | _ => raise (Impossible "gen_tyeq")
+    | (_, _) => as_TyEqNat (PrAdmit (kctx, NEq (t1, t2))) (* FIXME: unsound *)
+    (* | _ => raise (Impossible "gen_tyeq") *)
 
 %%
 
@@ -145,6 +146,7 @@ fun gen_tyeq kctx t1 t2 =
     | SBOOL
     | SUNIT
     | STFUN
+    | TYPE
     | INTV of int
     | NATV of int
     | REALV of string
@@ -161,7 +163,7 @@ fun gen_tyeq kctx t1 t2 =
        | pbinconn of prop_bin_conn
        | pbinpred of prop_bin_pred
 
-%keyword TT FN PAIR FST SND INL INR CASE FOLD UNFOLD PACK UNPACK REC LET NEW READ WRITE TRUE FALSE TUNIT TINT ITE TIMEAPP TIMEABS BIGO MIN MAX CEIL FLOOR LOG N2T B2N FORALL EXISTS TNAT TARR SNAT SBOOL SUNIT STFUN
+%keyword TT FN PAIR FST SND INL INR CASE FOLD UNFOLD PACK UNPACK REC LET NEW READ WRITE TRUE FALSE TUNIT TINT ITE TIMEAPP TIMEABS BIGO MIN MAX CEIL FLOOR LOG N2T B2N FORALL EXISTS TNAT TARR SNAT SBOOL SUNIT STFUN TYPE
 
 %pos pos
 
@@ -308,6 +310,7 @@ term : LCID (fn (ctx, (_, ntctx)) => as_TyVar ctx (name2index LCID ntctx))
                         as_TySubTi ty (PrAdmit (kctx, TLe (#4 jty, #2 jkd)))
                     end)
      | LPAREN PLUS term term RPAREN (fn arg => as_TyPrimBinOp PEBIntAdd (term1 arg) (term2 arg))
+     | LPAREN TYPE LPAREN UCID cstr RPAREN term RPAREN (fn arg => term arg)
 
 cstr : UCID (fn (kctx, nkctx) => as_KdVar kctx (name2index UCID nkctx))
      | TT (fn (kctx, _) => as_KdConst kctx CCIdxTT)
