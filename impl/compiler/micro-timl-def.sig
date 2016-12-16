@@ -176,8 +176,8 @@ sig
              | KdEqKArrow of kdeq_judgement * kdeq * kdeq
              | KdEqBaseSort of kdeq_judgement
              | KdEqSubset of kdeq_judgement * kdeq * proping
-             | KdEqSubsetElimLeft of kdeq_judgement * proping (* new, unsound *)
-             | KdEqSubsetElimRight of kdeq_judgement * proping (* new, unsound *)
+             | KdEqSubsetElimLeft of kdeq_judgement * proping (* new *)
+             | KdEqSubsetElimRight of kdeq_judgement * proping (* new *)
 
     type kinding_judgement = kctx * cstr * kind
     type wfkind_judgement = kctx * kind

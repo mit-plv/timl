@@ -187,10 +187,10 @@ structure CstrDerivHelper = CstrDerivGenericOnlyDownTransformerFun(
                   let
                       val kd_tmp1 = as_KdConst kctx (CCTime Time.Time1)
                       val (_, coef) = extract_c_un_op blowup
-                      val kd_tmp2 = as_KdUnOp CUNat2Time (as_KdEq (as_KdConst kctx (extract_c_const coef)) (as_KdEqSubsetElimLeft (PrAdmit (KNat :: kctx, NEq (CVar 0, coef)))))
+                      val kd_tmp2 = as_KdUnOp CUNat2Time (as_KdConst kctx (extract_c_const coef))
                       val kd_tmp3 = as_KdBinOp CBTimeAdd kd_i kd_tmp1
                       val kd_tmp4 =  as_KdBinOp CBTimeMult kd_tmp2 kd_tmp3
-                      val kd_tmp5 = as_KdUnOp CUNat2Time (as_KdEq (as_KdConst kctx (CCIdxNat (Nat.from_int 2))) (as_KdEqSubsetElimLeft (PrAdmit (KNat :: kctx, NEq (CVar 0, CNat (Nat.from_int 2))))))
+                      val kd_tmp5 = as_KdUnOp CUNat2Time (as_KdConst kctx (CCIdxNat (Nat.from_int 2)))
                       val kd_tmp6 = as_KdBinOp CBTimeMult kd_tmp5 kd_i
                       val kd_tmp7 = as_KdBinOp CBTimeAdd kd_tmp4 kd_tmp6
                       val kd_tmp8 = as_KdBinOp CBTimeAdd kd_tmp7 kd_tmp1

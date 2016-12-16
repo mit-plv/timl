@@ -1,1 +1,1 @@
-((fn {T : *} (fn (x : T) x)) [(Nat (5 : nat))])
+((fn {T : *} (fn (x : T) x)) [(Nat 5)])

@@ -145,9 +145,9 @@ fun CApps t cs =
 fun const_kind cn =
   case cn of
       CCIdxTT => KUnit
-    | CCIdxTrue => KSubset (KBool, NEq (CUnOp (CUBool2Nat, CVar 0), CNat (Nat.from_int 1)))
-    | CCIdxFalse => KSubset (KBool, NEq (CUnOp (CUBool2Nat, CVar 0), CNat (Nat.from_int 0)))
-    | CCIdxNat n => KSubset (KNat, NEq (CVar 0, CNat n))
+    | CCIdxTrue => KBool
+    | CCIdxFalse => KBool
+    | CCIdxNat n => KNat
     | CCTime r => KTime
     | CCTypeUnit => KType
     | CCTypeInt => KType
