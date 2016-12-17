@@ -4926,6 +4926,285 @@ Section tyeq_hint.
       rewrite e in *; discriminate.
     Qed.
 
+    Lemma lgeq_Var_kind_to_kind2_refl :
+      forall k L1 L2 x,
+        lgeq L1 L2 (CVar x) (CVar x) (kind_to_kind2 k).
+    Proof.
+      induct k; simpl; eauto using obeq_refl.
+    Qed.
+
+(*    
+    Fixpoint lgeq_ex n L1 L2 t1 t2 k :=
+      match k with
+      | K2Type =>
+        obeq (L1 ++ L) t1 t2
+      | K2Idx s =>
+        (* tyeq L t1 t2 /\ *)
+        interp_cstr t1 (map kind_to_sort (L1 ++ L)) s = interp_cstr t2 (map kind_to_sort (L1 ++ L)) s
+      | K2Arrow k1 k2 =>
+        (* obeq L t1 t2 /\ *)
+        forall t1'' t2'',
+          let t1' := shift_c_c n 0 t1'' in
+          let t2' := shift_c_c n 0 t2'' in
+          lgeq_ex n L1 L2 t1' t2' k1 ->
+          kinding2 (map Ke2NonAbs L1) t1' k1 ->
+          kinding2 (map Ke2NonAbs L2) t2' k1 ->
+          not_idx k2 ->
+          lgeq_ex n L1 L2 (CApp t1 t1') (CApp t2 t2') k2
+      end.
+
+    Lemma lgeq_ex_Var_kind_to_kind2_refl :
+      forall k n L1 L2 x,
+        lgeq_ex n L1 L2 (CVar x) (CVar x) (kind_to_kind2 k).
+    Proof.
+      induct k; simpl; eauto using obeq_refl.
+    Qed.
+    
+    Lemma shift_c_c_0_lgeq_ex_iff :
+      forall k c1 c2 L1 L2 L1' L2',
+        let n := length L1' in
+        n = length L2' ->
+        lgeq L1 L2 c1 c2 k <->
+        lgeq_ex n (L1' ++ L1) (L2' ++ L2) (shift_c_c n 0 c1) (shift_c_c n 0 c2) k.
+    Proof.
+      induct k; simpl.
+      {
+        intros.
+        rewrite <- app_assoc.
+        unfold obeq in *.
+        split.
+        {
+          intros.
+          openhyp.
+          split.
+          {
+            eapply admit.
+          }
+          unfold confluent in *.
+          eapply admit.
+        }
+        {
+          eapply admit.
+        }
+      }
+      {
+        intros.
+        repeat rewrite <- app_assoc.
+        eapply admit.
+      }
+      {
+        intros.
+        split.
+        {
+          intros.
+          specialize (IHk2 (CApp c1 t1'') (CApp c2 t2'')).
+          eapply IHk2; try la.
+          Lemma shift_c_c_0_kinding2_inverse G1 G c k n :
+            kinding2 (G1 ++ G) (shift_c_c n 0 c) k ->
+            n = length G1 ->
+            kinding2 G c k.
+          Admitted.
+          repeat rewrite map_app in *.
+          eapply H0; eauto.
+          {
+            eapply IHk1; eauto.
+          }
+          {
+            eapply shift_c_c_0_kinding2_inverse; eauto.
+            rewrite map_length.
+            eauto.
+          }
+          {
+            eapply shift_c_c_0_kinding2_inverse; eauto.
+            rewrite map_length.
+            eauto.
+          }
+        }
+        {
+          intros.
+          eapply IHk2; eauto.
+          repeat rewrite map_app in *.
+          eapply H0; eauto.
+          {
+            eapply IHk1; eauto.
+          }
+          {
+            eapply shift_c_c_0_kinding2; eauto.
+            rewrite map_length.
+            eauto.
+          }
+          {
+            eapply shift_c_c_0_kinding2; eauto.
+            rewrite map_length.
+            eauto.
+          }
+        }
+      }
+    Qed.
+
+    Lemma shift_c_c_0_lgeq_ex L1 L2 c1 c2 k L1' L2' n :
+      lgeq L1 L2 c1 c2 k ->
+      n = length L1' ->
+      n = length L2' ->
+      lgeq_ex n (L1' ++ L1) (L2' ++ L2) (shift_c_c n 0 c1) (shift_c_c n 0 c2) k.
+    Proof.
+      intros; subst.
+      eapply shift_c_c_0_lgeq_ex_iff; eauto.
+    Qed.
+ *)
+    
+    Lemma subs_lgeq_lgeq_ex_var_in G g1 g2 :
+      subs_lgeq g1 g2 G ->
+      forall x ke,
+        nth_error G x = Some ke ->
+        lgeq (subst0_cs_ks g1 G) (subst0_cs_ks g2 G) (subst_cs_c 0 g1 (CVar x)) (subst_cs_c 0 g2 (CVar x)) (ke2_to_kind2 ke).
+    Proof.
+      induct 1; simpl.
+      {
+        intros x ke Hnth.
+        unfold subst_cs_c in *.
+        simpl.
+        rewrite nth_error_nil in *.
+        discriminate.
+      }
+      {
+        intros x ke Hnth.
+        unfold subst_cs_c in *.
+        simpl.
+        cases (x <=>? 0); try la.
+        {
+          subst.
+          unfold shiftn_c_c.
+          repeat rewrite shift_c_c_0.
+          repeat rewrite subst_cs_x_shift_bs_c.
+          simplify.
+          invert Hnth.
+          simpl.
+          eauto.
+        }
+        {
+          destruct x as [|x]; try la.
+          simpl.
+          repeat rewrite Nat.sub_0_r; eauto.
+        }
+      }
+      {
+        intros x ke Hnth.
+        unfold subst0_cs_c in *.
+        unfold subst_cs_c in *.
+        simpl.
+        copy Hnth HnltL.
+        eapply nth_error_Some_lt in HnltL.
+        simpl in *.
+        destruct x as [|x]; simpl in *.
+        {
+          repeat rewrite subst_cs_c_Var_Lt by la.
+          invert Hnth; simpl.
+          eapply lgeq_Var_kind_to_kind2_refl.
+        }
+        rewrite subst_cs_c_Var_Ge by la.
+        rewrite (subst_cs_c_Var_Ge g2) by la.
+        simpl.
+        repeat rewrite Nat.sub_0_r; eauto.
+        
+        (*here*)
+        
+        eapply shift_c_c_0_lgeq_ex; eauto with db_la.
+        repeat rewrite shift_c_c_shift0.
+
+        
+        specialize (IHsubs_lgeq (ls1 ++ [subst0_cs_k g1 k]) (ls2 ++ [subst0_cs_k g2 k]) x ke).
+        repeat rewrite map_app in *.
+        repeat rewrite <- app_assoc in *.
+        simpl in *.
+        repeat rewrite app_length in *.
+        simpl in *.
+        rewrite (plus_comm (length ls1) 1) in *.
+        eapply IHsubs_lgeq; try la; eauto.
+      }
+    Qed.
+    
+    Lemma subs_lgeq_lgeq_ex_var_in G g1 g2 :
+      subs_lgeq g1 g2 G ->
+      forall ls1 ls2 x ke,
+        let n := length ls1 in
+        nth_error G x = Some ke ->
+        length ls2 = n ->
+        lgeq_ex n (ls1 ++ subst0_cs_ks g1 G) (ls2 ++ subst0_cs_ks g2 G) (shift_c_c n 0 (subst_cs_c 0 g1 (CVar x))) (shift_c_c n 0 (subst_cs_c 0 g2 (CVar x))) (ke2_to_kind2 ke).
+    Proof.
+      induct 1; simpl.
+      {
+        intros ls1 ls2 x ke Hnth Hlen.
+        unfold subst_cs_c in *.
+        simpl.
+        rewrite nth_error_nil in *.
+        discriminate.
+      }
+      {
+        intros ls1 ls2 x ke Hnth Hlen.
+        unfold subst_cs_c in *.
+        simpl.
+        cases (x <=>? 0); try la.
+        (* { *)
+        (*   repeat rewrite subst_cs_c_Var_Lt; eauto. *)
+        (*   rewrite nth_error_app1 in Hnth by (rewrite map_length; la). *)
+        (*   eapply nth_error_map_elim in Hnth. *)
+        (*   destruct Hnth as (k' & Hnth & ?). *)
+        (*   subst. *)
+        (*   simpl. *)
+        (*   eapply lgeq_ex_Var_kind_to_kind2_refl. *)
+        (* } *)
+        {
+          subst.
+          unfold shiftn_c_c.
+          repeat rewrite shift_c_c_0.
+          repeat rewrite subst_cs_x_shift_bs_c.
+          simplify.
+          invert Hnth.
+          simpl.
+          eapply shift_c_c_0_lgeq_ex; eauto with db_la.
+        }
+        {
+          destruct x as [|x]; try la.
+          simpl.
+          repeat rewrite Nat.sub_0_r; eauto.
+        }
+      }
+      {
+        intros ls1 ls2 x ke Hnth Hlen.
+        unfold subst0_cs_c in *.
+        unfold subst_cs_c in *.
+        simpl.
+        copy Hnth HnltL.
+        eapply nth_error_Some_lt in HnltL.
+        repeat rewrite app_length in *.
+        repeat rewrite map_length in *.
+        simpl in *.
+        destruct x as [|x]; simpl in *.
+        {
+          repeat rewrite subst_cs_c_Var_Lt by la.
+          invert Hnth; simpl.
+          eapply lgeq_ex_Var_kind_to_kind2_refl.
+        }
+        rewrite subst_cs_c_Var_Ge by la.
+        rewrite (subst_cs_c_Var_Ge g2) by la.
+        simpl.
+        repeat rewrite Nat.sub_0_r; eauto.
+        eapply shift_c_c_0_lgeq_ex; eauto with db_la.
+        repeat rewrite shift_c_c_shift0.
+
+        
+        specialize (IHsubs_lgeq (ls1 ++ [subst0_cs_k g1 k]) (ls2 ++ [subst0_cs_k g2 k]) x ke).
+        repeat rewrite map_app in *.
+        repeat rewrite <- app_assoc in *.
+        simpl in *.
+        repeat rewrite app_length in *.
+        simpl in *.
+        rewrite (plus_comm (length ls1) 1) in *.
+        eapply IHsubs_lgeq; try la; eauto.
+      }
+    Qed.
+    
     Lemma subs_lgeq_lgeq_var_in G g1 g2 :
       subs_lgeq g1 g2 G ->
       forall ls ls1 ls2 x ke,
@@ -4933,7 +5212,7 @@ Section tyeq_hint.
         nth_error (map Ke2NonAbs ls ++ G) x = Some ke ->
         length ls1 = n ->
         length ls2 = n ->
-        lgeq (ls1 ++ subst0_cs_ks g1 G) (ls2 ++ subst0_cs_ks g2 G) (subst_cs_c n g1 (CVar x)) (subst_cs_c n g2 (CVar x)) (ke2_to_kind2 ke).
+        lgeq_ex n (ls1 ++ subst0_cs_ks g1 G) (ls2 ++ subst0_cs_ks g2 G) (subst_cs_c n g1 (CVar x)) (subst_cs_c n g2 (CVar x)) (ke2_to_kind2 ke).
     Proof.
       induct 1; simpl.
       {
@@ -4945,13 +5224,7 @@ Section tyeq_hint.
         destruct Hnth as (k & Hnth & ?).
         subst.
         simpl.
-        Lemma lgeq_Var_kind_to_kind2_refl :
-          forall k L1 L2 x,
-            lgeq L1 L2 (CVar x) (CVar x) (kind_to_kind2 k).
-        Proof.
-          induct k; simpl; eauto using obeq_refl.
-        Qed.
-        eapply lgeq_Var_kind_to_kind2_refl.
+        eapply lgeq_ex_Var_kind_to_kind2_refl.
       }
       {
         intros ls ls1 ls2 x ke Hnth Hlen1 Hlen2.
@@ -4965,7 +5238,7 @@ Section tyeq_hint.
           destruct Hnth as (k' & Hnth & ?).
           subst.
           simpl.
-          eapply lgeq_Var_kind_to_kind2_refl.
+          eapply lgeq_ex_Var_kind_to_kind2_refl.
         }
         {
           subst.
@@ -4978,47 +5251,7 @@ Section tyeq_hint.
           simplify.
           invert Hnth.
           simpl.
-          (*here*)
-          Lemma shift_c_c_0_lgeq' :
-            forall k L1 L2 c1 c2 L1' L2',
-              lgeq L1 L2 c1 c2 k ->
-              let n := length L1' in
-              n = length L2' ->
-              lgeq (L1' ++ L1) (L2' ++ L2) (shift_c_c n 0 c1) (shift_c_c n 0 c2) k.
-          Proof.
-            induct k; simpl.
-            {
-              intros.
-              rewrite <- app_assoc.
-              unfold obeq in *.
-              openhyp.
-              split.
-              {
-                eapply admit.
-              }
-              unfold confluent in *.
-              eapply admit.
-            }
-            {
-              intros.
-              repeat rewrite <- app_assoc.
-              eapply admit.
-            }
-            {
-              intros.
-              (*here*)
-              eapply admit.
-            }
-          Qed.
-          Lemma shift_c_c_0_lgeq L1 L2 c1 c2 k L1' L2' n :
-            lgeq L1 L2 c1 c2 k ->
-            n = length L1' ->
-            n = length L2' ->
-            lgeq (L1' ++ L1) (L2' ++ L2) (shift_c_c n 0 c1) (shift_c_c n 0 c2) k.
-          Proof.
-            eapply admit.
-          Qed.
-          eapply shift_c_c_0_lgeq; eauto with db_la.
+          eapply shift_c_c_0_lgeq_ex; eauto with db_la.
         }
         {
           destruct x as [|x]; try la.
@@ -5038,6 +5271,19 @@ Section tyeq_hint.
         intros ls ls1 ls2 x ke Hnth Hlen1 Hlen2.
         unfold subst_cs_c in *.
         simpl.
+        copy Hnth HnltL.
+        eapply nth_error_Some_lt in HnltL.
+        repeat rewrite app_length in *.
+        repeat rewrite map_length in *.
+        simpl in *.
+        destruct x as [|x]; simpl in *.
+        {
+          repeat rewrite subst_cs_c_Var_Lt by la.
+          destruct ls as [|ls]; simpl in *; invert Hnth; simpl;
+            eapply lgeq_ex_Var_kind_to_kind2_refl.
+        }
+        rewrite subst_cs_c_Var_Le.
+        
         specialize (IHsubs_lgeq (ls ++ [k]) (ls1 ++ [subst0_cs_k g1 k]) (ls2 ++ [subst0_cs_k g2 k]) x ke).
         repeat rewrite map_app in *.
         repeat rewrite <- app_assoc in *.
