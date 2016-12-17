@@ -170,11 +170,11 @@ sig
                   val change_ctx_te : MicroTiMLDef.kctx -> MicroTiMLDef.tyeq -> MicroTiMLDef.tyeq
               end
 
-    structure DerivSubstTyping :
-              sig
-                  val subst_ty_ty : MicroTiMLDef.typing -> int -> MicroTiMLDef.typing -> MicroTiMLDef.typing
-                  val subst0_ty_ty : MicroTiMLDef.typing -> MicroTiMLDef.typing -> MicroTiMLDef.typing
-              end
+    (* structure DerivSubstTyping : *)
+    (*           sig *)
+    (*               val subst_ty_ty : MicroTiMLDef.typing -> int -> MicroTiMLDef.typing -> MicroTiMLDef.typing *)
+    (*               val subst0_ty_ty : MicroTiMLDef.typing -> MicroTiMLDef.typing -> MicroTiMLDef.typing *)
+    (*           end *)
 
 (*     structure DerivSubstKinding : *)
 (*               sig *)

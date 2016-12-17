@@ -1838,46 +1838,46 @@ fun free_vars_e_ty d ty = #2 (ExprDerivHelper.transform_typing (ty, ((), d)))
 val free_vars0_e_ty = free_vars_e_ty 0
 end
 
-structure DerivSubstTyping =
-struct
-structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformerFun(
-    structure MicroTiMLDef = MicroTiMLDef
-    structure Action =
-    struct
-    type kdown = unit
-    type tdown = typing * int
-    type down = kdown * tdown
+(* structure DerivSubstTyping = *)
+(* struct *)
+(* structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformerFun( *)
+(*     structure MicroTiMLDef = MicroTiMLDef *)
+(*     structure Action = *)
+(*     struct *)
+(*     type kdown = unit *)
+(*     type tdown = typing * int *)
+(*     type down = kdown * tdown *)
 
-    fun add_kind (k, ((), (to, who))) = ((), (ShiftCtx.shift0_ctx_ty ([k], []) to, who))
-    fun add_type (t, (to, who)) = (ShiftCtx.shift0_ctx_ty ([], [t]) to, who + 1)
+(*     fun add_kind (k, ((), (to, who))) = ((), (ShiftCtx.shift0_ctx_ty ([k], []) to, who)) *)
+(*     fun add_type (t, (to, who)) = (ShiftCtx.shift0_ctx_ty ([], [t]) to, who + 1) *)
 
-    fun on_va_leaf (va, _) = va
+(*     fun on_va_leaf (va, _) = va *)
 
-    fun on_ty_leaf (TyVar ((kctx, tctx), EVar x, _, _), ((), (to, who))) =
-      if x = who then
-          to
-      else
-          if x < who then
-              as_TyVar (kctx, take (tctx, who) @ drop (tctx, who + 1)) x
-          else
-              as_TyVar (kctx, take (tctx, who) @ drop (tctx, who + 1)) (x - 1)
-      | on_ty_leaf (TyConst ((kctx, tctx), EConst cn, _, _), ((), (to, who))) = as_TyConst (kctx, take (tctx, who) @ drop (tctx, who + 1)) cn
-      | on_ty_leaf (TyFix (((kctx, tctx), _, _, _), kd, ty), ((), (to, who))) = as_TyFix (kctx, take (tctx, who) @ drop (tctx, who + 1)) kd ty
-      | on_ty_leaf _ = raise (Impossible "on_ty_leaf")
+(*     fun on_ty_leaf (TyVar ((kctx, tctx), EVar x, _, _), ((), (to, who))) = *)
+(*       if x = who then *)
+(*           to *)
+(*       else *)
+(*           if x < who then *)
+(*               as_TyVar (kctx, take (tctx, who) @ drop (tctx, who + 1)) x *)
+(*           else *)
+(*               as_TyVar (kctx, take (tctx, who) @ drop (tctx, who + 1)) (x - 1) *)
+(*       | on_ty_leaf (TyConst ((kctx, tctx), EConst cn, _, _), ((), (to, who))) = as_TyConst (kctx, take (tctx, who) @ drop (tctx, who + 1)) cn *)
+(*       | on_ty_leaf (TyFix (((kctx, tctx), _, _, _), kd, ty), ((), (to, who))) = as_TyFix (kctx, take (tctx, who) @ drop (tctx, who + 1)) kd ty *)
+(*       | on_ty_leaf _ = raise (Impossible "on_ty_leaf") *)
 
-    fun transform_proping (pr, kdown) = pr
-    fun transform_kinding (kd, kdown) = kd
-    fun transform_wfkind (wk, kdown) = wk
-    fun transform_tyeq (te, kdown) = te
+(*     fun transform_proping (pr, kdown) = pr *)
+(*     fun transform_kinding (kd, kdown) = kd *)
+(*     fun transform_wfkind (wk, kdown) = wk *)
+(*     fun transform_tyeq (te, kdown) = te *)
 
-    fun transformer_value _ _ = NONE
-    fun transformer_typing _ _ = NONE
-    end)
+(*     fun transformer_value _ _ = NONE *)
+(*     fun transformer_typing _ _ = NONE *)
+(*     end) *)
 
-fun subst_ty_ty to who ty = ExprDerivHelper.transform_typing (ty, ((), (to, who)))
+(* fun subst_ty_ty to who ty = ExprDerivHelper.transform_typing (ty, ((), (to, who))) *)
 
-fun subst0_ty_ty to = subst_ty_ty to 0
-end
+(* fun subst0_ty_ty to = subst_ty_ty to 0 *)
+(* end *)
 
 (* structure DerivDirectSubstCstr = *)
 (* struct *)

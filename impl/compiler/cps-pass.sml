@@ -22,7 +22,7 @@ structure DerivAssembler = DerivAssemblerFun(MicroTiMLDef)
 open DerivAssembler
 
 open ShiftCtx
-open DerivSubstTyping
+(* open DerivSubstTyping *)
 
 structure CountNodes =
 struct
