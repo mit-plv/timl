@@ -637,83 +637,6 @@ fun subst_e_e to who e = ExprHelper.transform_expr (e, ((), (to, who)))
 fun subst0_e_e to = subst_e_e to 0
 end
 
-structure DirectSubstCstr =
-struct
-open ShiftCstr
-
-structure CstrHelper = CstrGenericOnlyDownTransformerFun(
-    structure MicroTiMLDef = MicroTiMLDef
-    structure Action =
-    struct
-    type down = cstr * int
-
-    fun add_kind (_, (to, who)) = (shift0_c_c to, who + 1)
-
-    fun transformer_cstr (on_cstr, on_kind) (c, (to, who)) =
-      case c of
-          CVar x => SOME (if x = who then to else CVar x)
-        | _ => NONE
-
-    fun transformer_kind _ _ = NONE
-    fun transformer_prop _ _ = NONE
-    end)
-
-structure ExprHelper = ExprGenericOnlyDownTransformerFun(
-    structure MicroTiMLDef = MicroTiMLDef
-    structure Action =
-    struct
-    type kdown = cstr * int
-    type tdown = unit
-    type down = kdown *  tdown
-
-    fun add_kind (_, ((to, who), ())) = ((shift0_c_c to, who + 1), ())
-    fun add_type (_, ()) = ()
-
-    val transform_cstr = CstrHelper.transform_cstr
-
-    fun transformer_expr _ _ = NONE
-    end)
-
-fun dsubst_c_c to who c = CstrHelper.transform_cstr (c, (to, who))
-fun dsubst_c_k to who k = CstrHelper.transform_kind (k, (to, who))
-fun dsubst_c_p to who p = CstrHelper.transform_prop (p, (to, who))
-fun dsubst_c_e to who e = ExprHelper.transform_expr (e, ((to, who), ()))
-
-fun dsubst0_c_c to = dsubst_c_c to 0
-fun dsubst0_c_k to = dsubst_c_k to 0
-fun dsubst0_c_p to = dsubst_c_p to 0
-fun dsubst0_c_e to = dsubst_c_e to 0
-end
-
-structure DirectSubstExpr =
-struct
-structure ExprHelper = ExprGenericOnlyDownTransformerFun(
-    structure MicroTiMLDef = MicroTiMLDef
-    structure Action =
-    struct
-    type kdown = unit
-    type tdown = expr * int
-    type down = kdown * tdown
-
-    open ShiftCstr
-    open ShiftExpr
-
-    fun add_kind (_, ((), (to, who))) = ((), (shift0_c_e to, who))
-    fun add_type (_, (to, who)) = (shift0_e_e to, who + 1)
-
-    fun transform_cstr (c, kdown) = c
-
-    fun transformer_expr on_expr (e, ((), (to, who))) =
-      case e of
-          EVar x => SOME (if x = who then to else EVar x)
-        | _ => NONE
-    end)
-
-fun dsubst_e_e to who e = ExprHelper.transform_expr (e, ((), (to, who)))
-
-fun dsubst0_e_e to = dsubst_e_e to 0
-end
-
 structure FVUtil =
 struct
 fun unique_merge (ls1, ls2) =
@@ -818,5 +741,75 @@ structure ExprHelper = ExprGenericTransformerFun(
 fun free_vars_e_e d e = #2 (ExprHelper.transform_expr (e, ((), d)))
 
 val free_vars0_e_e = free_vars_e_e 0
+end
+
+structure DropCstr =
+struct
+open List
+
+structure CstrHelper = CstrGenericOnlyDownTransformerFun(
+    structure MicroTiMLDef = MicroTiMLDef
+    structure Action =
+    struct
+    type down = (int * int) list
+
+    fun add_kind (_, mapping) = add_assoc 0 0 (map (fn (from, to) => (from + 1, to + 1)) mapping)
+
+    fun transformer_cstr (on_cstr, on_kind) (c, mapping) =
+      case c of
+          CVar x => SOME (CVar (assoc x mapping))
+        | _ => NONE
+
+    fun transformer_kind _ _ = NONE
+
+    fun transformer_prop _ _ = NONE
+    end)
+
+structure ExprHelper = ExprGenericOnlyDownTransformerFun(
+    structure MicroTiMLDef = MicroTiMLDef
+    structure Action =
+    struct
+    type kdown = (int * int) list
+    type tdown = unit
+    type down = kdown * tdown
+
+    fun add_kind (_, (mapping, ())) = (add_assoc 0 0 (map (fn (from, to) => (from + 1, to + 1)) mapping), ())
+    fun add_type (_, ()) = ()
+
+    val transform_cstr = CstrHelper.transform_cstr
+
+    fun transformer_expr _ _ = NONE
+    end)
+
+fun drop_c_c mapping c = CstrHelper.transform_cstr (c, mapping)
+fun drop_c_k mapping k = CstrHelper.transform_kind (k, mapping)
+fun drop_c_p mapping p = CstrHelper.transform_prop (p, mapping)
+fun drop_c_e mapping e = ExprHelper.transform_expr (e, (mapping, ()))
+end
+
+structure DropExpr =
+struct
+open List
+
+structure ExprHelper = ExprGenericOnlyDownTransformerFun(
+    structure MicroTiMLDef = MicroTiMLDef
+    structure Action =
+    struct
+    type kdown = unit
+    type tdown = (int * int) list
+    type down = kdown * tdown
+
+    fun add_kind (_, ((), mapping)) = ((), mapping)
+    fun add_type (_, mapping) = add_assoc 0 0 (map (fn (from, to) => (from + 1, to + 1)) mapping)
+
+    fun transform_cstr (c, ()) = c
+
+    fun transformer_expr on_expr (e, ((), mapping)) =
+      case e of
+          EVar x => SOME (EVar (assoc x mapping))
+        | _ => NONE
+    end)
+
+fun drop_e_e mapping e = ExprHelper.transform_expr (e, ((), mapping))
 end
 end
