@@ -9,7 +9,6 @@ deriv-transformers.sig \
 cps-pass.sig \
 wrap-abs-pass.sig \
 clo-conv-pass.sig \
-deriv-checker.sig \
 micro-timl-hoisted-def.sig \
 hoisted-deriv-checker.sig \
 typed-assembly-def.sig \
@@ -21,7 +20,6 @@ deriv-transformers.sml \
 cps-pass.sml \
 wrap-abs-pass.sml \
 clo-conv-pass.sml \
-deriv-checker.sml \
 micro-timl-hoisted-def.sml \
 hoisted-deriv-checker.sml \
 typed-assembly-def.sml \
