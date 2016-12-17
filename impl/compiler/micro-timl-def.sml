@@ -147,8 +147,8 @@ fun const_kind cn =
       CCIdxTT => KUnit
     | CCIdxTrue => KBool
     | CCIdxFalse => KBool
-    | CCIdxNat _ => KNat
-    | CCTime _ => KTime
+    | CCIdxNat n => KNat
+    | CCTime r => KTime
     | CCTypeUnit => KType
     | CCTypeInt => KType
 
@@ -252,6 +252,8 @@ datatype kdeq =
          | KdEqKArrow of kdeq_judgement * kdeq * kdeq
          | KdEqBaseSort of kdeq_judgement
          | KdEqSubset of kdeq_judgement * kdeq * proping
+         | KdEqSubsetElimLeft of kdeq_judgement * proping
+         | KdEqSubsetElimRight of kdeq_judgement * proping
 
 type kinding_judgement = kctx * cstr * kind
 type wfkind_judgement = kctx * kind

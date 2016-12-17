@@ -35,8 +35,10 @@ fun check_equal a b =
 fun gen_kdeq kctx k1 k2 =
   case (k1, k2) of
       (KType, KType) => as_KdEqKType kctx
-      | (KBaseSort b1, KBaseSort b2) => let val () = check_equal b1 b2 in as_KdEqBaseSort kctx b1 end
+    | (KBaseSort b1, KBaseSort b2) => let val () = check_equal b1 b2 in as_KdEqBaseSort kctx b1 end
     | (KArrow (k11, k12), KArrow (k21, k22)) => as_KdEqKArrow (gen_kdeq kctx k11 k21) (gen_kdeq kctx k12 k22)
+    | (KSubset (k1, p1), KBaseSort b) => let val () = check_equal k1 (KBaseSort b) in as_KdEqSubsetElimLeft (PrAdmit (k1 :: kctx, p1)) end
+    | (KBaseSort b, KSubset (k2, p2)) => let val () = check_equal (KBaseSort b) k2 in as_KdEqSubsetElimRight (PrAdmit (k2 :: kctx, p2)) end
     | (KSubset (k1, p1), KSubset (k2, p2)) => as_KdEqSubset (gen_kdeq kctx k1 k2) (PrAdmit (k1 :: kctx, PIff (p1, p2)))
     | _ => raise (Impossible "gen_kdeq")
 
@@ -59,7 +61,8 @@ fun gen_tyeq kctx t1 t2 =
     | (CApp (CAbs t1, t2), t3) => if t3 = subst0_c_c t2 t1 then as_TyEqBeta kctx t1 t2 else (case t3 of CApp (t31, t32) => as_TyEqApp (gen_tyeq kctx (CAbs t1) t31) (gen_tyeq kctx t2 t32) | _ => raise (Impossible "gen_tyeq"))
     | (t3, CApp (CAbs t1, t2)) => if t3 = subst0_c_c t2 t1 then as_TyEqBetaRev kctx t1 t2 else (case t3 of CApp (t31, t32) => as_TyEqApp (gen_tyeq kctx t31 (CAbs t1)) (gen_tyeq kctx t32 t2) | _ => raise (Impossible "gen_tyeq"))
     | (CApp (t11, t12), CApp (t21, t22)) => as_TyEqApp (gen_tyeq kctx t11 t21) (gen_tyeq kctx t12 t22)
-    | _ => raise (Impossible "gen_tyeq")
+    | (_, _) => as_TyEqNat (PrAdmit (kctx, NEq (t1, t2))) (* FIXME: unsound *)
+    (* | _ => raise (Impossible "gen_tyeq") *)
 
 %%
 
@@ -143,10 +146,12 @@ fun gen_tyeq kctx t1 t2 =
     | SBOOL
     | SUNIT
     | STFUN
+    | TYPE
     | INTV of int
     | NATV of int
     | REALV of string
     | EOF
+    | BOGUS of string
 
 %nonterm term of ctx * nctx -> typing
        | cstr of kctx * nkctx -> kinding
@@ -158,9 +163,9 @@ fun gen_tyeq kctx t1 t2 =
        | pbinconn of prop_bin_conn
        | pbinpred of prop_bin_pred
 
-%keyword TT FN PAIR FST SND INL INR CASE FOLD UNFOLD PACK UNPACK REC LET NEW READ WRITE TRUE FALSE TUNIT TINT ITE TIMEAPP TIMEABS BIGO MIN MAX CEIL FLOOR LOG N2T B2N FORALL EXISTS TNAT TARR SNAT SBOOL SUNIT STFUN
+%keyword TT FN PAIR FST SND INL INR CASE FOLD UNFOLD PACK UNPACK REC LET NEW READ WRITE TRUE FALSE TUNIT TINT ITE TIMEAPP TIMEABS BIGO MIN MAX CEIL FLOOR LOG N2T B2N FORALL EXISTS TNAT TARR SNAT SBOOL SUNIT STFUN TYPE
 
-%pos unit
+%pos pos
 
 %eop EOF
 %noshift EOF
@@ -305,6 +310,7 @@ term : LCID (fn (ctx, (_, ntctx)) => as_TyVar ctx (name2index LCID ntctx))
                         as_TySubTi ty (PrAdmit (kctx, TLe (#4 jty, #2 jkd)))
                     end)
      | LPAREN PLUS term term RPAREN (fn arg => as_TyPrimBinOp PEBIntAdd (term1 arg) (term2 arg))
+     | LPAREN TYPE LPAREN UCID cstr RPAREN term RPAREN (fn arg => term arg)
 
 cstr : UCID (fn (kctx, nkctx) => as_KdVar kctx (name2index UCID nkctx))
      | TT (fn (kctx, _) => as_KdConst kctx CCIdxTT)
@@ -363,6 +369,17 @@ cstr : UCID (fn (kctx, nkctx) => as_KdVar kctx (name2index UCID nkctx))
      | LPAREN TNAT cstr RPAREN (fn arg => as_KdTypeNat (cstr arg))
      | LPAREN TARR cstr cstr RPAREN (fn arg => as_KdTypeArr (cstr1 arg) (cstr2 arg))
      | LPAREN cstr cstr RPAREN (fn arg => as_KdApp (cstr1 arg) (cstr2 arg))
+     | LPAREN cstr COLON kind RPAREN
+                (fn (arg as (kctx, nkctx)) =>
+                    let
+                        val kd = cstr arg
+                        val wk = kind arg
+                        val jkd = extract_judge_kinding kd
+                        val jwk = extract_judge_wfkind wk
+                        val ke = gen_kdeq kctx (#3 jkd) (#2 jwk)
+                    in
+                        as_KdEq kd ke
+                    end)
 
 cbinop : NPLUS (CBNatAdd)
        | NMINUS (CBNatMinus)

@@ -5,15 +5,29 @@ fun f $ x = f x
 
 exception Impossible of string
 
+fun max a b = if a < b then b else a
+
+fun inc r = r := !r + 1
+fun dec r = r := !r - 1
+
 val str_int = Int.toString
 
 fun fst (a, b) = a
 fun snd (a, b) = b
 
-fun println s = print (s ^ "\n")
+fun interleave xs ys =
+  case xs of
+      x :: xs' => x :: interleave ys xs'
+    | nil => ys
 
+fun println s = print (s ^ "\n")
+fun sprintf s ls = String.concat (interleave (String.fields (fn c => c = #"$") s) ls)
+
+val join = String.concatWith
 fun prefix fix s = fix ^ s
 fun suffix fix s = s ^ fix
+fun indent msg = map (fn s => "  " ^ s) msg
+fun join_lines ls = (join "" o map (suffix "\n")) ls
 
 fun mapi f ls =
   let

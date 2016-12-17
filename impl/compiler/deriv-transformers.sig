@@ -6,6 +6,8 @@ sig
     val as_KdEqKArrow : MicroTiMLDef.kdeq -> MicroTiMLDef.kdeq -> MicroTiMLDef.kdeq
     val as_KdEqBaseSort : MicroTiMLDef.kctx -> MicroTiMLDef.sort -> MicroTiMLDef.kdeq
     val as_KdEqSubset : MicroTiMLDef.kdeq -> MicroTiMLDef.proping -> MicroTiMLDef.kdeq
+    val as_KdEqSubsetElimLeft : MicroTiMLDef.proping -> MicroTiMLDef.kdeq
+    val as_KdEqSubsetElimRight : MicroTiMLDef.proping -> MicroTiMLDef.kdeq
     val as_WfPropTrue : MicroTiMLDef.kctx -> MicroTiMLDef.wfprop
     val as_WfPropFalse : MicroTiMLDef.kctx -> MicroTiMLDef.wfprop
     val as_WfPropQuan : MicroTiMLDef.quan -> MicroTiMLDef.sort -> MicroTiMLDef.wfprop -> MicroTiMLDef.wfprop

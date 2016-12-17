@@ -32,7 +32,8 @@ fun parse_file filename =
       fun input n =
         if TextIO.endOfStream inStream then ""
         else TextIO.inputN (inStream, n)
-      fun on_error (msg, left, right) = println "parse error"
+      fun on_error (msg, left, right) = print (str_error "error" filename (left, right) [msg])
+      val () = MicroTiMLLex.UserDeclarations.reset_line ()
       val s = parse (input, on_error, on_error)
       val _ = TextIO.closeIn inStream
   in

@@ -39,33 +39,47 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformerFun(
     fun add_type (_, ()) = ()
 
     fun on_ty_leaf (ty, ((), ())) = ty
+    fun on_va_leaf (va, ((), ())) = va
 
     fun transform_proping (pr, ()) = pr
     fun transform_kinding (kd, ()) = kd
     fun transform_wfkind (wk, ()) = wk
     fun transform_tyeq (te, ()) = te
 
-    fun transformer_typing on_typing (ty, ((), ())) =
+    fun transformer_value _ _ = NONE
+
+    fun gen_value e =
+      case e of
+          EConst cn => as_VConst cn
+        | EBinOp (EBPair, e1, e2) => as_VPair (gen_value e1) (gen_value e2)
+        | EUnOp (EUInj inj, e) => as_VInj inj (gen_value e)
+        | EAbs e => as_VAbs e
+        | EAbsC e => as_VAbsC e
+        | EPack (c, e) => as_VPack c (gen_value e)
+        | EUnOp (EUFold, e) => as_VFold (gen_value e)
+        | _ => raise (Impossible "gen_value")
+
+    fun transformer_typing (on_typing, on_value) (ty, ((), ())) =
       case ty of
-          TyAbsC ((ctx, _, t, _), _, _) =>
+          TyAbsC ((ctx, _, t, _), _, _, _) =>
           let
               val kd = fst $ meta_lemma ty
               val ty = ShiftCtx.shift0_ctx_ty ([], [t]) ty
           in
-              SOME (on_typing (TyRec (as_TyRec kd ty, kd, ty), ((), ())))
+              SOME (on_typing (as_TyRec kd ty, ((), ())))
           end
         | TyAbs ((ctx, _, t, _), _, _) =>
           let
               val kd = fst $ meta_lemma ty
               val ty = ShiftCtx.shift0_ctx_ty ([], [t]) ty
           in
-              SOME (on_typing (TyRec (as_TyRec kd ty, kd, ty), ((), ())))
+              SOME (on_typing (as_TyRec kd ty, ((), ())))
           end
         | TyRec (j, kd, ty) =>
           let
               fun unfold_ty ty wks =
                 case ty of
-                    TyAbsC (j, wk, ty) => unfold_ty ty (wk :: wks)
+                    TyAbsC (j, wk, va, ty) => unfold_ty ty (wk :: wks) (* FIXME: unfold a absc, within a sub relation? *)
                   | _ => (ty, wks)
               val (ty, wks) = unfold_ty ty []
           in
@@ -73,10 +87,10 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformerFun(
                   TyAbs (j_abs, kd_arg, ty_body) =>
                   let
                       val ty_body = on_typing (ty_body, ((), ()))
-                      val ty = TyAbs (as_TyAbs kd_arg ty_body, kd_arg, ty_body)
-                      val ty = foldl (fn (wk, ty) => TyAbsC (as_TyAbsC wk ty, wk, ty)) ty wks
+                      val ty = as_TyAbs kd_arg ty_body
+                      val ty = foldl (fn (wk, ty) => as_TyAbsC wk (gen_value (#2 (extract_judge_typing ty))) ty) ty wks
                   in
-                      SOME (TyRec (as_TyRec kd ty, kd, ty))
+                      SOME (as_TyRec kd ty)
                   end
                 | _ => raise (Impossible "WrapLambda")
           end
