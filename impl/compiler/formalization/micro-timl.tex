@@ -108,8 +108,8 @@
     \infer[\textsc{TyEqTypeNat}]{\mathcal{K} \vdash \mathbf{nat}~i_1 \equiv \mathbf{nat}~i_2}{\mathcal{K} \vdash i_1 =_n i_2} \\
     \infer[\textsc{TyEqTypeArr}]{\mathcal{K} \vdash \mathbf{arr}~\tau_1~i_1 \equiv \mathbf{arr}~\tau_2~i_2}{\mathcal{K} \vdash \tau_1 \equiv \tau_2 & \mathcal{K} \vdash i_1 =_n i_2} \hspace{1em}
     \infer[\textsc{TyEqTrans}]{\mathcal{K} \vdash c_1 \equiv c_3}{\mathcal{K} \vdash c_1 \equiv c_2 & \mathcal{K} \vdash c_2 \equiv c_3} \\
-    \infer[\textsc{TyEqNat}]{\mathcal{K} \vdash n_1 \equiv n_2}{\mathcal{K} \vdash n_1 =_n n_2} \hspace{1em}
-    \infer[\textsc{TyEqTime}]{\mathcal{K} \vdash r_1 \equiv r_2}{\mathcal{K} \vdash r_1 =_r r_2}
+    \infer[\textsc{TyEqNat}]{\mathcal{K} \vdash i_1 \equiv i_2}{\mathcal{K} \vdash i_1 =_n i_2} \hspace{1em}
+    \infer[\textsc{TyEqTime}]{\mathcal{K} \vdash i_1 \equiv i_2}{\mathcal{K} \vdash i_1 =_r i_2}
 \end{array}
 \]
 
@@ -147,7 +147,7 @@
     \infer[\textsc{TyAbsC}]{\mathcal{C} \vdash \Lambda \alpha :: \kappa. e : \forall \alpha :: \kappa. \tau \triangleright 0}{\mathcal{C}.1 \vdash \mathrm{wf}~\kappa & \vdash \mathrm{value}~e & \mathcal{C},\alpha :: \kappa \vdash e : \tau \triangleright 0} \hspace{1em}
     \infer[\textsc{TyAppC}]{\mathcal{C} \vdash e~c : \tau[c/\alpha] \triangleright i}{\mathcal{C} \vdash e : \forall \alpha :: \kappa. \tau \triangleright i & \mathcal{C}.1 \vdash c :: \kappa} \\
     \infer[\textsc{TyBinOp}]{\mathcal{C} \vdash e_1~o_{bt}~e_2 : o_{bt}.\tau_r \triangleright i_1 + i_2}{\mathcal{C} \vdash e_1 : o_{bt}.\tau_1 \triangleright i_1 & \mathcal{C} \vdash e_2 : o_{bt}.\tau_2 \triangleright i_2} \\
-    \infer[\textsc{TyRec}]{\mathcal{C} \vdash \mathbf{rec}_\tau~x. e : \tau \triangleright 0}{e = \Lambda \overrightarrow{\alpha :: \kappa}. \lambda y. e_1 & \mathcal{C}.1 \vdash \tau :: \star & \mathcal{C},x:\tau \vdash e : \tau \triangleright 0} \\
+    \infer[\textsc{TyRec}]{\mathcal{C} \vdash \mathbf{rec}_\tau~x. e : \tau \triangleright 0}{e = \Lambda \overrightarrow{\alpha :: \kappa}. \lambda y : \_. e_1 & \mathcal{C}.1 \vdash \tau :: \star & \mathcal{C},x:\tau \vdash e : \tau \triangleright 0} \\
     \infer[\textsc{TyLet}]{\mathcal{C} \vdash \mathbf{let}~x=e_1~\mathbf{in}~e_2 : \tau_2 \triangleright i_1 + i_2}{\mathcal{C} \vdash e_1 : \tau_1 \triangleright i_1 & \mathcal{C},x:\tau_1 \vdash e_2 : \tau_2 \triangleright i_2} \\
     \infer[\textsc{TyNew}]{\mathcal{C} \vdash \mathbf{new}~e_1~e_2 : \mathbf{arr}~\tau~j \triangleright i_1 + i_2}{\mathcal{C} \vdash e_1 : \tau \triangleright i_1 & \mathcal{C} \vdash e_2 : \mathbf{nat}~j \triangleright i_2} \\
     \infer[\textsc{TyRead}]{\mathcal{C} \vdash e_1[e_2] : \tau \triangleright i_1 + i_2}{\mathcal{C} \vdash e_1 : \mathbf{arr}~\tau~j_1 \triangleright i_1 & \mathcal{C} \vdash e_2 : \mathbf{nat}~j_2 \triangleright i_2 & \mathcal{C}.1 \vdash j_2 <_n j_1} \\
@@ -166,7 +166,9 @@
 
 \newcommand{\wrapty}[1]{\mathfrak{W}_{\mathrm{typing}}\left\llbracket #1 \right\rrbracket}
 
-\newcommand{\cloconv}[1]{\mathfrak{C}_{\mathrm{typing}}\left\llbracket #1 \right\rrbracket}
+\newcommand{\cloty}[1]{\mathfrak{C}_{\mathrm{typing}}\left\llbracket #1 \right\rrbracket}
+\newcommand{\clokd}[1]{\mathfrak{C}_{\mathrm{kinding}}\left\llbracket #1 \right\rrbracket}
+\newcommand{\cloc}[1]{\mathfrak{C}_{\mathrm{cstr}}\left\llbracket #1 \right\rrbracket}
 
 \[
 \begin{array}{l}
@@ -242,8 +244,37 @@
 \]
 
 \[
+\begin{array}{l}
+	\cloc{c} \\
+	\cloc{\alpha} = \alpha \\
+	\cloc{CC} = CC \\
+	\cloc{o_{ui}~i} = o_{ui}~\cloc{i} \\
+	\cloc{i_1~o_{bi}~i_2} = \cloc{i_1}~o_{bi}~\cloc{i_2} \\
+	\cloc{i~?~i_1 : i_2} = \cloc{i}~?~\cloc{i_1} : \cloc{i_2} \\
+	\cloc{\mathbf{TimeAbs}~\alpha.i} = \mathbf{TimeAbs}~\alpha.\cloc{i} \\
+	\cloc{\mathbf{TimeApp}_n~c~i} = \mathbf{TimeApp}_n~\cloc{c}~\cloc{i} \\
+	\cloc{\tau_1 \times \tau_2} = \cloc{\tau_1} \times \cloc{\tau_2} \\
+	\cloc{\tau_1 + \tau_2} = \cloc{\tau_1} + \cloc{\tau_2} \\
+	\cloc{\tau \xrightarrow{i} \mathbf{void}} = \exists \beta :: \star. (\beta \times \cloc{\tau} \xrightarrow{\cloc{i}} \mathbf{void}) \times \beta \\
+	\cloc{\lambda \alpha :: \kappa. \tau} = \lambda \alpha :: \kappa. \cloc{\tau} \\
+	\cloc{\tau~c} = \cloc{\tau}~\cloc{c} \\
+	\cloc{\forall \overrightarrow{\alpha :: \kappa}. \tau \xrightarrow{i} \mathbf{void}} = \exists \beta :: \star. (\forall \overrightarrow{\alpha :: \kappa}. (\beta \times \cloc{\tau}) \xrightarrow{\cloc{i}} \mathbf{void}) \times \beta \\
+	\cloc{\exists \alpha :: \kappa. \tau} = \exists \alpha :: \kappa. \cloc{\tau} \\
+	\cloc{\mu \alpha :: \kappa. \tau} = \mu \alpha :: \kappa. \cloc{\tau} \\
+	\cloc{\mathbf{1}} = \mathbf{1} \\
+	\cloc{\mathbf{nat}~i} = \mathbf{nat}~\cloc{i} \\
+	\cloc{\mathbf{arr}~\tau~i} = \mathbf{arr}~\cloc{\tau}~\cloc{i}
+\end{array}
+\]
+
+\[
 \begin{array}{lcl}
-	\cloconv{\infer{\jty{\mathcal{C}}{e}{\tau}{i}}{\cdots}}
+	\cloty{\infer{\jty{\mathcal{C}}{e}{\tau}{i}}{\cdots}} \\
+	
+	\cloty{\infer{\jty{\mathcal{C}}{\mathbf{let}~x=\mathbf{rec}_\tau~x.\Lambda \overrightarrow{\alpha :: \kappa}. \lambda y:\_. e ~\mathbf{in}~e_1}{\tau_1}{0 + i_1}}{\infer[=ty_1]{\jty{\mathcal{C}}{\mathbf{rec}_\tau~x.\Lambda \overrightarrow{\alpha :: \kappa}. \lambda y : 
+				\_. e}{\tau}{0}}{\cdots} & \infer[=ty_2]{\jty{\mathcal{C},x}{e_1}{\tau_1}{i_1}}{\cdots}}} & = & \\
+			
+	\cloty{\infer{\jty{\mathcal{C}}{e_1[\vec{c}]~e_2}{\tau_2}{i_1+i_2+1+i}}{\infer[=ty_1]{\jty{\mathcal{C}}{e_1[\vec{c}]}{\tau_1 \xrightarrow{i} \tau_2}{i_1}}{\cdots} & \infer[=ty_2]{\jty{\mathcal{C}}{e_2}{\tau_1}{i_2}}{\cdots}}} & = &
 \end{array}
 \]
 
