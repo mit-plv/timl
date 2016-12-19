@@ -56,4 +56,8 @@ structure WrapAbsPass = WrapAbsPassFun(MicroTiMLDef)
 open WrapAbsPass
 structure CloConvPass = CloConvPassFun(MicroTiMLDef)
 open CloConvPass
+structure MicroTiMLHoistedDef = MicroTiMLHoistedDefFun(MicroTiMLDef)
+open MicroTiMLHoistedDef
+structure HoistedDerivChecker = HoistedDerivCheckerFun(MicroTiMLHoistedDef)
+open HoistedDerivChecker
 end

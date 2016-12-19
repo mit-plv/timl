@@ -23,6 +23,10 @@ fun main (prog_name, args : string list) : int =
       val ty4 = clo_conv_deriv ty3
       val () = println "---- flattened."
       val () = println $ PlainPrinter.str_expr (#2 (extract_judge_typing ty4))
+      val ty5 = hoist_deriv ty4
+      val () = check_program ty5
+      val () = println "---- hoisted."
+      val () = println $ str_program (#1 (extract_judge_ptyping ty5))
   in
       0
   end
