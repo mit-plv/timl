@@ -55,7 +55,27 @@ end
 fun send_to_cont ty_cont ty =
   case ty_cont of
       TyAbs (_, _, ty_body) => as_TyLet ty ty_body
-    | _ => as_TyApp ty_cont ty
+    | _ =>
+      let
+          val add_let =
+              case ty of
+                  TyAbs _ => true
+                | TyAbsC _ => true
+                | TyRec _ => true
+                | _ => false
+      in
+          if add_let then
+              let
+                  val ((kctx, tctx), _, t, _) = extract_judge_typing ty
+                  val ty_tmp1 = shift0_ctx_ty ([], [t]) ty_cont
+                  val ty_tmp2 = as_TyVar (kctx, t :: tctx) 0
+                  val ty_tmp3 = as_TyApp ty_tmp1 ty_tmp2
+              in
+                  as_TyLet ty ty_tmp3
+              end
+          else
+              as_TyApp ty_cont ty
+      end
 
 fun meta_lemma ty =
   let

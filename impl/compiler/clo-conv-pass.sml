@@ -209,28 +209,28 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformerFun(
     structure MicroTiMLDef = MicroTiMLDef
     structure Action =
     struct
-    type kdown = kctx
-    type tdown = tctx
+    type kdown = kctx * (int * int) list
+    type tdown = tctx * (int * int) list
     type down = kdown * tdown
 
-    fun add_kind (k, (kctx, tctx)) = (k :: kctx, map (shift_c_c 1 0) tctx)
-    fun add_type (t, tctx) = t :: tctx
+    fun add_kind (k, ((kctx, kmap), (tctx, tmap))) = ((k :: kctx, add_assoc 0 0 (map (fn (from, to) => (from + 1, to + 1)) kmap)), (map shift0_c_c tctx, tmap))
+    fun add_type (t, (tctx, tmap)) = (t :: tctx, add_assoc 0 0 (map (fn (from, to) => (from + 1, to + 1)) tmap))
 
-    fun on_va_leaf (va, _) = va
-    fun on_ty_leaf (TyVar (_, EVar x, _, _), (kctx, tctx)) = as_TyVar (kctx, tctx) x
-      | on_ty_leaf (TyConst (_, EConst cn, _, _), (kctx, tctx)) = as_TyConst (kctx, tctx) cn
+    fun on_va_leaf (va, _) = va (* should never encounter value *)
+    fun on_ty_leaf (TyVar (_, EVar x, _, _), ((kctx, kmap), (tctx, tmap))) = as_TyVar (kctx, tctx) (assoc x tmap)
+      | on_ty_leaf (TyConst (_, EConst cn, _, _), ((kctx, kmap), (tctx, tmap))) = as_TyConst (kctx, tctx) cn
       | on_ty_leaf _ = raise (Impossible "as_ty_leaf")
 
-    val transform_proping = CstrDerivHelper.transform_proping
-    val transform_kinding = CstrDerivHelper.transform_kinding
-    val transform_wfkind = CstrDerivHelper.transform_wfkind
-    val transform_tyeq = CstrDerivHelper.transform_tyeq
+    fun transform_proping (pr, (kctx, kmap)) = CstrDerivHelper.transform_proping (drop_ctx_pr (kctx, kmap) pr, kctx)
+    fun transform_kinding (kd, (kctx, kmap)) = CstrDerivHelper.transform_kinding (drop_ctx_kd (kctx, kmap) kd, kctx)
+    fun transform_wfkind (wk, (kctx, kmap)) = CstrDerivHelper.transform_wfkind (drop_ctx_wk (kctx, kmap) wk, kctx)
+    fun transform_tyeq (te, (kctx, kmap)) = CstrDerivHelper.transform_tyeq (drop_ctx_te (kctx, kmap) te, kctx)
 
-    fun transformer_value _ _ = NONE
+    fun transformer_value _ _ = raise (Impossible "transformer_value")
 
-    fun transformer_typing (on_typing, on_value) (ty, (kctx, tctx)) =
+    fun transformer_typing (on_typing, on_value) (ty, ((kctx, kmap), (tctx, tmap))) =
       case ty of
-          TyLet (_, TyRec (_, _, ty_inner), ty_after) =>
+          TyLet (_, ty_rec as TyRec (_, _, ty_inner), ty_after) =>
           let
               fun unfold_ty ty wks =
                 case ty of
@@ -241,62 +241,59 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformerFun(
                   case ty_abs of
                       TyAbs (_, kd_arg, ty_body) => (kd_arg, ty_body)
                     | _ => raise (Impossible "CloConv")
-              val fcv = free_vars0_c_ty ty
-              val fev = free_vars0_e_ty ty
-              val free_kinds = map (fn x => shift_c_k (1 + x) 0 $ nth (kctx, x)) fcv
-              val new_free_kinds = snd $ ListPair.unzip $ snd $
-                                       foldri (fn (i, (x, k), (mapping, pairs)) =>
-                                                  (add_assoc x 0 (map_assoc (fn to => to + 1) mapping), (x, drop_c_k mapping k) :: pairs))
+              val fcv = free_vars0_c_ty ty_rec
+              val fev = free_vars0_e_ty ty_rec
+              val free_kinds = map (fn x => shift_c_k (1 + x) 0 $ nth (kctx, assoc x kmap)) fcv
+              val new_free_kinds = snd $
+                                       foldri (fn (i, (x, k), (mapping, kinds)) =>
+                                                  (add_assoc (assoc x kmap) 0 (map_assoc (fn to => to + 1) mapping), drop_c_k mapping k :: kinds))
                                        ([], []) (ListPair.zip (fcv, free_kinds))
-              val free_wks = map (fn x => meta_lemma2 (as_KdVar kctx x)) fcv
-              val new_free_wks = snd $ ListPair.unzip $ snd $
-                                     foldri (fn (i, (x, wk), ((kctx, mapping), pairs)) =>
+              val free_wks = map (fn x => meta_lemma2 (as_KdVar kctx (assoc x kmap))) fcv
+              val new_free_wks = snd $
+                                     foldri (fn (i, (x, wk), ((kctx, mapping), wks)) =>
                                                 let
                                                     val wk = drop_ctx_wk (kctx, mapping) wk
                                                     val jwk = extract_judge_wfkind wk
                                                 in
-                                                    ((#2 jwk :: kctx, add_assoc x 0 (map_assoc (fn to => to + 1) mapping)), (x, wk) :: pairs)
+                                                    ((#2 jwk :: kctx, add_assoc (assoc x kmap) 0 (map_assoc (fn to => to + 1) mapping)), wk :: wks)
                                                 end)
                                      (([], []), []) (ListPair.zip (fcv, free_wks))
-              val free_types = map (fn x => nth (tctx, x)) fev
-              val free_kds = map (fn x => fst $ meta_lemma1 (TyVar ((kctx, tctx), EVar x, nth (tctx, x), T0))) fev
+              val free_types = map (fn x => nth (tctx, assoc x tmap)) fev
+              val free_kds = map (fn x => fst $ meta_lemma1 (as_TyVar (kctx, tctx) (assoc x tmap))) fev
               val new_free_types =
                   let
-                      val mapping = mapi (fn (i, x) => (x, i)) fcv
+                      val mapping = mapi (fn (i, x) => (assoc x kmap, i)) fcv
                   in
                       map (drop_c_c mapping) free_types
                   end
               val new_free_kds =
                   let
-                      val mapping = mapi (fn (i, x) => (x, i)) fcv
+                      val mapping = mapi (fn (i, x) => (assoc x kmap, i)) fcv
                   in
                       map (drop_ctx_kd (new_free_kinds, mapping)) free_kds
                   end
               val cnt_ori_kinds = length ori_wks
 
               val new_ori_wks = snd $
-                                    foldri (fn (i, wk, ((kctx, mapping), pairs)) =>
+                                    foldri (fn (i, wk, ((kctx, mapping), wks)) =>
                                                let
                                                    val wk = drop_ctx_wk (kctx, mapping) wk
                                                    val jwk = extract_judge_wfkind wk
                                                in
-                                                   ((#2 jwk :: kctx, map (fn (from, to) => (from + 1, to + 1)) mapping), wk :: pairs)
+                                                   ((#2 jwk :: kctx, add_assoc 0 0 (map (fn (from, to) => (from + 1, to + 1)) mapping)), wk :: wks)
                                                end)
-                                    (([], mapi (fn (i, x) => (x, i)) fcv), []) ori_wks
+                                    ((new_free_kinds, mapi (fn (i, x) => (x, i)) fcv), []) ori_wks
               val new_ori_kinds = map (snd o extract_judge_wfkind) new_ori_wks
               val new_all_kinds = new_ori_kinds @ new_free_kinds
               val new_free_types = map (shift_c_c cnt_ori_kinds 0) new_free_types
               val new_free_kds = map (shift0_ctx_kd new_ori_kinds) new_free_kds
 
-              val new_kd_arg = drop_ctx_kd (new_all_kinds, mapi (fn (i, x) => (x + cnt_ori_kinds, i + cnt_ori_kinds)) fcv) kd_arg
-              val new_kd_arg = transform_kinding (new_kd_arg, new_all_kinds)
+              val new_kd_arg = transform_kinding (kd_arg, (new_all_kinds, mapi (fn (i, _) => (i, i)) new_ori_kinds @ mapi (fn (i, x) => (x + cnt_ori_kinds, i + cnt_ori_kinds)) fcv))
               val (_, new_t_arg, _) = extract_judge_kinding new_kd_arg
               val (kd_res, kd_time) = meta_lemma1 ty_body
-              val new_kd_time = drop_ctx_kd (new_all_kinds, mapi (fn (i, x) => (x + cnt_ori_kinds, i + cnt_ori_kinds)) fcv) kd_time
-              val new_kd_time = transform_kinding (new_kd_time, new_all_kinds)
+              val new_kd_time = transform_kinding (kd_time, (new_all_kinds, mapi (fn (i, _) => (i, i)) new_ori_kinds @ mapi (fn (i, x) => (x + cnt_ori_kinds, i + cnt_ori_kinds)) fcv))
               val (_, new_i_abs, _) = extract_judge_kinding new_kd_time
-              val new_kd_res = drop_ctx_kd (new_all_kinds, mapi (fn (i, x) => (x + cnt_ori_kinds, i + cnt_ori_kinds)) fcv) kd_res
-              val new_kd_res = transform_kinding (new_kd_res, new_all_kinds)
+              val new_kd_res = transform_kinding (kd_res, (new_all_kinds, mapi (fn (i, _) => (i, i)) new_ori_kinds @ mapi (fn (i, x) => (x + cnt_ori_kinds, i + cnt_ori_kinds)) fcv))
               val (_, new_t_res, _) = extract_judge_kinding new_kd_res
 
               val new_kd_env = foldl (fn (kd, kd_env) =>
@@ -403,8 +400,7 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformerFun(
 
               val new_tctx_arg = new_t_arg :: new_tctx_self
 
-              val new_ty_body = drop_ctx_ty ((new_kctx_base, mapi (fn (i, x) => (x + cnt_ori_kinds, i + cnt_ori_kinds)) fcv), (new_tctx_arg, mapi (fn (i, x) => (x + 2, 2 * i + 4)) fev)) ty_body
-              val new_ty_body = on_typing (new_ty_body, (new_kctx_base, new_tctx_arg))
+              val new_ty_body = on_typing (ty_body, ((new_kctx_base, mapi (fn (i, _) => (i, i)) new_ori_kinds @ mapi (fn (i, x) => (x + cnt_ori_kinds, i + cnt_ori_kinds)) fcv), (new_tctx_arg, [(0, 0), (1, 1)] @ mapi (fn (i, x) => (x + 2, 2 * i + 4)) fev)))
 
               val new_ty_wrap_arg =
                   let
@@ -489,12 +485,12 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformerFun(
               val new_ty_fix = as_TyFix (kctx, tctx) new_kd_self new_ty_sub
 
               val kctx_add_env = kctx
-              val tctx_add_env_d = foldl (fn (x, tctx_cur) => CProd (nth (tctx, x), hd tctx_cur) :: tctx_cur) [CTypeUnit] fev
+              val tctx_add_env_d = foldl (fn (x, tctx_cur) => CProd (nth (tctx, assoc x tmap), hd tctx_cur) :: tctx_cur) [CTypeUnit] fev
               val tctx_add_env = tctx_add_env_d @ tctx
 
               val new_ty_fix_add_env = shift0_ctx_ty ([], tctx_add_env_d) new_ty_fix
 
-              val ty_env = TyVar ((kctx_add_env, tctx_add_env), EVar 0, hd tctx_add_env, T0)
+              val ty_env = as_TyVar (kctx_add_env, tctx_add_env) 0
               val kd_env =
                   foldl (fn (kd, kd_env) => as_KdBinOp CBTypeProd kd kd_env) (as_KdConst kctx CCTypeUnit) free_kds
 
@@ -503,7 +499,7 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformerFun(
                             let
                                 val jty = extract_judge_typing ty
                                 val (_, k, t_body) = extract_c_quan (#3 jty)
-                                val kd = as_KdVar kctx x
+                                val kd = as_KdVar kctx (assoc x kmap)
                             in
                                 as_TyAppC ty kd
                             end) new_ty_fix_add_env fcv
@@ -576,7 +572,7 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformerFun(
                   end
 
               val (_, _, t_res, _) = extract_judge_typing ty_res
-              val ty_after = on_typing (shift_ctx_ty (([], 0), (t_clo_sub :: tctx_add_env_d, 1)) ty_after, (kctx, t_res :: t_clo_sub :: tctx_add_env))
+              val ty_after = on_typing (shift_ctx_ty (([], 0), (t_clo_sub :: tctx_add_env_d, 1)) ty_after, ((kctx, kmap), (t_res :: t_clo_sub :: tctx_add_env, [(0, 0)] @ map (fn (from, to) => (from + 1 + 1 + length tctx_add_env_d, to + 1 + 1 + length tctx_add_env_d)) tmap)))
               val ty_let = as_TyLet ty_res ty_after
               val ty_let_2 = as_TyLet ty_clo_sub ty_let
 
@@ -584,7 +580,7 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformerFun(
                   foldri (fn (i, x, ty) =>
                              let
                                  val ((kctx, tctx), _, _, _) = extract_judge_typing ty
-                                 val ty_fst = as_TyVar (kctx, tl tctx) (x + i + 1)
+                                 val ty_fst = as_TyVar (kctx, tl tctx) ((assoc x tmap) + i + 1)
                                  val ty_snd = as_TyVar (kctx, tl tctx) 0
                                  val ty_p = as_TyPair ty_fst ty_snd
                              in
@@ -618,15 +614,15 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformerFun(
                   | _ => (ty, kds)
               val (ty1, kds) = unfold_TyAppC ty1 []
 
-              val ty1 = on_typing (ty1, (kctx, tctx))
-              val ty2 = on_typing (ty2, (kctx, tctx))
+              val ty1 = on_typing (ty1, ((kctx, kmap), (tctx, tmap)))
+              val ty2 = on_typing (ty2, ((kctx, kmap), (tctx, tmap)))
               val jty1 = extract_judge_typing ty1
               val jty2 = extract_judge_typing ty2
               val (_, _, t_clo) = extract_c_quan (#3 jty1)
               val (t_func, t_env) = extract_c_prod t_clo
 
               val ty3 = as_TyVar ((KType :: kctx, CProd (t_env, shift0_c_c (#3 jty2)) :: t_env :: t_func :: t_clo :: map shift0_c_c tctx)) 2
-              val ty3 = foldl (fn (kd, ty) => as_TyAppC ty kd) ty3 (map (fn kd => shift0_ctx_kd [KType] (transform_kinding (kd, kctx))) kds)
+              val ty3 = foldl (fn (kd, ty) => as_TyAppC ty kd) ty3 (map (fn kd => shift0_ctx_kd [KType] (transform_kinding (kd, (kctx, kmap)))) kds)
               val ty4 =
                   let
                       val jty3 = extract_judge_typing ty3
@@ -677,5 +673,5 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformerFun(
         | _ => NONE
     end)
 
-fun clo_conv_deriv ty = ExprDerivHelper.transform_typing (ty, ([], []))
+fun clo_conv_deriv ty = ExprDerivHelper.transform_typing (ty, (([], []), ([], [])))
 end
