@@ -1845,4 +1845,222 @@ fun free_vars_e_ty d ty = #2 (ExprDerivHelper.transform_typing (ty, ((), d)))
 
 val free_vars0_e_ty = free_vars_e_ty 0
 end
+
+structure DerivSubstKinding =
+struct
+structure CstrDerivHelper = CstrDerivGenericOnlyDownTransformerFun(
+    structure MicroTiMLDef = MicroTiMLDef
+    structure Action =
+    struct
+    type down = kinding * int
+
+    fun gen_kdeq_refl kctx k =
+      case k of
+          KType => as_KdEqKType kctx
+        | KArrow (k1, k2) =>
+          let
+              val ke1 = gen_kdeq_refl kctx k1
+              val ke2 = gen_kdeq_refl kctx k2
+          in
+              as_KdEqKArrow ke1 ke2
+          end
+        | KBaseSort b => as_KdEqBaseSort kctx b
+        | KSubset (k, p) =>
+          let
+              val ke = gen_kdeq_refl kctx k
+              val pr = PrAdmit (k :: kctx, PIff (p, p))
+          in
+              as_KdEqSubset ke pr
+          end
+
+    fun gen_tyeq_refl kctx t =
+      case t of
+          CVar x => as_TyEqVar kctx x
+        | CConst cn => as_TyEqConst kctx cn
+        | CUnOp (opr, t) => as_TyEqUnOp opr (gen_tyeq_refl kctx t)
+        | CBinOp (opr, t1, t2) =>
+          let
+              val te1 = gen_tyeq_refl kctx t1
+              val te2 = gen_tyeq_refl kctx t2
+          in
+              as_TyEqBinOp opr te1 te2
+          end
+        | CIte (i1, i2, i3) =>
+          let
+              val te1 = gen_tyeq_refl kctx i1
+              val te2 = gen_tyeq_refl kctx i2
+              val te3 = gen_tyeq_refl kctx i3
+          in
+              as_TyEqIte te1 te2 te3
+          end
+        | CTimeAbs i => as_TyEqTimeAbs kctx i
+        | CTimeApp (arity, c1, c2) => as_TyEqTimeApp kctx arity c1 c2
+        | CArrow (t1, i, t2) =>
+          let
+              val te1 = gen_tyeq_refl kctx t1
+              val pr = PrAdmit (kctx, TEq (i, i))
+              val te2 = gen_tyeq_refl kctx t2
+          in
+              as_TyEqArrow te1 pr te2
+          end
+        | CAbs c => as_TyEqAbs kctx c
+        | CApp (c1, c2) =>
+          let
+              val te1 = gen_tyeq_refl kctx c1
+              val te2 = gen_tyeq_refl kctx c2
+          in
+              as_TyEqApp te1 te2
+          end
+        | CQuan (q, k, c) =>
+          let
+              val ke = gen_kdeq_refl kctx k
+              val te = gen_tyeq_refl (k :: kctx) c
+          in
+              as_TyEqQuan q ke te
+          end
+        | CRec (k, c) =>
+          let
+              val ke = gen_kdeq_refl kctx k
+              val te = gen_tyeq_refl (k :: kctx) c
+          in
+              as_TyEqRec ke te
+          end
+        | CTypeNat i => as_TyEqTypeNat (PrAdmit (kctx, NEq (i, i)))
+        | CTypeArr (t, i) => as_TyEqTypeArr (gen_tyeq_refl kctx t) (PrAdmit (kctx, NEq (i, i)))
+
+    fun add_kind (k, (to, who)) = (ShiftCtx.shift0_ctx_kd [k] to, who + 1)
+
+    fun on_pr_leaf (PrAdmit (_, p), (to, who)) =
+      let
+          val (kctx, c, _) = extract_judge_kinding to
+      in
+          PrAdmit (kctx, subst_c_p c who p)
+      end
+
+    fun on_ke_leaf (KdEqKType (_, _, _), (to, who)) =
+      let
+          val (kctx, _, _) = extract_judge_kinding to
+      in
+          as_KdEqKType kctx
+      end
+      | on_ke_leaf (KdEqBaseSort (_, KBaseSort b, _), (to, who)) =
+        let
+            val (kctx, _, _) = extract_judge_kinding to
+        in
+            as_KdEqBaseSort kctx b
+        end
+      | on_ke_leaf _ = raise (Impossible "on_ke_leaf")
+
+    fun on_kd_leaf (KdVar (_, CVar x, _), (to, who)) =
+      let
+          val (kctx, _, _) = extract_judge_kinding to
+      in
+          if x = who then to
+          else if x < who then
+              as_KdVar kctx x
+          else
+              as_KdVar kctx (x - 1)
+      end
+      | on_kd_leaf (KdConst (_, CConst cn, _), (to, who)) =
+        let
+            val (kctx, _, _) = extract_judge_kinding to
+        in
+            as_KdConst kctx cn
+        end
+      | on_kd_leaf (KdAdmit (_, t, k), (to, who)) =
+        let
+            val (kctx, c, _) = extract_judge_kinding to
+        in
+            KdAdmit (kctx, subst_c_c c who t, subst_c_k c who k)
+        end
+      | on_kd_leaf _ = raise (Impossible "on_kd_leaf")
+
+    fun on_wk_leaf (WfKdType (_, _), (to, who)) =
+      let
+          val (kctx, _, _) = extract_judge_kinding to
+      in
+          as_WfKdType kctx
+      end
+      | on_wk_leaf (WfKdBaseSort (_, KBaseSort b), (to, who)) =
+        let
+            val (kctx, _, _) = extract_judge_kinding to
+        in
+            as_WfKdBaseSort kctx b
+        end
+      | on_wk_leaf (WfKdAdmit (_, k), (to, who)) =
+        let
+            val (kctx, c, _) = extract_judge_kinding to
+        in
+            WfKdAdmit (kctx, subst_c_k c who k)
+        end
+      | on_wk_leaf _ = raise (Impossible "on_wk_leaf")
+
+    fun on_wp_leaf (WfPropTrue (_, _), (to, who)) =
+      let
+          val (kctx, _, _) = extract_judge_kinding to
+      in
+          as_WfPropTrue kctx
+      end
+      | on_wp_leaf (WfPropFalse (_, _), (to, who)) =
+        let
+            val (kctx, _, _) = extract_judge_kinding to
+        in
+            as_WfPropFalse kctx
+        end
+      | on_wp_leaf _ = raise (Impossible "on_wp_leaf")
+
+    fun on_te_leaf (TyEqVar (_, CVar x, _), (to, who)) =
+      let
+          val (kctx, c, _) = extract_judge_kinding to
+      in
+          if x = who then gen_tyeq_refl kctx c
+          else if x < who then
+              as_TyEqVar kctx x
+          else
+              as_TyEqVar kctx (x - 1)
+      end
+      | on_te_leaf (TyEqConst (_, CConst cn, _), (to, who)) =
+        let
+            val (kctx, _, _) = extract_judge_kinding to
+        in
+            as_TyEqConst kctx cn
+        end
+      | on_te_leaf (TyEqBeta (_, CApp (CAbs t1, t2), _), (to, who)) =
+        let
+            val (kctx, c, _) = extract_judge_kinding to
+        in
+            as_TyEqBeta kctx (subst_c_c (shift0_c_c c) (who + 1) t1) (subst_c_c c who t2)
+        end
+      | on_te_leaf (TyEqBetaRev (_, _, CApp (CAbs t1, t2)), (to, who)) =
+        let
+            val (kctx, c, _) = extract_judge_kinding to
+        in
+            as_TyEqBetaRev kctx (subst_c_c (shift0_c_c c) (who + 1) t1) (subst_c_c c who t2)
+        end
+      | on_te_leaf (TyEqTimeAbs (_, CTimeAbs i, _), (to, who)) =
+        let
+            val (kctx, c, _) = extract_judge_kinding to
+        in
+            as_TyEqTimeAbs kctx (subst_c_c (shift0_c_c c) (who + 1) i)
+        end
+      | on_te_leaf (TyEqTimeApp (_, CTimeApp (arity, c1, c2), _), (to, who)) =
+        let
+            val (kctx, c, _) = extract_judge_kinding to
+        in
+            as_TyEqTimeApp kctx arity (subst_c_c c who c1) (subst_c_c c who c2)
+        end
+      | on_te_leaf _ = raise (Impossible "on_te_leaf")
+
+    fun transformer_proping _ = NONE
+    fun transformer_kdeq _ _ = NONE
+    fun transformer_kinding _ _ = NONE
+    fun transformer_wfkind _ _ = NONE
+    fun transformer_wfprop _ _ = NONE
+    fun transformer_tyeq _ _ = NONE
+    end)
+
+fun subst_kd_kd to who kd = CstrDerivHelper.transform_kinding (kd, (to, who))
+
+fun subst0_kd_kd to = subst_kd_kd to 0
+end
 end

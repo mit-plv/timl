@@ -54,4 +54,6 @@ structure CPSPass = CPSPassFun(MicroTiMLDef)
 open CPSPass
 structure WrapAbsPass = WrapAbsPassFun(MicroTiMLDef)
 open WrapAbsPass
+structure CloConvPass = CloConvPassFun(MicroTiMLDef)
+open CloConvPass
 end

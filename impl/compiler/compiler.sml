@@ -20,6 +20,9 @@ fun main (prog_name, args : string list) : int =
       val ty3 = wrap_abs_deriv ty2
       val () = println "---- wrapped."
       val () = println $ PlainPrinter.str_expr (#2 (extract_judge_typing ty3))
+      val ty4 = clo_conv_deriv ty3
+      val () = println "---- flattened."
+      val () = println $ PlainPrinter.str_expr (#2 (extract_judge_typing ty4))
   in
       0
   end

@@ -183,4 +183,10 @@ sig
                   val free_vars_e_ty : int -> MicroTiMLDef.typing -> int list
                   val free_vars0_e_ty : MicroTiMLDef.typing -> int list
               end
+
+    structure DerivSubstKinding :
+              sig
+                  val subst_kd_kd : MicroTiMLDef.kinding -> int -> MicroTiMLDef.kinding -> MicroTiMLDef.kinding
+                  val subst0_kd_kd : MicroTiMLDef.kinding -> MicroTiMLDef.kinding -> MicroTiMLDef.kinding
+              end
 end
