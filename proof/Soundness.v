@@ -4161,11 +4161,6 @@ Section tyeq_hint.
       end.
  *)
 
-    (*here*)
-    
-    (* Substitute a 'substitution group' for all variables. *)
-    (* In a subtitution group, values for inner variables cannot still depend on values for outer variables.  *)
-
     Fixpoint shift_bs_c x vs b :=
       match vs with
       | [] => b
@@ -4179,10 +4174,19 @@ Section tyeq_hint.
     Definition shift_cs_c x (vs : list (option cstr)) b := shift_bs_c x (map isSome vs) b.
     Arguments shift_cs_c / .
       
-    Fixpoint subst_cs_x B subst x (vs : list (option cstr)) (b : B) :=
+    (* Substitute a 'substitution group' for all variables. *)
+    (* In a subtitution group, values for inner variables cannot depend on values for outer variables.  *)
+
+    Definition subst_pair := (list kind * cstr)%type.
+    Definition subst_group := list (option subst_pair).
+
+    (*here*)
+
+    Fixpoint subst_cs_x B subst x (vs : subst_group) (b : B) :=
       match vs with
       | [] => b
       | v :: vs =>
+
         match v with
         | Some v => subst_cs_x subst x vs (subst x (shift_c_c x 0 (shift_cs_c 0 vs v)) b)
         | None => subst_cs_x subst (1 + x) vs b
