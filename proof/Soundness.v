@@ -4161,32 +4161,32 @@ Section tyeq_hint.
       end.
  *)
 
-    Fixpoint shift_bs_c x vs b :=
-      match vs with
-      | [] => b
-      | v :: vs =>
-        match v with
-        | true => shift_bs_c (1 + x) vs (shift_c_c 1 x b)
-        | false => shift_bs_c (1 + x) vs b
-        end
-      end.
-
-    Definition shift_cs_c x (vs : list (option cstr)) b := shift_bs_c x (map isSome vs) b.
-    Arguments shift_cs_c / .
-      
     (* Substitute a 'substitution group' for all variables. *)
     (* In a subtitution group, values for inner variables cannot depend on values for outer variables.  *)
 
     Definition subst_pair := (list kind * cstr)%type.
     Definition subst_group := list (option subst_pair).
 
-    (*here*)
+    Fixpoint shift_bs_c x vs b :=
+      match vs with
+      | [] => b
+      | v :: vs =>
+        match v with
+        | None => shift_bs_c (1 + x) vs (shift_c_c 1 x b)
+        | Some n => shift_bs_c (1 + n + x) vs b
+        end
+      end.
 
+    Definition get_depth := option_map (fun p : subst_pair => length (fst p)).
+    Definition shift_cs_c x (vs : subst_group) b := shift_bs_c x (map get_depth vs) b.
+    Arguments shift_cs_c / .
+
+    (*here*)
+      
     Fixpoint subst_cs_x B subst x (vs : subst_group) (b : B) :=
       match vs with
       | [] => b
       | v :: vs =>
-
         match v with
         | Some v => subst_cs_x subst x vs (subst x (shift_c_c x 0 (shift_cs_c 0 vs v)) b)
         | None => subst_cs_x subst (1 + x) vs b
