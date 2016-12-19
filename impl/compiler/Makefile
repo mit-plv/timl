@@ -12,7 +12,6 @@ clo-conv-pass.sig \
 micro-timl-hoisted-def.sig \
 hoisted-deriv-checker.sig \
 typed-assembly-def.sig \
-micro-timl-test.sig \
 micro-timl-def.sml \
 micro-timl-util.sml \
 ast-transformers.sml \
@@ -23,7 +22,6 @@ clo-conv-pass.sml \
 micro-timl-hoisted-def.sml \
 hoisted-deriv-checker.sml \
 typed-assembly-def.sml \
-micro-timl-test.sml \
 micro-timl-inst.sml \
 micro-timl.grm \
 micro-timl.lex \
