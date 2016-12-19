@@ -216,7 +216,7 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformerFun(
     fun add_kind (k, ((kctx, kmap), (tctx, tmap))) = ((k :: kctx, add_assoc 0 0 (map (fn (from, to) => (from + 1, to + 1)) kmap)), (map shift0_c_c tctx, tmap))
     fun add_type (t, (tctx, tmap)) = (t :: tctx, add_assoc 0 0 (map (fn (from, to) => (from + 1, to + 1)) tmap))
 
-    fun on_va_leaf (va, _) = va (* should never encounter value *)
+    fun on_va_leaf (va, _) = raise (Impossible "on_va_leaf") (* should never encounter value *)
     fun on_ty_leaf (TyVar (_, EVar x, _, _), ((kctx, kmap), (tctx, tmap))) = as_TyVar (kctx, tctx) (assoc x tmap)
       | on_ty_leaf (TyConst (_, EConst cn, _, _), ((kctx, kmap), (tctx, tmap))) = as_TyConst (kctx, tctx) cn
       | on_ty_leaf _ = raise (Impossible "as_ty_leaf")
@@ -243,7 +243,7 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformerFun(
                     | _ => raise (Impossible "CloConv")
               val fcv = free_vars0_c_ty ty_rec
               val fev = free_vars0_e_ty ty_rec
-              val free_kinds = map (fn x => shift_c_k (1 + x) 0 $ nth (kctx, assoc x kmap)) fcv
+              val free_kinds = map (fn x => shift_c_k (1 + (assoc x kmap)) 0 $ nth (kctx, assoc x kmap)) fcv
               val new_free_kinds = snd $
                                        foldri (fn (i, (x, k), (mapping, kinds)) =>
                                                   (add_assoc (assoc x kmap) 0 (map_assoc (fn to => to + 1) mapping), drop_c_k mapping k :: kinds))
