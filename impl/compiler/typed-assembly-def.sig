@@ -18,7 +18,8 @@ sig
              | TCApp of tal_cstr * tal_cstr
              | TCQuan of MicroTiMLHoistedDef.MicroTiMLDef.quan * tal_kind * tal_cstr
              | TCRec of tal_kind * tal_cstr
-             | TCRef of tal_cstr
+             | TCTypeNat of tal_cstr
+             | TCTypeArr of tal_cstr * tal_cstr
              | TCUnOp of MicroTiMLHoistedDef.MicroTiMLDef.cstr_un_op * tal_cstr
 
          and tal_kind =
@@ -40,12 +41,16 @@ sig
              | TWConst of MicroTiMLHoistedDef.MicroTiMLDef.expr_const
              | TWAppC of tal_word * tal_cstr
              | TWPack of tal_cstr * tal_word
+             | TWFold of tal_word
+             | TWInj of MicroTiMLHoistedDef.MicroTiMLDef.injector * tal_word
 
     datatype tal_value =
              TVReg of tal_register
              | TVWord of tal_word
              | TVAppC of tal_value * tal_cstr
              | TVPack of tal_cstr * tal_value
+             | TVFold of tal_value
+             | TVInj of MicroTiMLHoistedDef.MicroTiMLDef.injector * tal_value
 
     datatype tal_instr =
              TINewpair of tal_register * tal_register * tal_register
@@ -53,9 +58,9 @@ sig
              | TIInj of MicroTiMLHoistedDef.MicroTiMLDef.injector * tal_register
              | TIFold of tal_register
              | TIUnfold of tal_register
-             | TINewref of tal_register * tal_register
-             | TIDeref of tal_register * tal_register
-             | TISetref of tal_register * tal_register
+             | TINewarray of tal_register * tal_register * tal_register
+             | TILoad of tal_register * tal_register * tal_register
+             | TIStore of tal_register * tal_register * tal_register
              | TIPrimBinOp of MicroTiMLHoistedDef.MicroTiMLDef.prim_expr_bin_op * tal_register * tal_register * tal_register
              | TIMove of tal_register * tal_value
              | TIUnpack of tal_register * tal_value
@@ -109,7 +114,8 @@ sig
              | TKdTimeApp of tal_kinding_judgement * tal_kinding * tal_kinding
              | TKdQuan of tal_kinding_judgement * tal_wfkind * tal_kinding
              | TKdRec of tal_kinding_judgement * tal_wfkind * tal_kinding
-             | TKdRef of tal_kinding_judgement * tal_kinding
+             | TKdTypeNat of tal_kinding_judgement * tal_kinding
+             | TKdTypeArr of tal_kinding_judgement * tal_kinding * tal_kinding
              | TKdEq of tal_kinding_judgement * tal_kinding * tal_kdeq
              | TKdUnOp of tal_kinding_judgement * tal_kinding
              | TKdAdmit of tal_kinding_judgement
@@ -138,16 +144,19 @@ sig
              | TTyEqIte of tal_tyeq_judgement * tal_tyeq * tal_tyeq * tal_tyeq
              | TTyEqArrow of tal_tyeq_judgement * tal_tyeq list * tal_proping
              | TTyEqApp of tal_tyeq_judgement * tal_tyeq * tal_tyeq
-             | TTyEqTimeApp of tal_tyeq_judgement * tal_tyeq * tal_tyeq
-             | TTyEqBeta of tal_tyeq_judgement * tal_tyeq * tal_tyeq * tal_tyeq
-             | TTyEqBetaRev of tal_tyeq_judgement * tal_tyeq * tal_tyeq * tal_tyeq
+             | TTyEqTimeApp of tal_tyeq_judgement
+             | TTyEqBeta of tal_tyeq_judgement
+             | TTyEqBetaRev of tal_tyeq_judgement
              | TTyEqQuan of tal_tyeq_judgement * tal_kdeq * tal_tyeq
              | TTyEqRec of tal_tyeq_judgement * tal_kdeq * tal_tyeq
-             | TTyEqRef of tal_tyeq_judgement * tal_tyeq
              | TTyEqAbs of tal_tyeq_judgement
              | TTyEqTimeAbs of tal_tyeq_judgement
+             | TTyEqTypeNat of tal_tyeq_judgement * tal_proping
+             | TTyEqTypeArr of tal_tyeq_judgement * tal_tyeq * tal_proping
              | TTyEqUnOp of tal_tyeq_judgement * tal_tyeq
              | TTyEqNat of tal_tyeq_judgement * tal_proping
+             | TTyEqTime of tal_tyeq_judgement * tal_proping
+             | TTyEqTrans of tal_tyeq_judgement * tal_tyeq * tal_tyeq
 
     type tal_word_typing_judgement = (tal_hctx * tal_kctx) * tal_word * tal_cstr
 
@@ -156,6 +165,8 @@ sig
              | TWTyConst of tal_word_typing_judgement
              | TWTyAppC of tal_word_typing_judgement * tal_word_typing * tal_kinding
              | TWTyPack of tal_word_typing_judgement * tal_kinding * tal_kinding * tal_word_typing
+             | TWTyFold of tal_word_typing_judgement * tal_kinding * tal_word_typing
+             | TWTyInj of tal_word_typing_judgement * tal_word_typing * tal_kinding
              | TWTySub of tal_word_typing_judgement * tal_word_typing * tal_tyeq
              | TWTyLocAdmit of tal_word_typing_judgement (* only used during code generation *)
 
@@ -166,6 +177,8 @@ sig
              | TVTyWord of tal_value_typing_judgement * tal_word_typing
              | TVTyAppC of tal_value_typing_judgement * tal_value_typing * tal_kinding
              | TVTyPack of tal_value_typing_judgement * tal_kinding * tal_kinding * tal_value_typing
+             | TVTyFold of tal_value_typing_judgement * tal_kinding * tal_value_typing
+             | TVTyInj of tal_value_typing_judgement * tal_value_typing * tal_kinding
              | TVTySub of tal_value_typing_judgement * tal_value_typing * tal_tyeq
 
     type tal_instr_typing_judgement = tal_ctx * tal_block * tal_cstr
@@ -176,9 +189,9 @@ sig
              | TITyInj of tal_instr_typing_judgement * tal_value_typing * tal_kinding * tal_instr_typing
              | TITyFold of tal_instr_typing_judgement * tal_kinding * tal_value_typing * tal_instr_typing
              | TITyUnfold of tal_instr_typing_judgement * tal_value_typing * tal_instr_typing
-             | TITyNewref of tal_instr_typing_judgement * tal_value_typing * tal_instr_typing
-             | TITyDeref of tal_instr_typing_judgement * tal_value_typing * tal_instr_typing
-             | TITySetref of tal_instr_typing_judgement * tal_value_typing * tal_value_typing * tal_instr_typing
+             | TITyNewarray of tal_instr_typing_judgement * tal_value_typing * tal_value_typing * tal_instr_typing
+             | TITyLoad of tal_instr_typing_judgement * tal_value_typing * tal_value_typing * tal_proping * tal_instr_typing
+             | TITyStore of tal_instr_typing_judgement * tal_value_typing * tal_value_typing * tal_proping * tal_value_typing * tal_instr_typing
              | TITyPrimBinOp of tal_instr_typing_judgement * tal_value_typing * tal_value_typing * tal_instr_typing
              | TITyMove of tal_instr_typing_judgement * tal_value_typing * tal_instr_typing
              | TITyUnpack of tal_instr_typing_judgement * tal_value_typing * tal_instr_typing
@@ -211,6 +224,7 @@ sig
     val TTadd : tal_cstr * tal_cstr -> tal_cstr
     val TTminus : tal_cstr * tal_cstr -> tal_cstr
     val TTmult : tal_cstr * tal_cstr -> tal_cstr
+    val TTmax : tal_cstr * tal_cstr -> tal_cstr
 
     val TTfromNat : tal_cstr -> tal_cstr
 
@@ -219,12 +233,11 @@ sig
     val TPImply : tal_prop * tal_prop -> tal_prop
     val TPIff : tal_prop * tal_prop -> tal_prop
 
-    val TTmax : tal_cstr * tal_cstr -> tal_cstr
-
     val TCForall : tal_kind * tal_cstr -> tal_cstr
     val TCExists : tal_kind * tal_cstr -> tal_cstr
 
     val TCTypeUnit : tal_cstr
+    val TCTypeInt : tal_cstr
 
     val TCProd : tal_cstr * tal_cstr -> tal_cstr
     val TCSum : tal_cstr * tal_cstr -> tal_cstr
@@ -232,7 +245,6 @@ sig
     val TTLe : tal_cstr * tal_cstr -> tal_prop
     val TTEq : tal_cstr * tal_cstr -> tal_prop
 
-    val TCTypeInt : tal_cstr
     val TCNat : MicroTiMLHoistedDef.MicroTiMLDef.Nat.nat_type -> tal_cstr
 
     val TCApps : tal_cstr -> tal_cstr list -> tal_cstr
@@ -275,7 +287,6 @@ sig
     val extract_tal_c_abs : tal_cstr -> tal_cstr
     val extract_tal_c_prod : tal_cstr -> tal_cstr * tal_cstr
     val extract_tal_c_rec : tal_cstr -> tal_kind * tal_cstr
-    val extract_tal_c_ref : tal_cstr -> tal_cstr
     val extract_tal_c_sum : tal_cstr -> tal_cstr * tal_cstr
     val extract_tal_v_reg : tal_value -> tal_register
 

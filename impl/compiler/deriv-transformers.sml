@@ -233,8 +233,8 @@ fun as_KdTypeArr kd1 kd2 =
       val jkd1 = extract_judge_kinding kd1
       val jkd2 = extract_judge_kinding kd2
       val () = assert (#1 jkd1 = #1 jkd2) "KdTypeArr 1"
-      val () = assert (#3 jkd1 = KType) "KdTypeArr 1"
-      val () = assert (#3 jkd2 = KNat) "KdTypeArr 2"
+      val () = assert (#3 jkd1 = KType) "KdTypeArr 2"
+      val () = assert (#3 jkd2 = KNat) "KdTypeArr 3"
   in
       KdTypeArr ((#1 jkd1, CTypeArr (#2 jkd1, #2 jkd2), KType), kd1, kd2)
   end
