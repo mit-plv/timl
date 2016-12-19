@@ -660,7 +660,7 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformerFun(
                   let
                       val jty16 = extract_judge_typing ty16
                   in
-                      as_TySubTi ty16 (PrAdmit (fst $ #1 jty16, TLe (#4 jty16, ti)))
+                      as_TySubTi ty16 (PrAdmit (fst $ #1 jty16, TLe (#4 jty16, drop_c_c kmap ti)))
                   end
           in
               SOME ty17
