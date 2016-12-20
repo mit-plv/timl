@@ -22,7 +22,6 @@ structure DerivAssembler = DerivAssemblerFun(MicroTiMLDef)
 open DerivAssembler
 
 open ShiftCtx
-open DerivSubstTyping
 
 structure CountNodes =
 struct
@@ -56,45 +55,27 @@ end
 fun send_to_cont ty_cont ty =
   case ty_cont of
       TyAbs (_, _, ty_body) => as_TyLet ty ty_body
-    | _ => as_TyApp ty_cont ty
-
-(* fun send_to_cont ty_cont ty = *)
-(*   case ty_cont of *)
-(*       TyAbs (_, _, ty_body) => *)
-(*       let *)
-(*           val add_let = *)
-(*               case ty of *)
-(*                   TyAbs _ => true *)
-(*                 | TyAbsC _ => true *)
-(*                 | TyRec _ => true *)
-(*                 | _ => false *)
-(*       in *)
-(*           if add_let then *)
-(*               TyLet (as_TyLet ty ty_body, ty, ty_body) *)
-(*           else *)
-(*               subst0_ty_ty ty ty_body *)
-(*       end *)
-(*     | _ => *)
-(*       let *)
-(*           val add_let = *)
-(*               case ty of *)
-(*                   TyAbs _ => true *)
-(*                 | TyAbsC _ => true *)
-(*                 | TyRec _ => true *)
-(*                 | _ => false *)
-(*       in *)
-(*           if add_let then *)
-(*               let *)
-(*                   val ((kctx, tctx), _, t, _) = extract_judge_typing ty *)
-(*                   val ty_tmp1 = shift0_ctx_ty ([], [t]) ty_cont *)
-(*                   val ty_tmp2 = TyVar ((kctx, t :: tctx), EVar 0, t, T0) *)
-(*                   val ty_tmp3 = TyApp (as_TyApp ty_tmp1 ty_tmp2, ty_tmp1, ty_tmp2) *)
-(*               in *)
-(*                   TyLet (as_TyLet ty ty_tmp3, ty, ty_tmp3) *)
-(*               end *)
-(*           else *)
-(*               TyApp (as_TyApp ty_cont ty, ty_cont, ty) *)
-(*       end *)
+    | _ =>
+      let
+          val add_let =
+              case ty of
+                  TyAbs _ => true
+                | TyAbsC _ => true
+                | TyRec _ => true
+                | _ => false
+      in
+          if add_let then
+              let
+                  val ((kctx, tctx), _, t, _) = extract_judge_typing ty
+                  val ty_tmp1 = shift0_ctx_ty ([], [t]) ty_cont
+                  val ty_tmp2 = as_TyVar (kctx, t :: tctx) 0
+                  val ty_tmp3 = as_TyApp ty_tmp1 ty_tmp2
+              in
+                  as_TyLet ty ty_tmp3
+              end
+          else
+              as_TyApp ty_cont ty
+      end
 
 fun meta_lemma ty =
   let
@@ -741,8 +722,11 @@ and cps_finisher_in3 ty1 ty2 ty3 kd_t1 kd_t2 kd_t3 t1 t2 t3 ty_post ty_cont =
     let
         val ((kctx, tctx), _, t_post, _) = extract_judge_typing ty_post
         val ty_tmp1 = shift0_ctx_ty ([], [t_post, t3, t2, t1]) ty_cont
-        val ty_tmp2 = as_TyVar (kctx, t_post :: tctx) 0
-        (* possible optimization: if t_post is CTypeUnit, can pass it explicitly *)
+        val ty_tmp2 =
+            if t_post = CTypeUnit then
+                as_TyConst (kctx, t_post :: tctx) ECTT
+            else
+                as_TyVar (kctx, t_post :: tctx) 0
         val ty_tmp3 = send_to_cont ty_tmp1 ty_tmp2
         val ty_tmp4 = as_TyLet ty_post ty_tmp3
         val in2_ty_cont = as_TyAbs kd_t3 ty_tmp4

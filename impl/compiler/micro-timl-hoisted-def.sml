@@ -21,6 +21,7 @@ datatype atom_expr =
      and complex_expr =
          CEUnOp of expr_un_op * atom_expr
          | CEBinOp of expr_bin_op * atom_expr * atom_expr
+         | CETriOp of expr_tri_op * atom_expr * atom_expr * atom_expr
          | CEAtom of atom_expr
 
      and hoisted_expr =
@@ -33,13 +34,13 @@ datatype atom_expr =
      and func_expr =
          FEFix of int * hoisted_expr
 
-type fctx = cstr list
-type ctx = fctx * kctx * tctx
+type hoi_fctx = cstr list
+type hoi_ctx = hoi_fctx * kctx * tctx
 
-type atom_typing_judgement = ctx * atom_expr * cstr * cstr
-type complex_typing_judgement = ctx * complex_expr * cstr * cstr
-type hoisted_typing_judgement = ctx * hoisted_expr * cstr
-type func_typing_judgement = fctx * func_expr * cstr
+type atom_typing_judgement = hoi_ctx * atom_expr * cstr * cstr
+type complex_typing_judgement = hoi_ctx * complex_expr * cstr * cstr
+type hoisted_typing_judgement = hoi_ctx * hoisted_expr * cstr
+type func_typing_judgement = hoi_fctx * func_expr * cstr
 
 datatype atom_typing =
          ATyVar of atom_typing_judgement
@@ -56,9 +57,9 @@ datatype atom_typing =
          | CTyInj of complex_typing_judgement * atom_typing * kinding
          | CTyFold of complex_typing_judgement * kinding * atom_typing
          | CTyUnfold of complex_typing_judgement * atom_typing
-         | CTyNew of complex_typing_judgement * atom_typing
-         | CTyRead of complex_typing_judgement * atom_typing
-         | CTyWrite of complex_typing_judgement * atom_typing * atom_typing
+         | CTyNew of complex_typing_judgement * atom_typing * atom_typing
+         | CTyRead of complex_typing_judgement * atom_typing * atom_typing * proping
+         | CTyWrite of complex_typing_judgement * atom_typing * atom_typing * proping * atom_typing
          | CTyPrimBinOp of complex_typing_judgement * atom_typing * atom_typing
          | CTyAtom of complex_typing_judgement * atom_typing
          | CTySubTy of complex_typing_judgement * complex_typing * tyeq
@@ -86,9 +87,9 @@ fun CEPair (e1, e2) = CEBinOp (EBPair, e1, e2)
 fun CEInj (inj, e) = CEUnOp (EUInj inj, e)
 fun CEFold e = CEUnOp (EUFold, e)
 fun CEUnfold e = CEUnOp (EUUnfold, e)
-fun CENew e = CEUnOp (EUNew, e)
-fun CERead e = CEUnOp (EURead, e)
-fun CEWrite (e1, e2) = CEBinOp (EBWrite, e1, e2)
+fun CENew (e1, e2) = CEBinOp (EBNew, e1, e2)
+fun CERead (e1, e2) = CEBinOp (EBRead, e1, e2)
+fun CEWrite (e1, e2, e3) = CETriOp (ETWrite, e1, e2, e3)
 
 fun extract_judge_ptyping ty =
   case ty of
@@ -120,9 +121,9 @@ fun extract_judge_ctyping ty =
     | CTyInj (j, _, _) => j
     | CTyFold (j, _, _) => j
     | CTyUnfold (j, _) => j
-    | CTyNew (j, _) => j
-    | CTyRead (j, _) => j
-    | CTyWrite (j, _, _) => j
+    | CTyNew (j, _, _) => j
+    | CTyRead (j, _, _, _) => j
+    | CTyWrite (j, _, _, _, _) => j
     | CTyPrimBinOp (j, _, _) => j
     | CTyAtom (j, _) => j
     | CTySubTy (j, _, _) => j
@@ -146,6 +147,7 @@ fun str_complex_expr e =
   case e of
       CEUnOp (opr, e) => "(" ^ str_expr_un_op opr ^ " " ^ str_atom_expr e ^ ")"
     | CEBinOp (opr, e1, e2) => "(" ^ str_atom_expr e1 ^ " " ^ str_expr_bin_op opr ^ " " ^ str_atom_expr e2 ^ ")"
+    | CETriOp (opr, e1, e2, e3) =>  "(" ^ str_expr_tri_op opr ^ " " ^ str_atom_expr e1 ^ " "  ^ str_atom_expr e2 ^ " " ^ str_atom_expr e3 ^ ")"
     | CEAtom e => str_atom_expr e
 
 fun str_hoisted_expr tab e =
@@ -270,28 +272,34 @@ and transform_typing_complex (ty : typing, funcs : func_typing list) =
         in
             (CTyUnfold ((([], kctx, tctx), CEUnfold (#2 jty), t, i), ty), funcs)
         end
-      | TyNew (((kctx, tctx), EUnOp (EUNew, e), t, i), ty) =>
-        let
-            val (ty, funcs) = transform_typing_atom (ty, funcs)
-            val jty = extract_judge_atyping ty
-        in
-            (CTyNew ((([], kctx, tctx), CENew (#2 jty), t, i), ty), funcs)
-        end
-      | TyRead (((kctx, tctx), EUnOp (EURead, e), t, i), ty) =>
-        let
-            val (ty, funcs) = transform_typing_atom (ty, funcs)
-            val jty = extract_judge_atyping ty
-        in
-            (CTyRead ((([], kctx, tctx), CERead (#2 jty), t, i), ty), funcs)
-        end
-      | TyWrite (((kctx, tctx), EBinOp (EBWrite, e1, e2), t, i), ty1, ty2) =>
+      | TyNew (((kctx, tctx), EBinOp (EBNew, e1, e2), t, i), ty1, ty2) =>
         let
             val (ty1, funcs) = transform_typing_atom (ty1, funcs)
             val (ty2, funcs) = transform_typing_atom (ty2, funcs)
             val jty1 = extract_judge_atyping ty1
             val jty2 = extract_judge_atyping ty2
         in
-            (CTyWrite ((([], kctx, tctx), CEWrite (#2 jty1, #2 jty2), t, i), ty1, ty2), funcs)
+            (CTyNew ((([], kctx, tctx), CENew (#2 jty1, #2 jty2), t, i), ty1, ty2), funcs)
+        end
+      | TyRead (((kctx, tctx), EBinOp (EBRead, e1, e2), t, i), ty1, ty2, pr) =>
+        let
+            val (ty1, funcs) = transform_typing_atom (ty1, funcs)
+            val (ty2, funcs) = transform_typing_atom (ty2, funcs)
+            val jty1 = extract_judge_atyping ty1
+            val jty2 = extract_judge_atyping ty2
+        in
+            (CTyRead ((([], kctx, tctx), CERead (#2 jty1, #2 jty2), t, i), ty1, ty2, pr), funcs)
+        end
+      | TyWrite (((kctx, tctx), ETriOp (ETWrite, e1, e2, e3), t, i), ty1, ty2, pr, ty3) =>
+        let
+            val (ty1, funcs) = transform_typing_atom (ty1, funcs)
+            val (ty2, funcs) = transform_typing_atom (ty2, funcs)
+            val (ty3, funcs) = transform_typing_atom (ty3, funcs)
+            val jty1 = extract_judge_atyping ty1
+            val jty2 = extract_judge_atyping ty2
+            val jty3 = extract_judge_atyping ty3
+        in
+            (CTyWrite ((([], kctx, tctx), CEWrite (#2 jty1, #2 jty2, #2 jty3), t, i), ty1, ty2, pr, ty3), funcs)
         end
       | TyPrimBinOp (((kctx, tctx), EBinOp (EBPrim opr, e1, e2), t, i), ty1, ty2) =>
         let
@@ -418,9 +426,9 @@ and set_fctx_complex fctx ty =
             | CTyInj (j, ty, kd) => CTyInj (replace j, on_atom ty, kd)
             | CTyFold (j, kd, ty) => CTyFold (replace j, kd, on_atom ty)
             | CTyUnfold (j, ty) => CTyUnfold (replace j, on_atom ty)
-            | CTyNew (j, ty) => CTyNew (replace j, on_atom ty)
-            | CTyRead (j, ty) => CTyRead (replace j, on_atom ty)
-            | CTyWrite (j, ty1, ty2) => CTyWrite (replace j, on_atom ty1, on_atom ty2)
+            | CTyNew (j, ty1, ty2) => CTyNew (replace j, on_atom ty1, on_atom ty2)
+            | CTyRead (j, ty1, ty2, pr) => CTyRead (replace j, on_atom ty1, on_atom ty2, pr)
+            | CTyWrite (j, ty1, ty2, pr, ty3) => CTyWrite (replace j, on_atom ty1, on_atom ty2, pr, on_atom ty3)
             | CTyPrimBinOp (j, ty1, ty2) => CTyPrimBinOp (replace j, on_atom ty1, on_atom ty2)
             | CTyAtom (j, ty) => CTyAtom (replace j, on_atom ty)
             | CTySubTy (j, ty, te) => CTySubTy (replace j, on_complex ty, te)

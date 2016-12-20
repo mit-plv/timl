@@ -12,6 +12,7 @@ sig
          and complex_expr =
              CEUnOp of MicroTiMLDef.expr_un_op * atom_expr
              | CEBinOp of MicroTiMLDef.expr_bin_op * atom_expr * atom_expr (* no app *)
+             | CETriOp of MicroTiMLDef.expr_tri_op * atom_expr * atom_expr * atom_expr
              | CEAtom of atom_expr
 
          and hoisted_expr =
@@ -24,13 +25,13 @@ sig
          and func_expr =
              FEFix of int * hoisted_expr
 
-    type fctx = MicroTiMLDef.cstr list
-    type ctx = fctx * MicroTiMLDef.kctx * MicroTiMLDef.tctx
+    type hoi_fctx = MicroTiMLDef.cstr list
+    type hoi_ctx = hoi_fctx * MicroTiMLDef.kctx * MicroTiMLDef.tctx
 
-    type atom_typing_judgement = ctx * atom_expr * MicroTiMLDef.cstr * MicroTiMLDef.cstr
-    type complex_typing_judgement = ctx * complex_expr * MicroTiMLDef.cstr * MicroTiMLDef.cstr
-    type hoisted_typing_judgement = ctx * hoisted_expr * MicroTiMLDef.cstr
-    type func_typing_judgement = fctx * func_expr * MicroTiMLDef.cstr
+    type atom_typing_judgement = hoi_ctx * atom_expr * MicroTiMLDef.cstr * MicroTiMLDef.cstr
+    type complex_typing_judgement = hoi_ctx * complex_expr * MicroTiMLDef.cstr * MicroTiMLDef.cstr
+    type hoisted_typing_judgement = hoi_ctx * hoisted_expr * MicroTiMLDef.cstr
+    type func_typing_judgement = hoi_fctx * func_expr * MicroTiMLDef.cstr
 
     datatype atom_typing =
              ATyVar of atom_typing_judgement
@@ -47,9 +48,9 @@ sig
              | CTyInj of complex_typing_judgement * atom_typing * MicroTiMLDef.kinding
              | CTyFold of complex_typing_judgement * MicroTiMLDef.kinding * atom_typing
              | CTyUnfold of complex_typing_judgement * atom_typing
-             | CTyNew of complex_typing_judgement * atom_typing
-             | CTyRead of complex_typing_judgement * atom_typing
-             | CTyWrite of complex_typing_judgement * atom_typing * atom_typing
+             | CTyNew of complex_typing_judgement * atom_typing * atom_typing
+             | CTyRead of complex_typing_judgement * atom_typing * atom_typing * MicroTiMLDef.proping
+             | CTyWrite of complex_typing_judgement * atom_typing * atom_typing * MicroTiMLDef.proping * atom_typing
              | CTyPrimBinOp of complex_typing_judgement * atom_typing * atom_typing
              | CTyAtom of complex_typing_judgement * atom_typing
              | CTySubTy of complex_typing_judgement * complex_typing * MicroTiMLDef.tyeq
@@ -77,9 +78,9 @@ sig
     val CEInj : MicroTiMLDef.injector * atom_expr -> complex_expr
     val CEFold : atom_expr -> complex_expr
     val CEUnfold : atom_expr -> complex_expr
-    val CENew : atom_expr -> complex_expr
-    val CERead : atom_expr -> complex_expr
-    val CEWrite : atom_expr * atom_expr -> complex_expr
+    val CENew : atom_expr * atom_expr -> complex_expr
+    val CERead : atom_expr * atom_expr -> complex_expr
+    val CEWrite : atom_expr * atom_expr * atom_expr -> complex_expr
 
     val extract_judge_ptyping : program_typing -> program_typing_judgement
     val extract_judge_htyping : hoisted_typing -> hoisted_typing_judgement

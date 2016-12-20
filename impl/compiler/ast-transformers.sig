@@ -92,26 +92,6 @@ sig
                   val subst0_e_e : MicroTiMLDef.expr -> MicroTiMLDef.expr -> MicroTiMLDef.expr
               end
 
-    structure DirectSubstCstr :
-              sig
-                  val dsubst_c_c : MicroTiMLDef.cstr -> int -> MicroTiMLDef.cstr -> MicroTiMLDef.cstr
-                  val dsubst_c_k : MicroTiMLDef.cstr -> int -> MicroTiMLDef.kind -> MicroTiMLDef.kind
-                  val dsubst_c_p : MicroTiMLDef.cstr -> int -> MicroTiMLDef.prop -> MicroTiMLDef.prop
-                  val dsubst_c_e : MicroTiMLDef.cstr -> int -> MicroTiMLDef.expr -> MicroTiMLDef.expr
-
-                  val dsubst0_c_c : MicroTiMLDef.cstr -> MicroTiMLDef.cstr -> MicroTiMLDef.cstr
-                  val dsubst0_c_k : MicroTiMLDef.cstr -> MicroTiMLDef.kind -> MicroTiMLDef.kind
-                  val dsubst0_c_p : MicroTiMLDef.cstr -> MicroTiMLDef.prop -> MicroTiMLDef.prop
-                  val dsubst0_c_e : MicroTiMLDef.cstr -> MicroTiMLDef.expr -> MicroTiMLDef.expr
-              end
-
-    structure DirectSubstExpr :
-              sig
-                  val dsubst_e_e : MicroTiMLDef.expr -> int -> MicroTiMLDef.expr -> MicroTiMLDef.expr
-
-                  val dsubst0_e_e : MicroTiMLDef.expr -> MicroTiMLDef.expr -> MicroTiMLDef.expr
-              end
-
     structure FVUtil :
               sig
                   val unique_merge : int list * int list -> int list
@@ -135,5 +115,18 @@ sig
                   val free_vars_e_e : int -> MicroTiMLDef.expr -> int list
 
                   val free_vars0_e_e : MicroTiMLDef.expr -> int list
+              end
+
+    structure DropCstr :
+              sig
+                  val drop_c_c : (int * int) list -> MicroTiMLDef.cstr -> MicroTiMLDef.cstr
+                  val drop_c_k : (int * int) list -> MicroTiMLDef.kind -> MicroTiMLDef.kind
+                  val drop_c_p : (int * int) list -> MicroTiMLDef.prop -> MicroTiMLDef.prop
+                  val drop_c_e : (int * int) list -> MicroTiMLDef.expr -> MicroTiMLDef.expr
+              end
+
+    structure DropExpr :
+              sig
+                  val drop_e_e : (int * int) list -> MicroTiMLDef.expr -> MicroTiMLDef.expr
               end
 end
