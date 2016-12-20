@@ -4,7 +4,7 @@
 \usepackage{amsmath}
 \usepackage{stmaryrd}
 \usepackage{eufrak}
-\usepackage[a2paper,landscape,margin=0.2in]{geometry}
+\usepackage[a4paper,showframe]{geometry}
 
 \begin{document}
 
@@ -18,9 +18,10 @@
     s & ::= & \mathbf{Nat} \mid \mathbf{1} \mid \mathbf{2} \mid \mathbf{TimeFun}_n \\
     \kappa & ::= & \star \mid \kappa \Rightarrow \kappa \mid s \mid \{ \alpha :: \kappa \mid p \} \\
     p & ::= & \top \mid \bot \mid p~o_{bc}~p \mid \neg p \mid i~o_{br}~i \mid \forall \alpha :: s. p \mid \exists \alpha :: s. p \\
-    e & ::= & x \mid EC \mid \lambda x:\tau. e \mid e~e \mid (e,e) \mid e.\mathbf{1} \mid e.\mathbf{2} \mid \mathbf{l}.e \mid \mathbf{r}.e \mid \mathbf{case}~e~x.e~x.e \mid \mathbf{fold}~e \mid \mathbf{unfold}~e \\
+    u & ::= & x \mid EC \mid \lambda x:\tau. e \mid e~e \mid (e,e) \mid e.\mathbf{1} \mid e.\mathbf{2} \mid \mathbf{l}.e \mid \mathbf{r}.e \mid \mathbf{case}~e~x.e~x.e \mid \mathbf{fold}~e \mid \mathbf{unfold}~e \\
     & \mid & \mathbf{pack}\langle c \mid e \rangle \mid \mathbf{unpack}~e~\alpha.x.e \mid \Lambda \alpha :: \kappa. e \mid e~c \mid e~o_{bt}~e \mid \mathbf{rec}_\tau~x.e \mid \mathbf{let}~x=e~\mathbf{in}~e \\
-    & \mid & \mathbf{new}~e~e \mid e[e] \mid e[e] := e
+    & \mid & \mathbf{new}~e~e \mid e[e] \mid e[e] := e \\
+    e & ::= & u^{\tau,i}
 \end{array}
 \]
 
@@ -129,7 +130,7 @@
 
 \[
 \begin{array}{l}
-    (\mathcal{K}; \mathcal{T}) \vdash e : \tau \triangleright i \\
+    (\mathcal{K}; \mathcal{T}) \vdash u : \tau \triangleright i \\
     \infer[\textsc{TyVar}]{\mathcal{C} \vdash x : \tau \triangleright 0}{\mathcal{C}.2(x)=\tau} \hspace{1em}
     \infer[\textsc{TyConst}]{\mathcal{C} \vdash EC : type(EC) \triangleright 0}{} \\
     \infer[\textsc{TyAbs}]{\mathcal{C} \vdash \lambda x:\tau. e : \tau \xrightarrow{i} \tau_1 \triangleright 0}{\mathcal{C}.1 \vdash \tau :: \star & \mathcal{C},x:\tau \vdash e : \tau_1 \triangleright i} \hspace{1em}
@@ -152,7 +153,7 @@
     \infer[\textsc{TyNew}]{\mathcal{C} \vdash \mathbf{new}~e_1~e_2 : \mathbf{arr}~\tau~j \triangleright i_1 + i_2}{\mathcal{C} \vdash e_1 : \tau \triangleright i_1 & \mathcal{C} \vdash e_2 : \mathbf{nat}~j \triangleright i_2} \\
     \infer[\textsc{TyRead}]{\mathcal{C} \vdash e_1[e_2] : \tau \triangleright i_1 + i_2}{\mathcal{C} \vdash e_1 : \mathbf{arr}~\tau~j_1 \triangleright i_1 & \mathcal{C} \vdash e_2 : \mathbf{nat}~j_2 \triangleright i_2 & \mathcal{C}.1 \vdash j_2 <_n j_1} \\
     \infer[\textsc{TyWrite}]{\mathcal{C} \vdash e_1[e_2] := e_3 : \mathbf{1} \triangleright i_1 + i_2 + i_3}{\mathcal{C} \vdash e_1 : \mathbf{arr}~\tau~j_1 \triangleright i_1 & \mathcal{C} \vdash e_2 : \mathbf{nat}~j_2 \triangleright i_2 & \mathcal{C}.1 \vdash j_2 <_n j_1 & \mathcal{C} \vdash e_3 : \tau \triangleright i_3} \\
-    \infer[\textsc{TySub}]{\mathcal{C} \vdash e : \tau_2 \triangleright i_2}{\mathcal{C} \vdash e : \tau_1 \triangleright i_1 & \mathcal{C}.1 \vdash \tau_1 \equiv \tau_2 & \mathcal{C}.1 \vdash i_1 \le_r i_2}
+    \infer[\textsc{TySub}]{\mathcal{C} \vdash u^{\tau_2,i_2} : \tau_2 \triangleright i_2}{\mathcal{C} \vdash u : \tau_1 \triangleright i_1 & \mathcal{C}.1 \vdash \tau_1 \equiv \tau_2 & \mathcal{C}.1 \vdash i_1 \le_r i_2}
 \end{array}
 \]
 \section{CPS}
@@ -162,7 +163,9 @@
 
 \newcommand{\cpsty}[2]{\mathfrak{K}_{\mathrm{typing}}\left\llbracket #1 \right\rrbracket \left( #2 \right)}
 \newcommand{\cpskd}[1]{\mathfrak{K}_{\mathrm{kinding}}\left\llbracket #1 \right\rrbracket}
-\newcommand{\cpsc}[1]{\mathfrak{K}_{\mathrm{cstr}}\left\llbracket #1 \right\rrbracket}
+
+\newcommand{\cpsc}[1]{\mathfrak{K}_{\mathrm{cstr}}\llbracket #1 \rrbracket}
+\newcommand{\cpst}[2]{\mathfrak{K}_{\mathrm{term}}\llbracket #1 \rrbracket ( #2 )}
 
 \newcommand{\wrapty}[1]{\mathfrak{W}_{\mathrm{typing}}\left\llbracket #1 \right\rrbracket}
 
@@ -172,77 +175,57 @@
 \newcommand{\cloctx}[1]{\mathfrak{C}_{\mathrm{context}}\left\llbracket #1 \right\rrbracket}
 
 \[
-\begin{array}{l}
+\begin{array}{lcl}
     \cpsc{c} \\
-    \cpsc{\alpha} = \alpha \\
-    \cpsc{CC} = CC \\
-    \cpsc{o_{ui}~i} = o_{ui}~\cpsc{i} \\
-    \cpsc{i_1~o_{bi}~i_2} = \cpsc{i_1}~o_{bi}~\cpsc{i_2} \\
-    \cpsc{i~?~i_1 : i_2} = \cpsc{i}~?~\cpsc{i_1} : \cpsc{i_2} \\
-    \cpsc{\mathbf{TimeAbs}~\alpha.i} = \mathbf{TimeAbs}~\alpha.\cpsc{i} \\
-    \cpsc{\mathbf{TimeApp}_n~c~i} = \mathbf{TimeApp}_n~\cpsc{c}~\cpsc{i} \\
-    \cpsc{\tau_1 \times \tau_2} = \cpsc{\tau_1} \times \cpsc{\tau_2} \\
-    \cpsc{\tau_1 + \tau_2} = \cpsc{\tau_1} + \cpsc{\tau_2} \\
-    \cpsc{\tau_1 \xrightarrow{i} \tau_2} = \forall j :: \mathbf{TimeFun}_0. \cpsc{\tau_1} \times (\cpsc{\tau_2} \xrightarrow{j} \mathbf{void}) \xrightarrow{C(\cpsc{i}+1) + 2\cpsc{i} + 1 + j} \mathbf{void} \\
-    \cpsc{\lambda \alpha :: \kappa. \tau} = \lambda \alpha :: \kappa. \cpsc{\tau} \\
+    \cpsc{\alpha} & = & \alpha \\
+    \cpsc{CC} & = & CC \\
+    \cpsc{o_{ui}~i} & = & o_{ui}~\cpsc{i} \\
+    \cpsc{i_1~o_{bi}~i_2} & = & \cpsc{i_1}~o_{bi}~\cpsc{i_2} \\
+    \cpsc{i~?~i_1 : i_2} & = & \cpsc{i}~?~\cpsc{i_1} : \cpsc{i_2} \\
+    \cpsc{\mathbf{TimeAbs}~\alpha.i} & = & \mathbf{TimeAbs}~\alpha.\cpsc{i} \\
+    \cpsc{\mathbf{TimeApp}_n~c~i} & = & \mathbf{TimeApp}_n~\cpsc{c}~\cpsc{i} \\
+    \cpsc{\tau_1 \times \tau_2} & = & \cpsc{\tau_1} \times \cpsc{\tau_2} \\
+    \cpsc{\tau_1 + \tau_2} & = & \cpsc{\tau_1} + \cpsc{\tau_2} \\
+    \cpsc{\tau_1 \xrightarrow{i} \tau_2} & = & \forall j :: \mathbf{TimeFun}_0. \cpsc{\tau_1} \times (\cpsc{\tau_2} \xrightarrow{j} \mathbf{1}) \xrightarrow{i'} \mathbf{1} \\
+    & & \mathrm{where}~i'= C(\cpsc{i}+1) + 2\cpsc{i} + 1 + j \\
+    \cpsc{\lambda \alpha :: \kappa. \tau} & = & \lambda \alpha :: \kappa. \cpsc{\tau} \\
     \cpsc{\tau~c} = \cpsc{\tau}~\cpsc{c} \\
-    \cpsc{\forall \alpha :: \kappa. \tau} = \forall \alpha :: \kappa. \forall j :: \mathbf{TimeFun}_0. (\cpsc{\tau} \xrightarrow{j} \mathbf{void}) \xrightarrow{1 + j} \mathbf{void} \\
-    \cpsc{\exists \alpha :: \kappa. \tau} = \exists \alpha :: \kappa. \cpsc{\tau} \\
-    \cpsc{\mu \alpha :: \kappa. \tau} = \mu \alpha :: \kappa. \cpsc{\tau} \\
-    \cpsc{\mathbf{1}} = \mathbf{1} \\
-    \cpsc{\mathbf{nat}~i} = \mathbf{nat}~\cpsc{i} \\
-    \cpsc{\mathbf{arr}~\tau~i} = \mathbf{arr}~\cpsc{\tau}~\cpsc{i}
-\end{array}
-\]
-
-\[
-\small
-\begin{array}{lcl}
-    \cpsty{\infer{\jty{\mathcal{C}}{e}{\tau}{i}}{\cdots}}{\infer{\jty{\mathcal{C}_k}{e_k}{\cpsc{\tau} \xrightarrow{i_k} \mathbf{void}}{0}}{\cdots} } & & \\
-    
-    \cpsty{\infer{\jty{\mathcal{C}}{x}{\tau}{0}}{\mathcal{C}.2(x)=\tau}}{ty_k} & = & \mathrm{send\_to\_cont}~ty_k~\left(\infer{\jty{\mathcal{C}_k}{x}{\cpsc{\tau}}{0}}{\mathcal{C}_k.2(x)=\cpsc{\tau}}\right) \\
-    
-    \cpsty{\infer{\jty{\mathcal{C}}{CC}{type(CC)}{0}}{}}{ty_k} & = & \mathrm{send\_to\_cont}~ty_k~\left(\infer{\jty{\mathcal{C}_k}{CC}{type(CC)}{0}}{}\right)\\
-    
-    \cpsty{\infer{\jty{\mathcal{C}}{\lambda x:\tau. e}{\tau \xrightarrow{i} \tau_1}{0}}{\infer[=kd]{\jkd{\mathcal{C}.1}{\tau}{\star}}{\cdots} & \infer[=ty]{\jty{\mathcal{C},x:\tau}{e}{\tau_1}{i}}{\cdots}} }{ty_k} & = & \mathrm{send\_to\_cont}~ty_k~\left(
-    \infer[\textsc{AbsC}]{\cdots}{\infer{\mathcal{C}_k.1 \vdash \mathrm{wf}~\mathbf{TimeFun}_0}{} & \infer[\textsc{VAbs}]{\cdots}{} & \infer[\textsc{Abs}]{\cdots}{\infer[\textsc{KdProd}]{\cdots}{\cpskd{kd \cup j} & \infer[\textsc{KdArrow}]{\cdots}{\cpskd{(\mathrm{inverse\_ty}~ty) \cup j } & \infer{\jkd{\mathcal{C}_k.1,j}{j}{\mathbf{TimeFun}_0}}{\cdots} & \infer{\jkd{\mathcal{C}_k.1,j}{\mathbf{void}}{\star}}{}}}  & \infer[\textsc{Sub}]{\cdots}{\infer[\textsc{Let}]{\cdots}{\infer[\textsc{Snd}]{\cdots}{\infer{\jty{\mathcal{C}_k,j,y}{y}{\_}{0}}{\cdots}  } & \infer[\textsc{Let}]{\cdots}{\infer[\textsc{Fst}]{\cdots}{\infer{\jty{\mathcal{C}_k,j,y,k}{y}{\_}{0}}{\cdots} } & \cpsty{ty \cup j,y,k}{\infer{\jty{\mathcal{C}_k,j,y,k,x}{k}{\_}{0}}{\cdots}}}} &  \mathcal{C}_k.1,j,y \vdash \_ \le_r C(\cpsc{i}+1)+2\cpsc{i}+1+j }}} \right)\\
-    
-    \cpsty{\infer{\jty{\mathcal{C}}{e_1~e_2}{\tau_2}{i_1+i_2+1+i}}{\infer[=ty_1]{\jty{\mathcal{C}}{e_1}{\tau_1 \xrightarrow{i} \tau_2}{i_1}}{\cdots} & \infer[=ty_2]{\jty{\mathcal{C}}{e_2}{\tau_1}{i_2}}{\cdots}}}{ty_k} & = &
-    \cpsty{ty_1}{\infer[\textsc{Abs}]{\cdots}{\cpskd{\mathrm{inverse\_ty}~ty_1} & \cpsty{ty_2 \cup x_1}{\infer[\textsc{Abs}]{\cdots}{\cpskd{\mathrm{inverse\_ty}~ty_2 } & \infer[\textsc{Let}]{\cdots}{ty_k \cup x_1,x_2 & \infer[\textsc{Let}]{\cdots}{\infer[\textsc{Pair}]{\cdots}{\infer{\jty{\mathcal{C}_k,x_1,x_2,k}{x_2}{\_}{0}}{\cdots} & \infer{\jty{\mathcal{C}_k,x_1,x_2,k}{k}{\_}{0}}{\cdots} } & \infer[\textsc{App}]{\cdots}{\infer[\textsc{AppC}]{\cdots}{\infer{\jty{\mathcal{C}_k,x_1,x_2,k,p}{x_1}{\_}{0}}{\cdots} & \mathrm{inverse\_arrow}~(\mathrm{inverse\_ty}~ty_k)} & \infer{\jty{\mathcal{C}_k,x_1,x_2,k,p}{p}{\_}{0}}{\cdots}}}}}}}} \\
-    
-    \cpsty{\infer{\jty{\mathcal{C}}{(e_1,e_2)}{\tau_1 \times \tau_2}{i_1+i_2}}{\infer[=ty_1]{\jty{\mathcal{C}}{e_1}{\tau_1}{i_1}}{\cdots} & \infer[=ty_2]{\jty{\mathcal{C}}{e_2}{\tau_2}{i_2}}{\cdots}}}{ty_k} & = &
-    \cpsty{ty_1}{\infer[\textsc{Abs}]{\cdots}{\cpskd{\mathrm{inverse\_ty}~ty_1} & \cpsty{ty_2 \cup x_1}{\infer[\textsc{Abs}]{\cdots}{\cpskd{\mathrm{inverse\_ty}~ty_2} & \infer[\textsc{Let}]{\cdots}{\infer[\textsc{Pair}]{\cdots}{\infer{\jty{\mathcal{C}_k,x_1,x_2}{x_1}{\_}{0}}{\cdots} & \infer{\jty{\mathcal{C}_k,x_1,x_2}{x_2}{\_}{0}}{\cdots}} & \mathrm{send\_to\_cont}~(ty_k \cup x_1,x_2,p)~\left( \infer{\jty{\mathcal{C}_k,x_1,x_2,p}{p}{\_}{0}}{\cdots} \right) }}}}} \\
-    
-    \cpsty{\infer{\jty{\mathcal{C}}{\mathbf{fst}~e}{\tau_1}{i}}{\infer[=ty]{\jty{\mathcal{C}}{e}{\tau_1 \times \tau_2}{i}}{\cdots}}}{ty_k} & = &
-    \cpsty{ty}{\infer[\textsc{Abs}]{\cdots}{\cpskd{\mathrm{inverse\_ty}~ty} & \infer[\textsc{Let}]{\cdots}{\infer[\textsc{Fst}]{\cdots}{\infer{\jty{\mathcal{C}_k,x}{x}{\_}{0}}{\cdots}} & \mathrm{send\_to\_cont}~(ty_k \cup x,p)~\left( \infer{\jty{\mathcal{C}_k,x,p}{p}{\_}{0}}{\cdots} \right)}}} \\
-    
-    \cpsty{\infer{\jty{\mathcal{C}}{\mathbf{snd}~e}{\tau_1}{i}}{\infer[=ty]{\jty{\mathcal{C}}{e}{\tau_1 \times \tau_2}{i}}{\cdots}}}{ty_k} & = &
-    \cpsty{ty}{\infer[\textsc{Abs}]{\cdots}{\cpskd{\mathrm{inverse\_ty}~ty} & \infer[\textsc{Let}]{\cdots}{\infer[\textsc{Snd}]{\cdots}{\infer{\jty{\mathcal{C}_k,x}{x}{\_}{0}}{\cdots}} & \mathrm{send\_to\_cont}~(ty_k \cup x,p)~\left( \infer{\jty{\mathcal{C}_k,x,p}{p}{\_}{0}}{\cdots} \right)}}} \\
-    
-    \cpsty{\infer{\jty{\mathcal{C}}{\Lambda \alpha :: \kappa. e}{\forall \alpha :: \kappa. \tau}{0}}{\infer[=wk]{\mathcal{C}.1 \vdash \mathrm{wf}~\kappa}{\cdots} & \infer[=va]{\vdash \mathrm{value}~e}{\cdots} & \infer[=ty]{\jty{\mathcal{C},\alpha::\kappa}{e}{\tau}{0}}{\cdots} }}{ty_k} & = &
-    \mathrm{send\_to\_cont}~ty_k~\left( \infer[\textsc{AbsC}]{\cdots}{wk & \infer[\textsc{VAbsC}]{\cdots}{} & \infer[\textsc{AbsC}]{\cdots}{\infer{\mathcal{C}_k.1, \alpha \vdash \mathrm{wf}~\mathbf{TimeFun}_0}{} & \infer[\textsc{VAbs}]{\cdots}{} & \infer[\textsc{Abs}]{\cdots}{\infer[\textsc{KdArrow}]{\cdots}{\cpskd{(\mathrm{inverse\_ty}~ty) \cup \alpha,j} & \infer{\jkd{\mathcal{C}_k,\alpha,j}{j}{\mathbf{TimeFun}_0}}{\cdots} & \infer{\jkd{\mathcal{C}_k,\alpha,j}{\mathbf{void}}{\star}}{}} & \infer[\textsc{TySubTi}]{\cdots}{\cpsty{ty \cup j,k}{\infer{\jty{\mathcal{C}_k,\alpha,j,k}{k}{\_}{0}}{\cdots}} & \mathcal{C}_k,\alpha,j \vdash \_ \le j}}  }} \right)\\
-    
-    \cpsty{\infer{\jty{\mathcal{C}}{e~c}{\tau[c/\alpha]}{i}}{\infer[=ty]{\jty{\mathcal{C}}{e}{\forall \alpha :: \kappa. \tau}{i}}{\cdots} & \infer[=kd]{\jkd{\mathcal{C}.1}{c}{\kappa}}{\cdots}}}{ty_k} & = &
-    \cpsty{ty}{\infer[\textsc{Abs}]{\cdots}{\cpskd{\mathrm{inverse\_ty}~ty} & \infer[\textsc{Let}]{\cdots}{ty_k \cup x & \infer[\textsc{App}]{\cdots}{\infer[\textsc{AppC}]{\cdots}{\infer[\textsc{AppC}]{\cdots}{\infer{\jty{\mathcal{C}_k,x,k}{x}{\_}{0}}{\cdots} & \cpskd{kd}} & \mathrm{inverse\_arrow}~(\mathrm{inverse\_ty}~ty_k)} & \infer{\jty{\mathcal{C}_k,x,k}{k}{\_}{0}}{\cdots}}}}}
-    
+    \cpsc{\forall \alpha :: \kappa. \tau} & = & \forall \alpha :: \kappa. \forall j :: \mathbf{TimeFun}_0. (\cpsc{\tau} \xrightarrow{j} \mathbf{1}) \xrightarrow{1 + j} \mathbf{void} \\
+    \cpsc{\exists \alpha :: \kappa. \tau} & = & \exists \alpha :: \kappa. \cpsc{\tau} \\
+    \cpsc{\mu \alpha :: \kappa. \tau} & = & \mu \alpha :: \kappa. \cpsc{\tau} \\
+    \cpsc{\mathbf{1}} & = & \mathbf{1} \\
+    \cpsc{\mathbf{nat}~i} & = & \mathbf{nat}~\cpsc{i} \\
+    \cpsc{\mathbf{arr}~\tau~i} & = & \mathbf{arr}~\cpsc{\tau}~\cpsc{i}
 \end{array}
 \]
 
 \[
 \begin{array}{lcl}
-	\wrapty{\infer{\jty{\mathcal{C}}{e}{\tau}{i}}{\cdots}} \\
-	
-	\wrapty{\infer[=self]{\jty{\mathcal{C}}{\lambda x:\tau. e}{\tau \xrightarrow{i} \tau_1}{0}}{\infer[=kd]{\jkd{\mathcal{C}.1}{\tau}{\star}}{\cdots} & \infer[=ty]{\jty{\mathcal{C},x}{e}{\tau_1}{i}}{\cdots} }} & = &
-	\wrapty{\infer[\textsc{Rec}]{\cdots}{\mathrm{inverse\_ty}~self & self \cup f}} \\
-	
-	\wrapty{\infer[=self]{\jty{\mathcal{C}}{\Lambda \alpha :: \kappa. e}{\forall \alpha :: \kappa. \tau}{0}}{\infer[=wk]{\mathcal{C}.1 \vdash \mathrm{wf}~\kappa}{\cdots} & \infer[=va]{\vdash \mathrm{value}~e}{\cdots} & \infer[=ty]{\jty{\mathcal{C},\alpha::\kappa}{e}{\tau}{0}}{\cdots}}} & = &
-	\wrapty{\infer[\textsc{Rec}]{\cdots}{\mathrm{inverse\_ty}~self & self \cup f}} \\
-	
-	\wrapty{\infer{\jty{\mathcal{C}}{\mathbf{rec}_\tau~x.e}{\tau}{0}}{e = \Lambda \overrightarrow{\alpha :: \kappa}. \lambda y. e_1 & \infer[=kd]{\jkd{\mathcal{C}.1}{\tau}{\star}}{\cdots} & \infer[=ty]{\jty{\mathcal{C},x}{e}{\tau}{0}}{\cdots} }} & = &
-	\infer[\textsc{Rec}]{\cdots}{kd & \mathrm{fold\_abscs\_and\_abs}~\wrapty{\mathrm{unfold\_absc\_and\_abs}~ty}}
-	
+	\cpst{e}{k} \\
+	\cpst{x^{\tau,i}}{k} & = & \mathrm{send}~k~x^{\cpsc{\tau}} \\
+	\cpst{EC^{\tau,i}}{k} & = & \mathrm{send}~k~EC^{\cpsc{\tau}} \\
+	\cpst{(\lambda x : \tau_1. e)^{\tau,i}}{k} & = & \mathrm{send}~k~(\Lambda j :: \mathbf{TimeFun}_0. \lambda y : \cpsc{\tau_1} \times (\cpsc{\tau_2} \xrightarrow{j} \mathbf{1}). \\
+	& & ~~~~ \mathbf{let}~c=y.\mathbf{2}~\mathbf{in} \\
+	& & ~~~~ \mathbf{let}~x=y.\mathbf{1}~\mathbf{in} \\
+	& & ~~~~ \cpst{e}{c})^{\cpsc{\tau}} \\
+	\cpst{(u_1^{\tau_1,i_1}~u_2^{\tau_2,i_2})^{\tau,i}}{k} & = & \cpst{u_1^{\tau_1,i_1}}{\lambda x_1 : \cpsc{\tau_1}. \\
+	& & ~~~~ \cpst{u_2^{\tau_2,i_2}}{\lambda x_2:\cpsc{\tau_2}. \\
+	& & ~~~~~~~~ \mathbf{let}~c = k~\mathbf{in} \\
+	& & ~~~~~~~~ \mathbf{let}~a = (x_2,c^{\cpsc{\tau} \xrightarrow{?1} \mathbf{1}})~\mathbf{in} \\
+	& & ~~~~~~~~ x_1[?1](a) }^{\cpsc{\tau_2} \xrightarrow{?2} \mathbf{1}} }^{\cpsc{\tau_1} \xrightarrow{?3} \mathbf{1}} \\
+	\cpst{(u_1^{\tau_1,i_1},u_2^{\tau_2,i_2})^{\tau,i}}{k} & = & \cpst{u_1^{\tau_1,i_1}}{\lambda x_1 : \cpsc{\tau_1}. \\
+	& & ~~~~ \cpst{u_2^{\tau_2,i_2}}{\lambda x_2 : \cpsc{\tau_2}. \\
+	& & ~~~~~~~~ \mathbf{let}~a=(x_1,x_2)~\mathbf{in} \\
+	& & ~~~~~~~~ \mathrm{send}~k~a^{\cpsc{\tau}} }^{\cpsc{\tau_2} \xrightarrow{?1} \mathbf{1}} }^{\cpsc{\tau_1} \xrightarrow{?2} \mathbf{1}} \\
+	\cpst{(u_1^{\tau_1,i_1}.\mathbf{1})^{\tau,i}}{k} & = & \cpst{u_1^{\tau_1,i_1}}{\lambda x_1 : \cpsc{\tau_1}. \\
+	& & ~~~~ \mathbf{let}~a=x_1.\mathbf{1}~\mathbf{in} \\
+	& & ~~~~ \mathrm{send}~k~a^{\cpsc{\tau}} }^{\cpsc{\tau_1} \xrightarrow{?1} \mathbf{1}}
 \end{array}
 \]
+
+\section{Wrap}
+
+\section{CloConv}
 
 \[
 \begin{array}{l}
@@ -265,20 +248,6 @@
 	\cloc{\mathbf{1}} = \mathbf{1} \\
 	\cloc{\mathbf{nat}~i} = \mathbf{nat}~\cloc{i} \\
 	\cloc{\mathbf{arr}~\tau~i} = \mathbf{arr}~\cloc{\tau}~\cloc{i}
-\end{array}
-\]
-
-\[
-\begin{array}{lcl}
-	\cloty{\infer{\jty{\mathcal{C}}{e}{\tau}{i}}{\cdots}} \\
-	
-	\cloty{\infer{\jty{\mathcal{C}}{\mathbf{let}~x=\mathbf{rec}_\tau~x.\Lambda \overrightarrow{\alpha :: \kappa}. \lambda y:\tau_y. e ~\mathbf{in}~e_1}{\tau_1}{0 + i_1}}{\infer*{\jty{\mathcal{C}}{\mathbf{rec}_\tau~x.\Lambda \overrightarrow{\alpha :: \kappa}. \lambda y : 
-				\tau_y. e}{\tau}{0}}{\infer[=ty_e]{\jty{\mathcal{C},x,\vec{\alpha},y}{e}{\tau_e}{i_e}}{\cdots}} & \infer[=ty_1]{\jty{\mathcal{C},x}{e_1}{\tau_1}{i_1}}{\cdots}}} & = &
-	\infer[\textsc{Let}]{\cdots}{\infer[\textsc{Tuple}]{\cdots}{\cdots} & \infer[\textsc{Let}]{\cdots}{\infer[\textsc{Pack}]{\cdots}{aaa & bbb & \infer[\textsc{Pair}]{\cdots}{\infer*{\jty{\cloctx{\mathcal{C}},env}{\_[\vec{\gamma}]}{}{0}}{\infer[\textsc{Fix}]{\cdots}{ccc & \cloty{\infer{\jty{x,\vec{\gamma},\vec{\alpha},arg}{e}{\tau_e}{i_e}}{\cdots}}}} & \infer{\jty{\cloctx{\mathcal{C}},env}{env}{\tau_{env}}{0}}{\cdots}}} & \cloty{ty_1} \cup env,x}}
-			 \\
-			
-	\cloty{\infer{\jty{\mathcal{C}}{e_1[\vec{c}]~e_2}{\tau_2}{i_1+i_2+1+i}}{\infer*{\jty{\mathcal{C}}{e_1[\vec{c}]}{\tau_1 \xrightarrow{i} \tau_2}{i_1}}{\infer[=ty_1]{\jty{\mathcal{C}}{e_1}{\forall \overrightarrow{\alpha :: \kappa}. \tau_1 \xrightarrow{i} \tau_2}{i_1}}{\cdots}} & \infer[=ty_2]{\jty{\mathcal{C}}{e_2}{\tau_1}{i_2}}{\cdots}}} & = &
-	\infer[\textsc{Unpack}]{\cdots}{\cloty{ty_1} & \infer[\textsc{Let}]{\cdots}{\infer[\textsc{Fst}]{\cdots}{\infer{\jty{\cloctx{\mathcal{C}},\beta,c}{c}{\_}{0}}{\cdots} & \infer[\textsc{Let}]{\cdots}{\infer[\textsc{Snd}]{\cdots}{\infer{\jty{\cloctx{\mathcal{C}}, \beta, c, x}{c}{\_}{0}}{\cdots}} & \infer[\textsc{Let}]{\cdots}{\infer[\textsc{Pair}]{\cdots}{\infer{\jty{\cloctx{\mathcal{C}}, \beta,c,x,env}{env}{\_}{0}}{\cdots} & \cloty{ty_2}\cup \beta,c,x,env} & \infer[\textsc{App}]{\cdots}{\infer*{\jty{\cloctx{\mathcal{C}},\beta,c,x,env,arg}{x[\overrightarrow{\cloc{c}}]}{\_}{0}}{\infer{\jty{\cloctx{\mathcal{C}},\beta,c,x,env,arg}{x}{\_}{0}}{\cdots}} & \infer{\jty{\cloctx{\mathcal{C}},\beta,c,x,env,arg}{arg}{\_}{0}}{\cdots}}}} }}}
 \end{array}
 \]
 
