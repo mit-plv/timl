@@ -79,7 +79,7 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformerFun(
           let
               fun unfold_ty ty wks =
                 case ty of
-                    TyAbsC (j, wk, va, ty) => unfold_ty ty (wk :: wks) (* FIXME: unfold a absc, within a sub relation? *)
+                    TyAbsC (j, wk, va, ty) => unfold_ty ty (wk :: wks)
                   | _ => (ty, wks)
               val (ty, wks) = unfold_ty ty []
           in

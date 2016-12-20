@@ -54,4 +54,14 @@ structure CPSPass = CPSPassFun(MicroTiMLDef)
 open CPSPass
 structure WrapAbsPass = WrapAbsPassFun(MicroTiMLDef)
 open WrapAbsPass
+structure CloConvPass = CloConvPassFun(MicroTiMLDef)
+open CloConvPass
+structure MicroTiMLHoistedDef = MicroTiMLHoistedDefFun(MicroTiMLDef)
+open MicroTiMLHoistedDef
+structure HoistedDerivChecker = HoistedDerivCheckerFun(MicroTiMLHoistedDef)
+open HoistedDerivChecker
+structure TypedAssemblyDef = TypedAssemblyDefFun(MicroTiMLHoistedDef)
+open TypedAssemblyDef
+structure CodeGenPass = CodeGenPassFun(TypedAssemblyDef)
+open CodeGenPass
 end
