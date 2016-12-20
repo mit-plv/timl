@@ -75,7 +75,7 @@ sig
     datatype tal_heap =
              THCode of int * tal_block
              | THPair of tal_word * tal_word
-             | THWord of tal_word
+             | THWords of tal_word list
 
     datatype tal_program =
              TProgram of tal_heap list * tal_word list * tal_block
@@ -97,6 +97,8 @@ sig
              | TKdEqKArrow of tal_kdeq_judgement * tal_kdeq * tal_kdeq
              | TKdEqBaseSort of tal_kdeq_judgement
              | TKdEqSubset of tal_kdeq_judgement * tal_kdeq * tal_proping
+             | TKdEqSubsetElimLeft of tal_kdeq_judgement * tal_proping
+             | TKdEqSubsetElimRight of tal_kdeq_judgement * tal_proping
 
     type tal_kinding_judgement = tal_kctx * tal_cstr * tal_kind
     type tal_wfkind_judgement = tal_kctx * tal_kind
@@ -205,7 +207,7 @@ sig
     datatype tal_heap_typing =
              THTyCode of tal_heap_typing_judgement * tal_kinding * tal_instr_typing
              | THTyPair of tal_heap_typing_judgement * tal_word_typing * tal_word_typing
-             | THTyWord of tal_heap_typing_judgement * tal_word_typing
+             | THTyWords of tal_heap_typing_judgement * tal_word_typing list
 
     type tal_program_typing_judgement = tal_program * tal_cstr
 
@@ -244,6 +246,9 @@ sig
 
     val TTLe : tal_cstr * tal_cstr -> tal_prop
     val TTEq : tal_cstr * tal_cstr -> tal_prop
+
+    val TNLt : tal_cstr * tal_cstr -> tal_prop
+    val TNEq : tal_cstr * tal_cstr -> tal_prop
 
     val TCNat : MicroTiMLHoistedDef.MicroTiMLDef.Nat.nat_type -> tal_cstr
 
@@ -288,6 +293,8 @@ sig
     val extract_tal_c_prod : tal_cstr -> tal_cstr * tal_cstr
     val extract_tal_c_rec : tal_cstr -> tal_kind * tal_cstr
     val extract_tal_c_sum : tal_cstr -> tal_cstr * tal_cstr
+    val extract_tal_c_type_nat : tal_cstr -> tal_cstr
+    val extract_tal_c_type_arr : tal_cstr -> tal_cstr * tal_cstr
     val extract_tal_v_reg : tal_value -> tal_register
 
     val str_tal_cstr : tal_cstr -> string
