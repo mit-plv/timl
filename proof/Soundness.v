@@ -4329,8 +4329,6 @@ Section tyeq_hint.
       }
     Qed.
 
-    (*here*)
-
     Lemma lgeq_reverse2_eval k :
       forall L1 L2 t2' t1 t2,
         lgeq L1 L2 t1 t2' k ->
@@ -4351,11 +4349,27 @@ Section tyeq_hint.
       }
       {
         intros L1 L2.
-        intros t2' t1 t2 Hlgeq Hstep.
+        intros t2' t1 t2.
+        intros Ht1t2'.
+        intros Hstep.
         intros Hkd.
-        intros ta tb Hab hkda Hkdb.
+        intros L1' L2' ta tb Hab hkda Hkdb.
         intros Hni.
-        eauto.
+        eapply IHk2.
+        {
+          eapply Ht1t2'; eauto.
+        }
+        {
+          econstructor.
+          eapply tstep_shift; eauto.
+        }
+        {
+          econstructor; eauto.
+          rewrite map_app.
+          eapply shift_c_c_0_kinding2; eauto.
+          rewrite map_length.
+          eauto.
+        }
       }
     Qed.
     
@@ -4386,14 +4400,42 @@ Section tyeq_hint.
       }
       {
         intros L1 L2.
-        intros t1' t2' t1 t2 Hlgeq Hstep1 Hstep2.
+        intros t1' t2' t1 t2.
+        intros Ht1't2'.
+        intros Hstep1 Hstep2.
         intros Hkd1 Hkd2.
-        intros ta tb Hab hkda Hkdb.
+        intros L1' L2' ta tb Hab hkda Hkdb.
         intros Hni.
-        eapply IHk2; eauto;
+        eapply IHk2.
+        {
+          eapply Ht1't2'; eauto.
+        }
+        {
+          econstructor.
+          eapply tstep_shift; eauto.
+        }
+        {
+          econstructor.
+          eapply tstep_shift; eauto.
+        }
+        {
           econstructor; eauto.
+          rewrite map_app.
+          eapply shift_c_c_0_kinding2; eauto.
+          rewrite map_length.
+          eauto.
+        }
+        {
+          econstructor; eauto.
+          rewrite map_app.
+          eapply shift_c_c_0_kinding2; eauto.
+          rewrite map_length.
+          eauto.
+        }
       }
     Qed.
+
+    (*here*)
     
     Lemma subst_cs_x_subst_c_c_0 g :
       forall x v b,
