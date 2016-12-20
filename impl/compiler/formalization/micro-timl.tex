@@ -204,10 +204,10 @@
 	\cpst{e}{k} \\
 	\cpst{x^{\tau,i}}{k} & = & \mathrm{send}~k~x^{\cpsc{\tau}} \\
 	\cpst{EC^{\tau,i}}{k} & = & \mathrm{send}~k~EC^{\cpsc{\tau}} \\
-	\cpst{(\lambda x : \tau_1. e)^{\tau,i}}{k} & = & \mathrm{send}~k~(\Lambda j :: \mathbf{TimeFun}_0. \lambda y : \cpsc{\tau_1} \times (\cpsc{\tau_2} \xrightarrow{j} \mathbf{1}). \\
-	& & ~~~~ \mathbf{let}~c=y.\mathbf{2}~\mathbf{in} \\
-	& & ~~~~ \mathbf{let}~x=y.\mathbf{1}~\mathbf{in} \\
-	& & ~~~~ \cpst{e}{c})^{\cpsc{\tau}} \\
+	\cpst{(\lambda x : \tau_1. u^{\tau_2,i_2})^{\tau,i}}{k} & = & \mathrm{send}~k~(\Lambda j :: \mathbf{TimeFun}_0. \lambda y : \cpsc{\tau_1} \times (\cpsc{\tau_2} \xrightarrow{j} \mathbf{1}). \\
+	& & ~~~~ (\mathbf{let}~c=y.\mathbf{2}~\mathbf{in} \\
+	& & ~~~~~ \mathbf{let}~x=y.\mathbf{1}~\mathbf{in} \\
+	& & ~~~~~ \cpst{u^{\tau_2,i_2}}{c})_{C(\cpsc{i_2}+1)+2\cpsc{i_2}+1+j} )^{\cpsc{\tau}} \\
 	\cpst{(u_1^{\tau_1,i_1}~u_2^{\tau_2,i_2})^{\tau,i}}{k} & = & \cpst{u_1^{\tau_1,i_1}}{\lambda x_1 : \cpsc{\tau_1}. \\
 	& & ~~~~ \cpst{u_2^{\tau_2,i_2}}{\lambda x_2:\cpsc{\tau_2}. \\
 	& & ~~~~~~~~ \mathbf{let}~c = k~\mathbf{in} \\
@@ -219,6 +219,9 @@
 	& & ~~~~~~~~ \mathrm{send}~k~a^{\cpsc{\tau}} }^{\cpsc{\tau_2} \xrightarrow{?1} \mathbf{1}} }^{\cpsc{\tau_1} \xrightarrow{?2} \mathbf{1}} \\
 	\cpst{(u_1^{\tau_1,i_1}.\mathbf{1})^{\tau,i}}{k} & = & \cpst{u_1^{\tau_1,i_1}}{\lambda x_1 : \cpsc{\tau_1}. \\
 	& & ~~~~ \mathbf{let}~a=x_1.\mathbf{1}~\mathbf{in} \\
+	& & ~~~~ \mathrm{send}~k~a^{\cpsc{\tau}} }^{\cpsc{\tau_1} \xrightarrow{?1} \mathbf{1}} \\
+	\cpst{(u_1^{\tau_1,i_1}.\mathbf{2})^{\tau.i}}{k} & = & \cpst{u_1^{\tau_1,i_1}}{\lambda x_1 : \cpsc{\tau_1}. \\
+	& & ~~~~ \mathbf{let}~a=x_1.\mathbf{2}~\mathbf{in} \\
 	& & ~~~~ \mathrm{send}~k~a^{\cpsc{\tau}} }^{\cpsc{\tau_1} \xrightarrow{?1} \mathbf{1}}
 \end{array}
 \]
@@ -239,10 +242,10 @@
 	\cloc{\mathbf{TimeApp}_n~c~i} = \mathbf{TimeApp}_n~\cloc{c}~\cloc{i} \\
 	\cloc{\tau_1 \times \tau_2} = \cloc{\tau_1} \times \cloc{\tau_2} \\
 	\cloc{\tau_1 + \tau_2} = \cloc{\tau_1} + \cloc{\tau_2} \\
-	\cloc{\tau \xrightarrow{i} \mathbf{void}} = \exists \beta :: \star. (\beta \times \cloc{\tau} \xrightarrow{\cloc{i}} \mathbf{void}) \times \beta \\
+	\cloc{\tau \xrightarrow{i} \mathbf{1}} = \exists \beta :: \star. (\beta \times \cloc{\tau} \xrightarrow{\cloc{i}} \mathbf{1}) \times \beta \\
 	\cloc{\lambda \alpha :: \kappa. \tau} = \lambda \alpha :: \kappa. \cloc{\tau} \\
 	\cloc{\tau~c} = \cloc{\tau}~\cloc{c} \\
-	\cloc{\forall \overrightarrow{\alpha :: \kappa}. \tau \xrightarrow{i} \mathbf{void}} = \exists \beta :: \star. (\forall \overrightarrow{\alpha :: \kappa}. (\beta \times \cloc{\tau}) \xrightarrow{\cloc{i}} \mathbf{void}) \times \beta \\
+	\cloc{\forall \overrightarrow{\alpha :: \kappa}. \tau \xrightarrow{i} \mathbf{1}} = \exists \beta :: \star. (\forall \overrightarrow{\alpha :: \kappa}. (\beta \times \cloc{\tau}) \xrightarrow{\cloc{i}} \mathbf{1}) \times \beta \\
 	\cloc{\exists \alpha :: \kappa. \tau} = \exists \alpha :: \kappa. \cloc{\tau} \\
 	\cloc{\mu \alpha :: \kappa. \tau} = \mu \alpha :: \kappa. \cloc{\tau} \\
 	\cloc{\mathbf{1}} = \mathbf{1} \\
