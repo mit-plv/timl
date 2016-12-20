@@ -4177,38 +4177,55 @@ Section tyeq_hint.
         end
       end.
 
-    Definition get_depth := option_map (fun p : subst_pair => length (fst p)).
-    Definition shift_cs_c x (vs : subst_group) b := shift_bs_c x (map get_depth vs) b.
-    Arguments shift_cs_c / .
+    (* Definition get_depth := option_map (fun p : subst_pair => length (fst p)). *)
+    (* Definition shift_cs_c x (vs : subst_group) b := shift_bs_c x (map get_depth vs) b. *)
+    (* Arguments shift_cs_c / . *)
 
-    (*here*)
-      
-    Fixpoint subst_cs_x B subst x (vs : subst_group) (b : B) :=
+    Fixpoint subst_cs_x B subst x vs (b : B) :=
       match vs with
       | [] => b
       | v :: vs =>
         match v with
-        | Some v => subst_cs_x subst x vs (subst x (shift_c_c x 0 (shift_cs_c 0 vs v)) b)
+        | Some (n, v) => subst_cs_x subst (n + x) vs (subst x (shift_c_c x 0 (shift_bs_c 0 (map (option_map fst) vs) v)) b)
         | None => subst_cs_x subst (1 + x) vs b
         end
       end.
 
-    Definition subst_cs_c := subst_cs_x subst_c_c.
+    Fixpoint shift_g_x B shift x vs (b : B) :=
+      match vs with
+      | [] => b
+      | v :: vs =>
+        match v with
+        | None => shift_g_x shift (1 + x) vs b
+        | Some n => shift_g_x shift (1 + n + x) vs (shift n (1 + x) b)
+        end
+      end.
+
+    Definition shift_g_c := shift_g_x shift_c_c.
+    Definition subst_cs_c x vs b := subst_cs_x subst_c_c x vs (shift_g_c 0 (map (option_map fst) vs) b).
     Definition subst0_cs_c := subst_cs_c 0.
 
-    Definition subst_cs_k := subst_cs_x subst_c_k.
-    Definition subst0_cs_k:= subst_cs_k 0.
+    Definition shift_g_k := shift_g_x shift_c_k.
+    Definition subst_cs_k x vs b := subst_cs_x subst_c_k x vs (shift_g_k 0 (map (option_map fst) vs) b).
+    Definition subst0_cs_k := subst_cs_k 0.
     
-    Definition subst_cs_p := subst_cs_x subst_c_p.
-    Definition subst0_cs_p:= subst_cs_p 0.
+    Definition shift_g_p := shift_g_x shift_c_p.
+    Definition subst_cs_p x vs b := subst_cs_x subst_c_p x vs (shift_g_p 0 (map (option_map fst) vs) b).
+    Definition subst0_cs_p := subst_cs_p 0.
+
+    Definition map_fst {A B C} (f : A -> C) (p : A * B) := (f (fst p), snd p).
+
+    Arguments length {_} _ .
+
+    Definition sg2sgs : subst_group -> list (option (nat * cstr)) := map (option_map (map_fst length)).
     
-    Fixpoint subst0_cs_ks vs bs :=
+    Fixpoint subst0_cs_ks (vs : subst_group) bs :=
       match (vs, bs) with
       | ([], []) => []
       | (v :: vs, b :: bs) =>
         match (v, b) with
-        | (Some v, Ke2Abs _) => subst0_cs_ks vs bs
-        | (None, Ke2NonAbs k) => subst0_cs_k vs k :: subst0_cs_ks vs bs
+        | (Some (L, _), Ke2Abs _) => L ++ subst0_cs_ks vs bs
+        | (None, Ke2NonAbs k) => subst0_cs_k (sg2sgs vs) k :: subst0_cs_ks vs bs
         | _ => []
         end
       | _ => []
@@ -4216,12 +4233,12 @@ Section tyeq_hint.
     
     (* Definition subs_lgeq G g1 g2 := Forall3 lgeq G g1 g2. *)
 
-    Inductive subs_lgeq : list (option cstr) -> list (option cstr) -> list ke2 -> Prop :=
+    Inductive subs_lgeq : subst_group -> subst_group -> list ke2 -> Prop :=
     | SLNil : subs_lgeq [] [] []
-    | SLAbs G g1 g2 k c1 c2 :
+    | SLAbs G g1 g2 k L1 c1 L2 c2 :
         subs_lgeq g1 g2 G ->
-        lgeq (subst0_cs_ks g1 G) (subst0_cs_ks g2 G) c1 c2 k ->
-        subs_lgeq (Some c1 :: g1) (Some c2 :: g2) (Ke2Abs k :: G)
+        lgeq (L1 ++ subst0_cs_ks g1 G) (L2 ++ subst0_cs_ks g2 G) c1 c2 k ->
+        subs_lgeq (Some (L1, c1) :: g1) (Some (L2, c2) :: g2) (Ke2Abs k :: G)
     | SLNonAbs G g1 g2 k :
         subs_lgeq g1 g2 G ->
         subs_lgeq (None :: g1) (None :: g2) (Ke2NonAbs k :: G)
@@ -4229,12 +4246,12 @@ Section tyeq_hint.
 
     (* Definition subs_kinding2 g G := Forall2 (kinding2 []) g G. *)
     
-    Inductive subs_kd2 : list (option cstr) -> list ke2 -> Prop :=
+    Inductive subs_kd2 : subst_group -> list ke2 -> Prop :=
     | SKNil : subs_kd2 [] []
-    | SKAbs G g k c :
+    | SKAbs G g k L c :
         subs_kd2 g G ->
-        kinding2 (map Ke2NonAbs (subst0_cs_ks g G)) c k ->
-        subs_kd2 (Some c :: g) (Ke2Abs k :: G)
+        kinding2 (map Ke2NonAbs (L ++ subst0_cs_ks g G)) c k ->
+        subs_kd2 (Some (L, c) :: g) (Ke2Abs k :: G)
     | SKNonAbs G g k :
         subs_kd2 g G ->
         subs_kd2 (None :: g) (Ke2NonAbs k :: G)
@@ -4251,17 +4268,17 @@ Section tyeq_hint.
     Definition olgeq G t1 t2 k :=
       forall g1 g2,
         subs_kd2_lgeq g1 g2 G ->
-        lgeq (subst0_cs_ks g1 G) (subst0_cs_ks g2 G) (subst0_cs_c g1 t1) (subst0_cs_c g2 t2) k.
+        lgeq (subst0_cs_ks g1 G) (subst0_cs_ks g2 G) (subst0_cs_c (sg2sgs g1) t1) (subst0_cs_c (sg2sgs g2) t2) k.
 
     Definition okdeq G k :=
       forall g1 g2,
         subs_kd2_lgeq g1 g2 G ->
-        kdeq (subst0_cs_ks g1 G ++ L) (subst0_cs_k g1 k) (subst0_cs_k g2 k).
+        kdeq (subst0_cs_ks g1 G ++ L) (subst0_cs_k (sg2sgs g1) k) (subst0_cs_k (sg2sgs g2) k).
 
     Definition opropeq G p :=
       forall g1 g2,
         subs_kd2_lgeq g1 g2 G ->
-        interp_prop (subst0_cs_ks g1 G ++ L) (subst0_cs_p g1 p <===> subst0_cs_p g2 p)%idx.
+        interp_prop (subst0_cs_ks g1 G ++ L) (subst0_cs_p (sg2sgs g1) p <===> subst0_cs_p (sg2sgs g2) p)%idx.
 
     Lemma lgeq_reverse1_eval k :
       forall L1 L2 t1' t2 ,
@@ -4284,13 +4301,35 @@ Section tyeq_hint.
       }
       {
         intros L1 L2.
-        intros t1' t2 Hlgeq t1 Hstep.
+        intros t1' t2.
+        intros Ht1't2.
+        intros t1 Hstep.
         intros Hkd.
-        intros ta tb Hab hkda Hkdb.
+        intros L1' L2' ta tb Hab hkda Hkdb.
         intros Hni.
-        eauto.
+        eapply IHk2.
+        {
+          eapply Ht1't2; eauto.
+        }
+        {
+          econstructor.
+          Lemma tstep_shift a b n :
+            tstep a b ->
+            tstep (shift_c_c n 0 a) (shift_c_c n 0 b).
+          Admitted.
+          eapply tstep_shift; eauto.
+        }
+        {
+          econstructor; eauto.
+          rewrite map_app.
+          eapply shift_c_c_0_kinding2; eauto.
+          rewrite map_length.
+          eauto.
+        }
       }
     Qed.
+
+    (*here*)
 
     Lemma lgeq_reverse2_eval k :
       forall L1 L2 t2' t1 t2,
