@@ -4837,43 +4837,6 @@ Section tyeq_hint.
       | b :: bs => subst_cs_ke (length bs) vs b :: subst0_cs_kes vs bs
       end.
 
-    Lemma subst_cs_kinding2_wfkind2_wfprop2 :
-      (forall G t k,
-          kinding2 G t k ->
-          forall G1 G2 g,
-            let gs := sg2sgs g in
-            G = G1 ++ G2 ->
-            subs_kd2 g G2 ->
-            kinding2 (subst0_cs_kes gs G1 ++ map Ke2NonAbs (subst0_cs_ks g G2)) (subst_cs_c (length G1) gs t) k) /\
-      (forall G k,
-          wfkind2 G k ->
-          forall G1 G2 g,
-            let gs := sg2sgs g in
-            G = G1 ++ G2 ->
-            subs_kd2 g G2 ->
-            wfkind2 (subst0_cs_kes gs G1 ++ map Ke2NonAbs (subst0_cs_ks g G2)) (subst_cs_k (length G1) gs k)) /\
-      (forall G p,
-          wfprop2 G p ->
-          forall G1 G2 g,
-            let gs := sg2sgs g in
-            G = G1 ++ G2 ->
-            subs_kd2 g G2 ->
-            wfprop2 (subst0_cs_kes gs G1 ++ map Ke2NonAbs (subst0_cs_ks g G2)) (subst_cs_p (length G1) gs p)).
-    Proof.
-      eapply kinding2_wfkind2_wfprop2_mutind; simpl.
-      {
-        intros G k1 t k H IH.
-        intros G1 G2 g ? Hsubskd; subst.
-        rewrite subst_cs_c_Abs.
-        specialize (IH (Ke2Abs k1 :: G1) G2 g); simpl in *.
-        eauto.
-      }
-      {
-        intros; subst.
-        rewrite subst_cs_c_App; eauto.
-      }
-      {
-        intros; subst.
     Lemma subst0_cs_kes_nil b : subst0_cs_kes [] b = b.
     Proof.
       induct b; simpl; eauto.
@@ -5091,11 +5054,6 @@ Section tyeq_hint.
       }
     Qed.
     
-        eapply subs_kd2_kd_var_in; eauto.
-      }
-      {
-        intros; subst.
-        
     Lemma subs_kd2_kd_var_out' :
       forall g G,
         subs_kd2 g G ->
@@ -5162,6 +5120,47 @@ Section tyeq_hint.
       }
     Qed.
 
+    Lemma subst_cs_kinding2_wfkind2_wfprop2 :
+      (forall G t k,
+          kinding2 G t k ->
+          forall G1 G2 g,
+            let gs := sg2sgs g in
+            G = G1 ++ G2 ->
+            subs_kd2 g G2 ->
+            kinding2 (subst0_cs_kes gs G1 ++ map Ke2NonAbs (subst0_cs_ks g G2)) (subst_cs_c (length G1) gs t) k) /\
+      (forall G k,
+          wfkind2 G k ->
+          forall G1 G2 g,
+            let gs := sg2sgs g in
+            G = G1 ++ G2 ->
+            subs_kd2 g G2 ->
+            wfkind2 (subst0_cs_kes gs G1 ++ map Ke2NonAbs (subst0_cs_ks g G2)) (subst_cs_k (length G1) gs k)) /\
+      (forall G p,
+          wfprop2 G p ->
+          forall G1 G2 g,
+            let gs := sg2sgs g in
+            G = G1 ++ G2 ->
+            subs_kd2 g G2 ->
+            wfprop2 (subst0_cs_kes gs G1 ++ map Ke2NonAbs (subst0_cs_ks g G2)) (subst_cs_p (length G1) gs p)).
+    Proof.
+      eapply kinding2_wfkind2_wfprop2_mutind; simpl.
+      {
+        intros G k1 t k H IH.
+        intros G1 G2 g ? Hsubskd; subst.
+        rewrite subst_cs_c_Abs.
+        specialize (IH (Ke2Abs k1 :: G1) G2 g); simpl in *.
+        eauto.
+      }
+      {
+        intros; subst.
+        rewrite subst_cs_c_App; eauto.
+      }
+      {
+        intros; subst.
+        eapply subs_kd2_kd_var_in; eauto.
+      }
+      {
+        intros; subst.
         eapply subs_kd2_kd_var_out; eauto.
       }
       {
@@ -5421,6 +5420,162 @@ Section tyeq_hint.
           econstructor; eauto.
           simpl.
           rewrite map_app.
+          specialize (@shift_c_c_kinding2 1 (map Ke2NonAbs L'') (length L'') (Ke2Abs k1 :: map Ke2NonAbs (subst0_cs_ks g1 G))).
+          intros HH.
+          simpl in *.
+          rewrite my_skipn_0 in *.
+          eapply HH; try rewrite map_length; try la.
+    Lemma subs_kd2_lgeq_kinding2_wfkind2_wfprop2 :
+      (forall G t k,
+          kinding2 G t k ->
+          forall G1 G2 g1 g2,
+            let gs1 := sg2sgs g1 in
+            let gs2 := sg2sgs g2 in
+            G = G1 ++ G2 ->
+            subs_kd2_lgeq g1 g2 G2 ->
+            kinding2 (subst0_cs_kes gs1 G1 ++ map Ke2NonAbs (subst0_cs_ks g1 G2)) (subst_cs_c (length G1) gs2 t) k) /\
+      (forall G k,
+          wfkind2 G k ->
+          forall G1 G2 g1 g2,
+            let gs1 := sg2sgs g1 in
+            let gs2 := sg2sgs g2 in
+            G = G1 ++ G2 ->
+            subs_kd2_lgeq g1 g2 G2 ->
+            wfkind2 (subst0_cs_kes gs1 G1 ++ map Ke2NonAbs (subst0_cs_ks g1 G2)) (subst_cs_k (length G1) gs2 k)) /\
+      (forall G p,
+          wfprop2 G p ->
+          forall G1 G2 g1 g2,
+            let gs1 := sg2sgs g1 in
+            let gs2 := sg2sgs g2 in
+            G = G1 ++ G2 ->
+            subs_kd2_lgeq g1 g2 G2 ->
+            wfprop2 (subst0_cs_kes gs1 G1 ++ map Ke2NonAbs (subst0_cs_ks g1 G2)) (subst_cs_p (length G1) gs2 p)).
+    Proof.
+      eapply kinding2_wfkind2_wfprop2_mutind; simpl.
+      {
+        intros G k1 t k H IH.
+        intros G1 G2 g1 g2 ? Hsubskd; subst.
+        rewrite subst_cs_c_Abs.
+        specialize (IH (Ke2Abs k1 :: G1) G2 g1 g2); simpl in *.
+        eauto.
+      }
+      {
+        intros; subst.
+        rewrite subst_cs_c_App; eauto.
+      }
+      {
+        intros; subst.
+        eapply admit.
+        (* eapply subs_kd2_kd_var_in; eauto. *)
+      }
+      {
+        intros; subst.
+        eapply admit.
+        (* eapply subs_kd2_kd_var_out; eauto. *)
+      }
+      {
+        intros; subst.
+        rewrite subst_cs_c_Const; eauto.
+      }
+      {
+        intros; subst.
+        rewrite subst_cs_c_BinOp; eauto.
+      }
+      {
+        intros; subst.
+        rewrite subst_cs_c_Ite; eauto.
+      }
+      {
+        intros G i n H IH.
+        intros G1 G2 g1 g2 ? Hsubskd; subst.
+        rewrite subst_cs_c_TimeAbs.
+        specialize (IH (Ke2NonAbs KNat :: G1) G2 g1 g2); simpl in *.
+        unfold KNat in *.
+        rewrite subst_cs_k_BaseSort in *.
+        eauto.
+      }
+      {
+        intros; subst.
+        rewrite subst_cs_c_TimeApp; eauto.
+      }
+      {
+        intros; subst.
+        rewrite subst_cs_c_Arrow; eauto.
+      }
+      {
+        intros G q k c Hk IHk H IH.
+        intros G1 G2 g1 g2 ? Hsubskd; subst.
+        rewrite subst_cs_c_Quan.
+        econstructor; eauto.
+        {
+          specialize (IH (Ke2NonAbs k :: G1) G2 g1 g2); simpl in *.
+          (*here*)
+          eauto.
+        }
+      }
+      {
+        intros G k t Hk IHk H IH.
+        intros G1 G2 g ? Hsubskd; subst.
+        rewrite subst_cs_c_Rec.
+        econstructor; eauto.
+        specialize (IH (Ke2NonAbs k :: G1) G2 g); simpl in *.
+        eauto.
+      }
+      {
+        intros; subst.
+        rewrite subst_cs_c_Ref; eauto.
+      }
+      {
+        intros; subst.
+        rewrite subst_cs_k_Type; eauto.
+      }
+      {
+        intros; subst.
+        rewrite subst_cs_k_Arrow; eauto.
+      }
+      {
+        intros; subst.
+        rewrite subst_cs_k_BaseSort; eauto.
+      }
+      {
+        intros G k p Hk IHk H IH.
+        intros G1 G2 g ? Hsubskd; subst.
+        rewrite subst_cs_k_Subset.
+        econstructor; eauto.
+        specialize (IH (Ke2NonAbs k :: G1) G2 g); simpl in *.
+        eauto.
+      }
+      {
+        intros; subst.
+        rewrite subst_cs_p_True; eauto.
+      }
+      {
+        intros; subst.
+        rewrite subst_cs_p_False; eauto.
+      }
+      {
+        intros; subst.
+        rewrite subst_cs_p_BinConn; eauto.
+      }
+      {
+        intros; subst.
+        rewrite subst_cs_p_Not; eauto.
+      }
+      {
+        intros; subst.
+        rewrite subst_cs_p_BinPred; eauto.
+      }
+      {
+        intros G q s p H IH.
+        intros G1 G2 g ? Hsubskd; subst.
+        rewrite subst_cs_p_Quan.
+        econstructor; eauto.
+        specialize (IH (Ke2NonAbs (KBaseSort s) :: G1) G2 g); simpl in *.
+        rewrite subst_cs_k_BaseSort in *.
+        eauto.
+      }
+    Qed.
+    
           (*here*)
           eapply subst_cs_c_kinding2_Abs_L with (L' := map Ke2NonAbs L'') (n := length L'') (g := g2) in Hkinding2; eauto; simpl in *; try la; try rewrite map_length; eauto.
         }
