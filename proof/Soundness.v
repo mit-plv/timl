@@ -3305,6 +3305,15 @@ Section tyeq_hint.
     induct t; eauto using interp_prop_eq_refl, kdeq_refl.
   Qed.
 
+  (* Lemma KdEq L c k : *)
+  (*   kinding L c k -> *)
+  (*   forall k', *)
+  (*     kdeq L k' k -> *)
+  (*     kinding L c k'. *)
+  (* Proof. *)
+  (*   induct 1; simpl; eauto. *)
+  (* Qed. *)
+
   Lemma equal_kinds_kdeq L k1 k2 :
     kdeq L k1 k2 ->
     forall L',
@@ -6032,10 +6041,10 @@ Section tyeq_hint.
           eauto using obeq_tyeq.
         }
         {
-          intros G1 G2 g1 g2 ? Hsubskd; subst.
+          intros Gb Ga g1 g2 ? Hsubskd; subst.
           rewrite subst_cs_c_Quan.
           econstructor; eauto.
-          specialize (IH' (Ke2NonAbs k :: G1) G2 g1 g2); simpl in *.
+          specialize (IH' (Ke2NonAbs k :: Gb) Ga g1 g2); simpl in *.
           unfold okdeq in IHk.
           (*here*)
           eauto.
