@@ -3811,28 +3811,14 @@ Section tyeq_hint.
   | K2Arrow : kind2 -> kind2 -> kind2
   .
 
-  (* a version of [kind2] without the arrow case *)
-  Inductive kind3 :=
-  | K3Type : kind3
-  | K3BaseSort : sort -> kind3
-  .
-
-  Fixpoint kind_to_kind3 k :=
+  Fixpoint kind_to_kind2 k :=
     match k with
-    | KType => K3Type
-    | KArrow k1 k2 => K3BaseSort BSUnit
-    | KBaseSort s => K3BaseSort s
-    | KSubset k _ => kind_to_kind3 k
+    | KType => K2Type
+    (* | KArrow k1 k2 => K2Arrow (kind_to_kind2 k1) (kind_to_kind2 k2) *)
+    | KArrow k1 k2 => K2BaseSort BSUnit
+    | KBaseSort s => K2BaseSort s
+    | KSubset k _ => kind_to_kind2 k
     end.
-
-  Definition kind3_to_kind2 k :=
-    match k with
-    | K3Type => K2Type
-    | K3BaseSort s => K2BaseSort s
-    end.
-
-  Definition kind_to_kind2 k := kind3_to_kind2 (kind_to_kind3 k).
-  Arguments kind_to_kind2 / .
 
   Definition cbinop_arg1_kind2 opr := kind_to_kind2 (cbinop_arg1_kind opr).
   Definition cbinop_arg2_kind2 opr := kind_to_kind2 (cbinop_arg2_kind opr).
@@ -3841,22 +3827,19 @@ Section tyeq_hint.
   Definition K2Time := K2BaseSort BSTime.
   Definition K2Nat := K2BaseSort BSNat.
 
-  Definition K3Time := K3BaseSort BSTime.
-  Definition K3Nat := K3BaseSort BSNat.
-
   (* Definition not_idx k := forall s, k <> K2BaseSort s. *)
   Definition not_idx k := ~ exists s, k = K2BaseSort s.
   Arguments  not_idx / .
   
   Inductive ke2 :=
   | Ke2Abs : kind2 -> ke2
-  | Ke2NonAbs : kind3 -> ke2
+  | Ke2NonAbs : kind2 -> ke2
   .
 
   Definition ke2_to_kind2 ke :=
     match ke with
     | Ke2Abs k => k
-    | Ke2NonAbs k => kind3_to_kind2 k
+    | Ke2NonAbs k => k
     end.
   
   Inductive kinding2 : list ke2 -> cstr -> kind2 -> Prop :=
@@ -3893,7 +3876,7 @@ Section tyeq_hint.
       kinding2 G c2 (K2BaseSort s) ->
       kinding2 G (CIte c c1 c2) (K2BaseSort s)
   | Kd2TimeAbs G i n :
-      kinding2 (Ke2NonAbs K3Nat :: G) i (K2BaseSort (BSTimeFun n)) ->
+      kinding2 (Ke2NonAbs K2Nat :: G) i (K2BaseSort (BSTimeFun n)) ->
       kinding2 G (CTimeAbs i) (K2BaseSort (BSTimeFun (1 + n)))
   | Kd2TimeApp G n c1 c2 :
       kinding2 G c1 (K2BaseSort (BSTimeFun (1 + n))) ->
@@ -3905,10 +3888,10 @@ Section tyeq_hint.
       kinding2 G t2 K2Type ->
       kinding2 G (CArrow t1 i t2) K2Type
   | Kd2Quan G q k c :
-      kinding2 (Ke2NonAbs (kind_to_kind3 k) :: G) c K2Type ->
+      kinding2 (Ke2NonAbs (kind_to_kind2 k) :: G) c K2Type ->
       kinding2 G (CQuan q k c) K2Type
   | Kd2Rec G k t :
-      kinding2 (Ke2NonAbs (kind_to_kind3 k) :: G) t K2Type ->
+      kinding2 (Ke2NonAbs (kind_to_kind2 k) :: G) t K2Type ->
       kinding2 G (CRec k t) K2Type
   | Kd2Ref G t :
       kinding2 G t K2Type ->
@@ -4090,33 +4073,28 @@ Section tyeq_hint.
 
     Variable L : kctx.
 
-    Definition Ke2NonAbs' k := Ke2NonAbs (kind_to_kind3 k).
+    Definition Ke2NonAbs' k := Ke2NonAbs (kind_to_kind2 k).
     Arguments Ke2NonAbs' / .
-    
-    Fixpoint kind3_to_kind k :=
-      match k with
-      | K3Type => KType
-      | K3BaseSort s => KBaseSort s
-      end.
     
     (* logical equivalence (logical relation) *)
 
     Fixpoint lgeq L' t1 t2 k :=
       match k with
       | K2Type =>
-        obeq (map kind3_to_kind L' ++ L) t1 t2
+        obeq (L' ++ L) t1 t2
       | K2BaseSort s =>
         (* tyeq L t1 t2 /\ *)
-        interp_cstr t1 (map kind_to_sort (map kind3_to_kind L' ++ L)) s = interp_cstr t2 (map kind_to_sort (map kind3_to_kind L' ++ L)) s
+        interp_cstr t1 (map kind_to_sort (L' ++ L)) s = interp_cstr t2 (map kind_to_sort (L' ++ L)) s
       | K2Arrow k1 k2 =>
         (* obeq L t1 t2 /\ *)
         forall L'' t1' t2',
-          lgeq (L'' ++ L') t1' t2' k1 ->
-          kinding2 (map Ke2NonAbs (L'' ++ L')) t1' k1 ->
-          kinding2 (map Ke2NonAbs (L'' ++ L')) t2' k1 ->
+          let AL := L'' ++ L' in
+          lgeq AL t1' t2' k1 ->
+          kinding2 (map Ke2NonAbs' AL) t1' k1 ->
+          kinding2 (map Ke2NonAbs' AL) t2' k1 ->
           not_idx k2 ->
           let n := length L'' in
-          lgeq (L'' ++ L')  (CApp (shift_c_c n 0 t1) t1') (CApp (shift_c_c n 0 t2) t2') k2
+          lgeq AL  (CApp (shift_c_c n 0 t1) t1') (CApp (shift_c_c n 0 t2) t2') k2
       end.
 
     Lemma lgeq_shift_c_c :
@@ -4128,20 +4106,19 @@ Section tyeq_hint.
       induct k; simpl.
       {
         intros L'' L' c1 c2 Hc1c2.
-        repeat rewrite map_app in *.
-        repeat rewrite <- app_assoc in *.
+        rewrite <- app_assoc.
         Lemma shift_c_c_0_obeq :
           forall L'' n L' c1 c2,
             obeq L' c1 c2 ->
             n = length L'' ->
             obeq (L'' ++ L') (shift_c_c n 0 c1) (shift_c_c n 0 c2).
         Admitted.
-        eapply shift_c_c_0_obeq; try rewrite map_length; eauto.
+        eauto using shift_c_c_0_obeq.
       }
       {
         intros L'' L' c1 c2 Hc1c2.
+        rewrite <- app_assoc.
         repeat rewrite map_app in *.
-        repeat rewrite <- app_assoc in *.
         Lemma shift_c_c_0_interp_cstr_eq :
           forall L'' n L' c1 c2 s,
             interp_cstr c1 L' s = interp_cstr c2 L' s ->
@@ -4149,13 +4126,12 @@ Section tyeq_hint.
             interp_cstr (shift_c_c n 0 c1) (L'' ++ L') s = interp_cstr (shift_c_c n 0 c2) (L'' ++ L') s.
         Admitted.
         eapply shift_c_c_0_interp_cstr_eq; eauto.
-        repeat rewrite map_length; eauto.
+        rewrite map_length; eauto.
       }
       intros L'' L' c1 c2 Hc1c2.
       intros L''' t1' t2' Ht1't2' Hkd1 Hkd2 Hni.
       repeat rewrite shift_c_c_shift.
       specialize (Hc1c2 (L''' ++ L'')).
-      repeat rewrite map_app in *.
       repeat rewrite <- app_assoc in *.
       repeat rewrite app_length in *.
       simpl in *.
@@ -4179,7 +4155,7 @@ Section tyeq_hint.
         lgeq L' t1' t2 k ->
         forall t1,
           tstep t1 t1' ->
-          kinding2 (map Ke2NonAbs L') t1 k ->
+          kinding2 (map Ke2NonAbs' L') t1 k ->
           lgeq L' t1 t2 k.
     Proof.
       induct k; simpl in *.
@@ -4227,7 +4203,7 @@ Section tyeq_hint.
       forall L' t2' t1 t2,
         lgeq L' t1 t2' k ->
         tstep t2 t2' ->
-        kinding2 (map Ke2NonAbs L') t2 k ->
+        kinding2 (map Ke2NonAbs' L') t2 k ->
         lgeq L' t1 t2 k.
     Proof.
       induct k; simpl in *.
@@ -4272,8 +4248,8 @@ Section tyeq_hint.
         lgeq L' t1' t2' k ->
         tstep t1 t1' ->
         tstep t2 t2' ->
-        kinding2 (map Ke2NonAbs L') t1 k ->
-        kinding2 (map Ke2NonAbs L') t2 k ->
+        kinding2 (map Ke2NonAbs' L') t1 k ->
+        kinding2 (map Ke2NonAbs' L') t2 k ->
         lgeq L' t1 t2 k.
     Proof.
       induct k; simpl in *.
@@ -4800,7 +4776,7 @@ Section tyeq_hint.
     (* Substitute a 'substitution group' for all variables. *)
     (* In a subtitution group, values for inner variables cannot depend on values for outer variables.  *)
 
-    Definition subst_pair := (list kind3 * cstr)%type.
+    Definition subst_pair := (list kind2 * cstr)%type.
     Definition subst_group := list (option subst_pair).
 
     Definition sg2sgs : subst_group -> list (option (nat * cstr)) := map (option_map (map_fst length)).
@@ -5223,11 +5199,18 @@ Section tyeq_hint.
       eapply subst_cs_c_kinding2 with (G1 := []); eauto.
     Qed.
 
+    Fixpoint kind2_to_kind k :=
+      match k with
+      | K2Type => KType
+      | K2BaseSort s => KBaseSort s
+      | K2Arrow a b => KArrow (kind2_to_kind a) (kind2_to_kind b)
+      end.
+    
     Inductive subs_kd2_lgeq : subst_group -> subst_group -> list ke2 -> Prop :=
     | SLNil : subs_kd2_lgeq [] [] []
     | SLAbs G g1 g2 k L' c1 c2 :
         subs_kd2_lgeq g1 g2 G ->
-        lgeq (L' ++ subst0_cs_ks g1 G) c1 c2 k ->
+        lgeq (map kind2_to_kind (L' ++ subst0_cs_ks g1 G)) c1 c2 k ->
         kinding2 (map Ke2NonAbs (L' ++ subst0_cs_ks g1 G)) c1 k ->
         kinding2 (map Ke2NonAbs (L' ++ subst0_cs_ks g1 G)) c2 k ->
         subs_kd2_lgeq (Some (L', c1) :: g1) (Some (L', c2) :: g2) (Ke2Abs k :: G)
@@ -5253,19 +5236,19 @@ Section tyeq_hint.
         subs_kd2_lgeq g1 g2 G ->
         (* kinding2 (subst0_cs_ks g1 G) (subst0_cs_c (sg2sgs g1) t1) k /\ *)
         (* kinding2 (subst0_cs_ks g1 G) (subst0_cs_c (sg2sgs g2) t2) k /\ *)
-        lgeq (subst0_cs_ks g1 G) (subst0_cs_c (sg2sgs g1) t1) (subst0_cs_c (sg2sgs g2) t2) k.
+        lgeq (map kind2_to_kind (subst0_cs_ks g1 G)) (subst0_cs_c (sg2sgs g1) t1) (subst0_cs_c (sg2sgs g2) t2) k.
 
-    (* Definition okdeq G k := *)
-    (*   forall g1 g2, *)
-    (*     subs_kd2_lgeq g1 g2 G -> *)
-    (*     kdeq (map kind2_to_kind (subst0_cs_ks g1 G) ++ L) (subst0_cs_k (sg2sgs g1) k) (subst0_cs_k (sg2sgs g2) k). *)
+    Definition okdeq G k :=
+      forall g1 g2,
+        subs_kd2_lgeq g1 g2 G ->
+        kdeq (map kind2_to_kind (subst0_cs_ks g1 G) ++ L) (subst0_cs_k (sg2sgs g1) k) (subst0_cs_k (sg2sgs g2) k).
 
-    (* Definition opropeq G p := *)
-    (*   forall g1 g2, *)
-    (*     subs_kd2_lgeq g1 g2 G -> *)
-    (*     interp_prop (map kind2_to_kind (subst0_cs_ks g1 G) ++ L) (subst0_cs_p (sg2sgs g1) p <===> subst0_cs_p (sg2sgs g2) p)%idx. *)
+    Definition opropeq G p :=
+      forall g1 g2,
+        subs_kd2_lgeq g1 g2 G ->
+        interp_prop (map kind2_to_kind (subst0_cs_ks g1 G) ++ L) (subst0_cs_p (sg2sgs g1) p <===> subst0_cs_p (sg2sgs g2) p)%idx.
     
-    Lemma subs_kd2_lgeq_kinding2 :
+    Lemma subs_kd2_lgeq_kinding2_wfkind2_wfprop2 :
       (forall G t k,
           kinding2 G t k ->
           forall G1 G2 g1 g2,
@@ -5318,8 +5301,8 @@ Section tyeq_hint.
         intros G i n H IH.
         intros G1 G2 g1 g2 ? Hsubskd; subst.
         rewrite subst_cs_c_TimeAbs.
-        specialize (IH (Ke2NonAbs K3Nat :: G1) G2 g1 g2); simpl in *.
-        unfold K3Nat in *.
+        specialize (IH (Ke2NonAbs K2Nat :: G1) G2 g1 g2); simpl in *.
+        unfold K2Nat in *.
         eauto.
       }
       {
@@ -5335,31 +5318,8 @@ Section tyeq_hint.
         intros G1 G2 g1 g2 ? Hsubskd; subst.
         rewrite subst_cs_c_Quan.
         econstructor; eauto.
-    Lemma kind_to_kind3_subst_cs_k :
-      forall k x g,
-        kind_to_kind3 (subst_cs_k x g k) = kind_to_kind3 k.
-    Proof.
-      induct k; simpl; eauto.
-      {
-        intros.
-        rewrite subst_cs_k_Type; eauto.
-      }
-      {
-        intros.
-        rewrite subst_cs_k_Arrow; simpl; f_equal; eauto.
-      }
-      {
-        intros.
-        rewrite subst_cs_k_BaseSort; eauto.
-      }
-      {
-        intros.
-        rewrite subst_cs_k_Subset; eauto.
-      }
-    Qed.
-
-        rewrite kind_to_kind3_subst_cs_k.
-        specialize (IH (Ke2NonAbs (kind_to_kind3 k) :: G1) G2 g1 g2); simpl in *.
+        specialize (IH (Ke2NonAbs (kind_to_kind2 k) :: G1) G2 g1 g2); simpl in *.
+        rewrite kind_to_kind2_subst_cs_k.
         eauto.
       }
       {
@@ -5367,8 +5327,8 @@ Section tyeq_hint.
         intros G1 G2 g ? Hsubskd; subst.
         rewrite subst_cs_c_Rec.
         econstructor; eauto.
-        rewrite kind_to_kind3_subst_cs_k.
-        specialize (IH (Ke2NonAbs (kind_to_kind3 k) :: G1) G2 g); simpl in *.
+        specialize (IH (Ke2NonAbs (kind_to_kind2 k) :: G1) G2 g); simpl in *.
+        rewrite kind_to_kind2_subst_cs_k.
         eauto.
       }
       {
@@ -5397,7 +5357,7 @@ Section tyeq_hint.
           intros Hni.
           Lemma subst_kd_lgeq_Abs g1 g2 G L' c1 c2 k :
             subs_kd2_lgeq g1 g2 G ->
-            lgeq (L' ++ subst0_cs_ks g1 G) c1 c2 k ->
+            lgeq (map kind2_to_kind (L' ++ subst0_cs_ks g1 G)) c1 c2 k ->
             kinding2 (map Ke2NonAbs (L' ++ subst0_cs_ks g1 G)) c1 k ->
             kinding2 (map Ke2NonAbs (L' ++ subst0_cs_ks g1 G)) c2 k ->
             subs_kd2_lgeq (Some (L', c1) :: g1) (Some (L', c2) :: g2) (Ke2Abs k :: G).
@@ -5407,7 +5367,11 @@ Section tyeq_hint.
           Qed.
           
           copy Hsubeq Hsubeq'.
-          eapply subst_kd_lgeq_Abs with (c1 := t1') (c2 := t2') in Hsubeq'; eauto.
+          eapply subst_kd_lgeq_Abs in Hsubeq'; eauto.
+          {
+            
+          }
+          (*here*)
           eapply IH in Hsubeq'.
           repeat rewrite subst0_cs_c_Abs.
           
@@ -5475,13 +5439,22 @@ Section tyeq_hint.
             simpl in *.
             rewrite my_skipn_0 in *.
             eapply HH; try rewrite map_length; try la.
-            eapply subs_kd2_lgeq_kinding2 with (G1 := [Ke2Abs k1]); eauto.
+            specialize (IH' [Ke2Abs k1] G g1 g2).
+            simpl in *.
+            eauto.
           }
+        }
+        {
+          intros G1 G2 g1 g2 ? Hsubskd; subst.
+          rewrite subst_cs_c_Abs.
+          specialize (IH' (Ke2Abs k1 :: G1) G2 g1 g2); simpl in *.
+          eauto.
         }
       }
       {
         (* Case App *)
-        intros G t1 t2 k1 k2 H1 IH1 H2 IH2 Hni.
+        intros G t1 t2 k1 k2 H1 [IH1 IH1'] H2 [IH2 IH2'] Hni.
+        split.
         {
           unfold olgeq in *; simpl in *.
           intros g1 g2 Hsubeq.
@@ -5494,16 +5467,30 @@ Section tyeq_hint.
             eapply subst0_cs_c_kinding2; eauto.
           }
           {
-            eapply subs_kd2_lgeq_kinding2 with (G1 := []); eauto.
+            specialize (IH2' [] G g1 g2).
+            simpl in *.
+            eauto.
           }
+        }
+        {
+          intros; subst.
+          rewrite subst_cs_c_App; eauto.
         }
       }
       {
         (* Case VarIn *)
         intros G x ke Hnth.
+        split.
         {
           unfold olgeq in *; simpl in *.
           intros g1 g2 Hsubeq.
+    Lemma lgeq_Var_kind_to_kind2_refl :
+      forall k L' x,
+        lgeq L' (CVar x) (CVar x) (kind_to_kind2 k).
+    Proof.
+      induct k; simpl; eauto using obeq_refl.
+    Qed.
+
     Lemma subs_lgeq_lgeq_var_in G g1 g2 :
       subs_kd2_lgeq g1 g2 G ->
       forall x ke,
@@ -5551,14 +5538,7 @@ Section tyeq_hint.
           invert Hnth.
           repeat rewrite subst_cs_c_Var_Lt by la.
           simpl.
-    Lemma lgeq_Var_kind3_to_kind2_refl :
-      forall k L' x,
-        lgeq L' (CVar x) (CVar x) (kind3_to_kind2 k).
-    Proof.
-      induct k; simpl; eauto using obeq_refl.
-    Qed.
-
-          eapply lgeq_Var_kind3_to_kind2_refl.
+          eapply lgeq_Var_kind_to_kind2_refl.
         }
         {
           rewrite subst_cs_c_Var_Ge by la.
@@ -5581,10 +5561,16 @@ Section tyeq_hint.
     
           eapply subs_kd2_lgeq_var_in; eauto.
         }
+        {
+          intros; subst.
+          eapply admit.
+          (* eapply subs_kd2_kd_var_in; eauto. *)
+        }
       }
       {
         (* Case VarOut *)
         intros G x Hnth.
+        split.
         {
           unfold olgeq in *; simpl in *.
           intros g1 g2 Hsubeq.
@@ -5600,7 +5586,7 @@ Section tyeq_hint.
       subs_kd2_lgeq g1 g2 G ->
       forall x,
         length G <= x ->
-        obeq (map kind3_to_kind (subst0_cs_ks g1 G) ++ L) (subst_cs_c 0 (sg2sgs g1) (CVar x)) (subst_cs_c 0 (sg2sgs g2) (CVar x)).
+        obeq (subst0_cs_ks g1 G ++ L) (subst_cs_c 0 (sg2sgs g1) (CVar x)) (subst_cs_c 0 (sg2sgs g2) (CVar x)).
     Proof.
       induct 1; simpl.
       {
@@ -5623,8 +5609,7 @@ Section tyeq_hint.
         repeat rewrite subst_c_c_shift_avoid by la.
         simpl.
         repeat rewrite Nat.sub_0_r; eauto.
-        repeat rewrite map_app.
-        repeat rewrite <- app_assoc.
+        rewrite <- app_assoc.
         eapply shift_c_c_0_obeq; try rewrite map_length; eauto with db_la.
       }
       {
@@ -5643,20 +5628,31 @@ Section tyeq_hint.
           eapply nth_error_None in Hnth.
           eapply subs_lgeq_var_out; eauto.
         }
+        {
+          intros; subst.
+          eapply admit.
+          (* eapply subs_kd2_kd_var_out; eauto. *)
+        }
       }
       {
         (* Case Const *)
         intros G cn.
+        split.
         {
           unfold olgeq in *; simpl in *.
           intros g1 g2 Hsubeq.
           repeat rewrite subst0_cs_c_Const.
           eapply obeq_refl.
         }
+        {
+          intros; subst.
+          rewrite subst_cs_c_Const; eauto.
+        }
       }
       {
         (* Case BinOp *)
-        intros G opr c1 c2 H1 IH1 H2 IH2.
+        intros G opr c1 c2 H1 [IH1 IH1'] H2 [IH2 IH2'].
+        split.
         {
           unfold olgeq in *; simpl in *.
           intros g1 g2 Hsubeq.
@@ -5692,11 +5688,16 @@ Section tyeq_hint.
           Qed.
           eapply lgeq_BinOp; eauto.
         }
+        {
+          intros; subst.
+          rewrite subst_cs_c_BinOp; eauto.
+        }
       }
       {
         (* Case Ite *)
-        intros G c c1 c2 s H IH H1 IH1 H2 IH2.
+        intros G c c1 c2 s H [IH IH'] H1 [IH1 IH1'] H2 [IH2 IH2'].
         unfold olgeq in *; simpl in *.
+        split.
         {
           intros g1 g2 Hsubeq.
           repeat rewrite subst0_cs_c_Ite.
@@ -5715,10 +5716,15 @@ Section tyeq_hint.
           Qed.
           apply lgeq_Ite; simpl; eauto.
         }
+        {
+          intros; subst.
+          rewrite subst_cs_c_Ite; eauto.
+        }
       }
       {
         (* Case TimeAbs *)
-        intros G i n H IH.
+        intros G i n H [IH IH'].
+        split.
         {
           unfold olgeq in *; simpl in *.
           intros g1 g2 Hsubeq.
@@ -5734,11 +5740,34 @@ Section tyeq_hint.
           copy Hsubeq Hsubeq'.
           eapply subst_kd_lgeq_NonAbs in Hsubeq'; eauto.
           eapply IH in Hsubeq'; eauto.
+          simpl in *.
+          unfold KNat in *.
+          repeat rewrite subst0_cs_k_BaseSort in *.
+          simpl in *.
+          Lemma subst0_cs_c_None_reduce g c :
+            subst0_cs_c (None :: g) c = subst_cs_c 1 g c.
+          Proof.
+            unfold subst0_cs_c in *.
+            unfold subst_cs_c in *.
+            simpl.
+            eauto.
+          Qed.
+          repeat rewrite subst0_cs_c_None_reduce in *.
+          eauto.
+        }
+        {
+          intros G1 G2 g1 g2 ? Hsubskd; subst.
+          rewrite subst_cs_c_TimeAbs.
+          specialize (IH' (Ke2NonAbs KNat :: G1) G2 g1 g2); simpl in *.
+          unfold KNat in *.
+          rewrite subst_cs_k_BaseSort in *.
+          eauto.
         }
       }
       {
         (* Case TimeApp *)
-        intros G n c1 c2 H1 IH1 H2 IH2.
+        intros G n c1 c2 H1 [IH1 IH1'] H2 [IH2 IH2'].
+        split.
         {
           unfold olgeq in *; simpl in *.
           intros g1 g2 Hsubeq.
@@ -5747,10 +5776,15 @@ Section tyeq_hint.
           erewrite IH1; eauto.
           erewrite IH2; eauto.
         }
+        {
+          intros; subst.
+          rewrite subst_cs_c_TimeApp; eauto.
+        }
       }
       {
         (* Case Arrow *)
-        intros G t1 i t2 H1 IH1 H IH H2 IH2.
+        intros G t1 i t2 H1 [IH1 IH1'] H [IH] H2 [IH2 IH2'].
+        split.
         {
           unfold olgeq in *; simpl in *.
           intros g1 g2 Hsubeq.
@@ -5761,16 +5795,20 @@ Section tyeq_hint.
           Admitted.
           eapply interp_cstr_interp_prop_eq; eauto.
         }
+        {
+          intros; subst.
+          rewrite subst_cs_c_Arrow; eauto.
+        }
       }
       {
         (* Case Quan *)
-        intros G q k c H IH.
+        intros G q k c Hk [IHk IHk'] H [IH IH'].
+        split.
         {
           unfold olgeq in *; simpl in *.
           intros g1 g2 Hsubeq.
           repeat rewrite subst0_cs_c_Quan.
           eapply obeq_Quan; eauto.
-          (*here*)
           copy Hsubeq Hsubeq'.
           eapply subst_kd_lgeq_NonAbs in Hsubeq'; eauto.
           eapply IH in Hsubeq'; eauto.
