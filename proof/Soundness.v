@@ -3086,6 +3086,30 @@ lift2 (fst (strip_subsets L))
     eapply kdeq_interp_prop_rev; eauto.
   Qed.
   
+  Inductive equal_kinds : list kind -> list kind -> Prop :=
+  | EKNil : equal_kinds [] []
+  | EKCons L L' k k' :
+      equal_kinds L L' ->
+      kdeq L k k' ->
+      equal_kinds (k :: L) (k' :: L')
+  .
+
+  Hint Constructors equal_kinds.
+  
+  Lemma equal_kinds_interp_prop L L' :
+    equal_kinds L L' ->
+    forall p,
+      interp_prop L p ->
+      interp_prop L' p.
+  Proof.
+    induct 1; simpl; eauto.
+    intros p Hp.
+    rename H0 into Hkdeq.
+    copy Hkdeq Hps.
+    eapply kdeq_premises in Hps.
+    eapply admit.
+  Qed.
+  
   Definition monotone : cstr -> Prop.
   Admitted.
 
@@ -3281,11 +3305,48 @@ Section tyeq_hint.
     induct t; eauto using interp_prop_eq_refl, kdeq_refl.
   Qed.
 
+  (* Lemma KdEq L c k : *)
+  (*   kinding L c k -> *)
+  (*   forall k', *)
+  (*     kdeq L k' k -> *)
+  (*     kinding L c k'. *)
+  (* Proof. *)
+  (*   induct 1; simpl; eauto. *)
+  (* Qed. *)
+
+  Lemma equal_kinds_kdeq L k1 k2 :
+    kdeq L k1 k2 ->
+    forall L',
+      equal_kinds L L' ->
+      kdeq L' k1 k2.
+  Proof.
+    induct 1; simpl; eauto.
+    intros L' Hek.
+    econstructor; eauto.
+    eapply equal_kinds_interp_prop; eauto using kdeq_refl.
+  Qed.
+  
+  Lemma kdeq_tyeq' L t1 t2 :
+    tyeq L t1 t2 ->
+    forall L',
+      equal_kinds L L' ->
+      tyeq L' t1 t2.
+  Proof.
+    induct 1; simpl; eauto using kdeq_refl, equal_kinds_kdeq, equal_kinds_interp_prop.
+  Qed.
+
+  Lemma equal_kinds_refl L : equal_kinds L L.
+  Proof.
+    induct L; simpl; eauto using kdeq_refl.
+  Qed.
+    
   Lemma kdeq_tyeq L k k' t t' :
     kdeq L k k' ->
     tyeq (k :: L) t t' ->
     tyeq (k' :: L) t t'.
-  Admitted.
+  Proof.
+    eauto using kdeq_tyeq', equal_kinds_refl.
+  Qed.
 
   Lemma tyeq_sym L t1 t2 : tyeq L t1 t2 -> tyeq L t2 t1.
   Proof.
@@ -5980,10 +6041,10 @@ Section tyeq_hint.
           eauto using obeq_tyeq.
         }
         {
-          intros G1 G2 g1 g2 ? Hsubskd; subst.
+          intros Gb Ga g1 g2 ? Hsubskd; subst.
           rewrite subst_cs_c_Quan.
           econstructor; eauto.
-          specialize (IH' (Ke2NonAbs k :: G1) G2 g1 g2); simpl in *.
+          specialize (IH' (Ke2NonAbs k :: Gb) Ga g1 g2); simpl in *.
           unfold okdeq in IHk.
           (*here*)
           eauto.
