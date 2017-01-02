@@ -341,9 +341,10 @@
 \[
 \scriptsize
 \begin{array}{l}
-	\Sigma \vdash H \hspace{1em} \Sigma \vdash \sigma : \tau \triangleright i \mid (m, h) \\
-	\infer{\Sigma \vdash H}{\forall \ell, \begin{array}{cl} & (\forall \tau_1~\tau_2. \Sigma(\ell) = \tau_1 \times \tau_2 \rightarrow \exists w_1~w_2. H(\ell) = (w_1,w_2) \land (\cdot;\cdot;\Sigma) \vdash w_i : \tau_i \triangleright 0 \mid (0, \_) ) \\ \land & (\forall \tau~i. \Sigma(\ell)= \mathbf{arr}~\tau~i \rightarrow \exists \overrightarrow{w}. H(\ell) = \overrightarrow{w} \land |\overrightarrow{w}| = \llbracket i \rrbracket \land \forall w \in \overrightarrow{w}. (\cdot;\cdot;\Sigma) \vdash w : \tau \triangleright 0 \mid (0, \_) ) \\ \land & (\forall \overrightarrow{\kappa}~\tau_1~i~m~h~r~\tau_2. \Sigma(\ell)=\forall \overrightarrow{\alpha::\kappa}. \tau_1 \xrightarrow[m,h,r]{i} \tau_2 \rightarrow \exists ?. ?) \end{array} } \\
-	\infer{\Sigma \vdash (H,e,r) : \tau \triangleright i \mid (m, h)}{(\cdot;\cdot;\Sigma) \vdash e : \tau \triangleright i \mid (m,h) & \Sigma \vdash H & \llbracket i \rrbracket \le r}
+	\Sigma \vdash H \hspace{1em} \Sigma \vdash V : \mathcal{T} \hspace{1em} \Sigma \vdash \sigma : \tau \triangleright i \mid (m, h) \\
+	\infer{\Sigma \vdash H}{\forall \ell, \begin{array}{cl} & (\forall \tau_1~\tau_2. \Sigma(\ell) = \tau_1 \times \tau_2 \rightarrow \exists w_1~w_2. H(\ell) = (w_1,w_2) \land (\cdot;\cdot;\Sigma) \vdash w_i : \tau_i ) \\ \land & (\forall \tau~i. \Sigma(\ell)= \mathbf{arr}~\tau~i \rightarrow \exists \overrightarrow{w}. H(\ell) = \overrightarrow{w} \land |\overrightarrow{w}| = \llbracket i \rrbracket \land \forall w \in \overrightarrow{w}. (\cdot;\cdot;\Sigma) \vdash w : \tau  ) \\ \land & (\forall \tau~\overrightarrow{\kappa}~\tau_1~i~m~h~r~\tau_2. \Sigma(\ell)=\tau \land \tau=\forall \overrightarrow{\alpha::\kappa}. \tau_1 \xrightarrow[m,h,r]{i} \tau_2 \rightarrow \exists w~V. H(\ell) = (w, V) \rightarrow \Sigma \vdash V : \mathcal{T} \land (\cdot;\mathcal{T};\Sigma) \vdash w : \tau ) \end{array} } \\
+	\infer{\Sigma \vdash V : \mathcal{T}}{\mathcal{T} = \lambda x. \tau \mathrm{~where~} (\cdot;\cdot;\Sigma) \vdash V(x) : \tau   } \hspace{1em}
+	\infer{\Sigma \vdash (H,V,e,r) : \tau \triangleright i \mid (m, h)}{\Sigma \vdash V : \mathcal{T} & (\cdot;\mathcal{T};\Sigma) \vdash e : \tau \triangleright i \mid (m,h) & \Sigma \vdash H & \llbracket i \rrbracket \le r}
 \end{array}
 \]
 
@@ -351,13 +352,52 @@
 \scriptsize
 \begin{array}{l}
 	w ::= EC \mid \mathbf{l}.w \mid \mathbf{r}.w \mid \mathbf{pack} \langle c \mid w \rangle \mid \mathbf{fold}~w \mid \ell~\overrightarrow{c} \mid \Lambda \alpha :: \kappa. e \\
-	b ::= (w,w) \mid \overrightarrow{w} \mid (\mathbf{rec}_\tau~x.e, \mathbf{var} \rightharpoonup w) \\
+	b ::= (w,w) \mid \overrightarrow{w} \mid (w, \mathbf{var} \rightharpoonup w) \\
 	H = \mathbf{loc} \rightharpoonup b \\
-	\sigma = (H, e, r) \\
+	V = \mathbf{var} \rightharpoonup w \\
+	\begin{array}{lcl}
+	E & ::=&  E~e \mid w~E \mid (E,e) \mid (w,E) \mid E.\mathbf{1} \mid E.\mathbf{2} \mid \mathbf{l}.E \mid \mathbf{r}.E \mid \mathbf{case}~E~x.e~x.e \mid \mathbf{fold}~E \mid \mathbf{unfold}~E \\
+	& \mid & \mathbf{pack}\langle c \mid E \rangle \mid \mathbf{unpack}~E~\alpha.x.e \mid E~c \mid E~o_{bt}~e \mid w~o_{bt}~E \mid \mathbf{new}~E~e \mid \mathbf{new}~w~E \\
+	& \mid & E[e] \mid w[E] \mid E[e] := e \mid w[E] := e \mid w[w] := E \mid \mathbf{let}~x=E~\mathbf{in}~e
+	\end{array} \\
+	
+	\\
+	\\
+	\\
+	\sigma = (H, V, e, r) \\
 	\Sigma = \mathbf{loc} \rightharpoonup \tau \\
-	\sigma \longrightarrow_M \sigma' \hspace{1em} \sigma \hookrightarrow_M \sigma' \\
-	\infer{(H,(w_1,w_2),r) \longrightarrow (H[\ell \mapsto (w_1,w_2)],\ell,r)}{\ell \not\in H} \hspace{1em}
-	\infer{(H,\mathbf{new}~n~w,r) \longrightarrow (H[\ell \mapsto w^n)],\ell,r)}{\ell \not\in H}
+	\sigma \longrightarrow \sigma' \hspace{1em} \sigma \longrightarrow_{M,gc} \sigma' \hspace{1em} \sigma \hookrightarrow_{M,gc} \sigma' \\
+	\infer{(H,V,(w_1,w_2),r) \longrightarrow (H[\ell \mapsto (w_1,w_2)],V,\ell,r)}{\ell \not\in H} \hspace{1em}
+	\infer{(H,V,\mathbf{new}~n~w,r) \longrightarrow (H[\ell \mapsto w^n)],V,\ell,r)}{\ell \not\in H} \\
+	\infer{(H,V,\mathbf{rec}_\tau~x.e,r) \longrightarrow (H[\ell \mapsto (e[\ell/x],V \downarrow (FV(e) \setminus \{x\}))], V, \ell ,r)}{\ell \not\in H} \\
+	\infer{(H,V,\lambda x:\tau. e,r) \longrightarrow (H[\ell \mapsto (\lambda x : \tau. e, V \downarrow (FV(e) \setminus \{x\}))],V,\ell,r)}{\ell \not\in H} \\
+	\\
+	\\
+	\\
+	\infer{(H,V,(\ell~\overrightarrow{c})~w,r) \longrightarrow (H,V'[x \mapsto w],e[\overrightarrow{c}/\overrightarrow{\alpha}],r-1) }{r \ge 1 & H(\ell) = (\Lambda \overrightarrow{\alpha :: \kappa}. \lambda x:\tau. e, V')} \hspace{1em}
+	\infer{(H,V,\mathbf{unfold}~(\mathbf{fold}~w),r) \longrightarrow (H,V,w,r)}{} \\
+	\infer{(H,V,\mathbf{unpack}~(\mathbf{pack} \langle c \mid w \rangle )~\alpha.x.e, r) \longrightarrow (H,V[x \mapsto w],e[c/\alpha],r)}{\vspace{1em}} \\
+	\infer{(H,V,\mathbf{let}~x=w~\mathbf{in}~e,r) \longrightarrow (H,V[x \mapsto w],e,r)}{\vspace{1em}} \hspace{1em}
+	\infer{(H,V,(\Lambda \alpha :: \kappa. e)~c,r) \longrightarrow (H,V,e[c/\alpha],r)}{\vspace{1em}} \\
+	\infer{(H,V,\mathbf{case}~\mathbf{l}.w~x.e_1~x.e_2,r) \longrightarrow (H,V[x \mapsto w],e_1,r)}{\vspace{1em}} \hspace{1em}
+	\infer{(H,V,\mathbf{case}~\mathbf{r}.w~x.e_1~x.e_2,r) \longrightarrow (H,V[x \mapsto w],e_2,r)}{\vspace{1em}} \\
+	\infer{(H,V,\ell.\mathbf{1},r) \longrightarrow (H,V,w_1,r)}{H(\ell) = (w_1,w_2)} \hspace{1em}
+	\infer{(H,V,\ell.\mathbf{2},r) \longrightarrow (H,V,w_2,r)}{H(\ell) = (w_1,w_2)} \hspace{1em}
+	\infer{(H,V,\ell[n],r) \longrightarrow (H,V,\overrightarrow{w}(n),r)}{H(\ell)=\overrightarrow{w} & n < |\overrightarrow{w}|} \\
+	\infer{(H,V,\ell[n] := w,r) \longrightarrow (H(\ell)[n := w],V,(),r)}{H(\ell) = \overrightarrow{w'} & n < |\overrightarrow{w'}|} \hspace{1em}
+	\infer{(H,V,w_1~o_{bt}~w_2,r) \longrightarrow (H,V,o_{bt}.f(w_1,w_2),r)}{\vspace{1em}} \\
+	\\
+	\\
+	\\
+	\psi((w,w)) = 2 \hspace{1em} \psi(\overrightarrow{w}) = |\overrightarrow{w}| \hspace{1em} \psi(w,env)=1+|env| \\
+	\Psi(H) = \sum_{\ell \in H} \psi(H(\ell)) \\
+	\infer{(H,V,e,r) \longrightarrow_{M,gc} (H',V',e',r')}{(H'',\Delta r) = gc(H',V) & r \ge \Delta r & (H'',V,e,r-\Delta r) \longrightarrow (H',V',e',r') & \Psi(H') \le M} \\
+	\infer{(H,V,E[e],r) \hookrightarrow_{M,gc} (H',V',E[e'],r')}{(H,V,e,r) \longrightarrow_{M,gc} (H',V',e',r')} \\
+	\\
+	\\
+	\\
+	gc_{ms}(H,V) = \\
+	gc_{co}(H,V) = \\
 \end{array}
 \]
 
