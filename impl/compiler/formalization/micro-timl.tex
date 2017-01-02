@@ -6,6 +6,8 @@
 \usepackage{eufrak}
 \usepackage[a4paper,showframe]{geometry}
 
+\newtheorem{theorem}{Theorem}
+
 \begin{document}
 
 \section{Source}
@@ -305,14 +307,15 @@
 \newcommand{\jtygc}[6]{#1 \vdash #2 : #3 \triangleright #4 \mid (#5, #6)}
 
 \[
+\scriptsize
 \begin{array}{l}
 	(\mathcal{K}; \mathcal{T}) \vdash e : \tau \triangleright i \mid (m, h) \hspace{1em}
 	\Phi_{\mathcal{K}}(\mathcal{T}) = \sum_{x:\tau \in \mathcal{T} \land \mathcal{K} \vdash \tau :: \star(s_x)} s_x \\
 	\infer[\textsc{TyVar}]{\jtygc{\mathcal{C}}{x}{\tau}{0}{0}{\Phi_{\mathcal{C}.1}(\mathcal{C}.2)}}{\mathcal{C}.2(x)=\tau} \hspace{1em}
-	\infer[\textsc{TyConst}]{\jtygc{\mathcal{C}}{EC}{type(EC)}{0}{0}{\Phi_{\mathcal{C}.1}(\mathcal{C}.2)}}{} \\
+	\infer[\textsc{TyConst(Simple)}]{\jtygc{\mathcal{C}}{EC}{type(EC)}{0}{0}{\Phi_{\mathcal{C}.1}(\mathcal{C}.2)}}{} \\
 	\infer[\textsc{TyAbs}]{\jtygc{ \mathcal{C}}{ \lambda x:\tau. e}{ \tau \xrightarrow[m,h,r]{i} \tau_1 }{ 0 }{ |FV(e)\setminus \{ x \}| +1}{\Phi_{\mathcal{C}.1}(\mathcal{C}.2) + |FV(e)\setminus\{x\}|+1} }{\mathcal{C}.1 \vdash \tau :: \star(s) & \jtygc{\mathcal{C},x:\tau}{ e }{ \tau_1 }{ i }{ m }{h} & r = |FV(e)\setminus \{x\}| + 1 + \Phi_{\mathcal{C}.1}(\mathcal{C}.2 \downarrow_{FV(e) \setminus \{x\}})} \\
 	\infer[\textsc{TyApp}]{\jtygc{\mathcal{C}} { e_1~e_2 } { \tau_2 } { i_1 + i_2 + 1 + i } { m_1 + m_2 + m }{\max(h_1,h_2,h)}}{\jtygc{\mathcal{C}} { e_1 }{ \tau_1 \xrightarrow[m,h,r]{i} \tau_2 }{ i_1 }{ m_1 }{h_1}& \jtygc{\mathcal{C}} { e_2 }{ \tau_1 }{ i_2 }{ m_2}{h_2}} \\
-	\infer[\textsc{TyPair}]{\jtygc{\mathcal{C}}{ (e_1,e_2) }{ \tau_1 \times \tau_2 }{ i_1 + i_2 }{ m_1 + m_2 + 2}{\max(h_1,h_2,\Phi_{\mathcal{C}.1}(\mathcal{C}.2)+2)}}{\jtygc{\mathcal{C}}{  e_1 }{ \tau_1 }{ i_1 }{m_1}{h_1} & \jtygc{\mathcal{C} }{ e_2 }{ \tau_2 }{ i_2 }{ m_2}{h_2}} \\
+	\infer[\textsc{TyPair}]{\jtygc{\mathcal{C}}{ (e_1,e_2) }{ \tau_1 \times \tau_2 }{ i_1 + i_2 }{ m_1 + m_2 + 2}{\max(h_1,h_2,\Phi_{\mathcal{C}.1}(\mathcal{C}.2)+s)}}{\jtygc{\mathcal{C}}{  e_1 }{ \tau_1 }{ i_1 }{m_1}{h_1} & \jtygc{\mathcal{C} }{ e_2 }{ \tau_2 }{ i_2 }{ m_2}{h_2} & \mathcal{C}.1 \vdash \tau_1 \times \tau_2 :: \star(s)} \\
 	\infer[\textsc{TyFst}]{\jtygc{\mathcal{C} }{ e.\mathbf{1} }{ \tau_1 }{ i }{ m}{h}}{\jtygc{\mathcal{C} }{ e }{ \tau_1 \times \tau_2 }{ i }{ m}{h}} \hspace{1em}
 	\infer[\textsc{TySnd}]{\jtygc{\mathcal{C} }{ e.\mathbf{2} }{ \tau_2 }{ i }{ m}{h}}{\jtygc{\mathcal{C} }{ e }{ \tau_1 \times \tau_2 }{ i }{ m}{h}} \\
 	\infer[\textsc{TyInl}]{\jtygc{\mathcal{C} }{ \mathbf{l}.e }{ \tau_1 + \tau_2 }{ i }{ m}{h}}{\jtygc{\mathcal{C} }{ e }{ \tau_1 }{ i }{ m }{h} & \mathcal{C}.1 \vdash \tau_1 :: \star(s) & \mathcal{C}.1 \vdash \tau_2 :: \star(s)} \\
@@ -327,10 +330,20 @@
 	\infer[\textsc{TyBinOp(Simple)}]{\jtygc{\mathcal{C} }{ e_1~o_{bt}~e_2 }{o_{bt}.\tau_r }{ i_1 + i_2 }{ m_1 + m_2}{\max(h_1,h_2)}}{\jtygc{\mathcal{C} }{ e_1 }{ o_{bt}.\tau_1 }{ i_1 }{ m_1}{h_1} & \jtygc{\mathcal{C} }{ e_2 }{ o_{bt}.\tau_2 }{ i_2 }{ m_2}{h_2}} \\
 	\infer[\textsc{TyRec}]{\jtygc{\mathcal{C} }{ \mathbf{rec}_\tau~x. e }{ \tau }{ 0 }{ m}{\Phi_{\mathcal{C}.1}(\mathcal{C}.2)+|FV(e)\setminus\{x\}|+1}}{e = \Lambda \overrightarrow{\alpha :: \kappa}. \lambda y : \tau_y. e_1 & \mathcal{C}.1 \vdash \tau :: \star(s) & \jtygc{\mathcal{C},x:\tau }{ e }{ \tau }{ 0 }{ m}{h}} \\
 	\infer[\textsc{TyLet}]{\jtygc{\mathcal{C} }{ \mathbf{let}~x=e_1~\mathbf{in}~e_2 }{ \tau_2 }{ i_1 + i_2 }{ m_1 + m_2}{\max(h_1,h_2)}}{\jtygc{\mathcal{C} }{ e_1 }{ \tau_1 }{ i_1 }{ m_1 }{h_1} & \jtygc{\mathcal{C},x:\tau_1 }{ e_2 }{ \tau_2 }{ i_2 }{ m_2}{h_2}} \\
-	\infer[\textsc{TyNew}]{\jtygc{\mathcal{C} }{ \mathbf{new}~e_1~e_2 }{ \mathbf{arr}~\tau~j }{ i_1 + i_2 }{ m_1 + m_2 + j}{\max(h_1,h_2,\Phi_{\mathcal{C}.1}(\mathcal{C}.2)+j)}}{\jtygc{\mathcal{C} }{ e_1 }{\tau }{ i_1 }{ m_1}{h_1} & \mathcal{C}.1 \vdash \tau :: \star(s) & \jtygc{\mathcal{C} }{ e_2 }{ \mathbf{nat}~j }{ i_2 }{ m_2}{h_2}} \\
+	\infer[\textsc{TyNew}]{\jtygc{\mathcal{C} }{ \mathbf{new}~e_1~e_2 }{ \mathbf{arr}~\tau~j }{ i_1 + i_2 }{ m_1 + m_2 + j}{\max(h_1,h_2,\Phi_{\mathcal{C}.1}(\mathcal{C}.2)+j+s)}}{\jtygc{\mathcal{C} }{ e_1 }{\tau }{ i_1 }{ m_1}{h_1} & \mathcal{C}.1 \vdash \tau :: \star(s) & \jtygc{\mathcal{C} }{ e_2 }{ \mathbf{nat}~j }{ i_2 }{ m_2}{h_2}} \\
 	\infer[\textsc{TyRead}]{\jtygc{\mathcal{C} }{ e_1[e_2] }{ \tau }{ i_1 + i_2 }{ m_1 + m_2}{\max(h_1,h_2)}}{\jtygc{\mathcal{C} }{ e_1 }{ \mathbf{arr}~\tau~j_1 }{ i_1 }{ m_1}{h_1} & \jtygc{\mathcal{C} }{ e_2 }{ \mathbf{nat}~j_2 }{ i_2 }{ m_2}{h_2} & \mathcal{C}.1 \vdash j_2 <_n j_1} \\
 	\infer[\textsc{TyWrite}]{\jtygc{\mathcal{C} }{ e_1[e_2] := e_3 }{ \mathbf{1} }{ i_1 + i_2 + i_3 }{ m_1 + m_2 + m_3}{\max(h_1,h_2,h_3)}}{\jtygc{\mathcal{C} }{ e_1 }{ \mathbf{arr}~\tau~j_1 }{ i_1 }{ m_1}{h_1} & \jtygc{\mathcal{C} }{ e_2 }{\mathbf{nat}~j_2 }{ i_2 }{ m_2}{h_2} & \mathcal{C}.1 \vdash j_2 <_n j_1 & \jtygc{\mathcal{C} }{ e_3 }{ \tau }{ i_3 }{ m_3}{h_3}} \\
 	\infer[\textsc{TySub}]{\jtygc{\mathcal{C} }{ e }{\tau_2 }{ i_2 }{ m_2}{h_2}}{\jtygc{\mathcal{C} }{ e }{ \tau_1 }{ i_1 }{ m_1 }{h_1} & \mathcal{C}.1 \vdash \tau_1 \equiv \tau_2 & \mathcal{C}.1 \vdash i_1 \le_r i_2 & \mathcal{C}.1 \vdash m_1 \le_n m_2 & \mathcal{C}.1 \vdash h_1 \le_n h_2}
+\end{array}
+\]
+
+\[
+\begin{array}{l}
+	w ::= EC \mid \mathbf{l}.w \mid \mathbf{r}.w \mid \mathbf{pack} \langle c \mid w \rangle \mid \mathbf{fold}~w \mid \ell \mid \Lambda \alpha :: \kappa. e \mid w~c \\
+	b ::= (w,w) \mid \overrightarrow{w} \mid (\mathbf{rec}_\tau~x.e, \mathbf{var} \rightharpoonup w) \\
+	h = \mathbf{loc} \rightharpoonup b \\
+	\sigma = (h, e, r) \\
+	\sigma \longrightarrow_M \sigma' \hspace{1em} \sigma \hookrightarrow_M \sigma'
 \end{array}
 \]
 
