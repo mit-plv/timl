@@ -3833,6 +3833,9 @@ Section tyeq_hint.
   | Kd2Ref G t :
       kinding2 G t K2Type ->
       kinding2 G (CRef t) K2Type
+  (* | Kd2KdEq : *)
+  (*     kinding2 G t k *)
+  (*     kinding2 G t k' *)
   with wfkind2 : list ke2 -> kind -> Prop :=
        | Wf2KdType G :
            wfkind2 G KType
@@ -6046,7 +6049,80 @@ Section tyeq_hint.
           econstructor; eauto.
           specialize (IH' (Ke2NonAbs k :: Gb) Ga g1 g2); simpl in *.
           unfold okdeq in IHk.
-          (*here*)
+          Lemma Kd2KdEq :
+            (forall G c k,
+              kinding2 G c k ->
+              forall G',
+                map ke2_to_kind2 G' = map ke2_to_kind2 G ->
+                kinding2 G' c k
+            ) /\
+            (forall G k,
+                wfkind2 G k ->
+                forall G',
+                  map ke2_to_kind2 G' = map ke2_to_kind2 G ->
+                  wfkind2 G' k
+            ) /\
+            (forall G p,
+                wfprop2 G p ->
+                forall G',
+                  map ke2_to_kind2 G' = map ke2_to_kind2 G ->
+                  wfprop2 G' p).
+          Proof.
+            eapply kinding2_wfkind2_wfprop2_mutind; simpl; eauto.
+            (* induct 1; simpl; eauto. *)
+            {
+              intros G k1 t k H IH.
+              intros G' Heq.
+              econstructor.
+              eapply IH.
+              simpl.
+              f_equal; eauto.
+            }
+            {
+              intros G x ke Hnth.
+              intros G' Heq.
+              assert (Hnthmap : nth_error (map ke2_to_kind2 G) x = Some (ke2_to_kind2 ke)).
+              {
+                eapply map_nth_error; eauto.
+              }
+              rewrite <- Heq in Hnthmap.
+              eapply nth_error_map_elim in Hnthmap.
+              destruct Hnthmap as (ke' & Hke' & Hkeke').
+              eapply Kd2VarIn'; eauto.
+            }
+            {
+              intros G x Hnth.
+              intros G' Heq.
+              econstructor.
+              eapply nth_error_None in Hnth.
+              eapply nth_error_None.
+              assert (Hlen : length (map ke2_to_kind2 G') = length (map ke2_to_kind2 G)).
+              {
+                congruence.
+              }
+              repeat rewrite map_length in *.
+              la.
+            }
+            {
+              intros G i n H IH.
+              intros G' Heq.
+              econstructor.
+              eapply IH.
+              simpl.
+              f_equal; eauto.
+            }
+            {
+              intros G q k c Hk IHk H IH.
+              intros G' Heq.
+              econstructor; eauto.
+              eapply IH.
+              simpl.
+              f_equal; eauto.
+            }
+            (*here*)
+            
+          Qed.
+              
           eauto.
         }
       }
