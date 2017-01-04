@@ -6434,7 +6434,7 @@ Section tyeq_hint.
     Qed.
     
     Lemma lgeq_obeq t1 t2 :
-      lgeq [] [] t1 t2 K2Type ->
+      lgeq [] t1 t2 K2Type ->
       obeq L t1 t2.
     Proof.
       intros H.
@@ -6442,23 +6442,9 @@ Section tyeq_hint.
       eauto.
     Qed.
 
-    (* Lemma lgeq_refl L' k t : *)
-    (*   kinding2 (map Ke2NonAbs L') t k -> *)
-    (*   lgeq L L t t k. *)
-    (* Proof. *)
-    (*   intros Hkd. *)
-    (*   eapply fundamental_kinding2 in Hkd. *)
-    (*   unfold olgeq in *. *)
-    (*   specialize (@fundamental_kinding2 [] t k Hkd [] []). *)
-    (*   intros H. *)
-    (*   simpl in *. *)
-    (*   eapply H. *)
-    (*   repeat econstructor. *)
-    (* Qed. *)
-
     Lemma lgeq_refl k t :
       kinding2 [] t k ->
-      lgeq [] [] t t k.
+      lgeq [] t t k.
     Proof.
       intros Hkd.
       specialize (@fundamental_kinding2 [] t k Hkd [] []).
@@ -6469,10 +6455,10 @@ Section tyeq_hint.
     Qed.
 
     Lemma lgeq_trans k :
-      forall L1 L2 a b c,
-        lgeq L1 L2 a b k ->
-        lgeq L1 L2 b c k ->
-        lgeq L1 L2 a c k.
+      forall L' a b c,
+        lgeq L' a b k ->
+        lgeq L' b c k ->
+        lgeq L' a c k.
     Proof.
       induct k; simpl.
       {
@@ -6483,21 +6469,56 @@ Section tyeq_hint.
         intros.
         equality.
       }
-      intros L1 L2 a b c H1 H2 L1' L2' t1' t2' Ht1't2' Hkd1 Hkd2.
+      intros L' a b c H1 H2 L'' t1' t2' Ht1't2' Hkd1 Hkd2.
       intros Hni.
-      intros Hlen.
       repeat rewrite app_nil_r in *.
       eapply IHk2.
       {
         eapply H1; eauto.
       }
-      specialize (H2 L1' L2').
-      rewrite Hlen in *.
+      specialize (H2 L'').
       eapply H2; eauto.
-      (*here*)
-      eapply admit.
-      eapply admit.
-      (* eapply lgeq_refl; eauto. *)
+    Lemma lgeq_refl_ex L' k t :
+      kinding2 (map Ke2NonAbs L') t k ->
+      lgeq L' t t k.
+    Proof.
+      intros Hkd.
+      eapply fundamental_kinding2 in Hkd.
+      unfold olgeq in *.
+      specialize (Hkd (repeat None (length L')) (repeat None (length L'))).
+      Lemma subst_cs_x_all_None B f : forall n x (b : B), subst_cs_x f x (sg2sgs (repeat None n)) b = b.
+      Proof.
+        induct n; simpl; eauto.
+      Qed.
+      Lemma subst0_cs_k_all_None : forall n b, subst0_cs_k (sg2sgs (repeat None n)) b = b.
+      Proof.
+        intros; eapply subst_cs_x_all_None.
+      Qed.
+      Lemma subst0_cs_c_all_None : forall n b, subst0_cs_c (sg2sgs (repeat None n)) b = b.
+      Proof.
+        intros; eapply subst_cs_x_all_None.
+      Qed.
+      Lemma subst0_cs_ks_all_None L' :
+        subst0_cs_ks (repeat None (length L')) (map Ke2NonAbs L') = L'.
+      Proof.
+        induct L'; simpl; eauto.
+        f_equal; eauto.
+        rewrite subst0_cs_k_all_None; eauto.
+      Qed.
+      repeat rewrite subst0_cs_ks_all_None in *.
+      repeat rewrite subst0_cs_c_all_None in *.
+      eapply Hkd.
+      Lemma subs_kd2_lgeq_all_None L' :
+        let n := length L' in
+        let nones := repeat None n in
+        subs_kd2_lgeq nones nones (map Ke2NonAbs L').
+      Proof.
+        induct L'; simpl; eauto.
+      Qed.
+      eapply subs_kd2_lgeq_all_None.
+    Qed.
+
+      eapply lgeq_refl_ex; eauto.
     Qed.
     
   End var_L.
@@ -6507,7 +6528,7 @@ Section tyeq_hint.
     forall k,
       kinding2 [] t1 k ->
       kinding2 [] t2 k ->
-      lgeq L [] [] t1 t2 k.
+      lgeq L [] t1 t2 k.
   Proof.
     induct 1; simpl; intros k2 Hkd1 Hkd2.
     {
@@ -6531,10 +6552,10 @@ Section tyeq_hint.
     }
     {
       Lemma lgeq_Arrow L c1 i c2 c1' i' c2' :
-        lgeq L [] [] c1 c1' K2Type ->
-        lgeq L [] [] i i' K2Time ->
-        lgeq L [] [] c2 c2' K2Type ->
-        lgeq L [] [] (CArrow c1 i c2) (CArrow c1' i' c2') K2Type.
+        lgeq L [] c1 c1' K2Type ->
+        lgeq L [] i i' K2Time ->
+        lgeq L [] c2 c2' K2Type ->
+        lgeq L [] (CArrow c1 i c2) (CArrow c1' i' c2') K2Type.
       Proof.
         intros H1 Hi H2.
         simpl in *.
@@ -6566,7 +6587,7 @@ Section tyeq_hint.
       subst.
       specialize (IHtyeq1 (K2Arrow k1 k2)).
       simpl in *.
-      specialize (IHtyeq1 H3 H4 [] []).
+      specialize (IHtyeq1 H3 H4 []).
       simpl in *.
       repeat rewrite shift_c_c_0 in *.
       eapply IHtyeq1; eauto.
@@ -6643,7 +6664,7 @@ Section tyeq_hint.
     tyeq L t1 t2 ->
     forall k,
       kinding2 [] t1 k ->
-      lgeq L [] [] t1 t2 k.
+      lgeq L [] t1 t2 k.
   Proof.
     intros.
     eapply tyeq_lgeq; eauto.
@@ -6654,7 +6675,7 @@ Section tyeq_hint.
     tyeq L t1 t2 ->
     forall k,
       kinding2 [] t2 k ->
-      lgeq L [] [] t1 t2 k.
+      lgeq L [] t1 t2 k.
   Proof.
     intros.
     eapply tyeq_lgeq; eauto.
@@ -6792,148 +6813,6 @@ Section tyeq_hint.
   Qed.
   
 End tyeq_hint.
-
-    Lemma subst_cs_x_subst_c_c_0 g :
-      forall x v b,
-        subst_cs_x subst_c_c x g (subst_c_c 0 v b) = subst_c_c 0 (subst_cs_x subst_c_c x g v) (subst_cs_x subst_c_c (1 + x) g b).
-    Proof.
-      induct g; simpl; eauto.
-      destruct a as [v | ]; eauto.
-      intros x v' b.
-      erewrite subst_c_c_subst by la.
-      rewrite IHg.
-      f_equal.
-      f_equal.
-      f_equal.
-      eapply shift0_c_c_shift_0.
-    Qed.
-    Lemma shift_bs_c_shift g :
-      forall x y v n,
-        n + x <= y ->
-        shift_bs_c y g (shift_c_c n x v) = shift_c_c n x (shift_bs_c (y - n) g v).
-    Proof.
-      induct g; simpl; eauto.
-      destruct a as [v | ]; eauto.
-      {
-        intros x y v' n Hle.
-        rewrite shift_c_c_shift_cut by la.
-        rewrite IHg by la.
-        repeat f_equal.
-        la.
-      }
-      {
-        intros x y v' n Hle.
-        rewrite IHg by la.
-        repeat f_equal.
-        la.
-      }
-    Qed.
-    
-    Lemma subst_cs_x_shift_cs_c g :
-      forall x v,
-        subst_cs_x subst_c_c x g (shift_cs_c x g v) = v.
-    Proof.
-      induct g; simpl; eauto.
-      intros x v.
-      destruct a as [v' | ]; simpl in *; eauto.
-      rewrite shift_bs_c_shift by la.
-      rewrite subst_c_c_shift_avoid by la.
-      simpl.
-      rewrite shift_c_c_0.
-      repeat rewrite Nat.sub_0_r in *.
-      eauto.
-    Qed.
-    
-    Lemma subst_cs_x_shift_bs_c g :
-      forall x v,
-        subst_cs_x subst_c_c x g (shift_bs_c x (map isSome g) v) = v.
-    Proof.
-      intros; eapply subst_cs_x_shift_cs_c.
-    Qed.
-    
-    Fixpoint subst_cs_kes n v bs :=
-      match bs with
-      | [] => []
-      | b :: bs => subst_cs_ke (n + length bs) v b :: subst_cs_kes n v bs
-      end.
-
-    Lemma subst_cs_kes_0 :
-      forall bs v,
-        subst_cs_kes 0 v bs = subst0_cs_kes v bs.
-    Proof.
-      induct bs; simpl; eauto.
-      intros; rewrite IHbs; eauto.
-    Qed.
-
-    Lemma subst0_cs_kes_app' :
-      forall G G1 G2 g,
-        G = G1 ++ G2 ->
-        subst0_cs_kes g G = subst_cs_kes (length G2) g G1 ++ subst0_cs_kes g G2.
-    Proof.
-      induct G; simpl.
-      {
-        intros.
-        symmetry in H.
-        eapply app_eq_nil in H.
-        openhyp.
-        subst.
-        simpl.
-        eauto.
-      }
-      {
-        intros G1 G2 g Heq.
-        destruct G1 as [ | a' G1]; simpl in *; subst; simpl in *; eauto.
-        invert Heq.
-        rename a' into a.
-        repeat rewrite app_length.
-        rewrite plus_comm.
-        erewrite IHG; eauto.
-      }
-    Qed.
-    Lemma subst0_cs_kes_app G1 G2 g :
-      subst0_cs_kes g (G1 ++ G2) = subst_cs_kes (length G2) g G1 ++ subst0_cs_kes g G2.
-    Proof.
-      eapply subst0_cs_kes_app'; eauto.
-    Qed.
-
-    Lemma subst_cs_kes_None :
-      forall bs v,
-        subst_cs_kes 1 v bs = subst0_cs_kes (None :: v) bs.
-    Proof.
-      induct bs; simpl; eauto.
-      intros; rewrite IHbs; eauto.
-    Qed.
-    
-    Definition subst_c_ke x v b :=
-      match b with
-      | Ke2Abs _ => b
-      | Ke2NonAbs k => Ke2NonAbs (subst_c_k x v k)
-      end.
-    
-    Fixpoint subst_c_kes v bs :=
-      match bs with
-      | [] => []
-      | b :: bs => subst_c_ke (length bs) (shift_c_c (length bs) 0 v) b :: subst_c_kes v bs
-      end.
-
-    Lemma length_subst_c_kes bs :
-      forall v,
-        length (subst_c_kes v bs) = length bs.
-    Proof.
-      induction bs; simplify; eauto.
-    Qed.
-    
-    Lemma subst_cs_kes_Some :
-      forall bs v g,
-        subst0_cs_kes (Some v :: g) bs = subst0_cs_kes g (subst_c_kes (shift_cs_c 0 g v) bs).
-    Proof.
-      induct bs; simpl; eauto.
-      intros v g.
-      rewrite IHbs.
-      rewrite length_subst_c_kes.
-      f_equal.
-      destruct a; simpl; eauto.
-    Qed.
 
 (*
   (* a version that does not build in transitivity *)
