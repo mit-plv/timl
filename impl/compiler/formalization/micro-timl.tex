@@ -347,7 +347,8 @@
 	\infer[\textsc{TyNew}]{\jtygc{\mathcal{C} }{ \mathbf{new}~e_1~e_2 }{ \mathbf{arr}~\tau~j }{ i_1 + i_2 }{ m_1 + m_2 + j}{\max(h_1,h_2,\Phi_{\mathcal{C}.1}(\mathcal{C}.2)+j+s)}}{\jtygc{\mathcal{C} }{ e_1 }{\tau }{ i_1 }{ m_1}{h_1} & \mathcal{C}.1 \vdash \tau :: \star(s) & \jtygc{\mathcal{C} }{ e_2 }{ \mathbf{nat}~j }{ i_2 }{ m_2}{h_2}} \\
 	\infer[\textsc{TyRead}]{\jtygc{\mathcal{C} }{ e_1[e_2] }{ \tau }{ i_1 + i_2 }{ m_1 + m_2}{\max(h_1,h_2)}}{\jtygc{\mathcal{C} }{ e_1 }{ \mathbf{arr}~\tau~j_1 }{ i_1 }{ m_1}{h_1} & \jtygc{\mathcal{C} }{ e_2 }{ \mathbf{nat}~j_2 }{ i_2 }{ m_2}{h_2} & \mathcal{C}.1 \vdash j_2 <_n j_1} \\
 	\infer[\textsc{TyWrite}]{\jtygc{\mathcal{C} }{ e_1[e_2] := e_3 }{ \mathbf{1} }{ i_1 + i_2 + i_3 }{ m_1 + m_2 + m_3}{\max(h_1,h_2,h_3)}}{\jtygc{\mathcal{C} }{ e_1 }{ \mathbf{arr}~\tau~j_1 }{ i_1 }{ m_1}{h_1} & \jtygc{\mathcal{C} }{ e_2 }{\mathbf{nat}~j_2 }{ i_2 }{ m_2}{h_2} & \mathcal{C}.1 \vdash j_2 <_n j_1 & \jtygc{\mathcal{C} }{ e_3 }{ \tau }{ i_3 }{ m_3}{h_3}} \\
-	\infer[\textsc{TySub}]{\jtygc{\mathcal{C} }{ e }{\tau_2 }{ i_2 }{ m_2}{h_2}}{\jtygc{\mathcal{C} }{ e }{ \tau_1 }{ i_1 }{ m_1 }{h_1} & \mathcal{C}.1 \vdash \tau_1 \equiv \tau_2 & \mathcal{C}.1 \vdash i_1 \le_r i_2 & \mathcal{C}.1 \vdash m_1 \le_n m_2 & \mathcal{C}.1 \vdash h_1 \le_n h_2}
+	\infer[\textsc{TySub}]{\jtygc{\mathcal{C} }{ e }{\tau_2 }{ i_2 }{ m_2}{h_2}}{\jtygc{\mathcal{C} }{ e }{ \tau_1 }{ i_1 }{ m_1 }{h_1} & \mathcal{C}.1 \vdash \tau_1 \equiv \tau_2 & \mathcal{C}.1 \vdash i_1 \le_r i_2 & \mathcal{C}.1 \vdash m_1 \le_n m_2 & \mathcal{C}.1 \vdash h_1 \le_n h_2} \\
+	\infer[\textsc{TyLoc}]{\jtygc{\mathcal{C}}{\ell}{\tau}{0}{0}{\Phi_{\mathcal{C}.1}(\mathcal{C}.2) + 1 + s}}{ \mathcal{C}.3(\ell) = \tau & \mathcal{C}.1 \vdash \tau :: \star(s) }
 \end{array}
 \]
 
@@ -378,7 +379,7 @@
 	\\
 	\sigma = (H, V, e, r) \\
 	\Sigma = \mathbf{loc} \rightharpoonup \tau \\
-	\sigma \longrightarrow \sigma' \hspace{1em} \sigma \longrightarrow_{M,gc} \sigma' \hspace{1em} \sigma \hookrightarrow_{M,gc} \sigma' \\
+	\sigma \longrightarrow \sigma' \hspace{1em} \sigma \hookrightarrow \sigma' \hspace{1em} \sigma \hookrightarrow_{M,gc} \sigma' \\
 	\infer{(H,V,(w_1,w_2),r) \longrightarrow (H[\ell \mapsto (w_1,w_2)],V,\ell,r)}{\ell \not\in H} \hspace{1em}
 	\infer{(H,V,\mathbf{new}~n~w,r) \longrightarrow (H[\ell \mapsto w^n)],V,\ell,r)}{\ell \not\in H} \\
 	\infer{(H,V,\mathbf{rec}_\tau~x.e,r) \longrightarrow (H[\ell \mapsto (e,V \downarrow (FV(e) \setminus \{x\})[x \mapsto \ell])], V, \ell ,r)}{\ell \not\in H} \\
@@ -398,26 +399,17 @@
 	\infer{(H,V,\ell[n],r) \longrightarrow (H,V,\overrightarrow{w}(n),r)}{H(\ell)=\overrightarrow{w} & n < |\overrightarrow{w}|} \\
 	\infer{(H,V,\ell[n] := w,r) \longrightarrow (H(\ell)[n := w],V,(),r)}{H(\ell) = \overrightarrow{w'} & n < |\overrightarrow{w'}|} \hspace{1em}
 	\infer{(H,V,w_1~o_{bt}~w_2,r) \longrightarrow (H,V,o_{bt}.f(w_1,w_2),r)}{\vspace{1em}} \\
+	\infer{(H,V,x,r) \longrightarrow (H,V,V(x),r)}{\vspace{1em}} \hspace{1em}
+	\infer{(H,V,E[e],r) \hookrightarrow (H',V',E[e'],r')}{(H,V,e,r) \longrightarrow (H',V',e',r')}
 	\\
 	\\
 	\\
 	\psi((w,w)) = 2 \hspace{1em} \psi(\overrightarrow{w}) = |\overrightarrow{w}| \hspace{1em} \psi(e,env)=1+|env| \\
 	\Psi(H) = \sum_{\ell \in H} \psi(H(\ell)) \\
-	\infer{(H,V,e,r) \longrightarrow_{M,gc} (H',V',e',r')}{(H'',\Delta r) = gc(H,V) & r \ge \Delta r & (H'',V,e,r-\Delta r) \longrightarrow (H',V',e',r') & \Psi(H') \le M} \\
-	\infer{(H,V,e,r) \longrightarrow_{M,gc} (H',V',e',r')}{(H,V,e,r) \longrightarrow (H',V',e',r') & \Psi(H') \le M} \\
-	\infer{(H,V,E[e],r) \hookrightarrow_{M,gc} (H',V',E[e'],r')}{(H,V,e,r) \longrightarrow_{M,gc} (H',V',e',r')} \\
+	\infer{(H,V,e,r) \hookrightarrow_{M,gc} (H',V',e',r')}{(H'',\Delta r) = gc(H,V,e) & r \ge \Delta r & (H'',V,e,r-\Delta r) \hookrightarrow (H',V',e',r') & \Psi(H') \le M} \\
+	\infer{(H,V,e,r) \hookrightarrow_{M,gc} (H',V',e',r')}{(H,V,e,r) \hookrightarrow (H',V',e',r') & \Psi(H') \le M} \\
 	\\
 	\\
-	\\
-	\begin{array}{rcl}
-		loc(EC) & = & \emptyset \\
-		loc(\mathbf{l}.w) & = & loc(w) \\
-		loc(\mathbf{r}.w) & = & loc(w) \\
-		loc(\mathbf{pack} \langle c \mid w \rangle) & = & loc(w) \\
-		loc(\mathbf{fold}~w) & = & loc(w) \\
-		loc(\ell~\overrightarrow{c}) & = & \{ \ell \} \\
-		loc(\Lambda \alpha :: \kappa. e) & = & \emptyset
-	\end{array} \\
 	\\
 	locs(V) = \bigcup_{x\in V} loc(V(x)) \\
 	\\
@@ -427,9 +419,9 @@
 		bloc(e,V) & = & locs(V)
 	\end{array} \\
 	\\
-	live(H,V) = \mu X. locs(V) \cup \bigcup_{\ell \in X} bloc(H(\ell))  \\
-	gc_{ms}(H,V) = (H \downarrow lives(H,V), \Psi(H)) \\
-	gc_{co}(H,V) = (H \downarrow lives(H,V), \Psi(H \downarrow lives(H,V)))
+	live(H,V,e) = \mu X. locs(V) \cup loc(e) \cup \bigcup_{\ell \in X} bloc(H(\ell))  \\
+	gc_{ms}(H,V,e) = (H \downarrow lives(H,V,e), \Psi(H)) \\
+	gc_{co}(H,V,e) = (H \downarrow lives(H,V,e), \Psi(H \downarrow lives(H,V,e)))
 \end{array}
 \]
 
