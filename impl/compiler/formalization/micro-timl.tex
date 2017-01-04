@@ -13,6 +13,7 @@
 \section{Source}
 
 \[
+\scriptsize
 \begin{array}{rcl}
     c,\tau,i & ::= & \alpha \mid CC \mid o_{ui}~i \mid i~o_{bi}~i \mid i~?~i:i \mid \mathbf{TimeAbs}~\alpha. i \mid \mathbf{TimeApp}_n~c~i \\
     & \mid & \tau \times \tau \mid \tau + \tau \mid \tau \xrightarrow{i} \tau \mid \lambda \alpha :: \kappa. \tau \mid \tau~c \mid \forall \alpha :: \kappa. \tau \mid \exists \alpha :: \kappa. \tau \mid \mu \alpha :: \kappa. \tau \\
@@ -27,6 +28,7 @@
 \]
 
 \[
+\scriptsize
 \begin{array}{l}
     \mathcal{K} \vdash \kappa_1 \equiv \kappa_2 \\
     \infer[\textsc{KdEqType}]{\mathcal{K} \vdash \star \equiv \star}{} \hspace{1em}
@@ -39,6 +41,7 @@
 \]
 
 \[
+\scriptsize
 \begin{array}{l}
     \mathcal{K} \vdash \mathrm{wf}~\kappa \\
     \infer[\textsc{WfKdType}]{\mathcal{K} \vdash \mathrm{wf}~\star}{} \hspace{1em}
@@ -49,6 +52,7 @@
 \]
 
 \[
+\scriptsize
 \begin{array}{l}
     \mathcal{K} \vdash \mathrm{wf}~p \\
     \infer[\textsc{WfPropTrue}]{\mathcal{K} \vdash \mathrm{wf}~\top}{} \hspace{1em}
@@ -62,6 +66,7 @@
 \]
 
 \[
+\scriptsize
 \begin{array}{l}
     \mathcal{K} \vdash c :: \kappa \\
     \infer[\textsc{KdVar}]{\mathcal{K} \vdash \alpha :: \kappa}{\mathcal{K}(\alpha)=\kappa} \hspace{1em}
@@ -87,6 +92,7 @@
 \]
 
 \[
+\scriptsize
 \begin{array}{l}
     \mathcal{K} \vdash c_1 \equiv c_2 \\
     \infer[\textsc{TyEqVar}]{\mathcal{K} \vdash \alpha \equiv \alpha}{} \hspace{1em}
@@ -116,6 +122,7 @@
 \]
 
 \[
+\scriptsize
 \begin{array}{l}
     \vdash \mathrm{value}~e \\
     \infer[\textsc{VConst}]{\vdash \mathrm{value}~EC}{} \hspace{1em}
@@ -130,6 +137,7 @@
 \]
 
 \[
+\scriptsize
 \begin{array}{l}
     (\mathcal{K}; \mathcal{T}) \vdash e : \tau \triangleright i \\
     \infer[\textsc{TyVar}]{\mathcal{C} \vdash x : \tau \triangleright 0}{\mathcal{C}.2(x)=\tau} \hspace{1em}
@@ -162,8 +170,8 @@
 \newcommand{\cpsc}[1]{\mathfrak{K}_{\mathrm{cstr}}\llbracket #1 \rrbracket}
 \newcommand{\cpst}[2]{\mathfrak{K}_{\mathrm{term}}\llbracket #1 \rrbracket ( #2 )}
 
-
 \[
+\scriptsize
 \begin{array}{lcl}
     \cpsc{c} \\
     \cpsc{\alpha} & = & \alpha \\
@@ -192,6 +200,7 @@
 \newcommand{\jtyc}[3]{#1 \vdash #2 : #3}
 
 \[
+\scriptsize
 \begin{array}{lcl}
 	\cpst{\jty{\mathcal{C}}{e}{\tau}{i}}{\jtyc{\mathcal{C}'}{k}{\cpsc{\tau} \xrightarrow{i_k} \mathbf{1}}} \\
 	\cpst{\jty{\mathcal{C}}{x}{\tau}{0}}{k} & = & \mathrm{send}~k~x \\
@@ -226,6 +235,7 @@
 \newcommand{\cloc}[1]{\mathfrak{C}_{\mathrm{cstr}}\left\llbracket #1 \right\rrbracket}
 
 \[
+\scriptsize
 \begin{array}{l}
 	\cloc{c} \\
 	\cloc{\alpha} = \alpha \\
@@ -256,6 +266,7 @@
 \section{Sized Kinds}
 
 \[
+\scriptsize
 \begin{array}{rcl}
 	\kappa & ::= & \star(i) \mid \Pi \alpha :: \kappa. \kappa \mid s \mid \{ \alpha :: \kappa \mid p \} \\
 	\tau & ::= & \tau \xrightarrow[i,i,i]{i} \tau \mid \cdots
@@ -263,6 +274,7 @@
 \]
 
 \[
+\scriptsize
 \begin{array}{l}
 	\mathcal{K} \vdash \kappa_1 \equiv \kappa_2 \\
 	\infer[\textsc{KdEqType}]{\mathcal{K} \vdash \star(i_1) \equiv \star(i_2)}{\mathcal{K} \vdash i_1 =_n i_2} \hspace{1em}
@@ -273,6 +285,7 @@
 \]
 
 \[
+\scriptsize
 \begin{array}{l}
 	\mathcal{K} \vdash \mathrm{wf}~\kappa \\
 	\infer[\textsc{WfKdType}]{\mathcal{K} \vdash \mathrm{wf}~\star(i)}{\mathcal{K} \vdash i :: \mathbf{Nat}} \hspace{1em}
@@ -283,6 +296,7 @@
 \]
 
 \[
+\scriptsize
 \begin{array}{l}
 	\mathcal{K} \vdash c :: \kappa \\
 	\cdots \\
@@ -313,7 +327,7 @@
 	\Phi_{\mathcal{K}}(\mathcal{T}) = \sum_{x:\tau \in \mathcal{T} \land \mathcal{K} \vdash \tau :: \star(s_x)} s_x \\
 	\infer[\textsc{TyVar}]{\jtygc{\mathcal{C}}{x}{\tau}{0}{0}{\Phi_{\mathcal{C}.1}(\mathcal{C}.2)}}{\mathcal{C}.2(x)=\tau} \hspace{1em}
 	\infer[\textsc{TyConst(Simple)}]{\jtygc{\mathcal{C}}{EC}{type(EC)}{0}{0}{\Phi_{\mathcal{C}.1}(\mathcal{C}.2)}}{} \\
-	\infer[\textsc{TyAbs}]{\jtygc{ \mathcal{C}}{ \lambda x:\tau. e}{ \tau \xrightarrow[m,h,r]{i} \tau_1 }{ 0 }{ |FV(e)\setminus \{ x \}| +1}{\Phi_{\mathcal{C}.1}(\mathcal{C}.2) + |FV(e)\setminus\{x\}|+1} }{\mathcal{C}.1 \vdash \tau :: \star(s) & \jtygc{\mathcal{C},x:\tau}{ e }{ \tau_1 }{ i }{ m }{h} & r = |FV(e)\setminus \{x\}| + 1 + \Phi_{\mathcal{C}.1}(\mathcal{C}.2 \downarrow_{FV(e) \setminus \{x\}})} \\
+	\infer[\textsc{TyAbs}]{\jtygc{ \mathcal{C}}{ \lambda x:\tau. e}{ \tau \xrightarrow[m,h,r]{i} \tau_1 }{ 0 }{ 1 + |FV(e)\setminus \{ x \}| }{\Phi_{\mathcal{C}.1}(\mathcal{C}.2) + 1 + |FV(e)\setminus\{x\}|} }{\mathcal{C}.1 \vdash \tau :: \star(s) & \jtygc{\mathcal{C},x:\tau}{ e }{ \tau_1 }{ i }{ m }{h} & r = 1 + |FV(e)\setminus \{x\}| + \Phi_{\mathcal{C}.1}(\mathcal{C}.2 \downarrow_{FV(e) \setminus \{x\}})} \\
 	\infer[\textsc{TyApp}]{\jtygc{\mathcal{C}} { e_1~e_2 } { \tau_2 } { i_1 + i_2 + 1 + i } { m_1 + m_2 + m }{\max(h_1,h_2,h)}}{\jtygc{\mathcal{C}} { e_1 }{ \tau_1 \xrightarrow[m,h,r]{i} \tau_2 }{ i_1 }{ m_1 }{h_1}& \jtygc{\mathcal{C}} { e_2 }{ \tau_1 }{ i_2 }{ m_2}{h_2}} \\
 	\infer[\textsc{TyPair}]{\jtygc{\mathcal{C}}{ (e_1,e_2) }{ \tau_1 \times \tau_2 }{ i_1 + i_2 }{ m_1 + m_2 + 2}{\max(h_1,h_2,\Phi_{\mathcal{C}.1}(\mathcal{C}.2)+s)}}{\jtygc{\mathcal{C}}{  e_1 }{ \tau_1 }{ i_1 }{m_1}{h_1} & \jtygc{\mathcal{C} }{ e_2 }{ \tau_2 }{ i_2 }{ m_2}{h_2} & \mathcal{C}.1 \vdash \tau_1 \times \tau_2 :: \star(s)} \\
 	\infer[\textsc{TyFst}]{\jtygc{\mathcal{C} }{ e.\mathbf{1} }{ \tau_1 }{ i }{ m}{h}}{\jtygc{\mathcal{C} }{ e }{ \tau_1 \times \tau_2 }{ i }{ m}{h}} \hspace{1em}
@@ -328,13 +342,13 @@
 	\infer[\textsc{TyAbsC}]{\jtygc{\mathcal{C} }{ \Lambda \alpha :: \kappa. e }{\forall \alpha :: \kappa. \tau }{ 0 }{ m}{h}}{\mathcal{C}.1 \vdash \mathrm{wf}~\kappa & \vdash \mathrm{value}~e & \jtygc{\mathcal{C},\alpha :: \kappa }{ e }{ \tau }{ 0 }{ m }{h} & \mathcal{C}.1,\alpha :: \kappa \vdash \tau :: \star(s) & m,h,s~\mathrm{do~not~contain}~\alpha} \\
 	\infer[\textsc{TyAppC}]{\jtygc{\mathcal{C} }{ e~c }{\tau[c/\alpha] }{ i }{ m}{h}}{\jtygc{\mathcal{C} }{ e }{\forall \alpha :: \kappa. \tau }{ i }{ m}{h} & \mathcal{C}.1 \vdash c :: \kappa} \\
 	\infer[\textsc{TyBinOp(Simple)}]{\jtygc{\mathcal{C} }{ e_1~o_{bt}~e_2 }{o_{bt}.\tau_r }{ i_1 + i_2 }{ m_1 + m_2}{\max(h_1,h_2)}}{\jtygc{\mathcal{C} }{ e_1 }{ o_{bt}.\tau_1 }{ i_1 }{ m_1}{h_1} & \jtygc{\mathcal{C} }{ e_2 }{ o_{bt}.\tau_2 }{ i_2 }{ m_2}{h_2}} \\
-	\infer[\textsc{TyRec}]{\jtygc{\mathcal{C} }{ \mathbf{rec}_\tau~x. e }{ \tau }{ 0 }{ m}{\Phi_{\mathcal{C}.1}(\mathcal{C}.2)+|FV(e)\setminus\{x\}|+1}}{e = \Lambda \overrightarrow{\alpha :: \kappa}. \lambda y : \tau_y. e_1 & \mathcal{C}.1 \vdash \tau :: \star(s) & \jtygc{\mathcal{C},x:\tau }{ e }{ \tau }{ 0 }{ m}{h}} \\
+	\infer[\textsc{TyRec}]{\jtygc{\mathcal{C} }{ \mathbf{rec}_\tau~x. e }{ \tau }{ 0 }{ m}{\Phi_{\mathcal{C}.1}(\mathcal{C}.2)+1+|FV(e)\cup\{x\}|}}{e = \Lambda \overrightarrow{\alpha :: \kappa}. \lambda y : \tau_y. e_1 & \tau = \forall \overrightarrow{\alpha :: \kappa}. \tau_y \xrightarrow[m_1,h_1,r]{i} \tau_1 & \mathcal{C}.1 \vdash \tau :: \star(r) & \jtygc{\mathcal{C},x:\forall \overrightarrow{\alpha::\kappa}. \tau_y \xrightarrow[m_1,h_1,0]{i} \tau_1 }{ e }{ \tau }{ 0 }{ m}{h}} \\
 	\infer[\textsc{TyLet}]{\jtygc{\mathcal{C} }{ \mathbf{let}~x=e_1~\mathbf{in}~e_2 }{ \tau_2 }{ i_1 + i_2 }{ m_1 + m_2}{\max(h_1,h_2)}}{\jtygc{\mathcal{C} }{ e_1 }{ \tau_1 }{ i_1 }{ m_1 }{h_1} & \jtygc{\mathcal{C},x:\tau_1 }{ e_2 }{ \tau_2 }{ i_2 }{ m_2}{h_2}} \\
 	\infer[\textsc{TyNew}]{\jtygc{\mathcal{C} }{ \mathbf{new}~e_1~e_2 }{ \mathbf{arr}~\tau~j }{ i_1 + i_2 }{ m_1 + m_2 + j}{\max(h_1,h_2,\Phi_{\mathcal{C}.1}(\mathcal{C}.2)+j+s)}}{\jtygc{\mathcal{C} }{ e_1 }{\tau }{ i_1 }{ m_1}{h_1} & \mathcal{C}.1 \vdash \tau :: \star(s) & \jtygc{\mathcal{C} }{ e_2 }{ \mathbf{nat}~j }{ i_2 }{ m_2}{h_2}} \\
 	\infer[\textsc{TyRead}]{\jtygc{\mathcal{C} }{ e_1[e_2] }{ \tau }{ i_1 + i_2 }{ m_1 + m_2}{\max(h_1,h_2)}}{\jtygc{\mathcal{C} }{ e_1 }{ \mathbf{arr}~\tau~j_1 }{ i_1 }{ m_1}{h_1} & \jtygc{\mathcal{C} }{ e_2 }{ \mathbf{nat}~j_2 }{ i_2 }{ m_2}{h_2} & \mathcal{C}.1 \vdash j_2 <_n j_1} \\
 	\infer[\textsc{TyWrite}]{\jtygc{\mathcal{C} }{ e_1[e_2] := e_3 }{ \mathbf{1} }{ i_1 + i_2 + i_3 }{ m_1 + m_2 + m_3}{\max(h_1,h_2,h_3)}}{\jtygc{\mathcal{C} }{ e_1 }{ \mathbf{arr}~\tau~j_1 }{ i_1 }{ m_1}{h_1} & \jtygc{\mathcal{C} }{ e_2 }{\mathbf{nat}~j_2 }{ i_2 }{ m_2}{h_2} & \mathcal{C}.1 \vdash j_2 <_n j_1 & \jtygc{\mathcal{C} }{ e_3 }{ \tau }{ i_3 }{ m_3}{h_3}} \\
 	\infer[\textsc{TySub}]{\jtygc{\mathcal{C} }{ e }{\tau_2 }{ i_2 }{ m_2}{h_2}}{\jtygc{\mathcal{C} }{ e }{ \tau_1 }{ i_1 }{ m_1 }{h_1} & \mathcal{C}.1 \vdash \tau_1 \equiv \tau_2 & \mathcal{C}.1 \vdash i_1 \le_r i_2 & \mathcal{C}.1 \vdash m_1 \le_n m_2 & \mathcal{C}.1 \vdash h_1 \le_n h_2} \\
-	\infer[\textsc{TyLoc}]{\jtygc{\mathcal{C}}{\ell}{\tau}{0}{0}{\Phi_{\mathcal{C}.1}(\mathcal{C}.2)+1+s}}{\mathcal{C}.3(\ell)=\tau & \mathcal{C}.1 \vdash \tau :: \star(s)}
+	\infer[\textsc{TyLoc}]{\jtygc{\mathcal{C}}{\ell}{\tau}{0}{0}{\Phi_{\mathcal{C}.1}(\mathcal{C}.2) + 1 + s}}{ \mathcal{C}.3(\ell) = \tau & \mathcal{C}.1 \vdash \tau :: \star(s) }
 \end{array}
 \]
 
@@ -342,7 +356,7 @@
 \scriptsize
 \begin{array}{l}
 	\Sigma \vdash H \hspace{1em} \Sigma \vdash V : \mathcal{T} \hspace{1em} \Sigma \vdash \sigma : \tau \triangleright i \mid (m, h) \\
-	\infer{\Sigma \vdash H}{\forall \ell, \begin{array}{cl} & (\forall \tau_1~\tau_2. \Sigma(\ell) = \tau_1 \times \tau_2 \rightarrow \exists w_1~w_2. H(\ell) = (w_1,w_2) \land (\cdot;\cdot;\Sigma) \vdash w_i : \tau_i ) \\ \land & (\forall \tau~i. \Sigma(\ell)= \mathbf{arr}~\tau~i \rightarrow \exists \overrightarrow{w}. H(\ell) = \overrightarrow{w} \land |\overrightarrow{w}| = \llbracket i \rrbracket \land \forall w \in \overrightarrow{w}. (\cdot;\cdot;\Sigma) \vdash w : \tau  ) \\ \land & (\forall \tau~\overrightarrow{\kappa}~\tau_1~i~m~h~r~\tau_2. \Sigma(\ell)=\tau \land \tau=\forall \overrightarrow{\alpha::\kappa}. \tau_1 \xrightarrow[m,h,r]{i} \tau_2 \rightarrow \exists w~V. H(\ell) = (w, V) \rightarrow \Sigma \vdash V : \mathcal{T} \land (\cdot;\mathcal{T};\Sigma) \vdash w : \tau ) \end{array} } \\
+	\infer{\Sigma \vdash H}{\forall \ell, \begin{array}{cl} & (\forall \tau_1~\tau_2. \Sigma(\ell) = \tau_1 \times \tau_2 \rightarrow \exists w_1~w_2. H(\ell) = (w_1,w_2) \land (\cdot;\cdot;\Sigma) \vdash w_i : \tau_i ) \\ \land & (\forall \tau~i. \Sigma(\ell)= \mathbf{arr}~\tau~i \rightarrow \exists \overrightarrow{w}. H(\ell) = \overrightarrow{w} \land |\overrightarrow{w}| = \llbracket i \rrbracket \land \forall w \in \overrightarrow{w}. (\cdot;\cdot;\Sigma) \vdash w : \tau  ) \\ \land & (\forall \tau~\overrightarrow{\kappa}~\tau_1~i~m~h~r~\tau_2. \Sigma(\ell)=\tau \land \tau=\forall \overrightarrow{\alpha::\kappa}. \tau_1 \xrightarrow[m,h,r]{i} \tau_2 \rightarrow \exists e~V. H(\ell) = (e, V) \rightarrow \Sigma \vdash V : \mathcal{T} \land (\cdot;\mathcal{T};\Sigma) \vdash e : \tau ) \end{array} } \\
 	\infer{\Sigma \vdash V : \mathcal{T}}{\mathcal{T} = \lambda x. \tau \mathrm{~where~} (\cdot;\cdot;\Sigma) \vdash V(x) : \tau   } \hspace{1em}
 	\infer{\Sigma \vdash (H,V,e,r) : \tau \triangleright i \mid (m, h)}{\Sigma \vdash V : \mathcal{T} & (\cdot;\mathcal{T};\Sigma) \vdash e : \tau \triangleright i \mid (m,h) & \Sigma \vdash H & \llbracket i \rrbracket \le r}
 \end{array}
@@ -352,7 +366,7 @@
 \scriptsize
 \begin{array}{l}
 	w ::= EC \mid \mathbf{l}.w \mid \mathbf{r}.w \mid \mathbf{pack} \langle c \mid w \rangle \mid \mathbf{fold}~w \mid \ell~\overrightarrow{c} \mid \Lambda \alpha :: \kappa. e \\
-	b ::= (w,w) \mid \overrightarrow{w} \mid (w, \mathbf{var} \rightharpoonup w) \\
+	b ::= (w,w) \mid \overrightarrow{w} \mid (\Lambda \overrightarrow{\alpha::\kappa}. \lambda x:\tau. e, \mathbf{var} \rightharpoonup w) \\
 	H = \mathbf{loc} \rightharpoonup b \\
 	V = \mathbf{var} \rightharpoonup w \\
 	\begin{array}{lcl}
@@ -360,16 +374,15 @@
 	& \mid & \mathbf{pack}\langle c \mid E \rangle \mid \mathbf{unpack}~E~\alpha.x.e \mid E~c \mid E~o_{bt}~e \mid w~o_{bt}~E \mid \mathbf{new}~E~e \mid \mathbf{new}~w~E \\
 	& \mid & E[e] \mid w[E] \mid E[e] := e \mid w[E] := e \mid w[w] := E \mid \mathbf{let}~x=E~\mathbf{in}~e
 	\end{array} \\
-	
 	\\
 	\\
 	\\
 	\sigma = (H, V, e, r) \\
 	\Sigma = \mathbf{loc} \rightharpoonup \tau \\
-	\sigma \longrightarrow \sigma' \hspace{1em} \sigma \longrightarrow_{M,gc} \sigma' \hspace{1em} \sigma \hookrightarrow_{M,gc} \sigma' \\
+	\sigma \longrightarrow \sigma' \hspace{1em} \sigma \hookrightarrow \sigma' \hspace{1em} \sigma \hookrightarrow_{M,gc} \sigma' \\
 	\infer{(H,V,(w_1,w_2),r) \longrightarrow (H[\ell \mapsto (w_1,w_2)],V,\ell,r)}{\ell \not\in H} \hspace{1em}
 	\infer{(H,V,\mathbf{new}~n~w,r) \longrightarrow (H[\ell \mapsto w^n)],V,\ell,r)}{\ell \not\in H} \\
-	\infer{(H,V,\mathbf{rec}_\tau~x.e,r) \longrightarrow (H[\ell \mapsto (e[\ell/x],V \downarrow (FV(e) \setminus \{x\}))], V, \ell ,r)}{\ell \not\in H} \\
+	\infer{(H,V,\mathbf{rec}_\tau~x.e,r) \longrightarrow (H[\ell \mapsto (e,V \downarrow (FV(e) \setminus \{x\})[x \mapsto \ell])], V, \ell ,r)}{\ell \not\in H} \\
 	\infer{(H,V,\lambda x:\tau. e,r) \longrightarrow (H[\ell \mapsto (\lambda x : \tau. e, V \downarrow (FV(e) \setminus \{x\}))],V,\ell,r)}{\ell \not\in H} \\
 	\\
 	\\
@@ -386,19 +399,35 @@
 	\infer{(H,V,\ell[n],r) \longrightarrow (H,V,\overrightarrow{w}(n),r)}{H(\ell)=\overrightarrow{w} & n < |\overrightarrow{w}|} \\
 	\infer{(H,V,\ell[n] := w,r) \longrightarrow (H(\ell)[n := w],V,(),r)}{H(\ell) = \overrightarrow{w'} & n < |\overrightarrow{w'}|} \hspace{1em}
 	\infer{(H,V,w_1~o_{bt}~w_2,r) \longrightarrow (H,V,o_{bt}.f(w_1,w_2),r)}{\vspace{1em}} \\
+	\infer{(H,V,x,r) \longrightarrow (H,V,V(x),r)}{\vspace{1em}} \hspace{1em}
+	\infer{(H,V,E[e],r) \hookrightarrow (H',V',E[e'],r')}{(H,V,e,r) \longrightarrow (H',V',e',r')}
 	\\
 	\\
 	\\
-	\psi((w,w)) = 2 \hspace{1em} \psi(\overrightarrow{w}) = |\overrightarrow{w}| \hspace{1em} \psi(w,env)=1+|env| \\
+	\psi((w,w)) = 2 \hspace{1em} \psi(\overrightarrow{w}) = |\overrightarrow{w}| \hspace{1em} \psi(e,V)=1+|V| \\
 	\Psi(H) = \sum_{\ell \in H} \psi(H(\ell)) \\
-	\infer{(H,V,e,r) \longrightarrow_{M,gc} (H',V',e',r')}{(H'',\Delta r) = gc(H',V) & r \ge \Delta r & (H'',V,e,r-\Delta r) \longrightarrow (H',V',e',r') & \Psi(H') \le M} \\
-	\infer{(H,V,E[e],r) \hookrightarrow_{M,gc} (H',V',E[e'],r')}{(H,V,e,r) \longrightarrow_{M,gc} (H',V',e',r')} \\
+	\infer{(H,V,e,r) \hookrightarrow_{M,gc} (H',V',e',r')}{(H'',\Delta r) = gc(H,V,e) & r \ge \Delta r & (H'',V,e,r-\Delta r) \hookrightarrow (H',V',e',r') & \Psi(H') \le M} \\
+	\infer{(H,V,e,r) \hookrightarrow_{M,gc} (H',V',e',r')}{(H,V,e,r) \hookrightarrow (H',V',e',r') & \Psi(H') \le M} \\
 	\\
 	\\
 	\\
-	gc_{ms}(H,V) = \\
-	gc_{co}(H,V) = \\
+	locs(V) = \bigcup_{x\in V} loc(V(x)) \\
+	\\
+	\begin{array}{rcl}
+		bloc(w_1,w_2) & = & loc(w_1) \cup loc(w_2) \\
+		bloc(\overrightarrow{w}) & = & \bigcup_{w \in \overrightarrow{w}} loc(w) \\
+		bloc(e,V) & = & locs(V)
+	\end{array} \\
+	\\
+	live(H,V,e) = \mu X. locs(V) \cup loc(e) \cup \bigcup_{\ell \in X} bloc(H(\ell))  \\
+	gc_{ms}(H,V,e) = (H \downarrow lives(H,V,e), \Psi(H)) \\
+	gc_{co}(H,V,e) = (H \downarrow lives(H,V,e), \Psi(H \downarrow lives(H,V,e)))
 \end{array}
 \]
+
+\begin{theorem}
+	For all $\Sigma,\sigma,\tau,i,m,h,(M \ge h)$, and $\sigma'$, if $\Sigma \vdash \sigma : \tau \triangleright i \mid (m,h)$ and $\sigma[r \leftarrow r+ \frac{m}{M-h}\times h] \hookrightarrow_{M,gc_{co}}^* \sigma'$,
+	then $\mathrm{unstack}(\sigma')$, where $\mathrm{unstack}(\sigma)$ asserts that $\sigma.3$ is a word value or there exists $\sigma'$ such that $\sigma \hookrightarrow_{M,gc_{co}} \sigma'$.
+\end{theorem}
 
 \end{document}
