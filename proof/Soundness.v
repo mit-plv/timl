@@ -6407,7 +6407,7 @@ lift2 (fst (strip_subsets L))
         induct L'; simpl; eauto.
       Qed.
       
-      Lemma lgeq_refl_ex L' k t :
+      Lemma lgeq_refl L' k t :
         kinding2 (map Ke2NonAbs L') t k ->
         lgeq L' t t k.
       Proof.
@@ -6419,18 +6419,6 @@ lift2 (fst (strip_subsets L))
         repeat rewrite subst0_cs_c_all_None in *.
         eapply Hkd.
         eapply subs_kd2_lgeq_all_None.
-      Qed.
-
-      Lemma lgeq_refl k t :
-        kinding2 [] t k ->
-        lgeq [] t t k.
-      Proof.
-        intros Hkd.
-        specialize (@fundamental_kinding2 [] t k Hkd [] []).
-        intros H.
-        simpl in *.
-        eapply H.
-        repeat econstructor.
       Qed.
 
       Lemma lgeq_trans k :
@@ -6457,10 +6445,20 @@ lift2 (fst (strip_subsets L))
         }
         specialize (H2 L'').
         eapply H2; eauto.
-        eapply lgeq_refl_ex; eauto.
+        eapply lgeq_refl; eauto.
       Qed.
       
     End var_L.
+
+    Lemma lgeq_refl_empty L k t :
+      kinding2 [] t k ->
+      lgeq L [] t t k.
+    Proof.
+      intros.
+      eapply lgeq_refl.
+      simpl.
+      eauto.
+    Qed.
 
     Lemma tyeq_lgeq L t1 t2 :
       tyeq L t1 t2 ->
@@ -6471,10 +6469,10 @@ lift2 (fst (strip_subsets L))
     Proof.
       induct 1; simpl; intros k2 Hkd1 Hkd2.
       {
-        eapply lgeq_refl; eauto.
+        eapply lgeq_refl_empty; eauto.
       }
       {
-        eapply lgeq_refl; eauto.
+        eapply lgeq_refl_empty; eauto.
       }
       {
         invert Hkd1.
@@ -6533,7 +6531,7 @@ lift2 (fst (strip_subsets L))
       }
       Focus 6.
       {
-        eapply lgeq_refl; eauto.
+        eapply lgeq_refl_empty; eauto.
       }
       Unfocus.
       Lemma tyeq_kind2 L t1 t2 k :
@@ -6550,7 +6548,7 @@ lift2 (fst (strip_subsets L))
       {
         eapply lgeq_reverse1_eval.
         {
-          eapply lgeq_refl; eauto.
+          eapply lgeq_refl_empty; eauto.
         }
         {
           econstructor.
@@ -6560,7 +6558,7 @@ lift2 (fst (strip_subsets L))
       {
         eapply lgeq_reverse2_eval.
         {
-          eapply lgeq_refl; eauto.
+          eapply lgeq_refl_empty; eauto.
         }
         {
           econstructor.
@@ -6664,13 +6662,13 @@ lift2 (fst (strip_subsets L))
       induct 1; simpl; eauto.
       {
         rewrite kind_to_kind2_shift_c_k.
+        (*here*)
         eapply Kd2VarOut.
         eapply nth_error_nil.
       }
       {
         econstructor.
       }
-      (*here*)
       eapply admit.
     Qed.
     
