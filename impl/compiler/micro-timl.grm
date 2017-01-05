@@ -1,21 +1,23 @@
 open MicroTiMLInst
 open ShiftCstr
 open SubstCstr
+open ShiftCtx
+open DerivSubstKinding
 
 type nkctx = string list
-type ktctx = string list
-type nctx = nkctx * ktctx
+type ntctx = string list
+
+type tyabbctx = (string * kinding) list
 
 fun name2index x ls =
   case ls of
       [] => raise Not_found
     | y :: rest => if y = x then 0 else 1 + (name2index x rest)
 
-fun add_type t (kctx, tctx) = (kctx, t :: tctx)
-fun add_kind k (kctx, tctx) = (k :: kctx, map shift0_c_c tctx)
+fun add_type x t (kctx, tctx, tyabbctx, nkctx, ntctx) = (kctx, t :: tctx, tyabbctx, nkctx, x :: ntctx)
+fun add_kind x k (kctx, tctx, tyabbctx, nkctx, ntctx) = (k :: kctx, map shift0_c_c tctx, map_assoc (shift0_ctx_kd [k]) tyabbctx, x :: nkctx, ntctx)
 
-fun add_tname x (nkctx, ntctx) = (nkctx, x :: ntctx)
-fun add_kname x (nkctx, ntctx) = (x :: nkctx, ntctx)
+fun add_only_kind x k (kctx, tyabbctx, nkctx) = (k :: kctx, map_assoc (shift0_ctx_kd [k]) tyabbctx, x :: nkctx)
 
 fun gen_value e =
   case e of
@@ -47,7 +49,15 @@ fun gen_tyeq kctx t1 t2 =
       (CVar x1, CVar x2) => let val () = check_equal x1 x2 in as_TyEqVar kctx x1 end
     | (CConst cn1, CConst cn2) => let val () = check_equal cn1 cn2 in as_TyEqConst kctx cn1 end
     | (CUnOp (opr1, t1), CUnOp (opr2, t2)) => let val () = check_equal opr1 opr2 in as_TyEqUnOp opr1 (gen_tyeq kctx t1 t2) end
-    | (CBinOp (opr1, t11, t12), CBinOp (opr2, t21, t22)) => let val () = check_equal opr1 opr2 in as_TyEqBinOp opr1 (gen_tyeq kctx t11 t21) (gen_tyeq kctx t12 t22) end
+    | (CBinOp (opr1, t11, t12), CBinOp (opr2, t21, t22)) =>
+      if opr1 = CBNatAdd orelse opr1 = CBNatMinus orelse opr1 = CBNatMult then
+          (println ("ASSUME " ^ PlainPrinter.str_cstr t1 ^ " == " ^ PlainPrinter.str_cstr t2); as_TyEqNat (PrAdmit (kctx, NEq (t1, t2))))
+      else
+          let
+              val () = check_equal opr1 opr2
+          in
+              as_TyEqBinOp opr1 (gen_tyeq kctx t11 t21) (gen_tyeq kctx t12 t22)
+          end
     | (CIte (t11, t12, t13), CIte (t21, t22, t23)) => as_TyEqIte (gen_tyeq kctx t11 t21) (gen_tyeq kctx t12 t22) (gen_tyeq kctx t13 t23)
     | (CTimeAbs a1, CTimeAbs a2) => let val () = check_equal a1 a2 in as_TyEqTimeAbs kctx a1 end
     | (CTimeApp (arity1, c11, c12), CTimeApp (arity2, c21, c22)) => let val () = check_equal arity1 arity2 val () = check_equal c11 c21 val () = check_equal c12 c22 in as_TyEqTimeApp kctx arity1 c11 c12 end
@@ -61,7 +71,7 @@ fun gen_tyeq kctx t1 t2 =
     | (CApp (CAbs t1, t2), t3) => if t3 = subst0_c_c t2 t1 then as_TyEqBeta kctx t1 t2 else (case t3 of CApp (t31, t32) => as_TyEqApp (gen_tyeq kctx (CAbs t1) t31) (gen_tyeq kctx t2 t32) | _ => raise (Impossible "gen_tyeq"))
     | (t3, CApp (CAbs t1, t2)) => if t3 = subst0_c_c t2 t1 then as_TyEqBetaRev kctx t1 t2 else (case t3 of CApp (t31, t32) => as_TyEqApp (gen_tyeq kctx t31 (CAbs t1)) (gen_tyeq kctx t32 t2) | _ => raise (Impossible "gen_tyeq"))
     | (CApp (t11, t12), CApp (t21, t22)) => as_TyEqApp (gen_tyeq kctx t11 t21) (gen_tyeq kctx t12 t22)
-    | (_, _) => as_TyEqNat (PrAdmit (kctx, NEq (t1, t2))) (* FIXME: unsound *)
+    | (_, _) => (println ("ASSUME " ^ PlainPrinter.str_cstr t1 ^ " == " ^ PlainPrinter.str_cstr t2); as_TyEqNat (PrAdmit (kctx, NEq (t1, t2)))) (* FIXME: unsound *)
     (* | _ => raise (Impossible "gen_tyeq") *)
 
 %%
@@ -153,10 +163,10 @@ fun gen_tyeq kctx t1 t2 =
     | EOF
     | BOGUS of string
 
-%nonterm term of ctx * nctx -> typing
-       | cstr of kctx * nkctx -> kinding
-       | kind of kctx * nkctx -> wfkind
-       | prop of kctx * nkctx -> wfprop
+%nonterm term of kctx * tctx * tyabbctx * nkctx * ntctx -> typing
+       | cstr of kctx * tyabbctx * nkctx -> kinding
+       | kind of kctx * tyabbctx * nkctx -> wfkind
+       | prop of kctx * tyabbctx * nkctx -> wfprop
        | cbinop of cstr_bin_op
        | cunop of cstr_un_op
        | sort of sort
@@ -176,64 +186,76 @@ fun gen_tyeq kctx t1 t2 =
 
 %%
 
-term : LCID (fn (ctx, (_, ntctx)) => as_TyVar ctx (name2index LCID ntctx))
-     | TT (fn (ctx, _) => as_TyConst ctx ECTT)
-     | INTV (fn (ctx, _) => as_TyConst ctx (ECInt INTV))
-     | NATV (fn (ctx, _) => as_TyConst ctx (ECNat (Nat.from_int NATV)))
+term : LCID (fn (kctx, tctx, _, _, ntctx) => as_TyVar (kctx, tctx) (name2index LCID ntctx))
+     | TT (fn (kctx, tctx, _, _, _) => as_TyConst (kctx, tctx) ECTT)
+     | INTV (fn (kctx, tctx, _, _, _) => as_TyConst (kctx, tctx) (ECInt INTV))
+     | NATV (fn (kctx, tctx, _, _, _) => as_TyConst (kctx, tctx) (ECNat (Nat.from_int NATV)))
      | LPAREN PAIR term term RPAREN (fn arg => as_TyPair (term1 arg) (term2 arg))
      | LPAREN FST term RPAREN (fn arg => as_TyProj ProjFst (term arg))
      | LPAREN SND term RPAREN (fn arg => as_TyProj ProjSnd (term arg))
-     | LPAREN INL term cstr RPAREN (fn (arg as ((kctx, _), (nkctx, _))) => as_TyInj InjInl (term arg) (cstr (kctx, nkctx)))
-     | LPAREN INR term cstr RPAREN (fn (arg as ((kctx, _), (nkctx, _))) => as_TyInj InjInr (term arg) (cstr (kctx, nkctx)))
+     | LPAREN INL term cstr RPAREN
+                (fn (arg as (kctx, _, tyabbctx, nkctx, _)) =>
+                    let
+                        val kd = cstr (kctx, tyabbctx, nkctx)
+                    in
+                        case kd of
+                            KdBinOp ((_, CBinOp (CBTypeSum, _, _), _), kd1, kd2) => as_TyInj InjInl (term arg) kd2
+                          | _ => raise (Impossible "not sum type")
+                    end)
+     | LPAREN INR term cstr RPAREN
+                (fn (arg as (kctx, _, tyabbctx, nkctx, _)) =>
+                    let
+                        val kd = cstr (kctx, tyabbctx, nkctx)
+                    in
+                        case kd of
+                            KdBinOp ((_, CBinOp (CBTypeSum, _, _), _), kd1, kd2) => as_TyInj InjInr (term arg) kd1
+                          | _ => raise (Impossible "not sum type")
+                    end)
      | LPAREN CASE LPAREN LCID term RPAREN term term RPAREN
-                (fn (arg as (ctx, nctx)) =>
+                (fn arg =>
                     let
                         val ty = term1 arg
                         val jty = extract_judge_typing ty
                         val (t_inl, t_inr) = extract_c_sum (#3 jty)
-                        val ctx_inl = add_type t_inl ctx
-                        val ctx_inr = add_type t_inr ctx
-                        val nctx' = add_tname LCID nctx
+                        val arg_inl = add_type LCID t_inl arg
+                        val arg_inr = add_type LCID t_inr arg
                     in
-                        as_TyCase ty (term2 (ctx_inl, nctx')) (term3 (ctx_inr, nctx'))
+                        as_TyCase ty (term2 arg_inl) (term3 arg_inr)
                     end)
-     | LPAREN FOLD term cstr RPAREN (fn (arg as ((kctx, _), (nkctx, _))) => as_TyFold (cstr (kctx, nkctx)) (term arg))
+     | LPAREN FOLD term cstr RPAREN (fn (arg as (kctx, _, tyabbctx, nkctx, _)) => as_TyFold (cstr (kctx, tyabbctx, nkctx)) (term arg))
      | LPAREN UNFOLD term RPAREN (fn arg => as_TyUnfold (term arg))
-     | LPAREN PACK cstr term cstr RPAREN (fn (arg as ((kctx, _), (nkctx, _))) => as_TyPack (cstr2 (kctx, nkctx)) (cstr1 (kctx, nkctx)) (term arg))
+     | LPAREN PACK cstr term cstr RPAREN (fn (arg as (kctx, _, tyabbctx, nkctx, _)) => as_TyPack (cstr2 (kctx, tyabbctx, nkctx)) (cstr1 (kctx, tyabbctx, nkctx)) (term arg))
      | LPAREN UNPACK LPAREN UCID LCID term RPAREN term RPAREN
-                (fn (arg as (ctx, nctx)) =>
+                (fn arg =>
                     let
                         val ty = term1 arg
                         val jty = extract_judge_typing ty
                         val (q, k, t) = extract_c_quan (#3 jty)
-                        val ctx' = add_type t (add_kind k ctx)
-                        val nctx' = add_tname LCID (add_kname UCID nctx)
+                        val arg' = add_type LCID t (add_kind UCID k arg)
                     in
-                        if q = QuanExists then as_TyUnpack ty (term2 (ctx', nctx')) else raise (Impossible "unpack a non-existential value")
+                        if q = QuanExists then as_TyUnpack ty (term2 arg') else raise (Impossible "unpack a non-existential value")
                     end)
      | LPAREN REC LPAREN LCID COLON cstr RPAREN term RPAREN
-                (fn (arg as (ctx as (kctx, _), nctx as (nkctx, _))) =>
+                (fn (arg as (kctx, _, tyabbctx, nkctx, _)) =>
                     let
-                        val kd = cstr (kctx, nkctx)
+                        val kd = cstr (kctx, tyabbctx, nkctx)
                         val jkd = extract_judge_kinding kd
-                        val ctx' = add_type (#2 jkd) ctx
-                        val nctx' = add_tname LCID nctx
+                        val arg' = add_type LCID (#2 jkd) arg
                     in
-                        as_TyRec kd (term (ctx', nctx'))
+                        as_TyRec kd (term arg')
                     end)
      | LPAREN LET LPAREN LCID term RPAREN term RPAREN
-                (fn (arg as (ctx, nctx)) =>
+                (fn arg =>
                     let
                         val ty1 = term1 arg
                         val jty1 = extract_judge_typing ty1
-                        val ctx' = add_type (#3 jty1) ctx
-                        val nctx' = add_tname LCID nctx
+                        val arg' = add_type LCID (#3 jty1) arg
                     in
-                        as_TyLet ty1 (term2 (ctx', nctx'))
+                        as_TyLet ty1 (term2 arg')
                     end)
      | LPAREN NEW term term RPAREN (fn arg => as_TyNew (term1 arg) (term2 arg))
      | LPAREN READ term term RPAREN
-                (fn (arg as ((kctx, _), _)) =>
+                (fn (arg as (kctx, _, _, _, _)) =>
                     let
                         val ty1 = term1 arg
                         val ty2 = term2 arg
@@ -245,7 +267,7 @@ term : LCID (fn (ctx, (_, ntctx)) => as_TyVar ctx (name2index LCID ntctx))
                         as_TyRead ty1 ty2 (PrAdmit (kctx, NLt (j2, j1)))
                     end)
      | LPAREN WRITE term term term RPAREN
-                (fn (arg as ((kctx, _), _)) =>
+                (fn (arg as (kctx, _, _, _, _)) =>
                     let
                         val ty1 = term1 arg
                         val ty2 = term2 arg
@@ -259,121 +281,171 @@ term : LCID (fn (ctx, (_, ntctx)) => as_TyVar ctx (name2index LCID ntctx))
                         as_TyWrite ty1 ty2 (PrAdmit (kctx, NLt (j2, j1))) ty3
                     end)
      | LPAREN FN LPAREN LCID COLON cstr RPAREN term RPAREN
-                (fn (arg as (ctx as (kctx, _), nctx as (nkctx, _))) =>
+                (fn (arg as (kctx, _, tyabbctx, nkctx, _)) =>
                     let
-                        val kd = cstr (kctx, nkctx)
+                        val kd = cstr (kctx, tyabbctx, nkctx)
                         val jkd = extract_judge_kinding kd
-                        val ctx' = add_type (#2 jkd) ctx
-                        val nctx' = add_tname LCID nctx
+                        val arg' = add_type LCID (#2 jkd) arg
                     in
-                        as_TyAbs kd (term (ctx', nctx'))
+                        as_TyAbs kd (term arg')
                     end)
      | LPAREN FN LCURLY UCID COLON kind RCURLY term RPAREN
-                (fn (arg as (ctx as (kctx, _), nctx as (nkctx, _))) =>
+                (fn (arg as (kctx, _, tyabbctx, nkctx, _)) =>
                     let
-                        val wk = kind (kctx, nkctx)
+                        val wk = kind (kctx, tyabbctx, nkctx)
                         val jwk = extract_judge_wfkind wk
-                        val ctx' = add_kind (#2 jwk) ctx
-                        val nctx' = add_kname UCID nctx
-                        val ty = term (ctx', nctx')
+                        val arg' = add_kind UCID (#2 jwk) arg
+                        val ty = term arg'
                         val jty = extract_judge_typing ty
                     in
                         as_TyAbsC wk (gen_value (#2 jty)) ty
                     end)
      | LPAREN term term RPAREN (fn arg => as_TyApp (term1 arg) (term2 arg))
      | LPAREN term LSQUARE cstr RSQUARE RPAREN
-                (fn (arg as ((kctx, _), (nkctx, _))) =>
+                (fn (arg as (kctx, _, tyabbctx, nkctx, _)) =>
                     let
                         val ty = term arg
-                        val kd = cstr (kctx, nkctx)
+                        val kd = cstr (kctx, tyabbctx, nkctx)
                     in
                         as_TyAppC ty kd
                     end)
      | LPAREN term COLON cstr RPAREN
-                (fn (arg as ((kctx, _), (nkctx, _))) =>
+                (fn (arg as (kctx, _, tyabbctx, nkctx, _)) =>
                     let
                         val ty = term arg
-                        val kd = cstr (kctx, nkctx)
+                        val kd = cstr (kctx, tyabbctx, nkctx)
                         val jty = extract_judge_typing ty
                         val jkd = extract_judge_kinding kd
                     in
                         as_TySubTy ty (gen_tyeq kctx (#3 jty) (#2 jkd))
                     end)
      | LPAREN term RTRI cstr RPAREN
-                (fn (arg as ((kctx, _), (nkctx, _))) =>
+                (fn (arg as (kctx, _,  tyabbctx, nkctx, _)) =>
                     let
                         val ty = term arg
-                        val kd = cstr (kctx, nkctx)
+                        val kd = cstr (kctx, tyabbctx, nkctx)
                         val jty = extract_judge_typing ty
                         val jkd = extract_judge_kinding kd
+                        val () = println ("ASSUME " ^ PlainPrinter.str_cstr (#4 jty) ^ " <= " ^ PlainPrinter.str_cstr (#2 jkd))
                     in
                         as_TySubTi ty (PrAdmit (kctx, TLe (#4 jty, #2 jkd)))
                     end)
      | LPAREN PLUS term term RPAREN (fn arg => as_TyPrimBinOp PEBIntAdd (term1 arg) (term2 arg))
-     | LPAREN TYPE LPAREN UCID cstr RPAREN term RPAREN (fn arg => term arg)
+     | LPAREN TYPE LPAREN LCID cstr RPAREN term RPAREN
+                (fn (arg as (kctx, tctx, tyabbctx, nkctx, ntctx)) =>
+                    let
+                        val kd = cstr (kctx, tyabbctx, nkctx)
+                        val arg' = (kctx, tctx, add_assoc LCID kd tyabbctx, nkctx, ntctx)
+                    in
+                        term arg'
+                    end)
 
-cstr : UCID (fn (kctx, nkctx) => as_KdVar kctx (name2index UCID nkctx))
-     | TT (fn (kctx, _) => as_KdConst kctx CCIdxTT)
-     | TRUE (fn (kctx, _) => as_KdConst kctx CCIdxTrue)
-     | FALSE (fn (kctx, _) => as_KdConst kctx CCIdxFalse)
-     | INTV (fn (kctx, _) => as_KdConst kctx (CCIdxNat (Nat.from_int INTV)))
-     | REALV (fn (kctx, _) => as_KdConst kctx (CCTime (Time.from_string REALV)))
-     | TUNIT (fn (kctx, _) => as_KdConst kctx CCTypeUnit)
-     | TINT (fn (kctx, _) => as_KdConst kctx CCTypeInt)
+cstr : UCID (fn (kctx, tyabbctx, nkctx) => as_KdVar kctx (name2index UCID nkctx))
+     | LCID (fn (kctx, tyabbctx, nkctx) => assoc LCID tyabbctx)
+     | TT (fn (kctx, _, _) => as_KdConst kctx CCIdxTT)
+     | TRUE (fn (kctx, _, _) => as_KdConst kctx CCIdxTrue)
+     | FALSE (fn (kctx, _, _) => as_KdConst kctx CCIdxFalse)
+     | INTV (fn (kctx, _, _) => as_KdConst kctx (CCIdxNat (Nat.from_int INTV)))
+     | REALV (fn (kctx, _, _) => as_KdConst kctx (CCTime (Time.from_string REALV)))
+     | TUNIT (fn (kctx, _, _) => as_KdConst kctx CCTypeUnit)
+     | TINT (fn (kctx, _, _) => as_KdConst kctx CCTypeInt)
      | LPAREN ITE cstr cstr cstr RPAREN (fn arg => as_KdIte (cstr1 arg) (cstr2 arg) (cstr3 arg))
-     | LPAREN TIMEABS LPAREN UCID RPAREN cstr RPAREN (fn (kctx, nkctx) => as_KdTimeAbs (cstr (KNat :: kctx, UCID :: nkctx)))
+     | LPAREN TIMEABS LPAREN UCID RPAREN cstr RPAREN (fn arg => as_KdTimeAbs (cstr (add_only_kind UCID KNat arg)))
      | LPAREN TIMEAPP cstr cstr RPAREN (fn arg => as_KdTimeApp (cstr1 arg) (cstr2 arg))
      | LPAREN cunop cstr RPAREN (fn arg => as_KdUnOp cunop (cstr arg))
      | LPAREN cbinop cstr cstr RPAREN (fn arg => as_KdBinOp cbinop (cstr1 arg) (cstr2 arg))
      | LPAREN ARROW cstr cstr cstr RPAREN (fn arg => as_KdArrow (cstr1 arg) (cstr3 arg) (cstr2 arg))
+     | LPAREN ARROW cstr cstr RPAREN (fn (arg as (kctx, _, _)) => as_KdArrow (cstr1 arg) (as_KdConst kctx (CCTime (Time.from_string "0.0"))) (cstr2 arg))
      | LPAREN FN LPAREN UCID COLON kind RPAREN cstr RPAREN
-                (fn (arg as (kctx, nkctx)) =>
+                (fn arg =>
                     let
                         val wk = kind arg
                         val jwk = extract_judge_wfkind wk
-                        val kctx' = #2 jwk :: kctx
-                        val nkctx' = UCID :: nkctx
+                        val arg' = add_only_kind UCID (#2 jwk) arg
                     in
-                        as_KdAbs wk (cstr (kctx', nkctx'))
+                        as_KdAbs wk (cstr arg')
                     end)
      | LPAREN FORALL LPAREN UCID COLON kind RPAREN cstr RPAREN
-                (fn (arg as (kctx, nkctx)) =>
+                (fn arg =>
                     let
                         val wk = kind arg
                         val jwk = extract_judge_wfkind wk
-                        val kctx' = #2 jwk :: kctx
-                        val nkctx' = UCID :: nkctx
+                        val arg' = add_only_kind UCID (#2 jwk) arg
                     in
-                        as_KdQuan QuanForall wk (cstr (kctx', nkctx'))
+                        as_KdQuan QuanForall wk (cstr arg')
                     end)
      | LPAREN EXISTS LPAREN UCID COLON kind RPAREN cstr RPAREN
-                (fn (arg as (kctx, nkctx)) =>
+                (fn arg =>
                     let
                         val wk = kind arg
                         val jwk = extract_judge_wfkind wk
-                        val kctx' = #2 jwk :: kctx
-                        val nkctx' = UCID :: nkctx
+                        val arg' = add_only_kind UCID (#2 jwk) arg
                     in
-                        as_KdQuan QuanExists wk (cstr (kctx', nkctx'))
+                        as_KdQuan QuanExists wk (cstr arg')
+                    end)
+     | LPAREN EXISTS LCURLY prop RCURLY cstr RPAREN
+                (fn (arg as (kctx, _, _)) =>
+                    let
+                        val wp = prop (add_only_kind "_" KUnit arg)
+                        val wk = as_WfKdSubset (as_WfKdBaseSort kctx BSUnit) wp
+                        val jwk = extract_judge_wfkind wk
+                        val arg' = add_only_kind "_" (#2 jwk) arg
+                    in
+                        as_KdQuan QuanExists wk (cstr arg')
                     end)
      | LPAREN REC LPAREN UCID COLON kind RPAREN cstr RPAREN
-                (fn (arg as (kctx, nkctx)) =>
+                (fn arg =>
                     let
                         val wk = kind arg
                         val jwk = extract_judge_wfkind wk
-                        val kctx' = #2 jwk :: kctx
-                        val nkctx' = UCID :: nkctx
+                        val arg' = add_only_kind UCID (#2 jwk) arg
                     in
-                        as_KdRec wk (cstr (kctx', nkctx'))
+                        as_KdRec wk (cstr arg')
                     end)
      | LPAREN TNAT cstr RPAREN (fn arg => as_KdTypeNat (cstr arg))
      | LPAREN TARR cstr cstr RPAREN (fn arg => as_KdTypeArr (cstr1 arg) (cstr2 arg))
      | LPAREN cstr cstr RPAREN (fn arg => as_KdApp (cstr1 arg) (cstr2 arg))
+     | LPAREN cstr LSQUARE cstr RSQUARE RPAREN
+                (fn arg =>
+                    let
+                        val kd1 = cstr1 arg
+                        val kd2 = cstr2 arg
+                    in
+                        case kd1 of
+                            KdAbs (_, _, kd_body) => subst0_kd_kd kd2 kd_body
+                          | KdRec (_, _, kd_body) =>
+                            (case (subst0_kd_kd kd1 kd_body) of
+                                 KdAbs (_, _, kd_inner) => subst0_kd_kd kd2 kd_inner
+                               | _ => raise (Impossible "not abstraction inside recursion"))
+                          | _ => raise (Impossible "neither abstraction nor recursion")
+                    end)
+     | LPAREN cstr LCURLY cstr RCURLY RPAREN
+                (fn arg =>
+                    let
+                        val kd1 = cstr1 arg
+                        val kd2 = cstr2 arg
+                    in
+                        case kd1 of
+                            KdRec (_, _, kd_body) => as_KdApp (subst0_kd_kd kd1 kd_body) kd2
+                          | _ => raise (Impossible "not recursion")
+                    end)
      | LPAREN cstr COLON kind RPAREN
-                (fn (arg as (kctx, nkctx)) =>
+                (fn (arg as (kctx, _, _)) =>
                     let
                         val kd = cstr arg
                         val wk = kind arg
+                        val jkd = extract_judge_kinding kd
+                        val jwk = extract_judge_wfkind wk
+                        val ke = gen_kdeq kctx (#3 jkd) (#2 jwk)
+                    in
+                        as_KdEq kd ke
+                    end)
+     | LCURLY prop RCURLY
+                (fn (arg as (kctx, _, _)) =>
+                    let
+                        val kd = as_KdConst kctx CCIdxTT
+                        val wp = prop (add_only_kind "_" KUnit arg)
+                        val wk = as_WfKdSubset (as_WfKdBaseSort kctx BSUnit) wp
                         val jkd = extract_judge_kinding kd
                         val jwk = extract_judge_wfkind wk
                         val ke = gen_kdeq kctx (#3 jkd) (#2 jwk)
@@ -399,18 +471,24 @@ cunop : CEIL (CUCeil)
       | N2T (CUNat2Time)
       | B2N (CUBool2Nat)
 
-kind : MULT (fn (kctx, _) => as_WfKdType kctx)
+kind : MULT (fn (kctx, _, _) => as_WfKdType kctx)
      | LPAREN DARROW kind kind RPAREN (fn arg => as_WfKdArrow (kind1 arg) (kind2 arg))
-     | sort (fn (kctx, _) => as_WfKdBaseSort kctx sort)
+     | sort (fn (kctx, _, _) => as_WfKdBaseSort kctx sort)
      | LCURLY UCID COLON kind VBAR prop RCURLY
-                (fn (arg as (kctx, nkctx)) =>
+                (fn arg =>
                     let
                         val wk = kind arg
                         val jwk = extract_judge_wfkind wk
-                        val kctx' = #2 jwk :: kctx
-                        val nkctx' = UCID :: nkctx
+                        val arg' = add_only_kind UCID (#2 jwk) arg
                     in
-                        as_WfKdSubset wk (prop (kctx', nkctx'))
+                        as_WfKdSubset wk (prop arg')
+                    end)
+     | LCURLY prop RCURLY
+                (fn (arg as (kctx, _, _)) =>
+                    let
+                        val wp = prop (add_only_kind "_" KUnit arg)
+                    in
+                        as_WfKdSubset (as_WfKdBaseSort kctx BSUnit) wp
                     end)
 
 sort : SNAT (BSNat)
@@ -418,24 +496,22 @@ sort : SNAT (BSNat)
      | SUNIT (BSUnit)
      | STFUN LSQUARE INTV RSQUARE (BSTimeFun INTV)
 
-prop : TRUE (fn (kctx, _) => as_WfPropTrue kctx)
-     | FALSE (fn (kctx, _) => as_WfPropFalse kctx)
+prop : TRUE (fn (kctx, _, _) => as_WfPropTrue kctx)
+     | FALSE (fn (kctx, _, _) => as_WfPropFalse kctx)
      | LPAREN TILDE prop RPAREN (fn arg => as_WfPropNot (prop arg))
      | LPAREN FORALL LPAREN UCID COLON sort RPAREN prop RPAREN
-                (fn (kctx, nkctx) =>
+                (fn arg =>
                     let
-                        val kctx' = KBaseSort sort :: kctx
-                        val nkctx' = UCID :: nkctx
+                        val arg' = add_only_kind UCID (KBaseSort sort) arg
                     in
-                        as_WfPropQuan QuanForall sort (prop (kctx', nkctx'))
+                        as_WfPropQuan QuanForall sort (prop arg')
                     end)
      | LPAREN EXISTS LPAREN UCID COLON sort RPAREN prop RPAREN
-                (fn (kctx, nkctx) =>
+                (fn arg =>
                     let
-                        val kctx' = KBaseSort sort :: kctx
-                        val nkctx' = UCID :: nkctx
+                        val arg' = add_only_kind UCID (KBaseSort sort) arg
                     in
-                        as_WfPropQuan QuanExists sort (prop (kctx', nkctx'))
+                        as_WfPropQuan QuanExists sort (prop arg')
                     end)
      | LPAREN pbinconn prop prop RPAREN (fn arg => as_WfPropBinConn pbinconn (prop1 arg) (prop2 arg))
      | LPAREN pbinpred cstr cstr RPAREN (fn arg => as_WfPropBinPred pbinpred (cstr1 arg) (cstr2 arg))
