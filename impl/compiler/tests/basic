@@ -1,8 +1,14 @@
-(let (tru (inl tt Unit))
-(let (fals (inr tt Unit))
-(let (itru (inl (pack true (pack (tt : {U : unit | (=n (b2n true) 1)}) tt (exists (U : {U : unit | (=n (b2n true) 1)}) Unit)) (exists (B : bool) (exists (U : {U : unit | (=n (b2n B) 1)}) Unit))) (exists (B : bool) (exists (U : {U : unit | (=n (b2n B) 0)}) Unit))))
-(let (ifals (inr (pack false (pack (tt : {U : unit | (=n (b2n false) 0)}) tt (exists (U : {U : unit | (=n (b2n false) 0)}) Unit)) (exists (B : bool) (exists (U : {U : unit | (=n (b2n B) 0)}) Unit))) (exists (B : bool) (exists (U : {U : unit | (=n (b2n B) 1)}) Unit))))
-(let (none (fn {A : *} (inl tt A)))
-(let (some (fn {A : *} (fn (x : A) (inr x Unit))))
-(let (le (fn {A : nat} (fn {B : nat} (fn {P : { U : unit | (<=n A B) }} (pack P tt (exists (P : { U : unit | (<=n A B) }) Unit))))))
-  tt)))))))
+(type (nbool (+t Unit Unit))
+(let (tru (inl tt nbool))
+(let (fals (inr tt nbool))
+
+(type (ibool (fn (B : bool) (+t (exists {(=n (b2n B) 1)} Unit) (exists {(=n (b2n B) 0)} Unit))))
+(let (itru (inl (pack {(=n (b2n true) 1)} tt (exists {(=n (b2n true) 1)} Unit)) (ibool [true])))
+(let (ifals (inr (pack {(=n (b2n false) 0)} tt (exists {(=n (b2n false) 0)} Unit)) (ibool [false])))
+
+(type (option (fn (A : *) (+t Unit A)))
+(let (none (fn {A : *} (inl tt (option [A]))))
+(let (some (fn {A : *} (fn (x : A) (inr x (option [A])))))
+
+(let (le (fn {A : nat} (fn {B : nat} (fn {P : {(<=n A B)}} (pack P tt (exists {(<=n A B)} Unit))))))
+  tt))))))))))

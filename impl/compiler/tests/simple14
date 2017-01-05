@@ -1,1 +1,1 @@
-(unfold (fold (inl tt (*t Int (rec (T : *) (+t Unit (*t Int T))))) (rec (T : *) (+t Unit (*t Int T)))))
+(unfold (fold (inl tt (+t Unit (*t Int (rec (T : *) (+t Unit (*t Int T)))))) (rec (T : *) (+t Unit (*t Int T)))))
