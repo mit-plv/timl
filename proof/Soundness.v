@@ -3125,7 +3125,8 @@ lift2 (fst (strip_subsets L))
            kinding L c1 (cbinop_arg1_kind opr) ->
            kinding L c2 (cbinop_arg2_kind opr) ->
            kinding L (CBinOp opr c1 c2) (cbinop_result_kind opr)
-       | KdIte L c c1 c2 k :
+       | KdIte L c c1 c2 s :
+           let k := KBaseSort s in
            kinding L c KBool ->
            kinding L c1 k ->
            kinding L c2 k ->
@@ -3368,8 +3369,27 @@ lift2 (fst (strip_subsets L))
       intros; eauto.
     Qed.
 
+    Fixpoint CApps t cs :=
+      match cs with
+      | nil => t
+      | c :: cs => CApps (CApp t c) cs
+      end
+    .
+
+    (* the argument order is reversed *)
+    Inductive IsCApps : cstr -> cstr -> list cstr -> Prop :=
+    | ISASNil c :
+        (~ exists a b, c = CApp a b) ->
+        IsCApps c c []
+    | ISASCons a b f args :
+        IsCApps a f args ->
+        IsCApps (CApp a b) f (b :: args)
+    .
+    
     Inductive is_whnf : cstr -> Prop :=
-    | HnfVar x : is_whnf (CVar x)
+    | HnfVar c x args :
+        IsCApps c (CVar x) args ->
+        is_whnf c
     | HnfConst cn : is_whnf (CConst cn)
     | HnfBinOp opr c1 c2 : is_whnf (CBinOp opr c1 c2)
     | HnfIte c c1 c2 : is_whnf (CIte c c1 c2)
@@ -3393,7 +3413,7 @@ lift2 (fst (strip_subsets L))
     
     Hint Constructors tstep.
     
-    (* almost the safe with [tyeq], but without Beta, BetaRev *)
+    (* almost the safe with [tyeq], but without Beta, BetaRev and Trans *)
     Inductive whnfeq : kctx -> cstr -> cstr -> Prop :=
     | HnfEqVar L x :
         whnfeq L (CVar x) (CVar x)
@@ -3430,8 +3450,10 @@ lift2 (fst (strip_subsets L))
         whnfeq L (CAbs t) (CAbs t)
     | HnfEqTimeAbs L i :
         whnfeq L (CTimeAbs i) (CTimeAbs i)
-    | HnfEqApp L c1 c2 :
-        whnfeq L (CApp c1 c2) (CApp c1 c2)
+    | HnfEqApp L c1 c2 c1' c2' :
+        whnfeq L c1 c1' ->
+        tyeq L c2 c2' ->
+        whnfeq L (CApp c1 c2) (CApp c1' c2')
     | HnfEqTimeApp L n c1 c2 :
         whnfeq L (CTimeApp n c1 c2) (CTimeApp n c1 c2)
     (* | HnfEqRefl L a : *)
@@ -3594,6 +3616,12 @@ lift2 (fst (strip_subsets L))
       invert Hsteps.
       {
         invert Hwhnf.
+        Ltac invert_IsCApps :=
+          match goal with
+            H : IsCApps _ _ _ |- _ => invert H
+          end.
+
+        repeat invert_IsCApps.
       }
       invert_tstep; eauto.
       invert_tstep.
@@ -3667,7 +3695,14 @@ lift2 (fst (strip_subsets L))
     
     Lemma tstep_whnf_false t t' : tstep t t' -> is_whnf t -> False.
     Proof.
-      invert 1; invert 1.
+      induct 1; invert 1.
+      {
+        repeat invert_IsCApps.
+      }
+      {
+        invert_IsCApps.
+        eauto.
+      }
     Qed.
     
     Lemma tstep_deterministic t t1 :
@@ -3748,8 +3783,8 @@ lift2 (fst (strip_subsets L))
     Fixpoint kind_to_kind2 k :=
       match k with
       | KType => K2Type
-      (* | KArrow k1 k2 => K2Arrow (kind_to_kind2 k1) (kind_to_kind2 k2) *)
-      | KArrow k1 k2 => K2Idx BSUnit
+      | KArrow k1 k2 => K2Arrow (kind_to_kind2 k1) (kind_to_kind2 k2)
+      (* | KArrow k1 k2 => K2Idx BSUnit *)
       | KBaseSort s => K2Idx s
       | KSubset k _ => kind_to_kind2 k
       end.
@@ -5811,6 +5846,88 @@ lift2 (fst (strip_subsets L))
           lgeq L' (CVar x) (CVar x) (kind_to_kind2 k).
       Proof.
         induct k; simpl; eauto using obeq_refl.
+        intros L' x L'' t1' t2' Ht1't2' Hkd1 Hkd2 Hni.
+        cbn.
+        Lemma app_1_neq_nil A ls (a : A) : ls ++ [a] = [] -> False.
+        Proof.
+          destruct ls; simpl; discriminate.
+        Qed.
+        Ltac app_1_neq_nil := exfalso; eapply app_1_neq_nil; eauto.
+        Lemma whnfeq_CApps_Var :
+          forall L' args1 args2,
+            Forall2 (tyeq L') args1 args2 ->
+            forall c1 c2 x,
+              IsCApps c1 (CVar x) args1 ->
+              IsCApps c2 (CVar x) args2 ->
+              whnfeq L' c1 c2.
+        Proof.
+          induct 1; intros c1 c2 v Hc1 Hc2; simpl. 
+          {
+            invert Hc1; try solve [app_1_neq_nil].
+            invert Hc2; try solve [app_1_neq_nil].
+            eauto.
+          }
+          {
+            invert Hc1.
+            invert Hc2.
+            econstructor; eauto.
+          }
+        Qed.
+        Lemma tyeq_CApps_Var :
+          forall L' args1 args2,
+            Forall2 (tyeq L') args1 args2 ->
+            forall c1 c2 x,
+              IsCApps c1 (CVar x) args1 ->
+              IsCApps c2 (CVar x) args2 ->
+              tyeq L' c1 c2.
+        Proof.
+          induct 1; intros c1 c2 v Hc1 Hc2; simpl. 
+          {
+            invert Hc1; try solve [app_1_neq_nil].
+            invert Hc2; try solve [app_1_neq_nil].
+            eauto.
+          }
+          {
+            invert Hc1.
+            invert Hc2.
+            econstructor; eauto.
+          }
+        Qed.
+        Lemma obeq_CApps_Var L' c1 c2 x args1 args2 :
+          IsCApps c1 (CVar x) args1 ->
+          IsCApps c2 (CVar x) args2 ->
+          Forall2 (tyeq L') args1 args2 ->
+          obeq L' c1 c2.
+        Proof.
+          intros Hc1 Hc2 Htyeq.
+          split.
+          {
+            eapply tyeq_CApps_Var; eauto.
+          }
+          unfold confluent.
+          intros t1' Hsteps Hwhnf.
+          invert Hsteps.
+          {
+            exists c2.
+            repeat eexists_split; eauto.
+            eapply whnfeq_CApps_Var; eauto.
+          }
+          eapply tstep_whnf_false in H; eauto.
+          intuition.
+        Qed.
+        
+        Lemma lgeq_Var_kind_to_kind2_refl' :
+          forall k L' c1 c2 x args1 args2,
+            IsCApps c1 (CVar x) args1 ->
+            IsCApps c2 (CVar x) args2 ->
+            Forall2 (tyeq L') args1 args2 ->
+            lgeq L' c1 c2 k.
+        Proof.
+          induct k; simpl.
+          (*here*)
+          cbn.
+        Qed.
+
       Qed.
 
       Lemma subs_lgeq_lgeq_var_in G g1 g2 :
@@ -6670,6 +6787,31 @@ lift2 (fst (strip_subsets L))
     
     Hint Constructors kinding2.
 
+    Lemma kinding_kinding2' L t k :
+      kinding L t k ->
+      forall G,
+        map ke2_to_kind2 G = map kind_to_kind2 L ->
+        kinding2 G t (kind_to_kind2 k).
+    Proof.
+      induct 1; simpl; try solve [eauto | econstructor; eauto].
+      {
+        rewrite kind_to_kind2_shift_c_k.
+        eapply Kd2VarIn'.
+        {
+          eapply map_nth_error; eauto.
+        }
+        simpl.
+        eauto.
+      }
+      {
+        rewrite kind_to_kind2_shift_c_k in *.
+        econstructor.
+        (*here*)
+        econstructor; eauto.
+      }
+      eapply admit.
+    Qed.
+    
     Lemma kinding_kinding2 L t k :
       kinding L t k ->
       let G := map Ke2NonAbs L in
@@ -6686,6 +6828,8 @@ lift2 (fst (strip_subsets L))
         eauto.
       }
       {
+        rewrite kind_to_kind2_shift_c_k in *.
+        econstructor.
         (*here*)
         econstructor; eauto.
       }
@@ -7324,13 +7468,6 @@ lift2 (fst (strip_subsets L))
   Proof.
     eapply kd_wfkind_wfprop_subst_c_c.
   Qed.
-
-  Fixpoint CApps t cs :=
-    match cs with
-    | nil => t
-    | c :: cs => CApps (CApp t c) cs
-    end
-  .
 
   (* Lemma invert_tyeq_CApps cs cs' c c' : *)
   (*     tyeq [] (CApps c cs) (CApps c' cs') -> *)
