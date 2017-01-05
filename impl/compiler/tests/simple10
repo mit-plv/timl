@@ -1,1 +1,1 @@
-(inl 5 Unit)
+(inl 5 (+t Int Unit))
