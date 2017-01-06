@@ -697,8 +697,11 @@ and cps_finisher_in1 ty_body kd_t_body t_body ty_post ty_cont =
     let
         val ((kctx, tctx), _, t_post, _) = extract_judge_typing ty_post
         val ty_tmp1 = shift0_ctx_ty ([], [t_post, t_body]) ty_cont
-        val ty_tmp2 = as_TyVar (kctx, t_post :: tctx) 0
-        (* possible optimization: if t_post is CTypeUnit, can pass it explicitly *)
+        val ty_tmp2 =
+            if t_post = CTypeUnit then
+                as_TyConst (kctx, t_post :: tctx) ECTT
+            else
+                as_TyVar (kctx, t_post :: tctx) 0
         val ty_tmp3 = send_to_cont ty_tmp1 ty_tmp2
         val ty_tmp4 = as_TyLet ty_post ty_tmp3
         val in0_ty_cont = as_TyAbs kd_t_body ty_tmp4
@@ -711,8 +714,11 @@ and cps_finisher_in2 ty1 ty2 kd_t1 kd_t2 t1 t2 ty_post ty_cont =
     let
         val ((kctx, tctx), _, t_post, _) = extract_judge_typing ty_post
         val ty_tmp1 = shift0_ctx_ty ([], [t_post, t2, t1]) ty_cont
-        val ty_tmp2 = as_TyVar (kctx, t_post :: tctx) 0
-        (* possible optimization: if t_post is CTypeUnit, can pass it explicitly *)
+        val ty_tmp2 =
+            if t_post = CTypeUnit then
+                as_TyConst (kctx, t_post :: tctx) ECTT
+            else
+                as_TyVar (kctx, t_post :: tctx) 0
         val ty_tmp3 = send_to_cont ty_tmp1 ty_tmp2
         val ty_tmp4 = as_TyLet ty_post ty_tmp3
         val in1_ty_cont = as_TyAbs kd_t2 ty_tmp4

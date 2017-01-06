@@ -55,8 +55,6 @@ sig
     datatype tal_instr =
              TINewpair of tal_register * tal_register * tal_register
              | TIProj of MicroTiMLHoistedDef.MicroTiMLDef.projector * tal_register * tal_register
-             | TIInj of MicroTiMLHoistedDef.MicroTiMLDef.injector * tal_register
-             | TIFold of tal_register
              | TIUnfold of tal_register
              | TINewarray of tal_register * tal_register * tal_register
              | TILoad of tal_register * tal_register * tal_register
@@ -188,8 +186,6 @@ sig
     datatype tal_instr_typing =
              TITyNewpair of tal_instr_typing_judgement * tal_value_typing * tal_value_typing * tal_instr_typing
              | TITyProj of tal_instr_typing_judgement * tal_value_typing * tal_instr_typing
-             | TITyInj of tal_instr_typing_judgement * tal_value_typing * tal_kinding * tal_instr_typing
-             | TITyFold of tal_instr_typing_judgement * tal_kinding * tal_value_typing * tal_instr_typing
              | TITyUnfold of tal_instr_typing_judgement * tal_value_typing * tal_instr_typing
              | TITyNewarray of tal_instr_typing_judgement * tal_value_typing * tal_value_typing * tal_instr_typing
              | TITyLoad of tal_instr_typing_judgement * tal_value_typing * tal_value_typing * tal_proping * tal_instr_typing
