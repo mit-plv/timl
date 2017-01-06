@@ -5963,6 +5963,43 @@ lift2 (fst (strip_subsets L))
         intuition.
       Qed.
       
+      Hint Constructors IsCApps.
+      Lemma IsCApps_shift c f args :
+        IsCApps c f args ->
+        forall n x,
+          IsCApps (shift_c_c n x c) (shift_c_c n x f) (map (shift_c_c n x) args).
+      Proof.
+        induct 1; simpl; cbn; eauto.
+        intros.
+        econstructor.
+        Ltac not_not :=
+          match goal with
+          | H : ~ _ |- ~ _ => unfold not; intro; contradict H
+          end.
+        not_not.
+        destruct H0 as (a & b & H).
+        Lemma shift_CApp_elim c n x a b :
+          shift_c_c n x c = CApp a b ->
+          exists a' b',
+            c = CApp a' b' /\
+            shift_c_c n x a' = a /\
+            shift_c_c n x b' = b.
+        Proof.
+          destruct c; cbn; try solve [intros; discriminate].
+          {
+            intros.
+            cases (x <=? x0); discriminate.
+          }
+          {
+            intros Hshift.
+            invert Hshift.
+            repeat eexists_split; eauto.
+          }
+        Qed.
+        eapply shift_CApp_elim in H.
+        openhyp; repeat eexists_split; eauto.
+      Qed.
+      
       Lemma lgeq_Var_kind_to_kind2_refl' :
         forall k L' c1 c2 x args1 args2,
           IsCApps c1 (CVar x) args1 ->
@@ -6002,8 +6039,37 @@ lift2 (fst (strip_subsets L))
             eapply tyeq_CApps_Var; eauto.
           }
           intros L'' t1' t2' Ht1't2' Hkd1 Hkd2 Hni.
-          (*here*)
-          cbn.
+          eapply IHk2.
+          {
+            econstructor.
+            eapply IsCApps_shift with (x := 0) in Hc1.
+            cbn in *.
+            eauto.
+          }
+          {
+            econstructor.
+            eapply IsCApps_shift with (x := 0) in Hc2.
+            cbn in *.
+            eauto.
+          }
+          {
+            econstructor.
+            {
+              eauto using lgeq_tyeq.
+            }
+            rewrite <- app_assoc.
+            Lemma Forall2_map A1 B1 A2 B2 (P : A1 -> A2 -> Prop) (Q : B1 -> B2 -> Prop) f1 f2 :
+              (forall a1 a2, P a1 a2 -> Q (f1 a1) (f2 a2)) ->
+              forall ls1 ls2,
+                Forall2 P ls1 ls2 ->
+                Forall2 Q (map f1 ls1) (map f2 ls2).
+            Proof.
+              induct 2; simpl; eauto.
+            Qed.
+            eapply Forall2_map; eauto.
+            intros.
+            eapply shift_c_c_0_tyeq; eauto.
+          }
         }
       Qed.
 
@@ -6011,10 +6077,8 @@ lift2 (fst (strip_subsets L))
         forall k L' x,
           lgeq L' (CVar x) (CVar x) (kind_to_kind2 k).
       Proof.
-        induct k; simpl; eauto using obeq_refl.
-        intros L' x.
-        intros L'' t1' t2' Ht1't2' Hkd1 Hkd2 Hni.
-        cbn.
+        intros; eapply lgeq_Var_kind_to_kind2_refl'; eauto;
+          econstructor; intros H; openhyp; discriminate.
       Qed.
 
       Lemma subs_lgeq_lgeq_var_in G g1 g2 :
