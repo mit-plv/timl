@@ -6,6 +6,7 @@ micro-timl-def.sig \
 micro-timl-util.sig \
 ast-transformers.sig \
 deriv-transformers.sig \
+simplify-let-pass.sig \
 cps-pass.sig \
 wrap-abs-pass.sig \
 clo-conv-pass.sig \
@@ -16,6 +17,7 @@ micro-timl-def.sml \
 micro-timl-util.sml \
 ast-transformers.sml \
 deriv-transformers.sml \
+simplify-let-pass.sml \
 cps-pass.sml \
 wrap-abs-pass.sml \
 clo-conv-pass.sml \
