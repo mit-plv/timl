@@ -3694,8 +3694,9 @@ lift2 (fst (strip_subsets L))
       tyeq L (CRef t) (CRef t')
   (* the following rules (except [TyEqTrans]) are just here to satisfy reflexivity *)
   (* don't do deep equality test of two CAbs's *)
-  | TyEqAbs L t :
-      tyeq L (CAbs t) (CAbs t)
+  | TyEqAbs L t t' k :
+      tyeq (k :: L) t t' ->
+      tyeq L (CAbs t) (CAbs t')
   | TyEqTimeAbs L i :
       tyeq L (CTimeAbs i) (CTimeAbs i)
   (* | TyEqApp L c1 c2 : *)
@@ -3715,6 +3716,8 @@ lift2 (fst (strip_subsets L))
     Lemma tyeq_refl : forall t L, tyeq L t t.
     Proof.
       induct t; eauto using interp_prop_eq_refl, kdeq_refl.
+      Grab Existential Variables.
+      exact KType.
     Qed.
 
     (* Lemma KdEq L c k : *)
@@ -5446,13 +5449,28 @@ lift2 (fst (strip_subsets L))
         {
           intros G x ke Hnth.
           intros G' Heq.
-          assert (Hnthmap : nth_error (map ke2_to_kind2 G) x = Some (ke2_to_kind2 ke)).
-          {
-            eapply map_nth_error; eauto.
-          }
-          rewrite <- Heq in Hnthmap.
-          eapply nth_error_map_elim in Hnthmap.
-          destruct Hnthmap as (ke' & Hke' & Hkeke').
+          Lemma map_eq_nth_error A1 A2 B (f1 : A1 -> B) (f2 : A2 -> B) :
+            forall ls1 ls2 x a2,
+              nth_error ls2 x = Some a2 ->
+              map f1 ls1 = map f2 ls2 ->
+              exists a1,
+                nth_error ls1 x = Some a1 /\
+                f1 a1 = f2 a2.
+          Proof.
+            induct ls1; destruct ls2; simpl; try solve [intros; try rewrite nth_error_nil in *; discriminate | eauto].
+            intros x a2 Hnth Hmap.
+            invert Hmap.
+            destruct x as [|x]; simpl in *.
+            {
+              invert Hnth.
+              repeat eexists_split; eauto.
+            }
+            {
+              eauto.
+            }
+          Qed.
+          eapply map_eq_nth_error in Heq; eauto.
+          destruct Heq as (ke' & Hke' & Heq).
           eapply Kd2VarIn'; eauto.
         }
         {
@@ -6199,6 +6217,109 @@ lift2 (fst (strip_subsets L))
         }
       Qed.
 
+      Lemma kinding_kinding2' L' t k :
+        kinding L' t k ->
+        forall G,
+          map ke2_to_kind2 G = map kind_to_kind2 L' ->
+          kinding2 G t (kind_to_kind2 k).
+      Proof.
+        induct 1; simpl; try solve [eauto | econstructor; eauto].
+        {
+          intros G Hgl.
+          rewrite kind_to_kind2_shift_c_k.
+          eapply map_eq_nth_error in Hgl; eauto.
+          destruct Hgl as (ke & Hke & Heq).
+          eapply Kd2VarIn'; eauto.
+        }
+        {
+          intros G Hgl.
+          rewrite kind_to_kind2_shift_c_k in *.
+          econstructor.
+          eapply IHkinding.
+          simpl.
+          f_equal; eauto.
+        }
+        {
+          intros G Hgl.
+          econstructor.
+          (*here*)
+          eapply IHkinding.
+          simpl.
+          f_equal; eauto.
+        }
+        eapply admit.
+      Qed.
+      
+      Lemma kinding_kinding2 L t k :
+        kinding L t k ->
+        let G := map Ke2NonAbs L in
+        kinding2 G t (kind_to_kind2 k).
+      Proof.
+        induct 1; simpl; try solve [eauto | econstructor; eauto].
+        {
+          rewrite kind_to_kind2_shift_c_k.
+          eapply Kd2VarIn'.
+          {
+            eapply map_nth_error; eauto.
+          }
+          simpl.
+          eauto.
+        }
+        {
+          rewrite kind_to_kind2_shift_c_k in *.
+          econstructor.
+          (*here*)
+          econstructor; eauto.
+        }
+        eapply admit.
+      Qed.
+      
+      Lemma kinding_kinding2_Type L t :
+        kinding L t KType ->
+        kinding2 [] t K2Type.
+      Proof.
+        induct 1; simpl; eauto.
+        {
+          eapply Kd2VarOut.
+          eapply nth_error_nil.
+        }
+        {
+          econstructor.
+        }
+        (*here*)
+        eapply admit.
+      Qed.
+      
+      Lemma subs_kd2_lgeq_kinding2_wfkind2_wfprop2_tyeq :
+        (forall G t k,
+            kinding2 G t k ->
+            forall G1 G2 g1 g2,
+              let gs1 := sg2sgs g1 in
+              let gs2 := sg2sgs g2 in
+              G = G1 ++ G2 ->
+              subs_kd2_lgeq g1 g2 G2 ->
+              tyeq (subst0_cs_kes gs1 G1 ++ subst0_cs_ks g1 G2) (subst_cs_c (length G1) gs1 t) (subst_cs_c (length G1) gs2 t)
+        ) /\
+        (forall G k,
+            wfkind2 G k ->
+            forall G1 G2 g1 g2,
+              let gs1 := sg2sgs g1 in
+              let gs2 := sg2sgs g2 in
+              G = G1 ++ G2 ->
+              subs_kd2_lgeq g1 g2 G2 ->
+              wfkind2 (subst0_cs_kes gs1 G1 ++ map Ke2NonAbs (subst0_cs_ks g1 G2)) (subst_cs_k (length G1) gs2 k)) /\
+        (forall G p,
+            wfprop2 G p ->
+            forall G1 G2 g1 g2,
+              let gs1 := sg2sgs g1 in
+              let gs2 := sg2sgs g2 in
+              G = G1 ++ G2 ->
+              subs_kd2_lgeq g1 g2 G2 ->
+              wfprop2 (subst0_cs_kes gs1 G1 ++ map Ke2NonAbs (subst0_cs_ks g1 G2)) (subst_cs_p (length G1) gs2 p)).
+      Proof.
+        eapply kinding2_wfkind2_wfprop2_mutind; simpl.
+      Qed.
+      
       (* the fundamental lemma, or reflexivity of olgeq *)
       Lemma fundamental :
         (forall G t k,
@@ -6222,6 +6343,16 @@ lift2 (fst (strip_subsets L))
           unfold olgeq in *.
           simpl in *.
           intros g1 g2 Hsubeq.
+          repeat rewrite subst0_cs_c_Abs.
+          split.
+          {
+            econstructor.
+            rewrite app_comm_cons.
+            eapply lgeq_tyeq.
+            eapply IH.
+            eauto.
+            (*here*)
+          }
           intros L'' t1' t2' Hlgeq Hkd1 Hkd2.
           intros Hni.
           Lemma subst_kd_lgeq_Abs g1 g2 G L' c1 c2 k :
@@ -6238,8 +6369,6 @@ lift2 (fst (strip_subsets L))
           copy Hsubeq Hsubeq'.
           eapply subst_kd_lgeq_Abs in Hsubeq'; eauto.
           eapply IH in Hsubeq'.
-          repeat rewrite subst0_cs_c_Abs.
-          
           eapply lgeq_reverse_eval; eauto.
           {
             eapply TstepBeta'.
@@ -6938,71 +7067,6 @@ lift2 (fst (strip_subsets L))
     
     Hint Constructors kinding2.
 
-    Lemma kinding_kinding2' L t k :
-      kinding L t k ->
-      forall G,
-        map ke2_to_kind2 G = map kind_to_kind2 L ->
-        kinding2 G t (kind_to_kind2 k).
-    Proof.
-      induct 1; simpl; try solve [eauto | econstructor; eauto].
-      {
-        rewrite kind_to_kind2_shift_c_k.
-        eapply Kd2VarIn'.
-        {
-          eapply map_nth_error; eauto.
-        }
-        simpl.
-        eauto.
-      }
-      {
-        rewrite kind_to_kind2_shift_c_k in *.
-        econstructor.
-        (*here*)
-        econstructor; eauto.
-      }
-      eapply admit.
-    Qed.
-    
-    Lemma kinding_kinding2 L t k :
-      kinding L t k ->
-      let G := map Ke2NonAbs L in
-      kinding2 G t (kind_to_kind2 k).
-    Proof.
-      induct 1; simpl; try solve [eauto | econstructor; eauto].
-      {
-        rewrite kind_to_kind2_shift_c_k.
-        eapply Kd2VarIn'.
-        {
-          eapply map_nth_error; eauto.
-        }
-        simpl.
-        eauto.
-      }
-      {
-        rewrite kind_to_kind2_shift_c_k in *.
-        econstructor.
-        (*here*)
-        econstructor; eauto.
-      }
-      eapply admit.
-    Qed.
-    
-    Lemma kinding_kinding2_Type L t :
-      kinding L t KType ->
-      kinding2 [] t K2Type.
-    Proof.
-      induct 1; simpl; eauto.
-      {
-        eapply Kd2VarOut.
-        eapply nth_error_nil.
-      }
-      {
-        econstructor.
-      }
-      (*here*)
-      eapply admit.
-    Qed.
-    
     Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' :
       tyeq L (CArrow t1 i t2) (CArrow t1' i' t2') ->
       kinding L (CArrow t1 i t2) KType ->
