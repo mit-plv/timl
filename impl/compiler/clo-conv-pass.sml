@@ -216,7 +216,6 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformerFun(
     fun add_kind (k, ((kctx, kmap), (tctx, tmap))) = ((k :: kctx, add_assoc 0 0 (map (fn (from, to) => (from + 1, to + 1)) kmap)), (map shift0_c_c tctx, tmap))
     fun add_type (t, (tctx, tmap)) = (t :: tctx, add_assoc 0 0 (map (fn (from, to) => (from + 1, to + 1)) tmap))
 
-    fun on_va_leaf (va, _) = raise (Impossible "on_va_leaf") (* should never encounter value *)
     fun on_ty_leaf (TyVar (_, EVar x, _, _), ((kctx, kmap), (tctx, tmap))) = as_TyVar (kctx, tctx) (assoc x tmap)
       | on_ty_leaf (TyConst (_, EConst cn, _, _), ((kctx, kmap), (tctx, tmap))) = as_TyConst (kctx, tctx) cn
       | on_ty_leaf _ = raise (Impossible "as_ty_leaf")
@@ -226,9 +225,7 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformerFun(
     fun transform_wfkind (wk, (kctx, kmap)) = CstrDerivHelper.transform_wfkind (drop_ctx_wk (kctx, kmap) wk, kctx)
     fun transform_tyeq (te, (kctx, kmap)) = CstrDerivHelper.transform_tyeq (drop_ctx_te (kctx, kmap) te, kctx)
 
-    fun transformer_value _ _ = raise (Impossible "transformer_value")
-
-    fun transformer_typing (on_typing, on_value) (ty, ((kctx, kmap), (tctx, tmap))) =
+    fun transformer_typing on_typing (ty, ((kctx, kmap), (tctx, tmap))) =
       case ty of
           TyLet (_, ty_rec as TyRec (_, _, ty_inner), ty_after) =>
           let

@@ -19,17 +19,6 @@ fun add_kind x k (kctx, tctx, tyabbctx, nkctx, ntctx) = (k :: kctx, map shift0_c
 
 fun add_only_kind x k (kctx, tyabbctx, nkctx) = (k :: kctx, map_assoc (shift0_ctx_kd [k]) tyabbctx, x :: nkctx)
 
-fun gen_value e =
-  case e of
-      EConst cn => as_VConst cn
-    | EBinOp (EBPair, e1, e2) => as_VPair (gen_value e1) (gen_value e2)
-    | EUnOp (EUInj inj, e) => as_VInj inj (gen_value e)
-    | EAbs e => as_VAbs e
-    | EAbsC e => as_VAbsC e
-    | EPack (c, e) => as_VPack c (gen_value e)
-    | EUnOp (EUFold, e) => as_VFold (gen_value e)
-    | _ => raise (Impossible "gen_value")
-
 fun check_equal a b =
   if a = b then ()
   else raise (Impossible "check_equal")
@@ -298,7 +287,7 @@ term : LCID (fn (kctx, tctx, _, _, ntctx) => as_TyVar (kctx, tctx) (name2index L
                         val ty = term arg'
                         val jty = extract_judge_typing ty
                     in
-                        as_TyAbsC wk (gen_value (#2 jty)) ty
+                        as_TyAbsC wk ty
                     end)
      | LPAREN term term RPAREN (fn arg => as_TyApp (term1 arg) (term2 arg))
      | LPAREN term LSQUARE cstr RSQUARE RPAREN

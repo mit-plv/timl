@@ -465,16 +465,25 @@ fun as_TyAppC ty kd =
       TyAppC ((#1 jty, EAppC (#2 jty, #2 jkd), subst_c_c (#2 jkd) 0 t, #4 jty), ty, kd)
   end
 
-fun as_TyAbsC wk va ty =
+fun gen_value e =
+  case e of
+      EConst cn => as_VConst cn
+    | EBinOp (EBPair, e1, e2) => as_VPair (gen_value e1) (gen_value e2)
+    | EUnOp (EUInj inj, e) => as_VInj inj (gen_value e)
+    | EAbs e => as_VAbs e
+    | EAbsC e => as_VAbsC e
+    | EPack (c, e) => as_VPack c (gen_value e)
+    | EUnOp (EUFold, e) => as_VFold (gen_value e)
+    | _ => raise (Impossible "gen_value")
+
+fun as_TyAbsC wk ty =
   let
       val jwk = extract_judge_wfkind wk
-      val eva = extract_expr_value va
       val jty = extract_judge_typing ty
       val () = assert (#2 jwk :: #1 jwk = (get_kctx $ #1 jty)) "TyAbsC 1"
       val () = assert (#4 jty = T0) "TyAbsC 2"
-      val () = assert (eva = #2 jty) "TyAbsC 3"
   in
-      TyAbsC (((tl $ get_kctx $ #1 jty, map (shift_c_c ~1 0) $ get_tctx $ #1 jty), EAbsC (#2 jty), CForall (#2 jwk, #3 jty), T0), wk, va, ty) (* TODO *)
+      TyAbsC (((tl $ get_kctx $ #1 jty, map (shift_c_c ~1 0) $ get_tctx $ #1 jty), EAbsC (#2 jty), CForall (#2 jwk, #3 jty), T0), wk, gen_value (#2 jty), ty) (* TODO *)
   end
 
 fun unfold_EAbsCs e =
@@ -1083,7 +1092,6 @@ functor ExprDerivGenericTransformerFun(
                val add_kind : MicroTiMLDef.kind * down -> down
                val add_type : MicroTiMLDef.cstr * tdown -> tdown
 
-               val on_va_leaf : MicroTiMLDef.value * down -> MicroTiMLDef.value * up
                val on_ty_leaf : MicroTiMLDef.typing * down -> MicroTiMLDef.typing * up
 
                val transform_proping : MicroTiMLDef.proping * kdown -> MicroTiMLDef.proping * up
@@ -1091,8 +1099,7 @@ functor ExprDerivGenericTransformerFun(
                val transform_wfkind : MicroTiMLDef.wfkind * kdown -> MicroTiMLDef.wfkind * up
                val transform_tyeq : MicroTiMLDef.tyeq * kdown -> MicroTiMLDef.tyeq * up
 
-               val transformer_value : (MicroTiMLDef.value * down -> MicroTiMLDef.value * up) -> MicroTiMLDef.value * down -> (MicroTiMLDef.value * up) option
-               val transformer_typing : (MicroTiMLDef.typing * down -> MicroTiMLDef.typing * up) * (MicroTiMLDef.value * down -> MicroTiMLDef.value * up) -> MicroTiMLDef.typing * down -> (MicroTiMLDef.typing * up) option
+               val transformer_typing : (MicroTiMLDef.typing * down -> MicroTiMLDef.typing * up) -> MicroTiMLDef.typing * down -> (MicroTiMLDef.typing * up) option
            end) : SIG_EXPR_DERIV_GENERIC_TRANSFORMER =
 struct
 open List
@@ -1110,44 +1117,6 @@ open DerivAssembler
 open Action
 
 val combine = foldl combiner upward_base
-
-fun default_transform_value (va, down) =
-case va of
-   VConst _ => on_va_leaf (va, down)
- | VPair (_, va1, va2) =>
-   let
-       val (va1, up1) = transform_value (va1, down)
-       val (va2, up2) = transform_value (va2, down)
-   in
-       (as_VPair va1 va2, combine [up1, up2])
-   end
- | VInj (e, va1) =>
-   let
-       val (inj, _) = extract_e_inj e
-       val (va1, up1) = transform_value (va1, down)
-   in
-       (as_VInj inj va1, combine [up1])
-   end
- | VAbs _ => on_va_leaf (va, down)
- | VAbsC _ => on_va_leaf (va, down)
- | VPack (e, va1) =>
-   let
-       val (c, _) = extract_e_pack e
-       val (va1, up1) = transform_value (va1, down)
-   in
-       (as_VPack c va1, combine [up1])
-   end
- | VFold (_, va1) =>
-   let
-       val (va1, up1) = transform_value (va1, down)
-   in
-       (as_VFold va1, combine [up1])
-   end
-
-and transform_value (va, down) =
- case transformer_value transform_value (va, down) of
-     SOME res => res
-   | NONE => default_transform_value (va, down)
 
 fun default_transform_typing (ty, down as (kdown, tdown)) =
  case ty of
@@ -1174,14 +1143,13 @@ fun default_transform_typing (ty, down as (kdown, tdown)) =
      in
          (as_TyAppC ty kd, combine [up1, up2])
      end
-   | TyAbsC (_, wk, va, ty) =>
+   | TyAbsC (_, wk, _, ty) =>
      let
          val (wk, up1) = transform_wfkind (wk, kdown)
          val jwk = extract_judge_wfkind wk
-         val (va, up2) = transform_value (va, add_kind (#2 jwk, down))
-         val (ty, up3) = transform_typing (ty, add_kind (#2 jwk, down))
+         val (ty, up2) = transform_typing (ty, add_kind (#2 jwk, down))
      in
-         (as_TyAbsC wk va ty, combine [up1, up2, up3])
+         (as_TyAbsC wk ty, combine [up1, up2])
      end
    | TyRec (_, kd, ty) =>
      let
@@ -1317,7 +1285,7 @@ fun default_transform_typing (ty, down as (kdown, tdown)) =
      end
 
 and transform_typing (ty, down) =
-    case transformer_typing (transform_typing, transform_value) (ty, down) of
+    case transformer_typing transform_typing (ty, down) of
         SOME res => res
       | NONE => default_transform_typing (ty, down)
 end
@@ -1437,7 +1405,6 @@ functor ExprDerivGenericOnlyDownTransformerFun(
                   val add_kind : MicroTiMLDef.kind * down -> down
                   val add_type : MicroTiMLDef.cstr * tdown -> tdown
 
-                  val on_va_leaf : MicroTiMLDef.value * down -> MicroTiMLDef.value
                   val on_ty_leaf : MicroTiMLDef.typing * down -> MicroTiMLDef.typing
 
                   val transform_proping : MicroTiMLDef.proping * kdown -> MicroTiMLDef.proping
@@ -1445,8 +1412,7 @@ functor ExprDerivGenericOnlyDownTransformerFun(
                   val transform_wfkind : MicroTiMLDef.wfkind * kdown -> MicroTiMLDef.wfkind
                   val transform_tyeq : MicroTiMLDef.tyeq * kdown -> MicroTiMLDef.tyeq
 
-                  val transformer_value : (MicroTiMLDef.value * down -> MicroTiMLDef.value) -> MicroTiMLDef.value * down -> MicroTiMLDef.value option
-                  val transformer_typing : (MicroTiMLDef.typing * down -> MicroTiMLDef.typing) * (MicroTiMLDef.value * down -> MicroTiMLDef.value) -> MicroTiMLDef.typing * down -> MicroTiMLDef.typing option
+                  val transformer_typing : (MicroTiMLDef.typing * down -> MicroTiMLDef.typing) -> MicroTiMLDef.typing * down -> MicroTiMLDef.typing option
               end) : SIG_EXPR_DERIV_GENERIC_ONLY_DOWN_TRANSFORMER =
 struct
 open List
@@ -1472,7 +1438,6 @@ structure Transformer = ExprDerivGenericTransformerFun(
     val add_kind = add_kind
     val add_type = add_type
 
-    val on_va_leaf = (fn e => (e, ())) o on_va_leaf
     val on_ty_leaf = (fn j => (j, ())) o on_ty_leaf
 
     val transform_proping = (fn pr => (pr, ())) o transform_proping
@@ -1480,23 +1445,14 @@ structure Transformer = ExprDerivGenericTransformerFun(
     val transform_wfkind = (fn wk => (wk, ())) o transform_wfkind
     val transform_tyeq = (fn te => (te, ())) o transform_tyeq
 
-    fun transformer_value on_value =
-      let
-          val on_value_no_up = fst o on_value
-      in
-          Option.map (fn va => (va, ())) o Action.transformer_value on_value_no_up
-      end
-
-    fun transformer_typing (on_typing, on_value) =
+    fun transformer_typing on_typing =
       let
           val on_typing_no_up = fst o on_typing
-          val on_value_no_up = fst o on_value
       in
-          Option.map (fn ty => (ty, ())) o Action.transformer_typing (on_typing_no_up, on_value_no_up)
+          Option.map (fn ty => (ty, ())) o Action.transformer_typing on_typing_no_up
       end
     end)
 
-val transform_value = fst o Transformer.transform_value
 val transform_typing = fst o Transformer.transform_typing
 end
 
@@ -1551,7 +1507,7 @@ structure CstrDerivHelper = CstrDerivGenericOnlyDownTransformerFun(
 
     fun on_wp_leaf (WfPropTrue (kctx, _), (kctxd, kdep)) = as_WfPropTrue (insert_k kctx kdep kctxd)
       | on_wp_leaf (WfPropFalse (kctx, _), (kctxd, kdep)) = as_WfPropFalse (insert_k kctx kdep kctxd)
-      | on_wp_leaf _ = raise (Impossible "as_wp_leaf")
+      | on_wp_leaf _ = raise (Impossible "on_wp_leaf")
 
     fun on_te_leaf (TyEqVar (kctx, CVar x, _), (kctxd, kdep)) = as_TyEqVar (insert_k kctx kdep kctxd) (if x >= kdep then x + (length kctxd) else x)
       | on_te_leaf (TyEqConst (kctx, CConst cn, _), (kctxd, kdep)) = as_TyEqConst (insert_k kctx kdep kctxd) cn
@@ -1584,27 +1540,20 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformerFun(
     fun insert_k a b c = (mapi (fn (i, k) => shift_c_k (length c) (b - 1 - i) k) $ take (a, b)) @ c @ drop (a, b)
     fun insert_t a b c = take (a, b) @ c @ drop (a, b)
 
-    fun on_va_leaf (VConst (EConst cn), _) = as_VConst cn
-      | on_va_leaf (VAbs (EAbs e), ((kctxd, kdep), (tctxd, tdep))) = as_VAbs (shift_e_e (length tctxd) (tdep + 1) $ shift_c_e (length kctxd) kdep e)
-      | on_va_leaf (VAbsC (EAbsC e), ((kctxd, kdep), (tctxd, tdep))) = as_VAbsC (shift_e_e (length tctxd) tdep $ shift_c_e (length kctxd) (kdep + 1) e)
-      | on_va_leaf _ = raise (Impossible "as_va_leaf")
-
     fun on_ty_leaf (TyVar ((kctx, tctx), EVar x, _, _), ((kctxd, kdep), (tctxd, tdep))) = as_TyVar (insert_k kctx kdep kctxd, insert_t (map (shift_c_c (length kctxd) kdep) tctx) tdep tctxd) (if x >= tdep then x + (length tctxd) else x)
       | on_ty_leaf (TyConst ((kctx, tctx), EConst cn, _, _), ((kctxd, kdep), (tctxd, tdep))) = as_TyConst (insert_k kctx kdep kctxd, insert_t (map (shift_c_c (length kctxd) kdep) tctx) tdep tctxd) cn
       | on_ty_leaf (TyFix (((kctx, tctx), EFix _, _, _), kd, ty), ((kctxd, kdep), (tctxd, tdep))) = as_TyFix (insert_k kctx kdep kctxd, insert_t (map (shift_c_c (length kctxd) kdep) tctx) tdep tctxd) kd ty
-      | on_ty_leaf _ = raise (Impossible "as_ty_leaf")
+      | on_ty_leaf _ = raise (Impossible "on_ty_leaf")
 
     val transform_proping = CstrDerivHelper.transform_proping
     val transform_kinding = CstrDerivHelper.transform_kinding
     val transform_wfkind = CstrDerivHelper.transform_wfkind
     val transform_tyeq = CstrDerivHelper.transform_tyeq
 
-    fun transformer_value _ _ = NONE
     fun transformer_typing _ _ = NONE
     end)
 
 fun shift_ctx_ty ((kctxd, kdep), (tctxd, tdep)) ty = ExprDerivHelper.transform_typing (ty, ((kctxd, kdep), (tctxd, tdep)))
-fun shift_ctx_va ((kctxd, kdep), (tctxd, tdep)) va = ExprDerivHelper.transform_value (va, ((kctxd, kdep), (tctxd, tdep)))
 fun shift_ctx_kd (kctxd, kdep) kd = CstrDerivHelper.transform_kinding (kd, (kctxd, kdep))
 fun shift_ctx_te (kctxd, kdep) te = CstrDerivHelper.transform_tyeq (te, (kctxd, kdep))
 fun shift_ctx_pr (kctxd, kdep) pr = CstrDerivHelper.transform_proping (pr, (kctxd, kdep))
@@ -1613,7 +1562,6 @@ fun shift_ctx_ke (kctxd, kdep) ke = CstrDerivHelper.transform_kdeq (ke, (kctxd, 
 fun shift_ctx_wp (kctxd, kdep) wp = CstrDerivHelper.transform_wfprop (wp, (kctxd, kdep))
 
 fun shift0_ctx_ty (kctxd, tctxd) = shift_ctx_ty ((kctxd, 0), (tctxd, 0))
-fun shift0_ctx_va (kctxd, tctxd) = shift_ctx_va ((kctxd, 0), (tctxd, 0))
 fun shift0_ctx_kd kctxd = shift_ctx_kd (kctxd, 0)
 fun shift0_ctx_te kctxd = shift_ctx_te (kctxd, 0)
 fun shift0_ctx_pr kctxd = shift_ctx_pr (kctxd, 0)
@@ -1683,27 +1631,20 @@ structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformerFun(
     fun add_kind (k, ((kctx, kmap), (tctx, tmap))) = ((k :: kctx, add_assoc 0 0 (map (fn (from, to) => (from + 1, to + 1)) kmap)), (map shift0_c_c tctx, tmap))
     fun add_type (t, (tctx, tmap)) = (t :: tctx, add_assoc 0 0 (map (fn (from, to) => (from + 1, to + 1)) tmap))
 
-    fun on_va_leaf (VConst (EConst cn), _) = as_VConst cn
-      | on_va_leaf (VAbs (EAbs e), ((kctx, kmap), (tctx, tmap))) = as_VAbs (drop_e_e (add_assoc 0 0 (map (fn (from, to) => (from + 1, to + 1)) tmap)) $ drop_c_e kmap e)
-      | on_va_leaf (VAbsC (EAbsC e), ((kctx, kmap), (tctx, tmap))) = as_VAbsC (drop_e_e tmap $ drop_c_e (add_assoc 0 0 (map (fn (from, to) => (from + 1, to + 1)) kmap)) e)
-      | on_va_leaf _ = raise (Impossible "on_va_leaf")
-
     fun on_ty_leaf (TyVar (_, EVar x, _, _), ((kctx, kmap), (tctx, tmap))) = as_TyVar (kctx, tctx) (assoc x tmap)
       | on_ty_leaf (TyConst (_, EConst cn, _, _), ((kctx, kmap), (tctx, tmap))) = as_TyConst (kctx, tctx) cn
       | on_ty_leaf (TyFix ((_, EFix _, _, _), kd, ty), ((kctx, kmap), (tctx, tmap))) = as_TyFix (kctx, tctx) kd ty
-      | on_ty_leaf _ = raise (Impossible "as_ty_leaf")
+      | on_ty_leaf _ = raise (Impossible "on_ty_leaf")
 
     val transform_proping = CstrDerivHelper.transform_proping
     val transform_kinding = CstrDerivHelper.transform_kinding
     val transform_wfkind = CstrDerivHelper.transform_wfkind
     val transform_tyeq = CstrDerivHelper.transform_tyeq
 
-    fun transformer_value _ _ = NONE
     fun transformer_typing _ _ = NONE
     end)
 
 fun drop_ctx_ty down ty = ExprDerivHelper.transform_typing (ty, down)
-fun drop_ctx_va down va = ExprDerivHelper.transform_value (va, down)
 fun drop_ctx_kd kdown kd = CstrDerivHelper.transform_kinding (kd, kdown)
 fun drop_ctx_ke kdown ke = CstrDerivHelper.transform_kdeq (ke, kdown)
 fun drop_ctx_te kdown te = CstrDerivHelper.transform_tyeq (te, kdown)
@@ -1779,11 +1720,6 @@ structure ExprDerivHelper = ExprDerivGenericTransformerFun(
     fun add_kind (_, (dep, ())) = (dep + 1, ())
     fun add_type (_, ()) = ()
 
-    fun on_va_leaf (va as VConst _, _) = (va, [])
-      | on_va_leaf (va as VAbs (EAbs e), (dep, ())) = (va, FVCstr.free_vars_c_e dep e)
-      | on_va_leaf (va as VAbsC (EAbsC e), (dep, ())) = (va, FVCstr.free_vars_c_e (dep + 1) e)
-      | on_va_leaf _ = raise (Impossible "on_va_leaf")
-
     fun on_ty_leaf (ty as TyVar (_, _, t, i), (dep, ())) = (ty, unique_merge (FVCstr.free_vars_c_c dep t, FVCstr.free_vars_c_c dep i))
       | on_ty_leaf (ty as TyConst (_, _, t, i), (dep, ())) = (ty, unique_merge (FVCstr.free_vars_c_c dep t, FVCstr.free_vars_c_c dep i))
       | on_ty_leaf (ty as TyFix ((_, _, t, i), _, _), (dep, ())) = (ty, unique_merge (FVCstr.free_vars_c_c dep t, FVCstr.free_vars_c_c dep i))
@@ -1794,7 +1730,6 @@ structure ExprDerivHelper = ExprDerivGenericTransformerFun(
     val transform_wfkind = CstrDerivHelper.transform_wfkind
     val transform_tyeq = CstrDerivHelper.transform_tyeq
 
-    fun transformer_value _ _ = NONE
     fun transformer_typing _ _ = NONE
     end)
 
@@ -1822,11 +1757,6 @@ structure ExprDerivHelper = ExprDerivGenericTransformerFun(
     fun add_kind (_, ((), dep)) = ((), dep)
     fun add_type (_, dep) = dep + 1
 
-    fun on_va_leaf (va as VConst _, _) = (va, [])
-      | on_va_leaf (va as VAbs (EAbs e), ((), dep)) = (va, FVExpr.free_vars_e_e (dep + 1) e)
-      | on_va_leaf (va as VAbsC (EAbsC e), ((), dep)) = (va, FVExpr.free_vars_e_e dep e)
-      | on_va_leaf _ = raise (Impossible "on_va_leaf")
-
     fun on_ty_leaf (ty as TyVar (ctx, EVar x, _, _), ((), dep)) = (ty, if x >= dep then [x - dep] else [])
       | on_ty_leaf (ty as TyConst _, _) = (ty, [])
       | on_ty_leaf (ty as TyFix _, _) = (ty, [])
@@ -1837,7 +1767,6 @@ structure ExprDerivHelper = ExprDerivGenericTransformerFun(
     fun transform_wfkind (wk, kdown) = (wk, [])
     fun transform_tyeq (te, kdown) = (te, [])
 
-    fun transformer_value _ _ = NONE
     fun transformer_typing _ _ = NONE
     end)
 
@@ -2062,5 +1991,55 @@ structure CstrDerivHelper = CstrDerivGenericOnlyDownTransformerFun(
 fun subst_kd_kd to who kd = CstrDerivHelper.transform_kinding (kd, (to, who))
 
 fun subst0_kd_kd to = subst_kd_kd to 0
+end
+
+structure DerivSubstTyping =
+struct
+structure ExprDerivHelper = ExprDerivGenericOnlyDownTransformerFun(
+    structure MicroTiMLDef = MicroTiMLDef
+    structure Action =
+    struct
+    type kdown = unit
+    type tdown = typing * int
+    type down = kdown * tdown
+
+    fun add_kind (k, ((), (to, who))) = ((), (ShiftCtx.shift0_ctx_ty ([k], []) to, who))
+    fun add_type (t, (to, who)) = (ShiftCtx.shift0_ctx_ty ([], [t]) to, who + 1)
+
+    fun on_ty_leaf (TyVar (_, EVar x, _, _), ((), (to, who))) =
+      let
+          val ctx = #1 (extract_judge_typing to)
+      in
+          if x = who then to
+          else if x < who then
+              as_TyVar ctx x
+          else
+              as_TyVar ctx (x - 1)
+      end
+      | on_ty_leaf (TyConst (_, EConst cn, _, _), ((), (to, who))) =
+        let
+            val ctx = #1 (extract_judge_typing to)
+        in
+            as_TyConst ctx cn
+        end
+      | on_ty_leaf (TyFix ((_, EFix _, _, _), kd, ty), ((), (to, who))) =
+        let
+            val ctx = #1 (extract_judge_typing to)
+        in
+            as_TyFix ctx kd ty
+        end
+      | on_ty_leaf _ = raise (Impossible "on_ty_leaf")
+
+    fun transform_proping (pr, ()) = pr
+    fun transform_kinding (kd, ()) = kd
+    fun transform_wfkind (wk, ()) = wk
+    fun transform_tyeq (te, ()) = te
+
+    fun transformer_typing _ _ = NONE
+    end)
+
+fun subst_ty_ty to who ty = ExprDerivHelper.transform_typing (ty, ((), (to, who)))
+
+fun subst0_ty_ty to = subst_ty_ty to 0
 end
 end
