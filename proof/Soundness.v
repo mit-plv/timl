@@ -3115,6 +3115,14 @@ lift2 (fst (strip_subsets L))
 
   (* Unset Elimination Schemes. *)
 
+  Fixpoint is_idx k :=
+    match k with
+    | KType => False
+    | KArrow _ _ => False
+    | KBaseSort _ => True
+    | KSubset k _ => is_idx k
+    end.
+  
   Inductive kinding : kctx -> cstr -> kind -> Prop :=
        | KdVar L x k :
            nth_error L x = Some k ->
@@ -3143,6 +3151,7 @@ lift2 (fst (strip_subsets L))
        | KdApp L c1 c2 k1 k2 :
            kinding L c1 (KArrow k1 k2) ->
            kinding L c2 k1 ->
+           ~ is_idx k2 ->
            kinding L (CApp c1 c2) k2
        | KdTimeAbs L i n :
            kinding (KNat :: L) i (KTimeFun n) ->
@@ -4277,8 +4286,8 @@ lift2 (fst (strip_subsets L))
         kinding2 G (CQuan q k c) K2Type
     | Kd2Rec G k t :
         wfkind2 G k ->
-        kinding2 (Ke2NonAbs k :: G) t K2Type ->
-        kinding2 G (CRec k t) K2Type
+        kinding2 (Ke2NonAbs k :: G) t (kind_to_kind2 k) ->
+        kinding2 G (CRec k t) (kind_to_kind2 k)
     | Kd2Ref G t :
         kinding2 G t K2Type ->
         kinding2 G (CRef t) K2Type
@@ -4502,14 +4511,25 @@ lift2 (fst (strip_subsets L))
         intros G k c Hk IHk H IH.
         intros x G1 Hle.
         cbn.
-        econstructor; eauto with db_la.
+        Lemma Kd2Rec' G k t k' :
+          wfkind2 G k ->
+          kinding2 (Ke2NonAbs k :: G) t (kind_to_kind2 k) ->
+          k' = kind_to_kind2 k ->
+          kinding2 G (CRec k t) k'.
+        Proof.
+          intros; subst; eauto.
+        Qed.
+        eapply Kd2Rec'; eauto with db_la.
         {
           specialize (IHk x G1); simpl in *.
           eauto with db_la.
         }
-        specialize (IH (S x) G1); simpl in *.
-        repeat erewrite length_firstn_le in * by eauto.
-        eauto with db_la.
+        {
+          specialize (IH (S x) G1); simpl in *.
+          repeat erewrite length_firstn_le in * by eauto.
+          eauto with db_la.
+          (*here*)
+        }
       }
       {
         intros G k p H IH Hp IHp.
@@ -6241,8 +6261,53 @@ lift2 (fst (strip_subsets L))
         }
         {
           intros G Hgl.
-          econstructor.
+          simpl in *.
+          econstructor; eauto.
+          Lemma not_is_idx_not_idx k :
+            ~ is_idx k ->
+            not_idx (kind_to_kind2 k).
+          Proof.
+            induct k; simpl; eauto.
+            {
+              intros H.
+              not_not.
+              openhyp; discriminate.
+            }
+            {
+              intros H.
+              not_not.
+              openhyp; discriminate.
+            }
+          Qed.
+          eapply not_is_idx_not_idx; eauto.
+        }
+        {
+          intros G Hgl.
+          simpl in *.
+          econstructor; eauto.
+          eapply IHkinding.
+          simpl.
+          f_equal; eauto.
+        }
+        {
+          intros G Hgl.
+          simpl in *.
+          econstructor; eauto.
+          {
+            eapply admit.
+          }
+          eapply IHkinding.
+          simpl.
+          f_equal; eauto.
+        }
+        {
+          intros G Hgl.
+          simpl in *.
           (*here*)
+          econstructor; eauto.
+          {
+            eapply admit.
+          }
           eapply IHkinding.
           simpl.
           f_equal; eauto.
