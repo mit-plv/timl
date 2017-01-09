@@ -34,3 +34,4 @@ Group is
       $/basis.cm
       $/smlnj-lib.cm
       $/ml-yacc-lib.cm
+      sml-llvm/llvm.cm

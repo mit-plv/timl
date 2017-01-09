@@ -12,3 +12,4 @@ compiler
 *.model
 *.lisp
 *.smt2
+*.dylib
