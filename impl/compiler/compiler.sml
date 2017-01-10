@@ -5,7 +5,7 @@ open OS.Process
 open Parser
 infixr 0 $
 
-fun main (prog_name, args : string list) : int =
+fun main (prog_name, args : string list) : status =
   let
       val ast =
           case args of
@@ -31,7 +31,7 @@ fun main (prog_name, args : string list) : int =
       val () = println "---- coded."
       val () = println $ str_tal_program (#1 (extract_judge_tal_program_typing ty6))
   in
-      0
+      success
   end
 
 end

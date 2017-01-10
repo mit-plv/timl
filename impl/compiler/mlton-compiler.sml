@@ -1,1 +1,1 @@
-val _ = Compiler.main (CommandLine.name (), CommandLine.arguments ())
+val () = OS.Process.exit (Compiler.main (CommandLine.name (), CommandLine.arguments ()))
