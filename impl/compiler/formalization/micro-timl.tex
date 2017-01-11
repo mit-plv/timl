@@ -350,7 +350,7 @@
 	\land & (\forall \tau~i~s. \Sigma(\ell)= (\mathbf{arr}~\tau~i,s) \rightarrow \exists \overrightarrow{w}. H(\ell) = \overrightarrow{w} \land |\overrightarrow{w}| = \llbracket i \rrbracket \land \forall w \in \overrightarrow{w}. (\cdot;\cdot;\Sigma) \vdash w : \tau \land s = |reach(H,\{\ell\})| ) \\
 	\land & (\forall \tau~s~\overrightarrow{\kappa}~\tau_1~i~m~h~q~\tau_2. \Sigma(\ell)=(\tau,s) \land \tau=\forall \overrightarrow{\alpha::\kappa}. \tau_1 \xrightarrow[m,h,q]{i} \tau_2 \rightarrow \exists e~V. H(\ell) = (e, V) \rightarrow \Sigma \vdash V : \mathcal{T} \land (\cdot;\mathcal{T};\Sigma) \vdash e : \tau \\ & \land s=|reach(H,\{\ell\})|  ) \end{array} } \\
 	\infer{\Sigma \vdash V : \mathcal{T}}{\mathcal{T} = \lambda x. \tau \mathrm{~where~} (\cdot;\cdot;\Sigma) \vdash V(x) : \tau   } \hspace{1em}
-	\infer{\Sigma \vdash (H,V,K,e,r) : \tau \triangleright i \mid (m , h,q)}{\Sigma \vdash H & \Sigma \vdash V : \mathcal{T} & (\cdot;\mathcal{T};\Sigma;p) \vdash (e,K) : \tau \triangleright i \mid (m,h,q) & p = |lives(H,V,K,e)|}
+	\infer{\Sigma \vdash (H,V,K,e,r) : \tau \triangleright i \mid (m , h,q)}{\Sigma \vdash H & \Sigma \vdash V : \mathcal{T} & (\cdot;\mathcal{T};\Sigma;p) \vdash (e,K) : \tau \triangleright i \mid (m,h,q) & p = |lives(H,V,K,e)| & \llbracket i \rrbracket \le r }
 \end{array}
 \]
 
