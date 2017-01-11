@@ -323,16 +323,15 @@
 \[
 \scriptsize
 \begin{array}{l}
-	(\mathcal{K}; \mathcal{T}; \Sigma; p) \vdash e : \tau \triangleright i \mid (m, h, q) \hspace{1em}
-	\Phi_{\mathcal{K}}(\mathcal{T}) = \sum_{x:\tau \in \mathcal{T} \land \mathcal{K} \vdash \tau :: \star(s_x)} s_x \\
+	(\mathcal{K}; \mathcal{T}; \Sigma; p) \vdash e : \tau \triangleright i \mid (m, h, q) \\
 	
 	\infer[\textsc{TyVar}]{\jtygc{\mathcal{C}}{x}{\tau}{0}{0}{\mathcal{C}.4}{0}}{\mathcal{C}.2(x)=\tau} \hspace{1em}
 	
 	\infer[\textsc{TyConst(Prim)}]{\jtygc{\mathcal{C}}{EC}{type(EC)}{0}{0}{\mathcal{C}.4}{0}}{} \\
 	
-	\infer[\textsc{TyAbs}]{\jtygc{ \mathcal{C}}{ \lambda x:\tau. e}{ \tau \xrightarrow[m,h,q,r]{i} \tau_1 }{ 0 }{ 1 + |FV(e)\setminus \{ x \}| }{\mathcal{C}.4 + 1 + |FV(e)\setminus\{x\}|}{1 + |FV(e) \setminus \{x\}|} }{\mathcal{C}.1 \vdash \tau :: \star(s) & \mathcal{T}'=\mathcal{C}.2 \downarrow_{FV(e) \setminus \{x\}} & \jtygc{(\mathcal{C}.1;\mathcal{T}',x:\tau;\mathcal{C}.3; 0)}{ e }{ \tau_1 }{ i }{ m }{h}{q} & r = 1 + |FV(e)\setminus \{x\}| + \Phi_{\mathcal{C}.1}(\mathcal{T}')} \\
+	\infer[\textsc{TyAbs}]{\jtygc{ \mathcal{C}}{ \lambda x:\tau. e}{ \tau \xrightarrow[m,h,q]{i} \tau_1 }{ 0 }{ 1 + |FV(e)\setminus \{ x \}| }{\mathcal{C}.4 + 1 + |FV(e)\setminus\{x\}|}{1 + |FV(e) \setminus \{x\}|} }{\mathcal{C}.1 \vdash \tau :: \star & \mathcal{T}'=\mathcal{C}.2 \downarrow_{FV(e) \setminus \{x\}} & \jtygc{(\mathcal{C}.1;\mathcal{T}',x:\tau;\mathcal{C}.3; 0)}{ e }{ \tau_1 }{ i }{ m }{h}{q}} \\
 	
-	\infer[\textsc{TyApp}]{\jtygc{\mathcal{C}} { e_1~e_2 } { \tau_2 } { i_1 + i_2 + 1 + i } { m_1 + m_2 + m }{ \max(h_1,h_2,\mathcal{C}.4+q_1+q_2+h) }{q_1+q_2+q} }{\jtygc{\mathcal{C}} { e_1 }{ \tau_1 \xrightarrow[m,h,q,r]{i} \tau_2 }{ i_1 }{ m_1 }{h_1}{q_1} & \jtygc{(\mathcal{C}.1;\mathcal{C}.2;\mathcal{C}.3;\mathcal{C}.4+q_1) } { e_2 }{ \tau_1 }{ i_2 }{ m_2}{h_2}{q_2}} \\
+	\infer[\textsc{TyApp}]{\jtygc{\mathcal{C}} { e_1~e_2 } { \tau_2 } { i_1 + i_2 + 1 + i } { m_1 + m_2 + m }{ \max(h_1,h_2,\mathcal{C}.4+q_1+q_2+h) }{q_1+q_2+q} }{\jtygc{\mathcal{C}} { e_1 }{ \tau_1 \xrightarrow[m,h,q]{i} \tau_2 }{ i_1 }{ m_1 }{h_1}{q_1} & \jtygc{(\mathcal{C}.1;\mathcal{C}.2;\mathcal{C}.3;\mathcal{C}.4+q_1) } { e_2 }{ \tau_1 }{ i_2 }{ m_2}{h_2}{q_2}} \\
 	
 	\infer[\textsc{TyPair}]{\jtygc{\mathcal{C}}{ (e_1,e_2) }{ \tau_1 \times \tau_2 }{ i_1 + i_2 }{ m_1 + m_2 + 2}{\max(h_1,h_2,\mathcal{C}.4+q_1+q_2+2)}{q_1+q_2+2} }{\jtygc{\mathcal{C}}{  e_1 }{ \tau_1 }{ i_1 }{m_1}{h_1}{q_1} & \jtygc{(\mathcal{C}.1;\mathcal{C}.2;\mathcal{C}.3;\mathcal{C}.4+q_1) }{ e_2 }{ \tau_2 }{ i_2 }{ m_2}{h_2}{q_2} } \\
 	
@@ -340,39 +339,39 @@
 	
 	\infer[\textsc{TySnd}]{\jtygc{\mathcal{C} }{ e.\mathbf{2} }{ \tau_2 }{ i }{ m}{h}{q} }{\jtygc{\mathcal{C} }{ e }{ \tau_1 \times \tau_2 }{ i }{ m}{h}{q} } \\
 	
-	\infer[\textsc{TyInl}]{\jtygc{\mathcal{C} }{ \mathbf{l}.e }{ \tau_1 + \tau_2 }{ i }{ m}{h}{q}}{\jtygc{\mathcal{C} }{ e }{ \tau_1 }{ i }{ m }{h}{q} & \mathcal{C}.1 \vdash \tau_1 :: \star(s) & \mathcal{C}.1 \vdash \tau_2 :: \star(s)} \\
+	\infer[\textsc{TyInl}]{\jtygc{\mathcal{C} }{ \mathbf{l}.e }{ \tau_1 + \tau_2 }{ i }{ m}{h}{q}}{\jtygc{\mathcal{C} }{ e }{ \tau_1 }{ i }{ m }{h}{q} & \mathcal{C}.1 \vdash \tau_1 :: \star & \mathcal{C}.1 \vdash \tau_2 :: \star} \\
 	
-	\infer[\textsc{TyInr}]{\jtygc{\mathcal{C} }{ \mathbf{r}.e }{ \tau_1 + \tau_2 }{ i }{ m}{h}{q}}{\jtygc{\mathcal{C} }{ e }{ \tau_2 }{ i }{ m }{h}{q} & \mathcal{C}.1 \vdash \tau_2 :: \star(s) & \mathcal{C}.1 \vdash \tau_1 :: \star(s)} \\
+	\infer[\textsc{TyInr}]{\jtygc{\mathcal{C} }{ \mathbf{r}.e }{ \tau_1 + \tau_2 }{ i }{ m}{h}{q}}{\jtygc{\mathcal{C} }{ e }{ \tau_2 }{ i }{ m }{h}{q} & \mathcal{C}.1 \vdash \tau_2 :: \star & \mathcal{C}.1 \vdash \tau_1 :: \star} \\
 	
 	\infer[\textsc{TyCase}]{\jtygc{\mathcal{C} }{ \mathbf{case}~e~x.e_1~x.e_2 }{ \tau }{ i + \max(i_1,i_2) }{ m + \max(m_1,m_2)}{\max(h,h_1,h_2,\mathcal{C}.4+q+\max(q_1,q_2))}{q+\max(q_1,q_2)} }{\jtygc{\mathcal{C}}{e}{ \tau_1 + \tau_2 }{ i }{ m}{h}{q} & \jtygc{(\mathcal{C}.1;\mathcal{C}.2,x:\tau_n;\mathcal{C}.3;\mathcal{C}.4+q) }{ e_n }{ \tau }{ i_n }{ m_n}{h_n}{q_n} } \\
 	
-	\infer[\textsc{TyFold}]{\jtygc{\mathcal{C} }{ \mathbf{fold}~e }{ \tau~\vec{c} }{ i }{ m}{h}{q} }{\mathcal{C}.1 \vdash \tau~\vec{c} :: \star(s) & \tau = \mu \alpha :: \kappa. \tau_1 & \jtygc{\mathcal{C} }{ e }{\tau_1[\tau/\alpha]~\vec{c} }{ i }{ m}{h}{q} } \\
+	\infer[\textsc{TyFold}]{\jtygc{\mathcal{C} }{ \mathbf{fold}~e }{ \tau~\vec{c} }{ i }{ m}{h}{q} }{\mathcal{C}.1 \vdash \tau~\vec{c} :: \star & \tau = \mu \alpha :: \kappa. \tau_1 & \jtygc{\mathcal{C} }{ e }{\tau_1[\tau/\alpha]~\vec{c} }{ i }{ m}{h}{q} } \\
 	
 	\infer[\textsc{TyUnfold}]{\jtygc{\mathcal{C} }{ \mathbf{unfold}~e }{ \tau_1[\tau/\alpha]~\vec{c} }{ i }{ m}{h}{q} }{\tau = \mu \alpha :: \kappa. \tau_1 & \jtygc{\mathcal{C} }{ e }{ \tau~\vec{c} }{ i }{ m}{h}{q} } \\
 	
-	\infer[\textsc{TyPack}]{\jtygc{\mathcal{C} }{ \mathbf{pack}\langle c \mid e \rangle }{ \exists \alpha :: \kappa. \tau }{ i }{ m}{h}{q} }{\mathcal{C}.1 \vdash \exists \alpha :: \kappa. \tau :: \star(s) & \mathcal{C}.1 \vdash c :: \kappa & \jtygc{\mathcal{C} }{ e }{ \tau[c/\alpha] }{ i }{ m}{h}{q}} \\
+	\infer[\textsc{TyPack}]{\jtygc{\mathcal{C} }{ \mathbf{pack}\langle c \mid e \rangle }{ \exists \alpha :: \kappa. \tau }{ i }{ m}{h}{q} }{\mathcal{C}.1 \vdash \exists \alpha :: \kappa. \tau :: \star & \mathcal{C}.1 \vdash c :: \kappa & \jtygc{\mathcal{C} }{ e }{ \tau[c/\alpha] }{ i }{ m}{h}{q}} \\
 	
 	\infer[\textsc{TyUnpack}]{\jtygc{\mathcal{C} }{ \mathbf{unpack}~e_1~\alpha.x.e_2 }{ \tau_2 }{ i_1 + i_2 }{ m_1 + m_2}{\max(h_1,h_2,\mathcal{C}.4+q_1+q_2)}{q_1+q_2} }{\jtygc{\mathcal{C} }{ e_1 }{ \exists \alpha :: \kappa. \tau }{ i_1 }{ m_1}{h_1}{q_1} & \jtygc{(\mathcal{C}.1,\alpha::\kappa;\mathcal{C}.2,x:\tau;\mathcal{C}.3;\mathcal{C}.4+q_1) }{ e_2 }{ \tau_2 }{ i_2 }{ m_2}{h_2}{q_2} & \tau_2,i_2,m_2,h_2,q_2~\mathrm{do~not~contain}~\alpha} \\
 	
-	\infer[\textsc{TyAbsC}]{\jtygc{\mathcal{C} }{ \Lambda \alpha :: \kappa. e }{\forall \alpha :: \kappa. \tau }{ 0 }{ m}{h}{q} }{\mathcal{C}.1 \vdash \mathrm{wf}~\kappa & \vdash \mathrm{value}~e & \jtygc{\mathcal{C},\alpha :: \kappa }{ e }{ \tau }{ 0 }{ m }{h}{q} & \mathcal{C}.1,\alpha :: \kappa \vdash \tau :: \star(s) & m,h,q,s~\mathrm{do~not~contain}~\alpha} \\
+	\infer[\textsc{TyAbsC}]{\jtygc{\mathcal{C} }{ \Lambda \alpha :: \kappa. e }{\forall \alpha :: \kappa. \tau }{ 0 }{ m}{h}{q} }{\mathcal{C}.1 \vdash \mathrm{wf}~\kappa & \vdash \mathrm{value}~e & \jtygc{\mathcal{C},\alpha :: \kappa }{ e }{ \tau }{ 0 }{ m }{h}{q} & \mathcal{C}.1,\alpha :: \kappa \vdash \tau :: \star & m,h,q~\mathrm{do~not~contain}~\alpha} \\
 	
 	\infer[\textsc{TyAppC}]{\jtygc{\mathcal{C} }{ e~c }{\tau[c/\alpha] }{ i }{ m}{h}{q} }{\jtygc{\mathcal{C} }{ e }{\forall \alpha :: \kappa. \tau }{ i }{ m}{h}{q} & \mathcal{C}.1 \vdash c :: \kappa} \\
 	
 	\infer[\textsc{TyBinOp(Prim)}]{\jtygc{\mathcal{C} }{ e_1~o_{bt}~e_2 }{o_{bt}.\tau_r }{ i_1 + i_2 }{ m_1 + m_2}{\max(h_1,h_2,\mathcal{C}.4+q_1+q_2)}{0} }{\jtygc{\mathcal{C} }{ e_1 }{ o_{bt}.\tau_1 }{ i_1 }{ m_1}{h_1}{q_1} & \jtygc{(\mathcal{C}.1;\mathcal{C}.2;\mathcal{C}.3;\mathcal{C}.4+q_1) }{ e_2 }{ o_{bt}.\tau_2 }{ i_2 }{ m_2}{h_2}{q_2} } \\
 	
-	\infer[\textsc{TyRec}]{\jtygc{\mathcal{C} }{ \mathbf{rec}_\tau~x. e }{ \tau }{ 0 }{1 + |FV(e) \cup \{x\}| }{ \mathcal{C}.4+1+|FV(e)\cup\{x\}| }{1+|FV(e)\cup\{x\}|} }{e = \Lambda \overrightarrow{\alpha :: \kappa}. \lambda y : \tau_y. e_1 & \tau = \forall \overrightarrow{\alpha :: \kappa}. \tau_y \xrightarrow[m,h,q,r]{i} \tau_1 & \mathcal{C}.1 \vdash \tau :: \star(r) & \jtygc{ (\mathcal{C}.1,\overrightarrow{\alpha::\kappa};\mathcal{C}.2 \downarrow_{FV(e) \setminus \{x\}},x:\tau,y:\tau_y;\mathcal{C}.3;0) }{ e_1 }{ \tau_1 }{ i }{ m}{h}{q} & r = \cdots } \\
+	\infer[\textsc{TyRec}]{\jtygc{\mathcal{C} }{ \mathbf{rec}_\tau~x. e }{ \tau }{ 0 }{1 + |FV(e) \cup \{x\}| }{ \mathcal{C}.4+1+|FV(e)\cup\{x\}| }{1+|FV(e)\cup\{x\}|} }{e = \Lambda \overrightarrow{\alpha :: \kappa}. \lambda y : \tau_y. e_1 & \tau = \forall \overrightarrow{\alpha :: \kappa}. \tau_y \xrightarrow[m,h,q]{i} \tau_1 & \mathcal{C}.1 \vdash \tau :: \star & \jtygc{ (\mathcal{C}.1,\overrightarrow{\alpha::\kappa};\mathcal{C}.2 \downarrow_{FV(e) \setminus \{x\}},x:\tau,y:\tau_y;\mathcal{C}.3;0) }{ e_1 }{ \tau_1 }{ i }{ m}{h}{q}  } \\
 	
 	\infer[\textsc{TyLet}]{\jtygc{\mathcal{C} }{ \mathbf{let}~x=e_1~\mathbf{in}~e_2 }{ \tau_2 }{ i_1 + i_2 }{ m_1 + m_2}{\max(h_1,h_2,\mathcal{C}.4+q_1+q_2)}{q_1+q_2} }{\jtygc{\mathcal{C} }{ e_1 }{ \tau_1 }{ i_1 }{ m_1 }{h_1}{q_1} & \jtygc{(\mathcal{C}.1;\mathcal{C}.2,x:\tau_1;\mathcal{C}.3;\mathcal{C}.4+q_1) }{ e_2 }{ \tau_2 }{ i_2 }{ m_2}{h_2}{q_2} } \\
 	
 	\infer[\textsc{TyNew}]{\jtygc{\mathcal{C} }{ \mathbf{new}~e_1~e_2 }{ \mathbf{arr}~\tau~j }{ i_1 + i_2 }{ m_1 + m_2 + j}{\max(h_1,h_2,\mathcal{C}.4+q_1+q_2+j) }{q_1+j} }{\jtygc{\mathcal{C} }{ e_1 }{\tau }{ i_1 }{ m_1}{h_1}{q_1}  & \jtygc{(\mathcal{C}.1;\mathcal{C}.2;\mathcal{C}.3;\mathcal{C}.4+q_1) }{ e_2 }{ \mathbf{nat}~j }{ i_2 }{ m_2}{h_2}{q_2} } \\
 	
-	\infer[\textsc{TyRead}]{\jtygc{\mathcal{C} }{ e_1[e_2] }{ \tau }{ i_1 + i_2 }{ m_1 + m_2}{\max(h_1,h_2,\mathcal{C}.4+q_1+q_2)}{s} }{\jtygc{\mathcal{C} }{ e_1 }{ \mathbf{arr}~\tau~j_1 }{ i_1 }{ m_1}{h_1}{q_1} & \jtygc{(\mathcal{C}.1;\mathcal{C}.2;\mathcal{C}.3;\mathcal{C}.4+q_1) }{ e_2 }{ \mathbf{nat}~j_2 }{ i_2 }{ m_2}{h_2}{q_2} & \mathcal{C}.1 \vdash j_2 <_n j_1 & \mathcal{C}.1 \vdash \tau :: \star(s) } \\
+	\infer[\textsc{TyRead}]{\jtygc{\mathcal{C} }{ e_1[e_2] }{ \tau }{ i_1 + i_2 }{ m_1 + m_2}{\max(h_1,h_2,\mathcal{C}.4+q_1+q_2)}{q_1} }{\jtygc{\mathcal{C} }{ e_1 }{ \mathbf{arr}~\tau~j_1 }{ i_1 }{ m_1}{h_1}{q_1} & \jtygc{(\mathcal{C}.1;\mathcal{C}.2;\mathcal{C}.3;\mathcal{C}.4+q_1) }{ e_2 }{ \mathbf{nat}~j_2 }{ i_2 }{ m_2}{h_2}{q_2} & \mathcal{C}.1 \vdash j_2 <_n j_1 } \\
 	
 	\infer[\textsc{TyWrite}]{\jtygc{\mathcal{C} }{ e_1[e_2] := e_3 }{ \mathbf{1} }{ i_1 + i_2 + i_3 }{ m_1 + m_2 + m_3}{\max(h_1,h_2,h_3,\mathcal{C}.4+q_1+q_2+q_3)}{0} }{\jtygc{\mathcal{C} }{ e_1 }{ \mathbf{arr}~\tau~j_1 }{ i_1 }{ m_1}{h_1}{q_1} & \jtygc{(\mathcal{C}.1;\mathcal{C}.2;\mathcal{C}.3;\mathcal{C}.4+q_1) }{ e_2 }{\mathbf{nat}~j_2 }{ i_2 }{ m_2}{h_2}{q_2} & \mathcal{C}.1 \vdash j_2 <_n j_1 & \jtygc{(\mathcal{C}.1;\mathcal{C}.2;\mathcal{C}.3;\mathcal{C}.4+q_1+q_2) }{ e_3 }{ \tau }{ i_3 }{ m_3}{h_3}{q_3} } \\
 	
 	\infer[\textsc{TySub}]{\jtygc{\mathcal{C} }{ e }{\tau_2 }{ i_2 }{ m_2}{h_2}{q_2} }{\jtygc{\mathcal{C} }{ e }{ \tau_1 }{ i_1 }{ m_1 }{h_1}{q_1} & \mathcal{C}.1 \vdash \tau_1 \equiv \tau_2 & \mathcal{C}.1 \vdash i_1 \le_r i_2 & \mathcal{C}.1 \vdash m_1 \le_n m_2 & \mathcal{C}.1 \vdash h_1 \le_n h_2 && \mathcal{C}.1 \vdash q_1 \le_n q_2 } \\
 	
-	\infer[\textsc{TyLoc}]{\jtygc{\mathcal{C}}{\ell}{\tau}{0}{0}{\mathcal{C}.4}{1+s} }{ \mathcal{C}.3(\ell) = \tau & \mathcal{C}.1 \vdash \tau :: \star(s) }
+	\infer[\textsc{TyLoc}]{\jtygc{\mathcal{C}}{\ell}{\tau}{0}{0}{\mathcal{C}.4+1+s}{1+s} }{ \mathcal{C}.3(\ell) = (\tau,s)  }
 	
 \end{array}
 \]
@@ -380,10 +379,10 @@
 \[
 \scriptsize
 \begin{array}{l}
-	\Sigma \vdash H \hspace{1em} \Sigma \vdash V : \mathcal{T} \hspace{1em} \Sigma \vdash \sigma : \tau \triangleright i \mid (m, h) \\
-	\infer{\Sigma \vdash H}{\forall \ell, \begin{array}{cl} & (\forall \tau_1~\tau_2. \Sigma(\ell) = \tau_1 \times \tau_2 \rightarrow \exists w_1~w_2. H(\ell) = (w_1,w_2) \land (\cdot;\cdot;\Sigma) \vdash w_i : \tau_i ) \\ \land & (\forall \tau~i. \Sigma(\ell)= \mathbf{arr}~\tau~i \rightarrow \exists \overrightarrow{w}. H(\ell) = \overrightarrow{w} \land |\overrightarrow{w}| = \llbracket i \rrbracket \land \forall w \in \overrightarrow{w}. (\cdot;\cdot;\Sigma) \vdash w : \tau  ) \\ \land & (\forall \tau~\overrightarrow{\kappa}~\tau_1~i~m~h~r~\tau_2. \Sigma(\ell)=\tau \land \tau=\forall \overrightarrow{\alpha::\kappa}. \tau_1 \xrightarrow[m,h,r]{i} \tau_2 \rightarrow \exists e~V. H(\ell) = (e, V) \rightarrow \Sigma \vdash V : \mathcal{T} \land (\cdot;\mathcal{T};\Sigma) \vdash e : \tau ) \end{array} } \\
+	\Sigma \vdash H \hspace{1em} \Sigma \vdash V : \mathcal{T} \hspace{1em} \Sigma \vdash \sigma : \tau \triangleright i \mid (m, h, q) \\
+	\infer{\Sigma \vdash H}{\forall \ell, \begin{array}{cl} & (\forall \tau_1~\tau_2~s. \Sigma(\ell) = (\tau_1 \times \tau_2,s) \rightarrow \exists w_1~w_2. H(\ell) = (w_1,w_2) \land (\cdot;\cdot;\Sigma) \vdash w_i : \tau_i ) \\ \land & (\forall \tau~i~s. \Sigma(\ell)= (\mathbf{arr}~\tau~i,s) \rightarrow \exists \overrightarrow{w}. H(\ell) = \overrightarrow{w} \land |\overrightarrow{w}| = \llbracket i \rrbracket \land \forall w \in \overrightarrow{w}. (\cdot;\cdot;\Sigma) \vdash w : \tau  ) \\ \land & (\forall \tau~s~\overrightarrow{\kappa}~\tau_1~i~m~h~q~\tau_2. \Sigma(\ell)=(\tau,s) \land \tau=\forall \overrightarrow{\alpha::\kappa}. \tau_1 \xrightarrow[m,h,q]{i} \tau_2 \rightarrow \exists e~V. H(\ell) = (e, V) \rightarrow \Sigma \vdash V : \mathcal{T} \land (\cdot;\mathcal{T};\Sigma) \vdash e : \tau ) \end{array} } \\
 	\infer{\Sigma \vdash V : \mathcal{T}}{\mathcal{T} = \lambda x. \tau \mathrm{~where~} (\cdot;\cdot;\Sigma) \vdash V(x) : \tau   } \hspace{1em}
-	\infer{\Sigma \vdash (H,V,K,e,r) : \tau \triangleright i \mid (m , h)}{\Sigma \vdash V : \mathcal{T} & (\cdot;\mathcal{T};\Sigma) \vdash (e,K) : \tau \triangleright i \mid (m,h) & \Sigma \vdash H}
+	\infer{\Sigma \vdash (H,V,K,e,r) : \tau \triangleright i \mid (m , h,q)}{\Sigma \vdash H & \Sigma \vdash V : \mathcal{T} & (\cdot;\mathcal{T};\Sigma) \vdash (e,K) : \tau \triangleright i \mid (m,h,q) }
 \end{array}
 \]
 
