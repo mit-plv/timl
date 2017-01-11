@@ -364,7 +364,7 @@
 	
 	\infer[\textsc{TyLet}]{\jtygc{\mathcal{C} }{ \mathbf{let}~x=e_1~\mathbf{in}~e_2 }{ \tau_2 }{ i_1 + i_2 }{ m_1 + m_2}{\max(h_1,h_2,\mathcal{C}.4+q_1+q_2)}{q_1+q_2} }{\jtygc{\mathcal{C} }{ e_1 }{ \tau_1 }{ i_1 }{ m_1 }{h_1}{q_1} & \jtygc{(\mathcal{C}.1;\mathcal{C}.2,x:\tau_1;\mathcal{C}.3;\mathcal{C}.4+q_1) }{ e_2 }{ \tau_2 }{ i_2 }{ m_2}{h_2}{q_2} } \\
 	
-	\infer[\textsc{TyNew}]{\jtygc{\mathcal{C} }{ \mathbf{new}~e_1~e_2 }{ \mathbf{arr}~\tau~j }{ i_1 + i_2 }{ m_1 + m_2 + j}{\max(h_1,h_2,\mathcal{C}.4+q_1+q_2+j) }{q_1+q_2+j} }{\jtygc{\mathcal{C} }{ e_1 }{\tau }{ i_1 }{ m_1}{h_1}{q_1}  & \jtygc{(\mathcal{C}.1;\mathcal{C}.2;\mathcal{C}.3;\mathcal{C}.4+q_1) }{ e_2 }{ \mathbf{nat}~j }{ i_2 }{ m_2}{h_2}{q_2} } \\
+	\infer[\textsc{TyNew}]{\jtygc{\mathcal{C} }{ \mathbf{new}~e_1~e_2 }{ \mathbf{arr}~\tau~j }{ i_1 + i_2 }{ m_1 + m_2 + j}{\max(h_1,h_2,\mathcal{C}.4+q_1+q_2+j) }{q_1+j} }{\jtygc{\mathcal{C} }{ e_1 }{\tau }{ i_1 }{ m_1}{h_1}{q_1}  & \jtygc{(\mathcal{C}.1;\mathcal{C}.2;\mathcal{C}.3;\mathcal{C}.4+q_1) }{ e_2 }{ \mathbf{nat}~j }{ i_2 }{ m_2}{h_2}{q_2} } \\
 	
 	\infer[\textsc{TyRead}]{\jtygc{\mathcal{C} }{ e_1[e_2] }{ \tau }{ i_1 + i_2 }{ m_1 + m_2}{\max(h_1,h_2,\mathcal{C}.4+q_1+q_2)}{s} }{\jtygc{\mathcal{C} }{ e_1 }{ \mathbf{arr}~\tau~j_1 }{ i_1 }{ m_1}{h_1}{q_1} & \jtygc{(\mathcal{C}.1;\mathcal{C}.2;\mathcal{C}.3;\mathcal{C}.4+q_1) }{ e_2 }{ \mathbf{nat}~j_2 }{ i_2 }{ m_2}{h_2}{q_2} & \mathcal{C}.1 \vdash j_2 <_n j_1 & \mathcal{C}.1 \vdash \tau :: \star(s) } \\
 	
