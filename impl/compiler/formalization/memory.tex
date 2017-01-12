@@ -54,9 +54,9 @@
 
 \infer[\textsc{TyCase}]{\jtygc{\mathcal{C};p }{ \mathbf{case}~e~x.e_1~x.e_2 }{ \tau }{ i + \max(i_1,i_2) }{ m + \max(m_1,m_2)}{\max(h,h_1,h_2,p+q+\max(q_1,q_2))}{q+\max(q_1,q_2)} }{\jtygc{\mathcal{C};p}{e}{ \tau_1 + \tau_2 }{ i }{ m}{h}{q} & \jtygc{\mathcal{C};p+q }{ e_n }{ \tau }{ i_n }{ m_n}{h_n}{q_n} } \\
 
-\infer[\textsc{TyFold}]{\jtygc{\mathcal{C};p }{ \mathbf{fold}~e }{ \tau~\vec{c} }{ i }{ m}{h}{q} }{\mathcal{C}.1 \vdash \tau~\vec{c} :: \star & \tau = \mu \alpha :: \kappa. \tau_1 & \jtygc{\mathcal{C};p }{ e }{\tau_1[\tau/\alpha]~\vec{c} }{ i }{ m}{h}{q} } \\
+\infer[\textsc{TyFold}]{\jtygc{\mathcal{C};p }{ \mathbf{fold}~e }{ \tau~\overrightarrow{c} }{ i }{ m}{h}{q} }{\mathcal{C}.1 \vdash \tau~\overrightarrow{c} :: \star & \tau = \mu \alpha :: \kappa. \tau_1 & \jtygc{\mathcal{C};p }{ e }{\tau_1[\tau/\alpha]~\overrightarrow{c} }{ i }{ m}{h}{q} } \\
 
-\infer[\textsc{TyUnfold}]{\jtygc{\mathcal{C};p }{ \mathbf{unfold}~e }{ \tau_1[\tau/\alpha]~\vec{c} }{ i }{ m}{h}{q} }{\tau = \mu \alpha :: \kappa. \tau_1 & \jtygc{\mathcal{C};p }{ e }{ \tau~\vec{c} }{ i }{ m}{h}{q} } \\
+\infer[\textsc{TyUnfold}]{\jtygc{\mathcal{C};p }{ \mathbf{unfold}~e }{ \tau_1[\tau/\alpha]~\overrightarrow{c} }{ i }{ m}{h}{q} }{\tau = \mu \alpha :: \kappa. \tau_1 & \jtygc{\mathcal{C};p }{ e }{ \tau~\overrightarrow{c} }{ i }{ m}{h}{q} } \\
 
 \infer[\textsc{TyPack}]{\jtygc{\mathcal{C};p }{ \mathbf{pack}\langle c \mid e \rangle }{ \exists \alpha :: \kappa. \tau }{ i }{ m}{h}{q} }{\mathcal{C}.1 \vdash \exists \alpha :: \kappa. \tau :: \star & \mathcal{C}.1 \vdash c :: \kappa & \jtygc{\mathcal{C};p }{ e }{ \tau[c/\alpha] }{ i }{ m}{h}{q}} \\
 
@@ -80,7 +80,7 @@
 
 \infer[\textsc{TySub}]{\jtygc{\mathcal{C};p_2 }{ e }{\tau_2 }{ i_2 }{ m_2}{h_2}{q_2} }{\jtygc{\mathcal{C};p_1 }{ e }{ \tau_1 }{ i_1 }{ m_1 }{h_1}{q_1} & \mathcal{C}.1 \vdash \tau_1 \equiv \tau_2 & \mathcal{C}.1 \vdash i_1 \le_r i_2 & \mathcal{C}.1 \vdash m_1 \le_n m_2 & \mathcal{C}.1 \vdash h_1 \le_n h_2 && \mathcal{C}.1 \vdash q_1 \le_n q_2 & \mathcal{C}.1 \vdash p_1 \ge_n p_2} \\
 
-\infer[\textsc{TyLoc}]{\jtygc{\mathcal{C};p}{\ell}{\tau}{0}{0}{p+s}{s} }{ \mathcal{C}.3(\ell) = (\tau,s)  }
+\infer[\textsc{TyLoc}]{\jtygc{\mathcal{C};p}{\ell}{\tau}{0}{0}{p}{0} }{ \mathcal{C}.3(\ell) = \tau  }
 
 \end{array}
 \]
@@ -88,11 +88,10 @@
 \[
 \scriptsize
 \begin{array}{l}
-\Sigma \vdash H \hspace{1em} \Sigma \vdash V : \mathcal{T} \hspace{1em} \Sigma \vdash \sigma : \tau \triangleright i \mid (m, h, q) \\
-reach(H,R) = \mu X. R \cup \bigcup_{\ell \in X} bloc(\ell) \\
-\infer{\Sigma \vdash H}{\forall \ell, \begin{array}{cl} & (\forall \tau_1~\tau_2~s. \Sigma(\ell) = (\tau_1 \times \tau_2,s) \rightarrow \exists w_1~w_2. H(\ell) = (w_1,w_2) \land (\cdot;\cdot;\Sigma) \vdash w_i : \tau_i \land s = |reach(H,\{\ell\})| ) \\
-	\land & (\forall \tau~i~s. \Sigma(\ell)= (\mathbf{arr}~\tau~i,s) \rightarrow \exists \overrightarrow{w}. H(\ell) = \overrightarrow{w} \land |\overrightarrow{w}| = \llbracket i \rrbracket \land \forall w \in \overrightarrow{w}. (\cdot;\cdot;\Sigma) \vdash w : \tau \land s = |reach(H,\{\ell\})| ) \\
-	\land & (\forall \tau~s~\overrightarrow{\kappa}~\tau_1~i~m~h~q~\tau_2. \Sigma(\ell)=(\tau,s) \land \tau=\forall \overrightarrow{\alpha::\kappa}. \tau_1 \xrightarrow[m,h,q]{i} \tau_2 \rightarrow \exists e~V. H(\ell) = (e, V) \rightarrow \Sigma \vdash V : \mathcal{T} \land (\cdot;\mathcal{T};\Sigma) \vdash e : \tau \\ & \land s=|reach(H,\{\ell\})|  ) \end{array} } \\
+	\Sigma \vdash H \hspace{1em} \Sigma \vdash V : \mathcal{T} \hspace{1em} \Sigma \vdash \sigma : \tau \triangleright i \mid (m, h, q) \\
+	\infer{\Sigma \vdash H}{\forall \ell, \begin{array}{cl} & (\forall \tau_1~\tau_2. \Sigma(\ell) = \tau_1 \times \tau_2 \rightarrow \exists w_1~w_2. H(\ell) = (w_1,w_2) \land (\cdot;\cdot;\Sigma) \vdash w_i : \tau_i ) \\
+	\land & (\forall \tau~i. \Sigma(\ell)= \mathbf{arr}~\tau~i \rightarrow \exists \overrightarrow{w}. H(\ell) = \overrightarrow{w} \land |\overrightarrow{w}| = \llbracket i \rrbracket \land \forall w \in \overrightarrow{w}. (\cdot;\cdot;\Sigma) \vdash w : \tau  ) \\
+	\land & (\forall \tau~\overrightarrow{\kappa}~\tau_1~i~m~h~q~\tau_2. \Sigma(\ell)=\tau \land \tau=\forall \overrightarrow{\alpha::\kappa}. \tau_1 \xrightarrow[m,h,q]{i} \tau_2 \rightarrow \exists e~V. H(\ell) = (e, V) \rightarrow \Sigma \vdash V : \mathcal{T} \land (\cdot;\mathcal{T};\Sigma) \vdash e : \tau  ) \end{array} } \\
 \infer{\Sigma \vdash V : \mathcal{T}}{\mathcal{T} = \lambda x. \tau \mathrm{~where~} (\cdot;\cdot;\Sigma) \vdash V(x) : \tau   } \hspace{1em}
 \infer{\Sigma \vdash (H,V,K,e,r) : \tau \triangleright i \mid (m , h,q)}{\Sigma \vdash H & \Sigma \vdash V : \mathcal{T} & (\cdot;\mathcal{T};\Sigma;p) \vdash (e,K) : \tau \triangleright i \mid (m,h,q) & p = |lives(H,V,K,e)| & \llbracket i \rrbracket \le r }
 \end{array}
