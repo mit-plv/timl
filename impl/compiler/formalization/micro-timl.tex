@@ -322,17 +322,17 @@
 	
 	\infer[\textsc{TyAppC}]{\jtygc{\mathcal{C};p }{ e~c }{\tau[c/\alpha] }{ i }{ m}{h}{q} }{\jtygc{\mathcal{C};p }{ e }{\forall \alpha :: \kappa. \tau }{ i }{ m}{h}{q} & \mathcal{C}.1 \vdash c :: \kappa} \\
 	
-	\infer[\textsc{TyBinOp(Prim)}]{\jtygc{\mathcal{C};p }{ e_1~o_{bt}~e_2 }{o_{bt}.\tau_r }{ i_1 + i_2 }{ m_1 + m_2}{\max(h_1,h_2,p+q_1+q_2)}{0} }{\jtygc{\mathcal{C};p }{ e_1 }{ o_{bt}.\tau_1 }{ i_1 }{ m_1}{h_1}{q_1} & \jtygc{\mathcal{C};p+q_1 }{ e_2 }{ o_{bt}.\tau_2 }{ i_2 }{ m_2}{h_2}{q_2} } \\
+	\infer[\textsc{TyBinOp(Prim)}]{\jtygc{\mathcal{C};p }{ e_1~o_{bt}~e_2 }{o_{bt}.\tau_r }{ i_1 + i_2 }{ m_1 + m_2}{\max(h_1,h_2,p+q_1+q_2)}{q_1+q_2} }{\jtygc{\mathcal{C};p }{ e_1 }{ o_{bt}.\tau_1 }{ i_1 }{ m_1}{h_1}{q_1} & \jtygc{\mathcal{C};p+q_1 }{ e_2 }{ o_{bt}.\tau_2 }{ i_2 }{ m_2}{h_2}{q_2} } \\
 	
 	\infer[\textsc{TyRec}]{\jtygc{\mathcal{C};p }{ \mathbf{rec}_\tau~x. e }{ \tau }{ 0 }{1 + |FV(e) \cup \{x\}| }{ p+1+|FV(e)\cup\{x\}| }{1+|FV(e)\cup\{x\}|} }{e = \Lambda \overrightarrow{\alpha :: \kappa}. \lambda y : \tau_y. e_1 & \tau = \forall \overrightarrow{\alpha :: \kappa}. \tau_y \xrightarrow[m,h,q]{i} \tau_1 & \mathcal{C}.1 \vdash \tau :: \star & \jtygc{ \mathcal{C},\overrightarrow{\alpha::\kappa},x:\tau,y:\tau_y;0 }{ e_1 }{ \tau_1 }{ i }{ m}{h}{q}  } \\
 	
 	\infer[\textsc{TyLet}]{\jtygc{\mathcal{C};p }{ \mathbf{let}~x=e_1~\mathbf{in}~e_2 }{ \tau_2 }{ i_1 + i_2 }{ m_1 + m_2}{\max(h_1,h_2,p+q_1+q_2)}{q_1+q_2} }{\jtygc{\mathcal{C};p }{ e_1 }{ \tau_1 }{ i_1 }{ m_1 }{h_1}{q_1} & \jtygc{\mathcal{C};p+q_1 }{ e_2 }{ \tau_2 }{ i_2 }{ m_2}{h_2}{q_2} } \\
 	
-	\infer[\textsc{TyNew}]{\jtygc{\mathcal{C};p }{ \mathbf{new}~e_1~e_2 }{ \mathbf{arr}~\tau~j }{ i_1 + i_2 }{ m_1 + m_2 + j}{\max(h_1,h_2,p+q_1+q_2+j) }{q_1+j} }{\jtygc{\mathcal{C};p }{ e_1 }{\tau }{ i_1 }{ m_1}{h_1}{q_1}  & \jtygc{\mathcal{C};p+q_1 }{ e_2 }{ \mathbf{nat}~j }{ i_2 }{ m_2}{h_2}{q_2} } \\
+	\infer[\textsc{TyNew}]{\jtygc{\mathcal{C};p }{ \mathbf{new}~e_1~e_2 }{ \mathbf{arr}~\tau~j }{ i_1 + i_2 }{ m_1 + m_2 + j}{\max(h_1,h_2,p+q_1+q_2+j) }{q_1+q_2+j} }{\jtygc{\mathcal{C};p }{ e_1 }{\tau }{ i_1 }{ m_1}{h_1}{q_1}  & \jtygc{\mathcal{C};p+q_1 }{ e_2 }{ \mathbf{nat}~j }{ i_2 }{ m_2}{h_2}{q_2} } \\
 	
-	\infer[\textsc{TyRead}]{\jtygc{\mathcal{C};p }{ e_1[e_2] }{ \tau }{ i_1 + i_2 }{ m_1 + m_2}{\max(h_1,h_2,p+q_1+q_2)}{q_1} }{\jtygc{\mathcal{C};p }{ e_1 }{ \mathbf{arr}~\tau~j_1 }{ i_1 }{ m_1}{h_1}{q_1} & \jtygc{\mathcal{C};p+q_1 }{ e_2 }{ \mathbf{nat}~j_2 }{ i_2 }{ m_2}{h_2}{q_2} & \mathcal{C}.1 \vdash j_2 <_n j_1 } \\
+	\infer[\textsc{TyRead}]{\jtygc{\mathcal{C};p }{ e_1[e_2] }{ \tau }{ i_1 + i_2 }{ m_1 + m_2}{\max(h_1,h_2,p+q_1+q_2)}{q_1+q_2} }{\jtygc{\mathcal{C};p }{ e_1 }{ \mathbf{arr}~\tau~j_1 }{ i_1 }{ m_1}{h_1}{q_1} & \jtygc{\mathcal{C};p+q_1 }{ e_2 }{ \mathbf{nat}~j_2 }{ i_2 }{ m_2}{h_2}{q_2} & \mathcal{C}.1 \vdash j_2 <_n j_1 } \\
 	
-	\infer[\textsc{TyWrite}]{\jtygc{\mathcal{C};p }{ e_1[e_2] := e_3 }{ \mathbf{1} }{ i_1 + i_2 + i_3 }{ m_1 + m_2 + m_3}{\max(h_1,h_2,h_3,p+q_1+q_2+q_3)}{0} }{\jtygc{\mathcal{C} }{ e_1 }{ \mathbf{arr}~\tau~j_1 }{ i_1 }{ m_1}{h_1}{q_1} & \jtygc{\mathcal{C};p+q_1 }{ e_2 }{\mathbf{nat}~j_2 }{ i_2 }{ m_2}{h_2}{q_2} & \mathcal{C}.1 \vdash j_2 <_n j_1 & \jtygc{\mathcal{C};p+q_1+q_2 }{ e_3 }{ \tau }{ i_3 }{ m_3}{h_3}{q_3} } \\
+	\infer[\textsc{TyWrite}]{\jtygc{\mathcal{C};p }{ e_1[e_2] := e_3 }{ \mathbf{1} }{ i_1 + i_2 + i_3 }{ m_1 + m_2 + m_3}{\max(h_1,h_2,h_3,p+q_1+q_2+q_3)}{q_1+q_2+q_3} }{\jtygc{\mathcal{C} }{ e_1 }{ \mathbf{arr}~\tau~j_1 }{ i_1 }{ m_1}{h_1}{q_1} & \jtygc{\mathcal{C};p+q_1 }{ e_2 }{\mathbf{nat}~j_2 }{ i_2 }{ m_2}{h_2}{q_2} & \mathcal{C}.1 \vdash j_2 <_n j_1 & \jtygc{\mathcal{C};p+q_1+q_2 }{ e_3 }{ \tau }{ i_3 }{ m_3}{h_3}{q_3} } \\
 	
 	\infer[\textsc{TySub}]{\jtygc{\mathcal{C};p_2 }{ e }{\tau_2 }{ i_2 }{ m_2}{h_2}{q_2} }{\jtygc{\mathcal{C};p_1 }{ e }{ \tau_1 }{ i_1 }{ m_1 }{h_1}{q_1} & \mathcal{C}.1 \vdash \tau_1 \equiv \tau_2 & \mathcal{C}.1 \vdash i_1 \le_r i_2 & \mathcal{C}.1 \vdash m_1 \le_n m_2 & \mathcal{C}.1 \vdash h_1 \le_n h_2 && \mathcal{C}.1 \vdash q_1 \le_n q_2 & \mathcal{C}.1 \vdash p_1 \ge_n p_2} \\
 	
