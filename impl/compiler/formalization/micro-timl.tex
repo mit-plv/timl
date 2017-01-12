@@ -4,6 +4,8 @@
 \usepackage{amsmath,stmaryrd}
 \usepackage{eufrak}
 \usepackage[a4paper,showframe]{geometry}
+\usepackage{graphicx}
+\usepackage[final]{pdfpages}
 
 \newtheorem{theorem}{Theorem}
 
@@ -307,27 +309,6 @@
 
 \section{Code generation}
 
-\[
-\scriptsize
-\begin{array}{rcl}
-c,\tau,i & ::= & \mathrm{(Index...)} \mid \tau \times \tau \mid \tau + \tau \mid (\mathcal{T},i) \mid \tau~c \mid \lambda \alpha::\kappa. \tau \\
-& \mid & \forall \alpha :: \kappa. \tau \mid \exists \alpha :: \kappa. \tau \mid \mu \alpha :: \kappa. \tau \mid \mathbf{1} \mid \mathbf{nat}~i \mid \mathbf{arr}~\tau~i \\
-\kappa & ::= & \mathrm{(Sort...)} \mid \star \mid \kappa \Rightarrow \kappa \\
-\Sigma & ::= & \{ \ell_1:\tau_1, \cdots, \ell_n:\tau_n \} \\
-\mathcal{T} & ::= & \{ r_1:\tau_1, \cdots, r_n:\tau_n \} \\
-\mathcal{K} & ::= & \{ \alpha_1::\kappa_1, \cdots, \alpha_n::\kappa_n \} \\
-r & ::= & r_1 \mid r_2 \mid r_3 \mid \cdots \\
-w & ::= & \ell \mid i \mid n \mid () \mid w[c] \mid \mathbf{pack} \langle c \mid w \rangle \mid \mathbf{fold}~w \mid \mathbf{inl}~w \mid \mathbf{inr}~w \\
-v & ::= & r \mid w \mid v[c] \mid \mathbf{pack} \langle c \mid v \rangle \mid \mathbf{fold}~v \mid \mathbf{inl}~v \mid \mathbf{inr}~v \\
-h & ::= & (w_1,w_2) \mid \mathbf{code}[\overrightarrow{\alpha::\kappa}(\mathcal{T},i).I ] \mid \vec{w} \\
-H & ::= & \{ \ell_1 \mapsto h_1, \cdots, \ell_n \mapsto h_n \} \\
-R & ::= & \{ r_0 \mapsto w_0, r_1 \mapsto w_1, \cdots, r_n \mapsto w_n  \} \\
-\iota & ::= & \mathbf{prim}_{bt}~r_d,r_s,r_t \mid \mathbf{br}~r,v \mid \mathbf{mov}~r_d,v \mid \mathbf{newpair}~r_d,r_s,r_t \\
-& \mid & \mathbf{ldfst}~r_d,r_s \mid \mathbf{ldsnd}~r_d,r_s \mid \mathbf{unfold}~r_d \mid \mathbf{unpack}[\alpha,r_d],v \\
-& \mid & \mathbf{newarr}~r_d,r_s,r_t \mid \mathbf{load}~r_d,r_s[r_t] \mid \mathbf{store}~r_d[r_s],r_t \\
-I & ::= & \iota;I \mid \mathbf{jmp}~v~\mid \mathbf{halt}[\tau] \\
-P & ::= & (H,R,I)
-\end{array}
-\]
+\includepdf[pages=-]{TiTAL}
 
 \end{document}
