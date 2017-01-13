@@ -31,14 +31,14 @@ parser.sml \
 compiler.sml \
 mlton-compiler.sml
 
-MLTON_FLAGS = -link-opt "-lstdc++ `llvm-config --ldflags --system-libs --libs all`"
+MLTON_FLAGS = -link-opt "-lstdc++ -L./sml-llvm -lllvm64 `llvm-config --ldflags --system-libs --libs all`"
 
 default: smlnj
 
 all: smlnj mlton
 
 smlnj: compiler.cm
-	cp sml-llvm/llvm.dylib .
+	cp sml-llvm/libllvm32.so .
 	ml-build -Ccompiler-mc.error-non-exhaustive-match=true -Ccompiler-mc.error-non-exhaustive-bind=true -Ccontrol.poly-eq-warn=false compiler.cm Compiler.main compiler-image
 
 mlton: compiler
@@ -46,7 +46,7 @@ mlton: compiler
 compiler: compiler.mlb $(FILES)
 	mlyacc micro-timl.grm
 	mllex micro-timl.lex
-	mlton $(MLTON_FLAGS) compiler.mlb sml-llvm/llvm_core.o sml-llvm/llvm_bitwriter.o
+	mlton $(MLTON_FLAGS) compiler.mlb
 
 clean:
-	rm -rf .cm compiler-image* compiler *.dylib
+	rm -rf .cm compiler-image* compiler *.so
