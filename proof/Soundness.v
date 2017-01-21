@@ -751,6 +751,56 @@ End RealTime.
 (* Module Time := RealTime. *)
 (* Module Time := NatTime. *)
 
+Section Forall3.
+
+  Variables A B C : Type.
+  Variable R : A -> B -> C -> Prop.
+
+  Inductive Forall3 : list A -> list B -> list C -> Prop :=
+  | Forall3_nil : Forall3 [] [] []
+  | Forall3_cons : forall x y z l l' l'',
+      R x y z -> Forall3 l l' l'' -> Forall3 (x::l) (y::l') (z::l'').
+
+End Forall3.
+
+Hint Constructors Forall3.
+
+Ltac think' ext solver :=
+  repeat (match goal with
+          | [ H : Some _ = Some _ |- _ ] => inversion H ; clear H ; subst
+          | [ H : inl _ = inr _ |- _ ] => inversion H ; clear H ; subst
+          | [ H : inr _ = inr _ |- _ ] => inversion H ; clear H ; subst
+          | [ H : _ |- _ ] => erewrite H in * |- by solver
+          | [ H : _ |- _ ] => erewrite H by solver
+          | [ H : andb _ _ = true |- _ ] =>
+            apply andb_true_iff in H ; destruct H
+          | [ H : orb _ _ = false |- _ ] =>
+            apply orb_false_iff in H ; destruct H
+          | [ H : Equivalence.equiv _ _ |- _ ] =>
+            unfold Equivalence.equiv in H ; subst
+          | [ H : _ /\ _ |- _ ] => destruct H
+          | [ H : exists x, _ |- _ ] => destruct H
+          end || (progress ext)).
+
+Ltac think := think' idtac ltac:(eauto).
+
+Lemma map_nth_error_full : forall T U (F : T -> U) ls n,
+    nth_error (map F ls) n = match nth_error ls n with
+                             | None => None
+                             | Some v => Some (F v)
+                             end.
+Proof.
+  induction ls; destruct n; simpl; intros; think; auto.
+Qed.
+
+Lemma nth_error_map_elim : forall A B (f : A -> B) ls i b, nth_error (List.map f ls) i = Some b -> exists a, nth_error ls i = Some a /\ f a = b.
+  intros.
+  rewrite map_nth_error_full in H.
+  destruct (option_dec (nth_error ls i)).
+  destruct s; rewrite e in *; invert H; eexists; eauto.
+  rewrite e in *; discriminate.
+Qed.
+
 Module M (Time : TIME).
   Import Time.
 
@@ -790,34 +840,28 @@ Module M (Time : TIME).
              end
            end.
 
-  (* The constructor language *)
+  (* The index language *)
 
-  Inductive cstr_const :=
-  | CCIdxTT
-  | CCIdxNat (n : nat)
-  | CCTime (r : time_type)
-  | CCTypeUnit
-  | CCTypeInt
+  Inductive idx_const :=
+  | ICTT
+  | ICNat (n : nat)
+  | ICTime (r : time_type)
   .
 
-  (* Inductive cstr_un_op := *)
-  (* . *)
+  Inductive idx_un_op :=
+  | IUNatNeg
+  .
 
-  Inductive cstr_bin_op :=
-  | CBTimeAdd
-  | CBTimeMinus
-  | CBTimeMax
-  | CBTypeProd
-  | CBTypeSum
-  (* | CBApp *)
+  Inductive idx_bin_op :=
+  | IBTimeAdd
+  | IBTimeMinus
+  | IBTimeMax
   .
 
   Inductive quan :=
   | QuanForall
   | QuanExists
   .
-
-  Definition var := nat.
 
   Inductive prop_bin_conn :=
   | PBCAnd
@@ -832,61 +876,96 @@ Module M (Time : TIME).
   | PBBigO (arity : nat)
   .
 
-  Inductive sort :=
+  Inductive base_sort :=
   | BSNat
   | BSUnit
   | BSBool
   | BSTimeFun (arity : nat)
   .
 
-  Inductive cstr :=
-  | CVar (x : var)
-  | CConst (cn : cstr_const)
-  (* | CUnOp (opr : cstr_un_op) (c : cstr) *)
-  | CBinOp (opr : cstr_bin_op) (c1 c2 : cstr)
-  | CIte (i1 i2 i3 : cstr)
-  | CTimeAbs (i : cstr)
-  | CTimeApp (arity : nat) (c1 c2 : cstr)
-  | CArrow (t1 i t2 : cstr)
-  | CAbs (* (k : kind) *) (t : cstr)
-  | CApp (c1 c2 : cstr)
-  | CQuan (q : quan) (k : kind) (c : cstr)
-  | CRec (k : kind) (t : cstr)
-  | CRef (t : cstr)
+  Definition var := nat.
 
-  with kind :=
-       | KType
-       | KArrow (k1 k2 : kind)
-       | KBaseSort (b : sort)
-       | KSubset (k : kind) (p : prop)
-
-  with prop :=
-       | PTrue
-       | PFalse
-       | PBinConn (opr : prop_bin_conn) (p1 p2 : prop)
-       | PNot (p : prop)
-       | PBinPred (opr : prop_bin_pred) (i1 i2 : cstr)
-       | PQuan (q : quan) (b : sort) (p : prop)
+  Inductive idx :=
+  | IVar (x : var)
+  | IConst (cn : idx_const)
+  | IUnOp (opr : idx_un_op) (c : idx)
+  | IBinOp (opr : idx_bin_op) (c1 c2 : idx)
+  | IIte (i1 i2 i3 : idx)
+  | ITimeAbs (i : idx)
+  | ITimeApp (arity : nat) (c1 c2 : idx)
+  .
+  
+  Inductive prop :=
+  | PTrueFalse (b : bool)
+  | PBinConn (opr : prop_bin_conn) (p1 p2 : prop)
+  | PNot (p : prop)
+  | PBinPred (opr : prop_bin_pred) (i1 i2 : idx)
+  | PQuan (q : quan) (b : base_sort) (p : prop)
+  .
+  
+  Inductive sort :=
+  | SBaseSort (b : base_sort)
+  | SSubset (s : base_sort) (p : prop)
   .
 
-  Scheme cstr_mutind := Induction for cstr Sort Prop
-  with kind_mutind := Induction for kind Sort Prop
-  with prop_mutind := Induction for prop Sort Prop.
+  (* the type language *)
+  
+  Inductive ty_const :=
+  | TCUnit
+  | TCInt
+  .
 
-  Combined Scheme cstr_kind_prop_mutind from cstr_mutind, kind_mutind, prop_mutind. 
+  Inductive ty_un_op :=
+  | TURef
+  .
 
-  Definition KUnit := KBaseSort BSUnit.
-  Definition KBool := KBaseSort BSBool.
-  Definition KNat := KBaseSort BSNat.
-  Definition KTimeFun arity := KBaseSort (BSTimeFun arity).
-  Definition KTime := KTimeFun 0.
+  Inductive ty_bin_op :=
+  | TBProd
+  | TBSum
+  .
 
-  Notation Tconst r := (CConst (CCTime r)).
+  Inductive kind :=
+  | KType
+  | KArrow (s : sort) (k : kind)
+  .
+  
+  Inductive ty :=
+  | TVar (x : var)
+  | TConst (cn : ty_const)
+  | TUnOp (opr : ty_un_op) (c : ty)
+  | TBinOp (opr : ty_bin_op) (c1 c2 : ty)
+  | TArrow (t1 : ty) (i : idx) (t2 : ty)
+  | TAbs (s : sort) (t : ty)
+  | TApp (t : ty) (i : idx)
+  | TQuan (q : quan) (k : kind) (t : ty)
+  | TQuanI (q : quan) (s : sort) (t : ty)
+  | TRec (k : kind) (t : ty) (args : ty_list)
+  with ty_list :=
+       | TLNil
+       | TLCons (hd : ty) (tl : ty_list)
+  .
+
+  Scheme ty_mutind := Induction for ty Sort Prop
+  with ty_list_mutind := Induction for ty_list Sort Prop.
+
+  Combined Scheme ty_ty_list_mutind from ty_mutind, ty_list_mutind.
+
+  Definition SUnit := SBaseSort BSUnit.
+  Definition SBool := SBaseSort BSBool.
+  Definition SNat := SBaseSort BSNat.
+  Definition STimeFun arity := SBaseSort (BSTimeFun arity).
+  Definition STime := STimeFun 0.
+  Definition BSTime := BSTimeFun 0.
+
+  Notation Tconst r := (IConst (ICTime r)).
   Notation T0 := (Tconst Time0).
   Notation T1 := (Tconst Time1).
-  Definition Tadd := CBinOp CBTimeAdd.
-  Definition Tminus := CBinOp CBTimeMinus.
+  Definition Tadd := IBinOp IBTimeAdd.
+  Definition Tminus := IBinOp IBTimeMinus.
+  Definition Tmax := IBinOp IBTimeMax.
 
+  Definition PTrue := PTrueFalse true.
+  Definition PFalse := PTrueFalse false.
   Definition PAnd := PBinConn PBCAnd.
   Definition POr := PBinConn PBCOr.
   Definition PImply := PBinConn PBCImply.
@@ -897,16 +976,13 @@ Module M (Time : TIME).
   (* Notation "0" := T0 : idx_scope. *)
   (* Notation "1" := T1 : idx_scope. *)
 
-  Definition Tmax := CBinOp CBTimeMax.
+  Definition TForall := TQuan QuanForall.
+  Definition TExists := TQuan QuanExists.
 
-  Definition CForall := CQuan QuanForall.
-  Definition CExists := CQuan QuanExists.
+  Definition TUnit := TConst TCUnit.
 
-  Definition CTypeUnit := CConst CCTypeUnit.
-
-  Definition CProd := CBinOp CBTypeProd.
-  Definition CSum := CBinOp CBTypeSum.
-  (* Definition CApp := CBinOp CBApp. *)
+  Definition TProd := TBinOp TBProd.
+  Definition TSum := TBinOp TBSum.
 
   Definition Tle := PBinPred PBTimeLe.
   Definition TEq := PBinPred PBTimeEq.
@@ -919,108 +995,156 @@ Module M (Time : TIME).
   Require BinIntDef.
   Definition int := BinIntDef.Z.t.
 
-  Definition CInt := CConst CCTypeInt.
+  Definition TInt := TConst TCInt.
 
-  Definition const_kind cn :=
+  Definition const_base_sort cn :=
     match cn with
-    | CCIdxTT => KUnit
-    | CCIdxNat _ => KNat
-    | CCTime _ => KTime
-    | CCTypeUnit => KType
-    | CCTypeInt => KType
+    | ICTT => BSUnit
+    | ICNat _ => BSNat
+    | ICTime _ => BSTime
     end
   .
 
-  Definition cbinop_arg1_kind opr :=
+  Definition iunop_arg_base_sort opr :=
     match opr with
-    | CBTimeAdd => KTime
-    | CBTimeMinus => KTime
-    | CBTimeMax => KTime
-    | CBTypeProd => KType
-    | CBTypeSum => KType
+    | IUNatNeg => BSNat
     end.
 
-  Definition cbinop_arg2_kind opr :=
+  Definition iunop_result_base_sort opr :=
     match opr with
-    | CBTimeAdd => KTime
-    | CBTimeMinus => KTime
-    | CBTimeMax => KTime
-    | CBTypeProd => KType
-    | CBTypeSum => KType
+    | IUNatNeg => BSNat
     end.
 
-  Definition cbinop_result_kind opr :=
+  Definition ibinop_arg1_base_sort opr :=
     match opr with
-    | CBTimeAdd => KTime
-    | CBTimeMinus => KTime
-    | CBTimeMax => KTime
-    | CBTypeProd => KType
-    | CBTypeSum => KType
+    | IBTimeAdd => BSTime
+    | IBTimeMinus => BSTime
+    | IBTimeMax => BSTime
     end.
 
-  Definition binpred_arg1_kind opr :=
+  Definition ibinop_arg2_base_sort opr :=
     match opr with
-    | PBTimeLe => KTime
-    | PBTimeEq => KTime
-    | PBBigO n => KTimeFun n
+    | IBTimeAdd => BSTime
+    | IBTimeMinus => BSTime
+    | IBTimeMax => BSTime
+    end.
+
+  Definition ibinop_result_base_sort opr :=
+    match opr with
+    | IBTimeAdd => BSTime
+    | IBTimeMinus => BSTime
+    | IBTimeMax => BSTime
+    end.
+
+  Definition binpred_arg1_base_sort opr :=
+    match opr with
+    | PBTimeLe => BSTime
+    | PBTimeEq => BSTime
+    | PBBigO n => BSTimeFun n
     end
   .
 
-  Definition binpred_arg2_kind opr :=
+  Definition binpred_arg2_base_sort opr :=
     match opr with
-    | PBTimeLe => KTime
-    | PBTimeEq => KTime
-    | PBBigO n => KTimeFun n
+    | PBTimeLe => BSTime
+    | PBTimeEq => BSTime
+    | PBBigO n => BSTimeFun n
     end
   .
 
+  Definition sctx := list sort.
   Definition kctx := list kind.
   
-  Section shift_c_c.
+  Section shift.
 
     Variable n : nat.
     
-    Fixpoint shift_c_c (x : var) (b : cstr) : cstr :=
+    Fixpoint shift_i_i (x : var) (b : idx) : idx :=
       match b with
-      | CVar y =>
+      | IVar y =>
         if x <=? y then
-          CVar (n + y)
+          IVar (n + y)
         else
-          CVar y
-      | CConst cn => CConst cn
-      | CBinOp opr c1 c2 => CBinOp opr (shift_c_c x c1) (shift_c_c x c2)
-      | CIte i1 i2 i3 => CIte (shift_c_c x i1) (shift_c_c x i2) (shift_c_c x i3)
-      | CTimeAbs i => CTimeAbs (shift_c_c (1 + x) i)
-      | CTimeApp n c1 c2 => CTimeApp n (shift_c_c x c1) (shift_c_c x c2)
-      | CArrow t1 i t2 => CArrow (shift_c_c x t1) (shift_c_c x i) (shift_c_c x t2)
-      | CAbs t => CAbs (shift_c_c (1 + x) t)
-      | CApp c1 c2 => CApp (shift_c_c x c1) (shift_c_c x c2)
-      | CQuan q k c => CQuan q (shift_c_k x k) (shift_c_c (1 + x) c)
-      | CRec k t => CRec (shift_c_k x k) (shift_c_c (1 + x) t)
-      | CRef t => CRef (shift_c_c x t)
+          IVar y
+      | IConst cn => IConst cn
+      | IUnOp opr i => IUnOp opr (shift_i_i x i)
+      | IBinOp opr c1 c2 => IBinOp opr (shift_i_i x c1) (shift_i_i x c2)
+      | IIte i1 i2 i3 => IIte (shift_i_i x i1) (shift_i_i x i2) (shift_i_i x i3)
+      | ITimeAbs i => ITimeAbs (shift_i_i (1 + x) i)
+      | ITimeApp n c1 c2 => ITimeApp n (shift_i_i x c1) (shift_i_i x c2)
+      end.
+    
+    Fixpoint shift_i_p (x : var) (b : prop) : prop :=
+      match b with
+      | PTrueFalse cn => PTrueFalse cn
+      | PBinConn opr p1 p2 => PBinConn opr (shift_i_p x p1) (shift_i_p x p2)
+      | PNot p => PNot (shift_i_p x p)
+      | PBinPred opr i1 i2 => PBinPred opr (shift_i_i x i1) (shift_i_i x i2)
+      | PQuan q b p => PQuan q b (shift_i_p (1 + x) p)
+      end.
+
+    Fixpoint shift_i_s (x : var) (b : sort) : sort :=
+      match b with
+      | SBaseSort b => SBaseSort b
+      | SSubset s p => SSubset s (shift_i_p (1 + x) p)
+      end.
+    
+    Fixpoint shift_i_k (x : var) (b : kind) : kind :=
+      match b with
+      | KType => KType
+      | KArrow s k => KArrow (shift_i_s x s) (shift_i_k x k)
+      end.
+
+    Fixpoint shift_i_t (x : var) (b : ty) : ty :=
+      match b with
+      | TVar y => TVar y
+      | TConst cn => TConst cn
+      | TUnOp opr t => TUnOp opr (shift_i_t x t)
+      | TBinOp opr c1 c2 => TBinOp opr (shift_i_t x c1) (shift_i_t x c2)
+      | TArrow t1 i t2 => TArrow (shift_i_t x t1) (shift_i_i x i) (shift_i_t x t2)
+      | TAbs s t => TAbs (shift_i_s x s) (shift_i_t (1 + x) t)
+      | TApp t i => TApp (shift_i_t x t) (shift_i_i x i)
+      | TQuan q k c => TQuan q (shift_i_k x k) (shift_i_t x c)
+      | TQuanI q s c => TQuanI q (shift_i_s x s) (shift_i_t (1 + x) c)
+      | TRec k t args => TRec (shift_i_k x k) (shift_i_t x t) (shift_i_ts x args)
       end
-    with shift_c_k (x : var) (b : kind) : kind :=
+    with shift_i_ts (x : var) (b : ty_list) : ty_list :=
            match b with
-           | KType => KType
-           | KArrow k1 k2 => KArrow (shift_c_k x k1) (shift_c_k x k2)
-           | KBaseSort b => KBaseSort b
-           | KSubset k p => KSubset (shift_c_k x k) (shift_c_p (1 + x) p)
-           end
-    with shift_c_p (x : var) (b : prop) : prop :=
-           match b with
-           | PTrue => PTrue
-           | PFalse => PFalse
-           | PBinConn opr p1 p2 => PBinConn opr (shift_c_p x p1) (shift_c_p x p2)
-           | PNot p => PNot (shift_c_p x p)
-           | PBinPred opr i1 i2 => PBinPred opr (shift_c_c x i1) (shift_c_c x i2)
-           | PQuan q b p => PQuan q b (shift_c_p (1 + x) p)
+           | TLNil => TLNil
+           | TLCons hd tl => TLCons (shift_i_t x hd) (shift_i_ts x tl)
            end.
 
-  End shift_c_c.
+    Fixpoint shift_t_t (x : var) (b : ty) : ty :=
+      match b with
+      | TVar y =>
+        if x <=? y then
+          TVar (n + y)
+        else
+          TVar y
+      | TConst cn => TConst cn
+      | TUnOp opr t => TUnOp opr (shift_t_t x t)
+      | TBinOp opr c1 c2 => TBinOp opr (shift_t_t x c1) (shift_t_t x c2)
+      | TArrow t1 i t2 => TArrow (shift_t_t x t1) i (shift_t_t x t2)
+      | TAbs s t => TAbs s (shift_t_t x t)
+      | TApp t i => TApp (shift_t_t x t) i
+      | TQuan q k c => TQuan q k (shift_t_t (1 + x) c)
+      | TQuanI q s c => TQuanI q s (shift_i_t x c)
+      | TRec k t args => TRec k (shift_t_t (1 + x) t) (shift_t_ts x args)
+      end
+    with shift_t_ts (x : var) (b : ty_list) : ty_list :=
+           match b with
+           | TLNil => TLNil
+           | TLCons hd tl => TLCons (shift_t_t x hd) (shift_t_ts x tl)
+           end.
+        
+  End shift.
   
-  Definition shift0_c_c := shift_c_c 1 0.
-  Definition shift0_c_k := shift_c_k 1 0.
-  Definition shift0_c_p := shift_c_p 1 0.
+  Definition shift0_i_i := shift_i_i 1 0.
+  Definition shift0_i_s := shift_i_s 1 0.
+  Definition shift0_i_p := shift_i_p 1 0.
+  Definition shift0_i_k := shift_i_k 1 0.
+  Definition shift0_i_t := shift_i_t 1 0.
+  Definition shift0_t_t := shift_t_t 1 0.
 
   Inductive LtEqGt (a b : nat) :=
     | Lt : a < b -> LtEqGt a b
@@ -1036,8 +1160,10 @@ Module M (Time : TIME).
     end.
   
   Infix "<=>?" := lt_eq_gt_dec (at level 70).
+
+  (*here*)
   
-  Section subst_c_c.
+  Section subst.
 
     Fixpoint subst_c_c (x : var) (v : cstr) (b : cstr) : cstr :=
       match b with
@@ -4094,20 +4220,6 @@ lift2 (fst (strip_subsets L))
       repeat eexists_split; eauto.
     Qed.
     
-    Section Forall3.
-
-      Variables A B C : Type.
-      Variable R : A -> B -> C -> Prop.
-
-      Inductive Forall3 : list A -> list B -> list C -> Prop :=
-      | Forall3_nil : Forall3 [] [] []
-      | Forall3_cons : forall x y z l l' l'',
-          R x y z -> Forall3 l l' l'' -> Forall3 (x::l) (y::l') (z::l'').
-
-    End Forall3.
-
-    Hint Constructors Forall3.
-
     Lemma tstep_tyeq L t t' :
       tstep t t' ->
       tyeq L t t'.
@@ -4593,42 +4705,6 @@ lift2 (fst (strip_subsets L))
       simpl in *.
       rewrite my_skipn_0 in *.
       eauto.
-    Qed.
-
-    Ltac think' ext solver :=
-      repeat (match goal with
-              | [ H : Some _ = Some _ |- _ ] => inversion H ; clear H ; subst
-              | [ H : inl _ = inr _ |- _ ] => inversion H ; clear H ; subst
-              | [ H : inr _ = inr _ |- _ ] => inversion H ; clear H ; subst
-              | [ H : _ |- _ ] => erewrite H in * |- by solver
-              | [ H : _ |- _ ] => erewrite H by solver
-              | [ H : andb _ _ = true |- _ ] =>
-                apply andb_true_iff in H ; destruct H
-              | [ H : orb _ _ = false |- _ ] =>
-                apply orb_false_iff in H ; destruct H
-              | [ H : Equivalence.equiv _ _ |- _ ] =>
-                unfold Equivalence.equiv in H ; subst
-              | [ H : _ /\ _ |- _ ] => destruct H
-              | [ H : exists x, _ |- _ ] => destruct H
-              end || (progress ext)).
-
-    Ltac think := think' idtac ltac:(eauto).
-
-    Lemma map_nth_error_full : forall T U (F : T -> U) ls n,
-        nth_error (map F ls) n = match nth_error ls n with
-                                 | None => None
-                                 | Some v => Some (F v)
-                                 end.
-    Proof.
-      induction ls; destruct n; simpl; intros; think; auto.
-    Qed.
-
-    Lemma nth_error_map_elim : forall A B (f : A -> B) ls i b, nth_error (List.map f ls) i = Some b -> exists a, nth_error ls i = Some a /\ f a = b.
-      intros.
-      rewrite map_nth_error_full in H.
-      destruct (option_dec (nth_error ls i)).
-      destruct s; rewrite e in *; invert H; eexists; eauto.
-      rewrite e in *; discriminate.
     Qed.
 
     Section var_L.
