@@ -6287,6 +6287,7 @@ lift2 (fst (strip_subsets L))
             (*here*)
             (* [kinding_kinding2] requires [kind_to_kind2] not to ignore the [KArrow] case; with the new [kind_to_kind2] version, [lgeq_Var_kind_to_kind2_refl'] requires [lgeq_tyeq]; [lgeq_tyeq] requires all of the three cases in [lgeq]'s definition to have the [tyeq] clause; the [tyeq] clause in the third case causes the problem here.
              *)
+            
             econstructor.
             rewrite app_comm_cons.
             eapply lgeq_tyeq.
