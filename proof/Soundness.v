@@ -3723,26 +3723,19 @@ Module M (Time : TIME).
   
   Ltac interp_le := try eapply interp_time_interp_prop_le; apply_all interp_prop_le_interp_time.
 
-  Inductive kdeq : kctx -> kind -> kind -> Prop :=
-  | KdEqKType L :
-      kdeq L KType KType
-  | KdEqKArrow L k1 k2 k1' k2' :
-      kdeq L k1 k1' ->
-      kdeq L k2 k2' ->
-      kdeq L (KArrow k1 k2) (KArrow k1' k2')
-  | KdEqBaseSort L b :
-      kdeq L (KBaseSort b) (KBaseSort b)
-  | KdEqSubset L k p k' p' :
-      kdeq L k k' ->
-      interp_prop (k :: L) (p <===> p')%idx ->
-      kdeq L (KSubset k p) (KSubset k' p')
+  Inductive sorteq : sctx -> sort -> sort -> Prop :=
+  | SortEqBaseSort L b :
+      sorteq L (SBaseSort b) (SBaseSort b)
+  | SortEqSubset L b p p' :
+      interp_prop (SBaseSort b :: L) (p <===> p')%idx ->
+      sorteq L (SSubset b p) (SSubset b p')
   .
 
-  Hint Constructors kdeq.
+  Hint Constructors sorteq.
 
-  Lemma kdeq_kind_to_sort L k k' :
-    kdeq L k k' ->
-    kind_to_sort k' = kind_to_sort k.
+  Lemma sorteq_get_base_sort L k k' :
+    sorteq L k k' ->
+    get_base_sort k' = get_base_sort k.
   Proof.
     induct 1; simplify; eauto.
   Qed.
@@ -3771,7 +3764,7 @@ Module M (Time : TIME).
     eapply IHks.
   Qed.
   
-  Lemma kdeq_premises' ks :
+  Lemma sorteq_premises' ks :
     forall Kps K'ps P P'
       (f1 : Kps -> P -> P' -> Prop)
       (f2 : Kps -> K'ps -> Prop)
@@ -3795,32 +3788,35 @@ Module M (Time : TIME).
     eauto.
   Qed.
   
-  Lemma kdeq_premises L k k' :
-    kdeq L k k' ->
+  Lemma sorteq_premises L k k' :
+    sorteq L k k' ->
     let bs_ps := strip_subsets L in
     let bs := fst bs_ps in
     let ps := snd bs_ps in
     let ps := map shift0_i_p ps in
-    let b := kind_to_sort k in
+    let b := get_base_sort k in
     forall_ (b :: bs)
                (lift2 (b :: bs) (fun a b : Prop => a -> (a <-> b))
                       (interp_p (b :: bs) (and_all (strip_subset k ++ ps)))
                       (interp_p (b :: bs) (and_all (strip_subset k' ++ ps)))).
   Proof.
     induct 1; simplify; eauto; rewrite ? fuse_lift1_lift2, ? dedup_lift2 in *; try solve [eapply forall_lift1; propositional].
-    rename H into Hkdeq.
-    copy Hkdeq Heq.
-    eapply kdeq_kind_to_sort in Heq.
     cbn in *.
-    rewrite ? Heq in *.
     rewrite ? fuse_lift1_lift2 in *.
     rewrite ? fuse_lift2_lift2_2 in *.
     rewrite fuse_lift3_lift2_1 in *.
-    eapply kdeq_premises'; [| eapply H0 | eapply IHkdeq].
-    simplify.
-    specialize (H a).
-    specialize (H1 a).
-    propositional.
+    eapply sorteq_premises' with (f2 := fun P Q => forall a, P a <-> Q a); [| eapply H | ].
+    {
+      simplify.
+      specialize (H0 a).
+      specialize (H1 a).
+      propositional.
+    }
+    {
+      rewrite dedup_lift2.
+      eapply forall_lift1.
+      propositional.
+    }
   Qed.
   
   Lemma interp_prop_subset_imply' ks :
@@ -3870,9 +3866,9 @@ Module M (Time : TIME).
   (*   apply eq_refl. *)
   (* Qed. *)
 
-  Lemma interp_prop_subset_imply k p L p0 :
-    interp_prop (KSubset k p :: L) p0 <->
-    interp_prop (k :: L) (p ===> p0)%idx.
+  Lemma interp_prop_subset_imply b p L p0 :
+    interp_prop (SSubset b p :: L) p0 <->
+    interp_prop (SBaseSort b :: L) (p ===> p0)%idx.
   Proof.
     cbn in *.
     rewrite !fuse_lift1_lift2 in *.
@@ -3952,7 +3948,7 @@ lift2 (fst (strip_subsets L))
     Qed.
    *)
   
-  Lemma kdeq_interp_prop' ks :
+  Lemma sorteq_interp_prop' ks :
     forall P P' Kps P0 K'ps
       (f1 : Kps -> P -> P' -> Prop)
       (f2 : Kps -> P' -> P0 -> Prop)
@@ -3978,177 +3974,170 @@ lift2 (fst (strip_subsets L))
     eauto.
   Qed.
   
-  Lemma kdeq_interp_prop_rev L k k' :
-    kdeq L k k' ->
+  Lemma sorteq_interp_prop_rev L k k' :
+    sorteq L k k' ->
     forall p,
       interp_prop (k' :: L) p ->
       interp_prop (k :: L) p.
   Proof.
     induct 1; eauto.
     intros p0 Hp.
-    (* specialize (IHkdeq p0). *)
+    (* specialize (IHsorteq p0). *)
     
     eapply interp_prop_subset_imply.
     eapply interp_prop_subset_imply in Hp.
-    eapply IHkdeq in Hp.
-    rename H into Hkdeq.
-    copy Hkdeq Hps.
-    eapply kdeq_premises in Hps.
     cbn in *.
-    copy Hkdeq Heq.
-    eapply kdeq_kind_to_sort in Heq.
-    repeat rewrite Heq in *.
     repeat rewrite fuse_lift1_lift2 in *.
     repeat rewrite fuse_lift2_lift2_1 in *.
     repeat rewrite fuse_lift2_lift2_2 in *.
-    eapply kdeq_interp_prop'; [ | eapply H0 | eapply Hp | eapply Hps ].
-    simplify.
-    specialize (H a).
-    specialize (H1 a).
-    specialize (H2 a).
-    propositional; eauto.
+    eapply sorteq_interp_prop' with (f3 := fun P Q => forall a, P a <-> Q a); [ | eapply H | eapply Hp | ].
+    {
+      simplify.
+      specialize (H0 a).
+      specialize (H1 a).
+      specialize (H2 a).
+      propositional; eauto.
+    }
+    {
+      erewrite dedup_lift2.
+      eapply forall_lift1.
+      propositional.
+    }
     (* Anomaly: conversion was given ill-typed terms (FProd). Please report. *)
     (* Qed. *)
   Admitted.
     
-  Lemma kdeq_refl : forall L k, kdeq L k k.
+  Lemma sorteq_refl : forall L k, sorteq L k k.
   Proof.
     induct k; eauto using interp_prop_iff_refl.
   Qed.
 
-  Lemma kdeq_refl2 : forall L k k', k = k' -> kdeq L k k'.
+  Lemma sorteq_refl2 : forall L k k', k = k' -> sorteq L k k'.
   Proof.
-    intros; subst; eapply kdeq_refl.
+    intros; subst; eapply sorteq_refl.
   Qed.
   
-  Lemma kdeq_sym L a b : kdeq L a b -> kdeq L b a.
+  Lemma sorteq_sym L a b : sorteq L a b -> sorteq L b a.
   Proof.
-    induct 1; eauto using kdeq_interp_prop_rev, interp_prop_iff_sym.
+    induct 1; eauto using sorteq_interp_prop_rev, interp_prop_iff_sym.
   Qed.
 
-  Lemma kdeq_trans' L a b :
-    kdeq L a b ->
+  Lemma sorteq_trans' L a b :
+    sorteq L a b ->
     forall c,
-      kdeq L b c -> kdeq L a c.
+      sorteq L b c -> sorteq L a c.
   Proof.
-    induct 1; invert 1; eauto 6 using interp_prop_iff_trans, kdeq_interp_prop_rev, kdeq_sym.
+    induct 1; invert 1; eauto 6 using interp_prop_iff_trans, sorteq_interp_prop_rev, sorteq_sym.
   Qed.
 
-  Lemma kdeq_trans L a b c : kdeq L a b -> kdeq L b c -> kdeq L a c.
+  Lemma sorteq_trans L a b c : sorteq L a b -> sorteq L b c -> sorteq L a c.
   Proof.
-    intros; eapply kdeq_trans'; eauto.
+    intros; eapply sorteq_trans'; eauto.
   Qed.
 
-  Lemma kdeq_interp_prop L k k' :
-    kdeq L k k' ->
+  Lemma sorteq_interp_prop L k k' :
+    sorteq L k k' ->
     forall p,
       interp_prop (k :: L) p ->
       interp_prop (k' :: L) p.
   Proof.
     intros H; intros.
-    eapply kdeq_sym in H.
-    eapply kdeq_interp_prop_rev; eauto.
+    eapply sorteq_sym in H.
+    eapply sorteq_interp_prop_rev; eauto.
   Qed.
   
-  Inductive equal_kinds : list kind -> list kind -> Prop :=
-  | EKNil : equal_kinds [] []
+  Inductive equal_sorts : list sort -> list sort -> Prop :=
+  | EKNil : equal_sorts [] []
   | EKCons L L' k k' :
-      equal_kinds L L' ->
-      kdeq L k k' ->
-      equal_kinds (k :: L) (k' :: L')
+      equal_sorts L L' ->
+      sorteq L k k' ->
+      equal_sorts (k :: L) (k' :: L')
   .
 
-  Hint Constructors equal_kinds.
+  Hint Constructors equal_sorts.
   
-  Lemma equal_kinds_interp_prop L L' :
-    equal_kinds L L' ->
+  Lemma equal_sorts_interp_prop L L' :
+    equal_sorts L L' ->
     forall p,
       interp_prop L p ->
       interp_prop L' p.
   Proof.
     induct 1; simpl; eauto.
     intros p Hp.
-    rename H0 into Hkdeq.
-    copy Hkdeq Hps.
-    eapply kdeq_premises in Hps.
+    rename H0 into Hsorteq.
+    copy Hsorteq Hps.
+    eapply sorteq_premises in Hps.
     eapply admit.
   Qed.
   
-  Definition monotone : cstr -> Prop.
+  Definition monotone : idx -> Prop.
   Admitted.
 
   (* Unset Elimination Schemes. *)
 
-  Fixpoint is_idx k :=
-    match k with
-    | KType => False
-    | KArrow _ _ => False
-    | KBaseSort _ => True
-    | KSubset k _ => is_idx k
-    end.
-  
   Inductive kinding : kctx -> cstr -> kind -> Prop :=
-       | KdVar L x k :
-           nth_error L x = Some k ->
-           kinding L (CVar x) (shift_c_k (1 + x) 0 k)
-       | KdConst L cn :
-           kinding L (CConst cn) (const_kind cn)
-       | KdBinOp L opr c1 c2 :
-           kinding L c1 (cbinop_arg1_kind opr) ->
-           kinding L c2 (cbinop_arg2_kind opr) ->
-           kinding L (CBinOp opr c1 c2) (cbinop_result_kind opr)
-       | KdIte L c c1 c2 s :
-           let k := KBaseSort s in
-           kinding L c KBool ->
-           kinding L c1 k ->
-           kinding L c2 k ->
-           kinding L (CIte c c1 c2) k
-       | KdArrow L t1 i t2 :
-           kinding L t1 KType ->
-           kinding L i KTime ->
-           kinding L t2 KType ->
-           kinding L (CArrow t1 i t2) KType
-       | KdAbs L c k1 k2 :
-           wfkind L k1 ->
-           kinding (k1 :: L) c (shift_c_k 1 0 k2) ->
-           kinding L (CAbs c) (KArrow k1 k2)
-       | KdApp L c1 c2 k1 k2 :
-           kinding L c1 (KArrow k1 k2) ->
-           kinding L c2 k1 ->
-           ~ is_idx k2 ->
-           kinding L (CApp c1 c2) k2
-       | KdTimeAbs L i n :
-           kinding (KNat :: L) i (KTimeFun n) ->
-           monotone i ->
-           kinding L (CTimeAbs i) (KTimeFun (1 + n))
-       | KdTimeApp L c1 c2 n :
-           kinding L c1 (KTimeFun (S n)) ->
-           kinding L c2 KNat ->
-           kinding L (CTimeApp n c1 c2) (KTimeFun n)
-       (* todo: need elimination rule for TimeAbs *)
-       | KdQuan L quan k c :
-           wfkind L k ->
-           kinding (k :: L) c KType ->
-           kinding L (CQuan quan k c) KType
-       | KdRec L k c :
-           wfkind L k ->
-           kinding (k :: L) c (shift_c_k 1 0 k) ->
-           kinding L (CRec k c) k
-       | KdRef L t :
-           kinding L t KType ->
-           kinding L (CRef t) KType
-       | KdEq L c k k' :
-           kinding L c k ->
-           kdeq L k' k ->
-           kinding L c k'
-       (* | KdSubsetI L c k p : *)
-       (*     kinding L c k -> *)
-       (*     interp_prop L (subst_i_p (length L) c p) -> *)
-       (*     kinding L c (KSubset k p) *)
-       (* | KdSubsetE L c k p : *)
-       (*     kinding L c (KSubset k p) -> *)
-       (*     kinding L c k *)
-                   
+  | KdVar L x k :
+      nth_error L x = Some k ->
+      kinding L (CVar x) (shift_c_k (1 + x) 0 k)
+  | KdConst L cn :
+      kinding L (CConst cn) (const_kind cn)
+  | KdBinOp L opr c1 c2 :
+      kinding L c1 (cbinop_arg1_kind opr) ->
+      kinding L c2 (cbinop_arg2_kind opr) ->
+      kinding L (CBinOp opr c1 c2) (cbinop_result_kind opr)
+  | KdIte L c c1 c2 s :
+      let k := KBaseSort s in
+      kinding L c KBool ->
+      kinding L c1 k ->
+      kinding L c2 k ->
+      kinding L (CIte c c1 c2) k
+  | KdArrow L t1 i t2 :
+      kinding L t1 KType ->
+      kinding L i KTime ->
+      kinding L t2 KType ->
+      kinding L (CArrow t1 i t2) KType
+  | KdAbs L c k1 k2 :
+      wfkind L k1 ->
+      kinding (k1 :: L) c (shift_c_k 1 0 k2) ->
+      kinding L (CAbs c) (KArrow k1 k2)
+  | KdApp L c1 c2 k1 k2 :
+      kinding L c1 (KArrow k1 k2) ->
+      kinding L c2 k1 ->
+      ~ is_idx k2 ->
+      kinding L (CApp c1 c2) k2
+  | KdTimeAbs L i n :
+      kinding (KNat :: L) i (KTimeFun n) ->
+      monotone i ->
+      kinding L (CTimeAbs i) (KTimeFun (1 + n))
+  | KdTimeApp L c1 c2 n :
+      kinding L c1 (KTimeFun (S n)) ->
+      kinding L c2 KNat ->
+      kinding L (CTimeApp n c1 c2) (KTimeFun n)
+  (* todo: need elimination rule for TimeAbs *)
+  | KdQuan L quan k c :
+      wfkind L k ->
+      kinding (k :: L) c KType ->
+      kinding L (CQuan quan k c) KType
+  | KdRec L k c :
+      wfkind L k ->
+      kinding (k :: L) c (shift_c_k 1 0 k) ->
+      kinding L (CRec k c) k
+  | KdRef L t :
+      kinding L t KType ->
+      kinding L (CRef t) KType
+  | KdEq L c k k' :
+      kinding L c k ->
+      sorteq L k' k ->
+      kinding L c k'
+  (* | KdSubsetI L c k p : *)
+  (*     kinding L c k -> *)
+  (*     interp_prop L (subst_i_p (length L) c p) -> *)
+  (*     kinding L c (KSubset k p) *)
+  (* | KdSubsetE L c k p : *)
+  (*     kinding L c (KSubset k p) -> *)
+  (*     kinding L c k *)
+  .
+  
   with wfkind : kctx -> kind -> Prop :=
        | WfKdType L :
            wfkind L KType
@@ -4655,11 +4644,11 @@ lift2 (fst (strip_subsets L))
   | TyEqBetaRev L t1 t2  :
       tyeq L (subst0_c_c t2 t1) (CApp (CAbs t1) t2)
   | TyEqQuan L quan k t k' t' :
-      kdeq L k k' ->
+      sorteq L k k' ->
       tyeq (k :: L) t t' ->
       tyeq L (CQuan quan k t) (CQuan quan k' t')
   | TyEqRec L k c k' c' :
-      kdeq L k k' ->
+      sorteq L k k' ->
       tyeq (k :: L) c c' ->
       tyeq L (CRec k c) (CRec k' c')
   | TyEqRef L t t' :
@@ -4690,7 +4679,7 @@ lift2 (fst (strip_subsets L))
 
     Lemma tyeq_refl : forall t L, tyeq L t t.
     Proof.
-      induct t; eauto using interp_prop_eq_refl, kdeq_refl.
+      induct t; eauto using interp_prop_eq_refl, sorteq_refl.
       Grab Existential Variables.
       (* exact KType. *)
     Qed.
@@ -4698,56 +4687,56 @@ lift2 (fst (strip_subsets L))
     (* Lemma KdEq L c k : *)
     (*   kinding L c k -> *)
     (*   forall k', *)
-    (*     kdeq L k' k -> *)
+    (*     sorteq L k' k -> *)
     (*     kinding L c k'. *)
     (* Proof. *)
     (*   induct 1; simpl; eauto. *)
     (* Qed. *)
 
-    Lemma equal_kinds_kdeq L k1 k2 :
-      kdeq L k1 k2 ->
+    Lemma equal_sorts_sorteq L k1 k2 :
+      sorteq L k1 k2 ->
       forall L',
-        equal_kinds L L' ->
-        kdeq L' k1 k2.
+        equal_sorts L L' ->
+        sorteq L' k1 k2.
     Proof.
       induct 1; simpl; eauto.
       intros L' Hek.
       econstructor; eauto.
-      eapply equal_kinds_interp_prop; eauto using kdeq_refl.
+      eapply equal_sorts_interp_prop; eauto using sorteq_refl.
     Qed.
     
-    Lemma kdeq_tyeq' L t1 t2 :
+    Lemma sorteq_tyeq' L t1 t2 :
       tyeq L t1 t2 ->
       forall L',
-        equal_kinds L L' ->
+        equal_sorts L L' ->
         tyeq L' t1 t2.
     Proof.
-      induct 1; simpl; eauto using kdeq_refl, equal_kinds_kdeq, equal_kinds_interp_prop.
+      induct 1; simpl; eauto using sorteq_refl, equal_sorts_sorteq, equal_sorts_interp_prop.
     Qed.
 
-    Lemma equal_kinds_refl L : equal_kinds L L.
+    Lemma equal_sorts_refl L : equal_sorts L L.
     Proof.
-      induct L; simpl; eauto using kdeq_refl.
+      induct L; simpl; eauto using sorteq_refl.
     Qed.
     
-    Lemma kdeq_tyeq L k k' t t' :
-      kdeq L k k' ->
+    Lemma sorteq_tyeq L k k' t t' :
+      sorteq L k k' ->
       tyeq (k :: L) t t' ->
       tyeq (k' :: L) t t'.
     Proof.
-      eauto using kdeq_tyeq', equal_kinds_refl.
+      eauto using sorteq_tyeq', equal_sorts_refl.
     Qed.
 
     Lemma tyeq_sym L t1 t2 : tyeq L t1 t2 -> tyeq L t2 t1.
     Proof.
-      induct 1; eauto using interp_prop_eq_sym, kdeq_sym.
+      induct 1; eauto using interp_prop_eq_sym, sorteq_sym.
       {
-        econstructor; eauto using interp_prop_eq_sym, kdeq_sym.
-        eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym.
+        econstructor; eauto using interp_prop_eq_sym, sorteq_sym.
+        eapply sorteq_tyeq; eauto using sorteq_trans, sorteq_sym.
       }
       {
-        econstructor; eauto using interp_prop_eq_sym, kdeq_sym.
-        eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym.
+        econstructor; eauto using interp_prop_eq_sym, sorteq_sym.
+        eapply sorteq_tyeq; eauto using sorteq_trans, sorteq_sym.
       }
     Qed.
 
@@ -4824,11 +4813,11 @@ lift2 (fst (strip_subsets L))
         tyeq L t2 t2' ->
         whnfeq L (CArrow t1 i t2) (CArrow t1' i' t2')
     | HnfEqQuan L quan k t k' t' :
-        kdeq L k k' ->
+        sorteq L k k' ->
         tyeq (k :: L) t t' ->
         whnfeq L (CQuan quan k t) (CQuan quan k' t')
     | HnfEqRec L k c k' c' :
-        kdeq L k k' ->
+        sorteq L k k' ->
         tyeq (k :: L) c c' ->
         whnfeq L (CRec k c) (CRec k' c')
     | HnfEqRef L t t' :
@@ -4866,7 +4855,7 @@ lift2 (fst (strip_subsets L))
     
     Lemma whnfeq_refl : forall t L, whnfeq L t t.
     Proof.
-      induct t; eauto using interp_prop_eq_refl, kdeq_refl, whnfeq_tyeq.
+      induct t; eauto using interp_prop_eq_refl, sorteq_refl, whnfeq_tyeq.
     Qed.
 
     Lemma whnfeq_trans' L a b :
@@ -4878,15 +4867,15 @@ lift2 (fst (strip_subsets L))
       induct 1; try solve [induct 1; eauto using interp_prop_eq_trans, whnfeq_refl, tyeq_trans].
       {
         induct 1; eauto using interp_prop_eq_trans, whnfeq_refl, tyeq_trans.
-        econstructor; eauto using kdeq_trans.
+        econstructor; eauto using sorteq_trans.
         eapply tyeq_trans; eauto.
-        eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym, tyeq_trans.
+        eapply sorteq_tyeq; eauto using sorteq_trans, sorteq_sym, tyeq_trans.
       }
       {
         induct 1; eauto using interp_prop_eq_trans, whnfeq_refl, tyeq_trans.
-        econstructor; eauto using kdeq_trans.
+        econstructor; eauto using sorteq_trans.
         eapply tyeq_trans; eauto.
-        eapply kdeq_tyeq; eauto using kdeq_trans, kdeq_sym, tyeq_trans.
+        eapply sorteq_tyeq; eauto using sorteq_trans, sorteq_sym, tyeq_trans.
       }
     Qed.
 
@@ -5018,11 +5007,11 @@ lift2 (fst (strip_subsets L))
     Qed.
     
     Lemma obeq_Quan L q k t k' t' :
-      kdeq L k k' ->
+      sorteq L k k' ->
       tyeq (k :: L) t t' ->
       obeq L (CQuan q k t) (CQuan q k' t').
     Proof.
-      intros Hkdeq Htyeq.
+      intros Hsorteq Htyeq.
       split; eauto.
       unfold confluent.
       intros t1' Hsteps Hwhnf.
@@ -5032,11 +5021,11 @@ lift2 (fst (strip_subsets L))
     Qed.
     
     Lemma obeq_Rec L k t k' t' :
-      kdeq L k k' ->
+      sorteq L k k' ->
       tyeq (k :: L) t t' ->
       obeq L (CRec k t) (CRec k' t').
     Proof.
-      intros Hkdeq Htyeq.
+      intros Hsorteq Htyeq.
       split; eauto.
       unfold confluent.
       intros t1' Hsteps Hwhnf.
@@ -5243,7 +5232,7 @@ lift2 (fst (strip_subsets L))
     | Kd2Ref G t :
         kinding2 G t K2Type ->
         kinding2 G (CRef t) K2Type
-    (* | Kd2KdEq : *)
+    (* | Kd2SortEq : *)
     (*     kinding2 G t k *)
     (*     kinding2 G t k' *)
     with wfkind2 : list ke2 -> kind -> Prop :=
@@ -6354,10 +6343,10 @@ lift2 (fst (strip_subsets L))
           (* kinding2 (subst0_cs_ks g1 G) (subst0_cs_c (sg2sgs g2) t2) k /\ *)
           lgeq (subst0_cs_ks g1 G) (subst0_cs_c (sg2sgs g1) t1) (subst0_cs_c (sg2sgs g2) t2) k.
 
-      Definition okdeq G k :=
+      Definition osorteq G k :=
         forall g1 g2,
           subs_kd2_lgeq g1 g2 G ->
-          kdeq (subst0_cs_ks g1 G ++ L) (subst0_cs_k (sg2sgs g1) k) (subst0_cs_k (sg2sgs g2) k).
+          sorteq (subst0_cs_ks g1 G ++ L) (subst0_cs_k (sg2sgs g1) k) (subst0_cs_k (sg2sgs g2) k).
 
       Definition opropeq G p :=
         forall g1 g2,
@@ -7178,7 +7167,7 @@ lift2 (fst (strip_subsets L))
         ) /\
         (forall G k,
             wfkind2 G k ->
-            okdeq G k
+            osorteq G k
         ) /\
         (forall G p,
             wfprop2 G p ->
@@ -7501,7 +7490,7 @@ lift2 (fst (strip_subsets L))
         {
           (* Case KType *)
           intros G.
-          unfold okdeq in *; simpl in *.
+          unfold osorteq in *; simpl in *.
           intros g1 g2 Hsubeq.
           repeat rewrite subst0_cs_k_Type in *.
           eauto.
@@ -7509,7 +7498,7 @@ lift2 (fst (strip_subsets L))
         {
           (* Case KArrow *)
           intros G k1 k2 Hwfkind2_1 IHwfkind2_1 Hwfkind2_2 IHwfkind2_2.
-          unfold okdeq in *; simpl in *.
+          unfold osorteq in *; simpl in *.
           intros g1 g2 Hsubeq.
           repeat rewrite subst0_cs_k_Arrow in *.
           eauto.
@@ -7517,7 +7506,7 @@ lift2 (fst (strip_subsets L))
         {
           (* Case KBaseSort *)
           intros G s.
-          unfold okdeq in *; simpl in *.
+          unfold osorteq in *; simpl in *.
           intros g1 g2 Hsubeq.
           repeat rewrite subst0_cs_k_BaseSort in *.
           eauto.
@@ -7525,7 +7514,7 @@ lift2 (fst (strip_subsets L))
         {
           (* Case KSubset *)
           intros G k p Hwfkind2 IHwfkind2 Hwfprop2 IHwfprop2.
-          unfold okdeq, opropeq in *; simpl in *.
+          unfold osorteq, opropeq in *; simpl in *.
           intros g1 g2 Hsubeq.
           repeat rewrite subst0_cs_k_Subset in *.
           econstructor; eauto.
@@ -8149,7 +8138,7 @@ lift2 (fst (strip_subsets L))
   Lemma invert_tyeq_CExists L k1 t1 k2 t2 :
     tyeq L (CExists k1 t1) (CExists k2 t2) ->
     tyeq (k1 :: L) t1 t2 /\
-    kdeq L k1 k2.
+    sorteq L k1 k2.
   Proof.
     (*   invert 1. *)
     (*   repeat eexists_split; eauto. *)
@@ -8159,7 +8148,7 @@ lift2 (fst (strip_subsets L))
   Lemma invert_tyeq_CForall L k1 t1 k2 t2 :
     tyeq L (CForall k1 t1) (CForall k2 t2) ->
     tyeq (k1 :: L) t1 t2 /\
-    kdeq L k1 k2.
+    sorteq L k1 k2.
   Proof.
     (*   invert 1. *)
     (*   repeat eexists_split; eauto. *)
@@ -8241,12 +8230,12 @@ lift2 (fst (strip_subsets L))
       tyeq (subst_c_ks c1 (firstn n L) ++ my_skipn L (1 + n)) (subst_c_c n (shift_c_c n 0 c1) c1') (subst_c_c n (shift_c_c n 0 c2) c2').
   Admitted.
   
-  Lemma kdeq_shift_c_k L k1 k2 :
-    kdeq L k1 k2 ->
+  Lemma sorteq_shift_c_k L k1 k2 :
+    sorteq L k1 k2 ->
     forall x ls ,
       let n := length ls in
       x <= length L ->
-      kdeq (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_k n x k1) (shift_c_k n x k2).
+      sorteq (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_k n x k1) (shift_c_k n x k2).
   Proof.
     induct 1; simpl; 
       (* try rename x into x'; *)
@@ -8264,12 +8253,12 @@ lift2 (fst (strip_subsets L))
     }
   Qed.
   
-  Lemma kdeq_subst_c_k L k1 k2 :
-    kdeq L k1 k2 ->
+  Lemma sorteq_subst_c_k L k1 k2 :
+    sorteq L k1 k2 ->
     forall n k c ,
       nth_error L n = Some k ->
       kinding (my_skipn L (1 + n)) c k ->
-      kdeq (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_k n (shift_c_c n 0 c) k1) (subst_c_k n (shift_c_c n 0 c) k2).
+      sorteq (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_k n (shift_c_c n 0 c) k1) (subst_c_k n (shift_c_c n 0 c) k2).
   Proof.
     induct 1;
       try rename n into n';
@@ -8331,7 +8320,7 @@ lift2 (fst (strip_subsets L))
           f_equal.
           la.
         }
-        eapply kdeq_refl2.
+        eapply sorteq_refl2.
         rewrite shift_c_k_shift_0 by la.
         simplify.
         f_equal.
@@ -8346,7 +8335,7 @@ lift2 (fst (strip_subsets L))
           erewrite nth_error_shift_c_ks; eauto.
           rewrite nth_error_firstn; eauto.
         }
-        eapply kdeq_refl2.
+        eapply sorteq_refl2.
         erewrite length_firstn_le by la.
         rewrite shift_c_k_shift_2 by la.
         eauto.
@@ -8417,7 +8406,7 @@ lift2 (fst (strip_subsets L))
     {
       (* Case Eq *)
       econstructor; eauto.
-      eapply kdeq_shift_c_k; eauto with db_tyeq.
+      eapply sorteq_shift_c_k; eauto with db_tyeq.
     }
     {
       (* Case Subset *)
@@ -8623,7 +8612,7 @@ lift2 (fst (strip_subsets L))
     {
       (* Case Eq *)
       econstructor; eauto.
-      eapply kdeq_subst_c_k; eauto with db_tyeq.
+      eapply sorteq_subst_c_k; eauto with db_tyeq.
     }
     {
       (* Case Subset *)
@@ -11512,13 +11501,13 @@ lift2 (fst (strip_subsets L))
       simplify.
       Lemma invert_tyeq_CApps_CRec cs cs' k t k' t' :
         tyeq [] (CApps (CRec k t) cs) (CApps (CRec k' t') cs') ->
-        kdeq [] k k' /\
+        sorteq [] k k' /\
         tyeq [k] t t' /\
         Forall2 (tyeq []) cs cs'.
       Admitted.
 
       eapply invert_tyeq_CApps_CRec in Htyeq2.
-      destruct Htyeq2 as (Hkdeq & Htyeq2 & Htyeqcs).
+      destruct Htyeq2 as (Hsorteq & Htyeq2 & Htyeqcs).
       split.
       {
         rewrite Time_a_minus_a.
@@ -11652,7 +11641,7 @@ lift2 (fst (strip_subsets L))
       subst.
       simplify.
       eapply invert_tyeq_CExists in Htyeq2.
-      destruct Htyeq2 as (Htyeq2 & Hkdeq).
+      destruct Htyeq2 as (Htyeq2 & Hsorteq).
       assert (Hkdc : kinding [] c k).
       {
         eapply KdEq; eauto.
@@ -11913,11 +11902,11 @@ lift2 (fst (strip_subsets L))
       destruct Hty as (t'' & k & Htyeq2 & Hval & Hwfk & Hty).
       simplify.
       eapply invert_tyeq_CForall in Htyeq2.
-      destruct Htyeq2 as (Htyeq2 & Hkdeq).
+      destruct Htyeq2 as (Htyeq2 & Hsorteq).
       assert (Hkdck : kinding [] c k).
       {
         eapply KdEq; eauto.
-        eapply kdeq_sym; eauto.
+        eapply sorteq_sym; eauto.
       }
       split.
       {
