@@ -4075,88 +4075,42 @@ lift2 (fst (strip_subsets L))
 
   (* Unset Elimination Schemes. *)
 
-  Inductive kinding : kctx -> cstr -> kind -> Prop :=
-  | KdVar L x k :
+  Inductive sorting : sctx -> idx -> sort -> Prop :=
+  | StgVar L x k :
       nth_error L x = Some k ->
-      kinding L (CVar x) (shift_c_k (1 + x) 0 k)
-  | KdConst L cn :
-      kinding L (CConst cn) (const_kind cn)
-  | KdBinOp L opr c1 c2 :
-      kinding L c1 (cbinop_arg1_kind opr) ->
-      kinding L c2 (cbinop_arg2_kind opr) ->
-      kinding L (CBinOp opr c1 c2) (cbinop_result_kind opr)
-  | KdIte L c c1 c2 s :
-      let k := KBaseSort s in
-      kinding L c KBool ->
-      kinding L c1 k ->
-      kinding L c2 k ->
-      kinding L (CIte c c1 c2) k
-  | KdArrow L t1 i t2 :
-      kinding L t1 KType ->
-      kinding L i KTime ->
-      kinding L t2 KType ->
-      kinding L (CArrow t1 i t2) KType
-  | KdAbs L c k1 k2 :
-      wfkind L k1 ->
-      kinding (k1 :: L) c (shift_c_k 1 0 k2) ->
-      kinding L (CAbs c) (KArrow k1 k2)
-  | KdApp L c1 c2 k1 k2 :
-      kinding L c1 (KArrow k1 k2) ->
-      kinding L c2 k1 ->
-      ~ is_idx k2 ->
-      kinding L (CApp c1 c2) k2
-  | KdTimeAbs L i n :
-      kinding (KNat :: L) i (KTimeFun n) ->
+      sorting L (IVar x) (shift_i_s (1 + x) 0 k)
+  | StgConst L cn :
+      sorting L (IConst cn) (SBaseSort (const_base_sort cn))
+  | StgBinOp L opr c1 c2 :
+      sorting L c1 (SBaseSort (ibinop_arg1_base_sort opr)) ->
+      sorting L c2 (SBaseSort (ibinop_arg2_base_sort opr)) ->
+      sorting L (IBinOp opr c1 c2) (SBaseSort (ibinop_result_base_sort opr))
+  | StgIte L c c1 c2 s :
+      sorting L c SBool ->
+      sorting L c1 s ->
+      sorting L c2 s ->
+      sorting L (IIte c c1 c2) s
+  | StgTimeAbs L i n :
+      sorting (SNat :: L) i (STimeFun n) ->
       monotone i ->
-      kinding L (CTimeAbs i) (KTimeFun (1 + n))
-  | KdTimeApp L c1 c2 n :
-      kinding L c1 (KTimeFun (S n)) ->
-      kinding L c2 KNat ->
-      kinding L (CTimeApp n c1 c2) (KTimeFun n)
+      sorting L (ITimeAbs i) (STimeFun (1 + n))
+  | StgTimeApp L c1 c2 n :
+      sorting L c1 (STimeFun (S n)) ->
+      sorting L c2 SNat ->
+      sorting L (ITimeApp n c1 c2) (STimeFun n)
   (* todo: need elimination rule for TimeAbs *)
-  | KdQuan L quan k c :
-      wfkind L k ->
-      kinding (k :: L) c KType ->
-      kinding L (CQuan quan k c) KType
-  | KdRec L k c :
-      wfkind L k ->
-      kinding (k :: L) c (shift_c_k 1 0 k) ->
-      kinding L (CRec k c) k
-  | KdRef L t :
-      kinding L t KType ->
-      kinding L (CRef t) KType
-  | KdEq L c k k' :
-      kinding L c k ->
-      sorteq L k' k ->
-      kinding L c k'
-  (* | KdSubsetI L c k p : *)
-  (*     kinding L c k -> *)
-  (*     interp_prop L (subst_i_p (length L) c p) -> *)
-  (*     kinding L c (KSubset k p) *)
-  (* | KdSubsetE L c k p : *)
-  (*     kinding L c (KSubset k p) -> *)
-  (*     kinding L c k *)
+  | StgSubsetI L c b p :
+      sorting L c (SBaseSort b) ->
+      interp_prop L (subst_i_p (length L) c p) ->
+      sorting L c (SSubset b p)
+  | StgSubsetE L c b p :
+      sorting L c (SSubset b p) ->
+      sorting L c (SBaseSort b)
   .
   
-  with wfkind : kctx -> kind -> Prop :=
-       | WfKdType L :
-           wfkind L KType
-       | WfKdArrow L k1 k2 :
-           wfkind L k1 ->
-           wfkind L k2 ->
-           wfkind L (KArrow k1 k2)
-       | WfKdBaseSort L b :
-           wfkind L (KBaseSort b)
-       | WfKdSubset L k p :
-           wfkind L k ->
-           wfprop (k :: L) p ->
-           wfkind L (KSubset k p)
-
-  with wfprop : kctx -> prop -> Prop :=
-  | WfPropTrue L :
-      wfprop L PTrue
-  | WfPropFalse L :
-      wfprop L PFalse
+  Inductive wfprop : sctx -> prop -> Prop :=
+  | WfPropTrueFalse L cn :
+      wfprop L (PTrueFalse cn)
   | WfPropBinConn L opr p1 p2 :
       wfprop L p1 ->
       wfprop L p2 ->
@@ -4165,24 +4119,21 @@ lift2 (fst (strip_subsets L))
       wfprop L p ->
       wfprop L (PNot p)
   | WfPropBinPred L opr i1 i2 :
-      kinding L i1 (binpred_arg1_kind opr) ->
-      kinding L i2 (binpred_arg2_kind opr) ->
+      sorting L i1 (SBaseSort (binpred_arg1_base_sort opr)) ->
+      sorting L i2 (SBaseSort (binpred_arg2_base_sort opr)) ->
       wfprop L (PBinPred opr i1 i2)
   | WfPropQuan L q s p :
-      wfprop (KBaseSort s :: L) p ->
+      wfprop (SBaseSort s :: L) p ->
       wfprop L (PQuan q s p)
-             
   .
-
-  (* Scheme Minimality for kinding Sort Prop *)
-  (* with Minimality for wfkind Sort Prop *)
-  (* with Minimality for wfprop Sort Prop. *)
-
-  Scheme kinding_mutind := Minimality for kinding Sort Prop
-  with wfkind_mutind := Minimality for wfkind Sort Prop
-  with wfprop_mutind := Minimality for wfprop Sort Prop.
-
-  Combined Scheme kinding_wfkind_wfprop_mutind from kinding_mutind, wfkind_mutind, wfprop_mutind. 
+  
+  Inductive wfsort : sctx -> sort -> Prop :=
+  | WfStBaseSort L b :
+      wfsort L (SBaseSort b)
+  | WfStSubset L b p :
+      wfprop (SBaseSort b :: L) p ->
+      wfsort L (SSubset b p)
+  .
 
   Lemma interp_prop_subst_c_p L p :
     interp_prop L p ->
