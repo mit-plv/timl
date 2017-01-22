@@ -844,12 +844,13 @@ Module M (Time : TIME).
 
   Inductive idx_const :=
   | ICTT
+  | ICBool (b : bool)
   | ICNat (n : nat)
   | ICTime (r : time_type)
   .
 
   Inductive idx_un_op :=
-  | IUNatNeg
+  | IUBoolNeg
   .
 
   Inductive idx_bin_op :=
@@ -1000,6 +1001,7 @@ Module M (Time : TIME).
   Definition const_base_sort cn :=
     match cn with
     | ICTT => BSUnit
+    | ICBool _ => BSBool
     | ICNat _ => BSNat
     | ICTime _ => BSTime
     end
@@ -1007,12 +1009,12 @@ Module M (Time : TIME).
 
   Definition iunop_arg_base_sort opr :=
     match opr with
-    | IUNatNeg => BSNat
+    | IUBoolNeg => BSBool
     end.
 
   Definition iunop_result_base_sort opr :=
     match opr with
-    | IUNatNeg => BSNat
+    | IUBoolNeg => BSBool
     end.
 
   Definition ibinop_arg1_base_sort opr :=
@@ -2658,7 +2660,7 @@ Module M (Time : TIME).
     | S n => nat -> time_fun n
     end.
 
-  Definition interp_sort (b : sort) :=
+  Definition interp_sort (b : base_sort) :=
     match b with
     | BSNat => nat
     | BSUnit => unit
@@ -2672,7 +2674,7 @@ Module M (Time : TIME).
     | S n => fun _ : nat => time_fun_default_value n
     end.
   
-  Definition sort_default_value (b : sort) : interp_sort b :=
+  Definition sort_default_value (b : base_sort) : interp_sort b :=
     match b with
     | BSNat => 0%nat
     | BSUnit => tt
@@ -2680,14 +2682,6 @@ Module M (Time : TIME).
     | BSTimeFun arity => time_fun_default_value arity
     end.
 
-  Fixpoint kind_to_sort k :=
-    match k with
-    | KType => BSUnit
-    | KArrow k1 k2 => BSUnit
-    | KBaseSort b => b
-    | KSubset k p => kind_to_sort k
-    end.
-      
   Fixpoint interp_sorts arg_ks res :=
     match arg_ks with
     | [] => res
@@ -2709,34 +2703,6 @@ Module M (Time : TIME).
       fun f x1 => lift1 arg_ks (fun a1 ak => f (a1 ak)) x1
     end.
   
-  Fixpoint insert A new n (ls : list A) :=
-    match n with
-    | 0 => new ++ ls
-    | S n => 
-      match ls with
-      | [] => new
-      | a :: ls => a :: insert new n ls
-      end
-    end.
-
-  Fixpoint shift0 new ks t : interp_sorts ks t -> interp_sorts (new ++ ks) t :=
-    match new return interp_sorts ks t -> interp_sorts (new ++ ks) t with
-    | [] => id
-    | new_k :: new' =>
-      fun x => shift0 new' ks _ (lift1 ks (fun a _ => a) x)
-    end.
-  
-  Fixpoint shift new n ks t : interp_sorts ks t -> interp_sorts (insert new n ks) t :=
-    match n return interp_sorts ks t -> interp_sorts (insert new n ks) t with
-    | 0 => shift0 new ks t
-    | S n' => 
-        match ks return interp_sorts ks t -> interp_sorts (insert new (S n') ks) t with
-        | [] => @lift0 new t
-        | k :: ks' =>
-          fun x => shift new n' ks' _ x
-        end
-    end.
-
   Fixpoint lift2 arg_ks : forall t1 t2 t, (t1 -> t2 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t :=
     match arg_ks return forall t1 t2 t, (t1 -> t2 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t with
     | [] =>
@@ -2777,7 +2743,35 @@ Module M (Time : TIME).
       fun t1 t2 t3 t4 t5 t6 t f x1 x2 x3 x4 x5 x6 => lift6 arg_ks (fun a1 a2 a3 a4 a5 a6 ak => f (a1 ak) (a2 ak) (a3 ak) (a4 ak) (a5 ak) (a6 ak)) x1 x2 x3 x4 x5 x6
     end.
 
-  Definition sort_dec : forall (b b' : sort), sumbool (b = b') (b <> b').
+  Fixpoint insert A new n (ls : list A) :=
+    match n with
+    | 0 => new ++ ls
+    | S n => 
+      match ls with
+      | [] => new
+      | a :: ls => a :: insert new n ls
+      end
+    end.
+
+  Fixpoint shift0 new ks t : interp_sorts ks t -> interp_sorts (new ++ ks) t :=
+    match new return interp_sorts ks t -> interp_sorts (new ++ ks) t with
+    | [] => id
+    | new_k :: new' =>
+      fun x => shift0 new' ks _ (lift1 ks (fun a _ => a) x)
+    end.
+  
+  Fixpoint shift new n ks t : interp_sorts ks t -> interp_sorts (insert new n ks) t :=
+    match n return interp_sorts ks t -> interp_sorts (insert new n ks) t with
+    | 0 => shift0 new ks t
+    | S n' => 
+        match ks return interp_sorts ks t -> interp_sorts (insert new (S n') ks) t with
+        | [] => @lift0 new t
+        | k :: ks' =>
+          fun x => shift new n' ks' _ x
+        end
+    end.
+
+  Definition sort_dec : forall (b b' : base_sort), sumbool (b = b') (b <> b').
   Proof.
     induction b; destruct b'; simpl; try solve [left; f_equal; eauto | right; intro Heq; discriminate].
     {
@@ -2785,7 +2779,7 @@ Module M (Time : TIME).
     }
   Defined.
   
-  Definition convert_kind_value k1 k2 : interp_sort k1 -> interp_sort k2.
+  Definition convert_sort_value k1 k2 : interp_sort k1 -> interp_sort k2.
   Proof.
     cases (sort_dec k1 k2); subst; eauto.
     intros.
@@ -2794,74 +2788,66 @@ Module M (Time : TIME).
   
   Section interp_var.
 
-    Variables (k_in : sort).
+    Variables (k_in : base_sort).
     
     Fixpoint interp_var (x : var) arg_ks k_out (k : interp_sort k_in -> k_out) : interp_sorts arg_ks k_out :=
     match arg_ks with
     | [] => k (sort_default_value k_in)
     | arg_k :: arg_ks =>
       match x with
-      | 0 => lift0 arg_ks (fun x : interp_sort arg_k => k (convert_kind_value arg_k k_in x))
+      | 0 => lift0 arg_ks (fun x : interp_sort arg_k => k (convert_sort_value arg_k k_in x))
       | S x => @interp_var x arg_ks (interp_sort arg_k -> k_out) (fun (x : interp_sort k_in) (_ : interp_sort arg_k) => k x)
       end
     end.
 
   End interp_var.
   
-  Definition cbinop_arg1_sort opr := kind_to_sort (cbinop_arg1_kind opr).
-  Definition cbinop_arg2_sort opr := kind_to_sort (cbinop_arg2_kind opr).
-  Definition cbinop_result_sort opr := kind_to_sort (cbinop_result_kind opr).
-
-  Definition interp_cbinop opr : interp_sort (cbinop_arg1_sort opr) -> interp_sort (cbinop_arg2_sort opr) -> interp_sort (cbinop_result_sort opr) :=
+  Definition interp_iunop opr : interp_sort (iunop_arg_base_sort opr) -> interp_sort (iunop_result_base_sort opr) :=
     match opr with
-    | CBTimeAdd => TimeAdd
-    | CBTimeMinus => TimeMinus
-    | CBTimeMax => TimeMax
-    | CBTypeProd => fun _ _ => tt
-    | CBTypeSum => fun _ _ => tt
+    | IUBoolNeg => negb
     end.
 
-  Definition ite {A} (x : bool) (x1 x2 : A) := 
-            if x then
-              x1
-            else
-              x2.
-  
-  Definition BSTime := BSTimeFun 0.
-  
-  Fixpoint interp_cstr c arg_ks res_k : interp_sorts arg_ks (interp_sort res_k) :=
+  Definition interp_ibinop opr : interp_sort (ibinop_arg1_base_sort opr) -> interp_sort (ibinop_arg2_base_sort opr) -> interp_sort (ibinop_result_base_sort opr) :=
+    match opr with
+    | IBTimeAdd => TimeAdd
+    | IBTimeMinus => TimeMinus
+    | IBTimeMax => TimeMax
+    end.
+
+  Definition ite {A} (x : bool) (x1 x2 : A) := if x then x1 else x2.
+
+  Definition interp_iconst cn arg_ks res_k : interp_sorts arg_ks (interp_sort res_k) :=
+    match cn with
+    | ICTime cn => lift0 arg_ks (convert_sort_value BSTime res_k cn)
+    | ICNat cn => lift0 arg_ks (convert_sort_value BSNat res_k cn)
+    | ICBool cn => lift0 arg_ks (convert_sort_value BSBool res_k cn)
+    | ICTT => lift0 arg_ks (convert_sort_value BSUnit res_k tt)
+    end.
+
+  Fixpoint interp_idx c arg_ks res_k : interp_sorts arg_ks (interp_sort res_k) :=
     match c with
-    | CVar x => interp_var res_k x arg_ks id
-    | CConst cn =>
-      match cn with
-      | CCTime cn => lift0 arg_ks (convert_kind_value BSTime res_k cn)
-      | CCIdxNat cn => lift0 arg_ks (convert_kind_value BSNat res_k cn)
-      | CCIdxTT => lift0 arg_ks (convert_kind_value BSUnit res_k tt)
-      | _ => lift0 arg_ks (convert_kind_value BSUnit res_k tt)
-      end
-    | CBinOp opr c1 c2 =>
-      let f x1 x2 := convert_kind_value (cbinop_result_sort opr) res_k (interp_cbinop opr x1 x2) in
-      lift2 arg_ks f (interp_cstr c1 arg_ks (cbinop_arg1_sort opr)) (interp_cstr c2 arg_ks (cbinop_arg2_sort opr))
-    | CIte c c1 c2 =>
-      lift3 arg_ks ite (interp_cstr c arg_ks BSBool) (interp_cstr c1 arg_ks res_k) (interp_cstr c2 arg_ks res_k)
-    | CTimeAbs c =>
+    | IVar x => interp_var res_k x arg_ks id
+    | IConst cn => interp_iconst cn arg_ks res_k 
+    | IUnOp opr c =>
+      let f x := convert_sort_value (iunop_result_base_sort opr) res_k (interp_iunop opr x) in
+      lift1 arg_ks f (interp_idx c arg_ks (iunop_arg_base_sort opr))
+    | IBinOp opr c1 c2 =>
+      let f x1 x2 := convert_sort_value (ibinop_result_base_sort opr) res_k (interp_ibinop opr x1 x2) in
+      lift2 arg_ks f (interp_idx c1 arg_ks (ibinop_arg1_base_sort opr)) (interp_idx c2 arg_ks (ibinop_arg2_base_sort opr))
+    | IIte c c1 c2 =>
+      lift3 arg_ks ite (interp_idx c arg_ks BSBool) (interp_idx c1 arg_ks res_k) (interp_idx c2 arg_ks res_k)
+    | ITimeAbs c =>
       match res_k return interp_sorts arg_ks (interp_sort res_k) with
       | BSTimeFun (S n) =>
-        interp_cstr c (BSNat :: arg_ks) (BSTimeFun n)
+        interp_idx c (BSNat :: arg_ks) (BSTimeFun n)
       | res_k => lift0 arg_ks (sort_default_value res_k)
       end
-    | CTimeApp n c1 c2 => 
-      let f x1 x2 := convert_kind_value (BSTimeFun n) res_k (x1 x2) in
-      lift2 arg_ks f (interp_cstr c1 arg_ks (BSTimeFun (S n))) (interp_cstr c2 arg_ks BSNat)
-    | CAbs c => lift0 arg_ks (sort_default_value res_k)
-    | CApp c1 c2 => lift0 arg_ks (sort_default_value res_k)
-    | CArrow t1 i t2 => lift0 arg_ks (sort_default_value res_k)
-    | CQuan q k c => lift0 arg_ks (sort_default_value res_k)
-    | CRec k t => lift0 arg_ks (sort_default_value res_k)
-    | CRef t => lift0 arg_ks (sort_default_value res_k)
+    | ITimeApp n c1 c2 => 
+      let f x1 x2 := convert_sort_value (BSTimeFun n) res_k (x1 x2) in
+      lift2 arg_ks f (interp_idx c1 arg_ks (BSTimeFun (S n))) (interp_idx c2 arg_ks BSNat)
   end.
 
-  Definition interp_time i : time_type := interp_cstr i [] BSTime.
+  Definition interp_time i : time_type := interp_idx i [] BSTime.
   
   Lemma interp_time_const a : interp_time (Tconst a) = a.
   Proof.
@@ -2912,13 +2898,10 @@ Module M (Time : TIME).
     | PBCIff => iff
     end.
 
-  Definition binpred_arg1_sort opr := kind_to_sort (binpred_arg1_kind opr).
-  Definition binpred_arg2_sort opr := kind_to_sort (binpred_arg2_kind opr).
-
   Definition Time_BigO (arity : nat) : time_fun arity -> time_fun arity -> Prop.
   Admitted.
 
-  Definition interp_binpred opr : interp_sort (binpred_arg1_sort opr) -> interp_sort (binpred_arg2_sort opr) -> Prop :=
+  Definition interp_binpred opr : interp_sort (binpred_arg1_base_sort opr) -> interp_sort (binpred_arg2_base_sort opr) -> Prop :=
     match opr with
     | PBTimeLe => TimeLe
     | PBTimeEq => eq
@@ -2930,18 +2913,19 @@ Module M (Time : TIME).
     | QuanForall => forall a, P a
     | QuanExists => exists a, P a
     end.
+
+  Definition interp_true_false_Prop (b : bool) := if b then True else False.
   
   Fixpoint interp_p arg_ks p : interp_sorts arg_ks Prop :=
     match p with
-    | PTrue => lift0 arg_ks True
-    | PFalse => lift0 arg_ks False
+    | PTrueFalse cn => lift0 arg_ks (interp_true_false_Prop cn)
     | PBinConn opr p1 p2 =>
       lift2 arg_ks (interp_binconn opr) (interp_p arg_ks p1) (interp_p arg_ks p2)
     | PNot p =>
       lift1 arg_ks not (interp_p arg_ks p)
     | PBinPred opr c1 c2 =>
       let f x1 x2 := interp_binpred opr x1 x2 in
-      lift2 arg_ks f (interp_cstr c1 arg_ks (binpred_arg1_sort opr)) (interp_cstr c2 arg_ks (binpred_arg2_sort opr))
+      lift2 arg_ks f (interp_idx c1 arg_ks (binpred_arg1_base_sort opr)) (interp_idx c2 arg_ks (binpred_arg2_base_sort opr))
     | PQuan q b p => lift1 arg_ks (interp_quan q) (interp_p (b :: arg_ks) p)
     end.
 
@@ -2953,22 +2937,26 @@ Module M (Time : TIME).
 
   Fixpoint strip_subset k :=
     match k with
-    | KType => []
-    | KArrow k1 k2 => []
-    | KBaseSort b => []
-    | KSubset k p => p :: strip_subset k
+    | SBaseSort b => []
+    | SSubset b p => [p]
     end.
 
-  Fixpoint strip_subsets ks : list sort * list prop :=
-    match ks with
+  Definition get_base_sort (s : sort) :=
+    match s with
+    | SBaseSort b => b
+    | SSubset b _ => b
+    end.
+  
+  Fixpoint strip_subsets (ss : list sort) : list base_sort * list prop :=
+    match ss with
     | [] => ([], [])
-    | k :: ks =>
-      let ps1 := strip_subset k in
-      let b := kind_to_sort k in
-      let bs_ps2 := strip_subsets ks in
+    | s :: ss =>
+      let ps1 := strip_subset s in
+      let b := get_base_sort s in
+      let bs_ps2 := strip_subsets ss in
       let bs := fst bs_ps2 in
       let ps2 := snd bs_ps2 in
-      let ps2 := map shift0_c_p ps2 in
+      let ps2 := map shift0_i_p ps2 in
       (b :: bs, ps1 ++ ps2)
     end.
 
@@ -2978,8 +2966,8 @@ Module M (Time : TIME).
     | p :: ps => (p /\ and_all ps) % idx
     end.
   
-  Definition interp_prop (ks : kctx) (p : prop) : Prop :=
-    let bs_ps := strip_subsets ks in
+  Definition interp_prop (ss : sctx) (p : prop) : Prop :=
+    let bs_ps := strip_subsets ss in
     let bs := fst bs_ps in
     let ps := snd bs_ps in
     let p := (and_all ps ===> p)%idx in
@@ -3533,23 +3521,23 @@ Module M (Time : TIME).
   
   Notation for_all_ A := (fun P : A -> Prop => forall a : A, P a).
   
-  Fixpoint shift_c_ks n bs :=
+  Fixpoint shift_i_ss n bs :=
     match bs with
     | [] => []
-    | b :: bs => shift_c_k n (length bs) b :: shift_c_ks n bs
+    | b :: bs => shift_i_s n (length bs) b :: shift_i_ss n bs
     end.
 
-  Fixpoint subst_c_ks v bs :=
+  Fixpoint subst_i_ss v bs :=
     match bs with
     | [] => []
-    | b :: bs => subst_c_k (length bs) (shift_c_c (length bs) 0 v) b :: subst_c_ks v bs
+    | b :: bs => subst_i_s (length bs) (shift_i_i (length bs) 0 v) b :: subst_i_ss v bs
     end.
 
-  Lemma nth_error_subst_c_ks bs :
+  Lemma nth_error_subst_i_ss bs :
     forall x b v,
       nth_error bs x = Some b ->
       let n := length bs in
-      nth_error (subst_c_ks v bs) x = Some (subst_c_k (n - S x) (shift_c_c (n - S x) 0 v) b).
+      nth_error (subst_i_ss v bs) x = Some (subst_i_s (n - S x) (shift_i_i (n - S x) 0 v) b).
   Proof.
     induction bs; simplify.
     {
@@ -3560,25 +3548,25 @@ Module M (Time : TIME).
     try unfold value; repeat f_equal; la.
   Qed.
   
-  Lemma length_shift_c_ks bs :
+  Lemma length_shift_i_ss bs :
     forall v,
-      length (shift_c_ks v bs) = length bs.
+      length (shift_i_ss v bs) = length bs.
   Proof.
     induction bs; simplify; eauto.
   Qed.
   
-  Lemma length_subst_c_ks bs :
+  Lemma length_subst_i_ss bs :
     forall v,
-      length (subst_c_ks v bs) = length bs.
+      length (subst_i_ss v bs) = length bs.
   Proof.
     induction bs; simplify; eauto.
   Qed.
   
-  Lemma nth_error_shift_c_ks bs :
+  Lemma nth_error_shift_i_ss bs :
     forall x b m,
       nth_error bs x = Some b ->
       let n := length bs in
-      nth_error (shift_c_ks m bs) x = Some (shift_c_k m (n - S x) b).
+      nth_error (shift_i_ss m bs) x = Some (shift_i_s m (n - S x) b).
   Proof.
     induction bs; simplify.
     {
@@ -3590,14 +3578,14 @@ Module M (Time : TIME).
   Qed.
   
   Lemma fst_strip_subsets_insert x ls L :
-    let L' := shift_c_ks (length ls) (firstn x L) ++ ls ++ my_skipn L x in
+    let L' := shift_i_ss (length ls) (firstn x L) ++ ls ++ my_skipn L x in
     fst (strip_subsets L') = insert (fst (strip_subsets ls)) x (fst (strip_subsets L)).
   Admitted.
   
   Lemma snd_strip_subsets_insert x ls L :
     let n := length ls in
-    let L' := shift_c_ks (length ls) (firstn x L) ++ ls ++ my_skipn L x in
-    snd (strip_subsets L') = insert (map (shift_c_p x 0) (snd (strip_subsets ls))) x (map (shift_c_p n x) (snd (strip_subsets L))).
+    let L' := shift_i_ss (length ls) (firstn x L) ++ ls ++ my_skipn L x in
+    snd (strip_subsets L') = insert (map (shift_i_p x 0) (snd (strip_subsets ls))) x (map (shift_i_p n x) (snd (strip_subsets L))).
   Admitted.
   
   Arguments shift0 new ks [t] x .
@@ -3647,7 +3635,7 @@ Module M (Time : TIME).
       rewrite lift2_shift0.
       eauto.
     }
-    destruct ks; cbn in *; intros new A B C f a b; try la.
+    destruct ks; cbn in *; try rename b into bs; intros new A B C f a b; try la.
     {
       rewrite fuse_lift2_lift0_2.
       rewrite fuse_lift1_lift0.
@@ -3708,12 +3696,12 @@ Module M (Time : TIME).
     eapply forall_shift; eauto.
   Qed.
 
-  Lemma interp_prop_shift_c_p L p :
+  Lemma interp_prop_shift_i_p L p :
     interp_prop L p ->
     forall x ls ,
       let n := length ls in
       x <= length L ->
-      interp_prop (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_p n x p).
+      interp_prop (shift_i_ss n (firstn x L) ++ ls ++ my_skipn L x) (shift_i_p n x p).
   Proof.
     cbn in *.
     intros H x ls Hle.
@@ -3812,7 +3800,7 @@ Module M (Time : TIME).
     let bs_ps := strip_subsets L in
     let bs := fst bs_ps in
     let ps := snd bs_ps in
-    let ps := map shift0_c_p ps in
+    let ps := map shift0_i_p ps in
     let b := kind_to_sort k in
     forall_ (b :: bs)
                (lift2 (b :: bs) (fun a b : Prop => a -> (a <-> b))
@@ -3871,7 +3859,7 @@ Module M (Time : TIME).
   (*         (fun (a1 a2 : interp_sort (kind_to_sort k) -> Prop) (ak : interp_sort (kind_to_sort k)) *)
   (*          => a1 ak -> a2 ak) *)
   (*         (interp_p (kind_to_sort k :: fst (strip_subsets L)) *)
-  (*                   (and_all (strip_subset k ++ map shift0_c_p (snd (strip_subsets L))))) *)
+  (*                   (and_all (strip_subset k ++ map shift0_i_p (snd (strip_subsets L))))) *)
   (*         (lift2 (fst (strip_subsets L)) *)
   (*                (fun (a1 a2 : interp_sort (kind_to_sort k) -> Prop) *)
   (*                   (ak : interp_sort (kind_to_sort k)) => a1 ak -> a2 ak) *)
@@ -3916,7 +3904,7 @@ lift2 (fst (strip_subsets L))
           (fun (a1 a2 : interp_sort (kind_to_sort k) -> Prop) (ak : interp_sort (kind_to_sort k))
            => a1 ak -> a2 ak)
           (interp_p (kind_to_sort k :: fst (strip_subsets L))
-             (and_all (strip_subset k ++ map shift0_c_p (snd (strip_subsets L)))))
+             (and_all (strip_subset k ++ map shift0_i_p (snd (strip_subsets L)))))
           (lift2 (fst (strip_subsets L))
              (fun (a1 a2 : interp_sort (kind_to_sort k) -> Prop)
                 (ak : interp_sort (kind_to_sort k)) => a1 ak -> a2 ak)
@@ -3939,7 +3927,7 @@ lift2 (fst (strip_subsets L))
                         (ak : interp_sort (kind_to_sort k)) => a1 ak /\ a2 ak)
                      (interp_p (kind_to_sort k :: fst (strip_subsets L)) p)
                      (interp_p (kind_to_sort k :: fst (strip_subsets L))
-                               (and_all (strip_subset k ++ map shift0_c_p (snd (strip_subsets L))))))
+                               (and_all (strip_subset k ++ map shift0_i_p (snd (strip_subsets L))))))
               (interp_p (kind_to_sort k :: fst (strip_subsets L)) p0).
       Proof.
         exact eq_refl.
@@ -4155,7 +4143,7 @@ lift2 (fst (strip_subsets L))
            kinding L c k'
        (* | KdSubsetI L c k p : *)
        (*     kinding L c k -> *)
-       (*     interp_prop L (subst_c_p (length L) c p) -> *)
+       (*     interp_prop L (subst_i_p (length L) c p) -> *)
        (*     kinding L c (KSubset k p) *)
        (* | KdSubsetE L c k p : *)
        (*     kinding L c (KSubset k p) -> *)
@@ -5567,7 +5555,7 @@ lift2 (fst (strip_subsets L))
           obeq (L' ++ L) t1 t2
         | K2Idx s =>
           tyeq (L' ++ L) t1 t2 /\
-          interp_cstr t1 (map kind_to_sort (L' ++ L)) s = interp_cstr t2 (map kind_to_sort (L' ++ L)) s
+          interp_idx t1 (map kind_to_sort (L' ++ L)) s = interp_idx t2 (map kind_to_sort (L' ++ L)) s
         | K2Arrow k1 k2 =>
           tyeq (L' ++ L) t1 t2 /\
           forall L'' t1' t2',
@@ -5637,13 +5625,13 @@ lift2 (fst (strip_subsets L))
             eapply shift_c_c_0_tyeq; eauto.
           }
           repeat rewrite map_app in *.
-          Lemma shift_c_c_0_interp_cstr_eq :
+          Lemma shift_c_c_0_interp_idx_eq :
             forall L'' n L' c1 c2 s,
-              interp_cstr c1 L' s = interp_cstr c2 L' s ->
+              interp_idx c1 L' s = interp_idx c2 L' s ->
               n = length L'' ->
-              interp_cstr (shift_c_c n 0 c1) (L'' ++ L') s = interp_cstr (shift_c_c n 0 c2) (L'' ++ L') s.
+              interp_idx (shift_c_c n 0 c1) (L'' ++ L') s = interp_idx (shift_c_c n 0 c2) (L'' ++ L') s.
           Admitted.
-          eapply shift_c_c_0_interp_cstr_eq; eauto.
+          eapply shift_c_c_0_interp_idx_eq; eauto.
           rewrite map_length; eauto.
         }
         {
@@ -7469,10 +7457,10 @@ lift2 (fst (strip_subsets L))
           intros g1 g2 Hsubeq.
           repeat rewrite subst0_cs_c_Arrow.
           eapply obeq_Arrow; eauto using obeq_tyeq.
-          Lemma interp_cstr_interp_prop_eq L' a b :
-            interp_cstr a (map kind_to_sort L') BSTime = interp_cstr b (map kind_to_sort L') BSTime -> interp_prop L' (a == b)%idx.
+          Lemma interp_idx_interp_prop_eq L' a b :
+            interp_idx a (map kind_to_sort L') BSTime = interp_idx b (map kind_to_sort L') BSTime -> interp_prop L' (a == b)%idx.
           Admitted.
-          eapply interp_cstr_interp_prop_eq; eauto.
+          eapply interp_idx_interp_prop_eq; eauto.
         }
         {
           (* Case Quan *)
@@ -7598,8 +7586,8 @@ lift2 (fst (strip_subsets L))
           intros g1 g2 Hsubeq.
           repeat rewrite subst0_cs_p_BinPred in *.
           Lemma interp_prop_BinPred_iff L' opr i1 i2 i1' i2' :
-            interp_cstr i1 (map kind_to_sort L') (binpred_arg1_sort opr) = interp_cstr i1' (map kind_to_sort L') (binpred_arg1_sort opr) ->
-            interp_cstr i2 (map kind_to_sort L') (binpred_arg2_sort opr) = interp_cstr i2' (map kind_to_sort L') (binpred_arg2_sort opr) ->
+            interp_idx i1 (map kind_to_sort L') (binpred_arg1_sort opr) = interp_idx i1' (map kind_to_sort L') (binpred_arg1_sort opr) ->
+            interp_idx i2 (map kind_to_sort L') (binpred_arg2_sort opr) = interp_idx i2' (map kind_to_sort L') (binpred_arg2_sort opr) ->
             interp_prop L' (PBinPred opr i1 i2 <===> PBinPred opr i1' i2')%idx.
           Admitted.
           eapply interp_prop_BinPred_iff; eauto;
@@ -7761,7 +7749,7 @@ lift2 (fst (strip_subsets L))
           intros H1 Hi H2.
           simpl in *.
           eapply obeq_Arrow; eauto using obeq_tyeq.
-          eapply interp_cstr_interp_prop_eq; eauto.
+          eapply interp_idx_interp_prop_eq; eauto.
         Qed.
         
         invert Hkd1.
@@ -7769,10 +7757,10 @@ lift2 (fst (strip_subsets L))
         eapply lgeq_Arrow; eauto.
         simpl.
         rewrite app_nil_r.
-        Lemma interp_prop_eq_interp_cstr L a b :
-          interp_prop L (a == b)%idx -> interp_cstr a (map kind_to_sort L) BSTime = interp_cstr b ((map kind_to_sort L)) BSTime.
+        Lemma interp_prop_eq_interp_idx L a b :
+          interp_prop L (a == b)%idx -> interp_idx a (map kind_to_sort L) BSTime = interp_idx b ((map kind_to_sort L)) BSTime.
         Admitted.
-        eapply interp_prop_eq_interp_cstr; eauto.
+        eapply interp_prop_eq_interp_idx; eauto.
       }
       {
         invert Hkd1.
