@@ -1689,6 +1689,13 @@ Module M (Time : TIME).
       rewrite shift_i_i_shift_merge; f_equal; la.
     Qed.
     
+    Lemma shift0_t_t_shift_0 n c :
+      shift0_t_t (shift_t_t n 0 c) = shift_t_t (1 + n) 0 c.
+    Proof.
+      unfold shift0_t_t; intros.
+      rewrite shift_t_t_shift_merge; f_equal; la.
+    Qed.
+    
     Lemma shift0_i_i_shift n x b :
       shift0_i_i (shift_i_i n x b) = shift_i_i n (1 + x) (shift0_i_i b).
     Proof.
@@ -1697,368 +1704,954 @@ Module M (Time : TIME).
       rewrite shift_i_i_shift_cut; repeat f_equal; la.
     Qed.
 
+    Lemma shift0_t_t_shift n x b :
+      shift0_t_t (shift_t_t n x b) = shift_t_t n (1 + x) (shift0_t_t b).
+    Proof.
+      unfold shift0_t_t; intros.
+      symmetry.
+      rewrite shift_t_t_shift_cut; repeat f_equal; la.
+    Qed.
+
   End shift_proofs.
 
-  Lemma subst0_c_c_Const v cn : subst0_c_c v (CConst cn) = CConst cn.
-  Proof.
-    cbn in *; eauto.
-  Qed.
+  Section subst_proofs.
+    
+    Lemma subst0_i_i_Const v cn : subst0_i_i v (IConst cn) = IConst cn.
+    Proof.
+      cbn in *; eauto.
+    Qed.
 
-  Lemma subst_c_c_k_p_shift_avoid n :
-    (forall b v x y,
+    Lemma subst_i_i_shift_avoid n :
+      forall b v x y,
         x <= y ->
         y < x + n ->
-        subst_c_c y v (shift_c_c n x b) = shift_c_c (n - 1) x b) /\
-    (forall b v x y,
+        subst_i_i y v (shift_i_i n x b) = shift_i_i (n - 1) x b.
+    Proof.
+      induct b;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto |
+                     erewrite H by la; repeat f_equal; eauto with db_la |
+                     repeat replace (S (y - n)) with (S y - n) by la;
+                     f_equal;
+                     match goal with
+                       H : _ |- _ => eapply H; eauto with db_la
+                     end].
+      {
+        (* Case CVar *)
+        repeat match goal with
+               | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+               | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
+               end; try solve [f_equal; la].
+      }
+    Qed.
+
+    Hint Resolve subst_i_i_shift_avoid.
+    
+    Lemma subst_i_p_shift_avoid n :
+      forall b v x y,
         x <= y ->
         y < x + n ->
-        subst_c_k y v (shift_c_k n x b) = shift_c_k (n - 1) x b) /\
-    (forall b v x y,
+        subst_i_p y v (shift_i_p n x b) = shift_i_p (n - 1) x b.
+    Proof.
+      induct b;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto |
+                     erewrite H by la; repeat f_equal; eauto with db_la |
+                     repeat replace (S (y - n)) with (S y - n) by la;
+                     f_equal;
+                     match goal with
+                       H : _ |- _ => eapply H; eauto with db_la
+                     end].
+    Qed.
+    
+    Hint Resolve subst_i_p_shift_avoid.
+    
+    Lemma subst_i_s_shift_avoid n :
+      forall b v x y,
         x <= y ->
         y < x + n ->
-        subst_c_p y v (shift_c_p n x b) = shift_c_p (n - 1) x b).
-  Proof.
-    eapply cstr_kind_prop_mutind;
-      simplify; cbn in *;
-        try solve [eauto |
-                   f_equal; eauto |
-                   erewrite H by la; repeat f_equal; eauto with db_la |
-                   repeat rewrite shift0_c_c_shift_0; simplify;
-                   repeat replace (S (y - n)) with (S y - n) by la;
-                   f_equal;
-                   match goal with
-                     H : _ |- _ => eapply H; eauto with db_la
-                   end].
-    {
-      (* Case CVar *)
-      repeat match goal with
-             | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
-             | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
-             end; try solve [f_equal; la].
-    }
-  Qed.
-  
-  Lemma subst_c_c_shift_avoid n :
-    forall b v x y,
-      x <= y ->
-      y < x + n ->
-      subst_c_c y v (shift_c_c n x b) = shift_c_c (n - 1) x b.
-  Proof.
-    eapply subst_c_c_k_p_shift_avoid.
-  Qed.
-  
-  Lemma subst_c_k_shift_avoid n :
-    forall b v x y,
-      x <= y ->
-      y < x + n ->
-      subst_c_k y v (shift_c_k n x b) = shift_c_k (n - 1) x b.
-  Proof.
-    eapply subst_c_c_k_p_shift_avoid.
-  Qed.
-  
-  Lemma subst_c_p_shift_avoid n :
-    forall b v x y,
-      x <= y ->
-      y < x + n ->
-      subst_c_p y v (shift_c_p n x b) = shift_c_p (n - 1) x b.
-  Proof.
-    eapply subst_c_c_k_p_shift_avoid.
-  Qed.
-  
-  Lemma subst_c_k_shift_0_avoid x y v b :
-    y < x ->
-    subst_c_k y (shift_c_c y 0 v) (shift_c_k x 0 b) = shift_c_k (x - 1) 0 b.
-  Proof.
-    intros.
-    eapply subst_c_k_shift_avoid; la.
-  Qed.
-  
-  Lemma subst0_c_c_shift0 v b :
-    subst0_c_c v (shift0_c_c b) = b.
-  Proof.
-    unfold shift0_c_c, subst0_c_c.
-    specialize (@subst_c_c_shift_avoid 1 b v 0 0); intros H; simplify.
-    repeat rewrite shift_c_c_0 in *.
-    eauto with db_la.
-  Qed.
-  
-  Lemma subst_c_c_k_p_shift_hit v n :
-    (forall b x y,
+        subst_i_s y v (shift_i_s n x b) = shift_i_s (n - 1) x b.
+    Proof.
+      induct b;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto with db_la |
+                     erewrite H by la; repeat f_equal; eauto with db_la |
+                     repeat replace (S (y - n)) with (S y - n) by la;
+                     f_equal;
+                     match goal with
+                       H : _ |- _ => eapply H; eauto with db_la
+                     end].
+    Qed.
+    
+    Hint Resolve subst_i_s_shift_avoid.
+    
+    Lemma subst_i_k_shift_avoid n :
+      forall b v x y,
+        x <= y ->
+        y < x + n ->
+        subst_i_k y v (shift_i_k n x b) = shift_i_k (n - 1) x b.
+    Proof.
+      induct b;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto with db_la |
+                     erewrite H by la; repeat f_equal; eauto with db_la |
+                     repeat replace (S (y - n)) with (S y - n) by la;
+                     f_equal;
+                     match goal with
+                       H : _ |- _ => eapply H; eauto with db_la
+                     end].
+    Qed.
+    
+    Hint Resolve subst_i_k_shift_avoid.
+    
+    Lemma subst_i_t_ts_shift_avoid n :
+      (forall b v x y,
+          x <= y ->
+          y < x + n ->
+          subst_i_t y v (shift_i_t n x b) = shift_i_t (n - 1) x b) /\
+      (forall b v x y,
+          x <= y ->
+          y < x + n ->
+          subst_i_ts y v (shift_i_ts n x b) = shift_i_ts (n - 1) x b).
+    Proof.
+      eapply ty_ty_list_mutind;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto |
+                     erewrite H by la; repeat f_equal; eauto with db_la |
+                     repeat replace (S (y - n)) with (S y - n) by la;
+                     f_equal;
+                     match goal with
+                       H : _ |- _ => eapply H; eauto with db_la
+                     end].
+    Qed.
+    
+    Lemma subst_i_t_shift_avoid n :
+      forall b v x y,
+        x <= y ->
+        y < x + n ->
+        subst_i_t y v (shift_i_t n x b) = shift_i_t (n - 1) x b.
+    Proof.
+      eapply subst_i_t_ts_shift_avoid.
+    Qed.
+    
+    Lemma subst_i_ts_shift_avoid n :
+      forall b v x y,
+        x <= y ->
+        y < x + n ->
+        subst_i_ts y v (shift_i_ts n x b) = shift_i_ts (n - 1) x b.
+    Proof.
+      eapply subst_i_t_ts_shift_avoid.
+    Qed.
+    
+    Lemma subst_t_t_ts_shift_avoid n :
+      (forall b v x y,
+          x <= y ->
+          y < x + n ->
+          subst_t_t y v (shift_t_t n x b) = shift_t_t (n - 1) x b) /\
+      (forall b v x y,
+          x <= y ->
+          y < x + n ->
+          subst_t_ts y v (shift_t_ts n x b) = shift_t_ts (n - 1) x b).
+    Proof.
+      eapply ty_ty_list_mutind;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto |
+                     erewrite H by la; repeat f_equal; eauto with db_la |
+                     repeat replace (S (y - n)) with (S y - n) by la;
+                     f_equal;
+                     match goal with
+                       H : _ |- _ => eapply H; eauto with db_la
+                     end].
+      {
+        (* Case CVar *)
+        repeat match goal with
+               | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+               | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
+               end; try solve [f_equal; la].
+      }
+    Qed.
+    
+    Lemma subst_t_t_shift_avoid n :
+      forall b v x y,
+        x <= y ->
+        y < x + n ->
+        subst_t_t y v (shift_t_t n x b) = shift_t_t (n - 1) x b.
+    Proof.
+      eapply subst_t_t_ts_shift_avoid.
+    Qed.
+    
+    Lemma subst_t_ts_shift_avoid n :
+      forall b v x y,
+        x <= y ->
+        y < x + n ->
+        subst_t_ts y v (shift_t_ts n x b) = shift_t_ts (n - 1) x b.
+    Proof.
+      eapply subst_t_t_ts_shift_avoid.
+    Qed.
+    
+    Lemma subst_i_s_shift_0_avoid x y v b :
+      y < x ->
+      subst_i_s y (shift_i_i y 0 v) (shift_i_s x 0 b) = shift_i_s (x - 1) 0 b.
+    Proof.
+      intros.
+      eapply subst_i_s_shift_avoid; la.
+    Qed.
+    
+    Lemma subst0_i_i_shift0 v b :
+      subst0_i_i v (shift0_i_i b) = b.
+    Proof.
+      unfold shift0_i_i, subst0_i_i.
+      specialize (@subst_i_i_shift_avoid 1 b v 0 0); intros H; simplify.
+      repeat rewrite shift_i_i_0 in *.
+      eauto with db_la.
+    Qed.
+    
+    Lemma subst_i_i_shift_hit v n :
+      forall b x y,
         x + n <= y ->
-        subst_c_c y (shift_c_c y 0 v) (shift_c_c n x b) = shift_c_c n x (subst_c_c (y - n) (shift_c_c (y - n) 0 v) b)) /\
-    (forall b x y,
+        subst_i_i y (shift_i_i y 0 v) (shift_i_i n x b) = shift_i_i n x (subst_i_i (y - n) (shift_i_i (y - n) 0 v) b).
+    Proof.
+      induct b;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto |
+                     erewrite H by la; repeat f_equal; eauto with db_la |
+                     repeat rewrite shift0_i_i_shift_0; simplify;
+                     repeat replace (S (y - n)) with (S y - n) by la;
+                     f_equal;
+                     match goal with
+                       H : _ |- _ => eapply H; eauto with db_la
+                     end].
+      {
+        (* Case CVar *)
+        repeat match goal with
+               | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+               | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
+               end; try solve [f_equal; la].
+        rewrite shift_i_i_shift_merge by la.
+        f_equal; eauto with db_la.
+      }
+    Qed.
+    
+    Hint Resolve subst_i_i_shift_hit.
+    
+    Lemma subst_i_p_shift_hit v n :
+      forall b x y,
         x + n <= y ->
-        subst_c_k y (shift_c_c y 0 v) (shift_c_k n x b) = shift_c_k n x (subst_c_k (y - n) (shift_c_c (y - n) 0 v) b)) /\
-    (forall b x y,
+        subst_i_p y (shift_i_i y 0 v) (shift_i_p n x b) = shift_i_p n x (subst_i_p (y - n) (shift_i_i (y - n) 0 v) b).
+    Proof.
+      induct b;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto |
+                     erewrite H by la; repeat f_equal; eauto with db_la |
+                     repeat rewrite shift0_i_i_shift_0; simplify;
+                     repeat replace (S (y - n)) with (S y - n) by la;
+                     f_equal;
+                     match goal with
+                       H : _ |- _ => eapply H; eauto with db_la
+                     end].
+    Qed.
+    
+    Hint Resolve subst_i_p_shift_hit.
+    
+    Lemma subst_i_s_shift_hit v n :
+      forall b x y,
         x + n <= y ->
-        subst_c_p y (shift_c_c y 0 v) (shift_c_p n x b) = shift_c_p n x (subst_c_p (y - n) (shift_c_c (y - n) 0 v) b)).
-  Proof.
-    eapply cstr_kind_prop_mutind;
-      simplify; cbn in *;
-        try solve [eauto |
-                   f_equal; eauto |
-                   erewrite H by la; repeat f_equal; eauto with db_la |
-                   repeat rewrite shift0_c_c_shift_0; simplify;
-                   repeat replace (S (y - n)) with (S y - n) by la;
-                   f_equal;
-                   match goal with
-                     H : _ |- _ => eapply H; eauto with db_la
-                   end].
-    {
-      (* Case CVar *)
-      repeat match goal with
-             | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
-             | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
-             end; try solve [f_equal; la].
-      rewrite shift_c_c_shift_merge by la.
-      f_equal; eauto with db_la.
-    }
-  Qed.
-  
-  Lemma subst_c_c_shift_hit v n :
-    forall b x y,
-      x + n <= y ->
-      subst_c_c y (shift_c_c y 0 v) (shift_c_c n x b) = shift_c_c n x (subst_c_c (y - n) (shift_c_c (y - n) 0 v) b).
-  Proof.
-    eapply subst_c_c_k_p_shift_hit.
-  Qed.
-  
-  Lemma subst_c_k_shift_hit v n :
-    forall b x y,
-      x + n <= y ->
-      subst_c_k y (shift_c_c y 0 v) (shift_c_k n x b) = shift_c_k n x (subst_c_k (y - n) (shift_c_c (y - n) 0 v) b).
-  Proof.
-    eapply subst_c_c_k_p_shift_hit.
-  Qed.
-  
-  Lemma subst_c_p_shift_hit v n :
-    forall b x y,
-      x + n <= y ->
-      subst_c_p y (shift_c_c y 0 v) (shift_c_p n x b) = shift_c_p n x (subst_c_p (y - n) (shift_c_c (y - n) 0 v) b).
-  Proof.
-    eapply subst_c_c_k_p_shift_hit.
-  Qed.
-  
-  Lemma subst_c_k_shift x y v b :
-    x <= y ->
-    subst_c_k y (shift_c_c y 0 v) (shift_c_k x 0 b) = shift_c_k x 0 (subst_c_k (y - x) (shift_c_c (y - x) 0 v) b).
-  Proof.
-    intros.
-    eapply subst_c_k_shift_hit; la.
-  Qed.
-
-  Lemma shift_c_c_k_p_subst_in n :
-    (forall b v x y,
-        y <= x ->
-        shift_c_c n y (subst_c_c x v b) = subst_c_c (x + n) (shift_c_c n y v) (shift_c_c n y b)) /\
-    (forall b v x y,
-        y <= x ->
-        shift_c_k n y (subst_c_k x v b) = subst_c_k (x + n) (shift_c_c n y v) (shift_c_k n y b)) /\
-    (forall b v x y,
-        y <= x ->
-        shift_c_p n y (subst_c_p x v b) = subst_c_p (x + n) (shift_c_c n y v) (shift_c_p n y b)).
-  Proof.
-    eapply cstr_kind_prop_mutind;
-      simplify; cbn in *;
-        try solve [eauto |
-                   f_equal; eauto |
-                   erewrite H by la; repeat f_equal; eauto with db_la |
-                   repeat rewrite shift0_c_c_shift; simplify;
-                   repeat replace (S (y - n)) with (S y - n) by la;
-                   f_equal;
-                   match goal with
-                     H : _ |- _ => eapply H; eauto with db_la
-                   end].
-    {
-      (* Case CVar *)
-      repeat match goal with
-             | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
-             | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
-             end; try solve [f_equal; la].
-    }
-  Qed.
-  
-  Lemma shift_c_c_subst_in n :
-    forall b v x y,
-      y <= x ->
-      shift_c_c n y (subst_c_c x v b) = subst_c_c (x + n) (shift_c_c n y v) (shift_c_c n y b).
-  Proof.
-    eapply shift_c_c_k_p_subst_in.
-  Qed.
-  
-  Lemma shift_c_k_subst_in n :
-    forall b v x y,
-      y <= x ->
-      shift_c_k n y (subst_c_k x v b) = subst_c_k (x + n) (shift_c_c n y v) (shift_c_k n y b).
-  Proof.
-    eapply shift_c_c_k_p_subst_in.
-  Qed.
-  
-  Lemma shift_c_p_subst_in n :
-    forall b v x y,
-      y <= x ->
-      shift_c_p n y (subst_c_p x v b) = subst_c_p (x + n) (shift_c_c n y v) (shift_c_p n y b).
-  Proof.
-    eapply shift_c_c_k_p_subst_in.
-  Qed.
-  
-  Lemma shift0_c_c_subst x v b :
-    shift0_c_c (subst_c_c x (shift_c_c x 0 v) b) = subst_c_c (1 + x) (shift_c_c (1 + x) 0 v) (shift0_c_c b).
-  Proof.
-    unfold shift0_c_c, subst0_c_c.
-    rewrite shift_c_c_subst_in by la.
-    rewrite shift_c_c_shift_merge by la.
-    repeat (f_equal; try la).
-  Qed.
-
-  Lemma shift0_c_c_subst_2 x v b :
-    shift0_c_c (subst_c_c x v b) = subst_c_c (1 + x) (shift0_c_c v) (shift0_c_c b).
-  Proof.
-    unfold shift0_c_c, subst0_c_c.
-    rewrite shift_c_c_subst_in by la.
-    repeat (f_equal; try la).
-  Qed.
-
-  Opaque le_lt_dec.
-  
-  Lemma shift_c_c_k_p_subst_out n :
-    (forall b v x y,
-        x <= y ->
-        shift_c_c n y (subst_c_c x v b) = subst_c_c x (shift_c_c n y v) (shift_c_c n (S y) b)) /\
-    (forall b v x y,
-        x <= y ->
-        shift_c_k n y (subst_c_k x v b) = subst_c_k x (shift_c_c n y v) (shift_c_k n (S y) b)) /\
-    (forall b v x y,
-        x <= y ->
-        shift_c_p n y (subst_c_p x v b) = subst_c_p x (shift_c_c n y v) (shift_c_p n (S y) b)).
-  Proof.
-    eapply cstr_kind_prop_mutind;
-      simplify;
-      cbn in *;
-        try solve [eauto |
-                   f_equal; eauto |
-                   erewrite H by la; repeat f_equal; eauto with db_la |
-                   repeat rewrite shift0_c_c_shift; simplify;
-                   repeat replace (S (y - n)) with (S y - n) by la;
-                   f_equal;
-                   match goal with
-                     H : _ |- _ => eapply H; eauto with db_la
-                   end].
-    {
-      (* Case CVar *)
-      repeat match goal with
-             | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
-             | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
-             end; try solve [f_equal; la].
-    }
-  Qed.
+        subst_i_s y (shift_i_i y 0 v) (shift_i_s n x b) = shift_i_s n x (subst_i_s (y - n) (shift_i_i (y - n) 0 v) b).
+    Proof.
+      induct b;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto with db_la |
+                     erewrite H by la; repeat f_equal; eauto with db_la |
+                     repeat rewrite shift0_i_i_shift_0; simplify;
+                     repeat replace (S (y - n)) with (S y - n) by la;
+                     f_equal;
+                     eauto with db_la
+                    ].
+    Qed.
     
-  Lemma shift_c_c_subst_out n :
-    forall b v x y,
+    Hint Resolve subst_i_s_shift_hit.
+    
+    Lemma subst_i_k_shift_hit v n :
+      forall b x y,
+        x + n <= y ->
+        subst_i_k y (shift_i_i y 0 v) (shift_i_k n x b) = shift_i_k n x (subst_i_k (y - n) (shift_i_i (y - n) 0 v) b).
+    Proof.
+      induct b;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto with db_la |
+                     erewrite H by la; repeat f_equal; eauto with db_la |
+                     repeat rewrite shift0_i_i_shift_0; simplify;
+                     repeat replace (S (y - n)) with (S y - n) by la;
+                     f_equal;
+                     eauto with db_la
+                    ].
+    Qed.
+    
+    Hint Resolve subst_i_k_shift_hit.
+    
+    Lemma subst_i_t_ts_shift_hit v n :
+      (forall b x y,
+          x + n <= y ->
+          subst_i_t y (shift_i_i y 0 v) (shift_i_t n x b) = shift_i_t n x (subst_i_t (y - n) (shift_i_i (y - n) 0 v) b)) /\
+      (forall b x y,
+          x + n <= y ->
+          subst_i_ts y (shift_i_i y 0 v) (shift_i_ts n x b) = shift_i_ts n x (subst_i_ts (y - n) (shift_i_i (y - n) 0 v) b)).
+    Proof.
+      eapply ty_ty_list_mutind;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto |
+                     erewrite H by la; repeat f_equal; eauto with db_la |
+                     repeat rewrite shift0_i_i_shift_0; simplify;
+                     repeat replace (S (y - n)) with (S y - n) by la;
+                     f_equal;
+                     eauto with db_la 
+                    ].
+    Qed.
+    
+    Lemma subst_i_t_shift_hit v n :
+      forall b x y,
+        x + n <= y ->
+        subst_i_t y (shift_i_i y 0 v) (shift_i_t n x b) = shift_i_t n x (subst_i_t (y - n) (shift_i_i (y - n) 0 v) b).
+    Proof.
+      eapply subst_i_t_ts_shift_hit.
+    Qed.
+    
+    Lemma subst_i_ts_shift_hit v n :
+      forall b x y,
+        x + n <= y ->
+        subst_i_ts y (shift_i_i y 0 v) (shift_i_ts n x b) = shift_i_ts n x (subst_i_ts (y - n) (shift_i_i (y - n) 0 v) b).
+    Proof.
+      eapply subst_i_t_ts_shift_hit.
+    Qed.
+    
+    Lemma subst_t_t_ts_shift_hit v n :
+      (forall b x y,
+          x + n <= y ->
+          subst_t_t y (shift_t_t y 0 v) (shift_t_t n x b) = shift_t_t n x (subst_t_t (y - n) (shift_t_t (y - n) 0 v) b)) /\
+      (forall b x y,
+          x + n <= y ->
+          subst_t_ts y (shift_t_t y 0 v) (shift_t_ts n x b) = shift_t_ts n x (subst_t_ts (y - n) (shift_t_t (y - n) 0 v) b)).
+    Proof.
+      eapply ty_ty_list_mutind;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto |
+                     erewrite H by la; repeat f_equal; eauto with db_la |
+                     repeat rewrite shift0_t_t_shift_0; simplify;
+                     repeat replace (S (y - n)) with (S y - n) by la;
+                     f_equal;
+                     eauto with db_la 
+                    ].
+      {
+        (* Case CVar *)
+        repeat match goal with
+               | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+               | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
+               end; try solve [f_equal; la].
+        rewrite shift_t_t_shift_merge by la.
+        f_equal; eauto with db_la.
+      }
+    Qed.
+    
+    Lemma subst_t_t_shift_hit v n :
+      forall b x y,
+        x + n <= y ->
+        subst_t_t y (shift_t_t y 0 v) (shift_t_t n x b) = shift_t_t n x (subst_t_t (y - n) (shift_t_t (y - n) 0 v) b).
+    Proof.
+      eapply subst_t_t_ts_shift_hit.
+    Qed.
+    
+    Lemma subst_t_ts_shift_hit v n :
+      forall b x y,
+        x + n <= y ->
+        subst_t_ts y (shift_t_t y 0 v) (shift_t_ts n x b) = shift_t_ts n x (subst_t_ts (y - n) (shift_t_t (y - n) 0 v) b).
+    Proof.
+      eapply subst_t_t_ts_shift_hit.
+    Qed.
+    
+    Lemma subst_i_s_shift x y v b :
       x <= y ->
-      shift_c_c n y (subst_c_c x v b) = subst_c_c x (shift_c_c n y v) (shift_c_c n (S y) b).
-  Proof.
-    eapply shift_c_c_k_p_subst_out.
-  Qed.
+      subst_i_s y (shift_i_i y 0 v) (shift_i_s x 0 b) = shift_i_s x 0 (subst_i_s (y - x) (shift_i_i (y - x) 0 v) b).
+    Proof.
+      intros.
+      eapply subst_i_s_shift_hit; la.
+    Qed.
+
+    Lemma shift_i_i_subst_in n :
+      forall b v x y,
+        y <= x ->
+        shift_i_i n y (subst_i_i x v b) = subst_i_i (x + n) (shift_i_i n y v) (shift_i_i n y b).
+    Proof.
+      induct b;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto |
+                     erewrite H by la; repeat f_equal; eauto with db_la |
+                     repeat rewrite shift0_i_i_shift; simplify;
+                     repeat replace (S (y - n)) with (S y - n) by la;
+                     f_equal;
+                     match goal with
+                       H : _ |- _ => eapply H; eauto with db_la
+                     end].
+      {
+        (* Case CVar *)
+        repeat match goal with
+               | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+               | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
+               end; try solve [f_equal; la].
+      }
+    Qed.
     
-  Lemma shift_c_k_subst_out n :
-    forall b v x y,
-      x <= y ->
-      shift_c_k n y (subst_c_k x v b) = subst_c_k x (shift_c_c n y v) (shift_c_k n (S y) b).
-  Proof.
-    eapply shift_c_c_k_p_subst_out.
-  Qed.
+    Hint Resolve shift_i_i_subst_in.
     
-  Lemma shift_c_p_subst_out n :
-    forall b v x y,
-      x <= y ->
-      shift_c_p n y (subst_c_p x v b) = subst_c_p x (shift_c_c n y v) (shift_c_p n (S y) b).
-  Proof.
-    eapply shift_c_c_k_p_subst_out.
-  Qed.
+    Lemma shift_i_p_subst_in n :
+      forall b v x y,
+        y <= x ->
+        shift_i_p n y (subst_i_p x v b) = subst_i_p (x + n) (shift_i_i n y v) (shift_i_p n y b).
+    Proof.
+      induct b;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto |
+                     erewrite H by la; repeat f_equal; eauto with db_la |
+                     repeat rewrite shift0_i_i_shift; simplify;
+                     repeat replace (S (y - n)) with (S y - n) by la;
+                     f_equal;
+                     match goal with
+                       H : _ |- _ => eapply H; eauto with db_la
+                     end].
+    Qed.
     
-  Lemma shift_c_c_subst0 n x v b : shift_c_c n x (subst0_c_c v b) = subst0_c_c (shift_c_c n x v) (shift_c_c n (S x) b).
-  Proof.
-    unfold shift0_c_c, subst0_c_c.
-    rewrite shift_c_c_subst_out; repeat (f_equal; try la).
-  Qed.
-  
-  Lemma subst_c_c_k_p_subst :
-    (forall b v1 v2 x y,
+    Hint Resolve shift_i_p_subst_in.
+    
+    Lemma shift_i_s_subst_in n :
+      forall b v x y,
+        y <= x ->
+        shift_i_s n y (subst_i_s x v b) = subst_i_s (x + n) (shift_i_i n y v) (shift_i_s n y b).
+    Proof.
+      induct b;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto with db_la |
+                     erewrite H by la; repeat f_equal; eauto with db_la |
+                     repeat rewrite shift0_i_i_shift; simplify;
+                     repeat replace (S (x + n)) with (S x + n) by la;
+                     f_equal;
+                     eauto with db_la
+                    ].
+    Qed.
+    
+    Hint Resolve shift_i_s_subst_in.
+    
+    Lemma shift_i_k_subst_in n :
+      forall b v x y,
+        y <= x ->
+        shift_i_k n y (subst_i_k x v b) = subst_i_k (x + n) (shift_i_i n y v) (shift_i_k n y b).
+    Proof.
+      induct b;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto with db_la |
+                     erewrite H by la; repeat f_equal; eauto with db_la |
+                     repeat rewrite shift0_i_i_shift; simplify;
+                     repeat replace (S (x + n)) with (S x + n) by la;
+                     f_equal;
+                     eauto with db_la
+                    ].
+    Qed.
+    
+    Hint Resolve shift_i_k_subst_in.
+    
+    Lemma shift_i_t_ts_subst_in n :
+      (forall b v x y,
+          y <= x ->
+          shift_i_t n y (subst_i_t x v b) = subst_i_t (x + n) (shift_i_i n y v) (shift_i_t n y b)) /\
+      (forall b v x y,
+          y <= x ->
+          shift_i_ts n y (subst_i_ts x v b) = subst_i_ts (x + n) (shift_i_i n y v) (shift_i_ts n y b)).
+    Proof.
+      eapply ty_ty_list_mutind;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto with db_la |
+                     erewrite H by la; repeat f_equal; eauto with db_la |
+                     repeat rewrite shift0_i_i_shift; simplify;
+                     repeat replace (S (x + n)) with (S x + n) by la;
+                     f_equal;
+                     eauto with db_la
+                    ].
+    Qed.
+    
+    Lemma shift_i_t_subst_in n :
+      forall b v x y,
+        y <= x ->
+        shift_i_t n y (subst_i_t x v b) = subst_i_t (x + n) (shift_i_i n y v) (shift_i_t n y b).
+    Proof.
+      eapply shift_i_t_ts_subst_in.
+    Qed.
+    
+    Lemma shift_i_ts_subst_in n :
+      forall b v x y,
+        y <= x ->
+        shift_i_ts n y (subst_i_ts x v b) = subst_i_ts (x + n) (shift_i_i n y v) (shift_i_ts n y b).
+    Proof.
+      eapply shift_i_t_ts_subst_in.
+    Qed.
+    
+    Lemma shift_t_t_ts_subst_in n :
+      (forall b v x y,
+          y <= x ->
+          shift_t_t n y (subst_t_t x v b) = subst_t_t (x + n) (shift_t_t n y v) (shift_t_t n y b)) /\
+      (forall b v x y,
+          y <= x ->
+          shift_t_ts n y (subst_t_ts x v b) = subst_t_ts (x + n) (shift_t_t n y v) (shift_t_ts n y b)).
+    Proof.
+      eapply ty_ty_list_mutind;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto with db_la |
+                     erewrite H by la; repeat f_equal; eauto with db_la |
+                     repeat rewrite shift0_t_t_shift; simplify;
+                     repeat replace (S (x + n)) with (S x + n) by la;
+                     f_equal;
+                     eauto with db_la
+                    ].
+      {
+        (* Case CVar *)
+        repeat match goal with
+               | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+               | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
+               end; try solve [f_equal; la].
+      }
+    Qed.
+    
+    Lemma shift_t_t_subst_in n :
+      forall b v x y,
+        y <= x ->
+        shift_t_t n y (subst_t_t x v b) = subst_t_t (x + n) (shift_t_t n y v) (shift_t_t n y b).
+    Proof.
+      eapply shift_t_t_ts_subst_in.
+    Qed.
+    
+    Lemma shift_t_ts_subst_in n :
+      forall b v x y,
+        y <= x ->
+        shift_t_ts n y (subst_t_ts x v b) = subst_t_ts (x + n) (shift_t_t n y v) (shift_t_ts n y b).
+    Proof.
+      eapply shift_t_t_ts_subst_in.
+    Qed.
+    
+    Lemma shift0_i_i_subst x v b :
+      shift0_i_i (subst_i_i x (shift_i_i x 0 v) b) = subst_i_i (1 + x) (shift_i_i (1 + x) 0 v) (shift0_i_i b).
+    Proof.
+      unfold shift0_i_i, subst0_i_i.
+      rewrite shift_i_i_subst_in by la.
+      rewrite shift_i_i_shift_merge by la.
+      repeat (f_equal; try la).
+    Qed.
+
+    Lemma shift0_i_i_subst_2 x v b :
+      shift0_i_i (subst_i_i x v b) = subst_i_i (1 + x) (shift0_i_i v) (shift0_i_i b).
+    Proof.
+      unfold shift0_i_i, subst0_i_i.
+      rewrite shift_i_i_subst_in by la.
+      repeat (f_equal; try la).
+    Qed.
+
+    Lemma shift0_t_t_subst_2 x v b :
+      shift0_t_t (subst_t_t x v b) = subst_t_t (1 + x) (shift0_t_t v) (shift0_t_t b).
+    Proof.
+      unfold shift0_t_t, subst0_t_t.
+      rewrite shift_t_t_subst_in by la.
+      repeat (f_equal; try la).
+    Qed.
+
+    Opaque le_lt_dec.
+    
+    Lemma shift_i_i_subst_out n :
+      forall b v x y,
         x <= y ->
-        subst_c_c y v2 (subst_c_c x v1 b) = subst_c_c x (subst_c_c y v2 v1) (subst_c_c (S y) (shift_c_c 1 x v2) b)) /\
-    (forall b v1 v2 x y,
-        x <= y ->
-        subst_c_k y v2 (subst_c_k x v1 b) = subst_c_k x (subst_c_c y v2 v1) (subst_c_k (S y) (shift_c_c 1 x v2) b)) /\
-    (forall b v1 v2 x y,
-        x <= y ->
-        subst_c_p y v2 (subst_c_p x v1 b) = subst_c_p x (subst_c_c y v2 v1) (subst_c_p (S y) (shift_c_c 1 x v2) b)).
-  Proof.
-    eapply cstr_kind_prop_mutind;
-      simplify;
-      cbn in *;
+        shift_i_i n y (subst_i_i x v b) = subst_i_i x (shift_i_i n y v) (shift_i_i n (S y) b).
+    Proof.
+      induct b;
+        simplify;
+        cbn in *;
         try solve [eauto |
                    f_equal; eauto |
                    erewrite H by la; repeat f_equal; eauto with db_la |
-                   repeat rewrite shift0_c_c_shift; simplify;
-                   repeat rewrite shift0_c_c_subst_2; simplify;
+                   repeat rewrite shift0_i_i_shift; simplify;
                    repeat replace (S (y - n)) with (S y - n) by la;
                    f_equal;
                    match goal with
                      H : _ |- _ => eapply H; eauto with db_la
                    end].
-    {
-      (* Case CVar *)
-      repeat match goal with
-             | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
-             | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
-             end; try solve [f_equal; la].
-      rewrite subst_c_c_shift_avoid by la.
-      simplify.
-      rewrite shift_c_c_0.
+      {
+        (* Case CVar *)
+        repeat match goal with
+               | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+               | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
+               end; try solve [f_equal; la].
+      }
+    Qed.
+    
+    Hint Resolve shift_i_i_subst_out.
+    
+    Lemma shift_i_p_subst_out n :
+      forall b v x y,
+        x <= y ->
+        shift_i_p n y (subst_i_p x v b) = subst_i_p x (shift_i_i n y v) (shift_i_p n (S y) b).
+    Proof.
+      induct b;
+        simplify;
+        cbn in *;
+        try solve [eauto |
+                   f_equal; eauto |
+                   erewrite H by la; repeat f_equal; eauto with db_la |
+                   repeat rewrite shift0_i_i_shift; simplify;
+                   f_equal;
+                   eauto with db_la
+                  ].
+    Qed.
+    
+    Hint Resolve shift_i_p_subst_out.
+    
+    Lemma shift_i_s_subst_out n :
+      forall b v x y,
+        x <= y ->
+        shift_i_s n y (subst_i_s x v b) = subst_i_s x (shift_i_i n y v) (shift_i_s n (S y) b).
+    Proof.
+      induct b;
+        simplify;
+        cbn in *;
+        try solve [eauto |
+                   f_equal; eauto |
+                   erewrite H by la; repeat f_equal; eauto with db_la |
+                   repeat rewrite shift0_i_i_shift; simplify;
+                   f_equal;
+                   eauto with db_la
+                  ].
+    Qed.
+    
+    Hint Resolve shift_i_s_subst_out.
+    
+    Lemma shift_i_k_subst_out n :
+      forall b v x y,
+        x <= y ->
+        shift_i_k n y (subst_i_k x v b) = subst_i_k x (shift_i_i n y v) (shift_i_k n (S y) b).
+    Proof.
+      induct b;
+        simplify;
+        cbn in *;
+        try solve [eauto |
+                   f_equal; eauto |
+                   erewrite H by la; repeat f_equal; eauto with db_la |
+                   repeat rewrite shift0_i_i_shift; simplify;
+                   f_equal;
+                   eauto with db_la
+                  ].
+    Qed.
+    
+    Hint Resolve shift_i_k_subst_out.
+    
+    Lemma shift_i_t_ts_subst_out n :
+      (forall b v x y,
+          x <= y ->
+          shift_i_t n y (subst_i_t x v b) = subst_i_t x (shift_i_i n y v) (shift_i_t n (S y) b)) /\
+      (forall b v x y,
+          x <= y ->
+          shift_i_ts n y (subst_i_ts x v b) = subst_i_ts x (shift_i_i n y v) (shift_i_ts n (S y) b)).
+    Proof.
+      eapply ty_ty_list_mutind;
+        simplify;
+        cbn in *;
+        try solve [eauto |
+                   f_equal; eauto |
+                   erewrite H by la; repeat f_equal; eauto with db_la |
+                   repeat rewrite shift0_i_i_shift; simplify;
+                   repeat replace (S (y - n)) with (S y - n) by la;
+                   f_equal;
+                   eauto with db_la
+                  ].
+    Qed.
+    
+    Lemma shift_i_t_subst_out n :
+      forall b v x y,
+        x <= y ->
+        shift_i_t n y (subst_i_t x v b) = subst_i_t x (shift_i_i n y v) (shift_i_t n (S y) b).
+    Proof.
+      eapply shift_i_t_ts_subst_out.
+    Qed.
+    
+    Lemma shift_i_ts_subst_out n :
+      forall b v x y,
+        x <= y ->
+        shift_i_ts n y (subst_i_ts x v b) = subst_i_ts x (shift_i_i n y v) (shift_i_ts n (S y) b).
+    Proof.
+      eapply shift_i_t_ts_subst_out.
+    Qed.
+    
+    Lemma shift_t_t_ts_subst_out n :
+      (forall b v x y,
+          x <= y ->
+          shift_t_t n y (subst_t_t x v b) = subst_t_t x (shift_t_t n y v) (shift_t_t n (S y) b)) /\
+      (forall b v x y,
+          x <= y ->
+          shift_t_ts n y (subst_t_ts x v b) = subst_t_ts x (shift_t_t n y v) (shift_t_ts n (S y) b)).
+    Proof.
+      eapply ty_ty_list_mutind;
+        simplify;
+        cbn in *;
+        try solve [eauto |
+                   f_equal; eauto |
+                   erewrite H by la; repeat f_equal; eauto with db_la |
+                   repeat rewrite shift0_t_t_shift; simplify;
+                   repeat replace (S (y - n)) with (S y - n) by la;
+                   f_equal;
+                   eauto with db_la
+                  ].
+      {
+        (* Case CVar *)
+        repeat match goal with
+               | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+               | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
+               end; try solve [f_equal; la].
+      }
+    Qed.
+    
+    Lemma shift_t_t_subst_out n :
+      forall b v x y,
+        x <= y ->
+        shift_t_t n y (subst_t_t x v b) = subst_t_t x (shift_t_t n y v) (shift_t_t n (S y) b).
+    Proof.
+      eapply shift_t_t_ts_subst_out.
+    Qed.
+    
+    Lemma shift_t_ts_subst_out n :
+      forall b v x y,
+        x <= y ->
+        shift_t_ts n y (subst_t_ts x v b) = subst_t_ts x (shift_t_t n y v) (shift_t_ts n (S y) b).
+    Proof.
+      eapply shift_t_t_ts_subst_out.
+    Qed.
+    
+    Lemma shift_i_i_subst0 n x v b : shift_i_i n x (subst0_i_i v b) = subst0_i_i (shift_i_i n x v) (shift_i_i n (S x) b).
+    Proof.
+      unfold shift0_i_i, subst0_i_i.
+      rewrite shift_i_i_subst_out; repeat (f_equal; try la).
+    Qed.
+    
+    Lemma subst_i_i_subst :
+      forall b v1 v2 x y,
+        x <= y ->
+        subst_i_i y v2 (subst_i_i x v1 b) = subst_i_i x (subst_i_i y v2 v1) (subst_i_i (S y) (shift_i_i 1 x v2) b).
+    Proof.
+      induct b;
+        simplify;
+        cbn in *;
+        try solve [eauto |
+                   f_equal; eauto |
+                   erewrite H by la; repeat f_equal; eauto with db_la |
+                   repeat rewrite shift0_i_i_shift; simplify;
+                   repeat rewrite shift0_i_i_subst_2; simplify;
+                   repeat replace (S (y - n)) with (S y - n) by la;
+                   f_equal;
+                   match goal with
+                     H : _ |- _ => eapply H; eauto with db_la
+                   end].
+      {
+        (* Case CVar *)
+        repeat match goal with
+               | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+               | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
+               end; try solve [f_equal; la].
+        rewrite subst_i_i_shift_avoid by la.
+        simplify.
+        rewrite shift_i_i_0.
+        eauto.
+      }
+    Qed.
+
+    Hint Resolve subst_i_i_subst.
+    
+    Lemma subst_i_p_subst :
+      forall b v1 v2 x y,
+        x <= y ->
+        subst_i_p y v2 (subst_i_p x v1 b) = subst_i_p x (subst_i_i y v2 v1) (subst_i_p (S y) (shift_i_i 1 x v2) b).
+    Proof.
+      induct b;
+        simplify;
+        cbn in *;
+        try solve [eauto |
+                   f_equal; eauto |
+                   erewrite H by la; repeat f_equal; eauto with db_la |
+                   repeat rewrite shift0_i_i_shift; simplify;
+                   repeat rewrite shift0_i_i_subst_2; simplify;
+                   repeat replace (S (y - n)) with (S y - n) by la;
+                   f_equal;
+                   match goal with
+                     H : _ |- _ => eapply H; eauto with db_la
+                   end].
+    Qed.
+
+    Hint Resolve subst_i_p_subst.
+    
+    Lemma subst_i_s_subst :
+      forall b v1 v2 x y,
+        x <= y ->
+        subst_i_s y v2 (subst_i_s x v1 b) = subst_i_s x (subst_i_i y v2 v1) (subst_i_s (S y) (shift_i_i 1 x v2) b).
+    Proof.
+      induct b;
+        simplify;
+        cbn in *;
+        try solve [eauto |
+                   f_equal; eauto |
+                   erewrite H by la; repeat f_equal; eauto with db_la |
+                   repeat rewrite shift0_i_i_shift; simplify;
+                   repeat rewrite shift0_i_i_subst_2; simplify;
+                   repeat replace (S (y - n)) with (S y - n) by la;
+                   f_equal;
+                   eauto with db_la
+                  ].
+    Qed.
+
+    Hint Resolve subst_i_s_subst.
+    
+    Lemma subst_i_k_subst :
+      forall b v1 v2 x y,
+        x <= y ->
+        subst_i_k y v2 (subst_i_k x v1 b) = subst_i_k x (subst_i_i y v2 v1) (subst_i_k (S y) (shift_i_i 1 x v2) b).
+    Proof.
+      induct b;
+        simplify;
+        cbn in *;
+        try solve [eauto |
+                   f_equal; eauto |
+                   erewrite H by la; repeat f_equal; eauto with db_la |
+                   repeat rewrite shift0_i_i_khift; simplify;
+                   repeat rewrite shift0_i_i_kubst_2; simplify;
+                   repeat replace (S (y - n)) with (S y - n) by la;
+                   f_equal;
+                   eauto with db_la
+                  ].
+    Qed.
+
+    Hint Resolve subst_i_k_subst.
+    
+    Lemma subst_i_t_ts_subst :
+      (forall b v1 v2 x y,
+          x <= y ->
+          subst_i_t y v2 (subst_i_t x v1 b) = subst_i_t x (subst_i_i y v2 v1) (subst_i_t (S y) (shift_i_i 1 x v2) b)) /\
+      (forall b v1 v2 x y,
+          x <= y ->
+          subst_i_ts y v2 (subst_i_ts x v1 b) = subst_i_ts x (subst_i_i y v2 v1) (subst_i_ts (S y) (shift_i_i 1 x v2) b)).
+    Proof.
+      eapply ty_ty_list_mutind;
+        simplify;
+        cbn in *;
+        try solve [eauto |
+                   f_equal; eauto |
+                   erewrite H by la; repeat f_equal; eauto with db_la |
+                   repeat rewrite shift0_i_i_shift; simplify;
+                   repeat rewrite shift0_i_i_subst_2; simplify;
+                   repeat replace (S (y - n)) with (S y - n) by la;
+                   f_equal;
+                   eauto with db_la
+                  ].
+    Qed.
+    
+    Lemma subst_i_t_subst :
+      forall b v1 v2 x y,
+        x <= y ->
+        subst_i_t y v2 (subst_i_t x v1 b) = subst_i_t x (subst_i_i y v2 v1) (subst_i_t (S y) (shift_i_i 1 x v2) b).
+    Proof.
+      eapply subst_i_t_ts_subst.
+    Qed.
+    
+    Lemma subst_i_ts_subst :
+      forall b v1 v2 x y,
+        x <= y ->
+        subst_i_ts y v2 (subst_i_ts x v1 b) = subst_i_ts x (subst_i_i y v2 v1) (subst_i_ts (S y) (shift_i_i 1 x v2) b).
+    Proof.
+      eapply subst_i_t_ts_subst.
+    Qed.
+    
+    Lemma subst_t_t_ts_subst :
+      (forall b v1 v2 x y,
+          x <= y ->
+          subst_t_t y v2 (subst_t_t x v1 b) = subst_t_t x (subst_t_t y v2 v1) (subst_t_t (S y) (shift_t_t 1 x v2) b)) /\
+      (forall b v1 v2 x y,
+          x <= y ->
+          subst_t_ts y v2 (subst_t_ts x v1 b) = subst_t_ts x (subst_t_t y v2 v1) (subst_t_ts (S y) (shift_t_t 1 x v2) b)).
+    Proof.
+      eapply ty_ty_list_mutind;
+        simplify;
+        cbn in *;
+        try solve [eauto |
+                   f_equal; eauto |
+                   erewrite H by la; repeat f_equal; eauto with db_la |
+                   repeat rewrite shift0_t_t_shift; simplify;
+                   repeat rewrite shift0_t_t_subst_2; simplify;
+                   repeat replace (S (y - n)) with (S y - n) by la;
+                   f_equal;
+                   eauto with db_la
+                  ].
+      {
+        (* Case CVar *)
+        repeat match goal with
+               | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+               | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
+               end; try solve [f_equal; la].
+        rewrite subst_t_t_shift_avoid by la.
+        simplify.
+        rewrite shift_t_t_0.
+        eauto.
+      }
+    Qed.
+    
+    Lemma subst_t_t_subst :
+      forall b v1 v2 x y,
+        x <= y ->
+        subst_t_t y v2 (subst_t_t x v1 b) = subst_t_t x (subst_t_t y v2 v1) (subst_t_t (S y) (shift_t_t 1 x v2) b).
+    Proof.
+      eapply subst_t_t_ts_subst.
+    Qed.
+    
+    Lemma subst_t_ts_subst :
+      forall b v1 v2 x y,
+        x <= y ->
+        subst_t_ts y v2 (subst_t_ts x v1 b) = subst_t_ts x (subst_t_t y v2 v1) (subst_t_ts (S y) (shift_t_t 1 x v2) b).
+    Proof.
+      eapply subst_t_t_ts_subst.
+    Qed.
+    
+    Lemma subst_i_i_subst0 n c c' t : subst_i_i n c (subst0_i_i c' t) = subst0_i_i (subst_i_i n c c') (subst_i_i (S n) (shift0_i_i c) t).
+    Proof.
+      eapply subst_i_i_subst.
+      la.
+    Qed.
+    
+    Lemma map_shift0_subst n c ls :
+      map shift0_i_i (map (subst_i_i n (shift_i_i n 0 c)) ls) =
+      map (subst_i_i (1 + n) (shift_i_i (1 + n) 0 c)) (map shift0_i_i ls).
+    Proof.
+      repeat rewrite map_map.
+      setoid_rewrite shift0_i_i_subst.
       eauto.
-    }
-  Qed.
-  
-  Lemma subst_c_c_subst :
-    forall b v1 v2 x y,
-      x <= y ->
-      subst_c_c y v2 (subst_c_c x v1 b) = subst_c_c x (subst_c_c y v2 v1) (subst_c_c (S y) (shift_c_c 1 x v2) b).
-  Proof.
-    eapply subst_c_c_k_p_subst.
-  Qed.
-  
-  Lemma subst_c_k_subst :
-    forall b v1 v2 x y,
-      x <= y ->
-      subst_c_k y v2 (subst_c_k x v1 b) = subst_c_k x (subst_c_c y v2 v1) (subst_c_k (S y) (shift_c_c 1 x v2) b).
-  Proof.
-    eapply subst_c_c_k_p_subst.
-  Qed.
-  
-  Lemma subst_c_p_subst :
-    forall b v1 v2 x y,
-      x <= y ->
-      subst_c_p y v2 (subst_c_p x v1 b) = subst_c_p x (subst_c_c y v2 v1) (subst_c_p (S y) (shift_c_c 1 x v2) b).
-  Proof.
-    eapply subst_c_c_k_p_subst.
-  Qed.
-  
-  Lemma subst_c_c_subst0 n c c' t : subst_c_c n c (subst0_c_c c' t) = subst0_c_c (subst_c_c n c c') (subst_c_c (S n) (shift0_c_c c) t).
-  Proof.
-    eapply subst_c_c_subst.
-    la.
-  Qed.
-  
-  Lemma map_shift0_subst n c ls :
-    map shift0_c_c (map (subst_c_c n (shift_c_c n 0 c)) ls) =
-    map (subst_c_c (1 + n) (shift_c_c (1 + n) 0 c)) (map shift0_c_c ls).
-  Proof.
-    repeat rewrite map_map.
-    setoid_rewrite shift0_c_c_subst.
-    eauto.
-  Qed.
+    Qed.
 
+  End subst_proofs.
+  
   Fixpoint time_fun (arity : nat) :=
     match arity with
     | 0 => time_type
