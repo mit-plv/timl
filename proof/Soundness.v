@@ -941,16 +941,8 @@ Module M (Time : TIME).
   | TApp (t : ty) (i : idx)
   | TQuan (q : quan) (k : kind) (t : ty)
   | TQuanI (q : quan) (s : sort) (t : ty)
-  | TRec (k : kind) (t : ty) (args : ty_list)
-  with ty_list :=
-       | TLNil
-       | TLCons (hd : ty) (tl : ty_list)
+  | TRec (k : kind) (t : ty) (args : list idx)
   .
-
-  Scheme ty_mutind := Induction for ty Sort Prop
-  with ty_list_mutind := Induction for ty_list Sort Prop.
-
-  Combined Scheme ty_ty_list_mutind from ty_mutind, ty_list_mutind.
 
   Definition SUnit := SBaseSort BSUnit.
   Definition SBool := SBaseSort BSBool.
@@ -1110,13 +1102,8 @@ Module M (Time : TIME).
       | TApp t i => TApp (shift_i_t x t) (shift_i_i x i)
       | TQuan q k c => TQuan q (shift_i_k x k) (shift_i_t x c)
       | TQuanI q s c => TQuanI q (shift_i_s x s) (shift_i_t (1 + x) c)
-      | TRec k t args => TRec (shift_i_k x k) (shift_i_t x t) (shift_i_ts x args)
-      end
-    with shift_i_ts (x : var) (b : ty_list) : ty_list :=
-           match b with
-           | TLNil => TLNil
-           | TLCons hd tl => TLCons (shift_i_t x hd) (shift_i_ts x tl)
-           end.
+      | TRec k t args => TRec (shift_i_k x k) (shift_i_t x t) (map (shift_i_i x) args)
+      end.
 
     Fixpoint shift_t_t (x : var) (b : ty) : ty :=
       match b with
@@ -1133,13 +1120,8 @@ Module M (Time : TIME).
       | TApp t i => TApp (shift_t_t x t) i
       | TQuan q k c => TQuan q k (shift_t_t (1 + x) c)
       | TQuanI q s c => TQuanI q s (shift_t_t x c)
-      | TRec k t args => TRec k (shift_t_t (1 + x) t) (shift_t_ts x args)
-      end
-    with shift_t_ts (x : var) (b : ty_list) : ty_list :=
-           match b with
-           | TLNil => TLNil
-           | TLCons hd tl => TLCons (shift_t_t x hd) (shift_t_ts x tl)
-           end.
+      | TRec k t args => TRec k (shift_t_t (1 + x) t) args
+      end.
         
   End shift.
   
@@ -1214,13 +1196,8 @@ Module M (Time : TIME).
     | TApp t i => TApp (subst_i_t x v t) (subst_i_i x v i)
     | TQuan q k c => TQuan q (subst_i_k x v k) (subst_i_t x v c)
     | TQuanI q s c => TQuanI q (subst_i_s x v s) (subst_i_t (1 + x) (shift0_i_i v) c)
-    | TRec k t args => TRec (subst_i_k x v k) (subst_i_t x v t) (subst_i_ts x v args)
-    end
-  with subst_i_ts x v b :=
-         match b with
-         | TLNil => TLNil
-         | TLCons hd tl => TLCons (subst_i_t x v hd) (subst_i_ts x v tl)
-         end.
+    | TRec k t args => TRec (subst_i_k x v k) (subst_i_t x v t) (map (subst_i_i x v) args)
+    end.
       
   Fixpoint subst_t_t (x : var) (v : ty) (b : ty) : ty :=
     match b with
@@ -1238,18 +1215,13 @@ Module M (Time : TIME).
     | TApp t i => TApp (subst_t_t x v t) i
     | TQuan q k c => TQuan q k (subst_t_t (1 + x) (shift0_t_t v) c)
     | TQuanI q s c => TQuanI q s (subst_t_t x v c)
-    | TRec k t args => TRec k (subst_t_t (1 + x) (shift0_t_t v) t) (subst_t_ts x v args)
-    end
-  with subst_t_ts x v b :=
-         match b with
-         | TLNil => TLNil
-         | TLCons hd tl => TLCons (subst_t_t x v hd) (subst_t_ts x v tl)
-         end.
+    | TRec k t args => TRec k (subst_t_t (1 + x) (shift0_t_t v) t) args
+    end.
   
   Definition subst0_i_i v b := subst_i_i 0 v b.
   Definition subst0_i_t v b := subst_i_t 0 v b.
   Definition subst0_t_t v b := subst_t_t 0 v b.
-
+  
   Ltac la := linear_arithmetic.
 
   Section shift_proofs.
@@ -1296,30 +1268,25 @@ Module M (Time : TIME).
     
     Hint Resolve shift_i_k_0.
     
-    Lemma shift_i_t_ts_0 :
-      (forall b x, shift_i_t 0 x b = b) /\
-      (forall b x, shift_i_ts 0 x b = b).
+    Lemma map_shift_i_i_0 x b : map (shift_i_i 0 x) b = b.
     Proof.
-      eapply ty_ty_list_mutind;
+      induct b; simpl; f_equal; eauto.
+    Qed.
+
+    Hint Resolve map_shift_i_i_0.
+    
+    Lemma shift_i_t_0 :
+      forall b x, shift_i_t 0 x b = b.
+    Proof.
+      induct b;
         simplify; cbn in *;
           try solve [f_equal; eauto].
     Qed.
     
-    Lemma shift_i_t_0 : forall c x, shift_i_t 0 x c = c.
+    Lemma shift_t_t_0 :
+      forall b x, shift_t_t 0 x b = b.
     Proof.
-      eapply shift_i_t_ts_0.
-    Qed.
-    
-    Lemma shift_i_ts_0 : forall c x, shift_i_ts 0 x c = c.
-    Proof.
-      eapply shift_i_t_ts_0.
-    Qed.
-    
-    Lemma shift_t_t_ts_0 :
-      (forall b x, shift_t_t 0 x b = b) /\
-      (forall b x, shift_t_ts 0 x b = b).
-    Proof.
-      eapply ty_ty_list_mutind;
+      induct b;
         simplify; cbn in *;
           try solve [f_equal; eauto].
       {
@@ -1328,16 +1295,6 @@ Module M (Time : TIME).
                  |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
                end; f_equal; eauto with db_la.
       }
-    Qed.
-    
-    Lemma shift_t_t_0 : forall c x, shift_t_t 0 x c = c.
-    Proof.
-      eapply shift_t_t_ts_0.
-    Qed.
-    
-    Lemma shift_t_ts_0 : forall c x, shift_t_ts 0 x c = c.
-    Proof.
-      eapply shift_t_t_ts_0.
     Qed.
     
     Lemma shift_i_i_shift_merge n1 n2 :
@@ -1422,26 +1379,17 @@ Module M (Time : TIME).
     
     Hint Resolve shift_i_k_shift_merge.
     
-    Lemma shift_i_t_ts_shift_merge n1 n2 :
-      (forall b x y,
-          x <= y ->
-          y <= x + n1 ->
-          shift_i_t n2 y (shift_i_t n1 x b) = shift_i_t (n1 + n2) x b) /\
-      (forall b x y,
-          x <= y ->
-          y <= x + n1 ->
-          shift_i_ts n2 y (shift_i_ts n1 x b) = shift_i_ts (n1 + n2) x b).
+    Lemma map_shift_i_i_shift_merge n1 n2 :
+      forall x y,
+        x <= y ->
+        y <= x + n1 ->
+        forall b,
+          map (shift_i_i n2 y) (map (shift_i_i n1 x) b) = map (shift_i_i (n1 + n2) x) b.
     Proof.
-      eapply ty_ty_list_mutind;
-        simplify; cbn in *;
-          try solve [eauto |
-                     f_equal; eauto |
-                     erewrite H by la; f_equal; eauto with db_la |
-                     f_equal;
-                     match goal with
-                       H : _ |- _ => eapply H; eauto with db_la
-                     end].
+      induct b; simpl; f_equal; eauto.
     Qed.
+
+    Hint Resolve map_shift_i_i_shift_merge.
     
     Lemma shift_i_t_shift_merge n1 n2 :
       forall b x y,
@@ -1449,29 +1397,23 @@ Module M (Time : TIME).
         y <= x + n1 ->
         shift_i_t n2 y (shift_i_t n1 x b) = shift_i_t (n1 + n2) x b.
     Proof.
-      eapply shift_i_t_ts_shift_merge.
+      induct b;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto |
+                     erewrite H by la; f_equal; eauto with db_la |
+                     f_equal;
+                     eauto with db_la
+                    ].
     Qed.
     
-    Lemma shift_i_ts_shift_merge n1 n2 :
+    Lemma shift_t_t_shift_merge n1 n2 :
       forall b x y,
         x <= y ->
         y <= x + n1 ->
-        shift_i_ts n2 y (shift_i_ts n1 x b) = shift_i_ts (n1 + n2) x b.
+        shift_t_t n2 y (shift_t_t n1 x b) = shift_t_t (n1 + n2) x b.
     Proof.
-      eapply shift_i_t_ts_shift_merge.
-    Qed.
-    
-    Lemma shift_t_t_ts_shift_merge n1 n2 :
-      (forall b x y,
-          x <= y ->
-          y <= x + n1 ->
-          shift_t_t n2 y (shift_t_t n1 x b) = shift_t_t (n1 + n2) x b) /\
-      (forall b x y,
-          x <= y ->
-          y <= x + n1 ->
-          shift_t_ts n2 y (shift_t_ts n1 x b) = shift_t_ts (n1 + n2) x b).
-    Proof.
-      eapply ty_ty_list_mutind;
+      induct b;
         simplify; cbn in *;
           try solve [eauto |
                      f_equal; eauto |
@@ -1488,24 +1430,6 @@ Module M (Time : TIME).
       }
     Qed.
 
-    Lemma shift_t_t_shift_merge n1 n2 :
-      forall b x y,
-        x <= y ->
-        y <= x + n1 ->
-        shift_t_t n2 y (shift_t_t n1 x b) = shift_t_t (n1 + n2) x b.
-    Proof.
-      eapply shift_t_t_ts_shift_merge.
-    Qed.
-    
-    Lemma shift_t_ts_shift_merge n1 n2 :
-      forall b x y,
-        x <= y ->
-        y <= x + n1 ->
-        shift_t_ts n2 y (shift_t_ts n1 x b) = shift_t_ts (n1 + n2) x b.
-    Proof.
-      eapply shift_t_t_ts_shift_merge.
-    Qed.
-    
     Lemma shift_i_s_shift_0 b :
       forall n1 n2 x,
         x <= n1 ->
@@ -1590,6 +1514,8 @@ Module M (Time : TIME).
     Qed.
     
     Hint Resolve shift_i_k_shift_cut.
+
+    (*here*)
     
     Lemma shift_i_t_ts_shift_cut n1 n2 :
       (forall b x y,
@@ -4159,14 +4085,12 @@ lift2 (fst (strip_subsets L))
 
   Hint Constructors kdeq.
 
-  Definition subst0_i_p v b := subst_i_p 0 v b.
-  
   Inductive idxeq : sctx -> idx -> idx -> sort -> Prop :=
   | IEBaseSort L i i' b :
       interp_prop L (PEq b i i') ->
       idxeq L i i' (SBaseSort b)
   | IESubset L i i' b p :
-      interp_prop L ((subst0_i_p i p /\ subst0_i_p i' p ) ===> PEq b i i')%idx ->
+      interp_prop L ((subst_i_p (length L) i p /\ subst_i_p (length L) i' p ) ===> PEq b i i')%idx ->
       idxeq L i i' (SSubset b p)
   .
 
