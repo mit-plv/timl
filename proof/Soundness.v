@@ -873,7 +873,7 @@ Module M (Time : TIME).
 
   Inductive prop_bin_pred :=
   | PBTimeLe
-  | PBTimeEq
+  (* | PBTimeEq *)
   | PBBigO (arity : nat)
   .
 
@@ -901,6 +901,7 @@ Module M (Time : TIME).
   | PBinConn (opr : prop_bin_conn) (p1 p2 : prop)
   | PNot (p : prop)
   | PBinPred (opr : prop_bin_pred) (i1 i2 : idx)
+  | PEq (b : base_sort) (i1 i2 : idx)
   | PQuan (q : quan) (b : base_sort) (p : prop)
   .
   
@@ -986,7 +987,7 @@ Module M (Time : TIME).
   Definition TSum := TBinOp TBSum.
 
   Definition Tle := PBinPred PBTimeLe.
-  Definition TEq := PBinPred PBTimeEq.
+  Definition TEq := PEq BSTime.
   Infix "<=" := Tle : idx_scope.
   Infix "==" := TEq (at level 70) : idx_scope.
   Infix "===>" := PImply (at level 95) : idx_scope.
@@ -1041,7 +1042,7 @@ Module M (Time : TIME).
   Definition binpred_arg1_base_sort opr :=
     match opr with
     | PBTimeLe => BSTime
-    | PBTimeEq => BSTime
+    (* | PBTimeEq => BSTime *)
     | PBBigO n => BSTimeFun n
     end
   .
@@ -1049,7 +1050,7 @@ Module M (Time : TIME).
   Definition binpred_arg2_base_sort opr :=
     match opr with
     | PBTimeLe => BSTime
-    | PBTimeEq => BSTime
+    (* | PBTimeEq => BSTime *)
     | PBBigO n => BSTimeFun n
     end
   .
@@ -1082,6 +1083,7 @@ Module M (Time : TIME).
       | PBinConn opr p1 p2 => PBinConn opr (shift_i_p x p1) (shift_i_p x p2)
       | PNot p => PNot (shift_i_p x p)
       | PBinPred opr i1 i2 => PBinPred opr (shift_i_i x i1) (shift_i_i x i2)
+      | PEq b i1 i2 => PEq b (shift_i_i x i1) (shift_i_i x i2)
       | PQuan q b p => PQuan q b (shift_i_p (1 + x) p)
       end.
 
@@ -1185,6 +1187,7 @@ Module M (Time : TIME).
     | PBinConn opr p1 p2 => PBinConn opr (subst_i_p x v p1) (subst_i_p x v p2)
     | PNot p => PNot (subst_i_p x v p)
     | PBinPred opr i1 i2 => PBinPred opr (subst_i_i x v i1) (subst_i_i x v i2)
+    | PEq b i1 i2 => PEq b (subst_i_i x v i1) (subst_i_i x v i2)
     | PQuan q b p => PQuan q b (subst_i_p (1 + x) (shift0_i_i v) p)
     end.
 
@@ -2904,7 +2907,7 @@ Module M (Time : TIME).
   Definition interp_binpred opr : interp_sort (binpred_arg1_base_sort opr) -> interp_sort (binpred_arg2_base_sort opr) -> Prop :=
     match opr with
     | PBTimeLe => TimeLe
-    | PBTimeEq => eq
+    (* | PBTimeEq => eq *)
     | PBBigO n => Time_BigO n
     end.
 
@@ -2915,7 +2918,7 @@ Module M (Time : TIME).
     end.
 
   Definition interp_true_false_Prop (b : bool) := if b then True else False.
-  
+
   Fixpoint interp_p arg_ks p : interp_sorts arg_ks Prop :=
     match p with
     | PTrueFalse cn => lift0 arg_ks (interp_true_false_Prop cn)
@@ -2926,6 +2929,8 @@ Module M (Time : TIME).
     | PBinPred opr c1 c2 =>
       let f x1 x2 := interp_binpred opr x1 x2 in
       lift2 arg_ks f (interp_idx c1 arg_ks (binpred_arg1_base_sort opr)) (interp_idx c2 arg_ks (binpred_arg2_base_sort opr))
+    | PEq b c1 c2 =>
+      lift2 arg_ks eq (interp_idx c1 arg_ks b) (interp_idx c2 arg_ks b)
     | PQuan q b p => lift1 arg_ks (interp_quan q) (interp_p (b :: arg_ks) p)
     end.
 
@@ -3716,7 +3721,6 @@ Module M (Time : TIME).
       admit.
     }
     {
-      (*here*)
       admit.
     }
   Admitted.
@@ -4135,15 +4139,107 @@ lift2 (fst (strip_subsets L))
       wfsort L (SSubset b p)
   .
 
-  Lemma interp_prop_subst_c_p L p :
+  Lemma interp_prop_subst_i_p L p :
     interp_prop L p ->
     forall n k c ,
       nth_error L n = Some k ->
-      kinding (my_skipn L (1 + n)) c k ->
-      interp_prop (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_p n (shift_c_c n 0 c) p).
+      sorting (my_skipn L (1 + n)) c k ->
+      interp_prop (subst_i_ss c (firstn n L) ++ my_skipn L (1 + n)) (subst_i_p n (shift_i_i n 0 c) p).
   Proof.
   Admitted.
   
+  Inductive kdeq : sctx -> kind -> kind -> Prop :=
+  | KdEqKType L :
+      kdeq L KType KType
+  | KdEqKArrow L s k s' k' :
+      sorteq L s s' ->
+      kdeq L k k' ->
+      kdeq L (KArrow s k) (KArrow s' k')
+  .
+
+  Hint Constructors kdeq.
+
+  Definition subst0_i_p v b := subst_i_p 0 v b.
+  
+  Inductive idxeq : sctx -> idx -> idx -> sort -> Prop :=
+  | IEBaseSort L i i' b :
+      interp_prop L (PEq b i i') ->
+      idxeq L i i' (SBaseSort b)
+  | IESubset L i i' b p :
+      interp_prop L ((subst0_i_p i p /\ subst0_i_p i' p ) ===> PEq b i i')%idx ->
+      idxeq L i i' (SSubset b p)
+  .
+
+  (*here*)
+  
+  (* a version that builds in transitivity *)
+  Inductive tyeq : sctx -> kctx -> ty -> ty -> kind -> Prop :=
+  (* | TyEqVar L x : *)
+  (*     tyeq L (CVar x) (CVar x) *)
+  (* | TyEqConst L cn : *)
+  (*     tyeq L (CConst cn) (CConst cn) *)
+  | TyEqUnOp L K opr t t' :
+      tyeq L K t t' KType ->
+      tyeq L K (TUnOp opr t) (TUnOp opr t') KType
+  | TyEqBinOp L K opr t1 t2 t1' t2' :
+      tyeq L K t1 t1' KType ->
+      tyeq L K t2 t2' KType ->
+      tyeq L K (TBinOp opr t1 t2) (TBinOp opr t1' t2') KType
+  | TyEqArrow L K t1 i t2 t1' i' t2':
+      tyeq L K t1 t1' KType ->
+      interp_prop L (TEq i i') ->
+      tyeq L K t2 t2' KType ->
+      tyeq L K (TArrow t1 i t2) (TArrow t1' i' t2') KType
+  | TyEqAbs L K s t s' t' k :
+      sorteq L s s' ->
+      tyeq (s :: L) (map shift0_i_k K) t t' k ->
+      tyeq L K (TAbs s t) (TAbs s' t') (KArrow s k)
+  | TyEqApp L K t i t' i' s k :
+      tyeq L K t t' (KArrow s k ) ->
+      idxeq L i i' s ->
+      tyeq L K (TApp t i) (TApp t' i') k
+  | TyEqBeta L K t i k :
+      tyeq L K (TApp (TAbs t) i) (subst0_i_t t i) k
+  (* | TyEqBetaRev L K t1 t2  : *)
+  (*     tyeq L K (subst0_c_c t2 t1) (CApp (CAbs t1) t2) *)
+  | TyEqQuan L K quan k t k' t' :
+      kdeq L k k' ->
+      tyeq L (k :: K) t t' KType ->
+      tyeq L K (TQuan quan k t) (TQuan quan k' t') KType
+  | TyEqQuanI L K quan s t s' t' :
+      sorteq L s s' ->
+      tyeq (s :: L) (map shift0_i K) t t' KType ->
+      tyeq L K (TQuanI quan s t) (TQuanI quan s' t') KType
+  | TyEqRec L k c k' c' :
+      kdeq L k k' ->
+      tyeq L (k :: K) c c' k ->
+      tyseq L K args args' ->
+      tyeq L K (TRec k c args) (TRec k' c' args')
+  (* the following rules are just here to satisfy reflexivity *)
+  (* don't do deep equality test of two CAbs's *)
+  (* | TyEqAbs L t : *)
+  (*     tyeq L (CAbs t) (CAbs t) *)
+  (* | TyEqApp L c1 c2 : *)
+  (*     tyeq L (CApp c1 c2) (CApp c1 c2) *)
+  (* structural rules *)
+  | TyEqRefl L K t k :
+      tyeq L K t t k
+  | TyEqSym L K a b k :
+      tyeq L K a b k ->
+      tyeq L K b a k
+  | TyEqTrans L K a b c k :
+      tyeq L K a b k ->
+      tyeq L K b c k ->
+      tyeq L K a c k
+  with tyseq : sctx -> kctx -> ty_list -> ty_list -> Prop :=
+       | TysEqNil L K :
+           tyseq L K TLNil TLNil
+       | TysEqCons L K hd tl hd' tl' :
+           tyeq L K hd hd' ->
+           tyseq L K tl tl' ->
+           tyseq L K (TLCons hd tl) (TLCons hd' tl')
+  .
+
   (* Substitute a 'substitution group' for all variables. *)
   (* In a subtitution group, values for inner variables cannot depend on values for outer variables.  *)
 
@@ -4556,74 +4652,6 @@ lift2 (fst (strip_subsets L))
     eapply subst_cs_p_Quan; eauto.
   Qed.
   
-  (* a version that builds in transitivity *)
-  Inductive tyeq : kctx -> cstr -> cstr -> Prop :=
-  (* | TyEqRefl L t : *)
-  (*     tyeq L t t *)
-  | TyEqVar L x :
-      tyeq L (CVar x) (CVar x)
-  | TyEqConst L cn :
-      tyeq L (CConst cn) (CConst cn)
-  (* | TyEqUnOp L opr t t' : *)
-  (*     tyeq L t t' -> *)
-  (*     tyeq L (CUnOp opr t) (CUnOp opr t') *)
-  | TyEqBinOp L opr t1 t2 t1' t2' :
-      tyeq L t1 t1' ->
-      tyeq L t2 t2' ->
-      tyeq L (CBinOp opr t1 t2) (CBinOp opr t1' t2')
-  | TyEqIte L t1 t2 t3 t1' t2' t3':
-      tyeq L t1 t1' ->
-      tyeq L t2 t2' ->
-      tyeq L t3 t3' ->
-      tyeq L (CIte t1 t2 t3) (CIte t1' t2' t3')
-  | TyEqArrow L t1 i t2 t1' i' t2':
-      tyeq L t1 t1' ->
-      interp_prop L (TEq i i') ->
-      tyeq L t2 t2' ->
-      tyeq L (CArrow t1 i t2) (CArrow t1' i' t2')
-  | TyEqApp L c1 c2 c1' c2' :
-      tyeq L c1 c1' ->
-      tyeq L c2 c2' ->
-      tyeq L (CApp c1 c2) (CApp c1' c2')
-  (* | TyEqTimeApp L n c1 c2 n' c1' c2' : *)
-  (*     n = n' -> *)
-  (*     tyeq L c1 c1' -> *)
-  (*     tyeq L c2 c2' -> *)
-  (*     tyeq L (CTimeApp n c1 c2) (CTimeApp n' c1' c2') *)
-  | TyEqBeta L t1 t2  :
-      tyeq L (CApp (CAbs t1) t2) (subst0_c_c t2 t1)
-  | TyEqBetaRev L t1 t2  :
-      tyeq L (subst0_c_c t2 t1) (CApp (CAbs t1) t2)
-  | TyEqQuan L quan k t k' t' :
-      sorteq L k k' ->
-      tyeq (k :: L) t t' ->
-      tyeq L (CQuan quan k t) (CQuan quan k' t')
-  | TyEqRec L k c k' c' :
-      sorteq L k k' ->
-      tyeq (k :: L) c c' ->
-      tyeq L (CRec k c) (CRec k' c')
-  | TyEqRef L t t' :
-      tyeq L t t' ->
-      tyeq L (CRef t) (CRef t')
-  (* the following rules (except [TyEqTrans]) are just here to satisfy reflexivity *)
-  (* don't do deep equality test of two CAbs's *)
-  | TyEqAbs L t :
-      tyeq L (CAbs t) (CAbs t)
-  (* | TyEqAbs L t t' k : *)
-  (*     tyeq (k :: L) t t' -> *)
-  (*     tyeq L (CAbs t) (CAbs t') *)
-  | TyEqTimeAbs L i :
-      tyeq L (CTimeAbs i) (CTimeAbs i)
-  (* | TyEqApp L c1 c2 : *)
-  (*     tyeq L (CApp c1 c2) (CApp c1 c2) *)
-  | TyEqTimeApp L n c1 c2 :
-      tyeq L (CTimeApp n c1 c2) (CTimeApp n c1 c2)
-  | TyEqTrans L a b c :
-      tyeq L a b ->
-      tyeq L b c ->
-      tyeq L a c
-  .
-
   Section tyeq_hint.
     
     Local Hint Constructors tyeq.
