@@ -3833,12 +3833,12 @@ lift2 (fst (strip_subsets L))
   Definition monotone : idx -> Prop.
   Admitted.
 
-  (* Unset Elimination Schemes. *)
+  Definition subst0_i_p v b := subst_i_p 0 v b.
 
   Inductive sorting : sctx -> idx -> sort -> Prop :=
-  | StgVar L x k :
-      nth_error L x = Some k ->
-      sorting L (IVar x) (shift_i_s (1 + x) 0 k)
+  | StgVar L x s :
+      nth_error L x = Some s ->
+      sorting L (IVar x) (shift_i_s (1 + x) 0 s)
   | StgConst L cn :
       sorting L (IConst cn) (SBaseSort (const_base_sort cn))
   | StgBinOp L opr c1 c2 :
@@ -3861,12 +3861,100 @@ lift2 (fst (strip_subsets L))
   (* todo: need elimination rule for TimeAbs *)
   | StgSubsetI L c b p :
       sorting L c (SBaseSort b) ->
-      interp_prop L (subst_i_p (length L) c p) ->
+      interp_prop L (subst0_i_p c p) ->
       sorting L c (SSubset b p)
   | StgSubsetE L c b p :
       sorting L c (SSubset b p) ->
       sorting L c (SBaseSort b)
   .
+
+  Hint Constructors sorting.
+  
+  Lemma StgVar' L x s s' :
+    nth_error L x = Some s ->
+    s' = shift_i_s (1 + x) 0 s ->
+    sorting L (IVar x) s'.
+  Proof.
+    intros; subst; eauto.
+  Qed.
+  
+  Require Import Datatypes.
+    
+  Lemma interp_prop_iff_elim L p p' :
+    interp_prop L p ->
+    interp_prop L (p <===> p')%idx ->
+    interp_prop L p'.
+  Proof.
+    eapply admit.
+  Qed.
+  
+  Lemma interp_prop_subst_i_p L p :
+    interp_prop L p ->
+    forall n s c ,
+      nth_error L n = Some s ->
+      sorting (my_skipn L (1 + n)) c s ->
+      interp_prop (subst_i_ss c (firstn n L) ++ my_skipn L (1 + n)) (subst_i_p n (shift_i_i n 0 c) p).
+  Proof.
+  Admitted.
+  
+  Lemma interp_prop_subst0_i_p s L p c :
+    interp_prop (s :: L) p ->
+    sorting L c s ->
+    interp_prop L (subst0_i_p c p).
+  Proof.
+    intros Hp Hc.
+    specialize (@interp_prop_subst_i_p (s :: L) p Hp 0 s c).
+    intros H.
+    simpl in *.
+    rewrite my_skipn_0 in *.
+    rewrite shift_i_i_0 in *.
+    eauto.
+  Qed.
+  
+  Lemma StgEq L i s :
+    sorting L i s ->
+    forall s',
+      sorteq L s' s ->
+      sorting L i s'.
+  Proof.
+    induct 1; simpl; try solve [intros; eauto | induct 1; simpl in *; econstructor; eauto].
+    {
+      intros s' Heq.
+      invert Heq; simpl in *.
+      {
+        destruct s; simpl in *; try discriminate.
+        invert H3.
+        eapply StgVar'; eauto.
+      }
+      {
+        destruct s as [ ? | b' p'']; simpl in *; try discriminate.
+        symmetry in H0.
+        invert H0.
+        rename p'' into p'.
+        eapply StgSubsetI.
+        {
+          eapply StgSubsetE.
+          eapply StgVar'; eauto.
+          simpl.
+          eauto.
+        }
+        {
+          (*here*) 
+          eapply admit.
+        }
+      }
+    }
+    {
+      intros s' Heq.
+      invert Heq; simpl in *.
+      eapply StgSubsetI; eauto.
+      eapply interp_prop_subst0_i_p in H4; eauto.
+      unfold subst0_i_p in *.
+      simpl in *.
+      eapply interp_prop_iff_sym in H4.
+      eauto using interp_prop_iff_elim. 
+    }
+  Qed.
   
   Inductive wfprop : sctx -> prop -> Prop :=
   | WfPropTrueFalse L cn :
@@ -3895,15 +3983,6 @@ lift2 (fst (strip_subsets L))
       wfsort L (SSubset b p)
   .
 
-  Lemma interp_prop_subst_i_p L p :
-    interp_prop L p ->
-    forall n k c ,
-      nth_error L n = Some k ->
-      sorting (my_skipn L (1 + n)) c k ->
-      interp_prop (subst_i_ss c (firstn n L) ++ my_skipn L (1 + n)) (subst_i_p n (shift_i_i n 0 c) p).
-  Proof.
-  Admitted.
-  
   Inductive kdeq : sctx -> kind -> kind -> Prop :=
   | KdEqKType L :
       kdeq L KType KType
@@ -3950,7 +4029,7 @@ lift2 (fst (strip_subsets L))
       tyeq L K (TArrow t1 i t2) (TArrow t1' i' t2') KType
   | TyEqAbs L K s t s' t' k :
       sorteq L s s' ->
-      tyeq (s :: L) (map shift0_i_k K) t t' k ->
+      tyeq (s :: L) (map shift0_i_k K) t t' (shift0_i_k k) ->
       tyeq L K (TAbs s t) (TAbs s' t') (KArrow s k)
   | TyEqApp L K t i t' i' s k :
       tyeq L K t t' (KArrow s k ) ->
@@ -3992,6 +4071,92 @@ lift2 (fst (strip_subsets L))
       tyeq L K a c k
   .
 
+  Inductive wfkind : sctx -> kind -> Prop :=
+  | WfKdType L :
+      wfkind L KType
+  | WfKdArrow L s k :
+      wfsort L s ->
+      wfkind L k ->
+      wfkind L (KArrow s k)
+  .
+  
+  Inductive kinding : sctx -> kctx -> ty -> kind -> Prop :=
+  | KdgVar L K x k :
+      nth_error K x = Some k ->
+      kinding L K (TVar x) k
+  | KdgConst L K cn :
+      kinding L K (TConst cn) KType
+  | KdgUnOp L K opr t :
+      kinding L K t KType ->
+      kinding L K (TUnOp opr t) KType
+  | KdgBinOp L K opr c1 c2 :
+      kinding L K c1 KType ->
+      kinding L K c2 KType ->
+      kinding L K (TBinOp opr c1 c2) KType
+  | KdgArrow L K t1 i t2 :
+      kinding L K t1 KType ->
+      sorting L i STime ->
+      kinding L K t2 KType ->
+      kinding L K (TArrow t1 i t2) KType
+  | KdgAbs L K s t k :
+      wfsort L s ->
+      kinding (s :: L) (map shift0_i_k K) t (shift0_i_k k) ->
+      kinding L K (TAbs s t) (KArrow s k)
+  | KdgApp L K t i s k :
+      kinding L K t (KArrow s k) ->
+      sorting L i s ->
+      kinding L K (TApp t i) k
+  | KdgQuan L K quan k c :
+      wfkind L k ->
+      kinding L (k :: K) c KType ->
+      kinding L K (TQuan quan k c) KType
+  | KdgQuanI L K quan s c :
+      wfsort L s ->
+      kinding (s :: L) (map shift0_i_k K) c KType ->
+      kinding L K (TQuanI quan s c) KType
+  | KdgRec L K k c args sorts :
+      wfkind L k ->
+      kinding L (k :: K) c k ->
+      k = KArrows sorts ->
+      Forall2 (sorting L) args sorts ->
+      kinding L K (TRec k c args) KType
+  .
+
+  Lemma KdgEq L K t k :
+    kinding L K t k ->
+    forall k',
+      kdeq L k' k ->
+      kinding L K t k'.
+  Proof.
+    induct 1; simpl; try solve [intros; eauto | induct 1; simpl in *; econstructor; eauto].
+    {
+      intros s' Heq.
+      invert Heq; simpl in *.
+      {
+        destruct s; simpl in *; try discriminate.
+        invert H3.
+        eapply StgVar'; eauto.
+      }
+    }
+  Qed.
+  
+  Lemma KdEq L c k :
+    kinding L c k ->
+    forall k',
+      sorteq L k' k ->
+      kinding L c k'.
+  Proof.
+    induct 1; simpl; eauto.
+  Qed.
+
+
+  
+  | KdEq L c k k' :
+      kinding L c k ->
+      kdeq L k' k ->
+      kinding L c k'
+  .
+  
   (* Substitute a 'substitution group' for all variables. *)
   (* In a subtitution group, values for inner variables cannot depend on values for outer variables.  *)
 
@@ -4414,15 +4579,6 @@ lift2 (fst (strip_subsets L))
       Grab Existential Variables.
       (* exact KType. *)
     Qed.
-
-    (* Lemma KdEq L c k : *)
-    (*   kinding L c k -> *)
-    (*   forall k', *)
-    (*     sorteq L k' k -> *)
-    (*     kinding L c k'. *)
-    (* Proof. *)
-    (*   induct 1; simpl; eauto. *)
-    (* Qed. *)
 
     Lemma equal_sorts_sorteq L k1 k2 :
       sorteq L k1 k2 ->
@@ -5030,8 +5186,6 @@ lift2 (fst (strip_subsets L))
     Proof.
       intros; subst; eauto.
     Qed.
-    
-    Require Import Datatypes.
     
     Hint Constructors kinding2 wfkind2 wfprop2.
 
