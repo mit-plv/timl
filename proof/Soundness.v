@@ -1515,17 +1515,23 @@ Module M (Time : TIME).
     
     Hint Resolve shift_i_k_shift_cut.
 
-    (*here*)
-    
-    Lemma shift_i_t_ts_shift_cut n1 n2 :
-      (forall b x y,
-          x + n1 <= y ->
-          shift_i_t n2 y (shift_i_t n1 x b) = shift_i_t n1 x (shift_i_t n2 (y - n1) b)) /\
-      (forall b x y,
-          x + n1 <= y ->
-          shift_i_ts n2 y (shift_i_ts n1 x b) = shift_i_ts n1 x (shift_i_ts n2 (y - n1) b)).
+    Lemma map_shift_i_i_shift_cut n1 n2 :
+      forall x y,
+        x + n1 <= y ->
+        forall b,
+          map (shift_i_i n2 y) (map (shift_i_i n1 x) b) = map (shift_i_i n1 x) (map (shift_i_i n2 (y - n1)) b).
     Proof.
-      eapply ty_ty_list_mutind;
+      induct b; simpl; f_equal; eauto.
+    Qed.
+
+    Hint Resolve map_shift_i_i_shift_cut.
+    
+    Lemma shift_i_t_shift_cut n1 n2 :
+      forall b x y,
+        x + n1 <= y ->
+        shift_i_t n2 y (shift_i_t n1 x b) = shift_i_t n1 x (shift_i_t n2 (y - n1) b).
+    Proof.
+      induct b;
         simplify; cbn in *;
           try solve [eauto |
                      f_equal; eauto |
@@ -1534,31 +1540,12 @@ Module M (Time : TIME).
                     ].
     Qed.
     
-    Lemma shift_i_t_shift_cut n1 n2 :
+    Lemma shift_t_t_shift_cut n1 n2 :
       forall b x y,
         x + n1 <= y ->
-        shift_i_t n2 y (shift_i_t n1 x b) = shift_i_t n1 x (shift_i_t n2 (y - n1) b).
+        shift_t_t n2 y (shift_t_t n1 x b) = shift_t_t n1 x (shift_t_t n2 (y - n1) b).
     Proof.
-      eapply shift_i_t_ts_shift_cut.
-    Qed.
-    
-    Lemma shift_i_ts_shift_cut n1 n2 :
-      forall b x y,
-        x + n1 <= y ->
-        shift_i_ts n2 y (shift_i_ts n1 x b) = shift_i_ts n1 x (shift_i_ts n2 (y - n1) b).
-    Proof.
-      eapply shift_i_t_ts_shift_cut.
-    Qed.
-    
-    Lemma shift_t_t_ts_shift_cut n1 n2 :
-      (forall b x y,
-          x + n1 <= y ->
-          shift_t_t n2 y (shift_t_t n1 x b) = shift_t_t n1 x (shift_t_t n2 (y - n1) b)) /\
-      (forall b x y,
-          x + n1 <= y ->
-          shift_t_ts n2 y (shift_t_ts n1 x b) = shift_t_ts n1 x (shift_t_ts n2 (y - n1) b)).
-    Proof.
-      eapply ty_ty_list_mutind;
+      induct b;
         simplify; cbn in *;
           try solve [eauto |
                      f_equal; eauto |
@@ -1571,22 +1558,6 @@ Module M (Time : TIME).
                  |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
                end; f_equal; la.
       }
-    Qed.
-    
-    Lemma shift_t_t_shift_cut n1 n2 :
-      forall b x y,
-        x + n1 <= y ->
-        shift_t_t n2 y (shift_t_t n1 x b) = shift_t_t n1 x (shift_t_t n2 (y - n1) b).
-    Proof.
-      eapply shift_t_t_ts_shift_cut.
-    Qed.
-    
-    Lemma shift_t_ts_shift_cut n1 n2 :
-      forall b x y,
-        x + n1 <= y ->
-        shift_t_ts n2 y (shift_t_ts n1 x b) = shift_t_ts n1 x (shift_t_ts n2 (y - n1) b).
-    Proof.
-      eapply shift_t_t_ts_shift_cut.
     Qed.
     
     Lemma shift_i_s_shift_2 b :
@@ -1739,27 +1710,17 @@ Module M (Time : TIME).
     
     Hint Resolve subst_i_k_shift_avoid.
     
-    Lemma subst_i_t_ts_shift_avoid n :
-      (forall b v x y,
-          x <= y ->
-          y < x + n ->
-          subst_i_t y v (shift_i_t n x b) = shift_i_t (n - 1) x b) /\
-      (forall b v x y,
-          x <= y ->
-          y < x + n ->
-          subst_i_ts y v (shift_i_ts n x b) = shift_i_ts (n - 1) x b).
+    Lemma map_subst_i_i_shift_avoid n :
+      forall v x y,
+        x <= y ->
+        y < x + n ->
+        forall b,
+          map (subst_i_i y v) (map (shift_i_i n x) b) = map (shift_i_i (n - 1) x) b.
     Proof.
-      eapply ty_ty_list_mutind;
-        simplify; cbn in *;
-          try solve [eauto |
-                     f_equal; eauto |
-                     erewrite H by la; repeat f_equal; eauto with db_la |
-                     repeat replace (S (y - n)) with (S y - n) by la;
-                     f_equal;
-                     match goal with
-                       H : _ |- _ => eapply H; eauto with db_la
-                     end].
+      induct b; simpl; f_equal; eauto.
     Qed.
+
+    Hint Resolve map_subst_i_i_shift_avoid.
     
     Lemma subst_i_t_shift_avoid n :
       forall b v x y,
@@ -1767,29 +1728,24 @@ Module M (Time : TIME).
         y < x + n ->
         subst_i_t y v (shift_i_t n x b) = shift_i_t (n - 1) x b.
     Proof.
-      eapply subst_i_t_ts_shift_avoid.
+      induct b;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto |
+                     erewrite H by la; repeat f_equal; eauto with db_la |
+                     repeat replace (S (y - n)) with (S y - n) by la;
+                     f_equal;
+                     eauto with db_la
+                    ].
     Qed.
     
-    Lemma subst_i_ts_shift_avoid n :
+    Lemma subst_t_t_shift_avoid n :
       forall b v x y,
         x <= y ->
         y < x + n ->
-        subst_i_ts y v (shift_i_ts n x b) = shift_i_ts (n - 1) x b.
+        subst_t_t y v (shift_t_t n x b) = shift_t_t (n - 1) x b.
     Proof.
-      eapply subst_i_t_ts_shift_avoid.
-    Qed.
-    
-    Lemma subst_t_t_ts_shift_avoid n :
-      (forall b v x y,
-          x <= y ->
-          y < x + n ->
-          subst_t_t y v (shift_t_t n x b) = shift_t_t (n - 1) x b) /\
-      (forall b v x y,
-          x <= y ->
-          y < x + n ->
-          subst_t_ts y v (shift_t_ts n x b) = shift_t_ts (n - 1) x b).
-    Proof.
-      eapply ty_ty_list_mutind;
+      induct b;
         simplify; cbn in *;
           try solve [eauto |
                      f_equal; eauto |
@@ -1806,24 +1762,6 @@ Module M (Time : TIME).
                | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
                end; try solve [f_equal; la].
       }
-    Qed.
-    
-    Lemma subst_t_t_shift_avoid n :
-      forall b v x y,
-        x <= y ->
-        y < x + n ->
-        subst_t_t y v (shift_t_t n x b) = shift_t_t (n - 1) x b.
-    Proof.
-      eapply subst_t_t_ts_shift_avoid.
-    Qed.
-    
-    Lemma subst_t_ts_shift_avoid n :
-      forall b v x y,
-        x <= y ->
-        y < x + n ->
-        subst_t_ts y v (shift_t_ts n x b) = shift_t_ts (n - 1) x b.
-    Proof.
-      eapply subst_t_t_ts_shift_avoid.
     Qed.
     
     Lemma subst_i_s_shift_0_avoid x y v b :
@@ -1930,15 +1868,23 @@ Module M (Time : TIME).
     
     Hint Resolve subst_i_k_shift_hit.
     
-    Lemma subst_i_t_ts_shift_hit v n :
-      (forall b x y,
-          x + n <= y ->
-          subst_i_t y (shift_i_i y 0 v) (shift_i_t n x b) = shift_i_t n x (subst_i_t (y - n) (shift_i_i (y - n) 0 v) b)) /\
-      (forall b x y,
-          x + n <= y ->
-          subst_i_ts y (shift_i_i y 0 v) (shift_i_ts n x b) = shift_i_ts n x (subst_i_ts (y - n) (shift_i_i (y - n) 0 v) b)).
+    Lemma map_subst_i_i_shift_hit v n :
+      forall x y,
+        x + n <= y ->
+        forall b,
+          map (subst_i_i y (shift_i_i y 0 v)) (map (shift_i_i n x) b) = map (shift_i_i n x) (map (subst_i_i (y - n) (shift_i_i (y - n) 0 v)) b).
     Proof.
-      eapply ty_ty_list_mutind;
+      induct b; simpl; f_equal; eauto.
+    Qed.
+    
+    Hint Resolve map_subst_i_i_shift_hit.
+    
+    Lemma subst_i_t_shift_hit v n :
+      forall b x y,
+        x + n <= y ->
+        subst_i_t y (shift_i_i y 0 v) (shift_i_t n x b) = shift_i_t n x (subst_i_t (y - n) (shift_i_i (y - n) 0 v) b).
+    Proof.
+      induct b;
         simplify; cbn in *;
           try solve [eauto |
                      f_equal; eauto |
@@ -1950,31 +1896,12 @@ Module M (Time : TIME).
                     ].
     Qed.
     
-    Lemma subst_i_t_shift_hit v n :
+    Lemma subst_t_t_shift_hit v n :
       forall b x y,
         x + n <= y ->
-        subst_i_t y (shift_i_i y 0 v) (shift_i_t n x b) = shift_i_t n x (subst_i_t (y - n) (shift_i_i (y - n) 0 v) b).
+        subst_t_t y (shift_t_t y 0 v) (shift_t_t n x b) = shift_t_t n x (subst_t_t (y - n) (shift_t_t (y - n) 0 v) b).
     Proof.
-      eapply subst_i_t_ts_shift_hit.
-    Qed.
-    
-    Lemma subst_i_ts_shift_hit v n :
-      forall b x y,
-        x + n <= y ->
-        subst_i_ts y (shift_i_i y 0 v) (shift_i_ts n x b) = shift_i_ts n x (subst_i_ts (y - n) (shift_i_i (y - n) 0 v) b).
-    Proof.
-      eapply subst_i_t_ts_shift_hit.
-    Qed.
-    
-    Lemma subst_t_t_ts_shift_hit v n :
-      (forall b x y,
-          x + n <= y ->
-          subst_t_t y (shift_t_t y 0 v) (shift_t_t n x b) = shift_t_t n x (subst_t_t (y - n) (shift_t_t (y - n) 0 v) b)) /\
-      (forall b x y,
-          x + n <= y ->
-          subst_t_ts y (shift_t_t y 0 v) (shift_t_ts n x b) = shift_t_ts n x (subst_t_ts (y - n) (shift_t_t (y - n) 0 v) b)).
-    Proof.
-      eapply ty_ty_list_mutind;
+      induct b;
         simplify; cbn in *;
           try solve [eauto |
                      f_equal; eauto |
@@ -1993,22 +1920,6 @@ Module M (Time : TIME).
         rewrite shift_t_t_shift_merge by la.
         f_equal; eauto with db_la.
       }
-    Qed.
-    
-    Lemma subst_t_t_shift_hit v n :
-      forall b x y,
-        x + n <= y ->
-        subst_t_t y (shift_t_t y 0 v) (shift_t_t n x b) = shift_t_t n x (subst_t_t (y - n) (shift_t_t (y - n) 0 v) b).
-    Proof.
-      eapply subst_t_t_ts_shift_hit.
-    Qed.
-    
-    Lemma subst_t_ts_shift_hit v n :
-      forall b x y,
-        x + n <= y ->
-        subst_t_ts y (shift_t_t y 0 v) (shift_t_ts n x b) = shift_t_ts n x (subst_t_ts (y - n) (shift_t_t (y - n) 0 v) b).
-    Proof.
-      eapply subst_t_t_ts_shift_hit.
     Qed.
     
     Lemma subst_i_s_shift x y v b :
@@ -2104,15 +2015,23 @@ Module M (Time : TIME).
     
     Hint Resolve shift_i_k_subst_in.
     
-    Lemma shift_i_t_ts_subst_in n :
-      (forall b v x y,
-          y <= x ->
-          shift_i_t n y (subst_i_t x v b) = subst_i_t (x + n) (shift_i_i n y v) (shift_i_t n y b)) /\
-      (forall b v x y,
-          y <= x ->
-          shift_i_ts n y (subst_i_ts x v b) = subst_i_ts (x + n) (shift_i_i n y v) (shift_i_ts n y b)).
+    Lemma map_shift_i_i_subst_in n :
+      forall v x y,
+        y <= x ->
+        forall b,
+          map (shift_i_i n y) (map (subst_i_i x v) b) = map (subst_i_i (x + n) (shift_i_i n y v)) (map (shift_i_i n y) b).
     Proof.
-      eapply ty_ty_list_mutind;
+      induct b; simpl; f_equal; eauto.
+    Qed.
+    
+    Hint Resolve map_shift_i_i_subst_in.
+    
+    Lemma shift_i_t_subst_in n :
+      forall b v x y,
+        y <= x ->
+        shift_i_t n y (subst_i_t x v b) = subst_i_t (x + n) (shift_i_i n y v) (shift_i_t n y b).
+    Proof.
+      induct b;
         simplify; cbn in *;
           try solve [eauto |
                      f_equal; eauto with db_la |
@@ -2124,31 +2043,12 @@ Module M (Time : TIME).
                     ].
     Qed.
     
-    Lemma shift_i_t_subst_in n :
+    Lemma shift_t_t_subst_in n :
       forall b v x y,
         y <= x ->
-        shift_i_t n y (subst_i_t x v b) = subst_i_t (x + n) (shift_i_i n y v) (shift_i_t n y b).
+        shift_t_t n y (subst_t_t x v b) = subst_t_t (x + n) (shift_t_t n y v) (shift_t_t n y b).
     Proof.
-      eapply shift_i_t_ts_subst_in.
-    Qed.
-    
-    Lemma shift_i_ts_subst_in n :
-      forall b v x y,
-        y <= x ->
-        shift_i_ts n y (subst_i_ts x v b) = subst_i_ts (x + n) (shift_i_i n y v) (shift_i_ts n y b).
-    Proof.
-      eapply shift_i_t_ts_subst_in.
-    Qed.
-    
-    Lemma shift_t_t_ts_subst_in n :
-      (forall b v x y,
-          y <= x ->
-          shift_t_t n y (subst_t_t x v b) = subst_t_t (x + n) (shift_t_t n y v) (shift_t_t n y b)) /\
-      (forall b v x y,
-          y <= x ->
-          shift_t_ts n y (subst_t_ts x v b) = subst_t_ts (x + n) (shift_t_t n y v) (shift_t_ts n y b)).
-    Proof.
-      eapply ty_ty_list_mutind;
+      induct b;
         simplify; cbn in *;
           try solve [eauto |
                      f_equal; eauto with db_la |
@@ -2165,22 +2065,6 @@ Module M (Time : TIME).
                | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
                end; try solve [f_equal; la].
       }
-    Qed.
-    
-    Lemma shift_t_t_subst_in n :
-      forall b v x y,
-        y <= x ->
-        shift_t_t n y (subst_t_t x v b) = subst_t_t (x + n) (shift_t_t n y v) (shift_t_t n y b).
-    Proof.
-      eapply shift_t_t_ts_subst_in.
-    Qed.
-    
-    Lemma shift_t_ts_subst_in n :
-      forall b v x y,
-        y <= x ->
-        shift_t_ts n y (subst_t_ts x v b) = subst_t_ts (x + n) (shift_t_t n y v) (shift_t_ts n y b).
-    Proof.
-      eapply shift_t_t_ts_subst_in.
     Qed.
     
     Lemma shift0_i_i_subst x v b :
@@ -2295,15 +2179,23 @@ Module M (Time : TIME).
     
     Hint Resolve shift_i_k_subst_out.
     
-    Lemma shift_i_t_ts_subst_out n :
-      (forall b v x y,
-          x <= y ->
-          shift_i_t n y (subst_i_t x v b) = subst_i_t x (shift_i_i n y v) (shift_i_t n (S y) b)) /\
-      (forall b v x y,
-          x <= y ->
-          shift_i_ts n y (subst_i_ts x v b) = subst_i_ts x (shift_i_i n y v) (shift_i_ts n (S y) b)).
+    Lemma map_shift_i_i_subst_out n :
+      forall v x y,
+        x <= y ->
+        forall b,
+          map (shift_i_i n y) (map (subst_i_i x v) b) = map (subst_i_i x (shift_i_i n y v)) (map (shift_i_i n (S y)) b).
     Proof.
-      eapply ty_ty_list_mutind;
+      induct b; simpl; f_equal; eauto.
+    Qed.
+    
+    Hint Resolve map_shift_i_i_subst_out.
+    
+    Lemma shift_i_t_subst_out n :
+      forall b v x y,
+        x <= y ->
+        shift_i_t n y (subst_i_t x v b) = subst_i_t x (shift_i_i n y v) (shift_i_t n (S y) b).
+    Proof.
+      induct b;
         simplify;
         cbn in *;
         try solve [eauto |
@@ -2316,31 +2208,12 @@ Module M (Time : TIME).
                   ].
     Qed.
     
-    Lemma shift_i_t_subst_out n :
+    Lemma shift_t_t_subst_out n :
       forall b v x y,
         x <= y ->
-        shift_i_t n y (subst_i_t x v b) = subst_i_t x (shift_i_i n y v) (shift_i_t n (S y) b).
+        shift_t_t n y (subst_t_t x v b) = subst_t_t x (shift_t_t n y v) (shift_t_t n (S y) b).
     Proof.
-      eapply shift_i_t_ts_subst_out.
-    Qed.
-    
-    Lemma shift_i_ts_subst_out n :
-      forall b v x y,
-        x <= y ->
-        shift_i_ts n y (subst_i_ts x v b) = subst_i_ts x (shift_i_i n y v) (shift_i_ts n (S y) b).
-    Proof.
-      eapply shift_i_t_ts_subst_out.
-    Qed.
-    
-    Lemma shift_t_t_ts_subst_out n :
-      (forall b v x y,
-          x <= y ->
-          shift_t_t n y (subst_t_t x v b) = subst_t_t x (shift_t_t n y v) (shift_t_t n (S y) b)) /\
-      (forall b v x y,
-          x <= y ->
-          shift_t_ts n y (subst_t_ts x v b) = subst_t_ts x (shift_t_t n y v) (shift_t_ts n (S y) b)).
-    Proof.
-      eapply ty_ty_list_mutind;
+      induct b;
         simplify;
         cbn in *;
         try solve [eauto |
@@ -2358,22 +2231,6 @@ Module M (Time : TIME).
                | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
                end; try solve [f_equal; la].
       }
-    Qed.
-    
-    Lemma shift_t_t_subst_out n :
-      forall b v x y,
-        x <= y ->
-        shift_t_t n y (subst_t_t x v b) = subst_t_t x (shift_t_t n y v) (shift_t_t n (S y) b).
-    Proof.
-      eapply shift_t_t_ts_subst_out.
-    Qed.
-    
-    Lemma shift_t_ts_subst_out n :
-      forall b v x y,
-        x <= y ->
-        shift_t_ts n y (subst_t_ts x v b) = subst_t_ts x (shift_t_t n y v) (shift_t_ts n (S y) b).
-    Proof.
-      eapply shift_t_t_ts_subst_out.
     Qed.
     
     Lemma shift_i_i_subst0 n x v b : shift_i_i n x (subst0_i_i v b) = subst0_i_i (shift_i_i n x v) (shift_i_i n (S x) b).
@@ -2479,15 +2336,23 @@ Module M (Time : TIME).
 
     Hint Resolve subst_i_k_subst.
     
-    Lemma subst_i_t_ts_subst :
-      (forall b v1 v2 x y,
-          x <= y ->
-          subst_i_t y v2 (subst_i_t x v1 b) = subst_i_t x (subst_i_i y v2 v1) (subst_i_t (S y) (shift_i_i 1 x v2) b)) /\
-      (forall b v1 v2 x y,
-          x <= y ->
-          subst_i_ts y v2 (subst_i_ts x v1 b) = subst_i_ts x (subst_i_i y v2 v1) (subst_i_ts (S y) (shift_i_i 1 x v2) b)).
+    Lemma map_subst_i_i_subst :
+      forall v1 v2 x y,
+        x <= y ->
+        forall b,
+          map (subst_i_i y v2) (map (subst_i_i x v1) b) = map (subst_i_i x (subst_i_i y v2 v1)) (map (subst_i_i (S y) (shift_i_i 1 x v2)) b).
     Proof.
-      eapply ty_ty_list_mutind;
+      induct b; simpl; f_equal; eauto.
+    Qed.
+
+    Hint Resolve map_subst_i_i_subst.
+    
+    Lemma subst_i_t_subst :
+      forall b v1 v2 x y,
+        x <= y ->
+        subst_i_t y v2 (subst_i_t x v1 b) = subst_i_t x (subst_i_i y v2 v1) (subst_i_t (S y) (shift_i_i 1 x v2) b).
+    Proof.
+      induct b;
         simplify;
         cbn in *;
         try solve [eauto |
@@ -2501,31 +2366,12 @@ Module M (Time : TIME).
                   ].
     Qed.
     
-    Lemma subst_i_t_subst :
+    Lemma subst_t_t_subst :
       forall b v1 v2 x y,
         x <= y ->
-        subst_i_t y v2 (subst_i_t x v1 b) = subst_i_t x (subst_i_i y v2 v1) (subst_i_t (S y) (shift_i_i 1 x v2) b).
+        subst_t_t y v2 (subst_t_t x v1 b) = subst_t_t x (subst_t_t y v2 v1) (subst_t_t (S y) (shift_t_t 1 x v2) b).
     Proof.
-      eapply subst_i_t_ts_subst.
-    Qed.
-    
-    Lemma subst_i_ts_subst :
-      forall b v1 v2 x y,
-        x <= y ->
-        subst_i_ts y v2 (subst_i_ts x v1 b) = subst_i_ts x (subst_i_i y v2 v1) (subst_i_ts (S y) (shift_i_i 1 x v2) b).
-    Proof.
-      eapply subst_i_t_ts_subst.
-    Qed.
-    
-    Lemma subst_t_t_ts_subst :
-      (forall b v1 v2 x y,
-          x <= y ->
-          subst_t_t y v2 (subst_t_t x v1 b) = subst_t_t x (subst_t_t y v2 v1) (subst_t_t (S y) (shift_t_t 1 x v2) b)) /\
-      (forall b v1 v2 x y,
-          x <= y ->
-          subst_t_ts y v2 (subst_t_ts x v1 b) = subst_t_ts x (subst_t_t y v2 v1) (subst_t_ts (S y) (shift_t_t 1 x v2) b)).
-    Proof.
-      eapply ty_ty_list_mutind;
+      induct b;
         simplify;
         cbn in *;
         try solve [eauto |
@@ -2548,22 +2394,6 @@ Module M (Time : TIME).
         rewrite shift_t_t_0.
         eauto.
       }
-    Qed.
-    
-    Lemma subst_t_t_subst :
-      forall b v1 v2 x y,
-        x <= y ->
-        subst_t_t y v2 (subst_t_t x v1 b) = subst_t_t x (subst_t_t y v2 v1) (subst_t_t (S y) (shift_t_t 1 x v2) b).
-    Proof.
-      eapply subst_t_t_ts_subst.
-    Qed.
-    
-    Lemma subst_t_ts_subst :
-      forall b v1 v2 x y,
-        x <= y ->
-        subst_t_ts y v2 (subst_t_ts x v1 b) = subst_t_ts x (subst_t_t y v2 v1) (subst_t_ts (S y) (shift_t_t 1 x v2) b).
-    Proof.
-      eapply subst_t_t_ts_subst.
     Qed.
     
     Lemma subst_i_i_subst0 n c c' t : subst_i_i n c (subst0_i_i c' t) = subst0_i_i (subst_i_i n c c') (subst_i_i (S n) (shift0_i_i c) t).
@@ -4094,8 +3924,12 @@ lift2 (fst (strip_subsets L))
       idxeq L i i' (SSubset b p)
   .
 
-  (*here*)
-  
+  Fixpoint KArrows ss :=
+    match ss with
+    | [] => KType
+    | s :: ss => KArrow s (KArrows ss)
+    end.
+
   (* a version that builds in transitivity *)
   Inductive tyeq : sctx -> kctx -> ty -> ty -> kind -> Prop :=
   (* | TyEqVar L x : *)
@@ -4122,8 +3956,8 @@ lift2 (fst (strip_subsets L))
       tyeq L K t t' (KArrow s k ) ->
       idxeq L i i' s ->
       tyeq L K (TApp t i) (TApp t' i') k
-  | TyEqBeta L K t i k :
-      tyeq L K (TApp (TAbs t) i) (subst0_i_t t i) k
+  | TyEqBeta L K s t i k :
+      tyeq L K (TApp (TAbs s t) i) (subst0_i_t i t) k
   (* | TyEqBetaRev L K t1 t2  : *)
   (*     tyeq L K (subst0_c_c t2 t1) (CApp (CAbs t1) t2) *)
   | TyEqQuan L K quan k t k' t' :
@@ -4132,13 +3966,14 @@ lift2 (fst (strip_subsets L))
       tyeq L K (TQuan quan k t) (TQuan quan k' t') KType
   | TyEqQuanI L K quan s t s' t' :
       sorteq L s s' ->
-      tyeq (s :: L) (map shift0_i K) t t' KType ->
+      tyeq (s :: L) (map shift0_i_k K) t t' KType ->
       tyeq L K (TQuanI quan s t) (TQuanI quan s' t') KType
-  | TyEqRec L k c k' c' :
+  | TyEqRec L K k c args k' c' args' sorts :
       kdeq L k k' ->
       tyeq L (k :: K) c c' k ->
-      tyseq L K args args' ->
-      tyeq L K (TRec k c args) (TRec k' c' args')
+      k = KArrows sorts ->
+      Forall3 (idxeq L) args args' sorts ->
+      tyeq L K (TRec k c args) (TRec k' c' args') KType
   (* the following rules are just here to satisfy reflexivity *)
   (* don't do deep equality test of two CAbs's *)
   (* | TyEqAbs L t : *)
@@ -4155,13 +3990,6 @@ lift2 (fst (strip_subsets L))
       tyeq L K a b k ->
       tyeq L K b c k ->
       tyeq L K a c k
-  with tyseq : sctx -> kctx -> ty_list -> ty_list -> Prop :=
-       | TysEqNil L K :
-           tyseq L K TLNil TLNil
-       | TysEqCons L K hd tl hd' tl' :
-           tyeq L K hd hd' ->
-           tyseq L K tl tl' ->
-           tyseq L K (TLCons hd tl) (TLCons hd' tl')
   .
 
   (* Substitute a 'substitution group' for all variables. *)
