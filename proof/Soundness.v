@@ -2710,6 +2710,17 @@ Module M (Time : TIME).
     eapply sort_default_value.
   Defined.
   
+  Fixpoint interp_var (x : var) arg_bs ret_b {struct arg_bs} : interp_sorts arg_bs (interp_sort ret_b) :=
+    match arg_bs return interp_sorts arg_bs (interp_sort ret_b) with
+    | [] => sort_default_value ret_b
+    | arg_b :: arg_bs =>
+      match x with
+      | 0 => lift0 arg_bs (convert_sort_value arg_b ret_b)
+      | S x => lift1 arg_bs (fun (x : interp_sort ret_b) (_ : interp_sort arg_b) => x) (interp_var x arg_bs ret_b)
+      end
+    end.
+
+(*  
   Section interp_var.
 
     Variables (k_in : base_sort).
@@ -2725,6 +2736,7 @@ Module M (Time : TIME).
     end.
 
   End interp_var.
+ *)
   
   Definition interp_iunop opr : interp_sort (iunop_arg_base_sort opr) -> interp_sort (iunop_result_base_sort opr) :=
     match opr with
@@ -2750,7 +2762,8 @@ Module M (Time : TIME).
 
   Fixpoint interp_idx c arg_ks res_k : interp_sorts arg_ks (interp_sort res_k) :=
     match c with
-    | IVar x => interp_var res_k x arg_ks id
+    (* | IVar x => interp_var res_k x arg_ks id *)
+    | IVar x => interp_var x arg_ks res_k
     | IConst cn => interp_iconst cn arg_ks res_k 
     | IUnOp opr c =>
       let f x := convert_sort_value (iunop_result_base_sort opr) res_k (interp_iunop opr x) in
@@ -3265,6 +3278,19 @@ Module M (Time : TIME).
   Notation for_all_ A := (fun P : A -> Prop => forall a : A, P a).
 
   Require Import Datatypes.
+
+  Lemma interp_sorts_app :
+    forall new old t,
+      interp_sorts (new ++ old) t = interp_sorts old (interp_sorts new t).
+  Proof.
+    induct new; simpl; eauto.
+  Qed.
+
+  (* Conceptually: *)
+  (*
+  Definition shift0 new ks t (x : interp_sorts ks t) : interp_sorts (new ++ ks) t :=
+    lift1 ks (fun x => lift0 new x) x.
+   *)
   
   Fixpoint shift0 new ks t : interp_sorts ks t -> interp_sorts (new ++ ks) t :=
     match new return interp_sorts ks t -> interp_sorts (new ++ ks) t with
@@ -3458,6 +3484,139 @@ Module M (Time : TIME).
     rewrite app_nil_r; eauto.
   Qed.
   
+  Lemma forall_interp_var_eq_shift_gt bs_new :
+    forall bs x y b (f : interp_sort b -> interp_sort b -> Prop),
+      y < x ->
+      y < length bs ->
+      (forall x, f x x) ->
+      forall_
+        (insert bs_new x bs)
+        (lift2
+           (insert bs_new x bs) f
+           (interp_var y (insert bs_new x bs) b)
+           (shift bs_new x bs (interp_var y bs b))).
+  Proof.
+    induct bs; simpl; intros x y b f Hcmp Hy Hf; try la.
+    destruct x; simpl; try la.
+    rewrite fuse_lift1_lift2.
+    destruct y as [|y]; simpl in *.
+    {
+      rewrite fuse_lift2_lift0_1.
+      rewrite <- lift0_shift.
+      rewrite fuse_lift1_lift0.
+      eapply forall_lift0.
+      intros; eauto.
+    }
+    {
+      rewrite fuse_lift2_lift1_1.
+      rewrite <- lift1_shift.
+      rewrite fuse_lift2_lift1_2.
+      eauto with db_la.
+    }
+  Qed.
+  
+  Lemma forall_interp_var_eq_shift0_le :
+    forall bs_new y b (f : interp_sort b -> interp_sort b -> Prop) bs,
+      y < length bs ->
+      (forall x, f x x) ->
+      let bs' := bs_new ++ bs in
+      forall_
+        bs'
+        (lift2 bs' f
+               (interp_var (length bs_new + y) bs' b)
+               (shift0 bs_new bs (interp_var y bs b))).
+  Proof.
+    simpl.
+    induct bs_new; simpl; intros y b f bs Hy Hf.
+    {
+      rewrite dedup_lift2.
+      eapply forall_lift1.
+      eauto.
+    }
+    {
+      rewrite fuse_lift1_lift2.
+      rewrite <- lift1_shift0.
+      rewrite fuse_lift2_lift1_1.
+      rewrite fuse_lift2_lift1_2.
+      eauto with db_la.
+    }
+  Qed.
+  
+  Lemma interp_var_select' :
+    forall bs_new a bs b T (f : interp_sort b -> T -> Prop) (convert : interp_sort a -> T),
+      (forall x, f (convert_sort_value a b x) (convert x)) ->
+      (* (forall x, f x x) -> *)
+      let bs' := bs_new ++ a :: bs in
+      forall_
+        bs'
+        (lift2 bs' f (interp_var (length bs_new) bs' b)
+               (shift0 bs_new (a :: bs) (lift0 bs convert))).
+  Proof.
+    induct bs_new; simpl; intros tgt_b bs b T f convert Hf.
+    {
+      rewrite fuse_lift1_lift2.
+      rewrite fuse_lift2_lift0_1.
+      rewrite fuse_lift1_lift0.
+      eapply forall_lift0.
+      eauto.
+    }
+    {
+      rename a into b_new.
+      rewrite fuse_lift1_lift2.
+      rewrite fuse_lift1_lift0.
+      rewrite fuse_lift2_lift1_1.
+      eapply IHbs_new.
+      eauto.
+    }
+  Qed.
+
+  Lemma interp_var_select :
+    forall bs_new a bs b (f : interp_sort b -> interp_sort b -> Prop),
+      (forall x, f x x) ->
+      let bs' := bs_new ++ a :: bs in
+      forall_
+        bs'
+        (lift2 bs' f (interp_var (length bs_new) bs' b)
+               (shift0 bs_new (a :: bs) (lift0 bs (convert_sort_value a b)))).
+  Proof.
+    intros; eapply interp_var_select'; eauto.
+  Qed.
+
+  Lemma forall_interp_var_eq_shift_le :
+    forall bs x y b (f : interp_sort b -> interp_sort b -> Prop) bs_new,
+      x <= y ->
+      y < length bs ->
+      (forall x, f x x) ->
+      forall_
+        (insert bs_new x bs)
+        (lift2
+           (insert bs_new x bs) f
+           (interp_var (length bs_new + y) (insert bs_new x bs) b)
+           (shift bs_new x bs (interp_var y bs b))).
+  Proof.
+    induct bs; simpl; intros x y b f bs_new Hcmp Hy Hf; try la.
+    destruct y as [|y]; simpl in *; eauto with db_la.
+    {
+      destruct x; simpl; try la.
+      rewrite Nat.add_0_r.
+      eapply interp_var_select; eauto.
+    }
+    {
+      destruct x; simpl; try la.
+      {
+        eapply forall_interp_var_eq_shift0_le; eauto with db_la.
+      }
+      {
+        rewrite Nat.add_succ_r.
+        rewrite fuse_lift1_lift2.
+        rewrite fuse_lift2_lift1_1.
+        rewrite <- lift1_shift.
+        rewrite fuse_lift2_lift1_2.
+        eauto with db_la.
+      }
+    }
+  Qed.
+  
   Lemma forall_shift_i_i_iff_shift :
     forall i bs_new x bs b n,
       let bs' := insert bs_new x bs in
@@ -3471,90 +3630,12 @@ Module M (Time : TIME).
       rename x0 into x.
       cases (x <=? y); simpl in *.
       {
-        Lemma forall_interp_var_eq_shift_gt bs_new :
-          forall bs x y b T (k : interp_sort b -> T) (f : T -> T -> Prop),
-            y < x ->
-            y < length bs ->
-            (forall x, f x x) ->
-            forall_
-              (insert bs_new x bs)
-              (lift2
-                 (insert bs_new x bs) f
-                 (interp_var b y (insert bs_new x bs) k)
-                 (shift bs_new x bs (interp_var b y bs k))).
-        Proof.
-          induct bs; simpl; intros x y b T k f Hcmp Hy Hf; try la.
-          destruct x; simpl; try la.
-          rewrite fuse_lift1_lift2.
-          destruct y as [|y]; simpl in *; eauto with db_la.
-          rewrite fuse_lift2_lift0_1.
-          rewrite <- lift0_shift.
-          rewrite fuse_lift1_lift0.
-          eapply forall_lift0.
-          intros; eauto.
-        Qed.
-        
-        Lemma forall_interp_var_eq_shift_le :
-          forall bs x y b T (k : interp_sort b -> T) (f : T -> T -> Prop) bs_new,
-            x <= y ->
-            y < length bs ->
-            (forall x, f x x) ->
-            forall_
-              (insert bs_new x bs)
-              (lift2
-                 (insert bs_new x bs) f
-                 (interp_var b (length bs_new + y) (insert bs_new x bs) k)
-                 (shift bs_new x bs (interp_var b y bs k))).
-        Proof.
-          induct bs; simpl; intros x y b T k f bs_new Hcmp Hy Hf; try la.
-          destruct y as [|y]; simpl in *; eauto with db_la.
-          {
-            destruct x; simpl; try la.
-            rewrite Nat.add_0_r.
-            eapply admit.
-          }
-          {
-            destruct x; simpl; try la.
-            {
-        Lemma forall_interp_var_eq_shift0_le :
-          forall bs_new y b T1 T2 (k1 : interp_sort b -> T1) (k2 : interp_sort b -> T2) (f : T1 -> T2 -> Prop) bs,
-            y < length bs ->
-            (forall x, f (k1 x) (k2 x)) ->
-            let bs' := bs_new ++ bs in
-            forall_
-              bs'
-              (lift2 bs' f
-                     (interp_var b (length bs_new + y) bs' k1)
-                     (shift0 bs_new bs (interp_var b y bs k2))).
-        Proof.
-          simpl.
-          induct bs_new; simpl; intros y b T1 T2 k1 k2 f bs Hy Hf.
-          {
-            (*here*)
-            eapply forall_lift2.
-            eauto.
-          }
-          {
-            rewrite fuse_lift1_lift2.
-            rewrite <- lift1_shift0.
-            rewrite fuse_lift2_lift1_2.
-            eapply IHbs_new.
-          }
-        Qed.
-              eapply admit.
-            }
-            {
-              rewrite Nat.add_succ_r.
-              rewrite fuse_lift1_lift2.
-              eauto with db_la.
-            }
-          }
-        Qed.
-        
         eapply forall_interp_var_eq_shift_le; eauto.
+        eapply admit.
       }
       {
         eapply forall_interp_var_eq_shift_gt; eauto.
+        eapply admit.
       }
     }
 
