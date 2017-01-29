@@ -3617,87 +3617,6 @@ Module M (Time : TIME).
     }
   Qed.
   
-  Definition subst0_i_p v b := subst_i_p 0 v b.
-
-  Inductive scoping_i : nat -> idx -> Prop :=
-  | ScgiVar L x :
-      x < L ->
-      scoping_i L (IVar x) 
-  | ScgiConst L cn :
-      scoping_i L (IConst cn) 
-  | ScgiUnOp L opr c :
-      scoping_i L c ->
-      scoping_i L (IUnOp opr c) 
-  | ScgiBinOp L opr c1 c2 :
-      scoping_i L c1 ->
-      scoping_i L c2 ->
-      scoping_i L (IBinOp opr c1 c2) 
-  | ScgiIte L c c1 c2 :
-      scoping_i L c ->
-      scoping_i L c1 ->
-      scoping_i L c2 ->
-      scoping_i L (IIte c c1 c2)
-  | ScgiTimeAbs L i :
-      scoping_i (1 + L) i ->
-      scoping_i L (ITimeAbs i) 
-  | ScgiTimeApp L c1 c2 n :
-      scoping_i L c1 ->
-      scoping_i L c2 ->
-      scoping_i L (ITimeApp n c1 c2) 
-  .
-
-  Hint Constructors scoping_i.
-
-  Definition monotone : idx -> Prop.
-  Admitted.
-
-  Inductive sorting : sctx -> idx -> sort -> Prop :=
-  | StgVar L x s :
-      nth_error L x = Some s ->
-      sorting L (IVar x) (shift_i_s (1 + x) 0 s)
-  | StgConst L cn :
-      sorting L (IConst cn) (SBaseSort (const_base_sort cn))
-  | StgUnOp L opr c :
-      sorting L c (SBaseSort (iunop_arg_base_sort opr)) ->
-      sorting L (IUnOp opr c) (SBaseSort (iunop_result_base_sort opr))
-  | StgBinOp L opr c1 c2 :
-      sorting L c1 (SBaseSort (ibinop_arg1_base_sort opr)) ->
-      sorting L c2 (SBaseSort (ibinop_arg2_base_sort opr)) ->
-      sorting L (IBinOp opr c1 c2) (SBaseSort (ibinop_result_base_sort opr))
-  | StgIte L c c1 c2 s :
-      sorting L c SBool ->
-      sorting L c1 s ->
-      sorting L c2 s ->
-      sorting L (IIte c c1 c2) s
-  | StgTimeAbs L i n :
-      sorting (SNat :: L) i (STimeFun n) ->
-      monotone i ->
-      sorting L (ITimeAbs i) (STimeFun (1 + n))
-  | StgTimeApp L c1 c2 n :
-      sorting L c1 (STimeFun (S n)) ->
-      sorting L c2 SNat ->
-      sorting L (ITimeApp n c1 c2) (STimeFun n)
-  (* todo: need elimination rule for TimeAbs *)
-  | StgSubsetI L c b p :
-      sorting L c (SBaseSort b) ->
-      interp_prop L (subst0_i_p c p) ->
-      sorting L c (SSubset b p)
-  | StgSubsetE L c b p :
-      sorting L c (SSubset b p) ->
-      sorting L c (SBaseSort b)
-  .
-
-  Hint Constructors sorting.
-  
-  Lemma sorting_scoping_i L i s :
-    sorting L i s ->
-    scoping_i (length L) i.
-  Proof.
-    induct 1; simpl; eauto.
-    econstructor.
-    eapply nth_error_Some_lt; eauto.
-  Qed.
-  
   Lemma fuse_lift2_lift3_1 bs :
     forall T A1 A2 B1 B2 B3 (f : A1 -> A2 -> T) (g : B1 -> B2 -> B3 -> A1) b1 b2 b3 a2,
       lift2 bs f (lift3 bs g b1 b2 b3) a2 = lift4 bs (fun b1 b2 b3 a2 => f (g b1 b2 b3) a2) b1 b2 b3 a2.
@@ -3793,10 +3712,148 @@ Module M (Time : TIME).
     eauto.
   Qed.
   
+  Definition subst0_i_p v b := subst_i_p 0 v b.
+
+  Definition monotone : idx -> Prop.
+  Admitted.
+
+  Inductive sorting : sctx -> idx -> sort -> Prop :=
+  | StgVar L x s :
+      nth_error L x = Some s ->
+      sorting L (IVar x) (shift_i_s (1 + x) 0 s)
+  | StgConst L cn :
+      sorting L (IConst cn) (SBaseSort (const_base_sort cn))
+  | StgUnOp L opr c :
+      sorting L c (SBaseSort (iunop_arg_base_sort opr)) ->
+      sorting L (IUnOp opr c) (SBaseSort (iunop_result_base_sort opr))
+  | StgBinOp L opr c1 c2 :
+      sorting L c1 (SBaseSort (ibinop_arg1_base_sort opr)) ->
+      sorting L c2 (SBaseSort (ibinop_arg2_base_sort opr)) ->
+      sorting L (IBinOp opr c1 c2) (SBaseSort (ibinop_result_base_sort opr))
+  | StgIte L c c1 c2 s :
+      sorting L c SBool ->
+      sorting L c1 s ->
+      sorting L c2 s ->
+      sorting L (IIte c c1 c2) s
+  | StgTimeAbs L i n :
+      sorting (SNat :: L) i (STimeFun n) ->
+      monotone i ->
+      sorting L (ITimeAbs i) (STimeFun (1 + n))
+  | StgTimeApp L c1 c2 n :
+      sorting L c1 (STimeFun (S n)) ->
+      sorting L c2 SNat ->
+      sorting L (ITimeApp n c1 c2) (STimeFun n)
+  (* todo: need elimination rule for TimeAbs *)
+  | StgSubsetI L c b p :
+      sorting L c (SBaseSort b) ->
+      interp_prop L (subst0_i_p c p) ->
+      sorting L c (SSubset b p)
+  | StgSubsetE L c b p :
+      sorting L c (SSubset b p) ->
+      sorting L c (SBaseSort b)
+  .
+
+  Hint Constructors sorting.
+  
+  Inductive wellscoped_i : nat -> idx -> Prop :=
+  | WsciVar L x :
+      x < L ->
+      wellscoped_i L (IVar x) 
+  | WsciConst L cn :
+      wellscoped_i L (IConst cn) 
+  | WsciUnOp L opr c :
+      wellscoped_i L c ->
+      wellscoped_i L (IUnOp opr c) 
+  | WsciBinOp L opr c1 c2 :
+      wellscoped_i L c1 ->
+      wellscoped_i L c2 ->
+      wellscoped_i L (IBinOp opr c1 c2) 
+  | WsciIte L c c1 c2 :
+      wellscoped_i L c ->
+      wellscoped_i L c1 ->
+      wellscoped_i L c2 ->
+      wellscoped_i L (IIte c c1 c2)
+  | WsciTimeAbs L i :
+      wellscoped_i (1 + L) i ->
+      wellscoped_i L (ITimeAbs i) 
+  | WsciTimeApp L c1 c2 n :
+      wellscoped_i L c1 ->
+      wellscoped_i L c2 ->
+      wellscoped_i L (ITimeApp n c1 c2) 
+  .
+
+  Hint Constructors wellscoped_i.
+
+  Lemma sorting_wellscoped_i L i s :
+    sorting L i s ->
+    wellscoped_i (length L) i.
+  Proof.
+    induct 1; simpl; eauto.
+    econstructor.
+    eapply nth_error_Some_lt; eauto.
+  Qed.
+  
+  Inductive wfprop : sctx -> prop -> Prop :=
+  | WfPropTrueFalse L cn :
+      wfprop L (PTrueFalse cn)
+  | WfPropBinConn L opr p1 p2 :
+      wfprop L p1 ->
+      wfprop L p2 ->
+      wfprop L (PBinConn opr p1 p2)
+  | WfPropNot L p :
+      wfprop L p ->
+      wfprop L (PNot p)
+  | WfPropBinPred L opr i1 i2 :
+      sorting L i1 (SBaseSort (binpred_arg1_base_sort opr)) ->
+      sorting L i2 (SBaseSort (binpred_arg2_base_sort opr)) ->
+      wfprop L (PBinPred opr i1 i2)
+  | WfPropEq L b i1 i2 :
+      sorting L i1 (SBaseSort b) ->
+      sorting L i2 (SBaseSort b) ->
+      wfprop L (PEq b i1 i2)
+  | WfPropQuan L q s p :
+      wfprop (SBaseSort s :: L) p ->
+      wfprop L (PQuan q s p)
+  .
+  
+  Hint Constructors wfprop.
+
+  Inductive wellscoped_p : nat -> prop -> Prop :=
+  | WscpTrueFalse L cn :
+      wellscoped_p L (PTrueFalse cn)
+  | WscpBinConn L opr p1 p2 :
+      wellscoped_p L p1 ->
+      wellscoped_p L p2 ->
+      wellscoped_p L (PBinConn opr p1 p2)
+  | WscpNot L p :
+      wellscoped_p L p ->
+      wellscoped_p L (PNot p)
+  | WscpBinPred L opr i1 i2 :
+      wellscoped_i L i1 ->
+      wellscoped_i L i2 ->
+      wellscoped_p L (PBinPred opr i1 i2)
+  | WscpEq L b i1 i2 :
+      wellscoped_i L i1 ->
+      wellscoped_i L i2 ->
+      wellscoped_p L (PEq b i1 i2)
+  | WscpQuan L q s p :
+      wellscoped_p (1 + L) p ->
+      wellscoped_p L (PQuan q s p)
+  .
+  
+  Hint Constructors wellscoped_p.
+
+  Lemma wfprop_wellscoped_p L p :
+    wfprop L p ->
+    wellscoped_p (length L) p.
+  Proof.
+    induct 1; simpl; eauto using sorting_wellscoped_i.
+  Qed.
+  
   Lemma forall_shift_i_i_iff_shift :
     forall i bs_new x bs b n,
       let bs' := insert bs_new x bs in
-      scoping_i (length bs) i ->
+      wellscoped_i (length bs) i ->
       n = length bs_new ->
       forall_ bs' (lift2 bs' eq (interp_idx (shift_i_i n x i) bs' b) (shift bs_new x bs (interp_idx i bs b))).
   Proof.
@@ -3882,11 +3939,12 @@ Module M (Time : TIME).
   Lemma forall_shift_i_p_iff_shift :
     forall p bs_new x bs n,
       let bs' := insert bs_new x bs in
+      wellscoped_p (length bs) p ->
       n = length bs_new ->
       forall_ bs' (lift2 bs' iff (interp_p bs' (shift_i_p n x p)) (shift bs_new x bs (interp_p bs p))).
   Proof.
     simpl.
-    induct p; simpl; intros; subst.
+    induct p; simpl; intros bs_new x bs n Hsc ?; subst; invert Hsc.
     {
       rewrite fuse_lift2_lift0_1.
       rewrite <- lift0_shift.
@@ -4014,24 +4072,54 @@ Module M (Time : TIME).
     forall_ bs (lift2 bs iff p1 p2) ->
     forall_ bs (lift2 bs imply p1 p2).
   Proof.
-    eapply admit.
+    intros H.
+    eapply forall_lift2_lift2; eauto.
+    unfold iff; intros; propositional.
   Qed.
   
   Lemma forall_shift_i_p_shift bs_new x bs p n :
     let bs' := insert bs_new x bs in
+    wellscoped_p (length bs) p ->
     n = length bs_new ->
     forall_ bs' (lift2 bs' imply (interp_p bs' (shift_i_p n x p)) (shift bs_new x bs (interp_p bs p))).
   Proof.
-    eapply admit.
+    intros.
+    eapply forall_iff_imply.
+    eapply forall_shift_i_p_iff_shift; eauto.
+  Qed.
+
+  Definition swap {A B C} (f : A -> B -> C) b a := f a b.
+  
+  Lemma swap_lift2 bs :
+    forall T A1 A2 (f : A1 -> A2 -> T) a1 a2,
+      lift2 bs f a1 a2 = lift2 bs (swap f) a2 a1.
+  Proof.
+    induct bs; simplify; eauto.
+  Qed.
+  
+  Lemma forall_iff_sym bs p1 p2 :
+    forall_ bs (lift2 bs iff p1 p2) ->
+    forall_ bs (lift2 bs iff p2 p1).
+  Proof.
+    intros H.
+    rewrite swap_lift2.
+    eapply forall_lift2_lift2; [ | eapply H; eauto].
+    unfold swap, iff; intros; propositional.
   Qed.
   
   Lemma forall_shift_shift_i_p bs_new x bs p n :
     let bs' := insert bs_new x bs in
+    wellscoped_p (length bs) p ->
     n = length bs_new ->
     forall_ bs' (lift2 bs' imply (shift bs_new x bs (interp_p bs p)) (interp_p bs' (shift_i_p n x p))).
   Proof.
-    eapply admit.
+    intros.
+    eapply forall_iff_imply.
+    eapply forall_iff_sym.
+    eapply forall_shift_i_p_iff_shift; eauto.
   Qed.
+
+  (*here*)
   
   Lemma fst_strip_subsets_insert x ls L :
     let L' := shift_i_ss (length ls) (firstn x L) ++ ls ++ my_skipn L x in
@@ -4529,25 +4617,6 @@ lift2 (fst (strip_subsets L))
       eauto using interp_prop_iff_elim. 
     }
   Qed.
-  
-  Inductive wfprop : sctx -> prop -> Prop :=
-  | WfPropTrueFalse L cn :
-      wfprop L (PTrueFalse cn)
-  | WfPropBinConn L opr p1 p2 :
-      wfprop L p1 ->
-      wfprop L p2 ->
-      wfprop L (PBinConn opr p1 p2)
-  | WfPropNot L p :
-      wfprop L p ->
-      wfprop L (PNot p)
-  | WfPropBinPred L opr i1 i2 :
-      sorting L i1 (SBaseSort (binpred_arg1_base_sort opr)) ->
-      sorting L i2 (SBaseSort (binpred_arg2_base_sort opr)) ->
-      wfprop L (PBinPred opr i1 i2)
-  | WfPropQuan L q s p :
-      wfprop (SBaseSort s :: L) p ->
-      wfprop L (PQuan q s p)
-  .
   
   Inductive wfsort : sctx -> sort -> Prop :=
   | WfStBaseSort L b :
