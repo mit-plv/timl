@@ -3617,28 +3617,266 @@ Module M (Time : TIME).
     }
   Qed.
   
+  Definition subst0_i_p v b := subst_i_p 0 v b.
+
+  Inductive scoping_i : nat -> idx -> Prop :=
+  | ScgiVar L x :
+      x < L ->
+      scoping_i L (IVar x) 
+  | ScgiConst L cn :
+      scoping_i L (IConst cn) 
+  | ScgiUnOp L opr c :
+      scoping_i L c ->
+      scoping_i L (IUnOp opr c) 
+  | ScgiBinOp L opr c1 c2 :
+      scoping_i L c1 ->
+      scoping_i L c2 ->
+      scoping_i L (IBinOp opr c1 c2) 
+  | ScgiIte L c c1 c2 :
+      scoping_i L c ->
+      scoping_i L c1 ->
+      scoping_i L c2 ->
+      scoping_i L (IIte c c1 c2)
+  | ScgiTimeAbs L i :
+      scoping_i (1 + L) i ->
+      scoping_i L (ITimeAbs i) 
+  | ScgiTimeApp L c1 c2 n :
+      scoping_i L c1 ->
+      scoping_i L c2 ->
+      scoping_i L (ITimeApp n c1 c2) 
+  .
+
+  Hint Constructors scoping_i.
+
+  Definition monotone : idx -> Prop.
+  Admitted.
+
+  Inductive sorting : sctx -> idx -> sort -> Prop :=
+  | StgVar L x s :
+      nth_error L x = Some s ->
+      sorting L (IVar x) (shift_i_s (1 + x) 0 s)
+  | StgConst L cn :
+      sorting L (IConst cn) (SBaseSort (const_base_sort cn))
+  | StgUnOp L opr c :
+      sorting L c (SBaseSort (iunop_arg_base_sort opr)) ->
+      sorting L (IUnOp opr c) (SBaseSort (iunop_result_base_sort opr))
+  | StgBinOp L opr c1 c2 :
+      sorting L c1 (SBaseSort (ibinop_arg1_base_sort opr)) ->
+      sorting L c2 (SBaseSort (ibinop_arg2_base_sort opr)) ->
+      sorting L (IBinOp opr c1 c2) (SBaseSort (ibinop_result_base_sort opr))
+  | StgIte L c c1 c2 s :
+      sorting L c SBool ->
+      sorting L c1 s ->
+      sorting L c2 s ->
+      sorting L (IIte c c1 c2) s
+  | StgTimeAbs L i n :
+      sorting (SNat :: L) i (STimeFun n) ->
+      monotone i ->
+      sorting L (ITimeAbs i) (STimeFun (1 + n))
+  | StgTimeApp L c1 c2 n :
+      sorting L c1 (STimeFun (S n)) ->
+      sorting L c2 SNat ->
+      sorting L (ITimeApp n c1 c2) (STimeFun n)
+  (* todo: need elimination rule for TimeAbs *)
+  | StgSubsetI L c b p :
+      sorting L c (SBaseSort b) ->
+      interp_prop L (subst0_i_p c p) ->
+      sorting L c (SSubset b p)
+  | StgSubsetE L c b p :
+      sorting L c (SSubset b p) ->
+      sorting L c (SBaseSort b)
+  .
+
+  Hint Constructors sorting.
+  
+  Lemma sorting_scoping_i L i s :
+    sorting L i s ->
+    scoping_i (length L) i.
+  Proof.
+    induct 1; simpl; eauto.
+    econstructor.
+    eapply nth_error_Some_lt; eauto.
+  Qed.
+  
+  Lemma fuse_lift2_lift3_1 bs :
+    forall T A1 A2 B1 B2 B3 (f : A1 -> A2 -> T) (g : B1 -> B2 -> B3 -> A1) b1 b2 b3 a2,
+      lift2 bs f (lift3 bs g b1 b2 b3) a2 = lift4 bs (fun b1 b2 b3 a2 => f (g b1 b2 b3) a2) b1 b2 b3 a2.
+  Proof.
+    induct bs; simplify; eauto.
+    eapply IHbs.
+  Qed.
+  
+  Lemma fuse_lift3_lift1_1 bs :
+    forall T A1 A2 A3 B (f : A1 -> A2 -> A3 -> T) (g : B -> A1) b a2 a3,
+      lift3 bs f (lift1 bs g b) a2 a3 = lift3 bs (fun b a2 a3 => f (g b) a2 a3) b a2 a3.
+  Proof.
+    induct bs; simplify; eauto.
+    eapply IHbs.
+  Qed.
+  
+  Lemma fuse_lift3_lift1_2 bs :
+    forall T A1 A2 A3 B (f : A1 -> A2 -> A3 -> T) (g : B -> A2) a1 b a3,
+      lift3 bs f a1 (lift1 bs g b) a3 = lift3 bs (fun a1 b a3 => f a1 (g b) a3) a1 b a3.
+  Proof.
+    induct bs; simplify; eauto.
+    eapply IHbs.
+  Qed.
+  
+  Lemma fuse_lift3_lift1_3 bs :
+    forall T A1 A2 A3 B (f : A1 -> A2 -> A3 -> T) (g : B -> A3) a1 a2 b,
+      lift3 bs f a1 a2 (lift1 bs g b) = lift3 bs (fun a1 a2 b => f a1 a2 (g b)) a1 a2 b.
+  Proof.
+    induct bs; simplify; eauto.
+    eapply IHbs.
+  Qed.
+  
+  Lemma lift3_shift0 new : forall ks A B C D (f : A -> B -> C -> D) a b c, lift3 (new ++ ks) f (shift0 new ks a) (shift0 new ks b) (shift0 new ks c) = shift0 new ks (lift3 ks f a b c).
+  Proof.
+    induct new; cbn in *; try rename a into a'; intros ks A B C D f a b c; eauto.
+    rewrite IHnew.
+    rewrite !fuse_lift1_lift3.
+    rewrite !fuse_lift3_lift1_1.
+    rewrite !fuse_lift3_lift1_2.
+    rewrite !fuse_lift3_lift1_3.
+    eauto.
+  Qed.
+  
+  Lemma fuse_lift3_lift0_1 bs :
+    forall T A1 A2 A3 (f : A1 -> A2 -> A3 -> T) (g : A1) a2 a3,
+      lift3 bs f (lift0 bs g) a2 a3 = lift2 bs (fun a2 a3 => f g a2 a3) a2 a3.
+  Proof.
+    induct bs; simplify; eauto.
+    eapply IHbs.
+  Qed.
+  
+  Lemma lift3_shift x : forall ks new A B C D (f : A -> B -> C -> D) a b c, lift3 (insert new x ks) f (shift new x ks a) (shift new x ks b) (shift new x ks c) = shift new x ks (lift3 ks f a b c).
+  Proof.
+    induct x; cbn in *.
+    {
+      intros ks new A B C D f a b c.
+      rewrite lift3_shift0.
+      eauto.
+    }
+    destruct ks; cbn in *; try rename b into bs; intros new A B C D f a b c; try la.
+    {
+      rewrite fuse_lift3_lift0_1.
+      rewrite fuse_lift2_lift0_2.
+      rewrite fuse_lift1_lift0.
+      eauto.
+    }
+    {
+      eauto.
+    }
+  Qed.
+  
+  Lemma fuse_lift4_lift3_4 bs :
+    forall T A1 A2 A3 A4 B1 B2 B3 (f : A1 -> A2 -> A3 -> A4 -> T) (g : B1 -> B2 -> B3 -> A4) a1 a2 a3 b1 b2 b3,
+      lift4 bs f a1 a2 a3 (lift3 bs g b1 b2 b3) = lift6 bs (fun a1 a2 a3 b1 b2 b3 => f a1 a2 a3 (g b1 b2 b3)) a1 a2 a3 b1 b2 b3.
+  Proof.
+    induct bs; simplify; eauto.
+    eapply IHbs.
+  Qed.
+  
+  Lemma forall_lift2_lift2_lift2_lift6 :
+    forall bs A B C D E F P1 P2 P3 P4 P5 P6 (f1 : A -> D -> Prop) (f2 : B -> E -> Prop) (f3 : C -> F -> Prop) (g : A -> B -> C -> D -> E -> F -> Prop),
+      (forall a b c d e f, f1 a d -> f2 b e -> f3 c f -> g a b c d e f) ->
+      forall_ bs (lift2 bs f1 P1 P4) ->
+      forall_ bs (lift2 bs f2 P2 P5) ->
+      forall_ bs (lift2 bs f3 P3 P6) ->
+      forall_ bs (lift6 bs g P1 P2 P3 P4 P5 P6).
+  Proof.
+    induct bs; simplify; eauto.
+    rewrite fuse_lift1_lift2 in *.
+    rewrite fuse_lift1_lift6 in *.
+    eapply IHbs; eauto.
+    simplify.
+    eauto.
+  Qed.
+  
   Lemma forall_shift_i_i_iff_shift :
     forall i bs_new x bs b n,
       let bs' := insert bs_new x bs in
+      scoping_i (length bs) i ->
       n = length bs_new ->
       forall_ bs' (lift2 bs' eq (interp_idx (shift_i_i n x i) bs' b) (shift bs_new x bs (interp_idx i bs b))).
   Proof.
     simpl.
-    induct i; simpl; intros; subst.
+    induct i; try rename x into y; intros bs_new x bs b n Hsc ?; subst; invert Hsc.
     {
-      rename x into y.
-      rename x0 into x.
+      simpl.
       cases (x <=? y); simpl in *.
       {
         eapply forall_interp_var_eq_shift_le; eauto.
-        eapply admit.
       }
       {
         eapply forall_interp_var_eq_shift_gt; eauto.
-        eapply admit.
       }
     }
-
+    {
+      simpl.
+      cases cn; simpl in *;
+      rewrite <- lift0_shift;
+      rewrite fuse_lift2_lift0_1;
+      rewrite fuse_lift1_lift0;
+      eapply forall_lift0; eauto.
+    }
+    {
+      simpl.
+      rewrite fuse_lift2_lift1_1.
+      rewrite <- lift1_shift.
+      rewrite fuse_lift2_lift1_2.
+      eapply forall_lift2_lift2; eauto.
+      simpl; intros; subst.
+      propositional.
+    }
+    {
+      simpl.
+      rewrite fuse_lift2_lift2_1.
+      rewrite <- lift2_shift.
+      rewrite fuse_lift3_lift2_3.
+      eapply forall_lift2_lift2_lift4; eauto.
+      simpl; intros; subst.
+      destruct opr; simpl; propositional.
+    }
+    {
+      simpl.
+      rewrite <- lift3_shift.
+      rewrite fuse_lift2_lift3_1.
+      rewrite fuse_lift4_lift3_4.
+      specialize (IHi1 bs_new x bs BSBool (length bs_new)).
+      eapply forall_lift2_lift2_lift2_lift6; eauto.
+      simpl; intros; subst.
+      unfold ite; simpl; propositional.
+    }
+    {
+      simpl.
+      cases b; try cases arity;
+        try solve [
+              rewrite <- lift0_shift;
+              rewrite fuse_lift2_lift0_1;
+              rewrite fuse_lift1_lift0;
+              eapply forall_lift0; eauto
+            ].
+      specialize (IHi bs_new (S x) (BSNat :: bs) (BSTimeFun arity) (length bs_new)).
+      simpl in *.
+      rewrite fuse_lift1_lift2 in *.
+      eapply forall_lift2_lift2; [ | eapply IHi; eauto].
+      simpl; intros.
+      Require FunctionalExtensionality.
+      eapply FunctionalExtensionality.functional_extensionality.
+      eauto.
+    }
+    {
+      simpl.
+      rewrite fuse_lift2_lift2_1.
+      rewrite <- lift2_shift.
+      rewrite fuse_lift3_lift2_3.
+      specialize (IHi1 bs_new x bs (BSTimeFun (S arity)) (length bs_new)).
+      specialize (IHi2 bs_new x bs BSNat (length bs_new)).
+      eapply forall_lift2_lift2_lift4; eauto.
+      simpl; intros; subst.
+      simpl; propositional.
+    }
   Qed.
 
   Lemma forall_shift_i_p_iff_shift :
@@ -4207,46 +4445,6 @@ lift2 (fst (strip_subsets L))
     eapply sorteq_premises in Hps.
     eapply admit.
   Qed.
-  
-  Definition monotone : idx -> Prop.
-  Admitted.
-
-  Definition subst0_i_p v b := subst_i_p 0 v b.
-
-  Inductive sorting : sctx -> idx -> sort -> Prop :=
-  | StgVar L x s :
-      nth_error L x = Some s ->
-      sorting L (IVar x) (shift_i_s (1 + x) 0 s)
-  | StgConst L cn :
-      sorting L (IConst cn) (SBaseSort (const_base_sort cn))
-  | StgBinOp L opr c1 c2 :
-      sorting L c1 (SBaseSort (ibinop_arg1_base_sort opr)) ->
-      sorting L c2 (SBaseSort (ibinop_arg2_base_sort opr)) ->
-      sorting L (IBinOp opr c1 c2) (SBaseSort (ibinop_result_base_sort opr))
-  | StgIte L c c1 c2 s :
-      sorting L c SBool ->
-      sorting L c1 s ->
-      sorting L c2 s ->
-      sorting L (IIte c c1 c2) s
-  | StgTimeAbs L i n :
-      sorting (SNat :: L) i (STimeFun n) ->
-      monotone i ->
-      sorting L (ITimeAbs i) (STimeFun (1 + n))
-  | StgTimeApp L c1 c2 n :
-      sorting L c1 (STimeFun (S n)) ->
-      sorting L c2 SNat ->
-      sorting L (ITimeApp n c1 c2) (STimeFun n)
-  (* todo: need elimination rule for TimeAbs *)
-  | StgSubsetI L c b p :
-      sorting L c (SBaseSort b) ->
-      interp_prop L (subst0_i_p c p) ->
-      sorting L c (SSubset b p)
-  | StgSubsetE L c b p :
-      sorting L c (SSubset b p) ->
-      sorting L c (SBaseSort b)
-  .
-
-  Hint Constructors sorting.
   
   Lemma StgVar' L x s s' :
     nth_error L x = Some s ->
