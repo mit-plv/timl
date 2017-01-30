@@ -4261,95 +4261,352 @@ Module M (Time : TIME).
     }
   Qed.
   
-  Lemma snd_strip_subsets_insert ls :
-    forall L x,
-      x <= length L ->
-      let n := length ls in
-      let L' := shift_i_ss (length ls) (firstn x L) ++ ls ++ my_skipn L x in
-      snd (strip_subsets L') = insert (map (shift_i_p x 0) (snd (strip_subsets ls))) x (map (shift_i_p n x) (snd (strip_subsets L))).
-  Proof.
-    simpl.
-    induct L.
-    {
-      simpl.
-      intros x Hx.
-      destruct x; simpl; try la.
-      repeat rewrite app_nil_r in *; eauto.
-      rewrite map_shift_i_p_0; eauto.
-    }
-    {
-      simpl.
-      intros x Hx.
-      destruct x.
-      {
-        simpl.
-        rewrite map_shift_i_p_0.
-        rewrite snd_strip_subsets_app; simpl.
-        f_equal.
-      }
-      {
-        Opaque insert.
-        simpl.
-        rewrite IHL by la.
-        eapply IHL.
-        f_equal; eauto.
-      }
-    }
-  Qed.
-  
   Lemma length_fst_strip_subsets ls :
     length (fst (strip_subsets ls)) = length ls.
   Proof.
-    eapply admit.
+    induct ls; simpl; eauto.
   Qed.
         
+  Lemma fuse_lift3_lift2_2 bs :
+    forall T A1 A2 A3 B1 B2 (f : A1 -> A2 -> A3 -> T) (g : B1 -> B2 -> A2) a1 b1 b2 a3,
+      lift3 bs f a1 (lift2 bs g b1 b2) a3 = lift4 bs (fun a1 b1 b2 a3 => f a1 (g b1 b2) a3) a1 b1 b2 a3.
+  Proof.
+    induct bs; simplify; eauto.
+    eapply IHbs.
+  Qed.
+  
+  Definition iff_ bs x y := forall_ bs (lift2 bs iff x y).
+  Lemma forall_iff_and bs p1 p2 p1' p2' :
+    iff_ bs p1 p1' ->
+    iff_ bs p2 p2' ->
+    iff_ bs (lift2 bs and p1 p2) (lift2 bs and p1' p2').
+  Proof.
+    intros H1 H2.
+    unfold iff_ in *.
+    rewrite fuse_lift2_lift2_1_2.
+    eapply forall_lift2_lift2_lift4; eauto.
+    unfold iff; propositional.
+  Qed.
+
+  Lemma forall_iff_refl bs p :
+    forall_ bs (lift2 bs iff p p).
+  Proof.
+    rewrite dedup_lift2.
+    eapply forall_lift1.
+    unfold iff; propositional.
+  Qed.
+
+  Lemma forall_iff_trans ks P1 P2 P3:
+    forall_ ks (lift2 ks iff P1 P2) ->
+    forall_ ks (lift2 ks iff P2 P3) ->
+    forall_ ks (lift2 ks iff P1 P3).
+  Proof.
+    intros.
+    eapply forall_trans'; simplify; eauto.
+    simpl in *.
+    propositional.
+  Qed.
+      
+  Lemma dedup_lift5_2_4 bs :
+    forall T A1 A2 A3 A5 (f : A1 -> A2 -> A3 -> A2 -> A5 -> T) a1 a2 a3 a5,
+      lift5 bs f a1 a2 a3 a2 a5 = lift4 bs (fun a1 a2 a3 a5 => f a1 a2 a3 a2 a5) a1 a2 a3 a5.
+  Proof.
+    induct bs; simplify; eauto.
+    eapply IHbs.
+  Qed.
+  
+  Lemma dedup_lift6_1_4 bs :
+    forall T A1 A2 A3 A5 A6 (f : A1 -> A2 -> A3 -> A1 -> A5 -> A6 -> T) a1 a2 a3 a5 a6,
+      lift6 bs f a1 a2 a3 a1 a5 a6 = lift5 bs (fun a1 a2 a3 a5 a6 => f a1 a2 a3 a1 a5 a6) a1 a2 a3 a5 a6.
+  Proof.
+    induct bs; simplify; eauto.
+    eapply IHbs.
+  Qed.
+  
+  Lemma forall_and_assoc bs p1 p2 p3 :
+    iff_ bs (lift2 bs and p1 (lift2 bs and p2 p3)) (lift2 bs and (lift2 bs and p1 p2) p3).
+  Proof.
+    rewrite fuse_lift2_lift2_1.
+    rewrite fuse_lift2_lift2_2.
+    unfold iff_.
+    rewrite fuse_lift2_lift3_1.
+    rewrite fuse_lift4_lift3_4.
+    rewrite dedup_lift6_1_4.
+    rewrite dedup_lift5_2_4.
+    rewrite dedup_lift4_3_4.
+    eapply forall_lift3.
+    unfold iff; propositional.
+  Qed.
+  
+  Lemma and_all_app_iff bs :
+    forall ls1 ls2,
+      forall_ bs (lift2 bs iff (interp_p bs (and_all (ls1 ++ ls2))) (lift2 bs and (interp_p bs (and_all ls1)) (interp_p bs (and_all ls2)))).
+  Proof.
+    induct ls1; simpl; intros.
+    {
+      rewrite fuse_lift2_lift0_1.
+      rewrite fuse_lift2_lift1_2.
+      rewrite dedup_lift2.
+      eapply forall_lift1.
+      propositional.
+    }
+    {
+      eapply forall_iff_trans.
+      {
+        eapply forall_iff_and; [eapply forall_iff_refl |].
+        eapply IHls1.
+      }
+      eapply forall_and_assoc.
+    }
+  Qed.
+
+  Lemma and_all_app_imply_no_middle bs ls1 ls2 ls3 :
+    forall_ bs (lift2 bs imply (interp_p bs (and_all (ls1 ++ ls2 ++ ls3))) (interp_p bs (and_all (ls1 ++ ls3)))).
+  Proof.
+    eapply forall_trans.
+    {
+      eapply forall_iff_imply.
+      eapply and_all_app_iff.
+    }
+    eapply forall_trans.
+    {
+      eapply forall_iff_imply.
+      eapply forall_iff_and; [eapply forall_iff_refl |].
+      eapply and_all_app_iff.
+    }
+    eapply forall_trans.
+    Focus 2.
+    {
+      eapply forall_iff_imply.
+      eapply forall_iff_sym.
+      eapply and_all_app_iff.
+    }
+    Unfocus.
+    {
+      rewrite fuse_lift2_lift2_1.
+      rewrite fuse_lift3_lift2_3.
+      rewrite dedup_lift4_1_3.
+      rewrite fuse_lift3_lift2_2.
+      rewrite dedup_lift4_3_4.
+      eapply forall_lift3.
+      propositional.
+    }
+  Qed.
+  
+  Lemma forall_iff_refl' bs p1 p2 :
+    p1 = p2 ->
+    forall_ bs (lift2 bs iff p1 p2).
+  Proof.
+    intros; subst.
+    eapply forall_iff_refl.
+  Qed.
+
+  Lemma skipn_my_skipn A :
+    forall (ls : list A) x,
+      skipn x ls = my_skipn ls x.
+  Proof.
+    induct ls; destruct x; simpl; eauto.
+  Qed.
+
+  Lemma firstn_my_skipn A n (l : list A) : firstn n l ++ my_skipn l n = l.
+  Proof.
+    rewrite <- skipn_my_skipn.
+    rewrite firstn_skipn.
+    eauto.
+  Qed.
+
+  Lemma and_all_map_shift_i_p n x ls :
+    and_all (map (shift_i_p n x) ls) = shift_i_p n x (and_all ls).
+  Proof.
+    induct ls; simpl; eauto.
+    rewrite IHls; eauto.
+  Qed.
+
+  Inductive wfsort : sctx -> sort -> Prop :=
+  | WfStBaseSort L b :
+      wfsort L (SBaseSort b)
+  | WfStSubset L b p :
+      wfprop (SBaseSort b :: L) p ->
+      wfsort L (SSubset b p)
+  .
+
+  Hint Constructors wfsort.
+
+  Inductive wellscoped_s : nat -> sort -> Prop :=
+  | WscsBaseSort L b :
+      wellscoped_s L (SBaseSort b)
+  | WscsSubset L b p :
+      wellscoped_p (1 + L) p ->
+      wellscoped_s L (SSubset b p)
+  .
+
+  Hint Constructors wellscoped_s.
+
+  Inductive all_sorts P : list sort -> Prop :=
+  | AllStsNil :
+      all_sorts P []
+  | AllStsCons s ss :
+      all_sorts P ss ->
+      P ss s ->
+      all_sorts P (s :: ss)
+  .
+
+  Hint Constructors all_sorts.
+
+  Definition wfsorts := all_sorts wfsort.
+  Definition wellscoped_ss := all_sorts (fun ss s => wellscoped_s (length ss) s).
+
+(*  
+  Inductive wfsorts : list sort -> Prop :=
+  | WfStsNil :
+      wfsorts []
+  | WfStsCons s ss :
+      wfsorts ss ->
+      wfsort ss s ->
+      wfsorts (s :: ss)
+  .
+  
+  Hint Constructors wfsorts.
+
+  Inductive wellscoped_ss : list sort -> Prop :=
+  | WscssNil :
+      wellscoped_ss []
+  | WscssCons s ss :
+      wellscoped_ss ss ->
+      wellscoped_s (length ss) s ->
+      wellscoped_ss (s :: ss)
+  .
+  
+  Hint Constructors wellscoped_ss.
+*)
+
+  Lemma wellscoped_shift_i_i L i :
+    wellscoped_i L i ->
+    forall x n L',
+      L' = n + L ->
+      wellscoped_i L' (shift_i_i n x i).
+  Proof.
+    induct 1; simpl; try solve [intros; subst; eauto with db_la].
+    {
+      rename x into y.
+      intros x n.
+      intros; subst.
+      cases (x <=? y); simpl in *; eauto with db_la.
+    }
+  Qed.
+  
+  Lemma wellscoped_shift_i_p L p :
+    wellscoped_p L p ->
+    forall x n L',
+      L' = n + L ->
+      wellscoped_p L' (shift_i_p n x p).
+  Proof.
+    induct 1; simpl; try solve [intros; subst; eauto using wellscoped_shift_i_i with db_la].
+  Qed.
+  
+  Lemma wellscoped_ss_wellscoped_p_strip_subsets L :
+    wellscoped_ss L ->
+    forall n,
+      n = length L ->
+      wellscoped_p n (and_all (snd (strip_subsets L))).
+  Proof.
+    induct 1; simpl; intros n ?; subst; eauto.
+    {
+      econstructor.
+    }
+    invert H0; simpl in *.
+    {
+      unfold shift0_i_p.
+      rewrite and_all_map_shift_i_p.
+      eapply wellscoped_shift_i_p; eauto.
+    }
+    {
+      econstructor; eauto.
+      unfold shift0_i_p.
+      rewrite and_all_map_shift_i_p.
+      eapply wellscoped_shift_i_p; eauto.
+    }
+  Qed.
+  
   Lemma interp_prop_shift_i_p L p :
     interp_prop L p ->
+    wellscoped_ss L ->
+    wellscoped_p (length L) p ->
     forall x ls ,
       let n := length ls in
       x <= length L ->
       interp_prop (shift_i_ss n (firstn x L) ++ ls ++ my_skipn L x) (shift_i_p n x p).
   Proof.
     cbn in *.
-    intros H x ls Hle.
+    intros H Hscss Hscp x ls Hle.
     unfold interp_prop in *.
     cbn in *.
     rewrite !fst_strip_subsets_insert.
-    rewrite !snd_strip_subsets_insert.
+    rewrite !snd_strip_subsets_insert by la.
     set (bs := fst (strip_subsets L)) in *.
     set (bs_new := fst (strip_subsets ls)) in *.
     eapply forall_lift2_imply_shift; eauto.
     {
       eapply forall_trans.
       {
-        Lemma and_all_insert_imply_and_all bs new x ls :
-          forall_ bs (lift2 bs imply (interp_p bs (and_all (insert new x ls))) (interp_p bs (and_all ls))).
-        Proof.
-          eapply admit.
-        Qed.
-        eapply and_all_insert_imply_and_all.
+        eapply and_all_app_imply_no_middle.
       }
       {
-        Lemma and_all_map_shift_i_p n x ls :
-          and_all (map (shift_i_p n x) ls) = shift_i_p n x (and_all ls).
-        Proof.
-          eapply admit.
-        Qed.
-        rewrite and_all_map_shift_i_p.
-        eapply forall_shift_i_p_shift.
+        eapply forall_iff_imply.
+        eapply forall_iff_sym.
+        eapply forall_iff_trans.
+        {
+          eapply forall_iff_sym.
+          eapply forall_shift_i_p_iff_shift; eauto.
+          subst bs.
+          rewrite length_fst_strip_subsets.
+          eapply wellscoped_ss_wellscoped_p_strip_subsets; eauto.
+        }
+        eapply forall_iff_refl'.
+        rewrite <- (firstn_my_skipn x L) at 1.
+        rewrite snd_strip_subsets_app.
+        rewrite <- and_all_map_shift_i_p.
+        rewrite map_app.
+        rewrite map_map.
+        subst bs.
         subst bs_new.
-        rewrite length_fst_strip_subsets.
+        repeat rewrite length_fst_strip_subsets.
+        f_equal.
+        f_equal.
+        f_equal.
+        eapply map_ext.
+        intros b.
+        rewrite length_firstn_le by la.
+        rewrite shift_i_p_shift_merge by la.
         eauto.
       }
     }
     {
-      eapply forall_shift_shift_i_p.
+      eapply forall_iff_imply.
+      eapply forall_iff_sym.
+      subst bs.
       subst bs_new.
-      rewrite length_fst_strip_subsets.
-      eauto.
+      eapply forall_shift_i_p_iff_shift; try rewrite length_fst_strip_subsets; eauto.
     }
   Qed.
+
+  (*here*)
   
+  Section bs.
+    Variable bs : list base_sort.
+    Definition iff_ x y := forall_ bs (lift2 bs iff x y).
+    Infix "==" := iff_.
+    Definition and_ x y := lift2 bs and x y.
+    Infix "/\" := and_.
+    Lemma iff_and :
+      forall p1 p2 p1' p2',
+        p1 == p1' ->
+        p2 == p2' ->
+        (p1 /\ p2) == (p1' /\ p2').
+    Proof
+    Qed.
+  End bs.
+      
   Ltac interp_le := try eapply interp_time_interp_prop_le; apply_all interp_prop_le_interp_time.
 
   Inductive sorteq : sctx -> sort -> sort -> Prop :=
@@ -4783,14 +5040,6 @@ lift2 (fst (strip_subsets L))
     }
   Qed.
   
-  Inductive wfsort : sctx -> sort -> Prop :=
-  | WfStBaseSort L b :
-      wfsort L (SBaseSort b)
-  | WfStSubset L b p :
-      wfprop (SBaseSort b :: L) p ->
-      wfsort L (SSubset b p)
-  .
-
   Inductive kdeq : sctx -> kind -> kind -> Prop :=
   | KdEqKType L :
       kdeq L KType KType
