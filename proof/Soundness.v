@@ -4955,14 +4955,99 @@ lift2 (fst (strip_subsets L))
   Lemma equal_sorts_interp_prop L L' :
     equal_sorts L L' ->
     forall p,
+      wellscoped_ss L ->
       interp_prop L p ->
       interp_prop L' p.
   Proof.
     induct 1; simpl; eauto.
-    intros p Hp.
+    intros p Hsc Hp.
+    copy Hsc Hsc'.
+    Lemma equal_sorts_wellscoped_ss L L' :
+      equal_sorts L L' ->
+      wellscoped_ss L ->
+      wellscoped_ss L'.
+    Proof.
+      eapply admit.
+    Qed.
+    eapply equal_sorts_wellscoped_ss in Hsc'; eauto.
     rename H0 into Hsorteq.
     copy Hsorteq Hps.
+    rename k into s.
+    rename k' into s'.
+    invert Hsorteq.
+    {
+      unfold interp_prop.
+      unfold interp_prop in Hp.
+      simpl in *.
+      unfold shift0_i_p in *.
+      rewrite and_all_map_shift_i_p in *.
+      specialize (forall_trans (b :: fst (strip_subsets L'))).
+      intros Htrans.
+      eapply Htrans.
+      {
+        eapply forall_iff_imply.
+        simpl.
+        specialize (@forall_shift_i_p_iff_shift (and_all (snd (strip_subsets L'))) [b] 0 (fst (strip_subsets L')) 1).
+        intros Hshift.
+        eapply Hshift; eauto.
+        invert Hsc'.
+        eapply wellscoped_ss_wellscoped_p_strip_subsets; eauto.
+        rewrite length_fst_strip_subsets; eauto.
+      }
+      {
+        simpl.
+        rewrite fuse_lift1_lift2.
+        rewrite fuse_lift2_lift1_1.
+        clear Htrans.
+        specialize (forall_trans (b :: fst (strip_subsets L))).
+        intros Htrans.
+        eapply Htrans in Hp.
+        Focus 2.
+        {
+          eapply forall_iff_imply.
+          eapply forall_iff_sym.
+          simpl.
+          specialize (@forall_shift_i_p_iff_shift (and_all (snd (strip_subsets L))) [b] 0 (fst (strip_subsets L)) 1).
+          simpl.
+          intros Hshift.
+          eapply Hshift; eauto.
+          invert Hsc.
+          eapply wellscoped_ss_wellscoped_p_strip_subsets; eauto.
+          rewrite length_fst_strip_subsets; eauto.
+        }
+        Unfocus.
+        clear Htrans.
+        simpl in *.
+        rewrite fuse_lift1_lift2 in *.
+        rewrite fuse_lift2_lift1_1 in *.
+        unfold interp_prop in *.
+        simpl in *.
+        set (ps := interp_p (fst (strip_subsets L)) (and_all (snd (strip_subsets L)))) in *.
+        set (ps' := interp_p (fst (strip_subsets L')) (and_all (snd (strip_subsets L')))) in *.
+        specialize (Htrans _ _ _ Hp).
+        
+      }
+      
+      eapply forall_trans.
+      rewrite fuse_lift1_lift2 in *.
+      specialize (forall_trans (b :: fst (strip_subsets L')) (interp_p (b :: fst (strip_subsets L')) (shift_i_p 1 0 (and_all (snd (strip_subsets L'))))) (interp_p (b :: fst (strip_subsets L')) p) (interp_p (b :: fst (strip_subsets L')) p)).
+      intros Htrans.
+      simpl in *.
+      rewrite fuse_lift1_lift2 in *.
+      eapply Htrans.
+      eapply forall_trans.
+      (*here*)
+    }    
+
+
+
+
+    
     eapply sorteq_premises in Hps.
+    unfold interp_prop.
+    unfold interp_prop in Hp.
+    simpl in *.
+    rewrite fuse_lift1_lift2 in *.
     (*here*)
     eapply admit.
   Qed.
