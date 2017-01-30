@@ -3484,139 +3484,6 @@ Module M (Time : TIME).
     rewrite app_nil_r; eauto.
   Qed.
   
-  Lemma forall_interp_var_eq_shift_gt bs_new :
-    forall bs x y b (f : interp_sort b -> interp_sort b -> Prop),
-      y < x ->
-      y < length bs ->
-      (forall x, f x x) ->
-      forall_
-        (insert bs_new x bs)
-        (lift2
-           (insert bs_new x bs) f
-           (interp_var y (insert bs_new x bs) b)
-           (shift bs_new x bs (interp_var y bs b))).
-  Proof.
-    induct bs; simpl; intros x y b f Hcmp Hy Hf; try la.
-    destruct x; simpl; try la.
-    rewrite fuse_lift1_lift2.
-    destruct y as [|y]; simpl in *.
-    {
-      rewrite fuse_lift2_lift0_1.
-      rewrite <- lift0_shift.
-      rewrite fuse_lift1_lift0.
-      eapply forall_lift0.
-      intros; eauto.
-    }
-    {
-      rewrite fuse_lift2_lift1_1.
-      rewrite <- lift1_shift.
-      rewrite fuse_lift2_lift1_2.
-      eauto with db_la.
-    }
-  Qed.
-  
-  Lemma forall_interp_var_eq_shift0_le :
-    forall bs_new y b (f : interp_sort b -> interp_sort b -> Prop) bs,
-      y < length bs ->
-      (forall x, f x x) ->
-      let bs' := bs_new ++ bs in
-      forall_
-        bs'
-        (lift2 bs' f
-               (interp_var (length bs_new + y) bs' b)
-               (shift0 bs_new bs (interp_var y bs b))).
-  Proof.
-    simpl.
-    induct bs_new; simpl; intros y b f bs Hy Hf.
-    {
-      rewrite dedup_lift2.
-      eapply forall_lift1.
-      eauto.
-    }
-    {
-      rewrite fuse_lift1_lift2.
-      rewrite <- lift1_shift0.
-      rewrite fuse_lift2_lift1_1.
-      rewrite fuse_lift2_lift1_2.
-      eauto with db_la.
-    }
-  Qed.
-  
-  Lemma interp_var_select' :
-    forall bs_new a bs b T (f : interp_sort b -> T -> Prop) (convert : interp_sort a -> T),
-      (forall x, f (convert_sort_value a b x) (convert x)) ->
-      (* (forall x, f x x) -> *)
-      let bs' := bs_new ++ a :: bs in
-      forall_
-        bs'
-        (lift2 bs' f (interp_var (length bs_new) bs' b)
-               (shift0 bs_new (a :: bs) (lift0 bs convert))).
-  Proof.
-    induct bs_new; simpl; intros tgt_b bs b T f convert Hf.
-    {
-      rewrite fuse_lift1_lift2.
-      rewrite fuse_lift2_lift0_1.
-      rewrite fuse_lift1_lift0.
-      eapply forall_lift0.
-      eauto.
-    }
-    {
-      rename a into b_new.
-      rewrite fuse_lift1_lift2.
-      rewrite fuse_lift1_lift0.
-      rewrite fuse_lift2_lift1_1.
-      eapply IHbs_new.
-      eauto.
-    }
-  Qed.
-
-  Lemma interp_var_select :
-    forall bs_new a bs b (f : interp_sort b -> interp_sort b -> Prop),
-      (forall x, f x x) ->
-      let bs' := bs_new ++ a :: bs in
-      forall_
-        bs'
-        (lift2 bs' f (interp_var (length bs_new) bs' b)
-               (shift0 bs_new (a :: bs) (lift0 bs (convert_sort_value a b)))).
-  Proof.
-    intros; eapply interp_var_select'; eauto.
-  Qed.
-
-  Lemma forall_interp_var_eq_shift_le :
-    forall bs x y b (f : interp_sort b -> interp_sort b -> Prop) bs_new,
-      x <= y ->
-      y < length bs ->
-      (forall x, f x x) ->
-      forall_
-        (insert bs_new x bs)
-        (lift2
-           (insert bs_new x bs) f
-           (interp_var (length bs_new + y) (insert bs_new x bs) b)
-           (shift bs_new x bs (interp_var y bs b))).
-  Proof.
-    induct bs; simpl; intros x y b f bs_new Hcmp Hy Hf; try la.
-    destruct y as [|y]; simpl in *; eauto with db_la.
-    {
-      destruct x; simpl; try la.
-      rewrite Nat.add_0_r.
-      eapply interp_var_select; eauto.
-    }
-    {
-      destruct x; simpl; try la.
-      {
-        eapply forall_interp_var_eq_shift0_le; eauto with db_la.
-      }
-      {
-        rewrite Nat.add_succ_r.
-        rewrite fuse_lift1_lift2.
-        rewrite fuse_lift2_lift1_1.
-        rewrite <- lift1_shift.
-        rewrite fuse_lift2_lift1_2.
-        eauto with db_la.
-      }
-    }
-  Qed.
-  
   Lemma fuse_lift2_lift3_1 bs :
     forall T A1 A2 B1 B2 B3 (f : A1 -> A2 -> T) (g : B1 -> B2 -> B3 -> A1) b1 b2 b3 a2,
       lift2 bs f (lift3 bs g b1 b2 b3) a2 = lift4 bs (fun b1 b2 b3 a2 => f (g b1 b2 b3) a2) b1 b2 b3 a2.
@@ -3848,6 +3715,139 @@ Module M (Time : TIME).
     wellscoped_p (length L) p.
   Proof.
     induct 1; simpl; eauto using sorting_wellscoped_i.
+  Qed.
+  
+  Lemma forall_interp_var_eq_shift_gt bs_new :
+    forall bs x y b (f : interp_sort b -> interp_sort b -> Prop),
+      y < x ->
+      y < length bs ->
+      (forall x, f x x) ->
+      forall_
+        (insert bs_new x bs)
+        (lift2
+           (insert bs_new x bs) f
+           (interp_var y (insert bs_new x bs) b)
+           (shift bs_new x bs (interp_var y bs b))).
+  Proof.
+    induct bs; simpl; intros x y b f Hcmp Hy Hf; try la.
+    destruct x; simpl; try la.
+    rewrite fuse_lift1_lift2.
+    destruct y as [|y]; simpl in *.
+    {
+      rewrite fuse_lift2_lift0_1.
+      rewrite <- lift0_shift.
+      rewrite fuse_lift1_lift0.
+      eapply forall_lift0.
+      intros; eauto.
+    }
+    {
+      rewrite fuse_lift2_lift1_1.
+      rewrite <- lift1_shift.
+      rewrite fuse_lift2_lift1_2.
+      eauto with db_la.
+    }
+  Qed.
+  
+  Lemma forall_interp_var_eq_shift0_le :
+    forall bs_new y b (f : interp_sort b -> interp_sort b -> Prop) bs,
+      y < length bs ->
+      (forall x, f x x) ->
+      let bs' := bs_new ++ bs in
+      forall_
+        bs'
+        (lift2 bs' f
+               (interp_var (length bs_new + y) bs' b)
+               (shift0 bs_new bs (interp_var y bs b))).
+  Proof.
+    simpl.
+    induct bs_new; simpl; intros y b f bs Hy Hf.
+    {
+      rewrite dedup_lift2.
+      eapply forall_lift1.
+      eauto.
+    }
+    {
+      rewrite fuse_lift1_lift2.
+      rewrite <- lift1_shift0.
+      rewrite fuse_lift2_lift1_1.
+      rewrite fuse_lift2_lift1_2.
+      eauto with db_la.
+    }
+  Qed.
+  
+  Lemma interp_var_select' :
+    forall bs_new a bs b T (f : interp_sort b -> T -> Prop) (convert : interp_sort a -> T),
+      (forall x, f (convert_sort_value a b x) (convert x)) ->
+      (* (forall x, f x x) -> *)
+      let bs' := bs_new ++ a :: bs in
+      forall_
+        bs'
+        (lift2 bs' f (interp_var (length bs_new) bs' b)
+               (shift0 bs_new (a :: bs) (lift0 bs convert))).
+  Proof.
+    induct bs_new; simpl; intros tgt_b bs b T f convert Hf.
+    {
+      rewrite fuse_lift1_lift2.
+      rewrite fuse_lift2_lift0_1.
+      rewrite fuse_lift1_lift0.
+      eapply forall_lift0.
+      eauto.
+    }
+    {
+      rename a into b_new.
+      rewrite fuse_lift1_lift2.
+      rewrite fuse_lift1_lift0.
+      rewrite fuse_lift2_lift1_1.
+      eapply IHbs_new.
+      eauto.
+    }
+  Qed.
+
+  Lemma interp_var_select :
+    forall bs_new a bs b (f : interp_sort b -> interp_sort b -> Prop),
+      (forall x, f x x) ->
+      let bs' := bs_new ++ a :: bs in
+      forall_
+        bs'
+        (lift2 bs' f (interp_var (length bs_new) bs' b)
+               (shift0 bs_new (a :: bs) (lift0 bs (convert_sort_value a b)))).
+  Proof.
+    intros; eapply interp_var_select'; eauto.
+  Qed.
+
+  Lemma forall_interp_var_eq_shift_le :
+    forall bs x y b (f : interp_sort b -> interp_sort b -> Prop) bs_new,
+      x <= y ->
+      y < length bs ->
+      (forall x, f x x) ->
+      forall_
+        (insert bs_new x bs)
+        (lift2
+           (insert bs_new x bs) f
+           (interp_var (length bs_new + y) (insert bs_new x bs) b)
+           (shift bs_new x bs (interp_var y bs b))).
+  Proof.
+    induct bs; simpl; intros x y b f bs_new Hcmp Hy Hf; try la.
+    destruct y as [|y]; simpl in *; eauto with db_la.
+    {
+      destruct x; simpl; try la.
+      rewrite Nat.add_0_r.
+      eapply interp_var_select; eauto.
+    }
+    {
+      destruct x; simpl; try la.
+      {
+        eapply forall_interp_var_eq_shift0_le; eauto with db_la.
+      }
+      {
+        rewrite Nat.add_succ_r.
+        rewrite fuse_lift1_lift2.
+        rewrite fuse_lift2_lift1_1.
+        rewrite <- lift1_shift.
+        rewrite fuse_lift2_lift1_2.
+        eauto with db_la.
+      }
+    }
   Qed.
   
   Lemma forall_shift_i_i_iff_shift :
@@ -4119,18 +4119,183 @@ Module M (Time : TIME).
     eapply forall_shift_i_p_iff_shift; eauto.
   Qed.
 
-  (*here*)
+  Lemma get_base_sort_shift_i_s :
+    forall s n x,
+      get_base_sort (shift_i_s n x s) = get_base_sort s.
+  Proof.
+    induct s; cbn; eauto; intros; f_equal; eauto.
+  Qed.
   
-  Lemma fst_strip_subsets_insert x ls L :
-    let L' := shift_i_ss (length ls) (firstn x L) ++ ls ++ my_skipn L x in
-    fst (strip_subsets L') = insert (fst (strip_subsets ls)) x (fst (strip_subsets L)).
-  Admitted.
+  Lemma fst_strip_subsets_app :
+    forall ls1 ls2,
+      fst (strip_subsets (ls1 ++ ls2)) = fst (strip_subsets ls1) ++ fst (strip_subsets ls2).
+  Proof.
+    induct ls1; simpl; intros; f_equal; eauto.
+  Qed.
   
-  Lemma snd_strip_subsets_insert x ls L :
-    let n := length ls in
-    let L' := shift_i_ss (length ls) (firstn x L) ++ ls ++ my_skipn L x in
-    snd (strip_subsets L') = insert (map (shift_i_p x 0) (snd (strip_subsets ls))) x (map (shift_i_p n x) (snd (strip_subsets L))).
-  Admitted.
+  Lemma fst_strip_subsets_insert ls :
+    forall L x,
+      let L' := shift_i_ss (length ls) (firstn x L) ++ ls ++ my_skipn L x in
+      fst (strip_subsets L') = insert (fst (strip_subsets ls)) x (fst (strip_subsets L)).
+  Proof.
+    simpl.
+    induct L; simpl.
+    {
+      destruct x; simpl;
+      repeat rewrite app_nil_r in *; eauto.
+    }
+    {
+      destruct x; simpl.
+      {
+        rewrite fst_strip_subsets_app; simpl.
+        eauto.
+      }
+      {
+        rewrite get_base_sort_shift_i_s.
+        f_equal; eauto.
+      }
+    }
+  Qed.
+  
+  Lemma map_id A (ls : list A) : map id ls = ls.
+  Proof.
+    induct ls; simpl; intros; f_equal; eauto.
+  Qed.
+  
+  Lemma map_shift_i_p_0 x b : map (shift_i_p 0 x) b = b.
+  Proof.
+    induct b; simpl; f_equal; eauto using shift_i_p_0.
+  Qed.
+
+  Lemma snd_strip_subsets_app :
+    forall ls1 ls2,
+      snd (strip_subsets (ls1 ++ ls2)) = snd (strip_subsets ls1) ++ map (shift_i_p (length ls1) 0) (snd (strip_subsets ls2)).
+  Proof.
+    induct ls1; simpl; intros.
+    {
+      rewrite map_shift_i_p_0; eauto.
+    }
+    {
+      rewrite <- app_assoc.
+      f_equal.
+      rewrite IHls1.
+      rewrite map_app.
+      f_equal.
+      rewrite map_map.
+      eapply map_ext.
+      intros b.
+      unfold shift0_i_p.
+      rewrite shift_i_p_shift_merge by la.
+      rewrite plus_comm.
+      eauto.
+    }
+  Qed.
+  
+  Lemma snd_strip_subsets_insert ls :
+    forall L x,
+      x <= length L ->
+      let n := length ls in
+      let L' := shift_i_ss (length ls) (firstn x L) ++ ls ++ my_skipn L x in
+      snd (strip_subsets L') =
+      map (shift_i_p (length ls) x) (snd (strip_subsets (firstn x L))) ++ map (shift_i_p x 0) (snd (strip_subsets ls)) ++ map (shift_i_p (x + length ls) 0) (snd (strip_subsets (my_skipn L x))).
+  Proof.
+    simpl.
+    induct L.
+    {
+      simpl.
+      intros x Hx.
+      destruct x; simpl; try la.
+      repeat rewrite app_nil_r in *; eauto.
+      rewrite map_shift_i_p_0; eauto.
+    }
+    {
+      simpl.
+      intros x Hx.
+      destruct x.
+      {
+        simpl.
+        rewrite map_shift_i_p_0.
+        rewrite snd_strip_subsets_app; simpl.
+        f_equal.
+      }
+      {
+        simpl.
+        rewrite IHL by la.
+        repeat rewrite map_app.
+        repeat rewrite <- app_assoc.
+        repeat rewrite map_map.
+        f_equal.
+        {
+          rewrite length_firstn_le by la.
+          destruct a; simpl; eauto.
+        }
+        f_equal.
+        {
+          eapply map_ext.
+          intros b.
+          unfold shift0_i_p.
+          symmetry.
+          rewrite shift_i_p_shift_cut by la.
+          simpl.
+          rewrite Nat.sub_0_r.
+          eauto.
+        }
+        f_equal.
+        {
+          eapply map_ext.
+          intros b.
+          unfold shift0_i_p.
+          rewrite shift_i_p_shift_merge by la.
+          rewrite plus_comm.
+          eauto.
+        }
+        {
+          eapply map_ext.
+          intros b.
+          unfold shift0_i_p.
+          rewrite shift_i_p_shift_merge by la.
+          f_equal.
+          la.
+        }
+      }
+    }
+  Qed.
+  
+  Lemma snd_strip_subsets_insert ls :
+    forall L x,
+      x <= length L ->
+      let n := length ls in
+      let L' := shift_i_ss (length ls) (firstn x L) ++ ls ++ my_skipn L x in
+      snd (strip_subsets L') = insert (map (shift_i_p x 0) (snd (strip_subsets ls))) x (map (shift_i_p n x) (snd (strip_subsets L))).
+  Proof.
+    simpl.
+    induct L.
+    {
+      simpl.
+      intros x Hx.
+      destruct x; simpl; try la.
+      repeat rewrite app_nil_r in *; eauto.
+      rewrite map_shift_i_p_0; eauto.
+    }
+    {
+      simpl.
+      intros x Hx.
+      destruct x.
+      {
+        simpl.
+        rewrite map_shift_i_p_0.
+        rewrite snd_strip_subsets_app; simpl.
+        f_equal.
+      }
+      {
+        Opaque insert.
+        simpl.
+        rewrite IHL by la.
+        eapply IHL.
+        f_equal; eauto.
+      }
+    }
+  Qed.
   
   Lemma length_fst_strip_subsets ls :
     length (fst (strip_subsets ls)) = length ls.
