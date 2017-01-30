@@ -4275,6 +4275,22 @@ Module M (Time : TIME).
     eapply IHbs.
   Qed.
   
+  Lemma fuse_lift3_lift2_1 ks :
+    forall A B C D E F (f : E -> C -> D -> F) (g : A -> B -> E) a b c d,
+      lift3 ks f (lift2 ks g a b) c d = lift4 ks (fun a b c d => f (g a b) c d) a b c d.
+  Proof.
+    induct ks; simplify; eauto.
+    eapply IHks.
+  Qed.
+  
+  Lemma fuse_lift4_lift2_4 ks :
+    forall A B C D E F G (f : A -> B -> C -> F -> G) (g : D -> E -> F) a b c d e,
+      lift4 ks f a b c (lift2 ks g d e) = lift5 ks (fun a b c d e => f a b c (g d e)) a b c d e.
+  Proof.
+    induct ks; simplify; eauto.
+    eapply IHks.
+  Qed.
+  
   Definition iff_ bs x y := forall_ bs (lift2 bs iff x y).
   Lemma forall_iff_and bs p1 p2 p1' p2' :
     iff_ bs p1 p1' ->
@@ -4590,23 +4606,6 @@ Module M (Time : TIME).
     }
   Qed.
 
-  (*here*)
-  
-  Section bs.
-    Variable bs : list base_sort.
-    Definition iff_ x y := forall_ bs (lift2 bs iff x y).
-    Infix "==" := iff_.
-    Definition and_ x y := lift2 bs and x y.
-    Infix "/\" := and_.
-    Lemma iff_and :
-      forall p1 p2 p1' p2',
-        p1 == p1' ->
-        p2 == p2' ->
-        (p1 /\ p2) == (p1' /\ p2').
-    Proof
-    Qed.
-  End bs.
-      
   Ltac interp_le := try eapply interp_time_interp_prop_le; apply_all interp_prop_le_interp_time.
 
   Inductive sorteq : sctx -> sort -> sort -> Prop :=
@@ -4619,92 +4618,6 @@ Module M (Time : TIME).
 
   Hint Constructors sorteq.
 
-  Lemma sorteq_get_base_sort L k k' :
-    sorteq L k k' ->
-    get_base_sort k' = get_base_sort k.
-  Proof.
-    induct 1; simplify; eauto.
-  Qed.
-  
-  Lemma fuse_lift3_lift2_1 ks :
-    forall A B C D E F (f : E -> C -> D -> F) (g : A -> B -> E) a b c d,
-      lift3 ks f (lift2 ks g a b) c d = lift4 ks (fun a b c d => f (g a b) c d) a b c d.
-  Proof.
-    induct ks; simplify; eauto.
-    eapply IHks.
-  Qed.
-  
-  Lemma fuse_lift3_lift2_2 ks :
-    forall A B C D E F (f : A -> E -> D -> F) (g : B -> C -> E) a b c d,
-      lift3 ks f a (lift2 ks g b c) d = lift4 ks (fun a b c d => f a (g b c) d) a b c d.
-  Proof.
-    induct ks; simplify; eauto.
-    eapply IHks.
-  Qed.
-  
-  Lemma fuse_lift4_lift2_4 ks :
-    forall A B C D E F G (f : A -> B -> C -> F -> G) (g : D -> E -> F) a b c d e,
-      lift4 ks f a b c (lift2 ks g d e) = lift5 ks (fun a b c d e => f a b c (g d e)) a b c d e.
-  Proof.
-    induct ks; simplify; eauto.
-    eapply IHks.
-  Qed.
-  
-  Lemma sorteq_premises' ks :
-    forall Kps K'ps P P'
-      (f1 : Kps -> P -> P' -> Prop)
-      (f2 : Kps -> K'ps -> Prop)
-      (f : P -> Kps -> P' -> K'ps -> Prop)
-      kps k'ps p p',
-      (forall kps k'ps p p',
-          f1 kps p p' ->
-          f2 kps k'ps ->
-          f p kps p' k'ps
-      ) ->
-      forall_ ks (lift3 ks f1 kps p p') ->
-      forall_ ks (lift2 ks f2 kps k'ps) ->
-      forall_ ks (lift4 ks f p kps p' k'ps).
-  Proof.
-    induct ks; simplify; eauto.
-    rewrite fuse_lift1_lift2 in *.
-    rewrite fuse_lift1_lift3 in *.
-    rewrite fuse_lift1_lift4 in *.
-    eapply IHks; eauto.
-    simplify.
-    eauto.
-  Qed.
-  
-  Lemma sorteq_premises L k k' :
-    sorteq L k k' ->
-    let bs_ps := strip_subsets L in
-    let bs := fst bs_ps in
-    let ps := snd bs_ps in
-    let ps := map shift0_i_p ps in
-    let b := get_base_sort k in
-    forall_ (b :: bs)
-               (lift2 (b :: bs) (fun a b : Prop => a -> (a <-> b))
-                      (interp_p (b :: bs) (and_all (strip_subset k ++ ps)))
-                      (interp_p (b :: bs) (and_all (strip_subset k' ++ ps)))).
-  Proof.
-    induct 1; simplify; eauto; rewrite ? fuse_lift1_lift2, ? dedup_lift2 in *; try solve [eapply forall_lift1; propositional].
-    cbn in *.
-    rewrite ? fuse_lift1_lift2 in *.
-    rewrite ? fuse_lift2_lift2_2 in *.
-    rewrite fuse_lift3_lift2_1 in *.
-    eapply sorteq_premises' with (f2 := fun P Q => forall a, P a <-> Q a); [| eapply H | ].
-    {
-      simplify.
-      specialize (H0 a).
-      specialize (H1 a).
-      propositional.
-    }
-    {
-      rewrite dedup_lift2.
-      eapply forall_lift1.
-      propositional.
-    }
-  Qed.
-  
   Lemma interp_prop_subset_imply' ks :
     forall Kp Kps Kp0
       (f1 : Kp -> Kps -> Kp0 -> Prop)
@@ -4942,6 +4855,103 @@ lift2 (fst (strip_subsets L))
 
   Hint Constructors equal_sorts.
   
+  Lemma sorteq_get_base_sort L k k' :
+    sorteq L k k' ->
+    get_base_sort k' = get_base_sort k.
+  Proof.
+    induct 1; simplify; eauto.
+  Qed.
+  
+  Lemma interp_prop_iff_elim L p p' :
+    interp_prop L p ->
+    interp_prop L (p <===> p')%idx ->
+    interp_prop L p'.
+  Proof.
+    intros Hp Hpp'.
+    unfold interp_prop in *; simpl in *.
+    rewrite fuse_lift2_lift2_2 in *.
+  Lemma forall_lift2_lift3_lift2 :
+    forall bs A B C P1 P2 P3 (f : A -> B -> Prop) (g : A -> B -> C -> Prop) (h : A -> C -> Prop),
+      (forall a b c, f a b -> g a b c -> h a c) ->
+      forall_ bs (lift2 bs f P1 P2) ->
+      forall_ bs (lift3 bs g P1 P2 P3) ->
+      forall_ bs (lift2 bs h P1 P3).
+  Proof.
+    induct bs; simplify; eauto.
+    rewrite fuse_lift1_lift2 in *.
+    rewrite fuse_lift1_lift3 in *.
+    eapply IHbs; eauto.
+    simplify.
+    eauto.
+  Qed.
+  
+    eapply forall_lift2_lift3_lift2; eauto.
+    simpl; propositional.
+  Qed.
+  
+  Lemma StgVar' L x s s' :
+    nth_error L x = Some s ->
+    s' = shift_i_s (1 + x) 0 s ->
+    sorting L (IVar x) s'.
+  Proof.
+    intros; subst; eauto.
+  Qed.
+  
+  Lemma sorteq_premises' ks :
+    forall Kps K'ps P P'
+      (f1 : Kps -> P -> P' -> Prop)
+      (f2 : Kps -> K'ps -> Prop)
+      (f : P -> Kps -> P' -> K'ps -> Prop)
+      kps k'ps p p',
+      (forall kps k'ps p p',
+          f1 kps p p' ->
+          f2 kps k'ps ->
+          f p kps p' k'ps
+      ) ->
+      forall_ ks (lift3 ks f1 kps p p') ->
+      forall_ ks (lift2 ks f2 kps k'ps) ->
+      forall_ ks (lift4 ks f p kps p' k'ps).
+  Proof.
+    induct ks; simplify; eauto.
+    rewrite fuse_lift1_lift2 in *.
+    rewrite fuse_lift1_lift3 in *.
+    rewrite fuse_lift1_lift4 in *.
+    eapply IHks; eauto.
+    simplify.
+    eauto.
+  Qed.
+  
+  Lemma sorteq_premises L k k' :
+    sorteq L k k' ->
+    let bs_ps := strip_subsets L in
+    let bs := fst bs_ps in
+    let ps := snd bs_ps in
+    let ps := map shift0_i_p ps in
+    let b := get_base_sort k in
+    forall_ (b :: bs)
+               (lift2 (b :: bs) (fun a b : Prop => a -> (a <-> b))
+                      (interp_p (b :: bs) (and_all (strip_subset k ++ ps)))
+                      (interp_p (b :: bs) (and_all (strip_subset k' ++ ps)))).
+  Proof.
+    induct 1; simplify; eauto; rewrite ? fuse_lift1_lift2, ? dedup_lift2 in *; try solve [eapply forall_lift1; propositional].
+    cbn in *.
+    rewrite ? fuse_lift1_lift2 in *.
+    rewrite ? fuse_lift2_lift2_2 in *.
+    rewrite fuse_lift3_lift2_1 in *.
+    eapply sorteq_premises' with (f2 := fun P Q => forall a, P a <-> Q a); [| eapply H | ].
+    {
+      simplify.
+      specialize (H0 a).
+      specialize (H1 a).
+      propositional.
+    }
+    {
+      rewrite dedup_lift2.
+      eapply forall_lift1.
+      propositional.
+    }
+  Qed.
+  
   Lemma equal_sorts_interp_prop L L' :
     equal_sorts L L' ->
     forall p,
@@ -4953,22 +4963,7 @@ lift2 (fst (strip_subsets L))
     rename H0 into Hsorteq.
     copy Hsorteq Hps.
     eapply sorteq_premises in Hps.
-    eapply admit.
-  Qed.
-  
-  Lemma StgVar' L x s s' :
-    nth_error L x = Some s ->
-    s' = shift_i_s (1 + x) 0 s ->
-    sorting L (IVar x) s'.
-  Proof.
-    intros; subst; eauto.
-  Qed.
-  
-  Lemma interp_prop_iff_elim L p p' :
-    interp_prop L p ->
-    interp_prop L (p <===> p')%idx ->
-    interp_prop L p'.
-  Proof.
+    (*here*)
     eapply admit.
   Qed.
   
