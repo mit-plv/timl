@@ -4292,15 +4292,34 @@ Module M (Time : TIME).
   Qed.
   
   Definition iff_ bs x y := forall_ bs (lift2 bs iff x y).
+  
+  Lemma forall_iff_lift2 f bs p1 p2 p1' p2' :
+    (forall a b c d : Prop, iff a b -> iff c d -> iff (f a c) (f b d)) ->
+    iff_ bs p1 p1' ->
+    iff_ bs p2 p2' ->
+    iff_ bs (lift2 bs f p1 p2) (lift2 bs f p1' p2').
+  Proof.
+    intros Hf H1 H2.
+    unfold iff_ in *.
+    rewrite fuse_lift2_lift2_1_2.
+    eapply forall_lift2_lift2_lift4; eauto.
+  Qed.
+
   Lemma forall_iff_and bs p1 p2 p1' p2' :
     iff_ bs p1 p1' ->
     iff_ bs p2 p2' ->
     iff_ bs (lift2 bs and p1 p2) (lift2 bs and p1' p2').
   Proof.
-    intros H1 H2.
-    unfold iff_ in *.
-    rewrite fuse_lift2_lift2_1_2.
-    eapply forall_lift2_lift2_lift4; eauto.
+    intros; eapply forall_iff_lift2; eauto.
+    unfold iff; propositional.
+  Qed.
+  
+  Lemma forall_iff_iff_imply bs p1 p2 p1' p2' :
+    iff_ bs p1 p1' ->
+    iff_ bs p2 p2' ->
+    iff_ bs (lift2 bs imply p1 p2) (lift2 bs imply p1' p2').
+  Proof.
+    intros; eapply forall_iff_lift2; eauto.
     unfold iff; propositional.
   Qed.
 
@@ -4845,16 +4864,6 @@ lift2 (fst (strip_subsets L))
     eapply sorteq_interp_prop_rev; eauto.
   Qed.
   
-  Inductive equal_sorts : list sort -> list sort -> Prop :=
-  | EKNil : equal_sorts [] []
-  | EKCons L L' k k' :
-      equal_sorts L L' ->
-      sorteq L k k' ->
-      equal_sorts (k :: L) (k' :: L')
-  .
-
-  Hint Constructors equal_sorts.
-  
   Lemma sorteq_get_base_sort L k k' :
     sorteq L k k' ->
     get_base_sort k' = get_base_sort k.
@@ -4862,14 +4871,6 @@ lift2 (fst (strip_subsets L))
     induct 1; simplify; eauto.
   Qed.
   
-  Lemma interp_prop_iff_elim L p p' :
-    interp_prop L p ->
-    interp_prop L (p <===> p')%idx ->
-    interp_prop L p'.
-  Proof.
-    intros Hp Hpp'.
-    unfold interp_prop in *; simpl in *.
-    rewrite fuse_lift2_lift2_2 in *.
   Lemma forall_lift2_lift3_lift2 :
     forall bs A B C P1 P2 P3 (f : A -> B -> Prop) (g : A -> B -> C -> Prop) (h : A -> C -> Prop),
       (forall a b c, f a b -> g a b c -> h a c) ->
@@ -4885,6 +4886,14 @@ lift2 (fst (strip_subsets L))
     eauto.
   Qed.
   
+  Lemma interp_prop_iff_elim L p p' :
+    interp_prop L p ->
+    interp_prop L (p <===> p')%idx ->
+    interp_prop L p'.
+  Proof.
+    intros Hp Hpp'.
+    unfold interp_prop in *; simpl in *.
+    rewrite fuse_lift2_lift2_2 in *.
     eapply forall_lift2_lift3_lift2; eauto.
     simpl; propositional.
   Qed.
@@ -4896,6 +4905,27 @@ lift2 (fst (strip_subsets L))
   Proof.
     intros; subst; eauto.
   Qed.
+  
+  Lemma forall_iff_elim bs p p' :
+    forall_ bs p ->
+    iff_ bs p p' ->
+    forall_ bs p'.
+  Proof.
+    intros Hp Hpp'.
+    eapply forall_use_premise; [eapply Hp |].
+    eapply forall_iff_imply.
+    eauto.
+  Qed.
+  
+  Inductive equal_sorts : list sort -> list sort -> Prop :=
+  | EKNil : equal_sorts [] []
+  | EKCons L L' k k' :
+      equal_sorts L L' ->
+      sorteq L k k' ->
+      equal_sorts (k :: L) (k' :: L')
+  .
+
+  Hint Constructors equal_sorts.
   
   Lemma sorteq_premises' ks :
     forall Kps K'ps P P'
@@ -4952,6 +4982,228 @@ lift2 (fst (strip_subsets L))
     }
   Qed.
   
+  Lemma equal_sorts_wellscoped_ss L L' :
+    equal_sorts L L' ->
+    wellscoped_ss L ->
+    wellscoped_ss L'.
+  Proof.
+    eapply admit.
+  Qed.
+  
+  Lemma equal_sorts_length L L' :
+    equal_sorts L L' ->
+    length L = length L'.
+  Proof.
+    eapply admit.
+  Qed.
+  
+  Lemma equal_sorts_fst_strip_subsets L L' :
+    equal_sorts L L' ->
+    fst (strip_subsets L) = fst (strip_subsets L').
+  Proof.
+    eapply admit.
+  Qed.
+  
+  Lemma forall_lift4_lift2_lift2_lift4 :
+    forall bs A1 A2 A3 A4 A5 A6 P1 P2 P3 P4 P5 P6 (f1 : A1 -> A2 -> A3 -> A4 -> Prop) (f2 : A5 -> A2 -> Prop) (f3 : A6 -> A4 -> Prop) (f4 : A1 -> A5 -> A3 -> A6 -> Prop),
+      (forall a1 a2 a3 a4 a5 a6, f1 a1 a2 a3 a4 -> f2 a5 a2 -> f3 a6 a4 -> f4 a1 a5 a3 a6) ->
+      forall_ bs (lift4 bs f1 P1 P2 P3 P4) ->
+      forall_ bs (lift2 bs f2 P5 P2) ->
+      forall_ bs (lift2 bs f3 P6 P4) ->
+      forall_ bs (lift4 bs f4 P1 P5 P3 P6).
+  Proof.
+    induct bs; simplify; eauto.
+    rewrite fuse_lift1_lift2 in *.
+    rewrite fuse_lift1_lift4 in *.
+    eapply IHbs; eauto.
+    simplify.
+    eauto.
+  Qed.
+  
+  Lemma fuse_lift4_lift1_4 bs :
+    forall T A1 A2 A3 A4 B1 (f : A1 -> A2 -> A3 -> A4 -> T) (g : B1 -> A4) a1 a2 a3 b1,
+      lift4 bs f a1 a2 a3 (lift1 bs g b1) = lift4 bs (fun a1 a2 a3 b1 => f a1 a2 a3 (g b1)) a1 a2 a3 b1.
+  Proof.
+    induct bs; simplify; eauto.
+    eapply IHbs.
+  Qed.
+  
+  Lemma fuse_lift4_lift1_2 bs :
+    forall T A1 A2 A3 A4 B1 (f : A1 -> A2 -> A3 -> A4 -> T) (g : B1 -> A2) a1 a3 a4 b1,
+      lift4 bs f a1 (lift1 bs g b1) a3 a4 = lift4 bs (fun a1 b1 a3 a4 => f a1 (g b1) a3 a4) a1 b1 a3 a4.
+  Proof.
+    induct bs; simplify; eauto.
+    eapply IHbs.
+  Qed.
+  
+  Lemma forall_lift2_lift2_lift2 ks :
+    forall A B C P1 P2 P3 (f : B -> A -> Prop) (g : B -> C -> Prop) (h : A -> C -> Prop),
+      (forall a b c, f b a -> g b c -> h a c) ->
+      forall_ ks (lift2 ks f P2 P1) ->
+      forall_ ks (lift2 ks g P2 P3) ->
+      forall_ ks (lift2 ks h P1 P3).
+  Proof.
+    induct ks; simplify; eauto.
+    rewrite fuse_lift1_lift2 in *.
+    eapply IHks; eauto.
+    simplify.
+    eauto.
+  Qed.
+  
+  Lemma forall_lift2_lift3_lift4 :
+    forall bs A1 A2 A3 A4 P1 P2 P3 P4 (f1 : A2 -> A4 -> Prop) (f2 : A2 -> A1 -> A3 -> Prop) (f3 : A1 -> A2 -> A3 -> A4 -> Prop),
+      (forall a1 a2 a3 a4, f1 a2 a4 -> f2 a2 a1 a3 -> f3 a1 a2 a3 a4) ->
+      forall_ bs (lift2 bs f1 P2 P4) ->
+      forall_ bs (lift3 bs f2 P2 P1 P3) ->
+      forall_ bs (lift4 bs f3 P1 P2 P3 P4).
+  Proof.
+    induct bs; simplify; eauto.
+    rewrite fuse_lift1_lift2 in *.
+    rewrite fuse_lift1_lift3 in *.
+    rewrite fuse_lift1_lift4 in *.
+    eapply IHbs; eauto.
+    simplify.
+    eauto.
+  Qed.
+  
+  Lemma equal_sorts_snd_strip_subsets L L' :
+    equal_sorts L L' ->
+    wellscoped_ss L ->
+    let bs := fst (strip_subsets L) in
+    let ps := snd (strip_subsets L) in
+    let ps' := snd (strip_subsets L') in
+    iff_ bs (interp_p bs (and_all ps)) (interp_p bs (and_all ps')).
+  Proof.
+    simpl.
+    induct 1; simpl; intros Hsc.
+    {
+      eapply forall_iff_refl.
+    }
+    copy Hsc Hsc'.
+    eapply equal_sorts_wellscoped_ss in Hsc'; eauto.
+    invert Hsc.
+    invert Hsc'.
+    eapply forall_iff_trans.
+    {
+      eapply and_all_app_iff.
+    }
+    eapply forall_iff_sym.
+    eapply forall_iff_trans.
+    {
+      eapply and_all_app_iff.
+    }
+    eapply forall_iff_sym.
+    rename H0 into Hsorteq.
+    invert Hsorteq.
+    {
+      eapply forall_iff_and.
+      {
+        simpl.
+        eapply forall_iff_refl.
+      }
+      {
+        simpl.
+        unfold shift0_i_p.
+        repeat rewrite and_all_map_shift_i_p in *.
+        eapply forall_iff_trans.
+        {
+          eapply (@forall_shift_i_p_iff_shift (and_all (snd (strip_subsets L))) [b] 0 (fst (strip_subsets L)) 1); eauto.
+          eapply wellscoped_ss_wellscoped_p_strip_subsets; eauto.
+          rewrite length_fst_strip_subsets; eauto.
+        }
+        eapply forall_iff_sym.
+        eapply forall_iff_trans.
+        {
+          eapply (@forall_shift_i_p_iff_shift (and_all (snd (strip_subsets L'))) [b] 0 (fst (strip_subsets L)) 1); eauto.
+          eapply wellscoped_ss_wellscoped_p_strip_subsets; eauto.
+          rewrite length_fst_strip_subsets; eauto.
+          eapply equal_sorts_length; eauto.
+        }
+        simpl.
+        rewrite fuse_lift2_lift1_1.
+        rewrite fuse_lift2_lift1_2.
+        rewrite fuse_lift1_lift2.
+        eapply forall_lift2_lift2; [| eapply forall_iff_sym; eapply IHequal_sorts; eauto].
+        unfold iff; propositional.
+      }
+    }
+    {
+      unfold interp_prop in *.
+      simpl in *.
+      repeat rewrite fuse_lift2_lift0_2 in *.
+      repeat rewrite fuse_lift2_lift1_1 in *.
+      unfold shift0_i_p in *.
+      repeat rewrite and_all_map_shift_i_p in *.
+      repeat rewrite fuse_lift1_lift2 in *.
+      repeat rewrite fuse_lift2_lift2_1 in *.
+      repeat rewrite fuse_lift3_lift2_3 in *.
+      eapply forall_lift4_lift2_lift2_lift4.
+      Focus 3.
+      {
+        specialize (@forall_shift_i_p_iff_shift (and_all (snd (strip_subsets L))) [b] 0 (fst (strip_subsets L)) 1); intros Hshift.
+        simpl in *.
+        rewrite fuse_lift1_lift2 in Hshift.
+        eapply Hshift; eauto.
+        eapply wellscoped_ss_wellscoped_p_strip_subsets; eauto.
+        rewrite length_fst_strip_subsets; eauto.
+      }
+      Unfocus.
+      Focus 3.
+      {
+        specialize (@forall_shift_i_p_iff_shift (and_all (snd (strip_subsets L'))) [b] 0 (fst (strip_subsets L)) 1); intros Hshift.
+        simpl in *.
+        rewrite fuse_lift1_lift2 in Hshift.
+        eapply Hshift; eauto.
+        eapply wellscoped_ss_wellscoped_p_strip_subsets; eauto.
+        rewrite length_fst_strip_subsets; eauto.
+        eapply equal_sorts_length; eauto.
+      }
+      Unfocus.
+      {
+        simpl.
+        instantiate (1 := fun a1 a2 a3 a4 => forall x, a1 x /\ a2 x <-> a3 x /\ a4 x).
+        simpl.
+        intros.
+        specialize (H1 a).
+        specialize (H2 a).
+        specialize (H7 a).
+        propositional.
+      }
+      unfold iff_ in *.
+      rewrite fuse_lift4_lift1_2 in *.
+      rewrite fuse_lift4_lift1_4 in *.
+      eapply forall_lift2_lift2_lift2 in H0.
+      Focus 3.
+      {
+        specialize (@forall_shift_i_p_iff_shift (and_all (snd (strip_subsets L))) [b] 0 (fst (strip_subsets L)) 1); intros Hshift.
+        simpl in *.
+        rewrite fuse_lift1_lift2 in Hshift.
+        eapply Hshift; eauto.
+        eapply wellscoped_ss_wellscoped_p_strip_subsets; eauto.
+        rewrite length_fst_strip_subsets; eauto.
+      }
+      Unfocus.
+      Focus 2.
+      {
+        instantiate (1 := fun a1 a2  => forall x, a1 x -> a2 x).
+        simpl.
+        intros.
+        specialize (H1 x).
+        specialize (H2 x).
+        propositional.
+      }
+      Unfocus.
+      
+      repeat rewrite fuse_lift2_lift1_1 in *.
+      repeat rewrite fuse_lift2_lift2_2 in *.
+      eapply forall_lift2_lift3_lift4; eauto.
+      simpl.
+      intros.
+      specialize (H2 x).
+      propositional.
+    }
+  Qed.
+  
   Lemma equal_sorts_interp_prop L L' :
     equal_sorts L L' ->
     forall p,
@@ -4959,97 +5211,16 @@ lift2 (fst (strip_subsets L))
       interp_prop L p ->
       interp_prop L' p.
   Proof.
-    induct 1; simpl; eauto.
-    intros p Hsc Hp.
-    copy Hsc Hsc'.
-    Lemma equal_sorts_wellscoped_ss L L' :
-      equal_sorts L L' ->
-      wellscoped_ss L ->
-      wellscoped_ss L'.
-    Proof.
-      eapply admit.
-    Qed.
-    eapply equal_sorts_wellscoped_ss in Hsc'; eauto.
-    rename H0 into Hsorteq.
-    copy Hsorteq Hps.
-    rename k into s.
-    rename k' into s'.
-    invert Hsorteq.
-    {
-      unfold interp_prop.
-      unfold interp_prop in Hp.
-      simpl in *.
-      unfold shift0_i_p in *.
-      rewrite and_all_map_shift_i_p in *.
-      specialize (forall_trans (b :: fst (strip_subsets L'))).
-      intros Htrans.
-      eapply Htrans.
-      {
-        eapply forall_iff_imply.
-        simpl.
-        specialize (@forall_shift_i_p_iff_shift (and_all (snd (strip_subsets L'))) [b] 0 (fst (strip_subsets L')) 1).
-        intros Hshift.
-        eapply Hshift; eauto.
-        invert Hsc'.
-        eapply wellscoped_ss_wellscoped_p_strip_subsets; eauto.
-        rewrite length_fst_strip_subsets; eauto.
-      }
-      {
-        simpl.
-        rewrite fuse_lift1_lift2.
-        rewrite fuse_lift2_lift1_1.
-        clear Htrans.
-        specialize (forall_trans (b :: fst (strip_subsets L))).
-        intros Htrans.
-        eapply Htrans in Hp.
-        Focus 2.
-        {
-          eapply forall_iff_imply.
-          eapply forall_iff_sym.
-          simpl.
-          specialize (@forall_shift_i_p_iff_shift (and_all (snd (strip_subsets L))) [b] 0 (fst (strip_subsets L)) 1).
-          simpl.
-          intros Hshift.
-          eapply Hshift; eauto.
-          invert Hsc.
-          eapply wellscoped_ss_wellscoped_p_strip_subsets; eauto.
-          rewrite length_fst_strip_subsets; eauto.
-        }
-        Unfocus.
-        clear Htrans.
-        simpl in *.
-        rewrite fuse_lift1_lift2 in *.
-        rewrite fuse_lift2_lift1_1 in *.
-        unfold interp_prop in *.
-        simpl in *.
-        set (ps := interp_p (fst (strip_subsets L)) (and_all (snd (strip_subsets L)))) in *.
-        set (ps' := interp_p (fst (strip_subsets L')) (and_all (snd (strip_subsets L')))) in *.
-        specialize (Htrans _ _ _ Hp).
-        
-      }
-      
-      eapply forall_trans.
-      rewrite fuse_lift1_lift2 in *.
-      specialize (forall_trans (b :: fst (strip_subsets L')) (interp_p (b :: fst (strip_subsets L')) (shift_i_p 1 0 (and_all (snd (strip_subsets L'))))) (interp_p (b :: fst (strip_subsets L')) p) (interp_p (b :: fst (strip_subsets L')) p)).
-      intros Htrans.
-      simpl in *.
-      rewrite fuse_lift1_lift2 in *.
-      eapply Htrans.
-      eapply forall_trans.
-      (*here*)
-    }    
-
-
-
-
-    
-    eapply sorteq_premises in Hps.
-    unfold interp_prop.
-    unfold interp_prop in Hp.
+    intros Heq p Hsc Hp.
+    unfold interp_prop in *.
+    erewrite <- equal_sorts_fst_strip_subsets; eauto.
     simpl in *.
-    rewrite fuse_lift1_lift2 in *.
-    (*here*)
-    eapply admit.
+    eapply forall_iff_elim; [eapply Hp|].
+    eapply forall_iff_iff_imply; [|eapply forall_iff_refl].
+    set (bs := fst (strip_subsets L)) in *.
+    set (ps := snd (strip_subsets L)) in *.
+    set (ps' := snd (strip_subsets L')) in *.
+    eapply equal_sorts_snd_strip_subsets; eauto.
   Qed.
   
   Lemma interp_prop_subst_i_p L p :
