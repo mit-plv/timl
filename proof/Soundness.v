@@ -5992,14 +5992,65 @@ lift2 (fst (strip_subsets L))
     }
   Qed.
 
+  Inductive bwfprop : list base_sort -> prop -> Prop :=
+  | BWfPropTrueFalse L cn :
+      bwfprop L (PTrueFalse cn)
+  | BWfPropBinConn L opr p1 p2 :
+      bwfprop L p1 ->
+      bwfprop L p2 ->
+      bwfprop L (PBinConn opr p1 p2)
+  | BWfPropNot L p :
+      bwfprop L p ->
+      bwfprop L (PNot p)
+  | BWfPropBinPred L opr i1 i2 :
+      bsorting L i1 (binpred_arg1_base_sort opr) ->
+      bsorting L i2 (binpred_arg2_base_sort opr) ->
+      bwfprop L (PBinPred opr i1 i2)
+  | BWfPropEq L b i1 i2 :
+      bsorting L i1 b ->
+      bsorting L i2 b ->
+      bwfprop L (PEq b i1 i2)
+  | BWfPropQuan L q s p :
+      bwfprop (s :: L) p ->
+      bwfprop L (PQuan q s p)
+  .
+  
+  Hint Constructors bwfprop.
+
+  Lemma wfprop_bwfprop L p :
+    wfprop L p ->
+    bwfprop (map get_base_sort L) p.
+  Proof.
+    induct 1; simpl; eauto using sorting_bsorting.
+    {
+      eapply sorting_bsorting in H; simpl in *.
+      eapply sorting_bsorting in H0; simpl in *.
+      eauto.
+    }
+    {
+      eapply sorting_bsorting in H; simpl in *.
+      eapply sorting_bsorting in H0; simpl in *.
+      eauto.
+    }
+  Qed.
+  
+  Lemma bwfprop_wellscoped_p L p :
+    bwfprop L p ->
+    wellscoped_p (length L) p.
+  Proof.
+    induct 1; simpl; eauto using bsorting_wellscoped_i.
+  Qed.
+  
   Lemma forall_subst_i_p_iff_subst :
     forall p x bs v b_v,
       let bs' := removen x bs in
-      (* wellscoped_p (length bs) p -> *)
+      nth_error bs x = Some b_v ->
+      bsorting (skipn (S x) bs) v b_v ->
+      bwfprop bs p ->
       forall_ bs' (lift2 bs' iff (interp_p bs' (subst_i_p x (shift_i_i x 0 v) p)) (subst x bs (interp_idx v (skipn (S x) bs) b_v) (interp_p bs p))).
   Proof.
     simpl.
-    induct p; simpl; intros x bs v b_v.
+    induct p; simpl; intros x bs v b_v Hx Hv Hp; invert Hp.
     {
       rewrite fuse_lift2_lift0_1.
       rewrite subst_lift0.
@@ -6007,7 +6058,6 @@ lift2 (fst (strip_subsets L))
       eapply forall_lift0.
       propositional.
     }
-    
     {
       rewrite subst_lift2.
       rewrite fuse_lift2_lift2_1.
@@ -6028,25 +6078,25 @@ lift2 (fst (strip_subsets L))
       rewrite subst_lift2.
       rewrite fuse_lift2_lift2_1.
       rewrite fuse_lift3_lift2_3.
-      eapply forall_lift2_lift2_lift4; try eapply forall_shift_i_i_iff_shift; eauto.
+      eapply forall_lift2_lift2_lift4; try eapply forall_subst_i_i_iff_subst; eauto.
       intros; subst.
       propositional.
     }
     {
+      rewrite subst_lift2.
       rewrite fuse_lift2_lift2_1.
-      rewrite <- lift2_shift.
       rewrite fuse_lift3_lift2_3.
-      eapply forall_lift2_lift2_lift4; try eapply forall_shift_i_i_iff_shift; eauto.
+      eapply forall_lift2_lift2_lift4; try eapply forall_subst_i_i_iff_subst; eauto.
       intros; subst.
       propositional.
     }
     {
       rename b into bsort.
       rewrite fuse_lift2_lift1_1.
-      rewrite <- lift1_shift.
+      rewrite subst_lift1.
       rewrite fuse_lift2_lift1_2.
-      cbn.
-      specialize (IHp bs_new (S x) (bsort :: bs) (length bs_new)); simpl in *.
+      rewrite shift0_i_i_shift_0.
+      specialize (IHp (S x) (bsort :: bs) v b_v); simpl in *.
       rewrite fuse_lift1_lift2 in *.
       eapply forall_lift2_lift2; eauto.
       simpl; intros.
