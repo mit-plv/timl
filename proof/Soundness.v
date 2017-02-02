@@ -5272,39 +5272,6 @@ lift2 (fst (strip_subsets L))
     }
   Qed.
 
-  Lemma forall_interp_var_eq_subst_lt :
-    forall bs x y b (f : interp_sort b -> interp_sort b -> Prop) b_v (v : interp_sorts (skipn (S x) bs) (interp_sort b_v)),
-      y < x ->
-      (* y < length bs -> *)
-      (forall x, f x x) ->
-      let bs' := removen x bs in
-      forall_
-        bs'
-        (lift2
-           bs' f
-           (interp_var y bs' b)
-           (subst x bs v (interp_var y bs b))).
-  Proof.
-    induct bs; simpl; intros x y b f b_v v Hcmp (* Hy *) Hf; eauto with db_la.
-    destruct x; simpl; try la.
-    rewrite fuse_lift1_lift2.
-    destruct y as [|y]; simpl in *.
-    {
-      rewrite fuse_lift2_lift0_1.
-      rewrite <- subst_lift1.
-      rewrite fuse_lift1_lift0.
-      rewrite subst_lift0.
-      eapply forall_lift0.
-      intros; eauto.
-    }
-    {
-      rewrite fuse_lift2_lift1_1.
-      rewrite subst_lift1.
-      rewrite fuse_lift2_lift1_2.
-      eauto with db_la.
-    }
-  Qed.
-  
   Lemma forall_eq_trans bs T (P1 P2 P3 : interp_sorts bs T):
     forall_ bs (lift2 bs eq P1 P2) ->
     forall_ bs (lift2 bs eq P2 P3) ->
@@ -5735,6 +5702,93 @@ lift2 (fst (strip_subsets L))
     eapply nth_error_Some_lt; eauto.
   Qed.
 
+  Lemma forall_interp_var_eq_subst_lt :
+    forall bs x y b (f : interp_sort b -> interp_sort b -> Prop) b_v (v : interp_sorts (skipn (S x) bs) (interp_sort b_v)),
+      y < x ->
+      (* y < length bs -> *)
+      (forall x, f x x) ->
+      let bs' := removen x bs in
+      forall_
+        bs'
+        (lift2
+           bs' f
+           (interp_var y bs' b)
+           (subst x bs v (interp_var y bs b))).
+  Proof.
+    induct bs; simpl; intros x y b f b_v v Hcmp (* Hy *) Hf; eauto with db_la.
+    destruct x; simpl; try la.
+    rewrite fuse_lift1_lift2.
+    destruct y as [|y]; simpl in *.
+    {
+      rewrite fuse_lift2_lift0_1.
+      rewrite <- subst_lift1.
+      rewrite fuse_lift1_lift0.
+      rewrite subst_lift0.
+      eapply forall_lift0.
+      intros; eauto.
+    }
+    {
+      rewrite fuse_lift2_lift1_1.
+      rewrite subst_lift1.
+      rewrite fuse_lift2_lift1_2.
+      eauto with db_la.
+    }
+  Qed.
+  
+  Lemma dedup_lift3_1_2 bs :
+    forall T A1 A3 (f : A1 -> A1 -> A3 -> T) a1 a3,
+      lift3 bs f a1 a1 a3 = lift2 bs (fun a1 a3 => f a1 a1 a3) a1 a3.
+  Proof.
+    induct bs; simplify; eauto.
+    eapply IHbs.
+  Qed.
+  
+  Lemma forall_interp_var_eq_subst_gt :
+    forall bs x y b (f : interp_sort b -> interp_sort b -> Prop) b_v (v : interp_sorts (skipn (S x) bs) (interp_sort b_v)) y',
+      x < y ->
+      (forall x, f x x) ->
+      y' = y - 1 ->
+      let bs' := removen x bs in
+      forall_
+        bs'
+        (lift2
+           bs' f
+           (interp_var y' bs' b)
+           (subst x bs v (interp_var y bs b))).
+  Proof.
+    induct bs; simpl; intros x y b f b_v v y' Hcmp Hf ?; subst; eauto with db_la.
+    destruct x; simpl; try la.
+    {
+      destruct y; simpl in *; try la.
+      {
+        rewrite fuse_lift2_lift1_1.
+        rewrite Nat.sub_0_r.
+        rewrite fuse_lift2_lift2_2.
+        rewrite dedup_lift3_1_2.
+        eapply forall_lift2.
+        intros; eauto.
+      }
+    }
+    rewrite fuse_lift1_lift2.
+    destruct y; simpl in *.
+    {
+      rewrite fuse_lift2_lift0_1.
+      rewrite <- subst_lift1.
+      rewrite fuse_lift1_lift0.
+      rewrite subst_lift0.
+      eapply forall_lift0.
+      intros; eauto.
+    }
+    {
+      rewrite Nat.sub_0_r.
+      destruct y; simpl in *; try la.
+      rewrite subst_lift1.
+      rewrite fuse_lift2_lift1_1.
+      rewrite fuse_lift2_lift1_2.
+      eauto with db_la.
+    }
+  Qed.
+  
   Lemma forall_subst_i_i_iff_subst :
     forall body x bs v b_v b_b,
       let bs' := removen x bs in
@@ -5789,22 +5843,47 @@ lift2 (fst (strip_subsets L))
         }
       }
       {
-        (*here*)
-        eapply forall_interp_var_eq_shift_gt; eauto.
+        eapply forall_interp_var_eq_subst_gt; eauto.
       }
     }
     {
       simpl.
       cases cn; simpl in *;
-      rewrite <- lift0_shift;
+      rewrite subst_lift0;
       rewrite fuse_lift2_lift0_1;
       rewrite fuse_lift1_lift0;
       eapply forall_lift0; eauto.
     }
     {
+      Lemma bsorting_IUnOp_invert' L i b :
+        bsorting L i b ->
+        forall opr c,
+          i = IUnOp opr c ->
+          bsorting L c (iunop_arg_base_sort opr) /\
+          b = iunop_result_base_sort opr.
+      Proof.
+        induct 1; intros; try discriminate.
+        assert (opr = opr0).
+        {
+          congruence.
+        }
+        invert H0.
+        eauto.
+      Qed.
+
+      Lemma bsorting_IUnOp_invert L opr c b :
+        bsorting L (IUnOp opr c) b ->
+        bsorting L c (iunop_arg_base_sort opr) /\
+        b = iunop_result_base_sort opr.
+      Proof.
+        intros.
+        eapply bsorting_IUnOp_invert'; eauto.
+      Qed.
+
       simpl.
+      eapply bsorting_IUnOp_invert in Hbody; openhyp.
       rewrite fuse_lift2_lift1_1.
-      rewrite <- lift1_shift.
+      rewrite subst_lift1.
       rewrite fuse_lift2_lift1_2.
       eapply forall_lift2_lift2; eauto.
       simpl; intros; subst.
@@ -5812,8 +5891,9 @@ lift2 (fst (strip_subsets L))
     }
     {
       simpl.
+      invert Hbody.
       rewrite fuse_lift2_lift2_1.
-      rewrite <- lift2_shift.
+      rewrite subst_lift2.
       rewrite fuse_lift3_lift2_3.
       eapply forall_lift2_lift2_lift4; eauto.
       simpl; intros; subst.
@@ -5821,44 +5901,173 @@ lift2 (fst (strip_subsets L))
     }
     {
       simpl.
-      rewrite <- lift3_shift.
+      invert Hbody.
+  Lemma subst_lift3 : forall bs x A1 A2 A3 B b_v (v : interp_sorts (skipn (S x) bs) (interp_sort b_v)) (f : A1 -> A2 -> A3 -> B) a1 a2 a3, subst x bs v (lift3 bs f a1 a2 a3) = lift3 (removen x bs) f (subst x bs v a1) (subst x bs v a2) (subst x bs v a3).
+  Proof.
+    induct bs; cbn in *; intros; eauto.
+    destruct x; cbn in *; intros.
+    {
+  Lemma dedup_lift5_2_5 bs :
+    forall T A1 A2 A3 A4 (f : A1 -> A2 -> A3 -> A4 -> A2 -> T) a1 a2 a3 a4,
+      lift5 bs f a1 a2 a3 a4 a2 = lift4 bs (fun a1 a2 a3 a4 => f a1 a2 a3 a4 a2) a1 a2 a3 a4.
+  Proof.
+    induct bs; simplify; eauto.
+    eapply IHbs.
+  Qed.
+  
+      rewrite !fuse_lift3_lift2_1.
+      rewrite fuse_lift4_lift2_3_4.
+  Lemma dedup_lift6_2_4 bs :
+    forall T A1 A2 A3 A5 A6 (f : A1 -> A2 -> A3 -> A2 -> A5 -> A6 -> T) a1 a2 a3 a5 a6,
+      lift6 bs f a1 a2 a3 a2 a5 a6 = lift5 bs (fun a1 a2 a3 a5 a6 => f a1 a2 a3 a2 a5 a6) a1 a2 a3 a5 a6.
+  Proof.
+    induct bs; simplify; eauto.
+    eapply IHbs.
+  Qed.
+  
+      rewrite dedup_lift6_2_4.
+      rewrite dedup_lift5_2_5.
+      rewrite fuse_lift2_lift3_1.
+  Lemma swap_lift4_2_3_4 :
+    forall bs T A1 A2 A3 A4 (f1 : A1 -> A2 -> A3 -> A4 -> T) (f2 : A1 -> A4 -> A2 -> A3 -> T) a1 a2 a3 a4,
+      (forall a1 a2 a3 a4, f1 a1 a2 a3 a4 = f2 a1 a4 a2 a3) ->
+      lift4 bs f1 a1 a2 a3 a4 = lift4 bs f2 a1 a4 a2 a3.
+  Proof.
+    induct bs; simpl; intros; eauto.
+    eapply IHbs.
+    intros.
+    eapply FunctionalExtensionality.functional_extensionality.
+    eauto.
+  Qed.
+  
+      erewrite swap_lift4_2_3_4; eauto.
+    }
+    {
+      eauto.
+    }
+  Qed.
+
+      rewrite subst_lift3.
       rewrite fuse_lift2_lift3_1.
       rewrite fuse_lift4_lift3_4.
-      specialize (IHi1 bs_new x bs BSBool (length bs_new)).
+      specialize (IHbody1 x bs v b_v BSBool).
       eapply forall_lift2_lift2_lift2_lift6; eauto.
       simpl; intros; subst.
       unfold ite; simpl; propositional.
     }
     {
       simpl.
-      cases b; try cases arity;
-        try solve [
-              rewrite <- lift0_shift;
-              rewrite fuse_lift2_lift0_1;
-              rewrite fuse_lift1_lift0;
-              eapply forall_lift0; eauto
-            ].
-      specialize (IHi bs_new (S x) (BSNat :: bs) (BSTimeFun arity) (length bs_new)).
+      invert Hbody.
+      simpl.
+      specialize (IHbody (S x) (BSNat :: bs) v b_v (BSTimeFun n)).
       simpl in *.
       rewrite fuse_lift1_lift2 in *.
-      eapply forall_lift2_lift2; [ | eapply IHi; eauto].
+      rewrite shift0_i_i_shift_0.
+      eapply forall_lift2_lift2; [ | eapply IHbody; eauto].
       simpl; intros.
       eapply FunctionalExtensionality.functional_extensionality.
       eauto.
     }
     {
       simpl.
+      invert Hbody.
       rewrite fuse_lift2_lift2_1.
-      rewrite <- lift2_shift.
+      rewrite subst_lift2.
       rewrite fuse_lift3_lift2_3.
-      specialize (IHi1 bs_new x bs (BSTimeFun (S arity)) (length bs_new)).
-      specialize (IHi2 bs_new x bs BSNat (length bs_new)).
+      specialize (IHbody1 x bs v b_v (BSTimeFun (S arity))).
+      specialize (IHbody2 x bs v b_v BSNat).
+      simpl in *.
       eapply forall_lift2_lift2_lift4; eauto.
       simpl; intros; subst.
       simpl; propositional.
     }
+    Grab Existential Variables.
+    {
+      rewrite <- removen_firstn_skipn.
+      eauto.
+    }
+    {
+      rewrite <- removen_firstn_skipn.
+      eauto.
+    }
   Qed.
 
+  Lemma forall_subst_i_p_iff_subst :
+    forall p x bs v b_v,
+      let bs' := removen x bs in
+      (* wellscoped_p (length bs) p -> *)
+      forall_ bs' (lift2 bs' iff (interp_p bs' (subst_i_p x (shift_i_i x 0 v) p)) (subst x bs (interp_idx v (skipn (S x) bs) b_v) (interp_p bs p))).
+  Proof.
+    simpl.
+    induct p; simpl; intros x bs v b_v.
+    {
+      rewrite fuse_lift2_lift0_1.
+      rewrite subst_lift0.
+      rewrite fuse_lift1_lift0.
+      eapply forall_lift0.
+      propositional.
+    }
+    
+    {
+      rewrite subst_lift2.
+      rewrite fuse_lift2_lift2_1.
+      rewrite fuse_lift3_lift2_3.
+      eapply forall_lift2_lift2_lift4; eauto.
+      simpl; intros.
+      destruct opr; simpl; propositional.
+    }
+    {
+      rewrite subst_lift1.
+      rewrite fuse_lift2_lift1_1.
+      rewrite fuse_lift2_lift1_2.
+      eapply forall_lift2_lift2; eauto.
+      simpl; intros.
+      propositional.
+    }
+    {
+      rewrite subst_lift2.
+      rewrite fuse_lift2_lift2_1.
+      rewrite fuse_lift3_lift2_3.
+      eapply forall_lift2_lift2_lift4; try eapply forall_shift_i_i_iff_shift; eauto.
+      intros; subst.
+      propositional.
+    }
+    {
+      rewrite fuse_lift2_lift2_1.
+      rewrite <- lift2_shift.
+      rewrite fuse_lift3_lift2_3.
+      eapply forall_lift2_lift2_lift4; try eapply forall_shift_i_i_iff_shift; eauto.
+      intros; subst.
+      propositional.
+    }
+    {
+      rename b into bsort.
+      rewrite fuse_lift2_lift1_1.
+      rewrite <- lift1_shift.
+      rewrite fuse_lift2_lift1_2.
+      cbn.
+      specialize (IHp bs_new (S x) (bsort :: bs) (length bs_new)); simpl in *.
+      rewrite fuse_lift1_lift2 in *.
+      eapply forall_lift2_lift2; eauto.
+      simpl; intros.
+      destruct q; simpl; intuition eauto.
+      {
+        eapply H; eauto.
+      }
+      {
+        eapply H; eauto.
+      }
+      {
+        openhyp; eexists.
+        eapply H; eauto.
+      }
+      {
+        openhyp; eexists.
+        eapply H; eauto.
+      }
+    }
+  Qed.
+  
   Lemma interp_prop_subst_i_p L p :
     interp_prop L p ->
     forall n s c ,
@@ -5880,82 +6089,6 @@ lift2 (fst (strip_subsets L))
     rewrite length_subst_i_ss.
     rewrite length_firstn_le by la.
 
-    Lemma forall_subst_i_p_iff_subst :
-      forall p x bs v b_v,
-        let bs' := removen x bs in
-        (* wellscoped_p (length bs) p -> *)
-        forall_ bs' (lift2 bs' iff (interp_p bs' (subst_i_p x (shift_i_i x 0 v) p)) (subst x bs (interp_idx v (skipn (S x) bs) b_v) (interp_p bs p))).
-    Proof.
-      simpl.
-      induct p; simpl; intros x bs v b_v.
-      {
-        rewrite fuse_lift2_lift0_1.
-        rewrite subst_lift0.
-        rewrite fuse_lift1_lift0.
-        eapply forall_lift0.
-        propositional.
-      }
-      
-      {
-        rewrite subst_lift2.
-        rewrite fuse_lift2_lift2_1.
-        rewrite fuse_lift3_lift2_3.
-        eapply forall_lift2_lift2_lift4; eauto.
-        simpl; intros.
-        destruct opr; simpl; propositional.
-      }
-      {
-        rewrite subst_lift1.
-        rewrite fuse_lift2_lift1_1.
-        rewrite fuse_lift2_lift1_2.
-        eapply forall_lift2_lift2; eauto.
-        simpl; intros.
-        propositional.
-      }
-      {
-        rewrite subst_lift2.
-        rewrite fuse_lift2_lift2_1.
-        rewrite fuse_lift3_lift2_3.
-        eapply forall_lift2_lift2_lift4; try eapply forall_shift_i_i_iff_shift; eauto.
-        intros; subst.
-        propositional.
-      }
-      {
-        rewrite fuse_lift2_lift2_1.
-        rewrite <- lift2_shift.
-        rewrite fuse_lift3_lift2_3.
-        eapply forall_lift2_lift2_lift4; try eapply forall_shift_i_i_iff_shift; eauto.
-        intros; subst.
-        propositional.
-      }
-      {
-        rename b into bsort.
-        rewrite fuse_lift2_lift1_1.
-        rewrite <- lift1_shift.
-        rewrite fuse_lift2_lift1_2.
-        cbn.
-        specialize (IHp bs_new (S x) (bsort :: bs) (length bs_new)); simpl in *.
-        rewrite fuse_lift1_lift2 in *.
-        eapply forall_lift2_lift2; eauto.
-        simpl; intros.
-        destruct q; simpl; intuition eauto.
-        {
-          eapply H; eauto.
-        }
-        {
-          eapply H; eauto.
-        }
-        {
-          openhyp; eexists.
-          eapply H; eauto.
-        }
-        {
-          openhyp; eexists.
-          eapply H; eauto.
-        }
-      }
-    Qed.
-    
     rewrite <- !removen_firstn_my_skipn.
     rewrite !map_removen.
     set (bs' := removen n (map get_base_sort L)) in *.
