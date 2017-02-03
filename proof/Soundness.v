@@ -3577,6 +3577,60 @@ Module M (Time : TIME).
   
   Definition subst0_i_p v b := subst_i_p 0 v b.
 
+  Inductive wellscoped_i : nat -> idx -> Prop :=
+  | WsciVar L x :
+      x < L ->
+      wellscoped_i L (IVar x) 
+  | WsciConst L cn :
+      wellscoped_i L (IConst cn) 
+  | WsciUnOp L opr c :
+      wellscoped_i L c ->
+      wellscoped_i L (IUnOp opr c) 
+  | WsciBinOp L opr c1 c2 :
+      wellscoped_i L c1 ->
+      wellscoped_i L c2 ->
+      wellscoped_i L (IBinOp opr c1 c2) 
+  | WsciIte L c c1 c2 :
+      wellscoped_i L c ->
+      wellscoped_i L c1 ->
+      wellscoped_i L c2 ->
+      wellscoped_i L (IIte c c1 c2)
+  | WsciTimeAbs L i :
+      wellscoped_i (1 + L) i ->
+      wellscoped_i L (ITimeAbs i) 
+  | WsciTimeApp L c1 c2 n :
+      wellscoped_i L c1 ->
+      wellscoped_i L c2 ->
+      wellscoped_i L (ITimeApp n c1 c2) 
+  .
+
+  Hint Constructors wellscoped_i.
+
+  Inductive wellscoped_p : nat -> prop -> Prop :=
+  | WscpTrueFalse L cn :
+      wellscoped_p L (PTrueFalse cn)
+  | WscpBinConn L opr p1 p2 :
+      wellscoped_p L p1 ->
+      wellscoped_p L p2 ->
+      wellscoped_p L (PBinConn opr p1 p2)
+  | WscpNot L p :
+      wellscoped_p L p ->
+      wellscoped_p L (PNot p)
+  | WscpBinPred L opr i1 i2 :
+      wellscoped_i L i1 ->
+      wellscoped_i L i2 ->
+      wellscoped_p L (PBinPred opr i1 i2)
+  | WscpEq L b i1 i2 :
+      wellscoped_i L i1 ->
+      wellscoped_i L i2 ->
+      wellscoped_p L (PEq b i1 i2)
+  | WscpQuan L q s p :
+      wellscoped_p (1 + L) p ->
+      wellscoped_p L (PQuan q s p)
+  .
+  
+  Hint Constructors wellscoped_p.
+
   Definition monotone : idx -> Prop.
   Admitted.
 
@@ -3609,6 +3663,7 @@ Module M (Time : TIME).
   (* todo: need elimination rule for TimeAbs *)
   | StgSubsetI L c b p :
       sorting L c (SBaseSort b) ->
+      wellscoped_p (1 + length L) p ->
       interp_prop L (subst0_i_p c p) ->
       sorting L c (SSubset b p)
   | StgSubsetE L c b p :
@@ -3617,44 +3672,6 @@ Module M (Time : TIME).
   .
 
   Hint Constructors sorting.
-  
-  Inductive wellscoped_i : nat -> idx -> Prop :=
-  | WsciVar L x :
-      x < L ->
-      wellscoped_i L (IVar x) 
-  | WsciConst L cn :
-      wellscoped_i L (IConst cn) 
-  | WsciUnOp L opr c :
-      wellscoped_i L c ->
-      wellscoped_i L (IUnOp opr c) 
-  | WsciBinOp L opr c1 c2 :
-      wellscoped_i L c1 ->
-      wellscoped_i L c2 ->
-      wellscoped_i L (IBinOp opr c1 c2) 
-  | WsciIte L c c1 c2 :
-      wellscoped_i L c ->
-      wellscoped_i L c1 ->
-      wellscoped_i L c2 ->
-      wellscoped_i L (IIte c c1 c2)
-  | WsciTimeAbs L i :
-      wellscoped_i (1 + L) i ->
-      wellscoped_i L (ITimeAbs i) 
-  | WsciTimeApp L c1 c2 n :
-      wellscoped_i L c1 ->
-      wellscoped_i L c2 ->
-      wellscoped_i L (ITimeApp n c1 c2) 
-  .
-
-  Hint Constructors wellscoped_i.
-
-  Lemma sorting_wellscoped_i L i s :
-    sorting L i s ->
-    wellscoped_i (length L) i.
-  Proof.
-    induct 1; simpl; eauto.
-    econstructor.
-    eapply nth_error_Some_lt; eauto.
-  Qed.
   
   Inductive wfprop : sctx -> prop -> Prop :=
   | WfPropTrueFalse L cn :
@@ -3681,31 +3698,15 @@ Module M (Time : TIME).
   
   Hint Constructors wfprop.
 
-  Inductive wellscoped_p : nat -> prop -> Prop :=
-  | WscpTrueFalse L cn :
-      wellscoped_p L (PTrueFalse cn)
-  | WscpBinConn L opr p1 p2 :
-      wellscoped_p L p1 ->
-      wellscoped_p L p2 ->
-      wellscoped_p L (PBinConn opr p1 p2)
-  | WscpNot L p :
-      wellscoped_p L p ->
-      wellscoped_p L (PNot p)
-  | WscpBinPred L opr i1 i2 :
-      wellscoped_i L i1 ->
-      wellscoped_i L i2 ->
-      wellscoped_p L (PBinPred opr i1 i2)
-  | WscpEq L b i1 i2 :
-      wellscoped_i L i1 ->
-      wellscoped_i L i2 ->
-      wellscoped_p L (PEq b i1 i2)
-  | WscpQuan L q s p :
-      wellscoped_p (1 + L) p ->
-      wellscoped_p L (PQuan q s p)
-  .
+  Lemma sorting_wellscoped_i L i s :
+    sorting L i s ->
+    wellscoped_i (length L) i.
+  Proof.
+    induct 1; simpl; eauto.
+    econstructor.
+    eapply nth_error_Some_lt; eauto.
+  Qed.
   
-  Hint Constructors wellscoped_p.
-
   Lemma wfprop_wellscoped_p L p :
     wfprop L p ->
     wellscoped_p (length L) p.
@@ -6239,19 +6240,30 @@ lift2 (fst (strip_subsets L))
     eauto.
   Qed.
   
+  Lemma length_my_skipn_le A (L : list A) n :
+    n <= length L ->
+    length (my_skipn L n) = length L - n.
+  Proof.
+    intros.
+    symmetry.
+    rewrite <- (firstn_my_skipn n) at 1.
+    rewrite app_length.
+    rewrite length_firstn_le by la.
+    la.
+  Qed.
+
   Lemma sorting_shift_i_i :
-    forall L c k,
-      sorting L c k ->
+    forall L c s,
+      sorting L c s ->
       forall x ls,
         let n := length ls in
         x <= length L ->
         wellscoped_ss L ->
-        wellscoped_s (length L) k ->
-        sorting (shift_i_ss n (firstn x L) ++ ls ++ my_skipn L x) (shift_i_i n x c) (shift_i_s n x k).
+        sorting (shift_i_ss n (firstn x L) ++ ls ++ my_skipn L x) (shift_i_i n x c) (shift_i_s n x s).
   Proof.
     simpl.
     induct 1;
-      simpl; try rename x into y; intros x ls Hx HL Hs; cbn in *; try solve [econstructor; eauto].
+      simpl; try rename x into y; intros x ls Hx HL; cbn in *; try solve [econstructor; eauto].
     {
       (* Case Var *)
       copy H HnltL.
@@ -6290,11 +6302,6 @@ lift2 (fst (strip_subsets L))
       }
     }
     {
-      econstructor; eauto.
-      unfold SBool in *.
-      eapply IHsorting1; eauto.
-    }
-    {
       (* Case TimeAbs *)
       econstructor; eauto.
       {
@@ -6305,227 +6312,206 @@ lift2 (fst (strip_subsets L))
       eapply monotone_shift_i_i; eauto.
     }
     {
-      econstructor; eauto.
-      {
-        unfold STimeFun in *.
-        eapply IHsorting1; eauto.
-      }
-      {
-        unfold SNat in *.
-        eapply IHsorting2; eauto.
-      }
-    }
-    {
       (* Case SubsetI *)
       econstructor; eauto.
+      {
+        eapply wellscoped_shift_i_p; eauto.
+        repeat rewrite app_length.
+        rewrite length_shift_i_ss.
+        rewrite length_firstn_le by la.
+        rewrite length_my_skipn_le by la.
+        la.
+      }
       unfold subst0_i_p in *.
       rewrite <- shift_i_p_subst_out by la.
       eapply interp_prop_shift_i_p; eauto.
-      invert Hs.
       eapply wellscoped_subst_i_p_0; eauto.
       eapply sorting_wellscoped_i; eauto.
     }
-    {
-      (* Case SubsetE *)
-      eapply StgSubsetE; eauto.
-      eapply IHsorting; eauto.
-      econstructor.
-      (*here*)
-    }
   Qed.
 
-  Lemma kd_wfkind_wfprop_shift_c_c :
-    (forall L c k,
-        kinding L c k ->
-        forall x ls,
-          let n := length ls in
-          x <= length L ->
-          kinding (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_c n x c) (shift_c_k n x k)) /\
-    (forall L k,
-        wfkind L k ->
-        forall x ls,
-          let n := length ls in
-          x <= length L ->
-          wfkind (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_k n x k)) /\
-    (forall L p,
-        wfprop L p ->
-        forall x ls,
-          let n := length ls in
-          x <= length L ->
-          wfprop (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_p n x p))
-  .
+  Lemma wfprop_shift_i_p :
+    forall L p,
+      wfprop L p ->
+      forall x ls,
+        let n := length ls in
+        x <= length L ->
+        wellscoped_ss L ->
+        wfprop (shift_i_ss n (firstn x L) ++ ls ++ my_skipn L x) (shift_i_p n x p).
   Proof.
-    eapply kinding_wfkind_wfprop_mutind;
-      simplify; cbn in *; try solve [econstructor; eauto].
+    simpl.
+    induct 1;
+      simpl; intros x ls Hx HL; cbn in *; try solve [econstructor; eauto].
+    {
+      econstructor;
+      eapply sorting_shift_i_i with (s := SBaseSort _); eauto.
+    }
+    {
+      econstructor;
+      eapply sorting_shift_i_i with (s := SBaseSort _); eauto.
+    }
+    {
+      econstructor.
+      eapply IHwfprop with (x := S x); eauto with db_la.
+      econstructor; eauto.
+    }
+  Qed.
+  
+  Lemma wfprop_shift_i_p_1_0 L p s :
+    wfprop L p ->
+    wellscoped_ss L ->
+    wfprop (s :: L) (shift_i_p 1 0 p).
+  Proof.
+    intros Hp HL.
+    eapply wfprop_shift_i_p with (x := 0) (ls := [s]) in Hp; eauto with db_la.
+    simpl in *.
+    rewrite my_skipn_0 in *.
+    eauto.
+  Qed.
+  
+  Lemma wfsort_wellscoped_s L s :
+    wfsort L s ->
+    wellscoped_s (length L) s.
+  Proof.
+    induct 1; simpl; econstructor; eauto.
+    eapply wfprop_wellscoped_p in H.
+    eauto.
+  Qed.
+  
+  Lemma wfsorts_wellscoped_ss L :
+    wfsorts L ->
+    wellscoped_ss L.
+  Proof.
+    induct 1; simpl; intros; econstructor; eauto using wfsort_wellscoped_s.
+  Qed.
+
+  Lemma bsorting_shift_i_i :
+    forall L c s,
+      bsorting L c s ->
+      forall x ls,
+        let n := length ls in
+        x <= length L ->
+        bsorting (firstn x L ++ ls ++ my_skipn L x) (shift_i_i n x c) s.
+  Proof.
+    simpl.
+    induct 1;
+      simpl; try rename x into y; intros x ls Hx; cbn in *; try solve [econstructor; eauto].
     {
       (* Case Var *)
       copy H HnltL.
       eapply nth_error_Some_lt in HnltL.
-      rename x0 into y.
-      cases (y <=? x).
+      cases (x <=? y).
       {
-        eapply StgEq.
+        eapply BStgVar.
         {
-          eapply StgVar.
           rewrite nth_error_app2;
-            rewrite length_shift_c_ks; erewrite length_firstn_le; try la.
+          erewrite length_firstn_le; try la.
           rewrite nth_error_app2 by la.
           rewrite nth_error_my_skipn by la.
           erewrite <- H.
           f_equal.
           la.
         }
-        eapply sorteq_refl2.
-        rewrite shift_c_k_shift_0 by la.
-        simplify.
-        f_equal.
-        la.
       }
       {
-        eapply StgEq.
+        eapply BStgVar.
         {
-          eapply StgVar.
           rewrite nth_error_app1;
-            try rewrite length_shift_c_ks; try erewrite length_firstn_le; try la.
-          erewrite nth_error_shift_c_ks; eauto.
+          try erewrite length_firstn_le; try la.
           rewrite nth_error_firstn; eauto.
-        }
-        eapply sorteq_refl2.
-        erewrite length_firstn_le by la.
-        rewrite shift_c_k_shift_2 by la.
-        eauto.
+        }          
       }
-    }
-    {
-      (* Case Const *)
-      cases cn; simplify; econstructor.
-    }
-    {
-      (* Case BinOp *)
-      rewrite shift_c_k_cbinop_result_kind.
-      rename H0 into IHkinding1.
-      rename H2 into IHkinding2.
-      specialize (IHkinding1 x ls).
-      rewrite shift_c_k_cbinop_arg1_kind in *.
-      specialize (IHkinding2 x ls).
-      rewrite shift_c_k_cbinop_arg2_kind in *.
-      eapply StgBinOp; eauto.
-    }
-    {
-      (* Case Abs *)
-      econstructor; eauto.
-      rename H2 into IHkinding.
-      specialize (IHkinding (S x) ls).
-      simplify.
-      repeat erewrite length_firstn_le in * by la.
-      rewrite shift_c_k_shift_2 in * by la.
-      simplify.
-      repeat rewrite Nat.sub_0_r in *.
-      eauto with db_la.
     }
     {
       (* Case TimeAbs *)
       econstructor; eauto.
       {
-        rename H0 into IHkinding.
-        eapply IHkinding with (x := S x).
-        la.
+        eapply IHbsorting with (x := S x); eauto with db_la.
       }
-      eapply monotone_shift_c_c; eauto.
-    }
-    {
-      (* Case Quan *)
-      econstructor; eauto.
-      {
-        rename H0 into IHwfkind.
-        eapply IHwfkind; eauto.
-      }
-      rename H2 into IHkinding.
-      specialize (IHkinding (S x) ls).
-      simplify.
-      repeat erewrite length_firstn_le in * by eauto.
-      eauto with db_la.
-    }
-    {
-      (* Case Rec *)
-      econstructor; eauto.
-      rename H2 into IHkinding.
-      specialize (IHkinding (S x) ls).
-      simplify.
-      repeat erewrite length_firstn_le in * by eauto.
-      rewrite shift_c_k_shift_2 in * by la.
-      simplify.
-      repeat rewrite Nat.sub_0_r in *.
-      eauto with db_la.
-    }
-    {
-      (* Case Eq *)
-      econstructor; eauto.
-      eapply sorteq_shift_c_k; eauto with db_tyeq.
-    }
-    {
-      (* Case Subset *)
-      econstructor; eauto.
-      rename H2 into IHwfprop.
-      specialize (IHwfprop (S x) ls).
-      simplify.
-      repeat erewrite length_firstn_le in * by eauto.
-      eauto with db_la.
-    }
-    {
-      (* Case BinPred *)
-      rename H0 into IHwfprop1.
-      rename H2 into IHwfprop2.
-      specialize (IHwfprop1 x ls).
-      rewrite shift_c_k_binpred_arg1_kind in *.
-      specialize (IHwfprop2 x ls).
-      rewrite shift_c_k_binpred_arg2_kind in *.
-      econstructor; eauto.
-    }
-    {
-      (* Case PQuan *)
-      econstructor; eauto.
-      rename H0 into IHwfprop.
-      specialize (IHwfprop (S x) ls).
-      simplify.
-      repeat erewrite length_firstn_le in * by eauto.
-      eauto with db_la.
+      eapply monotone_shift_i_i; eauto.
     }
   Qed.
 
-  Lemma kd_shift_c_c :
-    forall L c k,
-      kinding L c k ->
-      forall x ls,
-        let n := length ls in
-        x <= length L ->
-        kinding (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_c n x c) (shift_c_k n x k).
-  Proof.
-    eapply kd_wfkind_wfprop_shift_c_c.
-  Qed.
-  
-  Lemma wfkind_shift_c_k :
-    forall L k,
-      wfkind L k ->
-      forall x ls,
-        let n := length ls in
-        x <= length L ->
-        wfkind (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_k n x k).
-  Proof.
-    eapply kd_wfkind_wfprop_shift_c_c.
-  Qed.
-  
-  Lemma wfkind_shift_c_p :
+  Lemma bwfprop_shift_i_p :
     forall L p,
-      wfprop L p ->
+      bwfprop L p ->
       forall x ls,
         let n := length ls in
         x <= length L ->
-        wfprop (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_p n x p).
+        bwfprop (firstn x L ++ ls ++ my_skipn L x) (shift_i_p n x p).
   Proof.
-    eapply kd_wfkind_wfprop_shift_c_c.
+    simpl.
+    induct 1;
+      simpl; intros x ls Hx; cbn in *; try solve [econstructor; eauto using bsorting_shift_i_i].
+    econstructor.
+    eapply IHbwfprop with (x := S x); eauto with db_la.
   Qed.
   
+  Lemma bwfprop_shift_i_p_1_0 L p s :
+    bwfprop L p ->
+    bwfprop (s :: L) (shift_i_p 1 0 p).
+  Proof.
+    intros Hp.
+    eapply bwfprop_shift_i_p with (x := 0) (ls := [s]) in Hp; eauto with db_la.
+    simpl in *.
+    rewrite my_skipn_0 in *.
+    eauto.
+  Qed.
+  
+  Inductive bwfsort : list base_sort -> sort -> Prop :=
+  | BWfStBaseSort L b :
+      bwfsort L (SBaseSort b)
+  | BWfStSubset L b p :
+      bwfprop (b :: L) p ->
+      bwfsort L (SSubset b p)
+  .
+
+  Hint Constructors bwfsort.
+
+  Lemma wfsort_bwfsort L s :
+    wfsort L s ->
+    bwfsort (map get_base_sort L) s.
+  Proof.
+    induct 1; simpl; econstructor; eauto.
+    eapply wfprop_bwfprop in H.
+    eauto.
+  Qed.
+  
+  Definition bwfsorts := all_sorts (fun L s => bwfsort (map get_base_sort L) s).
+
+  Lemma wfsorts_bwfsorts L :
+    wfsorts L ->
+    bwfsorts L.
+  Proof.
+    induct 1; simpl; intros; econstructor; eauto using wfsort_bwfsort.
+  Qed.
+
+  Lemma bwfsorts_bwfprop_strip_subsets L :
+    bwfsorts L ->
+    forall n,
+      n = length L ->
+      bwfprop (map get_base_sort L) (and_all (strip_subsets L)).
+  Proof.
+    induct 1; simpl; intros n ?; subst; eauto.
+    {
+      econstructor.
+    }
+    rename H0 into Hwfsort.
+    invert Hwfsort; simpl in *.
+    {
+      unfold shift0_i_p.
+      rewrite and_all_map_shift_i_p.
+      eapply bwfprop_shift_i_p_1_0; eauto.
+    }
+    {
+      unfold shift0_i_p.
+      rewrite and_all_map_shift_i_p.
+      econstructor; eauto.
+      eapply bwfprop_shift_i_p_1_0; eauto.
+    }
+  Qed.
+
+(*  
   Lemma wfsorts_wfprop_strip_subsets L :
     wfsorts L ->
     forall n,
@@ -6536,20 +6522,29 @@ lift2 (fst (strip_subsets L))
     {
       econstructor.
     }
-    invert H0; simpl in *.
+    rename H0 into Hwfsort.
+    invert Hwfsort; simpl in *.
     {
       unfold shift0_i_p.
       rewrite and_all_map_shift_i_p.
-      eapply wellscoped_shift_i_p; eauto.
+      eapply wfprop_shift_i_p_1_0; eauto.
+      eapply wfsorts_wellscoped_ss; eauto.
     }
     {
-      econstructor; eauto.
       unfold shift0_i_p.
       rewrite and_all_map_shift_i_p.
-      eapply wellscoped_shift_i_p; eauto.
+      econstructor; eauto.
+      {
+        eapply admit.
+      }
+      {
+        eapply wfprop_shift_i_p_1_0; eauto.
+        eapply wfsorts_wellscoped_ss; eauto.
+      }
     }
   Qed.
-  
+ *)
+
   Lemma interp_prop_subst_i_p L p :
     interp_prop L p ->
     forall n s c ,
@@ -6597,8 +6592,17 @@ lift2 (fst (strip_subsets L))
       eapply wfprop_bwfprop; eauto.
     }
     eapply forall_subst_i_p_intro_imply in Hp; eauto.
-
     Focus 2.
+    {
+      eapply bwfsorts_bwfprop_strip_subsets; eauto.
+      eapply wfsorts_bwfsorts; eauto.
+    }
+    Unfocus.
+    subst bs'.
+    set (bs' := removen n bs) in *.
+
+    eapply forall_trans; [ | eassumption].
+    (*here*)
     
     eapply forall_trans.
     Focus 2.
