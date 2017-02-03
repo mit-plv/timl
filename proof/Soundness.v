@@ -6185,6 +6185,339 @@ lift2 (fst (strip_subsets L))
     econstructor; eauto.
   Qed.
 
+  Lemma monotone_shift_i_i x v b :
+    monotone b ->
+    monotone (shift_i_i x v b).
+  Admitted.
+  
+  Lemma sorting_shift_i_i :
+    forall L c k,
+      sorting L c k ->
+      forall x ls,
+        let n := length ls in
+        x <= length L ->
+        wellscoped_ss L ->
+        wellscoped_s (length L) k ->
+        sorting (shift_i_ss n (firstn x L) ++ ls ++ my_skipn L x) (shift_i_i n x c) (shift_i_s n x k).
+  Proof.
+    simpl.
+    induct 1;
+      simpl; try rename x into y; intros x ls Hx HL Hs; cbn in *; try solve [econstructor; eauto].
+    {
+      (* Case Var *)
+      copy H HnltL.
+      eapply nth_error_Some_lt in HnltL.
+      cases (x <=? y).
+      {
+        eapply StgVar'.
+        {
+          rewrite nth_error_app2;
+          rewrite length_shift_i_ss; erewrite length_firstn_le; try la.
+          rewrite nth_error_app2 by la.
+          rewrite nth_error_my_skipn by la.
+          erewrite <- H.
+          f_equal.
+          la.
+        }
+        {
+          rewrite shift_i_s_shift_merge by la.
+          f_equal.
+          la.
+        }
+      }
+      {
+        eapply StgVar'.
+        {
+          rewrite nth_error_app1;
+          try rewrite length_shift_i_ss; try erewrite length_firstn_le; try la.
+          erewrite nth_error_shift_i_ss; eauto.
+          rewrite nth_error_firstn; eauto.
+        }          
+        {
+          erewrite length_firstn_le by la. 
+          rewrite shift_i_s_shift_cut by la.
+          eauto.
+        }
+      }
+    }
+    {
+      econstructor; eauto.
+      unfold SBool in *.
+      eapply IHsorting1; eauto.
+    }
+    {
+      (* Case TimeAbs *)
+      econstructor; eauto.
+      {
+        unfold SNat, STimeFun in *.
+        eapply IHsorting with (x := S x); eauto with db_la.
+        econstructor; eauto.
+      }
+      eapply monotone_shift_i_i; eauto.
+    }
+    {
+      econstructor; eauto.
+      {
+        unfold STimeFun in *.
+        eapply IHsorting1; eauto.
+      }
+      {
+        unfold SNat in *.
+        eapply IHsorting2; eauto.
+      }
+    }
+    {
+      (* Case SubsetI *)
+      econstructor; eauto.
+      unfold subst0_i_p in *.
+      rewrite <- shift_i_p_subst_out by la.
+      eapply interp_prop_shift_i_p; eauto.
+      invert Hs.
+      (*here*)
+      
+      rename H2 into IHwfprop.
+      specialize (IHwfprop (S x) ls).
+      simplify.
+      repeat erewrite length_firstn_le in * by eauto.
+      eauto with db_la.
+    }
+    {
+      (* Case BinPred *)
+      rename H0 into IHwfprop1.
+      rename H2 into IHwfprop2.
+      specialize (IHwfprop1 x ls).
+      rewrite shift_i_s_binpred_arg1_kind in *.
+      specialize (IHwfprop2 x ls).
+      rewrite shift_i_s_binpred_arg2_kind in *.
+      econstructor; eauto.
+    }
+    {
+      (* Case PQuan *)
+      econstructor; eauto.
+      rename H0 into IHwfprop.
+      specialize (IHwfprop (S x) ls).
+      simplify.
+      repeat erewrite length_firstn_le in * by eauto.
+      eauto with db_la.
+    }
+  Qed.
+
+  Lemma kd_wfkind_wfprop_shift_c_c :
+    (forall L c k,
+        kinding L c k ->
+        forall x ls,
+          let n := length ls in
+          x <= length L ->
+          kinding (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_c n x c) (shift_c_k n x k)) /\
+    (forall L k,
+        wfkind L k ->
+        forall x ls,
+          let n := length ls in
+          x <= length L ->
+          wfkind (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_k n x k)) /\
+    (forall L p,
+        wfprop L p ->
+        forall x ls,
+          let n := length ls in
+          x <= length L ->
+          wfprop (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_p n x p))
+  .
+  Proof.
+    eapply kinding_wfkind_wfprop_mutind;
+      simplify; cbn in *; try solve [econstructor; eauto].
+    {
+      (* Case Var *)
+      copy H HnltL.
+      eapply nth_error_Some_lt in HnltL.
+      rename x0 into y.
+      cases (y <=? x).
+      {
+        eapply StgEq.
+        {
+          eapply StgVar.
+          rewrite nth_error_app2;
+            rewrite length_shift_c_ks; erewrite length_firstn_le; try la.
+          rewrite nth_error_app2 by la.
+          rewrite nth_error_my_skipn by la.
+          erewrite <- H.
+          f_equal.
+          la.
+        }
+        eapply sorteq_refl2.
+        rewrite shift_c_k_shift_0 by la.
+        simplify.
+        f_equal.
+        la.
+      }
+      {
+        eapply StgEq.
+        {
+          eapply StgVar.
+          rewrite nth_error_app1;
+            try rewrite length_shift_c_ks; try erewrite length_firstn_le; try la.
+          erewrite nth_error_shift_c_ks; eauto.
+          rewrite nth_error_firstn; eauto.
+        }
+        eapply sorteq_refl2.
+        erewrite length_firstn_le by la.
+        rewrite shift_c_k_shift_2 by la.
+        eauto.
+      }
+    }
+    {
+      (* Case Const *)
+      cases cn; simplify; econstructor.
+    }
+    {
+      (* Case BinOp *)
+      rewrite shift_c_k_cbinop_result_kind.
+      rename H0 into IHkinding1.
+      rename H2 into IHkinding2.
+      specialize (IHkinding1 x ls).
+      rewrite shift_c_k_cbinop_arg1_kind in *.
+      specialize (IHkinding2 x ls).
+      rewrite shift_c_k_cbinop_arg2_kind in *.
+      eapply StgBinOp; eauto.
+    }
+    {
+      (* Case Abs *)
+      econstructor; eauto.
+      rename H2 into IHkinding.
+      specialize (IHkinding (S x) ls).
+      simplify.
+      repeat erewrite length_firstn_le in * by la.
+      rewrite shift_c_k_shift_2 in * by la.
+      simplify.
+      repeat rewrite Nat.sub_0_r in *.
+      eauto with db_la.
+    }
+    {
+      (* Case TimeAbs *)
+      econstructor; eauto.
+      {
+        rename H0 into IHkinding.
+        eapply IHkinding with (x := S x).
+        la.
+      }
+      eapply monotone_shift_c_c; eauto.
+    }
+    {
+      (* Case Quan *)
+      econstructor; eauto.
+      {
+        rename H0 into IHwfkind.
+        eapply IHwfkind; eauto.
+      }
+      rename H2 into IHkinding.
+      specialize (IHkinding (S x) ls).
+      simplify.
+      repeat erewrite length_firstn_le in * by eauto.
+      eauto with db_la.
+    }
+    {
+      (* Case Rec *)
+      econstructor; eauto.
+      rename H2 into IHkinding.
+      specialize (IHkinding (S x) ls).
+      simplify.
+      repeat erewrite length_firstn_le in * by eauto.
+      rewrite shift_c_k_shift_2 in * by la.
+      simplify.
+      repeat rewrite Nat.sub_0_r in *.
+      eauto with db_la.
+    }
+    {
+      (* Case Eq *)
+      econstructor; eauto.
+      eapply sorteq_shift_c_k; eauto with db_tyeq.
+    }
+    {
+      (* Case Subset *)
+      econstructor; eauto.
+      rename H2 into IHwfprop.
+      specialize (IHwfprop (S x) ls).
+      simplify.
+      repeat erewrite length_firstn_le in * by eauto.
+      eauto with db_la.
+    }
+    {
+      (* Case BinPred *)
+      rename H0 into IHwfprop1.
+      rename H2 into IHwfprop2.
+      specialize (IHwfprop1 x ls).
+      rewrite shift_c_k_binpred_arg1_kind in *.
+      specialize (IHwfprop2 x ls).
+      rewrite shift_c_k_binpred_arg2_kind in *.
+      econstructor; eauto.
+    }
+    {
+      (* Case PQuan *)
+      econstructor; eauto.
+      rename H0 into IHwfprop.
+      specialize (IHwfprop (S x) ls).
+      simplify.
+      repeat erewrite length_firstn_le in * by eauto.
+      eauto with db_la.
+    }
+  Qed.
+
+  Lemma kd_shift_c_c :
+    forall L c k,
+      kinding L c k ->
+      forall x ls,
+        let n := length ls in
+        x <= length L ->
+        kinding (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_c n x c) (shift_c_k n x k).
+  Proof.
+    eapply kd_wfkind_wfprop_shift_c_c.
+  Qed.
+  
+  Lemma wfkind_shift_c_k :
+    forall L k,
+      wfkind L k ->
+      forall x ls,
+        let n := length ls in
+        x <= length L ->
+        wfkind (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_k n x k).
+  Proof.
+    eapply kd_wfkind_wfprop_shift_c_c.
+  Qed.
+  
+  Lemma wfkind_shift_c_p :
+    forall L p,
+      wfprop L p ->
+      forall x ls,
+        let n := length ls in
+        x <= length L ->
+        wfprop (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_p n x p).
+  Proof.
+    eapply kd_wfkind_wfprop_shift_c_c.
+  Qed.
+  
+  Lemma wfsorts_wfprop_strip_subsets L :
+    wfsorts L ->
+    forall n,
+      n = length L ->
+      wfprop L (and_all (strip_subsets L)).
+  Proof.
+    induct 1; simpl; intros n ?; subst; eauto.
+    {
+      econstructor.
+    }
+    invert H0; simpl in *.
+    {
+      unfold shift0_i_p.
+      rewrite and_all_map_shift_i_p.
+      eapply wellscoped_shift_i_p; eauto.
+    }
+    {
+      econstructor; eauto.
+      unfold shift0_i_p.
+      rewrite and_all_map_shift_i_p.
+      eapply wellscoped_shift_i_p; eauto.
+    }
+  Qed.
+  
   Lemma interp_prop_subst_i_p L p :
     interp_prop L p ->
     forall n s c ,
@@ -6235,32 +6568,6 @@ lift2 (fst (strip_subsets L))
 
     Focus 2.
     
-    (*here*)
-    
-  Lemma wfsorts_wfprop_strip_subsets L :
-    wfsorts L ->
-    forall n,
-      n = length L ->
-      wfprop L (and_all (snd (strip_subsets L))).
-  Proof.
-    induct 1; simpl; intros n ?; subst; eauto.
-    {
-      econstructor.
-    }
-    invert H0; simpl in *.
-    {
-      unfold shift0_i_p.
-      rewrite and_all_map_shift_i_p.
-      eapply wellscoped_shift_i_p; eauto.
-    }
-    {
-      econstructor; eauto.
-      unfold shift0_i_p.
-      rewrite and_all_map_shift_i_p.
-      eapply wellscoped_shift_i_p; eauto.
-    }
-  Qed.
-  
     eapply forall_trans.
     Focus 2.
     {
@@ -10484,11 +10791,6 @@ lift2 (fst (strip_subsets L))
     kinding L t1 k ->
     tyeq L t1 t2 ->
     kinding L t2 k.
-  Admitted.
-  
-  Lemma monotone_shift_c_c x v b :
-    monotone b ->
-    monotone (shift_c_c x v b).
   Admitted.
   
   Lemma monotone_subst_c_c x v b :
