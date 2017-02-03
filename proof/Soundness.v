@@ -4477,6 +4477,30 @@ Module M (Time : TIME).
 
   Hint Constructors wellscoped_s.
 
+  Lemma wellscoped_shift_i_i L i :
+    wellscoped_i L i ->
+    forall x n L',
+      L' = n + L ->
+      wellscoped_i L' (shift_i_i n x i).
+  Proof.
+    induct 1; simpl; try solve [intros; subst; eauto with db_la].
+    {
+      rename x into y.
+      intros x n.
+      intros; subst.
+      cases (x <=? y); simpl in *; eauto with db_la.
+    }
+  Qed.
+  
+  Lemma wellscoped_shift_i_p L p :
+    wellscoped_p L p ->
+    forall x n L',
+      L' = n + L ->
+      wellscoped_p L' (shift_i_p n x p).
+  Proof.
+    induct 1; simpl; try solve [intros; subst; eauto using wellscoped_shift_i_i with db_la].
+  Qed.
+  
   Inductive all_sorts P : list sort -> Prop :=
   | AllStsNil :
       all_sorts P []
@@ -4515,30 +4539,6 @@ Module M (Time : TIME).
   Hint Constructors wellscoped_ss.
 *)
 
-  Lemma wellscoped_shift_i_i L i :
-    wellscoped_i L i ->
-    forall x n L',
-      L' = n + L ->
-      wellscoped_i L' (shift_i_i n x i).
-  Proof.
-    induct 1; simpl; try solve [intros; subst; eauto with db_la].
-    {
-      rename x into y.
-      intros x n.
-      intros; subst.
-      cases (x <=? y); simpl in *; eauto with db_la.
-    }
-  Qed.
-  
-  Lemma wellscoped_shift_i_p L p :
-    wellscoped_p L p ->
-    forall x n L',
-      L' = n + L ->
-      wellscoped_p L' (shift_i_p n x p).
-  Proof.
-    induct 1; simpl; try solve [intros; subst; eauto using wellscoped_shift_i_i with db_la].
-  Qed.
-  
   Lemma wellscoped_ss_wellscoped_p_strip_subsets L :
     wellscoped_ss L ->
     forall n,
@@ -6118,20 +6118,94 @@ lift2 (fst (strip_subsets L))
     }
   Qed.
   
+  Lemma forall_lift1_lift2 :
+    forall bs A1 A2 P1 P2 (f1 : A1 -> Prop) (f2 : A1 -> A2 -> Prop),
+      (forall a1 a2, f1 a1 -> f2 a1 a2) ->
+      forall_ bs (lift1 bs f1 P1) ->
+      forall_ bs (lift2 bs f2 P1 P2).
+  Proof.
+    induct bs; simplify; eauto.
+    rewrite fuse_lift1_lift2 in *.
+    rewrite fuse_lift1_lift1 in *.
+    eapply IHbs; eauto.
+    simplify.
+    eauto.
+  Qed.
+  
+  Lemma map_skipn A B (f : A -> B) ls :
+    forall n,
+      map f (skipn n ls) = skipn n (map f ls).
+  Proof.
+    induction ls; destruct n; simplify; eauto.
+  Qed.
+
+  Lemma forall_subst :
+    forall bs x b_v v p,
+      forall_ bs p ->
+      forall_ (removen x bs) (subst x bs (b_v := b_v) v p).
+  Proof.
+    induct bs; cbn in *; intros; eauto.
+    destruct x; cbn in *.
+    {
+      eapply forall_lift1_lift2; eauto.
+      simpl; eauto.
+    }
+    {
+      rewrite <- subst_lift1.
+      eauto.
+    }
+  Qed.
+  
+  Lemma forall_subst_i_p_intro bs x b_v v p :
+    forall_ bs (interp_p bs p) ->
+    nth_error bs x = Some b_v ->
+    bsorting (skipn (S x) bs) v b_v ->
+    bwfprop bs p ->
+    let bs' := removen x bs in
+    forall_ bs' (interp_p bs' (subst_i_p x (shift_i_i x 0 v) p)).
+  Proof.
+    simpl.
+    intros H Hx Hv Hp.
+    eapply forall_iff_elim.
+    Focus 2.
+    {
+      eapply forall_iff_sym.
+      eapply forall_subst_i_p_iff_subst; eauto.
+    }
+    Unfocus.
+    eapply forall_subst; eauto.
+  Qed.
+  
+  Lemma forall_subst_i_p_intro_imply bs x b_v v p1 p2 :
+    forall_ bs (lift2 bs imply (interp_p bs p1) (interp_p bs p2)) ->
+    nth_error bs x = Some b_v ->
+    bsorting (skipn (S x) bs) v b_v ->
+    bwfprop bs p1 ->
+    bwfprop bs p2 ->
+    let bs' := removen x bs in
+    forall_ bs' (lift2 bs' imply (interp_p bs' (subst_i_p x (shift_i_i x 0 v) p1)) (interp_p bs' (subst_i_p x (shift_i_i x 0 v) p2))).
+  Proof.
+    simpl; intros.
+    eapply forall_subst_i_p_intro with (p := (p1 ===> p2)%idx); eauto.
+    econstructor; eauto.
+  Qed.
+
   Lemma interp_prop_subst_i_p L p :
     interp_prop L p ->
     forall n s c ,
       nth_error L n = Some s ->
       sorting (my_skipn L (1 + n)) c s ->
+      wfprop L p ->
+      wfsorts L ->
       interp_prop (subst_i_ss c (firstn n L) ++ my_skipn L (1 + n)) (subst_i_p n (shift_i_i n 0 c) p).
   Proof.
-    intros Hp n s c Hnth Hc.
+    intros Hp n s c Hnth Hc Hwfp Hss.
     unfold interp_prop in *.
     simpl in *.
     copy Hnth Hn.
     eapply nth_error_Some_lt in Hn.
     rewrite !snd_strip_subsets_app by la.
-    rewrite !fst_strip_subsets.
+    rewrite !fst_strip_subsets in *.
     rewrite !map_app.
     rewrite !get_base_sort_subst_i_ss.
 
@@ -6141,7 +6215,78 @@ lift2 (fst (strip_subsets L))
 
     rewrite <- !removen_firstn_my_skipn.
     rewrite !map_removen.
-    set (bs' := removen n (map get_base_sort L)) in *.
+    set (bs := map get_base_sort L) in *.
+    set (bs' := removen n bs) in *.
+
+    rewrite <- skipn_my_skipn in *.
+
+    set (bsort := get_base_sort s) in *.
+    assert (Hnth' : nth_error bs n = Some bsort).
+    {
+      unfold bs, bsort.
+      erewrite map_nth_error; eauto.
+    }
+    assert (Hc' : bsorting (skipn (S n) bs) c bsort).
+    {
+      unfold bs, bsort.
+      rewrite <- map_skipn.
+      eapply sorting_bsorting; eauto.
+    }
+    assert (Hwfp' : bwfprop bs p).
+    {
+      unfold bs, bsort.
+      eapply wfprop_bwfprop; eauto.
+    }
+    eapply forall_subst_i_p_intro_imply in Hp; eauto.
+
+    Focus 2.
+    
+    (*here*)
+    
+  Lemma wfsorts_wfprop_strip_subsets L :
+    wfsorts L ->
+    forall n,
+      n = length L ->
+      wfprop L (and_all (snd (strip_subsets L))).
+  Proof.
+    induct 1; simpl; intros n ?; subst; eauto.
+    {
+      econstructor.
+    }
+    invert H0; simpl in *.
+    {
+      unfold shift0_i_p.
+      rewrite and_all_map_shift_i_p.
+      eapply wellscoped_shift_i_p; eauto.
+    }
+    {
+      econstructor; eauto.
+      unfold shift0_i_p.
+      rewrite and_all_map_shift_i_p.
+      eapply wellscoped_shift_i_p; eauto.
+    }
+  Qed.
+  
+    eapply forall_trans.
+    Focus 2.
+    {
+      eapply forall_iff_imply.
+      eapply forall_iff_sym.
+      eapply forall_subst_i_p_iff_subst; eauto.
+      {
+        erewrite map_nth_error; eauto.
+      }
+      {
+        rewrite <- map_skipn.
+        eapply sorting_bsorting; eauto.
+      }
+      {
+        eapply wfprop_bwfprop; eauto.
+      }
+    }
+    Unfocus.
+
+    
     
     (*here*)
     eapply admit.
