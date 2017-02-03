@@ -6190,6 +6190,55 @@ lift2 (fst (strip_subsets L))
     monotone (shift_i_i x v b).
   Admitted.
   
+  Lemma wellscoped_subst_i_i :
+    forall L b,
+        wellscoped_i L b ->
+        forall x v L',
+          x < L ->
+          wellscoped_i (L - (1 + x)) v ->
+          L' = L - 1 ->
+          wellscoped_i L' (subst_i_i x (shift_i_i x 0 v) b).
+  Proof.
+    induct 1;
+      simpl; try rename x into y; intros x v ? Hx Hv ?; subst; try solve [econstructor; eauto].
+    {
+      (* Case Var *)
+      cases (y <=>? x); eauto with db_la.
+      eapply wellscoped_shift_i_i; eauto with db_la.
+    }
+    {
+      (* Case TimeAbs *)
+      rewrite shift0_i_i_shift_0.
+      econstructor; eauto with db_la.
+    }
+  Qed.
+  
+  Lemma wellscoped_subst_i_p :
+    forall L b,
+        wellscoped_p L b ->
+        forall x v L',
+          x < L ->
+          wellscoped_i (L - (1 + x)) v ->
+          L' = L - 1 ->
+          wellscoped_p L' (subst_i_p x (shift_i_i x 0 v) b).
+  Proof.
+    induct 1;
+      simpl; intros x v ? Hx Hv ?; subst; try solve [econstructor; eauto using wellscoped_subst_i_i with db_la].
+    rewrite shift0_i_i_shift_0.
+    econstructor; eauto with db_la.
+  Qed.
+  
+  Lemma wellscoped_subst_i_p_0 L b v :
+    wellscoped_p (S L) b ->
+    wellscoped_i L v ->
+    wellscoped_p L (subst_i_p 0 v b).
+  Proof.
+    intros Hb Hv.
+    eapply wellscoped_subst_i_p with (x := 0) (v := v) in Hb; eauto with db_la; simpl in *; try rewrite Nat.sub_0_r in *; eauto.
+    rewrite shift_i_i_0 in *.
+    eauto.
+  Qed.
+  
   Lemma sorting_shift_i_i :
     forall L c k,
       sorting L c k ->
@@ -6273,32 +6322,15 @@ lift2 (fst (strip_subsets L))
       rewrite <- shift_i_p_subst_out by la.
       eapply interp_prop_shift_i_p; eauto.
       invert Hs.
+      eapply wellscoped_subst_i_p_0; eauto.
+      eapply sorting_wellscoped_i; eauto.
+    }
+    {
+      (* Case SubsetE *)
+      eapply StgSubsetE; eauto.
+      eapply IHsorting; eauto.
+      econstructor.
       (*here*)
-      
-      rename H2 into IHwfprop.
-      specialize (IHwfprop (S x) ls).
-      simplify.
-      repeat erewrite length_firstn_le in * by eauto.
-      eauto with db_la.
-    }
-    {
-      (* Case BinPred *)
-      rename H0 into IHwfprop1.
-      rename H2 into IHwfprop2.
-      specialize (IHwfprop1 x ls).
-      rewrite shift_i_s_binpred_arg1_kind in *.
-      specialize (IHwfprop2 x ls).
-      rewrite shift_i_s_binpred_arg2_kind in *.
-      econstructor; eauto.
-    }
-    {
-      (* Case PQuan *)
-      econstructor; eauto.
-      rename H0 into IHwfprop.
-      specialize (IHwfprop (S x) ls).
-      simplify.
-      repeat erewrite length_firstn_le in * by eauto.
-      eauto with db_la.
     }
   Qed.
 
