@@ -6501,7 +6501,43 @@ lift2 (fst (strip_subsets L))
     rewrite length_firstn_le by la.
     subst c'.
     set (c' := shift_i_i n 0 c) in *.
+    destruct s.
+    {
+      Opaque skipn.
+      simpl.
+      Transparent skipn.
+      eapply forall_iff_imply.
+      eapply forall_iff_refl.
+    }
+    Opaque skipn.
+    simpl.
+    Transparent skipn.
+    eapply forall_iff_elim.
+    Focus 2.
+    {
+      eapply forall_iff_iff_imply.
+      {
+        eapply forall_iff_sym.
+        eapply and_all_app_iff.
+      }
+      {
+        eapply forall_iff_sym.
+        eapply and_all_app_iff.
+      }
+    }
+    Unfocus.
+    Opaque skipn.
+    simpl.
+    Transparent skipn.
+    rewrite fuse_lift2_lift2_1.
+    rewrite fuse_lift3_lift2_3.
+    rewrite dedup_lift4_1_3.
+    rewrite fuse_lift3_lift2_3.
+    rewrite dedup_lift4_2_4.
     (*here*)
+    invert Hc.
+    Focus 2.
+    simpl.
     
     eapply forall_trans.
     Focus 2.
