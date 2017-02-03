@@ -6363,6 +6363,59 @@ lift2 (fst (strip_subsets L))
     induct 1; simpl; intros; econstructor; eauto using wfsort_wellscoped_s.
   Qed.
 
+  Lemma and_all_map_subst_i_p x v ls :
+    and_all (map (subst_i_p x v) ls) = subst_i_p x v (and_all ls).
+  Proof.
+    induct ls; simpl; eauto.
+    rewrite IHls; eauto.
+  Qed.
+
+  Lemma nth_error_split_firstn_skipn A :
+    forall (ls : list A) n a,
+      nth_error ls n = Some a ->
+      ls = firstn n ls ++ a :: skipn (S n) ls.
+  Proof.
+    induct ls; destruct n; simpl; intros; f_equal; eauto; try discriminate.
+    congruence.
+  Qed.      
+
+  Lemma strip_subsets_subst_i_ss :
+    forall L v n,
+      n = length L ->
+      strip_subsets (subst_i_ss v L) = map (subst_i_p n (shift_i_i n 0 v)) (strip_subsets L).
+  Proof.
+    induct L; simpl; intros; subst; eauto.
+    unfold shift0_i_p.
+    destruct a; simpl.
+    {
+      erewrite IHL; eauto.
+      repeat rewrite map_map.
+      eapply map_ext.
+      intros body.
+      rewrite shift_i_p_subst_in by la.
+      rewrite shift_i_i_shift_merge by la.
+      f_equal; try la.
+      f_equal; try la.
+    }
+    {
+      f_equal.
+      {
+        unfold shift0_i_i.
+        rewrite shift_i_i_shift_merge by la.
+        f_equal; try la.
+        f_equal; try la.
+      }
+      erewrite IHL; eauto.
+      repeat rewrite map_map.
+      eapply map_ext.
+      intros body.
+      rewrite shift_i_p_subst_in by la.
+      rewrite shift_i_i_shift_merge by la.
+      f_equal; try la.
+      f_equal; try la.
+    }
+  Qed.
+
   Lemma interp_prop_subst_i_p L p :
     interp_prop L p ->
     forall n s c ,
@@ -6420,6 +6473,34 @@ lift2 (fst (strip_subsets L))
     set (bs' := removen n bs) in *.
 
     eapply forall_trans; [ | eassumption].
+    set (c' := shift_i_i n 0 c) in *.
+    rewrite <- and_all_map_subst_i_p.
+    
+    erewrite (nth_error_split_firstn_skipn L) at 3 by eauto.
+    rewrite strip_subsets_app.
+    Opaque skipn.
+    simpl.
+    Transparent skipn.
+    repeat rewrite map_app.
+    unfold shift0_i_p.
+    repeat rewrite map_map.
+    rewrite length_firstn_le by la.
+    erewrite (map_ext (fun x => subst_i_p n c' (shift_i_p n 0 (shift_i_p 1 0 x)))).
+    Focus 2.
+    {
+      intros b.
+      rewrite shift_i_p_shift_merge by la.
+      rewrite subst_i_p_shift_avoid by la.
+      simpl.
+      rewrite Nat.sub_0_r.
+      eauto.
+    }
+    Unfocus.
+    
+    erewrite strip_subsets_subst_i_ss; eauto.
+    rewrite length_firstn_le by la.
+    subst c'.
+    set (c' := shift_i_i n 0 c) in *.
     (*here*)
     
     eapply forall_trans.
@@ -6441,9 +6522,6 @@ lift2 (fst (strip_subsets L))
     }
     Unfocus.
 
-    
-    
-    (*here*)
     eapply admit.
   Qed.
   
