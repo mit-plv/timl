@@ -2886,17 +2886,14 @@ Module M (Time : TIME).
     | SSubset b _ => b
     end.
   
-  Fixpoint strip_subsets (ss : list sort) : list base_sort * list prop :=
+  Fixpoint strip_subsets (ss : list sort) : list prop :=
     match ss with
-    | [] => ([], [])
+    | [] => []
     | s :: ss =>
       let ps1 := strip_subset s in
-      let b := get_base_sort s in
-      let bs_ps2 := strip_subsets ss in
-      let bs := fst bs_ps2 in
-      let ps2 := snd bs_ps2 in
+      let ps2 := strip_subsets ss in
       let ps2 := map shift0_i_p ps2 in
-      (b :: bs, ps1 ++ ps2)
+      ps1 ++ ps2
     end.
 
   Fixpoint and_all ps :=
@@ -2906,9 +2903,8 @@ Module M (Time : TIME).
     end.
   
   Definition interp_prop (ss : sctx) (p : prop) : Prop :=
-    let bs_ps := strip_subsets ss in
-    let bs := fst bs_ps in
-    let ps := snd bs_ps in
+    let bs := map get_base_sort ss in
+    let ps := strip_subsets ss in
     let p := (and_all ps ===> p)%idx in
     let P := interp_p bs p in
     forall_ bs P.
@@ -4125,36 +4121,47 @@ Module M (Time : TIME).
   Proof.
     induct s; cbn; eauto; intros; f_equal; eauto.
   Qed.
-  
-  Lemma fst_strip_subsets_app :
-    forall ls1 ls2,
-      fst (strip_subsets (ls1 ++ ls2)) = fst (strip_subsets ls1) ++ fst (strip_subsets ls2).
+
+  Lemma map_insert A B (f : A -> B) new: forall x ls, map f (insert new x ls) = insert (map f new) x (map f ls).
   Proof.
-    induct ls1; simpl; intros; f_equal; eauto.
+    induct x; simpl; intros.
+    {
+      rewrite map_app; eauto.
+    }
+    destruct ls; simpl; f_equal; eauto.
   Qed.
-  
-  Lemma fst_strip_subsets_insert ls :
+    
+  Lemma map_shift_i_ss n : forall L, map get_base_sort (shift_i_ss n L) = map get_base_sort L.
+  Proof.
+    induct L; simpl; f_equal; auto.
+    rewrite get_base_sort_shift_i_s; eauto.
+  Qed.
+
+  Lemma insert_firstn_my_skipn A (new : list A) :
+    forall x ls,
+      insert new x ls = firstn x ls ++ new ++ my_skipn ls x.
+  Proof.
+    induct x; simpl; intros.
+    {
+      rewrite my_skipn_0; eauto.
+    }
+    destruct ls; simpl; f_equal; eauto.
+    rewrite app_nil_r; eauto.
+  Qed.
+
+  Lemma get_base_sort_insert_shift ls :
     forall L x,
       let L' := shift_i_ss (length ls) (firstn x L) ++ ls ++ my_skipn L x in
-      fst (strip_subsets L') = insert (fst (strip_subsets ls)) x (fst (strip_subsets L)).
+      map get_base_sort L' = insert (map get_base_sort ls) x (map get_base_sort L).
   Proof.
     simpl.
-    induct L; simpl.
-    {
-      destruct x; simpl;
-      repeat rewrite app_nil_r in *; eauto.
-    }
-    {
-      destruct x; simpl.
-      {
-        rewrite fst_strip_subsets_app; simpl.
-        eauto.
-      }
-      {
-        rewrite get_base_sort_shift_i_s.
-        f_equal; eauto.
-      }
-    }
+    intros.
+    repeat rewrite map_app.
+    rewrite map_shift_i_ss.
+    rewrite insert_firstn_my_skipn.
+    rewrite map_firstn.
+    rewrite map_my_skipn.
+    eauto.
   Qed.
   
   Lemma map_id A (ls : list A) : map id ls = ls.
@@ -4167,9 +4174,9 @@ Module M (Time : TIME).
     induct b; simpl; f_equal; eauto using shift_i_p_0.
   Qed.
 
-  Lemma snd_strip_subsets_app :
+  Lemma strip_subsets_app :
     forall ls1 ls2,
-      snd (strip_subsets (ls1 ++ ls2)) = snd (strip_subsets ls1) ++ map (shift_i_p (length ls1) 0) (snd (strip_subsets ls2)).
+      strip_subsets (ls1 ++ ls2) = strip_subsets ls1 ++ map (shift_i_p (length ls1) 0) (strip_subsets ls2).
   Proof.
     induct ls1; simpl; intros.
     {
@@ -4191,13 +4198,13 @@ Module M (Time : TIME).
     }
   Qed.
   
-  Lemma snd_strip_subsets_insert ls :
+  Lemma strip_subsets_insert ls :
     forall L x,
       x <= length L ->
       let n := length ls in
       let L' := shift_i_ss (length ls) (firstn x L) ++ ls ++ my_skipn L x in
-      snd (strip_subsets L') =
-      map (shift_i_p (length ls) x) (snd (strip_subsets (firstn x L))) ++ map (shift_i_p x 0) (snd (strip_subsets ls)) ++ map (shift_i_p (x + length ls) 0) (snd (strip_subsets (my_skipn L x))).
+      strip_subsets L' =
+      map (shift_i_p (length ls) x) (strip_subsets (firstn x L)) ++ map (shift_i_p x 0) (strip_subsets ls) ++ map (shift_i_p (x + length ls) 0) (strip_subsets (my_skipn L x)).
   Proof.
     simpl.
     induct L.
@@ -4215,7 +4222,7 @@ Module M (Time : TIME).
       {
         simpl.
         rewrite map_shift_i_p_0.
-        rewrite snd_strip_subsets_app; simpl.
+        rewrite strip_subsets_app; simpl.
         f_equal.
       }
       {
@@ -4261,12 +4268,6 @@ Module M (Time : TIME).
     }
   Qed.
   
-  Lemma length_fst_strip_subsets ls :
-    length (fst (strip_subsets ls)) = length ls.
-  Proof.
-    induct ls; simpl; eauto.
-  Qed.
-        
   Lemma fuse_lift3_lift2_2 bs :
     forall T A1 A2 A3 B1 B2 (f : A1 -> A2 -> A3 -> T) (g : B1 -> B2 -> A2) a1 b1 b2 a3,
       lift3 bs f a1 (lift2 bs g b1 b2) a3 = lift4 bs (fun a1 b1 b2 a3 => f a1 (g b1 b2) a3) a1 b1 b2 a3.
@@ -4543,7 +4544,7 @@ Module M (Time : TIME).
     wellscoped_ss L ->
     forall n,
       n = length L ->
-      wellscoped_p n (and_all (snd (strip_subsets L))).
+      wellscoped_p n (and_all (strip_subsets L)).
   Proof.
     induct 1; simpl; intros n ?; subst; eauto.
     {
@@ -4576,10 +4577,10 @@ Module M (Time : TIME).
     intros H Hscss Hscp x ls Hle.
     unfold interp_prop in *.
     cbn in *.
-    rewrite !fst_strip_subsets_insert.
-    rewrite !snd_strip_subsets_insert by la.
-    set (bs := fst (strip_subsets L)) in *.
-    set (bs_new := fst (strip_subsets ls)) in *.
+    rewrite !get_base_sort_insert_shift.
+    rewrite !strip_subsets_insert by la.
+    set (bs := map get_base_sort L) in *.
+    set (bs_new := map get_base_sort ls) in *.
     eapply forall_lift2_imply_shift; eauto.
     {
       eapply forall_trans.
@@ -4594,18 +4595,18 @@ Module M (Time : TIME).
           eapply forall_iff_sym.
           eapply forall_shift_i_p_iff_shift; eauto.
           subst bs.
-          rewrite length_fst_strip_subsets.
+          rewrite map_length.
           eapply wellscoped_ss_wellscoped_p_strip_subsets; eauto.
         }
         eapply forall_iff_refl'.
         rewrite <- (firstn_my_skipn x L) at 1.
-        rewrite snd_strip_subsets_app.
+        rewrite strip_subsets_app.
         rewrite <- and_all_map_shift_i_p.
         rewrite map_app.
         rewrite map_map.
         subst bs.
         subst bs_new.
-        repeat rewrite length_fst_strip_subsets.
+        repeat rewrite map_length.
         f_equal.
         f_equal.
         f_equal.
@@ -4621,7 +4622,7 @@ Module M (Time : TIME).
       eapply forall_iff_sym.
       subst bs.
       subst bs_new.
-      eapply forall_shift_i_p_iff_shift; try rewrite length_fst_strip_subsets; eauto.
+      eapply forall_shift_i_p_iff_shift; try rewrite map_length; eauto.
     }
   Qed.
 
@@ -4950,9 +4951,9 @@ lift2 (fst (strip_subsets L))
     induct 1; simpl; eauto.
   Qed.
   
-  Lemma equal_sorts_fst_strip_subsets L L' :
+  Lemma equal_sorts_get_base_sort L L' :
     equal_sorts L L' ->
-    fst (strip_subsets L) = fst (strip_subsets L').
+    map get_base_sort L = map get_base_sort L'.
   Proof.
     induct 1; simpl; f_equal; eauto using sorteq_get_base_sort, sorteq_sym.
   Qed.
@@ -5003,13 +5004,13 @@ lift2 (fst (strip_subsets L))
     eauto.
   Qed.
   
-  Lemma equal_sorts_snd_strip_subsets L L' :
+  Lemma equal_sorts_strip_subsets L L' :
     equal_sorts L L' ->
     wellscoped_ss L ->
     wellscoped_ss L' ->
-    let bs := fst (strip_subsets L) in
-    let ps := snd (strip_subsets L) in
-    let ps' := snd (strip_subsets L') in
+    let bs := map get_base_sort L in
+    let ps := strip_subsets L in
+    let ps' := strip_subsets L' in
     iff_ bs (interp_p bs (and_all ps)) (interp_p bs (and_all ps')).
   Proof.
     simpl.
@@ -5043,16 +5044,16 @@ lift2 (fst (strip_subsets L))
         repeat rewrite and_all_map_shift_i_p in *.
         eapply forall_iff_trans.
         {
-          eapply (@forall_shift_i_p_iff_shift (and_all (snd (strip_subsets L))) [b] 0 (fst (strip_subsets L)) 1); eauto.
+          eapply forall_shift_i_p_iff_shift with (bs_new := [b]) (x := 0); simpl; eauto.
           eapply wellscoped_ss_wellscoped_p_strip_subsets; eauto.
-          rewrite length_fst_strip_subsets; eauto.
+          rewrite map_length; eauto.
         }
         eapply forall_iff_sym.
         eapply forall_iff_trans.
         {
-          eapply (@forall_shift_i_p_iff_shift (and_all (snd (strip_subsets L'))) [b] 0 (fst (strip_subsets L)) 1); eauto.
+          eapply forall_shift_i_p_iff_shift with (bs_new := [b]) (x := 0); simpl; eauto.
           eapply wellscoped_ss_wellscoped_p_strip_subsets; eauto.
-          rewrite length_fst_strip_subsets; eauto.
+          rewrite map_length; eauto.
           eapply equal_sorts_length; eauto.
         }
         simpl.
@@ -5076,22 +5077,22 @@ lift2 (fst (strip_subsets L))
       eapply forall_lift4_lift2_lift2_lift4.
       Focus 3.
       {
-        specialize (@forall_shift_i_p_iff_shift (and_all (snd (strip_subsets L))) [b] 0 (fst (strip_subsets L)) 1); intros Hshift.
+        specialize (@forall_shift_i_p_iff_shift (and_all (strip_subsets L)) [b] 0 (map get_base_sort L) 1); intros Hshift.
         simpl in *.
         rewrite fuse_lift1_lift2 in Hshift.
         eapply Hshift; eauto.
         eapply wellscoped_ss_wellscoped_p_strip_subsets; eauto.
-        rewrite length_fst_strip_subsets; eauto.
+        rewrite map_length; eauto.
       }
       Unfocus.
       Focus 3.
       {
-        specialize (@forall_shift_i_p_iff_shift (and_all (snd (strip_subsets L'))) [b] 0 (fst (strip_subsets L)) 1); intros Hshift.
+        specialize (@forall_shift_i_p_iff_shift (and_all (strip_subsets L')) [b] 0 (map get_base_sort L) 1); intros Hshift.
         simpl in *.
         rewrite fuse_lift1_lift2 in Hshift.
         eapply Hshift; eauto.
         eapply wellscoped_ss_wellscoped_p_strip_subsets; eauto.
-        rewrite length_fst_strip_subsets; eauto.
+        rewrite map_length; eauto.
         eapply equal_sorts_length; eauto.
       }
       Unfocus.
@@ -5111,12 +5112,12 @@ lift2 (fst (strip_subsets L))
       eapply forall_lift2_lift2_lift2 in H0.
       Focus 3.
       {
-        specialize (@forall_shift_i_p_iff_shift (and_all (snd (strip_subsets L))) [b] 0 (fst (strip_subsets L)) 1); intros Hshift.
+        specialize (@forall_shift_i_p_iff_shift (and_all (strip_subsets L)) [b] 0 (map get_base_sort L) 1); intros Hshift.
         simpl in *.
         rewrite fuse_lift1_lift2 in Hshift.
         eapply Hshift; eauto.
         eapply wellscoped_ss_wellscoped_p_strip_subsets; eauto.
-        rewrite length_fst_strip_subsets; eauto.
+        rewrite map_length; eauto.
       }
       Unfocus.
       Focus 2.
@@ -5150,17 +5151,11 @@ lift2 (fst (strip_subsets L))
   Proof.
     intros Heq p Hsc Hsc' Hp.
     unfold interp_prop in *.
-    erewrite <- equal_sorts_fst_strip_subsets; eauto.
+    erewrite <- equal_sorts_get_base_sort; eauto.
     simpl in *.
     eapply forall_iff_elim; [eapply Hp|].
     eapply forall_iff_iff_imply; [|eapply forall_iff_refl].
-    eapply equal_sorts_snd_strip_subsets; eauto.
-  Qed.
-  
-  Lemma fst_strip_subsets L :
-    fst (strip_subsets L) = map get_base_sort L.
-  Proof.
-    induct L; simpl; f_equal; eauto.
+    eapply equal_sorts_strip_subsets; eauto.
   Qed.
   
   Lemma get_base_sort_subst_i_s :
@@ -6204,8 +6199,7 @@ lift2 (fst (strip_subsets L))
     simpl in *.
     copy Hnth Hn.
     eapply nth_error_Some_lt in Hn.
-    rewrite !snd_strip_subsets_app by la.
-    rewrite !fst_strip_subsets in *.
+    rewrite !strip_subsets_app by la.
     rewrite !map_app.
     rewrite !get_base_sort_subst_i_ss.
 
@@ -6332,7 +6326,7 @@ lift2 (fst (strip_subsets L))
     copy Hnth Hn.
     eapply nth_error_Some_lt in Hn.
     rewrite !fst_strip_subsets_app.
-    rewrite !snd_strip_subsets_app by la.
+    rewrite !strip_subsets_app by la.
     set (bs' := fst (strip_subsets (subst_i_ss c (firstn n L))) ++ fst (strip_subsets (my_skipn L (S n)))) in *.
     rewrite length_subst_i_ss.
     rewrite length_firstn_le by la.
