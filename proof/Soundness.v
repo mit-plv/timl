@@ -7341,11 +7341,13 @@ lift2 (fst (strip_subsets L))
     sorting L i s ->
     forall s',
       sorteq L s' s ->
+      bwfsorts L ->
       sorting L i s'.
   Proof.
     induct 1; simpl; try solve [intros; eauto | induct 1; simpl in *; econstructor; eauto].
     {
-      intros s' Heq.
+      (* Case Var *)
+      intros s' Heq HL.
       invert Heq; simpl in *.
       {
         destruct s; simpl in *; try discriminate.
@@ -7369,10 +7371,19 @@ lift2 (fst (strip_subsets L))
         }
         {
           rename H into Hnth.
+          copy Hnth Hnth'.
           eapply nth_error_Some_interp_prop_subst_i_p_var in Hnth.
           Focus 2.
           {
-            eapply admit. (* bwfprop *)
+            eapply all_sorts_nth_error_Some in Hnth; eauto.
+            invert Hnth.
+            rewrite skipn_my_skipn in *.
+            rewrite <- map_my_skipn.
+            erewrite nth_error_Some_my_skipn by eauto.
+            simpl.
+            rewrite my_skipn_my_skipn.
+            rewrite plus_comm.
+            eauto.
           }
           Unfocus.
           rename H3 into Hiff.
@@ -7384,19 +7395,23 @@ lift2 (fst (strip_subsets L))
             eapply interp_prop_iff_elim; eauto.
           }
           {
-            eapply admit. (* sorting *)
+            eapply StgSubsetE.
+            eapply StgVar'; eauto.
+            simpl.
+            eauto.
           }
           {
+            simpl in *.
             eapply admit. (* bwfprop *)
           }
           {
-            eapply admit. (* bwfsorts *)
+            econstructor; eauto.
           }
         }
       }
     }
     {
-      intros s' Heq.
+      intros s' Heq HL.
       invert Heq; simpl in *.
       rename H5 into Hiff.
       eapply StgSubsetI; eauto.
@@ -7411,10 +7426,11 @@ lift2 (fst (strip_subsets L))
         eauto using interp_prop_iff_elim. 
       }
       {
+        simpl in *.
         eapply admit. (* bwfprop *)
       }
       {
-        eapply admit. (* bwfsorts *)
+        econstructor; eauto.
       }
     }
   Qed.
