@@ -4410,7 +4410,7 @@ Module M (Time : TIME).
     induct 1; simpl; try solve [intros; subst; eauto using wellscoped_shift_i_i with db_la].
   Qed.
   
-  Inductive all_sorts P : list sort -> Prop :=
+  Inductive all_sorts (P : list sort -> sort -> Prop) : list sort -> Prop :=
   | AllStsNil :
       all_sorts P []
   | AllStsCons s ss :
@@ -6603,6 +6603,70 @@ lift2 (fst (strip_subsets L))
     (* Qed. *)
   Admitted.
 
+  Lemma skipn_removen A : forall (ls : list A) n, skipn n (removen n ls) = skipn (S n) ls.
+  Proof.
+    induct ls; destruct n; simpl; eauto.
+  Qed.
+  
+  Lemma length_removen_lt A :
+    forall (ls : list A) x,
+      x < length ls ->
+      length (removen x ls) = length ls - 1.
+  Proof.
+    induct ls; destruct x; simpl; intros Hcmp; eauto with db_la.
+    rewrite IHls by la.
+    la.
+  Qed.
+  
+  Lemma all_sorts_nth_error_Some f :
+    forall n L s,
+      all_sorts f L ->
+      nth_error L n = Some s ->
+      f (skipn (S n) L) s.
+  Proof.
+    induct n; destruct L; simpl; intros s' H Hnth; try discriminate; invert H; eauto.
+    invert Hnth.
+    eauto.
+  Qed.
+
+  Lemma all_sorts_skipn f :
+    forall n L,
+      all_sorts f L ->
+      all_sorts f (skipn n L).
+  Proof.
+    induct n; destruct L; simpl; intros H; invert H; eauto.
+  Qed.
+
+  Ltac dis := discriminate.
+  
+  Lemma nth_error_0_my_skipn_1 A ls (a : A) :
+    nth_error ls 0 = Some a ->
+    ls = a :: my_skipn ls 1.
+  Proof.
+    destruct ls; simpl in *; try dis; intros H.
+    invert H.
+    rewrite my_skipn_0.
+    eauto.
+  Qed.
+
+  Lemma nth_error_Some_my_skipn A bs x (b : A) :
+    nth_error bs x = Some b ->
+    let bs' := my_skipn bs x in
+    bs' = b :: my_skipn bs' 1.
+  Proof.
+    intros Hnth; intros.
+    copy Hnth Hcmp.
+    eapply nth_error_Some_lt in Hcmp.
+    assert (Hnth'' : nth_error bs' 0 = Some b).
+    {
+      unfold bs'.
+      rewrite nth_error_my_skipn by la.
+      rewrite Nat.add_0_r.
+      eauto.
+    }
+    eapply nth_error_0_my_skipn_1; eauto.
+  Qed.
+  
   Lemma nth_error_Some_interp_prop_subst_i_p_var L x b p :
     nth_error L x = Some (SSubset b p) ->
     bwfprop (my_skipn (map get_base_sort L) x) p ->
@@ -6666,7 +6730,10 @@ lift2 (fst (strip_subsets L))
     set (bs' := my_skipn bs x) in *.
     assert (Hbs' : bs' = b :: my_skipn bs' 1).
     {
-      eapply admit.
+      eapply nth_error_Some_my_skipn; eauto.
+      unfold bs.
+      erewrite map_nth_error; eauto.
+      eauto.
     }
     
     eapply forall_imply_shift_i_p_imply with (x := 0).
@@ -6677,7 +6744,15 @@ lift2 (fst (strip_subsets L))
     Unfocus.
     Focus 2.
     {
-      eapply admit. (* wellscoped_p (subst_i_p) *)
+      eapply wellscoped_subst_i_p_0.
+      {
+        eapply wellscoped_shift_i_p; eauto.
+        eapply bwfprop_wellscoped_p; eauto.
+      }
+      {
+        rewrite Hbs'.
+        econstructor; simpl; la.
+      }
     }
     Unfocus.
     Focus 2.
@@ -6732,7 +6807,144 @@ lift2 (fst (strip_subsets L))
       rename p0 into p.
 
       eapply nth_error_Some_interp_prop_subst_i_p_var; eauto.
-      eapply admit. (* bwfprop *)
+      Ltac cases_le_dec :=
+        match goal with
+          H : context [?a <=? ?b] |- _ => cases (a <=? b)
+        end.
+      
+  Lemma bsorting_shift_i_i_rev :
+    forall L i b,
+      bsorting L i b ->
+      forall n x i' L1 L2 L3,
+        i = shift_i_i n x i' ->
+        L = L1 ++ L2 ++ L3 ->
+        x = length L1 ->
+        n = length L2 ->
+        bsorting (L1 ++ L3) i' b.
+  Proof.
+    induct 1;
+      simpl; intros ? ? i' L1 L2 L3 Hi; intros; subst; cbn in *;
+        try solve [
+              destruct i'; simpl in *; try cases_le_dec; try dis;
+              invert Hi; eauto
+            ].
+    {
+      (* Case Var *)
+      destruct i'; simpl in *; try dis.
+      rename x0 into y.
+      econstructor.
+      cases (length L1 <=? y).
+      {
+        invert Hi.
+        repeat rewrite nth_error_app2 in * by la.
+        rewrite <- H.
+        f_equal.
+        la.
+      }
+      {
+        invert Hi.
+        repeat rewrite nth_error_app1 in * by la.
+        eauto.
+      }
+    }
+    {
+      destruct i'; simpl in *; try cases_le_dec; try dis.
+      assert (opr = opr0).
+      {
+        congruence.
+      }
+      invert Hi; eauto.
+    }
+    {
+      (* Case TimeAbs *)
+      destruct i'; simpl in *; try cases_le_dec; try dis.
+      invert Hi; eauto.
+      econstructor; eauto.
+      eapply IHbsorting with (L4 := _ :: _); eauto with db_la.
+      eauto.
+    }
+  Qed.
+
+  Lemma bsorting_shift_i_i_rev_2 :
+    forall L1 L2 L3 L i b n x i' ,
+      bsorting L i b ->
+      i = shift_i_i n x i' ->
+      L = L1 ++ L2 ++ L3 ->
+      x = length L1 ->
+      n = length L2 ->
+      bsorting (L1 ++ L3) i' b.
+  Proof.
+    intros; eapply bsorting_shift_i_i_rev; eauto.
+  Qed.
+      
+  Lemma bwfprop_shift_i_p_rev :
+    forall L p,
+      bwfprop L p ->
+      forall n x p' L1 L2 L3,
+        p = shift_i_p n x p' ->
+        L = L1 ++ L2 ++ L3 ->
+        x = length L1 ->
+        n = length L2 ->
+        bwfprop (L1 ++ L3) p'.
+  Proof.
+    induct 1;
+      simpl; intros ? ? p' L1 L2 L3 Hp; intros; subst; cbn in *;
+        try solve [
+              destruct p'; simpl in *; try cases_le_dec; try dis;
+              invert Hp; eauto using bsorting_shift_i_i_rev
+            ].
+    destruct p'; simpl in *; try cases_le_dec; try dis;
+      invert Hp; eauto.
+    econstructor; eauto.
+    eapply IHbwfprop with (L4 := _ :: _); eauto with db_la.
+    eauto.
+  Qed.    
+  
+  Lemma bwfprop_shift_i_p_rev_2 :
+    forall L1 L2 L3 L p n x p',
+      bwfprop L p ->
+      p = shift_i_p n x p' ->
+      L = L1 ++ L2 ++ L3 ->
+      x = length L1 ->
+      n = length L2 ->
+      bwfprop (L1 ++ L3) p'.
+  Proof.
+    intros; eapply bwfprop_shift_i_p_rev; eauto.
+  Qed.    
+
+      rename H1 into Hp.
+      erewrite (nth_error_split_firstn_skipn L x) in Hp by eauto.
+      rewrite map_app in *.
+      rewrite skipn_my_skipn in *.
+      simpl in *.
+      eapply bwfprop_shift_i_p_rev with (L1 := [b]) (L2 := map get_base_sort (firstn x L) ++ [b]) (L3 := map get_base_sort (my_skipn L (S x))) in Hp; simpl; eauto.
+      {
+        simpl in *.
+        rewrite <- map_my_skipn.
+        erewrite nth_error_Some_my_skipn by eauto.
+        simpl.
+        Lemma my_skipn_my_skipn A :
+          forall (ls : list A) n2 n1,
+            my_skipn (my_skipn ls n2) n1 = my_skipn ls (n2 + n1).
+        Proof.
+          induct ls; destruct n2; simpl; eauto.
+        Qed.
+
+        rewrite my_skipn_my_skipn.
+        rewrite plus_comm.
+        eauto.
+      }
+      {
+        rewrite <- app_assoc.
+        eauto.
+      }
+      {
+        rewrite app_length.
+        rewrite map_length.
+        rewrite length_firstn_le by la.
+        simpl.
+        la.
+      }
     }
     {
       unfold interp_prop.
@@ -6902,7 +7114,12 @@ lift2 (fst (strip_subsets L))
     eapply sorting_Subset_elim in Hc; eauto.
     Focus 2.
     {
-      eapply admit. (* bwfprop *)
+      eapply all_sorts_nth_error_Some in Hnth; eauto.
+      invert Hnth.
+      eapply wfprop_bwfprop in H1.
+      rewrite skipn_my_skipn in *.
+      simpl in *.
+      eauto.
     }
     Unfocus.
 
@@ -6922,33 +7139,34 @@ lift2 (fst (strip_subsets L))
         rewrite <- map_my_skipn.
         f_equal.
         rewrite <- skipn_my_skipn.
-        Lemma skipn_removen A : forall (ls : list A) n, skipn n (removen n ls) = skipn (S n) ls.
-        Proof.
-          induct ls; destruct n; simpl; eauto.
-        Qed.
         eapply skipn_removen.
       }
       rewrite Hskipn.
+      assert (Hn' : n < length bs) by (subst bs; rewrite map_length; la).
       eapply forall_imply_shift_i_p_imply with (x := 0); eauto.
       {
-        eapply admit.
+        rewrite map_length.
+        eapply wellscoped_ss_wellscoped_p_strip_subsets; eauto.
+        eapply wfsorts_wellscoped_ss.
+        eapply all_sorts_skipn; eauto.
       }
       {
-        eapply admit.
+        rewrite map_length.
+        eapply all_sorts_nth_error_Some in Hnth; eauto.
+        invert Hnth.
+        eapply wfprop_wellscoped_p in H1.
+        eapply bsorting_wellscoped_i in Hc'.
+        rewrite skipn_my_skipn in *.
+        simpl in *.
+        repeat rewrite length_my_skipn_le in * by la.
+        eapply wellscoped_subst_i_p_0; eauto.
+        subst bs.
+        rewrite map_length in *.
+        eauto.
       }
       {
         rewrite length_firstn_le; eauto.
         subst bs'.
-        Lemma length_removen_lt A :
-          forall (ls : list A) x,
-            x < length ls ->
-            length (removen x ls) = length ls - 1.
-        Proof.
-          induct ls; destruct x; simpl; intros Hcmp; eauto with db_la.
-          rewrite IHls by la.
-          la.
-        Qed.
-        assert (n < length bs) by (subst bs; rewrite map_length; la).
         rewrite length_removen_lt by la.
         la.
       }
@@ -6958,93 +7176,20 @@ lift2 (fst (strip_subsets L))
     intuition.
   Qed.
   
-    propositional.
-    eauto.
-    invert Hc.
-    Focus 2.
-    simpl.
-    
-    eapply forall_trans.
-    Focus 2.
-    {
-      eapply forall_iff_imply.
-      eapply forall_iff_sym.
-      eapply forall_subst_i_p_iff_subst; eauto.
-      {
-        erewrite map_nth_error; eauto.
-      }
-      {
-        rewrite <- map_skipn.
-        eapply sorting_bsorting; eauto.
-      }
-      {
-        eapply wfprop_bwfprop; eauto.
-      }
-    }
-    Unfocus.
-
-    eapply admit.
-  Qed.
-  
-  Lemma interp_prop_subst_i_p :
-    forall L n p s c ,
-      interp_prop L p ->
-      nth_error L n = Some s ->
-      sorting (my_skipn L (1 + n)) c s ->
-      interp_prop (subst_i_ss c (firstn n L) ++ my_skipn L (1 + n)) (subst_i_p n (shift_i_i n 0 c) p).
-  Proof.
-    induct L; simpl.
-    {
-      intros.
-      rewrite nth_error_nil in *.
-      discriminate.
-    }
-    intros n p s c Hp Hnth Hc.
-    destruct n as [|x]; simpl in *.
-    {
-      rewrite shift_i_i_0 in *.
-      rewrite my_skipn_0 in *.
-      invert Hnth.
-      unfold interp_prop.
-      unfold interp_prop in Hp.
-      simpl in *.
-      (*here*)
-      eapply admit.
-    }
-    {
-      copy Hnth Hn.
-      eapply nth_error_Some_lt in Hn.
-      rewrite length_firstn_le by la.
-      set (L' := subst_i_ss c (firstn x L) ++ my_skipn L (S x)) in *.
-      set (s' := subst_i_s x (shift_i_i x 0 c) a).
-      unfold interp_prop in *.
-      simpl in *.
-    }
-    
-    unfold interp_prop in *.
-    simpl in *.
-    copy Hnth Hn.
-    eapply nth_error_Some_lt in Hn.
-    rewrite !fst_strip_subsets_app.
-    rewrite !strip_subsets_app by la.
-    set (bs' := fst (strip_subsets (subst_i_ss c (firstn n L))) ++ fst (strip_subsets (my_skipn L (S n)))) in *.
-    rewrite length_subst_i_ss.
-    rewrite length_firstn_le by la.
-    eapply admit.
-  Qed.
-  
   Lemma interp_prop_subst0_i_p s L p c :
     interp_prop (s :: L) p ->
     sorting L c s ->
+    wfprop (s :: L) p ->
+    wfsorts (s :: L) ->
     interp_prop L (subst0_i_p c p).
   Proof.
-    intros Hp Hc.
+    intros Hp Hc Hwfp HL.
     specialize (@interp_prop_subst_i_p (s :: L) p Hp 0 s c).
     intros H.
     simpl in *.
     rewrite my_skipn_0 in *.
     rewrite shift_i_i_0 in *.
-    eauto.
+    eapply H; eauto.
   Qed.
   
   Lemma monotone_shift_i_i x v b :
