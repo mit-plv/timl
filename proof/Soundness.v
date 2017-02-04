@@ -6729,6 +6729,25 @@ lift2 (fst (strip_subsets L))
     induct ls; destruct n2; simpl; eauto.
   Qed.
 
+  Lemma bwfsort_wellscoped_s L s :
+    bwfsort L s ->
+    wellscoped_s (length L) s.
+  Proof.
+    induct 1; simpl; econstructor; eauto.
+    eapply bwfprop_wellscoped_p in H.
+    eauto.
+  Qed.
+  
+  Lemma bwfsorts_wellscoped_ss L :
+    bwfsorts L ->
+    wellscoped_ss L.
+  Proof.
+    induct 1; simpl; intros; econstructor; eauto using bwfsort_wellscoped_s.
+    eapply bwfsort_wellscoped_s in H0.
+    rewrite map_length in *.
+    eauto.
+  Qed.
+
   Lemma forall_imply_shift_i_p_1_1_var0 b bs' bs p :
     wellscoped_p (1 + length bs') p ->
     bs = b :: bs' ->
@@ -6976,7 +6995,7 @@ lift2 (fst (strip_subsets L))
       nth_error L n = Some s ->
       sorting (my_skipn L (1 + n)) c s ->
       bwfprop (map get_base_sort L) p ->
-      wfsorts L ->
+      bwfsorts L ->
       interp_prop (subst_i_ss c (firstn n L) ++ my_skipn L (1 + n)) (subst_i_p n (shift_i_i n 0 c) p).
   Proof.
     intros Hp n s c Hnth Hc Hwfp Hss.
@@ -7015,7 +7034,6 @@ lift2 (fst (strip_subsets L))
     Focus 2.
     {
       eapply bwfsorts_bwfprop_strip_subsets; eauto.
-      eapply wfsorts_bwfsorts; eauto.
     }
     Unfocus.
     subst bs'.
@@ -7087,7 +7105,6 @@ lift2 (fst (strip_subsets L))
     {
       eapply all_sorts_nth_error_Some in Hnth; eauto.
       invert Hnth.
-      eapply wfprop_bwfprop in H1.
       rewrite skipn_my_skipn in *.
       simpl in *.
       eauto.
@@ -7118,17 +7135,18 @@ lift2 (fst (strip_subsets L))
       {
         rewrite map_length.
         eapply wellscoped_ss_wellscoped_p_strip_subsets; eauto.
-        eapply wfsorts_wellscoped_ss.
+        eapply bwfsorts_wellscoped_ss.
         eapply all_sorts_skipn; eauto.
       }
       {
         rewrite map_length.
         eapply all_sorts_nth_error_Some in Hnth; eauto.
         invert Hnth.
-        eapply wfprop_wellscoped_p in H1.
+        eapply bwfprop_wellscoped_p in H1.
         eapply bsorting_wellscoped_i in Hc'.
         rewrite skipn_my_skipn in *.
         simpl in *.
+        rewrite map_length in *.
         repeat rewrite length_my_skipn_le in * by la.
         eapply wellscoped_subst_i_p_0; eauto.
         subst bs.
@@ -7147,15 +7165,15 @@ lift2 (fst (strip_subsets L))
     intuition.
   Qed.
   
-  Lemma interp_prop_subst0_i_p s L p c :
+  Lemma interp_prop_subst0_i_p s L p v :
     interp_prop (s :: L) p ->
-    sorting L c s ->
+    sorting L v s ->
     bwfprop (get_base_sort s :: map get_base_sort L) p ->
-    wfsorts (s :: L) ->
-    interp_prop L (subst0_i_p c p).
+    bwfsorts (s :: L) ->
+    interp_prop L (subst0_i_p v p).
   Proof.
-    intros Hp Hc Hwfp HL.
-    specialize (@interp_prop_subst_i_p (s :: L) p Hp 0 s c).
+    intros Hp Hv Hwfp HL.
+    specialize (@interp_prop_subst_i_p (s :: L) p Hp 0 s v).
     intros H.
     simpl in *.
     rewrite my_skipn_0 in *.
@@ -7163,8 +7181,6 @@ lift2 (fst (strip_subsets L))
     eapply H; eauto.
   Qed.
 
-  (*here*)
-  
   Lemma monotone_shift_i_i x v b :
     monotone b ->
     monotone (shift_i_i x v b).
@@ -7349,20 +7365,57 @@ lift2 (fst (strip_subsets L))
           eauto.
         }
         {
-          (*here*) 
-          eapply admit.
+          eapply admit. (* wellscoped *)
+        }
+        {
+          rename H into Hnth.
+          eapply nth_error_Some_interp_prop_subst_i_p_var in Hnth.
+          Focus 2.
+          {
+            eapply admit. (* bwfprop *)
+          }
+          Unfocus.
+          rename H3 into Hiff.
+          eapply interp_prop_subst0_i_p with (v := IVar x) in Hiff; eauto.
+          unfold subst0_i_p in *.
+          {
+            simpl in *.
+            eapply interp_prop_iff_sym in Hiff.
+            eapply interp_prop_iff_elim; eauto.
+          }
+          {
+            eapply admit. (* sorting *)
+          }
+          {
+            eapply admit. (* bwfprop *)
+          }
+          {
+            eapply admit. (* bwfsorts *)
+          }
         }
       }
     }
     {
       intros s' Heq.
       invert Heq; simpl in *.
+      rename H5 into Hiff.
       eapply StgSubsetI; eauto.
-      eapply interp_prop_subst0_i_p in H4; eauto.
-      unfold subst0_i_p in *.
-      simpl in *.
-      eapply interp_prop_iff_sym in H4.
-      eauto using interp_prop_iff_elim. 
+      {
+        eapply admit. (* wellscoped *)
+      }
+      eapply interp_prop_subst0_i_p in Hiff; eauto.
+      {
+        unfold subst0_i_p in *.
+        simpl in *.
+        eapply interp_prop_iff_sym in Hiff.
+        eauto using interp_prop_iff_elim. 
+      }
+      {
+        eapply admit. (* bwfprop *)
+      }
+      {
+        eapply admit. (* bwfsorts *)
+      }
     }
   Qed.
   
