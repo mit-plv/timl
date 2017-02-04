@@ -6202,167 +6202,6 @@ lift2 (fst (strip_subsets L))
     }
   Qed.
 
-  Definition monotone : idx -> Prop.
-  Admitted.
-
-  Inductive sorting : sctx -> idx -> sort -> Prop :=
-  | StgVar L x s :
-      nth_error L x = Some s ->
-      sorting L (IVar x) (shift_i_s (1 + x) 0 s)
-  | StgConst L cn :
-      sorting L (IConst cn) (SBaseSort (const_base_sort cn))
-  | StgUnOp L opr c :
-      sorting L c (SBaseSort (iunop_arg_base_sort opr)) ->
-      sorting L (IUnOp opr c) (SBaseSort (iunop_result_base_sort opr))
-  | StgBinOp L opr c1 c2 :
-      sorting L c1 (SBaseSort (ibinop_arg1_base_sort opr)) ->
-      sorting L c2 (SBaseSort (ibinop_arg2_base_sort opr)) ->
-      sorting L (IBinOp opr c1 c2) (SBaseSort (ibinop_result_base_sort opr))
-  | StgIte L c c1 c2 s :
-      sorting L c SBool ->
-      sorting L c1 s ->
-      sorting L c2 s ->
-      sorting L (IIte c c1 c2) s
-  | StgTimeAbs L i n :
-      sorting (SNat :: L) i (STimeFun n) ->
-      monotone i ->
-      sorting L (ITimeAbs i) (STimeFun (1 + n))
-  | StgTimeApp L c1 c2 n :
-      sorting L c1 (STimeFun (S n)) ->
-      sorting L c2 SNat ->
-      sorting L (ITimeApp n c1 c2) (STimeFun n)
-  | StgSubsetI L c b p :
-      sorting L c (SBaseSort b) ->
-      wellscoped_p (1 + length L) p ->
-      interp_prop L (subst0_i_p c p) ->
-      sorting L c (SSubset b p)
-  | StgSubsetE L c b p :
-      sorting L c (SSubset b p) ->
-      sorting L c (SBaseSort b)
-  .
-
-  Hint Constructors sorting.
-  
-  Inductive wfprop : sctx -> prop -> Prop :=
-  | WfPropTrueFalse L cn :
-      wfprop L (PTrueFalse cn)
-  | WfPropBinConn L opr p1 p2 :
-      wfprop L p1 ->
-      wfprop L p2 ->
-      wfprop L (PBinConn opr p1 p2)
-  | WfPropNot L p :
-      wfprop L p ->
-      wfprop L (PNot p)
-  | WfPropBinPred L opr i1 i2 :
-      sorting L i1 (SBaseSort (binpred_arg1_base_sort opr)) ->
-      sorting L i2 (SBaseSort (binpred_arg2_base_sort opr)) ->
-      wfprop L (PBinPred opr i1 i2)
-  | WfPropEq L b i1 i2 :
-      sorting L i1 (SBaseSort b) ->
-      sorting L i2 (SBaseSort b) ->
-      wfprop L (PEq b i1 i2)
-  | WfPropQuan L q s p :
-      wfprop (SBaseSort s :: L) p ->
-      wfprop L (PQuan q s p)
-  .
-  
-  Hint Constructors wfprop.
-
-  Inductive wfsort : sctx -> sort -> Prop :=
-  | WfStBaseSort L b :
-      wfsort L (SBaseSort b)
-  | WfStSubset L b p :
-      wfprop (SBaseSort b :: L) p ->
-      wfsort L (SSubset b p)
-  .
-
-  Hint Constructors wfsort.
-
-  Lemma StgVar' L x s s' :
-    nth_error L x = Some s ->
-    s' = shift_i_s (1 + x) 0 s ->
-    sorting L (IVar x) s'.
-  Proof.
-    intros; subst; eauto.
-  Qed.
-  
-  Lemma sorting_bsorting L i s :
-    sorting L i s ->
-    bsorting (map get_base_sort L) i (get_base_sort s).
-  Proof.
-    induct 1; simpl; eauto.
-    econstructor.
-    rewrite get_base_sort_shift_i_s.
-    erewrite map_nth_error; eauto.
-  Qed.
-  
-  Lemma wfprop_bwfprop L p :
-    wfprop L p ->
-    bwfprop (map get_base_sort L) p.
-  Proof.
-    induct 1; simpl; eauto using sorting_bsorting.
-    {
-      eapply sorting_bsorting in H; simpl in *.
-      eapply sorting_bsorting in H0; simpl in *.
-      eauto.
-    }
-    {
-      eapply sorting_bsorting in H; simpl in *.
-      eapply sorting_bsorting in H0; simpl in *.
-      eauto.
-    }
-  Qed.
-  
-  Lemma wfsort_bwfsort L s :
-    wfsort L s ->
-    bwfsort (map get_base_sort L) s.
-  Proof.
-    induct 1; simpl; econstructor; eauto.
-    eapply wfprop_bwfprop in H.
-    eauto.
-  Qed.
-  
-  Lemma sorting_wellscoped_i L i s :
-    sorting L i s ->
-    wellscoped_i (length L) i.
-  Proof.
-    induct 1; simpl; eauto.
-    econstructor.
-    eapply nth_error_Some_lt; eauto.
-  Qed.
-  
-  Lemma wfprop_wellscoped_p L p :
-    wfprop L p ->
-    wellscoped_p (length L) p.
-  Proof.
-    induct 1; simpl; eauto using sorting_wellscoped_i.
-  Qed.
-  
-  Lemma wfsort_wellscoped_s L s :
-    wfsort L s ->
-    wellscoped_s (length L) s.
-  Proof.
-    induct 1; simpl; econstructor; eauto.
-    eapply wfprop_wellscoped_p in H.
-    eauto.
-  Qed.
-  
-  Definition wfsorts := all_sorts wfsort.
-  
-  Lemma wfsorts_bwfsorts L :
-    wfsorts L ->
-    bwfsorts L.
-  Proof.
-    induct 1; simpl; intros; econstructor; eauto using wfsort_bwfsort.
-  Qed.
-
-  Lemma wfsorts_wellscoped_ss L :
-    wfsorts L ->
-    wellscoped_ss L.
-  Proof.
-    induct 1; simpl; intros; econstructor; eauto using wfsort_wellscoped_s.
-  Qed.
-
   Lemma and_all_map_subst_i_p x v ls :
     and_all (map (subst_i_p x v) ls) = subst_i_p x v (and_all ls).
   Proof.
@@ -6462,14 +6301,6 @@ lift2 (fst (strip_subsets L))
     simpl in *.
     rewrite shift_i_i_0 in *.
     eauto.
-  Qed.
-  
-  Lemma sorting_bsorting' L i s b :
-    sorting L i s ->
-    b = get_base_sort s ->
-    bsorting (map get_base_sort L) i b.
-  Proof.
-    intros; subst; eapply sorting_bsorting; eauto.
   Qed.
   
   Lemma fuse_lift3_lift3_3 bs :
@@ -6872,8 +6703,7 @@ lift2 (fst (strip_subsets L))
       eapply forall_replace_imply; [eapply forall_iff_refl | |].
       {
         eapply forall_iff_sym.
-        eapply forall_subst_i_p_iff_subst_0 with (b_v := b);
-          eauto using sorting_bsorting.
+        eapply forall_subst_i_p_iff_subst_0 with (b_v := b); eauto.
         {
           econstructor.
           rewrite Hbs'.
@@ -6896,6 +6726,175 @@ lift2 (fst (strip_subsets L))
     }
   Qed.
   
+  Definition monotone : idx -> Prop.
+  Admitted.
+
+  Inductive sorting : sctx -> idx -> sort -> Prop :=
+  | StgVar L x s :
+      nth_error L x = Some s ->
+      sorting L (IVar x) (shift_i_s (1 + x) 0 s)
+  | StgConst L cn :
+      sorting L (IConst cn) (SBaseSort (const_base_sort cn))
+  | StgUnOp L opr c :
+      sorting L c (SBaseSort (iunop_arg_base_sort opr)) ->
+      sorting L (IUnOp opr c) (SBaseSort (iunop_result_base_sort opr))
+  | StgBinOp L opr c1 c2 :
+      sorting L c1 (SBaseSort (ibinop_arg1_base_sort opr)) ->
+      sorting L c2 (SBaseSort (ibinop_arg2_base_sort opr)) ->
+      sorting L (IBinOp opr c1 c2) (SBaseSort (ibinop_result_base_sort opr))
+  | StgIte L c c1 c2 s :
+      sorting L c SBool ->
+      sorting L c1 s ->
+      sorting L c2 s ->
+      sorting L (IIte c c1 c2) s
+  | StgTimeAbs L i n :
+      sorting (SNat :: L) i (STimeFun n) ->
+      monotone i ->
+      sorting L (ITimeAbs i) (STimeFun (1 + n))
+  | StgTimeApp L c1 c2 n :
+      sorting L c1 (STimeFun (S n)) ->
+      sorting L c2 SNat ->
+      sorting L (ITimeApp n c1 c2) (STimeFun n)
+  | StgSubsetI L c b p :
+      sorting L c (SBaseSort b) ->
+      wellscoped_p (1 + length L) p ->
+      interp_prop L (subst0_i_p c p) ->
+      sorting L c (SSubset b p)
+  | StgSubsetE L c b p :
+      sorting L c (SSubset b p) ->
+      sorting L c (SBaseSort b)
+  .
+
+  Hint Constructors sorting.
+  
+  Inductive wfprop : sctx -> prop -> Prop :=
+  | WfPropTrueFalse L cn :
+      wfprop L (PTrueFalse cn)
+  | WfPropBinConn L opr p1 p2 :
+      wfprop L p1 ->
+      wfprop L p2 ->
+      wfprop L (PBinConn opr p1 p2)
+  | WfPropNot L p :
+      wfprop L p ->
+      wfprop L (PNot p)
+  | WfPropBinPred L opr i1 i2 :
+      sorting L i1 (SBaseSort (binpred_arg1_base_sort opr)) ->
+      sorting L i2 (SBaseSort (binpred_arg2_base_sort opr)) ->
+      wfprop L (PBinPred opr i1 i2)
+  | WfPropEq L b i1 i2 :
+      sorting L i1 (SBaseSort b) ->
+      sorting L i2 (SBaseSort b) ->
+      wfprop L (PEq b i1 i2)
+  | WfPropQuan L q s p :
+      wfprop (SBaseSort s :: L) p ->
+      wfprop L (PQuan q s p)
+  .
+  
+  Hint Constructors wfprop.
+
+  Inductive wfsort : sctx -> sort -> Prop :=
+  | WfStBaseSort L b :
+      wfsort L (SBaseSort b)
+  | WfStSubset L b p :
+      wfprop (SBaseSort b :: L) p ->
+      wfsort L (SSubset b p)
+  .
+
+  Hint Constructors wfsort.
+
+  Lemma StgVar' L x s s' :
+    nth_error L x = Some s ->
+    s' = shift_i_s (1 + x) 0 s ->
+    sorting L (IVar x) s'.
+  Proof.
+    intros; subst; eauto.
+  Qed.
+  
+  Lemma sorting_bsorting L i s :
+    sorting L i s ->
+    bsorting (map get_base_sort L) i (get_base_sort s).
+  Proof.
+    induct 1; simpl; eauto.
+    econstructor.
+    rewrite get_base_sort_shift_i_s.
+    erewrite map_nth_error; eauto.
+  Qed.
+  
+  Lemma sorting_bsorting' L i s b :
+    sorting L i s ->
+    b = get_base_sort s ->
+    bsorting (map get_base_sort L) i b.
+  Proof.
+    intros; subst; eapply sorting_bsorting; eauto.
+  Qed.
+  
+  Lemma wfprop_bwfprop L p :
+    wfprop L p ->
+    bwfprop (map get_base_sort L) p.
+  Proof.
+    induct 1; simpl; eauto using sorting_bsorting.
+    {
+      eapply sorting_bsorting in H; simpl in *.
+      eapply sorting_bsorting in H0; simpl in *.
+      eauto.
+    }
+    {
+      eapply sorting_bsorting in H; simpl in *.
+      eapply sorting_bsorting in H0; simpl in *.
+      eauto.
+    }
+  Qed.
+  
+  Lemma wfsort_bwfsort L s :
+    wfsort L s ->
+    bwfsort (map get_base_sort L) s.
+  Proof.
+    induct 1; simpl; econstructor; eauto.
+    eapply wfprop_bwfprop in H.
+    eauto.
+  Qed.
+  
+  Lemma sorting_wellscoped_i L i s :
+    sorting L i s ->
+    wellscoped_i (length L) i.
+  Proof.
+    induct 1; simpl; eauto.
+    econstructor.
+    eapply nth_error_Some_lt; eauto.
+  Qed.
+  
+  Lemma wfprop_wellscoped_p L p :
+    wfprop L p ->
+    wellscoped_p (length L) p.
+  Proof.
+    induct 1; simpl; eauto using sorting_wellscoped_i.
+  Qed.
+  
+  Lemma wfsort_wellscoped_s L s :
+    wfsort L s ->
+    wellscoped_s (length L) s.
+  Proof.
+    induct 1; simpl; econstructor; eauto.
+    eapply wfprop_wellscoped_p in H.
+    eauto.
+  Qed.
+  
+  Definition wfsorts := all_sorts wfsort.
+  
+  Lemma wfsorts_bwfsorts L :
+    wfsorts L ->
+    bwfsorts L.
+  Proof.
+    induct 1; simpl; intros; econstructor; eauto using wfsort_bwfsort.
+  Qed.
+
+  Lemma wfsorts_wellscoped_ss L :
+    wfsorts L ->
+    wellscoped_ss L.
+  Proof.
+    induct 1; simpl; intros; econstructor; eauto using wfsort_wellscoped_s.
+  Qed.
+
   Lemma sorting_Subset_elim L i s :
     sorting L i s ->
     forall b p,
@@ -7181,6 +7180,118 @@ lift2 (fst (strip_subsets L))
     eapply H; eauto.
   Qed.
 
+  Lemma StgEq L i s :
+    sorting L i s ->
+    forall s',
+      sorteq L s' s ->
+      bwfsorts L ->
+      let bs := map get_base_sort L in
+      bwfsort bs s ->
+      bwfsort bs s' ->
+      sorting L i s'.
+  Proof.
+    simpl.
+    induct 1; simpl; try solve [intros; eauto | induct 1; simpl in *; econstructor; eauto].
+    {
+      (* Case Var *)
+      intros s' Heq HL Hs Hs'.
+      invert Heq; simpl in *.
+      {
+        destruct s; simpl in *; try discriminate.
+        invert H3.
+        eapply StgVar'; eauto.
+      }
+      {
+        destruct s as [ ? | b' p'']; simpl in *; try discriminate.
+        symmetry in H0.
+        invert H0.
+        rename p'' into p'.
+        eapply StgSubsetI.
+        {
+          eapply StgSubsetE.
+          eapply StgVar'; eauto.
+          simpl.
+          eauto.
+        }
+        {
+          eapply bwfsort_wellscoped_s in Hs'.
+          invert Hs'.
+          rewrite map_length in *.
+          eauto.
+        }
+        {
+          rename H into Hnth.
+          copy Hnth Hnth'.
+          eapply nth_error_Some_interp_prop_subst_i_p_var in Hnth.
+          Focus 2.
+          {
+            eapply all_sorts_nth_error_Some in Hnth; eauto.
+            invert Hnth.
+            rewrite skipn_my_skipn in *.
+            rewrite <- map_my_skipn.
+            erewrite nth_error_Some_my_skipn by eauto.
+            simpl.
+            rewrite my_skipn_my_skipn.
+            rewrite plus_comm.
+            eauto.
+          }
+          Unfocus.
+          rename H3 into Hiff.
+          eapply interp_prop_subst0_i_p with (v := IVar x) in Hiff; eauto.
+          unfold subst0_i_p in *.
+          {
+            simpl in *.
+            eapply interp_prop_iff_sym in Hiff.
+            eapply interp_prop_iff_elim; eauto.
+          }
+          {
+            eapply StgSubsetE.
+            eapply StgVar'; eauto.
+            simpl.
+            eauto.
+          }
+          {
+            simpl in *.
+            invert Hs'.
+            invert Hs.
+            econstructor; eauto.
+          }
+          {
+            econstructor; eauto.
+          }
+        }
+      }
+    }
+    {
+      intros s' Heq HL Hs Hs'.
+      invert Heq; simpl in *.
+      rename H5 into Hiff.
+      eapply StgSubsetI; eauto.
+      {
+        eapply bwfsort_wellscoped_s in Hs'.
+        invert Hs'.
+        rewrite map_length in *.
+        eauto.
+      }
+      eapply interp_prop_subst0_i_p in Hiff; eauto.
+      {
+        unfold subst0_i_p in *.
+        simpl in *.
+        eapply interp_prop_iff_sym in Hiff.
+        eauto using interp_prop_iff_elim. 
+      }
+      {
+        simpl in *.
+        invert Hs'.
+        invert Hs.
+        econstructor; eauto.
+      }
+      {
+        econstructor; eauto.
+      }
+    }
+  Qed.
+
   Lemma monotone_shift_i_i x v b :
     monotone b ->
     monotone (shift_i_i x v b).
@@ -7337,117 +7448,7 @@ lift2 (fst (strip_subsets L))
   Qed.
  *)
 
-  Lemma StgEq L i s :
-    sorting L i s ->
-    forall s',
-      sorteq L s' s ->
-      bwfsorts L ->
-      let bs := map get_base_sort L in
-      bwfsort bs s ->
-      bwfsort bs s' ->
-      sorting L i s'.
-  Proof.
-    simpl.
-    induct 1; simpl; try solve [intros; eauto | induct 1; simpl in *; econstructor; eauto].
-    {
-      (* Case Var *)
-      intros s' Heq HL Hs Hs'.
-      invert Heq; simpl in *.
-      {
-        destruct s; simpl in *; try discriminate.
-        invert H3.
-        eapply StgVar'; eauto.
-      }
-      {
-        destruct s as [ ? | b' p'']; simpl in *; try discriminate.
-        symmetry in H0.
-        invert H0.
-        rename p'' into p'.
-        eapply StgSubsetI.
-        {
-          eapply StgSubsetE.
-          eapply StgVar'; eauto.
-          simpl.
-          eauto.
-        }
-        {
-          eapply bwfsort_wellscoped_s in Hs'.
-          invert Hs'.
-          rewrite map_length in *.
-          eauto.
-        }
-        {
-          rename H into Hnth.
-          copy Hnth Hnth'.
-          eapply nth_error_Some_interp_prop_subst_i_p_var in Hnth.
-          Focus 2.
-          {
-            eapply all_sorts_nth_error_Some in Hnth; eauto.
-            invert Hnth.
-            rewrite skipn_my_skipn in *.
-            rewrite <- map_my_skipn.
-            erewrite nth_error_Some_my_skipn by eauto.
-            simpl.
-            rewrite my_skipn_my_skipn.
-            rewrite plus_comm.
-            eauto.
-          }
-          Unfocus.
-          rename H3 into Hiff.
-          eapply interp_prop_subst0_i_p with (v := IVar x) in Hiff; eauto.
-          unfold subst0_i_p in *.
-          {
-            simpl in *.
-            eapply interp_prop_iff_sym in Hiff.
-            eapply interp_prop_iff_elim; eauto.
-          }
-          {
-            eapply StgSubsetE.
-            eapply StgVar'; eauto.
-            simpl.
-            eauto.
-          }
-          {
-            simpl in *.
-            invert Hs'.
-            invert Hs.
-            econstructor; eauto.
-          }
-          {
-            econstructor; eauto.
-          }
-        }
-      }
-    }
-    {
-      intros s' Heq HL Hs Hs'.
-      invert Heq; simpl in *.
-      rename H5 into Hiff.
-      eapply StgSubsetI; eauto.
-      {
-        eapply bwfsort_wellscoped_s in Hs'.
-        invert Hs'.
-        rewrite map_length in *.
-        eauto.
-      }
-      eapply interp_prop_subst0_i_p in Hiff; eauto.
-      {
-        unfold subst0_i_p in *.
-        simpl in *.
-        eapply interp_prop_iff_sym in Hiff.
-        eauto using interp_prop_iff_elim. 
-      }
-      {
-        simpl in *.
-        invert Hs'.
-        invert Hs.
-        econstructor; eauto.
-      }
-      {
-        econstructor; eauto.
-      }
-    }
-  Qed.
+  (*here*)
   
   Inductive kdeq : sctx -> kind -> kind -> Prop :=
   | KdEqKType L :
