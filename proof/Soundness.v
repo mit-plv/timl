@@ -5552,6 +5552,31 @@ lift2 (fst (strip_subsets L))
 
   Hint Constructors bsorting.
   
+  Inductive bwfprop : list base_sort -> prop -> Prop :=
+  | BWfPropTrueFalse L cn :
+      bwfprop L (PTrueFalse cn)
+  | BWfPropBinConn L opr p1 p2 :
+      bwfprop L p1 ->
+      bwfprop L p2 ->
+      bwfprop L (PBinConn opr p1 p2)
+  | BWfPropNot L p :
+      bwfprop L p ->
+      bwfprop L (PNot p)
+  | BWfPropBinPred L opr i1 i2 :
+      bsorting L i1 (binpred_arg1_base_sort opr) ->
+      bsorting L i2 (binpred_arg2_base_sort opr) ->
+      bwfprop L (PBinPred opr i1 i2)
+  | BWfPropEq L b i1 i2 :
+      bsorting L i1 b ->
+      bsorting L i2 b ->
+      bwfprop L (PEq b i1 i2)
+  | BWfPropQuan L q s p :
+      bwfprop (s :: L) p ->
+      bwfprop L (PQuan q s p)
+  .
+  
+  Hint Constructors bwfprop.
+
   Lemma bsorting_wellscoped_i L i s :
     bsorting L i s ->
     wellscoped_i (length L) i.
@@ -5561,6 +5586,13 @@ lift2 (fst (strip_subsets L))
     eapply nth_error_Some_lt; eauto.
   Qed.
 
+  Lemma bwfprop_wellscoped_p L p :
+    bwfprop L p ->
+    wellscoped_p (length L) p.
+  Proof.
+    induct 1; simpl; eauto using bsorting_wellscoped_i.
+  Qed.
+  
   Lemma forall_interp_var_eq_subst_lt :
     forall bs x y b (f : interp_sort b -> interp_sort b -> Prop) b_v (v : interp_sorts (skipn (S x) bs) (interp_sort b_v)),
       y < x ->
@@ -5648,6 +5680,76 @@ lift2 (fst (strip_subsets L))
     }
   Qed.
   
+  Lemma bsorting_IUnOp_invert' L i b :
+    bsorting L i b ->
+    forall opr c,
+      i = IUnOp opr c ->
+      bsorting L c (iunop_arg_base_sort opr) /\
+      b = iunop_result_base_sort opr.
+  Proof.
+    induct 1; intros; try discriminate.
+    assert (opr = opr0).
+    {
+      congruence.
+    }
+    invert H0.
+    eauto.
+  Qed.
+
+  Lemma bsorting_IUnOp_invert L opr c b :
+    bsorting L (IUnOp opr c) b ->
+    bsorting L c (iunop_arg_base_sort opr) /\
+    b = iunop_result_base_sort opr.
+  Proof.
+    intros.
+    eapply bsorting_IUnOp_invert'; eauto.
+  Qed.
+
+  Lemma dedup_lift5_2_5 bs :
+    forall T A1 A2 A3 A4 (f : A1 -> A2 -> A3 -> A4 -> A2 -> T) a1 a2 a3 a4,
+      lift5 bs f a1 a2 a3 a4 a2 = lift4 bs (fun a1 a2 a3 a4 => f a1 a2 a3 a4 a2) a1 a2 a3 a4.
+  Proof.
+    induct bs; simplify; eauto.
+    eapply IHbs.
+  Qed.
+  
+  Lemma dedup_lift6_2_4 bs :
+    forall T A1 A2 A3 A5 A6 (f : A1 -> A2 -> A3 -> A2 -> A5 -> A6 -> T) a1 a2 a3 a5 a6,
+      lift6 bs f a1 a2 a3 a2 a5 a6 = lift5 bs (fun a1 a2 a3 a5 a6 => f a1 a2 a3 a2 a5 a6) a1 a2 a3 a5 a6.
+  Proof.
+    induct bs; simplify; eauto.
+    eapply IHbs.
+  Qed.
+  
+  Lemma swap_lift4_2_3_4 :
+    forall bs T A1 A2 A3 A4 (f1 : A1 -> A2 -> A3 -> A4 -> T) (f2 : A1 -> A4 -> A2 -> A3 -> T) a1 a2 a3 a4,
+      (forall a1 a2 a3 a4, f1 a1 a2 a3 a4 = f2 a1 a4 a2 a3) ->
+      lift4 bs f1 a1 a2 a3 a4 = lift4 bs f2 a1 a4 a2 a3.
+  Proof.
+    induct bs; simpl; intros; eauto.
+    eapply IHbs.
+    intros.
+    eapply FunctionalExtensionality.functional_extensionality.
+    eauto.
+  Qed.
+  
+  Lemma subst_lift3 : forall bs x A1 A2 A3 B b_v (v : interp_sorts (skipn (S x) bs) (interp_sort b_v)) (f : A1 -> A2 -> A3 -> B) a1 a2 a3, subst x bs v (lift3 bs f a1 a2 a3) = lift3 (removen x bs) f (subst x bs v a1) (subst x bs v a2) (subst x bs v a3).
+  Proof.
+    induct bs; cbn in *; intros; eauto.
+    destruct x; cbn in *; intros.
+    {
+      rewrite !fuse_lift3_lift2_1.
+      rewrite fuse_lift4_lift2_3_4.
+      rewrite dedup_lift6_2_4.
+      rewrite dedup_lift5_2_5.
+      rewrite fuse_lift2_lift3_1.
+      erewrite swap_lift4_2_3_4; eauto.
+    }
+    {
+      eauto.
+    }
+  Qed.
+
   Lemma forall_subst_i_i_iff_subst :
     forall body x bs v b_v b_b,
       let bs' := removen x bs in
@@ -5714,31 +5816,6 @@ lift2 (fst (strip_subsets L))
       eapply forall_lift0; eauto.
     }
     {
-      Lemma bsorting_IUnOp_invert' L i b :
-        bsorting L i b ->
-        forall opr c,
-          i = IUnOp opr c ->
-          bsorting L c (iunop_arg_base_sort opr) /\
-          b = iunop_result_base_sort opr.
-      Proof.
-        induct 1; intros; try discriminate.
-        assert (opr = opr0).
-        {
-          congruence.
-        }
-        invert H0.
-        eauto.
-      Qed.
-
-      Lemma bsorting_IUnOp_invert L opr c b :
-        bsorting L (IUnOp opr c) b ->
-        bsorting L c (iunop_arg_base_sort opr) /\
-        b = iunop_result_base_sort opr.
-      Proof.
-        intros.
-        eapply bsorting_IUnOp_invert'; eauto.
-      Qed.
-
       simpl.
       eapply bsorting_IUnOp_invert in Hbody; openhyp.
       rewrite fuse_lift2_lift1_1.
@@ -5761,51 +5838,6 @@ lift2 (fst (strip_subsets L))
     {
       simpl.
       invert Hbody.
-  Lemma subst_lift3 : forall bs x A1 A2 A3 B b_v (v : interp_sorts (skipn (S x) bs) (interp_sort b_v)) (f : A1 -> A2 -> A3 -> B) a1 a2 a3, subst x bs v (lift3 bs f a1 a2 a3) = lift3 (removen x bs) f (subst x bs v a1) (subst x bs v a2) (subst x bs v a3).
-  Proof.
-    induct bs; cbn in *; intros; eauto.
-    destruct x; cbn in *; intros.
-    {
-  Lemma dedup_lift5_2_5 bs :
-    forall T A1 A2 A3 A4 (f : A1 -> A2 -> A3 -> A4 -> A2 -> T) a1 a2 a3 a4,
-      lift5 bs f a1 a2 a3 a4 a2 = lift4 bs (fun a1 a2 a3 a4 => f a1 a2 a3 a4 a2) a1 a2 a3 a4.
-  Proof.
-    induct bs; simplify; eauto.
-    eapply IHbs.
-  Qed.
-  
-      rewrite !fuse_lift3_lift2_1.
-      rewrite fuse_lift4_lift2_3_4.
-  Lemma dedup_lift6_2_4 bs :
-    forall T A1 A2 A3 A5 A6 (f : A1 -> A2 -> A3 -> A2 -> A5 -> A6 -> T) a1 a2 a3 a5 a6,
-      lift6 bs f a1 a2 a3 a2 a5 a6 = lift5 bs (fun a1 a2 a3 a5 a6 => f a1 a2 a3 a2 a5 a6) a1 a2 a3 a5 a6.
-  Proof.
-    induct bs; simplify; eauto.
-    eapply IHbs.
-  Qed.
-  
-      rewrite dedup_lift6_2_4.
-      rewrite dedup_lift5_2_5.
-      rewrite fuse_lift2_lift3_1.
-  Lemma swap_lift4_2_3_4 :
-    forall bs T A1 A2 A3 A4 (f1 : A1 -> A2 -> A3 -> A4 -> T) (f2 : A1 -> A4 -> A2 -> A3 -> T) a1 a2 a3 a4,
-      (forall a1 a2 a3 a4, f1 a1 a2 a3 a4 = f2 a1 a4 a2 a3) ->
-      lift4 bs f1 a1 a2 a3 a4 = lift4 bs f2 a1 a4 a2 a3.
-  Proof.
-    induct bs; simpl; intros; eauto.
-    eapply IHbs.
-    intros.
-    eapply FunctionalExtensionality.functional_extensionality.
-    eauto.
-  Qed.
-  
-      erewrite swap_lift4_2_3_4; eauto.
-    }
-    {
-      eauto.
-    }
-  Qed.
-
       rewrite subst_lift3.
       rewrite fuse_lift2_lift3_1.
       rewrite fuse_lift4_lift3_4.
@@ -5851,38 +5883,6 @@ lift2 (fst (strip_subsets L))
     }
   Qed.
 
-  Inductive bwfprop : list base_sort -> prop -> Prop :=
-  | BWfPropTrueFalse L cn :
-      bwfprop L (PTrueFalse cn)
-  | BWfPropBinConn L opr p1 p2 :
-      bwfprop L p1 ->
-      bwfprop L p2 ->
-      bwfprop L (PBinConn opr p1 p2)
-  | BWfPropNot L p :
-      bwfprop L p ->
-      bwfprop L (PNot p)
-  | BWfPropBinPred L opr i1 i2 :
-      bsorting L i1 (binpred_arg1_base_sort opr) ->
-      bsorting L i2 (binpred_arg2_base_sort opr) ->
-      bwfprop L (PBinPred opr i1 i2)
-  | BWfPropEq L b i1 i2 :
-      bsorting L i1 b ->
-      bsorting L i2 b ->
-      bwfprop L (PEq b i1 i2)
-  | BWfPropQuan L q s p :
-      bwfprop (s :: L) p ->
-      bwfprop L (PQuan q s p)
-  .
-  
-  Hint Constructors bwfprop.
-
-  Lemma bwfprop_wellscoped_p L p :
-    bwfprop L p ->
-    wellscoped_p (length L) p.
-  Proof.
-    induct 1; simpl; eauto using bsorting_wellscoped_i.
-  Qed.
-  
   Lemma forall_subst_i_p_iff_subst :
     forall p x bs v b_v,
       let bs' := removen x bs in
@@ -6975,7 +6975,7 @@ lift2 (fst (strip_subsets L))
     forall n s c ,
       nth_error L n = Some s ->
       sorting (my_skipn L (1 + n)) c s ->
-      wfprop L p ->
+      bwfprop (map get_base_sort L) p ->
       wfsorts L ->
       interp_prop (subst_i_ss c (firstn n L) ++ my_skipn L (1 + n)) (subst_i_p n (shift_i_i n 0 c) p).
   Proof.
@@ -7010,11 +7010,6 @@ lift2 (fst (strip_subsets L))
       unfold bs, bsort.
       rewrite <- map_skipn.
       eapply sorting_bsorting; eauto.
-    }
-    assert (Hwfp' : bwfprop bs p).
-    {
-      unfold bs, bsort.
-      eapply wfprop_bwfprop; eauto.
     }
     eapply forall_subst_i_p_intro_imply in Hp; eauto.
     Focus 2.
@@ -7155,7 +7150,7 @@ lift2 (fst (strip_subsets L))
   Lemma interp_prop_subst0_i_p s L p c :
     interp_prop (s :: L) p ->
     sorting L c s ->
-    wfprop (s :: L) p ->
+    bwfprop (get_base_sort s :: map get_base_sort L) p ->
     wfsorts (s :: L) ->
     interp_prop L (subst0_i_p c p).
   Proof.
