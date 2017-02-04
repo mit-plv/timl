@@ -7342,12 +7342,16 @@ lift2 (fst (strip_subsets L))
     forall s',
       sorteq L s' s ->
       bwfsorts L ->
+      let bs := map get_base_sort L in
+      bwfsort bs s ->
+      bwfsort bs s' ->
       sorting L i s'.
   Proof.
+    simpl.
     induct 1; simpl; try solve [intros; eauto | induct 1; simpl in *; econstructor; eauto].
     {
       (* Case Var *)
-      intros s' Heq HL.
+      intros s' Heq HL Hs Hs'.
       invert Heq; simpl in *.
       {
         destruct s; simpl in *; try discriminate.
@@ -7367,7 +7371,10 @@ lift2 (fst (strip_subsets L))
           eauto.
         }
         {
-          eapply admit. (* wellscoped *)
+          eapply bwfsort_wellscoped_s in Hs'.
+          invert Hs'.
+          rewrite map_length in *.
+          eauto.
         }
         {
           rename H into Hnth.
@@ -7402,7 +7409,9 @@ lift2 (fst (strip_subsets L))
           }
           {
             simpl in *.
-            eapply admit. (* bwfprop *)
+            invert Hs'.
+            invert Hs.
+            econstructor; eauto.
           }
           {
             econstructor; eauto.
@@ -7411,12 +7420,15 @@ lift2 (fst (strip_subsets L))
       }
     }
     {
-      intros s' Heq HL.
+      intros s' Heq HL Hs Hs'.
       invert Heq; simpl in *.
       rename H5 into Hiff.
       eapply StgSubsetI; eauto.
       {
-        eapply admit. (* wellscoped *)
+        eapply bwfsort_wellscoped_s in Hs'.
+        invert Hs'.
+        rewrite map_length in *.
+        eauto.
       }
       eapply interp_prop_subst0_i_p in Hiff; eauto.
       {
@@ -7427,7 +7439,9 @@ lift2 (fst (strip_subsets L))
       }
       {
         simpl in *.
-        eapply admit. (* bwfprop *)
+        invert Hs'.
+        invert Hs.
+        econstructor; eauto.
       }
       {
         econstructor; eauto.
