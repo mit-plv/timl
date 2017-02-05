@@ -2419,7 +2419,7 @@ Module M (Time : TIME).
     | S n => nat -> time_fun n
     end.
 
-  Definition interp_sort (b : base_sort) :=
+  Definition interp_bsort (b : base_sort) :=
     match b with
     | BSNat => nat
     | BSUnit => unit
@@ -2433,7 +2433,7 @@ Module M (Time : TIME).
     | S n => fun _ : nat => time_fun_default_value n
     end.
   
-  Definition sort_default_value (b : base_sort) : interp_sort b :=
+  Definition sort_default_value (b : base_sort) : interp_bsort b :=
     match b with
     | BSNat => 0%nat
     | BSUnit => tt
@@ -2441,61 +2441,61 @@ Module M (Time : TIME).
     | BSTimeFun arity => time_fun_default_value arity
     end.
 
-  Fixpoint interp_sorts arg_ks res :=
+  Fixpoint interp_bsorts arg_ks res :=
     match arg_ks with
     | [] => res
-    | arg_k :: arg_ks => interp_sorts arg_ks (interp_sort arg_k -> res)
+    | arg_k :: arg_ks => interp_bsorts arg_ks (interp_bsort arg_k -> res)
     end.
 
-  Fixpoint lift0 arg_ks t : t -> interp_sorts arg_ks t :=
-    match arg_ks return t -> interp_sorts arg_ks t with
+  Fixpoint lift0 arg_ks t : t -> interp_bsorts arg_ks t :=
+    match arg_ks return t -> interp_bsorts arg_ks t with
     | [] => id
     | arg_k :: arg_ks =>
       fun f => lift0 arg_ks (fun ak => f)
     end.
 
-  Fixpoint lift1 arg_ks t1 t : (t1 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t :=
-    match arg_ks return (t1 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t with
+  Fixpoint lift1 arg_ks t1 t : (t1 -> t) -> interp_bsorts arg_ks t1 -> interp_bsorts arg_ks t :=
+    match arg_ks return (t1 -> t) -> interp_bsorts arg_ks t1 -> interp_bsorts arg_ks t with
     | [] =>
       fun f x1 => f x1
     | arg_k :: arg_ks =>
       fun f x1 => lift1 arg_ks (fun a1 ak => f (a1 ak)) x1
     end.
   
-  Fixpoint lift2 arg_ks : forall t1 t2 t, (t1 -> t2 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t :=
-    match arg_ks return forall t1 t2 t, (t1 -> t2 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t with
+  Fixpoint lift2 arg_ks : forall t1 t2 t, (t1 -> t2 -> t) -> interp_bsorts arg_ks t1 -> interp_bsorts arg_ks t2 -> interp_bsorts arg_ks t :=
+    match arg_ks return forall t1 t2 t, (t1 -> t2 -> t) -> interp_bsorts arg_ks t1 -> interp_bsorts arg_ks t2 -> interp_bsorts arg_ks t with
     | [] =>
       fun t1 t2 t f x1 x2 => f x1 x2
     | arg_k :: arg_ks =>
       fun t1 t2 t f x1 x2 => lift2 arg_ks (fun a1 a2 ak => f (a1 ak) (a2 ak)) x1 x2
     end.
   
-  Fixpoint lift3 arg_ks : forall t1 t2 t3 t, (t1 -> t2 -> t3 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t :=
-    match arg_ks return forall t1 t2 t3 t, (t1 -> t2 -> t3 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t with
+  Fixpoint lift3 arg_ks : forall t1 t2 t3 t, (t1 -> t2 -> t3 -> t) -> interp_bsorts arg_ks t1 -> interp_bsorts arg_ks t2 -> interp_bsorts arg_ks t3 -> interp_bsorts arg_ks t :=
+    match arg_ks return forall t1 t2 t3 t, (t1 -> t2 -> t3 -> t) -> interp_bsorts arg_ks t1 -> interp_bsorts arg_ks t2 -> interp_bsorts arg_ks t3 -> interp_bsorts arg_ks t with
     | [] =>
       fun t1 t2 t3 t f x1 x2 x3 => f x1 x2 x3
     | arg_k :: arg_ks =>
       fun t1 t2 t3 t f x1 x2 x3 => lift3 arg_ks (fun a1 a2 a3 ak => f (a1 ak) (a2 ak) (a3 ak)) x1 x2 x3
     end.
 
-  Fixpoint lift4 arg_ks : forall t1 t2 t3 t4 t, (t1 -> t2 -> t3 -> t4 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t4 -> interp_sorts arg_ks t :=
-    match arg_ks return forall t1 t2 t3 t4 t, (t1 -> t2 -> t3 -> t4 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t4 -> interp_sorts arg_ks t with
+  Fixpoint lift4 arg_ks : forall t1 t2 t3 t4 t, (t1 -> t2 -> t3 -> t4 -> t) -> interp_bsorts arg_ks t1 -> interp_bsorts arg_ks t2 -> interp_bsorts arg_ks t3 -> interp_bsorts arg_ks t4 -> interp_bsorts arg_ks t :=
+    match arg_ks return forall t1 t2 t3 t4 t, (t1 -> t2 -> t3 -> t4 -> t) -> interp_bsorts arg_ks t1 -> interp_bsorts arg_ks t2 -> interp_bsorts arg_ks t3 -> interp_bsorts arg_ks t4 -> interp_bsorts arg_ks t with
     | [] =>
       fun t1 t2 t3 t4 t f x1 x2 x3 x4 => f x1 x2 x3 x4
     | arg_k :: arg_ks =>
       fun t1 t2 t3 t4 t f x1 x2 x3 x4 => lift4 arg_ks (fun a1 a2 a3 a4 ak => f (a1 ak) (a2 ak) (a3 ak) (a4 ak)) x1 x2 x3 x4
     end.
 
-  Fixpoint lift5 arg_ks : forall t1 t2 t3 t4 t5 t, (t1 -> t2 -> t3 -> t4 -> t5 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t4 -> interp_sorts arg_ks t5 -> interp_sorts arg_ks t :=
-    match arg_ks return forall t1 t2 t3 t4 t5 t, (t1 -> t2 -> t3 -> t4 -> t5 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t4 -> interp_sorts arg_ks t5 -> interp_sorts arg_ks t with
+  Fixpoint lift5 arg_ks : forall t1 t2 t3 t4 t5 t, (t1 -> t2 -> t3 -> t4 -> t5 -> t) -> interp_bsorts arg_ks t1 -> interp_bsorts arg_ks t2 -> interp_bsorts arg_ks t3 -> interp_bsorts arg_ks t4 -> interp_bsorts arg_ks t5 -> interp_bsorts arg_ks t :=
+    match arg_ks return forall t1 t2 t3 t4 t5 t, (t1 -> t2 -> t3 -> t4 -> t5 -> t) -> interp_bsorts arg_ks t1 -> interp_bsorts arg_ks t2 -> interp_bsorts arg_ks t3 -> interp_bsorts arg_ks t4 -> interp_bsorts arg_ks t5 -> interp_bsorts arg_ks t with
     | [] =>
       fun t1 t2 t3 t4 t5 t f x1 x2 x3 x4 x5 => f x1 x2 x3 x4 x5
     | arg_k :: arg_ks =>
       fun t1 t2 t3 t4 t5 t f x1 x2 x3 x4 x5 => lift5 arg_ks (fun a1 a2 a3 a4 a5 ak => f (a1 ak) (a2 ak) (a3 ak) (a4 ak) (a5 ak)) x1 x2 x3 x4 x5
     end.
 
-  Fixpoint lift6 arg_ks : forall t1 t2 t3 t4 t5 t6 t, (t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t4 -> interp_sorts arg_ks t5 -> interp_sorts arg_ks t6 -> interp_sorts arg_ks t :=
-    match arg_ks return forall t1 t2 t3 t4 t5 t6 t, (t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t) -> interp_sorts arg_ks t1 -> interp_sorts arg_ks t2 -> interp_sorts arg_ks t3 -> interp_sorts arg_ks t4 -> interp_sorts arg_ks t5 -> interp_sorts arg_ks t6 -> interp_sorts arg_ks t with
+  Fixpoint lift6 arg_ks : forall t1 t2 t3 t4 t5 t6 t, (t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t) -> interp_bsorts arg_ks t1 -> interp_bsorts arg_ks t2 -> interp_bsorts arg_ks t3 -> interp_bsorts arg_ks t4 -> interp_bsorts arg_ks t5 -> interp_bsorts arg_ks t6 -> interp_bsorts arg_ks t :=
+    match arg_ks return forall t1 t2 t3 t4 t5 t6 t, (t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t) -> interp_bsorts arg_ks t1 -> interp_bsorts arg_ks t2 -> interp_bsorts arg_ks t3 -> interp_bsorts arg_ks t4 -> interp_bsorts arg_ks t5 -> interp_bsorts arg_ks t6 -> interp_bsorts arg_ks t with
     | [] =>
       fun t1 t2 t3 t4 t5 t6 t f x1 x2 x3 x4 x5 x6 => f x1 x2 x3 x4 x5 x6
     | arg_k :: arg_ks =>
@@ -2703,20 +2703,20 @@ Module M (Time : TIME).
     }
   Defined.
   
-  Definition convert_sort_value k1 k2 : interp_sort k1 -> interp_sort k2.
+  Definition convert_sort_value k1 k2 : interp_bsort k1 -> interp_bsort k2.
   Proof.
     cases (sort_dec k1 k2); subst; eauto.
     intros.
     eapply sort_default_value.
   Defined.
   
-  Fixpoint interp_var (x : var) arg_bs ret_b {struct arg_bs} : interp_sorts arg_bs (interp_sort ret_b) :=
-    match arg_bs return interp_sorts arg_bs (interp_sort ret_b) with
+  Fixpoint interp_var (x : var) arg_bs ret_b {struct arg_bs} : interp_bsorts arg_bs (interp_bsort ret_b) :=
+    match arg_bs return interp_bsorts arg_bs (interp_bsort ret_b) with
     | [] => sort_default_value ret_b
     | arg_b :: arg_bs =>
       match x with
       | 0 => lift0 arg_bs (convert_sort_value arg_b ret_b)
-      | S x => lift1 arg_bs (fun (x : interp_sort ret_b) (_ : interp_sort arg_b) => x) (interp_var x arg_bs ret_b)
+      | S x => lift1 arg_bs (fun (x : interp_bsort ret_b) (_ : interp_bsort arg_b) => x) (interp_var x arg_bs ret_b)
       end
     end.
 
@@ -2725,25 +2725,25 @@ Module M (Time : TIME).
 
     Variables (k_in : base_sort).
     
-    Fixpoint interp_var (x : var) arg_ks k_out (k : interp_sort k_in -> k_out) {struct arg_ks} : interp_sorts arg_ks k_out :=
+    Fixpoint interp_var (x : var) arg_ks k_out (k : interp_bsort k_in -> k_out) {struct arg_ks} : interp_bsorts arg_ks k_out :=
     match arg_ks with
     | [] => k (sort_default_value k_in)
     | arg_k :: arg_ks =>
       match x with
-      | 0 => lift0 arg_ks (fun x : interp_sort arg_k => k (convert_sort_value arg_k k_in x))
-      | S x => @interp_var x arg_ks (interp_sort arg_k -> k_out) (fun (x : interp_sort k_in) (_ : interp_sort arg_k) => k x)
+      | 0 => lift0 arg_ks (fun x : interp_bsort arg_k => k (convert_sort_value arg_k k_in x))
+      | S x => @interp_var x arg_ks (interp_bsort arg_k -> k_out) (fun (x : interp_bsort k_in) (_ : interp_bsort arg_k) => k x)
       end
     end.
 
   End interp_var.
  *)
   
-  Definition interp_iunop opr : interp_sort (iunop_arg_base_sort opr) -> interp_sort (iunop_result_base_sort opr) :=
+  Definition interp_iunop opr : interp_bsort (iunop_arg_base_sort opr) -> interp_bsort (iunop_result_base_sort opr) :=
     match opr with
     | IUBoolNeg => negb
     end.
 
-  Definition interp_ibinop opr : interp_sort (ibinop_arg1_base_sort opr) -> interp_sort (ibinop_arg2_base_sort opr) -> interp_sort (ibinop_result_base_sort opr) :=
+  Definition interp_ibinop opr : interp_bsort (ibinop_arg1_base_sort opr) -> interp_bsort (ibinop_arg2_base_sort opr) -> interp_bsort (ibinop_result_base_sort opr) :=
     match opr with
     | IBTimeAdd => TimeAdd
     | IBTimeMinus => TimeMinus
@@ -2752,7 +2752,7 @@ Module M (Time : TIME).
 
   Definition ite {A} (x : bool) (x1 x2 : A) := if x then x1 else x2.
 
-  Definition interp_iconst cn arg_ks res_k : interp_sorts arg_ks (interp_sort res_k) :=
+  Definition interp_iconst cn arg_ks res_k : interp_bsorts arg_ks (interp_bsort res_k) :=
     match cn with
     | ICTime cn => lift0 arg_ks (convert_sort_value BSTime res_k cn)
     | ICNat cn => lift0 arg_ks (convert_sort_value BSNat res_k cn)
@@ -2760,7 +2760,7 @@ Module M (Time : TIME).
     | ICTT => lift0 arg_ks (convert_sort_value BSUnit res_k tt)
     end.
 
-  Fixpoint interp_idx c arg_ks res_k : interp_sorts arg_ks (interp_sort res_k) :=
+  Fixpoint interp_idx c arg_ks res_k : interp_bsorts arg_ks (interp_bsort res_k) :=
     match c with
     (* | IVar x => interp_var res_k x arg_ks id *)
     | IVar x => interp_var x arg_ks res_k
@@ -2774,7 +2774,7 @@ Module M (Time : TIME).
     | IIte c c1 c2 =>
       lift3 arg_ks ite (interp_idx c arg_ks BSBool) (interp_idx c1 arg_ks res_k) (interp_idx c2 arg_ks res_k)
     | ITimeAbs c =>
-      match res_k return interp_sorts arg_ks (interp_sort res_k) with
+      match res_k return interp_bsorts arg_ks (interp_bsort res_k) with
       | BSTimeFun (S n) =>
         interp_idx c (BSNat :: arg_ks) (BSTimeFun n)
       | res_k => lift0 arg_ks (sort_default_value res_k)
@@ -2838,7 +2838,7 @@ Module M (Time : TIME).
   Definition Time_BigO (arity : nat) : time_fun arity -> time_fun arity -> Prop.
   Admitted.
 
-  Definition interp_binpred opr : interp_sort (binpred_arg1_base_sort opr) -> interp_sort (binpred_arg2_base_sort opr) -> Prop :=
+  Definition interp_binpred opr : interp_bsort (binpred_arg1_base_sort opr) -> interp_bsort (binpred_arg2_base_sort opr) -> Prop :=
     match opr with
     | PBTimeLe => TimeLe
     (* | PBTimeEq => eq *)
@@ -2853,7 +2853,7 @@ Module M (Time : TIME).
 
   Definition interp_true_false_Prop (b : bool) := if b then True else False.
 
-  Fixpoint interp_p arg_ks p : interp_sorts arg_ks Prop :=
+  Fixpoint interp_p arg_ks p : interp_bsorts arg_ks Prop :=
     match p with
     | PTrueFalse cn => lift0 arg_ks (interp_true_false_Prop cn)
     | PBinConn opr p1 p2 =>
@@ -2868,7 +2868,7 @@ Module M (Time : TIME).
     | PQuan q b p => lift1 arg_ks (interp_quan q) (interp_p (b :: arg_ks) p)
     end.
 
-  Fixpoint forall_ arg_ks : interp_sorts arg_ks Prop -> Prop :=
+  Fixpoint forall_ arg_ks : interp_bsorts arg_ks Prop -> Prop :=
     match arg_ks with
     | [] => id
     | arg_k :: arg_ks => fun P => forall_ arg_ks (lift1 arg_ks for_all P)
@@ -3275,31 +3275,31 @@ Module M (Time : TIME).
 
   Require Import Datatypes.
 
-  Lemma interp_sorts_app :
+  Lemma interp_bsorts_app :
     forall new old t,
-      interp_sorts (new ++ old) t = interp_sorts old (interp_sorts new t).
+      interp_bsorts (new ++ old) t = interp_bsorts old (interp_bsorts new t).
   Proof.
     induct new; simpl; eauto.
   Qed.
 
   (* Conceptually: *)
   (*
-  Definition shift0 new ks t (x : interp_sorts ks t) : interp_sorts (new ++ ks) t :=
+  Definition shift0 new ks t (x : interp_bsorts ks t) : interp_bsorts (new ++ ks) t :=
     lift1 ks (fun x => lift0 new x) x.
    *)
   
-  Fixpoint shift0 new ks t : interp_sorts ks t -> interp_sorts (new ++ ks) t :=
-    match new return interp_sorts ks t -> interp_sorts (new ++ ks) t with
+  Fixpoint shift0 new ks t : interp_bsorts ks t -> interp_bsorts (new ++ ks) t :=
+    match new return interp_bsorts ks t -> interp_bsorts (new ++ ks) t with
     | [] => id
     | new_k :: new' =>
       fun x => shift0 new' ks _ (lift1 ks (fun a _ => a) x)
     end.
   
-  Fixpoint shift new n ks t : interp_sorts ks t -> interp_sorts (insert new n ks) t :=
-    match n return interp_sorts ks t -> interp_sorts (insert new n ks) t with
+  Fixpoint shift new n ks t : interp_bsorts ks t -> interp_bsorts (insert new n ks) t :=
+    match n return interp_bsorts ks t -> interp_bsorts (insert new n ks) t with
     | 0 => shift0 new ks t
     | S n' => 
-        match ks return interp_sorts ks t -> interp_sorts (insert new (S n') ks) t with
+        match ks return interp_bsorts ks t -> interp_bsorts (insert new (S n') ks) t with
         | [] => @lift0 new t
         | k :: ks' =>
           fun x => shift new n' ks' _ x
@@ -3632,7 +3632,7 @@ Module M (Time : TIME).
   Hint Constructors wellscoped_p.
 
   Lemma forall_interp_var_eq_shift_gt bs_new :
-    forall bs x y b (f : interp_sort b -> interp_sort b -> Prop),
+    forall bs x y b (f : interp_bsort b -> interp_bsort b -> Prop),
       y < x ->
       y < length bs ->
       (forall x, f x x) ->
@@ -3663,7 +3663,7 @@ Module M (Time : TIME).
   Qed.
   
   Lemma forall_interp_var_eq_shift0_le :
-    forall bs_new y b (f : interp_sort b -> interp_sort b -> Prop) bs,
+    forall bs_new y b (f : interp_bsort b -> interp_bsort b -> Prop) bs,
       y < length bs ->
       (forall x, f x x) ->
       let bs' := bs_new ++ bs in
@@ -3690,7 +3690,7 @@ Module M (Time : TIME).
   Qed.
   
   Lemma interp_var_select' :
-    forall bs_new a bs b T (f : interp_sort b -> T -> Prop) (convert : interp_sort a -> T),
+    forall bs_new a bs b T (f : interp_bsort b -> T -> Prop) (convert : interp_bsort a -> T),
       (forall x, f (convert_sort_value a b x) (convert x)) ->
       (* (forall x, f x x) -> *)
       let bs' := bs_new ++ a :: bs in
@@ -3718,7 +3718,7 @@ Module M (Time : TIME).
   Qed.
 
   Lemma interp_var_select :
-    forall bs_new a bs b (f : interp_sort b -> interp_sort b -> Prop),
+    forall bs_new a bs b (f : interp_bsort b -> interp_bsort b -> Prop),
       (forall x, f x x) ->
       let bs' := bs_new ++ a :: bs in
       forall_
@@ -3730,7 +3730,7 @@ Module M (Time : TIME).
   Qed.
 
   Lemma forall_interp_var_eq_shift_le :
-    forall bs x y b (f : interp_sort b -> interp_sort b -> Prop) bs_new,
+    forall bs x y b (f : interp_bsort b -> interp_bsort b -> Prop) bs_new,
       x <= y ->
       y < length bs ->
       (forall x, f x x) ->
@@ -4554,13 +4554,13 @@ Module M (Time : TIME).
   (*   interp_p (fst (strip_subsets (k :: L))) *)
   (*            (and_all (snd (strip_subsets (k :: L))) ===> (p ===> p0))%idx = *)
   (*   lift2 (fst (strip_subsets L)) *)
-  (*         (fun (a1 a2 : interp_sort (kind_to_sort k) -> Prop) (ak : interp_sort (kind_to_sort k)) *)
+  (*         (fun (a1 a2 : interp_bsort (kind_to_sort k) -> Prop) (ak : interp_bsort (kind_to_sort k)) *)
   (*          => a1 ak -> a2 ak) *)
   (*         (interp_p (kind_to_sort k :: fst (strip_subsets L)) *)
   (*                   (and_all (strip_subset k ++ map shift0_i_p (snd (strip_subsets L))))) *)
   (*         (lift2 (fst (strip_subsets L)) *)
-  (*                (fun (a1 a2 : interp_sort (kind_to_sort k) -> Prop) *)
-  (*                   (ak : interp_sort (kind_to_sort k)) => a1 ak -> a2 ak) *)
+  (*                (fun (a1 a2 : interp_bsort (kind_to_sort k) -> Prop) *)
+  (*                   (ak : interp_bsort (kind_to_sort k)) => a1 ak -> a2 ak) *)
   (*                (interp_p (kind_to_sort k :: fst (strip_subsets L)) p) *)
   (*                (interp_p (kind_to_sort k :: fst (strip_subsets L)) p0)). *)
   (* Proof. *)
@@ -4599,13 +4599,13 @@ Module M (Time : TIME).
         interp_p (fst (strip_subsets (k :: L)))
                  (and_all (snd (strip_subsets (k :: L))) ===> (p ===> p0))%idx =
 lift2 (fst (strip_subsets L))
-          (fun (a1 a2 : interp_sort (kind_to_sort k) -> Prop) (ak : interp_sort (kind_to_sort k))
+          (fun (a1 a2 : interp_bsort (kind_to_sort k) -> Prop) (ak : interp_bsort (kind_to_sort k))
            => a1 ak -> a2 ak)
           (interp_p (kind_to_sort k :: fst (strip_subsets L))
              (and_all (strip_subset k ++ map shift0_i_p (snd (strip_subsets L)))))
           (lift2 (fst (strip_subsets L))
-             (fun (a1 a2 : interp_sort (kind_to_sort k) -> Prop)
-                (ak : interp_sort (kind_to_sort k)) => a1 ak -> a2 ak)
+             (fun (a1 a2 : interp_bsort (kind_to_sort k) -> Prop)
+                (ak : interp_bsort (kind_to_sort k)) => a1 ak -> a2 ak)
              (interp_p (kind_to_sort k :: fst (strip_subsets L)) p)
              (interp_p (kind_to_sort k :: fst (strip_subsets L)) p0)).
       Proof.
@@ -4618,11 +4618,11 @@ lift2 (fst (strip_subsets L))
         interp_p (fst (strip_subsets (KSubset k p :: L)))
                  (and_all (snd (strip_subsets (KSubset k p :: L))) ===> p0)%idx =
         lift2 (fst (strip_subsets L))
-              (fun (a1 a2 : interp_sort (kind_to_sort k) -> Prop)
-                 (ak : interp_sort (kind_to_sort k)) => a1 ak -> a2 ak)
+              (fun (a1 a2 : interp_bsort (kind_to_sort k) -> Prop)
+                 (ak : interp_bsort (kind_to_sort k)) => a1 ak -> a2 ak)
               (lift2 (fst (strip_subsets L))
-                     (fun (a1 a2 : interp_sort (kind_to_sort k) -> Prop)
-                        (ak : interp_sort (kind_to_sort k)) => a1 ak /\ a2 ak)
+                     (fun (a1 a2 : interp_bsort (kind_to_sort k) -> Prop)
+                        (ak : interp_bsort (kind_to_sort k)) => a1 ak /\ a2 ak)
                      (interp_p (kind_to_sort k :: fst (strip_subsets L)) p)
                      (interp_p (kind_to_sort k :: fst (strip_subsets L))
                                (and_all (strip_subset k ++ map shift0_i_p (snd (strip_subsets L))))))
@@ -5061,13 +5061,13 @@ lift2 (fst (strip_subsets L))
 
   Definition apply {A B} (f : A -> B) x := f x.
   
-  Fixpoint subst x bs b_v B {struct bs} : interp_sorts (skipn (S x) bs) (interp_sort b_v) -> interp_sorts bs B -> interp_sorts (removen x bs) B :=
-    match bs return interp_sorts (skipn (S x) bs) (interp_sort b_v) -> interp_sorts bs B -> interp_sorts (removen x bs) B with
+  Fixpoint subst x bs b_v B {struct bs} : interp_bsorts (skipn (S x) bs) (interp_bsort b_v) -> interp_bsorts bs B -> interp_bsorts (removen x bs) B :=
+    match bs return interp_bsorts (skipn (S x) bs) (interp_bsort b_v) -> interp_bsorts bs B -> interp_bsorts (removen x bs) B with
     | [] => fun v body => body
     | b :: bs' =>
-      match x return interp_sorts (skipn (S x) (b :: bs')) (interp_sort b_v) -> interp_sorts (b :: bs') B -> interp_sorts (removen x (b :: bs')) B with
+      match x return interp_bsorts (skipn (S x) (b :: bs')) (interp_bsort b_v) -> interp_bsorts (b :: bs') B -> interp_bsorts (removen x (b :: bs')) B with
       | 0 => fun v body => lift2 bs' (fun body v => body (convert_sort_value b_v b v)) body v
-      | S x' => fun v body => subst x' bs' b_v (interp_sort b -> B) v body
+      | S x' => fun v body => subst x' bs' b_v (interp_bsort b -> B) v body
       end
     end.
 
@@ -5080,7 +5080,7 @@ lift2 (fst (strip_subsets L))
     induct bs; simpl; eauto.
   Qed.
   
-  Lemma subst_lift0 : forall bs x B b_v (v : interp_sorts (skipn (S x) bs) (interp_sort b_v)) (f : B), subst x bs v (lift0 bs f) = lift0 (removen x bs) f.
+  Lemma subst_lift0 : forall bs x B b_v (v : interp_bsorts (skipn (S x) bs) (interp_bsort b_v)) (f : B), subst x bs v (lift0 bs f) = lift0 (removen x bs) f.
   Proof.
     induct bs; cbn in *; intros; eauto.
     destruct x; cbn in *; intros.
@@ -5113,7 +5113,7 @@ lift2 (fst (strip_subsets L))
     eauto.
   Qed.
   
-  Lemma subst_lift2 : forall bs x A1 A2 B b_v (v : interp_sorts (skipn (S x) bs) (interp_sort b_v)) (f : A1 -> A2 -> B) a1 a2, subst x bs v (lift2 bs f a1 a2) = lift2 (removen x bs) f (subst x bs v a1) (subst x bs v a2).
+  Lemma subst_lift2 : forall bs x A1 A2 B b_v (v : interp_bsorts (skipn (S x) bs) (interp_bsort b_v)) (f : A1 -> A2 -> B) a1 a2, subst x bs v (lift2 bs f a1 a2) = lift2 (removen x bs) f (subst x bs v a1) (subst x bs v a2).
   Proof.
     induct bs; cbn in *; intros; eauto.
     destruct x; cbn in *; intros.
@@ -5128,7 +5128,7 @@ lift2 (fst (strip_subsets L))
     }
   Qed.
 
-  Lemma subst_lift1 : forall bs x A1 B b_v (v : interp_sorts (skipn (S x) bs) (interp_sort b_v)) (f : A1 -> B) a1, subst x bs v (lift1 bs f a1) = lift1 (removen x bs) f (subst x bs v a1).
+  Lemma subst_lift1 : forall bs x A1 B b_v (v : interp_bsorts (skipn (S x) bs) (interp_bsort b_v)) (f : A1 -> B) a1, subst x bs v (lift1 bs f a1) = lift1 (removen x bs) f (subst x bs v a1).
   Proof.
     induct bs; cbn in *; intros; eauto.
     destruct x; cbn in *; intros.
@@ -5142,7 +5142,7 @@ lift2 (fst (strip_subsets L))
     }
   Qed.
 
-  Lemma forall_eq_trans bs T (P1 P2 P3 : interp_sorts bs T):
+  Lemma forall_eq_trans bs T (P1 P2 P3 : interp_bsorts bs T):
     forall_ bs (lift2 bs eq P1 P2) ->
     forall_ bs (lift2 bs eq P2 P3) ->
     forall_ bs (lift2 bs eq P1 P3).
@@ -5166,23 +5166,23 @@ lift2 (fst (strip_subsets L))
     econstructor; eauto.
   Defined.
   
-  Definition cast : forall bs1 bs2 T, bs1 = bs2 -> interp_sorts bs1 T -> interp_sorts bs2 T.
+  Definition cast : forall bs1 bs2 T, bs1 = bs2 -> interp_bsorts bs1 T -> interp_bsorts bs2 T.
   Proof.
     refine
-      (fix cast bs1 bs2 T {struct bs1} : bs1 = bs2 -> interp_sorts bs1 T -> interp_sorts bs2 T :=
-         match bs1 return bs1 = bs2 -> interp_sorts bs1 T -> interp_sorts bs2 T with
+      (fix cast bs1 bs2 T {struct bs1} : bs1 = bs2 -> interp_bsorts bs1 T -> interp_bsorts bs2 T :=
+         match bs1 return bs1 = bs2 -> interp_bsorts bs1 T -> interp_bsorts bs2 T with
          | [] =>
-           match bs2 return [] = bs2 -> interp_sorts [] T -> interp_sorts bs2 T with
+           match bs2 return [] = bs2 -> interp_bsorts [] T -> interp_bsorts bs2 T with
            | [] => fun _ a => a
            | _ :: _ => _
            end
          | b1 :: bs1' =>
-           match bs2 return b1 :: bs1' = bs2 -> interp_sorts (b1 :: bs1') T -> interp_sorts bs2 T with
+           match bs2 return b1 :: bs1' = bs2 -> interp_bsorts (b1 :: bs1') T -> interp_bsorts bs2 T with
            | [] => _
            | b2 :: bs2' =>
              fun Heq v =>
-               lift1 bs2' (fun v x => v (eq_rect b2 _ x b1 _)) (cast bs1' bs2' (interp_sort b1 -> T) _ v)
-                     (* lift1 bs2' (fun v x => v (eq_rect (interp_sort b2) (fun T => T) x (interp_sort b1) _)) (cast bs1' bs2' (interp_sort b1 -> T) _ v) *)
+               lift1 bs2' (fun v x => v (eq_rect b2 _ x b1 _)) (cast bs1' bs2' (interp_bsort b1 -> T) _ v)
+                     (* lift1 bs2' (fun v x => v (eq_rect (interp_bsort b2) (fun T => T) x (interp_bsort b1) _)) (cast bs1' bs2' (interp_bsort b1 -> T) _ v) *)
            end
          end
       ).
@@ -5203,22 +5203,22 @@ lift2 (fst (strip_subsets L))
   Arguments cast bs1 bs2 {T} Heq v .
 
 (*          
-          Definition cast : forall bs1 bs2 T1 T2, bs1 = bs2 -> T1 = T2 -> interp_sorts bs1 T1 -> interp_sorts bs2 T2.
+          Definition cast : forall bs1 bs2 T1 T2, bs1 = bs2 -> T1 = T2 -> interp_bsorts bs1 T1 -> interp_bsorts bs2 T2.
           Proof.
             refine
-              (fix cast bs1 bs2 T1 T2 {struct bs1} : bs1 = bs2 -> T1 = T2 -> interp_sorts bs1 T1 -> interp_sorts bs2 T2 :=
-                 match bs1 return bs1 = bs2 -> T1 = T2 -> interp_sorts bs1 T1 -> interp_sorts bs2 T2 with
+              (fix cast bs1 bs2 T1 T2 {struct bs1} : bs1 = bs2 -> T1 = T2 -> interp_bsorts bs1 T1 -> interp_bsorts bs2 T2 :=
+                 match bs1 return bs1 = bs2 -> T1 = T2 -> interp_bsorts bs1 T1 -> interp_bsorts bs2 T2 with
                  | [] =>
-                   match bs2 return [] = bs2 -> T1 = T2 -> interp_sorts [] T1 -> interp_sorts bs2 T2 with
+                   match bs2 return [] = bs2 -> T1 = T2 -> interp_bsorts [] T1 -> interp_bsorts bs2 T2 with
                    | [] => fun _ Heq a => eq_rect T1 _ a T2 Heq
                    | _ :: _ => _
                    end
                  | b1 :: bs1' =>
-                   match bs2 return b1 :: bs1' = bs2 -> T1 = T2 -> interp_sorts (b1 :: bs1') T1 -> interp_sorts bs2 T2 with
+                   match bs2 return b1 :: bs1' = bs2 -> T1 = T2 -> interp_bsorts (b1 :: bs1') T1 -> interp_bsorts bs2 T2 with
                    | [] => _
                    | b2 :: bs2' =>
                      fun Heqs Heq v =>
-                       cast bs1' bs2' (interp_sort b1 -> T1) (interp_sort b2 -> T2) _ _ v
+                       cast bs1' bs2' (interp_bsort b1 -> T1) (interp_bsort b2 -> T2) _ _ v
                    end
                  end
               ).
@@ -5243,7 +5243,7 @@ lift2 (fst (strip_subsets L))
 *)          
 (*
           Lemma cast_eq_intro :
-            forall bs1 bs2 (Heq Heq' : bs1 = bs2) T (a a' : interp_sorts bs1 T),
+            forall bs1 bs2 (Heq Heq' : bs1 = bs2) T (a a' : interp_bsorts bs1 T),
               a = a' ->
               cast bs1 bs2 Heq a = cast bs1 bs2 Heq' a'.
           Proof.
@@ -5263,7 +5263,7 @@ lift2 (fst (strip_subsets L))
           Qed.
 
           Lemma lift1_cast :
-            forall bs1 bs2 A T (f : A -> T) (a : interp_sorts bs1 A) (Heq : bs1 = bs2),
+            forall bs1 bs2 A T (f : A -> T) (a : interp_bsorts bs1 A) (Heq : bs1 = bs2),
               lift1 bs2 f (cast bs1 bs2 Heq a) = cast bs1 bs2 Heq (lift1 bs1 f a).
           Proof.
             induct bs1; destruct bs2; simpl; intros; eauto; try discriminate.
@@ -5276,7 +5276,7 @@ lift2 (fst (strip_subsets L))
  *)
           
   Lemma cast_lift1 :
-    forall bs1 bs2 A T (f : A -> T) (a : interp_sorts bs1 A) (Heq : bs1 = bs2),
+    forall bs1 bs2 A T (f : A -> T) (a : interp_bsorts bs1 A) (Heq : bs1 = bs2),
       cast bs1 bs2 Heq (lift1 bs1 f a) = lift1 bs2 f (cast bs1 bs2 Heq a).
   Proof.
     induct bs1; destruct bs2; simpl; intros; eauto; try discriminate.
@@ -5338,7 +5338,7 @@ lift2 (fst (strip_subsets L))
   Qed.
 
   Lemma cast_refl_eq :
-    forall bs (Heq : bs = bs) T (a : interp_sorts bs T),
+    forall bs (Heq : bs = bs) T (a : interp_bsorts bs T),
       cast bs bs Heq a = a.
   Proof.
     induct bs; simpl; intros; eauto.
@@ -5357,7 +5357,7 @@ lift2 (fst (strip_subsets L))
   Qed.
   
   Lemma cast_roundtrip :
-    forall bs1 bs2 (Heq : bs1 = bs2) (Heq' : bs2 = bs1) T (v : interp_sorts bs1 T),
+    forall bs1 bs2 (Heq : bs1 = bs2) (Heq' : bs2 = bs1) T (v : interp_bsorts bs1 T),
       cast bs2 bs1 Heq' (cast bs1 bs2 Heq v) = v.
     induct bs1; destruct bs2; simpl; intros; eauto; try discriminate.
     rewrite cast_lift1.
@@ -5398,7 +5398,7 @@ lift2 (fst (strip_subsets L))
   Qed.
 
   Lemma forall_interp_var_eq_subst_eq' :
-    forall bs x b (f : interp_sort b -> interp_sort b -> Prop) b_v (v : interp_sorts (skipn (S x) bs) (interp_sort b_v)) (Heq : firstn x bs ++ skipn (S x) bs = removen x bs),
+    forall bs x b (f : interp_bsort b -> interp_bsort b -> Prop) b_v (v : interp_bsorts (skipn (S x) bs) (interp_bsort b_v)) (Heq : firstn x bs ++ skipn (S x) bs = removen x bs),
       nth_error bs x = Some b_v ->
       (forall x, f x x) ->
       let bs' := removen x bs in
@@ -5435,12 +5435,12 @@ lift2 (fst (strip_subsets L))
       rewrite <- lift1_shift0.
       rewrite cast_lift1.
       rewrite fuse_lift2_lift1_1.
-      eapply IHbs with (f := fun x y => interp_sort a -> f x y); eauto.
+      eapply IHbs with (f := fun x y => interp_bsort a -> f x y); eauto.
     }
   Qed.
 
   Lemma forall_interp_var_eq_subst_eq_2' :
-    forall bs x b (f : interp_sort b -> interp_sort b -> Prop) b_v (v : interp_sorts (skipn (S x) bs) (interp_sort b_v)) (Heq : removen x bs = firstn x bs ++ skipn (S x) bs),
+    forall bs x b (f : interp_bsort b -> interp_bsort b -> Prop) b_v (v : interp_bsorts (skipn (S x) bs) (interp_bsort b_v)) (Heq : removen x bs = firstn x bs ++ skipn (S x) bs),
       nth_error bs x = Some b_v ->
       (forall x, f x x) ->
       let bs' := firstn x bs ++ skipn (S x) bs in
@@ -5463,7 +5463,7 @@ lift2 (fst (strip_subsets L))
   Qed.
   
   Lemma forall_interp_var_eq_subst_eq :
-    forall bs x b b_v (v : interp_sorts (skipn (S x) bs) (interp_sort b_v)) (Heq : firstn x bs ++ skipn (S x) bs = removen x bs),
+    forall bs x b b_v (v : interp_bsorts (skipn (S x) bs) (interp_bsort b_v)) (Heq : firstn x bs ++ skipn (S x) bs = removen x bs),
       nth_error bs x = Some b_v ->
       let bs' := removen x bs in
       forall_
@@ -5479,7 +5479,7 @@ lift2 (fst (strip_subsets L))
   Qed.
   
   Lemma forall_interp_var_eq_subst :
-    forall bs x b_v (v : interp_sorts (skipn (S x) bs) (interp_sort b_v)) (Heq : firstn x bs ++ skipn (S x) bs = removen x bs),
+    forall bs x b_v (v : interp_bsorts (skipn (S x) bs) (interp_bsort b_v)) (Heq : firstn x bs ++ skipn (S x) bs = removen x bs),
       nth_error bs x = Some b_v ->
       let bs' := removen x bs in
       forall_
@@ -5500,7 +5500,7 @@ lift2 (fst (strip_subsets L))
   Qed.
   
   Lemma forall_interp_var_eq_subst_eq_2 :
-    forall bs x b b_v (v : interp_sorts (skipn (S x) bs) (interp_sort b_v)) (Heq : removen x bs = firstn x bs ++ skipn (S x) bs),
+    forall bs x b b_v (v : interp_bsorts (skipn (S x) bs) (interp_bsort b_v)) (Heq : removen x bs = firstn x bs ++ skipn (S x) bs),
       nth_error bs x = Some b_v ->
       let bs' := firstn x bs ++ skipn (S x) bs in
       forall_
@@ -5594,7 +5594,7 @@ lift2 (fst (strip_subsets L))
   Qed.
   
   Lemma forall_interp_var_eq_subst_lt :
-    forall bs x y b (f : interp_sort b -> interp_sort b -> Prop) b_v (v : interp_sorts (skipn (S x) bs) (interp_sort b_v)),
+    forall bs x y b (f : interp_bsort b -> interp_bsort b -> Prop) b_v (v : interp_bsorts (skipn (S x) bs) (interp_bsort b_v)),
       y < x ->
       (* y < length bs -> *)
       (forall x, f x x) ->
@@ -5635,7 +5635,7 @@ lift2 (fst (strip_subsets L))
   Qed.
   
   Lemma forall_interp_var_eq_subst_gt :
-    forall bs x y b (f : interp_sort b -> interp_sort b -> Prop) b_v (v : interp_sorts (skipn (S x) bs) (interp_sort b_v)) y',
+    forall bs x y b (f : interp_bsort b -> interp_bsort b -> Prop) b_v (v : interp_bsorts (skipn (S x) bs) (interp_bsort b_v)) y',
       x < y ->
       (forall x, f x x) ->
       y' = y - 1 ->
@@ -5733,7 +5733,7 @@ lift2 (fst (strip_subsets L))
     eauto.
   Qed.
   
-  Lemma subst_lift3 : forall bs x A1 A2 A3 B b_v (v : interp_sorts (skipn (S x) bs) (interp_sort b_v)) (f : A1 -> A2 -> A3 -> B) a1 a2 a3, subst x bs v (lift3 bs f a1 a2 a3) = lift3 (removen x bs) f (subst x bs v a1) (subst x bs v a2) (subst x bs v a3).
+  Lemma subst_lift3 : forall bs x A1 A2 A3 B b_v (v : interp_bsorts (skipn (S x) bs) (interp_bsort b_v)) (f : A1 -> A2 -> A3 -> B) a1 a2 a3, subst x bs v (lift3 bs f a1 a2 a3) = lift3 (removen x bs) f (subst x bs v a1) (subst x bs v a2) (subst x bs v a3).
   Proof.
     induct bs; cbn in *; intros; eauto.
     destruct x; cbn in *; intros.
@@ -7751,7 +7751,28 @@ lift2 (fst (strip_subsets L))
       eapply IHkinding; eauto using wfsort_wellscoped_s, wellscoped_shift_i_k, kdeq_trans, kdeq_sym, sorteq_refl.
     }
   Qed.
+
+  (* values for denotational semantics *)
+
+  (*here*)
   
+  interp_bsort
+  
+  Inductive sortv :=
+  | SVBaseSort (b : base_sort)
+  | SVSubset (s : base_sort) (p : base_sort -> Prop)
+  .
+
+  Inductive tyv :=
+  | TVConst (cn : ty_const)
+  | TVUnOp (opr : ty_un_op) (c : tyv)
+  | TVBinOp (opr : ty_bin_op) (c1 c2 : tyv)
+  | TVArrow (t1 : tyv) (i : idxv) (t2 : tyv)
+  | TVQuan (q : quan) (k : kindv) (t : tyv)
+  | TVQuanI (q : quan) (s : sortv) (t : tyv)
+  | TVRec (k : kindv) (t : tyv) (args : list idxv)
+  .
+
   (* Substitute a 'substitution group' for all variables. *)
   (* In a subtitution group, values for inner variables cannot depend on values for outer variables.  *)
 
