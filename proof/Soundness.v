@@ -877,7 +877,8 @@ Module M (Time : TIME).
   | PBBigO (arity : nat)
   .
 
-  Inductive base_sort :=
+  (* base sorts *)
+  Inductive bsort :=
   | BSNat
   | BSUnit
   | BSBool
@@ -901,13 +902,13 @@ Module M (Time : TIME).
   | PBinConn (opr : prop_bin_conn) (p1 p2 : prop)
   | PNot (p : prop)
   | PBinPred (opr : prop_bin_pred) (i1 i2 : idx)
-  | PEq (b : base_sort) (i1 i2 : idx)
-  | PQuan (q : quan) (b : base_sort) (p : prop)
+  | PEq (b : bsort) (i1 i2 : idx)
+  | PQuan (q : quan) (b : bsort) (p : prop)
   .
   
   Inductive sort :=
-  | SBaseSort (b : base_sort)
-  | SSubset (s : base_sort) (p : prop)
+  | SBaseSort (b : bsort)
+  | SSubset (s : bsort) (p : prop)
   .
 
   (* the type language *)
@@ -991,7 +992,7 @@ Module M (Time : TIME).
 
   Definition TInt := TConst TCInt.
 
-  Definition const_base_sort cn :=
+  Definition const_bsort cn :=
     match cn with
     | ICTT => BSUnit
     | ICBool _ => BSBool
@@ -1000,38 +1001,38 @@ Module M (Time : TIME).
     end
   .
 
-  Definition iunop_arg_base_sort opr :=
+  Definition iunop_arg_bsort opr :=
     match opr with
     | IUBoolNeg => BSBool
     end.
 
-  Definition iunop_result_base_sort opr :=
+  Definition iunop_result_bsort opr :=
     match opr with
     | IUBoolNeg => BSBool
     end.
 
-  Definition ibinop_arg1_base_sort opr :=
+  Definition ibinop_arg1_bsort opr :=
     match opr with
     | IBTimeAdd => BSTime
     | IBTimeMinus => BSTime
     | IBTimeMax => BSTime
     end.
 
-  Definition ibinop_arg2_base_sort opr :=
+  Definition ibinop_arg2_bsort opr :=
     match opr with
     | IBTimeAdd => BSTime
     | IBTimeMinus => BSTime
     | IBTimeMax => BSTime
     end.
 
-  Definition ibinop_result_base_sort opr :=
+  Definition ibinop_result_bsort opr :=
     match opr with
     | IBTimeAdd => BSTime
     | IBTimeMinus => BSTime
     | IBTimeMax => BSTime
     end.
 
-  Definition binpred_arg1_base_sort opr :=
+  Definition binpred_arg1_bsort opr :=
     match opr with
     | PBTimeLe => BSTime
     (* | PBTimeEq => BSTime *)
@@ -1039,7 +1040,7 @@ Module M (Time : TIME).
     end
   .
 
-  Definition binpred_arg2_base_sort opr :=
+  Definition binpred_arg2_bsort opr :=
     match opr with
     | PBTimeLe => BSTime
     (* | PBTimeEq => BSTime *)
@@ -2419,7 +2420,7 @@ Module M (Time : TIME).
     | S n => nat -> time_fun n
     end.
 
-  Definition interp_bsort (b : base_sort) :=
+  Definition interp_bsort (b : bsort) :=
     match b with
     | BSNat => nat
     | BSUnit => unit
@@ -2433,7 +2434,7 @@ Module M (Time : TIME).
     | S n => fun _ : nat => time_fun_default_value n
     end.
   
-  Definition sort_default_value (b : base_sort) : interp_bsort b :=
+  Definition sort_default_value (b : bsort) : interp_bsort b :=
     match b with
     | BSNat => 0%nat
     | BSUnit => tt
@@ -2695,7 +2696,7 @@ Module M (Time : TIME).
       end
     end.
 
-  Definition sort_dec : forall (b b' : base_sort), sumbool (b = b') (b <> b').
+  Definition sort_dec : forall (b b' : bsort), sumbool (b = b') (b <> b').
   Proof.
     induction b; destruct b'; simpl; try solve [left; f_equal; eauto | right; intro Heq; discriminate].
     {
@@ -2723,7 +2724,7 @@ Module M (Time : TIME).
 (*  
   Section interp_var.
 
-    Variables (k_in : base_sort).
+    Variables (k_in : bsort).
     
     Fixpoint interp_var (x : var) arg_ks k_out (k : interp_bsort k_in -> k_out) {struct arg_ks} : interp_bsorts arg_ks k_out :=
     match arg_ks with
@@ -2738,12 +2739,12 @@ Module M (Time : TIME).
   End interp_var.
  *)
   
-  Definition interp_iunop opr : interp_bsort (iunop_arg_base_sort opr) -> interp_bsort (iunop_result_base_sort opr) :=
+  Definition interp_iunop opr : interp_bsort (iunop_arg_bsort opr) -> interp_bsort (iunop_result_bsort opr) :=
     match opr with
     | IUBoolNeg => negb
     end.
 
-  Definition interp_ibinop opr : interp_bsort (ibinop_arg1_base_sort opr) -> interp_bsort (ibinop_arg2_base_sort opr) -> interp_bsort (ibinop_result_base_sort opr) :=
+  Definition interp_ibinop opr : interp_bsort (ibinop_arg1_bsort opr) -> interp_bsort (ibinop_arg2_bsort opr) -> interp_bsort (ibinop_result_bsort opr) :=
     match opr with
     | IBTimeAdd => TimeAdd
     | IBTimeMinus => TimeMinus
@@ -2766,11 +2767,11 @@ Module M (Time : TIME).
     | IVar x => interp_var x arg_ks res_k
     | IConst cn => interp_iconst cn arg_ks res_k 
     | IUnOp opr c =>
-      let f x := convert_sort_value (iunop_result_base_sort opr) res_k (interp_iunop opr x) in
-      lift1 arg_ks f (interp_idx c arg_ks (iunop_arg_base_sort opr))
+      let f x := convert_sort_value (iunop_result_bsort opr) res_k (interp_iunop opr x) in
+      lift1 arg_ks f (interp_idx c arg_ks (iunop_arg_bsort opr))
     | IBinOp opr c1 c2 =>
-      let f x1 x2 := convert_sort_value (ibinop_result_base_sort opr) res_k (interp_ibinop opr x1 x2) in
-      lift2 arg_ks f (interp_idx c1 arg_ks (ibinop_arg1_base_sort opr)) (interp_idx c2 arg_ks (ibinop_arg2_base_sort opr))
+      let f x1 x2 := convert_sort_value (ibinop_result_bsort opr) res_k (interp_ibinop opr x1 x2) in
+      lift2 arg_ks f (interp_idx c1 arg_ks (ibinop_arg1_bsort opr)) (interp_idx c2 arg_ks (ibinop_arg2_bsort opr))
     | IIte c c1 c2 =>
       lift3 arg_ks ite (interp_idx c arg_ks BSBool) (interp_idx c1 arg_ks res_k) (interp_idx c2 arg_ks res_k)
     | ITimeAbs c =>
@@ -2838,7 +2839,7 @@ Module M (Time : TIME).
   Definition Time_BigO (arity : nat) : time_fun arity -> time_fun arity -> Prop.
   Admitted.
 
-  Definition interp_binpred opr : interp_bsort (binpred_arg1_base_sort opr) -> interp_bsort (binpred_arg2_base_sort opr) -> Prop :=
+  Definition interp_binpred opr : interp_bsort (binpred_arg1_bsort opr) -> interp_bsort (binpred_arg2_bsort opr) -> Prop :=
     match opr with
     | PBTimeLe => TimeLe
     (* | PBTimeEq => eq *)
@@ -2862,7 +2863,7 @@ Module M (Time : TIME).
       lift1 arg_ks not (interp_p arg_ks p)
     | PBinPred opr c1 c2 =>
       let f x1 x2 := interp_binpred opr x1 x2 in
-      lift2 arg_ks f (interp_idx c1 arg_ks (binpred_arg1_base_sort opr)) (interp_idx c2 arg_ks (binpred_arg2_base_sort opr))
+      lift2 arg_ks f (interp_idx c1 arg_ks (binpred_arg1_bsort opr)) (interp_idx c2 arg_ks (binpred_arg2_bsort opr))
     | PEq b c1 c2 =>
       lift2 arg_ks eq (interp_idx c1 arg_ks b) (interp_idx c2 arg_ks b)
     | PQuan q b p => lift1 arg_ks (interp_quan q) (interp_p (b :: arg_ks) p)
@@ -2880,7 +2881,7 @@ Module M (Time : TIME).
     | SSubset b p => [p]
     end.
 
-  Definition get_base_sort (s : sort) :=
+  Definition get_bsort (s : sort) :=
     match s with
     | SBaseSort b => b
     | SSubset b _ => b
@@ -2903,7 +2904,7 @@ Module M (Time : TIME).
     end.
   
   Definition interp_prop (ss : sctx) (p : prop) : Prop :=
-    let bs := map get_base_sort ss in
+    let bs := map get_bsort ss in
     let ps := strip_subsets ss in
     let p := (and_all ps ===> p)%idx in
     let P := interp_p bs p in
@@ -4033,9 +4034,9 @@ Module M (Time : TIME).
     eapply forall_shift_i_p_iff_shift; eauto.
   Qed.
 
-  Lemma get_base_sort_shift_i_s :
+  Lemma get_bsort_shift_i_s :
     forall s n x,
-      get_base_sort (shift_i_s n x s) = get_base_sort s.
+      get_bsort (shift_i_s n x s) = get_bsort s.
   Proof.
     induct s; cbn; eauto; intros; f_equal; eauto.
   Qed.
@@ -4049,10 +4050,10 @@ Module M (Time : TIME).
     destruct ls; simpl; f_equal; eauto.
   Qed.
     
-  Lemma map_shift_i_ss n : forall L, map get_base_sort (shift_i_ss n L) = map get_base_sort L.
+  Lemma map_shift_i_ss n : forall L, map get_bsort (shift_i_ss n L) = map get_bsort L.
   Proof.
     induct L; simpl; f_equal; auto.
-    rewrite get_base_sort_shift_i_s; eauto.
+    rewrite get_bsort_shift_i_s; eauto.
   Qed.
 
   Lemma insert_firstn_my_skipn A (new : list A) :
@@ -4067,10 +4068,10 @@ Module M (Time : TIME).
     rewrite app_nil_r; eauto.
   Qed.
 
-  Lemma get_base_sort_insert_shift ls :
+  Lemma get_bsort_insert_shift ls :
     forall L x,
       let L' := shift_i_ss (length ls) (firstn x L) ++ ls ++ my_skipn L x in
-      map get_base_sort L' = insert (map get_base_sort ls) x (map get_base_sort L).
+      map get_bsort L' = insert (map get_bsort ls) x (map get_bsort L).
   Proof.
     simpl.
     intros.
@@ -4460,10 +4461,10 @@ Module M (Time : TIME).
     intros H Hscss Hscp x ls Hle.
     unfold interp_prop in *.
     cbn in *.
-    rewrite !get_base_sort_insert_shift.
+    rewrite !get_bsort_insert_shift.
     rewrite !strip_subsets_insert by la.
-    set (bs := map get_base_sort L) in *.
-    set (bs_new := map get_base_sort ls) in *.
+    set (bs := map get_bsort L) in *.
+    set (bs_new := map get_bsort ls) in *.
     eapply forall_lift2_imply_shift; eauto.
     {
       eapply forall_trans.
@@ -4748,9 +4749,9 @@ lift2 (fst (strip_subsets L))
     eapply sorteq_interp_prop_rev; eauto.
   Qed.
   
-  Lemma sorteq_get_base_sort L k k' :
+  Lemma sorteq_get_bsort L k k' :
     sorteq L k k' ->
-    get_base_sort k' = get_base_sort k.
+    get_bsort k' = get_bsort k.
   Proof.
     induct 1; simplify; eauto.
   Qed.
@@ -4826,11 +4827,11 @@ lift2 (fst (strip_subsets L))
     induct 1; simpl; eauto.
   Qed.
   
-  Lemma equal_sorts_get_base_sort L L' :
+  Lemma equal_sorts_get_bsort L L' :
     equal_sorts L L' ->
-    map get_base_sort L = map get_base_sort L'.
+    map get_bsort L = map get_bsort L'.
   Proof.
-    induct 1; simpl; f_equal; eauto using sorteq_get_base_sort, sorteq_sym.
+    induct 1; simpl; f_equal; eauto using sorteq_get_bsort, sorteq_sym.
   Qed.
   
   Lemma forall_lift4_lift2_lift2_lift4 :
@@ -4883,7 +4884,7 @@ lift2 (fst (strip_subsets L))
     equal_sorts L L' ->
     wellscoped_ss L ->
     wellscoped_ss L' ->
-    let bs := map get_base_sort L in
+    let bs := map get_bsort L in
     let ps := strip_subsets L in
     let ps' := strip_subsets L' in
     iff_ bs (interp_p bs (and_all ps)) (interp_p bs (and_all ps')).
@@ -4952,7 +4953,7 @@ lift2 (fst (strip_subsets L))
       eapply forall_lift4_lift2_lift2_lift4.
       Focus 3.
       {
-        specialize (@forall_shift_i_p_iff_shift (and_all (strip_subsets L)) [b] 0 (map get_base_sort L) 1); intros Hshift.
+        specialize (@forall_shift_i_p_iff_shift (and_all (strip_subsets L)) [b] 0 (map get_bsort L) 1); intros Hshift.
         simpl in *.
         rewrite fuse_lift1_lift2 in Hshift.
         eapply Hshift; eauto.
@@ -4962,7 +4963,7 @@ lift2 (fst (strip_subsets L))
       Unfocus.
       Focus 3.
       {
-        specialize (@forall_shift_i_p_iff_shift (and_all (strip_subsets L')) [b] 0 (map get_base_sort L) 1); intros Hshift.
+        specialize (@forall_shift_i_p_iff_shift (and_all (strip_subsets L')) [b] 0 (map get_bsort L) 1); intros Hshift.
         simpl in *.
         rewrite fuse_lift1_lift2 in Hshift.
         eapply Hshift; eauto.
@@ -4987,7 +4988,7 @@ lift2 (fst (strip_subsets L))
       eapply forall_lift2_lift2_lift2 in H0.
       Focus 3.
       {
-        specialize (@forall_shift_i_p_iff_shift (and_all (strip_subsets L)) [b] 0 (map get_base_sort L) 1); intros Hshift.
+        specialize (@forall_shift_i_p_iff_shift (and_all (strip_subsets L)) [b] 0 (map get_bsort L) 1); intros Hshift.
         simpl in *.
         rewrite fuse_lift1_lift2 in Hshift.
         eapply Hshift; eauto.
@@ -5026,25 +5027,25 @@ lift2 (fst (strip_subsets L))
   Proof.
     intros Heq p Hsc Hsc' Hp.
     unfold interp_prop in *.
-    erewrite <- equal_sorts_get_base_sort; eauto.
+    erewrite <- equal_sorts_get_bsort; eauto.
     simpl in *.
     eapply forall_iff_elim; [eapply Hp|].
     eapply forall_iff_iff_imply; [|eapply forall_iff_refl].
     eapply equal_sorts_strip_subsets; eauto.
   Qed.
   
-  Lemma get_base_sort_subst_i_s :
+  Lemma get_bsort_subst_i_s :
     forall b x v,
-      get_base_sort (subst_i_s x v b) = get_base_sort b.
+      get_bsort (subst_i_s x v b) = get_bsort b.
   Proof.
     induct b; simpl; eauto.
   Qed.
   
-  Lemma get_base_sort_subst_i_ss :
+  Lemma get_bsort_subst_i_ss :
     forall L v,
-      map get_base_sort (subst_i_ss v L) = map get_base_sort L.
+      map get_bsort (subst_i_ss v L) = map get_bsort L.
   Proof.
-    induct L; simpl; intros; f_equal; eauto using get_base_sort_subst_i_s.
+    induct L; simpl; intros; f_equal; eauto using get_bsort_subst_i_s.
   Qed.
 
   Lemma removen_firstn_my_skipn A :
@@ -5523,19 +5524,19 @@ lift2 (fst (strip_subsets L))
     cases (arity ==n arity0); subst; simpl; eauto.
   Qed.
   
-  Inductive bsorting : list base_sort -> idx -> base_sort -> Prop :=
+  Inductive bsorting : list bsort -> idx -> bsort -> Prop :=
   | BStgVar L x s :
       nth_error L x = Some s ->
       bsorting L (IVar x) s
   | BStgConst L cn :
-      bsorting L (IConst cn) (const_base_sort cn)
+      bsorting L (IConst cn) (const_bsort cn)
   | BStgUnOp L opr c :
-      bsorting L c (iunop_arg_base_sort opr) ->
-      bsorting L (IUnOp opr c) (iunop_result_base_sort opr)
+      bsorting L c (iunop_arg_bsort opr) ->
+      bsorting L (IUnOp opr c) (iunop_result_bsort opr)
   | BStgBinOp L opr c1 c2 :
-      bsorting L c1 (ibinop_arg1_base_sort opr) ->
-      bsorting L c2 (ibinop_arg2_base_sort opr) ->
-      bsorting L (IBinOp opr c1 c2) (ibinop_result_base_sort opr)
+      bsorting L c1 (ibinop_arg1_bsort opr) ->
+      bsorting L c2 (ibinop_arg2_bsort opr) ->
+      bsorting L (IBinOp opr c1 c2) (ibinop_result_bsort opr)
   | BStgIte L c c1 c2 s :
       bsorting L c BSBool ->
       bsorting L c1 s ->
@@ -5552,7 +5553,7 @@ lift2 (fst (strip_subsets L))
 
   Hint Constructors bsorting.
   
-  Inductive bwfprop : list base_sort -> prop -> Prop :=
+  Inductive bwfprop : list bsort -> prop -> Prop :=
   | BWfPropTrueFalse L cn :
       bwfprop L (PTrueFalse cn)
   | BWfPropBinConn L opr p1 p2 :
@@ -5563,8 +5564,8 @@ lift2 (fst (strip_subsets L))
       bwfprop L p ->
       bwfprop L (PNot p)
   | BWfPropBinPred L opr i1 i2 :
-      bsorting L i1 (binpred_arg1_base_sort opr) ->
-      bsorting L i2 (binpred_arg2_base_sort opr) ->
+      bsorting L i1 (binpred_arg1_bsort opr) ->
+      bsorting L i2 (binpred_arg2_bsort opr) ->
       bwfprop L (PBinPred opr i1 i2)
   | BWfPropEq L b i1 i2 :
       bsorting L i1 b ->
@@ -5684,8 +5685,8 @@ lift2 (fst (strip_subsets L))
     bsorting L i b ->
     forall opr c,
       i = IUnOp opr c ->
-      bsorting L c (iunop_arg_base_sort opr) /\
-      b = iunop_result_base_sort opr.
+      bsorting L c (iunop_arg_bsort opr) /\
+      b = iunop_result_bsort opr.
   Proof.
     induct 1; intros; try discriminate.
     assert (opr = opr0).
@@ -5698,8 +5699,8 @@ lift2 (fst (strip_subsets L))
 
   Lemma bsorting_IUnOp_invert L opr c b :
     bsorting L (IUnOp opr c) b ->
-    bsorting L c (iunop_arg_base_sort opr) /\
-    b = iunop_result_base_sort opr.
+    bsorting L c (iunop_arg_bsort opr) /\
+    b = iunop_result_bsort opr.
   Proof.
     intros.
     eapply bsorting_IUnOp_invert'; eauto.
@@ -6165,7 +6166,7 @@ lift2 (fst (strip_subsets L))
     eauto.
   Qed.
   
-  Inductive bwfsort : list base_sort -> sort -> Prop :=
+  Inductive bwfsort : list bsort -> sort -> Prop :=
   | BWfStBaseSort L b :
       bwfsort L (SBaseSort b)
   | BWfStSubset L b p :
@@ -6175,13 +6176,13 @@ lift2 (fst (strip_subsets L))
 
   Hint Constructors bwfsort.
 
-  Definition bwfsorts := all_sorts (fun L s => bwfsort (map get_base_sort L) s).
+  Definition bwfsorts := all_sorts (fun L s => bwfsort (map get_bsort L) s).
 
   Lemma bwfsorts_bwfprop_strip_subsets L :
     bwfsorts L ->
     forall n,
       n = length L ->
-      bwfprop (map get_base_sort L) (and_all (strip_subsets L)).
+      bwfprop (map get_bsort L) (and_all (strip_subsets L)).
   Proof.
     induct 1; simpl; intros n ?; subst; eauto.
     {
@@ -6607,7 +6608,7 @@ lift2 (fst (strip_subsets L))
 
   Lemma nth_error_Some_interp_prop_subst_i_p_var L x b p :
     nth_error L x = Some (SSubset b p) ->
-    bwfprop (my_skipn (map get_base_sort L) x) p ->
+    bwfprop (my_skipn (map get_bsort L) x) p ->
     interp_prop L (subst_i_p 0 (IVar x) (shift_i_p (S x) 1 p)).
   Proof.
     intros Hnth Hp.
@@ -6626,7 +6627,7 @@ lift2 (fst (strip_subsets L))
     
     unfold interp_prop.
     simpl.
-    set (bs := map get_base_sort L) in *.
+    set (bs := map get_bsort L) in *.
     assert (Hcmp' : x < length bs).
     {
       subst bs.
@@ -6734,14 +6735,14 @@ lift2 (fst (strip_subsets L))
       nth_error L x = Some s ->
       sorting L (IVar x) (shift_i_s (1 + x) 0 s)
   | StgConst L cn :
-      sorting L (IConst cn) (SBaseSort (const_base_sort cn))
+      sorting L (IConst cn) (SBaseSort (const_bsort cn))
   | StgUnOp L opr c :
-      sorting L c (SBaseSort (iunop_arg_base_sort opr)) ->
-      sorting L (IUnOp opr c) (SBaseSort (iunop_result_base_sort opr))
+      sorting L c (SBaseSort (iunop_arg_bsort opr)) ->
+      sorting L (IUnOp opr c) (SBaseSort (iunop_result_bsort opr))
   | StgBinOp L opr c1 c2 :
-      sorting L c1 (SBaseSort (ibinop_arg1_base_sort opr)) ->
-      sorting L c2 (SBaseSort (ibinop_arg2_base_sort opr)) ->
-      sorting L (IBinOp opr c1 c2) (SBaseSort (ibinop_result_base_sort opr))
+      sorting L c1 (SBaseSort (ibinop_arg1_bsort opr)) ->
+      sorting L c2 (SBaseSort (ibinop_arg2_bsort opr)) ->
+      sorting L (IBinOp opr c1 c2) (SBaseSort (ibinop_result_bsort opr))
   | StgIte L c c1 c2 s :
       sorting L c SBool ->
       sorting L c1 s ->
@@ -6778,18 +6779,18 @@ lift2 (fst (strip_subsets L))
   
   Lemma sorting_bsorting L i s :
     sorting L i s ->
-    bsorting (map get_base_sort L) i (get_base_sort s).
+    bsorting (map get_bsort L) i (get_bsort s).
   Proof.
     induct 1; simpl; eauto.
     econstructor.
-    rewrite get_base_sort_shift_i_s.
+    rewrite get_bsort_shift_i_s.
     erewrite map_nth_error; eauto.
   Qed.
   
   Lemma sorting_bsorting' L i s b :
     sorting L i s ->
-    b = get_base_sort s ->
-    bsorting (map get_base_sort L) i b.
+    b = get_bsort s ->
+    bsorting (map get_bsort L) i b.
   Proof.
     intros; subst; eapply sorting_bsorting; eauto.
   Qed.
@@ -6807,7 +6808,7 @@ lift2 (fst (strip_subsets L))
     sorting L i s ->
     forall b p,
       s = SSubset b p ->
-      bwfprop (b :: map get_base_sort L) p ->
+      bwfprop (b :: map get_bsort L) p ->
       interp_prop L (subst_i_p 0 i p).
   Proof.
     induct 1; simpl; try rename b into b'; try rename p into p'; intros b p Hs Hp; subst; eauto; try discriminate.
@@ -6825,7 +6826,7 @@ lift2 (fst (strip_subsets L))
       rewrite map_app in *.
       rewrite skipn_my_skipn in *.
       simpl in *.
-      eapply bwfprop_shift_i_p_rev with (L1 := [b]) (L2 := map get_base_sort (firstn x L) ++ [b]) (L3 := map get_base_sort (my_skipn L (S x))) in Hp; simpl; eauto.
+      eapply bwfprop_shift_i_p_rev with (L1 := [b]) (L2 := map get_bsort (firstn x L) ++ [b]) (L3 := map get_bsort (my_skipn L (S x))) in Hp; simpl; eauto.
       {
         simpl in *.
         rewrite <- map_my_skipn.
@@ -6859,7 +6860,7 @@ lift2 (fst (strip_subsets L))
       }
       unfold interp_prop in IHsorting2.
       simpl in IHsorting2.
-      set (bs := map get_base_sort L) in *.
+      set (bs := map get_bsort L) in *.
       set (ps := interp_p bs (and_all (strip_subsets L))) in *.
       assert (IHsorting2' : imply_ bs ps (subst 0 (b :: bs) (interp_idx c1 bs b) (interp_p (b :: bs) p))).
       {
@@ -6901,7 +6902,7 @@ lift2 (fst (strip_subsets L))
     forall n s c ,
       nth_error L n = Some s ->
       sorting (my_skipn L (1 + n)) c s ->
-      bwfprop (map get_base_sort L) p ->
+      bwfprop (map get_bsort L) p ->
       bwfsorts L ->
       interp_prop (subst_i_ss c (firstn n L) ++ my_skipn L (1 + n)) (subst_i_p n (shift_i_i n 0 c) p).
   Proof.
@@ -6912,7 +6913,7 @@ lift2 (fst (strip_subsets L))
     eapply nth_error_Some_lt in Hn.
     rewrite !strip_subsets_app by la.
     rewrite !map_app.
-    rewrite !get_base_sort_subst_i_ss.
+    rewrite !get_bsort_subst_i_ss.
 
     rewrite <- !map_app.
     rewrite length_subst_i_ss.
@@ -6920,12 +6921,12 @@ lift2 (fst (strip_subsets L))
 
     rewrite <- !removen_firstn_my_skipn.
     rewrite !map_removen.
-    set (bs := map get_base_sort L) in *.
+    set (bs := map get_bsort L) in *.
     set (bs' := removen n bs) in *.
 
     rewrite <- skipn_my_skipn in *.
 
-    set (bsort := get_base_sort s) in *.
+    set (bsort := get_bsort s) in *.
     assert (Hnth' : nth_error bs n = Some bsort).
     {
       unfold bs, bsort.
@@ -7026,7 +7027,7 @@ lift2 (fst (strip_subsets L))
     assert (Hc'' : imply_ bs' (interp_p bs' (shift_i_p n 0 (and_all (strip_subsets (skipn (S n) L))))) (interp_p bs' (shift_i_p n 0 (subst_i_p 0 c p0)))).
     {
       rewrite <- (firstn_my_skipn n bs').
-      assert (Hskipn : my_skipn bs' n = map get_base_sort (skipn (S n) L)).
+      assert (Hskipn : my_skipn bs' n = map get_bsort (skipn (S n) L)).
       {
         subst bs'.
         subst bs.
@@ -7075,7 +7076,7 @@ lift2 (fst (strip_subsets L))
   Lemma interp_prop_subst0_i_p s L p v :
     interp_prop (s :: L) p ->
     sorting L v s ->
-    bwfprop (get_base_sort s :: map get_base_sort L) p ->
+    bwfprop (get_bsort s :: map get_bsort L) p ->
     bwfsorts (s :: L) ->
     interp_prop L (subst0_i_p v p).
   Proof.
@@ -7101,7 +7102,7 @@ lift2 (fst (strip_subsets L))
     forall s',
       sorteq L s' s ->
       bwfsorts L ->
-      let bs := map get_base_sort L in
+      let bs := map get_bsort L in
       bwfsort bs s ->
       bwfsort bs s' ->
       sorting L i s'.
@@ -7318,8 +7319,8 @@ lift2 (fst (strip_subsets L))
       wfprop L p ->
       wfprop L (PNot p)
   | WfPropBinPred L opr i1 i2 :
-      sorting L i1 (SBaseSort (binpred_arg1_base_sort opr)) ->
-      sorting L i2 (SBaseSort (binpred_arg2_base_sort opr)) ->
+      sorting L i1 (SBaseSort (binpred_arg1_bsort opr)) ->
+      sorting L i2 (SBaseSort (binpred_arg2_bsort opr)) ->
       wfprop L (PBinPred opr i1 i2)
   | WfPropEq L b i1 i2 :
       sorting L i1 (SBaseSort b) ->
@@ -7344,7 +7345,7 @@ lift2 (fst (strip_subsets L))
 
   Lemma wfprop_bwfprop L p :
     wfprop L p ->
-    bwfprop (map get_base_sort L) p.
+    bwfprop (map get_bsort L) p.
   Proof.
     induct 1; simpl; eauto using sorting_bsorting.
     {
@@ -7361,7 +7362,7 @@ lift2 (fst (strip_subsets L))
   
   Lemma wfsort_bwfsort L s :
     wfsort L s ->
-    bwfsort (map get_base_sort L) s.
+    bwfsort (map get_bsort L) s.
   Proof.
     induct 1; simpl; econstructor; eauto.
     eapply wfprop_bwfprop in H.
@@ -7759,8 +7760,8 @@ lift2 (fst (strip_subsets L))
   interp_bsort
   
   Inductive sortv :=
-  | SVBaseSort (b : base_sort)
-  | SVSubset (s : base_sort) (p : base_sort -> Prop)
+  | SVBaseSort (b : bsort)
+  | SVSubset (s : bsort) (p : bsort -> Prop)
   .
 
   Inductive tyv :=
