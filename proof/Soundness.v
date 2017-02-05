@@ -7448,8 +7448,6 @@ lift2 (fst (strip_subsets L))
   Qed.
  *)
 
-  (*here*)
-  
   Inductive kdeq : sctx -> kind -> kind -> Prop :=
   | KdEqKType L :
       kdeq L KType KType
@@ -7461,6 +7459,25 @@ lift2 (fst (strip_subsets L))
 
   Hint Constructors kdeq.
 
+  Lemma kdeq_refl : forall k L, kdeq L k k.
+  Proof.
+    induct k; simpl; eauto using sorteq_refl.
+  Qed.
+
+  Lemma kdeq_sym L k k' : kdeq L k k' -> kdeq L k' k.
+  Proof.
+    induct 1; simpl; eauto using sorteq_sym.
+  Qed.
+
+  Lemma kdeq_trans L a b :
+    kdeq L a b ->
+    forall c,
+      kdeq L b c ->
+      kdeq L a c.
+  Proof.
+    induct 1; simpl; eauto; intros c Hbc; invert Hbc; eauto using sorteq_trans.
+  Qed.
+  
   Inductive idxeq : sctx -> idx -> idx -> sort -> Prop :=
   | IEBaseSort L i i' b :
       interp_prop L (PEq b i i') ->
@@ -7470,6 +7487,8 @@ lift2 (fst (strip_subsets L))
       idxeq L i i' (SSubset b p)
   .
 
+  Hint Constructors idxeq.
+  
   Fixpoint KArrows ss :=
     match ss with
     | [] => KType
@@ -7538,6 +7557,8 @@ lift2 (fst (strip_subsets L))
       tyeq L K a c k
   .
 
+  Hint Constructors tyeq.
+  
   Inductive wfkind : sctx -> kind -> Prop :=
   | WfKdType L :
       wfkind L KType
@@ -7546,11 +7567,14 @@ lift2 (fst (strip_subsets L))
       wfkind L k ->
       wfkind L (KArrow s k)
   .
+
+  Hint Constructors wfkind.
   
   Inductive kinding : sctx -> kctx -> ty -> kind -> Prop :=
-  | KdgVar L K x k :
+  | KdgVar L K x k k' :
       nth_error K x = Some k ->
-      kinding L K (TVar x) k
+      kdeq L k k' ->
+      kinding L K (TVar x) k'
   | KdgConst L K cn :
       kinding L K (TConst cn) KType
   | KdgUnOp L K opr t :
@@ -7565,10 +7589,11 @@ lift2 (fst (strip_subsets L))
       sorting L i STime ->
       kinding L K t2 KType ->
       kinding L K (TArrow t1 i t2) KType
-  | KdgAbs L K s t k :
+  | KdgAbs L K s t k s' :
       wfsort L s ->
       kinding (s :: L) (map shift0_i_k K) t (shift0_i_k k) ->
-      kinding L K (TAbs s t) (KArrow s k)
+      sorteq L s s' ->
+      kinding L K (TAbs s t) (KArrow s' k)
   | KdgApp L K t i s k :
       kinding L K t (KArrow s k) ->
       sorting L i s ->
@@ -7589,20 +7614,119 @@ lift2 (fst (strip_subsets L))
       kinding L K (TRec k c args) KType
   .
 
+  Hint Constructors kinding.
+
+  Lemma sorteq_shift_i_k L s s' :
+    sorteq L s s' ->
+    forall x ls,
+      let n := length ls in
+      x <= length L ->
+      wellscoped_ss L ->
+      wellscoped_s (length L) s ->
+      wellscoped_s (length L) s' ->
+      sorteq (shift_i_ss n (firstn x L) ++ ls ++ my_skipn L x) (shift_i_s n x s) (shift_i_s n x s').
+  Proof.
+    induct 1; simpl; eauto.
+    intros x ls Hx HL Hs Hs'.
+    econstructor; eauto.
+    invert Hs.
+    invert Hs'.
+    eapply interp_prop_shift_i_p with (x := S x) (ls := ls) in H; simpl; eauto with db_la;
+      econstructor; eauto.
+  Qed.        
+
+  Inductive wellscoped_k : nat -> kind -> Prop :=
+  | WsckType L :
+      wellscoped_k L KType
+  | WsckArrow L s k :
+      wellscoped_s L s ->
+      wellscoped_k L k ->
+      wellscoped_k L (KArrow s k)
+  .
+
+  Hint Constructors wellscoped_k.
+  
+  Lemma kdeq_shift_i_k L k k' :
+    kdeq L k k' ->
+    forall x ls,
+      let n := length ls in
+      x <= length L ->
+      wellscoped_ss L ->
+      wellscoped_k (length L) k ->
+      wellscoped_k (length L) k' ->
+      kdeq (shift_i_ss n (firstn x L) ++ ls ++ my_skipn L x) (shift_i_k n x k) (shift_i_k n x k').
+  Proof.
+    induct 1; simpl; eauto.
+    intros x ls Hx HL Hk Hk'.
+    invert Hk.
+    invert Hk'.
+    econstructor; eauto.
+    eapply sorteq_shift_i_k; eauto.
+  Qed.
+
+  Lemma kdeq_shift_i_k_1_0 L k k' :
+    kdeq L k k' ->
+    forall s,
+      wellscoped_ss L ->
+      wellscoped_k (length L) k ->
+      wellscoped_k (length L) k' ->
+      kdeq (s :: L) (shift_i_k 1 0 k) (shift_i_k 1 0 k').
+  Proof.
+    intros H; intros; eapply kdeq_shift_i_k with (x := 0) (ls := [s]) in H; eauto with db_la.
+    simpl in *.
+    rewrite my_skipn_0 in *.
+    eauto.
+  Qed.
+
+  Hint Extern 0 (wellscoped_ss (_ :: _)) => econstructor.
+  
+  Lemma wellscoped_shift_i_s L p :
+    wellscoped_s L p ->
+    forall x n L',
+      L' = n + L ->
+      wellscoped_s L' (shift_i_s n x p).
+  Proof.
+    induct 1; simpl; try solve [intros; subst; eauto using wellscoped_shift_i_p with db_la].
+  Qed.
+  
+  Lemma wellscoped_shift_i_k L k :
+    wellscoped_k L k ->
+    forall x n L',
+      L' = n + L ->
+      wellscoped_k L' (shift_i_k n x k).
+  Proof.
+    induct 1; simpl; try solve [intros; subst; eauto using wellscoped_shift_i_s with db_la].
+  Qed.
+  
   Lemma KdgEq L K t k :
     kinding L K t k ->
     forall k',
       kdeq L k' k ->
+      wellscoped_ss L ->
+      wellscoped_k (length L) k ->
+      wellscoped_k (length L) k' ->
       kinding L K t k'.
   Proof.
-    induct 1; simpl; try solve [intros; eauto | induct 1; simpl in *; econstructor; eauto].
+    induct 1; simpl; try solve [intros; eauto using kdeq_trans, kdeq_sym | induct 1; simpl in *; econstructor; eauto using kdeq_trans, kdeq_sym]; intros k' Heq HL Hk Hk'.
     {
-      intros s' Heq.
-      invert Heq; simpl in *.
+      invert Heq; simpl in *; eauto.
+      econstructor; eauto using kdeq_trans, kdeq_sym, kdeq_refl, sorteq_refl, sorteq_trans, sorteq_sym.
+      unfold shift0_i_k in *.
+      invert Hk.
+      invert Hk'.
+      eapply IHkinding; eauto using wfsort_wellscoped_s, wellscoped_shift_i_k.
+      eapply kdeq_shift_i_k_1_0; eauto.
+    }
+    {
+      invert Heq; simpl in *; eauto.
+      econstructor; eauto.
+      invert Hk.
+      invert Hk'.
+      eapply IHkinding; eauto using wfsort_wellscoped_s, wellscoped_shift_i_k, kdeq_trans, kdeq_sym, sorteq_refl.
       {
-        destruct s; simpl in *; try discriminate.
-        invert H3.
-        eapply StgVar'; eauto.
+        econstructor; eauto.
+        (*here*)
+        eapply sorting_w
       }
     }
   Qed.
