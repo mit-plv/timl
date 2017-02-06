@@ -7515,76 +7515,6 @@ lift2 (fst (strip_subsets L))
 
   Hint Constructors idxeq.
   
-  Fixpoint KArrows ss :=
-    match ss with
-    | [] => KType
-    | s :: ss => KArrow s (KArrows ss)
-    end.
-
-  (* a version that builds in transitivity *)
-  Inductive tyeq : sctx -> kctx -> ty -> ty -> kind -> Prop :=
-  (* | TyEqVar L x : *)
-  (*     tyeq L (CVar x) (CVar x) *)
-  (* | TyEqConst L cn : *)
-  (*     tyeq L (CConst cn) (CConst cn) *)
-  | TyEqUnOp L K opr t t' :
-      tyeq L K t t' KType ->
-      tyeq L K (TUnOp opr t) (TUnOp opr t') KType
-  | TyEqBinOp L K opr t1 t2 t1' t2' :
-      tyeq L K t1 t1' KType ->
-      tyeq L K t2 t2' KType ->
-      tyeq L K (TBinOp opr t1 t2) (TBinOp opr t1' t2') KType
-  | TyEqArrow L K t1 i t2 t1' i' t2':
-      tyeq L K t1 t1' KType ->
-      interp_prop L (TEq i i') ->
-      tyeq L K t2 t2' KType ->
-      tyeq L K (TArrow t1 i t2) (TArrow t1' i' t2') KType
-  | TyEqAbs L K s t s' t' k :
-      sorteq L s s' ->
-      tyeq (s :: L) (map shift0_i_k K) t t' (shift0_i_k k) ->
-      tyeq L K (TAbs s t) (TAbs s' t') (KArrow s k)
-  | TyEqApp L K t i t' i' s k :
-      tyeq L K t t' (KArrow s k ) ->
-      idxeq L i i' s ->
-      tyeq L K (TApp t i) (TApp t' i') k
-  | TyEqBeta L K s t i k :
-      tyeq L K (TApp (TAbs s t) i) (subst0_i_t i t) k
-  (* | TyEqBetaRev L K t1 t2  : *)
-  (*     tyeq L K (subst0_c_c t2 t1) (CApp (CAbs t1) t2) *)
-  | TyEqQuan L K quan k t k' t' :
-      kdeq L k k' ->
-      tyeq L (k :: K) t t' KType ->
-      tyeq L K (TQuan quan k t) (TQuan quan k' t') KType
-  | TyEqQuanI L K quan s t s' t' :
-      sorteq L s s' ->
-      tyeq (s :: L) (map shift0_i_k K) t t' KType ->
-      tyeq L K (TQuanI quan s t) (TQuanI quan s' t') KType
-  | TyEqRec L K k c args k' c' args' sorts :
-      kdeq L k k' ->
-      tyeq L (k :: K) c c' k ->
-      k = KArrows sorts ->
-      Forall3 (idxeq L) args args' sorts ->
-      tyeq L K (TRec k c args) (TRec k' c' args') KType
-  (* the following rules are just here to satisfy reflexivity *)
-  (* don't do deep equality test of two CAbs's *)
-  (* | TyEqAbs L t : *)
-  (*     tyeq L (CAbs t) (CAbs t) *)
-  (* | TyEqApp L c1 c2 : *)
-  (*     tyeq L (CApp c1 c2) (CApp c1 c2) *)
-  (* structural rules *)
-  | TyEqRefl L K t k :
-      tyeq L K t t k
-  | TyEqSym L K a b k :
-      tyeq L K a b k ->
-      tyeq L K b a k
-  | TyEqTrans L K a b c k :
-      tyeq L K a b k ->
-      tyeq L K b c k ->
-      tyeq L K a c k
-  .
-
-  Hint Constructors tyeq.
-  
   Inductive wfkind : sctx -> kind -> Prop :=
   | WfKdType L :
       wfkind L KType
@@ -7596,53 +7526,6 @@ lift2 (fst (strip_subsets L))
 
   Hint Constructors wfkind.
   
-  Inductive kinding : sctx -> kctx -> ty -> kind -> Prop :=
-  | KdgVar L K x k k' :
-      nth_error K x = Some k ->
-      kdeq L k k' ->
-      kinding L K (TVar x) k'
-  | KdgConst L K cn :
-      kinding L K (TConst cn) KType
-  | KdgUnOp L K opr t :
-      kinding L K t KType ->
-      kinding L K (TUnOp opr t) KType
-  | KdgBinOp L K opr c1 c2 :
-      kinding L K c1 KType ->
-      kinding L K c2 KType ->
-      kinding L K (TBinOp opr c1 c2) KType
-  | KdgArrow L K t1 i t2 :
-      kinding L K t1 KType ->
-      sorting L i STime ->
-      kinding L K t2 KType ->
-      kinding L K (TArrow t1 i t2) KType
-  | KdgAbs L K s t k s' :
-      wfsort L s ->
-      kinding (s :: L) (map shift0_i_k K) t (shift0_i_k k) ->
-      sorteq L s s' ->
-      kinding L K (TAbs s t) (KArrow s' k)
-  | KdgApp L K t i s k :
-      kinding L K t (KArrow s k) ->
-      sorting L i s ->
-      wellscoped_s (length L) s ->
-      kinding L K (TApp t i) k
-  | KdgQuan L K quan k c :
-      wfkind L k ->
-      kinding L (k :: K) c KType ->
-      kinding L K (TQuan quan k c) KType
-  | KdgQuanI L K quan s c :
-      wfsort L s ->
-      kinding (s :: L) (map shift0_i_k K) c KType ->
-      kinding L K (TQuanI quan s c) KType
-  | KdgRec L K k c args sorts :
-      wfkind L k ->
-      kinding L (k :: K) c k ->
-      k = KArrows sorts ->
-      Forall2 (sorting L) args sorts ->
-      kinding L K (TRec k c args) KType
-  .
-
-  Hint Constructors kinding.
-
   Lemma sorteq_shift_i_k L s s' :
     sorteq L s s' ->
     forall x ls,
@@ -7725,6 +7608,59 @@ lift2 (fst (strip_subsets L))
     induct 1; simpl; try solve [intros; subst; eauto using wellscoped_shift_i_s with db_la].
   Qed.
   
+  Fixpoint KArrows ss :=
+    match ss with
+    | [] => KType
+    | s :: ss => KArrow s (KArrows ss)
+    end.
+
+  Inductive kinding : sctx -> kctx -> ty -> kind -> Prop :=
+  | KdgVar L K x k k' :
+      nth_error K x = Some k ->
+      kdeq L k k' ->
+      kinding L K (TVar x) k'
+  | KdgConst L K cn :
+      kinding L K (TConst cn) KType
+  | KdgUnOp L K opr t :
+      kinding L K t KType ->
+      kinding L K (TUnOp opr t) KType
+  | KdgBinOp L K opr c1 c2 :
+      kinding L K c1 KType ->
+      kinding L K c2 KType ->
+      kinding L K (TBinOp opr c1 c2) KType
+  | KdgArrow L K t1 i t2 :
+      kinding L K t1 KType ->
+      sorting L i STime ->
+      kinding L K t2 KType ->
+      kinding L K (TArrow t1 i t2) KType
+  | KdgAbs L K s t k s' :
+      wfsort L s ->
+      kinding (s :: L) (map shift0_i_k K) t (shift0_i_k k) ->
+      sorteq L s s' ->
+      kinding L K (TAbs s t) (KArrow s' k)
+  | KdgApp L K t i s k :
+      kinding L K t (KArrow s k) ->
+      sorting L i s ->
+      wellscoped_s (length L) s ->
+      kinding L K (TApp t i) k
+  | KdgQuan L K quan k c :
+      wfkind L k ->
+      kinding L (k :: K) c KType ->
+      kinding L K (TQuan quan k c) KType
+  | KdgQuanI L K quan s c :
+      wfsort L s ->
+      kinding (s :: L) (map shift0_i_k K) c KType ->
+      kinding L K (TQuanI quan s c) KType
+  | KdgRec L K k c args sorts :
+      wfkind L k ->
+      kinding L (k :: K) c k ->
+      k = KArrows sorts ->
+      Forall2 (sorting L) args sorts ->
+      kinding L K (TRec k c args) KType
+  .
+
+  Hint Constructors kinding.
+
   Lemma KdgEq L K t k :
     kinding L K t k ->
     forall k',
@@ -7753,11 +7689,128 @@ lift2 (fst (strip_subsets L))
     }
   Qed.
 
+  (* a version that builds in transitivity *)
+  Inductive tyeq : sctx -> kctx -> ty -> ty -> kind -> Prop :=
+  (* | TyEqVar L x : *)
+  (*     tyeq L (CVar x) (CVar x) *)
+  (* | TyEqConst L cn : *)
+  (*     tyeq L (CConst cn) (CConst cn) *)
+  | TyEqUnOp L K opr t t' :
+      tyeq L K t t' KType ->
+      tyeq L K (TUnOp opr t) (TUnOp opr t') KType
+  | TyEqBinOp L K opr t1 t2 t1' t2' :
+      tyeq L K t1 t1' KType ->
+      tyeq L K t2 t2' KType ->
+      tyeq L K (TBinOp opr t1 t2) (TBinOp opr t1' t2') KType
+  | TyEqArrow L K t1 i t2 t1' i' t2':
+      tyeq L K t1 t1' KType ->
+      interp_prop L (TEq i i') ->
+      tyeq L K t2 t2' KType ->
+      tyeq L K (TArrow t1 i t2) (TArrow t1' i' t2') KType
+  | TyEqAbs L K s t s' t' k :
+      sorteq L s s' ->
+      tyeq (s :: L) (map shift0_i_k K) t t' (shift0_i_k k) ->
+      tyeq L K (TAbs s t) (TAbs s' t') (KArrow s k)
+  | TyEqApp L K t i t' i' s k :
+      tyeq L K t t' (KArrow s k ) ->
+      idxeq L i i' s ->
+      tyeq L K (TApp t i) (TApp t' i') k
+  | TyEqBeta L K s t i k :
+      tyeq L K (TApp (TAbs s t) i) (subst0_i_t i t) k
+  (* | TyEqBetaRev L K t1 t2  : *)
+  (*     tyeq L K (subst0_c_c t2 t1) (CApp (CAbs t1) t2) *)
+  | TyEqQuan L K quan k t k' t' :
+      kdeq L k k' ->
+      tyeq L (k :: K) t t' KType ->
+      tyeq L K (TQuan quan k t) (TQuan quan k' t') KType
+  | TyEqQuanI L K quan s t s' t' :
+      sorteq L s s' ->
+      tyeq (s :: L) (map shift0_i_k K) t t' KType ->
+      tyeq L K (TQuanI quan s t) (TQuanI quan s' t') KType
+  | TyEqRec L K k c args k' c' args' sorts :
+      kdeq L k k' ->
+      tyeq L (k :: K) c c' k ->
+      k = KArrows sorts ->
+      Forall3 (idxeq L) args args' sorts ->
+      tyeq L K (TRec k c args) (TRec k' c' args') KType
+  (* the following rules are just here to satisfy reflexivity *)
+  (* don't do deep equality test of two CAbs's *)
+  (* | TyEqAbs L t : *)
+  (*     tyeq L (CAbs t) (CAbs t) *)
+  (* | TyEqApp L c1 c2 : *)
+  (*     tyeq L (CApp c1 c2) (CApp c1 c2) *)
+  (* structural rules *)
+  | TyEqRefl L K t k :
+      tyeq L K t t k
+  | TyEqSym L K a b k :
+      tyeq L K a b k ->
+      tyeq L K b a k
+  | TyEqTrans L K a b c k :
+      tyeq L K a b k ->
+      tyeq L K b c k ->
+      tyeq L K a c k
+  .
+
+  Hint Constructors tyeq.
+  
   (* values for denotational semantics *)
 
-  (*here*)
+  Fixpoint interp_sorts L : interp_bsorts (map get_bsort L) Type -> Type :=
+    match L with
+    | [] => fun R => R
+    | s :: L' =>
+      match s with
+      | SBaseSort b =>
+        fun R =>
+          interp_sorts
+            L'
+            (lift1
+               _
+               (fun R => forall x, R x)
+               R)
+      | SSubset b p =>
+        fun R =>
+          interp_sorts
+            L'
+            (lift2
+               _
+               (fun (p : _ -> Prop) R => forall x, p x -> R x)
+               (interp_p (b :: _) p) R)
+      end
+    end.
+      
+  Goal forall R, interp_sorts [] R = R.
+  Proof.
+    intros; simpl.
+    reflexivity.
+  Qed.
   
-  interp_bsort
+  Goal forall b1 p1 R, interp_sorts [SSubset b1 p1] R = forall x1 : interp_bsort b1, interp_p [b1] p1 x1 -> R x1.
+  Proof.
+    intros; simpl.
+    reflexivity.
+  Qed.
+  
+  Goal forall b1 p1 b2 p2 R, interp_sorts [SSubset b2 p2; SSubset b1 p1] R = forall x1 : interp_bsort b1, interp_p [b1] p1 x1 -> forall x2 : interp_bsort b2, interp_p [b2;b1] p2 x1 x2 -> R x1 x2.        
+  Proof.
+    intros; simpl.
+    reflexivity.
+  Qed.
+               
+  Fixpoint interp_ty ty :=
+    match ty with
+    | TVar x => _
+    | TConst cn => cn
+    | TUnOp opr t => lift1 (fun t => TUnOp opr t) (interp_ty t ss)
+    | TBinOp (opr : ty_bin_op) (c1 c2 : ty)
+    | TArrow (t1 : ty) (i : idx) (t2 : ty)
+    | TAbs s t => interp_ty (s :: ss) t
+    | TApp t s i => lift2 app (interp_ty (s :: ss) t s_ret) (interp_idx_full i ss s)
+    | TQuan (q : quan) (k : kind) (t : ty)
+    | TQuanI (q : quan) (s : sort) (t : ty)
+    | TRec (k : kind) (t : ty) (args : list idx)
+
+  (*here*)
   
   Inductive sortv :=
   | SVBaseSort (b : bsort)
