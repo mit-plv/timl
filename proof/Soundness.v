@@ -939,10 +939,10 @@ Module M (Time : TIME).
   | TBinOp (opr : ty_bin_op) (c1 c2 : ty)
   | TArrow (t1 : ty) (i : idx) (t2 : ty)
   | TAbs (s : bsort) (t : ty)
-  | TApp (t : ty) (i : idx)
+  | TApp (t : ty) (b : bsort) (i : idx)
   | TQuan (q : quan) (k : kind) (t : ty)
   | TQuanI (q : quan) (s : sort) (t : ty)
-  | TRec (k : kind) (t : ty) (args : list idx)
+  | TRec (k : kind) (t : ty) (args : list (bsort * idx))
   .
 
   Definition SUnit := SBaseSort BSUnit.
@@ -1085,6 +1085,8 @@ Module M (Time : TIME).
       | SBaseSort b => SBaseSort b
       | SSubset s p => SSubset s (shift_i_p (1 + x) p)
       end.
+
+    Definition map_snd A B1 B2 (f : B1 -> B2) (a : A * B1) := (fst a, f (snd a)).
     
     Fixpoint shift_i_t (x : var) (b : ty) : ty :=
       match b with
@@ -1094,10 +1096,10 @@ Module M (Time : TIME).
       | TBinOp opr c1 c2 => TBinOp opr (shift_i_t x c1) (shift_i_t x c2)
       | TArrow t1 i t2 => TArrow (shift_i_t x t1) (shift_i_i x i) (shift_i_t x t2)
       | TAbs b t => TAbs b (shift_i_t (1 + x) t)
-      | TApp t i => TApp (shift_i_t x t) (shift_i_i x i)
+      | TApp t b i => TApp (shift_i_t x t) b (shift_i_i x i)
       | TQuan q k c => TQuan q k (shift_i_t x c)
       | TQuanI q s c => TQuanI q (shift_i_s x s) (shift_i_t (1 + x) c)
-      | TRec k t args => TRec k (shift_i_t x t) (map (shift_i_i x) args)
+      | TRec k t args => TRec k (shift_i_t x t) (map (map_snd (shift_i_i x)) args)
       end.
 
     Fixpoint shift_t_t (x : var) (b : ty) : ty :=
@@ -1112,7 +1114,7 @@ Module M (Time : TIME).
       | TBinOp opr c1 c2 => TBinOp opr (shift_t_t x c1) (shift_t_t x c2)
       | TArrow t1 i t2 => TArrow (shift_t_t x t1) i (shift_t_t x t2)
       | TAbs s t => TAbs s (shift_t_t x t)
-      | TApp t i => TApp (shift_t_t x t) i
+      | TApp t b i => TApp (shift_t_t x t) b i
       | TQuan q k c => TQuan q k (shift_t_t (1 + x) c)
       | TQuanI q s c => TQuanI q s (shift_t_t x c)
       | TRec k t args => TRec k (shift_t_t (1 + x) t) args
@@ -1181,10 +1183,10 @@ Module M (Time : TIME).
     | TBinOp opr c1 c2 => TBinOp opr (subst_i_t x v c1) (subst_i_t x v c2)
     | TArrow t1 i t2 => TArrow (subst_i_t x v t1) (subst_i_i x v i) (subst_i_t x v t2)
     | TAbs b t => TAbs b (subst_i_t (1 + x) (shift0_i_i v) t)
-    | TApp t i => TApp (subst_i_t x v t) (subst_i_i x v i)
+    | TApp t b i => TApp (subst_i_t x v t) b (subst_i_i x v i)
     | TQuan q k c => TQuan q k (subst_i_t x v c)
     | TQuanI q s c => TQuanI q (subst_i_s x v s) (subst_i_t (1 + x) (shift0_i_i v) c)
-    | TRec k t args => TRec k (subst_i_t x v t) (map (subst_i_i x v) args)
+    | TRec k t args => TRec k (subst_i_t x v t) (map (map_snd (subst_i_i x v)) args)
     end.
       
   Fixpoint subst_t_t (x : var) (v : ty) (b : ty) : ty :=
@@ -1200,7 +1202,7 @@ Module M (Time : TIME).
     | TBinOp opr c1 c2 => TBinOp opr (subst_t_t x v c1) (subst_t_t x v c2)
     | TArrow t1 i t2 => TArrow (subst_t_t x v t1) i (subst_t_t x v t2)
     | TAbs s t => TAbs s (subst_t_t x v t)
-    | TApp t i => TApp (subst_t_t x v t) i
+    | TApp t b i => TApp (subst_t_t x v t) b i
     | TQuan q k c => TQuan q k (subst_t_t (1 + x) (shift0_t_t v) c)
     | TQuanI q s c => TQuanI q s (subst_t_t x v c)
     | TRec k t args => TRec k (subst_t_t (1 + x) (shift0_t_t v) t) args
@@ -1253,6 +1255,16 @@ Module M (Time : TIME).
     Qed.
 
     Hint Resolve map_shift_i_i_0.
+    
+    Arguments map_snd {A B1 B2} f a / .
+    
+    Lemma map_map_snd_shift_i_i_0 A x b : map (map_snd (A := A) (shift_i_i 0 x)) b = b.
+    Proof.
+      induct b; simpl; f_equal; eauto.
+      destruct a; simpl; f_equal; eauto.
+    Qed.
+
+    Hint Resolve map_map_snd_shift_i_i_0.
     
     Lemma shift_i_t_0 :
       forall b x, shift_i_t 0 x b = b.
@@ -1350,6 +1362,19 @@ Module M (Time : TIME).
     Qed.
 
     Hint Resolve map_shift_i_i_shift_merge.
+    
+    Lemma map_map_snd_shift_i_i_shift_merge A n1 n2 :
+      forall x y,
+        x <= y ->
+        y <= x + n1 ->
+        forall b,
+          map (map_snd (A := A) (shift_i_i n2 y)) (map (map_snd (shift_i_i n1 x)) b) = map (map_snd (shift_i_i (n1 + n2) x)) b.
+    Proof.
+      induct b; simpl; f_equal; eauto.
+      destruct a; simpl; f_equal; eauto.
+    Qed.
+
+    Hint Resolve map_map_snd_shift_i_i_shift_merge.
     
     Lemma shift_i_t_shift_merge n1 n2 :
       forall b x y,
@@ -1469,6 +1494,18 @@ Module M (Time : TIME).
     Qed.
 
     Hint Resolve map_shift_i_i_shift_cut.
+    
+    Lemma map_map_snd_shift_i_i_shift_cut A n1 n2 :
+      forall x y,
+        x + n1 <= y ->
+        forall b,
+          map (map_snd (A := A) (shift_i_i n2 y)) (map (map_snd (shift_i_i n1 x)) b) = map (map_snd (shift_i_i n1 x)) (map (map_snd (shift_i_i n2 (y - n1))) b).
+    Proof.
+      induct b; simpl; f_equal; eauto.
+      destruct a; simpl; f_equal; eauto.
+    Qed.
+
+    Hint Resolve map_map_snd_shift_i_i_shift_cut.
     
     Lemma shift_i_t_shift_cut n1 n2 :
       forall b x y,
@@ -1646,6 +1683,21 @@ Module M (Time : TIME).
 
     Hint Resolve map_subst_i_i_shift_avoid.
     
+    Arguments map_snd {A B1 B2} f a / .
+    
+    Lemma map_map_snd_subst_i_i_shift_avoid A n :
+      forall v x y,
+        x <= y ->
+        y < x + n ->
+        forall b,
+          map (map_snd (A := A) (subst_i_i y v)) (map (map_snd (shift_i_i n x)) b) = map (map_snd (shift_i_i (n - 1) x)) b.
+    Proof.
+      induct b; simpl; f_equal; eauto.
+      destruct a; simpl; f_equal; eauto.
+    Qed.
+
+    Hint Resolve map_map_snd_subst_i_i_shift_avoid.
+    
     Lemma subst_i_t_shift_avoid n :
       forall b v x y,
         x <= y ->
@@ -1784,6 +1836,18 @@ Module M (Time : TIME).
     
     Hint Resolve map_subst_i_i_shift_hit.
     
+    Lemma map_map_snd_subst_i_i_shift_hit A v n :
+      forall x y,
+        x + n <= y ->
+        forall b,
+          map (map_snd (A := A) (subst_i_i y (shift_i_i y 0 v))) (map (map_snd (shift_i_i n x)) b) = map (map_snd (shift_i_i n x)) (map (map_snd (subst_i_i (y - n) (shift_i_i (y - n) 0 v))) b).
+    Proof.
+      induct b; simpl; f_equal; eauto.
+      destruct a; simpl; f_equal; eauto.
+    Qed.
+    
+    Hint Resolve map_map_snd_subst_i_i_shift_hit.
+    
     Lemma subst_i_t_shift_hit v n :
       forall b x y,
         x + n <= y ->
@@ -1911,6 +1975,18 @@ Module M (Time : TIME).
     Qed.
     
     Hint Resolve map_shift_i_i_subst_in.
+    
+    Lemma map_map_snd_shift_i_i_subst_in A n :
+      forall v x y,
+        y <= x ->
+        forall b,
+          map (map_snd (A := A) (shift_i_i n y)) (map (map_snd (subst_i_i x v)) b) = map (map_snd (subst_i_i (x + n) (shift_i_i n y v))) (map (map_snd (shift_i_i n y)) b).
+    Proof.
+      induct b; simpl; f_equal; eauto.
+      destruct a; simpl; f_equal; eauto.
+    Qed.
+    
+    Hint Resolve map_map_snd_shift_i_i_subst_in.
     
     Lemma shift_i_t_subst_in n :
       forall b v x y,
@@ -2057,6 +2133,18 @@ Module M (Time : TIME).
     
     Hint Resolve map_shift_i_i_subst_out.
     
+    Lemma map_map_snd_shift_i_i_subst_out A n :
+      forall v x y,
+        x <= y ->
+        forall b,
+          map (map_snd (A := A) (shift_i_i n y)) (map (map_snd (subst_i_i x v)) b) = map (map_snd (subst_i_i x (shift_i_i n y v))) (map (map_snd (shift_i_i n (S y))) b).
+    Proof.
+      induct b; simpl; f_equal; eauto.
+      destruct a; simpl; f_equal; eauto.
+    Qed.
+    
+    Hint Resolve map_map_snd_shift_i_i_subst_out.
+    
     Lemma shift_i_t_subst_out n :
       forall b v x y,
         x <= y ->
@@ -2192,6 +2280,18 @@ Module M (Time : TIME).
     Qed.
 
     Hint Resolve map_subst_i_i_subst.
+    
+    Lemma map_map_snd_subst_i_i_subst A :
+      forall v1 v2 x y,
+        x <= y ->
+        forall b,
+          map (map_snd (A := A) (subst_i_i y v2)) (map (map_snd (subst_i_i x v1)) b) = map (map_snd (subst_i_i x (subst_i_i y v2 v1))) (map (map_snd (subst_i_i (S y) (shift_i_i 1 x v2))) b).
+    Proof.
+      induct b; simpl; f_equal; eauto.
+      destruct a; simpl; f_equal; eauto.
+    Qed.
+
+    Hint Resolve map_map_snd_subst_i_i_subst.
     
     Lemma subst_i_t_subst :
       forall b v1 v2 x y,
@@ -7387,10 +7487,10 @@ lift2 (fst (strip_subsets L))
   | KdgAbs L K b t k :
       kinding (SBaseSort b :: L) K t k ->
       kinding L K (TAbs b t) (KArrow b k)
-  | KdgApp L K t i b k :
+  | KdgApp L K t b i k :
       kinding L K t (KArrow b k) ->
       sorting L i (SBaseSort b) ->
-      kinding L K (TApp t i) k
+      kinding L K (TApp t b i) k
   | KdgQuan L K quan k c :
       kinding L (k :: K) c KType ->
       kinding L K (TQuan quan k c) KType
@@ -7398,10 +7498,11 @@ lift2 (fst (strip_subsets L))
       wfsort L s ->
       kinding (s :: L) K c KType ->
       kinding L K (TQuanI quan s c) KType
-  | KdgRec L K k c args sorts :
+  | KdgRec L K k c args :
       kinding L (k :: K) c k ->
+      let sorts := map fst args in
       k = KArrows sorts ->
-      Forall2 (fun i b => sorting L i (SBaseSort b)) args sorts ->
+      Forall (fun p => sorting L (snd p) (SBaseSort (fst p))) args ->
       kinding L K (TRec k c args) KType
   .
 
@@ -7428,12 +7529,12 @@ lift2 (fst (strip_subsets L))
   | TyEqAbs L K b t t' k :
       tyeq (SBaseSort b :: L) K t t' k ->
       tyeq L K (TAbs b t) (TAbs b t') (KArrow b k)
-  | TyEqApp L K t i t' i' b k :
+  | TyEqApp L K t b i t' i' k :
       tyeq L K t t' (KArrow b k ) ->
       idxeq L i i' (SBaseSort b) ->
-      tyeq L K (TApp t i) (TApp t' i') k
-  | TyEqBeta L K s t i k :
-      tyeq L K (TApp (TAbs s t) i) (subst0_i_t i t) k
+      tyeq L K (TApp t b i) (TApp t' b i') k
+  | TyEqBeta L K s t b i k :
+      tyeq L K (TApp (TAbs s t) b i) (subst0_i_t i t) k
   (* | TyEqBetaRev L K t1 t2  : *)
   (*     tyeq L K (subst0_c_c t2 t1) (CApp (CAbs t1) t2) *)
   | TyEqQuan L K quan k t t' :
@@ -7443,10 +7544,11 @@ lift2 (fst (strip_subsets L))
       sorteq L s s' ->
       tyeq (s :: L) K t t' KType ->
       tyeq L K (TQuanI quan s t) (TQuanI quan s' t') KType
-  | TyEqRec L K k c args c' args' sorts :
+  | TyEqRec L K k c args c' args' :
       tyeq L (k :: K) c c' k ->
+      let sorts := map fst args in
       k = KArrows sorts ->
-      Forall3 (fun i i' b => idxeq L i i' (SBaseSort b)) args args' sorts ->
+      Forall2 (fun p p' => fst p = fst p' /\ idxeq L (snd p) (snd p') (SBaseSort (fst p))) args args' ->
       tyeq L K (TRec k c args) (TRec k c' args') KType
   (* the following rules are just here to satisfy reflexivity *)
   (* don't do deep equality test of two CAbs's *)
@@ -7470,16 +7572,6 @@ lift2 (fst (strip_subsets L))
   
   (* values for denotational semantics *)
 
-  Inductive sortv :=
-  | SVBaseSort (b : bsort)
-  | SVSubset (b : bsort) (p : interp_bsort b -> Prop)
-  .
-
-  Inductive kindv :=
-  | KVType
-  | KVArrow (s : sortv) (k : kindv)
-  .
-
   Inductive idxv :=
   | IVUnit
   | IVBool (b : bool)
@@ -7487,17 +7579,24 @@ lift2 (fst (strip_subsets L))
   | IVTimeFun (arity : nat) (v : time_fun arity)
   .
 
-  Definition get_bsort_v s :=
-    match s with
-    | SVBaseSort b => b
-    | SVSubset b _ => b
-    end.
-
   Record idx_arg :=
     {
       arg_bsort : bsort;
       arg_value : interp_bsort arg_bsort
     }.
+
+  Definition interp_idx_arg bs (p : bsort * idx) : interp_bsorts bs idx_arg :=
+    let b := fst p in
+    let i := snd p in
+    lift1 bs (fun x => Build_idx_arg b x) (interp_idx i bs b).
+
+  Fixpoint interp_idx_args bs (ls : list (bsort * idx)) : interp_bsorts bs (list idx_arg) :=
+    match ls with
+    | [] => lift0 bs []
+    | a :: ls' => lift2 bs cons (interp_idx_arg bs a) (interp_idx_args bs ls')
+    end.
+  
+  Definition sortv b := option (interp_bsort b -> Prop).
   
   Inductive tyv :=
   | TVVar (x : var)
@@ -7505,16 +7604,49 @@ lift2 (fst (strip_subsets L))
   | TVUnOp (opr : ty_un_op) (c : tyv)
   | TVBinOp (opr : ty_bin_op) (c1 c2 : tyv)
   | TVArrow (t1 : tyv) (i : time_type) (t2 : tyv)
-  | TVQuan (q : quan) (k : kindv) (t : tyv)
-  | TVQuanI (q : quan) (s : sortv) (t : interp_bsort (get_bsort_v s) -> tyv)
-  | TVRec (k : kindv) (t : tyv) (args : list idx_arg)
+  | TVQuan (q : quan) (k : kind) (t : tyv)
+  | TVQuanI (q : quan) (b : bsort) (p : sortv b) (t : interp_bsort b -> tyv)
+  | TVRec (k : kind) (t : tyv) (args : list idx_arg)
   .
+
+  Definition interp_sort s bs b : interp_bsorts bs (sortv b) :=
+    match s with
+    | SBaseSort _ => lift0 _ None
+    | SSubset _ p => lift1 bs (fun p => Some p) (interp_p (b :: bs) p)
+    end.
 
   Fixpoint interp_k k :=
     match k with
     | KType => tyv
     | KArrow b k => interp_bsort b -> interp_k k
     end.
+
+  Fixpoint complete_var k (t : tyv) : interp_k k :=
+    match k with
+    | KType => t
+    | KArrow b k' => fun _ => complete_var k' t
+    end.
+  
+  Definition kind_dec : forall (b b' : kind), sumbool (b = b') (b <> b').
+  Proof.
+    induction b; destruct b'; simpl; try solve [left; f_equal; eauto | right; intro Heq; discriminate].
+    {
+      destruct (sort_dec s s0); destruct (IHb b'); subst; simplify; try solve [left; f_equal; eauto | right; intro Heq; invert Heq; subst; eauto].
+    }
+  Defined.
+  
+  Fixpoint kind_default_value (b : kind) : interp_k b :=
+    match b with
+    | KType => TVConst TCUnit
+    | KArrow b k' => fun _ => kind_default_value k'
+    end.
+                                       
+  Definition convert_kind_value k1 k2 : interp_k k1 -> interp_k k2.
+  Proof.
+    cases (kind_dec k1 k2); subst; eauto.
+    intros.
+    eapply kind_default_value.
+  Defined.
 
   (*here*)
     
@@ -7533,8 +7665,7 @@ lift2 (fst (strip_subsets L))
       let r := lift2 bs (TVBinOp opr) (interp_ty c1 bs KType) (interp_ty c2 bs KType) in
       lift1 bs (convert_kind_value KType k_ret) r
     | TArrow t1 i t2 =>
-      let f x1 x2 := TVArrow x1 (f_i i [] BSBool) x2 in
-      let r := lift2 bs f (interp_ty c1 bs KType) (interp_ty c2 bs KType) in
+      let r := lift3 bs TVArrow (interp_ty t1 bs KType) (interp_idx i bs BSTime) (interp_ty t2 bs KType) in
       lift1 bs (convert_kind_value KType k_ret) r
     | TAbs _ t =>
       match k_ret with
@@ -7542,56 +7673,19 @@ lift2 (fst (strip_subsets L))
       | KType => lift0 bs (kind_default_value KType)
       end
     | TApp t b i =>
-      lift2 bs app (interp_ty t bs (KArrow b k_ret)) (interp_idx i bs b)
+      lift2 bs apply (interp_ty t bs (KArrow b k_ret)) (interp_idx i bs b)
     | TQuan q k t =>
-      let r := lift1 bs (TVUnOp opr) (interp_ty c bs KType) in
+      let r := lift1 bs (TVQuan q k) (interp_ty t bs KType) in
       lift1 bs (convert_kind_value KType k_ret) r
     | TQuanI q s t =>
-      let b := get_base_sort s in
-      let r := lift2 bs (TVQuanI q) (interp_sort bs s) (interp_ty t (b :: bs) KType) in
+      let b := get_bsort s in
+      let r := lift2 bs (@TVQuanI q b) (interp_sort s bs b) (interp_ty t (b :: bs) KType) in
       lift1 bs (convert_kind_value KType k_ret) r
     | TRec k t args =>
       let r := lift2 bs (TVRec k) (interp_ty t bs KType) (interp_idx_args bs args) in
       lift1 bs (convert_kind_value KType k_ret) r
-      
+    end.    
 
-  Fixpoint interp_idx c ks k_ret : interp_bsorts ks (interp_bsort k_ret) :=
-    match c with
-    (* | IVar x => interp_var k_ret x ks id *)
-    | IVar x => interp_var x ks k_ret
-    | IConst cn => interp_iconst cn ks k_ret 
-    | IUnOp opr c =>
-      let f x := convert_sort_value (iunop_result_bsort opr) k_ret (interp_iunop opr x) in
-      lift1 ks f (interp_idx c ks (iunop_arg_bsort opr))
-    | IBinOp opr c1 c2 =>
-      let f x1 x2 := convert_sort_value (ibinop_result_bsort opr) k_ret (interp_ibinop opr x1 x2) in
-      lift2 ks f (interp_idx c1 ks (ibinop_arg1_bsort opr)) (interp_idx c2 ks (ibinop_arg2_bsort opr))
-    | IIte c c1 c2 =>
-      lift3 ks ite (interp_idx c ks BSBool) (interp_idx c1 ks k_ret) (interp_idx c2 ks k_ret)
-    | ITimeAbs c =>
-      match k_ret return interp_bsorts ks (interp_bsort k_ret) with
-      | BSTimeFun (S n) =>
-        interp_idx c (BSNat :: ks) (BSTimeFun n)
-      | k_ret => lift0 ks (sort_default_value k_ret)
-      end
-    | ITimeApp n c1 c2 => 
-      let f x1 x2 := convert_sort_value (BSTimeFun n) k_ret (x1 x2) in
-      lift2 ks f (interp_idx c1 ks (BSTimeFun (S n))) (interp_idx c2 ks BSNat)
-  end.
-
-  Definition interp_sorts2 L R :=
-    let bs := map get_bsort L in
-    let ps := strip_subsets L in
-    let p := and_all ps in
-    let P := interp_p bs p in
-    interp_bsorts_dep bs P (apply_all (P -> R) P R).
-
-  (*here*)
-  
-  Inductive sortv :=
-  | SVBaseSort (b : bsort)
-  | SVSubset (s : bsort) (p : bsort -> Prop)
-  .
 
   (* Substitute a 'substitution group' for all variables. *)
   (* In a subtitution group, values for inner variables cannot depend on values for outer variables.  *)
