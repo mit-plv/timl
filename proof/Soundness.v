@@ -7468,48 +7468,6 @@ lift2 (fst (strip_subsets L))
 
   Hint Constructors tyeq.
   
-  Fixpoint interp_sorts L : interp_bsorts (map get_bsort L) Type -> Type :=
-    match L with
-    | [] => fun R => R
-    | s :: L' =>
-      match s with
-      | SBaseSort b =>
-        fun R =>
-          interp_sorts
-            L'
-            (lift1
-               _
-               (fun R => forall x, R x)
-               R)
-      | SSubset b p =>
-        fun R =>
-          interp_sorts
-            L'
-            (lift2
-               _
-               (fun (p : _ -> Prop) R => forall x, p x -> R x)
-               (interp_p (b :: _) p) R)
-      end
-    end.
-      
-  Goal forall R, interp_sorts [] R = R.
-  Proof.
-    intros; simpl.
-    reflexivity.
-  Qed.
-  
-  Goal forall b1 p1 R, interp_sorts [SSubset b1 p1] R = forall x1 : interp_bsort b1, interp_p [b1] p1 x1 -> R x1.
-  Proof.
-    intros; simpl.
-    reflexivity.
-  Qed.
-  
-  Goal forall b1 p1 b2 p2 R, interp_sorts [SSubset b2 p2; SSubset b1 p1] R = forall x1 : interp_bsort b1, interp_p [b1] p1 x1 -> forall x2 : interp_bsort b2, interp_p [b2;b1] p2 x1 x2 -> R x1 x2.        
-  Proof.
-    intros; simpl.
-    reflexivity.
-  Qed.
-               
   (* values for denotational semantics *)
 
   Inductive sortv :=
@@ -7534,16 +7492,22 @@ lift2 (fst (strip_subsets L))
     | SVBaseSort b => b
     | SVSubset b _ => b
     end.
+
+  Record idx_arg :=
+    {
+      arg_bsort : bsort;
+      arg_value : interp_bsort arg_bsort
+    }.
   
   Inductive tyv :=
+  | TVVar (x : var)
   | TVConst (cn : ty_const)
   | TVUnOp (opr : ty_un_op) (c : tyv)
   | TVBinOp (opr : ty_bin_op) (c1 c2 : tyv)
   | TVArrow (t1 : tyv) (i : time_type) (t2 : tyv)
   | TVQuan (q : quan) (k : kindv) (t : tyv)
   | TVQuanI (q : quan) (s : sortv) (t : interp_bsort (get_bsort_v s) -> tyv)
-  | TVRec (k : kindv) (t : tyv) (args : list idxv)
-  (* | TVAbs (s : sortv) (t : tyv) *)
+  | TVRec (k : kindv) (t : tyv) (args : list idx_arg)
   .
 
   Fixpoint interp_k k :=
@@ -7554,34 +7518,42 @@ lift2 (fst (strip_subsets L))
 
   (*here*)
     
-  Fixpoint interp_ty (f_i : idx -> forall bs b, interp_bsorts bs (interp_bsort b)) ty ks k_ret : interp_kinds ks (interp_kind k_ret) :=
+  Fixpoint interp_ty ty bs k_ret : interp_bsorts bs (interp_k k_ret) :=
     match ty with
-    | TVar x => interp_var x ks k_ret
-    | TConst cn => lift0 ks (TVConst cn)
+    | TVar x =>
+      let r := lift0 bs (TVVar x) in
+      lift1 bs (complete_var k_ret) r
+    | TConst cn =>
+      let r := lift0 bs (TVConst cn) in
+      lift1 bs (convert_kind_value KType k_ret) r
     | TUnOp opr c =>
-      let r := lift1 ks (TVUnOp opr) (interp_ty c ks KType) in
-      lift1 ks (convert_kind_value KType k_ret) r
+      let r := lift1 bs (TVUnOp opr) (interp_ty c bs KType) in
+      lift1 bs (convert_kind_value KType k_ret) r
     | TBinOp opr c1 c2 =>
-      let r := lift2 ks (TVBinOp opr) (interp_ty c1 ks KType) (interp_ty c2 ks KType) in
-      lift1 ks (convert_kind_value KType k_ret) r
+      let r := lift2 bs (TVBinOp opr) (interp_ty c1 bs KType) (interp_ty c2 bs KType) in
+      lift1 bs (convert_kind_value KType k_ret) r
     | TArrow t1 i t2 =>
       let f x1 x2 := TVArrow x1 (f_i i [] BSBool) x2 in
-      let r := lift2 ks f (interp_ty c1 ks KType) (interp_ty c2 ks KType) in
-      lift1 ks (convert_kind_value KType k_ret) r
-    | TAbs b t =>
+      let r := lift2 bs f (interp_ty c1 bs KType) (interp_ty c2 bs KType) in
+      lift1 bs (convert_kind_value KType k_ret) r
+    | TAbs _ t =>
       match k_ret with
-      | KArrow _ k_ret' =>
-        let r := fun x : interp_bsort b => interp_ty (fun i bs b_ret => lift1 bs (fun f => f x) (f_i i (b :: bs) b_ret)) ks k_ret' in
-        lift1 ks (convert_kind_value (KArrow b k_ret') k_ret) r
-      | KType => lift0 ks (kind_default_value KType)
+      | KArrow b' k_ret' => interp_ty t (b' :: bs) k_ret'
+      | KType => lift0 bs (kind_default_value KType)
       end
     | TApp t b i =>
-      lift2 ks app (interp_ty t ks (KArrow b k_ret)) (f_i i [] b)
+      lift2 bs app (interp_ty t bs (KArrow b k_ret)) (interp_idx i bs b)
     | TQuan q k t =>
-      let r := lift1 ks (TVUnOp opr) (interp_ty c ks KType) in
-      lift1 ks (convert_kind_value KType k_ret) r
-    | TQuanI (q : quan) (s : sort) (t : ty)
-    | TRec (k : kind) (t : ty) (args : list idx)
+      let r := lift1 bs (TVUnOp opr) (interp_ty c bs KType) in
+      lift1 bs (convert_kind_value KType k_ret) r
+    | TQuanI q s t =>
+      let b := get_base_sort s in
+      let r := lift2 bs (TVQuanI q) (interp_sort bs s) (interp_ty t (b :: bs) KType) in
+      lift1 bs (convert_kind_value KType k_ret) r
+    | TRec k t args =>
+      let r := lift2 bs (TVRec k) (interp_ty t bs KType) (interp_idx_args bs args) in
+      lift1 bs (convert_kind_value KType k_ret) r
+      
 
   Fixpoint interp_idx c ks k_ret : interp_bsorts ks (interp_bsort k_ret) :=
     match c with
