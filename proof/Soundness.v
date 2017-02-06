@@ -7510,11 +7510,13 @@ lift2 (fst (strip_subsets L))
     let i := snd p in
     lift1 bs (fun x => Build_idx_arg b x) (interp_idx i bs b).
 
-  Fixpoint interp_idx_args bs (ls : list (bsort * idx)) : interp_bsorts bs (list idx_arg) :=
+  Fixpoint lift_ls bs {A B} f (ls : list A) : interp_bsorts bs (list B) :=
     match ls with
     | [] => lift0 bs []
-    | a :: ls' => lift2 bs cons (interp_idx_arg bs a) (interp_idx_args bs ls')
+    | a :: ls' => lift2 bs cons (f a) (lift_ls bs f ls')
     end.
+
+  Definition interp_idx_args bs := lift_ls bs (interp_idx_arg bs).
   
   Definition sortv b := option (interp_bsort b -> Prop).
   
@@ -7716,8 +7718,7 @@ lift2 (fst (strip_subsets L))
       simpl.
       intros.
       repeat rewrite convert_kind_value_refl_eq in *.
-      eapply H0 in H1.
-      congruence.
+      equality.
     }
     split.
     {
@@ -7725,25 +7726,352 @@ lift2 (fst (strip_subsets L))
       simpl.
       intros.
       repeat rewrite convert_kind_value_refl_eq in *.
-      eapply H0 in H1.
-      congruence.
+      equality.
     }
     {
       eapply forall_lift7_lift3_1_4_7; eauto.
       simpl.
       intros.
       repeat rewrite convert_kind_value_refl_eq in *.
-      eapply H0 in H1.
-      congruence.
+      equality.
     }
   Qed.
 
+  Lemma forall_lift5_pure :
+    forall bs A1 A2 A3 A4 A5 P1 P2 P3 P4 P5 (f1 : A1 -> A2 -> A3 -> A4 -> A5 -> Prop) (f2 : Prop),
+      (forall a1 a2 a3 a4 a5, f1 a1 a2 a3 a4 a5 -> f2) ->
+      forall_ bs (lift5 bs f1 P1 P2 P3 P4 P5) ->
+      f2.
+  Proof.
+    induct bs; simplify; eauto.
+    rewrite fuse_lift1_lift5 in *.
+    eapply IHbs in H0; eauto.
+    Grab Existential Variables.
+    eapply sort_default_value.
+  Qed.
+  
+  Lemma forall_lift5_lift1_1 :
+    forall bs A1 A2 A3 A4 A5 P1 P2 P3 P4 P5 (f1 : A1 -> A2 -> A3 -> A4 -> A5 -> Prop) (f2 : A1 -> Prop),
+      (forall a1 a2 a3 a4 a5, f1 a1 a2 a3 a4 a5 -> f2 a1) ->
+      forall_ bs (lift5 bs f1 P1 P2 P3 P4 P5) ->
+      forall_ bs (lift1 bs f2 P1).
+  Proof.
+    induct bs; simplify; eauto.
+    rewrite fuse_lift1_lift1 in *.
+    rewrite fuse_lift1_lift5 in *.
+    eapply IHbs; eauto.
+    simplify.
+    eauto.
+  Qed.
+  
+  Lemma TQuan_TArrow_false L q k t t1 i t2 :
+    tyeq L (TQuan q k t) (TArrow t1 i t2) KType ->
+    interp_prop L PFalse.
+  Proof.
+    intros H.
+    unfold tyeq, interp_prop in *.
+    simpl in *.
+    repeat rewrite fuse_lift1_lift3 in *.
+    repeat rewrite fuse_lift1_lift1 in *.
+    rewrite fuse_lift3_lift1_2 in *.
+    rewrite fuse_lift3_lift3_3 in *.
+    rewrite fuse_lift2_lift0_2 in *.
+    eapply forall_lift5_lift1_1; [|eapply H].
+    simpl.
+    intros.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    equality.
+  Qed.
+  
+  Lemma TQuan_TArrow_false_empty q k t t1 i t2 :
+    tyeq [] (TQuan q k t) (TArrow t1 i t2) KType ->
+    False.
+  Proof.
+    intros H.
+    eapply TQuan_TArrow_false in H.
+    unfold interp_prop in *.
+    simpl in *.
+    eauto.
+  Qed.
+  
+  Lemma TUnOp_TArrow_false opr t t1 i t2 :
+    tyeq [] (TUnOp opr t) (TArrow t1 i t2) KType ->
+    False.
+  Proof.
+    intros H.
+    unfold tyeq in *.
+    simpl in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    equality.
+  Qed.
+
+  Lemma TBinOp_TArrow_false opr ta tb t1 i t2 :
+    tyeq [] (TBinOp opr ta tb) (TArrow t1 i t2) KType ->
+    False.
+  Proof.
+    intros H.
+    unfold tyeq in *.
+    simpl in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    equality.
+  Qed.
+
+  (* conditional eq *)
+  Definition cond_eq A L (k k' : A) := 
+    let bs := map get_bsort L in
+    let ps := strip_subsets L in
+    let p := and_all ps in
+    forall_ bs (lift1 bs (fun p : Prop => p -> k = k') (interp_p bs p)).
+
+  Notation kdeq := cond_eq.
+  
+  Lemma forall_lift3_lift1_1 :
+    forall bs A1 A2 A3 P1 P2 P3 (f1 : A1 -> A2 -> A3 -> Prop) (f2 : A1 -> Prop),
+      (forall a1 a2 a3, f1 a1 a2 a3 -> f2 a1) ->
+      forall_ bs (lift3 bs f1 P1 P2 P3) ->
+      forall_ bs (lift1 bs f2 P1).
+  Proof.
+    induct bs; simplify; eauto.
+    rewrite fuse_lift1_lift1 in *.
+    rewrite fuse_lift1_lift3 in *.
+    eapply IHbs; eauto.
+    simplify.
+    eauto.
+  Qed.
+  
+  Lemma forall_lift3_lift3 :
+    forall bs A1 A2 A3 P1 P2 P3 (f1 : A1 -> A2 -> A3 -> Prop) (f2 : A1 -> A2 -> A3 -> Prop),
+      (forall a1 a2 a3, f1 a1 a2 a3 -> f2 a1 a2 a3) ->
+      forall_ bs (lift3 bs f1 P1 P2 P3) ->
+      forall_ bs (lift3 bs f2 P1 P2 P3).
+  Proof.
+    induct bs; simplify; eauto.
+    rewrite fuse_lift1_lift3 in *.
+    eapply IHbs; eauto.
+    simplify.
+    eauto.
+  Qed.
+  
+  Lemma invert_tyeq_TQuan L q1 k1 t1 q2 k2 t2 :
+    tyeq L (TQuan q1 k1 t1) (TQuan q2 k2 t2) KType ->
+    cond_eq L q1 q2 /\
+    kdeq L k1 k2 /\
+    tyeq L t1 t2 KType.
+  Proof.
+    intros H.
+    unfold tyeq, cond_eq in *.
+    simpl in *.
+    repeat rewrite fuse_lift1_lift1 in *.
+    rewrite fuse_lift3_lift1_2 in *.
+    rewrite fuse_lift3_lift1_3 in *.
+    split.
+    {
+      eapply forall_lift3_lift1_1; [|eapply H].
+      simpl.
+      intros.
+      repeat rewrite convert_kind_value_refl_eq in *.
+      equality.
+    }
+    split.
+    {
+      eapply forall_lift3_lift1_1; [|eapply H].
+      simpl.
+      intros.
+      repeat rewrite convert_kind_value_refl_eq in *.
+      equality.
+    }
+    {
+      eapply forall_lift3_lift3; [|eapply H].
+      simpl.
+      intros.
+      repeat rewrite convert_kind_value_refl_eq in *.
+      equality.
+    }
+  Qed.
+  
+  Lemma invert_tyeq_TUnOp L opr t opr' t' :
+    tyeq L (TUnOp opr t) (TUnOp opr' t') KType ->
+    cond_eq L opr opr' /\
+    tyeq L t t' KType.
+  Proof.
+    intros H.
+    unfold tyeq, cond_eq in *.
+    simpl in *.
+    repeat rewrite fuse_lift1_lift1 in *.
+    rewrite fuse_lift3_lift1_2 in *.
+    rewrite fuse_lift3_lift1_3 in *.
+    split.
+    {
+      eapply forall_lift3_lift1_1; [|eapply H].
+      simpl.
+      intros.
+      repeat rewrite convert_kind_value_refl_eq in *.
+      equality.
+    }
+    {
+      eapply forall_lift3_lift3; [|eapply H].
+      simpl.
+      intros.
+      repeat rewrite convert_kind_value_refl_eq in *.
+      equality.
+    }
+  Qed.
+  
+  Lemma forall_lift5_lift3_1_2_4 :
+    forall bs A1 A2 A3 A4 A5 P1 P2 P3 P4 P5 (f1 : A1 -> A2 -> A3 -> A4 -> A5 -> Prop) (f2 : A1 -> A2 -> A4 -> Prop),
+      (forall a1 a2 a3 a4 a5, f1 a1 a2 a3 a4 a5 -> f2 a1 a2 a4) ->
+      forall_ bs (lift5 bs f1 P1 P2 P3 P4 P5) ->
+      forall_ bs (lift3 bs f2 P1 P2 P4).
+  Proof.
+    induct bs; simplify; eauto.
+    rewrite fuse_lift1_lift3 in *.
+    rewrite fuse_lift1_lift5 in *.
+    eapply IHbs; eauto.
+    simplify.
+    eauto.
+  Qed.
+  
+  Lemma forall_lift5_lift3_1_3_5 :
+    forall bs A1 A2 A3 A4 A5 P1 P2 P3 P4 P5 (f1 : A1 -> A2 -> A3 -> A4 -> A5 -> Prop) (f2 : A1 -> A3 -> A5 -> Prop),
+      (forall a1 a2 a3 a4 a5, f1 a1 a2 a3 a4 a5 -> f2 a1 a3 a5) ->
+      forall_ bs (lift5 bs f1 P1 P2 P3 P4 P5) ->
+      forall_ bs (lift3 bs f2 P1 P3 P5).
+  Proof.
+    induct bs; simplify; eauto.
+    rewrite fuse_lift1_lift3 in *.
+    rewrite fuse_lift1_lift5 in *.
+    eapply IHbs; eauto.
+    simplify.
+    eauto.
+  Qed.
+  
+  Lemma invert_tyeq_TBinOp L opr t1 t2 opr' t1' t2' :
+    tyeq L (TBinOp opr t1 t2) (TBinOp opr' t1' t2') KType ->
+    cond_eq L opr opr' /\
+    tyeq L t1 t1' KType /\
+    tyeq L t2 t2' KType.
+  Proof.
+    intros H.
+    unfold tyeq, cond_eq in *.
+    simpl in *.
+    repeat rewrite fuse_lift1_lift2 in *.
+    rewrite fuse_lift3_lift2_2 in *.
+    rewrite fuse_lift4_lift2_4 in *.
+    split.
+    {
+      eapply forall_lift5_lift1_1; [|eapply H].
+      simpl.
+      intros.
+      repeat rewrite convert_kind_value_refl_eq in *.
+      equality.
+    }
+    split.
+    {
+      eapply forall_lift5_lift3_1_2_4; [|eapply H].
+      simpl.
+      intros.
+      repeat rewrite convert_kind_value_refl_eq in *.
+      equality.
+    }
+    {
+      eapply forall_lift5_lift3_1_3_5; [|eapply H].
+      simpl.
+      intros.
+      repeat rewrite convert_kind_value_refl_eq in *.
+      equality.
+    }
+  Qed.
+
+  Lemma fuse_lift3_lift0_2 bs :
+    forall T A1 A2 A3 (f : A1 -> A2 -> A3 -> T) (g : A2) a1 a3,
+      lift3 bs f a1 (lift0 bs g) a3 = lift2 bs (fun a1 a3 => f a1 g a3) a1 a3.
+  Proof.
+    induct bs; simplify; eauto.
+    eapply IHbs.
+  Qed.
+  
+  Definition idxeq L i i' b := interp_prop L (PEq b i i').
+  
+  Lemma invert_tyeq_TRec L cs cs' k t k' t' :
+    tyeq L (TRec k t cs) (TRec k' t' cs') KType ->
+    kdeq L k k' /\
+    tyeq L t t' KType /\
+    let bs := map get_bsort L in
+    forall_ bs (lift3 bs (fun (p : Prop) cs cs' => p -> cs = cs') (interp_p bs (and_all (strip_subsets L))) (lift_ls bs (interp_idx_arg bs) cs) (lift_ls bs (interp_idx_arg bs) cs')).
+  Proof.
+    intros H.
+    unfold tyeq, cond_eq, idxeq, interp_prop in *.
+    simpl in *.
+    repeat rewrite fuse_lift1_lift2 in *.
+    rewrite fuse_lift3_lift2_2 in *.
+    rewrite fuse_lift4_lift2_4 in *.
+    split.
+    {
+      eapply forall_lift5_lift1_1; [|eapply H].
+      simpl.
+      intros.
+      repeat rewrite convert_kind_value_refl_eq in *.
+      equality.
+    }
+    split.
+    {
+      eapply forall_lift5_lift3_1_2_4; [|eapply H].
+      simpl.
+      intros.
+      repeat rewrite convert_kind_value_refl_eq in *.
+      equality.
+    }
+    {
+      unfold interp_idx_args in *.
+      set (bs := map get_bsort L) in *.
+      eapply forall_lift5_lift3_1_3_5; [|eapply H].
+      simpl.
+      intros.
+      repeat rewrite convert_kind_value_refl_eq in *.
+      equality.
+    }
+  Qed.
+
+  Lemma interp_idx_args_eq_Forall2 :
+    forall cs cs',
+      lift_ls [] (interp_idx_arg []) cs = lift_ls [] (interp_idx_arg []) cs' ->
+      Forall2 (fun p p' => fst p = fst p' /\ idxeq [] (snd p) (snd p') (fst p)) cs cs'.
+  Proof.
+    unfold idxeq, interp_prop.
+    simpl.
+    induct cs; destruct cs'; simpl; intros H; try dis; eauto.
+    destruct a as (b1 & i1).
+    destruct p as (b2 & i2).
+    invert H.
+    econstructor; eauto.
+    simpl.
+    split; eauto.
+    intros Htrue.
+    eapply Eqdep_dec.inj_pair2_eq_dec; eauto.
+    intros; eapply sort_dec.
+  Qed.
+
+  Lemma invert_tyeq_TRec_empty cs cs' k t k' t' :
+    tyeq [] (TRec k t cs) (TRec k' t' cs') KType ->
+    kdeq [] k k' /\
+    tyeq [] t t' KType /\
+    Forall2 (fun p p' => fst p = fst p' /\ idxeq [] (snd p) (snd p') (fst p)) cs cs'.
+  Proof.
+    intros H.
+    eapply invert_tyeq_TRec in H.
+    simpl in *.
+    destruct H as (Hk & Ht & Ha).
+    repeat try_split; eauto.
+    specialize (Ha I).
+    eapply interp_idx_args_eq_Forall2; eauto.
+  Qed.
+
+  (*here*)
+  
   Lemma tyeq_interp_ty_eq :
     tyeq L t t' k ->
     interp_t t bs k = interp_t t' bs k.
 
-  Definition idxeq L i i' b := interp_prop L (PEq b i i').
-  
   Inductive tyeq : sctx -> kctx -> ty -> ty -> kind -> Prop :=
   (* | TyEqVar L x : *)
   (*     tyeq L (CVar x) (CVar x) *)
@@ -11599,129 +11927,9 @@ lift2 (fst (strip_subsets L))
     Proof.
       eapply kinding2_wfkind2_wfprop2_mutind; simpl.
     Qed.
-    
-    Lemma invert_tyeq_CArrow L t1 i t2 t1' i' t2' :
-      tyeq L (CArrow t1 i t2) (CArrow t1' i' t2') ->
-      kinding L (CArrow t1 i t2) KType ->
-      tyeq L t1 t1' /\
-      interp_prop L (TEq i i') /\
-      tyeq L t2 t2'.
-    Proof.
-      intros H Hkd.
-      eapply tyeq_confluent_1 in H; eauto.
-      {
-        edestruct H as (t' & Hsteps & Hwhnf & Heq); eauto.
-        invert Hsteps.
-        {
-          invert Heq.
-          repeat eexists_split; eauto.
-        }
-        invert H0.
-      }
-      eauto using kinding_kinding2_Type.
-    Qed.
 
-    Lemma CForall_CArrow_false k t t1 i t2 :
-      tyeq [] (CForall k t) (CArrow t1 i t2) ->
-      kinding [] (CForall k t) KType ->
-      False.
-    Proof.
-      unfold CForall; intros H Hkd.
-      eapply tyeq_confluent_1 in H; eauto.
-      {
-        edestruct H as (t' & Hsteps & Hwhnf & Heq); eauto.
-        invert Hsteps.
-        {
-          invert Heq.
-        }
-        invert H0.
-      }
-      eauto using kinding_kinding2_Type.
-    Qed.
-    
   End tyeq_hint.
 
-  Lemma CExists_CArrow_false k t t1 i t2 :
-    tyeq [] (CExists k t) (CArrow t1 i t2) ->
-    False.
-  Proof.
-    (*   invert 1. *)
-    (* Qed. *)
-  Admitted.
-
-  Lemma CProd_CArrow_false ta tb t1 i t2 :
-    tyeq [] (CProd ta tb) (CArrow t1 i t2) ->
-    False.
-    (* Proof. *)
-    (*   invert 1. *)
-    (* Qed. *)
-  Admitted.
-
-  Lemma CSum_CArrow_false ta tb t1 i t2 :
-    tyeq [] (CSum ta tb) (CArrow t1 i t2) ->
-    False.
-  Proof.
-    (*   invert 1. *)
-    (* Qed. *)
-  Admitted.
-  
-  Lemma CRef_CArrow_false t t1 i t2 :
-    tyeq [] (CRef t) (CArrow t1 i t2) ->
-    False.
-  Proof.
-    (*   invert 1. *)
-    (* Qed. *)
-  Admitted.
-  
-  Lemma invert_tyeq_CExists L k1 t1 k2 t2 :
-    tyeq L (CExists k1 t1) (CExists k2 t2) ->
-    tyeq (k1 :: L) t1 t2 /\
-    sorteq L k1 k2.
-  Proof.
-    (*   invert 1. *)
-    (*   repeat eexists_split; eauto. *)
-    (* Qed. *)
-  Admitted.
-  
-  Lemma invert_tyeq_CForall L k1 t1 k2 t2 :
-    tyeq L (CForall k1 t1) (CForall k2 t2) ->
-    tyeq (k1 :: L) t1 t2 /\
-    sorteq L k1 k2.
-  Proof.
-    (*   invert 1. *)
-    (*   repeat eexists_split; eauto. *)
-    (* Qed. *)
-  Admitted.
-  
-  Lemma invert_tyeq_CRef L t t' :
-    tyeq L (CRef t) (CRef t') ->
-    tyeq L t t'.
-  Proof.
-    (*   invert 1. *)
-    (*   repeat eexists_split; eauto. *)
-    (* Qed. *)
-  Admitted.
-  
-  Lemma invert_tyeq_CProd L t1 t2 t1' t2' :
-    tyeq L (CProd t1 t2) (CProd t1' t2') ->
-    tyeq L t1 t1' /\
-    tyeq L t2 t2'.
-  Proof.
-    (*   invert 1. *)
-    (*   repeat eexists_split; eauto. *)
-    (* Qed. *)
-  Admitted.
-  
-  Lemma invert_tyeq_CSum L t1 t2 t1' t2' :
-    tyeq L (CSum t1 t2) (CSum t1' t2') ->
-    tyeq L t1 t1' /\
-    tyeq L t2 t2'.
-  Proof.
-    (*   invert 1. *)
-    (*   repeat eexists_split; eauto. *)
-    (* Qed. *)
-  Admitted.
-  
   Hint Resolve tyeq_refl tyeq_sym tyeq_trans interp_prop_le_refl interp_prop_le_trans : db_tyeq.
 
   Lemma kinding_tyeq L k t1 t2 :
@@ -12212,6 +12420,8 @@ lift2 (fst (strip_subsets L))
     eapply kd_wfkind_wfprop_subst_c_c.
   Qed.
 
+  (*from*)
+    
   (* Lemma invert_tyeq_CApps cs cs' c c' : *)
   (*     tyeq [] (CApps c cs) (CApps c' cs') -> *)
   (*     tyeq [] c c' /\ *)
@@ -15032,13 +15242,6 @@ lift2 (fst (strip_subsets L))
       destruct Hty as (? & ? & cs' & k' & t2' & i'' & Htyeq2 & ? & ? & Hkd & Hty & Hle3).
       subst.
       simplify.
-      Lemma invert_tyeq_CApps_CRec cs cs' k t k' t' :
-        tyeq [] (CApps (CRec k t) cs) (CApps (CRec k' t') cs') ->
-        sorteq [] k k' /\
-        tyeq [k] t t' /\
-        Forall2 (tyeq []) cs cs'.
-      Admitted.
-
       eapply invert_tyeq_CApps_CRec in Htyeq2.
       destruct Htyeq2 as (Hsorteq & Htyeq2 & Htyeqcs).
       split.
