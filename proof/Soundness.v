@@ -7419,17 +7419,6 @@ lift2 (fst (strip_subsets L))
   Qed.
  *)
 
-  Inductive idxeq : sctx -> idx -> idx -> sort -> Prop :=
-  | IEBaseSort L i i' b :
-      interp_prop L (PEq b i i') ->
-      idxeq L i i' (SBaseSort b)
-  | IESubset L i i' b p :
-      interp_prop L ((subst_i_p (length L) i p /\ subst_i_p (length L) i' p ) ===> PEq b i i')%idx ->
-      idxeq L i i' (SSubset b p)
-  .
-
-  Hint Constructors idxeq.
-  
   Lemma sorteq_shift_i_k L s s' :
     sorteq L s s' ->
     forall x ls,
@@ -7508,76 +7497,7 @@ lift2 (fst (strip_subsets L))
 
   Hint Constructors kinding.
 
-  (* a version that builds in transitivity *)
-  Inductive tyeq : sctx -> kctx -> ty -> ty -> kind -> Prop :=
-  (* | TyEqVar L x : *)
-  (*     tyeq L (CVar x) (CVar x) *)
-  (* | TyEqConst L cn : *)
-  (*     tyeq L (CConst cn) (CConst cn) *)
-  | TyEqUnOp L K opr t t' :
-      tyeq L K t t' KType ->
-      tyeq L K (TUnOp opr t) (TUnOp opr t') KType
-  | TyEqBinOp L K opr t1 t2 t1' t2' :
-      tyeq L K t1 t1' KType ->
-      tyeq L K t2 t2' KType ->
-      tyeq L K (TBinOp opr t1 t2) (TBinOp opr t1' t2') KType
-  | TyEqArrow L K t1 i t2 t1' i' t2':
-      tyeq L K t1 t1' KType ->
-      interp_prop L (TEq i i') ->
-      tyeq L K t2 t2' KType ->
-      tyeq L K (TArrow t1 i t2) (TArrow t1' i' t2') KType
-  | TyEqAbs L K b t t' k :
-      tyeq (SBaseSort b :: L) K t t' k ->
-      tyeq L K (TAbs b t) (TAbs b t') (KArrow b k)
-  | TyEqApp L K t b i t' i' k :
-      tyeq L K t t' (KArrow b k ) ->
-      idxeq L i i' (SBaseSort b) ->
-      tyeq L K (TApp t b i) (TApp t' b i') k
-  | TyEqBeta L K s t b i k :
-      tyeq L K (TApp (TAbs s t) b i) (subst0_i_t i t) k
-  (* | TyEqBetaRev L K t1 t2  : *)
-  (*     tyeq L K (subst0_c_c t2 t1) (CApp (CAbs t1) t2) *)
-  | TyEqQuan L K quan k t t' :
-      tyeq L (k :: K) t t' KType ->
-      tyeq L K (TQuan quan k t) (TQuan quan k t') KType
-  | TyEqQuanI L K quan s t s' t' :
-      sorteq L s s' ->
-      tyeq (s :: L) K t t' KType ->
-      tyeq L K (TQuanI quan s t) (TQuanI quan s' t') KType
-  | TyEqRec L K k c args c' args' :
-      tyeq L (k :: K) c c' k ->
-      let sorts := map fst args in
-      k = KArrows sorts ->
-      Forall2 (fun p p' => fst p = fst p' /\ idxeq L (snd p) (snd p') (SBaseSort (fst p))) args args' ->
-      tyeq L K (TRec k c args) (TRec k c' args') KType
-  (* the following rules are just here to satisfy reflexivity *)
-  (* don't do deep equality test of two CAbs's *)
-  (* | TyEqAbs L t : *)
-  (*     tyeq L (CAbs t) (CAbs t) *)
-  (* | TyEqApp L c1 c2 : *)
-  (*     tyeq L (CApp c1 c2) (CApp c1 c2) *)
-  (* structural rules *)
-  | TyEqRefl L K t k :
-      tyeq L K t t k
-  | TyEqSym L K a b k :
-      tyeq L K a b k ->
-      tyeq L K b a k
-  | TyEqTrans L K a b c k :
-      tyeq L K a b k ->
-      tyeq L K b c k ->
-      tyeq L K a c k
-  .
-
-  Hint Constructors tyeq.
-  
   (* values for denotational semantics *)
-
-  Inductive idxv :=
-  | IVUnit
-  | IVBool (b : bool)
-  | IVNat (n : nat)
-  | IVTimeFun (arity : nat) (v : time_fun arity)
-  .
 
   Record idx_arg :=
     {
@@ -7648,8 +7568,6 @@ lift2 (fst (strip_subsets L))
     eapply kind_default_value.
   Defined.
 
-  (*here*)
-    
   Fixpoint interp_ty ty bs k_ret : interp_bsorts bs (interp_k k_ret) :=
     match ty with
     | TVar x =>
@@ -7684,9 +7602,214 @@ lift2 (fst (strip_subsets L))
     | TRec k t args =>
       let r := lift2 bs (TVRec k) (interp_ty t bs KType) (interp_idx_args bs args) in
       lift1 bs (convert_kind_value KType k_ret) r
-    end.    
+    end.
+
+  Definition tyeq L t t' k :=
+    let bs := map get_bsort L in
+    let ps := strip_subsets L in
+    let p := and_all ps in
+    forall_ bs (lift3 bs (fun (p : Prop) t t' => p -> t = t') (interp_p bs p) (interp_ty t bs k) (interp_ty t' bs k)).
+
+  Lemma fuse_lift3_lift3_2 bs :
+    forall T A1 A2 A3 B1 B2 B3 (f : A1 -> A2 -> A3 -> T) (g : B1 -> B2 -> B3 -> A2) a1 a3 b1 b2 b3,
+      lift3 bs f a1 (lift3 bs g b1 b2 b3) a3 = lift5 bs (fun a1 b1 b2 b3 a3 => f a1 (g b1 b2 b3) a3) a1 b1 b2 b3 a3.
+  Proof.
+    induct bs; simplify; eauto.
+    eapply IHbs.
+  Qed.
+  
+  Fixpoint lift7 arg_ks : forall t1 t2 t3 t4 t5 t6 t7 t, (t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t) -> interp_bsorts arg_ks t1 -> interp_bsorts arg_ks t2 -> interp_bsorts arg_ks t3 -> interp_bsorts arg_ks t4 -> interp_bsorts arg_ks t5 -> interp_bsorts arg_ks t6 -> interp_bsorts arg_ks t7 -> interp_bsorts arg_ks t :=
+    match arg_ks return forall t1 t2 t3 t4 t5 t6 t7 t, (t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t) -> interp_bsorts arg_ks t1 -> interp_bsorts arg_ks t2 -> interp_bsorts arg_ks t3 -> interp_bsorts arg_ks t4 -> interp_bsorts arg_ks t5 -> interp_bsorts arg_ks t6 -> interp_bsorts arg_ks t7 -> interp_bsorts arg_ks t with
+    | [] =>
+      fun t1 t2 t3 t4 t5 t6 t7 t f x1 x2 x3 x4 x5 x6 x7 => f x1 x2 x3 x4 x5 x6 x7
+    | arg_k :: arg_ks =>
+      fun t1 t2 t3 t4 t5 t6 t7 t f x1 x2 x3 x4 x5 x6 x7 => lift7 arg_ks (fun a1 a2 a3 a4 a5 a6 a7 ak => f (a1 ak) (a2 ak) (a3 ak) (a4 ak) (a5 ak) (a6 ak) (a7 ak)) x1 x2 x3 x4 x5 x6 x7
+    end.
+
+  Lemma fuse_lift5_lift3_5 bs :
+    forall T A1 A2 A3 A4 A5 B1 B2 B3 (f : A1 -> A2 -> A3 -> A4 -> A5 -> T) (g : B1 -> B2 -> B3 -> A5) a1 a2 a3 a4 b1 b2 b3,
+      lift5 bs f a1 a2 a3 a4 (lift3 bs g b1 b2 b3) = lift7 bs (fun a1 a2 a3 a4 b1 b2 b3 => f a1 a2 a3 a4 (g b1 b2 b3)) a1 a2 a3 a4 b1 b2 b3.
+  Proof.
+    induct bs; simplify; eauto.
+    eapply IHbs.
+  Qed.
+  
+  Lemma fuse_lift1_lift7 bs :
+    forall T A1 B1 B2 B3 B4 B5 B6 B7 (f : A1 -> T) (g : B1 -> B2 -> B3 -> B4 -> B5 -> B6 -> B7 -> A1) b1 b2 b3 b4 b5 b6 b7,
+      lift1 bs f (lift7 bs g b1 b2 b3 b4 b5 b6 b7) = lift7 bs (fun b1 b2 b3 b4 b5 b6 b7 => f (g b1 b2 b3 b4 b5 b6 b7)) b1 b2 b3 b4 b5 b6 b7.
+  Proof.
+    induct bs; simplify; eauto.
+    eapply IHbs.
+  Qed.
+  
+  Lemma forall_lift7_lift3_1_2_5 :
+    forall bs A1 A2 A3 A4 A5 A6 A7 P1 P2 P3 P4 P5 P6 P7 (f1 : A1 -> A2 -> A3 -> A4 -> A5 -> A6 -> A7 -> Prop) (f2 : A1 -> A2 -> A5 -> Prop),
+      (forall a1 a2 a3 a4 a5 a6 a7, f1 a1 a2 a3 a4 a5 a6 a7 -> f2 a1 a2 a5) ->
+      forall_ bs (lift7 bs f1 P1 P2 P3 P4 P5 P6 P7) ->
+      forall_ bs (lift3 bs f2 P1 P2 P5).
+  Proof.
+    induct bs; simplify; eauto.
+    rewrite fuse_lift1_lift3 in *.
+    rewrite fuse_lift1_lift7 in *.
+    eapply IHbs; eauto.
+    simplify.
+    eauto.
+  Qed.
+  
+  Lemma convert_kind_value_refl_eq :
+    forall b v, convert_kind_value b b v = v.
+  Proof.
+    intros.
+    unfold convert_kind_value.
+    cases (kind_dec b b); propositional.
+    unfold eq_rect_r.
+    rewrite <- Eqdep.EqdepTheory.eq_rect_eq.
+    eauto.
+  Qed.
+
+  Lemma forall_lift7_lift3_1_3_6 :
+    forall bs A1 A2 A3 A4 A5 A6 A7 P1 P2 P3 P4 P5 P6 P7 (f1 : A1 -> A2 -> A3 -> A4 -> A5 -> A6 -> A7 -> Prop) (f2 : A1 -> A3 -> A6 -> Prop),
+      (forall a1 a2 a3 a4 a5 a6 a7, f1 a1 a2 a3 a4 a5 a6 a7 -> f2 a1 a3 a6) ->
+      forall_ bs (lift7 bs f1 P1 P2 P3 P4 P5 P6 P7) ->
+      forall_ bs (lift3 bs f2 P1 P3 P6).
+  Proof.
+    induct bs; simplify; eauto.
+    rewrite fuse_lift1_lift3 in *.
+    rewrite fuse_lift1_lift7 in *.
+    eapply IHbs; eauto.
+    simplify.
+    eauto.
+  Qed.
+  
+  Lemma forall_lift7_lift3_1_4_7 :
+    forall bs A1 A2 A3 A4 A5 A6 A7 P1 P2 P3 P4 P5 P6 P7 (f1 : A1 -> A2 -> A3 -> A4 -> A5 -> A6 -> A7 -> Prop) (f2 : A1 -> A4 -> A7 -> Prop),
+      (forall a1 a2 a3 a4 a5 a6 a7, f1 a1 a2 a3 a4 a5 a6 a7 -> f2 a1 a4 a7) ->
+      forall_ bs (lift7 bs f1 P1 P2 P3 P4 P5 P6 P7) ->
+      forall_ bs (lift3 bs f2 P1 P4 P7).
+  Proof.
+    induct bs; simplify; eauto.
+    rewrite fuse_lift1_lift3 in *.
+    rewrite fuse_lift1_lift7 in *.
+    eapply IHbs; eauto.
+    simplify.
+    eauto.
+  Qed.
+  
+  Lemma invert_tyeq_TArrow L t1 i t2 t1' i' t2' :
+    tyeq L (TArrow t1 i t2) (TArrow t1' i' t2') KType ->
+    (* kinding L K (TArrow t1 i t2) KType -> *)
+    tyeq L t1 t1' KType /\
+    interp_prop L (TEq i i') /\
+    tyeq L t2 t2' KType.
+  Proof.
+    intros H (* Hkd *).
+    unfold tyeq, interp_prop in *.
+    simpl in *.
+    repeat rewrite fuse_lift1_lift3 in *.
+    rewrite fuse_lift3_lift3_2 in *.
+    rewrite fuse_lift5_lift3_5 in *.
+    rewrite fuse_lift2_lift2_2 in *.
+    (* invert Hkd. *)
+    split.
+    {
+      eapply forall_lift7_lift3_1_2_5; eauto.
+      simpl.
+      intros.
+      repeat rewrite convert_kind_value_refl_eq in *.
+      eapply H0 in H1.
+      congruence.
+    }
+    split.
+    {
+      eapply forall_lift7_lift3_1_3_6; eauto.
+      simpl.
+      intros.
+      repeat rewrite convert_kind_value_refl_eq in *.
+      eapply H0 in H1.
+      congruence.
+    }
+    {
+      eapply forall_lift7_lift3_1_4_7; eauto.
+      simpl.
+      intros.
+      repeat rewrite convert_kind_value_refl_eq in *.
+      eapply H0 in H1.
+      congruence.
+    }
+  Qed.
+
+  Lemma tyeq_interp_ty_eq :
+    tyeq L t t' k ->
+    interp_t t bs k = interp_t t' bs k.
+
+  Definition idxeq L i i' b := interp_prop L (PEq b i i').
+  
+  Inductive tyeq : sctx -> kctx -> ty -> ty -> kind -> Prop :=
+  (* | TyEqVar L x : *)
+  (*     tyeq L (CVar x) (CVar x) *)
+  (* | TyEqConst L cn : *)
+  (*     tyeq L (CConst cn) (CConst cn) *)
+  | TyEqUnOp L K opr t t' :
+      tyeq L K t t' KType ->
+      tyeq L K (TUnOp opr t) (TUnOp opr t') KType
+  | TyEqBinOp L K opr t1 t2 t1' t2' :
+      tyeq L K t1 t1' KType ->
+      tyeq L K t2 t2' KType ->
+      tyeq L K (TBinOp opr t1 t2) (TBinOp opr t1' t2') KType
+  | TyEqArrow L K t1 i t2 t1' i' t2':
+      tyeq L K t1 t1' KType ->
+      interp_prop L (TEq i i') ->
+      tyeq L K t2 t2' KType ->
+      tyeq L K (TArrow t1 i t2) (TArrow t1' i' t2') KType
+  | TyEqAbs L K b t t' k :
+      tyeq (SBaseSort b :: L) K t t' k ->
+      tyeq L K (TAbs b t) (TAbs b t') (KArrow b k)
+  | TyEqApp L K t b i t' i' k :
+      tyeq L K t t' (KArrow b k ) ->
+      idxeq L i i' b ->
+      tyeq L K (TApp t b i) (TApp t' b i') k
+  | TyEqBeta L K s t b i k :
+      tyeq L K (TApp (TAbs s t) b i) (subst0_i_t i t) k
+  (* | TyEqBetaRev L K t1 t2  : *)
+  (*     tyeq L K (subst0_c_c t2 t1) (CApp (CAbs t1) t2) *)
+  | TyEqQuan L K quan k t t' :
+      tyeq L (k :: K) t t' KType ->
+      tyeq L K (TQuan quan k t) (TQuan quan k t') KType
+  | TyEqQuanI L K quan s t s' t' :
+      sorteq L s s' ->
+      tyeq (s :: L) K t t' KType ->
+      tyeq L K (TQuanI quan s t) (TQuanI quan s' t') KType
+  | TyEqRec L K k c args c' args' :
+      tyeq L (k :: K) c c' k ->
+      let sorts := map fst args in
+      k = KArrows sorts ->
+      Forall2 (fun p p' => fst p = fst p' /\ idxeq L (snd p) (snd p') (fst p)) args args' ->
+      tyeq L K (TRec k c args) (TRec k c' args') KType
+  (* the following rules are just here to satisfy reflexivity *)
+  (* don't do deep equality test of two CAbs's *)
+  (* | TyEqAbs L t : *)
+  (*     tyeq L (CAbs t) (CAbs t) *)
+  (* | TyEqApp L c1 c2 : *)
+  (*     tyeq L (CApp c1 c2) (CApp c1 c2) *)
+  (* structural rules *)
+  | TyEqRefl L K t k :
+      tyeq L K t t k
+  | TyEqSym L K a b k :
+      tyeq L K a b k ->
+      tyeq L K b a k
+  | TyEqTrans L K a b c k :
+      tyeq L K a b k ->
+      tyeq L K b c k ->
+      tyeq L K a c k
+  .
+
+  Hint Constructors tyeq.
+  
+  (*here*)
+  
 
 
+         
   (* Substitute a 'substitution group' for all variables. *)
   (* In a subtitution group, values for inner variables cannot depend on values for outer variables.  *)
 
