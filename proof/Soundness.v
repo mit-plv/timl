@@ -7528,14 +7528,20 @@ lift2 (fst (strip_subsets L))
   | IVNat (n : nat)
   | IVTimeFun (arity : nat) (v : time_fun arity)
   .
-      
+
+  Definition get_bsort_v s :=
+    match s with
+    | SVBaseSort b => b
+    | SVSubset b _ => b
+    end.
+  
   Inductive tyv :=
   | TVConst (cn : ty_const)
   | TVUnOp (opr : ty_un_op) (c : tyv)
   | TVBinOp (opr : ty_bin_op) (c1 c2 : tyv)
-  | TVArrow (t1 : tyv) (i : idxv) (t2 : tyv)
+  | TVArrow (t1 : tyv) (i : time_type) (t2 : tyv)
   | TVQuan (q : quan) (k : kindv) (t : tyv)
-  | TVQuanI (q : quan) (s : sortv) (t : tyv)
+  | TVQuanI (q : quan) (s : sortv) (t : interp_bsort (get_bsort_v s) -> tyv)
   | TVRec (k : kindv) (t : tyv) (args : list idxv)
   (* | TVAbs (s : sortv) (t : tyv) *)
   .
@@ -7548,47 +7554,57 @@ lift2 (fst (strip_subsets L))
 
   (*here*)
     
-  Fixpoint interp_ty ty ks k_ret : interp_kinds ks (interp_kind k_ret) :=
+  Fixpoint interp_ty (f_i : idx -> forall bs b, interp_bsorts bs (interp_bsort b)) ty ks k_ret : interp_kinds ks (interp_kind k_ret) :=
     match ty with
     | TVar x => interp_var x ks k_ret
-    | TConst cn => lift0 _ (TVConst cn)
+    | TConst cn => lift0 ks (TVConst cn)
     | TUnOp opr c =>
-      let f x := convert_kind_value KType res_k (interp_iunop opr x) in
-      lift1 arg_ks f (interp_idx c arg_ks (iunop_arg_bsort opr))
-    | TUnOp opr t => lift1 _ (fun t => TVUnOp opr t) (interp_ty t L)
-    | IUnOp opr c =>
-      let f x := convert_sort_value (iunop_result_bsort opr) res_k (interp_iunop opr x) in
-      lift1 arg_ks f (interp_idx c arg_ks (iunop_arg_bsort opr))
-    | TBinOp (opr : ty_bin_op) (c1 c2 : ty)
-    | TArrow (t1 : ty) (i : idx) (t2 : ty)
-    | TAbs s t => interp_ty (s :: ss) t
-    | TApp t s i => lift2 app (interp_ty (s :: ss) t s_ret) (interp_idx_full i ss s)
-    | TQuan (q : quan) (k : kind) (t : ty)
+      let r := lift1 ks (TVUnOp opr) (interp_ty c ks KType) in
+      lift1 ks (convert_kind_value KType k_ret) r
+    | TBinOp opr c1 c2 =>
+      let r := lift2 ks (TVBinOp opr) (interp_ty c1 ks KType) (interp_ty c2 ks KType) in
+      lift1 ks (convert_kind_value KType k_ret) r
+    | TArrow t1 i t2 =>
+      let f x1 x2 := TVArrow x1 (f_i i [] BSBool) x2 in
+      let r := lift2 ks f (interp_ty c1 ks KType) (interp_ty c2 ks KType) in
+      lift1 ks (convert_kind_value KType k_ret) r
+    | TAbs b t =>
+      match k_ret with
+      | KArrow _ k_ret' =>
+        let r := fun x : interp_bsort b => interp_ty (fun i bs b_ret => lift1 bs (fun f => f x) (f_i i (b :: bs) b_ret)) ks k_ret' in
+        lift1 ks (convert_kind_value (KArrow b k_ret') k_ret) r
+      | KType => lift0 ks (kind_default_value KType)
+      end
+    | TApp t b i =>
+      lift2 ks app (interp_ty t ks (KArrow b k_ret)) (f_i i [] b)
+    | TQuan q k t =>
+      let r := lift1 ks (TVUnOp opr) (interp_ty c ks KType) in
+      lift1 ks (convert_kind_value KType k_ret) r
     | TQuanI (q : quan) (s : sort) (t : ty)
     | TRec (k : kind) (t : ty) (args : list idx)
 
-  Fixpoint interp_idx c arg_ks res_k : interp_bsorts arg_ks (interp_bsort res_k) :=
+  Fixpoint interp_idx c ks k_ret : interp_bsorts ks (interp_bsort k_ret) :=
     match c with
-    (* | IVar x => interp_var res_k x arg_ks id *)
-    | IVar x => interp_var x arg_ks res_k
-    | IConst cn => interp_iconst cn arg_ks res_k 
+    (* | IVar x => interp_var k_ret x ks id *)
+    | IVar x => interp_var x ks k_ret
+    | IConst cn => interp_iconst cn ks k_ret 
     | IUnOp opr c =>
-      let f x := convert_sort_value (iunop_result_bsort opr) res_k (interp_iunop opr x) in
-      lift1 arg_ks f (interp_idx c arg_ks (iunop_arg_bsort opr))
+      let f x := convert_sort_value (iunop_result_bsort opr) k_ret (interp_iunop opr x) in
+      lift1 ks f (interp_idx c ks (iunop_arg_bsort opr))
     | IBinOp opr c1 c2 =>
-      let f x1 x2 := convert_sort_value (ibinop_result_bsort opr) res_k (interp_ibinop opr x1 x2) in
-      lift2 arg_ks f (interp_idx c1 arg_ks (ibinop_arg1_bsort opr)) (interp_idx c2 arg_ks (ibinop_arg2_bsort opr))
+      let f x1 x2 := convert_sort_value (ibinop_result_bsort opr) k_ret (interp_ibinop opr x1 x2) in
+      lift2 ks f (interp_idx c1 ks (ibinop_arg1_bsort opr)) (interp_idx c2 ks (ibinop_arg2_bsort opr))
     | IIte c c1 c2 =>
-      lift3 arg_ks ite (interp_idx c arg_ks BSBool) (interp_idx c1 arg_ks res_k) (interp_idx c2 arg_ks res_k)
+      lift3 ks ite (interp_idx c ks BSBool) (interp_idx c1 ks k_ret) (interp_idx c2 ks k_ret)
     | ITimeAbs c =>
-      match res_k return interp_bsorts arg_ks (interp_bsort res_k) with
+      match k_ret return interp_bsorts ks (interp_bsort k_ret) with
       | BSTimeFun (S n) =>
-        interp_idx c (BSNat :: arg_ks) (BSTimeFun n)
-      | res_k => lift0 arg_ks (sort_default_value res_k)
+        interp_idx c (BSNat :: ks) (BSTimeFun n)
+      | k_ret => lift0 ks (sort_default_value k_ret)
       end
     | ITimeApp n c1 c2 => 
-      let f x1 x2 := convert_sort_value (BSTimeFun n) res_k (x1 x2) in
-      lift2 arg_ks f (interp_idx c1 arg_ks (BSTimeFun (S n))) (interp_idx c2 arg_ks BSNat)
+      let f x1 x2 := convert_sort_value (BSTimeFun n) k_ret (x1 x2) in
+      lift2 ks f (interp_idx c1 ks (BSTimeFun (S n))) (interp_idx c2 ks BSNat)
   end.
 
   Definition interp_sorts2 L R :=
