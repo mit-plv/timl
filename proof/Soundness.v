@@ -929,7 +929,7 @@ Module M (Time : TIME).
 
   Inductive kind :=
   | KType
-  | KArrow (s : sort) (k : kind)
+  | KArrow (s : bsort) (k : kind)
   .
   
   Inductive ty :=
@@ -938,7 +938,7 @@ Module M (Time : TIME).
   | TUnOp (opr : ty_un_op) (c : ty)
   | TBinOp (opr : ty_bin_op) (c1 c2 : ty)
   | TArrow (t1 : ty) (i : idx) (t2 : ty)
-  | TAbs (s : sort) (t : ty)
+  | TAbs (s : bsort) (t : ty)
   | TApp (t : ty) (i : idx)
   | TQuan (q : quan) (k : kind) (t : ty)
   | TQuanI (q : quan) (s : sort) (t : ty)
@@ -1086,12 +1086,6 @@ Module M (Time : TIME).
       | SSubset s p => SSubset s (shift_i_p (1 + x) p)
       end.
     
-    Fixpoint shift_i_k (x : var) (b : kind) : kind :=
-      match b with
-      | KType => KType
-      | KArrow s k => KArrow (shift_i_s x s) (shift_i_k x k)
-      end.
-
     Fixpoint shift_i_t (x : var) (b : ty) : ty :=
       match b with
       | TVar y => TVar y
@@ -1099,11 +1093,11 @@ Module M (Time : TIME).
       | TUnOp opr t => TUnOp opr (shift_i_t x t)
       | TBinOp opr c1 c2 => TBinOp opr (shift_i_t x c1) (shift_i_t x c2)
       | TArrow t1 i t2 => TArrow (shift_i_t x t1) (shift_i_i x i) (shift_i_t x t2)
-      | TAbs s t => TAbs (shift_i_s x s) (shift_i_t (1 + x) t)
+      | TAbs b t => TAbs b (shift_i_t (1 + x) t)
       | TApp t i => TApp (shift_i_t x t) (shift_i_i x i)
-      | TQuan q k c => TQuan q (shift_i_k x k) (shift_i_t x c)
+      | TQuan q k c => TQuan q k (shift_i_t x c)
       | TQuanI q s c => TQuanI q (shift_i_s x s) (shift_i_t (1 + x) c)
-      | TRec k t args => TRec (shift_i_k x k) (shift_i_t x t) (map (shift_i_i x) args)
+      | TRec k t args => TRec k (shift_i_t x t) (map (shift_i_i x) args)
       end.
 
     Fixpoint shift_t_t (x : var) (b : ty) : ty :=
@@ -1129,7 +1123,6 @@ Module M (Time : TIME).
   Definition shift0_i_i := shift_i_i 1 0.
   Definition shift0_i_s := shift_i_s 1 0.
   Definition shift0_i_p := shift_i_p 1 0.
-  Definition shift0_i_k := shift_i_k 1 0.
   Definition shift0_i_t := shift_i_t 1 0.
   Definition shift0_t_t := shift_t_t 1 0.
 
@@ -1180,12 +1173,6 @@ Module M (Time : TIME).
     | SSubset b p => SSubset b (subst_i_p (1 + x) (shift0_i_i v) p)
     end.
   
-  Fixpoint subst_i_k (x : var) (v : idx) (b : kind) : kind :=
-    match b with
-    | KType => KType
-    | KArrow s k => KArrow (subst_i_s x v s) (subst_i_k x v k)
-    end.
-  
   Fixpoint subst_i_t (x : var) (v : idx) (b : ty) : ty :=
     match b with
     | TVar y => TVar y
@@ -1193,11 +1180,11 @@ Module M (Time : TIME).
     | TUnOp opr i => TUnOp opr (subst_i_t x v i)
     | TBinOp opr c1 c2 => TBinOp opr (subst_i_t x v c1) (subst_i_t x v c2)
     | TArrow t1 i t2 => TArrow (subst_i_t x v t1) (subst_i_i x v i) (subst_i_t x v t2)
-    | TAbs s t => TAbs (subst_i_s x v s) (subst_i_t (1 + x) (shift0_i_i v) t)
+    | TAbs b t => TAbs b (subst_i_t (1 + x) (shift0_i_i v) t)
     | TApp t i => TApp (subst_i_t x v t) (subst_i_i x v i)
-    | TQuan q k c => TQuan q (subst_i_k x v k) (subst_i_t x v c)
+    | TQuan q k c => TQuan q k (subst_i_t x v c)
     | TQuanI q s c => TQuanI q (subst_i_s x v s) (subst_i_t (1 + x) (shift0_i_i v) c)
-    | TRec k t args => TRec (subst_i_k x v k) (subst_i_t x v t) (map (subst_i_i x v) args)
+    | TRec k t args => TRec k (subst_i_t x v t) (map (subst_i_i x v) args)
     end.
       
   Fixpoint subst_t_t (x : var) (v : ty) (b : ty) : ty :=
@@ -1259,15 +1246,6 @@ Module M (Time : TIME).
     Qed.
     
     Hint Resolve shift_i_s_0.
-    
-    Lemma shift_i_k_0 : forall b x, shift_i_k 0 x b = b.
-    Proof.
-      induct b;
-        simplify; cbn in *;
-          try solve [f_equal; eauto].
-    Qed.
-    
-    Hint Resolve shift_i_k_0.
     
     Lemma map_shift_i_i_0 x b : map (shift_i_i 0 x) b = b.
     Proof.
@@ -1360,25 +1338,6 @@ Module M (Time : TIME).
     Qed.
     
     Hint Resolve shift_i_s_shift_merge.
-    
-    Lemma shift_i_k_shift_merge n1 n2 :
-      forall b x y,
-        x <= y ->
-        y <= x + n1 ->
-        shift_i_k n2 y (shift_i_k n1 x b) = shift_i_k (n1 + n2) x b.
-    Proof.
-      induct b;
-        simplify; cbn in *;
-          try solve [eauto |
-                     f_equal; eauto |
-                     erewrite H by la; f_equal; eauto with db_la |
-                     f_equal;
-                     match goal with
-                       H : _ |- _ => eapply H; eauto with db_la
-                     end].
-    Qed.
-    
-    Hint Resolve shift_i_k_shift_merge.
     
     Lemma map_shift_i_i_shift_merge n1 n2 :
       forall x y,
@@ -1500,22 +1459,6 @@ Module M (Time : TIME).
     
     Hint Resolve shift_i_s_shift_cut.
     
-    Lemma shift_i_k_shift_cut n1 n2 :
-      forall b x y,
-        x + n1 <= y ->
-        shift_i_k n2 y (shift_i_k n1 x b) = shift_i_k n1 x (shift_i_k n2 (y - n1) b).
-    Proof.
-      induct b;
-        simplify; cbn in *;
-          try solve [eauto |
-                     f_equal; eauto with db_la |
-                     erewrite H by la; repeat f_equal; eauto with db_la |
-                     try replace (S (y - n1)) with (S y - n1) by la; f_equal; eauto with db_la
-                    ].
-    Qed.
-    
-    Hint Resolve shift_i_k_shift_cut.
-
     Lemma map_shift_i_i_shift_cut n1 n2 :
       forall x y,
         x + n1 <= y ->
@@ -1691,26 +1634,6 @@ Module M (Time : TIME).
     
     Hint Resolve subst_i_s_shift_avoid.
     
-    Lemma subst_i_k_shift_avoid n :
-      forall b v x y,
-        x <= y ->
-        y < x + n ->
-        subst_i_k y v (shift_i_k n x b) = shift_i_k (n - 1) x b.
-    Proof.
-      induct b;
-        simplify; cbn in *;
-          try solve [eauto |
-                     f_equal; eauto with db_la |
-                     erewrite H by la; repeat f_equal; eauto with db_la |
-                     repeat replace (S (y - n)) with (S y - n) by la;
-                     f_equal;
-                     match goal with
-                       H : _ |- _ => eapply H; eauto with db_la
-                     end].
-    Qed.
-    
-    Hint Resolve subst_i_k_shift_avoid.
-    
     Lemma map_subst_i_i_shift_avoid n :
       forall v x y,
         x <= y ->
@@ -1850,25 +1773,6 @@ Module M (Time : TIME).
     
     Hint Resolve subst_i_s_shift_hit.
     
-    Lemma subst_i_k_shift_hit v n :
-      forall b x y,
-        x + n <= y ->
-        subst_i_k y (shift_i_i y 0 v) (shift_i_k n x b) = shift_i_k n x (subst_i_k (y - n) (shift_i_i (y - n) 0 v) b).
-    Proof.
-      induct b;
-        simplify; cbn in *;
-          try solve [eauto |
-                     f_equal; eauto with db_la |
-                     erewrite H by la; repeat f_equal; eauto with db_la |
-                     repeat rewrite shift0_i_i_shift_0; simplify;
-                     repeat replace (S (y - n)) with (S y - n) by la;
-                     f_equal;
-                     eauto with db_la
-                    ].
-    Qed.
-    
-    Hint Resolve subst_i_k_shift_hit.
-    
     Lemma map_subst_i_i_shift_hit v n :
       forall x y,
         x + n <= y ->
@@ -1996,25 +1900,6 @@ Module M (Time : TIME).
     Qed.
     
     Hint Resolve shift_i_s_subst_in.
-    
-    Lemma shift_i_k_subst_in n :
-      forall b v x y,
-        y <= x ->
-        shift_i_k n y (subst_i_k x v b) = subst_i_k (x + n) (shift_i_i n y v) (shift_i_k n y b).
-    Proof.
-      induct b;
-        simplify; cbn in *;
-          try solve [eauto |
-                     f_equal; eauto with db_la |
-                     erewrite H by la; repeat f_equal; eauto with db_la |
-                     repeat rewrite shift0_i_i_shift; simplify;
-                     repeat replace (S (x + n)) with (S x + n) by la;
-                     f_equal;
-                     eauto with db_la
-                    ].
-    Qed.
-    
-    Hint Resolve shift_i_k_subst_in.
     
     Lemma map_shift_i_i_subst_in n :
       forall v x y,
@@ -2161,25 +2046,6 @@ Module M (Time : TIME).
     
     Hint Resolve shift_i_s_subst_out.
     
-    Lemma shift_i_k_subst_out n :
-      forall b v x y,
-        x <= y ->
-        shift_i_k n y (subst_i_k x v b) = subst_i_k x (shift_i_i n y v) (shift_i_k n (S y) b).
-    Proof.
-      induct b;
-        simplify;
-        cbn in *;
-        try solve [eauto |
-                   f_equal; eauto |
-                   erewrite H by la; repeat f_equal; eauto with db_la |
-                   repeat rewrite shift0_i_i_shift; simplify;
-                   f_equal;
-                   eauto with db_la
-                  ].
-    Qed.
-    
-    Hint Resolve shift_i_k_subst_out.
-    
     Lemma map_shift_i_i_subst_out n :
       forall v x y,
         x <= y ->
@@ -2315,27 +2181,6 @@ Module M (Time : TIME).
     Qed.
 
     Hint Resolve subst_i_s_subst.
-    
-    Lemma subst_i_k_subst :
-      forall b v1 v2 x y,
-        x <= y ->
-        subst_i_k y v2 (subst_i_k x v1 b) = subst_i_k x (subst_i_i y v2 v1) (subst_i_k (S y) (shift_i_i 1 x v2) b).
-    Proof.
-      induct b;
-        simplify;
-        cbn in *;
-        try solve [eauto |
-                   f_equal; eauto |
-                   erewrite H by la; repeat f_equal; eauto with db_la |
-                   repeat rewrite shift0_i_i_khift; simplify;
-                   repeat rewrite shift0_i_i_kubst_2; simplify;
-                   repeat replace (S (y - n)) with (S y - n) by la;
-                   f_equal;
-                   eauto with db_la
-                  ].
-    Qed.
-
-    Hint Resolve subst_i_k_subst.
     
     Lemma map_subst_i_i_subst :
       forall v1 v2 x y,
@@ -7474,36 +7319,6 @@ lift2 (fst (strip_subsets L))
   Qed.
  *)
 
-  Inductive kdeq : sctx -> kind -> kind -> Prop :=
-  | KdEqKType L :
-      kdeq L KType KType
-  | KdEqKArrow L s k s' k' :
-      sorteq L s s' ->
-      kdeq L k k' ->
-      kdeq L (KArrow s k) (KArrow s' k')
-  .
-
-  Hint Constructors kdeq.
-
-  Lemma kdeq_refl : forall k L, kdeq L k k.
-  Proof.
-    induct k; simpl; eauto using sorteq_refl.
-  Qed.
-
-  Lemma kdeq_sym L k k' : kdeq L k k' -> kdeq L k' k.
-  Proof.
-    induct 1; simpl; eauto using sorteq_sym.
-  Qed.
-
-  Lemma kdeq_trans L a b :
-    kdeq L a b ->
-    forall c,
-      kdeq L b c ->
-      kdeq L a c.
-  Proof.
-    induct 1; simpl; eauto; intros c Hbc; invert Hbc; eauto using sorteq_trans.
-  Qed.
-  
   Inductive idxeq : sctx -> idx -> idx -> sort -> Prop :=
   | IEBaseSort L i i' b :
       interp_prop L (PEq b i i') ->
@@ -7514,17 +7329,6 @@ lift2 (fst (strip_subsets L))
   .
 
   Hint Constructors idxeq.
-  
-  Inductive wfkind : sctx -> kind -> Prop :=
-  | WfKdType L :
-      wfkind L KType
-  | WfKdArrow L s k :
-      wfsort L s ->
-      wfkind L k ->
-      wfkind L (KArrow s k)
-  .
-
-  Hint Constructors wfkind.
   
   Lemma sorteq_shift_i_k L s s' :
     sorteq L s s' ->
@@ -7545,49 +7349,6 @@ lift2 (fst (strip_subsets L))
       econstructor; eauto.
   Qed.        
 
-  Inductive wellscoped_k : nat -> kind -> Prop :=
-  | WsckType L :
-      wellscoped_k L KType
-  | WsckArrow L s k :
-      wellscoped_s L s ->
-      wellscoped_k L k ->
-      wellscoped_k L (KArrow s k)
-  .
-
-  Hint Constructors wellscoped_k.
-  
-  Lemma kdeq_shift_i_k L k k' :
-    kdeq L k k' ->
-    forall x ls,
-      let n := length ls in
-      x <= length L ->
-      wellscoped_ss L ->
-      wellscoped_k (length L) k ->
-      wellscoped_k (length L) k' ->
-      kdeq (shift_i_ss n (firstn x L) ++ ls ++ my_skipn L x) (shift_i_k n x k) (shift_i_k n x k').
-  Proof.
-    induct 1; simpl; eauto.
-    intros x ls Hx HL Hk Hk'.
-    invert Hk.
-    invert Hk'.
-    econstructor; eauto.
-    eapply sorteq_shift_i_k; eauto.
-  Qed.
-
-  Lemma kdeq_shift_i_k_1_0 L k k' :
-    kdeq L k k' ->
-    forall s,
-      wellscoped_ss L ->
-      wellscoped_k (length L) k ->
-      wellscoped_k (length L) k' ->
-      kdeq (s :: L) (shift_i_k 1 0 k) (shift_i_k 1 0 k').
-  Proof.
-    intros H; intros; eapply kdeq_shift_i_k with (x := 0) (ls := [s]) in H; eauto with db_la.
-    simpl in *.
-    rewrite my_skipn_0 in *.
-    eauto.
-  Qed.
-
   Hint Extern 0 (wellscoped_ss (_ :: _)) => econstructor.
   
   Lemma wellscoped_shift_i_s L p :
@@ -7599,15 +7360,6 @@ lift2 (fst (strip_subsets L))
     induct 1; simpl; try solve [intros; subst; eauto using wellscoped_shift_i_p with db_la].
   Qed.
   
-  Lemma wellscoped_shift_i_k L k :
-    wellscoped_k L k ->
-    forall x n L',
-      L' = n + L ->
-      wellscoped_k L' (shift_i_k n x k).
-  Proof.
-    induct 1; simpl; try solve [intros; subst; eauto using wellscoped_shift_i_s with db_la].
-  Qed.
-  
   Fixpoint KArrows ss :=
     match ss with
     | [] => KType
@@ -7615,10 +7367,9 @@ lift2 (fst (strip_subsets L))
     end.
 
   Inductive kinding : sctx -> kctx -> ty -> kind -> Prop :=
-  | KdgVar L K x k k' :
+  | KdgVar L K x k :
       nth_error K x = Some k ->
-      kdeq L k k' ->
-      kinding L K (TVar x) k'
+      kinding L K (TVar x) k
   | KdgConst L K cn :
       kinding L K (TConst cn) KType
   | KdgUnOp L K opr t :
@@ -7633,61 +7384,28 @@ lift2 (fst (strip_subsets L))
       sorting L i STime ->
       kinding L K t2 KType ->
       kinding L K (TArrow t1 i t2) KType
-  | KdgAbs L K s t k s' :
-      wfsort L s ->
-      kinding (s :: L) (map shift0_i_k K) t (shift0_i_k k) ->
-      sorteq L s s' ->
-      kinding L K (TAbs s t) (KArrow s' k)
-  | KdgApp L K t i s k :
-      kinding L K t (KArrow s k) ->
-      sorting L i s ->
-      wellscoped_s (length L) s ->
+  | KdgAbs L K b t k :
+      kinding (SBaseSort b :: L) K t k ->
+      kinding L K (TAbs b t) (KArrow b k)
+  | KdgApp L K t i b k :
+      kinding L K t (KArrow b k) ->
+      sorting L i (SBaseSort b) ->
       kinding L K (TApp t i) k
   | KdgQuan L K quan k c :
-      wfkind L k ->
       kinding L (k :: K) c KType ->
       kinding L K (TQuan quan k c) KType
   | KdgQuanI L K quan s c :
       wfsort L s ->
-      kinding (s :: L) (map shift0_i_k K) c KType ->
+      kinding (s :: L) K c KType ->
       kinding L K (TQuanI quan s c) KType
   | KdgRec L K k c args sorts :
-      wfkind L k ->
       kinding L (k :: K) c k ->
       k = KArrows sorts ->
-      Forall2 (sorting L) args sorts ->
+      Forall2 (fun i b => sorting L i (SBaseSort b)) args sorts ->
       kinding L K (TRec k c args) KType
   .
 
   Hint Constructors kinding.
-
-  Lemma KdgEq L K t k :
-    kinding L K t k ->
-    forall k',
-      kdeq L k' k ->
-      wellscoped_ss L ->
-      wellscoped_k (length L) k ->
-      wellscoped_k (length L) k' ->
-      kinding L K t k'.
-  Proof.
-    induct 1; simpl; try solve [intros; eauto using kdeq_trans, kdeq_sym | induct 1; simpl in *; econstructor; eauto using kdeq_trans, kdeq_sym]; intros k' Heq HL Hk Hk'.
-    {
-      invert Heq; simpl in *; eauto.
-      econstructor; eauto using kdeq_trans, kdeq_sym, kdeq_refl, sorteq_refl, sorteq_trans, sorteq_sym.
-      unfold shift0_i_k in *.
-      invert Hk.
-      invert Hk'.
-      eapply IHkinding; eauto using wfsort_wellscoped_s, wellscoped_shift_i_k.
-      eapply kdeq_shift_i_k_1_0; eauto.
-    }
-    {
-      invert Heq; simpl in *; eauto.
-      econstructor; eauto.
-      invert Hk.
-      invert Hk'.
-      eapply IHkinding; eauto using wfsort_wellscoped_s, wellscoped_shift_i_k, kdeq_trans, kdeq_sym, sorteq_refl.
-    }
-  Qed.
 
   (* a version that builds in transitivity *)
   Inductive tyeq : sctx -> kctx -> ty -> ty -> kind -> Prop :=
@@ -7707,32 +7425,29 @@ lift2 (fst (strip_subsets L))
       interp_prop L (TEq i i') ->
       tyeq L K t2 t2' KType ->
       tyeq L K (TArrow t1 i t2) (TArrow t1' i' t2') KType
-  | TyEqAbs L K s t s' t' k :
-      sorteq L s s' ->
-      tyeq (s :: L) (map shift0_i_k K) t t' (shift0_i_k k) ->
-      tyeq L K (TAbs s t) (TAbs s' t') (KArrow s k)
-  | TyEqApp L K t i t' i' s k :
-      tyeq L K t t' (KArrow s k ) ->
-      idxeq L i i' s ->
+  | TyEqAbs L K b t t' k :
+      tyeq (SBaseSort b :: L) K t t' k ->
+      tyeq L K (TAbs b t) (TAbs b t') (KArrow b k)
+  | TyEqApp L K t i t' i' b k :
+      tyeq L K t t' (KArrow b k ) ->
+      idxeq L i i' (SBaseSort b) ->
       tyeq L K (TApp t i) (TApp t' i') k
   | TyEqBeta L K s t i k :
       tyeq L K (TApp (TAbs s t) i) (subst0_i_t i t) k
   (* | TyEqBetaRev L K t1 t2  : *)
   (*     tyeq L K (subst0_c_c t2 t1) (CApp (CAbs t1) t2) *)
-  | TyEqQuan L K quan k t k' t' :
-      kdeq L k k' ->
+  | TyEqQuan L K quan k t t' :
       tyeq L (k :: K) t t' KType ->
-      tyeq L K (TQuan quan k t) (TQuan quan k' t') KType
+      tyeq L K (TQuan quan k t) (TQuan quan k t') KType
   | TyEqQuanI L K quan s t s' t' :
       sorteq L s s' ->
-      tyeq (s :: L) (map shift0_i_k K) t t' KType ->
+      tyeq (s :: L) K t t' KType ->
       tyeq L K (TQuanI quan s t) (TQuanI quan s' t') KType
-  | TyEqRec L K k c args k' c' args' sorts :
-      kdeq L k k' ->
+  | TyEqRec L K k c args c' args' sorts :
       tyeq L (k :: K) c c' k ->
       k = KArrows sorts ->
-      Forall3 (idxeq L) args args' sorts ->
-      tyeq L K (TRec k c args) (TRec k' c' args') KType
+      Forall3 (fun i i' b => idxeq L i i' (SBaseSort b)) args args' sorts ->
+      tyeq L K (TRec k c args) (TRec k c' args') KType
   (* the following rules are just here to satisfy reflexivity *)
   (* don't do deep equality test of two CAbs's *)
   (* | TyEqAbs L t : *)
@@ -7828,11 +7543,7 @@ lift2 (fst (strip_subsets L))
   Fixpoint interp_k k :=
     match k with
     | KType => tyv
-    | KArrow s k =>
-      match s with
-      | SBaseSort b => interp_bsort b -> interp_k k
-      | SSubset b _ => ((interp_bsort b -> interp_k k) * Prop)%type
-      end
+    | KArrow b k => interp_bsort b -> interp_k k
     end.
 
   (*here*)
