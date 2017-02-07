@@ -7582,6 +7582,12 @@ lift2 (fst (strip_subsets L))
     | b :: bs' => fun f p => uncurrys bs' (f (fst p)) (snd p)
     end.
 
+  Fixpoint get_bsorts k :=
+    match k with
+    | KType => []
+    | KArrow b k' => b :: get_bsorts k'
+    end.
+
   Fixpoint interp_ty ty bs k_ret : interp_bsorts bs (interp_k k_ret) :=
     match ty with
     | TVar x =>
@@ -7614,7 +7620,7 @@ lift2 (fst (strip_subsets L))
       let r := lift2 bs (@TVQuanI q b) (interp_sort s bs b) (interp_ty t (b :: bs) KType) in
       lift1 bs (convert_kind_value KType k_ret) r
     | TRec k t args =>
-      let arg_bs := map fst args in
+      let arg_bs := get_bsorts k in
       let k' := KArrows arg_bs in
       let r := lift2 bs (fun (t : interp_k k') args => TVRec arg_bs (uncurrys arg_bs t) args) (interp_ty t bs k') (interp_idx_args bs args) in
       lift1 bs (convert_kind_value KType k_ret) r
@@ -8057,44 +8063,17 @@ lift2 (fst (strip_subsets L))
   
   Definition idxeq L i i' b := interp_prop L (PEq b i i').
   
-  Lemma invert_tyeq_TRec L cs cs' k t k' t' :
-    tyeq L (TRec k t cs) (TRec k' t' cs') KType ->
-    kdeq L k k' /\
-    tyeq L t t' KType /\
-    let bs := map get_bsort L in
-    forall_ bs (lift3 bs (fun (p : Prop) cs cs' => p -> cs = cs') (interp_p bs (and_all (strip_subsets L))) (lift_ls bs (interp_idx_arg bs) cs) (lift_ls bs (interp_idx_arg bs) cs')).
+  Lemma get_bsorts_inj :
+    forall k k', get_bsorts k = get_bsorts k' -> k = k'.
   Proof.
-    intros H.
-    unfold tyeq, cond_eq, idxeq, interp_prop in *.
-    simpl in *.
-    repeat rewrite fuse_lift1_lift2 in *.
-    rewrite fuse_lift3_lift2_2 in *.
-    rewrite fuse_lift4_lift2_4 in *.
-    split.
-    {
-      eapply forall_lift5_lift1_1; [|eapply H].
-      simpl.
-      intros.
-      repeat rewrite convert_kind_value_refl_eq in *.
-      equality.
-    }
-    split.
-    {
-      eapply forall_lift5_lift3_1_2_4; [|eapply H].
-      simpl.
-      intros.
-      repeat rewrite convert_kind_value_refl_eq in *.
-      equality.
-    }
-    {
-      unfold interp_idx_args in *.
-      set (bs := map get_bsort L) in *.
-      eapply forall_lift5_lift3_1_3_5; [|eapply H].
-      simpl.
-      intros.
-      repeat rewrite convert_kind_value_refl_eq in *.
-      equality.
-    }
+    induct k; destruct k'; simpl; intros H; try dis; eauto.
+    invert H; subst; eauto.
+    f_equal; eauto.
+  Qed.
+
+  Lemma KArrows_get_bsorts : forall k, KArrows (get_bsorts k) = k.
+  Proof.
+    induct k; simpl; f_equal; eauto.
   Qed.
 
   Lemma interp_idx_args_eq_Forall2 :
@@ -8116,6 +8095,61 @@ lift2 (fst (strip_subsets L))
     intros; eapply sort_dec.
   Qed.
 
+(*  
+  Lemma invert_tyeq_TRec L cs cs' k t k' t' :
+    tyeq L (TRec k t cs) (TRec k' t' cs') KType ->
+    kdeq L k k' /\
+    tyeq L t t' k /\
+    let bs := map get_bsort L in
+    forall_ bs (lift3 bs (fun (p : Prop) cs cs' => p -> cs = cs') (interp_p bs (and_all (strip_subsets L))) (lift_ls bs (interp_idx_arg bs) cs) (lift_ls bs (interp_idx_arg bs) cs')).
+  Proof.
+    intros H.
+    unfold tyeq, cond_eq, idxeq, interp_prop in *.
+    simpl in *.
+    repeat rewrite fuse_lift1_lift2 in *.
+    rewrite fuse_lift3_lift2_2 in *.
+    rewrite fuse_lift4_lift2_4 in *.
+    split.
+    {
+      eapply forall_lift5_lift1_1; [|eapply H].
+      simpl.
+      intros.
+      repeat rewrite convert_kind_value_refl_eq in *.
+      eapply H0 in H1.
+      invert H1.
+      eapply get_bsorts_inj; eauto.
+    }
+    split.
+    {
+      repeat rewrite KArrows_get_bsorts in *.
+      set (bs := map get_bsort L) in *.
+      assert (Him : forall_ bs
+                            (lift5 bs (fun (p : Prop) t t' t1 t1' => p -> t1 = convert_kind_value _ _ t1' /\ t = convert_kind_value _ _ t1 /\ t' = convert_kind_value _ _ t1' /\ t = t')
+                                   (interp_p bs (and_all (strip_subsets L)))
+                                   (interp_ty t bs k)
+                                   (interp_ty t' bs k)
+                                   (interp_ty t bs (KArrows (get_bsorts k)))
+                                   (interp_ty t' bs (KArrows (get_bsorts k')))
+             )).
+      {
+      }
+      eapply forall_lift5_lift3_1_2_4; [|eapply H].
+      simpl.
+      intros.
+      repeat rewrite convert_kind_value_refl_eq in *.
+      equality.
+    }
+    {
+      unfold interp_idx_args in *.
+      set (bs := map get_bsort L) in *.
+      eapply forall_lift5_lift3_1_3_5; [|eapply H].
+      simpl.
+      intros.
+      repeat rewrite convert_kind_value_refl_eq in *.
+      equality.
+    }
+  Qed.
+  
   Lemma invert_tyeq_TRec_empty cs cs' k t k' t' :
     tyeq [] (TRec k t cs) (TRec k' t' cs') KType ->
     kdeq [] k k' /\
@@ -8128,6 +8162,57 @@ lift2 (fst (strip_subsets L))
     destruct H as (Hk & Ht & Ha).
     repeat try_split; eauto.
     specialize (Ha I).
+    eapply interp_idx_args_eq_Forall2; eauto.
+  Qed.
+ *)
+
+  Lemma invert_tyeq_TRec_empty cs cs' k t k' t' :
+    tyeq [] (TRec k t cs) (TRec k' t' cs') KType ->
+    kdeq [] k k' /\
+    tyeq [] t t' k /\
+    Forall2 (fun p p' => fst p = fst p' /\ idxeq [] (snd p) (snd p') (fst p)) cs cs'.
+  Proof.
+    intros H.
+    unfold tyeq, cond_eq, idxeq, interp_prop in *.
+    simpl in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    repeat rewrite KArrows_get_bsorts in *.
+    specialize (H I).
+    invert H.
+    eapply get_bsorts_inj in H1.
+    symmetry in H1.
+    subst.
+    eapply Eqdep_dec.inj_pair2_eq_dec in H2.
+    Focus 2.
+    {
+      intros.
+      eapply list_eq_dec.
+      intros; eapply sort_dec.
+    }
+    Unfocus.
+    Lemma uncurrys_inj : forall bs f f', uncurrys bs f = uncurrys bs f' -> f = f'.
+    Proof.
+      induct bs; simpl; eauto; intros f f' H.
+      {
+        eapply (f_equal (fun f => f tt)) in H.
+        eauto.
+      }
+      {
+        eapply FunctionalExtensionality.functional_extensionality.
+        intros x.
+        eapply IHbs.
+        eapply FunctionalExtensionality.functional_extensionality.
+        intros y.
+        eapply (f_equal (fun f => f (x, y))) in H.
+        simpl in *.
+        eauto.
+      }
+    Qed.
+
+
+    eapply uncurrys_inj in H2.
+    rewrite KArrows_get_bsorts in *.
+    repeat try_split; eauto.
     eapply interp_idx_args_eq_Forall2; eauto.
   Qed.
 
@@ -8185,8 +8270,6 @@ lift2 (fst (strip_subsets L))
     repeat rewrite convert_kind_value_refl_eq in *.
     equality.
   Qed.
-  
-  (*here*)
   
   Inductive tyeq2 : sctx -> ty -> ty -> kind -> Prop :=
   (* | TyEqVar L x : *)
