@@ -7612,6 +7612,70 @@ lift2 (fst (strip_subsets L))
     let p := and_all ps in
     forall_ bs (lift3 bs (fun (p : Prop) t t' => p -> t = t') (interp_p bs p) (interp_ty t bs k) (interp_ty t' bs k)).
 
+  Lemma tyeq_refl L t k : tyeq L t t k.
+  Proof.
+    unfold tyeq.
+    rewrite dedup_lift3_2_3.
+    eapply forall_lift2.
+    intros; eauto.
+  Qed.
+
+  Lemma swap_lift3_2_3_b :
+    forall bs T A1 A2 A3 (f1 : A1 -> A2 -> A3 -> T) a1 a2 a3,
+      lift3 bs f1 a1 a2 a3 = lift3 bs (fun a1 a2 a3 => f1 a1 a3 a2) a1 a3 a2.
+  Proof.
+    intros; eapply swap_lift3_2_3; eauto.
+  Qed.
+  
+  Lemma forall_lift3_lift3 :
+    forall bs A1 A2 A3 P1 P2 P3 (f1 : A1 -> A2 -> A3 -> Prop) (f2 : A1 -> A2 -> A3 -> Prop),
+      (forall a1 a2 a3, f1 a1 a2 a3 -> f2 a1 a2 a3) ->
+      forall_ bs (lift3 bs f1 P1 P2 P3) ->
+      forall_ bs (lift3 bs f2 P1 P2 P3).
+  Proof.
+    induct bs; simplify; eauto.
+    rewrite fuse_lift1_lift3 in *.
+    eapply IHbs; eauto.
+    simplify.
+    eauto.
+  Qed.
+  
+  Lemma tyeq_sym L t1 t2 k : tyeq L t1 t2 k -> tyeq L t2 t1 k.
+  Proof.
+    unfold tyeq.
+    intros H.
+    erewrite swap_lift3_2_3_b.
+    eapply forall_lift3_lift3; eauto.
+    simpl.
+    intros; equality.
+  Qed.
+
+  Lemma forall_lift3_lift3_lift3 :
+    forall bs A1 A2 A3 A4 P1 P2 P3 P4 (f1 : A1 -> A2 -> A3 -> Prop) (f2 : A1 -> A3 -> A4 -> Prop) (f3 : A1 -> A2 -> A4 -> Prop),
+      (forall a1 a2 a3 a4, f1 a1 a2 a3 -> f2 a1 a3 a4 -> f3 a1 a2 a4) ->
+      forall_ bs (lift3 bs f1 P1 P2 P3) ->
+      forall_ bs (lift3 bs f2 P1 P3 P4) ->
+      forall_ bs (lift3 bs f3 P1 P2 P4).
+  Proof.
+    induct bs; simplify; eauto.
+    rewrite fuse_lift1_lift3 in *.
+    eapply IHbs; eauto.
+    simplify.
+    eauto.
+  Qed.
+  
+  Lemma tyeq_trans L a b c k :
+    tyeq L a b k ->
+    tyeq L b c k ->
+    tyeq L a c k.
+  Proof.
+    unfold tyeq.
+    intros H1 H2.
+    eapply forall_lift3_lift3_lift3; eauto.
+    simpl.
+    intros; equality.
+  Qed.
+  
   Lemma fuse_lift3_lift3_2 bs :
     forall T A1 A2 A3 B1 B2 B3 (f : A1 -> A2 -> A3 -> T) (g : B1 -> B2 -> B3 -> A2) a1 a3 b1 b2 b3,
       lift3 bs f a1 (lift3 bs g b1 b2 b3) a3 = lift5 bs (fun a1 b1 b2 b3 a3 => f a1 (g b1 b2 b3) a3) a1 b1 b2 b3 a3.
@@ -7839,19 +7903,6 @@ lift2 (fst (strip_subsets L))
     eauto.
   Qed.
   
-  Lemma forall_lift3_lift3 :
-    forall bs A1 A2 A3 P1 P2 P3 (f1 : A1 -> A2 -> A3 -> Prop) (f2 : A1 -> A2 -> A3 -> Prop),
-      (forall a1 a2 a3, f1 a1 a2 a3 -> f2 a1 a2 a3) ->
-      forall_ bs (lift3 bs f1 P1 P2 P3) ->
-      forall_ bs (lift3 bs f2 P1 P2 P3).
-  Proof.
-    induct bs; simplify; eauto.
-    rewrite fuse_lift1_lift3 in *.
-    eapply IHbs; eauto.
-    simplify.
-    eauto.
-  Qed.
-  
   Lemma invert_tyeq_TQuan L q1 k1 t1 q2 k2 t2 :
     tyeq L (TQuan q1 k1 t1) (TQuan q2 k2 t2) KType ->
     cond_eq L q1 q2 /\
@@ -8066,55 +8117,59 @@ lift2 (fst (strip_subsets L))
     eapply interp_idx_args_eq_Forall2; eauto.
   Qed.
 
-  Lemma tyeq_refl L t k : tyeq L t t k.
+  Lemma tyeq_TRec_TArrow_false cs k3 t3 t1 i t2 :
+    tyeq [] (TRec k3 t3 cs) (TArrow t1 i t2) KType ->
+    False.
   Proof.
-    unfold tyeq.
-    rewrite dedup_lift3_2_3.
-    eapply forall_lift2.
-    intros; eauto.
-  Qed.
-
-  Lemma swap_lift3_2_3_b :
-    forall bs T A1 A2 A3 (f1 : A1 -> A2 -> A3 -> T) a1 a2 a3,
-      lift3 bs f1 a1 a2 a3 = lift3 bs (fun a1 a2 a3 => f1 a1 a3 a2) a1 a3 a2.
-  Proof.
-    intros; eapply swap_lift3_2_3; eauto.
-  Qed.
-  
-  Lemma tyeq_sym L t1 t2 k : tyeq L t1 t2 k -> tyeq L t2 t1 k.
-  Proof.
-    unfold tyeq.
     intros H.
-    erewrite swap_lift3_2_3_b.
-    eapply forall_lift3_lift3; eauto.
-    simpl.
-    intros; equality.
+    unfold tyeq in *.
+    simpl in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    equality.
   Qed.
 
-  Lemma forall_lift3_lift3_lift3 :
-    forall bs A1 A2 A3 A4 P1 P2 P3 P4 (f1 : A1 -> A2 -> A3 -> Prop) (f2 : A1 -> A3 -> A4 -> Prop) (f3 : A1 -> A2 -> A4 -> Prop),
-      (forall a1 a2 a3 a4, f1 a1 a2 a3 -> f2 a1 a3 a4 -> f3 a1 a2 a4) ->
-      forall_ bs (lift3 bs f1 P1 P2 P3) ->
-      forall_ bs (lift3 bs f2 P1 P3 P4) ->
-      forall_ bs (lift3 bs f3 P1 P2 P4).
+  Lemma typeq_TRec_TQuan_false cs k3 t3 q k t  :
+    tyeq [] (TRec k3 t3 cs) (TQuan q k t) KType ->
+    False.
   Proof.
-    induct bs; simplify; eauto.
-    rewrite fuse_lift1_lift3 in *.
-    eapply IHbs; eauto.
-    simplify.
-    eauto.
+    intros H.
+    unfold tyeq in *.
+    simpl in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    equality.
   Qed.
-  
-  Lemma tyeq_trans L a b c k :
-    tyeq L a b k ->
-    tyeq L b c k ->
-    tyeq L a c k.
+
+  Lemma tyeq_TRec_TUnOp_false cs k3 t3 opr t :
+    tyeq [] (TRec k3 t3 cs) (TUnOp opr t) KType ->
+    False.
   Proof.
-    unfold tyeq.
-    intros H1 H2.
-    eapply forall_lift3_lift3_lift3; eauto.
-    simpl.
-    intros; equality.
+    intros H.
+    unfold tyeq in *.
+    simpl in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    equality.
+  Qed.
+
+  Lemma tyeq_TRec_TBinOp_false cs k3 t3 opr t1 t2  :
+    tyeq [] (TRec k3 t3 cs) (TBinOp opr t1 t2) KType ->
+    False.
+  Proof.
+    intros H.
+    unfold tyeq in *.
+    simpl in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    equality.
+  Qed.
+
+  Lemma tyeq_TRec_TConst_false cs k3 t3 cn  :
+    tyeq [] (TRec k3 t3 cs) (TConst cn) KType ->
+    False.
+  Proof.
+    intros H.
+    unfold tyeq in *.
+    simpl in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    equality.
   Qed.
   
   (*here*)
@@ -8341,6 +8396,7 @@ lift2 (fst (strip_subsets L))
   
   Hint Resolve tyeq_refl tyeq_sym tyeq_trans interp_prop_le_refl interp_prop_le_trans : db_tyeq.
 
+(*  
   Lemma kinding_tyeq L k t1 t2 :
     kinding L t1 k ->
     tyeq L t1 t2 ->
@@ -8828,91 +8884,10 @@ lift2 (fst (strip_subsets L))
   Proof.
     eapply kd_wfkind_wfprop_subst_c_c.
   Qed.
-
+ *)
+  
   (*from*)
     
-  (* Lemma invert_tyeq_CApps cs cs' c c' : *)
-  (*     tyeq [] (CApps c cs) (CApps c' cs') -> *)
-  (*     tyeq [] c c' /\ *)
-  (*     Forall2 (tyeq []) cs cs'. *)
-  (* Proof. *)
-  (*   induct 1; simplify. *)
-  (*   { *)
-  (*     destruct cs; destruct cs'; simplify; try discriminate. *)
-  (*     admit. *)
-  (*   } *)
-  (* Qed. *)
-
-  Lemma CApps_CRec_CArrow_false cs k3 t3 t1 i t2 :
-    tyeq [] (CApps (CRec k3 t3) cs) (CArrow t1 i t2) ->
-    False.
-  Proof.
-    (* Lemma CArrow_CApps_false cs : *)
-    (*   forall t1 i t2 t3, *)
-    (*     CArrow t1 i t2 = CApps t3 cs -> *)
-    (*     (forall t1' i' t2', t3 <> CArrow t1' i' t2') ->  *)
-    (*     False. *)
-    (* Proof. *)
-    (*   induction cs; simpl; subst; try discriminate; intuition eauto. *)
-    (*   eapply IHcs; eauto. *)
-    (*   intros; discriminate. *)
-    (* Qed. *)
-    (* intros; eapply CArrow_CApps_false; eauto. *)
-    (* intros; discriminate. *)
-  Admitted.
-
-  Lemma CApps_CRec_CForall_false cs k3 t3 k t  :
-    tyeq [] (CApps (CRec k3 t3) cs) (CForall k t) ->
-    False.
-  Proof.
-  Admitted.
-
-  Lemma CApps_CRec_CExists_false cs k3 t3 k t  :
-    tyeq [] (CApps (CRec k3 t3) cs) (CExists k t) ->
-    False.
-  Proof.
-  Admitted.
-
-  Lemma CApps_CRec_CProd_false cs k3 t3 t1 t2  :
-    tyeq [] (CApps (CRec k3 t3) cs) (CProd t1 t2) ->
-    False.
-  Proof.
-  Admitted.
-
-  Lemma CApps_CRec_CSum_false cs k3 t3 t1 t2  :
-    tyeq [] (CApps (CRec k3 t3) cs) (CSum t1 t2) ->
-    False.
-  Proof.
-  Admitted.
-
-  Lemma CApps_CRec_CRef_false cs k3 t3 t  :
-    tyeq [] (CApps (CRec k3 t3) cs) (CRef t) ->
-    False.
-  Proof.
-  Admitted.
-
-  Lemma CApps_CRec_CConst_false cs k3 t3 cn  :
-    tyeq [] (CApps (CRec k3 t3) cs) (CConst cn) ->
-    False.
-  Admitted.
-  
-  Lemma shift_c_c_Apps cs :
-    forall n x c,
-      shift_c_c n x (CApps c cs) = CApps (shift_c_c n x c) (map (shift_c_c n x) cs).
-  Proof.
-    induct cs; simplify; eauto.
-    rewrite IHcs; eauto.
-  Qed.
-  
-  Lemma subst_c_c_Apps cs :
-    forall n v c,
-      subst_c_c n v (CApps c cs) = CApps (subst_c_c n v c) (map (subst_c_c n v) cs).
-  Proof.
-    induct cs; simplify; eauto.
-    rewrite IHcs; eauto.
-  Qed.
-
-
   (* ============================================================= *)
   (* The term language *)
   (* ============================================================= *)
@@ -8939,9 +8914,9 @@ lift2 (fst (strip_subsets L))
 
   Definition loc := nat.
 
-  Definition hctx := fmap loc cstr.
-  Definition tctx := list cstr.
-  Definition ctx := (kctx * hctx * tctx)%type.
+  Definition hctx := fmap loc ty.
+  Definition tctx := list ty.
+  Definition ctx := (sctx * kctx * hctx * tctx)%type.
   
   Inductive expr_un_op :=
   | EUProj (p : projector)
@@ -8968,14 +8943,17 @@ lift2 (fst (strip_subsets L))
   | ECase (e e1 e2 : expr)
   | EAbs (e : expr)
   | ERec (e : expr)
-  | EAbsC (e : expr)
-  | EAppC (e : expr) (c : cstr)
-  | EPack (c : cstr) (e : expr)
+  | EAbsT (e : expr)
+  | EAppT (e : expr) (t : ty)
+  | EAbsI (e : expr)
+  | EAppI (e : expr) (i : idx)
+  | EPack (t : ty) (e : expr)
   | EUnpack (e1 e2 : expr)
+  | EPackI (i : idx) (e : expr)
+  | EUnpackI (e1 e2 : expr)
   (* | EAsc (e : expr) (t : cstr) *)
   (* | EAstTime (e : expr) (i : cstr) *)
   .
-
 
   Definition EProj p e := EUnOp (EUProj p) e.
   Definition EInj c e := EUnOp (EUInj c) e.
@@ -9002,11 +8980,16 @@ lift2 (fst (strip_subsets L))
       value (EInj c v)
   | VAbs e :
       value (EAbs e)
-  | VAbsC e :
-      value (EAbsC e)
+  | VAbsT e :
+      value (EAbsT e)
+  | VAbsI e :
+      value (EAbsI e)
   | VPack c v :
       value v ->
       value (EPack c v)
+  | VPackI c v :
+      value v ->
+      value (EPackI c v)
   | VFold v :
       value v ->
       value (EFold v)
@@ -9021,29 +9004,40 @@ lift2 (fst (strip_subsets L))
 
   Definition ETT := EConst ECTT.
 
+  Definition add_sorting_ctx s (C : ctx) : ctx :=
+    match C with
+      (L, K, W, G) => (s :: L, K, fmap_map shift0_i_t W, map shift0_i_t G)
+    end
+  .
+
   Definition add_kinding_ctx k (C : ctx) :=
     match C with
-      (L, W, G) => (k :: L, fmap_map shift0_c_c W, map shift0_c_c G)
+      (L, K, W, G) => (L, k :: K, fmap_map shift0_t_t W, map shift0_t_t G)
     end
   .
 
   Definition add_typing_ctx t (C : ctx) :=
     match C with
-      (L, W, G) => (L, W, t :: G)
+      (L, K, W, G) => (L, K, W, t :: G)
     end
   .
 
-  Definition get_kctx (C : ctx) : kctx := fst (fst C).
-  Definition get_hctx (C : ctx) : hctx := snd (fst C).
-  Definition get_tctx (C : ctx) : tctx := snd C.
-
-
-  Fixpoint EAbsCs n e :=
-    match n with
-    | 0 => e
-    | S n => EAbsC (EAbsCs n e)
-    end
-  .
+  Definition get_sctx (C : ctx) : sctx :=
+    match C with
+      (L, K, W, G) => L
+    end.
+  Definition get_kctx (C : ctx) : kctx := 
+    match C with
+      (L, K, W, G) => K
+    end.
+  Definition get_hctx (C : ctx) : hctx := 
+    match C with
+      (L, K, W, G) => W
+    end.
+  Definition get_tctx (C : ctx) : tctx := 
+    match C with
+      (L, K, W, G) => G
+    end.
 
   Definition proj {A} (p : A * A) pr :=
     match pr with
@@ -9061,37 +9055,59 @@ lift2 (fst (strip_subsets L))
 
   Definition const_type cn :=
     match cn with
-    | ECTT => CTypeUnit
-    | ECInt _ => CInt
+    | ECTT => TUnit
+    | ECInt _ => TInt
+    end
+  .
+
+  Fixpoint EAbsTIs ls e :=
+    match ls with
+    | [] => e
+    | b :: ls =>
+      match b with
+      | true => EAbsT (EAbsTIs ls e)
+      | false => EAbsI (EAbsTIs ls e)
+      end
     end
   .
 
   Local Open Scope idx_scope.
 
-  Inductive typing : ctx -> expr -> cstr -> cstr -> Prop :=
+  Definition TForallI := TQuanI QuanForall.
+  Definition TExistsI := TQuanI QuanExists.
+
+  Inductive typing : ctx -> expr -> ty -> idx -> Prop :=
   | TyVar C x t :
       nth_error (get_tctx C) x = Some t ->
       typing C (EVar x) t T0
   | TyApp C e1 e2 t i1 i2 i t2 :
-      typing C e1 (CArrow t2 i t) i1 ->
+      typing C e1 (TArrow t2 i t) i1 ->
       typing C e2 t2 i2 ->
       typing C (EApp e1 e2) t (i1 + i2 + T1 + i)
   | TyAbs C e t1 i t :
-      kinding (get_kctx C) t1 KType ->
+      kinding (get_sctx C) (get_kctx C) t1 KType ->
       typing (add_typing_ctx t1 C) e t i ->
-      typing C (EAbs e) (CArrow t1 i t) T0
-  | TyAppC C e c t i k :
-      typing C e (CForall k t) i ->
-      kinding (get_kctx C) c k -> 
-      typing C (EAppC e c) (subst0_c_c c t) i
-  | TyAbsC C e t k :
+      typing C (EAbs e) (TArrow t1 i t) T0
+  | TyAppT C e t t1 i k :
+      typing C e (TForall k t1) i ->
+      kinding (get_sctx C) (get_kctx C) t k -> 
+      typing C (EAppT e t) (subst0_t_t t t1) i
+  | TyAbsT C e t k :
       value e ->
-      wfkind (get_kctx C) k ->
       typing (add_kinding_ctx k C) e t T0 ->
-      typing C (EAbsC e) (CForall k t) T0
-  | TyRec C e t n e1 :
-      e = EAbsCs n (EAbs e1) ->
-      kinding (get_kctx C) t KType ->
+      typing C (EAbsT e) (TForall k t) T0
+  | TyAppI C e c t i s :
+      typing C e (TForallI s t) i ->
+      sorting (get_sctx C) c s -> 
+      typing C (EAppI e c) (subst0_i_t c t) i
+  | TyAbsI C e t s :
+      value e ->
+      wfsort (get_sctx C) s ->
+      typing (add_sorting_ctx s C) e t T0 ->
+      typing C (EAbsI e) (TForallI s t) T0
+  | TyRec C e t tis e1 :
+      e = EAbsTIs tis (EAbs e1) ->
+      kinding (get_sctx C) (get_kctx C) t KType ->
       typing (add_typing_ctx t C) e t T0 ->
       typing C (ERec e) t T0
   | TyFold C e t i t1 cs k t2 :
@@ -9099,7 +9115,7 @@ lift2 (fst (strip_subsets L))
       t1 = CRec k t2 ->
       kinding (get_kctx C) t KType ->
       typing C e (CApps (subst0_c_c t1 t2) cs) i ->
-      typing C (EFold e) t i
+      typing C (EFold e) t i.
   | TyUnfold C e t k t1 cs i :
       t = CRec k t1 ->
       typing C e (CApps t cs) i ->
