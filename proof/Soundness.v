@@ -7519,6 +7519,12 @@ lift2 (fst (strip_subsets L))
   Definition interp_idx_args bs := lift_ls bs (interp_idx_arg bs).
   
   Definition sortv b := option (interp_bsort b -> Prop).
+
+  Fixpoint interp_bsorts_tuple bs :=
+    match bs with
+    | [] => unit
+    | b :: bs' => (interp_bsort b * interp_bsorts_tuple bs')%type
+    end.
   
   Inductive tyv :=
   | TVVar (x : var)
@@ -7528,19 +7534,19 @@ lift2 (fst (strip_subsets L))
   | TVArrow (t1 : tyv) (i : time_type) (t2 : tyv)
   | TVQuan (q : quan) (k : kind) (t : tyv)
   | TVQuanI (q : quan) (b : bsort) (p : sortv b) (t : interp_bsort b -> tyv)
-  | TVRec (k : kind) (t : tyv) (args : list idx_arg)
+  | TVRec (bs : list bsort) (t : interp_bsorts_tuple bs -> tyv) (args : list idx_arg)
   .
-
-  Definition interp_sort s bs b : interp_bsorts bs (sortv b) :=
-    match s with
-    | SBaseSort _ => lift0 _ None
-    | SSubset _ p => lift1 bs (fun p => Some p) (interp_p (b :: bs) p)
-    end.
 
   Fixpoint interp_k k :=
     match k with
     | KType => tyv
     | KArrow b k => interp_bsort b -> interp_k k
+    end.
+
+  Definition interp_sort s bs b : interp_bsorts bs (sortv b) :=
+    match s with
+    | SBaseSort _ => lift0 _ None
+    | SSubset _ p => lift1 bs (fun p => Some p) (interp_p (b :: bs) p)
     end.
 
   Fixpoint complete_var k (t : tyv) : interp_k k :=
@@ -7569,6 +7575,12 @@ lift2 (fst (strip_subsets L))
     intros.
     eapply kind_default_value.
   Defined.
+
+  Fixpoint uncurrys bs : interp_k (KArrows bs) -> interp_bsorts_tuple bs -> tyv :=
+    match bs return interp_k (KArrows bs) -> interp_bsorts_tuple bs -> tyv with
+    | [] => fun f _ => f
+    | b :: bs' => fun f p => uncurrys bs' (f (fst p)) (snd p)
+    end.
 
   Fixpoint interp_ty ty bs k_ret : interp_bsorts bs (interp_k k_ret) :=
     match ty with
@@ -7602,7 +7614,9 @@ lift2 (fst (strip_subsets L))
       let r := lift2 bs (@TVQuanI q b) (interp_sort s bs b) (interp_ty t (b :: bs) KType) in
       lift1 bs (convert_kind_value KType k_ret) r
     | TRec k t args =>
-      let r := lift2 bs (TVRec k) (interp_ty t bs KType) (interp_idx_args bs args) in
+      let arg_bs := map fst args in
+      let k' := KArrows arg_bs in
+      let r := lift2 bs (fun (t : interp_k k') args => TVRec arg_bs (uncurrys arg_bs t) args) (interp_ty t bs k') (interp_idx_args bs args) in
       lift1 bs (convert_kind_value KType k_ret) r
     end.
 
