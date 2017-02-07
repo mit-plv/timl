@@ -7622,7 +7622,7 @@ lift2 (fst (strip_subsets L))
     | TRec k t args =>
       let arg_bs := get_bsorts k in
       let k' := KArrows arg_bs in
-      let r := lift2 bs (fun (t : interp_k k') args => TVRec arg_bs (uncurrys arg_bs t) args) (interp_ty t bs k') (interp_idx_args bs args) in
+      let r := lift2 bs (fun (t : interp_k k) args => TVRec arg_bs (uncurrys arg_bs (convert_kind_value _ _ t)) args) (interp_ty t bs k) (interp_idx_args bs args) in
       lift1 bs (convert_kind_value KType k_ret) r
     end.
 
@@ -8166,6 +8166,25 @@ lift2 (fst (strip_subsets L))
   Qed.
  *)
 
+  Lemma uncurrys_inj : forall bs f f', uncurrys bs f = uncurrys bs f' -> f = f'.
+  Proof.
+    induct bs; simpl; eauto; intros f f' H.
+    {
+      eapply (f_equal (fun f => f tt)) in H.
+      eauto.
+    }
+    {
+      eapply FunctionalExtensionality.functional_extensionality.
+      intros x.
+      eapply IHbs.
+      eapply FunctionalExtensionality.functional_extensionality.
+      intros y.
+      eapply (f_equal (fun f => f (x, y))) in H.
+      simpl in *.
+      eauto.
+    }
+  Qed.
+
   Lemma invert_tyeq_TRec_empty cs cs' k t k' t' :
     tyeq [] (TRec k t cs) (TRec k' t' cs') KType ->
     kdeq [] k k' /\
@@ -8176,7 +8195,6 @@ lift2 (fst (strip_subsets L))
     unfold tyeq, cond_eq, idxeq, interp_prop in *.
     simpl in *.
     repeat rewrite convert_kind_value_refl_eq in *.
-    repeat rewrite KArrows_get_bsorts in *.
     specialize (H I).
     invert H.
     eapply get_bsorts_inj in H1.
@@ -8190,28 +8208,9 @@ lift2 (fst (strip_subsets L))
       intros; eapply sort_dec.
     }
     Unfocus.
-    Lemma uncurrys_inj : forall bs f f', uncurrys bs f = uncurrys bs f' -> f = f'.
-    Proof.
-      induct bs; simpl; eauto; intros f f' H.
-      {
-        eapply (f_equal (fun f => f tt)) in H.
-        eauto.
-      }
-      {
-        eapply FunctionalExtensionality.functional_extensionality.
-        intros x.
-        eapply IHbs.
-        eapply FunctionalExtensionality.functional_extensionality.
-        intros y.
-        eapply (f_equal (fun f => f (x, y))) in H.
-        simpl in *.
-        eauto.
-      }
-    Qed.
-
-
     eapply uncurrys_inj in H2.
     rewrite KArrows_get_bsorts in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
     repeat try_split; eauto.
     eapply interp_idx_args_eq_Forall2; eauto.
   Qed.
