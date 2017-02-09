@@ -8425,6 +8425,46 @@ lift2 (fst (strip_subsets L))
     invert H.
   Qed.
   
+  Inductive bkinding : list bsort -> ty -> kind -> Prop :=
+  | BKdgVar L x k :
+      bkinding L (TVar x) k
+  | BKdgConst L cn :
+      bkinding L (TConst cn) KType
+  | BKdgUnOp L opr t :
+      bkinding L t KType ->
+      bkinding L (TUnOp opr t) KType
+  | BKdgBinOp L opr c1 c2 :
+      bkinding L c1 KType ->
+      bkinding L c2 KType ->
+      bkinding L (TBinOp opr c1 c2) KType
+  | BKdgArrow L t1 i t2 :
+      bkinding L t1 KType ->
+      bsorting L i BSTime ->
+      bkinding L t2 KType ->
+      bkinding L (TArrow t1 i t2) KType
+  | BKdgAbs L b t k :
+      bkinding (b :: L) t k ->
+      bkinding L (TAbs b t) (KArrow b k)
+  | BKdgApp L t b i k :
+      bkinding L t (KArrow b k) ->
+      bsorting L i b ->
+      bkinding L (TApp t b i) k
+  | BKdgQuan L quan k c :
+      bkinding L c KType ->
+      bkinding L (TQuan quan k c) KType
+  | BKdgQuanI L quan s c :
+      bwfsort L s ->
+      bkinding (get_bsort s :: L) c KType ->
+      bkinding L (TQuanI quan s c) KType
+  | BKdgRec L c args :
+      let k := map fst args in
+      bkinding L c k ->
+      Forall (fun p => bsorting L (snd p) (fst p)) args ->
+      bkinding L (TRec k c args) KType
+  .
+
+  Hint Constructors bkinding.
+
   Inductive tyeq2 : sctx -> ty -> ty -> kind -> Prop :=
   (* | TyEqVar L x : *)
   (*     tyeq2 L (CVar x) (CVar x) *)
@@ -8481,6 +8521,7 @@ lift2 (fst (strip_subsets L))
   | TyEqTrans L a b c k :
       tyeq2 L a b k ->
       tyeq2 L b c k ->
+      bkinding (map get_bsort L) b k ->
       tyeq2 L a c k
   .
 
@@ -8689,46 +8730,6 @@ lift2 (fst (strip_subsets L))
     eapply H0 in H3; subst.
     eauto.
   Qed.
-
-  Inductive bkinding : list bsort -> ty -> kind -> Prop :=
-  | BKdgVar L x k :
-      bkinding L (TVar x) k
-  | BKdgConst L cn :
-      bkinding L (TConst cn) KType
-  | BKdgUnOp L opr t :
-      bkinding L t KType ->
-      bkinding L (TUnOp opr t) KType
-  | BKdgBinOp L opr c1 c2 :
-      bkinding L c1 KType ->
-      bkinding L c2 KType ->
-      bkinding L (TBinOp opr c1 c2) KType
-  | BKdgArrow L t1 i t2 :
-      bkinding L t1 KType ->
-      bsorting L i BSTime ->
-      bkinding L t2 KType ->
-      bkinding L (TArrow t1 i t2) KType
-  | BKdgAbs L b t k :
-      bkinding (b :: L) t k ->
-      bkinding L (TAbs b t) (KArrow b k)
-  | BKdgApp L t b i k :
-      bkinding L t (KArrow b k) ->
-      bsorting L i b ->
-      bkinding L (TApp t b i) k
-  | BKdgQuan L quan k c :
-      bkinding L c KType ->
-      bkinding L (TQuan quan k c) KType
-  | BKdgQuanI L quan s c :
-      bwfsort L s ->
-      bkinding (get_bsort s :: L) c KType ->
-      bkinding L (TQuanI quan s c) KType
-  | BKdgRec L c args :
-      let k := map fst args in
-      bkinding L c k ->
-      Forall (fun p => bsorting L (snd p) (fst p)) args ->
-      bkinding L (TRec k c args) KType
-  .
-
-  Hint Constructors bkinding.
 
   Lemma bkinding_TUnOp_invert' L t k :
     bkinding L t k ->
@@ -9011,55 +9012,6 @@ lift2 (fst (strip_subsets L))
     eauto.
   Qed.
   
-  Lemma tyeq2_tyeq L t t' k :
-    tyeq2 L t t' k ->
-    wellscoped_ss L ->
-    bkinding (map get_bsort L) t k ->
-    tyeq L t t' k.
-  Proof.
-    induct 1; intros HL Ht; simpl.
-    {
-      invert Ht.
-      eapply tyeq_TUnOp; eauto.
-    }
-    {
-      invert Ht.
-      eapply tyeq_TBinOp; eauto.
-    }
-    {
-      invert Ht.
-      eapply tyeq_TArrow; eauto.
-    }
-    {
-      invert Ht.
-      eapply tyeq_TAbs; eauto.
-    }
-    {
-      invert Ht.
-      eapply tyeq_TApp; eauto.
-    }
-    {
-      (* Case TyEqBeta *)
-      invert Ht.
-      invert H4.
-      unfold tyeq in *.
-      unfold subst0_i_t.
-      simpl.
-      repeat rewrite fuse_lift3_lift2_2 in *.
-      set (bs := map get_bsort L) in *.
-      set (ps := and_all (strip_subsets L)) in *.
-      specialize (@forall_subst_i_t_iff_subst t 0 (b :: bs) i b k); intros Hsubst.
-      simpl in *.
-      rewrite shift_i_i_0 in *.
-      rewrite fuse_lift2_lift2_2 in *.
-      eapply forall_lift3_lift4_4_2_3; [| eapply Hsubst]; eauto.
-      unfold apply.
-      simpl; eauto; intros.
-      repeat rewrite convert_sort_value_refl_eq in *.
-      subst.
-      eauto using gtyveq_sym.
-    }
-    {
   Lemma tyeq_TQuan L q k t t' :
     tyeq L t t' KType ->
     (* wellscoped_ss L -> *)
@@ -9077,11 +9029,6 @@ lift2 (fst (strip_subsets L))
     eauto.
   Qed.
 
-      invert Ht.
-      eapply tyeq_TQuan; eauto.
-    }
-    {
-      invert Ht.
   Lemma fuse_lift5_lift0_4 bs :
     forall T A1 A2 A3 A4 A5 (f : A1 -> A2 -> A3 -> A4 -> A5 -> T) (g : A4) a1 a2 a3 a5,
       lift5 bs f a1 a2 a3 (lift0 bs g) a5 = lift4 bs (fun a1 a2 a3 a5 => f a1 a2 a3 g a5) a1 a2 a3 a5.
@@ -9112,6 +9059,24 @@ lift2 (fst (strip_subsets L))
   Proof.
     induct bs; simplify; eauto.
     eapply IHbs.
+  Qed.
+  
+  Lemma forall_lift3_lift4_lift2_lift5 :
+    forall bs A1 A2 A3 A4 A5 A6 P1 P2 P3 P4 P5 P6 (f1 : _ -> _ -> _ -> Prop) (f2 : _ -> _ -> _ -> _ -> Prop) (f3 : _ -> _ -> Prop) (f4 : _ -> _ -> _ -> _ -> _ -> Prop),
+      (forall (a1 : A1) (a2 : A2) (a3 : A3) (a4 : A4) (a5 : A5) (a6 : A6), f1 a6 a2 a4 -> f2 a2 a6 a3 a5 -> f3 a6 a1 -> f4 a1 a2 a3 a4 a5) ->
+      forall_ bs (lift3 bs f1 P6 P2 P4) ->
+      forall_ bs (lift4 bs f2 P2 P6 P3 P5) ->
+      forall_ bs (lift2 bs f3 P6 P1) ->
+      forall_ bs (lift5 bs f4 P1 P2 P3 P4 P5).
+  Proof.
+    induct bs; simplify; eauto.
+    rewrite fuse_lift1_lift3 in *.
+    rewrite fuse_lift1_lift5 in *.
+    rewrite fuse_lift1_lift2 in *.
+    rewrite fuse_lift1_lift4 in *.
+    eapply IHbs; eauto.
+    simplify.
+    eauto.
   Qed.
   
   Lemma tyeq_TQuanI L q s t s' t' :
@@ -9163,45 +9128,190 @@ lift2 (fst (strip_subsets L))
       rewrite and_all_map_shift_i_p in *.
       rewrite fuse_lift5_lift1_2.
       rewrite fuse_lift5_lift1_4.
-      (*here*)
-  Lemma forall_lift3_lift3_lift5_2_4_3_5 :
-    forall bs A1 A2 A3 A4 A5 P1 P2 P3 P4 P5 (f1 : A1 -> A2 -> A4 -> Prop) (f2 : A1 -> A3 -> A5 -> Prop) (f3 : A1 -> A2 -> A3 -> A4 -> A5 -> Prop),
-      (forall a1 a2 a3 a4 a5, f1 a1 a2 a4 -> f2 a1 a3 a5 -> f3 a1 a2 a3 a4 a5) ->
-      forall_ bs (lift3 bs f1 P1 P2 P4) ->
-      forall_ bs (lift3 bs f2 P1 P3 P5) ->
-      forall_ bs (lift5 bs f3 P1 P2 P3 P4 P5).
-  Proof.
-    induct bs; simplify; eauto.
-    rewrite fuse_lift1_lift3 in *.
-    rewrite fuse_lift1_lift5 in *.
-    eapply IHbs; eauto.
-    simplify.
-    eauto.
-  Qed.
-  
-      eapply forall_lift3_lift2_lift3; [| eapply H | eapply Hshift]; eauto.
+      eapply forall_lift3_lift4_lift2_lift5 ; [| eapply H0 | eapply H | eapply Hshift]; eauto.
       simpl; intros.
       repeat rewrite convert_kind_value_refl_eq in *.
-      f_equal.
-      eapply FunctionalExtensionality.functional_extensionality.
-      intros x.
-      specialize (H0 x).
-      specialize (H1 x).
-      equality.
+      econstructor; eauto.
+      {
+        intros x.
+        specialize (H1 x).
+        specialize (H3 x).
+        propositional.
+      }
+      {
+        intros x.
+        specialize (H1 x).
+        specialize (H2 x).
+        specialize (H3 x).
+        propositional.
+      }
     }
   Qed.
 
-  Definition sorteq_deno L s s' := get_bsort s = get_bsort s' /\ iff_
-                                                                  
+  Lemma bwfsort_wellscoped_s' L s n :
+    bwfsort L s ->
+    n = length L ->
+    wellscoped_s n s.
+  Proof.
+    intros; subst; eapply bwfsort_wellscoped_s; eauto.
+  Qed.
+  
+  Arguments interp_idx_arg bs p / .
+    
+  Lemma Forall2_interp_idx_args_eq :
+    forall args args' L,
+      Forall2 (fun p p' => fst p = fst p' /\ idxeq L (snd p) (snd p') (fst p)) args args' ->
+      let bs := map get_bsort L in
+      forall_ bs (lift3 bs (fun (p : Prop) args args' => p -> args = args') (interp_p bs (and_all (strip_subsets L))) (lift_ls bs (interp_idx_arg bs) args) (lift_ls bs (interp_idx_arg bs) args')).
+  Proof.
+    unfold idxeq, interp_prop.
+    simpl.
+    induct 1; simpl; eauto.
+    {
+      rewrite fuse_lift3_lift0_2.
+      rewrite fuse_lift2_lift0_2.
+      eapply forall_lift1.
+      eauto.
+    }
+    destruct x as (b1 & i1).
+    destruct y as (b2 & i2).
+    simpl in *.
+    invert H.
+    repeat rewrite fuse_lift2_lift1_1 in *.
+    rewrite fuse_lift3_lift2_2.
+    rewrite fuse_lift4_lift2_4.
+    rewrite fuse_lift2_lift2_2 in *.
+    eapply forall_lift3_lift3_lift5_2_4_3_5; [| eapply H2 | eapply IHForall2]; eauto.
+    simpl; intros.
+    specialize (H H3).
+    specialize (H1 H3).
+    subst.
+    eauto.
+  Qed.
+
+  Lemma tyeq_TRec L t k args t' args' :
+    tyeq L t t' k ->
+    Forall2 (fun p p' => fst p = fst p' /\ idxeq L (snd p) (snd p') (fst p)) args args' ->
+    tyeq L (TRec k t args) (TRec k t' args') KType.
+  Proof.
+    intros Hss' H (* HL *).
+    unfold tyeq in *.
+    simpl in *.
+    repeat rewrite fuse_lift1_lift2 in *.
+    repeat rewrite fuse_lift3_lift2_2 in *.
+    repeat rewrite fuse_lift4_lift2_4 in *.
+    unfold interp_idx_args in *.
+    
+    eapply Forall2_interp_idx_args_eq in H.
+    eapply forall_lift3_lift3_lift5_2_4_3_5; [| eapply Hss' | eapply H]; eauto.
+    simpl; intros.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    specialize (H1 H2).
+    subst.
+    econstructor; eauto.
+    intros x.
+    eapply gtyveq_tyveq_uncurrys; eauto.
+  Qed.
+
+  Lemma tyeq2_tyeq L t t' k :
+    tyeq2 L t t' k ->
+    wellscoped_ss L ->
+    bkinding (map get_bsort L) t k ->
+    bkinding (map get_bsort L) t' k ->
+    tyeq L t t' k.
+  Proof.
+    induct 1; intros HL Ht Ht'; simpl.
+    {
+      invert Ht.
+      invert Ht'.
+      eapply tyeq_TUnOp; eauto.
+    }
+    {
+      invert Ht.
+      invert Ht'.
+      eapply tyeq_TBinOp; eauto.
+    }
+    {
+      invert Ht.
+      invert Ht'.
+      eapply tyeq_TArrow; eauto.
+    }
+    {
+      invert Ht.
+      invert Ht'.
+      eapply tyeq_TAbs; eauto.
+    }
+    {
+      invert Ht.
+      invert Ht'.
+      eapply tyeq_TApp; eauto.
+    }
+    {
+      (* Case TyEqBeta *)
+      invert Ht.
+      invert H4.
+      unfold tyeq in *.
+      unfold subst0_i_t.
+      simpl.
+      repeat rewrite fuse_lift3_lift2_2 in *.
+      set (bs := map get_bsort L) in *.
+      set (ps := and_all (strip_subsets L)) in *.
+      specialize (@forall_subst_i_t_iff_subst t 0 (b :: bs) i b k); intros Hsubst.
+      simpl in *.
+      rewrite shift_i_i_0 in *.
+      rewrite fuse_lift2_lift2_2 in *.
+      eapply forall_lift3_lift4_4_2_3; [| eapply Hsubst]; eauto.
+      unfold apply.
+      simpl; eauto; intros.
+      repeat rewrite convert_sort_value_refl_eq in *.
+      subst.
+      eauto using gtyveq_sym.
+    }
+    {
+      invert Ht.
+      invert Ht'.
+      eapply tyeq_TQuan; eauto.
+    }
+    {
+      invert Ht.
+      invert Ht'.
+      simpl in *.
       eapply tyeq_TQuanI; eauto.
+      eapply IHtyeq2; eauto.
+      {
+        econstructor; eauto.
+        eapply bwfsort_wellscoped_s'; eauto.
+        rewrite map_length in *.
+        eauto.
+      }
+      {
+        eapply sorteq_get_bsort in H.
+        rewrite <- H.
+        eauto.
+      }
+    }
+    {
+      invert Ht.
+      invert Ht'.
+      eapply tyeq_TRec; eauto.
+      eapply IHtyeq2; eauto.
+      subst k2.
+      rewrite <- H2.
+      eauto.
+    }
+    {
+      eauto using tyeq_refl.
+    }
+    {
+      eauto using tyeq_sym.
+    }
+    {
+      eauto using tyeq_trans.
     }
   Qed.
   
   (*here*)
   
-
-
-         
   Definition map_fst {A B C} (f : A -> C) (p : A * B) := (f (fst p), snd p).
 
   Arguments length {_} _ .
