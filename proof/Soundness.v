@@ -10147,14 +10147,43 @@ lift2 (fst (strip_subsets L))
     end
   .
 
-  (*here*)
-  
+  Fixpoint is_TApps_TRec t :=
+    match t with
+    | TApp t b i => 
+      match is_TApps_TRec t with
+      | Some (k, t, args) => Some (k, t, args ++ [(b, i)])
+      | None => None
+      end
+    | TRec k t args => Some (k, t, args)
+    | _ => None
+    end.
+
+  Fixpoint contract t := 
+    match t with
+    | TVar y => TVar y
+    | TConst cn => TConst cn
+    | TUnOp opr i => TUnOp opr (contract i)
+    | TBinOp opr c1 c2 => TBinOp opr (contract c1) (contract c2)
+    | TArrow t1 i t2 => TArrow (contract t1) i (contract t2)
+    | TAbs b t => TAbs b (contract t)
+    | TApp t b i =>
+      let t := contract t in
+      match is_TApps_TRec t with
+      | Some (k, t, args) => TRec k t (args ++ [(b, i)])
+      | None => TApp t b i
+      end
+    | TQuan q k c => TQuan q k (contract c)
+    | TQuanI q s c => TQuanI q s (contract c)
+    | TRec k t args => TRec k (contract t) args
+    end.
+
   Definition unroll (k : kind) (t : ty) (args : list (bsort * idx)) : ty :=
     let r := subst0_t_t (TRec k t []) t in
     let r := TApps r args in
-    let r := contract r in
-    r.
+    contract r.
 
+  Definition TRef := TUnOp TURef.
+  
   Inductive typing : ctx -> expr -> ty -> idx -> Prop :=
   | TyVar C x t :
       nth_error (get_tctx C) x = Some t ->
@@ -10190,69 +10219,66 @@ lift2 (fst (strip_subsets L))
       typing (add_typing_ctx t C) e t T0 ->
       typing C (ERec e) t T0
   | TyFold C e k t cs i :
-      let t_all := TRec k t cs in
-      kinding (get_sctx C) (get_kctx C) t_all KType ->
+      let t_rec := TRec k t cs in
+      kinding (get_sctx C) (get_kctx C) t_rec KType ->
       typing C e (unroll k t cs) i ->
-      typing C (EFold e) t_all i.
-  | TyFold C e t i t1 cs k t2 :
-      t = CApps t1 cs ->
-      t1 = CRec k t2 ->
-      kinding (get_kctx C) t KType ->
-      typing C e (CApps (subst0_c_c t1 t2) cs) i ->
-      typing C (EFold e) t i.
-  | TyUnfold C e t k t1 cs i :
-      t = CRec k t1 ->
-      typing C e (CApps t cs) i ->
-      typing C (EUnfold e) (CApps (subst0_c_c t t1) cs) i
-  (* | TyAsc L G e t i : *)
-  (*     kinding L t KType -> *)
-  (*     typing (L, G) e t i -> *)
-  (*     typing (L, G) (EAsc e t) t i *)
+      typing C (EFold e) t_rec i
+  | TyUnfold C e k t cs i :
+      typing C e (TRec k t cs) i ->
+      typing C (EUnfold e) (unroll k t cs) i
   | TyPack C c e i t1 k :
-      (* kinding (get_kctx C) t1 (KArrow k KType) -> *)
-      kinding (get_kctx C) (CExists k t1) KType ->
-      kinding (get_kctx C) c k ->
-      typing C e (subst0_c_c c t1) i ->
-      typing C (EPack c e) (CExists k t1) i
+      kinding (get_sctx C) (get_kctx C) (TExists k t1) KType ->
+      kinding (get_sctx C) (get_kctx C) c k ->
+      typing C e (subst0_t_t c t1) i ->
+      typing C (EPack c e) (TExists k t1) i
   | TyUnpack C e1 e2 t2 i1 i2 t k :
-      typing C e1 (CExists k t) i1 ->
-      typing (add_typing_ctx t (add_kinding_ctx k C)) e2 (shift0_c_c t2) (shift0_c_c i2) ->
+      typing C e1 (TExists k t) i1 ->
+      typing (add_typing_ctx t (add_kinding_ctx k C)) e2 (shift0_t_t t2) i2 ->
       typing C (EUnpack e1 e2) t2 (i1 + i2)
+  | TyPackI C c e i t1 s :
+      kinding (get_sctx C) (get_kctx C) (TExistsI s t1) KType ->
+      sorting (get_sctx C) c s ->
+      typing C e (subst0_i_t c t1) i ->
+      typing C (EPackI c e) (TExistsI s t1) i
+  | TyUnpackI C e1 e2 t2 i1 i2 t s :
+      typing C e1 (TExistsI s t) i1 ->
+      typing (add_typing_ctx t (add_sorting_ctx s C)) e2 (shift0_i_t t2) (shift0_i_i i2) ->
+      typing C (EUnpackI e1 e2) t2 (i1 + i2)
   | TyConst C cn :
       typing C (EConst cn) (const_type cn) T0
   | TyPair C e1 e2 t1 t2 i1 i2 :
       typing C e1 t1 i1 ->
       typing C e2 t2 i2 ->
-      typing C (EPair e1 e2) (CProd t1 t2) (i1 + i2)
+      typing C (EPair e1 e2) (TProd t1 t2) (i1 + i2)
   | TyProj C pr e t1 t2 i :
-      typing C e (CProd t1 t2) i ->
+      typing C e (TProd t1 t2) i ->
       typing C (EProj pr e) (proj (t1, t2) pr) i
   | TyInj C inj e t t' i :
       typing C e t i ->
-      kinding (get_kctx C) t' KType ->
-      typing C (EInj inj e) (choose (CSum t t', CSum t' t) inj) i
+      kinding (get_sctx C) (get_kctx C) t' KType ->
+      typing C (EInj inj e) (choose (TSum t t', TSum t' t) inj) i
   | TyCase C e e1 e2 t i i1 i2 t1 t2 :
-      typing C e (CSum t1 t2) i ->
+      typing C e (TSum t1 t2) i ->
       typing (add_typing_ctx t1 C) e1 t i1 ->
       typing (add_typing_ctx t2 C) e2 t i2 ->
       typing C (ECase e e1 e2) t (i + Tmax i1 i2)
   | TyNew C e t i :
       typing C e t i ->
-      typing C (ENew e) (CRef t) i
+      typing C (ENew e) (TRef t) i
   | TyRead C e t i :
-      typing C e (CRef t) i ->
+      typing C e (TRef t) i ->
       typing C (ERead e) t i
   | TyWrite C e1 e2 i1 i2 t :
-      typing C e1 (CRef t) i1 ->
+      typing C e1 (TRef t) i1 ->
       typing C e2 t i2 ->
-      typing C (EWrite e1 e2) CTypeUnit (i1 + i2)
+      typing C (EWrite e1 e2) TUnit (i1 + i2)
   | TyLoc C l t :
       get_hctx C $? l = Some t ->
-      typing C (ELoc l) (CRef t) T0
+      typing C (ELoc l) (TRef t) T0
   | TySub C e t2 i2 t1 i1 :
       typing C e t1 i1 ->
-      tyeq (get_kctx C) t1 t2 ->
-      interp_prop (get_kctx C) (i1 <= i2) ->
+      tyeq (get_sctx C) t1 t2 KType ->
+      interp_prop (get_sctx C) (i1 <= i2) ->
       typing C e t2 i2 
   .
 
