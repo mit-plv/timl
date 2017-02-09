@@ -9310,8 +9310,6 @@ lift2 (fst (strip_subsets L))
     }
   Qed.
   
-  (*here*)
-  
   Definition map_fst {A B C} (f : A -> C) (p : A * B) := (f (fst p), snd p).
 
   Arguments length {_} _ .
@@ -10142,6 +10140,21 @@ lift2 (fst (strip_subsets L))
   Definition TForallI := TQuanI QuanForall.
   Definition TExistsI := TQuanI QuanExists.
 
+  Fixpoint TApps t args :=
+    match args with
+    | nil => t
+    | (b, i) :: args => TApps (TApp t b i) args
+    end
+  .
+
+  (*here*)
+  
+  Definition unroll (k : kind) (t : ty) (args : list (bsort * idx)) : ty :=
+    let r := subst0_t_t (TRec k t []) t in
+    let r := TApps r args in
+    let r := contract r in
+    r.
+
   Inductive typing : ctx -> expr -> ty -> idx -> Prop :=
   | TyVar C x t :
       nth_error (get_tctx C) x = Some t ->
@@ -10176,6 +10189,11 @@ lift2 (fst (strip_subsets L))
       kinding (get_sctx C) (get_kctx C) t KType ->
       typing (add_typing_ctx t C) e t T0 ->
       typing C (ERec e) t T0
+  | TyFold C e k t cs i :
+      let t_all := TRec k t cs in
+      kinding (get_sctx C) (get_kctx C) t_all KType ->
+      typing C e (unroll k t cs) i ->
+      typing C (EFold e) t_all i.
   | TyFold C e t i t1 cs k t2 :
       t = CApps t1 cs ->
       t1 = CRec k t2 ->
