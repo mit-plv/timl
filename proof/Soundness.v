@@ -11331,161 +11331,109 @@ lift2 (fst (strip_subsets L))
       eapply IHtyping.
       eapply Forall2_map; eauto.
       intros c c' Htyeq2.
+      
       (*here*)
-  Lemma tyeq_shift_i_t L p :
-    tyeq L p ->
+      
+    Lemma shift_strip_subsets_imply x ls L :
+      let bs := map get_bsort L in
+      let bs_new := map get_bsort ls in
+      let bs' := insert bs_new x bs in
+      x <= length L ->
+      wellscoped_ss L ->
+      imply_ bs'
+             (interp_p bs' (and_all (strip_subsets (shift_i_ss (length ls) (firstn x L) ++ ls ++ my_skipn L x))))
+             (shift bs_new x bs (interp_p bs (and_all (strip_subsets L)))).
+    Proof.
+      intros bs bs_new bs' Hcmp HL.
+      rewrite !strip_subsets_insert by la.
+      eapply forall_trans.
+      {
+        eapply and_all_app_imply_no_middle.
+      }
+      eapply forall_iff_imply.
+      eapply forall_iff_sym.
+      eapply forall_iff_trans.
+      {
+        eapply forall_iff_sym.
+        eapply forall_shift_i_p_iff_shift; eauto.
+        subst bs.
+        rewrite map_length.
+        eapply wellscoped_ss_wellscoped_p_strip_subsets; eauto.
+      }
+      eapply forall_iff_refl'.
+      rewrite <- (firstn_my_skipn x L) at 1.
+      rewrite strip_subsets_app.
+      rewrite <- and_all_map_shift_i_p.
+      rewrite map_app.
+      rewrite map_map.
+      subst bs.
+      subst bs_new.
+      repeat rewrite map_length.
+      f_equal.
+      f_equal.
+      f_equal.
+      eapply map_ext.
+      intros b.
+      rewrite length_firstn_le by la.
+      rewrite shift_i_p_shift_merge by la.
+      eauto.
+    Qed.
+    
+  Lemma interp_prop_shift_i_p_reprove L p :
+    interp_prop L p ->
     wellscoped_ss L ->
     wellscoped_p (length L) p ->
     forall x ls ,
       let n := length ls in
       x <= length L ->
-      tyeq (shift_i_ss n (firstn x L) ++ ls ++ my_skipn L x) (shift_t_t n x p).
+      interp_prop (shift_i_ss n (firstn x L) ++ ls ++ my_skipn L x) (shift_i_p n x p).
   Proof.
     cbn in *.
     intros H Hscss Hscp x ls Hle.
-    unfold tyeq in *.
+    unfold interp_prop in *.
     cbn in *.
     rewrite !get_bsort_insert_shift.
-    rewrite !strip_subsets_insert by la.
     set (bs := map get_bsort L) in *.
     set (bs_new := map get_bsort ls) in *.
-    eapply forall_lift2_imply_shift; eauto.
-    {
-      eapply forall_trans.
-      {
-        eapply and_all_app_imply_no_middle.
-      }
-      {
-        eapply forall_iff_imply.
-        eapply forall_iff_sym.
-        eapply forall_iff_trans.
-        {
-          eapply forall_iff_sym.
-          eapply forall_shift_i_p_iff_shift; eauto.
-          subst bs.
-          rewrite map_length.
-          eapply wellscoped_ss_wellscoped_p_strip_subsets; eauto.
-        }
-        eapply forall_iff_refl'.
-        rewrite <- (firstn_my_skipn x L) at 1.
-        rewrite strip_subsets_app.
-        rewrite <- and_all_map_shift_i_p.
-        rewrite map_app.
-        rewrite map_map.
-        subst bs.
-        subst bs_new.
-        repeat rewrite map_length.
-        f_equal.
-        f_equal.
-        f_equal.
-        eapply map_ext.
-        intros b.
-        rewrite length_firstn_le by la.
-        rewrite shift_i_p_shift_merge by la.
-        eauto.
-      }
-    }
-    {
-      eapply forall_iff_imply.
-      eapply forall_iff_sym.
-      subst bs.
-      subst bs_new.
-      eapply forall_shift_i_p_iff_shift; try rewrite map_length; eauto.
-    }
+    eapply forall_shift with (new := bs_new) (x := x) in H.
+    rewrite <- lift2_shift in *.
+    eapply forall_trans; [eapply shift_strip_subsets_imply|]; eauto.
+    eapply forall_trans; [eapply H|]; eauto.
+    eapply forall_iff_imply.
+    eapply forall_iff_sym.
+    eapply forall_shift_i_p_iff_shift; eauto; subst bs bs_new; try rewrite map_length; eauto.
   Qed.
 
-  Lemma tyeq_shift_i_i :
-    forall L c c' k,
-      tyeq L c c' k ->
-      forall x ls,
-        let n := length ls in
-        x <= length L ->
-        wellscoped_ss L ->
-        wellscoped_s (length L) s ->
-        tyeq (shift_i_ss n (firstn x L) ++ ls ++ my_skipn L x) (shift_i_i n x c) (shift_i_s n x s).
+  Lemma lift3_to_imply bs A2 A3 (f : A2 -> A3 -> Prop) a1 a2 a3:
+    lift3 bs (fun (a1 : Prop) a2 a3 => a1 -> f a2 a3) a1 a2 a3 = lift2 bs imply a1 (lift2 bs f a2 a3).
+  Proof.
+    rewrite fuse_lift2_lift2_2; eauto.
+  Qed.
+
+  Lemma tyeq_shift_i_t L t t' k :
+    tyeq L t t' k ->
+    wellscoped_ss L ->
+    (* wellscoped_p (length L) p -> *)
+    forall x ls ,
+      let n := length ls in
+      x <= length L ->
+      tyeq (shift_i_ss n (firstn x L) ++ ls ++ my_skipn L x) (shift_i_t n x t) (shift_i_t n x t') k.
   Proof.
     simpl.
-    induct 1;
-      simpl; try rename x into y; intros x ls Hx HL Hs; cbn in *; try solve [econstructor; eauto].
-    {
-      (* Case Var *)
-      copy H HnltL.
-      eapply nth_error_Some_lt in HnltL.
-      cases (x <=? y).
-      {
-        eapply StgVar'.
-        {
-          rewrite nth_error_app2;
-          rewrite length_shift_i_ss; erewrite length_firstn_le; try la.
-          rewrite nth_error_app2 by la.
-          rewrite nth_error_my_skipn by la.
-          erewrite <- H.
-          f_equal.
-          la.
-        }
-        {
-          rewrite shift_i_s_shift_merge by la.
-          f_equal.
-          la.
-        }
-      }
-      {
-        eapply StgVar'.
-        {
-          rewrite nth_error_app1;
-          try rewrite length_shift_i_ss; try erewrite length_firstn_le; try la.
-          erewrite nth_error_shift_i_ss; eauto.
-          rewrite nth_error_firstn; eauto.
-        }          
-        {
-          erewrite length_firstn_le by la. 
-          rewrite shift_i_s_shift_cut by la.
-          eauto.
-        }
-      }
-    }
-    {
-      econstructor; eauto.
-      eapply IHtyeq1; eauto; econstructor; eauto.
-    }
-    {
-      (* Case TimeAbs *)
-      econstructor; eauto.
-      {
-        unfold SNat, STimeFun in *.
-        eapply IHtyeq with (x := S x); eauto with db_la.
-        econstructor; eauto.
-      }
-      eapply monotone_shift_i_i; eauto.
-    }
-    {
-      econstructor; eauto.
-      {
-        eapply IHtyeq1; eauto; econstructor; eauto.
-      }
-      {
-        eapply IHtyeq2; eauto; econstructor; eauto.
-      }
-    }
-    {
-      (* Case SubsetI *)
-      econstructor; eauto.
-      unfold subst0_i_p in *.
-      rewrite <- shift_i_p_subst_out by la.
-      invert Hs.
-      eapply interp_prop_shift_i_p; eauto.
-      eapply wellscoped_subst_i_p_0; eauto using sorting_wellscoped_i.
-    }
-    {
-      (* Case SubsetE *)
-      eapply StgSubsetE; eauto.
-      eapply wellscoped_shift_i_p; eauto.
-      repeat rewrite app_length.
-      rewrite length_shift_i_ss.
-      rewrite length_firstn_le by la.
-      rewrite length_my_skipn_le by la.
-      la.
-    }
+    intros H HL x ls Hx.
+    unfold tyeq in *.
+    rewrite !get_bsort_insert_shift.
+    set (bs := map get_bsort L) in *.
+    set (bs_new := map get_bsort ls) in *.
+    eapply forall_shift with (new := bs_new) (x := x) in H.
+    rewrite <- lift3_shift in *.
+    repeat rewrite lift3_to_imply in *.
+    eapply forall_trans; [eapply shift_strip_subsets_imply|]; eauto.
+    eapply forall_trans; [eapply H|]; eauto.
+    (*here*)
+    eapply forall_iff_imply.
+    eapply forall_iff_sym.
+    eapply forall_shift_i_p_iff_shift; eauto; subst bs bs_new; try rewrite map_length; eauto.
   Qed.
 
       eapply tyeq_shift0_i_t; eauto.
