@@ -1132,17 +1132,19 @@ Module M (Time : TIME).
   Definition shift0_i_t := shift_i_t 1 0.
   Definition shift0_t_t := shift_t_t 1 0.
 
+  Require Import Datatypes.
+
   Inductive LtEqGt (a b : nat) :=
-    | Lt : a < b -> LtEqGt a b
-    | Eq : a = b -> LtEqGt a b
-    | Gt : a > b -> LtEqGt a b
+    | MyLt : a < b -> LtEqGt a b
+    | MyEq : a = b -> LtEqGt a b
+    | MyGt : a > b -> LtEqGt a b
   .
   
   Definition lt_eq_gt_dec a b : LtEqGt a b :=
     match lt_eq_lt_dec a b with
-    | inleft (left H) => Lt H
-    | inleft (right H) => Eq H
-    | inright H => Gt H
+    | inleft (left H) => MyLt H
+    | inleft (right H) => MyEq H
+    | inright H => MyGt H
     end.
   
   Infix "<=>?" := lt_eq_gt_dec (at level 70).
@@ -1151,9 +1153,9 @@ Module M (Time : TIME).
     match b with
     | IVar y =>
       match y <=>? x with
-      | Lt _ => IVar y
-      | Eq _ => v
-      | Gt _ => IVar (y - 1)
+      | MyLt _ => IVar y
+      | MyEq _ => v
+      | MyGt _ => IVar (y - 1)
       end
     | IConst cn => IConst cn
     | IUnOp opr i => IUnOp opr (subst_i_i x v i)
@@ -1197,9 +1199,9 @@ Module M (Time : TIME).
     match b with
     | TVar y =>
       match y <=>? x with
-      | Lt _ => TVar y
-      | Eq _ => v
-      | Gt _ => TVar (y - 1)
+      | MyLt _ => TVar y
+      | MyEq _ => v
+      | MyGt _ => TVar (y - 1)
       end
     | TConst cn => TConst cn
     | TUnOp opr t => TUnOp opr (subst_t_t x v t)
@@ -10284,34 +10286,50 @@ lift2 (fst (strip_subsets L))
 
   Local Close Scope idx_scope.
 
-  Section shift_c_e.
+  Section shift_e.
 
     Variable n : nat.
 
-    Fixpoint shift_c_e (x : var) (b : expr) : expr :=
+    Fixpoint shift_i_e (x : var) (b : expr) : expr :=
       match b with
       | EVar y => EVar y
       | EConst cn => EConst cn
       | ELoc l => ELoc l
-      | EUnOp opr e => EUnOp opr (shift_c_e x e)
-      | EBinOp opr e1 e2 => EBinOp opr (shift_c_e x e1) (shift_c_e x e2)
-      | ECase e e1 e2 => ECase (shift_c_e x e) (shift_c_e x e1) (shift_c_e x e2)
-      | EAbs e => EAbs (shift_c_e x e)
-      | ERec e => ERec (shift_c_e x e)
-      | EAbsC e => EAbsC (shift_c_e (1 + x) e)
-      | EAppC e c => EAppC (shift_c_e x e) (shift_c_c n x c)
-      | EPack c e => EPack (shift_c_c n x c) (shift_c_e x e)
-      | EUnpack e1 e2 => EUnpack (shift_c_e x e1) (shift_c_e (1 + x) e2)
+      | EUnOp opr e => EUnOp opr (shift_i_e x e)
+      | EBinOp opr e1 e2 => EBinOp opr (shift_i_e x e1) (shift_i_e x e2)
+      | ECase e e1 e2 => ECase (shift_i_e x e) (shift_i_e x e1) (shift_i_e x e2)
+      | EAbs e => EAbs (shift_i_e x e)
+      | ERec e => ERec (shift_i_e x e)
+      | EAbsT e => EAbsT (shift_i_e x e)
+      | EAppT e t => EAppT (shift_i_e x e) (shift_i_t n x t)
+      | EAbsI e => EAbsI (shift_i_e (1 + x) e)
+      | EAppI e i => EAppI (shift_i_e x e) (shift_i_i n x i)
+      | EPack t e => EPack (shift_i_t n x t) (shift_i_e x e)
+      | EUnpack e1 e2 => EUnpack (shift_i_e x e1) (shift_i_e x e2)
+      | EPackI i e => EPackI (shift_i_i n x i) (shift_i_e x e)
+      | EUnpackI e1 e2 => EUnpackI (shift_i_e x e1) (shift_i_e (1 + x) e2)
       end.
     
-  End shift_c_e.
-  
-  Definition shift0_c_e := shift_c_e 1 0.
-  
-  Section shift_e_e.
-
-    Variable n : nat.
-
+    Fixpoint shift_t_e (x : var) (b : expr) : expr :=
+      match b with
+      | EVar y => EVar y
+      | EConst cn => EConst cn
+      | ELoc l => ELoc l
+      | EUnOp opr e => EUnOp opr (shift_t_e x e)
+      | EBinOp opr e1 e2 => EBinOp opr (shift_t_e x e1) (shift_t_e x e2)
+      | ECase e e1 e2 => ECase (shift_t_e x e) (shift_t_e x e1) (shift_t_e x e2)
+      | EAbs e => EAbs (shift_t_e x e)
+      | ERec e => ERec (shift_t_e x e)
+      | EAbsT e => EAbsT (shift_t_e (1 + x) e)
+      | EAppT e t => EAppT (shift_t_e x e) (shift_t_t n x t)
+      | EAbsI e => EAbsI (shift_t_e x e)
+      | EAppI e i => EAppI (shift_t_e x e) i
+      | EPack t e => EPack (shift_t_t n x t) (shift_t_e x e)
+      | EUnpack e1 e2 => EUnpack (shift_t_e x e1) (shift_t_e (1 + x) e2)
+      | EPackI i e => EPackI i (shift_t_e x e)
+      | EUnpackI e1 e2 => EUnpackI (shift_t_e x e1) (shift_t_e x e2)
+      end.
+    
     Fixpoint shift_e_e (x : var) (b : expr) : expr :=
       match b with
       | EVar y =>
@@ -10326,63 +10344,89 @@ lift2 (fst (strip_subsets L))
       | ECase e e1 e2 => ECase (shift_e_e x e) (shift_e_e (1 + x) e1) (shift_e_e (1 + x) e2)
       | EAbs e => EAbs (shift_e_e (1 + x) e)
       | ERec e => ERec (shift_e_e (1 + x) e)
-      | EAbsC e => EAbsC (shift_e_e x e)
-      | EAppC e c => EAppC (shift_e_e x e) c
-      | EPack c e => EPack c (shift_e_e x e)
+      | EAbsT e => EAbsT (shift_e_e x e)
+      | EAppT e t => EAppT (shift_e_e x e) t
+      | EAbsI e => EAbsI (shift_e_e x e)
+      | EAppI e i => EAppI (shift_e_e x e) i
+      | EPack t e => EPack t (shift_e_e x e)
       | EUnpack e1 e2 => EUnpack (shift_e_e x e1) (shift_e_e (1 + x) e2)
+      | EPackI i e => EPackI i (shift_e_e x e)
+      | EUnpackI e1 e2 => EUnpackI (shift_e_e x e1) (shift_e_e (1 + x) e2)
       end.
     
-  End shift_e_e.
+  End shift_e.
   
+  Definition shift0_i_e := shift_i_e 1 0.
+  Definition shift0_t_e := shift_t_e 1 0.
   Definition shift0_e_e := shift_e_e 1 0.
   
-  Section subst_c_e.
+  Fixpoint subst_i_e (x : var) (v : idx) (b : expr) : expr :=
+    match b with
+    | EVar y => EVar y
+    | EConst cn => EConst cn
+    | ELoc l => ELoc l
+    | EUnOp opr e => EUnOp opr (subst_i_e x v e)
+    | EBinOp opr e1 e2 => EBinOp opr (subst_i_e x v e1) (subst_i_e x v e2)
+    | ECase e e1 e2 => ECase (subst_i_e x v e) (subst_i_e x v e1) (subst_i_e x v e2)
+    | EAbs e => EAbs (subst_i_e x v e)
+    | ERec e => ERec (subst_i_e x v e)
+    | EAbsT e => EAbsT (subst_i_e x v e)
+    | EAppT e t => EAppT (subst_i_e x v e) (subst_i_t x v t)
+    | EAbsI e => EAbsI (subst_i_e (1 + x) (shift0_i_i v) e)
+    | EAppI e i => EAppI (subst_i_e x v e) (subst_i_i x v i)
+    | EPack t e => EPack (subst_i_t x v t) (subst_i_e x v e)
+    | EUnpack e1 e2 => EUnpack (subst_i_e x v e1) (subst_i_e x v e2)
+    | EPackI i e => EPackI (subst_i_i x v i) (subst_i_e x v e)
+    | EUnpackI e1 e2 => EUnpackI (subst_i_e x v e1) (subst_i_e (1 + x) (shift0_i_i v) e2)
+    end.
+  
+  Fixpoint subst_t_e (x : var) (v : ty) (b : expr) : expr :=
+    match b with
+    | EVar y => EVar y
+    | EConst cn => EConst cn
+    | ELoc l => ELoc l
+    | EUnOp opr e => EUnOp opr (subst_t_e x v e)
+    | EBinOp opr e1 e2 => EBinOp opr (subst_t_e x v e1) (subst_t_e x v e2)
+    | ECase e e1 e2 => ECase (subst_t_e x v e) (subst_t_e x v e1) (subst_t_e x v e2)
+    | EAbs e => EAbs (subst_t_e x v e)
+    | ERec e => ERec (subst_t_e x v e)
+    | EAbsT e => EAbsT (subst_t_e (1 + x) (shift0_t_t v) e)
+    | EAppT e t => EAppT (subst_t_e x v e) (subst_t_t x v t)
+    | EAbsI e => EAbsI (subst_t_e x (shift0_i_t v) e)
+    | EAppI e i => EAppI (subst_t_e x v e) i
+    | EPack t e => EPack (subst_t_t x v t) (subst_t_e x v e)
+    | EUnpack e1 e2 => EUnpack (subst_t_e x v e1) (subst_t_e (1 + x) (shift0_t_t v) e2)
+    | EPackI i e => EPackI i (subst_t_e x v e)
+    | EUnpackI e1 e2 => EUnpackI (subst_t_e x v e1) (subst_t_e x (shift0_i_t v) e2)
+    end.
 
-    Fixpoint subst_c_e (x : var) (v : cstr) (b : expr) : expr :=
-      match b with
-      | EVar y => EVar y
-      | EConst cn => EConst cn
-      | ELoc l => ELoc l
-      | EUnOp opr e => EUnOp opr (subst_c_e x v e)
-      | EBinOp opr e1 e2 => EBinOp opr (subst_c_e x v e1) (subst_c_e x v e2)
-      | ECase e e1 e2 => ECase (subst_c_e x v e) (subst_c_e x v e1) (subst_c_e x v e2)
-      | EAbs e => EAbs (subst_c_e x v e)
-      | ERec e => ERec (subst_c_e x v e)
-      | EAbsC e => EAbsC (subst_c_e (1 + x) (shift0_c_c v) e)
-      | EAppC e c => EAppC (subst_c_e x v e) (subst_c_c x v c)
-      | EPack c e => EPack (subst_c_c x v c) (subst_c_e x v e)
-      | EUnpack e1 e2 => EUnpack (subst_c_e x v e1) (subst_c_e (1 + x) (shift0_c_c v) e2)
-      end.
-    
-  End subst_c_e.
-
-  Definition subst0_c_e (v : cstr) b := subst_c_e 0 v b.
-
-  Section subst_e_e.
-
-    Fixpoint subst_e_e (x : var) (v : expr) (b : expr) : expr :=
-      match b with
-      | EVar y => 
-        match y <=>? x with
-        | Lt _ => EVar y
-        | Eq _ => v
-        | Gt _ => EVar (y - 1)
-        end
-      | EConst cn => EConst cn
-      | ELoc l => ELoc l
-      | EUnOp opr e => EUnOp opr (subst_e_e x v e)
-      | EBinOp opr e1 e2 => EBinOp opr (subst_e_e x v e1) (subst_e_e x v e2)
-      | ECase e e1 e2 => ECase (subst_e_e x v e) (subst_e_e (1 + x) (shift0_e_e v) e1) (subst_e_e (1 + x) (shift0_e_e v) e2)
-      | EAbs e => EAbs (subst_e_e (1 + x) (shift0_e_e v) e)
-      | ERec e => ERec (subst_e_e (1 + x) (shift0_e_e v) e)
-      | EAbsC e => EAbsC (subst_e_e x (shift0_c_e v) e)
-      | EAppC e c => EAppC (subst_e_e x v e) c
-      | EPack c e => EPack c (subst_e_e x v e)
-      | EUnpack e1 e2 => EUnpack (subst_e_e x v e1) (subst_e_e (1 + x) (shift0_e_e (shift0_c_e v)) e2)
-      end.
-    
-  End subst_e_e.
-
+  Fixpoint subst_e_e (x : var) (v : expr) (b : expr) : expr :=
+    match b with
+    | EVar y => 
+      match y <=>? x with
+      | MyLt _ => EVar y
+      | MyEq _ => v
+      | MyGt _ => EVar (y - 1)
+      end
+    | EConst cn => EConst cn
+    | ELoc l => ELoc l
+    | EUnOp opr e => EUnOp opr (subst_e_e x v e)
+    | EBinOp opr e1 e2 => EBinOp opr (subst_e_e x v e1) (subst_e_e x v e2)
+    | ECase e e1 e2 => ECase (subst_e_e x v e) (subst_e_e (1 + x) (shift0_e_e v) e1) (subst_e_e (1 + x) (shift0_e_e v) e2)
+    | EAbs e => EAbs (subst_e_e (1 + x) (shift0_e_e v) e)
+    | ERec e => ERec (subst_e_e (1 + x) (shift0_e_e v) e)
+    | EAbsT e => EAbsT (subst_e_e x (shift0_t_e v) e)
+    | EAppT e t => EAppT (subst_e_e x v e) t
+    | EAbsI e => EAbsI (subst_e_e x (shift0_i_e v) e)
+    | EAppI e i => EAppI (subst_e_e x v e) i
+    | EPack t e => EPack t (subst_e_e x v e)
+    | EUnpack e1 e2 => EUnpack (subst_e_e x v e1) (subst_e_e (1 + x) (shift0_e_e (shift0_t_e v)) e2)
+    | EPackI i e => EPackI i (subst_e_e x v e)
+    | EUnpackI e1 e2 => EUnpackI (subst_e_e x v e1) (subst_e_e (1 + x) (shift0_e_e (shift0_i_e v)) e2)
+    end.
+  
+  Definition subst0_i_e (v : idx) b := subst_i_e 0 v b.
+  Definition subst0_t_e (v : ty) b := subst_t_e 0 v b.
   Definition subst0_e_e v b := subst_e_e 0 v b.
 
   Inductive ectx :=
@@ -10391,9 +10435,12 @@ lift2 (fst (strip_subsets L))
   | ECBinOp1 (opr : expr_bin_op) (E : ectx) (e : expr)
   | ECBinOp2 (opr : expr_bin_op) (v : expr) (E : ectx)
   | ECCase (E : ectx) (e1 e2 : expr)
-  | ECAppC (E : ectx) (c : cstr)
-  | ECPack (c : cstr) (E : ectx)
+  | ECAppT (E : ectx) (t : ty)
+  | ECAppI (E : ectx) (i : idx)
+  | ECPack (t : ty) (E : ectx)
   | ECUnpack (E : ectx) (e : expr)
+  | ECPackI (i : idx) (E : ectx)
+  | ECUnpackI (E : ectx) (e : expr)
   .
 
   Inductive plug : ectx -> expr -> expr -> Prop :=
@@ -10412,15 +10459,24 @@ lift2 (fst (strip_subsets L))
   | PlugCase E e e' e1 e2 :
       plug E e e' ->
       plug (ECCase E e1 e2) e (ECase e' e1 e2)
-  | PlugAppC E e e' c :
+  | PlugAppT E e e' t :
       plug E e e' ->
-      plug (ECAppC E c) e (EAppC e' c)
-  | PlugPack E e e' c :
+      plug (ECAppT E t) e (EAppT e' t)
+  | PlugAppI E e e' i :
       plug E e e' ->
-      plug (ECPack c E) e (EPack c e')
+      plug (ECAppI E i) e (EAppI e' i)
+  | PlugPack E e e' t :
+      plug E e e' ->
+      plug (ECPack t E) e (EPack t e')
   | PlugUnpack E e e' e2 :
       plug E e e' ->
       plug (ECUnpack E e2) e (EUnpack e' e2)
+  | PlugPackI E e e' i :
+      plug E e e' ->
+      plug (ECPackI i E) e (EPackI i e')
+  | PlugUnpackI E e e' e2 :
+      plug E e e' ->
+      plug (ECUnpackI E e2) e (EUnpackI e' e2)
   .
 
   Definition heap := fmap loc expr.
@@ -10449,7 +10505,10 @@ lift2 (fst (strip_subsets L))
       astep (h, ERec e, t) (h, subst0_e_e (ERec e) e, t)
   | AUnpackPack h c v e t :
       value v ->
-      astep (h, EUnpack (EPack c v) e, t) (h, subst0_e_e v (subst0_c_e c e), t)
+      astep (h, EUnpack (EPack c v) e, t) (h, subst0_e_e v (subst0_t_e c e), t)
+  | AUnpackPackI h c v e t :
+      value v ->
+      astep (h, EUnpackI (EPackI c v) e, t) (h, subst0_e_e v (subst0_i_e c e), t)
   | ARead h l t v :
       h $? l = Some v ->
       astep (h, ERead (ELoc l), t) (h, v, t)
@@ -10461,8 +10520,10 @@ lift2 (fst (strip_subsets L))
       value v ->
       h $? l = None ->
       astep (h, ENew v, t) (h $+ (l, v), ELoc l, t)
-  | ABetaC h e c t :
-      astep (h, EAppC (EAbsC e) c, t) (h, subst0_c_e c e, t)
+  | ABetaT h e c t :
+      astep (h, EAppT (EAbsT e) c, t) (h, subst0_t_e c e, t)
+  | ABetaI h e c t :
+      astep (h, EAppI (EAbsI e) c, t) (h, subst0_i_e c e, t)
   | AProj h pr v1 v2 t :
       value v1 ->
       value v2 ->
@@ -10480,7 +10541,7 @@ lift2 (fst (strip_subsets L))
       step (h, e1, t) (h', e1', t')
   .
 
-  Definition empty_ctx : ctx := ([], $0, []).
+  Definition empty_ctx : ctx := ([], [], $0, []).
   Notation "${}" := empty_ctx.
 
   Definition allocatable (h : heap) := exists l_alloc, forall l, l >= l_alloc -> h $? l = None.
@@ -10491,12 +10552,12 @@ lift2 (fst (strip_subsets L))
         exists v,
           h $? l = Some v /\
           value v /\
-          typing ([], W, []) v t T0) /\
+          typing ([], [], W, []) v t T0) /\
     allocatable h.
 
   Definition ctyping W (s : config) t i :=
     let '(h, e, f) := s in
-    typing ([], W, []) e t i /\
+    typing ([], [], W, []) e t i /\
     htyping h W /\
     interp_time i <= f
   .
@@ -10516,6 +10577,7 @@ lift2 (fst (strip_subsets L))
 
   Import CloseScope.
 
+  Arguments get_sctx _ / .
   Arguments get_kctx _ / .
   Arguments get_hctx _ / .
 
@@ -10530,14 +10592,14 @@ lift2 (fst (strip_subsets L))
   (* ============================================================= *)
 
   
-  Lemma TyETT C : typing C ETT CTypeUnit T0.
+  Lemma TyETT C : typing C ETT TUnit T0.
   Proof.
     eapply TyConst.
   Qed.
 
   Lemma TyTyeq C e t2 i t1 :
     typing C e t1 i ->
-    tyeq (get_kctx C) t1 t2 ->
+    tyeq (get_sctx C) t1 t2 KType ->
     typing C e t2 i.
   Proof.
     intros.
@@ -10547,7 +10609,7 @@ lift2 (fst (strip_subsets L))
 
   Lemma TyLe C e t i1 i2 :
     typing C e t i1 ->
-    interp_prop (get_kctx C) (i1 <= i2)%idx ->
+    interp_prop (get_sctx C) (i1 <= i2)%idx ->
     typing C e t i2.
   Proof.
     intros.
@@ -10557,7 +10619,7 @@ lift2 (fst (strip_subsets L))
   
   Lemma TyIdxEq C e t i1 i2 :
     typing C e t i1 ->
-    interp_prop (get_kctx C) (i1 == i2)%idx ->
+    interp_prop (get_sctx C) (i1 == i2)%idx ->
     typing C e t i2.
   Proof.
     intros.
@@ -10565,138 +10627,363 @@ lift2 (fst (strip_subsets L))
     eapply interp_prop_eq_interp_prop_le; eauto.
   Qed.
   
-  Lemma CApps_CRec_const_type_false cs k3 t3 cn  :
-    tyeq [] (CApps (CRec k3 t3) cs) (const_type cn) ->
+  Lemma TRec_const_type_false cs k3 t3 cn  :
+    tyeq [] (TRec k3 t3 cs) (const_type cn) KType ->
     False.
   Proof.
     cases cn; simplify;
-      eapply CApps_CRec_CConst_false; eauto.
+      eapply tyeq_TRec_TConst_false; eauto.
   Qed.
 
   Lemma const_type_CArrow_false cn t1 i t2 :
-    tyeq [] (const_type cn) (CArrow t1 i t2) ->
+    tyeq [] (const_type cn) (TArrow t1 i t2) KType ->
     False.
   Proof.
-    cases cn; intros Htyeq; simplify;
-      invert Htyeq.
-  Admitted.
-  (* Qed. *)
+    intros H.
+    unfold tyeq in *.
+    simpl in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    specialize (H I).
+    destruct cn; simpl in *;
+      invert H.
+  Qed.
 
-  Lemma subst_c_c_const_type x v cn :
-    subst_c_c x v (const_type cn) = const_type cn.
+  Lemma subst_i_t_const_type x v cn :
+    subst_i_t x v (const_type cn) = const_type cn.
   Proof.
     cases cn; simplify; eauto.
   Qed.
   
-  Lemma shift_c_e_AbsCs m :
+  Lemma subst_t_t_const_type x v cn :
+    subst_t_t x v (const_type cn) = const_type cn.
+  Proof.
+    cases cn; simplify; eauto.
+  Qed.
+
+  Definition sum_ls := fold_right plus 0.
+  
+  Lemma shift_i_e_AbsTIs tis :
     forall n x e,
-      shift_c_e n x (EAbsCs m e) = EAbsCs m (shift_c_e n (m + x) e).
+      let m := length (filter negb tis) in
+      shift_i_e n x (EAbsTIs tis e) = EAbsTIs tis (shift_i_e n (m + x) e).
+  Proof.
+    simpl.
+    induct tis; simplify; eauto.
+    destruct a; simpl.
+    {
+      f_equal; eauto.
+    }
+    {
+      f_equal; eauto.
+      rewrite IHtis.
+      f_equal.
+      f_equal.
+      la.
+    }
+  Qed.
+  
+  Lemma shift_t_e_AbsTIs tis :
+    forall n x e,
+      let m := length (filter id tis) in
+      shift_t_e n x (EAbsTIs tis e) = EAbsTIs tis (shift_t_e n (m + x) e).
+  Proof.
+    simpl.
+    induct tis; simplify; eauto.
+    destruct a; simpl.
+    {
+      f_equal; eauto.
+      rewrite IHtis.
+      f_equal.
+      f_equal.
+      la.
+    }
+    {
+      f_equal; eauto.
+    }
+  Qed.
+  
+  Lemma shift_e_e_AbsTIs m :
+    forall n x e,
+      shift_e_e n x (EAbsTIs m e) = EAbsTIs m (shift_e_e n x e).
   Proof.
     induct m; simplify; eauto.
-    rewrite IHm.
-    repeat f_equal; eauto.
+    destruct a; simpl;
+      rewrite IHm;
+      repeat f_equal; eauto.
   Qed.
   
-  Lemma shift_e_e_AbsCs m :
-    forall n x e,
-      shift_e_e n x (EAbsCs m e) = EAbsCs m (shift_e_e n x e).
+  Lemma shift_i_e_0 b : forall x, shift_i_e 0 x b = b.
   Proof.
-    induct m; simplify; eauto.
-    rewrite IHm.
-    repeat f_equal; eauto.
+    induct b; simplify; try rewrite IHb; try rewrite IHb1; try rewrite IHb2; try rewrite IHb3; try rewrite shift_i_i_0; try rewrite shift_i_t_0; eauto.
   Qed.
   
-  Lemma shift_c_e_0 b : forall x, shift_c_e 0 x b = b.
+  Lemma shift_t_e_0 b : forall x, shift_t_e 0 x b = b.
   Proof.
-    induct b; simplify; try rewrite IHb; try rewrite IHb1; try rewrite IHb2; try rewrite IHb3; try rewrite shift_c_c_0; eauto.
+    induct b; simplify; try rewrite IHb; try rewrite IHb1; try rewrite IHb2; try rewrite IHb3; try rewrite shift_t_t_0; eauto.
   Qed.
   
-  Lemma shift_c_e_shift b :
+  Lemma shift_i_e_shift b :
     forall n1 n2 x,
-      shift_c_e n2 x (shift_c_e n1 x b) = shift_c_e (n1 + n2) x b.
+      shift_i_e n2 x (shift_i_e n1 x b) = shift_i_e (n1 + n2) x b.
   Proof.
-    induct b; simplify; try rewrite IHb; try rewrite IHb1; try rewrite IHb2; try rewrite IHb3; try rewrite shift_c_c_shift; eauto.
+    induct b; simplify; try rewrite IHb; try rewrite IHb1; try rewrite IHb2; try rewrite IHb3; try rewrite shift_i_i_shift_merge by la; try rewrite shift_i_t_shift_merge by la; eauto.
   Qed.
   
-  Lemma shift_c_e_shift0 n b :
-    shift_c_e n 0 (shift0_c_e b) = shift_c_e (S n) 0 b.
+  Lemma shift_t_e_shift b :
+    forall n1 n2 x,
+      shift_t_e n2 x (shift_t_e n1 x b) = shift_t_e (n1 + n2) x b.
   Proof.
-    unfold shift0_c_e.
-    rewrite shift_c_e_shift.
+    induct b; simplify; try rewrite IHb; try rewrite IHb1; try rewrite IHb2; try rewrite IHb3; try rewrite shift_t_t_shift_merge by la; eauto.
+  Qed.
+  
+  Lemma shift_i_e_shift0 n b :
+    shift_i_e n 0 (shift0_i_e b) = shift_i_e (S n) 0 b.
+  Proof.
+    unfold shift0_i_e.
+    rewrite shift_i_e_shift.
     eauto.
   Qed.
   
-  Lemma map_shift0_shift n x G :
-    map shift0_c_c (map (shift_c_c n x) G) =
-    map (shift_c_c n (1 + x)) (map shift0_c_c G).
+  Lemma shift_t_e_shift0 n b :
+    shift_t_e n 0 (shift0_t_e b) = shift_t_e (S n) 0 b.
   Proof.
-    repeat rewrite map_map.
-    setoid_rewrite shift0_c_c_shift.
+    unfold shift0_t_e.
+    rewrite shift_t_e_shift.
+    eauto.
+  Qed.
+  
+  Lemma shift0_i_t_shift n x b :
+    shift0_i_t (shift_i_t n x b) = shift_i_t n (1 + x) (shift0_i_t b).
+  Proof.
+    unfold shift0_i_t; intros.
+    symmetry.
+    rewrite shift_i_t_shift_cut; repeat f_equal; la.
+  Qed.
+
+  Lemma fmap_map_shift0_i_t_shift n x (W : hctx) :
+    fmap_map shift0_i_t (fmap_map (shift_i_t n x) W) =
+    fmap_map (shift_i_t n (1 + x)) (fmap_map shift0_i_t W).
+  Proof.
+    repeat rewrite fmap_map_fmap_map.
+    setoid_rewrite shift0_i_t_shift.
     eauto.
   Qed.
 
-  Lemma fmap_map_shift0_shift n x (W : hctx) :
-    fmap_map shift0_c_c (fmap_map (shift_c_c n x) W) =
-    fmap_map (shift_c_c n (1 + x)) (fmap_map shift0_c_c W).
+  Lemma fmap_map_shift0_t_t_shift n x (W : hctx) :
+    fmap_map shift0_t_t (fmap_map (shift_t_t n x) W) =
+    fmap_map (shift_t_t n (1 + x)) (fmap_map shift0_t_t W).
   Proof.
     repeat rewrite fmap_map_fmap_map.
-    setoid_rewrite shift0_c_c_shift.
+    setoid_rewrite shift0_t_t_shift.
     eauto.
   Qed.
 
-  Lemma fmap_map_shift0_subst n c (W : hctx) :
-    fmap_map shift0_c_c (fmap_map (subst_c_c n (shift_c_c n 0 c)) W) =
-    fmap_map (subst_c_c (1 + n) (shift_c_c (1 + n) 0 c)) (fmap_map shift0_c_c W).
+  Lemma shift0_i_t_subst x v b :
+    shift0_i_t (subst_i_t x (shift_i_i x 0 v) b) = subst_i_t (1 + x) (shift_i_i (1 + x) 0 v) (shift0_i_t b).
+  Proof.
+    unfold shift0_i_t, subst0_i_i.
+    rewrite shift_i_t_subst_in by la.
+    rewrite shift_i_i_shift_merge by la.
+    repeat (f_equal; try la).
+  Qed.
+
+  Lemma fmap_map_shift0_i_t_subst n c (W : hctx) :
+    fmap_map shift0_i_t (fmap_map (subst_i_t n (shift_i_i n 0 c)) W) =
+    fmap_map (subst_i_t (1 + n) (shift_i_i (1 + n) 0 c)) (fmap_map shift0_i_t W).
   Proof.
     repeat rewrite fmap_map_fmap_map.
-    setoid_rewrite shift0_c_c_subst.
+    setoid_rewrite shift0_i_t_subst.
     eauto.
   Qed.
   
-  Lemma fmap_map_subst0_shift0 k c W : fmap_map (K := k) (subst0_c_c c) (fmap_map shift0_c_c W) = W.
+  Lemma shift0_t_t_subst x v b :
+    shift0_t_t (subst_t_t x (shift_t_t x 0 v) b) = subst_t_t (1 + x) (shift_t_t (1 + x) 0 v) (shift0_t_t b).
+  Proof.
+    unfold shift0_t_t, subst0_t_t.
+    rewrite shift_t_t_subst_in by la.
+    rewrite shift_t_t_shift_merge by la.
+    repeat (f_equal; try la).
+  Qed.
+
+  Lemma fmap_map_shift0_t_t_subst n c (W : hctx) :
+    fmap_map shift0_t_t (fmap_map (subst_t_t n (shift_t_t n 0 c)) W) =
+    fmap_map (subst_t_t (1 + n) (shift_t_t (1 + n) 0 c)) (fmap_map shift0_t_t W).
   Proof.
     repeat rewrite fmap_map_fmap_map.
-    setoid_rewrite subst0_c_c_shift0.
+    setoid_rewrite shift0_t_t_subst.
+    eauto.
+  Qed.
+  
+  Lemma subst0_i_t_shift0 v b :
+    subst0_i_t v (shift0_i_t b) = b.
+  Proof.
+    unfold shift0_i_t, subst0_i_t.
+    specialize (@subst_i_t_shift_avoid 1 b v 0 0); intros H; simplify.
+    repeat rewrite shift_i_t_0 in *.
+    eauto with db_la.
+  Qed.
+  
+  Lemma fmap_map_subst0_i_t_shift0 k c W : fmap_map (K := k) (subst0_i_t c) (fmap_map shift0_i_t W) = W.
+  Proof.
+    repeat rewrite fmap_map_fmap_map.
+    setoid_rewrite subst0_i_t_shift0.
     eapply fmap_map_id.
   Qed.
   
-  Lemma fmap_map_shift0_c_c_incl (W W' : hctx) :
-    W $<= W' ->
-    fmap_map shift0_c_c W $<= fmap_map shift0_c_c W'.
+  Lemma subst0_t_t_shift0 v b :
+    subst0_t_t v (shift0_t_t b) = b.
   Proof.
-    intros; eapply incl_fmap_map; eauto.
+    unfold shift0_t_t, subst0_t_t.
+    specialize (@subst_t_t_shift_avoid 1 b v 0 0); intros H; simplify.
+    repeat rewrite shift_t_t_0 in *.
+    eauto with db_la.
   Qed.
   
-  Lemma subst_c_e_AbsCs m :
-    forall x v e,
-      subst_c_e x v (EAbsCs m e) = EAbsCs m (subst_c_e (m + x) (shift_c_c m 0 v) e).
+  Lemma fmap_map_subst0_t_t_shift0 k c W : fmap_map (K := k) (subst0_t_t c) (fmap_map shift0_t_t W) = W.
   Proof.
-    induct m; simplify.
+    repeat rewrite fmap_map_fmap_map.
+    setoid_rewrite subst0_t_t_shift0.
+    eapply fmap_map_id.
+  Qed.
+
+  Lemma shift_i_t_shift_t_t_commute :
+    forall b x2 n2 x1 n1,
+      shift_i_t x2 n2 (shift_t_t x1 n1 b) = shift_t_t x1 n1 (shift_i_t x2 n2 b).
+  Proof.
+    induct b;
+      simplify; cbn in *;
+        try solve [eauto |
+                   f_equal; eauto |
+                   erewrite H by la; repeat f_equal; eauto with db_la |
+                   try replace (S (y - n1)) with (S y - n1) by la;
+                   f_equal;
+                   match goal with
+                     H : _ |- _ => eapply H; eauto with db_la
+                   end].
     {
-      rewrite shift_c_c_0; eauto.
+      (* Case CVar *)
+      repeat match goal with
+               |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+             end; f_equal; la.
     }
-    rewrite IHm.
-    rewrite shift_c_c_shift0.
-    repeat f_equal; eauto.
   Qed.
-  
-  Lemma subst_e_e_AbsCs m :
+
+  Lemma subst_t_e_AbsTIs tis :
     forall x v e,
-      subst_e_e x v (EAbsCs m e) = EAbsCs m (subst_e_e x (shift_c_e m 0 v) e).
+      let n_t := length (filter id tis) in
+      let n_i := length (filter negb tis) in
+      subst_t_e x v (EAbsTIs tis e) = EAbsTIs tis (subst_t_e (n_t + x) (shift_t_t n_t 0 (shift_i_t n_i 0 v)) e).
   Proof.
-    induct m; simplify.
+    simpl.
+    induct tis; simplify.
     {
-      rewrite shift_c_e_0; eauto.
+      rewrite shift_i_t_0.
+      rewrite shift_t_t_0.
+      eauto.
     }
-    rewrite IHm.
-    rewrite shift_c_e_shift0.
-    repeat f_equal; eauto.
+    destruct a; simpl.
+    {
+      f_equal.
+      rewrite IHtis.
+      f_equal.
+      f_equal; try la.
+      unfold shift0_t_t.
+      rewrite shift_i_t_shift_t_t_commute.
+      rewrite shift_t_t_shift_merge by la.
+      eauto.
+    }
+    {
+      f_equal.
+      rewrite IHtis.
+      f_equal.
+      f_equal; try la.
+      unfold shift0_i_t.
+      rewrite shift_i_t_shift_merge by la.
+      eauto.
+    }
   Qed.
   
-  Lemma value_subst_c_e v :
+  Lemma subst_i_e_AbsTIs tis :
+    forall x v e,
+      let n_i := length (filter negb tis) in
+      subst_i_e x v (EAbsTIs tis e) = EAbsTIs tis (subst_i_e (n_i + x) (shift_i_i n_i 0 v) e).
+  Proof.
+    simpl.
+    induct tis; simplify.
+    {
+      rewrite shift_i_i_0.
+      eauto.
+    }
+    destruct a; simpl.
+    {
+      f_equal.
+      rewrite IHtis.
+      eauto.
+    }
+    {
+      f_equal.
+      rewrite IHtis.
+      f_equal.
+      f_equal; try la.
+      unfold shift0_i_i.
+      rewrite shift_i_i_shift_merge by la.
+      eauto.
+    }
+  Qed.
+  
+  Lemma subst_e_e_AbsTIs tis :
+    forall x v e,
+      let n_t := length (filter id tis) in
+      let n_i := length (filter negb tis) in
+      subst_e_e x v (EAbsTIs tis e) = EAbsTIs tis (subst_e_e x (shift_t_e n_t 0 (shift_i_e n_i 0 v)) e).
+  Proof.
+    induct tis; simplify.
+    {
+      rewrite shift_i_e_0.
+      rewrite shift_t_e_0.
+      eauto.
+    }
+    destruct a; simpl.
+    {
+      f_equal.
+      rewrite IHtis.
+      f_equal.
+      f_equal; try la.
+      unfold shift0_t_e.
+  Lemma shift_i_e_shift_t_e_commute :
+    forall b x2 n2 x1 n1,
+      shift_i_e x2 n2 (shift_t_e x1 n1 b) = shift_t_e x1 n1 (shift_i_e x2 n2 b).
+  Proof.
+    induct b; simplify; try rewrite IHb; try rewrite IHb1; try rewrite IHb2; try rewrite IHb3; try rewrite shift_i_t_shift_t_t_commute by la; eauto.
+  Qed.
+
+      rewrite shift_i_e_shift_t_e_commute.
+      rewrite shift_t_e_shift by la.
+      eauto.
+    }
+    {
+      f_equal.
+      rewrite IHtis.
+      f_equal.
+      f_equal; try la.
+      unfold shift0_i_e.
+      rewrite shift_i_e_shift by la.
+      eauto.
+    }
+  Qed.
+  
+  Lemma value_subst_i_e v :
     value v ->
     forall n c,
-      value (subst_c_e n c v).
+      value (subst_i_e n c v).
+  Proof.
+    induct 1; intros n e'; simplify; try econstructor; eauto.
+  Qed.
+  
+  Lemma value_subst_t_e v :
+    value v ->
+    forall n c,
+      value (subst_t_e n c v).
   Proof.
     induct 1; intros n e'; simplify; try econstructor; eauto.
   Qed.
@@ -10724,29 +11011,73 @@ lift2 (fst (strip_subsets L))
     }
   Qed.
     
+  Lemma get_sctx_add_typing_ctx t C : get_sctx (add_typing_ctx t C) = get_sctx C.
+  Proof.
+    destruct C as (((L & K) & W) & G); eauto.
+  Qed.
+  
+  Lemma get_sctx_add_kinding_ctx k C : get_sctx (add_kinding_ctx k C) = get_sctx C.
+  Proof.
+    destruct C as (((L & K) & W) & G); eauto.
+  Qed.
+  
   Lemma get_kctx_add_typing_ctx t C : get_kctx (add_typing_ctx t C) = get_kctx C.
   Proof.
-    destruct C as ((L & W) & G); eauto.
+    destruct C as (((L & K) & W) & G); eauto.
   Qed.
   
   Hint Constructors Forall2.
-  Lemma Forall2_map A B A' B' (P : A -> B -> Prop) (Q : A' -> B' -> Prop) f1 f2 ls1 ls2 :
-    (forall a b, P a b -> Q (f1 a) (f2 b)) -> 
-    Forall2 P ls1 ls2 ->
-    Forall2 Q (map f1 ls1) (map f2 ls2).
+
+  Definition tyeq_KType L t t' := tyeq L t t' KType.
+
+  Arguments tyeq_KType / .
+
+  Lemma forall_eq_eq : forall bs A (a b : interp_bsorts bs A), forall_ bs (lift2 bs eq a b) -> a = b.
   Proof.
-    induct 2; simplify; eauto.
+    induct bs; simpl; eauto.
+    rename a into bsort.
+    intros A a b H.
+    rewrite fuse_lift1_lift2 in *.
+    eapply IHbs; eauto.
+    eapply forall_lift2_lift2; [| eapply H]; eauto.
+    simpl; intros.
+    eapply FunctionalExtensionality.functional_extensionality.
+    eauto.
   Qed.
   
+  Section shift_tv.
+
+    Variable n : nat.
+
+    (* Arguments TVQuanI q b p t . *)
+  
+    Fixpoint shift_t_tv (x : var) (b : tyv) : tyv :=
+      match b with
+      | TVVar y =>
+        if x <=? y then
+          TVVar (n + y)
+        else
+          TVVar y
+      | TVConst cn => TVConst cn
+      | TVUnOp opr t => TVUnOp opr (shift_t_tv x t)
+      | TVBinOp opr c1 c2 => TVBinOp opr (shift_t_tv x c1) (shift_t_tv x c2)
+      | TVArrow t1 i t2 => TVArrow (shift_t_tv x t1) i (shift_t_tv x t2)
+      | TVQuan q k c => TVQuan q k (shift_t_tv (1 + x) c)
+      | TVQuanI q p c => TVQuanI q p (fun i => shift_t_tv x (c i))
+      | TVRec k t args => TVRec k (fun i => shift_t_tv (1 + x) (t i)) args
+      end.
+
+  End shift_tv.
+        
   Lemma ty_G_tyeq C e t i :
     typing C e t i ->
     forall G',
-    Forall2 (tyeq (get_kctx C)) (get_tctx C) G' ->
-    typing (get_kctx C, get_hctx C, G') e t i.
+    Forall2 (tyeq_KType (get_sctx C)) (get_tctx C) G' ->
+    typing (get_sctx C, get_kctx C, get_hctx C, G') e t i.
   Proof.
     induct 1;
       intros G' Htyeq;
-      destruct C as ((L & W) & G);
+      destruct C as (((L & K) & W) & G);
       simplify;
       try solve [econstructor; eauto | econstructor; simplify; eauto with db_tyeq].
     {
@@ -10759,6 +11090,204 @@ lift2 (fst (strip_subsets L))
       }
       simplify.
       eauto with db_tyeq.
+    }
+    {
+      (* Case AbsT *)
+      econstructor; simplify; eauto.
+      eapply IHtyping.
+      eapply Forall2_map; eauto.
+      intros c c' Htyeq2.
+  Lemma tyeq_shift_t_t L c c' k n x :
+    tyeq L c c' k ->
+    tyeq L (shift_t_t n x c) (shift_t_t n x c') k.
+  Proof.
+    intros H.
+    unfold tyeq in *.
+
+    Fixpoint shift_t_gtv x n k : interp_k k -> interp_k k :=
+      match k with
+      | [] => shift_t_tv x n
+      | s :: k' => fun body i => shift_t_gtv x n k' (body i)
+      end.
+      
+  Lemma forall_shift_t_t :
+    forall body x bs k_b n,
+      (* wellscoped_i (length bs) body -> *)
+      interp_ty (shift_t_t n x body) bs k_b = lift1 bs (shift_t_gtv n x k_b) (interp_ty body bs k_b).
+  Proof.
+    simpl.
+    induct body; simpl; try rename x into y; intros x bs k_b n.
+    {
+      cases (x <=? y); simpl in *.
+      {
+        repeat rewrite fuse_lift1_lift0 in *.
+        (*here*)
+      }
+    }
+  Qed.
+  
+  Lemma tyeq_shift_t_t L p :
+    tyeq L p ->
+    wellscoped_ss L ->
+    wellscoped_p (length L) p ->
+    forall x ls ,
+      let n := length ls in
+      x <= length L ->
+      tyeq (shift_i_ss n (firstn x L) ++ ls ++ my_skipn L x) (shift_t_t n x p).
+  Proof.
+    cbn in *.
+    intros H Hscss Hscp x ls Hle.
+    unfold tyeq in *.
+    cbn in *.
+    rewrite !get_bsort_insert_shift.
+    rewrite !strip_subsets_insert by la.
+    set (bs := map get_bsort L) in *.
+    set (bs_new := map get_bsort ls) in *.
+    eapply forall_lift2_imply_shift; eauto.
+    {
+      eapply forall_trans.
+      {
+        eapply and_all_app_imply_no_middle.
+      }
+      {
+        eapply forall_iff_imply.
+        eapply forall_iff_sym.
+        eapply forall_iff_trans.
+        {
+          eapply forall_iff_sym.
+          eapply forall_shift_i_p_iff_shift; eauto.
+          subst bs.
+          rewrite map_length.
+          eapply wellscoped_ss_wellscoped_p_strip_subsets; eauto.
+        }
+        eapply forall_iff_refl'.
+        rewrite <- (firstn_my_skipn x L) at 1.
+        rewrite strip_subsets_app.
+        rewrite <- and_all_map_shift_i_p.
+        rewrite map_app.
+        rewrite map_map.
+        subst bs.
+        subst bs_new.
+        repeat rewrite map_length.
+        f_equal.
+        f_equal.
+        f_equal.
+        eapply map_ext.
+        intros b.
+        rewrite length_firstn_le by la.
+        rewrite shift_i_p_shift_merge by la.
+        eauto.
+      }
+    }
+    {
+      eapply forall_iff_imply.
+      eapply forall_iff_sym.
+      subst bs.
+      subst bs_new.
+      eapply forall_shift_i_p_iff_shift; try rewrite map_length; eauto.
+    }
+  Qed.
+
+  Lemma tyeq_shift_i_i :
+    forall L c c' k,
+      tyeq L c c' k ->
+      forall x ls,
+        let n := length ls in
+        x <= length L ->
+        wellscoped_ss L ->
+        wellscoped_s (length L) s ->
+        tyeq (shift_i_ss n (firstn x L) ++ ls ++ my_skipn L x) (shift_i_i n x c) (shift_i_s n x s).
+  Proof.
+    simpl.
+    induct 1;
+      simpl; try rename x into y; intros x ls Hx HL Hs; cbn in *; try solve [econstructor; eauto].
+    {
+      (* Case Var *)
+      copy H HnltL.
+      eapply nth_error_Some_lt in HnltL.
+      cases (x <=? y).
+      {
+        eapply StgVar'.
+        {
+          rewrite nth_error_app2;
+          rewrite length_shift_i_ss; erewrite length_firstn_le; try la.
+          rewrite nth_error_app2 by la.
+          rewrite nth_error_my_skipn by la.
+          erewrite <- H.
+          f_equal.
+          la.
+        }
+        {
+          rewrite shift_i_s_shift_merge by la.
+          f_equal.
+          la.
+        }
+      }
+      {
+        eapply StgVar'.
+        {
+          rewrite nth_error_app1;
+          try rewrite length_shift_i_ss; try erewrite length_firstn_le; try la.
+          erewrite nth_error_shift_i_ss; eauto.
+          rewrite nth_error_firstn; eauto.
+        }          
+        {
+          erewrite length_firstn_le by la. 
+          rewrite shift_i_s_shift_cut by la.
+          eauto.
+        }
+      }
+    }
+    {
+      econstructor; eauto.
+      eapply IHtyeq1; eauto; econstructor; eauto.
+    }
+    {
+      (* Case TimeAbs *)
+      econstructor; eauto.
+      {
+        unfold SNat, STimeFun in *.
+        eapply IHtyeq with (x := S x); eauto with db_la.
+        econstructor; eauto.
+      }
+      eapply monotone_shift_i_i; eauto.
+    }
+    {
+      econstructor; eauto.
+      {
+        eapply IHtyeq1; eauto; econstructor; eauto.
+      }
+      {
+        eapply IHtyeq2; eauto; econstructor; eauto.
+      }
+    }
+    {
+      (* Case SubsetI *)
+      econstructor; eauto.
+      unfold subst0_i_p in *.
+      rewrite <- shift_i_p_subst_out by la.
+      invert Hs.
+      eapply interp_prop_shift_i_p; eauto.
+      eapply wellscoped_subst_i_p_0; eauto using sorting_wellscoped_i.
+    }
+    {
+      (* Case SubsetE *)
+      eapply StgSubsetE; eauto.
+      eapply wellscoped_shift_i_p; eauto.
+      repeat rewrite app_length.
+      rewrite length_shift_i_ss.
+      rewrite length_firstn_le by la.
+      rewrite length_my_skipn_le by la.
+      la.
+    }
+  Qed.
+
+  Lemma tyeq_shift0_c_c L c c' k :
+    tyeq L c c' ->
+    tyeq (k :: L) (shift0_c_c c) (shift0_c_c c').
+  Admitted.
+  
+      eapply tyeq_shift0_c_c; eauto.
     }
     {
       (* Case AbsC *)
@@ -10868,8 +11397,8 @@ lift2 (fst (strip_subsets L))
         eapply wfkind_shift_c_k; eauto.
       }
       {
-        rewrite fmap_map_shift0_shift.
-        rewrite map_shift0_shift.
+        rewrite fmap_map_shift0_t_t_shift.
+        rewrite map_shift_i_i_shift_merge.
         specialize (IHtyping (S x) ls); simplify.
         erewrite length_firstn_le in IHtyping by eauto.
         eapply IHtyping; eauto.
@@ -10963,8 +11492,8 @@ lift2 (fst (strip_subsets L))
         eapply IHtyping1; eauto.
       }
       {
-        rewrite fmap_map_shift0_shift.
-        rewrite map_shift0_shift.
+        rewrite fmap_map_shift0_t_t_shift.
+        rewrite map_shift_i_i_shift_merge.
         specialize (IHtyping2 (S x) ls); simplify.
         erewrite length_firstn_le in IHtyping2 by eauto.
         repeat rewrite shift0_c_c_shift.
