@@ -10361,11 +10361,18 @@ lift2 (fst (strip_subsets L))
   | TyLoc C l t :
       get_hctx C $? l = Some t ->
       typing C (ELoc l) (TRef t) T0
-  | TySub C e t2 i2 t1 i1 :
-      typing C e t1 i1 ->
-      tyeq (get_sctx C) t1 t2 KType ->
-      interp_prop (get_sctx C) (i1 <= i2) ->
-      typing C e t2 i2 
+  | TyTyeq C e t1 i t2 :
+      typing C e t1 i ->
+      let L := get_sctx C in
+      kinding L (get_kctx C) t2 KType ->
+      tyeq L t1 t2 KType ->
+      typing C e t2 i
+  | TyLe C e t i1 i2 :
+      typing C e t i1 ->
+      let L := get_sctx C in
+      sorting L i2 STime ->
+      interp_prop L (i1 <= i2) ->
+      typing C e t i2 
   .
 
   Local Close Scope idx_scope.
@@ -10681,28 +10688,9 @@ lift2 (fst (strip_subsets L))
     eapply TyConst.
   Qed.
 
-  Lemma TyTyeq C e t2 i t1 :
-    typing C e t1 i ->
-    tyeq (get_sctx C) t1 t2 KType ->
-    typing C e t2 i.
-  Proof.
-    intros.
-    eapply TySub; eauto.
-    eapply interp_prop_le_refl.
-  Qed.
-
-  Lemma TyLe C e t i1 i2 :
-    typing C e t i1 ->
-    interp_prop (get_sctx C) (i1 <= i2)%idx ->
-    typing C e t i2.
-  Proof.
-    intros.
-    eapply TySub; eauto.
-    eauto with db_tyeq.
-  Qed.
-  
   Lemma TyIdxEq C e t i1 i2 :
     typing C e t i1 ->
+    sorting (get_sctx C) i2 STime ->
     interp_prop (get_sctx C) (i1 == i2)%idx ->
     typing C e t i2.
   Proof.
@@ -11065,10 +11053,11 @@ lift2 (fst (strip_subsets L))
   Proof.
     induct 1;
       invert 1;
-      try solve [econstructor; eauto | eapply TyTyeq; eauto].
+      try solve [eauto | econstructor; eauto | eapply TyTyeq; eauto].
     {
+      (* Case TyPair *)
       clear H H0.
-      eapply TyIdxEq; [econstructor; eauto | ].
+      eapply TyIdxEq ; [econstructor; eauto | econstructor; eauto |  ].
       eapply interp_prop_eq_add_0.
     }
   Qed.
@@ -11929,63 +11918,11 @@ lift2 (fst (strip_subsets L))
     eapply wellscoped_shift_i_i; eauto.
   Qed.
 
-  Lemma ty_G_tyeq C e t i :
-    typing C e t i ->
-    let L := get_sctx C in
-    let nl := length L in
-    wellscoped_ss L ->
-    forall G',
-      Forall2 (fun t t' => tyeq L t t' KType /\ wellscoped_t nl t /\ wellscoped_t nl t') (get_tctx C) G' ->
-      typing (get_sctx C, get_kctx C, get_hctx C, G') e t i.
-  Proof.
-    simpl.
-    induct 1;
-      intros HL G' Htyeq;
-      destruct C as (((L & K) & W) & G);
-      simplify;
-      try solve [econstructor; eauto 7 using kinding_wellscoped_t' with db_tyeq].
-    {
-      (* Case Var *)
-      eapply nth_error_Forall2 in Htyeq; eauto.
-      openhyp.
-      eapply TyTyeq.
-      {
-        econstructor; simplify; eauto.
-      }
-      simplify.
-      eauto with db_tyeq.
-    }
-    {
-      (* Case AbsT *)
-      econstructor; simplify; eauto.
-      eapply IHtyping; eauto.
-      eapply Forall2_map; eauto.
-      simpl.
-      intros c c' Htyeq2.
-      openhyp.
-      unfold shift0_t_t.
-      repeat try_split; eauto using wellscoped_shift_t_t.
-      eapply tyeq_shift_t_t; eauto.
-    }
-    {
-      (* Case AbsI *)
-      econstructor; simplify; eauto.
-      eapply IHtyping; eauto using wfsort_wellscoped_s.
-      eapply Forall2_map; eauto.
-      simpl.
-      intros c c' Htyeq2.
-      openhyp.
-      unfold shift0_i_t.
-      repeat try_split; eauto using wellscoped_shift_i_t.
-      eapply tyeq_shift0_i_t; eauto.
-    }
-    {
-      (* Case Unpack *)
-      econstructor; simplify; eauto.
-      eapply IHtyping2; eauto.
-      econstructor; eauto with db_tyeq.
-      {
-        repeat try_split; eauto using tyeq_refl.
+  Ltac unfold_all :=
+    repeat match goal with
+           | H := _ |- _ => unfold H in *; clear H
+           end.
+
         Definition fmap_forall K A p (m : fmap K A) := forall k v, m $? k = Some v -> p v.
         
 Lemma nth_error_Forall A P ls :
@@ -12126,10 +12063,233 @@ Qed.
     eauto.
   Qed.
   
-  Ltac unfold_all :=
-    repeat match goal with
-           | H := _ |- _ => unfold H in *; clear H
-           end.
+                        Lemma Forall_forall' {A P l} : Forall P l -> (forall x : A, In x l -> P x).
+                        Proof.
+                          intros; eapply Forall_forall; eauto.
+                        Qed.
+
+                      Lemma Forall_app A P (ls1 ls2 : list A) :
+                        Forall P ls1 ->
+                        Forall P ls2 ->
+                        Forall P (ls1 ++ ls2).
+                      Proof.
+                        intros H1 H2.
+                        eapply Forall_forall.
+                        specialize (Forall_forall' H1); intros H1'.
+                        specialize (Forall_forall' H2); intros H2'.
+                        intros x Hin.
+                        eapply in_app_or in Hin.
+                        intuition eauto.
+                      Qed.
+                      
+                  Lemma wellscoped_t_is_TApps_TRec L t :
+                    wellscoped_t L t ->
+                    forall k t1 args,
+                      is_TApps_TRec t = Some (k, t1, args) ->
+                      wellscoped_t L t1 /\
+                      Forall (fun p => wellscoped_i L (snd p)) args.
+                  Proof.
+                    induct 1; simpl; try rename k into k'; try rename args into args'; try rename t1 into t1'; intros k t1 args Heq; try dis; eauto.
+                    {
+                      cases (is_TApps_TRec t); try dis.
+                      destruct p as ((k' & t1') & args').
+                      invert Heq.
+                      edestruct IHwellscoped_t; eauto.
+                      eauto using Forall_app.
+                    }
+                    {
+                      invert Heq.
+                      eauto.
+                    }
+                  Qed.
+                    
+              Lemma wellscoped_t_contract L t :
+                wellscoped_t L t ->
+                wellscoped_t L (contract t).
+              Proof.
+                induct 1; simpl; eauto.
+                cases (is_TApps_TRec (contract t)); eauto.
+                destruct p as ((k, t') & args).
+                eapply wellscoped_t_is_TApps_TRec in Heq; eauto.
+                openhyp.
+                eauto using Forall_app.
+              Qed.
+
+              Lemma wellscoped_t_TApps L :
+                forall cs t,
+                  wellscoped_t L t ->
+                  Forall (fun p => wellscoped_i L (snd p)) cs ->
+                  wellscoped_t L (TApps t cs).
+              Proof.
+                induct cs; simpl; intros t Ht Hcs; invert Hcs; eauto.
+                destruct a as (b & i); simpl in *.
+                eauto.
+              Qed.
+
+            Lemma wellscoped_t_unroll L k t cs :
+              wellscoped_t L t ->
+              Forall (fun p => wellscoped_i L (snd p)) cs ->
+              wellscoped_t L (unroll k t cs).
+            Proof.
+              unfold unroll.
+              intros Ht Hcs.
+              eapply wellscoped_t_contract.
+              eapply wellscoped_t_TApps; eauto.
+              eapply wellscoped_subst_t_t_0; eauto.
+            Qed.
+              
+  Lemma wellscoped_shift_t_t_rev :
+    forall L body,
+      wellscoped_t L body ->
+      forall n x body',
+        body = shift_t_t n x body' ->
+        wellscoped_t L body'.
+  Proof.
+    induct 1;
+      simpl; try rename x into y; intros n x body' Hbody; intros; subst; cbn in *;
+        try solve [
+              destruct body'; simpl in *; try cases_le_dec; try dis;
+              invert Hbody; eauto
+            ].
+  Qed.
+
+  Lemma wellscoped_shift_i_i_rev :
+    forall L body,
+      wellscoped_i L body ->
+      forall n x body' L',
+        body = shift_i_i n x body' ->
+        x + n <= L ->
+        L' = L - n ->
+        wellscoped_i L' body'.
+  Proof.
+    induct 1;
+      simpl; try rename x into x'; try rename n into m; intros n x body' L' Hbody Hcmp; intros; subst; cbn in *;
+        try solve [
+              destruct body'; simpl in *; try cases_le_dec; try dis;
+              invert Hbody; eauto with db_la
+            ].
+    {
+      (* Case TimeAbs *)
+      destruct body'; simpl in *; try cases_le_dec; try dis.
+      invert Hbody; eauto.
+      econstructor; eauto.
+      eapply IHwellscoped_i; eauto with db_la.
+      destruct n; la.
+    }
+  Qed.
+
+  Lemma wellscoped_shift_i_p_rev :
+    forall L body,
+      wellscoped_p L body ->
+      forall n x body' L',
+        body = shift_i_p n x body' ->
+        x + n <= L ->
+        L' = L - n ->
+        wellscoped_p L' body'.
+  Proof.
+    induct 1;
+      simpl; try rename x into x'; try rename n into m; intros n x body' L' Hbody Hcmp; intros; subst; cbn in *;
+        try solve [
+              destruct body'; simpl in *; try cases_le_dec; try dis;
+              invert Hbody; eauto using wellscoped_shift_i_i_rev with db_la
+            ].
+    {
+      (* Case PQuan *)
+      destruct body'; simpl in *; try cases_le_dec; try dis.
+      invert Hbody; eauto.
+      econstructor; eauto.
+      eapply IHwellscoped_p; eauto with db_la.
+      destruct n; la.
+    }
+  Qed.
+  
+  Lemma wellscoped_shift_i_s_rev :
+    forall L body,
+      wellscoped_s L body ->
+      forall n x body' L',
+        body = shift_i_s n x body' ->
+        x + n <= L ->
+        L' = L - n ->
+        wellscoped_s L' body'.
+  Proof.
+    induct 1;
+      simpl; try rename x into x'; try rename n into m; intros n x body' L' Hbody Hcmp; intros; subst; cbn in *;
+        try solve [
+              destruct body'; simpl in *; try cases_le_dec; try dis;
+              invert Hbody; eauto using wellscoped_shift_i_p_rev with db_la
+            ].
+  Qed.
+  
+    Lemma Forall_map_elim A B (f : A -> B) p ls : Forall p (map f ls) -> Forall (fun x => p (f x)) ls.
+    Proof.
+      intros; eapply Forall_map; eauto.
+    Qed.
+
+  Lemma wellscoped_shift_i_t_rev :
+    forall L body,
+      wellscoped_t L body ->
+      forall n x body' L',
+        body = shift_i_t n x body' ->
+        x + n <= L ->
+        L' = L - n ->
+        wellscoped_t L' body'.
+  Proof.
+    induct 1;
+      simpl; try rename x into x'; try rename n into m; intros n x body' L' Hbody Hcmp; intros; subst; cbn in *;
+        try solve [
+              destruct body'; simpl in *; try cases_le_dec; try dis;
+              invert Hbody; eauto using wellscoped_shift_i_i_rev with db_la
+            ].
+    {
+      (* Case TAbs *)
+      destruct body'; simpl in *; try cases_le_dec; try dis.
+      invert Hbody; eauto.
+      econstructor; eauto.
+      eapply IHwellscoped_t; eauto with db_la.
+      destruct n; la.
+    }
+    {
+      (* Case TQuanI *)
+      destruct body'; simpl in *; try cases_le_dec; try dis.
+      invert Hbody; eauto.
+      econstructor; eauto using wellscoped_shift_i_s_rev.
+      eapply IHwellscoped_t; eauto with db_la.
+      destruct n; la.
+    }
+    {
+      (* Case TRec *)
+      destruct body'; simpl in *; try cases_le_dec; try dis.
+      invert Hbody; eauto.
+      econstructor; eauto.
+      eapply Forall_map_elim in H0.
+      eapply Forall_impl; eauto.
+      simpl; intros.
+      eauto using wellscoped_shift_i_i_rev.
+    }
+  Qed.
+
+              Lemma fmap_forall_fmap_map_intro K V V' (P : V' -> Prop) f (m : fmap K V) :
+                fmap_forall (fun x => P (f x)) m ->
+                fmap_forall P (fmap_map f m).
+              Proof.
+                intros H.
+                unfold fmap_forall in *.
+                intros k v Hk.
+                eapply fmap_map_lookup_elim in Hk.
+                openhyp.
+                subst.
+                eauto.
+              Qed.
+
+              Lemma fmap_forall_impl K V (P1 P2 : V -> Prop) (m : fmap K V) :
+                fmap_forall P1 m ->
+                (forall x, P1 x -> P2 x) ->
+                fmap_forall P2 m.
+              Proof.
+                intros H1 H12.
+                unfold fmap_forall in *.
+                eauto.
+              Qed.
 
         Lemma typing_wellscoped_ss_wellscoped_t C e t i :
           typing C e t i ->
@@ -12138,42 +12298,44 @@ Qed.
           let G := get_tctx C in
           let nl := length L in
           (* wellscoped_ss L -> *)
-          (* fmap_forall (wellscoped_t nl) W -> *)
+          fmap_forall (wellscoped_t nl) W ->
           Forall (wellscoped_t nl) G ->
           wellscoped_t nl t /\
           wellscoped_i nl i.
         Proof.
           simpl.
-          induct 1;
-            intros (* HL *) (* HW *) HG;
+          induct 1; unfold_all;
+            intros (* HL *) HW HG;
             destruct C as (((L & K) & W) & G);
-            simplify; try solve [eauto using kinding_wellscoped_t | edestruct IHtyping; eauto using kinding_wellscoped_t].
+            simplify; try solve [eauto using kinding_wellscoped_t | edestruct IHtyping; eauto using kinding_wellscoped_t, sorting_wellscoped_i].
           {
             (* Case TyVar *)
             eapply nth_error_Forall in HG; eauto.
           }
           {
             (* Case TyApp *)
-            copy HG HG'.
-            eapply IHtyping1 in HG; eauto.
-            eapply IHtyping2 in HG'; eauto.
-            destruct HG as (HG & ?).
-            openhyp.
-            invert HG.
+            edestruct IHtyping1 as (Ht & ?); eauto.
+            edestruct IHtyping2; eauto.
+            invert Ht.
             split; eauto.
             repeat (econstructor; eauto).
           }
           {
             (* Case TyAppT *)
-            eapply IHtyping in HG.
-            destruct HG as (HG & ?).
-            invert HG.
+            edestruct IHtyping as (Ht & ?); eauto.
+            invert Ht.
             split; eauto.
             eapply wellscoped_subst_t_t_0; eauto using kinding_wellscoped_t.
           }
           {
             (* Case TyAbsT *)
             edestruct IHtyping.
+            {
+              eapply fmap_forall_fmap_map_intro.
+              eapply fmap_forall_impl; eauto.
+              intros.
+              eapply wellscoped_shift_t_t; eauto.
+            }
             {
               eapply Forall_map.
               eapply Forall_impl; eauto.
@@ -12185,15 +12347,20 @@ Qed.
           }
           {
             (* Case TyAppI *)
-            eapply IHtyping in HG.
-            destruct HG as (HG & ?).
-            invert HG.
+            edestruct IHtyping as (Ht & ?); eauto.
+            invert Ht.
             split; eauto.
             eapply wellscoped_subst_i_t_0; eauto using sorting_wellscoped_i with db_la.
           }
           {
             (* Case TyAbsI *)
             edestruct IHtyping.
+            {
+              eapply fmap_forall_fmap_map_intro.
+              eapply fmap_forall_impl; eauto.
+              intros.
+              eapply wellscoped_shift_i_t; eauto.
+            }
             {
               eapply Forall_map.
               eapply Forall_impl; eauto.
@@ -12205,14 +12372,171 @@ Qed.
           }
           {
             (* Case TyUnFold *)
-            eapply IHtyping in HG.
-            destruct HG as (HG & ?).
-            invert HG.
+            edestruct IHtyping as (Ht & ?); eauto.
+            invert Ht.
             split; eauto.
-            (*here*)
-            eapply wellscoped_subst_t_t_0; eauto using kinding_wellscoped_t.
+            eapply wellscoped_t_unroll; eauto.
+          }
+          {
+            (* Case TyUnPack *)
+            edestruct IHtyping1 as (Ht & ?); eauto.
+            invert Ht.
+            edestruct IHtyping2 as (Ht2 & ?).
+            {
+              eapply fmap_forall_fmap_map_intro.
+              eapply fmap_forall_impl; eauto.
+              intros.
+              eapply wellscoped_shift_t_t; eauto.
+            }
+            {
+              econstructor; eauto.
+              eapply Forall_map.
+              eapply Forall_impl; eauto.
+              intros.
+              eapply wellscoped_shift_t_t; eauto.
+            }
+            unfold shift0_t_t in *.
+            eapply wellscoped_shift_t_t_rev in Ht2; eauto.
+            split; eauto.
+            econstructor; eauto.
+          }
+          {
+            (* Case TyUnPackI *)
+            edestruct IHtyping1 as (Ht & ?); eauto.
+            invert Ht.
+            edestruct IHtyping2 as (Ht2 & Hi2).
+            {
+              eapply fmap_forall_fmap_map_intro.
+              eapply fmap_forall_impl; eauto.
+              intros.
+              eapply wellscoped_shift_i_t; eauto.
+            }
+            {
+              econstructor; eauto.
+              eapply Forall_map.
+              eapply Forall_impl; eauto.
+              intros.
+              eapply wellscoped_shift_i_t; eauto.
+            }
+            unfold shift0_i_i, shift0_i_t in *.
+            eapply wellscoped_shift_i_i_rev in Hi2; eauto with db_la.
+            eapply wellscoped_shift_i_t_rev in Ht2; eauto with db_la.
+            simpl in *.
+            rewrite Nat.sub_0_r in *.
+            split; eauto.
+            econstructor; eauto.
+          }
+          {
+            (* Case TyConst *)
+            destruct cn; simpl; split; econstructor; eauto.
+          }
+          {
+            (* Case TyPair *)
+            edestruct IHtyping1; eauto.
+            edestruct IHtyping2; eauto.
+            split; econstructor; eauto.
+          }
+          {
+            (* Case TyProj *)
+            edestruct IHtyping as (Ht & ?); eauto.
+            invert Ht.
+            destruct pr; split; eauto.
+          }
+          {
+            (* Case TyInj *)
+            edestruct IHtyping; eauto.
+            destruct inj; simpl; split; eauto; econstructor; eauto using kinding_wellscoped_t.
+          }
+          {
+            (* Case TyCase *)
+            edestruct IHtyping1 as (Ht & ?); eauto.
+            invert Ht.
+            edestruct IHtyping2; eauto.
+            edestruct IHtyping3; eauto.
+            split; eauto; repeat (econstructor; eauto).
+          }
+          {
+            (* Case New *)
+            edestruct IHtyping; eauto.
+            split; eauto; econstructor; eauto.
+          }
+          {
+            (* Case TyRead *)
+            edestruct IHtyping as (Ht & ?); eauto.
+            invert Ht.
+            eauto.
+          }
+          {
+            (* Case TyWrite *)
+            edestruct IHtyping1 as (Ht & ?); eauto.
+            invert Ht.
+            edestruct IHtyping2; eauto.
+            split; eauto; repeat (econstructor; eauto).
+          }
+          {
+            (* Case Loc *)
+            eapply HW in H.
+            split; eauto; econstructor; eauto.
           }
         Qed.
+        
+  Lemma ty_G_tyeq C e t i :
+    typing C e t i ->
+    let L := get_sctx C in
+    let nl := length L in
+    wellscoped_ss L ->
+    forall G',
+      Forall2 (fun t t' => tyeq L t t' KType /\ wellscoped_t nl t /\ wellscoped_t nl t') (get_tctx C) G' ->
+      typing (get_sctx C, get_kctx C, get_hctx C, G') e t i.
+  Proof.
+    simpl.
+    induct 1; unfold_all;
+      intros HL G' Htyeq;
+      destruct C as (((L & K) & W) & G);
+      simplify;
+      try solve [econstructor; eauto 7 using kinding_wellscoped_t' with db_tyeq].
+    {
+      (* Case Var *)
+      eapply nth_error_Forall2 in Htyeq; eauto.
+      openhyp.
+      eapply TyTyeq.
+      {
+        econstructor; simplify; eauto.
+      }
+      simplify.
+      eauto with db_tyeq.
+    }
+    {
+      (* Case AbsT *)
+      econstructor; simplify; eauto.
+      eapply IHtyping; eauto.
+      eapply Forall2_map; eauto.
+      simpl.
+      intros c c' Htyeq2.
+      openhyp.
+      unfold shift0_t_t.
+      repeat try_split; eauto using wellscoped_shift_t_t.
+      eapply tyeq_shift_t_t; eauto.
+    }
+    {
+      (* Case AbsI *)
+      econstructor; simplify; eauto.
+      eapply IHtyping; eauto using wfsort_wellscoped_s.
+      eapply Forall2_map; eauto.
+      simpl.
+      intros c c' Htyeq2.
+      openhyp.
+      unfold shift0_i_t.
+      repeat try_split; eauto using wellscoped_shift_i_t.
+      eapply tyeq_shift0_i_t; eauto.
+    }
+    {
+      (* Case Unpack *)
+      econstructor; simplify; eauto.
+      eapply IHtyping2; eauto.
+      econstructor; eauto with db_tyeq.
+      {
+        repeat try_split; eauto using tyeq_refl.
       }
       eapply Forall2_map; eauto.
       intros c c' Htyeq2.
