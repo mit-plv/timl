@@ -12499,9 +12499,12 @@ Qed.
       (* Case Var *)
       eapply nth_error_Forall2 in Htyeq; eauto.
       openhyp.
-      eapply TyTyeq.
+      eapply TyTyeq; simpl.
       {
         econstructor; simplify; eauto.
+      }
+      {
+        (*here*)
       }
       simplify.
       eauto with db_tyeq.
