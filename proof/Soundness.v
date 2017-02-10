@@ -1207,10 +1207,10 @@ Module M (Time : TIME).
     | TUnOp opr t => TUnOp opr (subst_t_t x v t)
     | TBinOp opr c1 c2 => TBinOp opr (subst_t_t x v c1) (subst_t_t x v c2)
     | TArrow t1 i t2 => TArrow (subst_t_t x v t1) i (subst_t_t x v t2)
-    | TAbs s t => TAbs s (subst_t_t x v t)
+    | TAbs s t => TAbs s (subst_t_t x (shift0_i_t v) t)
     | TApp t b i => TApp (subst_t_t x v t) b i
     | TQuan q k c => TQuan q k (subst_t_t (1 + x) (shift0_t_t v) c)
-    | TQuanI q s c => TQuanI q s (subst_t_t x v c)
+    | TQuanI q s c => TQuanI q s (subst_t_t x (shift0_i_t v) c)
     | TRec k t args => TRec k (subst_t_t (1 + x) (shift0_t_t v) t) args
     end.
   
@@ -1871,13 +1871,36 @@ Module M (Time : TIME).
                     ].
     Qed.
     
-    Lemma subst_t_t_shift_hit v n :
-      forall b x y,
+    Lemma shift_i_t_shift_t_t_commute :
+      forall b x2 n2 x1 n1,
+        shift_i_t x2 n2 (shift_t_t x1 n1 b) = shift_t_t x1 n1 (shift_i_t x2 n2 b).
+    Proof.
+      induct b;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto |
+                     erewrite H by la; repeat f_equal; eauto with db_la |
+                     try replace (S (y - n1)) with (S y - n1) by la;
+                     f_equal;
+                     match goal with
+                       H : _ |- _ => eapply H; eauto with db_la
+                     end].
+      {
+        (* Case CVar *)
+        repeat match goal with
+                 |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+               end; f_equal; la.
+      }
+    Qed.
+
+    Lemma subst_t_t_shift_hit n :
+      forall b x y v,
         x + n <= y ->
         subst_t_t y (shift_t_t y 0 v) (shift_t_t n x b) = shift_t_t n x (subst_t_t (y - n) (shift_t_t (y - n) 0 v) b).
     Proof.
       induct b;
         simplify; cbn in *;
+          try unfold shift0_i_t; repeat rewrite shift_i_t_shift_t_t_commute;
           try solve [eauto |
                      f_equal; eauto |
                      erewrite H by la; repeat f_equal; eauto with db_la |
@@ -2018,6 +2041,7 @@ Module M (Time : TIME).
     Proof.
       induct b;
         simplify; cbn in *;
+          try unfold shift0_i_t; repeat rewrite shift_i_t_shift_t_t_commute;
           try solve [eauto |
                      f_equal; eauto with db_la |
                      erewrite H by la; repeat f_equal; eauto with db_la |
@@ -2177,6 +2201,7 @@ Module M (Time : TIME).
       induct b;
         simplify;
         cbn in *;
+        try unfold shift0_i_t; repeat rewrite shift_i_t_shift_t_t_commute;
         try solve [eauto |
                    f_equal; eauto |
                    erewrite H by la; repeat f_equal; eauto with db_la |
@@ -2318,6 +2343,62 @@ Module M (Time : TIME).
                   ].
     Qed.
     
+    Lemma shift_i_t_subst_t_t :
+      forall b x2 n x1 v,
+        shift_i_t x2 n (subst_t_t x1 v b) = subst_t_t x1 (shift_i_t x2 n v) (shift_i_t x2 n b).
+    Proof.
+      induct b;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto |
+                     erewrite H by la; repeat f_equal; eauto with db_la |
+                     repeat rewrite shift0_i_i_shift; simplify;
+                     repeat replace (S (y - n)) with (S y - n) by la;
+                     f_equal;
+                     match goal with
+                       H : _ |- _ => eapply H; eauto with db_la
+                     end].
+      {
+        (* Case TVar *)
+        repeat match goal with
+               | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+               | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
+               end; try solve [f_equal; la].
+      }
+      {
+        (* Case TAbs *)
+        rewrite IHb by la.
+        unfold shift0_i_t.
+        repeat rewrite shift_i_t_shift_cut by la.
+        simpl.
+        repeat f_equal.
+        la.
+      }
+      {
+        (* Case TQuan *)
+        rewrite IHb by la.
+        unfold shift0_t_t.
+        repeat rewrite shift_i_t_shift_t_t_commute.
+        eauto.
+      }      
+      {
+        (* Case TQuanI *)
+        rewrite IHb by la.
+        unfold shift0_i_t.
+        repeat rewrite shift_i_t_shift_cut by la.
+        simpl.
+        repeat f_equal.
+        la.
+      }      
+      {
+        (* Case TRec *)
+        rewrite IHb by la.
+        unfold shift0_t_t.
+        repeat rewrite shift_i_t_shift_t_t_commute.
+        eauto.
+      }      
+    Qed.
+
     Lemma subst_t_t_subst :
       forall b v1 v2 x y,
         x <= y ->
@@ -2326,9 +2407,11 @@ Module M (Time : TIME).
       induct b;
         simplify;
         cbn in *;
+        try unfold shift0_i_t; repeat rewrite shift_i_t_shift_t_t_commute;
         try solve [eauto |
                    f_equal; eauto |
                    erewrite H by la; repeat f_equal; eauto with db_la |
+                   rewrite IHb by la; rewrite shift_i_t_subst_t_t; eauto |
                    repeat rewrite shift0_t_t_shift; simplify;
                    repeat rewrite shift0_t_t_subst_2; simplify;
                    repeat replace (S (y - n)) with (S y - n) by la;
@@ -2336,7 +2419,7 @@ Module M (Time : TIME).
                    eauto with db_la
                   ].
       {
-        (* Case CVar *)
+        (* Case TVar *)
         repeat match goal with
                | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
                | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
@@ -7533,7 +7616,8 @@ lift2 (fst (strip_subsets L))
   | TVArrow (t1 : tyv) (i : time_type) (t2 : tyv)
   | TVQuan (q : quan) (k : kind) (t : tyv)
   | TVQuanI (q : quan) (b : bsort) (p : sortv b) (t : interp_bsort b -> tyv)
-  | TVRec (k : kind) (t : interp_bsorts_tuple k -> tyv) (args : list idx_arg)
+  (* interp_bsorts_tuple trick for satisfying the positivity checker *)
+  | TVRec (k : kind) (t : interp_bsorts_tuple k -> tyv) (args : list idx_arg) 
   .
 
   Inductive tyveq : tyv -> tyv -> Prop :=
@@ -10215,8 +10299,8 @@ lift2 (fst (strip_subsets L))
       wfsort (get_sctx C) s ->
       typing (add_sorting_ctx s C) e t T0 ->
       typing C (EAbsI e) (TForallI s t) T0
-  | TyRec C e t tis e1 :
-      e = EAbsTIs tis (EAbs e1) ->
+  | TyRec C tis e1 t :
+      let e := EAbsTIs tis (EAbs e1) in
       kinding (get_sctx C) (get_kctx C) t KType ->
       typing (add_typing_ctx t C) e t T0 ->
       typing C (ERec e) t T0
@@ -10844,28 +10928,6 @@ lift2 (fst (strip_subsets L))
     repeat rewrite fmap_map_fmap_map.
     setoid_rewrite subst0_t_t_shift0.
     eapply fmap_map_id.
-  Qed.
-
-  Lemma shift_i_t_shift_t_t_commute :
-    forall b x2 n2 x1 n1,
-      shift_i_t x2 n2 (shift_t_t x1 n1 b) = shift_t_t x1 n1 (shift_i_t x2 n2 b).
-  Proof.
-    induct b;
-      simplify; cbn in *;
-        try solve [eauto |
-                   f_equal; eauto |
-                   erewrite H by la; repeat f_equal; eauto with db_la |
-                   try replace (S (y - n1)) with (S y - n1) by la;
-                   f_equal;
-                   match goal with
-                     H : _ |- _ => eapply H; eauto with db_la
-                   end].
-    {
-      (* Case CVar *)
-      repeat match goal with
-               |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
-             end; f_equal; la.
-    }
   Qed.
 
   Lemma subst_t_e_AbsTIs tis :
@@ -11924,18 +11986,232 @@ lift2 (fst (strip_subsets L))
       econstructor; eauto with db_tyeq.
       {
         repeat try_split; eauto using tyeq_refl.
+        Definition fmap_forall K A p (m : fmap K A) := forall k v, m $? k = Some v -> p v.
+        
+Lemma nth_error_Forall A P ls :
+  Forall P ls ->
+  forall n (a : A),
+    nth_error ls n = Some a ->
+    P a.
+Proof.
+  induct 1; destruct n; simplify; repeat rewrite nth_error_nil in *; try discriminate; eauto.
+  invert H1.
+  eauto.
+Qed.
+
+  Lemma wellscoped_subst_t_t :
+    forall L b,
+        wellscoped_t L b ->
+        forall x v,
+          wellscoped_t L v ->
+          wellscoped_t L (subst_t_t x (shift_t_t x 0 v) b).
+  Proof.
+    induct 1;
+      simpl; try rename x into y; intros x v Hv; subst; try solve [econstructor; eauto].
+    {
+      (* Case TVar *)
+      cases (y <=>? x); eauto with db_la.
+      eapply wellscoped_shift_t_t; eauto with db_la.
+    }
+    {
+      (* Case TAbs *)
+      econstructor; eauto with db_la.
+      unfold shift0_i_t.
+      rewrite shift_i_t_shift_t_t_commute.
+      eapply IHwellscoped_t; eauto with db_la.
+      eapply wellscoped_shift_i_t; eauto.
+    }
+    {
+      (* Case TQuan *)
+      unfold shift0_t_t.
+      rewrite shift_t_t_shift_merge by la.
+      econstructor; eauto with db_la.
+      rewrite plus_comm.
+      eapply IHwellscoped_t; eauto with db_la.
+    }
+    {
+      (* Case TQuanI *)
+      econstructor; eauto with db_la.
+      unfold shift0_i_t.
+      rewrite shift_i_t_shift_t_t_commute.
+      eapply IHwellscoped_t; eauto with db_la.
+      eapply wellscoped_shift_i_t; eauto.
+    }
+    {
+      (* Case TRec *)
+      unfold shift0_t_t.
+      rewrite shift_t_t_shift_merge by la.
+      econstructor; eauto with db_la.
+      rewrite plus_comm.
+      eapply IHwellscoped_t; eauto with db_la.
+    }
+  Qed.
+  
+  Lemma wellscoped_subst_t_t_0 L b v :
+    wellscoped_t L b ->
+    wellscoped_t L v ->
+    wellscoped_t L (subst_t_t 0 v b).
+  Proof.
+    intros Hb Hv.
+    eapply wellscoped_subst_t_t with (x := 0) (v := v) (b := b) in Hb; eauto.
+    rewrite shift_t_t_0 in *.
+    eauto.
+  Qed.
+  
+  Lemma wellscoped_subst_i_s :
+    forall L b,
+        wellscoped_s L b ->
+        forall x v L',
+          x < L ->
+          wellscoped_i (L - (1 + x)) v ->
+          L' = L - 1 ->
+          wellscoped_s L' (subst_i_s x (shift_i_i x 0 v) b).
+  Proof.
+    induct 1;
+      simpl; try rename x into y; intros x v ? Hx Hv ?; subst; try solve [econstructor; eauto using wellscoped_subst_i_i].
+      unfold shift0_i_i.
+      rewrite shift_i_i_shift_merge by la.
+      rewrite plus_comm.
+      econstructor; eauto with db_la.
+      simpl.
+      eapply wellscoped_subst_i_p; eauto with db_la.
+  Qed.
+  
+  Lemma wellscoped_subst_i_t :
+    forall L b,
+        wellscoped_t L b ->
+        forall x v L',
+          x < L ->
+          wellscoped_i (L - (1 + x)) v ->
+          L' = L - 1 ->
+          wellscoped_t L' (subst_i_t x (shift_i_i x 0 v) b).
+  Proof.
+    induct 1;
+      simpl; try rename x into y; intros x v ? Hx Hv ?; subst; try solve [econstructor; eauto using wellscoped_subst_i_i].
+    {
+      (* Case TAbs *)
+      unfold shift0_i_i.
+      rewrite shift_i_i_shift_merge by la.
+      rewrite plus_comm.
+      eauto with db_la.
+    }
+    {
+      (* Case TQuanI *)
+      unfold shift0_i_i.
+      rewrite shift_i_i_shift_merge by la.
+      rewrite plus_comm.
+      econstructor; eauto with db_la.
+      eapply wellscoped_subst_i_s; eauto with db_la.
+    }
+    {
+      (* Case TRec *)
+      econstructor; eauto with db_la.
+      eapply Forall_map.
+      eapply Forall_impl; eauto.
+      intros (b & i); intros; simpl in *.
+      eapply wellscoped_subst_i_i; eauto with db_la.
+    }
+  Qed.
+  
+  Lemma wellscoped_subst_i_t_0 L b v L' :
+    wellscoped_t L b ->
+    0 < L ->
+    L' = L - 1 ->
+    wellscoped_i L' v ->
+    wellscoped_t L' (subst_i_t 0 v b).
+  Proof.
+    intros Hb; intros; subst.
+    eapply wellscoped_subst_i_t with (x := 0) (v := v) (b := b) in Hb; eauto.
+    rewrite shift_i_i_0 in *.
+    eauto.
+  Qed.
+  
+  Ltac unfold_all :=
+    repeat match goal with
+           | H := _ |- _ => unfold H in *; clear H
+           end.
+
         Lemma typing_wellscoped_ss_wellscoped_t C e t i :
           typing C e t i ->
           let L := get_sctx C in
-          wellscoped_ss L ->
-          wellscoped_t (length L) t.
+          let W := get_hctx C in
+          let G := get_tctx C in
+          let nl := length L in
+          (* wellscoped_ss L -> *)
+          (* fmap_forall (wellscoped_t nl) W -> *)
+          Forall (wellscoped_t nl) G ->
+          wellscoped_t nl t /\
+          wellscoped_i nl i.
         Proof.
           simpl.
           induct 1;
-            intros HL;
+            intros (* HL *) (* HW *) HG;
             destruct C as (((L & K) & W) & G);
-            simplify; eauto.
-          (*here*)
+            simplify; try solve [eauto using kinding_wellscoped_t | edestruct IHtyping; eauto using kinding_wellscoped_t].
+          {
+            (* Case TyVar *)
+            eapply nth_error_Forall in HG; eauto.
+          }
+          {
+            (* Case TyApp *)
+            copy HG HG'.
+            eapply IHtyping1 in HG; eauto.
+            eapply IHtyping2 in HG'; eauto.
+            destruct HG as (HG & ?).
+            openhyp.
+            invert HG.
+            split; eauto.
+            repeat (econstructor; eauto).
+          }
+          {
+            (* Case TyAppT *)
+            eapply IHtyping in HG.
+            destruct HG as (HG & ?).
+            invert HG.
+            split; eauto.
+            eapply wellscoped_subst_t_t_0; eauto using kinding_wellscoped_t.
+          }
+          {
+            (* Case TyAbsT *)
+            edestruct IHtyping.
+            {
+              eapply Forall_map.
+              eapply Forall_impl; eauto.
+              intros.
+              eapply wellscoped_shift_t_t; eauto.
+            }
+            split; eauto.
+            econstructor; eauto using kinding_wellscoped_t.
+          }
+          {
+            (* Case TyAppI *)
+            eapply IHtyping in HG.
+            destruct HG as (HG & ?).
+            invert HG.
+            split; eauto.
+            eapply wellscoped_subst_i_t_0; eauto using sorting_wellscoped_i with db_la.
+          }
+          {
+            (* Case TyAbsI *)
+            edestruct IHtyping.
+            {
+              eapply Forall_map.
+              eapply Forall_impl; eauto.
+              intros.
+              eapply wellscoped_shift_i_t; eauto.
+            }
+            split; eauto.
+            econstructor; eauto using wfsort_wellscoped_s.
+          }
+          {
+            (* Case TyUnFold *)
+            eapply IHtyping in HG.
+            destruct HG as (HG & ?).
+            invert HG.
+            split; eauto.
+            (*here*)
+            eapply wellscoped_subst_t_t_0; eauto using kinding_wellscoped_t.
+          }
         Qed.
       }
       eapply Forall2_map; eauto.
