@@ -11797,6 +11797,76 @@ lift2 (fst (strip_subsets L))
     eauto.
   Qed.
   
+  Lemma kinding_bkinding L K t k :
+    kinding L K t k ->
+    bkinding (map get_bsort L) t k.
+  Proof.
+    induct 1; simpl; eauto using sorting_bsorting', wfsort_bwfsort.
+    econstructor; eauto.
+    eapply Forall_impl; eauto.
+    simpl; intros.
+    eauto using sorting_bsorting'.
+  Qed.
+
+  Lemma bkinding_wellscoped_t' L t k n :
+    bkinding L t k ->
+    n = length L ->
+    wellscoped_t n t.
+  Proof.
+    intros; subst; eapply bkinding_wellscoped_t; eauto.
+  Qed.
+
+  Lemma kinding_wellscoped_t L K t k :
+    kinding L K t k ->
+    wellscoped_t (length L) t.
+  Proof.
+    intros.
+    eapply bkinding_wellscoped_t'; 
+      eauto using kinding_bkinding.
+    rewrite map_length; eauto.
+  Qed.
+
+  Lemma kinding_wellscoped_t' L K t k n :
+    kinding L K t k ->
+    n = length L ->
+    wellscoped_t n t.
+  Proof.
+    intros; subst; eapply kinding_wellscoped_t; eauto.
+  Qed.
+
+  Lemma wellscoped_shift_t_t L p :
+    wellscoped_t L p ->
+    forall x n,
+      wellscoped_t L (shift_t_t n x p).
+  Proof.
+    induct 1; simpl; try solve [intros; subst; eauto with db_la].
+    intros y n.
+    cases (y <=? x); eauto.
+  Qed.
+  
+    Hint Constructors Forall.
+    
+    Lemma Forall_map A B (f : A -> B) p ls : Forall p (map f ls) <-> Forall (fun x => p (f x)) ls.
+    Proof.
+      induct ls; simpl; split; intros H; invert H; intuition eauto.
+    Qed.
+
+  Lemma wellscoped_shift_i_t L p :
+    wellscoped_t L p ->
+    forall x n L',
+      L' = n + L ->
+      wellscoped_t L' (shift_i_t n x p).
+  Proof.
+    induct 1; simpl; try solve [intros; subst; eauto using wellscoped_shift_i_i, wellscoped_shift_i_s with db_la].
+    intros x n ? ?; subst.
+    econstructor; eauto.
+    eapply Forall_map.
+    eapply Forall_impl; eauto.
+    simpl; intros (b & i) Hi.
+    simpl in *.
+    eapply wellscoped_shift_i_i; eauto.
+  Qed.
+
   Lemma ty_G_tyeq C e t i :
     typing C e t i ->
     let L := get_sctx C in
@@ -11811,7 +11881,7 @@ lift2 (fst (strip_subsets L))
       intros HL G' Htyeq;
       destruct C as (((L & K) & W) & G);
       simplify;
-      try solve [econstructor; eauto with db_tyeq].
+      try solve [econstructor; eauto 7 using kinding_wellscoped_t' with db_tyeq].
     {
       (* Case Var *)
       eapply nth_error_Forall2 in Htyeq; eauto.
@@ -11824,33 +11894,56 @@ lift2 (fst (strip_subsets L))
       eauto with db_tyeq.
     }
     {
-      econstructor; eauto with db_tyeq.
-      simpl.
-      eapply IHtyping; eauto.
-      econstructor; eauto with db_tyeq.
-      (*here*)
-      
-    }
-    {
       (* Case AbsT *)
       econstructor; simplify; eauto.
-      eapply IHtyping.
+      eapply IHtyping; eauto.
       eapply Forall2_map; eauto.
+      simpl.
       intros c c' Htyeq2.
+      openhyp.
+      unfold shift0_t_t.
+      repeat try_split; eauto using wellscoped_shift_t_t.
       eapply tyeq_shift_t_t; eauto.
     }
     {
       (* Case AbsI *)
       econstructor; simplify; eauto.
-      eapply IHtyping.
+      eapply IHtyping; eauto using wfsort_wellscoped_s.
       eapply Forall2_map; eauto.
       simpl.
       intros c c' Htyeq2.
+      openhyp.
+      unfold shift0_i_t.
+      repeat try_split; eauto using wellscoped_shift_i_t.
       eapply tyeq_shift0_i_t; eauto.
-      (*here*)
     }
     {
       (* Case Unpack *)
+      econstructor; simplify; eauto.
+      eapply IHtyping2; eauto.
+      econstructor; eauto with db_tyeq.
+      {
+        repeat try_split; eauto using tyeq_refl.
+        Lemma typing_wellscoped_ss_wellscoped_t C e t i :
+          typing C e t i ->
+          let L := get_sctx C in
+          wellscoped_ss L ->
+          wellscoped_t (length L) t.
+        Proof.
+          simpl.
+          induct 1;
+            intros HL;
+            destruct C as (((L & K) & W) & G);
+            simplify; eauto.
+          (*here*)
+        Qed.
+      }
+      eapply Forall2_map; eauto.
+      intros c c' Htyeq2.
+      eapply tyeq_shift0_c_c; eauto.
+    }
+    {
+      (* Case UnpackI *)
       econstructor; simplify; eauto.
       eapply IHtyping2.
       econstructor; eauto with db_tyeq.
