@@ -12980,6 +12980,99 @@ lift2 (fst (strip_subsets L))
   Qed.
 
   Arguments STime / .
+
+  (*
+  Lemma bsorting_sorting_SBaseSort bs i b :
+    bsorting bs i b ->
+    forall L,
+      bs = map get_bsort L ->
+      bwfsorts L ->
+      sorting L i (SBaseSort b).
+  Proof.
+    induct 1; simpl; try rename L into bs; intros L ? HL; subst; eauto.
+    {
+      (* Case IVar *)
+      eapply nth_error_map_elim in H.
+      openhyp.
+      subst.
+      destruct x0; simpl in *.
+      {
+        eapply StgVar'; eauto.
+      }
+      {
+        eapply StgSubsetE.
+        {
+          eapply StgVar'; eauto.
+          simpl.
+          eauto.
+        }
+        eapply all_sorts_nth_error_Some in HL; eauto.
+        eapply nth_error_Some_lt in H.
+        rewrite skipn_my_skipn in *.
+        invert HL.
+        rewrite map_my_skipn in *.
+        eapply bwfprop_shift_i_p with (x := 1) in H2; simpl in *; eauto with db_la.
+        rewrite my_skipn_0 in *.
+        erewrite firstn_my_skipn in *.
+        rewrite length_firstn_le in * by (rewrite map_length; la).
+        eauto.
+      }
+    }
+    {
+      (* Case ITimeAbs *)
+      econstructor; eauto.
+    }
+  Qed.
+   *)
+  
+  Lemma sorting_subst_i_i' :
+    forall L body s_b,
+      sorting L body s_b ->
+      forall x s_v v s_b',
+        nth_error L x = Some s_v ->
+        sorting (my_skipn L (1 + x)) v s_v ->
+        bwfsorts L ->
+        bwfsort (map get_bsort L) s_b ->
+        monotone v ->
+        s_b' = subst_i_s x (shift_i_i x 0 v) s_b ->
+        sorting (subst_i_ss v (firstn x L) ++ my_skipn L (1 + x)) (subst_i_i x (shift_i_i x 0 v) body) s_b'.
+  Proof.
+    intros; subst; eapply sorting_subst_i_i; eauto.
+  Qed.
+  
+  Lemma wfprop_subst_i_p :
+    forall L body,
+      wfprop L body ->
+      forall x s_v v ,
+        nth_error L x = Some s_v ->
+        sorting (my_skipn L (1 + x)) v s_v ->
+        bwfsorts L ->
+        monotone v ->
+        wfprop (subst_i_ss v (firstn x L) ++ my_skipn L (1 + x)) (subst_i_p x (shift_i_i x 0 v) body).
+  Proof.
+    induct 1;
+      simpl; try rename x into y; intros x s_v v Hx Hv HL Hv_m; simpl in *; try solve [econstructor; eauto using sorting_subst_i_i'].
+    rewrite shift0_i_i_shift_0.
+    econstructor; eauto with db_la.
+    eapply IHwfprop with (x := S x); eauto.
+  Qed.
+  
+  Lemma wfsort_subst_i_s :
+    forall L body,
+      wfsort L body ->
+      forall x s_v v ,
+        nth_error L x = Some s_v ->
+        sorting (my_skipn L (1 + x)) v s_v ->
+        bwfsorts L ->
+        monotone v ->
+        wfsort (subst_i_ss v (firstn x L) ++ my_skipn L (1 + x)) (subst_i_s x (shift_i_i x 0 v) body).
+  Proof.
+    induct 1;
+      simpl; try rename x into y; intros x s_v v Hx Hv HL Hv_m; simpl in *; try solve [econstructor; eauto].
+    rewrite shift0_i_i_shift_0.
+    econstructor; eauto with db_la.
+    eapply wfprop_subst_i_p with (x := S x) (L := SBaseSort _ :: _); eauto.
+  Qed.
   
   Lemma kinding_subst_i_t :
     forall L K body k,
@@ -13015,18 +13108,42 @@ lift2 (fst (strip_subsets L))
       unfold shift0_i_i.
       rewrite shift_i_i_shift_merge by la.
       rewrite plus_comm.
-      econstructor; eauto with db_la.
-      (*here*)
-      eapply wellscoped_subst_i_s; eauto with db_la.
+      econstructor; eauto using wfsort_subst_i_s with db_la.
+      specialize (IHkinding (S x) s v).
+      simpl in *.
+      copy Hx Hcmp.
+      eapply nth_error_Some_lt in Hcmp.
+      rewrite length_firstn_le in * by la.
+      eauto using wfsort_bwfsort.
     }
     {
       (* Case TRec *)
-      econstructor; eauto with db_la.
+      eapply KdgRec'; eauto.
+      {
+        subst k.
+        rewrite map_map.
+        eapply map_ext.
+        intros (b & i); simpl.
+        eauto.
+      }
       eapply Forall_map.
       eapply Forall_impl; eauto.
       intros (b & i); intros; simpl in *.
-      eapply wellscoped_subst_i_i; eauto with db_la.
+      eapply sorting_subst_i_i'; eauto with db_la.
     }
+  Qed.
+  
+  Lemma kinding_subst_i_t_0 L K body k s v :
+    kinding (s :: L) K body k ->
+    sorting L v s ->
+    bwfsorts (s :: L) ->
+    monotone v ->
+    kinding L K (subst_i_t 0 v body) k.
+  Proof.
+    intros Hbody; intros.
+    eapply kinding_subst_i_t with (x := 0) in Hbody; simpl; eauto; simpl in *; try rewrite my_skipn_0 in *; eauto.
+    rewrite shift_i_i_0 in *.
+    eauto.
   Qed.
   
   Lemma typing_kinding C e t i :
@@ -13035,7 +13152,7 @@ lift2 (fst (strip_subsets L))
     let K := get_kctx C in
     let W := get_hctx C in
     let G := get_tctx C in
-    wellscoped_ss L ->
+    bwfsorts L ->
     fmap_forall (kinding_KType K L) W ->
     Forall (kinding_KType K L) G ->
     kinding L K t KType /\
@@ -13064,7 +13181,7 @@ lift2 (fst (strip_subsets L))
       edestruct IHtyping as (Ht & ?); eauto.
       invert Ht.
       split; eauto.
-      eapply kinding_subst_t_t_0; eauto.
+      eapply kinding_subst_t_t_0; eauto using bwfsorts_wellscoped_ss.
     }
     {
       (* Case TyAbsT *)
@@ -13089,8 +13206,8 @@ lift2 (fst (strip_subsets L))
       edestruct IHtyping as (Ht & ?); eauto.
       invert Ht.
       split; eauto.
+      eapply kinding_subst_i_t_0; eauto using wfsort_bwfsort with db_la.
       (*here*)
-      eapply kinding_subst_i_t_0; eauto with db_la.
     }
     {
       (* Case TyAbsI *)
