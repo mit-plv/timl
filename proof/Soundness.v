@@ -6792,12 +6792,11 @@ lift2 (fst (strip_subsets L))
       sorting L (ITimeApp n c1 c2) (STimeFun n)
   | StgSubsetI L c b p :
       sorting L c (SBaseSort b) ->
-      (* wellscoped_p (1 + length L) p -> *)
       interp_prop L (subst0_i_p c p) ->
       sorting L c (SSubset b p)
   | StgSubsetE L c b p :
       sorting L c (SSubset b p) ->
-      wellscoped_p (1 + length L) p ->
+      bwfprop (b :: map get_bsort L) p ->
       sorting L c (SBaseSort b)
   .
 
@@ -7167,7 +7166,7 @@ lift2 (fst (strip_subsets L))
           }
           {
             invert Hs.
-            eapply bwfprop_wellscoped_p'; eauto; simpl; rewrite map_length; eauto.
+            eauto.
           }
         }
         {
@@ -7204,7 +7203,7 @@ lift2 (fst (strip_subsets L))
             }
             {
               invert Hs.
-              eapply bwfprop_wellscoped_p'; eauto; simpl; rewrite map_length; eauto.
+              eauto.
             }
           }
           {
@@ -7247,6 +7246,22 @@ lift2 (fst (strip_subsets L))
     monotone b ->
     monotone (shift_i_i x v b).
   Admitted.
+  
+  Lemma get_bsort_shift_i_ss :
+    forall L v,
+      map get_bsort (shift_i_ss v L) = map get_bsort L.
+  Proof.
+    induct L; simpl; intros; f_equal; eauto using get_bsort_shift_i_s.
+  Qed.
+
+  Lemma bwfprop_shift_i_p' L p x ls n :
+    bwfprop L p ->
+    n = length ls ->
+    x <= length L ->
+    bwfprop (firstn x L ++ ls ++ my_skipn L x) (shift_i_p n x p).
+  Proof.
+    intros; subst; eapply bwfprop_shift_i_p; eauto.
+  Qed.
   
   Lemma sorting_shift_i_i :
     forall L c s,
@@ -7332,13 +7347,19 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case SubsetE *)
-      eapply StgSubsetE; eauto.
-      eapply wellscoped_shift_i_p; eauto.
-      repeat rewrite app_length.
-      rewrite length_shift_i_ss.
-      rewrite length_firstn_le by la.
-      rewrite length_my_skipn_le by la.
-      la.
+      eapply StgSubsetE; [eapply IHsorting |]; eauto.
+      {
+        econstructor.
+        eapply bwfprop_wellscoped_p'; eauto.
+        simpl.
+        rewrite map_length.
+        eauto.
+      }
+      repeat rewrite map_app.
+      rewrite get_bsort_shift_i_ss.
+      rewrite map_firstn.
+      rewrite map_my_skipn.
+      eapply bwfprop_shift_i_p' with (x := S x) (L := b :: map get_bsort L); simpl; try rewrite map_length; eauto with db_la.
     }
   Qed.
 
@@ -12945,9 +12966,20 @@ lift2 (fst (strip_subsets L))
     {
       (* Case StgSubsetE *)
       eapply StgSubsetE ; [eapply IHsorting |]; eauto.
-      (*here*)
+      rewrite shift0_i_i_shift_0.
+      rewrite map_app.
+      rewrite get_bsort_subst_i_ss.
+      rewrite map_firstn.
+      rewrite map_my_skipn.
+      rewrite <- removen_firstn_my_skipn.
+      eapply sorting_bsorting in Hv.
+      rewrite map_my_skipn in *.
+      eapply bwfprop_subst_i_p with (x := S x) (L := b :: _); simpl; eauto.
+      erewrite map_nth_error; eauto.
     }
   Qed.
+
+  Arguments STime / .
   
   Lemma kinding_subst_i_t :
     forall L K body k,
@@ -12955,16 +12987,28 @@ lift2 (fst (strip_subsets L))
       forall x s v ,
         nth_error L x = Some s ->
         sorting (my_skipn L (1 + x)) v s ->
+        bwfsorts L ->
+        monotone v ->
         kinding (subst_i_ss v (firstn x L) ++ my_skipn L (1 + x)) K (subst_i_t x (shift_i_i x 0 v) body) k.
   Proof.
     induct 1;
-      simpl; try rename x into y; intros x v ? Hx Hv ?; subst; try solve [econstructor; eauto using sorting_subst_i_i].
+      simpl; try rename x into y; try rename s into s'; intros x s v Hx Hv HL Hv_m; subst; try solve [econstructor; eauto using sorting_subst_i_i].
+    {
+      econstructor; simpl; eauto using sorting_subst_i_i.
+      eapply sorting_subst_i_i with (s_b := SBaseSort _); eauto.
+    }
     {
       (* Case TAbs *)
       unfold shift0_i_i.
       rewrite shift_i_i_shift_merge by la.
       rewrite plus_comm.
-      eauto with db_la.
+      econstructor; eauto.
+      eapply IHkinding with (x := S x); eauto.
+    }
+    {
+      (* Case TApp *)
+      econstructor; eauto.
+      eapply sorting_subst_i_i with (s_b := SBaseSort _); eauto.
     }
     {
       (* Case TQuanI *)
@@ -12972,6 +13016,7 @@ lift2 (fst (strip_subsets L))
       rewrite shift_i_i_shift_merge by la.
       rewrite plus_comm.
       econstructor; eauto with db_la.
+      (*here*)
       eapply wellscoped_subst_i_s; eauto with db_la.
     }
     {
