@@ -7579,11 +7579,9 @@ lift2 (fst (strip_subsets L))
       wfsort L s ->
       kinding (s :: L) K c KType ->
       kinding L K (TQuanI quan s c) KType
-  | KdgRec L K c args :
-      let k := map fst args in
+  | KdgRec L K k c args :
       kinding L (k :: K) c k ->
-      Forall (fun p => sorting L (snd p) (SBaseSort (fst p))) args ->
-      kinding L K (TRec k c args) KType
+      kinding L K (TRec k c args) k
   .
 
   Hint Constructors kinding.
@@ -7626,8 +7624,93 @@ lift2 (fst (strip_subsets L))
   | TVQuan (q : quan) (k : kind) (t : tyv)
   | TVQuanI (q : quan) (b : bsort) (p : sortv b) (t : interp_bsort b -> tyv)
   (* interp_bsorts_tuple trick for satisfying the positivity checker *)
-  | TVRec (k : kind) (t : interp_bsorts_tuple k -> tyv) (args : list idx_arg) 
+  | TVRec (k : kind) (t : interp_bsorts_tuple k -> tyv) (args : interp_bsorts_tuple k) 
   .
+
+  Fixpoint interp_k k :=
+    match k with
+    | [] => tyv
+    | b :: k => interp_bsort b -> interp_k k
+    end.
+
+  Definition interp_sort s bs b : interp_bsorts bs (sortv b) :=
+    match s with
+    | SBaseSort _ => lift0 _ None
+    | SSubset _ p => lift1 bs (fun p => Some p) (interp_p (b :: bs) p)
+    end.
+
+  Fixpoint complete_var k (t : tyv) : interp_k k :=
+    match k with
+    | [] => t
+    | b :: k' => fun _ => complete_var k' t
+    end.
+  
+  Fixpoint kind_default_value (b : kind) : interp_k b :=
+    match b with
+    | [] => TVConst TCUnit
+    | b :: k' => fun _ => kind_default_value k'
+    end.
+                                       
+  Definition kind_dec : forall (b b' : kind), sumbool (b = b') (b <> b').
+  Proof.
+    intros; eapply list_eq_dec.
+    intros; eapply sort_dec.
+  Defined.
+  
+  Definition convert_kind_value k1 k2 : interp_k k1 -> interp_k k2.
+  Proof.
+    cases (kind_dec k1 k2); subst; eauto.
+    intros.
+    eapply kind_default_value.
+  Defined.
+
+  Fixpoint uncurrys bs : interp_k bs -> interp_bsorts_tuple bs -> tyv :=
+    match bs return interp_k bs -> interp_bsorts_tuple bs -> tyv with
+    | [] => fun f _ => f
+    | b :: bs' => fun f p => uncurrys bs' (f (fst p)) (snd p)
+    end.
+
+  Fixpoint currys bs : (interp_bsorts_tuple bs -> tyv) -> interp_k bs :=
+    match bs return (interp_bsorts_tuple bs -> tyv) -> interp_k bs with
+    | [] => fun f => f tt
+    | b :: bs' => fun f x => currys bs' (fun args => f (x, args))
+    end.
+
+  Fixpoint interp_ty ty bs k_ret : interp_bsorts bs (interp_k k_ret) :=
+    match ty with
+    | TVar x =>
+      let r := lift0 bs (TVVar x) in
+      lift1 bs (complete_var k_ret) r
+    | TConst cn =>
+      let r := lift0 bs (TVConst cn) in
+      lift1 bs (convert_kind_value KType k_ret) r
+    | TUnOp opr c =>
+      let r := lift1 bs (TVUnOp opr) (interp_ty c bs KType) in
+      lift1 bs (convert_kind_value KType k_ret) r
+    | TBinOp opr c1 c2 =>
+      let r := lift2 bs (TVBinOp opr) (interp_ty c1 bs KType) (interp_ty c2 bs KType) in
+      lift1 bs (convert_kind_value KType k_ret) r
+    | TArrow t1 i t2 =>
+      let r := lift3 bs TVArrow (interp_ty t1 bs KType) (interp_idx i bs BSTime) (interp_ty t2 bs KType) in
+      lift1 bs (convert_kind_value KType k_ret) r
+    | TAbs _ t =>
+      match k_ret with
+      | b' :: k_ret' => interp_ty t (b' :: bs) k_ret'
+      | [] => lift0 bs (kind_default_value KType)
+      end
+    | TApp t b i =>
+      lift2 bs apply (interp_ty t bs (KArrow b k_ret)) (interp_idx i bs b)
+    | TQuan q k t =>
+      let r := lift1 bs (TVQuan q k) (interp_ty t bs KType) in
+      lift1 bs (convert_kind_value KType k_ret) r
+    | TQuanI q s t =>
+      let b := get_bsort s in
+      let r := lift2 bs (@TVQuanI q b) (interp_sort s bs b) (interp_ty t (b :: bs) KType) in
+      lift1 bs (convert_kind_value KType k_ret) r
+    | TRec k t _ =>
+      let r := lift1 bs (fun (t : interp_k k) => currys k (fun args => TVRec k (uncurrys k t) args)) (interp_ty t bs k)  in
+      lift1 bs (convert_kind_value k k_ret) r
+    end.
 
   Inductive tyveq : tyv -> tyv -> Prop :=
   | TVEVar x : tyveq (TVVar x) (TVVar x)
@@ -7702,12 +7785,6 @@ lift2 (fst (strip_subsets L))
     eexists; eauto.
   Qed.
   
-  Definition kind_dec : forall (b b' : kind), sumbool (b = b') (b <> b').
-  Proof.
-    intros; eapply list_eq_dec.
-    intros; eapply sort_dec.
-  Defined.
-  
   Lemma tyveq_trans a b : tyveq a b -> forall c, tyveq b c -> tyveq a c.
   Proof.
     induct 1; simpl; intros c Hbc; try solve [invert Hbc; eauto].
@@ -7746,83 +7823,11 @@ lift2 (fst (strip_subsets L))
     {
       invert Hbc.
       eapply Eqdep_dec.inj_pair2_eq_dec in H3; [|intros; eapply kind_dec]; subst.
+      eapply Eqdep_dec.inj_pair2_eq_dec in H4; [|intros; eapply kind_dec]; subst.
       econstructor; eauto.
     }
   Qed.
   
-  Fixpoint interp_k k :=
-    match k with
-    | [] => tyv
-    | b :: k => interp_bsort b -> interp_k k
-    end.
-
-  Definition interp_sort s bs b : interp_bsorts bs (sortv b) :=
-    match s with
-    | SBaseSort _ => lift0 _ None
-    | SSubset _ p => lift1 bs (fun p => Some p) (interp_p (b :: bs) p)
-    end.
-
-  Fixpoint complete_var k (t : tyv) : interp_k k :=
-    match k with
-    | [] => t
-    | b :: k' => fun _ => complete_var k' t
-    end.
-  
-  Fixpoint kind_default_value (b : kind) : interp_k b :=
-    match b with
-    | [] => TVConst TCUnit
-    | b :: k' => fun _ => kind_default_value k'
-    end.
-                                       
-  Definition convert_kind_value k1 k2 : interp_k k1 -> interp_k k2.
-  Proof.
-    cases (kind_dec k1 k2); subst; eauto.
-    intros.
-    eapply kind_default_value.
-  Defined.
-
-  Fixpoint uncurrys bs : interp_k bs -> interp_bsorts_tuple bs -> tyv :=
-    match bs return interp_k bs -> interp_bsorts_tuple bs -> tyv with
-    | [] => fun f _ => f
-    | b :: bs' => fun f p => uncurrys bs' (f (fst p)) (snd p)
-    end.
-
-  Fixpoint interp_ty ty bs k_ret : interp_bsorts bs (interp_k k_ret) :=
-    match ty with
-    | TVar x =>
-      let r := lift0 bs (TVVar x) in
-      lift1 bs (complete_var k_ret) r
-    | TConst cn =>
-      let r := lift0 bs (TVConst cn) in
-      lift1 bs (convert_kind_value KType k_ret) r
-    | TUnOp opr c =>
-      let r := lift1 bs (TVUnOp opr) (interp_ty c bs KType) in
-      lift1 bs (convert_kind_value KType k_ret) r
-    | TBinOp opr c1 c2 =>
-      let r := lift2 bs (TVBinOp opr) (interp_ty c1 bs KType) (interp_ty c2 bs KType) in
-      lift1 bs (convert_kind_value KType k_ret) r
-    | TArrow t1 i t2 =>
-      let r := lift3 bs TVArrow (interp_ty t1 bs KType) (interp_idx i bs BSTime) (interp_ty t2 bs KType) in
-      lift1 bs (convert_kind_value KType k_ret) r
-    | TAbs _ t =>
-      match k_ret with
-      | b' :: k_ret' => interp_ty t (b' :: bs) k_ret'
-      | [] => lift0 bs (kind_default_value KType)
-      end
-    | TApp t b i =>
-      lift2 bs apply (interp_ty t bs (KArrow b k_ret)) (interp_idx i bs b)
-    | TQuan q k t =>
-      let r := lift1 bs (TVQuan q k) (interp_ty t bs KType) in
-      lift1 bs (convert_kind_value KType k_ret) r
-    | TQuanI q s t =>
-      let b := get_bsort s in
-      let r := lift2 bs (@TVQuanI q b) (interp_sort s bs b) (interp_ty t (b :: bs) KType) in
-      lift1 bs (convert_kind_value KType k_ret) r
-    | TRec k t args =>
-      let r := lift2 bs (fun (t : interp_k k) args => TVRec k (uncurrys k t) args) (interp_ty t bs k) (interp_idx_args bs args) in
-      lift1 bs (convert_kind_value KType k_ret) r
-    end.
-
   Fixpoint gtyveq k : interp_k k -> interp_k k -> Prop :=
     match k with
     | [] => tyveq
@@ -8436,28 +8441,126 @@ lift2 (fst (strip_subsets L))
     }
   Qed.
 
+  Lemma gtyveq_TVRec_default_value_false_original_proof :
+    forall k k' t f_args,
+      gtyveq k (currys k (fun args => TVRec k' t (f_args args))) (kind_default_value k) -> False.
+  Proof.
+    induct k; simpl; intros k' t f_args Heq; eauto.
+    {
+      invert Heq.
+    }
+    specialize (Heq (sort_default_value a)).
+    eapply IHk in Heq.
+    eauto.
+  Qed.
+
+  Lemma gtyveq_TVRec_other_false :
+    forall k (other : forall k, interp_k k) k' t f_args,
+      (forall k args k' t' args', tyveq (TVRec k' t' args') (uncurrys k (other k) args) -> False) ->
+      gtyveq k (currys k (fun args => TVRec k' t (f_args args))) (other k) -> False.
+  Proof.
+    induct k; simpl; intros other k' t f_args Hother Heq; eauto.
+    {
+      specialize (Hother KType tt).
+      simpl in *.
+      eauto.
+    }
+    rename a into b.
+    set (v := sort_default_value b).
+    specialize (Heq v).
+    specialize (IHk (fun k => other (b :: k) v)).
+    eapply IHk in Heq; eauto.
+    intros k1 args1 ? ? ? Heq'.
+    specialize (Hother (b :: k1) (v, args1)).
+    simpl in *.
+    eapply Hother in Heq'.
+    eauto.
+  Qed.
+
+  Lemma tyveq_TVRec_default_value_false :
+    forall k args k' t' args', tyveq (TVRec k' t' args') (uncurrys k (kind_default_value k) args) -> False.
+  Proof.
+    induct k; simpl; eauto.
+    intros ? ? ? ? Heq.
+    invert Heq.
+  Qed.
+  
+  Lemma gtyveq_TVRec_default_value_false k k' t f_args :
+    gtyveq k (currys k (fun args => TVRec k' t (f_args args))) (kind_default_value k) -> False.
+  Proof.
+    intros H.
+    eapply gtyveq_TVRec_other_false in H; eauto.
+    intros.
+    eapply tyveq_TVRec_default_value_false; eauto.
+  Qed.
+  
+  Ltac elim_existsT_eq :=
+    repeat match goal with
+             H : _ |- _ => eapply Eqdep_dec.inj_pair2_eq_dec in H; [|intros; eapply kind_dec]; subst
+           end.
+
+  Lemma tyveq_TVRec_invert k t args t' args' :
+    tyveq (TVRec k t args) (TVRec k t' args') ->
+    (forall x, tyveq (t x) (t' x)) /\
+    args = args'.
+  Proof.
+    intros Heq.
+    invert Heq.
+    simpl in *.
+    rename t'0 into t1'.
+    elim_existsT_eq.
+    eauto.
+  Qed.
+
+  Lemma gtyveq_TVRec_invert' :
+    forall k k' t t' f_args,
+      gtyveq k (currys k (fun args => TVRec k' (uncurrys k' t) (f_args args))) (currys k (fun args => TVRec k' (uncurrys k' t') (f_args args))) ->
+      gtyveq k' t t'.
+  Proof.
+    induct k; simpl; intros k' t t' f_args Heq; eauto.
+    {
+      eapply tyveq_TVRec_invert in Heq.
+      destruct Heq as (Heq & ?).
+      eapply uncurrys_inj_tyveq; eauto.
+    }
+    {
+      rename a into b.
+      eapply IHk in Heq; eauto.
+    }
+    Grab Existential Variables.
+    eapply sort_default_value.
+  Qed.
+  
+  Lemma gtyveq_TVRec_invert :
+    forall k t t',
+      gtyveq k (currys k (fun args => TVRec k (uncurrys k t) args)) (currys k (fun args => TVRec k (uncurrys k t') args)) ->
+      gtyveq k t t'.
+  Proof.
+    intros; eapply gtyveq_TVRec_invert' with (k' := k) (f_args := id); eauto. 
+  Qed.
+
   Lemma invert_tyeq_TRec_empty cs cs' k t k' t' :
-    tyeq [] (TRec k t cs) (TRec k' t' cs') KType ->
-    kdeq [] k k' /\
-    tyeq [] t t' k /\
-    Forall2 (fun p p' => fst p = fst p' /\ idxeq [] (snd p) (snd p') (fst p)) cs cs'.
+    tyeq [] (TRec k t cs) (TRec k' t' cs') k ->
+    k = k' /\
+    tyeq [] t t' k.
   Proof.
     intros H.
     unfold tyeq, cond_eq, idxeq, interp_prop in *.
     simpl in *.
     repeat rewrite convert_kind_value_refl_eq in *.
     specialize (H I).
-    invert H.
-    rename k' into k.
-    eapply Eqdep_dec.inj_pair2_eq_dec in H2; [|intros; eapply kind_dec]; subst.
-    eapply Eqdep_dec.inj_pair2_eq_dec in H5; [|intros; eapply kind_dec]; subst.
-    repeat try_split; eauto.
+    unfold convert_kind_value in *.
+    cases (kind_dec k' k); subst.
+    Focus 2.
     {
-      intros Htrue.
-      eapply uncurrys_inj_tyveq.
-      eauto.
+      eapply gtyveq_TVRec_default_value_false in H.
+      propositional.
     }
-    eapply interp_idx_args_eq_Forall2; eauto.
+    Unfocus.
+    unfold eq_rect_r in *.
+    rewrite <- Eqdep.EqdepTheory.eq_rect_eq in *.
+    eapply gtyveq_TVRec_invert in H.
+    propositional.
   Qed.
 
   Lemma tyeq_TRec_TArrow_false cs k3 t3 t1 i t2 :
@@ -8468,9 +8571,23 @@ lift2 (fst (strip_subsets L))
     unfold tyeq in *.
     simpl in *.
     repeat rewrite convert_kind_value_refl_eq in *.
+    unfold convert_kind_value in *.
+    cases (kind_dec k3 KType); subst.
+    Focus 2.
+    {
+      simpl in *.
+      specialize (H I).
+      invert H.
+    }
+    Unfocus.
+    unfold eq_rect_r in *.
+    rewrite <- Eqdep.EqdepTheory.eq_rect_eq in *.
+    simpl in *.
     specialize (H I).
     invert H.
   Qed.
+
+  (*here*)
 
   Lemma typeq_TRec_TQuan_false cs k3 t3 q k t  :
     tyeq [] (TRec k3 t3 cs) (TQuan q k t) KType ->
@@ -8559,6 +8676,17 @@ lift2 (fst (strip_subsets L))
   .
 
   Hint Constructors bkinding.
+
+  Lemma kinding_bkinding L K t k :
+    kinding L K t k ->
+    bkinding (map get_bsort L) t k.
+  Proof.
+    induct 1; simpl; eauto using sorting_bsorting', wfsort_bwfsort.
+    econstructor; eauto.
+    eapply Forall_impl; eauto.
+    simpl; intros.
+    eauto using sorting_bsorting'.
+  Qed.
 
   Inductive tyeq2 : sctx -> ty -> ty -> kind -> Prop :=
   (* | TyEqVar L x : *)
@@ -11850,17 +11978,6 @@ lift2 (fst (strip_subsets L))
     eauto.
   Qed.
   
-  Lemma kinding_bkinding L K t k :
-    kinding L K t k ->
-    bkinding (map get_bsort L) t k.
-  Proof.
-    induct 1; simpl; eauto using sorting_bsorting', wfsort_bwfsort.
-    econstructor; eauto.
-    eapply Forall_impl; eauto.
-    simpl; intros.
-    eauto using sorting_bsorting'.
-  Qed.
-
   Lemma bkinding_wellscoped_t' L t k n :
     bkinding L t k ->
     n = length L ->
