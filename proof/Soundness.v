@@ -12764,6 +12764,87 @@ lift2 (fst (strip_subsets L))
   Hint Extern 0 (bwfsorts (_ :: _)) => econstructor.
   Hint Extern 0 (wfsorts (_ :: _)) => econstructor.
   
+  Lemma bsorting_shift_i_i_0 L c s ls n :
+    bsorting L c s ->
+    n = length ls ->
+    bsorting (ls ++ L) (shift_i_i n 0 c) s.
+  Proof.
+    intros Hbody ?; subst.
+    eapply bsorting_shift_i_i with (x := 0) in Hbody; eauto with db_la.
+    simpl in *.
+    rewrite my_skipn_0 in *.
+    eauto.
+  Qed.
+  
+  Lemma bsorting_subst_i_i :
+    forall L body b_b,
+      bsorting L body b_b ->
+      forall x b_v v ,
+        nth_error L x = Some b_v ->
+        bsorting (my_skipn L (1 + x)) v b_v ->
+        (* bwfsorts L -> *)
+        bsorting (removen x L) (subst_i_i x (shift_i_i x 0 v) body) b_b.
+  Proof.
+    induct 1;
+      simpl; try rename x into y; try rename s into b; intros x b_v v Hx Hv (* HL *); simpl in *; try solve [econstructor; eauto].
+    {
+      (* Case StgVar *)
+      copy Hx Hcmp.
+      eapply nth_error_Some_lt in Hcmp.
+      cases (y <=>? x); eauto with db_la.
+      {
+        econstructor.
+        erewrite removen_lt by eauto with db_la.
+        eauto.
+      }
+      {
+        rewrite removen_firstn_my_skipn.
+        subst.
+        assert (b_v = b) by equality.
+        subst.
+        eapply bsorting_shift_i_i_0; eauto with db_la; try rewrite length_firstn_le by la; eauto.
+      }
+      {
+        econstructor.
+        erewrite removen_gt by eauto with db_la.
+        eauto.
+      }
+    }
+    {
+      (* Case StgTimeAbs *)
+      rewrite shift0_i_i_shift_0.
+      econstructor; eauto with db_la.
+      eapply IHbsorting with (x := S x); eauto.
+    }
+  Qed.
+  
+  Lemma bwfprop_subst_i_p :
+    forall L body,
+      bwfprop L body ->
+      forall x b_v v ,
+        nth_error L x = Some b_v ->
+        bsorting (my_skipn L (1 + x)) v b_v ->
+        (* bwfsorts L -> *)
+        bwfprop (removen x L) (subst_i_p x (shift_i_i x 0 v) body).
+  Proof.
+    induct 1;
+      simpl; try rename x into y; try rename s into b; intros x b_v v Hx Hv (* HL *); simpl in *; try solve [econstructor; eauto using bsorting_subst_i_i].
+    rewrite shift0_i_i_shift_0.
+    econstructor; eauto with db_la.
+    eapply IHbwfprop with (x := S x); eauto.
+  Qed.
+  
+  Lemma bwfprop_subst_i_p_0 L body b_v v :
+    bwfprop (b_v :: L) body ->
+    bsorting L v b_v ->
+    bwfprop L (subst_i_p 0 v body).
+  Proof.
+    intros Hbody Hv; eapply bwfprop_subst_i_p with (x := 0) in Hbody; simpl; eauto; try rewrite my_skipn_0; eauto.
+    simpl in *.
+    rewrite shift_i_i_0 in *.
+    eauto.
+  Qed.
+  
   Lemma sorting_subst_i_i :
     forall L body s_b,
       sorting L body s_b ->
@@ -12858,9 +12939,13 @@ lift2 (fst (strip_subsets L))
       rewrite <- subst_i_p_subst by la.
       invert Hs_b.
       eapply interp_prop_subst_i_p; eauto.
+      eapply sorting_bsorting in H.
+      eapply bwfprop_subst_i_p_0; eauto.
+    }
+    {
+      (* Case StgSubsetE *)
+      eapply StgSubsetE ; [eapply IHsorting |]; eauto.
       (*here*)
-      eapply bwfprop_subst_i_p.
-      rewrite shift0_i_i_shift_0.
     }
   Qed.
   
