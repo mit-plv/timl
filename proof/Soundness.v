@@ -13277,21 +13277,22 @@ lift2 (fst (strip_subsets L))
       (*here*)
       edestruct IHtyping1 as (Ht & ?); eauto.
       invert Ht.
-      edestruct IHtyping2 as (Ht2 & ?).
+      edestruct IHtyping2 as (Ht2 & ?); eauto.
       {
         eapply fmap_forall_fmap_map_intro.
         eapply fmap_forall_impl; eauto.
         intros.
-        eapply kinding_shift_t_t; eauto.
+        eapply kinding_shift_t_t_1_0; eauto.
       }
       {
         econstructor; eauto.
         eapply Forall_map.
         eapply Forall_impl; eauto.
         intros.
-        eapply kinding_shift_t_t; eauto.
+        eapply kinding_shift_t_t_1_0; eauto.
       }
       unfold shift0_t_t in *.
+      (*here*)
       eapply kinding_shift_t_t_rev in Ht2; eauto.
       split; eauto.
       econstructor; eauto.
