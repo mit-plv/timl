@@ -15692,235 +15692,33 @@ lift2 (fst (strip_subsets L))
     }
   Qed.
 
+  Lemma typing_subst_i_e_2 L K W G e t i x v s :
+    let C := (L, K, W, G) in
+    typing C e t i ->
+    nth_error L x = Some s ->
+    sorting (my_skipn L (1 + x)) v s ->
+    wfctx C ->
+    typing (subst_i_ss v (firstn x L) ++ my_skipn L (1 + x), K, fmap_map (subst_i_t x (shift_i_i x 0 v)) W, map (subst_i_t x (shift_i_i x 0 v)) G) (subst_i_e x (shift_i_i x 0 v) e) (subst_i_t x (shift_i_i x 0 v) t) (subst_i_i x (shift_i_i x 0 v) i).
   Proof.
-    induct 1;
-      try rename n into n';
-      try rename k into k';
-      try rename c into c';
-      intros n k c Hnth Hkd;
-      destruct C as ((L & W) & G);
-      simplify;
-      try solve [econstructor; eauto].
-    {
-      (* Case Var *)
-      econstructor.
-      eauto using map_nth_error.
-    }
-    {
-      (* Case Abs *)
-      econstructor; simplify.
-      {  
-        eapply kd_subst_c_c with (k' := KType); eauto.
-      }
-      eapply IHtyping; eauto.
-    }
-    {
-      (* Case AppC *)
-      eapply TyTyeq.
-      {
-        eapply TyAppC; simplify.
-        {
-          eapply IHtyping; eauto.
-        }
-        {  
-          eapply kd_subst_c_c; eauto.
-        }
-      }
-      simplify.
-      rewrite subst_c_c_subst0.
-      eauto with db_tyeq.
-    }
-    {
-      (* Case AbsC *)
-      econstructor; simplify.
-      {
-        eapply value_subst_c_e; eauto.
-      }
-      {
-        eapply wfkind_subst_c_k; eauto.
-      }
-      {
-        rewrite fmap_map_shift0_subst.
-        rewrite map_shift0_subst.
-        repeat rewrite shift0_c_c_shift_0.
-        specialize (IHtyping (S n)); simplify.
-        erewrite nth_error_length_firstn in IHtyping by eauto.
-        eapply IHtyping; eauto.
-      }
-    }
-    {
-      (* Case Rec *)
-      subst.
-      econstructor; simplify.
-      {
-        rewrite subst_c_e_AbsCs.
-        simplify.
-        eauto.
-      }
-      {  
-        eapply kd_subst_c_c with (k' := KType); eauto.
-      }
-      eapply IHtyping; eauto.
-    }
-    {
-      (* Case Fold *)
-      subst.
-      econstructor; simplify.
-      {
-        rewrite subst_c_c_Apps.
-        eauto.
-      }
-      {
-        simplify.
-        eauto.
-      }
-      {  
-        eapply kd_subst_c_c with (k' := KType); eauto.
-      }
-      eapply TyTyeq.
-      {
-        eauto.
-      }
-      rewrite subst_c_c_Apps.
-      simplify.
-      rewrite subst_c_c_subst0.
-      eauto with db_tyeq.
-    }
-    {
-      (* Case Unfold *)
-      subst.
-      eapply TyTyeq.
-      {
-        eapply TyUnfold; simplify.
-        {
-          eauto.
-        }
-        {
-          eapply TyTyeq.
-          {
-            eauto.
-          }
-          rewrite subst_c_c_Apps.
-          simplify.
-          eauto with db_tyeq.
-        }
-      }
-      simplify.
-      rewrite subst_c_c_Apps.
-      simplify.
-      rewrite subst_c_c_subst0.
-      eauto with db_tyeq.
-    }
-    {
-      (* Case Pack *)
-      eapply TyPack; simplify.
-      {
-        eapply kd_subst_c_c with (c' := CExists k' t1) (k' := KType); eauto.
-      }
-      {
-        eapply kd_subst_c_c; eauto.
-      }
-      eapply TyTyeq.
-      {
-        eapply IHtyping; eauto.
-      }
-      simplify.
-      rewrite subst_c_c_subst0.
-      eauto with db_tyeq.
-    }
-    {
-      (* Case Unpack *)
-      eapply TyUnpack; simplify.
-      {
-        eapply IHtyping1; eauto.
-      }
-      {
-        rewrite fmap_map_shift0_subst.
-        rewrite map_shift0_subst.
-        repeat rewrite shift0_c_c_shift_0.
-        specialize (IHtyping2 (S n)); simplify.
-        erewrite nth_error_length_firstn in IHtyping2 by eauto.
-        repeat rewrite shift0_c_c_subst.
-        eapply IHtyping2; eauto.
-      }
-    }
-    {
-      (* Case Const *)
-      eapply TyTyeq.
-      {
-        eapply TyConst; simplify.
-      }
-      simplify.
-      {
-        rewrite subst_c_c_const_type.
-        eauto with db_tyeq.
-      }
-    }
-    {
-      (* Case Proj *)
-      eapply TyTyeq.
-      {
-        eapply TyProj; simplify.
-        eapply IHtyping; eauto.
-      }
-      simplify.
-      cases pr; simplify;
-        eauto with db_tyeq.
-    }
-    {
-      (* Case Inj *)
-      eapply TyTyeq.
-      {
-        eapply TyInj; simplify.
-        {
-          eapply IHtyping; eauto.
-        }
-        {  
-          eapply kd_subst_c_c with (k' := KType); eauto.
-        }
-      }
-      simplify.
-      cases inj; simplify;
-        eauto with db_tyeq.
-    }
-    {
-      (* Case Case *)
-      econstructor; simplify; eauto.
-    }
-    {
-      (* Case Loc *)
-      eapply TyLoc; simplify.
-      eapply fmap_map_lookup; eauto.
-    }
-    {
-      (* Case Sub *)
-      eapply TySub.
-      {
-        eapply IHtyping; eauto.
-      }
-      {
-        simplify.
-        eapply tyeq_subst_c_c; eauto with db_tyeq.
-      }
-      {
-        simplify.
-        eapply interp_prop_subst_c_p with (p := (i1 <= i2)%idx); eauto.
-      }
-    }
-  Qed.
-  
-  Lemma ty_subst0_c_e k L W G e t i c :
-    typing (k :: L, W, G) e t i ->
-    kinding L c k ->
-    typing (L, fmap_map (subst0_c_c c) W, map (subst0_c_c c) G) (subst0_c_e c e) (subst0_c_c c t) (subst0_c_c c i).
+    intros C Ht Hx Hv HC; unfold wfctx in *; openhyp; eapply typing_subst_i_e with (C := C); eauto using wfsorts_bwfsorts.
+  Qed.  
+
+  Lemma typing_subst0_i_e s L K W G e t i v :
+    let C := (s :: L, K, W, G) in
+    typing C e t i ->
+    sorting L v s ->
+    wfctx C ->
+    typing (L, K, fmap_map (subst0_i_t v) W, map (subst0_i_t v) G) (subst0_i_e v e) (subst0_i_t v t) (subst0_i_i v i).
   Proof.
-    intros Hty Hkd.
-    eapply ty_subst_c_e with (C := (k :: L, W, G)) (c := c) (n := 0) in Hty; simplify; 
+    intros C Ht Hv HC.
+    eapply typing_subst_i_e_2 with (x := 0) in Ht; simpl in *;  
       repeat rewrite my_skipn_0 in *;
-      repeat rewrite shift_c_c_0 in *;
+      repeat rewrite shift_i_i_0 in *;
       eauto.
   Qed.
 
+  (*here*)
+  
   Lemma ty_shift_e_e C e t i :
     typing C e t i ->
     forall x ls,
