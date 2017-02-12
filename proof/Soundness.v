@@ -13609,8 +13609,68 @@ lift2 (fst (strip_subsets L))
         eapply kinding_shift_t_t_1_0; eauto.
       }
       unfold shift0_t_t in *.
-      (*here*)
-      eapply kinding_shift_t_t_rev in Ht2; eauto.
+  Lemma kinding_shift_t_t_rev :
+    forall L K t k,
+      kinding L K t k ->
+      forall n x t' K1 K2 K3,
+        t = shift_t_t n x t' ->
+        K = K1 ++ K2 ++ K3 ->
+        x = length K1 ->
+        n = length K2 ->
+        kinding L (K1 ++ K3) t' k.
+  Proof.
+    induct 1;
+      simpl; intros ? ? t' K1 K2 K3 Ht; intros; subst; cbn in *;
+        try solve [
+              destruct t'; simpl in *; try cases_le_dec; try dis;
+              invert Ht; eauto
+            ].
+    {
+      (* Case TVar *)
+      destruct t'; simpl in *; try dis.
+      rename x0 into y.
+      econstructor.
+      cases (length K1 <=? y).
+      {
+        invert Ht.
+        repeat rewrite nth_error_app2 in * by la.
+        rewrite <- H.
+        f_equal.
+        la.
+      }
+      {
+        invert Ht.
+        repeat rewrite nth_error_app1 in * by la.
+        eauto.
+      }
+    }
+    {
+      (* Case TQuan *)
+      destruct t'; simpl in *; try cases_le_dec; try dis.
+      invert Ht; eauto.
+      econstructor; eauto.
+      eapply IHkinding with (K4 := _ :: _); eauto with db_la.
+      eauto.
+    }
+    {
+      (* Case TRec *)
+      destruct t'; simpl in *; try cases_le_dec; try dis.
+      invert Ht; eauto.
+      econstructor; eauto.
+      eapply IHkinding with (K4 := _ :: _); eauto with db_la.
+      eauto.
+    }
+  Qed.
+
+  Lemma kinding_shift_t_t_rev_1_0 L k1 K t k :
+    kinding L (k1 :: K) (shift_t_t 1 0 t) k ->
+    kinding L K t k.
+  Proof.
+    intros Hp.
+    eapply kinding_shift_t_t_rev with (K1 := []) (K2 := [k1]) in Hp; simpl; eauto.
+  Qed.
+  
+      eapply kinding_shift_t_t_rev_1_0 in Ht2; eauto.
       split; eauto.
       econstructor; eauto.
     }
@@ -13618,22 +13678,202 @@ lift2 (fst (strip_subsets L))
       (* Case TyUnPackI *)
       edestruct IHtyping1 as (Ht & ?); eauto.
       invert Ht.
-      edestruct IHtyping2 as (Ht2 & Hi2).
+      edestruct IHtyping2 as (Ht2 & Hi2); eauto using wfsort_bwfsort.
       {
         eapply fmap_forall_fmap_map_intro.
         eapply fmap_forall_impl; eauto.
         intros.
-        eapply kinding_shift_i_t; eauto.
+        eapply kinding_shift_i_t_1_0; eauto using bwfsorts_wellscoped_ss.
       }
       {
         econstructor; eauto.
         eapply Forall_map.
         eapply Forall_impl; eauto.
         intros.
-        eapply kinding_shift_i_t; eauto.
+        eapply kinding_shift_i_t_1_0; eauto using bwfsorts_wellscoped_ss.
       }
       unfold shift0_i_i, shift0_i_t in *.
-      eapply kinding_shift_i_i_rev in Hi2; eauto with db_la.
+        Lemma shift_i_i_inj :
+          forall b b' n x,
+            shift_i_i n x b = shift_i_i n x b' ->
+            b = b'.
+        Proof.
+          induct b; destruct b'; try rename x into x'; simpl; intros n x Heq; try solve [repeat cases_le_dec; dis | invert Heq; f_equal; eauto].
+          {
+            rename x0 into x''.
+            repeat cases_le_dec; invert Heq; f_equal; try la.
+            eapply plus_reg_l; eauto.
+          }
+          {
+            assert (opr = opr0) by congruence; subst.
+            invert Heq.
+            f_equal; eauto.
+          }
+        Qed.
+        
+        Lemma shift_i_p_inj :
+          forall b b' n x,
+            shift_i_p n x b = shift_i_p n x b' ->
+            b = b'.
+        Proof.
+          induct b; destruct b'; try rename x into x'; simpl; intros n x Heq; try solve [repeat cases_le_dec; dis | invert Heq; f_equal; eauto using shift_i_i_inj].
+        Qed.
+        
+        Lemma shift_i_s_inj :
+          forall b b' n x,
+            shift_i_s n x b = shift_i_s n x b' ->
+            b = b'.
+        Proof.
+          induct b; destruct b'; try rename x into x'; simpl; intros n x Heq; try solve [repeat cases_le_dec; dis | invert Heq; f_equal; eauto using shift_i_p_inj].
+        Qed.
+
+  Lemma nth_error_shift_i_ss_elim bs :
+    forall x b' m,
+      let n := length bs in
+      nth_error (shift_i_ss m bs) x = Some b' ->
+      exists b,
+        nth_error bs x = Some b /\
+        b' = shift_i_s m (n - S x) b.
+  Proof.
+    simpl.
+    induction bs; simpl; intros x b' m Hx.
+    {
+      rewrite nth_error_nil in *; discriminate.
+    }
+    destruct x; simplify; eauto.
+    invert Hx.
+    repeat eexists_split; eauto; repeat f_equal; la.
+  Qed.
+  
+  Lemma sorting_shift_i_i_rev :
+    forall L i s,
+      sorting L i s ->
+      forall x L' ls i' s',
+        let n := length ls in
+        L = shift_i_ss n (firstn x L') ++ ls ++ my_skipn L' x ->
+        i = shift_i_i n x i' ->
+        s = shift_i_s n x s' ->
+        x <= length L' ->
+        sorting L' i' s'.
+  Proof.
+    simpl.
+    induct 1;
+      simpl; try rename x into x'; try rename n into m; intros x L' ls i' s' HL Hi Hs Hx; intros; subst; cbn in *;
+        try solve [
+              destruct i'; simpl in *; try cases_le_dec; try dis;
+              invert Hi; eauto |
+              destruct i'; simpl in *; try cases_le_dec; try dis;
+              invert Hi;
+              destruct s'; simpl in *; try dis;
+              invert Hs;
+              econstructor; eauto;
+              eapply IHsorting; eauto with db_la; simpl; eauto with db_la
+            ].
+    {
+      (* Case IVar *)
+      destruct i'; simpl in *; try dis.
+      rename x0 into y.
+      cases (x <=? y); injection Hi; intros Hi'; subst.
+      {
+        rewrite nth_error_app2 in *;
+        try rewrite length_shift_i_ss in *; try erewrite length_firstn_le in * by la; try la.
+        rewrite nth_error_app2 in * by la.
+        rewrite nth_error_my_skipn in * by la.
+        replace (nth_error L' _) with (nth_error L' y) in *.
+        Focus 2.
+        {
+          f_equal.
+          assert (Hyx : length ls + y - x - length ls = y - x) by la.
+          rewrite Hyx.
+          rewrite le_plus_minus_r; eauto.
+        }
+        Unfocus.
+        eapply StgVar'; eauto.
+        replace (shift_i_s _ 0 s) with (shift_i_s (length ls) x (shift_i_s (S y) 0 s)) in Hs.
+        Focus 2.
+        {
+          rewrite shift_i_s_shift_merge by la.
+          f_equal.
+          la.
+        }
+        Unfocus.
+        eapply shift_i_s_inj in Hs.
+        subst.
+        eauto.
+      }
+      {
+        rewrite nth_error_app1 in *;
+        try rewrite length_shift_i_ss in *; try erewrite length_firstn_le in * by la; try la.
+        eapply nth_error_shift_i_ss_elim in H; eauto.
+        rewrite length_firstn_le in * by la.
+        destruct H as (s'' & Hy & ?); subst.
+        rewrite nth_error_firstn in * by la.
+        eapply StgVar'; eauto.
+        replace (shift_i_s _ 0 _) with (shift_i_s (length ls) x (shift_i_s (S y) 0 s'')) in Hs.
+        Focus 2.
+        {
+          rewrite shift_i_s_shift_cut by la.
+          f_equal.
+        }
+        Unfocus.
+        eapply shift_i_s_inj in Hs.
+        subst.
+        eauto.
+      }
+    }
+    {
+      (* Case IUnOp *)
+      destruct i'; simpl in *; try cases_le_dec; try dis.
+      assert (opr = opr0) by congruence; subst.
+      invert Hi.
+      destruct s'; simpl in *; try dis.
+      invert Hs.
+      eauto.
+    }
+    {
+      (* Case StgSubsetI *)
+      destruct s'; simpl in *; try dis.
+      invert Hs.
+      eapply StgSubsetI; eauto.
+      unfold subst0_i_p in *.
+      rewrite <- shift_i_p_subst_out in * by la.
+      (*here*)
+
+    }
+    {
+      destruct i'; simpl in *; try cases_le_dec; try dis.
+      invert Hi.
+      destruct s'; simpl in *; try dis.
+      invert Hs.
+      econstructor; eauto;
+        eapply IHsorting; eauto with db_la; simpl; eauto with db_la.
+    }
+    {
+      destruct i'; simpl in *; try cases_le_dec; try dis.
+      invert Hi.
+      destruct s'; simpl in *; try dis.
+      invert Hs.
+      econstructor; eauto;
+        eapply IHsorting; eauto with db_la; simpl; eauto with db_la.
+    }
+    {
+      destruct i'; simpl in *; try cases_le_dec; try dis.
+      invert Hi.
+      destruct s'; simpl in *; try dis.
+      invert Hs.
+      econstructor; eauto.
+    }
+    {
+      (* Case TimeAbs *)
+      destruct i'; simpl in *; try cases_le_dec; try dis.
+      invert Hi; eauto.
+      econstructor; eauto.
+      eapply IHsorting with (L4 := _ :: _); eauto with db_la.
+      eauto.
+    }
+  Qed.
+
+      eapply kinding_shift_i_i_rev_1_0 in Hi2; eauto with db_la.
       eapply kinding_shift_i_t_rev in Ht2; eauto with db_la.
       simpl in *.
       rewrite Nat.sub_0_r in *.
