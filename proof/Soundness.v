@@ -15717,6 +15717,399 @@ lift2 (fst (strip_subsets L))
       eauto.
   Qed.
 
+  (*
+  Lemma tyeq_subst_i_t_2 L t t' k x v1 v2 s :
+    tyeq L t t' k ->
+    nth_error L x = Some s ->
+    sorting (my_skipn L (1 + x)) v1 s ->
+    sorting (my_skipn L (1 + x)) v2 s ->
+    idxeq (my_skipn L (1 + x)) v1 v2 (get_bsort s) ->
+    let bs := map get_bsort L in
+    bkinding bs t k ->
+    bkinding bs t' k ->
+    bwfsorts L ->
+    tyeq (subst_i_ss v1 (firstn x L) ++ my_skipn L (1 + x)) (subst_i_t x (shift_i_i x 0 v1) t) (subst_i_t x (shift_i_i x 0 v2) t') k.
+  Proof.
+    simpl.
+    intros Ht1t2 Hx Hv1 Hv2 Hv1v2 Ht Ht' HL.
+    rewrite tyeq_tyeq' in *.
+    unfold tyeq', idxeq in *.
+    eapply interp_prop_shift_i_p with (x := 0) (ls := subst_i_ss v1 (firstn x L)) in Hv1v2; eauto using sorting_wellscoped_i with db_la.
+    Focus 2.
+    {
+      rewrite <- skipn_my_skipn.
+      eapply all_sorts_skipn.
+      eapply bwfsorts_wellscoped_ss; eauto.
+    }
+    Unfocus.
+    rewrite my_skipn_0 in *.
+    unfold interp_prop in *.
+    simpl in *.
+    rewrite get_bsort_remove_subst in *.
+    copy Hx Hnth'.
+    eapply map_nth_error with (f := get_bsort) in Hnth'.
+    copy Hv1 Hv1'.
+    eapply sorting_bsorting in Hv1'.
+    rewrite map_my_skipn in Hv1'.
+    copy Hv2 Hv2'.
+    eapply sorting_bsorting in Hv2'.
+    rewrite map_my_skipn in Hv2'.
+    eapply forall_subst_i_p_intro_imply_2 with (v := v1) in Ht1t2; eauto using bwfsorts_bwfprop_strip_subsets.
+    eapply forall_trans in Ht1t2; [ | eapply subst_strip_subsets_imply with (c := v1) ]; eauto.
+    set (bs := map get_bsort L) in *.
+    set (ps := interp_p (removen x bs) (and_all (strip_subsets (subst_i_ss v1 (firstn x L) ++ my_skipn L (S x))))) in *.
+    copy Hx Hcmp.
+    eapply nth_error_Some_lt in Hcmp.
+    rewrite length_subst_i_ss in *.
+    rewrite length_firstn_le in * by la.
+    eapply forall_same_premise_2; [eapply Ht1t2 | eapply Hv1v2 | ].
+    rewrite subst_lift2.
+  Qed.    
+*)
+
+  Lemma typing_subst_t_e C e t i :
+    typing C e t i ->
+    let L := get_sctx C in
+    let K := get_kctx C in
+    let W := get_hctx C in
+    let G := get_tctx C in
+    forall x v k,
+      nth_error K x = Some k ->
+      kinding L (my_skipn K (1 + x)) v k ->
+      wellscoped_ss L ->
+      fmap_forall (wellscoped_t (length L)) W ->
+      Forall (wellscoped_t (length L)) G ->
+      typing (L, removen x K, fmap_map (subst_t_t x (shift_t_t x 0 v)) W, map (subst_t_t x (shift_t_t x 0 v)) G) (subst_t_e x (shift_t_t x 0 v) e) (subst_t_t x (shift_t_t x 0 v) t) i.
+  Proof.
+    simpl.
+    induct 1; simpl; 
+      try rename x into x';
+      try rename L into L';
+      try rename k into k';
+      intros x v k Hx Hv HL HW HG;
+      destruct C as (((L & K) & W) & G);
+      simplify;
+      cbn in *;
+      try solve [cbn in *; econstructor; simpl; eauto using kinding_subst_t_t, kinding_wellscoped_t].
+    {
+      (* Case TyVar *)
+      econstructor.
+      eauto using map_nth_error.
+    }
+    {
+      (* Case TyAppT *)
+      unfold subst0_t_t.
+      rewrite subst_t_t_subst by la.
+      econstructor; simpl; eauto using kinding_subst_t_t.
+    }
+    {
+      (* Case AbsT *)
+      econstructor; eauto using value_subst_t_e; simpl.
+      unfold shift0_t_t in *.
+      specialize (IHtyping (S x) v k).
+      repeat rewrite fmap_map_fmap_map in *.
+      repeat rewrite map_map in *.
+    Lemma subst_t_t_shift_hit_setoid n x y v :
+      x + n <= y ->
+      forall b,
+        subst_t_t y (shift_t_t y 0 v) (shift_t_t n x b) = shift_t_t n x (subst_t_t (y - n) (shift_t_t (y - n) 0 v) b).
+    Proof.
+      intros; eapply subst_t_t_shift_hit; eauto.
+    Qed.
+    
+      setoid_rewrite subst_t_t_shift_hit_setoid in IHtyping; eauto with db_la.
+      simpl in *.
+      rewrite Nat.sub_0_r in *.
+      rewrite shift_t_t_shift_merge by la.
+      rewrite plus_comm.
+      eapply IHtyping; eauto with db_la.
+      {
+        eapply fmap_forall_fmap_map_intro.
+        eapply fmap_forall_impl; eauto.
+        intros.
+        eapply wellscoped_shift_t_t; eauto.
+      }
+      {
+        eapply Forall_map.
+        eapply Forall_impl; eauto.
+        intros.
+        eapply wellscoped_shift_t_t; eauto.
+      }
+    }
+    {
+      (* Case TyAppI *)
+      unfold subst0_i_t.
+      Lemma TyAppI' C e c t i s t' :
+        typing C e (TForallI s t) i ->
+        sorting (get_sctx C) c s ->
+        t' = subst0_i_t c t ->
+        typing C (EAppI e c) t' i.
+      Proof.
+        intros; subst; econstructor; eauto.
+      Qed.
+      
+      eapply TyAppI'; eauto using kinding_shift_t_t.
+      unfold subst0_i_t, shift0_i_t.
+      rewrite subst_i_t_subst_t_t.
+      rewrite subst_i_t_shift_avoid by la.
+      simpl.
+      rewrite shift_i_t_0.
+      eauto.
+    }
+    {
+      (* Case TyAbsI *)
+      econstructor; eauto using value_subst_t_e.
+      specialize (IHtyping x (shift_i_t 1 0 v) k).
+      simpl in *.
+      unfold shift0_i_t in *.
+      repeat rewrite fmap_map_fmap_map in *.
+      repeat rewrite map_map in *.
+      setoid_rewrite shift_i_t_subst_t_t.
+      setoid_rewrite shift_i_t_shift_t_t_commute.
+      eapply IHtyping; simpl; eauto using wfsort_wellscoped_s, kinding_shift_i_t_1_0 with db_la.
+      {
+        eapply fmap_forall_fmap_map_intro.
+        eapply fmap_forall_impl; eauto.
+        intros.
+        eapply wellscoped_shift_i_t; eauto.
+      }
+      {
+        eapply Forall_map.
+        eapply Forall_impl; eauto.
+        intros.
+        eapply wellscoped_shift_i_t; eauto.
+      }
+    }
+    {
+      (* Case TyRec *)
+      unfold_all.
+      specialize (IHtyping x v k).
+      rewrite subst_t_e_AbsTIs in *.
+      simpl in *.
+      econstructor; simpl; eauto using kinding_subst_t_t, kinding_wellscoped_t.
+    }
+    {
+      (* Case TyFold *)
+      unfold_all.
+      specialize (IHtyping x v k).
+  Lemma subst_t_t_TApps x v args t :
+    subst_t_t x v (TApps t args) = TApps (subst_t_t x v t) args.
+  Proof.
+    induct args; simpl; eauto.
+    destruct a as [b i]; simpl.
+    rewrite IHargs.
+    eauto.
+  Qed.
+  
+  Lemma subst_t_t_unroll x v k t args :
+    subst_t_t x v (unroll k t args) = unroll k (subst_t_t (1 + x) (shift_t_t 1 0 v) t) args.
+  Proof.
+    unfold unroll; simpl.
+    unfold subst0_t_t.
+    rewrite subst_t_t_TApps.
+    rewrite subst_t_t_subst by la.
+    eauto.
+  Qed.
+  
+      rewrite subst_t_t_TApps in *.
+      rewrite subst_t_t_unroll in *.
+      simpl in *.
+      eapply kinding_TApps_invert in H.
+      destruct H as [Ht ?].
+      invert Ht.
+      econstructor; simpl; eauto using kinding_subst_t_t.
+      eapply kinding_TApps; eauto using kinding_subst_t_t.
+      econstructor.
+      rewrite shift0_t_t_shift_0.
+      eapply kinding_subst_t_t with (x := S x) (K := _ :: _); simpl; eauto with db_la.
+    }
+    {
+      (* Case TyUnfold *)
+      specialize (IHtyping x v k).
+      rewrite subst_t_t_TApps in *.
+      rewrite subst_t_t_unroll in *.
+      simpl in *.
+      econstructor; simpl; eauto using kinding_subst_t_t.
+    }
+    {
+      (* Case TyPack *)
+      invert H.
+      econstructor; simpl; eauto using kinding_subst_t_t.
+      {
+        econstructor; simpl; eauto using kinding_subst_t_t.
+        rewrite shift0_t_t_shift_0.
+        eapply kinding_subst_t_t with (x := S x) (K := _ :: _); simpl; eauto with db_la.
+      }
+      unfold subst0_t_t in *.
+      rewrite <- subst_t_t_subst by la.
+      eauto.
+    }
+    {
+      (* Case TyUnpack *)
+      econstructor; eauto.
+      simpl.
+      specialize (IHtyping2 (S x) v k).
+      rewrite fmap_map_fmap_map in *.
+      rewrite map_map in *.
+      rewrite shift0_t_t_shift_0.
+      unfold shift0_t_t in *.
+      setoid_rewrite subst_t_t_shift_hit_setoid in IHtyping2; eauto with db_la.
+      simpl in *.
+      rewrite Nat.sub_0_r in *.
+      eapply typing_wellscoped_t in H; simpl; eauto.
+      destruct H as [Ht ?].
+      invert Ht; eauto.
+      eapply IHtyping2; eauto with db_la.
+      {
+        eapply fmap_forall_fmap_map_intro.
+        eapply fmap_forall_impl; eauto.
+        intros.
+        eapply wellscoped_shift_t_t; eauto.
+      }
+      {
+        econstructor; eauto using kinding_wellscoped_t.
+        eapply Forall_map.
+        eapply Forall_impl; eauto.
+        intros.
+        eapply wellscoped_shift_t_t; eauto.
+      }
+    }
+    {
+      (* Case TyPackI *)
+      invert H.
+      econstructor; simpl; eauto using kinding_subst_t_t; simpl.
+      {
+        unfold shift0_i_t.
+        rewrite shift_i_t_shift_t_t_commute.
+        econstructor; simpl; eauto using kinding_subst_t_t.
+        eapply kinding_subst_t_t; eauto using wfsort_wellscoped_s.
+        eapply kinding_shift_i_t_1_0; eauto using bwfsorts_wellscoped_ss.
+      }
+      unfold subst0_i_t in *.
+      specialize (IHtyping x v k).
+      rewrite subst_i_t_subst_t_t in *.
+      unfold shift0_i_t.
+      rewrite subst_i_t_shift_avoid by la.
+      simpl.
+      rewrite shift_i_t_0.
+      eauto.
+    }
+    {
+      (* Case TyUnpackI *)
+      econstructor; eauto.
+      simpl.
+      unfold shift0_i_t, shift0_i_i in *.
+      specialize (IHtyping2 x (shift_i_t 1 0 v) k).
+      rewrite fmap_map_fmap_map in *.
+      rewrite map_map in *.
+      setoid_rewrite shift_i_t_subst_t_t.
+      setoid_rewrite shift_i_t_shift_t_t_commute.
+      eapply typing_wellscoped_t in H; simpl; eauto.
+      destruct H as [Ht ?].
+      invert Ht; eauto.
+      eapply IHtyping2; simpl; eauto using wfsort_wellscoped_s, kinding_shift_i_t_1_0 with db_la.
+      {
+        eapply fmap_forall_fmap_map_intro.
+        eapply fmap_forall_impl; eauto.
+        intros.
+        eapply wellscoped_shift_i_t; eauto.
+      }
+      {
+        econstructor; eauto.
+        eapply Forall_map.
+        eapply Forall_impl; eauto.
+        intros.
+        eapply wellscoped_shift_i_t; eauto.
+      }
+    }
+    {
+      (* Case TyConst *)
+      destruct cn; simpl; econstructor; eauto.
+    }
+    {
+      (* Case TyProj *)
+  Lemma subst_t_t_proj x v t1 t2 pr : subst_t_t x v (proj (t1, t2) pr) = proj (subst_t_t x v t1, subst_t_t x v t2) pr.
+  Proof.
+    destruct pr; simpl; eauto.
+  Qed.
+  
+  Lemma subst_t_t_choose x v t1 t2 inj : subst_t_t x v (choose (t1, t2) inj) = choose (subst_t_t x v t1, subst_t_t x v t2) inj.
+  Proof.
+    destruct inj; simpl; eauto.
+  Qed.
+  
+      rewrite subst_t_t_proj.
+      econstructor; eauto.
+    }
+    {
+      (* Case TyInj *)
+      rewrite subst_t_t_choose.
+      simpl.
+      econstructor; simpl; eauto using kinding_subst_t_t.
+    }
+    {
+      (* Case TyCase *)
+      eapply typing_wellscoped_t in H; simpl; eauto.
+      destruct H as [Ht ?].
+      invert Ht.
+      econstructor; simpl; eauto using kinding_subst_t_t.
+    }
+    {
+      (* Case TyLoc *)
+      econstructor; simpl.
+      eapply fmap_map_lookup; eauto.
+    }
+    {
+      (* Case TyTyeq *)
+      unfold_all.
+      eapply TyTyeq; simpl; eauto using kinding_subst_t_t.
+  Lemma tyeq_subst_t_t L t t' k x v :
+    tyeq L t t' k ->
+    tyeq L (subst_t_t x (shift_t_t x 0 v) t) (subst_t_t x (shift_t_t x 0 v) t') k.
+  Proof.
+    simpl.
+    intros H. 
+    rewrite tyeq_tyeq' in *.
+    unfold tyeq' in *.
+    eapply forall_trans; [eapply H | ].
+    (*here*)
+    rewrite get_bsort_remove_subst.
+    copy Hx Hnth'.
+    eapply map_nth_error with (f := get_bsort) in Hnth'.
+    copy Hv Hv'.
+    eapply sorting_bsorting in Hv'.
+    rewrite map_my_skipn in Hv'.
+    eapply forall_subst_i_p_intro_imply_2 in H; eauto.
+    {
+      eapply forall_trans; [eapply subst_strip_subsets_imply | ]; eauto.
+      eapply forall_trans; [eassumption | ].
+      rewrite subst_lift2.
+      rewrite fuse_lift2_lift2_1.
+      rewrite fuse_lift3_lift2_3.
+      erewrite swap_lift4_1_3.
+      erewrite swap_lift4_2_4.
+      set (bs := map get_bsort L) in *.
+      eapply forall_lift2_lift2_lift4; [ | eapply forall_subst_i_t_iff_subst | eapply forall_subst_i_t_iff_subst ]; subst bs; try rewrite skipn_my_skipn; eauto.
+      eauto using gtyveq_trans, gtyveq_sym.
+    }
+    {
+      eapply bwfsorts_bwfprop_strip_subsets; eauto.
+    }
+  Qed.    
+
+      eapply tyeq_subst_t_t; eauto.
+    }
+  Qed.
+
+  Lemma typing_shift0_t_e L K W G e t i k :
+    let C := (L, K, W, G) in 
+    typing C e t i ->
+    typing (L, k :: K, fmap_map shift0_t_t W, map shift0_t_t G) (shift0_t_e e) (shift0_t_t t) i.
+  Proof.
+    intros C Hty.
+    eapply typing_shift_t_e with (x := 0) (ls := [k]) in Hty; simplify; eauto with db_la.
+  Qed.
+
   (*here*)
   
   Lemma ty_shift_e_e C e t i :
