@@ -16841,18 +16841,97 @@ lift2 (fst (strip_subsets L))
     eauto.
   Qed.
   
-  Lemma ty_subst_e_e C e1 t1 i1 :
+      Lemma wellscoped_ctx_add_typing L K W G t :
+        wellscoped_ctx (L, K, W, G) ->
+        wellscoped_t (length L) t ->
+        wellscoped_ctx (L, K, W, t :: G).
+      Proof.
+        unfold wellscoped_ctx; intros HC Ht.
+        openhyp.
+        simpl in *.
+        repeat try_split; eauto.
+      Qed.
+      
+      Lemma wellscoped_ctx_add_kinding L K W G k :
+        wellscoped_ctx (L, K, W, G) ->
+        wellscoped_ctx (L, k :: K, fmap_map shift0_t_t W, map shift0_t_t G).
+      Proof.
+        unfold wellscoped_ctx; intros HC.
+        openhyp.
+        simpl in *.
+        repeat try_split; eauto.
+        {
+          eapply fmap_forall_fmap_map_intro.
+          eapply fmap_forall_impl; eauto.
+          intros.
+          eapply wellscoped_shift_t_t; eauto.
+        }
+        {
+          eapply Forall_map.
+          eapply Forall_impl; eauto.
+          intros.
+          eapply wellscoped_shift_t_t; eauto.
+        }
+      Qed.
+
+      Lemma wellscoped_ctx_add_kinding_removen L K W G n k :
+        wellscoped_ctx (L, K, W, removen n G) ->
+        wellscoped_ctx (L, k :: K, fmap_map shift0_t_t W, removen n (map shift0_t_t G)).
+      Proof.
+        intros; rewrite <- map_removen.
+        eapply wellscoped_ctx_add_kinding; eauto.
+      Qed.
+      
+      Lemma wellscoped_ctx_add_sorting L K W G s :
+        wellscoped_ctx (L, K, W, G) ->
+        wellscoped_s (length L) s ->
+        wellscoped_ctx (s :: L, K, fmap_map shift0_i_t W, map shift0_i_t G).
+      Proof.
+        unfold wellscoped_ctx; intros HC Hs.
+        openhyp.
+        simpl in *.
+        repeat try_split; eauto.
+        {
+          eapply fmap_forall_fmap_map_intro.
+          eapply fmap_forall_impl; eauto.
+          intros.
+          eapply wellscoped_shift_i_t; eauto.
+        }
+        {
+          eapply Forall_map.
+          eapply Forall_impl; eauto.
+          intros.
+          eapply wellscoped_shift_i_t; eauto.
+        }
+      Qed.
+
+      Lemma wellscoped_ctx_add_sorting_removen L K W G n s :
+        wellscoped_ctx (L, K, W, removen n G) ->
+        wellscoped_s (length L) s ->
+        wellscoped_ctx (s :: L, K, fmap_map shift0_i_t W, removen n (map shift0_i_t G)).
+      Proof.
+        intros; rewrite <- map_removen.
+        eapply wellscoped_ctx_add_sorting; eauto.
+      Qed.
+      
+  Lemma typing_subst_e_e C e1 t1 i1 :
     typing C e1 t1 i1 ->
+    let L := get_sctx C in
+    let K := get_kctx C in
+    let W := get_hctx C in
+    let G := get_tctx C in
     forall n t e2 ,
-      nth_error (get_tctx C) n = Some t ->
-      typing (get_kctx C, get_hctx C, removen n (get_tctx C)) e2 t T0 ->
-      typing (get_kctx C, get_hctx C, removen n (get_tctx C)) (subst_e_e n e2 e1) t1 i1.
+      nth_error G n = Some t ->
+      typing (L, K, W, removen n G) e2 t T0 ->
+      wellscoped_ctx (L, K, W, G) ->
+      typing (L, K, W, removen n G) (subst_e_e n e2 e1) t1 i1.
       (* typing (get_kctx C, get_hctx C, removen n (get_tctx C)) (subst_e_e e2 n 0 e1) t1 i1. *)
   Proof.
     induct 1;
       try rename n into n';
-      intros n t'' e2' Hnth Hty;
-      destruct C as ((L & W) & G);
+      try rename L into L';
+      intros n t'' e2' Hnth Hty HC;
+      destruct C as (((L & K) & W) & G);
       simplify;
       try solve [econstructor; eauto].
     {
@@ -16875,99 +16954,170 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case Abs *)
-      eapply TyIdxEq.
-      {
-        eapply TyAbs; simplify; eauto.
-        eapply IHtyping with (n := 1 + n); eauto.
-        simplify.
-        eapply ty_shift0_e_e; eauto.
-      }
-      {
-        simplify.
-        eapply interp_prop_eq_refl.
-      }
+      econstructor; simplify; eauto.
+      eapply IHtyping with (n := 1 + n); simpl; eauto using wellscoped_ctx_add_typing, kinding_wellscoped_t.
+      simplify.
+      eapply typing_shift0_e_e; eauto.
     }
     {
-      (* Case Forall *)
+      (* Case EAbsT *)
       econstructor; eauto.
       {
         eapply value_subst_e_e; eauto.
       }
       simplify.
       rewrite map_removen.
-      eapply IHtyping; eauto.
+      eapply IHtyping; eauto using wellscoped_ctx_add_kinding.
       {
         eapply map_nth_error; eauto.
       }
       rewrite <- map_removen.
-      change T0 with (shift0_c_c T0).
-      eapply ty_shift0_c_e; eauto.
+      eapply typing_shift0_t_e; eauto.
+    }
+    {
+      (* Case EAbsI *)
+      econstructor; eauto.
+      {
+        eapply value_subst_e_e; eauto.
+      }
+      simplify.
+      rewrite map_removen.
+      eapply IHtyping; eauto using wellscoped_ctx_add_sorting, wfsort_wellscoped_s.
+      {
+        eapply map_nth_error; eauto.
+      }
+      rewrite <- map_removen.
+      eapply typing_shift0_i_e with (i := T0); eauto.
+      Lemma wellscoped_ctx_removen L K W G n :
+        wellscoped_ctx (L, K, W, G) ->
+        wellscoped_ctx (L, K, W, removen n G).
+      Proof.
+        unfold wellscoped_ctx; intros H.
+        openhyp.
+        simpl in *.
+        repeat try_split; eauto.
+        eapply Forall_forall.
+        intros x Hin.
+        Lemma incl_removen A (ls : list A) n : incl (removen n ls) ls.
+        Proof.
+          unfold incl; induct ls; destruct n; simpl; intuition eauto.
+        Qed.
+
+        eapply incl_removen in Hin.
+        eapply Forall_forall' in H1; eauto.
+      Qed.
+
+      eapply wellscoped_ctx_removen; eauto.
     }
     {
       (* Case Rec *)
-      subst.
-      econstructor; eauto; simplify.
-      {
-        rewrite subst_e_e_AbsCs.
-        simplify.
-        eauto.
-      }
-      {
-        eapply IHtyping with (n := S n); eauto.
-        simplify.
-        eapply ty_shift0_e_e; eauto.
-      }
+      unfold_all.
+      rewrite subst_e_e_AbsTIs.
+      simpl.
+      econstructor; simpl; eauto; simplify.
+      specialize (IHtyping (S n) t'' (shift0_e_e e2')); simpl in *.
+      rewrite subst_e_e_AbsTIs in *.
+      simpl in *.
+      eapply IHtyping; eauto using wellscoped_ctx_add_typing, kinding_wellscoped_t.
+      eapply typing_shift0_e_e; eauto.
     }
+        Lemma typing_wellscoped_t_2 L K W G e t i :
+          let C := (L, K, W, G) in
+          typing C e t i ->
+          let nl := length L in
+          wellscoped_ctx C ->
+          wellscoped_t nl t /\
+          wellscoped_i nl i.
+        Proof.
+          intros C; intros; unfold wellscoped_ctx in *; openhyp; eapply typing_wellscoped_t with (C := C); eauto.
+        Qed.
+        
     {
       (* Case Unpack *)
       eapply TyUnpack; eauto.
+      simplify.
+      rewrite map_removen.
+      eapply IHtyping2 with (n := S n); eauto using wellscoped_ctx_add_kinding, wellscoped_ctx_add_typing, kinding_wellscoped_t; simplify.
+      {
+        eapply map_nth_error; eauto.
+      }
+      {
+        rewrite <- map_removen.
+        eapply typing_shift0_e_e; eauto.
+        eapply typing_shift0_t_e; eauto.
+      }
+      {
+        eapply wellscoped_ctx_add_typing.
+        {
+          eapply wellscoped_ctx_add_kinding; eauto.
+        }
+        eapply typing_wellscoped_t_2 in H; simpl; eauto.
+        destruct H as [Ht ?].
+        invert Ht.
+        eauto.
+      }
+    }
+    {
+      (* Case UnpackI *)
+      eapply TyUnpackI; eauto.
       simplify.
       rewrite map_removen.
       eapply IHtyping2 with (n := S n); eauto; simplify.
       {
         eapply map_nth_error; eauto.
       }
-      rewrite <- map_removen.
-      eapply ty_shift0_e_e; eauto.
-      change T0 with (shift0_c_c T0).
-      eapply ty_shift0_c_e; eauto.
+      {
+        rewrite <- map_removen.
+        eapply typing_shift0_e_e; eauto.
+        eapply typing_shift0_i_e with (i := T0); eauto.
+        eapply wellscoped_ctx_removen; eauto.
+      }
+      {
+        eapply typing_wellscoped_t_2 in H; simpl; eauto.
+        destruct H as [Ht ?].
+        invert Ht.
+        eapply wellscoped_ctx_add_typing; eauto.
+        eapply wellscoped_ctx_add_sorting; eauto.
+      }
     }
     {
       (* Case Case *)
-      subst.
+      eapply typing_wellscoped_t_2 in H; simpl; eauto.
+      destruct H as [Ht ?].
+      invert Ht.
       econstructor; eauto; simplify.
       {
-        eapply IHtyping2 with (n := S n); eauto.
+        eapply IHtyping2 with (n := S n); eauto using wellscoped_ctx_add_typing.
         simplify.
-        eapply ty_shift0_e_e; eauto.
+        eapply typing_shift0_e_e; eauto.
       }
       {
-        eapply IHtyping3 with (n := S n); eauto.
+        eapply IHtyping3 with (n := S n); eauto using wellscoped_ctx_add_typing.
         simplify.
-        eapply ty_shift0_e_e; eauto.
+        eapply typing_shift0_e_e; eauto.
       }
     }
   Qed.
   
-  Lemma ty_subst0_e_e_T0 L W t G e1 t1 i1 e2 :
-    typing (L, W, t :: G) e1 t1 i1 ->
-    typing (L, W, G) e2 t T0 ->
-    typing (L, W, G) (subst0_e_e e2 e1) t1 i1%idx.
+  Lemma typing_subst0_e_e_T0 L K W t G e1 t1 i1 e2 :
+    typing (L, K, W, t :: G) e1 t1 i1 ->
+    typing (L, K, W, G) e2 t T0 ->
+    wellscoped_ctx (L, K, W, t :: G) ->
+    typing (L, K, W, G) (subst0_e_e e2 e1) t1 i1%idx.
   Proof.
-    intros Hty1 Hty2.
-    eapply ty_subst_e_e with (C := (L, W, t :: G)) (n := 0); eauto.
-    simplify.
-    eauto.
+    intros Hty1 Hty2 HC.
+    eapply typing_subst_e_e with (C := (L, K, W, t :: G)) (n := 0); simpl; eauto.
   Qed.
 
-  Lemma ty_subst0_e_e L W t G e1 t1 i1 e2 i2 :
-    typing (L, W, t :: G) e1 t1 i1 ->
-    typing (L, W, G) e2 t i2 ->
+  Lemma typing_subst0_e_e L K W t G e1 t1 i1 e2 i2 :
+    typing (L, K, W, t :: G) e1 t1 i1 ->
+    typing (L, K, W, G) e2 t i2 ->
     value e2 ->
-    typing (L, W, G) (subst0_e_e e2 e1) t1 i1%idx.
+    wellscoped_ctx (L, K, W, t :: G) ->
+    typing (L, K, W, G) (subst0_e_e e2 e1) t1 i1%idx.
   Proof.
-    intros Hty1 Hty2 Hval.
-    eapply ty_subst0_e_e_T0; eauto.
+    intros Hty1 Hty2 Hval HC.
+    eapply typing_subst0_e_e_T0; eauto.
     eapply value_typing_T0; eauto.
   Qed.
 
