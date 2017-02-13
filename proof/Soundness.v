@@ -17121,26 +17121,34 @@ lift2 (fst (strip_subsets L))
     eapply value_typing_T0; eauto.
   Qed.
 
+  Lemma fmap_map_shift0_i_t_incl (W W' : hctx) :
+    W $<= W' ->
+    fmap_map shift0_i_t W $<= fmap_map shift0_i_t W'.
+  Proof.
+    intros; eapply incl_fmap_map; eauto.
+  Qed.
+  
   Lemma weaken_W' C e t i :
     typing C e t i ->
     forall W' ,
       get_hctx C $<= W' ->
-      typing (get_kctx C, W', get_tctx C) e t i.
+      typing (get_sctx C, get_kctx C, W', get_tctx C) e t i.
   Proof.
     induct 1;
       intros W' Hincl;
-      destruct C as ((L & W) & G);
+      try rename L into L';
+      destruct C as (((L & K) & W) & G);
       simplify;
-      try solve [econstructor; simplify; eauto using fmap_map_shift0_c_c_incl].
+      try solve [econstructor; simplify; eauto using incl_fmap_map].
   Qed.
     
-  Lemma weaken_W L W G e t i W' :
-    typing (L, W, G) e t i ->
+  Lemma weaken_W L K W G e t i W' :
+    typing (L, K, W, G) e t i ->
     W $<= W' ->
-    typing (L, W', G) e t i.
+    typing (L, K, W', G) e t i.
   Proof.
     intros Hty Hincl.
-    eapply weaken_W' with (C := (L, W, G)); eauto.
+    eapply weaken_W' with (C := (L, K, W, G)); eauto.
   Qed.
 
   Lemma allocatable_add h l v :
@@ -17180,7 +17188,7 @@ lift2 (fst (strip_subsets L))
     exists v,
       h $? l = Some v /\
       value v /\
-      typing ([], W, []) v t T0.
+      typing ([], [], W, []) v t T0.
   Proof.
     intros Hhty Hl.
     unfold htyping in *.
@@ -17193,7 +17201,7 @@ lift2 (fst (strip_subsets L))
     h $? l = Some v ->
     W $? l = Some t ->
     value v /\
-    typing ([], W, []) v t T0.
+    typing ([], [], W, []) v t T0.
   Proof.
     intros Hhty Hl HWl.
     unfold htyping in *.
@@ -17224,7 +17232,7 @@ lift2 (fst (strip_subsets L))
     htyping h W ->
     W $? l = Some t ->
     value v ->
-    typing ([], W, []) v t i ->
+    typing ([], [], W, []) v t i ->
     htyping (h $+ (l, v)) W.
   Proof.
     intros Hhty Hl Hval Hty.
@@ -17256,7 +17264,7 @@ lift2 (fst (strip_subsets L))
     htyping h W ->
     h $? l = None ->
     value v ->
-    typing ([], W, []) v t i ->
+    typing ([], [], W, []) v t i ->
     htyping (h $+ (l, v)) (W $+ (l, t)).
   Proof.
     intros Hhty Hl Hval Hty.
@@ -17287,59 +17295,77 @@ lift2 (fst (strip_subsets L))
     }
   Qed.
   
-  Lemma canon_CArrow' C v t i :
+  Lemma TQuanI_TArrow_false q s t t1 i t2 :
+    tyeq [] (TQuanI q s t) (TArrow t1 i t2) KType ->
+    False.
+  Proof.
+    intros H.
+    unfold tyeq in *.
+    simpl in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    specialize (H I).
+    invert H.
+  Qed.
+
+  Lemma canon_TArrow' C v t i :
     typing C v t i ->
+    get_sctx C = [] ->
     get_kctx C = [] ->
     get_tctx C = [] ->
     forall t1 i' t2 ,
-      tyeq [] t (CArrow t1 i' t2) ->
+      tyeq [] t (TArrow t1 i' t2) KType ->
       value v ->
       exists e,
         v = EAbs e.
   Proof.
-    induct 1; intros Hknil Htnil ta i' tb Htyeq Hval; try solve [invert Hval | eexists; eauto]; subst.
-    (* { *)
-    (*   rewrite Htnil in H. *)
-    (*   rewrite nth_error_nil in H. *)
-    (*   invert H. *)
-    (* } *)
+    induct 1; intros Hsnil Hknil Htnil ta i' tb Htyeq Hval; try solve [invert Hval | eexists; eauto]; subst; unfold_all.
     {
-      eapply CForall_CArrow_false in Htyeq; propositional.
+      eapply TQuan_TArrow_false_empty in Htyeq; propositional.
     }
     {
-      eapply CApps_CRec_CArrow_false in Htyeq; propositional.
+      eapply TQuanI_TArrow_false in Htyeq; propositional.
     }
     {
-      eapply CExists_CArrow_false in Htyeq; propositional.
+      eapply tyeq_TApps_TRec_TArrow_false in Htyeq; propositional.
+    }
+    {
+      eapply TQuan_TArrow_false_empty in Htyeq; propositional.
+    }
+    {
+      eapply TQuanI_TArrow_false in Htyeq; propositional.
     }
     {
       eapply const_type_CArrow_false in Htyeq; propositional.
     }
     {
-      eapply CProd_CArrow_false in Htyeq; propositional.
+      eapply TBinOp_TArrow_false in Htyeq; propositional.
     }
     {
-      cases inj; simplify; eapply CSum_CArrow_false in Htyeq; propositional.
+      cases inj; simplify; eapply TBinOp_TArrow_false in Htyeq; propositional.
     }
     {
-      eapply CRef_CArrow_false in Htyeq; propositional.
+      eapply TUnOp_TArrow_false in Htyeq; propositional.
     }
     {
-      destruct C as ((L & W) & G); simplify; subst.
+      destruct C as (((L & K) & W) & G); simplify; subst.
+      eapply IHtyping; eauto with db_tyeq.
+    }
+    {
+      destruct C as (((L & K) & W) & G); simplify; subst.
       eapply IHtyping; eauto with db_tyeq.
     }
   Qed.
 
-  Lemma canon_CArrow W v t1 i' t2 i :
-    typing ([], W, []) v (CArrow t1 i' t2) i ->
+  Lemma canon_TArrow W v t1 i' t2 i :
+    typing ([], [], W, []) v (TArrow t1 i' t2) i ->
     value v ->
     exists e,
       v = EAbs e.
   Proof.
-    intros; eapply canon_CArrow'; eauto with db_tyeq.
+    intros; eapply canon_TArrow'; eauto with db_tyeq.
   Qed.
 
-  Lemma canon_CForall' C v t i :
+  Lemma canon_TForall' C v t i :
     typing C v t i ->
     get_kctx C = [] ->
     get_tctx C = [] ->
@@ -17371,16 +17397,16 @@ lift2 (fst (strip_subsets L))
     (* Qed. *)
   Admitted.
 
-  Lemma canon_CForall W v k t i :
+  Lemma canon_TForall W v k t i :
     typing ([], W, []) v (CForall k t) i ->
     value v ->
     exists e,
       v = EAbsC e.
   Proof.
-    intros; eapply canon_CForall'; eauto with db_tyeq.
+    intros; eapply canon_TForall'; eauto with db_tyeq.
   Qed.
 
-  Lemma canon_CRec' C v t i :
+  Lemma canon_TRec' C v t i :
     typing C v t i ->
     get_kctx C = [] ->
     get_tctx C = [] ->
@@ -17432,17 +17458,17 @@ lift2 (fst (strip_subsets L))
     }
   Qed.
 
-  Lemma canon_CRec W v k t cs i :
+  Lemma canon_TRec W v k t cs i :
     typing ([], W, []) v (CApps (CRec k t) cs) i ->
     value v ->
     exists e,
       v = EFold e /\
       value e.
   Proof.
-    intros; eapply canon_CRec'; eauto with db_tyeq.
+    intros; eapply canon_TRec'; eauto with db_tyeq.
   Qed.
 
-  Lemma canon_CExists' C v t i :
+  Lemma canon_TExists' C v t i :
     typing C v t i ->
     get_kctx C = [] ->
     get_tctx C = [] ->
@@ -17475,17 +17501,17 @@ lift2 (fst (strip_subsets L))
   (* Qed. *)
   Admitted.
   
-  Lemma canon_CExists W v k t i :
+  Lemma canon_TExists W v k t i :
     typing ([], W, []) v (CExists k t) i ->
     value v ->
     exists c e,
       v = EPack c e /\
       value e.
   Proof.
-    intros; eapply canon_CExists'; eauto with db_tyeq.
+    intros; eapply canon_TExists'; eauto with db_tyeq.
   Qed.
 
-  Lemma canon_CProd' C v t i :
+  Lemma canon_TProd' C v t i :
     typing C v t i ->
     get_kctx C = [] ->
     get_tctx C = [] ->
@@ -17519,7 +17545,7 @@ lift2 (fst (strip_subsets L))
   (* Qed. *)
   Admitted.
   
-  Lemma canon_CProd W v t1 t2 i :
+  Lemma canon_TProd W v t1 t2 i :
     typing ([], W, []) v (CProd t1 t2) i ->
     value v ->
     exists v1 v2,
@@ -17527,10 +17553,10 @@ lift2 (fst (strip_subsets L))
       value v1 /\
       value v2.
   Proof.
-    intros; eapply canon_CProd'; eauto with db_tyeq.
+    intros; eapply canon_TProd'; eauto with db_tyeq.
   Qed.
 
-  Lemma canon_CSum' C v t i :
+  Lemma canon_TSum' C v t i :
     typing C v t i ->
     get_kctx C = [] ->
     get_tctx C = [] ->
@@ -17560,17 +17586,17 @@ lift2 (fst (strip_subsets L))
   (* Qed. *)
   Admitted.
   
-  Lemma canon_CSum W v t1 t2 i :
+  Lemma canon_TSum W v t1 t2 i :
     typing ([], W, []) v (CSum t1 t2) i ->
     value v ->
     exists inj v',
       v = EInj inj v' /\
       value v'.
   Proof.
-    intros; eapply canon_CSum'; eauto with db_tyeq.
+    intros; eapply canon_TSum'; eauto with db_tyeq.
   Qed.
 
-  Lemma canon_CRef' C v t i :
+  Lemma canon_TRef' C v t i :
     typing C v t i ->
     get_kctx C = [] ->
     get_tctx C = [] ->
@@ -17603,14 +17629,14 @@ lift2 (fst (strip_subsets L))
   (* Qed. *)
   Admitted.
   
-  Lemma canon_CRef W v t i :
+  Lemma canon_TRef W v t i :
     typing ([], W, []) v (CRef t) i ->
     value v ->
     exists l t',
       v = ELoc l /\
       W $? l = Some t'.
   Proof.
-    intros Hty ?; eapply canon_CRef' in Hty; eauto with db_tyeq.
+    intros Hty ?; eapply canon_TRef' in Hty; eauto with db_tyeq.
   Qed.
 
   Lemma progress' C e t i :
@@ -17653,7 +17679,7 @@ lift2 (fst (strip_subsets L))
       eapply IHtyping1 in Hi1; eauto.
       cases Hi1; simplify.
       {
-        eapply canon_CArrow in H1; eauto.
+        eapply canon_TArrow in H1; eauto.
         destruct H1 as (e & ?).
         subst.
         eapply IHtyping2 in Hi2; eauto.
@@ -17700,7 +17726,7 @@ lift2 (fst (strip_subsets L))
       eapply IHtyping in Hle; eauto.
       cases Hle; simplify.
       {
-        eapply canon_CForall in H1; eauto.
+        eapply canon_TForall in H1; eauto.
         destruct H1 as (e1 & ?).
         subst.
         right.
@@ -17763,7 +17789,7 @@ lift2 (fst (strip_subsets L))
       eapply IHtyping in Hle; eauto.
       cases Hle; simplify.
       {
-        eapply canon_CRec in H; eauto.
+        eapply canon_TRec in H; eauto.
         destruct H as (e1 & ? & Hv).
         subst.
         right.
@@ -17819,7 +17845,7 @@ lift2 (fst (strip_subsets L))
       cases Hi1; simplify.
       {
         rename H into Hty.
-        eapply canon_CExists in Hty; eauto.
+        eapply canon_TExists in Hty; eauto.
         destruct Hty as (c & e & ? & Hv).
         subst.
         right.
@@ -17894,7 +17920,7 @@ lift2 (fst (strip_subsets L))
       eapply IHtyping in Hle; eauto.
       destruct Hle as [He | He]; simplify.
       {
-        eapply canon_CProd in He; eauto.
+        eapply canon_TProd in He; eauto.
         destruct He as (v1 & v2 & ? & Hv1 & Hv2).
         subst.
         right.
@@ -17947,7 +17973,7 @@ lift2 (fst (strip_subsets L))
       eapply IHtyping1 in Hile; eauto.
       destruct Hile as [He | He]; simplify.
       {
-        eapply canon_CSum in He; eauto.
+        eapply canon_TSum in He; eauto.
         destruct He as (inj & v & ? & Hv).
         subst.
         right.
@@ -17999,7 +18025,7 @@ lift2 (fst (strip_subsets L))
       eapply IHtyping in Hle; eauto.
       destruct Hle as [He | He]; simplify.
       {
-        eapply canon_CRef in He; eauto.
+        eapply canon_TRef in He; eauto.
         destruct He as (l & t' & ? & Hl).
         subst.
         eapply htyping_elim_exists in Hl; eauto.
@@ -18042,7 +18068,7 @@ lift2 (fst (strip_subsets L))
         eapply IHtyping2 in Hi2; eauto.
         destruct Hi2 as [He2 | He2]; simplify.
         {
-          eapply canon_CRef in He1; eauto.
+          eapply canon_TRef in He1; eauto.
           destruct He1 as (l & t' & ? & Hl).
           subst.
           eapply htyping_elim_exists in Hl; eauto.
