@@ -7724,15 +7724,15 @@ lift2 (fst (strip_subsets L))
     | b :: bs' => (interp_bsort b * interp_bsorts_tuple bs')%type
     end.
   
+  (* the [interp_bsorts_tuple] trick is for satisfying the positivity checker *)
   Inductive tyv :=
-  | TVVar (x : var)
+  | TVVar (x : var) (k : kind) (args : interp_bsorts_tuple k)
   | TVConst (cn : ty_const)
   | TVUnOp (opr : ty_un_op) (c : tyv)
   | TVBinOp (opr : ty_bin_op) (c1 c2 : tyv)
   | TVArrow (t1 : tyv) (i : time_type) (t2 : tyv)
   | TVQuan (q : quan) (k : kind) (t : tyv)
   | TVQuanI (q : quan) (b : bsort) (p : sortv b) (t : interp_bsort b -> tyv)
-  (* interp_bsorts_tuple trick for satisfying the positivity checker *)
   | TVRec (k : kind) (t : interp_bsorts_tuple k -> tyv) (args : interp_bsorts_tuple k) 
   .
 
@@ -7788,8 +7788,7 @@ lift2 (fst (strip_subsets L))
   Fixpoint interp_ty ty bs k_ret : interp_bsorts bs (interp_k k_ret) :=
     match ty with
     | TVar x =>
-      let r := lift0 bs (TVVar x) in
-      lift1 bs (complete_var k_ret) r
+      lift0 bs (currys k_ret (fun args => TVVar x k_ret args))
     | TConst cn =>
       let r := lift0 bs (TVConst cn) in
       lift1 bs (convert_kind_value KType k_ret) r
@@ -7822,7 +7821,7 @@ lift2 (fst (strip_subsets L))
     end.
 
   Inductive tyveq : tyv -> tyv -> Prop :=
-  | TVEVar x : tyveq (TVVar x) (TVVar x)
+  | TVEVar x k args : tyveq (TVVar x k args) (TVVar x k args)
   | TVEConst cn : tyveq (TVConst cn) (TVConst cn)
   | TVEUnOp opr t t' :
       tyveq t t' ->
@@ -7896,7 +7895,7 @@ lift2 (fst (strip_subsets L))
   
   Lemma tyveq_trans a b : tyveq a b -> forall c, tyveq b c -> tyveq a c.
   Proof.
-    induct 1; simpl; intros c Hbc; try solve [invert Hbc; eauto].
+    induct 1; simpl; intros c Hbc; try solve [eauto | invert Hbc; eauto].
     {
       eapply invert_tyveq_TUnOp in Hbc; eauto.
       openhyp; subst.
@@ -9524,9 +9523,7 @@ lift2 (fst (strip_subsets L))
     {
       (* Case Var *)
       simpl.
-      rewrite fuse_lift2_lift1_1 in *.
       rewrite fuse_lift2_lift0_1 in *.
-      rewrite fuse_lift1_lift0 in *.
       rewrite subst_lift0.
       rewrite fuse_lift1_lift0 in *.
       eapply forall_lift0.
@@ -11612,11 +11609,11 @@ lift2 (fst (strip_subsets L))
   
     Fixpoint shift_t_tv (x : var) (b : tyv) : tyv :=
       match b with
-      | TVVar y =>
-        if x <=? y then
-          TVVar (n + y)
-        else
-          TVVar y
+      | TVVar y k args =>
+        TVVar (if x <=? y then
+                 n + y
+               else
+                 y) k args
       | TVConst cn => TVConst cn
       | TVUnOp opr t => TVUnOp opr (shift_t_tv x t)
       | TVBinOp opr c1 c2 => TVBinOp opr (shift_t_tv x c1) (shift_t_tv x c2)
@@ -11695,11 +11692,9 @@ lift2 (fst (strip_subsets L))
       (* Case TVar *)
       simpl.
       repeat rewrite fuse_lift1_lift0 in *.
-      rewrite <- complete_var_shift_t_gtv.
+      rewrite shift_t_gtv_currys.
       simpl.
-      cases (x <=? y); simpl in *;
-        repeat rewrite fuse_lift1_lift0 in *;
-        eauto.
+      cases (x <=? y); simpl in *; f_equal; eauto.
     }
     {
       (* Case TConst *)
@@ -11836,9 +11831,6 @@ lift2 (fst (strip_subsets L))
       tyveq (shift_t_tv n x t) (shift_t_tv n x t').
   Proof.
     induct 1; simpl; eauto.
-    rename x into y.
-    intros n x.
-    cases (x <=? y); eauto.
   Qed.
   
   Lemma gtyveq_shift n x :
@@ -16072,6 +16064,436 @@ lift2 (fst (strip_subsets L))
     rewrite tyeq_tyeq' in *.
     unfold tyeq' in *.
     eapply forall_trans; [eapply H | ].
+    Definition shift0_t_gtv := shift_t_gtv 1 0.
+    Arguments shift0_t_gtv / {_} _ .
+    
+    Fixpoint subst_gtv_tv (x : var) {k} (v : interp_k k) (b : tyv) : tyv :=
+      match b with
+      | TVVar y k' args =>
+        match y <=>? x with
+        | MyLt _ => TVVar y k' args
+        | MyEq _ => uncurrys k' (convert_kind_value k k' v) args
+        | MyGt _ => TVVar (y - 1) k' args
+        end
+      | TVConst cn => TVConst cn
+      | TVUnOp opr t => TVUnOp opr (subst_gtv_tv x v t)
+      | TVBinOp opr c1 c2 => TVBinOp opr (subst_gtv_tv x v c1) (subst_gtv_tv x v c2)
+      | TVArrow t1 i t2 => TVArrow (subst_gtv_tv x v t1) i (subst_gtv_tv x v t2)
+      | TVQuan q k c => TVQuan q k (subst_gtv_tv (1 + x) (shift0_t_gtv v) c)
+      | TVQuanI q p c => TVQuanI q p (fun i => subst_gtv_tv x v (c i))
+      | TVRec k t args => TVRec k (fun i => subst_gtv_tv (1 + x) (shift0_t_gtv v) (t i)) args
+      end.
+
+  Fixpoint glift1 k f : interp_k k -> interp_k k :=
+    match k with
+    | [] => f
+    | s :: k' => fun body i => glift1 k' f (body i)
+    end.
+
+  Definition subst_gtv_gtv x {k_v} (v : interp_k k_v) {k_b} (b : interp_k k_b) := glift1 _ (subst_gtv_tv x v) b.
+  
+  Lemma fuse_lift3_lift0_3 bs :
+    forall T A1 A2 A3 f (g : A3) a1 a2,
+      lift3 bs f a1 a2 (lift0 bs g) = lift2 bs (fun (a1 : A1) (a2 : A2) => f a1 a2 g : T) a1 a2.
+  Proof.
+    induct bs; simplify; eauto.
+    eapply IHbs.
+  Qed.
+  
+  Lemma glift1_currys f k :
+    forall t, glift1 _ f (currys k t) = currys k (fun args => f (t args)).
+  Proof.
+    induct k; simpl; eauto.
+    intros t.
+    eapply FunctionalExtensionality.functional_extensionality.
+    intros arg.
+    rewrite IHk.
+    eauto.
+  Qed.
+
+  Lemma forall_subst_t_t_iff_subst :
+    forall body x L K v k_v k,
+      let bs := map get_bsort L in
+      nth_error K x = Some k_v ->
+      (* bsorting (skipn (S x) bs) v b_v -> *)
+      kinding L K body k ->
+      forall_ bs (lift3 bs (fun t1 v body => gtyveq k t1 (subst_gtv_gtv x (shift_t_gtv x 0 k_v v) body)) (interp_ty (subst_t_t x (shift_t_t x 0 v) body) bs k) (interp_ty v bs k_v) (interp_ty body bs k)).
+  Proof.
+    simpl.
+    induct body; try rename x into y; try rename k into k'; intros x L K v k_v k Hx (* Hv *) Hbody; set (bs := map get_bsort L) in *.
+    {
+      (* Case Var *)
+      simpl.
+      rewrite fuse_lift3_lift0_3 in *.
+      cases (y <=>? x); eauto with db_la; subst.
+      {
+        simpl.
+        rewrite fuse_lift2_lift0_1 in *.
+        eapply forall_lift1.
+        intros val.
+        unfold subst_gtv_gtv.
+        rewrite glift1_currys.
+        simpl.
+        cases (y <=>? x); try la.
+        eauto using gtyveq_refl.
+      }
+      {
+        rewrite forall_shift_t_t.
+        rewrite fuse_lift2_lift1_1 in *.
+        invert Hbody.
+        assert (k_v = k) by equality; subst.
+        rewrite dedup_lift2.
+        eapply forall_lift1.
+        intros val.
+        unfold subst_gtv_gtv.
+        rewrite glift1_currys.
+        simpl.
+        cases (x <=>? x); try la.
+        repeat rewrite convert_kind_value_refl_eq in *.
+        Lemma currys_uncurrys k f :
+          currys k (uncurrys k f) = f.
+        Proof.
+          induct k; simpl; eauto.
+          eapply FunctionalExtensionality.functional_extensionality.
+          intros arg.
+          rewrite IHk.
+          eauto.
+        Qed.
+
+        rewrite currys_uncurrys.
+        eauto using gtyveq_refl.
+      }
+      {
+        simpl.
+        rewrite fuse_lift2_lift0_1 in *.
+        eapply forall_lift1.
+        intros val.
+        unfold subst_gtv_gtv.
+        rewrite glift1_currys.
+        simpl.
+        cases (y <=>? x); try la.
+        eauto using gtyveq_refl.
+      }
+    }
+    {
+      (* Case Const *)
+      simpl.
+      invert Hbody.
+      repeat rewrite fuse_lift1_lift0 in *.
+      rewrite fuse_lift3_lift0_1 in *.
+      rewrite fuse_lift2_lift0_2 in *.
+      simpl.
+      eapply forall_lift1.
+      intros val.
+      repeat rewrite convert_kind_value_refl_eq in *.
+      unfold subst_gtv_gtv.
+      simpl.
+      eauto using tyveq_refl.
+    }
+    {
+      (* Case UnOp *)
+      simpl.
+      invert Hbody.
+      repeat rewrite fuse_lift3_lift1_1 in *.
+      rewrite fuse_lift1_lift1 in *.
+      repeat rewrite fuse_lift3_lift1_3 in *.
+      simpl.
+      eapply forall_lift3_lift3; [|eapply IHbody with (k := KType)]; eauto.
+      unfold subst_gtv_gtv.
+      simpl; intros; subst.
+      repeat rewrite convert_kind_value_refl_eq in *.
+      eauto.
+    }
+    {
+      (* Case BinOp *)
+      simpl.
+      invert Hbody.
+      repeat rewrite fuse_lift1_lift2 in *.
+      repeat rewrite fuse_lift3_lift2_1 in *.
+      rewrite fuse_lift4_lift2_4.
+  Lemma forall_lift3_lift3_lift5_1_4_2_5 :
+    forall bs A1 A2 A3 A4 A5 P1 P2 P3 P4 P5 (f1 : _ -> _ -> _ -> Prop) (f2 : _ -> _ -> _ -> Prop) (f3 : _ -> _ -> _ -> _ -> _ -> Prop),
+      (forall (a1 : A1) (a2 : A2) (a3 : A3) (a4 : A4) (a5 : A5), f1 a1 a3 a4 -> f2 a2 a3 a5 -> f3 a1 a2 a3 a4 a5) ->
+      forall_ bs (lift3 bs f1 P1 P3 P4) ->
+      forall_ bs (lift3 bs f2 P2 P3 P5) ->
+      forall_ bs (lift5 bs f3 P1 P2 P3 P4 P5).
+  Proof.
+    induct bs; simplify; eauto.
+    rewrite fuse_lift1_lift3 in *.
+    rewrite fuse_lift1_lift5 in *.
+    eapply IHbs; eauto.
+    simplify.
+    eauto.
+  Qed.
+  
+      eapply forall_lift3_lift3_lift5_1_4_2_5; [|eapply IHbody1 with (k := KType)|eapply IHbody2 with (k := KType)]; eauto.
+      unfold subst_gtv_gtv.
+      simpl; intros; subst.
+      repeat rewrite convert_kind_value_refl_eq in *.
+      eauto.
+    }
+    {
+      (* Case Arrow *)
+      simpl.
+      invert Hbody.
+      repeat rewrite fuse_lift1_lift3 in *.
+  Lemma fuse_lift3_lift3_1 bs :
+    forall T A1 A2 A3 B1 B2 B3 f g b1 b2 b3 a2 a3,
+      lift3 bs f (lift3 bs g b1 b2 b3) a2 a3 = lift5 bs (fun (b1 : B1) (b2 : B2) (b3 : B3) (a2 : A2) (a3 : A3) => f (g b1 b2 b3 : A1) a2 a3 : T) b1 b2 b3 a2 a3.
+  Proof.
+    induct bs; simplify; eauto.
+    eapply IHbs.
+  Qed.
+  
+      rewrite fuse_lift3_lift3_1.
+      rewrite fuse_lift5_lift3_5.
+  Lemma dedup_lift7_2_6 bs :
+    forall T A1 A2 A3 A4 A5 A6 f a1 a2 a3 a4 a5 a6,
+      lift7 bs f a1 a2 a3 a4 a5 a2 a6 = lift6 bs (fun (a1 : A1) (a2 : A2) (a3 : A3) (a4 : A4) (a5 : A5) (a6 : A6) => f a1 a2 a3 a4 a5 a2 a6 : T) a1 a2 a3 a4 a5 a6.
+  Proof.
+    induct bs; simplify; eauto.
+    eapply IHbs.
+  Qed.
+  
+      rewrite dedup_lift7_2_6.
+  Lemma forall_lift3_lift3_lift6_1_4_5_3_4_6 :
+    forall bs A1 A2 A3 A4 A5 A6 P1 P2 P3 P4 P5 P6 (f1 : _ -> _ -> _ -> Prop) (f2 : _ -> _ -> _ -> Prop) (f3 : _ -> _ -> _ -> _ -> _ -> _ -> Prop),
+      (forall (a1 : A1) (a2 : A2) (a3 : A3) (a4 : A4) (a5 : A5) (a6 : A6), f1 a1 a4 a5 -> f2 a3 a4 a6 -> f3 a1 a2 a3 a4 a5 a6) ->
+      forall_ bs (lift3 bs f1 P1 P4 P5) ->
+      forall_ bs (lift3 bs f2 P3 P4 P6) ->
+      forall_ bs (lift6 bs f3 P1 P2 P3 P4 P5 P6).
+  Proof.
+    induct bs; simplify; eauto.
+    rewrite fuse_lift1_lift3 in *.
+    rewrite fuse_lift1_lift6 in *.
+    eapply IHbs; eauto.
+    simplify.
+    eauto.
+  Qed.
+  
+      eapply forall_lift3_lift3_lift6_1_4_5_3_4_6; [|eapply IHbody1 with (k := KType) | eapply IHbody2 with (k := KType)]; eauto.
+      unfold subst_gtv_gtv.
+      simpl; intros; subst.
+      repeat rewrite convert_kind_value_refl_eq in *.
+      eauto.
+    }
+    {
+      (* Case Abs *)
+      simpl.
+      invert Hbody.
+      rename s into b.
+      rename k0 into k.
+      specialize (IHbody x (SBaseSort b :: L) K (shift_i_t 1 0 v) k_v k).
+      simpl in *.
+      rewrite fuse_lift1_lift3 in *.
+      unfold shift0_i_t.
+      rewrite shift_i_t_shift_t_t_commute.
+      subst bs.
+      set (bs := map get_bsort L) in *.
+  Lemma forall_shift_i_t_iff_shift_1_0 :
+    forall body b bs k,
+      let bs' := b :: bs in
+      wellscoped_t (length bs) body ->
+      forall_ bs (lift2 bs (fun t1 t2 => forall x, gtyveq k (t1 x) t2) (interp_ty (shift_i_t 1 0 body) bs' k) (interp_ty body bs k)).
+  Proof.
+    simpl; intros.
+    specialize (@forall_shift_i_t_iff_shift body [b] 0 bs k 1); intros Hshift.
+    simpl in *.
+    rewrite fuse_lift2_lift1_2 in *.
+    rewrite fuse_lift1_lift2 in *.
+    eauto.
+  Qed.
+  
+  Lemma forall_lift3_lift2_lift3_2_4 :
+    forall bs A1 A2 A3 A4 P1 P2 P3 P4 (f1 : A1 -> A2 -> A3 -> Prop) (f2 : A2 -> A4 -> Prop) (f3 : A1 -> A4 -> A3 -> Prop),
+      (forall a1 a2 a3 a4, f1 a1 a2 a3 -> f2 a2 a4 -> f3 a1 a4 a3) ->
+      forall_ bs (lift3 bs f1 P1 P2 P3) ->
+      forall_ bs (lift2 bs f2 P2 P4) ->
+      forall_ bs (lift3 bs f3 P1 P4 P3).
+  Proof.
+    induct bs; simplify; eauto.
+    rewrite fuse_lift1_lift3 in *.
+    rewrite fuse_lift1_lift2 in *.
+    eapply IHbs; eauto.
+    simplify.
+    eauto.
+  Qed.
+  
+      eapply forall_lift3_lift2_lift3_2_4; [ | eapply IHbody | eapply forall_shift_i_t_iff_shift_1_0]; eauto.
+      simpl; intros; subst.
+      eapply gtyveq_trans; [eapply H | ].
+      Lemma gtyveq_subst_eqv_eq k_b b k_v v1 v2 x :
+        gtyveq k_v v1 v2 ->
+        gtyveq k_b (subst_gtv_gtv x (shift_t_gtv x 0 _ v1) b) (subst_gtv_gtv x (shift_t_gtv x 0 _ v2) b).
+      Proof.
+        unfold subst_gtv_gtv.
+        induct k_b; simpl; intros Hv1v2; eauto.
+            Lemma shift_t_tv_shift_merge n1 n2 :
+              forall b x y,
+                x <= y ->
+                y <= x + n1 ->
+                shift_t_tv n2 y (shift_t_tv n1 x b) = shift_t_tv (n1 + n2) x b.
+            Proof.
+              induct b;
+                simplify; cbn in *;
+                  try solve [eauto |
+                             f_equal; eauto |
+                             f_equal; eapply FunctionalExtensionality.functional_extensionality; eauto with db_la |
+                             erewrite H by la; f_equal; eauto with db_la |
+                             f_equal;
+                             match goal with
+                               H : _ |- _ => eapply H; eauto with db_la
+                             end].
+              {
+                (* Case CVar *)
+                repeat match goal with
+                         |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+                       end; f_equal; la.
+              }
+            Qed.
+
+            Definition shift_t_gtv' x n k := glift1 k (shift_t_tv x n).
+            Lemma shift_t_gtv_shift_t_gtv' x n k b : shift_t_gtv x n k b = glift1 _ (shift_t_tv x n) b.
+            Proof.
+              induct k; simpl; eauto.
+              eapply FunctionalExtensionality.functional_extensionality.
+              eauto.
+            Qed.
+
+            Lemma fuse_glift1_glift1 k f g b1 :
+              glift1 k f (glift1 k g b1) = glift1 k (fun b1 => f (g b1)) b1.
+            Proof.
+              induct k; simpl; eauto.
+              eapply FunctionalExtensionality.functional_extensionality.
+              eauto.
+            Qed.
+
+            Lemma glift1_ext f1 f2 k a :
+              (forall x, f1 x = f2 x) -> glift1 k f1 a = glift1 k f2 a.
+            Proof.
+              induct k; simpl; intros Hf; eauto.
+              eapply FunctionalExtensionality.functional_extensionality.
+              eauto.
+            Qed.
+            
+            Global Add Parametric Morphism k : (glift1 k)
+                with signature pointwise_relation tyv eq ==> eq ==> eq as glift1_m.
+            Proof.
+              intros; eapply glift1_ext; eauto.
+            Qed.
+
+            Lemma shift_t_tv_shift_merge_setoid n1 n2 x y :
+              x <= y ->
+              y <= x + n1 ->
+              forall b,
+                shift_t_tv n2 y (shift_t_tv n1 x b) = shift_t_tv (n1 + n2) x b.
+            Proof.
+              intros; eapply shift_t_tv_shift_merge; eauto.
+            Qed.
+
+        Lemma tyveq_subst_eqv_eq b k_v v1 v2 x :
+          gtyveq k_v v1 v2 ->
+          tyveq (subst_gtv_tv x (shift_t_gtv x 0 _ v1) b) (subst_gtv_tv x (shift_t_gtv x 0 _ v2) b).
+        Proof.
+          induct b; simpl; intros Hv1v2; eauto.
+          {
+            rename x0 into y.
+            cases (x <=>? y); simpl; eauto using tyveq_refl.
+            eapply gtyveq_tyveq_uncurrys.
+            unfold convert_kind_value.
+            cases (kind_dec k_v k); eauto using gtyveq_refl; subst.
+            unfold eq_rect_r.
+            rewrite <- Eqdep.EqdepTheory.eq_rect_eq.
+            eapply gtyveq_shift; eauto.
+          }
+          {
+            econstructor.
+            repeat rewrite shift_t_gtv_shift_t_gtv'.
+            repeat rewrite fuse_glift1_glift1.
+            setoid_rewrite shift_t_tv_shift_merge_setoid; eauto with db_la.
+            rewrite plus_comm.
+            repeat rewrite <- shift_t_gtv_shift_t_gtv'.
+            eauto.
+          }
+          {
+            cases p; econstructor; intuition eauto.
+          }
+          {
+            econstructor.
+            intros args'.
+            repeat rewrite shift_t_gtv_shift_t_gtv'.
+            repeat rewrite fuse_glift1_glift1.
+            setoid_rewrite shift_t_tv_shift_merge_setoid; eauto with db_la.
+            rewrite plus_comm.
+            repeat rewrite <- shift_t_gtv_shift_t_gtv'.
+            eauto.
+          }
+        Qed.
+
+        eapply tyveq_subst_eqv_eq; eauto.
+      Qed.
+
+      eapply gtyveq_subst_eqv_eq; eauto.
+      eapply admit. (* wellscoped_t (length bs) v *)
+    }
+    (*here*)
+    {
+      (* Case App *)
+      simpl.
+      invert Hbody.
+      rewrite fuse_lift2_lift2_1.
+      rewrite subst_lift2.
+      rewrite fuse_lift3_lift2_3.
+      simpl in *.
+      eapply forall_lift2_lift2_lift4; [|eapply IHbody with (k := KArrow b k)| eapply forall_subst_i_i_eq_subst with (b_b := b)]; eauto.
+      simpl; intros; subst.
+      eauto.
+    }
+    {
+      (* Case Quan *)
+      simpl.
+      invert Hbody.
+      repeat rewrite fuse_lift2_lift1_1 in *.
+      rewrite fuse_lift1_lift1 in *.
+      rewrite subst_lift1.
+      rewrite fuse_lift2_lift1_2.
+      eapply forall_lift2_lift2; [|eapply IHbody with (k := KType)]; eauto.
+      simpl; intros; subst.
+      repeat rewrite convert_kind_value_refl_eq in *.
+      eauto.
+    }
+    {
+      (* Case QuanI *)
+      simpl.
+      invert Hbody.
+      specialize (IHbody (S x) (get_bsort s :: bs) v b_v KType).
+      simpl in *.
+      repeat rewrite fuse_lift1_lift2 in *.
+      repeat rewrite shift0_i_i_shift_0.
+      repeat rewrite fuse_lift2_lift2_1 in *.
+      rewrite subst_lift2.
+      rewrite fuse_lift3_lift2_3.
+      repeat rewrite get_bsort_subst_i_s in *.
+      eapply forall_lift2_lift2_lift4; [|eapply forall_subst_i_s_iff_subst|eapply IHbody]; eauto.
+      simpl; intros; subst.
+      repeat rewrite convert_kind_value_refl_eq in *.
+      eapply TVEQuanISubset'; eauto.
+    }
+    {
+      (* Case Rec *)
+      simpl.
+      invert Hbody.
+      repeat rewrite fuse_lift1_lift1 in *.
+      repeat rewrite fuse_lift2_lift1_1 in *.
+      rewrite subst_lift1.
+      rewrite fuse_lift2_lift1_2.
+      eapply forall_lift2_lift2; [|eapply IHbody]; eauto.
+      simpl; intros; subst.
+      repeat rewrite convert_kind_value_refl_eq in *.
+      eapply gtyveq_TVRec_intro; eauto.
+    }
+  Qed.
+
     (*here*)
     rewrite get_bsort_remove_subst.
     copy Hx Hnth'.
