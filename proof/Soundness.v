@@ -16707,26 +16707,45 @@ lift2 (fst (strip_subsets L))
     }
   Qed.
 
-  Lemma typing_shift0_t_e L K W G e t i k :
-    let C := (L, K, W, G) in 
+  Lemma typing_subst_t_e_2 L K W G e t i x v k :
+    let C := (L, K, W, G) in
     typing C e t i ->
-    typing (L, k :: K, fmap_map shift0_t_t W, map shift0_t_t G) (shift0_t_e e) (shift0_t_t t) i.
+    nth_error K x = Some k ->
+    kinding L (my_skipn K (1 + x)) v k ->
+    wfctx C ->
+    typing (L, removen x K, fmap_map (subst_t_t x (shift_t_t x 0 v)) W, map (subst_t_t x (shift_t_t x 0 v)) G) (subst_t_e x (shift_t_t x 0 v) e) (subst_t_t x (shift_t_t x 0 v) t) i.
   Proof.
-    intros C Hty.
-    eapply typing_shift_t_e with (x := 0) (ls := [k]) in Hty; simplify; eauto with db_la.
+    intros C; intros; unfold wfctx in *; openhyp; eapply typing_subst_t_e with (C := C); eauto using wfsorts_bwfsorts.
+  Qed.
+  
+  Lemma typing_subst0_t_e L k K W G e t i v :
+    let C := (L, k :: K, W, G) in
+    typing C e t i ->
+    kinding L K v k ->
+    wfctx C ->
+    typing (L, K, fmap_map (subst0_t_t v) W, map (subst0_t_t v) G) (subst0_t_e v e) (subst0_t_t v t) i.
+  Proof.
+    intros C Ht Hv HC.
+    eapply typing_subst_t_e_2 with (x := 0) in Ht; simpl in *;  
+      repeat rewrite my_skipn_0 in *;
+      repeat rewrite shift_t_t_0 in *;
+      eauto.
   Qed.
 
-  (*here*)
-  
-  Lemma ty_shift_e_e C e t i :
+  Lemma typing_shift_e_e C e t i :
     typing C e t i ->
+    let L := get_sctx C in
+    let K := get_kctx C in
+    let W := get_hctx C in
+    let G := get_tctx C in
     forall x ls,
-      typing (get_kctx C, get_hctx C, firstn x (get_tctx C) ++ ls ++ my_skipn (get_tctx C) x) (shift_e_e (length ls) x e) t i.
+      typing (L, K, W, firstn x G ++ ls ++ my_skipn G x) (shift_e_e (length ls) x e) t i.
   Proof.
     induct 1;
       try rename x into y;
+      try rename L into L';
       intros x ls;
-      destruct C as ((L & W) & G);
+      destruct C as (((L & K) & W) & G);
       simplify;
       try solve [econstructor; eauto].
     {
@@ -16747,7 +16766,7 @@ lift2 (fst (strip_subsets L))
       eapply IHtyping with (x := S x).
     }
     {
-      (* Case AbsC *)
+      (* Case AbsT *)
       econstructor; simplify; eauto.
       {
         eapply value_shift_e_e; eauto.
@@ -16755,15 +16774,28 @@ lift2 (fst (strip_subsets L))
       repeat rewrite map_app.
       rewrite map_firstn.
       rewrite map_my_skipn.
-      specialize (IHtyping x (map shift0_c_c ls)).
+      specialize (IHtyping x (map shift0_t_t ls)).
+      rewrite map_length in *.
+      eauto.
+    }
+    {
+      (* Case AbsI *)
+      econstructor; simplify; eauto.
+      {
+        eapply value_shift_e_e; eauto.
+      }
+      repeat rewrite map_app.
+      rewrite map_firstn.
+      rewrite map_my_skipn.
+      specialize (IHtyping x (map shift0_i_t ls)).
       rewrite map_length in *.
       eauto.
     }
     {
       (* Case Rec *)
-      subst.
+      unfold_all.
       specialize (IHtyping (S x) ls); simplify.
-      rewrite shift_e_e_AbsCs in *.
+      rewrite shift_e_e_AbsTIs in *.
       econstructor; simplify; eauto.
     }
     {
@@ -16772,7 +16804,17 @@ lift2 (fst (strip_subsets L))
       repeat rewrite map_app.
       rewrite map_firstn.
       rewrite map_my_skipn.
-      specialize (IHtyping2 (S x) (map shift0_c_c ls)); simplify.
+      specialize (IHtyping2 (S x) (map shift0_t_t ls)); simplify.
+      rewrite map_length in *.
+      eauto.
+    }
+    {
+      (* Case UnpackI *)
+      econstructor; simplify; eauto.
+      repeat rewrite map_app.
+      rewrite map_firstn.
+      rewrite map_my_skipn.
+      specialize (IHtyping2 (S x) (map shift0_i_t ls)); simplify.
       rewrite map_length in *.
       eauto.
     }
@@ -16788,12 +16830,12 @@ lift2 (fst (strip_subsets L))
     }
   Qed.
   
-  Lemma ty_shift0_e_e L W G e t i t' :
-    typing (L, W, G) e t i ->
-    typing (L, W, t' :: G) (shift0_e_e e) t i.
+  Lemma typing_shift0_e_e L K W G e t i t' :
+    typing (L, K, W, G) e t i ->
+    typing (L, K, W, t' :: G) (shift0_e_e e) t i.
   Proof.
     intros Hty.
-    eapply ty_shift_e_e with (C := (L, W, G)) (x := 0) (ls := [t']) in Hty.
+    eapply typing_shift_e_e with (C := (L, K, W, G)) (x := 0) (ls := [t']) in Hty.
     simplify.
     repeat rewrite my_skipn_0 in *.
     eauto.
