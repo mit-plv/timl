@@ -17307,64 +17307,6 @@ lift2 (fst (strip_subsets L))
     invert H.
   Qed.
 
-  Lemma canon_TArrow' C v t i :
-    typing C v t i ->
-    get_sctx C = [] ->
-    get_kctx C = [] ->
-    get_tctx C = [] ->
-    forall t1 i' t2 ,
-      tyeq [] t (TArrow t1 i' t2) KType ->
-      value v ->
-      exists e,
-        v = EAbs e.
-  Proof.
-    induct 1; intros Hsnil Hknil Htnil ta i' tb Htyeq Hval; try solve [invert Hval | eexists; eauto]; subst; unfold_all.
-    {
-      eapply TQuan_TArrow_false_empty in Htyeq; propositional.
-    }
-    {
-      eapply TQuanI_TArrow_false in Htyeq; propositional.
-    }
-    {
-      eapply tyeq_TApps_TRec_TArrow_false in Htyeq; propositional.
-    }
-    {
-      eapply TQuan_TArrow_false_empty in Htyeq; propositional.
-    }
-    {
-      eapply TQuanI_TArrow_false in Htyeq; propositional.
-    }
-    {
-      eapply const_type_CArrow_false in Htyeq; propositional.
-    }
-    {
-      eapply TBinOp_TArrow_false in Htyeq; propositional.
-    }
-    {
-      cases inj; simplify; eapply TBinOp_TArrow_false in Htyeq; propositional.
-    }
-    {
-      eapply TUnOp_TArrow_false in Htyeq; propositional.
-    }
-    {
-      destruct C as (((L & K) & W) & G); simplify; subst.
-      eapply IHtyping; eauto with db_tyeq.
-    }
-    {
-      destruct C as (((L & K) & W) & G); simplify; subst.
-      eapply IHtyping; eauto with db_tyeq.
-    }
-  Qed.
-
-  Lemma canon_TArrow W v t1 i' t2 i :
-    typing ([], [], W, []) v (TArrow t1 i' t2) i ->
-    value v ->
-    exists e,
-      v = EAbs e.
-  Proof.
-    intros; eapply canon_TArrow'; eauto with db_tyeq.
-  Qed.
-
   Lemma TQuanI_TQuan_false q s t q' k t' :
     tyeq [] (TQuanI q s t) (TQuan q' k t') KType ->
     False.
@@ -17426,66 +17368,6 @@ lift2 (fst (strip_subsets L))
     invert H.
   Qed.
 
-  Lemma canon_TForall' C v t i :
-    typing C v t i ->
-    get_sctx C = [] ->
-    get_kctx C = [] ->
-    get_tctx C = [] ->
-    forall k t' ,
-      tyeq [] t (TForall k t') KType ->
-      value v ->
-      exists e,
-        v = EAbsT e.
-  Proof.
-    induct 1; intros Hsnil Hknil Htnil k' t'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Htyeq]; subst; unfold_all.
-    {
-      eapply tyeq_sym in Htyeq.
-      eapply TQuan_TArrow_false_empty in Htyeq; propositional.
-    }
-    {
-      eapply TQuanI_TQuan_false in Htyeq; propositional.
-    }
-    {
-      eapply typeq_TApps_TRec_TQuan_false in Htyeq; propositional.
-    }
-    {
-      eapply TExists_TForall_false in Htyeq; propositional.
-    }
-    {
-      eapply TQuanI_TQuan_false in Htyeq; propositional.
-    }
-    {
-      eapply const_type_TQuan_false in Htyeq; propositional.
-    }
-    {
-      eapply TBinOp_TQuan_false in Htyeq; propositional.
-    }
-    {
-      cases inj; simplify; 
-      eapply TBinOp_TQuan_false in Htyeq; propositional.
-    }
-    {
-      eapply TUnOp_TQuan_false in Htyeq; propositional.
-    }
-    {
-      destruct C as (((L & K) & W) & G); simplify; subst.
-      eapply IHtyping; eauto with db_tyeq.
-    }
-    {
-      destruct C as (((L & K) & W) & G); simplify; subst.
-      eapply IHtyping; eauto with db_tyeq.
-    }
-  Qed.
-
-  Lemma canon_TForall W v k t i :
-    typing ([], [], W, []) v (TForall k t) i ->
-    value v ->
-    exists e,
-      v = EAbsT e.
-  Proof.
-    intros; eapply canon_TForall'; eauto with db_tyeq.
-  Qed.
-
   Lemma typeq_TApps_TRec_TQuanI_false cs k3 t3 q s t  :
     tyeq [] (TApps (TRec k3 t3) cs) (TQuanI q s t) KType ->
     False.
@@ -17507,6 +17389,142 @@ lift2 (fst (strip_subsets L))
     simpl in *; specialize (H I); invert H.
   Qed.
 
+  Lemma TBinOp_TQuanI_false opr ta tb q s t :
+    tyeq [] (TBinOp opr ta tb) (TQuanI q s t) KType ->
+    False.
+  Proof.
+    intros H.
+    unfold tyeq in *.
+    simpl in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    specialize (H I).
+    invert H.
+  Qed.
+  
+  Lemma TBinOp_TConst_false opr ta tb cn :
+    tyeq [] (TBinOp opr ta tb) (TConst cn) KType ->
+    False.
+  Proof.
+    intros H.
+    unfold tyeq in *.
+    simpl in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    specialize (H I).
+    invert H.
+  Qed.
+  
+  Lemma TProd_TSum_false t1 t2 t1' t2' :
+    tyeq [] (TProd t1 t2) (TSum t1' t2') KType ->
+    False.
+  Proof.
+    intros H.
+    unfold tyeq in *.
+    simpl in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    specialize (H I).
+    invert H.
+  Qed.
+  
+  Lemma TBinOp_TUnOp_false opr ta tb opr' t :
+    tyeq [] (TBinOp opr ta tb) (TUnOp opr' t) KType ->
+    False.
+  Proof.
+    intros H.
+    unfold tyeq in *.
+    simpl in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    specialize (H I).
+    invert H.
+  Qed.
+  
+  Ltac tyeq_false_half H :=
+      eapply TQuan_TArrow_false_empty in H ||
+      eapply TQuanI_TArrow_false in H ||
+      eapply tyeq_TApps_TRec_TArrow_false in H ||
+      eapply TQuan_TArrow_false_empty in H ||
+      eapply TQuanI_TArrow_false in H ||
+      eapply const_type_CArrow_false in H ||
+      eapply TBinOp_TArrow_false in H ||
+      eapply TUnOp_TArrow_false in H || 
+      eapply TQuanI_TQuan_false in H ||
+      eapply typeq_TApps_TRec_TQuan_false in H ||
+      eapply TExists_TForall_false in H ||
+      eapply const_type_TQuan_false in H ||
+      eapply TBinOp_TQuan_false in H ||
+      eapply TUnOp_TQuan_false in H ||
+      eapply typeq_TApps_TRec_TQuanI_false in H ||
+      eapply TApps_TRec_const_type_false in H ||
+      eapply tyeq_TApps_TRec_TBinOp_false in H ||
+      eapply tyeq_TApps_TRec_TUnOp_false in H ||
+      eapply TBinOp_TQuanI_false in H ||
+      eapply TBinOp_TConst_false in H ||
+      eapply TBinOp_TUnOp_false in H ||
+      eapply TProd_TSum_false in H
+  .
+
+  Ltac tyeq_false H := tyeq_false_half H || (eapply tyeq_sym in H; tyeq_false_half H).
+
+  Ltac tyeq_dis :=
+    match goal with
+      H : tyeq _ _ _ _ |- _ => tyeq_false H; exfalso; eapply H
+    end.
+    
+  Opaque tyeq.
+  
+  Lemma canon_TArrow' C v t i :
+    typing C v t i ->
+    get_sctx C = [] ->
+    get_kctx C = [] ->
+    get_tctx C = [] ->
+    forall t1 i' t2 ,
+      tyeq [] t (TArrow t1 i' t2) KType ->
+      value v ->
+      exists e,
+        v = EAbs e.
+  Proof.
+    induct 1; intros Hsnil Hknil Htnil ta i' tb Htyeq Hval; try solve [invert Hval | eexists; eauto]; subst; unfold_all;
+      try solve [tyeq_dis |
+                 cases inj; simplify; tyeq_dis |
+                 destruct C as (((L & K) & W) & G); simplify; subst; eapply IHtyping; eauto with db_tyeq
+                ].
+  Qed.
+
+  Lemma canon_TArrow W v t1 i' t2 i :
+    typing ([], [], W, []) v (TArrow t1 i' t2) i ->
+    value v ->
+    exists e,
+      v = EAbs e.
+  Proof.
+    intros; eapply canon_TArrow'; eauto with db_tyeq.
+  Qed.
+
+  Lemma canon_TForall' C v t i :
+    typing C v t i ->
+    get_sctx C = [] ->
+    get_kctx C = [] ->
+    get_tctx C = [] ->
+    forall k t' ,
+      tyeq [] t (TForall k t') KType ->
+      value v ->
+      exists e,
+        v = EAbsT e.
+  Proof.
+    induct 1; intros Hsnil Hknil Htnil k' t'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Htyeq]; subst; unfold_all; 
+      try solve [tyeq_dis |
+                 cases inj; simplify; tyeq_dis |
+                 destruct C as (((L & K) & W) & G); simplify; subst; eapply IHtyping; eauto with db_tyeq
+                ].
+  Qed.
+
+  Lemma canon_TForall W v k t i :
+    typing ([], [], W, []) v (TForall k t) i ->
+    value v ->
+    exists e,
+      v = EAbsT e.
+  Proof.
+    intros; eapply canon_TForall'; eauto with db_tyeq.
+  Qed.
+
   Lemma canon_TRec' C v t i :
     typing C v t i ->
     get_sctx C = [] ->
@@ -17519,52 +17537,11 @@ lift2 (fst (strip_subsets L))
         v = EFold e /\
         value e.
   Proof.
-    induct 1; intros Hsnil Hknil Htnil t'' cs' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst; unfold_all.
-    {
-      eapply tyeq_sym in Htyeq.
-      eapply tyeq_TApps_TRec_TArrow_false in Htyeq; propositional.
-    }
-    {
-      eapply tyeq_sym in Htyeq.
-      eapply typeq_TApps_TRec_TQuan_false in Htyeq; propositional.
-    }
-    {
-      eapply tyeq_sym in Htyeq.
-      eapply typeq_TApps_TRec_TQuanI_false in Htyeq; propositional.
-    }
-    {
-      eapply tyeq_sym in Htyeq.
-      eapply typeq_TApps_TRec_TQuan_false in Htyeq; propositional.
-    }
-    {
-      eapply tyeq_sym in Htyeq.
-      eapply typeq_TApps_TRec_TQuanI_false in Htyeq; propositional.
-    }
-    {
-      eapply tyeq_sym in Htyeq.
-      eapply TApps_TRec_const_type_false in Htyeq; propositional.
-    }
-    {
-      eapply tyeq_sym in Htyeq.
-      eapply tyeq_TApps_TRec_TBinOp_false in Htyeq; propositional.
-    }
-    {
-      eapply tyeq_sym in Htyeq.
-      cases inj; simplify;
-        eapply tyeq_TApps_TRec_TBinOp_false in Htyeq; propositional.
-    }
-    {
-      eapply tyeq_sym in Htyeq.
-      eapply tyeq_TApps_TRec_TUnOp_false in Htyeq; propositional.
-    }
-    {
-      destruct C as (((L & K) & W) & G); simplify; subst.
-      eapply IHtyping; eauto with db_tyeq.
-    }
-    {
-      destruct C as (((L & K) & W) & G); simplify; subst.
-      eapply IHtyping; eauto with db_tyeq.
-    }
+    induct 1; intros Hsnil Hknil Htnil t'' cs' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst; unfold_all; 
+      try solve [tyeq_dis |
+                 cases inj; simplify; tyeq_dis |
+                 destruct C as (((L & K) & W) & G); simplify; subst; eapply IHtyping; eauto with db_tyeq
+                ].
   Qed.
 
   Lemma canon_TRec W v t cs i :
@@ -17579,39 +17556,25 @@ lift2 (fst (strip_subsets L))
 
   Lemma canon_TExists' C v t i :
     typing C v t i ->
+    get_sctx C = [] ->
     get_kctx C = [] ->
     get_tctx C = [] ->
     forall k t' ,
-      tyeq [] t (CExists k t') ->
+      tyeq [] t (TExists k t') KType ->
       value v ->
       exists c e,
         v = EPack c e /\
         value e.
   Proof.
-    induct 1; intros Hknil Htnil k' t'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst.
-    (* { *)
-    (*   rewrite Htnil in H. *)
-    (*   rewrite nth_error_nil in H. *)
-    (*   invert H. *)
-    (* } *)
-  (*   { *)
-  (*     eapply CApps_CRec_CExists_false in Htyeq; propositional. *)
-  (*   } *)
-  (*   { *)
-  (*     cases cn; simplify; invert Htyeq. *)
-  (*   } *)
-  (*   { *)
-  (*     cases inj; simplify; invert Htyeq. *)
-  (*   } *)
-  (*   { *)
-  (*     destruct C as ((L & W) & G); simplify; subst. *)
-  (*     eapply IHtyping; eauto with db_tyeq. *)
-  (*   } *)
-  (* Qed. *)
-  Admitted.
+    induct 1; intros Hsnil Hknil Htnil k' t'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst; unfold_all; 
+      try solve [tyeq_dis |
+                 cases inj; simplify; tyeq_dis |
+                 destruct C as (((L & K) & W) & G); simplify; subst; eapply IHtyping; eauto with db_tyeq
+                ].
+  Qed.
   
   Lemma canon_TExists W v k t i :
-    typing ([], W, []) v (CExists k t) i ->
+    typing ([], [], W, []) v (TExists k t) i ->
     value v ->
     exists c e,
       v = EPack c e /\
@@ -17622,40 +17585,27 @@ lift2 (fst (strip_subsets L))
 
   Lemma canon_TProd' C v t i :
     typing C v t i ->
+    get_sctx C = [] ->
     get_kctx C = [] ->
     get_tctx C = [] ->
     forall t1 t2 ,
-      tyeq [] t (CProd t1 t2) ->
+      tyeq [] t (TProd t1 t2) KType ->
       value v ->
       exists v1 v2,
         v = EPair v1 v2 /\
         value v1 /\
         value v2.
   Proof.
-    induct 1; intros Hknil Htnil t1'' t2'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst.
-    (* { *)
-    (*   rewrite Htnil in H. *)
-    (*   rewrite nth_error_nil in H. *)
-    (*   invert H. *)
-    (* } *)
-  (*   { *)
-  (*     eapply CApps_CRec_CProd_false in Htyeq; propositional. *)
-  (*   } *)
-  (*   { *)
-  (*     cases cn; simplify; invert Htyeq. *)
-  (*   } *)
-  (*   { *)
-  (*     cases inj; simplify; invert Htyeq. *)
-  (*   } *)
-  (*   { *)
-  (*     destruct C as ((L & W) & G); simplify; subst. *)
-  (*     eapply IHtyping; eauto with db_tyeq. *)
-  (*   } *)
-  (* Qed. *)
-  Admitted.
+    induct 1; intros Hsnil Hknil Htnil t1'' t2'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst; unfold_all;
+      try solve [tyeq_dis |
+                 cases inj; simplify; tyeq_dis |
+                 cases cn; simplify; tyeq_dis |
+                 destruct C as (((L & K) & W) & G); simplify; subst; eapply IHtyping; eauto with db_tyeq
+                ].
+  Qed.
   
   Lemma canon_TProd W v t1 t2 i :
-    typing ([], W, []) v (CProd t1 t2) i ->
+    typing ([], [], W, []) v (TProd t1 t2) i ->
     value v ->
     exists v1 v2,
       v = EPair v1 v2 /\
@@ -17667,36 +17617,26 @@ lift2 (fst (strip_subsets L))
 
   Lemma canon_TSum' C v t i :
     typing C v t i ->
+    get_sctx C = [] ->
     get_kctx C = [] ->
     get_tctx C = [] ->
     forall t1 t2 ,
-      tyeq [] t (CSum t1 t2) ->
+      tyeq [] t (TSum t1 t2) KType ->
       value v ->
       exists inj v',
         v = EInj inj v' /\
         value v'.
   Proof.
-    induct 1; intros Hknil Htnil t1'' t2'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst.
-    (* { *)
-    (*   rewrite Htnil in H. *)
-    (*   rewrite nth_error_nil in H. *)
-    (*   invert H. *)
-    (* } *)
-  (*   { *)
-  (*     eapply CApps_CRec_CSum_false in Htyeq; propositional. *)
-  (*   } *)
-  (*   { *)
-  (*     cases cn; simplify; invert Htyeq. *)
-  (*   } *)
-  (*   { *)
-  (*     destruct C as ((L & W) & G); simplify; subst. *)
-  (*     eapply IHtyping; eauto with db_tyeq. *)
-  (*   } *)
-  (* Qed. *)
-  Admitted.
+    induct 1; intros ? Hknil Htnil t1'' t2'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst; unfold_all;
+      try solve [tyeq_dis |
+                 cases inj; simplify; tyeq_dis |
+                 cases cn; simplify; tyeq_dis |
+                 destruct C as (((L & K) & W) & G); simplify; subst; eapply IHtyping; eauto with db_tyeq
+                ].
+  Qed.
   
   Lemma canon_TSum W v t1 t2 i :
-    typing ([], W, []) v (CSum t1 t2) i ->
+    typing ([], [], W, []) v (TSum t1 t2) i ->
     value v ->
     exists inj v',
       v = EInj inj v' /\
@@ -17707,36 +17647,24 @@ lift2 (fst (strip_subsets L))
 
   Lemma canon_TRef' C v t i :
     typing C v t i ->
+    get_sctx C = [] ->
     get_kctx C = [] ->
     get_tctx C = [] ->
     forall t' ,
-      tyeq [] t (CRef t') ->
+      tyeq [] t (TRef t') KType ->
       value v ->
       exists l t',
         v = ELoc l /\
         get_hctx C $? l = Some t'.
   Proof.
-    induct 1; intros Hknil Htnil t'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst.
-    (* { *)
-    (*   rewrite Htnil in H. *)
-    (*   rewrite nth_error_nil in H. *)
-    (*   invert H. *)
-    (* } *)
-  (*   { *)
-  (*     eapply CApps_CRec_CRef_false in Htyeq; propositional. *)
-  (*   } *)
-  (*   { *)
-  (*     cases cn; simplify; invert Htyeq. *)
-  (*   } *)
-  (*   { *)
-  (*     cases inj; simplify; invert Htyeq. *)
-  (*   } *)
-  (*   { *)
-  (*     destruct C as ((L & W) & G); simplify; subst. *)
-  (*     eapply IHtyping; eauto with db_tyeq. *)
-  (*   } *)
-  (* Qed. *)
-  Admitted.
+    induct 1; intros ? Hknil Htnil t'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst; unfold_all;
+      try solve [tyeq_dis |
+                 cases inj; simplify; tyeq_dis |
+                 cases cn; simplify; tyeq_dis |
+                 destruct C as (((L & K) & W) & G); simplify; subst; eapply IHtyping; eauto with db_tyeq
+                ].
+    (*here*)
+  Qed.
   
   Lemma canon_TRef W v t i :
     typing ([], W, []) v (CRef t) i ->
