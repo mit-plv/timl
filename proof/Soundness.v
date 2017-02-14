@@ -17437,6 +17437,55 @@ lift2 (fst (strip_subsets L))
     invert H.
   Qed.
   
+  Lemma TUnOp_TQuanI_false opr t q s t' :
+    tyeq [] (TUnOp opr t) (TQuanI q s t') KType ->
+    False.
+  Proof.
+    intros H.
+    unfold tyeq in *.
+    simpl in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    specialize (H I).
+    invert H.
+  Qed.
+
+  Lemma TUnOp_TConst_false opr t cn :
+    tyeq [] (TUnOp opr t) (TConst cn) KType ->
+    False.
+  Proof.
+    intros H.
+    unfold tyeq in *.
+    simpl in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    specialize (H I).
+    invert H.
+  Qed.
+
+  Lemma TConst_TQuanI_false cn q s t :
+    tyeq [] (TConst cn) (TQuanI q s t) KType ->
+    False.
+  Proof.
+    intros H.
+    unfold tyeq in *.
+    simpl in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    specialize (H I).
+    destruct cn; simpl in *;
+      invert H.
+  Qed.
+
+  Lemma TExistsI_TForallI_false s t s' t' :
+    tyeq [] (TExistsI s t) (TForallI s' t') KType ->
+    False.
+  Proof.
+    intros H.
+    unfold tyeq in *.
+    simpl in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    specialize (H I).
+    invert H.
+  Qed.
+
   Ltac tyeq_false_half H :=
       eapply TQuan_TArrow_false_empty in H ||
       eapply TQuanI_TArrow_false in H ||
@@ -17459,7 +17508,11 @@ lift2 (fst (strip_subsets L))
       eapply TBinOp_TQuanI_false in H ||
       eapply TBinOp_TConst_false in H ||
       eapply TBinOp_TUnOp_false in H ||
-      eapply TProd_TSum_false in H
+      eapply TUnOp_TQuanI_false in H ||
+      eapply TUnOp_TConst_false in H ||
+      eapply TProd_TSum_false in H ||
+      eapply TConst_TQuanI_false in H || 
+      eapply TExistsI_TForallI_false in H
   .
 
   Ltac tyeq_false H := tyeq_false_half H || (eapply tyeq_sym in H; tyeq_false_half H).
@@ -17471,6 +17524,64 @@ lift2 (fst (strip_subsets L))
     
   Opaque tyeq.
   
+  Lemma canon_TForallI' C v t i :
+    typing C v t i ->
+    get_sctx C = [] ->
+    get_kctx C = [] ->
+    get_tctx C = [] ->
+    forall s t' ,
+      tyeq [] t (TForallI s t') KType ->
+      value v ->
+      exists e,
+        v = EAbsI e.
+  Proof.
+    induct 1; intros Hsnil Hknil Htnil k' t'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Htyeq]; subst; unfold_all; 
+      try solve [tyeq_dis |
+                 cases inj; simplify; tyeq_dis |
+                 cases cn; simplify; tyeq_dis |
+                 destruct C as (((L & K) & W) & G); simplify; subst; eapply IHtyping; eauto with db_tyeq
+                ].
+  Qed.
+
+  Lemma canon_TForallI W v s t i :
+    typing ([], [], W, []) v (TForallI s t) i ->
+    value v ->
+    exists e,
+      v = EAbsI e.
+  Proof.
+    intros; eapply canon_TForallI'; eauto with db_tyeq.
+  Qed.
+
+  Lemma canon_TExistsI' C v t i :
+    typing C v t i ->
+    get_sctx C = [] ->
+    get_kctx C = [] ->
+    get_tctx C = [] ->
+    forall s t' ,
+      tyeq [] t (TExistsI s t') KType ->
+      value v ->
+      exists c e,
+        v = EPackI c e /\
+        value e.
+  Proof.
+    induct 1; intros Hsnil Hknil Htnil k' t'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst; unfold_all; 
+      try solve [tyeq_dis |
+                 cases inj; simplify; tyeq_dis |
+                 cases cn; simplify; tyeq_dis |
+                 destruct C as (((L & K) & W) & G); simplify; subst; eapply IHtyping; eauto with db_tyeq
+                ].
+  Qed.
+  
+  Lemma canon_TExistsI W v s t i :
+    typing ([], [], W, []) v (TExistsI s t) i ->
+    value v ->
+    exists c e,
+      v = EPackI c e /\
+      value e.
+  Proof.
+    intros; eapply canon_TExistsI'; eauto with db_tyeq.
+  Qed.
+
   Lemma canon_TArrow' C v t i :
     typing C v t i ->
     get_sctx C = [] ->
@@ -17663,11 +17774,10 @@ lift2 (fst (strip_subsets L))
                  cases cn; simplify; tyeq_dis |
                  destruct C as (((L & K) & W) & G); simplify; subst; eapply IHtyping; eauto with db_tyeq
                 ].
-    (*here*)
   Qed.
   
   Lemma canon_TRef W v t i :
-    typing ([], W, []) v (CRef t) i ->
+    typing ([], [], W, []) v (TRef t) i ->
     value v ->
     exists l t',
       v = ELoc l /\
@@ -17678,6 +17788,7 @@ lift2 (fst (strip_subsets L))
 
   Lemma progress' C e t i :
     typing C e t i ->
+    get_sctx C = [] ->
     get_kctx C = [] ->
     get_tctx C = [] ->
     forall h f ,
@@ -17688,8 +17799,8 @@ lift2 (fst (strip_subsets L))
     induct 1.
     {
       (* Case Var *)
-      intros ? ? h f Hhty Hle.
-      destruct C as ((L & W) & G).
+      intros ? ? ? h f Hhty Hle.
+      destruct C as (((L & K) & W) & G).
       simplify.
       subst.
       rewrite nth_error_nil in H.
@@ -17697,8 +17808,8 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case App *)
-      intros ? ? h f Hhty Hle.
-      destruct C as ((L & W) & G).
+      intros ? ? ? h f Hhty Hle.
+      destruct C as (((L & K) & W) & G).
       simplify.
       subst.
       assert (Hi1 : (interp_time i1 <= f)%time).
@@ -17755,9 +17866,9 @@ lift2 (fst (strip_subsets L))
       simplify; eauto.
     }
     {
-      (* Case AppC *)
-      intros ? ? h f Hhty Hle.
-      destruct C as ((L & W) & G).
+      (* Case AppT *)
+      intros ? ? ? h f Hhty Hle.
+      destruct C as (((L & K) & W) & G).
       simplify.
       subst.
       eapply IHtyping in Hle; eauto.
@@ -17767,7 +17878,7 @@ lift2 (fst (strip_subsets L))
         destruct H1 as (e1 & ?).
         subst.
         right.
-        exists (h, subst0_c_e c e1, f).
+        exists (h, subst0_t_e t e1, f).
         eapply StepPlug with (E := ECHole); try eapply PlugHole.
         eauto.
       }
@@ -17777,12 +17888,45 @@ lift2 (fst (strip_subsets L))
         rename e' into e0'.
         rename e1' into e'.
         right.
-        exists (h', EAppC e' c, f').
-        eapply StepPlug with (E := ECAppC E c); repeat econstructor; eauto.
+        exists (h', EAppT e' t, f').
+        eapply StepPlug with (E := ECAppT E t); repeat econstructor; eauto.
       }
     }
     {
-      (* Case AbsC *)
+      (* Case AbsT *)
+      intros.
+      left.
+      simplify; eauto.
+    }
+    {
+      (* Case AppI *)
+      intros ? ? ? h f Hhty Hle.
+      destruct C as (((L & K) & W) & G).
+      simplify.
+      subst.
+      eapply IHtyping in Hle; eauto.
+      cases Hle; simplify.
+      {
+        eapply canon_TForallI in H1; eauto.
+        destruct H1 as (e1 & ?).
+        subst.
+        right.
+        exists (h, subst0_i_e c e1, f).
+        eapply StepPlug with (E := ECHole); try eapply PlugHole.
+        eauto.
+      }
+      {
+        destruct H1 as (((h' & e1') & f') & Hstep).
+        invert Hstep.
+        rename e' into e0'.
+        rename e1' into e'.
+        right.
+        exists (h', EAppI e' c, f').
+        eapply StepPlug with (E := ECAppI E c); repeat econstructor; eauto.
+      }
+    }
+    {
+      (* Case AbsI *)
       intros.
       left.
       simplify; eauto.
@@ -17797,8 +17941,8 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case Fold *)
-      intros ? ? h f Hhty Hle.
-      destruct C as ((L & W) & G).
+      intros ? ? ? h f Hhty Hle.
+      destruct C as (((L & K) & W) & G).
       simplify.
       subst.
       eapply IHtyping in Hle; eauto.
@@ -17808,7 +17952,7 @@ lift2 (fst (strip_subsets L))
         simplify; eauto.
       }
       {
-        destruct H as (((h' & e1') & f') & Hstep).
+        destruct H1 as (((h' & e1') & f') & Hstep).
         invert Hstep.
         rename e' into e0'.
         rename e1' into e'.
@@ -17819,13 +17963,20 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case Unfold *)
-      intros ? ? h f Hhty Hle.
-      destruct C as ((L & W) & G).
+      intros ? ? ? h f Hhty Hle.
+      destruct C as (((L & K) & W) & G).
       simplify.
       subst.
       eapply IHtyping in Hle; eauto.
       cases Hle; simplify.
       {
+        (*here*)
+        copy H Hty.
+        eapply typing_kinding_2 in Hty; eauto.
+        destruct Hty as [Hkd ?].
+        invert Hkd.
+        invert Hty.
+        
         eapply canon_TRec in H; eauto.
         destruct H as (e1 & ? & Hv).
         subst.
