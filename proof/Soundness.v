@@ -17636,31 +17636,78 @@ lift2 (fst (strip_subsets L))
     intros; eapply canon_TForall'; eauto with db_tyeq.
   Qed.
 
+  Transparent tyeq.
+  
+  Lemma tyeq_TApps_TRec_TConst_false_2 cs k3 t3 cn  :
+    tyeq [] (TApps (TRec k3 t3) cs) (TConst cn) KType ->
+    k3 <> map fst cs /\ cn = TCUnit.
+  Proof.
+    simpl.
+    intros H.
+    unfold tyeq in *.
+    simpl in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    repeat rewrite interp_ty_TApps in *.
+    simpl in *.
+    unfold convert_kind_value in *.
+    cases (kind_dec k3 (map fst cs)); subst.
+    {
+      unfold eq_rect_r in *.
+      rewrite <- Eqdep.EqdepTheory.eq_rect_eq in *.
+      rewrite uncurrys_currys in *.
+      simpl in *; specialize (H I); invert H.
+    }
+    {
+      rewrite uncurrys_kind_default_value in *.
+      simpl in *.
+      specialize (H I); invert H.
+      eauto.
+    }
+  Qed.
+  
+  Lemma TApps_TRec_const_type_false_2 cs k3 t3 cn  :
+    tyeq [] (TApps (TRec k3 t3) cs) (const_type cn) KType ->
+    k3 <> map fst cs /\ cn = ECTT.
+  Proof.
+    intro H.
+    cases cn; simplify;
+      eapply tyeq_TApps_TRec_TConst_false_2 in H; openhyp; try dis; eauto.
+  Qed.
+
+  Opaque tyeq.
+  
   Lemma canon_TRec' C v t i :
     typing C v t i ->
     get_sctx C = [] ->
     get_kctx C = [] ->
     get_tctx C = [] ->
-    forall t' cs ,
-      tyeq [] t (TApps (TRec (map fst cs) t') cs) KType ->
+    forall k t' cs ,
+      tyeq [] t (TApps (TRec k t') cs) KType ->
       value v ->
-      exists e,
+      (exists e,
         v = EFold e /\
-        value e.
+        value e) \/
+      (v = ETT
+       /\ k <> map fst cs).
   Proof.
-    induct 1; intros Hsnil Hknil Htnil t'' cs' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst; unfold_all; 
+    induct 1; intros Hsnil Hknil Htnil k' t'' cs' Htyeq Hval; try solve [invert Hval | left; eexists; eauto | invert Hval; left; eexists; eauto | invert Htyeq]; subst; unfold_all; 
       try solve [tyeq_dis |
                  cases inj; simplify; tyeq_dis |
                  destruct C as (((L & K) & W) & G); simplify; subst; eapply IHtyping; eauto with db_tyeq
                 ].
+    eapply tyeq_sym in Htyeq.
+    eapply TApps_TRec_const_type_false_2 in Htyeq.
+    openhyp; subst; right; eauto.
   Qed.
 
-  Lemma canon_TRec W v t cs i :
-    typing ([], [], W, []) v (TApps (TRec (map fst cs) t) cs) i ->
+  Lemma canon_TRec W v k t cs i :
+    typing ([], [], W, []) v (TApps (TRec k t) cs) i ->
     value v ->
-    exists e,
-      v = EFold e /\
-      value e.
+    (exists e,
+        v = EFold e /\
+        value e) \/
+    (v = ETT
+     /\ k <> map fst cs).
   Proof.
     intros; eapply canon_TRec'; eauto with db_tyeq.
   Qed.
@@ -17970,23 +18017,39 @@ lift2 (fst (strip_subsets L))
       eapply IHtyping in Hle; eauto.
       cases Hle; simplify.
       {
-        (*here*)
         copy H Hty.
-        eapply typing_kinding_2 in Hty; eauto.
-        destruct Hty as [Hkd ?].
-        invert Hkd.
-        invert Hty.
-        
         eapply canon_TRec in H; eauto.
-        destruct H as (e1 & ? & Hv).
-        subst.
-        right.
-        exists (h, e1, f).
-        eapply StepPlug with (E := ECHole); try eapply PlugHole.
-        eauto.
+        destruct H.
+        {
+          destruct H as (e1 & ? & Hv).
+          subst.
+          right.
+          exists (h, e1, f).
+          eapply StepPlug with (E := ECHole); try eapply PlugHole.
+          eauto.
+        }
+        {
+          openhyp; subst.
+          Lemma typing_ETT_invert C e t i :
+            typing C e t i ->
+            e = ETT ->
+            kinding (get_sctx C) (get_kctx C) t KType.
+          Proof.
+            induct 1; simpl; intros; try dis; eauto.
+            destruct C as (((L & K) & W) & G).
+            destruct cn; simpl; econstructor; eauto.
+          Qed.
+
+          eapply typing_ETT_invert in Hty; eauto.
+          simpl in *.
+          eapply kinding_TApps_invert in Hty.
+          destruct Hty as [Hkd ?].
+          invert Hkd.
+          propositional.
+        }        
       }
       {
-        destruct H as (((h' & e1') & f') & Hstep).
+        destruct H0 as (((h' & e1') & f') & Hstep).
         invert Hstep.
         rename e' into e0'.
         rename e1' into e'.
@@ -17997,8 +18060,8 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case Pack *)
-      intros ? ? h f Hhty Hle.
-      destruct C as ((L & W) & G).
+      intros ? ? ? h f Hhty Hle.
+      destruct C as (((L & K) & W) & G).
       simplify.
       subst.
       eapply IHtyping in Hle; eauto.
@@ -18019,8 +18082,8 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case Unpack *)
-      intros ? ? h f Hhty Hle.
-      destruct C as ((L & W) & G).
+      intros ? ? ? h f Hhty Hle.
+      destruct C as (((L & K) & W) & G).
       simplify.
       subst.
       assert (Hi1 : (interp_time i1 <= f)%time).
@@ -18037,7 +18100,7 @@ lift2 (fst (strip_subsets L))
         destruct Hty as (c & e & ? & Hv).
         subst.
         right.
-        exists (h, subst0_e_e e (subst0_c_e c e2), f).
+        exists (h, subst0_e_e e (subst0_t_e c e2), f).
         eapply StepPlug with (E := ECHole); try eapply PlugHole.
         eauto.
       }
@@ -18051,6 +18114,61 @@ lift2 (fst (strip_subsets L))
       }
     }
     {
+      (* Case PackI *)
+      intros ? ? ? h f Hhty Hle.
+      destruct C as (((L & K) & W) & G).
+      simplify.
+      subst.
+      eapply IHtyping in Hle; eauto.
+      cases Hle; simplify.
+      {
+        left.
+        simplify; eauto.
+      }
+      {
+        destruct H2 as (((h' & e1') & f') & Hstep).
+        invert Hstep.
+        rename e' into e0'.
+        rename e1' into e'.
+        right.
+        exists (h', EPackI c e', f').
+        eapply StepPlug with (E := ECPackI c E); repeat econstructor; eauto.
+      }
+    }
+    {
+      (* Case UnpackI *)
+      intros ? ? ? h f Hhty Hle.
+      destruct C as (((L & K) & W) & G).
+      simplify.
+      subst.
+      assert (Hi1 : (interp_time i1 <= f)%time).
+      {
+        repeat rewrite interp_time_distr in Hle.
+        repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+        eauto.
+      }
+      eapply IHtyping1 in Hi1; eauto.
+      cases Hi1; simplify.
+      {
+        rename H into Hty.
+        eapply canon_TExistsI in Hty; eauto.
+        destruct Hty as (c & e & ? & Hv).
+        subst.
+        right.
+        exists (h, subst0_e_e e (subst0_i_e c e2), f).
+        eapply StepPlug with (E := ECHole); try eapply PlugHole.
+        eauto.
+      }
+      {
+        rename H1 into Hstep.
+        destruct Hstep as (((h' & e1') & f') & Hstep).
+        invert Hstep.
+        right.
+        exists (h', EUnpackI e1' e2, f').
+        eapply StepPlug with (E := ECUnpackI E e2); repeat econstructor; eauto.
+      }
+    }
+    {
       (* Case Const *)
       intros.
       left.
@@ -18058,8 +18176,8 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case Pair *)
-      intros ? ? h f Hhty Hle.
-      destruct C as ((L & W) & G).
+      intros ? ? ? h f Hhty Hle.
+      destruct C as (((L & K) & W) & G).
       simplify.
       subst.
       assert (Hi1 : (interp_time i1 <= f)%time).
@@ -18101,8 +18219,8 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case Proj *)
-      intros ? ? h f Hhty Hle.
-      destruct C as ((L & W) & G).
+      intros ? ? ? h f Hhty Hle.
+      destruct C as (((L & K) & W) & G).
       simplify.
       subst.
       eapply IHtyping in Hle; eauto.
@@ -18127,8 +18245,8 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case Inj *)
-      intros ? ? h f Hhty Hle.
-      destruct C as ((L & W) & G).
+      intros ? ? ? h f Hhty Hle.
+      destruct C as (((L & K) & W) & G).
       simplify.
       subst.
       eapply IHtyping in Hle; eauto.
@@ -18148,8 +18266,8 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case Case *)
-      intros ? ? h f Hhty Hle.
-      destruct C as ((L & W) & G).
+      intros ? ? ? h f Hhty Hle.
+      destruct C as (((L & K) & W) & G).
       simplify.
       subst.
       assert (Hile : (interp_time i <= f)%time).
@@ -18181,8 +18299,8 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case New *)
-      intros ? ? h f Hhty Hle.
-      destruct C as ((L & W) & G).
+      intros ? ? ? h f Hhty Hle.
+      destruct C as (((L & K) & W) & G).
       simplify.
       subst.
       eapply IHtyping in Hle; eauto.
@@ -18206,8 +18324,8 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case Read *)
-      intros ? ? h f Hhty Hle.
-      destruct C as ((L & W) & G).
+      intros ? ? ? h f Hhty Hle.
+      destruct C as (((L & K) & W) & G).
       simplify.
       subst.
       eapply IHtyping in Hle; eauto.
@@ -18234,8 +18352,8 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case Write *)
-      intros ? ? h f Hhty Hle.
-      destruct C as ((L & W) & G).
+      intros ? ? ? h f Hhty Hle.
+      destruct C as (((L & K) & W) & G).
       simplify.
       subst.
       assert (Hi1 : (interp_time i1 <= f)%time).
@@ -18289,9 +18407,17 @@ lift2 (fst (strip_subsets L))
       simplify; eauto.
     }
     {
-      (* Case Sub *)
-      intros ? ? h f Hhty Hle.
-      destruct C as ((L & W) & G).
+      (* Case Tyeq *)
+      intros ? ? ? h f Hhty Hle.
+      destruct C as (((L' & K) & W) & G).
+      simplify.
+      subst.
+      eapply IHtyping; eauto.
+    }
+    {
+      (* Case Le *)
+      intros ? ? ? h f Hhty Hle.
+      destruct C as (((L' & K) & W) & G).
       simplify.
       subst.
       eapply IHtyping; eauto.
@@ -18311,6 +18437,8 @@ lift2 (fst (strip_subsets L))
     eapply progress'; eauto.
   Qed.
 
+  (*here*)
+  
   Fixpoint KArrows args result :=
     match args with
     | [] => result
