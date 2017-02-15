@@ -619,138 +619,6 @@ Proof.
   induction ls; destruct n; simplify; f_equal; eauto.
 Qed.
 
-Module NNRealTime <: TIME.
-  Require RIneq.
-  Definition nnreal := RIneq.nonnegreal.
-  Definition time_type := nnreal.
-  Definition Time0 : time_type.
-    Require Rdefinitions.
-    Module R := Rdefinitions.
-    refine (RIneq.mknonnegreal R.R0 _).
-    eauto with rorders.
-  Defined.
-  Definition Time1 : time_type.
-    refine (RIneq.mknonnegreal R.R1 _).
-    eauto with rorders.
-    admit.
-  Admitted.
-  Definition TimeAdd (a b : time_type) : time_type.
-    Import RIneq.
-    refine (mknonnegreal (R.Rplus (nonneg a) (nonneg b)) _).
-    destruct a.
-    destruct b.
-    simplify.
-    admit.
-  Admitted.
-  Definition TimeMinus (a b : time_type) : time_type.
-  Admitted.
-  Definition TimeLe (a b : time_type) : Prop.
-    refine (R.Rle (nonneg a) (nonneg b)).
-  Defined.
-  Definition TimeMax : time_type -> time_type -> time_type.
-  Admitted.
-  
-  Delimit Scope time_scope with time.
-  Notation "0" := Time0 : time_scope.
-  Notation "1" := Time1 : time_scope.
-  Infix "+" := TimeAdd : time_scope.
-  Infix "-" := TimeMinus : time_scope.
-  Infix "<=" := TimeLe : time_scope.
-
-  Lemma Time_add_le_elim a b c :
-    (a + b <= c -> a <= c /\ b <= c)%time.
-  Admitted.
-  Lemma Time_minus_move_left a b c :
-    (c <= b ->
-     a + c <= b ->
-     a <= b - c)%time.
-  Admitted.
-  Lemma Time_add_assoc a b c : (a + (b + c) = a + b + c)%time.
-  Admitted.
-  Lemma lhs_rotate a b c :
-    (b + a <= c ->
-     a + b <= c)%time.
-  Admitted.
-  Lemma Time_add_cancel a b c :
-    (a <= b ->
-     a + c <= b + c)%time.
-  Admitted.
-  Lemma rhs_rotate a b c :
-    (a <= c + b->
-     a <= b + c)%time.
-  Admitted.
-  Lemma Time_a_le_ba a b : (a <= b + a)%time.
-  Admitted.
-  Lemma Time_minus_cancel a b c :
-    (a <= b -> a - c <= b - c)%time.
-  Admitted.
-  Lemma Time_a_minus_a a : (a - a = 0)%time.
-  Admitted.
-  Lemma Time_0_le_x x : (0 <= x)%time.
-  Admitted.
-  Lemma Time_minus_0 x : (x - 0 = x)%time.
-  Admitted.
-  Lemma Time_0_add x : (0 + x = x)%time.
-  Admitted.
-  Lemma Time_le_refl x : (x <= x)%time.
-  Admitted.
-  Lemma Time_le_trans a b c :
-    (a <= b -> b <= c -> a <= c)%time.
-  Admitted.
-  Lemma Time_add_cancel2 a b c d :
-    (c <= d ->
-     a <= b ->
-     a + c <= b + d)%time.
-  Admitted.
-  Lemma Time_a_le_maxab a b : (a <= TimeMax a b)%time.
-  Admitted.
-  Lemma Time_b_le_maxab a b : (b <= TimeMax a b)%time.
-  Admitted.
-  Lemma Time_add_minus_assoc a b c :
-    (c <= b -> a + (b - c) = a + b - c)%time.
-  Admitted.
-  Lemma Time_minus_le a b : (a - b <= a)%time.
-  Admitted.
-  Lemma Time_minus_add_cancel a b :
-    (b <= a -> a - b + b = a)%time.
-  Admitted.
-  Lemma Time_minus_move_right a b c :
-    (c <= a ->
-     a <= b + c ->
-     a - c <= b)%time.
-  Admitted.
-  Lemma Time_le_add_minus a b c :
-    (a + b - c <= a + (b - c))%time.
-  Admitted.
-  Lemma Time_add_comm a b : (a + b = b + a)%time.
-  Admitted.
-  Lemma Time_add_minus_cancel a b : (a + b - b = a)%time.
-  Admitted.
-  Lemma Time_minus_minus_cancel a b : (b <= a -> a - (a - b) = b)%time.
-  Admitted.
-
-End NNRealTime.
-
-(*
-Module RealTime <: TIME.
-  Require Rdefinitions.
-  Module R := Rdefinitions.
-  Definition real := R.R.
-  (* Require RIneq. *)
-  (* Definition nnreal := RIneq.nonnegreal. *)
-  Definition time_type := real.
-  (* Definition time_type := nnreal. *)
-  Definition Time0 := R.R0.
-  Definition Time1 := R.R1.
-  Definition TimeAdd := R.Rplus.
-  Definition TimeMinus := R.Rminus.
-  Definition TimeLe := R.Rle.
-End RealTime.
- *)
-
-(* Module Time := RealTime. *)
-(* Module Time := NatTime. *)
-
 Section Forall3.
 
   Variables A B C : Type.
@@ -801,8 +669,18 @@ Lemma nth_error_map_elim : forall A B (f : A -> B) ls i b, nth_error (List.map f
   rewrite e in *; discriminate.
 Qed.
 
-Module M (Time : TIME).
-  Import Time.
+Fixpoint time_fun time_type (arity : nat) :=
+  match arity with
+  | 0 => time_type
+  | S n => nat -> time_fun time_type n
+  end.
+
+Module Type BIG_O (Time : TIME).
+  Parameter Time_BigO : forall arity : nat, time_fun Time.time_type arity -> time_fun Time.time_type arity -> Prop.
+End BIG_O.
+
+Module M (Time : TIME) (BigO :BIG_O Time).
+  Import Time BigO.
 
   Delimit Scope time_scope with time.
   Notation "0" := Time0 : time_scope.
@@ -882,7 +760,8 @@ Module M (Time : TIME).
   | BSNat
   | BSUnit
   | BSBool
-  | BSTimeFun (arity : nat)
+  | BSTime
+  | BSArrow (b1 b2 : bsort)
   .
 
   Definition var := nat.
@@ -911,51 +790,18 @@ Module M (Time : TIME).
   | SSubset (s : bsort) (p : prop)
   .
 
-  (* the type language *)
-  
-  Inductive ty_const :=
-  | TCUnit
-  | TCInt
-  .
-
-  Inductive ty_un_op :=
-  | TURef
-  .
-
-  Inductive ty_bin_op :=
-  | TBProd
-  | TBSum
-  .
-
-  Definition kind := list bsort.
-  Definition KType := @nil bsort.
-  Definition KArrow := @cons bsort.
-  
-  (* Inductive kind := *)
-  (* | KType *)
-  (* | KArrow (s : bsort) (k : kind) *)
-  (* . *)
-  
-  Inductive ty :=
-  | TVar (x : var)
-  | TConst (cn : ty_const)
-  | TUnOp (opr : ty_un_op) (c : ty)
-  | TBinOp (opr : ty_bin_op) (c1 c2 : ty)
-  | TArrow (t1 : ty) (i : idx) (t2 : ty)
-  | TAbs (s : bsort) (t : ty)
-  | TApp (t : ty) (b : bsort) (i : idx)
-  | TQuan (q : quan) (k : kind) (t : ty)
-  | TQuanI (q : quan) (s : sort) (t : ty)
-  | TRec (k : kind) (t : ty)
-  .
-
   Definition SUnit := SBaseSort BSUnit.
   Definition SBool := SBaseSort BSBool.
   Definition SNat := SBaseSort BSNat.
+  Definition STime := SBaseSort BSTime.
+  Definition SArrow b1 b2 := SBaseSort (BSArrow b1 b2).
+  Fixpoint BSTimeFun arity :=
+    match arity with
+    | 0 => BSTime
+    | S n => BSArrow BSNat (BSTimeFun n)
+    end.
   Definition STimeFun arity := SBaseSort (BSTimeFun arity).
-  Definition STime := STimeFun 0.
-  Definition BSTime := BSTimeFun 0.
-
+  
   Notation Tconst r := (IConst (ICTime r)).
   Notation T0 := (Tconst Time0).
   Notation T1 := (Tconst Time1).
@@ -975,14 +821,6 @@ Module M (Time : TIME).
   (* Notation "0" := T0 : idx_scope. *)
   (* Notation "1" := T1 : idx_scope. *)
 
-  Definition TForall := TQuan QuanForall.
-  Definition TExists := TQuan QuanExists.
-
-  Definition TUnit := TConst TCUnit.
-
-  Definition TProd := TBinOp TBProd.
-  Definition TSum := TBinOp TBSum.
-
   Definition Tle := PBinPred PBTimeLe.
   Definition TEq := PEq BSTime.
   Infix "<=" := Tle : idx_scope.
@@ -991,11 +829,6 @@ Module M (Time : TIME).
   Infix "<===>" := PIff (at level 95) : idx_scope.
   Infix "/\" := PAnd : idx_scope.
   
-  Require BinIntDef.
-  Definition int := BinIntDef.Z.t.
-
-  Definition TInt := TConst TCInt.
-
   Definition const_bsort cn :=
     match cn with
     | ICTT => BSUnit
@@ -1052,10 +885,9 @@ Module M (Time : TIME).
     end
   .
 
-  Definition sctx := list sort.
-  Definition kctx := list kind.
-  
-  Section shift.
+  Definition map_snd A B1 B2 (f : B1 -> B2) (a : A * B1) := (fst a, f (snd a)).
+    
+  Section shift_i.
 
     Variable n : nat.
     
@@ -1090,47 +922,11 @@ Module M (Time : TIME).
       | SSubset s p => SSubset s (shift_i_p (1 + x) p)
       end.
 
-    Definition map_snd A B1 B2 (f : B1 -> B2) (a : A * B1) := (fst a, f (snd a)).
-    
-    Fixpoint shift_i_t (x : var) (b : ty) : ty :=
-      match b with
-      | TVar y => TVar y
-      | TConst cn => TConst cn
-      | TUnOp opr t => TUnOp opr (shift_i_t x t)
-      | TBinOp opr c1 c2 => TBinOp opr (shift_i_t x c1) (shift_i_t x c2)
-      | TArrow t1 i t2 => TArrow (shift_i_t x t1) (shift_i_i x i) (shift_i_t x t2)
-      | TAbs b t => TAbs b (shift_i_t (1 + x) t)
-      | TApp t b i => TApp (shift_i_t x t) b (shift_i_i x i)
-      | TQuan q k c => TQuan q k (shift_i_t x c)
-      | TQuanI q s c => TQuanI q (shift_i_s x s) (shift_i_t (1 + x) c)
-      | TRec k t => TRec k (shift_i_t x t)
-      end.
-
-    Fixpoint shift_t_t (x : var) (b : ty) : ty :=
-      match b with
-      | TVar y =>
-        if x <=? y then
-          TVar (n + y)
-        else
-          TVar y
-      | TConst cn => TConst cn
-      | TUnOp opr t => TUnOp opr (shift_t_t x t)
-      | TBinOp opr c1 c2 => TBinOp opr (shift_t_t x c1) (shift_t_t x c2)
-      | TArrow t1 i t2 => TArrow (shift_t_t x t1) i (shift_t_t x t2)
-      | TAbs s t => TAbs s (shift_t_t x t)
-      | TApp t b i => TApp (shift_t_t x t) b i
-      | TQuan q k c => TQuan q k (shift_t_t (1 + x) c)
-      | TQuanI q s c => TQuanI q s (shift_t_t x c)
-      | TRec k t => TRec k (shift_t_t (1 + x) t)
-      end.
-        
-  End shift.
+  End shift_i.
   
   Definition shift0_i_i := shift_i_i 1 0.
   Definition shift0_i_s := shift_i_s 1 0.
   Definition shift0_i_p := shift_i_p 1 0.
-  Definition shift0_i_t := shift_i_t 1 0.
-  Definition shift0_t_t := shift_t_t 1 0.
 
   Require Import Datatypes.
 
@@ -1181,46 +977,11 @@ Module M (Time : TIME).
     | SSubset b p => SSubset b (subst_i_p (1 + x) (shift0_i_i v) p)
     end.
   
-  Fixpoint subst_i_t (x : var) (v : idx) (b : ty) : ty :=
-    match b with
-    | TVar y => TVar y
-    | TConst cn => TConst cn
-    | TUnOp opr i => TUnOp opr (subst_i_t x v i)
-    | TBinOp opr c1 c2 => TBinOp opr (subst_i_t x v c1) (subst_i_t x v c2)
-    | TArrow t1 i t2 => TArrow (subst_i_t x v t1) (subst_i_i x v i) (subst_i_t x v t2)
-    | TAbs b t => TAbs b (subst_i_t (1 + x) (shift0_i_i v) t)
-    | TApp t b i => TApp (subst_i_t x v t) b (subst_i_i x v i)
-    | TQuan q k c => TQuan q k (subst_i_t x v c)
-    | TQuanI q s c => TQuanI q (subst_i_s x v s) (subst_i_t (1 + x) (shift0_i_i v) c)
-    | TRec k t => TRec k (subst_i_t x v t)
-    end.
-      
-  Fixpoint subst_t_t (x : var) (v : ty) (b : ty) : ty :=
-    match b with
-    | TVar y =>
-      match y <=>? x with
-      | MyLt _ => TVar y
-      | MyEq _ => v
-      | MyGt _ => TVar (y - 1)
-      end
-    | TConst cn => TConst cn
-    | TUnOp opr t => TUnOp opr (subst_t_t x v t)
-    | TBinOp opr c1 c2 => TBinOp opr (subst_t_t x v c1) (subst_t_t x v c2)
-    | TArrow t1 i t2 => TArrow (subst_t_t x v t1) i (subst_t_t x v t2)
-    | TAbs s t => TAbs s (subst_t_t x (shift0_i_t v) t)
-    | TApp t b i => TApp (subst_t_t x v t) b i
-    | TQuan q k c => TQuan q k (subst_t_t (1 + x) (shift0_t_t v) c)
-    | TQuanI q s c => TQuanI q s (subst_t_t x (shift0_i_t v) c)
-    | TRec k t => TRec k (subst_t_t (1 + x) (shift0_t_t v) t)
-    end.
-  
   Definition subst0_i_i v b := subst_i_i 0 v b.
-  Definition subst0_i_t v b := subst_i_t 0 v b.
-  Definition subst0_t_t v b := subst_t_t 0 v b.
   
   Ltac la := linear_arithmetic.
 
-  Section shift_proofs.
+  Section shift_i_proofs.
     
     Lemma shift_i_i_0 : forall b x, shift_i_i 0 x b = b.
     Proof.
@@ -1271,28 +1032,6 @@ Module M (Time : TIME).
     Qed.
 
     Hint Resolve map_map_snd_shift_i_i_0.
-    
-    Lemma shift_i_t_0 :
-      forall b x, shift_i_t 0 x b = b.
-    Proof.
-      induct b;
-        simplify; cbn in *;
-          try solve [f_equal; eauto].
-    Qed.
-    
-    Lemma shift_t_t_0 :
-      forall b x, shift_t_t 0 x b = b.
-    Proof.
-      induct b;
-        simplify; cbn in *;
-          try solve [f_equal; eauto].
-      {
-        (* Case CVar *)
-        repeat match goal with
-                 |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
-               end; f_equal; eauto with db_la.
-      }
-    Qed.
     
     Lemma shift_i_i_shift_merge n1 n2 :
       forall b x y,
@@ -1382,45 +1121,6 @@ Module M (Time : TIME).
 
     Hint Resolve map_map_snd_shift_i_i_shift_merge.
     
-    Lemma shift_i_t_shift_merge n1 n2 :
-      forall b x y,
-        x <= y ->
-        y <= x + n1 ->
-        shift_i_t n2 y (shift_i_t n1 x b) = shift_i_t (n1 + n2) x b.
-    Proof.
-      induct b;
-        simplify; cbn in *;
-          try solve [eauto |
-                     f_equal; eauto |
-                     erewrite H by la; f_equal; eauto with db_la |
-                     f_equal;
-                     eauto with db_la
-                    ].
-    Qed.
-    
-    Lemma shift_t_t_shift_merge n1 n2 :
-      forall b x y,
-        x <= y ->
-        y <= x + n1 ->
-        shift_t_t n2 y (shift_t_t n1 x b) = shift_t_t (n1 + n2) x b.
-    Proof.
-      induct b;
-        simplify; cbn in *;
-          try solve [eauto |
-                     f_equal; eauto |
-                     erewrite H by la; f_equal; eauto with db_la |
-                     f_equal;
-                     match goal with
-                       H : _ |- _ => eapply H; eauto with db_la
-                     end].
-      {
-        (* Case CVar *)
-        repeat match goal with
-                 |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
-               end; f_equal; la.
-      }
-    Qed.
-
     Lemma shift_i_s_shift_0 b :
       forall n1 n2 x,
         x <= n1 ->
@@ -1513,40 +1213,6 @@ Module M (Time : TIME).
 
     Hint Resolve map_map_snd_shift_i_i_shift_cut.
     
-    Lemma shift_i_t_shift_cut n1 n2 :
-      forall b x y,
-        x + n1 <= y ->
-        shift_i_t n2 y (shift_i_t n1 x b) = shift_i_t n1 x (shift_i_t n2 (y - n1) b).
-    Proof.
-      induct b;
-        simplify; cbn in *;
-          try solve [eauto |
-                     f_equal; eauto |
-                     erewrite H by la; repeat f_equal; eauto with db_la |
-                     try replace (S (y - n1)) with (S y - n1) by la; f_equal; eauto with db_la
-                    ].
-    Qed.
-    
-    Lemma shift_t_t_shift_cut n1 n2 :
-      forall b x y,
-        x + n1 <= y ->
-        shift_t_t n2 y (shift_t_t n1 x b) = shift_t_t n1 x (shift_t_t n2 (y - n1) b).
-    Proof.
-      induct b;
-        simplify; cbn in *;
-          try solve [eauto |
-                     f_equal; eauto |
-                     erewrite H by la; repeat f_equal; eauto with db_la |
-                     try replace (S (y - n1)) with (S y - n1) by la; f_equal; eauto with db_la
-                    ].
-      {
-        (* Case CVar *)
-        repeat match goal with
-                 |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
-               end; f_equal; la.
-      }
-    Qed.
-    
     Lemma shift_i_s_shift_2 b :
       forall n1 n2 x,
         n1 <= x ->
@@ -1578,13 +1244,6 @@ Module M (Time : TIME).
       rewrite shift_i_i_shift_merge; f_equal; la.
     Qed.
     
-    Lemma shift0_t_t_shift_0 n c :
-      shift0_t_t (shift_t_t n 0 c) = shift_t_t (1 + n) 0 c.
-    Proof.
-      unfold shift0_t_t; intros.
-      rewrite shift_t_t_shift_merge; f_equal; la.
-    Qed.
-    
     Lemma shift0_i_i_shift n x b :
       shift0_i_i (shift_i_i n x b) = shift_i_i n (1 + x) (shift0_i_i b).
     Proof.
@@ -1593,17 +1252,9 @@ Module M (Time : TIME).
       rewrite shift_i_i_shift_cut; repeat f_equal; la.
     Qed.
 
-    Lemma shift0_t_t_shift n x b :
-      shift0_t_t (shift_t_t n x b) = shift_t_t n (1 + x) (shift0_t_t b).
-    Proof.
-      unfold shift0_t_t; intros.
-      symmetry.
-      rewrite shift_t_t_shift_cut; repeat f_equal; la.
-    Qed.
+  End shift_i_proofs.
 
-  End shift_proofs.
-
-  Section subst_proofs.
+  Section subst_i_proofs.
     
     Lemma subst0_i_i_Const v cn : subst0_i_i v (IConst cn) = IConst cn.
     Proof.
@@ -1703,48 +1354,6 @@ Module M (Time : TIME).
     Qed.
 
     Hint Resolve map_map_snd_subst_i_i_shift_avoid.
-    
-    Lemma subst_i_t_shift_avoid n :
-      forall b v x y,
-        x <= y ->
-        y < x + n ->
-        subst_i_t y v (shift_i_t n x b) = shift_i_t (n - 1) x b.
-    Proof.
-      induct b;
-        simplify; cbn in *;
-          try solve [eauto |
-                     f_equal; eauto |
-                     erewrite H by la; repeat f_equal; eauto with db_la |
-                     repeat replace (S (y - n)) with (S y - n) by la;
-                     f_equal;
-                     eauto with db_la
-                    ].
-    Qed.
-    
-    Lemma subst_t_t_shift_avoid n :
-      forall b v x y,
-        x <= y ->
-        y < x + n ->
-        subst_t_t y v (shift_t_t n x b) = shift_t_t (n - 1) x b.
-    Proof.
-      induct b;
-        simplify; cbn in *;
-          try solve [eauto |
-                     f_equal; eauto |
-                     erewrite H by la; repeat f_equal; eauto with db_la |
-                     repeat replace (S (y - n)) with (S y - n) by la;
-                     f_equal;
-                     match goal with
-                       H : _ |- _ => eapply H; eauto with db_la
-                     end].
-      {
-        (* Case CVar *)
-        repeat match goal with
-               | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
-               | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
-               end; try solve [f_equal; la].
-      }
-    Qed.
     
     Lemma subst_i_s_shift_0_avoid x y v b :
       y < x ->
@@ -1854,72 +1463,6 @@ Module M (Time : TIME).
     
     Hint Resolve map_map_snd_subst_i_i_shift_hit.
     
-    Lemma subst_i_t_shift_hit v n :
-      forall b x y,
-        x + n <= y ->
-        subst_i_t y (shift_i_i y 0 v) (shift_i_t n x b) = shift_i_t n x (subst_i_t (y - n) (shift_i_i (y - n) 0 v) b).
-    Proof.
-      induct b;
-        simplify; cbn in *;
-          try solve [eauto |
-                     f_equal; eauto |
-                     erewrite H by la; repeat f_equal; eauto with db_la |
-                     repeat rewrite shift0_i_i_shift_0; simplify;
-                     repeat replace (S (y - n)) with (S y - n) by la;
-                     f_equal;
-                     eauto with db_la 
-                    ].
-    Qed.
-    
-    Lemma shift_i_t_shift_t_t_commute :
-      forall b x2 n2 x1 n1,
-        shift_i_t x2 n2 (shift_t_t x1 n1 b) = shift_t_t x1 n1 (shift_i_t x2 n2 b).
-    Proof.
-      induct b;
-        simplify; cbn in *;
-          try solve [eauto |
-                     f_equal; eauto |
-                     erewrite H by la; repeat f_equal; eauto with db_la |
-                     try replace (S (y - n1)) with (S y - n1) by la;
-                     f_equal;
-                     match goal with
-                       H : _ |- _ => eapply H; eauto with db_la
-                     end].
-      {
-        (* Case CVar *)
-        repeat match goal with
-                 |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
-               end; f_equal; la.
-      }
-    Qed.
-
-    Lemma subst_t_t_shift_hit n :
-      forall b x y v,
-        x + n <= y ->
-        subst_t_t y (shift_t_t y 0 v) (shift_t_t n x b) = shift_t_t n x (subst_t_t (y - n) (shift_t_t (y - n) 0 v) b).
-    Proof.
-      induct b;
-        simplify; cbn in *;
-          try unfold shift0_i_t; repeat rewrite shift_i_t_shift_t_t_commute;
-          try solve [eauto |
-                     f_equal; eauto |
-                     erewrite H by la; repeat f_equal; eauto with db_la |
-                     repeat rewrite shift0_t_t_shift_0; simplify;
-                     repeat replace (S (y - n)) with (S y - n) by la;
-                     f_equal;
-                     eauto with db_la 
-                    ].
-      {
-        (* Case CVar *)
-        repeat match goal with
-               | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
-               | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
-               end; try solve [f_equal; la].
-        rewrite shift_t_t_shift_merge by la.
-        f_equal; eauto with db_la.
-      }
-    Qed.
-    
     Lemma subst_i_s_shift x y v b :
       x <= y ->
       subst_i_s y (shift_i_i y 0 v) (shift_i_s x 0 b) = shift_i_s x 0 (subst_i_s (y - x) (shift_i_i (y - x) 0 v) b).
@@ -2017,48 +1560,6 @@ Module M (Time : TIME).
     
     Hint Resolve map_map_snd_shift_i_i_subst_in.
     
-    Lemma shift_i_t_subst_in n :
-      forall b v x y,
-        y <= x ->
-        shift_i_t n y (subst_i_t x v b) = subst_i_t (x + n) (shift_i_i n y v) (shift_i_t n y b).
-    Proof.
-      induct b;
-        simplify; cbn in *;
-          try solve [eauto |
-                     f_equal; eauto with db_la |
-                     erewrite H by la; repeat f_equal; eauto with db_la |
-                     repeat rewrite shift0_i_i_shift; simplify;
-                     repeat replace (S (x + n)) with (S x + n) by la;
-                     f_equal;
-                     eauto with db_la
-                    ].
-    Qed.
-    
-    Lemma shift_t_t_subst_in n :
-      forall b v x y,
-        y <= x ->
-        shift_t_t n y (subst_t_t x v b) = subst_t_t (x + n) (shift_t_t n y v) (shift_t_t n y b).
-    Proof.
-      induct b;
-        simplify; cbn in *;
-          try unfold shift0_i_t; repeat rewrite shift_i_t_shift_t_t_commute;
-          try solve [eauto |
-                     f_equal; eauto with db_la |
-                     erewrite H by la; repeat f_equal; eauto with db_la |
-                     repeat rewrite shift0_t_t_shift; simplify;
-                     repeat replace (S (x + n)) with (S x + n) by la;
-                     f_equal;
-                     eauto with db_la
-                    ].
-      {
-        (* Case CVar *)
-        repeat match goal with
-               | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
-               | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
-               end; try solve [f_equal; la].
-      }
-    Qed.
-    
     Lemma shift0_i_i_subst x v b :
       shift0_i_i (subst_i_i x (shift_i_i x 0 v) b) = subst_i_i (1 + x) (shift_i_i (1 + x) 0 v) (shift0_i_i b).
     Proof.
@@ -2073,14 +1574,6 @@ Module M (Time : TIME).
     Proof.
       unfold shift0_i_i, subst0_i_i.
       rewrite shift_i_i_subst_in by la.
-      repeat (f_equal; try la).
-    Qed.
-
-    Lemma shift0_t_t_subst_2 x v b :
-      shift0_t_t (subst_t_t x v b) = subst_t_t (1 + x) (shift0_t_t v) (shift0_t_t b).
-    Proof.
-      unfold shift0_t_t, subst0_t_t.
-      rewrite shift_t_t_subst_in by la.
       repeat (f_equal; try la).
     Qed.
 
@@ -2174,50 +1667,6 @@ Module M (Time : TIME).
     Qed.
     
     Hint Resolve map_map_snd_shift_i_i_subst_out.
-    
-    Lemma shift_i_t_subst_out n :
-      forall b v x y,
-        x <= y ->
-        shift_i_t n y (subst_i_t x v b) = subst_i_t x (shift_i_i n y v) (shift_i_t n (S y) b).
-    Proof.
-      induct b;
-        simplify;
-        cbn in *;
-        try solve [eauto |
-                   f_equal; eauto |
-                   erewrite H by la; repeat f_equal; eauto with db_la |
-                   repeat rewrite shift0_i_i_shift; simplify;
-                   repeat replace (S (y - n)) with (S y - n) by la;
-                   f_equal;
-                   eauto with db_la
-                  ].
-    Qed.
-    
-    Lemma shift_t_t_subst_out n :
-      forall b v x y,
-        x <= y ->
-        shift_t_t n y (subst_t_t x v b) = subst_t_t x (shift_t_t n y v) (shift_t_t n (S y) b).
-    Proof.
-      induct b;
-        simplify;
-        cbn in *;
-        try unfold shift0_i_t; repeat rewrite shift_i_t_shift_t_t_commute;
-        try solve [eauto |
-                   f_equal; eauto |
-                   erewrite H by la; repeat f_equal; eauto with db_la |
-                   repeat rewrite shift0_t_t_shift; simplify;
-                   repeat replace (S (y - n)) with (S y - n) by la;
-                   f_equal;
-                   eauto with db_la
-                  ].
-      {
-        (* Case CVar *)
-        repeat match goal with
-               | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
-               | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
-               end; try solve [f_equal; la].
-      }
-    Qed.
     
     Lemma shift_i_i_subst0 n x v b : shift_i_i n x (subst0_i_i v b) = subst0_i_i (shift_i_i n x v) (shift_i_i n (S x) b).
     Proof.
@@ -2324,113 +1773,6 @@ Module M (Time : TIME).
 
     Hint Resolve map_map_snd_subst_i_i_subst.
     
-    Lemma subst_i_t_subst :
-      forall b v1 v2 x y,
-        x <= y ->
-        subst_i_t y v2 (subst_i_t x v1 b) = subst_i_t x (subst_i_i y v2 v1) (subst_i_t (S y) (shift_i_i 1 x v2) b).
-    Proof.
-      induct b;
-        simplify;
-        cbn in *;
-        try solve [eauto |
-                   f_equal; eauto |
-                   erewrite H by la; repeat f_equal; eauto with db_la |
-                   repeat rewrite shift0_i_i_shift; simplify;
-                   repeat rewrite shift0_i_i_subst_2; simplify;
-                   repeat replace (S (y - n)) with (S y - n) by la;
-                   f_equal;
-                   eauto with db_la
-                  ].
-    Qed.
-    
-    Lemma shift_i_t_subst_t_t :
-      forall b x2 n x1 v,
-        shift_i_t x2 n (subst_t_t x1 v b) = subst_t_t x1 (shift_i_t x2 n v) (shift_i_t x2 n b).
-    Proof.
-      induct b;
-        simplify; cbn in *;
-          try solve [eauto |
-                     f_equal; eauto |
-                     erewrite H by la; repeat f_equal; eauto with db_la |
-                     repeat rewrite shift0_i_i_shift; simplify;
-                     repeat replace (S (y - n)) with (S y - n) by la;
-                     f_equal;
-                     match goal with
-                       H : _ |- _ => eapply H; eauto with db_la
-                     end].
-      {
-        (* Case TVar *)
-        repeat match goal with
-               | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
-               | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
-               end; try solve [f_equal; la].
-      }
-      {
-        (* Case TAbs *)
-        rewrite IHb by la.
-        unfold shift0_i_t.
-        repeat rewrite shift_i_t_shift_cut by la.
-        simpl.
-        repeat f_equal.
-        la.
-      }
-      {
-        (* Case TQuan *)
-        rewrite IHb by la.
-        unfold shift0_t_t.
-        repeat rewrite shift_i_t_shift_t_t_commute.
-        eauto.
-      }      
-      {
-        (* Case TQuanI *)
-        rewrite IHb by la.
-        unfold shift0_i_t.
-        repeat rewrite shift_i_t_shift_cut by la.
-        simpl.
-        repeat f_equal.
-        la.
-      }      
-      {
-        (* Case TRec *)
-        rewrite IHb by la.
-        unfold shift0_t_t.
-        repeat rewrite shift_i_t_shift_t_t_commute.
-        eauto.
-      }      
-    Qed.
-
-    Lemma subst_t_t_subst :
-      forall b v1 v2 x y,
-        x <= y ->
-        subst_t_t y v2 (subst_t_t x v1 b) = subst_t_t x (subst_t_t y v2 v1) (subst_t_t (S y) (shift_t_t 1 x v2) b).
-    Proof.
-      induct b;
-        simplify;
-        cbn in *;
-        try unfold shift0_i_t; repeat rewrite shift_i_t_shift_t_t_commute;
-        try solve [eauto |
-                   f_equal; eauto |
-                   erewrite H by la; repeat f_equal; eauto with db_la |
-                   rewrite IHb by la; rewrite shift_i_t_subst_t_t; eauto |
-                   repeat rewrite shift0_t_t_shift; simplify;
-                   repeat rewrite shift0_t_t_subst_2; simplify;
-                   repeat replace (S (y - n)) with (S y - n) by la;
-                   f_equal;
-                   eauto with db_la
-                  ].
-      {
-        (* Case TVar *)
-        repeat match goal with
-               | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
-               | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
-               end; try solve [f_equal; la].
-        rewrite subst_t_t_shift_avoid by la.
-        simplify.
-        rewrite shift_t_t_0.
-        eauto.
-      }
-    Qed.
-    
     Lemma subst_i_i_subst0 n c c' t : subst_i_i n c (subst0_i_i c' t) = subst0_i_i (subst_i_i n c c') (subst_i_i (S n) (shift0_i_i c) t).
     Proof.
       eapply subst_i_i_subst.
@@ -2446,34 +1788,24 @@ Module M (Time : TIME).
       eauto.
     Qed.
 
-  End subst_proofs.
+  End subst_i_proofs.
   
-  Fixpoint time_fun (arity : nat) :=
-    match arity with
-    | 0 => time_type
-    | S n => nat -> time_fun n
-    end.
-
-  Definition interp_bsort (b : bsort) :=
+  Fixpoint interp_bsort (b : bsort) :=
     match b with
     | BSNat => nat
     | BSUnit => unit
     | BSBool => bool
-    | BSTimeFun arity => time_fun arity
+    | BSTime => time_type
+    | BSArrow b1 b2 => interp_bsort b1 -> interp_bsort b2
     end.
 
-  Fixpoint time_fun_default_value arity : time_fun arity :=
-    match arity with
-    | 0 => 0%time
-    | S n => fun _ : nat => time_fun_default_value n
-    end.
-  
-  Definition sort_default_value (b : bsort) : interp_bsort b :=
+  Fixpoint bsort_default_value (b : bsort) : interp_bsort b :=
     match b with
     | BSNat => 0%nat
     | BSUnit => tt
     | BSBool => false
-    | BSTimeFun arity => time_fun_default_value arity
+    | BSTime => 0%time
+    | BSArrow b1 b2 => fun _ => bsort_default_value b2
     end.
 
   Fixpoint interp_bsorts arg_ks res :=
@@ -2537,6 +1869,14 @@ Module M (Time : TIME).
       fun t1 t2 t3 t4 t5 t6 t f x1 x2 x3 x4 x5 x6 => lift6 arg_ks (fun a1 a2 a3 a4 a5 a6 ak => f (a1 ak) (a2 ak) (a3 ak) (a4 ak) (a5 ak) (a6 ak)) x1 x2 x3 x4 x5 x6
     end.
 
+  Fixpoint lift7 arg_ks : forall t1 t2 t3 t4 t5 t6 t7 t, (t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t) -> interp_bsorts arg_ks t1 -> interp_bsorts arg_ks t2 -> interp_bsorts arg_ks t3 -> interp_bsorts arg_ks t4 -> interp_bsorts arg_ks t5 -> interp_bsorts arg_ks t6 -> interp_bsorts arg_ks t7 -> interp_bsorts arg_ks t :=
+    match arg_ks return forall t1 t2 t3 t4 t5 t6 t7 t, (t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t) -> interp_bsorts arg_ks t1 -> interp_bsorts arg_ks t2 -> interp_bsorts arg_ks t3 -> interp_bsorts arg_ks t4 -> interp_bsorts arg_ks t5 -> interp_bsorts arg_ks t6 -> interp_bsorts arg_ks t7 -> interp_bsorts arg_ks t with
+    | [] =>
+      fun t1 t2 t3 t4 t5 t6 t7 t f x1 x2 x3 x4 x5 x6 x7 => f x1 x2 x3 x4 x5 x6 x7
+    | arg_k :: arg_ks =>
+      fun t1 t2 t3 t4 t5 t6 t7 t f x1 x2 x3 x4 x5 x6 x7 => lift7 arg_ks (fun a1 a2 a3 a4 a5 a6 a7 ak => f (a1 ak) (a2 ak) (a3 ak) (a4 ak) (a5 ak) (a6 ak) (a7 ak)) x1 x2 x3 x4 x5 x6 x7
+    end.
+
   Lemma fuse_lift1_id ks :
     forall A a,
       lift1 ks (@id A) a = a.
@@ -2584,6 +1924,14 @@ Module M (Time : TIME).
     eapply IHks.
   Qed.
   
+  Lemma fuse_lift1_lift5 bs :
+    forall T A1 B1 B2 B3 B4 B5 (f : A1 -> T) (g : B1 -> B2 -> B3 -> B4 -> B5 -> A1) b1 b2 b3 b4 b5,
+      lift1 bs f (lift5 bs g b1 b2 b3 b4 b5) = lift5 bs (fun b1 b2 b3 b4 b5 => f (g b1 b2 b3 b4 b5)) b1 b2 b3 b4 b5.
+  Proof.
+    induct bs; simplify; eauto.
+    eapply IHbs.
+  Qed.
+  
   Lemma fuse_lift1_lift6 ks :
     forall A B C D E F G H (h : G -> H) (g : A -> B -> C -> D -> E -> F -> G) a b c d e f,
       lift1 ks h (lift6 ks g a b c d e f) = lift6 ks (fun a b c d e f => h (g a b c d e f)) a b c d e f.
@@ -2592,6 +1940,16 @@ Module M (Time : TIME).
     eapply IHks.
   Qed.
   
+  Lemma fuse_lift1_lift7 bs :
+    forall T A1 B1 B2 B3 B4 B5 B6 B7 (f : A1 -> T) (g : B1 -> B2 -> B3 -> B4 -> B5 -> B6 -> B7 -> A1) b1 b2 b3 b4 b5 b6 b7,
+      lift1 bs f (lift7 bs g b1 b2 b3 b4 b5 b6 b7) = lift7 bs (fun b1 b2 b3 b4 b5 b6 b7 => f (g b1 b2 b3 b4 b5 b6 b7)) b1 b2 b3 b4 b5 b6 b7.
+  Proof.
+    induct bs; simplify; eauto.
+    eapply IHbs.
+  Qed.
+
+  (*here*)
+
   Lemma fuse_lift2_lift0_2 ks :
     forall A B C (f : A -> B -> C) (g : B) a,
       lift2 ks f a (lift0 ks g) = lift1 ks (fun a => f a g) a.
@@ -2742,12 +2100,12 @@ Module M (Time : TIME).
   Proof.
     cases (sort_dec k1 k2); subst; eauto.
     intros.
-    eapply sort_default_value.
+    eapply bsort_default_value.
   Defined.
   
   Fixpoint interp_var (x : var) arg_bs ret_b {struct arg_bs} : interp_bsorts arg_bs (interp_bsort ret_b) :=
     match arg_bs return interp_bsorts arg_bs (interp_bsort ret_b) with
-    | [] => sort_default_value ret_b
+    | [] => bsort_default_value ret_b
     | arg_b :: arg_bs =>
       match x with
       | 0 => lift0 arg_bs (convert_sort_value arg_b ret_b)
@@ -2762,7 +2120,7 @@ Module M (Time : TIME).
     
     Fixpoint interp_var (x : var) arg_ks k_out (k : interp_bsort k_in -> k_out) {struct arg_ks} : interp_bsorts arg_ks k_out :=
     match arg_ks with
-    | [] => k (sort_default_value k_in)
+    | [] => k (bsort_default_value k_in)
     | arg_k :: arg_ks =>
       match x with
       | 0 => lift0 arg_ks (fun x : interp_bsort arg_k => k (convert_sort_value arg_k k_in x))
@@ -2812,7 +2170,7 @@ Module M (Time : TIME).
       match res_k return interp_bsorts arg_ks (interp_bsort res_k) with
       | BSTimeFun (S n) =>
         interp_idx c (BSNat :: arg_ks) (BSTimeFun n)
-      | res_k => lift0 arg_ks (sort_default_value res_k)
+      | res_k => lift0 arg_ks (bsort_default_value res_k)
       end
     | ITimeApp n c1 c2 => 
       let f x1 x2 := convert_sort_value (BSTimeFun n) res_k (x1 x2) in
@@ -2869,9 +2227,6 @@ Module M (Time : TIME).
     | PBCImply => imply
     | PBCIff => iff
     end.
-
-  Definition Time_BigO (arity : nat) : time_fun arity -> time_fun arity -> Prop.
-  Admitted.
 
   Definition interp_binpred opr : interp_bsort (binpred_arg1_bsort opr) -> interp_bsort (binpred_arg2_bsort opr) -> Prop :=
     match opr with
@@ -2936,6 +2291,8 @@ Module M (Time : TIME).
     | [] => PTrue
     | p :: ps => (p /\ and_all ps) % idx
     end.
+  
+  Definition sctx := list sort.
   
   Definition interp_prop (ss : sctx) (p : prop) : Prop :=
     let bs := map get_bsort ss in
@@ -5648,8 +5005,8 @@ lift2 (fst (strip_subsets L))
     eapply forall_interp_var_eq_subst_eq_2'; eauto.
   Qed.
   
-  Lemma convert_sort_value_sort_default_value b1 b2 :
-    convert_sort_value b1 b2 (sort_default_value b1) = sort_default_value b2.
+  Lemma convert_sort_value_bsort_default_value b1 b2 :
+    convert_sort_value b1 b2 (bsort_default_value b1) = bsort_default_value b2.
   Proof.
     unfold convert_sort_value.
     destruct b1; destruct b2; simpl; eauto.
@@ -6455,14 +5812,6 @@ lift2 (fst (strip_subsets L))
     eapply IHbs.
   Qed.
   
-  Lemma fuse_lift1_lift5 bs :
-    forall T A1 B1 B2 B3 B4 B5 (f : A1 -> T) (g : B1 -> B2 -> B3 -> B4 -> B5 -> A1) b1 b2 b3 b4 b5,
-      lift1 bs f (lift5 bs g b1 b2 b3 b4 b5) = lift5 bs (fun b1 b2 b3 b4 b5 => f (g b1 b2 b3 b4 b5)) b1 b2 b3 b4 b5.
-  Proof.
-    induct bs; simplify; eauto.
-    eapply IHbs.
-  Qed.
-  
   Lemma forall_lift3_lift3_lift5 :
     forall bs A1 A2 A3 A4 A5 P1 P2 P3 P4 P5 (f1 : A1 -> A2 -> A4 -> Prop) (f2 : A1 -> A2 -> A5 -> Prop) (f3 : A1 -> A2 -> A3 -> A4 -> A5 -> Prop),
       (forall a1 a2 a3 a4 a5, f1 a1 a2 a4 -> f2 a1 a2 a5 -> f3 a1 a2 a3 a4 a5) ->
@@ -7032,6 +6381,35 @@ lift2 (fst (strip_subsets L))
     {
       invert Hs.
       eauto.
+    }
+  Qed.
+  
+  Lemma interp_prop_subst_i_p L p :
+    interp_prop L p ->
+    forall n s c ,
+      nth_error L n = Some s ->
+      sorting (my_skipn L (1 + n)) c s ->
+      bwfprop (map get_bsort L) p ->
+      bwfsorts L ->
+      interp_prop (subst_i_ss c (firstn n L) ++ my_skipn L (1 + n)) (subst_i_p n (shift_i_i n 0 c) p).
+  Proof.
+    intros Hp n s c Hnth Hc Hwfp Hss.
+    unfold interp_prop in *.
+    simpl in *.
+    rewrite get_bsort_remove_subst.
+    copy Hnth Hnth'.
+    eapply map_nth_error with (f := get_bsort) in Hnth'.
+    eapply forall_subst_i_p_intro_imply_my_skipn in Hp; eauto.
+    {
+      eapply forall_trans; [ | eassumption].
+      eapply subst_strip_subsets_imply; eauto.
+    }
+    {
+      rewrite <- map_my_skipn.
+      eapply sorting_bsorting; eauto.
+    }
+    {
+      eapply bwfsorts_bwfprop_strip_subsets; eauto.
     }
   Qed.
   
@@ -7656,6 +7034,563 @@ lift2 (fst (strip_subsets L))
     induct 1; simpl; try solve [intros; subst; eauto using wellscoped_shift_i_p with db_la].
   Qed.
 
+  (* the type language *)
+  
+  Inductive ty_const :=
+  | TCUnit
+  | TCInt
+  .
+
+  Inductive ty_un_op :=
+  | TURef
+  .
+
+  Inductive ty_bin_op :=
+  | TBProd
+  | TBSum
+  .
+
+  Definition kind := list bsort.
+  Definition KType := @nil bsort.
+  Definition KArrow := @cons bsort.
+  
+  (* Inductive kind := *)
+  (* | KType *)
+  (* | KArrow (s : bsort) (k : kind) *)
+  (* . *)
+  
+  Inductive ty :=
+  | TVar (x : var)
+  | TConst (cn : ty_const)
+  | TUnOp (opr : ty_un_op) (c : ty)
+  | TBinOp (opr : ty_bin_op) (c1 c2 : ty)
+  | TArrow (t1 : ty) (i : idx) (t2 : ty)
+  | TAbs (s : bsort) (t : ty)
+  | TApp (t : ty) (b : bsort) (i : idx)
+  | TQuan (q : quan) (k : kind) (t : ty)
+  | TQuanI (q : quan) (s : sort) (t : ty)
+  | TRec (k : kind) (t : ty)
+  .
+
+  Definition TForall := TQuan QuanForall.
+  Definition TExists := TQuan QuanExists.
+
+  Definition TUnit := TConst TCUnit.
+
+  Definition TProd := TBinOp TBProd.
+  Definition TSum := TBinOp TBSum.
+
+  Definition TInt := TConst TCInt.
+
+  Require BinIntDef.
+  Definition int := BinIntDef.Z.t.
+
+  Definition kctx := list kind.
+
+  Section shift_t.
+  
+    Fixpoint shift_i_t (x : var) (b : ty) : ty :=
+      match b with
+      | TVar y => TVar y
+      | TConst cn => TConst cn
+      | TUnOp opr t => TUnOp opr (shift_i_t x t)
+      | TBinOp opr c1 c2 => TBinOp opr (shift_i_t x c1) (shift_i_t x c2)
+      | TArrow t1 i t2 => TArrow (shift_i_t x t1) (shift_i_i x i) (shift_i_t x t2)
+      | TAbs b t => TAbs b (shift_i_t (1 + x) t)
+      | TApp t b i => TApp (shift_i_t x t) b (shift_i_i x i)
+      | TQuan q k c => TQuan q k (shift_i_t x c)
+      | TQuanI q s c => TQuanI q (shift_i_s x s) (shift_i_t (1 + x) c)
+      | TRec k t => TRec k (shift_i_t x t)
+      end.
+
+    Fixpoint shift_t_t (x : var) (b : ty) : ty :=
+      match b with
+      | TVar y =>
+        if x <=? y then
+          TVar (n + y)
+        else
+          TVar y
+      | TConst cn => TConst cn
+      | TUnOp opr t => TUnOp opr (shift_t_t x t)
+      | TBinOp opr c1 c2 => TBinOp opr (shift_t_t x c1) (shift_t_t x c2)
+      | TArrow t1 i t2 => TArrow (shift_t_t x t1) i (shift_t_t x t2)
+      | TAbs s t => TAbs s (shift_t_t x t)
+      | TApp t b i => TApp (shift_t_t x t) b i
+      | TQuan q k c => TQuan q k (shift_t_t (1 + x) c)
+      | TQuanI q s c => TQuanI q s (shift_t_t x c)
+      | TRec k t => TRec k (shift_t_t (1 + x) t)
+      end.
+        
+  End shift_t.
+      
+  Definition shift0_i_t := shift_i_t 1 0.
+  Definition shift0_t_t := shift_t_t 1 0.
+  
+  Fixpoint subst_i_t (x : var) (v : idx) (b : ty) : ty :=
+    match b with
+    | TVar y => TVar y
+    | TConst cn => TConst cn
+    | TUnOp opr i => TUnOp opr (subst_i_t x v i)
+    | TBinOp opr c1 c2 => TBinOp opr (subst_i_t x v c1) (subst_i_t x v c2)
+    | TArrow t1 i t2 => TArrow (subst_i_t x v t1) (subst_i_i x v i) (subst_i_t x v t2)
+    | TAbs b t => TAbs b (subst_i_t (1 + x) (shift0_i_i v) t)
+    | TApp t b i => TApp (subst_i_t x v t) b (subst_i_i x v i)
+    | TQuan q k c => TQuan q k (subst_i_t x v c)
+    | TQuanI q s c => TQuanI q (subst_i_s x v s) (subst_i_t (1 + x) (shift0_i_i v) c)
+    | TRec k t => TRec k (subst_i_t x v t)
+    end.
+      
+  Fixpoint subst_t_t (x : var) (v : ty) (b : ty) : ty :=
+    match b with
+    | TVar y =>
+      match y <=>? x with
+      | MyLt _ => TVar y
+      | MyEq _ => v
+      | MyGt _ => TVar (y - 1)
+      end
+    | TConst cn => TConst cn
+    | TUnOp opr t => TUnOp opr (subst_t_t x v t)
+    | TBinOp opr c1 c2 => TBinOp opr (subst_t_t x v c1) (subst_t_t x v c2)
+    | TArrow t1 i t2 => TArrow (subst_t_t x v t1) i (subst_t_t x v t2)
+    | TAbs s t => TAbs s (subst_t_t x (shift0_i_t v) t)
+    | TApp t b i => TApp (subst_t_t x v t) b i
+    | TQuan q k c => TQuan q k (subst_t_t (1 + x) (shift0_t_t v) c)
+    | TQuanI q s c => TQuanI q s (subst_t_t x (shift0_i_t v) c)
+    | TRec k t => TRec k (subst_t_t (1 + x) (shift0_t_t v) t)
+    end.
+  
+  Definition subst0_i_t v b := subst_i_t 0 v b.
+  Definition subst0_t_t v b := subst_t_t 0 v b.
+  
+  Section shift_t_proofs.
+    
+    Lemma shift_i_t_0 :
+      forall b x, shift_i_t 0 x b = b.
+    Proof.
+      induct b;
+        simplify; cbn in *;
+          try solve [f_equal; eauto].
+    Qed.
+    
+    Lemma shift_t_t_0 :
+      forall b x, shift_t_t 0 x b = b.
+    Proof.
+      induct b;
+        simplify; cbn in *;
+          try solve [f_equal; eauto].
+      {
+        (* Case CVar *)
+        repeat match goal with
+                 |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+               end; f_equal; eauto with db_la.
+      }
+    Qed.
+
+    Lemma shift_i_t_shift_merge n1 n2 :
+      forall b x y,
+        x <= y ->
+        y <= x + n1 ->
+        shift_i_t n2 y (shift_i_t n1 x b) = shift_i_t (n1 + n2) x b.
+    Proof.
+      induct b;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto |
+                     erewrite H by la; f_equal; eauto with db_la |
+                     f_equal;
+                     eauto with db_la
+                    ].
+    Qed.
+    
+    Lemma shift_t_t_shift_merge n1 n2 :
+      forall b x y,
+        x <= y ->
+        y <= x + n1 ->
+        shift_t_t n2 y (shift_t_t n1 x b) = shift_t_t (n1 + n2) x b.
+    Proof.
+      induct b;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto |
+                     erewrite H by la; f_equal; eauto with db_la |
+                     f_equal;
+                     match goal with
+                       H : _ |- _ => eapply H; eauto with db_la
+                     end].
+      {
+        (* Case CVar *)
+        repeat match goal with
+                 |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+               end; f_equal; la.
+      }
+    Qed.
+
+    Lemma shift_i_t_shift_cut n1 n2 :
+      forall b x y,
+        x + n1 <= y ->
+        shift_i_t n2 y (shift_i_t n1 x b) = shift_i_t n1 x (shift_i_t n2 (y - n1) b).
+    Proof.
+      induct b;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto |
+                     erewrite H by la; repeat f_equal; eauto with db_la |
+                     try replace (S (y - n1)) with (S y - n1) by la; f_equal; eauto with db_la
+                    ].
+    Qed.
+    
+    Lemma shift_t_t_shift_cut n1 n2 :
+      forall b x y,
+        x + n1 <= y ->
+        shift_t_t n2 y (shift_t_t n1 x b) = shift_t_t n1 x (shift_t_t n2 (y - n1) b).
+    Proof.
+      induct b;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto |
+                     erewrite H by la; repeat f_equal; eauto with db_la |
+                     try replace (S (y - n1)) with (S y - n1) by la; f_equal; eauto with db_la
+                    ].
+      {
+        (* Case CVar *)
+        repeat match goal with
+                 |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+               end; f_equal; la.
+      }
+    Qed.
+    
+    Lemma shift0_t_t_shift_0 n c :
+      shift0_t_t (shift_t_t n 0 c) = shift_t_t (1 + n) 0 c.
+    Proof.
+      unfold shift0_t_t; intros.
+      rewrite shift_t_t_shift_merge; f_equal; la.
+    Qed.
+    
+    Lemma shift0_t_t_shift n x b :
+      shift0_t_t (shift_t_t n x b) = shift_t_t n (1 + x) (shift0_t_t b).
+    Proof.
+      unfold shift0_t_t; intros.
+      symmetry.
+      rewrite shift_t_t_shift_cut; repeat f_equal; la.
+    Qed.
+
+  End shift_t_proofs.
+    
+  Section subst_t_proofs.
+    
+    Lemma subst_i_t_shift_avoid n :
+      forall b v x y,
+        x <= y ->
+        y < x + n ->
+        subst_i_t y v (shift_i_t n x b) = shift_i_t (n - 1) x b.
+    Proof.
+      induct b;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto |
+                     erewrite H by la; repeat f_equal; eauto with db_la |
+                     repeat replace (S (y - n)) with (S y - n) by la;
+                     f_equal;
+                     eauto with db_la
+                    ].
+    Qed.
+    
+    Lemma subst_t_t_shift_avoid n :
+      forall b v x y,
+        x <= y ->
+        y < x + n ->
+        subst_t_t y v (shift_t_t n x b) = shift_t_t (n - 1) x b.
+    Proof.
+      induct b;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto |
+                     erewrite H by la; repeat f_equal; eauto with db_la |
+                     repeat replace (S (y - n)) with (S y - n) by la;
+                     f_equal;
+                     match goal with
+                       H : _ |- _ => eapply H; eauto with db_la
+                     end].
+      {
+        (* Case CVar *)
+        repeat match goal with
+               | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+               | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
+               end; try solve [f_equal; la].
+      }
+    Qed.
+    
+    Lemma subst_i_t_shift_hit v n :
+      forall b x y,
+        x + n <= y ->
+        subst_i_t y (shift_i_i y 0 v) (shift_i_t n x b) = shift_i_t n x (subst_i_t (y - n) (shift_i_i (y - n) 0 v) b).
+    Proof.
+      induct b;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto |
+                     erewrite H by la; repeat f_equal; eauto with db_la |
+                     repeat rewrite shift0_i_i_shift_0; simplify;
+                     repeat replace (S (y - n)) with (S y - n) by la;
+                     f_equal;
+                     eauto with db_la 
+                    ].
+    Qed.
+    
+    Lemma shift_i_t_shift_t_t_commute :
+      forall b x2 n2 x1 n1,
+        shift_i_t x2 n2 (shift_t_t x1 n1 b) = shift_t_t x1 n1 (shift_i_t x2 n2 b).
+    Proof.
+      induct b;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto |
+                     erewrite H by la; repeat f_equal; eauto with db_la |
+                     try replace (S (y - n1)) with (S y - n1) by la;
+                     f_equal;
+                     match goal with
+                       H : _ |- _ => eapply H; eauto with db_la
+                     end].
+      {
+        (* Case CVar *)
+        repeat match goal with
+                 |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+               end; f_equal; la.
+      }
+    Qed.
+
+    Lemma subst_t_t_shift_hit n :
+      forall b x y v,
+        x + n <= y ->
+        subst_t_t y (shift_t_t y 0 v) (shift_t_t n x b) = shift_t_t n x (subst_t_t (y - n) (shift_t_t (y - n) 0 v) b).
+    Proof.
+      induct b;
+        simplify; cbn in *;
+          try unfold shift0_i_t; repeat rewrite shift_i_t_shift_t_t_commute;
+          try solve [eauto |
+                     f_equal; eauto |
+                     erewrite H by la; repeat f_equal; eauto with db_la |
+                     repeat rewrite shift0_t_t_shift_0; simplify;
+                     repeat replace (S (y - n)) with (S y - n) by la;
+                     f_equal;
+                     eauto with db_la 
+                    ].
+      {
+        (* Case CVar *)
+        repeat match goal with
+               | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+               | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
+               end; try solve [f_equal; la].
+        rewrite shift_t_t_shift_merge by la.
+        f_equal; eauto with db_la.
+      }
+    Qed.
+    
+    Lemma shift_i_t_subst_in n :
+      forall b v x y,
+        y <= x ->
+        shift_i_t n y (subst_i_t x v b) = subst_i_t (x + n) (shift_i_i n y v) (shift_i_t n y b).
+    Proof.
+      induct b;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto with db_la |
+                     erewrite H by la; repeat f_equal; eauto with db_la |
+                     repeat rewrite shift0_i_i_shift; simplify;
+                     repeat replace (S (x + n)) with (S x + n) by la;
+                     f_equal;
+                     eauto with db_la
+                    ].
+    Qed.
+    
+    Lemma shift_t_t_subst_in n :
+      forall b v x y,
+        y <= x ->
+        shift_t_t n y (subst_t_t x v b) = subst_t_t (x + n) (shift_t_t n y v) (shift_t_t n y b).
+    Proof.
+      induct b;
+        simplify; cbn in *;
+          try unfold shift0_i_t; repeat rewrite shift_i_t_shift_t_t_commute;
+          try solve [eauto |
+                     f_equal; eauto with db_la |
+                     erewrite H by la; repeat f_equal; eauto with db_la |
+                     repeat rewrite shift0_t_t_shift; simplify;
+                     repeat replace (S (x + n)) with (S x + n) by la;
+                     f_equal;
+                     eauto with db_la
+                    ].
+      {
+        (* Case CVar *)
+        repeat match goal with
+               | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+               | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
+               end; try solve [f_equal; la].
+      }
+    Qed.
+    
+    Lemma shift0_t_t_subst_2 x v b :
+      shift0_t_t (subst_t_t x v b) = subst_t_t (1 + x) (shift0_t_t v) (shift0_t_t b).
+    Proof.
+      unfold shift0_t_t, subst0_t_t.
+      rewrite shift_t_t_subst_in by la.
+      repeat (f_equal; try la).
+    Qed.
+
+    Lemma shift_i_t_subst_out n :
+      forall b v x y,
+        x <= y ->
+        shift_i_t n y (subst_i_t x v b) = subst_i_t x (shift_i_i n y v) (shift_i_t n (S y) b).
+    Proof.
+      induct b;
+        simplify;
+        cbn in *;
+        try solve [eauto |
+                   f_equal; eauto |
+                   erewrite H by la; repeat f_equal; eauto with db_la |
+                   repeat rewrite shift0_i_i_shift; simplify;
+                   repeat replace (S (y - n)) with (S y - n) by la;
+                   f_equal;
+                   eauto with db_la
+                  ].
+    Qed.
+    
+    Lemma shift_t_t_subst_out n :
+      forall b v x y,
+        x <= y ->
+        shift_t_t n y (subst_t_t x v b) = subst_t_t x (shift_t_t n y v) (shift_t_t n (S y) b).
+    Proof.
+      induct b;
+        simplify;
+        cbn in *;
+        try unfold shift0_i_t; repeat rewrite shift_i_t_shift_t_t_commute;
+        try solve [eauto |
+                   f_equal; eauto |
+                   erewrite H by la; repeat f_equal; eauto with db_la |
+                   repeat rewrite shift0_t_t_shift; simplify;
+                   repeat replace (S (y - n)) with (S y - n) by la;
+                   f_equal;
+                   eauto with db_la
+                  ].
+      {
+        (* Case CVar *)
+        repeat match goal with
+               | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+               | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
+               end; try solve [f_equal; la].
+      }
+    Qed.
+    
+    Lemma subst_i_t_subst :
+      forall b v1 v2 x y,
+        x <= y ->
+        subst_i_t y v2 (subst_i_t x v1 b) = subst_i_t x (subst_i_i y v2 v1) (subst_i_t (S y) (shift_i_i 1 x v2) b).
+    Proof.
+      induct b;
+        simplify;
+        cbn in *;
+        try solve [eauto |
+                   f_equal; eauto |
+                   erewrite H by la; repeat f_equal; eauto with db_la |
+                   repeat rewrite shift0_i_i_shift; simplify;
+                   repeat rewrite shift0_i_i_subst_2; simplify;
+                   repeat replace (S (y - n)) with (S y - n) by la;
+                   f_equal;
+                   eauto with db_la
+                  ].
+    Qed.
+    
+    Lemma shift_i_t_subst_t_t :
+      forall b x2 n x1 v,
+        shift_i_t x2 n (subst_t_t x1 v b) = subst_t_t x1 (shift_i_t x2 n v) (shift_i_t x2 n b).
+    Proof.
+      induct b;
+        simplify; cbn in *;
+          try solve [eauto |
+                     f_equal; eauto |
+                     erewrite H by la; repeat f_equal; eauto with db_la |
+                     repeat rewrite shift0_i_i_shift; simplify;
+                     repeat replace (S (y - n)) with (S y - n) by la;
+                     f_equal;
+                     match goal with
+                       H : _ |- _ => eapply H; eauto with db_la
+                     end].
+      {
+        (* Case TVar *)
+        repeat match goal with
+               | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+               | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
+               end; try solve [f_equal; la].
+      }
+      {
+        (* Case TAbs *)
+        rewrite IHb by la.
+        unfold shift0_i_t.
+        repeat rewrite shift_i_t_shift_cut by la.
+        simpl.
+        repeat f_equal.
+        la.
+      }
+      {
+        (* Case TQuan *)
+        rewrite IHb by la.
+        unfold shift0_t_t.
+        repeat rewrite shift_i_t_shift_t_t_commute.
+        eauto.
+      }      
+      {
+        (* Case TQuanI *)
+        rewrite IHb by la.
+        unfold shift0_i_t.
+        repeat rewrite shift_i_t_shift_cut by la.
+        simpl.
+        repeat f_equal.
+        la.
+      }      
+      {
+        (* Case TRec *)
+        rewrite IHb by la.
+        unfold shift0_t_t.
+        repeat rewrite shift_i_t_shift_t_t_commute.
+        eauto.
+      }      
+    Qed.
+
+    Lemma subst_t_t_subst :
+      forall b v1 v2 x y,
+        x <= y ->
+        subst_t_t y v2 (subst_t_t x v1 b) = subst_t_t x (subst_t_t y v2 v1) (subst_t_t (S y) (shift_t_t 1 x v2) b).
+    Proof.
+      induct b;
+        simplify;
+        cbn in *;
+        try unfold shift0_i_t; repeat rewrite shift_i_t_shift_t_t_commute;
+        try solve [eauto |
+                   f_equal; eauto |
+                   erewrite H by la; repeat f_equal; eauto with db_la |
+                   rewrite IHb by la; rewrite shift_i_t_subst_t_t; eauto |
+                   repeat rewrite shift0_t_t_shift; simplify;
+                   repeat rewrite shift0_t_t_subst_2; simplify;
+                   repeat replace (S (y - n)) with (S y - n) by la;
+                   f_equal;
+                   eauto with db_la
+                  ].
+      {
+        (* Case TVar *)
+        repeat match goal with
+               | |- context [?a <=? ?b] => cases (a <=? b); simplify; cbn
+               | |- context [?a <=>? ?b] => cases (a <=>? b); simplify; cbn
+               end; try solve [f_equal; la].
+        rewrite subst_t_t_shift_avoid by la.
+        simplify.
+        rewrite shift_t_t_0.
+        eauto.
+      }
+    Qed.
+    
+  End subst_t_proofs.
+    
+  (*to*)
+  
   Inductive kinding : sctx -> kctx -> ty -> kind -> Prop :=
   | KdgVar L K x k :
       nth_error K x = Some k ->
@@ -8038,25 +7973,9 @@ lift2 (fst (strip_subsets L))
     eapply IHbs.
   Qed.
   
-  Fixpoint lift7 arg_ks : forall t1 t2 t3 t4 t5 t6 t7 t, (t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t) -> interp_bsorts arg_ks t1 -> interp_bsorts arg_ks t2 -> interp_bsorts arg_ks t3 -> interp_bsorts arg_ks t4 -> interp_bsorts arg_ks t5 -> interp_bsorts arg_ks t6 -> interp_bsorts arg_ks t7 -> interp_bsorts arg_ks t :=
-    match arg_ks return forall t1 t2 t3 t4 t5 t6 t7 t, (t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t) -> interp_bsorts arg_ks t1 -> interp_bsorts arg_ks t2 -> interp_bsorts arg_ks t3 -> interp_bsorts arg_ks t4 -> interp_bsorts arg_ks t5 -> interp_bsorts arg_ks t6 -> interp_bsorts arg_ks t7 -> interp_bsorts arg_ks t with
-    | [] =>
-      fun t1 t2 t3 t4 t5 t6 t7 t f x1 x2 x3 x4 x5 x6 x7 => f x1 x2 x3 x4 x5 x6 x7
-    | arg_k :: arg_ks =>
-      fun t1 t2 t3 t4 t5 t6 t7 t f x1 x2 x3 x4 x5 x6 x7 => lift7 arg_ks (fun a1 a2 a3 a4 a5 a6 a7 ak => f (a1 ak) (a2 ak) (a3 ak) (a4 ak) (a5 ak) (a6 ak) (a7 ak)) x1 x2 x3 x4 x5 x6 x7
-    end.
-
   Lemma fuse_lift5_lift3_5 bs :
     forall T A1 A2 A3 A4 A5 B1 B2 B3 (f : A1 -> A2 -> A3 -> A4 -> A5 -> T) (g : B1 -> B2 -> B3 -> A5) a1 a2 a3 a4 b1 b2 b3,
       lift5 bs f a1 a2 a3 a4 (lift3 bs g b1 b2 b3) = lift7 bs (fun a1 a2 a3 a4 b1 b2 b3 => f a1 a2 a3 a4 (g b1 b2 b3)) a1 a2 a3 a4 b1 b2 b3.
-  Proof.
-    induct bs; simplify; eauto.
-    eapply IHbs.
-  Qed.
-  
-  Lemma fuse_lift1_lift7 bs :
-    forall T A1 B1 B2 B3 B4 B5 B6 B7 (f : A1 -> T) (g : B1 -> B2 -> B3 -> B4 -> B5 -> B6 -> B7 -> A1) b1 b2 b3 b4 b5 b6 b7,
-      lift1 bs f (lift7 bs g b1 b2 b3 b4 b5 b6 b7) = lift7 bs (fun b1 b2 b3 b4 b5 b6 b7 => f (g b1 b2 b3 b4 b5 b6 b7)) b1 b2 b3 b4 b5 b6 b7.
   Proof.
     induct bs; simplify; eauto.
     eapply IHbs.
@@ -8171,7 +8090,7 @@ lift2 (fst (strip_subsets L))
     rewrite fuse_lift1_lift5 in *.
     eapply IHbs in H0; eauto.
     Grab Existential Variables.
-    eapply sort_default_value.
+    eapply bsort_default_value.
   Qed.
   
   Lemma forall_lift5_lift1_1 :
@@ -8557,7 +8476,7 @@ lift2 (fst (strip_subsets L))
     {
       invert Heq.
     }
-    specialize (Heq (sort_default_value a)).
+    specialize (Heq (bsort_default_value a)).
     eapply IHk in Heq.
     eauto.
   Qed.
@@ -8574,7 +8493,7 @@ lift2 (fst (strip_subsets L))
       eauto.
     }
     rename a into b.
-    set (v := sort_default_value b).
+    set (v := bsort_default_value b).
     specialize (Heq v).
     specialize (IHk (fun k => other (b :: k) v)).
     eapply IHk in Heq; eauto.
@@ -8645,7 +8564,7 @@ lift2 (fst (strip_subsets L))
       eapply IHk in Heq; eauto.
     }
     Grab Existential Variables.
-    eapply sort_default_value.
+    eapply bsort_default_value.
   Qed.
   
   Lemma gtyveq_TVRec_invert :
@@ -8722,7 +8641,7 @@ lift2 (fst (strip_subsets L))
       | [] => lift0 _ tt
       | b :: k' =>
         match args with
-        | [] => lift1 _ (fun x => (sort_default_value b, x)) (interp_args bs k' [])
+        | [] => lift1 _ (fun x => (bsort_default_value b, x)) (interp_args bs k' [])
         | i :: args' =>
           lift2 _ pair (interp_idx i bs b) (interp_args bs k' args')
         end
@@ -13622,7 +13541,7 @@ lift2 (fst (strip_subsets L))
     eapply forall_lift1; eauto.
     intros x f.
     eapply f.
-    eapply sort_default_value.
+    eapply bsort_default_value.
   Qed.
   
   Lemma forall_lift0_lift0 :
@@ -13646,7 +13565,7 @@ lift2 (fst (strip_subsets L))
     eapply forall_lift0_lift0; [| eapply H]; eauto.
     intros f.
     eapply f.
-    eapply sort_default_value.
+    eapply bsort_default_value.
   Qed.
   
   Lemma forall_shift_rev x :
@@ -15528,35 +15447,6 @@ lift2 (fst (strip_subsets L))
     rewrite skipn_my_skipn; eauto.
   Qed.
 
-  Lemma interp_prop_subst_i_p_reprove L p :
-    interp_prop L p ->
-    forall n s c ,
-      nth_error L n = Some s ->
-      sorting (my_skipn L (1 + n)) c s ->
-      bwfprop (map get_bsort L) p ->
-      bwfsorts L ->
-      interp_prop (subst_i_ss c (firstn n L) ++ my_skipn L (1 + n)) (subst_i_p n (shift_i_i n 0 c) p).
-  Proof.
-    intros Hp n s c Hnth Hc Hwfp Hss.
-    unfold interp_prop in *.
-    simpl in *.
-    rewrite get_bsort_remove_subst.
-    copy Hnth Hnth'.
-    eapply map_nth_error with (f := get_bsort) in Hnth'.
-    eapply forall_subst_i_p_intro_imply_my_skipn in Hp; eauto.
-    {
-      eapply forall_trans; [ | eassumption].
-      eapply subst_strip_subsets_imply; eauto.
-    }
-    {
-      rewrite <- map_my_skipn.
-      eapply sorting_bsorting; eauto.
-    }
-    {
-      eapply bwfsorts_bwfprop_strip_subsets; eauto.
-    }
-  Qed.
-  
   Definition tyeq' L t t' k :=
     let bs := map get_bsort L in
     let ps := strip_subsets L in
@@ -21462,4 +21352,137 @@ lift2 (fst (strip_subsets L))
     eauto.
   Qed.
   
-End M.
+End M.   
+
+Module NNRealTime <: TIME.
+  Require RIneq.
+  Definition nnreal := RIneq.nonnegreal.
+  Definition time_type := nnreal.
+  Definition Time0 : time_type.
+    Require Rdefinitions.
+    Module R := Rdefinitions.
+    refine (RIneq.mknonnegreal R.R0 _).
+    eauto with rorders.
+  Defined.
+  Definition Time1 : time_type.
+    refine (RIneq.mknonnegreal R.R1 _).
+    eauto with rorders.
+    admit.
+  Admitted.
+  Definition TimeAdd (a b : time_type) : time_type.
+    Import RIneq.
+    refine (mknonnegreal (R.Rplus (nonneg a) (nonneg b)) _).
+    destruct a.
+    destruct b.
+    simplify.
+    admit.
+  Admitted.
+  Definition TimeMinus (a b : time_type) : time_type.
+  Admitted.
+  Definition TimeLe (a b : time_type) : Prop.
+    refine (R.Rle (nonneg a) (nonneg b)).
+  Defined.
+  Definition TimeMax : time_type -> time_type -> time_type.
+  Admitted.
+  
+  Delimit Scope time_scope with time.
+  Notation "0" := Time0 : time_scope.
+  Notation "1" := Time1 : time_scope.
+  Infix "+" := TimeAdd : time_scope.
+  Infix "-" := TimeMinus : time_scope.
+  Infix "<=" := TimeLe : time_scope.
+
+  Lemma Time_add_le_elim a b c :
+    (a + b <= c -> a <= c /\ b <= c)%time.
+  Admitted.
+  Lemma Time_minus_move_left a b c :
+    (c <= b ->
+     a + c <= b ->
+     a <= b - c)%time.
+  Admitted.
+  Lemma Time_add_assoc a b c : (a + (b + c) = a + b + c)%time.
+  Admitted.
+  Lemma lhs_rotate a b c :
+    (b + a <= c ->
+     a + b <= c)%time.
+  Admitted.
+  Lemma Time_add_cancel a b c :
+    (a <= b ->
+     a + c <= b + c)%time.
+  Admitted.
+  Lemma rhs_rotate a b c :
+    (a <= c + b->
+     a <= b + c)%time.
+  Admitted.
+  Lemma Time_a_le_ba a b : (a <= b + a)%time.
+  Admitted.
+  Lemma Time_minus_cancel a b c :
+    (a <= b -> a - c <= b - c)%time.
+  Admitted.
+  Lemma Time_a_minus_a a : (a - a = 0)%time.
+  Admitted.
+  Lemma Time_0_le_x x : (0 <= x)%time.
+  Admitted.
+  Lemma Time_minus_0 x : (x - 0 = x)%time.
+  Admitted.
+  Lemma Time_0_add x : (0 + x = x)%time.
+  Admitted.
+  Lemma Time_le_refl x : (x <= x)%time.
+  Admitted.
+  Lemma Time_le_trans a b c :
+    (a <= b -> b <= c -> a <= c)%time.
+  Admitted.
+  Lemma Time_add_cancel2 a b c d :
+    (c <= d ->
+     a <= b ->
+     a + c <= b + d)%time.
+  Admitted.
+  Lemma Time_a_le_maxab a b : (a <= TimeMax a b)%time.
+  Admitted.
+  Lemma Time_b_le_maxab a b : (b <= TimeMax a b)%time.
+  Admitted.
+  Lemma Time_add_minus_assoc a b c :
+    (c <= b -> a + (b - c) = a + b - c)%time.
+  Admitted.
+  Lemma Time_minus_le a b : (a - b <= a)%time.
+  Admitted.
+  Lemma Time_minus_add_cancel a b :
+    (b <= a -> a - b + b = a)%time.
+  Admitted.
+  Lemma Time_minus_move_right a b c :
+    (c <= a ->
+     a <= b + c ->
+     a - c <= b)%time.
+  Admitted.
+  Lemma Time_le_add_minus a b c :
+    (a + b - c <= a + (b - c))%time.
+  Admitted.
+  Lemma Time_add_comm a b : (a + b = b + a)%time.
+  Admitted.
+  Lemma Time_add_minus_cancel a b : (a + b - b = a)%time.
+  Admitted.
+  Lemma Time_minus_minus_cancel a b : (b <= a -> a - (a - b) = b)%time.
+  Admitted.
+
+End NNRealTime.
+
+(*
+Module RealTime <: TIME.
+  Require Rdefinitions.
+  Module R := Rdefinitions.
+  Definition real := R.R.
+  (* Require RIneq. *)
+  (* Definition nnreal := RIneq.nonnegreal. *)
+  Definition time_type := real.
+  (* Definition time_type := nnreal. *)
+  Definition Time0 := R.R0.
+  Definition Time1 := R.R1.
+  Definition TimeAdd := R.Rplus.
+  Definition TimeMinus := R.Rminus.
+  Definition TimeLe := R.Rle.
+End RealTime.
+ *)
+
+(* Module Time := RealTime. *)
+(* Module Time := NatTime. *)
+
