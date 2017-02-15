@@ -19000,7 +19000,8 @@ lift2 (fst (strip_subsets L))
       (df <= interp_time i)%time /\
       exists W',
         ctyping W' s' t (Tminus i (Tconst df)) /\
-        (W $<= W').
+        (W $<= W') /\
+        wfctx ([], [], W', []).
   Proof.
     invert 1; simplify.
     {
@@ -19027,7 +19028,7 @@ lift2 (fst (strip_subsets L))
         eauto.
       }
       exists W.
-      repeat try_split.
+      repeat try_split; eauto.
       {
         eapply typing_kinding_2 in Hty0; eauto.
         destruct Hty0 as [Ht Hi].
@@ -19071,9 +19072,6 @@ lift2 (fst (strip_subsets L))
           econstructor; simpl; eauto.
           econstructor.
         }
-      }
-      {
-        eapply Hhty.
       }
       {
         rewrite Time_minus_minus_cancel by eauto.
@@ -19122,7 +19120,7 @@ lift2 (fst (strip_subsets L))
         eapply Time_0_le_x.
       }
       exists W.
-      repeat try_split.
+      repeat try_split; eauto.
       {
         eapply typing_kinding_2 in Hty0; eauto.
         destruct Hty0 as [Ht Hi].
@@ -19153,9 +19151,6 @@ lift2 (fst (strip_subsets L))
         }
       }
       {
-        eapply Hhty.
-      }
-      {
         simplify.
         rewrite Time_a_minus_a.
         rewrite interp_time_minus_distr.
@@ -19184,7 +19179,7 @@ lift2 (fst (strip_subsets L))
         eapply Time_0_le_x.
       }
       exists W.
-      repeat try_split.
+      repeat try_split; eauto.
       {
         eapply typing_kinding_2 in Hty0; eauto.
         destruct Hty0 as [Ht Hi].
@@ -19227,9 +19222,6 @@ lift2 (fst (strip_subsets L))
         {
           eapply wellscoped_ctx_add_typing; eauto using kinding_wellscoped_t.
         }
-      }
-      {
-        eapply Hhty.
       }
       {
         simplify.
@@ -19300,7 +19292,7 @@ lift2 (fst (strip_subsets L))
         eapply Time_0_le_x.
       }
       exists W.
-      repeat try_split.
+      repeat try_split; eauto.
       {
         eapply TySub; try eassumption; simpl.
         {
@@ -19324,9 +19316,6 @@ lift2 (fst (strip_subsets L))
         {
           repeat (econstructor; simpl; eauto).
         }
-      }
-      {
-        eapply Hhty.
       }
       {
         simplify.
@@ -19404,7 +19393,7 @@ lift2 (fst (strip_subsets L))
         eapply Time_0_le_x.
       }
       exists W.
-      repeat try_split.
+      repeat try_split; eauto.
       {
         eapply TySub; try eassumption; simpl.
         {
@@ -19428,9 +19417,6 @@ lift2 (fst (strip_subsets L))
         {
           repeat (econstructor; simpl; eauto).
         }
-      }
-      {
-        eapply Hhty.
       }
       {
         simplify.
@@ -19474,7 +19460,7 @@ lift2 (fst (strip_subsets L))
         eapply Time_0_le_x.
       }
       exists W.
-      repeat try_split.
+      repeat try_split; eauto.
       {
         eapply TySub; try eassumption; simpl.
         {
@@ -19493,9 +19479,6 @@ lift2 (fst (strip_subsets L))
         {
           repeat (econstructor; simpl; eauto).
         }
-      }
-      {
-        eapply Hhty0.
       }
       {
         simplify.
@@ -19541,7 +19524,7 @@ lift2 (fst (strip_subsets L))
         eauto with time_order.
       }
       exists W.
-      repeat try_split.
+      repeat try_split; eauto.
       {
         eapply TySub; try eassumption; simpl.
         {
@@ -19590,6 +19573,9 @@ lift2 (fst (strip_subsets L))
       destruct Hty0 as [Ht Hi].
       eapply invert_typing_New in Hty.
       destruct Hty as (t' & i' & Htyeq & Hty & Hle2).
+      copy Hty Hty0.
+      eapply typing_kinding_2 in Hty0; eauto.
+      destruct Hty0 as [Ht' Hi'].
       simplify.
       split.
       {
@@ -19597,7 +19583,7 @@ lift2 (fst (strip_subsets L))
         eauto with time_order.
       }
       exists (W $+ (l, t')).
-      repeat try_split.
+      repeat try_split; eauto.
       {
         eapply TySub; try eassumption; simpl.
         {
@@ -19647,6 +19633,21 @@ lift2 (fst (strip_subsets L))
         simplify.
         eauto.
       }
+      {
+        Lemma wfctx_add_htyping L K W G l t:
+          wfctx (L, K, W, G) ->
+          kinding L K t KType ->
+          wfctx (L, K, W $+ (l, t), G).
+        Proof.
+          intros HC Ht; unfold wfctx in *; openhyp; simpl in *; repeat try_split; eauto.
+          unfold fmap_forall in *.
+          intros k v Hk.
+          eapply lookup_split in Hk.
+          destruct Hk; openhyp; subst; eauto.
+        Qed.
+        
+        eapply wfctx_add_htyping; eauto.
+      }
     }
     {
       (* Case AppT *)
@@ -19675,7 +19676,7 @@ lift2 (fst (strip_subsets L))
         eauto with time_order.
       }
       exists W.
-      repeat try_split.
+      repeat try_split; eauto.
       {
         eapply TySub; try eassumption; simpl.
         {
@@ -19716,9 +19717,6 @@ lift2 (fst (strip_subsets L))
         {
           repeat (econstructor; simpl; eauto).
         }
-      }
-      {
-        eapply Hhty.
       }
       {
         simplify.
@@ -19764,7 +19762,7 @@ lift2 (fst (strip_subsets L))
         eauto with time_order.
       }
       exists W.
-      repeat try_split.
+      repeat try_split; eauto.
       {
         eapply TySub; try eassumption; simpl.
         {
@@ -19810,9 +19808,6 @@ lift2 (fst (strip_subsets L))
         }
       }
       {
-        eapply Hhty.
-      }
-      {
         simplify.
         rewrite Time_a_minus_a.
         rewrite interp_time_minus_distr.
@@ -19851,7 +19846,7 @@ lift2 (fst (strip_subsets L))
         eauto with time_order.
       }
       exists W.
-      repeat try_split.
+      repeat try_split; eauto.
       {
         cases pr; simplify.
         {
@@ -19903,9 +19898,6 @@ lift2 (fst (strip_subsets L))
         }
       }
       {
-        eapply Hhty.
-      }
-      {
         simplify.
         rewrite Time_a_minus_a.
         rewrite interp_time_minus_distr.
@@ -19942,7 +19934,7 @@ lift2 (fst (strip_subsets L))
         eauto with time_order.
       }
       exists W.
-      repeat try_split.
+      repeat try_split; eauto.
       {
         cases inj; simplify.
         {
@@ -20037,9 +20029,6 @@ lift2 (fst (strip_subsets L))
             eauto with time_order.
           }
         }
-      }
-      {
-        eapply Hhty.
       }
       {
         simplify.
@@ -21366,7 +21355,8 @@ lift2 (fst (strip_subsets L))
       wfctx ([], [], W, []) ->
       exists W' i',
         ctyping W' s' t i' /\
-        (W $<= W').
+        (W $<= W') /\
+        wfctx ([], [], W', []).
   Proof.
     invert 1.
     (* induct 1. *)
@@ -21396,10 +21386,9 @@ lift2 (fst (strip_subsets L))
     }
     Unfocus.
     simplify.
-    destruct Hstep as (Hle3 & W' & Hty2 & Hincl).
+    destruct Hstep as (Hle3 & W' & Hty2 & Hincl & HC').
     destruct Hty2 as (Hty2 & Hhty' & Hle4).
     eapply He' in H2; eauto.
-    (*here*)
     Focus 2.
     {
       simplify.
@@ -21436,36 +21425,37 @@ lift2 (fst (strip_subsets L))
 
   Lemma unstuck_invariant W s t i :
     ctyping W s t i ->
+    wfctx ([], [], W, []) ->
     invariantFor (trsys_of s) unstuck.
   Proof.
-    simplify.
-    apply invariant_weaken with (invariant1 := fun s' => exists W' i', ctyping W' s' t i'); eauto.
+    intros H HC.
+    apply invariant_weaken with (invariant1 := fun s' => exists W' i', ctyping W' s' t i' /\ wfctx ([], [], W', [])); eauto.
     {
-      apply invariant_induction; simplify; eauto.
+      apply invariant_induction; intros s0 Hs0; simplify; eauto.
       {
         propositional.
         subst; simplify.
         eauto.
       }
       {
-        destruct H0 as (W' & i' & Hty).
+        destruct Hs0 as (W' & i' & Hty & HC').
         propositional.
-        eapply preservation in H1; eauto.
-        destruct H1 as (W'' & i'' & Hty' & Hle).
+        eapply preservation in H0; eauto.
+        destruct H0 as (W'' & i'' & Hty' & Hle & HC'').
         eauto.
       }
     }
     {
       simplify.
-      destruct H0 as (W' & i' & Hty).
+      destruct H0 as (W' & i' & Hty & HC').
       eauto using progress.
     }
   Qed.
 
-  Theorem safety W s t i : ctyping W s t i -> safe s.
+  Theorem safety W s t i : ctyping W s t i -> wfctx ([], [], W, []) -> safe s.
   Proof.
-    intros H.
-    eapply unstuck_invariant in H.
+    intros H HC.
+    eapply unstuck_invariant in H; eauto.
     unfold invariantFor, safe in *.
     intros s' Hstep.
     simplify.
