@@ -18824,10 +18824,178 @@ lift2 (fst (strip_subsets L))
     eapply tyeq_TRec; eauto.
   Qed.
 
+  Lemma invert_tyeq_TQuan_empty q1 k1 t1 q2 k2 t2 :
+    tyeq [] (TQuan q1 k1 t1) (TQuan q2 k2 t2) KType ->
+    q1 = q2 /\
+    k1 = k2 /\
+    tyeq [] t1 t2 KType.
+  Proof.
+    intros H.
+    eapply invert_tyeq_TQuan in H.
+    unfold kdeq in *.
+    simpl in *.
+    propositional.
+  Qed.
+  
+      Lemma wfctx_add_kinding L K W G k :
+        wfctx (L, K, W, G) ->
+        wfctx (L, k :: K, fmap_map shift0_t_t W, map shift0_t_t G).
+      Proof.
+        unfold wfctx; intros HC.
+        openhyp.
+        simpl in *.
+        repeat try_split; eauto.
+        {
+          eapply fmap_forall_fmap_map_intro.
+          eapply fmap_forall_impl; eauto.
+          intros.
+          eapply kinding_shift_t_t_1_0; eauto.
+        }
+        {
+          eapply Forall_map.
+          eapply Forall_impl; eauto.
+          intros.
+          eapply kinding_shift_t_t_1_0; eauto.
+        }
+      Qed.
+
+        Lemma tyeq_subst_t_t_0 L K t t' k v k_v :
+          tyeq L t t' k ->
+          kinding L (k_v :: K) t k ->
+          kinding L (k_v :: K) t' k ->
+          wellscoped_t (length L) v ->
+          tyeq L (subst_t_t 0 v t) (subst_t_t 0 v t') k.
+        Proof.
+          intros.
+          specialize (@tyeq_subst_t_t L (k_v :: K) t t' k 0 v k_v); intros Hsubst.
+          repeat rewrite shift_t_t_0 in *.
+          eapply Hsubst; eauto.
+        Qed.
+        
+      Ltac elim_existsT_eq_2 :=
+        repeat match goal with
+                 H : _ |- _ => eapply Eqdep_dec.inj_pair2_eq_dec in H; [|intros; solve [eapply kind_dec | eapply sort_dec ] ]; subst
+               end.
+
+  Lemma invert_tyeq_TQuanI_empty q1 s1 t1 q2 s2 t2 :
+    tyeq [] (TQuanI q1 s1 t1) (TQuanI q2 s2 t2) KType ->
+    q1 = q2 /\
+    sorteq [] s1 s2 /\
+    tyeq [s1] t1 t2 KType.
+  Proof.
+    intros H.
+    unfold tyeq, interp_prop in *.
+    simpl in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    specialize (H I).
+    destruct s1; destruct s2; invert H.
+    {
+      simpl in *.
+      elim_existsT_eq_2.
+      simpl in *.
+      eauto.
+    }
+    {
+      simpl in *.
+      elim_existsT_eq_2.
+      simpl in *.
+      repeat try_split; eauto.
+      {
+        econstructor.
+        unfold interp_prop.
+        simpl.
+        intros x Htrue.
+        specialize (H2 x).
+        eauto.
+      }
+      {
+        intros x.
+        specialize (H2 x).
+        specialize (H9 x).
+        propositional.
+      }
+    }
+  Qed.    
+  
+  Lemma wfsort_bwfsort' L s bs :
+    wfsort L s ->
+    bs = map get_bsort L ->
+    bwfsort bs s.
+  Proof.
+    intros; subst; eapply wfsort_bwfsort; eauto.
+  Qed.
+  
+      Lemma wfctx_add_sorting L K W G s :
+        wfctx (L, K, W, G) ->
+        wfsort L s ->
+        wfctx (s :: L, K, fmap_map shift0_i_t W, map shift0_i_t G).
+      Proof.
+        unfold wfctx; intros HC Hs.
+        openhyp.
+        simpl in *.
+        repeat try_split; eauto.
+        {
+          eapply fmap_forall_fmap_map_intro.
+          eapply fmap_forall_impl; eauto.
+          intros.
+          eapply kinding_shift_i_t_1_0; eauto using wfsorts_wellscoped_ss.
+        }
+        {
+          eapply Forall_map.
+          eapply Forall_impl; eauto.
+          intros.
+          eapply kinding_shift_i_t_1_0; eauto using wfsorts_wellscoped_ss.
+        }
+      Qed.
+
+  Lemma tyeq_subst_i_t_0 L t t' k v s :
+    tyeq (s :: L) t t' k ->
+    sorting L v s ->
+    let bs := map get_bsort (s :: L) in
+    bkinding bs t k ->
+    bkinding bs t' k ->
+    bwfsorts (s :: L) ->
+    tyeq L (subst_i_t 0 v t) (subst_i_t 0 v t') k.
+  Proof.
+    simpl; intros.
+    specialize (@tyeq_subst_i_t (s :: L) t t' k 0 v s); intros Hsubst.
+    simpl in *.
+    repeat rewrite shift_i_i_0 in *.
+    rewrite my_skipn_0 in *.
+    eapply Hsubst; eauto.
+  Qed.
+  
+  Lemma kinding_bkinding' L K t k bs :
+    kinding L K t k ->
+    bs = map get_bsort L ->
+    bkinding bs t k.
+  Proof.
+    intros; subst; eapply kinding_bkinding; eauto.
+  Qed.
+
+  Lemma wfctx_wellscoped_ctx L K W G :
+    let C := (L, K, W, G) in
+    wfctx C -> wellscoped_ctx C.
+  Proof.
+    simpl; unfold wfctx, wellscoped_ctx; simpl; intros H; openhyp.
+    repeat try_split; eauto using wfsorts_wellscoped_ss.
+    {
+      eapply fmap_forall_impl; eauto.
+      eauto using kinding_wellscoped_t.
+    }
+    {
+      eapply Forall_impl; try eassumption.
+      eauto using kinding_wellscoped_t.
+    }
+  Qed.
+
+  Hint Resolve wfctx_wellscoped_ctx.
+  
   Lemma preservation0 s s' :
     astep s s' ->
     forall W t i,
       ctyping W s t i ->
+      wfctx ([], [], W, []) ->
       let df := (get_fuel s - get_fuel s')%time in
       (df <= interp_time i)%time /\
       exists W',
@@ -18861,12 +19029,7 @@ lift2 (fst (strip_subsets L))
       exists W.
       repeat try_split.
       {
-        eapply typing_kinding_2 in Hty0.
-        Focus 2.
-        {
-          eapply admit. (* wfctx ([], [], W, []) *)
-        }
-        Unfocus.
+        eapply typing_kinding_2 in Hty0; eauto.
         destruct Hty0 as [Ht Hi].
         
         eapply TySub; try eassumption.
@@ -18877,7 +19040,6 @@ lift2 (fst (strip_subsets L))
           }
           {
             eapply wellscoped_ctx_add_typing; eauto using kinding_wellscoped_t.
-            eapply admit. (* wellscoped_ctx ([], [], W, []) *)
           }
         }
         {
@@ -18942,12 +19104,7 @@ lift2 (fst (strip_subsets L))
       destruct Hty as (cs' & k' & t2' & i'' & Htyeq2 & Hkd & Hty & Hle3).
       subst.
       simplify.
-      eapply typing_kinding_2 in Hty'.
-      Focus 2.
-      {
-        eapply admit. (* wfctx ([], [], W, []) *)
-      }
-      Unfocus.
+      eapply typing_kinding_2 in Hty'; eauto.
       destruct Hty' as [Hkd' Hi'].
       copy Hkd Hkd''.
       eapply kinding_TApps_TRec_invert in Hkd''.
@@ -18967,12 +19124,7 @@ lift2 (fst (strip_subsets L))
       exists W.
       repeat try_split.
       {
-        eapply typing_kinding_2 in Hty0.
-        Focus 2.
-        {
-          eapply admit. (* wfctx ([], [], W, []) *)
-        }
-        Unfocus.
+        eapply typing_kinding_2 in Hty0; eauto.
         destruct Hty0 as [Ht Hi].
         
         eapply TySub; simpl; try eassumption.
@@ -19034,12 +19186,7 @@ lift2 (fst (strip_subsets L))
       exists W.
       repeat try_split.
       {
-        eapply typing_kinding_2 in Hty0.
-        Focus 2.
-        {
-          eapply admit. (* wfctx ([], [], W, []) *)
-        }
-        Unfocus.
+        eapply typing_kinding_2 in Hty0; eauto.
         destruct Hty0 as [Ht Hi].
         
         eapply typing_subst0_e_e_T0 with (G := []) in Hty; try eassumption.
@@ -19069,7 +19216,6 @@ lift2 (fst (strip_subsets L))
           eapply TyTyeq.
           {
             eapply add_typing_ctx_tyeq; try eassumption; eauto with db_tyeq.
-            eapply admit. (* wfctx ([], [], W, []) *)
           }
           {
             simpl; eauto.
@@ -19080,7 +19226,6 @@ lift2 (fst (strip_subsets L))
         }
         {
           eapply wellscoped_ctx_add_typing; eauto using kinding_wellscoped_t.
-          eapply admit. (* wellscoped_ctx ([], [], W, []) *)
         }
       }
       {
@@ -19099,78 +19244,20 @@ lift2 (fst (strip_subsets L))
         eauto.
       }
     }
-  Lemma invert_tyeq_TQuan_empty q1 k1 t1 q2 k2 t2 :
-    tyeq [] (TQuan q1 k1 t1) (TQuan q2 k2 t2) KType ->
-    q1 = q2 /\
-    k1 = k2 /\
-    tyeq [] t1 t2 KType.
-  Proof.
-    intros H.
-    eapply invert_tyeq_TQuan in H.
-    unfold kdeq in *.
-    simpl in *.
-    propositional.
-  Qed.
-  
-      Lemma wfctx_add_kinding L K W G k :
-        wfctx (L, K, W, G) ->
-        wfctx (L, k :: K, fmap_map shift0_t_t W, map shift0_t_t G).
-      Proof.
-        unfold wfctx; intros HC.
-        openhyp.
-        simpl in *.
-        repeat try_split; eauto.
-        {
-          eapply fmap_forall_fmap_map_intro.
-          eapply fmap_forall_impl; eauto.
-          intros.
-          eapply kinding_shift_t_t_1_0; eauto.
-        }
-        {
-          eapply Forall_map.
-          eapply Forall_impl; eauto.
-          intros.
-          eapply kinding_shift_t_t_1_0; eauto.
-        }
-      Qed.
-
-        Lemma tyeq_subst_t_t_0 L K t t' k v k_v :
-          tyeq L t t' k ->
-          kinding L (k_v :: K) t k ->
-          kinding L (k_v :: K) t' k ->
-          wellscoped_t (length L) v ->
-          tyeq L (subst_t_t 0 v t) (subst_t_t 0 v t') k.
-        Proof.
-          intros.
-          specialize (@tyeq_subst_t_t L (k_v :: K) t t' k 0 v k_v); intros Hsubst.
-          repeat rewrite shift_t_t_0 in *.
-          eapply Hsubst; eauto.
-        Qed.
-        
     {
       (* Case Unpack-Pack *)
       destruct H as (Hty & Hhty & Hle).
       rename t into f.
       rename t0 into t.
       copy Hty Hty0.
-      eapply typing_kinding_2 in Hty0.
-      Focus 2.
-      {
-        eapply admit. (* wfctx ([], [], W, []) *)
-      }
-      Unfocus.
+      eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht Hi].
       eapply invert_typing_Unpack in Hty.
       destruct Hty as (t2 & t0 & i1 & k & i2 & Htyeq & Hty1 & Hty2 & Hle2).
       subst.
       simplify.
       copy Hty1 Hty0.
-      eapply typing_kinding_2 in Hty0.
-      Focus 2.
-      {
-        eapply admit. (* wfctx ([], [], W, []) *)
-      }
-      Unfocus.
+      eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht0 Hi1].
       eapply invert_typing_Pack in Hty1.
       destruct Hty1 as (t1 & k' & i' & Htyeq2 & Hkd1 & Hkdc' & Htyv & Hle3).
@@ -19186,8 +19273,7 @@ lift2 (fst (strip_subsets L))
       Focus 2.
       {
         eapply wfctx_add_typing; eauto.
-        eapply wfctx_add_kinding with (G := []).
-        eapply admit. (* wfctx ([], [], W, []) *)
+        eapply wfctx_add_kinding with (G := []); eauto.
       }
       Unfocus.
       simplify.
@@ -19205,9 +19291,6 @@ lift2 (fst (strip_subsets L))
       Focus 2.
       {
         eapply wellscoped_ctx_add_typing; eauto.
-        {
-          eapply admit. (* wellscoped_ctx ([], [], W, []) *)
-        }
         eapply wellscoped_subst_t_t_0; eauto using kinding_wellscoped_t.
       }
       Unfocus.
@@ -19264,24 +19347,14 @@ lift2 (fst (strip_subsets L))
       rename t into f.
       rename t0 into t.
       copy Hty Hty0.
-      eapply typing_kinding_2 in Hty0.
-      Focus 2.
-      {
-        eapply admit. (* wfctx ([], [], W, []) *)
-      }
-      Unfocus.
+      eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht Hi].
       eapply invert_typing_UnpackI in Hty.
       destruct Hty as (t2 & t0 & i1 & s & i2 & Htyeq & Hty1 & Hty2 & Hle2).
       subst.
       simplify.
       copy Hty1 Hty0.
-      eapply typing_kinding_2 in Hty0.
-      Focus 2.
-      {
-        eapply admit. (* wfctx ([], [], W, []) *)
-      }
-      Unfocus.
+      eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht0 Hi1].
       eapply invert_typing_PackI in Hty1.
       destruct Hty1 as (t1 & s' & i' & Htyeq2 & Hkd1 & Hkdc' & Htyv & Hle3).
@@ -19289,59 +19362,6 @@ lift2 (fst (strip_subsets L))
       simplify.
       invert Ht0.
       invert Hkd1.
-      Ltac elim_existsT_eq_2 :=
-        repeat match goal with
-                 H : _ |- _ => eapply Eqdep_dec.inj_pair2_eq_dec in H; [|intros; solve [eapply kind_dec | eapply sort_dec ] ]; subst
-               end.
-
-  Lemma invert_tyeq_TQuanI_empty q1 s1 t1 q2 s2 t2 :
-    tyeq [] (TQuanI q1 s1 t1) (TQuanI q2 s2 t2) KType ->
-    q1 = q2 /\
-    sorteq [] s1 s2 /\
-    tyeq [s1] t1 t2 KType.
-  Proof.
-    intros H.
-    unfold tyeq, interp_prop in *.
-    simpl in *.
-    repeat rewrite convert_kind_value_refl_eq in *.
-    specialize (H I).
-    destruct s1; destruct s2; invert H.
-    {
-      simpl in *.
-      elim_existsT_eq_2.
-      simpl in *.
-      eauto.
-    }
-    {
-      simpl in *.
-      elim_existsT_eq_2.
-      simpl in *.
-      repeat try_split; eauto.
-      {
-        econstructor.
-        unfold interp_prop.
-        simpl.
-        intros x Htrue.
-        specialize (H2 x).
-        eauto.
-      }
-      {
-        intros x.
-        specialize (H2 x).
-        specialize (H9 x).
-        propositional.
-      }
-    }
-  Qed.    
-  
-  Lemma wfsort_bwfsort' L s bs :
-    wfsort L s ->
-    bs = map get_bsort L ->
-    bwfsort bs s.
-  Proof.
-    intros; subst; eapply wfsort_bwfsort; eauto.
-  Qed.
-  
       eapply invert_tyeq_TQuanI_empty in Htyeq2.
       destruct Htyeq2 as (? & Hss' & Htyeq2).
       assert (Hkdc : sorting [] c s).
@@ -19352,31 +19372,7 @@ lift2 (fst (strip_subsets L))
       Focus 2.
       {
         eapply wfctx_add_typing; eauto.
-      Lemma wfctx_add_sorting L K W G s :
-        wfctx (L, K, W, G) ->
-        wfsort L s ->
-        wfctx (s :: L, K, fmap_map shift0_i_t W, map shift0_i_t G).
-      Proof.
-        unfold wfctx; intros HC Hs.
-        openhyp.
-        simpl in *.
-        repeat try_split; eauto.
-        {
-          eapply fmap_forall_fmap_map_intro.
-          eapply fmap_forall_impl; eauto.
-          intros.
-          eapply kinding_shift_i_t_1_0; eauto using wfsorts_wellscoped_ss.
-        }
-        {
-          eapply Forall_map.
-          eapply Forall_impl; eauto.
-          intros.
-          eapply kinding_shift_i_t_1_0; eauto using wfsorts_wellscoped_ss.
-        }
-      Qed.
-
         eapply wfctx_add_sorting with (G := []); eauto.
-        eapply admit. (* wfctx ([], [], W, []) *)
       }
       Unfocus.
       simplify.
@@ -19389,44 +19385,16 @@ lift2 (fst (strip_subsets L))
         {
           eapply kinding_subst_i_t_0; eauto using wfsort_bwfsort.
         }
-  Lemma tyeq_subst_i_t_0 L t t' k v s :
-    tyeq (s :: L) t t' k ->
-    sorting L v s ->
-    let bs := map get_bsort (s :: L) in
-    bkinding bs t k ->
-    bkinding bs t' k ->
-    bwfsorts (s :: L) ->
-    tyeq L (subst_i_t 0 v t) (subst_i_t 0 v t') k.
-  Proof.
-    simpl; intros.
-    specialize (@tyeq_subst_i_t (s :: L) t t' k 0 v s); intros Hsubst.
-    simpl in *.
-    repeat rewrite shift_i_i_0 in *.
-    rewrite my_skipn_0 in *.
-    eapply Hsubst; eauto.
-  Qed.
-  
         eapply tyeq_subst_i_t_0; eauto using kinding_bkinding, wfsort_bwfsort with db_tyeq.
         simpl.
         eapply sorteq_get_bsort in Hss'.
         rewrite <- Hss'.
-  Lemma kinding_bkinding' L K t k bs :
-    kinding L K t k ->
-    bs = map get_bsort L ->
-    bkinding bs t k.
-  Proof.
-    intros; subst; eapply kinding_bkinding; eauto.
-  Qed.
-
         eauto using kinding_bkinding'.
       }
       eapply typing_subst0_e_e with (G := []) in Hty2; eauto.
       Focus 2.
       {
         eapply wellscoped_ctx_add_typing; eauto.
-        {
-          eapply admit. (* wellscoped_ctx ([], [], W, []) *)
-        }
         eapply wellscoped_subst_i_t_0; eauto using kinding_wellscoped_t, sorting_wellscoped_i.
       }
       Unfocus.
@@ -19483,23 +19451,13 @@ lift2 (fst (strip_subsets L))
       rename t into f.
       rename t0 into t.
       copy Hty Hty0.
-      eapply typing_kinding_2 in Hty0.
-      Focus 2.
-      {
-        eapply admit. (* wfctx ([], [], W, []) *)
-      }
-      Unfocus.
+      eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht Hi].
       eapply invert_typing_Read in Hty.
       destruct Hty as (i' & t'' & Htt'' & Hty & Hle2).
       simplify.
       copy Hty Hty0.
-      eapply typing_kinding_2 in Hty0.
-      Focus 2.
-      {
-        eapply admit. (* wfctx ([], [], W, []) *)
-      }
-      Unfocus.
+      eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht'' Hi'].
       invert Ht''.
       eapply invert_typing_Loc in Hty.
@@ -19558,22 +19516,12 @@ lift2 (fst (strip_subsets L))
       rename t into f.
       rename t0 into t.
       copy Hty Hty0.
-      eapply typing_kinding_2 in Hty0.
-      Focus 2.
-      {
-        eapply admit. (* wfctx ([], [], W, []) *)
-      }
-      Unfocus.
+      eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht Hi].
       eapply invert_typing_Write in Hty.
       destruct Hty as (t' & i1 & i2 & Htyeq & Hty1 & Hty2 & Hle2).
       copy Hty1 Hty0.
-      eapply typing_kinding_2 in Hty0.
-      Focus 2.
-      {
-        eapply admit. (* wfctx ([], [], W, []) *)
-      }
-      Unfocus.
+      eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht' Hi1].
       invert Ht'.
       eapply invert_typing_Loc in Hty1.
@@ -19585,12 +19533,7 @@ lift2 (fst (strip_subsets L))
       eapply htyping_elim in Hhty; eauto.
       destruct Hhty as (Hval' & Htyv').
       copy Htyv' Hty0.
-      eapply typing_kinding_2 in Hty0.
-      Focus 2.
-      {
-        eapply admit. (* wfctx ([], [], W, []) *)
-      }
-      Unfocus.
+      eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht'' ?].
       split.
       {
@@ -19643,12 +19586,7 @@ lift2 (fst (strip_subsets L))
       rename t into f.
       rename t0 into t.
       copy Hty Hty0.
-      eapply typing_kinding_2 in Hty0.
-      Focus 2.
-      {
-        eapply admit. (* wfctx ([], [], W, []) *)
-      }
-      Unfocus.
+      eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht Hi].
       eapply invert_typing_New in Hty.
       destruct Hty as (t' & i' & Htyeq & Hty & Hle2).
@@ -19716,23 +19654,13 @@ lift2 (fst (strip_subsets L))
       rename t into f.
       rename t0 into t.
       copy Hty Hty0.
-      eapply typing_kinding_2 in Hty0.
-      Focus 2.
-      {
-        eapply admit. (* wfctx ([], [], W, []) *)
-      }
-      Unfocus.
+      eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht Hi].
       eapply invert_typing_AppT in Hty.
       destruct Hty as (t' & i' & k' & Htyeq & Hty & Hkdc & Hle2).
       simplify.
       copy Hty Hty0.
-      eapply typing_kinding_2 in Hty0.
-      Focus 2.
-      {
-        eapply admit. (* wfctx ([], [], W, []) *)
-      }
-      Unfocus.
+      eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht' Hi'].
       invert Ht'.
       eapply invert_typing_AbsT in Hty.
@@ -19758,8 +19686,7 @@ lift2 (fst (strip_subsets L))
             eauto.
           }
           {
-            eapply wfctx_add_kinding with (G := []).
-            eapply admit. (* wfctx ([], [], W, []) *)
+            eapply wfctx_add_kinding with (G := []); eauto.
           }
         }
         {
@@ -19774,8 +19701,7 @@ lift2 (fst (strip_subsets L))
             openhyp; eauto.
           }
           {
-            eapply wfctx_add_kinding with (G := []).
-            eapply admit. (* wfctx ([], [], W, []) *)
+            eapply wfctx_add_kinding with (G := []); eauto.
           }
         }
         {
@@ -19813,23 +19739,13 @@ lift2 (fst (strip_subsets L))
       rename t into f.
       rename t0 into t.
       copy Hty Hty0.
-      eapply typing_kinding_2 in Hty0.
-      Focus 2.
-      {
-        eapply admit. (* wfctx ([], [], W, []) *)
-      }
-      Unfocus.
+      eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht Hi].
       eapply invert_typing_AppI in Hty.
       destruct Hty as (t' & i' & s & Htyeq & Hty & Hkdc & Hle2).
       simplify.
       copy Hty Hty0.
-      eapply typing_kinding_2 in Hty0.
-      Focus 2.
-      {
-        eapply admit. (* wfctx ([], [], W, []) *)
-      }
-      Unfocus.
+      eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht' Hi'].
       invert Ht'.
       eapply invert_typing_AbsI in Hty.
@@ -19860,7 +19776,6 @@ lift2 (fst (strip_subsets L))
           }
           {
             eapply wfctx_add_sorting with (G := []); eauto.
-            eapply admit. (* wfctx ([], [], W, []) *)
           }
         }
         {
@@ -19879,7 +19794,6 @@ lift2 (fst (strip_subsets L))
           }
           {
             eapply wfctx_add_sorting with (G := []); eauto.
-            eapply admit. (* wfctx ([], [], W, []) *)
           }
         }
         {
@@ -19917,23 +19831,13 @@ lift2 (fst (strip_subsets L))
       rename t into f.
       rename t0 into t.
       copy Hty Hty0.
-      eapply typing_kinding_2 in Hty0.
-      Focus 2.
-      {
-        eapply admit. (* wfctx ([], [], W, []) *)
-      }
-      Unfocus.
+      eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht Hi].
       eapply invert_typing_Proj in Hty.
       destruct Hty as (t1 & t2 & i' & Htyeq & Hty & Hle2).
       simplify.
       copy Hty Hty0.
-      eapply typing_kinding_2 in Hty0.
-      Focus 2.
-      {
-        eapply admit. (* wfctx ([], [], W, []) *)
-      }
-      Unfocus.
+      eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht1t2 Hi'].
       invert Ht1t2.
       eapply invert_typing_Pair in Hty.
@@ -20020,23 +19924,13 @@ lift2 (fst (strip_subsets L))
       rename t into f.
       rename t0 into t.
       copy Hty Hty0.
-      eapply typing_kinding_2 in Hty0.
-      Focus 2.
-      {
-        eapply admit. (* wfctx ([], [], W, []) *)
-      }
-      Unfocus.
+      eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht Hi].
       eapply invert_typing_Case in Hty.
       destruct Hty as (t1 & t2 & i0 & i1 & i2 & t'2 & Htt'2 & Hty0 & Hty1 & Hty2 & Hle2).
       simplify.
       copy Hty0 Hty0'.
-      eapply typing_kinding_2 in Hty0'.
-      Focus 2.
-      {
-        eapply admit. (* wfctx ([], [], W, []) *)
-      }
-      Unfocus.
+      eapply typing_kinding_2 in Hty0'; eauto.
       destruct Hty0' as [Ht1t2 Hi0].
       invert Ht1t2.
       eapply invert_typing_Inj in Hty0.
@@ -20069,7 +19963,6 @@ lift2 (fst (strip_subsets L))
             }
             {
               eapply wellscoped_ctx_add_typing; eauto using kinding_wellscoped_t.
-              eapply admit. (* wellscoped_ctx ([], [], W, []) *)
             }
           }
           {
@@ -20116,7 +20009,6 @@ lift2 (fst (strip_subsets L))
             }
             {
               eapply wellscoped_ctx_add_typing; eauto using kinding_wellscoped_t.
-              eapply admit. (* wellscoped_ctx ([], [], W, []) *)
             }
           }
           {
