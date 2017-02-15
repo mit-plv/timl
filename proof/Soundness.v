@@ -19477,22 +19477,39 @@ lift2 (fst (strip_subsets L))
         eauto.
       }
     }
-    (*here*)
     {
       (* Case Read *)
       destruct H as (Hty & Hhty & Hle).
       rename t into f.
       rename t0 into t.
+      copy Hty Hty0.
+      eapply typing_kinding_2 in Hty0.
+      Focus 2.
+      {
+        eapply admit. (* wfctx ([], [], W, []) *)
+      }
+      Unfocus.
+      destruct Hty0 as [Ht Hi].
       eapply invert_typing_Read in Hty.
-      destruct Hty as (i' & Hty & Hle2).
+      destruct Hty as (i' & t'' & Htt'' & Hty & Hle2).
       simplify.
+      copy Hty Hty0.
+      eapply typing_kinding_2 in Hty0.
+      Focus 2.
+      {
+        eapply admit. (* wfctx ([], [], W, []) *)
+      }
+      Unfocus.
+      destruct Hty0 as [Ht'' Hi'].
+      invert Ht''.
       eapply invert_typing_Loc in Hty.
       destruct Hty as (t' & Htyeq & Hl).
       simplify.
-      generalize Hhty; intro Hhty0.
+      copy Hhty Hhty0.
       eapply htyping_elim in Hhty; eauto.
       destruct Hhty as (Hval & Htyv).
-      eapply invert_tyeq_CRef in Htyeq.
+      eapply invert_tyeq_TUnOp in Htyeq.
+      destruct Htyeq as [? Htyeq].
       split.
       {
         rewrite Time_a_minus_a.
@@ -19501,14 +19518,10 @@ lift2 (fst (strip_subsets L))
       exists W.
       repeat try_split.
       {
-        eapply TySub.
-        {
-          eapply Htyv.
-        }
+        eapply TySub; try eassumption; simpl.
         {
           (* tyeq *)
-          simplify.
-          eapply tyeq_sym; eauto.
+          eauto with db_tyeq.
         }
         {
           simplify.
@@ -19518,6 +19531,9 @@ lift2 (fst (strip_subsets L))
           repeat rewrite interp_time_0.
           rewrite Time_minus_0.
           eauto with time_order.
+        }
+        {
+          repeat (econstructor; simpl; eauto).
         }
       }
       {
@@ -19541,15 +19557,41 @@ lift2 (fst (strip_subsets L))
       destruct H as (Hty & Hhty & Hle).
       rename t into f.
       rename t0 into t.
+      copy Hty Hty0.
+      eapply typing_kinding_2 in Hty0.
+      Focus 2.
+      {
+        eapply admit. (* wfctx ([], [], W, []) *)
+      }
+      Unfocus.
+      destruct Hty0 as [Ht Hi].
       eapply invert_typing_Write in Hty.
       destruct Hty as (t' & i1 & i2 & Htyeq & Hty1 & Hty2 & Hle2).
+      copy Hty1 Hty0.
+      eapply typing_kinding_2 in Hty0.
+      Focus 2.
+      {
+        eapply admit. (* wfctx ([], [], W, []) *)
+      }
+      Unfocus.
+      destruct Hty0 as [Ht' Hi1].
+      invert Ht'.
       eapply invert_typing_Loc in Hty1.
       destruct Hty1 as (t'' & Htyeq2 & Hl).
       simplify.
-      eapply invert_tyeq_CRef in Htyeq2.
+      eapply invert_tyeq_TUnOp in Htyeq2.
+      destruct Htyeq2 as [? Htyeq2].
       copy Hhty Hhty0.
       eapply htyping_elim in Hhty; eauto.
       destruct Hhty as (Hval' & Htyv').
+      copy Htyv' Hty0.
+      eapply typing_kinding_2 in Hty0.
+      Focus 2.
+      {
+        eapply admit. (* wfctx ([], [], W, []) *)
+      }
+      Unfocus.
+      destruct Hty0 as [Ht'' ?].
       split.
       {
         rewrite Time_a_minus_a.
@@ -19558,13 +19600,12 @@ lift2 (fst (strip_subsets L))
       exists W.
       repeat try_split.
       {
-        eapply TySub.
+        eapply TySub; try eassumption; simpl.
         {
           eapply TyETT.
         }
         {
-          simplify.
-          eapply tyeq_sym; eauto.
+          eauto with db_tyeq.
         }
         {
           simplify.
@@ -19575,17 +19616,13 @@ lift2 (fst (strip_subsets L))
           rewrite Time_minus_0.
           eauto with time_order.
         }
+        {
+          repeat (econstructor; simpl; eauto).
+        }
       }
       {
         eapply htyping_upd; eauto.
-        eapply TyTyeq.
-        {
-          eapply Hty2.
-        }
-        {
-          simplify.
-          eauto.
-        }
+        eapply TyTyeq; try eassumption; simpl.
       }
       {
         simplify.
@@ -19605,6 +19642,14 @@ lift2 (fst (strip_subsets L))
       destruct H as (Hty & Hhty & Hle).
       rename t into f.
       rename t0 into t.
+      copy Hty Hty0.
+      eapply typing_kinding_2 in Hty0.
+      Focus 2.
+      {
+        eapply admit. (* wfctx ([], [], W, []) *)
+      }
+      Unfocus.
+      destruct Hty0 as [Ht Hi].
       eapply invert_typing_New in Hty.
       destruct Hty as (t' & i' & Htyeq & Hty & Hle2).
       simplify.
@@ -19616,15 +19661,14 @@ lift2 (fst (strip_subsets L))
       exists (W $+ (l, t')).
       repeat try_split.
       {
-        eapply TySub.
+        eapply TySub; try eassumption; simpl.
         {
           eapply TyLoc.
           simplify.
           eauto.
         }
         {
-          simplify.
-          eapply tyeq_sym; eauto.
+          eauto with db_tyeq.
         }
         {
           simplify.
@@ -19634,6 +19678,9 @@ lift2 (fst (strip_subsets L))
           repeat rewrite interp_time_0.
           rewrite Time_minus_0.
           eauto with time_order.
+        }
+        {
+          repeat (econstructor; simpl; eauto).
         }
       }
       {
@@ -19664,21 +19711,135 @@ lift2 (fst (strip_subsets L))
       }
     }
     {
-      (* Case AppC *)
+      (* Case AppT *)
       destruct H as (Hty & Hhty & Hle).
       rename t into f.
       rename t0 into t.
-      eapply invert_typing_AppC in Hty.
+      copy Hty Hty0.
+      eapply typing_kinding_2 in Hty0.
+      Focus 2.
+      {
+        eapply admit. (* wfctx ([], [], W, []) *)
+      }
+      Unfocus.
+      destruct Hty0 as [Ht Hi].
+      eapply invert_typing_AppT in Hty.
       destruct Hty as (t' & i' & k' & Htyeq & Hty & Hkdc & Hle2).
       simplify.
-      eapply invert_typing_AbsC in Hty.
-      destruct Hty as (t'' & k & Htyeq2 & Hval & Hwfk & Hty).
-      simplify.
-      eapply invert_tyeq_CForall in Htyeq2.
-      destruct Htyeq2 as (Htyeq2 & Hsorteq).
-      assert (Hkdck : kinding [] c k).
+      copy Hty Hty0.
+      eapply typing_kinding_2 in Hty0.
+      Focus 2.
       {
-        eapply KdEq; eauto.
+        eapply admit. (* wfctx ([], [], W, []) *)
+      }
+      Unfocus.
+      destruct Hty0 as [Ht' Hi'].
+      invert Ht'.
+      eapply invert_typing_AbsT in Hty.
+      destruct Hty as (t'' & k & Htyeq2 & Hval & Hty).
+      simplify.
+      eapply invert_tyeq_TQuan_empty in Htyeq2.
+      destruct Htyeq2 as (? & ? & Htyeq2).
+      subst.
+      split.
+      {
+        rewrite Time_a_minus_a.
+        eauto with time_order.
+      }
+      exists W.
+      repeat try_split.
+      {
+        eapply TySub; try eassumption; simpl.
+        {
+          eapply typing_subst0_t_e with (G := []) in Hty; eauto.
+          {
+            simplify.
+            rewrite fmap_map_subst0_t_t_shift0 in Hty.
+            eauto.
+          }
+          {
+            eapply wfctx_add_kinding with (G := []).
+            eapply admit. (* wfctx ([], [], W, []) *)
+          }
+        }
+        {
+          simplify.
+          (* tyeq *)
+          eapply tyeq_sym.
+          eapply tyeq_trans; [eapply Htyeq |].
+          eapply tyeq_subst_t_t_0; eauto using kinding_wellscoped_t with db_tyeq.
+          copy Hty Hty0.
+          eapply typing_kinding_2 in Hty0.
+          {
+            openhyp; eauto.
+          }
+          {
+            eapply wfctx_add_kinding with (G := []).
+            eapply admit. (* wfctx ([], [], W, []) *)
+          }
+        }
+        {
+          simplify.
+          rewrite Time_a_minus_a.
+          eapply interp_time_interp_prop_le.
+          rewrite interp_time_minus_distr.
+          repeat rewrite interp_time_0.
+          rewrite Time_minus_0.
+          eauto with time_order.
+        }
+        {
+          repeat (econstructor; simpl; eauto).
+        }
+      }
+      {
+        eapply Hhty.
+      }
+      {
+        simplify.
+        rewrite Time_a_minus_a.
+        rewrite interp_time_minus_distr.
+        repeat rewrite interp_time_0.
+        rewrite Time_minus_0.
+        eauto.
+      }
+      {
+        eapply includes_intro.
+        eauto.
+      }
+    }
+    {
+      (* Case AppI *)
+      destruct H as (Hty & Hhty & Hle).
+      rename t into f.
+      rename t0 into t.
+      copy Hty Hty0.
+      eapply typing_kinding_2 in Hty0.
+      Focus 2.
+      {
+        eapply admit. (* wfctx ([], [], W, []) *)
+      }
+      Unfocus.
+      destruct Hty0 as [Ht Hi].
+      eapply invert_typing_AppI in Hty.
+      destruct Hty as (t' & i' & s & Htyeq & Hty & Hkdc & Hle2).
+      simplify.
+      copy Hty Hty0.
+      eapply typing_kinding_2 in Hty0.
+      Focus 2.
+      {
+        eapply admit. (* wfctx ([], [], W, []) *)
+      }
+      Unfocus.
+      destruct Hty0 as [Ht' Hi'].
+      invert Ht'.
+      eapply invert_typing_AbsI in Hty.
+      destruct Hty as (t'' & s' & Htyeq2 & Hval & Hs' & Hty).
+      simplify.
+      eapply invert_tyeq_TQuanI_empty in Htyeq2.
+      destruct Htyeq2 as (? & Hss' & Htyeq2).
+      assert (Hkdck : sorting [] c s').
+      {
+        eapply StgEq; eauto using wfsort_bwfsort.
         eapply sorteq_sym; eauto.
       }
       split.
@@ -19689,29 +19850,49 @@ lift2 (fst (strip_subsets L))
       exists W.
       repeat try_split.
       {
-        eapply TySub.
+        eapply TySub; try eassumption; simpl.
         {
-          eapply ty_subst0_c_e with (G := []) in Hty; eauto.
-          simplify.
-          rewrite fmap_map_subst0_shift0 in Hty.
-          eauto.
+          eapply typing_subst0_i_e with (G := []) in Hty; eauto.
+          {
+            simplify.
+            rewrite fmap_map_subst0_i_t_shift0 in Hty.
+            eauto.
+          }
+          {
+            eapply wfctx_add_sorting with (G := []); eauto.
+            eapply admit. (* wfctx ([], [], W, []) *)
+          }
         }
         {
           simplify.
           (* tyeq *)
           eapply tyeq_sym.
-          eapply tyeq_trans; eauto.
-          eapply tyeq_subst0_c_c; eauto with db_tyeq.
+          eapply tyeq_trans; [eapply Htyeq |].
+          eapply tyeq_subst_i_t_0; eauto using kinding_wellscoped_t, kinding_bkinding', wfsort_bwfsort' with db_tyeq.
+          copy Hty Hty0.
+          eapply typing_kinding_2 in Hty0.
+          {
+            openhyp; simpl.
+            eapply sorteq_get_bsort in Hss'.
+            rewrite <- Hss'.
+            eauto using kinding_bkinding'.
+          }
+          {
+            eapply wfctx_add_sorting with (G := []); eauto.
+            eapply admit. (* wfctx ([], [], W, []) *)
+          }
         }
         {
           simplify.
-          rewrite subst0_c_c_Const.
           rewrite Time_a_minus_a.
           eapply interp_time_interp_prop_le.
           rewrite interp_time_minus_distr.
           repeat rewrite interp_time_0.
           rewrite Time_minus_0.
           eauto with time_order.
+        }
+        {
+          repeat (econstructor; simpl; eauto).
         }
       }
       {
@@ -19735,14 +19916,31 @@ lift2 (fst (strip_subsets L))
       destruct H as (Hty & Hhty & Hle).
       rename t into f.
       rename t0 into t.
+      copy Hty Hty0.
+      eapply typing_kinding_2 in Hty0.
+      Focus 2.
+      {
+        eapply admit. (* wfctx ([], [], W, []) *)
+      }
+      Unfocus.
+      destruct Hty0 as [Ht Hi].
       eapply invert_typing_Proj in Hty.
       destruct Hty as (t1 & t2 & i' & Htyeq & Hty & Hle2).
       simplify.
+      copy Hty Hty0.
+      eapply typing_kinding_2 in Hty0.
+      Focus 2.
+      {
+        eapply admit. (* wfctx ([], [], W, []) *)
+      }
+      Unfocus.
+      destruct Hty0 as [Ht1t2 Hi'].
+      invert Ht1t2.
       eapply invert_typing_Pair in Hty.
       destruct Hty as (t1' & t2' & i1 & i2 & Htyeq2 & Hty1 & Hty2 & Hle3).
       simplify.
-      eapply invert_tyeq_CProd in Htyeq2.
-      destruct Htyeq2 as (Htyeq2 & Htyeq3).
+      eapply invert_tyeq_TBinOp in Htyeq2.
+      destruct Htyeq2 as (? & Htyeq2 & Htyeq3).
       split.
       {
         rewrite Time_a_minus_a.
@@ -19753,11 +19951,9 @@ lift2 (fst (strip_subsets L))
       {
         cases pr; simplify.
         {
-          eapply TySub; eauto.
+          eapply TySub; eauto; simpl.
           {
-            simplify.
-            eapply tyeq_sym.
-            eapply tyeq_trans; eauto.
+            eauto with db_tyeq.
           }
           {
             simplify.
@@ -19774,13 +19970,14 @@ lift2 (fst (strip_subsets L))
             rotate_rhs.
             finish.
           }
+          {
+            repeat (econstructor; simpl; eauto).
+          }
         }
         {
-          eapply TySub; eauto.
+          eapply TySub; eauto; simpl.
           {
-            simplify.
-            eapply tyeq_sym.
-            eapply tyeq_trans; eauto.
+            eauto with db_tyeq.
           }
           {
             simplify.
@@ -19795,6 +19992,9 @@ lift2 (fst (strip_subsets L))
             trans_rhs Hle2.
             trans_rhs Hle3.
             finish.
+          }
+          {
+            repeat (econstructor; simpl; eauto).
           }
         }
       }
@@ -19819,9 +20019,26 @@ lift2 (fst (strip_subsets L))
       destruct H as (Hty & Hhty & Hle).
       rename t into f.
       rename t0 into t.
+      copy Hty Hty0.
+      eapply typing_kinding_2 in Hty0.
+      Focus 2.
+      {
+        eapply admit. (* wfctx ([], [], W, []) *)
+      }
+      Unfocus.
+      destruct Hty0 as [Ht Hi].
       eapply invert_typing_Case in Hty.
-      destruct Hty as (t1 & t2 & i0 & i1 & i2 & Hty0 & Hty1 & Hty2 & Hle2).
+      destruct Hty as (t1 & t2 & i0 & i1 & i2 & t'2 & Htt'2 & Hty0 & Hty1 & Hty2 & Hle2).
       simplify.
+      copy Hty0 Hty0'.
+      eapply typing_kinding_2 in Hty0'.
+      Focus 2.
+      {
+        eapply admit. (* wfctx ([], [], W, []) *)
+      }
+      Unfocus.
+      destruct Hty0' as [Ht1t2 Hi0].
+      invert Ht1t2.
       eapply invert_typing_Inj in Hty0.
       destruct Hty0 as (t' & t'' & i' & Htyeq & Hty0 & Hkd & Hle3).
       simplify.
@@ -19835,14 +20052,28 @@ lift2 (fst (strip_subsets L))
       {
         cases inj; simplify.
         {
-          eapply invert_tyeq_CSum in Htyeq.
-          destruct Htyeq as (Htyeq1 & Htyeq2).
+          eapply invert_tyeq_TBinOp in Htyeq.
+          destruct Htyeq as (? & Htyeq1 & Htyeq2).
           eapply TyLe; eauto.
           {
-            eapply ty_subst0_e_e with (G := []) in Hty1; eauto.
-            eapply TyTyeq; eauto.
-            simplify.
-            eapply tyeq_sym; eauto.
+            eapply typing_subst0_e_e with (G := []) in Hty1; eauto.
+            {
+              eapply TyTyeq; eauto.
+              simpl.
+              eauto with db_tyeq.
+            }
+            {
+              eapply TyTyeq; eauto.
+              simpl.
+              eauto with db_tyeq.
+            }
+            {
+              eapply wellscoped_ctx_add_typing; eauto using kinding_wellscoped_t.
+              eapply admit. (* wellscoped_ctx ([], [], W, []) *)
+            }
+          }
+          {
+            repeat (econstructor; simpl; eauto).
           }
           {
             simplify.
@@ -19868,14 +20099,28 @@ lift2 (fst (strip_subsets L))
           }
         }
         {
-          eapply invert_tyeq_CSum in Htyeq.
-          destruct Htyeq as (Htyeq1 & Htyeq2).
+          eapply invert_tyeq_TBinOp in Htyeq.
+          destruct Htyeq as (? & Htyeq1 & Htyeq2).
           eapply TyLe; eauto.
           {
-            eapply ty_subst0_e_e with (G := []) in Hty2; eauto.
-            eapply TyTyeq; eauto.
-            simplify.
-            eapply tyeq_sym; eauto.
+            eapply typing_subst0_e_e with (G := []) in Hty2; eauto.
+            {
+              eapply TyTyeq; eauto.
+              simpl.
+              eauto with db_tyeq.
+            }
+            {
+              eapply TyTyeq; eauto.
+              simpl.
+              eauto with db_tyeq.
+            }
+            {
+              eapply wellscoped_ctx_add_typing; eauto using kinding_wellscoped_t.
+              eapply admit. (* wellscoped_ctx ([], [], W, []) *)
+            }
+          }
+          {
+            repeat (econstructor; simpl; eauto).
           }
           {
             simplify.
