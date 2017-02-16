@@ -9666,25 +9666,6 @@ lift2 (fst (strip_subsets L))
     destruct a; simpl; eauto.
   Qed.
 
-(*  
-  Lemma shift_c_c_0_tyeq :
-    forall L'' n L' c1 c2,
-      tyeq L' c1 c2 ->
-      n = length L'' ->
-      tyeq (L'' ++ L') (shift_c_c n 0 c1) (shift_c_c n 0 c2).
-  Proof.
-    eapply admit.
-  Qed.
-*)  
-
-  (*
-          Lemma shift_c_c_0_interp_idx_eq :
-            forall L'' n L' c1 c2 s,
-              interp_idx c1 L' s = interp_idx c2 L' s ->
-              n = length L'' ->
-              interp_idx (shift_c_c n 0 c1) (L'' ++ L') s = interp_idx (shift_c_c n 0 c2) (L'' ++ L') s.
-          Admitted.
-*)
   Lemma map_eq_nth_error A1 A2 B (f1 : A1 -> B) (f2 : A2 -> B) :
     forall ls1 ls2 x a2,
       nth_error ls2 x = Some a2 ->
@@ -9726,525 +9707,8 @@ lift2 (fst (strip_subsets L))
     induct 2; simpl; eauto.
   Qed.
 
-(*  
-  Lemma interp_idx_interp_prop_eq L' a b :
-    interp_idx a (map kind_to_sort L') BSTime = interp_idx b (map kind_to_sort L') BSTime -> interp_prop L' (a == b)%idx.
-  Admitted.
-  
-          Lemma interp_prop_BinConn_iff L' opr p1 p2 p1' p2' :
-            interp_prop L' (p1 <===> p1')%idx ->
-            interp_prop L' (p2 <===> p2')%idx ->
-            interp_prop L' (PBinConn opr p1 p2 <===> PBinConn opr p1' p2')%idx.
-          Admitted.
-          
-          Lemma interp_prop_Not_iff L' p p' :
-            interp_prop L' (p <===> p')%idx ->
-            interp_prop L' (PNot p <===> PNot p')%idx.
-          Admitted.
-  
-          Lemma interp_prop_BinPred_iff L' opr i1 i2 i1' i2' :
-            interp_idx i1 (map kind_to_sort L') (binpred_arg1_sort opr) = interp_idx i1' (map kind_to_sort L') (binpred_arg1_sort opr) ->
-            interp_idx i2 (map kind_to_sort L') (binpred_arg2_sort opr) = interp_idx i2' (map kind_to_sort L') (binpred_arg2_sort opr) ->
-            interp_prop L' (PBinPred opr i1 i2 <===> PBinPred opr i1' i2')%idx.
-          Admitted.
-  
-          Lemma interp_prop_Quan_iff L' q s p p' :
-            interp_prop (KBaseSort s :: L') (p <===> p')%idx ->
-            interp_prop L' (PQuan q s p <===> PQuan q s p')%idx.
-          Admitted.
-  
-        Lemma interp_prop_eq_interp_idx L a b :
-          interp_prop L (a == b)%idx -> interp_idx a (map kind_to_sort L) BSTime = interp_idx b ((map kind_to_sort L)) BSTime.
-        Admitted.
- *)
-  
   Hint Resolve tyeq_refl tyeq_sym tyeq_trans interp_prop_le_refl interp_prop_le_trans : db_tyeq.
 
-(*  
-  Lemma kinding_tyeq L k t1 t2 :
-    kinding L t1 k ->
-    tyeq L t1 t2 ->
-    kinding L t2 k.
-  Admitted.
-  
-  Lemma tyeq_shift0_c_c L c c' k :
-    tyeq L c c' ->
-    tyeq (k :: L) (shift0_c_c c) (shift0_c_c c').
-  Admitted.
-  
-  Lemma tyeq_subst0_c_c k L v b v' b' :
-    tyeq L v v' ->
-    tyeq (k :: L) b b' ->
-    tyeq L (subst0_c_c v b) (subst0_c_c v' b').
-  Admitted.
-  
-  Lemma tyeq_shift_c_c L c1 c2 :
-    tyeq L c1 c2 ->
-    forall x ls ,
-      let n := length ls in
-      x <= length L ->
-      tyeq (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_c n x c1) (shift_c_c n x c2).
-  Admitted.
-  Lemma tyeq_subst_c_c L c1' c2' :
-    tyeq L c1' c2' ->
-    forall n k c1 c2 ,
-      nth_error L n = Some k ->
-      kinding (my_skipn L (1 + n)) c1 k ->
-      kinding (my_skipn L (1 + n)) c2 k ->
-      tyeq (my_skipn L (1 + n)) c1 c2 ->
-      tyeq (subst_c_ks c1 (firstn n L) ++ my_skipn L (1 + n)) (subst_c_c n (shift_c_c n 0 c1) c1') (subst_c_c n (shift_c_c n 0 c2) c2').
-  Admitted.
-  
-  Lemma sorteq_shift_c_k L k1 k2 :
-    sorteq L k1 k2 ->
-    forall x ls ,
-      let n := length ls in
-      x <= length L ->
-      sorteq (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_k n x k1) (shift_c_k n x k2).
-  Proof.
-    induct 1; simpl; 
-      (* try rename x into x'; *)
-      intros x ls Hle;
-      simplify;
-      cbn in *;
-      try solve [cbn in *; econstructor; eauto].
-    {
-      (* Case Subset *)
-      econstructor; eauto.
-      specialize (@interp_prop_shift_c_p (k :: L) (p <===> p')%idx H0 (S x) ls); intros HH.
-      simplify; cbn in *.
-      repeat erewrite length_firstn_le in * by la.
-      eauto with db_la.
-    }
-  Qed.
-  
-  Lemma sorteq_subst_c_k L k1 k2 :
-    sorteq L k1 k2 ->
-    forall n k c ,
-      nth_error L n = Some k ->
-      kinding (my_skipn L (1 + n)) c k ->
-      sorteq (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_k n (shift_c_c n 0 c) k1) (subst_c_k n (shift_c_c n 0 c) k2).
-  Proof.
-    induct 1;
-      try rename n into n';
-      try rename k into k'';
-      try rename c into c';
-      intros n k c Hnth Hkd;
-      simplify;
-      try solve [econstructor; eauto].
-    {
-      (* Case Subset *)
-      econstructor; eauto.
-      specialize (@interp_prop_subst_c_p (k'' :: L) (p <===> p')%idx H0 (S n) k c); intros HH.
-      simplify.
-      repeat erewrite nth_error_length_firstn in * by eauto.
-      repeat rewrite shift0_c_c_shift_0.
-      simplify.
-      eauto with db_la.
-    }
-  Qed.
-  
-  Lemma kd_wfkind_wfprop_shift_c_c :
-    (forall L c k,
-        kinding L c k ->
-        forall x ls,
-          let n := length ls in
-          x <= length L ->
-          kinding (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_c n x c) (shift_c_k n x k)) /\
-    (forall L k,
-        wfkind L k ->
-        forall x ls,
-          let n := length ls in
-          x <= length L ->
-          wfkind (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_k n x k)) /\
-    (forall L p,
-        wfprop L p ->
-        forall x ls,
-          let n := length ls in
-          x <= length L ->
-          wfprop (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_p n x p))
-  .
-  Proof.
-    eapply kinding_wfkind_wfprop_mutind;
-      simplify; cbn in *; try solve [econstructor; eauto].
-    {
-      (* Case Var *)
-      copy H HnltL.
-      eapply nth_error_Some_lt in HnltL.
-      rename x0 into y.
-      cases (y <=? x).
-      {
-        eapply KdEq.
-        {
-          eapply KdVar.
-          rewrite nth_error_app2;
-            rewrite length_shift_c_ks; erewrite length_firstn_le; try la.
-          rewrite nth_error_app2 by la.
-          rewrite nth_error_my_skipn by la.
-          erewrite <- H.
-          f_equal.
-          la.
-        }
-        eapply sorteq_refl2.
-        rewrite shift_c_k_shift_0 by la.
-        simplify.
-        f_equal.
-        la.
-      }
-      {
-        eapply KdEq.
-        {
-          eapply KdVar.
-          rewrite nth_error_app1;
-            try rewrite length_shift_c_ks; try erewrite length_firstn_le; try la.
-          erewrite nth_error_shift_c_ks; eauto.
-          rewrite nth_error_firstn; eauto.
-        }
-        eapply sorteq_refl2.
-        erewrite length_firstn_le by la.
-        rewrite shift_c_k_shift_2 by la.
-        eauto.
-      }
-    }
-    {
-      (* Case Const *)
-      cases cn; simplify; econstructor.
-    }
-    {
-      (* Case BinOp *)
-      rewrite shift_c_k_cbinop_result_kind.
-      rename H0 into IHkinding1.
-      rename H2 into IHkinding2.
-      specialize (IHkinding1 x ls).
-      rewrite shift_c_k_cbinop_arg1_kind in *.
-      specialize (IHkinding2 x ls).
-      rewrite shift_c_k_cbinop_arg2_kind in *.
-      eapply KdBinOp; eauto.
-    }
-    {
-      (* Case Abs *)
-      econstructor; eauto.
-      rename H2 into IHkinding.
-      specialize (IHkinding (S x) ls).
-      simplify.
-      repeat erewrite length_firstn_le in * by la.
-      rewrite shift_c_k_shift_2 in * by la.
-      simplify.
-      repeat rewrite Nat.sub_0_r in *.
-      eauto with db_la.
-    }
-    {
-      (* Case Abs *)
-      econstructor; eauto.
-      {
-        rename H0 into IHkinding.
-        eapply IHkinding with (x := S x).
-        la.
-      }
-    }
-    {
-      (* Case Quan *)
-      econstructor; eauto.
-      {
-        rename H0 into IHwfkind.
-        eapply IHwfkind; eauto.
-      }
-      rename H2 into IHkinding.
-      specialize (IHkinding (S x) ls).
-      simplify.
-      repeat erewrite length_firstn_le in * by eauto.
-      eauto with db_la.
-    }
-    {
-      (* Case Rec *)
-      econstructor; eauto.
-      rename H2 into IHkinding.
-      specialize (IHkinding (S x) ls).
-      simplify.
-      repeat erewrite length_firstn_le in * by eauto.
-      rewrite shift_c_k_shift_2 in * by la.
-      simplify.
-      repeat rewrite Nat.sub_0_r in *.
-      eauto with db_la.
-    }
-    {
-      (* Case Eq *)
-      econstructor; eauto.
-      eapply sorteq_shift_c_k; eauto with db_tyeq.
-    }
-    {
-      (* Case Subset *)
-      econstructor; eauto.
-      rename H2 into IHwfprop.
-      specialize (IHwfprop (S x) ls).
-      simplify.
-      repeat erewrite length_firstn_le in * by eauto.
-      eauto with db_la.
-    }
-    {
-      (* Case BinPred *)
-      rename H0 into IHwfprop1.
-      rename H2 into IHwfprop2.
-      specialize (IHwfprop1 x ls).
-      rewrite shift_c_k_binpred_arg1_kind in *.
-      specialize (IHwfprop2 x ls).
-      rewrite shift_c_k_binpred_arg2_kind in *.
-      econstructor; eauto.
-    }
-    {
-      (* Case PQuan *)
-      econstructor; eauto.
-      rename H0 into IHwfprop.
-      specialize (IHwfprop (S x) ls).
-      simplify.
-      repeat erewrite length_firstn_le in * by eauto.
-      eauto with db_la.
-    }
-  Qed.
-
-  Lemma kd_shift_c_c :
-    forall L c k,
-      kinding L c k ->
-      forall x ls,
-        let n := length ls in
-        x <= length L ->
-        kinding (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_c n x c) (shift_c_k n x k).
-  Proof.
-    eapply kd_wfkind_wfprop_shift_c_c.
-  Qed.
-  
-  Lemma wfkind_shift_c_k :
-    forall L k,
-      wfkind L k ->
-      forall x ls,
-        let n := length ls in
-        x <= length L ->
-        wfkind (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_k n x k).
-  Proof.
-    eapply kd_wfkind_wfprop_shift_c_c.
-  Qed.
-  
-  Lemma wfkind_shift_c_p :
-    forall L p,
-      wfprop L p ->
-      forall x ls,
-        let n := length ls in
-        x <= length L ->
-        wfprop (shift_c_ks n (firstn x L) ++ ls ++ my_skipn L x) (shift_c_p n x p).
-  Proof.
-    eapply kd_wfkind_wfprop_shift_c_c.
-  Qed.
-  
-  Lemma kd_wfkind_wfprop_subst_c_c :
-    (forall L c' k',
-        kinding L c' k' ->
-        forall n k c ,
-          nth_error L n = Some k ->
-          kinding (my_skipn L (1 + n)) c k ->
-          kinding (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_c n (shift_c_c n 0 c) c') (subst_c_k n (shift_c_c n 0 c) k')) /\
-    (forall L k',
-        wfkind L k' ->
-        forall n k c ,
-          nth_error L n = Some k ->
-          kinding (my_skipn L (1 + n)) c k ->
-          wfkind (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_k n (shift_c_c n 0 c) k')) /\
-    (forall L p,
-        wfprop L p ->
-        forall n k c ,
-          nth_error L n = Some k ->
-          kinding (my_skipn L (1 + n)) c k ->
-          wfprop (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_p n (shift_c_c n 0 c) p)).
-  Proof.
-    eapply kinding_wfkind_wfprop_mutind;
-      simplify; try solve [econstructor; eauto].
-    {
-      (* Case Var *)
-      copy H0 HnltL.
-      eapply nth_error_Some_lt in HnltL.
-      cases (x <=>? n).
-      {
-        rewrite subst_c_k_shift by la.
-        econstructor.
-        rewrite nth_error_app1.
-        {
-          erewrite nth_error_subst_c_ks.
-          {
-            repeat erewrite nth_error_length_firstn by eauto.
-            eauto.
-          }
-          rewrite nth_error_firstn by la.
-          eauto.
-        }
-        rewrite length_subst_c_ks.
-        repeat erewrite nth_error_length_firstn by eauto.
-        eauto.
-      }
-      {
-        subst.
-        rewrite H0 in H.
-        invert H.
-        rewrite subst_c_k_shift_0_avoid by la.
-        simplify.
-        repeat rewrite Nat.sub_0_r in *.
-        eapply kd_shift_c_c with (x := 0) (ls := subst_c_ks c (firstn n L)) in H1; try la.
-        rewrite length_subst_c_ks in *.
-        repeat erewrite nth_error_length_firstn in * by eauto.
-        simplify.
-        rewrite my_skipn_0 in *.
-        eapply H1.
-      }
-      {
-        rewrite subst_c_k_shift_0_avoid by la.
-        simplify.
-        repeat rewrite Nat.sub_0_r in *.
-        destruct x as [| x]; simplify; try la.
-        repeat rewrite Nat.sub_0_r in *.
-        eapply KdVar.
-        rewrite nth_error_app2; repeat rewrite length_subst_c_ks in *.
-        {
-          rewrite nth_error_my_skipn; repeat erewrite nth_error_length_firstn by eauto; try la.
-          replace (S n + (x - n)) with (S x); eauto.
-          la.
-        }
-        {
-          repeat erewrite nth_error_length_firstn by eauto.
-          la.
-        }
-      }
-    }
-    {
-      (* Case Const *)
-      cases cn; simplify; econstructor.
-    }
-    {
-      (* Case BinOp *)
-      rewrite subst_c_k_cbinop_result_kind.
-      rename H0 into IHkinding1.
-      rename H2 into IHkinding2.
-      specialize (IHkinding1 n k c).
-      rewrite subst_c_k_cbinop_arg1_kind in *.
-      specialize (IHkinding2 n k c).
-      rewrite subst_c_k_cbinop_arg2_kind in *.
-      eapply KdBinOp; eauto.
-    }
-    {
-      (* Case Abs *)
-      rewrite shift0_c_c_shift_0.
-      econstructor; eauto.
-      rename H2 into IHkinding.
-      specialize (IHkinding (S n) k c0).
-      simplify.
-      repeat erewrite nth_error_length_firstn in * by eauto.
-      rewrite subst_c_k_shift in * by la.
-      simplify.
-      repeat rewrite Nat.sub_0_r in *.
-      eauto.
-    }
-    {
-      (* Case Abs *)
-      rewrite shift0_c_c_shift_0.
-      econstructor; eauto.
-      {
-        rename H0 into IHkinding.
-        eapply IHkinding with (n0 := S n0); eauto.
-      }
-    }
-    {
-      (* Case Quan *)
-      rewrite shift0_c_c_shift_0.
-      econstructor; eauto.
-      rename H2 into IHkinding.
-      specialize (IHkinding (S n) k0 c0).
-      simplify.
-      repeat erewrite nth_error_length_firstn in * by eauto.
-      eauto.
-    }
-    {
-      (* Case Rec *)
-      rewrite shift0_c_c_shift_0.
-      econstructor; eauto.
-      rename H2 into IHkinding.
-      specialize (IHkinding (S n) k0 c0).
-      simplify.
-      repeat erewrite nth_error_length_firstn in * by eauto.
-      rewrite subst_c_k_shift in * by la.
-      simplify.
-      repeat rewrite Nat.sub_0_r in *.
-      eauto.
-    }
-    {
-      (* Case Eq *)
-      econstructor; eauto.
-      eapply sorteq_subst_c_k; eauto with db_tyeq.
-    }
-    {
-      (* Case Subset *)
-      rewrite shift0_c_c_shift_0.
-      econstructor; eauto.
-      rename H2 into IHwfprop.
-      specialize (IHwfprop (S n) k0 c).
-      simplify.
-      repeat erewrite nth_error_length_firstn in * by eauto.
-      eauto.
-    }
-    {
-      (* Case BinPred *)
-      rename H0 into IHwfprop1.
-      rename H2 into IHwfprop2.
-      specialize (IHwfprop1 n k c).
-      rewrite subst_c_k_binpred_arg1_kind in *.
-      specialize (IHwfprop2 n k c).
-      rewrite subst_c_k_binpred_arg2_kind in *.
-      econstructor; eauto.
-    }
-    {
-      (* Case PQuan *)
-      rewrite shift0_c_c_shift_0.
-      econstructor; eauto.
-      rename H0 into IHwfprop.
-      specialize (IHwfprop (S n) k c).
-      simplify.
-      repeat erewrite nth_error_length_firstn in * by eauto.
-      eauto.
-    }
-  Qed.
-  
-  Lemma kd_subst_c_c :
-    forall L c' k',
-      kinding L c' k' ->
-      forall n k c ,
-        nth_error L n = Some k ->
-        kinding (my_skipn L (1 + n)) c k ->
-        kinding (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_c n (shift_c_c n 0 c) c') (subst_c_k n (shift_c_c n 0 c) k').
-  Proof.
-    eapply kd_wfkind_wfprop_subst_c_c.
-  Qed.
-    
-  Lemma wfkind_subst_c_k :
-    forall L k',
-      wfkind L k' ->
-      forall n k c ,
-        nth_error L n = Some k ->
-        kinding (my_skipn L (1 + n)) c k ->
-        wfkind (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_k n (shift_c_c n 0 c) k').
-  Proof.
-    eapply kd_wfkind_wfprop_subst_c_c.
-  Qed.
-
-  Lemma wfprop_subst_c_p :
-    forall L p,
-      wfprop L p ->
-      forall n k c ,
-        nth_error L n = Some k ->
-        kinding (my_skipn L (1 + n)) c k ->
-        wfprop (subst_c_ks c (firstn n L) ++ my_skipn L (1 + n)) (subst_c_p n (shift_c_c n 0 c) p).
-  Proof.
-    eapply kd_wfkind_wfprop_subst_c_c.
-  Qed.
- *)
-  
-  (*from*)
-    
   (* ============================================================= *)
   (* The term language *)
   (* ============================================================= *)
@@ -12529,6 +11993,17 @@ lift2 (fst (strip_subsets L))
   Hint Extern 0 (_ = length (map _ _)) => rewrite map_length; eauto : db_la.
   Hint Extern 0 (_ <= length (map _ _)) => rewrite map_length; eauto : db_la.
   
+  Lemma bwfsort_shift_i_s'' x L s ls :
+    bwfsort (map get_bsort L) s ->
+    x <= length L ->
+    bwfsort (map get_bsort (shift_i_ss (length ls) (firstn x L) ++ ls ++ my_skipn L x))
+            (shift_i_s (length ls) x s).
+  Proof.
+    intros.
+    rewrite get_bsort_shift_i_ss_insert.
+    eapply bwfsort_shift_i_s'; eauto with db_la.
+  Qed.
+  
   Lemma kinding_shift_i_t :
     forall L K c k,
       kinding L K c k ->
@@ -12559,10 +12034,7 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case TQuanI *)
-      econstructor; eauto using bwfsort_shift_i_s.
-      {
-        rewrite get_bsort_shift_i_ss_insert; eauto using bwfsort_shift_i_s' with db_la.
-      }
+      econstructor; eauto using bwfsort_shift_i_s''.
       specialize (IHkinding (S x) ls).
       simpl in *.
       rewrite length_firstn_le in * by la.
@@ -12863,7 +12335,9 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case StgApp *)
-      (*here*)
+      econstructor; simpl; eauto.
+      eapply IHsorting1; eauto.
+      econstructor; eauto.
     }
     {
       (* Case StgSubsetI *)
@@ -12908,36 +12382,20 @@ lift2 (fst (strip_subsets L))
     intros; subst; eapply sorting_subst_i_i; eauto.
   Qed.
   
-  Lemma wfprop_subst_i_p :
+  Lemma bwfsort_subst_i_s :
     forall L body,
-      wfprop L body ->
-      forall x s_v v ,
-        nth_error L x = Some s_v ->
-        sorting (my_skipn L (1 + x)) v s_v ->
-        bwfsorts L ->
-        wfprop (subst_i_ss v (firstn x L) ++ my_skipn L (1 + x)) (subst_i_p x (shift_i_i x 0 v) body).
+      bwfsort L body ->
+      forall x b_v v ,
+        nth_error L x = Some b_v ->
+        bsorting (my_skipn L (1 + x)) v b_v ->
+        (* bwfsorts L -> *)
+        bwfsort (removen x L) (subst_i_s x (shift_i_i x 0 v) body).
   Proof.
     induct 1;
-      simpl; try rename x into y; intros x s_v v Hx Hv HL; simpl in *; try solve [econstructor; eauto using sorting_subst_i_i'].
+      simpl; try rename x into y; intros x b_v v Hx Hv; simpl in *; try solve [econstructor; eauto].
     rewrite shift0_i_i_shift_0.
     econstructor; eauto with db_la.
-    eapply IHwfprop with (x := S x); eauto.
-  Qed.
-  
-  Lemma wfsort_subst_i_s :
-    forall L body,
-      wfsort L body ->
-      forall x s_v v ,
-        nth_error L x = Some s_v ->
-        sorting (my_skipn L (1 + x)) v s_v ->
-        bwfsorts L ->
-        wfsort (subst_i_ss v (firstn x L) ++ my_skipn L (1 + x)) (subst_i_s x (shift_i_i x 0 v) body).
-  Proof.
-    induct 1;
-      simpl; try rename x into y; intros x s_v v Hx Hv HL; simpl in *; try solve [econstructor; eauto].
-    rewrite shift0_i_i_shift_0.
-    econstructor; eauto with db_la.
-    eapply wfprop_subst_i_p with (x := S x) (L := SBaseSort _ :: _); eauto.
+    eapply bwfprop_subst_i_p with (x := S x) (L := _ :: _); eauto.
   Qed.
   
   Lemma kinding_subst_i_t :
@@ -12968,18 +12426,46 @@ lift2 (fst (strip_subsets L))
       econstructor; eauto.
       eapply sorting_subst_i_i with (s_b := SBaseSort _); eauto.
     }
+        Lemma get_bsort_subst_i_ss_remove x L v :
+          map get_bsort (subst_i_ss v (firstn x L) ++ my_skipn L (S x)) = removen x (map get_bsort L).
+        Proof.
+          rewrite map_app.
+          rewrite get_bsort_subst_i_ss.
+          rewrite map_firstn.
+          rewrite map_my_skipn.
+          rewrite <- removen_firstn_my_skipn.
+          eauto.
+        Qed.
+
+        Lemma bwfsort_subst_i_s' x L v s s' :
+          bwfsort (map get_bsort L) s' ->
+          nth_error L x = Some s ->
+          sorting (my_skipn L (S x)) v s ->
+          bwfsort (map get_bsort (subst_i_ss v (firstn x L) ++ my_skipn L (S x)))
+    (subst_i_s x (shift_i_i x 0 v) s').
+        Proof.
+          intros.
+          rewrite get_bsort_subst_i_ss_remove; eauto.
+          eapply bwfsort_subst_i_s; eauto.
+          {
+            erewrite map_nth_error; eauto.
+          }
+          rewrite <- map_my_skipn.
+          eapply sorting_bsorting'; eauto.
+        Qed.
+        
     {
       (* Case TQuanI *)
       unfold shift0_i_i.
       rewrite shift_i_i_shift_merge by la.
       rewrite plus_comm.
-      econstructor; eauto using wfsort_subst_i_s with db_la.
+      econstructor; eauto using bwfsort_subst_i_s' with db_la.
       specialize (IHkinding (S x) s v).
       simpl in *.
       copy Hx Hcmp.
       eapply nth_error_Some_lt in Hcmp.
       rewrite length_firstn_le in * by la.
-      eauto using wfsort_bwfsort.
+      eauto.
     }
   Qed.
   
@@ -13031,46 +12517,6 @@ lift2 (fst (strip_subsets L))
         eauto.
       }
     }
-    {
-      (* Case IAbs *)
-      econstructor; eauto.
-      simpl.
-      eapply IHbsorting; eauto.
-    }
-  Qed.
-
-  (* [wfprop] is superficial *)
-  Lemma bwfprop_wfprop bs p :
-    bwfprop bs p ->
-    forall L,
-      bs = map get_bsort L ->
-      bwfsorts L ->
-      wfprop L p.
-  Proof.
-    induct 1; simpl; try rename L into bs; intros L ? HL; subst; try solve [econstructor; eauto].
-    {
-      (* Case PBinPred *)
-      destruct opr; simpl in *;
-      econstructor; eauto; simpl;
-      eapply bsorting_sorting_SBaseSort; eauto.
-    }
-    {
-      (* Case PEq *)
-      econstructor; eauto; simpl;
-      eapply bsorting_sorting_SBaseSort; eauto.
-    }
-  Qed.
-
-  Lemma bwfsort_wfsort bs s :
-    bwfsort bs s ->
-    forall L,
-      bs = map get_bsort L ->
-      bwfsorts L ->
-      wfsort L s.
-  Proof.
-    induct 1; simpl; try rename L into bs; intros L ? HL; subst; try solve [econstructor; eauto].
-    econstructor; eauto; simpl.
-    eapply bwfprop_wfprop; eauto.
   Qed.
 
   Lemma kinding_TApps L K :
@@ -13438,31 +12884,7 @@ lift2 (fst (strip_subsets L))
     rewrite my_skipn_0.
     eauto.
   Qed.
-  
-  Lemma wfprop_shift_i_p_rev L p x L' ls p' :
-      wfprop L p ->
-      let n := length ls in
-      L = shift_i_ss n (firstn x L') ++ ls ++ my_skipn L' x ->
-      p = shift_i_p n x p' ->
-      x <= length L' ->
-      bwfsorts L' ->
-      wfprop L' p'.
-  Proof.
-    simpl.
-    intros H HL Hi Hx HL'.
-    subst.
-    eapply bwfprop_wfprop; eauto.
-    eapply wfprop_bwfprop in H.
-    repeat rewrite map_app in *.
-    rewrite get_bsort_shift_i_ss in *.
-    rewrite map_firstn in *.
-    rewrite map_my_skipn in *.
-    eapply bwfprop_shift_i_p_rev in H; eauto; try rewrite length_firstn_le; try rewrite map_length; eauto.
-    simpl in *.
-    rewrite firstn_my_skipn in *.
-    eauto.
-  Qed.
-    
+
   Lemma bwfsort_shift_i_s_rev :
     forall L s,
       bwfsort L s ->
@@ -13486,30 +12908,20 @@ lift2 (fst (strip_subsets L))
     eauto.
   Qed.    
   
-  Lemma wfsort_shift_i_s_rev L s x L' ls s' :
-      wfsort L s ->
-      let n := length ls in
-      L = shift_i_ss n (firstn x L') ++ ls ++ my_skipn L' x ->
-      s = shift_i_s n x s' ->
-      x <= length L' ->
-      bwfsorts L' ->
-      wfsort L' s'.
+  Lemma bwfsort_shift_i_s_rev' L s ls x n s' :
+    bwfsort (firstn x L ++ ls ++ my_skipn L x) s ->
+    x <= length L ->
+    s = shift_i_s n x s' ->
+    n = length ls ->
+    bwfsort L s'.
   Proof.
-    simpl.
-    intros H HL Hi Hx HL'.
-    subst.
-    eapply bwfsort_wfsort; eauto.
-    eapply wfsort_bwfsort in H.
-    repeat rewrite map_app in *.
-    rewrite get_bsort_shift_i_ss in *.
-    rewrite map_firstn in *.
-    rewrite map_my_skipn in *.
-    eapply bwfsort_shift_i_s_rev in H; eauto; try rewrite length_firstn_le; try rewrite map_length; eauto.
-    simpl in *.
-    rewrite firstn_my_skipn in *.
+    intros H; intros; subst.
+    rewrite <- (firstn_my_skipn x L).
+    eapply bwfsort_shift_i_s_rev in H; eauto.
+    rewrite length_firstn_le by la.
     eauto.
   Qed.
-    
+  
   Lemma kinding_shift_i_t_rev :
     forall L K i k,
       kinding L K i k ->
@@ -13541,10 +12953,15 @@ lift2 (fst (strip_subsets L))
     {
       destruct i'; simpl in *; try cases_le_dec; try dis;
       invert Hi;
-      econstructor; eauto using sorting_shift_i_i_rev_SBaseSort, wfsort_shift_i_s_rev.
+      econstructor; eauto using sorting_shift_i_i_rev_SBaseSort, bwfsort_shift_i_s_rev.
+      {
+        rewrite get_bsort_shift_i_ss_insert in *.
+        eapply bwfsort_shift_i_s_rev'; eauto with db_la.
+      }
       eapply IHkinding with (x0 := S x); eauto; simpl; try rewrite length_firstn_le by la; eauto with db_la.
       econstructor; eauto.
-      eapply wfsort_shift_i_s_rev in H; eauto using wfsort_bwfsort.
+      rewrite get_bsort_shift_i_ss_insert in *.
+      eapply bwfsort_shift_i_s_rev'; eauto with db_la.
     }
   Qed.
   
@@ -13620,11 +13037,11 @@ lift2 (fst (strip_subsets L))
       edestruct IHtyping as (Ht & ?); eauto.
       invert Ht.
       split; eauto.
-      eapply kinding_subst_i_t_0; eauto using wfsort_bwfsort with db_la.
+      eapply kinding_subst_i_t_0; eauto with db_la.
     }
     {
       (* Case TyAbsI *)
-      edestruct IHtyping; eauto using wfsort_bwfsort.
+      edestruct IHtyping; eauto.
       {
         eapply fmap_forall_fmap_map_intro.
         eapply fmap_forall_impl; eauto.
@@ -13675,7 +13092,7 @@ lift2 (fst (strip_subsets L))
       (* Case TyUnPackI *)
       edestruct IHtyping1 as (Ht & ?); eauto.
       invert Ht.
-      edestruct IHtyping2 as (Ht2 & Hi2); eauto using wfsort_bwfsort.
+      edestruct IHtyping2 as (Ht2 & Hi2); eauto.
       {
         eapply fmap_forall_fmap_map_intro.
         eapply fmap_forall_impl; eauto.
@@ -13754,12 +13171,6 @@ lift2 (fst (strip_subsets L))
 
   Hint Extern 0 (wellscoped_ss []) => econstructor.
   Hint Extern 0 (bwfsorts []) => econstructor.
-  Hint Extern 0 (wfsorts []) => econstructor.
-  
-  Lemma bwfsorts_wfsorts L : bwfsorts L -> wfsorts L.
-  Proof.
-    induct 1; simpl; eauto using bwfsort_wfsort.
-  Qed.
   
   Lemma ty_G_tyeq' C e t i :
     typing C e t i ->
@@ -13809,7 +13220,7 @@ lift2 (fst (strip_subsets L))
     {
       (* Case AbsI *)
       econstructor; simplify; eauto.
-      eapply IHtyping; eauto using wfsort_bwfsort.
+      eapply IHtyping; eauto.
       {
         eapply fmap_forall_fmap_map_intro.
         eapply fmap_forall_impl; eauto.
@@ -13867,7 +13278,7 @@ lift2 (fst (strip_subsets L))
       simpl in *.
       invert Ht.
       econstructor; simplify; eauto.
-      eapply IHtyping2; eauto using wfsort_bwfsort.
+      eapply IHtyping2; eauto.
       {
         eapply fmap_forall_fmap_map_intro.
         eapply fmap_forall_impl; eauto.
@@ -13920,7 +13331,7 @@ lift2 (fst (strip_subsets L))
       typing (L, K, W, G') e t i.
   Proof.
     intros C Ht (HL & HW & HG) G' HGG'.
-    eapply ty_G_tyeq' with (C := C); eauto using wfsorts_bwfsorts.
+    eapply ty_G_tyeq' with (C := C); eauto.
     eapply Forall1_Forall2_Forall2; eauto.
     simpl; intros.
     openhyp; eauto.
@@ -14001,7 +13412,7 @@ lift2 (fst (strip_subsets L))
     intros C Ht HC.
     unfold wfctx in *.
     openhyp.
-    eapply typing_kinding with (C := C); eauto using wfsorts_bwfsorts.
+    eapply typing_kinding with (C := C); eauto.
   Qed.
   
   (* for setoid_rewrite *)
@@ -14131,7 +13542,7 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case TyAbsI *)
-      econstructor; eauto using value_shift_i_e, wfsort_shift_i_s.
+      econstructor; eauto using value_shift_i_e, bwfsort_shift_i_s''.
       specialize (IHtyping (S x) ls).
       simpl in *.
       unfold shift0_i_t in *.
@@ -14141,7 +13552,7 @@ lift2 (fst (strip_subsets L))
       simpl in *.
       rewrite Nat.sub_0_r in *.
       rewrite length_firstn_le in * by la.
-      eapply IHtyping; eauto using wfsort_wellscoped_s with db_la.
+      eapply IHtyping; eauto using bwfsort_wellscoped_s' with db_la.
       {
         eapply fmap_forall_fmap_map_intro.
         eapply fmap_forall_impl; eauto.
@@ -14238,10 +13649,10 @@ lift2 (fst (strip_subsets L))
     {
       (* Case TyPackI *)
       invert H.
-      econstructor; eauto using kinding_shift_i_t, sorting_shift_i_i, wfsort_wellscoped_s; simpl.
+      econstructor; eauto using kinding_shift_i_t, sorting_shift_i_i, bwfsort_wellscoped_s' with db_la; simpl.
       {
-        econstructor; eauto using wfsort_shift_i_s; simpl.
-        eapply kinding_shift_i_t with (x := S x) (ls := ls) in H8; simpl; eauto using wfsort_wellscoped_s with db_la.
+        econstructor; eauto using bwfsort_shift_i_s''; simpl.
+        eapply kinding_shift_i_t with (x := S x) (ls := ls) in H8; simpl; eauto using bwfsort_wellscoped_s' with db_la.
         simpl in *.
         rewrite length_firstn_le in * by la.
         eauto.
@@ -14267,7 +13678,7 @@ lift2 (fst (strip_subsets L))
       destruct H as [Ht ?].
       invert Ht; eauto.
       eapply IHtyping2;
-        eauto using wfsort_wellscoped_s with db_la.
+        eauto using bwfsort_wellscoped_s' with db_la.
       {
         eapply fmap_forall_fmap_map_intro.
         eapply fmap_forall_impl; eauto.
@@ -14727,7 +14138,7 @@ lift2 (fst (strip_subsets L))
       eapply typing_kinding in H; simpl; eauto.
       destruct H as [H ?].
       invert H.
-      eauto using wfsort_bwfsort.
+      eauto.
     }
     Lemma subst_i_t_shift_hit_setoid v n x y :
       x + n <= y ->
@@ -14739,7 +14150,7 @@ lift2 (fst (strip_subsets L))
     
     {
       (* Case TyAbsI *)
-      econstructor; simpl; eauto using value_subst_i_e, wfsort_subst_i_s.
+      econstructor; simpl; eauto using value_subst_i_e, bwfsort_subst_i_s'.
       specialize (IHtyping (S x) v s).
       simpl in *.
       unfold shift0_i_t, shift0_i_i in *.
@@ -14753,7 +14164,7 @@ lift2 (fst (strip_subsets L))
       rewrite length_firstn_le in * by la.
       rewrite shift_i_i_shift_merge by la.
       rewrite plus_comm.
-      eapply IHtyping; eauto using wfsort_bwfsort with db_la.
+      eapply IHtyping; eauto with db_la.
       {
         eapply fmap_forall_fmap_map_intro.
         eapply fmap_forall_impl; eauto.
@@ -14867,10 +14278,10 @@ lift2 (fst (strip_subsets L))
     {
       (* Case TyPackI *)
       invert H.
-      econstructor; simpl; eauto using kinding_subst_i_t, sorting_subst_i_i, wfsort_bwfsort.
+      econstructor; simpl; eauto using kinding_subst_i_t, sorting_subst_i_i.
       {
-        econstructor; eauto using wfsort_subst_i_s; simpl.
-        eapply kinding_subst_i_t with (x := S x) (L := _ :: _) in H8; simpl; eauto using wfsort_bwfsort with db_la.
+        econstructor; eauto using bwfsort_subst_i_s'; simpl.
+        eapply kinding_subst_i_t with (x := S x) (L := _ :: _) in H8; simpl; eauto with db_la.
         simpl in *.
         copy Hx Hcmp.
         eapply nth_error_Some_lt in Hcmp.
@@ -14904,7 +14315,7 @@ lift2 (fst (strip_subsets L))
       invert Ht; eauto.
       rewrite shift_i_i_shift_merge by la.
       rewrite plus_comm.
-      eapply IHtyping2; eauto using wfsort_bwfsort with db_la.
+      eapply IHtyping2; eauto with db_la.
       {
         eapply fmap_forall_fmap_map_intro.
         eapply fmap_forall_impl; eauto.
@@ -15053,7 +14464,7 @@ lift2 (fst (strip_subsets L))
     wfctx C ->
     typing (subst_i_ss v (firstn x L) ++ my_skipn L (1 + x), K, fmap_map (subst_i_t x (shift_i_i x 0 v)) W, map (subst_i_t x (shift_i_i x 0 v)) G) (subst_i_e x (shift_i_i x 0 v) e) (subst_i_t x (shift_i_i x 0 v) t) (subst_i_i x (shift_i_i x 0 v) i).
   Proof.
-    intros C Ht Hx Hv HC; unfold wfctx in *; openhyp; eapply typing_subst_i_e with (C := C); eauto using wfsorts_bwfsorts.
+    intros C Ht Hx Hv HC; unfold wfctx in *; openhyp; eapply typing_subst_i_e with (C := C); eauto.
   Qed.  
 
   Lemma typing_subst0_i_e s L K W G e t i v :
@@ -15852,7 +15263,7 @@ lift2 (fst (strip_subsets L))
       repeat rewrite map_map in *.
       setoid_rewrite shift_i_t_subst_t_t.
       setoid_rewrite shift_i_t_shift_t_t_commute.
-      eapply IHtyping; simpl; eauto using wfsort_wellscoped_s, kinding_shift_i_t_1_0, wfsort_bwfsort, bwfsorts_wellscoped_ss with db_la.
+      eapply IHtyping; simpl; eauto using bwfsort_wellscoped_s', kinding_shift_i_t_1_0, bwfsorts_wellscoped_ss with db_la.
       {
         eapply fmap_forall_fmap_map_intro.
         eapply fmap_forall_impl; eauto.
@@ -15957,7 +15368,7 @@ lift2 (fst (strip_subsets L))
           eauto.
         Qed.
         
-        eapply kinding_subst_t_t; eauto using wfsort_wellscoped_s, bwfsorts_wellscoped_ss, wellscoped_ss_cons.
+        eapply kinding_subst_t_t; eauto using bwfsort_wellscoped_s', bwfsorts_wellscoped_ss, wellscoped_ss_cons.
         eapply kinding_shift_i_t_1_0; eauto using bwfsorts_wellscoped_ss.
       }
       unfold subst0_i_t in *.
@@ -15982,7 +15393,7 @@ lift2 (fst (strip_subsets L))
       eapply typing_kinding in H; simpl; eauto.
       destruct H as [Ht ?].
       invert Ht; eauto.
-      eapply IHtyping2; simpl; eauto using wfsort_wellscoped_s, kinding_shift_i_t_1_0, wfsort_bwfsort, bwfsorts_wellscoped_ss with db_la.
+      eapply IHtyping2; simpl; eauto using bwfsort_wellscoped_s', kinding_shift_i_t_1_0, bwfsorts_wellscoped_ss with db_la.
       {
         eapply fmap_forall_fmap_map_intro.
         eapply fmap_forall_impl; eauto.
@@ -16042,7 +15453,7 @@ lift2 (fst (strip_subsets L))
     wfctx C ->
     typing (L, removen x K, fmap_map (subst_t_t x (shift_t_t x 0 v)) W, map (subst_t_t x (shift_t_t x 0 v)) G) (subst_t_e x (shift_t_t x 0 v) e) (subst_t_t x (shift_t_t x 0 v) t) i.
   Proof.
-    intros C; intros; unfold wfctx in *; openhyp; eapply typing_subst_t_e with (C := C); eauto using wfsorts_bwfsorts.
+    intros C; intros; unfold wfctx in *; openhyp; eapply typing_subst_t_e with (C := C); eauto.
   Qed.
   
   Lemma typing_subst0_t_e L k K W G e t i v :
@@ -16309,7 +15720,7 @@ lift2 (fst (strip_subsets L))
       }
       simplify.
       rewrite map_removen.
-      eapply IHtyping; eauto using wellscoped_ctx_add_sorting, wfsort_wellscoped_s.
+      eapply IHtyping; eauto using wellscoped_ctx_add_sorting, bwfsort_wellscoped_s' with db_la.
       {
         eapply map_nth_error; eauto.
       }
@@ -17955,7 +17366,7 @@ lift2 (fst (strip_subsets L))
     exists t' s,
       tyeq (get_sctx C) t (TForallI s t') KType /\
       value e /\
-      wfsort (get_sctx C) s /\
+      bwfsort (map get_bsort (get_sctx C)) s /\
       typing (add_sorting_ctx s C) e t' T0.
   Proof.
     induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
@@ -18228,17 +17639,9 @@ lift2 (fst (strip_subsets L))
     }
   Qed.    
   
-  Lemma wfsort_bwfsort' L s bs :
-    wfsort L s ->
-    bs = map get_bsort L ->
-    bwfsort bs s.
-  Proof.
-    intros; subst; eapply wfsort_bwfsort; eauto.
-  Qed.
-  
       Lemma wfctx_add_sorting L K W G s :
         wfctx (L, K, W, G) ->
-        wfsort L s ->
+        bwfsort (map get_bsort L) s ->
         wfctx (s :: L, K, fmap_map shift0_i_t W, map shift0_i_t G).
       Proof.
         unfold wfctx; intros HC Hs.
@@ -18249,13 +17652,13 @@ lift2 (fst (strip_subsets L))
           eapply fmap_forall_fmap_map_intro.
           eapply fmap_forall_impl; eauto.
           intros.
-          eapply kinding_shift_i_t_1_0; eauto using wfsorts_wellscoped_ss.
+          eapply kinding_shift_i_t_1_0; eauto using bwfsorts_wellscoped_ss.
         }
         {
           eapply Forall_map.
           eapply Forall_impl; eauto.
           intros.
-          eapply kinding_shift_i_t_1_0; eauto using wfsorts_wellscoped_ss.
+          eapply kinding_shift_i_t_1_0; eauto using bwfsorts_wellscoped_ss.
         }
       Qed.
 
@@ -18289,7 +17692,7 @@ lift2 (fst (strip_subsets L))
     wfctx C -> wellscoped_ctx C.
   Proof.
     simpl; unfold wfctx, wellscoped_ctx; simpl; intros H; openhyp.
-    repeat try_split; eauto using wfsorts_wellscoped_ss.
+    repeat try_split; eauto using bwfsorts_wellscoped_ss.
     {
       eapply fmap_forall_impl; eauto.
       eauto using kinding_wellscoped_t.
@@ -18306,18 +17709,16 @@ lift2 (fst (strip_subsets L))
     astep s s' ->
     forall W t i,
       ctyping W s t i ->
-      wfctx ([], [], W, []) ->
       let df := (get_fuel s - get_fuel s')%time in
       (df <= interp_time i)%time /\
       exists W',
         ctyping W' s' t (Tminus i (Tconst df)) /\
-        (W $<= W') /\
-        wfctx ([], [], W', []).
+        (W $<= W').
   Proof.
     invert 1; simplify.
     {
       (* Case Beta *)
-      destruct H as (Hty & Hhty & Hle).
+      destruct H as (Hty & Hhty & Hle & HC).
       rename t into f.
       rename t0 into t.
       copy Hty Hty0.
@@ -18344,7 +17745,7 @@ lift2 (fst (strip_subsets L))
         eapply typing_kinding_2 in Hty0; eauto.
         destruct Hty0 as [Ht Hi].
         
-        eapply TySub; try eassumption.
+        eapply TySub; try eassumption; simpl.
         {
           eapply typing_subst0_e_e with (G := []) in Hty1; eauto.
           {
@@ -18379,9 +17780,7 @@ lift2 (fst (strip_subsets L))
           finish.
         }
         {
-          simplify.
-          econstructor; simpl; eauto.
-          econstructor.
+          repeat (econstructor; simpl; eauto).
         }
       }
       {
@@ -18398,7 +17797,7 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case Unfold-Fold *)
-      destruct H as (Hty & Hhty & Hle).
+      destruct H as (Hty & Hhty & Hle & HC).
       rename t into f.
       rename t0 into t.
       copy Hty Hty0.
@@ -18476,7 +17875,7 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case Rec *)
-      destruct H as (Hty & Hhty & Hle).
+      destruct H as (Hty & Hhty & Hle & HC).
       rename t into f.
       rename t0 into t.
       copy Hty Hty0.
@@ -18549,7 +17948,7 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case Unpack-Pack *)
-      destruct H as (Hty & Hhty & Hle).
+      destruct H as (Hty & Hhty & Hle & HC).
       rename t into f.
       rename t0 into t.
       copy Hty Hty0.
@@ -18643,7 +18042,7 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case UnpackI-PackI *)
-      destruct H as (Hty & Hhty & Hle).
+      destruct H as (Hty & Hhty & Hle & HC).
       rename t into f.
       rename t0 into t.
       copy Hty Hty0.
@@ -18666,7 +18065,7 @@ lift2 (fst (strip_subsets L))
       destruct Htyeq2 as (? & Hss' & Htyeq2).
       assert (Hkdc : sorting [] c s).
       {
-        eapply StgEq; simpl; eauto using wfsort_bwfsort'.
+        eapply StgEq; simpl; eauto.
       }
       eapply typing_subst0_i_e with (L := []) in Hty2; eauto.
       Focus 2.
@@ -18683,9 +18082,9 @@ lift2 (fst (strip_subsets L))
       {
         eapply TyTyeq; simpl; eauto.
         {
-          eapply kinding_subst_i_t_0; eauto using wfsort_bwfsort.
+          eapply kinding_subst_i_t_0; eauto.
         }
-        eapply tyeq_subst_i_t_0; eauto using kinding_bkinding, wfsort_bwfsort with db_tyeq.
+        eapply tyeq_subst_i_t_0; eauto using kinding_bkinding with db_tyeq.
         simpl.
         eapply sorteq_get_bsort in Hss'.
         rewrite <- Hss'.
@@ -18744,7 +18143,7 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case Read *)
-      destruct H as (Hty & Hhty & Hle).
+      destruct H as (Hty & Hhty & Hle & HC).
       rename t into f.
       rename t0 into t.
       copy Hty Hty0.
@@ -18806,7 +18205,7 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case Write *)
-      destruct H as (Hty & Hhty & Hle).
+      destruct H as (Hty & Hhty & Hle & HC).
       rename t into f.
       rename t0 into t.
       copy Hty Hty0.
@@ -18876,7 +18275,7 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case New *)
-      destruct H as (Hty & Hhty & Hle).
+      destruct H as (Hty & Hhty & Hle & HC).
       rename t into f.
       rename t0 into t.
       copy Hty Hty0.
@@ -18930,21 +18329,6 @@ lift2 (fst (strip_subsets L))
         eauto.
       }
       {
-        eapply includes_intro.
-        intros k v' Hk.
-        cases (l ==n k); subst.
-        {
-          assert (HWk : W $? k = None).
-          {
-            eapply htyping_elim_None; eauto.
-          }
-          simplify.
-          eauto.
-        }
-        simplify.
-        eauto.
-      }
-      {
         Lemma wfctx_add_htyping L K W G l t:
           wfctx (L, K, W, G) ->
           kinding L K t KType ->
@@ -18959,10 +18343,25 @@ lift2 (fst (strip_subsets L))
         
         eapply wfctx_add_htyping; eauto.
       }
+      {
+        eapply includes_intro.
+        intros k v' Hk.
+        cases (l ==n k); subst.
+        {
+          assert (HWk : W $? k = None).
+          {
+            eapply htyping_elim_None; eauto.
+          }
+          simplify.
+          eauto.
+        }
+        simplify.
+        eauto.
+      }
     }
     {
       (* Case AppT *)
-      destruct H as (Hty & Hhty & Hle).
+      destruct H as (Hty & Hhty & Hle & HC).
       rename t into f.
       rename t0 into t.
       copy Hty Hty0.
@@ -19044,7 +18443,7 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case AppI *)
-      destruct H as (Hty & Hhty & Hle).
+      destruct H as (Hty & Hhty & Hle & HC).
       rename t into f.
       rename t0 into t.
       copy Hty Hty0.
@@ -19064,7 +18463,7 @@ lift2 (fst (strip_subsets L))
       destruct Htyeq2 as (? & Hss' & Htyeq2).
       assert (Hkdck : sorting [] c s').
       {
-        eapply StgEq; eauto using wfsort_bwfsort.
+        eapply StgEq; eauto.
         eapply sorteq_sym; eauto.
       }
       split.
@@ -19092,7 +18491,7 @@ lift2 (fst (strip_subsets L))
           (* tyeq *)
           eapply tyeq_sym.
           eapply tyeq_trans; [eapply Htyeq |].
-          eapply tyeq_subst_i_t_0; eauto using kinding_wellscoped_t, kinding_bkinding', wfsort_bwfsort' with db_tyeq.
+          eapply tyeq_subst_i_t_0; eauto using kinding_wellscoped_t, kinding_bkinding' with db_tyeq.
           copy Hty Hty0.
           eapply typing_kinding_2 in Hty0.
           {
@@ -19133,7 +18532,7 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case Proj-Pair *)
-      destruct H as (Hty & Hhty & Hle).
+      destruct H as (Hty & Hhty & Hle & HC).
       rename t into f.
       rename t0 into t.
       copy Hty Hty0.
@@ -19223,7 +18622,7 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case Case-Inj *)
-      destruct H as (Hty & Hhty & Hle).
+      destruct H as (Hty & Hhty & Hle & HC).
       rename t into f.
       rename t0 into t.
       copy Hty Hty0.
@@ -20663,18 +20062,15 @@ lift2 (fst (strip_subsets L))
     (*   let s' := (h', e', f') in *)
     forall W t i,
       ctyping W s t i ->
-      wfctx ([], [], W, []) ->
       exists W' i',
         ctyping W' s' t i' /\
-        (W $<= W') /\
-        wfctx ([], [], W', []).
+        (W $<= W').
   Proof.
     invert 1.
     (* induct 1. *)
     (* induction 1. *)
     simplify.
-    rename H3 into HC.
-    destruct H as (Hty & Hhty & Hle).
+    destruct H as (Hty & Hhty & Hle & HC).
     (* destruct H3 as [Hty & Hhty & Hle]. *)
     (* generalize H3. *)
     (* intros (Hty & Hhty & Hle). *)
@@ -20697,8 +20093,8 @@ lift2 (fst (strip_subsets L))
     }
     Unfocus.
     simplify.
-    destruct Hstep as (Hle3 & W' & Hty2 & Hincl & HC').
-    destruct Hty2 as (Hty2 & Hhty' & Hle4).
+    destruct Hstep as (Hle3 & W' & Hty2 & Hincl).
+    destruct Hty2 as (Hty2 & Hhty' & Hle4 & HC').
     eapply He' in H2; eauto.
     Focus 2.
     {
@@ -20736,11 +20132,10 @@ lift2 (fst (strip_subsets L))
 
   Lemma unstuck_invariant W s t i :
     ctyping W s t i ->
-    wfctx ([], [], W, []) ->
     invariantFor (trsys_of s) unstuck.
   Proof.
-    intros H HC.
-    apply invariant_weaken with (invariant1 := fun s' => exists W' i', ctyping W' s' t i' /\ wfctx ([], [], W', [])); eauto.
+    intros H.
+    apply invariant_weaken with (invariant1 := fun s' => exists W' i', ctyping W' s' t i'); eauto.
     {
       apply invariant_induction; intros s0 Hs0; simplify; eauto.
       {
@@ -20749,23 +20144,23 @@ lift2 (fst (strip_subsets L))
         eauto.
       }
       {
-        destruct Hs0 as (W' & i' & Hty & HC').
+        destruct Hs0 as (W' & i' & Hty).
         propositional.
         eapply preservation in H0; eauto.
-        destruct H0 as (W'' & i'' & Hty' & Hle & HC'').
+        destruct H0 as (W'' & i'' & Hty' & Hle).
         eauto.
       }
     }
     {
       simplify.
-      destruct H0 as (W' & i' & Hty & HC').
+      destruct H0 as (W' & i' & Hty).
       eauto using progress.
     }
   Qed.
 
-  Theorem safety W s t i : ctyping W s t i -> wfctx ([], [], W, []) -> safe s.
+  Theorem safety W s t i : ctyping W s t i -> safe s.
   Proof.
-    intros H HC.
+    intros H.
     eapply unstuck_invariant in H; eauto.
     unfold invariantFor, safe in *.
     intros s' Hstep.
