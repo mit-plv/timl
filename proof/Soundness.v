@@ -751,6 +751,7 @@ Module M (Time : TIME) (BigO :BIG_O Time).
 
   Inductive prop_bin_pred :=
   | PBTimeLe
+  | PBNatLt
   (* | PBTimeEq *)
   | PBBigO (arity : nat)
   .
@@ -824,6 +825,8 @@ Module M (Time : TIME) (BigO :BIG_O Time).
   Definition Tle := PBinPred PBTimeLe.
   Definition TEq := PEq BSTime.
   Infix "<=" := Tle : idx_scope.
+  Definition Nlt := PBinPred PBNatLt.
+  Infix "<" := Nlt : idx_scope.
   Infix "==" := TEq (at level 70) : idx_scope.
   Infix "===>" := PImply (at level 95) : idx_scope.
   Infix "<===>" := PIff (at level 95) : idx_scope.
@@ -872,6 +875,7 @@ Module M (Time : TIME) (BigO :BIG_O Time).
   Definition binpred_arg1_bsort opr :=
     match opr with
     | PBTimeLe => BSTime
+    | PBNatLt => BSNat
     (* | PBTimeEq => BSTime *)
     | PBBigO n => BSTimeFun n
     end
@@ -880,6 +884,7 @@ Module M (Time : TIME) (BigO :BIG_O Time).
   Definition binpred_arg2_bsort opr :=
     match opr with
     | PBTimeLe => BSTime
+    | PBNatLt => BSNat
     (* | PBTimeEq => BSTime *)
     | PBBigO n => BSTimeFun n
     end
@@ -2552,6 +2557,7 @@ Module M (Time : TIME) (BigO :BIG_O Time).
   Definition interp_binpred opr : interp_bsort (binpred_arg1_bsort opr) -> interp_bsort (binpred_arg2_bsort opr) -> Prop :=
     match opr return interp_bsort (binpred_arg1_bsort opr) -> interp_bsort (binpred_arg2_bsort opr) -> Prop with
     | PBTimeLe => TimeLe
+    | PBNatLt => lt
     (* | PBTimeEq => eq *)
     | PBBigO n => fun f g => Time_BigO n (to_time_fun f) (to_time_fun g)
     end.
@@ -13279,6 +13285,7 @@ lift2 (fst (strip_subsets L))
     intros; subst; eapply kinding_bkinding; eauto.
   Qed.
 
+  
   (* ============================================================= *)
   (* The term language *)
   (* ============================================================= *)
@@ -13287,12 +13294,33 @@ lift2 (fst (strip_subsets L))
   Inductive expr_const :=
   | ECTT
   | ECInt (i : int)
+  | ECNat (n : nat)
   .
 
   Inductive prim_expr_bin_op :=
   | PEBIntAdd
   .
 
+  Definition prim_cost opr :=
+    match opr with
+    | PEBIntAdd => 1%time
+    end.
+
+  Definition prim_arg1_type opr :=
+    match opr with
+    | PEBIntAdd => TInt
+    end.
+    
+  Definition prim_arg2_type opr :=
+    match opr with
+    | PEBIntAdd => TInt
+    end.
+    
+  Definition prim_result_type opr :=
+    match opr with
+    | PEBIntAdd => TInt
+    end.
+    
   Inductive projector :=
   | ProjFst
   | ProjSnd
@@ -13305,7 +13333,7 @@ lift2 (fst (strip_subsets L))
 
   Definition loc := nat.
 
-  Definition hctx := fmap loc ty.
+  Definition hctx := fmap loc (ty * idx).
   Definition tctx := list ty.
   Definition ctx := (sctx * kctx * hctx * tctx)%type.
   
@@ -13322,6 +13350,7 @@ lift2 (fst (strip_subsets L))
   | EBPair
   | EBNew 
   | EBRead 
+  | EBNatAdd
   .
 
   Inductive expr :=
@@ -13330,6 +13359,7 @@ lift2 (fst (strip_subsets L))
   | ELoc (l : loc)
   | EUnOp (opr : expr_un_op) (e : expr)
   | EBinOp (opr : expr_bin_op) (e1 e2 : expr)
+  | EWrite (e_arr e_idx e_val : expr)
   | ECase (e e1 e2 : expr)
   | EAbs (e : expr)
   | ERec (e : expr)
@@ -13341,20 +13371,20 @@ lift2 (fst (strip_subsets L))
   | EUnpack (e1 e2 : expr)
   | EPackI (i : idx) (e : expr)
   | EUnpackI (e1 e2 : expr)
-  | EBWrite (e_arr e_idx e_val : expr)
   .
 
   Definition EProj p e := EUnOp (EUProj p) e.
   Definition EInj c e := EUnOp (EUInj c) e.
   Definition EFold e := EUnOp EUFold e.
   Definition EUnfold e := EUnOp EUUnfold e.
-  Definition ENew e := EUnOp EUNew e.
-  Definition ERead e := EUnOp EURead e.
+  Definition ENew e1 e2 := EBinOp EBNew e1 e2.
+  Definition ERead e1 e2 := EBinOp EBRead e1 e2.
 
   Definition EApp := EBinOp EBApp.
   Definition EPair := EBinOp EBPair.
-  Definition EWrite := EBinOp EBWrite.
-
+  (* Definition EWrite := EBinOp EBWrite. *)
+  Definition EPrim opr := EBinOp (EBPrim opr).
+  
   Inductive value : expr -> Prop :=
   (* | VVar x : *)
   (*     value (EVar x) *)
@@ -13393,15 +13423,21 @@ lift2 (fst (strip_subsets L))
 
   Definition ETT := EConst ECTT.
 
+  Definition shift_i_ti n x b := (shift_i_t n x (fst b), shift_i_i n x (snd b)).
+  Definition shift0_i_ti := shift_i_ti 1 0.
+  
   Definition add_sorting_ctx s (C : ctx) : ctx :=
     match C with
-      (L, K, W, G) => (s :: L, K, fmap_map shift0_i_t W, map shift0_i_t G)
+      (L, K, W, G) => (s :: L, K, fmap_map shift0_i_ti W, map shift0_i_t G)
     end
   .
 
+  Definition shift_t_ti n x (b : ty * idx) := (shift_t_t n x (fst b), snd b).
+  Definition shift0_t_ti := shift_t_ti 1 0.
+  
   Definition add_kinding_ctx k (C : ctx) :=
     match C with
-      (L, K, W, G) => (L, k :: K, fmap_map shift0_t_t W, map shift0_t_t G)
+      (L, K, W, G) => (L, k :: K, fmap_map shift0_t_ti W, map shift0_t_t G)
     end
   .
 
@@ -13446,6 +13482,7 @@ lift2 (fst (strip_subsets L))
     match cn with
     | ECTT => TUnit
     | ECInt _ => TInt
+    | ECNat n => TNat (IConst (ICNat n))
     end
   .
 
@@ -13466,7 +13503,7 @@ lift2 (fst (strip_subsets L))
     let r := subst0_t_t (TRec k t) t in
     TApps r args.
 
-  Definition TRef := TUnOp TURef.
+  Definition ENatAdd := EBinOp EBNatAdd.
   
   Inductive typing : ctx -> expr -> ty -> idx -> Prop :=
   | TyVar C x t :
@@ -13546,25 +13583,38 @@ lift2 (fst (strip_subsets L))
       typing (add_typing_ctx t1 C) e1 t i1 ->
       typing (add_typing_ctx t2 C) e2 t i2 ->
       typing C (ECase e e1 e2) t (i + Tmax i1 i2)
-  | TyNew C e t i :
-      typing C e t i ->
-      typing C (ENew e) (TRef t) i
-  | TyRead C e t i :
-      typing C e (TRef t) i ->
-      typing C (ERead e) t i
-  | TyWrite C e1 e2 i1 i2 t :
-      typing C e1 (TRef t) i1 ->
-      typing C e2 t i2 ->
-      typing C (EWrite e1 e2) TUnit (i1 + i2)
-  | TyLoc C l t :
-      get_hctx C $? l = Some t ->
-      typing C (ELoc l) (TRef t) T0
+  | TyNew C e1 e2 t len i1 i2 :
+      typing C e1 t i1 ->
+      typing C e2 (TNat len) i2 ->
+      typing C (ENew e1 e2) (TArr t len) (i1 + i2)
+  | TyRead C e1 e2 t i1 i2 len i :
+      typing C e1 (TArr t len) i1 ->
+      typing C e2 (TNat i) i2 ->
+      interp_prop (get_sctx C) (i < len) ->
+      typing C (ERead e1 e2) t (i1 + i2)
+  | TyWrite C e1 e2 e3 i1 i2 i3 t len i :
+      typing C e1 (TArr t len) i1 ->
+      typing C e2 (TNat i) i2 ->
+      interp_prop (get_sctx C) (i < len) ->
+      typing C e3 t i3 ->
+      typing C (EWrite e1 e2 e3) TUnit (i1 + i2 + i3)
+  | TyLoc C l t i :
+      get_hctx C $? l = Some (t, i) ->
+      typing C (ELoc l) (TArr t i) T0
+  | TyPrim C opr e1 e2 i1 i2 :
+      typing C e1 (prim_arg1_type opr) i1 ->
+      typing C e2 (prim_arg2_type opr) i2 ->
+      typing C (EPrim opr e1 e2) (prim_result_type opr) (i1 + i2 + Tconst (prim_cost opr))
   | TyTyeq C e t1 i t2 :
       typing C e t1 i ->
       let L := get_sctx C in
       kinding L (get_kctx C) t2 KType ->
       tyeq L t1 t2 KType ->
       typing C e t2 i
+  | TyNatAdd C e1 e2 j1 j2 i1 i2 :
+      typing C e1 (TNat j1) i1 ->
+      typing C e2 (TNat j2) i2 ->
+      typing C (ENatAdd e1 e2) (TNat (j1 + j2)) (i1 + i2 + T1)
   | TyLe C e t i1 i2 :
       typing C e t i1 ->
       let L := get_sctx C in
@@ -13586,6 +13636,7 @@ lift2 (fst (strip_subsets L))
       | ELoc l => ELoc l
       | EUnOp opr e => EUnOp opr (shift_i_e x e)
       | EBinOp opr e1 e2 => EBinOp opr (shift_i_e x e1) (shift_i_e x e2)
+      | EWrite e1 e2 e3 => EWrite (shift_i_e x e1) (shift_i_e x e2) (shift_i_e x e3)
       | ECase e e1 e2 => ECase (shift_i_e x e) (shift_i_e x e1) (shift_i_e x e2)
       | EAbs e => EAbs (shift_i_e x e)
       | ERec e => ERec (shift_i_e x e)
@@ -13606,6 +13657,7 @@ lift2 (fst (strip_subsets L))
       | ELoc l => ELoc l
       | EUnOp opr e => EUnOp opr (shift_t_e x e)
       | EBinOp opr e1 e2 => EBinOp opr (shift_t_e x e1) (shift_t_e x e2)
+      | EWrite e1 e2 e3 => EWrite (shift_t_e x e1) (shift_t_e x e2) (shift_t_e x e3)
       | ECase e e1 e2 => ECase (shift_t_e x e) (shift_t_e x e1) (shift_t_e x e2)
       | EAbs e => EAbs (shift_t_e x e)
       | ERec e => ERec (shift_t_e x e)
@@ -13630,6 +13682,7 @@ lift2 (fst (strip_subsets L))
       | ELoc l => ELoc l
       | EUnOp opr e => EUnOp opr (shift_e_e x e)
       | EBinOp opr e1 e2 => EBinOp opr (shift_e_e x e1) (shift_e_e x e2)
+      | EWrite e1 e2 e3 => EWrite (shift_e_e x e1) (shift_e_e x e2) (shift_e_e x e3)
       | ECase e e1 e2 => ECase (shift_e_e x e) (shift_e_e (1 + x) e1) (shift_e_e (1 + x) e2)
       | EAbs e => EAbs (shift_e_e (1 + x) e)
       | ERec e => ERec (shift_e_e (1 + x) e)
@@ -13656,6 +13709,7 @@ lift2 (fst (strip_subsets L))
     | ELoc l => ELoc l
     | EUnOp opr e => EUnOp opr (subst_i_e x v e)
     | EBinOp opr e1 e2 => EBinOp opr (subst_i_e x v e1) (subst_i_e x v e2)
+    | EWrite e1 e2 e3 => EWrite (subst_i_e x v e1) (subst_i_e x v e2) (subst_i_e x v e3)
     | ECase e e1 e2 => ECase (subst_i_e x v e) (subst_i_e x v e1) (subst_i_e x v e2)
     | EAbs e => EAbs (subst_i_e x v e)
     | ERec e => ERec (subst_i_e x v e)
@@ -13676,6 +13730,7 @@ lift2 (fst (strip_subsets L))
     | ELoc l => ELoc l
     | EUnOp opr e => EUnOp opr (subst_t_e x v e)
     | EBinOp opr e1 e2 => EBinOp opr (subst_t_e x v e1) (subst_t_e x v e2)
+    | EWrite e1 e2 e3 => EWrite (subst_t_e x v e1) (subst_t_e x v e2) (subst_t_e x v e3)
     | ECase e e1 e2 => ECase (subst_t_e x v e) (subst_t_e x v e1) (subst_t_e x v e2)
     | EAbs e => EAbs (subst_t_e x v e)
     | ERec e => ERec (subst_t_e x v e)
@@ -13701,6 +13756,7 @@ lift2 (fst (strip_subsets L))
     | ELoc l => ELoc l
     | EUnOp opr e => EUnOp opr (subst_e_e x v e)
     | EBinOp opr e1 e2 => EBinOp opr (subst_e_e x v e1) (subst_e_e x v e2)
+    | EWrite e1 e2 e3 => EWrite (subst_e_e x v e1) (subst_e_e x v e2) (subst_e_e x v e3)
     | ECase e e1 e2 => ECase (subst_e_e x v e) (subst_e_e (1 + x) (shift0_e_e v) e1) (subst_e_e (1 + x) (shift0_e_e v) e2)
     | EAbs e => EAbs (subst_e_e (1 + x) (shift0_e_e v) e)
     | ERec e => ERec (subst_e_e (1 + x) (shift0_e_e v) e)
@@ -13723,6 +13779,9 @@ lift2 (fst (strip_subsets L))
   | ECUnOp (opr : expr_un_op) (E : ectx)
   | ECBinOp1 (opr : expr_bin_op) (E : ectx) (e : expr)
   | ECBinOp2 (opr : expr_bin_op) (v : expr) (E : ectx)
+  | ECWrite1 (E : ectx) (e2 e3 : expr)
+  | ECWrite2 (v1 : expr) (E : ectx) (e3 : expr)
+  | ECWrite3 (v1 v2 : expr) (E : ectx)
   | ECCase (E : ectx) (e1 e2 : expr)
   | ECAppT (E : ectx) (t : ty)
   | ECAppI (E : ectx) (i : idx)
@@ -13745,6 +13804,18 @@ lift2 (fst (strip_subsets L))
       plug E e e' ->
       value v ->
       plug (ECBinOp2 opr v E) e (EBinOp opr v e')
+  | PlugWrite1 E e e' e2 e3 :
+      plug E e e' ->
+      plug (ECWrite1 E e2 e3) e (EWrite e' e2 e3)
+  | PlugWrite2 E e e' v1 e3 :
+      plug E e e' ->
+      value v1 ->
+      plug (ECWrite2 v1 E e3) e (EWrite v1 e' e3)
+  | PlugWrite3 E e e' v1 v2 :
+      plug E e e' ->
+      value v1 ->
+      value v2 ->
+      plug (ECWrite3 v1 v2 E) e (EWrite v1 v2 e')
   | PlugCase E e e' e1 e2 :
       plug E e e' ->
       plug (ECCase E e1 e2) e (ECase e' e1 e2)
@@ -13768,7 +13839,7 @@ lift2 (fst (strip_subsets L))
       plug (ECUnpackI E e2) e (EUnpackI e' e2)
   .
 
-  Definition heap := fmap loc expr.
+  Definition heap := fmap loc (list expr).
 
   Definition fuel := time_type.
 
@@ -13782,6 +13853,8 @@ lift2 (fst (strip_subsets L))
 
   Import OpenScope.
 
+  Definition ENat n := EConst (ECNat n).
+  
   Inductive astep : config -> config -> Prop :=
   | ABeta h e v t :
       value v ->
@@ -13798,6 +13871,7 @@ lift2 (fst (strip_subsets L))
   | AUnpackPackI h c v e t :
       value v ->
       astep (h, EUnpackI (EPackI c v) e, t) (h, subst0_e_e v (subst0_i_e c e), t)
+            (*here*)
   | ARead h l t v :
       h $? l = Some v ->
       astep (h, ERead (ELoc l), t) (h, v, t)
@@ -13808,7 +13882,7 @@ lift2 (fst (strip_subsets L))
   | ANew h v t l :
       value v ->
       h $? l = None ->
-      astep (h, ENew v, t) (h $+ (l, v), ELoc l, t)
+      astep (h, ENew v (ENat n), t) (h $+ (l, repeat n v), ELoc l, t).
   | ABetaT h e c t :
       astep (h, EAppT (EAbsT e) c, t) (h, subst0_t_e c e, t)
   | ABetaI h e c t :
