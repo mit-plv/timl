@@ -13864,6 +13864,12 @@ lift2 (fst (strip_subsets L))
   Definition ENat n := EConst (ECNat n).
 
   Definition upd {A} ls n (v : A) := insert [v] n (removen n ls).
+
+  Definition exec_prim opr a b :=
+    match (opr, a, b) with
+    | (PEBIntAdd, ECInt a, ECInt b) => Some (ECInt (BinIntDef.Z.add a b))
+    | _ => None
+    end.
   
   Inductive astep : config -> config -> Prop :=
   | ABeta h e v t :
@@ -13905,6 +13911,13 @@ lift2 (fst (strip_subsets L))
   | AMatch h inj v e1 e2 t :
       value v ->
       astep (h, ECase (EInj inj v) e1 e2, t) (h, subst0_e_e v (choose (e1, e2) inj), t)
+  | ANatAdd h n1 n2 t :
+      nat_add_cost <= t ->
+      astep (h, ENatAdd (ENat n1) (ENat n2), t) (h, ENat (n1 + n2), t - nat_add_cost)
+  | APrim h opr cn1 cn2 t cn :
+      prim_cost opr <= t ->
+      exec_prim opr cn1 cn2 = Some cn ->
+      astep (h, EPrim opr (EConst cn1) (EConst cn2), t) (h, EConst cn, t - prim_cost opr)
   .
 
   Inductive step : config -> config -> Prop :=
@@ -17178,6 +17191,140 @@ lift2 (fst (strip_subsets L))
     invert H.
   Qed.
 
+  Lemma TNat_TArrow_false i t1 i' t2 :
+    tyeq [] (TNat i) (TArrow t1 i' t2) KType ->
+    False.
+  Proof.
+    intros H.
+    unfold tyeq in *.
+    simpl in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    specialize (H I).
+    invert H.
+  Qed.
+
+  Lemma TArr_TArrow_false t i t1 i' t2 :
+    tyeq [] (TArr t i) (TArrow t1 i' t2) KType ->
+    False.
+  Proof.
+    intros H.
+    unfold tyeq in *.
+    simpl in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    specialize (H I).
+    invert H.
+  Qed.
+
+  Lemma TQuan_TNat_false q s t i :
+    tyeq [] (TQuan q s t) (TNat i) KType ->
+    False.
+  Proof.
+    intros H.
+    unfold tyeq in *.
+    simpl in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    specialize (H I).
+    invert H.
+  Qed.
+
+  Lemma TQuan_TArr_false q s t t' i :
+    tyeq [] (TQuan q s t) (TArr t' i) KType ->
+    False.
+  Proof.
+    intros H.
+    unfold tyeq in *.
+    simpl in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    specialize (H I).
+    invert H.
+  Qed.
+
+  Lemma tyeq_TApps_TRec_TArr_false k3 cs t3 t i :
+    tyeq [] (TApps (TRec k3 t3) cs) (TArr t i) KType ->
+    False.
+  Proof.
+    intros H.
+    unfold tyeq in *.
+    simpl in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    repeat rewrite interp_ty_TApps in *.
+    simpl in *.
+    unfold convert_kind_value in *.
+    cases (kind_dec k3 (map fst cs)); subst; [ |
+                                              rewrite uncurrys_kind_default_value in *;
+                                              simpl in *; specialize (H I); invert H
+                                             ].
+    unfold eq_rect_r in *.
+    rewrite <- Eqdep.EqdepTheory.eq_rect_eq in *.
+    rewrite uncurrys_currys in *.
+    simpl in *; specialize (H I); invert H.
+  Qed.
+  
+  Lemma TNat_TBinOp_false i opr t1 t2 :
+    tyeq [] (TNat i) (TBinOp opr t1 t2) KType ->
+    False.
+  Proof.
+    intros H.
+    unfold tyeq in *.
+    simpl in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    specialize (H I).
+    invert H.
+  Qed.
+
+  Lemma TArr_TBinOp_false t i opr t1 t2 :
+    tyeq [] (TArr t i) (TBinOp opr t1 t2) KType ->
+    False.
+  Proof.
+    intros H.
+    unfold tyeq in *.
+    simpl in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    specialize (H I).
+    invert H.
+  Qed.
+
+  Lemma TNat_TArr_false i t i' :
+    tyeq [] (TNat i) (TArr t i') KType ->
+    False.
+  Proof.
+    intros H.
+    unfold tyeq in *.
+    simpl in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    specialize (H I).
+    invert H.
+  Qed.
+
+  Lemma const_type_TArr_false cn t i :
+    tyeq [] (const_type cn) (TArr t i) KType ->
+    False.
+  Proof.
+    intros H.
+    unfold tyeq in *.
+    simpl in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    specialize (H I).
+    destruct cn; simpl in *;
+      invert H.
+  Qed.
+
+  Lemma const_type_TNat_false cn i :
+    tyeq [] (const_type cn) (TNat i) KType ->
+    cn = ECNat (interp_idx i [] BSNat).
+  Proof.
+    intros H.
+    unfold tyeq in *.
+    simpl in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    specialize (H I).
+    destruct cn; simpl in *;
+      invert H.
+    repeat rewrite convert_bsort_value_refl_eq in *.
+    subst.
+    eauto.
+  Qed.
+
   Ltac tyeq_false_half H :=
       eapply TQuan_TArrow_false_empty in H ||
       eapply TQuanI_TArrow_false in H ||
@@ -17204,9 +17351,19 @@ lift2 (fst (strip_subsets L))
       eapply TUnOp_TConst_false in H ||
       eapply TProd_TSum_false in H ||
       eapply TConst_TQuanI_false in H || 
-      eapply TExistsI_TForallI_false in H ||
       eapply TQuanI_TNat_false in H ||
-      eapply TQuanI_TArr_false in H
+      eapply TQuanI_TArr_false in H ||
+      eapply TNat_TArrow_false in H || 
+      eapply TArr_TArrow_false in H || 
+      eapply TQuan_TNat_false in H ||
+      eapply TQuan_TArr_false in H ||
+      eapply tyeq_TApps_TRec_TNat_false_2 in H ||
+      eapply tyeq_TApps_TRec_TArr_false in H ||
+      eapply TNat_TBinOp_false in H || 
+      eapply TArr_TBinOp_false in H || 
+      eapply const_type_TArr_false in H ||
+      eapply TNat_TArr_false in H || 
+      eapply TExistsI_TForallI_false in H
   .
 
   Ltac tyeq_false H := tyeq_false_half H || (eapply tyeq_sym in H; tyeq_false_half H).
@@ -17457,19 +17614,19 @@ lift2 (fst (strip_subsets L))
     intros; eapply canon_TSum'; eauto with db_tyeq.
   Qed.
 
-  Lemma canon_TRef' C v t i :
+  Lemma canon_TArr' C v t i :
     typing C v t i ->
     get_sctx C = [] ->
     get_kctx C = [] ->
     get_tctx C = [] ->
-    forall t' ,
-      tyeq [] t (TRef t') KType ->
+    forall t' i' ,
+      tyeq [] t (TArr t' i') KType ->
       value v ->
-      exists l t',
+      exists l t'' i'',
         v = ELoc l /\
-        get_hctx C $? l = Some t'.
+        get_hctx C $? l = Some (t'', i'').
   Proof.
-    induct 1; intros ? Hknil Htnil t'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst; unfold_all;
+    induct 1; intros ? Hknil Htnil t'' i'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst; unfold_all;
       try solve [tyeq_dis |
                  cases inj; simplify; tyeq_dis |
                  cases cn; simplify; tyeq_dis |
@@ -17477,20 +17634,52 @@ lift2 (fst (strip_subsets L))
                 ].
   Qed.
   
-  Lemma canon_TRef W v t i :
-    typing ([], [], W, []) v (TRef t) i ->
+  Lemma canon_TArr W v t len i :
+    typing ([], [], W, []) v (TArr t len) i ->
     value v ->
-    exists l t',
+    exists l t'' i'',
       v = ELoc l /\
-      W $? l = Some t'.
+      W $? l = Some (t'', i'').
   Proof.
-    intros Hty ?; eapply canon_TRef' in Hty; eauto with db_tyeq.
+    intros Hty ?; eapply canon_TArr' in Hty; eauto with db_tyeq.
+  Qed.
+
+  Arguments ENat _ / .
+  
+  Lemma canon_TNat' C v t i :
+    typing C v t i ->
+    get_sctx C = [] ->
+    get_kctx C = [] ->
+    get_tctx C = [] ->
+    forall i' ,
+      tyeq [] t (TNat i') KType ->
+      value v ->
+      exists cn,
+        v = ENat cn.
+  Proof.
+    induct 1; intros ? Hknil Htnil i' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst; unfold_all;
+      try solve [tyeq_dis |
+                 cases inj; simplify; tyeq_dis |
+                 cases cn; simplify; tyeq_dis |
+                 destruct C as (((L & K) & W) & G); simplify; subst; eapply IHtyping; eauto with db_tyeq
+                ].
+    eapply const_type_TNat_false in Htyeq.
+    subst.
+    simpl.
+    eexists; eauto.
+  Qed.
+  
+  Lemma canon_TNat W v i1 i :
+    typing ([], [], W, []) v (TNat i1) i ->
+    value v ->
+    exists cn,
+      v = ENat cn.
+  Proof.
+    intros Hty ?; eapply canon_TNat' in Hty; eauto with db_tyeq.
   Qed.
 
   Transparent tyeq.
 
-  (*here*)
-  
   Lemma progress' C e t i :
     typing C e t i ->
     get_sctx C = [] ->
@@ -17696,6 +17885,7 @@ lift2 (fst (strip_subsets L))
             induct 1; simpl; intros; try dis; eauto.
             destruct C as (((L & K) & W) & G).
             destruct cn; simpl; econstructor; eauto.
+            invert H.
           Qed.
 
           eapply typing_ETT_invert in Hty; eauto.
@@ -17961,25 +18151,51 @@ lift2 (fst (strip_subsets L))
       destruct C as (((L & K) & W) & G).
       simplify.
       subst.
-      eapply IHtyping in Hle; eauto.
-      destruct Hle as [He | He]; simplify.
+      assert (Hi1 : (interp_time i1 <= f)%time).
       {
-        right.
-        eapply htyping_fresh in Hhty.
-        destruct Hhty as (l & Hl).
-        exists (h $+ (l, e), ELoc l, f).
-        eapply StepPlug with (E := ECHole); try eapply PlugHole.
+        repeat rewrite interp_time_distr in Hle.
+        repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
         eauto.
       }
+      assert (Hi2 : (interp_time i2 <= f)%time).
       {
-        destruct He as (((h' & e') & f') & Hstep).
+        repeat rewrite interp_time_distr in Hle.
+        repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+        eauto.
+      }
+      eapply IHtyping1 in Hi1; eauto.
+      destruct Hi1; simplify.
+      {
+        eapply IHtyping2 in Hi2; eauto.
+        cases Hi2; simplify.
+        {
+          right.
+          eapply canon_TNat in H0; eauto.
+          destruct H0 as (n & ?).
+          subst.
+          eapply htyping_fresh in Hhty.
+          destruct Hhty as (l & Hl).
+          exists (h $+ (l, repeat e1 n), ELoc l, f).
+          eapply StepPlug with (E := ECHole); try eapply PlugHole.
+          eauto.
+        }
+        {
+          destruct H2 as (((h' & e') & f') & Hstep).
+          invert Hstep.
+          right.
+          exists (h', ENew e1 e', f').
+          eapply StepPlug with (E := ECBinOp2 _ e1 E); repeat econstructor; eauto.
+        }
+      }
+      {
+        destruct H1 as (((h' & e') & f') & Hstep).
         invert Hstep.
-        rename e'0 into e0'.
         right.
-        exists (h', ENew e', f').
-        eapply StepPlug with (E := ECUnOp _ E); repeat econstructor; eauto.
+        exists (h', ENew e' e2, f').
+        eapply StepPlug with (E := ECBinOp1 _ E e2); repeat econstructor; eauto.
       }
     }
+    (*here*)
     {
       (* Case Read *)
       intros ? ? ? h f Hhty Hle.
@@ -17989,7 +18205,7 @@ lift2 (fst (strip_subsets L))
       eapply IHtyping in Hle; eauto.
       destruct Hle as [He | He]; simplify.
       {
-        eapply canon_TRef in He; eauto.
+        eapply canon_TArr in He; eauto.
         destruct He as (l & t' & ? & Hl).
         subst.
         eapply htyping_elim_exists in Hl; eauto.
@@ -18032,7 +18248,7 @@ lift2 (fst (strip_subsets L))
         eapply IHtyping2 in Hi2; eauto.
         destruct Hi2 as [He2 | He2]; simplify.
         {
-          eapply canon_TRef in He1; eauto.
+          eapply canon_TArr in He1; eauto.
           destruct He1 as (l & t' & ? & Hl).
           subst.
           eapply htyping_elim_exists in Hl; eauto.
