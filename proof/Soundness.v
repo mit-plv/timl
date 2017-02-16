@@ -7752,7 +7752,7 @@ lift2 (fst (strip_subsets L))
   .
 
   Inductive ty_un_op :=
-  | TURef
+  (* | TURef *)
   .
 
   Inductive ty_bin_op :=
@@ -7780,6 +7780,8 @@ lift2 (fst (strip_subsets L))
   | TQuan (q : quan) (k : kind) (t : ty)
   | TQuanI (q : quan) (s : sort) (t : ty)
   | TRec (k : kind) (t : ty)
+  | TNat (i : idx)
+  | TArr (t : ty) (len : idx)
   .
 
   Definition TForall := TQuan QuanForall.
@@ -7813,6 +7815,8 @@ lift2 (fst (strip_subsets L))
       | TQuan q k c => TQuan q k (shift_i_t x c)
       | TQuanI q s c => TQuanI q (shift_i_s n x s) (shift_i_t (1 + x) c)
       | TRec k t => TRec k (shift_i_t x t)
+      | TNat i => TNat (shift_i_i n x i)
+      | TArr t i => TArr (shift_i_t x t) (shift_i_i n x i)
       end.
 
     Fixpoint shift_t_t (x : var) (b : ty) : ty :=
@@ -7831,6 +7835,8 @@ lift2 (fst (strip_subsets L))
       | TQuan q k c => TQuan q k (shift_t_t (1 + x) c)
       | TQuanI q s c => TQuanI q s (shift_t_t x c)
       | TRec k t => TRec k (shift_t_t (1 + x) t)
+      | TNat i => TNat i
+      | TArr t i => TArr (shift_t_t x t) i
       end.
         
   End shift_t.
@@ -7850,6 +7856,8 @@ lift2 (fst (strip_subsets L))
     | TQuan q k c => TQuan q k (subst_i_t x v c)
     | TQuanI q s c => TQuanI q (subst_i_s x v s) (subst_i_t (1 + x) (shift0_i_i v) c)
     | TRec k t => TRec k (subst_i_t x v t)
+    | TNat i => TNat (subst_i_i x v i)
+    | TArr t i => TArr (subst_i_t x v t) (subst_i_i x v i)
     end.
       
   Fixpoint subst_t_t (x : var) (v : ty) (b : ty) : ty :=
@@ -7869,6 +7877,8 @@ lift2 (fst (strip_subsets L))
     | TQuan q k c => TQuan q k (subst_t_t (1 + x) (shift0_t_t v) c)
     | TQuanI q s c => TQuanI q s (subst_t_t x (shift0_i_t v) c)
     | TRec k t => TRec k (subst_t_t (1 + x) (shift0_t_t v) t)
+    | TNat i => TNat i
+    | TArr t i => TArr (subst_t_t x v t) i
     end.
   
   Definition subst0_i_t v b := subst_i_t 0 v b.
@@ -8362,6 +8372,13 @@ lift2 (fst (strip_subsets L))
   | KdgRec L K k c :
       kinding L (k :: K) c k ->
       kinding L K (TRec k c) k
+  | KdgNat L K i :
+      sorting L i SNat ->
+      kinding L K (TNat i) KType
+  | KdgArr L K t i :
+      kinding L K t KType ->
+      sorting L i SNat ->
+      kinding L K (TArr t i) KType
   .
 
   Hint Constructors kinding.
@@ -8391,7 +8408,9 @@ lift2 (fst (strip_subsets L))
   | TVArrow (t1 : tyv) (i : time_type) (t2 : tyv)
   | TVQuan (q : quan) (k : kind) (t : tyv)
   | TVQuanI (q : quan) (b : bsort) (p : sortv b) (t : interp_bsort b -> tyv)
-  | TVRec (k : kind) (t : interp_bsorts_tuple k -> tyv) (args : interp_bsorts_tuple k) 
+  | TVRec (k : kind) (t : interp_bsorts_tuple k -> tyv) (args : interp_bsorts_tuple k)
+  | TVNat (i : nat)
+  | TVArr (t : tyv) (i : nat)
   .
 
   Fixpoint interp_k k :=
@@ -8470,6 +8489,12 @@ lift2 (fst (strip_subsets L))
     | TRec k t =>
       let r := lift1 bs (fun (t : interp_k k) => currys k (fun args => TVRec k (uncurrys k t) args)) (interp_ty t bs k)  in
       lift1 bs (convert_kind_value k k_ret) r
+    | TNat i => 
+      let r := lift1 bs TVNat (interp_idx i bs BSNat) in
+      lift1 bs (convert_kind_value KType k_ret) r
+    | TArr t i =>
+      let r := lift2 bs TVArr (interp_ty t bs KType) (interp_idx i bs BSNat) in
+      lift1 bs (convert_kind_value KType k_ret) r
     end.
 
   Inductive tyveq : tyv -> tyv -> Prop :=
@@ -8499,6 +8524,10 @@ lift2 (fst (strip_subsets L))
   | TVERec k t t' args :
       (forall x, tyveq (t x) (t' x)) ->
       tyveq (TVRec k t args) (TVRec k t' args)
+  | TVENat i : tyveq (TVNat i) (TVNat i)
+  | TVEArr t i t' :
+      tyveq t t' ->
+      tyveq (TVArr t i) (TVArr t' i)
   .
 
   Hint Constructors tyveq.
@@ -9677,6 +9706,13 @@ lift2 (fst (strip_subsets L))
   | BKdgRec L k c :
       bkinding L c k ->
       bkinding L (TRec k c) k
+  | BKdgNat L i :
+      bsorting L i BSNat ->
+      bkinding L (TNat i) KType
+  | BKdgArr L t i :
+      bkinding L t KType ->
+      bsorting L i BSNat ->
+      bkinding L (TArr t i) KType
   .
 
   Hint Constructors bkinding.
@@ -9727,6 +9763,13 @@ lift2 (fst (strip_subsets L))
   | TyEqRec L k c c' :
       tyeq2 L c c' k ->
       tyeq2 L (TRec k c) (TRec k c') k
+  | TyEqNat L i i' :
+      idxeq L i i' BSNat ->
+      tyeq2 L (TNat i) (TNat i') KType
+  | TyEqArr L t i t' i' :
+      tyeq L t t' KType ->
+      idxeq L i i' BSNat ->
+      tyeq2 L (TArr t i) (TArr t' i') KType
   (* the following rules are just here to satisfy reflexivity *)
   (* don't do deep equality test of two CAbs's *)
   (* | TyEqAbs L t : *)
@@ -10189,6 +10232,32 @@ lift2 (fst (strip_subsets L))
       repeat rewrite convert_kind_value_refl_eq in *.
       eapply gtyveq_TVRec_intro; eauto.
     }
+    {
+      (* Case Nat *)
+      simpl.
+      invert Hbody.
+      repeat rewrite fuse_lift1_lift1 in *.
+      rewrite subst_lift1.
+      rewrite fuse_lift2_lift1_1.
+      rewrite fuse_lift2_lift1_2.
+      eapply forall_lift2_lift2; [ | eapply forall_subst_i_i_eq_subst with (b_b := BSNat) ]; eauto.
+      simpl; intros; subst.
+      repeat rewrite convert_kind_value_refl_eq in *.
+      eauto.
+    }
+    {
+      (* Case Arr *)
+      simpl.
+      invert Hbody.
+      repeat rewrite fuse_lift1_lift2 in *.
+      rewrite subst_lift2.
+      rewrite fuse_lift2_lift2_1.
+      rewrite fuse_lift3_lift2_3.
+      eapply forall_lift2_lift2_lift4; [|eapply IHbody with (k := KType)| eapply forall_subst_i_i_eq_subst with (b_b := BSNat) ]; eauto.
+      simpl; intros; subst.
+      repeat rewrite convert_kind_value_refl_eq in *.
+      eauto.
+    }
   Qed.
 
   Lemma forall_lift3_lift4_4_2_3 :
@@ -10325,6 +10394,93 @@ lift2 (fst (strip_subsets L))
     eapply gtyveq_TVRec_intro; eauto.
   Qed.
 
+  Lemma invert_tyeq_TArr L t i t' i' :
+    tyeq L (TArr t i) (TArr t' i') KType ->
+    (* kinding L K (TArrow t1 i t2) KType -> *)
+    tyeq L t t' KType /\
+    idxeq L i i' BSNat.
+  Proof.
+    intros H (* Hkd *).
+    unfold tyeq, idxeq, interp_prop in *.
+    simpl in *.
+    repeat rewrite fuse_lift1_lift2 in *.
+    rewrite fuse_lift3_lift2_2 in *.
+    rewrite fuse_lift4_lift2_4 in *.
+    rewrite fuse_lift2_lift2_2 in *.
+    (* invert Hkd. *)
+    split.
+    {
+      eapply forall_lift5_lift3_1_2_4; eauto.
+      simpl.
+      intros.
+      repeat rewrite convert_kind_value_refl_eq in *.
+      eapply H0 in H1.
+      invert H1.
+      eauto.
+    }
+    {
+      eapply forall_lift5_lift3_1_3_5; eauto.
+      simpl.
+      intros.
+      repeat rewrite convert_kind_value_refl_eq in *.
+      eapply H0 in H1.
+      invert H1.
+      eauto.
+    }
+  Qed.
+
+  Lemma tyeq_TArr L t i t' i' :
+    tyeq L t t' KType -> 
+    idxeq L i i' BSNat ->
+    tyeq L (TArr t i) (TArr t' i') KType.
+  Proof.
+    intros H1 H2.
+    unfold tyeq, idxeq, interp_prop in *.
+    simpl in *.
+    repeat rewrite fuse_lift1_lift2 in *.
+    repeat rewrite fuse_lift3_lift2_2 in *.
+    repeat rewrite fuse_lift4_lift2_4 in *.
+    repeat rewrite fuse_lift2_lift2_2 in *.
+    
+    eapply forall_lift3_lift3_lift5_2_4_3_5; eauto.
+    simpl; intros.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    Lemma TVEArr' t i t' i' :
+      tyveq t t' ->
+      i = i' ->
+      tyveq (TVArr t i) (TVArr t' i').
+    Proof.
+      intros; subst; eauto.
+    Qed.
+    
+    eapply TVEArr'; eauto.
+  Qed.
+  
+  Lemma tyeq_TNat L i i' :
+    idxeq L i i' BSNat ->
+    tyeq L (TNat i) (TNat i') KType.
+  Proof.
+    intros H1.
+    unfold tyeq, idxeq, interp_prop in *.
+    simpl in *.
+    repeat rewrite fuse_lift1_lift1 in *.
+    repeat rewrite fuse_lift3_lift1_2 in *.
+    repeat rewrite fuse_lift3_lift1_3 in *.
+    repeat rewrite fuse_lift2_lift2_2 in *.
+    
+    eapply forall_lift3_lift3; eauto.
+    simpl; intros.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    Lemma TVENat' i i' :
+      i = i' ->
+      tyveq (TVNat i) (TVNat i').
+    Proof.
+      intros; subst; eauto.
+    Qed.
+    
+    eapply TVENat'; eauto.
+  Qed.
+  
   Lemma tyeq2_tyeq L t t' k :
     tyeq2 L t t' k ->
     wellscoped_ss L ->
@@ -10406,6 +10562,16 @@ lift2 (fst (strip_subsets L))
       invert Ht.
       invert Ht'.
       eapply tyeq_TRec; eauto.
+    }
+    {
+      invert Ht.
+      invert Ht'.
+      eapply tyeq_TNat; eauto.
+    }
+    {
+      invert Ht.
+      invert Ht'.
+      eapply tyeq_TArr; eauto.
     }
     {
       eauto using tyeq_refl.
@@ -10568,6 +10734,8 @@ lift2 (fst (strip_subsets L))
       | TVQuan q k c => TVQuan q k (shift_t_tv (1 + x) c)
       | TVQuanI q p c => TVQuanI q p (fun i => shift_t_tv x (c i))
       | TVRec k t args => TVRec k (fun i => shift_t_tv (1 + x) (t i)) args
+      | TVNat i => TVNat i
+      | TVArr t i => TVArr (shift_t_tv x t) i
       end.
 
   End shift_tv.
@@ -10760,6 +10928,30 @@ lift2 (fst (strip_subsets L))
       intros c.
       rewrite uncurrys_shift_t_gtv; eauto.
     }
+    {
+      (* Case TNat *)
+      simpl.
+      repeat rewrite fuse_lift1_lift1 in *.
+      f_equal.
+      eapply FunctionalExtensionality.functional_extensionality.
+      intros a.
+      rewrite shift_t_gtv_convert_kind_value; eauto.
+    }
+    {
+      (* Case TArr *)
+      simpl.
+      rewrite IHbody.
+      repeat rewrite fuse_lift1_lift1 in *.
+      repeat rewrite fuse_lift1_lift2 in *.
+      repeat rewrite fuse_lift2_lift1_1 in *.
+      simpl.
+      f_equal.
+      eapply FunctionalExtensionality.functional_extensionality.
+      intros a.
+      eapply FunctionalExtensionality.functional_extensionality.
+      intros b.
+      rewrite shift_t_gtv_convert_kind_value; eauto.
+    }
   Qed.
   
   Lemma tyveq_shift t t' :
@@ -10834,6 +11026,13 @@ lift2 (fst (strip_subsets L))
   | WsctRec L k c :
       wellscoped_t L c ->
       wellscoped_t L (TRec k c)
+  | WsctNat L i :
+      wellscoped_i L i ->
+      wellscoped_t L (TNat i)
+  | WsctArr L t i :
+      wellscoped_t L t ->
+      wellscoped_i L i ->
+      wellscoped_t L (TArr t i)
   .
 
   Hint Constructors wellscoped_t.
@@ -11076,6 +11275,34 @@ lift2 (fst (strip_subsets L))
       unfold eq_rect_r.
       rewrite <- Eqdep.EqdepTheory.eq_rect_eq.
       eapply gtyveq_TVRec_intro; eauto.
+    }
+    {
+      (* Case TNat *)
+      simpl.
+      repeat rewrite fuse_lift1_lift1.
+      rewrite <- lift1_shift.
+      rewrite fuse_lift2_lift1_1.
+      rewrite fuse_lift2_lift1_2.
+      eapply forall_lift2_lift2; [|eapply forall_shift_i_i_eq_shift with (b := BSNat) ]; eauto.
+      simpl; intros; subst.
+      unfold convert_kind_value.
+      cases (kind_dec KType k); subst; eauto using gtyveq_refl.
+    }
+    {
+      (* Case TArr *)
+      simpl.
+      repeat rewrite fuse_lift1_lift2.
+      rewrite <- lift2_shift.
+      rewrite fuse_lift2_lift2_1.
+      rewrite fuse_lift3_lift2_3.
+      eapply forall_lift2_lift2_lift4; [|eapply IHbody with (k := KType) | eapply forall_shift_i_i_eq_shift with (b := BSNat) ]; eauto.
+      simpl; intros; subst.
+      unfold convert_kind_value.
+      cases (kind_dec KType k); subst; eauto using gtyveq_refl.
+      simpl.
+      unfold eq_rect_r.
+      rewrite <- Eqdep.EqdepTheory.eq_rect_eq.
+      eauto.
     }
   Qed.
 
@@ -11487,6 +11714,18 @@ lift2 (fst (strip_subsets L))
       rewrite length_firstn_le in * by la.
       eapply IHkinding; eauto using wfsort_wellscoped_s' with db_la.
     }
+    {
+      (* Case TNat *)
+      econstructor; eauto.
+      eapply sorting_shift_i_i with (s := SNat); eauto.
+      econstructor; eauto.
+    }
+    {
+      (* Case TArr *)
+      econstructor; eauto.
+      eapply sorting_shift_i_i with (s := SNat); eauto.
+      econstructor; eauto.
+    }
   Qed.
 
   Lemma kinding_shift_i_t_1_0 L K c k s :
@@ -11604,6 +11843,7 @@ lift2 (fst (strip_subsets L))
     induct 1;
       simpl; try rename x into y; try rename s into s'; intros x s v Hx Hv HL; subst; try solve [econstructor; eauto using sorting_subst_i_i].
     {
+      (* TArrow *)
       econstructor; simpl; eauto using sorting_subst_i_i.
       eapply sorting_subst_i_i with (s_b := SBaseSort _); eauto.
     }
@@ -11632,6 +11872,16 @@ lift2 (fst (strip_subsets L))
       eapply nth_error_Some_lt in Hcmp.
       rewrite length_firstn_le in * by la.
       eauto.
+    }
+    {
+      (* TNat *)
+      econstructor; simpl; eauto using sorting_subst_i_i.
+      eapply sorting_subst_i_i with (s_b := SBaseSort _); eauto.
+    }
+    {
+      (* TArr *)
+      econstructor; simpl; eauto using sorting_subst_i_i.
+      eapply sorting_subst_i_i with (s_b := SBaseSort _); eauto.
     }
   Qed.
 
@@ -11753,27 +12003,23 @@ lift2 (fst (strip_subsets L))
               destruct i'; simpl in *; try cases_le_dec; try dis;
               invert Hi;
               econstructor; eauto using sorting_shift_i_i_rev_SBaseSort;
-              eapply IHkinding; eauto with db_la; simpl; eauto with db_la
+              eapply IHkinding; eauto with db_la; simpl; eauto with db_la |
+              destruct i'; simpl in *; try cases_le_dec; try dis;
+              invert Hi;
+              econstructor; eauto using sorting_shift_i_i_rev_SBaseSort;
+              eapply sorting_shift_i_i_rev_SBaseSort; eauto
             ].
-    {
-      destruct i'; simpl in *; try cases_le_dec; try dis;
-      invert Hi;
-      econstructor; eauto using sorting_shift_i_i_rev_SBaseSort.
-      eapply sorting_shift_i_i_rev_SBaseSort; eauto.
-    }
-    {
-      destruct i'; simpl in *; try cases_le_dec; try dis;
+    destruct i'; simpl in *; try cases_le_dec; try dis;
       invert Hi;
       econstructor; eauto using sorting_shift_i_i_rev_SBaseSort, wfsort_shift_i_s_rev.
-      {
-        rewrite get_bsort_shift_i_ss_insert in *.
-        eapply wfsort_shift_i_s_rev'; eauto with db_la.
-      }
-      eapply IHkinding with (x0 := S x); eauto; simpl; try rewrite length_firstn_le by la; eauto with db_la.
-      econstructor; eauto.
+    {
       rewrite get_bsort_shift_i_ss_insert in *.
       eapply wfsort_shift_i_s_rev'; eauto with db_la.
     }
+    eapply IHkinding with (x0 := S x); eauto; simpl; try rewrite length_firstn_le by la; eauto with db_la.
+    econstructor; eauto.
+    rewrite get_bsort_shift_i_ss_insert in *.
+    eapply wfsort_shift_i_s_rev'; eauto with db_la.
   Qed.
   
   Lemma kinding_shift_i_t_rev_1_0 s L K t k :
@@ -12027,6 +12273,8 @@ lift2 (fst (strip_subsets L))
       | TVQuan q k c => TVQuan q k (subst_gtv_tv (1 + x) (shift0_t_gtv v) c)
       | TVQuanI q p c => TVQuanI q p (fun i => subst_gtv_tv x v (c i))
       | TVRec k t args => TVRec k (fun i => subst_gtv_tv (1 + x) (shift0_t_gtv v) (t i)) args
+      | TVNat i => TVNat i
+      | TVArr t i => TVArr (subst_gtv_tv x v t) i
       end.
 
   Fixpoint glift1 k f : interp_k k -> interp_k k :=
@@ -12494,6 +12742,34 @@ lift2 (fst (strip_subsets L))
       eapply tyveq_trans; [eapply H |].
       rewrite uncurrys_glift1.
       eauto using tyveq_refl.
+    }
+    {
+      (* Case Nat *)
+      simpl.
+      invert Hbody.
+      repeat rewrite fuse_lift1_lift1 in *.
+      rewrite fuse_lift3_lift1_1.
+      rewrite fuse_lift3_lift1_3.
+      rewrite dedup_lift3_1_3.
+      eapply forall_lift2; eauto.
+      unfold subst_gtv_gtv.
+      simpl; intros; subst.
+      repeat rewrite convert_kind_value_refl_eq in *.
+      eauto.
+    }
+    {
+      (* Case Arr *)
+      simpl.
+      invert Hbody.
+      repeat rewrite fuse_lift1_lift2 in *.
+      rewrite fuse_lift3_lift2_1.
+      rewrite fuse_lift4_lift2_4.
+      rewrite dedup_lift5_2_5.
+      eapply forall_lift3_lift4_1_3_4; [|eapply IHbody with (k := KType) ]; eauto.
+      unfold subst_gtv_gtv.
+      simpl; intros; subst.
+      repeat rewrite convert_kind_value_refl_eq in *.
+      eauto.
     }
   Qed.
 
@@ -13038,15 +13314,14 @@ lift2 (fst (strip_subsets L))
   | EUInj (inj : injector)
   | EUFold
   | EUUnfold
-  | EUNew 
-  | EURead 
   .
 
   Inductive expr_bin_op :=
   | EBPrim (opr : prim_expr_bin_op)
   | EBApp
   | EBPair
-  | EBWrite
+  | EBNew 
+  | EBRead 
   .
 
   Inductive expr :=
@@ -13066,8 +13341,7 @@ lift2 (fst (strip_subsets L))
   | EUnpack (e1 e2 : expr)
   | EPackI (i : idx) (e : expr)
   | EUnpackI (e1 e2 : expr)
-  (* | EAsc (e : expr) (t : cstr) *)
-  (* | EAstTime (e : expr) (i : cstr) *)
+  | EBWrite (e_arr e_idx e_val : expr)
   .
 
   Definition EProj p e := EUnOp (EUProj p) e.
