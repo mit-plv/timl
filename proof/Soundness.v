@@ -20749,83 +20749,31 @@ lift2 (fst (strip_subsets L))
           repeat (econstructor; simpl; eauto using sorting_bsorting'').
         }
       }
+    }
+    {
+      cases opr.
       {
-        (* Case New *)
+        (* Case BinOpPrim *)
         copy Hty Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
         destruct Hty0 as [Ht Hi].
-        eapply invert_typing_New in Hty.
-        destruct Hty as (t' & i' & Htyeq & Hty & Hle).
+        eapply invert_typing_BinOpPrim in Hty.
+        destruct Hty as (i1 & i2 & Htopr & Hty1 & Hty2 & Hle).
         simplify.
-        copy Hty Hty0.
+        copy Hty1 Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
-        destruct Hty0 as [Ht' Hi'].
-        eapply IHplug in Hty; eauto.
-        destruct Hty as (t0 & i0 & Hty1 & Hle2 & HE).
-        exists t0, i0.
+        destruct Hty0 as [Ht' Hi1].
+        eapply IHplug in Hty1; eauto.
+        destruct Hty1 as (t1 & i0 & Hty1 & Hle2 & HE).
+        exists t1, i0.
         repeat split; eauto.
         {
           eapply interp_time_interp_prop_le.
           eapply interp_prop_le_interp_time in Hle.
           eapply interp_prop_le_interp_time in Hle2.
-          eauto with time_order.
-        }
-        intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl HC'.
-        invert Hplug.
-        rename e'0 into e_all''.
-        rename H4 into Hplug.
-        eapply HE in Hplug; eauto.
-        copy Hplug Hty0.
-        eapply typing_kinding_2 in Hty0; eauto.
-        destruct Hty0 as [? Hi1'].
-        eapply sorting_bsorting in Hi1'.
-        invert Hi1'.
-        invert H6.
-        simpl in *.
-        eapply TySub; try eassumption; simpl.
-        {
-          eapply TyNew; eauto.
-        }
-        {
-          eauto with db_tyeq.
-        }
-        {
-          simplify.
-          eapply interp_time_interp_prop_le.
-          repeat rewrite interp_time_distr.
-          rotate_lhs.
-          rotate_rhs.
-          cancel.
-          repeat rewrite interp_time_minus_distr.
-          eapply Time_minus_cancel.
-          eapply interp_prop_le_interp_time in Hle.
-          eauto.
-        }
-        {
-          eapply bsorting_sorting_SBaseSort; eauto.
-          repeat (econstructor; simpl; eauto using sorting_bsorting'').
-        }
-      }
-      {
-        (* Case Read *)
-        copy Hty Hty0.
-        eapply typing_kinding_2 in Hty0; eauto.
-        destruct Hty0 as [Ht Hi].
-        eapply invert_typing_Read in Hty.
-        destruct Hty as (i' & t' & Htt' & Hty & Hle).
-        simplify.
-        copy Hty Hty0.
-        eapply typing_kinding_2 in Hty0; eauto.
-        destruct Hty0 as [Ht' Hi'].
-        invert Ht'.
-        eapply IHplug in Hty; eauto.
-        destruct Hty as (t0 & i0 & Hty1 & Hle2 & HE).
-        exists t0, i0.
-        repeat split; eauto.
-        {
-          eapply interp_time_interp_prop_le.
-          eapply interp_prop_le_interp_time in Hle.
-          eapply interp_prop_le_interp_time in Hle2.
+          repeat rewrite interp_time_distr in Hle.
+          repeat rewrite interp_time_1 in Hle.
+          repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
           eauto with time_order.
         }
         intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl HC'.
@@ -20838,11 +20786,12 @@ lift2 (fst (strip_subsets L))
         destruct Hty0 as [? Hi1'].
         eapply sorting_bsorting in Hi1'.
         invert Hi1'.
-        invert H7.
+        invert H6.
         simpl in *.
         eapply TySub; try eassumption; simpl.
         {
-          eapply TyRead; eauto.
+          eapply TyPrim; eauto.
+          eapply weaken_W; eauto.
         }
         {
           eauto with db_tyeq.
@@ -20851,26 +20800,26 @@ lift2 (fst (strip_subsets L))
           simplify.
           eapply interp_time_interp_prop_le.
           repeat rewrite interp_time_distr.
-          rotate_lhs.
           rotate_rhs.
+          do 3 rotate_lhs.
           cancel.
+          do 2 rotate_lhs.
           repeat rewrite interp_time_minus_distr.
-          eapply Time_minus_cancel.
           eapply interp_prop_le_interp_time in Hle.
-          eauto.
+          eapply interp_prop_le_interp_time in Hle2.
+          eapply interp_prop_le_interp_time in Hle3.
+          rewrite Time_add_minus_assoc by eauto.
+          eapply Time_minus_cancel.
+          trans_rhs Hle.
+          repeat rewrite interp_time_distr.
+          rotate_lhs.
+          cancel.
+          eauto with time_order.
         }
         {
           eapply bsorting_sorting_SBaseSort; eauto.
           repeat (econstructor; simpl; eauto using sorting_bsorting'').
         }
-      }
-    }
-    {
-      cases opr.
-      {
-        (* Case BinOpPrim *)
-        eapply invert_typing_BinOpPrim in Hty.
-        propositional.
       }
       {
         (* Case App *)
@@ -21011,17 +20960,16 @@ lift2 (fst (strip_subsets L))
         }
       }
       {
-        (* Case Write *)
+        (* Case New *)
         copy Hty Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
         destruct Hty0 as [Ht Hi].
-        eapply invert_typing_Write in Hty.
-        destruct Hty as (t' & i1 & i2 & Htyeq & Hty1 & Hty2 & Hle).
+        eapply invert_typing_New in Hty.
+        destruct Hty as (t' & len & i1 & i2 & Htyeq & Hty1 & Hty2 & Hle).
         simplify.
         copy Hty1 Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
         destruct Hty0 as [Ht' Hi1].
-        invert Ht'.
         eapply IHplug in Hty1; eauto.
         destruct Hty1 as (t0 & i0 & Hty1 & Hle2 & HE).
         exists t0, i0.
@@ -21038,18 +20986,18 @@ lift2 (fst (strip_subsets L))
         intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl HC'.
         invert Hplug.
         rename e'0 into e_all''.
-        rename H6 into Hplug.
+        rename H5 into Hplug.
         eapply HE in Hplug; eauto.
         copy Hplug Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
         destruct Hty0 as [? Hi1'].
         eapply sorting_bsorting in Hi1'.
         invert Hi1'.
-        invert H7.
+        invert H6.
         simpl in *.
         eapply TySub; try eassumption; simpl.
         {
-          eapply TyWrite; eauto.
+          eapply TyNew; eauto.
           eapply weaken_W; eauto.
         }
         {
@@ -21079,14 +21027,217 @@ lift2 (fst (strip_subsets L))
           repeat (econstructor; simpl; eauto using sorting_bsorting'').
         }
       }
+      {
+        (* Case Read *)
+        copy Hty Hty0.
+        eapply typing_kinding_2 in Hty0; eauto.
+        destruct Hty0 as [Ht Hi].
+        eapply invert_typing_Read in Hty.
+        destruct Hty as (t'' & len & j & i1 & i2 & Htt'' & Hty1 & Hty2 & Hjlen & Hle).
+        simplify.
+        copy Hty1 Hty0.
+        eapply typing_kinding_2 in Hty0; eauto.
+        destruct Hty0 as [Ht' Hi'].
+        invert Ht'.
+        eapply IHplug in Hty1; eauto.
+        destruct Hty1 as (t0 & i0 & Hty1 & Hle2 & HE).
+        exists t0, i0.
+        repeat split; eauto.
+        {
+          eapply interp_time_interp_prop_le.
+          eapply interp_prop_le_interp_time in Hle.
+          eapply interp_prop_le_interp_time in Hle2.
+          repeat rewrite interp_time_distr in Hle.
+          repeat rewrite interp_time_1 in Hle.
+          repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+          eauto with time_order.
+        }
+        intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl HC'.
+        invert Hplug.
+        rename e'0 into e_all''.
+        rename H7 into Hplug.
+        eapply HE in Hplug; eauto.
+        copy Hplug Hty0.
+        eapply typing_kinding_2 in Hty0; eauto.
+        destruct Hty0 as [? Hi1'].
+        eapply sorting_bsorting in Hi1'.
+        invert Hi1'.
+        invert H8.
+        simpl in *.
+        eapply TySub; try eassumption; simpl.
+        {
+          eapply TyRead; eauto.
+          eapply weaken_W; eauto.
+        }
+        {
+          eauto with db_tyeq.
+        }
+        {
+          simplify.
+          eapply interp_time_interp_prop_le.
+          repeat rewrite interp_time_distr.
+          rotate_rhs.
+          do 2 rotate_lhs.
+          cancel.
+          rotate_lhs.
+          repeat rewrite interp_time_minus_distr.
+          eapply interp_prop_le_interp_time in Hle.
+          eapply interp_prop_le_interp_time in Hle2.
+          eapply interp_prop_le_interp_time in Hle3.
+          rewrite Time_add_minus_assoc by eauto.
+          eapply Time_minus_cancel.
+          trans_rhs Hle.
+          repeat rewrite interp_time_distr.
+          rotate_lhs.
+          eauto with time_order.
+        }
+        {
+          eapply bsorting_sorting_SBaseSort; eauto.
+          repeat (econstructor; simpl; eauto using sorting_bsorting'').
+        }
+      }
+      {
+        (* Case NatAdd *)
+        copy Hty Hty0.
+        eapply typing_kinding_2 in Hty0; eauto.
+        destruct Hty0 as [Ht Hi].
+        eapply invert_typing_NatAdd in Hty.
+        destruct Hty as (j1 & j2 & i1 & i2 & Hj1j2 & Hty1 & Hty2 & Hle).
+        simplify.
+        copy Hty1 Hty0.
+        eapply typing_kinding_2 in Hty0; eauto.
+        destruct Hty0 as [Ht' Hi1].
+        eapply IHplug in Hty1; eauto.
+        destruct Hty1 as (t1 & i0 & Hty1 & Hle2 & HE).
+        exists t1, i0.
+        repeat split; eauto.
+        {
+          eapply interp_time_interp_prop_le.
+          eapply interp_prop_le_interp_time in Hle.
+          eapply interp_prop_le_interp_time in Hle2.
+          repeat rewrite interp_time_distr in Hle.
+          repeat rewrite interp_time_1 in Hle.
+          repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+          eauto with time_order.
+        }
+        intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl HC'.
+        invert Hplug.
+        rename e'0 into e_all''.
+        rename H5 into Hplug.
+        eapply HE in Hplug; eauto.
+        copy Hplug Hty0.
+        eapply typing_kinding_2 in Hty0; eauto.
+        destruct Hty0 as [? Hi1'].
+        eapply sorting_bsorting in Hi1'.
+        invert Hi1'.
+        invert H6.
+        simpl in *.
+        eapply TySub; try eassumption; simpl.
+        {
+          eapply TyNatAdd; eauto.
+          eapply weaken_W; eauto.
+        }
+        {
+          eauto with db_tyeq.
+        }
+        {
+          simplify.
+          eapply interp_time_interp_prop_le.
+          repeat rewrite interp_time_distr.
+          rotate_rhs.
+          do 3 rotate_lhs.
+          cancel.
+          do 2 rotate_lhs.
+          repeat rewrite interp_time_minus_distr.
+          eapply interp_prop_le_interp_time in Hle.
+          eapply interp_prop_le_interp_time in Hle2.
+          eapply interp_prop_le_interp_time in Hle3.
+          rewrite Time_add_minus_assoc by eauto.
+          eapply Time_minus_cancel.
+          trans_rhs Hle.
+          repeat rewrite interp_time_distr.
+          rotate_lhs.
+          cancel.
+          eauto with time_order.
+        }
+        {
+          eapply bsorting_sorting_SBaseSort; eauto.
+          repeat (econstructor; simpl; eauto using sorting_bsorting'').
+        }
+      }
     }
     {
       (* Case BinOp2 *)
       cases opr.
       {
         (* Case BinOpPrim *)
+        copy Hty Hty0.
+        eapply typing_kinding_2 in Hty0; eauto.
+        destruct Hty0 as [Ht Hi].
         eapply invert_typing_BinOpPrim in Hty.
-        propositional.
+        destruct Hty as (i1 & i2 & Htopr & Hty1 & Hty2 & Hle).
+        simplify.
+        copy Hty2 Hty0.
+        eapply typing_kinding_2 in Hty0; eauto.
+        destruct Hty0 as [Ht2 Hi2].
+        eapply IHplug in Hty2; eauto.
+        destruct Hty2 as (t0 & i0 & Hty2 & Hle2 & HE).
+        exists t0, i0.
+        repeat split; eauto.
+        {
+          eapply interp_time_interp_prop_le.
+          eapply interp_prop_le_interp_time in Hle.
+          eapply interp_prop_le_interp_time in Hle2.
+          repeat rewrite interp_time_distr in Hle.
+          repeat rewrite interp_time_1 in Hle.
+          repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+          eauto with time_order.
+        }
+        intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl HC'.
+        invert Hplug.
+        rename e'0 into e_all''.
+        rename H6 into Hplug.
+        eapply HE in Hplug; eauto.
+        copy Hplug Hty0.
+        eapply typing_kinding_2 in Hty0; eauto.
+        destruct Hty0 as [? Hi1'].
+        eapply sorting_bsorting in Hi1'.
+        invert Hi1'.
+        invert H8.
+        simpl in *.
+        eapply TySub; try eassumption; simpl.
+        {
+          eapply TyPrim'; eauto.
+          eapply weaken_W; eauto.
+        }
+        {
+          eauto with db_tyeq.
+        }
+        {
+          simplify.
+          eapply interp_time_interp_prop_le.
+          repeat rewrite interp_time_distr.
+          repeat rewrite Time_add_assoc.
+          rotate_rhs.
+          do 2 rotate_lhs.
+          cancel.
+          do 2 rotate_lhs.
+          repeat rewrite interp_time_minus_distr.
+          eapply interp_prop_le_interp_time in Hle.
+          eapply interp_prop_le_interp_time in Hle2.
+          eapply interp_prop_le_interp_time in Hle3.
+          rewrite Time_add_minus_assoc by eauto.
+          eapply Time_minus_cancel.
+          trans_rhs Hle.
+          repeat rewrite interp_time_distr.
+          do 2 rotate_lhs.
+          cancel.
+          eauto with time_order.
+        }
+        {
+          eapply bsorting_sorting_SBaseSort; eauto.
+          repeat (econstructor; simpl; eauto using sorting_bsorting'').
+        }
       }
       {
         (* Case App *)
@@ -21224,16 +21375,16 @@ lift2 (fst (strip_subsets L))
         }
       }
       {
-        (* Case Write *)
+        (* Case New *)
         copy Hty Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
         destruct Hty0 as [Ht Hi].
-        eapply invert_typing_Write in Hty.
-        destruct Hty as (t' & i1 & i2 & Htyeq & Hty1 & Hty2 & Hle).
+        eapply invert_typing_New in Hty.
+        destruct Hty as (t' & len & i1 & i2 & Htyeq & Hty1 & Hty2 & Hle).
         simplify.
         copy Hty2 Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
-        destruct Hty0 as [Ht' Hi2].
+        destruct Hty0 as [Ht2 Hi2].
         eapply IHplug in Hty2; eauto.
         destruct Hty2 as (t0 & i0 & Hty2 & Hle2 & HE).
         exists t0, i0.
@@ -21261,7 +21412,7 @@ lift2 (fst (strip_subsets L))
         simpl in *.
         eapply TySub; try eassumption; simpl.
         {
-          eapply TyWrite; eauto.
+          eapply TyNew; eauto.
           eapply weaken_W; eauto.
         }
         {
@@ -21287,6 +21438,349 @@ lift2 (fst (strip_subsets L))
           eapply bsorting_sorting_SBaseSort; eauto.
           repeat (econstructor; simpl; eauto using sorting_bsorting'').
         }
+      }
+      {
+        (* Case New *)
+        copy Hty Hty0.
+        eapply typing_kinding_2 in Hty0; eauto.
+        destruct Hty0 as [Ht Hi].
+        eapply invert_typing_Read in Hty.
+        destruct Hty as (t'' & len & j & i1 & i2 & Htt'' & Hty1 & Hty2 & Hjlen & Hle).
+        simplify.
+        copy Hty2 Hty0.
+        eapply typing_kinding_2 in Hty0; eauto.
+        destruct Hty0 as [Ht2 Hi2].
+        eapply IHplug in Hty2; eauto.
+        destruct Hty2 as (t0 & i0 & Hty2 & Hle2 & HE).
+        exists t0, i0.
+        repeat split; eauto.
+        {
+          eapply interp_time_interp_prop_le.
+          eapply interp_prop_le_interp_time in Hle.
+          eapply interp_prop_le_interp_time in Hle2.
+          repeat rewrite interp_time_distr in Hle.
+          repeat rewrite interp_time_1 in Hle.
+          repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+          eauto with time_order.
+        }
+        intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl HC'.
+        invert Hplug.
+        rename e'0 into e_all''.
+        rename H6 into Hplug.
+        eapply HE in Hplug; eauto.
+        copy Hplug Hty0.
+        eapply typing_kinding_2 in Hty0; eauto.
+        destruct Hty0 as [? Hi1'].
+        eapply sorting_bsorting in Hi1'.
+        invert Hi1'.
+        invert H8.
+        simpl in *.
+        eapply TySub; try eassumption; simpl.
+        {
+          eapply TyRead; eauto.
+          eapply weaken_W; eauto.
+        }
+        {
+          eauto with db_tyeq.
+        }
+        {
+          simplify.
+          eapply interp_time_interp_prop_le.
+          eapply interp_prop_le_interp_time in Hle.
+          eapply interp_prop_le_interp_time in Hle2.
+          eapply interp_prop_le_interp_time in Hle3.
+          repeat rewrite interp_time_distr in *.
+          rotate_rhs.
+          rotate_lhs.
+          cancel.
+          rotate_lhs.
+          repeat rewrite interp_time_minus_distr.
+          rewrite Time_add_minus_assoc by eauto.
+          eapply Time_minus_cancel.
+          eauto.
+        }
+        {
+          eapply bsorting_sorting_SBaseSort; eauto.
+          repeat (econstructor; simpl; eauto using sorting_bsorting'').
+        }
+      }
+      {
+        (* Case NatAdd *)
+        copy Hty Hty0.
+        eapply typing_kinding_2 in Hty0; eauto.
+        destruct Hty0 as [Ht Hi].
+        eapply invert_typing_NatAdd in Hty.
+        destruct Hty as (j1 & j2 & i1 & i2 & Hj1j2 & Hty1 & Hty2 & Hle).
+        simplify.
+        copy Hty2 Hty0.
+        eapply typing_kinding_2 in Hty0; eauto.
+        destruct Hty0 as [Ht2 Hi2].
+        eapply IHplug in Hty2; eauto.
+        destruct Hty2 as (t0 & i0 & Hty2 & Hle2 & HE).
+        exists t0, i0.
+        repeat split; eauto.
+        {
+          eapply interp_time_interp_prop_le.
+          eapply interp_prop_le_interp_time in Hle.
+          eapply interp_prop_le_interp_time in Hle2.
+          repeat rewrite interp_time_distr in Hle.
+          repeat rewrite interp_time_1 in Hle.
+          repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+          eauto with time_order.
+        }
+        intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl HC'.
+        invert Hplug.
+        rename e'0 into e_all''.
+        rename H6 into Hplug.
+        eapply HE in Hplug; eauto.
+        copy Hplug Hty0.
+        eapply typing_kinding_2 in Hty0; eauto.
+        destruct Hty0 as [? Hi1'].
+        eapply sorting_bsorting in Hi1'.
+        invert Hi1'.
+        invert H8.
+        simpl in *.
+        eapply TySub; try eassumption; simpl.
+        {
+          eapply TyNatAdd; eauto.
+          eapply weaken_W; eauto.
+        }
+        {
+          eauto with db_tyeq.
+        }
+        {
+          simplify.
+          eapply interp_time_interp_prop_le.
+          repeat rewrite interp_time_distr.
+          repeat rewrite Time_add_assoc.
+          rotate_rhs.
+          do 2 rotate_lhs.
+          cancel.
+          do 2 rotate_lhs.
+          repeat rewrite interp_time_minus_distr.
+          eapply interp_prop_le_interp_time in Hle.
+          eapply interp_prop_le_interp_time in Hle2.
+          eapply interp_prop_le_interp_time in Hle3.
+          rewrite Time_add_minus_assoc by eauto.
+          eapply Time_minus_cancel.
+          trans_rhs Hle.
+          repeat rewrite interp_time_distr.
+          do 2 rotate_lhs.
+          cancel.
+          eauto with time_order.
+        }
+        {
+          eapply bsorting_sorting_SBaseSort; eauto.
+          repeat (econstructor; simpl; eauto using sorting_bsorting'').
+        }
+      }
+    }
+    {
+      (* Case Write1 *)
+      copy Hty Hty0.
+      eapply typing_kinding_2 in Hty0; eauto.
+      destruct Hty0 as [Ht Hi].
+      eapply invert_typing_Write in Hty.
+      destruct Hty as (t' & len & j & i1 & i2 & i3 & Htyeq & Hty1 & Hty2 & Hjlen & Hty3 & Hle).
+      simplify.
+      copy Hty1 Hty0.
+      eapply typing_kinding_2 in Hty0; eauto.
+      destruct Hty0 as [Ht' Hi1].
+      invert Ht'.
+      eapply IHplug in Hty1; eauto.
+      destruct Hty1 as (t0 & i0 & Hty1 & Hle2 & HE).
+      exists t0, i0.
+      repeat split; eauto.
+      {
+        eapply interp_time_interp_prop_le.
+        eapply interp_prop_le_interp_time in Hle.
+        eapply interp_prop_le_interp_time in Hle2.
+        repeat rewrite interp_time_distr in Hle.
+        repeat rewrite interp_time_1 in Hle.
+        repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+        eauto with time_order.
+      }
+      intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl HC'.
+      invert Hplug.
+      rename e'0 into e_all''.
+      rename H7 into Hplug.
+      eapply HE in Hplug; eauto.
+      copy Hplug Hty0.
+      eapply typing_kinding_2 in Hty0; eauto.
+      destruct Hty0 as [? Hi1'].
+      eapply sorting_bsorting in Hi1'.
+      invert Hi1'.
+      invert H8.
+      simpl in *.
+      eapply TySub; try eassumption; simpl.
+      {
+        eapply TyWrite; eauto;
+        eapply weaken_W; eauto.
+      }
+      {
+        eauto with db_tyeq.
+      }
+      {
+        simplify.
+        eapply interp_time_interp_prop_le.
+        repeat rewrite interp_time_distr.
+        repeat rewrite Time_add_assoc.
+        rotate_rhs.
+        do 3 rotate_lhs.
+        cancel.
+        do 2 rotate_lhs.
+        repeat rewrite interp_time_minus_distr.
+        eapply interp_prop_le_interp_time in Hle.
+        eapply interp_prop_le_interp_time in Hle2.
+        eapply interp_prop_le_interp_time in Hle3.
+        rewrite Time_add_minus_assoc by eauto.
+        eapply Time_minus_cancel.
+        trans_rhs Hle.
+        repeat rewrite interp_time_distr.
+        do 2 rotate_rhs.
+        eauto with time_order.
+      }
+      {
+        eapply bsorting_sorting_SBaseSort; eauto.
+        repeat (econstructor; simpl; eauto using sorting_bsorting'').
+      }
+    }
+    {
+      (* Case Write2 *)
+      copy Hty Hty0.
+      eapply typing_kinding_2 in Hty0; eauto.
+      destruct Hty0 as [Ht Hi].
+      eapply invert_typing_Write in Hty.
+      destruct Hty as (t' & len & j & i1 & i2 & i3 & Htyeq & Hty1 & Hty2 & Hjlen & Hty3 & Hle).
+      simplify.
+      copy Hty2 Hty0.
+      eapply typing_kinding_2 in Hty0; eauto.
+      destruct Hty0 as [Ht' Hi2].
+      eapply IHplug in Hty2; eauto.
+      destruct Hty2 as (t0 & i0 & Hty2 & Hle2 & HE).
+      exists t0, i0.
+      repeat split; eauto.
+      {
+        eapply interp_time_interp_prop_le.
+        eapply interp_prop_le_interp_time in Hle.
+        eapply interp_prop_le_interp_time in Hle2.
+        repeat rewrite interp_time_distr in Hle.
+        repeat rewrite interp_time_1 in Hle.
+        repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+        eauto with time_order.
+      }
+      intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl HC'.
+      invert Hplug.
+      rename e'0 into e_all''.
+      rename H6 into Hplug.
+      eapply HE in Hplug; eauto.
+      copy Hplug Hty0.
+      eapply typing_kinding_2 in Hty0; eauto.
+      destruct Hty0 as [? Hi1'].
+      eapply sorting_bsorting in Hi1'.
+      invert Hi1'.
+      invert H8.
+      simpl in *.
+      eapply TySub; try eassumption; simpl.
+      {
+        eapply TyWrite; eauto;
+        eapply weaken_W; eauto.
+      }
+      {
+        eauto with db_tyeq.
+      }
+      {
+        simplify.
+        eapply interp_time_interp_prop_le.
+        repeat rewrite interp_time_distr.
+        repeat rewrite Time_add_assoc.
+        rotate_rhs.
+        do 2 rotate_lhs.
+        cancel.
+        do 2 rotate_lhs.
+        repeat rewrite interp_time_minus_distr.
+        eapply interp_prop_le_interp_time in Hle.
+        eapply interp_prop_le_interp_time in Hle2.
+        eapply interp_prop_le_interp_time in Hle3.
+        rewrite Time_add_minus_assoc by eauto.
+        eapply Time_minus_cancel.
+        trans_rhs Hle.
+        repeat rewrite interp_time_distr.
+        do 2 rotate_lhs.
+        cancel.
+        eauto with time_order.
+      }
+      {
+        eapply bsorting_sorting_SBaseSort; eauto.
+        repeat (econstructor; simpl; eauto using sorting_bsorting'').
+      }
+    }
+    {
+      (* Case Write3 *)
+      copy Hty Hty0.
+      eapply typing_kinding_2 in Hty0; eauto.
+      destruct Hty0 as [Ht Hi].
+      eapply invert_typing_Write in Hty.
+      destruct Hty as (t' & len & j & i1 & i2 & i3 & Htyeq & Hty1 & Hty2 & Hjlen & Hty3 & Hle).
+      simplify.
+      copy Hty3 Hty0.
+      eapply typing_kinding_2 in Hty0; eauto.
+      destruct Hty0 as [Ht' Hi3].
+      eapply IHplug in Hty3; eauto.
+      destruct Hty3 as (t0 & i0 & Hty3 & Hle2 & HE).
+      exists t0, i0.
+      repeat split; eauto.
+      {
+        eapply interp_time_interp_prop_le.
+        eapply interp_prop_le_interp_time in Hle.
+        eapply interp_prop_le_interp_time in Hle2.
+        repeat rewrite interp_time_distr in Hle.
+        repeat rewrite interp_time_1 in Hle.
+        repeat (eapply Time_add_le_elim in Hle; destruct Hle as (Hle & ?)).
+        eauto with time_order.
+      }
+      intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl HC'.
+      invert Hplug.
+      rename e'0 into e_all''.
+      rename H5 into Hplug.
+      eapply HE in Hplug; eauto.
+      copy Hplug Hty0.
+      eapply typing_kinding_2 in Hty0; eauto.
+      destruct Hty0 as [? Hi1'].
+      eapply sorting_bsorting in Hi1'.
+      invert Hi1'.
+      invert H10.
+      simpl in *.
+      eapply TySub; try eassumption; simpl.
+      {
+        eapply TyWrite; eauto;
+        eapply weaken_W; eauto.
+      }
+      {
+        eauto with db_tyeq.
+      }
+      {
+        simplify.
+        eapply interp_time_interp_prop_le.
+        repeat rewrite interp_time_distr.
+        repeat rewrite Time_add_assoc.
+        rotate_rhs.
+        do 1 rotate_lhs.
+        cancel.
+        do 2 rotate_lhs.
+        repeat rewrite interp_time_minus_distr.
+        eapply interp_prop_le_interp_time in Hle.
+        eapply interp_prop_le_interp_time in Hle2.
+        eapply interp_prop_le_interp_time in Hle3.
+        rewrite Time_add_minus_assoc by eauto.
+        eapply Time_minus_cancel.
+        trans_rhs Hle.
+        repeat rewrite interp_time_distr.
+        eauto with time_order.
+      }
+      {
+        eapply bsorting_sorting_SBaseSort; eauto.
+        repeat (econstructor; simpl; eauto using sorting_bsorting'').
       }
     }
     {
@@ -21572,7 +22066,7 @@ lift2 (fst (strip_subsets L))
       {
         eapply TyUnpack; eauto.
         simplify.
-        assert (Hincl' : fmap_map shift0_t_t W $<= fmap_map shift0_t_t W').
+        assert (Hincl' : fmap_map shift0_t_ti W $<= fmap_map shift0_t_ti W').
         {
           eapply incl_fmap_map; eauto.
         }
@@ -21702,7 +22196,7 @@ lift2 (fst (strip_subsets L))
       {
         eapply TyUnpackI; eauto.
         simplify.
-        assert (Hincl' : fmap_map shift0_i_t W $<= fmap_map shift0_i_t W').
+        assert (Hincl' : fmap_map shift0_i_ti W $<= fmap_map shift0_i_ti W').
         {
           eapply incl_fmap_map; eauto.
         }
@@ -21849,8 +22343,6 @@ lift2 (fst (strip_subsets L))
     eauto.
   Qed.
 
-  (*here*)
-  
 End M.   
 
 Module NNRealTime <: TIME.
