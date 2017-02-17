@@ -19702,14 +19702,27 @@ lift2 (fst (strip_subsets L))
       copy Hty1 Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht' Hi1].
-      (*here*)
       simplify.
+      copy Hty2 Hty0.
+      eapply typing_kinding_2 in Hty0; eauto.
+      destruct Hty0 as [Hlen Hi2].
+      invert Hlen.
+      simplify.
+      eapply invert_typing_Const in Hty2.
+      destruct Hty2 as (i' & Hjn & Hi').
+      simplify.
+      eapply invert_tyeq_TNat_empty in Hjn.
+      unfold idxeq, interp_prop in Hjn.
+      simpl in *.
+      repeat rewrite convert_bsort_value_refl_eq in *.
+      specialize (Hjn I).
+      subst.
       split.
       {
         rewrite Time_a_minus_a.
         eauto with time_order.
       }
-      exists (W $+ (l, t')).
+      exists (W $+ (l, (t', len))).
       repeat try_split; eauto.
       {
         eapply TySub; try eassumption; simpl.
@@ -19735,7 +19748,15 @@ lift2 (fst (strip_subsets L))
         }
       }
       {
-        eapply htyping_new in Hhty; eauto.
+        eapply htyping_new in Hhty; eauto using repeat_length.
+        Lemma Forall_repeat A (P : A -> Prop) n a : P a -> Forall P (repeat a n).
+        Proof.
+          induct n; simpl; eauto.
+        Qed.
+
+        eapply Forall_repeat.
+        split; eauto.
+        eapply value_typing_T0; eauto.
       }
       {
         simplify.
@@ -19746,12 +19767,14 @@ lift2 (fst (strip_subsets L))
         eauto.
       }
       {
-        Lemma wfctx_add_htyping L K W G l t:
+        Lemma wfctx_add_htyping L K W G l t len:
           wfctx (L, K, W, G) ->
           kinding L K t KType ->
-          wfctx (L, K, W $+ (l, t), G).
+          sorting L len SNat ->
+          wfctx (L, K, W $+ (l, (t, len)), G).
         Proof.
-          intros HC Ht; unfold wfctx in *; openhyp; simpl in *; repeat try_split; eauto.
+          intros HC Ht Hlen; unfold wfctx in *; openhyp; simpl in *; repeat try_split; eauto.
+          unfold wfhctx in *.
           unfold fmap_forall in *.
           intros k v Hk.
           eapply lookup_split in Hk.
@@ -19810,7 +19833,7 @@ lift2 (fst (strip_subsets L))
           eapply typing_subst0_t_e with (G := []) in Hty; eauto.
           {
             simplify.
-            rewrite fmap_map_subst0_t_t_shift0 in Hty.
+            rewrite fmap_map_subst0_t_ti_shift0 in Hty.
             eauto.
           }
           {
@@ -19896,7 +19919,7 @@ lift2 (fst (strip_subsets L))
           eapply typing_subst0_i_e with (G := []) in Hty; eauto.
           {
             simplify.
-            rewrite fmap_map_subst0_i_t_shift0 in Hty.
+            rewrite fmap_map_subst0_i_ti_shift0 in Hty.
             eauto.
           }
           {
@@ -20168,6 +20191,256 @@ lift2 (fst (strip_subsets L))
       {
         eapply includes_intro.
         eauto.
+      }
+    }
+    {
+      (* Case NatAdd *)
+      destruct H as (Hty & Hhty & Hle & HC).
+      rename t into f.
+      rename t0 into t.
+      copy Hty Hty0.
+      eapply typing_kinding_2 in Hty0; eauto.
+      destruct Hty0 as [Ht Hi].
+      eapply invert_typing_NatAdd in Hty.
+      destruct Hty as (j1 & j2 & i1 & i2 & Hj1j2 & Hty1 & Hty2 & Hle2).
+      simplify.
+      copy Hty1 Hty0.
+      eapply typing_kinding_2 in Hty0; eauto.
+      destruct Hty0 as [Hj1 Hi1].
+      invert Hj1.
+      copy Hty2 Hty0.
+      eapply typing_kinding_2 in Hty0; eauto.
+      destruct Hty0 as [Hj2 Hi2].
+      invert Hj2.
+      eapply invert_typing_Const in Hty1.
+      destruct Hty1 as (i1' & Hj1n1 & Hi1').
+      simpl in *.
+      eapply invert_typing_Const in Hty2.
+      destruct Hty2 as (i2' & Hj2n2 & Hi2').
+      simpl in *.
+      eapply invert_tyeq_TNat_empty in Hj1n1.
+      unfold idxeq, interp_prop in Hj1n1.
+      simpl in *.
+      repeat rewrite convert_bsort_value_refl_eq in *.
+      specialize (Hj1n1 I).
+      subst.
+      eapply invert_tyeq_TNat_empty in Hj2n2.
+      unfold idxeq, interp_prop in Hj2n2.
+      simpl in *.
+      repeat rewrite convert_bsort_value_refl_eq in *.
+      specialize (Hj2n2 I).
+      subst.
+      split.
+      {
+        rewrite Time_minus_minus_cancel by eauto.
+        eapply interp_prop_le_interp_time in Hle2.
+        repeat rewrite interp_time_distr in Hle2.
+        repeat rewrite interp_time_1 in Hle2.
+        repeat (eapply Time_add_le_elim in Hle2; destruct Hle2 as (Hle2 & ?)).
+        eauto.
+      }
+      exists W.
+      repeat try_split; eauto.
+      {
+        eapply TySub; try eassumption; simpl.
+        {
+          econstructor.
+        }
+        {
+          eauto with db_tyeq.
+        }
+        {
+          simplify.
+          rewrite Time_minus_minus_cancel by eauto.
+          eapply interp_prop_le_interp_time in Hle2.
+          repeat rewrite interp_time_distr in Hle2.
+          repeat rewrite interp_time_1 in Hle2.
+          copy Hle2 Hle2'.
+          repeat (eapply Time_add_le_elim in Hle2; destruct Hle2 as (Hle2 & ?)).
+          eapply interp_time_interp_prop_le.
+          rewrite interp_time_minus_distr.
+          eapply Time_minus_move_left; eauto.
+          eapply Time_le_trans; [| eapply Hle2'].
+          cancel.
+          repeat rewrite interp_time_0 in *.
+          eauto with time_order.
+        }
+        {
+          repeat (econstructor; simpl; eauto).
+        }
+      }
+      {
+        rewrite Time_minus_minus_cancel by eauto.
+        rewrite interp_time_minus_distr.
+        rewrite interp_time_const.
+        eapply Time_minus_cancel.
+        eauto.
+      }
+      {
+        eapply includes_intro.
+        eauto.
+      }
+    }
+    {
+      (* Case Prim *)
+      destruct H as (Hty & Hhty & Hle & HC).
+      rename t into f.
+      rename t0 into t.
+      copy Hty Hty0.
+      eapply typing_kinding_2 in Hty0; eauto.
+      destruct Hty0 as [Ht Hi].
+      eapply invert_typing_BinOpPrim in Hty.
+      destruct Hty as (i1 & i2 & Htopr & Hty1 & Hty2 & Hle2).
+      simplify.
+      copy Hty1 Hty0.
+      eapply typing_kinding_2 in Hty0; eauto.
+      destruct Hty0 as [Hj1 Hi1].
+      copy Hty2 Hty0.
+      eapply typing_kinding_2 in Hty0; eauto.
+      destruct Hty0 as [Hj2 Hi2].
+      eapply invert_typing_Const in Hty1.
+      destruct Hty1 as (i1' & Hcn1 & Hi1').
+      simpl in *.
+      eapply invert_typing_Const in Hty2.
+      destruct Hty2 as (i2' & Hcn2 & Hi2').
+      simpl in *.
+      cases opr.
+      simpl in *.
+      Lemma invert_tyeq_TInt_const_type cn :
+        tyeq [] TInt (const_type cn) KType ->
+        exists n, cn = ECInt n.
+      Proof.
+        intros H.
+        unfold tyeq in *.
+        simpl in *.
+        repeat rewrite convert_kind_value_refl_eq in *.
+        specialize (H I).
+        destruct cn; simpl in *;
+          invert H.
+        eauto.
+      Qed.
+
+      Arguments exec_prim _ _ _ / .
+      
+      {
+        eapply invert_tyeq_TInt_const_type in Hcn1.
+        destruct Hcn1 as [n1 ?].
+        subst.
+        eapply invert_tyeq_TInt_const_type in Hcn2.
+        destruct Hcn2 as [n2 ?].
+        subst.
+        simpl in *.
+        invert H1.
+        split.
+        {
+          rewrite Time_minus_minus_cancel by eauto.
+          eapply interp_prop_le_interp_time in Hle2.
+          repeat rewrite interp_time_distr in Hle2.
+          repeat rewrite interp_time_1 in Hle2.
+          repeat (eapply Time_add_le_elim in Hle2; destruct Hle2 as (Hle2 & ?)).
+          eauto.
+        }
+        exists W.
+        repeat try_split; eauto.
+        {
+          eapply TySub; try eassumption; simpl.
+          {
+            econstructor.
+          }
+          {
+            eauto with db_tyeq.
+          }
+          {
+            simplify.
+            rewrite Time_minus_minus_cancel by eauto.
+            eapply interp_prop_le_interp_time in Hle2.
+            repeat rewrite interp_time_distr in Hle2.
+            repeat rewrite interp_time_1 in Hle2.
+            copy Hle2 Hle2'.
+            repeat (eapply Time_add_le_elim in Hle2; destruct Hle2 as (Hle2 & ?)).
+            eapply interp_time_interp_prop_le.
+            rewrite interp_time_minus_distr.
+            eapply Time_minus_move_left; eauto.
+            eapply Time_le_trans; [| eapply Hle2'].
+            cancel.
+            repeat rewrite interp_time_0 in *.
+            eauto with time_order.
+          }
+          {
+            repeat (econstructor; simpl; eauto).
+          }
+        }
+        {
+          rewrite Time_minus_minus_cancel by eauto.
+          rewrite interp_time_minus_distr.
+          rewrite interp_time_const.
+          eapply Time_minus_cancel.
+          eauto.
+        }
+        {
+          eapply includes_intro.
+          eauto.
+        }
+      }
+      {
+        eapply invert_tyeq_TInt_const_type in Hcn1.
+        destruct Hcn1 as [n1 ?].
+        subst.
+        eapply invert_tyeq_TInt_const_type in Hcn2.
+        destruct Hcn2 as [n2 ?].
+        subst.
+        simpl in *.
+        invert H1.
+        split.
+        {
+          rewrite Time_minus_minus_cancel by eauto.
+          eapply interp_prop_le_interp_time in Hle2.
+          repeat rewrite interp_time_distr in Hle2.
+          repeat rewrite interp_time_1 in Hle2.
+          repeat (eapply Time_add_le_elim in Hle2; destruct Hle2 as (Hle2 & ?)).
+          eauto.
+        }
+        exists W.
+        repeat try_split; eauto.
+        {
+          eapply TySub; try eassumption; simpl.
+          {
+            econstructor.
+          }
+          {
+            eauto with db_tyeq.
+          }
+          {
+            simplify.
+            rewrite Time_minus_minus_cancel by eauto.
+            eapply interp_prop_le_interp_time in Hle2.
+            repeat rewrite interp_time_distr in Hle2.
+            repeat rewrite interp_time_1 in Hle2.
+            copy Hle2 Hle2'.
+            repeat (eapply Time_add_le_elim in Hle2; destruct Hle2 as (Hle2 & ?)).
+            eapply interp_time_interp_prop_le.
+            rewrite interp_time_minus_distr.
+            eapply Time_minus_move_left; eauto.
+            eapply Time_le_trans; [| eapply Hle2'].
+            cancel.
+            repeat rewrite interp_time_0 in *.
+            eauto with time_order.
+          }
+          {
+            repeat (econstructor; simpl; eauto).
+          }
+        }
+        {
+          rewrite Time_minus_minus_cancel by eauto.
+          rewrite interp_time_minus_distr.
+          rewrite interp_time_const.
+          eapply Time_minus_cancel.
+          eauto.
+        }
+        {
+          eapply includes_intro.
+          eauto.
+        }
       }
     }
   Qed.
