@@ -8607,7 +8607,125 @@ lift2 (fst (strip_subsets L))
   Hint Extern 0 (wellscoped_ss []) => econstructor.
   Hint Extern 0 (wfsorts []) => econstructor.
   
-  Lemma idxeq_subst_i_i L body body' b_b  x s v v' :
+  Lemma forall_lift4_lift4 :
+    forall bs A1 A2 A3 A4 P1 P2 P3 P4 (f1 : A1 -> A2 -> A3 -> A4 -> Prop) (f2 : A1 -> A2 -> A3 -> A4 -> Prop),
+      (forall a1 a2 a3 a4, f1 a1 a2 a3 a4 -> f2 a1 a2 a3 a4) ->
+      forall_ bs (lift4 bs f1 P1 P2 P3 P4) ->
+      forall_ bs (lift4 bs f2 P1 P2 P3 P4).
+  Proof.
+    induct bs; simplify; eauto.
+    rewrite fuse_lift1_lift4 in *.
+    eapply IHbs; eauto.
+    simplify.
+    eauto.
+  Qed.
+  
+  Lemma forall_subst_eqv_reflex :
+    forall bs x b_b (f : _ -> _ -> Prop) (body : interp_bsorts bs b_b) b_v (v v' : interp_bsorts (skipn (S x) bs) (interp_bsort b_v)) (Heq : firstn x bs ++ skipn (S x) bs = removen x bs),
+      (forall x, f x x) ->
+      let bs' := removen x bs in
+      imply_
+        bs'
+        (lift2 _ eq (cast _ _ Heq (shift0 _ _ v)) (cast _ _ Heq (shift0 _ _ v')))
+        (lift2 _ f (subst x bs v body) (subst x bs v' body)).
+  Proof.
+    simpl.
+    induct bs; simpl; intros x b_b f body b_v v v' Heq Hf; try la.
+    {
+      eapply forall_ignore_premise.
+      simpl.
+      eauto.
+    }
+    destruct x; simpl in *.
+    {
+      rewrite fuse_lift2_lift2_1.
+      rewrite fuse_lift3_lift2_3.
+      repeat rewrite cast_refl_eq.
+      rewrite dedup_lift4_1_3.
+      unfold imply_.
+      rewrite fuse_lift2_lift2_1.
+      rewrite fuse_lift3_lift3_3.
+      rewrite dedup_lift5_1_4.
+      rewrite dedup_lift4_2_4.
+      eapply forall_lift3.
+      simpl; intros.
+      subst.
+      eauto.
+    }
+    {
+      unfold imply_ in *.
+      simpl in *.
+      repeat rewrite <- lift1_shift0.
+      repeat rewrite cast_lift1.
+      repeat rewrite fuse_lift1_lift1.
+      rewrite fuse_lift1_lift2.
+      repeat rewrite fuse_lift2_lift1_1.
+      repeat rewrite fuse_lift2_lift1_2.
+      set (skipn_bs := match bs with
+                                        | [] => []
+                                        | _ :: l => skipn x l
+                                        end) in *.
+      set (Heq' := f_equal
+                (fun t : list bsort =>
+                 match t with
+                 | [] => firstn x bs ++ skipn_bs
+                 | _ :: x0 => x0
+                 end) Heq) in *.
+      specialize (IHbs x _ (fun a b => forall x, f (a x) (b x)) body b_v v v' Heq').
+      subst skipn_bs Heq'.
+      set (skipn_bs := match bs with
+                                        | [] => []
+                                        | _ :: l => skipn x l
+                                        end) in *.
+      set (Heq' := f_equal
+                (fun t : list bsort =>
+                 match t with
+                 | [] => firstn x bs ++ skipn_bs
+                 | _ :: x0 => x0
+                 end) Heq) in *.
+      repeat rewrite fuse_lift2_lift2_1 in *.
+      repeat rewrite fuse_lift3_lift2_3 in *.
+      eapply forall_lift4_lift4; [| eapply IHbs]; eauto.
+    }
+  Qed.
+
+  Lemma forall_subst_eqv_eq :
+    forall bs x b_b (body : interp_bsorts bs b_b) b_v (v v' : interp_bsorts (skipn (S x) bs) (interp_bsort b_v)) (Heq : firstn x bs ++ skipn (S x) bs = removen x bs),
+      let bs' := removen x bs in
+      imply_
+        bs'
+        (lift2 _ eq (cast _ _ Heq (shift0 _ _ v)) (cast _ _ Heq (shift0 _ _ v')))
+        (lift2 _ eq (subst x bs v body) (subst x bs v' body)).
+  Proof.
+    simpl.
+    intros; eapply forall_subst_eqv_reflex; eauto.
+  Qed.
+
+  Lemma forall_subst_eqv_iff :
+    forall bs x (body : interp_bsorts bs Prop) b_v (v v' : interp_bsorts (skipn (S x) bs) (interp_bsort b_v)) (Heq : firstn x bs ++ skipn (S x) bs = removen x bs),
+      let bs' := removen x bs in
+      imply_
+        bs'
+        (lift2 _ eq (cast _ _ Heq (shift0 _ _ v)) (cast _ _ Heq (shift0 _ _ v')))
+        (lift2 _ iff (subst x bs v body) (subst x bs v' body)).
+  Proof.
+    simpl.
+    intros; eapply forall_subst_eqv_reflex; eauto.
+    propositional.
+  Qed.
+
+  Lemma interp_shift_i_i_eq_shift_0 i bs_new bs b n :
+    let bs' := bs_new ++ bs in
+    wellscoped_i (length bs) i ->
+    n = length bs_new ->
+    interp_idx (shift_i_i n 0 i) bs' b = shift0 bs_new bs (interp_idx i bs b).
+  Proof.
+    simpl.
+    intros.
+    eapply interp_shift_i_i_eq_shift with (x := 0); eauto.
+  Qed.
+  
+  Lemma subst_i_i_eqv_eqv L body body' b_b  x s v v' :
     idxeq L body body' b_b->
     nth_error L x = Some s ->
     idxeq (my_skipn L (1 + x)) v v' (get_bsort s) ->
@@ -8651,20 +8769,185 @@ lift2 (fst (strip_subsets L))
       rewrite map_removen.
       eauto.
     }
-    eapply admit. (*
-  forall_ bs'
-    (lift2 bs' imply
-       (lift2 bs' eq (interp_idx (shift_i_i x 0 v) bs' (get_bsort s))
-          (interp_idx (shift_i_i x 0 v') bs' (get_bsort s)))
-       (lift2 bs' eq (interp_idx (subst_i_i x (shift_i_i x 0 v) body') bs' b_b)
-          (interp_idx (subst_i_i x (shift_i_i x 0 v') body') bs' b_b)))
-                   *)
-    (* rewrite Hbs' in *. *)
-    (* erewrite interp_subst_i_i_eq_subst; eauto. *)
-    (* erewrite interp_subst_i_i_eq_subst; eauto. *)
+    assert (wellscoped_i (length (skipn (S x) bs)) v).
+    {
+      rewrite skipn_my_skipn in *.
+      subst bs.
+      rewrite <- map_my_skipn.
+      rewrite map_length.
+      eapply sorting_wellscoped_i; eauto.
+    }
+    assert (wellscoped_i (length (skipn (S x) bs)) v').
+    {
+      rewrite skipn_my_skipn in *.
+      subst bs.
+      rewrite <- map_my_skipn.
+      rewrite map_length.
+      eapply sorting_wellscoped_i; eauto.
+    }
+    assert (x = length (firstn x bs)).
+    {
+      subst bs.
+      rewrite <- map_firstn.
+      rewrite map_length.
+      rewrite length_firstn_le by la.
+      eauto.
+    }
+    assert (nth_error bs x = Some (get_bsort s)).
+    {
+      subst bs.
+      erewrite map_nth_error; eauto.
+    }
+    assert (bsorting (skipn (S x) bs) v (get_bsort s)).
+    {
+      rewrite skipn_my_skipn in *.
+      subst bs.
+      rewrite <- map_my_skipn.
+      eapply sorting_bsorting; eauto.
+    }
+    assert (bsorting (skipn (S x) bs) v' (get_bsort s)).
+    {
+      rewrite skipn_my_skipn in *.
+      subst bs.
+      rewrite <- map_my_skipn.
+      eapply sorting_bsorting; eauto.
+    }
+    rewrite Hbs' in *.
+    repeat erewrite interp_subst_i_i_eq_subst; eauto.
+    eapply forall_trans; [| eapply forall_subst_eqv_eq].
+    symmetry in Hbs'.
+    eapply forall_cast_elim with (bs2 := firstn x bs ++ skipn (S x) bs).
+    repeat rewrite cast_lift2.
+    repeat rewrite cast_roundtrip.
+    repeat rewrite cast_interp_idx.
+    repeat rewrite interp_shift_i_i_eq_shift_0; eauto.
+    eapply forall_imply_refl.
+    Grab Existential Variables.
+    {
+      rewrite removen_firstn_skipn; eauto.
+    }
+    {
+      rewrite removen_firstn_skipn; eauto.
+    }
+  Qed.
+
+  Notation propeq L p p' := (interp_prop L (p <===> p')%idx).
+    
+  Lemma subst_i_p_eqv_eqv L body body' x s v v' :
+    propeq L body body' ->
+    nth_error L x = Some s ->
+    idxeq (my_skipn L (1 + x)) v v' (get_bsort s) ->
+    sorting (my_skipn L (1 + x)) v s ->
+    sorting (my_skipn L (1 + x)) v' s ->
+    wfprop (map get_bsort L) body ->
+    wfprop (map get_bsort L) body' ->
+    wfsorts L ->
+    propeq (subst_i_ss v (firstn x L) ++ my_skipn L (1 + x)) (subst_i_p x (shift_i_i x 0 v) body) (subst_i_p x (shift_i_i x 0 v') body').
+  Proof.
+    intros Hbb' Hx Hvv' Hv Hv' Hb Hb' HL.
+    assert (HL2 : wfsorts (my_skipn L (1 + x))).
+    {
+      rewrite <- skipn_my_skipn.
+      eapply all_sorts_skipn; eauto.
+    }
+    eapply interp_prop_iff_trans.
+    {
+      eapply interp_prop_subst_i_p with (c := v) in Hbb'; simpl in *; eauto.
+      econstructor; eauto.
+    }
+    eapply interp_prop_shift_i_p with (x := 0) (ls := subst_i_ss v (firstn x L))in Hvv'; eauto using wfsorts_wellscoped_ss, sorting_wellscoped_i with db_la.
+    copy Hx Hcmp.
+    eapply nth_error_Some_lt in Hcmp.
+    repeat rewrite length_subst_i_ss in *.
+    repeat rewrite length_firstn_le in * by la.
+    simpl in *.
+    repeat rewrite my_skipn_0 in *.
+    set (L' := subst_i_ss v (firstn x L) ++ my_skipn L (S x)) in *.
+    unfold idxeq in *.
+    simpl in *.
+    set (bs' := map get_bsort L') in *.
+    set (bs := map get_bsort L) in *.
+    eapply forall_trans; [eapply Hvv' |].
+    assert (Hbs' : bs' = removen x bs).
+    {
+      subst bs bs' L'.
+      rewrite map_app.
+      rewrite get_bsort_subst_i_ss.
+      rewrite <- map_app.
+      rewrite <- removen_firstn_my_skipn.
+      rewrite map_removen.
+      eauto.
+    }
+    assert (wellscoped_i (length (skipn (S x) bs)) v).
+    {
+      rewrite skipn_my_skipn in *.
+      subst bs.
+      rewrite <- map_my_skipn.
+      rewrite map_length.
+      eapply sorting_wellscoped_i; eauto.
+    }
+    assert (wellscoped_i (length (skipn (S x) bs)) v').
+    {
+      rewrite skipn_my_skipn in *.
+      subst bs.
+      rewrite <- map_my_skipn.
+      rewrite map_length.
+      eapply sorting_wellscoped_i; eauto.
+    }
+    assert (x = length (firstn x bs)).
+    {
+      subst bs.
+      rewrite <- map_firstn.
+      rewrite map_length.
+      rewrite length_firstn_le by la.
+      eauto.
+    }
+    assert (nth_error bs x = Some (get_bsort s)).
+    {
+      subst bs.
+      erewrite map_nth_error; eauto.
+    }
+    assert (bsorting (skipn (S x) bs) v (get_bsort s)).
+    {
+      rewrite skipn_my_skipn in *.
+      subst bs.
+      rewrite <- map_my_skipn.
+      eapply sorting_bsorting; eauto.
+    }
+    assert (bsorting (skipn (S x) bs) v' (get_bsort s)).
+    {
+      rewrite skipn_my_skipn in *.
+      subst bs.
+      rewrite <- map_my_skipn.
+      eapply sorting_bsorting; eauto.
+    }
+    rewrite Hbs' in *.
+    eapply forall_trans; [| eapply forall_trans]; [| eapply forall_subst_eqv_iff|].
+    Focus 2.
+    {
+      eapply forall_iff_imply.
+      eapply forall_iff_sym.
+      eapply forall_iff_lift2; try eapply forall_subst_i_p_iff_subst; eauto.
+      unfold iff; propositional.
+    }
+    Unfocus.
+    symmetry in Hbs'.
+    eapply forall_cast_elim with (bs2 := firstn x bs ++ skipn (S x) bs).
+    repeat rewrite cast_lift2.
+    repeat rewrite cast_roundtrip.
+    repeat rewrite cast_interp_idx.
+    repeat rewrite interp_shift_i_i_eq_shift_0; eauto.
+    eapply forall_imply_refl.
+    Grab Existential Variables.
+    {
+      rewrite removen_firstn_skipn; eauto.
+    }
+    {
+      rewrite removen_firstn_skipn; eauto.
+    }
   Qed.
     
-  Lemma sorteq_subst_i_s L body body' :
+  Lemma subst_i_s_eqv_eqv L body body' :
     sorteq L body body' ->
     forall x s v v',
       nth_error L x = Some s ->
@@ -8677,18 +8960,10 @@ lift2 (fst (strip_subsets L))
       sorteq (subst_i_ss v (firstn x L) ++ my_skipn L (1 + x)) (subst_i_s x (shift_i_i x 0 v) body) (subst_i_s x (shift_i_i x 0 v') body').
   Proof.
     induct 1;
-      simpl; try rename x into y; try rename s into s'; try rename s into s''; intros x s v v' Hx Hvv' Hv Hv' Hb Hb' HL; try solve [invert Hb; invert Hb'; econstructor; eauto using idxeq_subst_i_i].
+      simpl; try rename x into y; try rename s into s'; try rename s into s''; intros x s v v' Hx Hvv' Hv Hv' Hb Hb' HL; try solve [invert Hb; invert Hb'; econstructor; eauto using subst_i_i_eqv_eqv].
     repeat rewrite shift0_i_i_shift_0.
-    invert Hb; invert Hb'; econstructor; eauto using idxeq_subst_i_i.
-    eapply interp_prop_iff_trans.
-    {
-      eapply interp_prop_subst_i_p with (n := S x) in H; simpl in *; eauto.
-      econstructor; eauto.
-    }
-    eapply admit. (* 
-interp_prop (SBaseSort b :: subst_i_ss v (firstn x L) ++ my_skipn L (S x))
-    (subst_i_p (S x) (shift_i_i (S x) 0 v) p' <===> subst_i_p (S x) (shift_i_i (1 + x) 0 v') p')%idx
-                   *)
+    invert Hb; invert Hb'; econstructor; eauto using subst_i_i_eqv_eqv.
+    eapply subst_i_p_eqv_eqv with (x := S x) (L := SBaseSort _ :: _); eauto.
   Qed.
   
   Inductive bkinding : list bsort -> ty -> kind -> Prop :=
@@ -8747,7 +9022,7 @@ interp_prop (SBaseSort b :: subst_i_ss v (firstn x L) ++ my_skipn L (S x))
         cong (subst_i_ss v (firstn x L) ++ my_skipn L (1 + x)) (subst_i_t x (shift_i_i x 0 v) body) (subst_i_t x (shift_i_i x 0 v') body').
   Proof.
     induct 1;
-      simpl; try rename x into y; try rename s into s'; try rename s into s''; intros x s v v' k_b k_b' Hx Hvv' Hv Hv' Hb Hb' HL; try solve [invert Hb; invert Hb'; econstructor; eauto using idxeq_subst_i_i, sorteq_subst_i_s].
+      simpl; try rename x into y; try rename s into s'; try rename s into s''; intros x s v v' k_b k_b' Hx Hvv' Hv Hv' Hb Hb' HL; try solve [invert Hb; invert Hb'; econstructor; eauto using subst_i_i_eqv_eqv, subst_i_s_eqv_eqv].
     {
       (* Case TAbs *)
       invert Hb; invert Hb'.
@@ -8761,7 +9036,7 @@ interp_prop (SBaseSort b :: subst_i_ss v (firstn x L) ++ my_skipn L (S x))
       repeat rewrite shift0_i_i_shift_0.
       econstructor; eauto.
       {
-        eapply sorteq_subst_i_s; eauto.
+        eapply subst_i_s_eqv_eqv; eauto.
       }
       specialize (IHcong (S x) s v v').
       simpl in *.
