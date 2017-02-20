@@ -9572,7 +9572,7 @@ interp_prop (SBaseSort b :: subst_i_ss v (firstn x L) ++ my_skipn L (S x))
     repeat eexists_split; eauto.
   Qed.
 
-  Lemma TQuan_TArrow_false L q k t t1 i t2 k1 k2 :
+  Lemma invert_tyeq_TQuan_TArrow L q k t t1 i t2 k1 k2 :
     tyeq L (TQuan q k t) (TArrow t1 i t2) ->
     let bs := map get_bsort L in
     bkinding bs (TQuan q k t) k1 ->
@@ -9602,26 +9602,233 @@ interp_prop (SBaseSort b :: subst_i_ss v (firstn x L) ++ my_skipn L (S x))
     end
   .
 
+  Lemma TApps_TApp args t b i : sig (fun x => TApps (TApp t b i) args = TApp (TApps t (fst x)) (fst (snd x)) (snd (snd x)) /\ (b, i) :: args = fst x ++ [snd x]).
+  Proof.
+    induct args; simpl; eauto.
+    {
+      eexists ([], (_, _)); simpl; eauto.
+    }
+    destruct a as [b' i'].
+    specialize (IHargs (TApp t b i) b' i').
+    destruct IHargs as (x & H1 & H2).
+    destruct x as [front last]; simpl in *.
+    eexists ((b, i) :: front, last); simpl in *.
+    split; eauto.
+    f_equal; eauto.
+  Qed.
+
+  Definition TApps_TRec_dec args k t :
+    sumor (sig (fun x => TApps (TRec k t) args = TApp (TApps (TRec k t) (fst x)) (fst (snd x)) (snd (snd x)) /\ args = fst x ++ [snd x])) (TApps (TRec k t) args = TRec k t /\ args = []).
+  Proof.
+    induct args; simpl; eauto.
+    destruct a as [b i]; simpl in *.
+    left.
+    eapply TApps_TApp.
+  Qed.
+  
+  Lemma TApps_append_end args t b i : TApp (TApps t args) b i = TApps t (args ++ [(b, i)]).
+  Proof.
+    induct args; simpl; eauto.
+    destruct a.
+    eauto.
+  Qed.
+
   Lemma par_preserves_TApps_TRec k t1 args t' :
     par (TApps (TRec k t1) args) t' ->
     exists t1',
       t' = TApps (TRec k t1') args /\
       par t1 t1'.
   Proof.
-    induct 1; simpl; try solve [destruct args; simpl in *; dis].
-    (*here*)
-    destruct args; simpl in *; try dis.
+    induct 1; simpl; try solve [
+                           destruct (TApps_TRec_dec args k t1) as [ [ [? ?] [Heq ?] ] | [Heq ?]]; subst; simpl in * ; try rewrite Heq in *; dis
+                         ]; eauto.
+    {
+      destruct (TApps_TRec_dec args k t1) as [ [ [front [b' i'] ] [Heq Hargs] ] | [Heq Hargs]]; simpl in * ; rewrite Heq in *; try dis.
+      invert x.
+      edestruct IHpar as (t1' & ? & Ht1t1'); eauto.
+      subst.
+      exists t1'.
+      split; eauto.
+      eapply TApps_append_end.
+    }
+    {
+      destruct (TApps_TRec_dec args k t1) as [ [ [front [b' i'] ] [Heq Hargs] ] | [Heq Hargs] ]; subst; simpl in * ; try rewrite Heq in *; try dis.
+      invert x.
+      eauto.
+    }
+    {
+      destruct (TApps_TRec_dec args k t1) as [ [ [front [b' i'] ] [Heq Hargs] ] | [Heq Hargs] ]; subst; simpl in * ; try rewrite Heq in *; try dis.
+      invert x.
+      clear Heq.
+      destruct (TApps_TRec_dec front k t1) as [ [ [? ?] [Heq ?] ] | [Heq ?]]; simpl in * ; rewrite Heq in *; dis.
+    }
   Qed.
   
-  Lemma invert_tyeq_TApps_TRec_empty t cs t' cs' :
-    let k := map fst cs in
-    let k' := map fst cs' in
-    tyeq [] (TApps (TRec k t) cs) (TApps (TRec k' t') cs') KType ->
+  Lemma pars_preserves_TApps_TRec k t1 args t' :
+    par^* (TApps (TRec k t1) args) t' ->
+    exists t1',
+      t' = TApps (TRec k t1') args /\
+      par^* t1 t1'.
+  Proof.
+    induct 1; simpl; eauto.
+    eapply par_preserves_TApps_TRec in H; eauto.
+    openhyp.
+    subst.
+    edestruct IHtrc; eauto.
+    openhyp.
+    subst.
+    repeat eexists_split; eauto.
+  Qed.
+  
+  Lemma invert_cong_TApps_TRec L k t args k' t' args' :
+    let t1 := TApps (TRec k t) args in
+    let t1' := TApps (TRec k' t') args' in
+    cong L t1 t1' ->
     k = k' /\
-    tyeq [] t t' k /\
-    Forall2 (fun p p' => fst p = fst p' /\ idxeq [] (snd p) (snd p') (fst p)) cs cs'.
+    cong L t t' /\
+    Forall2 (fun p p' => fst p = fst p' /\ idxeq L (snd p) (snd p') (fst p)) args args'.
+  Proof.
+    simpl.
+    induct 1; simpl; try solve [
+                           destruct (TApps_TRec_dec args k t) as [ [ [? ?] [Heq ?] ] | [Heq ?]]; subst; simpl in * ; try rewrite Heq in *; dis
+                         ]; eauto.
+    {
+      destruct (TApps_TRec_dec args k t) as [ [ [? ?] [Heq ?] ] | [Heq ?]]; subst; simpl in * ; try rewrite Heq in *; try dis.
+      invert x0.
+      clear Heq.
+      destruct (TApps_TRec_dec args' k' t') as [ [ [? ?] [Heq ?] ] | [Heq ?]]; subst; simpl in * ; try rewrite Heq in *; try dis.
+      invert x.
+      destruct p; destruct p0; simpl in *; subst.
+      edestruct IHcong as (? & Htt' & Hargs); eauto.
+      subst.
+      repeat try_split; eauto.
+      eapply Forall2_app; eauto.
+    }
+    {
+      destruct (TApps_TRec_dec args k t) as [ [ [? ?] [Heq ?] ] | [Heq ?]]; subst; simpl in * ; try rewrite Heq in *; try dis.
+      invert x0.
+      clear Heq.
+      destruct (TApps_TRec_dec args' k' t') as [ [ [? ?] [Heq ?] ] | [Heq ?]]; subst; simpl in * ; try rewrite Heq in *; try dis.
+      invert x.
+      repeat try_split; eauto.
+    }
+  Qed.
+  
+  Lemma bkinding_TApps_invert L :
+    forall args t k,
+      bkinding L (TApps t args) k ->
+      bkinding L t (map fst args ++ k) /\
+      Forall (fun p => bsorting L (snd p) (fst p)) args.
+  Proof.
+    induct args; simpl; intros t k H; eauto.
+    destruct a as [b i].
+    eapply IHargs in H.
+    destruct H as [H1 H2].
+    invert H1.
+    eauto.
+  Qed.
+
+  Lemma invert_tyeq_TApps_TRec L k t args k' t' args' k1 k1':
+    let t1 := TApps (TRec k t) args in
+    let t1' := TApps (TRec k' t') args' in
+    tyeq L t1 t1' ->
+    let bs := map get_bsort L in
+    bkinding bs t1 k1 ->
+    bkinding bs t1' k1' ->
+    wfsorts L ->
+    k = k' /\
+    tyeq L t t' /\
+    Forall2 (fun p p' => fst p = fst p' /\ idxeq L (snd p) (snd p') (fst p)) args args'.
+  Proof.
+    simpl.
+    intros H H1 H2 HL.
+    eapply tyeq_par in H; eauto.
+    edestruct H as (r1 & r1' & Ht1r1 & Ht1'r1' & Hr1r1' & Hr1 & Hr1'); eauto.
+    eapply pars_preserves_TApps_TRec in Ht1r1.
+    openhyp; subst.
+    eapply pars_preserves_TApps_TRec in Ht1'r1'.
+    openhyp; subst.
+    eapply invert_cong_TApps_TRec in Hr1r1'.
+    openhyp; subst.
+    eapply bkinding_TApps_invert in H1.
+    destruct H1 as [H1 Hargs].
+    invert H1.
+    eapply bkinding_TApps_invert in H2.
+    destruct H2 as [H2 Hargs'].
+    invert H2.
+    repeat try_split; eauto.
+    {
+      eapply TyEqTrans.
+      {
+        eapply pars_tyeq; eauto.
+      }
+      eapply TyEqTrans.
+      {
+        eapply cong_tyeq; eauto.
+      }
+      {
+        eapply TyEqSym.
+        eapply pars_tyeq; eauto.
+      }
+      {
+        eapply pars_preserves_bkinding; eauto.
+      }
+      {
+        eapply pars_preserves_bkinding; eauto.
+      }
+    }
+  Qed.
+
+  Lemma bkinding_TApps L :
+    forall cs t k,
+      bkinding L t (map fst cs ++ k)->
+      Forall (fun p => bsorting L (snd p) (fst p)) cs ->
+      bkinding L (TApps t cs) k.
+  Proof.
+    induct cs; simpl; intros t k Ht Hcs; invert Hcs; eauto.
+    destruct a as (b & i); simpl in *.
+    eauto.
+  Qed.
+
+(*  
+  Lemma cong_preserves_TApps_TRec L k t args t1' :
+    let t1 := TApps (TRec k t) args in
+    cong L t1 t1' ->
+    exists t' args',
+    t1' = TApps (TRec k t') args' ->
+    cong L t t' /\
+    Forall2 (fun p p' => fst p = fst p' /\ idxeq L (snd p) (snd p') (fst p)) args args'.
   Proof.
   Qed.
+ *)
+  
+  Lemma invert_tyeq_TApps_TRec_TArrow L args k3 t3 t1 i t2 k k' :
+    let t := TApps (TRec k3 t3) args in
+    let t' := TArrow t1 i t2 in
+    tyeq L t t' ->
+    let bs := map get_bsort L in
+    bkinding bs t k ->
+    bkinding bs t' k' ->
+    wfsorts L ->
+    False.
+  Proof.
+    simpl.
+    intros H H1 H2 HL.
+    eapply bkinding_TApps_invert in H1.
+    destruct H1 as (H1 & Hargs).
+    invert H1.
+    invert H2.
+    eapply tyeq_par in H; eauto using bkinding_TApps.
+    edestruct H as (r1 & r1' & Ht1r1 & Ht1'r1' & Hr1r1' & Hr1 & Hr1'); eauto.
+    eapply pars_preserves_TApps_TRec in Ht1r1.
+    openhyp; subst.
+    eapply pars_preserves_TArrow in Ht1'r1'.
+    openhyp; subst.
+    set (k' := map fst args ++ k) in *.
+    destruct (TApps_TRec_dec args k' x) as [ [ [? ?] [Heq ?] ] | [Heq ?]]; subst; simpl in * ; try rewrite Heq in *; invert Hr1r1'.
+  Qed.
+
+  (*here*)
   
   Lemma TBinOp_TArrow_false opr ta tb t1 i t2 :
     tyeq [] (TBinOp opr ta tb) (TArrow t1 i t2) KType ->
@@ -10462,18 +10669,6 @@ interp_prop (SBaseSort b :: subst_i_ss v (firstn x L) ++ my_skipn L (S x))
     eauto.
   Qed.
 
-  Lemma invert_tyeq_TApps_TRec_empty t cs t' cs' :
-    let k := map fst cs in
-    let k' := map fst cs' in
-    tyeq [] (TApps (TRec k t) cs) (TApps (TRec k' t') cs') KType ->
-    k = k' /\
-    tyeq [] t t' k /\
-    Forall2 (fun p p' => fst p = fst p' /\ idxeq [] (snd p) (snd p') (fst p)) cs cs'.
-  Proof.
-    intros k k' H.
-    unfold tyeq, cond_eq, idxeq, interp_prop in *.
-    simpl in *.
-    specialize (H I).
     Fixpoint interp_args bs k args : interp_bsorts bs (interp_bsorts_tuple k) :=
       match k with
       | [] => lift0 _ tt
@@ -10505,6 +10700,18 @@ interp_prop (SBaseSort b :: subst_i_ss v (firstn x L) ++ my_skipn L (S x))
       f_equal.
     Qed.
 
+  Lemma invert_tyeq_TApps_TRec_empty t cs t' cs' :
+    let k := map fst cs in
+    let k' := map fst cs' in
+    tyeq [] (TApps (TRec k t) cs) (TApps (TRec k' t') cs') KType ->
+    k = k' /\
+    tyeq [] t t' k /\
+    Forall2 (fun p p' => fst p = fst p' /\ idxeq [] (snd p) (snd p') (fst p)) cs cs'.
+  Proof.
+    intros k k' H.
+    unfold tyeq, cond_eq, idxeq, interp_prop in *.
+    simpl in *.
+    specialize (H I).
     repeat rewrite interp_ty_TApps in *.
     simpl in *.
     repeat rewrite convert_kind_value_refl_eq in *.
@@ -10654,27 +10861,6 @@ interp_prop (SBaseSort b :: subst_i_ss v (firstn x L) ++ my_skipn L (S x))
     cases (kind_dec k3 KType); subst; [|simpl in *; specialize (H I); invert H].
     unfold eq_rect_r in *.
     rewrite <- Eqdep.EqdepTheory.eq_rect_eq in *.
-    simpl in *; specialize (H I); invert H.
-  Qed.
-
-  Lemma tyeq_TApps_TRec_TArrow_false cs k3 t3 t1 i t2 :
-    tyeq [] (TApps (TRec k3 t3) cs) (TArrow t1 i t2) KType ->
-    False.
-  Proof.
-    intros H.
-    unfold tyeq in *.
-    simpl in *.
-    repeat rewrite convert_kind_value_refl_eq in *.
-    repeat rewrite interp_ty_TApps in *.
-    simpl in *.
-    unfold convert_kind_value in *.
-    cases (kind_dec k3 (map fst cs)); subst; [ |
-                                              rewrite uncurrys_kind_default_value in *;
-                                              simpl in *; specialize (H I); invert H
-                                             ].
-    unfold eq_rect_r in *.
-    rewrite <- Eqdep.EqdepTheory.eq_rect_eq in *.
-    rewrite uncurrys_currys in *.
     simpl in *; specialize (H I); invert H.
   Qed.
 
