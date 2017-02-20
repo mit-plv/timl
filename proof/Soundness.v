@@ -9595,6 +9595,46 @@ interp_prop (SBaseSort b :: subst_i_ss v (firstn x L) ++ my_skipn L (S x))
     invert Hr1r1'.
   Qed.
   
+  Fixpoint TApps t args :=
+    match args with
+    | nil => t
+    | (b, i) :: args => TApps (TApp t b i) args
+    end
+  .
+
+  Lemma par_preserves_TApps_TRec k t1 args t' :
+    par (TApps (TRec k t1) args) t' ->
+    exists t1',
+      t' = TApps (TRec k t1') args /\
+      par t1 t1'.
+  Proof.
+    induct 1; simpl; try solve [destruct args; simpl in *; dis].
+    (*here*)
+    destruct args; simpl in *; try dis.
+  Qed.
+  
+  Lemma invert_tyeq_TApps_TRec_empty t cs t' cs' :
+    let k := map fst cs in
+    let k' := map fst cs' in
+    tyeq [] (TApps (TRec k t) cs) (TApps (TRec k' t') cs') KType ->
+    k = k' /\
+    tyeq [] t t' k /\
+    Forall2 (fun p p' => fst p = fst p' /\ idxeq [] (snd p) (snd p') (fst p)) cs cs'.
+  Proof.
+  Qed.
+  
+  Lemma TBinOp_TArrow_false opr ta tb t1 i t2 :
+    tyeq [] (TBinOp opr ta tb) (TArrow t1 i t2) KType ->
+    False.
+  Proof.
+    intros H.
+    unfold tyeq in *.
+    simpl in *.
+    repeat rewrite convert_kind_value_refl_eq in *.
+    specialize (H I).
+    invert H.
+  Qed.
+
   (* values for denotational semantics *)
 
   Fixpoint lift_ls bs {A B} f (ls : list A) : interp_bsorts bs (list B) :=
@@ -9969,52 +10009,6 @@ interp_prop (SBaseSort b :: subst_i_ss v (firstn x L) ++ my_skipn L (S x))
     eauto.
   Qed.
   
-  Lemma invert_tyeq_TArrow L t1 i t2 t1' i' t2' :
-    tyeq L (TArrow t1 i t2) (TArrow t1' i' t2') KType ->
-    (* kinding L K (TArrow t1 i t2) KType -> *)
-    tyeq L t1 t1' KType /\
-    interp_prop L (TEq i i') /\
-    tyeq L t2 t2' KType.
-  Proof.
-    intros H (* Hkd *).
-    unfold tyeq, interp_prop in *.
-    simpl in *.
-    repeat rewrite fuse_lift1_lift3 in *.
-    rewrite fuse_lift3_lift3_2 in *.
-    rewrite fuse_lift5_lift3_5 in *.
-    rewrite fuse_lift2_lift2_2 in *.
-    (* invert Hkd. *)
-    split.
-    {
-      eapply forall_lift7_lift3_1_2_5; eauto.
-      simpl.
-      intros.
-      repeat rewrite convert_kind_value_refl_eq in *.
-      eapply H0 in H1.
-      invert H1.
-      eauto.
-    }
-    split.
-    {
-      eapply forall_lift7_lift3_1_3_6; eauto.
-      simpl.
-      intros.
-      repeat rewrite convert_kind_value_refl_eq in *.
-      eapply H0 in H1.
-      invert H1.
-      eauto.
-    }
-    {
-      eapply forall_lift7_lift3_1_4_7; eauto.
-      simpl.
-      intros.
-      repeat rewrite convert_kind_value_refl_eq in *.
-      eapply H0 in H1.
-      invert H1.
-      eauto.
-    }
-  Qed.
-
   Lemma forall_lift5_pure :
     forall bs A1 A2 A3 A4 A5 P1 P2 P3 P4 P5 (f1 : A1 -> A2 -> A3 -> A4 -> A5 -> Prop) (f2 : Prop),
       (forall a1 a2 a3 a4 a5, f1 a1 a2 a3 a4 a5 -> f2) ->
@@ -10042,61 +10036,6 @@ interp_prop (SBaseSort b :: subst_i_ss v (firstn x L) ++ my_skipn L (S x))
     eauto.
   Qed.
   
-  Lemma TQuan_TArrow_false L q k t t1 i t2 :
-    tyeq L (TQuan q k t) (TArrow t1 i t2) KType ->
-    interp_prop L PFalse.
-  Proof.
-    intros H.
-    unfold tyeq, interp_prop in *.
-    simpl in *.
-    repeat rewrite fuse_lift1_lift3 in *.
-    repeat rewrite fuse_lift1_lift1 in *.
-    rewrite fuse_lift3_lift1_2 in *.
-    rewrite fuse_lift3_lift3_3 in *.
-    rewrite fuse_lift2_lift0_2 in *.
-    eapply forall_lift5_lift1_1; [|eapply H].
-    simpl.
-    intros.
-    repeat rewrite convert_kind_value_refl_eq in *.
-    eapply H0 in H1.
-    invert H1.
-  Qed.
-  
-  Lemma TQuan_TArrow_false_empty q k t t1 i t2 :
-    tyeq [] (TQuan q k t) (TArrow t1 i t2) KType ->
-    False.
-  Proof.
-    intros H.
-    eapply TQuan_TArrow_false in H.
-    unfold interp_prop in *.
-    simpl in *.
-    eauto.
-  Qed.
-  
-  Lemma TUnOp_TArrow_false opr t t1 i t2 :
-    tyeq [] (TUnOp opr t) (TArrow t1 i t2) KType ->
-    False.
-  Proof.
-    intros H.
-    unfold tyeq in *.
-    simpl in *.
-    repeat rewrite convert_kind_value_refl_eq in *.
-    specialize (H I).
-    invert H.
-  Qed.
-
-  Lemma TBinOp_TArrow_false opr ta tb t1 i t2 :
-    tyeq [] (TBinOp opr ta tb) (TArrow t1 i t2) KType ->
-    False.
-  Proof.
-    intros H.
-    unfold tyeq in *.
-    simpl in *.
-    repeat rewrite convert_kind_value_refl_eq in *.
-    specialize (H I).
-    invert H.
-  Qed.
-
   (* conditional eq *)
   Definition cond_eq A L (k k' : A) := 
     let bs := map get_bsort L in
@@ -10522,13 +10461,6 @@ interp_prop (SBaseSort b :: subst_i_ss v (firstn x L) ++ my_skipn L (S x))
     rewrite IHbs.
     eauto.
   Qed.
-
-  Fixpoint TApps t args :=
-    match args with
-    | nil => t
-    | (b, i) :: args => TApps (TApp t b i) args
-    end
-  .
 
   Lemma invert_tyeq_TApps_TRec_empty t cs t' cs' :
     let k := map fst cs in
