@@ -7763,10 +7763,6 @@ lift2 (fst (strip_subsets L))
   | TCInt
   .
 
-  Inductive ty_un_op :=
-  (* | TURef *)
-  .
-
   Inductive ty_bin_op :=
   | TBProd
   | TBSum
@@ -7784,7 +7780,6 @@ lift2 (fst (strip_subsets L))
   Inductive ty :=
   | TVar (x : var)
   | TConst (cn : ty_const)
-  | TUnOp (opr : ty_un_op) (c : ty)
   | TBinOp (opr : ty_bin_op) (c1 c2 : ty)
   | TArrow (t1 : ty) (i : idx) (t2 : ty)
   | TAbs (s : bsort) (t : ty)
@@ -7819,7 +7814,6 @@ lift2 (fst (strip_subsets L))
       match b with
       | TVar y => TVar y
       | TConst cn => TConst cn
-      | TUnOp opr t => TUnOp opr (shift_i_t x t)
       | TBinOp opr c1 c2 => TBinOp opr (shift_i_t x c1) (shift_i_t x c2)
       | TArrow t1 i t2 => TArrow (shift_i_t x t1) (shift_i_i n x i) (shift_i_t x t2)
       | TAbs b t => TAbs b (shift_i_t (1 + x) t)
@@ -7839,7 +7833,6 @@ lift2 (fst (strip_subsets L))
         else
           TVar y
       | TConst cn => TConst cn
-      | TUnOp opr t => TUnOp opr (shift_t_t x t)
       | TBinOp opr c1 c2 => TBinOp opr (shift_t_t x c1) (shift_t_t x c2)
       | TArrow t1 i t2 => TArrow (shift_t_t x t1) i (shift_t_t x t2)
       | TAbs s t => TAbs s (shift_t_t x t)
@@ -7853,6 +7846,92 @@ lift2 (fst (strip_subsets L))
         
   End shift_t.
       
+(*  
+  Inductive kind :=
+  | KType
+  | KArrowI (b : bsort) (k : kind)
+  | KArrow (k1 k2 : kind)
+  .
+  
+  Inductive ty :=
+  | TVar (x : var)
+  | TConst (cn : ty_const)
+  | TUnOp (opr : ty_un_op) (c : ty)
+  | TBinOp (opr : ty_bin_op) (c1 c2 : ty)
+  | TArrow (t1 : ty) (i : idx) (t2 : ty)
+  | TAbsI (s : bsort) (t : ty)
+  | TAppI (t : ty) (i : idx)
+  | TQuan (q : quan) (k : kind) (t : ty)
+  | TQuanI (q : quan) (s : sort) (t : ty)
+  | TRec (k : kind) (t : ty)
+  | TNat (i : idx)
+  | TArr (t : ty) (len : idx)
+  | TAbs (k : kind) (t : ty)
+  | TApp (t1 t2 : ty)
+  .
+
+  Definition TForall := TQuan QuanForall.
+  Definition TExists := TQuan QuanExists.
+
+  Definition TUnit := TConst TCUnit.
+
+  Definition TProd := TBinOp TBProd.
+  Definition TSum := TBinOp TBSum.
+
+  Definition TInt := TConst TCInt.
+
+  Require BinIntDef.
+  Definition int := BinIntDef.Z.t.
+
+  Definition kctx := list kind.
+
+  Section shift_t.
+
+    Variable n : nat.
+  
+    Fixpoint shift_i_t (x : var) (b : ty) : ty :=
+      match b with
+      | TVar y => TVar y
+      | TConst cn => TConst cn
+      | TUnOp opr t => TUnOp opr (shift_i_t x t)
+      | TBinOp opr c1 c2 => TBinOp opr (shift_i_t x c1) (shift_i_t x c2)
+      | TArrow t1 i t2 => TArrow (shift_i_t x t1) (shift_i_i n x i) (shift_i_t x t2)
+      | TAbsI b t => TAbsI b (shift_i_t (1 + x) t)
+      | TAppI t i => TAppI (shift_i_t x t) (shift_i_i n x i)
+      | TQuan q k c => TQuan q k (shift_i_t x c)
+      | TQuanI q s c => TQuanI q (shift_i_s n x s) (shift_i_t (1 + x) c)
+      | TRec k t => TRec k (shift_i_t x t)
+      | TNat i => TNat (shift_i_i n x i)
+      | TArr t i => TArr (shift_i_t x t) (shift_i_i n x i)
+      | TAbs k t => TAbs k (shift_i_t x t)
+      | TApp t1 t2 => TApp (shift_i_t x t1) (shift_i_t x t2)
+      end.
+
+    Fixpoint shift_t_t (x : var) (b : ty) : ty :=
+      match b with
+      | TVar y =>
+        if x <=? y then
+          TVar (n + y)
+        else
+          TVar y
+      | TConst cn => TConst cn
+      | TUnOp opr t => TUnOp opr (shift_t_t x t)
+      | TBinOp opr c1 c2 => TBinOp opr (shift_t_t x c1) (shift_t_t x c2)
+      | TArrow t1 i t2 => TArrow (shift_t_t x t1) i (shift_t_t x t2)
+      | TAbsI s t => TAbsI s (shift_t_t x t)
+      | TAppI t i => TAppI (shift_t_t x t) i
+      | TQuan q k c => TQuan q k (shift_t_t (1 + x) c)
+      | TQuanI q s c => TQuanI q s (shift_t_t x c)
+      | TRec k t => TRec k (shift_t_t (1 + x) t)
+      | TNat i => TNat i
+      | TArr t i => TArr (shift_t_t x t) i
+      | TAbs k t => TAbs k (shift_t_t (1 + x) t)
+      | TApp t1 t2 => TApp (shift_t_t x t1) (shift_t_t x t2)
+      end.
+        
+  End shift_t.
+ *)
+      
   Definition shift0_i_t := shift_i_t 1 0.
   Definition shift0_t_t := shift_t_t 1 0.
   
@@ -7860,7 +7939,6 @@ lift2 (fst (strip_subsets L))
     match b with
     | TVar y => TVar y
     | TConst cn => TConst cn
-    | TUnOp opr i => TUnOp opr (subst_i_t x v i)
     | TBinOp opr c1 c2 => TBinOp opr (subst_i_t x v c1) (subst_i_t x v c2)
     | TArrow t1 i t2 => TArrow (subst_i_t x v t1) (subst_i_i x v i) (subst_i_t x v t2)
     | TAbs b t => TAbs b (subst_i_t (1 + x) (shift0_i_i v) t)
@@ -7881,7 +7959,6 @@ lift2 (fst (strip_subsets L))
       | MyGt _ => TVar (y - 1)
       end
     | TConst cn => TConst cn
-    | TUnOp opr t => TUnOp opr (subst_t_t x v t)
     | TBinOp opr c1 c2 => TBinOp opr (subst_t_t x v c1) (subst_t_t x v c2)
     | TArrow t1 i t2 => TArrow (subst_t_t x v t1) i (subst_t_t x v t2)
     | TAbs s t => TAbs s (subst_t_t x (shift0_i_t v) t)
@@ -8355,9 +8432,6 @@ lift2 (fst (strip_subsets L))
       kinding L K (TVar x) k
   | KdgConst L K cn :
       kinding L K (TConst cn) KType
-  | KdgUnOp L K opr t :
-      kinding L K t KType ->
-      kinding L K (TUnOp opr t) KType
   | KdgBinOp L K opr c1 c2 :
       kinding L K c1 KType ->
       kinding L K c2 KType ->
@@ -8394,6 +8468,433 @@ lift2 (fst (strip_subsets L))
   .
 
   Hint Constructors kinding.
+
+  Notation idxeq L i i' b := (interp_prop L (PEq b i i')).
+  
+  Inductive tyeq : sctx -> ty -> ty -> Prop :=
+    (* congruence rules *)
+  | TyEqBinOp L opr t1 t2 t1' t2' :
+      tyeq L t1 t1' ->
+      tyeq L t2 t2' ->
+      tyeq L (TBinOp opr t1 t2) (TBinOp opr t1' t2')
+  | TyEqArrow L t1 i t2 t1' i' t2':
+      tyeq L t1 t1' ->
+      idxeq L i i' BSTime ->
+      tyeq L t2 t2' ->
+      tyeq L (TArrow t1 i t2) (TArrow t1' i' t2')
+  | TyEqAbs L b t t' :
+      tyeq (SBaseSort b :: L) t t' ->
+      tyeq L (TAbs b t) (TAbs b t')
+  | TyEqApp L t b i t' i' :
+      tyeq L t t' ->
+      idxeq L i i' b ->
+      tyeq L (TApp t b i) (TApp t' b i')
+  | TyEqQuan L quan k t t' :
+      tyeq L t t' ->
+      tyeq L (TQuan quan k t) (TQuan quan k t')
+  | TyEqQuanI L quan s t s' t' :
+      sorteq L s s' ->
+      tyeq (s :: L) t t' ->
+      tyeq L (TQuanI quan s t) (TQuanI quan s' t')
+  | TyEqRec L k c c' :
+      tyeq L c c' ->
+      tyeq L (TRec k c) (TRec k c')
+  | TyEqNat L i i' :
+      idxeq L i i' BSNat ->
+      tyeq L (TNat i) (TNat i')
+  | TyEqArr L t i t' i' :
+      tyeq L t t' ->
+      idxeq L i i' BSNat ->
+      tyeq L (TArr t i) (TArr t' i')
+  (* reduction rules *)
+  | TyEqBeta L s t b i :
+      tyeq L (TApp (TAbs s t) b i) (subst0_i_t i t)
+  (* structural rules *)
+  | TyEqRefl L t :
+      tyeq L t t
+  | TyEqSym L a b :
+      tyeq L a b ->
+      tyeq L b a
+  | TyEqTrans L a b c :
+      tyeq L a b ->
+      tyeq L b c ->
+      (* bkinding (map get_bsort L) b -> *)
+      tyeq L a c
+  .
+
+  Hint Constructors tyeq.
+
+  (* parallel reduction *)
+  
+  Inductive par : ty -> ty -> Prop :=
+  | PaRBinOp opr t1 t2 t1' t2' :
+      par t1 t1' ->
+      par t2 t2' ->
+      par (TBinOp opr t1 t2) (TBinOp opr t1' t2')
+  | PaRArrow t1 i t2 t1' t2':
+      par t1 t1' ->
+      par t2 t2' ->
+      par (TArrow t1 i t2) (TArrow t1' i t2')
+  | PaRAbs b t t' :
+      par t t' ->
+      par (TAbs b t) (TAbs b t')
+  | PaRApp t b i t' :
+      par t t' ->
+      par (TApp t b i) (TApp t' b i)
+  | PaRQuan quan k t t' :
+      par t t' ->
+      par (TQuan quan k t) (TQuan quan k t')
+  | PaRQuanI quan s t t' :
+      par t t' ->
+      par (TQuanI quan s t) (TQuanI quan s t')
+  | PaRRec k c c' :
+      par c c' ->
+      par (TRec k c) (TRec k c')
+  | PaRArr t i t' :
+      par t t' ->
+      par (TArr t i) (TArr t' i)
+  | PaRBeta s t b i :
+      par (TApp (TAbs s t) b i) (subst0_i_t i t)
+  | PaRRefl t :
+      par t t
+  .
+
+  Hint Constructors par.
+
+  (* congruence *)
+
+  Inductive cong : sctx -> ty -> ty -> Prop :=
+  | CongBinOp L opr t1 t2 t1' t2' :
+      cong L t1 t1' ->
+      cong L t2 t2' ->
+      cong L (TBinOp opr t1 t2) (TBinOp opr t1' t2')
+  | CongArrow L t1 i t2 t1' i' t2':
+      cong L t1 t1' ->
+      idxeq L i i' BSTime ->
+      cong L t2 t2' ->
+      cong L (TArrow t1 i t2) (TArrow t1' i' t2')
+  | CongAbs L b t t' :
+      cong (SBaseSort b :: L) t t' ->
+      cong L (TAbs b t) (TAbs b t')
+  | CongApp L t b i t' i' :
+      cong L t t' ->
+      idxeq L i i' b ->
+      cong L (TApp t b i) (TApp t' b i')
+  | CongQuan L quan k t t' :
+      cong L t t' ->
+      cong L (TQuan quan k t) (TQuan quan k t')
+  | CongQuanI L quan s t s' t' :
+      sorteq L s s' ->
+      cong (s :: L) t t' ->
+      cong L (TQuanI quan s t) (TQuanI quan s' t')
+  | CongRec L k c c' :
+      cong L c c' ->
+      cong L (TRec k c) (TRec k c')
+  | CongNat L i i' :
+      idxeq L i i' BSNat ->
+      cong L (TNat i) (TNat i')
+  | CongArr L t i t' i' :
+      cong L t t' ->
+      idxeq L i i' BSNat ->
+      cong L (TArr t i) (TArr t' i')
+  | CongVar L x :
+      cong L (TVar x) (TVar x)
+  | CongConst L cn :
+      cong L (TConst cn) (TConst cn)
+  .
+
+  Hint Constructors cong.
+
+  (* symmetric closure *)
+  
+  Section symc.
+    Variable A : Type.
+    Variable R : A -> A -> Prop.
+
+    Inductive symc : A -> A -> Prop :=
+    | SymcSame x y :
+        R y x ->
+        symc x y
+    | SymcRev x y :
+        R y x ->
+        symc x y
+    .
+  End symc.
+
+  Hint Constructors symc.
+
+  Notation "R ^~" := (symc R) (at level 0).
+  Notation symtrc R := (trc (symc R)).
+  Notation "R ^~*" := (symtrc R) (at level 0).
+
+  Lemma interp_prop_PEq_refl L b i : interp_prop L (PEq b i i).
+  Proof.
+    unfold interp_prop.
+    cbn in *.
+    eapply forall_ignore_premise.
+    rewrite dedup_lift2.
+    eapply forall_lift1.
+    eauto.
+  Qed.
+  
+  Lemma interp_prop_PEq_sym L b i i' :
+    interp_prop L (PEq b i i') ->
+    interp_prop L (PEq b i' i).
+  Proof.
+    unfold interp_prop.
+    intros H.
+    cbn in *.
+    eapply forall_same_premise; eauto.
+    eapply forall_ignore_premise.
+    rewrite fuse_lift2_lift2_1_2.
+    simplify.
+    rewrite dedup_lift4_1_4.
+    rewrite dedup_lift3_2_3.
+    eapply forall_lift2.
+    eauto.
+  Qed.
+
+  Lemma interp_prop_PEq_trans L bsort a b c :
+    interp_prop L (PEq bsort a b) ->
+    interp_prop L (PEq bsort b c)%idx ->
+    interp_prop L (PEq bsort a c)%idx.
+  Proof.
+    unfold interp_prop.
+    intros Hab Hbc.
+    cbn in *.
+    eapply forall_same_premise_2; [eapply Hab | eapply Hbc |].
+    eapply forall_ignore_premise.
+    rewrite fuse_lift2_lift2_1_2.
+    rewrite fuse_lift4_lift2_3_4.
+    simplify.
+    rewrite dedup_lift6_1_5.
+    rewrite dedup_lift5_2_3.
+    rewrite dedup_lift4_3_4.
+    eapply forall_lift3.
+    intros.
+    equality.
+  Qed.
+
+  Hint Resolve interp_prop_PEq_refl interp_prop_PEq_sym interp_prop_PEq_trans : db_idxeq.
+  Hint Resolve sorteq_refl sorteq_sym sorteq_trans : db_sorteq.
+  
+  Hint Extern 0 (wellscoped_ss []) => econstructor.
+  Hint Extern 0 (wfsorts []) => econstructor.
+  
+  Lemma idxeq_subst_i_i L body body' b_b  x s v v' :
+    idxeq L body body' b_b->
+    nth_error L x = Some s ->
+    idxeq (my_skipn L (1 + x)) v v' (get_bsort s) ->
+    sorting (my_skipn L (1 + x)) v s ->
+    sorting (my_skipn L (1 + x)) v' s ->
+    bsorting (map get_bsort L) body b_b ->
+    bsorting (map get_bsort L) body' b_b ->
+    wfsorts L ->
+    idxeq (subst_i_ss v (firstn x L) ++ my_skipn L (1 + x)) (subst_i_i x (shift_i_i x 0 v) body) (subst_i_i x (shift_i_i x 0 v') body') b_b.
+  Proof.
+    intros Hbb' Hx Hvv' Hv Hv' Hb Hb' HL.
+    assert (HL2 : wfsorts (my_skipn L (1 + x))).
+    {
+      rewrite <- skipn_my_skipn.
+      eapply all_sorts_skipn; eauto.
+    }
+    eapply interp_prop_PEq_trans.
+    {
+      eapply interp_prop_subst_i_p in Hbb'; eauto.
+    }
+    eapply interp_prop_shift_i_p with (x := 0) (ls := subst_i_ss v (firstn x L))in Hvv'; eauto using wfsorts_wellscoped_ss, sorting_wellscoped_i with db_la.
+    copy Hx Hcmp.
+    eapply nth_error_Some_lt in Hcmp.
+    repeat rewrite length_subst_i_ss in *.
+    repeat rewrite length_firstn_le in * by la.
+    simpl in *.
+    repeat rewrite my_skipn_0 in *.
+    set (L' := subst_i_ss v (firstn x L) ++ my_skipn L (S x)) in *.
+    unfold idxeq in *.
+    simpl in *.
+    set (bs' := map get_bsort L') in *.
+    set (bs := map get_bsort L) in *.
+    eapply forall_trans; [eapply Hvv' |].
+    assert (Hbs' : bs' = removen x bs).
+    {
+      subst bs bs' L'.
+      rewrite map_app.
+      rewrite get_bsort_subst_i_ss.
+      rewrite <- map_app.
+      rewrite <- removen_firstn_my_skipn.
+      rewrite map_removen.
+      eauto.
+    }
+    eapply admit. (*
+  forall_ bs'
+    (lift2 bs' imply
+       (lift2 bs' eq (interp_idx (shift_i_i x 0 v) bs' (get_bsort s))
+          (interp_idx (shift_i_i x 0 v') bs' (get_bsort s)))
+       (lift2 bs' eq (interp_idx (subst_i_i x (shift_i_i x 0 v) body') bs' b_b)
+          (interp_idx (subst_i_i x (shift_i_i x 0 v') body') bs' b_b)))
+                   *)
+    (* rewrite Hbs' in *. *)
+    (* erewrite interp_subst_i_i_eq_subst; eauto. *)
+    (* erewrite interp_subst_i_i_eq_subst; eauto. *)
+  Qed.
+    
+  Inductive bkinding : list bsort -> ty -> Prop :=
+  | BKdgVar L x :
+      bkinding L (TVar x)
+  | BKdgConst L cn :
+      bkinding L (TConst cn)
+  | BKdgBinOp L opr c1 c2 :
+      bkinding L c1 ->
+      bkinding L c2 ->
+      bkinding L (TBinOp opr c1 c2)
+  | BKdgArrow L t1 i t2 :
+      bkinding L t1 ->
+      bsorting L i BSTime ->
+      bkinding L t2 ->
+      bkinding L (TArrow t1 i t2)
+  | BKdgAbs L b t :
+      bkinding (b :: L) t ->
+      bkinding L (TAbs b t)
+  | BKdgApp L t b i :
+      bkinding L t ->
+      bsorting L i b ->
+      bkinding L (TApp t b i)
+  | BKdgQuan L quan k c :
+      bkinding L c ->
+      bkinding L (TQuan quan k c)
+  | BKdgQuanI L quan s c :
+      wfsort L s ->
+      bkinding (get_bsort s :: L) c ->
+      bkinding L (TQuanI quan s c)
+  | BKdgRec L k c :
+      bkinding L c ->
+      bkinding L (TRec k c)
+  | BKdgNat L i :
+      bsorting L i BSNat ->
+      bkinding L (TNat i)
+  | BKdgArr L t i :
+      bkinding L t ->
+      bsorting L i BSNat ->
+      bkinding L (TArr t i)
+  .
+
+  Hint Constructors bkinding.
+
+  (*here*)
+
+  Lemma par_transport_cong a b :
+    par a b ->
+    forall L a',
+      cong L a a' ->
+      bkinding L a ->
+      bkinding L a' ->
+      exists b',
+        par a' b' /\
+        cong L b b' /\
+        bkinding L b'.
+  Proof.
+    induct 1; simpl; intros L a' Haa';
+      try solve [
+            invert Haa';
+            repeat match goal with
+                     H : context [exists _ : _, _] |- _ => edestruct H; eauto; clear H
+                   end;
+            openhyp;
+            eauto with db_idxeq db_sorteq
+          ].
+    {
+      (* Case PaRBeta *)
+      invert Haa'.
+      invert H4.
+      repeat eexists_split; [eapply PaRBeta |]; eauto.
+  Lemma cong_subst_i_t :
+    forall L body body',
+      cong L body body' ->
+      forall x s v v',
+        nth_error L x = Some s ->
+        idxeq (my_skipn L (1 + x)) v v' (get_bsort s) ->
+        sorting (my_skipn L (1 + x)) v s ->
+        sorting (my_skipn L (1 + x)) v' s ->
+        bkinding (map get_bsort L) body ->
+        bkinding (map get_bsort L) body' ->
+        wfsorts L ->
+        cong (subst_i_ss v (firstn x L) ++ my_skipn L (1 + x)) (subst_i_t x (shift_i_i x 0 v) body) (subst_i_t x (shift_i_i x 0 v') body').
+  Proof.
+    induct 1;
+      simpl; try rename x into y; try rename s into s'; try rename s into s''; intros x s v v' Hx Hvv' Hv Hv' Hb Hb' HL; try solve [econstructor; eauto].
+    {
+      (* TArrow *)
+      econstructor; simpl; eauto.
+      eapply idxeq_subst_i_i; eauto.
+      (*here*)
+      eapply sorting_subst_i_i with (s_b := SBaseSort _); eauto.
+    }
+    {
+      (* Case TAbs *)
+      unfold shift0_i_i.
+      rewrite shift_i_i_shift_merge by la.
+      rewrite plus_comm.
+      econstructor; eauto.
+      eapply IHkinding with (x := S x); eauto.
+    }
+    {
+      (* Case TApp *)
+      econstructor; eauto.
+      eapply sorting_subst_i_i with (s_b := SBaseSort _); eauto.
+    }
+    {
+      (* Case TQuanI *)
+      unfold shift0_i_i.
+      rewrite shift_i_i_shift_merge by la.
+      rewrite plus_comm.
+      econstructor; eauto using wfsort_subst_i_s' with db_la.
+      specialize (IHkinding (S x) s v).
+      simpl in *.
+      copy Hx Hcmp.
+      eapply nth_error_Some_lt in Hcmp.
+      rewrite length_firstn_le in * by la.
+      eauto.
+    }
+    {
+      (* TNat *)
+      econstructor; simpl; eauto using sorting_subst_i_i.
+      eapply sorting_subst_i_i with (s_b := SBaseSort _); eauto.
+    }
+    {
+      (* TArr *)
+      econstructor; simpl; eauto using sorting_subst_i_i.
+      eapply sorting_subst_i_i with (s_b := SBaseSort _); eauto.
+    }
+  Qed.
+
+      
+      repeat match goal with
+               H : context [exists _ : _, _] |- _ => edestruct H; eauto; clear H
+             end;
+      openhyp;
+      eauto with db_idxeq db_sorteq.
+    }
+    Focus 2.
+    {
+      (* Case PaRQuanI *)
+      invert Haa';
+      repeat match goal with
+        H : context [exists _ : _, _] |- _ => edestruct H; eauto; clear H
+      end;
+      openhyp;
+      eauto with db_idxeq.
+    }
+    {
+      (* Case PaRUnOp *)
+      invert Haa'.
+      repeat match goal with
+        H : context [exists _ : _, _] |- _ => edestruct H; eauto; clear H
+      end.
+      openhyp.
+      eauto.
+    }
+  Qed.
+  
 
   (* values for denotational semantics *)
 
@@ -9067,8 +9568,6 @@ lift2 (fst (strip_subsets L))
     }
   Qed.
 
-  Definition idxeq L i i' b := interp_prop L (PEq b i i').
-  
 (*  
   Lemma invert_tyeq_TRec L cs cs' k t k' t' :
     tyeq L (TRec k t cs) (TRec k' t' cs') KType ->
@@ -9684,51 +10183,6 @@ lift2 (fst (strip_subsets L))
     simpl in *; specialize (H I); invert H.
   Qed.
   
-  Inductive bkinding : list bsort -> ty -> kind -> Prop :=
-  | BKdgVar L x k :
-      bkinding L (TVar x) k
-  | BKdgConst L cn :
-      bkinding L (TConst cn) KType
-  | BKdgUnOp L opr t :
-      bkinding L t KType ->
-      bkinding L (TUnOp opr t) KType
-  | BKdgBinOp L opr c1 c2 :
-      bkinding L c1 KType ->
-      bkinding L c2 KType ->
-      bkinding L (TBinOp opr c1 c2) KType
-  | BKdgArrow L t1 i t2 :
-      bkinding L t1 KType ->
-      bsorting L i BSTime ->
-      bkinding L t2 KType ->
-      bkinding L (TArrow t1 i t2) KType
-  | BKdgAbs L b t k :
-      bkinding (b :: L) t k ->
-      bkinding L (TAbs b t) (KArrow b k)
-  | BKdgApp L t b i k :
-      bkinding L t (KArrow b k) ->
-      bsorting L i b ->
-      bkinding L (TApp t b i) k
-  | BKdgQuan L quan k c :
-      bkinding L c KType ->
-      bkinding L (TQuan quan k c) KType
-  | BKdgQuanI L quan s c :
-      wfsort L s ->
-      bkinding (get_bsort s :: L) c KType ->
-      bkinding L (TQuanI quan s c) KType
-  | BKdgRec L k c :
-      bkinding L c k ->
-      bkinding L (TRec k c) k
-  | BKdgNat L i :
-      bsorting L i BSNat ->
-      bkinding L (TNat i) KType
-  | BKdgArr L t i :
-      bkinding L t KType ->
-      bsorting L i BSNat ->
-      bkinding L (TArr t i) KType
-  .
-
-  Hint Constructors bkinding.
-
   Lemma kinding_bkinding L K t k :
     kinding L K t k ->
     bkinding (map get_bsort L) t k.
@@ -12045,9 +12499,6 @@ lift2 (fst (strip_subsets L))
     rewrite my_skipn_0.
     eauto.
   Qed.
-  
-  Hint Extern 0 (wellscoped_ss []) => econstructor.
-  Hint Extern 0 (wfsorts []) => econstructor.
   
   (* for setoid_rewrite *)
   Lemma shift_i_t_shift_cut_2 :
