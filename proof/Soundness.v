@@ -8471,59 +8471,6 @@ lift2 (fst (strip_subsets L))
 
   Notation idxeq L i i' b := (interp_prop L (PEq b i i')).
   
-  Inductive tyeq : sctx -> ty -> ty -> Prop :=
-    (* congruence rules *)
-  | TyEqBinOp L opr t1 t2 t1' t2' :
-      tyeq L t1 t1' ->
-      tyeq L t2 t2' ->
-      tyeq L (TBinOp opr t1 t2) (TBinOp opr t1' t2')
-  | TyEqArrow L t1 i t2 t1' i' t2':
-      tyeq L t1 t1' ->
-      idxeq L i i' BSTime ->
-      tyeq L t2 t2' ->
-      tyeq L (TArrow t1 i t2) (TArrow t1' i' t2')
-  | TyEqAbs L b t t' :
-      tyeq (SBaseSort b :: L) t t' ->
-      tyeq L (TAbs b t) (TAbs b t')
-  | TyEqApp L t b i t' i' :
-      tyeq L t t' ->
-      idxeq L i i' b ->
-      tyeq L (TApp t b i) (TApp t' b i')
-  | TyEqQuan L quan k t t' :
-      tyeq L t t' ->
-      tyeq L (TQuan quan k t) (TQuan quan k t')
-  | TyEqQuanI L quan s t s' t' :
-      sorteq L s s' ->
-      tyeq (s :: L) t t' ->
-      tyeq L (TQuanI quan s t) (TQuanI quan s' t')
-  | TyEqRec L k c c' :
-      tyeq L c c' ->
-      tyeq L (TRec k c) (TRec k c')
-  | TyEqNat L i i' :
-      idxeq L i i' BSNat ->
-      tyeq L (TNat i) (TNat i')
-  | TyEqArr L t i t' i' :
-      tyeq L t t' ->
-      idxeq L i i' BSNat ->
-      tyeq L (TArr t i) (TArr t' i')
-  (* reduction rules *)
-  | TyEqBeta L s t b i :
-      tyeq L (TApp (TAbs s t) b i) (subst0_i_t i t)
-  (* structural rules *)
-  | TyEqRefl L t :
-      tyeq L t t
-  | TyEqSym L a b :
-      tyeq L a b ->
-      tyeq L b a
-  | TyEqTrans L a b c :
-      tyeq L a b ->
-      tyeq L b c ->
-      (* bkinding (map get_bsort L) b -> *)
-      tyeq L a c
-  .
-
-  Hint Constructors tyeq.
-
   (* parallel reduction *)
   
   Inductive par : ty -> ty -> Prop :=
@@ -8553,8 +8500,9 @@ lift2 (fst (strip_subsets L))
   | PaRArr t i t' :
       par t t' ->
       par (TArr t i) (TArr t' i)
-  | PaRBeta s t b i :
-      par (TApp (TAbs s t) b i) (subst0_i_t i t)
+  | PaRBeta s t b i t' :
+      par t t' ->
+      par (TApp (TAbs s t) b i) (subst0_i_t i t')
   | PaRRefl t :
       par t t
   .
@@ -8604,28 +8552,6 @@ lift2 (fst (strip_subsets L))
   .
 
   Hint Constructors cong.
-
-  (* symmetric closure *)
-  
-  Section symc.
-    Variable A : Type.
-    Variable R : A -> A -> Prop.
-
-    Inductive symc : A -> A -> Prop :=
-    | SymcSame x y :
-        R y x ->
-        symc x y
-    | SymcRev x y :
-        R y x ->
-        symc x y
-    .
-  End symc.
-
-  Hint Constructors symc.
-
-  Notation "R ^~" := (symc R) (at level 0).
-  Notation symtrc R := (trc (symc R)).
-  Notation "R ^~*" := (symtrc R) (at level 0).
 
   Lemma interp_prop_PEq_refl L b i : interp_prop L (PEq b i i).
   Proof.
@@ -8738,164 +8664,937 @@ lift2 (fst (strip_subsets L))
     (* erewrite interp_subst_i_i_eq_subst; eauto. *)
   Qed.
     
-  Inductive bkinding : list bsort -> ty -> Prop :=
-  | BKdgVar L x :
-      bkinding L (TVar x)
+  Lemma sorteq_subst_i_s L body body' :
+    sorteq L body body' ->
+    forall x s v v',
+      nth_error L x = Some s ->
+      idxeq (my_skipn L (1 + x)) v v' (get_bsort s) ->
+      sorting (my_skipn L (1 + x)) v s ->
+      sorting (my_skipn L (1 + x)) v' s ->
+      wfsort (map get_bsort L) body ->
+      wfsort (map get_bsort L) body' ->
+      wfsorts L ->
+      sorteq (subst_i_ss v (firstn x L) ++ my_skipn L (1 + x)) (subst_i_s x (shift_i_i x 0 v) body) (subst_i_s x (shift_i_i x 0 v') body').
+  Proof.
+    induct 1;
+      simpl; try rename x into y; try rename s into s'; try rename s into s''; intros x s v v' Hx Hvv' Hv Hv' Hb Hb' HL; try solve [invert Hb; invert Hb'; econstructor; eauto using idxeq_subst_i_i].
+    repeat rewrite shift0_i_i_shift_0.
+    invert Hb; invert Hb'; econstructor; eauto using idxeq_subst_i_i.
+    eapply interp_prop_iff_trans.
+    {
+      eapply interp_prop_subst_i_p with (n := S x) in H; simpl in *; eauto.
+      econstructor; eauto.
+    }
+    eapply admit. (* 
+interp_prop (SBaseSort b :: subst_i_ss v (firstn x L) ++ my_skipn L (S x))
+    (subst_i_p (S x) (shift_i_i (S x) 0 v) p' <===> subst_i_p (S x) (shift_i_i (1 + x) 0 v') p')%idx
+                   *)
+  Qed.
+  
+  Inductive bkinding : list bsort -> ty -> kind -> Prop :=
+  | BKdgVar L x k :
+      bkinding L (TVar x) k
   | BKdgConst L cn :
-      bkinding L (TConst cn)
+      bkinding L (TConst cn) KType
   | BKdgBinOp L opr c1 c2 :
-      bkinding L c1 ->
-      bkinding L c2 ->
-      bkinding L (TBinOp opr c1 c2)
+      bkinding L c1 KType ->
+      bkinding L c2 KType ->
+      bkinding L (TBinOp opr c1 c2) KType
   | BKdgArrow L t1 i t2 :
-      bkinding L t1 ->
+      bkinding L t1 KType ->
       bsorting L i BSTime ->
-      bkinding L t2 ->
-      bkinding L (TArrow t1 i t2)
-  | BKdgAbs L b t :
-      bkinding (b :: L) t ->
-      bkinding L (TAbs b t)
-  | BKdgApp L t b i :
-      bkinding L t ->
+      bkinding L t2 KType ->
+      bkinding L (TArrow t1 i t2) KType
+  | BKdgAbs L b t k :
+      bkinding (b :: L) t k ->
+      bkinding L (TAbs b t) (KArrow b k)
+  | BKdgApp L t b i k :
+      bkinding L t (KArrow b k) ->
       bsorting L i b ->
-      bkinding L (TApp t b i)
+      bkinding L (TApp t b i) k
   | BKdgQuan L quan k c :
-      bkinding L c ->
-      bkinding L (TQuan quan k c)
+      bkinding L c KType ->
+      bkinding L (TQuan quan k c) KType
   | BKdgQuanI L quan s c :
       wfsort L s ->
-      bkinding (get_bsort s :: L) c ->
-      bkinding L (TQuanI quan s c)
+      bkinding (get_bsort s :: L) c KType ->
+      bkinding L (TQuanI quan s c) KType
   | BKdgRec L k c :
-      bkinding L c ->
-      bkinding L (TRec k c)
+      bkinding L c k ->
+      bkinding L (TRec k c) k
   | BKdgNat L i :
       bsorting L i BSNat ->
-      bkinding L (TNat i)
+      bkinding L (TNat i) KType
   | BKdgArr L t i :
-      bkinding L t ->
+      bkinding L t KType ->
       bsorting L i BSNat ->
-      bkinding L (TArr t i)
+      bkinding L (TArr t i) KType
   .
 
   Hint Constructors bkinding.
 
-  (*here*)
-
-  Lemma par_transport_cong a b :
-    par a b ->
-    forall L a',
-      cong L a a' ->
-      bkinding L a ->
-      bkinding L a' ->
-      exists b',
-        par a' b' /\
-        cong L b b' /\
-        bkinding L b'.
-  Proof.
-    induct 1; simpl; intros L a' Haa';
-      try solve [
-            invert Haa';
-            repeat match goal with
-                     H : context [exists _ : _, _] |- _ => edestruct H; eauto; clear H
-                   end;
-            openhyp;
-            eauto with db_idxeq db_sorteq
-          ].
-    {
-      (* Case PaRBeta *)
-      invert Haa'.
-      invert H4.
-      repeat eexists_split; [eapply PaRBeta |]; eauto.
   Lemma cong_subst_i_t :
     forall L body body',
       cong L body body' ->
-      forall x s v v',
+      forall x s v v' k_b k_b',
         nth_error L x = Some s ->
         idxeq (my_skipn L (1 + x)) v v' (get_bsort s) ->
         sorting (my_skipn L (1 + x)) v s ->
         sorting (my_skipn L (1 + x)) v' s ->
-        bkinding (map get_bsort L) body ->
-        bkinding (map get_bsort L) body' ->
+        bkinding (map get_bsort L) body k_b ->
+        bkinding (map get_bsort L) body' k_b' ->
         wfsorts L ->
         cong (subst_i_ss v (firstn x L) ++ my_skipn L (1 + x)) (subst_i_t x (shift_i_i x 0 v) body) (subst_i_t x (shift_i_i x 0 v') body').
   Proof.
     induct 1;
-      simpl; try rename x into y; try rename s into s'; try rename s into s''; intros x s v v' Hx Hvv' Hv Hv' Hb Hb' HL; try solve [econstructor; eauto].
-    {
-      (* TArrow *)
-      econstructor; simpl; eauto.
-      eapply idxeq_subst_i_i; eauto.
-      (*here*)
-      eapply sorting_subst_i_i with (s_b := SBaseSort _); eauto.
-    }
+      simpl; try rename x into y; try rename s into s'; try rename s into s''; intros x s v v' k_b k_b' Hx Hvv' Hv Hv' Hb Hb' HL; try solve [invert Hb; invert Hb'; econstructor; eauto using idxeq_subst_i_i, sorteq_subst_i_s].
     {
       (* Case TAbs *)
-      unfold shift0_i_i.
-      rewrite shift_i_i_shift_merge by la.
-      rewrite plus_comm.
+      invert Hb; invert Hb'.
+      repeat rewrite shift0_i_i_shift_0.
       econstructor; eauto.
-      eapply IHkinding with (x := S x); eauto.
-    }
-    {
-      (* Case TApp *)
-      econstructor; eauto.
-      eapply sorting_subst_i_i with (s_b := SBaseSort _); eauto.
+      eapply IHcong with (x := S x); eauto.
     }
     {
       (* Case TQuanI *)
-      unfold shift0_i_i.
-      rewrite shift_i_i_shift_merge by la.
-      rewrite plus_comm.
-      econstructor; eauto using wfsort_subst_i_s' with db_la.
-      specialize (IHkinding (S x) s v).
+      invert Hb; invert Hb'.
+      repeat rewrite shift0_i_i_shift_0.
+      econstructor; eauto.
+      {
+        eapply sorteq_subst_i_s; eauto.
+      }
+      specialize (IHcong (S x) s v v').
       simpl in *.
       copy Hx Hcmp.
       eapply nth_error_Some_lt in Hcmp.
       rewrite length_firstn_le in * by la.
-      eauto.
-    }
-    {
-      (* TNat *)
-      econstructor; simpl; eauto using sorting_subst_i_i.
-      eapply sorting_subst_i_i with (s_b := SBaseSort _); eauto.
-    }
-    {
-      (* TArr *)
-      econstructor; simpl; eauto using sorting_subst_i_i.
-      eapply sorting_subst_i_i with (s_b := SBaseSort _); eauto.
+      eapply IHcong; eauto.
+      invert H; simpl in *; eauto.
     }
   Qed.
 
-      
+  Lemma cong_subst_i_t_0 L body body' s v v' k_b k_b' :
+    cong (s :: L) body body' ->
+    idxeq L v v' (get_bsort s) ->
+    sorting L v s ->
+    sorting L v' s ->
+    bkinding (get_bsort s :: map get_bsort L) body k_b ->
+    bkinding (get_bsort s :: map get_bsort L) body' k_b' ->
+    wfsort (map get_bsort L) s ->
+    wfsorts L ->
+    cong L (subst_i_t 0 v body) (subst_i_t 0 v' body').
+  Proof.
+    intros Hbb'; intros; eapply cong_subst_i_t with (x := 0) (L := _ :: _) in Hbb'; simpl in *; try rewrite my_skipn_0 in *; eauto.
+    repeat rewrite shift_i_i_0 in *; eauto.
+  Qed.
+
+  Lemma bkinding_subst_i_t :
+    forall L body k_b,
+      bkinding L body k_b ->
+      forall x b_v v,
+        nth_error L x = Some b_v ->
+        bsorting (my_skipn L (1 + x)) v b_v ->
+        bkinding (removen x L) (subst_i_t x (shift_i_i x 0 v) body) k_b.
+  Proof.
+    induct 1;
+      simpl; try rename x into y; try rename s into b; intros x b_v v Hx Hv; simpl in *; try solve [econstructor; eauto using bsorting_subst_i_i].
+    {
+      (* Case TAbs *)
+      repeat rewrite shift0_i_i_shift_0.
+      econstructor; eauto.
+      eapply IHbkinding with (x := S x); eauto.
+    }
+    {
+      (* Case TQuanI *)
+      repeat rewrite shift0_i_i_shift_0.
+      econstructor; eauto using wfsort_subst_i_s.
+      rewrite get_bsort_subst_i_s.
+      eapply IHbkinding with (x := S x); eauto.
+    }
+  Qed.
+  
+  Lemma bkinding_subst_i_t_0 L body k_b b_v v :
+    bkinding (b_v :: L) body k_b ->
+    bsorting L v b_v ->
+    bkinding L (subst_i_t 0 v body) k_b.
+  Proof.
+    intros Hb Hv.
+    eapply bkinding_subst_i_t with (x := 0) (L := _ :: _) in Hb; simpl in *; try rewrite my_skipn_0; eauto.
+    rewrite shift_i_i_0 in *.
+    eauto.
+  Qed.
+  
+  Lemma par_preserves_bkinding a b :
+    par a b ->
+    forall L k,
+      bkinding L a k ->
+      bkinding L b k.
+  Proof.
+    induct 1; simpl; intros L k_b Ha; try solve [invert Ha; eauto].
+    invert Ha.
+    invert H5.
+    eapply bkinding_subst_i_t_0; eauto.
+  Qed.
+  
+  Lemma par_transports_cong a b :
+    par a b ->
+    forall L a' k k',
+      let bs := map get_bsort L in
+      cong L a a' ->
+      bkinding bs a k ->
+      bkinding bs a' k' ->
+      wfsorts L ->
+      exists b',
+        cong L b b' /\
+        par a' b' /\
+        bkinding bs b' k'.
+  Proof.
+    simpl.
+    induct 1; simpl; try rename k into k''; intros L a' k k' Haa' Ha Ha' HL;
+      try solve [
+            invert Haa'; invert Ha; invert Ha';
+            repeat match goal with
+                     H : context [exists _ : _, _] |- _ => edestruct H; eauto; clear H
+                   end;
+            openhyp;
+            repeat eexists_split; eauto with db_idxeq db_sorteq
+          ].
+    {
+      (* Case PaRQuanI *)
+      invert Haa'; invert Ha; invert Ha';
       repeat match goal with
                H : context [exists _ : _, _] |- _ => edestruct H; eauto; clear H
              end;
       openhyp;
-      eauto with db_idxeq db_sorteq.
-    }
-    Focus 2.
-    {
-      (* Case PaRQuanI *)
-      invert Haa';
-      repeat match goal with
-        H : context [exists _ : _, _] |- _ => edestruct H; eauto; clear H
-      end;
-      openhyp;
-      eauto with db_idxeq.
+      repeat eexists_split; eauto with db_idxeq db_sorteq;
+      invert H5; simpl in *; eauto.
     }
     {
-      (* Case PaRUnOp *)
-      invert Haa'.
+      (* Case PaRBeta *)
+      invert Haa'; invert Ha; invert Ha'.
+      invert H5.
+      invert H7.
+      invert H9.
       repeat match goal with
-        H : context [exists _ : _, _] |- _ => edestruct H; eauto; clear H
-      end.
+               H : context [exists _ : _, _] |- _ => edestruct H; eauto; clear H
+             end.
       openhyp.
-      eauto.
+      repeat eexists_split.
+      {
+        eapply cong_subst_i_t_0; eauto using bsorting_sorting_SBaseSort.
+        simpl.
+        eapply par_preserves_bkinding; eauto.
+      }
+      {
+        eauto.
+      }
+      {
+        eauto using bkinding_subst_i_t_0 with db_idxeq db_sorteq.
+      }
     }
   Qed.
-  
 
+  Hint Constructors trc.
+  
+  Lemma pars_transports_cong a b :
+    par^* a b ->
+    forall L a' k k',
+      let bs := map get_bsort L in
+      cong L a a' ->
+      bkinding bs a k ->
+      bkinding bs a' k' ->
+      wfsorts L ->
+      exists b',
+        cong L b b' /\
+        par^* a' b' /\
+        bkinding bs b' k'.
+  Proof.
+    simpl.
+    induct 1; simpl; intros L a' k k' Haa' Ha Ha' HL; eauto.
+    copy H Hy.
+    eapply par_preserves_bkinding in Hy; eauto.
+    eapply par_transports_cong in H; eauto.
+    rename a' into x'.
+    destruct H as (y' & Hyy' & Hx'y' & Hy').
+    eapply IHtrc in Hyy'; eauto.
+    destruct Hyy' as (z' & Hzz' & Hy'z' & Hz').
+    eauto.
+  Qed.
+  
+  Lemma PaRBeta' s t b i t' t'' :
+    par t t' ->
+    t'' = subst0_i_t i t' ->
+    par (TApp (TAbs s t) b i) t''.
+  Proof.
+    intros; subst; eauto.
+  Qed.
+  
+  Lemma par_subst_i_t t1 t2 :
+    par t1 t2 ->
+    forall x v,
+      par (subst_i_t x v t1)  (subst_i_t x v t2).
+  Proof.
+    induct 1; simpl; intros x v; eauto.
+    eapply PaRBeta'; eauto.
+    unfold subst0_i_t.
+    rewrite subst_i_t_subst by la.
+    eauto.
+  Qed.
+  
+  Lemma par_diamond a b :
+    par a b ->
+    forall c,
+      par a c ->
+      exists d,
+        par b d /\
+        par c d.
+  Proof.
+    induct 1; simpl; try rename c into t; intros c Hac;
+      try solve [
+            invert Hac;
+            repeat match goal with
+                     H : context [exists _ : _, _] |- _ => edestruct H; eauto; clear H
+                   end;
+            openhyp;
+            eauto using par_subst_i_t
+          ].
+    {
+      invert Hac;
+      try solve [
+            repeat match goal with
+                     H : context [exists _ : _, _] |- _ => edestruct H; eauto; clear H
+                   end;
+            openhyp;
+            eauto using par_subst_i_t
+          ].
+      invert H; eauto.
+      rename t0 into a.
+      rename b into bsort.
+      rename t'1 into b.
+      rename t'0 into c.
+      specialize (IHpar (TAbs s c)).
+      edestruct IHpar as (d & Hbd & Hcd); eauto.
+      invert Hbd; invert Hcd;
+        try solve [
+              repeat match goal with
+                       H : context [exists _ : _, _] |- _ => edestruct H; eauto; clear H
+                     end;
+              openhyp;
+              eauto using par_subst_i_t
+            ].
+    }
+    {
+      rename b into bsort.
+      rename t into a.
+      rename t' into b.
+      invert Hac;
+      try solve [
+            repeat match goal with
+                     H : context [exists _ : _, _] |- _ => edestruct H; eauto; clear H
+                   end;
+            openhyp;
+            eauto using par_subst_i_t
+          ].
+      invert H4;
+        try solve [
+              repeat match goal with
+                       H : context [exists _ : _, _] |- _ => edestruct H; eauto; clear H
+                     end;
+              openhyp;
+              eauto using par_subst_i_t
+            ].
+    }
+  Qed.
+    
+  Lemma pars_diamond_oneside a b :
+    par^* a b ->
+    forall c,
+      par a c ->
+      exists d,
+        par^* b d /\
+        par^* c d.
+  Proof.
+    induct 1; simpl; intros c Hac; eauto.
+    rename c into y'.
+    eapply par_diamond in H; [|eapply Hac].
+    destruct H as (yy' & Hy'yy' & Hyyy').
+    eapply IHtrc in Hyyy'.
+    openhyp.
+    eauto.
+  Qed.
+  
+  Lemma pars_diamond a b :
+    par^* a b ->
+    forall c,
+      par^* a c ->
+      exists d,
+        par^* b d /\
+        par^* c d.
+  Proof.
+    induct 1; simpl; intros c Hac; eauto.
+    eapply pars_diamond_oneside in Hac; eauto.
+    openhyp.
+    eapply IHtrc in H2; eauto.
+    openhyp.
+    eauto using trc_trans.
+  Qed.
+
+  (* symmetric closure *)
+  
+  Section symc.
+    Variable A : Type.
+    Variable R : A -> A -> Prop.
+
+    Inductive symc : A -> A -> Prop :=
+    | SymcSame x y :
+        R x y ->
+        symc x y
+    | SymcRev x y :
+        R y x ->
+        symc x y
+    .
+  End symc.
+
+  Hint Constructors symc.
+
+  Notation "R ^~" := (symc R) (at level 0).
+  Notation symtrc R := (trc (symc R)).
+  Notation "R ^~*" := (symtrc R) (at level 0).
+
+  Lemma par_confluent a b :
+    par^~* a b ->
+    exists c,
+        par^* a c /\
+        par^* b c.
+  Proof.
+    induct 1; simpl; eauto.
+    destruct IHtrc as (yz & Hyyz & Hzyz).
+    invert H; eauto.
+    eapply pars_diamond_oneside in Hyyz; eauto.
+    openhyp.
+    eauto using trc_trans.
+  Qed.
+
+  Inductive tyeq : sctx -> ty -> ty -> Prop :=
+    (* congruence rules *)
+  | TyEqBinOp L opr t1 t2 t1' t2' :
+      tyeq L t1 t1' ->
+      tyeq L t2 t2' ->
+      tyeq L (TBinOp opr t1 t2) (TBinOp opr t1' t2')
+  | TyEqArrow L t1 i t2 t1' i' t2':
+      tyeq L t1 t1' ->
+      idxeq L i i' BSTime ->
+      tyeq L t2 t2' ->
+      tyeq L (TArrow t1 i t2) (TArrow t1' i' t2')
+  | TyEqAbs L b t t' :
+      tyeq (SBaseSort b :: L) t t' ->
+      tyeq L (TAbs b t) (TAbs b t')
+  | TyEqApp L t b i t' i' :
+      tyeq L t t' ->
+      idxeq L i i' b ->
+      tyeq L (TApp t b i) (TApp t' b i')
+  | TyEqQuan L quan k t t' :
+      tyeq L t t' ->
+      tyeq L (TQuan quan k t) (TQuan quan k t')
+  | TyEqQuanI L quan s t s' t' :
+      sorteq L s s' ->
+      tyeq (s :: L) t t' ->
+      tyeq L (TQuanI quan s t) (TQuanI quan s' t')
+  | TyEqRec L k c c' :
+      tyeq L c c' ->
+      tyeq L (TRec k c) (TRec k c')
+  | TyEqNat L i i' :
+      idxeq L i i' BSNat ->
+      tyeq L (TNat i) (TNat i')
+  | TyEqArr L t i t' i' :
+      tyeq L t t' ->
+      idxeq L i i' BSNat ->
+      tyeq L (TArr t i) (TArr t' i')
+  (* reduction rules *)
+  | TyEqBeta L s t b i :
+      tyeq L (TApp (TAbs s t) b i) (subst0_i_t i t)
+  (* structural rules *)
+  | TyEqRefl L t :
+      tyeq L t t
+  | TyEqSym L a b :
+      tyeq L a b ->
+      tyeq L b a
+  | TyEqTrans L a b c k :
+      tyeq L a b ->
+      tyeq L b c ->
+      bkinding (map get_bsort L) b k ->
+      tyeq L a c
+  .
+
+  Hint Constructors tyeq.
+
+  Lemma cong_refl t L : cong L t t.
+  Proof.
+    induct t; simpl; eauto with db_idxeq db_sorteq.
+  Qed.
+
+  Lemma equal_sorts_idxeq L L' i i' b :
+    idxeq L i i' b ->
+    equal_sorts L L' ->
+    wellscoped_ss L ->
+    wellscoped_ss L' ->
+    idxeq L' i i' b.
+  Proof.
+    intros Hii' HLL' HL HL'.
+    eapply equal_sorts_interp_prop in Hii'; eauto.
+  Qed.
+
+  Hint Resolve equal_sorts_idxeq : db_idxeq.
+  Hint Resolve equal_sorts_sorteq : db_sorteq.
+   
+  Lemma equal_sorts_cong L a b :
+    cong L a b ->
+    forall L' k1 k2,
+      equal_sorts L L' ->
+      bkinding (map get_bsort L) a k1 ->
+      bkinding (map get_bsort L) b k2 ->
+      wfsorts L ->
+      wfsorts L' ->
+      cong L' a b.
+  Proof.
+    induct 1; simpl; intros L' k1 k2 HLL' Ha Hb HL HL'; try invert1 HLL'; try invert1 Ha; try invert1 Hb; econstructor; eauto using wfsorts_wellscoped_ss with db_idxeq db_sorteq.
+    eapply IHcong; eauto with db_idxeq db_sorteq.
+    {
+      invert H; simpl in *; eauto.
+    }
+    econstructor; eauto with db_idxeq db_sorteq.
+    eapply equal_sorts_get_bsort in HLL'.
+    rewrite <- HLL'; eauto.
+  Qed.
+  
+  Lemma cong_sym L a b :
+    cong L a b ->
+    forall k1 k2,
+      bkinding (map get_bsort L) a k1 ->
+      bkinding (map get_bsort L) b k2 ->
+      wfsorts L ->
+      cong L b a.
+  Proof.
+    induct 1; simpl; intros k1 k2 Ha Hb HL; try invert1 Ha; try invert1 Hb; try invert1 HL; econstructor; eauto with db_idxeq db_sorteq.
+    eapply equal_sorts_cong; [eapply IHcong | .. ]; eauto using equal_sorts_refl with db_idxeq db_sorteq.
+    {
+      invert H; simpl in *; eauto.
+    }
+    {
+      invert H; simpl in *; eauto.
+    }
+  Qed.
+
+  Lemma cong_trans L a b :
+    cong L a b ->
+    forall c k1 k2 k3,
+      cong L b c ->
+      bkinding (map get_bsort L) a k1 ->
+      bkinding (map get_bsort L) b k2 ->
+      bkinding (map get_bsort L) c k3 ->
+      wfsorts L ->
+      cong L a c.
+  Proof.
+    induct 1; simpl; try rename c into t; intros c k1 k2 k3 Hbc Ha Hb Hc HL; try invert1 Hbc; try invert1 Ha; try invert1 Hb; try invert1 Hc; try invert1 HL; eauto with db_idxeq db_sorteq.
+    econstructor; eauto with db_idxeq db_sorteq.
+    eapply IHcong; eauto; try solve [invert H; invert H6; simpl in *; eauto].
+    eapply equal_sorts_cong; eauto using equal_sorts_refl with db_idxeq db_sorteq.
+    invert H; invert H6; simpl in *; eauto.
+  Qed.
+  
+  Lemma pars_preserves_bkinding a b :
+    par^* a b ->
+    forall L k,
+      bkinding L a k ->
+      bkinding L b k.
+  Proof.
+    induct 1; simpl; intros L k_b Ha; eauto using par_preserves_bkinding.
+  Qed.
+  
+  Lemma tyeq_par L a a' :
+    tyeq L a a' ->
+    forall k k',
+      let bs := map get_bsort L in
+      bkinding bs a k ->
+      bkinding bs a' k' ->
+      wfsorts L ->
+    exists b b',
+      par^* a b /\
+      par^* a' b' /\
+      cong L b b' /\
+      bkinding bs b k /\
+      bkinding bs b' k'.
+  Proof.
+    simpl.
+    induct 1; simpl; try rename k into k''; intros k k' Ha Hb HL; try invert1 Ha; try invert1 Hb; try invert1 HL.
+    Lemma pars_TBinOp_1 t1 t1' :
+      par^* t1 t1' ->
+      forall opr t2,
+        par^* (TBinOp opr t1 t2) (TBinOp opr t1' t2).
+    Proof.
+      induct 1; simpl; eauto.
+    Qed.
+    
+    Lemma pars_TBinOp_2 t2 t2' :
+      par^* t2 t2' ->
+      forall opr t1,
+        par^* (TBinOp opr t1 t2) (TBinOp opr t1 t2').
+    Proof.
+      induct 1; simpl; eauto.
+    Qed.
+    
+    Lemma pars_TBinOp opr t1 t1' t2 t2' :
+      par^* t1 t1' ->
+      par^* t2 t2' ->
+      par^* (TBinOp opr t1 t2) (TBinOp opr t1' t2').
+    Proof.
+      intros; eauto using trc_trans, pars_TBinOp_1, pars_TBinOp_2.
+    Qed.
+    
+    {
+      edestruct IHtyeq1 as (r1 & r1' & Ht1r1 & Ht1'r1' & Hr1r1' & Hr1 & Hr1'); eauto.
+      edestruct IHtyeq2 as (r2 & r2' & Ht2r2 & Ht2'r2' & Hr2r2' & Hr2 & Hr2'); eauto.
+      exists (TBinOp opr r1 r2), (TBinOp opr r1' r2').
+      repeat eexists_split;
+      eauto using pars_TBinOp.
+    }
+    Lemma pars_TArrow_1 t1 t1' :
+      par^* t1 t1' ->
+      forall i t2,
+        par^* (TArrow t1 i t2) (TArrow t1' i t2).
+    Proof.
+      induct 1; simpl; eauto.
+    Qed.
+    
+    Lemma pars_TArrow_2 t2 t2' :
+      par^* t2 t2' ->
+      forall t1 i,
+        par^* (TArrow t1 i t2) (TArrow t1 i t2').
+    Proof.
+      induct 1; simpl; eauto.
+    Qed.
+    
+    Lemma pars_TArrow t1 i t1' t2 t2' :
+      par^* t1 t1' ->
+      par^* t2 t2' ->
+      par^* (TArrow t1 i t2) (TArrow t1' i t2').
+    Proof.
+      intros; eauto using trc_trans, pars_TArrow_1, pars_TArrow_2.
+    Qed.
+    
+    {
+      edestruct IHtyeq1 as (r1 & r1' & Ht1r1 & Ht1'r1' & Hr1r1' & Hr1 & Hr1'); eauto.
+      edestruct IHtyeq2 as (r2 & r2' & Ht2r2 & Ht2'r2' & Hr2r2' & Hr2 & Hr2'); eauto.
+      exists (TArrow r1 i r2), (TArrow r1' i' r2').
+      repeat eexists_split;
+      eauto using pars_TArrow.
+    }
+    Lemma pars_TAbs b t1 t1':
+      par^* t1 t1' ->
+      par^* (TAbs b t1) (TAbs b t1').
+    Proof.
+      induct 1; simpl; eauto.
+    Qed.
+    
+    {
+      edestruct IHtyeq as (r1 & r1' & Ht1r1 & Ht1'r1' & Hr1r1' & Hr1 & Hr1'); eauto.
+      exists (TAbs b r1), (TAbs b r1').
+      repeat eexists_split;
+      eauto using pars_TAbs.
+    }
+    Lemma pars_TApp b i t1 t1':
+      par^* t1 t1' ->
+      par^* (TApp t1 b i) (TApp t1' b i).
+    Proof.
+      induct 1; simpl; eauto.
+    Qed.
+    
+    {
+      edestruct IHtyeq as (r1 & r1' & Ht1r1 & Ht1'r1' & Hr1r1' & Hr1 & Hr1'); eauto.
+      exists (TApp r1 b i), (TApp r1' b i').
+      repeat eexists_split;
+      eauto using pars_TApp.
+    }
+    Lemma pars_TQuan q k t1 t1':
+      par^* t1 t1' ->
+      par^* (TQuan q k t1) (TQuan q k t1').
+    Proof.
+      induct 1; simpl; eauto.
+    Qed.
+    
+    {
+      edestruct IHtyeq as (r1 & r1' & Ht1r1 & Ht1'r1' & Hr1r1' & Hr1 & Hr1'); eauto.
+      exists (TQuan quan0 k'' r1), (TQuan quan0 k'' r1').
+      repeat eexists_split;
+      eauto using pars_TQuan.
+    }
+    Lemma pars_TQuanI q k t1 t1':
+      par^* t1 t1' ->
+      par^* (TQuanI q k t1) (TQuanI q k t1').
+    Proof.
+      induct 1; simpl; eauto.
+    Qed.
+    
+    {
+      edestruct IHtyeq as (r1 & r1' & Ht1r1 & Ht1'r1' & Hr1r1' & Hr1 & Hr1'); eauto.
+      {
+        invert H; simpl in *; eauto.
+      }
+      exists (TQuanI quan0 s r1), (TQuanI quan0 s' r1').
+      repeat eexists_split;
+      eauto using pars_TQuanI.
+      econstructor; eauto.
+      {
+        invert H; simpl in *; eauto.
+      }
+    }
+    
+    Lemma pars_TRec k t1 t1':
+      par^* t1 t1' ->
+      par^* (TRec k t1) (TRec k t1').
+    Proof.
+      induct 1; simpl; eauto.
+    Qed.
+    
+    {
+      edestruct IHtyeq as (r1 & r1' & Ht1r1 & Ht1'r1' & Hr1r1' & Hr1 & Hr1'); eauto.
+      exists (TRec k' r1), (TRec k' r1').
+      repeat eexists_split;
+      eauto using pars_TRec.
+    }
+    {
+      exists (TNat i), (TNat i').
+      repeat eexists_split;
+      eauto.
+    }
+    Lemma pars_TArr i t1 t1':
+      par^* t1 t1' ->
+      par^* (TArr t1 i) (TArr t1' i).
+    Proof.
+      induct 1; simpl; eauto.
+    Qed.
+    
+    {
+      edestruct IHtyeq as (r1 & r1' & Ht1r1 & Ht1'r1' & Hr1r1' & Hr1 & Hr1'); eauto.
+      exists (TArr r1 i), (TArr r1' i').
+      repeat eexists_split;
+      eauto using pars_TArr.
+    }
+    {
+      exists (subst0_i_t i t), (subst0_i_t i t). 
+      repeat eexists_split;
+      eauto using cong_refl.
+      invert H4.
+      eapply bkinding_subst_i_t_0; eauto.
+    }
+    {
+      exists t, t.
+      repeat eexists_split;
+      eauto using cong_refl.
+    }
+    {
+      edestruct IHtyeq as (r1 & r1' & Ht1r1 & Ht1'r1' & Hr1r1' & Hr1 & Hr1'); eauto.
+      exists r1', r1.
+      repeat eexists_split;
+      eauto using cong_sym.
+    }
+    {
+      edestruct IHtyeq1 as (a' & b1 & Haa' & Hbb1 & Ha'b1 & Ha' & Hb1); eauto.
+      edestruct IHtyeq2 as (b2 & c' & Hbb2 & Hcc' & Hb2c' & Hb2 & Hc'); eauto.
+      eapply pars_diamond in Hbb1; [|eapply Hbb2].
+      destruct Hbb1 as (b3 & Hb2b3 & Hb1b3).
+      eapply cong_sym in Ha'b1; eauto.
+      copy Hb1b3 Hb3.
+      eapply pars_preserves_bkinding in Hb3; eauto.
+      eapply pars_transports_cong with (a' := a') in Hb1b3; eauto.
+      destruct Hb1b3 as (a'' & Hb3a'' & Ha'a'' & Ha'').
+      eapply pars_transports_cong with (a' := c') in Hb2b3; eauto.
+      destruct Hb2b3 as (c'' & Hb3c'' & Hc'c'' & Hc'').
+      exists a'', c''.
+      repeat try_split; eauto using trc_trans.
+      eapply cong_sym in Hb3a''; eauto.
+      eapply cong_trans; eauto.
+    }
+  Qed.
+
+  Lemma par_tyeq a b :
+    par a b ->
+    forall L k1,
+      let bs := map get_bsort L in
+      bkinding bs a k1 ->
+      tyeq L a b.
+  Proof.
+    simpl.
+    induct 1; simpl; intros L k1 Ha; try invert1 Ha; eauto with db_idxeq db_sorteq.
+    invert H5.
+    eapply TyEqTrans; [| eapply TyEqBeta |]; eauto with db_idxeq db_sorteq.
+    econstructor; eauto.
+    econstructor; eauto.
+    eapply par_preserves_bkinding; eauto.
+  Qed.
+
+  Lemma pars_tyeq a b :
+    par^* a b ->
+    forall L k1,
+      let bs := map get_bsort L in
+      bkinding bs a k1 ->
+      tyeq L a b.
+  Proof.
+    simpl.
+    induct 1; simpl; intros L k1 Ha; try invert1 Ha; eauto using par_tyeq.
+    copy H Hy.
+    eapply par_preserves_bkinding in Hy; eauto.
+    eapply TyEqTrans; [| eapply IHtrc |]; eauto using par_tyeq.
+  Qed.  
+  
+  Lemma par_preserves_TArrow t1 i t2 t' :
+    par (TArrow t1 i t2) t' ->
+    exists t1' t2',
+      t' = TArrow t1' i t2' /\
+      par t1 t1' /\
+      par t2 t2'.
+  Proof.
+    induct 1; simpl; eauto.
+  Qed.
+  
+  Lemma pars_preserves_TArrow t1 i t2 t' :
+    par^* (TArrow t1 i t2) t' ->
+    exists t1' t2',
+      t' = TArrow t1' i t2' /\
+      par^* t1 t1' /\
+      par^* t2 t2'.
+  Proof.
+    induct 1; simpl; eauto using par_preserves_TArrow.
+    eapply par_preserves_TArrow in H; eauto.
+    openhyp.
+    subst.
+    edestruct IHtrc; eauto.
+    openhyp.
+    subst.
+    repeat eexists_split; eauto.
+  Qed.
+
+  Lemma cong_tyeq L t t' :
+    cong L t t' ->
+    tyeq L t t'.
+  Proof.
+    induct 1; simpl; eauto.
+  Qed.
+
+  Lemma invert_tyeq_TArrow L t1 i t2 t1' i' t2' k1 k2 :
+    tyeq L (TArrow t1 i t2) (TArrow t1' i' t2') ->
+    let bs := map get_bsort L in
+    bkinding bs (TArrow t1 i t2) k1 ->
+    bkinding bs (TArrow t1' i' t2') k2 ->
+    wfsorts L ->
+    tyeq L t1 t1'/\
+    interp_prop L (TEq i i') /\
+    tyeq L t2 t2'.
+  Proof.
+    simpl.
+    intros H H1 H2 HL.
+    invert H1.
+    invert H2.
+    eapply tyeq_par in H; eauto.
+    edestruct H as (r1 & r1' & Ht1r1 & Ht1'r1' & Hr1r1' & Hr1 & Hr1'); eauto.
+    eapply pars_preserves_TArrow in Ht1r1.
+    openhyp.
+    subst.
+    eapply pars_preserves_TArrow in Ht1'r1'.
+    openhyp.
+    subst.
+    invert Hr1r1'.
+    repeat try_split; eauto.
+    {
+      eapply TyEqTrans.
+      {
+        eapply pars_tyeq; eauto.
+      }
+      eapply TyEqTrans.
+      {
+        eapply cong_tyeq; eauto.
+      }
+      {
+        eapply TyEqSym.
+        eapply pars_tyeq; eauto.
+      }
+      {
+        eapply pars_preserves_bkinding; eauto.
+      }
+      {
+        eapply pars_preserves_bkinding; eauto.
+      }
+    }
+    {
+      eapply TyEqTrans.
+      {
+        eapply pars_tyeq; eauto.
+      }
+      eapply TyEqTrans.
+      {
+        eapply cong_tyeq; eauto.
+      }
+      {
+        eapply TyEqSym.
+        eapply pars_tyeq; eauto.
+      }
+      {
+        eapply pars_preserves_bkinding; eauto.
+      }
+      {
+        eapply pars_preserves_bkinding; eauto.
+      }
+    }
+  Qed.
+
+  Lemma par_preserves_TQuan q k t1 t' :
+    par (TQuan q k t1) t' ->
+    exists t1',
+      t' = TQuan q k t1' /\
+      par t1 t1'.
+  Proof.
+    induct 1; simpl; eauto.
+  Qed.
+  
+  Lemma pars_preserves_TQuan q k t1 t' :
+    par^* (TQuan q k t1) t' ->
+    exists t1',
+      t' = TQuan q k t1' /\
+      par^* t1 t1'.
+  Proof.
+    induct 1; simpl; eauto using par_preserves_TQuan.
+    eapply par_preserves_TQuan in H; eauto.
+    openhyp.
+    subst.
+    edestruct IHtrc; eauto.
+    openhyp.
+    subst.
+    repeat eexists_split; eauto.
+  Qed.
+
+  Lemma TQuan_TArrow_false L q k t t1 i t2 k1 k2 :
+    tyeq L (TQuan q k t) (TArrow t1 i t2) ->
+    let bs := map get_bsort L in
+    bkinding bs (TQuan q k t) k1 ->
+    bkinding bs (TArrow t1 i t2) k2 ->
+    wfsorts L ->
+    False.
+  Proof.
+    simpl.
+    intros H H1 H2 HL.
+    invert H1.
+    invert H2.
+    eapply tyeq_par in H; eauto.
+    edestruct H as (r1 & r1' & Ht1r1 & Ht1'r1' & Hr1r1' & Hr1 & Hr1'); eauto.
+    eapply pars_preserves_TQuan in Ht1r1.
+    openhyp.
+    subst.
+    eapply pars_preserves_TArrow in Ht1'r1'.
+    openhyp.
+    subst.
+    invert Hr1r1'.
+  Qed.
+  
   (* values for denotational semantics *)
 
   Fixpoint lift_ls bs {A B} f (ls : list A) : interp_bsorts bs (list B) :=
