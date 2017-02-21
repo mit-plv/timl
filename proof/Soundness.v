@@ -14577,8 +14577,9 @@ lift2 (fst (strip_subsets L))
   | TyTyeq C e t1 i t2 :
       typing C e t1 i ->
       let L := get_sctx C in
-      kinding L (get_kctx C) t2 KType ->
-      tyeq L t1 t2 KType ->
+      let K := get_kctx C in
+      kinding L K t2 KType ->
+      tyeq L K t1 t2 KType ->
       typing C e t2 i
   | TyLe C e t i1 i2 :
       typing C e t i1 ->
@@ -14974,49 +14975,6 @@ lift2 (fst (strip_subsets L))
     eapply interp_prop_eq_interp_prop_le; eauto.
   Qed.
   
-  Lemma tyeq_TRec_TNat_false t3 i :
-    tyeq [] (TRec KType t3) (TNat i) KType ->
-    False.
-  Proof.
-    intros H.
-    unfold tyeq in *.
-    simpl in *.
-    repeat rewrite convert_kind_value_refl_eq in *.
-    simpl in *; specialize (H I); invert H.
-  Qed.
-  
-  Lemma TRec_const_type_false t3 cn :
-    tyeq [] (TRec KType t3) (const_type cn) KType ->
-    False.
-  Proof.
-    cases cn; simplify;
-      try solve [eapply tyeq_TRec_TConst_false; eauto].
-    eapply tyeq_TRec_TNat_false; eauto.
-  Qed.
-
-  Lemma TApps_TRec_const_type_false cs t3 cn :
-    let k3 := map fst cs in
-    tyeq [] (TApps (TRec k3 t3) cs) (const_type cn) KType ->
-    False.
-  Proof.
-    cases cn; simplify;
-      try solve [eapply tyeq_TApps_TRec_TConst_false; eauto].
-    eapply tyeq_TApps_TRec_TNat_false; eauto.
-  Qed.
-
-  Lemma const_type_TArrow_false cn t1 i t2 :
-    tyeq [] (const_type cn) (TArrow t1 i t2) KType ->
-    False.
-  Proof.
-    intros H.
-    unfold tyeq in *.
-    simpl in *.
-    repeat rewrite convert_kind_value_refl_eq in *.
-    specialize (H I).
-    destruct cn; simpl in *;
-      invert H.
-  Qed.
-
   Lemma subst_i_t_const_type x v cn :
     subst_i_t x v (const_type cn) = const_type cn.
   Proof.
@@ -15297,6 +15255,13 @@ lift2 (fst (strip_subsets L))
     }
   Qed.
   
+  Lemma shift_i_e_shift_t_e :
+    forall b x2 n2 x1 n1,
+      shift_i_e x2 n2 (shift_t_e x1 n1 b) = shift_t_e x1 n1 (shift_i_e x2 n2 b).
+  Proof.
+    induct b; simplify; try rewrite IHb; try rewrite IHb1; try rewrite IHb2; try rewrite IHb3; try rewrite shift_i_t_shift_t_t by la; eauto.
+  Qed.
+
   Lemma subst_e_e_AbsTIs tis :
     forall x v e,
       let n_t := length (filter id tis) in
@@ -15316,14 +15281,7 @@ lift2 (fst (strip_subsets L))
       f_equal.
       f_equal; try la.
       unfold shift0_t_e.
-  Lemma shift_i_e_shift_t_e_commute :
-    forall b x2 n2 x1 n1,
-      shift_i_e x2 n2 (shift_t_e x1 n1 b) = shift_t_e x1 n1 (shift_i_e x2 n2 b).
-  Proof.
-    induct b; simplify; try rewrite IHb; try rewrite IHb1; try rewrite IHb2; try rewrite IHb3; try rewrite shift_i_t_shift_t_t by la; eauto.
-  Qed.
-
-      rewrite shift_i_e_shift_t_e_commute.
+      rewrite shift_i_e_shift_t_e.
       rewrite shift_t_e_shift by la.
       eauto.
     }
@@ -15649,12 +15607,23 @@ lift2 (fst (strip_subsets L))
     }
   Qed.
 
-  Lemma kinding_unroll L K t cs :
-    let k := map fst cs in
+  Lemma sorting_shift_i_i_1_0 L c s s1 s' :
+    sorting L c s ->
+    wellscoped_ss L ->
+    wellscoped_s (length L) s ->
+    s' = shift_i_s 1 0 s ->
+    sorting (s1 :: L) (shift_i_i 1 0 c) s'.
+  Proof.
+    intros; subst.
+    eapply sorting_shift_i_i_0 with (ls := [s1]); eauto.
+  Qed.
+  
+  Lemma kinding_unroll L K t cs k' :
+    let k := KArrows (map fst cs) k' in
     kinding L (k :: K) t k ->
     Forall (fun p => sorting L (snd p) (SBaseSort (fst p))) cs ->
     wellscoped_ss L ->
-    kinding L K (unroll k t cs) KType.
+    kinding L K (unroll k t cs) k'.
   Proof.
     simpl.
     unfold unroll.
@@ -15725,17 +15694,6 @@ lift2 (fst (strip_subsets L))
       split; eauto.
       eapply kinding_subst_i_t_0; eauto with db_la.
     }
-  Lemma sorting_shift_i_i_1_0 L c s s1 s' :
-    sorting L c s ->
-    wellscoped_ss L ->
-    wellscoped_s (length L) s ->
-    s' = shift_i_s 1 0 s ->
-    sorting (s1 :: L) (shift_i_i 1 0 c) s'.
-  Proof.
-    intros; subst.
-    eapply sorting_shift_i_i_0 with (ls := [s1]); eauto.
-  Qed.
-  
     {
       (* Case TyAbsI *)
       edestruct IHtyping; eauto.
@@ -15892,6 +15850,13 @@ lift2 (fst (strip_subsets L))
     induct ls1; destruct ls2; simpl; intros Hf H1; invert H1; eauto.
   Qed.
 
+  Lemma tyeq_shift_t_t_1_0 L K t t' k k1 :
+    tyeq L K t t' k ->
+    tyeq L (k1 :: K) (shift_t_t 1 0 t) (shift_t_t 1 0 t') k.
+  Proof.
+    intros H; eapply tyeq_shift_t_t with (x := 0) (ls := [k1]) in H; simpl in *; eauto.
+  Qed.
+  
   Lemma ty_G_tyeq' C e t i :
     typing C e t i ->
     let L := get_sctx C in
@@ -15901,25 +15866,33 @@ lift2 (fst (strip_subsets L))
     wfsorts L ->
     wfhctx L K W ->
     forall G',
-      Forall2 (fun t t' => tyeq L t t' KType /\ kinding L K t KType /\ kinding L K t' KType) G G' ->
+      Forall2 (fun t t' => tyeq L K t t' KType /\ kinding L K t KType /\ kinding L K t' KType) G G' ->
       typing (L, K, W, G') e t i.
   Proof.
     simpl.
     induct 1; unfold_all;
       intros HL HW G' Htyeq;
       destruct C as (((L & K) & W) & G);
-      simplify;
-      try solve [econstructor; eauto with db_tyeq].
+      simpl in *.
+      (* try solve [ *)
+      (*       econstructor; simpl; eauto 7 using kinding_bkinding *)
+      (*     ]. *)
+    (* try solve [econstructor; eauto]. *)
     {
       (* Case TyVar *)
       eapply nth_error_Forall2 in Htyeq; eauto.
       openhyp.
       eapply TyTyeq; simpl; eauto.
-      {
-        econstructor; simplify; eauto.
-      }
-      simplify.
-      eauto with db_tyeq.
+      econstructor; simplify; eauto.
+    }
+    {
+      econstructor; eauto.
+    }
+    {
+      econstructor; simpl; eauto 7 using kinding_bkinding.
+    }
+    {
+      econstructor; simpl; eauto using kinding_bkinding.
     }
     {
       (* Case AbsT *)
@@ -15935,7 +15908,10 @@ lift2 (fst (strip_subsets L))
       simpl.
       intros c c' Htyeq2.
       openhyp.
-      repeat try_split; eauto using kinding_shift_t_t_1_0, tyeq_shift_t_t.
+      repeat try_split; eauto using kinding_shift_t_t_1_0, tyeq_shift_t_t_1_0.
+    }
+    {
+      econstructor; simpl; eauto using kinding_bkinding.
     }
     {
       (* Case AbsI *)
@@ -15953,6 +15929,18 @@ lift2 (fst (strip_subsets L))
       openhyp.
       unfold shift0_i_t.
       repeat try_split; eauto using kinding_shift_i_t_1_0, tyeq_shift0_i_t, kinding_wellscoped_t, wfsorts_wellscoped_ss.
+    }
+    {
+      econstructor; simpl; eauto 7 using kinding_bkinding.
+    }
+    {
+      econstructor; simpl; eauto using kinding_bkinding.
+    }
+    {
+      econstructor; simpl; eauto using kinding_bkinding.
+    }
+    {
+      econstructor; simpl; eauto using kinding_bkinding.
     }
     {
       (* Case Unpack *)
@@ -15976,13 +15964,16 @@ lift2 (fst (strip_subsets L))
         destruct H as [Ht ?].
         simpl in *.
         invert Ht.
-        repeat try_split; eauto using tyeq_refl.
+        repeat try_split; eauto using kinding_bkinding.
       }
       eapply Forall2_map; eauto.
       simpl.
       intros c c' Htyeq2.
       openhyp.
-      repeat try_split; eauto using kinding_shift_t_t_1_0, tyeq_shift_t_t, kinding_wellscoped_t, wfsorts_wellscoped_ss.
+      repeat try_split; eauto using kinding_shift_t_t_1_0, tyeq_shift_t_t_1_0, kinding_wellscoped_t, wfsorts_wellscoped_ss.
+    }
+    {
+      econstructor; simpl; eauto using kinding_bkinding.
     }
     {
       (* Case UnpackI *)
@@ -16005,12 +15996,24 @@ lift2 (fst (strip_subsets L))
         simpl; intros.
         intuition eauto using kinding_shift_i_t_1_0, sorting_shift_i_i_1_0,  wfsorts_wellscoped_ss.
       }
-      econstructor; eauto with db_tyeq.
+      econstructor; eauto using kinding_bkinding with db_tyeq.
       eapply Forall2_map; eauto.
       simpl.
       intros c c' Htyeq2.
       openhyp.
       repeat try_split; eauto using kinding_shift_i_t_1_0, tyeq_shift0_i_t, kinding_wellscoped_t, wfsorts_wellscoped_ss.
+    }
+    {
+      econstructor; simpl; eauto using kinding_bkinding.
+    }
+    {
+      econstructor; simpl; eauto using kinding_bkinding.
+    }
+    {
+      econstructor; simpl; eauto using kinding_bkinding.
+    }
+    {
+      econstructor; simpl; eauto using kinding_bkinding.
     }
     {
       (* Case ECase *)
@@ -16029,7 +16032,31 @@ lift2 (fst (strip_subsets L))
       eapply typing_kinding in Ht; eauto; simpl; eauto.
       destruct Ht as [Ht ?].
       simpl in *.
-      econstructor; eauto with db_tyeq; simpl.
+      econstructor; eauto 7 using kinding_bkinding with db_tyeq; simpl.
+    }
+    {
+      econstructor; simpl; eauto using kinding_bkinding.
+    }
+    {
+      econstructor; simpl; eauto using kinding_bkinding.
+    }
+    {
+      econstructor; simpl; eauto using kinding_bkinding.
+    }
+    {
+      econstructor; simpl; eauto using kinding_bkinding.
+    }
+    {
+      econstructor; simpl; eauto using kinding_bkinding.
+    }
+    {
+      econstructor; simpl; eauto using kinding_bkinding.
+    }
+    {
+      econstructor; simpl; eauto using kinding_bkinding.
+    }
+    {
+      eapply TyLe; eauto using kinding_bkinding.
     }
   Qed.
 
@@ -16047,7 +16074,7 @@ lift2 (fst (strip_subsets L))
     typing C e t i ->
     wfctx C ->
     forall G',
-      Forall2 (fun t t' => tyeq L t t' KType /\ kinding L K t' KType) G G' ->
+      Forall2 (fun t t' => tyeq L K t t' KType /\ kinding L K t' KType) G G' ->
       typing (L, K, W, G') e t i.
   Proof.
     intros C Ht (HL & HW & HG) G' HGG'.
@@ -16082,7 +16109,7 @@ lift2 (fst (strip_subsets L))
   Lemma add_typing_ctx_tyeq t1 t2 L K W G e t i :
     let C := (L, K, W, G) in
     typing (add_typing_ctx t1 C) e t i ->
-    tyeq L t1 t2 KType ->
+    tyeq L K t1 t2 KType ->
     kinding L K t1 KType ->
     kinding L K t2 KType ->
     wfctx C ->
@@ -16095,7 +16122,7 @@ lift2 (fst (strip_subsets L))
     eapply Forall2_dedup.
     unfold wfctx in *; openhyp.
     eapply Forall_impl; eauto.
-    simpl; intros; eauto with db_tyeq.
+    simpl; intros; eauto using kinding_bkinding with db_tyeq.
   Qed.
   
   Lemma value_shift_e_e e :
@@ -16179,15 +16206,22 @@ lift2 (fst (strip_subsets L))
     induct 1; simpl; 
       try rename x into x';
       try rename L into L';
+      try rename K into K';
       intros x ls Hle HL HW HG;
       destruct C as (((L & K) & W) & G);
       simplify;
-      cbn in *;
-      try solve [cbn in *; econstructor; eauto using kinding_shift_i_t, sorting_shift_i_i, kinding_wellscoped_t].
+      cbn in *.
+      (* try solve [econstructor; eauto using kinding_shift_i_t, sorting_shift_i_i, kinding_wellscoped_t]. *)
     {
       (* Case TyVar *)
       econstructor.
       eauto using map_nth_error.
+    }
+    {
+      econstructor; eauto using kinding_shift_i_t, sorting_shift_i_i, kinding_wellscoped_t.
+    }
+    {
+      econstructor; eauto using kinding_shift_i_t, sorting_shift_i_i, kinding_wellscoped_t.
     }
     {
       (* Case TyAppT *)
@@ -16411,6 +16445,9 @@ lift2 (fst (strip_subsets L))
       destruct cn; simpl; econstructor; eauto.
     }
     {
+      econstructor; eauto using kinding_shift_i_t, sorting_shift_i_i, kinding_wellscoped_t.
+    }
+    {
       (* Case TyProj *)
       rewrite shift_i_t_proj.
       econstructor; eauto.
@@ -16427,6 +16464,9 @@ lift2 (fst (strip_subsets L))
       destruct H as [Ht ?].
       invert Ht.
       econstructor; eauto using kinding_shift_i_t.
+    }
+    {
+      econstructor; eauto using kinding_shift_i_t, sorting_shift_i_i, kinding_wellscoped_t.
     }
     {
       (* Case Read *)
@@ -16474,6 +16514,9 @@ lift2 (fst (strip_subsets L))
 
       eapply TyPrim'; simpl; eauto using kinding_shift_i_t, sorting_shift_i_i, kinding_wellscoped_t;
         destruct opr; simpl; eauto.
+    }
+    {
+      econstructor; eauto using kinding_shift_i_t, sorting_shift_i_i, kinding_wellscoped_t.
     }
     {
       (* Case TyTyeq *)
@@ -16550,15 +16593,22 @@ lift2 (fst (strip_subsets L))
     induct 1; simpl; 
       try rename x into x';
       try rename L into L';
+      try rename K into K';
       intros x ls Hle (* HL HW HG *);
       destruct C as (((L & K) & W) & G);
-      simplify;
-      cbn in *;
-      try solve [cbn in *; econstructor; eauto using kinding_shift_t_t, kinding_wellscoped_t].
+      simpl in *;
+      cbn in *.
+      (* try solve [econstructor; eauto using kinding_shift_t_t, kinding_wellscoped_t]. *)
     {
       (* Case TyVar *)
       econstructor.
       eauto using map_nth_error.
+    }
+    {
+      econstructor; eauto using kinding_shift_t_t, kinding_wellscoped_t.
+    }
+    {
+      econstructor; eauto using kinding_shift_t_t, kinding_wellscoped_t.
     }
     {
       (* Case TyAppT *)
@@ -16698,6 +16748,9 @@ lift2 (fst (strip_subsets L))
       destruct cn; simpl; econstructor; eauto.
     }
     {
+      econstructor; eauto using kinding_shift_t_t, kinding_wellscoped_t.
+    }
+    {
       (* Case TyProj *)
   Lemma shift_t_t_proj n x t1 t2 pr : shift_t_t n x (proj (t1, t2) pr) = proj (shift_t_t n x t1, shift_t_t n x t2) pr.
   Proof.
@@ -16719,6 +16772,18 @@ lift2 (fst (strip_subsets L))
       econstructor; eauto using kinding_shift_t_t.
     }
     {
+      econstructor; eauto using kinding_shift_t_t, kinding_wellscoped_t.
+    }
+    {
+      econstructor; eauto using kinding_shift_t_t, kinding_wellscoped_t.
+    }
+    {
+      econstructor; eauto using kinding_shift_t_t, kinding_wellscoped_t.
+    }
+    {
+      econstructor; eauto using kinding_shift_t_t, kinding_wellscoped_t.
+    }
+    {
       (* Case TyLoc *)
       econstructor; simpl.
       erewrite fmap_map_lookup; simpl; eauto.
@@ -16730,10 +16795,16 @@ lift2 (fst (strip_subsets L))
         destruct opr; simpl; eauto.
     }
     {
+      econstructor; eauto using kinding_shift_t_t, kinding_wellscoped_t.
+    }
+    {
       (* Case TyTyeq *)
       unfold_all.
       eapply TyTyeq; eauto using kinding_shift_t_t; simpl.
       eapply tyeq_shift_t_t; eauto.
+    }
+    {
+      eapply TyLe; eauto using kinding_shift_t_t, kinding_wellscoped_t.
     }
   Qed.
 
@@ -16764,16 +16835,23 @@ lift2 (fst (strip_subsets L))
     induct 1; simpl; 
       try rename x into x';
       try rename L into L';
+      try rename K into K';
       try rename s into s';
       destruct C as (((L & K) & W) & G);
       intros x v s Hx Hv HL HW HG;
-      simplify;
-      cbn in *;
-      try solve [cbn in *; econstructor; simpl; eauto using kinding_subst_i_t, sorting_subst_i_i].
+      simpl in *;
+      cbn in *.
+      (* try solve [econstructor; simpl; eauto using kinding_subst_i_t, sorting_subst_i_i]. *)
     {
       (* Case TyVar *)
       econstructor.
       eauto using map_nth_error.
+    }
+    {
+      econstructor; simpl; eauto using kinding_subst_i_t, sorting_subst_i_i.
+    }
+    {
+      econstructor; simpl; eauto using kinding_subst_i_t, sorting_subst_i_i.
     }
     {
       (* Case TyAppT *)
@@ -17009,6 +17087,9 @@ lift2 (fst (strip_subsets L))
       destruct cn; simpl; econstructor; eauto.
     }
     {
+      econstructor; simpl; eauto using kinding_subst_i_t, sorting_subst_i_i.
+    }
+    {
       (* Case TyProj *)
   Lemma subst_i_t_proj x v t1 t2 pr : subst_i_t x v (proj (t1, t2) pr) = proj (subst_i_t x v t1, subst_i_t x v t2) pr.
   Proof.
@@ -17035,6 +17116,9 @@ lift2 (fst (strip_subsets L))
       destruct H as [Ht ?].
       invert Ht.
       econstructor; simpl; eauto using kinding_subst_i_t.
+    }
+    {
+      econstructor; simpl; eauto using kinding_subst_i_t, sorting_subst_i_i.
     }
     {
       (* Case Read *)
@@ -17072,6 +17156,9 @@ lift2 (fst (strip_subsets L))
       (* Case TyPrim *)
       eapply TyPrim'; simpl; eauto using kinding_shift_i_t, sorting_shift_i_i, kinding_wellscoped_t;
         destruct opr; simpl; eauto.
+    }
+    {
+      econstructor; simpl; eauto using kinding_subst_i_t, sorting_subst_i_i.
     }
     {
       (* Case TyTyeq *)
@@ -17214,16 +17301,23 @@ lift2 (fst (strip_subsets L))
     induct 1; simpl; 
       try rename x into x';
       try rename L into L';
+      try rename K into K';
       try rename k into k';
       intros x v k Hx Hv HL HW HG;
       destruct C as (((L & K) & W) & G);
-      simplify;
-      cbn in *;
-      try solve [cbn in *; econstructor; simpl; eauto using kinding_subst_t_t, kinding_wellscoped_t, wfsorts_wellscoped_ss].
+      simpl in *;
+      cbn in *.
+      (* try solve [econstructor; simpl; eauto using kinding_subst_t_t, kinding_wellscoped_t, wfsorts_wellscoped_ss]. *)
     {
       (* Case TyVar *)
       econstructor.
       eauto using map_nth_error.
+    }
+    {
+      econstructor; simpl; eauto using kinding_subst_t_t, kinding_wellscoped_t, wfsorts_wellscoped_ss. 
+    }
+    {
+      econstructor; simpl; eauto using kinding_subst_t_t, kinding_wellscoped_t, wfsorts_wellscoped_ss. 
     }
     {
       (* Case TyAppT *)
@@ -17428,6 +17522,9 @@ lift2 (fst (strip_subsets L))
       destruct cn; simpl; econstructor; eauto.
     }
     {
+      econstructor; simpl; eauto using kinding_subst_t_t, kinding_wellscoped_t, wfsorts_wellscoped_ss. 
+    }
+    {
       (* Case TyProj *)
       rewrite subst_t_t_proj.
       econstructor; eauto.
@@ -17446,6 +17543,15 @@ lift2 (fst (strip_subsets L))
       econstructor; simpl; eauto using kinding_subst_t_t, wfsorts_wellscoped_ss.
     }
     {
+      econstructor; simpl; eauto using kinding_subst_t_t, kinding_wellscoped_t, wfsorts_wellscoped_ss. 
+    }
+    {
+      econstructor; simpl; eauto using kinding_subst_t_t, kinding_wellscoped_t, wfsorts_wellscoped_ss. 
+    }
+    {
+      econstructor; simpl; eauto using kinding_subst_t_t, kinding_wellscoped_t, wfsorts_wellscoped_ss. 
+    }
+    {
       (* Case TyLoc *)
       econstructor; simpl.
       erewrite fmap_map_lookup; eauto.
@@ -17457,12 +17563,18 @@ lift2 (fst (strip_subsets L))
         destruct opr; simpl; eauto.
     }
     {
+      econstructor; simpl; eauto using kinding_subst_t_t, kinding_wellscoped_t, wfsorts_wellscoped_ss. 
+    }
+    {
       (* Case TyTyeq *)
       unfold_all.
       eapply typing_kinding in H; simpl; eauto.
       destruct H as [Ht ?].
       eapply TyTyeq; simpl; eauto using kinding_subst_t_t, wfsorts_wellscoped_ss.
-      eapply tyeq_subst_t_t; eauto using kinding_wellscoped_t.
+      eapply tyeq_subst_t_t; eauto using kinding_wellscoped_t, kinding_bkinding.
+    }
+    {
+      eapply TyLe; simpl; eauto using kinding_subst_t_t, kinding_wellscoped_t, wfsorts_wellscoped_ss. 
     }
   Qed.
 
@@ -17503,10 +17615,11 @@ lift2 (fst (strip_subsets L))
     induct 1;
       try rename x into y;
       try rename L into L';
+      try rename K into K';
       intros x ls;
       destruct C as (((L & K) & W) & G);
-      simplify;
-      try solve [econstructor; eauto].
+      simpl in *.
+      (* try solve [econstructor; eauto]. *)
     {
       (* Case Var *)
       cases (x <=? y).
@@ -17520,9 +17633,15 @@ lift2 (fst (strip_subsets L))
       }
     }
     {
+      econstructor; eauto.
+    }
+    {
       (* Case Abs *)
       econstructor; simplify; eauto.
       eapply IHtyping with (x := S x).
+    }
+    {
+      econstructor; eauto.
     }
     {
       (* Case AbsT *)
@@ -17536,6 +17655,9 @@ lift2 (fst (strip_subsets L))
       specialize (IHtyping x (map shift0_t_t ls)).
       rewrite map_length in *.
       eauto.
+    }
+    {
+      econstructor; eauto.
     }
     {
       (* Case AbsI *)
@@ -17558,6 +17680,15 @@ lift2 (fst (strip_subsets L))
       econstructor; simplify; eauto.
     }
     {
+      econstructor; eauto.
+    }
+    {
+      econstructor; eauto.
+    }
+    {
+      econstructor; eauto.
+    }
+    {
       (* Case Unpack *)
       econstructor; simplify; eauto.
       repeat rewrite map_app.
@@ -17566,6 +17697,9 @@ lift2 (fst (strip_subsets L))
       specialize (IHtyping2 (S x) (map shift0_t_t ls)); simplify.
       rewrite map_length in *.
       eauto.
+    }
+    {
+      econstructor; eauto.
     }
     {
       (* Case UnpackI *)
@@ -17578,6 +17712,18 @@ lift2 (fst (strip_subsets L))
       eauto.
     }
     {
+      econstructor; eauto.
+    }
+    {
+      econstructor; eauto.
+    }
+    {
+      econstructor; eauto.
+    }
+    {
+      econstructor; eauto.
+    }
+    {
       (* Case Case *)
       econstructor; simplify; eauto.
       {
@@ -17586,6 +17732,30 @@ lift2 (fst (strip_subsets L))
       {
         eapply IHtyping3 with (x := S x).
       }
+    }
+    {
+      econstructor; eauto.
+    }
+    {
+      econstructor; eauto.
+    }
+    {
+      econstructor; eauto.
+    }
+    {
+      econstructor; eauto.
+    }
+    {
+      econstructor; eauto.
+    }
+    {
+      econstructor; eauto.
+    }
+    {
+      econstructor; eauto.
+    }
+    {
+      eapply TyLe; eauto.
     }
   Qed.
   
@@ -17691,10 +17861,11 @@ lift2 (fst (strip_subsets L))
     induct 1;
       try rename n into n';
       try rename L into L';
+      try rename K into K';
       intros n t'' e2' Hnth Hty HC;
       destruct C as (((L & K) & W) & G);
-      simplify;
-      try solve [econstructor; eauto].
+      simpl in *.
+      (* try solve [econstructor; eauto]. *)
     {
       (* Case Var *)
       cases (x <=>? n).
@@ -17714,11 +17885,17 @@ lift2 (fst (strip_subsets L))
       }
     }
     {
+      econstructor; eauto.
+    }
+    {
       (* Case Abs *)
       econstructor; simplify; eauto.
       eapply IHtyping with (n := 1 + n); simpl; eauto using wellscoped_ctx_add_typing, kinding_wellscoped_t.
       simplify.
       eapply typing_shift0_e_e; eauto.
+    }
+    {
+      econstructor; eauto.
     }
     {
       (* Case EAbsT *)
@@ -17734,6 +17911,9 @@ lift2 (fst (strip_subsets L))
       }
       rewrite <- map_removen.
       eapply typing_shift0_t_e; eauto.
+    }
+    {
+      econstructor; eauto.
     }
     {
       (* Case EAbsI *)
@@ -17794,6 +17974,15 @@ lift2 (fst (strip_subsets L))
         Qed.
         
     {
+      econstructor; eauto.
+    }
+    {
+      econstructor; eauto.
+    }
+    {
+      econstructor; eauto.
+    }
+    {
       (* Case Unpack *)
       eapply TyUnpack; eauto.
       simplify.
@@ -17819,6 +18008,9 @@ lift2 (fst (strip_subsets L))
       }
     }
     {
+      econstructor; eauto.
+    }
+    {
       (* Case UnpackI *)
       eapply TyUnpackI; eauto.
       simplify.
@@ -17842,6 +18034,18 @@ lift2 (fst (strip_subsets L))
       }
     }
     {
+      econstructor; eauto.
+    }
+    {
+      econstructor; eauto.
+    }
+    {
+      econstructor; eauto.
+    }
+    {
+      econstructor; eauto.
+    }
+    {
       (* Case Case *)
       eapply typing_wellscoped_t_2 in H; simpl; eauto.
       destruct H as [Ht ?].
@@ -17857,6 +18061,30 @@ lift2 (fst (strip_subsets L))
         simplify.
         eapply typing_shift0_e_e; eauto.
       }
+    }
+    {
+      econstructor; eauto.
+    }
+    {
+      econstructor; eauto.
+    }
+    {
+      econstructor; eauto.
+    }
+    {
+      econstructor; eauto.
+    }
+    {
+      econstructor; eauto.
+    }
+    {
+      econstructor; eauto.
+    }
+    {
+      econstructor; eauto.
+    }
+    {
+      eapply TyLe; eauto.
     }
   Qed.
   
@@ -17898,9 +18126,10 @@ lift2 (fst (strip_subsets L))
     induct 1;
       intros W' Hincl;
       try rename L into L';
+      try rename K into K';
       destruct C as (((L & K) & W) & G);
-      simplify;
-      try solve [econstructor; simplify; eauto using incl_fmap_map].
+      simpl in *;
+      try solve [econstructor; simpl; eauto using incl_fmap_map].
   Qed.
     
   Lemma weaken_W L K W G e t i W' :
@@ -18063,66 +18292,7 @@ lift2 (fst (strip_subsets L))
     }
   Qed.
 
-  Lemma const_type_TQuan_false cn q k t :
-    tyeq [] (const_type cn) (TQuan q k t) KType ->
-    False.
-  Proof.
-    intros H.
-    unfold tyeq in *.
-    simpl in *.
-    repeat rewrite convert_kind_value_refl_eq in *.
-    specialize (H I).
-    destruct cn; simpl in *;
-      invert H.
-  Qed.
-
-  Lemma TApps_TRec_const_type_false_2 cs k3 t3 cn :
-    tyeq [] (TApps (TRec k3 t3) cs) (const_type cn) KType ->
-    k3 <> map fst cs /\ cn = ECTT.
-  Proof.
-    intro H.
-    cases cn; simplify.
-    {
-      eapply tyeq_TApps_TRec_TConst_false_2 in H; openhyp; try dis; eauto.
-    }
-    {
-      eapply tyeq_TApps_TRec_TConst_false_2 in H; openhyp; try dis; eauto.
-    }
-    {
-      eapply tyeq_TApps_TRec_TNat_false_2 in H; propositional.
-    }
-  Qed.
-
-  Lemma const_type_TArr_false cn t i :
-    tyeq [] (const_type cn) (TArr t i) KType ->
-    False.
-  Proof.
-    intros H.
-    unfold tyeq in *.
-    simpl in *.
-    repeat rewrite convert_kind_value_refl_eq in *.
-    specialize (H I).
-    destruct cn; simpl in *;
-      invert H.
-  Qed.
-
-  Lemma const_type_TNat_false cn i :
-    tyeq [] (const_type cn) (TNat i) KType ->
-    cn = ECNat (interp_idx i [] BSNat).
-  Proof.
-    intros H.
-    unfold tyeq in *.
-    simpl in *.
-    repeat rewrite convert_kind_value_refl_eq in *.
-    specialize (H I).
-    destruct cn; simpl in *;
-      invert H.
-    repeat rewrite convert_bsort_value_refl_eq in *.
-    subst.
-    eauto.
-  Qed.
-
-  (*to*)
+  (*here*)
   
   Ltac tyeq_false_half H :=
       eapply TQuan_TArrow_false_empty in H ||
