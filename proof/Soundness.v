@@ -12180,85 +12180,70 @@ lift2 (fst (strip_subsets L))
     eauto.
   Qed.
 
-  (*here*)
-  
-  Lemma tyeq_subst_i_t L t t' k x v s :
-    tyeq L t t' k ->
-    nth_error L x = Some s ->
-    sorting (my_skipn L (1 + x)) v s ->
-    let bs := map get_bsort L in
-    bkinding bs t k ->
-    bkinding bs t' k ->
-    wfsorts L ->
-    tyeq (subst_i_ss v (firstn x L) ++ my_skipn L (1 + x)) (subst_i_t x (shift_i_i x 0 v) t) (subst_i_t x (shift_i_i x 0 v) t') k.
-  Lemma cong_subst_i_t :
-    forall L body body',
-      cong L body body' ->
-      forall x s v v' k_b k_b' K K',
-        nth_error L x = Some s ->
-        idxeq (my_skipn L (1 + x)) v v' (get_bsort s) ->
-        sorting (my_skipn L (1 + x)) v s ->
-        sorting (my_skipn L (1 + x)) v' s ->
-        bkinding (map get_bsort L) K body k_b ->
-        bkinding (map get_bsort L) K' body' k_b' ->
-        wfsorts L ->
-        cong (subst_i_ss v (firstn x L) ++ my_skipn L (1 + x)) (subst_i_t x (shift_i_i x 0 v) body) (subst_i_t x (shift_i_i x 0 v') body').
+  Lemma tyeq_subst_i_t L K t t' k :
+    tyeq L K t t' k ->
+    forall x s v k1 k2, 
+      nth_error L x = Some s ->
+      sorting (my_skipn L (1 + x)) v s ->
+      let bs := map get_bsort L in
+      bkinding bs K t k1 ->
+      bkinding bs K t' k2 ->
+      wfsorts L ->
+      tyeq (subst_i_ss v (firstn x L) ++ my_skipn L (1 + x)) K (subst_i_t x (shift_i_i x 0 v) t) (subst_i_t x (shift_i_i x 0 v) t') k.
   Proof.
+    simpl.
     induct 1;
-      simpl; try rename x into y; try rename s into s'; try rename s into s''; intros x s v v' k_b k_b' K K' Hx Hvv' Hv Hv' Hb Hb' HL; try solve [invert Hb; invert Hb'; econstructor; eauto using subst_i_i_eqv_eqv, subst_i_s_eqv_eqv].
+      simpl; try rename x into y; try rename s into s'; try rename s into s''; try rename k1 into k1'; try rename k2 into k2'; intros x s v k1 k2 Hx Hv Hb Hb' HL; try invert1 Hb; try invert1 Hb'; try solve [econstructor; eauto using subst_i_i_eqv_eqv with db_idxeq db_sorteq].
     {
       (* Case TAbs *)
-      invert Hb; invert Hb'.
       repeat rewrite shift0_i_i_shift_0.
       econstructor; eauto.
-      eapply IHcong with (x := S x); eauto.
+      eapply IHtyeq with (x := S x); eauto.
     }
     {
       (* Case TQuanI *)
-      invert Hb; invert Hb'.
       repeat rewrite shift0_i_i_shift_0.
       econstructor; eauto.
       {
-        eapply subst_i_s_eqv_eqv; eauto.
+        eapply subst_i_s_eqv_eqv; eauto with db_idxeq.
       }
-      specialize (IHcong (S x) s v v').
+      specialize (IHtyeq (S x) s v).
       simpl in *.
       copy Hx Hcmp.
       eapply nth_error_Some_lt in Hcmp.
       rewrite length_firstn_le in * by la.
-      eapply IHcong; eauto.
+      eapply IHtyeq; eauto.
       invert H; simpl in *; eauto.
     }
+    {
+      eapply TyEqBeta'.
+      repeat rewrite shift0_i_i_shift_0.
+      unfold subst0_i_t, shift0_i_t.
+      rewrite subst_i_t_subst by la.
+      repeat rewrite shift0_i_i_shift_0.
+      eauto.
+    }
+    {
+      eapply TyEqBetaT'.
+      unfold subst0_t_t, shift0_t_t.
+      rewrite subst_i_t_subst_t_t.
+      eauto.
+    }
+    {
+      eapply TyEqTrans; [eapply IHtyeq1 | eapply IHtyeq2 |];
+      eauto using bkinding_wellscoped_t', bkinding_shift_i_t with db_la.
+      rewrite get_bsort_subst_i_ss_remove.
+      eapply bkinding_subst_i_t; eauto with db_la.
+      {
+        erewrite map_nth_error; eauto.
+      }
+      {
+        eapply sorting_bsorting''; eauto.
+        rewrite <- map_my_skipn.
+        eauto.
+      }
+    }
   Qed.
-
-  Proof.
-    simpl.
-    intros H Hx Hv Ht Ht' HL.
-    rewrite tyeq_tyeq' in *.
-    unfold tyeq' in *.
-    rewrite get_bsort_remove_subst.
-    copy Hx Hnth'.
-    eapply map_nth_error with (f := get_bsort) in Hnth'.
-    copy Hv Hv'.
-    eapply sorting_bsorting in Hv'.
-    rewrite map_my_skipn in Hv'.
-    eapply forall_subst_i_p_intro_imply_2 in H; eauto.
-    {
-      eapply forall_trans; [eapply subst_strip_subsets_imply | ]; eauto.
-      eapply forall_trans; [eassumption | ].
-      rewrite subst_lift2.
-      rewrite fuse_lift2_lift2_1.
-      rewrite fuse_lift3_lift2_3.
-      erewrite swap_lift4_1_3.
-      erewrite swap_lift4_2_4.
-      set (bs := map get_bsort L) in *.
-      eapply forall_lift2_lift2_lift4; [ | eapply forall_subst_i_t_iff_subst | eapply forall_subst_i_t_iff_subst ]; subst bs; try rewrite skipn_my_skipn; eauto.
-      eauto using gtyveq_trans, gtyveq_sym.
-    }
-    {
-      eapply wfsorts_wfprop_strip_subsets; eauto.
-    }
-  Qed.    
 
   Lemma kinding_shift_t_t :
     forall L K c k,
@@ -12292,6 +12277,11 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case TRec *)
+      econstructor; eauto.
+      eapply IHkinding with (x := S x); eauto with db_la.
+    }
+    {
+      (* Case TAbsT *)
       econstructor; eauto.
       eapply IHkinding with (x := S x); eauto with db_la.
     }
@@ -12442,6 +12432,14 @@ lift2 (fst (strip_subsets L))
       rewrite plus_comm.
       eapply IHkinding with (x := S x); eauto with db_la.
     }
+    {
+      (* Case TAbsT *)
+      unfold shift0_t_t.
+      rewrite shift_t_t_shift_merge by la.
+      econstructor; eauto with db_la.
+      rewrite plus_comm.
+      eapply IHkinding with (x := S x); eauto with db_la.
+    }
   Qed.
   
   Lemma kinding_subst_t_t_0 L K body k_b k_v v :
@@ -12523,6 +12521,8 @@ lift2 (fst (strip_subsets L))
     eauto.
   Qed.
 
+  (*here*)
+  
   Lemma kinding_TApps L K :
     forall cs t,
       kinding L K t (map fst cs)->
