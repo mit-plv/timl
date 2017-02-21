@@ -1,0 +1,25 @@
+(* An example raised by a PLDI 2017 reviewer *)
+
+structure PLDI2017ReviewExample = struct
+
+open List
+
+fun append ['a] {n m : Nat} (l1 : list 'a {n}) (l2 : list 'a {m}) return list 'a {n + m} using $(2 * n) =
+    case l1 of
+        [] => l2
+      | x::xs => x::(append xs l2)
+
+fun map ['a 'b] {m : Time} {n : Nat} (f : 'a -- m --> 'b) (l : list 'a {n}) return list 'b {n} using (m + 3.0) * $n =
+    case l of
+        [] => []
+      | x::xs =>
+        let
+          val ys = map f xs
+        in
+          (f x)::ys
+        end
+
+fun foo ['a] {n m s : Nat} (xs : list 'a {n}) (xxs : list (list 'a {s}) {m}) return using $((2 * n + 3) * m + 3) =
+    map (append xs) xxs
+
+end        
