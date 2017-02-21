@@ -9167,7 +9167,6 @@ lift2 (fst (strip_subsets L))
       bkinding L K c k ->
       forall x ls,
         let n := length ls in
-        x <= length K ->
         bkinding L (insert ls x K) (shift_t_t n x c) k.
   Proof.
     induct 1; unfold_all;
@@ -9208,7 +9207,6 @@ lift2 (fst (strip_subsets L))
     forall L K c k x ls n,
       bkinding L K c k ->
       n = length ls ->
-      x <= length K ->
       bkinding L (insert ls x K) (shift_t_t n x c) k.
   Proof.
     intros; subst; eapply bkinding_shift_t_t; eauto.
@@ -10118,64 +10116,64 @@ lift2 (fst (strip_subsets L))
     eauto using trc_trans.
   Qed.
 
-  Inductive tyeq : sctx -> ty -> ty -> Prop :=
+  Inductive tyeq : sctx -> kctx -> ty -> ty -> kind -> Prop :=
     (* congruence rules *)
-  | TyEqBinOp L opr t1 t2 t1' t2' :
-      tyeq L t1 t1' ->
-      tyeq L t2 t2' ->
-      tyeq L (TBinOp opr t1 t2) (TBinOp opr t1' t2')
-  | TyEqArrow L t1 i t2 t1' i' t2':
-      tyeq L t1 t1' ->
+  | TyEqBinOp L K opr t1 t2 t1' t2' :
+      tyeq L K t1 t1' KType ->
+      tyeq L K t2 t2' KType ->
+      tyeq L K (TBinOp opr t1 t2) (TBinOp opr t1' t2') KType
+  | TyEqArrow L K t1 i t2 t1' i' t2':
+      tyeq L K t1 t1' KType ->
       idxeq L i i' BSTime ->
-      tyeq L t2 t2' ->
-      tyeq L (TArrow t1 i t2) (TArrow t1' i' t2')
-  | TyEqAbs L b t t' :
-      tyeq (SBaseSort b :: L) t t' ->
-      tyeq L (TAbs b t) (TAbs b t')
-  | TyEqApp L t b i t' i' :
-      tyeq L t t' ->
+      tyeq L K t2 t2' KType ->
+      tyeq L K (TArrow t1 i t2) (TArrow t1' i' t2') KType
+  | TyEqAbs L K b t t' k :
+      tyeq (SBaseSort b :: L) K t t' k ->
+      tyeq L K (TAbs b t) (TAbs b t') (KArrow b k)
+  | TyEqApp L K t b i t' i' k :
+      tyeq L K t t' (KArrow b k) ->
       idxeq L i i' b ->
-      tyeq L (TApp t b i) (TApp t' b i')
-  | TyEqQuan L quan k t t' :
-      tyeq L t t' ->
-      tyeq L (TQuan quan k t) (TQuan quan k t')
-  | TyEqQuanI L quan s t s' t' :
+      tyeq L K (TApp t b i) (TApp t' b i') k
+  | TyEqQuan L K quan k t t' :
+      tyeq L (k :: K) t t' KType ->
+      tyeq L K (TQuan quan k t) (TQuan quan k t') KType
+  | TyEqQuanI L K quan s t s' t' :
       sorteq L s s' ->
-      tyeq (s :: L) t t' ->
-      tyeq L (TQuanI quan s t) (TQuanI quan s' t')
-  | TyEqRec L k c c' :
-      tyeq L c c' ->
-      tyeq L (TRec k c) (TRec k c')
-  | TyEqNat L i i' :
+      tyeq (s :: L) K t t' KType ->
+      tyeq L K (TQuanI quan s t) (TQuanI quan s' t') KType
+  | TyEqRec L K k c c' :
+      tyeq L (k :: K) c c' k ->
+      tyeq L K (TRec k c) (TRec k c') k
+  | TyEqNat L K i i' :
       idxeq L i i' BSNat ->
-      tyeq L (TNat i) (TNat i')
-  | TyEqArr L t i t' i' :
-      tyeq L t t' ->
+      tyeq L K (TNat i) (TNat i') KType
+  | TyEqArr L K t i t' i' :
+      tyeq L K t t' KType ->
       idxeq L i i' BSNat ->
-      tyeq L (TArr t i) (TArr t' i')
-  | TyEqAbsT L k t t' :
-      tyeq L t t' ->
-      tyeq L (TAbsT k t) (TAbsT k t')
-  | TyEqAppT L t1 t2 t1' t2' :
-      tyeq L t1 t1' ->
-      tyeq L t2 t2' ->
-      tyeq L (TAppT t1 t2) (TAppT t1' t2')
+      tyeq L K (TArr t i) (TArr t' i') KType
+  | TyEqAbsT L K k t t' k2 :
+      tyeq L (k :: K) t t' k2 ->
+      tyeq L K (TAbsT k t) (TAbsT k t') (KArrowT k k2)
+  | TyEqAppT L K t1 t2 t1' t2' k1 k2 :
+      tyeq L K t1 t1' (KArrowT k1 k2) ->
+      tyeq L K t2 t2' k1 ->
+      tyeq L K (TAppT t1 t2) (TAppT t1' t2') k2
   (* reduction rules *)
-  | TyEqBeta L s t b i :
-      tyeq L (TApp (TAbs s t) b i) (subst0_i_t i t)
-  | TyEqBetaT L k t1 t2 :
-      tyeq L (TAppT (TAbsT k t1) t2) (subst0_t_t t2 t1)
+  | TyEqBeta L K s t b i k :
+      tyeq L K (TApp (TAbs s t) b i) (subst0_i_t i t) k
+  | TyEqBetaT L K k t1 t2 k2 :
+      tyeq L K (TAppT (TAbsT k t1) t2) (subst0_t_t t2 t1) k2
   (* structural rules *)
-  | TyEqRefl L t :
-      tyeq L t t
-  | TyEqSym L a b :
-      tyeq L a b ->
-      tyeq L b a
-  | TyEqTrans L a b c K k :
-      tyeq L a b ->
-      tyeq L b c ->
+  | TyEqRefl L K t k :
+      tyeq L K t t k
+  | TyEqSym L K a b k :
+      tyeq L K a b k ->
+      tyeq L K b a k
+  | TyEqTrans L K a b c k :
+      tyeq L K a b k ->
+      tyeq L K b c k ->
       bkinding (map get_bsort L) K b k ->
-      tyeq L a c
+      tyeq L K a c k
   .
 
   Hint Constructors tyeq.
@@ -10348,22 +10346,53 @@ lift2 (fst (strip_subsets L))
     induct 1; simpl; eauto.
   Qed.
   
-  Lemma tyeq_par L a a' :
-    tyeq L a a' ->
+  Lemma pars_TAbsT b t1 t1':
+    par^* t1 t1' ->
+    par^* (TAbsT b t1) (TAbsT b t1').
+  Proof.
+    induct 1; simpl; eauto.
+  Qed.
+  
+  Lemma pars_TAppT_1 t1 t1' :
+    par^* t1 t1' ->
+    forall t2,
+      par^* (TAppT t1 t2) (TAppT t1' t2).
+  Proof.
+    induct 1; simpl; eauto.
+  Qed.
+  
+  Lemma pars_TAppT_2 t2 t2' :
+    par^* t2 t2' ->
+    forall t1,
+      par^* (TAppT t1 t2) (TAppT t1 t2').
+  Proof.
+    induct 1; simpl; eauto.
+  Qed.
+  
+  Lemma pars_TAppT t1 t1' t2 t2' :
+    par^* t1 t1' ->
+    par^* t2 t2' ->
+    par^* (TAppT t1 t2) (TAppT t1' t2').
+  Proof.
+    intros; eauto using trc_trans, pars_TAppT_1, pars_TAppT_2.
+  Qed.
+  
+  Lemma tyeq_par L K2 a a' k2 :
+    tyeq L K2 a a' k2 ->
     forall K K' k k',
       let bs := map get_bsort L in
       bkinding bs K a k ->
       bkinding bs K' a' k' ->
       wfsorts L ->
-    exists b b',
-      par^* a b /\
-      par^* a' b' /\
-      cong L b b' /\
-      bkinding bs K b k /\
-      bkinding bs K' b' k'.
+      exists b b',
+        par^* a b /\
+        par^* a' b' /\
+        cong L b b' /\
+        bkinding bs K b k /\
+        bkinding bs K' b' k'.
   Proof.
     simpl.
-    induct 1; simpl; try rename k into k''; try rename K into K''; intros K K' k k' Ha Hb HL; try invert1 Ha; try invert1 Hb; try invert1 HL.
+    induct 1; simpl; try rename K into K''; try rename k into k''; intros K K' k k' Ha Hb HL; try invert1 Ha; try invert1 Hb; try invert1 HL.
     {
       edestruct IHtyeq1 as (r1 & r1' & Ht1r1 & Ht1'r1' & Hr1r1' & Hr1 & Hr1'); eauto.
       edestruct IHtyeq2 as (r2 & r2' & Ht2r2 & Ht2'r2' & Hr2r2' & Hr2 & Hr2'); eauto.
@@ -10426,43 +10455,12 @@ lift2 (fst (strip_subsets L))
       repeat eexists_split;
       eauto using pars_TArr.
     }
-  Lemma pars_TAbsT b t1 t1':
-    par^* t1 t1' ->
-    par^* (TAbsT b t1) (TAbsT b t1').
-  Proof.
-    induct 1; simpl; eauto.
-  Qed.
-  
     {
       edestruct IHtyeq as (r1 & r1' & Ht1r1 & Ht1'r1' & Hr1r1' & Hr1 & Hr1'); eauto.
       exists (TAbsT k'' r1), (TAbsT k'' r1').
       repeat eexists_split;
       eauto using pars_TAbsT.
     }
-  Lemma pars_TAppT_1 t1 t1' :
-    par^* t1 t1' ->
-    forall t2,
-      par^* (TAppT t1 t2) (TAppT t1' t2).
-  Proof.
-    induct 1; simpl; eauto.
-  Qed.
-  
-  Lemma pars_TAppT_2 t2 t2' :
-    par^* t2 t2' ->
-    forall t1,
-      par^* (TAppT t1 t2) (TAppT t1 t2').
-  Proof.
-    induct 1; simpl; eauto.
-  Qed.
-  
-  Lemma pars_TAppT t1 t1' t2 t2' :
-    par^* t1 t1' ->
-    par^* t2 t2' ->
-    par^* (TAppT t1 t2) (TAppT t1' t2').
-  Proof.
-    intros; eauto using trc_trans, pars_TAppT_1, pars_TAppT_2.
-  Qed.
-  
     {
       edestruct IHtyeq1 as (r1 & r1' & Ht1r1 & Ht1'r1' & Hr1r1' & Hr1 & Hr1'); eauto.
       edestruct IHtyeq2 as (r2 & r2' & Ht2r2 & Ht2'r2' & Hr2r2' & Hr2 & Hr2'); eauto.
@@ -10519,7 +10517,7 @@ lift2 (fst (strip_subsets L))
     forall L K1 k1,
       let bs := map get_bsort L in
       bkinding bs K1 a k1 ->
-      tyeq L a b.
+      tyeq L K1 a b k1.
   Proof.
     simpl.
     induct 1; simpl; intros L K1 k1 Ha; try invert1 Ha; eauto with db_idxeq db_sorteq.
@@ -10538,7 +10536,7 @@ lift2 (fst (strip_subsets L))
     forall L K1 k1,
       let bs := map get_bsort L in
       bkinding bs K1 a k1 ->
-      tyeq L a b.
+      tyeq L K1 a b k1.
   Proof.
     simpl.
     induct 1; simpl; intros L K1 k1 Ha; try invert1 Ha; eauto using par_tyeq.
@@ -10576,20 +10574,22 @@ lift2 (fst (strip_subsets L))
 
   Lemma cong_tyeq L t t' :
     cong L t t' ->
-    tyeq L t t'.
+    forall K k,
+      bkinding (map get_bsort L) K t k ->
+      tyeq L K t t' k.
   Proof.
-    induct 1; simpl; eauto.
+    induct 1; simpl; try rename k into k'; intros K k Ht; try invert1 Ht; eauto.
   Qed.
 
-  Lemma invert_tyeq_TArrow L t1 i t2 t1' i' t2' K1 K2 k1 k2 :
-    tyeq L (TArrow t1 i t2) (TArrow t1' i' t2') ->
+  Lemma invert_tyeq_TArrow L t1 i t2 t1' i' t2' K k0 k1 k2 :
+    tyeq L K (TArrow t1 i t2) (TArrow t1' i' t2') k0 ->
     let bs := map get_bsort L in
-    bkinding bs K1 (TArrow t1 i t2) k1 ->
-    bkinding bs K2 (TArrow t1' i' t2') k2 ->
+    bkinding bs K (TArrow t1 i t2) k1 ->
+    bkinding bs K (TArrow t1' i' t2') k2 ->
     wfsorts L ->
-    tyeq L t1 t1'/\
+    tyeq L K t1 t1' k1 /\
     interp_prop L (TEq i i') /\
-    tyeq L t2 t2'.
+    tyeq L K t2 t2' k2.
   Proof.
     simpl.
     intros H H1 H2 HL.
@@ -10598,11 +10598,9 @@ lift2 (fst (strip_subsets L))
     eapply tyeq_par in H; eauto.
     edestruct H as (r1 & r1' & Ht1r1 & Ht1'r1' & Hr1r1' & Hr1 & Hr1'); eauto.
     eapply pars_preserves_TArrow in Ht1r1.
-    openhyp.
-    subst.
+    openhyp; subst.
     eapply pars_preserves_TArrow in Ht1'r1'.
-    openhyp.
-    subst.
+    openhyp; subst.
     invert Hr1r1'.
     repeat try_split; eauto.
     {
@@ -10612,11 +10610,11 @@ lift2 (fst (strip_subsets L))
       }
       eapply TyEqTrans.
       {
-        eapply cong_tyeq; eauto.
+        eapply cong_tyeq; eauto using pars_preserves_bkinding.
       }
       {
         eapply TyEqSym.
-        eapply pars_tyeq; eauto.
+        eapply pars_tyeq; eauto using pars_preserves_bkinding.
       }
       {
         eapply pars_preserves_bkinding; eauto.
@@ -10632,11 +10630,11 @@ lift2 (fst (strip_subsets L))
       }
       eapply TyEqTrans.
       {
-        eapply cong_tyeq; eauto.
+        eapply cong_tyeq; eauto using pars_preserves_bkinding.
       }
       {
         eapply TyEqSym.
-        eapply pars_tyeq; eauto.
+        eapply pars_tyeq; eauto using pars_preserves_bkinding.
       }
       {
         eapply pars_preserves_bkinding; eauto.
@@ -10672,11 +10670,11 @@ lift2 (fst (strip_subsets L))
     repeat eexists_split; eauto.
   Qed.
 
-  Lemma invert_tyeq_TQuan_TArrow L q k t t1 i t2 K1 K2 k1 k2 :
-    tyeq L (TQuan q k t) (TArrow t1 i t2) ->
+  Lemma invert_tyeq_TQuan_TArrow L q k t t1 i t2 K k0 k1 k2 :
+    tyeq L K (TQuan q k t) (TArrow t1 i t2) k0 ->
     let bs := map get_bsort L in
-    bkinding bs K1 (TQuan q k t) k1 ->
-    bkinding bs K2 (TArrow t1 i t2) k2 ->
+    bkinding bs K (TQuan q k t) k1 ->
+    bkinding bs K (TArrow t1 i t2) k2 ->
     wfsorts L ->
     False.
   Proof.
@@ -10833,16 +10831,17 @@ lift2 (fst (strip_subsets L))
     eauto.
   Qed.
 
-  Lemma invert_tyeq_TApps_TRec L k t args k' t' args' K K' k1 k1':
+  Lemma invert_tyeq_TApps_TRec L k t args k' t' args' K k0 :
     let t1 := TApps (TRec k t) args in
     let t1' := TApps (TRec k' t') args' in
-    tyeq L t1 t1' ->
+    tyeq L K t1 t1' k0 ->
     let bs := map get_bsort L in
-    bkinding bs K t1 k1 ->
-    bkinding bs K' t1' k1' ->
+    bkinding bs K t1 k0 ->
+    bkinding bs K t1' k0 ->
     wfsorts L ->
     k = k' /\
-    tyeq L t t' /\
+    let k0' := KArrows (map fst args) k0 in
+    tyeq L (k0' :: K) t t' k0' /\
     Forall2 (fun p p' => fst p = fst p' /\ idxeq L (snd p) (snd p') (fst p)) args args'.
   Proof.
     simpl.
@@ -10869,11 +10868,11 @@ lift2 (fst (strip_subsets L))
       }
       eapply TyEqTrans.
       {
-        eapply cong_tyeq; eauto.
+        eapply cong_tyeq; eauto using pars_preserves_bkinding.
       }
       {
         eapply TyEqSym.
-        eapply pars_tyeq; eauto.
+        eapply pars_tyeq; eauto using pars_preserves_bkinding.
       }
       {
         eapply pars_preserves_bkinding; eauto.
@@ -10907,13 +10906,13 @@ lift2 (fst (strip_subsets L))
   Qed.
  *)
   
-  Lemma invert_tyeq_TApps_TRec_TArrow L args k3 t3 t1 i t2 K K' k k' :
+  Lemma invert_tyeq_TApps_TRec_TArrow L args k3 t3 t1 i t2 K k0 k k' :
     let t := TApps (TRec k3 t3) args in
     let t' := TArrow t1 i t2 in
-    tyeq L t t' ->
+    tyeq L K t t' k0 ->
     let bs := map get_bsort L in
     bkinding bs K t k ->
-    bkinding bs K' t' k' ->
+    bkinding bs K t' k' ->
     wfsorts L ->
     False.
   Proof.
@@ -10933,6 +10932,122 @@ lift2 (fst (strip_subsets L))
     destruct (TApps_TRec_dec args k' x) as [ [ [? ?] [Heq ?] ] | [Heq ?]]; subst; simpl in * ; try rewrite Heq in *; invert Hr1r1'.
   Qed.
 
+  Lemma TyEqBeta' L K s t b i t' k :
+    t' = subst0_i_t i t ->
+    tyeq L K (TApp (TAbs s t) b i) t' k.
+  Proof.
+    intros; subst; eauto.
+  Qed.
+  
+  Lemma TyEqBetaT' L K k t1 t2 t' k2 :
+    t' = subst0_t_t t2 t1 ->
+    tyeq L K (TAppT (TAbsT k t1) t2) t' k2.
+  Proof.
+    intros; subst; eauto.
+  Qed.
+  
+  Lemma tyeq_shift_t_t L K t t' k :
+    tyeq L K t t' k ->
+    forall ls x,
+      let n := length ls in
+      tyeq L (insert ls x K) (shift_t_t n x t) (shift_t_t n x t') k.
+  Proof.
+    simpl.
+    induct 1; simpl; try rename x into y; intros ls x; try solve [econstructor; eauto using bkinding_shift_t_t].
+    {
+      econstructor.
+      eapply IHtyeq with (x := S x).
+    }
+    {
+      econstructor.
+      eapply IHtyeq with (x := S x).
+    }
+    {
+      econstructor.
+      eapply IHtyeq with (x := S x).
+    }
+    {
+      eapply TyEqBeta'.
+      unfold subst0_i_t.
+      rewrite shift_t_t_subst_i_t.
+      eauto.
+    }
+    {
+      eapply TyEqBetaT'.
+      unfold subst0_t_t.
+      rewrite shift_t_t_subst_out by la.
+      eauto.
+    }
+  Qed.
+  
+  Lemma tyeq_subst_t_t L K t t' k_b :
+    tyeq L K t t' k_b ->
+    forall x k_v v,
+      nth_error K x = Some k_v ->
+      bkinding (map get_bsort L) (my_skipn K (1 + x)) v k_v ->
+      (* kinding L K t k -> *)
+      (* kinding L K t' k -> *)
+      tyeq L (removen x K) (subst_t_t x (shift_t_t x 0 v) t) (subst_t_t x (shift_t_t x 0 v) t') k_b.
+  Proof.
+    induct 1;
+      simpl; try rename x into y; intros x k_v v Hx Hv; subst; eauto using bkinding_subst_t_t.
+    {
+      (* Case TAbs *)
+      econstructor; eauto with db_la.
+      unfold shift0_i_t.
+      rewrite shift_i_t_shift_t_t.
+      eapply IHtyeq; eauto with db_la.
+      eapply bkinding_shift_i_t_1_0; eauto.
+    }
+    {
+      (* Case TQuan *)
+      unfold shift0_t_t.
+      rewrite shift_t_t_shift_merge by la.
+      econstructor; eauto with db_la.
+      rewrite plus_comm.
+      eapply IHtyeq with (x := S x); eauto with db_la.
+    }
+    {
+      (* Case TQuanI *)
+      econstructor; eauto with db_la.
+      unfold shift0_i_t.
+      rewrite shift_i_t_shift_t_t.
+      eapply IHtyeq; eauto using wfsort_wellscoped_s' with db_la.
+      eapply bkinding_shift_i_t_1_0; eauto.
+    }
+    {
+      (* Case TRec *)
+      unfold shift0_t_t.
+      rewrite shift_t_t_shift_merge by la.
+      econstructor; eauto with db_la.
+      rewrite plus_comm.
+      eapply IHtyeq with (x := S x); eauto with db_la.
+    }
+    {
+      (* Case TAbsT *)
+      unfold shift0_t_t.
+      rewrite shift_t_t_shift_merge by la.
+      econstructor; eauto with db_la.
+      rewrite plus_comm.
+      eapply IHtyeq with (x := S x); eauto with db_la.
+    }
+    {
+      eapply TyEqBeta'.
+      unfold subst0_i_t, shift0_i_t.
+      rewrite subst_i_t_subst_t_t.
+      rewrite subst_i_t_shift_avoid by la.
+      simpl.
+      rewrite shift_i_t_0.
+      eauto.
+    }
+    {
+      eapply TyEqBetaT'.
+      unfold subst0_t_t, shift0_t_t.
+      rewrite subst_t_t_subst by la.
+      eauto.
+    }
+  Qed.
+  
   Lemma par_preserves_TBinOp opr t1 t2 t' :
     par (TBinOp opr t1 t2) t' ->
     exists t1' t2',
@@ -10960,13 +11075,13 @@ lift2 (fst (strip_subsets L))
     repeat eexists_split; eauto.
   Qed.
 
-  Lemma invert_tyeq_TBinOp_TArrow L opr ta tb t1 i t2 K K' k k' :
+  Lemma invert_tyeq_TBinOp_TArrow L opr ta tb t1 i t2 K k0 k k' :
     let t := TBinOp opr ta tb in
     let t' := TArrow t1 i t2 in
-    tyeq L t t' ->
+    tyeq L K t t' k0 ->
     let bs := map get_bsort L in
     bkinding bs K t k ->
-    bkinding bs K' t' k' ->
+    bkinding bs K t' k' ->
     wfsorts L ->
     False.
   Proof.
@@ -11102,17 +11217,17 @@ lift2 (fst (strip_subsets L))
     eauto.
   Qed.
   
-  Lemma invert_tyeq_TQuan L q1 k1 t1 q2 k2 t2 K K' k k' :
+  Lemma invert_tyeq_TQuan L q1 k1 t1 q2 k2 t2 K k0 k k' :
     let t := TQuan q1 k1 t1 in
     let t' := TQuan q2 k2 t2 in
-    tyeq L t t' ->
+    tyeq L K t t' k0 ->
     let bs := map get_bsort L in
     bkinding bs K t k ->
-    bkinding bs K' t' k' ->
+    bkinding bs K t' k' ->
     wfsorts L ->
     q1 = q2 /\
     k1 = k2 /\
-    tyeq L t1 t2.
+    tyeq L (k2 :: K) t1 t2 k.
   Proof.
     simpl.
     intros H H1 H2 HL.
@@ -11133,11 +11248,11 @@ lift2 (fst (strip_subsets L))
       }
       eapply TyEqTrans.
       {
-        eapply cong_tyeq; eauto.
+        eapply cong_tyeq; eauto using pars_preserves_bkinding.
       }
       {
         eapply TyEqSym.
-        eapply pars_tyeq; eauto.
+        eapply pars_tyeq; eauto using pars_preserves_bkinding.
       }
       {
         eapply pars_preserves_bkinding; eauto.
@@ -11176,17 +11291,17 @@ lift2 (fst (strip_subsets L))
     eauto.
   Qed.
   
-  Lemma invert_tyeq_TBinOp L opr t1 t2 opr' t1' t2' K K' k k' :
+  Lemma invert_tyeq_TBinOp L opr t1 t2 opr' t1' t2' K k0 k k' :
     let t := TBinOp opr t1 t2 in
     let t' := TBinOp opr' t1' t2' in
-    tyeq L t t' ->
+    tyeq L K t t' k0 ->
     let bs := map get_bsort L in
     bkinding bs K t k ->
-    bkinding bs K' t' k' ->
+    bkinding bs K t' k' ->
     wfsorts L ->
     opr = opr' /\
-    tyeq L t1 t1' /\
-    tyeq L t2 t2'.
+    tyeq L K t1 t1' k /\
+    tyeq L K t2 t2' k'.
   Proof.
     simpl.
     intros H H1 H2 HL.
@@ -11207,11 +11322,11 @@ lift2 (fst (strip_subsets L))
       }
       eapply TyEqTrans.
       {
-        eapply cong_tyeq; eauto.
+        eapply cong_tyeq; eauto using pars_preserves_bkinding.
       }
       {
         eapply TyEqSym.
-        eapply pars_tyeq; eauto.
+        eapply pars_tyeq; eauto using pars_preserves_bkinding.
       }
       {
         eapply pars_preserves_bkinding; eauto.
@@ -11227,11 +11342,11 @@ lift2 (fst (strip_subsets L))
       }
       eapply TyEqTrans.
       {
-        eapply cong_tyeq; eauto.
+        eapply cong_tyeq; eauto using pars_preserves_bkinding.
       }
       {
         eapply TyEqSym.
-        eapply pars_tyeq; eauto.
+        eapply pars_tyeq; eauto using pars_preserves_bkinding.
       }
       {
         eapply pars_preserves_bkinding; eauto.
@@ -11313,13 +11428,13 @@ lift2 (fst (strip_subsets L))
     induct ls1; destruct ls2; simpl; intros Hf H1 H2; invert H1; invert H2; eauto.
   Qed.
 
-  Lemma invert_tyeq_TApps_TRec_TQuan L args k1 t1 q k2 t2 K K' k k' :
+  Lemma invert_tyeq_TApps_TRec_TQuan L args k1 t1 q k2 t2 K k0 k k' :
     let t := TApps (TRec k1 t1) args in
     let t' := TQuan q k2 t2 in
-    tyeq L t t' ->
+    tyeq L K t t' k0 ->
     let bs := map get_bsort L in
     bkinding bs K t k ->
-    bkinding bs K' t' k' ->
+    bkinding bs K t' k' ->
     wfsorts L ->
     False.
   Proof.
@@ -11339,13 +11454,13 @@ lift2 (fst (strip_subsets L))
     destruct (TApps_TRec_dec args k' x) as [ [ [? ?] [Heq ?] ] | [Heq ?]]; subst; simpl in * ; try rewrite Heq in *; invert Hr1r1'.
   Qed.
 
-  Lemma invert_tyeq_TApps_TRec_TBinOp L args k1 t1 opr t1' t2' K K' k k' :
+  Lemma invert_tyeq_TApps_TRec_TBinOp L args k1 t1 opr t1' t2' K k0 k k' :
     let t := TApps (TRec k1 t1) args in
     let t' := TBinOp opr t1' t2' in
-    tyeq L t t' ->
+    tyeq L K t t' k0 ->
     let bs := map get_bsort L in
     bkinding bs K t k ->
-    bkinding bs K' t' k' ->
+    bkinding bs K t' k' ->
     wfsorts L ->
     False.
   Proof.
@@ -11379,13 +11494,13 @@ lift2 (fst (strip_subsets L))
     induct 1; simpl; eauto using par_preserves_TConst.
   Qed.
 
-  Lemma invert_tyeq_TApps_TRec_TConst L args k1 t1 cn K K' k k' :
+  Lemma invert_tyeq_TApps_TRec_TConst L args k1 t1 cn K k0 k k' :
     let t := TApps (TRec k1 t1) args in
     let t' := TConst cn in
-    tyeq L t t' ->
+    tyeq L K t t' k0 ->
     let bs := map get_bsort L in
     bkinding bs K t k ->
-    bkinding bs K' t' k' ->
+    bkinding bs K t' k' ->
     wfsorts L ->
     False.
   Proof.
@@ -11565,15 +11680,15 @@ lift2 (fst (strip_subsets L))
     repeat eexists_split; eauto.
   Qed.
 
-  Lemma invert_tyeq_TArr L t1 i t1' i' K K' k k' :
+  Lemma invert_tyeq_TArr L t1 i t1' i' K k0 k k' :
     let t := TArr t1 i in
     let t' := TArr t1' i' in
-    tyeq L t t' ->
+    tyeq L K t t' k0 ->
     let bs := map get_bsort L in
     bkinding bs K t k ->
-    bkinding bs K' t' k' ->
+    bkinding bs K t' k' ->
     wfsorts L ->
-    tyeq L t1 t1' /\
+    tyeq L K t1 t1' k /\
     idxeq L i i' BSNat.
   Proof.
     simpl.
@@ -11595,11 +11710,11 @@ lift2 (fst (strip_subsets L))
       }
       eapply TyEqTrans.
       {
-        eapply cong_tyeq; eauto.
+        eapply cong_tyeq; eauto using pars_preserves_bkinding.
       }
       {
         eapply TyEqSym.
-        eapply pars_tyeq; eauto.
+        eapply pars_tyeq; eauto using pars_preserves_bkinding.
       }
       {
         eapply pars_preserves_bkinding; eauto.
@@ -11740,439 +11855,14 @@ lift2 (fst (strip_subsets L))
   
   Hint Constructors Forall2.
   
-  Lemma tyeq_shift_t_t L t t' :
-    tyeq L t t' ->
-    forall n x,
-      tyeq L (shift_t_t n x t) (shift_t_t n x t').
-  Proof.
-    induct 1; simpl; try rename x into y; intros x n; try solve [econstructor; eauto].
-    Lemma TyEqBeta' L s t b i t' :
-      t' = subst0_i_t i t ->
-      tyeq L (TApp (TAbs s t) b i) t'.
-    Proof.
-      intros; subst; eauto.
-    Qed.
-    
-    {
-      eapply TyEqBeta'.
-      unfold subst0_i_t.
-      rewrite shift_t_t_subst_i_t.
-      eauto.
-    }
-    Lemma TyEqBetaT' L k t1 t2 t' :
-      t' = subst0_t_t t2 t1 ->
-      tyeq L (TAppT (TAbsT k t1) t2) t'.
-    Proof.
-      intros; subst; eauto.
-    Qed.
-    
-    {
-      eapply TyEqBetaT'.
-      unfold subst0_t_t.
-      rewrite shift_t_t_subst_out by la.
-      eauto.
-    }
-    {
-      eapply TyEqTrans; eauto.
-  Lemma bkinding_shift_t_t_2 :
-    forall L K c k,
-      bkinding L K c k ->
-      forall x ls,
-        let n := length ls in
-        bkinding L (insert ls x K) (shift_t_t n x c) k.
-  Proof.
-    induct 1; unfold_all;
-      simplify; cbn in *; try solve [econstructor; eauto].
-    {
-      (* Case TVar *)
-      copy H HnltL.
-      eapply nth_error_Some_lt in HnltL.
-      rename x0 into y.
-      cases (y <=? x).
-      {
-        econstructor.
-        erewrite nth_error_insert'; eauto.
-      }
-      {
-        econstructor.
-        erewrite nth_error_before_insert'; eauto.
-      }
-    }
-    {
-      (* Case TQuan *)
-      econstructor; eauto.
-      eapply IHbkinding with (x := S x); eauto with db_la.
-    }
-    {
-      (* Case TRec *)
-      econstructor; eauto.
-      eapply IHbkinding with (x := S x); eauto with db_la.
-    }
-    {
-      (* Case TAbsT *)
-      econstructor; eauto.
-      eapply IHbkinding with (x := S x); eauto with db_la.
-    }
-  Qed.
-
-  (*here*)
-  
-  Lemma bkinding_subst_t_t_2 :
-    forall L K body k_b,
-      bkinding L K body k_b ->
-      forall x k_v v ,
-        nth_error K x = Some k_v ->
-        bkinding L (my_skipn K (1 + x)) v k_v ->
-        bkinding L (removen x K) (subst_t_t x (shift_t_t x 0 v) body) k_b.
-  Proof.
-    induct 1;
-      simpl; try rename x into y; intros x k_v v Hx Hv; subst; try solve [econstructor; eauto].
-    {
-      (* Case TVar *)
-      copy Hx Hcmp.
-      eapply nth_error_Some_lt in Hcmp.
-      cases (y <=>? x); eauto with db_la.
-      {
-        econstructor.
-        erewrite removen_lt by eauto with db_la.
-        eauto.
-      }
-      {
-        rewrite removen_firstn_my_skipn.
-        subst.
-        assert (k_v = k) by equality.
-        subst.
-        eapply bkinding_shift_t_t' with (x := 0); eauto with db_la; try rewrite length_firstn_le by la; eauto.
-      }
-      {
-        econstructor.
-        erewrite removen_gt by eauto with db_la.
-        eauto.
-      }
-    }
-    {
-      (* Case TAbs *)
-      econstructor; eauto with db_la.
-      unfold shift0_i_t.
-      rewrite shift_i_t_shift_t_t.
-      eapply IHbkinding; eauto with db_la.
-      eapply bkinding_shift_i_t_1_0; eauto.
-    }
-    {
-      (* Case TQuan *)
-      unfold shift0_t_t.
-      rewrite shift_t_t_shift_merge by la.
-      econstructor; eauto with db_la.
-      rewrite plus_comm.
-      eapply IHbkinding with (x := S x); eauto with db_la.
-    }
-    {
-      (* Case TQuanI *)
-      econstructor; eauto with db_la.
-      unfold shift0_i_t.
-      rewrite shift_i_t_shift_t_t.
-      eapply IHbkinding; eauto using wfsort_wellscoped_s' with db_la.
-      eapply bkinding_shift_i_t_1_0; eauto.
-    }
-    {
-      (* Case TRec *)
-      unfold shift0_t_t.
-      rewrite shift_t_t_shift_merge by la.
-      econstructor; eauto with db_la.
-      rewrite plus_comm.
-      eapply IHbkinding with (x := S x); eauto with db_la.
-    }
-    {
-      (* Case TAbsT *)
-      unfold shift0_t_t.
-      rewrite shift_t_t_shift_merge by la.
-      econstructor; eauto with db_la.
-      rewrite plus_comm.
-      eapply IHbkinding with (x := S x); eauto with db_la.
-    }
-  Qed.
-  
-      eapply bkinding_shift_t_t'; eauto.
-    }
-    induct 1; simpl; intros
-    intros H.
-    unfold tyeq in *.
-    repeat rewrite forall_shift_t_t.
-    rewrite fuse_lift3_lift1_2.
-    rewrite fuse_lift3_lift1_3.
-    eapply forall_lift3_lift3; [|eapply H]; eauto.
-    simpl; intros.
-    eapply gtyveq_shift; eauto.
-  Qed.
-  
   Lemma lift3_to_imply bs A2 A3 (f : A2 -> A3 -> Prop) a1 a2 a3:
     lift3 bs (fun (a1 : Prop) a2 a3 => a1 -> f a2 a3) a1 a2 a3 = lift2 bs imply a1 (lift2 bs f a2 a3).
   Proof.
     rewrite fuse_lift2_lift2_2; eauto.
   Qed.
 
-  Lemma forall_shift_i_s_iff_shift :
-    forall body bs_new x bs n,
-      let b := get_bsort body in
-      let bs' := insert bs_new x bs in
-      wellscoped_s (length bs) body ->
-      n = length bs_new ->
-      forall_ bs' (lift2 bs' (ForSome (fun p p' => forall x, p x <-> p' x)) (interp_sort (shift_i_s n x body) bs' b) (shift bs_new x bs (interp_sort body bs b))).
-  Proof.
-    simpl.
-    induct body; try rename x into y; intros bs_new x bs n Hbody ?; subst; invert Hbody; simpl.
-    {
-      rewrite fuse_lift2_lift0_1.
-      rewrite <- lift0_shift.
-      rewrite fuse_lift1_lift0.
-      eapply forall_lift0.
-      eauto.
-    }
-    {
-      rewrite <- lift1_shift.
-      rewrite fuse_lift2_lift1_1.
-      rewrite fuse_lift2_lift1_2.
-      rename s into b.
-      specialize (@forall_shift_i_p_iff_shift p bs_new (S x) (b :: bs) (length bs_new)); intros Hsubst.
-      simpl in *.
-      rewrite fuse_lift1_lift2 in *.
-      eapply forall_lift2_lift2; [| eapply Hsubst]; eauto.
-    }
-  Qed.
-
-  Lemma subst_lift_ls A B x bs b_v v (f : A -> interp_bsorts bs B) ls :
-    subst (b_v := b_v) x bs v (lift_ls bs f ls) = lift_ls _ (fun a => subst x bs v (f a)) ls.
-  Proof.
-    induct ls; simpl; eauto.
-    {
-      rewrite subst_lift0.
-      eauto.
-    }
-    {
-      rewrite subst_lift2.
-      rewrite IHls.
-      eauto.
-    }
-  Qed.
+  (*here*)
   
-  Lemma lift_ls_map bs A B C (f1 : A -> B) (f2 : B -> interp_bsorts bs C) ls :
-    lift_ls bs f2 (map f1 ls) = lift_ls bs (fun x => f2 (f1 x)) ls.
-  Proof.
-    induct ls; simpl; eauto.
-    rewrite IHls.
-    eauto.
-  Qed.
-
-  Lemma lift_ls_eq_intro bs A B (f f' : A -> interp_bsorts bs B) ls :
-    (forall x, In x ls -> f x = f' x) ->
-    lift_ls bs f ls = lift_ls bs f' ls.
-  Proof.
-    induct ls; simpl; eauto.
-    intros H.
-    f_equal; eauto.
-  Qed.
-  
-  Lemma shift_lift_ls A B bs_new x bs (f : A -> interp_bsorts bs B) ls :
-    shift bs_new x bs (lift_ls bs f ls) = lift_ls _ (fun a => shift bs_new x bs (f a)) ls.
-  Proof.
-    induct ls; simpl; eauto.
-    {
-      rewrite <- lift0_shift.
-      eauto.
-    }
-    {
-      rewrite <- lift2_shift.
-      rewrite IHls.
-      eauto.
-    }
-  Qed.
-  
-  Lemma forall_shift_i_t_iff_shift :
-    forall body bs_new x bs k n,
-      let bs' := insert bs_new x bs in
-      wellscoped_t (length bs) body ->
-      n = length bs_new ->
-      forall_ bs' (lift2 bs' (gtyveq k) (interp_ty (shift_i_t n x body) bs' k) (shift bs_new x bs (interp_ty body bs k))).
-  Proof.
-    simpl.
-    induct body; try rename x into y; try rename k into k'; intros bs_new x bs k n Hbody ?; subst; invert Hbody.
-    {
-      (* Case TVar *)
-      simpl.
-      repeat rewrite fuse_lift1_lift0.
-      rewrite <- lift0_shift.
-      rewrite fuse_lift2_lift0_1.
-      rewrite fuse_lift1_lift0.
-      eapply forall_lift0.
-      eauto using gtyveq_refl.
-    }
-    {
-      (* Case TConst *)
-      simpl.
-      repeat rewrite fuse_lift1_lift0.
-      rewrite <- lift0_shift.
-      rewrite fuse_lift2_lift0_1.
-      rewrite fuse_lift1_lift0.
-      eapply forall_lift0.
-      eauto using gtyveq_refl.
-    }
-    {
-      (* Case TUnOp *)
-      simpl.
-      repeat rewrite fuse_lift1_lift1.
-      rewrite <- lift1_shift.
-      rewrite fuse_lift2_lift1_1.
-      rewrite fuse_lift2_lift1_2.
-      eapply forall_lift2_lift2; [|eapply IHbody with (k := KType)]; eauto.
-      simpl; intros.
-      unfold convert_kind_value.
-      cases (kind_dec KType k); subst; eauto using gtyveq_refl.
-      simpl.
-      unfold eq_rect_r.
-      rewrite <- Eqdep.EqdepTheory.eq_rect_eq.
-      eauto.
-    }
-    {
-      (* Case TBinOp *)
-      simpl.
-      repeat rewrite fuse_lift1_lift2.
-      rewrite <- lift2_shift.
-      rewrite fuse_lift2_lift2_1.
-      rewrite fuse_lift3_lift2_3.
-      eapply forall_lift2_lift2_lift4; [|eapply IHbody1 with (k := KType) |eapply IHbody2 with (k := KType)]; eauto.
-      simpl; intros.
-      unfold convert_kind_value.
-      cases (kind_dec KType k); subst; eauto using gtyveq_refl.
-      simpl.
-      unfold eq_rect_r.
-      rewrite <- Eqdep.EqdepTheory.eq_rect_eq.
-      eauto.
-    }
-    {
-      (* Case TArrow *)
-      simpl.
-      repeat rewrite fuse_lift1_lift3.
-      rewrite <- lift3_shift.
-      rewrite fuse_lift2_lift3_1.
-      rewrite fuse_lift4_lift3_4.
-      eapply forall_lift2_lift2_lift2_lift6; [|eapply IHbody1 with (k := KType) | eapply forall_shift_i_i_eq_shift with (b := BSTime) | eapply IHbody2 with (k := KType)]; eauto.
-      simpl; intros; subst.
-      unfold convert_kind_value.
-      cases (kind_dec KType k); subst; eauto using gtyveq_refl.
-      simpl.
-      unfold eq_rect_r.
-      rewrite <- Eqdep.EqdepTheory.eq_rect_eq.
-      eauto.
-    }
-    {
-      (* Case TAbs *)
-      simpl.
-      destruct k; simpl.
-      {
-        rewrite <- lift0_shift.
-        rewrite fuse_lift2_lift0_1.
-        rewrite fuse_lift1_lift0.
-        eapply forall_lift0.
-        eauto using gtyveq_refl.
-      }
-      specialize (IHbody bs_new (S x) (b :: bs) k (length bs_new)).
-      simpl in *.
-      rewrite fuse_lift1_lift2 in *.
-      eapply forall_lift2_lift2; [|eapply IHbody]; eauto.
-    }
-    {
-      (* Case TApp *)
-      simpl.
-      rewrite <- lift2_shift.
-      rewrite fuse_lift2_lift2_1.
-      rewrite fuse_lift3_lift2_3.
-      eapply forall_lift2_lift2_lift4; [| eapply IHbody with (k := KArrow _ _) | eapply forall_shift_i_i_eq_shift ]; eauto.
-      unfold apply.
-      simpl; intros; subst.
-      eauto.
-    }
-    {
-      (* Case TQuan *)
-      simpl.
-      repeat rewrite fuse_lift1_lift1.
-      rewrite <- lift1_shift.
-      rewrite fuse_lift2_lift1_1.
-      rewrite fuse_lift2_lift1_2.
-      eapply forall_lift2_lift2; [|eapply IHbody with (k := KType)]; eauto.
-      simpl; intros.
-      unfold convert_kind_value.
-      cases (kind_dec KType k); subst; eauto using gtyveq_refl.
-      simpl.
-      unfold eq_rect_r.
-      rewrite <- Eqdep.EqdepTheory.eq_rect_eq.
-      eauto.
-    }
-    {
-      (* Case TQuanI *)
-      simpl.
-      repeat rewrite fuse_lift1_lift2.
-      rewrite <- lift2_shift.
-      rewrite fuse_lift2_lift2_1.
-      rewrite fuse_lift3_lift2_3.
-      specialize (IHbody bs_new (S x) (get_bsort s :: bs) KType (length bs_new)).
-      simpl in *.
-      rewrite fuse_lift1_lift2 in *.
-      rewrite get_bsort_shift_i_s.
-      eapply forall_lift2_lift2_lift4; [ | eapply forall_shift_i_s_iff_shift | eapply IHbody]; eauto.
-      simpl; intros.
-      unfold convert_kind_value.
-      cases (kind_dec KType k); subst; eauto using gtyveq_refl.
-      simpl.
-      unfold eq_rect_r.
-      rewrite <- Eqdep.EqdepTheory.eq_rect_eq.
-      eapply TVEQuanISubset'; eauto.
-    }
-    {
-      (* Case Rec *)
-      simpl.
-      repeat rewrite fuse_lift1_lift1 in *.
-      repeat rewrite fuse_lift2_lift1_1 in *.
-      rewrite <- lift1_shift.
-      rewrite fuse_lift2_lift1_2.
-      eapply forall_lift2_lift2; [|eapply IHbody]; eauto.
-      simpl; intros.
-      unfold convert_kind_value.
-      cases (kind_dec k' k); subst; eauto using gtyveq_refl.
-      simpl.
-      unfold eq_rect_r.
-      rewrite <- Eqdep.EqdepTheory.eq_rect_eq.
-      eapply gtyveq_TVRec_intro; eauto.
-    }
-    {
-      (* Case TNat *)
-      simpl.
-      repeat rewrite fuse_lift1_lift1.
-      rewrite <- lift1_shift.
-      rewrite fuse_lift2_lift1_1.
-      rewrite fuse_lift2_lift1_2.
-      eapply forall_lift2_lift2; [|eapply forall_shift_i_i_eq_shift with (b := BSNat) ]; eauto.
-      simpl; intros; subst.
-      unfold convert_kind_value.
-      cases (kind_dec KType k); subst; eauto using gtyveq_refl.
-    }
-    {
-      (* Case TArr *)
-      simpl.
-      repeat rewrite fuse_lift1_lift2.
-      rewrite <- lift2_shift.
-      rewrite fuse_lift2_lift2_1.
-      rewrite fuse_lift3_lift2_3.
-      eapply forall_lift2_lift2_lift4; [|eapply IHbody with (k := KType) | eapply forall_shift_i_i_eq_shift with (b := BSNat) ]; eauto.
-      simpl; intros; subst.
-      unfold convert_kind_value.
-      cases (kind_dec KType k); subst; eauto using gtyveq_refl.
-      simpl.
-      unfold eq_rect_r.
-      rewrite <- Eqdep.EqdepTheory.eq_rect_eq.
-      eauto.
-    }
-  Qed.
-
   Lemma tyeq_shift_i_t L t t' k :
     tyeq L t t' k ->
     wellscoped_ss L ->
