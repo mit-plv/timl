@@ -18292,156 +18292,146 @@ lift2 (fst (strip_subsets L))
     }
   Qed.
 
-  (*here*)
+  Lemma wfctx_add_kinding L K W G k :
+    wfctx (L, K, W, G) ->
+    wfctx (L, k :: K, fmap_map shift0_t_ti W, map shift0_t_t G).
+  Proof.
+    unfold wfctx; intros HC.
+    openhyp.
+    simpl in *.
+    repeat try_split; eauto.
+    {
+      eapply fmap_forall_fmap_map_intro.
+      eapply fmap_forall_impl; eauto.
+      simpl; intros.
+      intuition eauto using kinding_shift_t_t_1_0.
+    }
+    {
+      eapply Forall_map.
+      eapply Forall_impl; eauto.
+      intros.
+      eapply kinding_shift_t_t_1_0; eauto.
+    }
+  Qed.
+
+  Lemma wfctx_add_sorting L K W G s :
+    wfctx (L, K, W, G) ->
+    wfsort (map get_bsort L) s ->
+    wfctx (s :: L, K, fmap_map shift0_i_ti W, map shift0_i_t G).
+  Proof.
+    unfold wfctx; intros HC Hs.
+    openhyp.
+    simpl in *.
+    repeat try_split; eauto.
+    {
+      eapply fmap_forall_fmap_map_intro.
+      eapply fmap_forall_impl; eauto.
+      simpl; intros.
+      intuition eauto using kinding_shift_i_t_1_0, sorting_shift_i_i_1_0,  wfsorts_wellscoped_ss.
+    }
+    {
+      eapply Forall_map.
+      eapply Forall_impl; eauto.
+      intros.
+      eapply kinding_shift_i_t_1_0; eauto using wfsorts_wellscoped_ss.
+    }
+  Qed.
+
+  Lemma kctx_elim_kinding L K W G l t i :
+    let C := (L, K, W, G) in
+    W $? l = Some (t, i) ->
+    wfctx C ->
+    kinding L K t KType.
+  Proof.
+    simpl; intros Hl HC.
+    copy HC HC'.
+    unfold wfctx in HC'.
+    openhyp.
+    simpl in *.
+    eapply H0 in Hl.
+    openhyp.
+    eauto.
+  Qed.
+  
+  Lemma kctx_elim_sorting L K W G l t i :
+    let C := (L, K, W, G) in
+    W $? l = Some (t, i) ->
+    wfctx C ->
+    sorting L i SNat.
+  Proof.
+    simpl; intros Hl HC.
+    copy HC HC'.
+    unfold wfctx in HC'.
+    openhyp.
+    simpl in *.
+    eapply H0 in Hl.
+    openhyp.
+    eauto.
+  Qed.
+
+  Lemma wfctx_add_htyping L K W G l t len:
+    wfctx (L, K, W, G) ->
+    kinding L K t KType ->
+    sorting L len SNat ->
+    wfctx (L, K, W $+ (l, (t, len)), G).
+  Proof.
+    intros HC Ht Hlen; unfold wfctx in *; openhyp; simpl in *; repeat try_split; eauto.
+    unfold wfhctx in *.
+    unfold fmap_forall in *.
+    intros k v Hk.
+    eapply lookup_split in Hk.
+    destruct Hk; openhyp; subst; eauto.
+  Qed.
   
   Ltac tyeq_false_half H :=
-      eapply TQuan_TArrow_false_empty in H ||
-      eapply TQuanI_TArrow_false in H ||
-      eapply tyeq_TApps_TRec_TArrow_false in H ||
-      eapply TQuan_TArrow_false_empty in H ||
-      eapply TQuanI_TArrow_false in H ||
-      eapply const_type_TArrow_false in H ||
-      eapply TBinOp_TArrow_false in H ||
-      eapply TUnOp_TArrow_false in H || 
-      eapply TQuanI_TQuan_false in H ||
-      eapply typeq_TApps_TRec_TQuan_false in H ||
-      eapply TExists_TForall_false in H ||
-      eapply const_type_TQuan_false in H ||
-      eapply TBinOp_TQuan_false in H ||
-      eapply TUnOp_TQuan_false in H ||
-      eapply typeq_TApps_TRec_TQuanI_false in H ||
-      eapply TApps_TRec_const_type_false in H ||
-      eapply tyeq_TApps_TRec_TBinOp_false in H ||
-      eapply tyeq_TApps_TRec_TUnOp_false in H ||
-      eapply TBinOp_TQuanI_false in H ||
-      eapply TBinOp_TConst_false in H ||
-      eapply TBinOp_TUnOp_false in H ||
-      eapply TUnOp_TQuanI_false in H ||
-      eapply TUnOp_TConst_false in H ||
-      eapply TProd_TSum_false in H ||
-      eapply TConst_TQuanI_false in H || 
-      eapply TQuanI_TNat_false in H ||
-      eapply TQuanI_TArr_false in H ||
-      eapply TNat_TArrow_false in H || 
-      eapply TArr_TArrow_false in H || 
-      eapply TQuan_TNat_false in H ||
-      eapply TQuan_TArr_false in H ||
-      eapply tyeq_TApps_TRec_TNat_false_2 in H ||
-      eapply tyeq_TApps_TRec_TArr_false in H ||
-      eapply TNat_TBinOp_false in H || 
-      eapply TArr_TBinOp_false in H || 
-      eapply const_type_TArr_false in H ||
-      eapply TNat_TArr_false in H || 
-      eapply TConst_TArrow_false in H ||
-      eapply TConst_TQuan_false in H ||
-      eapply TConst_TNat_false in H ||
-      eapply TConst_TArr_false in H ||
-      eapply TExistsI_TForallI_false in H
+      eapply invert_tyeq_TQuan_TArrow in H ||
+      eapply invert_tyeq_TQuanI_TArrow in H ||
+      eapply invert_tyeq_TApps_TRec_TArrow in H ||
+      eapply invert_tyeq_TQuan_TArrow in H ||
+      eapply invert_tyeq_TQuanI_TArrow in H ||
+      eapply invert_tyeq_TBinOp_TArrow in H ||
+      eapply invert_tyeq_TQuanI_TQuan in H ||
+      eapply invert_tyeq_TApps_TRec_TQuan in H ||
+      eapply invert_tyeq_TExists_TForall in H ||
+      eapply invert_tyeq_TBinOp_TQuan in H ||
+      eapply invert_tyeq_TApps_TRec_TQuanI in H ||
+      eapply invert_tyeq_TApps_TRec_TBinOp in H ||
+      eapply invert_tyeq_TBinOp_TQuanI in H ||
+      eapply invert_tyeq_TBinOp_TConst in H ||
+      eapply invert_tyeq_TProd_TSum in H ||
+      eapply invert_tyeq_TConst_TQuanI in H || 
+      eapply invert_tyeq_TQuanI_TNat in H ||
+      eapply invert_tyeq_TQuanI_TArr in H ||
+      eapply invert_tyeq_TNat_TArrow in H || 
+      eapply invert_tyeq_TArr_TArrow in H || 
+      eapply invert_tyeq_TQuan_TNat in H ||
+      eapply invert_tyeq_TQuan_TArr in H ||
+      eapply invert_tyeq_TApps_TRec_TNat in H ||
+      eapply invert_tyeq_TApps_TRec_TArr in H ||
+      eapply invert_tyeq_TNat_TBinOp in H || 
+      eapply invert_tyeq_TArr_TBinOp in H || 
+      eapply invert_tyeq_TNat_TArr in H || 
+      eapply invert_tyeq_TConst_TArrow in H ||
+      eapply invert_tyeq_TConst_TQuan in H ||
+      eapply invert_tyeq_TConst_TNat in H ||
+      eapply invert_tyeq_TConst_TArr in H ||
+      eapply invert_tyeq_TApps_TRec_TConst in H ||
+      eapply invert_tyeq_TExistsI_TForallI in H
   .
 
+  Ltac use_typings :=
+    repeat match goal with
+             H : typing _ _ _ _ |- _ => first [eapply typing_kinding_2 in H; openhyp; eauto using wfctx_add_sorting, wfctx_add_kinding, wfctx_add_typing  | clear H ]
+           end.
+  
   Ltac tyeq_false H := tyeq_false_half H || (eapply tyeq_sym in H; tyeq_false_half H).
 
-  Ltac tyeq_dis :=
+  Ltac tyeq_dis' :=
     match goal with
-      H : tyeq _ _ _ _ |- _ => tyeq_false H; exfalso; eapply H
+      H : tyeq _ _ _ _ _ |- _ => tyeq_false H; simpl; eauto using kinding_bkinding'; propositional
     end.
-    
-  Opaque tyeq.
 
-  Lemma canon_TInt' C v t i :
-    typing C v t i ->
-    get_sctx C = [] ->
-    get_kctx C = [] ->
-    get_tctx C = [] ->
-    tyeq [] t TInt KType ->
-    value v ->
-    exists n, v = EInt n
-  .
-  Proof.
-    induct 1; intros ? Hknil Htnil Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst; unfold_all;
-      try solve [tyeq_dis |
-                 cases inj; simplify; tyeq_dis |
-                 cases cn; simplify; tyeq_dis |
-                 destruct C as (((L & K) & W) & G); simplify; subst; eapply IHtyping; eauto with db_tyeq
-                ].
-    {
-      eapply tyeq_TApps_TRec_TConst_false_2 in Htyeq.
-      openhyp; dis.
-    }
-    {
-      destruct C as (((L & K) & W) & G); simplify.
-      subst.
-      cases cn; simplify; try solve [tyeq_dis |
-                                     eapply invert_tyeq_TConst in Htyeq; subst; try dis;
-                                     repeat eexists_split; simpl; eauto].
-    }
-  Qed.
-  
-  Lemma canon_TInt W v i :
-    typing ([], [], W, []) v TInt i ->
-    value v ->
-    exists n, v = EInt n.
-  Proof.
-    intros Hty ?; eapply canon_TInt' in Hty; eauto with db_tyeq.
-  Qed.
-
-  Lemma canon_TForallI' C v t i :
-    typing C v t i ->
-    get_sctx C = [] ->
-    get_kctx C = [] ->
-    get_tctx C = [] ->
-    forall s t' ,
-      tyeq [] t (TForallI s t') KType ->
-      value v ->
-      exists e,
-        v = EAbsI e.
-  Proof.
-    induct 1; intros Hsnil Hknil Htnil k' t'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Htyeq]; subst; unfold_all; 
-      try solve [tyeq_dis |
-                 cases inj; simplify; tyeq_dis |
-                 cases cn; simplify; tyeq_dis |
-                 destruct C as (((L & K) & W) & G); simplify; subst; eapply IHtyping; eauto with db_tyeq
-                ].
-  Qed.
-
-  Lemma canon_TForallI W v s t i :
-    typing ([], [], W, []) v (TForallI s t) i ->
-    value v ->
-    exists e,
-      v = EAbsI e.
-  Proof.
-    intros; eapply canon_TForallI'; eauto with db_tyeq.
-  Qed.
-
-  Lemma canon_TExistsI' C v t i :
-    typing C v t i ->
-    get_sctx C = [] ->
-    get_kctx C = [] ->
-    get_tctx C = [] ->
-    forall s t' ,
-      tyeq [] t (TExistsI s t') KType ->
-      value v ->
-      exists c e,
-        v = EPackI c e /\
-        value e.
-  Proof.
-    induct 1; intros Hsnil Hknil Htnil k' t'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst; unfold_all; 
-      try solve [tyeq_dis |
-                 cases inj; simplify; tyeq_dis |
-                 cases cn; simplify; tyeq_dis |
-                 destruct C as (((L & K) & W) & G); simplify; subst; eapply IHtyping; eauto with db_tyeq
-                ].
-  Qed.
-  
-  Lemma canon_TExistsI W v s t i :
-    typing ([], [], W, []) v (TExistsI s t) i ->
-    value v ->
-    exists c e,
-      v = EPackI c e /\
-      value e.
-  Proof.
-    intros; eapply canon_TExistsI'; eauto with db_tyeq.
-  Qed.
+  Ltac tyeq_dis := use_typings; tyeq_dis'.
 
   Lemma canon_TArrow' C v t i :
     typing C v t i ->
@@ -18449,25 +18439,219 @@ lift2 (fst (strip_subsets L))
     get_kctx C = [] ->
     get_tctx C = [] ->
     forall t1 i' t2 ,
-      tyeq [] t (TArrow t1 i' t2) KType ->
+      let t' := TArrow t1 i' t2 in
+      tyeq [] [] t t' KType ->
       value v ->
+      kinding [] [] t' KType ->
+      wfctx C ->
       exists e,
         v = EAbs e.
   Proof.
-    induct 1; intros Hsnil Hknil Htnil ta i' tb Htyeq Hval; try solve [invert Hval | eexists; eauto]; subst; unfold_all;
+    simpl.
+    induct 1; intros Hsnil Hknil Htnil ta i' tb Htyeq Hval Hkd HC;
+      try rename L into L';
+      try rename K into K';
+      destruct C as (((L & K) & W) & G); simpl in *; subst;
+      try solve [invert Hval | eexists; eauto]; subst; unfold_all;
       try solve [tyeq_dis |
-                 cases inj; simplify; tyeq_dis |
-                 destruct C as (((L & K) & W) & G); simplify; subst; eapply IHtyping; eauto with db_tyeq
+                 cases cn; simpl in *; tyeq_dis |
+                 cases inj; simpl in *; tyeq_dis |
+                 eapply IHtyping; eauto with db_tyeq
                 ].
+    {
+      cases cn; simpl in *; tyeq_dis.
+      repeat econstructor.
+    }
+    {
+      tyeq_dis.
+      eauto using kctx_elim_kinding, kctx_elim_sorting, kinding_bkinding', sorting_bsorting''.
+    }
+    {
+      eapply IHtyping; eauto.
+      eapply tyeq_trans; eauto using kinding_bkinding'.
+    }
   Qed.
 
   Lemma canon_TArrow W v t1 i' t2 i :
-    typing ([], [], W, []) v (TArrow t1 i' t2) i ->
+    let C := ([], [], W, []) in 
+    typing C v (TArrow t1 i' t2) i ->
     value v ->
+    wfctx C ->
     exists e,
       v = EAbs e.
   Proof.
-    intros; eapply canon_TArrow'; eauto with db_tyeq.
+    intros; eapply canon_TArrow'; eauto using typing_kinding_2, kinding_bkinding.
+    {
+      eapply tyeq_refl.
+      eapply kinding_bkinding.
+      eapply typing_kinding_2; eauto.
+    }
+    {
+      eapply typing_kinding_2; eauto.
+    }
+  Qed.
+
+  Lemma canon_TInt' C v t i :
+    typing C v t i ->
+    get_sctx C = [] ->
+    get_kctx C = [] ->
+    get_tctx C = [] ->
+    tyeq [] [] t TInt KType ->
+    value v ->
+    wfctx C ->
+    exists n, v = EInt n
+  .
+  Proof.
+    induct 1; intros ? Hknil Htnil Htyeq Hval HC;
+      try rename L into L';
+      try rename K into K';
+      destruct C as (((L & K) & W) & G); simpl in *; subst;
+        try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst; unfold_all;
+      try solve [tyeq_dis |
+                 cases inj; simpl in *; tyeq_dis
+                ].
+    {
+      cases cn; simpl in *; try solve [eapply invert_tyeq_TConst in Htyeq; eauto; dis].
+      tyeq_dis.
+      repeat econstructor.
+    }
+    {
+      tyeq_dis.
+      eauto using kctx_elim_kinding, kctx_elim_sorting, kinding_bkinding', sorting_bsorting''.
+    }
+    {
+      eapply IHtyping; eauto.
+      eapply tyeq_trans; eauto using kinding_bkinding'.
+    }
+  Qed.
+  
+  Lemma canon_TInt W v i :
+    let C := ([], [], W, []) in 
+    typing C v TInt i ->
+    value v ->
+    wfctx C ->
+    exists n, v = EInt n.
+  Proof.
+    simpl.
+    intros Hty; intros; eapply canon_TInt' in Hty; eauto using typing_kinding_2, kinding_bkinding.
+    eapply tyeq_refl.
+    repeat econstructor.
+  Qed.
+
+  Lemma canon_TForallI' C v t i :
+    typing C v t i ->
+    get_sctx C = [] ->
+    get_kctx C = [] ->
+    get_tctx C = [] ->
+    forall s t1' ,
+      let t' := TForallI s t1' in
+      tyeq [] [] t t' KType ->
+      value v ->
+      kinding [] [] t' KType ->
+      wfctx C ->
+      exists e,
+        v = EAbsI e.
+  Proof.
+    induct 1; intros Hsnil Hknil Htnil k' t'' Htyeq Hval; intros;
+      try rename L into L';
+      try rename K into K';
+      destruct C as (((L & K) & W) & G); simpl in *; subst;
+        try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst; unfold_all;
+      try solve [tyeq_dis |
+                 cases inj; simpl in *; tyeq_dis
+                ].
+    {
+      cases cn; simpl in *; tyeq_dis.
+      repeat econstructor.
+    }
+    {
+      tyeq_dis.
+      eauto using kctx_elim_kinding, kctx_elim_sorting, kinding_bkinding', sorting_bsorting''.
+    }
+    {
+      eapply IHtyping; eauto.
+      eapply tyeq_trans; eauto using kinding_bkinding'.
+    }
+  Qed.
+
+  Lemma canon_TForallI W v s t i :
+    let C := ([], [], W, []) in 
+    typing C v (TForallI s t) i ->
+    value v ->
+    wfctx C ->
+    exists e,
+      v = EAbsI e.
+  Proof.
+    intros; eapply canon_TForallI'; eauto using typing_kinding_2, kinding_bkinding.
+    {
+      eapply tyeq_refl.
+      eapply kinding_bkinding.
+      eapply typing_kinding_2; eauto.
+    }
+    {
+      eapply typing_kinding_2; eauto.
+    }
+  Qed.
+
+  Lemma canon_TExistsI' C v t i :
+    typing C v t i ->
+    get_sctx C = [] ->
+    get_kctx C = [] ->
+    get_tctx C = [] ->
+    forall s t1' ,
+      let t' := TExistsI s t1' in
+      tyeq [] [] t t' KType ->
+      value v ->
+      kinding [] [] t' KType ->
+      wfctx C ->
+      exists c e,
+        v = EPackI c e /\
+        value e.
+  Proof.
+    induct 1; intros Hsnil Hknil Htnil k' t'' Htyeq Hval; intros;
+      try rename L into L';
+      try rename K into K';
+      destruct C as (((L & K) & W) & G); simpl in *; subst;
+        try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst; unfold_all;
+      try solve [tyeq_dis |
+                 cases inj; simpl in *; tyeq_dis
+                ].
+    {
+      tyeq_dis.
+      econstructor; eauto using kinding_bkinding'.
+    }
+    {
+      cases cn; simpl in *; tyeq_dis.
+      repeat econstructor.
+    }
+    {
+      tyeq_dis.
+      eauto using kctx_elim_kinding, kctx_elim_sorting, kinding_bkinding', sorting_bsorting''.
+    }
+    {
+      eapply IHtyping; eauto.
+      eapply tyeq_trans; eauto using kinding_bkinding'.
+    }
+  Qed.
+  
+  Lemma canon_TExistsI W v s t i :
+    let C := ([], [], W, []) in  
+    typing C v (TExistsI s t) i ->
+    value v ->
+    wfctx C ->
+    exists c e,
+      v = EPackI c e /\
+      value e.
+  Proof.
+    intros; eapply canon_TExistsI'; eauto.
+    {
+      eapply tyeq_refl.
+      eapply kinding_bkinding.
+      eapply typing_kinding_2; eauto.
+    }
+    {
+      eapply typing_kinding_2; eauto.
+    }
   Qed.
 
   Lemma canon_TForall' C v t i :
@@ -18475,26 +18659,54 @@ lift2 (fst (strip_subsets L))
     get_sctx C = [] ->
     get_kctx C = [] ->
     get_tctx C = [] ->
-    forall k t' ,
-      tyeq [] t (TForall k t') KType ->
+    forall k t1',
+      let t' := TForall k t1' in
+      tyeq [] [] t t' KType ->
       value v ->
+      kinding [] [] t' KType ->
+      wfctx C ->
       exists e,
         v = EAbsT e.
   Proof.
-    induct 1; intros Hsnil Hknil Htnil k' t'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Htyeq]; subst; unfold_all; 
+    induct 1; intros Hsnil Hknil Htnil k' t'' Htyeq Hval; intros;
+      try rename L into L';
+      try rename K into K';
+      destruct C as (((L & K) & W) & G); simpl in *; subst;
+        try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst; unfold_all;
       try solve [tyeq_dis |
-                 cases inj; simplify; tyeq_dis |
-                 destruct C as (((L & K) & W) & G); simplify; subst; eapply IHtyping; eauto with db_tyeq
+                 cases inj; simpl in *; tyeq_dis
                 ].
+    {
+      cases cn; simpl in *; tyeq_dis.
+      repeat econstructor.
+    }
+    {
+      tyeq_dis.
+      eauto using kctx_elim_kinding, kctx_elim_sorting, kinding_bkinding', sorting_bsorting''.
+    }
+    {
+      eapply IHtyping; eauto.
+      eapply tyeq_trans; eauto using kinding_bkinding'.
+    }
   Qed.
 
   Lemma canon_TForall W v k t i :
-    typing ([], [], W, []) v (TForall k t) i ->
+    let C := ([], [], W, []) in 
+    typing C v (TForall k t) i ->
     value v ->
+    wfctx C ->
     exists e,
       v = EAbsT e.
   Proof.
-    intros; eapply canon_TForall'; eauto with db_tyeq.
+    intros; eapply canon_TForall'; eauto.
+    {
+      eapply tyeq_refl.
+      eapply kinding_bkinding.
+      eapply typing_kinding_2; eauto.
+    }
+    {
+      eapply typing_kinding_2; eauto.
+    }
   Qed.
 
   Lemma canon_TRec' C v t i :
@@ -18502,35 +18714,56 @@ lift2 (fst (strip_subsets L))
     get_sctx C = [] ->
     get_kctx C = [] ->
     get_tctx C = [] ->
-    forall k t' cs ,
-      tyeq [] t (TApps (TRec k t') cs) KType ->
+    forall k t1' cs ,
+      let t' := TApps (TRec k t1') cs in
+      tyeq [] [] t t' KType ->
       value v ->
-      (exists e,
+      kinding [] [] t' KType ->
+      wfctx C ->
+      exists e,
         v = EFold e /\
-        value e) \/
-      (v = ETT
-       /\ k <> map fst cs).
+        value e.
   Proof.
-    induct 1; intros Hsnil Hknil Htnil k' t'' cs' Htyeq Hval; try solve [invert Hval | left; eexists; eauto | invert Hval; left; eexists; eauto | invert Htyeq]; subst; unfold_all; 
+    induct 1; intros Hsnil Hknil Htnil k' t'' cs' Htyeq Hval; intros;
+      try rename L into L';
+      try rename K into K';
+      destruct C as (((L & K) & W) & G); simpl in *; subst;
+        try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst; unfold_all;
       try solve [tyeq_dis |
-                 cases inj; simplify; tyeq_dis |
-                 destruct C as (((L & K) & W) & G); simplify; subst; eapply IHtyping; eauto with db_tyeq
+                 cases inj; simpl in *; tyeq_dis
                 ].
-    eapply tyeq_sym in Htyeq.
-    eapply TApps_TRec_const_type_false_2 in Htyeq.
-    openhyp; subst; right; eauto.
+    {
+      cases cn; simpl in *; tyeq_dis.
+      repeat econstructor.
+    }
+    {
+      tyeq_dis.
+      eauto using kctx_elim_kinding, kctx_elim_sorting, kinding_bkinding', sorting_bsorting''.
+    }
+    {
+      eapply IHtyping; eauto.
+      eapply tyeq_trans; eauto using kinding_bkinding'.
+    }
   Qed.
 
   Lemma canon_TRec W v k t cs i :
-    typing ([], [], W, []) v (TApps (TRec k t) cs) i ->
+    let C := ([], [], W, []) in 
+    typing C v (TApps (TRec k t) cs) i ->
     value v ->
-    (exists e,
-        v = EFold e /\
-        value e) \/
-    (v = ETT
-     /\ k <> map fst cs).
+    wfctx C ->
+    exists e,
+      v = EFold e /\
+      value e.
   Proof.
-    intros; eapply canon_TRec'; eauto with db_tyeq.
+    intros; eapply canon_TRec'; eauto.
+    {
+      eapply tyeq_refl.
+      eapply kinding_bkinding.
+      eapply typing_kinding_2; eauto.
+    }
+    {
+      eapply typing_kinding_2; eauto.
+    }
   Qed.
 
   Lemma canon_TExists' C v t i :
@@ -18538,29 +18771,63 @@ lift2 (fst (strip_subsets L))
     get_sctx C = [] ->
     get_kctx C = [] ->
     get_tctx C = [] ->
-    forall k t' ,
-      tyeq [] t (TExists k t') KType ->
+    forall k t1' ,
+      let t' := TExists k t1' in
+      tyeq [] [] t t' KType ->
       value v ->
+      kinding [] [] t' KType ->
+      wfctx C ->
       exists c e,
         v = EPack c e /\
         value e.
   Proof.
-    induct 1; intros Hsnil Hknil Htnil k' t'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst; unfold_all; 
+    induct 1; intros Hsnil Hknil Htnil k' t'' Htyeq Hval; intros;
+      try rename L into L';
+      try rename K into K';
+      destruct C as (((L & K) & W) & G); simpl in *; subst;
+        try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst; unfold_all;
       try solve [tyeq_dis |
-                 cases inj; simplify; tyeq_dis |
-                 destruct C as (((L & K) & W) & G); simplify; subst; eapply IHtyping; eauto with db_tyeq
+                 cases inj; simpl in *; tyeq_dis
                 ].
+    {
+      tyeq_dis.
+      econstructor; eauto using kinding_bkinding'.
+    }
+    {
+      cases cn; simpl in *; tyeq_dis.
+      repeat econstructor.
+    }
+    {
+      tyeq_dis.
+      eauto using kctx_elim_kinding, kctx_elim_sorting, kinding_bkinding', sorting_bsorting''.
+    }
+    {
+      eapply IHtyping; eauto.
+      eapply tyeq_trans; eauto using kinding_bkinding'.
+    }
   Qed.
   
   Lemma canon_TExists W v k t i :
-    typing ([], [], W, []) v (TExists k t) i ->
+    let C := ([], [], W, []) in 
+    typing C v (TExists k t) i ->
     value v ->
+    wfctx C ->
     exists c e,
       v = EPack c e /\
       value e.
   Proof.
-    intros; eapply canon_TExists'; eauto with db_tyeq.
+    intros; eapply canon_TExists'; eauto.
+    {
+      eapply tyeq_refl.
+      eapply kinding_bkinding.
+      eapply typing_kinding_2; eauto.
+    }
+    {
+      eapply typing_kinding_2; eauto.
+    }
   Qed.
+
+  (*here*)
 
   Lemma canon_TProd' C v t i :
     typing C v t i ->
@@ -18568,8 +18835,11 @@ lift2 (fst (strip_subsets L))
     get_kctx C = [] ->
     get_tctx C = [] ->
     forall t1 t2 ,
-      tyeq [] t (TProd t1 t2) KType ->
+      let t' := TProd t1 t2 in
+      tyeq [] [] t t' KType ->
       value v ->
+      kinding [] [] t' KType ->
+      wfctx C ->
       exists v1 v2,
         v = EPair v1 v2 /\
         value v1 /\
@@ -18577,9 +18847,9 @@ lift2 (fst (strip_subsets L))
   Proof.
     induct 1; intros Hsnil Hknil Htnil t1'' t2'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst; unfold_all;
       try solve [tyeq_dis |
-                 cases inj; simplify; tyeq_dis |
-                 cases cn; simplify; tyeq_dis |
-                 destruct C as (((L & K) & W) & G); simplify; subst; eapply IHtyping; eauto with db_tyeq
+                 cases inj; simpl in *; tyeq_dis |
+                 cases cn; simpl in *; tyeq_dis |
+                 destruct C as (((L & K) & W) & G); simpl in *; subst; eapply IHtyping; eauto with db_tyeq
                 ].
   Qed.
   
@@ -18608,9 +18878,9 @@ lift2 (fst (strip_subsets L))
   Proof.
     induct 1; intros ? Hknil Htnil t1'' t2'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst; unfold_all;
       try solve [tyeq_dis |
-                 cases inj; simplify; tyeq_dis |
-                 cases cn; simplify; tyeq_dis |
-                 destruct C as (((L & K) & W) & G); simplify; subst; eapply IHtyping; eauto with db_tyeq
+                 cases inj; simpl in *; tyeq_dis |
+                 cases cn; simpl in *; tyeq_dis |
+                 destruct C as (((L & K) & W) & G); simpl in *; subst; eapply IHtyping; eauto with db_tyeq
                 ].
   Qed.
   
@@ -18636,9 +18906,9 @@ lift2 (fst (strip_subsets L))
   Proof.
     induct 1; intros ? Hknil Htnil i' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst; unfold_all;
       try solve [tyeq_dis |
-                 cases inj; simplify; tyeq_dis |
-                 cases cn; simplify; tyeq_dis |
-                 destruct C as (((L & K) & W) & G); simplify; subst; eapply IHtyping; eauto with db_tyeq
+                 cases inj; simpl in *; tyeq_dis |
+                 cases cn; simpl in *; tyeq_dis |
+                 destruct C as (((L & K) & W) & G); simpl in *; subst; eapply IHtyping; eauto with db_tyeq
                 ].
     eapply const_type_TNat_false in Htyeq.
     subst.
@@ -18669,9 +18939,9 @@ lift2 (fst (strip_subsets L))
   Proof.
     induct 1; intros ? Hknil Htnil t'' i'' Htyeq Hval; try solve [invert Hval | eexists; eauto | invert Hval; eexists; eauto | invert Htyeq]; subst; unfold_all;
       try solve [tyeq_dis |
-                 cases inj; simplify; tyeq_dis |
-                 cases cn; simplify; tyeq_dis |
-                 destruct C as (((L & K) & W) & G); simplify; subst; eapply IHtyping; eauto with db_tyeq
+                 cases inj; simpl in *; tyeq_dis |
+                 cases cn; simpl in *; tyeq_dis |
+                 destruct C as (((L & K) & W) & G); simpl in *; subst; eapply IHtyping; eauto with db_tyeq
                 ].
     eapply invert_tyeq_TArr_empty in Htyeq.
     openhyp.
@@ -19834,51 +20104,6 @@ lift2 (fst (strip_subsets L))
     eapply tyeq_TRec; eauto.
   Qed.
 
-  Lemma wfctx_add_sorting L K W G s :
-    wfctx (L, K, W, G) ->
-    wfsort (map get_bsort L) s ->
-    wfctx (s :: L, K, fmap_map shift0_i_ti W, map shift0_i_t G).
-  Proof.
-    unfold wfctx; intros HC Hs.
-    openhyp.
-    simpl in *.
-    repeat try_split; eauto.
-    {
-      eapply fmap_forall_fmap_map_intro.
-      eapply fmap_forall_impl; eauto.
-      simpl; intros.
-      intuition eauto using kinding_shift_i_t_1_0, sorting_shift_i_i_1_0,  wfsorts_wellscoped_ss.
-    }
-    {
-      eapply Forall_map.
-      eapply Forall_impl; eauto.
-      intros.
-      eapply kinding_shift_i_t_1_0; eauto using wfsorts_wellscoped_ss.
-    }
-  Qed.
-
-  Lemma wfctx_add_kinding L K W G k :
-    wfctx (L, K, W, G) ->
-    wfctx (L, k :: K, fmap_map shift0_t_ti W, map shift0_t_t G).
-  Proof.
-    unfold wfctx; intros HC.
-    openhyp.
-    simpl in *.
-    repeat try_split; eauto.
-    {
-      eapply fmap_forall_fmap_map_intro.
-      eapply fmap_forall_impl; eauto.
-      simpl; intros.
-      intuition eauto using kinding_shift_t_t_1_0.
-    }
-    {
-      eapply Forall_map.
-      eapply Forall_impl; eauto.
-      intros.
-      eapply kinding_shift_t_t_1_0; eauto.
-    }
-  Qed.
-
   Lemma wfctx_wellscoped_ctx L K W G :
     let C := (L, K, W, G) in
     wfctx C -> wellscoped_ctx C.
@@ -20632,20 +20857,6 @@ lift2 (fst (strip_subsets L))
         eauto.
       }
       {
-        Lemma wfctx_add_htyping L K W G l t len:
-          wfctx (L, K, W, G) ->
-          kinding L K t KType ->
-          sorting L len SNat ->
-          wfctx (L, K, W $+ (l, (t, len)), G).
-        Proof.
-          intros HC Ht Hlen; unfold wfctx in *; openhyp; simpl in *; repeat try_split; eauto.
-          unfold wfhctx in *.
-          unfold fmap_forall in *.
-          intros k v Hk.
-          eapply lookup_split in Hk.
-          destruct Hk; openhyp; subst; eauto.
-        Qed.
-        
         eapply wfctx_add_htyping; eauto.
       }
       {
