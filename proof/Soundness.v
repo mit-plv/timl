@@ -19081,12 +19081,13 @@ lift2 (fst (strip_subsets L))
     forall h f ,
       htyping h (get_hctx C) ->
       (interp_time i <= f)%time ->
+      wfctx C ->
       unstuck (h, e, f).
   Proof.
     induct 1.
     {
       (* Case Var *)
-      intros ? ? ? h f Hhty Hle.
+      intros ? ? ? h f Hhty Hle HC.
       destruct C as (((L & K) & W) & G).
       simplify.
       subst.
@@ -19095,7 +19096,7 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case App *)
-      intros ? ? ? h f Hhty Hle.
+      intros ? ? ? h f Hhty Hle HC.
       destruct C as (((L & K) & W) & G).
       simplify.
       subst.
@@ -19154,7 +19155,7 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case AppT *)
-      intros ? ? ? h f Hhty Hle.
+      intros ? ? ? h f Hhty Hle HC.
       destruct C as (((L & K) & W) & G).
       simplify.
       subst.
@@ -19187,7 +19188,7 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case AppI *)
-      intros ? ? ? h f Hhty Hle.
+      intros ? ? ? h f Hhty Hle HC.
       destruct C as (((L & K) & W) & G).
       simplify.
       subst.
@@ -19228,7 +19229,7 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case Fold *)
-      intros ? ? ? h f Hhty Hle.
+      intros ? ? ? h f Hhty Hle HC.
       destruct C as (((L & K) & W) & G).
       simplify.
       subst.
@@ -19250,7 +19251,7 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case Unfold *)
-      intros ? ? ? h f Hhty Hle.
+      intros ? ? ? h f Hhty Hle HC.
       destruct C as (((L & K) & W) & G).
       simplify.
       subst.
@@ -19259,35 +19260,12 @@ lift2 (fst (strip_subsets L))
       {
         copy H Hty.
         eapply canon_TRec in H; eauto.
-        destruct H.
-        {
-          destruct H as (e1 & ? & Hv).
-          subst.
-          right.
-          exists (h, e1, f).
-          eapply StepPlug with (E := ECHole); try eapply PlugHole.
-          eauto.
-        }
-        {
-          openhyp; subst.
-          Lemma typing_ETT_invert C e t i :
-            typing C e t i ->
-            e = ETT ->
-            kinding (get_sctx C) (get_kctx C) t KType.
-          Proof.
-            induct 1; simpl; intros; try dis; eauto.
-            destruct C as (((L & K) & W) & G).
-            destruct cn; simpl; econstructor; eauto.
-            invert H.
-          Qed.
-
-          eapply typing_ETT_invert in Hty; eauto.
-          simpl in *.
-          eapply kinding_TApps_invert in Hty.
-          destruct Hty as [Hkd ?].
-          invert Hkd.
-          propositional.
-        }        
+        destruct H as (e1 & ? & Hv).
+        subst.
+        right.
+        exists (h, e1, f).
+        eapply StepPlug with (E := ECHole); try eapply PlugHole.
+        eauto.
       }
       {
         destruct H0 as (((h' & e1') & f') & Hstep).
@@ -19301,7 +19279,7 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case Pack *)
-      intros ? ? ? h f Hhty Hle.
+      intros ? ? ? h f Hhty Hle HC.
       destruct C as (((L & K) & W) & G).
       simplify.
       subst.
@@ -19323,7 +19301,7 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case Unpack *)
-      intros ? ? ? h f Hhty Hle.
+      intros ? ? ? h f Hhty Hle HC.
       destruct C as (((L & K) & W) & G).
       simplify.
       subst.
@@ -19356,7 +19334,7 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case PackI *)
-      intros ? ? ? h f Hhty Hle.
+      intros ? ? ? h f Hhty Hle HC.
       destruct C as (((L & K) & W) & G).
       simplify.
       subst.
@@ -19378,7 +19356,7 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case UnpackI *)
-      intros ? ? ? h f Hhty Hle.
+      intros ? ? ? h f Hhty Hle HC.
       destruct C as (((L & K) & W) & G).
       simplify.
       subst.
@@ -19417,7 +19395,7 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case Pair *)
-      intros ? ? ? h f Hhty Hle.
+      intros ? ? ? h f Hhty Hle HC.
       destruct C as (((L & K) & W) & G).
       simplify.
       subst.
@@ -19460,7 +19438,7 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case Proj *)
-      intros ? ? ? h f Hhty Hle.
+      intros ? ? ? h f Hhty Hle HC.
       destruct C as (((L & K) & W) & G).
       simplify.
       subst.
@@ -19486,7 +19464,7 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case Inj *)
-      intros ? ? ? h f Hhty Hle.
+      intros ? ? ? h f Hhty Hle HC.
       destruct C as (((L & K) & W) & G).
       simplify.
       subst.
@@ -19507,7 +19485,7 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case Case *)
-      intros ? ? ? h f Hhty Hle.
+      intros ? ? ? h f Hhty Hle HC.
       destruct C as (((L & K) & W) & G).
       simplify.
       subst.
@@ -19540,7 +19518,7 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case New *)
-      intros ? ? ? h f Hhty Hle.
+      intros ? ? ? h f Hhty Hle HC.
       destruct C as (((L & K) & W) & G).
       simplify.
       subst.
@@ -19598,7 +19576,7 @@ lift2 (fst (strip_subsets L))
 
     {
       (* Case Read *)
-      intros ? ? ? h f Hhty Hle.
+      intros ? ? ? h f Hhty Hle HC.
       destruct C as (((L & K) & W) & G).
       simplify.
       subst.
@@ -19663,7 +19641,7 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case Write *)
-      intros ? ? ? h f Hhty Hle.
+      intros ? ? ? h f Hhty Hle HC.
       destruct C as (((L & K) & W) & G).
       simplify.
       subst.
@@ -19745,7 +19723,7 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case TyPrim *)
-      intros ? ? ? h f Hhty Hle.
+      intros ? ? ? h f Hhty Hle HC.
       destruct C as (((L & K) & W) & G).
       simplify.
       subst.
@@ -19818,7 +19796,7 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case TyNatAdd *)
-      intros ? ? ? h f Hhty Hle.
+      intros ? ? ? h f Hhty Hle HC.
       destruct C as (((L & K) & W) & G).
       simplify.
       subst.
@@ -19874,15 +19852,13 @@ lift2 (fst (strip_subsets L))
     }
     {
       (* Case Tyeq *)
-      intros ? ? ? h f Hhty Hle.
-      destruct C as (((L' & K) & W) & G).
+      destruct C as (((L' & K') & W) & G).
       simplify.
       subst.
       eapply IHtyping; eauto.
     }
     {
       (* Case Le *)
-      intros ? ? ? h f Hhty Hle.
       destruct C as (((L' & K) & W) & G).
       simplify.
       subst.
@@ -19903,293 +19879,29 @@ lift2 (fst (strip_subsets L))
     eapply progress'; eauto.
   Qed.
 
-  Lemma invert_typing_App C e1 e2 t i :
-    typing C (EApp e1 e2) t i ->
-    exists t' t2 i1 i2 i3 ,
-      tyeq (get_sctx C) t t' KType /\
-      typing C e1 (TArrow t2 i3 t') i1 /\
-      typing C e2 t2 i2 /\
-      interp_prop (get_sctx C) (i1 + i2 + T1 + i3 <= i)%idx.
+  Ltac invert_kindings :=
+    repeat match goal with
+             H : kinding _ _ _ _ |- _ => invert1 H
+           end.
+  
+  Lemma tyeq_unroll L K k t cs t' cs' k' :
+    k = KArrows (map fst cs) k' ->
+    tyeq L (k :: K) t t' k ->
+    Forall2 (fun p p' => fst p = fst p' /\ idxeq L (snd p) (snd p') (fst p)) cs cs' ->
+    kinding L (k :: K) t k ->
+    kinding L (k :: K) t' k ->
+    wellscoped_ss L ->
+    tyeq L K (unroll k t cs) (unroll k t' cs') k'.
   Proof.
-    induct 1; openhyp; repeat eexists_split;
-      eauto;
-      eauto with db_tyeq.
-  Qed.  
-
-  Lemma invert_typing_Abs C e t i :
-    typing C (EAbs e) t i ->
-    exists t1 i' t2 ,
-      tyeq (get_sctx C) t (TArrow t1 i' t2) KType /\
-      kinding (get_sctx C) (get_kctx C) t1 KType /\
-      typing (add_typing_ctx t1 C) e t2 i'.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
-  Qed.  
-
-  Lemma invert_typing_Unfold C e t2 i :
-    typing C (EUnfold e) t2 i ->
-    exists k t1 cs i',
-      tyeq (get_sctx C) t2 (unroll k t1 cs) KType /\
-      typing C e (TApps (TRec k t1) cs) i' /\
-      interp_prop (get_sctx C) (i' <= i)%idx.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
-  Qed.  
-
-  Lemma invert_typing_Fold C e t' i :
-    typing C (EFold e) t' i ->
-    exists cs k t2 i',
-      let t := TApps (TRec k t2) cs in
-      tyeq (get_sctx C) t' t KType /\
-      kinding (get_sctx C) (get_kctx C) t KType /\
-      typing C e (unroll k t2 cs) i' /\
-      interp_prop (get_sctx C) (i' <= i)%idx.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
-  Qed.  
-
-  Lemma invert_typing_Rec C e t i :
-    typing C (ERec e) t i ->
-    exists n e1 t',
-      tyeq (get_sctx C) t t' KType /\
-      e = EAbsTIs n (EAbs e1) /\
-      kinding (get_sctx C) (get_kctx C) t' KType /\
-      typing (add_typing_ctx t' C) e t' T0.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
-    (* { *)
-    (*   subst. *)
-    (*   eapply kinding_tyeq; eauto. *)
-    (* } *)
-    (* { *)
-    (*   subst. *)
-    (*   eapply add_typing_ctx_tyeq; eauto. *)
-    (*   eapply TyTyeq; eauto. *)
-    (*   rewrite get_kctx_add_typing_ctx. *)
-    (*   eauto. *)
-    (* } *)
-  Qed.  
-
-  Lemma invert_typing_Unpack C e1 e2 t2'' i :
-    typing C (EUnpack e1 e2) t2'' i ->
-    exists t2 t i1 k i2 ,
-      tyeq (get_sctx C) t2'' t2 KType /\
-      typing C e1 (TExists k t) i1 /\
-      typing (add_typing_ctx t (add_kinding_ctx k C)) e2 (shift0_t_t t2) i2 /\
-      interp_prop (get_sctx C) (i1 + i2 <= i)%idx.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
-  Qed.
-
-  Lemma invert_typing_Pack C c e t i :
-    typing C (EPack c e) t i ->
-    exists t1 k i' ,
-      let t' := TExists k t1 in
-      tyeq (get_sctx C) t t' KType /\
-      kinding (get_sctx C) (get_kctx C) t' KType /\
-      kinding (get_sctx C) (get_kctx C) c k /\
-      typing C e (subst0_t_t c t1) i' /\
-      interp_prop (get_sctx C) (i' <= i)%idx.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
-  Qed.
-
-  Lemma invert_typing_UnpackI C e1 e2 t2'' i :
-    typing C (EUnpackI e1 e2) t2'' i ->
-    exists t2 t i1 s i2 ,
-      tyeq (get_sctx C) t2'' t2 KType /\
-      typing C e1 (TExistsI s t) i1 /\
-      typing (add_typing_ctx t (add_sorting_ctx s C)) e2 (shift0_i_t t2) (shift0_i_i i2) /\
-      interp_prop (get_sctx C) (i1 + i2 <= i)%idx.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
-  Qed.
-
-  Lemma invert_typing_PackI C c e t i :
-    typing C (EPackI c e) t i ->
-    exists t1 s i' ,
-      let t' := TExistsI s t1 in
-      tyeq (get_sctx C) t t' KType /\
-      kinding (get_sctx C) (get_kctx C) t' KType /\
-      sorting (get_sctx C) c s /\
-      typing C e (subst0_i_t c t1) i' /\
-      interp_prop (get_sctx C) (i' <= i)%idx.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
-  Qed.
-
-  Lemma invert_typing_New C e1 e2 t i :
-    typing C (ENew e1 e2) t i ->
-    exists t' len i1 i2 ,
-      tyeq (get_sctx C) t (TArr t' len) KType /\
-      typing C e1 t' i1 /\
-      typing C e2 (TNat len) i2 /\
-      interp_prop (get_sctx C) (i1 + i2 <= i)%idx.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
-  Qed.
-
-  Lemma invert_typing_Read C e1 e2 t i :
-    typing C (ERead e1 e2) t i ->
-    exists t' len j i1 i2,
-      let L := get_sctx C in
-      tyeq L t t' KType /\
-      typing C e1 (TArr t' len) i1 /\
-      typing C e2 (TNat j) i2 /\
-      interp_prop L (j < len)%idx /\
-      interp_prop L (i1 + i2 <= i)%idx.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
-  Qed.
-
-  Lemma invert_typing_Write C e1 e2 e3 t i :
-    typing C (EWrite e1 e2 e3) t i ->
-    exists t' len j i1 i2 i3,
-      let L := get_sctx C in
-      tyeq L t TUnit KType /\
-      typing C e1 (TArr t' len) i1 /\
-      typing C e2 (TNat j) i2 /\
-      interp_prop L (j < len)%idx /\
-      typing C e3 t' i3 /\
-      interp_prop L (i1 + i2 + i3 <= i)%idx.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
-  Qed.
-
-  Lemma invert_typing_Loc C l t i :
-    typing C (ELoc l) t i ->
-    exists t' len,
-      tyeq (get_sctx C) t (TArr t' len) KType /\
-      get_hctx C $? l = Some (t', len).
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
-  Qed.
-
-  Lemma invert_typing_AppT C e c t i :
-    typing C (EAppT e c) t i ->
-    exists t' i' k ,
-      tyeq (get_sctx C) t (subst0_t_t c t') KType /\
-      typing C e (TForall k t') i' /\
-      kinding (get_sctx C) (get_kctx C) c k /\
-      interp_prop (get_sctx C) (i' <= i)%idx.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
-  Qed.
-
-  Lemma invert_typing_AbsT C e t i :
-    typing C (EAbsT e) t i ->
-    exists t' k ,
-      tyeq (get_sctx C) t (TForall k t') KType /\
-      value e /\
-      typing (add_kinding_ctx k C) e t' T0.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
-  Qed.
-
-  Lemma invert_typing_AppI C e c t i :
-    typing C (EAppI e c) t i ->
-    exists t' i' s,
-      tyeq (get_sctx C) t (subst0_i_t c t') KType /\
-      typing C e (TForallI s t') i' /\
-      sorting (get_sctx C) c s /\
-      interp_prop (get_sctx C) (i' <= i)%idx.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
-  Qed.
-
-  Lemma invert_typing_AbsI C e t i :
-    typing C (EAbsI e) t i ->
-    exists t' s,
-      tyeq (get_sctx C) t (TForallI s t') KType /\
-      value e /\
-      wfsort (map get_bsort (get_sctx C)) s /\
-      typing (add_sorting_ctx s C) e t' T0.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
-  Qed.
-
-  Lemma invert_typing_Proj C pr e t i :
-    typing C (EProj pr e) t i ->
-    exists t1 t2 i' ,
-      tyeq (get_sctx C) t (proj (t1, t2) pr) KType /\
-      typing C e (TProd t1 t2) i' /\
-      interp_prop (get_sctx C) (i' <= i)%idx.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
-  Qed.
-
-  Lemma invert_typing_Pair C e1 e2 t i :
-    typing C (EPair e1 e2) t i ->
-    exists t1 t2 i1 i2 ,
-      tyeq (get_sctx C) t (TProd t1 t2) KType /\
-      typing C e1 t1 i1 /\
-      typing C e2 t2 i2 /\
-      interp_prop (get_sctx C) (i1 + i2 <= i)%idx.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
-  Qed.
-
-  Lemma invert_typing_Case C e e1 e2 t i :
-    typing C (ECase e e1 e2) t i ->
-    exists t1 t2 i0 i1 i2 t',
-      tyeq (get_sctx C) t t' KType /\
-      typing C e (TSum t1 t2) i0 /\
-      typing (add_typing_ctx t1 C) e1 t' i1 /\
-      typing (add_typing_ctx t2 C) e2 t' i2 /\
-      interp_prop (get_sctx C) (i0 + Tmax i1 i2 <= i)%idx.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
-    (* { *)
-    (*   eapply TyTyeq; eauto. *)
-    (*   rewrite get_kctx_add_typing_ctx. *)
-    (*   eauto. *)
-    (* } *)
-    (* { *)
-    (*   eapply TyTyeq; eauto. *)
-    (*   rewrite get_kctx_add_typing_ctx. *)
-    (*   eauto. *)
-    (* } *)
-  Qed.
-
-  Lemma invert_typing_Inj C inj e t i :
-    typing C (EInj inj e) t i ->
-    exists t' t'' i' ,
-      tyeq (get_sctx C) t (choose (TSum t' t'', TSum t'' t') inj) KType /\
-      typing C e t' i' /\
-      kinding (get_sctx C) (get_kctx C) t'' KType /\
-      interp_prop (get_sctx C) (i' <= i)%idx.
-  Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
-  Qed.
-
-  Lemma invert_typing_BinOpPrim C opr e1 e2 t i :
-    typing C (EBinOp (EBPrim opr) e1 e2) t i ->
-    exists i1 i2,
-      let L := get_sctx C in
-      tyeq L t (prim_result_type opr) KType /\
-      typing C e1 (prim_arg1_type opr) i1 /\
-      typing C e2 (prim_arg2_type opr) i2 /\
-      interp_prop L (i1 + i2 + Tconst (prim_cost opr) <= i)%idx.
-  Proof.
-    induct 1; openhyp; try solve [repeat eexists_split; eauto; eauto with db_tyeq].
-  Qed.
-
-  Lemma invert_typing_NatAdd C e1 e2 t i :
-    typing C (ENatAdd e1 e2) t i ->
-    exists j1 j2 i1 i2,
-      let L := get_sctx C in
-      tyeq L t (TNat (Nadd j1 j2)) KType /\
-      typing C e1 (TNat j1) i1 /\
-      typing C e2 (TNat j2) i2 /\
-      interp_prop L (i1 + i2 + Tconst nat_add_cost <= i)%idx.
-  Proof.
-    induct 1; openhyp; try solve [repeat eexists_split; eauto; eauto with db_tyeq].
+    intros ? Htt' Hcscs' Ht Ht' HL; subst; unfold unroll in *.
+    eapply tyeq_TApps; eauto.
+    eapply tyeq_subst_t_t_eqv_eqv_0; simpl; eauto using kinding_bkinding.
   Qed.
 
   Lemma TySub C e t1 i1 t2 i2 :
     typing C e t1 i1 ->
     let L := get_sctx C in
-    tyeq L t1 t2 KType ->
+    tyeq L (get_kctx C) t1 t2 KType ->
     interp_prop L (i1 <= i2)%idx ->
     kinding L (get_kctx C) t2 KType ->
     sorting L i2 STime ->
@@ -20201,20 +19913,6 @@ lift2 (fst (strip_subsets L))
     eapply TyLe; eauto.
   Qed.
   
-  Lemma tyeq_unroll L K k t cs t' cs' :
-    k = map fst cs ->
-    tyeq L t t' k ->
-    Forall2 (fun p p' => fst p = fst p' /\ idxeq L (snd p) (snd p') (fst p)) cs cs' ->
-    kinding L (k :: K) t k ->
-    kinding L (k :: K) t' k ->
-    tyeq L (unroll k t cs) (unroll k t' cs') KType.
-  Proof.
-    intros ? Htt' Hcscs' Ht Ht'; subst; unfold unroll in *.
-    eapply tyeq_TApps; eauto.
-    eapply tyeq_subst_t_t_eqv_eqv_0; simpl; eauto using kinding_wellscoped_t.
-    eapply tyeq_TRec; eauto.
-  Qed.
-
   Lemma wfctx_wellscoped_ctx L K W G :
     let C := (L, K, W, G) in
     wfctx C -> wellscoped_ctx C.
@@ -20245,19 +19943,108 @@ lift2 (fst (strip_subsets L))
         (W $<= W').
   Proof.
     invert 1; simplify.
+  Lemma invert_typing_App C e1 e2 t i :
+    typing C (EApp e1 e2) t i ->
+    wfctx C ->
+    exists t' t2 i1 i2 i3 ,
+      let L := get_sctx C in
+      tyeq (get_sctx C) (get_kctx C) t t' KType /\
+      kinding L (get_kctx C) t' KType /\
+      typing C e1 (TArrow t2 i3 t') i1 /\
+      typing C e2 t2 i2 /\
+      interp_prop (get_sctx C) (i1 + i2 + T1 + i3 <= i)%idx.
+  Proof.
+    induct 1; intros HC; unfold_all;
+      destruct C as (((L & K) & W) & G); simpl in *.
+    {
+      assert (kinding L K t KType).
+      {
+        use_typings.
+        invert_kindings.
+        eauto.
+      }
+      repeat eexists_split; try eassumption; eauto using kinding_bkinding with db_tyeq.
+    }
+    {
+      copy HC HC'.
+      eapply IHtyping in HC'; openhyp; repeat eexists_split; try eassumption.
+      eapply tyeq_trans; eauto.
+      use_typings.
+      invert_kindings.
+      eauto using kinding_bkinding.
+    }
+    {
+      eapply IHtyping in HC; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
+    }
+  Qed.  
+
+  Lemma invert_typing_Abs C e t i :
+    typing C (EAbs e) t i ->
+    wfctx C ->
+    exists t1 i' t2 ,
+      let L := get_sctx C in
+      let K := get_kctx C in
+      tyeq L K t (TArrow t1 i' t2) KType /\
+      kinding L K (TArrow t1 i' t2) KType /\
+      kinding (get_sctx C) (get_kctx C) t1 KType /\
+      typing (add_typing_ctx t1 C) e t2 i'.
+  Proof.
+    induct 1; intros HC; unfold_all;
+      destruct C as (((L & K) & W) & G); simpl in *.
+    {
+      assert (kinding L K (TArrow t1 i t) KType).
+      {
+        use_typings.
+      }
+      repeat eexists_split; eauto; eauto using kinding_bkinding with db_tyeq.
+    }
+    {
+      copy HC HC'.
+      eapply IHtyping in HC'; openhyp; repeat eexists_split; try eassumption.
+      eapply tyeq_trans; eauto.
+      use_typings.
+      invert_kindings.
+      eauto using kinding_bkinding.
+    }
+    {
+      eapply IHtyping in HC; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
+    }
+  Qed.  
+
     {
       (* Case Beta *)
       destruct H as (Hty & Hhty & Hle & HC).
       rename t into f.
       rename t0 into t.
       copy Hty Hty0.
-      eapply invert_typing_App in Hty.
-      destruct Hty as (t' & t2 & i1 & i2 & i3 & Htyeq & Hty1 & Hty2 & Hle2).
+      eapply invert_typing_App in Hty; eauto.
+      destruct Hty as (t' & t2 & i1 & i2 & i3 & Htyeq & Ht' & Hty1 & Hty2 & Hle2).
       simplify.
-      eapply invert_typing_Abs in Hty1.
-      destruct Hty1 as (t1 & i' & t3 & Htyeq2 & Hkd & Hty1).
+      copy Hty1 Hty1'.
+      eapply invert_typing_Abs in Hty1; eauto.
+      destruct Hty1 as (t1 & i' & t3 & Htyeq2 & Ht1t3 & Hkd & Hty1).
       simplify.
-      eapply invert_tyeq_TArrow in Htyeq2.
+      eapply typing_kinding_2 in Hty0; eauto.
+      destruct Hty0 as [? Hi].
+  Lemma typing_kinding_t L K W G e t i :
+    let C := (L, K, W, G) in
+    typing C e t i ->
+    wfctx C ->
+    kinding L K t KType.
+  Proof.
+    simpl; intros; eapply typing_kinding_2; eauto.
+  Qed.
+  
+  Lemma typing_kinding_i L K W G e t i :
+    let C := (L, K, W, G) in
+    typing C e t i ->
+    wfctx C ->
+    sorting L i STime.
+  Proof.
+    simpl; intros; eapply typing_kinding_2; eauto.
+  Qed.
+  
+      eapply invert_tyeq_TArrow in Htyeq2; eauto using kinding_bkinding, typing_kinding_t.
       destruct Htyeq2 as (Htyeq2 & Hieq & Htyeq3).
       split.
       {
@@ -20271,9 +20058,6 @@ lift2 (fst (strip_subsets L))
       exists W.
       repeat try_split; eauto.
       {
-        eapply typing_kinding_2 in Hty0; eauto.
-        destruct Hty0 as [Ht Hi].
-        
         eapply TySub; try eassumption; simpl.
         {
           eapply typing_subst0_e_e with (G := []) in Hty1; eauto.
@@ -20286,8 +20070,7 @@ lift2 (fst (strip_subsets L))
         }
         {
           simplify.
-          eapply tyeq_sym.
-          eapply tyeq_trans; [eapply Htyeq | eapply Htyeq3]; eauto.
+          eauto using kinding_bkinding.
         }
         {
           simplify.
@@ -20324,19 +20107,96 @@ lift2 (fst (strip_subsets L))
         eauto.
       }
     }
+  Lemma invert_typing_Unfold C e t2 i :
+    typing C (EUnfold e) t2 i ->
+    wfctx C ->
+    exists k t1 cs i',
+      let L := get_sctx C in
+      let K := get_kctx C in
+      tyeq L K t2 (unroll k t1 cs) KType /\
+      kinding L K (unroll k t1 cs) KType /\
+      typing C e (TApps (TRec k t1) cs) i' /\
+      interp_prop (get_sctx C) (i' <= i)%idx.
+  Proof.
+    induct 1; intros HC; unfold_all;
+      destruct C as (((L & K) & W) & G); simpl in *.
+    {
+      assert (kinding L K (unroll k t cs) KType).
+      {
+        use_typings.
+        eapply kinding_TApps_invert in H.
+        openhyp.
+        invert_kindings.
+        eapply kinding_unroll; eauto.
+        unfold wfctx in *.
+        openhyp.
+        eauto using wfsorts_wellscoped_ss.
+      }
+      repeat eexists_split; eauto; eauto using kinding_bkinding with db_tyeq.
+    }
+    {
+      copy HC HC'.
+      eapply IHtyping in HC'; openhyp; repeat eexists_split; try eassumption.
+      eapply tyeq_trans; eauto.
+      use_typings.
+      invert_kindings.
+      eauto using kinding_bkinding.
+    }
+    {
+      eapply IHtyping in HC; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
+    }
+  Qed.  
+
+  Lemma invert_typing_Fold C e t' i :
+    typing C (EFold e) t' i ->
+    wfctx C ->
+    exists cs k t2 i',
+      let L := get_sctx C in
+      let K := get_kctx C in
+      let t := TApps (TRec k t2) cs in
+      tyeq L K t' t KType /\
+      kinding (get_sctx C) (get_kctx C) t KType /\
+      typing C e (unroll k t2 cs) i' /\
+      interp_prop (get_sctx C) (i' <= i)%idx.
+  Proof.
+    induct 1; intros HC; unfold_all;
+      destruct C as (((L & K) & W) & G); simpl in *.
+    {
+      repeat eexists_split; eauto; eauto with db_tyeq.
+      eapply tyeq_refl.
+      use_typings.
+      eapply kinding_TApps_invert in H.
+      openhyp.
+      invert_kindings.
+      eapply kinding_bkinding.
+      eapply kinding_TApps; eauto.
+    }
+    {
+      copy HC HC'.
+      eapply IHtyping in HC'; openhyp; repeat eexists_split; try eassumption.
+      eapply tyeq_trans; eauto.
+      use_typings.
+      invert_kindings.
+      eauto using kinding_bkinding.
+    }
+    {
+      eapply IHtyping in HC; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
+    }
+  Qed.  
+
     {
       (* Case Unfold-Fold *)
       destruct H as (Hty & Hhty & Hle & HC).
       rename t into f.
       rename t0 into t.
       copy Hty Hty0.
-      eapply invert_typing_Unfold in Hty.
-      destruct Hty as (k & t2 & cs& i' & Htyeq & Hty & Hle2).
+      eapply invert_typing_Unfold in Hty; eauto.
+      destruct Hty as (k & t2 & cs& i' & Htyeq & ? & Hty & Hle2).
       subst.
       simplify.
       subst.
       copy Hty Hty'.
-      eapply invert_typing_Fold in Hty.
+      eapply invert_typing_Fold in Hty; eauto.
       simplify.
       destruct Hty as (cs' & k' & t2' & i'' & Htyeq2 & Hkd & Hty & Hle3).
       subst.
@@ -20349,7 +20209,7 @@ lift2 (fst (strip_subsets L))
       copy Hkd' Hkd''.
       eapply kinding_TApps_TRec_invert in Hkd''.
       destruct Hkd'' as (? & Ht2 & Hcs); subst.
-      eapply invert_tyeq_TApps_TRec_empty in Htyeq2.
+      eapply invert_tyeq_TApps_TRec in Htyeq2; eauto using kinding_bkinding.
       destruct Htyeq2 as (Hsorteq & Htyeq2 & Htyeqcs).
       rewrite <- Hsorteq in *.
       set (k := map fst cs) in *.
@@ -20369,7 +20229,7 @@ lift2 (fst (strip_subsets L))
           (* tyeq *)
           simplify.
           eapply tyeq_sym.
-          eapply tyeq_trans; [eapply Htyeq |].
+          eapply tyeq_trans; [eapply Htyeq | | ]; eauto using kinding_bkinding.
           eapply tyeq_unroll; eauto.
         }
         {
@@ -20402,13 +20262,43 @@ lift2 (fst (strip_subsets L))
         eauto.
       }
     }
+  Lemma invert_typing_Rec C e t i :
+    typing C (ERec e) t i ->
+    wfctx C ->
+    exists n e1 t',
+      tyeq (get_sctx C) (get_kctx C) t t' KType /\
+      e = EAbsTIs n (EAbs e1) /\
+      kinding (get_sctx C) (get_kctx C) t' KType /\
+      typing (add_typing_ctx t' C) e t' T0.
+  Proof.
+    induct 1; intros HC; unfold_all;
+      destruct C as (((L & K) & W) & G); simpl in *.
+    {
+      repeat eexists_split; eauto; eauto with db_tyeq.
+      eapply tyeq_refl.
+      use_typings.
+      eauto using kinding_bkinding.
+    }
+    {
+      copy HC HC'.
+      eapply IHtyping in HC'; openhyp; repeat eexists_split; try eassumption.
+      eapply tyeq_trans; eauto.
+      use_typings.
+      invert_kindings.
+      eauto using kinding_bkinding.
+    }
+    {
+      eapply IHtyping in HC; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
+    }
+  Qed.  
+
     {
       (* Case Rec *)
       destruct H as (Hty & Hhty & Hle & HC).
       rename t into f.
       rename t0 into t.
       copy Hty Hty0.
-      eapply invert_typing_Rec in Hty.
+      eapply invert_typing_Rec in Hty; eauto.
       destruct Hty as (n & e1 & t' & Htt' & ? & Hkd & Hty).
       subst.
       simplify.
@@ -20475,6 +20365,87 @@ lift2 (fst (strip_subsets L))
         eauto.
       }
     }
+  Lemma invert_typing_Unpack C e1 e2 t2'' i :
+    typing C (EUnpack e1 e2) t2'' i ->
+    wfctx C ->
+    exists t2 t i1 k i2 ,
+      let L := get_sctx C in
+      let K := get_kctx C in
+      tyeq L K t2'' t2 KType /\
+      kinding L K t2 KType /\
+      typing C e1 (TExists k t) i1 /\
+      typing (add_typing_ctx t (add_kinding_ctx k C)) e2 (shift0_t_t t2) i2 /\
+      interp_prop (get_sctx C) (i1 + i2 <= i)%idx.
+  Proof.
+    induct 1; intros HC; unfold_all;
+      destruct C as (((L & K) & W) & G); simpl in *.
+    {
+      assert (kinding L K t2 KType).
+      {
+        eapply typing_kinding_2 in H0; eauto.
+        {
+          openhyp.
+          eapply kinding_shift_t_t_rev_1_0; eauto.
+        }
+        {
+          eapply wfctx_add_typing; eauto.
+          {
+            eapply wfctx_add_kinding; eauto.
+          }
+          eapply typing_kinding_2 in H; eauto.
+          openhyp.
+          invert_kindings.
+          eauto.
+        }
+      }
+      repeat eexists_split; try eassumption; eauto using kinding_bkinding with db_tyeq.
+    }
+    {
+      copy HC HC'.
+      eapply IHtyping in HC'; openhyp; repeat eexists_split; try eassumption.
+      eapply tyeq_trans; eauto.
+      clear H5.
+      use_typings.
+      invert_kindings.
+      eauto using kinding_bkinding.
+    }
+    {
+      eapply IHtyping in HC; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
+    }
+  Qed.
+
+  Lemma invert_typing_Pack C c e t i :
+    typing C (EPack c e) t i ->
+    wfctx C ->
+    exists t1 k i' ,
+      let t' := TExists k t1 in
+      tyeq (get_sctx C) (get_kctx C) t t' KType /\
+      kinding (get_sctx C) (get_kctx C) t' KType /\
+      kinding (get_sctx C) (get_kctx C) c k /\
+      typing C e (subst0_t_t c t1) i' /\
+      interp_prop (get_sctx C) (i' <= i)%idx.
+  Proof.
+    induct 1; intros HC; unfold_all;
+      destruct C as (((L & K) & W) & G); simpl in *.
+    {
+      repeat eexists_split; eauto; eauto with db_tyeq.
+      eapply tyeq_refl.
+      eauto using kinding_bkinding.
+    }
+    {
+      copy HC HC'.
+      eapply IHtyping in HC'; openhyp; repeat eexists_split; try eassumption.
+      eapply tyeq_trans; eauto.
+      clear H4.
+      use_typings.
+      invert_kindings.
+      eauto using kinding_bkinding.
+    }
+    {
+      eapply IHtyping in HC; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
+    }
+  Qed.
+
     {
       (* Case Unpack-Pack *)
       destruct H as (Hty & Hhty & Hle & HC).
@@ -20483,20 +20454,20 @@ lift2 (fst (strip_subsets L))
       copy Hty Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht Hi].
-      eapply invert_typing_Unpack in Hty.
-      destruct Hty as (t2 & t0 & i1 & k & i2 & Htyeq & Hty1 & Hty2 & Hle2).
+      eapply invert_typing_Unpack in Hty; eauto.
+      destruct Hty as (t2 & t0 & i1 & k & i2 & Htyeq & Ht2 & Hty1 & Hty2 & Hle2).
       subst.
       simplify.
       copy Hty1 Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht0 Hi1].
-      eapply invert_typing_Pack in Hty1.
+      eapply invert_typing_Pack in Hty1; eauto.
       destruct Hty1 as (t1 & k' & i' & Htyeq2 & Hkd1 & Hkdc' & Htyv & Hle3).
       subst.
       simplify.
       invert Ht0.
       invert Hkd1.
-      eapply invert_tyeq_TQuan_empty in Htyeq2.
+      eapply invert_tyeq_TQuan in Htyeq2; eauto using kinding_bkinding.
       destruct Htyeq2 as (? & ? & Htyeq2).
       subst.
       rename k' into k.
@@ -20516,7 +20487,7 @@ lift2 (fst (strip_subsets L))
         {
           eapply kinding_subst_t_t_0; eauto.
         }
-        eapply tyeq_subst_t_t_0; eauto using kinding_wellscoped_t with db_tyeq.
+        eapply tyeq_subst_t_t_0; eauto using kinding_wellscoped_t, kinding_bkinding with db_tyeq.
       }
       eapply typing_subst0_e_e with (G := []) in Hty2; eauto.
       Focus 2.
@@ -20569,6 +20540,84 @@ lift2 (fst (strip_subsets L))
         eauto.
       }
     }
+  Lemma invert_typing_UnpackI C e1 e2 t2'' i :
+    typing C (EUnpackI e1 e2) t2'' i ->
+    wfctx C ->
+    exists t2 t i1 s i2 ,
+      let L := get_sctx C in
+      let K := get_kctx C in
+      tyeq L K t2'' t2 KType /\
+      kinding L K t2 KType /\
+      typing C e1 (TExistsI s t) i1 /\
+      typing (add_typing_ctx t (add_sorting_ctx s C)) e2 (shift0_i_t t2) (shift0_i_i i2) /\
+      interp_prop (get_sctx C) (i1 + i2 <= i)%idx.
+  Proof.
+    induct 1; intros HC; unfold_all;
+      destruct C as (((L & K) & W) & G); simpl in *.
+    {
+      assert (kinding L K t2 KType).
+      {
+        eapply typing_kinding_2 in H0; eauto.
+        {
+          openhyp.
+          eapply kinding_shift_i_t_rev_1_0; eauto.
+          unfold wfctx in *; openhyp; eauto.
+        }
+        {
+          clear H0.
+          use_typings.
+          invert_kindings.
+          eapply wfctx_add_typing; eauto.
+          eapply wfctx_add_sorting; eauto.
+        }
+      }
+      repeat eexists_split; try eassumption; eauto using kinding_bkinding with db_tyeq.
+    }
+    {
+      copy HC HC'.
+      eapply IHtyping in HC'; openhyp; repeat eexists_split; try eassumption.
+      eapply tyeq_trans; eauto.
+      clear H5.
+      use_typings.
+      invert_kindings.
+      eauto using kinding_bkinding.
+    }
+    {
+      eapply IHtyping in HC; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
+    }
+  Qed.
+
+  Lemma invert_typing_PackI C c e t i :
+    typing C (EPackI c e) t i ->
+    wfctx C ->
+    exists t1 s i' ,
+      let t' := TExistsI s t1 in
+      tyeq (get_sctx C) (get_kctx C) t t' KType /\
+      kinding (get_sctx C) (get_kctx C) t' KType /\
+      sorting (get_sctx C) c s /\
+      typing C e (subst0_i_t c t1) i' /\
+      interp_prop (get_sctx C) (i' <= i)%idx.
+  Proof.
+    induct 1; intros HC; unfold_all;
+      destruct C as (((L & K) & W) & G); simpl in *.
+    {
+      repeat eexists_split; eauto; eauto with db_tyeq.
+      eapply tyeq_refl.
+      eauto using kinding_bkinding.
+    }
+    {
+      copy HC HC'.
+      eapply IHtyping in HC'; openhyp; repeat eexists_split; try eassumption.
+      eapply tyeq_trans; eauto.
+      use_typings.
+      invert_kindings.
+      eauto using kinding_bkinding.
+    }
+    {
+      eapply IHtyping in HC; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
+    }
+  Qed.
+
     {
       (* Case UnpackI-PackI *)
       destruct H as (Hty & Hhty & Hle & HC).
@@ -20577,20 +20626,20 @@ lift2 (fst (strip_subsets L))
       copy Hty Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht Hi].
-      eapply invert_typing_UnpackI in Hty.
-      destruct Hty as (t2 & t0 & i1 & s & i2 & Htyeq & Hty1 & Hty2 & Hle2).
+      eapply invert_typing_UnpackI in Hty; eauto.
+      destruct Hty as (t2 & t0 & i1 & s & i2 & Htyeq & Ht2 & Hty1 & Hty2 & Hle2).
       subst.
       simplify.
       copy Hty1 Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht0 Hi1].
-      eapply invert_typing_PackI in Hty1.
+      eapply invert_typing_PackI in Hty1; eauto.
       destruct Hty1 as (t1 & s' & i' & Htyeq2 & Hkd1 & Hkdc' & Htyv & Hle3).
       subst.
       simplify.
       invert Ht0.
       invert Hkd1.
-      eapply invert_tyeq_TQuanI_empty in Htyeq2.
+      eapply invert_tyeq_TQuanI in Htyeq2; eauto using kinding_bkinding.
       destruct Htyeq2 as (? & Hss' & Htyeq2).
       assert (Hkdc : sorting [] c s).
       {
@@ -20670,14 +20719,103 @@ lift2 (fst (strip_subsets L))
         eauto.
       }
     }
+
   Lemma invert_typing_Const C cn t i :
     typing C (EConst cn) t i ->
+    wfctx C ->
     exists i',
-      tyeq (get_sctx C) t (const_type cn) KType /\
+      let K := get_kctx C in
+      tyeq (get_sctx C) K t (const_type cn) KType /\
       interp_prop (get_sctx C) (i' <= i)%idx.
   Proof.
-    induct 1; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
+    induct 1; intros HC; unfold_all;
+      destruct C as (((L & K) & W) & G); simpl in *.
+    {
+      repeat eexists_split; eauto; eauto with db_tyeq.
+      eapply tyeq_refl.
+      cases cn; simpl; repeat econstructor.
+    }
+    {
+      copy HC HC'.
+      eapply IHtyping in HC'; openhyp; repeat eexists_split; try eassumption.
+      eapply tyeq_trans; eauto.
+      use_typings.
+      invert_kindings.
+      eauto using kinding_bkinding.
+    }
+    {
+      eapply IHtyping in HC; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
+    }
   Qed.  
+
+  Lemma invert_typing_Read C e1 e2 t i :
+    typing C (ERead e1 e2) t i ->
+    wfctx C ->
+    exists t' len j i1 i2,
+      let L := get_sctx C in
+      let K := get_kctx C in 
+      tyeq L K t t' KType /\
+      kinding L K t' KType /\
+      typing C e1 (TArr t' len) i1 /\
+      typing C e2 (TNat j) i2 /\
+      interp_prop L (j < len)%idx /\
+      interp_prop L (i1 + i2 <= i)%idx.
+  Proof.
+    induct 1; intros HC; unfold_all;
+      destruct C as (((L & K) & W) & G); simpl in *.
+    {
+      assert (kinding L K t KType).
+      {
+        use_typings.
+        invert_kindings.
+        eauto.
+      }
+      repeat eexists_split; try eassumption; eauto using kinding_bkinding with db_tyeq.
+    }
+    {
+      copy HC HC'.
+      eapply IHtyping in HC'; openhyp; repeat eexists_split; try eassumption.
+      eapply tyeq_trans; eauto.
+      use_typings.
+      invert_kindings.
+      eauto using kinding_bkinding.
+    }
+    {
+      eapply IHtyping in HC; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
+    }
+  Qed.
+
+  Lemma invert_typing_Loc C l t i :
+    typing C (ELoc l) t i ->
+    wfctx C ->
+    exists t' len,
+      let L := get_sctx C in
+      let K := get_kctx C in
+      tyeq L K t (TArr t' len) KType /\
+      kinding L K (TArr t' len) KType /\
+      get_hctx C $? l = Some (t', len).
+  Proof.
+    induct 1; intros HC; unfold_all;
+      destruct C as (((L & K) & W) & G); simpl in *.
+    {
+      assert (kinding L K (TArr t i) KType).
+      {
+        eauto using kctx_elim_kinding, kctx_elim_sorting.
+      }
+      repeat eexists_split; eauto; eauto using kinding_bkinding with db_tyeq.
+    }
+    {
+      copy HC HC'.
+      eapply IHtyping in HC'; openhyp; repeat eexists_split; try eassumption.
+      eapply tyeq_trans; eauto.
+      use_typings.
+      invert_kindings.
+      eauto using kinding_bkinding.
+    }
+    {
+      eapply IHtyping in HC; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
+    }
+  Qed.
 
     {
       (* Case Read *)
@@ -20687,29 +20825,29 @@ lift2 (fst (strip_subsets L))
       copy Hty Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht Hi].
-      eapply invert_typing_Read in Hty.
-      destruct Hty as (t'' & len & j & i1 & i2 & Htt'' & Hty1 & Hty2 & Hle2).
+      eapply invert_typing_Read in Hty; eauto.
+      destruct Hty as (t'' & len & j & i1 & i2 & Htt'' & Ht' & Hty1 & Hty2 & Hle2).
       simplify.
       copy Hty1 Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht'' Hi1].
       invert Ht''.
-      eapply invert_typing_Loc in Hty1.
-      destruct Hty1 as (t' & len' & Htyeq & Hl).
+      eapply invert_typing_Loc in Hty1; eauto.
+      destruct Hty1 as (t' & len' & Htyeq & Ht'len' & Hl).
       simplify.
       copy Hhty Hhty0.
       eapply htyping_elim in Hhty; eauto.
       destruct Hhty as (Hlen & Htyv).
-      eapply invert_tyeq_TArr in Htyeq.
+      eapply invert_tyeq_TArr in Htyeq; eauto using kinding_bkinding.
       destruct Htyeq as [Htyeq Hlenlen'].
       copy Hty2 Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Hj Hi2].
       invert Hj.
-      eapply invert_typing_Const in Hty2.
+      eapply invert_typing_Const in Hty2; eauto.
       destruct Hty2 as (i' & Hjn & Hi').
       simplify.
-      eapply invert_tyeq_TNat_empty in Hjn.
+      eapply invert_tyeq_TNat in Hjn; eauto using kinding_bkinding; [| repeat econstructor].
       unfold idxeq, interp_prop in Hjn.
       simpl in *.
       repeat rewrite convert_bsort_value_refl_eq in *.
@@ -20729,7 +20867,7 @@ lift2 (fst (strip_subsets L))
       {
         eapply TySub; try eassumption; simpl.
         {
-          eauto with db_tyeq.
+          eauto using kinding_bkinding with db_tyeq.
         }
         {
           simplify.
@@ -20761,6 +20899,38 @@ lift2 (fst (strip_subsets L))
         eapply incl_refl.
       }
     }
+  Lemma invert_typing_Write C e1 e2 e3 t i :
+    typing C (EWrite e1 e2 e3) t i ->
+    wfctx C ->
+    exists t' len j i1 i2 i3,
+      let L := get_sctx C in
+      tyeq L (get_kctx C) t TUnit KType /\
+      typing C e1 (TArr t' len) i1 /\
+      typing C e2 (TNat j) i2 /\
+      interp_prop L (j < len)%idx /\
+      typing C e3 t' i3 /\
+      interp_prop L (i1 + i2 + i3 <= i)%idx.
+  Proof.
+    induct 1; intros HC; unfold_all;
+      destruct C as (((L & K) & W) & G); simpl in *.
+    {
+      repeat eexists_split; eauto; eauto with db_tyeq.
+      eapply tyeq_refl.
+      econstructor.
+    }
+    {
+      copy HC HC'.
+      eapply IHtyping in HC'; openhyp; repeat eexists_split; try eassumption.
+      eapply tyeq_trans; eauto.
+      use_typings.
+      invert_kindings.
+      eauto using kinding_bkinding.
+    }
+    {
+      eapply IHtyping in HC; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
+    }
+  Qed.
+
     {
       (* Case Write *)
       destruct H as (Hty & Hhty & Hle & HC).
@@ -20769,17 +20939,17 @@ lift2 (fst (strip_subsets L))
       copy Hty Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht Hi].
-      eapply invert_typing_Write in Hty.
+      eapply invert_typing_Write in Hty; eauto.
       destruct Hty as (t' & len & j & i1 & i2 & i3 & Htyeq & Hty1 & Hty2 & Hjlen & Hty3 & Hle2).
       simpl in *.
       copy Hty1 Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht' Hi1].
       invert Ht'.
-      eapply invert_typing_Loc in Hty1.
-      destruct Hty1 as (t'' & len' & Htyeq2 & Hl).
+      eapply invert_typing_Loc in Hty1; eauto.
+      destruct Hty1 as (t'' & len' & Htyeq2 & Ht''len' & Hl).
       simplify.
-      eapply invert_tyeq_TArr_empty in Htyeq2.
+      eapply invert_tyeq_TArr in Htyeq2; eauto using kinding_bkinding.
       destruct Htyeq2 as [Htyeq2 Hlenlen'].
       copy Hhty Hhty0.
       eapply htyping_elim in Hhty; eauto.
@@ -20788,10 +20958,10 @@ lift2 (fst (strip_subsets L))
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Hj Hi2].
       invert Hj.
-      eapply invert_typing_Const in Hty2.
+      eapply invert_typing_Const in Hty2; eauto.
       destruct Hty2 as (i' & Hjn & Hi').
       simplify.
-      eapply invert_tyeq_TNat_empty in Hjn.
+      eapply invert_tyeq_TNat in Hjn; eauto using kinding_bkinding; [| repeat econstructor].
       unfold idxeq, interp_prop in Hjn.
       simpl in *.
       repeat rewrite convert_bsort_value_refl_eq in *.
@@ -20890,6 +21060,42 @@ lift2 (fst (strip_subsets L))
         eauto.
       }
     }
+  Lemma invert_typing_New C e1 e2 t i :
+    typing C (ENew e1 e2) t i ->
+    wfctx C ->
+    exists t' len i1 i2 ,
+      let L := get_sctx C in
+      let K := get_kctx C in
+      tyeq L K t (TArr t' len) KType /\
+      kinding L K (TArr t' len) KType /\
+      typing C e1 t' i1 /\
+      typing C e2 (TNat len) i2 /\
+      interp_prop (get_sctx C) (i1 + i2 <= i)%idx.
+  Proof.
+    induct 1; intros HC; unfold_all;
+      destruct C as (((L & K) & W) & G); simpl in *.
+    {
+      assert (kinding L K (TArr t len) KType).
+      {
+        use_typings.
+        invert_kindings.
+        eauto.
+      }
+      repeat eexists_split; eauto; eauto using kinding_bkinding with db_tyeq.
+    }
+    {
+      copy HC HC'.
+      eapply IHtyping in HC'; openhyp; repeat eexists_split; try eassumption.
+      eapply tyeq_trans; eauto.
+      use_typings.
+      invert_kindings.
+      eauto using kinding_bkinding.
+    }
+    {
+      eapply IHtyping in HC; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
+    }
+  Qed.
+
     {
       (* Case New *)
       destruct H as (Hty & Hhty & Hle & HC).
@@ -20898,8 +21104,8 @@ lift2 (fst (strip_subsets L))
       copy Hty Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht Hi].
-      eapply invert_typing_New in Hty.
-      destruct Hty as (t' & len & i1 & i2 & Htyeq & Hty1 & Hty2 & Hle2).
+      eapply invert_typing_New in Hty; eauto.
+      destruct Hty as (t' & len & i1 & i2 & Htyeq & Ht'len & Hty1 & Hty2 & Hle2).
       copy Hty1 Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht' Hi1].
@@ -20909,10 +21115,10 @@ lift2 (fst (strip_subsets L))
       destruct Hty0 as [Hlen Hi2].
       invert Hlen.
       simplify.
-      eapply invert_typing_Const in Hty2.
+      eapply invert_typing_Const in Hty2; eauto.
       destruct Hty2 as (i' & Hjn & Hi').
       simplify.
-      eapply invert_tyeq_TNat_empty in Hjn.
+      eapply invert_tyeq_TNat in Hjn; eauto using kinding_bkinding; [| repeat econstructor].
       unfold idxeq, interp_prop in Hjn.
       simpl in *.
       repeat rewrite convert_bsort_value_refl_eq in *.
@@ -20986,6 +21192,80 @@ lift2 (fst (strip_subsets L))
         eauto.
       }
     }
+  Lemma invert_typing_AppT C e c t i :
+    typing C (EAppT e c) t i ->
+    wfctx C ->
+    exists t' i' k ,
+      let L := get_sctx C in
+      let K := get_kctx C in
+      tyeq L K t (subst0_t_t c t') KType /\
+      kinding L K (subst0_t_t c t') KType /\
+      typing C e (TForall k t') i' /\
+      kinding (get_sctx C) (get_kctx C) c k /\
+      interp_prop (get_sctx C) (i' <= i)%idx.
+  Proof.
+    induct 1; intros HC; unfold_all;
+      destruct C as (((L & K) & W) & G); simpl in *.
+    {
+      assert (kinding L K (subst0_t_t c t1) KType).
+      {
+        use_typings.
+        invert_kindings.
+        eapply kinding_subst_t_t_0; eauto.
+        unfold wfctx in *; openhyp; eauto using wfsorts_wellscoped_ss.
+      }
+      repeat eexists_split; eauto; eauto using kinding_bkinding with db_tyeq.
+    }
+    {
+      copy HC HC'.
+      eapply IHtyping in HC'; openhyp; repeat eexists_split; try eassumption.
+      eapply tyeq_trans; eauto.
+      use_typings.
+      invert_kindings.
+      eauto using kinding_bkinding.
+    }
+    {
+      eapply IHtyping in HC; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
+    }
+  Qed.
+
+  Lemma invert_typing_AbsT C e t i :
+    typing C (EAbsT e) t i ->
+    wfctx C ->
+    exists t' k ,
+      let L := get_sctx C in
+      let K := get_kctx C in
+      tyeq L K t (TForall k t') KType /\
+      kinding L K (TForall k t') KType /\
+      value e /\
+      typing (add_kinding_ctx k C) e t' T0.
+  Proof.
+    induct 1; intros HC; unfold_all;
+      destruct C as (((L & K) & W) & G); simpl in *.
+    {
+      assert (kinding L K (TForall k t) KType).
+      {
+        use_typings.
+        invert_kindings.
+        econstructor; eauto.
+      }
+      repeat eexists_split; eauto; eauto using kinding_bkinding with db_tyeq.
+    }
+    {
+      copy HC HC'.
+      eapply IHtyping in HC'; openhyp; repeat eexists_split; try eassumption.
+      eapply tyeq_trans; eauto.
+      use_typings.
+      invert_kindings.
+      eauto using kinding_bkinding.
+    }
+    {
+      eapply IHtyping in HC; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
+    }
+  Qed.
+
+  Hint Resolve kinding_bkinding'.
+  
     {
       (* Case AppT *)
       destruct H as (Hty & Hhty & Hle & HC).
@@ -20994,17 +21274,17 @@ lift2 (fst (strip_subsets L))
       copy Hty Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht Hi].
-      eapply invert_typing_AppT in Hty.
-      destruct Hty as (t' & i' & k' & Htyeq & Hty & Hkdc & Hle2).
+      eapply invert_typing_AppT in Hty; eauto.
+      destruct Hty as (t' & i' & k' & Htyeq & Hct' & Hty & Hkdc & Hle2).
       simplify.
       copy Hty Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht' Hi'].
       invert Ht'.
-      eapply invert_typing_AbsT in Hty.
-      destruct Hty as (t'' & k & Htyeq2 & Hval & Hty).
+      eapply invert_typing_AbsT in Hty; eauto.
+      destruct Hty as (t'' & k & Htyeq2 & Ht'' & Hval & Hty).
       simplify.
-      eapply invert_tyeq_TQuan_empty in Htyeq2.
+      eapply invert_tyeq_TQuan in Htyeq2; eauto.
       destruct Htyeq2 as (? & ? & Htyeq2).
       subst.
       split.
@@ -21031,16 +21311,8 @@ lift2 (fst (strip_subsets L))
           simplify.
           (* tyeq *)
           eapply tyeq_sym.
-          eapply tyeq_trans; [eapply Htyeq |].
+          eapply tyeq_trans; [eapply Htyeq | |]; eauto.
           eapply tyeq_subst_t_t_0; eauto using kinding_wellscoped_t with db_tyeq.
-          copy Hty Hty0.
-          eapply typing_kinding_2 in Hty0.
-          {
-            openhyp; eauto.
-          }
-          {
-            eapply wfctx_add_kinding with (G := []); eauto.
-          }
         }
         {
           simplify.
@@ -21068,6 +21340,73 @@ lift2 (fst (strip_subsets L))
         eauto.
       }
     }
+  Lemma invert_typing_AppI C e c t i :
+    typing C (EAppI e c) t i ->
+    wfctx C ->
+    exists t' i' s,
+      let L := get_sctx C in
+      let K := get_kctx C in
+      tyeq L K t (subst0_i_t c t') KType /\
+      kinding L K (subst0_i_t c t') KType /\
+      typing C e (TForallI s t') i' /\
+      sorting (get_sctx C) c s /\
+      interp_prop (get_sctx C) (i' <= i)%idx.
+  Proof.
+    induct 1; intros HC; unfold_all;
+      destruct C as (((L & K) & W) & G); simpl in *.
+    {
+      assert (kinding L K (subst0_i_t c t) KType).
+      {
+        use_typings.
+        invert_kindings.
+        eapply kinding_subst_i_t_0; eauto using sorting_bsorting.
+        unfold wfctx in *; openhyp; eauto using wfsorts_wellscoped_ss.
+      }
+      repeat eexists_split; eauto; eauto with db_tyeq.
+    }
+    {
+      copy HC HC'.
+      eapply IHtyping in HC'; openhyp; repeat eexists_split; try eassumption.
+      eapply tyeq_trans; eauto.
+      use_typings.
+    }
+    {
+      eapply IHtyping in HC; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
+    }
+  Qed.
+
+  Lemma invert_typing_AbsI C e t i :
+    typing C (EAbsI e) t i ->
+    wfctx C ->
+    exists t' s,
+      tyeq (get_sctx C) (get_kctx C) t (TForallI s t') KType /\
+      kinding (get_sctx C) (get_kctx C) (TForallI s t') KType /\
+      value e /\
+      wfsort (map get_bsort (get_sctx C)) s /\
+      typing (add_sorting_ctx s C) e t' T0.
+  Proof.
+    induct 1; intros HC; unfold_all;
+      destruct C as (((L & K) & W) & G); simpl in *.
+    {
+      assert (kinding L K (TForallI s t) KType).
+      {
+        use_typings.
+        invert_kindings.
+        econstructor; eauto.
+      }
+      repeat eexists_split; eauto; eauto with db_tyeq.
+    }
+    {
+      copy HC HC'.
+      eapply IHtyping in HC'; openhyp; repeat eexists_split; try eassumption.
+      eapply tyeq_trans; eauto.
+      use_typings.
+    }
+    {
+      eapply IHtyping in HC; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
+    }
+  Qed.
+
     {
       (* Case AppI *)
       destruct H as (Hty & Hhty & Hle & HC).
@@ -21076,17 +21415,17 @@ lift2 (fst (strip_subsets L))
       copy Hty Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht Hi].
-      eapply invert_typing_AppI in Hty.
-      destruct Hty as (t' & i' & s & Htyeq & Hty & Hkdc & Hle2).
+      eapply invert_typing_AppI in Hty; eauto.
+      destruct Hty as (t' & i' & s & Htyeq & Hct' & Hty & Hkdc & Hle2).
       simplify.
       copy Hty Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht' Hi'].
       invert Ht'.
-      eapply invert_typing_AbsI in Hty.
-      destruct Hty as (t'' & s' & Htyeq2 & Hval & Hs' & Hty).
+      eapply invert_typing_AbsI in Hty; eauto.
+      destruct Hty as (t'' & s' & Htyeq2 & Ht'' & Hval & Hs' & Hty).
       simplify.
-      eapply invert_tyeq_TQuanI_empty in Htyeq2.
+      eapply invert_tyeq_TQuanI in Htyeq2; eauto.
       destruct Htyeq2 as (? & Hss' & Htyeq2).
       assert (Hkdck : sorting [] c s').
       {
@@ -21117,19 +21456,10 @@ lift2 (fst (strip_subsets L))
           simplify.
           (* tyeq *)
           eapply tyeq_sym.
-          eapply tyeq_trans; [eapply Htyeq |].
+          eapply tyeq_trans; [eapply Htyeq | | ]; eauto.
+          invert_kindings.
           eapply tyeq_subst_i_t_0; eauto using kinding_wellscoped_t, kinding_bkinding' with db_tyeq.
-          copy Hty Hty0.
-          eapply typing_kinding_2 in Hty0.
-          {
-            openhyp; simpl.
-            eapply sorteq_get_bsort in Hss'.
-            rewrite <- Hss'.
-            eauto using kinding_bkinding'.
-          }
-          {
-            eapply wfctx_add_sorting with (G := []); eauto.
-          }
+          invert Hss'; simpl in *; eauto.
         }
         {
           simplify.
@@ -21157,6 +21487,81 @@ lift2 (fst (strip_subsets L))
         eauto.
       }
     }
+  Lemma invert_typing_Proj C pr e t i :
+    typing C (EProj pr e) t i ->
+    wfctx C ->
+    exists t1 t2 i' ,
+      tyeq (get_sctx C) (get_kctx C) t (proj (t1, t2) pr) KType /\
+      kinding (get_sctx C) (get_kctx C) t1 KType /\
+      kinding (get_sctx C) (get_kctx C) t2 KType /\
+      typing C e (TProd t1 t2) i' /\
+      interp_prop (get_sctx C) (i' <= i)%idx.
+  Proof.
+    induct 1; intros HC; unfold_all;
+      destruct C as (((L & K) & W) & G); simpl in *.
+    {
+      assert (kinding L K t1 KType).
+      {
+        use_typings.
+        invert_kindings.
+        eauto.
+      }
+      assert (kinding L K t2 KType).
+      {
+        use_typings.
+        invert_kindings.
+        eauto.
+      }
+      exists t1, t2.
+      repeat eexists_split; try eassumption; eauto with db_tyeq.
+      cases pr; eauto using kinding_bkinding'.
+    }
+    {
+      copy HC HC'.
+      eapply IHtyping in HC'; openhyp.
+      exists x, x0.
+      repeat eexists_split; try eassumption.
+      eapply tyeq_trans; eauto.
+      use_typings.
+    }
+    {
+      eapply IHtyping in HC; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
+    }
+  Qed.
+
+  Lemma invert_typing_Pair C e1 e2 t i :
+    typing C (EPair e1 e2) t i ->
+    wfctx C ->
+    exists t1 t2 i1 i2 ,
+      tyeq (get_sctx C) (get_kctx C) t (TProd t1 t2) KType /\
+      kinding (get_sctx C) (get_kctx C) (TProd t1 t2) KType /\
+      typing C e1 t1 i1 /\
+      typing C e2 t2 i2 /\
+      interp_prop (get_sctx C) (i1 + i2 <= i)%idx.
+  Proof.
+    induct 1; intros HC; unfold_all;
+      destruct C as (((L & K) & W) & G); simpl in *.
+    {
+      assert (kinding L K (TProd t1 t2) KType).
+      {
+        use_typings.
+        invert_kindings.
+        econstructor;
+          eauto using kinding_bkinding'.
+      }
+      repeat eexists_split; eauto; eauto with db_tyeq.
+    }
+    {
+      copy HC HC'.
+      eapply IHtyping in HC'; openhyp; repeat eexists_split; try eassumption.
+      eapply tyeq_trans; eauto.
+      use_typings.
+    }
+    {
+      eapply IHtyping in HC; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
+    }
+  Qed.
+
     {
       (* Case Proj-Pair *)
       destruct H as (Hty & Hhty & Hle & HC).
@@ -21165,17 +21570,17 @@ lift2 (fst (strip_subsets L))
       copy Hty Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht Hi].
-      eapply invert_typing_Proj in Hty.
-      destruct Hty as (t1 & t2 & i' & Htyeq & Hty & Hle2).
+      eapply invert_typing_Proj in Hty; eauto.
+      destruct Hty as (t1 & t2 & i' & Htyeq & Ht1 & Ht2 & Hty & Hle2).
       simplify.
       copy Hty Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht1t2 Hi'].
       invert Ht1t2.
-      eapply invert_typing_Pair in Hty.
-      destruct Hty as (t1' & t2' & i1 & i2 & Htyeq2 & Hty1 & Hty2 & Hle3).
+      eapply invert_typing_Pair in Hty; eauto.
+      destruct Hty as (t1' & t2' & i1 & i2 & Htyeq2 & Ht1't2' & Hty1 & Hty2 & Hle3).
       simplify.
-      eapply invert_tyeq_TBinOp in Htyeq2.
+      eapply invert_tyeq_TBinOp in Htyeq2; eauto.
       destruct Htyeq2 as (? & Htyeq2 & Htyeq3).
       split.
       {
@@ -21188,9 +21593,6 @@ lift2 (fst (strip_subsets L))
         cases pr; simplify.
         {
           eapply TySub; eauto; simpl.
-          {
-            eauto with db_tyeq.
-          }
           {
             simplify.
             rewrite Time_a_minus_a.
@@ -21212,9 +21614,6 @@ lift2 (fst (strip_subsets L))
         }
         {
           eapply TySub; eauto; simpl.
-          {
-            eauto with db_tyeq.
-          }
           {
             simplify.
             rewrite Time_a_minus_a.
@@ -21247,6 +21646,76 @@ lift2 (fst (strip_subsets L))
         eauto.
       }
     }
+  Lemma invert_typing_Case C e e1 e2 t i :
+    typing C (ECase e e1 e2) t i ->
+    wfctx C ->
+    exists t1 t2 i0 i1 i2 t',
+      tyeq (get_sctx C) (get_kctx C) t t' KType /\
+      kinding (get_sctx C) (get_kctx C) t' KType /\
+      typing C e (TSum t1 t2) i0 /\
+      typing (add_typing_ctx t1 C) e1 t' i1 /\
+      typing (add_typing_ctx t2 C) e2 t' i2 /\
+      interp_prop (get_sctx C) (i0 + Tmax i1 i2 <= i)%idx.
+  Proof.
+    induct 1; intros HC; unfold_all;
+      destruct C as (((L & K) & W) & G); simpl in *.
+    {
+      assert (kinding L K t KType).
+      {
+        eapply typing_kinding_2 in H; eauto.
+        openhyp.
+        invert_kindings.
+        use_typings.
+      }
+      repeat eexists_split; try eassumption; eauto with db_tyeq.
+    }
+    {
+      copy HC HC'.
+      eapply IHtyping in HC'; openhyp; repeat eexists_split; try eassumption.
+      eapply tyeq_trans; eauto.
+      clear H5 H6.
+      use_typings.
+    }
+    {
+      eapply IHtyping in HC; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
+    }
+  Qed.
+
+  Lemma invert_typing_Inj C inj e t i :
+    typing C (EInj inj e) t i ->
+    wfctx C ->
+    exists t' t'' i' ,
+      tyeq (get_sctx C) (get_kctx C) t (choose (TSum t' t'', TSum t'' t') inj) KType /\
+      kinding (get_sctx C) (get_kctx C) t' KType /\
+      kinding (get_sctx C) (get_kctx C) t'' KType /\
+      typing C e t' i' /\
+      kinding (get_sctx C) (get_kctx C) t'' KType /\
+      interp_prop (get_sctx C) (i' <= i)%idx.
+  Proof.
+    induct 1; intros HC; unfold_all;
+      destruct C as (((L & K) & W) & G); simpl in *.
+    {
+      assert (kinding L K t KType).
+      {
+        use_typings.
+      }
+      exists t, t'.
+      repeat eexists_split; eauto; eauto with db_tyeq.
+      cases inj; simpl; econstructor; eauto using kinding_bkinding'.
+    }
+    {
+      copy HC HC'.
+      eapply IHtyping in HC'; openhyp.
+      exists x, x0.
+      repeat eexists_split; try eassumption.
+      eapply tyeq_trans; eauto.
+      use_typings.
+    }
+    {
+      eapply IHtyping in HC; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
+    }
+  Qed.
+
     {
       (* Case Case-Inj *)
       destruct H as (Hty & Hhty & Hle & HC).
@@ -21255,15 +21724,15 @@ lift2 (fst (strip_subsets L))
       copy Hty Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht Hi].
-      eapply invert_typing_Case in Hty.
-      destruct Hty as (t1 & t2 & i0 & i1 & i2 & t'2 & Htt'2 & Hty0 & Hty1 & Hty2 & Hle2).
+      eapply invert_typing_Case in Hty; eauto.
+      destruct Hty as (t1 & t2 & i0 & i1 & i2 & t'2 & Htt'2 & Ht'2 & Hty0 & Hty1 & Hty2 & Hle2).
       simplify.
       copy Hty0 Hty0'.
       eapply typing_kinding_2 in Hty0'; eauto.
       destruct Hty0' as [Ht1t2 Hi0].
       invert Ht1t2.
-      eapply invert_typing_Inj in Hty0.
-      destruct Hty0 as (t' & t'' & i' & Htyeq & Hty0 & Hkd & Hle3).
+      eapply invert_typing_Inj in Hty0; eauto.
+      destruct Hty0 as (t' & t'' & i' & Htyeq & Ht' & Ht'' & Hty0 & Hkd & Hle3).
       simplify.
       split.
       {
@@ -21275,20 +21744,16 @@ lift2 (fst (strip_subsets L))
       {
         cases inj; simplify.
         {
-          eapply invert_tyeq_TBinOp in Htyeq.
+          eapply invert_tyeq_TBinOp in Htyeq; eauto.
           destruct Htyeq as (? & Htyeq1 & Htyeq2).
           eapply TyLe; eauto.
           {
             eapply typing_subst0_e_e with (G := []) in Hty1; eauto.
             {
               eapply TyTyeq; eauto.
-              simpl.
-              eauto with db_tyeq.
             }
             {
               eapply TyTyeq; eauto.
-              simpl.
-              eauto with db_tyeq.
             }
             {
               eapply wellscoped_ctx_add_typing; eauto using kinding_wellscoped_t.
@@ -21321,20 +21786,16 @@ lift2 (fst (strip_subsets L))
           }
         }
         {
-          eapply invert_tyeq_TBinOp in Htyeq.
+          eapply invert_tyeq_TBinOp in Htyeq; eauto.
           destruct Htyeq as (? & Htyeq1 & Htyeq2).
           eapply TyLe; eauto.
           {
             eapply typing_subst0_e_e with (G := []) in Hty2; eauto.
             {
               eapply TyTyeq; eauto.
-              simpl.
-              eauto with db_tyeq.
             }
             {
               eapply TyTyeq; eauto.
-              simpl.
-              eauto with db_tyeq.
             }
             {
               eapply wellscoped_ctx_add_typing; eauto using kinding_wellscoped_t.
@@ -21380,6 +21841,37 @@ lift2 (fst (strip_subsets L))
         eauto.
       }
     }
+  Lemma invert_typing_NatAdd C e1 e2 t i :
+    typing C (ENatAdd e1 e2) t i ->
+    wfctx C ->
+    exists j1 j2 i1 i2,
+      let L := get_sctx C in
+      tyeq L (get_kctx C) t (TNat (Nadd j1 j2)) KType /\
+      typing C e1 (TNat j1) i1 /\
+      typing C e2 (TNat j2) i2 /\
+      interp_prop L (i1 + i2 + Tconst nat_add_cost <= i)%idx.
+  Proof.
+    induct 1; intros HC; unfold_all;
+      destruct C as (((L & K) & W) & G); simpl in *.
+    {
+      repeat eexists_split; eauto; eauto with db_tyeq.
+      eapply tyeq_refl.
+      use_typings.
+      invert_kindings.
+      econstructor; eauto using kinding_bkinding', sorting_bsorting''.
+      econstructor; eauto using sorting_bsorting''.
+    }
+    {
+      copy HC HC'.
+      eapply IHtyping in HC'; openhyp; repeat eexists_split; try eassumption.
+      eapply tyeq_trans; eauto.
+      use_typings.
+    }
+    {
+      eapply IHtyping in HC; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
+    }
+  Qed.
+
     {
       (* Case NatAdd *)
       destruct H as (Hty & Hhty & Hle & HC).
@@ -21388,7 +21880,7 @@ lift2 (fst (strip_subsets L))
       copy Hty Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht Hi].
-      eapply invert_typing_NatAdd in Hty.
+      eapply invert_typing_NatAdd in Hty; eauto.
       destruct Hty as (j1 & j2 & i1 & i2 & Hj1j2 & Hty1 & Hty2 & Hle2).
       simplify.
       copy Hty1 Hty0.
@@ -21399,19 +21891,19 @@ lift2 (fst (strip_subsets L))
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Hj2 Hi2].
       invert Hj2.
-      eapply invert_typing_Const in Hty1.
+      eapply invert_typing_Const in Hty1; eauto.
       destruct Hty1 as (i1' & Hj1n1 & Hi1').
       simpl in *.
-      eapply invert_typing_Const in Hty2.
+      eapply invert_typing_Const in Hty2; eauto.
       destruct Hty2 as (i2' & Hj2n2 & Hi2').
       simpl in *.
-      eapply invert_tyeq_TNat_empty in Hj1n1.
+      eapply invert_tyeq_TNat in Hj1n1; eauto; [| repeat econstructor].
       unfold idxeq, interp_prop in Hj1n1.
       simpl in *.
       repeat rewrite convert_bsort_value_refl_eq in *.
       specialize (Hj1n1 I).
       subst.
-      eapply invert_tyeq_TNat_empty in Hj2n2.
+      eapply invert_tyeq_TNat in Hj2n2; eauto; [| repeat econstructor].
       unfold idxeq, interp_prop in Hj2n2.
       simpl in *.
       repeat rewrite convert_bsort_value_refl_eq in *.
@@ -21434,7 +21926,17 @@ lift2 (fst (strip_subsets L))
           econstructor.
         }
         {
-          eauto with db_tyeq.
+          simpl in *.
+          eapply tyeq_sym.
+          eapply tyeq_trans; [eapply Hj1j2 | | ]; eauto using sorting_bsorting''.
+          {
+            econstructor.
+            cbn.
+            eauto.
+          }
+          econstructor.
+          econstructor;
+          eauto using sorting_bsorting'' with db_tyeq.
         }
         {
           simplify.
@@ -21468,6 +21970,37 @@ lift2 (fst (strip_subsets L))
         eauto.
       }
     }
+  Lemma invert_typing_BinOpPrim C opr e1 e2 t i :
+    typing C (EBinOp (EBPrim opr) e1 e2) t i ->
+    wfctx C ->
+    exists i1 i2,
+      let L := get_sctx C in
+      tyeq L (get_kctx C) t (prim_result_type opr) KType /\
+      kinding L (get_kctx C) (prim_result_type opr) KType /\
+      typing C e1 (prim_arg1_type opr) i1 /\
+      typing C e2 (prim_arg2_type opr) i2 /\
+      interp_prop L (i1 + i2 + Tconst (prim_cost opr) <= i)%idx.
+  Proof.
+    induct 1; intros HC; unfold_all;
+      destruct C as (((L & K) & W) & G); simpl in *.
+    {
+      assert (kinding L K (prim_result_type opr) KType).
+      {
+        use_typings.
+      }
+      repeat eexists_split; eauto; eauto with db_tyeq.
+    }
+    {
+      copy HC HC'.
+      eapply IHtyping in HC'; openhyp; repeat eexists_split; try eassumption.
+      eapply tyeq_trans; eauto.
+      use_typings.
+    }
+    {
+      eapply IHtyping in HC; openhyp; repeat eexists_split; eauto; eauto with db_tyeq.
+    }
+  Qed.
+
     {
       (* Case Prim *)
       destruct H as (Hty & Hhty & Hle & HC).
@@ -21476,8 +22009,8 @@ lift2 (fst (strip_subsets L))
       copy Hty Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht Hi].
-      eapply invert_typing_BinOpPrim in Hty.
-      destruct Hty as (i1 & i2 & Htopr & Hty1 & Hty2 & Hle2).
+      eapply invert_typing_BinOpPrim in Hty; eauto.
+      destruct Hty as (i1 & i2 & Htopr & Hopr & Hty1 & Hty2 & Hle2).
       simplify.
       copy Hty1 Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
@@ -21485,30 +22018,25 @@ lift2 (fst (strip_subsets L))
       copy Hty2 Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Hj2 Hi2].
-      eapply invert_typing_Const in Hty1.
+      eapply invert_typing_Const in Hty1; eauto.
       destruct Hty1 as (i1' & Hcn1 & Hi1').
       simpl in *.
-      eapply invert_typing_Const in Hty2.
+      eapply invert_typing_Const in Hty2; eauto.
       destruct Hty2 as (i2' & Hcn2 & Hi2').
       simpl in *.
-      cases opr.
-      simpl in *.
+      cases opr; simpl in *.
+      Arguments exec_prim _ _ _ / .
+      
       Lemma invert_tyeq_TInt_const_type cn :
-        tyeq [] TInt (const_type cn) KType ->
+        tyeq [] [] TInt (const_type cn) KType ->
         exists n, cn = ECInt n.
       Proof.
         intros H.
-        unfold tyeq in *.
-        simpl in *.
-        repeat rewrite convert_kind_value_refl_eq in *.
-        specialize (H I).
-        destruct cn; simpl in *;
-          invert H.
-        eauto.
+        cases cn; simpl in *; try solve [eapply invert_tyeq_TConst in H; eauto; dis].
+        tyeq_dis.
+        repeat econstructor.
       Qed.
 
-      Arguments exec_prim _ _ _ / .
-      
       {
         eapply invert_tyeq_TInt_const_type in Hcn1.
         destruct Hcn1 as [n1 ?].
@@ -21535,6 +22063,7 @@ lift2 (fst (strip_subsets L))
             econstructor.
           }
           {
+            simpl.
             eauto with db_tyeq.
           }
           {
@@ -21595,6 +22124,7 @@ lift2 (fst (strip_subsets L))
             econstructor.
           }
           {
+            simpl.
             eauto with db_tyeq.
           }
           {
