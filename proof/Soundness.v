@@ -22208,8 +22208,8 @@ lift2 (fst (strip_subsets L))
         copy Hty Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
         destruct Hty0 as [Ht Hi].
-        eapply invert_typing_Proj in Hty.
-        destruct Hty as (t1 & t2 & i' & Htyeq & Hty & Hle).
+        eapply invert_typing_Proj in Hty; eauto.
+        destruct Hty as (t1 & t2 & i' & Htyeq & Ht1 & Ht2 & Hty & Hle).
         simplify.
         copy Hty Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
@@ -22266,12 +22266,12 @@ lift2 (fst (strip_subsets L))
         copy Hty Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
         destruct Hty0 as [Ht Hi].
-        eapply invert_typing_Inj in Hty.
-        destruct Hty as (t1 & t2 & i' & Htyeq & Hty & Hkd & Hle).
+        eapply invert_typing_Inj in Hty; eauto.
+        destruct Hty as (t1 & t2 & i' & Htyeq & Ht1 & Ht2 & Hty & Hkd & Hle).
         simplify.
         copy Hty Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
-        destruct Hty0 as [Ht1 Hi'].
+        destruct Hty0 as [? Hi'].
         eapply IHplug in Hty; eauto.
         destruct Hty as (t0 & i0 & Hty1 & Hle2 & HE).
         exists t0, i0.
@@ -22285,14 +22285,20 @@ lift2 (fst (strip_subsets L))
         intros e'' e_all' W' i1' Hplug Htye'' Hle3 Hincl HC'.
         invert Hplug.
         rename e'0 into e_all''.
-        rename H4 into Hplug.
+        rename H5 into Hplug.
         eapply HE in Hplug; eauto.
         copy Hplug Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
         destruct Hty0 as [? Hi1'].
         eapply sorting_bsorting in Hi1'.
         invert Hi1'.
-        invert H6.
+  Ltac invert_bsortings :=
+    repeat match goal with
+             H : bsorting _ _ _ |- _ => invert1 H
+           end.
+  
+        invert_bsortings.
+        (* invert H6. *)
         simpl in *.
         cases inj; simplify.
         {
@@ -22353,7 +22359,7 @@ lift2 (fst (strip_subsets L))
         copy Hty Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
         destruct Hty0 as [Ht Hi].
-        eapply invert_typing_Fold in Hty.
+        eapply invert_typing_Fold in Hty; eauto.
         simpl in *.
         destruct Hty as (cs & k & t2 & i' & Htyeq & Hkd & Hty & Hle).
         subst.
@@ -22382,7 +22388,7 @@ lift2 (fst (strip_subsets L))
         destruct Hty0 as [? Hi1'].
         eapply sorting_bsorting in Hi1'.
         invert Hi1'.
-        invert H6.
+        invert_bsortings.
         simpl in *.
         eapply TySub; try eassumption; simpl.
         {
@@ -22413,8 +22419,8 @@ lift2 (fst (strip_subsets L))
         copy Hty Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
         destruct Hty0 as [Ht Hi].
-        eapply invert_typing_Unfold in Hty.
-        destruct Hty as (k & t1 & cs & i' & Htyeq & Hty & Hle).
+        eapply invert_typing_Unfold in Hty; eauto.
+        destruct Hty as (k & t1 & cs & i' & Htyeq & Ht1cs & Hty & Hle).
         subst.
         simplify.
         copy Hty Hty0.
@@ -22440,7 +22446,7 @@ lift2 (fst (strip_subsets L))
         destruct Hty0 as [? Hi1'].
         eapply sorting_bsorting in Hi1'.
         invert Hi1'.
-        invert H6.
+        invert_bsortings.
         simpl in *.
         eapply TySub; try eassumption; simpl.
         {
@@ -22474,8 +22480,8 @@ lift2 (fst (strip_subsets L))
         copy Hty Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
         destruct Hty0 as [Ht Hi].
-        eapply invert_typing_BinOpPrim in Hty.
-        destruct Hty as (i1 & i2 & Htopr & Hty1 & Hty2 & Hle).
+        eapply invert_typing_BinOpPrim in Hty; eauto.
+        destruct Hty as (i1 & i2 & Htopr & Hopr & Hty1 & Hty2 & Hle).
         simplify.
         copy Hty1 Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
@@ -22503,7 +22509,7 @@ lift2 (fst (strip_subsets L))
         destruct Hty0 as [? Hi1'].
         eapply sorting_bsorting in Hi1'.
         invert Hi1'.
-        invert H6.
+        invert_bsortings.
         simpl in *.
         eapply TySub; try eassumption; simpl.
         {
@@ -22543,13 +22549,13 @@ lift2 (fst (strip_subsets L))
         copy Hty Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
         destruct Hty0 as [Ht Hi].
-        eapply invert_typing_App in Hty.
-        destruct Hty as (t' & t2 & i1 & i2 & i3 & Htyeq & Hty1 & Hty2 & Hle).
+        eapply invert_typing_App in Hty; eauto.
+        destruct Hty as (t' & t2 & i1 & i2 & i3 & Htyeq & Ht' & Hty1 & Hty2 & Hle).
         simplify.
         copy Hty1 Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
-        destruct Hty0 as [Ht' Hi1].
-        invert Ht'.
+        destruct Hty0 as [Ht'2 Hi1].
+        invert Ht'2.
         eapply IHplug in Hty1; eauto.
         destruct Hty1 as (t1 & i0 & Hty1 & Hle2 & HE).
         exists t1, i0.
@@ -22573,7 +22579,7 @@ lift2 (fst (strip_subsets L))
         destruct Hty0 as [? Hi1'].
         eapply sorting_bsorting in Hi1'.
         invert Hi1'.
-        invert H9.
+        invert_bsortings.
         simpl in *.
         eapply TySub; try eassumption; simpl.
         {
@@ -22613,8 +22619,8 @@ lift2 (fst (strip_subsets L))
         copy Hty Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
         destruct Hty0 as [Ht Hi].
-        eapply invert_typing_Pair in Hty.
-        destruct Hty as (t1 & t2 & i1 & i2 & Htyeq & Hty1 & Hty2 & Hle).
+        eapply invert_typing_Pair in Hty; eauto.
+        destruct Hty as (t1 & t2 & i1 & i2 & Htyeq & Ht1t2 & Hty1 & Hty2 & Hle).
         simplify.
         copy Hty1 Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
@@ -22642,7 +22648,7 @@ lift2 (fst (strip_subsets L))
         destruct Hty0 as [? Hi1'].
         eapply sorting_bsorting in Hi1'.
         invert Hi1'.
-        invert H6.
+        invert_bsortings.
         simpl in *.
         eapply TySub; try eassumption; simpl.
         {
@@ -22681,8 +22687,8 @@ lift2 (fst (strip_subsets L))
         copy Hty Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
         destruct Hty0 as [Ht Hi].
-        eapply invert_typing_New in Hty.
-        destruct Hty as (t' & len & i1 & i2 & Htyeq & Hty1 & Hty2 & Hle).
+        eapply invert_typing_New in Hty; eauto.
+        destruct Hty as (t' & len & i1 & i2 & Htyeq & Ht'len & Hty1 & Hty2 & Hle).
         simplify.
         copy Hty1 Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
@@ -22710,7 +22716,7 @@ lift2 (fst (strip_subsets L))
         destruct Hty0 as [? Hi1'].
         eapply sorting_bsorting in Hi1'.
         invert Hi1'.
-        invert H6.
+        invert_bsortings.
         simpl in *.
         eapply TySub; try eassumption; simpl.
         {
@@ -22749,8 +22755,8 @@ lift2 (fst (strip_subsets L))
         copy Hty Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
         destruct Hty0 as [Ht Hi].
-        eapply invert_typing_Read in Hty.
-        destruct Hty as (t'' & len & j & i1 & i2 & Htt'' & Hty1 & Hty2 & Hjlen & Hle).
+        eapply invert_typing_Read in Hty; eauto.
+        destruct Hty as (t'' & len & j & i1 & i2 & Htt'' & Ht'' & Hty1 & Hty2 & Hjlen & Hle).
         simplify.
         copy Hty1 Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
@@ -22779,7 +22785,7 @@ lift2 (fst (strip_subsets L))
         destruct Hty0 as [? Hi1'].
         eapply sorting_bsorting in Hi1'.
         invert Hi1'.
-        invert H8.
+        invert_bsortings.
         simpl in *.
         eapply TySub; try eassumption; simpl.
         {
@@ -22818,7 +22824,7 @@ lift2 (fst (strip_subsets L))
         copy Hty Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
         destruct Hty0 as [Ht Hi].
-        eapply invert_typing_NatAdd in Hty.
+        eapply invert_typing_NatAdd in Hty; eauto.
         destruct Hty as (j1 & j2 & i1 & i2 & Hj1j2 & Hty1 & Hty2 & Hle).
         simplify.
         copy Hty1 Hty0.
@@ -22847,7 +22853,7 @@ lift2 (fst (strip_subsets L))
         destruct Hty0 as [? Hi1'].
         eapply sorting_bsorting in Hi1'.
         invert Hi1'.
-        invert H6.
+        invert_bsortings.
         simpl in *.
         eapply TySub; try eassumption; simpl.
         {
@@ -22891,8 +22897,8 @@ lift2 (fst (strip_subsets L))
         copy Hty Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
         destruct Hty0 as [Ht Hi].
-        eapply invert_typing_BinOpPrim in Hty.
-        destruct Hty as (i1 & i2 & Htopr & Hty1 & Hty2 & Hle).
+        eapply invert_typing_BinOpPrim in Hty; eauto.
+        destruct Hty as (i1 & i2 & Htopr & Hopr & Hty1 & Hty2 & Hle).
         simplify.
         copy Hty2 Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
@@ -22920,7 +22926,7 @@ lift2 (fst (strip_subsets L))
         destruct Hty0 as [? Hi1'].
         eapply sorting_bsorting in Hi1'.
         invert Hi1'.
-        invert H8.
+        invert_bsortings.
         simpl in *.
         eapply TySub; try eassumption; simpl.
         {
@@ -22961,8 +22967,8 @@ lift2 (fst (strip_subsets L))
         copy Hty Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
         destruct Hty0 as [Ht Hi].
-        eapply invert_typing_App in Hty.
-        destruct Hty as (t' & t2 & i1 & i2 & i3 & Htyeq & Hty1 & Hty2 & Hle).
+        eapply invert_typing_App in Hty; eauto.
+        destruct Hty as (t' & t2 & i1 & i2 & i3 & Htyeq & Ht' & Hty1 & Hty2 & Hle).
         simplify.
         copy Hty2 Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
@@ -22990,7 +22996,7 @@ lift2 (fst (strip_subsets L))
         destruct Hty0 as [? Hi1'].
         eapply sorting_bsorting in Hi1'.
         invert Hi1'.
-        invert H8.
+        invert_bsortings.
         simpl in *.
         eapply TySub; try eassumption; simpl.
         {
@@ -23031,8 +23037,8 @@ lift2 (fst (strip_subsets L))
         copy Hty Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
         destruct Hty0 as [Ht Hi].
-        eapply invert_typing_Pair in Hty.
-        destruct Hty as (t1 & t2 & i1 & i2 & Htyeq & Hty1 & Hty2 & Hle).
+        eapply invert_typing_Pair in Hty; eauto.
+        destruct Hty as (t1 & t2 & i1 & i2 & Htyeq & Ht1t2 & Hty1 & Hty2 & Hle).
         simplify.
         copy Hty2 Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
@@ -23060,7 +23066,7 @@ lift2 (fst (strip_subsets L))
         destruct Hty0 as [? Hi1'].
         eapply sorting_bsorting in Hi1'.
         invert Hi1'.
-        invert H8.
+        invert_bsortings.
         simpl in *.
         eapply TySub; try eassumption; simpl.
         {
@@ -23096,8 +23102,8 @@ lift2 (fst (strip_subsets L))
         copy Hty Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
         destruct Hty0 as [Ht Hi].
-        eapply invert_typing_New in Hty.
-        destruct Hty as (t' & len & i1 & i2 & Htyeq & Hty1 & Hty2 & Hle).
+        eapply invert_typing_New in Hty; eauto.
+        destruct Hty as (t' & len & i1 & i2 & Htyeq & Ht'len & Hty1 & Hty2 & Hle).
         simplify.
         copy Hty2 Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
@@ -23125,7 +23131,7 @@ lift2 (fst (strip_subsets L))
         destruct Hty0 as [? Hi1'].
         eapply sorting_bsorting in Hi1'.
         invert Hi1'.
-        invert H8.
+        invert_bsortings.
         simpl in *.
         eapply TySub; try eassumption; simpl.
         {
@@ -23157,12 +23163,12 @@ lift2 (fst (strip_subsets L))
         }
       }
       {
-        (* Case New *)
+        (* Case Read *)
         copy Hty Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
         destruct Hty0 as [Ht Hi].
-        eapply invert_typing_Read in Hty.
-        destruct Hty as (t'' & len & j & i1 & i2 & Htt'' & Hty1 & Hty2 & Hjlen & Hle).
+        eapply invert_typing_Read in Hty; eauto.
+        destruct Hty as (t'' & len & j & i1 & i2 & Htt'' & Ht'' & Hty1 & Hty2 & Hjlen & Hle).
         simplify.
         copy Hty2 Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
@@ -23190,7 +23196,7 @@ lift2 (fst (strip_subsets L))
         destruct Hty0 as [? Hi1'].
         eapply sorting_bsorting in Hi1'.
         invert Hi1'.
-        invert H8.
+        invert_bsortings.
         simpl in *.
         eapply TySub; try eassumption; simpl.
         {
@@ -23226,7 +23232,7 @@ lift2 (fst (strip_subsets L))
         copy Hty Hty0.
         eapply typing_kinding_2 in Hty0; eauto.
         destruct Hty0 as [Ht Hi].
-        eapply invert_typing_NatAdd in Hty.
+        eapply invert_typing_NatAdd in Hty; eauto.
         destruct Hty as (j1 & j2 & i1 & i2 & Hj1j2 & Hty1 & Hty2 & Hle).
         simplify.
         copy Hty2 Hty0.
@@ -23255,7 +23261,7 @@ lift2 (fst (strip_subsets L))
         destruct Hty0 as [? Hi1'].
         eapply sorting_bsorting in Hi1'.
         invert Hi1'.
-        invert H8.
+        invert_bsortings.
         simpl in *.
         eapply TySub; try eassumption; simpl.
         {
@@ -23297,7 +23303,7 @@ lift2 (fst (strip_subsets L))
       copy Hty Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht Hi].
-      eapply invert_typing_Write in Hty.
+      eapply invert_typing_Write in Hty; eauto.
       destruct Hty as (t' & len & j & i1 & i2 & i3 & Htyeq & Hty1 & Hty2 & Hjlen & Hty3 & Hle).
       simplify.
       copy Hty1 Hty0.
@@ -23327,7 +23333,7 @@ lift2 (fst (strip_subsets L))
       destruct Hty0 as [? Hi1'].
       eapply sorting_bsorting in Hi1'.
       invert Hi1'.
-      invert H8.
+      invert_bsortings.
       simpl in *.
       eapply TySub; try eassumption; simpl.
       {
@@ -23367,7 +23373,7 @@ lift2 (fst (strip_subsets L))
       copy Hty Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht Hi].
-      eapply invert_typing_Write in Hty.
+      eapply invert_typing_Write in Hty; eauto.
       destruct Hty as (t' & len & j & i1 & i2 & i3 & Htyeq & Hty1 & Hty2 & Hjlen & Hty3 & Hle).
       simplify.
       copy Hty2 Hty0.
@@ -23396,7 +23402,7 @@ lift2 (fst (strip_subsets L))
       destruct Hty0 as [? Hi1'].
       eapply sorting_bsorting in Hi1'.
       invert Hi1'.
-      invert H8.
+      invert_bsortings.
       simpl in *.
       eapply TySub; try eassumption; simpl.
       {
@@ -23437,7 +23443,7 @@ lift2 (fst (strip_subsets L))
       copy Hty Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht Hi].
-      eapply invert_typing_Write in Hty.
+      eapply invert_typing_Write in Hty; eauto.
       destruct Hty as (t' & len & j & i1 & i2 & i3 & Htyeq & Hty1 & Hty2 & Hjlen & Hty3 & Hle).
       simplify.
       copy Hty3 Hty0.
@@ -23466,7 +23472,7 @@ lift2 (fst (strip_subsets L))
       destruct Hty0 as [? Hi1'].
       eapply sorting_bsorting in Hi1'.
       invert Hi1'.
-      invert H10.
+      invert_bsortings.
       simpl in *.
       eapply TySub; try eassumption; simpl.
       {
@@ -23505,8 +23511,8 @@ lift2 (fst (strip_subsets L))
       copy Hty Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht Hi].
-      eapply invert_typing_Case in Hty.
-      destruct Hty as (t1 & t2 & i0' & i1 & i2 & t' & Htt' & Hty0 & Hty1 & Hty2 & Hle).
+      eapply invert_typing_Case in Hty; eauto.
+      destruct Hty as (t1 & t2 & i0' & i1 & i2 & t' & Htt' & Ht' & Hty0 & Hty1 & Hty2 & Hle).
       simplify.
       copy Hty0 Hty0'.
       eapply typing_kinding_2 in Hty0'; eauto.
@@ -23535,7 +23541,7 @@ lift2 (fst (strip_subsets L))
       destruct Hty0' as [? Hi1'].
       eapply sorting_bsorting in Hi1'.
       invert Hi1'.
-      invert H8.
+      invert_bsortings.
       simpl in *.
       eapply TySub; try eassumption; simpl.
       {
@@ -23572,9 +23578,9 @@ lift2 (fst (strip_subsets L))
       copy Hty Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht Hi].
-      eapply invert_typing_AppT in Hty.
+      eapply invert_typing_AppT in Hty; eauto.
       rename t' into t''.
-      destruct Hty as (t' & i' & k & Htyeq & Hty & Hkd & Hle).
+      destruct Hty as (t' & i' & k & Htyeq & Ht''t' & Hty & Hkd & Hle).
       simplify.
       copy Hty Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
@@ -23600,7 +23606,7 @@ lift2 (fst (strip_subsets L))
       destruct Hty0' as [? Hi1'].
       eapply sorting_bsorting in Hi1'.
       invert Hi1'.
-      invert H7.
+      invert_bsortings.
       simpl in *.
       eapply TySub; try eassumption; simpl.
       {
@@ -23631,9 +23637,9 @@ lift2 (fst (strip_subsets L))
       copy Hty Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht Hi].
-      eapply invert_typing_AppI in Hty.
+      eapply invert_typing_AppI in Hty; eauto.
       rename i' into i''.
-      destruct Hty as (t' & i' & k & Htyeq & Hty & Hkd & Hle).
+      destruct Hty as (t' & i' & k & Htyeq & Hi''t' & Hty & Hkd & Hle).
       simplify.
       copy Hty Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
@@ -23659,7 +23665,7 @@ lift2 (fst (strip_subsets L))
       destruct Hty0' as [? Hi1'].
       eapply sorting_bsorting in Hi1'.
       invert Hi1'.
-      invert H8.
+      invert_bsortings.
       simpl in *.
       eapply TySub; try eassumption; simpl.
       {
@@ -23690,7 +23696,7 @@ lift2 (fst (strip_subsets L))
       copy Hty Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht Hi].
-      eapply invert_typing_Pack in Hty.
+      eapply invert_typing_Pack in Hty; eauto.
       destruct Hty as (t1 & k & i' & Htyeq & Hkd & Hkdc & Hty & Hle).
       simplify.
       copy Hty Hty0.
@@ -23716,7 +23722,7 @@ lift2 (fst (strip_subsets L))
       destruct Hty0' as [? Hi1'].
       eapply sorting_bsorting in Hi1'.
       invert Hi1'.
-      invert H6.
+      invert_bsortings.
       simpl in *.
       eapply TySub; try eassumption; simpl.
       {
@@ -23747,8 +23753,8 @@ lift2 (fst (strip_subsets L))
       copy Hty Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht Hi].
-      eapply invert_typing_Unpack in Hty.
-      destruct Hty as (t2 & t0' & i1 & k & i2 & Htyeq & Hty1 & Hty2 & Hle).
+      eapply invert_typing_Unpack in Hty; eauto.
+      destruct Hty as (t2 & t0' & i1 & k & i2 & Htyeq & Ht2 & Hty1 & Hty2 & Hle).
       simplify.
       copy Hty1 Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
@@ -23777,7 +23783,7 @@ lift2 (fst (strip_subsets L))
       destruct Hty0' as [? Hi1'].
       eapply sorting_bsorting in Hi1'.
       invert Hi1'.
-      invert H7.
+      invert_bsortings.
       simpl in *.
       eapply TySub with (t1 := t2); try eassumption; simpl.
       {
@@ -23819,7 +23825,7 @@ lift2 (fst (strip_subsets L))
       copy Hty Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht Hi].
-      eapply invert_typing_PackI in Hty.
+      eapply invert_typing_PackI in Hty; eauto.
       rename i' into i''.
       destruct Hty as (t1 & k & i' & Htyeq & Hkd & Hkdc & Hty & Hle).
       simplify.
@@ -23846,7 +23852,7 @@ lift2 (fst (strip_subsets L))
       destruct Hty0' as [? Hi1'].
       eapply sorting_bsorting in Hi1'.
       invert Hi1'.
-      invert H6.
+      invert_bsortings.
       simpl in *.
       eapply TySub; try eassumption; simpl.
       {
@@ -23877,8 +23883,8 @@ lift2 (fst (strip_subsets L))
       copy Hty Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
       destruct Hty0 as [Ht Hi].
-      eapply invert_typing_UnpackI in Hty.
-      destruct Hty as (t2 & t0' & i1 & k & i2 & Htyeq & Hty1 & Hty2 & Hle).
+      eapply invert_typing_UnpackI in Hty; eauto.
+      destruct Hty as (t2 & t0' & i1 & k & i2 & Htyeq & Ht2 & Hty1 & Hty2 & Hle).
       simplify.
       copy Hty1 Hty0.
       eapply typing_kinding_2 in Hty0; eauto.
@@ -23907,7 +23913,7 @@ lift2 (fst (strip_subsets L))
       destruct Hty0' as [? Hi1'].
       eapply sorting_bsorting in Hi1'.
       invert Hi1'.
-      invert H8.
+      invert_bsortings.
       simpl in *.
       eapply TySub with (t1 := t2); try eassumption; simpl.
       {
