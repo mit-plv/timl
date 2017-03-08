@@ -11,9 +11,9 @@
 2. Install SML/NJ. Make sure command `sml` and `ml-build` is in current PATH.
    On Ubuntu, use this command to install all necessary components of SML/NJ:
        
-   ``
-   apt-get install smlnj libsmlnj-smlnj ml-yacc ml-ulex
-   ``
+   ```
+   sudo apt-get install smlnj libsmlnj-smlnj ml-yacc ml-ulex
+   ```
 
 3. Use `make` to build TiML, or use `./test.sh` to build and test on files in [examples](examples) sub-directory.
 
@@ -29,9 +29,9 @@
 
 [examples/test-suite.pkg](examples/test-suite.pkg) lists all the benchmark examples. You can use this command to run all the examples:
 
-  ``
+  ```
   ./main.sh examples/stdlib.pkg examples/test-suite.pkg
-  ``
+  ```
 
 or this command to run a single example:
 
