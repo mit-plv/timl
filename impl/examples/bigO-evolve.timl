@@ -55,7 +55,7 @@ fun map ['a 'b] {m n : Nat} (f : 'a -- $m --> 'b) (ls : list 'a {n}) return list
 end
        
 (* the magic goes further: even [h]'s BigO class can be inferred! *)
-absidx h : BigO 2 _ (* (fn m n => $m * $n) *) with
+absidx h : BigO 2 (* _ *) (fn m n => $m * $n) with
 fun map ['a 'b] {m n : Nat} (f : 'a -- $m --> 'b) (ls : list 'a {n}) return list 'b {n} using h m n =
     case ls of
         Nil => Nil
