@@ -26,10 +26,12 @@ datatype bsort =
          Base of id
          | TimeFun of string * int * region
 
+fun int_to_bsort (n, r) = TimeFun ("Fun", n, r)
+    
 datatype sort =
 	 Basic of bsort
 	 | Subset of bsort * id * prop * region
-         | BigOSort of string * int * idx * region
+         | BigOSort of string * bsort * idx * region
 
 datatype quan =
 	 Forall

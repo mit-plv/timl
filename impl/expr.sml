@@ -2,10 +2,10 @@ structure BaseSorts = struct
 open Util
 (* basic index sort *)
 datatype base_sort =
-         TimeFun of int (* number of arguments *)
-         | Nat
+         Nat
 	 | BoolSort
 	 | UnitSort
+         | TimeFun of int (* arity *)
 
 val Time = TimeFun 0
 
@@ -84,6 +84,8 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	         Basic of bsort * region
 	         | Subset of (bsort * region) * (name * prop) ibind * region
                  | UVarS of sort uvar_s * region
+                 (* a special form of [Subset] just to express that the [idx] argument will be dependent on the refinement variable, in order to support big-O spec inference *)
+	         | SortBigO of (bsort * region) * idx * region
 
         datatype kind = 
 	         ArrowK of bool (* is datatype *) * int * sort list
@@ -497,6 +499,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                   end
                 | UVarS (u, _) =>
                   str_uvar_s str_s ctx u
+                | SortBigO ((b, _), i, _) => sprintf "(BigO $ $)" [str_bs b, str_i gctx ctx i]
             end
 
         datatype 'a bind = 
@@ -868,6 +871,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                 Basic (_, r) => r
               | Subset (_, _, r) => r
               | UVarS (_, r) => r
+              | SortBigO (_, _, r) => r
 
         fun get_region_mt t = 
             case t of
@@ -1294,13 +1298,14 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               f x n b
             end
 
-        fun on_i_s on_i_p on_UVarS x n b =
+        fun on_i_s on_i_i on_i_p on_UVarS x n b =
             let
               fun f x n b =
 	          case b of
 	              Basic s => Basic s
 	            | Subset (s, bind, r) => Subset (s, on_i_ibind on_i_p x n bind, r)
                     | UVarS a => on_UVarS UVarS f x n a
+                    | SortBigO (b, i, r) => SortBigO (b, on_i_i x n i, r)
             in
               f x n b
             end
@@ -1445,13 +1450,14 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
               f x n b
             end
 
-        fun on_m_s on_m_p x n b =
+        fun on_m_s on_m_i on_m_p x n b =
             let
               fun f x n b =
 	          case b of
 	              Basic s => Basic s
-	            | Subset (s, bind, r) => Subset (s, on_m_ibind on_m_p x n bind, r)
+	            | Subset (b, bind, r) => Subset (b, on_m_ibind on_m_p x n bind, r)
                     | UVarS a => raise ModuleUVar "on_m_s ()"
+                    | SortBigO (b, i, r) => SortBigO (b, on_m_i x n i, r)
             in
               f x n b
             end
@@ -1600,7 +1606,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         fun shiftx_i_p x n b = on_i_p shiftx_i_i x n b
         fun shift_i_p b = shiftx_i_p 0 1 b
 
-        fun shiftx_i_s x n b = on_i_s shiftx_i_p shiftx_i_UVarS x n b
+        fun shiftx_i_s x n b = on_i_s shiftx_i_i shiftx_i_p shiftx_i_UVarS x n b
         fun shift_i_s b = shiftx_i_s 0 1 b
 
         fun shiftx_i_mt x n b = on_i_mt shiftx_i_i shiftx_i_s (shiftx_i_UVar shiftx_t_mt) x n b
@@ -1623,7 +1629,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
         fun shiftx_m_p x n b = on_m_p shiftx_m_i x n b
         fun shift_m_p b = shiftx_m_p 0 1 b
 
-        fun shiftx_m_s x n b = on_m_s shiftx_m_p x n b
+        fun shiftx_m_s x n b = on_m_s shiftx_m_i shiftx_m_p x n b
         fun shift_m_s b = shiftx_m_s 0 1 b
 
         fun shiftx_m_mt x n b = on_m_mt shiftx_v shiftx_m_i shiftx_m_s x n b
@@ -1674,7 +1680,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
                                 
         fun forget_i_i x n b = on_i_i forget_v (forget_i_UVarI shiftx_i_i ForgetError) x n b
         fun forget_i_p x n b = on_i_p forget_i_i x n b
-        fun forget_i_s x n b = on_i_s forget_i_p (forget_i_UVarS shiftx_i_s ForgetError) x n b
+        fun forget_i_s x n b = on_i_s forget_i_i forget_i_p (forget_i_UVarS shiftx_i_s ForgetError) x n b
         fun forget_i_mt x n b = on_i_mt forget_i_i forget_i_s (forget_i_UVar shiftx_i_mt shiftx_t_mt ForgetError) x n b
         fun forget_t_mt x n b = on_t_mt forget_v (forget_t_UVar shiftx_i_mt shiftx_t_mt ForgetError) x n b
         fun forget_i_t x n b = on_i_t forget_i_mt x n b
@@ -1682,7 +1688,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 
         fun forget_m_i x n b = on_m_i forget_v x n b
         fun forget_m_p x n b = on_m_p forget_m_i x n b
-        fun forget_m_s x n b = on_m_s forget_m_p x n b
+        fun forget_m_s x n b = on_m_s forget_m_i forget_m_p x n b
         fun forget_m_mt x n b = on_m_mt forget_v forget_m_i forget_m_s x n b
         fun forget_m_t x n b = on_m_t forget_m_mt x n b
 
@@ -1773,8 +1779,9 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
           fun f x v b =
 	      case b of
 	          Basic s => Basic s
-	        | Subset (s, bind, r) => Subset (s, substx_i_ibind substx_i_p x idx_shiftable v bind, r)
+	        | Subset (b, bind, r) => Subset (b, substx_i_ibind substx_i_p x idx_shiftable v bind, r)
                 | UVarS a => substx_i_UVarS shiftx_i_s UVarS f x v a
+                | SortBigO (b, i, r) => SortBigO (b, substx_i_i x v i, r)
         in
         fun substx_i_s x (v : idx) (b : sort) : sort = f x v b
         fun subst_i_s (v : idx) (b : sort) : sort = substx_i_s 0 v b
@@ -2422,6 +2429,7 @@ functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
 	        Basic b => Basic b
               | Subset (b, bind, r) => Subset (b, simp_ibind simp_p bind, r)
               | UVarS u => UVarS u
+              | SortBigO (b, i, r) => SortBigO (b, simp_i i, r)
 
         fun simp_mt t =
 	    case t of

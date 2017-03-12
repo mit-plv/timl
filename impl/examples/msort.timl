@@ -6,7 +6,7 @@ open Basic
 open List
 
 (* evenly split *)
-absidx T_split: BigO 1 (* _ *) (fn n => $n) = _ with
+absidx T_split: BigO 1 _ (* (fn n => $n) *) = _ with
 fun split ['a] {n: Nat} (xs: list 'a {n}) return list 'a {ceil ($n/2)} * list 'a {floor ($n/2)} using T_split n =
     case xs of
         [] => ([], [])
