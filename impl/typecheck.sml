@@ -39,7 +39,7 @@ fun idx_bin_op_type opr =
     | ExpNI => (Nat, Nat, Nat)
     | MaxI => raise Impossible "idx_bin_op_type ()"
     | MinI => raise Impossible "idx_bin_op_type ()"
-    | TimeApp => raise Impossible "idx_bin_op_type ()"
+    | IApp => raise Impossible "idx_bin_op_type ()"
     | EqI => raise Impossible "idx_bin_op_type ()"
     | LtI => raise Impossible "idx_bin_op_type ()"
     | GeI => raise Impossible "idx_bin_op_type ()"
@@ -60,6 +60,14 @@ fun package_long_id x m (long_id as (m', (y, r))) =
       (* if it has module reference, don't substitute *)
       long_id
         
+fun package_i_ibind f x v bind =
+  case bind of
+      Bind (name, inner) => Bind (name, f (x + 1) v inner)
+
+fun package_i_tbind f x v bind =
+  case bind of
+      Bind (name, inner) => Bind (name, f x v inner)
+
 local
   fun f x v b =
     case b of
@@ -74,7 +82,7 @@ local
       | TrueI r => TrueI r
       | FalseI r => FalseI r
       | TTI r => TTI r
-      | TimeAbs (name, i, r) => TimeAbs (name, f (x + 1) v i, r)
+      | IAbs (b, bind, r) => IAbs (b, package_i_ibind f x v bind, r)
       | AdmitI r => AdmitI r
       | UVarI a =>
         (* (* ToDo: unsafe *) *)
@@ -84,14 +92,6 @@ in
 fun package_i_i x v (b : idx) : idx = f x v b
 end
 fun package0_i v = package_i_i 0 v
-
-fun package_i_ibind f x v bind =
-  case bind of
-      Bind (name, inner) => Bind (name, f (x + 1) v inner)
-
-fun package_i_tbind f x v bind =
-  case bind of
-      Bind (name, inner) => Bind (name, f x v inner)
 
 local
   fun f x v b =
@@ -243,7 +243,7 @@ fun package_i m b =
 	    | TTI r => TTI r
 	    | TrueI r => TrueI r
 	    | FalseI r => FalseI r
-            | TimeAbs (name, i, r) => TimeAbs (name, f i, r)
+            | IAbs (name, i, r) => IAbs (name, f i, r)
             | AdmitI r => AdmitI r
             | UVarI a => raise ModuleUVar "package_i ()"
     in
@@ -614,7 +614,7 @@ fun update_i i =
     | TrueI _ => i
     | FalseI _ => i
     | AdmitI _ => i
-    | TimeAbs (name, i, r) => TimeAbs (name, update_i i, r)
+    | IAbs (b, Bind (name, i), r) => IAbs (update_bs b, Bind (name, update_i i), r)
 
 fun update_p p =
   case p of
@@ -1530,7 +1530,7 @@ and get_bsort (gctx : sigcontext) (ctx : scontext, i : U.idx) : idx * bsort =
                 end
             in
               case opr of
-                  TimeApp =>
+                  IApp =>
                   let
                     (* val () = println $ U.str_i (names ctx) i *)
                   in
@@ -1586,14 +1586,15 @@ and get_bsort (gctx : sigcontext) (ctx : scontext, i : U.idx) : idx * bsort =
             (FalseI r, Base BoolSort)
 	  | U.TTI r => 
             (TTI r, Base UnitSort)
-          | U.TimeAbs ((name, r1), i, r) =>
+          | U.IAbs (bs1, (name, r1), i, r) =>
             let
               val (i, bs) = open_close add_sorting (name, Basic (Base Nat, r1)) ctx (fn ctx => get_bsort (ctx, i))
             in
-              case bs of
-                  Base (TimeFun arity) =>
-                  (TimeAbs ((name, r1), i, r), Base (TimeFun (arity + 1)))
-                | _ => raise Error (get_region_i i, "Sort of time funtion body should be time function" :: indent ["want: time function", "got: " ^ str_bs bs])
+              (IAbs ((name, r1), i, r), BSArrow (bs1, bs))
+              (* case bs of *)
+              (*     Base (TimeFun arity) => *)
+              (*     (IAbs ((name, r1), i, r), Base (TimeFun (arity + 1))) *)
+              (*   | _ => raise Error (get_region_i i, "Sort of time funtion body should be time function" :: indent ["want: time function", "got: " ^ str_bs bs]) *)
             end
 	  | U.AdmitI r => 
             (AdmitI r, Base UnitSort)

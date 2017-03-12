@@ -14,7 +14,7 @@ datatype idx_bin_op =
          (* | DivI *)
 	 | MaxI
 	 | MinI
-         | TimeApp (* TF: Time Function *)
+         | IApp 
          | EqI
          | AndI
          | ExpNI
@@ -66,7 +66,7 @@ fun str_idx_bin_op opr =
     | MultI => "*"
     | MaxI => "max"
     | MinI => "min"
-    | TimeApp => ""
+    | IApp => ""
     | EqI => "=="
     | AndI => "&&"
     | ExpNI => "^"
