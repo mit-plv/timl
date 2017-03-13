@@ -24056,7 +24056,7 @@ lift2 (fst (strip_subsets L))
     }
   Qed.
 
-  Theorem safety W s t i : ctyping W s t i -> safe s.
+  Theorem soundness W s t i : ctyping W s t i -> safe s.
   Proof.
     intros H.
     eapply unstuck_invariant in H; eauto.
@@ -24064,6 +24064,389 @@ lift2 (fst (strip_subsets L))
     intros s' Hstep.
     simplify.
     eauto.
+  Qed.
+
+  Inductive sorting2 : sctx -> idx -> sort -> Prop :=
+  | Stg2Var L x s :
+      nth_error L x = Some s ->
+      sorting2 L (IVar x) (shift_i_s (1 + x) 0 s)
+  | Stg2Const L cn :
+      sorting2 L (IConst cn) (SBaseSort (const_bsort cn))
+  | Stg2UnOp L opr c :
+      sorting2 L c (SBaseSort (iunop_arg_bsort opr)) ->
+      sorting2 L (IUnOp opr c) (SBaseSort (iunop_result_bsort opr))
+  | Stg2BinOp L opr c1 c2 :
+      sorting2 L c1 (SBaseSort (ibinop_arg1_bsort opr)) ->
+      sorting2 L c2 (SBaseSort (ibinop_arg2_bsort opr)) ->
+      sorting2 L (IBinOp opr c1 c2) (SBaseSort (ibinop_result_bsort opr))
+  | Stg2Ite L c c1 c2 s :
+      sorting2 L c SBool ->
+      sorting2 L c1 s ->
+      sorting2 L c2 s ->
+      sorting2 L (IIte c c1 c2) s
+  | Stg2Abs L i b1 b2 :
+      sorting2 (SBaseSort b1 :: L) i (SBaseSort b2) ->
+      sorting2 L (IAbs i) (SArrow b1 b2)
+  | Stg2App L c1 c2 b1 b2 :
+      sorting2 L c1 (SArrow b1 b2) ->
+      sorting2 L c2 (SBaseSort b1) ->
+      sorting2 L (IApp b1 c1 c2) (SBaseSort b2)
+  | Stg2SubsetI L c b p :
+      sorting2 L c (SBaseSort b) ->
+      interp_prop L (subst0_i_p c p) ->
+      sorting2 L c (SSubset b p)
+  | Stg2SubsetE L c b p :
+      sorting2 L c (SSubset b p) ->
+      wfprop2 (SBaseSort b :: L) p ->
+      sorting2 L c (SBaseSort b)
+
+  with wfprop2 : list sort -> prop -> Prop :=
+  | WfProp2TrueFalse L cn :
+      wfprop2 L (PTrueFalse cn)
+  | WfProp2BinConn L opr p1 p2 :
+      wfprop2 L p1 ->
+      wfprop2 L p2 ->
+      wfprop2 L (PBinConn opr p1 p2)
+  | WfProp2Not L p :
+      wfprop2 L p ->
+      wfprop2 L (PNot p)
+  | WfProp2BinPred L opr i1 i2 :
+      sorting2 L i1 (SBaseSort (binpred_arg1_bsort opr)) ->
+      sorting2 L i2 (SBaseSort (binpred_arg2_bsort opr)) ->
+      wfprop2 L (PBinPred opr i1 i2)
+  | WfProp2Eq L b i1 i2 :
+      sorting2 L i1 (SBaseSort b) ->
+      sorting2 L i2 (SBaseSort b) ->
+      wfprop2 L (PEq b i1 i2)
+  | WfProp2Quan L q s p :
+      wfprop2 (SBaseSort s :: L) p ->
+      wfprop2 L (PQuan q s p)
+  .
+  
+  Hint Constructors sorting2 wfprop2.
+
+  Inductive wfsort2 : list sort -> sort -> Prop :=
+  | WfSt2BaseSort L b :
+      wfsort2 L (SBaseSort b)
+  | WfSt2Subset L b p :
+      wfprop2 (SBaseSort b :: L) p ->
+      wfsort2 L (SSubset b p)
+  .
+
+  Hint Constructors wfsort2.
+
+  Scheme sorting2_mutind := Minimality for sorting2 Sort Prop
+  with wfprop2_mutind := Minimality for wfprop2 Sort Prop.
+
+  Combined Scheme sorting2_wfprop2_mutind from sorting2_mutind, wfprop2_mutind.
+
+  Lemma sorting2_wfprop2_sorting_wfprop :
+    (forall L i s,
+        sorting2 L i s ->
+        sorting L i s
+    ) /\
+    (forall L p,
+        wfprop2 L p ->
+        wfprop (map get_bsort L) p
+    ).
+  Proof.
+    eapply sorting2_wfprop2_mutind; simpl; eauto using sorting_bsorting'.
+  Qed.
+
+  Lemma sorting2_sorting L i s : sorting2 L i s -> sorting L i s.
+  Proof.
+    intros; eapply sorting2_wfprop2_sorting_wfprop; eauto.
+  Qed.
+
+  Lemma wfprop2_wfprop L p : wfprop2 L p -> wfprop (map get_bsort L) p.
+  Proof.
+    intros; eapply sorting2_wfprop2_sorting_wfprop; eauto.
+  Qed.
+
+  Lemma wfsort2_wfsort L s : wfsort2 L s -> wfsort (map get_bsort L) s.
+  Proof.
+    induct 1; simpl; eauto using wfprop2_wfprop.
+    econstructor.
+    eapply wfprop2_wfprop in H.
+    eauto.
+  Qed.
+
+  Inductive kinding2 : sctx -> kctx -> ty -> kind -> Prop :=
+  | Kdg2Var L K x k :
+      nth_error K x = Some k ->
+      kinding2 L K (TVar x) k
+  | Kdg2Const L K cn :
+      kinding2 L K (TConst cn) KType
+  | Kdg2BinOp L K opr c1 c2 :
+      kinding2 L K c1 KType ->
+      kinding2 L K c2 KType ->
+      kinding2 L K (TBinOp opr c1 c2) KType
+  | Kdg2Arrow L K t1 i t2 :
+      kinding2 L K t1 KType ->
+      sorting2 L i STime ->
+      kinding2 L K t2 KType ->
+      kinding2 L K (TArrow t1 i t2) KType
+  | Kdg2Abs L K b t k :
+      kinding2 (SBaseSort b :: L) K t k ->
+      kinding2 L K (TAbs b t) (KArrow b k)
+  | Kdg2App L K t b i k :
+      kinding2 L K t (KArrow b k) ->
+      sorting L i (SBaseSort b) ->
+      kinding2 L K (TApp t b i) k
+  | Kdg2Quan L K quan k c :
+      kinding2 L (k :: K) c KType ->
+      kinding2 L K (TQuan quan k c) KType
+  | Kdg2QuanI L K quan s c :
+      wfsort (map get_bsort L) s ->
+      kinding2 (s :: L) K c KType ->
+      kinding2 L K (TQuanI quan s c) KType
+  | Kdg2Rec L K k c :
+      kinding2 L (k :: K) c k ->
+      kinding2 L K (TRec k c) k
+  | Kdg2Nat L K i :
+      sorting2 L i SNat ->
+      kinding2 L K (TNat i) KType
+  | Kdg2Arr L K t i :
+      kinding2 L K t KType ->
+      sorting2 L i SNat ->
+      kinding2 L K (TArr t i) KType
+  | Kdg2AbsT L K t k1 k2 :
+      kinding2 L (k1 :: K) t k2 ->
+      kinding2 L K (TAbsT k1 t) (KArrowT k1 k2)
+  | Kdg2AppT L K t1 t2 k1 k2 :
+      kinding2 L K t1 (KArrowT k1 k2) ->
+      kinding2 L K t2 k1 ->
+      kinding2 L K (TAppT t1 t2) k2
+  .
+
+  Hint Constructors kinding2.
+
+  Lemma kinding2_kinding L K t k : kinding2 L K t k -> kinding L K t k.
+  Proof.
+    induct 1; simpl; eauto using sorting2_sorting.
+  Qed.
+
+  Local Open Scope idx_scope.
+
+  Inductive typing2 : ctx -> expr -> ty -> idx -> Prop :=
+  | Ty2Var C x t :
+      nth_error (get_tctx C) x = Some t ->
+      typing2 C (EVar x) t T0
+  | Ty2App C e1 e2 t i1 i2 i t2 :
+      typing2 C e1 (TArrow t2 i t) i1 ->
+      typing2 C e2 t2 i2 ->
+      typing2 C (EApp e1 e2) t (i1 + i2 + T1 + i)
+  | Ty2Abs C e t1 i t :
+      kinding2 (get_sctx C) (get_kctx C) t1 KType ->
+      typing2 (add_typing_ctx t1 C) e t i ->
+      typing2 C (EAbs e) (TArrow t1 i t) T0
+  | Ty2AppT C e t t1 i k :
+      typing2 C e (TForall k t1) i ->
+      kinding2 (get_sctx C) (get_kctx C) t k -> 
+      typing2 C (EAppT e t) (subst0_t_t t t1) i
+  | Ty2AbsT C e t k :
+      value e ->
+      typing2 (add_kinding_ctx k C) e t T0 ->
+      typing2 C (EAbsT e) (TForall k t) T0
+  | Ty2AppI C e c t i s :
+      typing2 C e (TForallI s t) i ->
+      sorting2 (get_sctx C) c s -> 
+      typing2 C (EAppI e c) (subst0_i_t c t) i
+  | Ty2AbsI C e t s :
+      value e ->
+      wfsort (map get_bsort (get_sctx C)) s ->
+      typing2 (add_sorting_ctx s C) e t T0 ->
+      typing2 C (EAbsI e) (TForallI s t) T0
+  | Ty2Rec C tis e1 t :
+      let e := EAbsTIs tis (EAbs e1) in
+      kinding2 (get_sctx C) (get_kctx C) t KType ->
+      typing2 (add_typing_ctx t C) e t T0 ->
+      typing2 C (ERec e) t T0
+  | Ty2Fold C e k t cs i :
+      let t_rec := TApps (TRec k t) cs in
+      kinding2 (get_sctx C) (get_kctx C) t_rec KType ->
+      typing2 C e (unroll k t cs) i ->
+      typing2 C (EFold e) t_rec i
+  | Ty2Unfold C e k t cs i :
+      typing2 C e (TApps (TRec k t) cs) i ->
+      typing2 C (EUnfold e) (unroll k t cs) i
+  | Ty2Pack C c e i t1 k :
+      kinding2 (get_sctx C) (get_kctx C) (TExists k t1) KType ->
+      kinding2 (get_sctx C) (get_kctx C) c k ->
+      typing2 C e (subst0_t_t c t1) i ->
+      typing2 C (EPack c e) (TExists k t1) i
+  | Ty2Unpack C e1 e2 t2 i1 i2 t k :
+      typing2 C e1 (TExists k t) i1 ->
+      typing2 (add_typing_ctx t (add_kinding_ctx k C)) e2 (shift0_t_t t2) i2 ->
+      typing2 C (EUnpack e1 e2) t2 (i1 + i2)
+  | Ty2PackI C c e i t1 s :
+      kinding2 (get_sctx C) (get_kctx C) (TExistsI s t1) KType ->
+      sorting2 (get_sctx C) c s ->
+      typing2 C e (subst0_i_t c t1) i ->
+      typing2 C (EPackI c e) (TExistsI s t1) i
+  | Ty2UnpackI C e1 e2 t2 i1 i2 t s :
+      typing2 C e1 (TExistsI s t) i1 ->
+      typing2 (add_typing_ctx t (add_sorting_ctx s C)) e2 (shift0_i_t t2) (shift0_i_i i2) ->
+      typing2 C (EUnpackI e1 e2) t2 (i1 + i2)
+  | Ty2Const C cn :
+      typing2 C (EConst cn) (const_type cn) T0
+  | Ty2Pair C e1 e2 t1 t2 i1 i2 :
+      typing2 C e1 t1 i1 ->
+      typing2 C e2 t2 i2 ->
+      typing2 C (EPair e1 e2) (TProd t1 t2) (i1 + i2)
+  | Ty2Proj C pr e t1 t2 i :
+      typing2 C e (TProd t1 t2) i ->
+      typing2 C (EProj pr e) (proj (t1, t2) pr) i
+  | Ty2Inj C inj e t t' i :
+      typing2 C e t i ->
+      kinding2 (get_sctx C) (get_kctx C) t' KType ->
+      typing2 C (EInj inj e) (choose (TSum t t', TSum t' t) inj) i
+  | Ty2Case C e e1 e2 t i i1 i2 t1 t2 :
+      typing2 C e (TSum t1 t2) i ->
+      typing2 (add_typing_ctx t1 C) e1 t i1 ->
+      typing2 (add_typing_ctx t2 C) e2 t i2 ->
+      typing2 C (ECase e e1 e2) t (i + Tmax i1 i2)
+  | Ty2New C e1 e2 t len i1 i2 :
+      typing2 C e1 t i1 ->
+      typing2 C e2 (TNat len) i2 ->
+      typing2 C (ENew e1 e2) (TArr t len) (i1 + i2)
+  | Ty2Read C e1 e2 t i1 i2 len i :
+      typing2 C e1 (TArr t len) i1 ->
+      typing2 C e2 (TNat i) i2 ->
+      interp_prop (get_sctx C) (i < len) ->
+      typing2 C (ERead e1 e2) t (i1 + i2)
+  | Ty2Write C e1 e2 e3 i1 i2 i3 t len i :
+      typing2 C e1 (TArr t len) i1 ->
+      typing2 C e2 (TNat i) i2 ->
+      interp_prop (get_sctx C) (i < len) ->
+      typing2 C e3 t i3 ->
+      typing2 C (EWrite e1 e2 e3) TUnit (i1 + i2 + i3)
+  | Ty2Loc C l t i :
+      get_hctx C $? l = Some (t, i) ->
+      typing2 C (ELoc l) (TArr t i) T0
+  | Ty2Prim C opr e1 e2 i1 i2 :
+      typing2 C e1 (prim_arg1_type opr) i1 ->
+      typing2 C e2 (prim_arg2_type opr) i2 ->
+      typing2 C (EPrim opr e1 e2) (prim_result_type opr) (i1 + i2 + Tconst (prim_cost opr))
+  | Ty2NatAdd C e1 e2 j1 j2 i1 i2 :
+      typing2 C e1 (TNat j1) i1 ->
+      typing2 C e2 (TNat j2) i2 ->
+      typing2 C (ENatAdd e1 e2) (TNat (Nadd j1 j2)) (i1 + i2 + Tconst nat_add_cost)
+  | Ty2Ty2eq C e t1 i t2 :
+      typing2 C e t1 i ->
+      let L := get_sctx C in
+      let K := get_kctx C in
+      kinding2 L K t2 KType ->
+      tyeq L K t1 t2 KType ->
+      typing2 C e t2 i
+  | Ty2Le C e t i1 i2 :
+      typing2 C e t i1 ->
+      let L := get_sctx C in
+      sorting2 L i2 STime ->
+      interp_prop L (i1 <= i2) ->
+      typing2 C e t i2 
+  .
+
+  Hint Constructors typing2.
+  
+  Local Close Scope idx_scope.
+
+  Hint Constructors typing.
+  
+  Lemma typing2_typing C e t i : typing2 C e t i -> typing C e t i.
+  Proof.
+    induct 1; destruct C as (((L' & K') & W) & G); simpl; unfold_all; eauto using kinding2_kinding, sorting2_sorting.
+  Qed.
+
+  Definition htyping2 (h : heap) (W : hctx) :=
+    (forall l t i,
+        W $? l = Some (t, i) ->
+        exists vs,
+          h $? l = Some vs /\
+          length vs = interp_idx i [] BSNat /\
+          Forall (fun v => value v /\ typing2 ([], [], W, []) v t T0) vs) /\
+    allocatable h.
+
+  Lemma htyping2_htyping h W : htyping2 h W -> htyping h W.
+  Proof.
+    intros [H1 H2]; unfold htyping2, htyping in *.
+    split; eauto.
+    intros l t i Hl.
+    eapply H1 in Hl; eauto.
+    openhyp; repeat eexists_split; eauto.
+    eapply Forall_impl; eauto.
+    simpl.
+    intuition eauto using typing2_typing.
+  Qed.
+
+  Definition wfhctx2 L K (W : hctx) := fmap_forall (fun p => kinding2 L K (fst p) KType /\ sorting2 L (snd p) SNat) W.
+
+  Lemma wfhctx2_wfhctx L K W : wfhctx2 L K W -> wfhctx L K W.
+  Proof.
+    intros H; unfold wfhctx2, wfhctx in *.
+    eapply fmap_forall_impl; eauto.
+    simpl.
+    intuition eauto using kinding2_kinding, sorting2_sorting.
+  Qed.
+  
+  Definition wfsorts2 := all_sorts (fun L s => wfsort2 L s).
+
+  Lemma all_sorts_impl (P P' : list sort -> sort -> Prop) :
+    (forall L s, P L s -> P' L s) ->
+    forall L,
+      all_sorts P L ->
+      all_sorts P' L.
+  Proof.
+    induct 2; simpl; eauto.
+  Qed.
+
+  Lemma wfsorts2_wfsorts L : wfsorts2 L -> wfsorts L.
+  Proof.
+    intros H; eapply all_sorts_impl; eauto.
+    simpl.
+    intuition eauto using wfsort2_wfsort.
+  Qed.
+
+  Definition wfctx2 C :=
+    let L := get_sctx C in
+    let K := get_kctx C in
+    let W := get_hctx C in
+    let G := get_tctx C in
+    wfsorts2 L /\
+    wfhctx2 L K W /\
+    Forall (fun t => kinding2 L K t KType) G.
+
+  Lemma wfctx2_wfctx C : wfctx2 C -> wfctx C.
+  Proof.
+    intros H; unfold wfctx2, wfctx in *.
+    destruct C as (((L & K) & W) & G); simpl in *.
+    intuition eauto using wfsorts2_wfsorts, wfhctx2_wfhctx.
+    eapply Forall_impl; try eassumption.
+    simpl.
+    intuition eauto using kinding2_kinding.
+  Qed.
+  
+  Definition ctyping2 W (s : config) t i :=
+    let '(h, e, f) := s in
+    let C := ([], [], W, []) in
+    typing2 C e t i /\
+    htyping2 h W /\
+    (interp_time i <= f)%time /\
+    wfctx2 C
+  .
+
+  Lemma ctyping2_ctyping W s t i : ctyping2 W s t i -> ctyping W s t i.
+  Proof.
+    intros H; unfold ctyping2, ctyping in *; simpl in *.
+    destruct s; simpl in *.
+    destruct p; simpl in *.
+    intuition eauto using typing2_typing, htyping2_htyping, wfctx2_wfctx.
+  Qed.
+
+  Theorem soundness2 W s t i : ctyping2 W s t i -> safe s.
+  Proof.
+    intros H.
+    eapply soundness; eauto using ctyping2_ctyping.
   Qed.
 
 End M.   
