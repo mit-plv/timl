@@ -1,8 +1,8 @@
-# TiML: A Functional Programming Language with Time Complexity (Parser and Typechecker)
+TiML: A Functional Programming Language with Time Complexity (Parser and Typechecker)
+===========================================
 
--------------------------------------------------------------------------------
-
-## Setup instructions
+Setup instructions
+-----------------------
 
 1. Install SML/NJ. Make sure command `sml` and `ml-build` is in current PATH.
    On Ubuntu, use this command to install all necessary components of SML/NJ:
@@ -23,9 +23,8 @@
 
 7. (Optional). Follow [emacs/README.rst](emacs/README.rst) to install TiML mode on Emacs.
 
--------------------------------------------------------------------------------
-
-## Play with TiML
+Play with TiML
+----------------------------------
 
 [examples/test-suite.pkg](examples/test-suite.pkg) lists all the benchmark examples. You can use this command to run all the examples:
 

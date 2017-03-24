@@ -104,13 +104,9 @@ local
              | b => Basic b
           )
 	| S.Subset (b, name, p, r) => Subset (elab_b b, Bind (name, elab_p p), r)
-        | S.BigOSort (name, arity, i, r) =>
+        | S.BigOSort (name, b, i, r) =>
           if name = "BigO" then
-            let
-              val temp_name = "__BigOSort"
-            in
-              Subset ((Base (TimeFun arity), r), Bind ((temp_name, r), BinPred (BigO, VarI (NONE, (temp_name, r)), elab_i i)), r)
-            end
+            SortBigO (elab_b b, elab_i i, r)
           else
             raise Error (r, sprintf "Unrecognized sort: $" [name])
 
