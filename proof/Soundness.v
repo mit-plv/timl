@@ -3,6 +3,7 @@ Set Implicit Arguments.
 Axiom admit : forall P : Prop, P.
   
 Module Type TIME.
+  
   Parameter time_type : Set.
   Parameter Time0 : time_type.
   Parameter Time1 : time_type.
@@ -80,7 +81,17 @@ Module Type TIME.
 
 End TIME.
 
-Require Import Datatypes.
+Module Type BIG_O (Time : TIME).
+  
+  Fixpoint time_fun time_type (arity : nat) :=
+    match arity with
+    | 0 => time_type
+    | S n => nat -> time_fun time_type n
+    end.
+
+  Parameter Time_BigO : forall arity : nat, time_fun Time.time_type arity -> time_fun Time.time_type arity -> Prop.
+  
+End BIG_O.
 
 Definition option_dec A (x : option A) : {a | x = Some a} + {x = None}.
   destruct x.
@@ -92,6 +103,1601 @@ Definition option_dec A (x : option A) : {a | x = Some a} + {x = None}.
 Qed.
 
 Require Import Frap.
+Require BinIntDef.
+
+Fixpoint insert A new n (ls : list A) :=
+  match n with
+  | 0 => new ++ ls
+  | S n => 
+    match ls with
+    | [] => new
+    | a :: ls => a :: insert new n ls
+    end
+  end.
+
+Fixpoint removen A n (ls : list A) {struct ls} :=
+  match ls with
+  | [] => []
+  | a :: ls =>
+    match n with
+    | 0 => ls
+    | S n => a :: removen n ls
+    end
+  end.
+
+Definition fmap_map {K A B} (f : A -> B) (m : fmap K A) : fmap K B.
+Admitted.
+
+Lemma fmap_map_lookup K A B (f : A -> B) m (k : K) (a : A) :
+  m $? k = Some a ->
+  fmap_map f m $? k = Some (f a).
+Admitted.
+Lemma fmap_map_lookup_elim K A B (f : A -> B) m (k : K) (b : B) :
+  fmap_map f m $? k = Some b ->
+  exists a : A,
+    f a = b /\
+    m $? k = Some a.
+Admitted.
+
+Definition fmap_forall K A (p : A -> Prop) (m : fmap K A) : Prop := forall k v, m $? k = Some v -> p v.
+  
+Module Type TIML (Time : TIME) (BigO :BIG_O Time).
+  
+  Import Time BigO.
+
+  (* ============================================================= *)
+  (* The index language *)
+  (* ============================================================= *)
+
+  Definition var := nat.
+
+  Inductive idx_const :=
+  | ICTT
+  | ICBool (b : bool)
+  | ICNat (n : nat)
+  | ICTime (r : time_type)
+  .
+
+  Inductive idx_un_op :=
+  | IUBoolNeg
+  .
+
+  Inductive idx_bin_op :=
+  | IBTimeAdd
+  | IBTimeMinus
+  | IBTimeMax
+  | IBNatAdd
+  .
+
+  (* base sorts *)
+  Inductive bsort :=
+  | BSNat
+  | BSUnit
+  | BSBool
+  | BSTime
+  | BSArrow (b1 b2 : bsort)
+  .
+
+  Inductive idx :=
+  | IVar (x : var)
+  | IConst (cn : idx_const)
+  | IUnOp (opr : idx_un_op) (c : idx)
+  | IBinOp (opr : idx_bin_op) (c1 c2 : idx)
+  | IIte (i1 i2 i3 : idx)
+  | IAbs (i : idx)
+  | IApp (arg_bsort : bsort) (c1 c2 : idx)
+  .
+  
+  Inductive prop_bin_conn :=
+  | PBCAnd
+  | PBCOr
+  | PBCImply
+  | PBCIff
+  .
+
+  Inductive prop_bin_pred :=
+  | PBTimeLe
+  | PBNatLt
+  | PBBigO (arity : nat)
+  .
+
+  Inductive quan :=
+  | QuanForall
+  | QuanExists
+  .
+
+  Inductive prop :=
+  | PTrueFalse (b : bool)
+  | PBinConn (opr : prop_bin_conn) (p1 p2 : prop)
+  | PNot (p : prop)
+  | PBinPred (opr : prop_bin_pred) (i1 i2 : idx)
+  | PEq (b : bsort) (i1 i2 : idx)
+  | PQuan (q : quan) (b : bsort) (p : prop)
+  .
+  
+  Inductive sort :=
+  | SBaseSort (b : bsort)
+  | SSubset (s : bsort) (p : prop)
+  .
+
+  (* ============================================================= *)
+  (* the type language *)
+  (* ============================================================= *)
+  
+  Inductive ty_const :=
+  | TCUnit
+  | TCInt
+  .
+
+  Inductive ty_bin_op :=
+  | TBProd
+  | TBSum
+  .
+
+  Inductive kind :=
+  | KType
+  | KArrow (b : bsort) (k : kind)
+  | KArrowT (k1 k2 : kind)
+  .
+  
+  Inductive ty :=
+  | TVar (x : var)
+  | TConst (cn : ty_const)
+  | TBinOp (opr : ty_bin_op) (c1 c2 : ty)
+  | TArrow (t1 : ty) (i : idx) (t2 : ty)
+  | TAbs (s : bsort) (t : ty)
+  | TApp (t : ty) (b : bsort) (i : idx)
+  | TQuan (q : quan) (k : kind) (t : ty)
+  | TQuanI (q : quan) (s : sort) (t : ty)
+  | TRec (k : kind) (t : ty)
+  | TNat (i : idx)
+  | TArr (t : ty) (len : idx)
+  | TAbsT (k : kind) (t : ty)
+  | TAppT (t1 t2 : ty)
+  .
+
+  (* ============================================================= *)
+  (* The term language *)
+  (* ============================================================= *)
+  
+  Definition int := BinIntDef.Z.t.
+  
+  Inductive expr_const :=
+  | ECTT
+  | ECInt (i : int)
+  | ECNat (n : nat)
+  .
+
+  Definition loc := nat.
+
+  Inductive projector :=
+  | ProjFst
+  | ProjSnd
+  .
+
+  Inductive injector :=
+  | InjInl
+  | InjInr
+  .
+
+  Inductive expr_un_op :=
+  | EUProj (p : projector)
+  | EUInj (inj : injector)
+  | EUFold
+  | EUUnfold
+  .
+
+  Inductive prim_expr_bin_op :=
+  | PEBIntAdd
+  | PEBIntMult
+  .
+
+  Inductive expr_bin_op :=
+  | EBPrim (opr : prim_expr_bin_op)
+  | EBApp
+  | EBPair
+  | EBNew 
+  | EBRead 
+  | EBNatAdd
+  .
+
+  Inductive expr :=
+  | EVar (x : var)
+  | EConst (cn : expr_const)
+  | ELoc (l : loc)
+  | EUnOp (opr : expr_un_op) (e : expr)
+  | EBinOp (opr : expr_bin_op) (e1 e2 : expr)
+  | EWrite (e_arr e_idx e_val : expr)
+  | ECase (e e1 e2 : expr)
+  | EAbs (e : expr)
+  | ERec (e : expr)
+  | EAbsT (e : expr)
+  | EAppT (e : expr) (t : ty)
+  | EAbsI (e : expr)
+  | EAppI (e : expr) (i : idx)
+  | EPack (t : ty) (e : expr)
+  | EUnpack (e1 e2 : expr)
+  | EPackI (i : idx) (e : expr)
+  | EUnpackI (e1 e2 : expr)
+  .
+
+  Definition EPair := EBinOp EBPair.
+  Definition EInj c e := EUnOp (EUInj c) e.
+  Definition EFold e := EUnOp EUFold e.
+  
+  (* ============================================================= *)
+  (* Small-step fuel-augmented operational semantics *)
+  (* ============================================================= *)
+  
+  Inductive value : expr -> Prop :=
+  (* | VVar x : *)
+  (*     value (EVar x) *)
+  | VConst cn :
+      value (EConst cn)
+  | VPair v1 v2 :
+      value v1 ->
+      value v2 ->
+      value (EPair v1 v2)
+  | VInj c v :
+      value v ->
+      value (EInj c v)
+  | VAbs e :
+      value (EAbs e)
+  | VAbsT e :
+      value (EAbsT e)
+  | VAbsI e :
+      value (EAbsI e)
+  | VPack c v :
+      value v ->
+      value (EPack c v)
+  | VPackI c v :
+      value v ->
+      value (EPackI c v)
+  | VFold v :
+      value v ->
+      value (EFold v)
+  | VLoc l :
+      value (ELoc l)
+  .
+
+  Definition heap := fmap loc (list expr).
+
+  Definition fuel := time_type.
+
+  Definition config := (heap * expr * fuel)%type.
+
+  Definition get_expr (s : config) : expr := snd (fst s).
+  
+  Definition finished s := value (get_expr s).
+
+  Inductive ectx :=
+  | ECHole
+  | ECUnOp (opr : expr_un_op) (E : ectx)
+  | ECBinOp1 (opr : expr_bin_op) (E : ectx) (e : expr)
+  | ECBinOp2 (opr : expr_bin_op) (v : expr) (E : ectx)
+  | ECWrite1 (E : ectx) (e2 e3 : expr)
+  | ECWrite2 (v1 : expr) (E : ectx) (e3 : expr)
+  | ECWrite3 (v1 v2 : expr) (E : ectx)
+  | ECCase (E : ectx) (e1 e2 : expr)
+  | ECAppT (E : ectx) (t : ty)
+  | ECAppI (E : ectx) (i : idx)
+  | ECPack (t : ty) (E : ectx)
+  | ECUnpack (E : ectx) (e : expr)
+  | ECPackI (i : idx) (E : ectx)
+  | ECUnpackI (E : ectx) (e : expr)
+  .
+
+  Inductive plug : ectx -> expr -> expr -> Prop :=
+  | PlugHole e :
+      plug ECHole e e
+  | PlugUnOp E e e' opr :
+      plug E e e' ->
+      plug (ECUnOp opr E) e (EUnOp opr e')
+  | PlugBinOp1 E e e' opr e2 :
+      plug E e e' ->
+      plug (ECBinOp1 opr E e2) e (EBinOp opr e' e2)
+  | PlugBinOp2 E e e' opr v :
+      plug E e e' ->
+      value v ->
+      plug (ECBinOp2 opr v E) e (EBinOp opr v e')
+  | PlugWrite1 E e e' e2 e3 :
+      plug E e e' ->
+      plug (ECWrite1 E e2 e3) e (EWrite e' e2 e3)
+  | PlugWrite2 E e e' v1 e3 :
+      plug E e e' ->
+      value v1 ->
+      plug (ECWrite2 v1 E e3) e (EWrite v1 e' e3)
+  | PlugWrite3 E e e' v1 v2 :
+      plug E e e' ->
+      value v1 ->
+      value v2 ->
+      plug (ECWrite3 v1 v2 E) e (EWrite v1 v2 e')
+  | PlugCase E e e' e1 e2 :
+      plug E e e' ->
+      plug (ECCase E e1 e2) e (ECase e' e1 e2)
+  | PlugAppT E e e' t :
+      plug E e e' ->
+      plug (ECAppT E t) e (EAppT e' t)
+  | PlugAppI E e e' i :
+      plug E e e' ->
+      plug (ECAppI E i) e (EAppI e' i)
+  | PlugPack E e e' t :
+      plug E e e' ->
+      plug (ECPack t E) e (EPack t e')
+  | PlugUnpack E e e' e2 :
+      plug E e e' ->
+      plug (ECUnpack E e2) e (EUnpack e' e2)
+  | PlugPackI E e e' i :
+      plug E e e' ->
+      plug (ECPackI i E) e (EPackI i e')
+  | PlugUnpackI E e e' e2 :
+      plug E e e' ->
+      plug (ECUnpackI E e2) e (EUnpackI e' e2)
+  .
+
+  Inductive LtEqGt (a b : nat) :=
+    | MyLt : a < b -> LtEqGt a b
+    | MyEq : a = b -> LtEqGt a b
+    | MyGt : a > b -> LtEqGt a b
+  .
+  
+  Definition lt_eq_gt_dec a b : LtEqGt a b :=
+    match lt_eq_lt_dec a b with
+    | inleft (left H) => MyLt H
+    | inleft (right H) => MyEq H
+    | inright H => MyGt H
+    end.
+  
+  Infix "<=>?" := lt_eq_gt_dec (at level 70).
+
+  Section shift_i.
+
+    Variable n : nat.
+    
+    Fixpoint shift_i_i (x : var) (b : idx) : idx :=
+      match b with
+      | IVar y =>
+        if x <=? y then
+          IVar (n + y)
+        else
+          IVar y
+      | IConst cn => IConst cn
+      | IUnOp opr i => IUnOp opr (shift_i_i x i)
+      | IBinOp opr c1 c2 => IBinOp opr (shift_i_i x c1) (shift_i_i x c2)
+      | IIte i1 i2 i3 => IIte (shift_i_i x i1) (shift_i_i x i2) (shift_i_i x i3)
+      | IAbs i => IAbs (shift_i_i (1 + x) i)
+      | IApp n c1 c2 => IApp n (shift_i_i x c1) (shift_i_i x c2)
+      end.
+    
+    Fixpoint shift_i_p (x : var) (b : prop) : prop :=
+      match b with
+      | PTrueFalse cn => PTrueFalse cn
+      | PBinConn opr p1 p2 => PBinConn opr (shift_i_p x p1) (shift_i_p x p2)
+      | PNot p => PNot (shift_i_p x p)
+      | PBinPred opr i1 i2 => PBinPred opr (shift_i_i x i1) (shift_i_i x i2)
+      | PEq b i1 i2 => PEq b (shift_i_i x i1) (shift_i_i x i2)
+      | PQuan q b p => PQuan q b (shift_i_p (1 + x) p)
+      end.
+
+    Definition shift_i_s (x : var) (b : sort) : sort :=
+      match b with
+      | SBaseSort b => SBaseSort b
+      | SSubset s p => SSubset s (shift_i_p (1 + x) p)
+      end.
+
+  End shift_i.
+  
+  Definition shift0_i_i := shift_i_i 1 0.
+  Definition shift0_i_s := shift_i_s 1 0.
+  Definition shift0_i_p := shift_i_p 1 0.
+
+  Section shift_t.
+
+    Variable n : nat.
+  
+    Fixpoint shift_i_t (x : var) (b : ty) : ty :=
+      match b with
+      | TVar y => TVar y
+      | TConst cn => TConst cn
+      | TBinOp opr c1 c2 => TBinOp opr (shift_i_t x c1) (shift_i_t x c2)
+      | TArrow t1 i t2 => TArrow (shift_i_t x t1) (shift_i_i n x i) (shift_i_t x t2)
+      | TAbs b t => TAbs b (shift_i_t (1 + x) t)
+      | TApp t b i => TApp (shift_i_t x t) b (shift_i_i n x i)
+      | TQuan q k c => TQuan q k (shift_i_t x c)
+      | TQuanI q s c => TQuanI q (shift_i_s n x s) (shift_i_t (1 + x) c)
+      | TRec k t => TRec k (shift_i_t x t)
+      | TNat i => TNat (shift_i_i n x i)
+      | TArr t i => TArr (shift_i_t x t) (shift_i_i n x i)
+      | TAbsT k t => TAbsT k (shift_i_t x t)
+      | TAppT t1 t2 => TAppT (shift_i_t x t1) (shift_i_t x t2)
+      end.
+
+    Fixpoint shift_t_t (x : var) (b : ty) : ty :=
+      match b with
+      | TVar y =>
+        TVar (if x <=? y then
+                n + y
+              else
+                y)
+      | TConst cn => TConst cn
+      | TBinOp opr c1 c2 => TBinOp opr (shift_t_t x c1) (shift_t_t x c2)
+      | TArrow t1 i t2 => TArrow (shift_t_t x t1) i (shift_t_t x t2)
+      | TAbs s t => TAbs s (shift_t_t x t)
+      | TApp t b i => TApp (shift_t_t x t) b i
+      | TQuan q k c => TQuan q k (shift_t_t (1 + x) c)
+      | TQuanI q s c => TQuanI q s (shift_t_t x c)
+      | TRec k t => TRec k (shift_t_t (1 + x) t)
+      | TNat i => TNat i
+      | TArr t i => TArr (shift_t_t x t) i
+      | TAbsT k t => TAbsT k (shift_t_t (1 + x) t)
+      | TAppT t1 t2 => TAppT (shift_t_t x t1) (shift_t_t x t2)
+      end.
+        
+  End shift_t.
+      
+  Definition shift0_i_t := shift_i_t 1 0.
+  Definition shift0_t_t := shift_t_t 1 0.
+  
+  Section shift_e.
+
+    Variable n : nat.
+
+    Fixpoint shift_i_e (x : var) (b : expr) : expr :=
+      match b with
+      | EVar y => EVar y
+      | EConst cn => EConst cn
+      | ELoc l => ELoc l
+      | EUnOp opr e => EUnOp opr (shift_i_e x e)
+      | EBinOp opr e1 e2 => EBinOp opr (shift_i_e x e1) (shift_i_e x e2)
+      | EWrite e1 e2 e3 => EWrite (shift_i_e x e1) (shift_i_e x e2) (shift_i_e x e3)
+      | ECase e e1 e2 => ECase (shift_i_e x e) (shift_i_e x e1) (shift_i_e x e2)
+      | EAbs e => EAbs (shift_i_e x e)
+      | ERec e => ERec (shift_i_e x e)
+      | EAbsT e => EAbsT (shift_i_e x e)
+      | EAppT e t => EAppT (shift_i_e x e) (shift_i_t n x t)
+      | EAbsI e => EAbsI (shift_i_e (1 + x) e)
+      | EAppI e i => EAppI (shift_i_e x e) (shift_i_i n x i)
+      | EPack t e => EPack (shift_i_t n x t) (shift_i_e x e)
+      | EUnpack e1 e2 => EUnpack (shift_i_e x e1) (shift_i_e x e2)
+      | EPackI i e => EPackI (shift_i_i n x i) (shift_i_e x e)
+      | EUnpackI e1 e2 => EUnpackI (shift_i_e x e1) (shift_i_e (1 + x) e2)
+      end.
+    
+    Fixpoint shift_t_e (x : var) (b : expr) : expr :=
+      match b with
+      | EVar y => EVar y
+      | EConst cn => EConst cn
+      | ELoc l => ELoc l
+      | EUnOp opr e => EUnOp opr (shift_t_e x e)
+      | EBinOp opr e1 e2 => EBinOp opr (shift_t_e x e1) (shift_t_e x e2)
+      | EWrite e1 e2 e3 => EWrite (shift_t_e x e1) (shift_t_e x e2) (shift_t_e x e3)
+      | ECase e e1 e2 => ECase (shift_t_e x e) (shift_t_e x e1) (shift_t_e x e2)
+      | EAbs e => EAbs (shift_t_e x e)
+      | ERec e => ERec (shift_t_e x e)
+      | EAbsT e => EAbsT (shift_t_e (1 + x) e)
+      | EAppT e t => EAppT (shift_t_e x e) (shift_t_t n x t)
+      | EAbsI e => EAbsI (shift_t_e x e)
+      | EAppI e i => EAppI (shift_t_e x e) i
+      | EPack t e => EPack (shift_t_t n x t) (shift_t_e x e)
+      | EUnpack e1 e2 => EUnpack (shift_t_e x e1) (shift_t_e (1 + x) e2)
+      | EPackI i e => EPackI i (shift_t_e x e)
+      | EUnpackI e1 e2 => EUnpackI (shift_t_e x e1) (shift_t_e x e2)
+      end.
+    
+    Fixpoint shift_e_e (x : var) (b : expr) : expr :=
+      match b with
+      | EVar y =>
+        if x <=? y then
+          EVar (n + y)
+        else
+          EVar y
+      | EConst cn => EConst cn
+      | ELoc l => ELoc l
+      | EUnOp opr e => EUnOp opr (shift_e_e x e)
+      | EBinOp opr e1 e2 => EBinOp opr (shift_e_e x e1) (shift_e_e x e2)
+      | EWrite e1 e2 e3 => EWrite (shift_e_e x e1) (shift_e_e x e2) (shift_e_e x e3)
+      | ECase e e1 e2 => ECase (shift_e_e x e) (shift_e_e (1 + x) e1) (shift_e_e (1 + x) e2)
+      | EAbs e => EAbs (shift_e_e (1 + x) e)
+      | ERec e => ERec (shift_e_e (1 + x) e)
+      | EAbsT e => EAbsT (shift_e_e x e)
+      | EAppT e t => EAppT (shift_e_e x e) t
+      | EAbsI e => EAbsI (shift_e_e x e)
+      | EAppI e i => EAppI (shift_e_e x e) i
+      | EPack t e => EPack t (shift_e_e x e)
+      | EUnpack e1 e2 => EUnpack (shift_e_e x e1) (shift_e_e (1 + x) e2)
+      | EPackI i e => EPackI i (shift_e_e x e)
+      | EUnpackI e1 e2 => EUnpackI (shift_e_e x e1) (shift_e_e (1 + x) e2)
+      end.
+    
+  End shift_e.
+  
+  Definition shift0_i_e := shift_i_e 1 0.
+  Definition shift0_t_e := shift_t_e 1 0.
+  Definition shift0_e_e := shift_e_e 1 0.
+  
+  Fixpoint subst_i_i (x : var) (v : idx) (b : idx) : idx :=
+    match b with
+    | IVar y =>
+      match y <=>? x with
+      | MyLt _ => IVar y
+      | MyEq _ => v
+      | MyGt _ => IVar (y - 1)
+      end
+    | IConst cn => IConst cn
+    | IUnOp opr i => IUnOp opr (subst_i_i x v i)
+    | IBinOp opr c1 c2 => IBinOp opr (subst_i_i x v c1) (subst_i_i x v c2)
+    | IIte i1 i2 i3 => IIte (subst_i_i x v i1) (subst_i_i x v i2) (subst_i_i x v i3)
+    | IAbs i => IAbs (subst_i_i (1 + x) (shift0_i_i v) i)
+    | IApp n c1 c2 => IApp n (subst_i_i x v c1) (subst_i_i x v c2)
+    end.
+  
+  Fixpoint subst_i_p (x : var) (v : idx) (b : prop) : prop :=
+    match b with
+    | PTrueFalse cn => PTrueFalse cn
+    | PBinConn opr p1 p2 => PBinConn opr (subst_i_p x v p1) (subst_i_p x v p2)
+    | PNot p => PNot (subst_i_p x v p)
+    | PBinPred opr i1 i2 => PBinPred opr (subst_i_i x v i1) (subst_i_i x v i2)
+    | PEq b i1 i2 => PEq b (subst_i_i x v i1) (subst_i_i x v i2)
+    | PQuan q b p => PQuan q b (subst_i_p (1 + x) (shift0_i_i v) p)
+    end.
+
+  Definition subst_i_s (x : var) (v : idx) (b : sort) : sort :=
+    match b with
+    | SBaseSort b => SBaseSort b
+    | SSubset b p => SSubset b (subst_i_p (1 + x) (shift0_i_i v) p)
+    end.
+  
+  Fixpoint subst_i_t (x : var) (v : idx) (b : ty) : ty :=
+    match b with
+    | TVar y => TVar y
+    | TConst cn => TConst cn
+    | TBinOp opr c1 c2 => TBinOp opr (subst_i_t x v c1) (subst_i_t x v c2)
+    | TArrow t1 i t2 => TArrow (subst_i_t x v t1) (subst_i_i x v i) (subst_i_t x v t2)
+    | TAbs b t => TAbs b (subst_i_t (1 + x) (shift0_i_i v) t)
+    | TApp t b i => TApp (subst_i_t x v t) b (subst_i_i x v i)
+    | TQuan q k c => TQuan q k (subst_i_t x v c)
+    | TQuanI q s c => TQuanI q (subst_i_s x v s) (subst_i_t (1 + x) (shift0_i_i v) c)
+    | TRec k t => TRec k (subst_i_t x v t)
+    | TNat i => TNat (subst_i_i x v i)
+    | TArr t i => TArr (subst_i_t x v t) (subst_i_i x v i)
+    | TAbsT k t => TAbsT k (subst_i_t x v t)
+    | TAppT t1 t2 => TAppT (subst_i_t x v t1) (subst_i_t x v t2)
+    end.
+      
+  Fixpoint subst_t_t (x : var) (v : ty) (b : ty) : ty :=
+    match b with
+    | TVar y =>
+      match y <=>? x with
+      | MyLt _ => TVar y
+      | MyEq _ => v
+      | MyGt _ => TVar (y - 1)
+      end
+    | TConst cn => TConst cn
+    | TBinOp opr c1 c2 => TBinOp opr (subst_t_t x v c1) (subst_t_t x v c2)
+    | TArrow t1 i t2 => TArrow (subst_t_t x v t1) i (subst_t_t x v t2)
+    | TAbs s t => TAbs s (subst_t_t x (shift0_i_t v) t)
+    | TApp t b i => TApp (subst_t_t x v t) b i
+    | TQuan q k c => TQuan q k (subst_t_t (1 + x) (shift0_t_t v) c)
+    | TQuanI q s c => TQuanI q s (subst_t_t x (shift0_i_t v) c)
+    | TRec k t => TRec k (subst_t_t (1 + x) (shift0_t_t v) t)
+    | TNat i => TNat i
+    | TArr t i => TArr (subst_t_t x v t) i
+    | TAbsT k t => TAbsT k (subst_t_t (1 + x) (shift0_t_t v) t)
+    | TAppT t1 t2 => TAppT (subst_t_t x v t1) (subst_t_t x v t2)
+    end.
+  
+  Fixpoint subst_i_e (x : var) (v : idx) (b : expr) : expr :=
+    match b with
+    | EVar y => EVar y
+    | EConst cn => EConst cn
+    | ELoc l => ELoc l
+    | EUnOp opr e => EUnOp opr (subst_i_e x v e)
+    | EBinOp opr e1 e2 => EBinOp opr (subst_i_e x v e1) (subst_i_e x v e2)
+    | EWrite e1 e2 e3 => EWrite (subst_i_e x v e1) (subst_i_e x v e2) (subst_i_e x v e3)
+    | ECase e e1 e2 => ECase (subst_i_e x v e) (subst_i_e x v e1) (subst_i_e x v e2)
+    | EAbs e => EAbs (subst_i_e x v e)
+    | ERec e => ERec (subst_i_e x v e)
+    | EAbsT e => EAbsT (subst_i_e x v e)
+    | EAppT e t => EAppT (subst_i_e x v e) (subst_i_t x v t)
+    | EAbsI e => EAbsI (subst_i_e (1 + x) (shift0_i_i v) e)
+    | EAppI e i => EAppI (subst_i_e x v e) (subst_i_i x v i)
+    | EPack t e => EPack (subst_i_t x v t) (subst_i_e x v e)
+    | EUnpack e1 e2 => EUnpack (subst_i_e x v e1) (subst_i_e x v e2)
+    | EPackI i e => EPackI (subst_i_i x v i) (subst_i_e x v e)
+    | EUnpackI e1 e2 => EUnpackI (subst_i_e x v e1) (subst_i_e (1 + x) (shift0_i_i v) e2)
+    end.
+  
+  Definition subst0_i_e (v : idx) b := subst_i_e 0 v b.
+  
+  Fixpoint subst_t_e (x : var) (v : ty) (b : expr) : expr :=
+    match b with
+    | EVar y => EVar y
+    | EConst cn => EConst cn
+    | ELoc l => ELoc l
+    | EUnOp opr e => EUnOp opr (subst_t_e x v e)
+    | EBinOp opr e1 e2 => EBinOp opr (subst_t_e x v e1) (subst_t_e x v e2)
+    | EWrite e1 e2 e3 => EWrite (subst_t_e x v e1) (subst_t_e x v e2) (subst_t_e x v e3)
+    | ECase e e1 e2 => ECase (subst_t_e x v e) (subst_t_e x v e1) (subst_t_e x v e2)
+    | EAbs e => EAbs (subst_t_e x v e)
+    | ERec e => ERec (subst_t_e x v e)
+    | EAbsT e => EAbsT (subst_t_e (1 + x) (shift0_t_t v) e)
+    | EAppT e t => EAppT (subst_t_e x v e) (subst_t_t x v t)
+    | EAbsI e => EAbsI (subst_t_e x (shift0_i_t v) e)
+    | EAppI e i => EAppI (subst_t_e x v e) i
+    | EPack t e => EPack (subst_t_t x v t) (subst_t_e x v e)
+    | EUnpack e1 e2 => EUnpack (subst_t_e x v e1) (subst_t_e (1 + x) (shift0_t_t v) e2)
+    | EPackI i e => EPackI i (subst_t_e x v e)
+    | EUnpackI e1 e2 => EUnpackI (subst_t_e x v e1) (subst_t_e x (shift0_i_t v) e2)
+    end.
+
+  Definition subst0_t_e (v : ty) b := subst_t_e 0 v b.
+  
+  Fixpoint subst_e_e (x : var) (v : expr) (b : expr) : expr :=
+    match b with
+    | EVar y => 
+      match y <=>? x with
+      | MyLt _ => EVar y
+      | MyEq _ => v
+      | MyGt _ => EVar (y - 1)
+      end
+    | EConst cn => EConst cn
+    | ELoc l => ELoc l
+    | EUnOp opr e => EUnOp opr (subst_e_e x v e)
+    | EBinOp opr e1 e2 => EBinOp opr (subst_e_e x v e1) (subst_e_e x v e2)
+    | EWrite e1 e2 e3 => EWrite (subst_e_e x v e1) (subst_e_e x v e2) (subst_e_e x v e3)
+    | ECase e e1 e2 => ECase (subst_e_e x v e) (subst_e_e (1 + x) (shift0_e_e v) e1) (subst_e_e (1 + x) (shift0_e_e v) e2)
+    | EAbs e => EAbs (subst_e_e (1 + x) (shift0_e_e v) e)
+    | ERec e => ERec (subst_e_e (1 + x) (shift0_e_e v) e)
+    | EAbsT e => EAbsT (subst_e_e x (shift0_t_e v) e)
+    | EAppT e t => EAppT (subst_e_e x v e) t
+    | EAbsI e => EAbsI (subst_e_e x (shift0_i_e v) e)
+    | EAppI e i => EAppI (subst_e_e x v e) i
+    | EPack t e => EPack t (subst_e_e x v e)
+    | EUnpack e1 e2 => EUnpack (subst_e_e x v e1) (subst_e_e (1 + x) (shift0_e_e (shift0_t_e v)) e2)
+    | EPackI i e => EPackI i (subst_e_e x v e)
+    | EUnpackI e1 e2 => EUnpackI (subst_e_e x v e1) (subst_e_e (1 + x) (shift0_e_e (shift0_i_e v)) e2)
+    end.
+  
+  Definition subst0_e_e v b := subst_e_e 0 v b.
+
+  Delimit Scope time_scope with time.
+  Notation "0" := Time0 : time_scope.
+  Notation "1" := Time1 : time_scope.
+  Infix "+" := TimeAdd : time_scope.
+  Infix "-" := TimeMinus : time_scope.
+  Infix "<=" := TimeLe : time_scope.
+
+  Module OpenScope.
+    Open Scope time_scope.
+  End OpenScope.
+
+  Module CloseScope.
+    Close Scope time_scope.
+  End CloseScope.
+
+  Definition EApp := EBinOp EBApp.
+  Definition EUnfold e := EUnOp EUUnfold e.
+  Definition ENew e1 e2 := EBinOp EBNew e1 e2.
+  Definition ERead e1 e2 := EBinOp EBRead e1 e2.
+  Definition ENat n := EConst (ECNat n).
+  Definition ETT := EConst ECTT.
+  Definition EProj p e := EUnOp (EUProj p) e.
+  Definition ENatAdd := EBinOp EBNatAdd.
+  Definition EPrim opr := EBinOp (EBPrim opr).
+  
+  Definition upd {A} ls n (v : A) := insert [v] n (removen n ls).
+
+  Definition proj {A} (p : A * A) pr :=
+    match pr with
+    | ProjFst => fst p
+    | ProjSnd => snd p
+    end
+  .
+
+  Definition choose {A} (p : A * A) inj :=
+    match inj with
+    | InjInl => fst p
+    | InjInr => snd p
+    end
+  .
+
+  Notation int_add := BinIntDef.Z.add.
+  Notation int_mult := BinIntDef.Z.mul.
+  
+  Definition exec_prim opr a b :=
+    match (opr, a, b) with
+    | (PEBIntAdd, ECInt a, ECInt b) => Some (ECInt (int_add a b))
+    | (PEBIntMult, ECInt a, ECInt b) => Some (ECInt (int_mult a b))
+    | _ => None
+    end.
+  
+  Definition prim_cost opr :=
+    match opr with
+    | PEBIntAdd => 1%time
+    | PEBIntMult => 1%time
+    end.
+
+  Definition nat_add_cost := 1%time.
+
+  Import OpenScope.
+
+  Inductive astep : config -> config -> Prop :=
+  | ABeta h e v t :
+      value v ->
+      1 <= t ->
+      astep (h, EApp (EAbs e) v, t) (h, subst0_e_e v e, t - 1)
+  | AUnfoldFold h v t :
+      value v ->
+      astep (h, EUnfold (EFold v), t) (h, v, t)
+  | ARec h e t :
+      astep (h, ERec e, t) (h, subst0_e_e (ERec e) e, t)
+  | AUnpackPack h c v e t :
+      value v ->
+      astep (h, EUnpack (EPack c v) e, t) (h, subst0_e_e v (subst0_t_e c e), t)
+  | AUnpackPackI h c v e t :
+      value v ->
+      astep (h, EUnpackI (EPackI c v) e, t) (h, subst0_e_e v (subst0_i_e c e), t)
+  | ARead h l n t vs v :
+      h $? l = Some vs ->
+      nth_error vs n = Some v ->
+      astep (h, ERead (ELoc l) (ENat n), t) (h, v, t)
+  | AWrite h l n v t vs :
+      value v ->
+      h $? l = Some vs ->
+      n < length vs ->
+      astep (h, EWrite (ELoc l) (ENat n) v, t) (h $+ (l, upd vs n v), ETT, t)
+  | ANew h v n t l :
+      value v ->
+      h $? l = None ->
+      astep (h, ENew v (ENat n), t) (h $+ (l, repeat v n), ELoc l, t)
+  | ABetaT h e c t :
+      astep (h, EAppT (EAbsT e) c, t) (h, subst0_t_e c e, t)
+  | ABetaI h e c t :
+      astep (h, EAppI (EAbsI e) c, t) (h, subst0_i_e c e, t)
+  | AProj h pr v1 v2 t :
+      value v1 ->
+      value v2 ->
+      astep (h, EProj pr (EPair v1 v2), t) (h, proj (v1, v2) pr, t)
+  | AMatch h inj v e1 e2 t :
+      value v ->
+      astep (h, ECase (EInj inj v) e1 e2, t) (h, subst0_e_e v (choose (e1, e2) inj), t)
+  | ANatAdd h n1 n2 t :
+      nat_add_cost <= t ->
+      astep (h, ENatAdd (ENat n1) (ENat n2), t) (h, ENat (n1 + n2), t - nat_add_cost)
+  | APrim h opr cn1 cn2 t cn :
+      prim_cost opr <= t ->
+      exec_prim opr cn1 cn2 = Some cn ->
+      astep (h, EPrim opr (EConst cn1) (EConst cn2), t) (h, EConst cn, t - prim_cost opr)
+  .
+
+  Import CloseScope.
+  
+  Inductive step : config -> config -> Prop :=
+  | StepPlug h e1 t h' e1' t' e e' E :
+      astep (h, e, t) (h', e', t') ->
+      plug E e e1 ->
+      plug E e' e1' ->
+      step (h, e1, t) (h', e1', t')
+  .
+
+  Definition unstuck s :=
+    finished s \/
+    exists s', step s s'.
+
+  (* ============================================================= *)
+  (* safety a.k.a. unstuckness, which will be the goal of the main theorem *)
+  (* ============================================================= *)
+  
+  Definition safe s := forall s', step^* s s' -> unstuck s'.
+
+  (* ============================================================= *)
+  (* Type system *)
+  (* ============================================================= *)
+
+  (* sorting context *)
+  Definition sctx := list sort.
+  (* kinding context *)
+  Definition kctx := list kind.
+  (* heap typing *)
+  Definition hctx := fmap loc (ty * idx).
+  (* typing context *)
+  Definition tctx := list ty.
+  (* the total context *)
+  Definition ctx := (sctx * kctx * hctx * tctx)%type.
+  
+  Definition const_bsort cn :=
+    match cn with
+    | ICTT => BSUnit
+    | ICBool _ => BSBool
+    | ICNat _ => BSNat
+    | ICTime _ => BSTime
+    end
+  .
+
+  Definition iunop_arg_bsort opr :=
+    match opr with
+    | IUBoolNeg => BSBool
+    end.
+
+  Definition iunop_result_bsort opr :=
+    match opr with
+    | IUBoolNeg => BSBool
+    end.
+
+  Definition ibinop_arg1_bsort opr :=
+    match opr with
+    | IBTimeAdd => BSTime
+    | IBTimeMinus => BSTime
+    | IBTimeMax => BSTime
+    | IBNatAdd => BSNat
+    end.
+
+  Definition ibinop_arg2_bsort opr :=
+    match opr with
+    | IBTimeAdd => BSTime
+    | IBTimeMinus => BSTime
+    | IBTimeMax => BSTime
+    | IBNatAdd => BSNat
+    end.
+
+  Definition ibinop_result_bsort opr :=
+    match opr with
+    | IBTimeAdd => BSTime
+    | IBTimeMinus => BSTime
+    | IBTimeMax => BSTime
+    | IBNatAdd => BSNat
+    end.
+
+  Definition SBool := SBaseSort BSBool.
+  Definition SArrow b1 b2 := SBaseSort (BSArrow b1 b2).
+  
+  (* ------------------------------------------------------------- *)
+  (* Denotational semantics for indices *)
+  (* ------------------------------------------------------------- *)
+
+  Definition get_bsort (s : sort) :=
+    match s with
+    | SBaseSort b => b
+    | SSubset b _ => b
+    end.
+  
+  Fixpoint strip_subset k :=
+    match k with
+    | SBaseSort b => []
+    | SSubset b p => [p]
+    end.
+
+  Fixpoint strip_subsets (ss : list sort) : list prop :=
+    match ss with
+    | [] => []
+    | s :: ss =>
+      let ps1 := strip_subset s in
+      let ps2 := strip_subsets ss in
+      let ps2 := map shift0_i_p ps2 in
+      ps1 ++ ps2
+    end.
+
+  Definition PTrue := PTrueFalse true.
+  Definition PFalse := PTrueFalse false.
+  Definition PAnd := PBinConn PBCAnd.
+  Definition POr := PBinConn PBCOr.
+  Definition PImply := PBinConn PBCImply.
+  
+  Delimit Scope idx_scope with idx.
+  Infix "===>" := PImply (at level 95) : idx_scope.
+  Infix "/\" := PAnd : idx_scope.
+  
+  Fixpoint and_all ps :=
+    match ps with
+    | [] => PTrue
+    | p :: ps => (p /\ and_all ps) % idx
+    end.
+  
+  Fixpoint interp_bsort (b : bsort) :=
+    match b with
+    | BSNat => nat
+    | BSUnit => unit
+    | BSBool => bool
+    | BSTime => time_type
+    | BSArrow b1 b2 => interp_bsort b1 -> interp_bsort b2
+    end.
+
+  Fixpoint interp_bsorts arg_ks res :=
+    match arg_ks with
+    | [] => res
+    | arg_k :: arg_ks => interp_bsorts arg_ks (interp_bsort arg_k -> res)
+    end.
+
+  Definition interp_iunop opr : interp_bsort (iunop_arg_bsort opr) -> interp_bsort (iunop_result_bsort opr) :=
+    match opr with
+    | IUBoolNeg => negb
+    end.
+
+  Definition interp_true_false_Prop (b : bool) := if b then True else False.
+
+  Notation imply := (fun A B : Prop => A -> B).
+  Definition ite {A} (x : bool) (x1 x2 : A) := if x then x1 else x2.
+  Definition apply {A B} (f : A -> B) x := f x.
+
+  Definition interp_binconn opr : Prop -> Prop -> Prop :=
+    match opr with
+    | PBCAnd => and
+    | PBCOr => or
+    | PBCImply => imply
+    | PBCIff => iff
+    end.
+
+  Fixpoint BSTimeFun arity :=
+    match arity with
+    | 0 => BSTime
+    | S n => BSArrow BSNat (BSTimeFun n)
+    end.
+  
+  Definition binpred_arg1_bsort opr :=
+    match opr with
+    | PBTimeLe => BSTime
+    | PBNatLt => BSNat
+    (* | PBTimeEq => BSTime *)
+    | PBBigO n => BSTimeFun n
+    end
+  .
+
+  Definition binpred_arg2_bsort opr :=
+    match opr with
+    | PBTimeLe => BSTime
+    | PBNatLt => BSNat
+    (* | PBTimeEq => BSTime *)
+    | PBBigO n => BSTimeFun n
+    end
+  .
+
+  Fixpoint to_time_fun {n} : interp_bsort (BSTimeFun n) -> time_fun time_type n :=
+    match n with
+    | 0 => id
+    | S n' => fun f x => @to_time_fun n' (f x)
+    end.
+  
+  Definition interp_binpred opr : interp_bsort (binpred_arg1_bsort opr) -> interp_bsort (binpred_arg2_bsort opr) -> Prop :=
+    match opr return interp_bsort (binpred_arg1_bsort opr) -> interp_bsort (binpred_arg2_bsort opr) -> Prop with
+    | PBTimeLe => TimeLe
+    | PBNatLt => lt
+    | PBBigO n => fun f g => Time_BigO n (to_time_fun f) (to_time_fun g)
+    end.
+
+  Definition interp_quan {A} q (P : A -> Prop) : Prop :=
+    match q with
+    | QuanForall => forall a, P a
+    | QuanExists => exists a, P a
+    end.
+
+  Fixpoint bsort_default_value (b : bsort) : interp_bsort b :=
+    match b with
+    | BSNat => 0%nat
+    | BSUnit => tt
+    | BSBool => false
+    | BSTime => 0%time
+    | BSArrow b1 b2 => fun _ => bsort_default_value b2
+    end.
+
+  Definition bsort_dec : forall (b b' : bsort), sumbool (b = b') (b <> b').
+  Proof.
+    induction b; destruct b'; simpl; try solve [left; f_equal; eauto | right; intro Heq; discriminate].
+    destruct (IHb1 b'1); destruct (IHb2 b'2); subst; simplify; try solve [left; f_equal; eauto | right; intro Heq; invert Heq; subst; eauto].
+  Defined.
+  
+  Definition convert_bsort_value k1 k2 : interp_bsort k1 -> interp_bsort k2.
+  Proof.
+    cases (bsort_dec k1 k2); subst; eauto.
+    intros.
+    eapply bsort_default_value.
+  Defined.
+  
+  Fixpoint lift0 arg_ks t : t -> interp_bsorts arg_ks t :=
+    match arg_ks return t -> interp_bsorts arg_ks t with
+    | [] => id
+    | arg_k :: arg_ks =>
+      fun f => lift0 arg_ks (fun ak => f)
+    end.
+
+  Fixpoint lift1 arg_ks t1 t : (t1 -> t) -> interp_bsorts arg_ks t1 -> interp_bsorts arg_ks t :=
+    match arg_ks return (t1 -> t) -> interp_bsorts arg_ks t1 -> interp_bsorts arg_ks t with
+    | [] =>
+      fun f x1 => f x1
+    | arg_k :: arg_ks =>
+      fun f x1 => lift1 arg_ks (fun a1 ak => f (a1 ak)) x1
+    end.
+  
+  Fixpoint lift2 arg_ks : forall t1 t2 t, (t1 -> t2 -> t) -> interp_bsorts arg_ks t1 -> interp_bsorts arg_ks t2 -> interp_bsorts arg_ks t :=
+    match arg_ks return forall t1 t2 t, (t1 -> t2 -> t) -> interp_bsorts arg_ks t1 -> interp_bsorts arg_ks t2 -> interp_bsorts arg_ks t with
+    | [] =>
+      fun t1 t2 t f x1 x2 => f x1 x2
+    | arg_k :: arg_ks =>
+      fun t1 t2 t f x1 x2 => lift2 arg_ks (fun a1 a2 ak => f (a1 ak) (a2 ak)) x1 x2
+    end.
+  
+  Fixpoint lift3 arg_ks : forall t1 t2 t3 t, (t1 -> t2 -> t3 -> t) -> interp_bsorts arg_ks t1 -> interp_bsorts arg_ks t2 -> interp_bsorts arg_ks t3 -> interp_bsorts arg_ks t :=
+    match arg_ks return forall t1 t2 t3 t, (t1 -> t2 -> t3 -> t) -> interp_bsorts arg_ks t1 -> interp_bsorts arg_ks t2 -> interp_bsorts arg_ks t3 -> interp_bsorts arg_ks t with
+    | [] =>
+      fun t1 t2 t3 t f x1 x2 x3 => f x1 x2 x3
+    | arg_k :: arg_ks =>
+      fun t1 t2 t3 t f x1 x2 x3 => lift3 arg_ks (fun a1 a2 a3 ak => f (a1 ak) (a2 ak) (a3 ak)) x1 x2 x3
+    end.
+
+  Definition interp_iconst cn arg_ks res_k : interp_bsorts arg_ks (interp_bsort res_k) :=
+    match cn with
+    | ICTime cn => lift0 arg_ks (convert_bsort_value BSTime res_k cn)
+    | ICNat cn => lift0 arg_ks (convert_bsort_value BSNat res_k cn)
+    | ICBool cn => lift0 arg_ks (convert_bsort_value BSBool res_k cn)
+    | ICTT => lift0 arg_ks (convert_bsort_value BSUnit res_k tt)
+    end.
+
+  Fixpoint interp_var (x : var) arg_bs ret_b {struct arg_bs} : interp_bsorts arg_bs (interp_bsort ret_b) :=
+    match arg_bs return interp_bsorts arg_bs (interp_bsort ret_b) with
+    | [] => bsort_default_value ret_b
+    | arg_b :: arg_bs =>
+      match x with
+      | 0 => lift0 arg_bs (convert_bsort_value arg_b ret_b)
+      | S x => lift1 arg_bs (fun (x : interp_bsort ret_b) (_ : interp_bsort arg_b) => x) (interp_var x arg_bs ret_b)
+      end
+    end.
+
+  Definition interp_ibinop opr : interp_bsort (ibinop_arg1_bsort opr) -> interp_bsort (ibinop_arg2_bsort opr) -> interp_bsort (ibinop_result_bsort opr) :=
+    match opr with
+    | IBTimeAdd => TimeAdd
+    | IBTimeMinus => TimeMinus
+    | IBTimeMax => TimeMax
+    | IBNatAdd => plus
+    end.
+
+  Fixpoint interp_idx c arg_ks res_k : interp_bsorts arg_ks (interp_bsort res_k) :=
+    match c with
+    | IVar x => interp_var x arg_ks res_k
+    | IConst cn => interp_iconst cn arg_ks res_k 
+    | IUnOp opr c =>
+      let f x := convert_bsort_value (iunop_result_bsort opr) res_k (interp_iunop opr x) in
+      lift1 arg_ks f (interp_idx c arg_ks (iunop_arg_bsort opr))
+    | IBinOp opr c1 c2 =>
+      let f x1 x2 := convert_bsort_value (ibinop_result_bsort opr) res_k (interp_ibinop opr x1 x2) in
+      lift2 arg_ks f (interp_idx c1 arg_ks (ibinop_arg1_bsort opr)) (interp_idx c2 arg_ks (ibinop_arg2_bsort opr))
+    | IIte c c1 c2 =>
+      lift3 arg_ks ite (interp_idx c arg_ks BSBool) (interp_idx c1 arg_ks res_k) (interp_idx c2 arg_ks res_k)
+    | IAbs c =>
+      match res_k return interp_bsorts arg_ks (interp_bsort res_k) with
+      | BSArrow b1 b2 =>
+        interp_idx c (b1 :: arg_ks) b2
+      | res_k => lift0 arg_ks (bsort_default_value res_k)
+      end
+    | IApp b c1 c2 => 
+      lift2 arg_ks apply (interp_idx c1 arg_ks (BSArrow b res_k)) (interp_idx c2 arg_ks b)
+  end.
+
+  Fixpoint interp_p arg_ks p : interp_bsorts arg_ks Prop :=
+    match p with
+    | PTrueFalse cn => lift0 arg_ks (interp_true_false_Prop cn)
+    | PBinConn opr p1 p2 =>
+      lift2 arg_ks (interp_binconn opr) (interp_p arg_ks p1) (interp_p arg_ks p2)
+    | PNot p =>
+      lift1 arg_ks not (interp_p arg_ks p)
+    | PBinPred opr c1 c2 =>
+      let f x1 x2 := interp_binpred opr x1 x2 in
+      lift2 arg_ks f (interp_idx c1 arg_ks (binpred_arg1_bsort opr)) (interp_idx c2 arg_ks (binpred_arg2_bsort opr))
+    | PEq b c1 c2 =>
+      lift2 arg_ks eq (interp_idx c1 arg_ks b) (interp_idx c2 arg_ks b)
+    | PQuan q b p => lift1 arg_ks (interp_quan q) (interp_p (b :: arg_ks) p)
+    end.
+
+  Definition for_all {A} (P : A -> Prop) : Prop := forall a, P a.
+  
+  Fixpoint forall_ arg_ks : interp_bsorts arg_ks Prop -> Prop :=
+    match arg_ks with
+    | [] => id
+    | arg_k :: arg_ks => fun P => forall_ arg_ks (lift1 arg_ks for_all P)
+    end.
+
+  Definition interp_prop (ss : sctx) (p : prop) : Prop :=
+    let bs := map get_bsort ss in
+    let ps := strip_subsets ss in
+    let p := (and_all ps ===> p)%idx in
+    let P := interp_p bs p in
+    forall_ bs P.
+
+  Definition subst0_i_p v b := subst_i_p 0 v b.
+
+  Inductive sorting2 : sctx -> idx -> sort -> Prop :=
+  | Stg2Var L x s :
+      nth_error L x = Some s ->
+      sorting2 L (IVar x) (shift_i_s (1 + x) 0 s)
+  | Stg2Const L cn :
+      sorting2 L (IConst cn) (SBaseSort (const_bsort cn))
+  | Stg2UnOp L opr c :
+      sorting2 L c (SBaseSort (iunop_arg_bsort opr)) ->
+      sorting2 L (IUnOp opr c) (SBaseSort (iunop_result_bsort opr))
+  | Stg2BinOp L opr c1 c2 :
+      sorting2 L c1 (SBaseSort (ibinop_arg1_bsort opr)) ->
+      sorting2 L c2 (SBaseSort (ibinop_arg2_bsort opr)) ->
+      sorting2 L (IBinOp opr c1 c2) (SBaseSort (ibinop_result_bsort opr))
+  | Stg2Ite L c c1 c2 s :
+      sorting2 L c SBool ->
+      sorting2 L c1 s ->
+      sorting2 L c2 s ->
+      sorting2 L (IIte c c1 c2) s
+  | Stg2Abs L i b1 b2 :
+      sorting2 (SBaseSort b1 :: L) i (SBaseSort b2) ->
+      sorting2 L (IAbs i) (SArrow b1 b2)
+  | Stg2App L c1 c2 b1 b2 :
+      sorting2 L c1 (SArrow b1 b2) ->
+      sorting2 L c2 (SBaseSort b1) ->
+      sorting2 L (IApp b1 c1 c2) (SBaseSort b2)
+  | Stg2SubsetI L c b p :
+      sorting2 L c (SBaseSort b) ->
+      interp_prop L (subst0_i_p c p) ->
+      sorting2 L c (SSubset b p)
+  | Stg2SubsetE L c b p :
+      sorting2 L c (SSubset b p) ->
+      wfprop2 (SBaseSort b :: L) p ->
+      sorting2 L c (SBaseSort b)
+
+  with wfprop2 : list sort -> prop -> Prop :=
+  | WfProp2TrueFalse L cn :
+      wfprop2 L (PTrueFalse cn)
+  | WfProp2BinConn L opr p1 p2 :
+      wfprop2 L p1 ->
+      wfprop2 L p2 ->
+      wfprop2 L (PBinConn opr p1 p2)
+  | WfProp2Not L p :
+      wfprop2 L p ->
+      wfprop2 L (PNot p)
+  | WfProp2BinPred L opr i1 i2 :
+      sorting2 L i1 (SBaseSort (binpred_arg1_bsort opr)) ->
+      sorting2 L i2 (SBaseSort (binpred_arg2_bsort opr)) ->
+      wfprop2 L (PBinPred opr i1 i2)
+  | WfProp2Eq L b i1 i2 :
+      sorting2 L i1 (SBaseSort b) ->
+      sorting2 L i2 (SBaseSort b) ->
+      wfprop2 L (PEq b i1 i2)
+  | WfProp2Quan L q s p :
+      wfprop2 (SBaseSort s :: L) p ->
+      wfprop2 L (PQuan q s p)
+  .
+  
+  Inductive wfsort2 : list sort -> sort -> Prop :=
+  | WfSt2BaseSort L b :
+      wfsort2 L (SBaseSort b)
+  | WfSt2Subset L b p :
+      wfprop2 (SBaseSort b :: L) p ->
+      wfsort2 L (SSubset b p)
+  .
+
+  Definition SNat := SBaseSort BSNat.
+  Definition STime := SBaseSort BSTime.
+  
+  Inductive kinding2 : sctx -> kctx -> ty -> kind -> Prop :=
+  | Kdg2Var L K x k :
+      nth_error K x = Some k ->
+      kinding2 L K (TVar x) k
+  | Kdg2Const L K cn :
+      kinding2 L K (TConst cn) KType
+  | Kdg2BinOp L K opr c1 c2 :
+      kinding2 L K c1 KType ->
+      kinding2 L K c2 KType ->
+      kinding2 L K (TBinOp opr c1 c2) KType
+  | Kdg2Arrow L K t1 i t2 :
+      kinding2 L K t1 KType ->
+      sorting2 L i STime ->
+      kinding2 L K t2 KType ->
+      kinding2 L K (TArrow t1 i t2) KType
+  | Kdg2Abs L K b t k :
+      kinding2 (SBaseSort b :: L) K t k ->
+      kinding2 L K (TAbs b t) (KArrow b k)
+  | Kdg2App L K t b i k :
+      kinding2 L K t (KArrow b k) ->
+      sorting2 L i (SBaseSort b) ->
+      kinding2 L K (TApp t b i) k
+  | Kdg2Quan L K quan k c :
+      kinding2 L (k :: K) c KType ->
+      kinding2 L K (TQuan quan k c) KType
+  | Kdg2QuanI L K quan s c :
+      wfsort2 L s ->
+      kinding2 (s :: L) K c KType ->
+      kinding2 L K (TQuanI quan s c) KType
+  | Kdg2Rec L K k c :
+      kinding2 L (k :: K) c k ->
+      kinding2 L K (TRec k c) k
+  | Kdg2Nat L K i :
+      sorting2 L i SNat ->
+      kinding2 L K (TNat i) KType
+  | Kdg2Arr L K t i :
+      kinding2 L K t KType ->
+      sorting2 L i SNat ->
+      kinding2 L K (TArr t i) KType
+  | Kdg2AbsT L K t k1 k2 :
+      kinding2 L (k1 :: K) t k2 ->
+      kinding2 L K (TAbsT k1 t) (KArrowT k1 k2)
+  | Kdg2AppT L K t1 t2 k1 k2 :
+      kinding2 L K t1 (KArrowT k1 k2) ->
+      kinding2 L K t2 k1 ->
+      kinding2 L K (TAppT t1 t2) k2
+  .
+
+  Notation Tconst r := (IConst (ICTime r)).
+  Notation T0 := (Tconst Time0).
+  Notation T1 := (Tconst Time1).
+  
+  Definition get_sctx (C : ctx) : sctx :=
+    match C with
+      (L, K, W, G) => L
+    end.
+  
+  Definition get_kctx (C : ctx) : kctx := 
+    match C with
+      (L, K, W, G) => K
+    end.
+  
+  Definition get_hctx (C : ctx) : hctx := 
+    match C with
+      (L, K, W, G) => W
+    end.
+  
+  Definition get_tctx (C : ctx) : tctx := 
+    match C with
+      (L, K, W, G) => G
+    end.
+
+  Definition shift_i_ti n x b := (shift_i_t n x (fst b), shift_i_i n x (snd b)).
+  Definition shift0_i_ti := shift_i_ti 1 0.
+  
+  Definition add_sorting_ctx s (C : ctx) : ctx :=
+    match C with
+      (L, K, W, G) => (s :: L, K, fmap_map shift0_i_ti W, map shift0_i_t G)
+    end
+  .
+
+  Definition shift_t_ti n x (b : ty * idx) := (shift_t_t n x (fst b), snd b).
+  Definition shift0_t_ti := shift_t_ti 1 0.
+  
+  Definition add_kinding_ctx k (C : ctx) :=
+    match C with
+      (L, K, W, G) => (L, k :: K, fmap_map shift0_t_ti W, map shift0_t_t G)
+    end
+  .
+
+  Definition add_typing_ctx t (C : ctx) :=
+    match C with
+      (L, K, W, G) => (L, K, W, t :: G)
+    end
+  .
+
+  Definition Tadd := IBinOp IBTimeAdd.
+  
+  Delimit Scope idx_scope with idx.
+  Infix "+" := Tadd : idx_scope.
+  
+  Definition subst0_i_t v b := subst_i_t 0 v b.
+  Definition subst0_t_t v b := subst_t_t 0 v b.
+  
+  Definition TUnit := TConst TCUnit.
+  Definition TInt := TConst TCInt.
+  Definition TProd := TBinOp TBProd.
+  Definition TSum := TBinOp TBSum.
+  Definition TForall := TQuan QuanForall.
+  Definition TExists := TQuan QuanExists.
+  Definition TForallI := TQuanI QuanForall.
+  Definition TExistsI := TQuanI QuanExists.
+
+  Fixpoint EAbsTIs ls e :=
+    match ls with
+    | [] => e
+    | b :: ls =>
+      match b with
+      | true => EAbsT (EAbsTIs ls e)
+      | false => EAbsI (EAbsTIs ls e)
+      end
+    end
+  .
+
+  Fixpoint TApps t args :=
+    match args with
+    | nil => t
+    | (b, i) :: args => TApps (TApp t b i) args
+    end.
+
+  Definition unroll (k : kind) (t : ty) (args : list (bsort * idx)) : ty :=
+    let r := subst0_t_t (TRec k t) t in
+    TApps r args.
+
+  Definition const_type cn :=
+    match cn with
+    | ECTT => TUnit
+    | ECInt _ => TInt
+    | ECNat n => TNat (IConst (ICNat n))
+    end
+  .
+
+  Definition prim_arg1_type opr :=
+    match opr with
+    | PEBIntAdd => TInt
+    | PEBIntMult => TInt
+    end.
+    
+  Definition prim_arg2_type opr :=
+    match opr with
+    | PEBIntAdd => TInt
+    | PEBIntMult => TInt
+    end.
+    
+  Definition prim_result_type opr :=
+    match opr with
+    | PEBIntAdd => TInt
+    | PEBIntMult => TInt
+    end.
+    
+  Definition Tmax := IBinOp IBTimeMax.
+  
+  Definition Nlt := PBinPred PBNatLt.
+  Infix "<" := Nlt : idx_scope.
+  
+  Definition Tle := PBinPred PBTimeLe.
+  Infix "<=" := Tle : idx_scope.
+  
+  Definition Nadd := IBinOp IBNatAdd.
+  
+  Local Open Scope idx_scope.
+
+  Notation idxeq L i i' b := (interp_prop L (PEq b i i')).
+  
+  Definition PIff := PBinConn PBCIff.
+  Infix "<===>" := PIff (at level 95) : idx_scope.
+  
+  Inductive sorteq : sctx -> sort -> sort -> Prop :=
+  | SortEqBaseSort L b :
+      sorteq L (SBaseSort b) (SBaseSort b)
+  | SortEqSubset L b p p' :
+      interp_prop (SBaseSort b :: L) (p <===> p')%idx ->
+      sorteq L (SSubset b p) (SSubset b p')
+  .
+
+  Inductive tyeq2 : sctx -> kctx -> ty -> ty -> kind -> Prop :=
+  (* congruence rules *)
+  | TyEq2BinOp L K opr t1 t2 t1' t2' :
+      tyeq2 L K t1 t1' KType ->
+      tyeq2 L K t2 t2' KType ->
+      tyeq2 L K (TBinOp opr t1 t2) (TBinOp opr t1' t2') KType
+  | TyEq2Arrow L K t1 i t2 t1' i' t2':
+      tyeq2 L K t1 t1' KType ->
+      idxeq L i i' BSTime ->
+      tyeq2 L K t2 t2' KType ->
+      tyeq2 L K (TArrow t1 i t2) (TArrow t1' i' t2') KType
+  | TyEq2Abs L K b t t' k :
+      tyeq2 (SBaseSort b :: L) K t t' k ->
+      tyeq2 L K (TAbs b t) (TAbs b t') (KArrow b k)
+  | TyEq2App L K t b i t' i' k :
+      tyeq2 L K t t' (KArrow b k) ->
+      idxeq L i i' b ->
+      tyeq2 L K (TApp t b i) (TApp t' b i') k
+  | TyEq2Quan L K quan k t t' :
+      tyeq2 L (k :: K) t t' KType ->
+      tyeq2 L K (TQuan quan k t) (TQuan quan k t') KType
+  | TyEq2QuanI L K quan s t s' t' :
+      sorteq L s s' ->
+      tyeq2 (s :: L) K t t' KType ->
+      tyeq2 L K (TQuanI quan s t) (TQuanI quan s' t') KType
+  | TyEq2Rec L K k c c' :
+      tyeq2 L (k :: K) c c' k ->
+      tyeq2 L K (TRec k c) (TRec k c') k
+  | TyEq2Nat L K i i' :
+      idxeq L i i' BSNat ->
+      tyeq2 L K (TNat i) (TNat i') KType
+  | TyEq2Arr L K t i t' i' :
+      tyeq2 L K t t' KType ->
+      idxeq L i i' BSNat ->
+      tyeq2 L K (TArr t i) (TArr t' i') KType
+  | TyEq2AbsT L K k t t' k2 :
+      tyeq2 L (k :: K) t t' k2 ->
+      tyeq2 L K (TAbsT k t) (TAbsT k t') (KArrowT k k2)
+  | TyEq2AppT L K t1 t2 t1' t2' k1 k2 :
+      tyeq2 L K t1 t1' (KArrowT k1 k2) ->
+      tyeq2 L K t2 t2' k1 ->
+      tyeq2 L K (TAppT t1 t2) (TAppT t1' t2') k2
+  | TyEq2Var L K x k :
+      nth_error K x = Some k ->
+      tyeq2 L K (TVar x) (TVar x) k
+  | TyEq2Const L K cn :
+      tyeq2 L K (TConst cn) (TConst cn) KType
+  (* reduction rules *)
+  | TyEq2Beta L K s t b i k :
+      kinding2 L K (TApp (TAbs s t) b i) k ->
+      tyeq2 L K (TApp (TAbs s t) b i) (subst0_i_t i t) k
+  | TyEq2BetaT L K k t1 t2 k2 :
+      kinding2 L K (TAppT (TAbsT k t1) t2) k2 ->
+      tyeq2 L K (TAppT (TAbsT k t1) t2) (subst0_t_t t2 t1) k2
+  (* structural rules *)
+  | TyEq2Refl L K t k :
+      kinding2 L K t k ->
+      tyeq2 L K t t k
+  | TyEq2Sym L K a b k :
+      tyeq2 L K a b k ->
+      tyeq2 L K b a k
+  | TyEq2Trans L K a b c k :
+      tyeq2 L K a b k ->
+      tyeq2 L K b c k ->
+      kinding2 L K b k ->
+      tyeq2 L K a c k
+  .
+
+  Inductive typing2 : ctx -> expr -> ty -> idx -> Prop :=
+  | Ty2Var C x t :
+      nth_error (get_tctx C) x = Some t ->
+      typing2 C (EVar x) t T0
+  | Ty2App C e1 e2 t i1 i2 i t2 :
+      typing2 C e1 (TArrow t2 i t) i1 ->
+      typing2 C e2 t2 i2 ->
+      typing2 C (EApp e1 e2) t (i1 + i2 + T1 + i)
+  | Ty2Abs C e t1 i t :
+      kinding2 (get_sctx C) (get_kctx C) t1 KType ->
+      typing2 (add_typing_ctx t1 C) e t i ->
+      typing2 C (EAbs e) (TArrow t1 i t) T0
+  | Ty2AppT C e t t1 i k :
+      typing2 C e (TForall k t1) i ->
+      kinding2 (get_sctx C) (get_kctx C) t k -> 
+      typing2 C (EAppT e t) (subst0_t_t t t1) i
+  | Ty2AbsT C e t k :
+      value e ->
+      typing2 (add_kinding_ctx k C) e t T0 ->
+      typing2 C (EAbsT e) (TForall k t) T0
+  | Ty2AppI C e c t i s :
+      typing2 C e (TForallI s t) i ->
+      sorting2 (get_sctx C) c s -> 
+      typing2 C (EAppI e c) (subst0_i_t c t) i
+  | Ty2AbsI C e t s :
+      value e ->
+      wfsort2 (get_sctx C) s ->
+      typing2 (add_sorting_ctx s C) e t T0 ->
+      typing2 C (EAbsI e) (TForallI s t) T0
+  | Ty2Rec C tis e1 t :
+      let e := EAbsTIs tis (EAbs e1) in
+      kinding2 (get_sctx C) (get_kctx C) t KType ->
+      typing2 (add_typing_ctx t C) e t T0 ->
+      typing2 C (ERec e) t T0
+  | Ty2Fold C e k t cs i :
+      let t_rec := TApps (TRec k t) cs in
+      kinding2 (get_sctx C) (get_kctx C) t_rec KType ->
+      typing2 C e (unroll k t cs) i ->
+      typing2 C (EFold e) t_rec i
+  | Ty2Unfold C e k t cs i :
+      typing2 C e (TApps (TRec k t) cs) i ->
+      typing2 C (EUnfold e) (unroll k t cs) i
+  | Ty2Pack C c e i t1 k :
+      kinding2 (get_sctx C) (get_kctx C) (TExists k t1) KType ->
+      kinding2 (get_sctx C) (get_kctx C) c k ->
+      typing2 C e (subst0_t_t c t1) i ->
+      typing2 C (EPack c e) (TExists k t1) i
+  | Ty2Unpack C e1 e2 t2 i1 i2 t k :
+      typing2 C e1 (TExists k t) i1 ->
+      typing2 (add_typing_ctx t (add_kinding_ctx k C)) e2 (shift0_t_t t2) i2 ->
+      typing2 C (EUnpack e1 e2) t2 (i1 + i2)
+  | Ty2PackI C c e i t1 s :
+      kinding2 (get_sctx C) (get_kctx C) (TExistsI s t1) KType ->
+      sorting2 (get_sctx C) c s ->
+      typing2 C e (subst0_i_t c t1) i ->
+      typing2 C (EPackI c e) (TExistsI s t1) i
+  | Ty2UnpackI C e1 e2 t2 i1 i2 t s :
+      typing2 C e1 (TExistsI s t) i1 ->
+      typing2 (add_typing_ctx t (add_sorting_ctx s C)) e2 (shift0_i_t t2) (shift0_i_i i2) ->
+      typing2 C (EUnpackI e1 e2) t2 (i1 + i2)
+  | Ty2Const C cn :
+      typing2 C (EConst cn) (const_type cn) T0
+  | Ty2Pair C e1 e2 t1 t2 i1 i2 :
+      typing2 C e1 t1 i1 ->
+      typing2 C e2 t2 i2 ->
+      typing2 C (EPair e1 e2) (TProd t1 t2) (i1 + i2)
+  | Ty2Proj C pr e t1 t2 i :
+      typing2 C e (TProd t1 t2) i ->
+      typing2 C (EProj pr e) (proj (t1, t2) pr) i
+  | Ty2Inj C inj e t t' i :
+      typing2 C e t i ->
+      kinding2 (get_sctx C) (get_kctx C) t' KType ->
+      typing2 C (EInj inj e) (choose (TSum t t', TSum t' t) inj) i
+  | Ty2Case C e e1 e2 t i i1 i2 t1 t2 :
+      typing2 C e (TSum t1 t2) i ->
+      typing2 (add_typing_ctx t1 C) e1 t i1 ->
+      typing2 (add_typing_ctx t2 C) e2 t i2 ->
+      typing2 C (ECase e e1 e2) t (i + Tmax i1 i2)
+  | Ty2New C e1 e2 t len i1 i2 :
+      typing2 C e1 t i1 ->
+      typing2 C e2 (TNat len) i2 ->
+      typing2 C (ENew e1 e2) (TArr t len) (i1 + i2)
+  | Ty2Read C e1 e2 t i1 i2 len i :
+      typing2 C e1 (TArr t len) i1 ->
+      typing2 C e2 (TNat i) i2 ->
+      interp_prop (get_sctx C) (i < len) ->
+      typing2 C (ERead e1 e2) t (i1 + i2)
+  | Ty2Write C e1 e2 e3 i1 i2 i3 t len i :
+      typing2 C e1 (TArr t len) i1 ->
+      typing2 C e2 (TNat i) i2 ->
+      interp_prop (get_sctx C) (i < len) ->
+      typing2 C e3 t i3 ->
+      typing2 C (EWrite e1 e2 e3) TUnit (i1 + i2 + i3)
+  | Ty2Loc C l t i :
+      get_hctx C $? l = Some (t, i) ->
+      typing2 C (ELoc l) (TArr t i) T0
+  | Ty2Prim C opr e1 e2 i1 i2 :
+      typing2 C e1 (prim_arg1_type opr) i1 ->
+      typing2 C e2 (prim_arg2_type opr) i2 ->
+      typing2 C (EPrim opr e1 e2) (prim_result_type opr) (i1 + i2 + Tconst (prim_cost opr))
+  | Ty2NatAdd C e1 e2 j1 j2 i1 i2 :
+      typing2 C e1 (TNat j1) i1 ->
+      typing2 C e2 (TNat j2) i2 ->
+      typing2 C (ENatAdd e1 e2) (TNat (Nadd j1 j2)) (i1 + i2 + Tconst nat_add_cost)
+  | Ty2Ty2eq C e t1 i t2 :
+      typing2 C e t1 i ->
+      let L := get_sctx C in
+      let K := get_kctx C in
+      kinding2 L K t2 KType ->
+      tyeq2 L K t1 t2 KType ->
+      typing2 C e t2 i
+  | Ty2Le C e t i1 i2 :
+      typing2 C e t i1 ->
+      let L := get_sctx C in
+      sorting2 L i2 STime ->
+      interp_prop L (i1 <= i2) ->
+      typing2 C e t i2 
+  .
+
+  Local Close Scope idx_scope.
+
+  Definition allocatable (h : heap) := exists l_alloc, forall l, l >= l_alloc -> h $? l = None.
+  
+  Definition htyping2 (h : heap) (W : hctx) :=
+    (forall l t i,
+        W $? l = Some (t, i) ->
+        exists vs,
+          h $? l = Some vs /\
+          length vs = interp_idx i [] BSNat /\
+          Forall (fun v => value v /\ typing2 ([], [], W, []) v t T0) vs) /\
+    allocatable h.
+
+  Definition interp_time i : time_type := interp_idx i [] BSTime.
+  
+  Inductive all_sorts (P : list sort -> sort -> Prop) : list sort -> Prop :=
+  | AllStsNil :
+      all_sorts P []
+  | AllStsCons s ss :
+      all_sorts P ss ->
+      P ss s ->
+      all_sorts P (s :: ss)
+  .
+
+  Definition wfsorts2 := all_sorts (fun L s => wfsort2 L s).
+
+  Definition wfhctx2 L K (W : hctx) := fmap_forall (fun p => kinding2 L K (fst p) KType /\ sorting2 L (snd p) SNat) W.
+
+  Definition wfctx2 C :=
+    let L := get_sctx C in
+    let K := get_kctx C in
+    let W := get_hctx C in
+    let G := get_tctx C in
+    wfsorts2 L /\
+    wfhctx2 L K W /\
+    Forall (fun t => kinding2 L K t KType) G.
+
+  Definition ctyping2 W (s : config) t i :=
+    let '(h, e, f) := s in
+    let C := ([], [], W, []) in
+    typing2 C e t i /\
+    htyping2 h W /\
+    (interp_time i <= f)%time /\
+    wfctx2 C
+  .
+
+  (* ============================================================= *)
+  (* The main theorem: Soundness *)
+  (* ============================================================= *)
+  
+  Parameter soundness :  forall W s t i, ctyping2 W s t i -> safe s.
+
+End TIML.
+
+Require Import Datatypes.
 
 Module NatTime <: TIME.
   Definition time_type := nat.
@@ -314,20 +1920,6 @@ Proof.
   induction ls; destruct n; simplify; eauto.
   f_equal; eauto.
 Qed.
-
-Definition fmap_map {K A B} (f : A -> B) (m : fmap K A) : fmap K B.
-Admitted.
-
-Lemma fmap_map_lookup K A B (f : A -> B) m (k : K) (a : A) :
-  m $? k = Some a ->
-  fmap_map f m $? k = Some (f a).
-Admitted.
-Lemma fmap_map_lookup_elim K A B (f : A -> B) m (k : K) (b : B) :
-  fmap_map f m $? k = Some b ->
-  exists a : A,
-    f a = b /\
-    m $? k = Some a.
-Admitted.
 
 Lemma fmap_ext2 K A (m m' : fmap K A) :
   (forall k v, m $? k = Some v -> m' $? k = Some v) ->
@@ -564,16 +2156,6 @@ Proof.
 Qed.
 
 (* Definition removen A n (ls : list A) := firstn n ls ++ skipn (1 + n) ls. *)
-Fixpoint removen A n (ls : list A) {struct ls} :=
-  match ls with
-  | [] => []
-  | a :: ls =>
-    match n with
-    | 0 => ls
-    | S n => a :: removen n ls
-    end
-  end.
-
 Hint Extern 0 (_ <= _) => linear_arithmetic : db_la.
 Hint Extern 0 (_ = _) => linear_arithmetic : db_la.
 
@@ -669,17 +2251,8 @@ Lemma nth_error_map_elim : forall A B (f : A -> B) ls i b, nth_error (List.map f
   rewrite e in *; discriminate.
 Qed.
 
-Fixpoint time_fun time_type (arity : nat) :=
-  match arity with
-  | 0 => time_type
-  | S n => nat -> time_fun time_type n
-  end.
-
-Module Type BIG_O (Time : TIME).
-  Parameter Time_BigO : forall arity : nat, time_fun Time.time_type arity -> time_fun Time.time_type arity -> Prop.
-End BIG_O.
-
-Module M (Time : TIME) (BigO :BIG_O Time).
+Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
+  
   Import Time BigO.
 
   Delimit Scope time_scope with time.
@@ -2420,16 +3993,6 @@ Module M (Time : TIME) (BigO :BIG_O Time).
     eauto.
   Qed.
   
-  Fixpoint insert A new n (ls : list A) :=
-    match n with
-    | 0 => new ++ ls
-    | S n => 
-      match ls with
-      | [] => new
-      | a :: ls => a :: insert new n ls
-      end
-    end.
-
   Ltac dis := discriminate.
   
   Definition bsort_dec : forall (b b' : bsort), sumbool (b = b') (b <> b').
@@ -14904,8 +16467,6 @@ lift2 (fst (strip_subsets L))
           Forall (fun v => value v /\ typing ([], [], W, []) v t T0) vs) /\
     allocatable h.
 
-  Definition fmap_forall K A (p : A -> Prop) (m : fmap K A) : Prop := forall k v, m $? k = Some v -> p v.
-  
   Definition kinding_KType L K t := kinding L K t KType.
   Arguments kinding_KType L K t / .
 
@@ -24056,7 +25617,7 @@ lift2 (fst (strip_subsets L))
     }
   Qed.
 
-  Theorem safety W s t i : ctyping W s t i -> safe s.
+  Theorem soundness1 W s t i : ctyping W s t i -> safe s.
   Proof.
     intros H.
     eapply unstuck_invariant in H; eauto.
@@ -24066,7 +25627,465 @@ lift2 (fst (strip_subsets L))
     eauto.
   Qed.
 
-End M.   
+  Inductive sorting2 : sctx -> idx -> sort -> Prop :=
+  | Stg2Var L x s :
+      nth_error L x = Some s ->
+      sorting2 L (IVar x) (shift_i_s (1 + x) 0 s)
+  | Stg2Const L cn :
+      sorting2 L (IConst cn) (SBaseSort (const_bsort cn))
+  | Stg2UnOp L opr c :
+      sorting2 L c (SBaseSort (iunop_arg_bsort opr)) ->
+      sorting2 L (IUnOp opr c) (SBaseSort (iunop_result_bsort opr))
+  | Stg2BinOp L opr c1 c2 :
+      sorting2 L c1 (SBaseSort (ibinop_arg1_bsort opr)) ->
+      sorting2 L c2 (SBaseSort (ibinop_arg2_bsort opr)) ->
+      sorting2 L (IBinOp opr c1 c2) (SBaseSort (ibinop_result_bsort opr))
+  | Stg2Ite L c c1 c2 s :
+      sorting2 L c SBool ->
+      sorting2 L c1 s ->
+      sorting2 L c2 s ->
+      sorting2 L (IIte c c1 c2) s
+  | Stg2Abs L i b1 b2 :
+      sorting2 (SBaseSort b1 :: L) i (SBaseSort b2) ->
+      sorting2 L (IAbs i) (SArrow b1 b2)
+  | Stg2App L c1 c2 b1 b2 :
+      sorting2 L c1 (SArrow b1 b2) ->
+      sorting2 L c2 (SBaseSort b1) ->
+      sorting2 L (IApp b1 c1 c2) (SBaseSort b2)
+  | Stg2SubsetI L c b p :
+      sorting2 L c (SBaseSort b) ->
+      interp_prop L (subst0_i_p c p) ->
+      sorting2 L c (SSubset b p)
+  | Stg2SubsetE L c b p :
+      sorting2 L c (SSubset b p) ->
+      wfprop2 (SBaseSort b :: L) p ->
+      sorting2 L c (SBaseSort b)
+
+  with wfprop2 : list sort -> prop -> Prop :=
+  | WfProp2TrueFalse L cn :
+      wfprop2 L (PTrueFalse cn)
+  | WfProp2BinConn L opr p1 p2 :
+      wfprop2 L p1 ->
+      wfprop2 L p2 ->
+      wfprop2 L (PBinConn opr p1 p2)
+  | WfProp2Not L p :
+      wfprop2 L p ->
+      wfprop2 L (PNot p)
+  | WfProp2BinPred L opr i1 i2 :
+      sorting2 L i1 (SBaseSort (binpred_arg1_bsort opr)) ->
+      sorting2 L i2 (SBaseSort (binpred_arg2_bsort opr)) ->
+      wfprop2 L (PBinPred opr i1 i2)
+  | WfProp2Eq L b i1 i2 :
+      sorting2 L i1 (SBaseSort b) ->
+      sorting2 L i2 (SBaseSort b) ->
+      wfprop2 L (PEq b i1 i2)
+  | WfProp2Quan L q s p :
+      wfprop2 (SBaseSort s :: L) p ->
+      wfprop2 L (PQuan q s p)
+  .
+  
+  Hint Constructors sorting2 wfprop2.
+
+  Inductive wfsort2 : list sort -> sort -> Prop :=
+  | WfSt2BaseSort L b :
+      wfsort2 L (SBaseSort b)
+  | WfSt2Subset L b p :
+      wfprop2 (SBaseSort b :: L) p ->
+      wfsort2 L (SSubset b p)
+  .
+
+  Hint Constructors wfsort2.
+
+  Scheme sorting2_mutind := Minimality for sorting2 Sort Prop
+  with wfprop2_mutind := Minimality for wfprop2 Sort Prop.
+
+  Combined Scheme sorting2_wfprop2_mutind from sorting2_mutind, wfprop2_mutind.
+
+  Lemma sorting2_wfprop2_sorting_wfprop :
+    (forall L i s,
+        sorting2 L i s ->
+        sorting L i s
+    ) /\
+    (forall L p,
+        wfprop2 L p ->
+        wfprop (map get_bsort L) p
+    ).
+  Proof.
+    eapply sorting2_wfprop2_mutind; simpl; eauto using sorting_bsorting'.
+  Qed.
+
+  Lemma sorting2_sorting L i s : sorting2 L i s -> sorting L i s.
+  Proof.
+    intros; eapply sorting2_wfprop2_sorting_wfprop; eauto.
+  Qed.
+
+  Lemma wfprop2_wfprop L p : wfprop2 L p -> wfprop (map get_bsort L) p.
+  Proof.
+    intros; eapply sorting2_wfprop2_sorting_wfprop; eauto.
+  Qed.
+
+  Lemma wfsort2_wfsort L s : wfsort2 L s -> wfsort (map get_bsort L) s.
+  Proof.
+    induct 1; simpl; eauto using wfprop2_wfprop.
+    econstructor.
+    eapply wfprop2_wfprop in H.
+    eauto.
+  Qed.
+
+  Inductive kinding2 : sctx -> kctx -> ty -> kind -> Prop :=
+  | Kdg2Var L K x k :
+      nth_error K x = Some k ->
+      kinding2 L K (TVar x) k
+  | Kdg2Const L K cn :
+      kinding2 L K (TConst cn) KType
+  | Kdg2BinOp L K opr c1 c2 :
+      kinding2 L K c1 KType ->
+      kinding2 L K c2 KType ->
+      kinding2 L K (TBinOp opr c1 c2) KType
+  | Kdg2Arrow L K t1 i t2 :
+      kinding2 L K t1 KType ->
+      sorting2 L i STime ->
+      kinding2 L K t2 KType ->
+      kinding2 L K (TArrow t1 i t2) KType
+  | Kdg2Abs L K b t k :
+      kinding2 (SBaseSort b :: L) K t k ->
+      kinding2 L K (TAbs b t) (KArrow b k)
+  | Kdg2App L K t b i k :
+      kinding2 L K t (KArrow b k) ->
+      sorting2 L i (SBaseSort b) ->
+      kinding2 L K (TApp t b i) k
+  | Kdg2Quan L K quan k c :
+      kinding2 L (k :: K) c KType ->
+      kinding2 L K (TQuan quan k c) KType
+  | Kdg2QuanI L K quan s c :
+      wfsort2 L s ->
+      kinding2 (s :: L) K c KType ->
+      kinding2 L K (TQuanI quan s c) KType
+  | Kdg2Rec L K k c :
+      kinding2 L (k :: K) c k ->
+      kinding2 L K (TRec k c) k
+  | Kdg2Nat L K i :
+      sorting2 L i SNat ->
+      kinding2 L K (TNat i) KType
+  | Kdg2Arr L K t i :
+      kinding2 L K t KType ->
+      sorting2 L i SNat ->
+      kinding2 L K (TArr t i) KType
+  | Kdg2AbsT L K t k1 k2 :
+      kinding2 L (k1 :: K) t k2 ->
+      kinding2 L K (TAbsT k1 t) (KArrowT k1 k2)
+  | Kdg2AppT L K t1 t2 k1 k2 :
+      kinding2 L K t1 (KArrowT k1 k2) ->
+      kinding2 L K t2 k1 ->
+      kinding2 L K (TAppT t1 t2) k2
+  .
+
+  Hint Constructors kinding2.
+
+  Lemma kinding2_kinding L K t k : kinding2 L K t k -> kinding L K t k.
+  Proof.
+    induct 1; simpl; eauto using sorting2_sorting, wfsort2_wfsort.
+  Qed.
+
+  Local Open Scope idx_scope.
+
+  Inductive tyeq2 : sctx -> kctx -> ty -> ty -> kind -> Prop :=
+  (* congruence rules *)
+  | TyEq2BinOp L K opr t1 t2 t1' t2' :
+      tyeq2 L K t1 t1' KType ->
+      tyeq2 L K t2 t2' KType ->
+      tyeq2 L K (TBinOp opr t1 t2) (TBinOp opr t1' t2') KType
+  | TyEq2Arrow L K t1 i t2 t1' i' t2':
+      tyeq2 L K t1 t1' KType ->
+      idxeq L i i' BSTime ->
+      tyeq2 L K t2 t2' KType ->
+      tyeq2 L K (TArrow t1 i t2) (TArrow t1' i' t2') KType
+  | TyEq2Abs L K b t t' k :
+      tyeq2 (SBaseSort b :: L) K t t' k ->
+      tyeq2 L K (TAbs b t) (TAbs b t') (KArrow b k)
+  | TyEq2App L K t b i t' i' k :
+      tyeq2 L K t t' (KArrow b k) ->
+      idxeq L i i' b ->
+      tyeq2 L K (TApp t b i) (TApp t' b i') k
+  | TyEq2Quan L K quan k t t' :
+      tyeq2 L (k :: K) t t' KType ->
+      tyeq2 L K (TQuan quan k t) (TQuan quan k t') KType
+  | TyEq2QuanI L K quan s t s' t' :
+      sorteq L s s' ->
+      tyeq2 (s :: L) K t t' KType ->
+      tyeq2 L K (TQuanI quan s t) (TQuanI quan s' t') KType
+  | TyEq2Rec L K k c c' :
+      tyeq2 L (k :: K) c c' k ->
+      tyeq2 L K (TRec k c) (TRec k c') k
+  | TyEq2Nat L K i i' :
+      idxeq L i i' BSNat ->
+      tyeq2 L K (TNat i) (TNat i') KType
+  | TyEq2Arr L K t i t' i' :
+      tyeq2 L K t t' KType ->
+      idxeq L i i' BSNat ->
+      tyeq2 L K (TArr t i) (TArr t' i') KType
+  | TyEq2AbsT L K k t t' k2 :
+      tyeq2 L (k :: K) t t' k2 ->
+      tyeq2 L K (TAbsT k t) (TAbsT k t') (KArrowT k k2)
+  | TyEq2AppT L K t1 t2 t1' t2' k1 k2 :
+      tyeq2 L K t1 t1' (KArrowT k1 k2) ->
+      tyeq2 L K t2 t2' k1 ->
+      tyeq2 L K (TAppT t1 t2) (TAppT t1' t2') k2
+  | TyEq2Var L K x k :
+      nth_error K x = Some k ->
+      tyeq2 L K (TVar x) (TVar x) k
+  | TyEq2Const L K cn :
+      tyeq2 L K (TConst cn) (TConst cn) KType
+  (* reduction rules *)
+  | TyEq2Beta L K s t b i k :
+      kinding2 L K (TApp (TAbs s t) b i) k ->
+      tyeq2 L K (TApp (TAbs s t) b i) (subst0_i_t i t) k
+  | TyEq2BetaT L K k t1 t2 k2 :
+      kinding2 L K (TAppT (TAbsT k t1) t2) k2 ->
+      tyeq2 L K (TAppT (TAbsT k t1) t2) (subst0_t_t t2 t1) k2
+  (* structural rules *)
+  | TyEq2Refl L K t k :
+      kinding2 L K t k ->
+      tyeq2 L K t t k
+  | TyEq2Sym L K a b k :
+      tyeq2 L K a b k ->
+      tyeq2 L K b a k
+  | TyEq2Trans L K a b c k :
+      tyeq2 L K a b k ->
+      tyeq2 L K b c k ->
+      kinding2 L K b k ->
+      tyeq2 L K a c k
+  .
+
+  Hint Constructors tyeq2.
+
+  Lemma tyeq2_tyeq L K t t' k : tyeq2 L K t t' k -> tyeq L K t t' k.
+  Proof.
+    induct 1; simpl; eauto using kinding2_kinding, kinding_bkinding'.
+  Qed.
+  
+  Inductive typing2 : ctx -> expr -> ty -> idx -> Prop :=
+  | Ty2Var C x t :
+      nth_error (get_tctx C) x = Some t ->
+      typing2 C (EVar x) t T0
+  | Ty2App C e1 e2 t i1 i2 i t2 :
+      typing2 C e1 (TArrow t2 i t) i1 ->
+      typing2 C e2 t2 i2 ->
+      typing2 C (EApp e1 e2) t (i1 + i2 + T1 + i)
+  | Ty2Abs C e t1 i t :
+      kinding2 (get_sctx C) (get_kctx C) t1 KType ->
+      typing2 (add_typing_ctx t1 C) e t i ->
+      typing2 C (EAbs e) (TArrow t1 i t) T0
+  | Ty2AppT C e t t1 i k :
+      typing2 C e (TForall k t1) i ->
+      kinding2 (get_sctx C) (get_kctx C) t k -> 
+      typing2 C (EAppT e t) (subst0_t_t t t1) i
+  | Ty2AbsT C e t k :
+      value e ->
+      typing2 (add_kinding_ctx k C) e t T0 ->
+      typing2 C (EAbsT e) (TForall k t) T0
+  | Ty2AppI C e c t i s :
+      typing2 C e (TForallI s t) i ->
+      sorting2 (get_sctx C) c s -> 
+      typing2 C (EAppI e c) (subst0_i_t c t) i
+  | Ty2AbsI C e t s :
+      value e ->
+      wfsort2 (get_sctx C) s ->
+      typing2 (add_sorting_ctx s C) e t T0 ->
+      typing2 C (EAbsI e) (TForallI s t) T0
+  | Ty2Rec C tis e1 t :
+      let e := EAbsTIs tis (EAbs e1) in
+      kinding2 (get_sctx C) (get_kctx C) t KType ->
+      typing2 (add_typing_ctx t C) e t T0 ->
+      typing2 C (ERec e) t T0
+  | Ty2Fold C e k t cs i :
+      let t_rec := TApps (TRec k t) cs in
+      kinding2 (get_sctx C) (get_kctx C) t_rec KType ->
+      typing2 C e (unroll k t cs) i ->
+      typing2 C (EFold e) t_rec i
+  | Ty2Unfold C e k t cs i :
+      typing2 C e (TApps (TRec k t) cs) i ->
+      typing2 C (EUnfold e) (unroll k t cs) i
+  | Ty2Pack C c e i t1 k :
+      kinding2 (get_sctx C) (get_kctx C) (TExists k t1) KType ->
+      kinding2 (get_sctx C) (get_kctx C) c k ->
+      typing2 C e (subst0_t_t c t1) i ->
+      typing2 C (EPack c e) (TExists k t1) i
+  | Ty2Unpack C e1 e2 t2 i1 i2 t k :
+      typing2 C e1 (TExists k t) i1 ->
+      typing2 (add_typing_ctx t (add_kinding_ctx k C)) e2 (shift0_t_t t2) i2 ->
+      typing2 C (EUnpack e1 e2) t2 (i1 + i2)
+  | Ty2PackI C c e i t1 s :
+      kinding2 (get_sctx C) (get_kctx C) (TExistsI s t1) KType ->
+      sorting2 (get_sctx C) c s ->
+      typing2 C e (subst0_i_t c t1) i ->
+      typing2 C (EPackI c e) (TExistsI s t1) i
+  | Ty2UnpackI C e1 e2 t2 i1 i2 t s :
+      typing2 C e1 (TExistsI s t) i1 ->
+      typing2 (add_typing_ctx t (add_sorting_ctx s C)) e2 (shift0_i_t t2) (shift0_i_i i2) ->
+      typing2 C (EUnpackI e1 e2) t2 (i1 + i2)
+  | Ty2Const C cn :
+      typing2 C (EConst cn) (const_type cn) T0
+  | Ty2Pair C e1 e2 t1 t2 i1 i2 :
+      typing2 C e1 t1 i1 ->
+      typing2 C e2 t2 i2 ->
+      typing2 C (EPair e1 e2) (TProd t1 t2) (i1 + i2)
+  | Ty2Proj C pr e t1 t2 i :
+      typing2 C e (TProd t1 t2) i ->
+      typing2 C (EProj pr e) (proj (t1, t2) pr) i
+  | Ty2Inj C inj e t t' i :
+      typing2 C e t i ->
+      kinding2 (get_sctx C) (get_kctx C) t' KType ->
+      typing2 C (EInj inj e) (choose (TSum t t', TSum t' t) inj) i
+  | Ty2Case C e e1 e2 t i i1 i2 t1 t2 :
+      typing2 C e (TSum t1 t2) i ->
+      typing2 (add_typing_ctx t1 C) e1 t i1 ->
+      typing2 (add_typing_ctx t2 C) e2 t i2 ->
+      typing2 C (ECase e e1 e2) t (i + Tmax i1 i2)
+  | Ty2New C e1 e2 t len i1 i2 :
+      typing2 C e1 t i1 ->
+      typing2 C e2 (TNat len) i2 ->
+      typing2 C (ENew e1 e2) (TArr t len) (i1 + i2)
+  | Ty2Read C e1 e2 t i1 i2 len i :
+      typing2 C e1 (TArr t len) i1 ->
+      typing2 C e2 (TNat i) i2 ->
+      interp_prop (get_sctx C) (i < len) ->
+      typing2 C (ERead e1 e2) t (i1 + i2)
+  | Ty2Write C e1 e2 e3 i1 i2 i3 t len i :
+      typing2 C e1 (TArr t len) i1 ->
+      typing2 C e2 (TNat i) i2 ->
+      interp_prop (get_sctx C) (i < len) ->
+      typing2 C e3 t i3 ->
+      typing2 C (EWrite e1 e2 e3) TUnit (i1 + i2 + i3)
+  | Ty2Loc C l t i :
+      get_hctx C $? l = Some (t, i) ->
+      typing2 C (ELoc l) (TArr t i) T0
+  | Ty2Prim C opr e1 e2 i1 i2 :
+      typing2 C e1 (prim_arg1_type opr) i1 ->
+      typing2 C e2 (prim_arg2_type opr) i2 ->
+      typing2 C (EPrim opr e1 e2) (prim_result_type opr) (i1 + i2 + Tconst (prim_cost opr))
+  | Ty2NatAdd C e1 e2 j1 j2 i1 i2 :
+      typing2 C e1 (TNat j1) i1 ->
+      typing2 C e2 (TNat j2) i2 ->
+      typing2 C (ENatAdd e1 e2) (TNat (Nadd j1 j2)) (i1 + i2 + Tconst nat_add_cost)
+  | Ty2Ty2eq C e t1 i t2 :
+      typing2 C e t1 i ->
+      let L := get_sctx C in
+      let K := get_kctx C in
+      kinding2 L K t2 KType ->
+      tyeq2 L K t1 t2 KType ->
+      typing2 C e t2 i
+  | Ty2Le C e t i1 i2 :
+      typing2 C e t i1 ->
+      let L := get_sctx C in
+      sorting2 L i2 STime ->
+      interp_prop L (i1 <= i2) ->
+      typing2 C e t i2 
+  .
+
+  Hint Constructors typing2.
+  
+  Local Close Scope idx_scope.
+
+  Hint Constructors typing.
+  
+  Lemma typing2_typing C e t i : typing2 C e t i -> typing C e t i.
+  Proof.
+    induct 1; destruct C as (((L' & K') & W) & G); simpl; unfold_all; eauto using kinding2_kinding, sorting2_sorting, tyeq2_tyeq, wfsort2_wfsort.
+  Qed.
+
+  Definition htyping2 (h : heap) (W : hctx) :=
+    (forall l t i,
+        W $? l = Some (t, i) ->
+        exists vs,
+          h $? l = Some vs /\
+          length vs = interp_idx i [] BSNat /\
+          Forall (fun v => value v /\ typing2 ([], [], W, []) v t T0) vs) /\
+    allocatable h.
+
+  Lemma htyping2_htyping h W : htyping2 h W -> htyping h W.
+  Proof.
+    intros [H1 H2]; unfold htyping2, htyping in *.
+    split; eauto.
+    intros l t i Hl.
+    eapply H1 in Hl; eauto.
+    openhyp; repeat eexists_split; eauto.
+    eapply Forall_impl; eauto.
+    simpl.
+    intuition eauto using typing2_typing.
+  Qed.
+
+  Definition wfhctx2 L K (W : hctx) := fmap_forall (fun p => kinding2 L K (fst p) KType /\ sorting2 L (snd p) SNat) W.
+
+  Lemma wfhctx2_wfhctx L K W : wfhctx2 L K W -> wfhctx L K W.
+  Proof.
+    intros H; unfold wfhctx2, wfhctx in *.
+    eapply fmap_forall_impl; eauto.
+    simpl.
+    intuition eauto using kinding2_kinding, sorting2_sorting.
+  Qed.
+  
+  Definition wfsorts2 := all_sorts (fun L s => wfsort2 L s).
+
+  Lemma all_sorts_impl (P P' : list sort -> sort -> Prop) :
+    (forall L s, P L s -> P' L s) ->
+    forall L,
+      all_sorts P L ->
+      all_sorts P' L.
+  Proof.
+    induct 2; simpl; eauto.
+  Qed.
+
+  Lemma wfsorts2_wfsorts L : wfsorts2 L -> wfsorts L.
+  Proof.
+    intros H; eapply all_sorts_impl; eauto.
+    simpl.
+    intuition eauto using wfsort2_wfsort.
+  Qed.
+
+  Definition wfctx2 C :=
+    let L := get_sctx C in
+    let K := get_kctx C in
+    let W := get_hctx C in
+    let G := get_tctx C in
+    wfsorts2 L /\
+    wfhctx2 L K W /\
+    Forall (fun t => kinding2 L K t KType) G.
+
+  Lemma wfctx2_wfctx C : wfctx2 C -> wfctx C.
+  Proof.
+    intros H; unfold wfctx2, wfctx in *.
+    destruct C as (((L & K) & W) & G); simpl in *.
+    intuition eauto using wfsorts2_wfsorts, wfhctx2_wfhctx.
+    eapply Forall_impl; try eassumption.
+    simpl.
+    intuition eauto using kinding2_kinding.
+  Qed.
+  
+  Definition ctyping2 W (s : config) t i :=
+    let '(h, e, f) := s in
+    let C := ([], [], W, []) in
+    typing2 C e t i /\
+    htyping2 h W /\
+    (interp_time i <= f)%time /\
+    wfctx2 C
+  .
+
+  Lemma ctyping2_ctyping W s t i : ctyping2 W s t i -> ctyping W s t i.
+  Proof.
+    intros H; unfold ctyping2, ctyping in *; simpl in *.
+    destruct s; simpl in *.
+    destruct p; simpl in *.
+    intuition eauto using typing2_typing, htyping2_htyping, wfctx2_wfctx.
+  Qed.
+
+  Theorem soundness W s t i : ctyping2 W s t i -> safe s.
+  Proof.
+    intros H.
+    eapply soundness1; eauto using ctyping2_ctyping.
+  Qed.
+
+End TiML.   
 
 Module NNRealTime <: TIME.
   Require RIneq.
@@ -24179,24 +26198,3 @@ Module NNRealTime <: TIME.
   Admitted.
 
 End NNRealTime.
-
-(*
-Module RealTime <: TIME.
-  Require Rdefinitions.
-  Module R := Rdefinitions.
-  Definition real := R.R.
-  (* Require RIneq. *)
-  (* Definition nnreal := RIneq.nonnegreal. *)
-  Definition time_type := real.
-  (* Definition time_type := nnreal. *)
-  Definition Time0 := R.R0.
-  Definition Time1 := R.R1.
-  Definition TimeAdd := R.Rplus.
-  Definition TimeMinus := R.Rminus.
-  Definition TimeLe := R.Rle.
-End RealTime.
- *)
-
-(* Module Time := RealTime. *)
-(* Module Time := NatTime. *)
-
