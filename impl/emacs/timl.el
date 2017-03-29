@@ -79,7 +79,9 @@
        ("\\(--\\)\\( .+? \\)\\(-->\\)"
         (1 (ignore (compose-region (match-beginning 1) (match-end 1) ?–)))
         (2 `((:box (:line-width ,timl-box-width))) append)
-        (3 (ignore (compose-region (match-beginning 3) (match-end 3) ?→)))))
+        (3 (ignore (compose-region (match-beginning 3) (match-end 3) ?→))))
+       ("\\_<log\\(2\\|10\\)\\_>"
+        (1 '(face nil display (raise -0.25)) append)))
      'append)))
 
 (define-derived-mode timl-mode sml-mode "TiML"
