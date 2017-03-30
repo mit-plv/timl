@@ -1,5 +1,5 @@
 ==============================
- TimL-mode setup instructions
+ TiML-mode setup instructions
 ==============================
 
 1. Set up MELPA by adding this to your ``.emacs`` then restarting Emacs::
