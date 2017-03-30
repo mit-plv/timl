@@ -69,6 +69,7 @@ fun str_uvar_mt str_mt (ctx as (sctx, kctx)) ((invis as (invisi, invist), u) : '
     (* | Fresh name => str_uname_nonidx name *)
     | Fresh name => sprintf "($ $ $)" [str_uname_nonidx name, str_ls (str_pair (str_int, str_int)) invisi, str_ls (str_pair (str_int, str_int)) invist]
                             
+fun eq_uvar_bs (u : 'bsort uvar_bs, u' : 'bsort uvar_bs) = u = u'
 fun eq_uvar_i ((_, u) : ('bsort, 'idx) uvar_i, (_, u') : ('bsort, 'idx) uvar_i) = u = u'
                                                                                         
 end

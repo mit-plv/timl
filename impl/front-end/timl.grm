@@ -283,7 +283,7 @@ aidx : long_id (VarI long_id)
     | DOLLAR aidx (BinOpI (IApp, VarI (NONE, (str_idx_un_op ToReal, (DOLLARleft, DOLLARright))), aidx, (DOLLARleft, aidxright)))
     | LPAREN RPAREN (TTI (LPARENleft, RPARENright))
     | LPAREN idx RPAREN (idx)
-    | FN id_plus DARROW idx (TimeAbs (id_plus, idx, (FNleft, idxright)))
+    | FN id_plus DARROW idx (IAbs (id_plus, idx, (FNleft, idxright)))
 
 prop : id (ConstP id)
      | NOT prop (Not (prop, (NOTleft, propright)))

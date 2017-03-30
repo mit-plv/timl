@@ -246,7 +246,7 @@ fun remove_m_i n i =
     | ExpI (i, b) => ExpI (remove_m_i n i, b)
     | BinOpI (opr, i1, i2) => BinOpI (opr, remove_m_i n i1, remove_m_i n i2)
     | Ite (i1, i2, i3, r) => Ite (remove_m_i n i1, remove_m_i n i2, remove_m_i n i3, r)
-    | TimeAbs (name, i, r) => TimeAbs (name, remove_m_i (n + 1) i, r)
+    | IAbs (bs, bind, r) => IAbs (bs, remove_m_ibind remove_m_i n bind, r)
     | ConstIT _ => i
     | ConstIN _ => i
     | TrueI _ => i
@@ -332,7 +332,7 @@ fun fv_i i =
     | TrueI _ => []
     | FalseI _ => []
     | TTI _ => []
-    | TimeAbs (_, i, _) => fv_i i
+    | IAbs (_, Bind (_, i), _) => fv_i i
     | AdmitI _ => []
     | UVarI ((_, uref), _) => [uref]
                                 
@@ -459,7 +459,7 @@ fun to_exists (uvar_ref, (n, ctx, bsort), p) =
         | Ite (i1, i2, i3, r) => Ite (substu_i x v i1, substu_i x v i2, substu_i x v i3, r)
 	| TrueI r => TrueI r
 	| FalseI r => FalseI r
-        | TimeAbs (name, i, r) => TimeAbs (name, substu_i x (v + 1) i, r)
+        | IAbs (bs, Bind (name, i), r) => IAbs (bs, Bind (name, substu_i x (v + 1) i), r)
         | AdmitI r => AdmitI r
 	| TTI r => TTI r
     fun substu_p x v b =
@@ -513,6 +513,12 @@ fun f2_to_prop f : prop =
           | Refined _ => p
       end
 
+fun nouvar2uvar_bs bs =
+  case bs of
+      N.Base b => Base b
+    | N.BSArrow (a, b) => BSArrow (nouvar2uvar_bs a, nouvar2uvar_bs b)
+    | N.UVarBS u => exfalso u
+                                
 fun nouvar2uvar_i i =
   let
     fun f i =
@@ -528,12 +534,21 @@ fun nouvar2uvar_i i =
         | N.TrueI r => TrueI r
         | N.FalseI r => FalseI r
         | N.TTI r => TTI r
-        | N.TimeAbs (name, i, r) => TimeAbs (name, f i, r)
+        | N.IAbs (bs, Bind (name, i), r) => IAbs (nouvar2uvar_bs bs, Bind (name, f i), r)
         | N.AdmitI r => AdmitI r
         | N.UVarI (u, _) => exfalso u
   in
     f i
   end
+
+fun no_uvar_bsort bs =
+  case update_bs bs of
+      Base b => N.Base b
+    | BSArrow (a, b) => N.BSArrow (no_uvar_bsort a, no_uvar_bsort b)
+    | UVarBS uvar_ref =>
+      (* raise Impossible "no_uvar_bsort(): UVarBS" *)
+      (unify_bs dummy (bs, Base UnitSort);
+       N.Base N.UnitSort)
 
 fun no_uvar_i i =
   let
@@ -552,8 +567,7 @@ fun no_uvar_i i =
         | TrueI r => N.TrueI r
         | FalseI r => N.FalseI r
         | TTI r => N.TTI r
-        | TimeAbs (name, i, r) =>
-          N.TimeAbs (name, f i, r)
+        | IAbs (bs, Bind (name, i), r) => N.IAbs (no_uvar_bsort bs, Bind (name, f i), r)
         | AdmitI r =>
           raise Impossible "no_uvar_i () : shouldn't be AdmitI"
         | UVarI (_, r) =>
@@ -561,14 +575,6 @@ fun no_uvar_i i =
   in
     f i
   end
-
-fun no_uvar_bsort bs =
-  case update_bs bs of
-      Base b => N.Base b
-    | UVarBS uvar_ref =>
-      (* raise Impossible "no_uvar_bsort(): UVarBS" *)
-      (unify_bs dummy (bs, Base UnitSort);
-       N.Base N.UnitSort)
 
 fun no_uvar_quan q =
   case q of

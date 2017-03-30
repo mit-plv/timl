@@ -380,7 +380,7 @@ fun eq_bs bs bs' =
            BSArrow (s1', s2') => eq_bs s1 s1' andalso eq_bs s2 s2'
          | _ => false
       )
-    | UVarBS _ => false
+    | UVarBS u => (case bs' of UVarBS u' => eq_uvar_bs (u, u') | _ => false)
 
 fun eq_i i i' =
   let
@@ -815,7 +815,7 @@ and str_decl gctx (ctx as (sctx, kctx, cctx, tctx)) decl =
             val ctx' = (name :: sctx, kctx, cctx, tctx)
             val (decls, ctx') = str_decls gctx ctx' decls
           in
-            (sprintf "abstype idx $ : $ = $ with$ end" [name, str_s gctx sctx s, str_i gctx sctx i, join_prefix " " decls], ctx')
+            (sprintf "absidx $ : $ = $ with$ end" [name, str_s gctx sctx s, str_i gctx sctx i, join_prefix " " decls], ctx')
           end
         | TypeDef ((name, _), t) =>
           (sprintf "type $ = $" [name, str_mt gctx (sctx, kctx) t], add_kinding name ctx)
@@ -2177,7 +2177,7 @@ local
   fun passp p =
     let
       fun r () = get_region_p p
-                              (* val () = println $ str_p [] [] p *)
+      (* val () = println $ str_p [] [] p *)
     in
       case p of
 	  BinConn (opr, p1, p2) =>
@@ -2425,10 +2425,10 @@ in
 val simp_i = until_unchanged passi
 fun simp_p p =
   let
-    (* val () = println $ "Before simp_p: " ^ str_p [] p *)
+    (* val () = println $ "Before simp_p: " ^ str_p [] [] p *)
     val p = until_unchanged passp p
-                            (* val () = println $ "After simp_p:  " ^ str_p [] p *)
-                            (* val () = println "" *)
+    (* val () = println $ "After simp_p:  " ^ str_p [] [] p *)
+    (* val () = println "" *)
   in
     p      
   end
@@ -2585,6 +2585,7 @@ fun str_uvar_s (_ : string list -> 'sort -> string) (_ : string list) (_ : 'sort
 fun str_uvar_i (_ : string list -> 'idx -> string) (_ : string list) (_ : ('bsort, 'idx) uvar_i) = "_"
 fun str_uvar_mt (_ : string list * string list -> 'mtype -> string) (_ : string list * string list) (_ : 'mtype uvar_mt) = "_"
 fun eq_uvar_i (_, _) = false
+fun eq_uvar_bs (_, _) = false
 
 fun shiftx_i_UVarI UVarI _ _ _ a = UVarI a
 fun shiftx_i_UVarS UVarS _ _ _ a = UVarS a 

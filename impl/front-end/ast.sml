@@ -13,7 +13,7 @@ datatype idx =
          (* | UnOpI of idx_un_op * idx * region *)
 	 | BinOpI of idx_bin_op * idx * idx * region
 	 | TTI of region
-         | TimeAbs of id list * idx * region
+         | IAbs of id list * idx * region
          | DivI of idx * (int * region) * region
 
 datatype prop =

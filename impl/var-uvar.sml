@@ -23,6 +23,7 @@ signature UVAR = sig
   val str_uvar_i : (string list -> 'idx -> string) -> string list -> ('bsort, 'idx) uvar_i -> string
   val str_uvar_mt : (string list * string list -> 'mtype -> string) -> string list * string list -> 'mtype uvar_mt -> string
   val eq_uvar_i : ('bsort, 'idx) uvar_i * ('bsort, 'idx) uvar_i -> bool
+  val eq_uvar_bs : 'bsort uvar_bs * 'bsort uvar_bs -> bool
 
   (* val on_UVarI : ('bsort, 'idx) uvar_i * Region.region -> 'idx *)
   (* val on_UVarS : 'sort uvar_s * Region.region -> 'sort *)

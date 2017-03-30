@@ -42,7 +42,7 @@ end
 
 (* type vc = hyp list * prop *)
 
-type vc = (string * base_sort, prop) hyp list * prop
+type vc = (string * bsort, prop) hyp list * prop
 
 fun str_vc show_region filename ((hyps, p) : vc) =
     let 
@@ -51,7 +51,7 @@ fun str_vc show_region filename ((hyps, p) : vc) =
                      else []
         fun g (h, (hyps, ctx)) =
             case h of
-                VarH (name, bs) => (sprintf "$ : $" [name, str_b bs] :: hyps, name :: ctx)
+                VarH (name, bs) => (sprintf "$ : $" [name, str_bs bs] :: hyps, name :: ctx)
               | PropH p => (str_p [] ctx p :: hyps, ctx)
         val (hyps, ctx) = foldr g ([], []) hyps
         val hyps = rev hyps
@@ -78,19 +78,14 @@ fun simp_vc ((hyps, p) : vc) : vc =
       (hyps, p)
     end
 
-fun get_base bs =
-    case bs of
-        Base b => b
-      | UVarBS u => exfalso u
-
-fun prop2vcs p =
+fun prop2vcs p : vc list =
     let
     in
         case p of
             Quan (Forall, bs, Bind ((name, r), p), r_all) =>
             let
                 val ps = prop2vcs p
-                val ps = add_hyp (VarH (name, get_base bs)) ps
+                val ps = add_hyp (VarH (name, bs)) ps
             in
                 ps
             end
@@ -106,9 +101,9 @@ fun prop2vcs p =
           | _ => [([], p)]
     end
 
-fun vc2prop (hs, p) =
-    foldl (fn (h, p) => case h of VarH (name, b) => Quan (Forall, Base b, Bind ((name, dummy), p), get_region_p p) | PropH p1 => p1 --> p) p hs
+fun vc2prop ((hs, p) : vc) =
+    foldl (fn (h, p) => case h of VarH (name, b) => Quan (Forall, b, Bind ((name, dummy), p), get_region_p p) | PropH p1 => p1 --> p) p hs
 
-fun simp_vc_vcs vc = prop2vcs $ simp_p $ vc2prop $ vc
+fun simp_vc_vcs (vc : vc) : vc list = prop2vcs $ simp_p $ vc2prop $ vc
           
 end

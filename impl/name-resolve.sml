@@ -71,6 +71,14 @@ fun find_constr (gctx : sigcontext) ctx x =
     flip Option.map (find_long_id gctx #3 is_eq_fst_snd ctx x)
          (fn (m, ((i, inames), xr)) => ((m, (i, xr)), inames))
          
+fun on_bsort bs =
+    case bs of
+        E.Base b => Base b
+      | E.BSArrow (a, b) => BSArrow (on_bsort a, on_bsort b)
+      | E.UVarBS u => UVarBS u
+
+fun on_ibind f ctx (E.Bind ((name, r), inner)) = Bind ((name, r), f (name :: ctx) inner)
+
 fun on_idx (gctx : sigcontext) ctx i =
     let
       val on_idx = on_idx gctx
@@ -87,23 +95,16 @@ fun on_idx (gctx : sigcontext) ctx i =
 	| E.TrueI r => TrueI r
 	| E.FalseI r => FalseI r
 	| E.TTI r => TTI r
-        | E.TimeAbs ((name, r1), i, r) => TimeAbs ((name, r1), on_idx (name :: ctx) i, r)
+        | E.IAbs (bs, bind, r) => IAbs (on_bsort bs, on_ibind on_idx ctx bind, r)
         | E.AdmitI r => AdmitI r
         | E.UVarI u => UVarI u
     end
       
-fun on_bsort bs =
-    case bs of
-        E.Base b => Base b
-      | E.UVarBS u => UVarBS u
-
 fun on_quan q =
     case q of
         Forall => Forall
       | Exists _ => Exists NONE
                            
-fun on_ibind f ctx (E.Bind ((name, r), inner)) = Bind ((name, r), f (name :: ctx) inner)
-
 fun on_prop gctx ctx p =
     let
       val on_prop = on_prop gctx

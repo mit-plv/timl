@@ -24,7 +24,7 @@ local
 
   fun is_ite i =
       case i of
-          S.BinOpI (TimeApp, S.BinOpI (TimeApp, S.BinOpI (TimeApp, S.VarI (NONE, (x, _)), i1, _), i2, _), i3, _) =>
+          S.BinOpI (IApp, S.BinOpI (IApp, S.BinOpI (TimeApp, S.VarI (NONE, (x, _)), i1, _), i2, _), i3, _) =>
           if x = "ite" then SOME (i1, i2, i3)
           else NONE
         | _ => NONE
@@ -62,8 +62,8 @@ local
           )
 	| S.TTI r =>
 	  TTI r
-        | S.TimeAbs (names, i, r) =>
-          foldr (fn (name, i) => TimeAbs (name, i, r)) (elab_i i) names
+        | S.IAbs (names, i, r) =>
+          foldr (fn (name, i) => IAbs (UVarBS (), Bind (name, i), r)) (elab_i i) names
 
   fun elab_p p =
       case p of
@@ -76,6 +76,10 @@ local
         | S.Not (p, r) => Not (elab_p p, r)
 	| S.BinConn (opr, p1, p2, _) => BinConn (opr, elab_p p1, elab_p p2)
 	| S.BinPred (opr, i1, i2, _) => BinPred (opr, elab_i i1, elab_i i2)
+
+  fun TimeFun n =
+    if n <= 0 then Base Time
+    else BSArrow (Base Nat, TimeFun (n-1))
 
   fun elab_b b =
       case b of
@@ -93,7 +97,7 @@ local
 	  else raise Error (r, sprintf "Unrecognized base sort: $" [name])
         | S.TimeFun (name, arity, r) =>
           if name = "Fun" then
-            (Base (TimeFun arity), r)
+            (TimeFun arity, r)
           else raise Error (r, sprintf "Unrecognized base sort: $ $" [name, str_int arity])
 
   fun elab_s s =

@@ -587,6 +587,7 @@ fun update_bs bs =
            end
          | Fresh _ => bs
       )
+    | BSArrow (a, b) => BSArrow (update_bs a, update_bs b)
     | Base _ => bs
 
 fun update_i i =
@@ -1013,16 +1014,18 @@ fun unify_error r (s, s') =
 (* assumes arguments are already checked for well-formedness *)
 
 fun unify_bs r (bs, bs') =
-  case (bs, bs') of
+  case (update_bs bs, update_bs bs') of
       (UVarBS x, _) =>
       refine x bs'
     | (_, UVarBS _) =>
       unify_bs r (bs', bs)
+    | (BSArrow (a, b), BSArrow (a', b')) => (unify_bs r (a, a'); unify_bs r (b, b'))
     | (Base b, Base b') =>
       if b = b' then
 	()
       else
 	raise Error (r, [sprintf "Base sort mismatch: $ and $" [str_b b, str_b b']])
+    | _ => raise unify_error r (str_bs bs, str_bs bs')
 	      
 fun shrink_i invis b = shrink forget_i_i invis b
 fun shrink_s invis b = shrink forget_i_s invis b
@@ -1374,6 +1377,7 @@ fun sort_mismatch gctx ctx i expect have =  "Sort mismatch for " ^ str_i gctx ct
 fun is_wf_bsort (bs : U.bsort) : bsort =
   case bs of
       U.Base bs => Base bs
+    | U.BSArrow (a, b) => BSArrow (is_wf_bsort a, is_wf_bsort b)
     | U.UVarBS () => fresh_bsort ()
 
 fun get_base (* r gctx ctx *) error s =
@@ -1443,9 +1447,9 @@ and is_wf_prop gctx (ctx : scontext, p : U.prop) : prop =
             val () =
                 case opr of
                     BigO => 
-                    (case bs of
-                         Base (TimeFun _) => ()
-                       | _ => raise error "TimeFun"
+                    (case is_time_fun bs of
+                         SOME _ => ()
+                       | _ => raise error "Nat* => Time"
                     )
                   | _ =>
                     (case bs of
@@ -1533,18 +1537,13 @@ and get_bsort (gctx : sigcontext) (ctx : scontext, i : U.idx) : idx * bsort =
                   IApp =>
                   let
                     (* val () = println $ U.str_i (names ctx) i *)
+                    val (i1, bs1) = get_bsort (ctx, i1)
+                    val bs2 = fresh_bsort ()
+                    val bs = fresh_bsort ()
+                    val () = unify_bs (get_region_i i1) (bs1, BSArrow (bs2, bs))
+                    val i2 = check_bsort (ctx, i2, bs2)
                   in
-                    case get_bsort (ctx, i1) of
-                        (i1, Base (TimeFun arity)) =>
-                        if arity > 0 then
-                          let 
-                            val i2 = check_bsort (ctx, i2, Base Nat)
-                          in
-                            (BinOpI (opr, i1, i2), Base (TimeFun (arity - 1)))
-                          end
-                        else
-                          raise Error (get_region_i i1, "Arity of time function must be larger than 0" :: indent ["got arity: " ^ str_int arity, "in: " ^ str_i (gctx_names gctx) (sctx_names ctx) i1])
-                      | (i1, bs1) => raise Error (get_region_i i1, "Sort of first operand of time function application must be time function" :: indent ["want: time function", "got: " ^ str_bs bs1, "in: " ^ str_i (gctx_names gctx) (sctx_names ctx) i1])
+                    (BinOpI (opr, i1, i2), bs)
                   end
                 | AddI => overloaded [Nat, Time] NONE
                 | BoundedMinusI => overloaded [Nat, Time] NONE
@@ -1586,11 +1585,12 @@ and get_bsort (gctx : sigcontext) (ctx : scontext, i : U.idx) : idx * bsort =
             (FalseI r, Base BoolSort)
 	  | U.TTI r => 
             (TTI r, Base UnitSort)
-          | U.IAbs (bs1, (name, r1), i, r) =>
+          | U.IAbs (bs1, Bind ((name, r1), i), r) =>
             let
-              val (i, bs) = open_close add_sorting (name, Basic (Base Nat, r1)) ctx (fn ctx => get_bsort (ctx, i))
+              val bs1 = is_wf_bsort bs1
+              val (i, bs) = open_close add_sorting (name, Basic (bs1, r1)) ctx (fn ctx => get_bsort (ctx, i))
             in
-              (IAbs ((name, r1), i, r), BSArrow (bs1, bs))
+              (IAbs (bs1, Bind ((name, r1), i), r), BSArrow (bs1, bs))
               (* case bs of *)
               (*     Base (TimeFun arity) => *)
               (*     (IAbs ((name, r1), i, r), Base (TimeFun (arity + 1))) *)
@@ -3050,9 +3050,11 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
           in
 	    (Builtin (t, r), t, T0 r)
           end
+    fun extra_msg () = ["when type-checking"] @ indent [U.str_e gctxn ctxn e_all]
     val (e, t, d) = main ()
                     handle
-                    Error (r, msg) => raise Error (r, msg @ ["when type-checking"] @ indent [U.str_e gctxn ctxn e_all])
+                    Error (r, msg) => raise Error (r, msg @ extra_msg ())
+                    (* | Impossible msg => raise Impossible $ join_lines $ msg :: extra_msg () *)
     val t = simp_mt $ update_uvar_mt t
     val d = simp_i $ update_i d
                    (* val () = println $ str_ls id $ #4 ctxn *)
@@ -3285,11 +3287,13 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
             in
               (Open (m, r), ctxd, 0, [])
             end
+      fun extra_msg () = ["when type-checking declaration "] @ indent [fst $ U.str_decl (gctx_names gctx) (ctx_names ctx) decl]
       val ret as (decl, ctxd, nps, ds) =
           main ()
           handle
-          Error (r, msg) => raise Error (r, msg @ ["when type-checking declaration "] @ indent [fst $ U.str_decl (gctx_names gctx) (ctx_names ctx) decl])
-                                  (* val () = println $ sprintf " Typed Decl $ " [fst $ str_decl (gctx_names gctx) (ctx_names ctx) decl] *)
+          Error (r, msg) => raise Error (r, msg @ extra_msg ())
+          (* | Impossible msg => raise Impossible $ join_lines $ msg :: extra_msg () *)
+      (* val () = println $ sprintf " Typed Decl $ " [fst $ str_decl (gctx_names gctx) (ctx_names ctx) decl] *)
 	                          (* val () = print $ sprintf "   Time : $: \n" [str_i sctxn d] *)
     in
       ret
@@ -3313,8 +3317,8 @@ and check_decls gctx (ctx, decls) : decl list * context * int * idx list * conte
       val decls = rev decls
       val ctxd = (upd4 o map o mapSnd) (simp_t o update_uvar_t) ctxd
       val ds = map simp_i $ map update_i $ rev ds
-                   (* val () = println "Typed Decls:" *)
-                   (* val () = app println $ str_typing_info (gctx_names gctx) skctxn_old (ctxd, ds) *)
+      (* val () = println "Typed Decls:" *)
+      (* val () = app println $ str_typing_info (gctx_names gctx) skctxn_old (ctxd, ds) *)
     in
       (decls, ctxd, nps, ds, ctx)
     end
@@ -3659,6 +3663,7 @@ fun check_top_bind gctx bind =
     
 and check_prog gctx binds =
     let
+      (* val () = println "Begin check_prog()" *)
       fun open_gctx gctx =
         app open_module $ rev $ filter_module gctx
       fun close_gctx gctx =
@@ -3672,6 +3677,7 @@ and check_prog gctx binds =
           (gctxd @ acc, gctxd @ gctx)
         end
       val ret as (gctxd, gctx) = foldl iter ([], gctx) binds
+      (* val () = println "End check_prog()" *)
     in
       ret
     end
