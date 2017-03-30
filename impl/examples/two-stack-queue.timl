@@ -82,12 +82,12 @@ fun enqueue_dequeue_seq ['a] {s1 s2 cnt : Nat} (q : queue 'a {s1} {s2}, oprs : l
           enqueue_dequeue_seq (q, tl)
         end
 
-absidx T_enqueue_dequeue_seq_from_good_start : BigO 1 (fn n => $n) with
+absidx T_enqueue_dequeue_seq_from_good_start : BigO _ (fn n => $n) with
 fun enqueue_dequeue_seq_from_good_start ['a] {s1 s2 cnt : Nat} {s1 <= cnt} (q : queue 'a {s1} {s2}, oprs : list (operation 'a) {cnt}) return some_queue 'a using T_enqueue_dequeue_seq_from_good_start cnt =
     enqueue_dequeue_seq (q, oprs)
 end
 
-absidx T_enqueue_dequeue_seq_from_empty : BigO 1 (fn n => $n) with
+absidx T_enqueue_dequeue_seq_from_empty : BigO _ (fn n => $n) with
 fun enqueue_dequeue_seq_from_empty ['a] {cnt : Nat} (q : queue 'a {0} {0}, oprs : list (operation 'a) {cnt}) return some_queue 'a using T_enqueue_dequeue_seq_from_empty cnt =
     enqueue_dequeue_seq (q, oprs)
 end

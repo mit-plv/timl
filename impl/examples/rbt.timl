@@ -120,7 +120,7 @@ datatype ins_result 'a {input_color : Bool} {input_size bh : Nat} =
                    {output_size = input_size \/ output_size = input_size + 1}
          of arbt 'a {output_size} {bh} {is_good} {output_color} --> ins_result 'a {input_color} {input_size} {bh}
 
-absidx T_ins : BigO 1 (fn n => $n) (* = fn n => 6.0 * $n *) with                                   
+absidx T_ins : BigO _ (fn n => $n) (* = fn n => 6.0 * $n *) with                                   
 fun ins ['v] {input_color : Bool} {input_size bh : Nat}
         (tr : rbt 'v {input_size} {input_color} {bh}) (new as (k, _))
         return ins_result 'v {input_color} {input_size} {bh} using (* 6.0 * $ *)T_ins (2 * bh + b2n (not input_color)) =
@@ -215,14 +215,14 @@ fun ins ['v] {input_color : Bool} {input_size bh : Nat}
 end
 
 (* simplify time complexity *)
-absidx T_insert_rbt' : BigO 1 (fn n => $n) with                                   
+absidx T_insert_rbt' : BigO _ (fn n => $n) with                                   
 fun insert_rbt' ['v] {color : Bool} {size bh : Nat}
         (tr : rbt 'v {size} {color} {bh}) new
         return using T_insert_rbt' bh =
     ins tr new
 end
 
-absidx T_insert_rbt : BigO 1 (fn n => log2 $n) with                                   
+absidx T_insert_rbt : BigO _ (fn n => log2 $n) with                                   
 fun insert_rbt ['v] {color : Bool} {size bh : Nat}
         (tr : rbt 'v {size} {color} {bh}) new
         return using T_insert_rbt size =
@@ -249,7 +249,7 @@ val empty = RBTree Leaf
 datatype may_grow_one 'a {size : Nat} =
          MayGrowOne {size' : Nat | size' = size \/ size' = size + 1} of rb_tree 'a {size'} --> may_grow_one 'a {size}
 
-absidx T_insert : BigO 1 (fn n => log2 $n) with
+absidx T_insert : BigO _ (fn n => log2 $n) with
 fun insert ['v] {size : Nat} (tr : rb_tree 'v {size}) (new: key * 'v) return may_grow_one 'v {size} using T_insert size =
     case tr of
         RBTree tr =>
@@ -262,7 +262,7 @@ fun insert ['v] {size : Nat} (tr : rb_tree 'v {size}) (new: key * 'v) return may
           | _ => never
 end
 
-absidx T_lookup_rbt' : BigO 1 (fn n => $n) with
+absidx T_lookup_rbt' : BigO _ (fn n => $n) with
 fun lookup_rbt' ['v] {color : Bool} {size bh : Nat} (tr :rbt 'v {size} {color} {bh}) k return option 'v using T_lookup_rbt' (2 * bh + b2n (not color)) =
     case tr of
         Leaf => NONE
@@ -274,14 +274,14 @@ fun lookup_rbt' ['v] {color : Bool} {size bh : Nat} (tr :rbt 'v {size} {color} {
 end
 
 (* simplify time complexity *)
-absidx T_lookup_rbt : BigO 1 (fn n => $n) with                                   
+absidx T_lookup_rbt : BigO _ (fn n => $n) with                                   
 fun lookup_rbt ['v] {color : Bool} {size bh : Nat}
         (tr : rbt 'v {size} {color} {bh}) k
         return using T_lookup_rbt bh =
     lookup_rbt' tr k
 end
 
-absidx T_lookup : BigO 1 (fn n => log2 $n) with
+absidx T_lookup : BigO _ (fn n => log2 $n) with
 fun lookup ['v] {size : Nat} (tr : rb_tree 'v {size}) (k: key) return option 'v using T_lookup size =
     case tr of
         @RBTree {_ bh} tr =>

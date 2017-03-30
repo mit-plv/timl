@@ -305,7 +305,7 @@ optional_eq_idx : EQ idx (SOME idx)
               
 sort : bsort (Basic bsort)
      | LCUR id COLON bsort BAR prop RCUR (Subset (bsort, id, prop, (LCURleft, RCURright)))
-     | ID INT idx (BigOSort (ID, int_to_bsort (INT, (INTleft, INTright)), idx, (IDleft, idxright)))
+     (* | ID INT idx (BigOSort (ID, int_to_bsort (INT, (INTleft, INTright)), idx, (IDleft, idxright))) *)
      | ID bsort idx (BigOSort (ID, bsort, idx, (IDleft, idxright)))
 
 bsort : id (Base id)

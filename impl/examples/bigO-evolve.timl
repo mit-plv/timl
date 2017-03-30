@@ -30,8 +30,8 @@ fun map ['a 'b] {m n : Nat} (f : 'a -- $m --> 'b) (ls : list 'a {n}) return list
       | Cons (x, xs) => Cons (f x, map f xs)
 end
       
-(* sort [{g : Fun 2 | g O (fn m n => $m * $n)}] can be written as [BigO 2 (fn m n => $m * $n)] as a syntax sugar *)
-absidx g : BigO 2 (fn m n => $m * $n) = fn m n => $(m + 3) * $n with
+(* sort [{g : Fun 2 | g O (fn m n => $m * $n)}] can be written as [BigO _ (fn m n => $m * $n)] as a syntax sugar *)
+absidx g : BigO _ (fn m n => $m * $n) = fn m n => $(m + 3) * $n with
 fun map ['a 'b] {m n : Nat} (f : 'a -- $m --> 'b) (ls : list 'a {n}) return list 'b {n} using g m n =
     case ls of
         Nil => Nil
@@ -39,7 +39,7 @@ fun map ['a 'b] {m n : Nat} (f : 'a -- $m --> 'b) (ls : list 'a {n}) return list
 end
 
 (* now the magic: [g]'s definition can be inferred! *)
-absidx g : BigO 2 (fn m n => $m * $n) = _ with
+absidx g : BigO _ (fn m n => $m * $n) = _ with
 fun map ['a 'b] {m n : Nat} (f : 'a -- $m --> 'b) (ls : list 'a {n}) return list 'b {n} using g m n =
     case ls of
         Nil => Nil
@@ -47,7 +47,15 @@ fun map ['a 'b] {m n : Nat} (f : 'a -- $m --> 'b) (ls : list 'a {n}) return list
 end
 
 (* [= _] in [absidx] can be omitted as a syntax sugar *)
-absidx g : BigO 2 (fn m n => $m * $n) with
+absidx g : BigO _ (fn m n => $m * $n) with
+fun map ['a 'b] {m n : Nat} (f : 'a -- $m --> 'b) (ls : list 'a {n}) return list 'b {n} using g m n =
+    case ls of
+        Nil => Nil
+      | Cons (x, xs) => Cons (f x, map f xs)
+end
+       
+(* 2 can also be omitted *)
+absidx g : BigO _ (fn m n => $m * $n) with
 fun map ['a 'b] {m n : Nat} (f : 'a -- $m --> 'b) (ls : list 'a {n}) return list 'b {n} using g m n =
     case ls of
         Nil => Nil
@@ -55,7 +63,7 @@ fun map ['a 'b] {m n : Nat} (f : 'a -- $m --> 'b) (ls : list 'a {n}) return list
 end
        
 (* the magic goes further: even [h]'s BigO class can be inferred! *)
-absidx h : BigO 2 _ (* (fn m n => $m * $n) *) with
+absidx h : BigO _ _ (* (fn m n => $m * $n) *) with
 fun map ['a 'b] {m n : Nat} (f : 'a -- $m --> 'b) (ls : list 'a {n}) return list 'b {n} using h m n =
     case ls of
         Nil => Nil
@@ -64,7 +72,7 @@ end
 
 (* another way to infer BigO class *)
 idx h_spec : Fun 2 = _
-absidx h : BigO 2 h_spec with
+absidx h : BigO _ h_spec with
 fun map ['a 'b] {m n : Nat} (f : 'a -- $m --> 'b) (ls : list 'a {n}) return list 'b {n} using h m n =
     case ls of
         Nil => Nil
@@ -76,14 +84,14 @@ end
 (*
 structure BigOEvolveSealed :>
                        sig
-                         idx g : BigO 2 (fn m n => $m * $n)
+                         idx g : BigO _ (fn m n => $m * $n)
                        end =
 struct
 open List
 
 (* we can leave [g] transparent here and later use module signature to seal it  *)
 idx g_spec : Fun 2 = _
-idx g : BigO 2 (* (fn m n => $m * $n) *) g_spec = _
+idx g : BigO _ (* (fn m n => $m * $n) *) g_spec = _
 val ['a 'b] map =
  fn {m : Nat} (f : 'a -- $m --> 'b) =>
     let
@@ -101,13 +109,13 @@ end
 (* using module-scoped abstract index *)
 structure BigOEvolveSealed (* :> *)
                        (* sig *)
-                       (*   idx g : BigO 2 (fn m n => $m * $n) *)
+                       (*   idx g : BigO _ (fn m n => $m * $n) *)
                        (* end *) =
 struct
 open List
 
 idx g_spec : Fun 2 = _
-absidx g : BigO 2 g_spec = _
+absidx g : BigO _ g_spec = _
 fun map ['a 'b] {m n : Nat} (f : 'a -- $m --> 'b) (ls : list 'a {n}) return list 'b {n} using g m n =
     case ls of
         Nil => Nil

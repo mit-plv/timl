@@ -65,7 +65,7 @@ fun msort ['a] {n : Nat} (lt : 'a * 'a -- 8.0 --> bool) (xs : list 'a {n}) retur
             (xs1, xs2) => merge lt (msort lt xs1) (msort lt xs2)
 end
 
-absidx g : BigO 1 (fn n => $n) with
+absidx g : BigO _ (fn n => $n) with
 fun insert ['a] {n : Nat} (le : 'a * 'a -- 7.0 --> bool) (xs : list 'a {n}) x return list 'a {n + 1} using g n =
     case xs of
         Nil => Cons (x, Nil)
@@ -75,7 +75,7 @@ fun insert ['a] {n : Nat} (le : 'a * 'a -- 7.0 --> bool) (xs : list 'a {n}) x re
           | false => Cons (x', insert le xs' x)
 end
 
-absidx g : BigO 1 (fn n => $n * $n) with
+absidx g : BigO _ (fn n => $n * $n) with
 fun isort ['a] {n : Nat} (le : 'a * 'a -- 7.0 --> bool) (xs : list 'a {n}) return list 'a {n} using g n =
     case xs of
         Nil => Nil
