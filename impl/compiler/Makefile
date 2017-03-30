@@ -6,6 +6,7 @@ micro-timl-def.sig \
 micro-timl-util.sig \
 ast-transformers.sig \
 deriv-transformers.sig \
+simplify-let-pass.sig \
 cps-pass.sig \
 wrap-abs-pass.sig \
 clo-conv-pass.sig \
@@ -16,6 +17,7 @@ micro-timl-def.sml \
 micro-timl-util.sml \
 ast-transformers.sml \
 deriv-transformers.sml \
+simplify-let-pass.sml \
 cps-pass.sml \
 wrap-abs-pass.sml \
 clo-conv-pass.sml \
@@ -29,11 +31,14 @@ parser.sml \
 compiler.sml \
 mlton-compiler.sml
 
+MLTON_FLAGS = -link-opt "-lstdc++ -L./sml-llvm -lllvm64 `llvm-config --ldflags --system-libs --libs all`"
+
 default: smlnj
 
 all: smlnj mlton
 
 smlnj: compiler.cm
+	cp sml-llvm/libllvm32.so .
 	ml-build -Ccompiler-mc.error-non-exhaustive-match=true -Ccompiler-mc.error-non-exhaustive-bind=true -Ccontrol.poly-eq-warn=false compiler.cm Compiler.main compiler-image
 
 mlton: compiler
@@ -44,4 +49,4 @@ compiler: compiler.mlb $(FILES)
 	mlton $(MLTON_FLAGS) compiler.mlb
 
 clean:
-	rm -rf .cm compiler-image* compiler
+	rm -rf .cm compiler-image* compiler *.so

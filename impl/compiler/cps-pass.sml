@@ -22,6 +22,7 @@ structure DerivAssembler = DerivAssemblerFun(MicroTiMLDef)
 open DerivAssembler
 
 open ShiftCtx
+open DerivSubstTyping
 
 structure CountNodes =
 struct
@@ -53,17 +54,21 @@ fun count_nodes e = ExprHelper.transform_expr (e, ((), ()))
 end
 
 fun send_to_cont ty_cont ty =
-  case ty_cont of
-      TyAbs (_, _, ty_body) => as_TyLet ty ty_body
-    | _ =>
-      let
-          val add_let =
-              case ty of
-                  TyAbs _ => true
-                | TyAbsC _ => true
-                | TyRec _ => true
-                | _ => false
-      in
+  let
+      val add_let =
+          case (#2 (extract_judge_typing ty)) of
+              EAbs _ => true
+            | EAbsC _ => true
+            | ERec _ => true
+            | _ => false
+  in
+      case ty_cont of
+          TyAbs (_, _, ty_body) =>
+          if add_let then
+              as_TyLet ty ty_body
+          else
+              subst0_ty_ty ty ty_body
+        | _ =>
           if add_let then
               let
                   val ((kctx, tctx), _, t, _) = extract_judge_typing ty
@@ -75,7 +80,7 @@ fun send_to_cont ty_cont ty =
               end
           else
               as_TyApp ty_cont ty
-      end
+  end
 
 fun meta_lemma ty =
   let
@@ -402,14 +407,14 @@ fun cps ty ty_cont =
                   val ((kctx, _), e_abs, _, _) = extract_judge_typing ty_abs
                   val wk = as_WfKdBaseSort (tl kctx) BSTime
               in
-                  as_TyAbsC wk (as_VAbs (extract_e_abs e_abs)) ty_abs
+                  as_TyAbsC wk ty_abs
               end
           (* abstraction is value, send to continuation *)
           val ty_res = send_to_cont ty_cont ty_abs_c
       in
           ty_res
       end
-    | TyAbsC (_, wk_arg, va_body, ty_body) =>
+    | TyAbsC (_, wk_arg, _, ty_body) =>
       let
           val (_, k_arg) = extract_judge_wfkind wk_arg
           val (kd_t_body, _) = meta_lemma ty_body
@@ -445,13 +450,13 @@ fun cps ty ty_cont =
                   val ((kctx, _), e_abs, _, _) = extract_judge_typing ty_abs
                   val wk = as_WfKdBaseSort (tl kctx) BSTime
               in
-                  as_TyAbsC wk (as_VAbs (extract_e_abs e_abs)) ty_abs
+                  as_TyAbsC wk ty_abs
               end
           val ty_abs_arg =
               let
                   val (_, e_abs_c, _, _) = extract_judge_typing ty_abs_c
               in
-                  as_TyAbsC wk_arg (as_VAbsC (extract_e_abs_c e_abs_c)) ty_abs_c
+                  as_TyAbsC wk_arg ty_abs_c
               end
           (* abstraction is value, send to continuation *)
           val ty_res = send_to_cont ty_cont ty_abs_arg
@@ -692,8 +697,11 @@ and cps_finisher_in1 ty_body kd_t_body t_body ty_post ty_cont =
     let
         val ((kctx, tctx), _, t_post, _) = extract_judge_typing ty_post
         val ty_tmp1 = shift0_ctx_ty ([], [t_post, t_body]) ty_cont
-        val ty_tmp2 = as_TyVar (kctx, t_post :: tctx) 0
-        (* possible optimization: if t_post is CTypeUnit, can pass it explicitly *)
+        val ty_tmp2 =
+            if t_post = CTypeUnit then
+                as_TyConst (kctx, t_post :: tctx) ECTT
+            else
+                as_TyVar (kctx, t_post :: tctx) 0
         val ty_tmp3 = send_to_cont ty_tmp1 ty_tmp2
         val ty_tmp4 = as_TyLet ty_post ty_tmp3
         val in0_ty_cont = as_TyAbs kd_t_body ty_tmp4
@@ -706,8 +714,11 @@ and cps_finisher_in2 ty1 ty2 kd_t1 kd_t2 t1 t2 ty_post ty_cont =
     let
         val ((kctx, tctx), _, t_post, _) = extract_judge_typing ty_post
         val ty_tmp1 = shift0_ctx_ty ([], [t_post, t2, t1]) ty_cont
-        val ty_tmp2 = as_TyVar (kctx, t_post :: tctx) 0
-        (* possible optimization: if t_post is CTypeUnit, can pass it explicitly *)
+        val ty_tmp2 =
+            if t_post = CTypeUnit then
+                as_TyConst (kctx, t_post :: tctx) ECTT
+            else
+                as_TyVar (kctx, t_post :: tctx) 0
         val ty_tmp3 = send_to_cont ty_tmp1 ty_tmp2
         val ty_tmp4 = as_TyLet ty_post ty_tmp3
         val in1_ty_cont = as_TyAbs kd_t2 ty_tmp4

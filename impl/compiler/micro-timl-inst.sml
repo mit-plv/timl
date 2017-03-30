@@ -50,6 +50,8 @@ structure DerivAssembler = DerivAssemblerFun(MicroTiMLDef)
 open DerivAssembler
 structure DerivTransformers = DerivTransformersFun(MicroTiMLDef)
 open DerivTransformers
+structure SimplifyLetPass = SimplifyLetPassFun(MicroTiMLDef)
+open SimplifyLetPass
 structure CPSPass = CPSPassFun(MicroTiMLDef)
 open CPSPass
 structure WrapAbsPass = WrapAbsPassFun(MicroTiMLDef)

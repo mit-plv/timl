@@ -63,8 +63,6 @@ datatype tal_value =
 datatype tal_instr =
          TINewpair of tal_register * tal_register * tal_register
          | TIProj of projector * tal_register * tal_register
-         | TIInj of injector * tal_register
-         | TIFold of tal_register
          | TIUnfold of tal_register
          | TINewarray of tal_register * tal_register * tal_register
          | TILoad of tal_register * tal_register * tal_register
@@ -196,8 +194,6 @@ type tal_instr_typing_judgement = tal_ctx * tal_block * tal_cstr
 datatype tal_instr_typing =
          TITyNewpair of tal_instr_typing_judgement * tal_value_typing * tal_value_typing * tal_instr_typing
          | TITyProj of tal_instr_typing_judgement * tal_value_typing * tal_instr_typing
-         | TITyInj of tal_instr_typing_judgement * tal_value_typing * tal_kinding * tal_instr_typing
-         | TITyFold of tal_instr_typing_judgement * tal_kinding * tal_value_typing * tal_instr_typing
          | TITyUnfold of tal_instr_typing_judgement * tal_value_typing * tal_instr_typing
          | TITyNewarray of tal_instr_typing_judgement * tal_value_typing * tal_value_typing * tal_instr_typing
          | TITyLoad of tal_instr_typing_judgement * tal_value_typing * tal_value_typing * tal_proping * tal_instr_typing
@@ -485,8 +481,6 @@ fun extract_judge_tal_instr_typing ity =
   case ity of
       TITyNewpair (j, _, _, _) => j
     | TITyProj (j, _, _) => j
-    | TITyInj (j, _, _, _) => j
-    | TITyFold (j, _, _, _) => j
     | TITyUnfold (j, _, _) => j
     | TITyNewarray (j, _, _, _) => j
     | TITyLoad (j, _, _, _, _) => j
@@ -585,7 +579,7 @@ fun str_tal_word w =
   case w of
       TWLoc loc => "LOC:" ^ str_int loc
     | TWConst cn => str_expr_const cn
-    | TWAppC (w, c) => str_tal_word w ^ "[" ^ str_tal_cstr c ^ "]"
+    | TWAppC (w, c) => str_tal_word w ^ "[" ^ "_" (* str_tal_cstr c *) ^ "]"
     | TWFold w => "(fold" ^ str_tal_word w ^ ")"
     | TWInj (inj, w) => "(" ^ str_injector inj ^ " " ^ str_tal_word w ^ ")"
     | TWPack (c, w) => "pack[" ^ "_" ^ " , " ^ str_tal_word w ^ "]"
@@ -594,7 +588,7 @@ fun str_tal_value v =
   case v of
       TVReg reg => "REG:" ^ str_int reg
     | TVWord w => str_tal_word w
-    | TVAppC (v, c) => str_tal_value v ^ "[" ^ str_tal_cstr c ^ "]"
+    | TVAppC (v, c) => str_tal_value v ^ "[" ^ "_" (* str_tal_cstr c *) ^ "]"
     | TVFold v => "(fold" ^ str_tal_value v ^ ")"
     | TVInj (inj, v) => "(" ^ str_injector inj ^ " " ^ str_tal_value v ^ ")"
     | TVPack (c, v) => "pack[" ^ "_" ^ " , " ^ str_tal_value v ^ "]"
@@ -604,9 +598,6 @@ fun str_tal_instr i =
       TINewpair (rd, rs, rt) => "newpair " ^ str_tal_value (TVReg rd) ^ ", " ^ str_tal_value (TVReg rs) ^ ", " ^ str_tal_value (TVReg rt)
     | TIProj (p, rd, rs) => (case p of ProjFst => "ldfst "
                                     | ProjSnd => "ldsnd ") ^ str_tal_value (TVReg rd) ^ ", " ^ str_tal_value (TVReg rs)
-    | TIInj (inj, rd) => (case inj of InjInl => "inl "
-                                   | InjInr => "inr ") ^ str_tal_value (TVReg rd)
-    | TIFold rd => "fold " ^ str_tal_value (TVReg rd)
     | TIUnfold rd => "unfold " ^ str_tal_value (TVReg rd)
     | TINewarray (rd, rs, rt) => "newarray " ^ str_tal_value (TVReg rd) ^ ", " ^ str_tal_value (TVReg rs) ^ ", " ^ str_tal_value (TVReg rt)
     | TILoad (rd, rs, rt) => "load " ^ str_tal_value (TVReg rd) ^ ", " ^ str_tal_value (TVReg rs) ^ "(" ^ str_tal_value (TVReg rt) ^ ")"
@@ -1528,39 +1519,6 @@ fun as_TITyProj p rd vty ity =
       TITyProj (((hctx1, kctx1, tctx1), (TIProj (p, rd, rs) :: ins2, fin2), TTadd (TT1, i2)), vty, ity)
   end
 
-fun as_TITyInj inj vty kd ity =
-  let
-      val ((hctx1, kctx1, tctx1), v1, t1) = extract_judge_tal_value_typing vty
-      val (kctx2, t2, k2) = extract_judge_tal_kinding kd
-      val ((hctx3, kctx3, tctx3), (ins3, fin3), i3) = extract_judge_tal_instr_typing ity
-      val () = assert (kctx2 = kctx1) "TITyInj 1"
-      val () = assert (hctx3 = hctx1) "TITyInj 2"
-      val () = assert (kctx3 = kctx1) "TITyInj 3"
-      val () = assert (k2 = TKType) "TITyInj 4"
-      val rd = extract_tal_v_reg v1
-      val () = assert (update_tal_tctx rd (case inj of InjInl => TCSum (t1, t2) | InjInr => TCSum (t2, t1)) tctx1 = tctx3) "TITyInj 5"
-  in
-      TITyInj (((hctx1, kctx1, tctx1), (TIInj (inj, rd) :: ins3, fin3), TTadd (TT1, i3)), vty, kd, ity)
-  end
-
-fun as_TITyFold kd vty ity =
-  let
-      val (kctx1, t1, k1) = extract_judge_tal_kinding kd
-      val ((hctx2, kctx2, tctx2), v2, t2) = extract_judge_tal_value_typing vty
-      val ((hctx3, kctx3, tctx3), (ins3, fin3), i3) = extract_judge_tal_instr_typing ity
-      val () = assert (kctx1 = kctx2) "TITyFold 1"
-      val () = assert (hctx3 = hctx2) "TITyFold 2"
-      val () = assert (kctx3 = kctx2) "TITyFold 3"
-      val () = assert (k1 = TKType) "TITyFold 4"
-      val (t11, cs12) = unfold_TCApps t1 []
-      val (k111, t111) = extract_tal_c_rec t11
-      val () = assert (t2 = TCApps (subst0_tal_c_c t11 t111) cs12) "TITyFold 5"
-      val rd = extract_tal_v_reg v2
-      val () = assert (update_tal_tctx rd t1 tctx2 = tctx3) "TITyFold 6"
-  in
-      TITyFold (((hctx2, kctx2, tctx2), (TIFold rd :: ins3, fin3), TTadd (TT1, i3)), kd, vty, ity)
-  end
-
 fun as_TITyUnfold vty ity =
   let
       val ((hctx1, kctx1, tctx1), v1, t1) = extract_judge_tal_value_typing vty
@@ -1969,13 +1927,14 @@ fun fresh_reg tctx = length tctx
 
 fun transform_atom_typing kctx tctx env aty =
   case aty of
-      ATyVar (_, AEVar x, _, _) => as_TVTyReg [] kctx tctx $ nth (env, x)
-    | ATyConst (_, AEConst cn, _, _) => as_TVTyWord tctx (as_TWTyConst [] kctx cn)
-    | ATyFuncPointer (_, AEFuncPointer l, t, _) => as_TVTyWord tctx (as_TWTyLocAdmit [] kctx l (transform_cstr t))
+      ATyVar (_, AEVar x, _) => as_TVTyReg [] kctx tctx $ nth (env, x)
+    | ATyConst (_, AEConst cn, _) => as_TVTyWord tctx (as_TWTyConst [] kctx cn)
+    | ATyFuncPointer (_, AEFuncPointer l, t) => as_TVTyWord tctx (as_TWTyLocAdmit [] kctx l (transform_cstr t))
     | ATyAppC (_, aty1, kd2) => as_TVTyAppC (transform_atom_typing kctx tctx env aty1) (transform_kinding (kd2, kctx))
     | ATyPack (_, kd1, kd2, aty3) => as_TVTyPack (transform_kinding (kd1, kctx)) (transform_kinding (kd2, kctx)) (transform_atom_typing kctx tctx env aty3)
+    | ATyFold (_, kd1, aty2) => as_TVTyFold (transform_kinding (kd1, kctx)) (transform_atom_typing kctx tctx env aty2)
+    | ATyInj ((_, AEInj (inj, _), _), aty1, kd2) => as_TVTyInj inj (transform_atom_typing kctx tctx env aty1) (transform_kinding (kd2, kctx))
     | ATySubTy (_, aty1, te2) => as_TVTySub (transform_atom_typing kctx tctx env aty1) (transform_tyeq (te2, kctx))
-    | ATySubTi (_, aty1, _) => transform_atom_typing kctx tctx env aty1
     | _ => raise (Impossible "transform_atom_typing")
 
 fun transform_hoisted_typing heap_base kctx tctx env hty =
@@ -2077,7 +2036,7 @@ fun transform_hoisted_typing heap_base kctx tctx env hty =
       let
           fun inner cty1 tes =
             case cty1 of
-                CTyProj ((_, CEUnOp (EUProj p, _), _, _), aty1) =>
+                CTyProj ((_, CEUnOp (EUProj p, _), _), aty1) =>
                 let
                     val vty1 = transform_atom_typing kctx tctx env aty1
                     val rs = fresh_reg tctx
@@ -2119,45 +2078,6 @@ fun transform_hoisted_typing heap_base kctx tctx env hty =
                     val ity = as_TITyMove rs vty1 ity1
                 in
                     (heaps4, heap_next, ity)
-                end
-              | CTyInj ((_, CEUnOp (EUInj inj, _), _, _), aty1, kd2) =>
-                let
-                    val vty1 = transform_atom_typing kctx tctx env aty1
-                    val rd = fresh_reg tctx
-                    val (_, _, t1) = extract_judge_tal_value_typing vty1
-                    val tctx1 = update_tal_tctx rd t1 tctx
-                    val kd2 = transform_kinding (kd2, kctx)
-                    val (_, t2, _) = extract_judge_tal_kinding kd2
-                    val tctx2 = update_tal_tctx rd (case inj of InjInl => TCSum (t1, t2)
-                                                              | InjInr => TCSum (t2, t1)) tctx1
-                    val vty_rd = foldl (fn (te, vty) => as_TVTySub vty te) (as_TVTyReg [] kctx tctx2 rd) tes
-                    val (_, _, t_rd) = extract_judge_tal_value_typing vty_rd
-                    val tctx3 = update_tal_tctx rd t_rd tctx2
-                    val (heaps3, heap_next, ity3) = transform_hoisted_typing heap_base kctx tctx3 (rd :: env) hty2
-                    val ity2 = as_TITyMove rd vty_rd ity3
-                    val ity1 = as_TITyInj inj (as_TVTyReg [] kctx tctx1 rd) kd2 ity2
-                    val ity = as_TITyMove rd vty1 ity1
-                in
-                    (heaps3, heap_next, ity)
-                end
-              | CTyFold (_, kd1, aty2) =>
-                let
-                    val vty2 = transform_atom_typing kctx tctx env aty2
-                    val rd = fresh_reg tctx
-                    val (_, _, t2) = extract_judge_tal_value_typing vty2
-                    val tctx1 = update_tal_tctx rd t2 tctx
-                    val kd1 = transform_kinding (kd1, kctx)
-                    val (_, t1, _) = extract_judge_tal_kinding kd1
-                    val tctx2 = update_tal_tctx rd t1 tctx1
-                    val vty_rd = foldl (fn (te, vty) => as_TVTySub vty te) (as_TVTyReg [] kctx tctx2 rd) tes
-                    val (_, _, t_rd) = extract_judge_tal_value_typing vty_rd
-                    val tctx3 = update_tal_tctx rd t_rd tctx2
-                    val (heaps3, heap_next, ity3) = transform_hoisted_typing heap_base kctx tctx3 (rd :: env) hty2
-                    val ity2 = as_TITyMove rd vty_rd ity3
-                    val ity1 = as_TITyFold kd1 (as_TVTyReg [] kctx tctx1 rd) ity2
-                    val ity = as_TITyMove rd vty2 ity1
-                in
-                    (heaps3, heap_next, ity)
                 end
               | CTyUnfold (_, aty1) =>
                 let
@@ -2253,7 +2173,7 @@ fun transform_hoisted_typing heap_base kctx tctx env hty =
                 in
                     (heaps4, heap_next, ity)
                 end
-              | CTyPrimBinOp ((_, CEBinOp (EBPrim opr, _, _), _, _), aty1, aty2) =>
+              | CTyPrimBinOp ((_, CEBinOp (EBPrim opr, _, _), _), aty1, aty2) =>
                 let
                     val vty1 = transform_atom_typing kctx tctx env aty1
                     val rs = fresh_reg tctx
@@ -2293,7 +2213,6 @@ fun transform_hoisted_typing heap_base kctx tctx env hty =
                 in
                     inner cty1 (te2 :: tes)
                 end
-              | CTySubTi (_, cty1, _) => inner cty1 tes
               | _ => raise (Impossible "transform_hoisted_typing")
       in
           inner cty1 []
@@ -2362,8 +2281,6 @@ fun set_hctx_instr_typing hctx ity =
         case ity of
             TITyNewpair ((_, (TINewpair (rd, _, _) :: _, _), _), vty1, vty2, ity3) => as_TITyNewpair rd (on_vty vty1) (on_vty vty2) (inner ity3)
           | TITyProj ((_, (TIProj (p, rd, _) :: _, _), _), vty1, ity2) => as_TITyProj p rd (on_vty vty1) (inner ity2)
-          | TITyInj ((_, (TIInj (inj, _) :: _, _), _), vty1, kd2, ity3) => as_TITyInj inj (on_vty vty1) kd2 (inner ity3)
-          | TITyFold ((_, (TIFold _ :: _, _), _), kd1, vty2, ity3) => as_TITyFold kd1 (on_vty vty2) (inner ity3)
           | TITyUnfold ((_, (TIUnfold _ :: _, _), _), vty1, ity2) => as_TITyUnfold (on_vty vty1) (inner ity2)
           | TITyNewarray ((_, (TINewarray (rd, _, _) :: _, _), _), vty1, vty2, ity3) => as_TITyNewarray rd (on_vty vty1) (on_vty vty2) (inner ity3)
           | TITyLoad ((_, (TILoad (rd, _, _) :: _, _), _), vty1, vty2, pr, ity3) => as_TITyLoad rd (on_vty vty1) (on_vty vty2) pr (inner ity3)

@@ -479,7 +479,7 @@ fun str_expr e =
     | EAbs e => "(fn => " ^ str_expr e ^ ")"
     | ERec e => "(rec => " ^ str_expr e ^ ")"
     | EAbsC e => "(idxfn => " ^ str_expr e ^ ")"
-    | EAppC (e, c) => str_expr e ^ "[" ^ str_cstr c ^ "]"
+    | EAppC (e, c) => str_expr e ^ "[" ^ "_" (* str_cstr c *) ^ "]"
     | EPack (c, e) => "<" ^ (* str_cstr c *) "_" ^ " | " ^ str_expr e ^ ">"
     | EUnpack (e1, e2) => "(unpack " ^ str_expr e1 ^ " in " ^ str_expr e2 ^ ")"
     | EHalt e => "(halt " ^ str_expr e ^ ")"
