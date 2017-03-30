@@ -61,7 +61,7 @@
 - [x] Have in-place merge sort with arrays.
 - [x] Have k-median search with arrays.
 - [x] Investigate amortized complexity analysis.
-- [ ] Prove in Coq.
+- [x] Prove in Coq.
 - [x] Infer `BigO` arity.
 - [x] Have built-in indexed `uint`.
 - [ ] Pretty-print to SML.
