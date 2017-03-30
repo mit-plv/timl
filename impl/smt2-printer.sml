@@ -66,9 +66,9 @@ fun print_i ctx i =
            in
              bounded_minus (print_i ctx i1) (print_i ctx i2)
            end
-         | TimeApp =>
+         | IApp =>
            let
-               val is = collect_TimeApp i1 @ [i2]
+               val is = collect_IApp i1 @ [i2]
            in
                (* sprintf "(app_$$)" [str_int (length is - 1), join_prefix " " $ map (print_i ctx) is] *)
                sprintf "($)" [join " " $ map (print_i ctx) is]
@@ -81,7 +81,7 @@ fun print_i ctx i =
     | TrueI _ => "true"
     | FalseI _ => "false"
     | TTI _ => "TT"
-    | TimeAbs ((name, _), i, _) => "fn"
+    | IAbs _ => "fn"
     | AdmitI _ => "TT"
     | UVarI (u, _) => exfalso u
 
@@ -92,16 +92,12 @@ fun print_base_sort b =
       UnitSort => "Unit"
     | BoolSort => "Bool"
     | Nat => "Int"
-    | TimeFun n =>
-      if n = 0 then
-          "Real"
-      else
-        (* "Unit" *)
-        "Fun_" ^ str_int n
+    | Time => "Real"
 
 fun print_bsort bsort =
   case bsort of
       Base b => print_base_sort b
+    | BSArrow _ => "fun_sort"
     | UVarBS u => exfalso u
 
 fun print_p ctx p =
@@ -147,12 +143,17 @@ fun assert_p ctx p =
 
 fun print_hyp ctx h =
     case h of
-        VarH (name, bsort) =>
-        (case bsort of
-             TimeFun n =>
-             (sprintf "(declare-fun $ ($) Real)" [name, join " " $ repeat n "Int"], name :: ctx)
-           | _ =>
-             (declare_const name (print_base_sort bsort), name :: ctx)
+        VarH (name, bs) =>
+        (case bs of
+             Base b =>
+             (declare_const name (print_base_sort b), name :: ctx)
+           | BSArrow _ =>
+             let
+               val (args, ret) = collect_BSArrow bs
+             in
+               (sprintf "(declare-fun $ ($) $)" [name, join " " $ map print_bsort args, print_bsort ret], name :: ctx)
+             end
+           | UVarBS u => exfalso u
         )
       | PropH p =>
         case p of
@@ -218,16 +219,18 @@ fun conv_base_sort b =
           UnitSort => (UnitSort, NONE)
         | BoolSort => (BoolSort, NONE)
         | Nat => (Nat, SOME (BinPred (LeP, ConstIN (0, dummy), VarI (NONE, (0, dummy)))))
-        | TimeFun n =>
-          if n = 0 then
-              (Time, SOME (BinPred (LeP, ConstIT ("0.0", dummy), VarI (NONE, (0, dummy)))))
-          else
-              (TimeFun n, NONE)
+        | Time => (Time, SOME (BinPred (LeP, ConstIT ("0.0", dummy), VarI (NONE, (0, dummy)))))
 
 fun conv_bsort bsort =
   case bsort of
-      UVarBS u => exfalso u
-    | Base b => let val (b, p) = conv_base_sort b in (Base b, p) end
+      Base b =>
+      let
+        val (b, p) = conv_base_sort b
+      in
+        (Base b, p)
+      end
+    | BSArrow _ => (bsort, NONE)
+    | UVarBS u => exfalso u
 
 fun conv_p p =
     case p of
@@ -252,7 +255,7 @@ fun conv_hyp h =
         PropH _ => [h]
       | VarH (name, bs) =>
         let
-            val (bs, p) = conv_base_sort bs
+            val (bs, p) = conv_bsort bs
             val hs = [VarH (escape name, bs)]
             val hs = hs @ (case p of SOME p => [PropH p] | _ => [])
         in

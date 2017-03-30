@@ -275,15 +275,15 @@ idx : aidx (aidx)
     | idx LT idx (BinOpI (LtI, idx1, idx2, (idx1left, idx2right)))
     | idx GE idx (BinOpI (GeI, idx1, idx2, (idx1left, idx2right)))
     | idx DOUBLE_POND idx (BinOpI (AndI, idx1, idx2, (idx1left, idx2right)))
-    | idx aidx (BinOpI (TimeApp, idx, aidx, (idxleft, aidxright)))
+    | idx aidx (BinOpI (IApp, idx, aidx, (idxleft, aidxright)))
 
 aidx : long_id (VarI long_id)
     | INT (ConstIN (INT, (INTleft, INTright)))
     | NNREAL (ConstIT (NNREAL, (NNREALleft, NNREALright)))
-    | DOLLAR aidx (BinOpI (TimeApp, VarI (NONE, (str_idx_un_op ToReal, (DOLLARleft, DOLLARright))), aidx, (DOLLARleft, aidxright)))
+    | DOLLAR aidx (BinOpI (IApp, VarI (NONE, (str_idx_un_op ToReal, (DOLLARleft, DOLLARright))), aidx, (DOLLARleft, aidxright)))
     | LPAREN RPAREN (TTI (LPARENleft, RPARENright))
     | LPAREN idx RPAREN (idx)
-    | FN id_plus DARROW idx (TimeAbs (id_plus, idx, (FNleft, idxright)))
+    | FN id_plus DARROW idx (IAbs (id_plus, idx, (FNleft, idxright)))
 
 prop : id (ConstP id)
      | NOT prop (Not (prop, (NOTleft, propright)))
@@ -305,11 +305,9 @@ optional_eq_idx : EQ idx (SOME idx)
               
 sort : bsort (Basic bsort)
      | LCUR id COLON bsort BAR prop RCUR (Subset (bsort, id, prop, (LCURleft, RCURright)))
-     | ID INT idx (BigOSort (ID, int_to_bsort (INT, (INTleft, INTright)), idx, (IDleft, idxright)))
-     | ID bsort idx (BigOSort (ID, bsort, idx, (IDleft, idxright)))
+     | ID idx (BigOSort (ID, Base ("_", (IDleft, IDright)), idx, (IDleft, idxright)))
 
 bsort : id (Base id)
-      | ID INT (TimeFun (ID, INT, (IDleft, INTright)))
 
 id : ID ((ID, (IDleft, IDright)))
 

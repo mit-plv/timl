@@ -112,12 +112,12 @@ fun insert_delete_seq ['a] {n size num : Nat} (xs : list (bool * 'a) {n}) (table
           table
         end
           
-absidx T_insert_delete_seq_from_good_start : BigO 1 (fn n => $n) with
+absidx T_insert_delete_seq_from_good_start : BigO (fn n => $n) with
 fun insert_delete_seq_from_good_start ['a] {n size num : Nat} {ite (2 * num >= size) ($(2 * num - size)) ($size / 2 - $num) <= $n} (xs : list (bool * 'a) {n}) (table : table 'a {size} {num}) return some_table 'a using T_insert_delete_seq_from_good_start n =
     insert_delete_seq xs table using 2.0 + 49.0 * $n
 end
           
-absidx T_insert_delete_seq_from_empty : BigO 1 (fn n => $n) with
+absidx T_insert_delete_seq_from_empty : BigO (fn n => $n) with
 fun insert_delete_seq_from_empty ['a] {n : Nat} (xs : list (bool * 'a) {n}) (table : table 'a {0} {0}) return some_table 'a using T_insert_delete_seq_from_empty n =
     insert_delete_seq xs table using 2.0 + 48.0 * $n
 end

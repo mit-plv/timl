@@ -10,7 +10,7 @@ datatype natnum : {Nat} =
          NumO of natnum {0}
        | NumS {n' : Nat} of nat {n'} * natnum {n'} --> natnum {n' + 1}
 
-absidx T_nat_2_natnum : BigO 1 (fn n => $n) = fn n => 11.0 * $n + 8.0 with
+absidx T_nat_2_natnum : BigO (fn n => $n) = fn n => 11.0 * $n + 8.0 with
 fun nat_2_natnum {n : Nat} (n : nat {n}) return natnum {n} using T_nat_2_natnum n =
     case le (n, #0) return using (T_nat_2_natnum n) - 8.0 of
         Le => NumO
@@ -31,7 +31,7 @@ fun swap ['a] {len i j : Nat} {i < len} {j < len} (a : array 'a {len}, i : nat {
       ()
     end
 
-absidx T_array_imerge_helper : BigO 2 (fn m n => $m * $n) with
+absidx T_array_imerge_helper : BigO (fn m n => $m * $n) with
 fun array_imerge_helper ['a] {t len i m j n w s : Nat} {i + m <= len} {j + n <= len} {w + m + n <= len} {s = m + n} (le : 'a * 'a -- $t --> bool) (a : array 'a {len}, i : nat {i}, m : natnum {m}, j : nat {j}, n : natnum {n}, w : nat {w}, s : natnum {s}) return unit using T_array_imerge_helper t s =
     case m of
         NumO =>
@@ -93,7 +93,7 @@ end
 fun array_imerge ['a] {t len i m j n w : Nat} {i + m <= len} {j + n <= len} {w + m + n <= len} (le : 'a * 'a -- $t --> bool) (a : array 'a {len}, i : nat {i}, m : nat {m}, j : nat {j}, n : nat {n}, w : nat {w}) =
     array_imerge_helper le (a, i, nat_2_natnum m, j, nat_2_natnum n, w, nat_2_natnum (nat_plus (m, n)))
 
-absidx T_array_insert : BigO 2 (fn m n => $m * $n) with
+absidx T_array_insert : BigO (fn m n => $m * $n) with
 fun array_insert ['a] {m len w p : Nat} {w + p < len} (le : 'a * 'a -- $m --> bool) (a : array 'a {len}, w : nat {w}, p : natnum {p}) return unit using T_array_insert m p =
     case p of
         NumO => ()
@@ -108,7 +108,7 @@ fun array_insert ['a] {m len w p : Nat} {w + p < len} (le : 'a * 'a -- $m --> bo
           end
 end
 
-absidx T_array_imsort_on_range : BigO 2 (fn m n => $m * $n * log2 $n) with
+absidx T_array_imsort_on_range : BigO (fn m n => $m * $n * log2 $n) with
 fun array_imsort_on_range ['a] {m len w left right : Nat} {right > 0} {w + left + right <= len} (le : 'a * 'a -- $m --> bool) (a : array 'a {len}, w : nat {w}, left : nat {left}, right : nat {right}) return unit using T_array_imsort_on_range m right =
     case Nat.le (right, #1) of
         Le => array_insert le (a, w, nat_2_natnum left)

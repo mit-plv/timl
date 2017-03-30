@@ -1,17 +1,17 @@
 structure SingleVar = struct
 open List
        
-absidx gg : {gg : Fun 1 | gg O (fn n => $n)} with
+absidx gg : {gg : _ | gg O (fn n => $n)} with
 val g =
  fn {n : Nat} (xs : list int {n}) return using gg n => xs
 end
 
-absidx hh : {hh : Fun 1 | hh O (fn n => 1.0)} with
+absidx hh : {hh : _ | hh O (fn n => 1.0)} with
 val h =
  fn {n : Nat} (xs : list int {n}) return using hh n => xs
 end
 
-absidx ff : {ff : Fun 1 | ff O (fn n => $n)} with
+absidx ff : {ff : _ | ff O (fn n => $n)} with
 val f =
  fn {n : Nat} (xs : list int {n}) return using ff n =>
     let
@@ -22,7 +22,7 @@ val f =
     end
 end
 
-absidx {T : Fun 1 | T O (fn n => $n)} with
+absidx {T : _ | T O (fn n => $n)} with
 fun map ['a 'b] (f : 'a -- 5.0 --> 'b) =
     let
       fun map {n : Nat} (xs : list 'a {n}) return list 'b {n} using T n =
@@ -45,7 +45,7 @@ fun split ['a] {n : Nat} (xs : list 'a {n}) return list 'a {ceil ($n/2)} * list 
 
 datatype bool = true | false
 
-absidx {T2 : Fun 1 | T2 O (fn n => $n)} with
+absidx {T2 : _ | T2 O (fn n => $n)} with
 fun merge ['a] {n1 : Nat} {n2 : Nat} (lt : 'a * 'a -- 8.0 --> bool) (xs : list 'a {n1}) (ys : list 'a {n2}) return list 'a {n1 + n2} using T2 (n1 + n2) =
     case (xs, ys) of
         (Nil, _) => ys
@@ -56,7 +56,7 @@ fun merge ['a] {n1 : Nat} {n2 : Nat} (lt : 'a * 'a -- 8.0 --> bool) (xs : list '
           | false => Cons (y, merge lt xs ys')
 end
 
-absidx {T3 : Fun 1 | T3 O (fn n => $n * log2 $n)} with
+absidx {T3 : _ | T3 O (fn n => $n * log2 $n)} with
 fun msort ['a] {n : Nat} (lt : 'a * 'a -- 8.0 --> bool) (xs : list 'a {n}) return list 'a {n} using T3 n =
     case xs of
         Nil => xs
@@ -65,7 +65,7 @@ fun msort ['a] {n : Nat} (lt : 'a * 'a -- 8.0 --> bool) (xs : list 'a {n}) retur
             (xs1, xs2) => merge lt (msort lt xs1) (msort lt xs2)
 end
 
-absidx g : BigO 1 (fn n => $n) with
+absidx g : BigO (fn n => $n) with
 fun insert ['a] {n : Nat} (le : 'a * 'a -- 7.0 --> bool) (xs : list 'a {n}) x return list 'a {n + 1} using g n =
     case xs of
         Nil => Cons (x, Nil)
@@ -75,7 +75,7 @@ fun insert ['a] {n : Nat} (le : 'a * 'a -- 7.0 --> bool) (xs : list 'a {n}) x re
           | false => Cons (x', insert le xs' x)
 end
 
-absidx g : BigO 1 (fn n => $n * $n) with
+absidx g : BigO (fn n => $n * $n) with
 fun isort ['a] {n : Nat} (le : 'a * 'a -- 7.0 --> bool) (xs : list 'a {n}) return list 'a {n} using g n =
     case xs of
         Nil => Nil

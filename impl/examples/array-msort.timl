@@ -10,7 +10,7 @@ datatype natnum : {Nat} =
          NumO of natnum {0}
        | NumS {n' : Nat} of nat {n'} * natnum {n'} --> natnum {n' + 1}
 
-absidx T_nat_2_natnum : BigO 1 (fn n => $n) = fn n => 11.0 * $n + 8.0  with
+absidx T_nat_2_natnum : BigO (fn n => $n) = fn n => 11.0 * $n + 8.0  with
 fun nat_2_natnum {n : Nat} (n : nat {n}) return natnum {n} using T_nat_2_natnum n =
     case Nat.le (n, #0) return using (T_nat_2_natnum n) - 8.0 of
         Le => NumO
@@ -22,7 +22,7 @@ fun nat_2_natnum {n : Nat} (n : nat {n}) return natnum {n} using T_nat_2_natnum 
         end
 end
 
-absidx T_array_merge_helper : BigO 2 (fn m n => $m * $n) with
+absidx T_array_merge_helper : BigO (fn m n => $m * $n) with
 fun array_merge_helper ['a] {m n1 n2 l r n : Nat} {l <= n1} {r <= n2} {n = l + r} (le : 'a * 'a -- $m --> bool) (xs : array 'a {n1}, ys : array 'a {n2}, des : array 'a {n1 + n2}, l : natnum {l}, r : natnum {r}, n : natnum {n}) return unit using T_array_merge_helper m n =
     case l of
         NumO =>
@@ -84,7 +84,7 @@ fun array_merge ['a] {m n1 n2 : Nat} (le : 'a * 'a -- $m --> bool) (xs : array '
       array_merge_helper le (xs, ys, des, nat_2_natnum lx, nat_2_natnum ly, nat_2_natnum (nat_plus (lx, ly)))
     end
 
-absidx T_array_msort_on_range : BigO 2 (fn m n => $m * $n * log2 $n) with
+absidx T_array_msort_on_range : BigO (fn m n => $m * $n * log2 $n) with
 fun array_msort_on_range ['a] {m : Nat} {len : Nat} {l : Nat} {n : Nat} {n > 0} {l + n <= len} (le : 'a * 'a -- $m --> bool) (a : array 'a {len}, l : nat {l}, n : nat {n}) return unit using T_array_msort_on_range m n =
     case Nat.le (n, #1) of
         Le => ()
