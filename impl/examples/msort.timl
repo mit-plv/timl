@@ -26,7 +26,7 @@ fun merge ['a] {m n1 n2: Nat} (le: 'a*'a --$m--> bool) (xs: list 'a {n1}, ys: li
         else y :: merge le (xs, ys')
 end
 
-absidx {T_msort : _ | T_msort O (fn m n => $m * $n * log2 $n)} with
+absidx {T_msort | T_msort O (fn m n => $m * $n * log2 $n)} with
 fun msort ['a] {m : Nat} {n : Nat} (le : 'a * 'a -- $m --> bool) (xs : list 'a {n}) return list 'a {n} using T_msort m n =
     case xs of
         Nil => xs

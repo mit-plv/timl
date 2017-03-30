@@ -215,6 +215,7 @@ decl : VAL tnames ptrn EQ exp (Val (tnames, ptrn, exp, (VALleft, expright)))
     | ABSIDX id optional_colon_sort EQ idx (AbsIdx2 (id, optional_colon_sort, idx))
     | ABSIDX id optional_colon_sort optional_eq_idx WITH decl_star END (AbsIdx (id, optional_colon_sort, optional_eq_idx, decl_star, (ABSIDXleft, ENDright)))
     | ABSIDX LCUR id COLON bsort BAR prop RCUR optional_eq_idx WITH decl_star END (AbsIdx (id, SOME (Subset (bsort, id, prop, (LCURleft, RCURright))), optional_eq_idx, decl_star, (ABSIDXleft, ENDright)))
+    | ABSIDX LCUR id BAR prop RCUR optional_eq_idx WITH decl_star END (AbsIdx (id, SOME (Subset (Base ("_", (idleft, idright)), id, prop, (LCURleft, RCURright))), optional_eq_idx, decl_star, (ABSIDXleft, ENDright)))
     | TYPE id EQ ty (TypeDef (id, ty))
     | OPEN id (Open id)
 
@@ -305,6 +306,7 @@ optional_eq_idx : EQ idx (SOME idx)
               
 sort : bsort (Basic bsort)
      | LCUR id COLON bsort BAR prop RCUR (Subset (bsort, id, prop, (LCURleft, RCURright)))
+     | LCUR id BAR prop RCUR (Subset (Base ("_", (idleft, idright)), id, prop, (LCURleft, RCURright)))
      | ID idx (BigOSort (ID, Base ("_", (IDleft, IDright)), idx, (IDleft, idxright)))
 
 bsort : id (Base id)
@@ -403,6 +405,7 @@ bar_constr_star : BAR constr bar_constr_star (constr :: bar_constr_star)
 sorting : LCUR id_plus COLON sort RCUR (sortings (id_plus, sort, (LCURleft, RCURright)))
         | LCUR id COLON sort RCUR ([Sorting (id, sort, (LCURleft, RCURright))])
         | LCUR id COLON bsort BAR prop RCUR ([Sorting (id, Subset (bsort, id, prop, (LCURleft, RCURright)), (LCURleft, RCURright))])
+        | LCUR id BAR prop RCUR ([Sorting (id, Subset (Base ("_", (idleft, idright)), id, prop, (LCURleft, RCURright)), (LCURleft, RCURright))])
         | LCUR prop RCUR (
             let
               val r = (LCURleft, RCURright)
