@@ -7,14 +7,14 @@ datatype list 'a : {Nat} =
          Nil of list 'a {0} 
        | Cons {n' : Nat} of 'a * list 'a {n'} --> list 'a {n' + 1} 
 
-absidx T_map : BigO _ (fn m n => $m * $n) with
+absidx T_map : BigO (fn m n => $m * $n) with
 fun map ['a 'b] {m n : Nat} (f : 'a -- $m --> 'b) (ls : list 'a {n}) return list 'b {n} using T_map m n =
           case ls of
               Nil => Nil
             | Cons (x, xs) => Cons (f x, map f xs)
 end
 
-absidx T_foldl : BigO _ (fn m n => $m * $n) with
+absidx T_foldl : BigO (fn m n => $m * $n) with
 fun foldl ['a 'b] {m n : Nat} (f : 'a * 'b -- $m --> 'b) y (xs : list 'a {n}) return 'b using T_foldl m n =
         case xs of
             [] => y
@@ -33,7 +33,7 @@ fun rev_append ['a] {n m : Nat} (l : list 'a {n}, acc : list 'a {m}) return list
       | hd :: tl => rev_append (tl, hd :: acc)
 
 (* another version with Big-O complexity *)
-absidx T_rev_append : BigO _ (fn n => $n) (* = fn n => 2.0 * $n *) with
+absidx T_rev_append : BigO (fn n => $n) (* = fn n => 2.0 * $n *) with
 fun rev_append_2 ['a] {n1 n2 : Nat} (xs : list 'a {n1}) (ys : list 'a {n2}) return list 'a {n1 + n2} using T_rev_append n1 =
     case xs of
         [] => ys
@@ -41,7 +41,7 @@ fun rev_append_2 ['a] {n1 n2 : Nat} (xs : list 'a {n1}) (ys : list 'a {n2}) retu
 end
 
 (* reverse *)
-absidx T_rev : BigO _ (fn n => $n) with
+absidx T_rev : BigO (fn n => $n) with
 fun rev ['a] {n : Nat} (xs : list 'a {n}) return list _ {n} using T_rev n = rev_append_2 xs []
 end
 

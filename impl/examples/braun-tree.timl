@@ -22,7 +22,7 @@ fun min_max {m : Time} (le : t * t -- m --> bool) (x, y) =
         true => (x, y)
       | false => (y, x)
 
-absidx T_insert : BigO _ (fn n => log2 $n) with
+absidx T_insert : BigO (fn n => log2 $n) with
 fun insert {size : Nat} (tr : braun_tree {size}) (x : t) return braun_tree {size + 1} using T_insert size =
     case tr of
         Leaf => @Node {0} (x, Leaf, Leaf)
@@ -49,7 +49,7 @@ fun peek_option {size : Nat} (tr : braun_tree {size}) return option t using T =
       | Node (x, _, _) => SOME x
 end
 
-absidx T_sift : BigO _ (fn n => log2 $n) with
+absidx T_sift : BigO (fn n => log2 $n) with
 fun sift {size : Nat} (x, l : braun_tree {ceil ($size/2)}, r : braun_tree {floor ($size/2)}) return braun_tree {size+1} using T_sift size =
     case (l, r) of
         (Leaf, Leaf) =>
@@ -72,7 +72,7 @@ fun sift {size : Nat} (x, l : braun_tree {ceil ($size/2)}, r : braun_tree {floor
       | _ => never
 end
 
-absidx T_pop : BigO _ (fn n => log2 $n * log2 $n) with
+absidx T_pop : BigO (fn n => log2 $n * log2 $n) with
 fun pop {size : Nat} (tr : braun_tree {size + 1}) return t * braun_tree {size} using T_pop size =
     case tr of
         Node (x, l, r) =>

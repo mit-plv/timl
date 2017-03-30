@@ -62,7 +62,7 @@
 - [x] Have k-median search with arrays.
 - [x] Investigate amortized complexity analysis.
 - [ ] Prove in Coq.
-- [ ] Infer `BigO` arity.
+- [x] Infer `BigO` arity.
 - [x] Have built-in indexed `uint`.
 - [ ] Pretty-print to SML.
 - [ ] Combine cctx and tctx.

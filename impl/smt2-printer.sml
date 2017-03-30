@@ -141,17 +141,6 @@ fun assert s =
 fun assert_p ctx p =
   assert (print_p ctx p)
 
-fun collect_BSArrow bs =
-  case bs of
-      Base _ => ([], bs)
-    | BSArrow (a, b) =>
-      let
-        val (args, ret) = collect_BSArrow b
-      in
-        (a :: args, ret)
-      end
-    | UVarBS u => exfalso u
-                          
 fun print_hyp ctx h =
     case h of
         VarH (name, bs) =>

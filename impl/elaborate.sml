@@ -95,10 +95,6 @@ local
           else if name = "_" then
             (UVarBS (), r)
 	  else raise Error (r, sprintf "Unrecognized base sort: $" [name])
-        | S.TimeFun (name, arity, r) =>
-          if name = "Fun" then
-            (TimeFun arity, r)
-          else raise Error (r, sprintf "Unrecognized base sort: $ $" [name, str_int arity])
 
   fun elab_s s =
       case s of

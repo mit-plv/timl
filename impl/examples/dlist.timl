@@ -24,7 +24,7 @@ datatype dlist 'a : {Nat} {Nat} =
        | DRNil {l : Nat} of ref (option (dlist 'a {1} {l})) --> dlist 'a {0} {l + 1}
        | DMid {l r : Nat} of ref (option (dlist 'a {r + 2} {l})) * 'a * dlist 'a {r} {l + 2} --> dlist 'a {r + 1} {l + 1}
 
-absidx T_build_dlist_helper : BigO _ (fn n => $n) with
+absidx T_build_dlist_helper : BigO (fn n => $n) with
 fun build_dlist_helper ['a] {l r : Nat} (p : ref (option (dlist 'a {r + 1} {l})), l : list 'a {r}) return dlist 'a {r} {l + 1} using T_build_dlist_helper r =
     case l of
         [] => DRNil p
@@ -49,7 +49,7 @@ fun build_dlist ['a] {n : Nat} (l : list 'a {n}) =
       node
     end
 
-absidx T_fold_to_left : BigO _ (fn m n => $m * $n) with
+absidx T_fold_to_left : BigO (fn m n => $m * $n) with
 fun fold_to_left ['a 'b] {m l r : Nat} (f : 'a * 'b -- $m --> 'b) (acc : 'b) (l : dlist 'a {r} {l}) return 'b using T_fold_to_left m l =
     case l of
         DLNil _ => acc
@@ -71,7 +71,7 @@ fun fold_to_left ['a 'b] {m l r : Nat} (f : 'a * 'b -- $m --> 'b) (acc : 'b) (l 
         end
 end
 
-absidx T_fold_from_left : BigO _ (fn m n => $m * $n) with
+absidx T_fold_from_left : BigO (fn m n => $m * $n) with
 fun fold_from_left ['a 'b] {m l r : Nat} (f : 'a * 'b -- $m --> 'b) (acc : 'b) (l : dlist 'a {r} {l}) return 'b using T_fold_from_left m l =
     case l of
         DLNil _ => acc
@@ -93,7 +93,7 @@ fun fold_from_left ['a 'b] {m l r : Nat} (f : 'a * 'b -- $m --> 'b) (acc : 'b) (
         end
 end
 
-absidx T_fold_to_right : BigO _ (fn m n => $m * $n) with
+absidx T_fold_to_right : BigO (fn m n => $m * $n) with
 fun fold_to_right ['a 'b] {m l r : Nat} (f : 'a * 'b -- $m --> 'b) (acc : 'b) (l : dlist 'a {r} {l}) return 'b using T_fold_to_right m r =
     case l of
         DLNil right => fold_to_right f acc right
@@ -101,7 +101,7 @@ fun fold_to_right ['a 'b] {m l r : Nat} (f : 'a * 'b -- $m --> 'b) (acc : 'b) (l
       | DMid (_, x, right) => fold_to_right f (f (x, acc)) right
 end
 
-absidx T_fold_from_right : BigO _ (fn m n => $m * $n) with
+absidx T_fold_from_right : BigO (fn m n => $m * $n) with
 fun fold_from_right ['a 'b] {m l r : Nat} (f : 'a * 'b -- $m --> 'b) (acc : 'b) (l : dlist 'a {r} {l}) return 'b using T_fold_from_right m r =
     case l of
         DLNil right => fold_from_right f acc right

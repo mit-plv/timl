@@ -8,7 +8,7 @@ open List
 datatype plist 'a : {Nat} =
          PList {p q : Nat} of list 'a {p} * list 'a {q} --> plist 'a {p + q}
 
-idx T_list_pivot : Fun 2 = fn m n => 4.0 * ($m + 1.0) * ($n + 1.0)
+idx T_list_pivot = fn m n => 4.0 * ($m + 1.0) * ($n + 1.0)
 fun list_pivot ['a] {m len : Nat} (le : 'a * 'a -- $m --> bool) (l : list 'a {len}, x : 'a) return plist 'a {len} using T_list_pivot m len =
   case l of
       [] => PList ([], [])
@@ -20,13 +20,13 @@ fun list_pivot ['a] {m len : Nat} (le : 'a * 'a -- $m --> bool) (l : list 'a {le
               else
                   PList (left, hd :: right)
 
-idx T_list_append : Fun 1 = fn n => 2.0 * $n
+idx T_list_append = fn n => 2.0 * $n
 fun list_append ['a] {len1 len2 : Nat} (l1 : list 'a {len1}, l2 : list 'a {len2}) return list 'a {len1 + len2} using T_list_append len1 =
   case l1 of
       [] => l2
     | hd :: tl => hd :: list_append (tl, l2)
 
-idx T_list_qsort : Fun 2 = fn m n => 4.0 * ($m + 10.0) * ($n * $n + 20.0 * $n)
+idx T_list_qsort = fn m n => 4.0 * ($m + 10.0) * ($n * $n + 20.0 * $n)
 fun list_qsort ['a] {m len : Nat} (le : 'a * 'a -- $m --> bool) (l : list 'a {len}) return list 'a {len} using T_list_qsort m len =
   case l of
       [] => []

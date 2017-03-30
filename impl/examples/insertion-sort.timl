@@ -5,7 +5,7 @@ structure InsertionSort = struct
 open Basic
 open List
        
-absidx T_insert : BigO _ (fn m n => $m * $n) with
+absidx T_insert : BigO (fn m n => $m * $n) with
 fun insert ['a] {m : Nat} {n : Nat} (le : 'a * 'a -- $m --> bool) (xs : list 'a {n}) x return list 'a {n + 1} using T_insert m n =
     case xs of
         Nil => Cons (x, Nil)
@@ -15,7 +15,7 @@ fun insert ['a] {m : Nat} {n : Nat} (le : 'a * 'a -- $m --> bool) (xs : list 'a 
           | false => Cons (x', insert le xs' x)
 end
 
-absidx T_isort : BigO _ (fn m n => $m * $n * $n) with
+absidx T_isort : BigO (fn m n => $m * $n * $n) with
 fun isort ['a] {m : Nat} {n : Nat} (le : 'a * 'a -- $m --> bool) (xs : list 'a {n}) return list 'a {n} using T_isort m n =
     case xs of
         Nil => Nil

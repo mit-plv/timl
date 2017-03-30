@@ -28,7 +28,7 @@ fun top ['a] {cap size : Nat} {size <= cap} {size > 0} (heap : heap 'a {cap} {si
     case heap of
         Heap (size, content) => sub (content, #0)
 
-absidx T_shift_up : BigO _ (fn m n => $m * log2 $n) with
+absidx T_shift_up : BigO (fn m n => $m * log2 $n) with
 fun shift_up ['a] {m cap size who : Nat} {size <= cap} {1 <= who} {who <= size} (comp : 'a * 'a -- $m --> bool) (heap : heap 'a {cap} {size}, who : nat {who}) return unit using T_shift_up m who =
     case cmp (who, #1) of
         Equal => ()
@@ -66,7 +66,7 @@ fun push ['a] {m cap size : Nat} {size < cap} (comp : 'a * 'a -- $m --> bool) (h
           heap'
         end
 
-absidx T_shift_down : BigO _ (fn m n => $m * log2 $n) with
+absidx T_shift_down : BigO (fn m n => $m * log2 $n) with
 fun shift_down ['a] {m cap size who dep : Nat} {size <= cap} {1 <= who} {who <= size} {who * dep >= size} (comp : 'a * 'a -- $m --> bool) (heap : heap 'a {cap} {size}, who : nat {who}, dep : nat {dep}) return unit using T_shift_down m dep =
     let
       val left = nat_mult (#2, who)

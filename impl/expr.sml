@@ -359,6 +359,17 @@ fun collect_IAbs i =
       end
     | _ => ([], i)
 
+fun collect_BSArrow bs =
+  case bs of
+      Base _ => ([], bs)
+    | BSArrow (a, b) =>
+      let
+        val (args, ret) = collect_BSArrow b
+      in
+        (a :: args, ret)
+      end
+    | UVarBS u => ([], bs)
+                          
 fun eq_option eq (a, a') =
   case (a, a') of
       (SOME v, SOME v') => eq (v, v')

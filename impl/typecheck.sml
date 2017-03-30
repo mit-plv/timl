@@ -1446,11 +1446,15 @@ and is_wf_prop gctx (ctx : scontext, p : U.prop) : prop =
             fun error expected = Error (U.get_region_p p, sprintf "Sorts of operands of $ must be both $:" [str_bin_pred opr, expected] :: indent ["left: " ^ str_bs bs1, "right: " ^ str_bs bs2])
             val () =
                 case opr of
-                    BigO => 
-                    (case is_time_fun bs of
-                         SOME _ => ()
-                       | _ => raise error "Nat* => Time"
-                    )
+                    BigO =>
+                    let
+                      val (args, ret) = collect_BSArrow bs
+                      val r = U.get_region_p p
+                      val () = unify_bs r (ret, Base Time)
+                      val () = app (fn arg => unify_bs r (arg, Base Nat)) args
+                    in
+                      ()
+                    end
                   | _ =>
                     (case bs of
                          Base Nat => ()

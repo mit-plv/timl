@@ -10,7 +10,7 @@ datatype tree 'a : {Nat} =
          Leaf of tree 'a {0}
        | Node {n1 : Nat} {n2 : Nat} of 'a * tree 'a {n1} * tree 'a {n2} --> tree 'a {n1 + 1 + n2}
 
-absidx T_map_tree : BigO _ (fn m n => $m * $n) with
+absidx T_map_tree : BigO (fn m n => $m * $n) with
 fun map_tree ['a 'b] {m : Nat} (f : 'a -- $m --> 'b) =
     let
       fun map {n : Nat} (tr : tree 'a {n}) return tree 'b {n} using T_map_tree m n =
@@ -23,7 +23,7 @@ fun map_tree ['a 'b] {m : Nat} (f : 'a -- $m --> 'b) =
 end
 
 (* middle-left-right fold *)                   
-absidx T_tree_foldmlr : BigO _ (fn m n => $m * $n) with
+absidx T_tree_foldmlr : BigO (fn m n => $m * $n) with
 fun tree_foldmlr ['a 'b] {m : Nat} (f : 'a * 'b -- $m --> 'b) =
     let
       fun fold {n : Nat} acc (tr : tree 'a {n}) return 'b using T_tree_foldmlr m n =
@@ -43,7 +43,7 @@ fun tree_foldmlr ['a 'b] {m : Nat} (f : 'a * 'b -- $m --> 'b) =
 end
 
 (* right-left-middle fold *)                   
-absidx T_tree_foldrlm : BigO _ (fn m n => $m * $n) with
+absidx T_tree_foldrlm : BigO (fn m n => $m * $n) with
 fun tree_foldrlm ['a 'b] {m : Nat} (f : 'a * 'b -- $m --> 'b) =
     let
       fun fold {n : Nat} acc (tr : tree 'a {n}) return 'b using T_tree_foldrlm m n =
@@ -63,7 +63,7 @@ fun tree_foldrlm ['a 'b] {m : Nat} (f : 'a * 'b -- $m --> 'b) =
 end
 
 (* traverse (right-left-middle) the tree and append all the elements to a list *)
-absidx T_tree_append_rlm : BigO _ (fn n => $n) (* = fn n => $(4 * n) *) with
+absidx T_tree_append_rlm : BigO (fn n => $n) (* = fn n => $(4 * n) *) with
 fun tree_append_rlm ['a] {n : Nat} (tr : tree 'a {n}) {n2 : Nat} (ls : list 'a {n2}) return list 'a {n + n2} using T_tree_append_rlm n =
     case tr of
         Leaf => ls
@@ -78,7 +78,7 @@ fun tree_append_rlm ['a] {n : Nat} (tr : tree 'a {n}) {n2 : Nat} (ls : list 'a {
 end
 
 (* flatten (right-left-middle) the tree to a list *)
-absidx T_tree_flatten_rlm : BigO _ (fn n => $n) with
+absidx T_tree_flatten_rlm : BigO (fn n => $n) with
 fun tree_flatten_rlm (* ['a] *) {n : Nat} (tr : tree _ {n}) return list _ {n} using T_tree_flatten_rlm n =
     tree_append_rlm tr {_} Nil
 end

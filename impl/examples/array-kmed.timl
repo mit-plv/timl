@@ -18,7 +18,7 @@ fun swap ['a] {len i j : Nat} {i < len} {j < len} (a : array 'a {len}, i : nat {
       ()
     end
 
-      idx T_array_pivot_on_range : Fun 2 = fn m n => 23.0 * ($m + 1.0) * $n + 8.0
+      idx T_array_pivot_on_range = fn m n => 23.0 * ($m + 1.0) * $n + 8.0
 fun array_pivot_on_range ['a] {m len l n : Nat} {l + n <= len} (le : 'a * 'a -- $m --> bool) (a : array 'a {len}, l : nat {l}, n : nat {n}, x : 'a) return nat_less_equal_than {n} using T_array_pivot_on_range m n =
     case Nat.le (n, #0) return using (T_array_pivot_on_range m n) - 8.0 of
         Le => NatLE #0
@@ -40,7 +40,7 @@ fun array_pivot_on_range ['a] {m len l n : Nat} {l + n <= len} (le : 'a * 'a -- 
                 NatLE p => NatLE (nat_plus (p, #1))
         end
 
-          idx T_array_kth_median_on_range : Fun 2 = fn m n => 41.0 * ($m + 1.0) * $n * $n + 8.0
+          idx T_array_kth_median_on_range = fn m n => 41.0 * ($m + 1.0) * $n * $n + 8.0
 fun array_kth_median_on_range ['a] {m len l n k : Nat} {l + n <= len} {1 <= k} {k <= n} (le : 'a * 'a -- $m --> bool) (a : array 'a {len}, l : nat {l}, n : nat {n}, k : nat {k}) return 'a using T_array_kth_median_on_range m n =
     case Nat.le (n, #0) return using (T_array_kth_median_on_range m n - 8.0) of
         Le => never
