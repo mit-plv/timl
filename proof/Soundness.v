@@ -211,7 +211,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   | PBinConn (opr : prop_bin_conn) (p1 p2 : prop)
   | PNot (p : prop)
   | PBinPred (opr : prop_bin_pred) (i1 i2 : idx)
-  | PEq (b : bsort) (i1 i2 : idx)
+  | PEq (b : bsort) (i1 i2 : idx) (* todo: why do we need a separate PEq? *)
   | PQuan (q : quan) (b : bsort) (p : prop)
   .
   
