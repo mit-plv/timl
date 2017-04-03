@@ -330,8 +330,6 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   (* ============================================================= *)
   
   Inductive value : expr -> Prop :=
-  (* | VVar x : *)
-  (*     value (EVar x) *)
   | VConst cn :
       value (EConst cn)
   | VPair v1 v2 :
