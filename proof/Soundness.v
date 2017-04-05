@@ -2249,6 +2249,499 @@ Lemma nth_error_map_elim : forall A B (f : A -> B) ls i b, nth_error (List.map f
   rewrite e in *; discriminate.
 Qed.
 
+Module NNRealTime <: TIME.
+  Require Import RIneq.
+  Local Open Scope R_scope.
+  Require Import Fourier.
+  
+  Ltac cases_ltle :=
+    match goal with
+      |- context [Rlt_le_dec ?a ?b] => cases (Rlt_le_dec a b)
+    end.
+
+  Definition Rlt_le_bool (a b : R) : bool.
+    destruct (Rlt_le_dec a b).
+    {
+      exact true.
+    }
+    {
+      exact false.
+    }
+  Defined.
+
+  Record nnreal :=
+    {
+      nonneg : R;
+      proof : Rlt_le_bool nonneg 0 = false
+    }.
+
+  Definition Rle_Rlt_le_bool a : 0 <= a -> Rlt_le_bool a 0 = false.
+  Proof.
+    intros H.
+    unfold Rlt_le_bool.
+    cases_ltle; try fourier.
+    eauto.
+  Qed.
+  
+  Definition mknonnegreal (a : R) (H : 0 <= a) : nnreal.
+  Proof.
+    refine (Build_nnreal a _).
+    eapply Rle_Rlt_le_bool; eapply H.
+  Defined.
+
+  Ltac dis := discriminate.
+  
+  Lemma false_UIP (H1 H2 : false = false) : H1 = H2.
+  Proof.
+    Require Eqdep.
+    eapply Eqdep.EqdepTheory.UIP.
+  Qed.
+  
+  Lemma nonneg_eq_eq (a b : nnreal) : nonneg a = nonneg b -> a = b.
+  Proof.
+    intros H.
+    destruct a as (a & Ha).
+    destruct b as (b & Hb).
+    simpl in *.
+    subst.
+    assert (Ha = Hb).
+    {
+      cases (Rlt_le_bool b 0); try dis.
+      eapply false_UIP.
+    }
+    subst.
+    eauto.
+  Qed.
+  
+  (* Definition nnreal := nonnegreal. *)
+  
+  Definition time_type := nnreal.
+
+  Arguments mknonnegreal : clear implicits.
+  Arguments mknonnegreal _ _ / .
+  
+  Definition Time0 : time_type.
+    refine (mknonnegreal 0 _).
+    fourier.
+  Defined.
+  
+  Definition Time1 : time_type.
+    refine (mknonnegreal 1 _).
+    eapply Rle_0_1.
+  Defined.
+  
+  Ltac cases_ltle_hyps :=
+    match goal with
+      H : context [Rlt_le_dec ?a ?b] |- _  => cases (Rlt_le_dec a b)
+    end.
+
+  Definition Rlt_le_bool_Rle a : Rlt_le_bool a 0 = false -> 0 <= a.
+  Proof.
+    intros H.
+    unfold Rlt_le_bool in *.
+    cases_ltle_hyps; try fourier.
+    try dis.
+  Qed.
+
+  Ltac les :=
+    repeat match goal with
+             H : _  |- _ => eapply Rlt_le_bool_Rle in H
+           end.
+  
+  Definition TimeAdd (a b : time_type) : time_type.
+    refine (mknonnegreal (nonneg a + nonneg b) _).
+    destruct a as (a & Ha).
+    destruct b as (b & Hb).
+    simpl.
+    les.
+    fourier.
+  Defined.
+  
+  Definition TimeMinus (a b : time_type) : time_type.
+    destruct (Rlt_le_dec (nonneg a) (nonneg b)).
+    {
+      refine (mknonnegreal 0 _).
+      destruct a as (a & Ha).
+      destruct b as (b & Hb).
+      simpl in *.
+      les.
+      fourier.
+    }
+    {
+      refine (mknonnegreal (nonneg a - nonneg b) _).
+      destruct a as (a & Ha).
+      destruct b as (b & Hb).
+      simpl in *.
+      les.
+      fourier.
+    }
+  Defined.
+  
+  Definition TimeLe (a b : time_type) : Prop.
+    refine (Rle (nonneg a) (nonneg b)).
+  Defined.
+  
+  Definition TimeMax (a b : time_type) : time_type.
+    destruct (Rlt_le_dec (nonneg a) (nonneg b)).
+    {
+      refine (mknonnegreal (nonneg b) _).
+      destruct a as (a & Ha).
+      destruct b as (b & Hb).
+      simpl in *.
+      les.
+      fourier.
+    }
+    {
+      refine (mknonnegreal (nonneg a) _).
+      destruct a as (a & Ha).
+      destruct b as (b & Hb).
+      simpl in *.
+      les.
+      fourier.
+    }
+  Defined.
+  
+  Delimit Scope time_scope with time.
+  Notation "0" := Time0 : time_scope.
+  Notation "1" := Time1 : time_scope.
+  Infix "+" := TimeAdd : time_scope.
+  Infix "-" := TimeMinus : time_scope.
+  Infix "<=" := TimeLe : time_scope.
+
+  Lemma Time_add_le_elim a b c :
+    (a + b <= c -> a <= c /\ b <= c)%time.
+  Proof.
+    intros H.
+    destruct a as (a & Ha).
+    destruct b as (b & Hb).
+    destruct c as (c & Hc).
+    unfold TimeLe in *.
+    simpl in *.
+    les.
+    split; fourier.
+  Qed.
+
+  Lemma Time_minus_move_left a b c :
+    (c <= b ->
+     a + c <= b ->
+     a <= b - c)%time.
+  Proof.
+    intros H1 H2.
+    unfold TimeLe in *.
+    destruct a as (a & Ha).
+    destruct b as (b & Hb).
+    destruct c as (c & Hc).
+    unfold TimeMinus in *.
+    simpl in *.
+    cases_ltle; simpl in *; les; fourier.
+  Qed.
+
+  Lemma Time_add_assoc a b c : (a + (b + c) = a + b + c)%time.
+  Proof.
+    destruct a as (a & Ha).
+    destruct b as (b & Hb).
+    destruct c as (c & Hc).
+    unfold TimeAdd in *.
+    simpl in *.
+    eapply nonneg_eq_eq.
+    simpl.
+    les.
+    ring.
+  Qed.
+  
+  Lemma lhs_rotate a b c :
+    (b + a <= c ->
+     a + b <= c)%time.
+  Proof.
+    intros H.
+    destruct a as (a & Ha).
+    destruct b as (b & Hb).
+    destruct c as (c & Hc).
+    unfold TimeLe in *.
+    simpl in *.
+    les.
+    fourier.
+  Qed.
+
+  Lemma Time_add_cancel a b c :
+    (a <= b ->
+     a + c <= b + c)%time.
+  Proof.
+    intros H.
+    destruct a as (a & Ha).
+    destruct b as (b & Hb).
+    destruct c as (c & Hc).
+    unfold TimeLe in *.
+    simpl in *.
+    les.
+    fourier.
+  Qed.
+
+  Lemma rhs_rotate a b c :
+    (a <= c + b->
+     a <= b + c)%time.
+  Proof.
+    intros H.
+    destruct a as (a & Ha).
+    destruct b as (b & Hb).
+    destruct c as (c & Hc).
+    unfold TimeLe in *.
+    simpl in *.
+    les.
+    fourier.
+  Qed.
+
+  Lemma Time_a_le_ba a b : (a <= b + a)%time.
+  Proof.
+    destruct a as (a & Ha).
+    destruct b as (b & Hb).
+    unfold TimeLe in *.
+    simpl in *.
+    les.
+    fourier.
+  Qed.
+
+  Lemma Time_minus_cancel a b c :
+    (a <= b -> a - c <= b - c)%time.
+  Proof.
+    intros H.
+    destruct a as (a & Ha).
+    destruct b as (b & Hb).
+    destruct c as (c & Hc).
+    unfold TimeLe in *.
+    unfold TimeMinus in *.
+    simpl in *.
+    cases_ltle;
+      cases_ltle;
+      simpl in *;
+      les;
+      fourier.
+  Qed.
+
+  Lemma Time_a_minus_a a : (a - a = 0)%time.
+  Proof.
+    eapply nonneg_eq_eq.
+    destruct a as (a & Ha).
+    unfold TimeMinus in *.
+    cases_ltle;
+      simpl in *; les; ring.
+  Qed.
+
+  Lemma Time_0_le_x x : (0 <= x)%time.
+  Proof.
+    destruct x as (a & Ha).
+    unfold TimeLe in *.
+    simpl in *.
+    les;
+      fourier.
+  Qed.
+
+  Lemma Time_minus_0 x : (x - 0 = x)%time.
+  Proof.
+    eapply nonneg_eq_eq.
+    destruct x as (a & Ha).
+    unfold TimeMinus in *.
+    simpl in *.
+    cases_ltle;
+      simpl in *;
+      les; try ring.
+    fourier.
+  Qed.
+
+  Lemma Time_0_add x : (0 + x = x)%time.
+  Proof.
+    eapply nonneg_eq_eq.
+    destruct x as (a & Ha).
+    simpl in *.
+    ring.
+  Qed.
+
+  Lemma Time_le_refl x : (x <= x)%time.
+  Proof.
+    destruct x as (a & Ha).
+    unfold TimeLe in *.
+    simpl in *.
+    fourier.
+  Qed.
+
+  Lemma Time_le_trans a b c :
+    (a <= b -> b <= c -> a <= c)%time.
+  Proof.
+    intros H1 H2.
+    destruct a as (a & Ha).
+    destruct b as (b & Hb).
+    destruct c as (c & Hc).
+    unfold TimeLe in *.
+    simpl in *.
+    les.
+    fourier.
+  Qed.
+
+  Lemma Time_add_cancel2 a b c d :
+    (c <= d ->
+     a <= b ->
+     a + c <= b + d)%time.
+  Proof.
+    intros H1 H2.
+    destruct a as (a & Ha).
+    destruct b as (b & Hb).
+    destruct c as (c & Hc).
+    destruct d as (d & Hd).
+    unfold TimeLe in *.
+    simpl in *.
+    les.
+    fourier.
+  Qed.
+
+  Lemma Time_a_le_maxab a b : (a <= TimeMax a b)%time.
+  Proof.
+    destruct a as (a & Ha).
+    destruct b as (b & Hb).
+    unfold TimeLe in *.
+    unfold TimeMax in *.
+    simpl in *.
+    cases_ltle; simpl in *;
+      les;
+      fourier.
+  Qed.
+
+  Lemma Time_b_le_maxab a b : (b <= TimeMax a b)%time.
+  Proof.
+    destruct a as (a & Ha).
+    destruct b as (b & Hb).
+    unfold TimeLe in *.
+    unfold TimeMax in *.
+    simpl in *.
+    cases_ltle; simpl in *;
+      les;
+      fourier.
+  Qed.
+
+  Lemma Time_add_minus_assoc a b c :
+    (c <= b -> a + (b - c) = a + b - c)%time.
+  Proof.
+    intros H1.
+    eapply nonneg_eq_eq.
+    destruct a as (a & Ha).
+    destruct b as (b & Hb).
+    destruct c as (c & Hc).
+    unfold TimeLe in *.
+    simpl in *.
+    unfold TimeMinus in *.
+    simpl in *.
+    cases_ltle; simpl in *;
+      cases_ltle; simpl in *;
+      les;
+      try fourier.
+    ring.
+  Qed.
+
+  Lemma Time_minus_le a b : (a - b <= a)%time.
+  Proof.
+    destruct a as (a & Ha).
+    destruct b as (b & Hb).
+    unfold TimeLe in *.
+    unfold TimeMinus in *.
+    simpl in *.
+    cases_ltle; simpl in *;
+      les;
+      fourier.
+  Qed.
+
+  Lemma Time_minus_add_cancel a b :
+    (b <= a -> a - b + b = a)%time.
+  Proof.
+    intros H1.
+    eapply nonneg_eq_eq.
+    destruct a as (a & Ha).
+    destruct b as (b & Hb).
+    unfold TimeLe in *.
+    simpl in *.
+    unfold TimeMinus in *.
+    simpl in *.
+    cases_ltle; simpl in *;
+      les;
+      try fourier.
+    ring.
+  Qed.
+
+  Lemma Time_minus_move_right a b c :
+    (c <= a ->
+     a <= b + c ->
+     a - c <= b)%time.
+  Proof.
+    intros H1 H2.
+    destruct a as (a & Ha).
+    destruct b as (b & Hb).
+    destruct c as (c & Hc).
+    unfold TimeLe in *.
+    simpl in *.
+    unfold TimeMinus in *.
+    simpl in *.
+    cases_ltle; simpl in *;
+      les;
+      fourier.
+  Qed.
+
+  Lemma Time_le_add_minus a b c :
+    (a + b - c <= a + (b - c))%time.
+  Proof.
+    destruct a as (a & Ha).
+    destruct b as (b & Hb).
+    destruct c as (c & Hc).
+    unfold TimeLe in *.
+    simpl in *.
+    unfold TimeMinus in *.
+    simpl in *.
+    cases_ltle; simpl in *;
+      cases_ltle; simpl in *;
+      les;
+      fourier.
+  Qed.
+
+  Lemma Time_add_comm a b : (a + b = b + a)%time.
+  Proof.
+    eapply nonneg_eq_eq.
+    destruct a as (a & Ha).
+    destruct b as (b & Hb).
+    simpl in *.
+    ring.
+  Qed.
+
+  Lemma Time_add_minus_cancel a b : (a + b - b = a)%time.
+  Proof.
+    eapply nonneg_eq_eq.
+    destruct a as (a & Ha).
+    destruct b as (b & Hb).
+    simpl in *.
+    unfold TimeMinus in *.
+    simpl in *.
+    cases_ltle; simpl in *;
+      les;
+      try fourier.
+    ring.
+  Qed.
+
+  Lemma Time_minus_minus_cancel a b : (b <= a -> a - (a - b) = b)%time.
+  Proof.
+    intros H1.
+    eapply nonneg_eq_eq.
+    destruct a as (a & Ha).
+    destruct b as (b & Hb).
+    simpl in *.
+    unfold TimeLe in *.
+    simpl in *.
+    unfold TimeMinus in *.
+    simpl in *.
+    cases_ltle; simpl in *;
+      cases_ltle_hyps; simpl in *;
+        les;
+        try fourier.
+    ring.
+  Qed.
+
+End NNRealTime.
+
 Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
   
   Import Time BigO.
@@ -26084,115 +26577,3 @@ lift2 (fst (strip_subsets L))
   Qed.
 
 End TiML.   
-
-Module NNRealTime <: TIME.
-  Require RIneq.
-  Definition nnreal := RIneq.nonnegreal.
-  Definition time_type := nnreal.
-  Definition Time0 : time_type.
-    Require Rdefinitions.
-    Module R := Rdefinitions.
-    refine (RIneq.mknonnegreal R.R0 _).
-    eauto with rorders.
-  Defined.
-  Definition Time1 : time_type.
-    refine (RIneq.mknonnegreal R.R1 _).
-    eauto with rorders.
-    admit.
-  Admitted.
-  Definition TimeAdd (a b : time_type) : time_type.
-    Import RIneq.
-    refine (mknonnegreal (R.Rplus (nonneg a) (nonneg b)) _).
-    destruct a.
-    destruct b.
-    simplify.
-    admit.
-  Admitted.
-  Definition TimeMinus (a b : time_type) : time_type.
-  Admitted.
-  Definition TimeLe (a b : time_type) : Prop.
-    refine (R.Rle (nonneg a) (nonneg b)).
-  Defined.
-  Definition TimeMax : time_type -> time_type -> time_type.
-  Admitted.
-  
-  Delimit Scope time_scope with time.
-  Notation "0" := Time0 : time_scope.
-  Notation "1" := Time1 : time_scope.
-  Infix "+" := TimeAdd : time_scope.
-  Infix "-" := TimeMinus : time_scope.
-  Infix "<=" := TimeLe : time_scope.
-
-  Lemma Time_add_le_elim a b c :
-    (a + b <= c -> a <= c /\ b <= c)%time.
-  Admitted.
-  Lemma Time_minus_move_left a b c :
-    (c <= b ->
-     a + c <= b ->
-     a <= b - c)%time.
-  Admitted.
-  Lemma Time_add_assoc a b c : (a + (b + c) = a + b + c)%time.
-  Admitted.
-  Lemma lhs_rotate a b c :
-    (b + a <= c ->
-     a + b <= c)%time.
-  Admitted.
-  Lemma Time_add_cancel a b c :
-    (a <= b ->
-     a + c <= b + c)%time.
-  Admitted.
-  Lemma rhs_rotate a b c :
-    (a <= c + b->
-     a <= b + c)%time.
-  Admitted.
-  Lemma Time_a_le_ba a b : (a <= b + a)%time.
-  Admitted.
-  Lemma Time_minus_cancel a b c :
-    (a <= b -> a - c <= b - c)%time.
-  Admitted.
-  Lemma Time_a_minus_a a : (a - a = 0)%time.
-  Admitted.
-  Lemma Time_0_le_x x : (0 <= x)%time.
-  Admitted.
-  Lemma Time_minus_0 x : (x - 0 = x)%time.
-  Admitted.
-  Lemma Time_0_add x : (0 + x = x)%time.
-  Admitted.
-  Lemma Time_le_refl x : (x <= x)%time.
-  Admitted.
-  Lemma Time_le_trans a b c :
-    (a <= b -> b <= c -> a <= c)%time.
-  Admitted.
-  Lemma Time_add_cancel2 a b c d :
-    (c <= d ->
-     a <= b ->
-     a + c <= b + d)%time.
-  Admitted.
-  Lemma Time_a_le_maxab a b : (a <= TimeMax a b)%time.
-  Admitted.
-  Lemma Time_b_le_maxab a b : (b <= TimeMax a b)%time.
-  Admitted.
-  Lemma Time_add_minus_assoc a b c :
-    (c <= b -> a + (b - c) = a + b - c)%time.
-  Admitted.
-  Lemma Time_minus_le a b : (a - b <= a)%time.
-  Admitted.
-  Lemma Time_minus_add_cancel a b :
-    (b <= a -> a - b + b = a)%time.
-  Admitted.
-  Lemma Time_minus_move_right a b c :
-    (c <= a ->
-     a <= b + c ->
-     a - c <= b)%time.
-  Admitted.
-  Lemma Time_le_add_minus a b c :
-    (a + b - c <= a + (b - c))%time.
-  Admitted.
-  Lemma Time_add_comm a b : (a + b = b + a)%time.
-  Admitted.
-  Lemma Time_add_minus_cancel a b : (a + b - b = a)%time.
-  Admitted.
-  Lemma Time_minus_minus_cancel a b : (b <= a -> a - (a - b) = b)%time.
-  Admitted.
-
-End NNRealTime.
