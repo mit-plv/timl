@@ -1,0 +1,16 @@
+(* Ragged matrix, i.e. lists of lists *)
+
+structure RaggedMatrix = struct
+
+open List
+
+datatype rmat 'a {m : Nat} : {Nat} =
+         Nil2 of rmat 'a {m} {0}
+       | Cons2 {n m' : Nat} {m' <= m} of list 'a {m'} * rmat 'a {m} {n} --> rmat 'a {m} {n+1}
+
+fun map ['a 'b] {m n : Nat} (f : forall {m : Nat}, list 'a {m} -- $(m*m) --> 'b) (l : rmat 'a {m} {n}) return list 'b {n} using $(m * m + 3) * $n =
+    case l of
+        Nil2 => []
+      | Cons2 (x, xs) => f x :: map @f xs
+
+end

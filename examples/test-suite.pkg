@@ -7,7 +7,7 @@ braun-tree-sortedness.timl
 rbt-sortedness.timl
 rbt.timl
 dynamic-table.timl
-two-stack-queue.timl
+functional-queue.timl
 array-bsearch.timl
 array-heap.timl
 array-msort.timl
@@ -16,7 +16,7 @@ array-kmed.timl
 qsort.timl
 dijkstra.timl
 dlist.timl
-lsls.timl
+ragged-matrix.timl
 
 (* this is for regression test, not a benchmark *)
 regression-test.pkg

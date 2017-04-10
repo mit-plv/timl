@@ -1,8 +1,8 @@
-(* Two-stack queue (amortized analysis) *)
+(* Functional queue (amortized analysis) *)
 
-(* This file showcases how to use TiML, more specifically the [some_output_and_cost_constraint] and [amortized_comp] datatypes below, to conduct amortized complexity analysis. *)
+(* Functional queues are queues implemented with two stacks. This file showcases how to use TiML, more specifically the [some_output_and_cost_constraint] and [amortized_comp] datatypes below, to conduct amortized complexity analysis. *)
 
-structure TwoStackQueue = struct
+structure FunctionalQueue = struct
 
 open Basic
 open List
