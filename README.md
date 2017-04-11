@@ -1,7 +1,7 @@
 TiML: A Functional Programming Language with Time Complexity (Parser and Typechecker)
 ===========================================
 
-Setup instructions
+Setup Instructions
 -----------------------
 
 1. Install SML/NJ. Make sure command `sml` and `ml-build` is in current PATH.
@@ -39,3 +39,8 @@ or this command to run a single example:
   ```
 
 Note that [examples/stdlib.pkg](examples/stdlib.pkg) (the standard library) is usually needed.
+
+Coq Proof
+----------------------------------
+
+The Coq formalization of TiML and its soundness is in [proof/Soundness.v](proof/Soundness.v). The proof is checked with Coq 8.5pl3.
