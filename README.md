@@ -43,4 +43,14 @@ Note that [examples/stdlib.pkg](examples/stdlib.pkg) (the standard library) is u
 Coq Proof
 ----------------------------------
 
-The Coq formalization of TiML and its soundness is in [proof/Soundness.v](proof/Soundness.v). The proof is checked with Coq 8.5pl3.
+The Coq formalization of TiML and its soundness is in [proof/Soundness.v](proof/Soundness.v). The proof is checked with Coq 8.5pl3. To check the proof, first compile the auxiliary Coq library:
+
+  ```
+  make
+  ```
+
+You can also compile the auxiliary library and the soundness proof altogether:
+
+  ```
+  make soundness
+  ```

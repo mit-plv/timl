@@ -1,1 +1,8 @@
--R ../../frap Frap
+-R . Frap
+Relations.v
+Invariant.v
+Var.v
+Map.v
+Sets.v
+Frap.v
+Soundness.v

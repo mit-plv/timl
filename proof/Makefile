@@ -1,9 +1,16 @@
-.PHONY: coq clean
+.PHONY: default lib soundness clean
 
-COQC=coqc -q -R ../../frap Frap
+default: lib
 
-coq:
-	$(COQC) Pset12Sig
+lib: Makefile.coq
+	$(MAKE) -f Makefile.coq Frap.vo
 
-clean:
-	rm *.vo
+soundness: Makefile.coq
+	$(MAKE) -f Makefile.coq Soundness.vo
+
+Makefile.coq: Makefile _CoqProject *.v
+	coq_makefile -f _CoqProject -o Makefile.coq
+
+clean:: Makefile.coq
+	$(MAKE) -f Makefile.coq clean
+	rm -f Makefile.coq

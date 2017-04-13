@@ -1,7 +1,5 @@
 Set Implicit Arguments.
 
-Axiom admit : forall P : Prop, P.
-  
 Module Type TIME.
   
   Parameter time_type : Set.
@@ -786,20 +784,6 @@ Fixpoint removen A n (ls : list A) {struct ls} :=
     | S n => a :: removen n ls
     end
   end.
-
-Definition fmap_map {K A B} (f : A -> B) (m : fmap K A) : fmap K B.
-Admitted.
-
-Lemma fmap_map_lookup K A B (f : A -> B) m (k : K) (a : A) :
-  m $? k = Some a ->
-  fmap_map f m $? k = Some (f a).
-Admitted.
-Lemma fmap_map_lookup_elim K A B (f : A -> B) m (k : K) (b : B) :
-  fmap_map f m $? k = Some b ->
-  exists a : A,
-    f a = b /\
-    m $? k = Some a.
-Admitted.
 
 Definition fmap_forall K A (p : A -> Prop) (m : fmap K A) : Prop := forall k v, m $? k = Some v -> p v.
   
@@ -2602,12 +2586,6 @@ Proof.
   destruct x as [|x]; simplify; eauto.
   eapply IHls; linear_arithmetic.
 Qed.
-
-(* Lemma nth_error_app1 A (l : list A) l' n : n < length l -> nth_error (l++l') n = nth_error l n. *)
-(* Admitted. *)
-
-(* Lemma nth_error_app2 A (l : list A) l' n : length l <= n -> nth_error (l++l') n = nth_error l' (n-length l). *)
-(* Admitted. *)
 
 Lemma nth_error_insert A G :
   forall x y ls (t : A),
@@ -6313,34 +6291,6 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
     eauto.
   Qed.
 
-  (* Some Coq bug(s)! *)
-  
-  (* Lemma interp_prop_subset_imply k p L p0 : *)
-  (*   interp_prop (KSubset k p :: L) p0 -> *)
-  (*   interp_prop (k :: L) (p ===> p0)%idx. *)
-  (* Proof. *)
-  (*   cbn. *)
-  (*   (* Anomaly: conversion was given ill-typed terms (FProd). Please report. *) *)
-  (* Qed. *)
-  
-  (* Lemma do_cbn k L p p0 : *)
-  (*   interp_p (fst (strip_subsets (k :: L))) *)
-  (*            (and_all (snd (strip_subsets (k :: L))) ===> (p ===> p0))%idx = *)
-  (*   lift2 (fst (strip_subsets L)) *)
-  (*         (fun (a1 a2 : interp_bsort (kind_to_sort k) -> Prop) (ak : interp_bsort (kind_to_sort k)) *)
-  (*          => a1 ak -> a2 ak) *)
-  (*         (interp_p (kind_to_sort k :: fst (strip_subsets L)) *)
-  (*                   (and_all (strip_subset k ++ map shift0_i_p (snd (strip_subsets L))))) *)
-  (*         (lift2 (fst (strip_subsets L)) *)
-  (*                (fun (a1 a2 : interp_bsort (kind_to_sort k) -> Prop) *)
-  (*                   (ak : interp_bsort (kind_to_sort k)) => a1 ak -> a2 ak) *)
-  (*                (interp_p (kind_to_sort k :: fst (strip_subsets L)) p) *)
-  (*                (interp_p (kind_to_sort k :: fst (strip_subsets L)) p0)). *)
-  (* Proof. *)
-  (*   (* Error: Conversion test raised an anomaly *) *)
-  (*   apply eq_refl. *)
-  (* Qed. *)
-
   Lemma interp_prop_subset_imply b p L p0 :
     interp_prop (SSubset b p :: L) p0 <->
     interp_prop (SBaseSort b :: L) (p ===> p0)%idx.
@@ -6357,72 +6307,11 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
       eapply interp_prop_subset_imply'; eauto.
       propositional; eauto.
     }
-    (* Anomaly: conversion was given ill-typed terms (FProd). Please report. *)
+    (* Qed triggers this Coq bug that has been reported to Coq development team's issue tracker: *)
     (* Qed. *)
+    (* "Anomaly: conversion was given ill-typed terms (FProd). Please report." *)
   Admitted.
 
-  (*
-    Lemma interp_prop_subset_imply k p L p0 :
-      interp_prop (KSubset k p :: L) p0 <->
-      interp_prop (k :: L) (p ===> p0)%idx.
-    Proof.
-      unfold interp_prop.
-      hnf in *.
-      Lemma do_cbn k L p p0 :
-        interp_p (fst (strip_subsets (k :: L)))
-                 (and_all (snd (strip_subsets (k :: L))) ===> (p ===> p0))%idx =
-lift2 (fst (strip_subsets L))
-          (fun (a1 a2 : interp_bsort (kind_to_sort k) -> Prop) (ak : interp_bsort (kind_to_sort k))
-           => a1 ak -> a2 ak)
-          (interp_p (kind_to_sort k :: fst (strip_subsets L))
-             (and_all (strip_subset k ++ map shift0_i_p (snd (strip_subsets L)))))
-          (lift2 (fst (strip_subsets L))
-             (fun (a1 a2 : interp_bsort (kind_to_sort k) -> Prop)
-                (ak : interp_bsort (kind_to_sort k)) => a1 ak -> a2 ak)
-             (interp_p (kind_to_sort k :: fst (strip_subsets L)) p)
-             (interp_p (kind_to_sort k :: fst (strip_subsets L)) p0)).
-      Proof.
-        exact eq_refl.
-      Qed.
-
-      rewrite do_cbn.
-
-      Lemma do_cbn2 k L p p0 :
-        interp_p (fst (strip_subsets (KSubset k p :: L)))
-                 (and_all (snd (strip_subsets (KSubset k p :: L))) ===> p0)%idx =
-        lift2 (fst (strip_subsets L))
-              (fun (a1 a2 : interp_bsort (kind_to_sort k) -> Prop)
-                 (ak : interp_bsort (kind_to_sort k)) => a1 ak -> a2 ak)
-              (lift2 (fst (strip_subsets L))
-                     (fun (a1 a2 : interp_bsort (kind_to_sort k) -> Prop)
-                        (ak : interp_bsort (kind_to_sort k)) => a1 ak /\ a2 ak)
-                     (interp_p (kind_to_sort k :: fst (strip_subsets L)) p)
-                     (interp_p (kind_to_sort k :: fst (strip_subsets L))
-                               (and_all (strip_subset k ++ map shift0_i_p (snd (strip_subsets L))))))
-              (interp_p (kind_to_sort k :: fst (strip_subsets L)) p0).
-      Proof.
-        exact eq_refl.
-      Qed.
-
-      rewrite do_cbn2.
-      rewrite !fuse_lift2_lift2_1 in *.
-      rewrite !fuse_lift2_lift2_2 in *.
-      propositional.
-      {
-        (* eapply admit. *)
-        eapply interp_prop_subset_imply'; eauto.
-        simplify.
-        eauto.
-      }
-      {
-        eapply admit.
-        (* eapply interp_prop_subset_imply'; eauto. *)
-        (* simplify. *)
-        (* eauto. *)
-      }
-    Qed.
-   *)
-  
   Lemma sorteq_interp_prop' ks :
     forall P P' Kps P0 K'ps
       (f1 : Kps -> P -> P' -> Prop)
@@ -6478,8 +6367,9 @@ lift2 (fst (strip_subsets L))
       eapply forall_lift1.
       propositional.
     }
-    (* Anomaly: conversion was given ill-typed terms (FProd). Please report. *)
+    (* Qed triggers this Coq bug that has been reported to Coq development team's issue tracker: *)
     (* Qed. *)
+    (* "Anomaly: conversion was given ill-typed terms (FProd). Please report." *)
   Admitted.
     
   Lemma sorteq_refl : forall L k, sorteq L k k.
@@ -8219,8 +8109,9 @@ lift2 (fst (strip_subsets L))
     repeat rewrite convert_bsort_value_refl_eq.
     specialize (H a0 a0).
     propositional.
-    (* Anomaly: conversion was given ill-typed terms (FProd). Please report. *)
+    (* Qed triggers this Coq bug that has been reported to Coq development team's issue tracker: *)
     (* Qed. *)
+    (* "Anomaly: conversion was given ill-typed terms (FProd). Please report." *)
   Admitted.
 
   Lemma nth_error_Some_interp_prop_subst_i_p_var L x b p :
