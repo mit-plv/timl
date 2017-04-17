@@ -3,13 +3,12 @@
 Set Implicit Arguments.
 
 (* TiML is parametrized on the choice of the definition of "time" *)
-
 Module Type TIME.
   
   Parameter time_type : Set.
-  (* the const 0 *)
+  (* time const 0 *)
   Parameter Time0 : time_type.
-  (* the const 1 *)
+  (* time const 1 *)
   Parameter Time1 : time_type.
   Parameter TimeAdd : time_type -> time_type -> time_type.
   (* 'minus' is bounded below by zero *)
@@ -25,7 +24,7 @@ Module Type TIME.
   Infix "-" := TimeMinus : time_scope.
   Infix "<=" := TimeLe : time_scope.
 
-  (* Requirements of 'time' imposed by TiML's soundness proof *)
+  (* requirements of 'time' imposed by TiML's soundness proof *)
 
   Axiom Time_add_le_elim :
     forall a b c,
@@ -88,11 +87,10 @@ Module Type TIME.
 
 End TIME.
 
-(* 'BigO' is just a binary relation between two time functions. We do not use any of its properties in TiML's soundness proof *)
-
+(* 'BigO' is just a binary relation between two time functions. We do not impose any constraint on its definition because do not use any of its properties in TiML's soundness proof *)
 Module Type BIG_O (Time : TIME).
 
-  (* a n-arith time function is a function from n natural numbers to time *)
+  (* an n-arity time function is a function from n natural numbers to time *)
   Fixpoint time_fun time_type (arity : nat) :=
     match arity with
     | 0 => time_type
@@ -108,7 +106,6 @@ End BIG_O.
 Require Import Util.
 
 (* Nonnegative real numbers are a candidate instantiation for TIME *)
-
 Module NNRealTime <: TIME.
 
   Require Import RIneq.
@@ -173,8 +170,6 @@ Module NNRealTime <: TIME.
     subst.
     eauto.
   Qed.
-  
-  (* Definition nnreal := nonnegreal. *)
   
   Definition time_type := nnreal.
 
@@ -604,7 +599,6 @@ Module NNRealTime <: TIME.
 End NNRealTime.
 
 (* Natural numbers are also a candidate instantiation for TIME, because we do not include real-number-only operations like logarithm and exponential in TiML's formalization *)
-
 Module NatTime <: TIME.
   
   Definition time_type := nat.
@@ -776,9 +770,9 @@ End NatTime.
 
 Require BinIntDef.
 
-(* The TiML language, with the soundness theorem statement *)
+(* The TiML language and the soundness theorem statement, expressed as a module signature *)
 
-(* TiML is parametrized on the choice of the definition of "time" and the "bigO" relation *)
+(* TiML is parametrized on the choice of the definitions of "time" and the "bigO" relation *)
 Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   
   Import Time BigO.
@@ -858,7 +852,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   | PBinConn (opr : prop_bin_conn) (p1 p2 : prop)
   | PNot (p : prop)
   | PBinPred (opr : prop_bin_pred) (i1 i2 : idx)
-  | PEq (b : bsort) (i1 i2 : idx) (* todo: why do we need a separate PEq? *)
+  | PEq (b : bsort) (i1 i2 : idx) 
   | PQuan (q : quan) (b : bsort) (p : prop)
   .
 
@@ -990,7 +984,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   (* Small-step fuel-augmented operational semantics *)
   (* ============================================================= *)
 
-  (* 'value' defines when a term is a value *)
+  (* the 'value' predicate defines when a term is a value *)
   Inductive value : expr -> Prop :=
   | VConst cn :
       value (EConst cn)
@@ -1032,7 +1026,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   (* a configuration is finished if the program is a value *)
   Definition finished s := value (get_expr s).
 
-  (* evaluation context (value constraints are put in the next 'plug' relation) *)
+  (* evaluation context (value constraints are put in the 'plug' relation below) *)
   Inductive ectx :=
   | ECHole
   | ECUnOp (opr : expr_un_op) (E : ectx)
@@ -1050,7 +1044,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   | ECUnpackI (E : ectx) (e : expr)
   .
 
-  (* the plug relation among E, e1 and e2 such that E[e1]=e2 *)
+  (* [plug E e1 e2] means E[e1]=e2 *)
   Inductive plug : ectx -> expr -> expr -> Prop :=
   | PlugHole e :
       plug ECHole e e
@@ -1475,7 +1469,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   Notation int_add := BinIntDef.Z.add.
   Notation int_mult := BinIntDef.Z.mul.
 
-  (* the interpreter of primitive binary term operations (note that operations can fail on illegal arguments) *)
+  (* the interpreter of primitive binary term operations (note that operations can fail (i.e. return None) on illegal arguments) *)
   Definition exec_prim opr a b :=
     match (opr, a, b) with
     | (PEBIntAdd, ECInt a, ECInt b) => Some (ECInt (int_add a b))
@@ -1490,12 +1484,12 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
     | PEBIntMult => 0%time
     end.
 
-  (* the cost of natural time addition *)
+  (* the cost of natural number addition *)
   Definition nat_add_cost := 0%time.
 
   Import OpenScope.
 
-  (* atomic step relation *)
+  (* atomic-step relation *)
   Inductive astep : config -> config -> Prop :=
   | ABeta h e v t :
       value v ->
@@ -1561,7 +1555,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
     exists s', step s s'.
 
   (* ============================================================= *)
-  (* safety a.k.a. nonstuckness, which will be the goal of the main theorem *)
+  (* safety a.k.a. nonstuckness, which will be the goal of the main soundness theorem *)
   (* ============================================================= *)
 
   (* R^* is the transitive closure of binary relation R *)
@@ -1575,11 +1569,11 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   Definition sctx := list sort.
   (* kinding context *)
   Definition kctx := list kind.
-  (* heap typing *)
+  (* heap typing context *)
   Definition hctx := fmap loc (ty * idx).
   (* typing context *)
   Definition tctx := list ty.
-  (* the total context *)
+  (* the full context *)
   Definition ctx := (sctx * kctx * hctx * tctx)%type.
 
   (* sorts of index constants *)
@@ -1710,7 +1704,6 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
     match opr with
     | PBTimeLe => BSTime
     | PBNatLt => BSNat
-    (* | PBTimeEq => BSTime *)
     | PBBigO n => BSTimeFun n
     end
   .
@@ -1720,7 +1713,6 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
     match opr with
     | PBTimeLe => BSTime
     | PBNatLt => BSNat
-    (* | PBTimeEq => BSTime *)
     | PBBigO n => BSTimeFun n
     end
   .
@@ -1745,7 +1737,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
     | QuanExists => exists a, P a
     end.
 
-  (* The default value of base sorts. We define the interpreter of indices as a total function, so when encountering error, a default value will be returned. *)
+  (* The default value of base sorts. We define the interpreter of indices as a total function, so when encountering an error, a default value will be returned. *)
   Fixpoint bsort_default_value (b : bsort) : interp_bsort b :=
     match b with
     | BSNat => 0%nat
@@ -1755,14 +1747,14 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
     | BSArrow b1 b2 => fun _ => bsort_default_value b2
     end.
 
-  (* a decider base sort equality *)
+  (* a decider for base-sort equality *)
   Definition bsort_dec : forall (b b' : bsort), sumbool (b = b') (b <> b').
   Proof.
     induction b; destruct b'; simpl; try solve [left; f_equal; eauto | right; intro Heq; discriminate].
     destruct (IHb1 b'1); destruct (IHb2 b'2); subst; simplify; try solve [left; f_equal; eauto | right; intro Heq; invert Heq; subst; eauto].
   Defined.
 
-  (* coercion between values of two sorts: if the sorts are equal, the coercion is identity; otherwise return a default value of the target sort *)
+  (* coercion between values of two sorts: if the sorts are equal, the coercion is identity; otherwise it returns a default value of the target sort *)
   Definition convert_bsort_value k1 k2 : interp_bsort k1 -> interp_bsort k2.
   Proof.
     cases (bsort_dec k1 k2); subst; eauto.
@@ -1812,7 +1804,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
     | ICTT => lift0 arg_ks (convert_bsort_value BSUnit res_k tt)
     end.
 
-  (* interpretation of index variable *)  
+  (* interpretation of index variables *)  
   Fixpoint interp_var (x : var) arg_bs ret_b {struct arg_bs} : interp_bsorts arg_bs (interp_bsort ret_b) :=
     match arg_bs return interp_bsorts arg_bs (interp_bsort ret_b) with
     | [] => bsort_default_value ret_b
@@ -1885,9 +1877,9 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   (* interpretation of propositions *)
   (* ------------------------------------------------------------------ *)
   
-  (* Refinements in context are collected and combined as a premise of the proposition. *)
+  (* Refinements in context are collected and combined to be a premise of the proposition. *)
   
-  (* collect refinement predicates in refinement sorts *)
+  (* collect refinement predicates of refinement sorts *)
   Fixpoint strip_subset k :=
     match k with
     | SBaseSort b => []
@@ -2045,7 +2037,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   Definition shift_t_ti n x (b : ty * idx) := (shift_t_t n x (fst b), snd b).
   Definition shift0_t_ti := shift_t_ti 1 0.
   
-  (* manipulation of typing contexts *)
+  (* manipulation of various contexts *)
   
   Definition get_sctx (C : ctx) : sctx :=
     match C with
@@ -2285,7 +2277,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
       typing (add_sorting_ctx s C) e t T0 ->
       typing C (EAbsI e) (TForallI s t) T0
   | TyRec C tis e1 t :
-      (* this rule is more tolerating than what is represented in the paper, in that recursions can be both index polymorphic and type polymorphic ([EAbs e1] can be wrapped by a series of index-or-type polymorphisms) *)
+      (* this rule is more tolerating than what is shown in the paper, in that recursions can be both index polymorphic and type polymorphic ([EAbs e1] can be wrapped by a series of index-or-type polymorphisms) *)
       let e := EAbsTIs tis (EAbs e1) in
       kinding (get_sctx C) (get_kctx C) t KType ->
       typing (add_typing_ctx t C) e t T0 ->
@@ -2377,10 +2369,10 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
 
   Local Close Scope idx_scope.
 
-  (* this predicate says that the heap can allocate fresh locations, i.e. the heap is finite *)
+  (* This predicate specifies that the heap can allocate fresh locations, i.e. the heap is finite. *)
   Definition allocatable (h : heap) := exists l_alloc, forall l, l >= l_alloc -> h $? l = None.
 
-  (* heap typing *)
+  (* This predicate specifies when a runtime heap is correctly abstracted by a heap typing context. *)
   Definition htyping (h : heap) (W : hctx) :=
     (forall l t i,
         W $? l = Some (t, i) ->
@@ -2405,7 +2397,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   (* wellformed sort context *)
   Definition wfsorts := all_sorts (fun L s => wfsort L s).
 
-  (* wellformed heap typings *)
+  (* wellformed heap typing context *)
   Definition wfhctx L K (W : hctx) := fmap_forall (fun p => kinding L K (fst p) KType /\ sorting L (snd p) SNat) W.
 
   (* wellformed context *)
@@ -2438,7 +2430,11 @@ End TIML.
 
 Require Import Datatypes.
 
-(* The soundness proof of TiML (module TiML implements signature TIML, so theorem [soundness] is proved) *)
+(* ============================================================= *)
+(* The soundness proof of TiML *)
+(* ============================================================= *)
+
+(* Module [TiML] implements signature [TIML], so theorem [soundness] is proved. *)
 Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
   
   Import Time BigO.
@@ -2479,7 +2475,7 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
              end
            end.
 
-  (* definitions in the signature have to be repeated here and match exactly these in the signature *)
+  (* Definitions in the signature have to be repeated here and match exactly these in the signature. *)
   
   (* The index language *)
 
@@ -2516,7 +2512,6 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
   Inductive prop_bin_pred :=
   | PBTimeLe
   | PBNatLt
-  (* | PBTimeEq *)
   | PBBigO (arity : nat)
   .
 
@@ -2584,8 +2579,6 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
 
   Delimit Scope idx_scope with idx.
   Infix "+" := Tadd : idx_scope.
-  (* Notation "0" := T0 : idx_scope. *)
-  (* Notation "1" := T1 : idx_scope. *)
 
   Definition Tle := PBinPred PBTimeLe.
   Definition TEq := PEq BSTime.
@@ -2644,7 +2637,6 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
     match opr with
     | PBTimeLe => BSTime
     | PBNatLt => BSNat
-    (* | PBTimeEq => BSTime *)
     | PBBigO n => BSTimeFun n
     end
   .
@@ -2653,7 +2645,6 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
     match opr with
     | PBTimeLe => BSTime
     | PBNatLt => BSNat
-    (* | PBTimeEq => BSTime *)
     | PBBigO n => BSTimeFun n
     end
   .
@@ -4290,11 +4281,9 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
   Qed.
 
   Notation imply := (fun A B : Prop => A -> B).
-  (* Definition imply (A B : Prop) := A -> B. *)
   Definition iff (A B : Prop) := A <-> B.
   Definition for_all {A} (P : A -> Prop) : Prop := forall a, P a.
   
-  (* Arguments imply / . *)
   Arguments iff / .
   Arguments for_all / .
   Arguments id / .
@@ -4317,7 +4306,6 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
     match opr return interp_bsort (binpred_arg1_bsort opr) -> interp_bsort (binpred_arg2_bsort opr) -> Prop with
     | PBTimeLe => TimeLe
     | PBNatLt => lt
-    (* | PBTimeEq => eq *)
     | PBBigO n => fun f g => Time_BigO n (to_time_fun f) (to_time_fun g)
     end.
 
@@ -4760,10 +4748,13 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
     induct new; simpl; eauto.
   Qed.
 
-  (* Conceptually: *)
-  (*
+  (* 
+  Conceptually [shift0] can be defined in this way: 
+
   Definition shift0 new ks t (x : interp_bsorts ks t) : interp_bsorts (new ++ ks) t :=
     lift1 ks (fun x => lift0 new x) x.
+
+  But the typechecker rejects it because (a++b)++c and a++(b++c) do not unify.
    *)
   
   Fixpoint shift0 new ks t : interp_bsorts ks t -> interp_bsorts (new ++ ks) t :=
@@ -5060,7 +5051,6 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
   Lemma interp_var_select' :
     forall bs_new a bs b T (f : interp_bsort b -> T -> Prop) (convert : interp_bsort a -> T),
       (forall x, f (convert_bsort_value a b x) (convert x)) ->
-      (* (forall x, f x x) -> *)
       let bs' := bs_new ++ a :: bs in
       forall_
         bs'
@@ -5969,7 +5959,7 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
       eapply interp_prop_subset_imply'; eauto.
       propositional; eauto.
     }
-    (* [Qed] triggers a Coq bug that has been reported to Coq's issue tracker as Bug#5466: *)
+    (* [Qed] triggers a Coq bug that has been reported to Coq's bug tracker as Bug#5466: *)
     (* Qed. *)
     (* "Anomaly: conversion was given ill-typed terms (FProd). Please report." *)
   Admitted.
@@ -6008,8 +5998,6 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
   Proof.
     induct 1; eauto.
     intros p0 Hp.
-    (* specialize (IHsorteq p0). *)
-    
     eapply interp_prop_subset_imply.
     eapply interp_prop_subset_imply in Hp.
     cbn in *.
@@ -6029,7 +6017,7 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
       eapply forall_lift1.
       propositional.
     }
-    (* [Qed] triggers a Coq bug that has been reported to Coq's issue tracker as Bug#5466: *)
+    (* [Qed] triggers a Coq bug that has been reported to Coq's bug tracker as Bug#5466: *)
     (* Qed. *)
     (* "Anomaly: conversion was given ill-typed terms (FProd). Please report." *)
   Admitted.
@@ -6820,7 +6808,7 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
            (interp_var y bs' b)
            (subst x bs v (interp_var y bs b))).
   Proof.
-    induct bs; simpl; intros x y b f b_v v Hcmp (* Hy *) Hf; eauto with db_la.
+    induct bs; simpl; intros x y b f b_v v Hcmp Hf; eauto with db_la.
     destruct x; simpl; try la.
     rewrite fuse_lift1_lift2.
     destruct y as [|y]; simpl in *.
@@ -7774,7 +7762,7 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
     repeat rewrite convert_bsort_value_refl_eq.
     specialize (H a0 a0).
     propositional.
-    (* [Qed] triggers a Coq bug that has been reported to Coq's issue tracker as Bug#5466: *)
+    (* [Qed] triggers a Coq bug that has been reported to Coq's bug tracker as Bug#5466: *)
     (* Qed. *)
     (* "Anomaly: conversion was given ill-typed terms (FProd). Please report." *)
   Admitted.
@@ -8762,11 +8750,10 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
       forall x b_v v ,
         nth_error L x = Some b_v ->
         bsorting (my_skipn L (1 + x)) v b_v ->
-        (* wfsorts1 L -> *)
         bsorting (removen x L) (subst_i_i x (shift_i_i x 0 v) body) b_b.
   Proof.
     induct 1;
-      simpl; try rename x into y; try rename s into b; intros x b_v v Hx Hv (* HL *); simpl in *; try solve [econstructor; eauto].
+      simpl; try rename x into y; try rename s into b; intros x b_v v Hx Hv; simpl in *; try solve [econstructor; eauto].
     {
       (* Case Stg1Var *)
       copy Hx Hcmp.
@@ -8804,11 +8791,10 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
       forall x b_v v ,
         nth_error L x = Some b_v ->
         bsorting (my_skipn L (1 + x)) v b_v ->
-        (* wfsorts1 L -> *)
         wfprop1 (removen x L) (subst_i_p x (shift_i_i x 0 v) body).
   Proof.
     induct 1;
-      simpl; try rename x into y; try rename s into b; intros x b_v v Hx Hv (* HL *); simpl in *; try solve [econstructor; eauto using bsorting_subst_i_i].
+      simpl; try rename x into y; try rename s into b; intros x b_v v Hx Hv; simpl in *; try solve [econstructor; eauto using bsorting_subst_i_i].
     rewrite shift0_i_i_shift_0.
     econstructor; eauto with db_la.
     eapply IHwfprop1 with (x := S x); eauto.
@@ -8959,7 +8945,6 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
       forall x b_v v ,
         nth_error L x = Some b_v ->
         bsorting (my_skipn L (1 + x)) v b_v ->
-        (* wfsorts1 L -> *)
         wfsort1 (removen x L) (subst_i_s x (shift_i_i x 0 v) body).
   Proof.
     induct 1;
@@ -9848,6 +9833,7 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
   Notation idxeq L i i' b := (interp_prop L (PEq b i i')).
   
   (* parallel reduction *)
+  (* Parallel reduction is a version of type equivalence that enjoys the "diamond" property. *)
   Inductive par : ty -> ty -> Prop :=
   | PaRBinOp opr t1 t2 t1' t2' :
       par t1 t1' ->
@@ -9895,7 +9881,7 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
 
   Hint Constructors par.
 
-  (* cong ("congruence") is an equivalence between normalized types. We cannot use syntactic equality to compare normalize types because indices should be compared using [idxeq] instead of [eq]. Hence we use [cong] to compare normalized types. *)
+  (* cong ("congruence") is an equivalence between normalized types. We cannot use syntactic equality to compare normalize types because indices should be compared using [idxeq] instead of [eq]. We use [cong] to compare normalized types. *)
   Inductive cong : sctx -> ty -> ty -> Prop :=
   | CongBinOp L opr t1 t2 t1' t2' :
       cong L t1 t1' ->
@@ -11502,7 +11488,6 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
   Qed.
 
   (* symmetric closure *)
-  
   Section symc.
     Variable A : Type.
     Variable R : A -> A -> Prop.
@@ -12128,7 +12113,7 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
     induct 1; simpl; try rename k into k'; intros K k Ht; try invert1 Ht; eauto.
   Qed.
 
-  (* inversion lemma of type equivalence on type [TArrow] *)
+  (* the inversion lemma of type equivalence on type [TArrow] *)
   Lemma invert_tyeq_TArrow L t1 i t2 t1' i' t2' K k :
     tyeq1 L K (TArrow t1 i t2) (TArrow t1' i' t2') k ->
     let bs := map get_bsort L in
@@ -12491,7 +12476,7 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
       tyeq1 L (insert ls x K) (shift_t_t n x t) (shift_t_t n x t') k.
   Proof.
     simpl.
-    induct 1; simpl; try rename x into y; intros ls x (* Hx *); try solve [econstructor; eauto using bkinding_shift_t_t].
+    induct 1; simpl; try rename x into y; intros ls x; try solve [econstructor; eauto using bkinding_shift_t_t].
     {
       econstructor.
       eapply IHtyeq1 with (x := S x); simpl; eauto with db_la.
@@ -12659,6 +12644,17 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
     intros; subst; eapply bkinding_shift_i_t; eauto.
   Qed.
   
+  Lemma bsorting_shift_i_i' :
+    forall L c s,
+      bsorting L c s ->
+      forall x ls n,
+        x <= length L ->
+        n = length ls ->
+        bsorting (firstn x L ++ ls ++ my_skipn L x) (shift_i_i n x c) s.
+  Proof.
+    intros; subst; eapply bsorting_shift_i_i; eauto.
+  Qed.
+  
   Lemma tyeq1_shift_i_t L K t t' k :
     tyeq1 L K t t' k ->
     forall x ls ,
@@ -12684,17 +12680,6 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
       repeat rewrite length_firstn_le in * by la.
       eapply IHtyeq1; simpl; eauto with db_la.
     }
-  Lemma bsorting_shift_i_i' :
-    forall L c s,
-      bsorting L c s ->
-      forall x ls n,
-        x <= length L ->
-        n = length ls ->
-        bsorting (firstn x L ++ ls ++ my_skipn L x) (shift_i_i n x c) s.
-  Proof.
-    intros; subst; eapply bsorting_shift_i_i; eauto.
-  Qed.
-  
     {
       eapply TyEq1Beta'.
       {
@@ -14661,7 +14646,7 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
     eauto.
   Qed.
   
-  (* for setoid_rewrite *)
+  (* a version of [shift_i_t_shift_cut] for setoid_rewrite *)
   Lemma shift_i_t_shift_cut_2 :
     forall n2 y n1 x,
       x + n1 <= y ->
@@ -18923,7 +18908,7 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
       eauto.
   Qed.
 
-  (* Weaking lemma for [typing]. This is more general than the Weakening lemma shown in the paper, in that a list of new bindings are added to the context, instead of just one new binding. [ls] is the list of new bindings. It is inserted at an abitrary position of the typing context. The term [e] must be properly shifted to match this enlarged context. *)
+  (* the weakening lemma for [typing]. This is more general than Lemma Weakening shown in the paper, in that a list of new bindings are added to the context, instead of just one new binding. [ls] is the list of new bindings. It is inserted at an abitrary position of the typing context. The term [e] must be properly shifted to match this enlarged context. *)
   Lemma typing_shift_e_e C e t i :
     typing1 C e t i ->
     let L := get_sctx C in
@@ -22300,7 +22285,6 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
         
         eapply Ty1Sub; simpl; try eassumption.
         {
-          (* tyeq1 *)
           simplify.
           eapply tyeq1_sym.
           eapply tyeq1_trans; [eapply Htyeq | | ]; eauto using kinding1_bkinding.
@@ -22469,7 +22453,6 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
       {
         eapply Ty1Sub; try eassumption; simpl.
         {
-          (* tyeq1 *)
           eauto with db_tyeq1.
         }
         {
@@ -22570,7 +22553,6 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
       {
         eapply Ty1Sub; try eassumption; simpl.
         {
-          (* tyeq1 *)
           eauto with db_tyeq1.
         }
         {
@@ -22917,7 +22899,6 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
         }
         {
           simplify.
-          (* tyeq1 *)
           eapply tyeq1_sym.
           eapply tyeq1_trans; [eapply Htyeq | |]; eauto.
           eapply tyeq1_subst_t_t_0; eauto using kinding1_wellscoped_t with db_tyeq1.
@@ -22995,7 +22976,6 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
         }
         {
           simplify.
-          (* tyeq1 *)
           eapply tyeq1_sym.
           eapply tyeq1_trans; [eapply Htyeq | | ]; eauto.
           invert_kindings.
@@ -23485,7 +23465,7 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
     }
   Qed.
 
-  (* a characterization of the typing property of evaluation contexts *)
+  (* This lemma is a characterization of the typing property of evaluation contexts: if a compound term is well-typed, then the inner term is well-typed, and if one replaces the inner term with another term of the same type, the type of the compound term will not change. It also reflects the intuition that the running time of a compound term is the running time of the inner term plus that of the evaluation context. *)
   Lemma ectx_typing : forall E e e_all,
       plug E e e_all ->
       forall W t i,
@@ -23619,13 +23599,12 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
         destruct Hty0 as [? Hi1'].
         eapply sorting1_bsorting in Hi1'.
         invert Hi1'.
-  Ltac invert_bsortings :=
-    repeat match goal with
-             H : bsorting _ _ _ |- _ => invert1 H
-           end.
-  
+        Ltac invert_bsortings :=
+          repeat match goal with
+                   H : bsorting _ _ _ |- _ => invert1 H
+                 end.
+        
         invert_bsortings.
-        (* invert H6. *)
         simpl in *.
         cases inj; simplify.
         {
@@ -25338,7 +25317,7 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
     eauto.
   Qed.
 
-  (* the transition system defined by TiML's step relaion. A transition system consists of an initial state and a step relation. *)
+  (* the transition system defined by TiML's step relation. A transition system consists of an initial state and a step relation. *)
   Definition trsys_of (s : config) :=
     {|
       Initial := {s};
@@ -25383,7 +25362,7 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
     eauto.
   Qed.
 
-  (* The surface versions of all judgments. *)
+  (* the surface versions of all judgments *)
   
   (* All intermediate versions of judgments can be implied by their surface versions. *)
   
