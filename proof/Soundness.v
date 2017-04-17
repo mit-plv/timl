@@ -1,13 +1,20 @@
+(* Coq Formalization of the TiML language and its Soundness *)
+
 Set Implicit Arguments.
+
+(* TiML is parametrized on the choice of the definition of "time" *)
 
 Module Type TIME.
   
   Parameter time_type : Set.
+  (* the const 0 *)
   Parameter Time0 : time_type.
+  (* the const 1 *)
   Parameter Time1 : time_type.
   Parameter TimeAdd : time_type -> time_type -> time_type.
-  (* A 'minus' bounded below by zero *)
+  (* 'minus' is bounded below by zero *)
   Parameter TimeMinus : time_type -> time_type -> time_type.
+  (* less-than-or-equal-to *)
   Parameter TimeLe : time_type -> time_type -> Prop.
   Parameter TimeMax : time_type -> time_type -> time_type.
   
@@ -17,6 +24,8 @@ Module Type TIME.
   Infix "+" := TimeAdd : time_scope.
   Infix "-" := TimeMinus : time_scope.
   Infix "<=" := TimeLe : time_scope.
+
+  (* Requirements of 'time' imposed by TiML's soundness proof *)
 
   Axiom Time_add_le_elim :
     forall a b c,
@@ -79,198 +88,29 @@ Module Type TIME.
 
 End TIME.
 
+(* 'BigO' is just a binary relation between two time functions. We do not use any of its properties in TiML's soundness proof *)
+
 Module Type BIG_O (Time : TIME).
-  
+
+  (* a n-arith time function is a function from n natural numbers to time *)
   Fixpoint time_fun time_type (arity : nat) :=
     match arity with
     | 0 => time_type
     | S n => nat -> time_fun time_type n
     end.
 
+  (* the bigO relation is parametrized on the arity *)
   Parameter Time_BigO : forall arity : nat, time_fun Time.time_type arity -> time_fun Time.time_type arity -> Prop.
   
 End BIG_O.
 
-Definition option_dec A (x : option A) : {a | x = Some a} + {x = None}.
-  destruct x.
-  left.
-  exists a.
-  eauto.
-  right.
-  eauto.
-Qed.
+(* a utility library *)
+Require Import Util.
 
-Require Import Frap.
-
-Module NatTime <: TIME.
-  Definition time_type := nat.
-  Definition Time0 := 0.
-  Definition Time1 := 1.
-  Definition TimeAdd := plus.
-  Definition TimeMinus := Peano.minus.
-  Definition TimeLe := le.
-  Definition TimeMax := max.
-  
-  Delimit Scope time_scope with time.
-  Notation "0" := Time0 : time_scope.
-  Notation "1" := Time1 : time_scope.
-  Infix "+" := TimeAdd : time_scope.
-  Infix "-" := TimeMinus : time_scope.
-  Infix "<=" := TimeLe : time_scope.
-
-  Require Import Omega.
-
-  Ltac unfold_time := unfold TimeAdd, TimeMinus, TimeMax, Time0, Time1, TimeLe in *.
-  Ltac linear := unfold_time; omega.
-
-  Lemma Time_add_le_elim a b c :
-    (a + b <= c -> a <= c /\ b <= c)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_minus_move_left a b c :
-    (c <= b ->
-     a + c <= b ->
-     a <= b - c)%time.
-  Proof.
-    intros; linear.
-  Qed.
-  
-  Lemma Time_add_assoc a b c : (a + (b + c) = a + b + c)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma lhs_rotate a b c :
-    (b + a <= c ->
-     a + b <= c)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_add_cancel a b c :
-    (a <= b ->
-     a + c <= b + c)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma rhs_rotate a b c :
-    (a <= c + b->
-     a <= b + c)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_a_le_ba a b : (a <= b + a)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_minus_cancel a b c :
-    (a <= b -> a - c <= b - c)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_a_minus_a a : (a - a = 0)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_0_le_x x : (0 <= x)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_minus_0 x : (x - 0 = x)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_0_add x : (0 + x = x)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_le_refl x : (x <= x)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_le_trans a b c :
-    (a <= b -> b <= c -> a <= c)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_add_cancel2 a b c d :
-    (c <= d ->
-     a <= b ->
-     a + c <= b + d)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_a_le_maxab a b : (a <= TimeMax a b)%time.
-  Proof.
-    intros; unfold_time; linear_arithmetic.
-  Qed.
-
-  Lemma Time_b_le_maxab a b : (b <= TimeMax a b)%time.
-    intros; unfold_time; linear_arithmetic.
-  Qed.
-
-  Lemma Time_add_minus_assoc a b c :
-    (c <= b -> a + (b - c) = a + b - c)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_minus_le a b : (a - b <= a)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_minus_add_cancel a b :
-    (b <= a -> a - b + b = a)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_minus_move_right a b c :
-    (c <= a ->
-     a <= b + c ->
-     a - c <= b)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_le_add_minus a b c :
-    (a + b - c <= a + (b - c))%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_add_comm a b : (a + b = b + a)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_add_minus_cancel a b : (a + b - b = a)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-  Lemma Time_minus_minus_cancel a b : (b <= a -> a - (a - b) = b)%time.
-  Proof.
-    intros; linear.
-  Qed.
-
-End NatTime.
+(* Nonnegative real numbers are a candidate instantiation for TIME *)
 
 Module NNRealTime <: TIME.
+
   Require Import RIneq.
   Local Open Scope R_scope.
   Require Import Fourier.
@@ -763,30 +603,182 @@ Module NNRealTime <: TIME.
 
 End NNRealTime.
 
+(* Natural numbers are also a candidate instantiation for TIME, because we do not include real-number-only operations like logarithm and exponential in TiML's formalization *)
+
+Module NatTime <: TIME.
+  
+  Definition time_type := nat.
+  Definition Time0 := 0.
+  Definition Time1 := 1.
+  Definition TimeAdd := plus.
+  Definition TimeMinus := Peano.minus.
+  Definition TimeLe := le.
+  Definition TimeMax := max.
+  
+  Delimit Scope time_scope with time.
+  Notation "0" := Time0 : time_scope.
+  Notation "1" := Time1 : time_scope.
+  Infix "+" := TimeAdd : time_scope.
+  Infix "-" := TimeMinus : time_scope.
+  Infix "<=" := TimeLe : time_scope.
+
+  Require Import Omega.
+
+  Ltac unfold_time := unfold TimeAdd, TimeMinus, TimeMax, Time0, Time1, TimeLe in *.
+  Ltac linear := unfold_time; omega.
+
+  Lemma Time_add_le_elim a b c :
+    (a + b <= c -> a <= c /\ b <= c)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_minus_move_left a b c :
+    (c <= b ->
+     a + c <= b ->
+     a <= b - c)%time.
+  Proof.
+    intros; linear.
+  Qed.
+  
+  Lemma Time_add_assoc a b c : (a + (b + c) = a + b + c)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma lhs_rotate a b c :
+    (b + a <= c ->
+     a + b <= c)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_add_cancel a b c :
+    (a <= b ->
+     a + c <= b + c)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma rhs_rotate a b c :
+    (a <= c + b->
+     a <= b + c)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_a_le_ba a b : (a <= b + a)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_minus_cancel a b c :
+    (a <= b -> a - c <= b - c)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_a_minus_a a : (a - a = 0)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_0_le_x x : (0 <= x)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_minus_0 x : (x - 0 = x)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_0_add x : (0 + x = x)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_le_refl x : (x <= x)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_le_trans a b c :
+    (a <= b -> b <= c -> a <= c)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_add_cancel2 a b c d :
+    (c <= d ->
+     a <= b ->
+     a + c <= b + d)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_a_le_maxab a b : (a <= TimeMax a b)%time.
+  Proof.
+    intros; unfold_time; linear_arithmetic.
+  Qed.
+
+  Lemma Time_b_le_maxab a b : (b <= TimeMax a b)%time.
+    intros; unfold_time; linear_arithmetic.
+  Qed.
+
+  Lemma Time_add_minus_assoc a b c :
+    (c <= b -> a + (b - c) = a + b - c)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_minus_le a b : (a - b <= a)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_minus_add_cancel a b :
+    (b <= a -> a - b + b = a)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_minus_move_right a b c :
+    (c <= a ->
+     a <= b + c ->
+     a - c <= b)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_le_add_minus a b c :
+    (a + b - c <= a + (b - c))%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_add_comm a b : (a + b = b + a)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_add_minus_cancel a b : (a + b - b = a)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+  Lemma Time_minus_minus_cancel a b : (b <= a -> a - (a - b) = b)%time.
+  Proof.
+    intros; linear.
+  Qed.
+
+End NatTime.
+
 Require BinIntDef.
 
-Fixpoint insert A new n (ls : list A) :=
-  match n with
-  | 0 => new ++ ls
-  | S n => 
-    match ls with
-    | [] => new
-    | a :: ls => a :: insert new n ls
-    end
-  end.
+(* The TiML language, with the soundness theorem statement *)
 
-Fixpoint removen A n (ls : list A) {struct ls} :=
-  match ls with
-  | [] => []
-  | a :: ls =>
-    match n with
-    | 0 => ls
-    | S n => a :: removen n ls
-    end
-  end.
-
-Definition fmap_forall K A (p : A -> Prop) (m : fmap K A) : Prop := forall k v, m $? k = Some v -> p v.
-  
+(* TiML is parametrized on the choice of the definition of "time" and the "bigO" relation *)
 Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   
   Import Time BigO.
@@ -795,8 +787,10 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   (* The index language *)
   (* ============================================================= *)
 
+  (* variable (just natural number because we use de Bruijn indices) *)
   Definition var := nat.
 
+  (* index constants *)
   Inductive idx_const :=
   | ICTT
   | ICBool (b : bool)
@@ -804,10 +798,12 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   | ICTime (r : time_type)
   .
 
+  (* unary index operations *)
   Inductive idx_un_op :=
   | IUBoolNeg
   .
 
+  (* binary index operations *)
   Inductive idx_bin_op :=
   | IBTimeAdd
   | IBTimeMinus
@@ -824,6 +820,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   | BSArrow (b1 b2 : bsort)
   .
 
+  (* index *)
   Inductive idx :=
   | IVar (x : var)
   | IConst (cn : idx_const)
@@ -833,7 +830,8 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   | IAbs (i : idx)
   | IApp (arg_bsort : bsort) (c1 c2 : idx)
   .
-  
+
+  (* binary logical connectives *)
   Inductive prop_bin_conn :=
   | PBCAnd
   | PBCOr
@@ -841,17 +839,20 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   | PBCIff
   .
 
+  (* binary index predicates (i.e. relations) *)
   Inductive prop_bin_pred :=
   | PBTimeLe
   | PBNatLt
   | PBBigO (arity : nat)
   .
 
+  (* quantifiers *)
   Inductive quan :=
   | QuanForall
   | QuanExists
   .
 
+  (* propositions *)
   Inductive prop :=
   | PTrueFalse (b : bool)
   | PBinConn (opr : prop_bin_conn) (p1 p2 : prop)
@@ -860,7 +861,8 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   | PEq (b : bsort) (i1 i2 : idx) (* todo: why do we need a separate PEq? *)
   | PQuan (q : quan) (b : bsort) (p : prop)
   .
-  
+
+  (* sort: a sort is either a base sort or a refinement sort *)
   Inductive sort :=
   | SBaseSort (b : bsort)
   | SSubset (s : bsort) (p : prop)
@@ -869,23 +871,27 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   (* ============================================================= *)
   (* the type language *)
   (* ============================================================= *)
-  
+
+  (* type constants *)
   Inductive ty_const :=
   | TCUnit
   | TCInt
   .
 
+  (* binary type constructors *)
   Inductive ty_bin_op :=
   | TBProd
   | TBSum
   .
 
+  (* kind *)
   Inductive kind :=
   | KType
   | KArrow (b : bsort) (k : kind)
   | KArrowT (k1 k2 : kind)
   .
-  
+
+  (* type *)
   Inductive ty :=
   | TVar (x : var)
   | TConst (cn : ty_const)
@@ -907,25 +913,30 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   (* ============================================================= *)
   
   Definition int := BinIntDef.Z.t.
-  
+
+  (* term constants *)
   Inductive expr_const :=
   | ECTT
   | ECInt (i : int)
   | ECNat (n : nat)
   .
 
+  (* location *)
   Definition loc := nat.
 
+  (* projector for product type *)
   Inductive projector :=
   | ProjFst
   | ProjSnd
   .
 
+  (* injector for sum type *)
   Inductive injector :=
   | InjInl
   | InjInr
   .
 
+  (* unary term operators *)
   Inductive expr_un_op :=
   | EUProj (p : projector)
   | EUInj (inj : injector)
@@ -933,11 +944,13 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   | EUUnfold
   .
 
+  (* primitive binary term operators *)
   Inductive prim_expr_bin_op :=
   | PEBIntAdd
   | PEBIntMult
   .
 
+  (* binary term operators *)
   Inductive expr_bin_op :=
   | EBPrim (opr : prim_expr_bin_op)
   | EBApp
@@ -947,6 +960,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   | EBNatAdd
   .
 
+  (* term *)
   Inductive expr :=
   | EVar (x : var)
   | EConst (cn : expr_const)
@@ -955,7 +969,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   | EBinOp (opr : expr_bin_op) (e1 e2 : expr)
   | EWrite (e_arr e_idx e_val : expr)
   | ECase (e e1 e2 : expr)
-  | EAbs (e : expr)
+  | EAbs (e : expr) (* annotation of the argument type is omitted *)
   | ERec (e : expr)
   | EAbsT (e : expr)
   | EAppT (e : expr) (t : ty)
@@ -967,6 +981,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   | EUnpackI (e1 e2 : expr)
   .
 
+  (* some shortcuts *)
   Definition EPair := EBinOp EBPair.
   Definition EInj c e := EUnOp (EUInj c) e.
   Definition EFold e := EUnOp EUFold e.
@@ -974,7 +989,8 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   (* ============================================================= *)
   (* Small-step fuel-augmented operational semantics *)
   (* ============================================================= *)
-  
+
+  (* 'value' defines when a term is a value *)
   Inductive value : expr -> Prop :=
   | VConst cn :
       value (EConst cn)
@@ -1008,12 +1024,15 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
 
   Definition fuel := time_type.
 
+  (* configuration *)
   Definition config := (heap * expr * fuel)%type.
 
   Definition get_expr (s : config) : expr := snd (fst s).
-  
+
+  (* a configuration is finished if the program is a value *)
   Definition finished s := value (get_expr s).
 
+  (* evaluation context (value constraints are put in the next 'plug' relation) *)
   Inductive ectx :=
   | ECHole
   | ECUnOp (opr : expr_un_op) (E : ectx)
@@ -1031,6 +1050,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   | ECUnpackI (E : ectx) (e : expr)
   .
 
+  (* the plug relation among E, e1 and e2 such that E[e1]=e2 *)
   Inductive plug : ectx -> expr -> expr -> Prop :=
   | PlugHole e :
       plug ECHole e e
@@ -1084,7 +1104,8 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
     | MyEq : a = b -> LtEqGt a b
     | MyGt : a > b -> LtEqGt a b
   .
-  
+
+  (* a decider for <, = and > *)
   Definition lt_eq_gt_dec a b : LtEqGt a b :=
     match lt_eq_lt_dec a b with
     | inleft (left H) => MyLt H
@@ -1094,8 +1115,11 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   
   Infix "<=>?" := lt_eq_gt_dec (at level 70).
 
+  (* various versions of shift *)
+  
   Section shift_i.
 
+    (* the shifting amount *)
     Variable n : nat.
     
     Fixpoint shift_i_i (x : var) (b : idx) : idx :=
@@ -1258,6 +1282,8 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   Definition shift0_i_e := shift_i_e 1 0.
   Definition shift0_t_e := shift_t_e 1 0.
   Definition shift0_e_e := shift_e_e 1 0.
+
+  (* various versions of substitution *)
   
   Fixpoint subst_i_i (x : var) (v : idx) (b : idx) : idx :=
     match b with
@@ -1419,6 +1445,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
     Close Scope time_scope.
   End CloseScope.
 
+  (* some shortcuts *)
   Definition EApp := EBinOp EBApp.
   Definition EUnfold e := EUnOp EUUnfold e.
   Definition ENew e1 e2 := EBinOp EBNew e1 e2.
@@ -1447,24 +1474,28 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
 
   Notation int_add := BinIntDef.Z.add.
   Notation int_mult := BinIntDef.Z.mul.
-  
+
+  (* the interpreter of primitive binary term operations (note that operations can fail on illegal arguments) *)
   Definition exec_prim opr a b :=
     match (opr, a, b) with
     | (PEBIntAdd, ECInt a, ECInt b) => Some (ECInt (int_add a b))
     | (PEBIntMult, ECInt a, ECInt b) => Some (ECInt (int_mult a b))
     | _ => None
     end.
-  
+
+  (* the cost of primitive operations *)
   Definition prim_cost opr :=
     match opr with
-    | PEBIntAdd => 1%time
-    | PEBIntMult => 1%time
+    | PEBIntAdd => 0%time
+    | PEBIntMult => 0%time
     end.
 
-  Definition nat_add_cost := 1%time.
+  (* the cost of natural time addition *)
+  Definition nat_add_cost := 0%time.
 
   Import OpenScope.
 
+  (* atomic step relation *)
   Inductive astep : config -> config -> Prop :=
   | ABeta h e v t :
       value v ->
@@ -1515,7 +1546,8 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   .
 
   Import CloseScope.
-  
+
+  (* step relation *)
   Inductive step : config -> config -> Prop :=
   | StepPlug h e1 t h' e1' t' e e' E :
       astep (h, e, t) (h', e', t') ->
@@ -1529,9 +1561,10 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
     exists s', step s s'.
 
   (* ============================================================= *)
-  (* safety a.k.a. unstuckness, which will be the goal of the main theorem *)
+  (* safety a.k.a. nonstuckness, which will be the goal of the main theorem *)
   (* ============================================================= *)
-  
+
+  (* R^* is the transitive closure of binary relation R *)
   Definition safe s := forall s', step^* s s' -> unstuck s'.
 
   (* ============================================================= *)
@@ -1548,7 +1581,8 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   Definition tctx := list ty.
   (* the total context *)
   Definition ctx := (sctx * kctx * hctx * tctx)%type.
-  
+
+  (* sorts of index constants *)
   Definition const_bsort cn :=
     match cn with
     | ICTT => BSUnit
@@ -1558,16 +1592,19 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
     end
   .
 
+  (* sorts of unary index operators' arguments *)
   Definition iunop_arg_bsort opr :=
     match opr with
     | IUBoolNeg => BSBool
     end.
 
+  (* sorts of unary index operators' results *)
   Definition iunop_result_bsort opr :=
     match opr with
     | IUBoolNeg => BSBool
     end.
 
+  (* sorts of binary index operators' first arguments *)
   Definition ibinop_arg1_bsort opr :=
     match opr with
     | IBTimeAdd => BSTime
@@ -1576,6 +1613,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
     | IBNatAdd => BSNat
     end.
 
+  (* sorts of binary index operators' second arguments *)
   Definition ibinop_arg2_bsort opr :=
     match opr with
     | IBTimeAdd => BSTime
@@ -1584,6 +1622,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
     | IBNatAdd => BSNat
     end.
 
+  (* sorts of binary index operators' results *)
   Definition ibinop_result_bsort opr :=
     match opr with
     | IBTimeAdd => BSTime
@@ -1592,6 +1631,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
     | IBNatAdd => BSNat
     end.
 
+  (* some shortcuts *)
   Definition SBool := SBaseSort BSBool.
   Definition SArrow b1 b2 := SBaseSort (BSArrow b1 b2).
   
@@ -1604,23 +1644,8 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
     | SBaseSort b => b
     | SSubset b _ => b
     end.
-  
-  Fixpoint strip_subset k :=
-    match k with
-    | SBaseSort b => []
-    | SSubset b p => [p]
-    end.
 
-  Fixpoint strip_subsets (ss : list sort) : list prop :=
-    match ss with
-    | [] => []
-    | s :: ss =>
-      let ps1 := strip_subset s in
-      let ps2 := strip_subsets ss in
-      let ps2 := map shift0_i_p ps2 in
-      ps1 ++ ps2
-    end.
-
+  (* some shortcuts *)
   Definition PTrue := PTrueFalse true.
   Definition PFalse := PTrueFalse false.
   Definition PAnd := PBinConn PBCAnd.
@@ -1636,7 +1661,8 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
     | [] => PTrue
     | p :: ps => (p /\ and_all ps) % idx
     end.
-  
+
+  (* interpretation of base sorts *)
   Fixpoint interp_bsort (b : bsort) :=
     match b with
     | BSNat => nat
@@ -1652,6 +1678,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
     | arg_k :: arg_ks => interp_bsorts arg_ks (interp_bsort arg_k -> res)
     end.
 
+  (* interpretation of unary index operations *)
   Definition interp_iunop opr : interp_bsort (iunop_arg_bsort opr) -> interp_bsort (iunop_result_bsort opr) :=
     match opr with
     | IUBoolNeg => negb
@@ -1663,6 +1690,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   Definition ite {A} (x : bool) (x1 x2 : A) := if x then x1 else x2.
   Definition apply {A B} (f : A -> B) x := f x.
 
+  (* interpretation of binary logical connectives *)
   Definition interp_binconn opr : Prop -> Prop -> Prop :=
     match opr with
     | PBCAnd => and
@@ -1677,6 +1705,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
     | S n => BSArrow BSNat (BSTimeFun n)
     end.
   
+  (* sorts of binary index predicates' first arguments *)
   Definition binpred_arg1_bsort opr :=
     match opr with
     | PBTimeLe => BSTime
@@ -1686,6 +1715,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
     end
   .
 
+  (* sorts of binary index predicates' second arguments *)
   Definition binpred_arg2_bsort opr :=
     match opr with
     | PBTimeLe => BSTime
@@ -1701,6 +1731,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
     | S n' => fun f x => @to_time_fun n' (f x)
     end.
   
+  (* interpretation of binary index predicates *)
   Definition interp_binpred opr : interp_bsort (binpred_arg1_bsort opr) -> interp_bsort (binpred_arg2_bsort opr) -> Prop :=
     match opr return interp_bsort (binpred_arg1_bsort opr) -> interp_bsort (binpred_arg2_bsort opr) -> Prop with
     | PBTimeLe => TimeLe
@@ -1714,6 +1745,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
     | QuanExists => exists a, P a
     end.
 
+  (* The default value of base sorts. We define the interpreter of indices as a total function, so when encountering error, a default value will be returned. *)
   Fixpoint bsort_default_value (b : bsort) : interp_bsort b :=
     match b with
     | BSNat => 0%nat
@@ -1723,18 +1755,22 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
     | BSArrow b1 b2 => fun _ => bsort_default_value b2
     end.
 
+  (* a decider base sort equality *)
   Definition bsort_dec : forall (b b' : bsort), sumbool (b = b') (b <> b').
   Proof.
     induction b; destruct b'; simpl; try solve [left; f_equal; eauto | right; intro Heq; discriminate].
     destruct (IHb1 b'1); destruct (IHb2 b'2); subst; simplify; try solve [left; f_equal; eauto | right; intro Heq; invert Heq; subst; eauto].
   Defined.
-  
+
+  (* coercion between values of two sorts: if the sorts are equal, the coercion is identity; otherwise return a default value of the target sort *)
   Definition convert_bsort_value k1 k2 : interp_bsort k1 -> interp_bsort k2.
   Proof.
     cases (bsort_dec k1 k2); subst; eauto.
     intros.
     eapply bsort_default_value.
   Defined.
+
+  (* lifting functions for dependent types (technical) *)
   
   Fixpoint lift0 arg_ks t : t -> interp_bsorts arg_ks t :=
     match arg_ks return t -> interp_bsorts arg_ks t with
@@ -1767,6 +1803,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
       fun t1 t2 t3 t f x1 x2 x3 => lift3 arg_ks (fun a1 a2 a3 ak => f (a1 ak) (a2 ak) (a3 ak)) x1 x2 x3
     end.
 
+  (* interpretation of index constants *)  
   Definition interp_iconst cn arg_ks res_k : interp_bsorts arg_ks (interp_bsort res_k) :=
     match cn with
     | ICTime cn => lift0 arg_ks (convert_bsort_value BSTime res_k cn)
@@ -1775,6 +1812,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
     | ICTT => lift0 arg_ks (convert_bsort_value BSUnit res_k tt)
     end.
 
+  (* interpretation of index variable *)  
   Fixpoint interp_var (x : var) arg_bs ret_b {struct arg_bs} : interp_bsorts arg_bs (interp_bsort ret_b) :=
     match arg_bs return interp_bsorts arg_bs (interp_bsort ret_b) with
     | [] => bsort_default_value ret_b
@@ -1785,6 +1823,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
       end
     end.
 
+  (* interpretation of binary index operations *)  
   Definition interp_ibinop opr : interp_bsort (ibinop_arg1_bsort opr) -> interp_bsort (ibinop_arg2_bsort opr) -> interp_bsort (ibinop_result_bsort opr) :=
     match opr with
     | IBTimeAdd => TimeAdd
@@ -1793,6 +1832,9 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
     | IBNatAdd => plus
     end.
 
+  (* ------------------------------------------------------------------ *)
+  (* interpretation of indices (i.e. denotational semantics of indices) *)  
+  (* ------------------------------------------------------------------ *)
   Fixpoint interp_idx c arg_ks res_k : interp_bsorts arg_ks (interp_bsort res_k) :=
     match c with
     | IVar x => interp_var x arg_ks res_k
@@ -1815,6 +1857,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
       lift2 arg_ks apply (interp_idx c1 arg_ks (BSArrow b res_k)) (interp_idx c2 arg_ks b)
   end.
 
+  (* interpretation of propositions (auxiliary) *)  
   Fixpoint interp_p arg_ks p : interp_bsorts arg_ks Prop :=
     match p with
     | PTrueFalse cn => lift0 arg_ks (interp_true_false_Prop cn)
@@ -1838,6 +1881,30 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
     | arg_k :: arg_ks => fun P => forall_ arg_ks (lift1 arg_ks for_all P)
     end.
 
+  (* ------------------------------------------------------------------ *)
+  (* interpretation of propositions *)
+  (* ------------------------------------------------------------------ *)
+  
+  (* Refinements in context are collected and combined as a premise of the proposition. *)
+  
+  (* collect refinement predicates in refinement sorts *)
+  Fixpoint strip_subset k :=
+    match k with
+    | SBaseSort b => []
+    | SSubset b p => [p]
+    end.
+
+  Fixpoint strip_subsets (ss : list sort) : list prop :=
+    match ss with
+    | [] => []
+    | s :: ss =>
+      let ps1 := strip_subset s in
+      let ps2 := strip_subsets ss in
+      let ps2 := map shift0_i_p ps2 in
+      ps1 ++ ps2
+    end.
+
+  (* interpretation of propositions *)
   Definition interp_prop (ss : sctx) (p : prop) : Prop :=
     let bs := map get_bsort ss in
     let ps := strip_subsets ss in
@@ -1847,6 +1914,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
 
   Definition subst0_i_p v b := subst_i_p 0 v b.
 
+  (* the sorting judgment *)
   Inductive sorting : sctx -> idx -> sort -> Prop :=
   | StgVar L x s :
       nth_error L x = Some s ->
@@ -1881,6 +1949,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
       wfprop (SBaseSort b :: L) p ->
       sorting L c (SBaseSort b)
 
+  (* proposition wellformedness *)            
   with wfprop : list sort -> prop -> Prop :=
   | WfPropTrueFalse L cn :
       wfprop L (PTrueFalse cn)
@@ -1903,7 +1972,8 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
       wfprop (SBaseSort s :: L) p ->
       wfprop L (PQuan q s p)
   .
-  
+
+  (* sort wellformedness *)
   Inductive wfsort : list sort -> sort -> Prop :=
   | WfStBaseSort L b :
       wfsort L (SBaseSort b)
@@ -1912,9 +1982,11 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
       wfsort L (SSubset b p)
   .
 
+  (* some shortcuts *)
   Definition SNat := SBaseSort BSNat.
   Definition STime := SBaseSort BSTime.
-  
+
+  (* the kinding judgment *)
   Inductive kinding : sctx -> kctx -> ty -> kind -> Prop :=
   | KdgVar L K x k :
       nth_error K x = Some k ->
@@ -1963,9 +2035,17 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
       kinding L K (TAppT t1 t2) k2
   .
 
+  (* some shortcuts *)
   Notation Tconst r := (IConst (ICTime r)).
   Notation T0 := (Tconst Time0).
   Notation T1 := (Tconst Time1).
+
+  Definition shift_i_ti n x b := (shift_i_t n x (fst b), shift_i_i n x (snd b)).
+  Definition shift0_i_ti := shift_i_ti 1 0.
+  Definition shift_t_ti n x (b : ty * idx) := (shift_t_t n x (fst b), snd b).
+  Definition shift0_t_ti := shift_t_ti 1 0.
+  
+  (* manipulation of typing contexts *)
   
   Definition get_sctx (C : ctx) : sctx :=
     match C with
@@ -1987,18 +2067,12 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
       (L, K, W, G) => G
     end.
 
-  Definition shift_i_ti n x b := (shift_i_t n x (fst b), shift_i_i n x (snd b)).
-  Definition shift0_i_ti := shift_i_ti 1 0.
-  
   Definition add_sorting_ctx s (C : ctx) : ctx :=
     match C with
       (L, K, W, G) => (s :: L, K, fmap_map shift0_i_ti W, map shift0_i_t G)
     end
   .
 
-  Definition shift_t_ti n x (b : ty * idx) := (shift_t_t n x (fst b), snd b).
-  Definition shift0_t_ti := shift_t_ti 1 0.
-  
   Definition add_kinding_ctx k (C : ctx) :=
     match C with
       (L, K, W, G) => (L, k :: K, fmap_map shift0_t_ti W, map shift0_t_t G)
@@ -2011,6 +2085,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
     end
   .
 
+  (* some shortcuts *)
   Definition Tadd := IBinOp IBTimeAdd.
   
   Delimit Scope idx_scope with idx.
@@ -2028,6 +2103,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   Definition TForallI := TQuanI QuanForall.
   Definition TExistsI := TQuanI QuanExists.
 
+  (* a term wrapped by a series of (type or index) polymorphisms *)
   Fixpoint EAbsTIs ls e :=
     match ls with
     | [] => e
@@ -2039,16 +2115,19 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
     end
   .
 
+  (* a series of type applications *)
   Fixpoint TApps t args :=
     match args with
     | nil => t
     | (b, i) :: args => TApps (TApp t b i) args
     end.
 
+  (* unrolling of a recursive type *)
   Definition unroll (k : kind) (t : ty) (args : list (bsort * idx)) : ty :=
     let r := subst0_t_t (TRec k t) t in
     TApps r args.
 
+  (* types of term constants *)
   Definition const_type cn :=
     match cn with
     | ECTT => TUnit
@@ -2057,24 +2136,28 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
     end
   .
 
+  (* types of primitive binary term operators' first arguments *)
   Definition prim_arg1_type opr :=
     match opr with
     | PEBIntAdd => TInt
     | PEBIntMult => TInt
     end.
     
+  (* types of primitive binary term operators' second arguments *)
   Definition prim_arg2_type opr :=
     match opr with
     | PEBIntAdd => TInt
     | PEBIntMult => TInt
     end.
     
+  (* types of primitive binary term operators' results *)
   Definition prim_result_type opr :=
     match opr with
     | PEBIntAdd => TInt
     | PEBIntMult => TInt
     end.
-    
+
+  (* some shortcuts *)
   Definition Tmax := IBinOp IBTimeMax.
   
   Definition Nlt := PBinPred PBNatLt.
@@ -2087,11 +2170,13 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   
   Local Open Scope idx_scope.
 
+  (* index equality *)
   Notation idxeq L i i' b := (interp_prop L (PEq b i i')).
   
   Definition PIff := PBinConn PBCIff.
   Infix "<===>" := PIff (at level 95) : idx_scope.
-  
+
+  (* sort equality *)
   Inductive sorteq : sctx -> sort -> sort -> Prop :=
   | SortEqBaseSort L b :
       sorteq L (SBaseSort b) (SBaseSort b)
@@ -2100,6 +2185,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
       sorteq L (SSubset b p) (SSubset b p')
   .
 
+  (* type equality *)
   Inductive tyeq : sctx -> kctx -> ty -> ty -> kind -> Prop :=
   (* congruence rules *)
   | TyEqBinOp L K opr t1 t2 t1' t2' :
@@ -2154,7 +2240,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
   | TyEqBetaT L K k t1 t2 k2 :
       kinding L K (TAppT (TAbsT k t1) t2) k2 ->
       tyeq L K (TAppT (TAbsT k t1) t2) (subst0_t_t t2 t1) k2
-  (* structural rules *)
+  (* equivalence rules *)
   | TyEqRefl L K t k :
       kinding L K t k ->
       tyeq L K t t k
@@ -2168,6 +2254,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
       tyeq L K a c k
   .
 
+  (* the typing judgment *)
   Inductive typing : ctx -> expr -> ty -> idx -> Prop :=
   | TyVar C x t :
       nth_error (get_tctx C) x = Some t ->
@@ -2289,8 +2376,10 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
 
   Local Close Scope idx_scope.
 
+  (* this predicate says that the heap can allocate fresh locations, i.e. the heap is finite *)
   Definition allocatable (h : heap) := exists l_alloc, forall l, l >= l_alloc -> h $? l = None.
-  
+
+  (* heap typing *)
   Definition htyping (h : heap) (W : hctx) :=
     (forall l t i,
         W $? l = Some (t, i) ->
@@ -2300,6 +2389,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
           Forall (fun v => value v /\ typing ([], [], W, []) v t T0) vs) /\
     allocatable h.
 
+  (* a shortcut *)
   Definition interp_time i : time_type := interp_idx i [] BSTime.
   
   Inductive all_sorts (P : list sort -> sort -> Prop) : list sort -> Prop :=
@@ -2311,10 +2401,13 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
       all_sorts P (s :: ss)
   .
 
+  (* wellformed sort context *)
   Definition wfsorts := all_sorts (fun L s => wfsort L s).
 
+  (* wellformed heap typings *)
   Definition wfhctx L K (W : hctx) := fmap_forall (fun p => kinding L K (fst p) KType /\ sorting L (snd p) SNat) W.
 
+  (* wellformed context *)
   Definition wfctx C :=
     let L := get_sctx C in
     let K := get_kctx C in
@@ -2324,6 +2417,7 @@ Module Type TIML (Time : TIME) (BigO :BIG_O Time).
     wfhctx L K W /\
     Forall (fun t => kinding L K t KType) G.
 
+  (* configuration typing *)
   Definition ctyping W (s : config) t i :=
     let '(h, e, f) := s in
     let C := ([], [], W, []) in
@@ -16208,8 +16302,8 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
 
   Definition prim_cost opr :=
     match opr with
-    | PEBIntAdd => 1%time
-    | PEBIntMult => 1%time
+    | PEBIntAdd => 0%time
+    | PEBIntMult => 0%time
     end.
 
   Definition prim_arg1_type opr :=
@@ -16262,7 +16356,7 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
   | EBNatAdd
   .
 
-  Definition nat_add_cost := 1%time.
+  Definition nat_add_cost := 0%time.
 
   Inductive expr :=
   | EVar (x : var)

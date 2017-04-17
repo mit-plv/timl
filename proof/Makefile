@@ -3,7 +3,7 @@
 default: lib
 
 lib: Makefile.coq
-	$(MAKE) -f Makefile.coq Frap.vo
+	$(MAKE) -f Makefile.coq Util.vo
 
 soundness: Makefile.coq
 	$(MAKE) -f Makefile.coq Soundness.vo
