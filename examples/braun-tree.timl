@@ -3,6 +3,8 @@
 (* Braun trees are a kind of balanced binary tree where the element stored in each node is no larger than elements in its children, and the size of each left child is equal to or larger by one than its right sibling. They are used to implement functional priority queues (or binary heaps), where the dequeue operation pops and returns the minimal element of the queue. 
  *)
 
+(* The main functions are [insert], [peek] and [pop]. *)
+
 functor BraunTree (structure K : sig
                                type t
                                idx m : Time
@@ -25,6 +27,7 @@ fun min_max {m : Time} (le : t * t -- m --> bool) (x, y) =
 absidx T_insert : BigO (fn n => log2 $n) with
 fun insert {size : Nat} (tr : braun_tree {size}) (x : t) return braun_tree {size + 1} using T_insert size =
     case tr of
+        (* implicit-index-argument inference failed here, so we have to supply index arguments explicitly *)
         Leaf => @Node {0} (x, Leaf, Leaf)
       | @Node {size'} (y, l, r) =>
         let
@@ -72,6 +75,7 @@ fun sift {size : Nat} (x, l : braun_tree {ceil ($size/2)}, r : braun_tree {floor
       | _ => never
 end
 
+(* pop out the root element (minimal element) *)  
 absidx T_pop : BigO (fn n => log2 $n * log2 $n) with
 fun pop {size : Nat} (tr : braun_tree {size + 1}) return t * braun_tree {size} using T_pop size =
     case tr of

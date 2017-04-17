@@ -12,7 +12,9 @@ datatype order =
          | OrdGt
 
 absidx T_array_bsearch_on_range : BigO (fn m n => $m * log2 $n) with
+(* this function uses refinements as preconditions *)             
 fun array_bsearch_on_range ['a] {m : Nat} {len : Nat} {l : Nat} {n : Nat} {n > 0} {l + n <= len} (p : 'a -- $m --> order) (a : array 'a {len}, l : nat {l}, n : nat {n}) return nat_less_than {len} using T_array_bsearch_on_range m n =
+    (* #1 is the syntax for natural number 1 (of type [nat {1}]) *)
     case le (n, #1) of
         Le => NatLT l
       | Gt =>

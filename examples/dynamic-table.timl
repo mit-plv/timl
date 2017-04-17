@@ -7,11 +7,13 @@
 Introduction to Algorithms. McGraw-Hill Higher Education,
 2nd edition, 2001. *)
 
+(* The main functions are [insert_delete_seq_from_good_start] and [insert_delete_seq_from_empty]. *)
+
 functor DynamicTable (structure T : sig
 (* num: the number of existing elements in the table 
    size: the capacity (the maximal possible number of elements) *)
   type table 'a  {Nat} {Nat}
-  (* Assumption: for any table, num is not larger than capacity *)
+  (* Requirement: for any table, num is not larger than capacity *)
   val table_num_le_size ['a] : forall {size num : Nat}, table 'a {size} {num} -- 1.0 --> Basic.le {num} {size}
   val alloc ['a] : forall {size : Nat}, nat {size} -- 1.0 --> table 'a {size} {0}
   val do_insert ['a] : forall {size num : Nat} {num < size}, table 'a {size} {num} ->> 'a -- 1.0 --> table 'a {size} {num + 1}

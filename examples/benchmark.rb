@@ -1,54 +1,27 @@
 #!/usr/bin/env ruby
 
-# subjects = %w{list lsls tree msort insertion-sort braun-tree braun-tree-sortedness rbt-sortedness rbt dynamic-table two-stack-queue array-bsearch array-heap array-msort array-msort-inplace array-kmed qsort dijkstra dlist}
-# descriptions = [
-#   "List operations",
-#   "List of lists",
-#   "Trees",
-#   "Merge sort",
-#   "Insertion sort",
-#   "Braun trees",
-#   "Braun trees with invariant for sortedness",
-#   "Red-black trees with invariant for sortedness",
-#   "Red-black trees",
-#   "Dynamic tables with amortized time complexity",
-#   "Two-stack queues with amortized time complexity",
-#   "Binary search on arrays",
-#   "Binary heap on arrays",
-#   "Merge sort on arrays",
-#   "Inplace merge sort on arrays",
-#   "k-median search on arrays",
-#   "Quicksort",
-#   "Dijkstra algorithm",
-#   "Double-linked lists"
-# ]
-
 template = 
 %q{
 list & List operations & 0.171 & 26 & 4 & $n$, $mn$ \\\\
-lsls & List of lists & 0.113 & 14 & 1 & $m^2 n$ \\\\
+ragged-matrix & List of lists & 0.113 & 14 & 1 & $m^2 n$ \\\\
 tree & Trees & 0.222 & 112 & 15 & $mn$\\\\
 msort & Merge sort & 0.286 & 63 & 14 & $mn\log n$ \\\\
 insertion-sort & Insertion sort & 0.15 & 22 & 4 & $mn^2$ \\\\
 braun-tree & Braun trees & 0.225 & 87 & 11 & $\log n$, $\log^2 n$ \\\\
-braun-tree-sortedness & Braun trees w/ sortedness & 0.304 & 109 & 12 & $\log n$, $\log^2 n$ \\\\
 rbt & Red-black trees & 0.533 & 328 & 18 & $\log n$ \\\\
-rbt-sortedness & Red-black trees w/ sortedness & 0.919 & 284 & 16 & $\log n$ \\\\
 dynamic-table & Dynamic tables & 0.145 & 116 & 10 & (amortized) $1$ \\\\
-two-stack-queue & Two-stack queues & 0.15 & 95 & 7 & (amortized) $1$ \\\\
+functional-queue & Two-stack queues & 0.15 & 95 & 7 & (amortized) $1$ \\\\
 array-bsearch & Binary search & 0.169 & 42 & 2 & $m\log n$ \\\\
 array-heap & Binary heap & 0.241 & 138 & 6 & $m\log n$ \\\\
 array-msort & Merge sort on arrays & 0.243 & 109 & 7 & $mn\log n$ \\\\
 array-msort-inplace & In-place merge sort on arrays & 0.293 & 132 & 9 & $mn\log n$ \\\\
 array-kmed & k-median search & 0.152 & 69 & 8 & $mn^2$ \\\\
+dlist & Doubly linked lists & 0.305 & 111 & 10 & $mn$\\\\
 qsort & Quicksort & 0.121 & 39 & 7 & $m n^2$ \\\\
 dijkstra & Dijkstra's & 0.125 & 74 & 0 & $(m_++m_\leq)n^2$ \\\\
-dlist & Doubly linked lists & 0.305 & 111 & 10 & $mn$\\\\
 }
 
 template = template.split("\n").join("")
-
-# puts template.inspect
 
 lines = template.split(%q{\\\\})
 
@@ -59,10 +32,6 @@ end
 subjects = lines.map do |x| x[0] end
 descriptions = lines.map do |x| x[1] end
 coms = lines.map do |x| x[5] end
-
-# lines.each do |line|
-#   puts line.join(",")
-# end
 
 results = subjects.zip(descriptions).map do |(sub, desc)|
   fn = "#{sub}.timl"

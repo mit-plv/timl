@@ -1,4 +1,4 @@
-(* Array-based merge sort *)
+(* Array-based merge sort (copying) *)
 
 structure ArrayMSort = struct
 

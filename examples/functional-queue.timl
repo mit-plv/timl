@@ -2,6 +2,8 @@
 
 (* Functional queues are queues implemented with two stacks. This file showcases how to use TiML, more specifically the [some_output_and_cost_constraint] and [amortized_comp] datatypes below, to conduct amortized complexity analysis. *)
 
+(* The main functions are [enqueue_dequeue_seq_from_good_start] and [enqueue_dequeue_seq_from_empty]. *)
+
 structure FunctionalQueue = struct
 
 open Basic

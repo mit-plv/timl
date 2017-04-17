@@ -40,6 +40,17 @@ or this command to run a single example:
 
 Note that [examples/stdlib.pkg](examples/stdlib.pkg) (the standard library) is usually needed.
 
+Readers are advised to read the example files following the order in Table 1 of the companion paper (and in file [examples/test-suite.pkg](examples/test-suite.pkg)), as new syntax are explained in that order.
+
+To reproduce the results in Table 1 of the companion paper, you can run
+
+  ```
+  cd examples
+  ruby benchmark.rb
+  ```
+
+The results will be printed out and written to file "result.csv". Note that this experiment requires MLton, and the processing time will depend on your hardware.
+
 Coq Proof
 ----------------------------------
 

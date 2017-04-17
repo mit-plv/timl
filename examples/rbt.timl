@@ -1,5 +1,7 @@
 (* Red-black tree with invariant for well-red-ness and black-height-blancedness *)
 
+(* The main functions are [insert] and [lookup]. *)
+
 structure LogFacts = struct
 datatype lemma1 {a b : Nat} =
          Lemma1 {2 ^ a <= b + 1 -> a <= ceil (log2 $(b + 1))} of lemma1 {a} {b}
@@ -12,14 +14,9 @@ structure Compare = struct
 datatype cmp_result = Equal | Less | Greater
 end
 
-structure IntKey = struct
-type t = int
-absidx m = 7.0 with
-fun cmp (a : int, b : int) return using m = Compare.Equal
-end
-end
-
+(* rbt is implemented as a functor parametrized on the key type *)
 functor Rbt (structure K : sig
+                           (* signatures can have both type parameter and index parameter *)
                            type t
                            idx m : Time
                            val cmp : t * t -- m --> Compare.cmp_result
@@ -40,6 +37,7 @@ datatype rbt 'a : {Nat(*size*)} {Bool} {Nat(*black-height*)} =
        | Node {lcolor color rcolor : Bool}
               {lsize rsize bh : Nat}
               {color = false -> lcolor = true /\ rcolor = true }
+              (* We have to add the following two extra invariants. These two invariants can be derived from the other invariants, but because in TiML lemmas, lemma invocations, and inductions must be written as ordinary functions (like in Dafny) which increase a program's running time, deriving these invariants on the fly will increase asymptotic complexity. *)
               {2 ^ (bh + b2n (not lcolor) + 1) <= 2 * (lsize + 1) /\ 2 * (lsize + 1) <= 2 ^ (2 * bh + b2n (not lcolor) + 1)}
               {2 ^ (bh + b2n (not rcolor) + 1) <= 2 * (rsize + 1) /\ 2 * (rsize + 1) <= 2 ^ (2 * bh + b2n (not rcolor) + 1)}
          of color {color} * rbt 'a {lsize} {lcolor} {bh} * (key * 'a) * rbt 'a {rsize} {rcolor} {bh} --> rbt 'a {lsize + 1 + rsize} {color} {bh + b2n color}
@@ -107,7 +105,7 @@ fun balance_right ['a] {lcolor : Bool} {lsize rsize bh : Nat}
       | _ => never
                
 (* arbt: 'almost' red black tree, except that wellredness may be violated between root and one of its children *)
-datatype arbt 'a {size bh : Nat} : {Bool (*is already good?*)} {Bool} =
+datatype arbt 'a {size bh : Nat} : {Bool (*whether the rbt is already good*)} {Bool} =
          Good {color : Bool}
          of color {color} * rbt 'a {size} {color} {bh} --> arbt 'a {size} {bh} {true} {color}
        | Bad {size bh : Nat}
@@ -120,10 +118,10 @@ datatype ins_result 'a {input_color : Bool} {input_size bh : Nat} =
                    {output_size = input_size \/ output_size = input_size + 1}
          of arbt 'a {output_size} {bh} {is_good} {output_color} --> ins_result 'a {input_color} {input_size} {bh}
 
-absidx T_ins : BigO (fn n => $n) (* = fn n => 6.0 * $n *) with                                   
+absidx T_ins : BigO (fn n => $n) with                                   
 fun ins ['v] {input_color : Bool} {input_size bh : Nat}
         (tr : rbt 'v {input_size} {input_color} {bh}) (new as (k, _))
-        return ins_result 'v {input_color} {input_size} {bh} using (* 6.0 * $ *)T_ins (2 * bh + b2n (not input_color)) =
+        return ins_result 'v {input_color} {input_size} {bh} using T_ins (2 * bh + b2n (not input_color)) =
     case tr of
         Leaf =>
         let
@@ -150,9 +148,7 @@ fun ins ['v] {input_color : Bool} {input_size bh : Nat}
                           val SizeGood _ = rbt_size_good left
                           val SizeGood _ = rbt_size_good right
                         in
-                          (* never *)
-                          InsResult (Good (Red, Node (Red, left, center(* new *)(* (Zero, v) *), right)))
-                                    (* InsResult (Good (Red, Node (Red, left, new, right))) *)
+                          InsResult (Good (Red, Node (Red, left, center, right)))
                         end
                    )
                  | _ => never
@@ -297,6 +293,17 @@ end
 end
 
 (* test the functor *)
+
+structure IntKey = struct
+
+type t = int
+           
+absidx m = 7.0 with
+fun cmp (a : int, b : int) return using m = Compare.Equal
+end
+                     
+end
+
 structure IntRbt = Rbt (structure K = IntKey)
 
 structure TestIntRbt = struct

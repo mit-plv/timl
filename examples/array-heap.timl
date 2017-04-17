@@ -1,5 +1,7 @@
 (* Array-based binary heaps *)
 
+(* The main functions are [top], [push] and [pop]. *)
+
 structure ArrayHeap = struct
 
 open Basic

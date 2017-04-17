@@ -1,4 +1,4 @@
-(* Array-based in-place merge sort *)
+(* Array-based merge sort (in-place) *)
 
 structure ArrayMSortInplace = struct
 

@@ -18,6 +18,7 @@ fun swap ['a] {len i j : Nat} {i < len} {j < len} (a : array 'a {len}, i : nat {
       ()
     end
 
+(* big-O inference fails for this function so a precise bound is given *)      
 idx T_array_pivot_on_range = fn m n => 23.0 * ($m + 1.0) * $n + 8.0
 fun array_pivot_on_range ['a] {m len l n : Nat} {l + n <= len} (le : 'a * 'a -- $m --> bool) (a : array 'a {len}, l : nat {l}, n : nat {n}, x : 'a) return nat_less_equal_than {n} using T_array_pivot_on_range m n =
     case Nat.le (n, #0) return using (T_array_pivot_on_range m n) - 8.0 of
@@ -40,6 +41,7 @@ fun array_pivot_on_range ['a] {m len l n : Nat} {l + n <= len} (le : 'a * 'a -- 
                 NatLE p => NatLE (nat_plus (p, #1))
         end
 
+(* big-O inference fails for this function so a precise bound is given *)      
 idx T_array_kth_median_on_range = fn m n => 41.0 * ($m + 1.0) * $n * $n + 8.0
 fun array_kth_median_on_range ['a] {m len l n k : Nat} {l + n <= len} {1 <= k} {k <= n} (le : 'a * 'a -- $m --> bool) (a : array 'a {len}, l : nat {l}, n : nat {n}, k : nat {k}) return 'a using T_array_kth_median_on_range m n =
     case Nat.le (n, #0) return using (T_array_kth_median_on_range m n - 8.0) of
@@ -60,9 +62,11 @@ fun array_kth_median_on_range ['a] {m len l n k : Nat} {l + n <= len} {1 <= k} {
                     let
                       val () = swap (a, l, nat_plus (l, nat_minus (n, rank)))
                     in
+                      (* here we need local time annotation to forget a local index variable *)
                       array_kth_median_on_range le (a, l, nat_minus (n, rank), nat_minus (k, rank)) using (T_array_kth_median_on_range m (n - 1)) + 6.0
                     end
                   | Greater =>
+                    (* here we need local time annotation to forget a local index variable *)
                     array_kth_median_on_range le (a, nat_plus (l, nat_minus (n, gtc)), gtc, k) using (T_array_kth_median_on_range m (n - 1)) + 6.0
               end
         end
