@@ -25908,8 +25908,7 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
     forall W t i,
       ctyping1 W s t i ->
       exists W' i',
-        ctyping1 W' s' t i' /\
-        (W $<= W').
+        ctyping1 W' s' t i'.
   Proof.
     invert 1.
     (* induct 1. *)
@@ -25991,9 +25990,7 @@ Module TiML (Time : TIME) (BigO :BIG_O Time) <: TIML Time BigO.
       {
         destruct Hs0 as (W' & i' & Hty).
         propositional.
-        eapply preservation in H0; eauto.
-        destruct H0 as (W'' & i'' & Hty' & Hle).
-        eauto.
+        eapply preservation; eauto.
       }
     }
     {
