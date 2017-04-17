@@ -8,11 +8,11 @@ cont-mlton.sml
 util.sml
 region.sml
 operators.sml
-front-end/ast.sml
-front-end/timl.grm.sig
-front-end/timl.grm.sml
-front-end/timl.lex.sml
-front-end/parser.sml
+parser/ast.sml
+parser/timl.grm.sig
+parser/timl.grm.sml
+parser/timl.lex.sml
+parser/parser.sml
 bind.sml
 var-uvar.sml
 expr.sml

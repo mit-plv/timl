@@ -11,10 +11,10 @@ cont-mlton.sml \
 util.sml \
 region.sml \
 operators.sml \
-front-end/ast.sml \
-front-end/timl.grm \
-front-end/timl.lex \
-front-end/parser.sml \
+parser/ast.sml \
+parser/timl.grm \
+parser/timl.lex \
+parser/parser.sml \
 bind.sml \
 var-uvar.sml \
 expr.sml \
@@ -37,8 +37,8 @@ main.sml \
 mlton-main.sml \
 
 main: main.mlb $(FILES)
-	mlyacc front-end/timl.grm
-	mllex front-end/timl.lex
+	mlyacc parser/timl.grm
+	mllex parser/timl.lex
 	mlyacc sexp/sexp.grm
 	mllex sexp/sexp.lex
 	mlton $(MLTON_FLAGS) main.mlb
