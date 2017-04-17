@@ -3056,8 +3056,8 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
           end
     fun extra_msg () = ["when type-checking"] @ indent [U.str_e gctxn ctxn e_all]
     val (e, t, d) = main ()
-                    handle
-                    Error (r, msg) => raise Error (r, msg @ extra_msg ())
+                    (* handle *)
+                    (* Error (r, msg) => raise Error (r, msg @ extra_msg ()) *)
                     (* | Impossible msg => raise Impossible $ join_lines $ msg :: extra_msg () *)
     val t = simp_mt $ update_uvar_mt t
     val d = simp_i $ update_i d
@@ -3294,8 +3294,8 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
       fun extra_msg () = ["when type-checking declaration "] @ indent [fst $ U.str_decl (gctx_names gctx) (ctx_names ctx) decl]
       val ret as (decl, ctxd, nps, ds) =
           main ()
-          handle
-          Error (r, msg) => raise Error (r, msg @ extra_msg ())
+          (* handle *)
+          (* Error (r, msg) => raise Error (r, msg @ extra_msg ()) *)
           (* | Impossible msg => raise Impossible $ join_lines $ msg :: extra_msg () *)
       (* val () = println $ sprintf " Typed Decl $ " [fst $ str_decl (gctx_names gctx) (ctx_names ctx) decl] *)
 	                          (* val () = print $ sprintf "   Time : $: \n" [str_i sctxn d] *)

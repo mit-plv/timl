@@ -5,7 +5,7 @@ structure List = struct
 (* length-indexed list *)
 datatype list 'a : {Nat} =
          Nil of list 'a {0} 
-       | Cons {n' : Nat} of 'a * list 'a {n'} --> list 'a {n' + 1} 
+       | Cons {n : Nat} of 'a * list 'a {n} --> list 'a {n + 1} 
 
 absidx T_map : BigO (fn m n => $m * $n) with
 fun map ['a 'b] {m n : Nat} (f : 'a -- $m --> 'b) (ls : list 'a {n}) return list 'b {n} using T_map m n =
@@ -14,6 +14,13 @@ fun map ['a 'b] {m n : Nat} (f : 'a -- $m --> 'b) (ls : list 'a {n}) return list
             | Cons (x, xs) => Cons (f x, map f xs)
 end
 
+(* fold-left *)                   
+fun foldl ['a 'b] {m n : Nat} (f : 'a * 'b -- $m --> 'b) acc (l : list 'a {n}) return 'b using $(m + 4) * $n =
+  case l of
+      [] => acc
+    | x :: xs => foldl f (f (x, acc)) xs
+
+(* another version of [foldl] that uses big-O spec *)                     
 absidx T_foldl : BigO (fn m n => $m * $n) with
 fun foldl ['a 'b] {m n : Nat} (f : 'a * 'b -- $m --> 'b) y (xs : list 'a {n}) return 'b using T_foldl m n =
         case xs of
@@ -21,6 +28,7 @@ fun foldl ['a 'b] {m n : Nat} (f : 'a * 'b -- $m --> 'b) y (xs : list 'a {n}) re
           | x :: xs => foldl f (f (x, y)) xs
 end
 
+(* [hd] is a total function that requires its input list to be non-empty *)
 fun hd ['a] {n: Nat | n > 0} (ls: list 'a {n}) =
     case ls of
         x :: _ => x

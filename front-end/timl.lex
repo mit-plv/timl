@@ -61,7 +61,6 @@ val keywords = [
     ("exists", T.EXISTS),
     ("max", T.MAX),
     ("min", T.MIN),
-    ("O", T.BIG_O_INFIX),
     ("idx", T.IDX),
     ("type", T.TYPE),
     (* ("abstype", T.ABSTYPE), *)

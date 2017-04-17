@@ -4,6 +4,7 @@ structure RaggedMatrix = struct
 
 open List
 
+(* the first index is the length of the outer list; the second is the maximal length of the inner lists *)       
 datatype rmat 'a {m : Nat} : {Nat} =
          Nil2 of rmat 'a {m} {0}
        | Cons2 {n m' : Nat} {m' <= m} of list 'a {m'} * rmat 'a {m} {n} --> rmat 'a {m} {n+1}
