@@ -31,6 +31,7 @@ fun list_qsort ['a] {m len : Nat} (le : 'a * 'a -- $m --> bool) (l : list 'a {le
   case l of
       [] => []
     | hd :: tl =>
+      (* need time annotation here to forget the two local index variables which are the lengths of the two partitions. It is very hard for the typechecker to figure out how to replace these two lengths with the total length of the input list *)
       case list_pivot le (tl, hd) return using 4.0 * $m * $len * $len + 74.0 * $m * $len + 40.0 * $len * $len + 750.0 * $len - 100.0 of
           PList (left, right) =>
           let

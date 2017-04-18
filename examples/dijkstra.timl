@@ -1,5 +1,7 @@
 (* Dijkstra's algorithm for graph shortest path *)
 
+(* This file does not require any time annotation, because the functions are implemented by mainly using standard iterators such as [app], [appi] and [foldli] provided by the [Array] module in the standard library. *)
+
 structure Dijkstra = struct
 
 open Basic
