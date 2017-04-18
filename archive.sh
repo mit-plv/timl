@@ -6,4 +6,5 @@ tar --delete -f $FILE timl/compiler
 tar --delete -f $FILE timl/todo.md
 tar --delete -f $FILE timl/archive.sh
 gzip $FILE
+mv $FILE.gz $1.tgz
 
