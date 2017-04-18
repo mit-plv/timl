@@ -49,7 +49,7 @@ To reproduce the results in Table 1 of the companion paper, you can run
   ruby benchmark.rb
   ```
 
-The results will be printed out and written to file "result.csv". Note that this experiment requires MLton, and the processing time will depend on your hardware.
+The results will be printed out and written to file "result.csv". Note that this experiment requires MLton, and your processing time may vary.
 
 Coq Proof
 ----------------------------------
