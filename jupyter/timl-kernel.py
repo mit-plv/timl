@@ -21,7 +21,8 @@ class EchoKernel(Kernel):
             tmp_file.write(code)
             tmp_file.close()
             tmp_out_file_name = 'timl-jupyter-out-tmp.txt'
-            cmd = "../main.sh ../examples/stdlib.pkg %(tmp_file_name)s > %(tmp_out_file_name)s" % locals()
+            timl = 'timl'
+            cmd = "%(timl)s %(tmp_file_name)s > %(tmp_out_file_name)s" % locals()
             os.system(cmd)
             tmp_out_file = open(tmp_out_file_name)
             result = tmp_out_file.read()
