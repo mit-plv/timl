@@ -1,0 +1,3 @@
+{"argv":["python","-m","timl-kernel", "-f", "{connection_file}"],
+ "display_name":"TiML"
+}
