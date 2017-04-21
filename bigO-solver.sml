@@ -228,7 +228,7 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
           let
             val ret as f = m ()
             val ctx = List.mapPartial (fn h => case h of VarH (name, _) => SOME name | _ => NONE) hs
-            val () = println $ sprintf "Yes! I solved this: $\n" [str_i [] ctx f]
+            val () = println $ sprintf "Solved this: $\n" [str_i [] ctx f]
           in
             SOME ret
           end
@@ -686,7 +686,7 @@ fun solve_exists (vc as (hs, p)) =
                                    val inferred = forget_i_i 0 1 inferred
                                    val spec = forget_i_i 0 1 spec
                                    val ctxn = hyps2ctx hs
-                                   val () = println $ sprintf "Inferred! Now check inferred complexity $ against specified complexity $"
+                                   val () = println $ sprintf "Inferred. Now check inferred complexity $ against specified complexity $"
                                                     [str_i [] ctxn inferred, str_i [] ctxn spec]
                                    val ret = 
                                        if timefun_le hs arity inferred spec then

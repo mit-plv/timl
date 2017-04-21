@@ -1,1 +1,1 @@
-make mlton && ./main examples/stdlib.pkg examples/test-suite.pkg
+make mlton && ./main -l examples/stdlib.pkg examples/test-suite.pkg
