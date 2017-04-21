@@ -24,6 +24,7 @@ RUN ln -s $TIML/jupyter/timl-kernel.json /root/.local/share/jupyter/kernels/timl
 RUN jupyter kernelspec install ~/.local/share/jupyter/kernels/timl
 
 RUN mkdir /notebooks
-RUN cp $TIML/jupyter/ragged-matrix.ipynb /notebooks
+RUN cp $TIML/jupyter/ragged-matrix.ipynb /notebooks/example-notebook.ipynb
+RUN cp -r $TIML/examples /notebooks
 ENTRYPOINT jupyter notebook --allow-root --NotebookApp.port=8888 '--NotebookApp.ip=*' --NotebookApp.notebook_dir=/notebooks --NotebookApp.token=''
 EXPOSE 8888

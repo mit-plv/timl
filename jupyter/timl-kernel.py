@@ -16,11 +16,11 @@ class EchoKernel(Kernel):
     def do_execute(self, code, silent, store_history=True, user_expressions=None,
                    allow_stdin=False):
         if not silent:
-            tmp_file_name = 'timl-jupyter-tmp.timl'
+            tmp_file_name = '.timl-jupyter-tmp.timl'
             tmp_file = open(tmp_file_name, 'w')
             tmp_file.write(code)
             tmp_file.close()
-            tmp_out_file_name = 'timl-jupyter-out-tmp.txt'
+            tmp_out_file_name = '.timl-jupyter-out-tmp.txt'
             timl = 'timl'
             cmd = "%(timl)s %(tmp_file_name)s > %(tmp_out_file_name)s" % locals()
             os.system(cmd)
