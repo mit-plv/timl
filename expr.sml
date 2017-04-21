@@ -86,7 +86,9 @@ datatype sort =
          | UVarS of sort uvar_s * region
          (* a special form of [Subset] just to express that the [idx] argument will be dependent on the refinement variable, in order to support big-O spec inference *)
 	 | SortBigO of (bsort * region) * idx * region
-
+         | SAbs of sort * (name * sort) ibind * region
+         | SApp of sort * idx
+                                                  
 datatype kind = 
 	 ArrowK of bool (* is datatype *) * int * sort list
 
@@ -96,7 +98,7 @@ datatype mtype =
          | TyNat of idx * region
          | TyArray of mtype * idx
 	 | BaseType of base_type * region
-         | UVar of mtype uvar_mt * region
+         | UVar of (sort, mtype) uvar_mt * region
          | Unit of region
 	 | Prod of mtype * mtype
 	 | UniI of sort * (name * mtype) ibind * region
@@ -105,7 +107,12 @@ datatype mtype =
          (* | MtAbs of (name * mtype) tbind * region *)
          (* | MtAppI of mtype * idx *)
          (* | MtAbsI of sort * (name * mtype) ibind * region *)
-         | AppV of long_id * mtype list * idx list * region (* the first operant of App can only be a type variable. The degenerated case of no-arguments is also included *)
+         | TVar of long_id
+         | TAbsT of (name * mtype) tbind * region
+         | TAppT of mtype * mtype
+         | TAbsI of sort * (name * mtype) ibind  * region
+         | TAppI of mtype * idx
+         | AppV of long_id * mtype list * idx list * region (* the first operant of App can only be a type variable. The degenerated case of no-arguments is also included *) (* todo: remove AppV *)
 
 fun MtVar x = AppV (x, [], [], snd (snd x))
                    
@@ -496,7 +503,7 @@ fun str_i gctx ctx (i : idx) : string =
         end
       (* | IAbs ((name, _), i, _) => sprintf "(fn $ => $)" [name, str_i (name :: ctx) i] *)
       | AdmitI _ => "admit" 
-      | UVarI (u, _) => str_uvar_i str_i ctx u
+      | UVarI (u, _) => str_uvar_i (str_i []) u
   end
 
 fun str_p gctx ctx p =
@@ -532,7 +539,7 @@ fun str_s gctx ctx (s : sort) : string =
             | _ => default ()
         end
       | UVarS (u, _) =>
-        str_uvar_s str_s ctx u
+        str_uvar_s (str_s []) u
       | SortBigO ((b, _), i, _) =>
         let
           fun default () = sprintf "(BigO $ $)" [str_bs b, str_i gctx ctx i]
@@ -615,7 +622,7 @@ fun str_mt gctx (ctx as (sctx, kctx)) (t : mtype) : string =
             (join_prefix " " o map (surround "{" "}") o map (str_i gctx sctx)) is
           ]
       | BaseType (bt, _) => str_bt bt
-      | UVar (u, _) => str_uvar_mt str_mt ctx u
+      | UVar (u, _) => str_uvar_mt (str_mt ([], [])) u
   end
 
 and str_uni gctx ctx (binds, t) =
@@ -1044,8 +1051,6 @@ fun prop2vc p =
       | _ => ([], p)
   end
 
-exception ModuleUVar of string
-
 structure Subst = struct
 open Util
        
@@ -1303,7 +1308,7 @@ fun on_i_tbind f x n bind =
   case bind of
       Bind (name, inner) => Bind (name, f x n inner)
 
-fun on_i_i on_v on_UVarI x n b =
+fun on_i_i on_v x n b =
   let
     fun f x n b =
       case b of
@@ -1320,7 +1325,7 @@ fun on_i_i on_v on_UVarI x n b =
 	| FalseI r => FalseI r
         | IAbs (b, bind, r) => IAbs (b, on_i_ibind f x n bind, r)
         | AdmitI r => AdmitI r
-        | UVarI a => on_UVarI UVarI f x n a
+        | UVarI a => b (* uvars are closed, so no need to deal with *) (* todo: update first *)
   in
     f x n b
   end
@@ -1339,19 +1344,19 @@ fun on_i_p on_i_i x n b =
     f x n b
   end
 
-fun on_i_s on_i_i on_i_p on_UVarS x n b =
+fun on_i_s on_i_i on_i_p x n b =
   let
     fun f x n b =
       case b of
 	  Basic s => Basic s
 	| Subset (s, bind, r) => Subset (s, on_i_ibind on_i_p x n bind, r)
-        | UVarS a => on_UVarS UVarS f x n a
+        | UVarS a => b
         | SortBigO (b, i, r) => SortBigO (b, on_i_i x n i, r)
   in
     f x n b
   end
 
-fun on_i_mt on_i_i on_i_s on_i_UVar x n b =
+fun on_i_mt on_i_i on_i_s x n b =
   let
     fun f x n b =
       case b of
@@ -1368,7 +1373,7 @@ fun on_i_mt on_i_i on_i_s on_i_UVar x n b =
         (* | MtAbsI (s, bind, r) => MtAbsI (on_i_s x n s, on_i_ibind f x n bind, r) *)
 	| AppV (y, ts, is, r) => AppV (y, map (f x n) ts, map (on_i_i x n) is, r)
 	| BaseType a => BaseType a
-        | UVar a => on_i_UVar UVar f x n a
+        | UVar a => b
   in
     f x n b
   end
@@ -1409,7 +1414,7 @@ fun on_t_ibinds on_anno on_inner x n ibinds =
     | BindCons (anno, bind) =>
       BindCons (on_anno x n anno, on_t_ibind (on_t_ibinds on_anno on_inner) x n bind)
 
-fun on_t_mt on_v on_t_UVar x n b =
+fun on_t_mt on_v x n b =
   let
     fun f x n b =
       case b of
@@ -1426,7 +1431,7 @@ fun on_t_mt on_v on_t_UVar x n b =
         (* | MtAbsI (s, bind, r) => MtAbsI (s, on_t_ibind f x n bind, r) *)
 	| AppV (y, ts, is, r) => AppV (on_v_long_id on_v x n y, map (f x n) ts, is, r)
 	| BaseType a => BaseType a
-        | UVar a => on_t_UVar UVar f x n a
+        | UVar a => b
   in
     f x n b
   end
@@ -1469,10 +1474,7 @@ fun on_m_i on_v x n b =
 	| FalseI r => FalseI r
         | IAbs (b, bind, r) => IAbs (b, on_m_ibind f x n bind, r)
         | AdmitI r => AdmitI r
-        | UVarI a =>
-          (* (* ToDo: unsafe *) *)
-          (* UVarI a *)
-          raise ModuleUVar "on_m_i ()"
+        | UVarI a => b
   in
     f x n b
   end
@@ -1497,7 +1499,7 @@ fun on_m_s on_m_i on_m_p x n b =
       case b of
 	  Basic s => Basic s
 	| Subset (b, bind, r) => Subset (b, on_m_ibind on_m_p x n bind, r)
-        | UVarS a => raise ModuleUVar "on_m_s ()"
+        | UVarS a => b
         | SortBigO (b, i, r) => SortBigO (b, on_m_i x n i, r)
   in
     f x n b
@@ -1520,7 +1522,7 @@ fun on_m_mt on_v on_m_i on_m_s x n b =
         (* | MtAbsI (s, bind, r) => MtAbsI (on_m_s x n s, on_m_ibind f x n bind, r) *)
 	| AppV (y, ts, is, r) => AppV (on_m_long_id on_v x n y, map (f x n) ts, map (on_m_i x n) is, r)
 	| BaseType a => BaseType a
-        | UVar a => raise ModuleUVar "on_m_mt ()"
+        | UVar a => b
   in
     f x n b
   end
@@ -1641,17 +1643,17 @@ fun on_e_e on_v =
 
 fun shiftx_long_id x n b = on_v_long_id shiftx_v x n b
 
-fun shiftx_i_i x n b = on_i_i shiftx_v shiftx_i_UVarI x n b
+fun shiftx_i_i x n b = on_i_i shiftx_v x n b
 fun shift_i_i b = shiftx_i_i 0 1 b
 
 fun shiftx_i_p x n b = on_i_p shiftx_i_i x n b
 fun shift_i_p b = shiftx_i_p 0 1 b
 
-fun shiftx_i_s x n b = on_i_s shiftx_i_i shiftx_i_p shiftx_i_UVarS x n b
+fun shiftx_i_s x n b = on_i_s shiftx_i_i shiftx_i_p x n b
 fun shift_i_s b = shiftx_i_s 0 1 b
 
-fun shiftx_i_mt x n b = on_i_mt shiftx_i_i shiftx_i_s (shiftx_i_UVar shiftx_t_mt) x n b
-and shiftx_t_mt x n b = on_t_mt shiftx_v (shiftx_t_UVar shiftx_i_mt) x n b
+fun shiftx_i_mt x n b = on_i_mt shiftx_i_i shiftx_i_s x n b
+and shiftx_t_mt x n b = on_t_mt shiftx_v x n b
 fun shift_i_mt b = shiftx_i_mt 0 1 b
 fun shift_t_mt b = shiftx_t_mt 0 1 b
 
@@ -1719,11 +1721,11 @@ exception ForgetError of int * string
 
 val forget_v = forget_v ForgetError
                         
-fun forget_i_i x n b = on_i_i forget_v (forget_i_UVarI shiftx_i_i ForgetError) x n b
+fun forget_i_i x n b = on_i_i forget_v x n b
 fun forget_i_p x n b = on_i_p forget_i_i x n b
-fun forget_i_s x n b = on_i_s forget_i_i forget_i_p (forget_i_UVarS shiftx_i_s ForgetError) x n b
-fun forget_i_mt x n b = on_i_mt forget_i_i forget_i_s (forget_i_UVar shiftx_i_mt shiftx_t_mt ForgetError) x n b
-fun forget_t_mt x n b = on_t_mt forget_v (forget_t_UVar shiftx_i_mt shiftx_t_mt ForgetError) x n b
+fun forget_i_s x n b = on_i_s forget_i_i forget_i_p x n b
+fun forget_i_mt x n b = on_i_mt forget_i_i forget_i_s x n b
+fun forget_t_mt x n b = on_t_mt forget_v x n b
 fun forget_i_t x n b = on_i_t forget_i_mt x n b
 fun forget_t_t x n b = on_t_t forget_t_mt x n b
 
@@ -1796,7 +1798,7 @@ local
       | TTI r => TTI r
       | IAbs (b, bind, r) => IAbs (b, substx_i_ibind f x idx_shiftable v bind, r)
       | AdmitI r => AdmitI r
-      | UVarI a => substx_i_UVarI shiftx_i_i UVarI f x v a
+      | UVarI a => b
 in
 fun substx_i_i x (v : idx) (b : idx) : idx = f x v b
 fun subst_i_i v b = substx_i_i 0 v b
@@ -1821,7 +1823,7 @@ local
     case b of
 	Basic s => Basic s
       | Subset (b, bind, r) => Subset (b, substx_i_ibind substx_i_p x idx_shiftable v bind, r)
-      | UVarS a => substx_i_UVarS shiftx_i_s UVarS f x v a
+      | UVarS a => b
       | SortBigO (b, i, r) => SortBigO (b, substx_i_i x v i, r)
 in
 fun substx_i_s x (v : idx) (b : sort) : sort = f x v b
@@ -1844,7 +1846,7 @@ local
       (* | MtAbsI (s, bind, r) => MtAbsI (substx_i_s x v s, substx_i_ibind f x idx_shiftable v bind, r) *)
       | AppV (y, ts, is, r) => AppV (y, map (f x v) ts, map (substx_i_i x v) is, r)
       | BaseType a => BaseType a
-      | UVar a => substx_i_UVar shiftx_i_mt shiftx_t_mt UVar f x v a
+      | UVar a => b
 in
 fun substx_i_mt x (v : idx) (b : mtype) : mtype = f x v b
 fun subst_i_mt (v : idx) (b : mtype) : mtype = substx_i_mt 0 v b
@@ -1905,7 +1907,7 @@ local
           substx_long_id constr x get_v y
         end
       | BaseType a => BaseType a
-      | UVar a => substx_t_UVar shiftx_i_mt shiftx_t_mt UVar f x v a
+      | UVar a => b
 in
 fun substx_t_mt x (v : mtype) (b : mtype) : mtype = f x v b
 fun subst_t_mt (v : mtype) (b : mtype) : mtype = substx_t_mt 0 v b
@@ -2590,29 +2592,13 @@ structure Underscore = struct
 type 'bsort uvar_bs = unit
 type ('bsort, 'idx) uvar_i = unit
 type 'sort uvar_s = unit
-type 'mtype uvar_mt = unit
+type ('sort, 'mtype) uvar_mt = unit
 fun str_uvar_bs (_ : 'a -> string) (_ : 'a uvar_bs) = "_"
-fun str_uvar_s (_ : string list -> 'sort -> string) (_ : string list) (_ : 'sort uvar_s) = "_"
-fun str_uvar_i (_ : string list -> 'idx -> string) (_ : string list) (_ : ('bsort, 'idx) uvar_i) = "_"
-fun str_uvar_mt (_ : string list * string list -> 'mtype -> string) (_ : string list * string list) (_ : 'mtype uvar_mt) = "_"
+fun str_uvar_s (_ : 'sort -> string) (_ : 'sort uvar_s) = "_"
+fun str_uvar_i (_ : 'idx -> string) (_ : ('bsort, 'idx) uvar_i) = "_"
+fun str_uvar_mt (_ : 'mtype -> string) (_ : ('sort, 'mtype) uvar_mt) = "_"
 fun eq_uvar_i (_, _) = false
 fun eq_uvar_bs (_, _) = false
-
-fun shiftx_i_UVarI UVarI _ _ _ a = UVarI a
-fun shiftx_i_UVarS UVarS _ _ _ a = UVarS a 
-fun shiftx_i_UVar _ UVar _ _ _ a = UVar a
-fun shiftx_t_UVar _ UVar _ _ _ a = UVar a
-                                        
-fun forget_i_UVarI _ _ UVarI _ _ _ a = UVarI a
-fun forget_i_UVarS _ _ UVarS _ _ _ a = UVarS a 
-fun forget_i_UVar _ _ _ UVar _ _ _ a = UVar a
-fun forget_t_UVar _ _ _ UVar _ _ _ a = UVar a
-                                            
-fun substx_i_UVarI _ UVarI _ _ _ a = UVarI a
-fun substx_i_UVarS _ UVarS _ _ _ a = UVarS a 
-fun substx_i_UVar _ _ UVar _ _ _ a = UVar a
-fun substx_t_UVar _ _ UVar _ _ _ a = UVar a
-                                          
 end
 
 structure NamefulExpr = ExprFun (structure Var = StringVar structure UVar = Underscore)
