@@ -1,4 +1,5 @@
 structure UVar = struct
+open Util
        
 datatype ('a, 'b) uvar = 
          Fresh of 'a
@@ -6,19 +7,19 @@ datatype ('a, 'b) uvar =
 
 type uvar_name = int
 
-type 'a uvar_ref = ('a uvar) ref
+type ('a, 'b) uvar_ref = (('a, 'b) uvar) ref
                              
 (* uvar for bsort *)                  
 type 'bsort uvar_bs = (uvar_name, 'bsort) uvar_ref
 
 (* uvar for index *)                  
-type ('bsort, 'idx) uvar_i = (uvar_name * (name * 'bsort) list(*context*) * 'bsort(*result*), 'idx) uvar_ref
+type ('bsort, 'idx) uvar_i = (uvar_name * (string * 'bsort) list(*context*) * 'bsort(*result*), 'idx) uvar_ref
 
 (* uvar for sort *)                  
-type 'sort uvar_s = (uvar_name * (name * 'sort) list(*context*), 'sort) uvar_ref
+type 'sort uvar_s = (uvar_name * (string * 'sort) list(*context*), 'sort) uvar_ref
 
 (* uvar for (mono-)type *)                  
-type ('sort, 'mtype) uvar_mt = (uvar_name * (name * 'bsort) list(*index context*) * name list(*type context*), 'mtype) uvar_ref
+type ('sort, 'mtype) uvar_mt = (uvar_name * (string * 'sort) list(*index context*) * string list(*type context*), 'mtype) uvar_ref
 
 fun refine (x : ('a, 'b) uvar_ref) (v : 'b) = 
   case !x of
@@ -48,12 +49,12 @@ fun str_uvar_i str_i (u : ('bsort, 'idx) uvar_i) =
 fun str_uvar_s str_s (u : 'sort uvar_s) =
   case !u of
       Refined s => str_s s
-    | Fresh info => str_uinfo_i info
+    | Fresh info => str_uinfo_s info
 
 fun str_uvar_mt str_mt (u : ('sort, 'mtype) uvar_mt) =
   case !u of
       Refined t => str_mt t
-    | Fresh info => str_uinfo_nonidx info
+    | Fresh info => str_uinfo_mt info
                             
 fun eq_uvar_bs (u : 'bsort uvar_bs, u' : 'bsort uvar_bs) = u = u'
 fun eq_uvar_i (u : ('bsort, 'idx) uvar_i, u' : ('bsort, 'idx) uvar_i) = u = u'

@@ -2,13 +2,13 @@ structure Bind = struct
 open Util
 infixr 0 $
 
-(* a series of dependent binds ({name1 : classifier1} {name2 : classifier2} {name3 : classifier3}, inner) *)
-         
-datatype 'body bind = Bind of 'body
+(* ['namespace] is just a tag to differentiate different bind types *)         
+datatype ('namespace, 'body) bind = Bind of 'body
 
-datatype ('classifier, 'name, 'inner) binds =
+(* a series of dependent binds ({name1 : classifier1} {name2 : classifier2} {name3 : classifier3}, inner) *)
+datatype ('namespace, 'classifier, 'name, 'inner) binds =
          BindNil of 'inner
-         | BindCons of 'classifier * ('name * ('classifier, 'name, 'inner) binds) bind
+         | BindCons of 'classifier * ('namespace, 'name * ('namespace, 'classifier, 'name, 'inner) binds) bind
 
 fun unfold_binds binds =
     case binds of

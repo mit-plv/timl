@@ -1,3 +1,4 @@
+(* variables *)
 signature VAR = sig
   type var
   val str_v : string list -> var -> string
@@ -13,7 +14,9 @@ signature VAR = sig
   val var2int : var -> int
 end
 
+(* unification variables ('uvars') *)                  
 signature UVAR = sig
+  (* all uvars denotate closed entities, which means they cannot be instantiated with things that contain variables (even module variables) *)
   type 'bsort uvar_bs
   type ('bsort, 'idx) uvar_i
   type 'sort uvar_s

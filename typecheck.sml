@@ -47,8 +47,8 @@ fun idx_bin_op_type opr =
     | MultI => raise Impossible "idx_bin_op_type ()"
     | BoundedMinusI => raise Impossible "idx_bin_op_type ()"
 
-(* a special kind of substitution, where a variable y >= x will be replaced with m.(y-x) *)
-
+(* a special kind of substitution, where a variable y such that y >= x will be replaced with m.(y-x) *)
+(* This is used for packagin things in the top-level context into a module *)
 fun package_long_id x m (long_id as (m', (y, r))) =
   case m' of
       NONE =>
@@ -84,10 +84,7 @@ local
       | TTI r => TTI r
       | IAbs (b, bind, r) => IAbs (b, package_i_ibind f x v bind, r)
       | AdmitI r => AdmitI r
-      | UVarI a =>
-        (* (* ToDo: unsafe *) *)
-        (* UVarI a *)
-        raise ModuleUVar "package_i_i ()"
+      | UVarI a => b
 in
 fun package_i_i x v (b : idx) : idx = f x v b
 end
@@ -114,7 +111,7 @@ local
     case b of
 	Basic s => Basic s
       | Subset (s, bind, r) => Subset (s, package_i_ibind package_i_p x v bind, r)
-      | UVarS a => raise ModuleUVar "package_i_s ()"
+      | UVarS a => b
       | SortBigO s => f x v (SortBigO_to_Subset s)
 in
 fun package_i_s x v (b : sort) : sort = f x v b
@@ -133,7 +130,7 @@ local
       (* | MtVar y => MtVar y *)
       | AppV (y, ts, is, r) => AppV (y, map (f x v) ts, map (package_i_i x v) is, r)
       | BaseType a => BaseType a
-      | UVar a => raise ModuleUVar "package_i_mt ()"
+      | UVar a => b
 in
 fun package_i_mt x v (b : mtype) : mtype = f x v b
 end
@@ -168,7 +165,7 @@ local
       | AppV (y, ts, is, r) =>
         AppV (package_long_id x v y, map (f x v) ts, is, r)
       | BaseType a => BaseType a
-      | UVar a => raise ModuleUVar "package_m_mt ()"
+      | UVar a => b
 in
 fun package_t_mt x v (b : mtype) : mtype = f x v b
 end
@@ -570,9 +567,6 @@ fun ctx_from_kinding pair : context = add_kinding_skct pair empty_ctx
 fun ctx_from_typing pair : context = ([], [], [], [pair])
 
 open UVar
-val expand_i = expand_i shiftx_i_i
-val expand_s = expand_s shiftx_i_s
-val expand_mt = expand_mt shiftx_i_mt shiftx_t_mt
                           
 fun update_bs bs =
   case bs of
@@ -590,19 +584,20 @@ fun update_bs bs =
     | BSArrow (a, b) => BSArrow (update_bs a, update_bs b)
     | Base _ => bs
 
+fun update_uvar update origin x = 
+    case !x of
+        Refined a => 
+        let 
+          val a = update a
+          val () = x := Refined a
+        in
+          a
+        end
+      | Fresh _ => origin
+                        
 fun update_i i =
   case i of
-      UVarI ((invis, x), r) => 
-      (case !x of
-           Refined i => 
-           let 
-             val i = update_i i
-             val () = x := Refined i
-           in
-             expand_i invis i
-           end
-         | Fresh _ => i
-      )
+      UVarI (x, r) => update_uvar update_i i x
     | UnOpI (opr, i, r) => UnOpI (opr, update_i i, r)
     | DivI (i1, n2) => DivI (update_i i1, n2)
     | ExpI (i1, n2) => ExpI (update_i i1, n2)
@@ -628,17 +623,7 @@ fun update_p p =
 
 fun update_s s =
   case s of
-      UVarS ((invis, x), r) =>
-      (case !x of
-           Refined s => 
-           let 
-             val s = update_s s
-             val () = x := Refined s
-           in
-             expand_s invis s
-           end
-         | Fresh _ => s
-      )
+      UVarS (x, r) => update_uvar update_s s x
     | Basic _ => s
     | Subset _ => s
     | SortBigO _ => s
