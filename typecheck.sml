@@ -811,16 +811,6 @@ fun fetch_type_by_name gctx ctx (m, name) =
     ((m, x), t)
   end
     
-fun try_retrieve_UVar f (a as ((invis, x), r)) =
-  case !x of
-      Refined t =>
-      let
-        val t = expand_mt invis t
-      in
-        f t
-      end
-    | Fresh _ => UVar a
-                      
 fun try_retrieve_MtVar f gctx kctx x =
   let
     val k = fetch_kindext gctx (kctx, x)
@@ -843,6 +833,11 @@ fun eval_AppV y (ts, is, r) =
   else
     AppV (is_type_variable r y, ts, is, r)
          
+fun try_retrieve_UVar f (a as (x, r)) =
+  case !x of
+      Refined t => f t
+    | Fresh _ => UVar a
+                      
 fun whnf_mt gctx kctx t =
   let
     val whnf_mt = whnf_mt gctx
