@@ -459,9 +459,9 @@ fun add_sortings_skct pairs' (pairs, kctx, cctx, tctx) : context =
     val n = length pairs' 
   in
     ((* map (mapFst SOME) *) pairs' @ pairs, 
-                             shiftx_i_kctx n kctx, 
-                             shiftx_i_cs n cctx, 
-                             shiftx_i_ts n tctx)
+     shiftx_i_kctx n kctx, 
+     shiftx_i_cs n cctx, 
+     shiftx_i_ts n tctx)
   end
 (*      
 (* Within 'pairs', sort doesn't depend on previous sort. All of them point to 'sctx'. So the front elements of 'pairs' must be shifted to skip 'pairs' and point to 'sctx' *)
@@ -567,7 +567,7 @@ fun ctx_from_kinding pair : context = add_kinding_skct pair empty_ctx
 fun ctx_from_typing pair : context = ([], [], [], [pair])
 
 open UVar
-                          
+       
 fun update_bs bs =
   case bs of
       UVarBS x =>
@@ -585,16 +585,16 @@ fun update_bs bs =
     | Base _ => bs
 
 fun update_uvar update origin x = 
-    case !x of
-        Refined a => 
-        let 
-          val a = update a
-          val () = x := Refined a
-        in
-          a
-        end
-      | Fresh _ => origin
-                        
+  case !x of
+      Refined a => 
+      let 
+        val a = update a
+        val () = x := Refined a
+      in
+        a
+      end
+    | Fresh _ => origin
+                   
 fun update_i i =
   case i of
       UVarI (x, r) => update_uvar update_i i x
@@ -1006,7 +1006,7 @@ fun unify_bs r (bs, bs') =
       else
 	raise Error (r, [sprintf "Base sort mismatch: $ and $" [str_b b, str_b b']])
     | _ => raise unify_error r (str_bs bs, str_bs bs')
-	      
+	         
 fun shrink_i invis b = shrink forget_i_i invis b
 fun shrink_s invis b = shrink forget_i_s invis b
 fun shrink_mt (invisi, invist) b = (shrink forget_i_mt invisi o shrink forget_t_mt invist) b
@@ -1575,10 +1575,10 @@ and get_bsort (gctx : sigcontext) (ctx : scontext, i : U.idx) : idx * bsort =
               val (i, bs) = open_close add_sorting (name, Basic (bs1, r1)) ctx (fn ctx => get_bsort (ctx, i))
             in
               (IAbs (bs1, Bind ((name, r1), i), r), BSArrow (bs1, bs))
-              (* case bs of *)
-              (*     Base (TimeFun arity) => *)
-              (*     (IAbs ((name, r1), i, r), Base (TimeFun (arity + 1))) *)
-              (*   | _ => raise Error (get_region_i i, "Sort of time funtion body should be time function" :: indent ["want: time function", "got: " ^ str_bs bs]) *)
+                (* case bs of *)
+                (*     Base (TimeFun arity) => *)
+                (*     (IAbs ((name, r1), i, r), Base (TimeFun (arity + 1))) *)
+                (*   | _ => raise Error (get_region_i i, "Sort of time funtion body should be time function" :: indent ["want: time function", "got: " ^ str_bs bs]) *)
             end
 	  | U.AdmitI r => 
             (AdmitI r, Base UnitSort)
@@ -1619,47 +1619,47 @@ fun check_sort gctx (ctx, i : U.idx, s : sort) : idx =
     val r = get_region_i i
     val s = update_s s
     fun main s =
-	(case s of
-	     Subset ((bs, _), Bind ((name, _), p), _) =>
+      (case s of
+	   Subset ((bs, _), Bind ((name, _), p), _) =>
+           let
+	     val () = unify_bs r (bs', bs)
+             val r = get_region_i i
+             val (i, is_admit) = case i of
+                                     AdmitI r => (TTI r, true)
+                                   | _ => (i, false)
+             val p = subst_i_p i p
+                     handle
+                     SubstUVar info =>
+                     raise subst_uvar_error (get_region_p p) ("proposition " ^ str_p (gctx_names gctx) (name :: sctx_names ctx) p) i info
+             (* val () = println $ sprintf "Writing prop $ $" [str_p (sctx_names ctx) p, str_region "" "" r] *)
+	     val () =
+                 if is_admit then
+                   write_admit (p, r)
+                 else
+                   write_prop (p, r)
+           in
+             ()
+           end
+         | SortBigO s => main (SortBigO_to_Subset s)
+	 | Basic (bs, _) => 
+	   unify_bs r (bs', bs)
+         | UVarS ((_, x), _) =>
+           (case !x of
+                Refined _ => raise Impossible "check_sort (): s should be Fresh"
+              | Fresh _ => 
+                refine x (Basic (bs', dummy))
+           )
+      )
+      handle Error (_, msg) =>
              let
-	       val () = unify_bs r (bs', bs)
-               val r = get_region_i i
-               val (i, is_admit) = case i of
-                                       AdmitI r => (TTI r, true)
-                                     | _ => (i, false)
-               val p = subst_i_p i p
-                       handle
-                       SubstUVar info =>
-                       raise subst_uvar_error (get_region_p p) ("proposition " ^ str_p (gctx_names gctx) (name :: sctx_names ctx) p) i info
-               (* val () = println $ sprintf "Writing prop $ $" [str_p (sctx_names ctx) p, str_region "" "" r] *)
-	       val () =
-                   if is_admit then
-                     write_admit (p, r)
-                   else
-                     write_prop (p, r)
+               val ctxn = sctx_names ctx
+               val gctxn = gctx_names gctx
              in
-               ()
+               raise Error (r,
+                            sprintf "index $ (of base sort $) is not of sort $" [str_i gctxn ctxn i, str_bs bs', str_s gctxn ctxn s] ::
+                            "Cause:" ::
+                            indent msg)
              end
-           | SortBigO s => main (SortBigO_to_Subset s)
-	   | Basic (bs, _) => 
-	     unify_bs r (bs', bs)
-           | UVarS ((_, x), _) =>
-             (case !x of
-                  Refined _ => raise Impossible "check_sort (): s should be Fresh"
-                | Fresh _ => 
-                  refine x (Basic (bs', dummy))
-             )
-        )
-        handle Error (_, msg) =>
-               let
-                 val ctxn = sctx_names ctx
-                 val gctxn = gctx_names gctx
-               in
-                 raise Error (r,
-                              sprintf "index $ (of base sort $) is not of sort $" [str_i gctxn ctxn i, str_bs bs', str_s gctxn ctxn s] ::
-                              "Cause:" ::
-                              indent msg)
-               end
     val () = main s
   in
     i
@@ -2566,10 +2566,10 @@ fun expand_rules gctx (ctx as (sctx, kctx, cctx), rules, t, r) =
                                 (* cut-off so that [expand_rules] won't try deeper and deeper proposals *) 
                                 val pn' =
                                     loop (* (cutoff - 1) *) t' h'
-                                                            (* if cutoff > 0 then *)
-                                                            (*   loop (cutoff - 1) t' h' *)
-                                                            (* else *)
-                                                            (*   VarP ("_", dummy) *)
+                                         (* if cutoff > 0 then *)
+                                         (*   loop (cutoff - 1) t' h' *)
+                                         (* else *)
+                                         (*   VarP ("_", dummy) *)
                               in
                                 ConstrP ((x, true), repeat (length name_sorts) "_", SOME pn', dummy)
                               end
@@ -2672,7 +2672,7 @@ fun add_prop r s p =
     | Subset (bs, Bind (name, p'), r) => Subset (bs, Bind (name, p' /\ p), r)
     | UVarS _ => raise Error (r, ["unsolved unification variable in module"])
     | SortBigO s => add_prop r (SortBigO_to_Subset s) p
-                       
+                             
 fun sort_add_idx_eq r s' i =
   add_prop r s' (VarI (NONE, (0, r)) %= shift_i_i i)
            
@@ -3036,9 +3036,9 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
           end
     fun extra_msg () = ["when type-checking"] @ indent [U.str_e gctxn ctxn e_all]
     val (e, t, d) = main ()
-                    (* handle *)
-                    (* Error (r, msg) => raise Error (r, msg @ extra_msg ()) *)
-                    (* | Impossible msg => raise Impossible $ join_lines $ msg :: extra_msg () *)
+    (* handle *)
+    (* Error (r, msg) => raise Error (r, msg @ extra_msg ()) *)
+    (* | Impossible msg => raise Impossible $ join_lines $ msg :: extra_msg () *)
     val t = simp_mt $ update_uvar_mt t
     val d = simp_i $ update_i d
                    (* val () = println $ str_ls id $ #4 ctxn *)
@@ -3274,11 +3274,11 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
       fun extra_msg () = ["when type-checking declaration "] @ indent [fst $ U.str_decl (gctx_names gctx) (ctx_names ctx) decl]
       val ret as (decl, ctxd, nps, ds) =
           main ()
-          (* handle *)
-          (* Error (r, msg) => raise Error (r, msg @ extra_msg ()) *)
-          (* | Impossible msg => raise Impossible $ join_lines $ msg :: extra_msg () *)
-      (* val () = println $ sprintf " Typed Decl $ " [fst $ str_decl (gctx_names gctx) (ctx_names ctx) decl] *)
-	                          (* val () = print $ sprintf "   Time : $: \n" [str_i sctxn d] *)
+               (* handle *)
+               (* Error (r, msg) => raise Error (r, msg @ extra_msg ()) *)
+               (* | Impossible msg => raise Impossible $ join_lines $ msg :: extra_msg () *)
+               (* val () = println $ sprintf " Typed Decl $ " [fst $ str_decl (gctx_names gctx) (ctx_names ctx) decl] *)
+	       (* val () = print $ sprintf "   Time : $: \n" [str_i sctxn d] *)
     in
       ret
     end
@@ -3301,8 +3301,8 @@ and check_decls gctx (ctx, decls) : decl list * context * int * idx list * conte
       val decls = rev decls
       val ctxd = (upd4 o map o mapSnd) (simp_t o update_uvar_t) ctxd
       val ds = map simp_i $ map update_i $ rev ds
-      (* val () = println "Typed Decls:" *)
-      (* val () = app println $ str_typing_info (gctx_names gctx) skctxn_old (ctxd, ds) *)
+                   (* val () = println "Typed Decls:" *)
+                   (* val () = app println $ str_typing_info (gctx_names gctx) skctxn_old (ctxd, ds) *)
     in
       (decls, ctxd, nps, ds, ctx)
     end
@@ -3661,7 +3661,7 @@ and check_prog gctx binds =
           (gctxd @ acc, gctxd @ gctx)
         end
       val ret as (gctxd, gctx) = foldl iter ([], gctx) binds
-      (* val () = println "End check_prog()" *)
+                                       (* val () = println "End check_prog()" *)
     in
       ret
     end
