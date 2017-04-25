@@ -8,11 +8,11 @@ datatype base_sort =
 	 | UnitSort
 
 fun str_b (s : base_sort) : string = 
-    case s of
-        Nat => "Nat"
-      | Time => "Time"
-      | BoolSort => "Bool"
-      | UnitSort => "Unit"
+  case s of
+      Nat => "Nat"
+    | Time => "Time"
+    | BoolSort => "Bool"
+    | UnitSort => "Unit"
 end
 
 structure BaseTypes = struct
@@ -49,12 +49,12 @@ type long_id = mod_projectible option * id
 
 datatype idx_namespace = IdxNS
 datatype type_namespace = TypeNS
-                           
+                            
 type 'body ibind = (idx_namespace, 'body) bind
 type 'body tbind = (type_namespace, 'body) bind
 type ('classifier, 'name, 'inner) ibinds = (idx_namespace, 'classifier, 'name, 'inner) binds
 type ('classifier, 'name, 'inner) tbinds = (type_namespace, 'classifier, 'name, 'inner) binds
-                    
+                                                                                        
 datatype idx =
 	 VarI of long_id
 	 | ConstIT of string * region
@@ -89,7 +89,7 @@ datatype sort =
          (* [SAbs] and [SApp] are just for higher-order unification *)
          | SAbs of sort * (name * sort) ibind * region
          | SApp of sort * idx
-                                                  
+                            
 datatype kind = 
 	 ArrowK of bool (* is datatype *) * int * sort list
 
@@ -110,7 +110,7 @@ datatype mtype =
          | MtAbsI of sort * (name * mtype) ibind  * region
          | MtAppI of mtype * idx
          | AppV of long_id * mtype list * idx list * region (* the first operant of App can only be a type variable. The degenerated case of no-arguments is also included *) 
-         (* todo: remove AppV *)
+(* todo: remove AppV *)
 
 datatype ty = 
 	 Mono of mtype
@@ -372,7 +372,7 @@ fun collect_BSArrow bs =
         (a :: args, ret)
       end
     | UVarBS u => ([], bs)
-                          
+                    
 fun eq_option eq (a, a') =
   case (a, a') of
       (SOME v, SOME v') => eq (v, v')
@@ -2200,7 +2200,7 @@ local
   fun passp p =
     let
       fun r () = get_region_p p
-      (* val () = println $ str_p [] [] p *)
+                              (* val () = println $ str_p [] [] p *)
     in
       case p of
 	  BinConn (opr, p1, p2) =>
@@ -2388,12 +2388,12 @@ local
                       | UnitSort =>
                         TTI dummy
                   fun bsort_default_idx bs =
-                      case bs of
-                          Base b => SOME $ base_sort_default_idx b
-                        | BSArrow (a, b) =>
-                          opt_bind (bsort_default_idx b)
-                                   (fn i => opt_return $ IAbs (a, Bind (("__dummy_default", dummy), i), dummy))
-                        | _ => NONE
+                    case bs of
+                        Base b => SOME $ base_sort_default_idx b
+                      | BSArrow (a, b) =>
+                        opt_bind (bsort_default_idx b)
+                                 (fn i => opt_return $ IAbs (a, Bind (("__dummy_default", dummy), i), dummy))
+                      | _ => NONE
                   val inferred =
                       opt_bind
                         (try_forget (forget_i_p 0 1) p)
@@ -2450,8 +2450,8 @@ fun simp_p p =
   let
     (* val () = println $ "Before simp_p: " ^ str_p [] [] p *)
     val p = until_unchanged passp p
-    (* val () = println $ "After simp_p:  " ^ str_p [] [] p *)
-    (* val () = println "" *)
+                            (* val () = println $ "After simp_p:  " ^ str_p [] [] p *)
+                            (* val () = println "" *)
   in
     p      
   end
