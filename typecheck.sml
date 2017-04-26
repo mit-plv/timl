@@ -584,7 +584,7 @@ fun update_bs bs =
     | BSArrow (a, b) => BSArrow (update_bs a, update_bs b)
     | Base _ => bs
 
-fun update_uvar update origin x = 
+fun load_uvar update origin x = 
   case !x of
       Refined a => 
       let 
@@ -597,7 +597,7 @@ fun update_uvar update origin x =
                    
 fun update_i i =
   case i of
-      UVarI (x, r) => update_uvar update_i i x
+      UVarI (x, r) => load_uvar update_i i x
     | UnOpI (opr, i, r) => UnOpI (opr, update_i i, r)
     | DivI (i1, n2) => DivI (update_i i1, n2)
     | ExpI (i1, n2) => ExpI (update_i i1, n2)
@@ -623,10 +623,10 @@ fun update_p p =
 
 fun update_s s =
   case s of
-      UVarS (x, r) => update_uvar update_s s x
+      UVarS (x, r) => load_uvar update_s s x
     | Basic _ => s
-    | Subset _ => s
-    | SortBigO _ => s
+    | Subset ((b, r1), Bind (name, p), r) => Subset ((update_bs b, r1), Bind (name, update_p p), r)
+    | SortBigO ((b, r1), i, r) => SortBigO ((update_bs b, r1), update_i i, r)
 
 exception Error of region * string list
 
@@ -993,20 +993,174 @@ fun unify_bs r (bs, bs') =
 	raise Error (r, [sprintf "Base sort mismatch: $ and $" [str_b b, str_b b']])
     | _ => raise unify_error r (str_bs bs, str_bs bs')
 	         
+fun normalize_i i =
+  case i of
+      UVarI (x, r) => load_uvar normalize_i i x
+    | UnOpI (opr, i, r) => UnOpI (opr, normalize_i i, r)
+    | DivI (i1, n2) => DivI (normalize_i i1, n2)
+    | ExpI (i1, n2) => ExpI (normalize_i i1, n2)
+    | BinOpI (opr, i1, i2) =>
+      let
+        val i1 = normalize_i i1
+        val i2 = normalize_i i2
+      in
+        case (opr, i1) of
+            (IApp, IAbs (_, Bind (_, i1), _)) => normalize_i (subst_i_i i2 i1)
+          | _ => BinOpI (opr, i1, i2)
+      end
+    | Ite (i1, i2, i3, r) => Ite (normalize_i i1, normalize_i i2, normalize_i i3, r)
+    | VarI _ => i
+    | ConstIN _ => i
+    | ConstIT _ => i
+    | TTI _ => i
+    | TrueI _ => i
+    | FalseI _ => i
+    | AdmitI _ => i
+    | IAbs (b, Bind (name, i), r) => IAbs (update_bs b, Bind (name, normalize_i i), r)
+
+fun SOME_or_fail opt err = 
+  case opt of
+      SOME a => a
+    | NONE => raise err ()
+infix 0 !!
+fun opt !! err = SOME_or_fail opt err
+                                      
+fun collect_var_aux_i_ibind f d acc (Bind (_, b) : ('a * 'b) ibind) = f (d + 1) acc b
+                                                           
+local
+  fun f d(*depth*) acc b =
+    case b of
+	VarI (m, (x, r)) =>
+        (case m of
+             SOME _ => (m, (x, r)) :: acc
+           | NONE =>
+             if x >= d then (NONE, (x - d, r)) :: acc
+             else acc
+        )
+      | ConstIN n => acc
+      | ConstIT x => acc
+      | UnOpI (opr, i, r) => f d acc i
+      | DivI (i, n) => f d acc i
+      | ExpI (i, n) => f d acc i
+      | BinOpI (opr, i1, i2) => 
+        let
+          val acc = f d acc i1
+          val acc = f d acc i2
+        in
+          acc
+        end
+      | Ite (i1, i2, i3, r) =>
+        let
+          val acc = f d acc i1
+          val acc = f d acc i2
+          val acc = f d acc i3
+        in
+          acc
+        end
+      | TrueI r => acc
+      | FalseI r => acc
+      | TTI r => acc
+      | IAbs (b, bind, r) =>
+        collect_var_aux_i_ibind f d acc bind
+      | AdmitI r => acc
+      | UVarI a => acc
+in
+val collect_var_aux_i_i = f
+fun collect_var_i_i b = f 0 [] b
+end
+
+fun findi f xs = findWithIdx (fn (_, x) => f x) xs
+                             
+fun find_injection (eq : 'a -> 'a -> bool) (xs : 'a list) (ys : 'a list) : int list option =
+  let
+    exception Error
+    fun f x =
+      case findi (fn y => eq x y) ys of
+          SOME (n, _) => n
+        | NONE => raise Error
+  in
+    SOME (map f xs)
+    handle Error => NONE
+  end
+          
+fun ncsubst_aux_is_ibind f d x v (Bind (name, b) : ('a * 'b) ibind) =
+  Bind (name, f (d + 1) x v b)
+       
+fun apply_depth d (m, (x, r)) =
+  case m of
+      SOME _ => (m, (x, r))
+    | NONE => (NONE, (x + d, r))
+                
+local
+  fun f d x v b =
+    case b of
+	VarI y =>
+        (case findi (curry eq_long_id y) (map (apply_depth d) x) of
+             SOME (n, _) => shiftx_i_i 0 d (List.nth (v, n))
+           | NONE => b
+        )
+      | ConstIN n => ConstIN n
+      | ConstIT x => ConstIT x
+      | UnOpI (opr, i, r) => UnOpI (opr, f d x v i, r)
+      | DivI (i1, n2) => DivI (f d x v i1, n2)
+      | ExpI (i1, n2) => ExpI (f d x v i1, n2)
+      | BinOpI (opr, d1, d2) => BinOpI (opr, f d x v d1, f d x v d2)
+      | Ite (i1, i2, i3, r) => Ite (f d x v i1, f d x v i2, f d x v i3, r)
+      | TrueI r => TrueI r
+      | FalseI r => FalseI r
+      | TTI r => TTI r
+      | IAbs (b, bind, r) => IAbs (b, ncsubst_aux_is_ibind f d x v bind, r)
+      | AdmitI r => AdmitI r
+      | UVarI a => b
+in
+val ncsubst_aux_is_i = f 
+fun ncsubst_is_i x v b = f 0 x v b
+end
+        
+fun V r n = VarI (NONE, (n, r))
+               
+fun get_uvar_info x err =
+  case !x of
+      Fresh info => info
+    | Refined _ => err ()
+                       
 fun unify_i r gctxn ctxn (i, i') =
   let
     val unify_i = unify_i r gctxn
     (* fun error (i, i') = unify_error r (str_i gctxn ctxn i, str_i gctxn ctxn i') *)
-    (*here*)
     val i = normalize_i i
     val i' = normalize_i i'
+    exception UnifyIAppFailed
+    (* Try to see whether [i']'s variables are covered by the arguments applied to [x]. If so, then refine [x] with [i'], with the latter's variables replaced by the former's arguments. This may not be the most general instantiation, because [i']'s constants will be fixed for [x], although those constants may be arguments in a more instantiation. For example, unifying [x y 5] with [y+5] will refine [x] to be [fun y z => y+5], but a more general instantiation is [fun y z => y+z]. This less-general instantiation may cause later unifications to fail. *)
+    fun unify_IApp i i' =
+      let
+        fun is_IApp_UVarI i =
+          let
+            val f :: args = collect_IApp i
+          in
+            case f of
+                UVarI (x, _) => SOME (x, args)
+              | _ => NONE
+          end
+        val (x, args) = is_IApp_UVarI i !! (fn () => UnifyIAppFailed)
+        val vars' = collect_var_i_i i'
+        val inj = find_injection eq_i (map VarI vars') (rev args) !! (fn () => UnifyIAppFailed)
+        (* non-consuming substitution *)
+        val i' = ncsubst_is_i vars' (map (V r) inj) i'
+        val (_, ctx, _) = get_uvar_info x (fn () => raise Impossible "unify_i()/IApp: shouldn't be [Refined]")
+        fun IAbsMany (ctx, i, r) = foldl (fn ((name, b), i) => IAbs (b, Bind ((name, r), i), r)) i ctx
+        val i' = IAbsMany (ctx, i', r)
+        val () = refine x i'
+      in
+        ()
+      end
     fun default () = 
       if eq_i i i' then ()
       else write_prop (BinPred (EqP, i, i'), r)
-    (* val () = println $ sprintf "Unifying indices $ and $" [str_i gctxn ctxn i, str_i gctxn ctxn i'] *)
+                      (* val () = println $ sprintf "Unifying indices $ and $" [str_i gctxn ctxn i, str_i gctxn ctxn i'] *)
   in
     case (i, i') of
-      | (UVarI (x, _), _) =>
+        (UVarI (x, _), _) =>
         (case i' of
              UVarI (x', _) =>
              if x = x' then ()
@@ -1016,120 +1170,10 @@ fun unify_i r gctxn ctxn (i, i') =
       | (_, UVarI _) =>
         unify_i ctxn (i', i)
       | (BinOpI (IApp, _, _), _) =>
-        let
-          val (f, args) = collect_IApp i
-        in
-          case f of
-              UVarI (x, _) =>
-              (* Try to see whether [i']'s variables are covered by the arguments applied to [x]. If so, then refine [x] with [i'], with the latter's variables replaced by the former's arguments. This may not be the most general instantiation, because [i']'s constants will be fixed for [x], although those constants may be arguments in a more instantiation. For example, unifying [x y 5] with [y+5] will refine [x] to be [fun y z => y+5], but a more general instantiation is [fun y z => y+z]. This less-general instantiation may cause later unifications to fail. *)
-              let
-                local
-                  fun on_i_ibind f d acc (Bind (_, b) : ('a * 'b) ibind) = f (d + 1) acc b
-                  fun f d(*depth*) acc b =
-                    case b of
-	                VarI ((m, x), _) =>
-                        case m of
-                            SOME _ => (m, x) :: acc
-                          | NONE =>
-                            if x >= d then (NONE, x - d) :: acc
-                            else acc
-                      | ConstIN n => acc
-                      | ConstIT x => acc
-                      | UnOpI (opr, i, r) => f d acc i
-                      | DivI (i1, n2) =>
-                        let
-                          val acc = f d acc i1
-                          val acc = f d acc i2
-                        in
-                          acc
-                        end
-                      | ExpI (i1, n2) => f d acc i1
-                      | BinOpI (opr, i1, i2) => 
-                        let
-                          val acc = f d acc i1
-                          val acc = f d acc i2
-                        in
-                          acc
-                        end
-                      | Ite (i1, i2, i3, r) =>
-                        let
-                          val acc = f d acc i1
-                          val acc = f d acc i2
-                          val acc = f d acc i3
-                        in
-                          acc
-                        end
-                      | TrueI r => acc
-                      | FalseI r => acc
-                      | TTI r => acc
-                      | IAbs (b, bind, r) =>
-                        on_i_ibind f d acc bind
-                      | AdmitI r => acc
-                      | UVarI a => acc
-                in
-                fun collect_VarI b = f 0 acc b
-                end
-                val vars' = collect_VarI i'
-                fun find_injection eq xs ys =
-                  let
-                    exception Error
-                    fun f x ys =
-                      case findWithIdx (fn y => eq x y) ys of
-                          SOME (n, _) => n
-                        | NONE => raise Error
-                  in
-                    SOME (map f xs)
-                    handle Error => NONE
-                  end
-              in
-                case find_injection eq_i_i vars' (rev args) of
-                    SOME inj =>
-                    let
-                      (* non-consuming substitution *)
-                      local
-                        fun ncsubst_i_ibind f d x v (Bind (name, b) : ('a * 'b) ibind) =
-                          Bind (name, f (d + 1) x v b)
-                        fun apply_depth d (m, x) =
-                          case m of
-                              SOME _ => (m, x)
-                            | NONE => (NONE, x + d)
-                        fun f d x v b =
-                          case b of
-	                      VarI y =>
-                              (case findWithIdx (eq_long_id y) (map (apply_depth d) x) of
-                                   SOME (n, _) => shiftx_i_i 0 d (nth (v, n))
-                                 | NONE => b
-                              )
-                            | ConstIN n => ConstIN n
-                            | ConstIT x => ConstIT x
-                            | UnOpI (opr, i, r) => UnOpI (opr, f d x v i, r)
-                            | DivI (i1, n2) => DivI (f d x v i1, n2)
-                            | ExpI (i1, n2) => ExpI (f d x v i1, n2)
-                            | BinOpI (opr, d1, d2) => BinOpI (opr, f d x v d1, f d x v d2)
-                            | Ite (i1, i2, i3, r) => Ite (f d x v i1, f d x v i2, f d x v i3, r)
-                            | TrueI r => TrueI r
-                            | FalseI r => FalseI r
-                            | TTI r => TTI r
-                            | IAbs (b, bind, r) => IAbs (b, ncsubst_i_ibind f d x v bind, r)
-                            | AdmitI r => AdmitI r
-                            | UVarI a => b
-                      in
-                      fun ncsubst_is_i x (v : idx) (b : idx) : idx = f 0 x v b
-                      end
-                      fun V n = VarI (NONE, (n, r))
-                      fun i' = ncsubst_is_i vars' (map V inj) i'
-                      val (_, ctx, _) =
-                          case !x of
-                              Refresh info => info
-                            | Refined _ => raise Impossible "unify_i()/IApp: shouldn't be [Refined]"
-                      val i' = IAbsMany (ctx, i', r)
-                    in
-                      refine x i'
-                    end
-                  | NONE => default ()
-              end
-            | _ => default ()
-        end
+        (unify_IApp i i'
+         handle UnifyIAppFailed =>
+                (unify_IApp i' i
+                 handle UnifyIAppFailed => default ()))
       | (_, BinOpI (IApp, _, _)) =>
         unify_i ctxn (i', i)
       (* ToReal is injective *)
@@ -1141,28 +1185,156 @@ fun unify_i r gctxn ctxn (i, i') =
 fun is_sub_sort r gctx ctx (s, s') =
   let
     val is_sub_sort = is_sub_sort r gctx
-    fun error (s, s') = 
-      Error (r, ["Sort"] @ indent [str_s gctx ctx s] @ ["is not a subsort of"] @ indent [str_s gctx ctx s'])
-    val s = update_s s
-    val s' = update_s s'
+    fun normalize_p p =
+      case p of
+          Quan (q, bs, Bind (name, p), r) => Quan (q, update_bs bs, Bind (name, normalize_p p), r)
+        | BinConn (opr, p1, p2) => BinConn (opr, normalize_p p1, normalize_p p2)
+        | BinPred (opr, i1, i2) => BinPred (opr, normalize_i i1, normalize_i i2)
+        | Not (p, r) => Not (normalize_p p, r)
+        | True _ => p
+        | False _ => p
+    fun normalize_s s =
+      case s of
+          UVarS (x, r) => load_uvar normalize_s s x
+        | Basic _ => s
+        | Subset (b, Bind (name, p), r) => Subset (update_bs b, Bind (name, normalize_p p), r)
+        | SortBigO (b, i, r) => SortBigO (update_bs b, normalize_i i, r)
+        | SAbs (b, Bind (name, i), r) => SAbs (update_bs b, Bind (name, normalize_i i), r)
+        | SApp (s, i) =>
+          let
+            val s = normalize_s s
+            val i = normalize_i i
+          in
+            case i of
+                IAbs (_, Bind (_, s), _) => normalize_s (subst_i_s i s)
+              | _ => SApp (s, i)
+          end
+    val s = normalize_s s
+    val s' = normalize_s s'
+    exception UnifySAppFailed
+    fun unify_SApp i i' =
+      let
+        fun collect_SApp s =
+          case s of
+              SApp (s, i) =>
+              let 
+                val (s, is) = collect_SApp s
+              in
+                (s, is @ [i])
+              end
+            | _ => (s, [])
+        fun is_SApp_UVarS i =
+          let
+            val f :: args = collect_SApp i
+          in
+            case f of
+                UVarS (x, _) => SOME (x, args)
+              | _ => NONE
+          end
+        val (x, args) = is_SApp_UVarS s !! (fn () => UnifySAppFailed)
+        local
+          fun f d acc b =
+            case b of
+	        True r => acc
+              | False r => acc
+              | Not (p, r) => f d acc p
+              | BinConn (opr,p1, p2) =>
+                let
+                  val acc = f d acc p1
+                  val acc = f d acc p2
+                in
+                  acc
+                end
+              | BinPred (opr, i1, i2) => 
+                let
+                  val acc = collect_var_aux_i_i d acc i1
+                  val acc = collect_var_aux_i_i d acc i2
+                in
+                  acc
+                end
+              | Quan (q, bs, bind, r) => collect_var_aux_i_ibind f d acc bind
+        in
+        val collect_var_aux_i_p = f
+        fun collect_var_i_p b = f 0 [] b
+        end
+        local
+          fun f d acc b =
+            case b of
+	        Basic s => acc
+              | Subset (b, bind, r) => collect_var_aux_i_ibind collect_var_aux_i_p d acc bind
+              | UVarS a => acc
+              | SortBigO (b, i, r) => collect_var_aux_i_i d acc i
+              | SAbs (s, bind, r) => collect_var_aux_i_ibind f d acc bind
+              | SApp (s, i) =>
+                let
+                  val acc = f d acc s
+                  val acc = collect_var_aux_i_i d acc i
+                in
+                  acc
+                end
+        in
+        val collect_var_aux_i_s = f
+        fun collect_var_i_s b = f 0 [] b
+        end
+        val vars' = collect_var_i_s s'
+        val inj = find_injection eq_i (map VarI vars') (rev args) !! (fn () => UnifySAppFailed)
+        local
+          fun f d x v b =
+            case b of
+	        True r => True r
+              | False r => False r
+              | Not (p, r) => Not (f d x v p, r)
+              | BinConn (opr,p1, p2) => BinConn (opr, f d x v p1, f d x v p2)
+              | BinPred (opr, i1, i2) => BinPred (opr, ncsubst_aux_is_i x v i1, ncsubst_aux_is_i x v i2)
+              | Quan (q, bs, bind, r) => Quan (q, bs, ncsubst_aux_is_ibind f d x v bind, r)
+        in
+        val ncsubst_aux_is_p = f
+        fun ncsubst_is_p x v b = f 0 x v b
+        end
+        local
+          fun f d x v b =
+            case b of
+	        Basic s => Basic s
+              | Subset (b, bind, r) => Subset (b, ncsubst_aux_is_ibind ncsubst_aux_is_p d x v bind, r)
+              | UVarS a => b
+              | SortBigO (b, i, r) => SortBigO (b, ncsubst_aux_is_i d x v i, r)
+              | SAbs (s, bind, r) => SAbs (f d x v s, ncsubst_aux_is_ibind f d x v bind, r)
+              | SApp (s, i) => SApp (f d x v s, ncsubst_aux_is_i d x v i)
+        in
+        val ncsubst_aux_is_s = f
+        fun ncsubst_is_s x v b = f 0 x v b
+        end
+        val s' = ncsubst_is_s vars' (map V inj) s'
+        val (_, ctx) = get_uvar_info x (fn () => raise Impossible "unify_s()/SApp: shouldn't be [Refined]")
+        fun SAbsMany (ctx, s, r) = foldl (fn ((name, s_arg), s) => SAbs (s_arg, Bind ((name, r), s), r)) s ctx
+        val i' = SAbsMany (ctx, i', r)
+        val () = refine x i'
+      in
+        ()
+      end
+    fun default () = raise Error (r, ["Sort"] @ indent [str_s gctx ctx s] @ ["is not a subsort of"] @ indent [str_s gctx ctx s'])
   in
     (* UVarS can only be fresh *)
     case (s, s') of
-        (UVarS ((invis, x), _), UVarS ((invis', x'), _)) =>
-        if x = x' then ()
-        else
-          (refine x (shrink_s invis s')
-	   handle 
-           ForgetError _ => 
-           refine x' (shrink_s invis' s)
-           handle ForgetError _ => raise error (s, s')
-          )
-      | (UVarS ((invis, x), _), _) =>
-        (refine x (shrink_s invis s')
-	 handle ForgetError _ => raise error (s, s')
+        (UVarS (x, _), _) =>
+        (case s' of
+             UVarS (x', _) =>
+             if x = x' then ()
+             else refine x s' (*here*) (*need to check that [s'] is closed*)
+           | _ => refine x s'
         )
       | (_, UVarS _) => 
         is_sub_sort ctx (s', s)
+      | (SApp (_, _), _) =>
+        (unify_SApp s s'
+         handle UnifySAppFailed =>
+                (unify_SApp s' s
+                 handle UnifySAppFailed => default ()))
+      | (_, SApp (_, _)) =>
+        (unify_SApp s s'
+         handle UnifySAppFailed =>
+                (unify_SApp s' s
+                 handle UnifySAppFailed => default ()))
       | (Basic (bs, _), Basic (bs', _)) =>
 	unify_bs r (bs, bs')
       | (Subset ((bs, r1), Bind ((name, _), p), _), Subset ((bs', _), Bind (_, p'), _)) =>
@@ -2519,13 +2691,13 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
   end
 
 (* don't need to normalize t since KeTypeEq shouldn't have any UVar *)
-fun update_uvar_mt t =
+fun update_mt t =
   case t of
       UVar ((invis, x), r) => 
       (case !x of
            Refined t => 
            let 
-             val t = update_uvar_mt t
+             val t = update_mt t
              val () = x := Refined t
            in
              expand_mt invis t
@@ -2533,19 +2705,19 @@ fun update_uvar_mt t =
          | Fresh _ => t
       )
     | Unit r => Unit r
-    | Arrow (t1, d, t2) => Arrow (update_uvar_mt t1, update_i d, update_uvar_mt t2)
-    | TyArray (t, i) => TyArray (update_uvar_mt t, update_i i)
+    | Arrow (t1, d, t2) => Arrow (update_mt t1, update_i d, update_mt t2)
+    | TyArray (t, i) => TyArray (update_mt t, update_i i)
     | TyNat (i, r) => TyNat (update_i i, r)
-    | Prod (t1, t2) => Prod (update_uvar_mt t1, update_uvar_mt t2)
-    | UniI (s, Bind (name, t1), r) => UniI (update_s s, Bind (name, update_uvar_mt t1), r)
+    | Prod (t1, t2) => Prod (update_mt t1, update_mt t2)
+    | UniI (s, Bind (name, t1), r) => UniI (update_s s, Bind (name, update_mt t1), r)
     (* | MtVar x => MtVar x *)
-    | AppV (y, ts, is, r) => AppV (y, map update_uvar_mt ts, map update_i is, r)
+    | AppV (y, ts, is, r) => AppV (y, map update_mt ts, map update_i is, r)
     | BaseType a => BaseType a
 
-fun update_uvar_t t =
+fun update_t t =
   case t of
-      Mono t => Mono (update_uvar_mt t)
-    | Uni (Bind (name, t), r) => Uni (Bind (name, update_uvar_t t), r)
+      Mono t => Mono (update_mt t)
+    | Uni (Bind (name, t), r) => Uni (Bind (name, update_t t), r)
 
 fun update_k k =
   case k of
@@ -2554,13 +2726,13 @@ fun update_k k =
 fun update_ke k =
   case k of
       KeKind k => KeKind $ update_k k
-    | KeTypeEq (k, t) => KeTypeEq (update_k k, update_uvar_mt t)
+    | KeTypeEq (k, t) => KeTypeEq (update_k k, update_mt t)
 
 fun update_c (x, tnames, ibinds) =
   let
     val (ns, (t, is)) = unfold_ibinds ibinds
     val ns = map (mapSnd update_s) ns
-    val t = update_uvar_mt t
+    val t = update_mt t
     val is = map update_i is
     val ibinds = fold_ibinds (ns, (t, is))
   in
@@ -2572,7 +2744,7 @@ fun update_ctx (sctx, kctx, cctx, tctx) =
     val sctx = map (mapSnd update_s) sctx
     val kctx = map (mapSnd update_ke) kctx
     val cctx = map (mapSnd update_c) cctx
-    val tctx = map (mapSnd update_uvar_t) tctx
+    val tctx = map (mapSnd update_t) tctx
   in
     (sctx, kctx, cctx, tctx)
   end
@@ -2589,7 +2761,7 @@ fun update_gctx gctx =
 fun fv_mt t =
   let
   in      
-    case update_uvar_mt t of
+    case update_mt t of
         UVar ((_, uvar_ref), _) => [uvar_ref]
       | Unit _ => []
       | Arrow (t1, _, t2) => fv_mt t1 @ fv_mt t2
@@ -3134,7 +3306,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
     (* handle *)
     (* Error (r, msg) => raise Error (r, msg @ extra_msg ()) *)
     (* | Impossible msg => raise Impossible $ join_lines $ msg :: extra_msg () *)
-    val t = simp_mt $ update_uvar_mt t
+    val t = simp_mt $ update_mt t
     val d = simp_i $ update_i d
                    (* val () = println $ str_ls id $ #4 ctxn *)
                    (* val () = print (sprintf " Typed $: \n        $\n" [str_e gctxn ctxn e, str_mt gctxn skctxn t]) *)
@@ -3394,7 +3566,7 @@ and check_decls gctx (ctx, decls) : decl list * context * int * idx list * conte
         end
       val (decls, ctxd, nps, ds, ctx) = foldl f ([], empty_ctx, 0, [], ctx) decls
       val decls = rev decls
-      val ctxd = (upd4 o map o mapSnd) (simp_t o update_uvar_t) ctxd
+      val ctxd = (upd4 o map o mapSnd) (simp_t o update_t) ctxd
       val ds = map simp_i $ map update_i $ rev ds
                    (* val () = println "Typed Decls:" *)
                    (* val () = app println $ str_typing_info (gctx_names gctx) skctxn_old (ctxd, ds) *)
