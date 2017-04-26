@@ -885,7 +885,7 @@ fun normalize_t gctx kctx t =
 
 (* verification conditions written incrementally during typechecking *)
                                      
-type anchor = (bsort, idx) uvar_ref_i
+(* type anchor = (bsort, idx) uvar_ref_i *)
 
 datatype 'sort forall_type =
          FtSorting of 'sort
@@ -897,7 +897,7 @@ datatype vc_entry =
          | PropVC of prop * region
          | AdmitVC of prop * region
          (* remember where unification index variable is introduced, since those left over will be converted into existential variables in VC formulas *)
-         | AnchorVC of anchor
+         (* | AnchorVC of anchor *)
          | OpenParen
          | CloseParen
 
@@ -924,7 +924,7 @@ fun open_ctx (ctx as (sctx, kctx, _, _)) =
   end
 fun close_ctx (ctx as (sctx, _, _, _)) = close_n $ length sctx
 
-fun write_anchor anchor = write (AnchorVC anchor)
+(* fun write_anchor anchor = write (AnchorVC anchor) *)
 
 fun write_prop (p, r) =
   let
@@ -978,21 +978,7 @@ fun open_close add ns ctx f =
 fun unify_error r (s, s') =             
   Error (r, ["Can't unify"] @ indent [s] @ ["and"] @ indent [s'])
 
-(* fun handle_ue ctx e =              *)
-(*     raise Error (get_region_e e,  *)
-(*                  #2 (mismatch ctxn e (str_t (sctxn, kctxn) t) t') @ *)
-(*                  "Cause:" :: *)
-(*                  indent msg) *)
-
-(* datatype UnifyErrorData = *)
-(*          UEI of idx * idx *)
-(*          | UES of sort * sort *)
-(*          | UET of mtype * mtype *)
-
-(* exception UnifyError of UnifyErrorData *)
-
 (* assumes arguments are already checked for well-formedness *)
-
 fun unify_bs r (bs, bs') =
   case (update_bs bs, update_bs bs') of
       (UVarBS x, _) =>
@@ -1007,40 +993,61 @@ fun unify_bs r (bs, bs') =
 	raise Error (r, [sprintf "Base sort mismatch: $ and $" [str_b b, str_b b']])
     | _ => raise unify_error r (str_bs bs, str_bs bs')
 	         
-fun shrink_i invis b = shrink forget_i_i invis b
-fun shrink_s invis b = shrink forget_i_s invis b
-fun shrink_mt (invisi, invist) b = (shrink forget_i_mt invisi o shrink forget_t_mt invist) b
-
 fun unify_i r gctxn ctxn (i, i') =
   let
     val unify_i = unify_i r gctxn
-    fun error (i, i') = unify_error r (str_i gctxn ctxn i, str_i gctxn ctxn i')
-    val i = update_i i
-    val i' = update_i i'
-                      (* val () = println $ sprintf "Unifying indices $ and $" [str_i gctxn ctxn i, str_i gctxn ctxn i'] *)
+    (* fun error (i, i') = unify_error r (str_i gctxn ctxn i, str_i gctxn ctxn i') *)
+    (*here*)
+    val i = normalize_i i
+    val i' = normalize_i i'
+    fun default () = 
+      if eq_i i i' then ()
+      else write_prop (BinPred (EqP, i, i'), r)
+    (* val () = println $ sprintf "Unifying indices $ and $" [str_i gctxn ctxn i, str_i gctxn ctxn i'] *)
   in
     case (i, i') of
-        (UVarI ((invis, x), _), UVarI ((invis', x'), _)) =>
-        if x = x' then ()
-        else
-          (refine x (shrink_i invis i')
-	   handle 
-           ForgetError _ => 
-           refine x' (shrink_i invis' i)
-           handle ForgetError _ => raise error (i, i')
-          )
-      | (UVarI ((invis, x), _), _) =>
-        (refine x (shrink_i invis i')
-	 handle ForgetError _ => raise error (i, i')
+      | (UVarI (x, _), _) =>
+        (case i' of
+             UVarI (x', _) =>
+             if x = x' then ()
+             else refine x i'
+           | _ => refine x i'
         )
       | (_, UVarI _) =>
+        unify_i ctxn (i', i)
+      | (BinOpI (IApp, _, _), _) =>
+        let
+          val (f, args) = collect_IApp i
+        in
+          case f of
+              UVarI (x, _) =>
+              (* Try to see whether [i']'s variables are covered by the arguments applied to [x]. If so, then refine [x] with [i'], with the latter's variables replaced by the former's arguments. This may not be the most general instantiation, because [i']'s constants will be fixed for [x], although those constants may be arguments in a more instantiation. For example, unifying [x y 5] with [y+5] will refine [x] to be [fun y z => y+5], but a more general instantiation is [fun y z => y+z]. This less-general instantiation may cause later unifications to fail. *)
+              let
+                val vars' = collect_VarI i'
+              in
+                case find_injection vars' args of
+                    SOME map =>
+                    let
+                      fun V n = VarI (NONE, (n, r))
+                      fun replace_var (var', i, n) = ncsubst_i_i var' (V (nth (map, n))) i
+                      val i' = foldlWithIdx replace_var i' vars'
+                      val (_, ctx, _) = case !x of
+                                     Refresh info => info
+                                   | Refined _ => raise Impossible "unify_i()/IApp: shouldn't be [Refined]"
+                      val i' = IAbsMany (ctx, i', r)
+                    in
+                      refine x i'
+                    end
+                  | NONE => default ()
+              end
+            | _ => default ()
+        end
+      | (_, BinOpI (IApp, _, _)) =>
         unify_i ctxn (i', i)
       (* ToReal is injective *)
       | (UnOpI (ToReal, i, _), UnOpI (ToReal, i', _)) =>
         unify_i ctxn (i', i)
-      | _ => 
-        if eq_i i i' then ()
-        else write_prop (BinPred (EqP, i, i'), r)
+      | _ => default ()
   end
 
 fun is_sub_sort r gctx ctx (s, s') =
