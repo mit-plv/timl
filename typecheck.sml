@@ -1023,17 +1023,105 @@ fun unify_i r gctxn ctxn (i, i') =
               UVarI (x, _) =>
               (* Try to see whether [i']'s variables are covered by the arguments applied to [x]. If so, then refine [x] with [i'], with the latter's variables replaced by the former's arguments. This may not be the most general instantiation, because [i']'s constants will be fixed for [x], although those constants may be arguments in a more instantiation. For example, unifying [x y 5] with [y+5] will refine [x] to be [fun y z => y+5], but a more general instantiation is [fun y z => y+z]. This less-general instantiation may cause later unifications to fail. *)
               let
+                local
+                  fun on_i_ibind f d acc (Bind (_, b) : ('a * 'b) ibind) = f (d + 1) acc b
+                  fun f d(*depth*) acc b =
+                    case b of
+	                VarI ((m, x), _) =>
+                        case m of
+                            SOME _ => (m, x) :: acc
+                          | NONE =>
+                            if x >= d then (NONE, x - d) :: acc
+                            else acc
+                      | ConstIN n => acc
+                      | ConstIT x => acc
+                      | UnOpI (opr, i, r) => f d acc i
+                      | DivI (i1, n2) =>
+                        let
+                          val acc = f d acc i1
+                          val acc = f d acc i2
+                        in
+                          acc
+                        end
+                      | ExpI (i1, n2) => f d acc i1
+                      | BinOpI (opr, i1, i2) => 
+                        let
+                          val acc = f d acc i1
+                          val acc = f d acc i2
+                        in
+                          acc
+                        end
+                      | Ite (i1, i2, i3, r) =>
+                        let
+                          val acc = f d acc i1
+                          val acc = f d acc i2
+                          val acc = f d acc i3
+                        in
+                          acc
+                        end
+                      | TrueI r => acc
+                      | FalseI r => acc
+                      | TTI r => acc
+                      | IAbs (b, bind, r) =>
+                        on_i_ibind f d acc bind
+                      | AdmitI r => acc
+                      | UVarI a => acc
+                in
+                fun collect_VarI b = f 0 acc b
+                end
                 val vars' = collect_VarI i'
+                fun find_injection eq xs ys =
+                  let
+                    exception Error
+                    fun f x ys =
+                      case findWithIdx (fn y => eq x y) ys of
+                          SOME (n, _) => n
+                        | NONE => raise Error
+                  in
+                    SOME (map f xs)
+                    handle Error => NONE
+                  end
               in
-                case find_injection vars' args of
-                    SOME map =>
+                case find_injection eq_i_i vars' (rev args) of
+                    SOME inj =>
                     let
+                      (* non-consuming substitution *)
+                      local
+                        fun ncsubst_i_ibind f d x v (Bind (name, b) : ('a * 'b) ibind) =
+                          Bind (name, f (d + 1) x v b)
+                        fun apply_depth d (m, x) =
+                          case m of
+                              SOME _ => (m, x)
+                            | NONE => (NONE, x + d)
+                        fun f d x v b =
+                          case b of
+	                      VarI y =>
+                              (case findWithIdx (eq_long_id y) (map (apply_depth d) x) of
+                                   SOME (n, _) => shiftx_i_i 0 d (nth (v, n))
+                                 | NONE => b
+                              )
+                            | ConstIN n => ConstIN n
+                            | ConstIT x => ConstIT x
+                            | UnOpI (opr, i, r) => UnOpI (opr, f d x v i, r)
+                            | DivI (i1, n2) => DivI (f d x v i1, n2)
+                            | ExpI (i1, n2) => ExpI (f d x v i1, n2)
+                            | BinOpI (opr, d1, d2) => BinOpI (opr, f d x v d1, f d x v d2)
+                            | Ite (i1, i2, i3, r) => Ite (f d x v i1, f d x v i2, f d x v i3, r)
+                            | TrueI r => TrueI r
+                            | FalseI r => FalseI r
+                            | TTI r => TTI r
+                            | IAbs (b, bind, r) => IAbs (b, ncsubst_i_ibind f d x v bind, r)
+                            | AdmitI r => AdmitI r
+                            | UVarI a => b
+                      in
+                      fun ncsubst_is_i x (v : idx) (b : idx) : idx = f 0 x v b
+                      end
                       fun V n = VarI (NONE, (n, r))
-                      fun replace_var (var', i, n) = ncsubst_i_i var' (V (nth (map, n))) i
-                      val i' = foldlWithIdx replace_var i' vars'
-                      val (_, ctx, _) = case !x of
-                                     Refresh info => info
-                                   | Refined _ => raise Impossible "unify_i()/IApp: shouldn't be [Refined]"
+                      fun i' = ncsubst_is_i vars' (map V inj) i'
+                      val (_, ctx, _) =
+                          case !x of
+                              Refresh info => info
+                            | Refined _ => raise Impossible "unify_i()/IApp: shouldn't be [Refined]"
                       val i' = IAbsMany (ctx, i', r)
                     in
                       refine x i'

@@ -1772,21 +1772,17 @@ val idx_shiftable : idx shiftable = {
   shift_t = shift_noop
 }
 
-fun substx_i_ibind f x (s : 'a shiftable) v (bind : ('name * 'b) ibind) =
-  case bind of
-      Bind (name, inner) => Bind (name, f (x + 1) (#shift_i s 1 v) inner)
+fun substx_i_ibind f x (s : 'a shiftable) v (Bind (name, inner) : ('name * 'b) ibind) =
+  Bind (name, f (x + 1) (#shift_i s 1 v) inner)
 
-fun substx_t_ibind f x (s : 'a shiftable) v (bind : ('name * 'b) ibind) =
-  case bind of
-      Bind (name, inner) => Bind (name, f x (#shift_i s 1 v) inner)
+fun substx_t_ibind f x (s : 'a shiftable) v (Bind (name, inner) : ('name * 'b) ibind) =
+  Bind (name, f x (#shift_i s 1 v) inner)
 
-fun substx_i_tbind f x (s : 'a shiftable) v (bind : ('name * 'b) tbind) =
-  case bind of
-      Bind (name, inner) => Bind (name, f x (#shift_t s 1 v) inner)
+fun substx_i_tbind f x (s : 'a shiftable) v (Bind (name, inner) : ('name * 'b) tbind) =
+  Bind (name, f x (#shift_t s 1 v) inner)
 
-fun substx_t_tbind f x (s : 'a shiftable) v (bind : ('name * 'b) tbind) =
-  case bind of
-      Bind (name, inner) => Bind (name, f (x + 1) (#shift_t s 1 v) inner)
+fun substx_t_tbind f x (s : 'a shiftable) v (Bind (name, inner) : ('name * 'b) tbind) =
+  Bind (name, f (x + 1) (#shift_t s 1 v) inner)
 
 local
   fun f x v b =
