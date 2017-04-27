@@ -1157,29 +1157,29 @@ fun unify_i r gctxn ctxn (i, i') =
     fun default () = 
       if eq_i i i' then ()
       else write_prop (BinPred (EqP, i, i'), r)
-                      (* val () = println $ sprintf "Unifying indices $ and $" [str_i gctxn ctxn i, str_i gctxn ctxn i'] *)
+    fun structural_compare () = 
+      case (i, i') of
+          (BinOpI (IApp, _, _), _) =>
+          (unify_IApp i i'
+           handle UnifyIAppFailed =>
+                  (unify_IApp i' i
+                   handle UnifyIAppFailed => default ()))
+        | (_, BinOpI (IApp, _, _)) =>
+          unify_i ctxn (i', i)
+        (* ToReal is injective *)
+        | (UnOpI (ToReal, i, _), UnOpI (ToReal, i', _)) =>
+          unify_i ctxn (i', i)
+        | _ => default ()
+    (* val () = println $ sprintf "Unifying indices $ and $" [str_i gctxn ctxn i, str_i gctxn ctxn i'] *)
   in
-    case (i, i') of
-        (UVarI (x, _), _) =>
-        (case i' of
-             UVarI (x', _) =>
-             if x = x' then ()
-             else refine x i'
-           | _ => refine x i'
-        )
-      | (_, UVarI _) =>
-        unify_i ctxn (i', i)
-      | (BinOpI (IApp, _, _), _) =>
-        (unify_IApp i i'
-         handle UnifyIAppFailed =>
-                (unify_IApp i' i
-                 handle UnifyIAppFailed => default ()))
-      | (_, BinOpI (IApp, _, _)) =>
-        unify_i ctxn (i', i)
-      (* ToReal is injective *)
-      | (UnOpI (ToReal, i, _), UnOpI (ToReal, i', _)) =>
-        unify_i ctxn (i', i)
-      | _ => default ()
+    (* first try unifying applications of uvars with the other index; if unsuccessful in both directions, then try ordinary structural unification *)
+    unify_IApp i i'
+    handle
+    UnifyIAppFailed =>
+    (unify_IApp i' i
+     handle
+     UnifyIAppFailed =>
+     structural_compare ())
   end
 
 fun is_sub_sort r gctx ctx (s, s') =
@@ -1197,16 +1197,16 @@ fun is_sub_sort r gctx ctx (s, s') =
       case s of
           UVarS (x, r) => load_uvar normalize_s s x
         | Basic _ => s
-        | Subset (b, Bind (name, p), r) => Subset (update_bs b, Bind (name, normalize_p p), r)
-        | SortBigO (b, i, r) => SortBigO (update_bs b, normalize_i i, r)
-        | SAbs (b, Bind (name, i), r) => SAbs (update_bs b, Bind (name, normalize_i i), r)
+        | Subset ((b, r1), Bind (name, p), r) => Subset ((update_bs b, r1), Bind (name, normalize_p p), r)
+        | SortBigO ((b, r1), i, r) => SortBigO ((update_bs b, r1), normalize_i i, r)
+        | SAbs (s_arg, Bind (name, s), r) => SAbs (normalize_s s_arg, Bind (name, normalize_s s), r)
         | SApp (s, i) =>
           let
             val s = normalize_s s
             val i = normalize_i i
           in
-            case i of
-                IAbs (_, Bind (_, s), _) => normalize_s (subst_i_s i s)
+            case s of
+                SAbs (_, Bind (_, s), _) => normalize_s (subst_i_s i s)
               | _ => SApp (s, i)
           end
     val s = normalize_s s
@@ -1223,9 +1223,9 @@ fun is_sub_sort r gctx ctx (s, s') =
                 (s, is @ [i])
               end
             | _ => (s, [])
-        fun is_SApp_UVarS i =
+        fun is_SApp_UVarS s =
           let
-            val f :: args = collect_SApp i
+            val (f, args) = collect_SApp s
           in
             case f of
                 UVarS (x, _) => SOME (x, args)
@@ -1285,7 +1285,7 @@ fun is_sub_sort r gctx ctx (s, s') =
               | False r => False r
               | Not (p, r) => Not (f d x v p, r)
               | BinConn (opr,p1, p2) => BinConn (opr, f d x v p1, f d x v p2)
-              | BinPred (opr, i1, i2) => BinPred (opr, ncsubst_aux_is_i x v i1, ncsubst_aux_is_i x v i2)
+              | BinPred (opr, i1, i2) => BinPred (opr, ncsubst_aux_is_i d x v i1, ncsubst_aux_is_i d x v i2)
               | Quan (q, bs, bind, r) => Quan (q, bs, ncsubst_aux_is_ibind f d x v bind, r)
         in
         val ncsubst_aux_is_p = f
@@ -1304,7 +1304,7 @@ fun is_sub_sort r gctx ctx (s, s') =
         val ncsubst_aux_is_s = f
         fun ncsubst_is_s x v b = f 0 x v b
         end
-        val s' = ncsubst_is_s vars' (map V inj) s'
+        val s' = ncsubst_is_s vars' (map (V r) inj) s'
         val (_, ctx) = get_uvar_info x (fn () => raise Impossible "unify_s()/SApp: shouldn't be [Refined]")
         fun SAbsMany (ctx, s, r) = foldl (fn ((name, s_arg), s) => SAbs (s_arg, Bind ((name, r), s), r)) s ctx
         val i' = SAbsMany (ctx, i', r)
@@ -1313,64 +1313,52 @@ fun is_sub_sort r gctx ctx (s, s') =
         ()
       end
     fun default () = raise Error (r, ["Sort"] @ indent [str_s gctx ctx s] @ ["is not a subsort of"] @ indent [str_s gctx ctx s'])
+    fun structural_compare () =
+      case (s, s') of
+          (Basic (bs, _), Basic (bs', _)) =>
+          unify_bs r (bs, bs')
+        | (Subset ((bs, r1), Bind ((name, _), p), _), Subset ((bs', _), Bind (_, p'), _)) =>
+          let
+	    val () = unify_bs r (bs, bs')
+            val ctxd = ctx_from_sorting (name, Basic (bs, r1))
+            val () = open_ctx ctxd
+	    (* val () = write_prop (p <-> p', r) *)
+	    val () = write_prop (p --> p', r)
+	    (* val () = write_prop (p' --> p, r) *)
+            val () = close_ctx ctxd
+          in
+            ()
+          end
+        | (Subset ((bs, r1), Bind ((name, _), p), _), Basic (bs', _)) =>
+          let
+	    val () = unify_bs r (bs, bs')
+            val ctxd = ctx_from_sorting (name, Basic (bs, r1))
+            val () = open_ctx ctxd
+	    (* val () = write_prop (p, r) *)
+            val () = close_ctx ctxd
+          in
+            ()
+          end
+        | (Basic (bs, r1), Subset ((bs', _), Bind ((name, _), p), _)) =>
+          let
+	    val () = unify_bs r (bs, bs')
+            val ctxd = ctx_from_sorting (name, Basic (bs, r1))
+            val () = open_ctx ctxd
+	    val () = write_prop (p, r)
+            val () = close_ctx ctxd
+          in
+            ()
+          end
+        | (SortBigO s, s') => is_sub_sort ctx (SortBigO_to_Subset s, s')
+        | (s, SortBigO s') => is_sub_sort ctx (s, SortBigO_to_Subset s')
   in
-    (* UVarS can only be fresh *)
-    case (s, s') of
-        (UVarS (x, _), _) =>
-        (case s' of
-             UVarS (x', _) =>
-             if x = x' then ()
-             else refine x s' (*here*) (*need to check that [s'] is closed*)
-           | _ => refine x s'
-        )
-      | (_, UVarS _) => 
-        is_sub_sort ctx (s', s)
-      | (SApp (_, _), _) =>
-        (unify_SApp s s'
-         handle UnifySAppFailed =>
-                (unify_SApp s' s
-                 handle UnifySAppFailed => default ()))
-      | (_, SApp (_, _)) =>
-        (unify_SApp s s'
-         handle UnifySAppFailed =>
-                (unify_SApp s' s
-                 handle UnifySAppFailed => default ()))
-      | (Basic (bs, _), Basic (bs', _)) =>
-	unify_bs r (bs, bs')
-      | (Subset ((bs, r1), Bind ((name, _), p), _), Subset ((bs', _), Bind (_, p'), _)) =>
-        let
-	  val () = unify_bs r (bs, bs')
-          val ctxd = ctx_from_sorting (name, Basic (bs, r1))
-          val () = open_ctx ctxd
-	  (* val () = write_prop (p <-> p', r) *)
-	  val () = write_prop (p --> p', r)
-	  (* val () = write_prop (p' --> p, r) *)
-          val () = close_ctx ctxd
-        in
-          ()
-        end
-      | (Subset ((bs, r1), Bind ((name, _), p), _), Basic (bs', _)) =>
-        let
-	  val () = unify_bs r (bs, bs')
-          val ctxd = ctx_from_sorting (name, Basic (bs, r1))
-          val () = open_ctx ctxd
-	  (* val () = write_prop (p, r) *)
-          val () = close_ctx ctxd
-        in
-          ()
-        end
-      | (Basic (bs, r1), Subset ((bs', _), Bind ((name, _), p), _)) =>
-        let
-	  val () = unify_bs r (bs, bs')
-          val ctxd = ctx_from_sorting (name, Basic (bs, r1))
-          val () = open_ctx ctxd
-	  val () = write_prop (p, r)
-          val () = close_ctx ctxd
-        in
-          ()
-        end
-      | (SortBigO s, s') => is_sub_sort ctx (SortBigO_to_Subset s, s')
-      | (s, SortBigO s') => is_sub_sort ctx (s, SortBigO_to_Subset s')
+    unify_SApp s s'
+    handle
+    UnifySAppFailed =>
+    (unify_SApp s' s
+     handle
+     UnifySAppFailed =>
+     structural_compare ())
   end
 
 fun is_sub_sorts r gctx ctx (sorts, sorts') =
