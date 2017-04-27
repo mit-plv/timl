@@ -1026,17 +1026,18 @@ infix 0 !!
 fun opt !! err = SOME_or_fail opt err
                                       
 fun collect_var_aux_i_ibind f d acc (Bind (_, b) : ('a * 'b) ibind) = f (d + 1) acc b
-                                                           
+
+fun collect_var_long_id d (m, (x, r)) =
+  case m of
+      SOME _ => [(m, (x, r))]
+    | NONE =>
+      if x >= d then [(NONE, (x - d, r))]
+      else []
+  
 local
   fun f d(*depth*) acc b =
     case b of
-	VarI (m, (x, r)) =>
-        (case m of
-             SOME _ => (m, (x, r)) :: acc
-           | NONE =>
-             if x >= d then (NONE, (x - d, r)) :: acc
-             else acc
-        )
+	VarI x => collect_var_long_id d x @ acc
       | ConstIN n => acc
       | ConstIT x => acc
       | UnOpI (opr, i, r) => f d acc i
@@ -1127,9 +1128,6 @@ fun get_uvar_info x err =
 fun unify_i r gctxn ctxn (i, i') =
   let
     val unify_i = unify_i r gctxn
-    (* fun error (i, i') = unify_error r (str_i gctxn ctxn i, str_i gctxn ctxn i') *)
-    val i = normalize_i i
-    val i' = normalize_i i'
     exception UnifyIAppFailed
     (* Try to see whether [i']'s variables are covered by the arguments applied to [x]. If so, then refine [x] with [i'], with the latter's variables replaced by the former's arguments. This may not be the most general instantiation, because [i']'s constants will be fixed for [x], although those constants may be arguments in a more instantiation. For example, unifying [x y 5] with [y+5] will refine [x] to be [fun y z => y+5], but a more general instantiation is [fun y z => y+z]. This less-general instantiation may cause later unifications to fail. *)
     fun unify_IApp i i' =
@@ -1154,32 +1152,39 @@ fun unify_i r gctxn ctxn (i, i') =
       in
         ()
       end
-    fun default () = 
-      if eq_i i i' then ()
-      else write_prop (BinPred (EqP, i, i'), r)
-    fun structural_compare () = 
-      case (i, i') of
-          (BinOpI (IApp, _, _), _) =>
-          (unify_IApp i i'
-           handle UnifyIAppFailed =>
-                  (unify_IApp i' i
-                   handle UnifyIAppFailed => default ()))
-        | (_, BinOpI (IApp, _, _)) =>
-          unify_i ctxn (i', i)
-        (* ToReal is injective *)
-        | (UnOpI (ToReal, i, _), UnOpI (ToReal, i', _)) =>
-          unify_i ctxn (i', i)
-        | _ => default ()
+    fun structural_compare (i, i') =
+      let
+        fun default () = 
+          if eq_i i i' then ()
+          else write_prop (BinPred (EqP, i, i'), r)
+      in
+        case (i, i') of
+            (BinOpI (IApp, _, _), _) =>
+            (unify_IApp i i'
+             handle UnifyIAppFailed =>
+                    (unify_IApp i' i
+                     handle UnifyIAppFailed => default ()))
+          | (_, BinOpI (IApp, _, _)) =>
+            unify_i ctxn (i', i)
+          (* ToReal is injective *)
+          | (UnOpI (ToReal, i, _), UnOpI (ToReal, i', _)) =>
+            unify_i ctxn (i', i)
+          | _ => default ()
+      end
+    val i = normalize_i i (* todo: whnf_i is enough *)
+    val i' = normalize_i i'
     (* val () = println $ sprintf "Unifying indices $ and $" [str_i gctxn ctxn i, str_i gctxn ctxn i'] *)
   in
-    (* first try unifying applications of uvars with the other index; if unsuccessful in both directions, then try ordinary structural unification *)
-    unify_IApp i i'
-    handle
-    UnifyIAppFailed =>
-    (unify_IApp i' i
-     handle
-     UnifyIAppFailed =>
-     structural_compare ())
+    if eq_i i i' then ()
+    else
+      (* first try unifying applications of uvars with the other index; if unsuccessful in both directions, then try ordinary structural unification *)
+      unify_IApp i i'
+      handle
+      UnifyIAppFailed =>
+      (unify_IApp i' i
+       handle
+       UnifyIAppFailed =>
+       structural_compare (i, i'))
   end
 
 fun is_sub_sort r gctx ctx (s, s') =
@@ -1209,8 +1214,6 @@ fun is_sub_sort r gctx ctx (s, s') =
                 SAbs (_, Bind (_, s), _) => normalize_s (subst_i_s i s)
               | _ => SApp (s, i)
           end
-    val s = normalize_s s
-    val s' = normalize_s s'
     exception UnifySAppFailed
     fun unify_SApp i i' =
       let
@@ -1312,55 +1315,70 @@ fun is_sub_sort r gctx ctx (s, s') =
       in
         ()
       end
-    fun default () = raise Error (r, ["Sort"] @ indent [str_s gctx ctx s] @ ["is not a subsort of"] @ indent [str_s gctx ctx s'])
-    fun structural_compare () =
+    fun structural_compare (s, s') =
+      let
+        fun default () = raise Error (r, ["Sort"] @ indent [str_s gctx ctx s] @ ["is not a subsort of"] @ indent [str_s gctx ctx s'])
+      in
+        case (s, s') of
+            (Basic (bs, _), Basic (bs', _)) =>
+            unify_bs r (bs, bs')
+          | (Subset ((bs, r1), Bind ((name, _), p), _), Subset ((bs', _), Bind (_, p'), _)) =>
+            let
+	      val () = unify_bs r (bs, bs')
+              val ctxd = ctx_from_sorting (name, Basic (bs, r1))
+              val () = open_ctx ctxd
+	      (* val () = write_prop (p <-> p', r) *)
+	      val () = write_prop (p --> p', r)
+	      (* val () = write_prop (p' --> p, r) *)
+              val () = close_ctx ctxd
+            in
+              ()
+            end
+          | (Subset ((bs, r1), Bind ((name, _), p), _), Basic (bs', _)) =>
+            let
+	      val () = unify_bs r (bs, bs')
+              val ctxd = ctx_from_sorting (name, Basic (bs, r1))
+              val () = open_ctx ctxd
+	      (* val () = write_prop (p, r) *)
+              val () = close_ctx ctxd
+            in
+              ()
+            end
+          | (Basic (bs, r1), Subset ((bs', _), Bind ((name, _), p), _)) =>
+            let
+	      val () = unify_bs r (bs, bs')
+              val ctxd = ctx_from_sorting (name, Basic (bs, r1))
+              val () = open_ctx ctxd
+	      val () = write_prop (p, r)
+              val () = close_ctx ctxd
+            in
+              ()
+            end
+          | (SortBigO s, s') => is_sub_sort ctx (SortBigO_to_Subset s, s')
+          | (s, SortBigO s') => is_sub_sort ctx (s, SortBigO_to_Subset s')
+      end
+    fun eq_s s s' =
       case (s, s') of
-          (Basic (bs, _), Basic (bs', _)) =>
-          unify_bs r (bs, bs')
-        | (Subset ((bs, r1), Bind ((name, _), p), _), Subset ((bs', _), Bind (_, p'), _)) =>
-          let
-	    val () = unify_bs r (bs, bs')
-            val ctxd = ctx_from_sorting (name, Basic (bs, r1))
-            val () = open_ctx ctxd
-	    (* val () = write_prop (p <-> p', r) *)
-	    val () = write_prop (p --> p', r)
-	    (* val () = write_prop (p' --> p, r) *)
-            val () = close_ctx ctxd
-          in
-            ()
-          end
-        | (Subset ((bs, r1), Bind ((name, _), p), _), Basic (bs', _)) =>
-          let
-	    val () = unify_bs r (bs, bs')
-            val ctxd = ctx_from_sorting (name, Basic (bs, r1))
-            val () = open_ctx ctxd
-	    (* val () = write_prop (p, r) *)
-            val () = close_ctx ctxd
-          in
-            ()
-          end
-        | (Basic (bs, r1), Subset ((bs', _), Bind ((name, _), p), _)) =>
-          let
-	    val () = unify_bs r (bs, bs')
-            val ctxd = ctx_from_sorting (name, Basic (bs, r1))
-            val () = open_ctx ctxd
-	    val () = write_prop (p, r)
-            val () = close_ctx ctxd
-          in
-            ()
-          end
-        | (SortBigO s, s') => is_sub_sort ctx (SortBigO_to_Subset s, s')
-        | (s, SortBigO s') => is_sub_sort ctx (s, SortBigO_to_Subset s')
+	  (Basic (b, _), Basic (b', _)) => eq_bs b b'
+        | (Subset ((b, _), Bind (_, p), _), Subset ((b', _), Bind (_, p'), _)) => eq_bs b b' andalso eq_p p p'
+        | (UVarS (x, _), UVarS (x', _)) => x = x'
+        | (SortBigO ((b, _), i, _), SortBigO ((b', _), i', _)) => eq_bs b b' andalso eq_i i i'
+        | (SAbs (s1, Bind (_, s), _), SAbs (s1', Bind (_, s'), _)) => eq_s s1 s1' andalso eq_s s s'
+        | (SApp (s, i), SApp (s', i')) => eq_s s s' andalso eq_i i i'
+    val s = normalize_s s
+    val s' = normalize_s s'
   in
-    unify_SApp s s'
-    handle
-    UnifySAppFailed =>
-    (unify_SApp s' s
-     handle
-     UnifySAppFailed =>
-     structural_compare ())
+    if eq_s s s' then ()
+    else
+      unify_SApp s s'
+      handle
+      UnifySAppFailed =>
+      (unify_SApp s' s
+       handle
+       UnifySAppFailed =>
+       structural_compare (s, s'))
   end
-
+p
 fun is_sub_sorts r gctx ctx (sorts, sorts') =
   (check_length r (sorts, sorts');
    ListPair.app (is_sub_sort r gctx ctx) (sorts, sorts'))
@@ -1381,135 +1399,244 @@ fun is_eqv_sorts r gctx ctx (sorts, sorts') =
     ()
   end
 
-(*
-fun unify_s r gctx ctx (s, s') =
-    let
-      val unify_s = unify_s r gctx
-      fun error (s, s') = unify_error r (str_s gctx ctx s, str_s gctx ctx s')
-      val s = update_s s
-      val s' = update_s s'
-    in
-      (* UVarS can only be fresh *)
-      case (s, s') of
-          (UVarS ((invis, x), _), UVarS ((invis', x'), _)) =>
-          if x = x' then ()
-          else
-            (refine x (shrink_s invis s')
-	     handle 
-             ForgetError _ => 
-             refine x' (shrink_s invis' s)
-             handle ForgetError _ => raise error (s, s')
-            )
-        | (UVarS ((invis, x), _), _) =>
-          (refine x (shrink_s invis s')
-	   handle ForgetError _ => raise error (s, s')
-          )
-        | (_, UVarS _) => 
-          unify_s ctx (s', s)
-	| (Basic (bs, _), Basic (bs', _)) =>
-	  unify_bs r (bs, bs')
-	| (Subset ((bs, r1), Bind ((name, _), p), _), Subset ((bs', _), Bind (_, p'), _)) =>
-          let
-	    val () = unify_bs r (bs, bs')
-            val ctxd = ctx_from_sorting (name, Basic (bs, r1))
-            val () = open_ctx ctxd
-	    (* val () = write_prop (p <-> p', r) *)
-	    val () = write_prop (p --> p', r)
-	    val () = write_prop (p' --> p, r)
-            val () = close_ctx ctxd
-          in
-            ()
-          end
-	| (Subset ((bs, r1), Bind ((name, _), p), _), Basic (bs', _)) =>
-          let
-	    val () = unify_bs r (bs, bs')
-            val ctxd = ctx_from_sorting (name, Basic (bs, r1))
-            val () = open_ctx ctxd
-	    val () = write_prop (p, r)
-            val () = close_ctx ctxd
-          in
-            ()
-          end
-	| (Basic (bs, r1), Subset ((bs', _), Bind ((name, _), p), _)) =>
-          let
-	    val () = unify_bs r (bs, bs')
-            val ctxd = ctx_from_sorting (name, Basic (bs, r1))
-            val () = open_ctx ctxd
-	    val () = write_prop (p, r)
-            val () = close_ctx ctxd
-          in
-            ()
-          end
-    end
-
-fun unify_sorts r gctx ctx (sorts, sorts') =
-    (check_length r (sorts, sorts');
-     ListPair.app (unify_s r gctx ctx) (sorts, sorts'))
-*)
-    
 fun unify_mt r gctx ctx (t, t') =
   let
+    val unify_mt = unify_mt r gctx
     val gctxn = gctx_names gctx
     val ctxn = (sctx_names $ #1 ctx, names $ #2 ctx)
     fun error ctxn (t, t') = unify_error r (str_mt gctxn ctxn t, str_mt gctxn ctxn t')
     (* val () = println $ sprintf "Unifying types $ and $" [str_mt gctxn ctxn t, str_mt gctxn ctxn t'] *)
-    fun loop (ctx as (sctx, kctx)) (t, t') =
-      let 
-        val t = whnf_mt gctx kctx t
-        val t' = whnf_mt gctx kctx t'
-        val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
+    exception UnifyMtAppFailed
+    fun unify_MtApp t t' =
+      let
+        fun collect_MtApp t =
+          case t of
+              MtApp (t1, t2) =>
+              let 
+                val (f, args) = collect_SApp t1
+              in
+                (f, args @ [t2])
+              end
+            | _ => (t, [])
+        fun collect_MtAppI t =
+          case t of
+              MtApp (t, i) =>
+              let 
+                val (f, args) = collect_SApp t
+              in
+                (f, args @ [i])
+              end
+            | _ => (t, [])
+        fun is_MtApp_UVar t =
+          let
+            val (t, t_args) = collect_MtApp t
+            val (f, i_args) = collect_MtAppI t
+          in
+            case f of
+                UVar (x, _) => SOME (x, i_args, t_args)
+              | _ => NONE
+          end
+        val (x, i_args, t_args) = is_MtApp_UVar t !! (fn () => UnifyMtAppFailed)
+        fun collect_var_aux_t_ibind f d acc (Bind (_, b) : ('a * 'b) ibind) = f d acc b
+        fun collect_var_aux_i_tbind f d acc (Bind (_, b) : ('a * 'b) tbind) = f d acc b
+        fun collect_var_aux_t_tbind f d acc (Bind (_, b) : ('a * 'b) tbind) = f (d + 1) acc b
+        local
+          fun f d acc b =
+            case b of
+	        Arrow (t1, i, t2) =>
+                let
+                  val acc = f d acc t1
+                  val acc = collect_var_aux_i_i d acc i
+                  val acc = f d acc t2
+                in
+                  acc
+                end
+              | TyNat (i, _) => collect_var_aux_i_i d acc i
+              | TyArray (t, i) =>
+                let
+                  val acc = f d acc t
+                  val acc = collect_var_aux_i_i d acc i
+                in
+                  acc
+                end
+              | Unit _ => acc
+              | Prod (t1, t2) =>
+                let
+                  val acc = f d acc t1
+                  val acc = f d acc t2
+                in
+                  acc
+                end
+              | UniI (s, bind, _) =>
+                let
+                  val acc = collect_var_aux_i_s d acc s
+                  val acc = collect_var_aux_i_ibind f d acc bind
+                in
+                  acc
+                end
+              | MtVar _ => acc
+              | MtApp (t1, t2) =>
+                let
+                  val acc = f d acc t1
+                  val acc = f d acc t2
+                in
+                  acc
+                end
+              | MtAbs (bind, _) => collect_var_aux_i_tbind f d acc bind
+              | MtAppI (t, i) =>
+                let
+                  val acc = f d acc t
+                  val acc = collect_var_aux_i_i d acc i
+                in
+                  acc
+                end
+              | MtAbsI (s, bind, r) =>
+                let
+                  val acc = collect_var_aux_i_s d acc s
+                  val acc = collect_var_aux_i_ibind f d acc bind
+                in
+                  acc
+                end
+              | AppV (y, ts, is, r) => [] (* todo: AppV is to be removed *)
+              | BaseType _ => acc
+              | UVar _ => acc
+        in
+        val collect_var_aux_i_mt = f
+        fun collect_var_i_mt b = f 0 [] b
+        end
+        local
+          fun f d acc b =
+            case b of
+	        Arrow (t1, i, t2) =>
+                let
+                  val acc = f d acc t1
+                  val acc = f d acc t2
+                in
+                  acc
+                end
+              | TyNat (i, _) => acc
+              | TyArray (t, i) => f d acc t
+              | Unit _ => acc
+              | Prod (t1, t2) =>
+                let
+                  val acc = f d acc t1
+                  val acc = f d acc t2
+                in
+                  acc
+                end
+              | UniI (s, bind, _) => collect_var_aux_t_ibind f d acc bind
+              | MtVar x => collect_var_long_id d x @ acc
+              | MtApp (t1, t2) =>
+                let
+                  val acc = f d acc t1
+                  val acc = f d acc t2
+                in
+                  acc
+                end
+              | MtAbs (bind, _) => collect_var_aux_t_tbind f d acc bind
+              | MtAppI (t, i) => f d acc t
+              | MtAbsI (s, bind, r) => collect_var_aux_t_ibind f d acc bind
+              | AppV (y, ts, is, r) => [] (* todo: AppV is to be removed *)
+              | BaseType _ => acc
+              | UVar _ => acc
+        in
+        val collect_var_aux_t_mt = f
+        fun collect_var_t_mt b = f 0 [] b
+        end
+        local
+          fun f d acc b =
+            case b of
+	        Basic s => acc
+              | Subset (b, bind, r) => collect_var_aux_i_ibind collect_var_aux_i_p d acc bind
+              | UVarS a => acc
+              | SortBigO (b, i, r) => collect_var_aux_i_i d acc i
+              | SAbs (s, bind, r) => collect_var_aux_i_ibind f d acc bind
+              | SApp (s, i) =>
+                let
+                  val acc = f d acc s
+                  val acc = collect_var_aux_i_i d acc i
+                in
+                  acc
+                end
+        in
+        val collect_var_aux_i_s = f
+        fun collect_var_i_s b = f 0 [] b
+        end
+        val i_vars' = collect_var_i_mt t'
+        val i_inj = find_injection eq_i (map VarI i_vars') (rev i_args) !! (fn () => UnifySAppFailed)
+        val t_vars' = collect_var_t_mt t'
+        val t_inj = find_injection eq_mt (map MtVar i_vars') (rev t_args) !! (fn () => UnifySAppFailed)
+        local
+          (*here*)
+          fun f d x v b =
+            case b of
+	        Basic s => Basic s
+              | Subset (b, bind, r) => Subset (b, ncsubst_aux_is_ibind ncsubst_aux_is_p d x v bind, r)
+              | UVarS a => b
+              | SortBigO (b, i, r) => SortBigO (b, ncsubst_aux_is_i d x v i, r)
+              | SAbs (s, bind, r) => SAbs (f d x v s, ncsubst_aux_is_ibind f d x v bind, r)
+              | SApp (s, i) => SApp (f d x v s, ncsubst_aux_is_i d x v i)
+        in
+        val ncsubst_aux_is_s = f
+        fun ncsubst_is_s x v b = f 0 x v b
+        end
+        val t' = ncsubst_ts_mt t_vars' (map (TV r) t_inj) t'
+        val t' = ncsubst_is_mt i_vars' (map (V r) i_inj) t'
+        val (_, sctx, kctx) = get_uvar_info x (fn () => raise Impossible "unify_t()/MtApp: shouldn't be [Refined]")
+        fun MtAbsMany (ctx, t, r) = foldl (fn (name, t) => MtAbs (Bind ((name, r), t), r)) t ctx
+        fun MtAbsIMany (ctx, t, r) = foldl (fn ((name, s), t) => SAbs (s, Bind ((name, r), t), r)) t ctx
+        val t' = MtAbsMany (kctx, t', r)
+        val t' = MtAbsIMany (sctx, t', r)
+        val () = refine x t'
       in
-        (* UVar can only be fresh *)
-        case (t, t') of
-            (UVar ((invis, x), _), UVar ((invis', x'), _)) =>
-            if x = x' then ()
-            else
-              (* ToDo: potentially dangerous because [shrink_mt invis t'] may not be transactional so may not be safe to roll back *)
-              (refine x (shrink_mt invis t')
-	       handle
-               ForgetError _ =>
-               refine x' (shrink_mt invis' t)
-               handle ForgetError _ => raise error ctxn (t, t')
-              )
-          | (UVar ((invis, x), _), _) =>
-            (refine x (shrink_mt invis t')
-	     handle ForgetError _ => raise error ctxn (t, t')
-            )
-          | (_, UVar _) => loop ctx (t', t)
-          | (Arrow (t1, d, t2), Arrow (t1', d', t2')) =>
-            (loop ctx (t1, t1');
-             unify_i r gctxn sctxn (d, d');
-             loop ctx (t2, t2'))
-          | (TyArray (t, i), TyArray (t', i')) =>
-            (loop ctx (t, t');
-             unify_i r gctxn sctxn (i, i')
-            )
-          | (TyNat (i, _), TyNat (i', _)) =>
-            unify_i r gctxn sctxn (i, i')
-          | (Prod (t1, t2), Prod (t1', t2')) =>
-            (loop ctx (t1, t1');
-             loop ctx (t2, t2'))
-          | (UniI (s, Bind ((name, _), t1), _), UniI (s', Bind (_, t1'), _)) =>
-            (is_eqv_sort r gctxn sctxn (s, s');
-             open_close add_sorting_sk (name, s) ctx (fn ctx => loop ctx (t1, t1'))
-            )
-          | (Unit _, Unit _) => ()
-	  | (BaseType (Int, _), BaseType (Int, _)) => ()
-	  (* | (MtVar x, MtVar x') =>  *)
-	  (*   if eq_long_id (x, x') then *)
-          (*     () *)
-	  (*   else *)
-	  (*     raise error ctxn (t, t') *)
-	  | (AppV (x, ts, is, _), AppV (x', ts', is', _)) => 
-	    if eq_long_id (x, x') then
-	      (ListPair.app (loop ctx) (ts, ts');
-               ListPair.app (unify_i r gctxn sctxn) (is, is'))
-	    else
-	      raise error ctxn (t, t')
-	  | _ => raise error ctxn (t, t')
+        ()
       end
+    val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
+    fun structural_compare (t, t') =
+      case (t, t') of
+          (Arrow (t1, d, t2), Arrow (t1', d', t2')) =>
+          (unify_mt ctx (t1, t1');
+           unify_i r gctxn sctxn (d, d');
+           unify_mt ctx (t2, t2'))
+        | (TyArray (t, i), TyArray (t', i')) =>
+          (unify_mt ctx (t, t');
+           unify_i r gctxn sctxn (i, i')
+          )
+        | (TyNat (i, _), TyNat (i', _)) =>
+          unify_i r gctxn sctxn (i, i')
+        | (Prod (t1, t2), Prod (t1', t2')) =>
+          (unify_mt ctx (t1, t1');
+           unify_mt ctx (t2, t2'))
+        | (UniI (s, Bind ((name, _), t1), _), UniI (s', Bind (_, t1'), _)) =>
+          (is_eqv_sort r gctxn sctxn (s, s');
+           open_close add_sorting_sk (name, s) ctx (fn ctx => unify_mt ctx (t1, t1'))
+          )
+        | (Unit _, Unit _) => ()
+	| (BaseType (Int, _), BaseType (Int, _)) => ()
+	(* | (MtVar x, MtVar x') =>  *)
+	(*   if eq_long_id (x, x') then *)
+        (*     () *)
+	(*   else *)
+	(*     raise error ctxn (t, t') *)
+	| (AppV (x, ts, is, _), AppV (x', ts', is', _)) => 
+	  if eq_long_id (x, x') then
+	    (ListPair.app (unify_mt ctx) (ts, ts');
+             ListPair.app (unify_i r gctxn sctxn) (is, is'))
+	  else
+	    raise error ctxn (t, t')
+	| _ => raise error ctxn (t, t')
+    val t = whnf_mt gctx kctx t
+    val t' = whnf_mt gctx kctx t'
   in
-    loop ctx (t, t')
+    if eq_mt t t' then ()
+    else
+      unify_MtApp t t'
+      handle
+      UnifyMtAppFailed =>
+      (unify_MtApp t' t
+       handle
+       UnifyMtAppFailed =>
+       structural_compare (t, t'))
   end
 
 fun unify_t r gctx ctx (t, t') =
