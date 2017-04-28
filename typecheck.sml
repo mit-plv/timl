@@ -837,6 +837,10 @@ fun load_without_update_uvar f (a as (x, r)) =
   case !x of
       Refined t => f t
     | Fresh _ => UVar a
+
+fun update_k k =
+  case k of
+      ArrowK (dt, n, sorts) => ArrowK (dt, n, map update_s sorts)
                       
 fun update_mt t =
   case t of
@@ -848,7 +852,7 @@ fun update_mt t =
     | Prod (t1, t2) => Prod (update_mt t1, update_mt t2)
     | UniI (s, Bind (name, t1), r) => UniI (update_s s, Bind (name, update_mt t1), r)
     | MtVar x => MtVar x
-    | MtAbs (Bind (name, t), r) => MtAbs (Bind (name, update_mt t), r)
+    | MtAbs (k, Bind (name, t), r) => MtAbs (update_k k, Bind (name, update_mt t), r)
     | MtApp (t1, t2) => MtApp (update_mt t1, update_mt t2)
     | MtAbsI (s, Bind (name, t), r) => MtAbsI (update_s s, Bind (name, update_mt t), r)
     | MtAppI (t, i) => MtAppI (update_mt t, update_i i)
@@ -1127,6 +1131,7 @@ fun ncsubst_is_i x v b = f 0 x v b
 end
         
 fun V r n = VarI (NONE, (n, r))
+fun TV r n = MtVar (NONE, (n, r))
                
 fun get_uvar_info x err =
   case !x of
@@ -1304,6 +1309,15 @@ val ncsubst_aux_is_s = f
 fun ncsubst_is_s x v b = f 0 x v b
 end
 
+fun eq_s s s' =
+  case (s, s') of
+      (Basic (b, _), Basic (b', _)) => eq_bs b b'
+    | (Subset ((b, _), Bind (_, p), _), Subset ((b', _), Bind (_, p'), _)) => eq_bs b b' andalso eq_p p p'
+    | (UVarS (x, _), UVarS (x', _)) => x = x'
+    | (SortBigO ((b, _), i, _), SortBigO ((b', _), i', _)) => eq_bs b b' andalso eq_i i i'
+    | (SAbs (s1, Bind (_, s), _), SAbs (s1', Bind (_, s'), _)) => eq_s s1 s1' andalso eq_s s s'
+    | (SApp (s, i), SApp (s', i')) => eq_s s s' andalso eq_i i i'
+                                                             
 fun is_sub_sort r gctx ctx (s, s') =
   let
     val is_sub_sort = is_sub_sort r gctx
@@ -1382,14 +1396,6 @@ fun is_sub_sort r gctx ctx (s, s') =
           | (SortBigO s, s') => is_sub_sort ctx (SortBigO_to_Subset s, s')
           | (s, SortBigO s') => is_sub_sort ctx (s, SortBigO_to_Subset s')
       end
-    fun eq_s s s' =
-      case (s, s') of
-	  (Basic (b, _), Basic (b', _)) => eq_bs b b'
-        | (Subset ((b, _), Bind (_, p), _), Subset ((b', _), Bind (_, p'), _)) => eq_bs b b' andalso eq_p p p'
-        | (UVarS (x, _), UVarS (x', _)) => x = x'
-        | (SortBigO ((b, _), i, _), SortBigO ((b', _), i', _)) => eq_bs b b' andalso eq_i i i'
-        | (SAbs (s1, Bind (_, s), _), SAbs (s1', Bind (_, s'), _)) => eq_s s1 s1' andalso eq_s s s'
-        | (SApp (s, i), SApp (s', i')) => eq_s s s' andalso eq_i i i'
     val s = whnf_s s
     val s' = whnf_s s'
   in
@@ -1452,12 +1458,16 @@ fun whnf_mt gctx kctx (t : mtype) : mtype =
           val t2 = whnf_mt kctx t2
         in
           case t1 of
-              MtAbs (Bind (_, t1), _) => whnf_mt kctx (subst_t_mt t2 t1)
+              MtAbs (_, Bind (_, t1), _) => whnf_mt kctx (subst_t_mt t2 t1)
             | _ => MtApp (t1, t2)
         end
       | _ => t
   end
 
+fun normalize_k k =
+  case k of
+      ArrowK (dt, n, sorts) => ArrowK (dt, n, map normalize_s sorts)
+                                      
 fun normalize_mt gctx kctx t =
   let
     val normalize_mt = normalize_mt gctx
@@ -1489,14 +1499,14 @@ fun normalize_mt gctx kctx t =
               MtAbsI (_, Bind (_, t), _) => normalize_mt kctx (subst_i_mt i t)
             | _ => MtAppI (t, i)
         end
-      | MtAbs (Bind (name, t), r) => MtAbs (Bind (name, normalize_mt kctx t), r)
+      | MtAbs (k, Bind (name, t), r) => MtAbs (normalize_k k, Bind (name, normalize_mt kctx t), r)
       | MtApp (t1, t2) =>
         let
           val t1 = normalize_mt kctx t1
           val t2 = normalize_mt kctx t2
         in
           case t1 of
-              MtAbs (Bind (_, t1), _) => normalize_mt kctx (subst_t_mt t2 t1)
+              MtAbs (_, Bind (_, t1), _) => normalize_mt kctx (subst_t_mt t2 t1)
             | _ => MtApp (t1, t2)
         end
       | BaseType a => BaseType a
@@ -1510,6 +1520,9 @@ fun normalize_t gctx kctx t =
 fun collect_var_aux_t_ibind f d acc (Bind (_, b) : ('a * 'b) ibind) = f d acc b
 fun collect_var_aux_i_tbind f d acc (Bind (_, b) : ('a * 'b) tbind) = f d acc b
 fun collect_var_aux_t_tbind f d acc (Bind (_, b) : ('a * 'b) tbind) = f (d + 1) acc b
+
+fun collect_var_aux_i_k d acc (ArrowK (_, _, sorts)) =
+  foldl (fn (s, acc) => collect_var_aux_i_s d acc s) acc sorts
                                                                         
 local
   fun f d acc b =
@@ -1553,7 +1566,13 @@ local
         in
           acc
         end
-      | MtAbs (bind, _) => collect_var_aux_i_tbind f d acc bind
+      | MtAbs (k, bind, _) =>
+        let
+          val acc = collect_var_aux_i_k d acc k
+          val acc = collect_var_aux_i_tbind f d acc bind
+        in
+          acc
+        end
       | MtAppI (t, i) =>
         let
           val acc = f d acc t
@@ -1605,7 +1624,7 @@ local
         in
           acc
         end
-      | MtAbs (bind, _) => collect_var_aux_t_tbind f d acc bind
+      | MtAbs (k, bind, _) => collect_var_aux_t_tbind f d acc bind
       | MtAppI (t, i) => f d acc t
       | MtAbsI (s, bind, r) => collect_var_aux_t_ibind f d acc bind
       | AppV (y, ts, is, r) => [] (* todo: AppV is to be removed *)
@@ -1615,6 +1634,8 @@ in
 val collect_var_aux_t_mt = f
 fun collect_var_t_mt b = f 0 [] b
 end
+
+fun ncsubst_aux_is_k d x v (ArrowK (dt, n, sorts)) = ArrowK (dt, n, map (ncsubst_aux_is_s d x v) sorts)
         
 fun ncsubst_aux_is_tbind f d x v (Bind (name, b) : ('a * 'b) tbind) =
   Bind (name, f d x v b)
@@ -1630,7 +1651,7 @@ local
       | AppV (y, ts, is, r) => b
       | MtVar y => MtVar y
       | MtApp (t1, t2) => MtApp (f d x v t1, f d x v t2)
-      | MtAbs (bind, r) => MtAbs (ncsubst_aux_is_tbind f d x v bind, r)
+      | MtAbs (k, bind, r) => MtAbs (ncsubst_aux_is_k d x v k, ncsubst_aux_is_tbind f d x v bind, r)
       | MtAppI (t, i) => MtAppI (f d x v t, ncsubst_aux_is_i d x v i)
       | MtAbsI (s, bind, r) => MtAbsI (ncsubst_aux_is_s d x v s, ncsubst_aux_is_ibind f d x v bind, r)
       | BaseType a => BaseType a
@@ -1655,7 +1676,7 @@ local
       | UniI (s, bind, r) => UniI (s, ncsubst_aux_ts_ibind f d x v bind, r)
       | AppV (y, ts, is, r) => b
       | MtVar y => ncsubst_long_id (snd d) x (fn n => shiftx_i_mt 0 (fst d) (shiftx_t_mt 0 (snd d) (List.nth (v, n)))) b y
-      | MtAbs (bind, r) => MtAbs (ncsubst_aux_ts_tbind f d x v bind, r)
+      | MtAbs (k, bind, r) => MtAbs (k, ncsubst_aux_ts_tbind f d x v bind, r)
       | MtApp (t1, t2) => MtApp (f d x v t1, f d x v t2)
       | MtAbsI (s, bind, r) => MtAbsI (s, ncsubst_aux_ts_ibind f d x v bind, r)
       | MtAppI (t, i) => MtAppI (f d x v t, i)
@@ -1665,15 +1686,88 @@ in
 val ncsubst_aux_ts_mt = f
 fun ncsubst_ts_mt x v b = f (0, 0) x v b
 end
-        
+
+fun eq_ls eq (ls1, ls2) = length ls1 = length ls2 andalso List.all eq $ zip (ls1, ls2)
+                                                              
+fun eq_k (ArrowK (dt, n, sorts)) (ArrowK (dt', n', sorts')) =
+  dt = dt' andalso n = n' andalso eq_ls (uncurry eq_s) (sorts, sorts')
+  
 fun eq_mt t t' = 
+    case t of
+	Arrow (t1, i, t2) =>
+        (case t' of
+	     Arrow (t1', i', t2') => eq_mt t1 t1' andalso eq_i i i' andalso eq_mt t2 t2'
+           | _ => false
+        )
+      | TyNat (i, r) =>
+        (case t' of
+             TyNat (i', _) => eq_i i i'
+           | _ => false
+        )
+      | TyArray (t, i) =>
+        (case t' of
+             TyArray (t', i') => eq_mt t t' andalso eq_i i i'
+           | _ => false
+        )
+      | Unit r =>
+        (case t' of
+             Unit _ => true
+           | _ => false
+        )
+      | Prod (t1, t2) =>
+        (case t' of
+             Prod (t1', t2') => eq_mt t1 t1' andalso eq_mt t2 t2'
+           | _ => false
+        )
+      | UniI (s, Bind (_, t), r) =>
+        (case t' of
+             UniI (s', Bind (_, t'), _) => eq_s s s' andalso eq_mt t t'
+           | _ => false
+        )
+      | AppV (y, ts, is, r) => false
+      | MtVar x =>
+        (case t' of
+             MtVar x' => eq_long_id (x, x')
+           | _ => false
+        )
+      | MtAbs (k, Bind (_, t), r) =>
+        (case t' of
+             MtAbs (k', Bind (_, t'), _) => eq_k k k' andalso eq_mt t t'
+           | _ => false
+        )
+      | MtApp (t1, t2) =>
+        (case t' of
+             MtApp (t1', t2') => eq_mt t1 t1' andalso eq_mt t2 t2'
+           | _ => false
+        )
+      | MtAbsI (s, Bind (_, t), r) =>
+        (case t' of
+             MtAbsI (s', Bind (_, t'), _) => eq_s s s' andalso eq_mt t t'
+           | _ => false
+        )
+      | MtAppI (t, i) =>
+        (case t' of
+             MtAppI (t', i') => eq_mt t t' andalso eq_i i i'
+           | _ => false
+        )
+      | BaseType a =>
+        (case t' of
+             BaseType a'  => a = a'
+           | _ => false
+        )
+      | UVar (x, _) =>
+        (case t' of
+             UVar (x', _) => x = x'
+        )
 
 fun unify_mt r gctx ctx (t, t') =
   let
     val unify_mt = unify_mt r gctx
+    val sctx = #1 ctx
     val kctx = #2 ctx
     val gctxn = gctx_names gctx
     val ctxn = (sctx_names $ #1 ctx, names $ #2 ctx)
+    val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
     fun error ctxn (t, t') = unify_error r (str_mt gctxn ctxn t, str_mt gctxn ctxn t')
     (* val () = println $ sprintf "Unifying types $ and $" [str_mt gctxn ctxn t, str_mt gctxn ctxn t'] *)
     exception UnifyMtAppFailed
@@ -1690,7 +1784,7 @@ fun unify_mt r gctx ctx (t, t') =
             | _ => (t, [])
         fun collect_MtAppI t =
           case t of
-              MtApp (t, i) =>
+              MtAppI (t, i) =>
               let 
                 val (f, args) = collect_MtAppI t
               in
@@ -1708,24 +1802,23 @@ fun unify_mt r gctx ctx (t, t') =
           end
         val (x, i_args, t_args) = is_MtApp_UVar t !! (fn () => UnifyMtAppFailed)
         val i_args = map normalize_i i_args
-        val t_args = map normalize_mt t_args
-        val t' = normalize_mt t'
+        val t_args = map (normalize_mt gctx kctx) t_args
+        val t' = normalize_mt gctx kctx t'
         val i_vars' = collect_var_i_mt t'
         val i_inj = find_injection eq_i (map VarI i_vars') (rev i_args) !! (fn () => UnifyMtAppFailed)
         val t_vars' = collect_var_t_mt t'
         val t_inj = find_injection eq_mt (map MtVar i_vars') (rev t_args) !! (fn () => UnifyMtAppFailed)
         val t' = ncsubst_ts_mt t_vars' (map (TV r) t_inj) t'
         val t' = ncsubst_is_mt i_vars' (map (V r) i_inj) t'
-        val (_, sctx, kctx) = get_uvar_info x (fn () => raise Impossible "unify_t()/MtApp: shouldn't be [Refined]")
-        fun MtAbsMany (ctx, t, r) = foldl (fn (name, t) => MtAbs (Bind ((name, r), t), r)) t ctx
-        fun MtAbsIMany (ctx, t, r) = foldl (fn ((name, s), t) => SAbs (s, Bind ((name, r), t), r)) t ctx
+        val (_, (sctx, kctx)) = get_uvar_info x (fn () => raise Impossible "unify_t()/MtApp: shouldn't be [Refined]")
+        fun MtAbsMany (ctx, t, r) = foldl (fn ((name, k), t) => MtAbs (k, Bind ((name, r), t), r)) t ctx
+        fun MtAbsIMany (ctx, t, r) = foldl (fn ((name, s), t) => MtAbsI (s, Bind ((name, r), t), r)) t ctx
         val t' = MtAbsMany (kctx, t', r)
         val t' = MtAbsIMany (sctx, t', r)
         val () = refine x t'
       in
         ()
       end
-    val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
     fun structural_compare (t, t') =
       case (t, t') of
           (Arrow (t1, d, t2), Arrow (t1', d', t2')) =>
@@ -1852,21 +1945,51 @@ fun inc () =
     n
   end
 
+fun get_base (* r gctx ctx *) on_UVarS s =
+  case update_s s of
+      Basic (s, _) => s
+    | Subset ((s, _), _, _) => s
+    | UVarS info => on_UVarS info (* Error (r, [sprintf "Can't figure out base sort of $" [str_s gctx ctx s]]) *)
+    | SortBigO ((s, _), _, _) => s
+
+fun IApps f args = foldl (fn (arg, f) => BinOpI (IApp, f, arg)) f args
+fun MtAppIs f args = foldl (fn (arg, f) => MtAppI (f, arg)) f args
+fun MtApps f args = foldl (fn (arg, f) => MtApp (f, arg)) f args
+                         
 fun fresh_bsort () = UVarBS (ref (Fresh (inc ())))
 
-fun fresh_i names bsort r = 
+fun fresh_i ctx bsort r = 
   let
-    val uvar_ref = ref (Fresh (inc (), names, bsort))
-    val () = write_anchor uvar_ref
+    fun on_UVarS (x, r) =
+      let
+        val b = fresh_bsort ()
+        val s = Basic (b, r)
+        val () = refine x s
+      in
+        b
+      end
+    val ctx = map (mapSnd (get_base on_UVarS)) ctx
+    val x = ref (Fresh (inc (), ctx, bsort))
+    val i = UVarI (x, r)
+    val i = IApps i (map (V r) $ rev $ range (length ctx))
   in
-    UVarI (([], uvar_ref), r)
+    i
+  end
+
+fun fresh_sort ctx r : sort = UVarS (ref (Fresh (inc (), ctx)), r)
+                                             
+fun fresh_mt (ctx as (sctx, kctx)) r : mtype =
+  let
+    val x = ref (Fresh (inc (), mapSnd (map (mapSnd get_ke_kind)) ctx))
+    val t = UVar (x, r)
+    val t = MtAppIs t (map (V r) $ rev $ range (length sctx))
+    val t = MtApps t (map (TV r) $ rev $ range (length kctx))
+  in
+    t
   end
 
 fun fresh_nonidx f empty_invis names r = 
   f ((empty_invis, ref (Fresh (inc (), names))), r)
-
-fun fresh_sort names r : sort = fresh_nonidx UVarS [] names r
-fun fresh_mt names r : mtype = fresh_nonidx UVar ([], []) names r
 
 fun sort_mismatch gctx ctx i expect have =  "Sort mismatch for " ^ str_i gctx ctx i ^ ": expect " ^ expect ^ " have " ^ str_s gctx ctx have
 
@@ -1875,13 +1998,6 @@ fun is_wf_bsort (bs : U.bsort) : bsort =
       U.Base bs => Base bs
     | U.BSArrow (a, b) => BSArrow (is_wf_bsort a, is_wf_bsort b)
     | U.UVarBS () => fresh_bsort ()
-
-fun get_base (* r gctx ctx *) error s =
-  case update_s s of
-      Basic (s, _) => s
-    | Subset ((s, _), _, _) => s
-    | UVarS _ => raise error () (* Error (r, [sprintf "Can't figure out base sort of $" [str_s gctx ctx s]]) *)
-    | SortBigO ((s, _), _, _) => s
 
 fun is_wf_sort gctx (ctx : scontext, s : U.sort) : sort =
   let
@@ -1906,7 +2022,7 @@ fun is_wf_sort gctx (ctx : scontext, s : U.sort) : sort =
         in
           SortBigO_to_Subset ((bs, r), i, r_all)
         end
-      | U.UVarS ((), r) => fresh_sort (sctx_names ctx) r
+      | U.UVarS ((), r) => fresh_sort ctx r
   end
 
 and is_wf_prop gctx (ctx : scontext, p : U.prop) : prop =
@@ -1985,7 +2101,7 @@ and get_bsort (gctx : sigcontext) (ctx : scontext, i : U.idx) : idx * bsort =
               val s = fetch_sort gctx (ctx, x)
               fun error r gctx ctx () = Error (r, [sprintf "Can't figure out base sort of $" [str_s gctx ctx s]])
             in
-              (VarI x, get_base (error (U.get_region_i i) (gctx_names gctx) (sctx_names ctx)) s)
+              (VarI x, get_base (fn _ => raise error (U.get_region_i i) (gctx_names gctx) (sctx_names ctx) ()) s)
             end
           | U.UnOpI (opr, i, r) =>
             let
@@ -2102,7 +2218,7 @@ and get_bsort (gctx : sigcontext) (ctx : scontext, i : U.idx) : idx * bsort =
             let
               val bs = fresh_bsort ()
             in
-              (fresh_i (sctx_names ctx) bs r, bs)
+              (fresh_i ctx bs r, bs)
             end
       val ret = main ()
                 handle
@@ -2144,9 +2260,6 @@ fun check_sort gctx (ctx, i : U.idx, s : sort) : idx =
                                      AdmitI r => (TTI r, true)
                                    | _ => (i, false)
              val p = subst_i_p i p
-                     handle
-                     SubstUVar info =>
-                     raise subst_uvar_error (get_region_p p) ("proposition " ^ str_p (gctx_names gctx) (name :: sctx_names ctx) p) i info
              (* val () = println $ sprintf "Writing prop $ $" [str_p (sctx_names ctx) p, str_region "" "" r] *)
 	     val () =
                  if is_admit then
@@ -2159,11 +2272,11 @@ fun check_sort gctx (ctx, i : U.idx, s : sort) : idx =
          | SortBigO s => main (SortBigO_to_Subset s)
 	 | Basic (bs, _) => 
 	   unify_bs r (bs', bs)
-         | UVarS ((_, x), _) =>
+         | UVarS (x, _) =>
            (case !x of
                 Refined _ => raise Impossible "check_sort (): s should be Fresh"
               | Fresh _ => 
-                refine x (Basic (bs', dummy))
+                refine x (Basic (bs', r))
            )
       )
       handle Error (_, msg) =>
@@ -2237,7 +2350,7 @@ fun get_kind gctx (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype) : mty
 	| U.BaseType a => (BaseType a, Type)
         | U.UVar ((), r) =>
           (*ToDo: need to create a fresh kind, like what we does for U.UVarI *)
-          (fresh_mt (sctxn @ kctxn) r, Type)
+          (fresh_mt (sctx, kctx) r, Type)
     (* | U.MtVar x => *)
     (*   (MtVar x, fetch_kind gctx (kctx, x)) *)
     val ret =
@@ -2382,7 +2495,7 @@ local
 		 val others = diff eq_long_id all [x]
                  (* val () = println $ sprintf "Family siblings of $: $" [str_long_id #3 (gctx_names gctx) (names cctx) x, str_ls (str_long_id #3 (gctx_names gctx) (names cctx)) others] *)
                  val (_, _, ibinds) = fetch_constr gctx (cctx, x)
-                 val (_, (t', _)) = unfold_ibinds ibinds
+                 val (_, (t', _)) = unfold_binds ibinds
 		 val t' = subst_ts_mt ts t'
                  val covers = ConstrC (x, neg t' c) :: map (fn y => ConstrC (y, TrueC)) others
 	       in
@@ -2585,7 +2698,7 @@ local
                               OK cs' =>
                               let
                                 val (_, _, ibinds) = fetch_constr gctx (cctx, x)
-                                val (_, (t', _)) = unfold_ibinds ibinds
+                                val (_, (t', _)) = unfold_binds ibinds
 		                val t' = subst_ts_mt ts t'
                                 (* val () = (* Debug. *)println (sprintf "All are $, now try to satisfy $" [str_v (names cctx) x, (join ", " o map (str_cover (names cctx))) (c' :: cs')]) *)
                                 val c' = loop $ check_size (t', c' :: cs')
@@ -2836,7 +2949,7 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
              AppV (family, ts, is, _) =>
  	     let 
                val c as (family', tnames, ibinds) = fetch_constr gctx (cctx, cx)
-               val (name_sorts, (t1, is')) = unfold_ibinds ibinds
+               val (name_sorts, (t1, is')) = unfold_binds ibinds
                val () = if eia then () else raise Impossible "eia shouldn't be false"
 	       val () = unify_mt r gctx (sctx, kctx) (MtVar family', MtVar family)
                         handle
@@ -2904,8 +3017,8 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
       | U.PairP (pn1, pn2) =>
         let 
           val r = U.get_region_pn pn
-          val t1 = fresh_mt (kctxn @ sctxn) r
-          val t2 = fresh_mt (kctxn @ sctxn) r
+          val t1 = fresh_mt (sctx, kctx) r
+          val t2 = fresh_mt (sctx, kctx) r
           (* val () = println $ sprintf "before: $ : $" [U.str_pn (sctxn, kctxn, names cctx) pn, str_mt skctxn t] *)
           val () = unify_mt r gctx (sctx, kctx) (t, Prod (t1, t2))
           (* val () = println "after" *)
@@ -2956,11 +3069,11 @@ fun update_ke k =
 
 fun update_c (x, tnames, ibinds) =
   let
-    val (ns, (t, is)) = unfold_ibinds ibinds
+    val (ns, (t, is)) = unfold_binds ibinds
     val ns = map (mapSnd update_s) ns
     val t = update_mt t
     val is = map update_i is
-    val ibinds = fold_ibinds (ns, (t, is))
+    val ibinds = fold_binds (ns, (t, is))
   in
     (x, tnames, ibinds)
   end
@@ -2988,7 +3101,7 @@ fun fv_mt t =
   let
   in      
     case update_mt t of
-        UVar ((_, uvar_ref), _) => [uvar_ref]
+        UVar (uvar_ref, _) => [uvar_ref]
       | Unit _ => []
       | Arrow (t1, _, t2) => fv_mt t1 @ fv_mt t2
       | TyArray (t, _) => fv_mt t
@@ -3011,7 +3124,7 @@ fun smart_write_le gctx ctx (i1, i2, r) =
     (* val () = println $ sprintf "Check Le : $ <= $" [str_i ctx i1, str_i ctx i2] *)
     fun is_fresh_i i =
       case i of
-          UVarI ((_, x), _) =>
+          UVarI (x, _) =>
           (case !x of
                Fresh _ => true
              | Refined _ => false
@@ -3054,7 +3167,7 @@ fun expand_rules gctx (ctx as (sctx, kctx, cctx), rules, t, r) =
                               (ConstrH (x, h'), AppV (family, ts, _, _)) =>
                               let
                                 val (_, _, ibinds) = fetch_constr gctx (cctx, x)
-                                val (name_sorts, (t', _)) = unfold_ibinds ibinds
+                                val (name_sorts, (t', _)) = unfold_binds ibinds
 	                        val t' = subst_ts_mt ts t'
                                 (* cut-off so that [expand_rules] won't try deeper and deeper proposals *) 
                                 val pn' =
@@ -3261,7 +3374,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                   Mono t => t
                 | Uni (Bind (_, t), _) =>
                   let
-                    (* val t_arg = fresh_mt (kctxn @ sctxn) r *)
+                    (* val t_arg = fresh_mt (sctx, kctx) r *)
                     (* val () = println $ str_mt skctxn t_arg *)
                     val t_arg = U.UVar ((), r)
                     val t_arg = check_kind_Type gctx (skctx, t_arg)
@@ -3280,14 +3393,11 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
                   UniI (s, Bind ((name, _), t), _) =>
                   let
                     (* val bs = fresh_bsort () *)
-                    (* val i = fresh_i sctxn bs r *)
+                    (* val i = fresh_i sctx bs r *)
                     (* val bs =  get_base r sctxn s *)
                     val i = U.UVarI ((), r)
                     val i = check_sort gctx (sctx, i, s)
                     val t = subst_i_mt i t
-                            handle
-                            SubstUVar info =>
-                            raise subst_uvar_error (U.get_region_e e_all) ("type " ^ str_mt gctxn skctxn t_all) i info
                   in
                     insert_idx_args t
                   end
@@ -3303,8 +3413,8 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	  let
             val (e2, t2, d2) = get_mtype (ctx, e2)
             val r = U.get_region_e e1
-            val d = fresh_i sctxn (Base Time) r
-            val t = fresh_mt (kctxn @ sctxn) r
+            val d = fresh_i sctx (Base Time) r
+            val t = fresh_mt (sctx, kctx) r
             val (e1, _, d1) = check_mtype (ctx, e1, Arrow (t2, d, t))
             val ret = (App (e1, e2), t, d1 %+ d2 %+ T1 dummy %+ d) 
           in
@@ -3313,7 +3423,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	| U.BinOp (New, e1, e2) =>
           let
             val r = U.get_region_e e_all
-            val i = fresh_i sctxn (Base Time) r
+            val i = fresh_i sctx (Base Time) r
             val (e1, _, d1) = check_mtype (ctx, e1, TyNat (i, r))
             val (e2, t, d2) = get_mtype (ctx, e2)
           in
@@ -3322,9 +3432,9 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	| U.BinOp (Read, e1, e2) =>
           let
             val r = U.get_region_e e_all
-            val t = fresh_mt (kctxn @ sctxn) r
-            val i1 = fresh_i sctxn (Base Time) r
-            val i2 = fresh_i sctxn (Base Time) r
+            val t = fresh_mt (sctx, kctx) r
+            val i1 = fresh_i sctx (Base Time) r
+            val i2 = fresh_i sctx (Base Time) r
             val (e1, _, d1) = check_mtype (ctx, e1, TyArray (t, i1))
             val (e2, _, d2) = check_mtype (ctx, e2, TyNat (i2, r))
             val () = write_le (i2, i1, r)
@@ -3334,9 +3444,9 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	| U.TriOp (Write, e1, e2, e3) =>
           let
             val r = U.get_region_e e_all
-            val t = fresh_mt (kctxn @ sctxn) r
-            val i1 = fresh_i sctxn (Base Time) r
-            val i2 = fresh_i sctxn (Base Time) r
+            val t = fresh_mt (sctx, kctx) r
+            val i1 = fresh_i sctx (Base Time) r
+            val i2 = fresh_i sctx (Base Time) r
             val (e1, _, d1) = check_mtype (ctx, e1, TyArray (t, i1))
             val (e2, _, d2) = check_mtype (ctx, e2, TyNat (i2, r))
             val () = write_le (i2, i1, r)
@@ -3347,7 +3457,7 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	| U.Abs (pn, e) => 
 	  let
             val r = U.get_region_pn pn
-            val t = fresh_mt (kctxn @ sctxn) r
+            val t = fresh_mt (sctx, kctx) r
             val skcctx = (sctx, kctx, cctx) 
             val (pn, cover, ctxd, nps (* number of premises *)) = match_ptrn gctx (skcctx, pn, t)
 	    val () = check_exhaustion gctx (skcctx, t, [cover], get_region_pn pn)
@@ -3392,14 +3502,12 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	| U.AppI (e, i) =>
 	  let 
             val r = U.get_region_e e
-            val s = fresh_sort sctxn r
-            val t1 = fresh_mt (kctxn @ sctxn) r
+            val s = fresh_sort sctx r
+            val t1 = fresh_mt (sctx, kctx) r
             val (e, t, d) = check_mtype (ctx, e, UniI (s, Bind (("_", r), t1), r)) 
             val i = check_sort gctx (sctx, i, s) 
           in
 	    (AppI (e, i), subst_i_mt i t1, d)
-            handle SubstUVar info =>
-                   raise subst_uvar_error (U.get_region_e e_all) ("type " ^ str_mt gctxn skctxn t) i info
 	  end
 	| U.TT r => 
           (TT r, Unit dummy, T0 dummy)
@@ -3413,8 +3521,8 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	| U.Fst e => 
 	  let 
             val r = U.get_region_e e
-            val t1 = fresh_mt (kctxn @ sctxn) r
-            val t2 = fresh_mt (kctxn @ sctxn) r
+            val t1 = fresh_mt (sctx, kctx) r
+            val t2 = fresh_mt (sctx, kctx) r
             val (e, _, d) = check_mtype (ctx, e, Prod (t1, t2)) 
           in 
             (Fst e, t1, d)
@@ -3422,8 +3530,8 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	| U.Snd e => 
 	  let 
             val r = U.get_region_e e
-            val t1 = fresh_mt (kctxn @ sctxn) r
-            val t2 = fresh_mt (kctxn @ sctxn) r
+            val t1 = fresh_mt (sctx, kctx) r
+            val t2 = fresh_mt (sctx, kctx) r
             val (e, _, d) = check_mtype (ctx, e, Prod (t1, t2)) 
           in 
             (Snd e, t2, d)
@@ -3553,7 +3661,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
           fun fv_ctx (_, _, _, tctx) = (concatMap fv_t o map snd) tctx (* cctx can't contain uvars *)
           fun substu x v (b : mtype) : mtype =
 	    case b of
-                UVar ((_, y), _) =>
+                UVar (y, _) =>
                 if y = x then
                   AppV ((NONE, (v, dummy)), [], [], dummy)
                 else 
@@ -3632,7 +3740,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
                     let
                       val ctx as (sctx, kctx, cctx, tctx) = add_ctx ctxd ctx
                       val r = U.get_region_pn pn
-                      val t = fresh_mt (names kctx @ names sctx) r
+                      val t = fresh_mt (sctx, kctx) r
                       val skcctx = (sctx, kctx, cctx) 
                       val (pn, cover, ctxd', nps') = match_ptrn gctx (skcctx, pn, t)
 	              val () = check_exhaustion gctx (skcctx, t, [cover], get_region_pn pn)

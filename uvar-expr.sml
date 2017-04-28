@@ -19,7 +19,7 @@ type ('bsort, 'idx) uvar_i = (uvar_name * (string * 'bsort) list(*context*) * 'b
 type 'sort uvar_s = (uvar_name * (string * 'sort) list(*context*), 'sort) uvar_ref
 
 (* uvar for (mono-)type *)                  
-type ('sort, 'mtype) uvar_mt = (uvar_name * (string * 'sort) list(*index context*) * string list(*type context*), 'mtype) uvar_ref
+type ('sort, 'kind, 'mtype) uvar_mt = (uvar_name * ((string * 'sort) list(*index context*) * (string * 'kind) list(*type context*)), 'mtype) uvar_ref
 
 fun refine (x : ('a, 'b) uvar_ref) (v : 'b) = 
   case !x of
@@ -32,7 +32,7 @@ fun str_uvar n = "?" ^ str_int n
 fun str_uinfo_bs n = str_uvar n
 fun str_uinfo_i (n, ctx, _) = str_uvar n
 fun str_uinfo_s (n, ctx) = str_uvar n
-fun str_uinfo_mt (n, sctx, kctx) = str_uvar n
+fun str_uinfo_mt (n, ctx) = str_uvar n
                                          
 (* fun str_uinfo_i (n, ctx, _) = sprintf "($ $)" [str_uvar n, str_ls id (rev ctx)] *)
                                          
@@ -51,7 +51,7 @@ fun str_uvar_s str_s (u : 'sort uvar_s) =
       Refined s => str_s s
     | Fresh info => str_uinfo_s info
 
-fun str_uvar_mt str_mt (u : ('sort, 'mtype) uvar_mt) =
+fun str_uvar_mt str_mt (u : ('sort, 'kind, 'mtype) uvar_mt) =
   case !u of
       Refined t => str_mt t
     | Fresh info => str_uinfo_mt info

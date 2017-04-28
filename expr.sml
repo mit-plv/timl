@@ -99,13 +99,13 @@ datatype mtype =
          | TyNat of idx * region
          | TyArray of mtype * idx
 	 | BaseType of base_type * region
-         | UVar of (sort, mtype) uvar_mt * region
+         | UVar of (sort, kind, mtype) uvar_mt * region
          | Unit of region
 	 | Prod of mtype * mtype
 	 | UniI of sort * (name * mtype) ibind * region
          (* type-level computations are just for higher-order unification *)
          | MtVar of long_id
-         | MtAbs of (name * mtype) tbind * region
+         | MtAbs of kind * (name * mtype) tbind * region
          | MtApp of mtype * mtype
          | MtAbsI of sort * (name * mtype) ibind  * region
          | MtAppI of mtype * idx
@@ -586,6 +586,10 @@ fun str_bt bt =
   case bt of
       Int => "int"
                
+fun str_k gctx ctx (k : kind) : string = 
+  case k of
+      ArrowK (_, n, sorts) => sprintf "($$Type)" [if n = 0 then "" else join " * " (repeat n "Type") ^ " => ", if null sorts then "" else join " * " (map (str_s gctx ctx) sorts) ^ " => "]
+
 fun str_mt gctx (ctx as (sctx, kctx)) (t : mtype) : string =
   let
     val str_mt = str_mt gctx
@@ -608,7 +612,7 @@ fun str_mt gctx (ctx as (sctx, kctx)) (t : mtype) : string =
         end
       | MtVar x => str_long_id #2 gctx kctx x
       | MtApp (t1, t2) => sprintf "($ $)" [str_mt ctx t1, str_mt ctx t2]
-      | MtAbs (Bind ((name, _), t), _) => sprintf "(fn [$] => $)" [name, str_mt (sctx, name :: kctx) t]
+      | MtAbs (k, Bind ((name, _), t), _) => sprintf "(fn [$ : $] => $)" [name, str_k gctx sctx k, str_mt (sctx, name :: kctx) t]
       | MtAppI (t, i) => sprintf "($ $)" [str_mt ctx t, str_i gctx sctx i]
       | MtAbsI (s, Bind ((name, _), t), _) => sprintf "(fn {$ : $} => $)" [name, str_s gctx sctx s, str_mt (name :: sctx, kctx) t]
       | AppV (x, ts, is, _) => 
@@ -640,10 +644,6 @@ fun str_t gctx (ctx as (sctx, kctx)) (t : ty) : string =
   case t of
       Mono t => str_mt gctx ctx t
     | Uni _ => str_uni gctx ctx (collect_Uni_UniI t)
-
-fun str_k gctx ctx (k : kind) : string = 
-  case k of
-      ArrowK (_, n, sorts) => sprintf "($$Type)" [if n = 0 then "" else join " * " (repeat n "Type") ^ " => ", if null sorts then "" else join " * " (map (str_s gctx ctx) sorts) ^ " => "]
 
 fun ptrn_names pn : string list * string list =
   case pn of
@@ -932,7 +932,7 @@ fun get_region_mt t =
     | UniI (_, _, r) => r
     | MtVar y => get_region_long_id y
     | MtApp (t1, t2) => combine_region (get_region_mt t1) (get_region_mt t2)
-    | MtAbs (_, r) => r
+    | MtAbs (_, _, r) => r
     | MtAppI (t, i) => combine_region (get_region_mt t) (get_region_i i)
     | MtAbsI (_, _, r) => r
     | AppV (_, _, _, r) => r
@@ -1359,7 +1359,11 @@ fun on_i_s on_i_i on_i_p x n b =
     f x n b
   end
 
-fun on_i_mt on_i_i on_i_s x n b =
+fun on_i_kind on_i_s x n b =
+  case b of
+      ArrowK (is_datatype, n, sorts) => ArrowK (is_datatype, n, map (on_i_s x n) sorts)
+                                               
+fun on_i_mt on_i_i on_i_s on_i_k x n b =
   let
     fun f x n b =
       case b of
@@ -1371,7 +1375,7 @@ fun on_i_mt on_i_i on_i_s x n b =
 	| UniI (s, bind, r) => UniI (on_i_s x n s, on_i_ibind f x n bind, r)
         | MtVar y => MtVar y
         | MtApp (t1, t2) => MtApp (f x n t1, f x n t2)
-        | MtAbs (bind, r) => MtAbs (on_i_tbind f x n bind, r)
+        | MtAbs (k, bind, r) => MtAbs (on_i_k x n k, on_i_tbind f x n bind, r)
         | MtAppI (t, i) => MtAppI (f x n t, on_i_i x n i)
         | MtAbsI (s, bind, r) => MtAbsI (on_i_s x n s, on_i_ibind f x n bind, r)
 	| AppV (y, ts, is, r) => AppV (y, map (f x n) ts, map (on_i_i x n) is, r)
@@ -1391,10 +1395,6 @@ fun on_i_t on_i_mt x n b =
     f x n b
   end
 
-fun on_i_kind on_i_s x n b =
-  case b of
-      ArrowK (is_datatype, n, sorts) => ArrowK (is_datatype, n, map (on_i_s x n) sorts)
-                                               
 fun on_i_ibinds on_anno on_inner x n (ibinds : ('a, 'b, 'c) ibinds) =
   case ibinds of
       BindNil inner => 
@@ -1429,7 +1429,7 @@ fun on_t_mt on_v x n b =
 	| UniI (s, bind, r) => UniI (s, on_t_ibind f x n bind, r)
         | MtVar y => MtVar $ on_v_long_id on_v x n y
         | MtApp (t1, t2) => MtApp (f x n t1, f x n t2)
-        | MtAbs (bind, r) => MtAbs (on_t_tbind f x n bind, r)
+        | MtAbs (k, bind, r) => MtAbs (k, on_t_tbind f x n bind, r)
         | MtAppI (t, i) => MtAppI (f x n t, i)
         | MtAbsI (s, bind, r) => MtAbsI (s, on_t_ibind f x n bind, r)
 	| AppV (y, ts, is, r) => AppV (on_v_long_id on_v x n y, map (f x n) ts, is, r)
@@ -1510,7 +1510,7 @@ fun on_m_s on_m_i on_m_p x n b =
     f x n b
   end
 
-fun on_m_mt on_v on_m_i on_m_s x n b =
+fun on_m_mt on_v on_m_i on_m_s on_m_k x n b =
   let
     fun f x n b =
       case b of
@@ -1522,7 +1522,7 @@ fun on_m_mt on_v on_m_i on_m_s x n b =
 	| UniI (s, bind, r) => UniI (on_m_s x n s, on_m_ibind f x n bind, r)
         | MtVar y => MtVar $ on_m_long_id on_v x n y
         | MtApp (t1, t2) => MtApp (f x n t1, f x n t2)
-        | MtAbs (bind, r) => MtAbs (on_m_tbind f x n bind, r)
+        | MtAbs (k, bind, r) => MtAbs (on_m_k x n k, on_m_tbind f x n bind, r)
         | MtAppI (t, i) => MtAppI (f x n t, on_m_i x n i)
         | MtAbsI (s, bind, r) => MtAbsI (on_m_s x n s, on_m_ibind f x n bind, r)
 	| AppV (y, ts, is, r) => AppV (on_m_long_id on_v x n y, map (f x n) ts, map (on_m_i x n) is, r)
@@ -1657,16 +1657,16 @@ fun shift_i_p b = shiftx_i_p 0 1 b
 fun shiftx_i_s x n b = on_i_s shiftx_i_i shiftx_i_p x n b
 fun shift_i_s b = shiftx_i_s 0 1 b
 
-fun shiftx_i_mt x n b = on_i_mt shiftx_i_i shiftx_i_s x n b
+fun shiftx_i_k x n b = on_i_kind shiftx_i_s x n b
+fun shift_i_k b = shiftx_i_k 0 1 b
+
+fun shiftx_i_mt x n b = on_i_mt shiftx_i_i shiftx_i_s shiftx_i_k x n b
 and shiftx_t_mt x n b = on_t_mt shiftx_v x n b
 fun shift_i_mt b = shiftx_i_mt 0 1 b
 fun shift_t_mt b = shiftx_t_mt 0 1 b
 
 fun shiftx_i_t x n b = on_i_t shiftx_i_mt x n b
 fun shift_i_t b = shiftx_i_t 0 1 b
-
-fun shiftx_i_k x n b = on_i_kind shiftx_i_s x n b
-fun shift_i_k b = shiftx_i_k 0 1 b
 
 fun shiftx_t_t x n b = on_t_t shiftx_t_mt x n b
 fun shift_t_t b = shiftx_t_t 0 1 b
@@ -1680,14 +1680,14 @@ fun shift_m_p b = shiftx_m_p 0 1 b
 fun shiftx_m_s x n b = on_m_s shiftx_m_i shiftx_m_p x n b
 fun shift_m_s b = shiftx_m_s 0 1 b
 
-fun shiftx_m_mt x n b = on_m_mt shiftx_v shiftx_m_i shiftx_m_s x n b
+fun shiftx_m_k x n b = on_m_kind shiftx_m_s x n b
+fun shift_m_k b = shiftx_m_k 0 1 b
+
+fun shiftx_m_mt x n b = on_m_mt shiftx_v shiftx_m_i shiftx_m_s shiftx_m_k x n b
 fun shift_m_mt b = shiftx_m_mt 0 1 b
                                
 fun shiftx_m_t x n b = on_m_t shiftx_m_mt x n b
 fun shift_m_t b = shiftx_m_t 0 1 b
-
-fun shiftx_m_k x n b = on_m_kind shiftx_m_s x n b
-fun shift_m_k b = shiftx_m_k 0 1 b
 
 fun shiftx_pair (f, g) x n (a, b) = (f x n a, g x n b)
 fun shiftx_list f x n ls = map (f x n) ls
@@ -1729,7 +1729,8 @@ val forget_v = forget_v ForgetError
 fun forget_i_i x n b = on_i_i forget_v x n b
 fun forget_i_p x n b = on_i_p forget_i_i x n b
 fun forget_i_s x n b = on_i_s forget_i_i forget_i_p x n b
-fun forget_i_mt x n b = on_i_mt forget_i_i forget_i_s x n b
+fun forget_i_k x n b = on_i_kind forget_i_s x n b
+fun forget_i_mt x n b = on_i_mt forget_i_i forget_i_s forget_i_k x n b
 fun forget_t_mt x n b = on_t_mt forget_v x n b
 fun forget_i_t x n b = on_i_t forget_i_mt x n b
 fun forget_t_t x n b = on_t_t forget_t_mt x n b
@@ -1737,7 +1738,8 @@ fun forget_t_t x n b = on_t_t forget_t_mt x n b
 fun forget_m_i x n b = on_m_i forget_v x n b
 fun forget_m_p x n b = on_m_p forget_m_i x n b
 fun forget_m_s x n b = on_m_s forget_m_i forget_m_p x n b
-fun forget_m_mt x n b = on_m_mt forget_v forget_m_i forget_m_s x n b
+fun forget_m_k x n b = on_m_kind forget_m_s x n b
+fun forget_m_mt x n b = on_m_mt forget_v forget_m_i forget_m_s forget_m_k x n b
 fun forget_m_t x n b = on_m_t forget_m_mt x n b
 
 fun forget_e_e x n b = on_e_e forget_v x n b
@@ -1835,6 +1837,10 @@ fun substx_i_s x (v : idx) (b : sort) : sort = f x v b
 fun subst_i_s (v : idx) (b : sort) : sort = substx_i_s 0 v b
 end
 
+fun substx_i_k x v b =
+  case b of
+      ArrowK (is_datatype, n, sorts) => ArrowK (is_datatype, n, map (substx_i_s x v) sorts)
+
 local
   fun f x v b =
     case b of
@@ -1847,7 +1853,7 @@ local
       | AppV (y, ts, is, r) => AppV (y, map (f x v) ts, map (substx_i_i x v) is, r)
       | MtVar y => MtVar y
       | MtApp (t1, t2) => MtApp (f x v t1, f x v t2)
-      | MtAbs (bind, r) => MtAbs (substx_i_tbind f x idx_shiftable v bind, r)
+      | MtAbs (k, bind, r) => MtAbs (substx_i_k x v k, substx_i_tbind f x idx_shiftable v bind, r)
       | MtAppI (t, i) => MtAppI (f x v t, substx_i_i x v i)
       | MtAbsI (s, bind, r) => MtAbsI (substx_i_s x v s, substx_i_ibind f x idx_shiftable v bind, r)
       | BaseType a => BaseType a
@@ -1908,7 +1914,7 @@ local
         end
       | MtVar y =>
         substx_long_id MtVar x (const v) y
-      | MtAbs (bind, r) => MtAbs (substx_t_tbind f x mtype_shiftable v bind, r)
+      | MtAbs (k, bind, r) => MtAbs (k, substx_t_tbind f x mtype_shiftable v bind, r)
       | MtApp (t1, t2) => MtApp (f x v t1, f x v t2)
       | MtAbsI (s, bind, r) => MtAbsI (s, substx_t_ibind f x mtype_shiftable v bind, r)
       | MtAppI (t, i) => MtAppI (f x v t, i)
@@ -2480,6 +2486,10 @@ fun simp_s s =
     | SAbs (s, bind, r) => SAbs (simp_s s, simp_bind simp_s bind, r)
     | SApp (s, i) => SApp (simp_s s, simp_i i)
 
+fun simp_k k =
+  case k of
+      ArrowK (is_datatype, n, sorts) => ArrowK (is_datatype, n, map simp_s sorts)
+
 fun simp_mt t =
   case t of
       Arrow (t1, d, t2) => Arrow (simp_mt t1, simp_i d, simp_mt t2)
@@ -2491,7 +2501,7 @@ fun simp_mt t =
     | BaseType a => BaseType a
     | UVar u => UVar u
     | MtVar x => MtVar x
-    | MtAbs (bind, r) => MtAbs (simp_bind simp_mt bind, r)
+    | MtAbs (k, bind, r) => MtAbs (simp_k k, simp_bind simp_mt bind, r)
     | MtApp (t1, t2) => MtApp (simp_mt t1, simp_mt t2)
     | MtAbsI (s, bind, r) => MtAbsI (simp_s s, simp_bind simp_mt bind, r)
     | MtAppI (t, i) => MtAppI (simp_mt t, simp_i i)
@@ -2599,11 +2609,11 @@ structure Underscore = struct
 type 'bsort uvar_bs = unit
 type ('bsort, 'idx) uvar_i = unit
 type 'sort uvar_s = unit
-type ('sort, 'mtype) uvar_mt = unit
+type ('sort, 'kind, 'mtype) uvar_mt = unit
 fun str_uvar_bs (_ : 'a -> string) (_ : 'a uvar_bs) = "_"
 fun str_uvar_s (_ : 'sort -> string) (_ : 'sort uvar_s) = "_"
 fun str_uvar_i (_ : 'idx -> string) (_ : ('bsort, 'idx) uvar_i) = "_"
-fun str_uvar_mt (_ : 'mtype -> string) (_ : ('sort, 'mtype) uvar_mt) = "_"
+fun str_uvar_mt (_ : 'mtype -> string) (_ : ('sort, 'kind, 'mtype) uvar_mt) = "_"
 fun eq_uvar_i (_, _) = false
 fun eq_uvar_bs (_, _) = false
 end
