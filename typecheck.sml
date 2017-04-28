@@ -833,55 +833,27 @@ fun eval_AppV y (ts, is, r) =
   else
     AppV (is_type_variable r y, ts, is, r)
          
-fun try_retrieve_UVar f (a as (x, r)) =
+fun load_without_update_uvar f (a as (x, r)) =
   case !x of
       Refined t => f t
     | Fresh _ => UVar a
                       
-fun whnf_mt gctx kctx t =
-  let
-    val whnf_mt = whnf_mt gctx
-  in
-    case t of
-        UVar a => try_retrieve_UVar (whnf_mt kctx) a
-      (* | MtVar x => try_retrieve_MtVar (whnf_mt kctx) gctx kctx x *)
-      | AppV (y, ts, is, r) =>
-        let
-          val y = try_retrieve_MtVar (whnf_mt kctx) gctx kctx y
-        in
-          eval_AppV y (ts, is, r)
-        end
-      | _ => t
-  end
-
-fun normalize_mt gctx kctx t =
-  let
-    val normalize_mt = normalize_mt gctx
-  in
-    case t of
-        UVar a => try_retrieve_UVar (normalize_mt kctx) a
-      | Unit r => Unit r
-      | Arrow (t1, d, t2) => Arrow (normalize_mt kctx t1, update_i d, normalize_mt kctx t2)
-      | TyArray (t, i) => TyArray (normalize_mt kctx t, update_i i)
-      | TyNat (i, r) => TyNat (update_i i, r)
-      | Prod (t1, t2) => Prod (normalize_mt kctx t1, normalize_mt kctx t2)
-      | UniI (s, Bind (name, t1), r) => UniI (update_s s, Bind (name, normalize_mt (shiftx_i_kctx 1 kctx) t1), r)
-      (* | MtVar x => try_retrieve_MtVar (normalize_mt kctx) gctx kctx x *)
-      | AppV (y, ts, is, r) =>
-        let
-          val y = try_retrieve_MtVar (normalize_mt kctx) gctx kctx y
-          val ts = map (normalize_mt kctx) ts
-          val is = map update_i is
-        in
-          eval_AppV y (ts, is, r)
-        end
-      | BaseType a => BaseType a
-  end
-
-fun normalize_t gctx kctx t =
+fun update_mt t =
   case t of
-      Mono t => Mono (normalize_mt gctx kctx t)
-    | Uni (Bind (name, t), r) => Uni (Bind (name, normalize_t gctx (add_kinding (fst name, Type) kctx) t), r)
+      UVar (x, r) => load_uvar update_mt t x
+    | Unit r => Unit r
+    | Arrow (t1, d, t2) => Arrow (update_mt t1, update_i d, update_mt t2)
+    | TyArray (t, i) => TyArray (update_mt t, update_i i)
+    | TyNat (i, r) => TyNat (update_i i, r)
+    | Prod (t1, t2) => Prod (update_mt t1, update_mt t2)
+    | UniI (s, Bind (name, t1), r) => UniI (update_s s, Bind (name, update_mt t1), r)
+    | MtVar x => MtVar x
+    | MtAbs (Bind (name, t), r) => MtAbs (Bind (name, update_mt t), r)
+    | MtApp (t1, t2) => MtApp (update_mt t1, update_mt t2)
+    | MtAbsI (s, Bind (name, t), r) => MtAbsI (update_s s, Bind (name, update_mt t), r)
+    | MtAppI (t, i) => MtAppI (update_mt t, update_i i)
+    | AppV (y, ts, is, r) => AppV (y, map update_mt ts, map update_i is, r)
+    | BaseType a => BaseType a
 
 (* verification conditions written incrementally during typechecking *)
                                      
@@ -993,6 +965,31 @@ fun unify_bs r (bs, bs') =
 	raise Error (r, [sprintf "Base sort mismatch: $ and $" [str_b b, str_b b']])
     | _ => raise unify_error r (str_bs bs, str_bs bs')
 	         
+fun whnf_i i =
+  case i of
+      UVarI (x, r) => load_uvar whnf_i i x
+    | BinOpI (opr, i1, i2) =>
+      let
+        val i1 = whnf_i i1
+        val i2 = whnf_i i2
+      in
+        case (opr, i1) of
+            (IApp, IAbs (_, Bind (_, i1), _)) => whnf_i (subst_i_i i2 i1)
+          | _ => BinOpI (opr, i1, i2)
+      end
+    | Ite (i1, i2, i3, r) =>
+      let
+        val i1 = whnf_i i1
+        val i2 = whnf_i i2
+        val i3 = whnf_i i3
+      in
+        case i1 of
+            TrueI _ => i2
+          | FalseI _ => i3
+          | _ => Ite (i1, i2, i3, r)
+      end
+    | _ => i
+
 fun normalize_i i =
   case i of
       UVarI (x, r) => load_uvar normalize_i i x
@@ -1008,7 +1005,17 @@ fun normalize_i i =
             (IApp, IAbs (_, Bind (_, i1), _)) => normalize_i (subst_i_i i2 i1)
           | _ => BinOpI (opr, i1, i2)
       end
-    | Ite (i1, i2, i3, r) => Ite (normalize_i i1, normalize_i i2, normalize_i i3, r)
+    | Ite (i1, i2, i3, r) =>
+      let
+        val i1 = normalize_i i1
+        val i2 = normalize_i i2
+        val i3 = normalize_i i3
+      in
+        case i1 of
+            TrueI _ => i2
+          | FalseI _ => i3
+          | _ => Ite (i1, i2, i3, r)
+      end
     | VarI _ => i
     | ConstIN _ => i
     | ConstIT _ => i
@@ -1091,15 +1098,16 @@ fun apply_depth d (m, (x, r)) =
   case m of
       SOME _ => (m, (x, r))
     | NONE => (NONE, (x + d, r))
-                
+
+fun ncsubst_long_id d x get_v default y =
+  case findi (curry eq_long_id y) (map (apply_depth d) x) of
+      SOME (n, _) => get_v n
+    | NONE => default
+          
 local
   fun f d x v b =
     case b of
-	VarI y =>
-        (case findi (curry eq_long_id y) (map (apply_depth d) x) of
-             SOME (n, _) => shiftx_i_i 0 d (List.nth (v, n))
-           | NONE => b
-        )
+	VarI y => ncsubst_long_id d x (fn n => shiftx_i_i 0 d (List.nth (v, n))) b y
       | ConstIN n => ConstIN n
       | ConstIT x => ConstIT x
       | UnOpI (opr, i, r) => UnOpI (opr, f d x v i, r)
@@ -1141,6 +1149,8 @@ fun unify_i r gctxn ctxn (i, i') =
               | _ => NONE
           end
         val (x, args) = is_IApp_UVarI i !! (fn () => UnifyIAppFailed)
+        val args = map normalize_i args
+        val i' = normalize_i i'
         val vars' = collect_var_i_i i'
         val inj = find_injection eq_i (map VarI vars') (rev args) !! (fn () => UnifyIAppFailed)
         (* non-consuming substitution *)
@@ -1159,20 +1169,13 @@ fun unify_i r gctxn ctxn (i, i') =
           else write_prop (BinPred (EqP, i, i'), r)
       in
         case (i, i') of
-            (BinOpI (IApp, _, _), _) =>
-            (unify_IApp i i'
-             handle UnifyIAppFailed =>
-                    (unify_IApp i' i
-                     handle UnifyIAppFailed => default ()))
-          | (_, BinOpI (IApp, _, _)) =>
-            unify_i ctxn (i', i)
-          (* ToReal is injective *)
-          | (UnOpI (ToReal, i, _), UnOpI (ToReal, i', _)) =>
+            (* ToReal is injective *)
+            (UnOpI (ToReal, i, _), UnOpI (ToReal, i', _)) =>
             unify_i ctxn (i', i)
           | _ => default ()
       end
-    val i = normalize_i i (* todo: whnf_i is enough *)
-    val i' = normalize_i i'
+    val i = whnf_i i (* todo: whnf_i is enough *)
+    val i' = whnf_i i'
     (* val () = println $ sprintf "Unifying indices $ and $" [str_i gctxn ctxn i, str_i gctxn ctxn i'] *)
   in
     if eq_i i i' then ()
@@ -1187,33 +1190,123 @@ fun unify_i r gctxn ctxn (i, i') =
        structural_compare (i, i'))
   end
 
+fun normalize_p p =
+  case p of
+      Quan (q, bs, Bind (name, p), r) => Quan (q, update_bs bs, Bind (name, normalize_p p), r)
+    | BinConn (opr, p1, p2) => BinConn (opr, normalize_p p1, normalize_p p2)
+    | BinPred (opr, i1, i2) => BinPred (opr, normalize_i i1, normalize_i i2)
+    | Not (p, r) => Not (normalize_p p, r)
+    | True _ => p
+    | False _ => p
+                   
+fun whnf_s s =
+  case s of
+      UVarS (x, r) => load_uvar whnf_s s x
+    | SApp (s, i) =>
+      let
+        val s = whnf_s s
+        val i = whnf_i i
+      in
+        case s of
+            SAbs (_, Bind (_, s), _) => whnf_s (subst_i_s i s)
+          | _ => SApp (s, i)
+      end
+    | _ => s
+             
+fun normalize_s s =
+  case s of
+      UVarS (x, r) => load_uvar normalize_s s x
+    | Basic _ => s
+    | Subset ((b, r1), Bind (name, p), r) => Subset ((update_bs b, r1), Bind (name, normalize_p p), r)
+    | SortBigO ((b, r1), i, r) => SortBigO ((update_bs b, r1), normalize_i i, r)
+    | SAbs (s_arg, Bind (name, s), r) => SAbs (normalize_s s_arg, Bind (name, normalize_s s), r)
+    | SApp (s, i) =>
+      let
+        val s = normalize_s s
+        val i = normalize_i i
+      in
+        case s of
+            SAbs (_, Bind (_, s), _) => normalize_s (subst_i_s i s)
+          | _ => SApp (s, i)
+      end
+        
+local
+  fun f d acc b =
+    case b of
+	True r => acc
+      | False r => acc
+      | Not (p, r) => f d acc p
+      | BinConn (opr,p1, p2) =>
+        let
+          val acc = f d acc p1
+          val acc = f d acc p2
+        in
+          acc
+        end
+      | BinPred (opr, i1, i2) => 
+        let
+          val acc = collect_var_aux_i_i d acc i1
+          val acc = collect_var_aux_i_i d acc i2
+        in
+          acc
+        end
+      | Quan (q, bs, bind, r) => collect_var_aux_i_ibind f d acc bind
+in
+val collect_var_aux_i_p = f
+fun collect_var_i_p b = f 0 [] b
+end
+
+local
+  fun f d acc b =
+    case b of
+	Basic s => acc
+      | Subset (b, bind, r) => collect_var_aux_i_ibind collect_var_aux_i_p d acc bind
+      | UVarS a => acc
+      | SortBigO (b, i, r) => collect_var_aux_i_i d acc i
+      | SAbs (s, bind, r) => collect_var_aux_i_ibind f d acc bind
+      | SApp (s, i) =>
+        let
+          val acc = f d acc s
+          val acc = collect_var_aux_i_i d acc i
+        in
+          acc
+        end
+in
+val collect_var_aux_i_s = f
+fun collect_var_i_s b = f 0 [] b
+end
+
+local
+  fun f d x v b =
+    case b of
+	True r => True r
+      | False r => False r
+      | Not (p, r) => Not (f d x v p, r)
+      | BinConn (opr,p1, p2) => BinConn (opr, f d x v p1, f d x v p2)
+      | BinPred (opr, i1, i2) => BinPred (opr, ncsubst_aux_is_i d x v i1, ncsubst_aux_is_i d x v i2)
+      | Quan (q, bs, bind, r) => Quan (q, bs, ncsubst_aux_is_ibind f d x v bind, r)
+in
+val ncsubst_aux_is_p = f
+fun ncsubst_is_p x v b = f 0 x v b
+end
+
+local
+  fun f d x v b =
+    case b of
+	Basic s => Basic s
+      | Subset (b, bind, r) => Subset (b, ncsubst_aux_is_ibind ncsubst_aux_is_p d x v bind, r)
+      | UVarS a => b
+      | SortBigO (b, i, r) => SortBigO (b, ncsubst_aux_is_i d x v i, r)
+      | SAbs (s, bind, r) => SAbs (f d x v s, ncsubst_aux_is_ibind f d x v bind, r)
+      | SApp (s, i) => SApp (f d x v s, ncsubst_aux_is_i d x v i)
+in
+val ncsubst_aux_is_s = f
+fun ncsubst_is_s x v b = f 0 x v b
+end
+
 fun is_sub_sort r gctx ctx (s, s') =
   let
     val is_sub_sort = is_sub_sort r gctx
-    fun normalize_p p =
-      case p of
-          Quan (q, bs, Bind (name, p), r) => Quan (q, update_bs bs, Bind (name, normalize_p p), r)
-        | BinConn (opr, p1, p2) => BinConn (opr, normalize_p p1, normalize_p p2)
-        | BinPred (opr, i1, i2) => BinPred (opr, normalize_i i1, normalize_i i2)
-        | Not (p, r) => Not (normalize_p p, r)
-        | True _ => p
-        | False _ => p
-    fun normalize_s s =
-      case s of
-          UVarS (x, r) => load_uvar normalize_s s x
-        | Basic _ => s
-        | Subset ((b, r1), Bind (name, p), r) => Subset ((update_bs b, r1), Bind (name, normalize_p p), r)
-        | SortBigO ((b, r1), i, r) => SortBigO ((update_bs b, r1), normalize_i i, r)
-        | SAbs (s_arg, Bind (name, s), r) => SAbs (normalize_s s_arg, Bind (name, normalize_s s), r)
-        | SApp (s, i) =>
-          let
-            val s = normalize_s s
-            val i = normalize_i i
-          in
-            case s of
-                SAbs (_, Bind (_, s), _) => normalize_s (subst_i_s i s)
-              | _ => SApp (s, i)
-          end
     exception UnifySAppFailed
     fun unify_SApp i i' =
       let
@@ -1235,78 +1328,10 @@ fun is_sub_sort r gctx ctx (s, s') =
               | _ => NONE
           end
         val (x, args) = is_SApp_UVarS s !! (fn () => UnifySAppFailed)
-        local
-          fun f d acc b =
-            case b of
-	        True r => acc
-              | False r => acc
-              | Not (p, r) => f d acc p
-              | BinConn (opr,p1, p2) =>
-                let
-                  val acc = f d acc p1
-                  val acc = f d acc p2
-                in
-                  acc
-                end
-              | BinPred (opr, i1, i2) => 
-                let
-                  val acc = collect_var_aux_i_i d acc i1
-                  val acc = collect_var_aux_i_i d acc i2
-                in
-                  acc
-                end
-              | Quan (q, bs, bind, r) => collect_var_aux_i_ibind f d acc bind
-        in
-        val collect_var_aux_i_p = f
-        fun collect_var_i_p b = f 0 [] b
-        end
-        local
-          fun f d acc b =
-            case b of
-	        Basic s => acc
-              | Subset (b, bind, r) => collect_var_aux_i_ibind collect_var_aux_i_p d acc bind
-              | UVarS a => acc
-              | SortBigO (b, i, r) => collect_var_aux_i_i d acc i
-              | SAbs (s, bind, r) => collect_var_aux_i_ibind f d acc bind
-              | SApp (s, i) =>
-                let
-                  val acc = f d acc s
-                  val acc = collect_var_aux_i_i d acc i
-                in
-                  acc
-                end
-        in
-        val collect_var_aux_i_s = f
-        fun collect_var_i_s b = f 0 [] b
-        end
+        val args = map normalize_i args
+        val s' = normalize_s s'
         val vars' = collect_var_i_s s'
         val inj = find_injection eq_i (map VarI vars') (rev args) !! (fn () => UnifySAppFailed)
-        local
-          fun f d x v b =
-            case b of
-	        True r => True r
-              | False r => False r
-              | Not (p, r) => Not (f d x v p, r)
-              | BinConn (opr,p1, p2) => BinConn (opr, f d x v p1, f d x v p2)
-              | BinPred (opr, i1, i2) => BinPred (opr, ncsubst_aux_is_i d x v i1, ncsubst_aux_is_i d x v i2)
-              | Quan (q, bs, bind, r) => Quan (q, bs, ncsubst_aux_is_ibind f d x v bind, r)
-        in
-        val ncsubst_aux_is_p = f
-        fun ncsubst_is_p x v b = f 0 x v b
-        end
-        local
-          fun f d x v b =
-            case b of
-	        Basic s => Basic s
-              | Subset (b, bind, r) => Subset (b, ncsubst_aux_is_ibind ncsubst_aux_is_p d x v bind, r)
-              | UVarS a => b
-              | SortBigO (b, i, r) => SortBigO (b, ncsubst_aux_is_i d x v i, r)
-              | SAbs (s, bind, r) => SAbs (f d x v s, ncsubst_aux_is_ibind f d x v bind, r)
-              | SApp (s, i) => SApp (f d x v s, ncsubst_aux_is_i d x v i)
-        in
-        val ncsubst_aux_is_s = f
-        fun ncsubst_is_s x v b = f 0 x v b
-        end
         val s' = ncsubst_is_s vars' (map (V r) inj) s'
         val (_, ctx) = get_uvar_info x (fn () => raise Impossible "unify_s()/SApp: shouldn't be [Refined]")
         fun SAbsMany (ctx, s, r) = foldl (fn ((name, s_arg), s) => SAbs (s_arg, Bind ((name, r), s), r)) s ctx
@@ -1365,8 +1390,8 @@ fun is_sub_sort r gctx ctx (s, s') =
         | (SortBigO ((b, _), i, _), SortBigO ((b', _), i', _)) => eq_bs b b' andalso eq_i i i'
         | (SAbs (s1, Bind (_, s), _), SAbs (s1', Bind (_, s'), _)) => eq_s s1 s1' andalso eq_s s s'
         | (SApp (s, i), SApp (s', i')) => eq_s s s' andalso eq_i i i'
-    val s = normalize_s s
-    val s' = normalize_s s'
+    val s = whnf_s s
+    val s' = whnf_s s'
   in
     if eq_s s s' then ()
     else
@@ -1378,7 +1403,7 @@ fun is_sub_sort r gctx ctx (s, s') =
        UnifySAppFailed =>
        structural_compare (s, s'))
   end
-p
+
 fun is_sub_sorts r gctx ctx (sorts, sorts') =
   (check_length r (sorts, sorts');
    ListPair.app (is_sub_sort r gctx ctx) (sorts, sorts'))
@@ -1399,9 +1424,254 @@ fun is_eqv_sorts r gctx ctx (sorts, sorts') =
     ()
   end
 
+fun whnf_mt gctx kctx (t : mtype) : mtype =
+  let
+    val whnf_mt = whnf_mt gctx
+  in
+    case t of
+        UVar (x, r) => load_uvar (whnf_mt kctx) t x
+      | AppV (y, ts, is, r) =>
+        let
+          val y = try_retrieve_MtVar (whnf_mt kctx) gctx kctx y
+        in
+          eval_AppV y (ts, is, r)
+        end
+      | MtVar x => try_retrieve_MtVar (whnf_mt kctx) gctx kctx x
+      | MtAppI (t, i) =>
+        let
+          val t = whnf_mt kctx t
+          val i = whnf_i i
+        in
+          case t of
+              MtAbsI (_, Bind (_, t), _) => whnf_mt kctx (subst_i_mt i t)
+            | _ => MtAppI (t, i)
+        end
+      | MtApp (t1, t2) =>
+        let
+          val t1 = whnf_mt kctx t1
+          val t2 = whnf_mt kctx t2
+        in
+          case t1 of
+              MtAbs (Bind (_, t1), _) => whnf_mt kctx (subst_t_mt t2 t1)
+            | _ => MtApp (t1, t2)
+        end
+      | _ => t
+  end
+
+fun normalize_mt gctx kctx t =
+  let
+    val normalize_mt = normalize_mt gctx
+  in
+    case t of
+        UVar (x, r) => load_uvar (normalize_mt kctx) t x
+      | Unit r => Unit r
+      | Arrow (t1, d, t2) => Arrow (normalize_mt kctx t1, update_i d, normalize_mt kctx t2)
+      | TyArray (t, i) => TyArray (normalize_mt kctx t, update_i i)
+      | TyNat (i, r) => TyNat (update_i i, r)
+      | Prod (t1, t2) => Prod (normalize_mt kctx t1, normalize_mt kctx t2)
+      | UniI (s, Bind (name, t1), r) => UniI (update_s s, Bind (name, normalize_mt (shiftx_i_kctx 1 kctx) t1), r)
+      | AppV (y, ts, is, r) =>
+        let
+          val y = try_retrieve_MtVar (normalize_mt kctx) gctx kctx y
+          val ts = map (normalize_mt kctx) ts
+          val is = map update_i is
+        in
+          eval_AppV y (ts, is, r)
+        end
+      | MtVar x => try_retrieve_MtVar (normalize_mt kctx) gctx kctx x
+      | MtAbsI (s, Bind (name, t), r) => MtAbsI (normalize_s s, Bind (name, normalize_mt kctx t), r)
+      | MtAppI (t, i) =>
+        let
+          val t = normalize_mt kctx t
+          val i = normalize_i i
+        in
+          case t of
+              MtAbsI (_, Bind (_, t), _) => normalize_mt kctx (subst_i_mt i t)
+            | _ => MtAppI (t, i)
+        end
+      | MtAbs (Bind (name, t), r) => MtAbs (Bind (name, normalize_mt kctx t), r)
+      | MtApp (t1, t2) =>
+        let
+          val t1 = normalize_mt kctx t1
+          val t2 = normalize_mt kctx t2
+        in
+          case t1 of
+              MtAbs (Bind (_, t1), _) => normalize_mt kctx (subst_t_mt t2 t1)
+            | _ => MtApp (t1, t2)
+        end
+      | BaseType a => BaseType a
+  end
+
+fun normalize_t gctx kctx t =
+  case t of
+      Mono t => Mono (normalize_mt gctx kctx t)
+    | Uni (Bind (name, t), r) => Uni (Bind (name, normalize_t gctx (add_kinding (fst name, Type) kctx) t), r)
+
+fun collect_var_aux_t_ibind f d acc (Bind (_, b) : ('a * 'b) ibind) = f d acc b
+fun collect_var_aux_i_tbind f d acc (Bind (_, b) : ('a * 'b) tbind) = f d acc b
+fun collect_var_aux_t_tbind f d acc (Bind (_, b) : ('a * 'b) tbind) = f (d + 1) acc b
+                                                                        
+local
+  fun f d acc b =
+    case b of
+	Arrow (t1, i, t2) =>
+        let
+          val acc = f d acc t1
+          val acc = collect_var_aux_i_i d acc i
+          val acc = f d acc t2
+        in
+          acc
+        end
+      | TyNat (i, _) => collect_var_aux_i_i d acc i
+      | TyArray (t, i) =>
+        let
+          val acc = f d acc t
+          val acc = collect_var_aux_i_i d acc i
+        in
+          acc
+        end
+      | Unit _ => acc
+      | Prod (t1, t2) =>
+        let
+          val acc = f d acc t1
+          val acc = f d acc t2
+        in
+          acc
+        end
+      | UniI (s, bind, _) =>
+        let
+          val acc = collect_var_aux_i_s d acc s
+          val acc = collect_var_aux_i_ibind f d acc bind
+        in
+          acc
+        end
+      | MtVar _ => acc
+      | MtApp (t1, t2) =>
+        let
+          val acc = f d acc t1
+          val acc = f d acc t2
+        in
+          acc
+        end
+      | MtAbs (bind, _) => collect_var_aux_i_tbind f d acc bind
+      | MtAppI (t, i) =>
+        let
+          val acc = f d acc t
+          val acc = collect_var_aux_i_i d acc i
+        in
+          acc
+        end
+      | MtAbsI (s, bind, r) =>
+        let
+          val acc = collect_var_aux_i_s d acc s
+          val acc = collect_var_aux_i_ibind f d acc bind
+        in
+          acc
+        end
+      | AppV (y, ts, is, r) => [] (* todo: AppV is to be removed *)
+      | BaseType _ => acc
+      | UVar _ => acc
+in
+val collect_var_aux_i_mt = f
+fun collect_var_i_mt b = f 0 [] b
+end
+
+local
+  fun f d acc b =
+    case b of
+	Arrow (t1, i, t2) =>
+        let
+          val acc = f d acc t1
+          val acc = f d acc t2
+        in
+          acc
+        end
+      | TyNat (i, _) => acc
+      | TyArray (t, i) => f d acc t
+      | Unit _ => acc
+      | Prod (t1, t2) =>
+        let
+          val acc = f d acc t1
+          val acc = f d acc t2
+        in
+          acc
+        end
+      | UniI (s, bind, _) => collect_var_aux_t_ibind f d acc bind
+      | MtVar x => collect_var_long_id d x @ acc
+      | MtApp (t1, t2) =>
+        let
+          val acc = f d acc t1
+          val acc = f d acc t2
+        in
+          acc
+        end
+      | MtAbs (bind, _) => collect_var_aux_t_tbind f d acc bind
+      | MtAppI (t, i) => f d acc t
+      | MtAbsI (s, bind, r) => collect_var_aux_t_ibind f d acc bind
+      | AppV (y, ts, is, r) => [] (* todo: AppV is to be removed *)
+      | BaseType _ => acc
+      | UVar _ => acc
+in
+val collect_var_aux_t_mt = f
+fun collect_var_t_mt b = f 0 [] b
+end
+        
+fun ncsubst_aux_is_tbind f d x v (Bind (name, b) : ('a * 'b) tbind) =
+  Bind (name, f d x v b)
+local
+  fun f d x v b =
+    case b of
+	Arrow (t1, i, t2) => Arrow (f d x v t1, ncsubst_aux_is_i d x v i, f d x v t2)
+      | TyNat (i, r) => TyNat (ncsubst_aux_is_i d x v i, r)
+      | TyArray (t, i) => TyArray (f d x v t, ncsubst_aux_is_i d x v i)
+      | Unit r => Unit r
+      | Prod (t1, t2) => Prod (f d x v t1, f d x v t2)
+      | UniI (s, bind, r) => UniI (ncsubst_aux_is_s d x v s, ncsubst_aux_is_ibind f d x v bind, r)
+      | AppV (y, ts, is, r) => b
+      | MtVar y => MtVar y
+      | MtApp (t1, t2) => MtApp (f d x v t1, f d x v t2)
+      | MtAbs (bind, r) => MtAbs (ncsubst_aux_is_tbind f d x v bind, r)
+      | MtAppI (t, i) => MtAppI (f d x v t, ncsubst_aux_is_i d x v i)
+      | MtAbsI (s, bind, r) => MtAbsI (ncsubst_aux_is_s d x v s, ncsubst_aux_is_ibind f d x v bind, r)
+      | BaseType a => BaseType a
+      | UVar a => b
+in
+val ncsubst_aux_is_mt = f
+fun ncsubst_is_mt x v b = f 0 x v b
+end
+
+fun ncsubst_aux_ts_ibind f (di, dt) x v (Bind (name, b) : ('a * 'b) ibind) =
+  Bind (name, f (di + 1, dt) x v b)
+fun ncsubst_aux_ts_tbind f (di, dt) x v (Bind (name, b) : ('a * 'b) tbind) =
+  Bind (name, f (di, dt + 1) x v b)
+local
+  fun f d x v b =
+    case b of
+	Arrow (t1, i, t2) => Arrow (f d x v t1, i, f d x v t2)
+      | TyNat (i, r) => TyNat (i, r)
+      | TyArray (t, i) => TyArray (f d x v t, i)
+      | Unit r => Unit r
+      | Prod (t1, t2) => Prod (f d x v t1, f d x v t2)
+      | UniI (s, bind, r) => UniI (s, ncsubst_aux_ts_ibind f d x v bind, r)
+      | AppV (y, ts, is, r) => b
+      | MtVar y => ncsubst_long_id (snd d) x (fn n => shiftx_i_mt 0 (fst d) (shiftx_t_mt 0 (snd d) (List.nth (v, n)))) b y
+      | MtAbs (bind, r) => MtAbs (ncsubst_aux_ts_tbind f d x v bind, r)
+      | MtApp (t1, t2) => MtApp (f d x v t1, f d x v t2)
+      | MtAbsI (s, bind, r) => MtAbsI (s, ncsubst_aux_ts_ibind f d x v bind, r)
+      | MtAppI (t, i) => MtAppI (f d x v t, i)
+      | BaseType a => BaseType a
+      | UVar a => b
+in
+val ncsubst_aux_ts_mt = f
+fun ncsubst_ts_mt x v b = f (0, 0) x v b
+end
+        
+fun eq_mt t t' = 
+
 fun unify_mt r gctx ctx (t, t') =
   let
     val unify_mt = unify_mt r gctx
+    val kctx = #2 ctx
     val gctxn = gctx_names gctx
     val ctxn = (sctx_names $ #1 ctx, names $ #2 ctx)
     fun error ctxn (t, t') = unify_error r (str_mt gctxn ctxn t, str_mt gctxn ctxn t')
@@ -1413,7 +1683,7 @@ fun unify_mt r gctx ctx (t, t') =
           case t of
               MtApp (t1, t2) =>
               let 
-                val (f, args) = collect_SApp t1
+                val (f, args) = collect_MtApp t1
               in
                 (f, args @ [t2])
               end
@@ -1422,7 +1692,7 @@ fun unify_mt r gctx ctx (t, t') =
           case t of
               MtApp (t, i) =>
               let 
-                val (f, args) = collect_SApp t
+                val (f, args) = collect_MtAppI t
               in
                 (f, args @ [i])
               end
@@ -1437,149 +1707,13 @@ fun unify_mt r gctx ctx (t, t') =
               | _ => NONE
           end
         val (x, i_args, t_args) = is_MtApp_UVar t !! (fn () => UnifyMtAppFailed)
-        fun collect_var_aux_t_ibind f d acc (Bind (_, b) : ('a * 'b) ibind) = f d acc b
-        fun collect_var_aux_i_tbind f d acc (Bind (_, b) : ('a * 'b) tbind) = f d acc b
-        fun collect_var_aux_t_tbind f d acc (Bind (_, b) : ('a * 'b) tbind) = f (d + 1) acc b
-        local
-          fun f d acc b =
-            case b of
-	        Arrow (t1, i, t2) =>
-                let
-                  val acc = f d acc t1
-                  val acc = collect_var_aux_i_i d acc i
-                  val acc = f d acc t2
-                in
-                  acc
-                end
-              | TyNat (i, _) => collect_var_aux_i_i d acc i
-              | TyArray (t, i) =>
-                let
-                  val acc = f d acc t
-                  val acc = collect_var_aux_i_i d acc i
-                in
-                  acc
-                end
-              | Unit _ => acc
-              | Prod (t1, t2) =>
-                let
-                  val acc = f d acc t1
-                  val acc = f d acc t2
-                in
-                  acc
-                end
-              | UniI (s, bind, _) =>
-                let
-                  val acc = collect_var_aux_i_s d acc s
-                  val acc = collect_var_aux_i_ibind f d acc bind
-                in
-                  acc
-                end
-              | MtVar _ => acc
-              | MtApp (t1, t2) =>
-                let
-                  val acc = f d acc t1
-                  val acc = f d acc t2
-                in
-                  acc
-                end
-              | MtAbs (bind, _) => collect_var_aux_i_tbind f d acc bind
-              | MtAppI (t, i) =>
-                let
-                  val acc = f d acc t
-                  val acc = collect_var_aux_i_i d acc i
-                in
-                  acc
-                end
-              | MtAbsI (s, bind, r) =>
-                let
-                  val acc = collect_var_aux_i_s d acc s
-                  val acc = collect_var_aux_i_ibind f d acc bind
-                in
-                  acc
-                end
-              | AppV (y, ts, is, r) => [] (* todo: AppV is to be removed *)
-              | BaseType _ => acc
-              | UVar _ => acc
-        in
-        val collect_var_aux_i_mt = f
-        fun collect_var_i_mt b = f 0 [] b
-        end
-        local
-          fun f d acc b =
-            case b of
-	        Arrow (t1, i, t2) =>
-                let
-                  val acc = f d acc t1
-                  val acc = f d acc t2
-                in
-                  acc
-                end
-              | TyNat (i, _) => acc
-              | TyArray (t, i) => f d acc t
-              | Unit _ => acc
-              | Prod (t1, t2) =>
-                let
-                  val acc = f d acc t1
-                  val acc = f d acc t2
-                in
-                  acc
-                end
-              | UniI (s, bind, _) => collect_var_aux_t_ibind f d acc bind
-              | MtVar x => collect_var_long_id d x @ acc
-              | MtApp (t1, t2) =>
-                let
-                  val acc = f d acc t1
-                  val acc = f d acc t2
-                in
-                  acc
-                end
-              | MtAbs (bind, _) => collect_var_aux_t_tbind f d acc bind
-              | MtAppI (t, i) => f d acc t
-              | MtAbsI (s, bind, r) => collect_var_aux_t_ibind f d acc bind
-              | AppV (y, ts, is, r) => [] (* todo: AppV is to be removed *)
-              | BaseType _ => acc
-              | UVar _ => acc
-        in
-        val collect_var_aux_t_mt = f
-        fun collect_var_t_mt b = f 0 [] b
-        end
-        local
-          fun f d acc b =
-            case b of
-	        Basic s => acc
-              | Subset (b, bind, r) => collect_var_aux_i_ibind collect_var_aux_i_p d acc bind
-              | UVarS a => acc
-              | SortBigO (b, i, r) => collect_var_aux_i_i d acc i
-              | SAbs (s, bind, r) => collect_var_aux_i_ibind f d acc bind
-              | SApp (s, i) =>
-                let
-                  val acc = f d acc s
-                  val acc = collect_var_aux_i_i d acc i
-                in
-                  acc
-                end
-        in
-        val collect_var_aux_i_s = f
-        fun collect_var_i_s b = f 0 [] b
-        end
+        val i_args = map normalize_i i_args
+        val t_args = map normalize_mt t_args
+        val t' = normalize_mt t'
         val i_vars' = collect_var_i_mt t'
-        val i_inj = find_injection eq_i (map VarI i_vars') (rev i_args) !! (fn () => UnifySAppFailed)
+        val i_inj = find_injection eq_i (map VarI i_vars') (rev i_args) !! (fn () => UnifyMtAppFailed)
         val t_vars' = collect_var_t_mt t'
-        val t_inj = find_injection eq_mt (map MtVar i_vars') (rev t_args) !! (fn () => UnifySAppFailed)
-        local
-          (*here*)
-          fun f d x v b =
-            case b of
-	        Basic s => Basic s
-              | Subset (b, bind, r) => Subset (b, ncsubst_aux_is_ibind ncsubst_aux_is_p d x v bind, r)
-              | UVarS a => b
-              | SortBigO (b, i, r) => SortBigO (b, ncsubst_aux_is_i d x v i, r)
-              | SAbs (s, bind, r) => SAbs (f d x v s, ncsubst_aux_is_ibind f d x v bind, r)
-              | SApp (s, i) => SApp (f d x v s, ncsubst_aux_is_i d x v i)
-        in
-        val ncsubst_aux_is_s = f
-        fun ncsubst_is_s x v b = f 0 x v b
-        end
+        val t_inj = find_injection eq_mt (map MtVar i_vars') (rev t_args) !! (fn () => UnifyMtAppFailed)
         val t' = ncsubst_ts_mt t_vars' (map (TV r) t_inj) t'
         val t' = ncsubst_is_mt i_vars' (map (V r) i_inj) t'
         val (_, sctx, kctx) = get_uvar_info x (fn () => raise Impossible "unify_t()/MtApp: shouldn't be [Refined]")
@@ -2805,30 +2939,6 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
         end
   end
 
-(* don't need to normalize t since KeTypeEq shouldn't have any UVar *)
-fun update_mt t =
-  case t of
-      UVar ((invis, x), r) => 
-      (case !x of
-           Refined t => 
-           let 
-             val t = update_mt t
-             val () = x := Refined t
-           in
-             expand_mt invis t
-           end
-         | Fresh _ => t
-      )
-    | Unit r => Unit r
-    | Arrow (t1, d, t2) => Arrow (update_mt t1, update_i d, update_mt t2)
-    | TyArray (t, i) => TyArray (update_mt t, update_i i)
-    | TyNat (i, r) => TyNat (update_i i, r)
-    | Prod (t1, t2) => Prod (update_mt t1, update_mt t2)
-    | UniI (s, Bind (name, t1), r) => UniI (update_s s, Bind (name, update_mt t1), r)
-    (* | MtVar x => MtVar x *)
-    | AppV (y, ts, is, r) => AppV (y, map update_mt ts, map update_i is, r)
-    | BaseType a => BaseType a
-
 fun update_t t =
   case t of
       Mono t => Mono (update_mt t)
@@ -2841,6 +2951,7 @@ fun update_k k =
 fun update_ke k =
   case k of
       KeKind k => KeKind $ update_k k
+    (* don't need to normalize t since KeTypeEq shouldn't have any UVar *)
     | KeTypeEq (k, t) => KeTypeEq (update_k k, update_mt t)
 
 fun update_c (x, tnames, ibinds) =
