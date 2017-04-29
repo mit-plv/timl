@@ -91,7 +91,7 @@ datatype sort =
          | SApp of sort * idx
                             
 datatype kind = 
-	 ArrowK of bool (* is datatype *) * int * sort list
+	 ArrowK of int * sort list
 
 (* monotypes *)
 datatype mtype = 
@@ -223,7 +223,7 @@ val SUnit = Basic (Base UnitSort, dummy)
 fun VarT x = AppV (x, [], [], dummy)
 fun AppVar (x, is) = AppV (x, [], is, dummy)
 
-val Type = ArrowK (false, 0, [])
+val Type = ArrowK (0, [])
 
 infixr 0 $
 
@@ -588,7 +588,7 @@ fun str_bt bt =
                
 fun str_k gctx ctx (k : kind) : string = 
   case k of
-      ArrowK (_, n, sorts) => sprintf "($$Type)" [if n = 0 then "" else join " * " (repeat n "Type") ^ " => ", if null sorts then "" else join " * " (map (str_s gctx ctx) sorts) ^ " => "]
+      ArrowK (n, sorts) => sprintf "($$Type)" [if n = 0 then "" else join " * " (repeat n "Type") ^ " => ", if null sorts then "" else join " * " (map (str_s gctx ctx) sorts) ^ " => "]
 
 fun str_mt gctx (ctx as (sctx, kctx)) (t : mtype) : string =
   let
@@ -1361,7 +1361,7 @@ fun on_i_s on_i_i on_i_p x n b =
 
 fun on_i_kind on_i_s x n b =
   case b of
-      ArrowK (is_datatype, n, sorts) => ArrowK (is_datatype, n, map (on_i_s x n) sorts)
+      ArrowK (n, sorts) => ArrowK (n, map (on_i_s x n) sorts)
                                                
 fun on_i_mt on_i_i on_i_s on_i_k x n b =
   let
@@ -1544,7 +1544,7 @@ fun on_m_t on_m_mt x n b =
 
 fun on_m_kind on_m_s x n b =
   case b of
-      ArrowK (is_datatype, n, sorts) => ArrowK (is_datatype, n, map (on_m_s x n) sorts)
+      ArrowK (n, sorts) => ArrowK (n, map (on_m_s x n) sorts)
                                                
 fun on_m_ibinds on_anno on_inner x n (ibinds : ('a, 'b, 'c) ibinds) =
   case ibinds of
@@ -1839,7 +1839,7 @@ end
 
 fun substx_i_k x v b =
   case b of
-      ArrowK (is_datatype, n, sorts) => ArrowK (is_datatype, n, map (substx_i_s x v) sorts)
+      ArrowK (n, sorts) => ArrowK (n, map (substx_i_s x v) sorts)
 
 local
   fun f x v b =
@@ -2488,7 +2488,7 @@ fun simp_s s =
 
 fun simp_k k =
   case k of
-      ArrowK (is_datatype, n, sorts) => ArrowK (is_datatype, n, map simp_s sorts)
+      ArrowK (n, sorts) => ArrowK (n, map simp_s sorts)
 
 fun simp_mt t =
   case t of

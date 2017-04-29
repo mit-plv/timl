@@ -179,7 +179,7 @@ fun package0_t v b = package_t_t 0 v $ package_i_t 0 v b
 
 fun package_i_kind x v b =
   case b of
-      ArrowK (is_datatype, n, sorts) => ArrowK (is_datatype, n, map (package_i_s x v) sorts)
+      ArrowK (n, sorts) => ArrowK (n, map (package_i_s x v) sorts)
 fun package0_kind v = package_i_kind 0 v
                                      
 fun package_i_ibinds f_cls f_inner x v ibinds =
@@ -327,39 +327,20 @@ fun package_c m (family, tnames, core) =
     end
 *)
               
-datatype kind_ext =
-         KeKind of kind
-         | KeTypeEq of kind * mtype
+type kind_ext = bool (*is datatype*) * kind * mtype option (*aliasing*)
 
-fun str_ke gctx (ctx as (sctx, kctx)) k =
-  case k of
-      KeKind k => str_k gctx sctx k
-    | KeTypeEq (k, t) => sprintf "(= $ :: $)" [str_mt gctx ctx t, str_k gctx sctx k]
+fun str_ke gctx (ctx as (sctx, kctx)) (dt, k, t) =
+  sprintf "($$$)" [str_k gctx sctx k, if dt then " [datatype]" else "", str_opt (fn t => sprintf " (= $)" [str_mt gctx ctx t]) t]
                                  
-fun shiftx_i_ke x n k =
-  case k of
-      KeKind k => KeKind $ shiftx_i_k x n k
-    | KeTypeEq (k, t) => KeTypeEq (shiftx_i_k x n k, shiftx_i_mt x n t)
+fun shiftx_i_ke x n (dt, k, t) = (dt, shiftx_i_k x n k, Option.map (shiftx_i_mt x n) t)
                                   
-fun shiftx_t_ke x n k =
-  case k of
-      KeKind k => KeKind k
-    | KeTypeEq (k, t) => KeTypeEq (k, shiftx_t_mt x n t)
+fun shiftx_t_ke x n (dt, k, t) = (dt, k, Option.map (shiftx_t_mt x n) t)
                                   
-fun shiftx_m_ke x n k =
-  case k of
-      KeKind k => KeKind $ shiftx_m_k x n k
-    | KeTypeEq (k, t) => KeTypeEq (shiftx_m_k x n k, shiftx_m_mt x n t)
+fun shiftx_m_ke x n (dt, k, t) = (dt, shiftx_m_k x n k, Option.map (shiftx_m_mt x n) t)
 
-fun package_i_ke x v k =
-  case k of
-      KeKind k => KeKind $ package_i_kind x v k
-    | KeTypeEq (k, t) => KeTypeEq (package_i_kind x v k, package_i_mt x v t)
+fun package_i_ke x v (dt, k, t) = (dt, package_i_kind x v k, Option.map (package_i_mt x v) t)
                                   
-fun package_t_ke x v k =
-  case k of
-      KeKind k => KeKind k
-    | KeTypeEq (k, t) => KeTypeEq (k, package_t_mt x v t)
+fun package_t_ke x v (dt, k, t) = (dt, k, Option.map (package_t_mt x v) t)
 
 fun package0_ke v b =
   package_t_ke 0 v $ package_i_ke 0 v b
@@ -483,6 +464,9 @@ fun add_nondep_sortings_skc pairs (sctx, kctx, cctx) =
 *)
 fun sctx_names (ctx : scontext) = (* List.mapPartial id $ *) map fst ctx
 fun sctx_length (ctx : scontext) = length $ sctx_names ctx
+
+fun KeKind k = (false, k, NONE)
+fun KeTypeEq (k, t) = (false, k, SOME t)
 
 fun add_kindingext pair (kctx : kcontext) = pair :: kctx
 fun add_kinding pair = add_kindingext $ mapSnd KeKind pair
@@ -654,10 +638,7 @@ fun lookup_kindext_by_name kctx name =
       NONE => NONE
     | SOME (n, k) => SOME (n, shiftx_t_ke 0 (n + 1) k)
 
-fun get_ke_kind k =
-  case k of
-      KeKind k => k
-    | KeTypeEq (k, _) => k
+fun get_ke_kind (_, k, _) = k
                            
 fun lookup_kind (n : int) kctx = 
   case nth_error kctx n of
@@ -815,9 +796,7 @@ fun try_retrieve_MtVar f gctx kctx x =
   let
     val k = fetch_kindext gctx (kctx, x)
   in
-    case k of
-        KeKind _ => MtVar x
-      | KeTypeEq (_, t) => f t
+    default (MtVar x) $ Option.map f (#3 k)
   end
 
 fun is_type_variable r y =
@@ -840,7 +819,7 @@ fun load_without_update_uvar f (a as (x, r)) =
 
 fun update_k k =
   case k of
-      ArrowK (dt, n, sorts) => ArrowK (dt, n, map update_s sorts)
+      ArrowK (n, sorts) => ArrowK (n, map update_s sorts)
                       
 fun update_mt t =
   case t of
@@ -1466,7 +1445,7 @@ fun whnf_mt gctx kctx (t : mtype) : mtype =
 
 fun normalize_k k =
   case k of
-      ArrowK (dt, n, sorts) => ArrowK (dt, n, map normalize_s sorts)
+      ArrowK (n, sorts) => ArrowK (n, map normalize_s sorts)
                                       
 fun normalize_mt gctx kctx t =
   let
@@ -1521,7 +1500,7 @@ fun collect_var_aux_t_ibind f d acc (Bind (_, b) : ('a * 'b) ibind) = f d acc b
 fun collect_var_aux_i_tbind f d acc (Bind (_, b) : ('a * 'b) tbind) = f d acc b
 fun collect_var_aux_t_tbind f d acc (Bind (_, b) : ('a * 'b) tbind) = f (d + 1) acc b
 
-fun collect_var_aux_i_k d acc (ArrowK (_, _, sorts)) =
+fun collect_var_aux_i_k d acc (ArrowK (_, sorts)) =
   foldl (fn (s, acc) => collect_var_aux_i_s d acc s) acc sorts
                                                                         
 local
@@ -1635,7 +1614,7 @@ val collect_var_aux_t_mt = f
 fun collect_var_t_mt b = f 0 [] b
 end
 
-fun ncsubst_aux_is_k d x v (ArrowK (dt, n, sorts)) = ArrowK (dt, n, map (ncsubst_aux_is_s d x v) sorts)
+fun ncsubst_aux_is_k d x v (ArrowK (n, sorts)) = ArrowK (n, map (ncsubst_aux_is_s d x v) sorts)
         
 fun ncsubst_aux_is_tbind f d x v (Bind (name, b) : ('a * 'b) tbind) =
   Bind (name, f d x v b)
@@ -1689,8 +1668,8 @@ end
 
 fun eq_ls eq (ls1, ls2) = length ls1 = length ls2 andalso List.all eq $ zip (ls1, ls2)
                                                               
-fun eq_k (ArrowK (dt, n, sorts)) (ArrowK (dt', n', sorts')) =
-  dt = dt' andalso n = n' andalso eq_ls (uncurry eq_s) (sorts, sorts')
+fun eq_k (ArrowK (n, sorts)) (ArrowK (n', sorts')) =
+  n = n' andalso eq_ls (uncurry eq_s) (sorts, sorts')
   
 fun eq_mt t t' = 
     case t of
@@ -1760,6 +1739,9 @@ fun eq_mt t t' =
              UVar (x', _) => x = x'
         )
 
+fun MtAbsMany (ctx, t, r) = foldl (fn ((name, k), t) => MtAbs (k, Bind ((name, r), t), r)) t ctx
+fun MtAbsIMany (ctx, t, r) = foldl (fn ((name, s), t) => MtAbsI (s, Bind ((name, r), t), r)) t ctx
+                                           
 fun unify_mt r gctx ctx (t, t') =
   let
     val unify_mt = unify_mt r gctx
@@ -1811,8 +1793,6 @@ fun unify_mt r gctx ctx (t, t') =
         val t' = ncsubst_ts_mt t_vars' (map (TV r) t_inj) t'
         val t' = ncsubst_is_mt i_vars' (map (V r) i_inj) t'
         val (_, (sctx, kctx)) = get_uvar_info x (fn () => raise Impossible "unify_t()/MtApp: shouldn't be [Refined]")
-        fun MtAbsMany (ctx, t, r) = foldl (fn ((name, k), t) => MtAbs (k, Bind ((name, r), t), r)) t ctx
-        fun MtAbsIMany (ctx, t, r) = foldl (fn ((name, s), t) => MtAbsI (s, Bind ((name, r), t), r)) t ctx
         val t' = MtAbsMany (kctx, t', r)
         val t' = MtAbsIMany (sctx, t', r)
         val () = refine x t'
@@ -1878,19 +1858,21 @@ fun unify_t r gctx ctx (t, t') =
         raise unify_error r (str_t gctxn ctxn t, str_t gctxn ctxn t')
       end
         
-fun kind_mismatch gctx sctx expect have = sprintf "Kind mismatch: expect $ have $" [expect, str_k gctx sctx have]
+fun kind_mismatch expect str_got got = sprintf "Kind mismatch: expect $ got $" [expect, str_got got]
+fun kind_mismatch_in_type expected str_got got thing =
+  [sprintf "Kind mismatch:" [thing]] @ indent [sprintf "expected:\t $" [expected], sprintf "got:\t $" [str_got got], sprintf "in type:\t $" [thing]]
 
 fun is_sub_kind r gctxn sctxn (k, k') =
   case (k, k') of
-      (ArrowK (is_dt, ntargs, sorts), ArrowK (is_dt', ntargs', sorts')) =>
+      (ArrowK (ntargs, sorts), ArrowK (ntargs', sorts')) =>
       let
-        val () = check_eq r op= (is_dt, is_dt')
         val () = check_eq r op= (ntargs, ntargs')
-        val () = is_sub_sorts r gctxn sctxn (sorts, sorts')
+        (* contravariant *)
+        val () = is_sub_sorts r gctxn sctxn (sorts', sorts)
       in
         ()
       end
-      handle Error _ => raise Error (r, [kind_mismatch gctxn sctxn (str_k gctxn sctxn k) k'])
+      handle Error _ => raise Error (r, [kind_mismatch (str_k gctxn sctxn k') (str_k gctxn sctxn) k])
                               
 fun is_eqv_kind r gctxn sctxn (k, k') =
   let
@@ -1914,25 +1896,19 @@ fun unify_kind r gctxn sctxn (k, k') =
         handle Error _ => raise Error (r, [kind_mismatch gctxn sctxn (str_k gctxn sctxn k) k'])
 *)
     
-fun is_sub_kindext r gctx ctx (k, k') =
+fun is_sub_kindext r gctx ctx (ke as (dt, k, t), ke' as (dt', k', t')) =
   let
     val gctxn = gctx_names gctx
     val sctxn = sctx_names $ #1 ctx
     val kctxn = names $ #2 ctx
+    val () = check_eq r op= (dt, dt')
+    val () = is_sub_kind r gctxn sctxn (k, k')
   in
-    case (k, k') of
-        (KeKind k, KeKind k') =>
-        is_sub_kind r gctxn sctxn (k, k')
-      | (KeTypeEq (k, t), KeTypeEq (k', t')) =>
-        let
-          val () = is_sub_kind r gctxn sctxn (k, k')
-          val () = unify_mt r gctx ctx (t, t')
-        in
-          ()
-        end
-      | (KeTypeEq (k, _), KeKind k') =>
-        is_sub_kind r gctxn sctxn (k, k')
-      | (KeKind _, KeTypeEq _) => raise Error (r, [sprintf "Kind $ is not a sub kind of $" [str_ke gctxn (sctxn, kctxn) k, str_ke gctxn (sctxn, kctxn) k']])
+    case (t, t') of
+        (NONE, NONE) => ()
+      | (SOME t, SOME t') => unify_mt r gctx ctx (t, t')
+      | (SOME _, NONE) => ()
+      | (_, _) => raise Error (r, [sprintf "Kind $ is not a sub kind of $" [str_ke gctxn (sctxn, kctxn) ke, str_ke gctxn (sctxn, kctxn) ke']])
   end
 
 val counter = ref 0
@@ -2298,61 +2274,156 @@ fun check_sorts gctx (ctx, is : U.idx list, sorts, r) : idx list =
   (check_length r (is, sorts);
    ListPair.map (fn (i, s) => check_sort gctx (ctx, i, s)) (is, sorts))
 
-(* k => Type *)
-fun recur_kind k = ArrowK (false, 0, k)
+fun is_wf_kind gctx (sctx, k) =
+  case k of
+      U.ArrowK (ntargs, sorts) =>
+      let
+        val sorts = is_wf_sorts gctx (sctx, sorts)
+      in
+        ArrowK (ntargs, sorts)
+      end
 
-fun get_kind gctx (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype) : mtype * kind = 
+(* k => Type *)
+fun recur_kind k = ArrowK (0, k)
+
+(* higher-kind *)
+datatype hkind =
+         HKType
+         | HKArrow of hkind * hkind
+         | HKArrowI of sort * hkind
+
+fun str_hk gctx ctx k =
+  case k of
+      HKType => "*"
+    | HKArrow (k1, k2) => sprintf "($ => $)" [str_hk gctx ctx k1, str_hk gctx ctx k2]
+    | HKArrowI (s, k) => sprintf "($ => $)" [str_s gctx ctx s, str_hk gctx ctx k]
+
+val HType = HKType
+
+fun kind_to_higher_kind (ArrowK (n, sorts)) =
   let
-    val get_kind = get_kind gctx
-    val check_kind = check_kind gctx
-    val check_kind_Type = check_kind_Type gctx
+    val k = foldr (fn (s, k) => HKArrowI (s, k)) HKType sorts
+    val k = Range.for (fn (_, k) => HKArrow (HKType, k)) k (Range.zero_to n)
+  in
+    k
+  end
+
+fun is_sub_higher_kind r gctxn sctxn (k, k') =
+  case (k, k') of
+      (HKType, HKType) => ()
+    | (HKArrow (k1, k2), HKArrow (k1', k2')) =>
+      let
+        val () = is_sub_higher_kind r gctxn sctxn (k1', k1)
+        val () = is_sub_higher_kind r gctxn sctxn (k2, k2')
+      in
+        ()
+      end
+    | (HKArrowI (s, k), HKArrowI (s', k')) =>
+      let
+        val () = is_sub_sort r gctxn sctxn (s', s)
+        val () = is_sub_higher_kind r gctxn sctxn (k, k')
+      in
+        ()
+      end
+    | _  => raise Error (r, [kind_mismatch (str_hk gctxn sctxn k) (str_hk gctxn sctxn) k'])
+
+fun get_higher_kind gctx (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype) : mtype * hkind = 
+  let
+    val get_higher_kind = get_higher_kind gctx
+    val check_higher_kind = check_higher_kind gctx
+    val check_higher_kind_Type = check_higher_kind_Type gctx
     val gctxn = gctx_names gctx
     val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
+    fun error (r, thing, expected, str_got, got) =
+      raise Error (r, kind_mismatch_in_type expected str_got got thing)
     (* val () = print (sprintf "Kinding $\n" [U.str_mt gctxn ctxn c]) *)
     fun main () =
       case c of
 	  U.Arrow (c1, d, c2) => 
-	  (Arrow (check_kind_Type (ctx, c1),
+	  (Arrow (check_higher_kind_Type (ctx, c1),
 	          check_bsort gctx (sctx, d, Base Time),
-	          check_kind_Type (ctx, c2)),
-           Type)
+	          check_higher_kind_Type (ctx, c2)),
+           HType)
         | U.TyArray (t, i) =>
-	  (TyArray (check_kind_Type (ctx, t),
+	  (TyArray (check_higher_kind_Type (ctx, t),
 	            check_bsort gctx (sctx, i, Base Nat)),
-           Type)
+           HType)
         | U.TyNat (i, r) =>
 	  (TyNat (check_bsort gctx (sctx, i, Base Nat), r),
-           Type)
-        | U.Unit r => (Unit r, Type)
+           HType)
+        | U.Unit r => (Unit r, HType)
 	| U.Prod (c1, c2) => 
-	  (Prod (check_kind_Type (ctx, c1),
-	         check_kind_Type (ctx, c2)),
-           Type)
+	  (Prod (check_higher_kind_Type (ctx, c1),
+	         check_higher_kind_Type (ctx, c2)),
+           HType)
 	| U.UniI (s, Bind ((name, r), c), r_all) => 
           let
             val s = is_wf_sort gctx (sctx, s)
-            val c = open_close add_sorting_sk (name, s) ctx (fn ctx => check_kind_Type (ctx, c))
+            val c = open_close add_sorting_sk (name, s) ctx (fn ctx => check_higher_kind_Type (ctx, c))
           in
 	    (UniI (s, Bind ((name, r), c), r_all),
-             Type)
+             HType)
           end
 	| U.AppV (x, ts, is, r) => 
           let
-            val ArrowK (_, n, sorts) = fetch_kind gctx (kctx, x)
+            val ArrowK (n, sorts) = fetch_kind gctx (kctx, x)
 	    val () = check_length_n r (ts, n)
           in
 	    (AppV (x, 
-                   map (fn t => check_kind_Type (ctx, t)) ts, 
+                   map (fn t => check_higher_kind_Type (ctx, t)) ts, 
                    check_sorts gctx (sctx, is, sorts, r), 
                    r),
-             Type)
+             HType)
           end
-	| U.BaseType a => (BaseType a, Type)
+	| U.BaseType a => (BaseType a, HType)
         | U.UVar ((), r) =>
-          (*ToDo: need to create a fresh kind, like what we does for U.UVarI *)
-          (fresh_mt (sctx, kctx) r, Type)
-    (* | U.MtVar x => *)
-    (*   (MtVar x, fetch_kind gctx (kctx, x)) *)
+          (* type underscore will always mean a type of kind Type *)
+          (fresh_mt (sctx, kctx) r, HType)
+    | U.MtVar x =>
+      (MtVar x, kind_to_higher_kind $ fetch_kind gctx (kctx, x))
+    | U.MtAbs (k1, Bind ((name, r1), t), r) =>
+      let
+        val k1 = is_wf_kind gctx (sctx, k1)
+        val (t, k) = get_higher_kind (add_kinding_sk (name, k1) ctx, t)
+        val k1' = kind_to_higher_kind k1
+        val k = HKArrow (k1', k)
+      in
+        (MtAbs (k1, Bind ((name, r1), t), r), k)
+      end
+    | U.MtApp (t1, t2) =>
+      let
+        val (t1, k) = get_higher_kind (ctx, t1)
+      in
+        case k of
+            HKArrow (k1, k2) =>
+            let
+              val t2 = check_higher_kind (ctx, t2, k1)
+            in
+              (MtApp (t1, t2), k2)
+            end
+          | _ => error (get_region_mt t1, str_mt gctxn ctxn t1, "<kind> => <kind>", str_hk gctxn sctxn, k)
+      end
+    | U.MtAbsI (s, Bind ((name, r1), t), r) =>
+      let
+        val s = is_wf_sort gctx (sctx, s)
+        val (t, k) = get_higher_kind (add_sorting_sk (name, s) ctx, t)
+        val k = HKArrowI (s, k)
+      in
+        (MtAbsI (s, Bind ((name, r1), t), r), k)
+      end
+    | U.MtAppI (t, i) =>
+      let
+        val (t, k) = get_higher_kind (ctx, t)
+      in
+        case k of
+            HKArrowI (s, k) =>
+            let
+              val i = check_sort gctx (sctx, i, s)
+            in
+              (MtAppI (t, i), k)
+            end
+          | _ => error (get_region_mt t, str_mt gctxn ctxn t, "<sort> => <kind>", str_hk gctxn sctxn, k)
+      end
     val ret =
         main ()
         handle
@@ -2361,7 +2432,31 @@ fun get_kind gctx (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype) : mty
     ret
   end
 
-and check_kind gctx (ctx, t, k) =
+and check_higher_kind gctx (ctx, t, k) =
+    let
+      val (t, k') = get_higher_kind gctx (ctx, t)
+      val () = is_sub_higher_kind (get_region_mt t) (gctx_names gctx) (sctx_names $ #1 ctx) (k', k)
+    in
+      t
+    end
+
+and check_higher_kind_Type gctx (ctx, t) =
+    check_higher_kind gctx (ctx, t, HType)
+
+fun higher_kind_to_kind k =
+  case k of
+      HKType => Type
+    | HKArrow (k1, k2) => opt_bind (b2opt $ is_HKType k1) (fn () => opt_bind (higher_kind_to_kind k2) (fn (n, sorts) => (n + 1, sorts)))
+
+fun get_kind gctx (ctx as (sctx : scontext, kctx : kcontext), t : U.mtype) : mtype * kind =
+  let
+    val (t, k) = get_higher_kind gctx (ctx, t)
+    val k = lazy_default (fn () => raise Error (get_region_mt t, kind_mismatch_in_type "first-order kind (i.e. * => ... <sort> => ... => *)" (str_hk (gctx_names gctx) (sctx_names sctx)) k)) $ higher_kind_to_kind k
+  in
+    (t, k)
+  end
+
+fun check_kind gctx (ctx, t, k) =
     let
       val (t, k') = get_kind gctx (ctx, t)
       val () = is_sub_kind (get_region_mt t) (gctx_names gctx) (sctx_names $ #1 ctx) (k', k)
@@ -2369,17 +2464,8 @@ and check_kind gctx (ctx, t, k) =
       t
     end
 
-and check_kind_Type gctx (ctx, t) =
+fun check_kind_Type gctx (ctx, t) =
     check_kind gctx (ctx, t, Type)
-
-fun is_wf_kind gctx (sctx, k) =
-  case k of
-      U.ArrowK (is_dt, ntargs, sorts) =>
-      let
-        val sorts = is_wf_sorts gctx (sctx, sorts)
-      in
-        ArrowK (is_dt, ntargs, sorts)
-      end
 
 fun is_wf_type gctx (ctx as (sctx : scontext, kctx : kcontext), c : U.ty) : ty = 
   let 
@@ -3097,25 +3183,29 @@ fun update_sgntr sg =
 fun update_gctx gctx =
   map (mapSnd update_sgntr) gctx
       
-fun fv_mt t =
+fun fresh_uvar_mt t =
   let
   in      
     case update_mt t of
         UVar (uvar_ref, _) => [uvar_ref]
       | Unit _ => []
-      | Arrow (t1, _, t2) => fv_mt t1 @ fv_mt t2
-      | TyArray (t, _) => fv_mt t
+      | Arrow (t1, _, t2) => fresh_uvar_mt t1 @ fresh_uvar_mt t2
+      | TyArray (t, _) => fresh_uvar_mt t
       | TyNat _ => []
-      | Prod (t1, t2) => fv_mt t1 @ fv_mt t2
-      | UniI (s, Bind (name, t1), _) => fv_mt t1
-      (* | MtVar x => [] *)
-      | AppV (y, ts, is, r) => concatMap fv_mt ts
+      | Prod (t1, t2) => fresh_uvar_mt t1 @ fresh_uvar_mt t2
+      | UniI (s, Bind (name, t1), _) => fresh_uvar_mt t1
+      | MtVar x => []
+      | MtAbs (_, Bind (_, t), _) => fresh_uvar_mt t
+      | MtApp (t1, t2) => fresh_uvar_mt t1 @ fresh_uvar_mt t2
+      | MtAbsI (_, Bind (_, t), _) => fresh_uvar_mt t
+      | MtAppI (t, i) => fresh_uvar_mt t
+      | AppV (y, ts, is, r) => concatMap fresh_uvar_mt ts
       | BaseType _ => []
   end
     
-fun fv_t t =
+fun fresh_uvar_t t =
   case t of
-      Mono t => fv_mt t
+      Mono t => fresh_uvar_mt t
     | Uni _ => [] (* fresh uvars in Uni should either have been generalized or in previous ctx *)
 
 (* If i1 or i2 is fresh, do unification instead of VC generation. Could be unsound. *)
@@ -3272,12 +3362,24 @@ fun forget_or_check_return r gctx ctx ctxd (t', d') (t, d) =
     (t, d)
   end
 
+(* change sort [s] to a [Subset (s.bsort, p)] *)
+fun set_prop r s p =
+  case normalize_s s of
+      Basic (bs as (_, r)) => Subset (bs, Bind (("__set_prop", r), p), r)
+    | Subset (bs, Bind (name, _), r) => Subset (bs, Bind (name, p), r)
+    | UVarS _ => raise Error (r, ["unsolved unification variable in module"])
+    | SortBigO s => set_prop r (SortBigO_to_Subset s) p
+    | SAbs _ => raise Impossible "set_prop()/SAbs: shouldn't be prop"
+    | SApp _ => raise Error (r, ["unsolved unification variable in module (unnormalized application)"])
+                      
 fun add_prop r s p =
-  case update_s s of
+  case normalize_s s of
       Basic (bs as (_, r)) => Subset (bs, Bind (("__added_prop", r), p), r)
     | Subset (bs, Bind (name, p'), r) => Subset (bs, Bind (name, p' /\ p), r)
     | UVarS _ => raise Error (r, ["unsolved unification variable in module"])
     | SortBigO s => add_prop r (SortBigO_to_Subset s) p
+    | SAbs _ => raise Impossible "add_prop()/SAbs: shouldn't be prop"
+    | SApp _ => raise Error (r, ["unsolved unification variable in module (unnormalized application)"])
                              
 fun sort_add_idx_eq r s' i =
   add_prop r s' (VarI (NONE, (0, r)) %= shift_i_i i)
@@ -3658,12 +3760,17 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
       val check_mtype_time = check_mtype_time gctx
       fun generalize t = 
         let
-          fun fv_ctx (_, _, _, tctx) = (concatMap fv_t o map snd) tctx (* cctx can't contain uvars *)
+          fun fv_ctx (_, _, _, tctx) = (concatMap fresh_uvar_t o map snd) tctx (* cctx can't contain uvars *)
+          (* substitute uvar with var *)
+          fun substu_ibind f x v (Bind (name, b) : ('a * 'b) ibind) = Bind (name, f x v b)
+          fun substu_tbind f x v (Bind (name, b) : ('a * 'b) tbind) = Bind (name, f x (v + 1) b)
           fun substu x v (b : mtype) : mtype =
 	    case b of
                 UVar (y, _) =>
                 if y = x then
-                  AppV ((NONE, (v, dummy)), [], [], dummy)
+                  case !y of
+                      Fresh (_, (sctx, kctx)) => MtAbsIMany (sctx, MtAbsMany (kctx, TV dummy (v + length kctx), dummy), dummy)
+                    | Refined _ => raise Impossible "substu()/UVar: shouldn't be Refined"
                 else 
                   b
               | Unit r => Unit r
@@ -3671,9 +3778,13 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
               | TyNat (i, r) => TyNat (i, r)
               | TyArray (t, i) => TyArray (substu x v t, i)
 	      | Prod (t1, t2) => Prod (substu x v t1, substu x v t2)
-	      | UniI (s, Bind (name, t1), r) => UniI (s, Bind (name, substu x v t1), r)
+	      | UniI (s, bind, r) => UniI (s, substu_ibind substu x v bind, r)
               (* don't need to consult type variable's definition *)
-              (* | MtVar x => MtVar x *)
+              | MtVar x => MtVar x
+              | MtAbs (k, bind, r) => MtAbs (k, substu_tbind substu x v bind, r)
+              | MtApp (t1, t2) => MtApp (substu x v t1, substu x v t2)
+              | MtAbsI (k, bind, r) => MtAbsI (k, substu_ibind substu x v bind, r)
+              | MtAppI (t, i) => MtAppI (substu x v t, i)
 	      | AppV (y, ts, is, r) => 
 		AppV (y, map (substu x v) ts, is, r)
 	      | BaseType a => BaseType a
@@ -3682,7 +3793,8 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
               "'_" ^ (str o chr) (ord #"a" + n)
             else
               "'_" ^ str_int n
-          val fv = dedup op= $ diff op= (fv_mt t) (fv_ctx ctx)
+          val t = update_mt t
+          val fv = dedup op= $ diff op= (fresh_uvar_mt t) (fv_ctx ctx)
           val t = shiftx_t_mt 0 (length fv) t
           val (t, _) = foldl (fn (uvar_ref, (t, v)) => (substu uvar_ref v t, v + 1)) (t, 0) fv
           val t = Range.for (fn (i, t) => (Uni (Bind ((evar_name i, dummy), t), dummy))) (Mono t) (0, (length fv))
@@ -3841,15 +3953,8 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
             let
               fun link_module (m, r) (sctx, kctx, cctx, tctx) =
                 let
-                  (* change sort [s] to a [Subset (s.bsort, p)] *)
-                  fun set_prop s p =
-                    case update_s s of
-                        Basic (bs as (_, r)) => Subset (bs, Bind (("__set_prop", r), p), r)
-                      | Subset (bs, Bind (name, _), r) => Subset (bs, Bind (name, p), r)
-                      | UVarS _ => raise Error (r, ["unsolved unification variable in module"])
-                      | SortBigO s => set_prop (SortBigO_to_Subset s) p
                   fun sort_set_idx_eq s' i =
-                    set_prop s' (VarI (NONE, (0, r)) %= shift_i_i i)
+                    set_prop r s' (VarI (NONE, (0, r)) %= shift_i_i i)
                   val sctx = mapWithIdx (fn (i, (name, s)) => (name, sort_set_idx_eq s $ VarI (SOME (m, r), (i, r)))) sctx
                   fun kind_set_type_eq k t =
                     case k of
@@ -3924,7 +4029,7 @@ and is_wf_datatype gctx ctx (name, tnames, sorts, constr_decls, r) : datatype_de
 				      "Constructor is ill-formed" :: 
 				      "Cause:" :: 
 				      indent msg)
-          val () = if length (fv_t t) > 0 then
+          val () = if length (fresh_uvar_t t) > 0 then
                      raise Error (r, ["Constructor has unresolved unification type variable(s)"])
                    else ()
           val (_, ibinds) = constr_from_type t
