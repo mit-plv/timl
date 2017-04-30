@@ -18,6 +18,7 @@ end
 structure BaseTypes = struct
 datatype base_type =
          Int
+fun eq_base_type (t : base_type, t') = t = t'
 end
                         
 functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
@@ -90,8 +91,7 @@ datatype sort =
          | SAbs of sort * (name * sort) ibind * region
          | SApp of sort * idx
                             
-datatype kind = 
-	 ArrowK of int * sort list
+type kind = int (*number of type arguments*) * sort list
 
 (* monotypes *)
 datatype mtype = 
@@ -223,7 +223,7 @@ val SUnit = Basic (Base UnitSort, dummy)
 fun VarT x = AppV (x, [], [], dummy)
 fun AppVar (x, is) = AppV (x, [], is, dummy)
 
-val Type = ArrowK (0, [])
+val Type = (0, [])
 
 infixr 0 $
 
@@ -586,9 +586,8 @@ fun str_bt bt =
   case bt of
       Int => "int"
                
-fun str_k gctx ctx (k : kind) : string = 
-  case k of
-      ArrowK (n, sorts) => sprintf "($$Type)" [if n = 0 then "" else join " * " (repeat n "Type") ^ " => ", if null sorts then "" else join " * " (map (str_s gctx ctx) sorts) ^ " => "]
+fun str_k gctx ctx ((n, sorts) : kind) : string = 
+  sprintf "($$Type)" [if n = 0 then "" else join " * " (repeat n "Type") ^ " => ", if null sorts then "" else join " * " (map (str_s gctx ctx) sorts) ^ " => "]
 
 fun str_mt gctx (ctx as (sctx, kctx)) (t : mtype) : string =
   let
@@ -1359,9 +1358,7 @@ fun on_i_s on_i_i on_i_p x n b =
     f x n b
   end
 
-fun on_i_kind on_i_s x n b =
-  case b of
-      ArrowK (n, sorts) => ArrowK (n, map (on_i_s x n) sorts)
+fun on_i_k on_i_s x n b = mapSnd (map (on_i_s x n)) b
                                                
 fun on_i_mt on_i_i on_i_s on_i_k x n b =
   let
@@ -1542,9 +1539,7 @@ fun on_m_t on_m_mt x n b =
     f x n b
   end
 
-fun on_m_kind on_m_s x n b =
-  case b of
-      ArrowK (n, sorts) => ArrowK (n, map (on_m_s x n) sorts)
+fun on_m_k on_m_s x n b = mapSnd (map (on_m_s x n)) b
                                                
 fun on_m_ibinds on_anno on_inner x n (ibinds : ('a, 'b, 'c) ibinds) =
   case ibinds of
@@ -1657,7 +1652,7 @@ fun shift_i_p b = shiftx_i_p 0 1 b
 fun shiftx_i_s x n b = on_i_s shiftx_i_i shiftx_i_p x n b
 fun shift_i_s b = shiftx_i_s 0 1 b
 
-fun shiftx_i_k x n b = on_i_kind shiftx_i_s x n b
+fun shiftx_i_k x n b = on_i_k shiftx_i_s x n b
 fun shift_i_k b = shiftx_i_k 0 1 b
 
 fun shiftx_i_mt x n b = on_i_mt shiftx_i_i shiftx_i_s shiftx_i_k x n b
@@ -1680,7 +1675,7 @@ fun shift_m_p b = shiftx_m_p 0 1 b
 fun shiftx_m_s x n b = on_m_s shiftx_m_i shiftx_m_p x n b
 fun shift_m_s b = shiftx_m_s 0 1 b
 
-fun shiftx_m_k x n b = on_m_kind shiftx_m_s x n b
+fun shiftx_m_k x n b = on_m_k shiftx_m_s x n b
 fun shift_m_k b = shiftx_m_k 0 1 b
 
 fun shiftx_m_mt x n b = on_m_mt shiftx_v shiftx_m_i shiftx_m_s shiftx_m_k x n b
@@ -1729,7 +1724,7 @@ val forget_v = forget_v ForgetError
 fun forget_i_i x n b = on_i_i forget_v x n b
 fun forget_i_p x n b = on_i_p forget_i_i x n b
 fun forget_i_s x n b = on_i_s forget_i_i forget_i_p x n b
-fun forget_i_k x n b = on_i_kind forget_i_s x n b
+fun forget_i_k x n b = on_i_k forget_i_s x n b
 fun forget_i_mt x n b = on_i_mt forget_i_i forget_i_s forget_i_k x n b
 fun forget_t_mt x n b = on_t_mt forget_v x n b
 fun forget_i_t x n b = on_i_t forget_i_mt x n b
@@ -1738,7 +1733,7 @@ fun forget_t_t x n b = on_t_t forget_t_mt x n b
 fun forget_m_i x n b = on_m_i forget_v x n b
 fun forget_m_p x n b = on_m_p forget_m_i x n b
 fun forget_m_s x n b = on_m_s forget_m_i forget_m_p x n b
-fun forget_m_k x n b = on_m_kind forget_m_s x n b
+fun forget_m_k x n b = on_m_k forget_m_s x n b
 fun forget_m_mt x n b = on_m_mt forget_v forget_m_i forget_m_s forget_m_k x n b
 fun forget_m_t x n b = on_m_t forget_m_mt x n b
 
@@ -1837,9 +1832,7 @@ fun substx_i_s x (v : idx) (b : sort) : sort = f x v b
 fun subst_i_s (v : idx) (b : sort) : sort = substx_i_s 0 v b
 end
 
-fun substx_i_k x v b =
-  case b of
-      ArrowK (n, sorts) => ArrowK (n, map (substx_i_s x v) sorts)
+fun substx_i_k x v b = mapSnd (map (substx_i_s x v)) b
 
 local
   fun f x v b =
@@ -2486,9 +2479,7 @@ fun simp_s s =
     | SAbs (s, bind, r) => SAbs (simp_s s, simp_bind simp_s bind, r)
     | SApp (s, i) => SApp (simp_s s, simp_i i)
 
-fun simp_k k =
-  case k of
-      ArrowK (n, sorts) => ArrowK (n, map simp_s sorts)
+fun simp_k k = mapSnd (map simp_s) k
 
 fun simp_mt t =
   case t of

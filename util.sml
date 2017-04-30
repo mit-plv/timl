@@ -23,7 +23,7 @@ fun lazy_default v opt =
     case opt of
         SOME a => a
       | NONE => v ()
-fun isNull opt = not (isSome opt)
+fun isNone opt = not (isSome opt)
 
 val join = String.concatWith
 fun prefix fix s = fix ^ s
