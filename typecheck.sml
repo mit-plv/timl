@@ -60,13 +60,11 @@ fun package_long_id x m (long_id as (m', (y, r))) =
       (* if it has module reference, don't substitute *)
       long_id
         
-fun package_i_ibind f x v bind =
-  case bind of
-      Bind (name, inner) => Bind (name, f (x + 1) v inner)
+fun package_i_ibind f x v (Bind (name, inner) : ('a * 'b) ibind) =
+  Bind (name, f (x + 1) v inner)
 
-fun package_i_tbind f x v bind =
-  case bind of
-      Bind (name, inner) => Bind (name, f x v inner)
+fun package_i_tbind f x v (Bind (name, inner)) =
+  Bind (name, f x v inner)
 
 local
   fun f x v b =
@@ -113,10 +111,14 @@ local
       | Subset (s, bind, r) => Subset (s, package_i_ibind package_i_p x v bind, r)
       | UVarS a => b
       | SortBigO s => f x v (SortBigO_to_Subset s)
+      | SAbs (s1, bind, r) => SAbs (f x v s1, package_i_ibind f x v bind, r)
+      | SApp (s, i) => SApp (f x v s, package_i_i x v i)
 in
 fun package_i_s x v (b : sort) : sort = f x v b
 end
 fun package0_s v = package_i_s 0 v
+
+fun package_i_k x v k = mapSnd (map (package_i_s x v)) k
 
 local
   fun f x v b =
@@ -127,8 +129,12 @@ local
       | Unit r => Unit r
       | Prod (t1, t2) => Prod (f x v t1, f x v t2)
       | UniI (s, bind, r) => UniI (package_i_s x v s, package_i_ibind f x v bind, r)
-      (* | MtVar y => MtVar y *)
       | AppV (y, ts, is, r) => AppV (y, map (f x v) ts, map (package_i_i x v) is, r)
+      | MtVar y => MtVar y
+      | MtAbs (k, bind, r) => MtAbs (package_i_k x v k, package_i_tbind f x v bind, r)
+      | MtApp (t1, t2) => MtApp (f x v t1, f x v t2)
+      | MtAbsI (s, bind, r) => MtAbsI (package_i_s x v s, package_i_ibind f x v bind, r)
+      | MtAppI (t, i) => MtAppI (f x v t, package_i_i x v i)
       | BaseType a => BaseType a
       | UVar a => b
 in
@@ -144,13 +150,11 @@ in
 fun package_i_t x v (b : ty) : ty = f x v b
 end
 
-fun package_t_ibind f x v bind =
-  case bind of
-      Bind (name, inner) => Bind (name, f x v inner)
+fun package_t_ibind f x v (Bind (name, inner) : ('a * 'b) ibind) =
+  Bind (name, f x v inner)
 
-fun package_t_tbind f x v bind =
-  case bind of
-      Bind (name, inner) => Bind (name, f (x + 1) v inner)
+fun package_t_tbind f x v (Bind (name, inner) : ('a * 'b) tbind) =
+  Bind (name, f (x + 1) v inner)
 
 local
   fun f x v (b : mtype) : mtype =
@@ -161,9 +165,13 @@ local
       | Unit r => Unit r
       | Prod (t1, t2) => Prod (f x v t1, f x v t2)
       | UniI (s, bind, r) => UniI (s, package_t_ibind f x v bind, r)
-      (* | MtVar y => MtVar $ package_long_id x v y *)
       | AppV (y, ts, is, r) =>
         AppV (package_long_id x v y, map (f x v) ts, is, r)
+      | MtVar y => MtVar $ package_long_id x v y
+      | MtAbs (k, bind, r) => MtAbs (k, package_t_tbind f x v bind, r)
+      | MtApp (t1, t2) => MtApp (f x v t1, f x v t2)
+      | MtAbsI (s, bind, r) => MtAbsI (s, package_t_ibind f x v bind, r)
+      | MtAppI (t, i) => MtAppI (f x v t, i)
       | BaseType a => BaseType a
       | UVar a => b
 in
@@ -610,6 +618,8 @@ fun update_s s =
     | Basic _ => s
     | Subset ((b, r1), Bind (name, p), r) => Subset ((update_bs b, r1), Bind (name, update_p p), r)
     | SortBigO ((b, r1), i, r) => SortBigO ((update_bs b, r1), update_i i, r)
+    | SAbs (s1, Bind (name, s), r) => SAbs (update_s s1, Bind (name, update_s s), r)
+    | SApp (s, i) => SApp (update_s s, update_i i)
 
 exception Error of region * string list
 
@@ -1292,13 +1302,37 @@ fun ncsubst_is_s x v b = f 0 x v b
 end
 
 fun eq_s s s' =
-  case (s, s') of
-      (Basic (b, _), Basic (b', _)) => eq_bs b b'
-    | (Subset ((b, _), Bind (_, p), _), Subset ((b', _), Bind (_, p'), _)) => eq_bs b b' andalso eq_p p p'
-    | (UVarS (x, _), UVarS (x', _)) => x = x'
-    | (SortBigO ((b, _), i, _), SortBigO ((b', _), i', _)) => eq_bs b b' andalso eq_i i i'
-    | (SAbs (s1, Bind (_, s), _), SAbs (s1', Bind (_, s'), _)) => eq_s s1 s1' andalso eq_s s s'
-    | (SApp (s, i), SApp (s', i')) => eq_s s s' andalso eq_i i i'
+  case s of
+      Basic (b, _) =>
+      (case s' of
+           Basic (b', _) => eq_bs b b'
+         | _ => false
+      )
+    | Subset ((b, _), Bind (_, p), _) =>
+      (case s' of
+           Subset ((b', _), Bind (_, p'), _) => eq_bs b b' andalso eq_p p p'
+         | _ => false
+      )
+    | UVarS (x, _) =>
+      (case s' of
+           UVarS (x', _) => x = x'
+         | _ => false
+      )
+    | SortBigO ((b, _), i, _) =>
+      (case s' of
+           SortBigO ((b', _), i', _) => eq_bs b b' andalso eq_i i i'
+         | _ => false
+      )
+    | SAbs (s1, Bind (_, s), _) =>
+      (case s' of
+           SAbs (s1', Bind (_, s'), _) => eq_s s1 s1' andalso eq_s s s'
+         | _ => false
+      )
+    | SApp (s, i) =>
+      (case s' of
+           SApp (s', i') => eq_s s s' andalso eq_i i i'
+         | _ => false
+      )
                                                              
 fun collect_SApp s =
   case s of
@@ -1321,9 +1355,10 @@ fun is_SApp_UVarS s =
     
 fun SAbsMany (ctx, s, r) = foldl (fn ((name, s_arg), s) => SAbs (s_arg, Bind ((name, r), s), r)) s ctx
                                  
-fun is_sub_sort r gctx ctx (s, s') =
+fun is_sub_sort r gctxn ctxn (s, s') =
   let
-    val is_sub_sort = is_sub_sort r gctx
+    val is_sub_sort = is_sub_sort r gctxn
+    val is_eqv_sort = is_eqv_sort r gctxn
     exception UnifySAppFailed
     fun unify_SApp i i' =
       let
@@ -1341,7 +1376,7 @@ fun is_sub_sort r gctx ctx (s, s') =
       end
     fun structural_compare (s, s') =
       let
-        fun default () = raise Error (r, ["Sort"] @ indent [str_s gctx ctx s] @ ["is not a subsort of"] @ indent [str_s gctx ctx s'])
+        fun default () = raise Error (r, ["Sort"] @ indent [str_s gctxn ctxn s] @ ["is not a subsort of"] @ indent [str_s gctxn ctxn s'])
       in
         case (s, s') of
             (Basic (bs, _), Basic (bs', _)) =>
@@ -1378,8 +1413,23 @@ fun is_sub_sort r gctx ctx (s, s') =
             in
               ()
             end
-          | (SortBigO s, s') => is_sub_sort ctx (SortBigO_to_Subset s, s')
-          | (s, SortBigO s') => is_sub_sort ctx (s, SortBigO_to_Subset s')
+          | (SortBigO s, s') => is_sub_sort ctxn (SortBigO_to_Subset s, s')
+          | (s, SortBigO s') => is_sub_sort ctxn (s, SortBigO_to_Subset s')
+          | (SAbs (s1, Bind ((name, _), s), _), SAbs (s1', Bind (_, s'), _)) =>
+            let
+              val () = is_eqv_sort ctxn (s1, s1')
+              val () = is_sub_sort (name :: ctxn) (s, s')
+            in
+              ()
+            end
+          | (SApp (s, i), SApp (s', i')) =>
+            let
+              val () = is_sub_sort ctxn (s, s')
+              val () = unify_i r gctxn ctxn (i, i')
+            in
+              ()
+            end
+          | _ => default ()
       end
     val s = whnf_s s
     val s' = whnf_s s'
@@ -1395,18 +1445,18 @@ fun is_sub_sort r gctx ctx (s, s') =
        structural_compare (s, s'))
   end
 
-fun is_sub_sorts r gctx ctx (sorts, sorts') =
-  (check_length r (sorts, sorts');
-   ListPair.app (is_sub_sort r gctx ctx) (sorts, sorts'))
-
-fun is_eqv_sort r gctx ctx (s, s') =
+and is_eqv_sort r gctxn ctxn (s, s') =
   let
-    val () = is_sub_sort r gctx ctx (s, s')
-    val () = is_sub_sort r gctx ctx (s', s)
+    val () = is_sub_sort r gctxn ctxn (s, s')
+    val () = is_sub_sort r gctxn ctxn (s', s)
   in
     ()
   end
     
+fun is_sub_sorts r gctx ctx (sorts, sorts') =
+  (check_length r (sorts, sorts');
+   ListPair.app (is_sub_sort r gctx ctx) (sorts, sorts'))
+
 fun is_eqv_sorts r gctx ctx (sorts, sorts') =
   let
     val () = is_sub_sorts r gctx ctx (sorts, sorts')

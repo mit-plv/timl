@@ -4,29 +4,14 @@ open Util
 type 'bsort uvar_bs = empty
 type ('bsort, 'idx) uvar_i = empty
 type 'sort uvar_s = empty
-type 'mtype uvar_mt = empty
+type ('sort, 'kind, 'mtype) uvar_mt = empty
 fun str_uvar_bs (_ : 'a -> string) (u : 'a uvar_bs) = exfalso u
-fun str_uvar_mt (_ : string list * string list -> 'mtype -> string) (_ : string list * string list) (u : 'mtype uvar_mt) = exfalso u
-fun str_uvar_s (_ : string list -> 'sort -> string) (_ : string list) (u : 'sort uvar_s) = exfalso u
-fun str_uvar_i (_ : string list -> 'idx -> string) (_ : string list) (u : ('bsort, 'idx) uvar_i) = exfalso u
+fun str_uvar_i (_ : 'idx -> string) (u : ('bsort, 'idx) uvar_i) = exfalso u
+fun str_uvar_s (_ : 'sort -> string) (u : 'sort uvar_s) = exfalso u
+fun str_uvar_mt (_ : 'mtype -> string) (u : ('sort, 'kind, 'mtype) uvar_mt) = exfalso u
 fun eq_uvar_bs (u : 'bsort uvar_bs, u' : 'bsort uvar_bs) = exfalso u
 fun eq_uvar_i (u : ('bsort, 'idx) uvar_i, u' : ('bsort, 'idx) uvar_i) = exfalso u
 
-fun shiftx_i_UVarI UVarI _ _ _ (u, _) = exfalso u
-fun shiftx_i_UVarS UVarS _ _ _ (u, _) = exfalso u
-fun shiftx_i_UVar _ UVar _ _ _ (u, _) = exfalso u
-fun shiftx_t_UVar _ UVar _ _ _ (u, _) = exfalso u
-                         
-fun forget_i_UVarI _ _ UVarI _ _ _ (u, _) = exfalso u
-fun forget_i_UVarS _ _ UVarS _ _ _ (u, _) = exfalso u
-fun forget_i_UVar _ _ _ UVar _ _ _ (u, _) = exfalso u
-fun forget_t_UVar _ _ _ UVar _ _ _ (u, _) = exfalso u
-                         
-fun substx_i_UVarI _ UVarI _ _ _ (u, _) = exfalso u
-fun substx_i_UVarS _ UVarS _ _ _ (u, _) = exfalso u
-fun substx_i_UVar _ _ UVar _ _ _ (u, _) = exfalso u
-fun substx_t_UVar _ _ UVar _ _ _ (u, _) = exfalso u
-                         
 end
 
 structure NoUVarExpr = ExprFun (structure Var = IntVar structure UVar = NoUVar)
