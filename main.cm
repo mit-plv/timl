@@ -18,6 +18,11 @@ Group is
       nouvar-expr.sml
       vc.sml
       bigO-solver.sml
+      package.sml
+      typecheck-util.sml
+      normalize.sml
+      unify.sml
+      fresh-uvar.sml
       typecheck.sml
       post-typecheck.sml
       sexp/sexp.sml

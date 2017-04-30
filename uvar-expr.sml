@@ -59,6 +59,11 @@ fun str_uvar_mt str_mt (u : ('sort, 'kind, 'mtype) uvar_mt) =
 fun eq_uvar_bs (u : 'bsort uvar_bs, u' : 'bsort uvar_bs) = u = u'
 fun eq_uvar_i (u : ('bsort, 'idx) uvar_i, u' : ('bsort, 'idx) uvar_i) = u = u'
                                                                                         
+fun get_uvar_info x err =
+  case !x of
+      Fresh info => info
+    | Refined _ => err ()
+                       
 end
                        
 structure Expr = ExprFun (structure Var = IntVar structure UVar = UVar)

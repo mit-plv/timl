@@ -25,6 +25,13 @@ fun lazy_default v opt =
       | NONE => v ()
 fun isNone opt = not (isSome opt)
 
+fun SOME_or_fail opt err = 
+  case opt of
+      SOME a => a
+    | NONE => raise err ()
+infix 0 !!
+fun opt !! err = SOME_or_fail opt err
+                                      
 val join = String.concatWith
 fun prefix fix s = fix ^ s
 fun suffix fix s = s ^ fix

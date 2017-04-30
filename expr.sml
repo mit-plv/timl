@@ -373,6 +373,27 @@ fun collect_BSArrow bs =
       end
     | UVarBS u => ([], bs)
                     
+fun collect_SApp s =
+  case s of
+      SApp (s, i) =>
+      let 
+        val (s, is) = collect_SApp s
+      in
+        (s, is @ [i])
+      end
+    | _ => (s, [])
+             
+fun is_SApp_UVarS s =
+  let
+    val (f, args) = collect_SApp s
+  in
+    case f of
+        UVarS (x, _) => SOME (x, args)
+      | _ => NONE
+  end
+    
+fun SAbsMany (ctx, s, r) = foldl (fn ((name, s_arg), s) => SAbs (s_arg, Bind ((name, r), s), r)) s ctx
+                                 
 fun eq_option eq (a, a') =
   case (a, a') of
       (SOME v, SOME v') => eq (v, v')
@@ -1928,6 +1949,9 @@ fun substx_t_t x (v : mtype) (b : ty) : ty =
     | Uni (bind, r) => Uni (substx_t_tbind substx_t_t x mtype_shiftable v bind, r)
 fun subst_t_t v b =
   substx_t_t 0 v b
+
+fun SortBigO_to_Subset (bs, i, r) =
+  Subset (bs, Bind (("__f", r), BinPred (BigO, VarI (NONE, (int2var 0, r)), shift_i_i i)), r)
 
 (* VC operations *)
 
