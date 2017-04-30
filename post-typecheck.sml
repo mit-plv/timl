@@ -695,6 +695,6 @@ type tc_result = typing_info * (VC.vc list * prop list)
 end
 	                    
 structure TypeCheck = struct
-open PreTypeCheck
+open DoTypeCheck
 open PostTypeCheck
 end

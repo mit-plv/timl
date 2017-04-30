@@ -1,4 +1,4 @@
-structure PreTypeCheck = struct
+structure DoTypeCheck = struct
 structure U = UnderscoredExpr
 open RedundantExhaust
 open Region
