@@ -693,8 +693,3 @@ type tc_result = typing_info * (VC.vc list * prop list)
                                  (* exception Unimpl *)
 
 end
-	                    
-structure TypeCheck = struct
-open DoTypeCheck
-open PostTypeCheck
-end

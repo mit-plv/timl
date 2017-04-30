@@ -24,8 +24,9 @@ Group is
       unify.sml
       fresh-uvar.sml
       redundant-exhaust.sml
-      typecheck.sml
+      do-typecheck.sml
       post-typecheck.sml
+      typecheck.sml
       sexp/sexp.sml
       sexp/sexp.grm
       sexp/sexp.lex
