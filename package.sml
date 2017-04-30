@@ -85,7 +85,6 @@ local
       | Unit r => Unit r
       | Prod (t1, t2) => Prod (f x v t1, f x v t2)
       | UniI (s, bind, r) => UniI (package_i_s x v s, package_i_ibind f x v bind, r)
-      | AppV (y, ts, is, r) => AppV (y, map (f x v) ts, map (package_i_i x v) is, r)
       | MtVar y => MtVar y
       | MtAbs (k, bind, r) => MtAbs (package_i_k x v k, package_i_tbind f x v bind, r)
       | MtApp (t1, t2) => MtApp (f x v t1, f x v t2)
@@ -121,8 +120,6 @@ local
       | Unit r => Unit r
       | Prod (t1, t2) => Prod (f x v t1, f x v t2)
       | UniI (s, bind, r) => UniI (s, package_t_ibind f x v bind, r)
-      | AppV (y, ts, is, r) =>
-        AppV (package_long_id x v y, map (f x v) ts, is, r)
       | MtVar y => MtVar $ package_long_id x v y
       | MtAbs (k, bind, r) => MtAbs (k, package_t_tbind f x v bind, r)
       | MtApp (t1, t2) => MtApp (f x v t1, f x v t2)

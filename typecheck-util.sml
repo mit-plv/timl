@@ -26,7 +26,9 @@ exception Error of region * string list
 type kind_ext = bool (*is datatype*) * kind * mtype option (*aliasing*)
 
 fun str_ke gctx (ctx as (sctx, kctx)) (dt, k, t) =
-  sprintf "($$$)" [str_k gctx sctx k, if dt then " [datatype]" else "", str_opt (fn t => sprintf " (= $)" [str_mt gctx ctx t]) t]
+  if not dt andalso isNone t then str_k gctx sctx k
+  else
+    sprintf "($$$)" [str_k gctx sctx k, if dt then " [datatype]" else "", str_opt (fn t => sprintf " (= $)" [str_mt gctx ctx t]) t]
                                  
 (* sorting context *)
 type scontext = (string (* option *) * sort) list
@@ -367,6 +369,14 @@ fun fetch_kindext gctx (kctx, x) =
 
 (* fun fetch_kind a = generic_fetch shiftx_m_k package0_kind do_fetch_kind #2 a *)
 fun fetch_kind gctx (kctx, x) = get_ke_kind $ fetch_kindext gctx (kctx, x)
+                                            
+fun fetch_is_datatype gctx (kctx, x) =
+  let
+    val (dt, _, _) = fetch_kindext gctx (kctx, x)
+  in
+    dt
+  end
+
 fun fetch_kind_and_is_datatype gctx (kctx, x) =
   let
     val (dt, (n, sorts), _) = fetch_kindext gctx (kctx, x)

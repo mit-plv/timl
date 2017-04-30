@@ -496,17 +496,6 @@ fun get_higher_kind gctx (ctx as (sctx : scontext, kctx : kcontext), c : U.mtype
 	    (UniI (s, Bind ((name, r), c), r_all),
              HType)
           end
-	| U.AppV (x, ts, is, r) => 
-          let
-            val (n, sorts) = fetch_kind gctx (kctx, x)
-	    val () = check_length_n r (ts, n)
-          in
-	    (AppV (x, 
-                   map (fn t => check_higher_kind_Type (ctx, t)) ts, 
-                   check_sorts gctx (sctx, is, sorts, r), 
-                   r),
-             HType)
-          end
 	| U.BaseType a => (BaseType a, HType)
         | U.UVar ((), r) =>
           (* type underscore will always mean a type of kind Type *)
@@ -790,8 +779,8 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
   in
     case pn of
 	U.ConstrP ((cx, eia), inames, opn, r) =>
-        (case whnf_mt gctx kctx t of
-             AppV (family, ts, is, _) =>
+        (case is_AppV $ whnf_mt gctx kctx t of
+             SOME (family, ts, is) =>
  	     let 
                val c as (family', tnames, ibinds) = fetch_constr gctx (cctx, cx)
                val (name_sorts, (t1, is')) = unfold_binds ibinds
@@ -850,7 +839,7 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
              in
 	       (ConstrP ((cx, eia), inames, SOME pn1, r), cover, ctxd, length ps + nps)
 	     end
-           | _ => raise Error (r, [sprintf "Pattern $ doesn't match type $" [U.str_pn gctxn (sctx_names sctx, names kctx, names cctx) pn, str_mt gctxn skctxn t]])
+           | NONE => raise Error (r, [sprintf "Pattern $ doesn't match type $" [U.str_pn gctxn (sctx_names sctx, names kctx, names cctx) pn, str_mt gctxn skctxn t]])
         )
       | U.VarP (name, r) =>
         (* let *)
@@ -942,29 +931,41 @@ fun expand_rules gctx (ctx as (sctx, kctx, cctx), rules, t, r) =
                         let
                           (* val t = normalize_mt t *)
                           val t = whnf_mt gctx kctx t
+                          fun default () = raise Impossible "hab_to_ptrn"
                         in
-                          case (hab, t) of
-                              (ConstrH (x, h'), AppV (family, ts, _, _)) =>
-                              let
-                                val (_, _, ibinds) = fetch_constr gctx (cctx, x)
-                                val (name_sorts, (t', _)) = unfold_binds ibinds
-	                        val t' = subst_ts_mt ts t'
-                                (* cut-off so that [expand_rules] won't try deeper and deeper proposals *) 
-                                val pn' =
-                                    loop (* (cutoff - 1) *) t' h'
-                                         (* if cutoff > 0 then *)
-                                         (*   loop (cutoff - 1) t' h' *)
-                                         (* else *)
-                                         (*   VarP ("_", dummy) *)
-                              in
-                                ConstrP ((x, true), repeat (length name_sorts) "_", SOME pn', dummy)
-                              end
-                            | (TTH, Unit _) =>
-                              TTP dummy
-                            | (PairH (h1, h2), Prod (t1, t2)) =>
-                              PairP (loop (* cutoff *) t1 h1, loop (* cutoff *) t2 h2)
-                            | (TrueH, _) => VarP ("_", dummy)
-                            | _ => raise Impossible "hab_to_ptrn"
+                          case hab of
+                              ConstrH (x, h') =>
+                              (case is_AppV t of
+                                   SOME (family, ts, _) =>
+                                   let
+                                     val (_, _, ibinds) = fetch_constr gctx (cctx, x)
+                                     val (name_sorts, (t', _)) = unfold_binds ibinds
+	                             val t' = subst_ts_mt ts t'
+                                     (* cut-off so that [expand_rules] won't try deeper and deeper proposals *) 
+                                     val pn' =
+                                         loop (* (cutoff - 1) *) t' h'
+                                              (* if cutoff > 0 then *)
+                                              (*   loop (cutoff - 1) t' h' *)
+                                              (* else *)
+                                              (*   VarP ("_", dummy) *)
+                                   in
+                                     ConstrP ((x, true), repeat (length name_sorts) "_", SOME pn', dummy)
+                                   end
+                                 | NONE => default ()
+                              )
+                            | TTH =>
+                              (case t of
+                                   Unit _ =>
+                                   TTP dummy
+                                 | _ => default ()
+                              )
+                            | PairH (h1, h2) =>
+                              (case t of
+                                   Prod (t1, t2) =>
+                                   PairP (loop (* cutoff *) t1 h1, loop (* cutoff *) t2 h2)
+                                 | _ => default ()
+                              )
+                            | TrueH => VarP ("_", dummy)
                         end
                     in
                       (* runError (fn () => loop t hab) () *)
@@ -1148,7 +1149,6 @@ fun fresh_uvar_mt t =
       | MtApp (t1, t2) => fresh_uvar_mt t1 @ fresh_uvar_mt t2
       | MtAbsI (_, Bind (_, t), _) => fresh_uvar_mt t
       | MtAppI (t, i) => fresh_uvar_mt t
-      | AppV (y, ts, is, r) => concatMap fresh_uvar_mt ts
       | BaseType _ => []
   end
     
@@ -1500,8 +1500,6 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
               | MtApp (t1, t2) => MtApp (substu x v t1, substu x v t2)
               | MtAbsI (k, bind, r) => MtAbsI (k, substu_ibind substu x v bind, r)
               | MtAppI (t, i) => MtAppI (substu x v t, i)
-	      | AppV (y, ts, is, r) => 
-		AppV (y, map (substu x v) ts, is, r)
 	      | BaseType a => BaseType a
           fun evar_name n =
             if n < 26 then
@@ -1744,6 +1742,23 @@ and is_wf_datatype gctx ctx (name, tnames, sorts, constr_decls, r) : datatype_de
           val () = if length (fresh_uvar_t t) > 0 then
                      raise Error (r, ["Constructor has unresolved unification type variable(s)"])
                    else ()
+          fun constr_from_type t =
+            let
+              val (tnames, t) = collect_Uni t
+              val tnames = map fst tnames
+              val (ns, t) = collect_UniI t
+              fun err () = raise Impossible "constr_from_type (): t not the right form"
+              val (t, is) =
+                  case t of
+                      Arrow (t, _, t2) =>
+                      (case is_AppV t2 of
+                           SOME (_, _, is) => (t, is)
+                         | NONE => err ()
+                      )
+                    | _ => err ()
+            in
+              (tnames, fold_binds (ns, (t, is)))
+            end
           val (_, ibinds) = constr_from_type t
 	in
 	  ((name, ibinds, r), (name, (family, tnames, ibinds)))

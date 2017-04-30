@@ -484,7 +484,6 @@ local
         in
           acc
         end
-      | AppV (y, ts, is, r) => [] (* todo: AppV is to be removed *)
       | BaseType _ => acc
       | UVar _ => acc
 in
@@ -524,7 +523,6 @@ local
       | MtAbs (k, bind, _) => collect_var_aux_t_tbind f d acc bind
       | MtAppI (t, i) => f d acc t
       | MtAbsI (s, bind, r) => collect_var_aux_t_ibind f d acc bind
-      | AppV (y, ts, is, r) => [] (* todo: AppV is to be removed *)
       | BaseType _ => acc
       | UVar _ => acc
 in
@@ -545,7 +543,6 @@ local
       | Unit r => Unit r
       | Prod (t1, t2) => Prod (f d x v t1, f d x v t2)
       | UniI (s, bind, r) => UniI (psubst_aux_is_s d x v s, psubst_aux_is_ibind f d x v bind, r)
-      | AppV (y, ts, is, r) => b
       | MtVar y => MtVar y
       | MtApp (t1, t2) => MtApp (f d x v t1, f d x v t2)
       | MtAbs (k, bind, r) => MtAbs (psubst_aux_is_k d x v k, psubst_aux_is_tbind f d x v bind, r)
@@ -571,7 +568,6 @@ local
       | Unit r => Unit r
       | Prod (t1, t2) => Prod (f d x v t1, f d x v t2)
       | UniI (s, bind, r) => UniI (s, psubst_aux_ts_ibind f d x v bind, r)
-      | AppV (y, ts, is, r) => b
       | MtVar y => psubst_long_id (snd d) x (fn n => shiftx_i_mt 0 (fst d) (shiftx_t_mt 0 (snd d) (List.nth (v, n)))) b y
       | MtAbs (k, bind, r) => MtAbs (k, psubst_aux_ts_tbind f d x v bind, r)
       | MtApp (t1, t2) => MtApp (f d x v t1, f d x v t2)
@@ -621,7 +617,6 @@ fun eq_mt t t' =
              UniI (s', Bind (_, t'), _) => eq_s s s' andalso eq_mt t t'
            | _ => false
         )
-      | AppV (y, ts, is, r) => false
       | MtVar x =>
         (case t' of
              MtVar x' => eq_long_id (x, x')
@@ -674,33 +669,6 @@ fun unify_mt r gctx ctx (t, t') =
     exception UnifyMtAppFailed
     fun unify_MtApp t t' =
       let
-        fun collect_MtApp t =
-          case t of
-              MtApp (t1, t2) =>
-              let 
-                val (f, args) = collect_MtApp t1
-              in
-                (f, args @ [t2])
-              end
-            | _ => (t, [])
-        fun collect_MtAppI t =
-          case t of
-              MtAppI (t, i) =>
-              let 
-                val (f, args) = collect_MtAppI t
-              in
-                (f, args @ [i])
-              end
-            | _ => (t, [])
-        fun is_MtApp_UVar t =
-          let
-            val (t, t_args) = collect_MtApp t
-            val (f, i_args) = collect_MtAppI t
-          in
-            case f of
-                UVar (x, _) => SOME (x, i_args, t_args)
-              | _ => NONE
-          end
         val (x, i_args, t_args) = is_MtApp_UVar t !! (fn () => UnifyMtAppFailed)
         val i_args = map normalize_i i_args
         val t_args = map (normalize_mt gctx kctx) t_args
@@ -744,12 +712,6 @@ fun unify_mt r gctx ctx (t, t') =
         (*     () *)
 	(*   else *)
 	(*     raise error ctxn (t, t') *)
-	| (AppV (x, ts, is, _), AppV (x', ts', is', _)) => 
-	  if eq_long_id (x, x') then
-	    (ListPair.app (unify_mt ctx) (ts, ts');
-             ListPair.app (unify_i r gctxn sctxn) (is, is'))
-	  else
-	    raise error ctxn (t, t')
 	| _ => raise error ctxn (t, t')
     val t = whnf_mt gctx kctx t
     val t' = whnf_mt gctx kctx t'

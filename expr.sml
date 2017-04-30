@@ -18,7 +18,12 @@ end
 structure BaseTypes = struct
 datatype base_type =
          Int
-fun eq_base_type (t : base_type, t') = t = t'
+fun eq_base_type (t : base_type, t') =
+  case t of
+      Int =>
+      (case t' of 
+           Int => true)
+        
 end
                         
 functor ExprFun (structure Var : VAR structure UVar : UVAR) = struct
@@ -103,14 +108,12 @@ datatype mtype =
          | Unit of region
 	 | Prod of mtype * mtype
 	 | UniI of sort * (name * mtype) ibind * region
-         (* type-level computations are just for higher-order unification *)
          | MtVar of long_id
+         (* type-level computations *)
          | MtAbs of kind * (name * mtype) tbind * region
          | MtApp of mtype * mtype
          | MtAbsI of sort * (name * mtype) ibind  * region
          | MtAppI of mtype * idx
-         | AppV of long_id * mtype list * idx list * region (* the first operant of App can only be a type variable. The degenerated case of no-arguments is also included *) 
-(* todo: remove AppV *)
 
 datatype ty = 
 	 Mono of mtype
@@ -220,9 +223,6 @@ val STime = Basic (Base Time, dummy)
 val SBool = Basic (Base BoolSort, dummy)
 val SUnit = Basic (Base UnitSort, dummy)
 
-fun VarT x = AppV (x, [], [], dummy)
-fun AppVar (x, is) = AppV (x, [], is, dummy)
-
 val Type = (0, [])
 
 infixr 0 $
@@ -271,31 +271,6 @@ fun collect_Uni t =
         (name :: names, t)
       end
     | Mono t => ([], t)
-
-fun constr_type VarT shiftx_long_id ((family, tnames, ibinds) : constr) = 
-  let 
-    val (ns, (t, is)) = unfold_binds ibinds
-    val ts = (map (fn x => VarT (NONE, (x, dummy))) o rev o range o length) tnames
-    val t2 = AppV (shiftx_long_id 0 (length tnames) family, ts, is, dummy)
-    val t = Arrow (t, T0 dummy, t2)
-    val t = foldr (fn ((name, s), t) => UniI (s, Bind ((name, dummy), t), dummy)) t ns
-    val t = Mono t
-    val t = foldr (fn (name, t) => Uni (Bind ((name, dummy), t), dummy)) t tnames
-  in
-    t
-  end
-
-fun constr_from_type t =
-  let
-    val (tnames, t) = collect_Uni t
-    val tnames = map fst tnames
-    val (ns, t) = collect_UniI t
-    val (t, is) = case t of
-                      Arrow (t, _, AppV (_, _, is, _)) => (t, is)
-                    | _ => raise Impossible "constr_from_type (): t not the right form"
-  in
-    (tnames, fold_binds (ns, (t, is)))
-  end
 
 fun collect_AppI e =
   case e of
@@ -392,8 +367,71 @@ fun is_SApp_UVarS s =
       | _ => NONE
   end
     
+fun collect_MtApp t =
+  case t of
+      MtApp (t1, t2) =>
+      let 
+        val (f, args) = collect_MtApp t1
+      in
+        (f, args @ [t2])
+      end
+    | _ => (t, [])
+             
+fun collect_MtAppI t =
+  case t of
+      MtAppI (t, i) =>
+      let 
+        val (f, args) = collect_MtAppI t
+      in
+        (f, args @ [i])
+      end
+    | _ => (t, [])
+             
+fun is_MtApp_UVar t =
+  let
+    val (t, t_args) = collect_MtApp t
+    val (f, i_args) = collect_MtAppI t
+  in
+    case f of
+        UVar (x, _) => SOME (x, i_args, t_args)
+      | _ => NONE
+  end
+    
+fun IApps f args = foldl (fn (arg, f) => BinOpI (IApp, f, arg)) f args
+fun SApps f args = foldl (fn (arg, f) => SApp (f, arg)) f args
+fun MtAppIs f args = foldl (fn (arg, f) => MtAppI (f, arg)) f args
+fun MtApps f args = foldl (fn (arg, f) => MtApp (f, arg)) f args
 fun SAbsMany (ctx, s, r) = foldl (fn ((name, s_arg), s) => SAbs (s_arg, Bind ((name, r), s), r)) s ctx
                                  
+fun AppVar (x, is) = MtAppIs (MtVar x) is
+fun AppV (x, ts, is, r) = MtAppIs (MtApps (MtVar x) ts) is
+
+fun is_AppV t =
+  let
+    val (f, i_args) = collect_MtAppI t
+    val (t, t_args) = collect_MtApp t
+  in
+    case f of
+        MtVar x => SOME (x, t_args, i_args)
+      | _ => NONE
+  end
+    
+val VarT = MtVar
+fun constr_type VarT shiftx_long_id ((family, tnames, ibinds) : constr) = 
+  let 
+    val (ns, (t, is)) = unfold_binds ibinds
+    val ts = (map (fn x => VarT (NONE, (x, dummy))) o rev o range o length) tnames
+    val t2 = AppV (shiftx_long_id 0 (length tnames) family, ts, is, dummy)
+    val t = Arrow (t, T0 dummy, t2)
+    val t = foldr (fn ((name, s), t) => UniI (s, Bind ((name, dummy), t), dummy)) t ns
+    val t = Mono t
+    val t = foldr (fn (name, t) => Uni (Bind ((name, dummy), t), dummy)) t tnames
+  in
+    t
+  end
+
+(* equality test *)
+    
 fun eq_option eq (a, a') =
   case (a, a') of
       (SOME v, SOME v') => eq (v, v')
@@ -606,9 +644,13 @@ fun str_sortings gctx ctx binds =
 fun str_bt bt =
   case bt of
       Int => "int"
-               
-fun str_k gctx ctx ((n, sorts) : kind) : string = 
-  sprintf "($$Type)" [if n = 0 then "" else join " * " (repeat n "Type") ^ " => ", if null sorts then "" else join " * " (map (str_s gctx ctx) sorts) ^ " => "]
+
+val str_Type = "*"
+                 
+fun str_k gctx ctx ((n, sorts) : kind) : string =
+  if n = 0 andalso null sorts then str_Type
+  else
+    sprintf "($$$)" [if n = 0 then "" else join " => " (repeat n str_Type) ^ " => ", if null sorts then "" else join " => " (map (str_s gctx ctx) sorts) ^ " => ", str_Type]
 
 fun str_mt gctx (ctx as (sctx, kctx)) (t : mtype) : string =
   let
@@ -633,17 +675,8 @@ fun str_mt gctx (ctx as (sctx, kctx)) (t : mtype) : string =
       | MtVar x => str_long_id #2 gctx kctx x
       | MtApp (t1, t2) => sprintf "($ $)" [str_mt ctx t1, str_mt ctx t2]
       | MtAbs (k, Bind ((name, _), t), _) => sprintf "(fn [$ : $] => $)" [name, str_k gctx sctx k, str_mt (sctx, name :: kctx) t]
-      | MtAppI (t, i) => sprintf "($ $)" [str_mt ctx t, str_i gctx sctx i]
+      | MtAppI (t, i) => sprintf "($ {$})" [str_mt ctx t, str_i gctx sctx i]
       | MtAbsI (s, Bind ((name, _), t), _) => sprintf "(fn {$ : $} => $)" [name, str_s gctx sctx s, str_mt (name :: sctx, kctx) t]
-      | AppV (x, ts, is, _) => 
-        if null ts andalso null is then
-	  str_long_id #2 gctx kctx x
-        else
-	  sprintf "($$$)" [
-            str_long_id #2 gctx kctx x,
-            (join_prefix " " o map (str_mt ctx)) ts,
-            (join_prefix " " o map (surround "{" "}") o map (str_i gctx sctx)) is
-          ]
       | BaseType (bt, _) => str_bt bt
       | UVar (u, _) => str_uvar_mt (str_mt ([], [])) u
   end
@@ -955,7 +988,6 @@ fun get_region_mt t =
     | MtAbs (_, _, r) => r
     | MtAppI (t, i) => combine_region (get_region_mt t) (get_region_i i)
     | MtAbsI (_, _, r) => r
-    | AppV (_, _, _, r) => r
     | BaseType (_, r) => r
     | UVar (_, r) => r
 
@@ -1396,7 +1428,6 @@ fun on_i_mt on_i_i on_i_s on_i_k x n b =
         | MtAbs (k, bind, r) => MtAbs (on_i_k x n k, on_i_tbind f x n bind, r)
         | MtAppI (t, i) => MtAppI (f x n t, on_i_i x n i)
         | MtAbsI (s, bind, r) => MtAbsI (on_i_s x n s, on_i_ibind f x n bind, r)
-	| AppV (y, ts, is, r) => AppV (y, map (f x n) ts, map (on_i_i x n) is, r)
 	| BaseType a => BaseType a
         | UVar a => b
   in
@@ -1450,7 +1481,6 @@ fun on_t_mt on_v x n b =
         | MtAbs (k, bind, r) => MtAbs (k, on_t_tbind f x n bind, r)
         | MtAppI (t, i) => MtAppI (f x n t, i)
         | MtAbsI (s, bind, r) => MtAbsI (s, on_t_ibind f x n bind, r)
-	| AppV (y, ts, is, r) => AppV (on_v_long_id on_v x n y, map (f x n) ts, is, r)
 	| BaseType a => BaseType a
         | UVar a => b
   in
@@ -1543,7 +1573,6 @@ fun on_m_mt on_v on_m_i on_m_s on_m_k x n b =
         | MtAbs (k, bind, r) => MtAbs (on_m_k x n k, on_m_tbind f x n bind, r)
         | MtAppI (t, i) => MtAppI (f x n t, on_m_i x n i)
         | MtAbsI (s, bind, r) => MtAbsI (on_m_s x n s, on_m_ibind f x n bind, r)
-	| AppV (y, ts, is, r) => AppV (on_m_long_id on_v x n y, map (f x n) ts, map (on_m_i x n) is, r)
 	| BaseType a => BaseType a
         | UVar a => b
   in
@@ -1864,7 +1893,6 @@ local
       | Unit r => Unit r
       | Prod (t1, t2) => Prod (f x v t1, f x v t2)
       | UniI (s, bind, r) => UniI (substx_i_s x v s, substx_i_ibind f x idx_shiftable v bind, r)
-      | AppV (y, ts, is, r) => AppV (y, map (f x v) ts, map (substx_i_i x v) is, r)
       | MtVar y => MtVar y
       | MtApp (t1, t2) => MtApp (f x v t1, f x v t2)
       | MtAbs (k, bind, r) => MtAbs (substx_i_k x v k, substx_i_tbind f x idx_shiftable v bind, r)
@@ -1901,31 +1929,6 @@ local
       | Unit r => Unit r
       | Prod (t1, t2) => Prod (f x v t1, f x v t2)
       | UniI (s, bind, r) => UniI (s, substx_t_ibind f x mtype_shiftable v bind, r)
-      | AppV (y, ts, is, r) =>
-        let
-          val ts = map (f x v) ts
-          fun get_v () =
-	    if null ts andalso null is then
-	      v
-            else
-              case v of
-                  AppV (z, ts', is', _) =>
-                  let
-                    val (ts, is) =
-                        case (is', ts) of
-                            ([], _) => (ts' @ ts, is)
-                          | (_, []) => (ts', is' @ is)
-                          | _ =>
-		            raise Error "can't substitute for this higher-kind type variable"
-                  in
-                    AppV (z, ts, is, r)
-                  end
-                | _ =>
-		  raise Error "can't substitute for this higher-kind type variable"
-          fun constr y = AppV (y, ts, is, r)
-        in
-          substx_long_id constr x get_v y
-        end
       | MtVar y =>
         substx_long_id MtVar x (const v) y
       | MtAbs (k, bind, r) => MtAbs (k, substx_t_tbind f x mtype_shiftable v bind, r)
@@ -2520,7 +2523,6 @@ fun simp_mt t =
     | MtApp (t1, t2) => MtApp (simp_mt t1, simp_mt t2)
     | MtAbsI (s, bind, r) => MtAbsI (simp_s s, simp_bind simp_mt bind, r)
     | MtAppI (t, i) => MtAppI (simp_mt t, simp_i i)
-    | AppV (x, ts, is, r) => AppV (x, map simp_mt ts, map simp_i is, r)
 
 fun simp_t t =
   case t of

@@ -79,8 +79,8 @@ fun cover_neg gctx (ctx as (sctx, kctx, cctx)) (t : mtype) c =
              PairC (neg t1 c1, neg t2 c2)
            | _ => raise impossible "cover_neg()/PairC")
       | c_all as ConstrC (x, c) =>
-	(case t of
-	     AppV (family, ts, _, _) =>
+	(case is_AppV t of
+	     SOME (family, ts, _) =>
 	     let
                fun get_family_siblings gctx cctx cx =
                  let
@@ -101,7 +101,7 @@ fun cover_neg gctx (ctx as (sctx, kctx, cctx)) (t : mtype) c =
 	     in
                combine_covers covers
 	     end
-	   | _ => raise impossible $ sprintf "cover_neg()/ConstrC:  cover is $ but type is " [str_cover (gctx_names gctx) (names cctx) c_all, str_mt (gctx_names gctx) (sctx_names sctx, names kctx) t])
+	   | NONE => raise impossible $ sprintf "cover_neg()/ConstrC:  cover is $ but type is " [str_cover (gctx_names gctx) (names cctx) c_all, str_mt (gctx_names gctx) (sctx_names sctx, names kctx) t])
   end
 
 (* fun cover_imply cctx t (a, b) : cover = *)
@@ -221,25 +221,26 @@ fun find_hab deep gctx (ctx as (sctx, kctx, cctx)) (t : mtype) cs =
               let
                 (* val () = println (sprintf "Empty constraints now. Now try to find any inhabitant of type $" [str_mt (gctx_names gctx) (sctx_names sctx, names kctx) t]) *)
                 val ret =
-                    case t of
-                        AppV (family, _, _, _) =>
-                        (case fetch_kind_and_is_datatype gctx (kctx, family) of
-                             (true, _, _) =>
-	                     let
-                               fun do_fetch_constrs (cctx, family) =
-                                 rev $ map snd $ mapPartialWithIdx (fn (n, (_, c)) => if eq_long_id (get_family c, (NONE, family)) then SOME (NONE, (n, snd family)) else NONE) cctx
-                               fun fetch_constrs a = generic_fetch (shiftx_list shiftx_long_id) (package0_list (package_long_id 0)) do_fetch_constrs #3 a
-                               val all = fetch_constrs gctx (cctx, family)
-                                                       (* val () = println $ sprintf "Constructors of $: $" [str_long_id #2 (gctx_names gctx) (names kctx) family, str_ls (str_long_id #3 (gctx_names gctx) (names cctx)) all] *)
-                             in
-                               case all of x :: _ => ConstrH (x, TrueH) | [] => raise Incon "empty datatype"
-                             end
-                           | _ => TrueH (* an abstract type is treated as an inhabited type *)
+                    case is_AppV t of
+                        SOME (family, _, _) =>
+                        if fetch_is_datatype gctx (kctx, family) then
+	                  let
+                            fun do_fetch_constrs (cctx, family) =
+                              rev $ map snd $ mapPartialWithIdx (fn (n, (_, c)) => if eq_long_id (get_family c, (NONE, family)) then SOME (NONE, (n, snd family)) else NONE) cctx
+                            fun fetch_constrs a = generic_fetch (shiftx_list shiftx_long_id) (package0_list (package_long_id 0)) do_fetch_constrs #3 a
+                            val all = fetch_constrs gctx (cctx, family)
+                                                    (* val () = println $ sprintf "Constructors of $: $" [str_long_id #2 (gctx_names gctx) (names kctx) family, str_ls (str_long_id #3 (gctx_names gctx) (names cctx)) all] *)
+                          in
+                            case all of x :: _ => ConstrH (x, TrueH) | [] => raise Incon "empty datatype"
+                          end
+                        else TrueH (* an abstract type is treated as an inhabited type *)
+                      | NONE =>
+                        (case t of
+                             Unit _ => TTH
+                           | Prod (t1, t2) => PairH (loop $ check_size (t1, []), loop $ check_size (t2, []))
+                           | _ => TrueH
                         )
-                      | Unit _ => TTH
-                      | Prod (t1, t2) => PairH (loop $ check_size (t1, []), loop $ check_size (t2, []))
-                      | _ => TrueH
-                               (* val () = println "Found" *)
+                (* val () = println "Found" *)
               in
                 ret
               end
@@ -256,63 +257,76 @@ fun find_hab deep gctx (ctx as (sctx, kctx, cctx)) (t : mtype) cs =
               fun conflict a b = conflict_half a b orelse conflict_half b a
               val () = app (fn c' => if conflict c c' then ((* println "conflict";  *)raise Incon "conflict") else ()) cs
               (* firstly try to test for concrete cases *)
+              fun default () = inr (c, cs, t)
               val result =
-                  case (c, t) of
-                      (TTC, Unit _) =>
-                      (case allSome (fn c => case c of TTC => SOME () | _ => NONE) cs of
-                           OK _ => inl TTH
-                         | Failed (i, dissident) =>
-                           if conflict c dissident then
-                             raise Incon "conflicts on tt"
-                           else
-                             inr (dissident, c :: remove i cs, t)
+                  case c of
+                      TTC =>
+                      (case t of
+                           Unit _ =>
+                           (case allSome (fn c => case c of TTC => SOME () | _ => NONE) cs of
+                                OK _ => inl TTH
+                              | Failed (i, dissident) =>
+                                if conflict c dissident then
+                                  raise Incon "conflicts on tt"
+                                else
+                                  inr (dissident, c :: remove i cs, t)
+                           )
+                         | _ => default ()
                       )
-                    | (PairC (c1, c2), Prod (t1, t2)) =>
-                      (case allSome (fn c => case c of PairC p => SOME p | _ => NONE ) cs of
-                           OK cs =>
+                    | PairC (c1, c2) =>
+                      (case t of
+                           Prod (t1, t2) =>
+                           (case allSome (fn c => case c of PairC p => SOME p | _ => NONE ) cs of
+                                OK cs =>
+                                let
+                                  val (cs1, cs2) = unzip cs
+                                  val c1 = loop $ check_size (t1, c1 :: cs1)
+                                  val c2 = loop $ check_size (t2, c2 :: cs2)
+                                in
+                                  inl $ PairH (c1, c2)
+                                end
+                              | Failed (i, dissident) =>
+                                if conflict c dissident then
+                                  raise Incon "conflicts on pair"
+                                else
+                                  inr (dissident, c :: remove i cs, t)
+                           )
+                         | _ => default ()
+                      )
+                    | ConstrC (x, c') =>
+                      (case is_AppV t of
+                           SOME (_, ts, _) =>
                            let
-                             val (cs1, cs2) = unzip cs
-                             val c1 = loop $ check_size (t1, c1 :: cs1)
-                             val c2 = loop $ check_size (t2, c2 :: cs2)
+                             fun same_constr c =
+                               case c of
+                                   ConstrC (y, c) =>
+                                   if eq_long_id (y, x) then
+                                     SOME c
+                                   else
+                                     raise Incon "diff-constr"
+                                 | _ => NONE
                            in
-                             inl $ PairH (c1, c2)
+                             case allSome same_constr cs of
+                                 OK cs' =>
+                                 let
+                                   val (_, _, ibinds) = fetch_constr gctx (cctx, x)
+                                   val (_, (t', _)) = unfold_binds ibinds
+		                   val t' = subst_ts_mt ts t'
+                                   (* val () = (* Debug. *)println (sprintf "All are $, now try to satisfy $" [str_v (names cctx) x, (join ", " o map (str_cover (names cctx))) (c' :: cs')]) *)
+                                   val c' = loop $ check_size (t', c' :: cs')
+                                                 (* val () = Debug.println (sprintf "Plugging $ into $" [str_habitant (names cctx) c', str_v (names cctx) x]) *)
+                                 in
+                                   inl $ ConstrH (x, c')
+                                 end
+                               | Failed (i, dissident) =>
+                                 if conflict c dissident then
+                                   raise Incon $ "conflicts on constructor " ^ str_int (fst $ snd x)
+                                 else
+                                   inr (dissident, c :: remove i cs, t)
                            end
-                         | Failed (i, dissident) =>
-                           if conflict c dissident then
-                             raise Incon "conflicts on pair"
-                           else
-                             inr (dissident, c :: remove i cs, t)
+                         | NONE => default ()
                       )
-                    | (ConstrC (x, c'), AppV (_, ts, _, _)) =>
-                      let
-                        fun same_constr c =
-                          case c of
-                              ConstrC (y, c) =>
-                              if eq_long_id (y, x) then
-                                SOME c
-                              else
-                                raise Incon "diff-constr"
-                            | _ => NONE
-                      in
-                        case allSome same_constr cs of
-                            OK cs' =>
-                            let
-                              val (_, _, ibinds) = fetch_constr gctx (cctx, x)
-                              val (_, (t', _)) = unfold_binds ibinds
-		              val t' = subst_ts_mt ts t'
-                              (* val () = (* Debug. *)println (sprintf "All are $, now try to satisfy $" [str_v (names cctx) x, (join ", " o map (str_cover (names cctx))) (c' :: cs')]) *)
-                              val c' = loop $ check_size (t', c' :: cs')
-                                            (* val () = Debug.println (sprintf "Plugging $ into $" [str_habitant (names cctx) c', str_v (names cctx) x]) *)
-                            in
-                              inl $ ConstrH (x, c')
-                            end
-                          | Failed (i, dissident) =>
-                            if conflict c dissident then
-                              raise Incon $ "conflicts on constructor " ^ str_int (fst $ snd x)
-                            else
-                              inr (dissident, c :: remove i cs, t)
-                      end
-                    | _ => inr (c, cs, t)
+                    | _ => default ()
               val ret =
                   case result of
                       inl hab => hab

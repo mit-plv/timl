@@ -46,11 +46,6 @@ fun get_base (* r gctx ctx *) on_UVarS s =
     main s
   end
 
-fun IApps f args = foldl (fn (arg, f) => BinOpI (IApp, f, arg)) f args
-fun SApps f args = foldl (fn (arg, f) => SApp (f, arg)) f args
-fun MtAppIs f args = foldl (fn (arg, f) => MtAppI (f, arg)) f args
-fun MtApps f args = foldl (fn (arg, f) => MtApp (f, arg)) f args
-                         
 fun fresh_bsort () = UVarBS (ref (Fresh (inc ())))
 
 fun refine_UVarS_to_Basic (x, r, info, args) =

@@ -89,7 +89,6 @@ fun update_mt t =
     | MtApp (t1, t2) => MtApp (update_mt t1, update_mt t2)
     | MtAbsI (s, Bind (name, t), r) => MtAbsI (update_s s, Bind (name, update_mt t), r)
     | MtAppI (t, i) => MtAppI (update_mt t, update_i i)
-    | AppV (y, ts, is, r) => AppV (y, map update_mt ts, map update_i is, r)
     | BaseType a => BaseType a
 
 fun update_t t =
@@ -235,31 +234,12 @@ fun normalize_s s =
         
 fun normalize_k k = mapSnd (map normalize_s) k
                                       
-fun is_type_variable r y =
-  (* ToDo: can do better *)
-  case y of
-      AppV (x, [], [], _) => x
-    (* | MtVar x => x *)
-    | _ => raise Error (r, ["Head of type operator application must be a datatype name"])
-                 
-fun eval_AppV y (ts, is, r) =
-  if null ts andalso null is then
-    y
-  else
-    AppV (is_type_variable r y, ts, is, r)
-         
 fun whnf_mt gctx kctx (t : mtype) : mtype =
   let
     val whnf_mt = whnf_mt gctx
   in
     case t of
         UVar (x, r) => load_uvar (whnf_mt kctx) t x
-      | AppV (y, ts, is, r) =>
-        let
-          val y = try_retrieve_MtVar (whnf_mt kctx) gctx kctx y
-        in
-          eval_AppV y (ts, is, r)
-        end
       | MtVar x => try_retrieve_MtVar (whnf_mt kctx) gctx kctx x
       | MtAppI (t, i) =>
         let
@@ -294,14 +274,6 @@ fun normalize_mt gctx kctx t =
       | TyNat (i, r) => TyNat (update_i i, r)
       | Prod (t1, t2) => Prod (normalize_mt kctx t1, normalize_mt kctx t2)
       | UniI (s, Bind (name, t1), r) => UniI (update_s s, Bind (name, normalize_mt (shiftx_i_kctx 1 kctx) t1), r)
-      | AppV (y, ts, is, r) =>
-        let
-          val y = try_retrieve_MtVar (normalize_mt kctx) gctx kctx y
-          val ts = map (normalize_mt kctx) ts
-          val is = map update_i is
-        in
-          eval_AppV y (ts, is, r)
-        end
       | MtVar x => try_retrieve_MtVar (normalize_mt kctx) gctx kctx x
       | MtAbsI (s, Bind (name, t), r) => MtAbsI (normalize_s s, Bind (name, normalize_mt kctx t), r)
       | MtAppI (t, i) =>
