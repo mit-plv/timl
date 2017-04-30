@@ -99,8 +99,10 @@ fun find_injection (eq : 'a -> 'a -> bool) (xs : 'a list) (ys : 'a list) : int l
     SOME (map f xs)
     handle Error => NONE
   end
-          
-fun ncsubst_aux_is_ibind f d x v (Bind (name, b) : ('a * 'b) ibind) =
+
+(* parallel substitution *)
+    
+fun psubst_aux_is_ibind f d x v (Bind (name, b) : ('a * 'b) ibind) =
   Bind (name, f (d + 1) x v b)
        
 fun apply_depth d (m, (x, r)) =
@@ -108,7 +110,7 @@ fun apply_depth d (m, (x, r)) =
       SOME _ => (m, (x, r))
     | NONE => (NONE, (x + d, r))
 
-fun ncsubst_long_id d x get_v default y =
+fun psubst_long_id d x get_v default y =
   case findi (curry eq_long_id y) (map (apply_depth d) x) of
       SOME (n, _) => get_v n
     | NONE => default
@@ -116,7 +118,7 @@ fun ncsubst_long_id d x get_v default y =
 local
   fun f d x v b =
     case b of
-	VarI y => ncsubst_long_id d x (fn n => shiftx_i_i 0 d (List.nth (v, n))) b y
+	VarI y => psubst_long_id d x (fn n => shiftx_i_i 0 d (List.nth (v, n))) b y
       | ConstIN n => ConstIN n
       | ConstIT x => ConstIT x
       | UnOpI (opr, i, r) => UnOpI (opr, f d x v i, r)
@@ -127,12 +129,12 @@ local
       | TrueI r => TrueI r
       | FalseI r => FalseI r
       | TTI r => TTI r
-      | IAbs (b, bind, r) => IAbs (b, ncsubst_aux_is_ibind f d x v bind, r)
+      | IAbs (b, bind, r) => IAbs (b, psubst_aux_is_ibind f d x v bind, r)
       | AdmitI r => AdmitI r
       | UVarI a => b
 in
-val ncsubst_aux_is_i = f 
-fun ncsubst_is_i x v b = f 0 x v b
+val psubst_aux_is_i = f 
+fun psubst_is_i x v b = f 0 x v b
 end
         
 fun V r n = VarI (NONE, (n, r))
@@ -159,7 +161,7 @@ fun unify_i r gctxn ctxn (i, i') =
         val vars' = collect_var_i_i i'
         val inj = find_injection eq_i (map VarI vars') (rev args) !! (fn () => UnifyIAppFailed)
         (* non-consuming substitution *)
-        val i' = ncsubst_is_i vars' (map (V r) inj) i'
+        val i' = psubst_is_i vars' (map (V r) inj) i'
         val (_, ctx, _) = get_uvar_info x (fn () => raise Impossible "unify_i()/IApp: shouldn't be [Refined]")
         fun IAbsMany (ctx, i, r) = foldl (fn ((name, b), i) => IAbs (b, Bind ((name, r), i), r)) i ctx
         val i' = IAbsMany (ctx, i', r)
@@ -248,25 +250,25 @@ local
       | False r => False r
       | Not (p, r) => Not (f d x v p, r)
       | BinConn (opr,p1, p2) => BinConn (opr, f d x v p1, f d x v p2)
-      | BinPred (opr, i1, i2) => BinPred (opr, ncsubst_aux_is_i d x v i1, ncsubst_aux_is_i d x v i2)
-      | Quan (q, bs, bind, r) => Quan (q, bs, ncsubst_aux_is_ibind f d x v bind, r)
+      | BinPred (opr, i1, i2) => BinPred (opr, psubst_aux_is_i d x v i1, psubst_aux_is_i d x v i2)
+      | Quan (q, bs, bind, r) => Quan (q, bs, psubst_aux_is_ibind f d x v bind, r)
 in
-val ncsubst_aux_is_p = f
-fun ncsubst_is_p x v b = f 0 x v b
+val psubst_aux_is_p = f
+fun psubst_is_p x v b = f 0 x v b
 end
 
 local
   fun f d x v b =
     case b of
 	Basic s => Basic s
-      | Subset (b, bind, r) => Subset (b, ncsubst_aux_is_ibind ncsubst_aux_is_p d x v bind, r)
+      | Subset (b, bind, r) => Subset (b, psubst_aux_is_ibind psubst_aux_is_p d x v bind, r)
       | UVarS a => b
-      | SortBigO (b, i, r) => SortBigO (b, ncsubst_aux_is_i d x v i, r)
-      | SAbs (s, bind, r) => SAbs (f d x v s, ncsubst_aux_is_ibind f d x v bind, r)
-      | SApp (s, i) => SApp (f d x v s, ncsubst_aux_is_i d x v i)
+      | SortBigO (b, i, r) => SortBigO (b, psubst_aux_is_i d x v i, r)
+      | SAbs (s, bind, r) => SAbs (f d x v s, psubst_aux_is_ibind f d x v bind, r)
+      | SApp (s, i) => SApp (f d x v s, psubst_aux_is_i d x v i)
 in
-val ncsubst_aux_is_s = f
-fun ncsubst_is_s x v b = f 0 x v b
+val psubst_aux_is_s = f
+fun psubst_is_s x v b = f 0 x v b
 end
 
 fun eq_s s s' =
@@ -314,7 +316,7 @@ fun is_sub_sort r gctxn ctxn (s, s') =
         val s' = normalize_s s'
         val vars' = collect_var_i_s s'
         val inj = find_injection eq_i (map VarI vars') (rev args) !! (fn () => UnifySAppFailed)
-        val s' = ncsubst_is_s vars' (map (V r) inj) s'
+        val s' = psubst_is_s vars' (map (V r) inj) s'
         val (_, ctx) = get_uvar_info x (fn () => raise Impossible "unify_s()/SApp: shouldn't be [Refined]")
         val i' = SAbsMany (ctx, i', r)
         val () = refine x i'
@@ -530,35 +532,35 @@ val collect_var_aux_t_mt = f
 fun collect_var_t_mt b = f 0 [] b
 end
 
-fun ncsubst_aux_is_k d x v b = mapSnd (map (ncsubst_aux_is_s d x v)) b
+fun psubst_aux_is_k d x v b = mapSnd (map (psubst_aux_is_s d x v)) b
         
-fun ncsubst_aux_is_tbind f d x v (Bind (name, b) : ('a * 'b) tbind) =
+fun psubst_aux_is_tbind f d x v (Bind (name, b) : ('a * 'b) tbind) =
   Bind (name, f d x v b)
 local
   fun f d x v b =
     case b of
-	Arrow (t1, i, t2) => Arrow (f d x v t1, ncsubst_aux_is_i d x v i, f d x v t2)
-      | TyNat (i, r) => TyNat (ncsubst_aux_is_i d x v i, r)
-      | TyArray (t, i) => TyArray (f d x v t, ncsubst_aux_is_i d x v i)
+	Arrow (t1, i, t2) => Arrow (f d x v t1, psubst_aux_is_i d x v i, f d x v t2)
+      | TyNat (i, r) => TyNat (psubst_aux_is_i d x v i, r)
+      | TyArray (t, i) => TyArray (f d x v t, psubst_aux_is_i d x v i)
       | Unit r => Unit r
       | Prod (t1, t2) => Prod (f d x v t1, f d x v t2)
-      | UniI (s, bind, r) => UniI (ncsubst_aux_is_s d x v s, ncsubst_aux_is_ibind f d x v bind, r)
+      | UniI (s, bind, r) => UniI (psubst_aux_is_s d x v s, psubst_aux_is_ibind f d x v bind, r)
       | AppV (y, ts, is, r) => b
       | MtVar y => MtVar y
       | MtApp (t1, t2) => MtApp (f d x v t1, f d x v t2)
-      | MtAbs (k, bind, r) => MtAbs (ncsubst_aux_is_k d x v k, ncsubst_aux_is_tbind f d x v bind, r)
-      | MtAppI (t, i) => MtAppI (f d x v t, ncsubst_aux_is_i d x v i)
-      | MtAbsI (s, bind, r) => MtAbsI (ncsubst_aux_is_s d x v s, ncsubst_aux_is_ibind f d x v bind, r)
+      | MtAbs (k, bind, r) => MtAbs (psubst_aux_is_k d x v k, psubst_aux_is_tbind f d x v bind, r)
+      | MtAppI (t, i) => MtAppI (f d x v t, psubst_aux_is_i d x v i)
+      | MtAbsI (s, bind, r) => MtAbsI (psubst_aux_is_s d x v s, psubst_aux_is_ibind f d x v bind, r)
       | BaseType a => BaseType a
       | UVar a => b
 in
-val ncsubst_aux_is_mt = f
-fun ncsubst_is_mt x v b = f 0 x v b
+val psubst_aux_is_mt = f
+fun psubst_is_mt x v b = f 0 x v b
 end
 
-fun ncsubst_aux_ts_ibind f (di, dt) x v (Bind (name, b) : ('a * 'b) ibind) =
+fun psubst_aux_ts_ibind f (di, dt) x v (Bind (name, b) : ('a * 'b) ibind) =
   Bind (name, f (di + 1, dt) x v b)
-fun ncsubst_aux_ts_tbind f (di, dt) x v (Bind (name, b) : ('a * 'b) tbind) =
+fun psubst_aux_ts_tbind f (di, dt) x v (Bind (name, b) : ('a * 'b) tbind) =
   Bind (name, f (di, dt + 1) x v b)
 local
   fun f d x v b =
@@ -568,18 +570,18 @@ local
       | TyArray (t, i) => TyArray (f d x v t, i)
       | Unit r => Unit r
       | Prod (t1, t2) => Prod (f d x v t1, f d x v t2)
-      | UniI (s, bind, r) => UniI (s, ncsubst_aux_ts_ibind f d x v bind, r)
+      | UniI (s, bind, r) => UniI (s, psubst_aux_ts_ibind f d x v bind, r)
       | AppV (y, ts, is, r) => b
-      | MtVar y => ncsubst_long_id (snd d) x (fn n => shiftx_i_mt 0 (fst d) (shiftx_t_mt 0 (snd d) (List.nth (v, n)))) b y
-      | MtAbs (k, bind, r) => MtAbs (k, ncsubst_aux_ts_tbind f d x v bind, r)
+      | MtVar y => psubst_long_id (snd d) x (fn n => shiftx_i_mt 0 (fst d) (shiftx_t_mt 0 (snd d) (List.nth (v, n)))) b y
+      | MtAbs (k, bind, r) => MtAbs (k, psubst_aux_ts_tbind f d x v bind, r)
       | MtApp (t1, t2) => MtApp (f d x v t1, f d x v t2)
-      | MtAbsI (s, bind, r) => MtAbsI (s, ncsubst_aux_ts_ibind f d x v bind, r)
+      | MtAbsI (s, bind, r) => MtAbsI (s, psubst_aux_ts_ibind f d x v bind, r)
       | MtAppI (t, i) => MtAppI (f d x v t, i)
       | BaseType a => BaseType a
       | UVar a => b
 in
-val ncsubst_aux_ts_mt = f
-fun ncsubst_ts_mt x v b = f (0, 0) x v b
+val psubst_aux_ts_mt = f
+fun psubst_ts_mt x v b = f (0, 0) x v b
 end
 
 fun eq_ls eq (ls1, ls2) = length ls1 = length ls2 andalso List.all eq $ zip (ls1, ls2)
@@ -707,8 +709,8 @@ fun unify_mt r gctx ctx (t, t') =
         val i_inj = find_injection eq_i (map VarI i_vars') (rev i_args) !! (fn () => UnifyMtAppFailed)
         val t_vars' = collect_var_t_mt t'
         val t_inj = find_injection eq_mt (map MtVar i_vars') (rev t_args) !! (fn () => UnifyMtAppFailed)
-        val t' = ncsubst_ts_mt t_vars' (map (TV r) t_inj) t'
-        val t' = ncsubst_is_mt i_vars' (map (V r) i_inj) t'
+        val t' = psubst_ts_mt t_vars' (map (TV r) t_inj) t'
+        val t' = psubst_is_mt i_vars' (map (V r) i_inj) t'
         val (_, (sctx, kctx)) = get_uvar_info x (fn () => raise Impossible "unify_t()/MtApp: shouldn't be [Refined]")
         val t' = MtAbsMany (kctx, t', r)
         val t' = MtAbsIMany (sctx, t', r)

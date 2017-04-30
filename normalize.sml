@@ -1,11 +1,16 @@
 (* normalization *)
 
 structure Normalize = struct
+open Util
 open UVar
 open Expr
 open Subst
 open TypecheckUtil
        
+infixr 0 $
+
+(* update all [Refined] uvars *)         
+         
 fun update_bs bs =
   case bs of
       UVarBS x =>
@@ -87,6 +92,46 @@ fun update_mt t =
     | AppV (y, ts, is, r) => AppV (y, map update_mt ts, map update_i is, r)
     | BaseType a => BaseType a
 
+fun update_t t =
+  case t of
+      Mono t => Mono (update_mt t)
+    | Uni (Bind (name, t), r) => Uni (Bind (name, update_t t), r)
+
+fun update_k k = mapSnd (map update_s) k
+
+fun update_ke (dt, k, t) = (dt, update_k k, Option.map update_mt t)
+
+fun update_c (x, tnames, ibinds) =
+  let
+    val (ns, (t, is)) = unfold_binds ibinds
+    val ns = map (mapSnd update_s) ns
+    val t = update_mt t
+    val is = map update_i is
+    val ibinds = fold_binds (ns, (t, is))
+  in
+    (x, tnames, ibinds)
+  end
+
+fun update_ctx (sctx, kctx, cctx, tctx) =
+  let
+    val sctx = map (mapSnd update_s) sctx
+    val kctx = map (mapSnd update_ke) kctx
+    val cctx = map (mapSnd update_c) cctx
+    val tctx = map (mapSnd update_t) tctx
+  in
+    (sctx, kctx, cctx, tctx)
+  end
+
+fun update_sgntr sg =
+  case sg of
+      Sig ctx => Sig $ update_ctx ctx
+    | FunctorBind ((arg_name, arg), body) =>
+      FunctorBind ((arg_name, update_ctx arg), update_ctx body)
+
+fun update_gctx gctx =
+  map (mapSnd update_sgntr) gctx
+
+(* Normalize to weak head normal form (WHNF) (i.e. only reveal head structure). Efficient for equivalence test. *)      
 fun whnf_i i =
   case i of
       UVarI (x, r) => load_uvar whnf_i i x
@@ -112,6 +157,7 @@ fun whnf_i i =
       end
     | _ => i
 
+(* Normalize to full normal form (i.e reduce under binders) *)             
 fun normalize_i i =
   case i of
       UVarI (x, r) => load_uvar normalize_i i x

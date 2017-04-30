@@ -782,7 +782,6 @@ fun is_wf_return gctx (skctx as (sctx, _), return) =
 fun str_sctx gctx sctx =
   snd $ foldr (fn ((name, sort), (sctxn, acc)) => (name :: sctxn, (name, str_s (gctx_names gctx) sctxn sort) :: acc)) ([], []) sctx
       
-(* t is already checked for wellformedness *)
 fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext), (* pcovers, *) pn : U.ptrn, t : mtype) : ptrn * cover * context * int =
   let
     val match_ptrn = match_ptrn gctx
@@ -898,70 +897,6 @@ fun match_ptrn gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext),
         end
   end
 
-fun update_t t =
-  case t of
-      Mono t => Mono (update_mt t)
-    | Uni (Bind (name, t), r) => Uni (Bind (name, update_t t), r)
-
-fun update_k k = mapSnd (map update_s) k
-
-fun update_ke (dt, k, t) = (dt, update_k k, Option.map update_mt t)
-
-fun update_c (x, tnames, ibinds) =
-  let
-    val (ns, (t, is)) = unfold_binds ibinds
-    val ns = map (mapSnd update_s) ns
-    val t = update_mt t
-    val is = map update_i is
-    val ibinds = fold_binds (ns, (t, is))
-  in
-    (x, tnames, ibinds)
-  end
-
-fun update_ctx (sctx, kctx, cctx, tctx) =
-  let
-    val sctx = map (mapSnd update_s) sctx
-    val kctx = map (mapSnd update_ke) kctx
-    val cctx = map (mapSnd update_c) cctx
-    val tctx = map (mapSnd update_t) tctx
-  in
-    (sctx, kctx, cctx, tctx)
-  end
-
-fun update_sgntr sg =
-  case sg of
-      Sig ctx => Sig $ update_ctx ctx
-    | FunctorBind ((arg_name, arg), body) =>
-      FunctorBind ((arg_name, update_ctx arg), update_ctx body)
-
-fun update_gctx gctx =
-  map (mapSnd update_sgntr) gctx
-      
-fun fresh_uvar_mt t =
-  let
-  in      
-    case update_mt t of
-        UVar (uvar_ref, _) => [uvar_ref]
-      | Unit _ => []
-      | Arrow (t1, _, t2) => fresh_uvar_mt t1 @ fresh_uvar_mt t2
-      | TyArray (t, _) => fresh_uvar_mt t
-      | TyNat _ => []
-      | Prod (t1, t2) => fresh_uvar_mt t1 @ fresh_uvar_mt t2
-      | UniI (s, Bind (name, t1), _) => fresh_uvar_mt t1
-      | MtVar x => []
-      | MtAbs (_, Bind (_, t), _) => fresh_uvar_mt t
-      | MtApp (t1, t2) => fresh_uvar_mt t1 @ fresh_uvar_mt t2
-      | MtAbsI (_, Bind (_, t), _) => fresh_uvar_mt t
-      | MtAppI (t, i) => fresh_uvar_mt t
-      | AppV (y, ts, is, r) => concatMap fresh_uvar_mt ts
-      | BaseType _ => []
-  end
-    
-fun fresh_uvar_t t =
-  case t of
-      Mono t => fresh_uvar_mt t
-    | Uni _ => [] (* fresh uvars in Uni should either have been generalized or in previous ctx *)
-
 (* If i1 or i2 is fresh, do unification instead of VC generation. Could be unsound. *)
 fun smart_write_le gctx ctx (i1, i2, r) =
   let
@@ -978,7 +913,8 @@ fun smart_write_le gctx ctx (i1, i2, r) =
     if is_fresh_i i1 orelse is_fresh_i i2 then unify_i r gctx ctx (i1, i2)
     else write_le (i1, i2, r)
   end
-    
+
+(* expand wildcard rules to reveal premises *)    
 fun expand_rules gctx (ctx as (sctx, kctx, cctx), rules, t, r) =
   let
     fun expand_rule (rule as (pn, e), (pcovers, rules)) =
@@ -1195,6 +1131,31 @@ fun str_gctx old_gctxn gctx =
   in
     lines
   end
+
+fun fresh_uvar_mt t =
+  let
+  in      
+    case update_mt t of
+        UVar (uvar_ref, _) => [uvar_ref]
+      | Unit _ => []
+      | Arrow (t1, _, t2) => fresh_uvar_mt t1 @ fresh_uvar_mt t2
+      | TyArray (t, _) => fresh_uvar_mt t
+      | TyNat _ => []
+      | Prod (t1, t2) => fresh_uvar_mt t1 @ fresh_uvar_mt t2
+      | UniI (s, Bind (name, t1), _) => fresh_uvar_mt t1
+      | MtVar x => []
+      | MtAbs (_, Bind (_, t), _) => fresh_uvar_mt t
+      | MtApp (t1, t2) => fresh_uvar_mt t1 @ fresh_uvar_mt t2
+      | MtAbsI (_, Bind (_, t), _) => fresh_uvar_mt t
+      | MtAppI (t, i) => fresh_uvar_mt t
+      | AppV (y, ts, is, r) => concatMap fresh_uvar_mt ts
+      | BaseType _ => []
+  end
+    
+fun fresh_uvar_t t =
+  case t of
+      Mono t => fresh_uvar_mt t
+    | Uni _ => [] (* fresh uvars in Uni should either have been generalized or in previous ctx *)
 
 fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, tctx : tcontext), e_all : U.expr) : expr * mtype * idx =
   let
