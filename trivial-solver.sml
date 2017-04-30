@@ -1,5 +1,5 @@
 structure TrivialSolver = struct
-open UVarUtil
+open UVar
 open NoUVarExpr
 open VC
          

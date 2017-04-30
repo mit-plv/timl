@@ -23,6 +23,7 @@ Group is
       normalize.sml
       unify.sml
       fresh-uvar.sml
+      redundant-exhaust.sml
       typecheck.sml
       post-typecheck.sml
       sexp/sexp.sml
