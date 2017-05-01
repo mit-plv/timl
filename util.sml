@@ -169,6 +169,7 @@ fun singleton x = [x]
 fun mem eq x ls = List.exists (fn y => eq (y, x)) ls
 fun subset eq a b =
     List.all (fn x => mem eq x b) a
+fun intersection eq a b = List.filter (fn x => mem eq x b) a
 fun diff eq a b = List.filter (fn x => not (mem eq x b)) a
 fun dedup eq xs =
     case xs of

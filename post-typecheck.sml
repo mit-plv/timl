@@ -16,7 +16,6 @@ fun str_vce vce =
     | ImplyVC p => "(imply prop "
     | PropVC _ => "prop"
     | AdmitVC _ => "admit"
-    | AnchorVC _ => "anchor"
     | OpenParen => "("
     | CloseParen => ")"
 
@@ -29,7 +28,6 @@ datatype formula =
          ForallF of string * bsort forall_type * formula list
          | ImplyF of prop * formula list
          | AndF of formula list
-         | AnchorF of anchor
          | PropF of prop * region
          | AdmitF of prop * region
 
@@ -53,12 +51,6 @@ fun str_f gctx ctx f =
       sprintf "($ => ($))" [str_p gctx ctx p, str_fs gctx ctx fs]
     | AndF fs =>
       sprintf "($)" [str_fs gctx ctx fs]
-    | AnchorF anchor =>
-      (case !anchor of
-           Fresh uname =>
-           sprintf "(anchor $)" [str_uname_i uname]
-         | Refined _ => ""
-      )
     | PropF (p, _) => str_p [] ctx p
     | AdmitF (p, _) => sprintf "(admit $)" [str_p gctx ctx p]
 
@@ -70,15 +62,19 @@ fun consume_close (s : vc_entry list) : vc_entry list =
     | _ => raise Impossible "consume_close ()"
 
 fun get_bsort_UVarS s =
-  case update_s s of
-      s as UVarS (a, r) =>
-      let
-        val def = Base UnitSort
-        val () = is_eqv_sort dummy [] [] (s, Basic (def, r))
-      in
-        def
-      end
-    | s => get_base (fn () => Impossible "get_bsort_UVarS(): get_base UVarS") s
+  let
+    val s = update_s s
+  in
+    case s of
+        UVarS (a, r) =>
+        let
+          val def = Base UnitSort
+          val () = is_eqv_sort dummy [] [] (s, Basic (def, r))
+        in
+          def
+        end
+      | _ => get_base (fn () => Impossible "get_bsort_UVarS(): get_base UVarS") s
+  end
                     
 fun get_formula s =
   case s of
@@ -275,9 +271,6 @@ fun remove_m_f n f =
     | AnchorF2 (anchor, f) => AnchorF2 (anchor, remove_m_f n f)
     | PropF2 (p, r) => PropF2 (remove_m_p n p, r)
                               
-fun SortBigO_to_Subset (bs, i, r) =
-  Subset (bs, Bind (("__f", r), BinPred (BigO, VarI (NONE, (0, r)), shift_i_i i)), r)
-
 fun unpackage_f2 f =
   case f of
       ForallF2 (name, ft, f) =>
@@ -352,8 +345,6 @@ fun fv_f2 f =
     | PropF2 (p, r) => fv_p p
     | AnchorF2 (uref, f) => uref :: fv_f2 f
 
-fun intersection eq a b = List.filter (fn x => mem eq x b) a
-                                      
 fun add_anchors urefs f =
   foldl AnchorF2 f $ dedup op= urefs
 
@@ -402,44 +393,6 @@ fun trim_anchors covered f =
     | PropF2 (p, r) =>
       PropF2 (p, r)
 
-(*
-  and bring_forward_anchor_fs fs =
-      let
-        val fs = map bring_forward_anchor fs
-        fun iter (f, (acc, anchors)) =
-            case f of
-                AnchorF uref =>
-                if mem op= uref anchors then
-                  (acc, anchors)
-                else
-                  (f :: acc, uref :: anchors)
-              | _ =>
-                let
-                  val fvs = dangling_uvars f
-                  val fvs = diff op= fvs anchors
-                  val fvs = dedup op= fvs
-                  val fvs = rev fvs
-                in
-                  (map AnchorF fvs @ (f :: acc), fvs @ anchors)
-                end
-        val fs = rev $ fst $ foldl iter ([], []) fs
-                                
-        (* val urefs = dangling_uvars f *)
-        (* val urefs = dedup op= urefs *)
-        (* val f = bring_forward_anchor f *)
-        (* fun hit f = *)
-        (*     case f of *)
-        (*         AnchorF uref => mem op= uref urefs *)
-        (*       | _ => false *)
-        (* val fs = bring_forward_anchor_fs fs *)
-        (* val fs = f :: fs *)
-        (* val fs = List.filter (fn f => not $ hit f) fs *)
-        (* val fs = map AnchorF urefs @ fs *)
-      in
-        fs
-      end
-*)
-             
 fun to_exists (uvar_ref, (n, ctx, bsort), p) =
   let
     fun substu_i x v (b : idx) : idx =
