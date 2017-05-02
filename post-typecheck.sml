@@ -19,11 +19,10 @@ fun str_vce vce =
     | OpenParen => "("
     | CloseParen => ")"
 
-structure N = NoUVarExpr
-
 exception ErrorEmpty
 exception ErrorClose of vc_entry list
 
+(* formulas transcribed from [vce]s *)
 datatype formula =
          ForallF of string * bsort forall_type * formula list
          | ImplyF of prop * formula list
@@ -73,10 +72,19 @@ fun get_bsort_UVarS s =
         in
           def
         end
-      | _ => get_base (fn () => Impossible "get_bsort_UVarS(): get_base UVarS") s
+      | _ => get_base (fn _ => raise Impossible "get_bsort_UVarS()/get_base()") s
   end
                     
-fun get_formula s =
+fun get_base_and_refinement s =
+  case s of
+      Subset ((bsort, _), Bind (_, p), _) =>
+      (bsort, SOME p)
+    | Basic (bsort, _) =>
+      (bsort, NONE)
+    | SortBigO s => get_base_and_refinement (SortBigO_to_Subset s)
+    | _ => (get_base refine_UVarS_to_Basic s, NONE)
+             
+fun get_formula s(*vce sequence*) =
   case s of
       [] => raise ErrorEmpty
     | vce :: s =>
@@ -91,17 +99,14 @@ fun get_formula s =
                     (FtModule m, fs)
                   | FtSorting s =>
                     let
-                      fun doit s =
-                          case s of
-                              Subset ((bsort, _), Bind (_, p), _) =>
-                              (FtSorting bsort, [ImplyF (p, fs)])
-                            | Basic (bsort, _) =>
-                              (FtSorting bsort, fs)
-                            | UVarS _ =>
-                              (FtSorting $ get_bsort_UVarS s, fs)
-                            | SortBigO s => doit (SortBigO_to_Subset s)
+                      val s = normalize_s s
+                      val (b, p) = get_base_and_refinement s
                     in
-                      doit s
+                      case p of
+                          SOME p =>
+                          (FtSorting b, [ImplyF (p, fs)])
+                        | NONE =>
+                          (FtSorting b, fs)
                     end
           in
             (ForallF (name, ft, fs), s)
@@ -121,7 +126,6 @@ fun get_formula s =
             (AndF fs, s)
           end
         | CloseParen => raise ErrorClose s
-        | AnchorVC anchor => (AnchorF anchor, s)
         | PropVC (p, r) => (PropF (p, r), s)
         | AdmitVC (p, r) => (AdmitF (p, r), s)
 
@@ -139,7 +143,6 @@ fun get_admits f =
   case f of
       AdmitF (_, r) => ([f], PropF (True r, r))
     | PropF _ => ([], f)
-    | AnchorF _ => ([], f) (* drop anchors in admits *)
     | AndF fs => mapSnd AndF $ get_admits_fs fs
     | ImplyF (p, fs) =>
       let
@@ -169,7 +172,6 @@ and get_admits_fs fs =
 datatype formula2 =
          ForallF2 of string * bsort forall_type * formula2
          | BinConnF2 of bin_conn * formula2 * formula2
-         | AnchorF2 of anchor * formula2
          | PropF2 of prop * region
 
 fun str_f2 gctx ctx f =
@@ -185,15 +187,6 @@ fun str_f2 gctx ctx f =
       end
     | BinConnF2 (opr, f1, f2) =>
       sprintf "($ $ $)" [str_f2 gctx ctx f1, str_bin_conn opr, str_f2 gctx ctx f2]
-    | AnchorF2 (anchor, f) =>
-      let
-        val f = str_f2 gctx ctx f
-      in
-        case !anchor of
-            Fresh uname =>
-            sprintf "(anchor $ $)" [str_uname_i uname, f]
-          | Refined _ => f
-      end
     | PropF2 (p, _) => str_p gctx ctx p
 
 fun f_to_f2 f =
@@ -203,23 +196,11 @@ fun f_to_f2 f =
     | AndF fs => fs_to_f2 fs
     | PropF p => PropF2 p
     | AdmitF p => PropF2 p (* drop admit info *)
-    (* | AnchorF anchor => AnchorF2 anchor *)
-    | AnchorF _ => raise Impossible "f_to_f2 (): shouldn't be AnchorF"
 
 and fs_to_f2 fs =
     case fs of
         [] => PropF2 (True dummy, dummy)
-      | f :: fs =>
-        case f of
-            AnchorF anchor =>
-            let
-              val f = fs_to_f2 fs
-            in
-              case !anchor of
-                  Fresh _ => AnchorF2 (anchor, f)
-                | Refined _ => f
-            end
-          | _ => BinConnF2 (And, f_to_f2 f, fs_to_f2 fs)
+      | f :: fs => BinConnF2 (And, f_to_f2 f, fs_to_f2 fs)
 
 (* remove all forall-module *)
                            
@@ -268,7 +249,6 @@ fun remove_m_f n f =
          | FtSorting bs => ForallF2 (name, ft, remove_m_f (n + 1) f)
       )
     | BinConnF2 (opr, f1, f2) => BinConnF2 (opr, remove_m_f n f1, remove_m_f n f2)
-    | AnchorF2 (anchor, f) => AnchorF2 (anchor, remove_m_f n f)
     | PropF2 (p, r) => PropF2 (remove_m_p n p, r)
                               
 fun unpackage_f2 f =
@@ -284,18 +264,13 @@ fun unpackage_f2 f =
               val f = remove_m_f 0 f
               fun iter ((name, s), f) =
                 let
-                  fun g s =
-                    case s of
-                        Subset ((bsort, _), Bind (_, p), _) =>
-                        (bsort, BinConnF2 (Imply, PropF2 (p, get_region_p p), f))
-                      | Basic (bsort, _) =>
-                        (bsort, f)
-                      | UVarS _ =>
-                        (get_bsort_UVarS s, f)
-                      | SortBigO s => g (SortBigO_to_Subset s)
-                  val (bs, f) = g s
+                  val (b, p) = get_base_and_refinement s
+                  val f =
+                      case p of
+                          SOME p => BinConnF2 (Imply, PropF2 (p, get_region_p p), f)
+                        | NONE => f
                 in
-                  ForallF2 (mod_name ^ "_" ^ name, FtSorting bs, f)
+                  ForallF2 (mod_name ^ "_" ^ name, FtSorting b, f)
                 end
               val f = foldl iter f m
             in
@@ -306,144 +281,14 @@ fun unpackage_f2 f =
       end
     | BinConnF2 (opr, f1, f2) =>
       BinConnF2 (opr, unpackage_f2 f1, unpackage_f2 f2)
-    | AnchorF2 (anchor, f) =>
-      AnchorF2 (anchor, unpackage_f2 f)
     | PropF2 _ => f
                     
-(* The movement of uvars is constrained only by scope (not by [vce]'s parantheses, so some times a uvar can appear before its anchor (but won't go so far as to up one scope layer). We need to bring some anchors forward to cover their uvars.) *)
-                    
-fun fv_i i =
-  case update_i i of
-      VarI _ => []
-    | ConstIT _ => []
-    | ConstIN _ => []
-    | UnOpI (_, i, _) => fv_i i
-    | DivI (i, _) => fv_i i
-    | ExpI (i, _) => fv_i i
-    | BinOpI (_, i1, i2) => fv_i i1 @ fv_i i2
-    | Ite (i1, i2, i3, _) => fv_i i1 @ fv_i i2 @ fv_i i3
-    | TrueI _ => []
-    | FalseI _ => []
-    | TTI _ => []
-    | IAbs (_, Bind (_, i), _) => fv_i i
-    | AdmitI _ => []
-    | UVarI ((_, uref), _) => [uref]
-                                
-fun fv_p p =
-  case p of
-      True _ => []
-    | False _ => []
-    | BinConn (_, p1, p2) => fv_p p1 @ fv_p p2
-    | Not (p, _) => fv_p p
-    | BinPred (_, i1, i2) => fv_i i1 @ fv_i i2
-    | Quan (_, _, Bind (_, p), _) => fv_p p 
-                                          
-fun fv_f2 f =
+fun collect_uvar_i_f2 f =
   case f of
-      ForallF2 (name, bs, f) => fv_f2 f
-    | BinConnF2 (_, f1, f2) => fv_f2 f1 @ fv_f2 f2
-    | PropF2 (p, r) => fv_p p
-    | AnchorF2 (uref, f) => uref :: fv_f2 f
+      ForallF2 (name, bs, f) => collect_uvar_i_f2 f
+    | BinConnF2 (_, f1, f2) => collect_uvar_i_f2 f1 @ collect_uvar_i_f2 f2
+    | PropF2 (p, r) => collect_uvar_i_p p
 
-fun add_anchors urefs f =
-  foldl AnchorF2 f $ dedup op= urefs
-
-fun bring_forward_anchor f =
-  case f of
-      BinConnF2 (opr, f1, f2) =>
-      let
-        val (f1, fv1) = bring_forward_anchor f1
-        val (f2, fv2) = bring_forward_anchor f2
-        val f = BinConnF2 (opr, f1, f2)
-        val f = add_anchors (intersection op= fv1 fv2) f
-      in
-        (f, fv1 @ fv2)
-      end
-    | AnchorF2 (uref, f) =>
-      (* AnchorF2 is also seen as an appearance of a uvar *)
-      let
-        val (f, fv) =  bring_forward_anchor f
-      in
-        (AnchorF2 (uref, f), uref :: fv)
-      end
-    | ForallF2 (name, bs, f) =>
-      let
-        val (f, fv) = bring_forward_anchor f
-      in
-        (ForallF2 (name, bs, f), fv) 
-      end
-    | PropF2 (p, r) =>
-      let
-        val fv = fv_p p
-      in
-        (add_anchors fv $ PropF2 (p, r), fv)
-      end
-
-fun trim_anchors covered f =
-  case f of
-      AnchorF2 (uref, f) =>
-      if mem op= uref covered then
-        trim_anchors covered f
-      else
-        AnchorF2 (uref, trim_anchors (uref :: covered) f)
-    | BinConnF2 (opr, f1, f2) =>
-      BinConnF2 (opr, trim_anchors covered f1, trim_anchors covered f2)
-    | ForallF2 (name, bs, f) =>
-      ForallF2 (name, bs, trim_anchors covered f)
-    | PropF2 (p, r) =>
-      PropF2 (p, r)
-
-fun to_exists (uvar_ref, (n, ctx, bsort), p) =
-  let
-    fun substu_i x v (b : idx) : idx =
-      case b of
-          UVarI ((_, y), _) =>
-          if y = x then
-            VarI (NONE, (v, dummy))
-          else 
-            b
-	| VarI a => VarI a
-	| ConstIN n => ConstIN n
-	| ConstIT x => ConstIT x
-        | UnOpI (opr, i, r) => UnOpI (opr, substu_i x v i, r)
-        | DivI (i1, n2) => DivI (substu_i x v i1, n2)
-        | ExpI (i1, n2) => ExpI (substu_i x v i1, n2)
-	| BinOpI (opr, i1, i2) => BinOpI (opr, substu_i x v i1, substu_i x v i2)
-        | Ite (i1, i2, i3, r) => Ite (substu_i x v i1, substu_i x v i2, substu_i x v i3, r)
-	| TrueI r => TrueI r
-	| FalseI r => FalseI r
-        | IAbs (bs, Bind (name, i), r) => IAbs (bs, Bind (name, substu_i x (v + 1) i), r)
-        | AdmitI r => AdmitI r
-	| TTI r => TTI r
-    fun substu_p x v b =
-      case b of
-	  True r => True r
-	| False r => False r
-        | Not (p, r) => Not (substu_p x v p, r)
-	| BinConn (opr,p1, p2) => BinConn (opr, substu_p x v p1, substu_p x v p2)
-	| BinPred (opr, i1, i2) => BinPred (opr, substu_i x v i1, substu_i x v i2)
-        | Quan (q, bs, Bind ((name, r), p), r_all) => Quan (q, bs, Bind ((name, r), substu_p x (v + 1) p), r_all)
-    (* fun evar_name n = "?" ^ str_int n *)
-    fun evar_name n =
-      (* if n < 26 then *)
-      (*   "" ^ (str o chr) (ord #"a" + n) *)
-      (* else *)
-      "_x" ^ str_int n
-    val r = get_region_p p
-    fun notifier i =
-      case try_forget (forget_above_i_i 0) i of
-          SOME _ =>
-          unify_i dummy [] [] (UVarI (([], uvar_ref), dummy), i)
-        | NONE => raise Error (r, ["Inferred existential index can only be closed index"])
-    val p =
-        (* ToDo: need to shift [i] *)
-        Quan (Exists (SOME notifier),
-              bsort,
-              Bind ((evar_name n, dummy), substu_p uvar_ref 0 $ shift_i_p $ update_p p), r)
-  in
-    p
-  end
-    
 fun f2_to_prop f : prop =
   case f of
       ForallF2 (name, ft, f) =>
@@ -457,91 +302,6 @@ fun f2_to_prop f : prop =
       end
     | BinConnF2 (opr, f1, f2) => BinConn(opr, f2_to_prop f1, f2_to_prop f2)
     | PropF2 (p, r) => set_region_p p r
-    | AnchorF2 (anchor, f) =>
-      let
-        val p = f2_to_prop f
-      in
-        case !anchor of
-            Fresh uname => to_exists (anchor, uname, p)
-          | Refined _ => p
-      end
-
-fun nouvar2uvar_bs bs =
-  case bs of
-      N.Base b => Base b
-    | N.BSArrow (a, b) => BSArrow (nouvar2uvar_bs a, nouvar2uvar_bs b)
-    | N.UVarBS u => exfalso u
-                                
-fun nouvar2uvar_i i =
-  let
-    fun f i =
-      case i of
-          N.VarI x => VarI x
-        | N.ConstIT c => ConstIT c
-        | N.ConstIN c => ConstIN c
-        | N.UnOpI (opr, i, r) => UnOpI (opr, f i, r)
-        | N.DivI (i1, n2) => DivI (f i1, n2)
-        | N.ExpI (i1, n2) => ExpI (f i1, n2)
-        | N.BinOpI (opr, i1, i2) => BinOpI (opr, f i1, f i2)
-        | N.Ite (i1, i2, i3, r) => Ite (f i1, f i2, f i3, r)
-        | N.TrueI r => TrueI r
-        | N.FalseI r => FalseI r
-        | N.TTI r => TTI r
-        | N.IAbs (bs, Bind (name, i), r) => IAbs (nouvar2uvar_bs bs, Bind (name, f i), r)
-        | N.AdmitI r => AdmitI r
-        | N.UVarI (u, _) => exfalso u
-  in
-    f i
-  end
-
-fun no_uvar_bsort bs =
-  case update_bs bs of
-      Base b => N.Base b
-    | BSArrow (a, b) => N.BSArrow (no_uvar_bsort a, no_uvar_bsort b)
-    | UVarBS uvar_ref =>
-      (* raise Impossible "no_uvar_bsort(): UVarBS" *)
-      (unify_bs dummy (bs, Base UnitSort);
-       N.Base N.UnitSort)
-
-fun no_uvar_i i =
-  let
-    val i = update_i i
-    fun impossible i' = Impossible $ sprintf "\n$\nno_uvar_i (): $ shouldn't be UVarI in $" [str_region "" (* "examples/rbt.timl" *)"" (get_region_i i'), str_i [] [] i', str_i [] [] i]
-    fun f i =
-      case i of
-          VarI x => N.VarI x
-        | ConstIT c => N.ConstIT c
-        | ConstIN c => N.ConstIN c
-        | UnOpI (opr, i, r) => N.UnOpI (opr, f i, r)
-        | DivI (i1, n2) => N.DivI (f i1, n2)
-        | ExpI (i1, n2) => N.ExpI (f i1, n2)
-        | BinOpI (opr, i1, i2) => N.BinOpI (opr, f i1, f i2)
-        | Ite (i1, i2, i3, r) => N.Ite (f i1, f i2, f i3, r)
-        | TrueI r => N.TrueI r
-        | FalseI r => N.FalseI r
-        | TTI r => N.TTI r
-        | IAbs (bs, Bind (name, i), r) => N.IAbs (no_uvar_bsort bs, Bind (name, f i), r)
-        | AdmitI r =>
-          raise Impossible "no_uvar_i () : shouldn't be AdmitI"
-        | UVarI (_, r) =>
-          raise impossible i
-  in
-    f i
-  end
-
-fun no_uvar_quan q =
-  case q of
-      Forall => Forall
-    | Exists ins => Exists (Option.map (fn ins => fn i => ins $ nouvar2uvar_i i) ins)
-                           
-fun no_uvar_p p =
-  case p of
-      True r => N.True r
-    | False r => N.False r
-    | BinConn (opr, p1, p2) => N.BinConn (opr, no_uvar_p p1, no_uvar_p p2)
-    | BinPred (opr, i1, i2) => N.BinPred (opr, no_uvar_i i1, no_uvar_i i2)
-    | Not (p, r) => N.Not (no_uvar_p p, r)
-    | Quan (q, bs, Bind (name, p), r) => N.Quan (no_uvar_quan q, no_uvar_bsort bs, Bind (name, no_uvar_p p), r)
 
 fun vces_to_vcs vces =
   let
@@ -563,12 +323,6 @@ fun vces_to_vcs vces =
         val f = unpackage_f2 f
         (* val () = println "Formula2 after unpackage_f2 (): " *)
         (* val () = println $ str_f2 [] [] f *)
-        val f = fst $ bring_forward_anchor f
-        (* val () = println "Formula2 after bring_forward_anchor (): " *)
-        (* val () = println $ str_f2 [] [] f *)
-        val f = trim_anchors [] f
-        (* val () = println "Formulas after trim_anchors (): " *)
-        (* val () = println $ str_f2 [] f *)
         val p = f2_to_prop f
         (* val () = println "Props: " *)
         (* val () = println $ Expr.str_p [] [] p *)
@@ -577,13 +331,7 @@ fun vces_to_vcs vces =
         p
       end
     val p = fs_to_prop fs
-    (* val () = println "Checking no-uvar ... " *)
-    val p = no_uvar_p p
-    (* val () = println "NoUVar Props: " *)
-    (* val () = println $ str_p [] [] p *)
     val p = simp_p p
-    (* val () = println "NoUVar Props after simp_p(): " *)
-    (* val () = println $ str_p [] [] p *)
     val p = uniquefy [] p
     val admits = map (fs_to_prop o singleton) admits
     (* val admits = map Expr.Simp.simp_p admits *)

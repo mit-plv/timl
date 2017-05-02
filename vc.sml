@@ -1,8 +1,7 @@
 structure VC = struct
 open Util
 open Region
-open NoUVar
-open NoUVarExpr
+open Expr
 open Subst
 open Simp
 infixr 1 -->

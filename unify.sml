@@ -790,9 +790,4 @@ fun is_sub_kindext r gctx ctx (ke as (dt, k, t), ke' as (dt', k', t')) =
       | (_, _) => raise Error (r, [sprintf "Kind $ is not a sub kind of $" [str_ke gctxn (sctxn, kctxn) ke, str_ke gctxn (sctxn, kctxn) ke']])
   end
 
-fun load_without_update_uvar f (a as (x, r)) =
-  case !x of
-      Refined t => f t
-    | Fresh _ => UVar a
-
 end

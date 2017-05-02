@@ -1133,28 +1133,62 @@ fun str_gctx old_gctxn gctx =
     lines
   end
 
-fun fresh_uvar_mt t =
-  let
-  in      
-    case update_mt t of
-        UVar (uvar_ref, _) => [uvar_ref]
-      | Unit _ => []
-      | Arrow (t1, _, t2) => fresh_uvar_mt t1 @ fresh_uvar_mt t2
-      | TyArray (t, _) => fresh_uvar_mt t
+fun load_without_update_uvar on_refined on_fresh (a as (x, r)) =
+  case !x of
+      Refined b => on_refined b
+    | Fresh _ => on_fresh x
+
+fun collect_uvar_i_i i =
+  case i of
+      VarI _ => []
+    | ConstIT _ => []
+    | ConstIN _ => []
+    | UnOpI (_, i, _) => collect_uvar_i_i i
+    | DivI (i, _) => collect_uvar_i_i i
+    | ExpI (i, _) => collect_uvar_i_i i
+    | BinOpI (_, i1, i2) => collect_uvar_i_i i1 @ collect_uvar_i_i i2
+    | Ite (i1, i2, i3, _) => collect_uvar_i_i i1 @ collect_uvar_i_i i2 @ collect_uvar_i_i i3
+    | TrueI _ => []
+    | FalseI _ => []
+    | TTI _ => []
+    | IAbs (_, Bind (_, i), _) => collect_uvar_i_i i
+    | AdmitI _ => []
+    | UVarI (x, _) =>
+      case !x of
+          Refined a => collect_uvar_i_i a
+        | Fresh _ => [x]
+                                
+fun collect_uvar_i_p p =
+  case p of
+      True _ => []
+    | False _ => []
+    | BinConn (_, p1, p2) => collect_uvar_i_p p1 @ collect_uvar_i_p p2
+    | Not (p, _) => collect_uvar_i_p p
+    | BinPred (_, i1, i2) => collect_uvar_i_i i1 @ collect_uvar_i_i i2
+    | Quan (_, _, Bind (_, p), _) => collect_uvar_i_p p 
+                                          
+fun collect_uvar_t_mt t =
+    case t of
+        Unit _ => []
+      | Arrow (t1, _, t2) => collect_uvar_t_mt t1 @ collect_uvar_t_mt t2
+      | TyArray (t, _) => collect_uvar_t_mt t
       | TyNat _ => []
-      | Prod (t1, t2) => fresh_uvar_mt t1 @ fresh_uvar_mt t2
-      | UniI (s, Bind (name, t1), _) => fresh_uvar_mt t1
+      | Prod (t1, t2) => collect_uvar_t_mt t1 @ collect_uvar_t_mt t2
+      | UniI (s, Bind (name, t1), _) => collect_uvar_t_mt t1
       | MtVar x => []
-      | MtAbs (_, Bind (_, t), _) => fresh_uvar_mt t
-      | MtApp (t1, t2) => fresh_uvar_mt t1 @ fresh_uvar_mt t2
-      | MtAbsI (_, Bind (_, t), _) => fresh_uvar_mt t
-      | MtAppI (t, i) => fresh_uvar_mt t
+      | MtAbs (_, Bind (_, t), _) => collect_uvar_t_mt t
+      | MtApp (t1, t2) => collect_uvar_t_mt t1 @ collect_uvar_t_mt t2
+      | MtAbsI (_, Bind (_, t), _) => collect_uvar_t_mt t
+      | MtAppI (t, i) => collect_uvar_t_mt t
       | BaseType _ => []
-  end
+      | UVar (x, _) =>
+        case !x of
+            Refined a => collect_uvar_t_mt a
+          | Fresh _ => [x]
     
-fun fresh_uvar_t t =
+fun collect_uvar_t_t t =
   case t of
-      Mono t => fresh_uvar_mt t
+      Mono t => collect_uvar_t_mt t
     | Uni _ => [] (* fresh uvars in Uni should either have been generalized or in previous ctx *)
 
 fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, tctx : tcontext), e_all : U.expr) : expr * mtype * idx =
@@ -1475,7 +1509,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
       val check_mtype_time = check_mtype_time gctx
       fun generalize t = 
         let
-          fun fv_ctx (_, _, _, tctx) = (concatMap fresh_uvar_t o map snd) tctx (* cctx can't contain uvars *)
+          fun fv_ctx (_, _, _, tctx) = (concatMap collect_uvar_t_t o map snd) tctx (* cctx can't contain uvars *)
           (* substitute uvar with var *)
           fun substu_ibind f x v (Bind (name, b) : ('a * 'b) ibind) = Bind (name, f x v b)
           fun substu_tbind f x v (Bind (name, b) : ('a * 'b) tbind) = Bind (name, f x (v + 1) b)
@@ -1507,7 +1541,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
             else
               "'_" ^ str_int n
           val t = update_mt t
-          val fv = dedup op= $ diff op= (fresh_uvar_mt t) (fv_ctx ctx)
+          val fv = dedup op= $ diff op= (collect_uvar_t_mt t) (fv_ctx ctx)
           val t = shiftx_t_mt 0 (length fv) t
           val (t, _) = foldl (fn (uvar_ref, (t, v)) => (substu uvar_ref v t, v + 1)) (t, 0) fv
           val t = Range.for (fn (i, t) => (Uni (Bind ((evar_name i, dummy), t), dummy))) (Mono t) (0, (length fv))
@@ -1739,7 +1773,7 @@ and is_wf_datatype gctx ctx (name, tnames, sorts, constr_decls, r) : datatype_de
 				      "Constructor is ill-formed" :: 
 				      "Cause:" :: 
 				      indent msg)
-          val () = if length (fresh_uvar_t t) > 0 then
+          val () = if length (collect_uvar_t_t t) > 0 then
                      raise Error (r, ["Constructor has unresolved unification type variable(s)"])
                    else ()
           fun constr_from_type t =
