@@ -165,10 +165,10 @@ fun print_hyp ctx h =
         )
       | PropH p =>
         let
-          val p = print_p ctx p
+          val p = assert (print_p ctx p)
                   handle SMTError _ => "" (* always sound to discard hypothesis *)
         in
-          (assert p, ctx)
+          (p, ctx)
         end
 
 fun prelude get_ce = [
