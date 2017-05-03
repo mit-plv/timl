@@ -122,8 +122,12 @@ fun on_sort gctx ctx s =
     case s of
 	E.Basic (s, r) => Basic (on_bsort s, r)
       | E.Subset ((s, r1), bind, r_all) => Subset ((on_bsort s, r1), on_ibind (on_prop gctx) ctx bind, r_all)
-      | E.UVarS u => UVarS u
       | E.SortBigO ((s, r1), i, r_all) => SortBigO ((on_bsort s, r1), on_idx gctx ctx i, r_all)
+      | E.UVarS u => UVarS u
+      | E.SAbs (s, bind, r) => SAbs (on_sort gctx ctx s, on_ibind (on_sort gctx) ctx bind, r)
+      | E.SApp (s, i) => SApp (on_sort gctx ctx s, on_idx gctx ctx i)
+                                                   
+fun on_kind gctx ctx k = mapSnd (map (on_sort gctx ctx)) k
 
 fun on_mtype gctx (ctx as (sctx, kctx)) t =
     let
@@ -136,23 +140,29 @@ fun on_mtype gctx (ctx as (sctx, kctx)) t =
         | E.Unit r => Unit r
 	| E.Prod (t1, t2) => Prod (on_mtype ctx t1, on_mtype ctx t2)
 	| E.UniI (s, E.Bind ((name, r), t), r_all) => UniI (on_sort gctx sctx s, Bind ((name, r), on_mtype (name :: sctx, kctx) t), r_all)
-        (* | E.MtVar x => MtVar $ on_long_id gctx #2 kctx x *)
-        (* | E.MtApp (t1, t2) => MtApp (on_mtype ctx t1, on_mtype ctx t2) *)
-        (* | E.MtAbs (Bind ((name, r), t), r_all) => MtAbs (Bind ((name, r), on_mtype (sctx, name :: kctx) t), r_all) *)
-        (* | E.MtAppI (t, i) => MtAppI (on_mtype ctx t, on_idx gctx sctx i) *)
-        (* | E.MtAbsI (s, Bind ((name, r), t), r_all) => MtAbsI (on_sort gctx sctx s, Bind ((name, r), on_mtype (name :: sctx, kctx) t), r_all) *)
-        | E.AppV (x, ts, is, r) =>
+        | E.MtVar x => MtVar $ on_long_id gctx #2 kctx x
+        | E.MtApp (t1, t2) => MtApp (on_mtype ctx t1, on_mtype ctx t2)
+        | E.MtAbs (k, Bind ((name, r), t), r_all) => MtAbs (on_kind gctx sctx k, Bind ((name, r), on_mtype (sctx, name :: kctx) t), r_all)
+        | E.MtAppI (t1, i) =>
           let
-            val ts = map (on_mtype ctx) ts
-            val is = map (on_idx gctx sctx) is
+            fun default () = MtAppI (on_mtype ctx t1, on_idx gctx sctx i)
           in
-            if E.eq_long_id (x, (NONE, ("nat", dummy))) andalso length ts = 0 andalso length is = 1 then
-              TyNat (hd is, r)
-            else if E.eq_long_id (x, (NONE, ("array", dummy))) andalso length ts = 1 andalso length is = 1 then
-              TyArray (hd ts, hd is)
-            else
-              AppV (on_long_id gctx #2 kctx x, ts, is, r)
+            case E.is_AppV t of
+                SOME (x, ts, is) =>
+                let
+                  val ts = map (on_mtype ctx) ts
+                  val is = map (on_idx gctx sctx) is
+                in
+                  if E.eq_long_id (x, (NONE, ("nat", dummy))) andalso length ts = 0 andalso length is = 1 then
+                    TyNat (hd is, E.get_region_mt t)
+                  else if E.eq_long_id (x, (NONE, ("array", dummy))) andalso length ts = 1 andalso length is = 1 then
+                    TyArray (hd ts, hd is)
+                  else
+                    default ()
+                end
+              | NONE => default ()         
           end
+        | E.MtAbsI (s, Bind ((name, r), t), r_all) => MtAbsI (on_sort gctx sctx s, Bind ((name, r), on_mtype (name :: sctx, kctx) t), r_all)
 	| E.BaseType (bt, r) => BaseType (bt, r)
         | E.UVar u => UVar u
     end
@@ -292,7 +302,7 @@ and copy_anno_rule gctx return (pn, e) =
       (pn, copy_anno gctx (shift_return offset return) e)
     end
       
-fun get_constr_inames core = map fst $ fst $ unfold_ibinds core
+fun get_constr_inames core = map fst $ fst $ unfold_binds core
                                  
 val empty_ctx = ([], [], [], [])
 fun add_sorting_skct name (sctx, kctx, cctx, tctx) = (name :: sctx, kctx, cctx, tctx)
@@ -502,10 +512,6 @@ and on_rule gctx (ctx as (sctx, kctx, cctx, tctx)) (pn, e) =
     in
       (pn, on_expr gctx ctx' e)
     end
-
-fun on_kind gctx ctx k =
-    case k of
-	E.ArrowK (is_datatype, n, sorts) => ArrowK (is_datatype, n, map (on_sort gctx ctx) sorts)
 
 fun on_sig gctx sg =
     case sg of

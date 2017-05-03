@@ -16,8 +16,6 @@ Group is
       name-resolve.sml
       trivial-solver.sml
       nouvar-expr.sml
-      vc.sml
-      bigO-solver.sml
       package.sml
       typecheck-util.sml
       normalize.sml
@@ -25,7 +23,6 @@ Group is
       fresh-uvar.sml
       redundant-exhaust.sml
       do-typecheck.sml
-      check-no-uvar.sml
       post-typecheck.sml
       typecheck.sml
       sexp/sexp.sml
@@ -33,7 +30,9 @@ Group is
       sexp/sexp.lex
       sexp/parser.sml
       smt2-printer.sml
+      check-no-uvar.sml
       smt-solver.sml
+      bigO-solver.sml
       main.sml
 
       $/basis.cm

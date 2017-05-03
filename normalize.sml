@@ -303,4 +303,19 @@ fun normalize_t gctx kctx t =
       Mono t => Mono (normalize_mt gctx kctx t)
     | Uni (Bind (name, t), r) => Uni (Bind (name, normalize_t gctx (add_kinding (fst name, Type) kctx) t), r)
 
+open VC
+       
+fun normalize_hyp h =
+    case h of
+        VarH a => VarH a
+      | PropH p => PropH (normalize_p p)
+
+fun normalize_vc ((hyps, p) : vc) : vc =
+    let
+      val hyps = map normalize_hyp hyps
+      val p = normalize_p p
+    in
+      (hyps, p)
+    end
+
 end

@@ -1,7 +1,7 @@
 structure SMT2Printer = struct
 open Util
+open Expr
 open VC
-open NoUVarExpr
 
 infixr 0 $
 
@@ -290,3 +290,8 @@ fun to_smt2 get_ce vcs =
   end
 
 end
+
+(* open CheckNoUVar *)
+(* val vcs = map no_uvar_vc vcs *)
+(*           handle NoUVarError _ => raise SMTError "VC contains uvar" *)
+                          

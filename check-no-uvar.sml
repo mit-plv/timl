@@ -1,48 +1,26 @@
 structure CheckNoUVar = struct
-
 structure N = NoUVarExpr
+open Util
+open Expr
+open UVar
+open VC
 
-fun nouvar2uvar_bs bs =
-  case bs of
-      N.Base b => Base b
-    | N.BSArrow (a, b) => BSArrow (nouvar2uvar_bs a, nouvar2uvar_bs b)
-    | N.UVarBS u => exfalso u
-                                
-fun nouvar2uvar_i i =
-  let
-    fun f i =
-      case i of
-          N.VarI x => VarI x
-        | N.ConstIT c => ConstIT c
-        | N.ConstIN c => ConstIN c
-        | N.UnOpI (opr, i, r) => UnOpI (opr, f i, r)
-        | N.DivI (i1, n2) => DivI (f i1, n2)
-        | N.ExpI (i1, n2) => ExpI (f i1, n2)
-        | N.BinOpI (opr, i1, i2) => BinOpI (opr, f i1, f i2)
-        | N.Ite (i1, i2, i3, r) => Ite (f i1, f i2, f i3, r)
-        | N.TrueI r => TrueI r
-        | N.FalseI r => FalseI r
-        | N.TTI r => TTI r
-        | N.IAbs (bs, Bind (name, i), r) => IAbs (nouvar2uvar_bs bs, Bind (name, f i), r)
-        | N.AdmitI r => AdmitI r
-        | N.UVarI (u, _) => exfalso u
-  in
-    f i
-  end
-
+infixr 0 $
+         
+exception NoUVarError of string
+                           
 fun no_uvar_bsort bs =
-  case update_bs bs of
+  case bs of
       Base b => N.Base b
     | BSArrow (a, b) => N.BSArrow (no_uvar_bsort a, no_uvar_bsort b)
-    | UVarBS uvar_ref =>
-      (* raise Impossible "no_uvar_bsort(): UVarBS" *)
-      (unify_bs dummy (bs, Base UnitSort);
-       N.Base N.UnitSort)
+    | UVarBS x =>
+      case !x of
+          Refined a => no_uvar_bsort a
+        | Fresh _ => raise NoUVarError $ str_bs bs
 
 fun no_uvar_i i =
   let
-    val i = update_i i
-    fun impossible i' = Impossible $ sprintf "\n$\nno_uvar_i (): $ shouldn't be UVarI in $" [str_region "" (* "examples/rbt.timl" *)"" (get_region_i i'), str_i [] [] i', str_i [] [] i]
+    fun message i' = sprintf "\n$\nno_uvar_i (): $ shouldn't be UVarI in $" [str_region "" "" (get_region_i i'), str_i [] [] i', str_i [] [] i]
     fun f i =
       case i of
           VarI x => N.VarI x
@@ -57,18 +35,48 @@ fun no_uvar_i i =
         | FalseI r => N.FalseI r
         | TTI r => N.TTI r
         | IAbs (bs, Bind (name, i), r) => N.IAbs (no_uvar_bsort bs, Bind (name, f i), r)
-        | AdmitI r =>
-          raise Impossible "no_uvar_i () : shouldn't be AdmitI"
-        | UVarI (_, r) =>
-          raise impossible i
+        | AdmitI r => N.AdmitI r
+        | UVarI (x, r) =>
+          case !x of
+              Refined a => no_uvar_i a
+            | Fresh _ => raise NoUVarError $ message i
   in
     f i
   end
 
 fun no_uvar_quan q =
-  case q of
-      Forall => Forall
-    | Exists ins => Exists (Option.map (fn ins => fn i => ins $ nouvar2uvar_i i) ins)
+  let
+    fun nouvar2uvar_bs bs =
+      case bs of
+          N.Base b => Base b
+        | N.BSArrow (a, b) => BSArrow (nouvar2uvar_bs a, nouvar2uvar_bs b)
+        | N.UVarBS u => exfalso u
+    fun nouvar2uvar_i i =
+      let
+        fun f i =
+          case i of
+                 N.VarI x => VarI x
+             | N.ConstIT c => ConstIT c
+             | N.ConstIN c => ConstIN c
+             | N.UnOpI (opr, i, r) => UnOpI (opr, f i, r)
+             | N.DivI (i1, n2) => DivI (f i1, n2)
+             | N.ExpI (i1, n2) => ExpI (f i1, n2)
+             | N.BinOpI (opr, i1, i2) => BinOpI (opr, f i1, f i2)
+             | N.Ite (i1, i2, i3, r) => Ite (f i1, f i2, f i3, r)
+             | N.TrueI r => TrueI r
+             | N.FalseI r => FalseI r
+             | N.TTI r => TTI r
+             | N.IAbs (bs, Bind (name, i), r) => IAbs (nouvar2uvar_bs bs, Bind (name, f i), r)
+             | N.AdmitI r => AdmitI r
+             | N.UVarI (u, _) => exfalso u
+      in
+        f i
+      end
+  in
+    case q of
+        Forall => Forall
+      | Exists ins => Exists (Option.map (fn ins => fn i => ins $ nouvar2uvar_i i) ins)
+  end
                            
 fun no_uvar_p p =
   case p of
@@ -78,5 +86,18 @@ fun no_uvar_p p =
     | BinPred (opr, i1, i2) => N.BinPred (opr, no_uvar_i i1, no_uvar_i i2)
     | Not (p, r) => N.Not (no_uvar_p p, r)
     | Quan (q, bs, Bind (name, p), r) => N.Quan (no_uvar_quan q, no_uvar_bsort bs, Bind (name, no_uvar_p p), r)
+
+fun no_uvar_hyp h =
+    case h of
+        VarH (name, b) => N.VarH (name, no_uvar_bsort b)
+      | PropH p => N.PropH (no_uvar_p p)
+
+fun no_uvar_vc ((hyps, p) : vc) : N.VC.vc =
+    let
+      val hyps = map no_uvar_hyp hyps
+      val p = no_uvar_p p
+    in
+      (hyps, p)
+    end
 
 end
