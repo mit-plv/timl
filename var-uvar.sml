@@ -2,6 +2,7 @@
 signature VAR = sig
   type var
   val str_v : string list -> var -> string
+  val str_raw_v : var -> string
   val lookup_module : (string * (string list * string list * string list * string list)) list -> var -> string * (string list * string list * string list * string list)
   val str_long_id : (string list * string list * string list * string list -> string list) -> (string * (string list * string list * string list * string list)) list -> string list -> ((var * Region.region) option * (var * Region.region)) -> string
   val eq_v : var * var -> bool

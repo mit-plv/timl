@@ -31,7 +31,7 @@ fun print_idx_bin_op opr =
 fun print_i ctx i =
   case i of
       VarI (_, (n, _)) =>
-      (List.nth (ctx, n) handle Subscript => "unbound_" ^ str_int n)
+      (List.nth (ctx, n) handle Subscript => raise SMTError $ "Unbound variable " ^ str_int n)
     | ConstIN (n, _) => str_int n
     | ConstIT (x, _) => x
     | DivI (i1, (n2, _)) => sprintf "(/ $ $)" [print_i ctx i1, str_int n2]
@@ -83,7 +83,7 @@ fun print_i ctx i =
     | TrueI _ => "true"
     | FalseI _ => "false"
     | TTI _ => "TT"
-    | IAbs _ => "fn"
+    | IAbs _ => raise SMTError "can't handle abstraction"
     | AdmitI _ => "TT"
     | UVarI (x, _) =>
       case !x of
@@ -102,7 +102,7 @@ fun print_base_sort b =
 fun print_bsort bsort =
   case bsort of
       Base b => print_base_sort b
-    | BSArrow _ => "fun_sort"
+    | BSArrow _ => raise SMTError "can't handle higher-order sorts"
     | UVarBS x =>
       case !x of
           Refined b => print_bsort b
@@ -123,7 +123,7 @@ fun print_p ctx p =
           | LtP => "<"
           | GeP => ">="
           | GtP => ">"
-          | BigO => "<=="
+          | BigO => raise SMTError "can't handle big-O"
       fun f p =
         case p of
             True _ => "true"
@@ -144,7 +144,7 @@ fun declare_const x sort =
     sprintf "(declare-fun $ () $)" [x, sort]
 
 fun assert s = 
-    sprintf "(assert $)" [s]
+    sprintf "(assert $)" [s] 
 
 fun assert_p ctx p =
   assert (print_p ctx p)
@@ -164,9 +164,12 @@ fun print_hyp ctx h =
            | UVarBS x => raise SMTError "hypothesis contains uvar"
         )
       | PropH p =>
-        case p of
-            BinPred (BigO, _, _) => ("", ctx)
-          | _ => (assert (print_p ctx p), ctx)
+        let
+          val p = print_p ctx p
+                  handle SMTError _ => "" (* always sound to discard hypothesis *)
+        in
+          (assert p, ctx)
+        end
 
 fun prelude get_ce = [
     (* "(set-logic ALL_SUPPORTED)", *)

@@ -367,16 +367,6 @@ fun is_SApp_UVarS s =
       | _ => NONE
   end
     
-fun collect_MtApp t =
-  case t of
-      MtApp (t1, t2) =>
-      let 
-        val (f, args) = collect_MtApp t1
-      in
-        (f, args @ [t2])
-      end
-    | _ => (t, [])
-             
 fun collect_MtAppI t =
   case t of
       MtAppI (t, i) =>
@@ -387,13 +377,33 @@ fun collect_MtAppI t =
       end
     | _ => (t, [])
              
+fun collect_MtApp t =
+  case t of
+      MtApp (t1, t2) =>
+      let 
+        val (f, args) = collect_MtApp t1
+      in
+        (f, args @ [t2])
+      end
+    | _ => (t, [])
+             
 fun is_MtApp_UVar t =
   let
     val (t, t_args) = collect_MtApp t
-    val (f, i_args) = collect_MtAppI t
+    val (t, i_args) = collect_MtAppI t
   in
-    case f of
+    case t of
         UVar (x, _) => SOME (x, i_args, t_args)
+      | _ => NONE
+  end
+    
+fun is_AppV t =
+  let
+    val (t, i_args) = collect_MtAppI t
+    val (t, t_args) = collect_MtApp t
+  in
+    case t of
+        MtVar x => SOME (x, t_args, i_args)
       | _ => NONE
   end
     
@@ -406,16 +416,6 @@ fun SAbsMany (ctx, s, r) = foldl (fn ((name, s_arg), s) => SAbs (s_arg, Bind ((n
 fun AppVar (x, is) = MtAppIs (MtVar x) is
 fun AppV (x, ts, is, r) = MtAppIs (MtApps (MtVar x) ts) is
 
-fun is_AppV t =
-  let
-    val (f, i_args) = collect_MtAppI t
-    val (t, t_args) = collect_MtApp t
-  in
-    case f of
-        MtVar x => SOME (x, t_args, i_args)
-      | _ => NONE
-  end
-    
 val VarT = MtVar
 fun constr_type VarT shiftx_long_id ((family, tnames, ibinds) : constr) = 
   let 
@@ -697,6 +697,35 @@ fun str_t gctx (ctx as (sctx, kctx)) (t : ty) : string =
   case t of
       Mono t => str_mt gctx ctx t
     | Uni _ => str_uni gctx ctx (collect_Uni_UniI t)
+
+fun str_raw_option f a = case a of SOME a => sprintf "SOME ($)" [f a] | NONE => "NONE"
+
+fun str_raw_id (x, _) = str_raw_v x
+
+fun str_raw_long_id (m, x) = sprintf "($, $)" [str_raw_option str_raw_id m, str_raw_id x]
+                       
+fun str_raw_bind f (Bind (_, a)) = sprintf "Bind ($)" [f a]
+
+fun str_raw_mt (t : mtype) : string =
+  case t of
+      Arrow (t1, d, t2) => sprintf "Arrow ($, $, $)" [str_raw_mt t1, "<idx>", str_raw_mt t2]
+    | TyNat (i, _) => sprintf "TyNat ($))" ["<idx>"]
+    | TyArray (t, i) => sprintf "TyArray ($, $)" [str_raw_mt t, "<idx>"]
+    | Unit _ => "Unit"
+    | Prod (t1, t2) => sprintf "Prod ($, $)" [str_raw_mt t1, str_raw_mt t2]
+    | UniI (s, bind, _) => sprintf "UniI ($, $)" ["<sort>", str_raw_bind str_raw_mt bind]
+    | MtVar x => sprintf "MtVar ($)" [str_raw_long_id x]
+    | MtApp (t1, t2) => sprintf "MtApp ($, $)" [str_raw_mt t1, str_raw_mt t2]
+    | MtAbs (k, bind, _) => sprintf "MtAbs ($, $)" ["<kind>", str_raw_bind str_raw_mt bind]
+    | MtAppI (t, i) => sprintf "MtAppI ($, $)" [str_raw_mt t, "<idx>"]
+    | MtAbsI (s, bind, _) => sprintf "MtAbsI ($, $)" ["<sort>", str_raw_bind str_raw_mt bind]
+    | BaseType (bt, _) => sprintf "BaseType ($)" [str_bt bt]
+    | UVar (u, _) => "UVar"
+
+fun str_raw_t (t : ty) : string =
+  case t of
+      Mono t => str_raw_mt t
+    | Uni (t, _) => sprintf "Uni ($)" [str_raw_bind str_raw_t t]
 
 fun ptrn_names pn : string list * string list =
   case pn of
@@ -2638,7 +2667,8 @@ structure StringVar = struct
 open Util
 type var = string
 fun str_v ctx x : string = x
-
+fun str_raw_v x = x
+      
 fun lookup_module gctx m = (m, ([], [], [], []))
                              
 fun str_long_id sel gctx ctx (m, x) =
@@ -2668,6 +2698,8 @@ fun str_v ctx x : string =
       SOME name => name
     | NONE => "unbound_" ^ str_int x
                                    
+fun str_raw_v x = str_int x
+                    
 fun str_id ctx (x, _) =
   str_v ctx x
         

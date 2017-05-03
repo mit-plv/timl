@@ -184,17 +184,20 @@ fun unify_i r gctxn ctxn (i, i') =
     val i = whnf_i i (* todo: whnf_i is enough *)
     val i' = whnf_i i'
     (* val () = println $ sprintf "Unifying indices $ and $" [str_i gctxn ctxn i, str_i gctxn ctxn i'] *)
+    val () =
+        if eq_i i i' then ()
+        else
+          (* first try unifying applications of uvars with the other index; if unsuccessful in both directions, then try ordinary structural unification *)
+          unify_IApp i i'
+          handle
+          UnifyIAppFailed =>
+          (unify_IApp i' i
+           handle
+           UnifyIAppFailed =>
+           structural_compare (i, i'))
+    (* val () = println "unify_i () ended" *)
   in
-    if eq_i i i' then ()
-    else
-      (* first try unifying applications of uvars with the other index; if unsuccessful in both directions, then try ordinary structural unification *)
-      unify_IApp i i'
-      handle
-      UnifyIAppFailed =>
-      (unify_IApp i' i
-       handle
-       UnifyIAppFailed =>
-       structural_compare (i, i'))
+    ()
   end
 
 local
@@ -414,6 +417,42 @@ fun is_eqv_sorts r gctx ctx (sorts, sorts') =
     ()
   end
 
+fun kind_mismatch expect str_got got = sprintf "Kind mismatch: expect $ got $" [expect, str_got got]
+fun kind_mismatch_in_type expected str_got got thing =
+  [sprintf "Kind mismatch:" [thing]] @ indent [sprintf "expected:\t $" [expected], sprintf "got:\t $" [str_got got], sprintf "in type:\t $" [thing]]
+
+fun is_sub_kind r gctxn sctxn (k as (ntargs, sorts), k' as (ntargs', sorts')) =
+  let
+    val () = check_eq r op= (ntargs, ntargs')
+    (* contravariant *)
+    val () = is_sub_sorts r gctxn sctxn (sorts', sorts)
+  in
+    ()
+  end
+  handle Error _ => raise Error (r, [kind_mismatch (str_k gctxn sctxn k') (str_k gctxn sctxn) k])
+                              
+fun is_eqv_kind r gctxn sctxn (k, k') =
+  let
+    val () = is_sub_kind r gctxn sctxn (k, k')
+    val () = is_sub_kind r gctxn sctxn (k', k)
+  in
+    ()
+  end
+
+(*      
+fun unify_kind r gctxn sctxn (k, k') =
+    case (k, k') of
+        (ArrowK (is_dt, ntargs, sorts), ArrowK (is_dt', ntargs', sorts')) =>
+        let
+          val () = check_eq r op= (is_dt, is_dt')
+          val () = check_eq r op= (ntargs, ntargs')
+          val () = unify_sorts r gctxn sctxn (sorts, sorts')
+        in
+          ()
+        end
+        handle Error _ => raise Error (r, [kind_mismatch gctxn sctxn (str_k gctxn sctxn k) k'])
+*)
+    
 fun collect_var_aux_t_ibind f d acc (Bind (_, b) : ('a * 'b) ibind) = f d acc b
 fun collect_var_aux_i_tbind f d acc (Bind (_, b) : ('a * 'b) tbind) = f d acc b
 fun collect_var_aux_t_tbind f d acc (Bind (_, b) : ('a * 'b) tbind) = f (d + 1) acc b
@@ -655,7 +694,7 @@ fun eq_mt t t' =
 
 fun MtAbsMany (ctx, t, r) = foldl (fn ((name, k), t) => MtAbs (k, Bind ((name, r), t), r)) t ctx
 fun MtAbsIMany (ctx, t, r) = foldl (fn ((name, s), t) => MtAbsI (s, Bind ((name, r), t), r)) t ctx
-                                           
+
 fun unify_mt r gctx ctx (t, t') =
   let
     val unify_mt = unify_mt r gctx
@@ -665,7 +704,6 @@ fun unify_mt r gctx ctx (t, t') =
     val ctxn = (sctx_names $ #1 ctx, names $ #2 ctx)
     val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
     fun error ctxn (t, t') = unify_error r (str_mt gctxn ctxn t, str_mt gctxn ctxn t')
-    (* val () = println $ sprintf "Unifying types $ and $" [str_mt gctxn ctxn t, str_mt gctxn ctxn t'] *)
     exception UnifyMtAppFailed
     fun unify_MtApp t t' =
       let
@@ -676,13 +714,15 @@ fun unify_mt r gctx ctx (t, t') =
         val i_vars' = collect_var_i_mt t'
         val i_inj = find_injection eq_i (map VarI i_vars') (rev i_args) !! (fn () => UnifyMtAppFailed)
         val t_vars' = collect_var_t_mt t'
-        val t_inj = find_injection eq_mt (map MtVar i_vars') (rev t_args) !! (fn () => UnifyMtAppFailed)
+        val t_inj = find_injection eq_mt (map MtVar t_vars') (rev t_args) !! (fn () => UnifyMtAppFailed)
+        val () = assert (fn () => length t_vars' = length t_inj) "length t_vars' = length t_inj"
         val t' = psubst_ts_mt t_vars' (map (TV r) t_inj) t'
         val t' = psubst_is_mt i_vars' (map (V r) i_inj) t'
         val (_, (sctx, kctx)) = get_uvar_info x (fn () => raise Impossible "unify_t()/MtApp: shouldn't be [Refined]")
         val t' = MtAbsMany (kctx, t', r)
         val t' = MtAbsIMany (sctx, t', r)
         val () = refine x t'
+        (* val () = println "unify_MtApp() succeeded" *)
       in
         ()
       end
@@ -702,29 +742,59 @@ fun unify_mt r gctx ctx (t, t') =
           (unify_mt ctx (t1, t1');
            unify_mt ctx (t2, t2'))
         | (UniI (s, Bind ((name, _), t1), _), UniI (s', Bind (_, t1'), _)) =>
-          (is_eqv_sort r gctxn sctxn (s, s');
-           open_close add_sorting_sk (name, s) ctx (fn ctx => unify_mt ctx (t1, t1'))
-          )
+          let
+            val () = is_eqv_sort r gctxn sctxn (s, s')
+            val () = open_close add_sorting_sk (name, s) ctx (fn ctx => unify_mt ctx (t1, t1'))
+          in
+            ()
+          end
         | (Unit _, Unit _) => ()
 	| (BaseType (Int, _), BaseType (Int, _)) => ()
-	(* | (MtVar x, MtVar x') =>  *)
-	(*   if eq_long_id (x, x') then *)
-        (*     () *)
-	(*   else *)
-	(*     raise error ctxn (t, t') *)
+        | (MtAbs (k, Bind ((name, _), t), _), MtAbs (k', Bind (_, t'), _)) =>
+          let
+            val () = is_eqv_kind r gctxn sctxn (k, k')
+            val () = unify_mt (add_kinding_sk (name, k) ctx) (t, t')
+          in
+            ()
+          end
+        | (MtApp (t1, t2), MtApp (t1', t2')) => 
+          let
+            val () = unify_mt ctx (t1, t1')
+            val () = unify_mt ctx (t2, t2')
+          in
+            ()
+          end
+        | (MtAbsI (s, Bind ((name, _), t), _), MtAbsI (s', Bind (_, t'), _)) =>
+          let
+            val () = is_eqv_sort r gctxn sctxn (s, s')
+            val () = open_close add_sorting_sk (name, s) ctx (fn ctx => unify_mt ctx (t, t'))
+          in
+            ()
+          end
+        | (MtAppI (t, i), MtAppI (t', i')) => 
+          let
+            val () = unify_mt ctx (t, t')
+            val () = unify_i r gctxn sctxn (i, i')
+          in
+            ()
+          end
 	| _ => raise error ctxn (t, t')
     val t = whnf_mt gctx kctx t
     val t' = whnf_mt gctx kctx t'
+    (* val () = println $ sprintf "Unifying types\n\t$\n  and\n\t$" [str_mt gctxn ctxn t, str_mt gctxn ctxn t'] *)
+    val () = 
+        if eq_mt t t' then ()
+        else
+          unify_MtApp t t'
+          handle
+          UnifyMtAppFailed =>
+          ((* println "(unify_MtApp t t') failed";  *)unify_MtApp t' t
+           handle
+           UnifyMtAppFailed =>
+           structural_compare (t, t'))
+    (* val () = println "unify_mt () ended" *)
   in
-    if eq_mt t t' then ()
-    else
-      unify_MtApp t t'
-      handle
-      UnifyMtAppFailed =>
-      (unify_MtApp t' t
-       handle
-       UnifyMtAppFailed =>
-       structural_compare (t, t'))
+    ()
   end
 
 fun unify_t r gctx ctx (t, t') =
@@ -739,42 +809,6 @@ fun unify_t r gctx ctx (t, t') =
         raise unify_error r (str_t gctxn ctxn t, str_t gctxn ctxn t')
       end
         
-fun kind_mismatch expect str_got got = sprintf "Kind mismatch: expect $ got $" [expect, str_got got]
-fun kind_mismatch_in_type expected str_got got thing =
-  [sprintf "Kind mismatch:" [thing]] @ indent [sprintf "expected:\t $" [expected], sprintf "got:\t $" [str_got got], sprintf "in type:\t $" [thing]]
-
-fun is_sub_kind r gctxn sctxn (k as (ntargs, sorts), k' as (ntargs', sorts')) =
-  let
-    val () = check_eq r op= (ntargs, ntargs')
-    (* contravariant *)
-    val () = is_sub_sorts r gctxn sctxn (sorts', sorts)
-  in
-    ()
-  end
-  handle Error _ => raise Error (r, [kind_mismatch (str_k gctxn sctxn k') (str_k gctxn sctxn) k])
-                              
-fun is_eqv_kind r gctxn sctxn (k, k') =
-  let
-    val () = is_sub_kind r gctxn sctxn (k, k')
-    val () = is_sub_kind r gctxn sctxn (k', k)
-  in
-    ()
-  end
-
-(*      
-fun unify_kind r gctxn sctxn (k, k') =
-    case (k, k') of
-        (ArrowK (is_dt, ntargs, sorts), ArrowK (is_dt', ntargs', sorts')) =>
-        let
-          val () = check_eq r op= (is_dt, is_dt')
-          val () = check_eq r op= (ntargs, ntargs')
-          val () = unify_sorts r gctxn sctxn (sorts, sorts')
-        in
-          ()
-        end
-        handle Error _ => raise Error (r, [kind_mismatch gctxn sctxn (str_k gctxn sctxn k) k'])
-*)
-    
 fun is_sub_kindext r gctx ctx (ke as (dt, k, t), ke' as (dt', k', t')) =
   let
     val gctxn = gctx_names gctx

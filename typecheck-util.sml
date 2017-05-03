@@ -360,7 +360,7 @@ fun do_fetch_kindext (kctx, (a, r)) =
 
 fun fetch_kindext gctx (kctx, x) =
   generic_fetch shiftx_m_ke package0_ke do_fetch_kindext #2 gctx (kctx, x)
-  handle Error e => raise Error $ add_error_msg e [sprintf "Unbound name '$' in context $ $" [str_long_id #2 (gctx_names gctx) (names kctx) x, str_ls fst kctx, str_ls fst gctx ]]
+  handle Error e => raise Error $ add_error_msg e [sprintf "Unbound name '$' in type context $ and module context $" [str_long_id #2 (gctx_names gctx) (names kctx) x, str_ls fst kctx, str_ls fst gctx ]]
 
 (* fun do_fetch_kind (kctx, (a, r)) = *)
 (*     case lookup_kind a kctx of *)

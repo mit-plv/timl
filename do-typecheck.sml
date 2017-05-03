@@ -1776,20 +1776,21 @@ and is_wf_datatype gctx ctx (name, tnames, sorts, constr_decls, r) : datatype_de
           val () = if length (collect_uvar_t_t t) > 0 then
                      raise Error (r, ["Constructor has unresolved unification type variable(s)"])
                    else ()
+          val t = normalize_t gctx kctx t
           fun constr_from_type t =
             let
               val (tnames, t) = collect_Uni t
               val tnames = map fst tnames
               val (ns, t) = collect_UniI t
-              fun err () = raise Impossible "constr_from_type (): t not the right form"
+              fun err t = raise Impossible $ sprintf "constr_from_type (): type ($) not the right form" [str_raw_mt t]
               val (t, is) =
                   case t of
                       Arrow (t, _, t2) =>
                       (case is_AppV t2 of
                            SOME (_, _, is) => (t, is)
-                         | NONE => err ()
+                         | NONE => err t2
                       )
-                    | _ => err ()
+                    | _ => err t
             in
               (tnames, fold_binds (ns, (t, is)))
             end
