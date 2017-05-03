@@ -1,5 +1,6 @@
 structure DoTypeCheck = struct
 structure U = UnderscoredExpr
+open CollectUVar
 open RedundantExhaust
 open Region
 open Expr
@@ -892,11 +893,7 @@ fun smart_write_le gctx ctx (i1, i2, r) =
     (* val () = println $ sprintf "Check Le : $ <= $" [str_i ctx i1, str_i ctx i2] *)
     fun is_fresh_i i =
       case i of
-          UVarI (x, _) =>
-          (case !x of
-               Fresh _ => true
-             | Refined _ => false
-          )
+          UVarI (x, _) => is_fresh x
         | _ => false
   in
     if is_fresh_i i1 orelse is_fresh_i i2 then unify_i r gctx ctx (i1, i2)
@@ -1137,59 +1134,6 @@ fun load_without_update_uvar on_refined on_fresh (a as (x, r)) =
   case !x of
       Refined b => on_refined b
     | Fresh _ => on_fresh x
-
-fun collect_uvar_i_i i =
-  case i of
-      VarI _ => []
-    | ConstIT _ => []
-    | ConstIN _ => []
-    | UnOpI (_, i, _) => collect_uvar_i_i i
-    | DivI (i, _) => collect_uvar_i_i i
-    | ExpI (i, _) => collect_uvar_i_i i
-    | BinOpI (_, i1, i2) => collect_uvar_i_i i1 @ collect_uvar_i_i i2
-    | Ite (i1, i2, i3, _) => collect_uvar_i_i i1 @ collect_uvar_i_i i2 @ collect_uvar_i_i i3
-    | TrueI _ => []
-    | FalseI _ => []
-    | TTI _ => []
-    | IAbs (_, Bind (_, i), _) => collect_uvar_i_i i
-    | AdmitI _ => []
-    | UVarI (x, _) =>
-      case !x of
-          Refined a => collect_uvar_i_i a
-        | Fresh _ => [x]
-                                
-fun collect_uvar_i_p p =
-  case p of
-      True _ => []
-    | False _ => []
-    | BinConn (_, p1, p2) => collect_uvar_i_p p1 @ collect_uvar_i_p p2
-    | Not (p, _) => collect_uvar_i_p p
-    | BinPred (_, i1, i2) => collect_uvar_i_i i1 @ collect_uvar_i_i i2
-    | Quan (_, _, Bind (_, p), _) => collect_uvar_i_p p 
-                                          
-fun collect_uvar_t_mt t =
-    case t of
-        Unit _ => []
-      | Arrow (t1, _, t2) => collect_uvar_t_mt t1 @ collect_uvar_t_mt t2
-      | TyArray (t, _) => collect_uvar_t_mt t
-      | TyNat _ => []
-      | Prod (t1, t2) => collect_uvar_t_mt t1 @ collect_uvar_t_mt t2
-      | UniI (s, Bind (name, t1), _) => collect_uvar_t_mt t1
-      | MtVar x => []
-      | MtAbs (_, Bind (_, t), _) => collect_uvar_t_mt t
-      | MtApp (t1, t2) => collect_uvar_t_mt t1 @ collect_uvar_t_mt t2
-      | MtAbsI (_, Bind (_, t), _) => collect_uvar_t_mt t
-      | MtAppI (t, i) => collect_uvar_t_mt t
-      | BaseType _ => []
-      | UVar (x, _) =>
-        case !x of
-            Refined a => collect_uvar_t_mt a
-          | Fresh _ => [x]
-    
-fun collect_uvar_t_t t =
-  case t of
-      Mono t => collect_uvar_t_mt t
-    | Uni _ => [] (* fresh uvars in Uni should either have been generalized or in previous ctx *)
 
 fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, tctx : tcontext), e_all : U.expr) : expr * mtype * idx =
   let
@@ -1509,7 +1453,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
       val check_mtype_time = check_mtype_time gctx
       fun generalize t = 
         let
-          fun fv_ctx (_, _, _, tctx) = (concatMap collect_uvar_t_t o map snd) tctx (* cctx can't contain uvars *)
+          fun collect_uvar_t_ctx (_, _, _, tctx) = (concatMap collect_uvar_t_t o map snd) tctx (* cctx can't contain uvars *)
           (* substitute uvar with var *)
           fun substu_ibind f x v (Bind (name, b) : ('a * 'b) ibind) = Bind (name, f x v b)
           fun substu_tbind f x v (Bind (name, b) : ('a * 'b) tbind) = Bind (name, f x (v + 1) b)
@@ -1541,7 +1485,7 @@ and check_decl gctx (ctx as (sctx, kctx, cctx, _), decl) =
             else
               "'_" ^ str_int n
           val t = update_mt t
-          val fv = dedup op= $ diff op= (collect_uvar_t_mt t) (fv_ctx ctx)
+          val fv = dedup op= $ diff op= (map #1 $ collect_uvar_t_mt t) (map #1 $ collect_uvar_t_ctx ctx)
           val t = shiftx_t_mt 0 (length fv) t
           val (t, _) = foldl (fn (uvar_ref, (t, v)) => (substu uvar_ref v t, v + 1)) (t, 0) fv
           val t = Range.for (fn (i, t) => (Uni (Bind ((evar_name i, dummy), t), dummy))) (Mono t) (0, (length fv))

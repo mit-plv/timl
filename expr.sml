@@ -412,6 +412,7 @@ fun SApps f args = foldl (fn (arg, f) => SApp (f, arg)) f args
 fun MtAppIs f args = foldl (fn (arg, f) => MtAppI (f, arg)) f args
 fun MtApps f args = foldl (fn (arg, f) => MtApp (f, arg)) f args
 fun SAbsMany (ctx, s, r) = foldl (fn ((name, s_arg), s) => SAbs (s_arg, Bind ((name, r), s), r)) s ctx
+fun IAbsMany (ctx, i, r) = foldl (fn ((name, b), i) => IAbs (b, Bind ((name, r), i), r)) i ctx
                                  
 fun AppVar (x, is) = MtAppIs (MtVar x) is
 fun AppV (x, ts, is, r) = MtAppIs (MtApps (MtVar x) ts) is
@@ -558,7 +559,7 @@ fun str_i gctx ctx (i : idx) : string =
         end
       (* | IAbs ((name, _), i, _) => sprintf "(fn $ => $)" [name, str_i (name :: ctx) i] *)
       | AdmitI _ => "admit" 
-      | UVarI (u, _) => str_uvar_i (str_i []) u
+      | UVarI (u, _) => str_uvar_i str_bs (str_i []) u
   end
 
 fun str_p gctx ctx p =
@@ -2762,7 +2763,7 @@ type 'sort uvar_s = unit
 type ('sort, 'kind, 'mtype) uvar_mt = unit
 fun str_uvar_bs (_ : 'a -> string) (_ : 'a uvar_bs) = "_"
 fun str_uvar_s (_ : 'sort -> string) (_ : 'sort uvar_s) = "_"
-fun str_uvar_i (_ : 'idx -> string) (_ : ('bsort, 'idx) uvar_i) = "_"
+fun str_uvar_i (_ : 'bsort -> string) (_ : 'idx -> string) (_ : ('bsort, 'idx) uvar_i) = "_"
 fun str_uvar_mt (_ : 'mtype -> string) (_ : ('sort, 'kind, 'mtype) uvar_mt) = "_"
 fun eq_uvar_i (_, _) = false
 fun eq_uvar_bs (_, _) = false

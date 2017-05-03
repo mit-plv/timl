@@ -38,7 +38,8 @@ fun suffix fix s = s ^ fix
 fun surround pre post s = pre ^ s ^ post
 fun indent msg = map (fn s => "  " ^ s) msg
 fun join_lines ls = (join "" o map (suffix "\n")) ls
-fun join_prefix pre ls = (join "" o map (prefix pre)) ls
+fun join_prefix fix ls = (join "" o map (prefix fix)) ls
+fun join_suffix fix ls = (join "" o map (suffix fix)) ls
                                                       
 fun str_ls f ls = (surround "[" "]" o join ", " o map f) ls
 fun str_pair (f, g) (a, b) = sprintf "($, $)" [f a, g b]

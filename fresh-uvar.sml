@@ -58,7 +58,7 @@ fun refine_UVarS_to_Basic (x, r, info, args) =
   in
     b
   end
-    
+
 fun V r n = VarI (NONE, (n, r))
 fun TV r n = MtVar (NONE, (n, r))
                
@@ -81,6 +81,27 @@ fun fresh_sort ctx r : sort =
     s
   end
                                              
+fun uvar_s_ignore_args (x, info, r) =
+  let
+    val (_, ctx) = info
+    val s = fresh_sort [] r
+    val s = SAbsMany (ctx, s, r)
+    val () = refine x s
+  in
+    ()
+  end
+
+fun uvar_i_ignore_args (x, info, r) =
+  let
+    val (_, ctx, b) = info
+    val s = fresh_i [] b r
+    val s = IAbsMany (ctx, s, r)
+    val () = assert (fn () => is_fresh x) "uvar_i_ignore_args(): fresh"
+    val () = refine x s
+  in
+    ()
+  end
+
 fun fresh_mt (ctx as (sctx, kctx)) r : mtype =
   let
     val x = ref (Fresh (inc (), mapSnd (map (mapSnd get_ke_kind)) ctx))

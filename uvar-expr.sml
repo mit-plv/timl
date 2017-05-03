@@ -1,5 +1,7 @@
 structure UVar = struct
 open Util
+
+infixr 0 $
        
 datatype ('a, 'b) uvar = 
          Fresh of 'a
@@ -9,6 +11,11 @@ type uvar_name = int
 
 type ('a, 'b) uvar_ref = (('a, 'b) uvar) ref
                              
+fun is_fresh x =
+  case !x of
+      Fresh _ => true
+    | Refined _ => false
+                        
 (* uvar for bsort *)                  
 type 'bsort uvar_bs = (uvar_name, 'bsort) uvar_ref
 
@@ -30,21 +37,21 @@ fun refine (x : ('a, 'b) uvar_ref) (v : 'b) =
 fun str_uvar n = "?" ^ str_int n
 
 fun str_uinfo_bs n = str_uvar n
-fun str_uinfo_i (n, ctx, _) = str_uvar n
+(* fun str_uinfo_i (n, ctx, b) = str_uvar n *)
 fun str_uinfo_s (n, ctx) = str_uvar n
 fun str_uinfo_mt (n, ctx) = str_uvar n
                                          
-(* fun str_uinfo_i (n, ctx, _) = sprintf "($ $)" [str_uvar n, str_ls id (rev ctx)] *)
+fun str_uinfo_i str_bs (n, ctx, b) = sprintf "$[$$]" [str_uvar n, join_suffix " => " $ map (str_bs o snd) $ rev ctx, str_bs b]
                                          
 fun str_uvar_bs str_bs (u : 'bsort uvar_bs) =
   case !u of
       Refined bs => str_bs bs
     | Fresh info => str_uinfo_bs info
                                  
-fun str_uvar_i str_i (u : ('bsort, 'idx) uvar_i) =
+fun str_uvar_i str_bs str_i (u : ('bsort, 'idx) uvar_i) =
   case !u of
       Refined i => str_i i
-    | Fresh info => str_uinfo_i info
+    | Fresh info => str_uinfo_i str_bs info
 
 fun str_uvar_s str_s (u : 'sort uvar_s) =
   case !u of

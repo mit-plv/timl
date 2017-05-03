@@ -22,6 +22,7 @@ Group is
       unify.sml
       fresh-uvar.sml
       redundant-exhaust.sml
+      collect-uvar.sml
       do-typecheck.sml
       post-typecheck.sml
       typecheck.sml

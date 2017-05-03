@@ -319,7 +319,7 @@ open VC
        
 fun normalize_hyp h =
     case h of
-        VarH a => VarH a
+        VarH (name, b) => VarH (name, update_bs b)
       | PropH p => PropH (normalize_p p)
 
 fun normalize_vc ((hyps, p) : vc) : vc =

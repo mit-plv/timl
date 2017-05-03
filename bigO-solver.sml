@@ -4,6 +4,7 @@ open Expr
 open Subst
 open Simp
 open VC
+open Normalize
        
 infixr 0 $
 
@@ -661,7 +662,40 @@ fun infer_exists hs (name_arity1 as (name1, arity1)) p =
   end
     
 exception MasterTheoremCheckFail of region * string list
-                                                    
+
+fun case1 (hs, arity, name, p, spec) =
+      (* infer and then check *)
+      let
+        val () = println "Infer and check ..."
+      in
+        case use_master_theorem hs ("inferred", arity) (name, arity) (shiftx_i_p 1 1 p) of
+            SOME (inferred, vcs) =>
+            (let
+              val inferred = forget_i_i 1 1 inferred
+              val vcs = map (forget_i_vc 1 1) vcs
+              val inferred = forget_i_i 0 1 inferred
+              val spec = forget_i_i 0 1 spec
+              val ctxn = hyps2ctx hs
+              val () = println $ sprintf "Inferred. Now check inferred complexity $ against specified complexity $" [str_i [] ctxn inferred, str_i [] ctxn spec]
+              val ret = 
+                  if timefun_le hs arity inferred spec then
+                    SOME vcs
+                  else
+                    raise curry MasterTheoremCheckFail (get_region_i spec) $ [sprintf "Can't prove that the inferred big-O class $ is bounded by the given big-O class $" [str_i [] (hyps2ctx hs) inferred, str_i [] (hyps2ctx hs) spec]]
+              val () = println "Complexity check OK!"
+            in
+              ret
+            end
+             handle
+             ForgetError _ =>
+             let
+               val () = println "Complexity check Failed!"
+             in
+               NONE
+             end)
+          | NONE => NONE
+      end
+    
 fun solve_exists (vc as (hs, p)) =
   case p of
       Quan (Exists ins, bs, Bind ((name, _), p), _) =>
@@ -676,38 +710,7 @@ fun solve_exists (vc as (hs, p)) =
                        (* val () = println $ sprintf "$\n$" [str_p ctxn bigO, str_p ctxn bigO'] *)
                      in
                        if n0 = 0 andalso eq_p bigO bigO' then
-                         (* infer and then check *)
-                         let
-                           val () = println "Infer and check ..."
-                         in
-                           case use_master_theorem hs ("inferred", arity) (name, arity) (shiftx_i_p 1 1 p) of
-                               SOME (inferred, vcs) =>
-                               (let
-                                 val inferred = forget_i_i 1 1 inferred
-                                 val vcs = map (forget_i_vc 1 1) vcs
-                                 val inferred = forget_i_i 0 1 inferred
-                                 val spec = forget_i_i 0 1 spec
-                                 val ctxn = hyps2ctx hs
-                                 val () = println $ sprintf "Inferred. Now check inferred complexity $ against specified complexity $"
-                                                  [str_i [] ctxn inferred, str_i [] ctxn spec]
-                                 val ret = 
-                                     if timefun_le hs arity inferred spec then
-                                       SOME vcs
-                                     else
-                                       raise curry MasterTheoremCheckFail (get_region_i spec) $ [sprintf "Can't prove that the inferred big-O class $ is bounded by the given big-O class $" [str_i [] (hyps2ctx hs) inferred, str_i [] (hyps2ctx hs) spec]]
-                                 val () = println "Complexity check OK!"
-                               in
-                                 ret
-                               end
-                                handle
-                                ForgetError _ =>
-                                let
-                                  val () = println "Complexity check Failed!"
-                                in
-                                  NONE
-                                end)
-                             | NONE => NONE
-                         end
+                         case1 (hs, arity, name, p, spec)
                        else NONE
                      end
                    | _ => NONE
@@ -819,10 +822,17 @@ fun solve_fun_compare (vc as (hs, p)) =
           | _ => [vc]
       end
     | _ => [vc]
-             
+
+open CollectUVar
+open FreshUVar
+       
 fun solve_vcs (vcs : vc list) : vc list =
   let 
-    val () = println "solve_vcs ()"
+    (* val () = println "solve_vcs ()" *)
+    val uvars = dedup (fn (a, b) => #1 a = #1 b) $ concatMap collect_uvar_i_vc vcs
+    val () = assert (fn () => List.all is_fresh $ map #1 uvars) "all fresh"
+    val () = app uvar_i_ignore_args uvars
+    val vcs = map normalize_vc vcs
     val vcs = concatMap solve_exists vcs
     val vcs = concatMap solve_bigO_compare vcs
     val vcs = concatMap solve_fun_compare vcs
