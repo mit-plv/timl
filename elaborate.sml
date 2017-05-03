@@ -249,7 +249,7 @@ local
                   end
               val () = app f (zip (ts, tnames))
             in
-              (cname, fold_ibinds (binds, (elab_mt t1, map elab_i is)), r)
+              (cname, fold_binds (binds, (elab_mt t1, map elab_i is)), r)
             end
       in
         (name, tnames, sorts, map elab_constr constrs, r)
@@ -373,7 +373,7 @@ local
         | S.SpecType (tnames, sorts, r) =>
           (case tnames of
                [] => raise Error (r, "Type declaration must have a name")
-             | name :: tnames => SpecType (name, ArrowK (false, length tnames, map elab_s sorts))
+             | name :: tnames => SpecType (name, (length tnames, map elab_s sorts))
           )
         | S.SpecTypeDef (name, ty) => SpecTypeDef (name, elab_mt ty)
 

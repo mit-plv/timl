@@ -1,6 +1,8 @@
 structure SMT2Printer = struct
 open Util
 open Expr
+open UVar
+open Normalize
 open VC
 
 infixr 0 $
@@ -83,7 +85,10 @@ fun print_i ctx i =
     | TTI _ => "TT"
     | IAbs _ => "fn"
     | AdmitI _ => "TT"
-    | UVarI (u, _) => exfalso u
+    | UVarI (x, _) =>
+      case !x of
+          Refined i => print_i ctx i
+        | Fresh _ => raise SMTError "index contains uvar"
 
 fun negate s = sprintf "(not $)" [s]
 
@@ -98,7 +103,10 @@ fun print_bsort bsort =
   case bsort of
       Base b => print_base_sort b
     | BSArrow _ => "fun_sort"
-    | UVarBS u => exfalso u
+    | UVarBS x =>
+      case !x of
+          Refined b => print_bsort b
+        | Fresh _ => raise SMTError "bsort contains uvar"
 
 fun print_p ctx p =
   let
@@ -144,7 +152,7 @@ fun assert_p ctx p =
 fun print_hyp ctx h =
     case h of
         VarH (name, bs) =>
-        (case bs of
+        (case update_bs bs of
              Base b =>
              (declare_const name (print_base_sort b), name :: ctx)
            | BSArrow _ =>
@@ -153,7 +161,7 @@ fun print_hyp ctx h =
              in
                (sprintf "(declare-fun $ ($) $)" [name, join " " $ map print_bsort args, print_bsort ret], name :: ctx)
              end
-           | UVarBS u => exfalso u
+           | UVarBS x => raise SMTError "hypothesis contains uvar"
         )
       | PropH p =>
         case p of
@@ -230,7 +238,10 @@ fun conv_bsort bsort =
         (Base b, p)
       end
     | BSArrow _ => (bsort, NONE)
-    | UVarBS u => exfalso u
+    | UVarBS x =>
+      case !x of
+          Refined b => conv_bsort b
+        | Fresh _ => raise SMTError "bsort contains uvar"
 
 fun conv_p p =
     case p of

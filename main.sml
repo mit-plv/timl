@@ -299,7 +299,7 @@ fun main (prog_name, args : string list) : int =
                  (usage ();
                   exit failure)
                else ()
-      val () = PreTypeCheck.anno_less := opt
+      val () = TypeCheck.anno_less := opt
       val _ = TiML.main libraries filenames
     in	
       0
@@ -308,7 +308,6 @@ fun main (prog_name, args : string list) : int =
     TiML.Error msg => (println msg; 1)
     | IO.Io e => (println (sprintf "IO Error doing $ on $" [#function e, #name e]); 1)
     | Impossible msg => (println ("Impossible: " ^ msg); 1)
-    | Expr.ModuleUVar msg => (println ("ModuleUVar: " ^ msg); 1)
     | ParseArgsError msg => (println msg; usage (); 1)
                                (* | _ => (println ("Internal error"); 1) *)
 
