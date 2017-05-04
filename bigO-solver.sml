@@ -222,7 +222,7 @@ fun timefun_le hs arity a b =
 
 fun timefun_eq hs arity a b = timefun_le hs arity a b andalso timefun_le hs arity b a
                                                                          
-fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
+fun by_master_theorem (main_fun, arity, hs, p) =
   let
     exception Error of string
     fun runError m _ =
@@ -441,41 +441,47 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
             loop p
           end
         val p = simp_p_with_plugin simp_p_max p
-      in
-        case p of
-            BinPred (LeP, i1, BinOpI (IApp, BinOpI (IApp, VarI (_, (g, _)), VarI (_, (m, _))), n_i)) =>
+        val () =
             let
-              val () = if g = main_fun then () else raise Error "g = main_fun fails"
-              val () = if m < main_fun then () else raise Error "m < main_fun fails"
-              (* ToDo: check that [n_i] are well-scoped in [hs'] *)
-              (* ToDo: check that [m] doesn't appear in [n_i] *)
-              val m_i = V m
-              val m_ = to_real m_i
+              val (i1, g, n_i) =
+                  case p of
+                      BinPred (LeP, i1, BinOpI (IApp, BinOpI (g, n_i))) => ()
+                    | _ => raise Error ""
+              val (uvar', args') = is_IApp_UVarI g !! raise Error ""
+              val () = if uvar = uvar' andalso isPrefix eq_i args args' then () else Error ""
+              val (main_fun, args) = (g, args')
+              val () = if args_not_in args n_i then () else raise Error ""
               val n_ = to_real n_i
+              val is = collect_AddI i1
+              fun is_sub_problem i =
+                case i of
+                    BinOpI (IApp, BinOpI (IApp, g, n') =>
+                    if eq_i g main_fun then
+                      infer_b n_ n'
+                    else NONE
+                  | _ => NONE
+              val (a, b, others) = get_params is_sub_problem is
+              val () = if b > 1 then () else raise Error "b > 1"
+              val others = map use_bigO_hyp others
+              val classes = map summarize others
+              val classes = add_class_entries classes
+              val n = decide_main_variable n_i
+              val cls_n = get_class classes n
+              val () = if domain_of_classes_covered_by_args classes (V n :: args) then () else raise Error ""
+              val classes = map get_arg_class args
+              val i = master_theorem (to_real (V 0)) (a, b) cls_n
+              val i = foldli (fn (n, cls, i) => class2term cls to_real (V (n + 1)) %* i) i $ rev args
+              val i = simp_i
+              val i = IAbsMany uvar_ctx i
+              val ret = i
+                          (*here*)
             in
-              (* test the case: a * T m (n/b) + f m n <= T m n  *)
-              let
-                val is = collect_AddI i1
-                fun is_sub_problem i =
-                  case i of
-                      BinOpI (IApp, BinOpI (IApp, VarI (NONE, (g', _)), VarI (_, (m', _))), n') =>
-                      if g' = g andalso m' = m then
-                        infer_b n_ n'
-                      else NONE
-                    | _ => NONE
-                val (a, b, others) = get_params is_sub_problem is
-                val () = if b > 1 then () else raise Error "b > 1"
-                val others = map use_bigO_hyp others
-                val classes = map (summarize_2 m_ n_) others
-                val (c, k) = add_class_entries classes
-                val T = master_theorem (to_real (V 0)) (a, b) (c, k)
-                val T = TimeAbs (("m", dummy), TimeAbs (("n", dummy), simp_i (to_real (V 1) %* T), dummy), dummy)
-                val ret = T
-              in
-                ret
-              end
-              handle
-              Error msg =>
+              ret
+            end
+                            handle
+                  Error msg => ()
+            in
+              val () =
               (* test the case: T m n + m + C <= T m (n + 1) *)
               let
                 val () = println $ sprintf "Failed the [T m (n/b)] case because: $" [msg]
@@ -605,176 +611,117 @@ fun by_master_theorem hs (name1, arity1) (name0, arity0) vcs =
     runError main ()
   end
 
-fun use_master_theorem hs name_arity1 (name0, arity0) p =
-  (* opportunity to apply the Master Theorem to infer the bigO class *)
-  let
-    val () = println "use_master_theorem ()"
-    (* hoist the conjuncts that don't involve the time functions *)
-    val vcs = prop2vcs p
-    (* val () = println "after prop2vcs()" *)
-    val (rest, vcs) = partitionOption (Option.composePartial (try_forget (forget_i_vc 0 1), try_forget (forget_i_vc 0 1))) vcs
-    (* val () = println "after partitionOption()" *)
-    val vcs = concatMap prop2vcs $ map (simp_p o vc2prop) vcs
-    (* val () = println "after concatMap prop2vcs ()" *)
-    val ret = by_master_theorem hs name_arity1 (name0, arity0) vcs
-  in
-    case ret of
-        SOME i => SOME (i, append_hyps hs rest)
-      | NONE => NONE
-  end
-    
-fun split_and p =
-  case p of
-      BinConn (And, p1, p2) => (p1, p2)
-    | _ => (p, True dummy)
-             
-fun infer_exists hs (name_arity1 as (name1, arity1)) p =
-  let
-    (* val () = println "infer_exists() to solve this: " *)
-    (* val () = app println $ (str_vc false "" (VarH (name1, TimeFun arity1) :: hs, p) @ [""]) *)
-  in
-    if arity1 = 0 then
-      (* just to infer a Time *)
-      (case p of
-           BinPred (Le, i1 as (ConstIT _), VarI (_, (x, _))) =>
-           if x = 0 then SOME (i1, []) else NONE
-         | _ => NONE
-      )
-    else
-      case p of
-          Quan (Exists _, bs, Bind ((name0, _), BinConn (And, bigO as BinPred (BigO, VarI (_, (n0, _)), VarI (_, (n1, _))), BinConn (Imply, bigO', p))), _) =>
-          (case is_time_fun bs of
-               SOME arity0 =>
-               if n0 = 0 andalso n1 = 1 andalso eq_p bigO bigO' then
-                 use_master_theorem hs name_arity1 (name0, arity0) p
-               else NONE
-             | NONE => NONE
-          )
-        | BinPred (BigO, VarI (_, (x, _)), f) =>
-          if x = 0 then
-            let
-              val () = println "No other constraint on function"
-            in
-              SOME (f, [])
-            end
-          else NONE
-        | _ => NONE
-  end
-    
+fun go_through f ls =
+  case ls of
+      [] => []
+    | x :: xs =>
+      let
+        val (output, remain) = f x xs
+        val output2 = go_through f remain
+      in
+        output @ output2
+      end
+        
 exception MasterTheoremCheckFail of region * string list
 
-fun case1 (hs, arity, name, p, spec) =
-      (* infer and then check *)
-      let
-        val () = println "Infer and check ..."
-      in
-        case use_master_theorem hs ("inferred", arity) (name, arity) (shiftx_i_p 1 1 p) of
-            SOME (inferred, vcs) =>
-            (let
-              val inferred = forget_i_i 1 1 inferred
-              val vcs = map (forget_i_vc 1 1) vcs
-              val inferred = forget_i_i 0 1 inferred
-              val spec = forget_i_i 0 1 spec
-              val ctxn = hyps2ctx hs
-              val () = println $ sprintf "Inferred. Now check inferred complexity $ against specified complexity $" [str_i [] ctxn inferred, str_i [] ctxn spec]
-              val ret = 
-                  if timefun_le hs arity inferred spec then
-                    SOME vcs
-                  else
-                    raise curry MasterTheoremCheckFail (get_region_i spec) $ [sprintf "Can't prove that the inferred big-O class $ is bounded by the given big-O class $" [str_i [] (hyps2ctx hs) inferred, str_i [] (hyps2ctx hs) spec]]
-              val () = println "Complexity check OK!"
-            in
-              ret
-            end
-             handle
-             ForgetError _ =>
-             let
-               val () = println "Complexity check Failed!"
-             in
-               NONE
-             end)
-          | NONE => NONE
-      end
-    
-fun solve_exists (vc as (hs, p)) =
-  case p of
-      Quan (Exists ins, bs, Bind ((name, _), p), _) =>
-      (case is_time_fun bs of
-           SOME arity =>
-           let
-             val ret =
-                 case p of
-                     BinConn (And, bigO as BinPred (BigO, VarI (_, (n0, _)), spec), BinConn (Imply, bigO', p)) =>
-                     let
-                       (* val ctxn = name :: hyps2ctx hs *)
-                       (* val () = println $ sprintf "$\n$" [str_p ctxn bigO, str_p ctxn bigO'] *)
-                     in
-                       if n0 = 0 andalso eq_p bigO bigO' then
-                         case1 (hs, arity, name, p, spec)
-                       else NONE
-                     end
-                   | _ => NONE
-             val ret = 
-                 case ret of
-                     SOME vcs => SOME vcs
-                   | NONE =>
-                     let
-                     in
-                       case infer_exists hs (name, arity) p of
-                           SOME (i, vcs) =>
-                           let
-                             val () = println "Inferred by infer_exists():"
-                             val () = println $ sprintf "$ = $" [name, str_i [] [] i]
-                             val () = case ins of
-                                          SOME ins => ins i
-                                        | NONE => ()
-                           in
-                             SOME vcs
-                           end
-                         | NONE => NONE
-                     end
-             val ret = 
-                 case ret of
-                     SOME vcs => SOME vcs
-                   | NONE =>
-                     let
-                       (* ToDo: a bit unsound inference strategy: infer [i] from [p1] and substitute for [i] in [p2] (assuming that [p2] doesn't contribute to inferring [i]) *)
-                       val (p1, p2) = split_and p
-                       val () = println "This inference may be unsound. "
-                                        (* val () = println $ sprintf "It assumes this proposition doesn't contribute to inference of $:" [name] *)
-                                        (* val () = app println $ (str_vc false "" (VarH (name, TimeFun arity) :: hs, p2) @ [""]) *)
-                                        (* val () = println "and it only uses this proposition to do the inference:" *)
-                                        (* val () = app println $ (str_vc false "" (VarH (name, TimeFun arity) :: hs, p1) @ [""]) *)
-                                        (* val () = println "solve_exists() to solve this: " *)
-                                        (* val () = app println $ (str_vc false "" vc @ [""]) *)
-                     in
-                       case infer_exists hs (name, arity) p1 of
-                           SOME (i, vcs1) =>
-                           let
-                             val () = println "Inferred by infer_exists():"
-                             val () = println $ sprintf "$ = $" [name, str_i [] [] i]
-                             val () = case ins of
-                                          SOME ins => ins i
-                                        | NONE => ()
-                             val p2 = subst_i_p i p2
-                             val vcs = prop2vcs p2
-                             val vcs = append_hyps hs vcs
-                             val vcs = concatMap solve_exists vcs
-                             val vcs = vcs1 @ vcs
-                           in
-                             SOME vcs
-                           end
-                         | NONE => NONE
-                     end
-           in
-             case ret of
-                 SOME vcs => vcs
-               | NONE => [vc]
-           end
-         | NONE => [vc]
-      )
-    | _ => [vc]
+(* for early return *)        
+exception Succeeded of vc list
 
+fun solve_exists (vc as (hs, p), vcs) =
+  let
+    exception Error
+    val () =
+        let
+          val (f, spec, hs2, p2, vcs) =
+              case (normalize_p p, vcs) of
+                  (BinPred (BigO, f, spec), (hs2, p2) :: vcs) =>
+                  (f, spec, hs2, p2, vcs)
+                | _ => raise Error
+          val (uvar, args) = is_IApp_UVarI f !! fn () => Error
+          val (_, ctx, b) = get_uvar_info (fn () => raise Error) uvar
+          val arity = length ctx + length (collect_BSArrow) - 1
+          val () = if arity >= 1 then () else raise Error
+          val () = if in_hyps p hs2 then () else raise Error
+          val () = println "Infer and check ..."
+          val (inferred, ret) = use_master_theorem (f, ((uvar, arity), args), hs2, p2) !! fn () => Error
+          val () = println $ sprintf "Inferred. Now check inferred complexity $ against specified complexity $" [str_i [] [] inferred, str_i [] [] spec]
+          val () = 
+              if timefun_le hs arity inferred spec then ()
+              else raise curry MasterTheoremCheckFail (get_region_i spec) $ [sprintf "Can't prove that the inferred big-O class $ is bounded by the given big-O class $" [str_i [] (hyps2ctx hs) inferred, str_i [] (hyps2ctx hs) spec]]
+          val () = println "Complexity check OK!"
+        in
+          raise Succeeded (ret, vcs)
+        end
+        handle Error => ()
+(*                          
+    val () =
+        let
+          fun infer_exists hs (name_arity1 as (name1, arity1)) p =
+            let
+              (* val () = println "infer_exists() to solve this: " *)
+              (* val () = app println $ (str_vc false "" (VarH (name1, TimeFun arity1) :: hs, p) @ [""]) *)
+            in
+              if arity1 = 0 then
+                (* just to infer a Time *)
+                (case p of
+                     BinPred (Le, i1 as (ConstIT _), VarI (_, (x, _))) =>
+                     if x = 0 then SOME (i1, []) else NONE
+                   | _ => NONE
+                )
+              else
+                case p of
+                  | BinPred (BigO, VarI (_, (x, _)), f) =>
+                    if x = 0 then
+                      let
+                        val () = println "No other constraint on function"
+                      in
+                        SOME (f, [])
+                      end
+                    else NONE
+                  | _ => NONE
+            end
+          val (i, ret) = infer_exists hs (name, arity) p !! fn () => Error
+          val () = println "Inferred by infer_exists():"
+          val () = println $ sprintf "$ = $" [name, str_i [] [] i]
+          val () = case ins of
+                       SOME ins => ins i
+                     | NONE => ()
+        in
+          raise Succeeded (ret, vcs)
+        end
+        handle Error => ()
+    val () = 
+        let
+          (* ToDo: a bit unsound inference strategy: infer [i] from [p1] and substitute for [i] in [p2] (assuming that [p2] doesn't contribute to inferring [i]) *)
+          val (p1, p2) = split_and p
+          val () = println "This inference may be unsound. "
+                           (* val () = println $ sprintf "It assumes this proposition doesn't contribute to inference of $:" [name] *)
+                           (* val () = app println $ (str_vc false "" (VarH (name, TimeFun arity) :: hs, p2) @ [""]) *)
+                           (* val () = println "and it only uses this proposition to do the inference:" *)
+                           (* val () = app println $ (str_vc false "" (VarH (name, TimeFun arity) :: hs, p1) @ [""]) *)
+                           (* val () = println "solve_exists() to solve this: " *)
+                           (* val () = app println $ (str_vc false "" vc @ [""]) *)
+          val (i, vcs1) = infer_exists hs (name, arity) p1 !! fn () => Error
+          val () = println "Inferred by infer_exists():"
+          val () = println $ sprintf "$ = $" [name, str_i [] [] i]
+          val () = case ins of
+                       SOME ins => ins i
+                     | NONE => ()
+          val p2 = subst_i_p i p2
+          val vcs = prop2vcs p2
+          val vcs = append_hyps hs vcs
+          val vcs = concatMap solve_exists vcs
+          val vcs = vcs1 @ vcs
+        in
+          raise Succeeded vcs
+        end
+        handle Error => ()
+  *)
+  in
+    (vc, vcs)
+  end
+  handle Succeeded a => a
+                            
 fun solve_bigO_compare (vc as (hs, p)) =
   case p of
       BinPred (BigO, i1, i2) =>
@@ -792,7 +739,8 @@ fun solve_bigO_compare (vc as (hs, p)) =
           [vc]
       end
     | _ => [vc]
-             
+
+(* relying on monoticity of functions *)             
 fun solve_fun_compare (vc as (hs, p)) =
   case p of
       BinPred (Le, i1, i2) =>
@@ -829,11 +777,11 @@ open FreshUVar
 fun solve_vcs (vcs : vc list) : vc list =
   let 
     (* val () = println "solve_vcs ()" *)
-    val uvars = dedup (fn (a, b) => #1 a = #1 b) $ concatMap collect_uvar_i_vc vcs
-    val () = assert (fn () => List.all is_fresh $ map #1 uvars) "all fresh"
-    val () = app uvar_i_ignore_args uvars
+    (* val uvars = dedup (fn (a, b) => #1 a = #1 b) $ concatMap collect_uvar_i_vc vcs *)
+    (* val () = assert (fn () => List.all is_fresh $ map #1 uvars) "all fresh" *)
+    (* val () = app uvar_i_ignore_args uvars *)
     val vcs = map normalize_vc vcs
-    val vcs = concatMap solve_exists vcs
+    val vcs = go_through solve_exists vcs
     val vcs = concatMap solve_bigO_compare vcs
     val vcs = concatMap solve_fun_compare vcs
   in

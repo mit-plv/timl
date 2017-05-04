@@ -147,14 +147,6 @@ fun unify_i r gctxn ctxn (i, i') =
     (* Try to see whether [i']'s variables are covered by the arguments applied to [x]. If so, then refine [x] with [i'], with the latter's variables replaced by the former's arguments. This may not be the most general instantiation, because [i']'s constants will be fixed for [x], although those constants may be arguments in a more instantiation. For example, unifying [x y 5] with [y+5] will refine [x] to be [fun y z => y+5], but a more general instantiation is [fun y z => y+z]. This less-general instantiation may cause later unifications to fail. *)
     fun unify_IApp i i' =
       let
-        fun is_IApp_UVarI i =
-          let
-            val f :: args = collect_IApp i
-          in
-            case f of
-                UVarI (x, _) => SOME (x, args)
-              | _ => NONE
-          end
         val (x, args) = is_IApp_UVarI i !! (fn () => UnifyIAppFailed)
         val args = map normalize_i args
         val i' = normalize_i i'

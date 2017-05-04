@@ -348,6 +348,15 @@ fun collect_BSArrow bs =
       end
     | UVarBS u => ([], bs)
                     
+fun is_IApp_UVarI i =
+  let
+    val f :: args = collect_IApp i
+  in
+    case f of
+        UVarI (x, _) => SOME (x, args)
+      | _ => NONE
+  end
+    
 fun collect_SApp s =
   case s of
       SApp (s, i) =>
