@@ -1,3 +1,5 @@
+(* collect fresh uvars *)
+
 structure CollectUVar = struct
 open UVar
 open Expr

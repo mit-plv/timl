@@ -91,6 +91,8 @@ fun findWithIdx f xs =
       loop 0 xs
     end
       
+fun findi f xs = findWithIdx (fn (_, x) => f x) xs
+                             
 fun findOptionWithIdx f xs =
     let
       fun loop base xs =
@@ -106,6 +108,18 @@ fun findOptionWithIdx f xs =
       loop 0 xs
     end
       
+fun find_injection (eq : 'a -> 'a -> bool) (xs : 'a list) (ys : 'a list) : int list option =
+  let
+    exception Error
+    fun f x =
+      case findi (fn y => eq x y) ys of
+          SOME (n, _) => n
+        | NONE => raise Error
+  in
+    SOME (map f xs)
+    handle Error => NONE
+  end
+
 fun mapPartialWithIdx f xs =
     let
       fun iter (x, (n, acc)) =
@@ -301,6 +315,8 @@ fun foldl f init (start, len) =
 
 fun for f init range = foldl f init range
 
+fun map f range = rev $ foldl (fn (i, acc) => f i :: acc) [] range
+                             
 fun app f range = foldl (fn (i, ()) => (f i; ())) () range
 
 end

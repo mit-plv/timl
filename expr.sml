@@ -526,7 +526,7 @@ fun str_bs (s : bsort) =
         fun default () = sprintf "($ => $)" [str_bs s1, str_bs s2]
       in
         case is_time_fun s of
-            SOME n => if n = 0 then "Time" else sprintf "Fun $" [str_int n]
+            SOME n => if n = 0 then "Time" else sprintf "(Fun $)" [str_int n]
           | NONE => default ()
       end
     | UVarBS u => str_uvar_bs str_bs u
@@ -715,6 +715,12 @@ fun str_raw_id (x, _) = str_raw_v x
 fun str_raw_long_id (m, x) = sprintf "($, $)" [str_raw_option str_raw_id m, str_raw_id x]
                        
 fun str_raw_bind f (Bind (_, a)) = sprintf "Bind ($)" [f a]
+
+fun str_raw_bs b =
+  case b of
+      Base s => sprintf "Base ($)" [str_b s]
+    | BSArrow (s1, s2) => sprintf "BSArrow ($, $)" [str_raw_bs s1, str_raw_bs s2]
+    | UVarBS u => "UVarBS"
 
 fun str_raw_mt (t : mtype) : string =
   case t of

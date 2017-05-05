@@ -1130,11 +1130,6 @@ fun str_gctx old_gctxn gctx =
     lines
   end
 
-fun load_without_update_uvar on_refined on_fresh (a as (x, r)) =
-  case !x of
-      Refined b => on_refined b
-    | Fresh _ => on_fresh x
-
 fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, tctx : tcontext), e_all : U.expr) : expr * mtype * idx =
   let
     val get_mtype = get_mtype gctx

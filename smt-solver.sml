@@ -123,7 +123,7 @@ fun smt_solver filename get_ce(*get counterexample?*) solver vcs =
     handle
     SMTError msg =>
     let
-      val () = println $ "SMT error: " ^ msg
+      (* val () = println $ "SMT error: " ^ msg *)
       val vcs = map (fn vc => SOME (vc, NONE)) vcs
     in
       vcs

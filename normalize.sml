@@ -27,20 +27,16 @@ fun update_bs bs =
     | BSArrow (a, b) => BSArrow (update_bs a, update_bs b)
     | Base _ => bs
 
-fun load_uvar update origin x = 
+fun load_uvar on_refined on_fresh (a as (x, r)) =
   case !x of
-      Refined a => 
-      let 
-        val a = update a
-        val () = x := Refined a
-      in
-        a
-      end
-    | Fresh _ => origin
+      Refined b => on_refined b
+    | Fresh _ => on_fresh x
+
+fun load_uvar' on_refined origin x = load_uvar on_refined (const origin) (x, dummy)
                    
 fun update_i i =
   case i of
-      UVarI (x, r) => load_uvar update_i i x
+      UVarI (x, r) => load_uvar' update_i i x
     | UnOpI (opr, i, r) => UnOpI (opr, update_i i, r)
     | DivI (i1, n2) => DivI (update_i i1, n2)
     | ExpI (i1, n2) => ExpI (update_i i1, n2)
@@ -66,7 +62,7 @@ fun update_p p =
 
 fun update_s s =
   case s of
-      UVarS (x, r) => load_uvar update_s s x
+      UVarS (x, r) => load_uvar' update_s s x
     | Basic _ => s
     | Subset ((b, r1), Bind (name, p), r) => Subset ((update_bs b, r1), Bind (name, update_p p), r)
     | SortBigO ((b, r1), i, r) => SortBigO ((update_bs b, r1), update_i i, r)
@@ -77,7 +73,7 @@ fun update_k k = mapSnd (map update_s) k
                       
 fun update_mt t =
   case t of
-      UVar (x, r) => load_uvar update_mt t x
+      UVar (x, r) => load_uvar' update_mt t x
     | Unit r => Unit r
     | Arrow (t1, d, t2) => Arrow (update_mt t1, update_i d, update_mt t2)
     | TyArray (t, i) => TyArray (update_mt t, update_i i)
@@ -133,7 +129,7 @@ fun update_gctx gctx =
 (* Normalize to weak head normal form (WHNF) (i.e. only reveal head structure). Efficient for equivalence test. *)      
 fun whnf_i i =
   case i of
-      UVarI (x, r) => load_uvar whnf_i i x
+      UVarI (x, r) => load_uvar' whnf_i i x
     | BinOpI (opr, i1, i2) =>
       let
         val i1 = whnf_i i1
@@ -159,7 +155,7 @@ fun whnf_i i =
 (* Normalize to full normal form (i.e reduce under binders) *)             
 fun normalize_i i =
   case i of
-      UVarI (x, r) => load_uvar normalize_i i x
+      UVarI (x, r) => load_uvar' normalize_i i x
     | UnOpI (opr, i, r) => UnOpI (opr, normalize_i i, r)
     | DivI (i1, n2) => DivI (normalize_i i1, n2)
     | ExpI (i1, n2) => ExpI (normalize_i i1, n2)
@@ -203,7 +199,7 @@ fun normalize_p p =
                    
 fun whnf_s s =
   case s of
-      UVarS (x, r) => load_uvar whnf_s s x
+      UVarS (x, r) => load_uvar' whnf_s s x
     | SApp (s, i) =>
       let
         val s = whnf_s s
@@ -217,7 +213,7 @@ fun whnf_s s =
              
 fun normalize_s s =
   case s of
-      UVarS (x, r) => load_uvar normalize_s s x
+      UVarS (x, r) => load_uvar' normalize_s s x
     | Basic _ => s
     | Subset ((b, r1), Bind (name, p), r) => Subset ((update_bs b, r1), Bind (name, normalize_p p), r)
     | SortBigO ((b, r1), i, r) => SortBigO ((update_bs b, r1), normalize_i i, r)
@@ -239,7 +235,7 @@ fun whnf_mt gctx kctx (t : mtype) : mtype =
     val whnf_mt = whnf_mt gctx
   in
     case t of
-        UVar (x, r) => load_uvar (whnf_mt kctx) t x
+        UVar (x, r) => load_uvar' (whnf_mt kctx) t x
       | MtVar x => try_retrieve_MtVar (whnf_mt kctx) gctx kctx x
       | MtAppI (t, i) =>
         let
@@ -273,7 +269,7 @@ fun normalize_mt gctx kctx t =
     val normalize_mt = normalize_mt gctx
   in
     case t of
-        UVar (x, r) => load_uvar (normalize_mt kctx) t x
+        UVar (x, r) => load_uvar' (normalize_mt kctx) t x
       | Unit r => Unit r
       | Arrow (t1, d, t2) => Arrow (normalize_mt kctx t1, update_i d, normalize_mt kctx t2)
       | TyArray (t, i) => TyArray (normalize_mt kctx t, update_i i)

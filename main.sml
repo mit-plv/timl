@@ -116,7 +116,8 @@ fun process_top_bind show_result filename gctx bind =
       val vcs = bigO_solver vcs
       val vcs = concatMap VC.simp_vc_vcs vcs
       val vcs = smt_solver vcs
-      (* val vcs = map (mapFst VC.simp_vc) vcs *)
+      val vcs = map (mapFst VC.simp_vc) vcs
+      val vcs = BigOSolver.infer_numbers vcs
       val () = if null vcs then
                  if show_result then println $ "Typechecking succeeded.\n" else ()
                else

@@ -19,6 +19,7 @@ Group is
       package.sml
       typecheck-util.sml
       normalize.sml
+      collect-var.sml
       unify.sml
       fresh-uvar.sml
       redundant-exhaust.sml
