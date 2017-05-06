@@ -1294,8 +1294,14 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
 	  let 
             val r = U.get_region_e e
             val s = fresh_sort sctx r
-            val t1 = fresh_mt (sctx, kctx) r
-            val (e, t, d) = check_mtype (ctx, e, UniI (s, Bind (("_", r), t1), r)) 
+            val arg_name = "_"
+            val t1 = fresh_mt (add_sorting (arg_name, s) sctx, kctx) r
+            val t_e = UniI (s, Bind ((arg_name, r), t1), r)
+            (* val () = println $ "t1 = " ^ str_mt gctxn (sctx_names sctx, names kctx) t1 *)
+            (* val () = println $ "t1 = " ^ str_raw_mt t1 *)
+            (* val () = println "before" *)
+            val (e, t, d) = check_mtype (ctx, e, t_e) 
+            (* val () = println "after" *)
             val i = check_sort gctx (sctx, i, s) 
           in
 	    (AppI (e, i), subst_i_mt i t1, d)
@@ -1428,9 +1434,9 @@ fun get_mtype gctx (ctx as (sctx : scontext, kctx : kcontext, cctx : ccontext, t
           end
     fun extra_msg () = ["when type-checking"] @ indent [U.str_e gctxn ctxn e_all]
     val (e, t, d) = main ()
-    (* handle *)
-    (* Error (r, msg) => raise Error (r, msg @ extra_msg ()) *)
-    (* | Impossible msg => raise Impossible $ join_lines $ msg :: extra_msg () *)
+    handle
+    Error (r, msg) => raise Error (r, msg @ extra_msg ())
+    | Impossible msg => raise Impossible $ join_lines $ msg :: extra_msg ()
     val t = simp_mt $ update_mt t
     val d = simp_i $ update_i d
                    (* val () = println $ str_ls id $ #4 ctxn *)

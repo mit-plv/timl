@@ -24,8 +24,8 @@ infixr 2 \/
 infixr 1 -->
 infix 1 <->
         
-fun unify_error r (s, s') =             
-  Error (r, ["Can't unify"] @ indent [s] @ ["and"] @ indent [s'])
+fun unify_error cls r (s, s') =             
+  Error (r, [sprintf "Can't unify $ " [cls]] @ indent [s] @ ["and"] @ indent [s'])
 
 (* assumes arguments are already checked for well-formedness *)
 fun unify_bs r (bs, bs') =
@@ -40,7 +40,7 @@ fun unify_bs r (bs, bs') =
 	()
       else
 	raise Error (r, [sprintf "Base sort mismatch: $ and $" [str_b b, str_b b']])
-    | _ => raise unify_error r (str_bs bs, str_bs bs')
+    | _ => raise unify_error "base sort" r (str_bs bs, str_bs bs')
 	         
 (* parallel substitution *)
     
@@ -201,7 +201,7 @@ fun is_sub_sort r gctxn ctxn (s, s') =
     val is_sub_sort = is_sub_sort r gctxn
     val is_eqv_sort = is_eqv_sort r gctxn
     exception UnifySAppFailed
-    fun unify_SApp i i' =
+    fun unify_SApp s s' =
       let
         val (x, args) = is_SApp_UVarS s !! (fn () => UnifySAppFailed)
         val args = map normalize_i args
@@ -210,8 +210,8 @@ fun is_sub_sort r gctxn ctxn (s, s') =
         val inj = find_injection eq_i (map VarI vars') (rev args) !! (fn () => UnifySAppFailed)
         val s' = psubst_is_s vars' (map (V r) inj) s'
         val (_, ctx) = get_uvar_info x (fn () => raise Impossible "unify_s()/SApp: shouldn't be [Refined]")
-        val i' = SAbsMany (ctx, i', r)
-        val () = refine x i'
+        val s' = SAbsMany (ctx, s', r)
+        val () = refine x s'
       in
         ()
       end
@@ -474,9 +474,9 @@ fun unify_mt r gctx ctx (t, t') =
     val sctx = #1 ctx
     val kctx = #2 ctx
     val gctxn = gctx_names gctx
-    val ctxn = (sctx_names $ #1 ctx, names $ #2 ctx)
     val ctxn as (sctxn, kctxn) = (sctx_names sctx, names kctx)
-    fun error ctxn (t, t') = unify_error r (str_mt gctxn ctxn t, str_mt gctxn ctxn t')
+    fun error ctxn (t, t') = unify_error "type" r (str_mt gctxn ctxn t, str_mt gctxn ctxn t')
+    (* fun error ctxn (t, t') = unify_error "type" r (str_mt gctxn ctxn t, str_raw_mt t') *)
     exception UnifyMtAppFailed
     fun unify_MtApp t t' =
       let
@@ -579,7 +579,7 @@ fun unify_t r gctx ctx (t, t') =
         val gctxn = gctx_names gctx
         val ctxn = (sctx_names $ #1 ctx, names $ #2 ctx)
       in
-        raise unify_error r (str_t gctxn ctxn t, str_t gctxn ctxn t')
+        raise unify_error "poly-type" r (str_t gctxn ctxn t, str_t gctxn ctxn t')
       end
         
 fun is_sub_kindext r gctx ctx (ke as (dt, k, t), ke' as (dt', k', t')) =

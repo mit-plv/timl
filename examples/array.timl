@@ -4,6 +4,7 @@ structure Array = struct
 
 open Basic
 open Nat
+open List
 
 fun array ['a] {len : Nat} (n : nat {len}, x : 'a) return array 'a {len} using $len =
     builtin

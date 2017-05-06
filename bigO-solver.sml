@@ -267,6 +267,11 @@ fun isPrefix eq xs ys =
 
 fun foldli f = foldlWithIdx (fn (x, acc, n) => f (n, x, acc))
 
+fun option2list a =
+  case a of
+      SOME a => [a]
+    | NONE => []
+
 fun is_VarI i =
   case i of
       VarI x => SOME x
@@ -348,10 +353,10 @@ fun by_master_theorem (uvar, uvar_ctx, arity) (hs, p) =
     val n_ = to_real main_arg
     fun decide_main_variable i =
       case i of
-          VarI x => x
-        | BinOpI (AddI, VarI x, ConstIN _) => x
-        | BinOpI (AddI, ConstIN _, VarI x) => x
-        | _ => raise Error ""
+          VarI x => SOME x
+        | BinOpI (AddI, VarI x, ConstIN _) => SOME x
+        | BinOpI (AddI, ConstIN _, VarI x) => SOME x
+        | _ => NONE
     val n = decide_main_variable main_arg
     val is = collect_AddI lhs
     fun get_class m k = default (0, 0) $ M.find (m, k)
@@ -430,8 +435,8 @@ fun by_master_theorem (uvar, uvar_ctx, arity) (hs, p) =
           val others = map use_bigO_hyp others
           val classes = map summarize others
           val classes = add_classes classes
-          val () = if subset eq_long_id (get_domain classes) (n :: args_v) then () else raise Error ""
-          val cls_n = get_class classes n
+          val () = if subset eq_long_id (get_domain classes) (option2list n @ args_v) then () else raise Error ""
+          val cls_n = default (0, 0) $ Option.map (get_class classes) n
           val classes = map (get_class classes) args_v
           val i = master_theorem (rV 0) (a, b) cls_n
           val i = foldli (fn (n, cls, i) => class2term cls (rV (n + 1)) %* i) i $ rev classes
@@ -467,8 +472,8 @@ fun by_master_theorem (uvar, uvar_ctx, arity) (hs, p) =
           val others = map use_bigO_hyp others
           val classes = map summarize others
           val classes = add_classes classes
-          val () = if subset eq_long_id (get_domain classes) (n :: args_v) then () else raise Error ""
-          val (c, k) = get_class classes n
+          val () = if subset eq_long_id (get_domain classes) (option2list n @ args_v) then () else raise Error "variables in LHS is not covered by arguments in RHS"
+          val (c, k) = default (0, 0) $ Option.map (get_class classes) n
           val classes = map (get_class classes) args_v
           val i = class2term (c + 1, k) (rV 0)
           val i = foldli (fn (n, cls, i) => class2term cls (rV (n + 1)) %* i) i $ rev classes
@@ -485,8 +490,8 @@ fun by_master_theorem (uvar, uvar_ctx, arity) (hs, p) =
           val is = map use_bigO_hyp is
           val classes = map summarize is
           val classes = add_classes classes
-          val () = if subset eq_long_id (get_domain classes) (n :: args_v) then () else raise Error ""
-          val cls_n = get_class classes n
+          val () = if subset eq_long_id (get_domain classes) (option2list n @ args_v) then () else raise Error ""
+          val cls_n = default (0, 0) $ Option.map (get_class classes) n
           val classes = map (get_class classes) args_v
           val i = class2term cls_n (rV 0)
           val i = foldli (fn (n, cls, i) => class2term cls (rV (n + 1)) %* i) i $ rev classes
@@ -553,11 +558,19 @@ fun solve_exists (vc as (hs, p), vcs) =
           (* fun in_hyps p hs = *)
           (* val () = if in_hyps p hs2 then () else raise Error *)
           val () = println "Infer and check ..."
-          val (inferred, vcs) = partitionOptionFirst (by_master_theorem (uvar, ctx, arity)) vcs  !! (fn () => Error "by_master_theorem() failed on all remaining VCs")
+          fun on_fail_all () =
+            let
+              val () = println "by_master_theorem() failed on all remaining VCs. We accept this VC assuming that all big-O classes are inhabitted. But if there is a VC later constraining [f], it won't be proved."
+            in                                                                                                     Succeeded ([], vcs)
+            end
+          val (inferred, vcs) = partitionOptionFirst (by_master_theorem (uvar, ctx, arity)) vcs !! on_fail_all
           val () = println $ sprintf "Inferred. Now check inferred complexity $ against specified complexity $" [str_i [] [] inferred, str_i [] [] spec]
           val () = 
               if timefun_le hs arity inferred spec then ()
-              else raise curry MasterTheoremCheckFail (get_region_i spec) $ [sprintf "Can't prove that the inferred big-O class $ is bounded by the given big-O class $" [str_i [] (hyps2ctx hs) inferred, str_i [] (hyps2ctx hs) spec]]
+              else Unify.unify_IApp dummy spec inferred
+                   handle
+                   Unify.UnifyIAppFailed => 
+                   raise curry MasterTheoremCheckFail (get_region_i spec) $ [sprintf "Can't prove that the inferred big-O class $ is bounded by the given big-O class $" [str_i [] (hyps2ctx hs) inferred, str_i [] (hyps2ctx hs) spec]]
           val () = println "Complexity check OK!"
         in
           raise Succeeded ([], vcs)

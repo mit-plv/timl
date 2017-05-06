@@ -722,6 +722,11 @@ fun str_raw_bs b =
     | BSArrow (s1, s2) => sprintf "BSArrow ($, $)" [str_raw_bs s1, str_raw_bs s2]
     | UVarBS u => "UVarBS"
 
+fun str_raw_i i =
+  case i of
+      VarI x => sprintf "VarI ($)" [str_raw_long_id x]
+    | _ => "<idx>"
+
 fun str_raw_mt (t : mtype) : string =
   case t of
       Arrow (t1, d, t2) => sprintf "Arrow ($, $, $)" [str_raw_mt t1, "<idx>", str_raw_mt t2]
@@ -733,7 +738,7 @@ fun str_raw_mt (t : mtype) : string =
     | MtVar x => sprintf "MtVar ($)" [str_raw_long_id x]
     | MtApp (t1, t2) => sprintf "MtApp ($, $)" [str_raw_mt t1, str_raw_mt t2]
     | MtAbs (k, bind, _) => sprintf "MtAbs ($, $)" ["<kind>", str_raw_bind str_raw_mt bind]
-    | MtAppI (t, i) => sprintf "MtAppI ($, $)" [str_raw_mt t, "<idx>"]
+    | MtAppI (t, i) => sprintf "MtAppI ($, $)" [str_raw_mt t, str_raw_i i]
     | MtAbsI (s, bind, _) => sprintf "MtAbsI ($, $)" ["<sort>", str_raw_bind str_raw_mt bind]
     | BaseType (bt, _) => sprintf "BaseType ($)" [str_bt bt]
     | UVar (u, _) => "UVar"
@@ -2591,7 +2596,7 @@ local
 	    name
         else
 	    let fun loop n =
-		    let val name' = name ^ "_x" ^ str_int n in
+		    let val name' = name ^ (* "_x" ^  *)str_int n in
 		        if not (mem op= name' ls) then name' else loop (n + 1)
 		    end in
 	        loop 2

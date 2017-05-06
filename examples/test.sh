@@ -1,1 +1,1 @@
-make -C .. && ../main.sh stdlib.pkg test-suite.pkg
+make -C .. && ../main.sh -l stdlib.pkg test-suite.pkg
