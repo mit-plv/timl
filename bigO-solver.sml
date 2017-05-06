@@ -688,6 +688,11 @@ fun solve_vcs (vcs : vc list) : vc list =
     open FreshUVar
     val uvars = dedup (fn (a, b) => #1 a = #1 b) $ concatMap collect_uvar_i_vc vcs
     val () = assert (fn () => List.all is_fresh $ map #1 uvars) "all fresh"
+    fun is_fun (x as (_, (_, _, b), _)) =
+      case update_bs b of
+          BSArrow _ => true
+        | _ => false
+    val uvars = List.filter is_fun uvars
     val () = app uvar_i_ignore_args uvars
     val vcs = map normalize_vc vcs
     val vcs = go_through solve_exists vcs
@@ -699,21 +704,22 @@ fun solve_vcs (vcs : vc list) : vc list =
 
 fun infer_numbers vcs0 =
   let
-    val () = println "infer_numbers()"
     open CollectUVar
     open FreshUVar
     val vcs = map fst vcs0
+    val () = println "infer_numbers() to solver these problems:"
+    val () = app println $ concatMap (fn vc => str_vc false "" vc @ [""]) vcs
     val uvars = dedup (fn (a, b) => #1 a = #1 b) $ concatMap collect_uvar_i_vc vcs
-    val () = app uvar_i_ignore_args uvars
-    val vcs = map normalize_vc vcs
-    val uvars = dedup (fn (a, b) => #1 a = #1 b) $ concatMap collect_uvar_i_vc vcs
-    fun is_number (x as (_, (_, ctx, b), _)) =
-      case (ctx, update_bs b) of
-          ([], Base Nat) => SOME (x, true)
-        | ([], Base Time) => SOME (x, false)
+    (* val () = app uvar_i_ignore_args uvars *)
+    (* val vcs = map normalize_vc vcs *)
+    (* val uvars = dedup (fn (a, b) => #1 a = #1 b) $ concatMap collect_uvar_i_vc vcs *)
+    fun is_number (x as (_, (_, _, b), _)) =
+      case update_bs b of
+          Base Nat => SOME (x, true)
+        | Base Time => SOME (x, false)
         | _ => NONE
     val uvars = List.mapPartial is_number uvars
-    val () = println $ str_int $ length uvars
+    (* val () = println $ str_int $ length uvars *)
     val maximum_number = 10
     fun enumerate_until max_sum len f =
       if len <= 0 then f []
@@ -728,11 +734,12 @@ fun infer_numbers vcs0 =
         end
     fun try vals =
       let
-        fun set_value (((x, _, r), is_nat), value) =
+        fun set_value (((x, (_, ctx, _), r), is_nat), value) =
           let
             fun to_real i = UnOpI (ToReal, i, r)
             val value = ConstIN (value, r)
             val value = if is_nat then value else to_real value
+            val value = IAbsMany (ctx, value, r)
           in
             x := Refined value
           end
@@ -740,15 +747,15 @@ fun infer_numbers vcs0 =
         val vcs = map normalize_vc vcs
         val vcs = List.mapPartial id $ SMTSolver.smt_solver "" false NONE vcs
         val ret = null vcs
-        (* val () = println $ str_bool ret                *)
+        (* val () = println $ str_bool ret *)
       in
         ret
       end
     fun restore uvars = app (fn ((x, info, _), _) => x := Fresh info) uvars
     val succeeded = enumerate_until maximum_number (length uvars) try
     (* val succeeded = enumerate_until 5 3 (fn vals => (println (str_ls str_int vals); vals = [1,3,1])) *)
-    val () = println $ str_bool succeeded
-    val () = if succeeded then println $ "Number inferred: " ^ (join_lines $ map (fn ((x, (name, _, _), r), _) => sprintf "?$ := $" [str_int name, str_i [] [] (UVarI (x, r))]) uvars)
+    (* val () = println $ str_bool succeeded *)
+    val () = if succeeded then println $ "Numbers inferred:\n" ^ (join_lines $ map (fn ((x, (name, _, _), r), _) => sprintf "?$ := $" [str_int name, str_i [] [] (UVarI (x, r))]) uvars)
              else () 
     val ret = if succeeded then []
               else (restore uvars; vcs0)
