@@ -535,12 +535,13 @@ fun solve_exists (vc as (hs, p), vcs) =
     (* val () = println "solve_exists()" *)
     val () = println "solve_exists() to solve this: "
     val () = app println $ str_vc false "" vc
+    val p = normalize_p p
     exception Error of string
     val () =
         let
           val () = println "Trying case [_ <== spec] ..."
           val (f, spec) =
-              case normalize_p p of
+              case p of
                   BinPred (BigO, f, spec) =>
                   (f, spec)
                 | _ => raise Error "wrong pattern"
@@ -558,6 +559,22 @@ fun solve_exists (vc as (hs, p), vcs) =
               if timefun_le hs arity inferred spec then ()
               else raise curry MasterTheoremCheckFail (get_region_i spec) $ [sprintf "Can't prove that the inferred big-O class $ is bounded by the given big-O class $" [str_i [] (hyps2ctx hs) inferred, str_i [] (hyps2ctx hs) spec]]
           val () = println "Complexity check OK!"
+        in
+          raise Succeeded ([], vcs)
+        end
+        handle Error msg => println $ "Case failed because: " ^ msg
+    val () =
+        let
+          (* just to infer a Time *)
+          val () = println "Try case [_ <= uvar arg1 ...]"
+          val (lhs, rhs) =
+              case p of
+                  BinPred (Le, lhs, rhs) => (lhs, rhs)
+                | _ => raise Error "wrong pattern"
+          val () =  Unify.unify_IApp dummy rhs lhs
+                    handle
+                    Unify.UnifyIAppFailed => raise Error "unify_IApp() failed"
+          (* val (uvar, args) = is_IApp_UVarI rhs !! (fn () => Error "not [uvar arg1 ...]") *)
         in
           raise Succeeded ([], vcs)
         end

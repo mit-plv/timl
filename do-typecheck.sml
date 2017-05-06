@@ -896,8 +896,9 @@ fun smart_write_le gctx ctx (i1, i2, r) =
           UVarI (x, _) => is_fresh x
         | _ => false
   in
-    if is_fresh_i i1 orelse is_fresh_i i2 then unify_i r gctx ctx (i1, i2)
-    else write_le (i1, i2, r)
+    (* if is_fresh_i i1 orelse is_fresh_i i2 then unify_i r gctx ctx (i1, i2) *)
+    (* else *)
+      write_le (i1, i2, r)
   end
 
 (* expand wildcard rules to reveal premises *)    

@@ -82,27 +82,28 @@ end
 fun V r n = VarI (NONE, (n, r))
 fun TV r n = MtVar (NONE, (n, r))
                
+exception UnifyIAppFailed
+(* Try to see whether [i']'s variables are covered by the arguments applied to [x]. If so, then refine [x] with [i'], with the latter's variables replaced by the former's arguments. This may not be the most general instantiation, because [i']'s constants will be fixed for [x], although those constants may be arguments in a more instantiation. For example, unifying [x y 5] with [y+5] will refine [x] to be [fun y z => y+5], but a more general instantiation is [fun y z => y+z]. This less-general instantiation may cause later unifications to fail. *)
+fun unify_IApp r i i' =
+  let
+    val (x, args) = is_IApp_UVarI i !! (fn () => UnifyIAppFailed)
+    val args = map normalize_i args
+    val i' = normalize_i i'
+    val vars' = collect_var_i_i i'
+    val inj = find_injection eq_i (map VarI vars') (rev args) !! (fn () => UnifyIAppFailed)
+    (* non-consuming substitution *)
+    val i' = psubst_is_i vars' (map (V r) inj) i'
+    val (_, ctx, _) = get_uvar_info x (fn () => raise Impossible "unify_i()/IApp: shouldn't be [Refined]")
+    fun IAbsMany (ctx, i, r) = foldl (fn ((name, b), i) => IAbs (b, Bind ((name, r), i), r)) i ctx
+    val i' = IAbsMany (ctx, i', r)
+    val () = refine x i'
+  in
+    ()
+  end
+    
 fun unify_i r gctxn ctxn (i, i') =
   let
     val unify_i = unify_i r gctxn
-    exception UnifyIAppFailed
-    (* Try to see whether [i']'s variables are covered by the arguments applied to [x]. If so, then refine [x] with [i'], with the latter's variables replaced by the former's arguments. This may not be the most general instantiation, because [i']'s constants will be fixed for [x], although those constants may be arguments in a more instantiation. For example, unifying [x y 5] with [y+5] will refine [x] to be [fun y z => y+5], but a more general instantiation is [fun y z => y+z]. This less-general instantiation may cause later unifications to fail. *)
-    fun unify_IApp i i' =
-      let
-        val (x, args) = is_IApp_UVarI i !! (fn () => UnifyIAppFailed)
-        val args = map normalize_i args
-        val i' = normalize_i i'
-        val vars' = collect_var_i_i i'
-        val inj = find_injection eq_i (map VarI vars') (rev args) !! (fn () => UnifyIAppFailed)
-        (* non-consuming substitution *)
-        val i' = psubst_is_i vars' (map (V r) inj) i'
-        val (_, ctx, _) = get_uvar_info x (fn () => raise Impossible "unify_i()/IApp: shouldn't be [Refined]")
-        fun IAbsMany (ctx, i, r) = foldl (fn ((name, b), i) => IAbs (b, Bind ((name, r), i), r)) i ctx
-        val i' = IAbsMany (ctx, i', r)
-        val () = refine x i'
-      in
-        ()
-      end
     fun structural_compare (i, i') =
       let
         fun default () = 
@@ -122,10 +123,10 @@ fun unify_i r gctxn ctxn (i, i') =
         if eq_i i i' then ()
         else
           (* first try unifying applications of uvars with the other index; if unsuccessful in both directions, then try ordinary structural unification *)
-          unify_IApp i i'
+          unify_IApp r i i'
           handle
           UnifyIAppFailed =>
-          (unify_IApp i' i
+          (unify_IApp r i' i
            handle
            UnifyIAppFailed =>
            structural_compare (i, i'))
