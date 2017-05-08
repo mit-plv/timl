@@ -37,11 +37,11 @@ fun refine (x : ('a, 'b) uvar_ref) (v : 'b) =
 fun str_uvar n = "?" ^ str_int n
 
 fun str_uinfo_bs n = str_uvar n
-fun str_uinfo_i str_bs (n, ctx, b) = str_uvar n
+(* fun str_uinfo_i str_bs (n, ctx, b) = str_uvar n *)
 fun str_uinfo_s (n, ctx) = str_uvar n
 fun str_uinfo_mt (n, ctx) = str_uvar n
                                          
-(* fun str_uinfo_i str_bs (n, ctx, b) = sprintf "$[$$]" [str_uvar n, join_suffix " => " $ map (str_bs o snd) $ rev ctx, str_bs b] *)
+fun str_uinfo_i str_bs (n, ctx, b) = sprintf "$[$$]" [str_uvar n, join_suffix " => " $ map (str_bs o snd) $ rev ctx, str_bs b]
                                          
 fun str_uvar_bs str_bs (u : 'bsort uvar_bs) =
   case !u of

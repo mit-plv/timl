@@ -594,19 +594,39 @@ fun solve_exists (vc as (hs, p), vcs) =
         handle Error msg => println $ "Case failed because: " ^ msg
     val () =
         let
-          (* just to infer a Time *)
-          val () = println "Try case [_ <= uvar arg1 ...]"
+          val () = println "Try case [_ <= uvar arg1 ...] (just to infer a Time)"
           val (lhs, rhs) =
               case p of
                   BinPred (Le, lhs, rhs) => (lhs, rhs)
                 | _ => raise Error "wrong pattern"
           val () = println $ sprintf "try to unify $ and $" [str_i [] (hyps2ctx hs) lhs, str_i [] (hyps2ctx hs) rhs]
-          val ((uvar, _), args) = is_IApp_UVarI rhs !! (fn () => raise Error "not [uvar arg1 ...]")
-          val (name, _, _) = get_uvar_info uvar !! (fn () => raise Error "uvar not fresh")
+          val ((x, _), args) = is_IApp_UVarI rhs !! (fn () => raise Error "not [uvar arg1 ...]")
+          val (name, _, _) = get_uvar_info x !! (fn () => raise Error "uvar not fresh")
+          val args = map normalize_i args
+          val lhs = normalize_i lhs
+          open CollectVar
+          val vars = dedup eq_long_id $ collect_var_i_i lhs
+          val uncovered = List.filter (fn var => not (List.exists (fn arg => eq_i (VarI var) arg) args)) vars
+          val ctx = hyps2ctx hs
+          fun forget_nonconsuming (var as (m, (x, _))) b =
+            let
+              val () = if isNone m then () else raise Error "can't forget decorated variable"
+              open UVarForget
+              val () = println $ sprintf "forgeting $ in $" [str_i [] ctx (VarI var), str_i [] ctx b]
+              val b = forget_i_i x 1 b
+              val b = shiftx_i_i x 1 b
+            in
+              b
+            end
+          val lhs = foldl (fn (x, acc) => forget_nonconsuming x acc) lhs uncovered
+                    handle ForgetError _ => raise Error "forgetting failed"
+          val lhs = normalize_i lhs
+          val rhs = normalize_i rhs
+          val () = println $ sprintf "Forgetting succeeded. Now try to unify $ and $" [str_i [] ctx lhs, str_i [] ctx rhs]
           val () =  Unify.unify_IApp dummy rhs lhs
                     handle
                     Unify.UnifyIAppFailed => raise Error "unify_IApp() failed"
-          val () = println $ sprintf "?$ is instantiated to $" [str_int name, str_i [] [] (UVarI (uvar, dummy))]
+          val () = println $ sprintf "?$ is instantiated to $" [str_int name, str_i [] [] (UVarI (x, dummy))]
         in
           raise Succeeded ([], vcs)
         end

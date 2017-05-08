@@ -22,13 +22,12 @@ fun forget_i_i x n b =
     exception AppUVarSucceeded of idx
     fun on_App_UVar () =
       let
-        fun is_inl x = case x of inl a => SOME a | inr _ => NONE
-        fun is_inr x = case x of inr a => SOME a | inl _ => NONE
-        fun max_ls init ls = foldl (uncurry max) init ls
         val body = b
         val forget = forget_i_i x n
         val ((uvar, r), args) = is_IApp_UVarI body !! (fn () => raise AppUVarFailed)
-        val (_, ctx, bsort) = get_uvar_info uvar !! (fn () => raise Impossible "should be fresh")
+        val (name, ctx, bsort) = get_uvar_info uvar !! (fn () => raise Impossible "should be fresh")
+        val bsort = update_bs bsort
+        val () = println $ sprintf "  for uvar ?$" [str_int name]
         fun try_forget (loc, arg) =
           let
             val arg = forget arg
@@ -51,8 +50,8 @@ fun forget_i_i x n b =
             let
               val len = length ctx
               val more = n + 1 - len
-              val (args, b) = collect_BSArrow bsort
-              val () = assert (fn () => more <= length args) "more <= length args"
+              val (args, bsort) = collect_BSArrow bsort
+              val () = assert (fn () => more <= length args) $ sprintf "UVarForget.forget_i_i(): more <= #args, more=$, #args=$" [str_int more, str_int $ length args]
               val (args1, args2) = (take more args, drop more args)
               val bsort = combine_BSArrow (args2, bsort)
               val args1 = rev args1

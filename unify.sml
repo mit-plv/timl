@@ -82,16 +82,29 @@ end
 fun V r n = VarI (NONE, (n, r))
 fun TV r n = MtVar (NONE, (n, r))
                
+fun find_injection (eq : 'a -> 'a -> bool) (xs : 'a list) (ys : 'a list) : int list option =
+  let
+    exception Error
+    fun f x =
+      case findi (fn y => eq x y) ys of
+          SOME (n, _) => n
+        | NONE => raise Error
+  in
+    SOME (map f xs)
+    handle Error => NONE
+  end
+
 exception UnifyIAppFailed
 (* Try to see whether [i']'s variables are covered by the arguments applied to [x]. If so, then refine [x] with [i'], with the latter's variables replaced by the former's arguments. This may not be the most general instantiation, because [i']'s constants will be fixed for [x], although those constants may be arguments in a more instantiation. For example, unifying [x y 5] with [y+5] will refine [x] to be [fun y z => y+5], but a more general instantiation is [fun y z => y+z]. This less-general instantiation may cause later unifications to fail. *)
 fun unify_IApp r i i' =
   let
+    val i = normalize_i i
     val ((x, _), args) = is_IApp_UVarI i !! (fn () => raise UnifyIAppFailed)
-    val args = map normalize_i args
     val i' = normalize_i i'
-    val vars' = collect_var_i_i i'
+    open CollectUVar
+    val () = if mem op= x (map #1 $ collect_uvar_i_i i') then raise UnifyIAppFailed else ()
+    val vars' = dedup eq_long_id $ collect_var_i_i i'
     val inj = find_injection eq_i (map VarI vars') (rev args) !! (fn () => raise UnifyIAppFailed)
-    (* non-consuming substitution *)
     val i' = psubst_is_i vars' (map (V r) inj) i'
     val (_, ctx, b) = get_uvar_info x !! (fn () => raise Impossible "unify_IApp(): shouldn't be [Refined]")
     val b = update_bs b

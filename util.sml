@@ -125,18 +125,6 @@ fun findOptionWithIdx f xs =
       loop 0 xs
     end
       
-fun find_injection (eq : 'a -> 'a -> bool) (xs : 'a list) (ys : 'a list) : int list option =
-  let
-    exception Error
-    fun f x =
-      case findi (fn y => eq x y) ys of
-          SOME (n, _) => n
-        | NONE => raise Error
-  in
-    SOME (map f xs)
-    handle Error => NONE
-  end
-
 fun mapPartialWithIdx f xs =
     let
       fun iter (x, (n, acc)) =
@@ -240,6 +228,7 @@ fun error_return v = OK v
 fun foldlM_Error f = foldlM (error_bind, error_return) f
 
 fun max a b = if a < b then b else a
+fun max_ls init ls = foldl (uncurry max) init ls
 
 fun write_file (filename, s) =
     let
@@ -353,6 +342,8 @@ fun push_ref r x = binop_ref push r x
 datatype ('a, 'b) sum = 
          inl of 'a
          | inr of 'b
+fun is_inl x = case x of inl a => SOME a | inr _ => NONE
+fun is_inr x = case x of inr a => SOME a | inl _ => NONE
 
 fun find_by_snd p ls =
     Option.map fst (List.find (fn (_, y) => p y) ls)
